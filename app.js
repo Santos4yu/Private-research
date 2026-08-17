@@ -3238,7 +3238,7 @@ async function loadResearchTool(tool, force = false, token = toolRenderToken) {
       els.slateError.innerHTML = rows.length ? rows.map(renderToolCard).join("") : `<strong>${escapeHtml(tool)}</strong><span>No qualifying live data is available yet. No substitute list is shown.</span>`;
     }).catch((err) => {
       if (token !== toolRenderToken || activeResearchTool !== tool) return;
-      els.slateError.textContent = err.message || "Live MLB data could not be loaded for this tool.";
+      els.slateError.textContent = "Live data is temporarily unavailable.";
     });
 }
 
@@ -3288,7 +3288,7 @@ async function loadSlate(force = false, token = toolRenderToken) {
     if (token !== toolRenderToken || activeResearchTool !== "attack") return;
     els.slateLoading.hidden = true;
     els.slateList.innerHTML = "";
-    els.slateError.textContent = err.message || "Failed to load the slate.";
+    els.slateError.textContent = "Live data is temporarily unavailable.";
     els.slateError.hidden = false;
   }
 }
