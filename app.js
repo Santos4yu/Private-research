@@ -3519,9 +3519,25 @@ function renderBotBoard(data) {
     return boardStatCategory(p.stat_type) === filter;
   });
   if (state.boardFilter === "matchup") {
-    props = props.sort((a, b) =>
-      Number(b.stats.matchup_score) - Number(a.stats.matchup_score)
-      || Number(b.vortex_score || 0) - Number(a.vortex_score || 0));
+    const matchupPropRank = (p) => {
+      const matchupScore = Number(p.stats?.matchup_score) || 0;
+      const modelScore = Number(p.vortex_score) || 0;
+      const isTotalBases = p.market_key === "batter_total_bases"
+        || String(p.stat_type || "").toLocaleLowerCase().includes("total bases");
+      const totalBasesNudge = isTotalBases && matchupScore >= 65 && modelScore >= 6 ? 3 : 0;
+      const l10 = Number(p.stats?.splits?.l10?.rate) || 0;
+      const directionalL10 = String(p.stats?.side || "over").toLocaleLowerCase() === "under"
+        ? 100 - l10 : l10;
+      return [matchupScore, modelScore + totalBasesNudge, modelScore, directionalL10];
+    };
+    props = props.sort((a, b) => {
+      const ar = matchupPropRank(a);
+      const br = matchupPropRank(b);
+      for (let i = 0; i < ar.length; i += 1) {
+        if (ar[i] !== br[i]) return br[i] - ar[i];
+      }
+      return 0;
+    });
     // Older cached feeds can contain several markets for one player. Keep
     // the highest-ranked one in the UI as well as deduplicating at publish
     // time, so the fix takes effect immediately after the frontend deploy.
