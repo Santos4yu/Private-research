@@ -13,11 +13,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="Private" />
 <link rel="manifest" href="/manifest.json" />
-<link rel="icon" type="image/png" href="/krazy-picks-logo.png" />
-<link rel="apple-touch-icon" href="/krazy-picks-logo.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="styles.css?v=75" />
+<link rel="stylesheet" href="styles.css?v=76" />
 <style>
   /* Inline (not the external stylesheet) so it applies before ANY paint --
      this is what actually prevents the flash of the app before the auth
@@ -49,7 +47,7 @@
 <div class="auth-gate" id="auth-gate" hidden>
   <div class="auth-gate-card">
     <span class="brand-mark">◈</span>
-    <h2>KRAZY PICKS</h2>
+    <h2>PRIVATE</h2>
     <p class="auth-gate-msg" id="auth-gate-msg">Members-only research. Sign in with Discord to continue.</p>
     <a class="auth-gate-btn" id="auth-gate-btn" href="/api/auth/login">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19.27 5.33C17.94 4.71 16.5 4.26 15 4a.09.09 0 00-.07.03c-.18.33-.39.76-.53 1.09a16.09 16.09 0 00-4.8 0c-.14-.34-.35-.76-.54-1.09-.01-.02-.04-.03-.07-.03-1.5.26-2.93.71-4.27 1.33-.01 0-.02.01-.03.02-2.72 4.07-3.47 8.03-3.1 11.95 0 .02.01.04.03.05 1.8 1.32 3.53 2.12 5.24 2.65.03.01.06 0 .07-.02.4-.55.76-1.13 1.07-1.74.02-.04 0-.08-.04-.09-.57-.22-1.11-.48-1.64-.79-.04-.02-.04-.08-.01-.11.11-.08.22-.17.33-.25.02-.02.05-.02.07-.01 3.44 1.57 7.15 1.57 10.55 0 .02-.01.05-.01.07.01.11.09.22.17.33.26.04.03.04.09-.01.11-.52.31-1.07.57-1.64.79-.04.01-.05.06-.04.09.32.61.68 1.19 1.07 1.74.03.02.06.03.09.02 1.72-.53 3.45-1.33 5.25-2.65.02-.01.03-.03.03-.05.44-4.53-.73-8.46-3.1-11.95-.01-.01-.02-.02-.04-.02zM8.52 14.91c-1.03 0-1.89-.95-1.89-2.12 0-1.17.84-2.12 1.89-2.12 1.06 0 1.9.96 1.89 2.12 0 1.17-.84 2.12-1.89 2.12zm6.97 0c-1.03 0-1.89-.95-1.89-2.12 0-1.17.84-2.12 1.89-2.12 1.06 0 1.9.96 1.89 2.12 0 1.17-.83 2.12-1.89 2.12z"/></svg>
@@ -114,7 +112,7 @@
 <div class="modal-overlay" id="v2-admin-overlay" hidden>
   <div class="modal-panel" style="max-width:420px;">
     <div class="modal-head">
-      <h3 class="modal-title">Krazy Picks Admin</h3>
+      <h3 class="modal-title">Private Admin</h3>
       <button type="button" class="modal-close" id="v2-admin-close" aria-label="Close">✕</button>
     </div>
 
@@ -269,8 +267,8 @@
 <div id="app-shell" class="app-shell-hidden">
 <button class="side-menu-toggle" id="side-menu-toggle" type="button" aria-label="Open navigation">☰</button>
 <div class="side-scrim" id="side-scrim" hidden></div>
-<aside class="side-panel" id="side-panel" aria-label="Krazy Picks navigation" hidden>
-  <div class="side-panel-head"><strong>krazy<span>picks</span></strong><button type="button" id="side-menu-close" aria-label="Close navigation">×</button></div>
+<aside class="side-panel" id="side-panel" aria-label="Private navigation" hidden>
+  <div class="side-panel-head"><strong>Private</strong><button type="button" id="side-menu-close" aria-label="Close navigation">×</button></div>
   <p class="side-panel-label">WORKSPACE</p>
   <button type="button" class="side-link active" data-tab="research">⌕ <span>research</span></button>
   <button type="button" class="side-link" data-tab="slate">◉ <span>slate</span></button>
@@ -286,10 +284,8 @@
 <header class="hero">
   <div class="hero-inner">
     <div class="hero-brand">
-      <img class="kp-hero-logo" src="/krazy-picks-logo.png" alt="Krazy Picks" />
-      <div class="kp-brand-copy"><p>SPORTS INTELLIGENCE // LIVE</p><h1>KRAZY <span>PICKS</span></h1><span class="brand-sub">THE DAILY EDGE LAB</span></div>
+      <div class="kp-brand-copy"><h1>Private</h1></div>
     </div>
-    <p class="hero-tag">A sharper way to research the board.</p>
 
     <nav class="tabs" id="tabs">
       <button class="tab-btn active" data-tab="research">Research</button>
@@ -315,7 +311,7 @@
       <input
         type="text"
         id="search-input"
-        placeholder="Search a player… (try Valdez, Ohtani)"
+        placeholder="Search a player"
         autocomplete="off"
         spellcheck="false"
       />
@@ -325,7 +321,7 @@
   </div>
 
   <div class="browse-row intro-anim" id="browse-row">
-    <span class="browse-label">Or jump straight to:</span>
+    <span class="browse-label"></span>
     <div class="browse-chips" id="browse-chips"></div>
   </div>
 
@@ -373,8 +369,8 @@
 <!-- MONEYLINE TAB -->
 <section class="tab-panel" id="panel-moneyline" hidden>
   <div class="moneyline-coming-soon">
-    <div class="moneyline-coming-orbit" aria-hidden="true"><i></i><i></i><i></i><img src="josoicon-transparent.png" alt="" /></div>
-    <p class="eyebrow">KRAZY PICKS · EXPECTED-RUNS MODEL</p>
+    <div class="moneyline-coming-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
+    <p class="eyebrow">EXPECTED-RUNS MODEL</p>
     <span class="coming-soon-pill">IN DEVELOPMENT</span>
     <h2>Moneyline Edge Board</h2>
     <p>We’re rebuilding the moneyline system around projected runs, confirmed lineups, starter quality, bullpen strength, market pricing, and uncertainty. It will return when the complete model is ready.</p>
@@ -401,8 +397,8 @@
 
 <!-- TOOLS TAB -->
 <section class="tab-panel" id="panel-slate" hidden>
-  <div class="tools-head"><div><span>KRAZY PICKS LAB</span><h2>Game-day advantages</h2><p>Live matchup, park, weather, and MLB data — never streaks.</p></div></div>
-  <div class="tools-tabs" id="tools-tabs" aria-label="Krazy Picks tools">
+  <div class="tools-head"><div><h2>Game-day advantages</h2><p>Live matchup, park, weather, and MLB data.</p></div></div>
+  <div class="tools-tabs" id="tools-tabs" aria-label="Research tools">
     <button class="tool-tab active" data-tool="attack">Attack Board</button>
     <button class="tool-tab" data-tool="parks">Best Ballparks <span>Live</span></button>
     <button class="tool-tab" data-tool="weather">Weather + Park <span>Live</span></button>
@@ -424,7 +420,7 @@
 <!-- PROPS TAB — mirror of the Discord bot's board -->
 <section class="tab-panel" id="panel-v2" hidden>
   <div class="slate-toolbar">
-    <p class="slate-hint" id="v2-board-date">KRAZY PICKS ACTIVE BOARD — data-driven props: filtered, scored, ranked.</p>
+    <p class="slate-hint" id="v2-board-date">Active board</p>
     <button class="ghost-btn" id="v2-refresh-btn">Refresh</button>
   </div>
 
@@ -446,8 +442,8 @@
 <section class="tab-panel" id="panel-builder" hidden>
   <div class="builder-shell">
     <div class="builder-hero">
-      <div><p class="eyebrow">KRAZY PICKS · QUALIFIED BUILDS</p><h2>Parlay Builder</h2><p>Builds from live, decision-ready props only. Matchup quality, form, projection, stability, coverage, and correlation all have to agree.</p></div>
-      <div class="builder-orbit" aria-hidden="true"><i></i><i></i><i></i><img src="josoicon-transparent.png" alt="" /></div>
+      <div><h2>Parlay Builder</h2><p>Builds from live, decision-ready props only.</p></div>
+      <div class="builder-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
     </div>
     <div class="builder-controls">
       <fieldset><legend>Legs</legend><div class="builder-segment" id="builder-leg-buttons"><button type="button" class="active" data-legs="2">2</button><button type="button" data-legs="3">3</button><button type="button" data-legs="4">4</button><button type="button" data-legs="5">5</button><button type="button" data-legs="6">6</button></div></fieldset>
@@ -523,7 +519,7 @@
 </div>
 
 <footer class="site-footer">
-  <p>KRAZY PICKS &middot; sports research club &middot; not financial advice</p>
+  <p>Private research</p>
 </footer>
 </div>
 <!-- /#app-shell -->
