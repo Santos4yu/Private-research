@@ -5490,12 +5490,12 @@ button:focus-visible,[role="button"]:focus-visible{outline:2px solid #777!import
 .gamelog-tile:hover:not(:disabled){border-color:#555!important;background:#141414!important;transform:none!important}
 .gamelog-tile.active{border-color:#e8e8e6!important;background:#e8e8e6!important;color:#090909!important;box-shadow:none!important}.gamelog-tile.active::after{background:#090909!important;box-shadow:none!important}
 .gamelog-tile.active .gl-tile-label,.gamelog-tile.active .gl-tile-rate,.gamelog-tile.active .gl-tile-avg{color:#090909!important}
-.gl-tile-rate-good,.gl-tile-rate-bad{color:#dededc!important}.gamelog-tile:disabled{opacity:.28!important}
+.gl-tile-rate-good{color:#35d07f!important}.gl-tile-rate-bad{color:#ef5b72!important}.gamelog-tile.active .gl-tile-rate-good{color:#087b3d!important}.gamelog-tile.active .gl-tile-rate-bad{color:#b82442!important}.gamelog-tile:disabled{opacity:.28!important}
 .gamelog-subfilters{border-color:#292929!important;background:#0d0d0d!important}.gl-filter-group::before{color:#666!important}
 .gl-filter-chip{border-color:transparent!important;border-radius:999px!important;background:transparent!important;color:#777!important}.gl-filter-chip:hover:not(:disabled){background:#171717!important;color:#ddd!important}.gl-filter-chip.active{border-color:#3a3a3a!important;background:#1a1a1a!important;color:#eee!important}
 .gamelog-sub{color:#999!important}.gamelog-chart{border-color:#292929!important;background:#0b0b0b!important;box-shadow:none!important}
-.gl-bar{background:#e6e6e4!important;box-shadow:none!important}.gl-bar-under{background:#666!important;box-shadow:none!important}.gl-val{background:rgba(0,0,0,.18)!important;color:#111!important}
-.gl-bar-under .gl-val{color:#eee!important}.gl-line-marker::before{border-color:#777!important}.gl-line-marker .gl-line-tag{border-color:#555!important;background:#111!important;color:#ddd!important;box-shadow:0 0 0 3px #0b0b0b!important}
+.gl-bar{background:linear-gradient(180deg,#45d98b,#1e9f60)!important;box-shadow:none!important}.gl-bar-under{background:linear-gradient(180deg,#f25d78,#a92746)!important;box-shadow:none!important}.gl-val{background:rgba(0,0,0,.18)!important;color:#07120c!important}
+.gl-bar-under .gl-val{color:#fff!important}.gl-line-marker::before{border-color:#777!important}.gl-line-marker .gl-line-tag{border-color:#555!important;background:#111!important;color:#ddd!important;box-shadow:0 0 0 3px #0b0b0b!important}
 .gl-opp{color:#aaa!important}.gl-date{color:#666!important}
 
 /* Seamless iPhone top area — mobile only. */
