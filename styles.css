@@ -5454,3 +5454,28 @@ button:focus-visible,[role="button"]:focus-visible{outline:2px solid #777!import
   #panel-slate .slate-read,#panel-slate .slate-read.slate-easy{grid-column:1!important;width:100%!important;margin:0!important;padding:11px 14px!important;text-align:center!important}
   #panel-slate .slate-read small{margin-bottom:3px!important}
 }
+
+/* Monochrome Team Insights — matches the Private workspace. */
+.team-modal{border:1px solid #2b2b2b!important;background:#0b0b0b!important;box-shadow:0 35px 100px rgba(0,0,0,.72)!important}
+.team-modal .modal-title,.team-modal .tt-player-copy strong{color:#ededeb!important}.team-modal .modal-title::after{color:#686868!important}
+.team-tabs,.arsenal-mode-tabs{border-color:#292929!important;background:#0e0e0e!important}
+.team-tab,.arsenal-mode-tabs button{color:#777!important;background:transparent!important;box-shadow:none!important}
+.team-tab.active,.arsenal-mode-tabs button.active{color:#090909!important;background:#f1f1ef!important;box-shadow:none!important}
+.team-filter{border-color:#303030!important;background:#111!important;color:#888!important;box-shadow:none!important}
+.team-filter.active{border-color:#e8e8e6!important;background:#e8e8e6!important;color:#090909!important;box-shadow:none!important}
+.team-filter.tt-tonight::after{background:#999!important}
+.team-table-wrap{border:1px solid #292929!important;background:#090909!important;box-shadow:none!important}
+.team-table thead th,.team-table thead .tt-player{border-color:#292929!important;background:#121212!important;color:#707070!important}
+.team-table tbody tr,.team-table tbody tr:hover{background:#0b0b0b!important}
+.team-table td{border-color:#242424!important;color:#d3d3d1!important}.team-table .tt-player{background:#0d0d0d!important}
+.team-table td.tt-good,.team-table td.tt-bad{color:#e2e2e0!important}
+.tt-player-card .tt-order{border-color:#353535!important;background:#141414!important;color:#aaa!important}
+.tt-player-copy small{color:#6f6f6f!important}
+.pitch-selection-summary,.arm-slot-profile{border-color:#292929!important;background:#101010!important;color:#aaa!important}
+.team-loader-radar{border-color:#4a4a4a!important;background:none!important}.team-loader-radar::after{background:conic-gradient(#aaa,transparent 45deg)!important}.team-loader-radar b{background:#ddd!important;box-shadow:none!important}
+.team-empty{border-color:#303030!important;background:#0d0d0d!important;color:#888!important}
+@media(max-width:700px){
+  .dock-panel{bottom:calc(12px + env(safe-area-inset-bottom,0px))!important;gap:3px!important;padding:5px!important}
+  .dock-item{width:42px!important;height:42px!important}
+  .team-modal{padding:18px 12px calc(24px + env(safe-area-inset-bottom,0px))!important}
+}

@@ -1,7 +1,7 @@
 'use client';
 
-import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from 'motion/react';
-import { Children, cloneElement, useEffect, useMemo, useRef, useState } from 'react';
+import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
+import { Children, cloneElement, useMemo, useRef } from 'react';
 
 import './Dock.css';
 
@@ -42,42 +42,11 @@ function DockItem({ children, className = '', onClick, mouseX, spring, distance,
       className={`dock-item ${className}`}
       tabIndex={0}
       role="button"
-      aria-haspopup="true"
       aria-label={label}
       onKeyDown={handleKeyDown}
     >
       {Children.map(children, child => cloneElement(child, { isHovered }))}
     </motion.div>
-  );
-}
-
-function DockLabel({ children, className = '', ...rest }) {
-  const { isHovered } = rest;
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    const unsubscribe = isHovered.on('change', latest => {
-      setIsVisible(latest === 1);
-    });
-    return () => unsubscribe();
-  }, [isHovered]);
-
-  return (
-    <AnimatePresence>
-      {isVisible && (
-        <motion.div
-          initial={{ opacity: 0, y: 0 }}
-          animate={{ opacity: 1, y: -10 }}
-          exit={{ opacity: 0, y: 0 }}
-          transition={{ duration: 0.2 }}
-          className={`dock-label ${className}`}
-          role="tooltip"
-          style={{ x: '-50%' }}
-        >
-          {children}
-        </motion.div>
-      )}
-    </AnimatePresence>
   );
 }
 
@@ -97,28 +66,6 @@ export default function Dock({
 }) {
   const mouseX = useMotionValue(Infinity);
   const isHovered = useMotionValue(0);
-  const [isMobileVisible, setIsMobileVisible] = useState(true);
-
-  useEffect(() => {
-    let ticking = false;
-    const syncVisibility = () => {
-      const isMobile = window.matchMedia('(max-width: 700px)').matches;
-      setIsMobileVisible(!isMobile || window.scrollY <= 2);
-      ticking = false;
-    };
-    const requestSync = () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(syncVisibility);
-    };
-    window.addEventListener('scroll', requestSync, { passive: true });
-    window.addEventListener('resize', requestSync);
-    syncVisibility();
-    return () => {
-      window.removeEventListener('scroll', requestSync);
-      window.removeEventListener('resize', requestSync);
-    };
-  }, []);
 
   const maxHeight = useMemo(
     () => Math.max(dockHeight, magnification + magnification / 2 + 4),
@@ -138,7 +85,7 @@ export default function Dock({
           isHovered.set(0);
           mouseX.set(Infinity);
         }}
-        className={`dock-panel ${isMobileVisible ? '' : 'dock-mobile-hidden'} ${className}`}
+        className={`dock-panel ${className}`}
         style={{ height: panelHeight }}
         role="toolbar"
         aria-label="Application dock"
@@ -156,7 +103,6 @@ export default function Dock({
             label={item.label}
           >
             <DockIcon>{item.icon}</DockIcon>
-            <DockLabel>{item.label}</DockLabel>
           </DockItem>
         ))}
       </motion.div>
