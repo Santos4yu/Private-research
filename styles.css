@@ -5484,8 +5484,10 @@ button:focus-visible,[role="button"]:focus-visible{outline:2px solid #777!import
 @media(max-width:700px){
   html,body,#app-shell,.hero,.tab-panel{background:#000!important;background-image:none!important}
   body::before,body::after{display:none!important}
-  .hero{min-height:calc(76px + env(safe-area-inset-top,0px))!important;padding:calc(18px + env(safe-area-inset-top,0px)) 18px 18px!important;border-bottom-color:#1b1b1b!important}
+  .hero{min-height:calc(108px + env(safe-area-inset-top,0px))!important;padding:calc(50px + env(safe-area-inset-top,0px)) 18px 18px!important;border-bottom-color:#1b1b1b!important}
   .hero-inner{width:100%!important}
-  .settings-btn{top:calc(10px + env(safe-area-inset-top,0px))!important;right:12px!important;background:#000!important;backdrop-filter:none!important}
+  .settings-btn{top:calc(18px + env(safe-area-inset-top,0px))!important;right:12px!important;background:#000!important;backdrop-filter:none!important}
   .settings-panel{top:calc(58px + env(safe-area-inset-top,0px))!important;background:#090909!important}
+  .site-footer{display:none!important}
+  .dock-panel{bottom:max(8px,env(safe-area-inset-bottom,0px))!important}
 }
