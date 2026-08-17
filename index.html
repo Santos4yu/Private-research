@@ -3,15 +3,15 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>Krazy Picks | Sports Research Lab</title>
-<meta name="description" content="Sharper MLB prop, moneyline, and matchup research from Krazy Picks." />
+<title>Private</title>
+<meta name="description" content="Private sports research workspace." />
 <!-- Matches the default (dark) theme's --bg -- kept in sync with theme
      switches by app.js, so mobile Safari's status-bar/toolbar area blends
      with the app instead of showing its own default grey. -->
-<meta name="theme-color" content="#05070d" id="theme-color-meta" />
+<meta name="theme-color" content="#000000" id="theme-color-meta" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-title" content="Krazy Picks" />
+<meta name="apple-mobile-web-app-title" content="Private" />
 <link rel="manifest" href="/manifest.json" />
 <link rel="icon" type="image/png" href="/krazy-picks-logo.png" />
 <link rel="apple-touch-icon" href="/krazy-picks-logo.png" />
@@ -37,21 +37,12 @@
 
 <!-- Shown immediately, before the auth check resolves; hidden once the
      gate or the app shell takes over. -->
-<div class="boot-loading" id="boot-loading">
-  <div class="boot-noise" aria-hidden="true"></div>
-  <div class="boot-content">
-    <p class="boot-kicker">KRAZY PICKS HQ</p>
-    <div class="boot-orbit" aria-hidden="true"><span class="boot-core">KP</span></div>
-    <h1>KRAZY PICKS</h1>
-    <p class="boot-status">Preparing your research workspace</p>
-    <div class="boot-board" aria-label="Loading live Krazy Picks data">
-      <span><i></i> LIVE SLATE</span><b>MLB</b><span>MODEL ONLINE</span>
-    </div>
-    <div class="boot-progress" aria-hidden="true"><span></span></div>
-    <p class="boot-detail">LIVE DATA · MODEL CHECK · READY</p>
+<div class="boot-loading private-loader" id="boot-loading" role="status" aria-live="polite" aria-label="Loading Private">
+  <div class="private-loader-content">
+    <h1>Private</h1>
+    <div class="private-loader-line" aria-hidden="true"><span></span></div>
+    <p>Loading</p>
   </div>
-  <button type="button" class="boot-skip" id="boot-skip">skip intro</button>
-  <span class="brand-mark">◈</span>
 </div>
 
 <!-- Login gate: full-screen, non-dismissable until authenticated + role-checked -->
@@ -276,17 +267,6 @@
      reveals it (removes .app-shell-hidden) only once /api/auth/me confirms
      an authenticated session. -->
 <div id="app-shell" class="app-shell-hidden">
-<section class="main-menu" id="main-menu" aria-labelledby="main-menu-title">
-  <div class="ferrofluid-field" id="ferrofluid-root" aria-hidden="true"></div>
-  <header class="main-menu-nav">
-    <strong><img src="/krazy-picks-logo.png" alt="" /> Krazy Picks</strong>
-    <nav aria-label="Main navigation"><button type="button">Features</button><button type="button">About</button></nav>
-  </header>
-  <main class="main-menu-hero">
-    <div class="main-menu-brandlock"><img src="/josoicon-transparent.png" alt="Krazy Picks" /><div><p>THE SPORTS RESEARCH CLUB</p><h2 id="main-menu-title"><span id="shiny-title-root">Krazy Picks</span></h2><span>Numbers in. Noise out.</span></div></div>
-    <div class="main-menu-actions"><button class="main-menu-primary" type="button" data-launch-tab="research">Get started</button><button class="main-menu-secondary" type="button" data-launch-tab="slate">Slate</button></div>
-  </main>
-</section>
 <button class="side-menu-toggle" id="side-menu-toggle" type="button" aria-label="Open navigation">☰</button>
 <div class="side-scrim" id="side-scrim" hidden></div>
 <aside class="side-panel" id="side-panel" aria-label="Krazy Picks navigation" hidden>

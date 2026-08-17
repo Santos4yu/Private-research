@@ -145,6 +145,7 @@ applyAccent(localStorage.getItem(ACCENT_KEY) || "amber");
 init();
 
 async function init() {
+  const loaderStartedAt = performance.now();
   cacheEls();
   try {
     await checkAuth();
@@ -201,6 +202,7 @@ async function init() {
   wirePlayerDetailModal();
   updateSavedCount();
   updateParlayBar();
+  await finishPrivateLoader(loaderStartedAt);
   const warmSlate = () => requestSlateData(false).catch(() => {});
   if ("requestIdleCallback" in window) requestIdleCallback(warmSlate, { timeout: 2200 });
   else setTimeout(warmSlate, 900);
@@ -866,7 +868,6 @@ function avatarHtml(playerOrProp, size = "") {
 async function checkAuth() {
   // Krazy Picks is public. Keep the old OAuth implementation below dormant
   // so no login request, Discord membership check, or account UI is used.
-  els.appShell.classList.remove("app-shell-hidden");
   return;
 
   // The OAuth callback redirects back here with ?auth=success|denied|error
@@ -977,6 +978,20 @@ function updateSavedCount() {
     bc.hidden = state.savedProps.size === 0;
   }
   window.dispatchEvent(new CustomEvent("vortex:dock-sync", { detail: { tab: state.currentTab, saved: state.savedProps.size } }));
+}
+
+async function finishPrivateLoader(startedAt) {
+  const minimumDisplayMs = 1500;
+  const elapsed = performance.now() - startedAt;
+  if (elapsed < minimumDisplayMs) {
+    await new Promise((resolve) => setTimeout(resolve, minimumDisplayMs - elapsed));
+  }
+
+  els.appShell.classList.remove("app-shell-hidden");
+  const loader = document.getElementById("boot-loading");
+  if (!loader) return;
+  loader.classList.add("private-loader-leaving");
+  window.setTimeout(() => loader.remove(), 700);
 }
 
 function propLiveActual(row) {
