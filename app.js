@@ -1522,6 +1522,11 @@ function setLineValue(value, { immediate = false } = {}) {
 let lineSelectionToken = 0;
 
 function withAuthoritativeBoardMatchup(prop, player, stat, line, side) {
+  // Live research is computed from the newest matchup model and must win over
+  // the mirrored board snapshot, which may have been generated hours earlier
+  // by a different process/model revision. Keep board context only as a
+  // fallback when the live response genuinely has no matchup grade.
+  if (Number.isFinite(Number(prop?.matchupScore))) return prop;
   const boardContext = state.boardResearchContext;
   const sameBoardProp = boardContext
     && boardContext.player.toLowerCase() === String(player).toLowerCase()
