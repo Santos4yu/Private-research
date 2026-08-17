@@ -1054,8 +1054,8 @@ def get_no_game_reason(player_id: int, player_name: str = "This player") -> str:
 # ── 5. Algorithmic grading (pure arithmetic, zero API) ───────────────────────
 
 _MATCHUP_WEIGHTS = {
-    "handedness": 23, "pitcher_quality": 22, "arsenal_fit": 15,
-    "bvp": 20, "recent_form": 10, "park": 5, "weather": 5,
+    "handedness": 23, "pitcher_quality": 22, "arsenal_fit": 20,
+    "bvp": 10, "recent_form": 15, "park": 5, "weather": 5,
 }
 
 
@@ -1122,7 +1122,7 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
     add("pitcher_quality", sided(pitcher_raw), pitcher_detail if pq_ok else "Starter metrics unavailable", pq_ok)
 
     pitch_rows = {r.get("pitch_type"): r for r in (bat_vs_pitch or [])}
-    weighted = coverage = 0.0
+    weighted = coverage = confidence_weighted = 0.0
     qualified_pitches = []
     for pitch in (arsenal or [])[:4]:
         row = pitch_rows.get(pitch.get("pitch_type"))
@@ -1135,19 +1135,34 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
         if metric > 0 and usage >= 10 and pa >= 10:
             if metric > .550: metric *= .445
             weighted += metric * usage; coverage += usage
-            qualified_pitches.append((usage, pitch, row, metric))
+            # Pitch-type results stabilize much more slowly than the basic
+            # ten-PA inclusion floor. Preserve the complete pitch mix, but
+            # shrink thin pitch samples toward neutral instead of treating a
+            # 10-PA result like a 50-PA result.
+            sample_confidence = min(1.0, pa / 50.0) ** .5
+            confidence_weighted += usage * sample_confidence
+            qualified_pitches.append((usage, pitch, row, metric, sample_confidence))
     mix_ok = coverage >= 10; mix = weighted / coverage if mix_ok else .320
     arsenal_detail = f"{mix:.3f} weighted wOBA across {coverage:.0f}% of the starter's mix"
     if qualified_pitches:
         labels = []
-        for usage, pitch, row, metric in qualified_pitches:
+        for usage, pitch, row, metric, _sample_confidence in qualified_pitches:
             name = pitch.get("pitch_name") or row.get("pitch_name") or pitch.get("pitch_type") or "Pitch"
             labels.append(f"{name} {usage:.0f}%/{metric:.3f}")
         arsenal_detail = (f"Full mix · {coverage:.0f}% coverage · {mix:.3f} weighted wOBA · "
                           + ", ".join(labels)).replace(" 0.", " .")
-    add("arsenal_fit", sided(50 + (mix - .320) * 166.7),
+    # .320 is roughly neutral contact quality. A full-mix result around .380
+    # is a genuinely strong fit (and .260 a genuinely poor one), so map that
+    # observed range across most of the 0-100 factor scale. The previous slope
+    # graded a .388 mix at only 61/100 and reduced an obvious arsenal advantage
+    # to roughly +2 matchup points.
+    arsenal_sample_confidence = (
+        confidence_weighted / coverage if mix_ok and coverage else 0.0
+    )
+    arsenal_coverage_confidence = min(1.0, coverage / 70.0) ** .6 if mix_ok else 0.0
+    add("arsenal_fit", sided(50 + (mix - .320) * 666.7),
         arsenal_detail if mix_ok else "Pitch-mix sample unavailable",
-        mix_ok, min(1.0, coverage / 60) ** .6 if mix_ok else 0)
+        mix_ok, arsenal_sample_confidence * arsenal_coverage_confidence)
 
     bvp_ab = int(bvp.get("ab", 0) or 0)
     try:
