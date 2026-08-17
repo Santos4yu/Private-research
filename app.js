@@ -3502,10 +3502,13 @@ function boardMatchupLabel(score) {
 
 function renderBotBoard(data) {
   const recommendedProps = data.props || [];
+  const matchupResearch = data.matchup_research || [];
   const researchPitchers = data.pitcher_research || [];
-  const sourceProps = ["strikeouts", "matchup"].includes(state.boardFilter)
-    ? [...recommendedProps, ...researchPitchers]
-    : recommendedProps;
+  const sourceProps = state.boardFilter === "matchup"
+    ? [...(matchupResearch.length ? matchupResearch : recommendedProps), ...researchPitchers]
+    : state.boardFilter === "strikeouts"
+      ? [...recommendedProps, ...researchPitchers]
+      : recommendedProps;
   // player_id is optional presentation metadata used for headshots. A scored
   // board row remains valid without it and must still mirror Discord.
   const allProps = sourceProps.map((p, sourceIndex) => ({ ...p, _boardIndex: sourceIndex }));
@@ -3523,7 +3526,7 @@ function renderBotBoard(data) {
   props = props.map((p, index) => ({ ...p, _boardIndex: index }));
   state.v2RenderedProps = props;
   els.v2BoardDate.textContent = props.length
-    ? `${props.length} prop${props.length === 1 ? "" : "s"} · updated ${data.generated_at ? new Date(data.generated_at).toLocaleString() : "recently"}`
+    ? `${props.length} ${state.boardFilter === "matchup" ? `matchup${props.length === 1 ? "" : "s"}` : `prop${props.length === 1 ? "" : "s"}`} · updated ${data.generated_at ? new Date(data.generated_at).toLocaleString() : "recently"}`
     : "Active board";
   els.v2BoardEmpty.textContent =
     "";
