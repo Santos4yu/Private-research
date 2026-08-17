@@ -1123,27 +1123,28 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
 
     pitch_rows = {r.get("pitch_type"): r for r in (bat_vs_pitch or [])}
     weighted = coverage = 0.0
-    for pitch in (arsenal or [])[:2]:
+    qualified_pitches = []
+    for pitch in (arsenal or [])[:4]:
         row = pitch_rows.get(pitch.get("pitch_type"))
         if not row: continue
-        try: metric, usage = float(str(row.get("woba") or row.get("ops") or 0)), float(pitch.get("pct", 0) or 0)
+        try:
+            metric = float(str(row.get("woba") or row.get("ops") or 0))
+            usage = float(pitch.get("pct", 0) or 0)
+            pa = int(float(row.get("pa", 0) or 0))
         except (TypeError, ValueError): continue
-        if metric > 0 and usage > 0:
+        if metric > 0 and usage >= 10 and pa >= 10:
             if metric > .550: metric *= .445
             weighted += metric * usage; coverage += usage
+            qualified_pitches.append((usage, pitch, row, metric))
     mix_ok = coverage >= 10; mix = weighted / coverage if mix_ok else .320
-    driver = None
-    for pitch in (arsenal or [])[:2]:
-        row = pitch_rows.get(pitch.get("pitch_type"))
-        if row and (driver is None or float(pitch.get("pct", 0) or 0) > driver[0]): driver = (float(pitch.get("pct", 0) or 0), pitch, row)
     arsenal_detail = f"{mix:.3f} weighted wOBA across {coverage:.0f}% of the starter's mix"
-    if driver:
-        usage, pitch, row = driver
-        pitch_name = pitch.get("pitch_name") or row.get("pitch_name") or pitch.get("pitch_type") or "Primary pitch"
-        arsenal_detail = f"{pitch_name} · {usage:.0f}% usage"
-        if row.get("avg") not in (None, "", ".---"): arsenal_detail += f" · {row.get('avg')} AVG"
-        if row.get("slg") not in (None, "", ".---"): arsenal_detail += f" / {row.get('slg')} SLG"
-        arsenal_detail += f" · overall mix {mix:.3f} wOBA".replace(" 0.", " .")
+    if qualified_pitches:
+        labels = []
+        for usage, pitch, row, metric in qualified_pitches:
+            name = pitch.get("pitch_name") or row.get("pitch_name") or pitch.get("pitch_type") or "Pitch"
+            labels.append(f"{name} {usage:.0f}%/{metric:.3f}")
+        arsenal_detail = (f"Full mix · {coverage:.0f}% coverage · {mix:.3f} weighted wOBA · "
+                          + ", ".join(labels)).replace(" 0.", " .")
     add("arsenal_fit", sided(50 + (mix - .320) * 166.7),
         arsenal_detail if mix_ok else "Pitch-mix sample unavailable",
         mix_ok, min(1.0, coverage / 60) ** .6 if mix_ok else 0)
