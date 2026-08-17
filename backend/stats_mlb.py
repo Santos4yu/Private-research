@@ -751,11 +751,12 @@ def get_vs_team_game_log_history(player_id: int, opp_team_id: int,
                                  include_hand_venue: bool = False) -> list[dict]:
     """Return dated H2H game results across recent seasons, newest first."""
     all_games = []
+    group = "pitching" if str(prop_type).startswith("pitcher_") else "hitting"
     current_season = int(SEASON)
     for season in range(current_season, current_season - max(1, seasons), -1):
         data = _get(f"/people/{player_id}/stats", {
-            "stats": "gameLog", "group": "hitting", "season": season, "sportId": 1,
-        }, cache_key=f"gamelog_hit_{player_id}_{season}_h2h")
+            "stats": "gameLog", "group": group, "season": season, "sportId": 1,
+        }, cache_key=f"gamelog_{group}_{player_id}_{season}_h2h")
         raw = ((data or {}).get("stats") or [{}])[0].get("splits", [])
         all_games.extend(g for g in raw if g.get("opponent", {}).get("id") == opp_team_id)
 

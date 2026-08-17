@@ -1745,7 +1745,8 @@ async function loadGameLogStat(stat) {
   els.gamelogTitle.textContent = `${gameLogState.player} — ${stat}`;
   try {
     const url = `/api/game-log-filters?player=${encodeURIComponent(gameLogState.player)}&stat=${encodeURIComponent(stat)}&line=${gameLogState.line}` +
-      (gameLogState.teamId ? `&teamId=${gameLogState.teamId}` : "");
+      (gameLogState.teamId ? `&teamId=${gameLogState.teamId}` : "") +
+      (gameLogState.opponent ? `&opponent=${encodeURIComponent(gameLogState.opponent)}` : "");
     const res = await fetch(url);
     const data = await res.json();
     if (token !== gameLogState.fetchToken) return;
@@ -1805,7 +1806,8 @@ async function fetchGameLogHandedness(p) {
   els.glHandFilter.querySelectorAll(".gl-filter-chip").forEach((b) => { b.disabled = true; });
   try {
     const url = `/api/game-log-filters?player=${encodeURIComponent(p.player)}&stat=${encodeURIComponent(p.betType)}&line=${p.line}` +
-      (gameLogState.teamId ? `&teamId=${gameLogState.teamId}` : "");
+      (gameLogState.teamId ? `&teamId=${gameLogState.teamId}` : "") +
+      (gameLogState.opponent ? `&opponent=${encodeURIComponent(gameLogState.opponent)}` : "");
     const res = await fetch(url);
     const data = await res.json();
     if (res.ok && !data.error && gameLogState.stat === requestedStat) {

@@ -1693,7 +1693,8 @@ def _build_game_log_chart(game_log: list, line: float, h2h_log: list = None) -> 
     return windows
 
 
-def get_game_log_filters(player_name: str, prop_type: str, line: float, opp_team_id=None) -> dict:
+def get_game_log_filters(player_name: str, prop_type: str, line: float, opp_team_id=None,
+                         opp_team_name: str | None = None) -> dict:
     """
     On-demand endpoint (api/game-log-filters.py) for the game-log modal's
     handedness/venue filter chips. Deliberately separate from
@@ -1715,11 +1716,20 @@ def get_game_log_filters(player_name: str, prop_type: str, line: float, opp_team
     if splits.get("error"):
         raise NoGameFound(splits["error"])
 
+    if not opp_team_id and opp_team_name:
+        wanted = "".join(ch for ch in opp_team_name.lower() if ch.isalnum())
+        for team_id, team_name in _MLB_TEAM_ID_TO_NAME.items():
+            full = "".join(ch for ch in team_name.lower() if ch.isalnum())
+            abbr = "".join(ch for ch in stats_mlb._MLB_TEAM_ABBR.get(team_name, "").lower() if ch.isalnum())
+            if wanted in {full, abbr} or (wanted and (wanted in full or full in wanted)):
+                opp_team_id = team_id
+                break
+
     h2h_log = None
     if opp_team_id:
         h2h_log = stats_mlb.get_vs_team_game_log_history(
             player_id, int(opp_team_id), line, prop_type,
-            seasons=4, include_hand_venue=True,
+            seasons=8, include_hand_venue=True,
         )
 
     return _build_game_log_chart(splits.get("game_log") or [], line, h2h_log=h2h_log)

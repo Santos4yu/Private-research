@@ -5480,6 +5480,24 @@ button:focus-visible,[role="button"]:focus-visible{outline:2px solid #777!import
   .team-modal{padding:18px 12px calc(24px + env(safe-area-inset-bottom,0px))!important}
 }
 
+/* Monochrome performance history. */
+.gamelog-modal{border:1px solid #2b2b2b!important;background:#0a0a0a!important;box-shadow:0 35px 100px rgba(0,0,0,.75)!important}
+.gamelog-modal .modal-head{border-color:#292929!important}.gamelog-modal .modal-title,.gamelog-modal .modal-title::before{color:#ededeb!important}
+.gamelog-modal .modal-close{border-color:#343434!important;background:#141414!important;color:#999!important}
+.gamelog-control{border-color:#292929!important;background:#0d0d0d!important}.gamelog-control>span{color:#777!important}
+.gamelog-control select{border-color:#343434!important;border-radius:12px!important;background:#111!important;color:#eee!important;box-shadow:none!important}.gamelog-control select:focus{border-color:#777!important;box-shadow:0 0 0 3px rgba(255,255,255,.05)!important}
+.gamelog-tile{border-color:#292929!important;border-radius:14px!important;background:#0d0d0d!important;color:#888!important;box-shadow:none!important;transform:none!important}
+.gamelog-tile:hover:not(:disabled){border-color:#555!important;background:#141414!important;transform:none!important}
+.gamelog-tile.active{border-color:#e8e8e6!important;background:#e8e8e6!important;color:#090909!important;box-shadow:none!important}.gamelog-tile.active::after{background:#090909!important;box-shadow:none!important}
+.gamelog-tile.active .gl-tile-label,.gamelog-tile.active .gl-tile-rate,.gamelog-tile.active .gl-tile-avg{color:#090909!important}
+.gl-tile-rate-good,.gl-tile-rate-bad{color:#dededc!important}.gamelog-tile:disabled{opacity:.28!important}
+.gamelog-subfilters{border-color:#292929!important;background:#0d0d0d!important}.gl-filter-group::before{color:#666!important}
+.gl-filter-chip{border-color:transparent!important;border-radius:999px!important;background:transparent!important;color:#777!important}.gl-filter-chip:hover:not(:disabled){background:#171717!important;color:#ddd!important}.gl-filter-chip.active{border-color:#3a3a3a!important;background:#1a1a1a!important;color:#eee!important}
+.gamelog-sub{color:#999!important}.gamelog-chart{border-color:#292929!important;background:#0b0b0b!important;box-shadow:none!important}
+.gl-bar{background:#e6e6e4!important;box-shadow:none!important}.gl-bar-under{background:#666!important;box-shadow:none!important}.gl-val{background:rgba(0,0,0,.18)!important;color:#111!important}
+.gl-bar-under .gl-val{color:#eee!important}.gl-line-marker::before{border-color:#777!important}.gl-line-marker .gl-line-tag{border-color:#555!important;background:#111!important;color:#ddd!important;box-shadow:0 0 0 3px #0b0b0b!important}
+.gl-opp{color:#aaa!important}.gl-date{color:#666!important}
+
 /* Seamless iPhone top area — mobile only. */
 @media(max-width:700px){
   html,body,#app-shell,.hero,.tab-panel{background:#000!important;background-image:none!important}
