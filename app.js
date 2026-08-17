@@ -3498,7 +3498,7 @@ function boardMatchupLabel(score) {
 function renderBotBoard(data) {
   const recommendedProps = data.props || [];
   const researchPitchers = data.pitcher_research || [];
-  const sourceProps = state.boardFilter === "strikeouts"
+  const sourceProps = ["strikeouts", "matchup"].includes(state.boardFilter)
     ? [...recommendedProps, ...researchPitchers]
     : recommendedProps;
   // player_id is optional presentation metadata used for headshots. A scored
