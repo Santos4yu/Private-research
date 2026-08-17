@@ -15,7 +15,7 @@
 <link rel="manifest" href="/manifest.json" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="styles.css?v=79" />
+<link rel="stylesheet" href="styles.css?v=80" />
 <style>
   /* Inline (not the external stylesheet) so it applies before ANY paint --
      this is what actually prevents the flash of the app before the auth
@@ -369,13 +369,9 @@
 <!-- MONEYLINE TAB -->
 <section class="tab-panel" id="panel-moneyline" hidden>
   <div class="moneyline-coming-soon">
-    <div class="moneyline-coming-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
-    <p class="eyebrow">EXPECTED-RUNS MODEL</p>
-    <span class="coming-soon-pill">IN DEVELOPMENT</span>
-    <h2>Moneyline Edge Board</h2>
-    <p>We’re rebuilding the moneyline system around projected runs, confirmed lineups, starter quality, bullpen strength, market pricing, and uncertainty. It will return when the complete model is ready.</p>
-    <div class="coming-soon-signals"><span>PROJECTED RUNS</span><span>NO-VIG PRICING</span><span>LINEUP VERIFIED</span></div>
-    <strong>COMING SOON</strong>
+    <span class="coming-soon-pill">In development</span>
+    <h2>Moneylines</h2>
+    <p>A clear moneyline board is being prepared. It will combine projected runs, confirmed lineups, starting pitching, bullpen strength, and market price in one simple view.</p>
   </div>
   <button class="ghost-btn" id="moneyline-refresh" type="button" hidden>Refresh</button>
   <div class="moneyline-research" id="moneyline-research" hidden><div class="ml-game-picker" id="moneyline-game-picker" aria-label="Available games"></div><div class="ml-report" id="moneyline-report"></div></div>
@@ -407,7 +403,7 @@
     <button class="tool-tab" data-tool="strikeouts">Strikeout Spots <span>Live</span></button>
   </div>
   <div class="slate-toolbar">
-    <p class="slate-hint" id="slate-date">Today's starting-pitcher matchups, easiest to hardest. Click a matchup to see how the opposing lineup hits vs that pitcher.</p>
+    <p class="slate-hint" id="slate-date">Today’s most favorable hitting matchups appear first. Select a matchup for the opposing lineup.</p>
     <button class="ghost-btn" id="slate-refresh-btn">Refresh</button>
   </div>
 
@@ -796,6 +792,6 @@
 </template>
 
 <script type="module" src="/src/main.jsx"></script>
-<script type="module" src="/app.js?v=58"></script>
+<script type="module" src="/app.js?v=59"></script>
 </body>
 </html>

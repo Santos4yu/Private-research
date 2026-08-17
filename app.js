@@ -1586,21 +1586,15 @@ function renderLoadingState(player, stat, line, side) {
   skeleton.innerHTML = `
     <div class="kp-analysis-loader" role="status" aria-live="polite">
       <div class="kp-loader-head">
-        <span class="kp-loader-mark"><i></i></span>
+        <span class="kp-loader-mark" aria-hidden="true"><i></i></span>
         <div class="kp-loader-copy">
-          <span>LIVE PROP RESEARCH</span>
+          <span>Preparing research</span>
           <strong>${escapeHtml(player)}</strong>
           <small>${escapeHtml(side)} ${line} · ${escapeHtml(stat)}</small>
         </div>
-        <b class="kp-loader-status">BUILDING READ</b>
       </div>
       <div class="kp-loader-progress"><i></i></div>
-      <div class="kp-loader-signals" aria-hidden="true">
-        <span><i>01</i><b>RECENT FORM</b><em></em></span>
-        <span><i>02</i><b>GAME MATCHUP</b><em></em></span>
-        <span><i>03</i><b>LINE + RISK</b><em></em></span>
-      </div>
-      <p>Checking the data behind this prop<span class="kp-loader-dots"><i></i><i></i><i></i></span></p>
+      <p>Reviewing form, matchup, and line context.</p>
     </div>
   `;
   els.reportWrap.appendChild(skeleton);
@@ -3161,7 +3155,6 @@ function renderSavedGrid() {
 
 /* ---------- Slate (Attack Board) ---------- */
 
-const SLATE_BULLPEN_ICON = { ELITE: "🛡️", SOLID: "✓", AVERAGE: "~", WEAK: "💥", UNKNOWN: "?" };
 let slateRequest = null;
 const researchToolCache = new Map();
 let activeResearchTool = "attack";
@@ -3261,7 +3254,7 @@ async function loadSlate(force = false, token = toolRenderToken) {
   els.slateLoading.hidden = false;
   els.slateEmpty.hidden = true;
   els.slateError.hidden = true;
-  els.slateLoading.innerHTML = `<span class="slate-live-loader"><i></i><b>BUILDING ATTACK BOARD</b><small>Resolving starters and bullpen context</small></span>`;
+  els.slateLoading.innerHTML = `<span class="slate-live-loader"><i></i><b>Preparing the board</b><small>Checking today’s starters and bullpens</small></span>`;
   els.slateList.hidden = false;
   els.slateList.innerHTML = Array.from({ length: 6 }, (_, i) => `
     <div class="slate-row slate-row-loading" style="--loader-index:${i}">
@@ -3296,8 +3289,8 @@ async function loadSlate(force = false, token = toolRenderToken) {
 function renderSlate(data) {
   const entries = data.entries || [];
     els.slateDate.textContent = entries.length
-      ? `📅 ${data.date_label || data.date || "Today"} — easiest matchups on top (vulnerable pitcher + bullpen), hardest at the bottom. Click a matchup to see how the opposing lineup hits vs that pitcher.`
-      : "Today's starting-pitcher matchups, easiest to hardest.";
+      ? `${data.date_label || data.date || "Today"} · Most favorable hitting matchups appear first. Select a matchup for the opposing lineup.`
+      : "Today’s most favorable hitting matchups appear first.";
 
   if (entries.length === 0) {
     els.slateEmpty.hidden = false;
@@ -3313,23 +3306,34 @@ function renderSlate(data) {
     // Higher score = more vulnerable pitcher/bullpen = easier matchup for
     // hitters -- green. Lower score = tougher pitcher -- red.
     const difficultyClass = e.score >= 18 ? "slate-easy" : e.score >= 11 ? "slate-medium" : "slate-hard";
-    const difficultyEmoji = e.score >= 18 ? "🟢" : e.score >= 11 ? "🟡" : "🔴";
-    const rankEmoji = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${String(i + 1).padStart(2, "0")}`;
-    const bpIcon = SLATE_BULLPEN_ICON[e.bullpen_tier] || "❓";
+    const matchupLabel = e.score >= 18 ? "Favorable" : e.score >= 11 ? "Balanced" : "Difficult";
+    const bullpenTier = String(e.bullpen_tier || "Average").toLowerCase();
+    const bullpenLabel = bullpenTier.charAt(0).toUpperCase() + bullpenTier.slice(1);
     const bpText = e.bullpen_known
-      ? `${bpIcon} ${e.bullpen_tier} (${e.bullpen_era.toFixed(2)} ERA)`
-      : `${bpIcon} unknown`;
+      ? `${bullpenLabel} · ${e.bullpen_era.toFixed(2)} ERA`
+      : "Data unavailable";
+    const teamLogo = e.team_id ? `https://www.mlbstatic.com/team-logos/${e.team_id}.svg` : "";
+    const opponentLogo = e.opponent_team_id ? `https://www.mlbstatic.com/team-logos/${e.opponent_team_id}.svg` : "";
 
     row.innerHTML = `
-      <span class="slate-rank">${rankEmoji}</span>
       <span class="slate-player-photo-wrap ${difficultyClass}">
         <img class="slate-player-photo" src="https://img.mlbstatic.com/mlb-photos/image/upload/w_180,q_auto:best/v1/people/${e.pitcher_id}/headshot/silo/current" alt="${escapeHtml(e.pitcher)}" loading="lazy" onerror="this.src='https://img.mlbstatic.com/mlb-photos/image/upload/w_180,q_auto:best/v1/people/${e.pitcher_id}/headshot/67/current';this.onerror=null;" />
-        <span class="slate-player-score">${e.score.toFixed(1)}</span>
       </span>
       <span class="slate-main">
-        <span class="slate-pitcher">👤 ${escapeHtml(e.pitcher)} <span class="slate-hand">(${escapeHtml(e.hand)})</span>${e.team ? ` · ${escapeHtml(e.team)}` : ""}</span>
-        <span class="slate-sub">⚔️ vs ${escapeHtml(e.opponent_abbr || e.opponent)} · 📊 ERA ${e.era.toFixed(2)} · HR/9 ${e.hr9.toFixed(2)} · K/9 ${e.k9.toFixed(2)} · 🛡️ ${bpText}</span>
+        <span class="slate-matchup">
+          ${teamLogo ? `<img src="${teamLogo}" alt="" />` : ""}<span>${escapeHtml(e.team || "Pitching team")}</span>
+          <b>vs</b>
+          ${opponentLogo ? `<img src="${opponentLogo}" alt="" />` : ""}<strong>${escapeHtml(e.opponent_abbr || e.opponent)}</strong>
+        </span>
+        <span class="slate-pitcher">${escapeHtml(e.pitcher)} <span class="slate-hand">· ${escapeHtml(e.hand)}HP</span></span>
+        <span class="slate-stats">
+          <span><small>Starter ERA</small><b>${e.era.toFixed(2)}</b></span>
+          <span><small>HR allowed / 9</small><b>${e.hr9.toFixed(2)}</b></span>
+          <span><small>Strikeouts / 9</small><b>${e.k9.toFixed(2)}</b></span>
+          <span><small>Bullpen</small><b>${escapeHtml(bpText)}</b></span>
+        </span>
       </span>
+      <span class="slate-read ${difficultyClass}"><small>Matchup</small><b>${matchupLabel}</b></span>
     `;
     const insightParams = {
       teamId: e.opponent_team_id,
