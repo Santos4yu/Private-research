@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
-import { Children, cloneElement, useMemo, useRef } from 'react';
+import { Children, cloneElement, useEffect, useMemo, useRef, useState } from 'react';
 
 import './Dock.css';
 
@@ -66,6 +66,26 @@ export default function Dock({
 }) {
   const mouseX = useMotionValue(Infinity);
   const isHovered = useMotionValue(0);
+  const [isMobileVisible, setIsMobileVisible] = useState(true);
+
+  useEffect(() => {
+    let frame = 0;
+    const syncMobileDock = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const isMobile = window.matchMedia('(max-width: 700px)').matches;
+        setIsMobileVisible(!isMobile || window.scrollY <= 8);
+      });
+    };
+    window.addEventListener('scroll', syncMobileDock, { passive: true });
+    window.addEventListener('resize', syncMobileDock);
+    syncMobileDock();
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', syncMobileDock);
+      window.removeEventListener('resize', syncMobileDock);
+    };
+  }, []);
 
   const maxHeight = useMemo(
     () => Math.max(dockHeight, magnification + magnification / 2 + 4),
@@ -85,7 +105,7 @@ export default function Dock({
           isHovered.set(0);
           mouseX.set(Infinity);
         }}
-        className={`dock-panel ${className}`}
+        className={`dock-panel ${isMobileVisible ? '' : 'dock-mobile-hidden'} ${className}`}
         style={{ height: panelHeight }}
         role="toolbar"
         aria-label="Application dock"
