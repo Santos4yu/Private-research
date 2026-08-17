@@ -3522,6 +3522,16 @@ function renderBotBoard(data) {
     props = props.sort((a, b) =>
       Number(b.stats.matchup_score) - Number(a.stats.matchup_score)
       || Number(b.vortex_score || 0) - Number(a.vortex_score || 0));
+    // Older cached feeds can contain several markets for one player. Keep
+    // the highest-ranked one in the UI as well as deduplicating at publish
+    // time, so the fix takes effect immediately after the frontend deploy.
+    const seenPlayers = new Set();
+    props = props.filter((p) => {
+      const key = String(p.player_name || "").trim().toLocaleLowerCase();
+      if (!key || seenPlayers.has(key)) return false;
+      seenPlayers.add(key);
+      return true;
+    });
   }
   props = props.map((p, index) => ({ ...p, _boardIndex: index }));
   state.v2RenderedProps = props;
