@@ -159,6 +159,7 @@ def search_players(query: str, limit: int = 8) -> list[dict]:
                 "id": p["id"],
                 "name": full_name,
                 "team": team,
+                "team_id": current_team["id"],
                 "position": (p.get("primaryPosition") or {}).get("abbreviation", ""),
                 "_rank": 0 if is_prefix else 1,
             })

@@ -857,9 +857,14 @@ function avatarHtml(playerOrProp, size = "") {
   // Initials render underneath; if the photo loads it covers them, if it
   // fails onerror removes the img and the initials fallback shows through.
   const img = headshot
-    ? `<img src="${escapeHtml(headshot)}" alt="" loading="lazy" onerror="this.remove()">`
+    ? `<img src="${escapeHtml(headshot)}" alt="" loading="eager" fetchpriority="high" onerror="this.remove()">`
     : "";
-  return `<div class="avatar${sizeClass}${headshot ? " avatar-cutout" : ""}" style="background:linear-gradient(135deg, hsl(${hue} 80% 55%), hsl(${hue2} 80% 45%))">${escapeHtml(initials)}${img}</div>`;
+  return `<div class="avatar${sizeClass}${headshot ? " avatar-cutout" : ""}">${escapeHtml(initials)}${img}</div>`;
+}
+
+function teamLogoHtml(teamId, teamName = "", className = "team-logo") {
+  if (!teamId) return "";
+  return `<img class="${className}" src="https://www.mlbstatic.com/team-logos/${Number(teamId)}.svg" alt="${escapeHtml(teamName)}" loading="lazy">`;
 }
 
 /* ---------- Auth gate (Discord OAuth + Premium/Tester role) ---------- */
@@ -1196,6 +1201,7 @@ async function fetchLiveSuggestions(query) {
       kind: "live",
       player: p.name,
       team: p.team,
+      teamId: p.team_id,
       sport: "MLB",
       sub: p.position || "MLB",
       headshot: `https://img.mlbstatic.com/mlb-photos/image/upload/w_180,q_auto:best/v1/people/${p.id}/headshot/67/current`,
@@ -1262,10 +1268,9 @@ function renderResults(entries, { loading = false, fetchFailed = false } = {}) {
     li.innerHTML = `
       ${avatarHtml(entry, "sm")}
       <span class="sr-main">
-        <span class="sr-player">${escapeHtml(entry.player)}${entry.team ? " (" + escapeHtml(entry.team) + ")" : ""}</span>
-        <span class="sr-pick">${escapeHtml(entry.sub || "")}</span>
+        <span class="sr-player">${escapeHtml(entry.player)}</span>
       </span>
-      <span class="sr-sport">${escapeHtml(entry.sport || "")}</span>
+      ${teamLogoHtml(entry.teamId, entry.team, "sr-team-logo")}
     `;
     li.addEventListener("mousedown", () => {
       els.searchInput.value = "";
@@ -1273,7 +1278,7 @@ function renderResults(entries, { loading = false, fetchFailed = false } = {}) {
       // Live-search entries carry the real position in `sub` (e.g. "P",
       // "SS"); static demo entries put a prop-count string there instead,
       // so only trust it as a position hint for live results.
-      selectPlayer(entry.player, entry.kind === "live" ? entry.sub : null);
+      selectPlayer(entry.player, entry.kind === "live" ? entry.sub : null, { playerEntry: entry });
     });
     els.searchResults.appendChild(li);
   });
@@ -1290,7 +1295,6 @@ function renderResults(entries, { loading = false, fetchFailed = false } = {}) {
     li.className = "search-result-item search-result-live";
     li.style.animationDelay = `${entries.length * 30}ms`;
     li.innerHTML = `
-      <span class="sr-live-icon">⚡</span>
       <span class="sr-main">
         <span class="sr-player">Search "${escapeHtml(query)}" live</span>
         <span class="sr-pick">${fetchFailed ? "Player search failed — try an exact name" : "No matches yet — try the exact name"}</span>
@@ -1362,7 +1366,7 @@ function wireLinePicker() {
 // undefined/null (position not known, e.g. typed-and-Entered names that
 // skipped autocomplete) -> both, so a valid option is never hidden just
 // because we couldn't confirm the position.
-function selectPlayer(player, position, { autoSelectStat = true, viaDeepDive = false } = {}) {
+function selectPlayer(player, position, { autoSelectStat = true, viaDeepDive = false, playerEntry = null } = {}) {
   if (!viaDeepDive) {
     state.v2DeepDiveReturn = null;
     els.v2BackBtn.hidden = true;
@@ -1376,8 +1380,11 @@ function selectPlayer(player, position, { autoSelectStat = true, viaDeepDive = f
   const staticProps = propsForPlayer();
   const first = staticProps[0];
 
-  els.profileAvatar.innerHTML = first ? avatarHtml(first, "lg") : avatarHtml(player, "lg");
-  els.profileName.textContent = first && first.team ? `${player} (${first.team})` : player;
+  const profileSource = first || playerEntry || player;
+  const profileTeamId = first?.teamId || first?.team_id || playerEntry?.teamId || null;
+  const profileTeam = first?.team || playerEntry?.team || "";
+  els.profileAvatar.innerHTML = avatarHtml(profileSource, "lg");
+  els.profileName.innerHTML = `<span>${escapeHtml(player)}</span>${teamLogoHtml(profileTeamId, profileTeam, "profile-team-logo")}`;
   els.profileSub.textContent = first
     ? `${first.sport} · pick a stat to dial in a line`
     : "MLB · pick a stat to look up a live line";
@@ -1639,7 +1646,9 @@ function propsForPlayer() {
  * header (which only had whatever casing the user typed, e.g. "freddie freeman"). */
 function syncProfileHeaderWithProp(p) {
   if (!els.playerProfile.hidden && p.player) {
-    els.profileName.textContent = p.team ? `${p.player} (${p.team})` : p.player;
+    const nameNode = els.profileName.querySelector("span");
+    if (nameNode) nameNode.textContent = p.player;
+    else els.profileName.innerHTML = `<span>${escapeHtml(p.player)}</span>`;
     els.profileAvatar.innerHTML = avatarHtml(p, "lg");
     cmd.player = p.player;
   }
@@ -3320,10 +3329,10 @@ function renderSlate(data) {
         <img class="slate-player-photo" src="https://img.mlbstatic.com/mlb-photos/image/upload/w_180,q_auto:best/v1/people/${e.pitcher_id}/headshot/silo/current" alt="${escapeHtml(e.pitcher)}" loading="lazy" onerror="this.src='https://img.mlbstatic.com/mlb-photos/image/upload/w_180,q_auto:best/v1/people/${e.pitcher_id}/headshot/67/current';this.onerror=null;" />
       </span>
       <span class="slate-main">
-        <span class="slate-matchup">
-          ${teamLogo ? `<img src="${teamLogo}" alt="" />` : ""}<span>${escapeHtml(e.team || "Pitching team")}</span>
+        <span class="slate-matchup" aria-label="${escapeHtml(e.team || "Pitching team")} versus ${escapeHtml(e.opponent || e.opponent_abbr || "opponent")}">
+          ${teamLogo ? `<img src="${teamLogo}" alt="${escapeHtml(e.team || "Pitching team")}" />` : ""}
           <b>vs</b>
-          ${opponentLogo ? `<img src="${opponentLogo}" alt="" />` : ""}<strong>${escapeHtml(e.opponent_abbr || e.opponent)}</strong>
+          ${opponentLogo ? `<img src="${opponentLogo}" alt="${escapeHtml(e.opponent || e.opponent_abbr || "Opponent")}" />` : ""}
         </span>
         <span class="slate-pitcher">${escapeHtml(e.pitcher)} <span class="slate-hand">· ${escapeHtml(e.hand)}HP</span></span>
         <span class="slate-stats">
