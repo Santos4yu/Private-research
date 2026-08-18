@@ -1142,7 +1142,10 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
             usage = float(pitch.get("pct", 0) or 0)
             pa = int(float(row.get("pa", 0) or 0))
         except (TypeError, ValueError): continue
-        if metric > 0 and usage >= 10 and pa >= 10:
+        # Include secondary pitches down to 5% usage when the batter has a
+        # real 10-PA sample. Excluding an 8% slider can incorrectly turn a
+        # well-covered arsenal into "unavailable."
+        if metric > 0 and usage >= 5 and pa >= 10:
             if metric > .550: metric *= .445
             weighted += metric * usage; coverage += usage
             # Pitch-type results stabilize much more slowly than the basic
@@ -1155,8 +1158,9 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
     # A couple of pitch-type rows must not become the card's largest penalty.
     # Require most of the starter's mix before arsenal evidence can move score.
     mix_ok = coverage >= 60; mix = weighted / coverage if mix_ok else .320
-    arsenal_detail = f"{mix:.3f} weighted wOBA across {coverage:.0f}% of the starter's mix"
-    if qualified_pitches:
+    arsenal_detail = (f"{mix:.3f} weighted wOBA across {coverage:.0f}% of the starter's mix"
+                      if mix_ok else f"Insufficient pitch-mix coverage ({coverage:.0f}% available; 60% required)")
+    if mix_ok and qualified_pitches:
         labels = []
         for usage, pitch, row, metric, _sample_confidence in qualified_pitches:
             name = pitch.get("pitch_name") or row.get("pitch_name") or pitch.get("pitch_type") or "Pitch"
@@ -1175,7 +1179,7 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
     arsenal_delta = mix - .320
     arsenal_slope = 300.0 if arsenal_delta >= 0 else 450.0
     add("arsenal_fit", sided(50 + arsenal_delta * arsenal_slope),
-        arsenal_detail if mix_ok else "Pitch-mix sample unavailable",
+        arsenal_detail,
         mix_ok, arsenal_sample_confidence * arsenal_coverage_confidence)
 
     bvp_ab = int(bvp.get("ab", 0) or 0)
@@ -1239,11 +1243,9 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
         1 for f in factors if f["available"]
         and f["impact"] <= -max(3, round(f["weight"] * .25))
     )
-    # High grades require independent agreement. This preserves legitimate
-    # 95-100 matchups while preventing one split or one noisy factor from
-    # manufacturing an elite score by itself.
-    if score >= 95 and (strong_support < 4 or meaningful_drags):
-        score = 94
+    # Elite grades require three independent supporting signals. Do not add a
+    # separate 95+ ceiling: a fully aligned three-pillar matchup can genuinely
+    # reach 100, while one split or one noisy factor still cannot get there.
     if score >= 85 and (strong_support < 3 or meaningful_drags >= 2):
         score = 84
     if score >= 85: label = "Elite Matchup"
