@@ -1098,10 +1098,19 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
     except (TypeError, ValueError): other_avg = 0.0
     hand_ok = hand_pa >= 20 and hand_ops > 0
     delta = hand_ops - other_ops if other_ops > 0 else 0.0
+    avg_delta = hand_avg - other_avg if other_avg > 0 else 0.0
     other_label = "L" if ph == "R" else "R"
     detail = f"vs {ph}HP {hand_avg:.3f} AVG / {hand_ops:.3f} OPS ({hand_pa} PA)".replace(" 0.", " .")
     if hand_ok and other_ops > 0: detail += f" · vs {other_label}HP {other_avg:.3f} AVG / {other_ops:.3f} OPS ({hand_avg-other_avg:+.3f} AVG)".replace(" 0.", " .").replace("+0.", "+.").replace("-0.", "-.")
-    add("handedness", sided(50 + (hand_ops - .720) * 160 + delta * 100),
+    # This dimension is a platoon edge, not a general hitter-quality score.
+    # Nearly identical splits are neutral even when both absolute OPS marks
+    # are good. When the comparison split is unavailable, fall back to the
+    # absolute split but keep it sample-shrunk.
+    if other_ops > 0:
+        hand_raw = 50.0 if abs(delta) < .040 and abs(avg_delta) < .015 else 50 + delta * 110 + avg_delta * 80
+    else:
+        hand_raw = 50 + (hand_ops - .720) * 110
+    add("handedness", sided(hand_raw),
         detail if hand_ok else "Split unavailable", hand_ok, min(1.0, hand_pa / 50) ** .6 if hand_ok else 0)
     factors[-1]["name"] = f"Splits vs {ph}HP" if ph in ("L", "R") else "Handedness splits"
 
@@ -1111,9 +1120,9 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
     except (TypeError, ValueError): era = fip = whip = hr9 = 0.0
     pq_ok = era > 0 or fip > 0
     blended = era * .6 + fip * .4 if era and fip else era or fip
-    pitcher_raw = 50 + (blended - 4.10) * 15
-    if whip > 0: pitcher_raw += (whip - 1.28) * 15
-    if hr9 > 0: pitcher_raw += (hr9 - 1.15) * 4
+    pitcher_raw = 50 + (blended - 4.10) * 20
+    if whip > 0: pitcher_raw += (whip - 1.28) * 20
+    if hr9 > 0: pitcher_raw += (hr9 - 1.15) * 7
     pitcher_name = pitcher.get("name") or "Tonight's starter"
     quality_label = "very vulnerable starter" if pitcher_raw >= 75 else "below-average starter" if pitcher_raw >= 60 else "strong starter" if pitcher_raw <= 40 else "roughly average starter"
     pitcher_detail = f"{pitcher_name} · " + (f"{era:.2f} ERA / {fip:.2f} FIP" if fip else f"{blended:.2f} ERA")
@@ -1163,7 +1172,9 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
         confidence_weighted / coverage if mix_ok and coverage else 0.0
     )
     arsenal_coverage_confidence = min(1.0, coverage / 70.0) ** .6 if mix_ok else 0.0
-    add("arsenal_fit", sided(50 + (mix - .320) * 666.7),
+    arsenal_delta = mix - .320
+    arsenal_slope = 300.0 if arsenal_delta >= 0 else 450.0
+    add("arsenal_fit", sided(50 + arsenal_delta * arsenal_slope),
         arsenal_detail if mix_ok else "Pitch-mix sample unavailable",
         mix_ok, arsenal_sample_confidence * arsenal_coverage_confidence)
 
@@ -1175,7 +1186,7 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
     # reaches double digits. Tiny BvP records are descriptive, not predictive.
     bvp_ok = bvp_ab >= 10
     bvp_sample = "large sample" if bvp_ab >= 20 else "moderate sample" if bvp_ab >= 10 else "small sample"
-    add("bvp", sided(50 + (bvp_avg - .250) * 100),
+    add("bvp", sided(50 + (bvp_avg - .250) * 500),
         f"{bvp.get('hits', 0)}-for-{bvp_ab} ({bvp_avg:.3f} AVG) vs {pitcher_name} · {bvp_sample}".replace("(0.", "(.") if bvp_ok else f"No meaningful history vs {pitcher_name}",
         bvp_ok, min(1.0, bvp_ab / 25) ** .65 if bvp_ok else 0)
 
@@ -1187,7 +1198,7 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
     batting_form = (splits or {}).get("recent_batting_form") or {}
     if batting_form.get("delta_pct") is not None:
         delta_pct = float(batting_form["delta_pct"])
-        form_score = sided(50 + delta_pct * 1.6)
+        form_score = sided(50 + delta_pct * 3.0)
         form_ok = True
         form_detail = f"L10 OPS {batting_form.get('l10_ops'):.3f} vs season {batting_form.get('season_ops'):.3f} ({delta_pct:+.1f}%)".replace(" 0.", " .")
     else:
@@ -1206,7 +1217,10 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
         if friendly is True: weather_over += min(25, speed * 1.5)
         elif friendly is False: weather_over -= min(25, speed * 1.5)
         temp = weather.get("temp_f")
-        if temp is not None: weather_over += max(-10, min(10, (float(temp) - 70) * .5))
+        # Temperature is a modifier to a known wind direction, not a standalone
+        # edge. A crosswind/unknown wind stays neutral.
+        if temp is not None and friendly is not None:
+            weather_over += max(-10, min(10, (float(temp) - 70) * .5))
         weather_detail = f"{weather.get('temp_f', '—')}°F, {speed:.0f} mph wind"
     add("weather", sided(weather_over), weather_detail, weather_ok)
 
