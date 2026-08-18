@@ -3524,14 +3524,13 @@ async function refreshVisibleMatchupScores(props) {
         const res = await fetch(url, { cache: "no-store" });
         const live = await res.json();
         if (!res.ok || live.error || !Number.isFinite(Number(live.matchupScore))) continue;
-        p.stats = {
-          ...(p.stats || {}),
+        Object.assign(p.stats, {
           matchup_score: Number(live.matchupScore),
           matchup_label: live.matchupLabel,
           matchup_coverage: live.matchupCoverage,
           matchup_factors: live.matchupFactors || [],
-        };
-        p.stats._live_matchup_ready = true;
+          _live_matchup_ready: true,
+        });
       } catch (_) {
         // Keep the scan-time score when a live lookup is temporarily unavailable.
       }
