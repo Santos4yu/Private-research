@@ -3512,7 +3512,9 @@ async function refreshVisibleMatchupScores(props) {
     p.stats._live_matchup_ready = false;
   });
   const queue = [...refreshable];
-  const workers = Array.from({ length: Math.min(4, queue.length) }, async () => {
+  // These are independent serverless reads. A wider pool keeps the Matchup
+  // view responsive without making users wait for sequential player cards.
+  const workers = Array.from({ length: Math.min(12, queue.length) }, async () => {
     while (queue.length && run === matchupRefreshRun && state.boardFilter === "matchup") {
       const p = queue.shift();
       const stat = BOT_STAT_TO_RESEARCH_STAT[p.stat_type];
@@ -3591,6 +3593,10 @@ function renderBotBoard(data, { scoresAreLive = false } = {}) {
       seenPlayers.add(key);
       return true;
     });
+    // The research feed can contain hundreds of qualified markets. Regrading
+    // all of them on every tab visit creates minutes of blocking work. Keep a
+    // decision-ready top board and live-refresh that set with Research's model.
+    props = props.slice(0, 40);
   }
   props = props.map((p, index) => ({ ...p, _boardIndex: index }));
   state.v2RenderedProps = props;
