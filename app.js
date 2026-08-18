@@ -3500,7 +3500,46 @@ function boardMatchupLabel(score) {
   return "UNFAVORABLE";
 }
 
-function renderBotBoard(data) {
+let matchupRefreshRun = 0;
+
+async function refreshVisibleMatchupScores(props) {
+  const run = ++matchupRefreshRun;
+  const refreshable = props.filter((p) => p.sport === "MLB" && BOT_STAT_TO_RESEARCH_STAT[p.stat_type]);
+  if (!refreshable.length) return;
+
+  // The board payload is a scan-time snapshot. Research uses the live model,
+  // so refresh Matchups with that same endpoint instead of displaying a score
+  // that can disagree as soon as Deep Dive is opened.
+  const queue = [...refreshable];
+  const workers = Array.from({ length: Math.min(4, queue.length) }, async () => {
+    while (queue.length && run === matchupRefreshRun && state.boardFilter === "matchup") {
+      const p = queue.shift();
+      const stat = BOT_STAT_TO_RESEARCH_STAT[p.stat_type];
+      const side = p.stats?.side === "under" ? "under" : "over";
+      try {
+        const url = `${API_SOURCE}?player=${encodeURIComponent(p.player_name)}&stat=${encodeURIComponent(stat)}&line=${p.line}&side=${side}`;
+        const res = await fetch(url, { cache: "no-store" });
+        const live = await res.json();
+        if (!res.ok || live.error || !Number.isFinite(Number(live.matchupScore))) continue;
+        p.stats = {
+          ...(p.stats || {}),
+          matchup_score: Number(live.matchupScore),
+          matchup_label: live.matchupLabel,
+          matchup_coverage: live.matchupCoverage,
+          matchup_factors: live.matchupFactors || [],
+        };
+      } catch (_) {
+        // Keep the scan-time score when a live lookup is temporarily unavailable.
+      }
+    }
+  });
+  await Promise.all(workers);
+  if (run === matchupRefreshRun && state.boardFilter === "matchup" && state.v2BoardData) {
+    renderBotBoard(state.v2BoardData, { scoresAreLive: true });
+  }
+}
+
+function renderBotBoard(data, { scoresAreLive = false } = {}) {
   const recommendedProps = data.props || [];
   const matchupResearch = data.matchup_research || [];
   const researchPitchers = data.pitcher_research || [];
@@ -3565,6 +3604,11 @@ function renderBotBoard(data) {
     return;
   }
   els.v2BoardEmpty.hidden = true;
+
+  if (state.boardFilter === "matchup" && !scoresAreLive) {
+    els.v2BoardDate.textContent += " · refreshing live scores…";
+    refreshVisibleMatchupScores(props);
+  }
 
   props.forEach((p, i) => {
     const row = document.createElement("div");
