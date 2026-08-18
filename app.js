@@ -1522,24 +1522,21 @@ function setLineValue(value, { immediate = false } = {}) {
 let lineSelectionToken = 0;
 
 function withAuthoritativeBoardMatchup(prop, player, stat, line, side) {
-  // Live research is computed from the newest matchup model and must win over
-  // the mirrored board snapshot, which may have been generated hours earlier
-  // by a different process/model revision. Keep board context only as a
-  // fallback when the live response genuinely has no matchup grade.
-  if (Number.isFinite(Number(prop?.matchupScore))) return prop;
+  // The board remains authoritative for the official VORTEX pick score/tier.
+  // Matchup is deliberately NOT copied from the board: Research and the
+  // Matchup tab both use the current live matchup calculation.
   const boardContext = state.boardResearchContext;
   const sameBoardProp = boardContext
     && boardContext.player.toLowerCase() === String(player).toLowerCase()
     && boardContext.stat === stat
     && Math.abs(Number(boardContext.line) - Number(line)) < 0.01
     && boardContext.side === String(side).toLowerCase();
-  if (!sameBoardProp || !Number.isFinite(Number(boardContext.matchupScore))) return prop;
+  if (!sameBoardProp) return prop;
   return {
     ...prop,
-    matchupScore: Number(boardContext.matchupScore),
-    matchupLabel: boardContext.matchupLabel,
-    matchupCoverage: boardContext.matchupCoverage,
-    matchupFactors: boardContext.matchupFactors,
+    ...(Number.isFinite(Number(boardContext.vortexScore))
+      ? { score: Number(boardContext.vortexScore), tier: boardContext.tier || prop.tier }
+      : {}),
   };
 }
 
@@ -3510,6 +3507,10 @@ async function refreshVisibleMatchupScores(props) {
   // The board payload is a scan-time snapshot. Research uses the live model,
   // so refresh Matchups with that same endpoint instead of displaying a score
   // that can disagree as soon as Deep Dive is opened.
+  refreshable.forEach((p) => {
+    p.stats = p.stats || {};
+    p.stats._live_matchup_ready = false;
+  });
   const queue = [...refreshable];
   const workers = Array.from({ length: Math.min(4, queue.length) }, async () => {
     while (queue.length && run === matchupRefreshRun && state.boardFilter === "matchup") {
@@ -3528,6 +3529,7 @@ async function refreshVisibleMatchupScores(props) {
           matchup_coverage: live.matchupCoverage,
           matchup_factors: live.matchupFactors || [],
         };
+        p.stats._live_matchup_ready = true;
       } catch (_) {
         // Keep the scan-time score when a live lookup is temporarily unavailable.
       }
@@ -3557,26 +3559,28 @@ function renderBotBoard(data, { scoresAreLive = false } = {}) {
     if (filter === "matchup") return Number.isFinite(Number(p.stats?.matchup_score));
     return boardStatCategory(p.stat_type) === filter;
   });
-  if (state.boardFilter === "matchup") {
-    const matchupPropRank = (p) => {
-      const matchupScore = Number(p.stats?.matchup_score) || 0;
-      const modelScore = Number(p.vortex_score) || 0;
-      const isTotalBases = p.market_key === "batter_total_bases"
-        || String(p.stat_type || "").toLocaleLowerCase().includes("total bases");
-      const totalBasesNudge = isTotalBases && matchupScore >= 65 && modelScore >= 6 ? 3 : 0;
-      const l10 = Number(p.stats?.splits?.l10?.rate) || 0;
-      const directionalL10 = String(p.stats?.side || "over").toLocaleLowerCase() === "under"
-        ? 100 - l10 : l10;
-      return [matchupScore, modelScore + totalBasesNudge, modelScore, directionalL10];
+  // Sort each view by the score named by that view: Matchup uses the
+  // authoritative 0-100 matchup grade; every prop-market tab uses VORTEX.
+  props = props.sort((a, b) => {
+    const currentMatchup = (p) => p.stats?._live_matchup_ready === true
+      ? (Number(p.stats?.matchup_score) || 0)
+      : -1;
+    const matchupDiff = currentMatchup(b) - currentMatchup(a);
+    const vortexDiff = (Number(b.vortex_score) || 0) - (Number(a.vortex_score) || 0);
+    if (state.boardFilter === "matchup") {
+      if (matchupDiff) return matchupDiff;
+      if (vortexDiff) return vortexDiff;
+    } else {
+      if (vortexDiff) return vortexDiff;
+      if (matchupDiff) return matchupDiff;
+    }
+    const directionalL10 = (p) => {
+      const rate = Number(p.stats?.splits?.l10?.rate) || 0;
+      return String(p.stats?.side || "over").toLocaleLowerCase() === "under" ? 100 - rate : rate;
     };
-    props = props.sort((a, b) => {
-      const ar = matchupPropRank(a);
-      const br = matchupPropRank(b);
-      for (let i = 0; i < ar.length; i += 1) {
-        if (ar[i] !== br[i]) return br[i] - ar[i];
-      }
-      return 0;
-    });
+    return directionalL10(b) - directionalL10(a);
+  });
+  if (state.boardFilter === "matchup") {
     // Older cached feeds can contain several markets for one player. Keep
     // the highest-ranked one in the UI as well as deduplicating at publish
     // time, so the fix takes effect immediately after the frontend deploy.
@@ -3606,8 +3610,10 @@ function renderBotBoard(data, { scoresAreLive = false } = {}) {
   els.v2BoardEmpty.hidden = true;
 
   if (state.boardFilter === "matchup" && !scoresAreLive) {
-    els.v2BoardDate.textContent += " · refreshing live scores…";
+    els.v2BoardDate.textContent += " · calculating current matchup scores…";
+    els.v2BoardList.innerHTML = `<div class="slate-loading premium-loading"><span class="loading-line" aria-hidden="true"></span><span><strong>Calculating matchup scores</strong><small>Using the same live model as Research</small></span></div>`;
     refreshVisibleMatchupScores(props);
+    return;
   }
 
   props.forEach((p, i) => {
@@ -3620,9 +3626,10 @@ function renderBotBoard(data, { scoresAreLive = false } = {}) {
 
     const stats = p.stats || {};
     const matchupScore = Number(stats.matchup_score);
-    const matchupBadge = Number.isFinite(matchupScore)
+    const matchupIsCurrent = state.boardFilter !== "matchup" || stats._live_matchup_ready === true;
+    const matchupBadge = matchupIsCurrent && Number.isFinite(matchupScore)
       ? `<span class="v2-card-matchup-score" data-band="${matchupScore >= 75 ? "strong" : matchupScore >= 65 ? "favorable" : matchupScore >= 55 ? "slight" : matchupScore >= 45 ? "neutral" : matchupScore >= 35 ? "caution" : "unfavorable"}">MATCHUP ${Math.round(matchupScore)} · ${boardMatchupLabel(matchupScore)}</span>`
-      : "";
+      : `<span class="v2-card-matchup-score" data-band="neutral">MATCHUP UNAVAILABLE · TRY REFRESH</span>`;
     const sidePfx = stats.side === "under" ? "U" : "O";
     const tier = BOT_TIER[p.tier] || botScoreBadge(p.vortex_score);
     const sportTag = `${SPORT_EMOJI[p.sport] || "🎯"} ${p.sport || ""}`;
@@ -3991,6 +3998,8 @@ function deepDiveIntoBotProp(p) {
     stat,
     line: Number(p.line),
     side: boardStats.side === "under" ? "under" : "over",
+    vortexScore: p.vortex_score,
+    tier: p.tier,
     matchupScore: boardStats.matchup_score,
     matchupLabel: boardStats.matchup_label,
     matchupCoverage: boardStats.matchup_coverage,
