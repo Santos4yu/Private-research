@@ -1054,8 +1054,8 @@ def get_no_game_reason(player_id: int, player_name: str = "This player") -> str:
 # ── 5. Algorithmic grading (pure arithmetic, zero API) ───────────────────────
 
 _MATCHUP_WEIGHTS = {
-    "handedness": 23, "pitcher_quality": 22, "arsenal_fit": 20,
-    "bvp": 10, "recent_form": 15, "park": 5, "weather": 5,
+    "handedness": 23, "pitcher_quality": 22, "arsenal_fit": 15,
+    "bvp": 20, "recent_form": 10, "park": 5, "weather": 5,
 }
 
 
@@ -1073,9 +1073,10 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
         weight = _MATCHUP_WEIGHTS[key]
         confidence = clamp(confidence * 100) / 100 if available else 0.0
         adjusted = 50.0 + ((clamp(raw) - 50.0) * confidence if available else 0.0)
-        # Weighted contribution around the neutral 50 baseline. Using /50
-        # doubles every factor and falsely caps strong matchups at 100.
-        impact = (adjusted - 50.0) / 100.0 * weight
+        # Convert the factor grade to its full signed allocation. Confidence
+        # shrinkage happens before this conversion, so trustworthy 100/0
+        # evidence can earn +/- its full weight while thin samples stay near 0.
+        impact = (adjusted - 50.0) / 50.0 * weight
         names = {"handedness": "Splits vs pitcher hand", "pitcher_quality": "Pitcher quality",
                  "arsenal_fit": "Arsenal fit", "bvp": "Career BvP", "recent_form": "Recent form",
                  "park": "Park factor", "weather": "Weather"}
@@ -1101,7 +1102,7 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
     detail = f"vs {ph}HP {hand_avg:.3f} AVG / {hand_ops:.3f} OPS ({hand_pa} PA)".replace(" 0.", " .")
     if hand_ok and other_ops > 0: detail += f" · vs {other_label}HP {other_avg:.3f} AVG / {other_ops:.3f} OPS ({hand_avg-other_avg:+.3f} AVG)".replace(" 0.", " .").replace("+0.", "+.").replace("-0.", "-.")
     add("handedness", sided(50 + (hand_ops - .720) * 160 + delta * 100),
-        detail if hand_ok else "Split unavailable", hand_ok, min(1.0, hand_pa / 100) ** .6 if hand_ok else 0)
+        detail if hand_ok else "Split unavailable", hand_ok, min(1.0, hand_pa / 50) ** .6 if hand_ok else 0)
     factors[-1]["name"] = f"Splits vs {ph}HP" if ph in ("L", "R") else "Handedness splits"
 
     try:
@@ -1142,7 +1143,9 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
             sample_confidence = min(1.0, pa / 50.0) ** .5
             confidence_weighted += usage * sample_confidence
             qualified_pitches.append((usage, pitch, row, metric, sample_confidence))
-    mix_ok = coverage >= 10; mix = weighted / coverage if mix_ok else .320
+    # A couple of pitch-type rows must not become the card's largest penalty.
+    # Require most of the starter's mix before arsenal evidence can move score.
+    mix_ok = coverage >= 60; mix = weighted / coverage if mix_ok else .320
     arsenal_detail = f"{mix:.3f} weighted wOBA across {coverage:.0f}% of the starter's mix"
     if qualified_pitches:
         labels = []
@@ -1168,7 +1171,9 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
     try:
         avg_text = str(bvp.get("avg") or ".000"); bvp_avg = float("0" + avg_text) if avg_text.startswith(".") else float(avg_text)
     except (TypeError, ValueError): bvp_avg = 0.0
-    bvp_ok = bvp_ab >= 4
+    # Batter-vs-pitcher history is optional and stays neutral until the sample
+    # reaches double digits. Tiny BvP records are descriptive, not predictive.
+    bvp_ok = bvp_ab >= 10
     bvp_sample = "large sample" if bvp_ab >= 20 else "moderate sample" if bvp_ab >= 10 else "small sample"
     add("bvp", sided(50 + (bvp_avg - .250) * 100),
         f"{bvp.get('hits', 0)}-for-{bvp_ab} ({bvp_avg:.3f} AVG) vs {pitcher_name} · {bvp_sample}".replace("(0.", "(.") if bvp_ok else f"No meaningful history vs {pitcher_name}",
@@ -1205,15 +1210,28 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
         weather_detail = f"{weather.get('temp_f', '—')}°F, {speed:.0f} mph wind"
     add("weather", sided(weather_over), weather_detail, weather_ok)
 
-    data_coverage = sum(f["weight"] for f in factors if f["available"]) / 100
-    # Expand reliable, well-covered evidence back across the useful 0-100
-    # range. Sample shrinkage already happens inside every factor; without
-    # this coverage-aware calibration even exceptional matchups cluster in
-    # the 70s. A neutral matchup remains exactly 50.
-    edge_scale = 1.65 if data_coverage >= .80 else 1.40 if data_coverage >= .65 else 1.15
-    for factor in factors:
-        factor["impact"] = round(float(factor["impact"]) * edge_scale)
+    # BvP is an optional modifier; a first-time matchup can still have complete
+    # core evidence. Coverage therefore measures the six repeatable inputs.
+    core_factors = [f for f in factors if f["key"] != "bvp"]
+    core_weight = sum(f["weight"] for f in core_factors)
+    data_coverage = (sum(f["weight"] for f in core_factors if f["available"]) / core_weight
+                     if core_weight else 0.0)
     score = max(0, min(100, round(50 + sum(f["impact"] for f in factors))))
+    strong_support = sum(
+        1 for f in factors if f["available"]
+        and f["impact"] >= max(3, round(f["weight"] * .35))
+    )
+    meaningful_drags = sum(
+        1 for f in factors if f["available"]
+        and f["impact"] <= -max(3, round(f["weight"] * .25))
+    )
+    # High grades require independent agreement. This preserves legitimate
+    # 95-100 matchups while preventing one split or one noisy factor from
+    # manufacturing an elite score by itself.
+    if score >= 95 and (strong_support < 4 or meaningful_drags):
+        score = 94
+    if score >= 85 and (strong_support < 3 or meaningful_drags >= 2):
+        score = 84
     if score >= 85: label = "Elite Matchup"
     elif score >= 75: label = "Strong Matchup"
     elif score >= 65: label = "Favorable"
