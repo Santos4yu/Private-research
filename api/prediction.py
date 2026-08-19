@@ -14,6 +14,7 @@ import json
 import re
 import sys
 import time
+import unicodedata
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
@@ -38,7 +39,12 @@ _MARKET_FOR_PROP = {
 
 
 def _norm(value):
-    return re.sub(r"[^a-z0-9]", "", str(value or "").lower())
+    # Sports feeds commonly omit accents that MLB keeps in player names
+    # (García/Garcia, Ramírez/Ramirez, Muñoz/Munoz). Transliterate before
+    # removing punctuation so those are treated as the same player.
+    ascii_value = unicodedata.normalize("NFKD", str(value or ""))
+    ascii_value = ascii_value.encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]", "", ascii_value.lower())
 
 
 def _prizepicks_lines(player_name, stat_label, opponent):
