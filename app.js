@@ -395,7 +395,6 @@ function wireChromeAutoHide() {
 /* ---------- Border glow for every card surface ---------- */
 
 const CARD_GLOW_SELECTOR = [
-  ".search-box",
   ".player-profile", ".report-block", ".report-card", ".slate-card",
   ".slate-row", ".saved-card", ".v2-card", ".board-card",
   ".market-card", ".market-page-head",

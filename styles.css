@@ -5645,7 +5645,7 @@ button:focus-visible,[role="button"]:focus-visible{outline:2px solid #777!import
   --theme-accent:#f07c94;--theme-accent-soft:#f6afbe;--theme-accent-dim:rgba(240,124,148,.14);--theme-on-accent:#21090f;
 }
 :root[data-theme="ivory"]{
-  --theme-bg:#f3efe7;--theme-bg-2:#ebe5da;--theme-panel:#faf8f3;--theme-panel-2:#eee9df;
+  --theme-bg:#eee9df;--theme-bg-2:#e9e3d8;--theme-panel:#eee9df;--theme-panel-2:#e6dfd3;
   --theme-border:#d4cdc0;--theme-text:#201e1a;--theme-dim:#625d54;--theme-faint:#8c8579;
   --theme-accent:#2e5f9e;--theme-accent-soft:#5682b9;--theme-accent-dim:rgba(46,95,158,.12);--theme-on-accent:#fff;
 }
@@ -5724,7 +5724,7 @@ body::before{background:linear-gradient(115deg,transparent 12%,color-mix(in srgb
 .mode-btn[data-mode="midnight"]{--preview-bg:#07101f;--preview-panel:#122239;--preview-accent:#67a8ff}
 .mode-btn[data-mode="forest"]{--preview-bg:#07130f;--preview-panel:#122b21;--preview-accent:#55d695}
 .mode-btn[data-mode="burgundy"]{--preview-bg:#16090d;--preview-panel:#32151e;--preview-accent:#f07c94}
-.mode-btn[data-mode="ivory"]{--preview-bg:#f3efe7;--preview-panel:#faf8f3;--preview-accent:#2e5f9e}
+.mode-btn[data-mode="ivory"]{--preview-bg:#eee9df;--preview-panel:#e6dfd3;--preview-accent:#2e5f9e}
 .theme-picker-note{margin:0;color:var(--theme-faint);font-size:9px;line-height:1.45}
 
 @media(max-width:700px){
@@ -6090,6 +6090,7 @@ body::before{background:linear-gradient(115deg,transparent 12%,color-mix(in srgb
   background-image:none!important;
   box-shadow:none!important;
 }
+:root[data-theme] .search-box .card-border-glow{display:none!important}
 :root[data-theme] .search-box input,
 :root[data-theme] .search-box input:focus{
   border:0!important;
@@ -6168,7 +6169,7 @@ body::before{background:linear-gradient(115deg,transparent 12%,color-mix(in srgb
 :root[data-theme="ivory"] .player-detail-sheet,
 :root[data-theme="ivory"] .team-modal,
 :root[data-theme="ivory"] .gamelog-modal,
-:root[data-theme="ivory"] .kp-analysis-loader{background:#faf8f3!important;color:#201e1a!important}
+:root[data-theme="ivory"] .kp-analysis-loader{background:#eee9df!important;color:#201e1a!important}
 :root[data-theme="ivory"] .matchup-opp,
 :root[data-theme="ivory"] .matchup-pitcher,
 :root[data-theme="ivory"] .matchup-leash,
@@ -6177,4 +6178,4 @@ body::before{background:linear-gradient(115deg,transparent 12%,color-mix(in srgb
 :root[data-theme="ivory"] .matchup-bullpen,
 :root[data-theme="ivory"] .split-cell,
 :root[data-theme="ivory"] .verdict-metric,
-:root[data-theme="ivory"] .matchup-score-note{background:#eee9df!important;color:#201e1a!important}
+:root[data-theme="ivory"] .matchup-score-note{background:#e6dfd3!important;color:#201e1a!important}
