@@ -5946,3 +5946,139 @@ body::before{background:linear-gradient(115deg,transparent 12%,color-mix(in srgb
     border-color:var(--theme-border)!important;background:var(--theme-panel)!important;color:var(--theme-text)!important;
   }
 }
+
+/* Complete surface coverage: selected themes own every neutral UI surface. */
+:root[data-theme] .boot-loading,
+:root[data-theme] .main-menu,
+:root[data-theme] .auth-gate{background:var(--theme-bg)!important;color:var(--theme-text)!important}
+
+:root[data-theme] .search-results,
+:root[data-theme] .profile-stats-menu,
+:root[data-theme] .pp-lines-menu,
+:root[data-theme] .pp-lines-head,
+:root[data-theme] .settings-panel,
+:root[data-theme] .side-panel{
+  border-color:var(--theme-border)!important;background:var(--theme-panel)!important;color:var(--theme-text)!important;
+}
+:root[data-theme] .search-result-item:hover,
+:root[data-theme] .profile-stats-menu-item:hover,
+:root[data-theme] .pp-line-option:hover{background:var(--theme-panel-2)!important;color:var(--theme-text)!important}
+:root[data-theme] .profile-stats-menu-item.active,
+:root[data-theme] .pp-line-option.selected{background:var(--theme-accent-dim)!important;color:var(--theme-accent)!important}
+:root[data-theme] .pp-line-option,
+:root[data-theme] .pp-lines-head{border-color:var(--theme-border)!important;color:var(--theme-text)!important}
+:root[data-theme] .pp-lines-state{color:var(--theme-faint)!important}
+
+:root[data-theme] .starter-profile-card,
+:root[data-theme] .pitch-type-card,
+:root[data-theme] .starter-bvp-grid,
+:root[data-theme] .research-snapshot,
+:root[data-theme] .research-health-block,
+:root[data-theme] .verdict-metric,
+:root[data-theme] .research-health-limits,
+:root[data-theme] .research-health-sources span,
+:root[data-theme] .matchup-score-card,
+:root[data-theme] .matchup-score-note,
+:root[data-theme] .matchup-score-factors>div,
+:root[data-theme] .matchup-bvp,
+:root[data-theme] .bvp-callout,
+:root[data-theme] .board-bvp-line,
+:root[data-theme] .board-analysis-summary,
+:root[data-theme] .board-analysis-case,
+:root[data-theme] .board-factor-head,
+:root[data-theme] .slate-read,
+:root[data-theme] .slate-read.slate-easy,
+:root[data-theme] .slate-read.slate-medium,
+:root[data-theme] .slate-read.slate-hard,
+:root[data-theme] #v2-board-empty,
+:root[data-theme] .slate-error,
+:root[data-theme] .premium-loading,
+:root[data-theme] .empty-state{
+  border-color:var(--theme-border)!important;background:var(--theme-panel-2)!important;color:var(--theme-text)!important;box-shadow:none!important;
+}
+:root[data-theme] .report-block,
+:root[data-theme] .report-card,
+:root[data-theme] .report-header,
+:root[data-theme] .player-profile{
+  border-color:var(--theme-border)!important;background:var(--theme-panel)!important;color:var(--theme-text)!important;
+}
+:root[data-theme] .matchup-score-track{background:color-mix(in srgb,var(--theme-border) 72%,var(--theme-bg))!important}
+:root[data-theme] .matchup-score-fill{background:var(--theme-accent)!important}
+:root[data-theme] .matchup-score-value,
+:root[data-theme] .matchup-score-card[data-tone] .matchup-score-value,
+:root[data-theme] .matchup-score-factors b,
+:root[data-theme] .verdict-metric strong{color:var(--theme-text)!important}
+:root[data-theme] .matchup-score-note,
+:root[data-theme] .verdict-metric small{color:var(--theme-dim)!important}
+
+:root[data-theme] .board-filter-row,
+:root[data-theme] .tools-tabs,
+:root[data-theme] .builder-controls,
+:root[data-theme] .builder-segment,
+:root[data-theme] .builder-leg,
+:root[data-theme] .builder-result,
+:root[data-theme] .builder-summary,
+:root[data-theme] .builder-no-play,
+:root[data-theme] .tool-evidence,
+:root[data-theme] .moneyline-coming-soon,
+:root[data-theme] .ml-side-toggle,
+:root[data-theme] .ml-score,
+:root[data-theme] .ml-model-head div,
+:root[data-theme] .ml-factor-grid div,
+:root[data-theme] .ml-action-row>div,
+:root[data-theme] .ml-workbench,
+:root[data-theme] .ml-compare article,
+:root[data-theme] .ml-context-data span{
+  border-color:var(--theme-border)!important;background:var(--theme-panel)!important;color:var(--theme-text)!important;
+}
+:root[data-theme] .builder-segment,
+:root[data-theme] .ml-side-toggle{background:var(--theme-bg-2)!important}
+:root[data-theme] .builder-check input{border-color:var(--theme-border)!important;background:var(--theme-panel-2)!important}
+:root[data-theme] .builder-check input:checked{border-color:var(--theme-accent)!important;background:var(--theme-accent)!important}
+:root[data-theme] .builder-check input:checked::after{background:var(--theme-on-accent)!important}
+:root[data-theme] .moneyline-coming-soon .coming-soon-pill{border-color:var(--theme-border)!important;background:var(--theme-panel-2)!important;color:var(--theme-dim)!important}
+
+:root[data-theme] .player-detail-sheet,
+:root[data-theme] .pd-tabs,
+:root[data-theme] .pd-body,
+:root[data-theme] .pd-footer,
+:root[data-theme] .pd-rate-grid,
+:root[data-theme] .pd-driver-group,
+:root[data-theme] .pd-driver-group h4,
+:root[data-theme] .pd-net-read,
+:root[data-theme] .pd-challenge-grid button,
+:root[data-theme] .pd-challenge-result,
+:root[data-theme] .pd-scout-block{
+  border-color:var(--theme-border)!important;background:var(--theme-panel)!important;color:var(--theme-text)!important;
+}
+:root[data-theme] .pd-tabs,
+:root[data-theme] .pd-footer,
+:root[data-theme] .pd-driver-group h4{background:var(--theme-bg-2)!important}
+:root[data-theme] .pd-rate-grid>div,
+:root[data-theme] .pd-driver,
+:root[data-theme] .pd-play-row,
+:root[data-theme] .pd-season-note,
+:root[data-theme] .pd-challenge-status{border-color:var(--theme-border)!important}
+:root[data-theme] .pd-tab{color:var(--theme-faint)!important}
+:root[data-theme] .pd-tab.active{border-bottom-color:var(--theme-accent)!important;color:var(--theme-accent)!important;background:transparent!important}
+:root[data-theme] .pd-tail-btn,
+:root[data-theme] .pd-challenge-grid button.active{
+  border-color:color-mix(in srgb,var(--theme-accent) 55%,var(--theme-border))!important;background:var(--theme-accent-dim)!important;color:var(--theme-accent)!important;
+}
+
+:root[data-theme] input:not([type="range"]):not([type="checkbox"]):not([type="color"]),
+:root[data-theme] select,
+:root[data-theme] textarea{
+  border-color:var(--theme-border)!important;background-color:var(--theme-panel-2)!important;color:var(--theme-text)!important;
+}
+:root[data-theme] option{background:var(--theme-panel)!important;color:var(--theme-text)!important}
+
+@media(max-width:700px){
+  :root[data-theme] .pp-lines-menu,
+  :root[data-theme] .profile-stats-menu,
+  :root[data-theme] .search-results,
+  :root[data-theme] .modal-panel,
+  :root[data-theme] .player-detail-sheet,
+  :root[data-theme] .team-modal,
+  :root[data-theme] .gamelog-modal{background:var(--theme-panel)!important;color:var(--theme-text)!important}
+}
