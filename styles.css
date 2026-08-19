@@ -5619,6 +5619,7 @@ button:focus-visible,[role="button"]:focus-visible{outline:2px solid #777!import
   #panel-slate .slate-read,#panel-slate .slate-read.slate-easy{grid-column:1!important;width:100%!important;margin:0!important;padding:11px 14px!important;text-align:center!important}
   #panel-slate .slate-read small{margin-bottom:3px!important}
 }
+.v2-matchup-more{width:100%;min-height:46px;margin:5px 0 90px;border:1px solid #303030;border-radius:12px;background:#101010;color:#ddd;font:700 11px var(--font-mono);cursor:pointer}.v2-matchup-more:hover{border-color:#666;background:#171717;color:#fff}
 
 /* Monochrome Team Insights — matches the Private workspace. */
 .team-modal{border:1px solid #2b2b2b!important;background:#0b0b0b!important;box-shadow:0 35px 100px rgba(0,0,0,.72)!important}

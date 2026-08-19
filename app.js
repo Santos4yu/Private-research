@@ -112,6 +112,7 @@ const state = {
   v2BoardData: null,
   v2RenderedProps: [],
   boardFilter: "all",
+  matchupDisplayLimit: 40,
   builderLegs: 2,
   builderMode: "safe",
   builderResult: [],
@@ -3573,6 +3574,7 @@ function wireV2Board() {
     const btn = e.target.closest("[data-board-filter]");
     if (!btn) return;
     state.boardFilter = btn.dataset.boardFilter;
+    state.matchupDisplayLimit = 40;
     els.boardFilterRow.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b === btn));
     if (state.v2BoardData) renderBotBoard(state.v2BoardData);
   });
@@ -3709,6 +3711,7 @@ async function refreshVisibleMatchupScores(props) {
     p.stats._live_matchup_ready = false;
   });
   const queue = [...refreshable];
+  let completed = 0;
   // These are independent serverless reads. A wider pool keeps the Matchup
   // view responsive without making users wait for sequential player cards.
   const workers = Array.from({ length: Math.min(12, queue.length) }, async () => {
@@ -3730,6 +3733,14 @@ async function refreshVisibleMatchupScores(props) {
         });
       } catch (_) {
         // Keep the scan-time score when a live lookup is temporarily unavailable.
+      } finally {
+        completed += 1;
+        // Do not hold the whole board behind the slowest request. Publish a
+        // progressively improving ranking while the remaining candidates run.
+        if (completed % 12 === 0 && run === matchupRefreshRun
+            && state.boardFilter === "matchup" && state.v2BoardData) {
+          renderBotBoard(state.v2BoardData, { scoresAreLive: true });
+        }
       }
     }
   });
@@ -3789,10 +3800,10 @@ function renderBotBoard(data, { scoresAreLive = false } = {}) {
       seenPlayers.add(key);
       return true;
     });
-    // The research feed can contain hundreds of qualified markets. Regrading
-    // all of them on every tab visit creates minutes of blocking work. Keep a
-    // decision-ready top board and live-refresh that set with Research's model.
-    props = props.slice(0, 40);
+  }
+  const totalMatchups = state.boardFilter === "matchup" ? props.length : 0;
+  if (state.boardFilter === "matchup" && scoresAreLive) {
+    props = props.slice(0, state.matchupDisplayLimit);
   }
   props = props.map((p, index) => ({ ...p, _boardIndex: index }));
   state.v2RenderedProps = props;
@@ -3800,7 +3811,7 @@ function renderBotBoard(data, { scoresAreLive = false } = {}) {
     ? new Date(data.generated_at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
     : "recently";
   els.v2BoardDate.textContent = props.length
-    ? `${props.length} ${state.boardFilter === "matchup" ? `matchup${props.length === 1 ? "" : "s"}` : `prop${props.length === 1 ? "" : "s"}`} · updated ${boardUpdatedAt}`
+    ? `${state.boardFilter === "matchup" && scoresAreLive && totalMatchups > props.length ? `${props.length} of ${totalMatchups}` : props.length} ${state.boardFilter === "matchup" ? `matchup${totalMatchups === 1 ? "" : "s"}` : `prop${props.length === 1 ? "" : "s"}`} · updated ${boardUpdatedAt}`
     : "Active board";
   els.v2BoardEmpty.textContent =
     "";
@@ -3900,6 +3911,17 @@ function renderBotBoard(data, { scoresAreLive = false } = {}) {
     });
     els.v2BoardList.appendChild(row);
   });
+  if (state.boardFilter === "matchup" && scoresAreLive && props.length < totalMatchups) {
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "v2-matchup-more";
+    more.textContent = `Show 40 more (${totalMatchups - props.length} remaining)`;
+    more.addEventListener("click", () => {
+      state.matchupDisplayLimit += 40;
+      renderBotBoard(state.v2BoardData, { scoresAreLive: true });
+    });
+    els.v2BoardList.appendChild(more);
+  }
 }
 
 function boardStatCategory(statType) {
