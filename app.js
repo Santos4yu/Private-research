@@ -2924,7 +2924,7 @@ function fillPitchArsenal(node, p) {
 
   holder.innerHTML = `
     <article class="starter-profile-card">
-      <p class="arsenal-eyebrow">TONIGHT'S STARTER</p>
+      <p class="arsenal-eyebrow">Starting pitcher</p>
       <div class="starter-identity">
         <div class="starter-photo">${pitcherPhoto ? `<img src="${pitcherPhoto}" alt="" onerror="this.style.display='none'">` : "⚾"}</div>
         <div><h4>${val(starter.name, "Tonight's starter")} <span>${val(starter.hand)}HP</span></h4>
