@@ -2737,6 +2737,7 @@ function fillPitchArsenal(node, p) {
   const holder = block.querySelector(".arsenal-card-grid");
   const starter = p.starterProfile || {};
   const bvp = p.bvpCard || {};
+  const splitFallback = bvp.splitFallback || {};
   const colors = ["#42c7ff", "#ffb31a", "#7667ff", "#ff2d82", "#16d49a", "#ff6542"];
   const val = (value, fallback = "—") => value === null || value === undefined || value === "" ? fallback : escapeHtml(String(value));
   const rate = (value) => Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)}%` : "—";
@@ -2748,8 +2749,23 @@ function fillPitchArsenal(node, p) {
   const pitchPills = pitches.slice(0, 5).map((pitch, index) => `
     <span class="starter-pitch-pill"><i style="--pitch-color:${colors[index % colors.length]}"></i>${escapeHtml(pitch.name)} <b>${Number(pitch.pct).toFixed(0)}%</b></span>
   `).join("");
-  const bvpTitle = bvp.ab > 0 ? `CAREER VS ${escapeHtml(String(starter.name || "STARTER").split(" ").slice(-1)[0].toUpperCase())}` : "CAREER BvP";
-  const bvpSummary = bvp.ab > 0 ? `${bvp.hits || 0}-for-${bvp.ab} · ${bvp.pa || bvp.ab} PA` : "No prior meetings";
+  const hasBvp = Number(bvp.ab) > 0;
+  const bvpTitle = hasBvp
+    ? `CAREER VS ${escapeHtml(String(starter.name || "STARTER").split(" ").slice(-1)[0].toUpperCase())}`
+    : `SEASON VS ${escapeHtml(splitFallback.hand || starter.hand || "?")}HP`;
+  const bvpSummary = hasBvp
+    ? `${bvp.hits || 0}-for-${bvp.ab} · ${bvp.pa || bvp.ab} PA`
+    : `${val(splitFallback.pa, "0")} PA · handedness split`;
+  const lowerStats = hasBvp
+    ? [
+        ["AVG", avg(bvp.avg)], ["HR", val(bvp.hr, "0")], ["RBI", val(bvp.rbi, "0")],
+        ["BB", val(bvp.bb, "0")], ["K", val(bvp.k, "0")], ["OPS", avg(bvp.ops)],
+      ]
+    : [
+        ["AVG", avg(splitFallback.avg)], ["OPS", avg(splitFallback.ops)], ["HR", val(splitFallback.hr, "0")],
+        ["RBI", val(splitFallback.rbi, "0")], ["K%", rate(splitFallback.kPct)], ["PA", val(splitFallback.pa, "0")],
+      ];
+  const lowerGrid = lowerStats.map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join("");
   const pitchRows = pitches.map((pitch, index) => {
     const vs = pitch.batterVs || {};
     const kClass = Number(vs.kPct) >= 30 ? "arsenal-hot" : "";
@@ -2776,11 +2792,7 @@ function fillPitchArsenal(node, p) {
         <div><span>BB/9</span><strong>${val(starter.bbPer9)}</strong></div>
       </div>
       <div class="starter-bvp-head"><b>${bvpTitle}</b><span>${bvpSummary}</span></div>
-      <div class="starter-bvp-grid">
-        <div><span>AVG</span><strong>${avg(bvp.avg)}</strong></div><div><span>HR</span><strong>${val(bvp.hr, "0")}</strong></div>
-        <div><span>RBI</span><strong>${val(bvp.rbi, "0")}</strong></div><div><span>BB</span><strong>${val(bvp.bb, "0")}</strong></div>
-        <div><span>K</span><strong>${val(bvp.k, "0")}</strong></div><div><span>OPS</span><strong>${avg(bvp.ops)}</strong></div>
-      </div>
+      <div class="starter-bvp-grid">${lowerGrid}</div>
     </article>
     <article class="pitch-type-card">
       <div class="pitch-type-head"><div><p class="arsenal-eyebrow">${escapeHtml(String(p.player || "BATTER").split(" ").slice(-1)[0].toUpperCase())} VS PITCH TYPE</p><small>${escapeHtml(p.pitchArsenalSource || "MLB pitch data")}</small></div><span>SZN</span></div>

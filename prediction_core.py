@@ -1588,6 +1588,20 @@ def format_response(*, player_name, team_abbr, headshot, stat_label, prop_type, 
             "k": bvp.get("k", 0) if bvp else 0,
             "avg": bvp.get("avg") if bvp else None,
             "ops": bvp.get("ops") if bvp else None,
+            "splitFallback": (
+                {
+                    "hand": pitcher.get("hand"),
+                    "avg": hand_splits[pitcher.get("hand")].get("avg"),
+                    "ops": hand_splits[pitcher.get("hand")].get("ops"),
+                    "pa": hand_splits[pitcher.get("hand")].get("pa", 0),
+                    "hr": hand_splits[pitcher.get("hand")].get("hr", 0),
+                    "rbi": hand_splits[pitcher.get("hand")].get("rbi", 0),
+                    "kPct": hand_splits[pitcher.get("hand")].get("k_pct"),
+                }
+                if pitcher.get("hand") in ("L", "R")
+                and hand_splits and hand_splits.get(pitcher.get("hand"))
+                else None
+            ),
         },
         # Lightweight IDs only -- the actual lineup/arsenal-vs-batters lookup
         # (9 batters x several calls each) is fetched lazily via /api/team-insights
