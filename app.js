@@ -3796,8 +3796,11 @@ function renderBotBoard(data, { scoresAreLive = false } = {}) {
   }
   props = props.map((p, index) => ({ ...p, _boardIndex: index }));
   state.v2RenderedProps = props;
+  const boardUpdatedAt = data.generated_at
+    ? new Date(data.generated_at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
+    : "recently";
   els.v2BoardDate.textContent = props.length
-    ? `${props.length} ${state.boardFilter === "matchup" ? `matchup${props.length === 1 ? "" : "s"}` : `prop${props.length === 1 ? "" : "s"}`} · updated ${data.generated_at ? new Date(data.generated_at).toLocaleString() : "recently"}`
+    ? `${props.length} ${state.boardFilter === "matchup" ? `matchup${props.length === 1 ? "" : "s"}` : `prop${props.length === 1 ? "" : "s"}`} · updated ${boardUpdatedAt}`
     : "Active board";
   els.v2BoardEmpty.textContent =
     "";
