@@ -2769,9 +2769,10 @@ function fillPitchArsenal(node, p) {
   const pitchRows = pitches.map((pitch, index) => {
     const vs = pitch.batterVs || {};
     const kClass = Number(vs.kPct) >= 30 ? "arsenal-hot" : "";
+    const sampleClass = Number(vs.pa) > 0 && Number(vs.pa) < 10 ? "pitch-sample-thin" : "";
     return `<tr>
       <td><i class="pitch-dot" style="--pitch-color:${colors[index % colors.length]}"></i>${escapeHtml(pitch.name)}</td>
-      <td>${val(vs.pa)}</td><td>${rate(vs.whiffPct)}</td><td>${avg(vs.avg)}</td><td>${avg(vs.slg)}</td>
+      <td class="${sampleClass}" title="${sampleClass ? "Limited sample — displayed for context only" : ""}">${val(vs.pa)}</td><td>${rate(vs.whiffPct)}</td><td>${avg(vs.avg)}</td><td>${avg(vs.slg)}</td>
       <td>${val(vs.hr, "0")}</td><td class="${kClass}">${rate(vs.kPct)}</td>
     </tr>`;
   }).join("");
@@ -2797,7 +2798,7 @@ function fillPitchArsenal(node, p) {
     <article class="pitch-type-card">
       <div class="pitch-type-head"><div><p class="arsenal-eyebrow">${escapeHtml(String(p.player || "BATTER").split(" ").slice(-1)[0].toUpperCase())} VS PITCH TYPE</p><small>${escapeHtml(p.pitchArsenalSource || "MLB pitch data")}</small></div><span>SZN</span></div>
       <div class="pitch-type-scroll"><table><thead><tr><th>PITCH</th><th>FACED</th><th>WHIFF%</th><th>AVG</th><th>SLG</th><th>HR</th><th>K%</th></tr></thead><tbody>${pitchRows}</tbody></table></div>
-      <p class="pitch-type-note">Faced is the available pitch-type sample. AVG, SLG, HR and K% are season results against that pitch type across tracked MLB pitches.</p>
+      <p class="pitch-type-note">Faced is the available pitch-type sample. AVG, SLG, HR and K% are season results against that pitch type across tracked MLB pitches. Samples below 10 are shown for context but are not used in matchup scoring.</p>
     </article>`;
 }
 

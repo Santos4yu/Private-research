@@ -2311,7 +2311,10 @@ def _format_arsenal(arsenal: list, bat_vs_pitch: list = None) -> list:
     season (vs all pitchers -- labeled that way in the UI), matched by
     pitch_type code.
     """
-    perf_map = {r.get("pitch_type"): r for r in (bat_vs_pitch or [])}
+    perf_map = {
+        str(r.get("pitch_type") or "").strip().upper(): r
+        for r in (bat_vs_pitch or []) if r.get("pitch_type")
+    }
     out = []
     for p in (arsenal or []):
         name, pct = p.get("pitch_name"), p.get("pct")
@@ -2322,7 +2325,7 @@ def _format_arsenal(arsenal: list, bat_vs_pitch: list = None) -> list:
             "pct": pct,
             "speed": round(p["avg_speed"], 1) if p.get("avg_speed") is not None else None,
         }
-        perf = perf_map.get(p.get("pitch_type"))
+        perf = perf_map.get(str(p.get("pitch_type") or "").strip().upper())
         if perf:
             entry["batterVs"] = {
                 "avg": perf.get("avg"),

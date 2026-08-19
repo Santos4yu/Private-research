@@ -1534,10 +1534,10 @@ def get_batter_arsenal_stats(batter_id: int) -> list[dict]:
     it's fetched once, parsed, and file-cached as JSON keyed by player id
     (12h TTL); per-player calls after that are a dict lookup.
 
-    Returns [{pitch_type, pitch_name, pa, pitches, avg, slg, woba, whiff_pct,
-    k_pct}], PA >= 10.
+    Returns every tracked pitch-type sample for display. The matchup scoring
+    layer still applies its own 10-PA reliability floor before using a row.
     """
-    cache_file = CACHE_DIR / f"savant_batter_arsenal_v2_{SEASON}.json"
+    cache_file = CACHE_DIR / f"savant_batter_arsenal_v3_{SEASON}.json"
     table = None
     if cache_file.exists():
         try:
@@ -1553,7 +1553,7 @@ def get_batter_arsenal_stats(batter_id: int) -> list[dict]:
             r = requests.get(
                 "https://baseballsavant.mlb.com/leaderboard/pitch-arsenal-stats",
                 params={"type": "batter", "pitchType": "", "year": SEASON,
-                        "team": "", "min": "10", "csv": "true"},
+                        "team": "", "min": "1", "csv": "true"},
                 timeout=15,
                 headers={"User-Agent": "Mozilla/5.0"},
             )
@@ -1564,7 +1564,7 @@ def get_batter_arsenal_stats(batter_id: int) -> list[dict]:
             for row in reader:
                 pid = row.get("player_id", "").strip()
                 pa = int(float(row.get("pa", 0) or 0))
-                if not pid or pa < 10:
+                if not pid or pa < 1:
                     continue
                 table.setdefault(pid, []).append({
                     "pitch_type": row.get("pitch_type", ""),
@@ -1576,6 +1576,7 @@ def get_batter_arsenal_stats(batter_id: int) -> list[dict]:
                     "woba":       row.get("woba", ""),
                     "whiff_pct":  row.get("whiff_percent", ""),
                     "k_pct":      row.get("k_percent", ""),
+                    "hr":         int(float(row.get("home_run") or row.get("home_runs") or row.get("hr") or 0)),
                 })
             try:
                 cache_file.write_text(json.dumps(table), encoding="utf-8")

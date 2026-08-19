@@ -1698,6 +1698,7 @@ body::before {
 .pitch-type-card td { padding:13px 7px; border-top:1px solid rgba(255,255,255,.09); color:#b8b8b8; font-size:12px; text-align:right; font-variant-numeric:tabular-nums; }
 .pitch-type-card td:first-child { display:flex; align-items:center; gap:9px; min-width:145px; color:#eef2fb; font-weight:700; }
 .pitch-type-card .arsenal-hot { color:#ff2d82; font-weight:800; }
+.pitch-type-card .pitch-sample-thin { color:#777; text-decoration:underline dotted; text-underline-offset:3px; }
 .pitch-type-note { margin:14px 0 0; color:#666; font-size:10px; line-height:1.45; }
 @media (max-width:900px) { .arsenal-card-grid { grid-template-columns:1fr; } }
 @media (max-width:560px) { .starter-profile-card,.pitch-type-card { padding:16px; border-radius:17px; } .starter-bvp-grid { grid-template-columns:repeat(3,1fr); } .starter-bvp-grid div:nth-child(3) { border-right:0; } .starter-bvp-grid div:nth-child(-n+3) { border-bottom:1px solid rgba(126,151,198,.12); } }
