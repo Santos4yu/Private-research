@@ -5461,6 +5461,75 @@ button:focus-visible,[role="button"]:focus-visible{outline:2px solid #777!import
 .slate-read small,.slate-read.slate-easy small{color:#707070!important}.slate-read b,.slate-read.slate-easy b{color:#ddd!important;font-size:12px!important}
 .matchup-score-card{border-color:#2b2b2b!important;background:#0b0b0b!important;box-shadow:none!important}.matchup-score-value,.matchup-score-card[data-tone] .matchup-score-value{color:#e6e6e6!important}.matchup-score-track{background:#242424!important}.matchup-score-fill,.matchup-score-card[data-tone] .matchup-score-fill{background:#bdbdbd!important}.matchup-score-note{background:#121212!important;color:#8b8b8b!important}.matchup-score-factors>div{border-color:#282828!important}.matchup-score-factors b{color:#ddd!important}
 .matchup-bvp,.bvp-callout,.board-bvp-line{border-color:#303030!important;background:#101010!important;color:#bdbdbd!important;box-shadow:none!important}.matchup-bvp b,.bvp-callout b,.board-bvp-line b{color:#e2e2e2!important}.board-factor-row>b{color:#d0d0d0!important}
+
+/* Compact board preview: neutral palette, less vertical bulk, always-closeable. */
+#v2-board-list .v2-detail {
+  position:relative;
+  overflow:visible;
+  gap:0;
+  border-color:#292929!important;
+  border-radius:0 0 12px 12px!important;
+  background:#090909!important;
+  color:#d4d4d4;
+}
+.v2-detail-toolbar {
+  position:sticky;
+  top:12px;
+  z-index:30;
+  height:0;
+  display:flex;
+  justify-content:flex-end;
+  padding:10px 12px 0;
+  pointer-events:none;
+}
+.v2-detail-close {
+  pointer-events:auto;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  min-height:34px;
+  padding:6px 12px;
+  border:1px solid #444;
+  border-radius:999px;
+  background:rgba(12,12,12,.94);
+  color:#f1f1f1;
+  box-shadow:0 8px 24px rgba(0,0,0,.55);
+  font:700 11px var(--font-mono);
+  cursor:pointer;
+  backdrop-filter:blur(10px);
+}
+.v2-detail-close:hover { background:#f1f1f1; color:#090909; border-color:#f1f1f1; }
+#v2-board-list .board-analysis-summary { border-color:#292929; background:#0b0b0b; }
+#v2-board-list .board-analysis-summary>div { padding:12px 16px; border-color:#292929; }
+#v2-board-list .board-analysis-summary span,
+#v2-board-list .board-analysis-case span,
+#v2-board-list .board-matchup-line>span,
+#v2-board-list .board-bvp-line>span,
+#v2-board-list .board-factor-head>span { color:#828282; }
+#v2-board-list .board-analysis-summary strong { color:#f2f2f2; }
+#v2-board-list .board-analysis-summary small { color:#777; }
+#v2-board-list .board-analysis-case { grid-template-columns:minmax(0,1.4fr) minmax(280px,1fr); border-color:#292929; }
+#v2-board-list .board-analysis-case>div { padding:13px 16px; }
+#v2-board-list .board-analysis-case .risk { border-color:#292929; }
+#v2-board-list .board-analysis-case p { margin-top:5px; font-size:11px; line-height:1.45; }
+#v2-board-list .board-factor-table { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); border-color:#292929; }
+#v2-board-list .board-factor-head { grid-column:1/-1; padding:9px 16px; background:#101010; }
+#v2-board-list .board-factor-row { min-width:0; padding:11px 14px; border-top:1px solid #292929; border-right:1px solid #292929; }
+#v2-board-list .board-factor-row:last-child { border-right:0; }
+#v2-board-list .board-factor-row small { overflow:hidden; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; color:#747474; }
+#v2-board-list .board-matchup-line,
+#v2-board-list .board-bvp-line { padding:11px 16px; border-color:#292929; background:#0b0b0b!important; }
+#v2-board-list .board-analysis-actions { padding:11px 16px; border-top:0; }
+#v2-board-list .board-analysis-actions .v2-deepdive-btn { border-color:#3b3b3b; background:#151515; color:#e7e7e7; }
+#v2-board-list .board-analysis-actions .v2-deepdive-btn:hover { background:#eee; color:#080808; }
+@media(max-width:760px) {
+  #v2-board-list .board-analysis-case { grid-template-columns:1fr; }
+  #v2-board-list .board-analysis-case .risk { border-left:0; border-top:1px solid #292929; }
+  #v2-board-list .board-factor-table { grid-template-columns:1fr; }
+  #v2-board-list .board-factor-head { grid-column:auto; }
+  #v2-board-list .board-factor-row { border-right:0; }
+  .v2-detail-close { min-width:40px; min-height:40px; justify-content:center; }
+}
 @media(max-width:720px){.slate-read,.slate-read.slate-easy{min-width:0!important}.sr-team-logo{width:28px!important;height:28px!important}}
 
 /* Phone layout only — desktop remains unchanged. */

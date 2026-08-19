@@ -3434,6 +3434,20 @@ function wireV2Board() {
   });
 
   els.v2BoardList.addEventListener("click", (e) => {
+    const closeBtn = e.target.closest(".v2-detail-close");
+    if (closeBtn) {
+      e.stopPropagation();
+      const detail = closeBtn.closest(".v2-detail");
+      const row = detail?.previousElementSibling;
+      if (detail) detail.hidden = true;
+      if (row?.classList.contains("v2-row")) {
+        row.classList.remove("v2-open");
+        row.setAttribute("aria-expanded", "false");
+        row.scrollIntoView({ behavior: "smooth", block: "center" });
+        row.focus({ preventScroll: true });
+      }
+      return;
+    }
     const btn = e.target.closest(".v2-deepdive-btn");
     if (!btn) return;
     e.stopPropagation(); // don't also toggle the row's own open/close
@@ -3998,7 +4012,7 @@ function buildBotDetailHtml(p, i) {
     : "";
 
   const l5 = splits.l5?.rate, l10 = splits.l10?.rate, l20 = splits.l20?.rate;
-  let html = `<div class="board-analysis-summary">
+  let html = `<div class="v2-detail-toolbar"><button type="button" class="v2-detail-close" aria-label="Close expanded matchup">× <span>Close</span></button></div><div class="board-analysis-summary">
     <div><span>PRICE</span><strong>${escapeHtml(fmtBotEv(p))}</strong><small>${escapeHtml(p.sportsbook || "Best available")}${typeof stats.best_odds === "number" ? ` · ${stats.best_odds > 0 ? "+" : ""}${stats.best_odds}` : ""}</small></div>
     <div><span>RECENT</span><strong>${typeof l10 === "number" ? `${l10}% L10` : "No sample"}</strong><small>${typeof l5 === "number" ? `${l5}% L5` : "L5 —"}${typeof l20 === "number" ? ` · ${l20}% L20` : ""}</small></div>
     <div><span>MATCHUP</span><strong>${Number.isFinite(Number(stats.matchup_score)) ? `${Math.round(Number(stats.matchup_score))}/100` : "Not graded"}</strong><small>${escapeHtml(boardMatchupLabel(stats.matchup_score) || "Coverage unavailable")}</small></div>
