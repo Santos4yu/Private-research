@@ -1108,16 +1108,21 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
     # are good. When the comparison split is unavailable, fall back to the
     # absolute split but keep it sample-shrunk.
     if other_ops > 0:
-        hand_raw = 50.0 if abs(delta) < .040 and abs(avg_delta) < .015 else 50 + delta * 110 + avg_delta * 80
+        # OPS carries the larger share, but a true 90+ point AVG gap paired
+        # with a large OPS gap is an elite platoon signal. The old slopes kept
+        # even a .289/.888 vs .197/.590 profile below a full-strength grade.
+        hand_raw = 50.0 if abs(delta) < .040 and abs(avg_delta) < .015 else 50 + delta * 150 + avg_delta * 100
     else:
         hand_raw = 50 + (hand_ops - .720) * 110
     # A platoon edge is a comparison between two samples, so confidence must
     # reflect both sides of that comparison. Reaching the full 23-point
     # allocation after only 50 PA made extreme early-season splits look as
     # trustworthy as established multi-season splits. Use the smaller sample
-    # and require roughly 100 PA on each side for full confidence.
+    # and require roughly 75 PA on each side for full confidence. This still
+    # heavily shrinks tiny samples while no longer suppressing established
+    # half-season platoon evidence.
     comparison_pa = min(hand_pa, other_pa) if other_ops > 0 else hand_pa
-    hand_confidence = min(1.0, comparison_pa / 100.0) ** .6 if hand_ok else 0
+    hand_confidence = min(1.0, comparison_pa / 75.0) ** .6 if hand_ok else 0
     add("handedness", sided(hand_raw),
         detail if hand_ok else "Split unavailable", hand_ok, hand_confidence)
     factors[-1]["name"] = f"Splits vs {ph}HP" if ph in ("L", "R") else "Handedness splits"
@@ -1128,9 +1133,12 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
     except (TypeError, ValueError): era = fip = whip = hr9 = 0.0
     pq_ok = era > 0 or fip > 0
     blended = era * .6 + fip * .4 if era and fip else era or fip
-    pitcher_raw = 50 + (blended - 4.10) * 20
-    if whip > 0: pitcher_raw += (whip - 1.28) * 20
-    if hr9 > 0: pitcher_raw += (hr9 - 1.15) * 7
+    # ERA/FIP establish run prevention; WHIP is the strongest direct traffic
+    # signal for batter counting-stat props. Increase both without allowing a
+    # noisy ERA alone to overwhelm a healthy FIP/HR rate.
+    pitcher_raw = 50 + (blended - 4.10) * 26
+    if whip > 0: pitcher_raw += (whip - 1.28) * 35
+    if hr9 > 0: pitcher_raw += (hr9 - 1.15) * 8
     pitcher_name = pitcher.get("name") or "Tonight's starter"
     quality_label = "very vulnerable starter" if pitcher_raw >= 75 else "below-average starter" if pitcher_raw >= 60 else "strong starter" if pitcher_raw <= 40 else "roughly average starter"
     pitcher_detail = f"{pitcher_name} · " + (f"{era:.2f} ERA / {fip:.2f} FIP" if fip else f"{blended:.2f} ERA")
@@ -1185,7 +1193,7 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
     )
     arsenal_coverage_confidence = min(1.0, coverage / 70.0) ** .6 if mix_ok else 0.0
     arsenal_delta = mix - .320
-    arsenal_slope = 300.0 if arsenal_delta >= 0 else 450.0
+    arsenal_slope = 550.0 if arsenal_delta >= 0 else 450.0
     add("arsenal_fit", sided(50 + arsenal_delta * arsenal_slope),
         arsenal_detail,
         mix_ok, arsenal_sample_confidence * arsenal_coverage_confidence)
@@ -1242,7 +1250,9 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
     core_weight = sum(f["weight"] for f in core_factors)
     data_coverage = (sum(f["weight"] for f in core_factors if f["available"]) / core_weight
                      if core_weight else 0.0)
-    score = max(0, min(100, round(50 + sum(f["impact"] for f in factors))))
+    # A matchup grade can be exceptional without implying certainty. Reserve
+    # a small amount of uncertainty even when every available factor aligns.
+    score = max(0, min(97, round(50 + sum(f["impact"] for f in factors))))
     strong_support = sum(
         1 for f in factors if f["available"]
         and f["impact"] >= max(3, round(f["weight"] * .35))
