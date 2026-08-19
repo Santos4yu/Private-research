@@ -6089,18 +6089,36 @@ body::before{background:linear-gradient(115deg,transparent 12%,color-mix(in srgb
   background:var(--theme-panel)!important;
   background-image:none!important;
   box-shadow:none!important;
+  overflow:hidden!important;
 }
 :root[data-theme] .search-box .card-border-glow{display:none!important}
 :root[data-theme] .search-box input,
-:root[data-theme] .search-box input:focus{
+:root[data-theme] .search-box input:focus,
+:root[data-theme] #search-input{
   border:0!important;
   outline:0!important;
-  background:transparent!important;
-  background-color:transparent!important;
+  border-radius:0!important;
+  -webkit-appearance:none!important;
+  appearance:none!important;
+  background:var(--theme-panel)!important;
+  background-color:var(--theme-panel)!important;
   background-image:none!important;
   box-shadow:none!important;
+  -webkit-box-shadow:none!important;
   color:var(--theme-text)!important;
 }
+:root[data-theme] #search-input:-webkit-autofill,
+:root[data-theme] #search-input:-webkit-autofill:hover,
+:root[data-theme] #search-input:-webkit-autofill:focus,
+:root[data-theme] #search-input:-webkit-autofill:active{
+  -webkit-text-fill-color:var(--theme-text)!important;
+  caret-color:var(--theme-text)!important;
+  -webkit-box-shadow:0 0 0 1000px var(--theme-panel) inset!important;
+  box-shadow:0 0 0 1000px var(--theme-panel) inset!important;
+  background-color:var(--theme-panel)!important;
+  transition:background-color 99999s ease-out 0s!important;
+}
+:root[data-theme] #search-input::selection{background:var(--theme-accent-dim)!important;color:var(--theme-text)!important}
 :root[data-theme] .search-box .search-icon{
   border-color:var(--theme-border)!important;
   background:var(--theme-accent)!important;
