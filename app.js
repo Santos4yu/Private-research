@@ -1123,11 +1123,13 @@ function wireStatsDropdown() {
 function openStatsMenu() {
   els.profileStatsMenu.hidden = false;
   els.profileStatsTrigger.classList.add("open");
+  syncDropdownScrollLock();
 }
 
 function closeStatsMenu() {
   els.profileStatsMenu.hidden = true;
   els.profileStatsTrigger.classList.remove("open");
+  syncDropdownScrollLock();
 }
 
 /** Group all props by player so the dropdown/chips show one row per player. */
@@ -1345,6 +1347,11 @@ const prizePicksLineCache = new Map();
 let currentResearchProp = null;
 let prizePicksDefaultPending = false;
 
+function syncDropdownScrollLock() {
+  const menuOpen = !els.profileStatsMenu.hidden || !els.ppLinesMenu.hidden;
+  document.body.classList.toggle("dropdown-scroll-locked", menuOpen);
+}
+
 function wireLinePicker() {
   els.sideToggle.querySelectorAll(".side-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -1368,16 +1375,29 @@ function wireLinePicker() {
   });
   els.lineStepDown.addEventListener("click", () => { prizePicksDefaultPending = false; setLineValue(cmd.line - 0.5, { immediate: true }); });
   els.lineStepUp.addEventListener("click", () => { prizePicksDefaultPending = false; setLineValue(cmd.line + 0.5, { immediate: true }); });
-  els.ppLinesTrigger.addEventListener("click", () => {
+  const togglePrizePicksMenu = () => {
     const opening = els.ppLinesMenu.hidden;
     els.ppLinesMenu.hidden = !opening;
     els.ppLinesTrigger.setAttribute("aria-expanded", String(opening));
+    syncDropdownScrollLock();
     if (opening) loadPrizePicksLines();
+  };
+  els.ppLinesTrigger.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    els.ppLinesTrigger.focus();
+    togglePrizePicksMenu();
+  });
+  els.ppLinesTrigger.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    togglePrizePicksMenu();
   });
   document.addEventListener("click", (event) => {
     if (!els.ppLinesMenu.hidden && !els.ppLinesWrap.contains(event.target)) {
       els.ppLinesMenu.hidden = true;
       els.ppLinesTrigger.setAttribute("aria-expanded", "false");
+      syncDropdownScrollLock();
     }
   });
 }
@@ -1423,6 +1443,7 @@ async function loadPrizePicksLines() {
       prizePicksDefaultPending = false;
       els.ppLinesMenu.hidden = true;
       els.ppLinesTrigger.setAttribute("aria-expanded", "false");
+      syncDropdownScrollLock();
       setLineValue(Number(button.dataset.ppLine), { immediate: true });
     }));
     const stillCurrent = `${cmd.player}|${cmd.stat}|${currentResearchProp?.matchup?.opponent || ""}`.toLowerCase() === key;
@@ -1517,6 +1538,7 @@ function selectStat(stat) {
   currentResearchProp = null;
   els.ppLinesWrap.hidden = true;
   els.ppLinesMenu.hidden = true;
+  syncDropdownScrollLock();
   if (els.profileStats.value !== stat) els.profileStats.value = stat;
   els.profileStatsTriggerLabel.textContent = stat;
   els.profileStatsMenu.querySelectorAll(".profile-stats-menu-item").forEach((li) => {

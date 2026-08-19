@@ -362,7 +362,7 @@
           <button type="button" class="side-btn" data-side="Under">Under</button>
           <button type="button" class="side-btn" data-side="Over">Over</button>
         </div>
-        <div class="line-input-group">
+        <div class="line-input-group" hidden aria-hidden="true">
           <button type="button" class="line-step" id="line-step-down" aria-label="Decrease line">−</button>
           <input type="number" id="line-number" class="line-number" step="0.5" inputmode="decimal" />
           <button type="button" class="line-step" id="line-step-up" aria-label="Increase line">+</button>
@@ -372,7 +372,7 @@
           <div class="pp-lines-menu" id="pp-lines-menu" hidden></div>
         </div>
       </div>
-      <input type="range" id="line-slider" class="line-slider" step="0.5" />
+      <input type="range" id="line-slider" class="line-slider" step="0.5" hidden aria-hidden="true" />
       <p class="line-no-data" id="line-no-data" hidden></p>
     </div>
   </div>
