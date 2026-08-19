@@ -2772,8 +2772,9 @@ function fillPitchArsenal(node, p) {
     const sampleClass = Number(vs.pa) > 0 && Number(vs.pa) < 10 ? "pitch-sample-thin" : "";
     return `<tr>
       <td><i class="pitch-dot" style="--pitch-color:${colors[index % colors.length]}"></i>${escapeHtml(pitch.name)}</td>
-      <td class="${sampleClass}" title="${sampleClass ? "Limited sample — displayed for context only" : ""}">${val(vs.pa)}</td><td>${rate(vs.whiffPct)}</td><td>${avg(vs.avg)}</td><td>${avg(vs.slg)}</td>
-      <td>${val(vs.hr, "0")}</td><td class="${kClass}">${rate(vs.kPct)}</td>
+      <td data-label="FACED" class="${sampleClass}" title="${sampleClass ? "Limited sample — displayed for context only" : ""}">${val(vs.pa)}</td>
+      <td data-label="WHIFF%">${rate(vs.whiffPct)}</td><td data-label="AVG">${avg(vs.avg)}</td><td data-label="SLG">${avg(vs.slg)}</td>
+      <td data-label="HR">${val(vs.hr, "0")}</td><td data-label="K%" class="${kClass}">${rate(vs.kPct)}</td>
     </tr>`;
   }).join("");
 
