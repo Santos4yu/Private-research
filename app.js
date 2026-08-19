@@ -1374,6 +1374,12 @@ function wireLinePicker() {
     els.ppLinesTrigger.setAttribute("aria-expanded", String(opening));
     if (opening) loadPrizePicksLines();
   });
+  document.addEventListener("click", (event) => {
+    if (!els.ppLinesMenu.hidden && !els.ppLinesWrap.contains(event.target)) {
+      els.ppLinesMenu.hidden = true;
+      els.ppLinesTrigger.setAttribute("aria-expanded", "false");
+    }
+  });
 }
 
 function americanOdds(value) {
@@ -1398,21 +1404,21 @@ async function loadPrizePicksLines() {
     const availableLines = (data.lines || []).filter(row => cmd.side === "Under" ? row.ppUnder : row.ppOver);
     if (!availableLines.length) throw new Error(`PrizePicks has not posted ${cmd.side} lines for this player yet.`);
     const currentRow = availableLines.find(row => Math.abs(Number(row.line) - Number(cmd.line)) < .01);
-    const currentPrice = currentRow && (cmd.side === "Under" ? currentRow.dkUnderOdds : currentRow.dkOverOdds);
     if (`${cmd.player}|${cmd.stat}|${opponent}`.toLowerCase() === key) {
-      els.ppLinesTrigger.querySelector("b").textContent = currentRow
-        ? `${cmd.line} · ${currentRow.tier || (currentRow.featured ? "Standard" : "Alt")}${currentPrice != null ? ` · DK ${americanOdds(currentPrice)}` : ""}`
+      const currentTier = currentRow?.tier || (currentRow?.featured ? "STANDARD" : "ALT");
+      const currentTierIcon = currentTier === "GOBLIN" ? "/prizepicks/goblin.png" : currentTier === "DEMON" ? "/prizepicks/demon.png" : "";
+      els.ppLinesTrigger.querySelector("b").innerHTML = currentRow
+        ? `<span>${cmd.line}</span>${currentTierIcon ? `<img src="${currentTierIcon}" alt="" />` : ""}`
         : "PrizePicks lines";
     }
-    els.ppLinesMenu.innerHTML = `<div class="pp-lines-head"><div><span><img src="/prizepicks/logo.png" alt="" /> PrizePicks</span><b>${escapeHtml(cmd.stat)}</b></div><small>GOBLINS &amp; DEMONS</small></div>` + availableLines.map(row => {
+    els.ppLinesMenu.innerHTML = `<div class="pp-lines-head"><div><span><img src="/prizepicks/logo.png" alt="" /> PrizePicks</span><b>${escapeHtml(cmd.stat)}</b></div></div>` + availableLines.map(row => {
       const selected = Math.abs(Number(row.line) - Number(cmd.line)) < .01;
       const safer = featured != null && (cmd.side === "Over" ? row.line < featured : row.line > featured);
       const boosted = featured != null && (cmd.side === "Over" ? row.line > featured : row.line < featured);
       const tier = row.tier || (row.featured ? "STANDARD" : safer ? "GOBLIN" : boosted ? "DEMON" : "ALT");
-      const dkPrice = cmd.side === "Under" ? row.dkUnderOdds : row.dkOverOdds;
       const tierIcon = tier === "GOBLIN" ? "/prizepicks/goblin.png" : tier === "DEMON" ? "/prizepicks/demon.png" : "";
-      return `<button type="button" class="pp-line-option ${selected ? "selected" : ""}" data-pp-line="${row.line}"><span class="pp-line-main"><b>${row.line}</b><span class="pp-line-icons"><img src="/prizepicks/logo.png" alt="PrizePicks" />${tierIcon ? `<img class="pp-creature-icon" src="${tierIcon}" alt="${tier.toLowerCase()}" />` : ""}</span><small class="pp-tier-${tier.toLowerCase()}">${tier}</small></span><strong>${dkPrice != null ? `DK ${americanOdds(dkPrice)}` : escapeHtml(cmd.side)}</strong>${selected ? "<i>✓</i>" : ""}</button>`;
-    }).join("") + `<p>Goblins and Demons come from PrizePicks' alternate feed. DraftKings odds appear only when DK posts the identical standard line.</p>`;
+      return `<button type="button" class="pp-line-option ${selected ? "selected" : ""}" data-pp-line="${row.line}"><b>${row.line}</b><span class="pp-line-icons"><img src="/prizepicks/logo.png" alt="PrizePicks" />${tierIcon ? `<img class="pp-creature-icon" src="${tierIcon}" alt="" />` : ""}</span>${selected ? "<i>✓</i>" : ""}</button>`;
+    }).join("");
     els.ppLinesMenu.querySelectorAll("[data-pp-line]").forEach(button => button.addEventListener("click", () => {
       prizePicksDefaultPending = false;
       els.ppLinesMenu.hidden = true;
