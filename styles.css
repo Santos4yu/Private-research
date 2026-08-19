@@ -1660,6 +1660,45 @@ body::before {
   color: var(--text-dim);
 }
 .vs-pa { color: var(--text-faint); }
+
+/* Compact starter + pitch-type research cards */
+.arsenal-card-grid { display:grid; grid-template-columns:minmax(0,.9fr) minmax(0,1.35fr); gap:18px; }
+.starter-profile-card,.pitch-type-card { border:1px solid rgba(126,151,198,.18); border-radius:22px; padding:22px; background:linear-gradient(145deg,rgba(12,25,48,.78),rgba(7,15,29,.92)); box-shadow:inset 0 0 0 1px rgba(255,255,255,.015); }
+.arsenal-eyebrow { margin:0; color:#8993aa; font:700 11px/1.2 var(--font-mono); letter-spacing:.14em; }
+.starter-identity { display:flex; align-items:center; gap:14px; margin:14px 0; }
+.starter-photo { width:68px; height:68px; display:grid; place-items:center; overflow:hidden; border-radius:50%; color:#52d5ff; background:rgba(25,190,227,.12); border:2px solid rgba(36,204,232,.52); box-shadow:0 0 0 7px rgba(31,198,226,.08); }
+.starter-photo img { width:100%; height:100%; object-fit:contain; }
+.starter-identity h4 { margin:0 0 4px; font-size:22px; color:#fff; }
+.starter-identity h4 span { display:inline-block; margin-left:6px; padding:3px 7px; border-radius:7px; background:rgba(139,151,179,.16); color:#aeb7ca; font:700 12px var(--font-mono); vertical-align:middle; }
+.starter-identity p { margin:0; color:#737e94; font:600 13px var(--font-mono); }
+.starter-pitch-pills { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 20px; }
+.starter-pitch-pill { display:flex; align-items:center; gap:7px; padding:6px 10px; border:1px solid rgba(133,151,188,.14); border-radius:999px; background:rgba(117,137,175,.07); color:#c7cede; font:600 12px var(--font-mono); }
+.starter-pitch-pill i,.pitch-dot { width:8px; height:8px; flex:0 0 8px; border-radius:50%; background:var(--pitch-color); box-shadow:0 0 10px color-mix(in srgb,var(--pitch-color) 65%,transparent); }
+.starter-pitch-pill b { color:#7e899f; }
+.starter-metrics { display:grid; grid-template-columns:repeat(4,1fr); margin:0 0 18px; }
+.starter-metrics div { text-align:center; padding:8px 5px; border-right:1px solid rgba(126,151,198,.13); }
+.starter-metrics div:last-child { border-right:0; }
+.starter-metrics span,.starter-bvp-grid span { display:block; margin-bottom:6px; color:#78839a; font:700 11px var(--font-mono); letter-spacing:.08em; }
+.starter-metrics strong { color:#fff; font:800 22px var(--font-mono); }
+.starter-bvp-head { display:flex; justify-content:space-between; gap:12px; padding-top:17px; border-top:1px solid rgba(126,151,198,.14); color:#7d879c; font:700 11px var(--font-mono); letter-spacing:.09em; }
+.starter-bvp-head span { letter-spacing:0; text-align:right; }
+.starter-bvp-grid { display:grid; grid-template-columns:repeat(6,1fr); margin-top:14px; border:1px solid rgba(38,203,218,.22); border-radius:16px; overflow:hidden; background:rgba(11,42,63,.42); }
+.starter-bvp-grid div { padding:15px 6px; text-align:center; border-right:1px solid rgba(126,151,198,.12); }
+.starter-bvp-grid div:last-child { border-right:0; }
+.starter-bvp-grid strong { color:#fff; font:750 17px var(--font-mono); }
+.pitch-type-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:14px; }
+.pitch-type-head small { display:block; margin-top:6px; color:#566178; font-size:10px; }
+.pitch-type-head>span { padding:5px 8px; border:1px solid rgba(126,151,198,.16); border-radius:7px; color:#8c96aa; background:rgba(126,151,198,.08); font:700 11px var(--font-mono); }
+.pitch-type-scroll { overflow-x:auto; }
+.pitch-type-card table { width:100%; border-collapse:collapse; font-family:var(--font-mono); }
+.pitch-type-card th { padding:8px 7px; color:#707b90; font-size:10px; letter-spacing:.06em; text-align:right; }
+.pitch-type-card th:first-child,.pitch-type-card td:first-child { text-align:left; }
+.pitch-type-card td { padding:13px 7px; border-top:1px solid rgba(126,151,198,.1); color:#aab3c6; font-size:12px; text-align:right; font-variant-numeric:tabular-nums; }
+.pitch-type-card td:first-child { display:flex; align-items:center; gap:9px; min-width:145px; color:#eef2fb; font-weight:700; }
+.pitch-type-card .arsenal-hot { color:#ff2d82; font-weight:800; }
+.pitch-type-note { margin:14px 0 0; color:#536078; font-size:10px; line-height:1.45; }
+@media (max-width:900px) { .arsenal-card-grid { grid-template-columns:1fr; } }
+@media (max-width:560px) { .starter-profile-card,.pitch-type-card { padding:16px; border-radius:17px; } .starter-bvp-grid { grid-template-columns:repeat(3,1fr); } .starter-bvp-grid div:nth-child(3) { border-right:0; } .starter-bvp-grid div:nth-child(-n+3) { border-bottom:1px solid rgba(126,151,198,.12); } }
 @media (max-width: 640px) {
   .arsenal-vs { padding-left: 96px; }
 }

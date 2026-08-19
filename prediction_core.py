@@ -1242,6 +1242,19 @@ def format_k_prop_response(*, player_name, team_abbr, headshot, stat_label, line
         # This player's OWN arsenal -- the whiff weapons driving the K total.
         "pitchArsenal": _format_arsenal(arsenal),
         "pitchArsenalLabel": f"{player_name}'s arsenal",
+        "starterProfile": {
+            "id": player_id,
+            "name": player_name,
+            "hand": k_card.get("hand") or season.get("hand") or "?",
+            "era": season.get("era"),
+            "whip": season.get("whip"),
+            "kPer9": season.get("k_per_9"),
+            "bbPer9": season.get("bb_per_9"),
+            "gamesStarted": season.get("games_started"),
+            "wins": season.get("wins"),
+            "losses": season.get("losses"),
+        },
+        "bvpCard": {},
         # Team Insights = the OPPOSING lineup this pitcher faces tonight.
         "teamInsightsParams": (
             {
@@ -1553,6 +1566,29 @@ def format_response(*, player_name, team_abbr, headshot, stat_label, prop_type, 
         ),
         "pitchArsenalSource": "Official MLB Stats API pitch mix / Baseball Savant Pitch Arsenal Stats",
         "pitchArsenalAsOf": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "starterProfile": {
+            "id": pitcher.get("pitcher_id") or pitcher.get("id"),
+            "name": pitcher.get("name") or matchup.get("pitcher") or "Tonight's starter",
+            "hand": pitcher.get("hand") or "?",
+            "era": pitcher.get("era"),
+            "whip": pitcher.get("whip"),
+            "kPer9": pitcher.get("k_per_9"),
+            "bbPer9": pitcher.get("bb_per_9"),
+            "gamesStarted": pitcher.get("games_started"),
+            "wins": pitcher.get("wins"),
+            "losses": pitcher.get("losses"),
+        },
+        "bvpCard": {
+            "ab": bvp.get("ab", 0) if bvp else 0,
+            "pa": bvp.get("pa") if bvp else None,
+            "hits": bvp.get("hits", 0) if bvp else 0,
+            "hr": bvp.get("hr", 0) if bvp else 0,
+            "rbi": bvp.get("rbi", 0) if bvp else 0,
+            "bb": bvp.get("bb", 0) if bvp else 0,
+            "k": bvp.get("k", 0) if bvp else 0,
+            "avg": bvp.get("avg") if bvp else None,
+            "ops": bvp.get("ops") if bvp else None,
+        },
         # Lightweight IDs only -- the actual lineup/arsenal-vs-batters lookup
         # (9 batters x several calls each) is fetched lazily via /api/team-insights
         # only when the user opens that view, not on every card load.
@@ -2280,6 +2316,8 @@ def _format_arsenal(arsenal: list, bat_vs_pitch: list = None) -> list:
                 "woba": perf.get("woba"),
                 "whiffPct": perf.get("whiff_pct"),
                 "pa": perf.get("pa"),
+                "hr": perf.get("hr", 0),
+                "kPct": perf.get("k_pct"),
                 "season": stats_mlb.SEASON,
             }
         out.append(entry)

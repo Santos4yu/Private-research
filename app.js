@@ -2734,33 +2734,59 @@ function fillPitchArsenal(node, p) {
     return;
   }
   block.hidden = false;
-  block.querySelector(".arsenal-sub").textContent = [p.pitchArsenalLabel, p.pitchArsenalSource].filter(Boolean).join(" · ");
+  const holder = block.querySelector(".arsenal-card-grid");
+  const starter = p.starterProfile || {};
+  const bvp = p.bvpCard || {};
+  const colors = ["#42c7ff", "#ffb31a", "#7667ff", "#ff2d82", "#16d49a", "#ff6542"];
+  const val = (value, fallback = "—") => value === null || value === undefined || value === "" ? fallback : escapeHtml(String(value));
+  const rate = (value) => Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)}%` : "—";
+  const avg = (value) => value === null || value === undefined || value === "" ? "—" : formatBattingAverage(value);
+  const pitcherId = starter.id || "";
+  const pitcherPhoto = pitcherId
+    ? `https://img.mlbstatic.com/mlb-photos/image/upload/w_160,q_auto:best/v1/people/${pitcherId}/headshot/silo/current`
+    : "";
+  const pitchPills = pitches.slice(0, 5).map((pitch, index) => `
+    <span class="starter-pitch-pill"><i style="--pitch-color:${colors[index % colors.length]}"></i>${escapeHtml(pitch.name)} <b>${Number(pitch.pct).toFixed(0)}%</b></span>
+  `).join("");
+  const bvpTitle = bvp.ab > 0 ? `CAREER VS ${escapeHtml(String(starter.name || "STARTER").split(" ").slice(-1)[0].toUpperCase())}` : "CAREER BvP";
+  const bvpSummary = bvp.ab > 0 ? `${bvp.hits || 0}-for-${bvp.ab} · ${bvp.pa || bvp.ab} PA` : "No prior meetings";
+  const pitchRows = pitches.map((pitch, index) => {
+    const vs = pitch.batterVs || {};
+    const kClass = Number(vs.kPct) >= 30 ? "arsenal-hot" : "";
+    return `<tr>
+      <td><i class="pitch-dot" style="--pitch-color:${colors[index % colors.length]}"></i>${escapeHtml(pitch.name)}</td>
+      <td>${val(vs.pa)}</td><td>${rate(vs.whiffPct)}</td><td>${avg(vs.avg)}</td><td>${avg(vs.slg)}</td>
+      <td>${val(vs.hr, "0")}</td><td class="${kClass}">${rate(vs.kPct)}</td>
+    </tr>`;
+  }).join("");
 
-  const holder = block.querySelector(".arsenal-rows");
-  holder.innerHTML = "";
-  const maxPct = Math.max(...pitches.map((x) => x.pct), 1);
-  pitches.forEach((pitch) => {
-    const row = document.createElement("div");
-    row.className = "arsenal-row";
-    row.innerHTML = `
-      <span class="arsenal-name">${escapeHtml(pitch.name)}</span>
-      <div class="arsenal-track"><div class="arsenal-fill" style="width:${(pitch.pct / maxPct) * 100}%"></div></div>
-      <span class="arsenal-pct">${pitch.pct}%</span>
-      <span class="arsenal-speed">${pitch.speed != null ? pitch.speed + " mph" : ""}</span>
-    `;
-    holder.appendChild(row);
-
-    const vs = pitch.batterVs;
-    if (vs) {
-      const detail = document.createElement("div");
-      detail.className = "arsenal-vs";
-      detail.innerHTML = `
-        <span class="vs-tier vs-tier-avg">${escapeHtml(String(vs.season || "Season"))}</span>
-        <span class="vs-stats">${formatBattingAverage(vs.avg)} AVG · ${formatBattingAverage(vs.slg)} SLG · ${escapeHtml(String(vs.whiffPct))}% whiff <span class="vs-pa">(${vs.pa} PA · all MLB pitchers)</span></span>
-      `;
-      holder.appendChild(detail);
-    }
-  });
+  holder.innerHTML = `
+    <article class="starter-profile-card">
+      <p class="arsenal-eyebrow">TONIGHT'S STARTER</p>
+      <div class="starter-identity">
+        <div class="starter-photo">${pitcherPhoto ? `<img src="${pitcherPhoto}" alt="" onerror="this.style.display='none'">` : "⚾"}</div>
+        <div><h4>${val(starter.name, "Tonight's starter")} <span>${val(starter.hand)}HP</span></h4>
+        <p>${starter.gamesStarted ? `${val(starter.gamesStarted)} GS` : "Current season"}${starter.wins !== undefined && starter.losses !== undefined ? ` · ${val(starter.wins)}-${val(starter.losses)}` : ""}</p></div>
+      </div>
+      <div class="starter-pitch-pills">${pitchPills}</div>
+      <div class="starter-metrics">
+        <div><span>ERA</span><strong>${val(starter.era)}</strong></div>
+        <div><span>WHIP</span><strong>${val(starter.whip)}</strong></div>
+        <div><span>K/9</span><strong>${val(starter.kPer9)}</strong></div>
+        <div><span>BB/9</span><strong>${val(starter.bbPer9)}</strong></div>
+      </div>
+      <div class="starter-bvp-head"><b>${bvpTitle}</b><span>${bvpSummary}</span></div>
+      <div class="starter-bvp-grid">
+        <div><span>AVG</span><strong>${avg(bvp.avg)}</strong></div><div><span>HR</span><strong>${val(bvp.hr, "0")}</strong></div>
+        <div><span>RBI</span><strong>${val(bvp.rbi, "0")}</strong></div><div><span>BB</span><strong>${val(bvp.bb, "0")}</strong></div>
+        <div><span>K</span><strong>${val(bvp.k, "0")}</strong></div><div><span>OPS</span><strong>${avg(bvp.ops)}</strong></div>
+      </div>
+    </article>
+    <article class="pitch-type-card">
+      <div class="pitch-type-head"><div><p class="arsenal-eyebrow">${escapeHtml(String(p.player || "BATTER").split(" ").slice(-1)[0].toUpperCase())} VS PITCH TYPE</p><small>${escapeHtml(p.pitchArsenalSource || "MLB pitch data")}</small></div><span>SZN</span></div>
+      <div class="pitch-type-scroll"><table><thead><tr><th>PITCH</th><th>FACED</th><th>WHIFF%</th><th>AVG</th><th>SLG</th><th>HR</th><th>K%</th></tr></thead><tbody>${pitchRows}</tbody></table></div>
+      <p class="pitch-type-note">Faced is the available pitch-type sample. AVG, SLG, HR and K% are season results against that pitch type across tracked MLB pitches.</p>
+    </article>`;
 }
 
 function fillSplitFactor(node, p) {
