@@ -106,6 +106,9 @@ def _prizepicks_lines(player_name, stat_label, opponent):
                 side = str(outcome.get("name") or "").lower()
                 if side == "over": row["dkOverOdds"] = price
                 if side == "under": row["dkUnderOdds"] = price
+    for row in rows.values():
+        row["tier"] = ("STANDARD" if row["featured"] else
+                       "DEMON" if row.get("prizePicksPrice") == 100 else "GOBLIN")
     result = {
         "player": player_name, "stat": stat_label, "book": "PrizePicks",
         "eventId": event["id"], "lastUpdate": updated,

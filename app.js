@@ -1343,6 +1343,7 @@ function renderBrowseChips() {
 const cmd = { player: null, stat: null, line: null, side: null };
 const prizePicksLineCache = new Map();
 let currentResearchProp = null;
+let prizePicksDefaultPending = false;
 
 function wireLinePicker() {
   els.sideToggle.querySelectorAll(".side-btn").forEach((btn) => {
@@ -1355,16 +1356,18 @@ function wireLinePicker() {
   });
 
   els.lineSlider.addEventListener("input", () => {
+    prizePicksDefaultPending = false;
     setLineValue(Number(els.lineSlider.value));
   });
   els.lineSlider.addEventListener("change", () => {
     setLineValue(Number(els.lineSlider.value), { immediate: true });
   });
   els.lineNumber.addEventListener("change", () => {
+    prizePicksDefaultPending = false;
     setLineValue(Number(els.lineNumber.value), { immediate: true });
   });
-  els.lineStepDown.addEventListener("click", () => setLineValue(cmd.line - 0.5, { immediate: true }));
-  els.lineStepUp.addEventListener("click", () => setLineValue(cmd.line + 0.5, { immediate: true }));
+  els.lineStepDown.addEventListener("click", () => { prizePicksDefaultPending = false; setLineValue(cmd.line - 0.5, { immediate: true }); });
+  els.lineStepUp.addEventListener("click", () => { prizePicksDefaultPending = false; setLineValue(cmd.line + 0.5, { immediate: true }); });
   els.ppLinesTrigger.addEventListener("click", () => {
     const opening = els.ppLinesMenu.hidden;
     els.ppLinesMenu.hidden = !opening;
@@ -1398,22 +1401,30 @@ async function loadPrizePicksLines() {
     const currentPrice = currentRow && (cmd.side === "Under" ? currentRow.dkUnderOdds : currentRow.dkOverOdds);
     if (`${cmd.player}|${cmd.stat}|${opponent}`.toLowerCase() === key) {
       els.ppLinesTrigger.querySelector("b").textContent = currentRow
-        ? `${cmd.line} · ${currentRow.featured ? "Standard" : (cmd.side === "Over" ? (currentRow.line < featured ? "Goblin" : "Demon") : (currentRow.line > featured ? "Goblin" : "Demon"))}${currentPrice != null ? ` · DK ${americanOdds(currentPrice)}` : ""}`
+        ? `${cmd.line} · ${currentRow.tier || (currentRow.featured ? "Standard" : "Alt")}${currentPrice != null ? ` · DK ${americanOdds(currentPrice)}` : ""}`
         : "PrizePicks lines";
     }
-    els.ppLinesMenu.innerHTML = `<div class="pp-lines-head"><div><span>PrizePicks</span><b>${escapeHtml(cmd.stat)}</b></div><small>GOBLINS &amp; DEMONS</small></div>` + availableLines.map(row => {
+    els.ppLinesMenu.innerHTML = `<div class="pp-lines-head"><div><span><img src="/prizepicks/logo.png" alt="" /> PrizePicks</span><b>${escapeHtml(cmd.stat)}</b></div><small>GOBLINS &amp; DEMONS</small></div>` + availableLines.map(row => {
       const selected = Math.abs(Number(row.line) - Number(cmd.line)) < .01;
       const safer = featured != null && (cmd.side === "Over" ? row.line < featured : row.line > featured);
       const boosted = featured != null && (cmd.side === "Over" ? row.line > featured : row.line < featured);
-      const tier = row.featured ? "STANDARD" : safer ? "GOBLIN" : boosted ? "DEMON" : "ALT";
+      const tier = row.tier || (row.featured ? "STANDARD" : safer ? "GOBLIN" : boosted ? "DEMON" : "ALT");
       const dkPrice = cmd.side === "Under" ? row.dkUnderOdds : row.dkOverOdds;
-      return `<button type="button" class="pp-line-option ${selected ? "selected" : ""}" data-pp-line="${row.line}"><span><b>${row.line}</b><small class="pp-tier-${tier.toLowerCase()}">${tier}</small></span><strong>${dkPrice != null ? `DK ${americanOdds(dkPrice)}` : escapeHtml(cmd.side)}</strong>${selected ? "<i>✓</i>" : ""}</button>`;
+      const tierIcon = tier === "GOBLIN" ? "/prizepicks/goblin.png" : tier === "DEMON" ? "/prizepicks/demon.png" : "";
+      return `<button type="button" class="pp-line-option ${selected ? "selected" : ""}" data-pp-line="${row.line}"><span class="pp-line-main"><b>${row.line}</b><span class="pp-line-icons"><img src="/prizepicks/logo.png" alt="PrizePicks" />${tierIcon ? `<img class="pp-creature-icon" src="${tierIcon}" alt="${tier.toLowerCase()}" />` : ""}</span><small class="pp-tier-${tier.toLowerCase()}">${tier}</small></span><strong>${dkPrice != null ? `DK ${americanOdds(dkPrice)}` : escapeHtml(cmd.side)}</strong>${selected ? "<i>✓</i>" : ""}</button>`;
     }).join("") + `<p>Goblins and Demons come from PrizePicks' alternate feed. DraftKings odds appear only when DK posts the identical standard line.</p>`;
     els.ppLinesMenu.querySelectorAll("[data-pp-line]").forEach(button => button.addEventListener("click", () => {
+      prizePicksDefaultPending = false;
       els.ppLinesMenu.hidden = true;
       els.ppLinesTrigger.setAttribute("aria-expanded", "false");
       setLineValue(Number(button.dataset.ppLine), { immediate: true });
     }));
+    const stillCurrent = `${cmd.player}|${cmd.stat}|${currentResearchProp?.matchup?.opponent || ""}`.toLowerCase() === key;
+    if (stillCurrent && prizePicksDefaultPending && featured != null
+        && Math.abs(Number(featured) - Number(cmd.line)) >= .01) {
+      prizePicksDefaultPending = false;
+      setLineValue(Number(featured), { immediate: true });
+    }
   } catch (error) {
     els.ppLinesTrigger.querySelector("b").textContent = "Lines unavailable";
     els.ppLinesMenu.innerHTML = `<div class="pp-lines-state error">${escapeHtml(error.message)}</div>`;
@@ -1496,6 +1507,7 @@ function selectPlayer(player, position, { autoSelectStat = true, viaDeepDive = f
 
 function selectStat(stat) {
   cmd.stat = stat;
+  prizePicksDefaultPending = true;
   currentResearchProp = null;
   els.ppLinesWrap.hidden = true;
   els.ppLinesMenu.hidden = true;
