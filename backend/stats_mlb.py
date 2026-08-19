@@ -831,9 +831,11 @@ def get_pitcher_metrics(pitcher_name: str) -> dict:
 
     season_splits = ((season_data or {}).get("stats") or [{}])[0].get("splits", [])
     if not season_splits:
-        return {"error": f"No 2025 pitching stats for {pitcher_name}"}
+        return {"error": f"No {SEASON} pitching stats for {pitcher_name}"}
 
-    s = season_splits[0]["stat"]
+    # MLB can return one split per team for pitchers who were traded. Combine
+    # those rows so the displayed record and rate stats represent the full season.
+    s = _combined_player_split(season_splits).get("stat", {})
     batters_faced = int(s.get("battersFaced", 1)) or 1
 
     # Recent starts
@@ -905,6 +907,8 @@ def get_pitcher_metrics(pitcher_name: str) -> dict:
         "hr_per_9":        s.get("homeRunsPer9", "-.--"),
         "innings_pitched": s.get("inningsPitched", "0.0"),
         "games_started":   games_started_season,
+        "wins":            int(s.get("wins", 0) or 0),
+        "losses":          int(s.get("losses", 0) or 0),
         "season_k_rate":   round(int(s.get("strikeOuts", 0)) / batters_faced, 3),
         "season_ks":       int(s.get("strikeOuts", 0)),
         "hits_per_9":      s.get("hitsPer9Inn", "-.--"),
@@ -1602,7 +1606,9 @@ def get_batter_arsenal_stats(batter_id: int) -> list[dict]:
                     "woba":       row.get("woba", ""),
                     "whiff_pct":  row.get("whiff_percent", ""),
                     "k_pct":      row.get("k_percent", ""),
-                    "hr":         int(float(row.get("home_run") or row.get("home_runs") or row.get("hr") or 0)),
+                    # This leaderboard does not expose HR. They are joined
+                    # from the batter's pitch-level Statcast events below.
+                    "hr":         0,
                 })
             try:
                 cache_file.write_text(json.dumps(table), encoding="utf-8")
@@ -1611,7 +1617,60 @@ def get_batter_arsenal_stats(batter_id: int) -> list[dict]:
         except requests.RequestException:
             return []
 
-    return table.get(str(batter_id), [])
+    rows = [dict(row) for row in table.get(str(batter_id), [])]
+    hr_by_pitch = _get_batter_pitch_type_home_runs(batter_id)
+    for row in rows:
+        code = str(row.get("pitch_type") or "").upper()
+        row["hr"] = int(hr_by_pitch.get(code, 0))
+    return rows
+
+
+def _get_batter_pitch_type_home_runs(batter_id: int) -> dict[str, int]:
+    """Count season home runs by pitch type from pitch-level Statcast data."""
+    cache_file = CACHE_DIR / f"batter_pitch_hr_v3_{batter_id}_{SEASON}.json"
+    if cache_file.exists():
+        try:
+            if time.time() - cache_file.stat().st_mtime < 3600:
+                return json.loads(cache_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            pass
+    params = [
+        ("all", "true"), ("type", "details"), ("player_type", "batter"),
+        ("hfSeaYear", f"{SEASON}|"), ("hfGT", "R|"),
+        ("batters_lookup[]", str(batter_id)),
+    ]
+    try:
+        response = requests.get(
+            "https://baseballsavant.mlb.com/statcast_search/csv",
+            params=params, timeout=30, headers={"User-Agent": "Mozilla/5.0"},
+        )
+        if not response.ok:
+            return {}
+        import csv as _csv
+        import io as _io
+        counts = {}
+        text = response.content.decode("utf-8-sig")
+        for row in _csv.DictReader(_io.StringIO(text)):
+            if str(row.get("game_year") or "") != str(SEASON):
+                continue
+            if str(row.get("events") or "").strip() != "home_run":
+                continue
+            code = str(row.get("pitch_type") or "").strip().upper()
+            # Savant's arsenal leaderboard combines knuckle curves with the
+            # curveball family, while pitch-level search may retain KC.
+            if code == "KC":
+                code = "CU"
+            elif code == "FA":
+                code = "FF"
+            if code:
+                counts[code] = counts.get(code, 0) + 1
+        try:
+            cache_file.write_text(json.dumps(counts), encoding="utf-8")
+        except OSError:
+            pass
+        return counts
+    except requests.RequestException:
+        return {}
 
 
 def get_team_vs_pitch_types(team_id: int, arsenal: list[dict] | None = None) -> list[dict]:

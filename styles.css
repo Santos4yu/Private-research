@@ -3923,6 +3923,7 @@ body::before,body::after{display:none}.grid-bg,.vortex-swirl,.glow-orb{display:n
 }
 .v2-back-btn:hover { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
 .v2-back-btn[hidden] { display: none; }
+.v2-back-btn:not([hidden]){position:relative!important;z-index:8!important;display:flex!important;align-items:center!important;justify-content:center!important;width:max-content!important;min-height:40px!important;margin:18px auto 14px!important;padding:0 17px!important;overflow:visible!important}
 
 .v2-detail-section { display: flex; flex-direction: column; gap: 10px; }
 .v2-detail-title {

@@ -2336,7 +2336,10 @@ def _format_arsenal(arsenal: list, bat_vs_pitch: list = None) -> list:
             "pct": pct,
             "speed": round(p["avg_speed"], 1) if p.get("avg_speed") is not None else None,
         }
-        perf = perf_map.get(str(p.get("pitch_type") or "").strip().upper())
+        pitch_code = str(p.get("pitch_type") or "").strip().upper()
+        # MLB's pitcher arsenal calls a knuckle curve KC; Savant's batter
+        # leaderboard groups that same pitch family under CU.
+        perf = perf_map.get(pitch_code) or (perf_map.get("CU") if pitch_code == "KC" else None)
         if perf:
             entry["batterVs"] = {
                 "avg": perf.get("avg"),
