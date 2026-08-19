@@ -142,6 +142,32 @@ def clear_cache() -> int:
             pass
     return n
 
+
+def _combined_player_split(splits: list) -> dict:
+    """Return a player's combined row instead of one team stint.
+
+    MLB returns one row per team plus a team-less aggregate row after a
+    midseason trade. Selecting ``splits[0]`` silently mixes different team
+    stints across stats. Prefer the aggregate row; ordinary one-team players
+    still use their sole row.
+    """
+    if not splits:
+        return {}
+    if len(splits) == 1:
+        return splits[0]
+    combined = [row for row in splits if not row.get("team")]
+    if combined:
+        return combined[-1]
+    # Defensive fallback for any response that omits the aggregate marker:
+    # the combined row, when present, has the largest season sample.
+    return max(
+        splits,
+        key=lambda row: int((row.get("stat") or {}).get("plateAppearances", 0)
+                            or (row.get("stat") or {}).get("atBats", 0)
+                            or (row.get("stat") or {}).get("gamesPlayed", 0)
+                            or 0),
+    )
+
 # Stat keys per prop type  →  (game_log_field, display_label)
 PROP_STAT_MAP = {
     "hits":           ("hits",       "Hits"),
@@ -496,7 +522,7 @@ def get_historical_splits(player_id: int, line: float,
     }, cache_key=f"season_{prefix}_{player_id}_{SEASON}")
 
     season_splits = ((season_data or {}).get("stats") or [{}])[0].get("splits", [])
-    season_stat = season_splits[0]["stat"] if season_splits else {}
+    season_stat = _combined_player_split(season_splits).get("stat", {})
 
     recent_batting_form = None
     if not is_pitcher:
@@ -1464,7 +1490,7 @@ def get_batter_hand_splits(player_id: int, pitcher_hand: str = "R") -> dict:
         splits = (data.get("stats") or [{}])[0].get("splits", [])
         if not splits:
             continue
-        s = splits[0].get("stat", {})
+        s = _combined_player_split(splits).get("stat", {})
         pa = int(s.get("plateAppearances", 0) or 0)
         so = int(s.get("strikeOuts", 0) or 0)
         result[ph] = {
@@ -2396,7 +2422,7 @@ def get_batter_season_line(player_id: int) -> dict:
     splits = ((data or {}).get("stats") or [{}])[0].get("splits", [])
     if not splits:
         return {}
-    s = splits[0].get("stat", {})
+    s = _combined_player_split(splits).get("stat", {})
     pa = int(s.get("plateAppearances", 0) or 0)
     so = int(s.get("strikeOuts", 0) or 0)
     return {

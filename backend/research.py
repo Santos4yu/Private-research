@@ -765,7 +765,7 @@ def _get_season_slash_line(player_id: int) -> dict:
     splits = (data.get("stats") or [{}])[0].get("splits", [])
     if not splits:
         return {}
-    s = splits[0].get("stat", {})
+    s = stats_mlb._combined_player_split(splits).get("stat", {})
     return {
         "avg":  s.get("avg", ".---"),
         "obp":  s.get("obp", ".---"),
