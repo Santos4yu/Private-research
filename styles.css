@@ -5864,3 +5864,85 @@ body::before{background:linear-gradient(115deg,transparent 12%,color-mix(in srgb
   #panel-v2 #v2-board-list .v2-card-matchup-score{max-width:100%!important;padding:3px 6px!important;font-size:7px!important;line-height:1.2!important;white-space:nowrap!important}
   #panel-v2 #v2-board-list .v2-chevron{grid-column:3!important;align-self:center!important;margin:0!important;font-size:10px!important;color:#666!important}
 }
+
+/* Theme final authority — must remain the final stylesheet layer. */
+:root[data-theme] body,
+:root[data-theme] #app-shell,
+:root[data-theme] .hero,
+:root[data-theme] .tab-panel{background-color:var(--theme-bg)!important;color:var(--theme-text)!important}
+:root[data-theme] .hero{border-color:var(--theme-border)!important}
+:root[data-theme] .settings-panel,
+:root[data-theme] .settings-btn,
+:root[data-theme] .side-panel,
+:root[data-theme] .dock-panel,
+:root[data-theme] .bottom-nav{border-color:var(--theme-border)!important;background-color:var(--theme-panel)!important;color:var(--theme-text)!important}
+
+:root[data-theme] .team-modal,
+:root[data-theme] .team-modal .modal-head,
+:root[data-theme] .team-tabs,
+:root[data-theme] .team-filter-row,
+:root[data-theme] .team-table-wrap,
+:root[data-theme] .team-table,
+:root[data-theme] .team-table thead,
+:root[data-theme] .team-table tbody tr,
+:root[data-theme] .team-table tbody tr:hover,
+:root[data-theme] .team-table .tt-player,
+:root[data-theme] .pitch-selection-summary,
+:root[data-theme] .arm-slot-profile,
+:root[data-theme] .team-empty{
+  border-color:var(--theme-border)!important;background:var(--theme-panel)!important;color:var(--theme-text)!important;
+}
+:root[data-theme] .team-table th,
+:root[data-theme] .team-table td{border-color:var(--theme-border)!important;color:var(--theme-text)!important}
+:root[data-theme] .team-table th,
+:root[data-theme] .tt-player-copy small{color:var(--theme-faint)!important}
+
+:root[data-theme] .gamelog-modal,
+:root[data-theme] .gamelog-modal .modal-head,
+:root[data-theme] .gamelog-toolbar,
+:root[data-theme] .gamelog-tiles,
+:root[data-theme] .gamelog-chart,
+:root[data-theme] .gamelog-control select,
+:root[data-theme] .gl-filter-group,
+:root[data-theme] .gl-line-marker .gl-line-tag{
+  border-color:var(--theme-border)!important;background:var(--theme-panel)!important;color:var(--theme-text)!important;
+}
+:root[data-theme] .gamelog-heading .modal-title,
+:root[data-theme] .gamelog-summary strong,
+:root[data-theme] .gl-opp{color:var(--theme-text)!important}
+:root[data-theme] .gamelog-heading>span,
+:root[data-theme] .gamelog-heading p,
+:root[data-theme] .gamelog-control>span,
+:root[data-theme] .gamelog-summary span,
+:root[data-theme] .gamelog-summary .gamelog-sub,
+:root[data-theme] .gl-date{color:var(--theme-faint)!important}
+:root[data-theme] .gamelog-tile{background:transparent!important;color:var(--theme-dim)!important}
+:root[data-theme] .gamelog-tile.active{background:var(--theme-accent)!important;color:var(--theme-on-accent)!important}
+:root[data-theme] .gamelog-tile.active .gl-tile-label,
+:root[data-theme] .gamelog-tile.active .gl-tile-rate,
+:root[data-theme] .gamelog-tile.active .gl-tile-avg{color:var(--theme-on-accent)!important}
+:root[data-theme] .gl-filter-chip:hover:not(:disabled){background:var(--theme-panel-2)!important;color:var(--theme-text)!important}
+:root[data-theme] .gl-filter-chip.active{border-color:var(--theme-border)!important;background:var(--theme-accent-dim)!important;color:var(--theme-accent)!important}
+
+@media(max-width:700px){
+  :root[data-theme] body,
+  :root[data-theme] #app-shell,
+  :root[data-theme] .hero,
+  :root[data-theme] .tab-panel{
+    background:var(--theme-bg)!important;
+    background-image:none!important;
+  }
+  :root[data-theme] .settings-btn{background:var(--theme-panel)!important;color:var(--theme-text)!important}
+  :root[data-theme] .settings-panel{background:var(--theme-panel)!important}
+  :root[data-theme] .hero{border-bottom-color:var(--theme-border)!important}
+  :root[data-theme] .side-scrim{background:color-mix(in srgb,var(--theme-bg) 72%,transparent)!important}
+  :root[data-theme] .player-profile,
+  :root[data-theme] .report-block,
+  :root[data-theme] .slate-toolbar,
+  :root[data-theme] .v2-card,
+  :root[data-theme] .slate-row,
+  :root[data-theme] .market-card,
+  :root[data-theme] .saved-card{
+    border-color:var(--theme-border)!important;background:var(--theme-panel)!important;color:var(--theme-text)!important;
+  }
+}
