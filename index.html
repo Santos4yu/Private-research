@@ -18,7 +18,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=2" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="styles.css?v=87" />
+<link rel="stylesheet" href="styles.css?v=88" />
 <style>
   /* Inline (not the external stylesheet) so it applies before ANY paint --
      this is what actually prevents the flash of the app before the auth
@@ -73,26 +73,15 @@
     </div>
   </div>
   <div class="settings-section">
-    <span class="settings-label">Mode</span>
-    <div class="settings-row" id="mode-row">
-      <button type="button" class="mode-btn" data-mode="dark">Dark</button>
-      <button type="button" class="mode-btn" data-mode="grey">Grey</button>
-      <button type="button" class="mode-btn" data-mode="light">Light</button>
+    <span class="settings-label">Website theme</span>
+    <div class="theme-picker" id="mode-row">
+      <button type="button" class="mode-btn" data-mode="obsidian"><i><b></b><b></b><b></b></i><span>Obsidian</span></button>
+      <button type="button" class="mode-btn" data-mode="midnight"><i><b></b><b></b><b></b></i><span>Midnight</span></button>
+      <button type="button" class="mode-btn" data-mode="forest"><i><b></b><b></b><b></b></i><span>Forest</span></button>
+      <button type="button" class="mode-btn" data-mode="burgundy"><i><b></b><b></b><b></b></i><span>Burgundy</span></button>
+      <button type="button" class="mode-btn" data-mode="ivory"><i><b></b><b></b><b></b></i><span>Ivory</span></button>
     </div>
-  </div>
-  <div class="settings-section">
-    <span class="settings-label">Accent</span>
-    <div class="settings-row settings-swatches" id="accent-row">
-      <button type="button" class="swatch-btn" data-accent="amber" style="--swatch:#e8a13c" aria-label="Amber"></button>
-      <button type="button" class="swatch-btn" data-accent="teal" style="--swatch:#35e0c4" aria-label="Teal"></button>
-      <button type="button" class="swatch-btn" data-accent="violet" style="--swatch:#8b6bf2" aria-label="Violet"></button>
-      <button type="button" class="swatch-btn" data-accent="rose" style="--swatch:#ea5d8a" aria-label="Rose"></button>
-      <button type="button" class="swatch-btn" data-accent="red" style="--swatch:#df0202" aria-label="Red"></button>
-      <button type="button" class="swatch-btn" data-accent="blue" style="--swatch:#4c9bf2" aria-label="Blue"></button>
-      <label class="swatch-btn swatch-wheel" id="custom-swatch" data-accent="custom" aria-label="Custom color">
-        <input type="color" id="custom-accent-input" value="#35e0c4" />
-      </label>
-    </div>
+    <p class="theme-picker-note">Changes the full website and saves automatically.</p>
   </div>
 </div>
 
@@ -807,6 +796,6 @@
 </template>
 
 <script type="module" src="/src/main.jsx"></script>
-<script type="module" src="/app.js?v=60"></script>
+<script type="module" src="/app.js?v=61"></script>
 </body>
 </html>

@@ -130,17 +130,15 @@ const state = {
 const els = {};
 
 const THEME_KEY = "vortex_theme_mode";
-const ACCENT_KEY = "vortex_theme_accent";
-const CUSTOM_ACCENT_KEY = "vortex_theme_custom_hex";
 // Mirrors --bg per data-theme in styles.css -- must be declared before the
 // applyTheme() call below (which runs at script top-level, immediately),
 // not down near the function definition, or it's a temporal-dead-zone
-// ReferenceError the instant this file loads (same class of bug as
-// CUSTOM_ACCENT_KEY earlier -- a top-level call reaching a later `const`
-// before the script has "gotten there" in top-to-bottom execution).
-const THEME_BG = { dark: "#101114", grey: "#2a2b30", light: "#f3f3f4" };
-applyTheme(localStorage.getItem(THEME_KEY) || "dark");
-applyAccent(localStorage.getItem(ACCENT_KEY) || "amber");
+// ReferenceError the instant this file loads when a top-level call reaches a
+// later `const` before the script gets there in top-to-bottom execution.
+const THEME_BG = { obsidian: "#050505", midnight: "#07101f", forest: "#07130f", burgundy: "#16090d", ivory: "#f3efe7" };
+const LEGACY_THEMES = { dark: "obsidian", grey: "midnight", light: "ivory" };
+const initialTheme = localStorage.getItem(THEME_KEY) || "obsidian";
+applyTheme(LEGACY_THEMES[initialTheme] || initialTheme);
 
 init();
 
@@ -324,8 +322,6 @@ function cacheEls() {
   els.settingsBtn = document.getElementById("settings-btn");
   els.settingsPanel = document.getElementById("settings-panel");
   els.modeRow = document.getElementById("mode-row");
-  els.accentRow = document.getElementById("accent-row");
-  els.customAccentInput = document.getElementById("custom-accent-input");
 
   els.gamelogOverlay = document.getElementById("gamelog-overlay");
   els.gamelogTitle = document.getElementById("gamelog-title");
@@ -372,42 +368,6 @@ function applyTheme(mode) {
   });
   const meta = document.getElementById("theme-color-meta");
   if (meta && THEME_BG[mode]) meta.setAttribute("content", THEME_BG[mode]);
-}
-
-function hexToRgb(hex) {
-  const clean = hex.replace("#", "");
-  const n = parseInt(clean.length === 3 ? clean.split("").map((c) => c + c).join("") : clean, 16);
-  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
-}
-
-function mixWithWhite(hex, amount) {
-  const { r, g, b } = hexToRgb(hex);
-  const mix = (c) => Math.round(c + (255 - c) * amount);
-  return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
-}
-
-function applyAccent(accent, customHex) {
-  document.documentElement.setAttribute("data-accent", accent);
-  localStorage.setItem(ACCENT_KEY, accent);
-
-  if (accent === "custom" && customHex) {
-    const { r, g, b } = hexToRgb(customHex);
-    document.documentElement.style.setProperty("--accent", customHex);
-    document.documentElement.style.setProperty("--accent-soft", mixWithWhite(customHex, 0.45));
-    document.documentElement.style.setProperty("--accent-dim", `rgba(${r}, ${g}, ${b}, 0.16)`);
-    localStorage.setItem(CUSTOM_ACCENT_KEY, customHex);
-    els.customAccentInput.value = customHex;
-  } else {
-    // Preset accents are driven purely by the [data-accent] CSS rules —
-    // clear any inline overrides left over from a previous custom pick.
-    document.documentElement.style.removeProperty("--accent");
-    document.documentElement.style.removeProperty("--accent-soft");
-    document.documentElement.style.removeProperty("--accent-dim");
-  }
-
-  document.querySelectorAll(".swatch-btn").forEach((b) => {
-    b.classList.toggle("active", b.dataset.accent === accent);
-  });
 }
 
 /* ---------- Keep navigation out of the way once the reader leaves the top ---------- */
@@ -480,12 +440,8 @@ function wireCardBorderGlow() {
 }
 
 function wireSettingsPanel() {
-  const savedMode = localStorage.getItem(THEME_KEY) || "dark";
-  const savedAccent = localStorage.getItem(ACCENT_KEY) || "amber";
-  const savedCustomHex = localStorage.getItem(CUSTOM_ACCENT_KEY) || "#35e0c4";
-  applyTheme(savedMode);
-  els.customAccentInput.value = savedCustomHex;
-  applyAccent(savedAccent, savedCustomHex);
+  const savedMode = localStorage.getItem(THEME_KEY) || "obsidian";
+  applyTheme(LEGACY_THEMES[savedMode] || savedMode);
 
   // 5 rapid clicks on the settings gear opens the hidden admin PIN prompt
   // instead of the normal theme panel -- the PIN itself is never checked
@@ -517,12 +473,6 @@ function wireSettingsPanel() {
   });
   els.modeRow.querySelectorAll(".mode-btn").forEach((btn) => {
     btn.addEventListener("click", () => applyTheme(btn.dataset.mode));
-  });
-  els.accentRow.querySelectorAll(".swatch-btn:not(.swatch-wheel)").forEach((btn) => {
-    btn.addEventListener("click", () => applyAccent(btn.dataset.accent));
-  });
-  els.customAccentInput.addEventListener("input", () => {
-    applyAccent("custom", els.customAccentInput.value);
   });
 }
 
