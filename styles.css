@@ -6082,3 +6082,99 @@ body::before{background:linear-gradient(115deg,transparent 12%,color-mix(in srgb
   :root[data-theme] .team-modal,
   :root[data-theme] .gamelog-modal{background:var(--theme-panel)!important;color:var(--theme-text)!important}
 }
+
+/* Screenshot fixes: seamless search field, themed matchup rows and loader. */
+:root[data-theme] .search-box{
+  border-color:var(--theme-border)!important;
+  background:var(--theme-panel)!important;
+  background-image:none!important;
+  box-shadow:none!important;
+}
+:root[data-theme] .search-box input,
+:root[data-theme] .search-box input:focus{
+  border:0!important;
+  outline:0!important;
+  background:transparent!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  color:var(--theme-text)!important;
+}
+:root[data-theme] .search-box .search-icon{
+  border-color:var(--theme-border)!important;
+  background:var(--theme-accent)!important;
+  color:var(--theme-on-accent)!important;
+}
+:root[data-theme] .search-box:focus-within{
+  border-color:var(--theme-accent)!important;
+  box-shadow:0 0 0 3px var(--theme-accent-dim)!important;
+}
+
+:root[data-theme] .split-cell,
+:root[data-theme] .split-callout,
+:root[data-theme] .volume-note,
+:root[data-theme] .matchup-opp,
+:root[data-theme] .matchup-pitcher,
+:root[data-theme] .matchup-leash,
+:root[data-theme] .matchup-handedness,
+:root[data-theme] .matchup-lineup,
+:root[data-theme] .matchup-bullpen,
+:root[data-theme] .vs-career,
+:root[data-theme] .vs-season,
+:root[data-theme] .env-text,
+:root[data-theme] .env-wind{
+  border-color:var(--theme-border)!important;
+  background:var(--theme-panel-2)!important;
+  color:var(--theme-text)!important;
+}
+:root[data-theme] .matchup-opp:empty,
+:root[data-theme] .matchup-pitcher:empty,
+:root[data-theme] .matchup-leash:empty,
+:root[data-theme] .matchup-handedness:empty,
+:root[data-theme] .matchup-lineup:empty,
+:root[data-theme] .matchup-bullpen:empty{display:none!important}
+:root[data-theme] .team-insights-btn{
+  border-color:color-mix(in srgb,var(--theme-accent) 45%,var(--theme-border))!important;
+  background:var(--theme-accent-dim)!important;
+  color:var(--theme-accent)!important;
+}
+
+:root[data-theme] .kp-analysis-loader,
+:root[data-theme] .analysis-loader{
+  border-color:var(--theme-border)!important;
+  background:var(--theme-panel)!important;
+  background-image:none!important;
+  color:var(--theme-text)!important;
+  box-shadow:none!important;
+}
+:root[data-theme] .kp-loader-copy>span,
+:root[data-theme] .kp-analysis-loader>p{color:var(--theme-dim)!important}
+:root[data-theme] .kp-loader-copy strong{color:var(--theme-text)!important}
+:root[data-theme] .kp-loader-copy small{color:var(--theme-faint)!important}
+:root[data-theme] .kp-loader-mark{background:var(--theme-accent)!important}
+:root[data-theme] .kp-loader-progress,
+:root[data-theme] .analysis-loader-progress{background:var(--theme-border)!important}
+:root[data-theme] .kp-loader-progress i,
+:root[data-theme] .analysis-loader-progress i{background:linear-gradient(90deg,transparent,var(--theme-accent),transparent)!important}
+
+/* Ivory is intentionally cream-on-cream, with no leftover black contrast cards. */
+:root[data-theme="ivory"] .report-block,
+:root[data-theme="ivory"] .report-card,
+:root[data-theme="ivory"] .player-profile,
+:root[data-theme="ivory"] .slate-row,
+:root[data-theme="ivory"] .v2-card,
+:root[data-theme="ivory"] .saved-card,
+:root[data-theme="ivory"] .modal-panel,
+:root[data-theme="ivory"] .player-detail-sheet,
+:root[data-theme="ivory"] .team-modal,
+:root[data-theme="ivory"] .gamelog-modal,
+:root[data-theme="ivory"] .kp-analysis-loader{background:#faf8f3!important;color:#201e1a!important}
+:root[data-theme="ivory"] .matchup-opp,
+:root[data-theme="ivory"] .matchup-pitcher,
+:root[data-theme="ivory"] .matchup-leash,
+:root[data-theme="ivory"] .matchup-handedness,
+:root[data-theme="ivory"] .matchup-lineup,
+:root[data-theme="ivory"] .matchup-bullpen,
+:root[data-theme="ivory"] .split-cell,
+:root[data-theme="ivory"] .verdict-metric,
+:root[data-theme="ivory"] .matchup-score-note{background:#eee9df!important;color:#201e1a!important}
