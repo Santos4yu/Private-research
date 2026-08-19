@@ -232,6 +232,9 @@ function cacheEls() {
   els.lineStepDown = document.getElementById("line-step-down");
   els.lineStepUp = document.getElementById("line-step-up");
   els.lineNoData = document.getElementById("line-no-data");
+  els.ppLinesWrap = document.getElementById("pp-lines-wrap");
+  els.ppLinesTrigger = document.getElementById("pp-lines-trigger");
+  els.ppLinesMenu = document.getElementById("pp-lines-menu");
 
   els.tabs = document.getElementById("tabs");
   els.tabIndicator = document.getElementById("tab-indicator");
@@ -1338,6 +1341,8 @@ function renderBrowseChips() {
 /* ---------- Player profile: stat buttons + slide/type-in line picker ---------- */
 
 const cmd = { player: null, stat: null, line: null, side: null };
+const prizePicksLineCache = new Map();
+let currentResearchProp = null;
 
 function wireLinePicker() {
   els.sideToggle.querySelectorAll(".side-btn").forEach((btn) => {
@@ -1360,6 +1365,59 @@ function wireLinePicker() {
   });
   els.lineStepDown.addEventListener("click", () => setLineValue(cmd.line - 0.5, { immediate: true }));
   els.lineStepUp.addEventListener("click", () => setLineValue(cmd.line + 0.5, { immediate: true }));
+  els.ppLinesTrigger.addEventListener("click", () => {
+    const opening = els.ppLinesMenu.hidden;
+    els.ppLinesMenu.hidden = !opening;
+    els.ppLinesTrigger.setAttribute("aria-expanded", String(opening));
+    if (opening) loadPrizePicksLines();
+  });
+}
+
+function americanOdds(value) {
+  const odds = Number(value);
+  return Number.isFinite(odds) ? `${odds > 0 ? "+" : ""}${odds}` : "—";
+}
+
+async function loadPrizePicksLines() {
+  const opponent = currentResearchProp?.matchup?.opponent || "";
+  const key = `${cmd.player}|${cmd.stat}|${opponent}`.toLowerCase();
+  els.ppLinesMenu.innerHTML = `<div class="pp-lines-state">Loading live PrizePicks lines…</div>`;
+  try {
+    let data = prizePicksLineCache.get(key);
+    if (!data) {
+      const url = `${API_SOURCE}?action=prizepicks-lines&player=${encodeURIComponent(cmd.player)}&stat=${encodeURIComponent(cmd.stat)}&opponent=${encodeURIComponent(opponent)}`;
+      const response = await fetch(url, { cache: "no-store" });
+      data = await response.json();
+      if (!response.ok || data.error) throw new Error(data.error || "PrizePicks lines unavailable");
+      prizePicksLineCache.set(key, data);
+    }
+    const featured = (data.lines || []).find(row => row.featured)?.line;
+    const availableLines = (data.lines || []).filter(row => cmd.side === "Under" ? row.ppUnder : row.ppOver);
+    if (!availableLines.length) throw new Error(`PrizePicks has not posted ${cmd.side} lines for this player yet.`);
+    const currentRow = availableLines.find(row => Math.abs(Number(row.line) - Number(cmd.line)) < .01);
+    const currentPrice = currentRow && (cmd.side === "Under" ? currentRow.dkUnderOdds : currentRow.dkOverOdds);
+    if (`${cmd.player}|${cmd.stat}|${opponent}`.toLowerCase() === key) {
+      els.ppLinesTrigger.querySelector("b").textContent = currentRow
+        ? `${cmd.line} · ${currentRow.featured ? "Standard" : (cmd.side === "Over" ? (currentRow.line < featured ? "Goblin" : "Demon") : (currentRow.line > featured ? "Goblin" : "Demon"))}${currentPrice != null ? ` · DK ${americanOdds(currentPrice)}` : ""}`
+        : "PrizePicks lines";
+    }
+    els.ppLinesMenu.innerHTML = `<div class="pp-lines-head"><div><span>PrizePicks</span><b>${escapeHtml(cmd.stat)}</b></div><small>GOBLINS &amp; DEMONS</small></div>` + availableLines.map(row => {
+      const selected = Math.abs(Number(row.line) - Number(cmd.line)) < .01;
+      const safer = featured != null && (cmd.side === "Over" ? row.line < featured : row.line > featured);
+      const boosted = featured != null && (cmd.side === "Over" ? row.line > featured : row.line < featured);
+      const tier = row.featured ? "STANDARD" : safer ? "GOBLIN" : boosted ? "DEMON" : "ALT";
+      const dkPrice = cmd.side === "Under" ? row.dkUnderOdds : row.dkOverOdds;
+      return `<button type="button" class="pp-line-option ${selected ? "selected" : ""}" data-pp-line="${row.line}"><span><b>${row.line}</b><small class="pp-tier-${tier.toLowerCase()}">${tier}</small></span><strong>${dkPrice != null ? `DK ${americanOdds(dkPrice)}` : escapeHtml(cmd.side)}</strong>${selected ? "<i>✓</i>" : ""}</button>`;
+    }).join("") + `<p>Goblins and Demons come from PrizePicks' alternate feed. DraftKings odds appear only when DK posts the identical standard line.</p>`;
+    els.ppLinesMenu.querySelectorAll("[data-pp-line]").forEach(button => button.addEventListener("click", () => {
+      els.ppLinesMenu.hidden = true;
+      els.ppLinesTrigger.setAttribute("aria-expanded", "false");
+      setLineValue(Number(button.dataset.ppLine), { immediate: true });
+    }));
+  } catch (error) {
+    els.ppLinesTrigger.querySelector("b").textContent = "Lines unavailable";
+    els.ppLinesMenu.innerHTML = `<div class="pp-lines-state error">${escapeHtml(error.message)}</div>`;
+  }
 }
 
 // "P" -> pitcher-only stats, anything else known -> batter-only stats,
@@ -1438,6 +1496,9 @@ function selectPlayer(player, position, { autoSelectStat = true, viaDeepDive = f
 
 function selectStat(stat) {
   cmd.stat = stat;
+  currentResearchProp = null;
+  els.ppLinesWrap.hidden = true;
+  els.ppLinesMenu.hidden = true;
   if (els.profileStats.value !== stat) els.profileStats.value = stat;
   els.profileStatsTriggerLabel.textContent = stat;
   els.profileStatsMenu.querySelectorAll(".profile-stats-menu-item").forEach((li) => {
@@ -1673,6 +1734,12 @@ function renderReport(p) {
   els.reportWrap.querySelector(".report")?.remove();
   els.reportWrap.querySelector(".report-skeleton")?.remove();
   syncProfileHeaderWithProp(p);
+  currentResearchProp = p;
+  els.ppLinesWrap.hidden = !(p?.matchup?.opponent && cmd.player && cmd.stat);
+  if (!els.ppLinesWrap.hidden) {
+    els.ppLinesTrigger.querySelector("b").textContent = "Checking PrizePicks…";
+    loadPrizePicksLines();
+  }
 
   const node = buildReportNode(p);
   els.reportWrap.appendChild(node);

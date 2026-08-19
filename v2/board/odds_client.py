@@ -99,3 +99,38 @@ def fetch_event_props(event_id: str) -> dict:
     print(f"  [odds api] event {event_id[:8]}... -- "
           f"{r.headers.get('x-requests-remaining', '?')} credits remaining")
     return r.json()
+
+
+def fetch_prizepicks_prop_lines(event_id: str, market: str) -> dict:
+    """Fetch PrizePicks' projection ladder plus matching DraftKings prices.
+
+    PrizePicks Goblins/Demons live in the DFS ``_alternate`` market. DK is
+    deliberately requested only for the featured market, never its alts.
+    """
+    key = get_odds_api_key()
+    if not key:
+        raise RuntimeError("The private-site Odds API key is not configured.")
+    markets = [market]
+    if not market.endswith("_alternate"):
+        markets.append(f"{market}_alternate")
+    pp_response = _SESSION.get(
+        f"{BASE_URL}/sports/{SPORT_KEY}/events/{event_id}/odds",
+        params={"apiKey": key, "regions": "us_dfs", "bookmakers": "prizepicks",
+                "markets": ",".join(markets), "oddsFormat": "american"},
+        timeout=TIMEOUT,
+    )
+    pp_response.raise_for_status()
+    dk_response = _SESSION.get(
+        f"{BASE_URL}/sports/{SPORT_KEY}/events/{event_id}/odds",
+        params={"apiKey": key, "regions": "us", "bookmakers": "draftkings",
+                "markets": market, "oddsFormat": "american"},
+        timeout=TIMEOUT,
+    )
+    # PrizePicks is the required source. A missing DK price must not hide the
+    # projection ladder, so retain an empty DK payload on that optional error.
+    try:
+        dk_response.raise_for_status()
+        draftkings = dk_response.json()
+    except requests.RequestException:
+        draftkings = {"bookmakers": []}
+    return {"prizepicks": pp_response.json(), "draftkings": draftkings}
