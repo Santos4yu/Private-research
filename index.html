@@ -141,14 +141,30 @@
 <div class="modal-overlay" id="gamelog-overlay" hidden>
   <div class="modal-panel gamelog-modal">
     <div class="modal-head">
-      <h3 class="modal-title" id="gamelog-title">Game Log</h3>
+      <div class="gamelog-heading">
+        <span>PLAYER PERFORMANCE</span>
+        <h3 class="modal-title" id="gamelog-title">Game Log</h3>
+        <p>Explore recent results and adjust the prop line.</p>
+      </div>
       <button type="button" class="modal-close" id="gamelog-close" aria-label="Close">✕</button>
     </div>
-    <div class="gamelog-controls">
+    <div class="gamelog-toolbar">
       <label class="gamelog-control gamelog-stat-control">
-        <span>STAT VIEW</span>
+        <span>Market</span>
         <select id="gamelog-stat" aria-label="Change performance stat"></select>
       </label>
+      <div class="gamelog-subfilters" id="gamelog-subfilters" hidden>
+        <div class="gl-filter-group" id="gl-hand-filter">
+          <button type="button" class="gl-filter-chip active" data-hand="all">All</button>
+          <button type="button" class="gl-filter-chip" data-hand="L">vs LHP</button>
+          <button type="button" class="gl-filter-chip" data-hand="R">vs RHP</button>
+        </div>
+        <div class="gl-filter-group" id="gl-venue-filter">
+          <button type="button" class="gl-filter-chip active" data-venue="all">All</button>
+          <button type="button" class="gl-filter-chip" data-venue="home">Home</button>
+          <button type="button" class="gl-filter-chip" data-venue="road">Road</button>
+        </div>
+      </div>
     </div>
     <div class="gamelog-tiles" id="gamelog-tabs">
       <button type="button" class="gamelog-tile" data-window="l5">
@@ -177,19 +193,12 @@
         <span class="gl-tile-avg"></span>
       </button>
     </div>
-    <div class="gamelog-subfilters" id="gamelog-subfilters" hidden>
-      <div class="gl-filter-group" id="gl-hand-filter">
-        <button type="button" class="gl-filter-chip active" data-hand="all">All</button>
-        <button type="button" class="gl-filter-chip" data-hand="L">vs LHP</button>
-        <button type="button" class="gl-filter-chip" data-hand="R">vs RHP</button>
-      </div>
-      <div class="gl-filter-group" id="gl-venue-filter">
-        <button type="button" class="gl-filter-chip active" data-venue="all">All</button>
-        <button type="button" class="gl-filter-chip" data-venue="home">Home</button>
-        <button type="button" class="gl-filter-chip" data-venue="road">Road</button>
-      </div>
+    <div class="gamelog-summary">
+      <div><span>Hit rate</span><strong id="gamelog-summary-rate">—</strong></div>
+      <div><span>Record</span><strong id="gamelog-summary-record">—</strong></div>
+      <div><span>Average</span><strong id="gamelog-summary-average">—</strong></div>
+      <p class="gamelog-sub" id="gamelog-sub"></p>
     </div>
-    <p class="gamelog-sub" id="gamelog-sub"></p>
     <div class="gamelog-chart" id="gamelog-chart"></div>
   </div>
 </div>

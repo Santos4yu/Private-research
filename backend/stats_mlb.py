@@ -1588,6 +1588,97 @@ def get_batter_arsenal_stats(batter_id: int) -> list[dict]:
     return table.get(str(batter_id), [])
 
 
+def get_team_vs_pitch_types(team_id: int, arsenal: list[dict] | None = None) -> list[dict]:
+    """Aggregate the opposing lineup's Savant results by pitch type.
+
+    The posted batting order is preferred; before lineups are available the
+    active position-player roster is used. ``struggle_score`` is an explicit
+    1-30 matchup index (not an MLB rank): 1 means the group has handled the
+    pitch well and 30 means it has struggled. Samples under 40 PA are marked
+    thin so the UI does not overstate early-season/no-lineup evidence.
+    """
+    if not team_id:
+        return []
+    def number(row: dict, key: str) -> float | None:
+        try:
+            value = row.get(key)
+            return float(value) if value not in (None, "") else None
+        except (TypeError, ValueError):
+            return None
+
+    lineup = get_team_lineup(team_id) or []
+    hitters = lineup or get_team_hitters_roster(team_id) or []
+    hitter_ids = []
+    for hitter in hitters:
+        pid = hitter.get("id") or hitter.get("player_id") or hitter.get("person_id")
+        try:
+            if pid:
+                hitter_ids.append(int(pid))
+        except (TypeError, ValueError):
+            continue
+    if not hitter_ids:
+        return []
+
+    wanted = {
+        str(p.get("pitch_type") or "").strip().upper()
+        for p in (arsenal or []) if p.get("pitch_type")
+    }
+    buckets: dict[str, dict] = {}
+    for batter_id in hitter_ids:
+        for row in get_batter_arsenal_stats(batter_id):
+            pitch_type = str(row.get("pitch_type") or "").strip().upper()
+            if not pitch_type or (wanted and pitch_type not in wanted):
+                continue
+            pa = number(row, "pa") or 0.0
+            if pa <= 0:
+                continue
+            bucket = buckets.setdefault(pitch_type, {
+                "pitch_type": pitch_type,
+                "pitch_name": row.get("pitch_name") or pitch_type,
+                "pa": 0.0, "pitches": 0.0, "avg_sum": 0.0,
+                "slg_sum": 0.0, "woba_sum": 0.0, "whiff_sum": 0.0,
+                "k_sum": 0.0, "hr": 0, "hitters": 0,
+            })
+            bucket["pa"] += pa
+            bucket["pitches"] += number(row, "pitches") or 0.0
+            for source, target in (("avg", "avg_sum"), ("slg", "slg_sum"),
+                                   ("woba", "woba_sum"), ("whiff_pct", "whiff_sum"),
+                                   ("k_pct", "k_sum")):
+                value = number(row, source)
+                if value is not None:
+                    bucket[target] += value * pa
+            bucket["hr"] += int(number(row, "hr") or 0)
+            bucket["hitters"] += 1
+
+    out = []
+    for bucket in buckets.values():
+        pa = bucket["pa"]
+        avg = bucket["avg_sum"] / pa
+        slg = bucket["slg_sum"] / pa
+        woba = bucket["woba_sum"] / pa
+        whiff = bucket["whiff_sum"] / pa
+        k_pct = bucket["k_sum"] / pa
+        # Savant percentage columns may arrive as either 0-1 or 0-100.
+        whiff_display = whiff * 100 if 0 < whiff <= 1 else whiff
+        k_display = k_pct * 100 if 0 < k_pct <= 1 else k_pct
+        # Equal parts swing-and-miss and damage suppression. Map the result to
+        # the familiar 1-30 scale while keeping it an index, not a fake rank.
+        whiff_bad = max(0.0, min(1.0, (whiff_display - 15.0) / 20.0))
+        woba_bad = max(0.0, min(1.0, (.400 - woba) / .150))
+        k_bad = max(0.0, min(1.0, (k_display - 15.0) / 20.0))
+        struggle = round(1 + 29 * (whiff_bad * .45 + woba_bad * .35 + k_bad * .20))
+        out.append({
+            "pitch_type": bucket["pitch_type"], "pitch_name": bucket["pitch_name"],
+            "pa": round(pa), "pitches": round(bucket["pitches"]),
+            "avg": round(avg, 3), "slg": round(slg, 3), "woba": round(woba, 3),
+            "whiff_pct": round(whiff_display, 1), "k_pct": round(k_display, 1),
+            "hr": bucket["hr"], "hitters": bucket["hitters"],
+            "struggle_score": max(1, min(30, struggle)), "thin_sample": pa < 40,
+            "lineup_source": "posted lineup" if lineup else "active roster",
+        })
+    return sorted(out, key=lambda row: row["struggle_score"], reverse=True)
+
+
 def _pitcher_stat_from_game(s: dict, prop_type: str) -> float:
     """
     Extract the numeric value for a pitcher prop from one game-log entry.

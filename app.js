@@ -1903,6 +1903,9 @@ function renderGameLogChart() {
     els.gamelogSub.textContent = rawLen
       ? `No games in this window${filterSuffix}.`
       : "No games available for this window.";
+    document.getElementById("gamelog-summary-rate").textContent = "—";
+    document.getElementById("gamelog-summary-record").textContent = "—";
+    document.getElementById("gamelog-summary-average").textContent = "—";
     return;
   }
 
@@ -1910,7 +1913,12 @@ function renderGameLogChart() {
     ? `All meetings vs ${gameLogState.opponent || "this opponent"} across available seasons${filterSuffix}`
     : `Last ${games.length} games${filterSuffix}`;
   const overCount = games.filter((g) => g.over).length;
-  els.gamelogSub.textContent = `${label} — ${overCount}/${games.length} over the ${gameLogState.line} line (${Math.round((overCount / games.length) * 100)}%).`;
+  const hitRate = Math.round((overCount / games.length) * 100);
+  const average = games.reduce((sum, game) => sum + Number(game.value || 0), 0) / games.length;
+  els.gamelogSub.textContent = `${label} · line ${gameLogState.line}`;
+  document.getElementById("gamelog-summary-rate").textContent = `${hitRate}%`;
+  document.getElementById("gamelog-summary-record").textContent = `${overCount}–${games.length - overCount}`;
+  document.getElementById("gamelog-summary-average").textContent = average.toFixed(2);
 
   // Line value can exceed every game's value (e.g. a 5.5 K line with a
   // season-high of 5) -- widen the scale so the dashed marker never sits
@@ -2742,6 +2750,10 @@ function fillPitchArsenal(node, p) {
   const val = (value, fallback = "—") => value === null || value === undefined || value === "" ? fallback : escapeHtml(String(value));
   const rate = (value) => Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)}%` : "—";
   const avg = (value) => value === null || value === undefined || value === "" ? "—" : formatBattingAverage(value);
+  const teamPitchRows = p.pitcherTeamPitchTypes || [];
+  const isPitcherCard = p.isPitcherProp === true;
+  const blockTitle = block.querySelector(".block-title");
+  if (blockTitle) blockTitle.textContent = isPitcherCard ? "⚾ Lineup vs Pitch Arsenal" : "⚾ Starter, BvP & Pitch Arsenal";
   const pitcherId = starter.id || "";
   const pitcherPhoto = pitcherId
     ? `https://img.mlbstatic.com/mlb-photos/image/upload/w_160,q_auto:best/v1/people/${pitcherId}/headshot/silo/current`
@@ -2767,6 +2779,18 @@ function fillPitchArsenal(node, p) {
       ];
   const lowerGrid = lowerStats.map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join("");
   const pitchRows = pitches.map((pitch, index) => {
+    if (isPitcherCard) {
+      const team = teamPitchRows.find(row => String(row.pitch_type || "").toUpperCase() === String(pitch.code || "").toUpperCase()) || {};
+      const score = Number(team.struggle_score);
+      const scoreClass = score >= 24 ? "arsenal-struggle-high" : score <= 8 ? "arsenal-struggle-low" : "";
+      const sampleClass = team.thin_sample ? "pitch-sample-thin" : "";
+      return `<tr>
+        <td><i class="pitch-dot" style="--pitch-color:${colors[index % colors.length]}"></i>${escapeHtml(pitch.name)} <small>${Number(pitch.pct).toFixed(0)}%</small></td>
+        <td data-label="PITCHES" class="${sampleClass}" title="${team.thin_sample ? "Limited sample — use cautiously" : ""}">${val(team.pitches)}</td>
+        <td data-label="WHIFF%">${rate(team.whiff_pct)}</td><td data-label="AVG">${avg(team.avg)}</td><td data-label="SLG">${avg(team.slg)}</td>
+        <td data-label="K%">${rate(team.k_pct)}</td><td data-label="SCORE" class="${scoreClass}">${Number.isFinite(score) ? score : "—"}</td>
+      </tr>`;
+    }
     const vs = pitch.batterVs || {};
     const kClass = Number(vs.kPct) >= 30 ? "arsenal-hot" : "";
     const sampleClass = Number(vs.pa) > 0 && Number(vs.pa) < 10 ? "pitch-sample-thin" : "";
@@ -2777,6 +2801,18 @@ function fillPitchArsenal(node, p) {
       <td data-label="HR">${val(vs.hr, "0")}</td><td data-label="K%" class="${kClass}">${rate(vs.kPct)}</td>
     </tr>`;
   }).join("");
+
+  if (isPitcherCard) {
+    const source = teamPitchRows[0]?.lineup_source || "available hitters";
+    holder.innerHTML = `
+      <article class="pitch-type-card pitcher-team-pitch-card">
+        <div class="pitch-type-head"><div><p class="arsenal-eyebrow">${escapeHtml(p.pitcherTeamPitchLabel || "OPPONENT VS PITCH TYPE")}</p><small>${escapeHtml(String(source))} · Baseball Savant season data</small></div><span>SZN</span></div>
+        <p class="pitch-team-scale"><b>1</b> lineup handles it <span>•</span> <b>30</b> lineup struggles</p>
+        <div class="pitch-type-scroll"><table><thead><tr><th>PITCH</th><th>PITCHES</th><th>WHIFF%</th><th>AVG</th><th>SLG</th><th>K%</th><th>SCORE</th></tr></thead><tbody>${pitchRows}</tbody></table></div>
+        <p class="pitch-type-note">Only pitches in ${escapeHtml(starter.name || "the pitcher's")} actual arsenal are shown. Score is VORTEX's 1–30 struggle index from whiff, strikeout and damage results—not an official MLB rank. Samples below 40 PA are shown cautiously.</p>
+      </article>`;
+    return;
+  }
 
   holder.innerHTML = `
     <article class="starter-profile-card">

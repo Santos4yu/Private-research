@@ -806,7 +806,7 @@ def compute_k_prop(player_id, canonical_name, team_abbr, matchup, line, side, st
     # K-rate); weather, the pitcher's own arsenal (their whiff weapons), and
     # the plate ump are all unrelated to it, so run them side by side.
     home_team_id = matchup.get("home_team_id")
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=5) as pool:
         f_k_card = pool.submit(stats_mlb.get_pitcher_k_card, canonical_name, line, opp_team_id,
                                 pitcher_id=player_id, prop_type=backend_prop_type, is_home=is_home)
         f_weather = pool.submit(_safe, stats_mlb.get_game_weather, home_abbr, matchup.get("game_utc", ""), matchup.get("game_pk"), default={}) if home_abbr else None
@@ -816,6 +816,12 @@ def compute_k_prop(player_id, canonical_name, team_abbr, matchup, line, side, st
         weather = f_weather.result() if f_weather else {}
         arsenal = f_arsenal.result() or []
         umpire = f_umpire.result() if f_umpire else {}
+
+    # This must follow the arsenal lookup so only pitches the starter actually
+    # throws are aggregated for the opposing lineup.
+    team_pitch_types = _safe(
+        stats_mlb.get_team_vs_pitch_types, opp_team_id, arsenal, default=[]
+    ) if opp_team_id and arsenal else []
 
     if k_card.get("error"):
         raise NoGameFound(
@@ -915,6 +921,7 @@ def compute_k_prop(player_id, canonical_name, team_abbr, matchup, line, side, st
         park_factor=park_factor,
         weather=weather,
         arsenal=arsenal,
+        team_pitch_types=team_pitch_types,
         umpire=umpire,
         player_id=player_id,
         opp_team_id=opp_team_id,
@@ -1029,7 +1036,7 @@ def _pitcher_strikeout_matchup_grade(*, k_card, opp_k, splits,
 def format_k_prop_response(*, player_name, team_abbr, headshot, stat_label, line, side, splits,
                             matchup, k_card, opp_k, park_factor, weather, grade, picked_grade, picked_score,
                             arsenal=None, umpire=None, prop_type="pitcher_strikeouts", player_id=None,
-                            opp_team_id=None, picked_grade_v2=None, rest_days=None,
+                            opp_team_id=None, picked_grade_v2=None, rest_days=None, team_pitch_types=None,
                             opp_k_venue_label=None, strikeout_matchup=None) -> dict:
     is_under = side == "under"
     season = k_card.get("season_stats") or {}
@@ -1163,6 +1170,7 @@ def format_k_prop_response(*, player_name, team_abbr, headshot, stat_label, line
         "team": team_abbr,
         "headshot": headshot,
         "sport": "MLB",
+        "isPitcherProp": True,
         "betType": stat_label,
         "line": line,
         "side": side.title(),
@@ -1241,6 +1249,8 @@ def format_k_prop_response(*, player_name, team_abbr, headshot, stat_label, line
         "scorecardV2": picked_grade_v2,
         # This player's OWN arsenal -- the whiff weapons driving the K total.
         "pitchArsenal": _format_arsenal(arsenal),
+        "pitcherTeamPitchTypes": team_pitch_types or [],
+        "pitcherTeamPitchLabel": f"{opponent} lineup vs pitch type",
         "pitchArsenalLabel": f"{player_name}'s arsenal",
         "starterProfile": {
             "id": player_id,
@@ -2321,6 +2331,7 @@ def _format_arsenal(arsenal: list, bat_vs_pitch: list = None) -> list:
         if not name or pct is None:
             continue
         entry = {
+            "code": str(p.get("pitch_type") or "").strip().upper(),
             "name": name,
             "pct": pct,
             "speed": round(p["avg_speed"], 1) if p.get("avg_speed") is not None else None,
