@@ -1092,6 +1092,7 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
     try: hand_avg = float(str(hand.get("avg", "") or 0))
     except (TypeError, ValueError): hand_avg = 0.0
     other = (vs_hand_splits or {}).get("L" if ph == "R" else "R", {})
+    other_pa = int(other.get("pa", 0) or 0)
     try: other_ops = float(str(other.get("ops", "") or 0))
     except (TypeError, ValueError): other_ops = 0.0
     try: other_avg = float(str(other.get("avg", "") or 0))
@@ -1110,8 +1111,15 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
         hand_raw = 50.0 if abs(delta) < .040 and abs(avg_delta) < .015 else 50 + delta * 110 + avg_delta * 80
     else:
         hand_raw = 50 + (hand_ops - .720) * 110
+    # A platoon edge is a comparison between two samples, so confidence must
+    # reflect both sides of that comparison. Reaching the full 23-point
+    # allocation after only 50 PA made extreme early-season splits look as
+    # trustworthy as established multi-season splits. Use the smaller sample
+    # and require roughly 100 PA on each side for full confidence.
+    comparison_pa = min(hand_pa, other_pa) if other_ops > 0 else hand_pa
+    hand_confidence = min(1.0, comparison_pa / 100.0) ** .6 if hand_ok else 0
     add("handedness", sided(hand_raw),
-        detail if hand_ok else "Split unavailable", hand_ok, min(1.0, hand_pa / 50) ** .6 if hand_ok else 0)
+        detail if hand_ok else "Split unavailable", hand_ok, hand_confidence)
     factors[-1]["name"] = f"Splits vs {ph}HP" if ph in ("L", "R") else "Handedness splits"
 
     try:
