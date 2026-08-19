@@ -18,7 +18,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=2" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="styles.css?v=88" />
+<link rel="stylesheet" href="styles.css?v=87" />
 <style>
   /* Inline (not the external stylesheet) so it applies before ANY paint --
      this is what actually prevents the flash of the app before the auth
@@ -531,7 +531,7 @@
 </div>
 
 <footer class="site-footer">
-  <p>Private · MLB Research</p>
+  <p>Private research</p>
 </footer>
 </div>
 <!-- /#app-shell -->
@@ -566,7 +566,7 @@
 
       <div class="report-actions-row">
         <div class="unit-row">
-          <span class="unit-label">Suggested sizing</span>
+          <span class="unit-label">💰 Suggested sizing</span>
           <span class="unit-value"></span>
         </div>
         <button class="save-btn" type="button">
@@ -636,13 +636,13 @@
 
     <!-- Projection: trend, floor/median/ceiling, expected PA -->
     <section class="report-block projection-block" data-reveal hidden>
-      <h3 class="block-title">Projection</h3>
+      <h3 class="block-title">📈 Projection</h3>
       <div class="projection-row">
         <span class="trend-badge"></span>
           <div class="fmc-row">
-          <div class="fmc-item"><span class="fmc-label">Floor</span><span class="fmc-value fmc-floor"></span></div>
-          <div class="fmc-item"><span class="fmc-label">Median</span><span class="fmc-value fmc-median"></span></div>
-          <div class="fmc-item"><span class="fmc-label">Ceiling</span><span class="fmc-value fmc-ceiling"></span></div>
+          <div class="fmc-item"><span class="fmc-label">⬇️ Floor</span><span class="fmc-value fmc-floor"></span></div>
+          <div class="fmc-item"><span class="fmc-label">📊 Median</span><span class="fmc-value fmc-median"></span></div>
+          <div class="fmc-item"><span class="fmc-label">⬆️ Ceiling</span><span class="fmc-value fmc-ceiling"></span></div>
         </div>
       </div>
       <div class="pa-dist-wrap" hidden>
@@ -653,29 +653,29 @@
 
     <!-- Why it hits -->
     <section class="report-block" data-reveal>
-      <h3 class="block-title">Supporting Evidence</h3>
+      <h3 class="block-title">🎯 Why It Hits</h3>
       <ul class="bullet-list why-list"></ul>
 
       <div class="hitrate-bars">
         <div class="hr-row">
-          <span class="hr-label">L5</span>
+          <span class="hr-label">🔥 L5</span>
           <div class="hr-track"><div class="hr-fill" data-pct="0"></div></div>
           <span class="hr-pct"></span>
         </div>
         <div class="hr-row">
-          <span class="hr-label">L10</span>
+          <span class="hr-label">📈 L10</span>
           <div class="hr-track"><div class="hr-fill" data-pct="0"></div></div>
           <span class="hr-pct"></span>
         </div>
         <div class="hr-row">
-          <span class="hr-label">L20</span>
+          <span class="hr-label">📉 L20</span>
           <div class="hr-track"><div class="hr-fill" data-pct="0"></div></div>
           <span class="hr-pct"></span>
         </div>
       </div>
 
       <button type="button" class="last5-row last5-expand-btn">
-        <span class="last5-label">Last 5 values</span>
+        <span class="last5-label">🔥 Last 5 values</span>
         <div class="sparkline" id="sparkline-holder"></div>
         <span class="last5-expand-hint">See more <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6h8M6 2l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       </button>
@@ -683,21 +683,21 @@
 
     <!-- Pitch arsenal -->
     <section class="report-block arsenal-block" data-reveal hidden>
-      <h3 class="block-title">Starter, BvP &amp; Pitch Arsenal</h3>
+      <h3 class="block-title">⚾ Starter, BvP &amp; Pitch Arsenal</h3>
       <div class="arsenal-card-grid"></div>
     </section>
 
     <!-- Split factor -->
     <section class="report-block" data-reveal>
-      <h3 class="block-title">Split Factor</h3>
+      <h3 class="block-title">🔄 Split Factor</h3>
       <div class="split-grid">
         <div class="split-cell">
-          <span class="split-tag">Road</span>
+          <span class="split-tag">✈️ Road</span>
           <span class="split-avg road-avg"></span>
           <span class="split-note road-note"></span>
         </div>
         <div class="split-cell">
-          <span class="split-tag">Home</span>
+          <span class="split-tag">🏠 Home</span>
           <span class="split-avg home-avg"></span>
           <span class="split-note home-note"></span>
         </div>
@@ -708,7 +708,7 @@
 
     <!-- Matchup -->
     <section class="report-block" data-reveal>
-      <h3 class="block-title">Matchup</h3>
+      <h3 class="block-title">🆚 Matchup</h3>
       <div class="matchup-score-card" hidden>
         <div class="matchup-score-head">
           <div><span>Matchup Score</span><small class="matchup-score-label"></small></div>
@@ -731,13 +731,13 @@
 
     <!-- Narrative verdict -->
     <section class="report-block narrative-block" data-reveal>
-      <h3 class="block-title">Verdict</h3>
+      <h3 class="block-title">🏆 Verdict</h3>
       <p class="narrative-text"></p>
     </section>
 
     <!-- Performance -->
     <section class="report-block" data-reveal>
-      <h3 class="block-title">Performance</h3>
+      <h3 class="block-title">📈 Performance</h3>
       <div class="perf-stat-row">
         <span class="perf-season"></span>
       </div>
