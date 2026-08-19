@@ -5500,7 +5500,11 @@ button:focus-visible,[role="button"]:focus-visible{outline:2px solid #777!import
 .avatar{background:#171717!important;color:#aaa!important}.avatar img{background:transparent!important}
 .sr-team-logo{width:34px!important;height:34px!important;margin-left:auto!important;object-fit:contain!important}.search-result-item .sr-pick,.search-result-item .sr-sport{display:none!important}
 .profile-name{display:flex!important;align-items:center!important;gap:10px!important}.profile-team-logo{width:27px!important;height:27px!important;object-fit:contain!important}
-.player-profile::after{display:none!important}.player-profile{overflow:hidden!important}
+.player-profile::after{display:none!important}.player-profile{overflow:visible!important;z-index:40!important}
+.profile-stats-select-wrap,.line-picker,.line-picker-row,.pp-lines-wrap{overflow:visible!important}
+.profile-stats-menu,.pp-lines-menu{z-index:120!important}
+.report-wrap{position:relative;z-index:1}
+@media(max-width:560px){.pp-lines-menu{right:0;width:min(290px,calc(100vw - 44px))}}
 .kp-analysis-loader::before{display:none!important}
 .slate-matchup{gap:11px!important}.slate-matchup img{width:31px!important;height:31px!important}.slate-matchup span,.slate-matchup strong{display:none!important}.slate-matchup b{font-size:10px!important;color:#686868!important;text-transform:lowercase!important}
 .slate-read,.slate-read.slate-easy,.slate-read.slate-medium,.slate-read.slate-hard{min-width:92px!important;padding:10px 12px!important;border:1px solid #303030!important;border-radius:12px!important;background:#101010!important;color:#ddd!important}
