@@ -325,6 +325,7 @@ function cacheEls() {
 
   els.gamelogOverlay = document.getElementById("gamelog-overlay");
   els.gamelogTitle = document.getElementById("gamelog-title");
+  els.gamelogPlayerCutout = document.getElementById("gamelog-player-cutout");
   els.gamelogClose = document.getElementById("gamelog-close");
   els.gamelogTabs = document.getElementById("gamelog-tabs");
   els.gamelogSub = document.getElementById("gamelog-sub");
@@ -1793,6 +1794,19 @@ function snapPropLine(value) {
   return Math.max(0.5, Math.round(Number(value) - 0.5) + 0.5);
 }
 
+const GAMELOG_STAT_CODES = {
+  "Hits+Runs+RBIs": "HRR", "Total Bases": "TB", "Hits": "H",
+  "Home Runs": "HR", "RBIs": "RBI", "Runs Scored": "R",
+  "Strikeouts": "SO", "Walks": "BB", "Fantasy Score": "FS",
+  "Strikeouts (Pitcher)": "K", "Pitching Outs": "OUTS",
+  "Earned Runs Allowed": "ER", "Hits Allowed": "HA",
+  "Fantasy Score (Pitcher)": "PFS",
+};
+
+function gameLogStatCode(stat) {
+  return GAMELOG_STAT_CODES[stat] || stat;
+}
+
 function regradeGameLog(line) {
   Object.values(gameLogState.chart || {}).forEach((games) => {
     (games || []).forEach((game) => { game.over = Number(game.value) >= line; });
@@ -1813,7 +1827,7 @@ function setGameLogPreviewLine(value, settle = false) {
 
 function populateGameLogStats() {
   const stats = gameLogState.isPitcher ? PITCHER_STATS : BATTER_STATS;
-  els.gamelogStat.innerHTML = stats.map((stat) => `<option value="${escapeHtml(stat)}">${escapeHtml(stat)}</option>`).join("");
+  els.gamelogStat.innerHTML = stats.map((stat) => `<option value="${escapeHtml(stat)}">${escapeHtml(gameLogStatCode(stat))}</option>`).join("");
   els.gamelogStat.value = gameLogState.stat;
 }
 
@@ -1822,7 +1836,7 @@ async function loadGameLogStat(stat) {
   gameLogState.stat = stat;
   els.gamelogStat.disabled = true;
   els.gamelogChart.classList.add("is-loading");
-  els.gamelogTitle.textContent = `${gameLogState.player} — ${stat}`;
+  els.gamelogTitle.textContent = gameLogStatCode(stat);
   try {
     const url = `/api/game-log-filters?player=${encodeURIComponent(gameLogState.player)}&stat=${encodeURIComponent(stat)}&line=${gameLogState.line}` +
       (gameLogState.teamId ? `&teamId=${gameLogState.teamId}` : "") +
@@ -1865,7 +1879,11 @@ function openGameLogModal(p) {
   gameLogState.window = ["l5", "l10", "l15", "l20"].find((w) => (gameLogState.chart[w] || []).length > 0) || "l5";
 
   els.gamelogOverlay.hidden = false;
-  els.gamelogTitle.textContent = `${p.player} — ${p.betType}`;
+  els.gamelogTitle.textContent = gameLogStatCode(p.betType);
+  const cutout = String(p.headshot || "").replace("/headshot/67/current", "/headshot/silo/current");
+  els.gamelogPlayerCutout.innerHTML = cutout
+    ? `<img src="${escapeHtml(cutout)}" alt="" onerror="this.parentElement.innerHTML=''">`
+    : avatarHtml(p, "lg");
   els.gamelogLineValue.textContent = Number(p.line).toFixed(1);
   populateGameLogStats();
   renderGameLogTabs();
