@@ -333,6 +333,9 @@ function cacheEls() {
   els.glHandFilter = document.getElementById("gl-hand-filter");
   els.glVenueFilter = document.getElementById("gl-venue-filter");
   els.gamelogStat = document.getElementById("gamelog-stat");
+  els.gamelogLineDown = document.getElementById("gamelog-line-down");
+  els.gamelogLineUp = document.getElementById("gamelog-line-up");
+  els.gamelogLineValue = document.getElementById("gamelog-line-value");
 
   els.teamOverlay = document.getElementById("team-overlay");
   els.teamTitle = document.getElementById("team-title");
@@ -1781,7 +1784,7 @@ function renderReport(p) {
 /* ---------- Expandable game log modal (L5/L10/L15/L20/H2H) ---------- */
 
 let gameLogState = {
-  chart: null, line: null, player: "", opponent: "", window: "l10",
+  chart: null, line: null, player: "", opponent: "", window: "l5",
   handFilter: "all", venueFilter: "all", handDataLoaded: false, teamId: null,
   stat: "", isPitcher: false, fetchToken: 0,
 };
@@ -1800,6 +1803,7 @@ function setGameLogPreviewLine(value, settle = false) {
   const raw = Math.max(0.5, Number(value) || 0.5);
   const line = settle ? snapPropLine(raw) : raw;
   gameLogState.line = line;
+  if (els.gamelogLineValue) els.gamelogLineValue.textContent = Number(line).toFixed(1);
   if (settle) {
     regradeGameLog(line);
     renderGameLogTabs();
@@ -1858,10 +1862,11 @@ function openGameLogModal(p) {
   gameLogState.teamId = p.opponentTeamId || null;
   // Default to the widest window that actually has data, so a prop with
   // only 5 games logged doesn't open on an empty L10 tab.
-  gameLogState.window = ["l10", "l5", "l15", "l20"].find((w) => (gameLogState.chart[w] || []).length > 0) || "l10";
+  gameLogState.window = ["l5", "l10", "l15", "l20"].find((w) => (gameLogState.chart[w] || []).length > 0) || "l5";
 
   els.gamelogOverlay.hidden = false;
   els.gamelogTitle.textContent = `${p.player} — ${p.betType}`;
+  els.gamelogLineValue.textContent = Number(p.line).toFixed(1);
   populateGameLogStats();
   renderGameLogTabs();
   renderGameLogChart();
@@ -1955,7 +1960,7 @@ function renderGameLogTabs() {
     const overCount = games.filter((g) => g.over).length;
     const rate = Math.round((overCount / games.length) * 100);
     const avg = games.reduce((sum, g) => sum + g.value, 0) / games.length;
-    rateEl.textContent = `${rate}%`;
+    rateEl.textContent = `HR ${rate}%`;
     rateEl.classList.toggle("gl-tile-rate-good", rate >= 55);
     rateEl.classList.toggle("gl-tile-rate-bad", rate <= 45);
     avgEl.textContent = `Avg ${avg.toFixed(2)}`;
@@ -1998,7 +2003,7 @@ function renderGameLogChart() {
   // season-high of 5) -- widen the scale so the dashed marker never sits
   // above the chart's visible area.
   const line = gameLogState.line;
-  const trackPx = 130;
+  const trackPx = holder.clientWidth <= 640 ? 190 : 280;
   const max = Math.max(...games.map((g) => g.value), typeof line === "number" ? line : 0, 1);
   const track = document.createElement("div");
   track.className = "gamelog-chart-track";
@@ -2012,8 +2017,8 @@ function renderGameLogChart() {
           <span class="gl-val">${g.value}</span>
         </div>
       </div>
-      <span class="gl-opp">${escapeHtml(g.opponent || "")}</span>
       <span class="gl-date">${escapeHtml(gameLogState.window === "h2h" ? (g.fullDate || g.date || "") : (g.date || ""))}</span>
+      <span class="gl-opp">${escapeHtml(g.opponent || "")}</span>
     `;
     track.appendChild(col);
   });
@@ -2092,6 +2097,8 @@ function wireGameLogModal() {
     });
   });
   els.gamelogStat.addEventListener("change", () => loadGameLogStat(els.gamelogStat.value));
+  els.gamelogLineDown.addEventListener("click", () => setGameLogPreviewLine(gameLogState.line - 0.5, true));
+  els.gamelogLineUp.addEventListener("click", () => setGameLogPreviewLine(gameLogState.line + 0.5, true));
 }
 
 /* ---------- Team insights modal (Batting Order & Pitch Arsenal) ---------- */

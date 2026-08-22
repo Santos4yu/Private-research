@@ -6197,3 +6197,50 @@ body::before{background:linear-gradient(115deg,transparent 12%,color-mix(in srgb
 :root[data-theme="ivory"] .split-cell,
 :root[data-theme="ivory"] .verdict-metric,
 :root[data-theme="ivory"] .matchup-score-note{background:#e6dfd3!important;color:#201e1a!important}
+
+/* Reference-style performance explorer: compact controls above a tall,
+   high-contrast result chart. Kept at the end so it wins over the older
+   modal experiments without disturbing any other research surface. */
+.gamelog-modal{width:min(1100px,calc(100vw - 28px))!important;max-width:1100px!important}
+.gamelog-workbench{display:grid;grid-template-columns:minmax(0,1fr) minmax(390px,46%);gap:18px;align-items:start;padding:18px 28px 14px}
+.gamelog-workbench .gamelog-toolbar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;padding:0!important}
+.gamelog-workbench .gamelog-stat-control{width:min(290px,100%)}
+.gamelog-line-control{display:grid;gap:7px}
+.gamelog-line-control>span{color:var(--theme-faint,#777);font:600 9px var(--font-mono);letter-spacing:.1em;text-transform:uppercase}
+.gamelog-line-control>div{display:grid;grid-template-columns:34px 54px 34px;height:42px;overflow:hidden;border:1px solid var(--theme-border,#303030);border-radius:10px;background:var(--theme-panel-2,#111)}
+.gamelog-line-control button{border:0;color:var(--theme-dim,#aaa);background:transparent;font-size:17px;cursor:pointer}
+.gamelog-line-control button:hover{color:var(--theme-text,#fff);background:var(--theme-accent-dim,rgba(255,255,255,.06))}
+.gamelog-line-control strong{display:grid;place-items:center;border-right:1px solid var(--theme-border,#303030);border-left:1px solid var(--theme-border,#303030);color:var(--theme-text,#fff);font:700 13px var(--font-mono)}
+.gamelog-workbench .gamelog-subfilters{flex:1 1 100%;justify-content:flex-start!important;gap:10px!important}
+.gamelog-workbench .gamelog-tiles{align-self:start;display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:2px!important;margin:0!important;padding:5px!important;border:1px solid var(--theme-border,#292929)!important;border-radius:12px!important;background:var(--theme-panel-2,#080d16)!important}
+.gamelog-workbench .gamelog-tile{min-width:0!important;min-height:62px!important;padding:8px 7px!important;border:0!important;border-radius:9px!important}
+.gamelog-workbench .gamelog-tile.active{background:var(--theme-accent-dim,rgba(35,207,143,.12))!important;color:var(--theme-text,#fff)!important}
+.gamelog-workbench .gamelog-tile.active .gl-tile-label{color:var(--theme-text,#fff)!important}
+.gamelog-workbench .gl-tile-label{font-size:10px!important;text-align:left}
+.gamelog-workbench .gl-tile-rate{color:#29d993!important;font-size:11px!important;line-height:1.35!important;white-space:nowrap}
+.gamelog-workbench .gl-tile-rate-bad{color:#ff5268!important}
+.gamelog-workbench .gl-tile-avg{color:#42d9b1!important;font-size:9px!important;white-space:nowrap}
+.gamelog-summary{margin:0 28px!important;padding:14px 0!important}
+.gamelog-chart{min-height:355px!important;margin:0 0 0!important;padding:28px 14px 12px!important;border-radius:0!important;background:linear-gradient(180deg,rgba(9,31,45,.42),rgba(16,92,68,.28))!important}
+.gamelog-chart-track{gap:8px!important;min-height:320px;align-items:flex-end!important}
+.gl-col{flex-basis:74px!important;min-width:74px!important}
+.gl-track{align-items:flex-end}
+.gl-bar{border-radius:9px 9px 0 0!important;background:linear-gradient(180deg,#19d49a,#0ea76f)!important;box-shadow:0 0 24px rgba(25,212,154,.10)!important;padding-top:0!important}
+.gl-bar-under{background:linear-gradient(180deg,#ff4f5f,#cf303d)!important;box-shadow:0 0 22px rgba(255,79,95,.10)!important}
+.gl-val{position:absolute;top:-22px;padding:0!important;background:transparent!important;color:#20dca0!important;font-size:10px!important}
+.gl-bar-under .gl-val{color:#ff5268!important}
+.gl-date{order:2;margin-top:11px!important;color:var(--theme-dim,#a9b1c2)!important;font-size:10px!important}
+.gl-opp{order:3;margin-top:3px!important;color:var(--theme-faint,#747f94)!important;font-size:10px!important}
+.gl-line-marker::before{border-color:#6d7d8f!important;border-width:2px!important;opacity:.78}
+.gl-line-marker .gl-line-tag{right:8px!important;color:var(--theme-text,#ddd)!important}
+
+@media(max-width:800px){
+  .gamelog-workbench{grid-template-columns:1fr;padding:14px 18px 12px}
+  .gamelog-workbench .gamelog-tiles{grid-template-columns:repeat(5,minmax(68px,1fr))!important;overflow-x:auto}
+  .gamelog-workbench .gamelog-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto}
+  .gamelog-workbench .gamelog-subfilters{grid-column:1/-1;overflow-x:auto}
+  .gamelog-summary{margin:0 18px!important}
+  .gamelog-chart{min-height:270px!important;padding-top:26px!important}
+  .gamelog-chart-track{min-height:235px}
+  .gl-col{flex-basis:58px!important;min-width:58px!important}
+}
