@@ -602,16 +602,25 @@ def compute_tool(tool: str) -> dict:
     return {"date": today, "entries": rows, "tool": tool}
 
 
-def compute_prediction(player_name: str, prop_type: str, stat_label: str, line: float, side: str) -> dict:
-    matches = vortex_research.fuzzy_search(player_name)
-    if not matches:
-        raise PlayerNotFound(f"Couldn't find an MLB player matching \"{player_name}\".")
-    found = matches[0]
-    player_id = found["id"]
-    canonical_name = found.get("name", player_name)
-    team_abbr = found.get("team", "")
+def compute_prediction(player_name: str, prop_type: str, stat_label: str, line: float,
+                       side: str, player_id: int | None = None,
+                       team_id: int | None = None, team_name: str = "") -> dict:
+    if player_id:
+        player_id = int(player_id)
+        canonical_name = player_name
+        resolved_team_name = team_name or _MLB_TEAM_ID_TO_NAME.get(int(team_id or 0), "")
+        team_abbr = stats_mlb._MLB_TEAM_ABBR.get(resolved_team_name, resolved_team_name)
+    else:
+        matches = vortex_research.fuzzy_search(player_name)
+        if not matches:
+            raise PlayerNotFound(f"Couldn't find an MLB player matching \"{player_name}\".")
+        found = matches[0]
+        player_id = found["id"]
+        canonical_name = found.get("name", player_name)
+        team_abbr = found.get("team", "")
+        resolved_team_name = found.get("team", "")
 
-    matchup = analyze.get_matchup_info(player_id)
+    matchup = analyze.get_matchup_info(player_id, team_id=team_id)
     if not matchup:
         raise NoGameFound(analyze.get_no_game_reason(player_id, canonical_name))
 
@@ -627,7 +636,7 @@ def compute_prediction(player_name: str, prop_type: str, stat_label: str, line: 
     is_home = bool(matchup.get("is_home"))
     # PARK_FACTOR is keyed by the HOME team's name — that's the batter's own
     # team when they're home, otherwise the opponent (whose park it is tonight).
-    home_team_name = matchup.get("home_team_name") or ((found.get("team") or "") if is_home else (matchup.get("opponent") or ""))
+    home_team_name = matchup.get("home_team_name") or (resolved_team_name if is_home else (matchup.get("opponent") or ""))
     park_factor = stats_mlb.PARK_FACTOR.get(home_team_name, 1.0)
     home_abbr = matchup.get("home_abbr") or stats_mlb._MLB_TEAM_ABBR.get(home_team_name, "")
     opp_team_id = matchup.get("opp_team_id")
@@ -657,8 +666,12 @@ def compute_prediction(player_name: str, prop_type: str, stat_label: str, line: 
         f_bat_arsenal = pool.submit(_safe, stats_mlb.get_batter_arsenal_stats, player_id, default=[])
         # matchup's "home_team_id" is only the player's OWN team when
         # is_home -- an away player's own team isn't otherwise in matchup.
-        f_own_team_id = pool.submit(_safe, stats_mlb.get_player_current_team, player_id, default=None)
+        f_own_team_id = (pool.submit(_safe, stats_mlb.get_player_current_team, player_id, default=None)
+                         if not team_id else None)
         f_bullpen = pool.submit(_safe, stats_mlb.get_team_bullpen, opp_team_id, default={}) if opp_team_id else None
+        probable_pitcher_id = matchup.get("pitcher_id")
+        f_bvp = pool.submit(_safe, stats_mlb.get_bvp_history, player_id, probable_pitcher_id, default={}) if probable_pitcher_id else None
+        f_arsenal = pool.submit(_safe, stats_mlb.get_pitcher_arsenal, probable_pitcher_id, default=[]) if probable_pitcher_id else None
 
         splits = f_splits.result()
         if splits.get("error"):
@@ -678,7 +691,10 @@ def compute_prediction(player_name: str, prop_type: str, stat_label: str, line: 
         umpire = f_umpire.result() if f_umpire else {}
         bat_vs_pitch = f_bat_arsenal.result() or []
         opp_bullpen = f_bullpen.result() if f_bullpen else {}
-        own_team_id = f_own_team_id.result()
+        own_team_id = int(team_id) if team_id else f_own_team_id.result()
+        bvp_raw = f_bvp.result() if f_bvp else {}
+        bvp = None if bvp_raw.get("error") else bvp_raw
+        arsenal = f_arsenal.result() if f_arsenal else []
 
     run_environment = {}
     if own_team_id:
@@ -702,9 +718,8 @@ def compute_prediction(player_name: str, prop_type: str, stat_label: str, line: 
     # (bat_vs_pitch used to be fetched here from the MLB API's vsPlayer
     # pitch-type split, but that endpoint never returns performance data --
     # it's now the Savant season-wide per-pitch stats fetched in wave 1.)
-    bvp, arsenal = None, []
-    pitcher_id = pitcher.get("pitcher_id")
-    if pitcher_id:
+    pitcher_id = pitcher.get("pitcher_id") or matchup.get("pitcher_id")
+    if pitcher_id and not probable_pitcher_id:
         with ThreadPoolExecutor(max_workers=2) as pool:
             f_bvp = pool.submit(_safe, stats_mlb.get_bvp_history, player_id, pitcher_id, default={})
             f_arsenal = pool.submit(_safe, stats_mlb.get_pitcher_arsenal, pitcher_id, default=[])

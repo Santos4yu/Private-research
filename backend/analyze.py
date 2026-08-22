@@ -924,13 +924,13 @@ def compute_hit_rates(player_id: int, line: float, prop_type: str) -> dict:
 
 # ── 4. Tonight's matchup (schedule API — free) ───────────────────────────────
 
-def get_matchup_info(player_id: int) -> dict:
+def get_matchup_info(player_id: int, team_id: int | None = None) -> dict:
     """Find the team's NEXT upcoming game + opposing pitcher from the MLB schedule.
     Skips games that have already started/finished so a completed day game is never
     served as a live play. Scans board date → today → tomorrow → day-after, so once
     today's game is over (or today is an off day) it serves the next slate early for
     pre-game value instead of going dark."""
-    team_id = stats_mlb.get_player_current_team(player_id)
+    team_id = team_id or stats_mlb.get_player_current_team(player_id)
     if not team_id:
         return {}
 
@@ -1103,17 +1103,15 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
     other_label = "L" if ph == "R" else "R"
     detail = f"vs {ph}HP {hand_avg:.3f} AVG / {hand_ops:.3f} OPS ({hand_pa} PA)".replace(" 0.", " .")
     if hand_ok and other_ops > 0: detail += f" · vs {other_label}HP {other_avg:.3f} AVG / {other_ops:.3f} OPS ({hand_avg-other_avg:+.3f} AVG)".replace(" 0.", " .").replace("+0.", "+.").replace("-0.", "-.")
-    # This dimension is a platoon edge, not a general hitter-quality score.
-    # Nearly identical splits are neutral even when both absolute OPS marks
-    # are good. When the comparison split is unavailable, fall back to the
-    # absolute split but keep it sample-shrunk.
+    # Grade the split faced tonight first. The opposite-hand split is useful
+    # context, but it must not turn an objectively strong OPS into a negative
+    # Over signal because the batter was even better against the other hand.
+    absolute_score = 50 + (hand_ops - .720) * 115
     if other_ops > 0:
-        # OPS carries the larger share, but a true 90+ point AVG gap paired
-        # with a large OPS gap is an elite platoon signal. The old slopes kept
-        # even a .289/.888 vs .197/.590 profile below a full-strength grade.
-        hand_raw = 50.0 if abs(delta) < .040 and abs(avg_delta) < .015 else 50 + delta * 150 + avg_delta * 100
+        relative_score = 50 + delta * 55 + avg_delta * 45
+        hand_raw = absolute_score * .75 + relative_score * .25
     else:
-        hand_raw = 50 + (hand_ops - .720) * 110
+        hand_raw = absolute_score
     # A platoon edge is a comparison between two samples, so confidence must
     # reflect both sides of that comparison. Reaching the full 23-point
     # allocation after only 50 PA made extreme early-season splits look as
