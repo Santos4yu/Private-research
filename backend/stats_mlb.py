@@ -1575,11 +1575,26 @@ def _all_batter_splits_vs_hand(pitcher_hand: str) -> dict:
 
 
 def _lineup_platoon_values(lineup: list, batter_splits: dict, runs_pg=None) -> dict:
-    rows = [batter_splits.get(str(player.get("id"))) or {
-        "id": player.get("id"), "name": player.get("name", ""),
-        "games": 0, "at_bats": 0, "hits": 0, "home_runs": 0,
-        "strikeouts": 0, "walks": 0, "pa": 0,
-    } for player in lineup[:9]]
+    # The bulk split map carries an internal ``team_ids`` set used while
+    # projecting all 30 lineups. Never leak that implementation detail into
+    # the public response: Python sets are not JSON serializable and caused
+    # every pitcher report (the only reports with opponentOffense attached)
+    # to return a misleading empty 200 response in production.
+    rows = []
+    for order, player in enumerate(lineup[:9], start=1):
+        split = batter_splits.get(str(player.get("id"))) or {}
+        rows.append({
+            "order": player.get("order") or order,
+            "id": split.get("id") or player.get("id"),
+            "name": split.get("name") or player.get("name", ""),
+            "games": split.get("games", 0) or 0,
+            "at_bats": split.get("at_bats", 0) or 0,
+            "hits": split.get("hits", 0) or 0,
+            "home_runs": split.get("home_runs", 0) or 0,
+            "strikeouts": split.get("strikeouts", 0) or 0,
+            "walks": split.get("walks", 0) or 0,
+            "pa": split.get("pa", 0) or 0,
+        })
     if len(rows) != 9:
         return {}
     totals = {key: sum(row.get(key, 0) or 0 for row in rows) for key in (

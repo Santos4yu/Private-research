@@ -222,10 +222,20 @@ class handler(BaseHTTPRequestHandler):
         return self._send(status, body)
 
     def _send(self, status, body):
+        # Serialize before committing the HTTP status. If a future response
+        # accidentally contains a non-JSON value, return a real JSON 500
+        # instead of sending "200 OK" and then closing with an empty body.
+        try:
+            payload = json.dumps(body).encode("utf-8")
+        except (TypeError, ValueError):
+            status = 500
+            payload = json.dumps({
+                "error": "Live research returned an invalid response. Please retry."
+            }).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
-        self.wfile.write(json.dumps(body).encode("utf-8"))
+        self.wfile.write(payload)
