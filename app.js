@@ -2027,7 +2027,9 @@ function renderGameLogTabs() {
     const rateEl = btn.querySelector(".gl-tile-rate");
     const avgEl = btn.querySelector(".gl-tile-avg");
     if (w === "h2h") {
-      labelEl.textContent = gameLogState.opponent ? `CAREER H2H · ${gameLogState.opponent}` : "CAREER H2H";
+      labelEl.textContent = window.matchMedia("(max-width: 600px)").matches
+        ? "H2H"
+        : gameLogState.opponent ? `CAREER H2H · ${gameLogState.opponent}` : "CAREER H2H";
     }
     if (!hasData || !games.length) {
       rateEl.textContent = hasData ? "0 g" : "—";
