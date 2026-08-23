@@ -3385,7 +3385,7 @@ function fillPitcherLineupProfile(node, p) {
     </div>`;
   }).join("");
   block.querySelector(".lineup-profile-note").textContent =
-    `${profile.games || "—"} team games · AVG, runs, HR, strikeouts and walks from the official MLB season feed. Rank 1 is the highest raw team rate; edge labels interpret each stat for the starting pitcher.`;
+    `${profile.games || "—"} team games · AVG, runs, HR, strikeouts and walks from the official MLB season feed. Rank 1 is the strongest offensive result; K% rewards fewer strikeouts.`;
 }
 
 /* ---------- Manual PrizePicks prop builder ---------- */

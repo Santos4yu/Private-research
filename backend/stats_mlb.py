@@ -1413,9 +1413,10 @@ def get_all_teams_k_rate() -> dict:
 def get_all_teams_offensive_profile() -> dict:
     """Official season offense profile and MLB ranks for all 30 teams.
 
-    Rank 1 is the highest raw team value for every metric. ``edge`` then
-    interprets that rank from a starting pitcher's perspective: low AVG,
-    runs, HR and BB rates help the pitcher, while a high K rate helps them.
+    Rank 1 is the strongest offensive result for every metric. Higher is
+    better for AVG, runs, HR and BB rate; lower is better for K rate.
+    ``edge`` interprets that offensive rank from the starting pitcher's
+    perspective.
     A partial MLB response is never presented as a 30-team ranking.
     """
     data = _get(
@@ -1467,8 +1468,12 @@ def get_all_teams_offensive_profile() -> dict:
         ("bb_pct", "BB%", True),
     )
     ranks = {}
-    for key, _, _ in metric_defs:
-        ordered = sorted(raw, key=lambda tid: raw[tid].get(key) or 0, reverse=True)
+    for key, _, higher_is_better in metric_defs:
+        ordered = sorted(
+            raw,
+            key=lambda tid: raw[tid].get(key) or 0,
+            reverse=higher_is_better,
+        )
         metric_ranks = {}
         previous_value = object()
         previous_rank = 0
@@ -1483,12 +1488,9 @@ def get_all_teams_offensive_profile() -> dict:
     result = {}
     for tid, team in raw.items():
         metrics = []
-        for key, label, low_helps_pitcher in metric_defs:
+        for key, label, _ in metric_defs:
             rank = ranks[key][tid]
-            if low_helps_pitcher:
-                edge = "pitcher" if rank >= 21 else "batter" if rank <= 10 else "neutral"
-            else:
-                edge = "pitcher" if rank <= 10 else "batter" if rank >= 21 else "neutral"
+            edge = "batter" if rank <= 10 else "pitcher" if rank >= 21 else "neutral"
             value = team[key]
             display = (
                 "—" if value is None else
