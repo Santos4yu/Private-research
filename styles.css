@@ -6321,64 +6321,65 @@ body::before{background:linear-gradient(115deg,transparent 12%,color-mix(in srgb
   .gl-col{flex-basis:58px!important;min-width:58px!important}
 }
 
-/* Mobile performance explorer. Everything fits in one viewport: compact
-   controls and one-row period choices leave the remaining height to the chart. */
+/* Mobile performance explorer. Keep the sheet content-sized and let only the
+   sheet scroll on short screens. The separate body lock below prevents the
+   research page from moving behind it. */
 @media(max-width:600px){
   body:has(#gamelog-overlay:not([hidden])){overflow:hidden}
-  #gamelog-overlay{align-items:stretch!important;padding:0!important;background:rgba(0,0,0,.88)}
+  #gamelog-overlay{align-items:flex-start!important;padding:0!important;background:rgba(0,0,0,.88)}
   .gamelog-modal{
-    width:100vw!important;max-width:none!important;height:100dvh!important;max-height:none!important;
+    width:100vw!important;max-width:none!important;height:auto!important;max-height:100dvh!important;
     padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)!important;
-    border:0!important;border-radius:0!important;overflow:hidden!important;overscroll-behavior:none;
-    display:flex!important;flex-direction:column;box-sizing:border-box;
+    border:0!important;border-radius:0!important;overflow-x:hidden!important;overflow-y:auto!important;
+    overscroll-behavior:contain;box-sizing:border-box;
   }
   .gamelog-modal .modal-head{
-    position:relative;top:auto;z-index:4;flex:0 0 auto;min-height:62px!important;margin:0!important;
-    padding:9px 14px 8px!important;background:color-mix(in srgb,var(--theme-panel,#0b0b0b) 94%,transparent);
+    position:sticky;top:0;z-index:4;min-height:74px!important;margin:0!important;
+    padding:14px 16px 12px!important;background:color-mix(in srgb,var(--theme-panel,#0b0b0b) 94%,transparent);
     backdrop-filter:blur(14px);
   }
   .gamelog-heading>span{margin-bottom:4px;font-size:8px}
   .gamelog-heading-row{gap:10px}
-  .gamelog-player-cutout{width:40px;height:40px}
-  .gamelog-heading-row .modal-title{font-size:18px!important}
+  .gamelog-player-cutout{width:44px;height:44px}
+  .gamelog-heading-row .modal-title{font-size:20px!important}
   .gamelog-heading p{display:none}
-  .gamelog-modal .modal-close{width:38px!important;height:38px!important;font-size:14px}
+  .gamelog-modal .modal-close{width:42px!important;height:42px!important;font-size:15px}
 
-  .gamelog-workbench{display:block!important;flex:0 0 auto;padding:7px 12px 6px!important}
+  .gamelog-workbench{display:block!important;padding:12px 14px 10px!important}
   .gamelog-workbench .gamelog-toolbar{display:grid!important;grid-template-columns:minmax(0,1fr) 132px!important;gap:10px!important}
-  .gamelog-control select,.gamelog-line-control>div{height:40px!important}
-  .gamelog-line-control>div{grid-template-columns:38px minmax(46px,1fr) 38px}
-  .gamelog-line-control button{font-size:19px;touch-action:manipulation}
+  .gamelog-control select,.gamelog-line-control>div{height:46px!important}
+  .gamelog-line-control>div{grid-template-columns:42px minmax(46px,1fr) 42px}
+  .gamelog-line-control button{font-size:21px;touch-action:manipulation}
   .gamelog-workbench .gamelog-subfilters{
-    display:flex!important;grid-template-columns:none!important;gap:6px!important;margin:6px 0 0!important;overflow:visible!important;
+    display:grid!important;grid-template-columns:1fr!important;gap:8px!important;margin-top:10px!important;overflow:visible!important;
   }
-  .gamelog-workbench .gl-filter-group{flex:1;min-width:0;min-height:34px;padding:2px!important;border-radius:10px!important}
-  .gamelog-workbench .gl-filter-group[hidden]{display:none!important}
-  .gamelog-workbench .gl-filter-chip{min-width:0;min-height:30px!important;padding:4px 3px!important;font-size:9px!important;touch-action:manipulation}
+  .gamelog-workbench .gl-filter-group{min-height:42px;padding:3px!important;border-radius:11px!important}
+  .gamelog-workbench .gl-filter-chip{min-height:36px!important;padding:6px 8px!important;font-size:10px!important;touch-action:manipulation}
 
   .gamelog-workbench .gamelog-tiles{
-    display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:2px!important;
-    margin:7px 0 0!important;padding:3px!important;overflow:hidden!important;
+    display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr))!important;gap:5px!important;
+    margin:12px 0 0!important;padding:5px!important;overflow:visible!important;
   }
   .gamelog-workbench .gamelog-tile{
-    grid-column:auto!important;min-width:0!important;min-height:48px!important;padding:4px 2px!important;
+    grid-column:span 2;min-width:0!important;min-height:62px!important;padding:7px 5px!important;
     align-items:center!important;text-align:center;touch-action:manipulation;
   }
-  .gamelog-workbench .gamelog-tile:nth-child(4),.gamelog-workbench .gamelog-tile:nth-child(5){grid-column:auto!important}
-  .gamelog-workbench .gl-tile-label{text-align:center!important;font-size:9px!important}
-  .gamelog-workbench .gl-tile-rate{font-size:9px!important}
-  .gamelog-workbench .gl-tile-avg{font-size:7px!important}
+  .gamelog-workbench .gamelog-tile:nth-child(4){grid-column:2/span 2}
+  .gamelog-workbench .gamelog-tile:nth-child(5){grid-column:4/span 2}
+  .gamelog-workbench .gl-tile-label{text-align:center!important;font-size:10px!important}
+  .gamelog-workbench .gl-tile-rate{font-size:10px!important}
+  .gamelog-workbench .gl-tile-avg{font-size:8px!important}
 
-  .gamelog-summary{flex:0 0 auto;grid-template-columns:repeat(3,1fr)!important;margin:0 12px!important;padding:7px 0 6px!important}
+  .gamelog-summary{grid-template-columns:repeat(3,1fr)!important;margin:0 14px!important;padding:11px 0 10px!important}
   .gamelog-summary>div{padding:0 8px!important}
-  .gamelog-summary span{font-size:7px!important}
-  .gamelog-summary strong{font-size:16px!important}
-  .gamelog-summary .gamelog-sub{padding:5px 2px 0!important;font-size:8px!important}
+  .gamelog-summary span{font-size:8px!important}
+  .gamelog-summary strong{font-size:18px!important}
+  .gamelog-summary .gamelog-sub{padding:9px 2px 0!important;font-size:9px!important}
   .gamelog-chart{
-    flex:1 1 auto;min-height:0!important;height:auto!important;margin:0!important;padding:22px 10px 8px!important;border-radius:0!important;
+    min-height:205px!important;height:auto!important;margin:0!important;padding:24px 10px 14px!important;border-radius:0!important;
     scroll-padding-inline:10px;-webkit-overflow-scrolling:touch;
   }
-  .gamelog-chart-track{min-height:0!important;gap:7px!important}
+  .gamelog-chart-track{min-height:185px!important;gap:7px!important}
   .gamelog-chart[data-window="l5"] .gamelog-chart-track{width:100%!important;min-width:100%!important}
   .gamelog-chart[data-window="l5"] .gl-col{flex:1 1 0!important;min-width:0!important}
   .gl-col{flex-basis:52px!important;min-width:52px!important}
