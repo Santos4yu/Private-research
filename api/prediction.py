@@ -171,8 +171,8 @@ class handler(BaseHTTPRequestHandler):
         except (TypeError, ValueError):
             return self._send(400, {"error": f"Invalid line value: {line_raw!r}"})
 
-        if side != "over":
-            return self._send(400, {"error": "Private Research supports Over props only."})
+        if side not in {"over", "under"}:
+            return self._send(400, {"error": "Side must be over or under."})
 
         prop_type = STAT_LABEL_TO_PROP_TYPE.get(stat_label)
         if not prop_type:

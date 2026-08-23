@@ -138,7 +138,11 @@ const THEME_KEY = "vortex_theme_mode";
 // not down near the function definition, or it's a temporal-dead-zone
 // ReferenceError the instant this file loads when a top-level call reaches a
 // later `const` before the script gets there in top-to-bottom execution.
-const THEME_BG = { obsidian: "#050505", midnight: "#07101f", forest: "#07130f", burgundy: "#16090d", ivory: "#f3efe7" };
+const THEME_BG = {
+  obsidian: "#050505", midnight: "#07101f", forest: "#07130f",
+  burgundy: "#16090d", ivory: "#f3efe7", violet: "#100a1c",
+  ocean: "#041719", amber: "#1a1005",
+};
 const LEGACY_THEMES = { dark: "obsidian", grey: "midnight", light: "ivory" };
 const initialTheme = localStorage.getItem(THEME_KEY) || "obsidian";
 applyTheme(LEGACY_THEMES[initialTheme] || initialTheme);
@@ -273,7 +277,6 @@ function cacheEls() {
   els.sideMenuClose = document.getElementById("side-menu-close");
   els.v2BoardList = document.getElementById("v2-board-list");
   els.v2BoardEmpty = document.getElementById("v2-board-empty");
-  els.v2BoardLoading = document.getElementById("v2-board-loading");
   els.v2BoardError = document.getElementById("v2-board-error");
   els.v2BoardDate = document.getElementById("v2-board-date");
   els.v2RefreshBtn = document.getElementById("v2-refresh-btn");
@@ -921,9 +924,7 @@ function loadSaved() {
   try {
     const raw = localStorage.getItem(SAVED_KEY);
     const arr = raw ? JSON.parse(raw) : [];
-    const overs = arr.filter((p) => String(p.side || "").toLowerCase() === "over");
-    if (overs.length !== arr.length) localStorage.setItem(SAVED_KEY, JSON.stringify(overs));
-    return new Map(overs.map((p) => [p.id, p]));
+    return new Map(arr.map((p) => [p.id, p]));
   } catch {
     return new Map();
   }
@@ -1549,12 +1550,13 @@ function selectStat(stat) {
     li.classList.toggle("active", li.textContent === stat);
   });
 
-  const matches = propsForPlayer().filter((p) => p.betType === stat && p.side === "Over");
-  const hasStaticData = matches.length > 0;
+  const statMatches = propsForPlayer().filter((p) => p.betType === stat);
+  const matches = statMatches.filter((p) => p.side === "Over");
+  const hasStaticData = statMatches.length > 0;
   const fallbackLine = STAT_DEFAULT_LINE[stat] ?? 0.5;
-  const lines = hasStaticData ? matches.map((p) => p.line) : [fallbackLine];
-  const defaultProp = matches[0];
-  const availableSides = new Set(matches.map((p) => p.side));
+  const lines = hasStaticData ? statMatches.map((p) => p.line) : [fallbackLine];
+  const defaultProp = matches[0] || statMatches[0];
+  const availableSides = new Set(statMatches.map((p) => p.side));
 
   // Only lock out a side when we KNOW (from static data) it has no coverage.
   // For live lookups both sides are always computable, so leave them enabled.
@@ -1575,7 +1577,7 @@ function selectStat(stat) {
   els.lineNumber.min = String(min);
   els.lineNumber.max = String(max);
 
-  cmd.side = "Over";
+  cmd.side = !hasStaticData || availableSides.has("Over") ? "Over" : defaultProp.side;
   els.sideToggle.querySelectorAll(".side-btn").forEach((b) => b.classList.toggle("active", b.dataset.side === cmd.side));
 
   els.linePicker.hidden = false;
@@ -3790,7 +3792,6 @@ function wireV2Board() {
 async function loadV2Board(force = false) {
   if (state.v2BoardLoaded && !force) return;
 
-  els.v2BoardLoading.hidden = false;
   els.v2BoardEmpty.hidden = true;
   els.v2BoardError.hidden = true;
   els.v2BoardList.innerHTML = "";
@@ -3800,8 +3801,6 @@ async function loadV2Board(force = false) {
   try {
     const res = await fetch("/api/board", { cache: "no-store" });
     const data = await res.json();
-    els.v2BoardLoading.hidden = true;
-
     if (!res.ok || data.error) {
       els.v2BoardError.innerHTML = `<span class="status-mark status-mark-error" aria-hidden="true"></span><span class="state-copy"><strong>Props are temporarily unavailable</strong><small>Refresh in a moment to try again.</small></span>`;
       els.v2BoardError.hidden = false;
@@ -3812,7 +3811,6 @@ async function loadV2Board(force = false) {
     state.v2BoardData = data;
     renderBotBoard(data);
   } catch (err) {
-    els.v2BoardLoading.hidden = true;
     els.v2BoardError.innerHTML = `<span class="status-mark status-mark-error" aria-hidden="true"></span><span class="state-copy"><strong>Props are temporarily unavailable</strong><small>Refresh in a moment to try again.</small></span>`;
     els.v2BoardError.hidden = false;
   } finally {
@@ -3999,9 +3997,7 @@ function renderBotBoard(data, { scoresAreLive = false } = {}) {
 
   if (state.boardFilter === "matchup" && !scoresAreLive) {
     els.v2BoardDate.textContent += " · calculating current matchup scores…";
-    els.v2BoardList.innerHTML = `<div class="slate-loading premium-loading"><span class="loading-line" aria-hidden="true"></span><span><strong>Calculating matchup scores</strong><small>Using the same live model as Research</small></span></div>`;
     refreshVisibleMatchupScores(props);
-    return;
   }
 
   props.forEach((p, i) => {

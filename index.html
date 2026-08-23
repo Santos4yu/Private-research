@@ -75,11 +75,14 @@
   <div class="settings-section">
     <span class="settings-label">Website theme</span>
     <div class="theme-picker" id="mode-row">
-      <button type="button" class="mode-btn" data-mode="obsidian"><i><b></b><b></b><b></b></i><span>Obsidian</span></button>
+      <button type="button" class="mode-btn" data-mode="obsidian"><i><b></b><b></b><b></b></i><span>Dark</span></button>
       <button type="button" class="mode-btn" data-mode="midnight"><i><b></b><b></b><b></b></i><span>Midnight</span></button>
       <button type="button" class="mode-btn" data-mode="forest"><i><b></b><b></b><b></b></i><span>Forest</span></button>
-      <button type="button" class="mode-btn" data-mode="burgundy"><i><b></b><b></b><b></b></i><span>Burgundy</span></button>
-      <button type="button" class="mode-btn" data-mode="ivory"><i><b></b><b></b><b></b></i><span>Ivory</span></button>
+      <button type="button" class="mode-btn" data-mode="burgundy"><i><b></b><b></b><b></b></i><span>Red</span></button>
+      <button type="button" class="mode-btn" data-mode="ivory"><i><b></b><b></b><b></b></i><span>Light</span></button>
+      <button type="button" class="mode-btn" data-mode="violet"><i><b></b><b></b><b></b></i><span>Violet</span></button>
+      <button type="button" class="mode-btn" data-mode="ocean"><i><b></b><b></b><b></b></i><span>Ocean</span></button>
+      <button type="button" class="mode-btn" data-mode="amber"><i><b></b><b></b><b></b></i><span>Amber</span></button>
     </div>
     <p class="theme-picker-note">Changes the full website and saves automatically.</p>
   </div>
@@ -359,6 +362,7 @@
       <div class="line-picker-row">
         <div class="side-toggle" id="side-toggle">
           <button type="button" class="side-btn active" data-side="Over">Over</button>
+          <button type="button" class="side-btn" data-side="Under">Under</button>
         </div>
         <div class="line-input-group" hidden aria-hidden="true">
           <button type="button" class="line-step" id="line-step-down" aria-label="Decrease line">−</button>
@@ -444,7 +448,6 @@
   </div>
   <div class="slate-list" id="v2-board-list"></div>
   <p class="empty-state" id="v2-board-empty" hidden>The board is empty right now — it fills as soon as the data engine runs.</p>
-  <div class="slate-loading premium-loading" id="v2-board-loading" hidden><span class="loading-line" aria-hidden="true"></span><span><strong>Loading props</strong><small>Updating the current board</small></span></div>
   <p class="slate-error" id="v2-board-error" hidden></p>
 </section>
 
