@@ -18,7 +18,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=2" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="styles.css?v=99" />
+<link rel="stylesheet" href="styles.css?v=100" />
 <style>
   /* Inline (not the external stylesheet) so it applies before ANY paint --
      this is what actually prevents the flash of the app before the auth
@@ -380,7 +380,19 @@
   </div>
 
   <main class="report-wrap" id="report-wrap">
-    <p class="empty-state" id="empty-state">Search for a player above to pull up their prop breakdown.</p>
+    <section class="empty-state research-welcome" id="empty-state" aria-label="Player research welcome">
+      <div class="research-welcome-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><circle cx="10.5" cy="10.5" r="5.75" stroke="currentColor" stroke-width="1.5"/><path d="m15 15 4.25 4.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </div>
+      <p class="research-welcome-kicker">Player research</p>
+      <h2>Start with a player.</h2>
+      <p class="research-welcome-copy">Search above to turn a live prop into one clear, matchup-aware view.</p>
+      <div class="research-welcome-features" aria-label="Research includes">
+        <div><span>01</span><strong>Recent form</strong><small>L5, L10 and L20 trends</small></div>
+        <div><span>02</span><strong>Matchup context</strong><small>Splits, opponent and venue</small></div>
+        <div><span>03</span><strong>Live lines</strong><small>PrizePicks-ready research</small></div>
+      </div>
+    </section>
   </main>
 </section>
 
@@ -834,6 +846,6 @@
 </template>
 
 <script type="module" src="/src/main.jsx"></script>
-<script type="module" src="/app.js?v=77"></script>
+<script type="module" src="/app.js?v=78"></script>
 </body>
 </html>

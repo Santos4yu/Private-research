@@ -1808,13 +1808,26 @@ function syncProfileHeaderWithProp(p) {
   }
 }
 
-const EMPTY_STATE_DEFAULT_TEXT = "Search for a player above to pull up their prop breakdown.";
+const EMPTY_STATE_DEFAULT_HTML = `
+  <div class="research-welcome-icon" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none"><circle cx="10.5" cy="10.5" r="5.75" stroke="currentColor" stroke-width="1.5"/><path d="m15 15 4.25 4.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+  </div>
+  <p class="research-welcome-kicker">Player research</p>
+  <h2>Start with a player.</h2>
+  <p class="research-welcome-copy">Search above to turn a live prop into one clear, matchup-aware view.</p>
+  <div class="research-welcome-features" aria-label="Research includes">
+    <div><span>01</span><strong>Recent form</strong><small>L5, L10 and L20 trends</small></div>
+    <div><span>02</span><strong>Matchup context</strong><small>Splits, opponent and venue</small></div>
+    <div><span>03</span><strong>Live lines</strong><small>PrizePicks-ready research</small></div>
+  </div>`;
 
 function clearReport() {
   els.reportWrap.querySelector(".report")?.remove();
   els.reportWrap.querySelector(".report-skeleton")?.remove();
   els.emptyState.hidden = false;
-  els.emptyState.textContent = EMPTY_STATE_DEFAULT_TEXT;
+  els.emptyState.classList.add("research-welcome");
+  els.emptyState.setAttribute("aria-label", "Player research welcome");
+  els.emptyState.innerHTML = EMPTY_STATE_DEFAULT_HTML;
 }
 
 /* ---------- Report rendering (Research tab) ---------- */
