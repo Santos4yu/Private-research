@@ -23,6 +23,7 @@ from urllib.parse import urlparse, parse_qs
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from prediction_core import compute_prediction, PlayerNotFound, NoGameFound, STAT_LABEL_TO_PROP_TYPE  # noqa: E402
 from auth_core import session_with_live_access  # noqa: E402
+from prizepicks_export_core import build_export  # noqa: E402
 
 
 _ODDS_CACHE = {}
@@ -200,11 +201,30 @@ class handler(BaseHTTPRequestHandler):
 
         return self._send(200, result)
 
+    def do_POST(self):
+        if not session_with_live_access(self.headers):
+            return self._send(401, {
+                "error": "Sign in with Discord to export PrizePicks lineups.",
+                "authRequired": True,
+            })
+        action = (parse_qs(urlparse(self.path).query).get("action", [""])[0]).strip().lower()
+        if action != "prizepicks-export":
+            return self._send(404, {"error": "Unknown action."})
+        try:
+            content_length = int(self.headers.get("Content-Length") or 0)
+            if content_length < 1 or content_length > 16_384:
+                return self._send(413, {"error": "Invalid request size."})
+            payload = json.loads(self.rfile.read(content_length) or b"{}")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return self._send(400, {"error": "Invalid JSON request."})
+        status, body = build_export(payload.get("legs") if isinstance(payload, dict) else None)
+        return self._send(status, body)
+
     def _send(self, status, body):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
         self.wfile.write(json.dumps(body).encode("utf-8"))
