@@ -921,7 +921,17 @@ def compute_k_prop(player_id, canonical_name, team_abbr, matchup, line, side, st
     opp_k_season = k_card.get("opp_k") or {}
     opp_k_venue = k_card.get("opp_k_venue") or {}
     opp_k_venue_label = k_card.get("opp_k_venue_label")
-    opp_k = opp_k_venue if opp_k_venue.get("rank") is not None else opp_k_season
+    venue_k_selected = opp_k_venue.get("rank") is not None
+    if venue_k_selected:
+        opp_k = dict(opp_k_venue)
+        # Keep the verified full-season rank beside the venue split so the UI
+        # cannot imply that a home/road-only rank is the overall MLB ranking.
+        opp_k["season_rank"] = opp_k_season.get("rank")
+        opp_k["season_k_pct"] = opp_k_season.get("k_pct")
+        opp_k["season_pa"] = opp_k_season.get("pa")
+        opp_k["season_ks"] = opp_k_season.get("ks")
+    else:
+        opp_k = opp_k_season
     opp_k_rank = opp_k.get("rank")
     raw_k_pct = opp_k.get("k_pct")
     opp_k_pct = (raw_k_pct / 100) if raw_k_pct is not None else None
@@ -977,7 +987,7 @@ def compute_k_prop(player_id, canonical_name, team_abbr, matchup, line, side, st
         matchup=matchup,
         k_card=k_card,
         opp_k=opp_k,
-        opp_k_venue_label=opp_k_venue_label if opp_k is opp_k_venue else None,
+        opp_k_venue_label=opp_k_venue_label if venue_k_selected else None,
         park_factor=park_factor,
         weather=weather,
         arsenal=arsenal,
@@ -1183,7 +1193,14 @@ def format_k_prop_response(*, player_name, team_abbr, headshot, stat_label, line
             # lineup's K rate can swing hard by park (e.g. Colorado is far
             # more contact-heavy at Coors than on the road).
             venue_phrase = f" {opp_k_venue_label}" if opp_k_venue_label else " this season"
-            why_it_hits.append(f"{opponent} ranks #{rank}/30 in K rate{venue_phrase} ({pct}%) — {favors_text}.")
+            sample = (f"; {opp_k.get('ks'):,} K in {opp_k.get('pa'):,} PA"
+                      if opp_k.get("ks") is not None and opp_k.get("pa") else "")
+            k_context = (f"{opponent} is #{rank}/30 toughest to strike out{venue_phrase} "
+                         f"({pct}% K rate{sample})")
+            if opp_k_venue_label and opp_k.get("season_rank") is not None:
+                k_context += (f"; season overall: #{opp_k['season_rank']}/30 toughest "
+                              f"({opp_k.get('season_k_pct')}%)")
+            why_it_hits.append(f"{k_context} — {favors_text}.")
 
     season_ip_per_gs = None
     try:
@@ -1274,7 +1291,14 @@ def format_k_prop_response(*, player_name, team_abbr, headshot, stat_label, line
         "narrative": (
             f"{player_name} has hit {side.title()} {line} in {l10.get('hits', 0)}/{l10.get('games', 0)} "
             f"of the last 10 starts ({l10_rate}%), averaging {l10_avg} {noun} per start.\n\n"
-            + (f"{opponent} ranks #{opp_k.get('rank', '—')}/30 in K rate{f' {opp_k_venue_label}' if opp_k_venue_label else ''} tonight.\n\n" if is_k_prop else "")
+            + ((
+                f"{opponent} is #{opp_k.get('rank', '—')}/30 toughest to strike out"
+                f"{f' {opp_k_venue_label}' if opp_k_venue_label else ' this season'} "
+                f"({opp_k.get('k_pct', '—')}% K rate)"
+                + (f"; season overall: #{opp_k.get('season_rank')}/30 toughest "
+                   f"({opp_k.get('season_k_pct')}%)" if opp_k_venue_label and opp_k.get('season_rank') is not None else "")
+                + ".\n\n"
+            ) if is_k_prop and opp_k else "")
             + f"{'The evidence stacks toward the ' + side.title() + '.' if picked_score > 0 else 'The signals here are mixed — treat with caution.'}"
         ),
         "seasonLine": (

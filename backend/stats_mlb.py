@@ -1361,7 +1361,9 @@ def _confidence_tier(splits: dict, pitcher: dict, bvp: dict, trend: str, side: s
 def get_all_teams_k_rate() -> dict:
     """
     K% for all 30 MLB teams this season.
-    Returns {team_id: {k_pct, avg, name, rank}} where rank 1 = hardest to K.
+    Returns {team_id: {k_pct, avg, name, rank, pa, ks}} where rank 1 =
+    the lowest K% (hardest to strike out). Rankings are withheld unless the
+    official MLB response contains all 30 teams.
     """
     data = _get(
         "/teams/stats",
@@ -1382,7 +1384,13 @@ def get_all_teams_k_rate() -> dict:
                 "k_pct": round(ks / pa * 100, 1),
                 "avg":   s.get("avg", ".---"),
                 "name":  name,
+                "pa":    pa,
+                "ks":    ks,
             }
+    # Never turn a partial API response into an authoritative MLB rank.
+    if len(result) != 30:
+        log.warning("Ignoring incomplete MLB team K-rate response (%s/30 teams)", len(result))
+        return {}
     # rank 1 = lowest K rate = hardest to K
     sorted_teams = sorted(result.items(), key=lambda x: x[1]["k_pct"])
     for rank, (tid, _) in enumerate(sorted_teams, 1):
@@ -1421,9 +1429,9 @@ def get_team_k_rate_vs_hand(team_id: int, pitcher_hand: str) -> dict:
 def get_all_teams_k_rate_home_away(is_home: bool) -> dict:
     """
     K rate + rank for ALL teams at home (is_home=True) or on the road.
-    One API call. Returns {team_id: {k_pct, rank, name}} where rank 1 = hardest
-    to strike out at that venue. Lets the K matchup use a venue-aware rank instead
-    of the season rank (e.g. Colorado is far tougher to K at Coors than overall).
+    One API call. Returns {team_id: {k_pct, rank, name, pa, ks}} where rank 1
+    is the lowest K% (hardest to strike out) at that venue. Rankings are only
+    returned for a complete 30-team MLB response.
     """
     sit = "h" if is_home else "a"
     data = _get(
@@ -1442,7 +1450,14 @@ def get_all_teams_k_rate_home_away(is_home: bool) -> dict:
         ks  = int(s.get("strikeOuts", 0))
         if tid and pa >= 50:
             result[tid] = {"k_pct": round(ks / pa * 100, 1),
-                           "name": sp.get("team", {}).get("name", "")}
+                           "name": sp.get("team", {}).get("name", ""),
+                           "pa": pa,
+                           "ks": ks}
+    # A transient/partial response must not manufacture a misleading rank.
+    if len(result) != 30:
+        log.warning("Ignoring incomplete MLB %s K-rate split (%s/30 teams)",
+                    "home" if is_home else "road", len(result))
+        return {}
     # rank 1 = lowest K% = hardest to strike out at this venue
     for rank, (tid, _) in enumerate(
             sorted(result.items(), key=lambda x: x[1]["k_pct"]), 1):
