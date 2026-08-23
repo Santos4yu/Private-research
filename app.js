@@ -1718,18 +1718,31 @@ function renderLoadingState(player, stat, line, side) {
 
   const skeleton = document.createElement("div");
   skeleton.className = "report-skeleton";
+  const initials = String(player || "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+  const portrait = cmd.playerId
+    ? `<img src="https://img.mlbstatic.com/mlb-photos/image/upload/w_180,q_auto:best/v1/people/${encodeURIComponent(cmd.playerId)}/headshot/silo/current" alt="" onerror="this.remove()">`
+    : "";
   skeleton.innerHTML = `
     <div class="kp-analysis-loader" role="status" aria-live="polite">
-      <div class="kp-loader-head">
-        <span class="kp-loader-mark" aria-hidden="true"><i></i></span>
+      <div class="kp-loader-topline">
+        <span>Building your report</span>
+        <span class="kp-loader-ellipsis" aria-hidden="true"><i></i><i></i><i></i></span>
+      </div>
+      <div class="kp-loader-subject">
+        <div class="kp-loader-portrait" aria-hidden="true"><span>${escapeHtml(initials)}</span>${portrait}</div>
         <div class="kp-loader-copy">
-          <span>Preparing research</span>
           <strong>${escapeHtml(player)}</strong>
-          <small>${escapeHtml(side)} ${line} · ${escapeHtml(stat)}</small>
+          <small>${escapeHtml(side)} ${line}<i>•</i>${escapeHtml(stat)}</small>
         </div>
       </div>
       <div class="kp-loader-progress"><i></i></div>
-      <p>Reviewing form, matchup, and line context.</p>
+      <p>Bringing together recent form and tonight’s matchup.</p>
     </div>
   `;
   els.reportWrap.appendChild(skeleton);
