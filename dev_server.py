@@ -41,6 +41,7 @@ def _load_handler(rel_path: str):
 # instance as self works directly -- no need for a second real socket/request.
 ROUTES = {
     "/api/prediction": _load_handler("prediction.py"),
+    "/api/prizepicks-export": _load_handler("prizepicks-export.py"),
     "/api/game-log-filters": _load_handler("game-log-filters.py"),
     "/api/players": _load_handler("players.py"),
     "/api/team-insights": _load_handler("team-insights.py"),

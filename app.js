@@ -23,6 +23,7 @@ const DATA_SOURCE = "/predictions.json";
  */
 const API_SOURCE = "/api/prediction";
 const API_PLAYERS_SOURCE = "/api/players";
+const API_PRIZEPICKS_EXPORT = "/api/prizepicks-export";
 
 const SAVED_KEY = "vortex_saved_prop_ids";
 const AVATAR_HUES = [168, 262, 24, 200, 330, 48, 140, 300];
@@ -4084,7 +4085,7 @@ function renderBuilderResult(qualified = 0) {
       <div class="builder-summary-grid"><p><span>AVG LEG QUALITY</span><b>${avgQuality.toFixed(0)}/100</b></p><p><span>DATA COVERAGE</span><b>${avgCoverage.toFixed(0)}%</b></p><p><span>CORRELATION</span><b>${risk}</b></p><p><span>BUILD</span><b>${BUILDER_MODES[state.builderMode].label}</b></p></div>
     </div>
     <div class="builder-legs">${legs.map((leg, index) => builderLegHtml(leg, index)).join("")}</div>
-    <div class="builder-footer"><p>Every leg is model-aligned and lineup/starter qualified. Recheck prices and scratches before placing.</p><button type="button" id="builder-rebuild">Rebuild unlocked legs</button></div>`;
+    <div class="builder-footer"><p>Every leg is model-aligned and lineup/starter qualified. PrizePicks will open for final review—this site never submits an entry.</p><div class="builder-footer-actions"><button type="button" id="builder-rebuild">Rebuild unlocked legs</button><button type="button" class="builder-prizepicks" id="builder-prizepicks-export">Open in PrizePicks</button></div></div>`;
   els.builderStatus.textContent = `${legs.length}-leg ${BUILDER_MODES[state.builderMode].label.toLowerCase()} build created from ${qualified} qualified props.`;
   requestAnimationFrame(() => countUpEl("builder-probability", combined.probability, { decimals: 1, suffix: "%", duration: 850 }));
   els.builderResult.querySelectorAll("[data-builder-lock]").forEach((button) => button.addEventListener("click", () => {
@@ -4104,6 +4105,41 @@ function renderBuilderResult(qualified = 0) {
     renderBuilderResult(result.qualified);
   }));
   document.getElementById("builder-rebuild")?.addEventListener("click", () => runParlayBuilder());
+  document.getElementById("builder-prizepicks-export")?.addEventListener("click", exportBuilderToPrizePicks);
+}
+
+async function exportBuilderToPrizePicks(event) {
+  const button = event.currentTarget;
+  const originalLabel = button.textContent;
+  button.disabled = true;
+  button.textContent = "Matching live lines…";
+  els.builderStatus.textContent = "Verifying every leg against the live PrizePicks board…";
+  try {
+    const response = await fetch(API_PRIZEPICKS_EXPORT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({
+        legs: state.builderResult.map((leg) => ({
+          player: leg.prop.player_name,
+          stat: leg.prop.stat_type,
+          line: leg.prop.line,
+          side: leg.prop.stats?.side === "under" ? "under" : "over",
+        })),
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.url) {
+      const detail = payload.unmatched?.map((leg) => `${leg.player} ${leg.line} ${leg.stat}`).join("; ");
+      throw new Error(detail ? `${payload.error} ${detail}` : (payload.error || "PrizePicks export failed."));
+    }
+    els.builderStatus.textContent = `${payload.matches.length} live PrizePicks legs matched. Opening your lineup for review…`;
+    window.location.assign(payload.url);
+  } catch (error) {
+    els.builderStatus.textContent = error.message || "PrizePicks export is temporarily unavailable.";
+    button.disabled = false;
+    button.textContent = originalLabel;
+  }
 }
 
 function builderLegHtml(leg, index) {
