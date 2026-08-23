@@ -123,6 +123,10 @@ def _cache_ttl_sec(cache_key: str) -> int:
         return 30 * 60
     if cache_key.startswith(("schedule_", "gametimes_")):
         return 5 * 60
+    if cache_key.startswith("all_teams_hit_"):
+        # Team totals update after every final. A six-hour season-aggregate
+        # cache could leave yesterday's game count/ranks on the site.
+        return 15 * 60
     if cache_key.startswith("gamelog_"):
         return 15 * 60
     if cache_key.startswith("umpires_"):
@@ -1437,23 +1441,34 @@ def get_all_teams_offensive_profile() -> dict:
             continue
         games = max(int(s.get("gamesPlayed", 0) or 0), 1)
         pa = int(s.get("plateAppearances", 0) or 0)
-        try:
-            avg = float(s.get("avg", 0) or 0)
-        except (TypeError, ValueError):
-            avg = 0.0
+        at_bats = int(s.get("atBats", 0) or 0)
+        hits = int(s.get("hits", 0) or 0)
+        runs = int(s.get("runs", 0) or 0)
+        home_runs = int(s.get("homeRuns", 0) or 0)
+        strikeouts = int(s.get("strikeOuts", 0) or 0)
+        walks = int(s.get("baseOnBalls", 0) or 0)
+        # Derive every displayed rate from the official raw totals so the
+        # card is auditable instead of trusting a preformatted field.
+        avg = hits / at_bats if at_bats else 0.0
         raw[tid] = {
             "team_id": tid,
             "team_name": split.get("team", {}).get("name", ""),
             "games": games,
             "pa": pa,
+            "at_bats": at_bats,
+            "hits": hits,
+            "runs": runs,
+            "home_runs": home_runs,
+            "strikeouts": strikeouts,
+            "walks": walks,
             "avg": avg,
             # Rank the unrounded rates; rounding before sorting can turn
             # distinct teams into arbitrary ties even though MLB's totals
             # show a real difference.
-            "runs_pg": int(s.get("runs", 0) or 0) / games,
-            "hr_pg": int(s.get("homeRuns", 0) or 0) / games,
-            "k_pct": int(s.get("strikeOuts", 0) or 0) / pa * 100 if pa else None,
-            "bb_pct": int(s.get("baseOnBalls", 0) or 0) / pa * 100 if pa else None,
+            "runs_pg": runs / games,
+            "hr_pg": home_runs / games,
+            "k_pct": strikeouts / pa * 100 if pa else None,
+            "bb_pct": walks / pa * 100 if pa else None,
         }
 
     if len(raw) != 30:
@@ -1505,7 +1520,15 @@ def get_all_teams_offensive_profile() -> dict:
             })
         result[tid] = {
             "team_id": tid, "team_name": team["team_name"],
+            "season": SEASON, "scope": "full_team_season",
+            "source": "MLB Stats API",
             "games": team["games"], "pa": team["pa"], "metrics": metrics,
+            "totals": {
+                "at_bats": team["at_bats"], "hits": team["hits"],
+                "runs": team["runs"], "home_runs": team["home_runs"],
+                "strikeouts": team["strikeouts"], "walks": team["walks"],
+                "plate_appearances": team["pa"],
+            },
         }
     return result
 

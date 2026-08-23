@@ -3397,8 +3397,10 @@ function fillPitcherLineupProfile(node, p) {
     "Fantasy Score (Pitcher)": "runs_pg",
   };
   const relevantKey = keyByMarket[p.betType] || "";
+  const totals = profile.totals || {};
+  const number = (value) => Number.isFinite(Number(value)) ? Number(value).toLocaleString() : "—";
   block.hidden = false;
-  block.querySelector(".lineup-profile-team").textContent = `${profile.team_name || p.matchup?.opponent || "Opponent"} lineup`;
+  block.querySelector(".lineup-profile-team").textContent = `${profile.team_name || p.matchup?.opponent || "Opponent"} team offense`;
   block.querySelector(".lineup-profile-rows").innerHTML = metrics.map((metric) => {
     const rank = Math.max(1, Math.min(30, Number(metric.rank) || 30));
     const relevant = metric.key === relevantKey;
@@ -3409,7 +3411,7 @@ function fillPitcherLineupProfile(node, p) {
     </div>`;
   }).join("");
   block.querySelector(".lineup-profile-note").textContent =
-    `${profile.games || "—"} team games · AVG, runs, HR, strikeouts and walks from the official MLB season feed. Rank 1 is the strongest offensive result; K% rewards fewer strikeouts.`;
+    `${profile.games || "—"} games · Verified MLB totals: ${number(totals.hits)} H / ${number(totals.at_bats)} AB, ${number(totals.runs)} R, ${number(totals.home_runs)} HR, ${number(totals.strikeouts)} K and ${number(totals.walks)} BB / ${number(totals.plate_appearances)} PA. Full-team season scope—not a projected lineup.`;
 }
 
 /* ---------- Manual PrizePicks prop builder ---------- */
