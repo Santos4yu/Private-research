@@ -38,6 +38,7 @@ _MARKET_FOR_PROP = {
     "fantasy_score": "batter_fantasy_score",
     "pitcher_strikeouts": "pitcher_strikeouts", "pitcher_outs": "pitcher_outs",
     "pitcher_hits_allowed": "pitcher_hits_allowed",
+    "pitcher_walks": "pitcher_walks",
     "pitcher_earned_runs": "pitcher_earned_runs",
     "pitcher_fantasy_score": "pitcher_fantasy_score",
 }

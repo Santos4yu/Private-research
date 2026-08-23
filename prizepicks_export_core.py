@@ -25,6 +25,8 @@ _STAT_ALIASES = {
     "strikeoutspitcher": "pitcherstrikeouts", "pitchingouts": "pitchingouts",
     "outs": "pitchingouts", "hitsallowed": "hitsallowed",
     "earnedrunsallowed": "earnedrunsallowed", "earnedruns": "earnedrunsallowed",
+    "walksallowed": "pitcherwalks", "pitcherwalksallowed": "pitcherwalks",
+    "pitcherwalks": "pitcherwalks",
 }
 
 

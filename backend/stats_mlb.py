@@ -183,6 +183,7 @@ PROP_STAT_MAP = {
     "pitcher_outs":   ("inningsPitched", "Outs"),   # computed via IP→outs in _stat_from_game
     "pitcher_hits_allowed": ("hits",  "Hits Allowed"),
     "pitcher_earned_runs":  ("earnedRuns", "Earned Runs"),
+    "pitcher_walks":        ("baseOnBalls", "Walks Allowed"),
 }
 
 # ── HTTP helpers ─────────────────────────────────────────────────────────────
@@ -493,7 +494,7 @@ def get_historical_splits(player_id: int, line: float,
     from datetime import date as _date
     _today = _date.today().isoformat()
 
-    _PITCHER_PROPS = {"pitcher_outs", "pitcher_hits_allowed", "pitcher_earned_runs"}
+    _PITCHER_PROPS = {"pitcher_outs", "pitcher_hits_allowed", "pitcher_earned_runs", "pitcher_walks"}
     is_pitcher = prop_type in _PITCHER_PROPS
     group = "pitching" if is_pitcher else "hitting"
     prefix = "pitch" if is_pitcher else "hit"
@@ -1776,6 +1777,8 @@ def _pitcher_stat_from_game(s: dict, prop_type: str) -> float:
         return float(s.get("earnedRuns", 0) or 0)
     if prop_type == "pitcher_hits_allowed":
         return float(s.get("hits", 0) or 0)
+    if prop_type == "pitcher_walks":
+        return float(s.get("baseOnBalls", 0) or 0)
     if prop_type == "pitcher_fantasy_score":
         outs = int(s.get("outs", 0) or 0)
         er = int(s.get("earnedRuns", 0) or 0)
@@ -1792,7 +1795,8 @@ def get_pitcher_k_card(pitcher_name: str, line: float,
                        is_home: bool = None) -> dict:
     """
     Analytical card for a pitcher counting-stat prop: strikeouts (the
-    original/default), pitching outs, earned runs allowed, hits allowed, or
+    original/default), pitching outs, earned runs allowed, hits allowed,
+    walks allowed, or
     a pitcher fantasy-score composite.
 
     Returns L5/L10/L20 hit rates from the pitching game log, season stats,

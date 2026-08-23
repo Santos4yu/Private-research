@@ -79,6 +79,7 @@ STAT_LABEL_TO_PROP_TYPE = {
     "Pitching Outs": "pitcher_outs",
     "Earned Runs Allowed": "pitcher_earned_runs",
     "Hits Allowed": "pitcher_hits_allowed",
+    "Walks Allowed": "pitcher_walks",
     "Fantasy Score (Pitcher)": "pitcher_fantasy_score",
 }
 
@@ -90,7 +91,7 @@ STAT_LABEL_TO_PROP_TYPE = {
 # prop into the pitcher-only pipeline and made it error out unconditionally.
 PITCHER_PROP_TYPES = {
     "pitcher_strikeouts", "pitcher_outs", "pitcher_earned_runs",
-    "pitcher_hits_allowed", "pitcher_fantasy_score",
+    "pitcher_hits_allowed", "pitcher_walks", "pitcher_fantasy_score",
 }
 
 # Display metadata for pitcher prop narrative text -- keeps format_k_prop_response
@@ -100,6 +101,7 @@ PITCHER_PROP_META = {
     "pitcher_outs":         {"noun": "outs", "unit": "outs", "per9_key": None, "seasonKey": None},
     "pitcher_earned_runs":  {"noun": "earned runs", "unit": "ER", "per9_key": None, "seasonKey": None},
     "pitcher_hits_allowed": {"noun": "hits allowed", "unit": "hits", "per9_key": None, "seasonKey": None},
+    "pitcher_walks":       {"noun": "walks allowed", "unit": "walks", "per9_key": None, "seasonKey": None},
     "pitcher_fantasy_score": {"noun": "fantasy points", "unit": "pts", "per9_key": None, "seasonKey": None},
 }
 
@@ -856,7 +858,7 @@ def compute_k_prop(player_id, canonical_name, team_abbr, matchup, line, side, st
     # bot -- not renaming that shared constant). "pitcher_strikeouts" is this
     # site's own frontend-facing name for the same prop; translate right
     # before calling into the shared backend so that branch still fires
-    # exactly as before, while pitcher_outs/earned_runs/hits_allowed/fantasy
+    # exactly as before, while pitcher_outs/earned_runs/hits_allowed/walks/fantasy
     # simply don't match it and skip that branch (correct -- it's K-specific).
     backend_prop_type = "strikeouts" if prop_type == "pitcher_strikeouts" else prop_type
 
@@ -1123,7 +1125,7 @@ def format_k_prop_response(*, player_name, team_abbr, headshot, stat_label, line
     is_k_prop = prop_type == "pitcher_strikeouts"
 
     # Core projection (K/9-scaled) and the opponent-K-rate read are both
-    # strikeout-specific signals -- meaningless for outs/ER/hits-allowed/
+    # strikeout-specific signals -- meaningless for outs/ER/hits-allowed/walks/
     # fantasy, which lean on the L5/L10/L20 form + IP-volume bullets below
     # instead (all still prop-agnostic).
     why_it_hits = []
@@ -1161,6 +1163,8 @@ def format_k_prop_response(*, player_name, team_abbr, headshot, stat_label, line
         why_it_hits.append("Contact-volume market: opponent balls in play and innings workload matter more than strikeout rate.")
     elif prop_type == "pitcher_earned_runs":
         why_it_hits.append("Run-prevention market: earned runs depend on traffic, sequencing, defense, and workload — not Ks alone.")
+    elif prop_type == "pitcher_walks":
+        why_it_hits.append("Command market: walk totals depend on strike throwing, opponent patience, and how deep the starter works.")
     elif prop_type == "pitcher_fantasy_score":
         why_it_hits.append("Fantasy-score market: innings, strikeouts, baserunners, and earned runs all contribute to the final total.")
 

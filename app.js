@@ -44,7 +44,7 @@ const BATTER_STATS = [
 // player is a pitcher (position "P").
 const PITCHER_STATS = [
   "Strikeouts (Pitcher)", "Pitching Outs", "Earned Runs Allowed",
-  "Hits Allowed", "Fantasy Score (Pitcher)",
+  "Hits Allowed", "Walks Allowed", "Fantasy Score (Pitcher)",
 ];
 
 // Combined list used only when a player's position isn't known yet (e.g.
@@ -76,9 +76,10 @@ const BOT_STAT_TO_RESEARCH_STAT = {
   "Outs": "Pitching Outs",
   "Hits Allowed": "Hits Allowed",
   "Earned Runs": "Earned Runs Allowed",
+  "Walks Allowed": "Walks Allowed",
 };
 // Bot labels that belong to the pitcher pipeline (position "P" in Research).
-const BOT_PITCHER_STATS = new Set(["Strikeouts", "Outs", "Hits Allowed", "Earned Runs"]);
+const BOT_PITCHER_STATS = new Set(["Strikeouts", "Outs", "Hits Allowed", "Earned Runs", "Walks Allowed"]);
 
 const STAT_DEFAULT_LINE = {
   "Hits+Runs+RBIs": 1.5,
@@ -94,6 +95,7 @@ const STAT_DEFAULT_LINE = {
   "Pitching Outs": 15.5,
   "Earned Runs Allowed": 2.5,
   "Hits Allowed": 5.5,
+  "Walks Allowed": 1.5,
   "Fantasy Score (Pitcher)": 15.5,
 };
 
@@ -886,10 +888,23 @@ async function checkAuth() {
   els.authGate.hidden = false;
 }
 
-function showToast(message, variant = "default") {
+function showToast(message, variant = "default", detail = "") {
   const toast = document.createElement("div");
   toast.className = `toast${variant === "warn" ? " toast-warn" : ""}`;
-  toast.textContent = message;
+  const icon = document.createElement("span");
+  icon.className = "toast-icon";
+  icon.textContent = variant === "warn" ? "!" : "✓";
+  const copy = document.createElement("span");
+  copy.className = "toast-copy";
+  const title = document.createElement("strong");
+  title.textContent = message;
+  copy.appendChild(title);
+  if (detail) {
+    const secondary = document.createElement("small");
+    secondary.textContent = detail;
+    copy.appendChild(secondary);
+  }
+  toast.append(icon, copy);
   els.toastStack.appendChild(toast);
   setTimeout(() => {
     toast.classList.add("leaving");
@@ -933,7 +948,7 @@ function toggleSave(prop, btnEl) {
       return;
     }
     state.savedProps.set(prop.id, prop);
-    showToast(`Added ${prop.player} — ${prop.side} ${prop.line} ${prop.betType}`);
+    showToast("Added to Prop Builder", "default", `${prop.player} · ${prop.side} ${prop.line} ${prop.betType}`);
   }
   persistSaved();
   updateSavedCount();
@@ -1827,7 +1842,7 @@ const GAMELOG_STAT_CODES = {
   "Home Runs": "HR", "RBIs": "RBI", "Runs Scored": "R",
   "Strikeouts": "SO", "Walks": "BB", "Fantasy Score": "FS",
   "Strikeouts (Pitcher)": "K", "Pitching Outs": "OUTS",
-  "Earned Runs Allowed": "ER", "Hits Allowed": "HA",
+  "Earned Runs Allowed": "ER", "Hits Allowed": "HA", "Walks Allowed": "BB",
   "Fantasy Score (Pitcher)": "PFS",
 };
 
