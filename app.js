@@ -2986,8 +2986,8 @@ function fillPitchArsenal(node, p) {
       </div>` : `<div class="arsenal-recommendation is-neutral"><span class="arsenal-rec-icon">i</span><div><strong>League rank unavailable</strong><p>The official pitch results below are still shown without manufacturing a rank.</p></div></div>`;
     holder.innerHTML = `
       <article class="pitch-type-card pitcher-team-pitch-card">
-        <div class="pitch-type-head"><div><p class="arsenal-eyebrow">${escapeHtml(p.pitcherTeamPitchLabel || "OPPONENT VS PITCH TYPE")}</p><small>${escapeHtml(String(source))} · official Baseball Savant ${teamPitchRows[0]?.season || new Date().getFullYear()}</small></div><span>SZN</span></div>
-        <p class="pitch-rank-explainer">Real team-season comparison for every pitch in ${escapeHtml(starter.name || "the pitcher's")} arsenal. <b>1 handles it best</b> · <b>30 struggles most</b>.</p>
+        <div class="pitch-type-head"><div><p class="arsenal-eyebrow">${escapeHtml(`${teamShort} vs pitch types`)}</p><small>${escapeHtml(String(source))} · Baseball Savant ${teamPitchRows[0]?.season || new Date().getFullYear()}</small></div><span>SZN</span></div>
+        <p class="pitch-rank-explainer">How this lineup handles each pitch. <b>1 handles</b> · <b>30 struggles</b>.</p>
         ${recommendation}
         <div class="pitch-rank-scale"><span>1 HANDLES</span><i></i><span>30 STRUGGLES</span></div>
         <div class="pitch-type-scroll"><table><thead><tr><th>PITCH</th><th>PA</th><th>WHIFF%</th><th>wOBA</th><th>HARD-HIT%</th><th>LINEUP RANK</th></tr></thead><tbody>${pitchRows}</tbody></table></div>
