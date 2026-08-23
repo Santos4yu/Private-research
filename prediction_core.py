@@ -23,7 +23,7 @@ import json
 import sys
 import time
 from datetime import datetime, timezone
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 from functools import lru_cache
 from pathlib import Path
 
@@ -649,7 +649,12 @@ def compute_prediction(player_name: str, prop_type: str, stat_label: str, line: 
     # This is the same ~11 signals the sequential version fetched, just in
     # parallel; a cold-cache lookup used to take 3-6s serialized, now bounded
     # by the single slowest call instead of their sum.
-    with ThreadPoolExecutor(max_workers=12) as pool:
+    # Keep the live card responsive when a non-essential upstream source is
+    # slow.  The old ``with ThreadPoolExecutor`` block implicitly waited for
+    # every submitted job on exit, so one 12-second Statcast/weather timeout
+    # held the entire response even after the scoring inputs were ready.
+    pool = ThreadPoolExecutor(max_workers=16)
+    try:
         f_splits = pool.submit(analyze.compute_hit_rates, player_id, line, prop_type)
         f_pitcher = pool.submit(_safe, stats_mlb.get_pitcher_metrics, pitcher_name, default={}) if pitcher_name else None
         f_hand_splits = pool.submit(_safe, stats_mlb.get_batter_hand_splits, player_id, default={})
@@ -673,36 +678,65 @@ def compute_prediction(player_name: str, prop_type: str, stat_label: str, line: 
         f_bvp = pool.submit(_safe, stats_mlb.get_bvp_history, player_id, probable_pitcher_id, default={}) if probable_pitcher_id else None
         f_arsenal = pool.submit(_safe, stats_mlb.get_pitcher_arsenal, probable_pitcher_id, default=[]) if probable_pitcher_id else None
 
-        splits = f_splits.result()
+        # Hit rates and the opposing pitcher are the core scoring inputs. Give
+        # those a larger budget; all context-only signals share a small total
+        # budget below instead of each being allowed to stall the request.
+        splits = f_splits.result(timeout=7)
         if splits.get("error"):
             raise NoGameFound(splits["error"])
 
-        pitcher = f_pitcher.result() if f_pitcher else {}
+        pitcher = f_pitcher.result(timeout=4) if f_pitcher else {}
         if pitcher.get("error"):
             pitcher = {}
-        hand_splits = f_hand_splits.result()
-        statcast = f_statcast.result()
-        vs_team = f_vs_team.result() if f_vs_team else {}
-        weather = f_weather.result() if f_weather else {}
-        team_bvp = f_team_bvp.result() if f_team_bvp else {}
-        oaa = f_oaa.result() if f_oaa else {}
-        k_rates = f_k_rates.result()
-        lineup_spot = f_lineup_spot.result() if f_lineup_spot else None
-        umpire = f_umpire.result() if f_umpire else {}
-        bat_vs_pitch = f_bat_arsenal.result() or []
-        opp_bullpen = f_bullpen.result() if f_bullpen else {}
-        own_team_id = int(team_id) if team_id else f_own_team_id.result()
-        bvp_raw = f_bvp.result() if f_bvp else {}
+        optional = [f for f in (
+            f_hand_splits, f_statcast, f_vs_team, f_weather, f_team_bvp,
+            f_oaa, f_k_rates, f_lineup_spot, f_umpire, f_bat_arsenal,
+            f_bullpen, f_own_team_id, f_bvp, f_arsenal,
+        ) if f is not None]
+        wait(optional, timeout=2.5)
+
+        def ready(future, default):
+            if future is None or not future.done():
+                return default
+            try:
+                return future.result()
+            except Exception:
+                return default
+
+        hand_splits = ready(f_hand_splits, {})
+        statcast = ready(f_statcast, {})
+        vs_team = ready(f_vs_team, {})
+        weather = ready(f_weather, {})
+        team_bvp = ready(f_team_bvp, {})
+        oaa = ready(f_oaa, {})
+        k_rates = ready(f_k_rates, {})
+        lineup_spot = ready(f_lineup_spot, None)
+        umpire = ready(f_umpire, {})
+        bat_vs_pitch = ready(f_bat_arsenal, []) or []
+        opp_bullpen = ready(f_bullpen, {})
+        own_team_id = int(team_id) if team_id else ready(f_own_team_id, None)
+        bvp_raw = ready(f_bvp, {})
         bvp = None if bvp_raw.get("error") else bvp_raw
-        arsenal = f_arsenal.result() if f_arsenal else []
+        arsenal = ready(f_arsenal, [])
+    finally:
+        # Do not recreate the original stall by waiting for optional calls on
+        # executor shutdown. Running calls may finish and warm their caches.
+        pool.shutdown(wait=False, cancel_futures=True)
 
     run_environment = {}
     if own_team_id:
-        run_environment = _safe(
-            stats_mlb.get_team_run_environment, own_team_id,
+        run_env_pool = ThreadPoolExecutor(max_workers=1)
+        run_env_future = run_env_pool.submit(
+            _safe, stats_mlb.get_team_run_environment, own_team_id,
             pitcher.get("era"), opp_bullpen.get("era"), park_factor,
             default={},
-        ) or {}
+        )
+        try:
+            run_environment = run_env_future.result(timeout=1.0) or {}
+        except Exception:
+            run_environment = {}
+        finally:
+            run_env_pool.shutdown(wait=False, cancel_futures=True)
 
     opp_k_rank, opp_k_pct = None, None
     if opp_team_id:

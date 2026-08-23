@@ -1630,13 +1630,15 @@ async function fetchLivePrediction(player, stat, line, side, token) {
 
   let result = null;
   let errorMessage = null;
+  const controller = new AbortController();
+  const requestTimeout = setTimeout(() => controller.abort(), 15000);
   try {
     const params = new URLSearchParams({ player, stat, line: String(line), side: side.toLowerCase() });
     if (cmd.playerId) params.set("playerId", String(cmd.playerId));
     if (cmd.teamId) params.set("teamId", String(cmd.teamId));
     if (cmd.teamName) params.set("team", cmd.teamName);
     const url = `${API_SOURCE}?${params}`;
-    const res = await fetch(url);
+    const res = await fetch(url, { signal: controller.signal });
     const data = await res.json();
     if (!res.ok || data.error) {
       errorMessage = data.error || `Request failed (${res.status})`;
@@ -1644,7 +1646,11 @@ async function fetchLivePrediction(player, stat, line, side, token) {
       result = data;
     }
   } catch (err) {
-    errorMessage = err.message;
+    errorMessage = err.name === "AbortError"
+      ? "Research took longer than 15 seconds. Please retry."
+      : err.message;
+  } finally {
+    clearTimeout(requestTimeout);
   }
 
   if (token !== lineSelectionToken) return; // a newer selection superseded this one

@@ -15,6 +15,7 @@ import re
 import sys
 import time
 import unicodedata
+import threading
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
@@ -25,6 +26,9 @@ from auth_core import session_with_live_access  # noqa: E402
 
 
 _ODDS_CACHE = {}
+_PREDICTION_CACHE = {}
+_PREDICTION_CACHE_LOCK = threading.Lock()
+_PREDICTION_CACHE_SECONDS = 180
 _MARKET_FOR_PROP = {
     "hits": "batter_hits", "total_bases": "batter_total_bases",
     "home_runs": "batter_home_runs", "rbis": "batter_rbis",
@@ -175,9 +179,18 @@ class handler(BaseHTTPRequestHandler):
         try:
             player_id = int(player_id_raw) if player_id_raw else None
             team_id = int(team_id_raw) if team_id_raw else None
-            result = compute_prediction(player_name, prop_type, stat_label, line, side,
-                                        player_id=player_id, team_id=team_id,
-                                        team_name=team_name)
+            cache_key = (player_id or _norm(player_name), prop_type, line, side,
+                         team_id, _norm(team_name))
+            with _PREDICTION_CACHE_LOCK:
+                cached = _PREDICTION_CACHE.get(cache_key)
+            if cached and time.time() - cached[0] < _PREDICTION_CACHE_SECONDS:
+                result = {**cached[1], "cached": True}
+            else:
+                result = compute_prediction(player_name, prop_type, stat_label, line, side,
+                                            player_id=player_id, team_id=team_id,
+                                            team_name=team_name)
+                with _PREDICTION_CACHE_LOCK:
+                    _PREDICTION_CACHE[cache_key] = (time.time(), result)
         except PlayerNotFound as exc:
             return self._send(404, {"error": str(exc)})
         except NoGameFound as exc:
