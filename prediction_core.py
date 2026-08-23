@@ -1364,6 +1364,9 @@ def format_k_prop_response(*, player_name, team_abbr, headshot, stat_label, line
         # Full name of whichever team teamInsightsParams.teamId points at --
         # here that's the opposing lineup this pitcher faces tonight.
         "teamInsightsTeamName": opponent,
+        # The game-log modal uses this independently of Team Insights to load
+        # career pitcher results against tonight's opponent.
+        "opponentTeamId": opp_team_id,
         "modelConfirm": (
             f"Over score {grade['over_score']} · Under score {grade['under_score']} · "
             f"Confidence: {round(grade['confidence'] * 100)}%"

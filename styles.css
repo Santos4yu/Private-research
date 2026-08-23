@@ -6366,6 +6366,20 @@ body::before{background:linear-gradient(115deg,transparent 12%,color-mix(in srgb
   .gl-line-marker .gl-line-tag{right:4px!important}
 }
 
+/* iOS can keep scrolling the document behind a fixed, internally-scrollable
+   sheet even when body only has overflow:hidden. JS preserves the current
+   offset and fixes the page in place until the performance explorer closes. */
+body.gamelog-scroll-locked{
+  position:fixed!important;
+  top:var(--gamelog-lock-top,0)!important;
+  right:0!important;
+  left:0!important;
+  width:100%!important;
+  overflow:hidden!important;
+}
+#gamelog-overlay{overscroll-behavior:none}
+.gamelog-modal{overscroll-behavior:contain}
+
 /* Keep the builder trigger readable after all theme variants. */
 .home-mode-switch .header-builder-trigger{
   display:flex!important;align-items:center!important;justify-content:center!important;gap:7px!important;

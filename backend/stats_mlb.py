@@ -180,6 +180,7 @@ PROP_STAT_MAP = {
     "hits_runs_rbis": (None,         "H+R+RBIs"),  # computed field
     "fantasy_score":  (None,         "Fantasy Score (PP)"),  # PrizePicks scoring
     # Pitcher props
+    "pitcher_strikeouts":   ("strikeOuts", "Strikeouts (Pitcher)"),
     "pitcher_outs":   ("inningsPitched", "Outs"),   # computed via IP→outs in _stat_from_game
     "pitcher_hits_allowed": ("hits",  "Hits Allowed"),
     "pitcher_earned_runs":  ("earnedRuns", "Earned Runs"),
@@ -494,7 +495,10 @@ def get_historical_splits(player_id: int, line: float,
     from datetime import date as _date
     _today = _date.today().isoformat()
 
-    _PITCHER_PROPS = {"pitcher_outs", "pitcher_hits_allowed", "pitcher_earned_runs", "pitcher_walks"}
+    _PITCHER_PROPS = {
+        "pitcher_strikeouts", "pitcher_outs", "pitcher_hits_allowed",
+        "pitcher_earned_runs", "pitcher_walks",
+    }
     is_pitcher = prop_type in _PITCHER_PROPS
     group = "pitching" if is_pitcher else "hitting"
     prefix = "pitch" if is_pitcher else "hit"
@@ -614,7 +618,12 @@ def get_historical_splits(player_id: int, line: float,
     # -- a NEW field, deliberately separate from "recent_games" above (which
     # the Discord bot's embed builder reads and expects capped at 5; changing
     # that list's length would silently change the bot's own displayed text).
-    opp_hand_by_gamepk = _resolve_opp_pitcher_hands(splits[:20]) if include_hand_venue else {}
+    # A pitcher faces a mixed lineup, so an "opposing pitcher hand" filter is
+    # meaningless for pitcher props. Avoid the extra schedule/profile calls.
+    opp_hand_by_gamepk = (
+        _resolve_opp_pitcher_hands(splits[:20])
+        if include_hand_venue and not is_pitcher else {}
+    )
     game_log = [
         {
             "date":     g.get("date", ""),
@@ -789,7 +798,10 @@ def get_vs_team_game_log_history(player_id: int, opp_team_id: int,
 
     if not all_games:
         return []
-    hands = _resolve_opp_pitcher_hands(all_games) if include_hand_venue else {}
+    hands = (
+        _resolve_opp_pitcher_hands(all_games)
+        if include_hand_venue and group == "hitting" else {}
+    )
     result = []
     for game in all_games:
         game_pk = (game.get("game") or {}).get("gamePk")

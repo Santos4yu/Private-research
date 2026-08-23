@@ -1847,6 +1847,21 @@ const GAMELOG_STAT_CODES = {
   "Earned Runs Allowed": "ER", "Hits Allowed": "HA", "Walks Allowed": "BB",
   "Fantasy Score (Pitcher)": "PFS",
 };
+let gameLogPageScrollY = 0;
+
+function lockGameLogPageScroll() {
+  if (document.body.classList.contains("gamelog-scroll-locked")) return;
+  gameLogPageScrollY = window.scrollY;
+  document.body.style.setProperty("--gamelog-lock-top", `${-gameLogPageScrollY}px`);
+  document.body.classList.add("gamelog-scroll-locked");
+}
+
+function unlockGameLogPageScroll() {
+  if (!document.body.classList.contains("gamelog-scroll-locked")) return;
+  document.body.classList.remove("gamelog-scroll-locked");
+  document.body.style.removeProperty("--gamelog-lock-top");
+  window.scrollTo(0, gameLogPageScrollY);
+}
 
 function gameLogStatCode(stat) {
   return GAMELOG_STAT_CODES[stat] || stat;
@@ -1924,6 +1939,7 @@ function openGameLogModal(p) {
   gameLogState.window = ["l5", "l10", "l15", "l20"].find((w) => (gameLogState.chart[w] || []).length > 0) || "l5";
 
   els.gamelogOverlay.hidden = false;
+  lockGameLogPageScroll();
   els.gamelogTitle.textContent = gameLogStatCode(p.betType);
   const cutout = String(p.headshot || "").replace("/headshot/67/current", "/headshot/silo/current");
   els.gamelogPlayerCutout.innerHTML = cutout
@@ -1934,18 +1950,16 @@ function openGameLogModal(p) {
   renderGameLogTabs();
   renderGameLogChart();
 
-  // Handedness filter needs a lazy fetch (resolving each game's opposing
-  // starter's hand costs real network time); venue (home/road) is already
-  // in the data for free. Pitcher props don't get a hand filter at all --
-  // one start faces a whole lineup of both hands, so "the game's
-  // handedness" isn't a coherent concept the way it is for a batter.
+  // Career H2H is loaded lazily for every prop when the explorer opens.
+  // Batter props also resolve opposing-starter handedness; pitcher props do
+  // not, because one start faces a mixed lineup rather than one pitcher hand.
   const isPitcherProp = gameLogState.isPitcher;
   els.glHandFilter.hidden = isPitcherProp;
   renderGameLogSubfilters();
-  if (!isPitcherProp) fetchGameLogHandedness(p);
+  fetchGameLogDetails(p);
 }
 
-async function fetchGameLogHandedness(p) {
+async function fetchGameLogDetails(p) {
   const requestedStat = p.betType;
   els.glHandFilter.querySelectorAll(".gl-filter-chip").forEach((b) => { b.disabled = true; });
   try {
@@ -1978,6 +1992,7 @@ async function fetchGameLogHandedness(p) {
 
 function closeGameLogModal() {
   els.gamelogOverlay.hidden = true;
+  unlockGameLogPageScroll();
 }
 
 function filterGames(games) {
