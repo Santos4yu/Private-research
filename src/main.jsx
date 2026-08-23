@@ -9,7 +9,7 @@ const icons = {
   slate: <Icon><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></Icon>,
   v2: <Icon><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" strokeLinecap="round" strokeLinejoin="round"/></Icon>,
   builder: <Icon><path d="M12 3l1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7L12 3z" strokeLinejoin="round"/></Icon>,
-  saved: <Icon><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" strokeLinecap="round" strokeLinejoin="round"/></Icon>,
+  saved: <Icon><path d="M5 5h14M5 12h14M5 19h9" strokeLinecap="round"/><circle cx="19" cy="19" r="2"/></Icon>,
 };
 
 function VortexDock() {
@@ -22,9 +22,9 @@ function VortexDock() {
   }, []);
   useEffect(() => { window.dispatchEvent(new Event('vortex:dock-ready')); }, []);
   const items = ['research', 'slate', 'v2', 'builder', 'saved'].map((key) => ({
-    label: key === 'v2' ? 'Props' : key === 'builder' ? 'Parlay' : key[0].toUpperCase() + key.slice(1),
+    label: key === 'v2' ? 'Props' : key === 'builder' ? 'Parlay' : key === 'saved' ? 'Builder' : key[0].toUpperCase() + key.slice(1),
     className: tab === key ? 'active' : '',
-    onClick: () => window.dispatchEvent(new CustomEvent('vortex:switch-tab', { detail: { tab: key } })),
+    onClick: () => window.dispatchEvent(new CustomEvent(key === 'saved' ? 'vortex:toggle-bet-slip' : 'vortex:switch-tab', { detail: { tab: key } })),
     icon: <>{icons[key]}{key === 'saved' && saved > 0 && <span className="dock-count">{saved}</span>}</>,
   }));
   return <Dock items={items} panelHeight={58} baseItemSize={42} magnification={42} distance={120} dockHeight={76} />;

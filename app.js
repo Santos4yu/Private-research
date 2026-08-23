@@ -191,6 +191,7 @@ async function init() {
   wireLinePicker();
   renderBrowseChips();
   wireSavedToolbar();
+  wireManualBetSlip();
   renderSavedGrid();
   wireSlate();
   wireV2Board();
@@ -310,6 +311,18 @@ function cacheEls() {
   els.parlayClearBtn = document.getElementById("parlay-clear-btn");
   els.parlayCompareBtn = document.getElementById("parlay-compare-btn");
   els.parlayView = document.getElementById("parlay-view");
+
+  els.betSlipLauncher = document.getElementById("bet-slip-launcher");
+  els.betSlipLauncherCount = document.getElementById("bet-slip-launcher-count");
+  els.betSlipScrim = document.getElementById("bet-slip-scrim");
+  els.betSlipDrawer = document.getElementById("bet-slip-drawer");
+  els.betSlipClose = document.getElementById("bet-slip-close");
+  els.betSlipHeadline = document.getElementById("bet-slip-headline");
+  els.betSlipLegs = document.getElementById("bet-slip-legs");
+  els.betSlipEmpty = document.getElementById("bet-slip-empty");
+  els.betSlipStatus = document.getElementById("bet-slip-status");
+  els.betSlipClear = document.getElementById("bet-slip-clear");
+  els.betSlipExport = document.getElementById("bet-slip-export");
 
   els.toastStack = document.getElementById("toast-stack");
 
@@ -912,10 +925,15 @@ function isSaved(id) {
 function toggleSave(prop, btnEl) {
   if (isSaved(prop.id)) {
     state.savedProps.delete(prop.id);
-    showToast(`Removed ${prop.player} from saved props`, "warn");
+    state.parlaySelection.delete(prop.id);
+    showToast(`Removed ${prop.player} from the prop builder`, "warn");
   } else {
+    if (state.savedProps.size >= 6) {
+      showToast("PrizePicks allows up to 6 legs. Remove one from the builder first.", "warn");
+      return;
+    }
     state.savedProps.set(prop.id, prop);
-    showToast(`Saved ${prop.player} — ${prop.side} ${prop.line} ${prop.betType}`);
+    showToast(`Added ${prop.player} — ${prop.side} ${prop.line} ${prop.betType}`);
   }
   persistSaved();
   updateSavedCount();
@@ -931,7 +949,9 @@ function toggleSave(prop, btnEl) {
 function syncSaveButton(btnEl, id) {
   const saved = isSaved(id);
   btnEl.classList.toggle("saved", saved);
-  btnEl.querySelector(".save-btn-label").textContent = saved ? "Saved" : "Save";
+  const label = btnEl.querySelector(".save-btn-label");
+  if (label) label.textContent = saved ? "In Builder" : "Add to Builder";
+  else btnEl.textContent = saved ? "in builder" : "add to builder";
 }
 
 function updateSavedCount() {
@@ -942,6 +962,7 @@ function updateSavedCount() {
     bc.hidden = state.savedProps.size === 0;
   }
   window.dispatchEvent(new CustomEvent("vortex:dock-sync", { detail: { tab: state.currentTab, saved: state.savedProps.size } }));
+  renderManualBetSlip();
 }
 
 async function finishPrivateLoader(startedAt) {
@@ -3281,6 +3302,131 @@ function getSavedProps() {
   return [...state.savedProps.values()];
 }
 
+/* ---------- Manual PrizePicks prop builder ---------- */
+
+function setManualBetSlipOpen(open) {
+  if (open && state.savedProps.size === 0) return;
+  if (open) {
+    renderManualBetSlip();
+    els.betSlipScrim.hidden = false;
+    els.betSlipDrawer.hidden = false;
+    requestAnimationFrame(() => {
+      els.betSlipScrim.classList.add("open");
+      els.betSlipDrawer.classList.add("open");
+    });
+  } else {
+    els.betSlipScrim.classList.remove("open");
+    els.betSlipDrawer.classList.remove("open");
+    window.setTimeout(() => {
+      if (!els.betSlipDrawer.classList.contains("open")) {
+        els.betSlipScrim.hidden = true;
+        els.betSlipDrawer.hidden = true;
+      }
+    }, 260);
+  }
+  els.betSlipDrawer.setAttribute("aria-hidden", String(!open));
+  els.betSlipLauncher.setAttribute("aria-expanded", String(open));
+}
+
+function manualSlipLegPayload(prop) {
+  return {
+    player: prop.player,
+    stat: prop.betType,
+    line: prop.line,
+    side: String(prop.side || "over").toLowerCase() === "under" ? "under" : "over",
+  };
+}
+
+function renderManualBetSlip() {
+  if (!els.betSlipDrawer) return;
+  const legs = getSavedProps();
+  const count = legs.length;
+  els.betSlipLauncher.hidden = count === 0;
+  els.betSlipLauncherCount.textContent = count;
+  els.betSlipHeadline.textContent = `${count} of 6 leg${count === 1 ? "" : "s"}`;
+  els.betSlipEmpty.hidden = count > 0;
+  els.betSlipLegs.hidden = count === 0;
+  els.betSlipClear.disabled = count === 0;
+  els.betSlipExport.disabled = count < 2 || count > 6;
+  els.betSlipStatus.textContent = count < 2
+    ? "Add 1 more prop to export."
+    : count > 6 ? "Remove legs until 6 remain." : `${count}-leg slip ready to verify.`;
+  els.betSlipLegs.innerHTML = legs.map((prop, index) => `
+    <article class="bet-slip-leg" style="--slip-delay:${index * 45}ms">
+      <span class="bet-slip-rank">${index + 1}</span>
+      <div class="bet-slip-avatar">${avatarHtml(prop, "sm")}</div>
+      <div class="bet-slip-copy"><strong>${escapeHtml(prop.player)}</strong><span>${escapeHtml(prop.side)} ${escapeHtml(String(prop.line))} ${escapeHtml(prop.betType)}</span><small>${escapeHtml(prop.team || prop.sport || "MLB")} · Score ${escapeHtml(String(prop.score ?? "—"))}</small></div>
+      <button type="button" class="bet-slip-remove" data-slip-remove="${escapeHtml(String(prop.id))}" aria-label="Remove ${escapeHtml(prop.player)}">×</button>
+    </article>`).join("");
+  els.betSlipLegs.querySelectorAll("[data-slip-remove]").forEach((button) => button.addEventListener("click", () => {
+    const storedKey = [...state.savedProps.keys()].find((key) => String(key) === button.dataset.slipRemove);
+    if (storedKey === undefined) return;
+    const prop = state.savedProps.get(storedKey);
+    state.savedProps.delete(storedKey);
+    state.parlaySelection.delete(storedKey);
+    persistSaved();
+    updateSavedCount();
+    if (state.currentTab === "saved") renderSavedGrid();
+    const reportButton = els.reportWrap.querySelector(".save-btn");
+    if (reportButton && currentResearchProp) syncSaveButton(reportButton, currentResearchProp.id);
+    showToast(`Removed ${prop?.player || "prop"} from the builder`, "warn");
+    if (state.savedProps.size === 0) setManualBetSlipOpen(false);
+  }));
+}
+
+async function exportManualBetSlip() {
+  const legs = getSavedProps();
+  if (legs.length < 2 || legs.length > 6) return;
+  const originalLabel = els.betSlipExport.textContent;
+  els.betSlipExport.disabled = true;
+  els.betSlipExport.textContent = "Matching live lines…";
+  els.betSlipStatus.textContent = "Checking every leg on the live PrizePicks board…";
+  try {
+    const response = await fetch(API_PRIZEPICKS_EXPORT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({ legs: legs.map(manualSlipLegPayload) }),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.url) {
+      const detail = payload.unmatched?.map((leg) => `${leg.player} ${leg.line} ${leg.stat}`).join("; ");
+      throw new Error(detail ? `${payload.error} ${detail}` : (payload.error || "PrizePicks export failed."));
+    }
+    els.betSlipStatus.textContent = `${payload.matches.length} live legs matched. Opening PrizePicks…`;
+    window.location.assign(payload.url);
+  } catch (error) {
+    els.betSlipStatus.textContent = error.message || "PrizePicks export is temporarily unavailable.";
+    els.betSlipExport.disabled = false;
+    els.betSlipExport.textContent = originalLabel;
+  }
+}
+
+function wireManualBetSlip() {
+  els.betSlipLauncher.addEventListener("click", () => setManualBetSlipOpen(true));
+  els.betSlipClose.addEventListener("click", () => setManualBetSlipOpen(false));
+  els.betSlipScrim.addEventListener("click", () => setManualBetSlipOpen(false));
+  els.betSlipClear.addEventListener("click", () => {
+    if (!state.savedProps.size || !confirm("Remove every prop from this builder?")) return;
+    state.savedProps.clear();
+    state.parlaySelection.clear();
+    persistSaved();
+    updateSavedCount();
+    if (state.currentTab === "saved") renderSavedGrid();
+    const reportButton = els.reportWrap.querySelector(".save-btn");
+    if (reportButton && currentResearchProp) syncSaveButton(reportButton, currentResearchProp.id);
+    setManualBetSlipOpen(false);
+  });
+  els.betSlipExport.addEventListener("click", exportManualBetSlip);
+  window.addEventListener("vortex:toggle-bet-slip", () => {
+    setManualBetSlipOpen(!els.betSlipDrawer.classList.contains("open"));
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && els.betSlipDrawer.classList.contains("open")) setManualBetSlipOpen(false);
+  });
+  renderManualBetSlip();
+}
+
 function renderSavedGrid() {
   const saved = getSavedProps();
   els.savedGrid.innerHTML = "";
@@ -4122,7 +4268,7 @@ async function exportBuilderToPrizePicks(event) {
       body: JSON.stringify({
         legs: state.builderResult.map((leg) => ({
           player: leg.prop.player_name,
-          stat: leg.prop.stat_type,
+          stat: BOT_STAT_TO_RESEARCH_STAT[leg.prop.stat_type] || leg.prop.stat_type,
           line: leg.prop.line,
           side: leg.prop.stats?.side === "under" ? "under" : "over",
         })),
@@ -4772,7 +4918,7 @@ function wirePlayerDetailModal() {
     const savedProp = {
       id: `board-${p.player_name}-${p.stat_type}-${p.line}`,
       player: p.player_name,
-      betType: p.stat_type,
+      betType: BOT_STAT_TO_RESEARCH_STAT[p.stat_type] || p.stat_type,
       line: p.line,
       side: p.stats?.side === "under" ? "Under" : "Over",
       team: p.stats?.team || "",

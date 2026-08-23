@@ -285,7 +285,7 @@
   <button type="button" class="side-link" data-tab="builder">✦ <span>parlay builder</span></button>
   <button type="button" class="side-link" data-tab="moneyline">◈ <span>moneylines</span></button>
   <button type="button" class="side-link" data-tab="nrfi">◌ <span>nrfi / yrfi</span></button>
-  <button type="button" class="side-link" data-tab="saved">♡ <span>saved</span></button>
+  <button type="button" class="side-link" data-tab="saved">♡ <span>prop builder</span></button>
   <div class="side-panel-divider"></div>
   <button type="button" class="side-link" data-tab="admin">⚙ <span>admin</span></button>
 </aside>
@@ -301,7 +301,7 @@
       <button class="tab-btn" data-tab="slate">Tools</button>
       <button class="tab-btn" data-tab="v2">Props</button>
       <button class="tab-btn" data-tab="builder">Parlay</button>
-      <button class="tab-btn" data-tab="saved">Saved <span class="tab-count" id="saved-count">0</span></button>
+      <button class="tab-btn" data-tab="saved">Builder <span class="tab-count" id="saved-count">0</span></button>
       <span class="tab-indicator" id="tab-indicator"></span>
     </nav>
     <div class="home-mode-switch" id="home-mode-switch" aria-label="Research mode">
@@ -467,12 +467,12 @@
 <!-- SAVED TAB -->
 <section class="tab-panel" id="panel-saved" hidden>
   <div class="saved-toolbar">
-    <p class="saved-hint">Click a prop to reopen its breakdown. Select 2+ to pair them into a parlay.</p>
+    <p class="saved-hint">Your saved research props are your current bet slip. Open the builder to remove legs or export to PrizePicks.</p>
     <button class="ghost-btn" id="clear-saved-btn">Clear all</button>
   </div>
 
   <div class="saved-grid" id="saved-grid"></div>
-  <p class="empty-state" id="saved-empty" hidden>No saved props yet — save one from the Research tab and it'll show up here.</p>
+  <p class="empty-state" id="saved-empty" hidden>No builder legs yet — add a prop from Research and it will show up here.</p>
 
   <div class="parlay-view" id="parlay-view" hidden></div>
 </section>
@@ -484,6 +484,24 @@
     <button class="primary-btn" id="parlay-compare-btn" disabled>Pair Parlay</button>
   </div>
 </div>
+
+<button type="button" class="bet-slip-launcher" id="bet-slip-launcher" aria-controls="bet-slip-drawer" aria-expanded="false" hidden>
+  <span>Open Prop Builder</span><b id="bet-slip-launcher-count">0</b><i aria-hidden="true">⌄</i>
+</button>
+<div class="bet-slip-scrim" id="bet-slip-scrim" hidden></div>
+<aside class="bet-slip-drawer" id="bet-slip-drawer" aria-label="PrizePicks prop builder" aria-hidden="true" hidden>
+  <header class="bet-slip-head">
+    <div><span>PRIZEPICKS BET SLIP</span><h2>Prop Builder</h2><p id="bet-slip-headline">0 of 6 legs</p></div>
+    <button type="button" id="bet-slip-close" aria-label="Close prop builder">×</button>
+  </header>
+  <div class="bet-slip-legs" id="bet-slip-legs"></div>
+  <div class="bet-slip-empty" id="bet-slip-empty" hidden><strong>Your slip is empty</strong><span>Add a prop from a Research card to start building.</span></div>
+  <footer class="bet-slip-footer">
+    <p id="bet-slip-status">Add at least 2 props to export.</p>
+    <div><button type="button" class="bet-slip-clear" id="bet-slip-clear">Clear all</button><button type="button" class="bet-slip-export" id="bet-slip-export" disabled>Export to PrizePicks</button></div>
+    <small>Lines are rechecked live before PrizePicks opens. You always review and submit inside PrizePicks.</small>
+  </footer>
+</aside>
 
 <div id="dock-root"></div>
 
@@ -569,7 +587,7 @@
           <svg class="save-icon" width="15" height="15" viewBox="0 0 15 15" fill="none">
             <path d="M3 1.5h9a.5.5 0 01.5.5v11.3a.4.4 0 01-.63.33L7.5 10.2l-4.37 3.43A.4.4 0 012.5 13.3V2a.5.5 0 01.5-.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
           </svg>
-          <span class="save-btn-label">Save</span>
+          <span class="save-btn-label">Add to Builder</span>
         </button>
       </div>
     </section>
