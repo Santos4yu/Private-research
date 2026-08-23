@@ -3399,16 +3399,12 @@ function fillPitcherLineupProfile(node, p) {
   const relevantKey = keyByMarket[p.betType] || "";
   const totals = profile.totals || {};
   const isConfirmedLineup = profile.scope === "confirmed_lineup";
-  const isExpectedLineup = profile.scope === "expected_lineup";
-  const isLineup = isConfirmedLineup || isExpectedLineup;
   const number = (value) => Number.isFinite(Number(value)) ? Number(value).toLocaleString() : "—";
   block.hidden = false;
-  block.querySelector(".lineup-profile-team").textContent = `${profile.team_name || p.matchup?.opponent || "Opponent"} ${isConfirmedLineup ? "lineup" : isExpectedLineup ? "expected lineup" : "team baseline"}`;
+  block.querySelector(".lineup-profile-team").textContent = `${profile.team_name || p.matchup?.opponent || "Opponent"} lineup`;
   block.querySelector(".lineup-profile-source").textContent = isConfirmedLineup
     ? "POSTED 9 · OFFICIAL MLB SEASON STATS"
-    : isExpectedLineup
-    ? "LAST OFFICIAL ORDER · UPDATES WHEN TONIGHT POSTS"
-    : "LINEUP NOT POSTED · OFFICIAL MLB TEAM TOTALS";
+    : "OFFICIAL MLB LINEUP STATS";
   block.querySelector(".lineup-profile-rows").innerHTML = metrics.map((metric) => {
     const rank = Math.max(1, Math.min(30, Number(metric.rank) || 30));
     const relevant = metric.key === relevantKey;
@@ -3418,9 +3414,8 @@ function fillPitcherLineupProfile(node, p) {
       <div class="lineup-result"><strong>${escapeHtml(metric.display || "—")}</strong><span>${escapeHtml(metric.edge_label || "NEUTRAL")}</span></div>
     </div>`;
   }).join("");
-  block.querySelector(".lineup-profile-note").textContent = isLineup
-    ? `${isConfirmedLineup ? "Confirmed batting order" : `Expected lineup from the latest official order${profile.lineup_date ? ` (${profile.lineup_date})` : ""}`} · Combined season totals for 9 hitters: ${number(totals.hits)} H / ${number(totals.at_bats)} AB, ${number(totals.runs)} R, ${number(totals.home_runs)} HR, ${number(totals.strikeouts)} K and ${number(totals.walks)} BB / ${number(totals.plate_appearances)} PA.`
-    : `${profile.games || "—"} team games · Tonight's batting order is not posted yet, so these are clearly labeled full-team baseline totals.`;
+  block.querySelector(".lineup-profile-note").textContent =
+    `Confirmed batting order · Combined season totals for 9 hitters: ${number(totals.hits)} H / ${number(totals.at_bats)} AB, ${number(totals.runs)} R, ${number(totals.home_runs)} HR, ${number(totals.strikeouts)} K and ${number(totals.walks)} BB / ${number(totals.plate_appearances)} PA.`;
 }
 
 /* ---------- Manual PrizePicks prop builder ---------- */

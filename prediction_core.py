@@ -889,10 +889,6 @@ def compute_k_prop(player_id, canonical_name, team_abbr, matchup, line, side, st
     # get_pitcher_k_card has already warmed the shared official team-hitting
     # response, so this adds a local parse rather than another network call.
     all_offense = _safe(stats_mlb.get_all_teams_offensive_profile, default={})
-    team_offense_baseline = (
-        all_offense.get(opp_team_id) or all_offense.get(str(opp_team_id)) or {}
-        if opp_team_id else {}
-    )
     game_date = str(matchup.get("game_utc") or "")[:10] or None
     opponent_offense = _safe(
         stats_mlb.get_lineup_offensive_profile,
@@ -902,13 +898,6 @@ def compute_k_prop(player_id, canonical_name, team_abbr, matchup, line, side, st
         all_offense,
         default={},
     ) if opp_team_id else {}
-    if not opponent_offense:
-        # A team baseline is useful before lineups post, but its scope must be
-        # explicit so the UI never presents it as tonight's batting order.
-        opponent_offense = dict(team_offense_baseline)
-        if opponent_offense:
-            opponent_offense["scope"] = "team_baseline"
-
     # This must follow the arsenal lookup so only pitches the starter actually
     # throws are aggregated for the opposing lineup.
     opponent_abbr = stats_mlb._MLB_TEAM_ABBR.get(matchup.get("opponent") or "", "")
