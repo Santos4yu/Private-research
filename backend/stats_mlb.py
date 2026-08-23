@@ -129,6 +129,8 @@ def _cache_ttl_sec(cache_key: str) -> int:
         return 15 * 60
     if cache_key.startswith("lineup_stats_"):
         return 15 * 60
+    if cache_key.startswith("all_batters_v"):
+        return 15 * 60
     if cache_key.startswith("projected_lineups_"):
         return 15 * 60
     if cache_key.startswith("gamelog_"):
@@ -1537,74 +1539,102 @@ def get_all_teams_offensive_profile() -> dict:
     return result
 
 
-def get_lineup_offensive_profile(team_id: int, game_pk=None, game_date=None,
-                                  team_benchmarks=None) -> dict:
-    """Aggregate official season totals for the nine posted hitters.
-
-    The result is deliberately different from a franchise/team season line:
-    it describes the actual batting order for this game. Rates are derived
-    from summed raw player totals (never averaged percentages), and R/HR per
-    game use the lineup's average number of player-games as the denominator.
-    Ranks compare the lineup value with the 30 official team benchmarks.
-    """
-    lineup = get_team_lineup(team_id, game_pk=game_pk, game_date=game_date)
-    scope = "confirmed_lineup"
-    projection = {}
-    if len(lineup) != 9:
-        projection = get_projected_team_lineup(team_id, before_date=game_date)
-        lineup = projection.get("lineup") or []
-        scope = "projected_lineup"
-    if len(lineup) != 9:
+def _all_batter_splits_vs_hand(pitcher_hand: str) -> dict:
+    """Raw season platoon totals for every MLB hitter in one request."""
+    hand = str(pitcher_hand or "").upper()[:1]
+    if hand not in {"L", "R"}:
         return {}
+    sit_code = "vl" if hand == "L" else "vr"
+    data = _get("/stats", {
+        "stats": "statSplits", "group": "hitting", "season": SEASON,
+        "sportIds": 1, "sitCodes": sit_code, "playerPool": "ALL", "limit": 2000,
+    }, cache_key=f"all_batters_{sit_code}_{SEASON}")
+    result = {}
+    for split in ((data or {}).get("stats") or [{}])[0].get("splits", []):
+        player = split.get("player") or {}
+        pid = str(player.get("id") or "")
+        if not pid:
+            continue
+        stat = split.get("stat") or {}
+        row = result.setdefault(pid, {
+            "id": player.get("id"), "name": player.get("fullName", ""),
+            "team_ids": set(), "games": 0, "at_bats": 0, "hits": 0,
+            "home_runs": 0, "strikeouts": 0, "walks": 0, "pa": 0,
+        })
+        team_id = (split.get("team") or {}).get("id")
+        if team_id:
+            row["team_ids"].add(int(team_id))
+        for source, target in (
+            ("gamesPlayed", "games"), ("atBats", "at_bats"),
+            ("hits", "hits"), ("homeRuns", "home_runs"),
+            ("strikeOuts", "strikeouts"), ("baseOnBalls", "walks"),
+            ("plateAppearances", "pa"),
+        ):
+            row[target] += int(stat.get(source, 0) or 0)
+    return result
 
-    player_ids = [str(player["id"]) for player in lineup]
-    # MLB supports hydrating several people in one request. This keeps the
-    # lineup correction from adding nine serial API calls to research load.
-    data = _get("/people", {
-        "personIds": ",".join(player_ids),
-        "hydrate": f"stats(group=[hitting],type=[season],season={SEASON})",
-    }, cache_key=f"lineup_stats_{game_pk or '-'.join(player_ids)}_{SEASON}")
-    people = {str(person.get("id")): person for person in (data or {}).get("people", [])}
 
-    def player_totals(player):
-        player_id = player.get("id")
-        person = people.get(str(player_id)) or {}
-        splits = ((person.get("stats") or [{}])[0].get("splits") or [])
-        stat = (_combined_player_split(splits).get("stat") or {}) if splits else {}
-        if not stat:
-            return None
-        return {
-            "id": player_id, "name": player.get("name", ""),
-            "games": int(stat.get("gamesPlayed", 0) or 0),
-            "at_bats": int(stat.get("atBats", 0) or 0),
-            "hits": int(stat.get("hits", 0) or 0),
-            "runs": int(stat.get("runs", 0) or 0),
-            "home_runs": int(stat.get("homeRuns", 0) or 0),
-            "strikeouts": int(stat.get("strikeOuts", 0) or 0),
-            "walks": int(stat.get("baseOnBalls", 0) or 0),
-            "pa": int(stat.get("plateAppearances", 0) or 0),
-        }
-
-    player_rows = [row for row in map(player_totals, lineup) if row]
-    # Calling a partial batting order a lineup profile is the same data-scope
-    # bug this function exists to prevent.
-    if len(player_rows) != 9:
+def _lineup_platoon_values(lineup: list, batter_splits: dict, runs_pg=None) -> dict:
+    rows = [batter_splits.get(str(player.get("id"))) or {
+        "id": player.get("id"), "name": player.get("name", ""),
+        "games": 0, "at_bats": 0, "hits": 0, "home_runs": 0,
+        "strikeouts": 0, "walks": 0, "pa": 0,
+    } for player in lineup[:9]]
+    if len(rows) != 9:
         return {}
-
-    totals = {
-        key: sum(row[key] for row in player_rows)
-        for key in ("games", "at_bats", "hits", "runs", "home_runs",
-                    "strikeouts", "walks", "pa")
-    }
+    totals = {key: sum(row.get(key, 0) or 0 for row in rows) for key in (
+        "games", "at_bats", "hits", "home_runs", "strikeouts", "walks", "pa"
+    )}
     lineup_games = totals["games"] / 9 if totals["games"] else 0
-    values = {
+    return {
+        "rows": rows, "totals": totals, "lineup_games": lineup_games,
         "avg": totals["hits"] / totals["at_bats"] if totals["at_bats"] else None,
-        "runs_pg": totals["runs"] / lineup_games if lineup_games else None,
+        "runs_pg": runs_pg,
         "hr_pg": totals["home_runs"] / lineup_games if lineup_games else None,
         "k_pct": totals["strikeouts"] / totals["pa"] * 100 if totals["pa"] else None,
         "bb_pct": totals["walks"] / totals["pa"] * 100 if totals["pa"] else None,
     }
+
+
+def get_lineup_offensive_profile(team_id: int, game_pk=None, game_date=None,
+                                  team_benchmarks=None, pitcher_hand=None) -> dict:
+    """Nine-hitter season platoon profile against the starter's handedness."""
+    hand = str(pitcher_hand or "").upper()[:1]
+    if hand not in {"L", "R"}:
+        return {}
     benchmarks = team_benchmarks or get_all_teams_offensive_profile()
+    if len(benchmarks) != 30:
+        return {}
+    batter_splits = _all_batter_splits_vs_hand(hand)
+    if not batter_splits:
+        return {}
+    projected = get_all_projected_team_lineups(
+        before_date=game_date, batter_splits=batter_splits,
+        team_ids=[int(team) for team in benchmarks],
+    )
+    lineup = get_team_lineup(team_id, game_pk=game_pk, game_date=game_date)
+    scope = "confirmed_lineup"
+    if len(lineup) != 9:
+        lineup = (projected.get(int(team_id)) or {}).get("lineup") or []
+        scope = "projected_lineup"
+    if len(lineup) != 9:
+        return {}
+    projected[int(team_id)] = {**(projected.get(int(team_id)) or {}), "lineup": lineup}
+
+    def team_runs(team):
+        profile = benchmarks.get(team) or benchmarks.get(str(team)) or {}
+        return next((m.get("value") for m in profile.get("metrics", [])
+                     if m.get("key") == "runs_pg"), None)
+
+    all_values = {
+        int(tid): _lineup_platoon_values(info.get("lineup") or [], batter_splits, team_runs(tid))
+        for tid, info in projected.items()
+        if len(info.get("lineup") or []) == 9
+    }
+    values = _lineup_platoon_values(lineup, batter_splits, team_runs(int(team_id)))
+    if len(all_values) != 30 or not values:
+        return {}
+
     metric_defs = (
         ("avg", "AVG", True), ("runs_pg", "R", True),
         ("hr_pg", "HR", True), ("k_pct", "K%", False),
@@ -1612,44 +1642,37 @@ def get_lineup_offensive_profile(team_id: int, game_pk=None, game_date=None,
     )
     metrics = []
     for key, label, higher_is_better in metric_defs:
-        value = values[key]
-        reference = [
-            metric.get("value")
-            for profile in benchmarks.values()
-            for metric in (profile.get("metrics") or [])
-            if metric.get("key") == key and metric.get("value") is not None
-        ]
+        value = values.get(key)
+        reference = [profile.get(key) for profile in all_values.values() if profile.get(key) is not None]
         if value is None or len(reference) != 30:
             return {}
-        better = sum(v > value if higher_is_better else v < value for v in reference)
-        rank = min(30, better + 1)
+        rank = 1 + sum(other > value if higher_is_better else other < value for other in reference)
+        rank = min(30, rank)
         edge = "batter" if rank <= 10 else "pitcher" if rank >= 21 else "neutral"
-        display = (
-            f"{value:.3f}".lstrip("0") if key == "avg" else
-            f"{value:.1f}%" if key in {"k_pct", "bb_pct"} else
-            f"{value:.1f}/g"
-        )
+        display = (f"{value:.3f}".lstrip("0") if key == "avg" else
+                   f"{value:.1f}%" if key in {"k_pct", "bb_pct"} else f"{value:.1f}/g")
         metrics.append({
-            "key": key, "label": label, "value": value,
-            "display": display, "rank": rank, "edge": edge,
+            "key": key, "label": label, "value": value, "display": display,
+            "rank": rank, "edge": edge,
             "edge_label": "SP EDGE" if edge == "pitcher" else "BAT EDGE" if edge == "batter" else "NEUTRAL",
         })
 
     baseline = benchmarks.get(team_id) or benchmarks.get(str(team_id)) or {}
+    projection = projected.get(int(team_id)) or {}
+    totals = values["totals"]
     return {
-        "team_id": team_id,
-        "team_name": baseline.get("team_name", ""),
-        "season": SEASON, "scope": scope,
-        "source": "MLB Stats API", "hitters": player_rows,
+        "team_id": team_id, "team_name": baseline.get("team_name", ""),
+        "season": SEASON, "scope": scope, "pitcher_hand": hand,
+        "source": "MLB Stats API", "hitters": values["rows"],
         "projection_games": projection.get("games", 0),
         "projection_through": projection.get("through"),
-        "lineup_size": 9, "lineup_games": round(lineup_games, 1),
+        "lineup_size": 9, "lineup_games": round(values["lineup_games"], 1),
+        "runs_source": "team_season", "rank_scope": "30 projected lineups",
         "metrics": metrics,
         "totals": {
             "at_bats": totals["at_bats"], "hits": totals["hits"],
-            "runs": totals["runs"], "home_runs": totals["home_runs"],
-            "strikeouts": totals["strikeouts"], "walks": totals["walks"],
-            "plate_appearances": totals["pa"],
+            "home_runs": totals["home_runs"], "strikeouts": totals["strikeouts"],
+            "walks": totals["walks"], "plate_appearances": totals["pa"],
         },
     }
 
@@ -2787,20 +2810,11 @@ def get_team_lineup(team_id: int, game_pk=None, game_date=None) -> list[dict]:
     return []
 
 
-def get_projected_team_lineup(team_id: int, before_date=None, lookback_days: int = 21) -> dict:
-    """Project nine hitters from official recent orders and the active roster.
-
-    MLB only publishes confirmed lineups near first pitch. Before then, use
-    recent lineup frequency (restricted to players still active) and season PA
-    as the tiebreaker. This always remains player-level data—never team totals.
-    """
+def get_all_projected_team_lineups(before_date=None, lookback_days: int = 21,
+                                   batter_splits=None, team_ids=None) -> dict:
+    """Build the same recent-order nine-player projection for every team."""
     from datetime import timedelta as _td
     from vortextime import vortex_board_day
-
-    active = get_team_hitters_roster(team_id)
-    if len(active) < 9:
-        return {}
-    active_by_id = {str(player["id"]): player for player in active if player.get("id")}
     try:
         target = datetime.strptime(str(before_date or vortex_board_day())[:10], "%Y-%m-%d").date()
     except (TypeError, ValueError):
@@ -2810,64 +2824,67 @@ def get_projected_team_lineup(team_id: int, before_date=None, lookback_days: int
     data = _get("/schedule", {
         "sportId": 1, "startDate": start.isoformat(), "endDate": end.isoformat(),
         "hydrate": "lineups",
-    }, cache_key=f"projected_lineups_{team_id}_{end.isoformat()}")
-
-    appearances = {pid: 0 for pid in active_by_id}
-    slots = {pid: [] for pid in active_by_id}
-    game_count = 0
-    team_str = str(team_id)
+    }, cache_key=f"projected_lineups_all_{end.isoformat()}")
+    batter_splits = batter_splits or {}
+    wanted_teams = {int(team) for team in (team_ids or [])}
+    appearances = {team: {} for team in wanted_teams}
+    slots = {team: {} for team in wanted_teams}
+    game_counts = {team: 0 for team in wanted_teams}
     for date_entry in (data or {}).get("dates", []):
         for game in date_entry.get("games", []):
-            home_id = str((game.get("teams") or {}).get("home", {}).get("team", {}).get("id", ""))
-            away_id = str((game.get("teams") or {}).get("away", {}).get("team", {}).get("id", ""))
-            side = "homePlayers" if team_str == home_id else ("awayPlayers" if team_str == away_id else None)
-            if not side:
-                continue
-            players = [
-                player for player in (game.get("lineups") or {}).get(side, [])
-                if (player.get("position") or player.get("primaryPosition") or {}).get("abbreviation") != "P"
-            ]
-            if len(players) < 9:
-                continue
-            game_count += 1
-            for index, player in enumerate(players[:9], start=1):
-                pid = str(player.get("id", ""))
-                if pid not in active_by_id:
+            for club_side, lineup_side in (("home", "homePlayers"), ("away", "awayPlayers")):
+                team = int(((game.get("teams") or {}).get(club_side, {}).get("team") or {}).get("id", 0) or 0)
+                if team not in wanted_teams:
                     continue
-                order = str(player.get("battingOrder", ""))
-                slot = int(order[0]) if order[:1].isdigit() else index
-                appearances[pid] += 1
-                slots[pid].append(slot)
+                players = [player for player in (game.get("lineups") or {}).get(lineup_side, [])
+                           if (player.get("position") or player.get("primaryPosition") or {}).get("abbreviation") != "P"]
+                if len(players) < 9:
+                    continue
+                game_counts[team] += 1
+                for index, player in enumerate(players[:9], start=1):
+                    pid = str(player.get("id", ""))
+                    if not pid:
+                        continue
+                    order = str(player.get("battingOrder", ""))
+                    slot = int(order[0]) if order[:1].isdigit() else index
+                    appearances[team][pid] = appearances[team].get(pid, 0) + 1
+                    slots[team].setdefault(pid, []).append(slot)
 
-    # Season PA breaks recent-appearance ties and supplies a reliable opening
-    # day/long-layoff fallback without turning the calculation into team data.
-    active_ids = list(active_by_id)
-    people_data = _get("/people", {
-        "personIds": ",".join(active_ids),
-        "hydrate": f"stats(group=[hitting],type=[season],season={SEASON})",
-    }, cache_key=f"lineup_stats_active_{team_id}_{SEASON}")
-    season_pa = {}
-    for person in (people_data or {}).get("people", []):
-        splits = ((person.get("stats") or [{}])[0].get("splits") or [])
-        stat = (_combined_player_split(splits).get("stat") or {}) if splits else {}
-        season_pa[str(person.get("id"))] = int(stat.get("plateAppearances", 0) or 0)
+    result = {}
+    for team in wanted_teams:
+        # Recent participants lead; bulk platoon PA fills/tiebreaks the nine.
+        candidates = set(appearances[team])
+        candidates.update(pid for pid, row in batter_splits.items() if team in row.get("team_ids", set()))
+        selected = sorted(
+            candidates,
+            key=lambda pid: (appearances[team].get(pid, 0), (batter_splits.get(pid) or {}).get("pa", 0)),
+            reverse=True,
+        )[:9]
+        if len(selected) < 9:
+            continue
+        selected.sort(key=lambda pid: (
+            sum(slots[team].get(pid, [])) / len(slots[team][pid]) if slots[team].get(pid) else 10,
+            -(batter_splits.get(pid) or {}).get("pa", 0),
+        ))
+        result[team] = {
+            "lineup": [{
+                "order": index, "id": int(pid),
+                "name": (batter_splits.get(pid) or {}).get("name", ""), "position": "",
+            } for index, pid in enumerate(selected, start=1)],
+            "games": game_counts[team], "through": end.isoformat(),
+        }
+    return result
 
-    selected = sorted(
-        active_ids,
-        key=lambda pid: (appearances[pid], season_pa.get(pid, 0)),
-        reverse=True,
-    )[:9]
-    selected.sort(key=lambda pid: (
-        sum(slots[pid]) / len(slots[pid]) if slots[pid] else 10,
-        -season_pa.get(pid, 0),
-    ))
-    lineup = [{
-        "order": index,
-        "id": active_by_id[pid]["id"],
-        "name": active_by_id[pid].get("name", ""),
-        "position": active_by_id[pid].get("position", ""),
-    } for index, pid in enumerate(selected, start=1)]
-    return {"lineup": lineup, "games": game_count, "through": end.isoformat()}
+
+def get_projected_team_lineup(team_id: int, before_date=None, lookback_days: int = 21) -> dict:
+    """Compatibility wrapper for callers that only need one projected nine."""
+    # Overall PA is sufficient for selection callers that do not supply a
+    # matchup hand; the matchup card itself uses the hand-specific bulk map.
+    splits = _all_batter_splits_vs_hand("R")
+    return get_all_projected_team_lineups(
+        before_date=before_date, lookback_days=lookback_days,
+        batter_splits=splits, team_ids=[int(team_id)],
+    ).get(int(team_id), {})
 
 
 def get_team_hitters_roster(team_id: int) -> list[dict]:

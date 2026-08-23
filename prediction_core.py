@@ -896,6 +896,7 @@ def compute_k_prop(player_id, canonical_name, team_abbr, matchup, line, side, st
         matchup.get("game_pk"),
         game_date,
         all_offense,
+        k_card.get("hand") or (k_card.get("season_stats") or {}).get("hand"),
         default={},
     ) if opp_team_id else {}
     # This must follow the arsenal lookup so only pitches the starter actually
