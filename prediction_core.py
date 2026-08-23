@@ -713,6 +713,15 @@ def compute_prediction(player_name: str, prop_type: str, stat_label: str, line: 
         lineup_spot = ready(f_lineup_spot, None)
         umpire = ready(f_umpire, {})
         bat_vs_pitch = ready(f_bat_arsenal, []) or []
+        # On a cold serverless instance the official Savant leaderboard takes
+        # a few seconds to download once. It is important enough to the visible
+        # arsenal table to receive a small dedicated grace period after the
+        # general optional-data budget. Subsequent calls use the file cache.
+        if not bat_vs_pitch and f_bat_arsenal and not f_bat_arsenal.done():
+            try:
+                bat_vs_pitch = f_bat_arsenal.result(timeout=3.0) or []
+            except Exception:
+                bat_vs_pitch = []
         opp_bullpen = ready(f_bullpen, {})
         own_team_id = int(team_id) if team_id else ready(f_own_team_id, None)
         bvp_raw = ready(f_bvp, {})
@@ -2396,7 +2405,6 @@ def _format_arsenal(arsenal: list, bat_vs_pitch: list = None) -> list:
                 "woba": perf.get("woba"),
                 "whiffPct": perf.get("whiff_pct"),
                 "pa": perf.get("pa"),
-                "hr": perf.get("hr", 0),
                 "kPct": perf.get("k_pct"),
                 "season": stats_mlb.SEASON,
             }

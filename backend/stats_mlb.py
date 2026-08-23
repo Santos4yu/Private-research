@@ -1606,9 +1606,6 @@ def get_batter_arsenal_stats(batter_id: int) -> list[dict]:
                     "woba":       row.get("woba", ""),
                     "whiff_pct":  row.get("whiff_percent", ""),
                     "k_pct":      row.get("k_percent", ""),
-                    # This leaderboard does not expose HR. They are joined
-                    # from the batter's pitch-level Statcast events below.
-                    "hr":         0,
                 })
             try:
                 cache_file.write_text(json.dumps(table), encoding="utf-8")
@@ -1617,12 +1614,14 @@ def get_batter_arsenal_stats(batter_id: int) -> list[dict]:
         except requests.RequestException:
             return []
 
-    rows = [dict(row) for row in table.get(str(batter_id), [])]
-    hr_by_pitch = _get_batter_pitch_type_home_runs(batter_id)
-    for row in rows:
-        code = str(row.get("pitch_type") or "").upper()
-        row["hr"] = int(hr_by_pitch.get(code, 0))
-    return rows
+    # Return the leaderboard rows immediately. The old implementation then
+    # downloaded the batter's full pitch-level Statcast history solely to add
+    # an HR column that this leaderboard does not publish. That second CSV is
+    # large (roughly 20 seconds for Ohtani in a live timing test), causing the
+    # entire table to miss the research response deadline. wOBA is already an
+    # official per-pitch result in this leaderboard and is the honest, fast
+    # replacement for the unavailable HR breakout.
+    return [dict(row) for row in table.get(str(batter_id), [])]
 
 
 def _get_batter_pitch_type_home_runs(batter_id: int) -> dict[str, int]:
