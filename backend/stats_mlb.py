@@ -129,6 +129,8 @@ def _cache_ttl_sec(cache_key: str) -> int:
         return 15 * 60
     if cache_key.startswith("lineup_stats_"):
         return 15 * 60
+    if cache_key.startswith("projected_lineups_"):
+        return 15 * 60
     if cache_key.startswith("gamelog_"):
         return 15 * 60
     if cache_key.startswith("umpires_"):
@@ -1546,6 +1548,12 @@ def get_lineup_offensive_profile(team_id: int, game_pk=None, game_date=None,
     Ranks compare the lineup value with the 30 official team benchmarks.
     """
     lineup = get_team_lineup(team_id, game_pk=game_pk, game_date=game_date)
+    scope = "confirmed_lineup"
+    projection = {}
+    if len(lineup) != 9:
+        projection = get_projected_team_lineup(team_id, before_date=game_date)
+        lineup = projection.get("lineup") or []
+        scope = "projected_lineup"
     if len(lineup) != 9:
         return {}
 
@@ -1631,8 +1639,10 @@ def get_lineup_offensive_profile(team_id: int, game_pk=None, game_date=None,
     return {
         "team_id": team_id,
         "team_name": baseline.get("team_name", ""),
-        "season": SEASON, "scope": "confirmed_lineup",
+        "season": SEASON, "scope": scope,
         "source": "MLB Stats API", "hitters": player_rows,
+        "projection_games": projection.get("games", 0),
+        "projection_through": projection.get("through"),
         "lineup_size": 9, "lineup_games": round(lineup_games, 1),
         "metrics": metrics,
         "totals": {
@@ -2775,6 +2785,89 @@ def get_team_lineup(team_id: int, game_pk=None, game_date=None) -> list[dict]:
                 "position": ((p.get("position") or p.get("primaryPosition") or {}).get("abbreviation", "")),
             } for index, p in enumerate(ordered, start=1) if p.get("id")]
     return []
+
+
+def get_projected_team_lineup(team_id: int, before_date=None, lookback_days: int = 21) -> dict:
+    """Project nine hitters from official recent orders and the active roster.
+
+    MLB only publishes confirmed lineups near first pitch. Before then, use
+    recent lineup frequency (restricted to players still active) and season PA
+    as the tiebreaker. This always remains player-level data—never team totals.
+    """
+    from datetime import timedelta as _td
+    from vortextime import vortex_board_day
+
+    active = get_team_hitters_roster(team_id)
+    if len(active) < 9:
+        return {}
+    active_by_id = {str(player["id"]): player for player in active if player.get("id")}
+    try:
+        target = datetime.strptime(str(before_date or vortex_board_day())[:10], "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        target = datetime.strptime(vortex_board_day(), "%Y-%m-%d").date()
+    end = target - _td(days=1)
+    start = end - _td(days=max(1, lookback_days - 1))
+    data = _get("/schedule", {
+        "sportId": 1, "startDate": start.isoformat(), "endDate": end.isoformat(),
+        "hydrate": "lineups",
+    }, cache_key=f"projected_lineups_{team_id}_{end.isoformat()}")
+
+    appearances = {pid: 0 for pid in active_by_id}
+    slots = {pid: [] for pid in active_by_id}
+    game_count = 0
+    team_str = str(team_id)
+    for date_entry in (data or {}).get("dates", []):
+        for game in date_entry.get("games", []):
+            home_id = str((game.get("teams") or {}).get("home", {}).get("team", {}).get("id", ""))
+            away_id = str((game.get("teams") or {}).get("away", {}).get("team", {}).get("id", ""))
+            side = "homePlayers" if team_str == home_id else ("awayPlayers" if team_str == away_id else None)
+            if not side:
+                continue
+            players = [
+                player for player in (game.get("lineups") or {}).get(side, [])
+                if (player.get("position") or player.get("primaryPosition") or {}).get("abbreviation") != "P"
+            ]
+            if len(players) < 9:
+                continue
+            game_count += 1
+            for index, player in enumerate(players[:9], start=1):
+                pid = str(player.get("id", ""))
+                if pid not in active_by_id:
+                    continue
+                order = str(player.get("battingOrder", ""))
+                slot = int(order[0]) if order[:1].isdigit() else index
+                appearances[pid] += 1
+                slots[pid].append(slot)
+
+    # Season PA breaks recent-appearance ties and supplies a reliable opening
+    # day/long-layoff fallback without turning the calculation into team data.
+    active_ids = list(active_by_id)
+    people_data = _get("/people", {
+        "personIds": ",".join(active_ids),
+        "hydrate": f"stats(group=[hitting],type=[season],season={SEASON})",
+    }, cache_key=f"lineup_stats_active_{team_id}_{SEASON}")
+    season_pa = {}
+    for person in (people_data or {}).get("people", []):
+        splits = ((person.get("stats") or [{}])[0].get("splits") or [])
+        stat = (_combined_player_split(splits).get("stat") or {}) if splits else {}
+        season_pa[str(person.get("id"))] = int(stat.get("plateAppearances", 0) or 0)
+
+    selected = sorted(
+        active_ids,
+        key=lambda pid: (appearances[pid], season_pa.get(pid, 0)),
+        reverse=True,
+    )[:9]
+    selected.sort(key=lambda pid: (
+        sum(slots[pid]) / len(slots[pid]) if slots[pid] else 10,
+        -season_pa.get(pid, 0),
+    ))
+    lineup = [{
+        "order": index,
+        "id": active_by_id[pid]["id"],
+        "name": active_by_id[pid].get("name", ""),
+        "position": active_by_id[pid].get("position", ""),
+    } for index, pid in enumerate(selected, start=1)]
+    return {"lineup": lineup, "games": game_count, "through": end.isoformat()}
 
 
 def get_team_hitters_roster(team_id: int) -> list[dict]:

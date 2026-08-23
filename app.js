@@ -3401,10 +3401,10 @@ function fillPitcherLineupProfile(node, p) {
   const isConfirmedLineup = profile.scope === "confirmed_lineup";
   const number = (value) => Number.isFinite(Number(value)) ? Number(value).toLocaleString() : "—";
   block.hidden = false;
-  block.querySelector(".lineup-profile-team").textContent = `${profile.team_name || p.matchup?.opponent || "Opponent"} ${isConfirmedLineup ? "lineup" : "team offense"}`;
+  block.querySelector(".lineup-profile-team").textContent = `${profile.team_name || p.matchup?.opponent || "Opponent"} lineup`;
   block.querySelector(".lineup-profile-source").textContent = isConfirmedLineup
     ? "POSTED 9 · OFFICIAL MLB SEASON STATS"
-    : "LINEUP PENDING · OFFICIAL MLB TEAM BASELINE";
+    : "PROJECTED 9 · RECENT ORDERS + ACTIVE ROSTER";
   block.querySelector(".lineup-profile-rows").innerHTML = metrics.map((metric) => {
     const rank = Math.max(1, Math.min(30, Number(metric.rank) || 30));
     const relevant = metric.key === relevantKey;
@@ -3416,7 +3416,7 @@ function fillPitcherLineupProfile(node, p) {
   }).join("");
   block.querySelector(".lineup-profile-note").textContent = isConfirmedLineup
     ? `Confirmed batting order · Combined season totals for 9 hitters: ${number(totals.hits)} H / ${number(totals.at_bats)} AB, ${number(totals.runs)} R, ${number(totals.home_runs)} HR, ${number(totals.strikeouts)} K and ${number(totals.walks)} BB / ${number(totals.plate_appearances)} PA.`
-    : `${profile.games || "—"} team games · Official team baseline shown until MLB posts tonight's batting order. This card automatically switches to the confirmed nine.`;
+    : `Projected from ${profile.projection_games || 0} recent official batting orders through ${profile.projection_through || "the latest game"}, limited to the active roster · Combined season totals for 9 hitters: ${number(totals.hits)} H / ${number(totals.at_bats)} AB, ${number(totals.runs)} R, ${number(totals.home_runs)} HR, ${number(totals.strikeouts)} K and ${number(totals.walks)} BB / ${number(totals.plate_appearances)} PA. Automatically switches when tonight's lineup posts.`;
 }
 
 /* ---------- Manual PrizePicks prop builder ---------- */
