@@ -1681,12 +1681,25 @@ async function fetchLivePrediction(player, stat, line, side, token) {
   const controller = new AbortController();
   const requestTimeout = setTimeout(() => controller.abort(), 15000);
   try {
-    const params = new URLSearchParams({ player, stat, line: String(line), side: side.toLowerCase() });
-    if (cmd.playerId) params.set("playerId", String(cmd.playerId));
-    if (cmd.teamId) params.set("teamId", String(cmd.teamId));
-    if (cmd.teamName) params.set("team", cmd.teamName);
-    const url = `${API_SOURCE}?${params}`;
-    const res = await fetch(url, { signal: controller.signal });
+    // Build this URL the same way as the player-search request. Older iOS
+    // WebKit can throw "The string did not match the expected pattern" while
+    // constructing URLSearchParams from a record, before fetch ever reaches
+    // the API. Explicit encoding is supported by every Safari version that
+    // can run the rest of this app and keeps spaces/accents safe.
+    const query = [
+      ["player", player],
+      ["stat", stat],
+      ["line", String(line)],
+      ["side", side.toLowerCase()],
+      ...(cmd.playerId ? [["playerId", String(cmd.playerId)]] : []),
+      ...(cmd.teamId ? [["teamId", String(cmd.teamId)]] : []),
+      ...(cmd.teamName ? [["team", cmd.teamName]] : []),
+    ].map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join("&");
+    const res = await fetch(`${API_SOURCE}?${query}`, {
+      signal: controller.signal,
+      cache: "no-store",
+      credentials: "same-origin",
+    });
     const data = await res.json();
     if (!res.ok || data.error) {
       errorMessage = data.error || `Request failed (${res.status})`;
@@ -1696,7 +1709,7 @@ async function fetchLivePrediction(player, stat, line, side, token) {
   } catch (err) {
     errorMessage = err.name === "AbortError"
       ? "Research took longer than 15 seconds. Please retry."
-      : err.message;
+      : "Live research is temporarily unavailable. Please tap the stat to retry.";
   } finally {
     clearTimeout(requestTimeout);
   }
