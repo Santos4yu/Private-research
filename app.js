@@ -312,8 +312,8 @@ function cacheEls() {
   els.parlayCompareBtn = document.getElementById("parlay-compare-btn");
   els.parlayView = document.getElementById("parlay-view");
 
-  els.betSlipLauncher = document.getElementById("bet-slip-launcher");
-  els.betSlipLauncherCount = document.getElementById("bet-slip-launcher-count");
+  els.headerBuilderTrigger = document.getElementById("header-builder-trigger");
+  els.headerBuilderCount = document.getElementById("header-builder-count");
   els.betSlipScrim = document.getElementById("bet-slip-scrim");
   els.betSlipDrawer = document.getElementById("bet-slip-drawer");
   els.betSlipClose = document.getElementById("bet-slip-close");
@@ -551,7 +551,7 @@ function switchTab(tab) {
 
   const homeModeSwitch = document.getElementById("home-mode-switch");
   if (homeModeSwitch) {
-    const isHomeMode = tab === "research" || tab === "moneyline";
+    const isHomeMode = tab === "research";
     homeModeSwitch.hidden = !isHomeMode;
     homeModeSwitch.querySelectorAll("[data-home-tab]").forEach((b) => {
       b.classList.toggle("active", b.dataset.homeTab === tab);
@@ -3304,10 +3304,18 @@ function getSavedProps() {
 
 /* ---------- Manual PrizePicks prop builder ---------- */
 
+function positionManualBetSlip() {
+  if (!els.headerBuilderTrigger || !els.betSlipDrawer) return;
+  const rect = els.headerBuilderTrigger.getBoundingClientRect();
+  const right = window.innerWidth <= 600 ? 10 : Math.max(18, window.innerWidth - rect.right);
+  els.betSlipDrawer.style.setProperty("--bet-slip-top", `${Math.round(rect.bottom + 10)}px`);
+  els.betSlipDrawer.style.setProperty("--bet-slip-right", `${Math.round(right)}px`);
+}
+
 function setManualBetSlipOpen(open) {
-  if (open && state.savedProps.size === 0) return;
   if (open) {
     renderManualBetSlip();
+    positionManualBetSlip();
     els.betSlipScrim.hidden = false;
     els.betSlipDrawer.hidden = false;
     requestAnimationFrame(() => {
@@ -3325,7 +3333,7 @@ function setManualBetSlipOpen(open) {
     }, 260);
   }
   els.betSlipDrawer.setAttribute("aria-hidden", String(!open));
-  els.betSlipLauncher.setAttribute("aria-expanded", String(open));
+  els.headerBuilderTrigger?.setAttribute("aria-expanded", String(open));
 }
 
 function manualSlipLegPayload(prop) {
@@ -3341,8 +3349,7 @@ function renderManualBetSlip() {
   if (!els.betSlipDrawer) return;
   const legs = getSavedProps();
   const count = legs.length;
-  els.betSlipLauncher.hidden = count === 0;
-  els.betSlipLauncherCount.textContent = count;
+  els.headerBuilderCount.textContent = count;
   els.betSlipHeadline.textContent = `${count} of 6 leg${count === 1 ? "" : "s"}`;
   els.betSlipEmpty.hidden = count > 0;
   els.betSlipLegs.hidden = count === 0;
@@ -3403,7 +3410,9 @@ async function exportManualBetSlip() {
 }
 
 function wireManualBetSlip() {
-  els.betSlipLauncher.addEventListener("click", () => setManualBetSlipOpen(true));
+  els.headerBuilderTrigger.addEventListener("click", () => {
+    setManualBetSlipOpen(!els.betSlipDrawer.classList.contains("open"));
+  });
   els.betSlipClose.addEventListener("click", () => setManualBetSlipOpen(false));
   els.betSlipScrim.addEventListener("click", () => setManualBetSlipOpen(false));
   els.betSlipClear.addEventListener("click", () => {
@@ -3420,6 +3429,9 @@ function wireManualBetSlip() {
   els.betSlipExport.addEventListener("click", exportManualBetSlip);
   window.addEventListener("vortex:toggle-bet-slip", () => {
     setManualBetSlipOpen(!els.betSlipDrawer.classList.contains("open"));
+  });
+  window.addEventListener("resize", () => {
+    if (els.betSlipDrawer.classList.contains("open")) positionManualBetSlip();
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && els.betSlipDrawer.classList.contains("open")) setManualBetSlipOpen(false);

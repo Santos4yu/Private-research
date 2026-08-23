@@ -306,7 +306,9 @@
     </nav>
     <div class="home-mode-switch" id="home-mode-switch" aria-label="Research mode">
       <button type="button" class="active" data-home-tab="research">Prop Research</button>
-      <button type="button" data-home-tab="moneyline">Moneyline Research</button>
+      <button type="button" class="header-builder-trigger" id="header-builder-trigger" aria-controls="bet-slip-drawer" aria-expanded="false">
+        <span>Prop Builder</span><b id="header-builder-count">0</b><i aria-hidden="true">⌄</i>
+      </button>
     </div>
   </div>
 </header>
@@ -485,9 +487,6 @@
   </div>
 </div>
 
-<button type="button" class="bet-slip-launcher" id="bet-slip-launcher" aria-controls="bet-slip-drawer" aria-expanded="false" hidden>
-  <span>Open Prop Builder</span><b id="bet-slip-launcher-count">0</b><i aria-hidden="true">⌄</i>
-</button>
 <div class="bet-slip-scrim" id="bet-slip-scrim" hidden></div>
 <aside class="bet-slip-drawer" id="bet-slip-drawer" aria-label="PrizePicks prop builder" aria-hidden="true" hidden>
   <header class="bet-slip-head">

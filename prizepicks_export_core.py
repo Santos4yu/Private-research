@@ -88,6 +88,7 @@ def _fetch_projection_rows():
             "stat": str(attrs.get("stat_type") or attrs.get("stat_display_name") or ""),
             "line": line,
             "odds_type": str(attrs.get("odds_type") or "standard").lower(),
+            "allowed_wager_types": str(attrs.get("allowed_wager_types") or "").lower(),
             "updated_at": str(attrs.get("updated_at") or ""),
         })
     if not rows:
@@ -108,8 +109,8 @@ def _resolve_legs(legs, rows):
         except (TypeError, ValueError):
             unmatched.append({"player": player, "stat": stat, "line": leg.get("line"), "reason": "Invalid line"})
             continue
-        if side != "over":
-            unmatched.append({"player": player, "stat": stat, "line": line, "reason": "Only exact PrizePicks More exports are supported"})
+        if side not in {"over", "under"}:
+            unmatched.append({"player": player, "stat": stat, "line": line, "reason": "Side must be More or Less"})
             continue
         candidates = [
             row for row in rows
@@ -126,10 +127,28 @@ def _resolve_legs(legs, rows):
             unmatched.append({"player": player, "stat": stat, "line": line, "reason": "That exact line is not active on PrizePicks"})
             continue
         match = candidates[0]
+        # Goblin/Demon alternate projections are More-only in the app even
+        # when the partner feed's allowed_wager_types field is overly broad.
+        if side == "under" and match["odds_type"] in {"goblin", "demon"}:
+            unmatched.append({
+                "player": player, "stat": stat, "line": line,
+                "reason": f"PrizePicks {match['odds_type'].title()} lines are More-only",
+            })
+            continue
+        if side not in match["allowed_wager_types"]:
+            unmatched.append({
+                "player": player, "stat": stat, "line": line,
+                "reason": f"PrizePicks does not currently offer {side.title()} for that line",
+            })
+            continue
         used_ids.add(match["id"])
+        line_token = f"{match['line']:g}"
+        direction_token = "o" if side == "over" else "u"
         matches.append({
             "projectionId": match["id"], "player": player, "stat": match["stat"],
-            "line": match["line"], "side": "More", "oddsType": match["odds_type"],
+            "line": match["line"], "side": "More" if side == "over" else "Less",
+            "oddsType": match["odds_type"],
+            "projectionToken": f"{match['id']}-{direction_token}-{line_token}",
         })
     return matches, unmatched
 
@@ -149,7 +168,10 @@ def build_export(legs):
             "error": "PrizePicks changed or removed one or more lines. Rebuild before exporting.",
             "matched": matches, "unmatched": unmatched,
         }
-    projection_ids = ",".join(match["projectionId"] for match in matches)
+    # PrizePicks' outcome-level deep links encode both direction and line in
+    # each projection token (``<id>-o-1.5`` / ``<id>-u-1.5``). A bare ID
+    # lets the app choose a default side and can silently turn More into Less.
+    projection_ids = ",".join(match["projectionToken"] for match in matches)
     return 200, {
         "url": PRIZEPICKS_APP_URL + projection_ids,
         "matches": matches, "reviewRequired": True,
