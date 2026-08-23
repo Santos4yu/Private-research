@@ -1410,6 +1410,104 @@ def get_all_teams_k_rate() -> dict:
     return result
 
 
+def get_all_teams_offensive_profile() -> dict:
+    """Official season offense profile and MLB ranks for all 30 teams.
+
+    Rank 1 is the highest raw team value for every metric. ``edge`` then
+    interprets that rank from a starting pitcher's perspective: low AVG,
+    runs, HR and BB rates help the pitcher, while a high K rate helps them.
+    A partial MLB response is never presented as a 30-team ranking.
+    """
+    data = _get(
+        "/teams/stats",
+        {"stats": "season", "group": "hitting", "season": SEASON, "sportId": 1},
+        # Shared with get_all_teams_k_rate: one official response supplies
+        # both cards instead of adding another network request.
+        cache_key=f"all_teams_hit_{SEASON}",
+    )
+    if not data:
+        return {}
+
+    raw = {}
+    for split in (data.get("stats") or [{}])[0].get("splits", []):
+        tid = split.get("team", {}).get("id")
+        s = split.get("stat", {})
+        if not tid:
+            continue
+        games = max(int(s.get("gamesPlayed", 0) or 0), 1)
+        pa = int(s.get("plateAppearances", 0) or 0)
+        try:
+            avg = float(s.get("avg", 0) or 0)
+        except (TypeError, ValueError):
+            avg = 0.0
+        raw[tid] = {
+            "team_id": tid,
+            "team_name": split.get("team", {}).get("name", ""),
+            "games": games,
+            "pa": pa,
+            "avg": avg,
+            # Rank the unrounded rates; rounding before sorting can turn
+            # distinct teams into arbitrary ties even though MLB's totals
+            # show a real difference.
+            "runs_pg": int(s.get("runs", 0) or 0) / games,
+            "hr_pg": int(s.get("homeRuns", 0) or 0) / games,
+            "k_pct": int(s.get("strikeOuts", 0) or 0) / pa * 100 if pa else None,
+            "bb_pct": int(s.get("baseOnBalls", 0) or 0) / pa * 100 if pa else None,
+        }
+
+    if len(raw) != 30:
+        log.warning("Ignoring incomplete MLB offense profile (%s/30 teams)", len(raw))
+        return {}
+
+    metric_defs = (
+        ("avg", "AVG", True),
+        ("runs_pg", "R", True),
+        ("hr_pg", "HR", True),
+        ("k_pct", "K%", False),
+        ("bb_pct", "BB%", True),
+    )
+    ranks = {}
+    for key, _, _ in metric_defs:
+        ordered = sorted(raw, key=lambda tid: raw[tid].get(key) or 0, reverse=True)
+        metric_ranks = {}
+        previous_value = object()
+        previous_rank = 0
+        for position, tid in enumerate(ordered, 1):
+            value = raw[tid].get(key)
+            if value != previous_value:
+                previous_rank = position
+                previous_value = value
+            metric_ranks[tid] = previous_rank
+        ranks[key] = metric_ranks
+
+    result = {}
+    for tid, team in raw.items():
+        metrics = []
+        for key, label, low_helps_pitcher in metric_defs:
+            rank = ranks[key][tid]
+            if low_helps_pitcher:
+                edge = "pitcher" if rank >= 21 else "batter" if rank <= 10 else "neutral"
+            else:
+                edge = "pitcher" if rank <= 10 else "batter" if rank >= 21 else "neutral"
+            value = team[key]
+            display = (
+                "—" if value is None else
+                f"{value:.3f}".lstrip("0") if key == "avg" else
+                f"{value:.1f}%" if key in {"k_pct", "bb_pct"} else
+                f"{value:.1f}/g"
+            )
+            metrics.append({
+                "key": key, "label": label, "value": value,
+                "display": display, "rank": rank, "edge": edge,
+                "edge_label": "SP EDGE" if edge == "pitcher" else "BAT EDGE" if edge == "batter" else "NEUTRAL",
+            })
+        result[tid] = {
+            "team_id": tid, "team_name": team["team_name"],
+            "games": team["games"], "pa": team["pa"], "metrics": metrics,
+        }
+    return result
+
+
 def get_team_k_rate_vs_hand(team_id: int, pitcher_hand: str) -> dict:
     """
     Team K rate when facing a specific pitcher handedness (L or R).

@@ -877,6 +877,14 @@ def compute_k_prop(player_id, canonical_name, team_abbr, matchup, line, side, st
         arsenal = f_arsenal.result() or []
         umpire = f_umpire.result() if f_umpire else {}
 
+    # get_pitcher_k_card has already warmed the shared official team-hitting
+    # response, so this adds a local parse rather than another network call.
+    all_offense = _safe(stats_mlb.get_all_teams_offensive_profile, default={})
+    opponent_offense = (
+        all_offense.get(opp_team_id) or all_offense.get(str(opp_team_id)) or {}
+        if opp_team_id else {}
+    )
+
     # This must follow the arsenal lookup so only pitches the starter actually
     # throws are aggregated for the opposing lineup.
     team_pitch_types = _safe(
@@ -992,6 +1000,7 @@ def compute_k_prop(player_id, canonical_name, team_abbr, matchup, line, side, st
         weather=weather,
         arsenal=arsenal,
         team_pitch_types=team_pitch_types,
+        opponent_offense=opponent_offense,
         umpire=umpire,
         player_id=player_id,
         opp_team_id=opp_team_id,
@@ -1107,7 +1116,8 @@ def format_k_prop_response(*, player_name, team_abbr, headshot, stat_label, line
                             matchup, k_card, opp_k, park_factor, weather, grade, picked_grade, picked_score,
                             arsenal=None, umpire=None, prop_type="pitcher_strikeouts", player_id=None,
                             opp_team_id=None, picked_grade_v2=None, rest_days=None, team_pitch_types=None,
-                            opp_k_venue_label=None, strikeout_matchup=None) -> dict:
+                            opp_k_venue_label=None, strikeout_matchup=None,
+                            opponent_offense=None) -> dict:
     is_under = side == "under"
     season = k_card.get("season_stats") or {}
     opponent = matchup.get("opponent", "")
@@ -1337,6 +1347,7 @@ def format_k_prop_response(*, player_name, team_abbr, headshot, stat_label, line
         "pitchArsenal": _format_arsenal(arsenal),
         "pitcherTeamPitchTypes": team_pitch_types or [],
         "pitcherTeamPitchLabel": f"{opponent} lineup vs pitch type",
+        "opponentOffense": opponent_offense or {},
         "pitchArsenalLabel": f"{player_name}'s arsenal",
         "starterProfile": {
             "id": player_id,

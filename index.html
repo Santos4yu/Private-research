@@ -18,7 +18,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=2" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="styles.css?v=93" />
+<link rel="stylesheet" href="styles.css?v=94" />
 <style>
   /* Inline (not the external stylesheet) so it applies before ANY paint --
      this is what actually prevents the flash of the app before the auth
@@ -703,6 +703,17 @@
       <div class="arsenal-card-grid"></div>
     </section>
 
+    <!-- Opponent offense profile for pitcher props -->
+    <section class="report-block pitcher-lineup-profile" data-reveal hidden>
+      <div class="lineup-profile-head">
+        <div><span class="lineup-profile-team"></span><small>OFFICIAL SEASON OFFENSE</small></div>
+        <strong>MLB ranks</strong>
+      </div>
+      <div class="lineup-profile-legend"><span class="sp">SP edge</span><span class="neutral">Neutral</span><span class="bat">Bat edge</span></div>
+      <div class="lineup-profile-rows"></div>
+      <p class="lineup-profile-note"></p>
+    </section>
+
     <!-- Split factor -->
     <section class="report-block" data-reveal>
       <h3 class="block-title">🔄 Split Factor</h3>
@@ -823,6 +834,6 @@
 </template>
 
 <script type="module" src="/src/main.jsx"></script>
-<script type="module" src="/app.js?v=62"></script>
+<script type="module" src="/app.js?v=63"></script>
 </body>
 </html>

@@ -2640,6 +2640,7 @@ function buildReportNode(p) {
   fillWhyItHits(node, p);
   fillBiggestEdgesRisks(node, p);
   fillPitchArsenal(node, p);
+  fillPitcherLineupProfile(node, p);
   fillSplitFactor(node, p);
   fillMatchup(node, p);
   fillNarrative(node, p);
@@ -3332,6 +3333,38 @@ function wireSavedToolbar() {
 
 function getSavedProps() {
   return [...state.savedProps.values()];
+}
+
+function fillPitcherLineupProfile(node, p) {
+  const block = node.querySelector(".pitcher-lineup-profile");
+  const profile = p.opponentOffense || {};
+  const metrics = profile.metrics || [];
+  if (!p.isPitcherProp || !metrics.length) {
+    block.hidden = true;
+    return;
+  }
+
+  const keyByMarket = {
+    "Strikeouts (Pitcher)": "k_pct",
+    "Walks Allowed": "bb_pct",
+    "Hits Allowed": "avg",
+    "Earned Runs Allowed": "runs_pg",
+    "Fantasy Score (Pitcher)": "runs_pg",
+  };
+  const relevantKey = keyByMarket[p.betType] || "";
+  block.hidden = false;
+  block.querySelector(".lineup-profile-team").textContent = `${profile.team_name || p.matchup?.opponent || "Opponent"} lineup`;
+  block.querySelector(".lineup-profile-rows").innerHTML = metrics.map((metric) => {
+    const rank = Math.max(1, Math.min(30, Number(metric.rank) || 30));
+    const relevant = metric.key === relevantKey;
+    return `<div class="lineup-profile-row edge-${escapeHtml(metric.edge || "neutral")}${relevant ? " is-relevant" : ""}">
+      <div class="lineup-metric"><b>${escapeHtml(metric.label || "")}</b><span>#${rank}/30${relevant ? " · key" : ""}</span></div>
+      <div class="lineup-rank-track"><i style="width:${(rank / 30) * 100}%"></i></div>
+      <div class="lineup-result"><strong>${escapeHtml(metric.display || "—")}</strong><span>${escapeHtml(metric.edge_label || "NEUTRAL")}</span></div>
+    </div>`;
+  }).join("");
+  block.querySelector(".lineup-profile-note").textContent =
+    `${profile.games || "—"} team games · AVG, runs, HR, strikeouts and walks from the official MLB season feed. Rank 1 is the highest raw team rate; edge labels interpret each stat for the starting pitcher.`;
 }
 
 /* ---------- Manual PrizePicks prop builder ---------- */
