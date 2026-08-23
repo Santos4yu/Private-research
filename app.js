@@ -1994,6 +1994,7 @@ function renderGameLogTabs() {
 function renderGameLogChart() {
   const games = filterGames(gameLogState.chart[gameLogState.window] || []);
   const holder = els.gamelogChart;
+  holder.dataset.window = gameLogState.window;
   holder.innerHTML = "";
 
   const filterBits = [];
@@ -2027,7 +2028,7 @@ function renderGameLogChart() {
   // season-high of 5) -- widen the scale so the dashed marker never sits
   // above the chart's visible area.
   const line = gameLogState.line;
-  const trackPx = holder.clientWidth <= 640 ? 190 : 280;
+  const trackPx = holder.clientWidth <= 640 ? 150 : 280;
   const max = Math.max(...games.map((g) => g.value), typeof line === "number" ? line : 0, 1);
   const track = document.createElement("div");
   track.className = "gamelog-chart-track";
