@@ -34,7 +34,7 @@ import math
 import hashlib
 import logging
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
@@ -128,6 +128,8 @@ def _cache_ttl_sec(cache_key: str) -> int:
         # cache could leave yesterday's game count/ranks on the site.
         return 15 * 60
     if cache_key.startswith("lineup_stats_"):
+        return 15 * 60
+    if cache_key.startswith("recent_lineups_"):
         return 15 * 60
     if cache_key.startswith("gamelog_"):
         return 15 * 60
@@ -1546,6 +1548,13 @@ def get_lineup_offensive_profile(team_id: int, game_pk=None, game_date=None,
     Ranks compare the lineup value with the 30 official team benchmarks.
     """
     lineup = get_team_lineup(team_id, game_pk=game_pk, game_date=game_date)
+    scope = "confirmed_lineup"
+    lineup_date = game_date
+    if len(lineup) != 9:
+        recent = get_recent_team_lineup(team_id, before_date=game_date)
+        lineup = recent.get("lineup") or []
+        lineup_date = recent.get("date")
+        scope = "expected_lineup"
     if len(lineup) != 9:
         return {}
 
@@ -1631,8 +1640,9 @@ def get_lineup_offensive_profile(team_id: int, game_pk=None, game_date=None,
     return {
         "team_id": team_id,
         "team_name": baseline.get("team_name", ""),
-        "season": SEASON, "scope": "confirmed_lineup",
+        "season": SEASON, "scope": scope,
         "source": "MLB Stats API", "hitters": player_rows,
+        "lineup_date": lineup_date,
         "lineup_size": 9, "lineup_games": round(lineup_games, 1),
         "metrics": metrics,
         "totals": {
@@ -2775,6 +2785,59 @@ def get_team_lineup(team_id: int, game_pk=None, game_date=None) -> list[dict]:
                 "position": ((p.get("position") or p.get("primaryPosition") or {}).get("abbreviation", "")),
             } for index, p in enumerate(ordered, start=1) if p.get("id")]
     return []
+
+
+def get_recent_team_lineup(team_id: int, before_date=None, lookback_days: int = 8) -> dict:
+    """Most recent official nine-man order before a target game.
+
+    MLB does not publish projected future lineups. This is a transparent,
+    official-data proxy used only until the current game's order is posted.
+    """
+    from vortextime import vortex_board_day
+    try:
+        target = datetime.strptime(str(before_date or vortex_board_day())[:10], "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        target = datetime.strptime(vortex_board_day(), "%Y-%m-%d").date()
+    end = target - timedelta(days=1)
+    start = end - timedelta(days=max(1, lookback_days - 1))
+    data = _get("/schedule", {
+        "sportId": 1, "startDate": start.isoformat(), "endDate": end.isoformat(),
+        "hydrate": "lineups",
+    }, cache_key=f"recent_lineups_{team_id}_{end.isoformat()}")
+    team_str = str(team_id)
+    games = [
+        game
+        for date_entry in (data or {}).get("dates", [])
+        for game in date_entry.get("games", [])
+    ]
+    games.sort(key=lambda game: (game.get("officialDate", ""), game.get("gameDate", "")), reverse=True)
+    for game in games:
+        home_id = str((game.get("teams") or {}).get("home", {}).get("team", {}).get("id", ""))
+        away_id = str((game.get("teams") or {}).get("away", {}).get("team", {}).get("id", ""))
+        side = "homePlayers" if team_str == home_id else ("awayPlayers" if team_str == away_id else None)
+        if not side:
+            continue
+        players = [
+            player for player in (game.get("lineups") or {}).get(side, [])
+            if (player.get("position") or player.get("primaryPosition") or {}).get("abbreviation") != "P"
+        ]
+        if len(players) < 9:
+            continue
+        ordered = sorted(
+            players[:9],
+            key=lambda player: int(str(player.get("battingOrder"))[0])
+            if str(player.get("battingOrder", ""))[:1].isdigit() else players.index(player) + 1,
+        )
+        lineup = [{
+            "order": (int(str(player.get("battingOrder"))[0])
+                      if str(player.get("battingOrder", ""))[:1].isdigit() else index),
+            "id": player.get("id"),
+            "name": player.get("fullName", ""),
+            "position": ((player.get("position") or player.get("primaryPosition") or {}).get("abbreviation", "")),
+        } for index, player in enumerate(ordered, start=1) if player.get("id")]
+        if len(lineup) == 9:
+            return {"date": game.get("officialDate", ""), "game_pk": game.get("gamePk"), "lineup": lineup}
+    return {}
 
 
 def get_team_hitters_roster(team_id: int) -> list[dict]:
