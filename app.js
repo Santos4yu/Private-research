@@ -1136,13 +1136,22 @@ function groupByPlayer(props) {
   return [...map.entries()];
 }
 
+function normalizePlayerSearch(value) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 function matchPlayers(query) {
-  const q = query.trim().toLowerCase();
+  const q = normalizePlayerSearch(query);
   const groups = groupByPlayer(state.props);
   if (!q) return groups.slice(0, 8);
   return groups
     .filter(([player, props]) =>
-      [player, props[0].team, props[0].sport].filter(Boolean).some((f) => f.toLowerCase().includes(q))
+      [player, props[0].team, props[0].sport].filter(Boolean).some((f) => normalizePlayerSearch(f).includes(q))
     )
     .slice(0, 8);
 }
@@ -1183,7 +1192,7 @@ async function fetchLiveSuggestions(query) {
   const token = ++searchRequestToken;
   let livePlayers = [];
   let fetchFailed = false;
-  const cacheKey = query.trim().toLowerCase();
+  const cacheKey = normalizePlayerSearch(query);
   try {
     if (playerSearchCache.has(cacheKey)) {
       livePlayers = playerSearchCache.get(cacheKey);
@@ -1200,9 +1209,9 @@ async function fetchLiveSuggestions(query) {
   if (token !== searchRequestToken) return; // a newer keystroke superseded this fetch
 
   const staticEntries = staticEntriesFor(query);
-  const staticNames = new Set(staticEntries.map((e) => e.player.toLowerCase()));
+  const staticNames = new Set(staticEntries.map((e) => normalizePlayerSearch(e.player)));
   const liveEntries = livePlayers
-    .filter((p) => p.name && !staticNames.has(p.name.toLowerCase()))
+    .filter((p) => p.name && !staticNames.has(normalizePlayerSearch(p.name)))
     .map((p) => ({
       kind: "live",
       player: p.name,

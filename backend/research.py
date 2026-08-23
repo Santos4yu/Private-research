@@ -6,6 +6,7 @@ Fuzzy name search, live splits, pitcher matchup, recent game log, Statcast metri
 """
 import sys
 import time
+import unicodedata
 import requests
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -127,7 +128,9 @@ def search_players_local(query: str, limit: int = 25) -> list[dict]:
 
 
 def _norm_name(name: str) -> str:
-    parts = "".join(ch.lower() if ch.isalnum() or ch.isspace() else " " for ch in name).split()
+    decomposed = unicodedata.normalize("NFKD", str(name or ""))
+    plain = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+    parts = "".join(ch.casefold() if ch.isalnum() or ch.isspace() else " " for ch in plain).split()
     if parts:
         parts[0] = NAME_ALIASES.get(parts[0], parts[0])
     return " ".join(parts)
@@ -181,11 +184,11 @@ def fuzzy_search(query: str) -> list[dict]:
         return []
 
     parts      = query.strip().split()
-    query_last = parts[-1].lower() if parts else ""
+    query_last = _norm_name(parts[-1]) if parts else ""
 
     def _last_matches(p: dict) -> bool:
-        fp = (p.get("fullName") or "").split()
-        return bool(fp) and fp[-1].lower() == query_last
+        fp = _norm_name(p.get("fullName") or "").split()
+        return bool(fp) and fp[-1] == query_last
 
     # Try exact API searches first
     people = _api(query)
@@ -224,6 +227,22 @@ def fuzzy_search(query: str) -> list[dict]:
                 return SequenceMatcher(None, q_norm, _norm_name(p.get("fullName", ""))).ratio()
             candidates.sort(key=_similarity, reverse=True)
             people = candidates[:5]
+
+    # A single unaccented first/last name should still find an accented MLB
+    # name ("Andres" -> "Andrés Chaparro") when /people/search returns none.
+    if not people and len(parts) == 1:
+        q_norm = _norm_name(query)
+        candidates = []
+        for player in _active_players():
+            name_norm = _norm_name(player.get("fullName", ""))
+            name_parts = name_norm.split()
+            if any(part.startswith(q_norm) for part in name_parts) or q_norm in name_norm:
+                candidates.append(player)
+        candidates.sort(key=lambda p: (
+            not any(part.startswith(q_norm) for part in _norm_name(p.get("fullName", "")).split()),
+            _norm_name(p.get("fullName", "")),
+        ))
+        people = candidates[:5]
 
     if not people and fatal_errors:
         raise RuntimeError(f"MLB player search unavailable ({fatal_errors[-1]})")

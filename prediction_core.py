@@ -22,6 +22,7 @@ Local dev / smoke test: python prediction_core.py "<player>" "<stat label>" <lin
 import json
 import sys
 import time
+import unicodedata
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, wait
 from functools import lru_cache
@@ -114,6 +115,13 @@ class NoGameFound(Exception):
     pass
 
 
+def _search_name_key(value: str) -> str:
+    """Accent- and punctuation-insensitive key used by player autocomplete."""
+    decomposed = unicodedata.normalize("NFKD", str(value or ""))
+    plain = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+    return " ".join("".join(ch.casefold() if ch.isalnum() else " " for ch in plain).split())
+
+
 def search_players(query: str, limit: int = 8) -> list[dict]:
     """
     Autocomplete lookup for the search box, matching against ANY part of a
@@ -129,7 +137,7 @@ def search_players(query: str, limit: int = 8) -> list[dict]:
     barely changes intra-day) and does substring matching ourselves, which
     is both more forgiving and guaranteed to only surface real MLB players.
     """
-    query = (query or "").strip().lower()
+    query = _search_name_key(query)
     if len(query) < 2:
         return []
 
@@ -153,10 +161,11 @@ def search_players(query: str, limit: int = 8) -> list[dict]:
         full_name = p.get("fullName", "")
         first = p.get("firstName", "")
         last = p.get("lastName", "")
-        if query in full_name.lower() or query in first.lower() or query in last.lower():
+        search_fields = tuple(_search_name_key(value) for value in (full_name, first, last))
+        if any(query in value for value in search_fields):
             # Prefix matches on a name part rank above mid-string matches
             # (e.g. "jud" -> Judge ranks above a hypothetical "Majudsky").
-            is_prefix = any(part.lower().startswith(query) for part in (first, last) if part)
+            is_prefix = any(part.startswith(query) for part in search_fields[1:] if part)
             matches.append({
                 "id": p["id"],
                 "name": full_name,
