@@ -3398,9 +3398,13 @@ function fillPitcherLineupProfile(node, p) {
   };
   const relevantKey = keyByMarket[p.betType] || "";
   const totals = profile.totals || {};
+  const isLineup = profile.scope === "confirmed_lineup";
   const number = (value) => Number.isFinite(Number(value)) ? Number(value).toLocaleString() : "—";
   block.hidden = false;
-  block.querySelector(".lineup-profile-team").textContent = `${profile.team_name || p.matchup?.opponent || "Opponent"} team offense`;
+  block.querySelector(".lineup-profile-team").textContent = `${profile.team_name || p.matchup?.opponent || "Opponent"} ${isLineup ? "lineup" : "team baseline"}`;
+  block.querySelector(".lineup-profile-source").textContent = isLineup
+    ? "POSTED 9 · OFFICIAL MLB SEASON STATS"
+    : "LINEUP NOT POSTED · OFFICIAL MLB TEAM TOTALS";
   block.querySelector(".lineup-profile-rows").innerHTML = metrics.map((metric) => {
     const rank = Math.max(1, Math.min(30, Number(metric.rank) || 30));
     const relevant = metric.key === relevantKey;
@@ -3410,8 +3414,9 @@ function fillPitcherLineupProfile(node, p) {
       <div class="lineup-result"><strong>${escapeHtml(metric.display || "—")}</strong><span>${escapeHtml(metric.edge_label || "NEUTRAL")}</span></div>
     </div>`;
   }).join("");
-  block.querySelector(".lineup-profile-note").textContent =
-    `${profile.games || "—"} games · Verified MLB totals: ${number(totals.hits)} H / ${number(totals.at_bats)} AB, ${number(totals.runs)} R, ${number(totals.home_runs)} HR, ${number(totals.strikeouts)} K and ${number(totals.walks)} BB / ${number(totals.plate_appearances)} PA. Full-team season scope—not a projected lineup.`;
+  block.querySelector(".lineup-profile-note").textContent = isLineup
+    ? `Confirmed batting order · Combined season totals for 9 hitters: ${number(totals.hits)} H / ${number(totals.at_bats)} AB, ${number(totals.runs)} R, ${number(totals.home_runs)} HR, ${number(totals.strikeouts)} K and ${number(totals.walks)} BB / ${number(totals.plate_appearances)} PA.`
+    : `${profile.games || "—"} team games · Tonight's batting order is not posted yet, so these are clearly labeled full-team baseline totals.`;
 }
 
 /* ---------- Manual PrizePicks prop builder ---------- */

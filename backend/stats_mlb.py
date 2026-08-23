@@ -127,6 +127,8 @@ def _cache_ttl_sec(cache_key: str) -> int:
         # Team totals update after every final. A six-hour season-aggregate
         # cache could leave yesterday's game count/ranks on the site.
         return 15 * 60
+    if cache_key.startswith("lineup_stats_"):
+        return 15 * 60
     if cache_key.startswith("gamelog_"):
         return 15 * 60
     if cache_key.startswith("umpires_"):
@@ -1533,6 +1535,115 @@ def get_all_teams_offensive_profile() -> dict:
     return result
 
 
+def get_lineup_offensive_profile(team_id: int, game_pk=None, game_date=None,
+                                  team_benchmarks=None) -> dict:
+    """Aggregate official season totals for the nine posted hitters.
+
+    The result is deliberately different from a franchise/team season line:
+    it describes the actual batting order for this game. Rates are derived
+    from summed raw player totals (never averaged percentages), and R/HR per
+    game use the lineup's average number of player-games as the denominator.
+    Ranks compare the lineup value with the 30 official team benchmarks.
+    """
+    lineup = get_team_lineup(team_id, game_pk=game_pk, game_date=game_date)
+    if len(lineup) != 9:
+        return {}
+
+    player_ids = [str(player["id"]) for player in lineup]
+    # MLB supports hydrating several people in one request. This keeps the
+    # lineup correction from adding nine serial API calls to research load.
+    data = _get("/people", {
+        "personIds": ",".join(player_ids),
+        "hydrate": f"stats(group=[hitting],type=[season],season={SEASON})",
+    }, cache_key=f"lineup_stats_{game_pk or '-'.join(player_ids)}_{SEASON}")
+    people = {str(person.get("id")): person for person in (data or {}).get("people", [])}
+
+    def player_totals(player):
+        player_id = player.get("id")
+        person = people.get(str(player_id)) or {}
+        splits = ((person.get("stats") or [{}])[0].get("splits") or [])
+        stat = (_combined_player_split(splits).get("stat") or {}) if splits else {}
+        if not stat:
+            return None
+        return {
+            "id": player_id, "name": player.get("name", ""),
+            "games": int(stat.get("gamesPlayed", 0) or 0),
+            "at_bats": int(stat.get("atBats", 0) or 0),
+            "hits": int(stat.get("hits", 0) or 0),
+            "runs": int(stat.get("runs", 0) or 0),
+            "home_runs": int(stat.get("homeRuns", 0) or 0),
+            "strikeouts": int(stat.get("strikeOuts", 0) or 0),
+            "walks": int(stat.get("baseOnBalls", 0) or 0),
+            "pa": int(stat.get("plateAppearances", 0) or 0),
+        }
+
+    player_rows = [row for row in map(player_totals, lineup) if row]
+    # Calling a partial batting order a lineup profile is the same data-scope
+    # bug this function exists to prevent.
+    if len(player_rows) != 9:
+        return {}
+
+    totals = {
+        key: sum(row[key] for row in player_rows)
+        for key in ("games", "at_bats", "hits", "runs", "home_runs",
+                    "strikeouts", "walks", "pa")
+    }
+    lineup_games = totals["games"] / 9 if totals["games"] else 0
+    values = {
+        "avg": totals["hits"] / totals["at_bats"] if totals["at_bats"] else None,
+        "runs_pg": totals["runs"] / lineup_games if lineup_games else None,
+        "hr_pg": totals["home_runs"] / lineup_games if lineup_games else None,
+        "k_pct": totals["strikeouts"] / totals["pa"] * 100 if totals["pa"] else None,
+        "bb_pct": totals["walks"] / totals["pa"] * 100 if totals["pa"] else None,
+    }
+    benchmarks = team_benchmarks or get_all_teams_offensive_profile()
+    metric_defs = (
+        ("avg", "AVG", True), ("runs_pg", "R", True),
+        ("hr_pg", "HR", True), ("k_pct", "K%", False),
+        ("bb_pct", "BB%", True),
+    )
+    metrics = []
+    for key, label, higher_is_better in metric_defs:
+        value = values[key]
+        reference = [
+            metric.get("value")
+            for profile in benchmarks.values()
+            for metric in (profile.get("metrics") or [])
+            if metric.get("key") == key and metric.get("value") is not None
+        ]
+        if value is None or len(reference) != 30:
+            return {}
+        better = sum(v > value if higher_is_better else v < value for v in reference)
+        rank = min(30, better + 1)
+        edge = "batter" if rank <= 10 else "pitcher" if rank >= 21 else "neutral"
+        display = (
+            f"{value:.3f}".lstrip("0") if key == "avg" else
+            f"{value:.1f}%" if key in {"k_pct", "bb_pct"} else
+            f"{value:.1f}/g"
+        )
+        metrics.append({
+            "key": key, "label": label, "value": value,
+            "display": display, "rank": rank, "edge": edge,
+            "edge_label": "SP EDGE" if edge == "pitcher" else "BAT EDGE" if edge == "batter" else "NEUTRAL",
+        })
+
+    baseline = benchmarks.get(team_id) or benchmarks.get(str(team_id)) or {}
+    return {
+        "team_id": team_id,
+        "team_name": baseline.get("team_name", ""),
+        "season": SEASON, "scope": "confirmed_lineup",
+        "source": "MLB Stats API", "hitters": player_rows,
+        "lineup_size": 9, "lineup_games": round(lineup_games, 1),
+        "metrics": metrics,
+        "totals": {
+            "at_bats": totals["at_bats"], "hits": totals["hits"],
+            "runs": totals["runs"], "home_runs": totals["home_runs"],
+            "strikeouts": totals["strikeouts"], "walks": totals["walks"],
+            "plate_appearances": totals["pa"],
+        },
+    }
+
+
 def get_team_k_rate_vs_hand(team_id: int, pitcher_hand: str) -> dict:
     """
     Team K rate when facing a specific pitcher handedness (L or R).
@@ -2614,7 +2725,7 @@ def get_game_lineup_ids(team_id: int) -> list[int]:
     return []
 
 
-def get_team_lineup(team_id: int) -> list[dict]:
+def get_team_lineup(team_id: int, game_pk=None, game_date=None) -> list[dict]:
     """
     Return today's confirmed batting order for a team, in order (1-9).
     The schedule endpoint's lineups.{home,away}Players array IS already in
@@ -2626,16 +2737,21 @@ def get_team_lineup(team_id: int) -> list[dict]:
     (e.g. "SS", "DH").
     """
     from vortextime import vortex_board_day
-    today = vortex_board_day()
-    data = _get("/schedule", {
-        "sportId": 1, "date": today,
-        "hydrate": "lineups",
-    }, cache_key=f"lineups_{today}")
+    today = game_date or vortex_board_day()
+    params = {"sportId": 1, "hydrate": "lineups"}
+    if game_pk:
+        params["gamePks"] = str(game_pk)
+    else:
+        params["date"] = today
+    data = _get("/schedule", params,
+                cache_key=f"lineups_{game_pk or today}")
     if not data:
         return []
     team_str = str(team_id)
     for date_entry in data.get("dates", []):
         for g in date_entry.get("games", []):
+            if game_pk and str(g.get("gamePk")) != str(game_pk):
+                continue
             lineups = g.get("lineups") or {}
             home_id = str((g.get("teams") or {}).get("home", {}).get("team", {}).get("id", ""))
             away_id = str((g.get("teams") or {}).get("away", {}).get("team", {}).get("id", ""))
