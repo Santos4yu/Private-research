@@ -1675,29 +1675,19 @@ def get_team_bullpen(team_id: int) -> dict:
     }
 
 
-def get_batter_arsenal_stats(batter_id: int) -> list[dict]:
-    """
-    Batter's REAL season performance vs each pitch type, from Baseball
-    Savant's pitch-arsenal-stats leaderboard (the MLB Stats API's
-    "pitchArsenal" hitting endpoint only returns pitch frequencies seen,
-    not performance -- Savant is the only free source of the actual
-    BA/SLG/wOBA-vs-pitch-type numbers).
+def _canonical_pitch_type(code: str) -> str:
+    """Normalize equivalent MLB/Savant pitch-family codes."""
+    code = str(code or "").strip().upper()
+    return {"KC": "CU", "FA": "FF"}.get(code, code)
 
-    Season-wide vs ALL pitchers who throw that pitch, not vs one specific
-    pitcher -- callers should label it that way.
 
-    The leaderboard is one ~350KB CSV covering every qualified batter, so
-    it's fetched once, parsed, and file-cached as JSON keyed by player id
-    (12h TTL); per-player calls after that are a dict lookup.
-
-    Returns every tracked pitch-type sample for display. The matchup scoring
-    layer still applies its own 10-PA reliability floor before using a row.
-    """
-    cache_file = CACHE_DIR / f"savant_batter_arsenal_v3_{SEASON}.json"
+def _load_batter_arsenal_table() -> dict:
+    """Load the full official Savant batter-by-pitch leaderboard once."""
+    cache_file = CACHE_DIR / f"savant_batter_arsenal_v4_{SEASON}.json"
     table = None
     if cache_file.exists():
         try:
-            if (time.time() - cache_file.stat().st_mtime) < 3600:  # 1h
+            if (time.time() - cache_file.stat().st_mtime) < 3600:
                 table = json.loads(cache_file.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             pass
@@ -1714,7 +1704,7 @@ def get_batter_arsenal_stats(batter_id: int) -> list[dict]:
                 headers={"User-Agent": "Mozilla/5.0"},
             )
             if not r.ok:
-                return []
+                return {}
             table = {}
             reader = _csv.DictReader(_io.StringIO(r.content.decode("utf-8-sig")))
             for row in reader:
@@ -1723,23 +1713,46 @@ def get_batter_arsenal_stats(batter_id: int) -> list[dict]:
                 if not pid or pa < 1:
                     continue
                 table.setdefault(pid, []).append({
-                    "pitch_type": row.get("pitch_type", ""),
-                    "pitch_name": row.get("pitch_name", ""),
-                    "pa":         pa,
-                    "pitches":    int(float(row.get("pitches", 0) or 0)),
-                    "avg":        row.get("ba", ""),
-                    "slg":        row.get("slg", ""),
-                    "woba":       row.get("woba", ""),
-                    "whiff_pct":  row.get("whiff_percent", ""),
-                    "k_pct":      row.get("k_percent", ""),
+                    "team_abbr":   row.get("team_name_alt", "").strip().upper(),
+                    "pitch_type":  _canonical_pitch_type(row.get("pitch_type", "")),
+                    "pitch_name":  row.get("pitch_name", ""),
+                    "pa":          pa,
+                    "pitches":     int(float(row.get("pitches", 0) or 0)),
+                    "avg":         row.get("ba", ""),
+                    "slg":         row.get("slg", ""),
+                    "woba":        row.get("woba", ""),
+                    "whiff_pct":   row.get("whiff_percent", ""),
+                    "k_pct":       row.get("k_percent", ""),
+                    "hard_hit_pct": row.get("hard_hit_percent", ""),
+                    "run_value_per_100": row.get("run_value_per_100", ""),
                 })
             try:
                 cache_file.write_text(json.dumps(table), encoding="utf-8")
             except OSError:
                 pass
         except requests.RequestException:
-            return []
+            return {}
+    return table or {}
 
+
+def get_batter_arsenal_stats(batter_id: int) -> list[dict]:
+    """
+    Batter's REAL season performance vs each pitch type, from Baseball
+    Savant's pitch-arsenal-stats leaderboard (the MLB Stats API's
+    "pitchArsenal" hitting endpoint only returns pitch frequencies seen,
+    not performance -- Savant is the only free source of the actual
+    BA/SLG/wOBA-vs-pitch-type numbers).
+
+    Season-wide vs ALL pitchers who throw that pitch, not vs one specific
+    pitcher -- callers should label it that way.
+
+    The leaderboard is one ~350KB CSV covering every qualified batter, so
+    it's fetched once, parsed, and file-cached as JSON keyed by player id
+    (1h TTL); per-player calls after that are a dict lookup.
+
+    Returns every tracked pitch-type sample for display. The matchup scoring
+    layer still applies its own 10-PA reliability floor before using a row.
+    """
     # Return the leaderboard rows immediately. The old implementation then
     # downloaded the batter's full pitch-level Statcast history solely to add
     # an HR column that this leaderboard does not publish. That second CSV is
@@ -1747,6 +1760,7 @@ def get_batter_arsenal_stats(batter_id: int) -> list[dict]:
     # entire table to miss the research response deadline. wOBA is already an
     # official per-pitch result in this leaderboard and is the honest, fast
     # replacement for the unavailable HR breakout.
+    table = _load_batter_arsenal_table()
     return [dict(row) for row in table.get(str(batter_id), [])]
 
 
@@ -1798,17 +1812,19 @@ def _get_batter_pitch_type_home_runs(batter_id: int) -> dict[str, int]:
         return {}
 
 
-def get_team_vs_pitch_types(team_id: int, arsenal: list[dict] | None = None) -> list[dict]:
-    """Aggregate the opposing lineup's Savant results by pitch type.
+def get_team_vs_pitch_types(team_id: int, arsenal: list[dict] | None = None,
+                            team_abbr: str | None = None) -> list[dict]:
+    """Compare the opposing lineup with all MLB teams by pitch family.
 
-    The posted batting order is preferred; before lineups are available the
-    active position-player roster is used. ``struggle_score`` is an explicit
-    1-30 matchup index (not an MLB rank): 1 means the group has handled the
-    pitch well and 30 means it has struggled. Samples under 40 PA are marked
-    thin so the UI does not overstate early-season/no-lineup evidence.
+    Display metrics use tonight's posted lineup when available (otherwise the
+    active roster). ``lineup_rank`` is a genuine league comparison from the
+    full Baseball Savant batter pitch-arsenal leaderboard: 1 handles the
+    pitch best and 30 struggles most. A rank is only published when all 30
+    MLB teams have a qualifying sample for that pitch family.
     """
     if not team_id:
         return []
+
     def number(row: dict, key: str) -> float | None:
         try:
             value = row.get(key)
@@ -1816,6 +1832,58 @@ def get_team_vs_pitch_types(team_id: int, arsenal: list[dict] | None = None) -> 
         except (TypeError, ValueError):
             return None
 
+    def aggregate(rows) -> dict[str, dict]:
+        buckets: dict[str, dict] = {}
+        for row in rows:
+            pitch_type = _canonical_pitch_type(row.get("pitch_type"))
+            if not pitch_type or (wanted and pitch_type not in wanted):
+                continue
+            pa = number(row, "pa") or 0.0
+            if pa <= 0:
+                continue
+            bucket = buckets.setdefault(pitch_type, {
+                "pitch_type": pitch_type,
+                "pitch_name": row.get("pitch_name") or pitch_type,
+                "pa": 0.0, "pitches": 0.0, "avg_sum": 0.0,
+                "slg_sum": 0.0, "woba_sum": 0.0, "whiff_sum": 0.0,
+                "k_sum": 0.0, "hard_hit_sum": 0.0, "hitters": 0,
+            })
+            bucket["pa"] += pa
+            bucket["pitches"] += number(row, "pitches") or 0.0
+            for source, target in (
+                ("avg", "avg_sum"), ("slg", "slg_sum"),
+                ("woba", "woba_sum"), ("whiff_pct", "whiff_sum"),
+                ("k_pct", "k_sum"), ("hard_hit_pct", "hard_hit_sum"),
+            ):
+                value = number(row, source)
+                if value is not None:
+                    bucket[target] += value * pa
+            bucket["hitters"] += 1
+
+        profiles = {}
+        for pitch_type, bucket in buckets.items():
+            pa = bucket["pa"]
+            whiff = bucket["whiff_sum"] / pa
+            k_pct = bucket["k_sum"] / pa
+            hard_hit = bucket["hard_hit_sum"] / pa
+            profiles[pitch_type] = {
+                "pitch_type": pitch_type,
+                "pitch_name": bucket["pitch_name"],
+                "pa": round(pa), "pitches": round(bucket["pitches"]),
+                "avg": round(bucket["avg_sum"] / pa, 3),
+                "slg": round(bucket["slg_sum"] / pa, 3),
+                "woba": round(bucket["woba_sum"] / pa, 3),
+                "whiff_pct": round(whiff * 100 if 0 < whiff <= 1 else whiff, 1),
+                "k_pct": round(k_pct * 100 if 0 < k_pct <= 1 else k_pct, 1),
+                "hard_hit_pct": round(hard_hit * 100 if 0 < hard_hit <= 1 else hard_hit, 1),
+                "hitters": bucket["hitters"],
+            }
+        return profiles
+
+    wanted = {
+        _canonical_pitch_type(p.get("pitch_type"))
+        for p in (arsenal or []) if p.get("pitch_type")
+    }
     lineup = get_team_lineup(team_id) or []
     hitters = lineup or get_team_hitters_roster(team_id) or []
     hitter_ids = []
@@ -1829,64 +1897,65 @@ def get_team_vs_pitch_types(team_id: int, arsenal: list[dict] | None = None) -> 
     if not hitter_ids:
         return []
 
-    wanted = {
-        str(p.get("pitch_type") or "").strip().upper()
-        for p in (arsenal or []) if p.get("pitch_type")
-    }
-    buckets: dict[str, dict] = {}
-    for batter_id in hitter_ids:
-        for row in get_batter_arsenal_stats(batter_id):
-            pitch_type = str(row.get("pitch_type") or "").strip().upper()
-            if not pitch_type or (wanted and pitch_type not in wanted):
-                continue
-            pa = number(row, "pa") or 0.0
-            if pa <= 0:
-                continue
-            bucket = buckets.setdefault(pitch_type, {
-                "pitch_type": pitch_type,
-                "pitch_name": row.get("pitch_name") or pitch_type,
-                "pa": 0.0, "pitches": 0.0, "avg_sum": 0.0,
-                "slg_sum": 0.0, "woba_sum": 0.0, "whiff_sum": 0.0,
-                "k_sum": 0.0, "hr": 0, "hitters": 0,
-            })
-            bucket["pa"] += pa
-            bucket["pitches"] += number(row, "pitches") or 0.0
-            for source, target in (("avg", "avg_sum"), ("slg", "slg_sum"),
-                                   ("woba", "woba_sum"), ("whiff_pct", "whiff_sum"),
-                                   ("k_pct", "k_sum")):
-                value = number(row, source)
-                if value is not None:
-                    bucket[target] += value * pa
-            bucket["hr"] += int(number(row, "hr") or 0)
-            bucket["hitters"] += 1
+    table = _load_batter_arsenal_table()
+    current_rows = [row for pid in hitter_ids for row in table.get(str(pid), [])]
+    current_profiles = aggregate(current_rows)
+    if not current_profiles:
+        return []
+
+    if not team_abbr:
+        team_data = _get(f"/teams/{team_id}", cache_key=f"team_profile_{team_id}")
+        team_obj = ((team_data or {}).get("teams") or [{}])[0]
+        team_abbr = _team_abbr(team_obj)
+    team_abbr = str(team_abbr or "").strip().upper()
+    if team_abbr == "OAK":
+        team_abbr = "ATH"
+
+    rows_by_team: dict[str, list] = {}
+    for player_rows in table.values():
+        for row in player_rows:
+            abbr = str(row.get("team_abbr") or "").strip().upper()
+            if abbr == "OAK":
+                abbr = "ATH"
+            if abbr:
+                rows_by_team.setdefault(abbr, []).append(row)
+    league_profiles = {abbr: aggregate(rows) for abbr, rows in rows_by_team.items()}
+
+    def strength(profile: dict) -> float:
+        # Transparent contact/damage blend. Higher = the bats handle the pitch
+        # better. The displayed rank comes from comparison, not rescaling this
+        # value into a pretend 1-30 score.
+        return (
+            (profile.get("woba") or 0) * .45
+            + (1 - (profile.get("whiff_pct") or 0) / 100) * .25
+            + (1 - (profile.get("k_pct") or 0) / 100) * .20
+            + ((profile.get("hard_hit_pct") or 0) / 100) * .10
+        )
 
     out = []
-    for bucket in buckets.values():
-        pa = bucket["pa"]
-        avg = bucket["avg_sum"] / pa
-        slg = bucket["slg_sum"] / pa
-        woba = bucket["woba_sum"] / pa
-        whiff = bucket["whiff_sum"] / pa
-        k_pct = bucket["k_sum"] / pa
-        # Savant percentage columns may arrive as either 0-1 or 0-100.
-        whiff_display = whiff * 100 if 0 < whiff <= 1 else whiff
-        k_display = k_pct * 100 if 0 < k_pct <= 1 else k_pct
-        # Equal parts swing-and-miss and damage suppression. Map the result to
-        # the familiar 1-30 scale while keeping it an index, not a fake rank.
-        whiff_bad = max(0.0, min(1.0, (whiff_display - 15.0) / 20.0))
-        woba_bad = max(0.0, min(1.0, (.400 - woba) / .150))
-        k_bad = max(0.0, min(1.0, (k_display - 15.0) / 20.0))
-        struggle = round(1 + 29 * (whiff_bad * .45 + woba_bad * .35 + k_bad * .20))
-        out.append({
-            "pitch_type": bucket["pitch_type"], "pitch_name": bucket["pitch_name"],
-            "pa": round(pa), "pitches": round(bucket["pitches"]),
-            "avg": round(avg, 3), "slg": round(slg, 3), "woba": round(woba, 3),
-            "whiff_pct": round(whiff_display, 1), "k_pct": round(k_display, 1),
-            "hr": bucket["hr"], "hitters": bucket["hitters"],
-            "struggle_score": max(1, min(30, struggle)), "thin_sample": pa < 40,
+    for pitch_type, profile in current_profiles.items():
+        candidates = [
+            (abbr, team[pitch_type])
+            for abbr, team in league_profiles.items()
+            if pitch_type in team and team[pitch_type].get("pa", 0) >= 40
+        ]
+        lineup_rank = None
+        if len(candidates) == 30 and any(abbr == team_abbr for abbr, _ in candidates):
+            ordered = sorted(candidates, key=lambda item: strength(item[1]), reverse=True)
+            lineup_rank = next(rank for rank, (abbr, _) in enumerate(ordered, 1) if abbr == team_abbr)
+        profile.update({
+            "lineup_rank": lineup_rank,
+            # Backward-compatible key now points only to the real rank. Never
+            # fall back to the old modeled index.
+            "struggle_score": lineup_rank,
+            "ranked_teams": len(candidates),
+            "season": SEASON,
+            "thin_sample": profile.get("pa", 0) < 40,
             "lineup_source": "posted lineup" if lineup else "active roster",
+            "rank_source": "Baseball Savant team-season comparison",
         })
-    return sorted(out, key=lambda row: row["struggle_score"], reverse=True)
+        out.append(profile)
+    return sorted(out, key=lambda row: row.get("lineup_rank") or 0, reverse=True)
 
 
 def _pitcher_stat_from_game(s: dict, prop_type: str) -> float:

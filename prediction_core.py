@@ -887,8 +887,9 @@ def compute_k_prop(player_id, canonical_name, team_abbr, matchup, line, side, st
 
     # This must follow the arsenal lookup so only pitches the starter actually
     # throws are aggregated for the opposing lineup.
+    opponent_abbr = stats_mlb._MLB_TEAM_ABBR.get(matchup.get("opponent") or "", "")
     team_pitch_types = _safe(
-        stats_mlb.get_team_vs_pitch_types, opp_team_id, arsenal, default=[]
+        stats_mlb.get_team_vs_pitch_types, opp_team_id, arsenal, opponent_abbr, default=[]
     ) if opp_team_id and arsenal else []
 
     if k_card.get("error"):

@@ -2912,6 +2912,7 @@ function fillPitchArsenal(node, p) {
   const rate = (value) => Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)}%` : "—";
   const avg = (value) => value === null || value === undefined || value === "" ? "—" : formatBattingAverage(value);
   const teamPitchRows = p.pitcherTeamPitchTypes || [];
+  const canonicalPitch = (code) => ({ KC: "CU", FA: "FF" }[String(code || "").toUpperCase()] || String(code || "").toUpperCase());
   const isPitcherCard = p.isPitcherProp === true;
   const blockTitle = block.querySelector(".block-title");
   if (blockTitle) blockTitle.textContent = isPitcherCard ? "⚾ Lineup vs Pitch Arsenal" : "⚾ Starter, BvP & Pitch Arsenal";
@@ -2941,16 +2942,22 @@ function fillPitchArsenal(node, p) {
   const lowerGrid = lowerStats.map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join("");
   const pitchRows = pitches.map((pitch, index) => {
     if (isPitcherCard) {
-      const team = teamPitchRows.find(row => String(row.pitch_type || "").toUpperCase() === String(pitch.code || "").toUpperCase()) || {};
-      const score = Number(team.struggle_score);
-      const scoreClass = score >= 24 ? "arsenal-struggle-high" : score <= 8 ? "arsenal-struggle-low" : "";
+      const team = teamPitchRows.find(row => canonicalPitch(row.pitch_type) === canonicalPitch(pitch.code));
+      if (!team || !Number(team.pa)) return "";
+      const score = Number(team.lineup_rank);
+      const scoreClass = score >= 21 ? "arsenal-rank-struggle" : score <= 10 ? "arsenal-rank-handles" : "arsenal-rank-neutral";
       const sampleClass = team.thin_sample ? "pitch-sample-thin" : "";
       return `<tr>
         <td><i class="pitch-dot" style="--pitch-color:${colors[index % colors.length]}"></i>${escapeHtml(pitch.name)} <small>${Number(pitch.pct).toFixed(0)}%</small></td>
-        <td data-label="PITCHES" class="${sampleClass}" title="${team.thin_sample ? "Limited sample — use cautiously" : ""}">${val(team.pitches)}</td>
-        <td data-label="WHIFF%">${rate(team.whiff_pct)}</td><td data-label="AVG">${avg(team.avg)}</td><td data-label="SLG">${avg(team.slg)}</td>
-        <td data-label="K%">${rate(team.k_pct)}</td><td data-label="SCORE" class="${scoreClass}">${Number.isFinite(score) ? score : "—"}</td>
-      </tr>`;
+        <td data-label="PA" class="${sampleClass}" title="${team.thin_sample ? "Limited sample — use cautiously" : ""}">${val(team.pa)}</td>
+        <td data-label="WHIFF%">${rate(team.whiff_pct)}</td>
+        <td data-label="wOBA">${avg(team.woba)}</td>
+        <td data-label="HARD-HIT%">${rate(team.hard_hit_pct)}</td>
+        <td data-label="MLB RANK" class="arsenal-rank-cell ${scoreClass}">
+          <span class="arsenal-rank-meter"><i style="width:${Number.isFinite(score) ? (score / 30) * 100 : 0}%"></i></span>
+          <b>${Number.isFinite(score) ? score : "—"}</b>
+        </td>
+      </tr><tr class="arsenal-row-extra"><td colspan="6">AVG ${avg(team.avg)} · SLG ${avg(team.slg)} · K% ${rate(team.k_pct)}</td></tr>`;
     }
     const vs = pitch.batterVs || {};
     const kClass = Number(vs.kPct) >= 30 ? "arsenal-hot" : "";
@@ -2965,12 +2972,26 @@ function fillPitchArsenal(node, p) {
 
   if (isPitcherCard) {
     const source = teamPitchRows[0]?.lineup_source || "available hitters";
+    const rankedRows = teamPitchRows.filter(row => Number.isFinite(Number(row.lineup_rank)));
+    const best = rankedRows.sort((a, b) => Number(b.lineup_rank) - Number(a.lineup_rank))[0];
+    const bestPitch = best && pitches.find(pitch => canonicalPitch(pitch.code) === canonicalPitch(best.pitch_type));
+    const bestRank = Number(best?.lineup_rank);
+    const pitcherFirst = String(starter.name || p.player || "The starter").split(" ")[0];
+    const teamShort = String(p.pitcherTeamPitchLabel || "Opponent lineup").replace(/ lineup vs pitch type/i, "");
+    const recommendation = best ? `
+      <div class="arsenal-recommendation ${bestRank >= 21 ? "is-attack" : bestRank <= 10 ? "is-caution" : "is-neutral"}">
+        <span class="arsenal-rec-icon">${bestRank >= 21 ? "✓" : bestRank <= 10 ? "!" : "↗"}</span>
+        <div><strong>${bestRank >= 21 ? `${escapeHtml(pitcherFirst)} should attack with ${escapeHtml(bestPitch?.name || best.pitch_name)}` : bestRank <= 10 ? `${escapeHtml(teamShort)} handles this arsenal well` : `${escapeHtml(pitcherFirst)}'s best relative option: ${escapeHtml(bestPitch?.name || best.pitch_name)}`}</strong>
+        <p>${escapeHtml(teamShort)} ranks #${bestRank}/30 against this pitch · ${avg(best.woba)} wOBA · ${rate(best.whiff_pct)} whiff${bestPitch ? ` · ${Number(bestPitch.pct).toFixed(0)}% usage` : ""}</p></div>
+      </div>` : `<div class="arsenal-recommendation is-neutral"><span class="arsenal-rec-icon">i</span><div><strong>League rank unavailable</strong><p>The official pitch results below are still shown without manufacturing a rank.</p></div></div>`;
     holder.innerHTML = `
       <article class="pitch-type-card pitcher-team-pitch-card">
-        <div class="pitch-type-head"><div><p class="arsenal-eyebrow">${escapeHtml(p.pitcherTeamPitchLabel || "OPPONENT VS PITCH TYPE")}</p><small>${escapeHtml(String(source))} · Baseball Savant season data</small></div><span>SZN</span></div>
-        <p class="pitch-team-scale"><b>1</b> lineup handles it <span>•</span> <b>30</b> lineup struggles</p>
-        <div class="pitch-type-scroll"><table><thead><tr><th>PITCH</th><th>PITCHES</th><th>WHIFF%</th><th>AVG</th><th>SLG</th><th>K%</th><th>SCORE</th></tr></thead><tbody>${pitchRows}</tbody></table></div>
-        <p class="pitch-type-note">Only pitches in ${escapeHtml(starter.name || "the pitcher's")} actual arsenal are shown. Score is VORTEX's 1–30 struggle index from whiff, strikeout and damage results—not an official MLB rank. Samples below 40 PA are shown cautiously.</p>
+        <div class="pitch-type-head"><div><p class="arsenal-eyebrow">${escapeHtml(p.pitcherTeamPitchLabel || "OPPONENT VS PITCH TYPE")}</p><small>${escapeHtml(String(source))} · official Baseball Savant ${teamPitchRows[0]?.season || new Date().getFullYear()}</small></div><span>SZN</span></div>
+        <p class="pitch-rank-explainer">Real team-season comparison for every pitch in ${escapeHtml(starter.name || "the pitcher's")} arsenal. <b>1 handles it best</b> · <b>30 struggles most</b>.</p>
+        ${recommendation}
+        <div class="pitch-rank-scale"><span>1 HANDLES</span><i></i><span>30 STRUGGLES</span></div>
+        <div class="pitch-type-scroll"><table><thead><tr><th>PITCH</th><th>PA</th><th>WHIFF%</th><th>wOBA</th><th>HARD-HIT%</th><th>LINEUP RANK</th></tr></thead><tbody>${pitchRows}</tbody></table></div>
+        <p class="pitch-type-note">PA and performance use the posted lineup when available, otherwise the active roster. Rank compares the team's full season against all 30 MLB teams using wOBA, whiff avoidance, K avoidance and hard-hit rate. Pitches without a reliable sample are omitted.</p>
       </article>`;
     return;
   }
