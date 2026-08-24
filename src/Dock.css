@@ -16,6 +16,7 @@ body:has(.modal-overlay:not([hidden])) .dock-panel {
 .dock-count{position:absolute;top:-4px;right:-4px;display:grid;place-items:center;min-width:15px;height:15px;border-radius:4px;background:var(--theme-accent,#d98d2d);color:var(--theme-on-accent,#101114);font:700 9px var(--font-mono);}
 
 @media (max-width:700px) {
+  .dock-panel { left:50% !important; right:auto !important; bottom:calc(14px + env(safe-area-inset-bottom,0px)) !important; transform:translateX(-50%) !important; margin:0 !important; }
   .dock-panel.dock-mobile-hidden { opacity:0; transform:translate(-50%,22px) scale(.94); filter:blur(5px); pointer-events:none; }
 }
 @media (prefers-reduced-motion:reduce) {

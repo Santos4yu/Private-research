@@ -244,6 +244,8 @@ function ActionSearchBar({
           className="command-player-popover"
           style={popoverPosition}
           data-open="true"
+          onPointerDown={(event) => event.stopPropagation()}
+          onTouchMove={(event) => event.stopPropagation()}
           initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.985 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.99 }}

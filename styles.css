@@ -6674,3 +6674,11 @@ body.gamelog-scroll-locked{
   .research-welcome-features{grid-template-columns:1fr}.research-welcome-features>div{grid-template-columns:24px 1fr;align-items:center;padding:12px 13px}
   .research-welcome-features small{grid-column:2;white-space:normal}
 }
+
+/* Final mobile safe-area override: keep the page and home-indicator strip unified. */
+html, body, #app-shell { min-height:100%; background-color:var(--theme-bg,var(--bg,#07101f)) !important; }
+@supports (height:100dvh) { body, #app-shell { min-height:100dvh; } }
+@media (max-width:700px) {
+  body { padding-bottom:env(safe-area-inset-bottom,0px); }
+  #dock-root { position:relative; z-index:100; }
+}
