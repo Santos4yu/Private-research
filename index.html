@@ -313,7 +313,10 @@
 <section class="tab-panel" id="panel-research">
   <button type="button" class="v2-back-btn" id="v2-back-btn" hidden>← Back to Props</button>
   <div class="search-wrap intro-anim">
-    <div id="action-search-root"></div>
+    <div class="action-search-shell">
+      <div id="action-search-root"></div>
+      <ul class="search-results" id="search-results" role="listbox" aria-label="MLB player results" hidden></ul>
+    </div>
   </div>
 
   <div class="browse-row intro-anim" id="browse-row">

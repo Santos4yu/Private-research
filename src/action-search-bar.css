@@ -1,3 +1,4 @@
+.action-search-shell,
 .action-search-bar { position: relative; width: 100%; }
 
 :root[data-theme] .action-search-bar .action-search-field {
@@ -65,7 +66,7 @@
 .action-search-submit:focus-visible { outline: 2px solid var(--theme-accent); outline-offset: 3px; }
 .action-search-submit>span { display: grid; place-items: center; }
 
-:root[data-theme] .action-search-bar .search-results {
+:root[data-theme] .action-search-shell .search-results {
   box-sizing: border-box !important;
   width: 100% !important;
   max-height: 320px !important;
@@ -81,12 +82,12 @@
   animation: action-results-in .2s cubic-bezier(.2,.75,.25,1) both !important;
 }
 
-:root[data-theme] .action-search-bar .search-results.is-closing {
+:root[data-theme] .action-search-shell .search-results.is-closing {
   pointer-events: none;
   animation: action-results-out .12s ease-in both !important;
 }
 
-:root[data-theme] .action-search-bar .search-result-item {
+:root[data-theme] .action-search-shell .search-result-item {
   min-height: 48px;
   gap: 12px !important;
   padding: 7px 11px !important;
@@ -96,14 +97,14 @@
   animation: action-result-in .2s cubic-bezier(.2,.75,.25,1) forwards !important;
   transition: background-color .14s ease !important;
 }
-:root[data-theme] .action-search-bar .search-result-item:hover,
-:root[data-theme] .action-search-bar .search-result-item.active {
+:root[data-theme] .action-search-shell .search-result-item:hover,
+:root[data-theme] .action-search-shell .search-result-item.active {
   background: var(--theme-panel-2) !important;
   transform: none !important;
 }
-:root[data-theme] .action-search-bar .sr-player { color: var(--theme-text) !important; font: 600 14px/1.2 var(--font-sans) !important; }
-:root[data-theme] .action-search-bar .avatar-sm { width: 34px !important; height: 34px !important; }
-:root[data-theme] .action-search-bar .sr-team-logo { width: 30px !important; height: 30px !important; object-fit: contain; }
+:root[data-theme] .action-search-shell .sr-player { color: var(--theme-text) !important; font: 600 14px/1.2 var(--font-sans) !important; }
+:root[data-theme] .action-search-shell .avatar-sm { width: 34px !important; height: 34px !important; }
+:root[data-theme] .action-search-shell .sr-team-logo { width: 30px !important; height: 30px !important; object-fit: contain; }
 
 @keyframes action-results-in { from { opacity:0;transform:translateY(-5px) scale(.992) } to { opacity:1;transform:none } }
 @keyframes action-results-out { from { opacity:1;transform:none } to { opacity:0;transform:translateY(-4px) scale(.995) } }
@@ -112,11 +113,11 @@
 @media(max-width:600px) {
   :root[data-theme] .action-search-bar .action-search-field { height:56px!important;padding:5px 6px 5px 16px!important;border-radius:16px!important }
   :root[data-theme] .action-search-submit { flex-basis:44px;width:44px;height:44px;border-radius:12px }
-  :root[data-theme] .action-search-bar .search-results { max-height:min(340px,52dvh)!important;border-radius:16px!important }
+  :root[data-theme] .action-search-shell .search-results { max-height:min(340px,52dvh)!important;border-radius:16px!important }
 }
 
 @media(prefers-reduced-motion:reduce) {
-  :root[data-theme] .action-search-bar .search-results,
-  :root[data-theme] .action-search-bar .search-results.is-closing,
-  :root[data-theme] .action-search-bar .search-result-item { animation:none!important;opacity:1;transform:none }
+  :root[data-theme] .action-search-shell .search-results,
+  :root[data-theme] .action-search-shell .search-results.is-closing,
+  :root[data-theme] .action-search-shell .search-result-item { animation:none!important;opacity:1;transform:none }
 }

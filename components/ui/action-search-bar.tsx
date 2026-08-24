@@ -19,7 +19,6 @@ function ActionSearchBar({
   const [query, setQuery] = React.useState("");
   const [resultsOpen, setResultsOpen] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
-  const resultsRef = React.useRef<HTMLUListElement>(null);
   const reduceMotion = useReducedMotion();
 
   React.useLayoutEffect(() => {
@@ -27,20 +26,23 @@ function ActionSearchBar({
   }, []);
 
   React.useEffect(() => {
-    const clear = () => setQuery("");
+    const clear = () => {
+      if (inputRef.current) inputRef.current.value = "";
+      setQuery("");
+    };
     window.addEventListener("vortex:search-clear", clear);
     return () => window.removeEventListener("vortex:search-clear", clear);
   }, []);
 
   React.useEffect(() => {
-    const results = resultsRef.current;
+    const results = document.getElementById(resultsId);
     if (!results) return;
     const sync = () => setResultsOpen(!results.hidden);
     sync();
     const observer = new MutationObserver(sync);
     observer.observe(results, { attributes: true, attributeFilter: ["hidden"] });
     return () => observer.disconnect();
-  }, []);
+  }, [resultsId]);
 
   const submitOrFocus = () => {
     const input = inputRef.current;
@@ -67,8 +69,8 @@ function ActionSearchBar({
           ref={inputRef}
           id={inputId}
           type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          defaultValue=""
+          onInput={(event) => setQuery(event.currentTarget.value)}
           placeholder={placeholder}
           autoComplete="off"
           spellCheck={false}
@@ -98,7 +100,6 @@ function ActionSearchBar({
           </AnimatePresence>
         </button>
       </div>
-      <ul className="search-results" id={resultsId} ref={resultsRef} hidden />
     </div>
   );
 }
