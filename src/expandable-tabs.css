@@ -29,10 +29,10 @@
   width: max-content;
   padding: 3px;
   border: 1px solid var(--theme-border);
-  border-radius: 12px;
-  background: rgba(12,18,28,.62);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 10px 28px rgba(0,0,0,.2);
-  backdrop-filter: blur(18px) saturate(115%);
+  border-radius: 14px;
+  background: var(--theme-panel);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--theme-text) 4%, transparent), 0 8px 22px rgba(0, 0, 0, .16);
+  backdrop-filter: none;
   contain: layout paint;
 }
 
@@ -72,9 +72,9 @@
   min-width: 38px;
   gap: 7px;
   padding-inline: 13px;
-  color: var(--theme-text) !important;
-  background: rgba(77,159,255,.15) !important;
-  box-shadow: inset 0 0 0 1px rgba(77,159,255,.25) !important;
+  color: var(--theme-on-accent) !important;
+  background: var(--theme-accent) !important;
+  box-shadow: 0 3px 12px color-mix(in srgb, var(--theme-accent) 12%, transparent) !important;
 }
 
 .vortex-expandable-tabs .expandable-tab:focus-visible {

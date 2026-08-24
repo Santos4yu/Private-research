@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BarChart3, Bookmark, Search, TrendingUp, UsersRound } from 'lucide-react';
+import { BarChart3, ClipboardList, FlaskConical, Search, Sparkles } from 'lucide-react';
 import Dock from './Dock';
 import { ExpandableTabs } from '../components/ui/expandable-tabs';
 import { ActionSearchBar } from '../components/ui/action-search-bar';
@@ -42,10 +42,11 @@ function VortexDock() {
 
 const topTabs = [
   { title: 'Research', icon: Search, value: 'research' },
+  { title: 'Tools', icon: FlaskConical, value: 'slate' },
   { title: 'Props', icon: BarChart3, value: 'v2' },
-  { title: 'Trends', icon: TrendingUp, value: 'slate' },
-  { title: 'Matchups', icon: UsersRound, value: 'moneyline' },
-  { title: 'Saved', icon: Bookmark, value: 'saved' },
+  { title: 'Parlay', icon: Sparkles, value: 'builder' },
+  { type: 'separator' },
+  { title: 'Builder', icon: ClipboardList, value: 'saved' },
 ];
 
 function VortexTopTabs() {

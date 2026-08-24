@@ -181,7 +181,6 @@ async function init() {
   wireCardBorderGlow();
   wireTabs();
   wireMainMenu();
-  wireCustomCursor();
 
   try {
     const res = await fetch(DATA_SOURCE, { cache: "no-store" });
@@ -198,7 +197,6 @@ async function init() {
   wireSearch();
   wireLinePicker();
   renderBrowseChips();
-  renderResearchHome();
   wireSavedToolbar();
   wireManualBetSlip();
   renderSavedGrid();
@@ -223,11 +221,6 @@ function cacheEls() {
   els.reportWrap = document.getElementById("report-wrap");
   els.emptyState = document.getElementById("empty-state");
   els.browseChips = document.getElementById("browse-chips");
-  els.researchHome = document.getElementById("research-home-grid");
-  els.homePopularList = document.getElementById("home-popular-list");
-  els.homeRecentList = document.getElementById("home-recent-list");
-  els.homeGamesList = document.getElementById("home-games-list");
-  els.homeSavedList = document.getElementById("home-saved-list");
   els.v2BackBtn = document.getElementById("v2-back-btn");
 
   els.playerProfile = document.getElementById("player-profile");
@@ -609,67 +602,6 @@ function switchTab(tab) {
   if (tab === "nrfi" && !state.specialsLoaded) loadSpecialMarkets();
   document.querySelectorAll(".side-link").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
   window.dispatchEvent(new CustomEvent("vortex:dock-sync", { detail: { tab, saved: state.savedProps.size } }));
-}
-
-function wireCustomCursor() {
-  const cursor = document.getElementById("private-cursor");
-  if (!cursor || !window.matchMedia("(hover:hover) and (pointer:fine)").matches) return;
-  document.documentElement.classList.add("custom-cursor-ready");
-  let frame = 0;
-  document.addEventListener("pointermove", (event) => {
-    cancelAnimationFrame(frame);
-    frame = requestAnimationFrame(() => {
-      cursor.style.setProperty("--cursor-x", `${event.clientX}px`);
-      cursor.style.setProperty("--cursor-y", `${event.clientY}px`);
-      cursor.classList.add("visible");
-    });
-  }, { passive: true });
-  document.addEventListener("pointerover", (event) => {
-    const target = event.target instanceof Element ? event.target : null;
-    cursor.classList.toggle("interactive", Boolean(target?.closest("button,a,[role='button'],[role='option'],select,input[type='range']")));
-    cursor.classList.toggle("text", Boolean(target?.closest("input:not([type='range']),textarea,[contenteditable='true']")));
-  }, { passive: true });
-  document.addEventListener("pointerdown", () => cursor.classList.add("pressed"), { passive: true });
-  document.addEventListener("pointerup", () => cursor.classList.remove("pressed"), { passive: true });
-  document.addEventListener("pointerleave", () => cursor.classList.remove("visible"), { passive: true });
-}
-
-function renderResearchHome() {
-  if (!els.researchHome) return;
-  const recentKey = "private_recent_player_searches_v1";
-  let recent = [];
-  try { recent = JSON.parse(localStorage.getItem(recentKey) || "[]"); } catch { recent = []; }
-  const uniquePlayers = [...new Map(state.props.map((prop) => [prop.player, prop])).values()];
-  const popular = uniquePlayers.sort((a, b) => Number(b.score || 0) - Number(a.score || 0)).slice(0, 4);
-  const saved = [...state.savedProps.values()].slice(0, 3);
-  const games = [...new Map(state.props.filter((prop) => prop.matchup?.opponent).map((prop) => {
-    const team = prop.team || "MLB";
-    const opponent = prop.matchup?.opponent || "TBD";
-    return [`${team}-${opponent}`, { team, opponent, status: prop.game_status || prop.matchup?.game_time || "Today" }];
-  })).values()].slice(0, 5);
-
-  const empty = (copy) => `<p class="workspace-empty">${copy}</p>`;
-  const playerRow = (entry, meta = "") => {
-    const player = entry.player || "MLB player";
-    const team = entry.team || entry.sport || "MLB";
-    return `<button type="button" class="workspace-player" data-home-player="${escapeHtml(player)}" data-home-position="${escapeHtml(entry.position || "")}" data-home-player-id="${entry.playerId || entry.player_id || ""}" data-home-team-id="${entry.teamId || entry.team_id || ""}" data-home-team="${escapeHtml(team)}"><span class="workspace-avatar">${avatarHtml(entry, "sm")}</span><span><strong>${escapeHtml(player)}</strong><small>${escapeHtml(meta || [team, entry.betType || entry.sub || "Player research"].filter(Boolean).join(" · "))}</small></span><i aria-hidden="true">→</i></button>`;
-  };
-
-  els.homePopularList.innerHTML = popular.length ? popular.map((entry) => playerRow(entry, `${entry.team || "MLB"} · ${entry.side || ""} ${entry.line ?? ""} ${entry.betType || ""}`)).join("") : empty("Today's live research will appear when the board updates.");
-  els.homeRecentList.innerHTML = recent.length ? recent.slice(0, 3).map((entry) => playerRow(entry)).join("") : empty("Players you open will stay here for quick access.");
-  els.homeSavedList.innerHTML = saved.length ? saved.map((entry) => playerRow(entry, `${entry.side || ""} ${entry.line ?? ""} ${entry.betType || "Saved prop"}`)).join("") : empty("Save a researched prop to build your slip here.");
-  els.homeGamesList.innerHTML = games.length ? games.map((game) => `<button type="button" class="workspace-game" data-workspace-tab="slate"><span>${escapeHtml(game.team)}</span><b>vs</b><span>${escapeHtml(game.opponent)}</span><small>${escapeHtml(String(game.status))}</small></button>`).join("") : empty("Today's matchups will populate from the live slate.");
-
-  els.researchHome.querySelectorAll("[data-home-player]").forEach((button) => button.addEventListener("click", () => {
-    selectPlayer(button.dataset.homePlayer, button.dataset.homePosition || undefined, { playerEntry: {
-      player: button.dataset.homePlayer,
-      playerId: Number(button.dataset.homePlayerId) || undefined,
-      teamId: Number(button.dataset.homeTeamId) || undefined,
-      team: button.dataset.homeTeam || "",
-    }});
-  }));
-  els.researchHome.querySelectorAll("[data-workspace-tab]").forEach((button) => button.addEventListener("click", () => switchTab(button.dataset.workspaceTab)));
-  els.researchHome.querySelectorAll("[data-workspace-action='builder']").forEach((button) => button.addEventListener("click", () => window.dispatchEvent(new CustomEvent("vortex:toggle-bet-slip"))));
 }
 
 window.addEventListener("vortex:switch-tab", (event) => switchTab(event.detail?.tab || "research"));
@@ -1063,7 +995,6 @@ function updateSavedCount() {
   }
   window.dispatchEvent(new CustomEvent("vortex:dock-sync", { detail: { tab: state.currentTab, saved: state.savedProps.size } }));
   renderManualBetSlip();
-  if (els.researchHome && !els.researchHome.hidden) renderResearchHome();
 }
 
 async function finishPrivateLoader(startedAt) {
@@ -1576,8 +1507,6 @@ function selectPlayer(player, position, { autoSelectStat = true, viaDeepDive = f
 
   els.linePicker.hidden = true;
   els.playerProfile.hidden = false;
-  if (els.researchHome) els.researchHome.hidden = true;
-  document.querySelector("#panel-research > .research-welcome")?.setAttribute("hidden", "");
   clearReport();
   els.playerProfile.scrollIntoView({ behavior: "smooth", block: "nearest" });
 
