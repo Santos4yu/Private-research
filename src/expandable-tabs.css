@@ -1,4 +1,4 @@
-.tabs[data-react-tabs="true"] {
+:root[data-theme] .tabs[data-react-tabs="true"] {
   display: inline-flex !important;
   width: auto !important;
   overflow: visible !important;
@@ -6,10 +6,22 @@
   border: 0 !important;
   border-radius: 0 !important;
   background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
   box-shadow: none !important;
   backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   filter: none !important;
   isolation: auto !important;
+  outline: 0 !important;
+}
+
+:root[data-theme] .tabs[data-react-tabs="true"]::before,
+:root[data-theme] .tabs[data-react-tabs="true"]::after {
+  display: none !important;
+  content: none !important;
+  background: none !important;
+  box-shadow: none !important;
 }
 
 .vortex-expandable-tabs {
@@ -86,7 +98,7 @@
 }
 
 @media (max-width: 760px) {
-  .tabs[data-react-tabs="true"] { display: none !important; }
+  :root[data-theme] .tabs[data-react-tabs="true"] { display: none !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
