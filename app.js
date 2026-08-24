@@ -151,7 +151,6 @@ init();
 
 async function init() {
   const loaderStartedAt = performance.now();
-  await waitForSearchMount();
   cacheEls();
   try {
     await checkAuth();
@@ -496,19 +495,6 @@ function wireSettingsPanel() {
   });
   els.modeRow.querySelectorAll(".mode-btn").forEach((btn) => {
     btn.addEventListener("click", () => applyTheme(btn.dataset.mode));
-  });
-}
-
-function waitForSearchMount() {
-  if (document.getElementById("search-input") && document.getElementById("search-results")) {
-    return Promise.resolve();
-  }
-  return new Promise((resolve) => {
-    const finish = () => {
-      window.removeEventListener("vortex:search-ready", finish);
-      resolve();
-    };
-    window.addEventListener("vortex:search-ready", finish, { once: true });
   });
 }
 
@@ -1089,18 +1075,9 @@ function renderLivePropRecords(rows) {
 function wireSearch() {
   els.searchInput.addEventListener("input", onSearchInput);
   els.searchInput.addEventListener("focus", onSearchInput);
-  window.addEventListener("vortex:player-search-select", (event) => {
-    const entry = event.detail?.entry || null;
-    const query = event.detail?.query || "";
-    clearTimeout(searchDebounceTimer);
-    searchRequestToken++;
-    clearSearchQuery();
-    hideResults();
-    if (entry?.player) {
-      selectPlayer(entry.player, entry.kind === "live" ? entry.sub : null, { playerEntry: entry });
-    } else if (query) {
-      selectPlayer(query);
-    }
+  els.searchInput.addEventListener("keydown", onSearchKeydown);
+  document.addEventListener("pointerdown", (event) => {
+    if (!event.target.closest(".search-wrap")) hideResults();
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "/" && document.activeElement !== els.searchInput) {
@@ -1187,13 +1164,11 @@ function staticEntriesFor(query) {
 
 let searchDebounceTimer = null;
 let searchRequestToken = 0;
-let searchCloseTimer = null;
 let researchLoaderCleanup = null;
 const playerSearchCache = new Map();
 
 function clearSearchQuery() {
   els.searchInput.value = "";
-  window.dispatchEvent(new Event("vortex:search-clear"));
 }
 
 function onSearchInput() {
@@ -1203,7 +1178,7 @@ function onSearchInput() {
   if (!query.trim()) {
     clearTimeout(searchDebounceTimer);
     searchRequestToken++;
-    window.dispatchEvent(new Event("vortex:search-show-recent"));
+    hideResults();
     return;
   }
 
@@ -1281,7 +1256,7 @@ function onSearchKeydown(e) {
   } else if (e.key === "Enter") {
     e.preventDefault();
     const idx = state.activeIndex >= 0 ? state.activeIndex : 0;
-    items[idx]?.dispatchEvent(new Event("mousedown"));
+    items[idx]?.click();
   } else if (e.key === "Escape") {
     hideResults();
     els.searchInput.blur();
@@ -1294,16 +1269,66 @@ function highlightActive(items) {
 
 function renderResults(entries, { loading = false, fetchFailed = false } = {}) {
   state.activeIndex = -1;
+  els.searchResults.innerHTML = "";
   const query = els.searchInput.value.trim();
   const haveNames = new Set(entries.map((e) => e.player.toLowerCase()));
   const showLiveOption = query.length > 1 && !haveNames.has(query.toLowerCase()) && !loading && (entries.length === 0 || fetchFailed);
-  window.dispatchEvent(new CustomEvent("vortex:search-results", {
-    detail: { entries, loading, fetchFailed, showLiveOption, query },
-  }));
+
+  if (entries.length === 0 && !loading && !showLiveOption) {
+    hideResults();
+    return;
+  }
+
+  entries.forEach((entry, index) => {
+    const item = document.createElement("li");
+    item.className = "search-result-item";
+    item.style.animationDelay = `${index * 30}ms`;
+    item.innerHTML = `
+      ${avatarHtml(entry, "sm")}
+      <span class="sr-main"><span class="sr-player">${escapeHtml(entry.player)}</span></span>
+      ${teamLogoHtml(entry.teamId, entry.team, "sr-team-logo")}
+    `;
+    const choosePlayer = (event) => {
+      event.preventDefault();
+      clearTimeout(searchDebounceTimer);
+      searchRequestToken++;
+      clearSearchQuery();
+      hideResults();
+      els.searchInput.blur();
+      selectPlayer(entry.player, entry.kind === "live" ? entry.sub : null, { playerEntry: entry });
+    };
+    item.addEventListener("click", choosePlayer);
+    els.searchResults.appendChild(item);
+  });
+
+  if (loading) {
+    const item = document.createElement("li");
+    item.className = "search-result-item search-result-loading";
+    item.innerHTML = `<span class="loading-pulse"></span><span class="sr-main"><span class="sr-pick">Searching MLB players…</span></span>`;
+    els.searchResults.appendChild(item);
+  }
+
+  if (showLiveOption) {
+    const item = document.createElement("li");
+    item.className = "search-result-item search-result-live";
+    item.innerHTML = `<span class="sr-main"><span class="sr-player">Search "${escapeHtml(query)}" live</span><span class="sr-pick">${fetchFailed ? "Player search failed — try an exact name" : "No matches yet — try the exact name"}</span></span>`;
+    item.addEventListener("click", (event) => {
+      event.preventDefault();
+      clearTimeout(searchDebounceTimer);
+      searchRequestToken++;
+      clearSearchQuery();
+      hideResults();
+      els.searchInput.blur();
+      selectPlayer(query);
+    });
+    els.searchResults.appendChild(item);
+  }
+
+  els.searchResults.hidden = false;
 }
 
 function hideResults() {
-  window.dispatchEvent(new Event("vortex:search-hide"));
+  els.searchResults.hidden = true;
 }
 
 // Quick-start suggestions for the "Or jump straight to:" row. These are just
