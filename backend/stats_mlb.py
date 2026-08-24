@@ -1611,9 +1611,103 @@ def _lineup_platoon_values(lineup: list, batter_splits: dict, runs_pg=None) -> d
     }
 
 
+def _full_team_platoon_profiles(pitcher_hand: str, benchmarks: dict) -> dict:
+    """All 30 full-team batting baselines versus one pitcher hand.
+
+    This is the stable pre-lineup source. Player split rows are accumulated by
+    the MLB team attached to each split, then ranked against the same 30-team
+    scope. Runs/game remains the official team-season rate because assigning
+    runs cleanly to a handedness split is not reliable.
+    """
+    hand = str(pitcher_hand or "").upper()[:1]
+    if hand not in {"L", "R"}:
+        return {}
+    sit_code = "vl" if hand == "L" else "vr"
+    data = _get("/stats", {
+        "stats": "statSplits", "group": "hitting", "season": SEASON,
+        "sportIds": 1, "sitCodes": sit_code, "playerPool": "ALL", "limit": 2000,
+    }, cache_key=f"all_batters_{sit_code}_{SEASON}")
+    raw = {}
+    for split in ((data or {}).get("stats") or [{}])[0].get("splits", []):
+        team = split.get("team") or {}
+        tid = team.get("id")
+        if not tid:
+            continue
+        row = raw.setdefault(int(tid), {
+            "team_name": team.get("name", ""), "at_bats": 0, "hits": 0,
+            "home_runs": 0, "strikeouts": 0, "walks": 0, "pa": 0,
+        })
+        stat = split.get("stat") or {}
+        for source, target in (
+            ("atBats", "at_bats"), ("hits", "hits"),
+            ("homeRuns", "home_runs"), ("strikeOuts", "strikeouts"),
+            ("baseOnBalls", "walks"), ("plateAppearances", "pa"),
+        ):
+            row[target] += int(stat.get(source, 0) or 0)
+
+    values = {}
+    for tid, row in raw.items():
+        baseline = benchmarks.get(tid) or benchmarks.get(str(tid)) or {}
+        games = int(baseline.get("games", 0) or 0)
+        baseline_metrics = {metric.get("key"): metric.get("value")
+                            for metric in baseline.get("metrics", [])}
+        runs_pg = baseline_metrics.get("runs_pg")
+        hr_pg = baseline_metrics.get("hr_pg")
+        values[tid] = {
+            **row, "games": games, "runs_pg": runs_pg,
+            "avg": row["hits"] / row["at_bats"] if row["at_bats"] else None,
+            # As with runs, team HR/game is a game-level environment stat.
+            # Dividing only the subset of HR hit vs one hand by every team game
+            # badly understates it; keep the official full-season team rate.
+            "hr_pg": hr_pg,
+            "k_pct": row["strikeouts"] / row["pa"] * 100 if row["pa"] else None,
+            "bb_pct": row["walks"] / row["pa"] * 100 if row["pa"] else None,
+        }
+    if len(values) != 30:
+        log.warning("Ignoring incomplete MLB platoon profile (%s/30 teams vs %sHP)", len(values), hand)
+        return {}
+
+    metric_defs = (
+        ("avg", "AVG", True), ("runs_pg", "R", True),
+        ("hr_pg", "HR", True), ("k_pct", "K%", False),
+        ("bb_pct", "BB%", True),
+    )
+    profiles = {}
+    for tid, team in values.items():
+        metrics = []
+        for key, label, higher_is_better in metric_defs:
+            value = team.get(key)
+            reference = [row.get(key) for row in values.values() if row.get(key) is not None]
+            if value is None or len(reference) != 30:
+                return {}
+            rank = 1 + sum(other > value if higher_is_better else other < value for other in reference)
+            rank = min(30, rank)
+            edge = "batter" if rank <= 10 else "pitcher" if rank >= 21 else "neutral"
+            display = (f"{value:.3f}".lstrip("0") if key == "avg" else
+                       f"{value:.1f}%" if key in {"k_pct", "bb_pct"} else f"{value:.1f}/g")
+            metrics.append({
+                "key": key, "label": label, "value": value, "display": display,
+                "rank": rank, "edge": edge,
+                "edge_label": "SP EDGE" if edge == "pitcher" else "BAT EDGE" if edge == "batter" else "NEUTRAL",
+            })
+        profiles[tid] = {
+            "team_id": tid, "team_name": team["team_name"], "season": SEASON,
+            "scope": "team_baseline_vs_hand", "pitcher_hand": hand,
+            "source": "MLB Stats API", "lineup_size": None,
+            "runs_source": "team_season", "rank_scope": "30 full-team platoon baselines",
+            "metrics": metrics,
+            "totals": {
+                "at_bats": team["at_bats"], "hits": team["hits"],
+                "home_runs": team["home_runs"], "strikeouts": team["strikeouts"],
+                "walks": team["walks"], "plate_appearances": team["pa"],
+            },
+        }
+    return profiles
+
+
 def get_lineup_offensive_profile(team_id: int, game_pk=None, game_date=None,
                                   team_benchmarks=None, pitcher_hand=None) -> dict:
-    """Nine-hitter season platoon profile against the starter's handedness."""
+    """Confirmed-nine profile, or stable full-team platoon baseline pre-post."""
     hand = str(pitcher_hand or "").upper()[:1]
     if hand not in {"L", "R"}:
         return {}
@@ -1623,17 +1717,15 @@ def get_lineup_offensive_profile(team_id: int, game_pk=None, game_date=None,
     batter_splits = _all_batter_splits_vs_hand(hand)
     if not batter_splits:
         return {}
+    lineup = get_team_lineup(team_id, game_pk=game_pk, game_date=game_date)
+    if len(lineup) != 9:
+        return (_full_team_platoon_profiles(hand, benchmarks).get(int(team_id)) or {})
+
+    scope = "confirmed_lineup"
     projected = get_all_projected_team_lineups(
         before_date=game_date, batter_splits=batter_splits,
         team_ids=[int(team) for team in benchmarks],
     )
-    lineup = get_team_lineup(team_id, game_pk=game_pk, game_date=game_date)
-    scope = "confirmed_lineup"
-    if len(lineup) != 9:
-        lineup = (projected.get(int(team_id)) or {}).get("lineup") or []
-        scope = "projected_lineup"
-    if len(lineup) != 9:
-        return {}
     projected[int(team_id)] = {**(projected.get(int(team_id)) or {}), "lineup": lineup}
 
     def team_runs(team):

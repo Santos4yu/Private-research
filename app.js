@@ -3412,13 +3412,14 @@ function fillPitcherLineupProfile(node, p) {
   const relevantKey = keyByMarket[p.betType] || "";
   const totals = profile.totals || {};
   const isConfirmedLineup = profile.scope === "confirmed_lineup";
+  const isTeamBaseline = profile.scope === "team_baseline_vs_hand";
   const handLabel = profile.pitcher_hand === "L" ? "LHP" : "RHP";
   const number = (value) => Number.isFinite(Number(value)) ? Number(value).toLocaleString() : "—";
   block.hidden = false;
-  block.querySelector(".lineup-profile-team").textContent = `${profile.team_name || p.matchup?.opponent || "Opponent"} lineup`;
+  block.querySelector(".lineup-profile-team").textContent = `${profile.team_name || p.matchup?.opponent || "Opponent"} ${isTeamBaseline ? "team baseline" : "lineup"}`;
   block.querySelector(".lineup-profile-source").textContent = isConfirmedLineup
     ? `POSTED 9 · SEASON VS ${handLabel}`
-    : `PROJECTED 9 · SEASON VS ${handLabel}`;
+    : `FULL TEAM · SEASON VS ${handLabel}`;
   block.querySelector(".lineup-profile-rows").innerHTML = metrics.map((metric) => {
     const rank = Math.max(1, Math.min(30, Number(metric.rank) || 30));
     const relevant = metric.key === relevantKey;
@@ -3430,7 +3431,7 @@ function fillPitcherLineupProfile(node, p) {
   }).join("");
   block.querySelector(".lineup-profile-note").textContent = isConfirmedLineup
     ? `Confirmed 9 vs ${handLabel}: ${number(totals.hits)} H / ${number(totals.at_bats)} AB, ${number(totals.home_runs)} HR, ${number(totals.strikeouts)} K and ${number(totals.walks)} BB / ${number(totals.plate_appearances)} PA. AVG, K%, BB% and HR/G are PA/AB-weighted platoon results; R/G is the official team-season rate.`
-    : `Projected 9 from ${profile.projection_games || 0} recent official orders through ${profile.projection_through || "the latest game"} · ${number(totals.hits)} H / ${number(totals.at_bats)} AB vs ${handLabel}, ${number(totals.home_runs)} HR, ${number(totals.strikeouts)} K and ${number(totals.walks)} BB / ${number(totals.plate_appearances)} PA. Ranked against all 30 projected lineups using the same platoon calculation.`;
+    : `Stable full-team baseline vs ${handLabel}: ${number(totals.hits)} H / ${number(totals.at_bats)} AB, ${number(totals.strikeouts)} K and ${number(totals.walks)} BB / ${number(totals.plate_appearances)} PA. Automatically switches to the confirmed starting 9 when MLB posts the lineup; R/G and HR/G remain official team-season rates.`;
 }
 
 /* ---------- Manual PrizePicks prop builder ---------- */
