@@ -61,6 +61,13 @@ function teamLogo(entry: PlayerEntry) {
   return entry.teamId ? `https://www.mlbstatic.com/team-logos/${entry.teamId}.svg` : "";
 }
 
+function resetInput(input: HTMLInputElement | null) {
+  if (!input) return;
+  const setNativeValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+  setNativeValue?.call(input, "");
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
 function ActionSearchBar({
   placeholder = "Search MLB players",
   inputId = "search-input",
@@ -91,8 +98,15 @@ function ActionSearchBar({
   }, [open]);
 
   React.useEffect(() => {
+    const keepTypingFocus = () => {
+      if (document.activeElement !== inputRef.current) return;
+      window.requestAnimationFrame(() => {
+        inputRef.current?.focus({ preventScroll: true });
+      });
+    };
     const showResults = (event: Event) => {
       const next = (event as CustomEvent<SearchPayload>).detail || {};
+      keepTypingFocus();
       setPayload(next);
       setOpen(true);
     };
@@ -103,6 +117,7 @@ function ActionSearchBar({
     };
     const hide = () => setOpen(false);
     const clear = () => {
+      resetInput(inputRef.current);
       setQuery("");
       setPayload({ entries: [] });
     };
@@ -188,7 +203,6 @@ function ActionSearchBar({
           <CommandPrimitive.Input
             ref={inputRef}
             id={inputId}
-            value={query}
             onValueChange={setQuery}
             onFocus={() => {
               setOpen(true);
@@ -226,7 +240,16 @@ function ActionSearchBar({
           <div className="command-player-heading">
             <span>{heading}</span>
           </div>
-          <CommandPrimitive.List ref={listRef} className="command-player-list" aria-label={heading}>
+          <CommandPrimitive.List
+            ref={listRef}
+            className="command-player-list"
+            aria-label={heading}
+            onFocus={(event) => {
+              if (event.target === event.currentTarget) {
+                inputRef.current?.focus({ preventScroll: true });
+              }
+            }}
+          >
             {entries.map((entry) => {
               const headshot = playerHeadshot(entry);
               const logo = teamLogo(entry);
