@@ -77,14 +77,13 @@ function ActionSearchBar({
   const [open, setOpen] = React.useState(false);
   const [payload, setPayload] = React.useState<SearchPayload>({ entries: [] });
   const [recent, setRecent] = React.useState<PlayerEntry[]>([]);
+  const [isMobile, setIsMobile] = React.useState(false);
   const [popoverPosition, setPopoverPosition] = React.useState({ top: 0, left: 0, width: 0 });
   const rootRef = React.useRef<HTMLDivElement>(null);
   const fieldRef = React.useRef<HTMLDivElement>(null);
   const popoverRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
-  const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
-  const selectionLockRef = React.useRef(false);
   const reduceMotion = useReducedMotion();
 
   React.useLayoutEffect(() => {
@@ -96,10 +95,16 @@ function ActionSearchBar({
   }, [inputId, resultsId]);
 
   React.useLayoutEffect(() => {
+    const media = window.matchMedia("(max-width: 600px)");
+    const syncMobile = () => setIsMobile(media.matches);
+    syncMobile();
+    media.addEventListener?.("change", syncMobile);
+    return () => media.removeEventListener?.("change", syncMobile);
+  }, []);
+
+  React.useLayoutEffect(() => {
     inputRef.current?.setAttribute("aria-expanded", String(open));
-    const mobile = window.matchMedia("(max-width: 600px)").matches;
-    document.body.classList.toggle("mobile-search-open", open && mobile);
-    return () => document.body.classList.remove("mobile-search-open");
+    document.body.classList.remove("mobile-search-open");
   }, [open]);
 
   React.useEffect(() => {
@@ -171,7 +176,7 @@ function ActionSearchBar({
   }, []);
 
   React.useLayoutEffect(() => {
-    if (!open) return;
+    if (!open || isMobile) return;
     updatePopoverPosition();
     const nextFrame = window.requestAnimationFrame(updatePopoverPosition);
     window.addEventListener("resize", updatePopoverPosition);
@@ -185,35 +190,14 @@ function ActionSearchBar({
       window.visualViewport?.removeEventListener("resize", updatePopoverPosition);
       window.visualViewport?.removeEventListener("scroll", updatePopoverPosition);
     };
-  }, [open, updatePopoverPosition]);
+  }, [isMobile, open, updatePopoverPosition]);
 
   const selectEntry = (entry: PlayerEntry) => {
-    if (selectionLockRef.current) return;
-    selectionLockRef.current = true;
     setRecent(saveRecentSearch(entry));
     setQuery("");
     setOpen(false);
     inputRef.current?.blur();
     window.dispatchEvent(new CustomEvent("vortex:player-search-select", { detail: { entry } }));
-    window.setTimeout(() => { selectionLockRef.current = false; }, 350);
-  };
-
-  const beginTouchSelection = (event: React.PointerEvent) => {
-    if (event.pointerType !== "touch") return;
-    touchStartRef.current = { x: event.clientX, y: event.clientY };
-  };
-
-  const finishTouchSelection = (event: React.PointerEvent, entry: PlayerEntry) => {
-    if (event.pointerType !== "touch" || !touchStartRef.current) return;
-    const moved = Math.hypot(
-      event.clientX - touchStartRef.current.x,
-      event.clientY - touchStartRef.current.y,
-    );
-    touchStartRef.current = null;
-    if (moved > 12) return;
-    event.preventDefault();
-    event.stopPropagation();
-    selectEntry(entry);
   };
 
   const searchExactName = () => {
@@ -238,6 +222,7 @@ function ActionSearchBar({
           <CommandPrimitive.Input
             ref={inputRef}
             id={inputId}
+            value={query}
             onValueChange={setQuery}
             onFocus={() => {
               setOpen(true);
@@ -260,12 +245,13 @@ function ActionSearchBar({
           <kbd aria-label="Keyboard shortcut Control K"><span>Ctrl</span>K</kbd>
         </div>
 
-        {typeof document !== "undefined" ? createPortal(
+        {(() => {
+          const popover = (
           <AnimatePresence initial={false}>
           {open ? <motion.div
           ref={popoverRef}
           className="command-player-popover"
-          style={popoverPosition}
+          style={isMobile ? undefined : popoverPosition}
           data-open="true"
           onPointerDown={(event) => event.stopPropagation()}
           onTouchMove={(event) => event.stopPropagation()}
@@ -291,25 +277,34 @@ function ActionSearchBar({
             {entries.map((entry) => {
               const headshot = playerHeadshot(entry);
               const logo = teamLogo(entry);
-              return (
+              const contents = <>
+                <span className="command-player-avatar">
+                  <UserRound size={17} aria-hidden="true" />
+                  {headshot ? <img src={headshot} alt="" onError={(event) => { event.currentTarget.hidden = true; }} /> : null}
+                </span>
+                <span className="command-player-copy">
+                  <strong>{entry.player}</strong>
+                  <small>{[entry.team, entry.sub || entry.sport].filter(Boolean).join(" · ") || "MLB player"}</small>
+                </span>
+                {logo ? <img className="command-player-team" src={logo} alt={`${entry.team || "MLB"} team logo`} /> : <span className="command-player-team-fallback">MLB</span>}
+              </>;
+              return isMobile ? (
+                <button
+                  type="button"
+                  key={`${entry.playerId || entry.player}-${entry.team || "MLB"}`}
+                  className="command-player-item"
+                  onClick={() => selectEntry(entry)}
+                >
+                  {contents}
+                </button>
+              ) : (
                 <CommandPrimitive.Item
                   key={`${entry.playerId || entry.player}-${entry.team || "MLB"}`}
                   value={`${entry.player}-${entry.team || ""}`}
                   onSelect={() => selectEntry(entry)}
-                  onPointerDown={beginTouchSelection}
-                  onPointerUp={(event) => finishTouchSelection(event, entry)}
-                  onPointerCancel={() => { touchStartRef.current = null; }}
                   className="command-player-item"
                 >
-                  <span className="command-player-avatar">
-                    <UserRound size={17} aria-hidden="true" />
-                    {headshot ? <img src={headshot} alt="" onError={(event) => { event.currentTarget.hidden = true; }} /> : null}
-                  </span>
-                  <span className="command-player-copy">
-                    <strong>{entry.player}</strong>
-                    <small>{[entry.team, entry.sub || entry.sport].filter(Boolean).join(" · ") || "MLB player"}</small>
-                  </span>
-                  {logo ? <img className="command-player-team" src={logo} alt={`${entry.team || "MLB"} team logo`} /> : <span className="command-player-team-fallback">MLB</span>}
+                  {contents}
                 </CommandPrimitive.Item>
               );
             })}
@@ -333,7 +328,11 @@ function ActionSearchBar({
             ) : null}
           </CommandPrimitive.List>
         </motion.div> : null}
-        </AnimatePresence>, document.body) : null}
+        </AnimatePresence>
+          );
+          if (isMobile) return popover;
+          return typeof document !== "undefined" ? createPortal(popover, document.body) : null;
+        })()}
       </CommandPrimitive>
     </div>
   );
