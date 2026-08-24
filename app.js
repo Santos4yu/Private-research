@@ -1187,6 +1187,7 @@ function staticEntriesFor(query) {
 let searchDebounceTimer = null;
 let searchRequestToken = 0;
 let searchCloseTimer = null;
+let researchLoaderCleanup = null;
 const playerSearchCache = new Map();
 
 function clearSearchQuery() {
@@ -1761,39 +1762,26 @@ async function fetchLivePrediction(player, stat, line, side, token) {
 
 function renderLoadingState(player, stat, line, side) {
   els.reportWrap.querySelector(".report")?.remove();
-  els.reportWrap.querySelector(".report-skeleton")?.remove();
+  removeResearchLoader();
   els.emptyState.hidden = true;
 
   const skeleton = document.createElement("div");
   skeleton.className = "report-skeleton";
-  const initials = String(player || "")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
-  const portrait = cmd.playerId
-    ? `<img src="https://img.mlbstatic.com/mlb-photos/image/upload/w_180,q_auto:best/v1/people/${encodeURIComponent(cmd.playerId)}/headshot/silo/current" alt="" onerror="this.remove()">`
-    : "";
-  skeleton.innerHTML = `
-    <div class="kp-analysis-loader" role="status" aria-live="polite">
-      <div class="kp-loader-topline">
-        <span>Building your report</span>
-        <span class="kp-loader-ellipsis" aria-hidden="true"><i></i><i></i><i></i></span>
-      </div>
-      <div class="kp-loader-subject">
-        <div class="kp-loader-portrait" aria-hidden="true"><span>${escapeHtml(initials)}</span>${portrait}</div>
-        <div class="kp-loader-copy">
-          <strong>${escapeHtml(player)}</strong>
-          <small>${escapeHtml(side)} ${line}<i>•</i>${escapeHtml(stat)}</small>
-        </div>
-      </div>
-      <div class="kp-loader-progress"><i></i></div>
-      <p>Bringing together recent form and tonight’s matchup.</p>
-    </div>
-  `;
+  const host = document.createElement("div");
+  host.className = "research-ai-loader-host";
+  skeleton.appendChild(host);
   els.reportWrap.appendChild(skeleton);
+  if (typeof window.vortexMountResearchLoader === "function") {
+    researchLoaderCleanup = window.vortexMountResearchLoader(host, { player, stat, line, side });
+  } else {
+    host.innerHTML = `<div class="research-ai-loader" role="status"><strong>Preparing ${escapeHtml(player)} prop research…</strong></div>`;
+  }
+}
+
+function removeResearchLoader() {
+  researchLoaderCleanup?.();
+  researchLoaderCleanup = null;
+  els.reportWrap.querySelector(".report-skeleton")?.remove();
 }
 
 function showNoDataMessage(stat, line, side, liveError) {
@@ -1858,7 +1846,7 @@ const EMPTY_STATE_DEFAULT_HTML = `
 
 function clearReport() {
   els.reportWrap.querySelector(".report")?.remove();
-  els.reportWrap.querySelector(".report-skeleton")?.remove();
+  removeResearchLoader();
   els.emptyState.hidden = false;
   els.emptyState.classList.add("research-welcome");
   els.emptyState.setAttribute("aria-label", "Player research welcome");
@@ -1871,7 +1859,7 @@ function renderReport(p) {
   hideResults();
   els.emptyState.hidden = true;
   els.reportWrap.querySelector(".report")?.remove();
-  els.reportWrap.querySelector(".report-skeleton")?.remove();
+  removeResearchLoader();
   syncProfileHeaderWithProp(p);
   currentResearchProp = p;
   els.ppLinesWrap.hidden = !(p?.matchup?.opponent && cmd.player && cmd.stat);
