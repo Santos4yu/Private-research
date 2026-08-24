@@ -1,14 +1,18 @@
 :root[data-theme] .research-ai-loader {
   box-sizing: border-box;
   width: 100%;
-  max-width: 560px;
-  margin: 0 auto;
+  max-width: none;
   padding: 27px 29px 25px;
   border: 1px solid var(--theme-border);
   border-radius: 20px;
   color: var(--theme-text);
   background: linear-gradient(180deg, color-mix(in srgb, var(--theme-panel-2) 54%, var(--theme-panel)), var(--theme-panel));
   box-shadow: 0 16px 44px rgba(0, 0, 0, .14);
+}
+
+.research-ai-loader-host,
+.report-skeleton {
+  width: 100%;
 }
 
 .research-ai-loader-head { display: grid; gap: 4px; }
