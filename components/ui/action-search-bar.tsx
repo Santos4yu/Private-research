@@ -95,6 +95,9 @@ function ActionSearchBar({
 
   React.useLayoutEffect(() => {
     inputRef.current?.setAttribute("aria-expanded", String(open));
+    const mobile = window.matchMedia("(max-width: 600px)").matches;
+    document.body.classList.toggle("mobile-search-open", open && mobile);
+    return () => document.body.classList.remove("mobile-search-open");
   }, [open]);
 
   React.useEffect(() => {
@@ -157,19 +160,28 @@ function ActionSearchBar({
     const rect = fieldRef.current?.getBoundingClientRect();
     if (!rect) return;
     const gutter = 10;
-    const width = Math.min(rect.width, window.innerWidth - gutter * 2);
-    const left = Math.max(gutter, Math.min(rect.left, window.innerWidth - width - gutter));
+    const viewport = window.visualViewport;
+    const viewportLeft = viewport?.offsetLeft || 0;
+    const viewportWidth = viewport?.width || window.innerWidth;
+    const width = Math.min(rect.width, viewportWidth - gutter * 2);
+    const left = Math.max(viewportLeft + gutter, Math.min(rect.left, viewportLeft + viewportWidth - width - gutter));
     setPopoverPosition({ top: rect.bottom - 1, left, width });
   }, []);
 
   React.useLayoutEffect(() => {
     if (!open) return;
     updatePopoverPosition();
+    const nextFrame = window.requestAnimationFrame(updatePopoverPosition);
     window.addEventListener("resize", updatePopoverPosition);
     window.addEventListener("scroll", updatePopoverPosition, true);
+    window.visualViewport?.addEventListener("resize", updatePopoverPosition);
+    window.visualViewport?.addEventListener("scroll", updatePopoverPosition);
     return () => {
+      window.cancelAnimationFrame(nextFrame);
       window.removeEventListener("resize", updatePopoverPosition);
       window.removeEventListener("scroll", updatePopoverPosition, true);
+      window.visualViewport?.removeEventListener("resize", updatePopoverPosition);
+      window.visualViewport?.removeEventListener("scroll", updatePopoverPosition);
     };
   }, [open, updatePopoverPosition]);
 
@@ -242,6 +254,7 @@ function ActionSearchBar({
           </div>
           <CommandPrimitive.List
             ref={listRef}
+            id={resultsId}
             className="command-player-list"
             aria-label={heading}
             onFocus={(event) => {

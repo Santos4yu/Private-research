@@ -1256,7 +1256,7 @@ async function fetchLiveSuggestions(query) {
 }
 
 function onSearchKeydown(e) {
-  const items = els.searchResults.querySelectorAll(".search-result-item");
+  const items = els.searchResults?.querySelectorAll(".search-result-item") || [];
   if (!items.length) {
     if (e.key === "Enter" && els.searchInput.value.trim().length > 1) {
       e.preventDefault();
