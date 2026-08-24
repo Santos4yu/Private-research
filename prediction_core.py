@@ -986,16 +986,16 @@ def compute_k_prop(player_id, canonical_name, team_abbr, matchup, line, side, st
     )
     picked_grade_v2 = grade_v2["over_grade"] if side == "over" else grade_v2["under_grade"]
 
-    strikeout_matchup = _pitcher_strikeout_matchup_grade(
+    strikeout_matchup = _pitcher_matchup_grade(
         k_card=k_card,
         opp_k=opp_k,
         splits=splits,
         park_factor=park_factor,
         weather=weather,
         umpire=umpire,
-    ) if prop_type == "pitcher_strikeouts" else {
-        "score": None, "label": None, "coverage": 0.0, "factors": [],
-    }
+        opponent_offense=opponent_offense,
+        prop_type=prop_type,
+    )
 
     return format_k_prop_response(
         player_name=canonical_name,
@@ -1027,17 +1027,21 @@ def compute_k_prop(player_id, canonical_name, team_abbr, matchup, line, side, st
     )
 
 
-def _pitcher_strikeout_matchup_grade(*, k_card, opp_k, splits,
-                                      park_factor=1.0, weather=None, umpire=None):
-    """Purpose-built 0-100 environment grade for pitcher strikeout props.
+def _pitcher_matchup_grade(*, k_card, opp_k, splits, opponent_offense=None,
+                            prop_type="pitcher_strikeouts", park_factor=1.0,
+                            weather=None, umpire=None):
+    """Purpose-built 0-100 environment grade for pitcher props.
 
     This is matchup quality, not a hit probability and not the prop grade.
     Missing inputs remain neutral and reduce coverage instead of becoming a
-    hidden penalty. Every factor is based on the pitcher and lineup context
-    already fetched for the research card.
+    hidden penalty. The opposing-offense factors use the same projected or
+    confirmed nine and pitcher-handedness splits displayed in the lineup card.
     """
     season = (k_card or {}).get("season_stats") or {}
     recent_starts = (k_card or {}).get("last_5_starts") or []
+    offense_metrics = {
+        row.get("key"): row for row in ((opponent_offense or {}).get("metrics") or [])
+    }
     factors = []
 
     def clamp(value):
@@ -1058,69 +1062,82 @@ def _pitcher_strikeout_matchup_grade(*, k_card, opp_k, splits,
             "available": bool(available),
         })
 
-    k9 = number(season.get("k_per_9"))
-    innings = number(season.get("innings_pitched")) or 0.0
-    k9_available = k9 is not None and k9 > 0
-    # Regress small season samples toward the MLB starter baseline.
-    k9_stable = 8.5 + ((k9 or 8.5) - 8.5) * min(1.0, innings / 50.0)
-    add("Pitcher K skill", 25, 50 + (k9_stable - 8.5) * 12,
-        f"{k9 or 0:.1f} K/9 across {innings:.1f} IP", k9_available)
+    def rank_raw(metric, pitcher_prefers_high_rank=True):
+        rank = number((metric or {}).get("rank"))
+        if rank is None:
+            return 50.0
+        raw = (rank - 1.0) / 29.0 * 100.0
+        return raw if pitcher_prefers_high_rank else 100.0 - raw
 
-    opp_pct = number((opp_k or {}).get("k_pct"))
-    opp_rank = (opp_k or {}).get("rank")
-    add("Opponent strikeout rate", 25, 50 + ((opp_pct or 22.0) - 22.0) * 8,
-        (f"{opp_pct:.1f}% K rate" + (f" · rank #{opp_rank}/30" if opp_rank else ""))
-        if opp_pct is not None else "Opponent K rate unavailable",
-        opp_pct is not None)
-
-    hand_ctx = (k_card or {}).get("opp_k_vs_hand") or {}
-    hand_pct = number(hand_ctx.get("k_pct"))
-    hand = hand_ctx.get("hand") or (k_card or {}).get("hand") or "?"
-    add("Lineup vs pitcher hand", 15, 50 + ((hand_pct or 22.0) - 22.0) * 8,
-        f"{hand_pct:.1f}% K rate vs {hand}HP" if hand_pct is not None else "Handedness split unavailable",
-        hand_pct is not None)
-
-    recent_k = [number(start.get("k")) for start in recent_starts[:5]]
-    recent_k = [value for value in recent_k if value is not None]
-    recent_avg = sum(recent_k) / len(recent_k) if recent_k else None
-    season_per_start = number(season.get("k_per_gs"))
-    baseline = season_per_start if season_per_start is not None else 5.0
-    add("Recent strikeout form", 15, 50 + ((recent_avg or baseline) - baseline) * 14,
-        f"{recent_avg:.1f} K over the last {len(recent_k)} starts · {baseline:.1f} season K/start"
-        if recent_avg is not None else "Recent-start sample unavailable",
-        recent_avg is not None)
+    avg_metric = offense_metrics.get("avg") or {}
+    avg_value = number(avg_metric.get("value"))
+    avg_rank = number(avg_metric.get("rank"))
+    add("Opponent offense quality", 25, rank_raw(avg_metric),
+        (f"Projected lineup bats {avg_value:.3f} vs this pitcher's hand · rank #{int(avg_rank)}/30"
+         if avg_value is not None and avg_rank is not None else "Projected-lineup AVG unavailable"),
+        avg_value is not None and avg_rank is not None)
 
     recent_ip = [number(start.get("ip")) for start in recent_starts[:3]]
-    recent_ip = [value for value in recent_ip if value is not None and value > 0]
-    avg_ip = sum(recent_ip) / len(recent_ip) if recent_ip else None
-    add("Projected workload", 15, 50 + ((avg_ip or 5.0) - 5.0) * 22,
-        f"{avg_ip:.1f} innings per start recently" if avg_ip is not None else "Recent workload unavailable",
-        avg_ip is not None)
+    recent_er = [number(start.get("er")) for start in recent_starts[:3]]
+    valid_recent = [(ip, er) for ip, er in zip(recent_ip, recent_er)
+                    if ip is not None and ip > 0 and er is not None]
+    recent_era = (sum(er for ip, er in valid_recent) * 9 / sum(ip for ip, er in valid_recent)
+                  if valid_recent else None)
+    add("Recent form", 20, 50 + (4.20 - (recent_era or 4.20)) * 18,
+        f"{recent_era:.2f} ERA over the last {len(valid_recent)} starts"
+        if recent_era is not None else "Recent-start ERA unavailable",
+        recent_era is not None)
 
-    ump_boost = number((umpire or {}).get("k_boost"))
-    weather = weather or {}
-    context_detail = []
-    context_raw = 50.0
-    context_available = False
-    if ump_boost is not None:
-        context_raw += ump_boost * 120
-        context_detail.append(f"umpire K adjustment {ump_boost:+.3f}")
-        context_available = True
     try:
         pf = float(park_factor)
-        context_raw += (1.0 - pf) * 80
-        context_detail.append(f"park factor {pf:.2f}")
-        context_available = True
+        park_available = True
     except (TypeError, ValueError):
-        pass
-    add("Game environment", 5, context_raw,
-        " · ".join(context_detail) if context_detail else "Park and umpire context unavailable",
-        context_available)
+        pf, park_available = 1.0, False
+    add("Park", 15, 50 + (1.0 - pf) * 500,
+        f"{pf:.2f} run factor · {'pitcher-friendly' if pf < .98 else 'hitter-friendly' if pf > 1.02 else 'neutral'}",
+        park_available)
+
+    k_metric = offense_metrics.get("k_pct") or {}
+    k_pct = number(k_metric.get("value"))
+    k_rank = number(k_metric.get("rank"))
+    add("Opponent K%", 15, rank_raw(k_metric),
+        (f"Projected lineup K% {k_pct:.1f}% · rank #{int(k_rank)}/30"
+         if k_pct is not None and k_rank is not None else "Projected-lineup K% unavailable"),
+        k_pct is not None and k_rank is not None)
+
+    bb_metric = offense_metrics.get("bb_pct") or {}
+    bb_pct = number(bb_metric.get("value"))
+    bb_rank = number(bb_metric.get("rank"))
+    # Lineup ranks define rank 1 as the strongest offensive result. For BB%,
+    # a high rank therefore means fewer walks and a better pitcher matchup.
+    add("Opponent BB%", 15, rank_raw(bb_metric),
+        (f"Projected lineup BB% {bb_pct:.1f}% · rank #{int(bb_rank)}/30"
+         if bb_pct is not None and bb_rank is not None else "Projected-lineup BB% unavailable"),
+        bb_pct is not None and bb_rank is not None)
+
+    weather = weather or {}
+    weather_available = bool(weather) and not weather.get("error") and not weather.get("dome")
+    weather_raw = 50.0
+    if weather_available:
+        speed = number(weather.get("speed_mph")) or 0.0
+        if weather.get("hitter_friendly") is True:
+            weather_raw -= min(35.0, speed * 2.5)
+        elif weather.get("hitter_friendly") is False:
+            weather_raw += min(35.0, speed * 2.5)
+        temp = number(weather.get("temp_f"))
+        if temp is not None:
+            weather_raw += max(-12.0, min(12.0, (70.0 - temp) * .6))
+    weather_detail = ("Dome / indoor · neutral" if weather.get("dome") else
+                      f"{weather.get('temp_f', '—')}°F · {number(weather.get('speed_mph')) or 0:.0f} mph wind"
+                      if weather_available else "Weather unavailable")
+    add("Weather", 10, weather_raw, weather_detail, weather_available)
 
     score = round(50 + sum(factor["impact"] for factor in factors))
     score = max(0, min(100, score))
     coverage = sum(factor["weight"] for factor in factors if factor["available"]) / 100
-    label = ("Elite K Matchup" if score >= 85 else "Strong K Matchup" if score >= 75
+    k_label = prop_type == "pitcher_strikeouts"
+    label = (("Elite K Matchup" if k_label else "Elite Pitcher Matchup") if score >= 85 else
+             ("Strong K Matchup" if k_label else "Strong Pitcher Matchup") if score >= 75
              else "Favorable" if score >= 65 else "Slight Edge" if score >= 55
              else "Neutral" if score >= 45 else "Caution" if score >= 35
              else "Unfavorable")
