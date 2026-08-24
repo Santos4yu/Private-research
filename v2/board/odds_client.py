@@ -18,7 +18,7 @@ from pathlib import Path
 import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from store import get_odds_api_key  # noqa: E402
+from store import get_odds_api_key_candidates  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from v2.common.stat_types import MARKET_FOR_STAT  # noqa: E402
@@ -51,6 +51,31 @@ TARGET_BOOKS = PREFERRED_BOOKS + ["fanduel", "betmgm", "espnbet", "betrivers", S
 _SESSION = requests.Session()
 
 
+def _get(path: str, params: dict) -> requests.Response:
+    """GET Odds API data with credential fallback and secret-safe errors."""
+    candidates = get_odds_api_key_candidates()
+    if not candidates:
+        raise RuntimeError("The private-site Odds API key is not configured.")
+
+    last_status = None
+    for key in candidates:
+        response = _SESSION.get(
+            f"{BASE_URL}{path}", params={**params, "apiKey": key}, timeout=TIMEOUT
+        )
+        last_status = response.status_code
+        if response.status_code == 401:
+            continue
+        if response.status_code == 429:
+            raise RuntimeError("The live-lines quota has been reached. Add a new Odds API key in Settings.")
+        if not response.ok:
+            raise RuntimeError(f"The live-lines provider returned HTTP {response.status_code}.")
+        return response
+
+    if last_status == 401:
+        raise RuntimeError("The Odds API key was rejected. Add a valid key in Settings.")
+    raise RuntimeError("Live lines are temporarily unavailable.")
+
+
 def test_key(candidate_key: str) -> dict:
     """Validates a NOT-YET-SAVED key against the free /sports endpoint (does
     not cost credits) -- used by the admin key-swap UI so a bad key is
@@ -65,19 +90,18 @@ def test_key(candidate_key: str) -> dict:
             "requests_remaining": r.headers.get("x-requests-remaining", "?"),
             "requests_used": r.headers.get("x-requests-used", "?"),
         }
-    except requests.RequestException as exc:
-        return {"valid": False, "error": str(exc)}
+    except requests.RequestException:
+        # requests' exception text can include the fully prepared URL, which
+        # contains apiKey. Never return that credential to the browser.
+        return {"valid": False, "error": "The Odds API could not be reached."}
 
 
 def list_events() -> list:
     """Free call (does not consume API credits). Returns today's/upcoming
     MLB events: [{id, home_team, away_team, commence_time}, ...]."""
-    key = get_odds_api_key()
-    if not key:
+    if not get_odds_api_key_candidates():
         return []
-    r = _SESSION.get(f"{BASE_URL}/sports/{SPORT_KEY}/events",
-                      params={"apiKey": key, "dateFormat": "iso"}, timeout=TIMEOUT)
-    r.raise_for_status()
+    r = _get(f"/sports/{SPORT_KEY}/events", {"dateFormat": "iso"})
     return r.json()
 
 
@@ -87,15 +111,12 @@ def fetch_event_props(event_id: str) -> dict:
     for a small, pre-filtered set of events, not the whole day's slate).
     Prints the remaining-credits header after every call so a runaway
     shortlist is visible immediately, not just at month's end."""
-    key = get_odds_api_key()
-    r = _SESSION.get(
-        f"{BASE_URL}/sports/{SPORT_KEY}/events/{event_id}/odds",
-        params={"apiKey": key, "regions": "us",
+    r = _get(
+        f"/sports/{SPORT_KEY}/events/{event_id}/odds",
+        {"regions": "us",
                 "bookmakers": ",".join(TARGET_BOOKS),
                 "markets": ",".join(MARKETS), "oddsFormat": "american"},
-        timeout=TIMEOUT,
     )
-    r.raise_for_status()
     print(f"  [odds api] event {event_id[:8]}... -- "
           f"{r.headers.get('x-requests-remaining', '?')} credits remaining")
     return r.json()
@@ -107,30 +128,26 @@ def fetch_prizepicks_prop_lines(event_id: str, market: str) -> dict:
     PrizePicks Goblins/Demons live in the DFS ``_alternate`` market. DK is
     deliberately requested only for the featured market, never its alts.
     """
-    key = get_odds_api_key()
-    if not key:
-        raise RuntimeError("The private-site Odds API key is not configured.")
     markets = [market]
     if not market.endswith("_alternate"):
         markets.append(f"{market}_alternate")
-    pp_response = _SESSION.get(
-        f"{BASE_URL}/sports/{SPORT_KEY}/events/{event_id}/odds",
-        params={"apiKey": key, "regions": "us_dfs", "bookmakers": "prizepicks",
-                "markets": ",".join(markets), "oddsFormat": "american"},
-        timeout=TIMEOUT,
+    pp_response = _get(
+        f"/sports/{SPORT_KEY}/events/{event_id}/odds",
+        {"regions": "us_dfs", "bookmakers": "prizepicks",
+         "markets": ",".join(markets), "oddsFormat": "american"},
     )
-    pp_response.raise_for_status()
-    dk_response = _SESSION.get(
-        f"{BASE_URL}/sports/{SPORT_KEY}/events/{event_id}/odds",
-        params={"apiKey": key, "regions": "us", "bookmakers": "draftkings",
-                "markets": market, "oddsFormat": "american"},
-        timeout=TIMEOUT,
-    )
+    try:
+        dk_response = _get(
+            f"/sports/{SPORT_KEY}/events/{event_id}/odds",
+            {"regions": "us", "bookmakers": "draftkings",
+             "markets": market, "oddsFormat": "american"},
+        )
+    except RuntimeError:
+        dk_response = None
     # PrizePicks is the required source. A missing DK price must not hide the
     # projection ladder, so retain an empty DK payload on that optional error.
     try:
-        dk_response.raise_for_status()
-        draftkings = dk_response.json()
-    except requests.RequestException:
+        draftkings = dk_response.json() if dk_response is not None else {"bookmakers": []}
+    except (requests.RequestException, ValueError):
         draftkings = {"bookmakers": []}
     return {"prizepicks": pp_response.json(), "draftkings": draftkings}

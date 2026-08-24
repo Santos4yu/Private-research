@@ -49,6 +49,18 @@ def get_odds_api_key() -> str:
     return get(ODDS_KEY_STORAGE_KEY) or os.getenv("ODDS_API_KEY_V2", "")
 
 
+def get_odds_api_key_candidates() -> list[str]:
+    """Return live and deployment keys in retry order, without duplicates.
+
+    A key saved through the admin panel normally takes precedence. If that
+    key later expires or is revoked, callers can still retry the deployment
+    key instead of leaving every live-line request permanently broken.
+    """
+    stored_key = get(ODDS_KEY_STORAGE_KEY) or ""
+    env_key = os.getenv("ODDS_API_KEY_V2", "") or ""
+    return list(dict.fromkeys(key.strip() for key in (stored_key, env_key) if key.strip()))
+
+
 def set_odds_api_key(new_key: str) -> bool:
     return set(ODDS_KEY_STORAGE_KEY, new_key)
 
