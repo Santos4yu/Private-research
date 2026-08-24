@@ -1061,7 +1061,8 @@ _MATCHUP_WEIGHTS = {
 
 def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
                        park_factor=1.0, weather=None, arsenal=None,
-                       bat_vs_pitch=None, vs_hand_splits=None) -> dict:
+                       bat_vs_pitch=None, vs_hand_splits=None,
+                       prop_type="") -> dict:
     """Direction-aware 0-100 matchup grade; thin samples shrink to neutral."""
     is_under = str(side).lower() == "under"
     pitcher, bvp = pitcher or {}, bvp or {}
@@ -1103,15 +1104,19 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
     other_label = "L" if ph == "R" else "R"
     detail = f"vs {ph}HP {hand_avg:.3f} AVG / {hand_ops:.3f} OPS ({hand_pa} PA)".replace(" 0.", " .")
     if hand_ok and other_ops > 0: detail += f" · vs {other_label}HP {other_avg:.3f} AVG / {other_ops:.3f} OPS ({hand_avg-other_avg:+.3f} AVG)".replace(" 0.", " .").replace("+0.", "+.").replace("-0.", "-.")
-    # Grade the split faced tonight first. The opposite-hand split is useful
-    # context, but it must not turn an objectively strong OPS into a negative
-    # Over signal because the batter was even better against the other hand.
-    absolute_score = 50 + (hand_ops - .720) * 115
-    if other_ops > 0:
-        relative_score = 50 + delta * 55 + avg_delta * 45
-        hand_raw = absolute_score * .75 + relative_score * .25
+    # This is a *platoon advantage* grade, not a general hitter-quality grade.
+    # Use the difference between tonight's AVG split and the opposite-hand
+    # split as the primary signal. The 1000-point scale intentionally maps a
+    # .020 AVG platoon difference to roughly 9 of the available 23 points.
+    # That keeps the factor explainable and matches the observed grading of
+    # established split samples much more closely than absolute OPS did.
+    if other_ops > 0 and other_avg > 0:
+        hand_raw = 50 + avg_delta * 1000
+    elif other_ops > 0:
+        hand_raw = 50 + delta * 350
     else:
-        hand_raw = absolute_score
+        # With no comparison split, absolute OPS is the only honest fallback.
+        hand_raw = 50 + (hand_ops - .720) * 110
     # A platoon edge is a comparison between two samples, so confidence must
     # reflect both sides of that comparison. Reaching the full 23-point
     # allocation after only 50 PA made extreme early-season splits look as
@@ -1143,16 +1148,37 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
     if whip > 0: pitcher_detail += f" · {whip:.2f} WHIP"
     if hr9 > 0: pitcher_detail += f" · {hr9:.2f} HR/9"
     pitcher_detail += f" · {quality_label}"
+    # One volatile starter statistic should not consume the entire allocation.
+    # Preserve meaningful ace/vulnerable-starter separation while reserving a
+    # few points of uncertainty at both extremes.
+    pitcher_raw = max(7.0, min(93.0, pitcher_raw))
     add("pitcher_quality", sided(pitcher_raw), pitcher_detail if pq_ok else "Starter metrics unavailable", pq_ok)
 
     pitch_rows = {r.get("pitch_type"): r for r in (bat_vs_pitch or [])}
     weighted = coverage = confidence_weighted = 0.0
     qualified_pitches = []
+    if prop_type == "hits":
+        arsenal_metric_key, arsenal_metric_label, arsenal_neutral = "avg", "AVG", .250
+    elif prop_type in {"total_bases", "home_runs"}:
+        arsenal_metric_key, arsenal_metric_label, arsenal_neutral = "slg", "SLG", .410
+    else:
+        arsenal_metric_key, arsenal_metric_label, arsenal_neutral = "woba", "wOBA-equivalent", .320
     for pitch in (arsenal or [])[:4]:
         row = pitch_rows.get(pitch.get("pitch_type"))
         if not row: continue
         try:
-            metric = float(str(row.get("woba") or row.get("ops") or 0))
+            # Arsenal fit must reflect the market being researched. Contact
+            # props care about AVG, power/base props care about SLG, while
+            # combined production props use wOBA/OPS as the broad fallback.
+            raw_metric = row.get(arsenal_metric_key) or row.get("woba")
+            used_ops_fallback = not raw_metric
+            raw_metric = raw_metric or row.get("ops") or 0
+            metric = float(str(raw_metric))
+            # MLB's pitchArsenal response exposes OPS but not wOBA on some
+            # slates. Normalize OPS only for that fallback; never shrink a
+            # legitimate SLG value merely because it is above .550.
+            if used_ops_fallback and arsenal_metric_key == "woba" and metric > 0:
+                metric *= .445
             usage = float(pitch.get("pct", 0) or 0)
             pa = int(float(row.get("pa", 0) or 0))
         except (TypeError, ValueError): continue
@@ -1160,7 +1186,6 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
         # real 10-PA sample. Excluding an 8% slider can incorrectly turn a
         # well-covered arsenal into "unavailable."
         if metric > 0 and usage >= 5 and pa >= 10:
-            if metric > .550: metric *= .445
             weighted += metric * usage; coverage += usage
             # Pitch-type results stabilize much more slowly than the basic
             # ten-PA inclusion floor. Preserve the complete pitch mix, but
@@ -1171,15 +1196,15 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
             qualified_pitches.append((usage, pitch, row, metric, sample_confidence))
     # A couple of pitch-type rows must not become the card's largest penalty.
     # Require most of the starter's mix before arsenal evidence can move score.
-    mix_ok = coverage >= 60; mix = weighted / coverage if mix_ok else .320
-    arsenal_detail = (f"{mix:.3f} weighted wOBA across {coverage:.0f}% of the starter's mix"
+    mix_ok = coverage >= 60; mix = weighted / coverage if mix_ok else arsenal_neutral
+    arsenal_detail = (f"{mix:.3f} weighted {arsenal_metric_label} across {coverage:.0f}% of the starter's mix"
                       if mix_ok else f"Insufficient pitch-mix coverage ({coverage:.0f}% available; 60% required)")
     if mix_ok and qualified_pitches:
         labels = []
         for usage, pitch, row, metric, _sample_confidence in qualified_pitches:
             name = pitch.get("pitch_name") or row.get("pitch_name") or pitch.get("pitch_type") or "Pitch"
             labels.append(f"{name} {usage:.0f}%/{metric:.3f}")
-        arsenal_detail = (f"Full mix · {coverage:.0f}% coverage · {mix:.3f} weighted wOBA · "
+        arsenal_detail = (f"Full mix · {coverage:.0f}% coverage · {mix:.3f} weighted {arsenal_metric_label} · "
                           + ", ".join(labels)).replace(" 0.", " .")
     # .320 is roughly neutral contact quality. A full-mix result around .380
     # is a genuinely strong fit (and .260 a genuinely poor one), so map that
@@ -1190,8 +1215,15 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
         confidence_weighted / coverage if mix_ok and coverage else 0.0
     )
     arsenal_coverage_confidence = min(1.0, coverage / 70.0) ** .6 if mix_ok else 0.0
-    arsenal_delta = mix - .320
-    arsenal_slope = 550.0 if arsenal_delta >= 0 else 450.0
+    arsenal_delta = mix - arsenal_neutral
+    # AVG and SLG operate on different natural ranges. These slopes make a
+    # clearly good/bad full-mix matchup matter without letting it dominate.
+    if arsenal_metric_label == "AVG":
+        arsenal_slope = 600.0 if arsenal_delta >= 0 else 520.0
+    elif arsenal_metric_label == "SLG":
+        arsenal_slope = 360.0 if arsenal_delta >= 0 else 320.0
+    else:
+        arsenal_slope = 500.0 if arsenal_delta >= 0 else 420.0
     add("arsenal_fit", sided(50 + arsenal_delta * arsenal_slope),
         arsenal_detail,
         mix_ok, arsenal_sample_confidence * arsenal_coverage_confidence)
@@ -1200,13 +1232,14 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
     try:
         avg_text = str(bvp.get("avg") or ".000"); bvp_avg = float("0" + avg_text) if avg_text.startswith(".") else float(avg_text)
     except (TypeError, ValueError): bvp_avg = 0.0
-    # Batter-vs-pitcher history is optional and stays neutral until the sample
-    # reaches double digits. Tiny BvP records are descriptive, not predictive.
-    bvp_ok = bvp_ab >= 10
+    # BvP stays heavily regressed, but 3+ AB can provide a small contextual
+    # nudge. Five AB can move only about three points; a one-AB anecdote stays
+    # neutral. This avoids both ignoring 2-for-5 history and overrating it.
+    bvp_ok = bvp_ab >= 3
     bvp_sample = "large sample" if bvp_ab >= 20 else "moderate sample" if bvp_ab >= 10 else "small sample"
     add("bvp", sided(50 + (bvp_avg - .250) * 500),
         f"{bvp.get('hits', 0)}-for-{bvp_ab} ({bvp_avg:.3f} AVG) vs {pitcher_name} · {bvp_sample}".replace("(0.", "(.") if bvp_ok else f"No meaningful history vs {pitcher_name}",
-        bvp_ok, min(1.0, bvp_ab / 25) ** .65 if bvp_ok else 0)
+        bvp_ok, min(1.0, bvp_ab / 30) if bvp_ok else 0)
 
     parts, form_weights = [], []
     for key, weight in (("l10", .55), ("l20", .30), ("l5", .15)):
@@ -1216,7 +1249,11 @@ def _matchup_score_100(splits, side="over", pitcher=None, bvp=None,
     batting_form = (splits or {}).get("recent_batting_form") or {}
     if batting_form.get("delta_pct") is not None:
         delta_pct = float(batting_form["delta_pct"])
-        form_score = sided(50 + delta_pct * 3.0)
+        # Treat changes inside five percent as normal variance. Beyond that,
+        # recent form rises gradually rather than instantly consuming almost
+        # the full ten-point allocation.
+        form_edge = max(0.0, abs(delta_pct) - 5.0) * 2.4
+        form_score = sided(50 + (form_edge if delta_pct >= 0 else -form_edge))
         form_ok = True
         form_detail = f"L10 OPS {batting_form.get('l10_ops'):.3f} vs season {batting_form.get('season_ops'):.3f} ({delta_pct:+.1f}%)".replace(" 0.", " .")
     else:
@@ -1818,6 +1855,7 @@ def grade_pick(
             splits=splits, side=side, pitcher=pitcher, bvp=bvp,
             park_factor=park_factor, weather=weather, arsenal=arsenal,
             bat_vs_pitch=bat_vs_pitch, vs_hand_splits=vs_hand_splits,
+            prop_type=prop_type,
         )
     else:
         matchup_grade = {"score": None, "label": None, "coverage": 0.0, "factors": []}

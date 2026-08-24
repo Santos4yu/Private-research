@@ -3211,7 +3211,10 @@ PARK_FACTOR: dict[str, float] = {
     "Minnesota Twins":         0.97,  # Target Field
     "New York Mets":           0.97,  # Citi Field
     "Cleveland Guardians":     0.97,
-    "Oakland Athletics":       0.97,
+    # The Athletics now play at Sutter Health Park. Do not carry Oakland
+    # Coliseum's pitcher-friendly factor into the Sacramento home schedule.
+    "Athletics":               1.35,
+    "Oakland Athletics":       1.35,
     "Washington Nationals":    0.96,  # Nationals Park
     "Miami Marlins":           0.96,  # loanDepot Park
     "Los Angeles Dodgers":     0.96,  # Dodger Stadium
