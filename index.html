@@ -302,9 +302,7 @@
     <nav class="tabs" id="tabs" data-react-tabs="true" aria-label="Primary navigation"></nav>
     <div class="home-mode-switch" id="home-mode-switch" aria-label="Research mode">
       <button type="button" class="active" data-home-tab="research">Prop Research</button>
-      <button type="button" class="header-builder-trigger" id="header-builder-trigger" aria-controls="bet-slip-drawer" aria-expanded="false">
-        <span>Prop Builder</span><b id="header-builder-count">0</b><i aria-hidden="true">⌄</i>
-      </button>
+      <div id="prop-builder-dropdown-root"></div>
     </div>
   </div>
 </header>
@@ -488,6 +486,7 @@
 </div>
 
 <div class="bet-slip-scrim" id="bet-slip-scrim" hidden></div>
+<button type="button" id="header-builder-trigger" hidden aria-hidden="true"><b id="header-builder-count">0</b></button>
 <aside class="bet-slip-drawer" id="bet-slip-drawer" aria-label="PrizePicks prop builder" aria-hidden="true" hidden>
   <header class="bet-slip-head">
     <div><span>PRIZEPICKS BET SLIP</span><h2>Prop Builder</h2><p id="bet-slip-headline">0 of 6 legs</p></div>

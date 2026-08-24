@@ -3471,35 +3471,10 @@ function fillPitcherLineupProfile(node, p) {
 
 /* ---------- Manual PrizePicks prop builder ---------- */
 
-function positionManualBetSlip() {
-  if (!els.headerBuilderTrigger || !els.betSlipDrawer) return;
-  const rect = els.headerBuilderTrigger.getBoundingClientRect();
-  const right = window.innerWidth <= 600 ? 10 : Math.max(18, window.innerWidth - rect.right);
-  els.betSlipDrawer.style.setProperty("--bet-slip-top", `${Math.round(rect.bottom + 10)}px`);
-  els.betSlipDrawer.style.setProperty("--bet-slip-right", `${Math.round(right)}px`);
-}
-
 function setManualBetSlipOpen(open) {
-  if (open) {
-    renderManualBetSlip();
-    positionManualBetSlip();
-    els.betSlipScrim.hidden = false;
-    els.betSlipDrawer.hidden = false;
-    requestAnimationFrame(() => {
-      els.betSlipScrim.classList.add("open");
-      els.betSlipDrawer.classList.add("open");
-    });
-  } else {
-    els.betSlipScrim.classList.remove("open");
-    els.betSlipDrawer.classList.remove("open");
-    window.setTimeout(() => {
-      if (!els.betSlipDrawer.classList.contains("open")) {
-        els.betSlipScrim.hidden = true;
-        els.betSlipDrawer.hidden = true;
-      }
-    }, 260);
-  }
-  els.betSlipDrawer.setAttribute("aria-hidden", String(!open));
+  if (open) renderManualBetSlip();
+  window.dispatchEvent(new CustomEvent("vortex:prop-builder-open", { detail: { open } }));
+  els.betSlipDrawer?.setAttribute("aria-hidden", "true");
   els.headerBuilderTrigger?.setAttribute("aria-expanded", String(open));
 }
 
@@ -3512,19 +3487,59 @@ function manualSlipLegPayload(prop) {
   };
 }
 
+function manualBetSlipStatus(count) {
+  if (count < 2) return "Add 1 more prop to export.";
+  if (count > 6) return "Remove legs until 6 remain.";
+  return `${count}-leg slip ready to verify.`;
+}
+
+function syncManualBetSlipUi({ busy = false, status = "" } = {}) {
+  const legs = getSavedProps();
+  const count = legs.length;
+  const detail = {
+    legs: legs.map((prop) => ({
+      id: String(prop.id),
+      player: String(prop.player || "Player"),
+      side: String(prop.side || "Over"),
+      line: String(prop.line ?? "—"),
+      stat: String(prop.betType || "Prop"),
+      team: String(prop.team || prop.sport || "MLB"),
+      score: String(prop.score ?? "—"),
+      headshot: prop.headshot ? String(prop.headshot).replace("/headshot/67/current", "/headshot/silo/current") : "",
+    })),
+    status: status || els.betSlipStatus?.textContent || manualBetSlipStatus(count),
+    canExport: count >= 2 && count <= 6,
+    busy,
+  };
+  window.dispatchEvent(new CustomEvent("vortex:prop-builder-sync", { detail }));
+}
+
+function removeManualBetSlipLeg(id) {
+  const storedKey = [...state.savedProps.keys()].find((key) => String(key) === String(id));
+  if (storedKey === undefined) return;
+  const prop = state.savedProps.get(storedKey);
+  state.savedProps.delete(storedKey);
+  state.parlaySelection.delete(storedKey);
+  persistSaved();
+  updateSavedCount();
+  if (state.currentTab === "saved") renderSavedGrid();
+  const reportButton = els.reportWrap.querySelector(".save-btn");
+  if (reportButton && currentResearchProp) syncSaveButton(reportButton, currentResearchProp.id);
+  showToast(`Removed ${prop?.player || "prop"} from the builder`, "warn");
+  if (state.savedProps.size === 0) setManualBetSlipOpen(false);
+}
+
 function renderManualBetSlip() {
   if (!els.betSlipDrawer) return;
   const legs = getSavedProps();
   const count = legs.length;
-  els.headerBuilderCount.textContent = count;
+  if (els.headerBuilderCount) els.headerBuilderCount.textContent = count;
   els.betSlipHeadline.textContent = `${count} of 6 leg${count === 1 ? "" : "s"}`;
   els.betSlipEmpty.hidden = count > 0;
   els.betSlipLegs.hidden = count === 0;
   els.betSlipClear.disabled = count === 0;
   els.betSlipExport.disabled = count < 2 || count > 6;
-  els.betSlipStatus.textContent = count < 2
-    ? "Add 1 more prop to export."
-    : count > 6 ? "Remove legs until 6 remain." : `${count}-leg slip ready to verify.`;
+  els.betSlipStatus.textContent = manualBetSlipStatus(count);
   els.betSlipLegs.innerHTML = legs.map((prop, index) => `
     <article class="bet-slip-leg" style="--slip-delay:${index * 45}ms">
       <span class="bet-slip-rank">${index + 1}</span>
@@ -3533,19 +3548,9 @@ function renderManualBetSlip() {
       <button type="button" class="bet-slip-remove" data-slip-remove="${escapeHtml(String(prop.id))}" aria-label="Remove ${escapeHtml(prop.player)}">×</button>
     </article>`).join("");
   els.betSlipLegs.querySelectorAll("[data-slip-remove]").forEach((button) => button.addEventListener("click", () => {
-    const storedKey = [...state.savedProps.keys()].find((key) => String(key) === button.dataset.slipRemove);
-    if (storedKey === undefined) return;
-    const prop = state.savedProps.get(storedKey);
-    state.savedProps.delete(storedKey);
-    state.parlaySelection.delete(storedKey);
-    persistSaved();
-    updateSavedCount();
-    if (state.currentTab === "saved") renderSavedGrid();
-    const reportButton = els.reportWrap.querySelector(".save-btn");
-    if (reportButton && currentResearchProp) syncSaveButton(reportButton, currentResearchProp.id);
-    showToast(`Removed ${prop?.player || "prop"} from the builder`, "warn");
-    if (state.savedProps.size === 0) setManualBetSlipOpen(false);
+    removeManualBetSlipLeg(button.dataset.slipRemove);
   }));
+  syncManualBetSlipUi();
 }
 
 async function exportManualBetSlip() {
@@ -3555,6 +3560,7 @@ async function exportManualBetSlip() {
   els.betSlipExport.disabled = true;
   els.betSlipExport.textContent = "Matching live lines…";
   els.betSlipStatus.textContent = "Checking every leg on the live PrizePicks board…";
+  syncManualBetSlipUi({ busy: true, status: els.betSlipStatus.textContent });
   try {
     const response = await fetch(API_PRIZEPICKS_EXPORT, {
       method: "POST",
@@ -3568,41 +3574,41 @@ async function exportManualBetSlip() {
       throw new Error(detail ? `${payload.error} ${detail}` : (payload.error || "PrizePicks export failed."));
     }
     els.betSlipStatus.textContent = `${payload.matches.length} live legs matched. Opening PrizePicks…`;
+    syncManualBetSlipUi({ busy: true, status: els.betSlipStatus.textContent });
     window.location.assign(payload.url);
   } catch (error) {
     els.betSlipStatus.textContent = error.message || "PrizePicks export is temporarily unavailable.";
     els.betSlipExport.disabled = false;
     els.betSlipExport.textContent = originalLabel;
+    syncManualBetSlipUi({ busy: false, status: els.betSlipStatus.textContent });
   }
 }
 
+function clearManualBetSlip() {
+  if (!state.savedProps.size || !confirm("Remove every prop from this builder?")) return;
+  state.savedProps.clear();
+  state.parlaySelection.clear();
+  persistSaved();
+  updateSavedCount();
+  if (state.currentTab === "saved") renderSavedGrid();
+  const reportButton = els.reportWrap.querySelector(".save-btn");
+  if (reportButton && currentResearchProp) syncSaveButton(reportButton, currentResearchProp.id);
+  setManualBetSlipOpen(false);
+}
+
 function wireManualBetSlip() {
-  els.headerBuilderTrigger.addEventListener("click", () => {
-    setManualBetSlipOpen(!els.betSlipDrawer.classList.contains("open"));
-  });
-  els.betSlipClose.addEventListener("click", () => setManualBetSlipOpen(false));
-  els.betSlipScrim.addEventListener("click", () => setManualBetSlipOpen(false));
-  els.betSlipClear.addEventListener("click", () => {
-    if (!state.savedProps.size || !confirm("Remove every prop from this builder?")) return;
-    state.savedProps.clear();
-    state.parlaySelection.clear();
-    persistSaved();
-    updateSavedCount();
-    if (state.currentTab === "saved") renderSavedGrid();
-    const reportButton = els.reportWrap.querySelector(".save-btn");
-    if (reportButton && currentResearchProp) syncSaveButton(reportButton, currentResearchProp.id);
-    setManualBetSlipOpen(false);
-  });
+  els.betSlipClose?.addEventListener("click", () => setManualBetSlipOpen(false));
+  els.betSlipScrim?.addEventListener("click", () => setManualBetSlipOpen(false));
+  els.betSlipClear?.addEventListener("click", clearManualBetSlip);
   els.betSlipExport.addEventListener("click", exportManualBetSlip);
   window.addEventListener("vortex:toggle-bet-slip", () => {
-    setManualBetSlipOpen(!els.betSlipDrawer.classList.contains("open"));
+    window.dispatchEvent(new Event("vortex:prop-builder-toggle"));
   });
-  window.addEventListener("resize", () => {
-    if (els.betSlipDrawer.classList.contains("open")) positionManualBetSlip();
-  });
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && els.betSlipDrawer.classList.contains("open")) setManualBetSlipOpen(false);
-  });
+  window.addEventListener("vortex:prop-builder-ready", renderManualBetSlip);
+  window.addEventListener("vortex:prop-builder-request-sync", renderManualBetSlip);
+  window.addEventListener("vortex:prop-builder-remove", (event) => removeManualBetSlipLeg(event.detail?.id));
+  window.addEventListener("vortex:prop-builder-clear", clearManualBetSlip);
+  window.addEventListener("vortex:prop-builder-export", exportManualBetSlip);
   renderManualBetSlip();
 }
 

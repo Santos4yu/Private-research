@@ -5,11 +5,13 @@ import Dock from './Dock';
 import { ExpandableTabs } from '../components/ui/expandable-tabs';
 import { ActionSearchBar } from '../components/ui/action-search-bar';
 import { ResearchAILoader } from '../components/ui/research-ai-loader';
+import { ActivityDropdown } from '../components/ui/activity-dropdown';
 import './landing.css';
 import './tailwind.css';
 import './expandable-tabs.css';
 import './action-search-bar.css';
 import './ai-loader.css';
+import './activity-dropdown.css';
 
 const Icon = ({ children }) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">{children}</svg>;
 const icons = {
@@ -89,6 +91,8 @@ const tabsRoot = document.getElementById('tabs');
 if (tabsRoot) createRoot(tabsRoot).render(<VortexTopTabs />);
 const searchRoot = document.getElementById('action-search-root');
 if (searchRoot) createRoot(searchRoot).render(<ActionSearchBar />);
+const builderDropdownRoot = document.getElementById('prop-builder-dropdown-root');
+if (builderDropdownRoot) createRoot(builderDropdownRoot).render(<ActivityDropdown />);
 
 window.vortexMountResearchLoader = (host, props) => {
   const root = createRoot(host);
