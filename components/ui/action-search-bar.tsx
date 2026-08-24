@@ -2,8 +2,9 @@
 
 import * as React from "react";
 import { Command as CommandPrimitive } from "cmdk";
-import { motion, useReducedMotion } from "framer-motion";
-import { Clock3, Search, UserRound } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { Search, UserRound } from "lucide-react";
+import { createPortal } from "react-dom";
 
 type PlayerEntry = {
   kind?: "static" | "live" | "recent";
@@ -69,7 +70,10 @@ function ActionSearchBar({
   const [open, setOpen] = React.useState(false);
   const [payload, setPayload] = React.useState<SearchPayload>({ entries: [] });
   const [recent, setRecent] = React.useState<PlayerEntry[]>([]);
+  const [popoverPosition, setPopoverPosition] = React.useState({ top: 0, left: 0, width: 0 });
   const rootRef = React.useRef<HTMLDivElement>(null);
+  const fieldRef = React.useRef<HTMLDivElement>(null);
+  const popoverRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
@@ -116,7 +120,8 @@ function ActionSearchBar({
 
   React.useEffect(() => {
     const onPointerDown = (event: PointerEvent) => {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (rootRef.current && !rootRef.current.contains(target) && !popoverRef.current?.contains(target)) setOpen(false);
     };
     const onShortcut = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === "k") {
@@ -132,6 +137,26 @@ function ActionSearchBar({
       document.removeEventListener("keydown", onShortcut);
     };
   }, []);
+
+  const updatePopoverPosition = React.useCallback(() => {
+    const rect = fieldRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const gutter = 10;
+    const width = Math.min(rect.width, window.innerWidth - gutter * 2);
+    const left = Math.max(gutter, Math.min(rect.left, window.innerWidth - width - gutter));
+    setPopoverPosition({ top: rect.bottom - 1, left, width });
+  }, []);
+
+  React.useLayoutEffect(() => {
+    if (!open) return;
+    updatePopoverPosition();
+    window.addEventListener("resize", updatePopoverPosition);
+    window.addEventListener("scroll", updatePopoverPosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePopoverPosition);
+      window.removeEventListener("scroll", updatePopoverPosition, true);
+    };
+  }, [open, updatePopoverPosition]);
 
   const selectEntry = (entry: PlayerEntry) => {
     setRecent(saveRecentSearch(entry));
@@ -156,9 +181,9 @@ function ActionSearchBar({
   const showExact = Boolean(query.trim().length > 1 && payload.showLiveOption);
 
   return (
-    <div className="command-player-search" ref={rootRef}>
+    <div className="command-player-search" data-open={open ? "true" : "false"} ref={rootRef}>
       <CommandPrimitive shouldFilter={false} loop className="command-player-shell">
-        <div className="command-player-field">
+        <div className="command-player-field" ref={fieldRef}>
           <Search size={17} strokeWidth={1.8} aria-hidden="true" />
           <CommandPrimitive.Input
             ref={inputRef}
@@ -186,16 +211,19 @@ function ActionSearchBar({
           <kbd aria-label="Keyboard shortcut Control K"><span>Ctrl</span>K</kbd>
         </div>
 
-        <motion.div
+        {typeof document !== "undefined" ? createPortal(
+          <AnimatePresence initial={false}>
+          {open ? <motion.div
+          ref={popoverRef}
           className="command-player-popover"
-          data-open={open ? "true" : "false"}
-          aria-hidden={!open}
-          initial={false}
-          animate={reduceMotion ? { opacity: open ? 1 : 0 } : { opacity: open ? 1 : 0, y: open ? 0 : -6, scale: open ? 1 : 0.985 }}
-          transition={{ duration: reduceMotion ? 0 : open ? 0.18 : 0.12, ease: open ? [0.2, 0.75, 0.25, 1] : "easeIn" }}
+          style={popoverPosition}
+          data-open="true"
+          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.985 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.99 }}
+          transition={{ duration: reduceMotion ? 0 : 0.16, ease: [0.2, 0.75, 0.25, 1] }}
         >
           <div className="command-player-heading">
-            {query.trim() ? <Search size={14} aria-hidden="true" /> : <Clock3 size={14} aria-hidden="true" />}
             <span>{heading}</span>
           </div>
           <CommandPrimitive.List ref={listRef} className="command-player-list" aria-label={heading}>
@@ -240,8 +268,8 @@ function ActionSearchBar({
               </CommandPrimitive.Item>
             ) : null}
           </CommandPrimitive.List>
-          <div className="command-player-footer"><span>↑↓ Navigate</span><span>Enter Select</span><span>Esc Close</span></div>
-        </motion.div>
+        </motion.div> : null}
+        </AnimatePresence>, document.body) : null}
       </CommandPrimitive>
     </div>
   );

@@ -100,8 +100,9 @@ export function ActivityDropdown() {
             transition={{ duration: reducedMotion ? 0 : 0.24, ease: [0.22, 1, 0.36, 1] }}
           >
             <header className="builder-activity-head">
-              <div><span>PRIZEPICKS BET SLIP</span><h2>Your props</h2><p>{count} of 6 legs saved</p></div>
-              <button type="button" aria-label="Close prop builder" onClick={() => setIsOpen(false)}><X size={17} /></button>
+              <span className="builder-activity-head-icon" aria-hidden="true"><ClipboardList size={18} /></span>
+              <div><h2>{count ? `${count} Saved ${count === 1 ? "Prop" : "Props"}` : "Prop Builder"}</h2><p>PrizePicks bet slip · {count} of 6 legs</p></div>
+              <button type="button" aria-label="Close prop builder" onClick={() => setIsOpen(false)}><ChevronUp size={17} /></button>
             </header>
 
             <div className="builder-activity-list" aria-live="polite">
@@ -115,7 +116,6 @@ export function ActivityDropdown() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: reducedMotion ? 0 : index * 0.045, duration: reducedMotion ? 0 : 0.2 }}
                 >
-                  <span className="builder-activity-rank">{index + 1}</span>
                   <span className="builder-activity-avatar">
                     <span>{initials(leg.player)}</span>
                     {leg.headshot ? <img src={leg.headshot} alt="" onError={(event) => { event.currentTarget.hidden = true; }} /> : null}
