@@ -570,7 +570,7 @@
         </div>
       </div>
 
-      <div class="verdict-strip">
+      <div class="verdict-strip alert alert-horizontal" role="status">
         <span class="verdict-pill"></span>
         <span class="verdict-detail"></span>
       </div>
@@ -580,7 +580,7 @@
           <span class="unit-label">💰 Suggested sizing</span>
           <span class="unit-value"></span>
         </div>
-        <button class="save-btn" type="button">
+        <button class="save-btn btn btn-sm" type="button">
           <svg class="save-icon" width="15" height="15" viewBox="0 0 15 15" fill="none">
             <path d="M3 1.5h9a.5.5 0 01.5.5v11.3a.4.4 0 01-.63.33L7.5 10.2l-4.37 3.43A.4.4 0 012.5 13.3V2a.5.5 0 01.5-.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
           </svg>
@@ -599,12 +599,12 @@
     </section>
 
     <!-- Compact at-a-glance summary; values are derived from the same report data. -->
-    <section class="research-snapshot" aria-label="At a glance">
-      <div class="snapshot-item"><span class="snapshot-label">Projection</span><strong class="snapshot-projection">—</strong></div>
-      <div class="snapshot-item"><span class="snapshot-label">L10 hit rate</span><strong class="snapshot-l10">—</strong></div>
-      <div class="snapshot-item"><span class="snapshot-label">Recent avg</span><strong class="snapshot-avg">—</strong></div>
-      <div class="snapshot-item"><span class="snapshot-label">Matchup</span><strong class="snapshot-matchup">—</strong></div>
-      <div class="snapshot-item"><span class="snapshot-label">Trend</span><strong class="snapshot-trend">—</strong></div>
+    <section class="research-snapshot stats stats-horizontal" aria-label="At a glance">
+      <div class="snapshot-item stat"><span class="snapshot-label stat-title">Projection</span><strong class="snapshot-projection stat-value">—</strong></div>
+      <div class="snapshot-item stat"><span class="snapshot-label stat-title">L10 hit rate</span><strong class="snapshot-l10 stat-value">—</strong></div>
+      <div class="snapshot-item stat"><span class="snapshot-label stat-title">Recent avg</span><strong class="snapshot-avg stat-value">—</strong></div>
+      <div class="snapshot-item stat"><span class="snapshot-label stat-title">Matchup</span><strong class="snapshot-matchup stat-value">—</strong></div>
+      <div class="snapshot-item stat"><span class="snapshot-label stat-title">Trend</span><strong class="snapshot-trend stat-value">—</strong></div>
     </section>
 
     <!-- Evidence health is additive: it explains how complete this specific
@@ -612,7 +612,7 @@
     <section class="report-block research-health-block" data-reveal hidden>
       <div class="section-heading-row">
         <h3 class="block-title">Research Health</h3>
-        <span class="research-health-status"></span>
+        <span class="research-health-status badge badge-ghost badge-sm"></span>
       </div>
       <div class="research-health-main">
         <div><span class="research-health-rate">—</span><span class="research-health-label"></span></div>
@@ -623,7 +623,7 @@
     </section>
 
     <section class="report-block playability-block" data-reveal>
-      <div class="section-heading-row"><h3 class="block-title">Playability</h3><span class="playability-label"></span></div>
+      <div class="section-heading-row"><h3 class="block-title">Playability</h3><span class="playability-label badge badge-ghost badge-sm"></span></div>
       <div class="playability-chips"></div>
     </section>
 
@@ -748,7 +748,7 @@
       <p class="matchup-handedness"></p>
       <p class="matchup-lineup"></p>
       <p class="matchup-bullpen"></p>
-      <button type="button" class="team-insights-btn" hidden>View Batting Order &amp; Pitch Arsenal →</button>
+      <button type="button" class="team-insights-btn btn btn-sm btn-ghost" hidden>View Batting Order &amp; Pitch Arsenal →</button>
     </section>
 
     <!-- Narrative verdict -->
@@ -758,7 +758,7 @@
     </section>
 
     <!-- Performance -->
-    <section class="report-block" data-reveal>
+    <section class="report-block performance-block" data-reveal>
       <h3 class="block-title">📈 Performance</h3>
       <div class="perf-stat-row">
         <span class="perf-season"></span>
@@ -766,7 +766,7 @@
     </section>
 
     <!-- Vs matchup -->
-    <section class="report-block" data-reveal>
+    <section class="report-block vs-matchup-block" data-reveal>
       <h3 class="block-title">🎯 Vs Matchup</h3>
       <p class="vs-h2h bvp-callout" hidden></p>
       <p class="vs-career"></p>
@@ -801,7 +801,7 @@
     </section>
 
     <!-- Model confirm footer -->
-    <section class="report-block model-confirm" data-reveal>
+    <section class="report-block model-confirm alert alert-horizontal" data-reveal role="status">
       <span class="model-confirm-pill"></span>
       <span class="model-confirm-detail"></span>
       <span class="report-timestamp"></span>
