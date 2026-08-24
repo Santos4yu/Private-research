@@ -18,7 +18,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=2" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="styles.css?v=101" />
+<link rel="stylesheet" href="styles.css?v=102" />
 <style>
   /* Inline (not the external stylesheet) so it applies before ANY paint --
      this is what actually prevents the flash of the app before the auth
@@ -35,6 +35,7 @@
 <div class="glow-orb glow-orb-c" aria-hidden="true"></div>
 
 <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
+<div class="private-cursor" id="private-cursor" aria-hidden="true"><i></i></div>
 
 <!-- Shown immediately, before the auth check resolves; hidden once the
      gate or the app shell takes over. -->
@@ -324,6 +325,25 @@
   <div class="browse-row intro-anim" id="browse-row">
     <span class="browse-label"></span>
     <div class="browse-chips" id="browse-chips"></div>
+  </div>
+
+  <div class="research-home-grid intro-anim" id="research-home-grid" aria-label="Research workspace overview">
+    <section class="research-home-section research-home-popular">
+      <header><div><span>Live board</span><h3>Today's popular research</h3></div><button type="button" data-workspace-tab="v2">View all props</button></header>
+      <div class="research-player-list" id="home-popular-list"></div>
+    </section>
+    <section class="research-home-section">
+      <header><div><span>Your workspace</span><h3>Recent searches</h3></div></header>
+      <div class="research-player-list compact" id="home-recent-list"></div>
+    </section>
+    <section class="research-home-section research-home-games">
+      <header><div><span>MLB slate</span><h3>Today's games</h3></div><button type="button" data-workspace-tab="slate">Open matchups</button></header>
+      <div class="research-game-strip" id="home-games-list"></div>
+    </section>
+    <section class="research-home-section">
+      <header><div><span>Prop builder</span><h3>Saved props</h3></div><button type="button" data-workspace-action="builder">Open builder</button></header>
+      <div class="research-player-list compact" id="home-saved-list"></div>
+    </section>
   </div>
 
   <!-- Player profile: pick a stat, then dial in the line -->
