@@ -5,7 +5,7 @@ import { Children, cloneElement, useEffect, useMemo, useRef, useState } from 're
 
 import './Dock.css';
 
-function DockItem({ children, active = false, onClick, mouseX, spring, distance, magnification, baseItemSize, label }) {
+function DockItem({ children, className = '', onClick, mouseX, spring, distance, magnification, baseItemSize, label }) {
   const ref = useRef(null);
   const isHovered = useMotionValue(0);
 
@@ -39,9 +39,7 @@ function DockItem({ children, active = false, onClick, mouseX, spring, distance,
       onFocus={() => isHovered.set(1)}
       onBlur={() => isHovered.set(0)}
       onClick={onClick}
-      className={active
-        ? 'dock-item active rounded-xl! border-transparent!'
-        : 'dock-item rounded-xl! bg-transparent! border-transparent!'}
+      className={`dock-item ${className}`}
       tabIndex={0}
       role="button"
       aria-label={label}
@@ -58,6 +56,7 @@ function DockIcon({ children, className = '' }) {
 
 export default function Dock({
   items,
+  className = '',
   spring = { mass: 0.1, stiffness: 150, damping: 12 },
   magnification = 70,
   distance = 200,
@@ -106,9 +105,7 @@ export default function Dock({
           isHovered.set(0);
           mouseX.set(Infinity);
         }}
-        className={isMobileVisible
-          ? 'dock-panel rounded-2xl! border-white/10! shadow-2xl! backdrop-blur-xl!'
-          : 'dock-panel dock-mobile-hidden rounded-2xl! border-white/10! shadow-2xl! backdrop-blur-xl!'}
+        className={`dock-panel ${isMobileVisible ? '' : 'dock-mobile-hidden'} ${className}`}
         style={{ height: panelHeight }}
         role="toolbar"
         aria-label="Application dock"
@@ -117,7 +114,7 @@ export default function Dock({
           <DockItem
             key={index}
             onClick={item.onClick}
-            active={item.className === 'active'}
+            className={item.className}
             mouseX={mouseX}
             spring={spring}
             distance={distance}
