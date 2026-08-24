@@ -35,19 +35,10 @@ interface ExpandableTabsProps {
   onChange?: (index: number | null) => void;
 }
 
-const buttonVariants = {
-  initial: { gap: 0, paddingLeft: ".75rem", paddingRight: ".75rem" },
-  animate: (isSelected: boolean) => ({
-    gap: isSelected ? ".5rem" : 0,
-    paddingLeft: isSelected ? "1rem" : ".75rem",
-    paddingRight: isSelected ? "1rem" : ".75rem",
-  }),
-};
-
 const spanVariants = {
-  initial: { width: 0, opacity: 0 },
-  animate: { width: "auto", opacity: 1 },
-  exit: { width: 0, opacity: 0 },
+  initial: { opacity: 0, scaleX: 0.86, x: -3 },
+  animate: { opacity: 1, scaleX: 1, x: 0 },
+  exit: { opacity: 0, scaleX: 0.9, x: -2 },
 };
 
 export function ExpandableTabs({
@@ -67,7 +58,7 @@ export function ExpandableTabs({
   const selected = isControlled ? selectedIndex : internalSelected;
   const transition = reduceMotion
     ? { duration: 0 }
-    : { delay: 0.04, type: "spring" as const, bounce: 0, duration: 0.48 };
+    : { type: "spring" as const, bounce: 0, stiffness: 520, damping: 38, mass: 0.65 };
 
   useOnClickOutside(outsideClickRef as React.RefObject<HTMLElement>, () => {
     if (!collapseOnOutside) return;
@@ -81,7 +72,8 @@ export function ExpandableTabs({
   };
 
   return (
-    <div
+    <motion.div
+      layout={!reduceMotion}
       ref={outsideClickRef}
       className={cn(
         "flex flex-wrap items-center gap-1 rounded-2xl border bg-background p-1 shadow-sm",
@@ -100,14 +92,11 @@ export function ExpandableTabs({
           <motion.button
             key={tab.title}
             type="button"
-            variants={buttonVariants}
-            initial={false}
-            animate="animate"
-            custom={isSelected}
+            layout={!reduceMotion}
             onClick={() => handleSelect(index)}
             transition={transition}
             className={cn(
-              "expandable-tab relative flex min-h-11 min-w-11 items-center justify-center overflow-hidden rounded-xl py-2 text-sm font-medium transition-colors duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-2",
+              "expandable-tab relative flex items-center justify-center overflow-hidden rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-2",
               isSelected
                 ? cn("bg-muted", activeColor)
                 : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -117,8 +106,10 @@ export function ExpandableTabs({
             aria-current={isSelected ? "page" : undefined}
             aria-label={tab.title}
           >
-            <Icon size={19} strokeWidth={1.8} aria-hidden="true" />
-            <AnimatePresence initial={false}>
+            <motion.span layout="position" className="expandable-tab-icon" aria-hidden="true">
+              <Icon size={17} strokeWidth={1.8} />
+            </motion.span>
+            <AnimatePresence initial={false} mode="popLayout">
               {isSelected && (
                 <motion.span
                   variants={spanVariants}
@@ -126,7 +117,7 @@ export function ExpandableTabs({
                   animate="animate"
                   exit="exit"
                   transition={transition}
-                  className="overflow-hidden whitespace-nowrap"
+                  className="expandable-tab-label overflow-hidden whitespace-nowrap"
                 >
                   {tab.title}
                 </motion.span>
@@ -136,6 +127,6 @@ export function ExpandableTabs({
           </motion.button>
         );
       })}
-    </div>
+    </motion.div>
   );
 }
