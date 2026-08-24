@@ -115,6 +115,9 @@ function ActionSearchBar({
       });
     };
     const showResults = (event: Event) => {
+      // A suggestion request can finish after the user has already selected a
+      // player. Never let that stale response reopen the search over research.
+      if (document.activeElement !== inputRef.current) return;
       const next = (event as CustomEvent<SearchPayload>).detail || {};
       keepTypingFocus();
       setPayload(next);
@@ -123,7 +126,7 @@ function ActionSearchBar({
     const showRecent = () => {
       setRecent(loadRecentSearches());
       setPayload({ entries: [] });
-      setOpen(true);
+      if (document.activeElement === inputRef.current) setOpen(true);
     };
     const hide = () => setOpen(false);
     const clear = () => {

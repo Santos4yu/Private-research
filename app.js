@@ -1092,6 +1092,8 @@ function wireSearch() {
   window.addEventListener("vortex:player-search-select", (event) => {
     const entry = event.detail?.entry || null;
     const query = event.detail?.query || "";
+    clearTimeout(searchDebounceTimer);
+    searchRequestToken++;
     clearSearchQuery();
     hideResults();
     if (entry?.player) {
