@@ -1614,19 +1614,25 @@ def _lineup_platoon_values(lineup: list, batter_splits: dict, runs_pg=None) -> d
 def _full_team_platoon_profiles(pitcher_hand: str, benchmarks: dict) -> dict:
     """All 30 full-team batting baselines versus one pitcher hand.
 
-    This is the stable pre-lineup source. Player split rows are accumulated by
-    the MLB team attached to each split, then ranked against the same 30-team
-    scope. Runs/game remains the official team-season rate because assigning
-    runs cleanly to a handedness split is not reliable.
+    This is the stable pre-lineup source. Use MLB's native team-split endpoint
+    rather than rebuilding team totals from the current player pool. The
+    player-pool response can omit traded/inactive hitters and previously made
+    the Angels' vs-LHP line read 109 BB / 1,233 PA instead of MLB's complete
+    118 BB / 1,407 PA. ``/teams/stats`` returns all 30 official team rows in a
+    single request and matches the public StatMuse team split.
+
+    Runs/game and HR/game remain the official team-season rates. The handedness
+    split is plate-appearance based, so dividing its partial runs or homers by
+    every team game would understate the full-game environment.
     """
     hand = str(pitcher_hand or "").upper()[:1]
     if hand not in {"L", "R"}:
         return {}
     sit_code = "vl" if hand == "L" else "vr"
-    data = _get("/stats", {
+    data = _get("/teams/stats", {
         "stats": "statSplits", "group": "hitting", "season": SEASON,
-        "sportIds": 1, "sitCodes": sit_code, "playerPool": "ALL", "limit": 2000,
-    }, cache_key=f"all_batters_{sit_code}_{SEASON}")
+        "sportIds": 1, "sitCodes": sit_code,
+    }, cache_key=f"all_teams_hit_{sit_code}_{SEASON}")
     raw = {}
     for split in ((data or {}).get("stats") or [{}])[0].get("splits", []):
         team = split.get("team") or {}
@@ -1636,9 +1642,11 @@ def _full_team_platoon_profiles(pitcher_hand: str, benchmarks: dict) -> dict:
         row = raw.setdefault(int(tid), {
             "team_name": team.get("name", ""), "at_bats": 0, "hits": 0,
             "home_runs": 0, "strikeouts": 0, "walks": 0, "pa": 0,
+            "split_games": 0,
         })
         stat = split.get("stat") or {}
         for source, target in (
+            ("gamesPlayed", "split_games"),
             ("atBats", "at_bats"), ("hits", "hits"),
             ("homeRuns", "home_runs"), ("strikeOuts", "strikeouts"),
             ("baseOnBalls", "walks"), ("plateAppearances", "pa"),
@@ -1700,6 +1708,7 @@ def _full_team_platoon_profiles(pitcher_hand: str, benchmarks: dict) -> dict:
                 "at_bats": team["at_bats"], "hits": team["hits"],
                 "home_runs": team["home_runs"], "strikeouts": team["strikeouts"],
                 "walks": team["walks"], "plate_appearances": team["pa"],
+                "split_games": team["split_games"],
             },
         }
     return profiles

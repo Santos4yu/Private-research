@@ -3431,7 +3431,7 @@ function fillPitcherLineupProfile(node, p) {
   }).join("");
   block.querySelector(".lineup-profile-note").textContent = isConfirmedLineup
     ? `Confirmed 9 vs ${handLabel}: ${number(totals.hits)} H / ${number(totals.at_bats)} AB, ${number(totals.home_runs)} HR, ${number(totals.strikeouts)} K and ${number(totals.walks)} BB / ${number(totals.plate_appearances)} PA. AVG, K%, BB% and HR/G are PA/AB-weighted platoon results; R/G is the official team-season rate.`
-    : `Stable full-team baseline vs ${handLabel}: ${number(totals.hits)} H / ${number(totals.at_bats)} AB, ${number(totals.strikeouts)} K and ${number(totals.walks)} BB / ${number(totals.plate_appearances)} PA. Automatically switches to the confirmed starting 9 when MLB posts the lineup; R/G and HR/G remain official team-season rates.`;
+    : `Official full-team plate appearances vs ${handLabel}: ${number(totals.hits)} H / ${number(totals.at_bats)} AB, ${number(totals.strikeouts)} K and ${number(totals.walks)} BB / ${number(totals.plate_appearances)} PA${totals.split_games ? ` across ${number(totals.split_games)} games` : ""}. Automatically switches to the confirmed starting 9 when MLB posts the lineup; R/G and HR/G remain official team-season rates.`;
 }
 
 /* ---------- Manual PrizePicks prop builder ---------- */
