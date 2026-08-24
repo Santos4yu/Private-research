@@ -1089,18 +1089,17 @@ function renderLivePropRecords(rows) {
 function wireSearch() {
   els.searchInput.addEventListener("input", onSearchInput);
   els.searchInput.addEventListener("focus", onSearchInput);
-  els.searchInput.addEventListener("keydown", onSearchKeydown);
-  // Capture phase so the dropdown always closes before any other click
-  // handler runs — prevents it lingering over content below it.
-  document.addEventListener(
-    "click",
-    (e) => {
-      if (!e.target.closest(".search-results") && !e.target.closest("#search-input")) {
-        hideResults();
-      }
-    },
-    true
-  );
+  window.addEventListener("vortex:player-search-select", (event) => {
+    const entry = event.detail?.entry || null;
+    const query = event.detail?.query || "";
+    clearSearchQuery();
+    hideResults();
+    if (entry?.player) {
+      selectPlayer(entry.player, entry.kind === "live" ? entry.sub : null, { playerEntry: entry });
+    } else if (query) {
+      selectPlayer(query);
+    }
+  });
   document.addEventListener("keydown", (e) => {
     if (e.key === "/" && document.activeElement !== els.searchInput) {
       e.preventDefault();
@@ -1199,6 +1198,13 @@ function onSearchInput() {
   const query = els.searchInput.value;
   const isSearchable = query.trim().length >= 2;
 
+  if (!query.trim()) {
+    clearTimeout(searchDebounceTimer);
+    searchRequestToken++;
+    window.dispatchEvent(new Event("vortex:search-show-recent"));
+    return;
+  }
+
   // Static demo matches render instantly; live MLB suggestions follow after
   // a short debounce so we're not firing an API call on every keystroke.
   renderResults(staticEntriesFor(query), { loading: isSearchable });
@@ -1285,86 +1291,17 @@ function highlightActive(items) {
 }
 
 function renderResults(entries, { loading = false, fetchFailed = false } = {}) {
-  clearTimeout(searchCloseTimer);
-  els.searchResults.classList.remove("is-closing");
   state.activeIndex = -1;
-  els.searchResults.innerHTML = "";
-
   const query = els.searchInput.value.trim();
   const haveNames = new Set(entries.map((e) => e.player.toLowerCase()));
-  // Manual "search live" fallback only when nothing else is offered --
-  // covers the rare case where the MLB name-search API itself comes up
-  // empty for a short/ambiguous query, or the autocomplete fetch failed.
   const showLiveOption = query.length > 1 && !haveNames.has(query.toLowerCase()) && !loading && (entries.length === 0 || fetchFailed);
-
-  if (entries.length === 0 && !loading && !showLiveOption) {
-    hideResults();
-    return;
-  }
-
-  entries.forEach((entry, i) => {
-    const li = document.createElement("li");
-    li.className = "search-result-item";
-    li.style.animationDelay = `${i * 30}ms`;
-    li.innerHTML = `
-      ${avatarHtml(entry, "sm")}
-      <span class="sr-main">
-        <span class="sr-player">${escapeHtml(entry.player)}</span>
-      </span>
-      ${teamLogoHtml(entry.teamId, entry.team, "sr-team-logo")}
-    `;
-    li.addEventListener("mousedown", () => {
-      clearSearchQuery();
-      hideResults();
-      // Live-search entries carry the real position in `sub` (e.g. "P",
-      // "SS"); static demo entries put a prop-count string there instead,
-      // so only trust it as a position hint for live results.
-      selectPlayer(entry.player, entry.kind === "live" ? entry.sub : null, { playerEntry: entry });
-    });
-    els.searchResults.appendChild(li);
-  });
-
-  if (loading) {
-    const li = document.createElement("li");
-    li.className = "search-result-item search-result-loading";
-    li.innerHTML = `<span class="loading-pulse"></span><span class="sr-main"><span class="sr-pick">Searching MLB players…</span></span>`;
-    els.searchResults.appendChild(li);
-  }
-
-  if (showLiveOption) {
-    const li = document.createElement("li");
-    li.className = "search-result-item search-result-live";
-    li.style.animationDelay = `${entries.length * 30}ms`;
-    li.innerHTML = `
-      <span class="sr-main">
-        <span class="sr-player">Search "${escapeHtml(query)}" live</span>
-        <span class="sr-pick">${fetchFailed ? "Player search failed — try an exact name" : "No matches yet — try the exact name"}</span>
-      </span>
-    `;
-    li.addEventListener("mousedown", () => {
-      clearSearchQuery();
-      hideResults();
-      selectPlayer(query);
-    });
-    els.searchResults.appendChild(li);
-  }
-
-  els.searchResults.hidden = false;
+  window.dispatchEvent(new CustomEvent("vortex:search-results", {
+    detail: { entries, loading, fetchFailed, showLiveOption, query },
+  }));
 }
 
 function hideResults() {
-  clearTimeout(searchCloseTimer);
-  if (els.searchResults.hidden) return;
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    els.searchResults.hidden = true;
-    els.searchResults.classList.remove("is-closing");
-    return;
-  }
-  els.searchResults.classList.add("is-closing");
-  searchCloseTimer = setTimeout(() => {
-    els.searchResults.hidden = true;
-    els.searchResults.classList.remove("is-closing");
-  }, 125);
+  window.dispatchEvent(new Event("vortex:search-hide"));
 }
 
 // Quick-start suggestions for the "Or jump straight to:" row. These are just
