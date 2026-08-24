@@ -1,0 +1,86 @@
+.tabs[data-react-tabs="true"] {
+  display: inline-flex !important;
+  width: auto !important;
+  overflow: visible !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.vortex-expandable-tabs {
+  flex-wrap: nowrap;
+  width: max-content;
+  padding: 5px;
+  border: 1px solid var(--theme-border);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--theme-panel) 88%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--theme-text) 5%, transparent), 0 12px 30px rgba(0, 0, 0, .18);
+  backdrop-filter: blur(18px) saturate(120%);
+}
+
+.vortex-expandable-tabs > [aria-hidden="true"] {
+  flex: 0 0 1px;
+  height: 24px;
+  background: var(--theme-border);
+}
+
+.vortex-expandable-tabs .expandable-tab {
+  position: relative;
+  display: flex;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 13px;
+  color: var(--theme-dim);
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.vortex-expandable-tabs .expandable-tab:hover:not([data-selected="true"]) {
+  color: var(--theme-text);
+  background: var(--theme-panel-2);
+}
+
+.vortex-expandable-tabs .expandable-tab[data-selected="true"] {
+  color: var(--theme-on-accent) !important;
+  background: var(--theme-accent) !important;
+  box-shadow: 0 5px 18px color-mix(in srgb, var(--theme-accent) 16%, transparent) !important;
+}
+
+.vortex-expandable-tabs .expandable-tab:focus-visible {
+  outline: 2px solid var(--theme-accent) !important;
+  outline-offset: 3px;
+}
+
+.vortex-expandable-tabs .expandable-tab svg { flex: 0 0 auto; }
+.vortex-expandable-tabs .expandable-tab span { font: 600 12px/1 var(--font-sans); }
+.vortex-expandable-tabs .tab-count {
+  display: grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  margin-left: 1px;
+  padding: 0 5px;
+  border-radius: 999px;
+  color: var(--theme-accent);
+  background: color-mix(in srgb, var(--theme-on-accent) 88%, transparent);
+  font: 800 9px/1 var(--font-mono);
+}
+
+@media (max-width: 760px) {
+  .tabs[data-react-tabs="true"] { display: none !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vortex-expandable-tabs *, .vortex-expandable-tabs *::before, .vortex-expandable-tabs *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+}

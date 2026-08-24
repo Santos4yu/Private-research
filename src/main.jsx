@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { BarChart3, ClipboardList, FlaskConical, Search, Sparkles } from 'lucide-react';
 import Dock from './Dock';
+import { ExpandableTabs } from '../components/ui/expandable-tabs';
 import './landing.css';
+import './tailwind.css';
+import './expandable-tabs.css';
 
 const Icon = ({ children }) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">{children}</svg>;
 const icons = {
@@ -30,4 +34,52 @@ function VortexDock() {
   return <Dock items={items} panelHeight={58} baseItemSize={42} magnification={42} distance={120} dockHeight={76} />;
 }
 
-createRoot(document.getElementById('dock-root')).render(<VortexDock />);
+const topTabs = [
+  { title: 'Research', icon: Search, value: 'research' },
+  { title: 'Tools', icon: FlaskConical, value: 'slate' },
+  { title: 'Props', icon: BarChart3, value: 'v2' },
+  { title: 'Parlay', icon: Sparkles, value: 'builder' },
+  { type: 'separator' },
+  { title: 'Builder', icon: ClipboardList, value: 'saved' },
+];
+
+function VortexTopTabs() {
+  const [tab, setTab] = useState('research');
+  const [saved, setSaved] = useState(0);
+
+  useEffect(() => {
+    const sync = (event) => {
+      setTab(event.detail?.tab || 'research');
+      setSaved(event.detail?.saved ?? 0);
+    };
+    window.addEventListener('vortex:dock-sync', sync);
+    window.dispatchEvent(new Event('vortex:dock-ready'));
+    return () => window.removeEventListener('vortex:dock-sync', sync);
+  }, []);
+
+  const tabs = topTabs.map((item) => item.value === 'saved'
+    ? { ...item, badge: saved > 0 ? <span className="tab-count" aria-label={`${saved} saved props`}>{saved}</span> : null }
+    : item);
+  const selectedIndex = tabs.findIndex((item) => item.value === tab);
+
+  return (
+    <ExpandableTabs
+      tabs={tabs}
+      selectedIndex={selectedIndex < 0 ? 0 : selectedIndex}
+      collapseOnOutside={false}
+      className="vortex-expandable-tabs"
+      onChange={(index) => {
+        if (index == null) return;
+        const selected = tabs[index];
+        if (selected && selected.type !== 'separator') {
+          window.dispatchEvent(new CustomEvent('vortex:switch-tab', { detail: { tab: selected.value } }));
+        }
+      }}
+    />
+  );
+}
+
+const dockRoot = document.getElementById('dock-root');
+if (dockRoot) createRoot(dockRoot).render(<VortexDock />);
+const tabsRoot = document.getElementById('tabs');
+if (tabsRoot) createRoot(tabsRoot).render(<VortexTopTabs />);

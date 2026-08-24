@@ -501,11 +501,13 @@ function wireSettingsPanel() {
 /* ---------- Tabs ---------- */
 
 function wireTabs() {
-  els.tabs.querySelectorAll(".tab-btn").forEach((btn, i) => {
-    btn.addEventListener("click", () => switchTab(btn.dataset.tab, btn));
-  });
-  requestAnimationFrame(() => moveIndicator(els.tabs.querySelector(".tab-btn.active")));
-  window.addEventListener("resize", () => moveIndicator(els.tabs.querySelector(".tab-btn.active")));
+  if (!els.tabs.dataset.reactTabs) {
+    els.tabs.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => switchTab(btn.dataset.tab, btn));
+    });
+    requestAnimationFrame(() => moveIndicator(els.tabs.querySelector(".tab-btn.active")));
+    window.addEventListener("resize", () => moveIndicator(els.tabs.querySelector(".tab-btn.active")));
+  }
 
   const bottomNav = document.getElementById("bottom-nav");
   if (bottomNav) {
@@ -545,8 +547,8 @@ function switchTab(tab) {
     return;
   }
   state.currentTab = tab;
-  els.tabs.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
-  const topBtn = els.tabs.querySelector(`.tab-btn[data-tab="${tab}"]`);
+  els.tabs.querySelectorAll("[data-tab]").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
+  const topBtn = els.tabs.querySelector(`[data-tab="${tab}"]`);
   if (topBtn) moveIndicator(topBtn);
 
   const bottomNav = document.getElementById("bottom-nav");
@@ -794,7 +796,7 @@ function clearIntroAnimations() {
 }
 
 function moveIndicator(btn) {
-  if (!btn) return;
+  if (!btn || !els.tabIndicator) return;
   const tabsRect = els.tabs.getBoundingClientRect();
   const btnRect = btn.getBoundingClientRect();
   els.tabIndicator.style.width = `${btnRect.width}px`;
@@ -971,7 +973,7 @@ function syncSaveButton(btnEl, id) {
 }
 
 function updateSavedCount() {
-  els.savedCount.textContent = state.savedProps.size;
+  if (els.savedCount) els.savedCount.textContent = state.savedProps.size;
   const bc = document.getElementById("bottom-saved-count");
   if (bc) {
     bc.textContent = state.savedProps.size;
