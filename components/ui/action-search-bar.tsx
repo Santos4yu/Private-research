@@ -83,6 +83,8 @@ function ActionSearchBar({
   const popoverRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
+  const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
+  const selectionLockRef = React.useRef(false);
   const reduceMotion = useReducedMotion();
 
   React.useLayoutEffect(() => {
@@ -186,11 +188,32 @@ function ActionSearchBar({
   }, [open, updatePopoverPosition]);
 
   const selectEntry = (entry: PlayerEntry) => {
+    if (selectionLockRef.current) return;
+    selectionLockRef.current = true;
     setRecent(saveRecentSearch(entry));
     setQuery("");
     setOpen(false);
     inputRef.current?.blur();
     window.dispatchEvent(new CustomEvent("vortex:player-search-select", { detail: { entry } }));
+    window.setTimeout(() => { selectionLockRef.current = false; }, 350);
+  };
+
+  const beginTouchSelection = (event: React.PointerEvent) => {
+    if (event.pointerType !== "touch") return;
+    touchStartRef.current = { x: event.clientX, y: event.clientY };
+  };
+
+  const finishTouchSelection = (event: React.PointerEvent, entry: PlayerEntry) => {
+    if (event.pointerType !== "touch" || !touchStartRef.current) return;
+    const moved = Math.hypot(
+      event.clientX - touchStartRef.current.x,
+      event.clientY - touchStartRef.current.y,
+    );
+    touchStartRef.current = null;
+    if (moved > 12) return;
+    event.preventDefault();
+    event.stopPropagation();
+    selectEntry(entry);
   };
 
   const searchExactName = () => {
@@ -273,6 +296,9 @@ function ActionSearchBar({
                   key={`${entry.playerId || entry.player}-${entry.team || "MLB"}`}
                   value={`${entry.player}-${entry.team || ""}`}
                   onSelect={() => selectEntry(entry)}
+                  onPointerDown={beginTouchSelection}
+                  onPointerUp={(event) => finishTouchSelection(event, entry)}
+                  onPointerCancel={() => { touchStartRef.current = null; }}
                   className="command-player-item"
                 >
                   <span className="command-player-avatar">
