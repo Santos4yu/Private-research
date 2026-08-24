@@ -196,9 +196,9 @@ function ActionSearchBar({
   const showExact = Boolean(query.trim().length > 1 && payload.showLiveOption);
 
   return (
-    <div className="command-player-search" data-open={open ? "true" : "false"} ref={rootRef}>
+    <div className="command-player-search w-full! max-w-[680px]!" data-open={open ? "true" : "false"} ref={rootRef}>
       <CommandPrimitive shouldFilter={false} loop className="command-player-shell">
-        <div className="command-player-field" ref={fieldRef}>
+        <div className="command-player-field h-[58px]! rounded-2xl! backdrop-blur-xl!" ref={fieldRef}>
           <Search size={17} strokeWidth={1.8} aria-hidden="true" />
           <CommandPrimitive.Input
             ref={inputRef}

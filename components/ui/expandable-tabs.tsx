@@ -76,7 +76,7 @@ export function ExpandableTabs({
       layout={!reduceMotion}
       ref={outsideClickRef}
       className={cn(
-        "flex flex-wrap items-center gap-1 rounded-2xl border bg-background p-1 shadow-sm",
+        "flex flex-wrap items-center gap-1 rounded-xl! border bg-background/90 p-1! shadow-xl backdrop-blur-xl",
         className,
       )}
       aria-label={ariaLabel}
@@ -96,7 +96,7 @@ export function ExpandableTabs({
             onClick={() => handleSelect(index)}
             transition={transition}
             className={cn(
-              "expandable-tab relative flex items-center justify-center overflow-hidden rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-2",
+              "expandable-tab relative flex items-center justify-center overflow-hidden rounded-lg! text-sm font-medium transition-[color,background-color,transform] hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-2",
               isSelected
                 ? cn("bg-muted", activeColor)
                 : "text-muted-foreground hover:bg-muted hover:text-foreground",
