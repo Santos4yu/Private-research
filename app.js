@@ -151,6 +151,7 @@ init();
 
 async function init() {
   const loaderStartedAt = performance.now();
+  await waitForSearchMount();
   cacheEls();
   try {
     await checkAuth();
@@ -495,6 +496,19 @@ function wireSettingsPanel() {
   });
   els.modeRow.querySelectorAll(".mode-btn").forEach((btn) => {
     btn.addEventListener("click", () => applyTheme(btn.dataset.mode));
+  });
+}
+
+function waitForSearchMount() {
+  if (document.getElementById("search-input") && document.getElementById("search-results")) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    const finish = () => {
+      window.removeEventListener("vortex:search-ready", finish);
+      resolve();
+    };
+    window.addEventListener("vortex:search-ready", finish, { once: true });
   });
 }
 
@@ -1172,7 +1186,13 @@ function staticEntriesFor(query) {
 
 let searchDebounceTimer = null;
 let searchRequestToken = 0;
+let searchCloseTimer = null;
 const playerSearchCache = new Map();
+
+function clearSearchQuery() {
+  els.searchInput.value = "";
+  window.dispatchEvent(new Event("vortex:search-clear"));
+}
 
 function onSearchInput() {
   const query = els.searchInput.value;
@@ -1234,7 +1254,7 @@ function onSearchKeydown(e) {
     if (e.key === "Enter" && els.searchInput.value.trim().length > 1) {
       e.preventDefault();
       const query = els.searchInput.value.trim();
-      els.searchInput.value = "";
+      clearSearchQuery();
       hideResults();
       selectPlayer(query);
     }
@@ -1264,6 +1284,8 @@ function highlightActive(items) {
 }
 
 function renderResults(entries, { loading = false, fetchFailed = false } = {}) {
+  clearTimeout(searchCloseTimer);
+  els.searchResults.classList.remove("is-closing");
   state.activeIndex = -1;
   els.searchResults.innerHTML = "";
 
@@ -1291,7 +1313,7 @@ function renderResults(entries, { loading = false, fetchFailed = false } = {}) {
       ${teamLogoHtml(entry.teamId, entry.team, "sr-team-logo")}
     `;
     li.addEventListener("mousedown", () => {
-      els.searchInput.value = "";
+      clearSearchQuery();
       hideResults();
       // Live-search entries carry the real position in `sub` (e.g. "P",
       // "SS"); static demo entries put a prop-count string there instead,
@@ -1319,7 +1341,7 @@ function renderResults(entries, { loading = false, fetchFailed = false } = {}) {
       </span>
     `;
     li.addEventListener("mousedown", () => {
-      els.searchInput.value = "";
+      clearSearchQuery();
       hideResults();
       selectPlayer(query);
     });
@@ -1330,7 +1352,18 @@ function renderResults(entries, { loading = false, fetchFailed = false } = {}) {
 }
 
 function hideResults() {
-  els.searchResults.hidden = true;
+  clearTimeout(searchCloseTimer);
+  if (els.searchResults.hidden) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    els.searchResults.hidden = true;
+    els.searchResults.classList.remove("is-closing");
+    return;
+  }
+  els.searchResults.classList.add("is-closing");
+  searchCloseTimer = setTimeout(() => {
+    els.searchResults.hidden = true;
+    els.searchResults.classList.remove("is-closing");
+  }, 125);
 }
 
 // Quick-start suggestions for the "Or jump straight to:" row. These are just

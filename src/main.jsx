@@ -3,9 +3,11 @@ import { createRoot } from 'react-dom/client';
 import { BarChart3, ClipboardList, FlaskConical, Search, Sparkles } from 'lucide-react';
 import Dock from './Dock';
 import { ExpandableTabs } from '../components/ui/expandable-tabs';
+import { ActionSearchBar } from '../components/ui/action-search-bar';
 import './landing.css';
 import './tailwind.css';
 import './expandable-tabs.css';
+import './action-search-bar.css';
 
 const Icon = ({ children }) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">{children}</svg>;
 const icons = {
@@ -83,3 +85,5 @@ const dockRoot = document.getElementById('dock-root');
 if (dockRoot) createRoot(dockRoot).render(<VortexDock />);
 const tabsRoot = document.getElementById('tabs');
 if (tabsRoot) createRoot(tabsRoot).render(<VortexTopTabs />);
+const searchRoot = document.getElementById('action-search-root');
+if (searchRoot) createRoot(searchRoot).render(<ActionSearchBar />);
