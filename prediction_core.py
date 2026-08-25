@@ -638,7 +638,7 @@ def compute_prediction(player_name: str, prop_type: str, stat_label: str, line: 
     # Pitcher props (how many Ks/outs/ER/hits allowed THEY throw/give up, or
     # a pitcher fantasy composite) are a completely different pipeline from
     # batter props. Splits come from the pitching log, matchup grading is vs
-    # the OPPOSING LINEUP (not a single opposing pitcher), and none of the
+    # the OPPOSING TEAM (not a single opposing pitcher), and none of the
     # batter-vs-pitcher context (BvP, handedness splits, arsenal fit) applies
     # since this player IS the pitcher tonight, not a hitter facing one.
     if prop_type in PITCHER_PROP_TYPES:
@@ -1073,8 +1073,8 @@ def _pitcher_matchup_grade(*, k_card, opp_k, splits, opponent_offense=None,
     avg_value = number(avg_metric.get("value"))
     avg_rank = number(avg_metric.get("rank"))
     add("Opponent offense quality", 25, rank_raw(avg_metric),
-        (f"Projected lineup bats {avg_value:.3f} vs this pitcher's hand · rank #{int(avg_rank)}/30"
-         if avg_value is not None and avg_rank is not None else "Projected-lineup AVG unavailable"),
+        (f"Opponent team bats {avg_value:.3f} vs this pitcher's hand · rank #{int(avg_rank)}/30"
+         if avg_value is not None and avg_rank is not None else "Opponent team AVG unavailable"),
         avg_value is not None and avg_rank is not None)
 
     recent_ip = [number(start.get("ip")) for start in recent_starts[:3]]
@@ -1101,18 +1101,18 @@ def _pitcher_matchup_grade(*, k_card, opp_k, splits, opponent_offense=None,
     k_pct = number(k_metric.get("value"))
     k_rank = number(k_metric.get("rank"))
     add("Opponent K%", 15, rank_raw(k_metric),
-        (f"Projected lineup K% {k_pct:.1f}% · rank #{int(k_rank)}/30"
-         if k_pct is not None and k_rank is not None else "Projected-lineup K% unavailable"),
+        (f"Opponent team K% {k_pct:.1f}% · rank #{int(k_rank)}/30"
+         if k_pct is not None and k_rank is not None else "Opponent team K% unavailable"),
         k_pct is not None and k_rank is not None)
 
     bb_metric = offense_metrics.get("bb_pct") or {}
     bb_pct = number(bb_metric.get("value"))
     bb_rank = number(bb_metric.get("rank"))
-    # Lineup ranks define rank 1 as the strongest offensive result. For BB%,
+    # Team ranks define rank 1 as the strongest offensive result. For BB%,
     # a high rank therefore means fewer walks and a better pitcher matchup.
     add("Opponent BB%", 15, rank_raw(bb_metric),
-        (f"Projected lineup BB% {bb_pct:.1f}% · rank #{int(bb_rank)}/30"
-         if bb_pct is not None and bb_rank is not None else "Projected-lineup BB% unavailable"),
+        (f"Opponent team BB% {bb_pct:.1f}% · rank #{int(bb_rank)}/30"
+         if bb_pct is not None and bb_rank is not None else "Opponent team BB% unavailable"),
         bb_pct is not None and bb_rank is not None)
 
     weather = weather or {}

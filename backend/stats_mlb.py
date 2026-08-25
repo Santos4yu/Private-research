@@ -1716,81 +1716,20 @@ def _full_team_platoon_profiles(pitcher_hand: str, benchmarks: dict) -> dict:
 
 def get_lineup_offensive_profile(team_id: int, game_pk=None, game_date=None,
                                   team_benchmarks=None, pitcher_hand=None) -> dict:
-    """Confirmed-nine profile, or stable full-team platoon baseline pre-post."""
+    """Official full-team season profile versus the pitcher's handedness.
+
+    Pitcher-prop matchup scoring intentionally uses the complete opposing team
+    sample. It does not switch to a projected or confirmed nine, so the metric
+    remains stable and directly reproducible from MLB's team split endpoint.
+    The legacy function name is retained because it is part of the report API.
+    """
     hand = str(pitcher_hand or "").upper()[:1]
     if hand not in {"L", "R"}:
         return {}
     benchmarks = team_benchmarks or get_all_teams_offensive_profile()
     if len(benchmarks) != 30:
         return {}
-    batter_splits = _all_batter_splits_vs_hand(hand)
-    if not batter_splits:
-        return {}
-    lineup = get_team_lineup(team_id, game_pk=game_pk, game_date=game_date)
-    if len(lineup) != 9:
-        return (_full_team_platoon_profiles(hand, benchmarks).get(int(team_id)) or {})
-
-    scope = "confirmed_lineup"
-    projected = get_all_projected_team_lineups(
-        before_date=game_date, batter_splits=batter_splits,
-        team_ids=[int(team) for team in benchmarks],
-    )
-    projected[int(team_id)] = {**(projected.get(int(team_id)) or {}), "lineup": lineup}
-
-    def team_runs(team):
-        profile = benchmarks.get(team) or benchmarks.get(str(team)) or {}
-        return next((m.get("value") for m in profile.get("metrics", [])
-                     if m.get("key") == "runs_pg"), None)
-
-    all_values = {
-        int(tid): _lineup_platoon_values(info.get("lineup") or [], batter_splits, team_runs(tid))
-        for tid, info in projected.items()
-        if len(info.get("lineup") or []) == 9
-    }
-    values = _lineup_platoon_values(lineup, batter_splits, team_runs(int(team_id)))
-    if len(all_values) != 30 or not values:
-        return {}
-
-    metric_defs = (
-        ("avg", "AVG", True), ("runs_pg", "R", True),
-        ("hr_pg", "HR", True), ("k_pct", "K%", False),
-        ("bb_pct", "BB%", True),
-    )
-    metrics = []
-    for key, label, higher_is_better in metric_defs:
-        value = values.get(key)
-        reference = [profile.get(key) for profile in all_values.values() if profile.get(key) is not None]
-        if value is None or len(reference) != 30:
-            return {}
-        rank = 1 + sum(other > value if higher_is_better else other < value for other in reference)
-        rank = min(30, rank)
-        edge = "batter" if rank <= 10 else "pitcher" if rank >= 21 else "neutral"
-        display = (f"{value:.3f}".lstrip("0") if key == "avg" else
-                   f"{value:.1f}%" if key in {"k_pct", "bb_pct"} else f"{value:.1f}/g")
-        metrics.append({
-            "key": key, "label": label, "value": value, "display": display,
-            "rank": rank, "edge": edge,
-            "edge_label": "SP EDGE" if edge == "pitcher" else "BAT EDGE" if edge == "batter" else "NEUTRAL",
-        })
-
-    baseline = benchmarks.get(team_id) or benchmarks.get(str(team_id)) or {}
-    projection = projected.get(int(team_id)) or {}
-    totals = values["totals"]
-    return {
-        "team_id": team_id, "team_name": baseline.get("team_name", ""),
-        "season": SEASON, "scope": scope, "pitcher_hand": hand,
-        "source": "MLB Stats API", "hitters": values["rows"],
-        "projection_games": projection.get("games", 0),
-        "projection_through": projection.get("through"),
-        "lineup_size": 9, "lineup_games": round(values["lineup_games"], 1),
-        "runs_source": "team_season", "rank_scope": "30 projected lineups",
-        "metrics": metrics,
-        "totals": {
-            "at_bats": totals["at_bats"], "hits": totals["hits"],
-            "home_runs": totals["home_runs"], "strikeouts": totals["strikeouts"],
-            "walks": totals["walks"], "plate_appearances": totals["pa"],
-        },
-    }
+    return (_full_team_platoon_profiles(hand, benchmarks).get(int(team_id)) or {})
 
 
 def get_team_k_rate_vs_hand(team_id: int, pitcher_hand: str) -> dict:

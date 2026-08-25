@@ -3411,15 +3411,11 @@ function fillPitcherLineupProfile(node, p) {
   };
   const relevantKey = keyByMarket[p.betType] || "";
   const totals = profile.totals || {};
-  const isConfirmedLineup = profile.scope === "confirmed_lineup";
-  const isTeamBaseline = profile.scope === "team_baseline_vs_hand";
   const handLabel = profile.pitcher_hand === "L" ? "LHP" : "RHP";
   const number = (value) => Number.isFinite(Number(value)) ? Number(value).toLocaleString() : "—";
   block.hidden = false;
-  block.querySelector(".lineup-profile-team").textContent = `${profile.team_name || p.matchup?.opponent || "Opponent"} ${isTeamBaseline ? "team baseline" : "lineup"}`;
-  block.querySelector(".lineup-profile-source").textContent = isConfirmedLineup
-    ? `POSTED 9 · SEASON VS ${handLabel}`
-    : `FULL TEAM · SEASON VS ${handLabel}`;
+  block.querySelector(".lineup-profile-team").textContent = `${profile.team_name || p.matchup?.opponent || "Opponent"} team baseline`;
+  block.querySelector(".lineup-profile-source").textContent = `FULL TEAM · SEASON VS ${handLabel}`;
   block.querySelector(".lineup-profile-rows").innerHTML = metrics.map((metric) => {
     const rank = Math.max(1, Math.min(30, Number(metric.rank) || 30));
     const relevant = metric.key === relevantKey;
@@ -3429,9 +3425,7 @@ function fillPitcherLineupProfile(node, p) {
       <div class="lineup-result"><strong>${escapeHtml(metric.display || "—")}</strong><span>${escapeHtml(metric.edge_label || "NEUTRAL")}</span></div>
     </div>`;
   }).join("");
-  block.querySelector(".lineup-profile-note").textContent = isConfirmedLineup
-    ? `Confirmed 9 vs ${handLabel}: ${number(totals.hits)} H / ${number(totals.at_bats)} AB, ${number(totals.home_runs)} HR, ${number(totals.strikeouts)} K and ${number(totals.walks)} BB / ${number(totals.plate_appearances)} PA. AVG, K%, BB% and HR/G are PA/AB-weighted platoon results; R/G is the official team-season rate.`
-    : `Official full-team plate appearances vs ${handLabel}: ${number(totals.hits)} H / ${number(totals.at_bats)} AB, ${number(totals.strikeouts)} K and ${number(totals.walks)} BB / ${number(totals.plate_appearances)} PA${totals.split_games ? ` across ${number(totals.split_games)} games` : ""}. Automatically switches to the confirmed starting 9 when MLB posts the lineup; R/G and HR/G remain official team-season rates.`;
+  block.querySelector(".lineup-profile-note").textContent = `Official full-team plate appearances vs ${handLabel}: ${number(totals.hits)} H / ${number(totals.at_bats)} AB, ${number(totals.strikeouts)} K and ${number(totals.walks)} BB / ${number(totals.plate_appearances)} PA${totals.split_games ? ` across ${number(totals.split_games)} games` : ""}. This always uses the overall team sample; R/G and HR/G remain official team-season rates.`;
 }
 
 /* ---------- Manual PrizePicks prop builder ---------- */
