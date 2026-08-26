@@ -286,6 +286,7 @@
   <button type="button" class="side-link" data-tab="slate">◉ <span>slate</span></button>
   <button type="button" class="side-link" data-tab="v2">▦ <span>props</span></button>
   <button type="button" class="side-link" data-tab="builder">✦ <span>parlay builder</span></button>
+  <button type="button" class="side-link" data-tab="slip">▣ <span>slip analyzer</span></button>
   <button type="button" class="side-link" data-tab="moneyline">◈ <span>moneylines</span></button>
   <button type="button" class="side-link" data-tab="nrfi">◌ <span>nrfi / yrfi</span></button>
   <button type="button" class="side-link" data-tab="saved">♡ <span>prop builder</span></button>
@@ -463,6 +464,21 @@
     </div>
     <div class="builder-status" id="builder-status">Choose your settings, then build from the current live board.</div>
     <div class="builder-result" id="builder-result" hidden></div>
+  </div>
+</section>
+
+<!-- SLIP ANALYZER -->
+<section class="tab-panel" id="panel-slip" hidden>
+  <div class="slip-analyzer-shell">
+    <header class="slip-analyzer-head"><div><p class="eyebrow">IMAGE TO MATCHUP REPORT</p><h2>Grade your parlay</h2><p>Paste or upload one screenshot containing 2–6 MLB player props.</p></div><span>PRIVATE BETA</span></header>
+    <div class="slip-analyzer-grid">
+      <div>
+        <label class="slip-upload-zone" id="slip-upload-zone" for="slip-file-input" tabindex="0"><input id="slip-file-input" type="file" accept="image/png,image/jpeg,image/webp" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14"/></svg><strong>Drop or paste your screenshot</strong><small>Choose a file or press Ctrl+V / Cmd+V · PNG, JPG or WEBP under 4 MB</small><b id="slip-file-status">No image selected</b></label>
+        <div class="slip-upload-actions"><button type="button" class="ghost-btn" id="slip-paste-btn">Paste screenshot</button><button type="button" class="primary-btn" id="slip-grade-btn" disabled>Detect &amp; grade parlay</button></div>
+      </div>
+      <aside class="slip-analyzer-tips"><span>FOR A CLEAN READ</span><ol><li>Show every player name and market.</li><li>Keep each number and line visible.</li><li>Include the selected More/Less or Over/Under side.</li></ol><p>The same live form and matchup engine used by Prop Research grades every detected leg.</p></aside>
+    </div>
+    <div class="slip-analysis-result" id="slip-analysis-result" aria-live="polite"></div>
   </div>
 </section>
 

@@ -48,6 +48,7 @@ ROUTES = {
     "/api/board": _load_handler("board.py"),
     "/api/v2-board": _load_handler("v2-board.py"),
     "/api/v2-admin": _load_handler("v2-admin.py"),
+    "/api/slip-analyzer": _load_handler("slip-analyzer.py"),
 }
 
 

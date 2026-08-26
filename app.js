@@ -24,6 +24,7 @@ const DATA_SOURCE = "/predictions.json";
 const API_SOURCE = "/api/prediction";
 const API_PLAYERS_SOURCE = "/api/players";
 const API_PRIZEPICKS_EXPORT = "/api/prediction?action=prizepicks-export";
+const API_SLIP_ANALYZER = "/api/slip-analyzer";
 
 const SAVED_KEY = "vortex_saved_prop_ids";
 const AVATAR_HUES = [168, 262, 24, 200, 330, 48, 140, 300];
@@ -202,6 +203,7 @@ async function init() {
   wireSlate();
   wireV2Board();
   wireParlayBuilder();
+  wireSlipAnalyzer();
   wireAdminPanel();
   wireSidePanel();
   wireSpecialMarkets();
@@ -259,6 +261,7 @@ function cacheEls() {
 
   els.panelV2 = document.getElementById("panel-v2");
   els.panelBuilder = document.getElementById("panel-builder");
+  els.panelSlip = document.getElementById("panel-slip");
   els.panelMoneyline = document.getElementById("panel-moneyline");
   els.panelNrfi = document.getElementById("panel-nrfi");
   els.panelAdmin = document.getElementById("panel-admin");
@@ -292,6 +295,12 @@ function cacheEls() {
   els.builderGenerate = document.getElementById("builder-generate");
   els.builderStatus = document.getElementById("builder-status");
   els.builderResult = document.getElementById("builder-result");
+  els.slipFileInput = document.getElementById("slip-file-input");
+  els.slipUploadZone = document.getElementById("slip-upload-zone");
+  els.slipFileStatus = document.getElementById("slip-file-status");
+  els.slipPasteBtn = document.getElementById("slip-paste-btn");
+  els.slipGradeBtn = document.getElementById("slip-grade-btn");
+  els.slipAnalysisResult = document.getElementById("slip-analysis-result");
 
   els.v2PinOverlay = document.getElementById("v2-pin-overlay");
   els.v2PinInput = document.getElementById("v2-pin-input");
@@ -569,6 +578,7 @@ function switchTab(tab) {
   els.panelSlate.hidden = tab !== "slate";
   els.panelV2.hidden = tab !== "v2";
   els.panelBuilder.hidden = tab !== "builder";
+  els.panelSlip.hidden = tab !== "slip";
   els.panelMoneyline.hidden = tab !== "moneyline";
   els.panelNrfi.hidden = tab !== "nrfi";
   els.panelAdmin.hidden = tab !== "admin";
@@ -4461,6 +4471,106 @@ function wireParlayBuilder() {
     if (!state.v2BoardLoaded) await loadV2Board();
     runParlayBuilder();
   });
+}
+
+/* ---------- Slip Analyzer ---------- */
+
+let selectedSlipImage = null;
+
+function acceptSlipImage(file) {
+  const allowed = new Set(["image/png", "image/jpeg", "image/webp"]);
+  if (!file || !allowed.has(file.type)) {
+    selectedSlipImage = null;
+    els.slipGradeBtn.disabled = true;
+    els.slipFileStatus.textContent = "No image selected";
+    if (file) renderSlipError("Use a PNG, JPG, or WEBP screenshot.");
+    return;
+  }
+  if (file.size > 4 * 1024 * 1024) {
+    selectedSlipImage = null;
+    els.slipGradeBtn.disabled = true;
+    return renderSlipError("That screenshot is larger than 4 MB. Crop or compress it, then try again.");
+  }
+  selectedSlipImage = file;
+  els.slipGradeBtn.disabled = false;
+  els.slipFileStatus.textContent = `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB`;
+  els.slipAnalysisResult.innerHTML = "";
+}
+
+function renderSlipError(message) {
+  els.slipAnalysisResult.innerHTML = `<div class="slip-error" role="alert"><strong>Couldn’t analyze that slip</strong><p>${escapeHtml(message)}</p></div>`;
+}
+
+async function pasteSlipFromClipboard() {
+  if (!navigator.clipboard?.read) {
+    return renderSlipError("This browser blocks the Paste button. Copy the screenshot and press Ctrl+V or Cmd+V on this page instead.");
+  }
+  try {
+    const items = await navigator.clipboard.read();
+    const item = items.find((entry) => entry.types.some((type) => type.startsWith("image/")));
+    if (!item) return renderSlipError("No image is on the clipboard. Copy the screenshot first, then paste again.");
+    const type = item.types.find((value) => value.startsWith("image/"));
+    const blob = await item.getType(type);
+    const ext = type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg";
+    acceptSlipImage(new File([blob], `pasted-slip-${Date.now()}.${ext}`, { type }));
+  } catch (_) {
+    renderSlipError("Clipboard access was blocked. Click anywhere on this page and press Ctrl+V or Cmd+V instead.");
+  }
+}
+
+function wireSlipAnalyzer() {
+  els.slipFileInput.addEventListener("change", () => acceptSlipImage(els.slipFileInput.files[0]));
+  ["dragenter", "dragover"].forEach((name) => els.slipUploadZone.addEventListener(name, (event) => {
+    event.preventDefault(); els.slipUploadZone.classList.add("dragging");
+  }));
+  ["dragleave", "drop"].forEach((name) => els.slipUploadZone.addEventListener(name, (event) => {
+    event.preventDefault(); els.slipUploadZone.classList.remove("dragging");
+  }));
+  els.slipUploadZone.addEventListener("drop", (event) => acceptSlipImage(event.dataTransfer.files[0]));
+  els.slipUploadZone.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") { event.preventDefault(); els.slipFileInput.click(); }
+  });
+  els.slipPasteBtn.addEventListener("click", pasteSlipFromClipboard);
+  els.slipGradeBtn.addEventListener("click", gradeSlipImage);
+  document.addEventListener("paste", (event) => {
+    if (state.currentTab !== "slip") return;
+    const item = [...(event.clipboardData?.items || [])].find((entry) => entry.type.startsWith("image/"));
+    if (!item) return;
+    event.preventDefault();
+    const file = item.getAsFile();
+    if (file) acceptSlipImage(new File([file], `pasted-slip-${Date.now()}.png`, { type: file.type }));
+  });
+}
+
+async function gradeSlipImage() {
+  if (!selectedSlipImage) return;
+  els.slipGradeBtn.disabled = true;
+  els.slipGradeBtn.textContent = "Analyzing…";
+  els.slipAnalysisResult.innerHTML = `<div class="slip-loader"><i></i><div><strong>Building the matchup report</strong><p>Reading 2–6 legs, resolving players, and scoring every live matchup. This can take up to a minute.</p></div></div>`;
+  try {
+    const response = await fetch(API_SLIP_ANALYZER, { method: "POST", headers: { "Content-Type": selectedSlipImage.type }, body: selectedSlipImage });
+    const data = await response.json();
+    if (data.authRequired) { await checkAuth(); return; }
+    if (!response.ok || data.error) return renderSlipError(data.error || "The slip could not be graded.");
+    renderSlipResult(data);
+  } catch (_) {
+    renderSlipError("The request did not finish. Check your connection and try the screenshot again.");
+  } finally {
+    els.slipGradeBtn.disabled = false;
+    els.slipGradeBtn.textContent = "Detect & grade parlay";
+  }
+}
+
+function renderSlipResult(data) {
+  const legs = (data.legs || []).map((leg, index) => {
+    if (leg.error) return `<article class="slip-result-leg error"><span>LEG ${index + 1}</span><p>${escapeHtml(leg.error)}</p></article>`;
+    const rates = leg.hitRates || {};
+    const matchup = leg.matchup || {};
+    const why = (leg.whyItHits || []).slice(0, 3);
+    const risks = (leg.risk || []).filter((text) => !/live lookup/i.test(text)).slice(0, 2);
+    return `<article class="slip-result-leg"><header><span>LEG ${index + 1}</span><div><h3>${escapeHtml(leg.player)}</h3><p>${escapeHtml(leg.side)} ${escapeHtml(leg.line)} ${escapeHtml(leg.detectedMarket || leg.betType)}${matchup.opponent ? ` · vs ${escapeHtml(matchup.opponent)}` : ""}</p></div><b>${escapeHtml(leg.tier || "—")}</b><strong>${escapeHtml(leg.score ?? "—")}<small>SCORE</small></strong></header><div class="slip-leg-metrics"><span>L5 <b>${escapeHtml(rates.l5 ?? "—")}%</b></span><span>L10 <b>${escapeHtml(rates.l10 ?? "—")}%</b></span><span>L20 <b>${escapeHtml(rates.l20 ?? "—")}%</b></span><span>Leg chance <b>${escapeHtml(leg.legProbability ?? "—")}%</b></span></div><details><summary>Full leg breakdown</summary>${why.length ? `<div><b>WHY IT RATES</b>${why.map((text) => `<p>${escapeHtml(cleanAnalysisText(text))}</p>`).join("")}</div>` : ""}${risks.length ? `<div class="risk"><b>RISK</b>${risks.map((text) => `<p>${escapeHtml(cleanAnalysisText(text))}</p>`).join("")}</div>` : ""}${leg.narrative ? `<div><b>MATCHUP READ</b><p>${escapeHtml(cleanAnalysisText(leg.narrative))}</p></div>` : ""}</details></article>`;
+  }).join("");
+  els.slipAnalysisResult.innerHTML = `<section class="slip-grade-summary"><div><span>PARLAY GRADE</span><h2>${escapeHtml(data.tier)}</h2><p>${data.gradedCount} legs graded · weakest leg: <b>${escapeHtml(data.weakestLeg || "—")}</b></p></div><div class="slip-parlay-score"><strong>${escapeHtml(data.parlayScore)}</strong><small>PARLAY SCORE</small></div><dl><div><dt>Combined chance</dt><dd>${escapeHtml(data.combinedProbability)}%</dd></div><div><dt>Average L10</dt><dd>${escapeHtml(data.averageL10)}%</dd></div><div><dt>Average leg score</dt><dd>${escapeHtml(data.averageLegScore)}</dd></div></dl></section><div class="slip-result-legs">${legs}</div>${data.gradedCount > 2 ? `<p class="slip-parlay-note">More legs sharply reduce the chance of the full card hitting. Compare this with a two-leg version using the strongest individual scores.</p>` : ""}`;
 }
 
 /* Expanded card — Silas-style emoji-rich format */
