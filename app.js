@@ -24,7 +24,7 @@ const DATA_SOURCE = "/predictions.json";
 const API_SOURCE = "/api/prediction";
 const API_PLAYERS_SOURCE = "/api/players";
 const API_PRIZEPICKS_EXPORT = "/api/prediction?action=prizepicks-export";
-const API_SLIP_ANALYZER = "/api/slip-analyzer";
+const API_SLIP_ANALYZER = "/api/prediction?action=slip-analyzer";
 
 const SAVED_KEY = "vortex_saved_prop_ids";
 const AVATAR_HUES = [168, 262, 24, 200, 330, 48, 140, 300];

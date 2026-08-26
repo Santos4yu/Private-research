@@ -10,17 +10,21 @@ All actual logic lives in predictions-site/prediction_core.py so both
 platform wrappers share one implementation.
 """
 
+import asyncio
 import json
 import re
 import sys
 import time
 import unicodedata
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
+import analyze  # noqa: E402
 from prediction_core import compute_prediction, PlayerNotFound, NoGameFound, STAT_LABEL_TO_PROP_TYPE  # noqa: E402
 from auth_core import session_with_live_access  # noqa: E402
 from prizepicks_export_core import build_export  # noqa: E402
@@ -42,6 +46,70 @@ _MARKET_FOR_PROP = {
     "pitcher_earned_runs": "pitcher_earned_runs",
     "pitcher_fantasy_score": "pitcher_fantasy_score",
 }
+
+_SLIP_PROP_LABELS = {
+    "hits": "Hits", "total_bases": "Total Bases", "home_runs": "Home Runs",
+    "rbis": "RBIs", "runs_scored": "Runs Scored", "walks": "Walks",
+    "hits_runs_rbis": "Hits+Runs+RBIs", "fantasy_score": "Fantasy Score",
+    "strikeouts": "Strikeouts (Pitcher)", "pitcher_strikeouts": "Strikeouts (Pitcher)",
+    "pitcher_outs": "Pitching Outs", "pitcher_earned_runs": "Earned Runs Allowed",
+    "pitcher_hits_allowed": "Hits Allowed", "pitcher_walks": "Walks Allowed",
+    "pitcher_fantasy_score": "Fantasy Score (Pitcher)",
+}
+
+
+def _grade_slip_prop(prop):
+    prop_type = prop.get("prop_type") or analyze.normalize_market(prop.get("market_raw") or "")
+    stat_label = _SLIP_PROP_LABELS.get(prop_type)
+    if not stat_label:
+        return {"error": f"{prop.get('player_name', 'This leg')}: unsupported market {prop.get('market_raw') or prop_type}."}
+    try:
+        result = compute_prediction(
+            prop["player_name"], prop_type if prop_type != "strikeouts" else "pitcher_strikeouts",
+            stat_label, float(prop["line"]), prop["side"],
+        )
+        result["detectedMarket"] = prop.get("market_raw") or stat_label
+        return result
+    except Exception as exc:
+        return {"error": f"{prop.get('player_name', 'This leg')}: {exc}"}
+
+
+def _analyze_slip(image_bytes):
+    slip = asyncio.run(analyze.extract_slip_data(image_bytes))
+    if slip.get("error"):
+        return 422, {"error": slip["error"]}
+    props = slip.get("all_props") or [slip]
+    if not 2 <= len(props) <= 6:
+        return 422, {"error": f"Detected {len(props)} complete leg{'s' if len(props) != 1 else ''}. Show 2 to 6 selected props in one screenshot."}
+    incomplete = [p for p in props if not p.get("player_name") or not p.get("line") or p.get("side") not in {"over", "under"}]
+    if incomplete:
+        names = ", ".join(p.get("player_name") or "unknown player" for p in incomplete)
+        return 422, {"error": f"Could not confirm the line or selected side for {names}. Make every selection visible."}
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        legs = list(pool.map(_grade_slip_prop, props))
+    graded = [leg for leg in legs if not leg.get("error")]
+    if not graded:
+        return 422, {"error": "The legs were detected, but none could be graded against the current MLB slate.", "legs": legs}
+    probabilities = []
+    for leg in graded:
+        probability = max(.05, min(.95, float(leg.get("estHitRate") or 0) / 100))
+        leg["legProbability"] = round(probability * 100, 1)
+        probabilities.append(probability)
+    combined = 1.0
+    for probability in probabilities:
+        combined *= probability
+    if len(graded) > 2:
+        combined *= .95 ** (len(graded) - 2)
+    combined_pct = combined * 100
+    tier = "ELITE" if combined >= .35 else "STRONG" if combined >= .22 else "GOOD" if combined >= .12 else "LEAN" if combined >= .06 else "RISKY"
+    weakest = min(graded, key=lambda leg: leg.get("legProbability", 0))
+    return 200, {
+        "detectedCount": len(props), "gradedCount": len(graded), "legs": legs,
+        "parlayScore": round(combined_pct), "combinedProbability": round(combined_pct, 1),
+        "averageLegScore": round(sum(float(leg.get("score") or 0) for leg in graded) / len(graded), 1),
+        "averageL10": round(sum(probabilities) / len(probabilities) * 100, 1),
+        "tier": tier, "weakestLeg": weakest.get("player"),
+    }
 
 
 def _norm(value):
@@ -209,6 +277,21 @@ class handler(BaseHTTPRequestHandler):
                 "authRequired": True,
             })
         action = (parse_qs(urlparse(self.path).query).get("action", [""])[0]).strip().lower()
+        if action == "slip-analyzer":
+            content_type = (self.headers.get("Content-Type") or "").split(";", 1)[0].lower()
+            if content_type not in {"image/png", "image/jpeg", "image/webp"}:
+                return self._send(415, {"error": "Paste or upload a PNG, JPG, or WEBP screenshot."})
+            try:
+                content_length = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                content_length = 0
+            if content_length < 1 or content_length > 4 * 1024 * 1024:
+                return self._send(413, {"error": "The screenshot must be smaller than 4 MB."})
+            try:
+                status, body = _analyze_slip(self.rfile.read(content_length))
+                return self._send(status, body)
+            except Exception as exc:
+                return self._send(422, {"error": f"Could not read that screenshot: {exc}"})
         if action != "prizepicks-export":
             return self._send(404, {"error": "Unknown action."})
         try:
