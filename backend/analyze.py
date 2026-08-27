@@ -440,9 +440,28 @@ def _validate_sides(result: dict, raw_text: str, image_bytes: bytes) -> None:
     """
     props = result.get("all_props") or [result]
 
-    for p in props:
+    for prop_index, p in enumerate(props):
         name = p.get("player_name", "?")
         line = p.get("line", 0)
+
+        # Stacked slips can select a different side on each card. OCR text
+        # sees both More and Less, so inspect each card's green highlight.
+        if len(props) > 1 and Image is not None:
+            try:
+                img = Image.open(io.BytesIO(image_bytes))
+                top = int(img.height * prop_index / len(props))
+                bottom = int(img.height * (prop_index + 1) / len(props))
+                region = io.BytesIO()
+                img.crop((0, top, img.width, bottom)).save(region, format="PNG")
+                visual = _detect_green_selection(region.getvalue())
+                if visual:
+                    p["side"] = visual
+                    p["_side_source"] = "visual:card_green_pixel"
+                    p["_side_confidence"] = 0.92
+                    print(f"[side-detect] {name} {line} = {visual.upper()} (source=visual:card_green_pixel)")
+                    continue
+            except Exception:
+                pass
 
         if p.get("side") and p["side"] in ("over", "under"):
             src = p.get("_side_source", "groq")
@@ -649,9 +668,9 @@ _PP_LINE_RE = re.compile(
 # Matches "Firstname Lastname" or "Firstname M. Lastname" or "Name Jr./Sr./II/III"
 # Anchored at START only so trailing team/position tokens don't block the match.
 _NAME_RE = re.compile(
-    r'^([A-Z][a-záéíóúàèìòù\-\']+(?:\s[A-Z]\.)?'   # First [M.]
-    r'(?:\s[A-Z][a-záéíóúàèìòù\-\'\.]+){1,3}'       # Last [Last2] [suffix]
-    r'(?:\s(?:Jr|Sr|II|III|IV)\.?)?)$',              # Optional suffix
+    r'^((?:[A-Z]\.){1,3}|[A-Z][A-Za-záéíóúàèìòù\-\']+)(?:\s[A-Z]\.)?'
+    r'(?:\s[A-Z][A-Za-záéíóúàèìòù\-\'\.]+){1,3}'
+    r'(?:\s(?:Jr|Sr|II|III|IV)\.?)?$',
     re.IGNORECASE,
 )
 
