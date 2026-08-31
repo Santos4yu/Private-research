@@ -2175,13 +2175,12 @@ function renderGameLogChart() {
     return;
   }
 
-  const label = gameLogState.window === "h2h"
-    ? `All meetings vs ${gameLogState.opponent || "this opponent"} across available seasons${filterSuffix}`
-    : `Last ${games.length} games${filterSuffix}`;
   const overCount = games.filter((g) => g.over).length;
   const hitRate = Math.round((overCount / games.length) * 100);
   const average = games.reduce((sum, game) => sum + Number(game.value || 0), 0) / games.length;
-  els.gamelogSub.textContent = `${label} · line ${gameLogState.line}`;
+  // The chart already communicates the active window and line through its
+  // controls; don't duplicate it as a stray right-aligned caption.
+  els.gamelogSub.textContent = "";
   document.getElementById("gamelog-summary-rate").textContent = `${overCount}/${games.length}`;
   document.getElementById("gamelog-summary-rate-percent").textContent = `${hitRate}% hit rate`;
   document.getElementById("gamelog-summary-record").textContent = `${overCount}–${games.length - overCount}`;
