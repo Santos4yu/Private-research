@@ -1929,6 +1929,7 @@ const GAMELOG_STAT_CODES = {
   "Earned Runs Allowed": "ER", "Hits Allowed": "HA", "Walks Allowed": "BB",
   "Fantasy Score (Pitcher)": "PFS",
 };
+const MLB_TEAM_IDS = { ARI:109, ATL:144, BAL:110, BOS:111, CHC:112, CWS:145, CIN:113, CLE:114, COL:115, DET:116, HOU:117, KC:118, LAA:108, LAD:119, MIA:146, MIL:158, MIN:142, NYM:121, NYY:147, OAK:133, PHI:143, PIT:134, SD:135, SEA:136, SF:137, STL:138, TB:139, TEX:140, TOR:141, WSH:120 };
 let gameLogPageScrollY = 0;
 
 function lockGameLogPageScroll() {
@@ -2031,8 +2032,8 @@ function openGameLogModal(p) {
   lockGameLogPageScroll();
   els.gamelogTitle.textContent = p.player || "Player";
   if (els.gamelogPropBadge) els.gamelogPropBadge.textContent = gameLogStatCode(p.betType);
-  const teamId = p.teamId || p.team_id || p.ownTeamId || p.team?.id;
   const teamName = p.teamAbbr || p.teamName || (typeof p.team === "string" ? p.team : p.team?.abbreviation) || "";
+  const teamId = p.teamId || p.team_id || p.ownTeamId || p.team?.id || MLB_TEAM_IDS[String(teamName).toUpperCase()];
   if (els.gamelogTeamMark) {
     els.gamelogTeamMark.hidden = !teamName && !teamId;
     els.gamelogTeamMark.innerHTML = teamId
@@ -2192,6 +2193,7 @@ function renderGameLogChart() {
   track.style.setProperty("--game-count", String(games.length));
   track.style.setProperty("--bar-width", games.length > 20 ? "30px" : games.length > 10 ? "38px" : "52px");
   track.dataset.count = String(games.length);
+  track.dataset.dense = games.length > 20 ? "true" : "false";
   games.forEach((g) => {
     const col = document.createElement("div");
     col.className = "gl-col";
@@ -2212,8 +2214,7 @@ function renderGameLogChart() {
           ${details ? `<div class="gl-detail-card" role="tooltip"><header><strong>${escapeHtml(fullDate)}</strong><span>${escapeHtml(g.opponent || "")}</span></header><div class="gl-detail-result">${g.over ? "Cleared" : "Under"} by ${Math.abs(Number(g.value) - Number(gameLogState.line)).toFixed(1)}</div>${tooltipRows}</div>` : ""}
         </div>
       </div>
-      <span class="gl-date">${escapeHtml(gameLogState.window === "h2h" ? (g.fullDate || g.date || "") : (g.date || ""))}</span>
-      <span class="gl-opponent"><span class="gl-opponent-logo">${g.opponentTeamId ? `<img src="https://www.mlbstatic.com/team-logos/${encodeURIComponent(g.opponentTeamId)}.svg" alt="" loading="lazy" onerror="this.parentElement.textContent='${escapeHtml(String(g.opponent || "").slice(0, 3))}'">` : escapeHtml(String(g.opponent || "").slice(0, 3))}</span><span class="gl-opp">${escapeHtml(g.opponent || "")}</span></span>
+      ${games.length <= 20 ? `<span class="gl-opponent-logo">${g.opponentTeamId ? `<img src="https://www.mlbstatic.com/team-logos/${encodeURIComponent(g.opponentTeamId)}.svg" alt="" loading="lazy" onerror="this.parentElement.textContent='${escapeHtml(String(g.opponent || "").slice(0, 3))}'">` : escapeHtml(String(g.opponent || "").slice(0, 3))}</span>` : ""}
     `;
     const shell = col.querySelector(".gl-bar-shell");
     shell?.addEventListener("click", () => {
