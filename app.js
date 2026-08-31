@@ -366,7 +366,7 @@ function cacheEls() {
   els.gamelogSubfilters = document.getElementById("gamelog-subfilters");
   els.glHandFilter = document.getElementById("gl-hand-filter");
   els.glVenueFilter = document.getElementById("gl-venue-filter");
-  els.gamelogStat = document.getElementById("gamelog-stat");
+  els.gamelogStatTabs = document.getElementById("gamelog-stat-tabs");
   els.gamelogLineDown = document.getElementById("gamelog-line-down");
   els.gamelogLineUp = document.getElementById("gamelog-line-up");
   els.gamelogLineValue = document.getElementById("gamelog-line-value");
@@ -1974,16 +1974,16 @@ function setGameLogPreviewLine(value, settle = false) {
 
 function populateGameLogStats() {
   const stats = gameLogState.isPitcher ? PITCHER_STATS : BATTER_STATS;
-  els.gamelogStat.innerHTML = stats.map((stat) => `<option value="${escapeHtml(stat)}">${escapeHtml(gameLogStatCode(stat))}</option>`).join("");
-  els.gamelogStat.value = gameLogState.stat;
+  els.gamelogStatTabs.innerHTML = stats.map((stat) => `<button type="button" data-stat="${escapeHtml(stat)}" class="${stat === gameLogState.stat ? "active" : ""}">${escapeHtml(gameLogStatCode(stat))}</button>`).join("");
 }
 
 async function loadGameLogStat(stat) {
   const token = ++gameLogState.fetchToken;
   gameLogState.stat = stat;
-  els.gamelogStat.disabled = true;
+  els.gamelogStatTabs?.querySelectorAll("button").forEach((button) => { button.disabled = true; });
   els.gamelogChart.classList.add("is-loading");
-  els.gamelogTitle.textContent = gameLogStatCode(stat);
+  els.gamelogTitle.textContent = gameLogState.player || "Player";
+  els.gamelogStatTabs?.querySelectorAll("button").forEach((button) => button.classList.toggle("active", button.dataset.stat === stat));
   try {
     const url = `/api/game-log-filters?player=${encodeURIComponent(gameLogState.player)}&stat=${encodeURIComponent(stat)}&line=${gameLogState.line}&season=all` +
       (gameLogState.teamId ? `&teamId=${gameLogState.teamId}` : "") +
@@ -1999,7 +1999,7 @@ async function loadGameLogStat(stat) {
     els.gamelogSub.textContent = err.message || "This stat is unavailable right now.";
   } finally {
     if (token === gameLogState.fetchToken) {
-      els.gamelogStat.disabled = false;
+      els.gamelogStatTabs?.querySelectorAll("button").forEach((button) => { button.disabled = false; });
       els.gamelogChart.classList.remove("is-loading");
       renderGameLogTabs();
       renderGameLogChart();
@@ -2325,7 +2325,10 @@ function wireGameLogModal() {
       renderGameLogChart();
     });
   });
-  els.gamelogStat.addEventListener("change", () => loadGameLogStat(els.gamelogStat.value));
+  els.gamelogStatTabs?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-stat]");
+    if (button && !button.disabled) loadGameLogStat(button.dataset.stat);
+  });
   els.gamelogLineDown.addEventListener("click", () => setGameLogPreviewLine(gameLogState.line - 0.5, true));
   els.gamelogLineUp.addEventListener("click", () => setGameLogPreviewLine(gameLogState.line + 0.5, true));
 }
