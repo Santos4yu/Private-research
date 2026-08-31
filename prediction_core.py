@@ -1979,6 +1979,8 @@ def _build_game_log_chart(game_log: list, line: float, h2h_log: list = None) -> 
                 "value": g.get("value", 0),
                 "opponent": stats_mlb._MLB_TEAM_ABBR.get(g.get("opponent", ""), (g.get("opponent") or "")[:3].upper()),
                 "date": _short_date(g.get("date", "")),
+                "fullDate": g.get("date", ""),
+                "season": int(str(g.get("date", "0"))[:4] or 0),
                 "over": (g.get("value", 0) or 0) >= line,
                 # Present only when the caller fetched with include_hand_venue
                 # (the lazy handedness/venue filter fetch) -- None otherwise,
@@ -1986,6 +1988,7 @@ def _build_game_log_chart(game_log: list, line: float, h2h_log: list = None) -> 
                 # genuinely unresolved game.
                 "isHome": g.get("isHome"),
                 "oppHand": g.get("oppHand"),
+                "pitcherDetails": g.get("pitcherDetails"),
             }
             for g in games
         ][::-1]  # oldest-to-newest, left-to-right on the chart
@@ -1996,6 +1999,7 @@ def _build_game_log_chart(game_log: list, line: float, h2h_log: list = None) -> 
         "l10": _bars(log[:10]),
         "l15": _bars(log[:15]),
         "l20": _bars(log[:20]),
+        "all": _bars(log),
     }
     if h2h_log:
         windows["h2h"] = _bars(h2h_log)
@@ -2003,7 +2007,7 @@ def _build_game_log_chart(game_log: list, line: float, h2h_log: list = None) -> 
 
 
 def get_game_log_filters(player_name: str, prop_type: str, line: float, opp_team_id=None,
-                         opp_team_name: str | None = None) -> dict:
+                          opp_team_name: str | None = None, season: str | int | None = None) -> dict:
     """
     On-demand endpoint (api/game-log-filters.py) for the game-log modal's
     handedness/venue filter chips. Deliberately separate from
@@ -2021,9 +2025,27 @@ def get_game_log_filters(player_name: str, prop_type: str, line: float, opp_team
         raise PlayerNotFound(f"Couldn't find an MLB player matching \"{player_name}\".")
     player_id = matches[0]["id"]
 
-    splits = stats_mlb.get_historical_splits(player_id, line, prop_type, include_hand_venue=True)
-    if splits.get("error"):
-        raise NoGameFound(splits["error"])
+    current_season = int(stats_mlb.SEASON)
+    if str(season or "").lower() == "all":
+        game_log = []
+        for year in range(current_season, current_season - 3, -1):
+            year_splits = stats_mlb.get_historical_splits(
+                player_id, line, prop_type, include_hand_venue=True,
+                season=year, max_games=200,
+            )
+            if not year_splits.get("error"):
+                game_log.extend(year_splits.get("game_log") or [])
+        splits = {"game_log": game_log}
+        if not game_log:
+            raise NoGameFound("No game log data found for the available seasons")
+    else:
+        selected_season = int(season) if str(season or "").isdigit() else current_season
+        splits = stats_mlb.get_historical_splits(
+            player_id, line, prop_type, include_hand_venue=True,
+            season=selected_season, max_games=200,
+        )
+        if splits.get("error"):
+            raise NoGameFound(splits["error"])
 
     if not opp_team_id and opp_team_name:
         wanted = "".join(ch for ch in opp_team_name.lower() if ch.isalnum())

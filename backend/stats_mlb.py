@@ -483,7 +483,9 @@ def _resolve_opp_pitcher_hands(games: list[dict]) -> dict[int, str]:
 
 def get_historical_splits(player_id: int, line: float,
                            prop_type: str = "hits",
-                           include_hand_venue: bool = False) -> dict:
+                           include_hand_venue: bool = False,
+                           season: int | None = None,
+                           max_games: int = 20) -> dict:
     """
     Fetch the player's current-season game log and compute L5/L10/L20 hit rates.
 
@@ -513,10 +515,11 @@ def get_historical_splits(player_id: int, line: float,
     group = "pitching" if is_pitcher else "hitting"
     prefix = "pitch" if is_pitcher else "hit"
 
+    effective_season = int(season or SEASON)
     data = _get(f"/people/{player_id}/stats", {
         "stats": "gameLog", "group": group,
-        "season": SEASON, "sportId": 1,
-    }, cache_key=f"gamelog_{prefix}_{player_id}_{SEASON}_{_today}")
+        "season": effective_season, "sportId": 1,
+    }, cache_key=f"gamelog_{prefix}_{player_id}_{effective_season}_{_today}")
 
     if not data:
         return {"error": "Could not fetch game log"}
@@ -533,8 +536,8 @@ def get_historical_splits(player_id: int, line: float,
     # pull season stat separately
     season_data = _get(f"/people/{player_id}/stats", {
         "stats": "season", "group": group,
-        "season": SEASON, "sportId": 1,
-    }, cache_key=f"season_{prefix}_{player_id}_{SEASON}")
+        "season": effective_season, "sportId": 1,
+    }, cache_key=f"season_{prefix}_{player_id}_{effective_season}")
 
     season_splits = ((season_data or {}).get("stats") or [{}])[0].get("splits", [])
     season_stat = _combined_player_split(season_splits).get("stat", {})
@@ -634,16 +637,25 @@ def get_historical_splits(player_id: int, line: float,
         _resolve_opp_pitcher_hands(splits[:20])
         if include_hand_venue and not is_pitcher else {}
     )
-    game_log = [
-        {
+    game_log = []
+    for g in splits[:max(1, int(max_games or 20))]:
+        stat = g["stat"]
+        entry = {
             "date":     g.get("date", ""),
             "opponent": g.get("opponent", {}).get("name", ""),
-            "value":    _stat_from_game(g["stat"], prop_type),
+            "value":    _stat_from_game(stat, prop_type),
             "isHome":   g.get("isHome"),
             "oppHand":  opp_hand_by_gamepk.get((g.get("game") or {}).get("gamePk")),
         }
-        for g in splits[:20]
-    ]
+        if is_pitcher:
+            entry["pitcherDetails"] = {
+                "inningsPitched": stat.get("inningsPitched"),
+                "battersFaced": stat.get("battersFaced"),
+                "pitchCount": stat.get("numberOfPitches", stat.get("pitchesThrown")),
+                "walks": stat.get("baseOnBalls"),
+                "strikeouts": stat.get("strikeOuts"),
+            }
+        game_log.append(entry)
 
     l5_hr, l10_hr, l20_hr = (_hit_rate(splits, line, prop_type, 5),
                              _hit_rate(splits, line, prop_type, 10),

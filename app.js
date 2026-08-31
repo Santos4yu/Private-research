@@ -134,6 +134,7 @@ const state = {
 const els = {};
 
 const THEME_KEY = "vortex_theme_mode";
+const EXPERIENCE_KEY = "private_jarvis_interface";
 // Mirrors --bg per data-theme in styles.css -- must be declared before the
 // applyTheme() call below (which runs at script top-level, immediately),
 // not down near the function definition, or it's a temporal-dead-zone
@@ -147,6 +148,7 @@ const THEME_BG = {
 const LEGACY_THEMES = { dark: "obsidian", grey: "midnight", light: "ivory" };
 const initialTheme = localStorage.getItem(THEME_KEY) || "obsidian";
 applyTheme(LEGACY_THEMES[initialTheme] || initialTheme);
+applyExperience(localStorage.getItem(EXPERIENCE_KEY) === "true");
 
 init();
 
@@ -350,6 +352,7 @@ function cacheEls() {
   els.settingsBtn = document.getElementById("settings-btn");
   els.settingsPanel = document.getElementById("settings-panel");
   els.modeRow = document.getElementById("mode-row");
+  els.experienceToggle = document.getElementById("experience-toggle");
 
   els.gamelogOverlay = document.getElementById("gamelog-overlay");
   els.gamelogTitle = document.getElementById("gamelog-title");
@@ -365,6 +368,18 @@ function cacheEls() {
   els.gamelogLineDown = document.getElementById("gamelog-line-down");
   els.gamelogLineUp = document.getElementById("gamelog-line-up");
   els.gamelogLineValue = document.getElementById("gamelog-line-value");
+  els.gamelogFilterToggle = document.getElementById("gamelog-filter-toggle");
+  els.gamelogFilterClose = document.getElementById("gamelog-filter-close");
+  els.gamelogFilterPanel = document.getElementById("gamelog-filter-panel");
+  els.gamelogStudio = document.getElementById("gamelog-studio");
+  els.gamelogSeasonRow = document.getElementById("gamelog-season-row");
+  els.gamelogPresetRow = document.getElementById("gamelog-preset-row");
+  els.gamelogGamesDown = document.getElementById("gamelog-games-down");
+  els.gamelogGamesUp = document.getElementById("gamelog-games-up");
+  els.gamelogGamesCount = document.getElementById("gamelog-games-count");
+  els.gamelogWindowLabel = document.getElementById("gamelog-window-label");
+  els.gamelogH2HToggle = document.getElementById("gamelog-h2h-toggle");
+  els.gamelogFilterCount = document.getElementById("gamelog-filter-count");
 
   els.teamOverlay = document.getElementById("team-overlay");
   els.teamTitle = document.getElementById("team-title");
@@ -400,6 +415,14 @@ function applyTheme(mode) {
   });
   const meta = document.getElementById("theme-color-meta");
   if (meta && THEME_BG[mode]) meta.setAttribute("content", THEME_BG[mode]);
+}
+
+function applyExperience(enabled) {
+  document.documentElement.toggleAttribute("data-jarvis", enabled);
+  localStorage.setItem(EXPERIENCE_KEY, String(enabled));
+  const toggle = document.getElementById("experience-toggle");
+  if (toggle) toggle.checked = enabled;
+  window.dispatchEvent(new CustomEvent("private:experience-change", { detail: { enabled } }));
 }
 
 /* ---------- Keep navigation out of the way once the reader leaves the top ---------- */
@@ -505,6 +528,17 @@ function wireSettingsPanel() {
   els.modeRow.querySelectorAll(".mode-btn").forEach((btn) => {
     btn.addEventListener("click", () => applyTheme(btn.dataset.mode));
   });
+  if (els.experienceToggle) {
+    els.experienceToggle.checked = document.documentElement.hasAttribute("data-jarvis");
+    els.experienceToggle.addEventListener("change", () => {
+      applyExperience(els.experienceToggle.checked);
+      showToast(
+        els.experienceToggle.checked ? "Jarvis Interface online" : "Jarvis Interface standing by",
+        "default",
+        els.experienceToggle.checked ? "Cinematic motion systems activated." : "Returned to the focused interface."
+      );
+    });
+  }
 }
 
 /* ---------- Tabs ---------- */
@@ -1875,9 +1909,10 @@ function renderReport(p) {
 /* ---------- Expandable game log modal (L5/L10/L15/L20/H2H) ---------- */
 
 let gameLogState = {
-  chart: null, line: null, player: "", opponent: "", window: "l5",
+  chart: null, line: null, player: "", opponent: "", window: "recent",
   handFilter: "all", venueFilter: "all", handDataLoaded: false, teamId: null,
-  stat: "", isPitcher: false, fetchToken: 0,
+  stat: "", isPitcher: false, fetchToken: 0, gameCount: 5, season: "all",
+  filtersOpen: false, animationDirection: "initial",
 };
 
 function snapPropLine(value) {
@@ -1943,7 +1978,7 @@ async function loadGameLogStat(stat) {
   els.gamelogChart.classList.add("is-loading");
   els.gamelogTitle.textContent = gameLogStatCode(stat);
   try {
-    const url = `/api/game-log-filters?player=${encodeURIComponent(gameLogState.player)}&stat=${encodeURIComponent(stat)}&line=${gameLogState.line}` +
+    const url = `/api/game-log-filters?player=${encodeURIComponent(gameLogState.player)}&stat=${encodeURIComponent(stat)}&line=${gameLogState.line}&season=all` +
       (gameLogState.teamId ? `&teamId=${gameLogState.teamId}` : "") +
       (gameLogState.opponent ? `&opponent=${encodeURIComponent(gameLogState.opponent)}` : "");
     const res = await fetch(url);
@@ -1952,7 +1987,7 @@ async function loadGameLogStat(stat) {
     if (!res.ok || data.error) throw new Error(data.error || "Unable to load this stat");
     gameLogState.chart = data;
     regradeGameLog(gameLogState.line);
-    gameLogState.window = [gameLogState.window, "l10", "l5", "l15", "l20", "h2h"].find((w) => (data[w] || []).length) || "l10";
+    gameLogState.window = "recent";
   } catch (err) {
     els.gamelogSub.textContent = err.message || "This stat is unavailable right now.";
   } finally {
@@ -1967,6 +2002,9 @@ async function loadGameLogStat(stat) {
 
 function openGameLogModal(p) {
   gameLogState.chart = p.gameLogChart || {};
+  if (!gameLogState.chart.all) {
+    gameLogState.chart.all = [...(gameLogState.chart.l20 || gameLogState.chart.l15 || gameLogState.chart.l10 || gameLogState.chart.l5 || [])];
+  }
   gameLogState.line = p.line;
   gameLogState.player = p.player;
   gameLogState.stat = p.betType;
@@ -1975,14 +2013,16 @@ function openGameLogModal(p) {
   gameLogState.handFilter = "all";
   gameLogState.venueFilter = "all";
   gameLogState.handDataLoaded = false;
+  gameLogState.gameCount = Math.min(5, gameLogState.chart.all.length || 5);
+  gameLogState.window = "recent";
+  const availableSeasons = gameLogState.chart.all.map((game) => Number(game.season || String(game.fullDate || "").slice(0, 4))).filter(Boolean);
+  gameLogState.season = availableSeasons.length ? String(Math.max(...availableSeasons)) : "all";
+  gameLogState.filtersOpen = false;
+  gameLogState.animationDirection = "initial";
   // Deliberately NOT teamInsightsParams.teamId -- that's the player's own
   // team (for the Team Insights lineup view), while H2H filtering here needs
   // the actual opponent's team id.
   gameLogState.teamId = p.opponentTeamId || null;
-  // Default to the widest window that actually has data, so a prop with
-  // only 5 games logged doesn't open on an empty L10 tab.
-  gameLogState.window = ["l5", "l10", "l15", "l20"].find((w) => (gameLogState.chart[w] || []).length > 0) || "l5";
-
   els.gamelogOverlay.hidden = false;
   lockGameLogPageScroll();
   els.gamelogTitle.textContent = gameLogStatCode(p.betType);
@@ -1992,6 +2032,7 @@ function openGameLogModal(p) {
     : avatarHtml(p, "lg");
   els.gamelogLineValue.textContent = Number(p.line).toFixed(1);
   populateGameLogStats();
+  setGameLogFiltersOpen(false);
   renderGameLogTabs();
   renderGameLogChart();
 
@@ -2008,7 +2049,7 @@ async function fetchGameLogDetails(p) {
   const requestedStat = p.betType;
   els.glHandFilter.querySelectorAll(".gl-filter-chip").forEach((b) => { b.disabled = true; });
   try {
-    const url = `/api/game-log-filters?player=${encodeURIComponent(p.player)}&stat=${encodeURIComponent(p.betType)}&line=${p.line}` +
+    const url = `/api/game-log-filters?player=${encodeURIComponent(p.player)}&stat=${encodeURIComponent(p.betType)}&line=${p.line}&season=all` +
       (gameLogState.teamId ? `&teamId=${gameLogState.teamId}` : "") +
       (gameLogState.opponent ? `&opponent=${encodeURIComponent(gameLogState.opponent)}` : "");
     const res = await fetch(url);
@@ -2021,9 +2062,7 @@ async function fetchGameLogDetails(p) {
       // chart in that case silently threw away good H2H data the moment
       // this lazy fetch resolved. Only replace windows this fetch actually
       // returned games for; leave everything else as it was.
-      for (const key of Object.keys(data)) {
-        if (data[key] && data[key].length) gameLogState.chart[key] = data[key];
-      }
+      for (const key of Object.keys(data)) if (Array.isArray(data[key])) gameLogState.chart[key] = data[key];
       gameLogState.handDataLoaded = true;
     }
   } catch (err) {
@@ -2042,6 +2081,7 @@ function closeGameLogModal() {
 
 function filterGames(games) {
   return games.filter((g) => {
+    if (gameLogState.season !== "all" && String(g.season || String(g.fullDate || "").slice(0, 4)) !== gameLogState.season) return false;
     if (gameLogState.handFilter !== "all" && g.oppHand !== gameLogState.handFilter) return false;
     if (gameLogState.venueFilter === "home" && g.isHome !== true) return false;
     if (gameLogState.venueFilter === "road" && g.isHome !== false) return false;
@@ -2057,54 +2097,52 @@ function renderGameLogSubfilters() {
   els.glVenueFilter.querySelectorAll(".gl-filter-chip").forEach((b) => {
     b.classList.toggle("active", b.dataset.venue === gameLogState.venueFilter);
   });
+  const activeCount = Number(gameLogState.handFilter !== "all") + Number(gameLogState.venueFilter !== "all") + Number(gameLogState.season !== "all");
+  if (els.gamelogFilterCount) {
+    els.gamelogFilterCount.hidden = activeCount === 0;
+    els.gamelogFilterCount.textContent = activeCount;
+  }
 }
 
 function renderGameLogTabs() {
-  els.gamelogTabs.querySelectorAll(".gamelog-tile").forEach((btn) => {
-    const w = btn.dataset.window;
-    const rawGames = gameLogState.chart[w] || [];
-    const games = filterGames(rawGames);
-    const hasData = rawGames.length > 0;
-    btn.disabled = !hasData;
-    btn.classList.toggle("active", w === gameLogState.window);
-
-    const labelEl = btn.querySelector(".gl-tile-label");
-    const rateEl = btn.querySelector(".gl-tile-rate");
-    const avgEl = btn.querySelector(".gl-tile-avg");
-    if (w === "h2h") {
-      labelEl.textContent = window.matchMedia("(max-width: 600px)").matches
-        ? "H2H"
-        : gameLogState.opponent ? `CAREER H2H · ${gameLogState.opponent}` : "CAREER H2H";
-    }
-    if (!hasData || !games.length) {
-      rateEl.textContent = hasData ? "0 g" : "—";
-      avgEl.textContent = "";
-      rateEl.classList.remove("gl-tile-rate-good", "gl-tile-rate-bad");
-      return;
-    }
-    const overCount = games.filter((g) => g.over).length;
-    const rate = Math.round((overCount / games.length) * 100);
-    const avg = games.reduce((sum, g) => sum + g.value, 0) / games.length;
-    rateEl.textContent = `HR ${rate}%`;
-    rateEl.classList.toggle("gl-tile-rate-good", rate >= 55);
-    rateEl.classList.toggle("gl-tile-rate-bad", rate <= 45);
-    avgEl.textContent = `Avg ${avg.toFixed(2)}`;
+  const max = gameLogPool().length;
+  if (gameLogState.window !== "h2h") gameLogState.gameCount = Math.max(1, Math.min(gameLogState.gameCount, Math.max(1, max)));
+  if (els.gamelogGamesCount) els.gamelogGamesCount.textContent = gameLogState.gameCount;
+  if (els.gamelogWindowLabel) els.gamelogWindowLabel.textContent = gameLogState.window === "h2h" ? "Career matchups" : `Last ${gameLogState.gameCount} game${gameLogState.gameCount === 1 ? "" : "s"}`;
+  if (els.gamelogGamesDown) els.gamelogGamesDown.disabled = gameLogState.window === "h2h" || gameLogState.gameCount <= 1;
+  if (els.gamelogGamesUp) els.gamelogGamesUp.disabled = gameLogState.window === "h2h" || gameLogState.gameCount >= max;
+  if (els.gamelogH2HToggle) {
+    els.gamelogH2HToggle.hidden = !(gameLogState.chart?.h2h || []).length;
+    els.gamelogH2HToggle.classList.toggle("active", gameLogState.window === "h2h");
+  }
+  const seasons = [...new Set(recentGameLogSource().map((game) => String(game.season || String(game.fullDate || "").slice(0, 4))).filter((season) => /^\d{4}$/.test(season)))].sort().concat("all");
+  if (els.gamelogSeasonRow) {
+    els.gamelogSeasonRow.innerHTML = seasons.map((season) => `<button type="button" data-season="${season}" class="${gameLogState.season === season ? "active" : ""}">${season === "all" ? "All" : season}</button>`).join("");
+  }
+  els.gamelogPresetRow?.querySelectorAll("button").forEach((btn) => {
+    const value = btn.dataset.games === "max" ? max : Number(btn.dataset.games);
+    btn.disabled = !max;
+    btn.classList.toggle("active", gameLogState.window !== "h2h" && gameLogState.gameCount === value);
   });
+  renderGameLogSubfilters();
 }
 
 function renderGameLogChart() {
-  const games = filterGames(gameLogState.chart[gameLogState.window] || []);
+  const pool = gameLogPool();
+  const games = gameLogState.window === "h2h" ? pool : pool.slice(-gameLogState.gameCount);
   const holder = els.gamelogChart;
   holder.dataset.window = gameLogState.window;
+  holder.dataset.change = gameLogState.animationDirection;
   holder.innerHTML = "";
 
   const filterBits = [];
   if (gameLogState.handFilter !== "all") filterBits.push(`vs ${gameLogState.handFilter}HP`);
   if (gameLogState.venueFilter !== "all") filterBits.push(gameLogState.venueFilter === "home" ? "at home" : "on the road");
+  if (gameLogState.season !== "all") filterBits.push(gameLogState.season);
   const filterSuffix = filterBits.length ? ` (${filterBits.join(", ")})` : "";
 
   if (!games.length) {
-    const rawLen = (gameLogState.chart[gameLogState.window] || []).length;
+    const rawLen = pool.length;
     els.gamelogSub.textContent = rawLen
       ? `No games in this window${filterSuffix}.`
       : "No games available for this window.";
@@ -2133,19 +2171,37 @@ function renderGameLogChart() {
   const max = Math.max(...games.map((g) => g.value), typeof line === "number" ? line : 0, 1);
   const track = document.createElement("div");
   track.className = "gamelog-chart-track";
+  track.style.minWidth = `${Math.max(holder.clientWidth - 32, games.length * (holder.clientWidth <= 640 ? 58 : 78))}px`;
   games.forEach((g) => {
     const col = document.createElement("div");
     col.className = "gl-col";
     const heightPx = Math.max(4, (g.value / max) * trackPx);
+    const details = g.pitcherDetails || null;
+    const tooltipRows = details ? [
+      ["Innings pitched", details.inningsPitched], ["Batters faced", details.battersFaced],
+      ["Pitch count", details.pitchCount], ["Walks", details.walks], ["Strikeouts", details.strikeouts],
+    ].filter(([, value]) => value !== null && value !== undefined && value !== "").map(([label, value]) => `<div><span>${label}</span><strong>${escapeHtml(String(value))}</strong></div>`).join("") : "";
+    const fullDate = g.fullDate || g.date || "";
+    const aria = `${fullDate}, ${g.opponent || "opponent"}, ${gameLogStatCode(gameLogState.stat)} ${g.value}`;
     col.innerHTML = `
       <div class="gl-track" style="height:${trackPx}px">
-        <div class="gl-bar${g.over ? "" : " gl-bar-under"}" style="height:${heightPx}px">
-          <span class="gl-val">${g.value}</span>
+        <div class="gl-bar-shell" tabindex="0" role="button" aria-label="${escapeHtml(aria)}">
+          <div class="gl-bar${g.over ? "" : " gl-bar-under"}" style="height:${heightPx}px">
+            <span class="gl-val">${g.value}</span>
+          </div>
+          ${details ? `<div class="gl-detail-card" role="tooltip"><header><strong>${escapeHtml(fullDate)}</strong><span>${escapeHtml(g.opponent || "")}</span></header><div class="gl-detail-result">${g.over ? "Cleared" : "Under"} by ${Math.abs(Number(g.value) - Number(gameLogState.line)).toFixed(1)}</div>${tooltipRows}</div>` : ""}
         </div>
       </div>
       <span class="gl-date">${escapeHtml(gameLogState.window === "h2h" ? (g.fullDate || g.date || "") : (g.date || ""))}</span>
       <span class="gl-opp">${escapeHtml(g.opponent || "")}</span>
     `;
+    const shell = col.querySelector(".gl-bar-shell");
+    shell?.addEventListener("click", () => {
+      if (!window.matchMedia("(hover: none), (pointer: coarse)").matches || !details) return;
+      const willOpen = !shell.classList.contains("detail-open");
+      holder.querySelectorAll(".gl-bar-shell.detail-open").forEach((item) => item.classList.remove("detail-open"));
+      shell.classList.toggle("detail-open", willOpen);
+    });
     track.appendChild(col);
   });
 
@@ -2187,6 +2243,7 @@ function renderGameLogChart() {
   // Bars are oldest-to-newest, so open each window at the newest games.
   // Users can scroll left when they want to inspect older history.
   requestAnimationFrame(() => { holder.scrollLeft = holder.scrollWidth; });
+  gameLogState.animationDirection = "initial";
 }
 
 function wireGameLogModal() {
@@ -2197,13 +2254,28 @@ function wireGameLogModal() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !els.gamelogOverlay.hidden) closeGameLogModal();
   });
-  els.gamelogTabs.querySelectorAll(".gamelog-tile").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      if (btn.disabled) return;
-      gameLogState.window = btn.dataset.window;
-      renderGameLogTabs();
-      renderGameLogChart();
-    });
+  els.gamelogFilterToggle?.addEventListener("click", () => setGameLogFiltersOpen(!gameLogState.filtersOpen));
+  els.gamelogFilterClose?.addEventListener("click", () => setGameLogFiltersOpen(false));
+  els.gamelogGamesDown?.addEventListener("click", () => setGameLogCount(gameLogState.gameCount - 1, "remove"));
+  els.gamelogGamesUp?.addEventListener("click", () => setGameLogCount(gameLogState.gameCount + 1, "add"));
+  els.gamelogH2HToggle?.addEventListener("click", () => {
+    gameLogState.window = gameLogState.window === "h2h" ? "recent" : "h2h";
+    gameLogState.animationDirection = "initial";
+    renderGameLogTabs(); renderGameLogChart();
+  });
+  els.gamelogSeasonRow?.addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-season]");
+    if (!btn) return;
+    gameLogState.season = btn.dataset.season;
+    gameLogState.window = "recent";
+    gameLogState.animationDirection = "initial";
+    renderGameLogTabs(); renderGameLogChart();
+  });
+  els.gamelogPresetRow?.addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-games]");
+    if (!btn || btn.disabled) return;
+    const next = btn.dataset.games === "max" ? gameLogPool().length : Number(btn.dataset.games);
+    setGameLogCount(next, next >= gameLogState.gameCount ? "add" : "remove");
   });
   els.glHandFilter.querySelectorAll(".gl-filter-chip").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -4540,6 +4612,46 @@ function wireSlipAnalyzer() {
     const file = item.getAsFile();
     if (file) acceptSlipImage(new File([file], `pasted-slip-${Date.now()}.png`, { type: file.type }));
   });
+}
+
+function setGameLogFiltersOpen(open) {
+  gameLogState.filtersOpen = Boolean(open);
+  clearTimeout(gameLogState.filterCloseTimer);
+  if (gameLogState.filtersOpen) {
+    if (els.gamelogFilterPanel) {
+      els.gamelogFilterPanel.hidden = false;
+      els.gamelogFilterPanel.classList.remove("is-closing");
+    }
+    requestAnimationFrame(() => els.gamelogStudio?.classList.add("filters-open"));
+  } else {
+    els.gamelogStudio?.classList.remove("filters-open");
+    if (els.gamelogFilterPanel && !els.gamelogFilterPanel.hidden) {
+      els.gamelogFilterPanel.classList.add("is-closing");
+      gameLogState.filterCloseTimer = setTimeout(() => {
+        if (!gameLogState.filtersOpen) els.gamelogFilterPanel.hidden = true;
+        els.gamelogFilterPanel.classList.remove("is-closing");
+      }, 260);
+    }
+  }
+  if (els.gamelogFilterToggle) els.gamelogFilterToggle.setAttribute("aria-expanded", String(gameLogState.filtersOpen));
+}
+
+function recentGameLogSource() {
+  return gameLogState.chart?.all || gameLogState.chart?.l20 || gameLogState.chart?.l15 || gameLogState.chart?.l10 || gameLogState.chart?.l5 || [];
+}
+
+function gameLogPool() {
+  const source = gameLogState.window === "h2h" ? (gameLogState.chart?.h2h || []) : recentGameLogSource();
+  return filterGames(source);
+}
+
+function setGameLogCount(value, direction = "initial") {
+  const max = Math.max(1, gameLogPool().length);
+  gameLogState.gameCount = Math.max(1, Math.min(max, Number(value) || 1));
+  gameLogState.window = "recent";
+  gameLogState.animationDirection = direction;
+  renderGameLogTabs();
+  renderGameLogChart();
 }
 
 async function gradeSlipImage() {

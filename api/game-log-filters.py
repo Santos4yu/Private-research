@@ -34,6 +34,7 @@ class handler(BaseHTTPRequestHandler):
         line_raw = qs.get("line", [None])[0]
         team_id = (qs.get("teamId", [""])[0]).strip()
         opponent = (qs.get("opponent", [""])[0]).strip()
+        season = (qs.get("season", [""])[0]).strip()
 
         if not player_name or not stat_label or line_raw is None:
             return self._send(400, {"error": "Missing required params: player, stat, line"})
@@ -48,7 +49,10 @@ class handler(BaseHTTPRequestHandler):
             return self._send(400, {"error": f"Unknown stat: {stat_label!r}"})
 
         try:
-            result = get_game_log_filters(player_name, prop_type, line, team_id or None, opponent or None)
+            result = get_game_log_filters(
+                player_name, prop_type, line, team_id or None, opponent or None,
+                season or None,
+            )
         except PlayerNotFound as exc:
             return self._send(404, {"error": str(exc)})
         except NoGameFound as exc:

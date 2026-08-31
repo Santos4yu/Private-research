@@ -17,8 +17,10 @@
 <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png?v=2" />
 <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=2" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="styles.css?v=102" />
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css?v=103" />
+<link rel="stylesheet" href="jarvis.css?v=1" />
+<link rel="stylesheet" href="gamelog-premium.css?v=1" />
 <style>
   /* Inline (not the external stylesheet) so it applies before ANY paint --
      this is what actually prevents the flash of the app before the auth
@@ -86,6 +88,17 @@
     </div>
     <p class="theme-picker-note">Changes the full website and saves automatically.</p>
   </div>
+  <div class="settings-section experience-settings">
+    <div class="experience-setting-copy">
+      <span class="settings-label">Interface experience</span>
+      <strong>Jarvis Interface</strong>
+      <p>Living backgrounds, cinematic transitions, animated cards and intelligent loading sequences.</p>
+    </div>
+    <label class="experience-switch" for="experience-toggle">
+      <input type="checkbox" id="experience-toggle" role="switch" aria-label="Enable Jarvis Interface animations" />
+      <span aria-hidden="true"><i></i></span>
+    </label>
+  </div>
 </div>
 
 <!-- Hidden admin unlock: 5 rapid clicks on the settings gear opens this instead
@@ -152,7 +165,46 @@
         <span>Line</span>
         <div><button type="button" id="gamelog-line-down" aria-label="Decrease prop line">−</button><strong id="gamelog-line-value">—</strong><button type="button" id="gamelog-line-up" aria-label="Increase prop line">+</button></div>
       </div>
-      <div class="gamelog-subfilters" id="gamelog-subfilters" hidden>
+      <button type="button" class="gamelog-filter-toggle" id="gamelog-filter-toggle" aria-expanded="false" aria-controls="gamelog-filter-panel">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+        <span>Filters</span><i id="gamelog-filter-count" hidden>0</i>
+      </button>
+    </div>
+    <div class="gamelog-windowbar" id="gamelog-tabs">
+      <div class="gamelog-window-copy"><span>Game sample</span><strong id="gamelog-window-label">Last 5 games</strong></div>
+      <div class="gamelog-window-stepper" aria-label="Number of games shown">
+        <button type="button" id="gamelog-games-down" aria-label="Show one fewer game">−</button>
+        <strong id="gamelog-games-count" aria-live="polite">5</strong>
+        <button type="button" id="gamelog-games-up" aria-label="Show one more game">+</button>
+      </div>
+      <button type="button" class="gamelog-h2h-toggle" id="gamelog-h2h-toggle">H2H</button>
+    </div>
+    </div>
+    <div class="gamelog-studio" id="gamelog-studio">
+      <div class="gamelog-stage">
+        <div class="gamelog-summary">
+          <div><span>Hit rate</span><strong id="gamelog-summary-rate">—</strong></div>
+          <div><span>Record</span><strong id="gamelog-summary-record">—</strong></div>
+          <div><span>Average</span><strong id="gamelog-summary-average">—</strong></div>
+          <p class="gamelog-sub" id="gamelog-sub"></p>
+        </div>
+        <div class="gamelog-chart" id="gamelog-chart"></div>
+      </div>
+      <aside class="gamelog-filter-panel" id="gamelog-filter-panel" aria-label="Game log filters" hidden>
+        <header><div><strong>Filters</strong><span>Refine the performance sample</span></div><button type="button" id="gamelog-filter-close" aria-label="Close filters">✕</button></header>
+        <section class="gamelog-filter-section">
+          <span>Season</span>
+          <div class="gamelog-season-row" id="gamelog-season-row"></div>
+        </section>
+        <section class="gamelog-filter-section">
+          <span>Games</span>
+          <div class="gamelog-preset-row" id="gamelog-preset-row">
+            <button type="button" data-games="5">5</button><button type="button" data-games="10">10</button><button type="button" data-games="20">20</button><button type="button" data-games="max">Max</button>
+          </div>
+        </section>
+        <section class="gamelog-filter-section gamelog-context-filters">
+          <span>Matchup context</span>
+          <div class="gamelog-subfilters" id="gamelog-subfilters" hidden>
         <div class="gl-filter-group" id="gl-hand-filter">
           <button type="button" class="gl-filter-chip active" data-hand="all">All</button>
           <button type="button" class="gl-filter-chip" data-hand="L">vs LHP</button>
@@ -163,43 +215,10 @@
           <button type="button" class="gl-filter-chip" data-venue="home">Home</button>
           <button type="button" class="gl-filter-chip" data-venue="road">Road</button>
         </div>
-      </div>
+          </div>
+        </section>
+      </aside>
     </div>
-    <div class="gamelog-tiles" id="gamelog-tabs">
-      <button type="button" class="gamelog-tile" data-window="l5">
-        <span class="gl-tile-label">L5</span>
-        <span class="gl-tile-rate"></span>
-        <span class="gl-tile-avg"></span>
-      </button>
-      <button type="button" class="gamelog-tile" data-window="l10">
-        <span class="gl-tile-label">L10</span>
-        <span class="gl-tile-rate"></span>
-        <span class="gl-tile-avg"></span>
-      </button>
-      <button type="button" class="gamelog-tile" data-window="l15">
-        <span class="gl-tile-label">L15</span>
-        <span class="gl-tile-rate"></span>
-        <span class="gl-tile-avg"></span>
-      </button>
-      <button type="button" class="gamelog-tile" data-window="l20">
-        <span class="gl-tile-label">L20</span>
-        <span class="gl-tile-rate"></span>
-        <span class="gl-tile-avg"></span>
-      </button>
-      <button type="button" class="gamelog-tile" data-window="h2h">
-        <span class="gl-tile-label">H2H</span>
-        <span class="gl-tile-rate"></span>
-        <span class="gl-tile-avg"></span>
-      </button>
-    </div>
-    </div>
-    <div class="gamelog-summary">
-      <div><span>Hit rate</span><strong id="gamelog-summary-rate">—</strong></div>
-      <div><span>Record</span><strong id="gamelog-summary-record">—</strong></div>
-      <div><span>Average</span><strong id="gamelog-summary-average">—</strong></div>
-      <p class="gamelog-sub" id="gamelog-sub"></p>
-    </div>
-    <div class="gamelog-chart" id="gamelog-chart"></div>
   </div>
 </div>
 
