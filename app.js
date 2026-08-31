@@ -957,10 +957,14 @@ function showToast(message, variant = "default", detail = "") {
   }
   toast.append(icon, copy);
   els.toastStack.appendChild(toast);
+  // Always remove on a timer as well as animationend. Jarvis' entrance
+  // animation uses !important, which can otherwise prevent toast-out from
+  // firing and leave this status card stuck on screen.
   setTimeout(() => {
     toast.classList.add("leaving");
     toast.addEventListener("animationend", () => toast.remove(), { once: true });
-  }, 2200);
+    setTimeout(() => toast.remove(), 420);
+  }, 1800);
 }
 
 /* ---------- Saved props (localStorage) ----------

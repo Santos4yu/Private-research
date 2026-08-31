@@ -46,3 +46,12 @@
 
 @media(max-width:700px){:root[data-jarvis] body::after{background-size:48px 48px;opacity:.15}:root[data-jarvis] .glow-orb{width:70vw;height:70vw;filter:blur(70px)}:root[data-jarvis] :is(.slate-card,.slate-row,.saved-card,.v2-card,.board-card,.market-card,.builder-leg,.slip-result-leg):hover{transform:none}:root[data-jarvis] .private-loader::before{width:78vw}:root[data-jarvis] .private-loader::after{width:48vw}}
 @media(prefers-reduced-motion:reduce){:root[data-jarvis] *,:root[data-jarvis] *::before,:root[data-jarvis] *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}:root[data-jarvis] body::before,:root[data-jarvis] body::after{animation:none!important}}
+
+/* Full Jarvis motion layer: the interface should feel active, not merely outlined. */
+:root[data-jarvis] body{background-size:140% 140%!important;animation:j-ambient 18s ease-in-out infinite alternate}
+:root[data-jarvis] :is(.report-card,.player-profile,.saved-card,.v2-card,.board-card,.market-card,.builder-card,.slate-card){isolation:isolate;box-shadow:0 18px 55px #0006,0 0 0 1px color-mix(in srgb,var(--theme-accent) 8%,transparent),inset 0 1px #fff1!important}
+:root[data-jarvis] :is(.report-card,.player-profile,.saved-card,.v2-card,.board-card,.market-card,.builder-card,.slate-card)::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(115deg,transparent 25%,color-mix(in srgb,var(--theme-accent) 9%,transparent) 46%,transparent 66%);transform:translateX(-120%);animation:j-card-sheen 7s ease-in-out infinite;pointer-events:none}
+:root[data-jarvis] .toast.leaving{animation:j-toast-out .32s ease-in forwards!important}
+@keyframes j-ambient{0%{background-position:0% 0%}50%{background-position:100% 45%}100%{background-position:35% 100%}}
+@keyframes j-card-sheen{0%,35%{transform:translateX(-120%)}70%,100%{transform:translateX(120%)}}
+@keyframes j-toast-out{from{opacity:1;transform:translateY(0) scale(1);filter:none}to{opacity:0;transform:translateY(-10px) scale(.96);filter:blur(5px)}}
