@@ -45,6 +45,10 @@
   .gamelog-modal{height:100dvh!important;max-height:none!important;display:flex!important;flex-direction:column!important;overflow:hidden!important;transform:none!important}
   .gamelog-modal .modal-head,.gamelog-workbench{flex:none!important}
   .gamelog-studio{flex:1 1 auto!important;min-height:0!important;overflow:hidden!important}
-  .gamelog-stage{min-height:0!important;overflow:auto!important;overscroll-behavior:contain!important}
+  .gamelog-stage{min-height:0!important;overflow:hidden!important;overscroll-behavior:contain!important}
+  .gamelog-chart{overflow:hidden!important}
+  .gamelog-chart-track,.gamelog-chart-track[data-dense="true"]{display:grid!important;grid-template-columns:repeat(var(--game-count),minmax(0,1fr))!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;gap:3px!important;padding-inline:0!important}
+  .gamelog-chart-track .gl-col,.gamelog-chart-track .gl-bar-shell{width:100%!important;min-width:0!important}
+  .gamelog-chart-track[data-logo="false"] .gl-opponent-logo{display:none!important}
   #gamelog-games-down,#gamelog-games-up,.gamelog-filter-toggle,.gamelog-line-control button{touch-action:manipulation!important;-webkit-tap-highlight-color:transparent!important}
 }

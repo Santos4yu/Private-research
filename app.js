@@ -2219,6 +2219,7 @@ function renderGameLogChart() {
   track.style.setProperty("--bar-width", games.length > 20 ? "30px" : games.length > 10 ? "38px" : "52px");
   track.dataset.count = String(games.length);
   track.dataset.dense = games.length > 20 ? "true" : "false";
+  track.dataset.logo = games.length <= 12 ? "true" : "false";
   games.forEach((g) => {
     const col = document.createElement("div");
     col.className = "gl-col";
