@@ -1985,6 +1985,25 @@ async function loadGameLogStat(stat) {
   els.gamelogTitle.textContent = gameLogState.player || "Player";
   els.gamelogStatTabs?.querySelectorAll("button").forEach((button) => button.classList.toggle("active", button.dataset.stat === stat));
   try {
+    // Each market has its own PrizePicks baseline. Resolve that line before
+    // fetching the new log so switching to K/OUTS/etc. never inherits the
+    // previous market's number.
+    const ppStat = stat.replace(/ \(Pitcher\)$/, "");
+    let resolvedPrizePicksLine = false;
+    try {
+      const pp = await fetch(`/api/prediction?action=prizepicks-lines&player=${encodeURIComponent(gameLogState.player)}&stat=${encodeURIComponent(ppStat)}&opponent=${encodeURIComponent(gameLogState.opponent || "")}`);
+      const ppData = await pp.json();
+      const posted = (ppData.lines || []).find((row) => row.featured) || (ppData.lines || [])[0];
+      if (posted && Number.isFinite(Number(posted.line))) {
+        gameLogState.line = Number(posted.line);
+        els.gamelogLineValue.textContent = gameLogState.line.toFixed(1);
+        resolvedPrizePicksLine = true;
+      }
+    } catch (_) { /* fall back to the current line when live lines are unavailable */ }
+    if (!resolvedPrizePicksLine && Number.isFinite(Number(STAT_DEFAULT_LINE[stat]))) {
+      gameLogState.line = STAT_DEFAULT_LINE[stat];
+      els.gamelogLineValue.textContent = gameLogState.line.toFixed(1);
+    }
     const url = `/api/game-log-filters?player=${encodeURIComponent(gameLogState.player)}&stat=${encodeURIComponent(stat)}&line=${gameLogState.line}&season=all` +
       (gameLogState.teamId ? `&teamId=${gameLogState.teamId}` : "") +
       (gameLogState.opponent ? `&opponent=${encodeURIComponent(gameLogState.opponent)}` : "");
