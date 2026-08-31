@@ -2311,8 +2311,28 @@ function wireGameLogModal() {
   });
   els.gamelogFilterToggle?.addEventListener("click", () => setGameLogFiltersOpen(!gameLogState.filtersOpen));
   els.gamelogFilterClose?.addEventListener("click", () => setGameLogFiltersOpen(false));
-  els.gamelogGamesDown?.addEventListener("click", () => setGameLogCount(gameLogState.gameCount - 1, "remove"));
-  els.gamelogGamesUp?.addEventListener("click", () => setGameLogCount(gameLogState.gameCount + 1, "add"));
+  const wireCountButton = (button, delta, direction) => {
+    if (!button) return;
+    const activate = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      button.dataset.pointerActivated = "true";
+      button.blur();
+      setGameLogCount(gameLogState.gameCount + delta, direction);
+    };
+    button.addEventListener("pointerdown", activate, { passive: false });
+    // Keep Enter/Space keyboard activation accessible, while ignoring the
+    // synthetic click browsers emit after a touch pointerdown.
+    button.addEventListener("click", (event) => {
+      if (button.dataset.pointerActivated === "true") {
+        delete button.dataset.pointerActivated;
+        return;
+      }
+      activate(event);
+    });
+  };
+  wireCountButton(els.gamelogGamesDown, -1, "remove");
+  wireCountButton(els.gamelogGamesUp, 1, "add");
   els.gamelogH2HToggle?.addEventListener("click", () => {
     gameLogState.window = gameLogState.window === "h2h" ? "recent" : "h2h";
     gameLogState.animationDirection = "initial";

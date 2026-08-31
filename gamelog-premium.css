@@ -51,5 +51,5 @@
   .gamelog-chart-track,.gamelog-chart-track[data-dense="true"]{display:grid!important;grid-template-columns:repeat(var(--game-count),minmax(0,1fr))!important;width:100%!important;max-width:100%!important;min-width:0!important;margin:0!important;gap:3px!important;padding-inline:0!important}
   .gamelog-chart-track .gl-col,.gamelog-chart-track .gl-bar-shell{width:100%!important;min-width:0!important}
   .gamelog-chart-track[data-logo="false"] .gl-opponent-logo{display:none!important}
-  #gamelog-games-down,#gamelog-games-up,.gamelog-filter-toggle,.gamelog-line-control button{touch-action:manipulation!important;-webkit-tap-highlight-color:transparent!important}
+  #gamelog-games-down,#gamelog-games-up,.gamelog-filter-toggle,.gamelog-line-control button{touch-action:none!important;-webkit-tap-highlight-color:transparent!important}
 }
