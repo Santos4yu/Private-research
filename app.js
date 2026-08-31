@@ -1973,7 +1973,7 @@ function setGameLogPreviewLine(value, settle = false) {
 }
 
 function populateGameLogStats() {
-  const stats = gameLogState.isPitcher ? PITCHER_STATS : BATTER_STATS;
+  const stats = gameLogState.availableStats || (gameLogState.isPitcher ? PITCHER_STATS : BATTER_STATS);
   els.gamelogStatTabs.innerHTML = stats.map((stat) => `<button type="button" data-stat="${escapeHtml(stat)}" class="${stat === gameLogState.stat ? "active" : ""}">${escapeHtml(gameLogStatCode(stat))}</button>`).join("");
 }
 
@@ -2034,7 +2034,9 @@ function openGameLogModal(p) {
   gameLogState.line = p.line;
   gameLogState.player = p.player;
   gameLogState.stat = p.betType;
-  gameLogState.isPitcher = PITCHER_STATS.includes(p.betType);
+  gameLogState.isPitcher = PITCHER_STATS.includes(p.betType) || p.position === "P" || p.isPitcherProp === true;
+  const twoWay = p.isTwoWay === true || p.position === "TWP" || /shohei\s+ohtani/i.test(p.player || "");
+  gameLogState.availableStats = twoWay ? STANDARD_STATS : (gameLogState.isPitcher ? PITCHER_STATS : BATTER_STATS);
   gameLogState.opponent = (p.matchup && p.matchup.opponent) || "";
   gameLogState.handFilter = "all";
   gameLogState.venueFilter = "all";
