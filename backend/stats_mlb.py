@@ -643,6 +643,7 @@ def get_historical_splits(player_id: int, line: float,
         entry = {
             "date":     g.get("date", ""),
             "opponent": g.get("opponent", {}).get("name", ""),
+            "opponentTeamId": g.get("opponent", {}).get("id"),
             "value":    _stat_from_game(stat, prop_type),
             "isHome":   g.get("isHome"),
             "oppHand":  opp_hand_by_gamepk.get((g.get("game") or {}).get("gamePk")),

@@ -1605,6 +1605,7 @@ def format_response(*, player_name, team_abbr, headshot, stat_label, prop_type, 
             {
                 "value": g.get("value", 0),
                 "opponent": stats_mlb._MLB_TEAM_ABBR.get(g.get("opponent", ""), (g.get("opponent") or "")[:3].upper()),
+                "opponentTeamId": g.get("opponentTeamId"),
                 "date": _short_date(g.get("date", "")),
                 "fullDate": g.get("date", ""),
                 "season": str(g.get("date", ""))[:4],

@@ -356,6 +356,8 @@ function cacheEls() {
 
   els.gamelogOverlay = document.getElementById("gamelog-overlay");
   els.gamelogTitle = document.getElementById("gamelog-title");
+  els.gamelogPropBadge = document.getElementById("gamelog-prop-badge");
+  els.gamelogTeamMark = document.getElementById("gamelog-team-mark");
   els.gamelogPlayerCutout = document.getElementById("gamelog-player-cutout");
   els.gamelogClose = document.getElementById("gamelog-close");
   els.gamelogTabs = document.getElementById("gamelog-tabs");
@@ -2027,7 +2029,16 @@ function openGameLogModal(p) {
   gameLogState.teamId = p.opponentTeamId || null;
   els.gamelogOverlay.hidden = false;
   lockGameLogPageScroll();
-  els.gamelogTitle.textContent = gameLogStatCode(p.betType);
+  els.gamelogTitle.textContent = p.player || "Player";
+  if (els.gamelogPropBadge) els.gamelogPropBadge.textContent = gameLogStatCode(p.betType);
+  const teamId = p.teamId || p.team_id || p.ownTeamId || p.team?.id;
+  const teamName = p.teamAbbr || p.teamName || (typeof p.team === "string" ? p.team : p.team?.abbreviation) || "";
+  if (els.gamelogTeamMark) {
+    els.gamelogTeamMark.hidden = !teamName && !teamId;
+    els.gamelogTeamMark.innerHTML = teamId
+      ? `<img src="https://www.mlbstatic.com/team-logos/${encodeURIComponent(teamId)}.svg" alt="" onerror="this.style.display='none'"><span>${escapeHtml(teamName)}</span>`
+      : `<span>${escapeHtml(teamName)}</span>`;
+  }
   const cutout = String(p.headshot || "").replace("/headshot/67/current", "/headshot/silo/current");
   els.gamelogPlayerCutout.innerHTML = cutout
     ? `<img src="${escapeHtml(cutout)}" alt="" onerror="this.parentElement.innerHTML=''">`
@@ -2152,6 +2163,7 @@ function renderGameLogChart() {
       ? `No games in this window${filterSuffix}.`
       : "No games available for this window.";
     document.getElementById("gamelog-summary-rate").textContent = "—";
+    document.getElementById("gamelog-summary-rate-percent").textContent = "—";
     document.getElementById("gamelog-summary-record").textContent = "—";
     document.getElementById("gamelog-summary-average").textContent = "—";
     return;
@@ -2164,19 +2176,21 @@ function renderGameLogChart() {
   const hitRate = Math.round((overCount / games.length) * 100);
   const average = games.reduce((sum, game) => sum + Number(game.value || 0), 0) / games.length;
   els.gamelogSub.textContent = `${label} · line ${gameLogState.line}`;
-  document.getElementById("gamelog-summary-rate").textContent = `${hitRate}%`;
+  document.getElementById("gamelog-summary-rate").textContent = `${overCount}/${games.length}`;
+  document.getElementById("gamelog-summary-rate-percent").textContent = `${hitRate}% hit rate`;
   document.getElementById("gamelog-summary-record").textContent = `${overCount}–${games.length - overCount}`;
   document.getElementById("gamelog-summary-average").textContent = average.toFixed(2);
 
-  // Line value can exceed every game's value (e.g. a 5.5 K line with a
-  // season-high of 5) -- widen the scale so the dashed marker never sits
-  // above the chart's visible area.
+  // Keep the vertical scale anchored to the market, never to the current
+  // sample. This stops the prop line from jumping when a bar is added/removed.
   const line = gameLogState.line;
   const trackPx = holder.clientWidth <= 640 ? 150 : 280;
-  const max = Math.max(...games.map((g) => g.value), typeof line === "number" ? line : 0, 1);
+  const scaleCaps = { "Hits": 6, "Home Runs": 4, "Total Bases": 12, "Hits+Runs+RBIs": 10, "Runs Scored": 6, "RBIs": 6, "Walks": 5, "Strikeouts": 12, "Pitching Outs": 27, "Hits Allowed": 10, "Earned Runs Allowed": 8, "Strikeouts (Pitcher)": 12, "Walks Allowed": 5 };
+  const max = Math.max(scaleCaps[gameLogState.stat] || 10, typeof line === "number" ? Math.ceil(line * 1.6) : 1);
   const track = document.createElement("div");
   track.className = "gamelog-chart-track";
   track.style.setProperty("--game-count", String(games.length));
+  track.style.setProperty("--bar-width", games.length > 20 ? "30px" : games.length > 10 ? "38px" : "52px");
   track.dataset.count = String(games.length);
   games.forEach((g) => {
     const col = document.createElement("div");
@@ -2199,7 +2213,7 @@ function renderGameLogChart() {
         </div>
       </div>
       <span class="gl-date">${escapeHtml(gameLogState.window === "h2h" ? (g.fullDate || g.date || "") : (g.date || ""))}</span>
-      <span class="gl-opp">${escapeHtml(g.opponent || "")}</span>
+      <span class="gl-opponent"><span class="gl-opponent-logo">${g.opponentTeamId ? `<img src="https://www.mlbstatic.com/team-logos/${encodeURIComponent(g.opponentTeamId)}.svg" alt="" loading="lazy" onerror="this.parentElement.textContent='${escapeHtml(String(g.opponent || "").slice(0, 3))}'">` : escapeHtml(String(g.opponent || "").slice(0, 3))}</span><span class="gl-opp">${escapeHtml(g.opponent || "")}</span></span>
     `;
     const shell = col.querySelector(".gl-bar-shell");
     shell?.addEventListener("click", () => {
@@ -2246,6 +2260,11 @@ function renderGameLogChart() {
     track.appendChild(marker);
   }
   holder.appendChild(track);
+  const axis = document.createElement("div");
+  axis.className = "gl-y-axis";
+  axis.setAttribute("aria-hidden", "true");
+  axis.innerHTML = `<span>${Number(max).toFixed(max % 1 ? 1 : 0)}</span><span>${Number(max / 2).toFixed(max % 1 ? 1 : 0)}</span><span>0</span>`;
+  holder.appendChild(axis);
   // Never move the viewport as a side effect of rendering. Only direct user
   // input should animate or change the chart position.
   gameLogState.animationDirection = "none";
@@ -4631,11 +4650,10 @@ function setGameLogFiltersOpen(open) {
   } else {
     els.gamelogStudio?.classList.remove("filters-open");
     if (els.gamelogFilterPanel && !els.gamelogFilterPanel.hidden) {
-      els.gamelogFilterPanel.classList.add("is-closing");
-      gameLogState.filterCloseTimer = setTimeout(() => {
-        if (!gameLogState.filtersOpen) els.gamelogFilterPanel.hidden = true;
-        els.gamelogFilterPanel.classList.remove("is-closing");
-      }, 260);
+      // Hide synchronously so the one-column chart never renders underneath a
+      // still-visible drawer during its exit animation.
+      els.gamelogFilterPanel.hidden = true;
+      els.gamelogFilterPanel.classList.remove("is-closing");
     }
   }
   if (els.gamelogFilterToggle) els.gamelogFilterToggle.setAttribute("aria-expanded", String(gameLogState.filtersOpen));
