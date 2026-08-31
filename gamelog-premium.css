@@ -39,3 +39,12 @@
 @media(max-width:900px){.gamelog-studio.filters-open{display:flex;padding:0;gap:0}.gamelog-studio.filters-open .gamelog-stage{border:0;border-radius:0}.gamelog-studio.filters-open .gamelog-filter-panel{margin:0;border:0;border-bottom:1px solid #292929;border-radius:0;box-shadow:none}.gamelog-chart{padding-left:30px!important}.gamelog-chart-track{gap:3px!important;margin-inline:auto!important}.gamelog-chart-track[data-dense="true"]{margin-left:0!important;margin-right:0!important}.gamelog-chart-track .gl-col,.gl-bar-shell{width:var(--bar-width,48px)!important;min-width:var(--bar-width,48px)!important}.gamelog-team-mark img{width:18px;height:18px}.gamelog-summary strong{font-size:20px!important}.gl-y-axis{left:7px}}
 @media(max-width:900px){.gamelog-chart>.gl-line-marker{--chart-top:28px}}
 @media(max-width:430px){.gamelog-summary{grid-template-columns:repeat(3,1fr)!important}.gamelog-summary>div{padding:0 7px!important}.gamelog-summary .gamelog-sub{grid-column:1/-1;justify-self:start;text-align:left;padding-top:9px!important}.gamelog-summary>div small{font-size:8px!important}.gamelog-chart-track[data-dense="true"]{grid-template-columns:repeat(var(--game-count),minmax(0,1fr))}}
+
+@media(max-width:900px){
+  #gamelog-overlay{align-items:stretch!important;padding:0!important;overflow:hidden!important}
+  .gamelog-modal{height:100dvh!important;max-height:none!important;display:flex!important;flex-direction:column!important;overflow:hidden!important;transform:none!important}
+  .gamelog-modal .modal-head,.gamelog-workbench{flex:none!important}
+  .gamelog-studio{flex:1 1 auto!important;min-height:0!important;overflow:hidden!important}
+  .gamelog-stage{min-height:0!important;overflow:auto!important;overscroll-behavior:contain!important}
+  #gamelog-games-down,#gamelog-games-up,.gamelog-filter-toggle,.gamelog-line-control button{touch-action:manipulation!important;-webkit-tap-highlight-color:transparent!important}
+}
