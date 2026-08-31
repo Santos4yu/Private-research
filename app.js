@@ -2199,6 +2199,7 @@ function renderGameLogChart() {
     col.className = "gl-col";
     const heightPx = Math.max(4, (g.value / max) * trackPx);
     const details = g.pitcherDetails || null;
+    const opponentId = g.opponentTeamId || MLB_TEAM_IDS[String(g.opponent || "").toUpperCase()];
     const tooltipRows = details ? [
       ["Innings pitched", details.inningsPitched], ["Batters faced", details.battersFaced],
       ["Pitch count", details.pitchCount], ["Walks", details.walks], ["Strikeouts", details.strikeouts],
@@ -2214,7 +2215,7 @@ function renderGameLogChart() {
           ${details ? `<div class="gl-detail-card" role="tooltip"><header><strong>${escapeHtml(fullDate)}</strong><span>${escapeHtml(g.opponent || "")}</span></header><div class="gl-detail-result">${g.over ? "Cleared" : "Under"} by ${Math.abs(Number(g.value) - Number(gameLogState.line)).toFixed(1)}</div>${tooltipRows}</div>` : ""}
         </div>
       </div>
-      ${games.length <= 20 ? `<span class="gl-opponent-logo">${g.opponentTeamId ? `<img src="https://www.mlbstatic.com/team-logos/${encodeURIComponent(g.opponentTeamId)}.svg" alt="" loading="lazy" onerror="this.parentElement.textContent='${escapeHtml(String(g.opponent || "").slice(0, 3))}'">` : escapeHtml(String(g.opponent || "").slice(0, 3))}</span>` : ""}
+      ${games.length <= 20 ? `<span class="gl-opponent-logo">${opponentId ? `<img src="https://www.mlbstatic.com/team-logos/${encodeURIComponent(opponentId)}.svg" alt="" loading="lazy" onerror="this.parentElement.textContent='${escapeHtml(String(g.opponent || "").slice(0, 3))}'">` : escapeHtml(String(g.opponent || "").slice(0, 3))}</span>` : ""}
     `;
     const shell = col.querySelector(".gl-bar-shell");
     shell?.addEventListener("click", () => {
@@ -2230,7 +2231,8 @@ function renderGameLogChart() {
     const topPx = Math.max(0, trackPx - (line / max) * trackPx);
     const marker = document.createElement("div");
     marker.className = "gl-line-marker";
-    marker.style.top = `${topPx}px`;
+    marker.style.top = "var(--chart-top, 34px)";
+    marker.style.setProperty("--line-offset", `${topPx}px`);
     marker.innerHTML = `<span class="gl-line-tag">${Number(line).toFixed(1)}</span>`;
     marker.setAttribute("role", "slider");
     marker.setAttribute("aria-label", "Drag prop line");
@@ -2246,7 +2248,7 @@ function renderGameLogChart() {
           setGameLogPreviewLine(raw, true);
         } else {
           const displayLine = snapPropLine(raw);
-          marker.style.top = `${Math.max(0, trackPx - (raw / max) * trackPx)}px`;
+          marker.style.setProperty("--line-offset", `${Math.max(0, trackPx - (raw / max) * trackPx)}px`);
           marker.querySelector(".gl-line-tag").textContent = displayLine.toFixed(1);
         }
       };
@@ -2258,7 +2260,7 @@ function renderGameLogChart() {
       };
       marker.onpointercancel = marker.onpointerup;
     });
-    track.appendChild(marker);
+    holder.appendChild(marker);
   }
   holder.appendChild(track);
   const axis = document.createElement("div");
