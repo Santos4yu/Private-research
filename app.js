@@ -2309,7 +2309,25 @@ function wireGameLogModal() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !els.gamelogOverlay.hidden) closeGameLogModal();
   });
-  els.gamelogFilterToggle?.addEventListener("click", () => setGameLogFiltersOpen(!gameLogState.filtersOpen));
+  const wireStableAction = (button, action) => {
+    if (!button) return;
+    const activate = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      button.dataset.pointerActivated = "true";
+      button.blur();
+      action();
+    };
+    button.addEventListener("pointerdown", activate, { passive: false });
+    button.addEventListener("click", (event) => {
+      if (button.dataset.pointerActivated === "true") {
+        delete button.dataset.pointerActivated;
+        return;
+      }
+      activate(event);
+    });
+  };
+  wireStableAction(els.gamelogFilterToggle, () => setGameLogFiltersOpen(!gameLogState.filtersOpen));
   els.gamelogFilterClose?.addEventListener("click", () => setGameLogFiltersOpen(false));
   const wireCountButton = (button, delta, direction) => {
     if (!button) return;
@@ -2333,7 +2351,7 @@ function wireGameLogModal() {
   };
   wireCountButton(els.gamelogGamesDown, -1, "remove");
   wireCountButton(els.gamelogGamesUp, 1, "add");
-  els.gamelogH2HToggle?.addEventListener("click", () => {
+  wireStableAction(els.gamelogH2HToggle, () => {
     gameLogState.window = gameLogState.window === "h2h" ? "recent" : "h2h";
     gameLogState.animationDirection = "initial";
     renderGameLogTabs(); renderGameLogChart();
