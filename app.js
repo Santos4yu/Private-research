@@ -2155,6 +2155,7 @@ function renderGameLogChart() {
   holder.dataset.window = gameLogState.window;
   holder.dataset.change = gameLogState.animationDirection;
   holder.innerHTML = "";
+  holder.scrollLeft = 0;
 
   const filterBits = [];
   if (gameLogState.handFilter !== "all") filterBits.push(`vs ${gameLogState.handFilter}HP`);
