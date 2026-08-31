@@ -1912,7 +1912,7 @@ let gameLogState = {
   chart: null, line: null, player: "", opponent: "", window: "recent",
   handFilter: "all", venueFilter: "all", handDataLoaded: false, teamId: null,
   stat: "", isPitcher: false, fetchToken: 0, gameCount: 5, season: "all",
-  filtersOpen: false, animationDirection: "initial",
+  filtersOpen: false, animationDirection: "none",
 };
 
 function snapPropLine(value) {
@@ -2015,8 +2015,10 @@ function openGameLogModal(p) {
   gameLogState.handDataLoaded = false;
   gameLogState.gameCount = Math.min(5, gameLogState.chart.all.length || 5);
   gameLogState.window = "recent";
-  const availableSeasons = gameLogState.chart.all.map((game) => Number(game.season || String(game.fullDate || "").slice(0, 4))).filter(Boolean);
-  gameLogState.season = availableSeasons.length ? String(Math.max(...availableSeasons)) : "all";
+  // Start with the complete recent sample. Selecting the newest season here
+  // could temporarily collapse the chart to one game while the detail request
+  // was still loading, which made the modal visibly jump after opening.
+  gameLogState.season = "all";
   gameLogState.filtersOpen = false;
   gameLogState.animationDirection = "initial";
   // Deliberately NOT teamInsightsParams.teamId -- that's the player's own
@@ -2064,6 +2066,9 @@ async function fetchGameLogDetails(p) {
       // returned games for; leave everything else as it was.
       for (const key of Object.keys(data)) if (Array.isArray(data[key])) gameLogState.chart[key] = data[key];
       gameLogState.handDataLoaded = true;
+      // A background detail refresh must never look like a user-triggered
+      // chart transition.
+      gameLogState.animationDirection = "none";
     }
   } catch (err) {
     console.error("game-log-filters fetch failed:", err);
@@ -2171,7 +2176,8 @@ function renderGameLogChart() {
   const max = Math.max(...games.map((g) => g.value), typeof line === "number" ? line : 0, 1);
   const track = document.createElement("div");
   track.className = "gamelog-chart-track";
-  track.style.minWidth = `${Math.max(holder.clientWidth - 32, games.length * (holder.clientWidth <= 640 ? 58 : 78))}px`;
+  track.style.setProperty("--game-count", String(games.length));
+  track.dataset.count = String(games.length);
   games.forEach((g) => {
     const col = document.createElement("div");
     col.className = "gl-col";
@@ -2240,10 +2246,9 @@ function renderGameLogChart() {
     track.appendChild(marker);
   }
   holder.appendChild(track);
-  // Bars are oldest-to-newest, so open each window at the newest games.
-  // Users can scroll left when they want to inspect older history.
-  requestAnimationFrame(() => { holder.scrollLeft = holder.scrollWidth; });
-  gameLogState.animationDirection = "initial";
+  // Never move the viewport as a side effect of rendering. Only direct user
+  // input should animate or change the chart position.
+  gameLogState.animationDirection = "none";
 }
 
 function wireGameLogModal() {

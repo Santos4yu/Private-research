@@ -6,6 +6,7 @@
 
 .hero:has(.builder-activity.is-open) {
   z-index: 160;
+  overflow: visible !important;
 }
 
 .home-mode-switch #prop-builder-dropdown-root {
@@ -90,6 +91,7 @@
 
 .builder-activity-panel {
   position: absolute;
+  z-index: 170;
   top: calc(100% + 10px);
   left: 0;
   width: min(448px, calc(100vw - 28px));
