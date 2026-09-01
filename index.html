@@ -21,6 +21,7 @@
 <link rel="stylesheet" href="styles.css?v=103" />
 <link rel="stylesheet" href="jarvis.css?v=2" />
 <link rel="stylesheet" href="gamelog-premium.css?v=6" />
+<link rel="stylesheet" href="private-premium.css?v=1" />
 <style>
   /* Inline (not the external stylesheet) so it applies before ANY paint --
      this is what actually prevents the flash of the app before the auth
@@ -313,7 +314,12 @@
 <header class="hero">
   <div class="hero-inner">
     <div class="hero-brand">
-      <div class="kp-brand-copy"><h1>Private</h1></div>
+      <img class="private-brand-logo" src="/private-logo.png" alt="" width="96" height="96" />
+      <div class="kp-brand-copy">
+        <p class="private-brand-kicker"><i></i> MLB INTELLIGENCE SYSTEM</p>
+        <h1>Private<span> Research</span></h1>
+        <p class="private-brand-sub">Matchup context. Model conviction. One clear read.</p>
+      </div>
     </div>
 
     <nav class="tabs" id="tabs" data-react-tabs="true" aria-label="Primary navigation"></nav>
@@ -327,10 +333,26 @@
 <!-- RESEARCH TAB -->
 <section class="tab-panel" id="panel-research">
   <button type="button" class="v2-back-btn" id="v2-back-btn" hidden>← Back to Props</button>
+  <section class="research-command-deck" aria-label="Research system overview">
+    <div class="command-deck-intro">
+      <span>LIVE RESEARCH DESK</span>
+      <h2>Know the matchup<br><em>before the line moves.</em></h2>
+      <p>Search any MLB player to turn live form, opponent quality, splits and market context into one decision-ready report.</p>
+    </div>
+    <div class="command-deck-status">
+      <div><span class="status-live-dot"></span><small>MODEL STATUS</small><strong>Online</strong></div>
+      <div><small>PRIMARY SIGNAL</small><strong>Hit rate</strong></div>
+      <div><small>CONTEXT LAYERS</small><strong>12+</strong></div>
+    </div>
+    <div class="command-deck-visual" aria-hidden="true">
+      <span class="radar-ring ring-a"></span><span class="radar-ring ring-b"></span><span class="radar-ring ring-c"></span>
+      <i class="radar-sweep"></i><b>P</b>
+    </div>
+  </section>
   <div class="search-wrap intro-anim">
     <div class="search-box">
       <svg class="search-icon" width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.5"/><path d="M11.5 11.5L15 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      <input type="search" id="search-input" placeholder="Search a player" autocomplete="off" spellcheck="false" enterkeyhint="search" />
+      <input type="search" id="search-input" placeholder="Search any MLB player — e.g. Shohei Ohtani" autocomplete="off" spellcheck="false" enterkeyhint="search" />
       <kbd class="search-kbd">/</kbd>
     </div>
     <ul class="search-results" id="search-results" hidden></ul>
