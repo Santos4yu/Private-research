@@ -1778,10 +1778,10 @@ body.dropdown-scroll-locked{overflow:hidden}.profile-stats-menu,.pp-lines-menu{o
   .pitch-type-scroll { width:100%; max-width:100%; overflow:visible; }
   .pitch-type-card table,.pitch-type-card tbody { display:block; width:100%; }
   .pitch-type-card thead { display:none; }
-  .pitch-type-card tr { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; width:100%; padding:8px 0; border-top:1px solid rgba(255,255,255,.06); }
+  .pitch-type-card tr { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:2px; width:100%; padding:6px 0; border-top:1px solid rgba(255,255,255,.06); }
   .pitch-type-card tr:first-child { border-top:0; }
-  .pitch-type-card td { min-width:0!important; padding:4px 2px; border:0; font-size:10px; text-align:center; }
-  .pitch-type-card td:first-child { grid-column:1/-1; padding:0 2px 6px; font-size:11px; text-align:left; }
+  .pitch-type-card td { min-width:0!important; padding:3px 2px; border:0; font-size:9px; text-align:center; }
+  .pitch-type-card td:first-child { grid-column:1/-1; padding:0 2px 4px; font-size:11px; text-align:left; }
   .pitch-type-card td:not(:first-child)::before { content:attr(data-label); display:block; margin-bottom:2px; color:#696969; font:700 7px var(--font-mono); letter-spacing:.04em; }
   .pitch-type-card th:nth-child(2), .pitch-type-card td:nth-child(2),
   .pitch-type-card th:nth-child(4), .pitch-type-card td:nth-child(4),
