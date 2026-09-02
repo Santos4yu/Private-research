@@ -352,8 +352,6 @@ function cacheEls() {
   els.settingsBtn = document.getElementById("settings-btn");
   els.settingsPanel = document.getElementById("settings-panel");
   els.modeRow = document.getElementById("mode-row");
-  els.experienceToggle = document.getElementById("experience-toggle");
-
   els.gamelogOverlay = document.getElementById("gamelog-overlay");
   els.gamelogTitle = document.getElementById("gamelog-title");
   els.gamelogPropBadge = document.getElementById("gamelog-prop-badge");
@@ -419,12 +417,48 @@ function applyTheme(mode) {
   if (meta && THEME_BG[mode]) meta.setAttribute("content", THEME_BG[mode]);
 }
 
+const ACCENT_KEY = "vortex_custom_accent";
+function hexToRgb(hex) {
+  const c = hex.replace("#", "").trim();
+  const n = parseInt(c.length === 3 ? c.split("").map(x => x + x).join("") : c, 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+function applyAccentColor(hex, persist = true) {
+  if (!hex || !/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(hex)) return;
+  const { r, g, b } = hexToRgb(hex);
+  const soft = `color-mix(in srgb, ${hex} 68%, #ffffff)`;
+  const dim = `rgba(${r}, ${g}, ${b}, 0.14)`;
+  document.documentElement.style.setProperty("--accent", hex);
+  document.documentElement.style.setProperty("--accent-soft", soft);
+  document.documentElement.style.setProperty("--accent-dim", dim);
+  document.documentElement.setAttribute("data-custom-accent", "true");
+  const picker = document.getElementById("accent-color-picker");
+  const valEl = document.getElementById("accent-wheel-value");
+  if (picker) picker.value = hex;
+  if (valEl) valEl.textContent = hex.toUpperCase();
+  if (persist) localStorage.setItem(ACCENT_KEY, hex);
+}
+function resetAccentColor() {
+  document.documentElement.style.removeProperty("--accent");
+  document.documentElement.style.removeProperty("--accent-soft");
+  document.documentElement.style.removeProperty("--accent-dim");
+  document.documentElement.removeAttribute("data-custom-accent");
+  localStorage.removeItem(ACCENT_KEY);
+  const valEl = document.getElementById("accent-wheel-value");
+  if (valEl) {
+    const comp = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#ff9d16";
+    valEl.textContent = comp.toUpperCase();
+    const picker = document.getElementById("accent-color-picker");
+    if (picker) picker.value = comp.trim();
+  }
+}
+(() => {
+  const saved = localStorage.getItem(ACCENT_KEY);
+  if (saved) applyAccentColor(saved, false);
+})();
+
 function applyExperience(enabled) {
-  document.documentElement.toggleAttribute("data-jarvis", enabled);
-  localStorage.setItem(EXPERIENCE_KEY, String(enabled));
-  const toggle = document.getElementById("experience-toggle");
-  if (toggle) toggle.checked = enabled;
-  window.dispatchEvent(new CustomEvent("private:experience-change", { detail: { enabled } }));
+  document.documentElement.removeAttribute("data-jarvis");
 }
 
 /* ---------- Keep navigation out of the way once the reader leaves the top ---------- */
@@ -530,16 +564,25 @@ function wireSettingsPanel() {
   els.modeRow.querySelectorAll(".mode-btn").forEach((btn) => {
     btn.addEventListener("click", () => applyTheme(btn.dataset.mode));
   });
-  if (els.experienceToggle) {
-    els.experienceToggle.checked = document.documentElement.hasAttribute("data-jarvis");
-    els.experienceToggle.addEventListener("change", () => {
-      applyExperience(els.experienceToggle.checked);
-      showToast(
-        els.experienceToggle.checked ? "Jarvis Interface online" : "Jarvis Interface standing by",
-        "default",
-        els.experienceToggle.checked ? "Cinematic motion systems activated." : "Returned to the focused interface."
-      );
-    });
+  const accentPicker = document.getElementById("accent-color-picker");
+  const accentReset = document.getElementById("accent-reset-btn");
+  const savedAccent = localStorage.getItem(ACCENT_KEY);
+  if (savedAccent && accentPicker) {
+    accentPicker.value = savedAccent;
+    const valEl = document.getElementById("accent-wheel-value");
+    if (valEl) valEl.textContent = savedAccent.toUpperCase();
+  } else if (accentPicker) {
+    const comp = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#ff9d16";
+    accentPicker.value = comp;
+    const valEl = document.getElementById("accent-wheel-value");
+    if (valEl) valEl.textContent = comp.toUpperCase();
+  }
+  if (accentPicker) {
+    accentPicker.addEventListener("input", () => applyAccentColor(accentPicker.value));
+    accentPicker.addEventListener("change", () => applyAccentColor(accentPicker.value));
+  }
+  if (accentReset) {
+    accentReset.addEventListener("click", () => resetAccentColor());
   }
 }
 
@@ -1111,7 +1154,7 @@ function renderLivePropRecords(rows) {
       const progress = actual == null ? 0 : Math.min(100, Math.max(5, actual / Math.max(1, Number(row.line) + .5) * 100));
       const tracking = pitcher
         ? `${actual ?? "—"} ${unit}${live.pitch_count ? ` · ${live.pitch_count} pitches` : ""}${live.outs != null ? ` · ${Math.floor(Number(live.outs) / 3)}.${Number(live.outs) % 3} IP` : ""}`
-        : `${actual ?? "—"} ${unit}${live.at_bats != null ? ` · ${live.hits ?? 0}/${live.at_bats} batting` : ""}${live.plate_appearances ? ` · ${live.plate_appearances} PA` : ""}`;
+        : `${actual ?? "—"} ${unit}${live.at_bats != null ? ` · ${live.hits ?? 0}/${live.at_bats} batting` : ""}${live.plate_appearances ? ` · ${live.plate_appearances} KD` : ""}`;
       const chase = stateClass === "live" && need ? `Needs ${need} more` : stateClass === "pregame" ? "Not started" : stateLabel;
       const modelMeta = [row.vortex_score != null ? `Score ${row.vortex_score}` : "", row.matchup_score != null ? `Matchup ${Math.round(Number(row.matchup_score))}` : ""].filter(Boolean).join(" · ");
       return `<article class="live-prop-card ${stateClass}"><div class="live-prop-main"><span class="live-prop-name">${escapeHtml(row.player_name)}</span><strong>${escapeHtml(direction)} ${escapeHtml(String(row.line))} ${escapeHtml(row.stat_type)}</strong><small>${escapeHtml(tracking)}${modelMeta ? ` · ${escapeHtml(modelMeta)}` : ""}</small></div><div class="live-prop-meter"><i style="--live-progress:${progress}%"></i></div><div class="live-prop-state"><span>${escapeHtml(stateLabel)}</span><small>${escapeHtml(chase)}</small></div></article>`;
@@ -3166,8 +3209,8 @@ function fillPitchArsenal(node, p) {
     ? `CAREER VS ${escapeHtml(String(starter.name || "STARTER").split(" ").slice(-1)[0].toUpperCase())}`
     : `SEASON VS ${escapeHtml(splitFallback.hand || starter.hand || "?")}HP`;
   const bvpSummary = hasBvp
-    ? `${bvp.hits || 0}-for-${bvp.ab} · ${bvp.pa || bvp.ab} PA`
-    : `${val(splitFallback.pa, "0")} PA · handedness split`;
+    ? `${bvp.hits || 0}-for-${bvp.ab} · ${bvp.pa || bvp.ab} KD`
+    : `${val(splitFallback.pa, "0")} KD · handedness split`;
   const lowerStats = hasBvp
     ? [
         ["AVG", avg(bvp.avg)], ["HR", val(bvp.hr, "0")], ["RBI", val(bvp.rbi, "0")],
@@ -3175,7 +3218,7 @@ function fillPitchArsenal(node, p) {
       ]
     : [
         ["AVG", avg(splitFallback.avg)], ["OPS", avg(splitFallback.ops)], ["HR", val(splitFallback.hr, "0")],
-        ["RBI", val(splitFallback.rbi, "0")], ["K%", rate(splitFallback.kPct)], ["PA", val(splitFallback.pa, "0")],
+        ["RBI", val(splitFallback.rbi, "0")], ["K%", rate(splitFallback.kPct)], ["KD", val(splitFallback.pa, "0")],
       ];
   const lowerGrid = lowerStats.map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join("");
   const pitchRows = pitches.map((pitch, index) => {
@@ -3187,7 +3230,7 @@ function fillPitchArsenal(node, p) {
       const sampleClass = team.thin_sample ? "pitch-sample-thin" : "";
       return `<tr>
         <td><i class="pitch-dot" style="--pitch-color:${colors[index % colors.length]}"></i>${escapeHtml(pitch.name)} <small>${Number(pitch.pct).toFixed(0)}%</small></td>
-        <td data-label="PA" class="${sampleClass}" title="${team.thin_sample ? "Limited sample — use cautiously" : ""}">${val(team.pa)}</td>
+        <td data-label="KD" class="${sampleClass}" title="${team.thin_sample ? "Limited sample — use cautiously" : ""}">${val(team.pa)}</td>
         <td data-label="WHIFF%">${rate(team.whiff_pct)}</td>
         <td data-label="wOBA">${avg(team.woba)}</td>
         <td data-label="HARD-HIT%">${rate(team.hard_hit_pct)}</td>
@@ -3224,12 +3267,11 @@ function fillPitchArsenal(node, p) {
       </div>` : `<div class="arsenal-recommendation is-neutral"><span class="arsenal-rec-icon">i</span><div><strong>League rank unavailable</strong><p>The official pitch results below are still shown without manufacturing a rank.</p></div></div>`;
     holder.innerHTML = `
       <article class="pitch-type-card pitcher-team-pitch-card">
-        <div class="pitch-type-head"><div><p class="arsenal-eyebrow">${escapeHtml(`${teamShort} vs pitch types`)}</p><small>${escapeHtml(String(source))} · Baseball Savant ${teamPitchRows[0]?.season || new Date().getFullYear()}</small></div><span>SZN</span></div>
+        <div class="pitch-type-head"><div><p class="arsenal-eyebrow">${escapeHtml(`${teamShort} vs pitch types`)}</p></div><span>SZN</span></div>
         <p class="pitch-rank-explainer">How this lineup handles each pitch. <b>1 handles</b> · <b>30 struggles</b>.</p>
         ${recommendation}
         <div class="pitch-rank-scale"><span>1 HANDLES</span><i></i><span>30 STRUGGLES</span></div>
-        <div class="pitch-type-scroll"><table><thead><tr><th>PITCH</th><th>PA</th><th>WHIFF%</th><th>wOBA</th><th>HARD-HIT%</th><th>LINEUP RANK</th></tr></thead><tbody>${pitchRows}</tbody></table></div>
-        <p class="pitch-type-note">PA and performance use the posted lineup when available, otherwise the active roster. Rank compares the team's full season against all 30 MLB teams using wOBA, whiff avoidance, K avoidance and hard-hit rate. Pitches without a reliable sample are omitted.</p>
+        <div class="pitch-type-scroll"><table><thead><tr><th>PITCH</th><th>KD</th><th>WHIFF%</th><th>wOBA</th><th>HARD-HIT%</th><th>LINEUP RANK</th></tr></thead><tbody>${pitchRows}</tbody></table></div>
       </article>`;
     return;
   }
@@ -3251,11 +3293,10 @@ function fillPitchArsenal(node, p) {
       </div>
       <div class="starter-bvp-head"><b>${bvpTitle}</b><span>${bvpSummary}</span></div>
       <div class="starter-bvp-grid">${lowerGrid}</div>
-      <div class="starter-source-note"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/></svg><p>Faced is the available plate-appearance sample. AVG, SLG, wOBA and K% are official season results against that pitch type across tracked MLB pitches. Samples below 10 are shown for context but are not used in matchup scoring.</p></div>
     </article>
     <article class="pitch-type-card">
       <div class="pitch-breakdown-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 13h4l2-8 4 14 3-10 2 4h5"/></svg><strong>PITCH ARSENAL BREAKDOWN</strong></div>
-      <div class="pitch-type-head"><div><p class="arsenal-eyebrow">${escapeHtml(String(p.player || "BATTER").split(" ").slice(-1)[0].toUpperCase())} VS PITCH TYPE</p><small>${escapeHtml(p.pitchArsenalSource || "MLB pitch data")}</small></div></div>
+      <div class="pitch-type-head"><div><p class="arsenal-eyebrow">${escapeHtml(String(p.player || "BATTER").split(" ").slice(-1)[0].toUpperCase())} VS PITCH TYPE</p></div></div>
       <div class="pitch-type-scroll"><table><thead><tr><th>PITCH TYPE</th><th>THROWN</th><th>USAGE</th><th>WHIFF%</th><th>AVG</th><th>SLG</th><th>wOBA</th><th>K%</th></tr></thead><tbody>${pitchRows}</tbody></table></div>
     </article>`;
 }
@@ -3409,14 +3450,14 @@ function fillProjection(node, p) {
   if (p.paDistribution && p.paDistribution.buckets && p.paDistribution.buckets.length) {
     const pa = p.paDistribution;
     paWrap.hidden = false;
-    paWrap.querySelector(".pa-dist-label").textContent = `Real plate-appearance counts, last ${pa.games_sampled} games — avg ${pa.avg_pa} PA/game.`;
+    paWrap.querySelector(".pa-dist-label").textContent = `Real Krazy Data counts, last ${pa.games_sampled} games — avg ${pa.avg_pa} KD/game.`;
     const barsEl = paWrap.querySelector(".pa-dist-bars");
     barsEl.innerHTML = "";
     pa.buckets.forEach((b) => {
       const row = document.createElement("div");
       row.className = "pa-bar-row";
       row.innerHTML = `
-        <span class="pa-bar-label">${escapeHtml(b.pa)} PA</span>
+        <span class="pa-bar-label">${escapeHtml(b.pa)} KD</span>
         <div class="pa-bar-track"><div class="pa-bar-fill" style="width:${b.pct}%"></div></div>
         <span class="pa-bar-pct">${b.pct}%</span>
       `;
@@ -3627,7 +3668,7 @@ function fillPitcherLineupProfile(node, p) {
       <div class="lineup-result"><strong>${escapeHtml(metric.display || "—")}</strong><span>${escapeHtml(metric.edge_label || "NEUTRAL")}</span></div>
     </div>`;
   }).join("");
-  block.querySelector(".lineup-profile-note").textContent = `Official full-team plate appearances vs ${handLabel}: ${number(totals.hits)} H / ${number(totals.at_bats)} AB, ${number(totals.strikeouts)} K and ${number(totals.walks)} BB / ${number(totals.plate_appearances)} PA${totals.split_games ? ` across ${number(totals.split_games)} games` : ""}. This always uses the overall team sample; R/G and HR/G remain official team-season rates.`;
+  block.querySelector(".lineup-profile-note").textContent = ``;
 }
 
 /* ---------- Manual PrizePicks prop builder ---------- */
