@@ -3122,7 +3122,7 @@ function fillPitchArsenal(node, p) {
   const starter = p.starterProfile || {};
   const bvp = p.bvpCard || {};
   const splitFallback = bvp.splitFallback || {};
-  const colors = ["#42c7ff", "#ffb31a", "#7667ff", "#ff2d82", "#16d49a", "#ff6542"];
+  const colors = ["#2f7bff", "#ffad18", "#9b4dff", "#ff2768", "#35d980", "#ff681f", "#49cfee"];
   const val = (value, fallback = "—") => value === null || value === undefined || value === "" ? fallback : escapeHtml(String(value));
   const rate = (value) => Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)}%` : "—";
   const avg = (value) => value === null || value === undefined || value === "" ? "—" : formatBattingAverage(value);
@@ -3130,13 +3130,36 @@ function fillPitchArsenal(node, p) {
   const canonicalPitch = (code) => ({ KC: "CU", FA: "FF" }[String(code || "").toUpperCase()] || String(code || "").toUpperCase());
   const isPitcherCard = p.isPitcherProp === true;
   const blockTitle = block.querySelector(".block-title");
-  if (blockTitle) blockTitle.textContent = isPitcherCard ? "⚾ Lineup vs Pitch Arsenal" : "⚾ Starter, BvP & Pitch Arsenal";
+  if (blockTitle) blockTitle.innerHTML = isPitcherCard ? "Lineup vs Pitch Arsenal" : `
+    <span class="arsenal-monogram" aria-hidden="true">PA</span>
+    <span class="arsenal-title-copy"><small>BVP &amp; PITCH ARSENAL</small><strong>STARTER BREAKDOWN</strong></span>
+    <span class="arsenal-title-actions"><b>SZN</b><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg><i><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Z"/><path d="M12 2c-2.8 3-2.8 7 0 10m0 0c2.8 3 2.8 7 0 10M2 12c3-2.8 7-2.8 10 0m0 0c3 2.8 7 2.8 10 0"/></svg></i></span>`;
   const pitcherId = starter.id || "";
   const pitcherPhoto = pitcherId
     ? `https://img.mlbstatic.com/mlb-photos/image/upload/w_160,q_auto:best/v1/people/${pitcherId}/headshot/silo/current`
     : "";
+  const pitchGlyph = (index) => {
+    const paths = [
+      '<circle cx="12" cy="12" r="8"/><path d="M9 5c2 3 2 11 0 14M15 5c-2 3-2 11 0 14"/>',
+      '<circle cx="12" cy="12" r="8"/><path d="m7 13 4-4 6 5"/>',
+      '<circle cx="12" cy="12" r="8"/><path d="m8 8 8 8m0-8-8 8"/>',
+      '<path d="M4 17C6 8 11 5 19 7M4 17c5 2 10 0 15-7"/>',
+      '<circle cx="12" cy="12" r="8"/><path d="M8 16c2-7 6-7 8 0"/>',
+      '<path d="M4 17c6-1 8-5 9-11m-4 8 4 3 5-8"/>',
+      '<path d="M4 15c5 4 11 2 16-6M8 8l4 4 4-5"/>',
+    ];
+    return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[index % paths.length]}</svg>`;
+  };
+  const metricIcon = (kind) => ({
+    era:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="m12 12 6-6"/></svg>',
+    whip:'<svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 8-8"/><path d="M4 5v7h7"/><path d="M12 7v5l3 2"/></svg>',
+    k:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 7v10m0-5 6-5m-6 5 6 5"/></svg>',
+    bb:'<svg viewBox="0 0 24 24"><path d="M4 17h16M7 17c0-7 2-11 5-11s5 4 5 11"/><path d="M9 10h6"/></svg>',
+  }[kind]);
   const pitchPills = pitches.slice(0, 5).map((pitch, index) => `
-    <span class="starter-pitch-pill"><i style="--pitch-color:${colors[index % colors.length]}"></i>${escapeHtml(pitch.name)} <b>${Number(pitch.pct).toFixed(0)}%</b></span>
+    <div class="starter-pitch-gauge" style="--pitch-color:${colors[index % colors.length]};--pitch-pct:${Math.max(0, Math.min(100, Number(pitch.pct) || 0))}">
+      <span>${escapeHtml(pitch.name)}</span><div><b>${Number(pitch.pct).toFixed(0)}%</b></div>
+    </div>
   `).join("");
   const hasBvp = Number(bvp.ab) > 0;
   const bvpTitle = hasBvp
@@ -3177,10 +3200,10 @@ function fillPitchArsenal(node, p) {
     const vs = pitch.batterVs || {};
     const kClass = Number(vs.kPct) >= 30 ? "arsenal-hot" : "";
     const sampleClass = Number(vs.pa) > 0 && Number(vs.pa) < 10 ? "pitch-sample-thin" : "";
-    return `<tr>
-      <td><i class="pitch-dot" style="--pitch-color:${colors[index % colors.length]}"></i>${escapeHtml(pitch.name)}</td>
+    return `<tr style="--pitch-color:${colors[index % colors.length]}">
+      <td><i class="pitch-row-icon">${pitchGlyph(index)}</i>${escapeHtml(pitch.name)}</td>
       <td data-label="FACED" class="${sampleClass}" title="${sampleClass ? "Limited sample — displayed for context only" : ""}">${val(vs.pa)}</td>
-      <td data-label="WHIFF%">${rate(vs.whiffPct)}</td><td data-label="AVG">${avg(vs.avg)}</td><td data-label="SLG">${avg(vs.slg)}</td>
+      <td data-label="USAGE">${rate(pitch.pct)}</td><td data-label="WHIFF%">${rate(vs.whiffPct)}</td><td data-label="AVG">${avg(vs.avg)}</td><td data-label="SLG">${avg(vs.slg)}</td>
       <td data-label="wOBA">${avg(vs.woba)}</td><td data-label="K%" class="${kClass}">${rate(vs.kPct)}</td>
     </tr>`;
   }).join("");
@@ -3217,22 +3240,23 @@ function fillPitchArsenal(node, p) {
       <div class="starter-identity">
         <div class="starter-photo">${pitcherPhoto ? `<img src="${pitcherPhoto}" alt="" onerror="this.style.display='none'">` : "⚾"}</div>
         <div><h4>${val(starter.name, "Tonight's starter")} <span>${val(starter.hand)}HP</span></h4>
-        <p>${starter.gamesStarted ? `${val(starter.gamesStarted)} GS` : "Current season"}${starter.wins !== undefined && starter.losses !== undefined ? ` · ${val(starter.wins)}-${val(starter.losses)}` : ""}</p></div>
+        <p>${starter.jerseyNumber ? `#${val(starter.jerseyNumber)} <i></i>` : ""}${starter.gamesStarted ? `${val(starter.gamesStarted)} GS` : "Current season"}${starter.wins !== undefined && starter.losses !== undefined ? ` <i></i> ${val(starter.wins)}-${val(starter.losses)}` : ""}</p></div>
       </div>
-      <div class="starter-pitch-pills">${pitchPills}</div>
+      <div class="starter-pitch-gauges">${pitchPills}</div>
       <div class="starter-metrics">
-        <div><span>ERA</span><strong>${val(starter.era)}</strong></div>
-        <div><span>WHIP</span><strong>${val(starter.whip)}</strong></div>
-        <div><span>K/9</span><strong>${val(starter.kPer9)}</strong></div>
-        <div><span>BB/9</span><strong>${val(starter.bbPer9)}</strong></div>
+        <div>${metricIcon("era")}<span>ERA</span><strong>${val(starter.era)}</strong></div>
+        <div>${metricIcon("whip")}<span>WHIP</span><strong>${val(starter.whip)}</strong></div>
+        <div>${metricIcon("k")}<span>K/9</span><strong>${val(starter.kPer9)}</strong></div>
+        <div>${metricIcon("bb")}<span>BB/9</span><strong>${val(starter.bbPer9)}</strong></div>
       </div>
       <div class="starter-bvp-head"><b>${bvpTitle}</b><span>${bvpSummary}</span></div>
       <div class="starter-bvp-grid">${lowerGrid}</div>
+      <div class="starter-source-note"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/></svg><p>Faced is the available plate-appearance sample. AVG, SLG, wOBA and K% are official season results against that pitch type across tracked MLB pitches. Samples below 10 are shown for context but are not used in matchup scoring.</p></div>
     </article>
     <article class="pitch-type-card">
-      <div class="pitch-type-head"><div><p class="arsenal-eyebrow">${escapeHtml(String(p.player || "BATTER").split(" ").slice(-1)[0].toUpperCase())} VS PITCH TYPE</p><small>${escapeHtml(p.pitchArsenalSource || "MLB pitch data")}</small></div><span>SZN</span></div>
-      <div class="pitch-type-scroll"><table><thead><tr><th>PITCH</th><th>FACED</th><th>WHIFF%</th><th>AVG</th><th>SLG</th><th>wOBA</th><th>K%</th></tr></thead><tbody>${pitchRows}</tbody></table></div>
-      <p class="pitch-type-note">Faced is the available plate-appearance sample. AVG, SLG, wOBA and K% are official season results against that pitch type across tracked MLB pitches. Samples below 10 are shown for context but are not used in matchup scoring.</p>
+      <div class="pitch-breakdown-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 13h4l2-8 4 14 3-10 2 4h5"/></svg><strong>PITCH ARSENAL BREAKDOWN</strong></div>
+      <div class="pitch-type-head"><div><p class="arsenal-eyebrow">${escapeHtml(String(p.player || "BATTER").split(" ").slice(-1)[0].toUpperCase())} VS PITCH TYPE</p><small>${escapeHtml(p.pitchArsenalSource || "MLB pitch data")}</small></div></div>
+      <div class="pitch-type-scroll"><table><thead><tr><th>PITCH TYPE</th><th>THROWN</th><th>USAGE</th><th>WHIFF%</th><th>AVG</th><th>SLG</th><th>wOBA</th><th>K%</th></tr></thead><tbody>${pitchRows}</tbody></table></div>
     </article>`;
 }
 
