@@ -352,8 +352,6 @@ function cacheEls() {
   els.settingsBtn = document.getElementById("settings-btn");
   els.settingsPanel = document.getElementById("settings-panel");
   els.modeRow = document.getElementById("mode-row");
-  els.experienceToggle = document.getElementById("experience-toggle");
-
   els.gamelogOverlay = document.getElementById("gamelog-overlay");
   els.gamelogTitle = document.getElementById("gamelog-title");
   els.gamelogPropBadge = document.getElementById("gamelog-prop-badge");
@@ -420,11 +418,7 @@ function applyTheme(mode) {
 }
 
 function applyExperience(enabled) {
-  document.documentElement.toggleAttribute("data-jarvis", enabled);
-  localStorage.setItem(EXPERIENCE_KEY, String(enabled));
-  const toggle = document.getElementById("experience-toggle");
-  if (toggle) toggle.checked = enabled;
-  window.dispatchEvent(new CustomEvent("private:experience-change", { detail: { enabled } }));
+  document.documentElement.removeAttribute("data-jarvis");
 }
 
 /* ---------- Keep navigation out of the way once the reader leaves the top ---------- */
@@ -530,17 +524,6 @@ function wireSettingsPanel() {
   els.modeRow.querySelectorAll(".mode-btn").forEach((btn) => {
     btn.addEventListener("click", () => applyTheme(btn.dataset.mode));
   });
-  if (els.experienceToggle) {
-    els.experienceToggle.checked = document.documentElement.hasAttribute("data-jarvis");
-    els.experienceToggle.addEventListener("change", () => {
-      applyExperience(els.experienceToggle.checked);
-      showToast(
-        els.experienceToggle.checked ? "Jarvis Interface online" : "Jarvis Interface standing by",
-        "default",
-        els.experienceToggle.checked ? "Cinematic motion systems activated." : "Returned to the focused interface."
-      );
-    });
-  }
 }
 
 /* ---------- Tabs ---------- */
@@ -3224,11 +3207,11 @@ function fillPitchArsenal(node, p) {
       </div>` : `<div class="arsenal-recommendation is-neutral"><span class="arsenal-rec-icon">i</span><div><strong>League rank unavailable</strong><p>The official pitch results below are still shown without manufacturing a rank.</p></div></div>`;
     holder.innerHTML = `
       <article class="pitch-type-card pitcher-team-pitch-card">
-        <div class="pitch-type-head"><div><p class="arsenal-eyebrow">${escapeHtml(`${teamShort} vs pitch types`)}</p><small>${escapeHtml(String(source))} · Baseball Savant ${teamPitchRows[0]?.season || new Date().getFullYear()}</small></div><span>SZN</span></div>
+        <div class="pitch-type-head"><div><p class="arsenal-eyebrow">${escapeHtml(`${teamShort} vs pitch types`)}</p></div><span>SZN</span></div>
         <p class="pitch-rank-explainer">How this lineup handles each pitch. <b>1 handles</b> · <b>30 struggles</b>.</p>
         ${recommendation}
         <div class="pitch-rank-scale"><span>1 HANDLES</span><i></i><span>30 STRUGGLES</span></div>
-        <div class="pitch-type-scroll"><table><thead><tr><th>PITCH</th><th>PA</th><th>WHIFF%</th><th>wOBA</th><th>HARD-HIT%</th><th>LINEUP RANK</th></tr></thead><tbody>${pitchRows}</tbody></table></div>
+        <div class="pitch-type-scroll"><table><thead><tr><th>PITCH</th><th>KD</th><th>WHIFF%</th><th>wOBA</th><th>HARD-HIT%</th><th>LINEUP RANK</th></tr></thead><tbody>${pitchRows}</tbody></table></div>
         <p class="pitch-type-note">PA and performance use the posted lineup when available, otherwise the active roster. Rank compares the team's full season against all 30 MLB teams using wOBA, whiff avoidance, K avoidance and hard-hit rate. Pitches without a reliable sample are omitted.</p>
       </article>`;
     return;
@@ -3255,7 +3238,7 @@ function fillPitchArsenal(node, p) {
     </article>
     <article class="pitch-type-card">
       <div class="pitch-breakdown-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 13h4l2-8 4 14 3-10 2 4h5"/></svg><strong>PITCH ARSENAL BREAKDOWN</strong></div>
-      <div class="pitch-type-head"><div><p class="arsenal-eyebrow">${escapeHtml(String(p.player || "BATTER").split(" ").slice(-1)[0].toUpperCase())} VS PITCH TYPE</p><small>${escapeHtml(p.pitchArsenalSource || "MLB pitch data")}</small></div></div>
+      <div class="pitch-type-head"><div><p class="arsenal-eyebrow">${escapeHtml(String(p.player || "BATTER").split(" ").slice(-1)[0].toUpperCase())} VS PITCH TYPE</p></div></div>
       <div class="pitch-type-scroll"><table><thead><tr><th>PITCH TYPE</th><th>THROWN</th><th>USAGE</th><th>WHIFF%</th><th>AVG</th><th>SLG</th><th>wOBA</th><th>K%</th></tr></thead><tbody>${pitchRows}</tbody></table></div>
     </article>`;
 }
