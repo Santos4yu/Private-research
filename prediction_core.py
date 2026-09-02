@@ -352,7 +352,7 @@ def _bvp_split(batter_id, pitcher_id):
         "tb": int(bvp.get("tb", 0) or 0), "bb": int(bvp.get("bb", 0) or 0),
         "k": int(bvp.get("k", 0) or 0), "avg": bvp.get("avg", ".000"),
         "ops": bvp.get("ops", ".000"), "sample": bvp.get("sample", "small sample"),
-        "source": bvp.get("source", ""),
+        "source": bvp.get("source", "MLB Baseball Savant Statcast"),
     }
 
 
@@ -409,7 +409,7 @@ def _compute_bvp_tool(schedule, lineups, today):
                     {"label": "Production", "value": f"{split['hr']} HR · {split['tb']} TB", "detail": "Exact Statcast-era matchup totals"},
                     {"label": "Discipline", "value": f"{split['bb']} BB · {split['k']} K", "detail": "Career matchup totals"},
                 ],
-                "caution": f"{lineup_note} BvP is descriptive, not a guarantee.",
+                "caution": f"{lineup_note} Source: MLB Baseball Savant pitch-level data, ID-validated, 2017-present. BvP is descriptive, not a guarantee.",
                 "score": round(score, 4),
                 })
     rows.sort(key=lambda row: (row["badge"] != "Career BvP sample", row["score"]), reverse=True)
@@ -452,14 +452,14 @@ def _compute_platoon_tool(schedule, lineups, today):
             lineup_note = "Confirmed batting order." if confirmed else "Active-roster candidate; batting order is not posted yet."
             rows.append({
                 "title": f"{hitter['fullName']} vs {pitcher_name}", "badge": f"vs {hand}HP edge", "tone": "good",
-                "summary": f"{hitter['fullName']} has a {split.get('ops', '.---')} OPS and {avg} AVG in {pa} KD against {hand}-handed pitching this season.",
+                "summary": f"{hitter['fullName']} has a {split.get('ops', '.---')} OPS and {avg} AVG in {pa} PA against {hand}-handed pitching this season.",
                 "evidence": [
                     {"label": "Split AVG", "value": avg, "detail": f"vs {hand}-handed pitching"},
                     {"label": "Split OPS", "value": split.get("ops", ".---"), "detail": "Current season"},
-                    {"label": "Sample", "value": f"{pa} KD", "detail": "Season platoon split"},
+                    {"label": "Sample", "value": f"{pa} PA", "detail": "Season platoon split"},
                     {"label": "Power", "value": f"{split.get('hr', 0)} HR", "detail": f"{split.get('rbi', 0)} RBI"},
                 ],
-                "caution": f"{lineup_note} This is context, not a guarantee.", "score": round(ops, 3),
+                "caution": f"{lineup_note} Source: official MLB Stats API current-season handedness splits. This is context, not a guarantee.", "score": round(ops, 3),
             })
     rows.sort(key=lambda row: row["score"], reverse=True)
     return {"date": today, "entries": rows[:16], "tool": "platoon"}
@@ -571,7 +571,7 @@ def compute_tool(tool: str) -> dict:
                         ops, pa = _number(split.get("ops")), int(split.get("pa", 0) or 0)
                         if pa >= 20 and ops >= .760:
                             lineup_note = "Confirmed batting order." if confirmed_lineup else "Active-roster candidate; batting order is not posted yet."
-                            game_rows.append((ops, {"title": f"{hitter_name} vs {pitcher_name}", "badge": f"vs {hand}HP edge", "tone": "good", "summary": f"{hitter_name} owns a {split.get('ops', '.---')} OPS in {pa} plate appearances against {hand}-handed pitching this season.", "evidence": [{"label": "Split OPS", "value": split.get("ops", ".---"), "detail": f"vs {hand}-handed pitching"}, {"label": "Sample", "value": f"{pa} KD", "detail": "Season split"}, {"label": "Power", "value": str(split.get("hr", 0)), "detail": "Home runs in the split"}], "caution": f"{lineup_note} Handedness is one input, not a complete play signal.", "score": ops}))
+                            game_rows.append((ops, {"title": f"{hitter_name} vs {pitcher_name}", "badge": f"vs {hand}HP edge", "tone": "good", "summary": f"{hitter_name} owns a {split.get('ops', '.---')} OPS in {pa} plate appearances against {hand}-handed pitching this season.", "evidence": [{"label": "Split OPS", "value": split.get("ops", ".---"), "detail": f"vs {hand}-handed pitching"}, {"label": "Sample", "value": f"{pa} PA", "detail": "Season split"}, {"label": "Power", "value": str(split.get("hr", 0)), "detail": "Home runs in the split"}], "caution": f"{lineup_note} Handedness is one input, not a complete play signal.", "score": ops}))
                     else:
                         split = _bvp_split(hitter_id, pitcher_id)
                         if split:
@@ -1235,7 +1235,7 @@ def format_k_prop_response(*, player_name, team_abbr, headshot, stat_label, line
             # lineup's K rate can swing hard by park (e.g. Colorado is far
             # more contact-heavy at Coors than on the road).
             venue_phrase = f" {opp_k_venue_label}" if opp_k_venue_label else " this season"
-            sample = (f"; {opp_k.get('ks'):,} K in {opp_k.get('pa'):,} KD"
+            sample = (f"; {opp_k.get('ks'):,} K in {opp_k.get('pa'):,} PA"
                       if opp_k.get("ks") is not None and opp_k.get("pa") else "")
             k_context = (f"{opponent} is #{rank}/30 toughest to strike out{venue_phrase} "
                          f"({pct}% K rate{sample})")
@@ -1509,7 +1509,7 @@ def format_response(*, player_name, team_abbr, headshot, stat_label, prop_type, 
         handedness_text = (
             f"This pitcher throws {'right' if p_hand == 'R' else 'left'}-handed. "
             f"{last_name} hits {p_hand}HP at {hs.get('avg', '.---')} AVG / "
-            f"{hs.get('ops', '.---')} OPS ({hs.get('pa', 0)} KD)."
+            f"{hs.get('ops', '.---')} OPS ({hs.get('pa', 0)} PA)."
         )
         # Show the OTHER hand too so the platoon split is comparable at a
         # glance, not just the one that happens to match tonight's pitcher.
@@ -1518,7 +1518,7 @@ def format_response(*, player_name, team_abbr, headshot, stat_label, prop_type, 
         if other_hs and other_hs.get("pa"):
             handedness_text += (
                 f" Vs {other_hand}HP: {other_hs.get('avg', '.---')} AVG / "
-                f"{other_hs.get('ops', '.---')} OPS ({other_hs.get('pa', 0)} KD)."
+                f"{other_hs.get('ops', '.---')} OPS ({other_hs.get('pa', 0)} PA)."
             )
 
     leash_text = ""
@@ -1571,7 +1571,7 @@ def format_response(*, player_name, team_abbr, headshot, stat_label, prop_type, 
     lineup_text = ""
     if lineup_spot:
         ordinal = {1: "1st", 2: "2nd", 3: "3rd"}.get(lineup_spot, f"{lineup_spot}th")
-        lineup_text = f"Batting {ordinal} tonight" + (f" — ~{proj_pa} projected KD" if proj_pa else "") + "."
+        lineup_text = f"Batting {ordinal} tonight" + (f" — ~{proj_pa} projected PA" if proj_pa else "") + "."
 
     return {
         "id": f"live-{player_name.lower().replace(' ', '-')}-{prop_type}-{side}-{line}",
@@ -1658,7 +1658,7 @@ def format_response(*, player_name, team_abbr, headshot, stat_label, prop_type, 
             "h2h": bvp_line,
             "h2hNote": bvp_note,
             "career": (
-                f"Career vs {opponent}: {team_bvp['avg']} avg / {team_bvp['pa']} KD · OPS {team_bvp['ops']}"
+                f"Career vs {opponent}: {team_bvp['avg']} avg / {team_bvp['pa']} PA · OPS {team_bvp['ops']}"
                 if team_bvp and team_bvp.get("pa") else ""
             ),
             "season": vs_team_text,
@@ -1707,7 +1707,7 @@ def format_response(*, player_name, team_abbr, headshot, stat_label, prop_type, 
             (f"{pitcher.get('name', 'Opposing pitcher')}'s arsenal" if pitcher else "Opposing pitcher's arsenal")
             + (f" · {player_name.split()[-1]}'s {stats_mlb.SEASON} results vs each pitch type (all MLB pitchers)" if bat_vs_pitch else "")
         ),
-        "pitchArsenalSource": "",
+        "pitchArsenalSource": "Official MLB Stats API pitch mix / Baseball Savant Pitch Arsenal Stats",
         "pitchArsenalAsOf": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "starterProfile": {
             "id": pitcher.get("pitcher_id") or pitcher.get("id"),
@@ -2181,7 +2181,7 @@ def _research_meta(*, prop_type: str, side: str, line: float, l10: dict, l20: di
     if has_weather:
         sources.append("Park & weather")
     if has_arsenal:
-        sources.append("Pitch data")
+        sources.append("MLB / Baseball Savant pitch data")
     if is_pitcher and opponent_k:
         sources.append("Opponent strikeout profile")
 
@@ -2444,10 +2444,10 @@ def _build_team_insights(opp_team_id: int, opp_pitcher_id, opp_pitcher_name: str
             for b in lineup
         ],
         "source": {
-            "pitchMix": "",
-            "batterPitchResults": "",
+            "pitchMix": "MLB Stats API pitchArsenal",
+            "batterPitchResults": "Baseball Savant Pitch Arsenal Stats",
             "season": stats_mlb.SEASON,
-            "scope": "",,
+            "scope": "Batter results are season totals vs all MLB pitchers, grouped by pitch type; minimum 10 PA.",
             "asOf": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         },
     }
