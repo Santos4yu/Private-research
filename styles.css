@@ -6694,8 +6694,7 @@ html, body, #app-shell { min-height:100%; background-color:var(--theme-bg,var(--
 #accent-color-picker::-moz-color-swatch { border-radius:6px; border:none; }
 .accent-reset-btn { min-height:32px; padding:0 12px; border-radius:7px; font:700 9px var(--font-mono); }
 .accent-wheel-value { font:700 10px var(--font-mono); color:var(--text-dim); letter-spacing:.04em; text-transform:uppercase; }
-
-/* ===== Parlay Builder — theme-aware, no fixed black blocks ===== */
+/* ===== Parlay Builder â€” theme-aware, no fixed black blocks ===== */
 .builder-shell { padding:12px 0 120px; }
 .builder-hero { background:var(--panel) !important; border:1px solid var(--panel-border) !important; border-radius:16px !important; box-shadow:0 10px 28px rgba(0,0,0,.12) !important; }
 .builder-hero::after { display:none !important; }
