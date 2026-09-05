@@ -13,6 +13,8 @@
  * and nothing else in this file needs to change, as long as the
  * response shape matches { props: [...] }.
  */
+import { mountResearchTabs } from './src/report-tabs.js';
+
 const DATA_SOURCE = "/predictions.json";
 
 /**
@@ -141,7 +143,7 @@ const EXPERIENCE_KEY = "private_jarvis_interface";
 // ReferenceError the instant this file loads when a top-level call reaches a
 // later `const` before the script gets there in top-to-bottom execution.
 const THEME_BG = {
-  obsidian: "#050505", midnight: "#07101f", forest: "#07130f",
+  obsidian: "#0c0e12", midnight: "#07101f", forest: "#07130f",
   burgundy: "#16090d", ivory: "#f3efe7", violet: "#100a1c",
   ocean: "#041719", amber: "#1a1005",
 };
@@ -149,6 +151,10 @@ const LEGACY_THEMES = { dark: "obsidian", grey: "midnight", light: "ivory" };
 const initialTheme = localStorage.getItem(THEME_KEY) || "obsidian";
 applyTheme(LEGACY_THEMES[initialTheme] || initialTheme);
 applyExperience(localStorage.getItem(EXPERIENCE_KEY) === "true");
+
+const SCREEN_TITLES = Object.freeze({ research: "Research", v2: "Props", slate: "Tools", saved: "My Slip", builder: "Parlay Builder", slip: "Slip Analyzer", moneyline: "Moneylines", nrfi: "NRFI / YRFI", admin: "Admin Results" });
+const screenScroll = new Map();
+let screenHistoryReady = false;
 
 init();
 
@@ -213,6 +219,7 @@ async function init() {
   updateSavedCount();
   updateParlayBar();
   await finishPrivateLoader(loaderStartedAt);
+  wireAppNavigation();
   const warmSlate = () => requestSlateData(false).catch(() => {});
   if ("requestIdleCallback" in window) requestIdleCallback(warmSlate, { timeout: 2200 });
   else setTimeout(warmSlate, 900);
@@ -424,23 +431,8 @@ function applyExperience(enabled) {
 /* ---------- Keep navigation out of the way once the reader leaves the top ---------- */
 
 function wireChromeAutoHide() {
-  let ticking = false;
-
-  const apply = () => {
-    const y = window.scrollY;
-    const isMobile = window.matchMedia("(max-width: 700px)").matches;
-    els.settingsBtn.classList.toggle("mobile-chrome-hidden", isMobile && y > 2);
-    ticking = false;
-  };
-
-  window.addEventListener("scroll", () => {
-    if (!ticking) {
-      requestAnimationFrame(apply);
-      ticking = true;
-    }
-  }, { passive: true });
-  window.addEventListener("resize", apply);
-  apply();
+  // App navigation remains reachable while reading a long report.
+  els.settingsBtn.classList.remove("mobile-chrome-hidden");
 }
 
 /* ---------- Border glow for every card surface ---------- */
@@ -531,7 +523,7 @@ function wireSettingsPanel() {
 function wireTabs() {
   if (!els.tabs.dataset.reactTabs) {
     els.tabs.querySelectorAll(".tab-btn").forEach((btn) => {
-      btn.addEventListener("click", () => switchTab(btn.dataset.tab, btn));
+      btn.addEventListener("click", () => switchTab(btn.dataset.tab));
     });
     requestAnimationFrame(() => moveIndicator(els.tabs.querySelector(".tab-btn.active")));
     window.addEventListener("resize", () => moveIndicator(els.tabs.querySelector(".tab-btn.active")));
@@ -567,14 +559,26 @@ function wireMainMenu() {
   requestAnimationFrame(() => els.mainMenu.querySelector("[data-launch-tab]")?.focus());
 }
 
-function switchTab(tab) {
+function switchTab(tab, options = {}) {
+  options ??= {};
+  if (!Object.hasOwn(SCREEN_TITLES, tab)) return;
   // The Admin route is not a preview page. It never renders until the
   // server-issued PIN session exists.
   if (tab === "admin" && !state.adminUnlocked) {
     openV2PinPrompt();
     return;
   }
+  const changed = state.currentTab !== tab;
+  if (changed) screenScroll.set(state.currentTab, window.scrollY);
   state.currentTab = tab;
+  const screenTitle = document.getElementById("mobile-screen-title");
+  if (screenTitle) screenTitle.textContent = SCREEN_TITLES[tab];
+  document.title = `${SCREEN_TITLES[tab]} · Krazy Data`;
+  if (changed && screenHistoryReady && options.history !== false) {
+    const url = new URL(location.href);
+    url.hash = tab;
+    history.pushState({ ...history.state, vortexTab: tab }, "", url);
+  }
   els.tabs.querySelectorAll("[data-tab]").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
   const topBtn = els.tabs.querySelector(`[data-tab="${tab}"]`);
   if (topBtn) moveIndicator(topBtn);
@@ -617,12 +621,47 @@ function switchTab(tab) {
   if (tab === "nrfi" && !state.specialsLoaded) loadSpecialMarkets();
   document.querySelectorAll(".side-link").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
   window.dispatchEvent(new CustomEvent("vortex:dock-sync", { detail: { tab, saved: state.savedProps.size } }));
+  if (changed) window.scrollTo({ top: options.scrollY ?? screenScroll.get(tab) ?? 0, behavior: "instant" });
+}
+
+function wireAppNavigation() {
+  const requested = location.hash.slice(1);
+  const initialTab = Object.hasOwn(SCREEN_TITLES, requested) && (requested !== "admin" || state.adminUnlocked) ? requested : state.currentTab;
+  const url = new URL(location.href);
+  url.hash = initialTab;
+  history.replaceState({ ...history.state, vortexTab: initialTab }, "", url);
+  history.scrollRestoration = "manual";
+  switchTab(initialTab, { history: false });
+  screenHistoryReady = true;
+  window.addEventListener("popstate", () => {
+    // Reuse each sheet's existing Escape cleanup (including the game-log
+    // scroll lock) before changing the screen behind it.
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    window.dispatchEvent(new Event("vortex:close-more"));
+    els.settingsPanel.hidden = true;
+    setManualBetSlipOpen(false);
+    const route = location.hash.slice(1);
+    const tab = Object.hasOwn(SCREEN_TITLES, route) && (route !== "admin" || state.adminUnlocked) ? route : "research";
+    switchTab(tab, { history: false });
+  });
+
+  // A software keyboard must not leave the tab bar floating over the input.
+  const viewport = window.visualViewport;
+  const syncKeyboard = () => {
+    const editing = document.activeElement?.matches('input, textarea, [contenteditable="true"]');
+    const keyboardOpen = Boolean(editing && viewport && viewport.scale <= 1.05 && window.innerHeight - viewport.height > 140);
+    document.body.classList.toggle("mobile-keyboard-open", keyboardOpen);
+  };
+  viewport?.addEventListener("resize", syncKeyboard);
+  document.addEventListener("focusin", syncKeyboard);
+  document.addEventListener("focusout", () => requestAnimationFrame(syncKeyboard));
 }
 
 window.addEventListener("vortex:switch-tab", (event) => switchTab(event.detail?.tab || "research"));
 window.addEventListener("vortex:dock-ready", () => window.dispatchEvent(new CustomEvent("vortex:dock-sync", { detail: { tab: state.currentTab, saved: state.savedProps.size } })));
 
 function wireSidePanel() {
+  let returnFocus = null;
   els.sideMenuToggle.setAttribute("aria-controls", "side-panel");
   els.sideMenuToggle.setAttribute("aria-expanded", "false");
   const close = () => {
@@ -630,17 +669,32 @@ function wireSidePanel() {
     els.sideScrim.hidden = true;
     els.sideMenuToggle.setAttribute("aria-expanded", "false");
     document.body.classList.remove("side-panel-open");
+    window.dispatchEvent(new CustomEvent("vortex:more-sync", { detail: { open: false } }));
+    returnFocus?.focus({ preventScroll: true });
   };
   const open = () => {
+    returnFocus = document.activeElement;
     els.sidePanel.hidden = false;
     els.sideScrim.hidden = false;
     els.sideMenuToggle.setAttribute("aria-expanded", "true");
     document.body.classList.add("side-panel-open");
+    els.sidePanel.setAttribute("role", "dialog");
+    els.sidePanel.setAttribute("aria-modal", "true");
+    window.dispatchEvent(new CustomEvent("vortex:more-sync", { detail: { open: true } }));
     els.sideMenuClose.focus();
   };
   els.sideMenuToggle.addEventListener("click", open);
+  window.addEventListener("vortex:open-more", open);
+  window.addEventListener("vortex:close-more", () => { if (!els.sidePanel.hidden) close(); });
   els.sideMenuClose.addEventListener("click", close); els.sideScrim.addEventListener("click", close);
-  document.querySelectorAll(".side-link").forEach((btn) => btn.addEventListener("click", () => { switchTab(btn.dataset.tab); close(); }));
+  document.querySelectorAll(".side-link").forEach((btn) => btn.addEventListener("click", () => { close(); switchTab(btn.dataset.tab); }));
+  els.sidePanel.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab") return;
+    const buttons = [...els.sidePanel.querySelectorAll("button:not([disabled])")].filter((button) => button.getClientRects().length);
+    const first = buttons[0], last = buttons.at(-1);
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+  });
   document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !els.sidePanel.hidden) close(); });
 }
 
@@ -1000,9 +1054,11 @@ function toggleSave(prop, btnEl) {
 function syncSaveButton(btnEl, id) {
   const saved = isSaved(id);
   btnEl.classList.toggle("saved", saved);
+  btnEl.setAttribute("aria-pressed", String(saved));
+  btnEl.setAttribute("aria-label", saved ? "Remove from My Slip" : "Add to My Slip");
   const label = btnEl.querySelector(".save-btn-label");
-  if (label) label.textContent = saved ? "In Builder" : "Add to Builder";
-  else btnEl.textContent = saved ? "in builder" : "add to builder";
+  if (label) label.textContent = saved ? "In My Slip" : "Add to My Slip";
+  else btnEl.textContent = saved ? "In My Slip" : "Add to My Slip";
 }
 
 function updateSavedCount() {
@@ -1106,6 +1162,36 @@ function renderLivePropRecords(rows) {
 /* ---------- Search ---------- */
 
 function wireSearch() {
+  document.getElementById("research-home-back")?.addEventListener("click", () => {
+    clearTimeout(lineDebounceTimer);
+    clearTimeout(searchDebounceTimer);
+    lineSelectionToken++;
+    searchRequestToken++;
+    Object.keys(cmd).forEach((key) => { cmd[key] = null; });
+    state.boardResearchContext = null;
+    state.v2DeepDiveReturn = null;
+    currentResearchProp = null;
+    els.playerProfile.hidden = true;
+    els.linePicker.hidden = true;
+    els.v2BackBtn.hidden = true;
+    clearSearchQuery();
+    closeStatsMenu();
+    els.ppLinesMenu.hidden = true;
+    syncDropdownScrollLock();
+    hideResults();
+    clearReport();
+    window.scrollTo({ top: 0, behavior: "instant" });
+  });
+  document.getElementById("research-search-submit")?.addEventListener("click", () => {
+    els.searchInput.focus();
+    onSearchInput();
+  });
+  window.addEventListener("vortex:research-player", ({ detail }) => {
+    if (!detail?.name || !Number.isInteger(detail.id)) return;
+    selectPlayer(detail.name, detail.position, { autoSelectStat: false, playerEntry: { player: detail.name, name: detail.name, playerId: detail.id, sport: "MLB", headshot: `https://img.mlbstatic.com/mlb-photos/image/upload/w_300,q_auto/v1/people/${detail.id}/headshot/silo/current` } });
+    els.emptyState.hidden = true;
+    switchTab("research", { scrollY: 0 });
+  });
   els.searchInput.addEventListener("input", onSearchInput);
   els.searchInput.addEventListener("focus", onSearchInput);
   els.searchInput.addEventListener("keydown", onSearchKeydown);
@@ -1828,26 +1914,11 @@ function syncProfileHeaderWithProp(p) {
   }
 }
 
-const EMPTY_STATE_DEFAULT_HTML = `
-  <div class="research-welcome-icon" aria-hidden="true">
-    <svg viewBox="0 0 24 24" fill="none"><circle cx="10.5" cy="10.5" r="5.75" stroke="currentColor" stroke-width="1.5"/><path d="m15 15 4.25 4.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-  </div>
-  <p class="research-welcome-kicker">Player research</p>
-  <h2>Start with a player.</h2>
-  <p class="research-welcome-copy">Search above to turn a live prop into one clear, matchup-aware view.</p>
-  <div class="research-welcome-features" aria-label="Research includes">
-    <div><span>01</span><strong>Recent form</strong><small>L5, L10 and L20 trends</small></div>
-    <div><span>02</span><strong>Matchup context</strong><small>Splits, opponent and venue</small></div>
-    <div><span>03</span><strong>Live lines</strong><small>PrizePicks-ready research</small></div>
-  </div>`;
-
 function clearReport() {
   els.reportWrap.querySelector(".report")?.remove();
   removeResearchLoader();
-  els.emptyState.hidden = false;
-  els.emptyState.classList.add("research-welcome");
-  els.emptyState.setAttribute("aria-label", "Player research welcome");
-  els.emptyState.innerHTML = EMPTY_STATE_DEFAULT_HTML;
+  // Keep the mounted research-home buttons intact when a player or stat changes.
+  els.emptyState.hidden = Boolean(cmd.player);
 }
 
 /* ---------- Report rendering (Research tab) ---------- */
@@ -1866,6 +1937,7 @@ function renderReport(p) {
   }
 
   const node = buildReportNode(p);
+  mountResearchTabs(node, p);
   els.reportWrap.appendChild(node);
 
   const saveBtn = node.querySelector(".save-btn");
@@ -1888,6 +1960,7 @@ function renderReport(p) {
     expandBtn.addEventListener("click", () => openGameLogModal(p));
   } else {
     expandBtn.classList.add("last5-expand-disabled");
+    expandBtn.disabled = true;
   }
 
   if (state.currentTab === "research") {
@@ -3632,6 +3705,7 @@ function manualSlipLegPayload(prop) {
 }
 
 function manualBetSlipStatus(count) {
+  if (count === 0) return "Add at least 2 props to export.";
   if (count < 2) return "Add 1 more prop to export.";
   if (count > 6) return "Remove legs until 6 remain.";
   return `${count}-leg slip ready to verify.`;
@@ -3816,7 +3890,7 @@ function renderSavedGrid() {
     });
 
     node.addEventListener("click", () => {
-      switchTab("research", document.querySelector('.tab-btn[data-tab="research"]'));
+      switchTab("research", { scrollY: 0 });
       openExactProp(p);
     });
 
@@ -4049,7 +4123,10 @@ function wireV2Board() {
     if (!btn) return;
     state.boardFilter = btn.dataset.boardFilter;
     state.matchupDisplayLimit = 40;
-    els.boardFilterRow.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b === btn));
+    els.boardFilterRow.querySelectorAll("button").forEach((b) => {
+      b.classList.toggle("active", b === btn);
+      b.setAttribute("aria-pressed", String(b === btn));
+    });
     if (state.v2BoardData) renderBotBoard(state.v2BoardData);
   });
 
@@ -4082,7 +4159,7 @@ function wireV2Board() {
 
   els.v2BackBtn.addEventListener("click", () => {
     const returnScroll = state.v2DeepDiveReturn?.scrollY;
-    switchTab("v2", document.querySelector('.tab-btn[data-tab="v2"]'));
+    switchTab("v2");
     els.v2BackBtn.hidden = true;
     state.v2DeepDiveReturn = null;
     if (typeof returnScroll === "number") window.scrollTo(0, returnScroll);
@@ -4398,6 +4475,7 @@ function boardStatCategory(statType) {
   if (["total bases", "total base", "tb"].includes(stat)) return "total-bases";
   if (["hits", "hit"].includes(stat)) return "hits";
   if (["strikeouts", "strikeout", "pitcher strikeouts", "pitcher strikeout", "ks", "k"].includes(stat)) return "strikeouts";
+  if (stat.startsWith("pitcher ") || ["hits allowed", "earned runs", "outs", "pitching outs"].includes(stat)) return "strikeouts";
   return "other";
 }
 
@@ -4884,7 +4962,7 @@ function deepDiveIntoBotProp(p) {
   els.sideToggle.querySelectorAll(".side-btn").forEach((b) => b.classList.toggle("active", b.dataset.side === "Over"));
   setLineValue(p.line, { immediate: true });
 
-  switchTab("research", document.querySelector('.tab-btn[data-tab="research"]'));
+  switchTab("research", { scrollY: 0 });
 }
 
 /* ---------- V2 Admin panel (hidden, PIN-gated) ---------- */

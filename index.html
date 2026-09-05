@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Krazy Data</title>
 <meta name="description" content="Krazy Data sports research workspace." />
 <!-- Matches the default (dark) theme's --bg -- kept in sync with theme
@@ -304,7 +304,8 @@
 <header class="hero">
   <div class="hero-inner">
     <div class="hero-brand">
-      <div class="kp-brand-copy"><h1>Krazy Data</h1></div>
+      <span class="lab-brandmark" aria-hidden="true"><svg viewBox="0 0 24 28" width="25" height="28" fill="currentColor"><path d="M6 3h6l-2 8 8-8h6L14 14l5 11h-7l-3-7-2 7H1z"/></svg></span>
+      <div class="kp-brand-copy"><h1>Krazy Data</h1><p class="mobile-screen-title" id="mobile-screen-title">Research</p></div>
     </div>
 
     <nav class="tabs" id="tabs" data-react-tabs="true" aria-label="Primary navigation"></nav>
@@ -320,9 +321,8 @@
   <button type="button" class="v2-back-btn" id="v2-back-btn" hidden>← Back to Props</button>
   <div class="search-wrap intro-anim">
     <div class="search-box">
-      <svg class="search-icon" width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.5"/><path d="M11.5 11.5L15 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
       <input type="search" id="search-input" placeholder="Search a player" autocomplete="off" spellcheck="false" enterkeyhint="search" />
-      <kbd class="search-kbd">/</kbd>
+      <button class="lab-search-submit" id="research-search-submit" type="button" aria-label="Search players"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="2"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
     </div>
     <ul class="search-results" id="search-results" hidden></ul>
   </div>
@@ -334,6 +334,7 @@
 
   <!-- Player profile: pick a stat, then dial in the line -->
   <div class="player-profile" id="player-profile" hidden>
+    <button type="button" class="lab-home-back" id="research-home-back"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m14 6-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Research home</button>
     <div class="profile-head">
       <div class="profile-avatar" id="profile-avatar"></div>
       <div>
@@ -373,19 +374,7 @@
   </div>
 
   <main class="report-wrap" id="report-wrap">
-    <section class="empty-state research-welcome" id="empty-state" aria-label="Player research welcome">
-      <div class="research-welcome-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none"><circle cx="10.5" cy="10.5" r="5.75" stroke="currentColor" stroke-width="1.5"/><path d="m15 15 4.25 4.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      </div>
-      <p class="research-welcome-kicker">Player research</p>
-      <h2>Start with a player.</h2>
-      <p class="research-welcome-copy">Search above to turn a live prop into one clear, matchup-aware view.</p>
-      <div class="research-welcome-features" aria-label="Research includes">
-        <div><span>01</span><strong>Recent form</strong><small>L5, L10 and L20 trends</small></div>
-        <div><span>02</span><strong>Matchup context</strong><small>Splits, opponent and venue</small></div>
-        <div><span>03</span><strong>Live lines</strong><small>PrizePicks-ready research</small></div>
-      </div>
-    </section>
+    <section class="research-launchpad" id="empty-state" aria-label="Research home"><div id="research-home-root"></div></section>
   </main>
 </section>
 
@@ -440,7 +429,7 @@
 <section class="tab-panel" id="panel-v2" hidden>
   <div class="slate-toolbar">
     <p class="slate-hint" id="v2-board-date">Active board</p>
-    <button class="ghost-btn" id="v2-refresh-btn">Refresh</button>
+    <button class="ghost-btn" id="v2-refresh-btn" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6.1 7a7 7 0 0 1 11.5-1L20 9M4 15l2.4 3A7 7 0 0 0 18 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Refresh</button>
   </div>
 
   <div class="board-filter-row" id="board-filter-row" aria-label="Filter props">
@@ -448,7 +437,7 @@
     <button type="button" data-board-filter="hrr">HRR</button>
     <button type="button" data-board-filter="total-bases">TB</button>
     <button type="button" data-board-filter="hits">Hits</button>
-    <button type="button" data-board-filter="strikeouts">Strikeouts</button>
+    <button type="button" data-board-filter="strikeouts">Pitchers</button>
     <button type="button" data-board-filter="matchup">Matchup</button>
   </div>
   <div class="slate-list" id="v2-board-list"></div>
@@ -492,7 +481,7 @@
 <!-- SAVED TAB -->
 <section class="tab-panel" id="panel-saved" hidden>
   <div class="saved-toolbar">
-    <p class="saved-hint">Your saved research props are your current bet slip. Open the builder to remove legs or export to PrizePicks.</p>
+    <p class="saved-hint">Review your saved props, pair selections, or export your slip to PrizePicks.</p>
     <button class="ghost-btn" id="clear-saved-btn">Clear all</button>
   </div>
 
@@ -500,6 +489,7 @@
   <p class="empty-state" id="saved-empty" hidden>No builder legs yet — add a prop from Research and it will show up here.</p>
 
   <div class="parlay-view" id="parlay-view" hidden></div>
+  <div id="mobile-slip-actions-root"></div>
 </section>
 
 <div class="parlay-bar" id="parlay-bar" hidden>

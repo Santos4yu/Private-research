@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BarChart3, ClipboardList, FlaskConical, ScanLine, Search, Sparkles } from 'lucide-react';
-import Dock from './Dock';
+import { Layers2 as BarChart3, Ticket as ClipboardList, Radar as FlaskConical, ScanLine, Compass as Search, Sparkles, ShieldCheck, CircleDot, Trophy, LayoutGrid, Diamond, Crosshair, Target } from 'lucide-react';
+import { MobileNavigation } from './MobileNavigation';
+import { MobileSlipActions } from './MobileSlipActions';
+import { ResearchHome } from './ResearchHome';
 import { ExpandableTabs } from '../components/ui/expandable-tabs';
 import { ResearchAILoader } from '../components/ui/research-ai-loader';
 import { ActivityDropdown } from '../components/ui/activity-dropdown';
@@ -10,34 +12,10 @@ import './tailwind.css';
 import './expandable-tabs.css';
 import './ai-loader.css';
 import './activity-dropdown.css';
-
-const Icon = ({ children }) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">{children}</svg>;
-const icons = {
-  research: <Icon><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35" strokeLinecap="round"/></Icon>,
-  slate: <Icon><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></Icon>,
-  v2: <Icon><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" strokeLinecap="round" strokeLinejoin="round"/></Icon>,
-  builder: <Icon><path d="M12 3l1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7L12 3z" strokeLinejoin="round"/></Icon>,
-  slip: <Icon><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3M7 12h10" strokeLinecap="round" strokeLinejoin="round"/></Icon>,
-  saved: <Icon><path d="M5 5h14M5 12h14M5 19h9" strokeLinecap="round"/><circle cx="19" cy="19" r="2"/></Icon>,
-};
-
-function VortexDock() {
-  const [tab, setTab] = useState('research');
-  const [saved, setSaved] = useState(0);
-  useEffect(() => {
-    const sync = (event) => { setTab(event.detail?.tab || 'research'); setSaved(event.detail?.saved ?? 0); };
-    window.addEventListener('vortex:dock-sync', sync);
-    return () => window.removeEventListener('vortex:dock-sync', sync);
-  }, []);
-  useEffect(() => { window.dispatchEvent(new Event('vortex:dock-ready')); }, []);
-  const items = ['research', 'slate', 'v2', 'builder', 'slip', 'saved'].map((key) => ({
-    label: key === 'v2' ? 'Props' : key === 'builder' ? 'Parlay' : key === 'slip' ? 'Slip Analyzer' : key === 'saved' ? 'Builder' : key[0].toUpperCase() + key.slice(1),
-    className: tab === key ? 'active' : '',
-    onClick: () => window.dispatchEvent(new CustomEvent(key === 'saved' ? 'vortex:toggle-bet-slip' : 'vortex:switch-tab', { detail: { tab: key } })),
-    icon: <>{icons[key]}{key === 'saved' && saved > 0 && <span className="dock-count">{saved}</span>}</>,
-  }));
-  return <Dock items={items} panelHeight={58} baseItemSize={42} magnification={42} distance={120} dockHeight={76} />;
-}
+import './mobile-app.css';
+import './sports-app.css';
+import './report-tabs.css';
+import './research-cards.css';
 
 const topTabs = [
   { title: 'Research', icon: Search, value: 'research' },
@@ -86,11 +64,39 @@ function VortexTopTabs() {
 }
 
 const dockRoot = document.getElementById('dock-root');
-if (dockRoot) createRoot(dockRoot).render(<VortexDock />);
+if (dockRoot) createRoot(dockRoot).render(<MobileNavigation />);
 const tabsRoot = document.getElementById('tabs');
 if (tabsRoot) createRoot(tabsRoot).render(<VortexTopTabs />);
 const builderDropdownRoot = document.getElementById('prop-builder-dropdown-root');
 if (builderDropdownRoot) createRoot(builderDropdownRoot).render(<ActivityDropdown />);
+const mobileSlipRoot = document.getElementById('mobile-slip-actions-root');
+if (mobileSlipRoot) createRoot(mobileSlipRoot).render(<MobileSlipActions />);
+const researchHomeRoot = document.getElementById('research-home-root');
+if (researchHomeRoot) createRoot(researchHomeRoot).render(<ResearchHome />);
+
+const menuIcons = { research: Search, slate: FlaskConical, v2: BarChart3, saved: ClipboardList, builder: Sparkles, slip: ScanLine, moneyline: Trophy, nrfi: CircleDot, admin: ShieldCheck };
+document.querySelectorAll('.side-link').forEach((button) => {
+  const MenuIcon = menuIcons[button.dataset.tab];
+  if (!MenuIcon) return;
+  [...button.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).forEach((node) => node.remove());
+  const iconHost = document.createElement('span');
+  iconHost.className = 'side-link-icon';
+  iconHost.setAttribute('aria-hidden', 'true');
+  button.prepend(iconHost);
+  createRoot(iconHost).render(<MenuIcon size={21} strokeWidth={1.8} />);
+});
+
+const filterIcons = { all: LayoutGrid, hrr: BarChart3, 'total-bases': Diamond, hits: CircleDot, strikeouts: Target, matchup: Crosshair };
+document.querySelectorAll('[data-board-filter]').forEach((button) => {
+  button.setAttribute('aria-pressed', String(button.classList.contains('active')));
+  const FilterIcon = filterIcons[button.dataset.boardFilter];
+  if (!FilterIcon) return;
+  const iconHost = document.createElement('span');
+  iconHost.className = 'props-filter-icon';
+  iconHost.setAttribute('aria-hidden', 'true');
+  button.prepend(iconHost);
+  createRoot(iconHost).render(<FilterIcon size={18} strokeWidth={1.8} />);
+});
 
 window.vortexMountResearchLoader = (host, props) => {
   const root = createRoot(host);

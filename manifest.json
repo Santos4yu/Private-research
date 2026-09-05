@@ -1,7 +1,7 @@
 {
-  "name": "Private",
-  "short_name": "Private",
-  "description": "Live MLB prop and matchup research — no board, no noise.",
+  "name": "Krazy Data",
+  "short_name": "Krazy Data",
+  "description": "MLB props, player research, matchup tools, and your saved slip.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",

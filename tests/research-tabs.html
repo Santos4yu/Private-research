@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en" data-theme="obsidian"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Research tabs UI check</title><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/src/mobile-app.css"><link rel="stylesheet" href="/src/sports-app.css"><link rel="stylesheet" href="/src/report-tabs.css"><link rel="stylesheet" href="/src/research-cards.css"></head>
+<body><main style="max-width:700px;margin:auto;padding:12px"><p>UI test fixture — not live picks</p><button id="replace" type="button">Compare another player</button><p id="result"></p><div id="fixture"></div></main>
+<script type="module">
+import { mountResearchTabs } from '/src/report-tabs.js';
+const source = new DOMParser().parseFromString(await (await fetch('/index.html')).text(), 'text/html');
+let index = 0;
+function render() {
+ const report = source.querySelector('#report-template').content.firstElementChild.cloneNode(true);
+ const before = [...report.querySelectorAll('.save-btn, .hitrate-bars, .last5-row, .split-grid')];
+ report.querySelector('.rt-sub').textContent = 'LAD · vs opposing starter';
+ report.querySelector('.score-num').textContent = '82';
+ report.querySelector('.verdict-pill').textContent = 'Strong';
+ report.querySelector('.verdict-detail').textContent = 'Example research report';
+ report.querySelector('.save-btn-label').textContent = 'Add to My Slip';
+ report.querySelectorAll('.report-block').forEach(block => block.classList.add('in'));
+ report.querySelector('.why-list').innerHTML = '<li>Example supporting factor</li>';
+ report.querySelector('.risk-list').innerHTML = '<li>Example risk signal</li>';
+ report.querySelector('.env-text').textContent = 'Example park conditions';
+ const save = report.querySelector('.save-btn');
+ report.querySelectorAll('.snapshot-item strong').forEach((el,i) => el.textContent = ['2.1','70%','2.4','76','Rising'][i]);
+ report.querySelector('.matchup-score-card').hidden = false;
+ report.querySelector('.matchup-score-value').textContent = '76/100';
+ report.querySelector('.matchup-score-label').textContent = 'Favorable · 85% data coverage';
+ report.querySelector('.matchup-score-fill').style.width = '76%';
+ report.querySelector('.matchup-score-factors').innerHTML = ['Opponent quality','Recent form','Pitch-mix fit','Park conditions'].map((name,i) => `<div class="matchup-factor"><div><b>${name}</b><small>Sample supporting detail for checking expansion and readability.</small></div><strong>${i===3?'-3':'+8'} / 20</strong></div>`).join('');
+ report.querySelector('.matchup-opp').textContent = 'Opponent: Arizona Diamondbacks';
+ report.querySelector('.matchup-pitcher').textContent = 'Starting pitcher · Right-handed';
+ report.querySelector('.arsenal-block').hidden = false;
+ report.querySelector('.arsenal-card-grid').innerHTML = `<article class="starter-profile-card"><p class="arsenal-eyebrow">Starting pitcher · sample</p><div class="starter-identity"><div class="starter-photo"></div><div><h4>Example starter <span>RHP</span></h4><p>Current season</p></div></div><div class="starter-metrics">${['ERA|3.82','WHIP|1.21','K/9|9.3','BB/9|2.6'].map(x=>`<div><span>${x.split('|')[0]}</span><strong>${x.split('|')[1]}</strong></div>`).join('')}</div></article><article class="pitch-type-card"><h4>Pitch mix</h4><div class="pitch-type-scroll"><table><tbody>${['Four-seam fastball','Slider','Changeup'].map(x=>`<tr><td>${x}</td><td data-label="PA">120</td><td data-label="USAGE">35%</td><td data-label="WHIFF%">28%</td><td data-label="AVG">.240</td><td data-label="SLG">.390</td><td data-label="wOBA">.310</td></tr>`).join('')}</tbody></table></div></article>`;
+ save.addEventListener('click', () => { save.classList.toggle('saved'); save.querySelector('span').textContent = save.classList.contains('saved') ? 'In My Slip' : 'Add to My Slip'; });
+ mountResearchTabs(report, {player: index++ ? 'Aaron Judge' : 'Shohei Ohtani', side:'Over', line:1.5, betType:'Total Bases'});
+ document.querySelector('#fixture').replaceChildren(report);
+ const lost = before.filter(n => !report.contains(n) && !n.matches('.report-actions-row'));
+ document.querySelector('#result').textContent = lost.length ? `FAIL: ${lost.length} lost nodes` : 'PASS: all data and chart nodes preserved';
+}
+document.querySelector('#replace').addEventListener('click', render);
+render();
+</script></body></html>

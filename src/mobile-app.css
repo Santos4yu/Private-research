@@ -1,0 +1,150 @@
+/* Private app shell. Loaded last so the existing report/chart styling stays intact. */
+.mobile-app-nav, .mobile-screen-title, .mobile-slip-actions { display: none; }
+.mobile-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+@media (max-width: 760px) {
+  :root {
+    --app-top: calc(72px + env(safe-area-inset-top, 0px));
+    --app-bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+    scroll-padding-top: calc(var(--app-top) + 12px);
+    scroll-padding-bottom: calc(var(--app-bottom) + 16px);
+  }
+  :root[data-theme] body { padding-bottom: 0 !important; background: var(--theme-bg) !important; }
+  :root[data-theme] #app-shell { min-height: 100dvh; padding-bottom: calc(var(--app-bottom) + 20px); }
+  :root[data-theme] .hero {
+    position: sticky !important; top: 0; z-index: 60;
+    min-height: var(--app-top) !important; height: auto !important;
+    padding: calc(12px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px)) !important;
+    border-bottom: 1px solid var(--theme-border) !important;
+    background: var(--theme-bg) !important; backdrop-filter: none !important;
+  }
+  :root[data-theme] .hero-inner { display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: space-between !important; width: 100% !important; gap: 0 !important; }
+  :root[data-theme] .hero-brand { justify-content: flex-start !important; padding: 0 54px 0 0 !important; margin: 0 !important; text-align: left !important; }
+  :root[data-theme] .hero-brand h1 { font: 500 11px/1.4 var(--font-sans) !important; letter-spacing: .06em !important; color: var(--theme-dim) !important; }
+  :root[data-theme] .mobile-screen-title { display: block !important; margin: 3px 0 0; color: var(--theme-text); font: 600 22px/1.2 var(--font-sans); letter-spacing: -.035em; }
+  :root[data-theme] #home-mode-switch, :root[data-theme] #tabs, #side-menu-toggle { display: none !important; }
+  :root[data-theme] .settings-btn {
+    position: fixed; z-index: 65; top: calc(14px + env(safe-area-inset-top, 0px)) !important;
+    right: max(16px, env(safe-area-inset-right, 0px)) !important;
+    width: 44px !important; height: 44px !important; border-radius: 14px !important;
+    background: var(--theme-panel) !important; color: var(--theme-text) !important;
+    opacity: 1 !important; transform: none !important; pointer-events: auto !important;
+  }
+  :root[data-theme] .settings-panel {
+    z-index: 150; top: calc(var(--app-top) + 8px) !important; right: 12px !important;
+    max-height: calc(100dvh - var(--app-top) - 24px); overflow-y: auto; overscroll-behavior: contain;
+    max-width: calc(100vw - 24px); border-radius: 20px !important;
+  }
+
+  /* Stable, labeled targets with space for the home indicator. */
+  #dock-root { position: static !important; }
+  .mobile-app-nav {
+    position: fixed; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+    z-index: 75; inset: auto 0 0; gap: 2px;
+    padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px));
+    min-height: var(--app-bottom); border-top: 1px solid var(--theme-border);
+    background: var(--theme-panel); box-shadow: 0 -8px 30px rgba(0,0,0,.08);
+  }
+  .mobile-app-tab {
+    appearance: none; display: flex; position: relative; flex-direction: column; align-items: center; justify-content: center;
+    min-width: 0; min-height: 56px; gap: 4px; padding: 4px 2px; border: 0; border-radius: 12px;
+    background: transparent; color: var(--theme-dim); cursor: pointer;
+    font: 500 11px/1.25 var(--font-sans); -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+    transition: color 160ms ease, background 160ms ease, transform 160ms ease;
+  }
+  .mobile-app-tab-icon { position: relative; display: grid; place-items: center; width: 40px; height: 26px; border-radius: 9px; }
+  .mobile-app-tab[aria-current="page"] { color: var(--theme-accent); font-weight: 700; }
+  .mobile-app-tab[aria-current="page"] .mobile-app-tab-icon { background: var(--theme-accent-dim); }
+  .mobile-app-tab:active { background: var(--theme-panel-2); transform: scale(.95); }
+  .mobile-app-count { position: absolute; top: -3px; right: -1px; min-width: 16px; height: 16px; display: grid; place-items: center; padding: 0 4px; border-radius: 8px; background: var(--theme-accent); color: var(--theme-on-accent); font: 700 10px/1 var(--font-sans); }
+  body.mobile-keyboard-open .mobile-app-nav,
+  body:has(.modal-overlay:not([hidden])) .mobile-app-nav,
+  body:has(.bet-slip-drawer:not([hidden])) .mobile-app-nav,
+  body.side-panel-open .mobile-app-nav { visibility: hidden; pointer-events: none; }
+
+  /* Short screen framing leaves the research controls within the first viewport. */
+  :root[data-theme] #app-shell > .tab-panel {
+    width: 100% !important; max-width: 100% !important;
+    padding: 18px max(16px, env(safe-area-inset-right, 0px)) 20px max(16px, env(safe-area-inset-left, 0px)) !important;
+    margin: 0 !important; min-height: calc(100dvh - var(--app-top) - var(--app-bottom) - 40px);
+    background: var(--theme-bg) !important;
+  }
+  :root[data-theme] #app-shell .search-wrap { width: 100% !important; margin: 0 !important; }
+  :root[data-theme] #app-shell .search-box { height: 52px !important; min-height: 52px !important; padding-block: 0 !important; border-radius: 14px !important; box-shadow: none !important; }
+  :root[data-theme] #search-input { font-size: 16px !important; }
+  :root[data-theme] .tab-panel input:not([type="range"]):not([type="checkbox"]),
+  :root[data-theme] .tab-panel select { font-size: 16px !important; min-height: 44px; }
+  :root[data-theme] .report-wrap { width: 100% !important; padding: 18px 0 0 !important; }
+  :root[data-theme] .research-welcome { margin: 16px 0 0 !important; padding: 24px 20px !important; text-align: left !important; border-radius: 18px !important; }
+  :root[data-theme] #panel-research #empty-state.research-welcome:not([hidden]) { display: block !important; width: 100% !important; margin: 16px 0 0 !important; padding: 24px 20px !important; }
+  :root[data-theme] .research-welcome h2 { font-size: 24px !important; }
+  :root[data-theme] .research-welcome-copy { margin-top: 10px !important; font-size: 15px !important; line-height: 1.6 !important; }
+  :root[data-theme] .research-welcome-features { display: grid !important; grid-template-columns: 1fr !important; gap: 0 !important; margin-top: 22px !important; }
+  :root[data-theme] .research-welcome-features > div { display: grid; grid-template-columns: 30px 1fr; gap: 4px 10px; padding: 14px 0 !important; border: 0 !important; border-top: 1px solid var(--theme-border) !important; background: transparent !important; }
+  :root[data-theme] .research-welcome-features > div > span { grid-row: span 2; align-self: center; }
+  :root[data-theme] .research-welcome-features strong { font-size: 14px !important; }
+  :root[data-theme] .research-welcome-features small { font-size: 12px !important; }
+  :root[data-theme] :is(.market-page-head, .slate-toolbar, .saved-toolbar, .tools-head) { margin-top: 0 !important; }
+  :root[data-theme] :is(.builder-shell, .slip-analyzer-shell) { width: 100% !important; padding-top: 0 !important; }
+  :root[data-theme] :is(.board-filter-row, .tools-tabs) { display: flex !important; flex-wrap: wrap !important; gap: 8px !important; overflow: visible !important; height: auto !important; padding: 0 !important; }
+  :root[data-theme] :is(.board-filter-row button, .tool-tab, .ghost-btn, .side-btn, .builder-segment button, .pd-tab, .gamelog-tile, .gl-filter-chip) { min-height: 44px !important; font-size: 12px !important; }
+  :root[data-theme] :is(.saved-remove, .modal-close, .line-step, .bet-slip-remove) { min-width: 44px !important; min-height: 44px !important; }
+  :root[data-theme] :is(.board-filter-row button, .tool-tab) { padding: 8px 13px !important; border-radius: 12px !important; }
+  :root[data-theme] #app-shell .parlay-bar { bottom: calc(var(--app-bottom) + 10px) !important; max-width: calc(100vw - 24px); }
+  :root[data-theme] .toast-stack { top: calc(var(--app-top) + 8px) !important; right: 12px !important; left: 12px !important; width: auto !important; bottom: auto !important; pointer-events: none; }
+  :root[data-theme] .site-footer { display: none !important; }
+  .mobile-slip-actions { display: grid; gap: 12px; margin: 20px 0; padding: 18px; border: 1px solid var(--theme-border); border-radius: 18px; background: var(--theme-panel); }
+  .mobile-slip-actions p { font-size: 14px; line-height: 1.5; color: var(--theme-dim); }
+  .mobile-slip-actions button { min-height: 48px; padding: 12px; border: 0; border-radius: 12px; background: var(--theme-accent); color: var(--theme-on-accent); font: 600 14px/1.4 var(--font-sans); cursor: pointer; }
+  .mobile-slip-actions button:disabled { opacity: .45; cursor: not-allowed; }
+  .mobile-slip-actions small { color: var(--theme-dim); font-size: 12px; line-height: 1.5; }
+  :root[data-theme] #panel-saved .saved-toolbar { padding: 0 !important; min-height: 0 !important; background: transparent !important; border: 0 !important; }
+  :root[data-theme] #panel-saved .saved-hint { font-size: 14px !important; line-height: 1.6 !important; }
+  :root[data-theme] #saved-grid:empty { display: none !important; }
+  :root[data-theme] #saved-empty:not([hidden]) { margin: 24px 0 0 !important; padding: 24px !important; min-height: 0 !important; border: 1px dashed var(--theme-border); border-radius: 16px; background: var(--theme-panel) !important; font: 400 14px/1.6 var(--font-sans) !important; color: var(--theme-dim) !important; }
+
+  /* More is a thumb-reachable sheet, reusing the existing navigation actions. */
+  :root[data-theme] .side-panel {
+    position: fixed; z-index: 140 !important; inset: auto 0 0 !important;
+    width: 100% !important; max-width: none !important; height: auto !important; max-height: 85dvh;
+    padding: 12px max(20px, env(safe-area-inset-right, 0px)) calc(20px + env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px)) !important;
+    overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--theme-border) !important;
+    border-radius: 24px 24px 0 0 !important; background: var(--theme-panel) !important;
+    transform: none !important; animation: mobile-sheet-in 200ms ease-out;
+  }
+  .side-panel::before { content: ""; display: block; width: 32px; height: 4px; margin: 0 auto 12px; border-radius: 4px; background: var(--theme-border); }
+  :root[data-theme] .side-scrim { z-index: 135 !important; }
+  :root[data-theme] .side-panel-head { margin-bottom: 8px !important; }
+  :root[data-theme] #side-menu-close { width: 44px; height: 44px; border-radius: 12px; font-size: 24px; }
+  :root[data-theme] .side-panel-label { font-size: 11px; margin: 12px 0; }
+  :root[data-theme] .side-link { display: flex; align-items: center; min-height: 52px; width: 100%; border-radius: 12px; padding: 12px 14px; text-align: left; font-size: 0; }
+  :root[data-theme] .side-link span { font: 500 15px/1.4 var(--font-sans); text-transform: capitalize; }
+  .side-link::after { content: ""; width: 7px; height: 7px; margin-left: auto; border: solid currentColor; border-width: 1.5px 1.5px 0 0; transform: rotate(45deg); }
+  :root[data-theme] .side-link:is([data-tab="research"], [data-tab="slate"], [data-tab="v2"], [data-tab="saved"]) { display: none !important; }
+  body.side-panel-open, body:has(.modal-overlay:not([hidden])), body:has(.bet-slip-drawer:not([hidden])) { overflow: hidden; }
+
+  /* Details use available screen height, with explicit close controls. */
+  :root[data-theme] .modal-overlay { padding: env(safe-area-inset-top, 0px) 0 0 !important; align-items: flex-end !important; overscroll-behavior: contain; }
+  :root[data-theme] .modal-panel { max-height: calc(100dvh - env(safe-area-inset-top, 0px)); overflow-y: auto; overscroll-behavior: contain; border-radius: 22px 22px 0 0 !important; padding-bottom: max(20px, env(safe-area-inset-bottom, 0px)) !important; }
+  :root[data-theme] :is(.team-modal, .gamelog-modal) { width: 100% !important; max-width: 100% !important; }
+  :root[data-theme] .player-detail-sheet {
+    display: flex; flex-direction: column; width: 100% !important; max-width: none !important;
+    height: calc(100dvh - env(safe-area-inset-top, 0px)) !important; max-height: none !important;
+    border-radius: 22px 22px 0 0 !important; padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: var(--theme-panel) !important; animation: mobile-sheet-in 200ms ease-out;
+  }
+  :root[data-theme] .player-detail-sheet :is(.pd-hero, .pd-tabs, .pd-close-btn) { flex-shrink: 0; }
+  :root[data-theme] .player-detail-sheet .pd-body { min-height: 0; max-height: none !important; flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 20px 16px !important; }
+  :root[data-theme] .pd-close-btn { min-height: 48px !important; font-size: 14px !important; margin: 8px 16px !important; }
+  :root[data-theme] .bet-slip-drawer {
+    top: auto !important; right: 0 !important; bottom: 0 !important; width: 100% !important;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 12px) !important; border-radius: 22px 22px 0 0 !important;
+  }
+  :root[data-theme] .bet-slip-footer { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important; }
+  :root[data-theme] .bet-slip-leg { grid-template-columns: 24px 36px minmax(0, 1fr) 44px !important; gap: 8px !important; }
+  :root[data-theme] :is(button, a, input, select, summary):focus-visible { outline: 2px solid var(--theme-accent) !important; outline-offset: 3px !important; }
+  @keyframes mobile-sheet-in { from { transform: translateY(24px); opacity: .4; } to { transform: translateY(0); opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) {
+    :root[data-theme] :is(.side-panel, .player-detail-sheet, .panel-enter, .mobile-app-tab) { animation: none !important; transition: none !important; }
+  }
+}
