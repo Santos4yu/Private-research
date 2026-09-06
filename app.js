@@ -4325,31 +4325,71 @@ function renderPitcherFinder() {
     }
   });
   const rows = [...grouped.values()];
-  const pitcherCount = new Set(rows.map((row) => String(row.player || "").toLowerCase())).size;
-  els.pitcherFinderCount.textContent = `${pitcherCount} pitcher${pitcherCount === 1 ? "" : "s"} · ${filteredRows.length} active line${filteredRows.length === 1 ? "" : "s"}${active === "goblin" ? " · More only" : ""}`;
-  els.pitcherFinderList.innerHTML = "";
-  els.pitcherFinderState.hidden = rows.length > 0 || !state.pitcherFinderLoaded;
-  if (!rows.length && state.pitcherFinderLoaded) {
-    els.pitcherFinderState.innerHTML = `<strong>No ${active === "goblin" ? "Goblin" : "matching"} pitcher lines right now</strong>PrizePicks changes the board throughout the day. Refresh to check the latest feed.`;
-    return;
-  }
-  rows.forEach((row) => {
-    const market = pitcherFinderStat(row.stat);
-    const board = pitcherFinderBoardMatch(row);
-    const playerId = board?.stats?.player_id || "";
-    const goblin = String(row.odds_type || "").toLowerCase() === "goblin";
-    const alternateCount = filteredRows.filter((candidate) => String(candidate.player || "").toLowerCase() === String(row.player || "").toLowerCase() && pitcherFinderStat(candidate.stat).key === market.key).length - 1;
-    const card = document.createElement("button");
-    card.type = "button";
-    card.className = "pitcher-line-card";
-    card.setAttribute("aria-label", `Open ${row.player}, ${row.line} ${market.short} game log`);
-    card.innerHTML = `<span class="pitcher-line-avatar">${playerId ? `<img src="https://img.mlbstatic.com/mlb-photos/image/upload/w_120,q_auto:best/v1/people/${escapeHtml(String(playerId))}/headshot/silo/current" alt="" loading="lazy" onerror="this.parentElement.innerHTML='<svg viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot;><path d=&quot;M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM5 21c0-4 3-7 7-7s7 3 7 7&quot;/></svg>'">` : `<svg viewBox="0 0 24 24" fill="none"><path d="M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM5 21c0-4 3-7 7-7s7 3 7 7"/></svg>`}</span><span class="pitcher-line-copy"><span>${goblin ? `<img src="/prizepicks/goblin.png" alt="" /> GOBLIN · MORE ONLY` : "ACTIVE PITCHER LINE"}</span><strong>${escapeHtml(row.player)}</strong><small>${escapeHtml(market.short)}${alternateCount > 0 ? ` · +${alternateCount} alternate line${alternateCount === 1 ? "" : "s"}` : ""}${board?.stats?.opponent ? ` · vs ${escapeHtml(board.stats.opponent)}` : ""}</small></span><span class="pitcher-line-value"><span><small>LINE</small><strong>${escapeHtml(String(row.line))}</strong></span><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></span>`;
-    card.addEventListener("click", () => openGameLogModal(pitcherFinderGameLogProp(row)));
-    els.pitcherFinderList.appendChild(card);
+  renderPitcherComparison(rows);
+}
+
+let pitcherComparisonPage = 0;
+let pitcherComparisonToken = 0;
+const pitcherHistoryCache = new Map();
+
+function renderPitcherComparison(rows) {
+  const token = ++pitcherComparisonToken;
+  const pages = Math.max(1, Math.ceil(rows.length / 20));
+  pitcherComparisonPage = Math.min(pitcherComparisonPage, pages - 1);
+  const visible = rows.slice(pitcherComparisonPage * 20, (pitcherComparisonPage + 1) * 20);
+  els.pitcherFinderCount.textContent = `${rows.length} pitcher markets · historical More hit rates`;
+  els.pitcherFinderState.hidden = rows.length > 0;
+  if (!rows.length) els.pitcherFinderState.textContent = 'No matching active pitcher lines. Try another filter.';
+  els.pitcherFinderList.innerHTML = `<div class="pitcher-table-scroll"><table class="pitcher-table"><thead><tr><th>Player / line</th><th>App</th><th>Avg L10</th><th>Diff</th><th>L5</th><th>L10</th><th>L15</th><th>L20</th><th>H2H</th></tr></thead><tbody></tbody></table></div><div class="pitcher-pagination"><button type="button" data-page="-1" ${pitcherComparisonPage === 0 ? 'disabled' : ''}>Previous</button><span>Page ${pitcherComparisonPage + 1} / ${pages}</span><button type="button" data-page="1" ${pitcherComparisonPage === pages - 1 ? 'disabled' : ''}>Next</button></div>`;
+  els.pitcherFinderList.querySelectorAll('[data-page]').forEach(button => button.addEventListener('click', () => {
+    pitcherComparisonPage += Number(button.dataset.page);
+    renderPitcherComparison(rows);
+  }));
+  const queue = visible.map(row => {
+    const tr = document.createElement('tr');
+    const prop = pitcherFinderGameLogProp(row);
+    tr.innerHTML = `<td><button type="button" class="pitcher-table-open"><span>${escapeHtml(row.player)}</span><small>More ${Number(row.line)} ${escapeHtml(pitcherFinderStat(row.stat).short)}</small></button></td><td><img width="24" height="24" src="/prizepicks/logo.png" alt="PrizePicks">${row.odds_type === 'goblin' ? '<img width="20" height="20" src="/prizepicks/goblin.png" alt="Goblin">' : ''}</td>${Array.from({length:7}, () => '<td class="pitcher-rate">…</td>').join('')}`;
+    tr.querySelector('button').addEventListener('click', () => openGameLogModal(prop));
+    els.pitcherFinderList.querySelector('tbody').appendChild(tr);
+    return {row, prop, tr};
   });
+  const worker = async () => {
+    while (queue.length && token === pitcherComparisonToken) {
+      const {row, prop, tr} = queue.shift();
+      const key = `${row.player}|${prop.betType}|${new Date().toISOString().slice(0,10)}`;
+      try {
+        let data = pitcherHistoryCache.get(key);
+        if (!data) {
+          const response = await fetch(`/api/game-log-filters?player=${encodeURIComponent(row.player)}&stat=${encodeURIComponent(prop.betType)}&line=${Number(row.line)}&season=all`, {cache:'no-store'});
+          data = await response.json();
+          if (!response.ok || data.error) throw new Error('History unavailable');
+          pitcherHistoryCache.set(key, data);
+        }
+        if (token !== pitcherComparisonToken) return;
+        const all = data.all || data.l20 || [];
+        const l10 = all.slice(-10);
+        const average = l10.length ? l10.reduce((sum,g) => sum + Number(g.value),0) / l10.length : null;
+        const cells = tr.querySelectorAll('.pitcher-rate');
+        cells[0].textContent = average === null ? '—' : average.toFixed(1);
+        cells[1].textContent = average === null ? '—' : `${average >= row.line ? '+' : ''}${(average - row.line).toFixed(1)}`;
+        [5,10,15,20,'h2h'].forEach((size,index) => {
+          const games = size === 'h2h' ? (data.h2h || []) : all.slice(-size);
+          const hits = games.filter(g => Number(g.value) > Number(row.line)).length;
+          const pct = games.length ? hits / games.length * 100 : null;
+          const cell = cells[index + 2];
+          cell.innerHTML = pct === null ? '—' : `<b>${Math.round(pct)}%</b><small>${hits}/${games.length}</small>`;
+          cell.dataset.tone = pct === null ? 'empty' : pct >= 70 ? 'good' : pct >= 45 ? 'mid' : 'low';
+        });
+        prop.gameLogChart = Object.fromEntries(Object.entries(data).filter(([,games]) => Array.isArray(games)).map(([key,games]) => [key,games.map(game => ({...game, over:Number(game.value) > Number(row.line)}))]));
+        if (data.meta?.player_id) prop.headshot = `https://img.mlbstatic.com/mlb-photos/image/upload/w_120/v1/people/${encodeURIComponent(data.meta.player_id)}/headshot/silo/current`;
+      } catch (_) { tr.querySelectorAll('.pitcher-rate').forEach(cell => {cell.textContent = '—'; cell.title = 'History unavailable; open the player to retry';}); }
+    }
+  };
+  Promise.all(Array.from({length:3}, worker));
 }
 
 async function loadPitcherFinder(force = false) {
+  if (force) { pitcherHistoryCache.clear(); pitcherComparisonPage = 0; }
   if (state.pitcherFinderLoaded && !force) { renderPitcherFinder(); return; }
   els.pitcherFinderState.hidden = false;
   els.pitcherFinderState.innerHTML = `<strong>Loading today's pitcher lines…</strong>Checking the current PrizePicks board.`;

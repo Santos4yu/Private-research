@@ -1,0 +1,16 @@
+/* A single scroll container keeps the chart baseline reachable at any height. */
+:root[data-theme] #gamelog-overlay { padding:16px !important; }
+:root[data-theme] #gamelog-overlay .gamelog-modal { display:block !important; width:min(1100px,100%) !important; height:auto !important; max-height:calc(100dvh - 32px) !important; overflow-y:auto !important; padding:0 !important; }
+:root[data-theme] #gamelog-overlay .gamelog-studio { min-height:0 !important; height:auto !important; overflow:visible !important; background:var(--theme-panel) !important; }
+:root[data-theme] #gamelog-overlay .gamelog-stage { height:auto !important; min-height:0 !important; overflow:visible !important; background:var(--theme-panel) !important; }
+:root[data-theme] #gamelog-overlay .gamelog-chart { height:auto !important; min-height:0 !important; padding:34px 24px 20px 44px !important; overflow-x:auto !important; overflow-y:hidden !important; background:var(--theme-panel) !important; }
+:root[data-theme] #gamelog-overlay .gamelog-chart-track { height:auto !important; min-height:0 !important; align-items:start !important; }
+:root[data-theme] #gamelog-overlay .gl-col { height:auto !important; }
+:root[data-theme] #gamelog-overlay .gamelog-summary { max-width:none !important; margin:0 !important; padding:16px !important; }
+:root[data-theme] #gamelog-overlay .gamelog-modal .modal-head { min-height:0 !important; padding:16px 24px !important; }
+:root[data-theme] #gamelog-overlay .gamelog-workbench { padding:12px 24px !important; }
+@media(max-width:640px) {
+  :root[data-theme] #gamelog-overlay { padding:8px !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-modal { max-height:calc(100dvh - 16px) !important; border-radius:18px !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-chart { padding-left:30px !important; }
+}
