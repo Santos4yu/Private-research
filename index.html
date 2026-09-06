@@ -76,18 +76,15 @@
     </div>
   </div>
   <div class="settings-section">
-    <span class="settings-label">Website theme</span>
-    <div class="theme-picker" id="mode-row">
-      <button type="button" class="mode-btn" data-mode="obsidian"><i><b></b><b></b><b></b></i><span>Dark</span></button>
-      <button type="button" class="mode-btn" data-mode="midnight"><i><b></b><b></b><b></b></i><span>Midnight</span></button>
-      <button type="button" class="mode-btn" data-mode="forest"><i><b></b><b></b><b></b></i><span>Forest</span></button>
-      <button type="button" class="mode-btn" data-mode="burgundy"><i><b></b><b></b><b></b></i><span>Red</span></button>
-      <button type="button" class="mode-btn" data-mode="ivory"><i><b></b><b></b><b></b></i><span>Light</span></button>
-      <button type="button" class="mode-btn" data-mode="violet"><i><b></b><b></b><b></b></i><span>Violet</span></button>
-      <button type="button" class="mode-btn" data-mode="ocean"><i><b></b><b></b><b></b></i><span>Ocean</span></button>
-      <button type="button" class="mode-btn" data-mode="amber"><i><b></b><b></b><b></b></i><span>Amber</span></button>
+    <div class="accent-studio-head"><div><span class="settings-label">Accent studio</span><strong>Make it yours.</strong></div><button type="button" id="accent-reset" aria-label="Reset accent colors">Reset</button></div>
+    <div class="accent-preview" id="accent-preview"><span></span><div><b>LIVE PREVIEW</b><strong>Primary action</strong><small>Secondary detail</small></div><i></i></div>
+    <div class="accent-controls">
+      <label class="accent-control"><span>Primary accent</span><div><input type="color" id="primary-accent" value="#d5fa64" aria-label="Choose primary accent color" /><output id="primary-accent-value">#D5FA64</output></div></label>
+      <label class="accent-control"><span>Secondary accent</span><div><input type="color" id="secondary-accent" value="#bca6ff" aria-label="Choose secondary accent color" /><output id="secondary-accent-value">#BCA6FF</output></div></label>
     </div>
-    <p class="theme-picker-note">Changes the full website and saves automatically.</p>
+    <div class="accent-save-row"><label for="accent-preset-name">Preset name</label><div><input type="text" id="accent-preset-name" maxlength="24" placeholder="Game night" autocomplete="off" /><button type="button" id="accent-preset-save">Save</button></div></div>
+    <div class="accent-presets" id="accent-presets" aria-label="Saved accent presets"></div>
+    <p class="theme-picker-note" id="accent-status" aria-live="polite">Colors save automatically on this device.</p>
   </div>
 
 </div>

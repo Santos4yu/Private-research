@@ -139,20 +139,13 @@ const state = {
 const els = {};
 
 const THEME_KEY = "vortex_theme_mode";
+const ACCENT_THEME_KEY = "vortex_custom_accents";
+const ACCENT_PRESETS_KEY = "vortex_accent_presets";
+const DEFAULT_ACCENTS = Object.freeze({ primary: "#d5fa64", secondary: "#bca6ff" });
 const EXPERIENCE_KEY = "private_jarvis_interface";
-// Mirrors --bg per data-theme in styles.css -- must be declared before the
-// applyTheme() call below (which runs at script top-level, immediately),
-// not down near the function definition, or it's a temporal-dead-zone
-// ReferenceError the instant this file loads when a top-level call reaches a
-// later `const` before the script gets there in top-to-bottom execution.
-const THEME_BG = {
-  obsidian: "#0c0e12", midnight: "#07101f", forest: "#07130f",
-  burgundy: "#16090d", ivory: "#f3efe7", violet: "#100a1c",
-  ocean: "#041719", amber: "#1a1005",
-};
-const LEGACY_THEMES = { dark: "obsidian", grey: "midnight", light: "ivory" };
-const initialTheme = localStorage.getItem(THEME_KEY) || "obsidian";
-applyTheme(LEGACY_THEMES[initialTheme] || initialTheme);
+// User accents are applied before the first paint and remain independent of
+// the fixed charcoal surface system.
+applyAccentTheme(loadAccentTheme(), { persist: false });
 applyExperience(localStorage.getItem(EXPERIENCE_KEY) === "true");
 
 const SCREEN_TITLES = Object.freeze({ research: "Research", v2: "Props", slate: "Tools", saved: "My Slip", builder: "Parlay Builder", slip: "Slip Analyzer", moneyline: "Moneylines", nrfi: "NRFI / YRFI", admin: "Admin Results" });
@@ -369,7 +362,15 @@ function cacheEls() {
 
   els.settingsBtn = document.getElementById("settings-btn");
   els.settingsPanel = document.getElementById("settings-panel");
-  els.modeRow = document.getElementById("mode-row");
+  els.primaryAccent = document.getElementById("primary-accent");
+  els.secondaryAccent = document.getElementById("secondary-accent");
+  els.primaryAccentValue = document.getElementById("primary-accent-value");
+  els.secondaryAccentValue = document.getElementById("secondary-accent-value");
+  els.accentPresetName = document.getElementById("accent-preset-name");
+  els.accentPresetSave = document.getElementById("accent-preset-save");
+  els.accentPresets = document.getElementById("accent-presets");
+  els.accentReset = document.getElementById("accent-reset");
+  els.accentStatus = document.getElementById("accent-status");
   els.gamelogOverlay = document.getElementById("gamelog-overlay");
   els.gamelogTitle = document.getElementById("gamelog-title");
   els.gamelogPropBadge = document.getElementById("gamelog-prop-badge");
@@ -425,14 +426,85 @@ function cacheEls() {
 
 /* ---------- Theme (mode + accent) ---------- */
 
-function applyTheme(mode) {
-  document.documentElement.setAttribute("data-theme", mode);
-  localStorage.setItem(THEME_KEY, mode);
-  document.querySelectorAll(".mode-btn").forEach((b) => {
-    b.classList.toggle("active", b.dataset.mode === mode);
+function normalizeAccentHex(value, fallback) {
+  const hex = String(value || "").trim().toLowerCase();
+  return /^#[0-9a-f]{6}$/.test(hex) ? hex : fallback;
+}
+
+function loadAccentTheme() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(ACCENT_THEME_KEY) || "null");
+    return {
+      primary: normalizeAccentHex(saved?.primary, DEFAULT_ACCENTS.primary),
+      secondary: normalizeAccentHex(saved?.secondary, DEFAULT_ACCENTS.secondary),
+    };
+  } catch (_) {
+    return { ...DEFAULT_ACCENTS };
+  }
+}
+
+function accentTextColor(hex) {
+  const rgb = [1, 3, 5].map((offset) => parseInt(hex.slice(offset, offset + 2), 16) / 255);
+  const luminance = rgb.reduce((sum, channel, index) => {
+    const linear = channel <= .03928 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4;
+    return sum + linear * [0.2126, 0.7152, 0.0722][index];
+  }, 0);
+  return luminance > .42 ? "#10130b" : "#ffffff";
+}
+
+function applyAccentTheme(theme, { persist = true } = {}) {
+  const primary = normalizeAccentHex(theme?.primary, DEFAULT_ACCENTS.primary);
+  const secondary = normalizeAccentHex(theme?.secondary, DEFAULT_ACCENTS.secondary);
+  const root = document.documentElement;
+  root.setAttribute("data-theme", "obsidian");
+  root.style.setProperty("--theme-accent", primary);
+  root.style.setProperty("--theme-accent-soft", secondary);
+  root.style.setProperty("--theme-secondary", secondary);
+  root.style.setProperty("--theme-accent-dim", `color-mix(in srgb, ${primary} 14%, transparent)`);
+  root.style.setProperty("--theme-on-accent", accentTextColor(primary));
+  localStorage.removeItem(THEME_KEY);
+  if (persist) localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify({ primary, secondary }));
+  if (els.primaryAccent) {
+    els.primaryAccent.value = primary;
+    els.secondaryAccent.value = secondary;
+    els.primaryAccentValue.textContent = primary.toUpperCase();
+    els.secondaryAccentValue.textContent = secondary.toUpperCase();
+  }
+}
+
+function loadAccentPresets() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(ACCENT_PRESETS_KEY) || "[]");
+    return Array.isArray(saved) ? saved.filter((item) => item && item.name).slice(0, 12) : [];
+  } catch (_) { return []; }
+}
+
+function renderAccentPresets() {
+  const presets = loadAccentPresets();
+  els.accentPresets.innerHTML = presets.length ? "" : `<p class="accent-presets-empty">No saved presets yet.</p>`;
+  presets.forEach((preset, index) => {
+    const row = document.createElement("div");
+    row.className = "accent-preset";
+    row.innerHTML = `<span class="accent-preset-preview" style="--preset-primary:${normalizeAccentHex(preset.primary, DEFAULT_ACCENTS.primary)};--preset-secondary:${normalizeAccentHex(preset.secondary, DEFAULT_ACCENTS.secondary)}"><i></i><i></i></span><span class="accent-preset-name">${escapeHtml(preset.name)}</span><button type="button" aria-label="Delete ${escapeHtml(preset.name)} preset"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5m4-5v5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button><span class="accent-preset-apply" role="button" tabindex="0" aria-label="Apply ${escapeHtml(preset.name)} preset"></span>`;
+    const apply = () => {
+      applyAccentTheme(preset);
+      els.accentStatus.textContent = `${preset.name} applied.`;
+    };
+    const applyButton = row.querySelector(".accent-preset-apply");
+    applyButton.addEventListener("click", apply);
+    applyButton.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); apply(); }
+    });
+    row.querySelector("button").addEventListener("click", (event) => {
+      event.stopPropagation();
+      const next = loadAccentPresets();
+      next.splice(index, 1);
+      localStorage.setItem(ACCENT_PRESETS_KEY, JSON.stringify(next));
+      renderAccentPresets();
+      els.accentStatus.textContent = `${preset.name} deleted.`;
+    });
+    els.accentPresets.appendChild(row);
   });
-  const meta = document.getElementById("theme-color-meta");
-  if (meta && THEME_BG[mode]) meta.setAttribute("content", THEME_BG[mode]);
 }
 
 function applyExperience(enabled) {
@@ -493,8 +565,8 @@ function wireCardBorderGlow() {
 }
 
 function wireSettingsPanel() {
-  const savedMode = localStorage.getItem(THEME_KEY) || "obsidian";
-  applyTheme(LEGACY_THEMES[savedMode] || savedMode);
+  applyAccentTheme(loadAccentTheme(), { persist: false });
+  renderAccentPresets();
 
   // 5 rapid clicks on the settings gear opens the hidden admin PIN prompt
   // instead of the normal theme panel -- the PIN itself is never checked
@@ -524,8 +596,35 @@ function wireSettingsPanel() {
       els.settingsPanel.hidden = true;
     }
   });
-  els.modeRow.querySelectorAll(".mode-btn").forEach((btn) => {
-    btn.addEventListener("click", () => applyTheme(btn.dataset.mode));
+  const updateAccents = () => {
+    applyAccentTheme({ primary: els.primaryAccent.value, secondary: els.secondaryAccent.value });
+    els.accentStatus.textContent = "Colors saved automatically on this device.";
+  };
+  els.primaryAccent.addEventListener("input", updateAccents);
+  els.secondaryAccent.addEventListener("input", updateAccents);
+  els.accentReset.addEventListener("click", () => {
+    applyAccentTheme(DEFAULT_ACCENTS);
+    els.accentStatus.textContent = "Default accents restored.";
+  });
+  els.accentPresetSave.addEventListener("click", () => {
+    const name = els.accentPresetName.value.trim();
+    if (!name) {
+      els.accentPresetName.focus();
+      els.accentStatus.textContent = "Name the preset before saving it.";
+      return;
+    }
+    const presets = loadAccentPresets();
+    const preset = { name, primary: els.primaryAccent.value, secondary: els.secondaryAccent.value };
+    const existing = presets.findIndex((item) => item.name.toLowerCase() === name.toLowerCase());
+    if (existing >= 0) presets[existing] = preset;
+    else presets.unshift(preset);
+    localStorage.setItem(ACCENT_PRESETS_KEY, JSON.stringify(presets.slice(0, 12)));
+    els.accentPresetName.value = "";
+    renderAccentPresets();
+    els.accentStatus.textContent = `${name} saved.`;
+  });
+  els.accentPresetName.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") { event.preventDefault(); els.accentPresetSave.click(); }
   });
 }
 
