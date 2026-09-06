@@ -21,10 +21,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from auth_core import session_with_live_access  # noqa: E402
 from v2.board import store  # noqa: E402
 from v2.board import admin_auth  # noqa: E402
+from prizepicks_export_core import _fetch_projection_rows, _norm_stat  # noqa: E402
 
 BOT_BOARD_KEY = "vortex:site_board"
 SPECIALS_KEY = "vortex:site_specials"
 MLB_BASE = "https://mlb-proxy.damian209466-d45.workers.dev/api/v1"
+PITCHER_MARKETS = {
+    "pitcherstrikeouts", "pitchingouts", "hitsallowed",
+    "earnedrunsallowed", "pitcherwalks",
+}
 
 
 def _norm(value):
@@ -141,6 +146,21 @@ class handler(BaseHTTPRequestHandler):
             return self._send(401, {"error": "Sign in with Discord to use live research.", "authRequired": True})
 
         view = (parse_qs(urlparse(self.path).query).get("view") or [""])[0]
+        if view == "pitcher-props":
+            try:
+                rows = [row for row in _fetch_projection_rows()
+                        if _norm_stat(row.get("stat")) in PITCHER_MARKETS]
+                rows.sort(key=lambda row: (
+                    0 if row.get("odds_type") == "goblin" else 1,
+                    str(row.get("player") or ""),
+                    str(row.get("stat") or ""),
+                    float(row.get("line") or 0),
+                ))
+                return self._send(200, {"props": rows})
+            except Exception as exc:
+                return self._send(502, {
+                    "error": f"Active pitcher lines are temporarily unavailable: {exc}"
+                })
         if view in ("specials", "results"):
             if view == "results" and not admin_auth.is_admin_request(self.headers):
                 return self._send(401, {"error": "Admin passcode required"})

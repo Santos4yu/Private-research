@@ -4312,7 +4312,7 @@ async function loadPitcherFinder(force = false) {
   els.pitcherFinderState.innerHTML = `<strong>Loading today's pitcher lines…</strong>Checking the current PrizePicks board.`;
   els.pitcherFinderRefresh.disabled = true;
   try {
-    const response = await fetch("/api/pitcher-props", { cache: "no-store" });
+    const response = await fetch("/api/board?view=pitcher-props", { cache: "no-store" });
     const raw = await response.text();
     let data;
     try { data = JSON.parse(raw); } catch (_) { throw new Error("The live pitcher feed is not available in this preview."); }
