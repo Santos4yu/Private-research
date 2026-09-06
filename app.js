@@ -119,6 +119,9 @@ const state = {
   v2RenderedProps: [],
   boardFilter: "all",
   matchupDisplayLimit: 40,
+  pitcherFinderLoaded: false,
+  pitcherFinderProps: [],
+  pitcherFinderFilter: "all",
   builderLegs: 2,
   builderMode: "safe",
   builderResult: [],
@@ -294,6 +297,13 @@ function cacheEls() {
   els.v2BoardDate = document.getElementById("v2-board-date");
   els.v2RefreshBtn = document.getElementById("v2-refresh-btn");
   els.boardFilterRow = document.getElementById("board-filter-row");
+  els.pitcherFinder = document.getElementById("pitcher-finder");
+  els.pitcherFinderTabs = document.getElementById("pitcher-finder-tabs");
+  els.pitcherFinderList = document.getElementById("pitcher-finder-list");
+  els.pitcherFinderState = document.getElementById("pitcher-finder-state");
+  els.pitcherFinderCount = document.getElementById("pitcher-finder-count");
+  els.pitcherFinderRefresh = document.getElementById("pitcher-finder-refresh");
+  els.pitcherBoardLabel = document.getElementById("pitcher-board-label");
   els.autoBoardState = document.getElementById("auto-board-state");
   els.autoActiveCadence = document.getElementById("auto-active-cadence");
   els.autoPregameCadence = document.getElementById("auto-pregame-cadence");
@@ -4117,8 +4127,129 @@ function renderSlate(data) {
    it back, and this renders the same fields the bot's /menu embed shows —
    tier, Vortex Score, EV, hit-rate windows, pitcher matchup, BvP, risk. */
 
+const PITCHER_FINDER_STAT = {
+  pitcherstrikeouts: { key: "strikeouts", label: "Strikeouts (Pitcher)", short: "K's" },
+  pitchingouts: { key: "outs", label: "Pitching Outs", short: "Outs" },
+  hitsallowed: { key: "hits", label: "Hits Allowed", short: "Hits allowed" },
+  earnedrunsallowed: { key: "earned-runs", label: "Earned Runs Allowed", short: "Earned runs" },
+  pitcherwalks: { key: "walks", label: "Walks Allowed", short: "Walks" },
+};
+
+function pitcherFinderStat(value) {
+  const key = String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  return PITCHER_FINDER_STAT[key] || { key: "all", label: String(value || "Pitcher prop"), short: String(value || "Pitcher prop") };
+}
+
+function pitcherFinderBoardMatch(row) {
+  const name = String(row.player || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const candidates = [
+    ...(state.v2BoardData?.props || []),
+    ...(state.v2BoardData?.pitcher_research || []),
+  ];
+  return candidates.find((p) => String(p.player_name || "").toLowerCase().replace(/[^a-z0-9]/g, "") === name) || null;
+}
+
+function pitcherFinderGameLogProp(row) {
+  const market = pitcherFinderStat(row.stat);
+  const board = pitcherFinderBoardMatch(row);
+  const stats = board?.stats || {};
+  const playerId = stats.player_id || "";
+  return {
+    player: row.player,
+    betType: market.label,
+    line: Number(row.line),
+    side: "Over",
+    position: "P",
+    isPitcherProp: true,
+    sport: "MLB",
+    teamId: stats.team_id || board?.team_id || null,
+    teamName: stats.team || board?.team || "",
+    teamAbbr: stats.team_abbr || board?.team || "",
+    opponentTeamId: stats.opponent_team_id || null,
+    matchup: { opponent: stats.opponent || stats.matchup?.opponent || "" },
+    headshot: playerId ? `https://img.mlbstatic.com/mlb-photos/image/upload/w_300,q_auto:best/v1/people/${playerId}/headshot/silo/current` : "",
+    gameLogChart: {},
+  };
+}
+
+function renderPitcherFinder() {
+  if (!els.pitcherFinder) return;
+  const active = state.pitcherFinderFilter;
+  els.pitcherFinderTabs.querySelectorAll("button").forEach((button) => {
+    const selected = button.dataset.pitcherFilter === active;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+  const rows = state.pitcherFinderProps.filter((row) => {
+    if (active === "all") return true;
+    if (active === "goblin") return String(row.odds_type || "").toLowerCase() === "goblin";
+    return pitcherFinderStat(row.stat).key === active;
+  });
+  els.pitcherFinderCount.textContent = `${rows.length} active line${rows.length === 1 ? "" : "s"}${active === "goblin" ? " · More only" : ""}`;
+  els.pitcherFinderList.innerHTML = "";
+  els.pitcherFinderState.hidden = rows.length > 0 || !state.pitcherFinderLoaded;
+  if (!rows.length && state.pitcherFinderLoaded) {
+    els.pitcherFinderState.innerHTML = `<strong>No ${active === "goblin" ? "Goblin" : "matching"} pitcher lines right now</strong>PrizePicks changes the board throughout the day. Refresh to check the latest feed.`;
+    return;
+  }
+  rows.forEach((row) => {
+    const market = pitcherFinderStat(row.stat);
+    const board = pitcherFinderBoardMatch(row);
+    const playerId = board?.stats?.player_id || "";
+    const goblin = String(row.odds_type || "").toLowerCase() === "goblin";
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "pitcher-line-card";
+    card.setAttribute("aria-label", `Open ${row.player}, ${row.line} ${market.short} game log`);
+    card.innerHTML = `<span class="pitcher-line-avatar">${playerId ? `<img src="https://img.mlbstatic.com/mlb-photos/image/upload/w_120,q_auto:best/v1/people/${escapeHtml(String(playerId))}/headshot/silo/current" alt="" loading="lazy" onerror="this.parentElement.innerHTML='<svg viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot;><path d=&quot;M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM5 21c0-4 3-7 7-7s7 3 7 7&quot;/></svg>'">` : `<svg viewBox="0 0 24 24" fill="none"><path d="M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM5 21c0-4 3-7 7-7s7 3 7 7"/></svg>`}</span><span class="pitcher-line-copy"><span>${goblin ? `<img src="/prizepicks/goblin.png" alt="" /> GOBLIN · MORE ONLY` : "ACTIVE PITCHER LINE"}</span><strong>${escapeHtml(row.player)}</strong><small>${escapeHtml(market.short)}${board?.stats?.opponent ? ` · vs ${escapeHtml(board.stats.opponent)}` : ""}</small></span><span class="pitcher-line-value"><span><small>LINE</small><strong>${escapeHtml(String(row.line))}</strong></span><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></span>`;
+    card.addEventListener("click", () => openGameLogModal(pitcherFinderGameLogProp(row)));
+    els.pitcherFinderList.appendChild(card);
+  });
+}
+
+async function loadPitcherFinder(force = false) {
+  if (state.pitcherFinderLoaded && !force) { renderPitcherFinder(); return; }
+  els.pitcherFinderState.hidden = false;
+  els.pitcherFinderState.innerHTML = `<strong>Loading today's pitcher lines…</strong>Checking the current PrizePicks board.`;
+  els.pitcherFinderRefresh.disabled = true;
+  try {
+    const response = await fetch("/api/pitcher-props", { cache: "no-store" });
+    const raw = await response.text();
+    let data;
+    try { data = JSON.parse(raw); } catch (_) { throw new Error("The live pitcher feed is not available in this preview."); }
+    if (!response.ok || data.error) throw new Error(data.error || "Pitcher lines unavailable");
+    state.pitcherFinderProps = data.props || [];
+    state.pitcherFinderLoaded = true;
+    renderPitcherFinder();
+  } catch (error) {
+    els.pitcherFinderCount.textContent = "Live lines unavailable";
+    els.pitcherFinderList.innerHTML = "";
+    els.pitcherFinderState.hidden = false;
+    els.pitcherFinderState.innerHTML = `<strong>Could not load active pitcher lines</strong>${escapeHtml(error.message || "Try again shortly.")}`;
+  } finally {
+    els.pitcherFinderRefresh.disabled = false;
+  }
+}
+
+function syncPitcherFinderVisibility() {
+  const visible = state.boardFilter === "strikeouts";
+  els.pitcherFinder.hidden = !visible;
+  els.pitcherBoardLabel.hidden = !visible;
+  if (visible) {
+    renderPitcherFinder();
+    loadPitcherFinder();
+  }
+}
+
 function wireV2Board() {
   els.v2RefreshBtn.addEventListener("click", () => loadV2Board(true));
+  els.pitcherFinderRefresh.addEventListener("click", () => loadPitcherFinder(true));
+  els.pitcherFinderTabs.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-pitcher-filter]");
+    if (!button) return;
+    state.pitcherFinderFilter = button.dataset.pitcherFilter;
+    renderPitcherFinder();
+  });
   els.boardFilterRow.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-board-filter]");
     if (!btn) return;
@@ -4128,6 +4259,7 @@ function wireV2Board() {
       b.classList.toggle("active", b === btn);
       b.setAttribute("aria-pressed", String(b === btn));
     });
+    syncPitcherFinderVisibility();
     if (state.v2BoardData) renderBotBoard(state.v2BoardData);
   });
 

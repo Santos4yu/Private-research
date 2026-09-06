@@ -16,7 +16,8 @@ from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from prediction_core import get_game_log_filters, PlayerNotFound, NoGameFound, STAT_LABEL_TO_PROP_TYPE  # noqa: E402
+from prediction_core import get_game_log_filters, PlayerNotFound, NoGameFound, STAT_LABEL_TO_PROP_TYPE, stats_mlb, vortex_research  # noqa: E402
+from backend.vortextime import vortex_board_day  # noqa: E402
 from auth_core import session_with_live_access  # noqa: E402
 
 
@@ -47,6 +48,26 @@ class handler(BaseHTTPRequestHandler):
         prop_type = STAT_LABEL_TO_PROP_TYPE.get(stat_label)
         if not prop_type:
             return self._send(400, {"error": f"Unknown stat: {stat_label!r}"})
+
+        # Finder rows come straight from the live projection feed and may not
+        # exist on the smaller recommended board. Resolve today's opponent on
+        # demand so H2H still works for every active pitcher line.
+        if not team_id and not opponent:
+            try:
+                matches = vortex_research.fuzzy_search(player_name)
+                player_id = matches[0]["id"] if matches else None
+                own_team_id = stats_mlb.get_player_current_team(player_id) if player_id else None
+                for game in stats_mlb.get_todays_schedule(vortex_board_day()).values():
+                    if own_team_id == game.get("home_team_id"):
+                        team_id = str(game.get("away_team_id") or "")
+                        opponent = game.get("away_team_name") or ""
+                        break
+                    if own_team_id == game.get("away_team_id"):
+                        team_id = str(game.get("home_team_id") or "")
+                        opponent = game.get("home_team_name") or ""
+                        break
+            except Exception:
+                pass
 
         try:
             result = get_game_log_filters(

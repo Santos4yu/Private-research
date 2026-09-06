@@ -17,6 +17,7 @@ import './sports-app.css';
 import './report-tabs.css';
 import './research-cards.css';
 import './builder-app.css';
+import './pitcher-finder.css';
 
 const topTabs = [
   { title: 'Research', icon: Search, value: 'research' },

@@ -440,6 +440,25 @@
     <button type="button" data-board-filter="strikeouts">Pitchers</button>
     <button type="button" data-board-filter="matchup">Matchup</button>
   </div>
+  <section class="pitcher-finder" id="pitcher-finder" hidden aria-labelledby="pitcher-finder-title">
+    <header class="pitcher-finder-head">
+      <div><span>LIVE PITCHER BOARD</span><h2 id="pitcher-finder-title">Find the line you want.</h2><p>Every active pitcher prop in one place. Tap a line to open its daily game log.</p></div>
+      <svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M13 42c10-20 21-29 38-27-2 17-12 28-31 35"/><path d="M18 50c8-12 18-20 31-25"/><circle cx="46" cy="20" r="5"/></svg>
+    </header>
+    <div class="pitcher-finder-tabs" id="pitcher-finder-tabs" role="toolbar" aria-label="Pitcher prop type">
+      <button type="button" class="active" data-pitcher-filter="all">All</button>
+      <button type="button" data-pitcher-filter="goblin"><img src="/prizepicks/goblin.png" alt="" />Goblins</button>
+      <button type="button" data-pitcher-filter="strikeouts">K's</button>
+      <button type="button" data-pitcher-filter="outs">Outs</button>
+      <button type="button" data-pitcher-filter="hits">Hits</button>
+      <button type="button" data-pitcher-filter="earned-runs">ER</button>
+      <button type="button" data-pitcher-filter="walks">Walks</button>
+    </div>
+    <div class="pitcher-finder-meta"><span id="pitcher-finder-count">Loading active lines…</span><button type="button" id="pitcher-finder-refresh" aria-label="Refresh active pitcher lines"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg>Refresh</button></div>
+    <div class="pitcher-finder-list" id="pitcher-finder-list"></div>
+    <div class="pitcher-finder-state" id="pitcher-finder-state" hidden></div>
+  </section>
+  <div class="pitcher-board-label" id="pitcher-board-label" hidden>Vortex recommended plays</div>
   <div class="slate-list" id="v2-board-list"></div>
   <p class="empty-state" id="v2-board-empty" hidden>The board is empty right now — it fills as soon as the data engine runs.</p>
   <p class="slate-error" id="v2-board-error" hidden></p>
