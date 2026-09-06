@@ -46,7 +46,14 @@ export function polishResearchCards(report) {
     row.insertAdjacentHTML('afterbegin', researchIcon(selector.includes('pitcher') ? 'pitcher' : 'shield'));
     const copy = document.createElement('span'); copy.textContent = text; row.append(copy);
   }
-  report.querySelectorAll('.starter-photo').forEach(photo => { photo.innerHTML = researchIcon('pitcher'); });
+  report.querySelectorAll('.starter-photo').forEach(photo => {
+    const image = photo.querySelector('img');
+    if (image) {
+      image.alt = 'Starting pitcher';
+      image.removeAttribute('onerror');
+      image.addEventListener('error', () => { photo.innerHTML = researchIcon('pitcher'); }, { once: true });
+    } else photo.innerHTML = researchIcon('pitcher');
+  });
   report.querySelectorAll('.team-insights-btn').forEach(button => {
     button.replaceChildren(); button.insertAdjacentHTML('afterbegin', researchIcon('mix'));
     button.append(document.createTextNode('Explore lineup & pitches'));

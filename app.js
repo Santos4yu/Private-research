@@ -197,7 +197,8 @@ async function init() {
     state.props = data.props || [];
   } catch (err) {
     console.error(err);
-    els.emptyState.innerHTML = `<span class="status-mark" aria-hidden="true"></span><span class="state-copy"><strong>Research is temporarily unavailable</strong><small>Try again shortly. The rest of the site remains available.</small></span>`;
+    // The optional static seed is independent of live player research.
+    // Keep the React home mounted when this file is absent in production.
     state.props = [];
   }
 

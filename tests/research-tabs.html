@@ -5,6 +5,12 @@
 import { mountResearchTabs } from '/src/report-tabs.js';
 const source = new DOMParser().parseFromString(await (await fetch('/index.html')).text(), 'text/html');
 let index = 0;
+// Exercise production renderers with representative data, not hand-built cards.
+const appSource = await (await fetch('/app.js')).text();
+const extract = (name, next) => appSource.slice(appSource.indexOf(`function ${name}(`), appSource.indexOf(`function ${next}(`));
+const escape = text => String(text).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const renderArsenal = new Function('escapeHtml','formatBattingAverage', `${extract('fillPitchArsenal','fillSplitFactor')}; return fillPitchArsenal;`)(escape, value => String(value));
+const renderHeader = new Function('escapeHtml', `${extract('fillHeader','fillResearchSnapshot')}; return fillHeader;`)(escape);
 function render() {
  const report = source.querySelector('#report-template').content.firstElementChild.cloneNode(true);
  const before = [...report.querySelectorAll('.save-btn, .hitrate-bars, .last5-row, .split-grid')];
@@ -29,7 +35,10 @@ function render() {
  report.querySelector('.arsenal-block').hidden = false;
  report.querySelector('.arsenal-card-grid').innerHTML = `<article class="starter-profile-card"><p class="arsenal-eyebrow">Starting pitcher · sample</p><div class="starter-identity"><div class="starter-photo"></div><div><h4>Example starter <span>RHP</span></h4><p>Current season</p></div></div><div class="starter-metrics">${['ERA|3.82','WHIP|1.21','K/9|9.3','BB/9|2.6'].map(x=>`<div><span>${x.split('|')[0]}</span><strong>${x.split('|')[1]}</strong></div>`).join('')}</div></article><article class="pitch-type-card"><h4>Pitch mix</h4><div class="pitch-type-scroll"><table><tbody>${['Four-seam fastball','Slider','Changeup'].map(x=>`<tr><td>${x}</td><td data-label="PA">120</td><td data-label="USAGE">35%</td><td data-label="WHIFF%">28%</td><td data-label="AVG">.240</td><td data-label="SLG">.390</td><td data-label="wOBA">.310</td></tr>`).join('')}</tbody></table></div></article>`;
  save.addEventListener('click', () => { save.classList.toggle('saved'); save.querySelector('span').textContent = save.classList.contains('saved') ? 'In My Slip' : 'Add to My Slip'; });
- mountResearchTabs(report, {player: index++ ? 'Aaron Judge' : 'Shohei Ohtani', side:'Over', line:1.5, betType:'Total Bases'});
+ const prop = {player:index++ ? 'Aaron Judge' : 'Shohei Ohtani',side:'Over',line:1.5,betType:'Total Bases',team:'LAD',verdict:'Over 1.5',verdictDetail:'L10 hit rate: 20% · L10 avg: 1.0 vs 1.5 line · Stability: Low · Projection edge: -0.5 vs line · Damage: High',starterProfile:{id:660271,name:'Shohei Ohtani',hand:'R',era:3.12,whip:1.2,kPer9:10.43,bbPer9:2.71,gamesStarted:29,wins:12,losses:5},bvpCard:{splitFallback:{hand:'R',pa:396,avg:'.282',ops:'.918',hr:18,rbi:52,kPct:23.7}},pitchArsenal:[{name:'Four-seam FB',code:'FF',pct:33,batterVs:{pa:170,whiffPct:27.5,avg:'.234',slg:'.428',woba:'.342',kPct:28.2}},{name:'Knuckle-curve',code:'KC',pct:27.2,batterVs:{pa:55,whiffPct:38.1,avg:'.188',slg:'.250',woba:'.260',kPct:30}}]};
+ renderHeader(report,prop);
+ renderArsenal(report,prop);
+ mountResearchTabs(report, prop);
  document.querySelector('#fixture').replaceChildren(report);
  const lost = before.filter(n => !report.contains(n) && !n.matches('.report-actions-row'));
  document.querySelector('#result').textContent = lost.length ? `FAIL: ${lost.length} lost nodes` : 'PASS: all data and chart nodes preserved';
