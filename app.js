@@ -452,19 +452,20 @@ function accentTextColor(hex) {
   return luminance > .42 ? "#10130b" : "#ffffff";
 }
 
-function applyAccentTheme(theme, { persist = true } = {}) {
+function applyAccentTheme(theme, { persist = true, syncControls = true } = {}) {
   const primary = normalizeAccentHex(theme?.primary, DEFAULT_ACCENTS.primary);
   const secondary = normalizeAccentHex(theme?.secondary, DEFAULT_ACCENTS.secondary);
   const root = document.documentElement;
   root.setAttribute("data-theme", "obsidian");
+  root.setAttribute("data-custom-accents", "true");
   root.style.setProperty("--theme-accent", primary);
-  root.style.setProperty("--theme-accent-soft", secondary);
+  root.style.setProperty("--theme-accent-soft", `color-mix(in srgb, ${primary} 72%, white)`);
   root.style.setProperty("--theme-secondary", secondary);
   root.style.setProperty("--theme-accent-dim", `color-mix(in srgb, ${primary} 14%, transparent)`);
   root.style.setProperty("--theme-on-accent", accentTextColor(primary));
   localStorage.removeItem(THEME_KEY);
   if (persist) localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify({ primary, secondary }));
-  if (els.primaryAccent) {
+  if (syncControls && els.primaryAccent) {
     els.primaryAccent.value = primary;
     els.secondaryAccent.value = secondary;
     els.primaryAccentValue.textContent = primary.toUpperCase();
@@ -596,12 +597,28 @@ function wireSettingsPanel() {
       els.settingsPanel.hidden = true;
     }
   });
-  const updateAccents = () => {
-    applyAccentTheme({ primary: els.primaryAccent.value, secondary: els.secondaryAccent.value });
-    els.accentStatus.textContent = "Colors saved automatically on this device.";
+  let accentFrame = 0;
+  let accentSaveTimer = 0;
+  const updateAccents = ({ saveNow = false } = {}) => {
+    const theme = { primary: els.primaryAccent.value, secondary: els.secondaryAccent.value };
+    clearTimeout(accentSaveTimer);
+    cancelAnimationFrame(accentFrame);
+    accentFrame = requestAnimationFrame(() => {
+      applyAccentTheme(theme, { persist: false, syncControls: false });
+      els.primaryAccentValue.textContent = theme.primary.toUpperCase();
+      els.secondaryAccentValue.textContent = theme.secondary.toUpperCase();
+    });
+    const save = () => {
+      localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify(theme));
+      els.accentStatus.textContent = "Colors saved automatically on this device.";
+    };
+    if (saveNow) save();
+    else accentSaveTimer = setTimeout(save, 180);
   };
-  els.primaryAccent.addEventListener("input", updateAccents);
-  els.secondaryAccent.addEventListener("input", updateAccents);
+  els.primaryAccent.addEventListener("input", () => updateAccents());
+  els.secondaryAccent.addEventListener("input", () => updateAccents());
+  els.primaryAccent.addEventListener("change", () => updateAccents({ saveNow: true }));
+  els.secondaryAccent.addEventListener("change", () => updateAccents({ saveNow: true }));
   els.accentReset.addEventListener("click", () => {
     applyAccentTheme(DEFAULT_ACCENTS);
     els.accentStatus.textContent = "Default accents restored.";

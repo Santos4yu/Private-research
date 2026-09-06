@@ -1,4 +1,11 @@
 :root[data-theme] .settings-panel { width:min(340px,calc(100vw - 28px)) !important; max-height:calc(100dvh - 82px); overflow-y:auto; padding:18px !important; border-radius:20px !important; }
+:root[data-theme][data-custom-accents] {
+  --theme-bg:color-mix(in srgb,var(--theme-secondary) 15%,#090b0f);
+  --theme-bg-2:color-mix(in srgb,var(--theme-secondary) 20%,#0d1015);
+  --theme-panel:color-mix(in srgb,var(--theme-secondary) 11%,#171a20);
+  --theme-panel-2:color-mix(in srgb,var(--theme-secondary) 17%,#20242c);
+  --theme-border:color-mix(in srgb,var(--theme-secondary) 22%,#2b3039);
+}
 .accent-studio-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
 .accent-studio-head strong { display:block; margin-top:5px; color:var(--theme-text); font-size:18px; letter-spacing:-.025em; }
 .accent-studio-head button { min-height:44px; padding:0 10px; border:0; background:transparent; color:var(--theme-dim); font:700 11px/1 var(--font-sans); cursor:pointer; }
