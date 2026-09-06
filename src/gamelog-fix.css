@@ -14,3 +14,18 @@
   :root[data-theme] #gamelog-overlay .gamelog-modal { max-height:calc(100dvh - 16px) !important; border-radius:18px !important; }
   :root[data-theme] #gamelog-overlay .gamelog-chart { padding-left:30px !important; }
 }
+
+.posted-lines { grid-column:1/-1; border:1px solid var(--theme-border); border-radius:12px; padding:10px; color:var(--theme-text); background:var(--theme-panel); }
+.posted-lines summary,.rate-filter summary { cursor:pointer; min-height:44px; align-content:center; }
+.posted-options { display:grid; gap:6px; max-height:250px; overflow-y:auto; }
+.posted-options button { display:flex; align-items:center; gap:12px; min-height:48px; border:1px solid var(--theme-border); border-radius:10px; background:var(--theme-panel-2); color:var(--theme-text); padding:10px; cursor:pointer; }
+.posted-options img { width:24px; height:24px; }
+.posted-options span { text-transform:capitalize; }
+.rate-filter { padding:12px; border:1px solid var(--theme-border); border-radius:14px; background:var(--theme-panel); }
+.rate-windows,.rate-bounds { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+.rate-windows label { min-height:44px; align-content:center; }
+.rate-bounds label { display:grid; gap:6px; }
+.rate-bounds input { width:85px; min-height:44px; }
+.rate-bounds button,.pitcher-table th button { min-height:44px; border:0; background:transparent; color:var(--theme-text); cursor:pointer; }
+.rate-filter p { font-size:12px; color:var(--theme-dim); }
+.pitcher-table-photo { width:42px; height:42px; object-fit:cover; border-radius:50%; float:left; margin-right:10px; background:var(--theme-panel-2); }

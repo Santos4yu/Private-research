@@ -2161,6 +2161,7 @@ function populateGameLogStats() {
 }
 
 async function loadGameLogStat(stat) {
+  loadGameLogPostedLines(stat);
   const token = ++gameLogState.fetchToken;
   gameLogState.stat = stat;
   els.gamelogStatTabs?.querySelectorAll("button").forEach((button) => { button.disabled = true; });
@@ -2210,6 +2211,7 @@ async function loadGameLogStat(stat) {
 }
 
 function openGameLogModal(p) {
+  loadGameLogPostedLines(p.betType, p.player);
   gameLogState.chart = p.gameLogChart || {};
   if (!gameLogState.chart.all) {
     gameLogState.chart.all = [...(gameLogState.chart.l20 || gameLogState.chart.l15 || gameLogState.chart.l10 || gameLogState.chart.l5 || [])];
@@ -2265,6 +2267,36 @@ function openGameLogModal(p) {
   els.glHandFilter.hidden = isPitcherProp;
   renderGameLogSubfilters();
   fetchGameLogDetails(p);
+}
+
+let postedLinesToken = 0;
+async function loadGameLogPostedLines(stat, player = gameLogState.player) {
+  const token = ++postedLinesToken;
+  let host = document.getElementById('gamelog-posted-lines');
+  if (!host) {
+    host = document.createElement('details'); host.id = 'gamelog-posted-lines'; host.className = 'posted-lines';
+    document.querySelector('.gamelog-toolbar').appendChild(host);
+  }
+  host.open = false;
+  host.innerHTML = '<summary>PrizePicks lines</summary><p>Loading posted lines…</p>';
+  try {
+    const pitcher = PITCHER_STATS.includes(stat);
+    const url = pitcher ? '/api/board?view=pitcher-props' : `/api/prediction?action=prizepicks-lines&player=${encodeURIComponent(player)}&stat=${encodeURIComponent(stat)}&opponent=${encodeURIComponent(gameLogState.opponent || '')}`;
+    const response = await fetch(url, {cache:'no-store'});
+    const data = await response.json();
+    if (!response.ok || data.error) throw new Error('Unavailable');
+    if (token !== postedLinesToken) return;
+    const rows = (pitcher ? (data.props || []).filter(row => row.player.toLowerCase() === player.toLowerCase() && pitcherFinderStat(row.stat).label === stat) : (data.lines || []).map(row => ({...row, odds_type:String(row.tier || 'standard').toLowerCase()}))).sort((a,b) => a.line-b.line);
+    host.innerHTML = '<summary>PrizePicks lines</summary><div class="posted-options"></div>';
+    const list = host.querySelector('div');
+    if (!rows.length) list.textContent = 'No posted lines available for this market.';
+    rows.forEach(row => {
+      const button = document.createElement('button'); button.type = 'button';
+      button.innerHTML = `<b>${Number(row.line)}</b><img src="/prizepicks/logo.png" alt="PrizePicks"><span>${escapeHtml(row.odds_type || 'standard')}</span>`;
+      button.onclick = () => {setGameLogPreviewLine(Number(row.line), true); host.open = false; host.querySelector('summary').textContent = `PrizePicks · ${row.line} · ${row.odds_type || 'standard'}`;};
+      list.appendChild(button);
+    });
+  } catch (_) { if (token === postedLinesToken) host.innerHTML = '<summary>PrizePicks lines</summary><p>Posted lines unavailable. You can still explore a custom line.</p>'; }
 }
 
 async function fetchGameLogDetails(p) {
@@ -4331,9 +4363,34 @@ function renderPitcherFinder() {
 let pitcherComparisonPage = 0;
 let pitcherComparisonToken = 0;
 const pitcherHistoryCache = new Map();
+const pitcherTableFilter = { windows: [], min: 0, max: 100, sort: '', direction: -1 };
+function pitcherTableValues(row) {
+  const data = pitcherHistoryCache.get(`${row.player}|${pitcherFinderStat(row.stat).label}|${new Date().toISOString().slice(0,10)}`);
+  if (!data) return {};
+  const all = data.all || data.l20 || [], recent = all.slice(-10);
+  const avg = recent.length ? recent.reduce((sum,g) => sum + Number(g.value),0) / recent.length : null;
+  const result = {avg, diff:avg === null ? null : avg - Number(row.line)};
+  [5,10,15,20,'h2h'].forEach(size => {
+    const games = size === 'h2h' ? data.h2h || [] : all.slice(-size);
+    result[size] = games.length ? games.filter(g => Number(g.value) > Number(row.line)).length / games.length * 100 : null;
+  });
+  return result;
+}
 
 function renderPitcherComparison(rows) {
   const token = ++pitcherComparisonToken;
+  const sourceRows = rows;
+  const active = pitcherTableFilter.windows.length > 0;
+  if (active) rows = rows.filter(row => {
+    const values = pitcherTableValues(row);
+    return pitcherTableFilter.windows.every(key => values[key] != null && values[key] >= pitcherTableFilter.min && values[key] <= pitcherTableFilter.max);
+  });
+  if (pitcherTableFilter.sort) rows = [...rows].sort((a,b) => {
+    const av = pitcherTableValues(a)[pitcherTableFilter.sort], bv = pitcherTableValues(b)[pitcherTableFilter.sort];
+    if (av == null) return bv == null ? 0 : 1;
+    if (bv == null) return -1;
+    return (av - bv) * pitcherTableFilter.direction;
+  });
   const pages = Math.max(1, Math.ceil(rows.length / 20));
   pitcherComparisonPage = Math.min(pitcherComparisonPage, pages - 1);
   const visible = rows.slice(pitcherComparisonPage * 20, (pitcherComparisonPage + 1) * 20);
@@ -4341,9 +4398,25 @@ function renderPitcherComparison(rows) {
   els.pitcherFinderState.hidden = rows.length > 0;
   if (!rows.length) els.pitcherFinderState.textContent = 'No matching active pitcher lines. Try another filter.';
   els.pitcherFinderList.innerHTML = `<div class="pitcher-table-scroll"><table class="pitcher-table"><thead><tr><th>Player / line</th><th>App</th><th>Avg L10</th><th>Diff</th><th>L5</th><th>L10</th><th>L15</th><th>L20</th><th>H2H</th></tr></thead><tbody></tbody></table></div><div class="pitcher-pagination"><button type="button" data-page="-1" ${pitcherComparisonPage === 0 ? 'disabled' : ''}>Previous</button><span>Page ${pitcherComparisonPage + 1} / ${pages}</span><button type="button" data-page="1" ${pitcherComparisonPage === pages - 1 ? 'disabled' : ''}>Next</button></div>`;
+  els.pitcherFinderList.insertAdjacentHTML('afterbegin', `<details class="rate-filter"><summary>Hit-rate filter${active ? ` · ${pitcherTableFilter.min}–${pitcherTableFilter.max}%` : ''}</summary><div class="rate-windows">${[5,10,15,20,'h2h'].map(key => `<label><input type="checkbox" value="${key}" ${pitcherTableFilter.windows.includes(String(key)) ? 'checked' : ''}>${key === 'h2h' ? 'H2H' : 'L'+key}</label>`).join('')}</div><div class="rate-bounds"><label>From %<input type="number" min="0" max="100" value="${pitcherTableFilter.min}" data-bound="min"></label><label>To %<input type="number" min="0" max="100" value="${pitcherTableFilter.max}" data-bound="max"></label><button type="button" data-rate-apply>Apply</button><button type="button" data-rate-clear>Clear</button></div><p>All selected windows must match. Missing samples are excluded. Filters and sorting use the full board as history loads.</p></details>`);
+  const filter = els.pitcherFinderList.querySelector('.rate-filter');
+  filter.querySelector('[data-rate-apply]').onclick = () => {
+    pitcherTableFilter.windows = [...filter.querySelectorAll('input:checked')].map(el => el.value);
+    const bounds = [...filter.querySelectorAll('[data-bound]')].map(el => Math.max(0,Math.min(100,Number(el.value))));
+    pitcherTableFilter.min = Math.min(...bounds); pitcherTableFilter.max = Math.max(...bounds);
+    if (!pitcherTableFilter.windows.length) pitcherTableFilter.windows = ['5','10','15','20','h2h'];
+    pitcherComparisonPage = 0; renderPitcherComparison(sourceRows);
+  };
+  filter.querySelector('[data-rate-clear]').onclick = () => {pitcherTableFilter.windows = []; pitcherComparisonPage = 0; renderPitcherComparison(sourceRows);};
+  [...els.pitcherFinderList.querySelectorAll('th')].slice(2).forEach((th,index) => {
+    const key = ['avg','diff','5','10','15','20','h2h'][index];
+    const label = th.textContent;
+    th.innerHTML = `<button type="button">${label} ${pitcherTableFilter.sort === key ? (pitcherTableFilter.direction === -1 ? '↓' : '↑') : '↕'}</button>`;
+    th.querySelector('button').onclick = () => {pitcherTableFilter.direction = pitcherTableFilter.sort === key ? -pitcherTableFilter.direction : -1; pitcherTableFilter.sort = key; pitcherComparisonPage = 0; renderPitcherComparison(sourceRows);};
+  });
   els.pitcherFinderList.querySelectorAll('[data-page]').forEach(button => button.addEventListener('click', () => {
     pitcherComparisonPage += Number(button.dataset.page);
-    renderPitcherComparison(rows);
+    renderPitcherComparison(sourceRows);
   }));
   const queue = visible.map(row => {
     const tr = document.createElement('tr');
@@ -4353,6 +4426,8 @@ function renderPitcherComparison(rows) {
     els.pitcherFinderList.querySelector('tbody').appendChild(tr);
     return {row, prop, tr};
   });
+  if (active || pitcherTableFilter.sort) sourceRows.filter(row => !visible.includes(row)).forEach(row => queue.push({row,prop:pitcherFinderGameLogProp(row),tr:document.createElement('tr')}));
+  let fetched = false;
   const worker = async () => {
     while (queue.length && token === pitcherComparisonToken) {
       const {row, prop, tr} = queue.shift();
@@ -4364,12 +4439,14 @@ function renderPitcherComparison(rows) {
           data = await response.json();
           if (!response.ok || data.error) throw new Error('History unavailable');
           pitcherHistoryCache.set(key, data);
+          fetched = true;
         }
         if (token !== pitcherComparisonToken) return;
         const all = data.all || data.l20 || [];
         const l10 = all.slice(-10);
         const average = l10.length ? l10.reduce((sum,g) => sum + Number(g.value),0) / l10.length : null;
         const cells = tr.querySelectorAll('.pitcher-rate');
+        if (!cells.length) continue;
         cells[0].textContent = average === null ? '—' : average.toFixed(1);
         cells[1].textContent = average === null ? '—' : `${average >= row.line ? '+' : ''}${(average - row.line).toFixed(1)}`;
         [5,10,15,20,'h2h'].forEach((size,index) => {
@@ -4381,11 +4458,16 @@ function renderPitcherComparison(rows) {
           cell.dataset.tone = pct === null ? 'empty' : pct >= 70 ? 'good' : pct >= 45 ? 'mid' : 'low';
         });
         prop.gameLogChart = Object.fromEntries(Object.entries(data).filter(([,games]) => Array.isArray(games)).map(([key,games]) => [key,games.map(game => ({...game, over:Number(game.value) > Number(row.line)}))]));
-        if (data.meta?.player_id) prop.headshot = `https://img.mlbstatic.com/mlb-photos/image/upload/w_120/v1/people/${encodeURIComponent(data.meta.player_id)}/headshot/silo/current`;
+        if (data.meta?.player_id) {
+          prop.headshot = `https://img.mlbstatic.com/mlb-photos/image/upload/w_120/v1/people/${encodeURIComponent(data.meta.player_id)}/headshot/silo/current`;
+          const photo = document.createElement('img'); photo.className = 'pitcher-table-photo'; photo.src = prop.headshot; photo.alt = row.player;
+          photo.onerror = () => {photo.onerror = null; photo.src = prop.headshot.replace('/silo/', '/67/');};
+          tr.querySelector('.pitcher-table-open').prepend(photo);
+        }
       } catch (_) { tr.querySelectorAll('.pitcher-rate').forEach(cell => {cell.textContent = '—'; cell.title = 'History unavailable; open the player to retry';}); }
     }
   };
-  Promise.all(Array.from({length:3}, worker));
+  Promise.all(Array.from({length:3}, worker)).then(() => { if (fetched && token === pitcherComparisonToken && (active || pitcherTableFilter.sort)) renderPitcherComparison(sourceRows); });
 }
 
 async function loadPitcherFinder(force = false) {
