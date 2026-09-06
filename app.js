@@ -4719,21 +4719,42 @@ function runParlayBuilder() {
   }, 620);
 }
 
+function syncBuilderControls() {
+  els.builderLegButtons.querySelectorAll("button").forEach((button) => {
+    const selected = Number(button.dataset.legs) === state.builderLegs;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-pressed", String(selected));
+    button.setAttribute("aria-label", `${button.dataset.legs} leg slip`);
+  });
+  els.builderModeButtons.querySelectorAll("button").forEach((button) => {
+    const selected = button.dataset.mode === state.builderMode;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+  const summary = document.getElementById("builder-selection-summary");
+  if (summary) {
+    const sameGame = els.builderSameGame.checked ? " · same-game allowed" : "";
+    summary.textContent = `${state.builderLegs}-leg ${BUILDER_MODES[state.builderMode].label.toLowerCase()} slip${sameGame}`;
+  }
+}
+
 function wireParlayBuilder() {
   els.builderLegButtons.querySelectorAll("button").forEach((button) => button.addEventListener("click", () => {
     state.builderLegs = Number(button.dataset.legs);
-    els.builderLegButtons.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b === button));
     state.builderLocked.clear(); state.builderResult = [];
+    syncBuilderControls();
   }));
   els.builderModeButtons.querySelectorAll("button").forEach((button) => button.addEventListener("click", () => {
     state.builderMode = button.dataset.mode;
-    els.builderModeButtons.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b === button));
     state.builderLocked.clear(); state.builderResult = [];
+    syncBuilderControls();
   }));
+  els.builderSameGame.addEventListener("change", syncBuilderControls);
   els.builderGenerate.addEventListener("click", async () => {
     if (!state.v2BoardLoaded) await loadV2Board();
     runParlayBuilder();
   });
+  syncBuilderControls();
 }
 
 /* ---------- Slip Analyzer ---------- */

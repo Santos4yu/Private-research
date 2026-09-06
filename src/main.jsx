@@ -16,6 +16,7 @@ import './mobile-app.css';
 import './sports-app.css';
 import './report-tabs.css';
 import './research-cards.css';
+import './builder-app.css';
 
 const topTabs = [
   { title: 'Research', icon: Search, value: 'research' },
