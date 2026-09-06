@@ -4244,26 +4244,26 @@ function boardMatchupLabel(score) {
   return "UNFAVORABLE";
 }
 
-let matchupRefreshRun = 0;
-
 async function refreshVisibleMatchupScores(props) {
-  const run = ++matchupRefreshRun;
-  const refreshable = props.filter((p) => p.sport === "MLB" && BOT_STAT_TO_RESEARCH_STAT[p.stat_type]);
+  const refreshable = props.filter((p) => p.sport === "MLB"
+    && BOT_STAT_TO_RESEARCH_STAT[p.stat_type]
+    && p.stats?._live_matchup_ready !== true
+    && p.stats?._live_matchup_pending !== true);
   if (!refreshable.length) return;
 
-  // The board payload is a scan-time snapshot. Research uses the live model,
-  // so refresh Matchups with that same endpoint instead of displaying a score
-  // that can disagree as soon as Deep Dive is opened.
+  // The mirrored board contains the score calculated by the bot at scan time.
+  // Every Props view must use the current Research model, not only Matchup.
   refreshable.forEach((p) => {
     p.stats = p.stats || {};
     p.stats._live_matchup_ready = false;
+    p.stats._live_matchup_pending = true;
   });
   const queue = [...refreshable];
   let completed = 0;
   // These are independent serverless reads. A wider pool keeps the Matchup
   // view responsive without making users wait for sequential player cards.
   const workers = Array.from({ length: Math.min(12, queue.length) }, async () => {
-    while (queue.length && run === matchupRefreshRun && state.boardFilter === "matchup") {
+    while (queue.length) {
       const p = queue.shift();
       const stat = BOT_STAT_TO_RESEARCH_STAT[p.stat_type];
       const side = p.stats?.side === "under" ? "under" : "over";
@@ -4271,29 +4271,34 @@ async function refreshVisibleMatchupScores(props) {
         const url = `${API_SOURCE}?player=${encodeURIComponent(p.player_name)}&stat=${encodeURIComponent(stat)}&line=${p.line}&side=${side}`;
         const res = await fetch(url, { cache: "no-store" });
         const live = await res.json();
-        if (!res.ok || live.error || !Number.isFinite(Number(live.matchupScore))) continue;
+        if (!res.ok || live.error || live.matchupScore == null
+            || !Number.isFinite(Number(live.matchupScore))) {
+          throw new Error("Current matchup score unavailable");
+        }
         Object.assign(p.stats, {
           matchup_score: Number(live.matchupScore),
           matchup_label: live.matchupLabel,
           matchup_coverage: live.matchupCoverage,
           matchup_factors: live.matchupFactors || [],
           _live_matchup_ready: true,
+          _live_matchup_pending: false,
         });
       } catch (_) {
-        // Keep the scan-time score when a live lookup is temporarily unavailable.
+        // Never relabel the stored score as current when live research fails.
+        p.stats._live_matchup_pending = false;
+        p.stats._live_matchup_failed = true;
       } finally {
         completed += 1;
         // Do not hold the whole board behind the slowest request. Publish a
         // progressively improving ranking while the remaining candidates run.
-        if (completed % 12 === 0 && run === matchupRefreshRun
-            && state.boardFilter === "matchup" && state.v2BoardData) {
+        if (completed % 8 === 0 && state.v2BoardData) {
           renderBotBoard(state.v2BoardData, { scoresAreLive: true });
         }
       }
     }
   });
   await Promise.all(workers);
-  if (run === matchupRefreshRun && state.boardFilter === "matchup" && state.v2BoardData) {
+  if (state.v2BoardData) {
     renderBotBoard(state.v2BoardData, { scoresAreLive: true });
   }
 }
@@ -4373,8 +4378,11 @@ function renderBotBoard(data, { scoresAreLive = false } = {}) {
   }
   els.v2BoardEmpty.hidden = true;
 
-  if (state.boardFilter === "matchup" && !scoresAreLive) {
-    els.v2BoardDate.textContent += " · calculating current matchup scores…";
+  const liveScoreCandidates = props.filter((p) => p.sport === "MLB" && BOT_STAT_TO_RESEARCH_STAT[p.stat_type]);
+  const liveScoresPending = liveScoreCandidates.some((p) => p.stats?._live_matchup_ready !== true
+    && p.stats?._live_matchup_pending !== true && p.stats?._live_matchup_failed !== true);
+  if (!scoresAreLive && liveScoresPending) {
+    els.v2BoardDate.textContent += " · updating matchup scores…";
     refreshVisibleMatchupScores(props);
   }
 
@@ -4388,10 +4396,11 @@ function renderBotBoard(data, { scoresAreLive = false } = {}) {
 
     const stats = p.stats || {};
     const matchupScore = Number(stats.matchup_score);
-    const matchupIsCurrent = state.boardFilter !== "matchup" || stats._live_matchup_ready === true;
+    const requiresLiveMatchup = p.sport === "MLB" && Boolean(BOT_STAT_TO_RESEARCH_STAT[p.stat_type]);
+    const matchupIsCurrent = !requiresLiveMatchup || stats._live_matchup_ready === true;
     const matchupBadge = matchupIsCurrent && Number.isFinite(matchupScore)
       ? `<span class="v2-card-matchup-score" data-band="${matchupScore >= 75 ? "strong" : matchupScore >= 65 ? "favorable" : matchupScore >= 55 ? "slight" : matchupScore >= 45 ? "neutral" : matchupScore >= 35 ? "caution" : "unfavorable"}">MATCHUP ${Math.round(matchupScore)} · ${boardMatchupLabel(matchupScore)}</span>`
-      : `<span class="v2-card-matchup-score" data-band="neutral">MATCHUP UNAVAILABLE · TRY REFRESH</span>`;
+      : `<span class="v2-card-matchup-score" data-band="neutral">${stats._live_matchup_failed ? "MATCHUP UNAVAILABLE · TRY REFRESH" : "UPDATING MATCHUP…"}</span>`;
     const sidePfx = stats.side === "under" ? "U" : "O";
     const tier = BOT_TIER[p.tier] || botScoreBadge(p.vortex_score);
     const sportTag = `${SPORT_EMOJI[p.sport] || "🎯"} ${p.sport || ""}`;
