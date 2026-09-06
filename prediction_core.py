@@ -1951,7 +1951,9 @@ def get_game_log_filters(player_name: str, prop_type: str, line: float, opp_team
             seasons=8, include_hand_venue=True,
         )
 
-    return _build_game_log_chart(splits.get("game_log") or [], line, h2h_log=h2h_log)
+    result = _build_game_log_chart(splits.get("game_log") or [], line, h2h_log=h2h_log)
+    result["meta"] = {"player_id": player_id}
+    return result
 
 
 def _to_float(val):

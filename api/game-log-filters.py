@@ -52,11 +52,12 @@ class handler(BaseHTTPRequestHandler):
         # Finder rows come straight from the live projection feed and may not
         # exist on the smaller recommended board. Resolve today's opponent on
         # demand so H2H still works for every active pitcher line.
+        resolved_player_id = None
         if not team_id and not opponent:
             try:
                 matches = vortex_research.fuzzy_search(player_name)
-                player_id = matches[0]["id"] if matches else None
-                own_team_id = stats_mlb.get_player_current_team(player_id) if player_id else None
+                resolved_player_id = matches[0]["id"] if matches else None
+                own_team_id = stats_mlb.get_player_current_team(resolved_player_id) if resolved_player_id else None
                 for game in stats_mlb.get_todays_schedule(vortex_board_day()).values():
                     if own_team_id == game.get("home_team_id"):
                         team_id = str(game.get("away_team_id") or "")
@@ -74,6 +75,12 @@ class handler(BaseHTTPRequestHandler):
                 player_name, prop_type, line, team_id or None, opponent or None,
                 season or None,
             )
+            result.setdefault("meta", {})
+            result["meta"].update({
+                "player_id": result["meta"].get("player_id") or resolved_player_id,
+                "opponent_team_id": int(team_id) if str(team_id).isdigit() else None,
+                "opponent": opponent or None,
+            })
         except PlayerNotFound as exc:
             return self._send(404, {"error": str(exc)})
         except NoGameFound as exc:

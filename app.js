@@ -2252,6 +2252,7 @@ function openGameLogModal(p) {
 
 async function fetchGameLogDetails(p) {
   const requestedStat = p.betType;
+  const openedWithoutHistory = recentGameLogSource().length <= 1;
   els.glHandFilter.querySelectorAll(".gl-filter-chip").forEach((b) => { b.disabled = true; });
   try {
     const url = `/api/game-log-filters?player=${encodeURIComponent(p.player)}&stat=${encodeURIComponent(p.betType)}&line=${p.line}&season=all` +
@@ -2268,6 +2269,15 @@ async function fetchGameLogDetails(p) {
       // this lazy fetch resolved. Only replace windows this fetch actually
       // returned games for; leave everything else as it was.
       for (const key of Object.keys(data)) if (Array.isArray(data[key])) gameLogState.chart[key] = data[key];
+      if (openedWithoutHistory) {
+        gameLogState.gameCount = Math.min(5, recentGameLogSource().length || 5);
+      }
+      const resolvedPlayerId = data.meta?.player_id;
+      if (resolvedPlayerId && !p.headshot) {
+        els.gamelogPlayerCutout.innerHTML = `<img src="https://img.mlbstatic.com/mlb-photos/image/upload/w_300,q_auto:best/v1/people/${encodeURIComponent(resolvedPlayerId)}/headshot/silo/current" alt="" onerror="this.src='https://img.mlbstatic.com/mlb-photos/image/upload/w_300,q_auto:best/v1/people/${encodeURIComponent(resolvedPlayerId)}/headshot/67/current';this.onerror=null;">`;
+      }
+      if (data.meta?.opponent_team_id) gameLogState.teamId = data.meta.opponent_team_id;
+      if (data.meta?.opponent) gameLogState.opponent = data.meta.opponent;
       gameLogState.handDataLoaded = true;
       // A background detail refresh must never look like a user-triggered
       // chart transition.
@@ -4279,12 +4289,27 @@ function renderPitcherFinder() {
     button.classList.toggle("active", selected);
     button.setAttribute("aria-pressed", String(selected));
   });
-  const rows = state.pitcherFinderProps.filter((row) => {
+  const filteredRows = state.pitcherFinderProps.filter((row) => {
     if (active === "all") return true;
     if (active === "goblin") return String(row.odds_type || "").toLowerCase() === "goblin";
     return pitcherFinderStat(row.stat).key === active;
   });
-  els.pitcherFinderCount.textContent = `${rows.length} active line${rows.length === 1 ? "" : "s"}${active === "goblin" ? " · More only" : ""}`;
+  // One card per pitcher + market keeps alternate lines from turning the
+  // finder into a hundreds-row list. Prefer the safest Goblin line when one
+  // exists; every other line remains reachable in the adjustable explorer.
+  const grouped = new Map();
+  filteredRows.forEach((row) => {
+    const key = `${String(row.player || "").toLowerCase()}|${pitcherFinderStat(row.stat).key}`;
+    const current = grouped.get(key);
+    const goblin = String(row.odds_type || "").toLowerCase() === "goblin";
+    const currentGoblin = String(current?.odds_type || "").toLowerCase() === "goblin";
+    if (!current || (goblin && !currentGoblin) || (goblin === currentGoblin && Number(row.line) < Number(current.line))) {
+      grouped.set(key, row);
+    }
+  });
+  const rows = [...grouped.values()];
+  const pitcherCount = new Set(rows.map((row) => String(row.player || "").toLowerCase())).size;
+  els.pitcherFinderCount.textContent = `${pitcherCount} pitcher${pitcherCount === 1 ? "" : "s"} · ${filteredRows.length} active line${filteredRows.length === 1 ? "" : "s"}${active === "goblin" ? " · More only" : ""}`;
   els.pitcherFinderList.innerHTML = "";
   els.pitcherFinderState.hidden = rows.length > 0 || !state.pitcherFinderLoaded;
   if (!rows.length && state.pitcherFinderLoaded) {
@@ -4296,11 +4321,12 @@ function renderPitcherFinder() {
     const board = pitcherFinderBoardMatch(row);
     const playerId = board?.stats?.player_id || "";
     const goblin = String(row.odds_type || "").toLowerCase() === "goblin";
+    const alternateCount = filteredRows.filter((candidate) => String(candidate.player || "").toLowerCase() === String(row.player || "").toLowerCase() && pitcherFinderStat(candidate.stat).key === market.key).length - 1;
     const card = document.createElement("button");
     card.type = "button";
     card.className = "pitcher-line-card";
     card.setAttribute("aria-label", `Open ${row.player}, ${row.line} ${market.short} game log`);
-    card.innerHTML = `<span class="pitcher-line-avatar">${playerId ? `<img src="https://img.mlbstatic.com/mlb-photos/image/upload/w_120,q_auto:best/v1/people/${escapeHtml(String(playerId))}/headshot/silo/current" alt="" loading="lazy" onerror="this.parentElement.innerHTML='<svg viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot;><path d=&quot;M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM5 21c0-4 3-7 7-7s7 3 7 7&quot;/></svg>'">` : `<svg viewBox="0 0 24 24" fill="none"><path d="M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM5 21c0-4 3-7 7-7s7 3 7 7"/></svg>`}</span><span class="pitcher-line-copy"><span>${goblin ? `<img src="/prizepicks/goblin.png" alt="" /> GOBLIN · MORE ONLY` : "ACTIVE PITCHER LINE"}</span><strong>${escapeHtml(row.player)}</strong><small>${escapeHtml(market.short)}${board?.stats?.opponent ? ` · vs ${escapeHtml(board.stats.opponent)}` : ""}</small></span><span class="pitcher-line-value"><span><small>LINE</small><strong>${escapeHtml(String(row.line))}</strong></span><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></span>`;
+    card.innerHTML = `<span class="pitcher-line-avatar">${playerId ? `<img src="https://img.mlbstatic.com/mlb-photos/image/upload/w_120,q_auto:best/v1/people/${escapeHtml(String(playerId))}/headshot/silo/current" alt="" loading="lazy" onerror="this.parentElement.innerHTML='<svg viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot;><path d=&quot;M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM5 21c0-4 3-7 7-7s7 3 7 7&quot;/></svg>'">` : `<svg viewBox="0 0 24 24" fill="none"><path d="M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM5 21c0-4 3-7 7-7s7 3 7 7"/></svg>`}</span><span class="pitcher-line-copy"><span>${goblin ? `<img src="/prizepicks/goblin.png" alt="" /> GOBLIN · MORE ONLY` : "ACTIVE PITCHER LINE"}</span><strong>${escapeHtml(row.player)}</strong><small>${escapeHtml(market.short)}${alternateCount > 0 ? ` · +${alternateCount} alternate line${alternateCount === 1 ? "" : "s"}` : ""}${board?.stats?.opponent ? ` · vs ${escapeHtml(board.stats.opponent)}` : ""}</small></span><span class="pitcher-line-value"><span><small>LINE</small><strong>${escapeHtml(String(row.line))}</strong></span><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></span>`;
     card.addEventListener("click", () => openGameLogModal(pitcherFinderGameLogProp(row)));
     els.pitcherFinderList.appendChild(card);
   });
