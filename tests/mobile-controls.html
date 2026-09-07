@@ -1,5 +1,5 @@
 <!doctype html><html lang="en" data-theme="obsidian"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Mobile controls fixture</title>
-<link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/gamelog-premium.css"><link rel="stylesheet" href="/src/mobile-app.css"><link rel="stylesheet" href="/src/sports-app.css"><link rel="stylesheet" href="/src/gamelog-fix.css"></head><body>
+<link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/gamelog-premium.css"><link rel="stylesheet" href="/src/mobile-app.css"><link rel="stylesheet" href="/src/sports-app.css"><link rel="stylesheet" href="/src/gamelog-fix.css"><link rel="stylesheet" href="/src/research-game-page.css"></head><body>
 <p>UI fixture · sample lines, not live picks</p>
 <script type="module">
 const page=new DOMParser().parseFromString(await(await fetch('/index.html')).text(),'text/html');
@@ -21,6 +21,12 @@ document.getElementById('gamelog-filter-toggle').onclick=()=>{panel.hidden=!pane
 document.getElementById('gamelog-filter-close').onclick=()=>{panel.hidden=true;};
 document.getElementById('gamelog-season-row').innerHTML='<button>2024</button><button>2025</button><button class="active">2026</button>';
 const chart=document.getElementById('gamelog-chart');
+if(location.search.includes('page')) {
+ const research=document.createElement('section');research.id='panel-research';document.body.append(research);
+ const mount=source.slice(source.indexOf('function mountResearchGamePage()'),source.indexOf('function wireGameLogModal()'));
+ new Function('els','setResearchView','switchTab','gameLogState','setGameLogCount','state','renderGameLogChart',mount+';mountResearchGamePage();')({panelResearch:research,gamelogOverlay:overlay,gamelogClose:document.getElementById('gamelog-close')},()=>{},()=>{},state,()=>{},{},()=>{});
+ document.getElementById('research-games').hidden=false;document.getElementById('research-games-empty').hidden=true;
+}
 const height=chart.clientHeight-64;chart.style.setProperty('--plot-height',height+'px');
 chart.innerHTML='<div class="gamelog-chart-track" style="--bar-width:60px;--game-count:3">'+[1,4,4].map(n=>'<div class="gl-col"><div class="gl-track"><div class="gl-bar-shell"><div class="gl-bar" style="height:'+height*n/8+'px"><span class="gl-val">'+n+'</span></div></div></div><span class="gl-opponent-logo">MIA</span></div>').join('')+'</div>';
 

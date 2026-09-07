@@ -1,0 +1,27 @@
+/* Dedicated research page: normal document flow, no dialog or scroll lock. */
+.research-view-tabs {display:flex;gap:6px;width:fit-content;padding:4px;margin:0 0 18px;border-radius:99px;background:var(--theme-panel);border:1px solid var(--theme-border);}
+.research-view-tabs button,.research-game-windows button {min-height:44px;padding:8px 18px;border:0;border-radius:99px;background:transparent;color:var(--theme-dim);font:600 13px var(--font-sans);cursor:pointer;}
+.research-view-tabs button[aria-selected=true],.research-game-windows button[aria-pressed=true] {background:var(--theme-accent);color:var(--theme-on-accent);}
+.research-game-windows {display:flex;gap:6px;margin-top:10px;}
+.research-game-windows button {flex:1;background:var(--theme-panel-2);}
+.research-games-empty {padding:32px 20px;border-radius:20px;background:var(--theme-panel);border:1px solid var(--theme-border);}
+.research-games-empty p {max-width:480px;color:var(--theme-dim);line-height:1.6;}
+.research-games-empty button {min-height:44px;border:0;border-radius:99px;padding:10px 20px;background:var(--theme-accent);color:var(--theme-on-accent);font:600 14px var(--font-sans);}
+
+:root[data-theme] #panel-research #gamelog-overlay.research-game-page {position:static!important;inset:auto!important;display:block!important;padding:0!important;background:none!important;backdrop-filter:none!important;overflow:visible!important;z-index:auto!important;}
+:root[data-theme] #panel-research #gamelog-overlay[hidden] {display:none!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-modal {width:100%!important;max-width:none!important;height:auto!important;max-height:none!important;overflow:visible!important;display:block!important;transform:none!important;box-shadow:none!important;border-radius:20px!important;}
+:root[data-theme] #panel-research #gamelog-close {display:none!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-studio {display:block!important;height:auto!important;overflow:visible!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-stage {display:block!important;height:auto!important;overflow:visible!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-chart {height:370px!important;min-height:0!important;overflow:hidden!important;border-radius:0 0 20px 20px!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-filter-panel {position:static!important;inset:auto!important;height:auto!important;max-height:none!important;margin:12px!important;border:1px solid var(--theme-border)!important;border-radius:16px!important;background:var(--theme-panel)!important;box-shadow:none!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-chart-track {max-width:100%!important;}
+@media(max-width:680px) {
+ .research-view-tabs {width:100%;box-sizing:border-box;}
+ .research-view-tabs button {flex:1;}
+ :root[data-theme] #panel-research #gamelog-overlay .gamelog-chart {height:280px!important;}
+ :root[data-theme] #panel-research #gamelog-overlay .gamelog-modal .modal-head {padding:14px!important;}
+ :root[data-theme] #panel-research #gamelog-overlay .gamelog-workbench {padding:8px 12px 12px!important;}
+ #research-games {padding-bottom:20px;}
+}
