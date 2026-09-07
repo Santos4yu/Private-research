@@ -1926,7 +1926,7 @@ def _canonical_pitch_type(code: str) -> str:
 
 def _load_batter_arsenal_table() -> dict:
     """Load the full official Savant batter-by-pitch leaderboard once."""
-    cache_file = CACHE_DIR / f"savant_batter_arsenal_v5_{SEASON}.json"
+    cache_file = CACHE_DIR / f"savant_batter_arsenal_v6_current_season_{SEASON}.json"
     table = None
     if cache_file.exists():
         try:

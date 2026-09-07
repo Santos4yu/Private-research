@@ -10,11 +10,13 @@ files pushed the total to 13 and the deployment was rejected. Dispatching on
 an `action` field keeps this at one function instead of upgrading plans.
 
 GET  ?action=key-status              -- admin only
+GET  ?action=cron-scan               -- Vercel Cron only
 POST {"action": "auth", "pin": ...}
 POST {"action": "key", "key": ...}   -- admin only
 POST {"action": "scan", ...}         -- admin only
 """
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler
@@ -54,6 +56,8 @@ class handler(BaseHTTPRequestHandler):
                 result = odds_client.test_key(current_key)
                 result["keySet"] = True
                 return self._send(200, result)
+            if action == "cron-scan":
+                return self._handle_cron_scan()
             return self._send(400, {"error": "Unknown or missing action"})
         except Exception as exc:  # noqa: BLE001 -- always return JSON, see do_POST
             return self._send(500, {"error": f"Unhandled error: {exc}"})
@@ -121,6 +125,21 @@ class handler(BaseHTTPRequestHandler):
             return self._send(401, {"error": "Admin session required"})
         top_per_stat = int(body.get("top_per_stat", 4))
         min_edge = float(body.get("min_edge", 0.0))
+        return self._run_scan(top_per_stat=top_per_stat, min_edge=min_edge)
+
+    def _handle_cron_scan(self):
+        secret = os.getenv("CRON_SECRET", "")
+        auth = self.headers.get("Authorization", "")
+        user_agent = self.headers.get("User-Agent", "")
+        cron_header = self.headers.get("x-vercel-cron", "")
+        if secret:
+            if auth != f"Bearer {secret}":
+                return self._send(401, {"error": "Cron auth required"})
+        elif "vercel-cron" not in user_agent.lower() and cron_header != "1":
+            return self._send(401, {"error": "Cron request required"})
+        return self._run_scan(top_per_stat=6, min_edge=0.0, trigger="cron")
+
+    def _run_scan(self, top_per_stat=4, min_edge=0.0, trigger="manual"):
         try:
             from v2.board.build_board import build  # lazy -- see module docstring
             result = build(top_per_stat=top_per_stat, min_edge=min_edge)
@@ -133,6 +152,7 @@ class handler(BaseHTTPRequestHandler):
             "date": datetime.now(timezone.utc).isoformat(),
             "top_per_stat": top_per_stat,
             "min_edge": min_edge,
+            "trigger": trigger,
             "props": props,
             "bait": bait,
         }

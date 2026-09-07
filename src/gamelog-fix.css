@@ -75,3 +75,25 @@
   :root[data-theme] #gamelog-overlay #gamelog-title {font-size:20px!important; line-height:1.2!important;}
   :root[data-theme] #gamelog-overlay .gamelog-heading>span {display:none;}
 }
+
+/* Long samples need an internal gutter so the draggable line tag does not
+   steal space from the first game or slide outside the visible chart area. */
+:root[data-theme] #gamelog-overlay .gamelog-chart {
+  scrollbar-gutter:stable both-edges;
+}
+:root[data-theme] #gamelog-overlay .gamelog-chart-track {
+  box-sizing:border-box;
+  padding-left:46px!important;
+  padding-right:18px!important;
+}
+:root[data-theme] #gamelog-overlay .gl-line-marker {
+  left:46px!important;
+  right:18px!important;
+}
+:root[data-theme] #gamelog-overlay .gl-line-marker .gl-line-tag {
+  left:-42px!important;
+  right:auto!important;
+}
+@media(max-width:680px) {
+  :root[data-theme] #gamelog-overlay .gamelog-chart {padding-left:12px!important;}
+}

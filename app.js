@@ -143,7 +143,7 @@ const els = {};
 const THEME_KEY = "vortex_theme_mode";
 const ACCENT_THEME_KEY = "vortex_custom_accents";
 const ACCENT_PRESETS_KEY = "vortex_accent_presets";
-const DEFAULT_ACCENTS = Object.freeze({ primary: "#d5fa64", secondary: "#bca6ff" });
+const DEFAULT_ACCENTS = Object.freeze({ primary: "#d5fa64", secondary: "#bca6ff", tint: 0 });
 const EXPERIENCE_KEY = "private_jarvis_interface";
 // User accents are applied before the first paint and remain independent of
 // the fixed charcoal surface system.
@@ -368,8 +368,10 @@ function cacheEls() {
   els.settingsPanel = document.getElementById("settings-panel");
   els.primaryAccent = document.getElementById("primary-accent");
   els.secondaryAccent = document.getElementById("secondary-accent");
+  els.accentTint = document.getElementById("accent-tint");
   els.primaryAccentValue = document.getElementById("primary-accent-value");
   els.secondaryAccentValue = document.getElementById("secondary-accent-value");
+  els.accentTintValue = document.getElementById("accent-tint-value");
   els.accentPresetName = document.getElementById("accent-preset-name");
   els.accentPresetSave = document.getElementById("accent-preset-save");
   els.accentPresets = document.getElementById("accent-presets");
@@ -435,12 +437,18 @@ function normalizeAccentHex(value, fallback) {
   return /^#[0-9a-f]{6}$/.test(hex) ? hex : fallback;
 }
 
+function normalizeTint(value, fallback = DEFAULT_ACCENTS.tint) {
+  const num = Number(value);
+  return Number.isFinite(num) ? Math.max(0, Math.min(35, Math.round(num))) : fallback;
+}
+
 function loadAccentTheme() {
   try {
     const saved = JSON.parse(localStorage.getItem(ACCENT_THEME_KEY) || "null");
     return {
       primary: normalizeAccentHex(saved?.primary, DEFAULT_ACCENTS.primary),
       secondary: normalizeAccentHex(saved?.secondary, DEFAULT_ACCENTS.secondary),
+      tint: normalizeTint(saved?.tint),
     };
   } catch (_) {
     return { ...DEFAULT_ACCENTS };
@@ -459,21 +467,29 @@ function accentTextColor(hex) {
 function applyAccentTheme(theme, { persist = true, syncControls = true } = {}) {
   const primary = normalizeAccentHex(theme?.primary, DEFAULT_ACCENTS.primary);
   const secondary = normalizeAccentHex(theme?.secondary, DEFAULT_ACCENTS.secondary);
+  const tint = normalizeTint(theme?.tint);
   const root = document.documentElement;
   root.setAttribute("data-theme", "obsidian");
   root.setAttribute("data-custom-accents", "true");
   root.style.setProperty("--theme-accent", primary);
   root.style.setProperty("--theme-accent-soft", `color-mix(in srgb, ${primary} 72%, white)`);
   root.style.setProperty("--theme-secondary", secondary);
+  root.style.setProperty("--theme-bg-tint", `${tint}%`);
+  root.style.setProperty("--theme-bg2-tint", `${Math.min(40, tint + 3)}%`);
+  root.style.setProperty("--theme-panel-tint", `${Math.round(tint * .7)}%`);
+  root.style.setProperty("--theme-panel2-tint", `${Math.min(40, tint + 2)}%`);
+  root.style.setProperty("--theme-border-tint", `${Math.min(45, tint + 7)}%`);
   root.style.setProperty("--theme-accent-dim", `color-mix(in srgb, ${primary} 14%, transparent)`);
   root.style.setProperty("--theme-on-accent", accentTextColor(primary));
   localStorage.removeItem(THEME_KEY);
-  if (persist) localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify({ primary, secondary }));
+  if (persist) localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify({ primary, secondary, tint }));
   if (syncControls && els.primaryAccent) {
     els.primaryAccent.value = primary;
     els.secondaryAccent.value = secondary;
+    if (els.accentTint) els.accentTint.value = String(tint);
     els.primaryAccentValue.textContent = primary.toUpperCase();
     els.secondaryAccentValue.textContent = secondary.toUpperCase();
+    if (els.accentTintValue) els.accentTintValue.textContent = `${tint}%`;
   }
 }
 
@@ -490,7 +506,8 @@ function renderAccentPresets() {
   presets.forEach((preset, index) => {
     const row = document.createElement("div");
     row.className = "accent-preset";
-    row.innerHTML = `<span class="accent-preset-preview" style="--preset-primary:${normalizeAccentHex(preset.primary, DEFAULT_ACCENTS.primary)};--preset-secondary:${normalizeAccentHex(preset.secondary, DEFAULT_ACCENTS.secondary)}"><i></i><i></i></span><span class="accent-preset-name">${escapeHtml(preset.name)}</span><button type="button" aria-label="Delete ${escapeHtml(preset.name)} preset"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5m4-5v5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button><span class="accent-preset-apply" role="button" tabindex="0" aria-label="Apply ${escapeHtml(preset.name)} preset"></span>`;
+    const presetTint = normalizeTint(preset.tint);
+    row.innerHTML = `<span class="accent-preset-preview" style="--preset-primary:${normalizeAccentHex(preset.primary, DEFAULT_ACCENTS.primary)};--preset-secondary:${normalizeAccentHex(preset.secondary, DEFAULT_ACCENTS.secondary)};--preset-tint:${presetTint}%"><i></i><i></i></span><span class="accent-preset-name">${escapeHtml(preset.name)}</span><button type="button" aria-label="Delete ${escapeHtml(preset.name)} preset"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5m4-5v5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button><span class="accent-preset-apply" role="button" tabindex="0" aria-label="Apply ${escapeHtml(preset.name)} preset"></span>`;
     const apply = () => {
       applyAccentTheme(preset);
       els.accentStatus.textContent = `${preset.name} applied.`;
@@ -604,13 +621,14 @@ function wireSettingsPanel() {
   let accentFrame = 0;
   let accentSaveTimer = 0;
   const updateAccents = ({ saveNow = false } = {}) => {
-    const theme = { primary: els.primaryAccent.value, secondary: els.secondaryAccent.value };
+    const theme = { primary: els.primaryAccent.value, secondary: els.secondaryAccent.value, tint: normalizeTint(els.accentTint?.value) };
     clearTimeout(accentSaveTimer);
     cancelAnimationFrame(accentFrame);
     accentFrame = requestAnimationFrame(() => {
       applyAccentTheme(theme, { persist: false, syncControls: false });
       els.primaryAccentValue.textContent = theme.primary.toUpperCase();
       els.secondaryAccentValue.textContent = theme.secondary.toUpperCase();
+      if (els.accentTintValue) els.accentTintValue.textContent = `${theme.tint}%`;
     });
     const save = () => {
       localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify(theme));
@@ -621,8 +639,10 @@ function wireSettingsPanel() {
   };
   els.primaryAccent.addEventListener("input", () => updateAccents());
   els.secondaryAccent.addEventListener("input", () => updateAccents());
+  els.accentTint?.addEventListener("input", () => updateAccents());
   els.primaryAccent.addEventListener("change", () => updateAccents({ saveNow: true }));
   els.secondaryAccent.addEventListener("change", () => updateAccents({ saveNow: true }));
+  els.accentTint?.addEventListener("change", () => updateAccents({ saveNow: true }));
   els.accentReset.addEventListener("click", () => {
     applyAccentTheme(DEFAULT_ACCENTS);
     els.accentStatus.textContent = "Default accents restored.";
@@ -635,7 +655,7 @@ function wireSettingsPanel() {
       return;
     }
     const presets = loadAccentPresets();
-    const preset = { name, primary: els.primaryAccent.value, secondary: els.secondaryAccent.value };
+    const preset = { name, primary: els.primaryAccent.value, secondary: els.secondaryAccent.value, tint: normalizeTint(els.accentTint?.value) };
     const existing = presets.findIndex((item) => item.name.toLowerCase() === name.toLowerCase());
     if (existing >= 0) presets[existing] = preset;
     else presets.unshift(preset);
