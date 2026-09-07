@@ -29,3 +29,49 @@
 .rate-bounds button,.pitcher-table th button { min-height:44px; border:0; background:transparent; color:var(--theme-text); cursor:pointer; }
 .rate-filter p { font-size:12px; color:var(--theme-dim); }
 .pitcher-table-photo { width:42px; height:42px; object-fit:cover; border-radius:50%; float:left; margin-right:10px; background:var(--theme-panel-2); }
+
+/* Shared mobile selection language: compact triggers and clear selected states. */
+.posted-lines summary,.rate-filter summary {display:flex; align-items:center; gap:10px; list-style:none; font:600 14px/1.3 var(--font-sans);}
+.posted-lines summary::-webkit-details-marker,.rate-filter summary::-webkit-details-marker {display:none;}
+.posted-lines summary>img {width:28px; height:28px; object-fit:contain;}
+.posted-lines summary>span {flex:1;}
+.posted-lines summary small,.posted-options small {display:block; margin-top:4px; font-size:11px; font-weight:400; color:var(--theme-dim);}
+.posted-lines summary>b,.rate-filter summary>b {border-radius:8px; padding:6px 8px; background:var(--theme-panel-2); color:var(--theme-text); font-size:12px; font-variant-numeric:tabular-nums;}
+.posted-lines summary>svg,.rate-filter summary>svg,.posted-options svg {width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0;}
+.posted-lines[open] summary>svg {transform:rotate(180deg);}
+.posted-options {margin-top:10px; max-height:240px; padding-right:3px; overscroll-behavior:contain;}
+.posted-options button {border-color:transparent; padding:10px 12px; border-radius:12px; min-height:58px;}
+.posted-options button>b {font-size:21px; font-variant-numeric:tabular-nums; min-width:42px;}
+.posted-options button>span {flex:1; text-align:left; font-size:13px; font-weight:600;}
+.posted-options button>svg {opacity:0;}
+.posted-options button[aria-pressed=true] {border-color:var(--theme-accent); background:color-mix(in srgb,var(--theme-accent) 9%,var(--theme-panel));}
+.posted-options button[aria-pressed=true]>svg {opacity:1; color:var(--theme-accent);}
+.rate-filter summary>span {flex:1;}
+.rate-filter .rate-windows {display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:6px; margin-top:14px;}
+.rate-windows label {position:relative; min-width:0; cursor:pointer;}
+.rate-windows input {position:absolute; opacity:0; width:1px; height:1px;}
+.rate-windows label>span {display:grid; place-items:center; min-height:44px; border-radius:11px; border:1px solid var(--theme-border); background:var(--theme-panel-2); color:var(--theme-dim); font-size:12px; font-weight:700;}
+.rate-windows input:checked+span {background:var(--theme-accent); color:var(--theme-on-accent,#111); border-color:var(--theme-accent);}
+.rate-windows input:focus-visible+span {outline:2px solid var(--theme-accent); outline-offset:3px;}
+.rate-presets {display:flex; gap:8px; margin:12px 0;}
+.rate-presets button {flex:1; min-height:40px; border:1px solid var(--theme-border); border-radius:10px; background:var(--theme-panel-2); color:var(--theme-text); font-size:12px; cursor:pointer;}
+.rate-bounds {display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.rate-bounds label {font-size:11px; color:var(--theme-dim); gap:6px; min-width:0;}
+.rate-bounds input {box-sizing:border-box; width:100%; min-height:48px; padding:10px 12px; border:1px solid var(--theme-border); border-radius:12px; background:var(--theme-panel-2); color:var(--theme-text); font:700 18px var(--font-sans); appearance:textfield;}
+.rate-bounds input::-webkit-inner-spin-button {appearance:none;}
+.rate-bounds button {border-radius:11px; background:var(--theme-panel-2); font:600 13px var(--font-sans);}
+.rate-bounds [data-rate-apply] {background:var(--theme-accent); color:var(--theme-on-accent,#111);}
+.rate-filter p {line-height:1.5; margin-bottom:0;}
+@media(max-width:680px) {
+  :root[data-theme] #gamelog-overlay {padding: max(12px,env(safe-area-inset-top)) 8px max(8px,env(safe-area-inset-bottom))!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-modal {max-height:calc(100dvh - max(12px,env(safe-area-inset-top)) - max(8px,env(safe-area-inset-bottom)))!important;}
+  :root[data-theme] #gamelog-overlay .modal-head {position:relative!important; display:flex!important; align-items:center!important; padding:16px!important; gap:10px;}
+  :root[data-theme] #gamelog-overlay .gamelog-heading {flex:1; min-width:0; padding-right:0!important;}
+  /* Close button: always properly positioned, regardless of theme */
+  #gamelog-overlay .modal-head { position:relative!important; }
+  #gamelog-overlay #gamelog-close { position:static!important; transform:none!important; flex:0 0 44px; width:44px!important; height:44px!important; margin:0!important; align-self:center; border:1px solid var(--theme-border,#444)!important; border-radius:13px!important; background:var(--theme-panel-2,#1a1a1a)!important; color:var(--theme-text,#ddd)!important; font-size:19px!important; }
+  :root[data-theme] #gamelog-overlay .gamelog-workbench {padding:12px 14px!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-player-line {flex-wrap:wrap; gap:6px;}
+  :root[data-theme] #gamelog-overlay #gamelog-title {font-size:20px!important; line-height:1.2!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-heading>span {display:none;}
+}

@@ -1187,9 +1187,13 @@ function syncSaveButton(btnEl, id) {
   btnEl.classList.toggle("saved", saved);
   btnEl.setAttribute("aria-pressed", String(saved));
   btnEl.setAttribute("aria-label", saved ? "Remove from My Slip" : "Add to My Slip");
-  const label = btnEl.querySelector(".save-btn-label");
-  if (label) label.textContent = saved ? "In My Slip" : "Add to My Slip";
-  else btnEl.textContent = saved ? "In My Slip" : "Add to My Slip";
+  if (btnEl.classList.contains("finder-add-btn")) {
+    btnEl.textContent = saved ? "✓ Saved" : "+ Builder";
+  } else {
+    const label = btnEl.querySelector(".save-btn-label");
+    if (label) label.textContent = saved ? "In My Slip" : "Add to My Slip";
+    else btnEl.textContent = saved ? "In My Slip" : "Add to My Slip";
+  }
 }
 
 function updateSavedCount() {
@@ -2319,13 +2323,15 @@ async function loadGameLogPostedLines(stat, player = gameLogState.player) {
     const feed = await requestFinderFeed();
     if (token !== postedLinesToken) return;
     const rows = feed.filter(row => nameKey(row.player) === nameKey(player) && pitcherFinderStat(row.stat).label === stat).sort((a,b) => a.line-b.line);
-    host.innerHTML = '<summary>PrizePicks lines</summary><div class="posted-options"></div>';
+    host.innerHTML = `<summary><img src="/prizepicks/logo.png" alt=""><span>Available lines<small>PrizePicks · ${rows.length} options</small></span><b class="posted-selected">${Number(gameLogState.line)}</b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary><div class="posted-options"></div>`;
     const list = host.querySelector('div');
     if (!rows.length) list.textContent = 'No posted lines available for this market.';
     rows.forEach(row => {
       const button = document.createElement('button'); button.type = 'button';
-      button.innerHTML = `<b>${Number(row.line)}</b><img src="/prizepicks/logo.png" alt="PrizePicks"><span>${escapeHtml(row.odds_type || 'standard')}</span>`;
-      button.onclick = () => {setGameLogPreviewLine(Number(row.line), true); host.open = false; host.querySelector('summary').textContent = `PrizePicks · ${row.line} · ${row.odds_type || 'standard'}`;};
+      const label = row.odds_type === 'standard' ? 'Regular' : row.odds_type || 'Regular';
+      button.setAttribute('aria-pressed', String(Number(row.line) === Number(gameLogState.line)));
+      button.innerHTML = `<b>${Number(row.line)}</b><span>${escapeHtml(label)}<small>${row.odds_type === 'standard' ? 'More / Less' : 'More only'}</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4 10-10"/></svg>`;
+      button.onclick = () => {setGameLogPreviewLine(Number(row.line), true); host.open = false; host.querySelector('.posted-selected').textContent = row.line; list.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed',String(b === button)));};
       list.appendChild(button);
     });
   } catch (_) { if (token === postedLinesToken) host.innerHTML = '<summary>PrizePicks lines</summary><p>Posted lines unavailable. You can still explore a custom line.</p>'; }
@@ -4138,7 +4144,7 @@ function wireSlate() {
     parks: "Best Ballparks — live park factors and venue run environment.",
     weather: "Weather + Park — live wind, temperature, roof status, and park context.",
     platoon: "Platoon Matchups — confirmed handedness matchups and season split context.",
-    bvp: "BvP Matchups — career batter-versus-pitcher history, only where the sample is meaningful.",
+    bvp: "BvP Matchups — current-season batter-versus-pitcher results, only where the sample is meaningful.",
     strikeouts: "Strikeout Spots — pitcher K skill, opposing lineup K rate, and projected workload."
   };
   els.slateRefreshBtn.addEventListener("click", () => {
@@ -4460,9 +4466,10 @@ function renderPitcherComparison(rows) {
   els.pitcherFinderState.hidden = rows.length > 0;
   if (!rows.length) els.pitcherFinderState.textContent = pendingHistory && active ? 'Checking history against your filters…' : 'No matching active lines. Try another filter.';
   els.pitcherFinderList.innerHTML = `<div class="finder-mobile-sort"><label>Sort lines<select id="finder-sort"><option value="">Player name</option>${[['10','L10'],['5','L5'],['15','L15'],['20','L20'],['h2h','H2H'],['avg','Average'],['diff','Difference']].map(([key,label]) => `<option value="${key}" ${pitcherTableFilter.sort === key ? 'selected' : ''}>${label} · highest first</option>`).join('')}</select></label></div><div class="pitcher-table-scroll"><table class="pitcher-table"><thead><tr><th>Player / line</th><th>App</th><th>Avg L10</th><th>Diff</th><th>L5</th><th>L10</th><th>L15</th><th>L20</th><th>H2H</th></tr></thead><tbody></tbody></table></div><div class="pitcher-pagination"><button type="button" data-page="-1" ${pitcherComparisonPage === 0 ? 'disabled' : ''}>Previous</button><span>Page ${pitcherComparisonPage + 1} / ${pages}</span><button type="button" data-page="1" ${pitcherComparisonPage === pages - 1 ? 'disabled' : ''}>Next</button></div>`;
-  els.pitcherFinderList.insertAdjacentHTML('afterbegin', `<details class="rate-filter"><summary>Hit-rate filter${active ? ` · ${pitcherTableFilter.min}–${pitcherTableFilter.max}%` : ''}</summary><div class="rate-windows">${[5,10,15,20,'h2h'].map(key => `<label><input type="checkbox" value="${key}" ${pitcherTableFilter.windows.includes(String(key)) ? 'checked' : ''}>${key === 'h2h' ? 'H2H' : 'L'+key}</label>`).join('')}</div><div class="rate-bounds"><label>From %<input type="number" min="0" max="100" value="${pitcherTableFilter.min}" data-bound="min"></label><label>To %<input type="number" min="0" max="100" value="${pitcherTableFilter.max}" data-bound="max"></label><button type="button" data-rate-apply>Apply</button><button type="button" data-rate-clear>Clear</button></div><p>All selected windows must match. Missing samples are excluded. Filters and sorting use the full board as history loads. H2H covers the current and previous season.</p></details>`);
+  els.pitcherFinderList.insertAdjacentHTML('afterbegin', `<details class="rate-filter"><summary><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4"/></svg><span>Hit rate</span><b>${active ? `${pitcherTableFilter.min}–${pitcherTableFilter.max}%` : 'Filter'}</b></summary><div class="rate-windows">${[5,10,15,20,'h2h'].map(key => `<label><input type="checkbox" value="${key}" ${pitcherTableFilter.windows.includes(String(key)) ? 'checked' : ''}><span>${key === 'h2h' ? 'H2H' : 'L'+key}</span></label>`).join('')}</div><div class="rate-presets"><button type="button" data-rate-preset="70">70%+</button><button type="button" data-rate-preset="80">80%+</button><button type="button" data-rate-preset="90">90%+</button></div><div class="rate-bounds"><label>Minimum %<input type="number" inputmode="numeric" min="0" max="100" value="${pitcherTableFilter.min}" data-bound="min"></label><label>Maximum %<input type="number" inputmode="numeric" min="0" max="100" value="${pitcherTableFilter.max}" data-bound="max"></label><button type="button" data-rate-apply>Show matches</button><button type="button" data-rate-clear>Clear</button></div><p>All selected windows must match. Missing samples are excluded. Filters and sorting use the full board as history loads. H2H covers the current and previous season.</p></details>`);
   els.pitcherFinderList.querySelector('#finder-sort').onchange = event => {pitcherTableFilter.sort = event.target.value; pitcherTableFilter.direction = -1; pitcherComparisonPage = 0; renderPitcherComparison(sourceRows);};
   const filter = els.pitcherFinderList.querySelector('.rate-filter');
+  filter.querySelectorAll('[data-rate-preset]').forEach(button => {button.onclick = () => {filter.querySelector('[data-bound=min]').value = button.dataset.ratePreset; filter.querySelector('[data-bound=max]').value = 100;};});
   filter.querySelector('[data-rate-apply]').onclick = () => {
     pitcherTableFilter.windows = [...filter.querySelectorAll('input:checked')].map(el => el.value);
     const bounds = [...filter.querySelectorAll('[data-bound]')].map(el => Math.max(0,Math.min(100,Number(el.value))));
@@ -4484,10 +4491,14 @@ function renderPitcherComparison(rows) {
   const queue = visible.map(row => {
     const tr = document.createElement('tr');
     const prop = pitcherFinderGameLogProp(row);
+    prop.id = `${row.player}|${row.stat}`;
     const initial = prop.headshot ? `<img class="pitcher-table-photo" src="${escapeHtml(prop.headshot)}" alt="" width="44" height="44">` : `<span class="finder-photo-placeholder" aria-hidden="true">${escapeHtml(row.player.split(' ').map(n => n[0]).slice(0,2).join(''))}</span>`;
-    tr.innerHTML = `<td class="finder-player-cell"><button type="button" class="pitcher-table-open">${initial}<span class="finder-player-copy"><b>${escapeHtml(row.player)}</b><span>More ${Number(row.line)} ${escapeHtml(pitcherFinderStat(row.stat).short)}</span><small class="finder-matchup">${escapeHtml(row.team || prop.teamAbbr || 'MLB')} · ${escapeHtml(row.odds_type === 'standard' ? 'Regular line' : row.odds_type || 'Regular line')}</small></span><span class="finder-open-arrow" aria-hidden="true">›</span></button></td><td class="finder-app-cell"><img width="24" height="24" src="/prizepicks/logo.png" alt="PrizePicks">${row.odds_type === 'goblin' ? '<img width="20" height="20" src="/prizepicks/goblin.png" alt="">' : ''}<span>${escapeHtml(row.odds_type === 'standard' ? 'Regular' : row.odds_type || 'Regular')} · ${row.odds_type === 'standard' ? 'More / Less' : 'More only'}</span></td>${['Avg','Diff','L5','L10','L15','L20','H2H'].map(label => `<td class="pitcher-rate" data-label="${label}"><span>…</span></td>`).join('')}`;
+    const isAlreadySaved = isSaved(prop.id);
+    tr.innerHTML = `<td class="finder-player-cell"><button type="button" class="pitcher-table-open">${initial}<span class="finder-player-copy"><b>${escapeHtml(row.player)}</b><span>More ${Number(row.line)} ${escapeHtml(pitcherFinderStat(row.stat).short)}</span><small class="finder-matchup">${escapeHtml(row.team || prop.teamAbbr || 'MLB')} · ${escapeHtml(row.odds_type === 'standard' ? 'Regular line' : row.odds_type || 'Regular line')}</small></span><span class="finder-open-arrow" aria-hidden="true">›</span></button></td><td class="finder-app-cell"><img width="24" height="24" src="/prizepicks/logo.png" alt="PrizePicks">${row.odds_type === 'goblin' ? '<img width="20" height="20" src="/prizepicks/goblin.png" alt="">' : ''}<span>${escapeHtml(row.odds_type === 'standard' ? 'Regular' : row.odds_type || 'Regular')} · ${row.odds_type === 'standard' ? 'More / Less' : 'More only'}</span></td>${['Avg','Diff','L5','L10','L15','L20','H2H'].map(label => `<td class="pitcher-rate" data-label="${label}"><span>…</span></td>`).join('')}<td class="finder-save-cell"><button type="button" class="finder-add-btn${isAlreadySaved ? ' saved' : ''}" data-prop-id="${escapeHtml(prop.id)}" data-player="${escapeHtml(row.player)}">${isAlreadySaved ? '✓ Saved' : '+ Builder'}</button></td>`;
     tr.querySelector('img')?.addEventListener('error', event => {event.currentTarget.hidden = true;}, {once:true});
-    tr.querySelector('button').addEventListener('click', () => openGameLogModal(prop));
+    tr.querySelector('button.pitcher-table-open').addEventListener('click', () => openGameLogModal(prop));
+    const saveBtn = tr.querySelector('.finder-add-btn');
+    if (saveBtn) saveBtn.addEventListener('click', event => { event.stopPropagation(); toggleSave(prop, saveBtn); });
     els.pitcherFinderList.querySelector('tbody').appendChild(tr);
     return {row, prop, tr};
   });
