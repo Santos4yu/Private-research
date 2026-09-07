@@ -1,5 +1,5 @@
 <!doctype html><html lang="en" data-theme="obsidian"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Mobile controls fixture</title>
-<link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/src/mobile-app.css"><link rel="stylesheet" href="/src/sports-app.css"><link rel="stylesheet" href="/src/gamelog-fix.css"></head><body>
+<link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/gamelog-premium.css"><link rel="stylesheet" href="/src/mobile-app.css"><link rel="stylesheet" href="/src/sports-app.css"><link rel="stylesheet" href="/src/gamelog-fix.css"></head><body>
 <p>UI fixture · sample lines, not live picks</p>
 <script type="module">
 const page=new DOMParser().parseFromString(await(await fetch('/index.html')).text(),'text/html');
@@ -16,4 +16,12 @@ const rows=[2.5,3.5,4.5,5.5,6.5].map((line,i)=>({player:'Aaron Nola',stat:'Hits 
 const state={player:'Aaron Nola',line:2.5};
 const fn=new Function('gameLogState','requestFinderFeed','nameKey','pitcherFinderStat','escapeHtml','setGameLogPreviewLine',source.slice(start,end)+';return loadGameLogPostedLines;')(state,async()=>rows,s=>s.toLowerCase(),s=>({label:s}),s=>s,n=>{state.line=n;document.getElementById('gamelog-line-value').textContent=n;});
 await fn('Hits Allowed');
+const panel=document.getElementById('gamelog-filter-panel');
+document.getElementById('gamelog-filter-toggle').onclick=()=>{panel.hidden=!panel.hidden;};
+document.getElementById('gamelog-filter-close').onclick=()=>{panel.hidden=true;};
+document.getElementById('gamelog-season-row').innerHTML='<button>2024</button><button>2025</button><button class="active">2026</button>';
+const chart=document.getElementById('gamelog-chart');
+const height=chart.clientHeight-64;chart.style.setProperty('--plot-height',height+'px');
+chart.innerHTML='<div class="gamelog-chart-track" style="--bar-width:60px;--game-count:3">'+[1,4,4].map(n=>'<div class="gl-col"><div class="gl-track"><div class="gl-bar-shell"><div class="gl-bar" style="height:'+height*n/8+'px"><span class="gl-val">'+n+'</span></div></div></div><span class="gl-opponent-logo">MIA</span></div>').join('')+'</div>';
+
 </script></body></html>

@@ -88,3 +88,14 @@
   #pitcher-finder .pitcher-table .finder-app-cell img[src*="goblin"],
   #pitcher-finder .pitcher-table .finder-app-cell img[src*="demon"] {width:22px;height:22px;}
 }
+
+#pitcher-finder .finder-slip-star {width:44px;height:44px;flex:0 0 44px;min-height:44px;border:0;border-radius:50%;background:transparent;color:var(--theme-dim);padding:12px;box-shadow:none;}
+#pitcher-finder .finder-slip-star.saved {background:transparent;color:var(--theme-accent);}
+#pitcher-finder .rate-filter {border-radius:20px!important;padding:6px 12px!important;}
+#pitcher-finder .rate-filter summary {min-height:44px;font:600 13px var(--font-sans);}
+#pitcher-finder .rate-filter .rate-windows {background:transparent;padding:0;margin:6px 0;}
+#pitcher-finder .rate-filter .rate-windows label span {border-radius:99px;min-height:44px;}
+#pitcher-finder .rate-filter .rate-presets button {border-radius:99px;background:transparent;min-height:44px;}
+#pitcher-finder .rate-filter .rate-bounds input {border-radius:99px;min-height:44px;}
+#pitcher-finder .rate-filter .rate-bounds button {border-radius:99px;min-height:44px;}
+#pitcher-finder .finder-mobile-sort select {min-height:58px;border-radius:20px;}

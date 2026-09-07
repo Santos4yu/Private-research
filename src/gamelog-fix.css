@@ -169,7 +169,7 @@
   :root[data-theme] #gamelog-overlay .gamelog-chart-track {
     width:100%!important;
     min-width:0!important;
-    justify-content:space-between!important;
+    justify-content:center!important;
     gap:3px!important;
     padding-left:0!important;
     padding-right:0!important;
@@ -177,7 +177,7 @@
   :root[data-theme] #gamelog-overlay .gl-col {
     flex:1 1 var(--bar-width)!important;
     min-width:12px!important;
-    max-width:32px!important;
+    max-width:none!important;
   }
   :root[data-theme] #gamelog-overlay .gl-line-marker {
     left:40px!important;
@@ -234,7 +234,7 @@
   :root[data-theme] #gamelog-overlay .gl-col {min-width:0!important; flex:1 1 0!important;}
   :root[data-theme] #gamelog-overlay .gl-opponent-logo {height:22px!important; margin-top:6px!important;}
   :root[data-theme] #gamelog-overlay .gl-opponent-logo img {width:20px!important; height:20px!important;}
-  :root[data-theme] #gamelog-overlay .gamelog-filter-panel {position:absolute!important; inset:70px 10px 10px!important; z-index:30; overflow:auto; border-radius:16px!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-filter-panel {position:absolute!important; inset:150px 12px auto!important; height:auto!important; max-height:calc(100% - 170px)!important; z-index:30; overflow:auto; border-radius:16px!important;}
 }
 /* Scope form styling above legacy global label/input rules. */
 #pitcher-finder .rate-filter {font-family:var(--font-sans);}
@@ -246,3 +246,25 @@
 #pitcher-finder .rate-filter .rate-bounds input {width:100%; min-height:44px; padding:8px 12px; border-radius:10px; font:600 16px var(--font-sans);}
 #pitcher-finder .rate-filter .rate-presets {margin:8px 0; gap:6px;}
 #pitcher-finder .rate-filter p {font:400 11px/1.4 var(--font-sans); margin-top:8px;}
+
+@media(max-width:680px) {
+  :root[data-theme] #gamelog-overlay .gamelog-modal {position:relative!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-chart-track {display:flex!important; justify-content:center!important; align-items:flex-start!important; gap:4px!important; margin:0!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-chart-track .gl-col {width:var(--bar-width)!important; flex:0 1 var(--bar-width)!important; min-width:0!important; max-width:60px!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-chart-track .gl-bar-shell {width:100%!important; min-width:0!important; max-width:none!important; margin:0!important;}
+  :root[data-theme] #gamelog-overlay .gl-bar {max-width:none!important; box-sizing:border-box!important; transition:none!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-filter-panel {padding:12px!important; border:1px solid var(--theme-border)!important; background:var(--theme-panel)!important; box-shadow:0 16px 40px #0008!important; animation:none!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-filter-panel header {padding:0!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-filter-panel header button {width:44px;height:44px;}
+  :root[data-theme] #gamelog-overlay .gamelog-filter-section {padding:8px 0!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-filter-panel button {min-height:44px; border-radius:99px; font-family:var(--font-sans)!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-subfilters .gl-filter-group {width:100%!important; border:0!important; background:var(--theme-panel-2)!important; padding:3px!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-filter-panel button.active {background:var(--theme-accent)!important; color:var(--theme-on-accent)!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-line-control {grid-column:1!important; width:100%!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-filter-toggle {grid-column:2!important; width:100%!important;}
+}
+
+@media(max-width:680px) {
+ :root[data-theme] #gamelog-overlay .gamelog-filter-panel .gl-filter-group {display:flex!important; max-width:none!important; flex-wrap:nowrap!important;}
+ :root[data-theme] #gamelog-overlay .gamelog-filter-panel .gl-filter-chip {flex:1!important; min-height:44px!important; border-radius:99px!important; font-size:12px!important;}
+}
