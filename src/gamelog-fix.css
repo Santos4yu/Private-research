@@ -203,3 +203,46 @@
     min-height:42px!important;
   }
 }
+
+/* Keep the mobile research panel stationary; only auxiliary choices overlay it. */
+@media(max-width:680px) {
+  :root[data-theme] #gamelog-overlay {align-items:center!important; justify-content:center!important; overflow:hidden!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-modal {display:flex!important; flex-direction:column!important; height:min(760px,calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px))!important; overflow:hidden!important; overflow-anchor:none; border-radius:22px!important;}
+  :root[data-theme] #gamelog-overlay .modal-head {flex:none; padding:10px 14px!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-workbench {flex:none; padding:6px 12px 8px!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-toolbar {display:grid!important; grid-template-columns:1fr 1fr!important; gap:8px!important; position:relative;}
+  :root[data-theme] #gamelog-overlay .gamelog-stat-tabs {grid-column:1/-1; margin:0!important; padding:0!important; min-height:44px;}
+  :root[data-theme] #gamelog-overlay .gamelog-line-control>span {display:none;}
+  :root[data-theme] #gamelog-overlay .gamelog-filter-toggle {min-height:44px!important; height:44px!important; margin:0!important; align-self:end;}
+  :root[data-theme] #gamelog-overlay .posted-lines {position:relative; padding:0 10px; border-radius:12px; background:var(--theme-panel-2);}
+  :root[data-theme] #gamelog-overlay .posted-lines summary {min-height:44px; font-size:13px;}
+  :root[data-theme] #gamelog-overlay .posted-lines summary small {display:none;}
+  :root[data-theme] #gamelog-overlay .posted-options {position:absolute; z-index:20; top:100%; left:0; right:0; margin:6px 0 0; padding:8px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; max-height:240px; overflow:auto; border:1px solid var(--theme-border); border-radius:14px; background:var(--theme-panel); box-shadow:0 12px 32px #0006;}
+  :root[data-theme] #gamelog-overlay .posted-options button {min-height:44px; padding:8px; gap:4px; grid-template-columns:1fr auto; border-radius:9px;}
+  :root[data-theme] #gamelog-overlay .posted-line-main b {font-size:18px; min-width:24px;}
+  :root[data-theme] #gamelog-overlay .posted-options button>span:not(.posted-line-main) {font-size:11px;}
+  :root[data-theme] #gamelog-overlay .posted-options small,:root[data-theme] #gamelog-overlay .posted-options button>svg {display:none;}
+  :root[data-theme] #gamelog-overlay .gamelog-windowbar {margin:8px 0 0!important; gap:8px!important; min-height:44px!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-window-stepper,:root[data-theme] #gamelog-overlay .gamelog-h2h-toggle {height:44px!important; min-height:44px!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-studio {flex:1; display:flex!important; min-height:0!important; overflow:hidden!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-stage {display:flex!important; flex-direction:column; flex:1; min-width:0; min-height:0!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-summary {flex:none; padding:10px 8px!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-summary strong {font-size:24px!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-chart {flex:1; height:0!important; min-height:0!important; margin:0!important; padding:24px 14px 40px 40px!important; overflow:hidden!important; --chart-top:24px; box-sizing:border-box;}
+  :root[data-theme] #gamelog-overlay .gl-track {height:var(--plot-height)!important;}
+  :root[data-theme] #gamelog-overlay .gl-y-axis {height:var(--plot-height)!important; top:24px!important;}
+  :root[data-theme] #gamelog-overlay .gl-col {min-width:0!important; flex:1 1 0!important;}
+  :root[data-theme] #gamelog-overlay .gl-opponent-logo {height:22px!important; margin-top:6px!important;}
+  :root[data-theme] #gamelog-overlay .gl-opponent-logo img {width:20px!important; height:20px!important;}
+  :root[data-theme] #gamelog-overlay .gamelog-filter-panel {position:absolute!important; inset:70px 10px 10px!important; z-index:30; overflow:auto; border-radius:16px!important;}
+}
+/* Scope form styling above legacy global label/input rules. */
+#pitcher-finder .rate-filter {font-family:var(--font-sans);}
+#pitcher-finder .rate-filter .rate-windows {display:flex; gap:4px; padding:4px; border-radius:12px; background:var(--theme-panel-2); margin:10px 0;}
+#pitcher-finder .rate-filter .rate-windows label {display:block; flex:1; padding:0; margin:0; border:0; background:none; min-width:0;}
+#pitcher-finder .rate-filter .rate-windows label span {width:100%; padding:0; min-height:44px; border:0; border-radius:8px; font:600 12px var(--font-sans);}
+#pitcher-finder .rate-filter .rate-bounds {display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+#pitcher-finder .rate-filter .rate-bounds label {display:grid; padding:0; border:0; background:none; font:500 12px var(--font-sans);}
+#pitcher-finder .rate-filter .rate-bounds input {width:100%; min-height:44px; padding:8px 12px; border-radius:10px; font:600 16px var(--font-sans);}
+#pitcher-finder .rate-filter .rate-presets {margin:8px 0; gap:6px;}
+#pitcher-finder .rate-filter p {font:400 11px/1.4 var(--font-sans); margin-top:8px;}

@@ -2530,7 +2530,10 @@ function renderGameLogChart() {
   const line = gameLogState.line;
   // Match the responsive CSS track height exactly; using a shorter mobile
   // math scale made low lines such as 0.5 float far above the baseline.
-  const trackPx = window.innerWidth <= 430 ? 210 : window.innerWidth <= 900 ? 238 : 280;
+  const trackPx = window.innerWidth <= 680
+    ? Math.max(48, holder.clientHeight - 64)
+    : window.innerWidth <= 900 ? 238 : 280;
+  holder.style.setProperty('--plot-height', `${trackPx}px`);
   const scaleCaps = { "Hits": 6, "Home Runs": 4, "Total Bases": 12, "Hits+Runs+RBIs": 10, "Runs Scored": 6, "RBIs": 6, "Walks": 5, "Strikeouts": 12, "Pitching Outs": 27, "Hits Allowed": 10, "Earned Runs Allowed": 8, "Strikeouts (Pitcher)": 12, "Walks Allowed": 5 };
   const max = Math.max(scaleCaps[gameLogState.stat] || 10, typeof line === "number" ? Math.ceil(line * 1.6) : 1);
   const track = document.createElement("div");
