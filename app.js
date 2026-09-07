@@ -692,7 +692,30 @@ function wireTabs() {
   document.querySelectorAll("[data-home-tab]").forEach((btn) => {
     btn.addEventListener("click", () => switchTab(btn.dataset.homeTab));
   });
+  wireMobileNavAutoHide();
 }
+
+
+function wireMobileNavAutoHide() {
+  let lastY = window.scrollY;
+  let ticking = false;
+  const update = () => {
+    const y = Math.max(0, window.scrollY || 0);
+    const scrollingDown = y > lastY + 8;
+    const nearTop = y < 18;
+    document.body.classList.toggle('mobile-dock-hidden', !nearTop && scrollingDown);
+    if (nearTop) document.body.classList.remove('mobile-dock-hidden');
+    lastY = y;
+    ticking = false;
+  };
+  window.addEventListener('scroll', () => {
+    if (!ticking) {
+      ticking = true;
+      requestAnimationFrame(update);
+    }
+  }, { passive: true });
+}
+
 
 function wireMainMenu() {
   if (!els.mainMenu) return;
@@ -1209,7 +1232,7 @@ function syncSaveButton(btnEl, id) {
   btnEl.setAttribute("aria-label", saved ? "Remove from My Slip" : "Add to My Slip");
   const label = btnEl.querySelector(".save-btn-label");
   if (label) label.textContent = saved ? "In My Slip" : "Add to My Slip";
-  else btnEl.textContent = saved ? "In My Slip" : "Add to My Slip";
+  else if (!btnEl.classList.contains("finder-slip-star")) btnEl.textContent = saved ? "In My Slip" : "Add to My Slip";
 }
 
 function updateSavedCount() {
@@ -2346,7 +2369,8 @@ async function loadGameLogPostedLines(stat, player = gameLogState.player) {
       const button = document.createElement('button'); button.type = 'button';
       const label = row.odds_type === 'standard' ? 'Regular' : row.odds_type || 'Regular';
       button.setAttribute('aria-pressed', String(Number(row.line) === Number(gameLogState.line)));
-      button.innerHTML = `<b>${Number(row.line)}</b><span>${escapeHtml(label)}<small>${row.odds_type === 'standard' ? 'More / Less' : 'More only'}</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4 10-10"/></svg>`;
+      const icon = row.odds_type === 'goblin' ? '/prizepicks/goblin.png' : row.odds_type === 'demon' ? '/prizepicks/demon.png' : '/prizepicks/logo.png';
+      button.innerHTML = `<span class="posted-line-main"><b>${Number(row.line)}</b><img src="${icon}" alt="" /></span><span>${escapeHtml(label)}<small>${row.odds_type === 'standard' ? 'More / Less' : 'More only'}</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4 10-10"/></svg>`;
       button.onclick = () => {setGameLogPreviewLine(Number(row.line), true); host.open = false; host.querySelector('.posted-selected').textContent = row.line; list.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed',String(b === button)));};
       list.appendChild(button);
     });
@@ -2512,7 +2536,9 @@ function renderGameLogChart() {
   const track = document.createElement("div");
   track.className = "gamelog-chart-track";
   track.style.setProperty("--game-count", String(games.length));
-  track.style.setProperty("--bar-width", games.length > 20 ? "30px" : games.length > 10 ? "38px" : "52px");
+  const mobileChart = window.matchMedia("(max-width: 680px)").matches;
+  const mobileWidth = Math.max(12, Math.floor((Math.min(window.innerWidth || 390, 430) - 92) / Math.max(games.length, 1)));
+  track.style.setProperty("--bar-width", mobileChart ? `${mobileWidth}px` : games.length > 20 ? "30px" : games.length > 10 ? "38px" : "52px");
   track.dataset.count = String(games.length);
   track.dataset.dense = games.length > 20 ? "true" : "false";
   track.dataset.logo = games.length <= 12 ? "true" : "false";
@@ -4414,10 +4440,13 @@ function pitcherFinderGameLogProp(row) {
   const board = pitcherFinderBoardMatch(row);
   const stats = board?.stats || {};
   const playerId = stats.player_id || playerCatalog.find(p => nameKey(p.name) === nameKey(row.player))?.id || "";
+  const line = Number(row.line);
+  const modifier = String(row.odds_type || "standard").toLowerCase();
   return {
+    id: `finder-${nameKey(row.player)}-${nameKey(market.label)}-${line}-${modifier}`,
     player: row.player,
     betType: market.label,
-    line: Number(row.line),
+    line,
     side: "Over",
     position: market.pitcher ? "P" : row.position || "",
     isPitcherProp: market.pitcher,
@@ -4508,9 +4537,14 @@ function renderPitcherComparison(rows) {
     const tr = document.createElement('tr');
     const prop = pitcherFinderGameLogProp(row);
     const initial = prop.headshot ? `<img class="pitcher-table-photo" src="${escapeHtml(prop.headshot)}" alt="" width="44" height="44">` : `<span class="finder-photo-placeholder" aria-hidden="true">${escapeHtml(row.player.split(' ').map(n => n[0]).slice(0,2).join(''))}</span>`;
-    tr.innerHTML = `<td class="finder-player-cell"><button type="button" class="pitcher-table-open">${initial}<span class="finder-player-copy"><b>${escapeHtml(row.player)}</b><span>More ${Number(row.line)} ${escapeHtml(pitcherFinderStat(row.stat).short)}</span><small class="finder-matchup">${escapeHtml(row.team || prop.teamAbbr || 'MLB')} · ${escapeHtml(row.odds_type === 'standard' ? 'Regular line' : row.odds_type || 'Regular line')}</small></span><span class="finder-open-arrow" aria-hidden="true">›</span></button></td><td class="finder-app-cell"><img width="24" height="24" src="/prizepicks/logo.png" alt="PrizePicks">${row.odds_type === 'goblin' ? '<img width="20" height="20" src="/prizepicks/goblin.png" alt="">' : ''}<span>${escapeHtml(row.odds_type === 'standard' ? 'Regular' : row.odds_type || 'Regular')} · ${row.odds_type === 'standard' ? 'More / Less' : 'More only'}</span></td>${['Avg','Diff','L5','L10','L15','L20','H2H'].map(label => `<td class="pitcher-rate" data-label="${label}"><span>…</span></td>`).join('')}`;
+    const modifier = String(row.odds_type || 'standard').toLowerCase();
+    const modifierIcon = modifier === 'goblin' ? '/prizepicks/goblin.png' : modifier === 'demon' ? '/prizepicks/demon.png' : '';
+    tr.innerHTML = `<td class="finder-player-cell"><button type="button" class="pitcher-table-open">${initial}<span class="finder-player-copy"><b>${escapeHtml(row.player)}</b><span>More ${Number(row.line)} ${escapeHtml(pitcherFinderStat(row.stat).short)}</span><small class="finder-matchup">${escapeHtml(row.team || prop.teamAbbr || 'MLB')} · ${escapeHtml(modifier === 'standard' ? 'Regular line' : row.odds_type || 'Regular line')}</small></span><span class="finder-open-arrow" aria-hidden="true">›</span></button><button type="button" class="finder-slip-star" aria-label="Add ${escapeHtml(row.player)} to My Slip" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2 7.5 14 3 9.6l6.2-.9L12 3Z"/></svg></button></td><td class="finder-app-cell"><img width="24" height="24" src="/prizepicks/logo.png" alt="PrizePicks">${modifierIcon ? `<img width="20" height="20" src="${modifierIcon}" alt="">` : ''}<span>${escapeHtml(modifier === 'standard' ? 'Regular' : row.odds_type || 'Regular')} · ${modifier === 'standard' ? 'More / Less' : 'More only'}</span></td>${['Avg','Diff','L5','L10','L15','L20','H2H'].map(label => `<td class="pitcher-rate" data-label="${label}"><span>…</span></td>`).join('')}`;
     tr.querySelector('img')?.addEventListener('error', event => {event.currentTarget.hidden = true;}, {once:true});
-    tr.querySelector('button').addEventListener('click', () => openGameLogModal(prop));
+    const star = tr.querySelector('.finder-slip-star');
+    syncSaveButton(star, prop.id);
+    star.addEventListener('click', event => { event.stopPropagation(); toggleSave(prop, star); });
+    tr.querySelector('.pitcher-table-open').addEventListener('click', () => openGameLogModal(prop));
     els.pitcherFinderList.querySelector('tbody').appendChild(tr);
     return {row, prop, tr};
   });

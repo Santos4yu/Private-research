@@ -148,3 +148,15 @@
     :root[data-theme] :is(.side-panel, .player-detail-sheet, .panel-enter, .mobile-app-tab) { animation: none !important; transition: none !important; }
   }
 }
+
+@media (max-width: 760px) {
+  .mobile-app-nav { transition: opacity 220ms ease, transform 220ms ease, visibility 220ms ease; }
+  body.mobile-dock-hidden .mobile-app-nav {
+    opacity:0;
+    transform:translateY(calc(18px + env(safe-area-inset-bottom,0px))) scale(.985);
+    pointer-events:none;
+    visibility:hidden;
+  }
+  body.mobile-dock-hidden:has(.modal-overlay:not([hidden])) .mobile-app-nav,
+  body.mobile-dock-hidden:has(.bet-slip-drawer:not([hidden])) .mobile-app-nav { opacity:0; }
+}

@@ -62,3 +62,29 @@
   #pitcher-finder .pitcher-rate:nth-child(3) {grid-column:6;}
   #pitcher-finder .pitcher-rate:nth-child(4) {grid-column:7;}
 }
+
+.finder-slip-star {
+  display:grid;
+  place-items:center;
+  flex:0 0 42px;
+  width:42px;
+  height:42px;
+  border:1px solid var(--theme-border);
+  border-radius:13px;
+  background:color-mix(in srgb,var(--theme-panel-2) 88%,transparent);
+  color:var(--theme-faint);
+  cursor:pointer;
+  transition:transform 160ms ease, background 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+.finder-slip-star svg {width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round;}
+.finder-slip-star.saved {background:var(--theme-accent);border-color:var(--theme-accent);color:var(--theme-on-accent);}
+.finder-slip-star.saved svg {fill:currentColor;}
+.finder-slip-star.pop {animation:finder-star-pop 260ms ease;}
+@keyframes finder-star-pop {50%{transform:scale(1.12) rotate(-8deg);}}
+@media(max-width:680px) {
+  #pitcher-finder .pitcher-table .finder-player-cell {display:flex;align-items:center;gap:8px;}
+  #pitcher-finder .pitcher-table-open {min-width:0;flex:1;}
+  #pitcher-finder .finder-slip-star {margin-left:auto;}
+  #pitcher-finder .pitcher-table .finder-app-cell img[src*="goblin"],
+  #pitcher-finder .pitcher-table .finder-app-cell img[src*="demon"] {width:22px;height:22px;}
+}
