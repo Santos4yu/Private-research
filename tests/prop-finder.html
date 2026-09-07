@@ -1,0 +1,22 @@
+<!doctype html><html lang="en" data-theme="obsidian"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Prop finder layout test</title>
+<link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/src/mobile-app.css"><link rel="stylesheet" href="/src/sports-app.css"><link rel="stylesheet" href="/src/pitcher-finder.css"><link rel="stylesheet" href="/src/gamelog-fix.css"><link rel="stylesheet" href="/src/prop-finder.css"></head>
+<body><main id="panel-v2" style="max-width:1200px;margin:auto;padding:12px"><p>UI fixture · sample values, not live picks</p><p id="test-status" role="status"></p></main>
+<script type="module">
+import {finderMarket,finderRows,historyChart,nameKey} from '/src/prop-finder-core.js';
+const html= new DOMParser().parseFromString(await (await fetch('/index.html')).text(),'text/html');
+const host=html.querySelector('#pitcher-finder');host.hidden=false;document.querySelector('main').append(host);
+const els=Object.fromEntries(['Finder','FinderTabs','FinderList','FinderState','FinderCount','FinderRefresh'].map(s=>['pitcher'+s, document.getElementById('pitcher-'+s.replace(/^Finder/,'finder').replace(/([a-z])([A-Z])/g,'$1-$2').toLowerCase())]));
+const rows=[['Aaron Nola','Pitcher Strikeouts',5.5,'standard',605400],['Aaron Nola','Pitcher Strikeouts',2.5,'goblin',605400],['Aaron Nola','Pitcher Strikeouts',7.5,'demon',605400],['Aaron Nola','Hits Allowed',4.5,'standard',605400],['Mookie Betts','Hits',.5,'goblin',605141]].map(([player,stat,line,odds_type,id],i)=>({id:String(i),player,stat,line,odds_type,headshot:`https://img.mlbstatic.com/mlb-photos/image/upload/w_120/v1/people/${id}/headshot/silo/current`}));
+const state={pitcherFinderProps:rows,v2BoardData:{props:[]}};
+const source=await(await fetch('/app.js')).text();
+let requests=0;
+const fakeFetch=async url=>{requests++;return {ok:true,json:async()=>({updatedAt:Date.now(),player:{id:605400},matchup:{opponent:{id:144,name:'Atlanta Braves'}},h2hLabel:'2025–2026 vs today’s opponent',games:Array.from({length:20},(_,i)=>({date:`2026-08-${String(i+1).padStart(2,'0')}`,opponent:{id:144,name:'ATL'},isHome:i%2===0,stat:{strikeOuts:[3,5,6,8,4][i%5],hits:[2,4,5,3,6][i%5]}}))})};};
+const escapeHtml=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const testStorage={getItem:()=>null,setItem:()=>{}};
+const ui=new Function('finderMarket','finderRows','historyChart','nameKey','state','els','playerCatalog','escapeHtml','openGameLogModal','fetch','sessionStorage', source.slice(source.indexOf('function pitcherFinderStat('),source.indexOf('async function loadPitcherFinder('))+';return {render:renderPitcherFinder, selection:finderSelection};')(finderMarket,finderRows,historyChart,nameKey,state,els,[],escapeHtml,p=>{document.getElementById('test-status').textContent=`Opened ${p.player} ${p.line}; ${p.gameLogChart.all?.length||0} cached games`;},fakeFetch,testStorage);
+['category','modifier'].forEach(key=>document.getElementById(`finder-${key}`).onchange=e=>{ui.selection[key]=e.target.value;ui.selection.stat='all';ui.render();});
+document.getElementById('finder-search').oninput=e=>{ui.selection.query=e.target.value;ui.render();};
+els.pitcherFinderTabs.onclick=e=>{const b=e.target.closest('button');if(b){ui.selection.stat=b.dataset.pitcherFilter;ui.render();}};
+ui.render();
+setTimeout(()=>{const overflow=document.documentElement.scrollWidth>innerWidth;document.getElementById('test-status').textContent=`${overflow?'FAIL: page overflow':'PASS: fits viewport'} · ${requests} shared history request(s)`;},500);
+</script></body></html>

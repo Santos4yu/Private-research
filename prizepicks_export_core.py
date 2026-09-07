@@ -41,10 +41,10 @@ def _norm_stat(value):
     return _STAT_ALIASES.get(normalized, normalized)
 
 
-def _fetch_projection_rows():
+def _fetch_projection_rows(force=False):
     now = time.time()
     with _CACHE_LOCK:
-        if _PROJECTION_CACHE["rows"] and now - _PROJECTION_CACHE["loaded_at"] < _CACHE_SECONDS:
+        if not force and _PROJECTION_CACHE["rows"] and now - _PROJECTION_CACHE["loaded_at"] < _CACHE_SECONDS:
             return _PROJECTION_CACHE["rows"]
 
     response = requests.get(
@@ -92,6 +92,10 @@ def _fetch_projection_rows():
             "odds_type": str(attrs.get("odds_type") or "standard").lower(),
             "allowed_wager_types": str(attrs.get("allowed_wager_types") or "").lower(),
             "updated_at": str(attrs.get("updated_at") or ""),
+            "headshot": str(player.get("image_url") or ""),
+            "team": str(player.get("team") or ""),
+            "position": str(player.get("position") or ""),
+            "start_time": str(attrs.get("start_time") or ""),
         })
     if not rows:
         raise RuntimeError("PrizePicks returned no active MLB projections.")

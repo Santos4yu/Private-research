@@ -1,11 +1,9 @@
 """
 Vercel serverless function for player-name autocomplete.
 
-Lightweight sibling to api/prediction.py -- returns real MLB players
-matching a partial name (via prediction_core.search_players(), which
-wraps research.fuzzy_search()) so the search box can suggest players as
-you type, instead of only offering a "search live" fallback after you've
-already typed a full name.
+Returns a cached MLB roster for immediate client-side autocomplete,
+or substring matches for clients without the catalog yet. Deliberately
+does not import the prediction engine.
 """
 
 import json
@@ -15,7 +13,7 @@ from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from prediction_core import search_players  # noqa: E402
+from live_props_core import search_players, player_catalog  # noqa: E402
 from auth_core import session_from_request_headers  # noqa: E402
 
 
@@ -31,7 +29,7 @@ class handler(BaseHTTPRequestHandler):
         query = (qs.get("q", [""])[0]).strip()
 
         try:
-            results = search_players(query)
+            results = player_catalog() if qs.get("catalog") == ["1"] else search_players(query)
         except Exception as exc:  # noqa: BLE001
             return self._send(500, {"error": f"Player search failed: {exc}"})
 

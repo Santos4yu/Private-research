@@ -22,6 +22,7 @@ from auth_core import session_with_live_access  # noqa: E402
 from v2.board import store  # noqa: E402
 from v2.board import admin_auth  # noqa: E402
 from prizepicks_export_core import _fetch_projection_rows, _norm_stat  # noqa: E402
+from live_props_core import player_history  # noqa: E402
 
 BOT_BOARD_KEY = "vortex:site_board"
 SPECIALS_KEY = "vortex:site_specials"
@@ -146,10 +147,19 @@ class handler(BaseHTTPRequestHandler):
             return self._send(401, {"error": "Sign in with Discord to use live research.", "authRequired": True})
 
         view = (parse_qs(urlparse(self.path).query).get("view") or [""])[0]
-        if view == "pitcher-props":
+        if view == "prop-history":
+            qs = parse_qs(urlparse(self.path).query)
             try:
-                rows = [row for row in _fetch_projection_rows()
-                        if _norm_stat(row.get("stat")) in PITCHER_MARKETS]
+                return self._send(200, player_history((qs.get("player") or [""])[0], (qs.get("group") or ["pitching"])[0]))
+            except ValueError as exc:
+                return self._send(400, {"error": str(exc)})
+            except Exception:
+                return self._send(502, {"error": "Player history is temporarily unavailable."})
+        if view in {"pitcher-props", "props"}:
+            try:
+                force = (parse_qs(urlparse(self.path).query).get("refresh") or [""])[0] == "1"
+                rows = [row for row in _fetch_projection_rows(force=force)
+                        if view == "props" or _norm_stat(row.get("stat")) in PITCHER_MARKETS]
                 rows.sort(key=lambda row: (
                     0 if row.get("odds_type") == "goblin" else 1,
                     str(row.get("player") or ""),

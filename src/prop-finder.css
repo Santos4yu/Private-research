@@ -1,0 +1,64 @@
+.finder-controls {display:grid; grid-template-columns:1fr 1fr 2fr; gap:12px; margin:16px 0 12px;}
+.finder-controls label,.finder-mobile-sort label {display:grid; gap:6px; color:var(--theme-dim); font-size:12px; font-weight:600; min-width:0;}
+.finder-controls select,.finder-controls input,.finder-mobile-sort select {width:100%; min-width:0; min-height:46px; border:1px solid var(--theme-border); border-radius:12px; background:var(--theme-panel); color:var(--theme-text); padding:10px 12px; font:inherit; font-size:16px;}
+.finder-controls :focus-visible,.finder-mobile-sort :focus-visible,.pitcher-table-open:focus-visible {outline:2px solid var(--theme-accent); outline-offset:3px;}
+.finder-mobile-sort {display:none;}
+.pitcher-table-open {display:flex!important; align-items:center; gap:10px; width:100%; min-height:64px; text-align:left;}
+.finder-player-copy {display:grid; gap:4px; flex:1; min-width:0;}
+.finder-player-copy b {font-size:14px; color:var(--theme-text);}
+.finder-player-copy>span {font-size:13px; color:var(--theme-text);}
+.finder-player-copy small {font-size:11px; color:var(--theme-dim); white-space:normal;}
+.pitcher-table-photo,.finder-photo-placeholder {float:none!important; margin:0!important; flex:0 0 44px; width:44px!important; height:44px!important; border:1px solid var(--theme-border); background:var(--theme-panel-2); object-fit:cover; object-position:top; border-radius:50%;}
+.finder-photo-placeholder {display:grid; place-items:center; font-size:14px; color:var(--theme-dim);}
+.finder-open-arrow {color:var(--theme-dim); font-size:23px;}
+.finder-app-cell>span {display:block; text-transform:capitalize; font-size:11px; margin-top:5px; color:var(--theme-dim);}
+.pitcher-table .pitcher-rate {font-variant-numeric:tabular-nums;}
+.pitcher-table .pitcher-rate small {display:block; font-size:10px; opacity:.75;}
+.pitcher-pagination {position:static!important; padding:12px 0!important;}
+.finder-progress {font-size:12px; color:var(--theme-dim); padding:8px 0;}
+.builder-pool-controls {grid-template-columns:1fr 1fr;}
+@media(max-width:680px) {
+  #pitcher-finder {min-width:0;}
+  #pitcher-finder .pitcher-finder-head {padding:16px!important; border-radius:18px;}
+  #pitcher-finder .pitcher-finder-head {min-height:64px; padding:12px 14px!important;}
+  #pitcher-finder .pitcher-finder-head p,#pitcher-finder .pitcher-finder-head>div>span {display:none;}
+  #pitcher-finder .pitcher-finder-head h2 {font-size:22px;}
+  #pitcher-finder .pitcher-finder-head p {font-size:13px; line-height:1.5;}
+  #pitcher-finder .pitcher-finder-head>svg {width:50px; height:50px; flex-shrink:0;}
+  .finder-controls {grid-template-columns:1fr 1fr; gap:10px;}
+  .finder-search-label {grid-column:1/-1;}
+  #pitcher-finder .pitcher-finder-tabs {border-radius:14px; overflow-x:auto; flex-wrap:nowrap; padding:5px;}
+  #pitcher-finder .pitcher-finder-tabs button {flex:0 0 auto; min-width:50px; min-height:44px; padding:8px 12px;}
+  .finder-mobile-sort {display:block; margin:8px 0;}
+  #pitcher-finder .pitcher-finder-list {grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:start;}
+  #pitcher-finder .pitcher-table-scroll,#pitcher-finder .pitcher-pagination,#pitcher-finder .finder-progress {grid-column:1/-1;}
+  #pitcher-finder .rate-filter[open] {grid-column:1/-1;}
+  #pitcher-finder .finder-mobile-sort {margin:0;}
+  #pitcher-finder .finder-mobile-sort label {font-size:0; gap:0;}
+  #pitcher-finder .finder-mobile-sort select {font-size:13px; min-height:62px;}
+  #pitcher-finder .rate-filter {border-radius:12px; padding:8px 12px;}
+  #pitcher-finder .pitcher-table-scroll {overflow:visible; border:0; background:none;}
+  #pitcher-finder .pitcher-table {display:block; min-width:0!important; width:100%; background:transparent;}
+  #pitcher-finder .pitcher-table thead {display:none;}
+  #pitcher-finder .pitcher-table tbody {display:grid; gap:12px;}
+  #pitcher-finder .pitcher-table tr {display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); overflow:hidden; border:1px solid var(--theme-border); border-radius:17px; background:var(--theme-panel);}
+  #pitcher-finder .pitcher-table td {min-width:0; width:auto; padding:0; border:0; white-space:normal;}
+  #pitcher-finder .pitcher-table .finder-player-cell {grid-column:1/-1; grid-row:1; padding:10px 12px; background:linear-gradient(120deg,var(--theme-panel-2),var(--theme-panel));}
+  #pitcher-finder .pitcher-table-open {padding:0; background:transparent; border:0;}
+  #pitcher-finder .finder-player-copy b {font-size:14px;}
+  #pitcher-finder .finder-player-copy>span {font-size:12px; line-height:1.4;}
+  #pitcher-finder .pitcher-table .finder-app-cell {grid-column:1/-1; grid-row:3; display:flex; align-items:center; gap:8px; padding:10px 12px; border-top:1px solid var(--theme-border); text-align:left;}
+  #pitcher-finder .finder-app-cell>span {display:inline; margin:0; font-size:12px;}
+  #pitcher-finder .pitcher-table .pitcher-rate {grid-row:2; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; min-height:70px; padding:7px 1px; font-size:12px; border-right:1px solid var(--theme-border); background:var(--theme-panel-2);}
+  #pitcher-finder .pitcher-table .pitcher-rate:before {content:attr(data-label); font-size:10px; color:var(--theme-dim); font-weight:600; white-space:nowrap;}
+  #pitcher-finder .pitcher-rate[data-tone=good] {color:#5ce0ac; background:linear-gradient(0deg,#10b98126,transparent); border-bottom:2px solid #10b981;}
+  #pitcher-finder .pitcher-rate[data-tone=mid] {color:#f5d477; background:linear-gradient(0deg,#eab3081a,transparent); border-bottom:2px solid #c69b30;}
+  #pitcher-finder .pitcher-rate[data-tone=low] {color:#f7a1ab; background:linear-gradient(0deg,#ef44441a,transparent); border-bottom:2px solid #c86171;}
+  #pitcher-finder .pitcher-rate:nth-child(5) {grid-column:1;}
+  #pitcher-finder .pitcher-rate:nth-child(6) {grid-column:2;}
+  #pitcher-finder .pitcher-rate:nth-child(7) {grid-column:3;}
+  #pitcher-finder .pitcher-rate:nth-child(8) {grid-column:4;}
+  #pitcher-finder .pitcher-rate:nth-child(9) {grid-column:5;}
+  #pitcher-finder .pitcher-rate:nth-child(3) {grid-column:6;}
+  #pitcher-finder .pitcher-rate:nth-child(4) {grid-column:7;}
+}

@@ -45,6 +45,7 @@ if str(_BACKEND_DIR.parent) not in sys.path:
 
 import analyze          # backend/analyze.py — grade_pick_both, compute_hit_rates, PROP_STAT_MAP helpers
 import stats_mlb         # backend/stats_mlb.py
+import vortextime        # backend/vortextime.py
 import research as vortex_research  # backend/research.py — fuzzy_search
 
 # MLB's 30 franchise team IDs are permanent -- used as a fallback when the
@@ -1179,6 +1180,7 @@ def format_k_prop_response(*, player_name, team_abbr, headshot, stat_label, line
         "headshot": headshot,
         "sport": "MLB",
         "isPitcherProp": True,
+        "builderEvidence": _builder_evidence(picked_grade, matchup, splits, side, player_id, True),
         "betType": stat_label,
         "line": line,
         "side": side.title(),
@@ -1467,6 +1469,7 @@ def format_response(*, player_name, team_abbr, headshot, stat_label, prop_type, 
         "headshot": headshot,
         "sport": "MLB",
         "betType": stat_label,
+        "builderEvidence": _builder_evidence(picked_grade, matchup, splits, side, None, False),
         "line": line,
         "side": side.title(),
         "score": picked_score,
@@ -1954,6 +1957,32 @@ def get_game_log_filters(player_name: str, prop_type: str, line: float, opp_team
     result = _build_game_log_chart(splits.get("game_log") or [], line, h2h_log=h2h_log)
     result["meta"] = {"player_id": player_id}
     return result
+
+
+def _builder_evidence(grade, matchup, splits, side, player_id, is_pitcher):
+    """Structured gates for Builder; never derive qualifications from display text."""
+    starter_confirmed = False
+    if is_pitcher and player_id:
+        try:
+            for game in stats_mlb.get_todays_schedule(vortextime.vortex_board_day()).values():
+                if player_id in (game.get("home_pitcher_id"), game.get("away_pitcher_id")):
+                    starter_confirmed = True
+                    break
+        except Exception:
+            pass
+    return {
+        "projectionEdge": grade.get("proj_edge"),
+        "stability": grade.get("stability_tier"),
+        "lineupSpot": grade.get("lineup_spot"),
+        "starterConfirmed": starter_confirmed,
+        "gameId": matchup.get("game_pk"),
+        "gameTime": matchup.get("game_utc"),
+        "isHome": matchup.get("is_home"),
+        "sampleL10": (splits.get("l10") or {}).get("games", 0),
+        "sampleL20": (splits.get("l20") or {}).get("games", 0),
+        "conflicts": grade.get("matchup_conflicts") or [],
+        "decisionQuality": grade.get("decision_quality"),
+    }
 
 
 def _to_float(val):

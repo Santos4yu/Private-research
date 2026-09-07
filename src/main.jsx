@@ -20,6 +20,7 @@ import './builder-app.css';
 import './pitcher-finder.css';
 import './accent-studio.css';
 import './gamelog-fix.css';
+import './prop-finder.css';
 
 const topTabs = [
   { title: 'Research', icon: Search, value: 'research' },
