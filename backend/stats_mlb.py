@@ -999,7 +999,7 @@ def get_pitcher_advanced_stats(pitcher_id: int) -> dict:
 # ── 4. BvP history ────────────────────────────────────────────────────────────
 
 def get_statcast_bvp_batch(batter_ids: list[int], pitcher_id: int) -> dict[int, dict]:
-    """Exact Statcast-era BvP totals, filtered by both MLB player IDs.
+    """Exact current-season Statcast BvP totals, filtered by both MLB player IDs.
 
     MLB Stats API's undocumented ``vsPlayer`` endpoint currently ignores the
     requested batter for some players. Baseball Savant's official Statcast CSV

@@ -4,7 +4,7 @@
 <script type="module">
 const page=new DOMParser().parseFromString(await(await fetch('/index.html')).text(),'text/html');
 const overlay=page.querySelector('#gamelog-overlay');overlay.hidden=false;document.body.append(overlay);
-document.getElementById('gamelog-title').textContent='Justin Wrobleski';
+document.getElementById('gamelog-title').textContent='Aaron Nola';
 document.getElementById('gamelog-prop-badge').textContent='HA';
 document.getElementById('gamelog-player-cutout').innerHTML='<img src="https://img.mlbstatic.com/mlb-photos/image/upload/w_180/v1/people/605400/headshot/67/current" alt="">';
 document.getElementById('gamelog-close').onclick=()=>{overlay.hidden=true;};
@@ -12,8 +12,8 @@ document.getElementById('gamelog-stat-tabs').innerHTML='<button>K</button><butto
 document.getElementById('gamelog-line-value').textContent='2.5';
 const source=await(await fetch('/app.js')).text();
 const start=source.indexOf('let postedLinesToken =');const end=source.indexOf('async function fetchGameLogDetails',start);
-const rows=[2.5,3.5,4.5,5.5,6.5].map((line,i)=>({player:'Justin Wrobleski',stat:'Hits Allowed',line,odds_type:i===0?'goblin':i===1?'standard':'demon'}));
-const state={player:'Justin Wrobleski',line:2.5};
+const rows=[2.5,3.5,4.5,5.5,6.5].map((line,i)=>({player:'Aaron Nola',stat:'Hits Allowed',line,odds_type:i===0?'goblin':i===1?'standard':'demon'}));
+const state={player:'Aaron Nola',line:2.5};
 const fn=new Function('gameLogState','requestFinderFeed','nameKey','pitcherFinderStat','escapeHtml','setGameLogPreviewLine',source.slice(start,end)+';return loadGameLogPostedLines;')(state,async()=>rows,s=>s.toLowerCase(),s=>({label:s}),s=>s,n=>{state.line=n;document.getElementById('gamelog-line-value').textContent=n;});
 await fn('Hits Allowed');
 </script></body></html>

@@ -405,12 +405,12 @@ def _compute_bvp_tool(schedule, lineups, today):
                 "tone": "good" if tier != "Season BvP sample" else "neutral",
                 "summary": f"{split['hits']}-for-{ab} ({split['avg']} AVG, {split['ops']} OPS) against this pitcher.",
                 "evidence": [
-                    {"label": "Statcast line", "value": f"{split['hits']}-for-{ab}", "detail": split.get("sample", "2017-present")},
-                    {"label": "AVG / OPS", "value": f"{split['avg']} / {split['ops']}", "detail": "MLB Statcast, 2017-present"},
-                    {"label": "Production", "value": f"{split['hr']} HR · {split['tb']} TB", "detail": "Exact Statcast-era matchup totals"},
+                    {"label": "Statcast line", "value": f"{split['hits']}-for-{ab}", "detail": split.get("sample", "Current season")},
+                    {"label": "AVG / OPS", "value": f"{split['avg']} / {split['ops']}", "detail": "MLB Statcast, current season"},
+                    {"label": "Production", "value": f"{split['hr']} HR · {split['tb']} TB", "detail": "Current-season matchup totals"},
                     {"label": "Discipline", "value": f"{split['bb']} BB · {split['k']} K", "detail": "Current-season matchup totals"},
                 ],
-                "caution": f"{lineup_note} Source: MLB Baseball Savant pitch-level data, ID-validated, 2017-present. BvP is descriptive, not a guarantee.",
+                "caution": f"{lineup_note} Source: MLB Baseball Savant pitch-level data, ID-validated for the current season. BvP is descriptive, not a guarantee.",
                 "score": round(score, 4),
                 })
     rows.sort(key=lambda row: (row["badge"] != "Season BvP sample", row["score"]), reverse=True)
@@ -577,7 +577,7 @@ def compute_tool(tool: str) -> dict:
                         split = _bvp_split(hitter_id, pitcher_id)
                         if split:
                             avg, ops, ab = _number(split["avg"]), _number(split.get("ops")), split["ab"]
-                            # Shrink tiny career samples toward league average so
+                            # Shrink tiny samples toward league average so
                             # a 3-for-5 line never outranks sustained production.
                             reliability = min(ab / 20.0, 1.0)
                             quality = ((avg * .45) + (ops * .35) + (min(split["hr"] / max(ab, 1), .15) * 1.5))
