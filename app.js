@@ -1187,13 +1187,9 @@ function syncSaveButton(btnEl, id) {
   btnEl.classList.toggle("saved", saved);
   btnEl.setAttribute("aria-pressed", String(saved));
   btnEl.setAttribute("aria-label", saved ? "Remove from My Slip" : "Add to My Slip");
-  if (btnEl.classList.contains("finder-add-btn")) {
-    btnEl.textContent = saved ? "✓ Saved" : "+ Builder";
-  } else {
-    const label = btnEl.querySelector(".save-btn-label");
-    if (label) label.textContent = saved ? "In My Slip" : "Add to My Slip";
-    else btnEl.textContent = saved ? "In My Slip" : "Add to My Slip";
-  }
+  const label = btnEl.querySelector(".save-btn-label");
+  if (label) label.textContent = saved ? "In My Slip" : "Add to My Slip";
+  else btnEl.textContent = saved ? "In My Slip" : "Add to My Slip";
 }
 
 function updateSavedCount() {
@@ -4491,14 +4487,10 @@ function renderPitcherComparison(rows) {
   const queue = visible.map(row => {
     const tr = document.createElement('tr');
     const prop = pitcherFinderGameLogProp(row);
-    prop.id = `${row.player}|${row.stat}`;
     const initial = prop.headshot ? `<img class="pitcher-table-photo" src="${escapeHtml(prop.headshot)}" alt="" width="44" height="44">` : `<span class="finder-photo-placeholder" aria-hidden="true">${escapeHtml(row.player.split(' ').map(n => n[0]).slice(0,2).join(''))}</span>`;
-    const isAlreadySaved = isSaved(prop.id);
-    tr.innerHTML = `<td class="finder-player-cell"><button type="button" class="pitcher-table-open">${initial}<span class="finder-player-copy"><b>${escapeHtml(row.player)}</b><span>More ${Number(row.line)} ${escapeHtml(pitcherFinderStat(row.stat).short)}</span><small class="finder-matchup">${escapeHtml(row.team || prop.teamAbbr || 'MLB')} · ${escapeHtml(row.odds_type === 'standard' ? 'Regular line' : row.odds_type || 'Regular line')}</small></span><span class="finder-open-arrow" aria-hidden="true">›</span></button></td><td class="finder-app-cell"><img width="24" height="24" src="/prizepicks/logo.png" alt="PrizePicks">${row.odds_type === 'goblin' ? '<img width="20" height="20" src="/prizepicks/goblin.png" alt="">' : ''}<span>${escapeHtml(row.odds_type === 'standard' ? 'Regular' : row.odds_type || 'Regular')} · ${row.odds_type === 'standard' ? 'More / Less' : 'More only'}</span></td>${['Avg','Diff','L5','L10','L15','L20','H2H'].map(label => `<td class="pitcher-rate" data-label="${label}"><span>…</span></td>`).join('')}<td class="finder-save-cell"><button type="button" class="finder-add-btn${isAlreadySaved ? ' saved' : ''}" data-prop-id="${escapeHtml(prop.id)}" data-player="${escapeHtml(row.player)}">${isAlreadySaved ? '✓ Saved' : '+ Builder'}</button></td>`;
+    tr.innerHTML = `<td class="finder-player-cell"><button type="button" class="pitcher-table-open">${initial}<span class="finder-player-copy"><b>${escapeHtml(row.player)}</b><span>More ${Number(row.line)} ${escapeHtml(pitcherFinderStat(row.stat).short)}</span><small class="finder-matchup">${escapeHtml(row.team || prop.teamAbbr || 'MLB')} · ${escapeHtml(row.odds_type === 'standard' ? 'Regular line' : row.odds_type || 'Regular line')}</small></span><span class="finder-open-arrow" aria-hidden="true">›</span></button></td><td class="finder-app-cell"><img width="24" height="24" src="/prizepicks/logo.png" alt="PrizePicks">${row.odds_type === 'goblin' ? '<img width="20" height="20" src="/prizepicks/goblin.png" alt="">' : ''}<span>${escapeHtml(row.odds_type === 'standard' ? 'Regular' : row.odds_type || 'Regular')} · ${row.odds_type === 'standard' ? 'More / Less' : 'More only'}</span></td>${['Avg','Diff','L5','L10','L15','L20','H2H'].map(label => `<td class="pitcher-rate" data-label="${label}"><span>…</span></td>`).join('')}`;
     tr.querySelector('img')?.addEventListener('error', event => {event.currentTarget.hidden = true;}, {once:true});
-    tr.querySelector('button.pitcher-table-open').addEventListener('click', () => openGameLogModal(prop));
-    const saveBtn = tr.querySelector('.finder-add-btn');
-    if (saveBtn) saveBtn.addEventListener('click', event => { event.stopPropagation(); toggleSave(prop, saveBtn); });
+    tr.querySelector('button').addEventListener('click', () => openGameLogModal(prop));
     els.pitcherFinderList.querySelector('tbody').appendChild(tr);
     return {row, prop, tr};
   });
