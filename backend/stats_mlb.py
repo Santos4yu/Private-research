@@ -99,7 +99,8 @@ logging.basicConfig(level=logging.INFO, format="  %(levelname)s  %(message)s")
 # ── Constants ────────────────────────────────────────────────────────────────
 BASE          = "https://mlb-proxy.damian209466-d45.workers.dev/api/v1"
 BASE_FALLBACK = "https://statsapi.mlb.com/api/v1"
-SEASON        = datetime.now(timezone.utc).year
+from vortextime import vortex_day
+SEASON        = int(vortex_day()[:4])
 REQUEST_DELAY = 0.2   # seconds between calls — polite rate limiting
 TIMEOUT       = 12    # seconds per request
 CACHE_DIR     = Path(__file__).parent / "cache" / "mlb_stats"
@@ -1013,7 +1014,7 @@ def get_statcast_bvp_batch(batter_ids: list[int], pitcher_id: int) -> dict[int, 
         ("all", "true"), ("type", "details"), ("player_type", "batter"),
         ("group_by", "name"), ("min_pitches", "0"), ("min_results", "0"),
         ("min_pas", "0"), ("hfGT", "R|"),
-        ("game_date_gt", "2017-01-01"), ("game_date_lt", vortex_day()),
+        ("hfSeaYear", f"{SEASON}|"), ("game_date_gt", f"{SEASON}-01-01"), ("game_date_lt", vortex_day()),
         ("pitchers_lookup[]", str(int(pitcher_id))),
     ] + [("batters_lookup[]", str(bid)) for bid in ids]
     normal_session, _ = _thread_sessions()
@@ -1029,6 +1030,8 @@ def get_statcast_bvp_batch(batter_ids: list[int], pitcher_id: int) -> dict[int, 
 
     terminal = {}
     for row in reader:
+        if str(row.get("game_year") or str(row.get("game_date", ""))[:4]) != str(SEASON):
+            continue
         try:
             bid, pid = int(row.get("batter") or 0), int(row.get("pitcher") or 0)
         except (TypeError, ValueError):
@@ -1058,57 +1061,59 @@ def get_statcast_bvp_batch(batter_ids: list[int], pitcher_id: int) -> dict[int, 
         obp_den = ab + bb + hbp + sf
         obp = (hits + bb + hbp) / obp_den if obp_den else 0
         results[bid] = {
-            "ab": ab, "pa": pa, "hits": hits, "avg": f".{round(avg * 1000):03d}",
+            "ab": ab, "pa": pa, "hits": hits, "avg": f"{avg:.3f}".lstrip("0"),
             "ops": f"{obp + slg:.3f}", "hr": hr, "tb": tb, "bb": bb, "k": k,
             "sample": "large sample" if ab >= 20 else "moderate sample" if ab >= 10 else "small sample",
-            "source": "MLB Baseball Savant Statcast (2017-present)",
+            "source": f"MLB Baseball Savant Statcast ({SEASON})", "season": SEASON,
         }
     return results
 
 def get_bvp_history(batter_id: int, pitcher_id: int) -> dict:
     """
-    Pull career head-to-head stats between a specific batter and pitcher.
+    Pull current-season head-to-head stats between a specific batter and pitcher.
 
-    The API returns a list of 'splits' by season — we aggregate them
-    into career totals and also return the most recent season breakdown.
+    Previous seasons are excluded even if the provider includes them.
     """
     data = _get(f"/people/{batter_id}/stats", {
         "stats":             "vsPlayer",
         "group":             "hitting",
         "opposingPlayerId":  pitcher_id,
         "sportId":           1,
-    }, cache_key=f"bvp_v2_{batter_id}_vs_{pitcher_id}")
+        "season": SEASON,
+    }, cache_key=f"bvp_season_v3_{batter_id}_vs_{pitcher_id}_{SEASON}")
 
     if not data:
         return {"error": "BvP fetch failed"}
 
     splits = (data.get("stats") or [{}])[0].get("splits", [])
+    splits = [sp for sp in splits if str(sp.get("season", "")) == str(SEASON)
+              and str((sp.get("player") or {}).get("id", batter_id)) == str(batter_id)]
     if not splits:
         return {
             "ab": 0, "hits": 0, "avg": ".---", "hr": 0, "rbi": 0,
             "k": 0, "bb": 0, "tb": 0, "ops": ".---",
-            "sample": "no history",
+            "sample": f"No {SEASON} head-to-head sample",
             "seasons": [],
         }
 
-    # Aggregate career totals
-    career: dict = {
+    # Aggregate current-season totals
+    season_total: dict = {
         "ab": 0, "hits": 0, "hr": 0, "rbi": 0,
         "k": 0, "bb": 0, "hbp": 0, "sf": 0, "tb": 0, "pa": 0,
     }
     seasons = []
     for sp in splits:
         s = sp.get("stat", {})
-        career["ab"]   += int(s.get("atBats", 0))
-        career["hits"] += int(s.get("hits", 0))
-        career["hr"]   += int(s.get("homeRuns", 0))
-        career["rbi"]  += int(s.get("rbi", 0))
-        career["k"]    += int(s.get("strikeOuts", 0))
-        career["bb"]   += int(s.get("baseOnBalls", 0))
-        career["hbp"]  += int(s.get("hitByPitch", 0))
-        career["sf"]   += int(s.get("sacFlies", 0))
-        career["tb"]   += int(s.get("totalBases", 0))
-        career["pa"]   += int(s.get("plateAppearances", 0))
+        season_total["ab"]   += int(s.get("atBats", 0))
+        season_total["hits"] += int(s.get("hits", 0))
+        season_total["hr"]   += int(s.get("homeRuns", 0))
+        season_total["rbi"]  += int(s.get("rbi", 0))
+        season_total["k"]    += int(s.get("strikeOuts", 0))
+        season_total["bb"]   += int(s.get("baseOnBalls", 0))
+        season_total["hbp"]  += int(s.get("hitByPitch", 0))
+        season_total["sf"]   += int(s.get("sacFlies", 0))
+        season_total["tb"]   += int(s.get("totalBases", 0))
+        season_total["pa"]   += int(s.get("plateAppearances", 0))
         seasons.append({
             "season": sp.get("season", "?"),
             "ab":     int(s.get("atBats", 0)),
@@ -1119,33 +1124,34 @@ def get_bvp_history(batter_id: int, pitcher_id: int) -> dict:
             "k":      int(s.get("strikeOuts", 0)),
         })
 
-    ab = career["ab"]
-    avg = career["hits"] / ab if ab else 0
-    slg = career["tb"] / ab if ab else 0
-    obp_den = ab + career["bb"] + career["hbp"] + career["sf"]
-    obp = (career["hits"] + career["bb"] + career["hbp"]) / obp_den if obp_den else 0
+    ab = season_total["ab"]
+    avg = season_total["hits"] / ab if ab else 0
+    slg = season_total["tb"] / ab if ab else 0
+    obp_den = ab + season_total["bb"] + season_total["hbp"] + season_total["sf"]
+    obp = (season_total["hits"] + season_total["bb"] + season_total["hbp"]) / obp_den if obp_den else 0
     ops = slg + obp
 
     sample_label = (
-        "large sample"  if career["ab"] >= 20 else
-        "moderate sample" if career["ab"] >= 10 else
-        "small sample"  if career["ab"] >= 5  else
+        "large sample"  if season_total["ab"] >= 20 else
+        "moderate sample" if season_total["ab"] >= 10 else
+        "small sample"  if season_total["ab"] >= 5  else
         "very small sample — treat with caution"
     )
 
     return {
-        "ab":      career["ab"],
-        "hits":    career["hits"],
-        "avg":     f"{avg:.3f}".lstrip("0"),
+        "ab":      season_total["ab"],
+        "hits":    season_total["hits"],
+        "avg":     f"{avg:.3f}".lstrip("0") if ab else ".---",
         "obp":     f"{obp:.3f}".lstrip("0"),
         "slg":     f"{slg:.3f}".lstrip("0"),
-        "hr":      career["hr"],
-        "rbi":     career["rbi"],
-        "k":       career["k"],
-        "bb":      career["bb"],
-        "tb":      career["tb"],
+        "hr":      season_total["hr"],
+        "rbi":     season_total["rbi"],
+        "k":       season_total["k"],
+        "bb":      season_total["bb"],
+        "tb":      season_total["tb"],
         "ops":     f"{ops:.3f}",
-        "sample":  sample_label,
+        "sample":  f"{SEASON} · {sample_label}",
+        "season": SEASON,
         "seasons": seasons,
     }
 
@@ -1359,7 +1365,7 @@ def _confidence_tier(splits: dict, pitcher: dict, bvp: dict, trend: str, side: s
         pass
 
     # BvP — only weight with a meaningful sample
-    # High career avg vs this pitcher = good for Over, bad for Under
+    # High season avg vs this pitcher = good for Over, bad for Under
     if bvp and bvp.get("ab", 0) >= 8:
         try:
             avg_raw = bvp.get("avg", ".000")
@@ -1920,7 +1926,7 @@ def _canonical_pitch_type(code: str) -> str:
 
 def _load_batter_arsenal_table() -> dict:
     """Load the full official Savant batter-by-pitch leaderboard once."""
-    cache_file = CACHE_DIR / f"savant_batter_arsenal_v4_{SEASON}.json"
+    cache_file = CACHE_DIR / f"savant_batter_arsenal_v5_{SEASON}.json"
     table = None
     if cache_file.exists():
         try:
@@ -1945,11 +1951,14 @@ def _load_batter_arsenal_table() -> dict:
             table = {}
             reader = _csv.DictReader(_io.StringIO(r.content.decode("utf-8-sig")))
             for row in reader:
+                if str(row.get("year") or row.get("season") or SEASON) != str(SEASON):
+                    continue
                 pid = row.get("player_id", "").strip()
                 pa = int(float(row.get("pa", 0) or 0))
                 if not pid or pa < 1:
                     continue
                 table.setdefault(pid, []).append({
+                    "season": SEASON,
                     "team_abbr":   row.get("team_name_alt", "").strip().upper(),
                     "pitch_type":  _canonical_pitch_type(row.get("pitch_type", "")),
                     "pitch_name":  row.get("pitch_name", ""),
@@ -3634,50 +3643,11 @@ def get_batters_vs_arm_slot(batter_ids: list[int], target_angle: float,
 
 
 def get_batter_vs_pitch_type(batter_id: int, pitcher_id: int) -> list[dict]:
-    """
-    Return batter's career stats split by pitch type vs this pitcher.
-    Uses MLB Stats API vsPlayer splits with pitchType group.
-    Falls back to season-wide batter pitch-type splits if no vs-pitcher data.
-    Each entry: {pitch_type, pitch_name, pa, avg, slg, ops, whiff_pct}
-    """
-    # Try vs-pitcher first
-    data = _get(
-        f"/people/{batter_id}/stats",
-        {"stats": "vsPlayer", "opposingPlayerId": pitcher_id,
-         "group": "hitting", "season": SEASON, "sportId": 1},
-        cache_key=f"bvp_pitch_{batter_id}_{pitcher_id}_{SEASON}",
-    )
-    splits = ((data or {}).get("stats") or [{}])[0].get("splits", [])
+    """Current-season performance against each pitch type across all pitchers.
 
-    # Season-wide pitch-type splits as fallback
-    if not splits:
-        data = _get(
-            f"/people/{batter_id}/stats",
-            {"stats": "pitchArsenal", "group": "hitting",
-             "season": SEASON, "sportId": 1},
-            cache_key=f"bat_pitch_{batter_id}_{SEASON}",
-        )
-        splits = ((data or {}).get("stats") or [{}])[0].get("splits", [])
-
-    result = []
-    for sp in splits:
-        s  = sp.get("stat", {})
-        pt = sp.get("pitchType", {}).get("code", "") or s.get("type", {}).get("code", "")
-        if not pt:
-            continue
-        pa = int(s.get("plateAppearances", 0) or s.get("atBats", 0) or 0)
-        if pa < 5:
-            continue
-        result.append({
-            "pitch_type": pt,
-            "pitch_name": _PITCH_NAMES.get(pt, pt),
-            "pa":         pa,
-            "avg":        s.get("avg", ".---"),
-            "slg":        s.get("slg", ".---"),
-            "ops":        s.get("ops", ".---"),
-        })
-    result.sort(key=lambda x: x["pa"], reverse=True)
-    return result
+    This compatibility entry point never substitutes career BvP for pitch-type BA.
+    """
+    return get_batter_arsenal_stats(batter_id)
 
 
 # ── 12. Stadium coordinates + weather ───────────────────────────────────────
@@ -4003,11 +3973,11 @@ def _get_game_weather_uncached(home_team_abbr: str, game_time_utc: str = "", gam
         return {"error": str(exc)}
 
 
-# ── 12. Career stats vs opposing team ────────────────────────────────────────
+# ── 12. Season stats vs opposing team ────────────────────────────────────────
 
 def get_team_bvp(batter_id: int, opp_team_id: int) -> dict:
     """
-    Career hitting stats for this batter against the opposing team (all pitchers).
+    Current-season hitting stats for this batter against the opposing team (all pitchers).
     Uses the vsTeam split from the MLB Stats API.
     """
     data = _get(f"/people/{batter_id}/stats", {
@@ -4016,9 +3986,10 @@ def get_team_bvp(batter_id: int, opp_team_id: int) -> dict:
         "season":           SEASON,
         "opposingTeamId":   opp_team_id,
         "sportId":          1,
-    }, cache_key=f"team_bvp_{batter_id}_vs_{opp_team_id}_{SEASON}")
+    }, cache_key=f"team_bvp_season_v2_{batter_id}_vs_{opp_team_id}_{SEASON}")
 
     splits = ((data or {}).get("stats") or [{}])[0].get("splits", [])
+    splits = [sp for sp in splits if str(sp.get("season", "")) == str(SEASON)]
     if not splits:
         return {"pa": 0, "ab": 0}
 

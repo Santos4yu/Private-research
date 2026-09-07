@@ -12,3 +12,40 @@
 @media(max-width:950px){.arsenal-block{padding:20px!important}.arsenal-card-grid{grid-template-columns:1fr!important}.starter-profile-card,.pitch-type-card{width:100%!important}.starter-identity{grid-template-columns:126px 1fr!important}.starter-photo{width:120px!important;height:120px!important}}
 @media(max-width:620px){.arsenal-block{padding:14px!important;border-radius:16px!important;overflow:visible!important}.arsenal-block>.block-title{gap:10px!important;padding:0 2px 16px!important}.arsenal-monogram{width:38px;height:42px;font-size:20px}.arsenal-title-copy small{font-size:8px}.arsenal-title-copy strong{font-size:13px;letter-spacing:.12em}.arsenal-title-actions>i{display:none}.arsenal-title-actions>b{padding:9px;font-size:9px}.arsenal-title-actions>svg{margin-left:-34px}.starter-profile-card>.arsenal-eyebrow{padding:20px 18px 0!important}.starter-identity{grid-template-columns:92px 1fr!important;gap:14px!important;margin:15px 18px!important}.starter-photo{width:88px!important;height:88px!important}.starter-identity h4{font-size:20px!important;letter-spacing:.04em!important}.starter-identity h4 span{margin:7px 0 0!important}.starter-pitch-gauges{grid-template-columns:repeat(5,minmax(0,1fr))!important;margin-inline:14px!important;gap:6px!important;overflow:visible!important;padding-bottom:0}.starter-metrics{grid-template-columns:repeat(2,1fr)!important;margin-inline:14px!important}.starter-metrics>div{padding:12px!important;border-bottom:1px solid #303233}.starter-metrics>div:nth-child(2){border-right:0!important}.starter-metrics>div:nth-last-child(-n+2){border-bottom:0}.starter-bvp-grid{grid-template-columns:repeat(3,1fr)!important}.starter-bvp-grid>div:nth-child(3){border-right:0!important}.starter-bvp-grid>div:nth-child(-n+3){border-bottom:1px solid #282a2b!important}.pitch-type-card{padding:16px 12px!important}.pitch-breakdown-title strong{font-size:14px}.pitch-type-card table{min-width:100%!important}.pitch-type-scroll{overflow-x:auto!important;-webkit-overflow-scrolling:touch}.starter-source-note{padding:17px}}
 @media(prefers-reduced-motion:reduce){.pitch-type-card tbody tr:hover td{transition:none!important}}
+
+
+/* ===== Mobile polish for pitch type cards ===== */
+@media (max-width: 480px) {
+  .pitch-type-card { padding: 12px 10px!important; }
+  .pitch-type-card table { font-size: 10px!important; }
+  .pitch-type-card tbody td { height: 40px!important; padding: 0 8px!important; font-size: 11px!important; }
+  .pitch-type-card tbody td:first-child { min-width: 100px!important; font-size: 11px!important; }
+  .pitch-type-card thead th { padding: 6px 8px!important; font-size: 9px!important; }
+  .pitch-type-scroll { -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .pitch-type-scroll::-webkit-scrollbar { display: none; }
+  .starter-identity { grid-template-columns: 72px 1fr!important; gap: 10px!important; margin: 12px 14px!important; }
+  .starter-photo { width: 64px!important; height: 64px!important; }
+  .starter-identity h4 { font-size: 17px!important; }
+  .starter-identity h4 span { margin: 4px 0 0!important; padding: 2px 5px!important; font-size: 10px!important; }
+  .starter-pitch-gauges { grid-template-columns: repeat(5, minmax(0,1fr))!important; gap: 4px!important; margin: 10px 12px!important; }
+  .starter-pitch-gauge>div { width: 40px!important; height: 40px!important; }
+  .starter-metrics { grid-template-columns: repeat(2,1fr)!important; margin: 0 12px!important; padding: 12px 0!important; }
+  .starter-metrics>div { padding: 8px!important; }
+  .starter-metrics strong { font-size: 18px!important; }
+  .starter-bvp-grid { grid-template-columns: repeat(3,1fr)!important; }
+  .starter-bvp-grid div { padding: 10px 3px!important; }
+  .starter-bvp-grid strong { font-size: 14px!important; }
+  .pitch-breakdown-title strong { font-size: 13px!important; }
+  .pitch-breakdown-title { padding: 0 2px 12px!important; gap: 8px!important; }
+  .pitch-type-head { margin: 14px 3px 8px!important; }
+  .starter-source-note { padding: 12px 14px!important; grid-template-columns: 24px 1fr!important; gap: 8px!important; }
+  .arsenal-block { padding: 10px!important; border-radius: 12px!important; }
+  .arsenal-block>.block-title { padding: 0 2px 12px!important; margin-bottom: 16px!important; }
+}
+
+/* Touch-friendly pitch table rows */
+@media (hover: none) {
+  .pitch-type-card tbody td { min-height: 44px; }
+  .pitch-type-card tbody tr:hover td { background: inherit!important; }
+  .team-filter { min-height: 44px; padding: 10px 14px!important; }
+}
