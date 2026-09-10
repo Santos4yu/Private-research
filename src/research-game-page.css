@@ -1,27 +1,86 @@
-/* Dedicated research page: normal document flow, no dialog or scroll lock. */
-.research-view-tabs {display:flex;gap:6px;width:fit-content;padding:4px;margin:0 0 18px;border-radius:99px;background:var(--theme-panel);border:1px solid var(--theme-border);}
-.research-view-tabs button,.research-game-windows button {min-height:44px;padding:8px 18px;border:0;border-radius:99px;background:transparent;color:var(--theme-dim);font:600 13px var(--font-sans);cursor:pointer;}
-.research-view-tabs button[aria-selected=true],.research-game-windows button[aria-pressed=true] {background:var(--theme-accent);color:var(--theme-on-accent);}
-.research-game-windows {display:flex;gap:6px;margin-top:10px;}
-.research-game-windows button {flex:1;background:var(--theme-panel-2);}
-.research-games-empty {padding:32px 20px;border-radius:20px;background:var(--theme-panel);border:1px solid var(--theme-border);}
-.research-games-empty p {max-width:480px;color:var(--theme-dim);line-height:1.6;}
-.research-games-empty button {min-height:44px;border:0;border-radius:99px;padding:10px 20px;background:var(--theme-accent);color:var(--theme-on-accent);font:600 14px var(--font-sans);}
-
-:root[data-theme] #panel-research #gamelog-overlay.research-game-page {position:static!important;inset:auto!important;display:block!important;padding:0!important;background:none!important;backdrop-filter:none!important;overflow:visible!important;z-index:auto!important;}
+/* The existing Research / Trend panel owns the explorer; it is never a dialog. */
+.trend-back {display:none;}
+:root[data-theme] #panel-research.research-trends-active > :not(#report-wrap) {display:none!important;}
+:root[data-theme] #panel-research.research-trends-active #report-wrap {padding-top:0!important;}
+:root[data-theme] #panel-research .rr-report[data-active-research=trend] {display:flex!important;flex-direction:column;height:var(--trend-available-height,calc(100dvh - 180px));min-height:0;padding:0!important;scroll-margin-top:var(--app-top,12px);gap:8px;}
+:root[data-theme] .rr-report[data-active-research=trend] .rr-sticky {position:static;padding:0;flex:none;}
+:root[data-theme] .rr-report[data-active-research=trend] .report-header {display:flex;align-items:center;gap:8px;padding:10px!important;}
+:root[data-theme] .rr-report[data-active-research=trend] .report-title-row {flex:1;min-width:0;gap:8px!important;}
+:root[data-theme] .rr-report[data-active-research=trend] .rt-avatar-slot {flex:none;}
+:root[data-theme] .rr-report[data-active-research=trend] .rt-avatar-slot .avatar {width:40px!important;height:40px!important;}
+:root[data-theme] .rr-report[data-active-research=trend] .rt-title {font-size:17px!important;}
+:root[data-theme] .rr-report[data-active-research=trend] :is(.rt-sub,.rt-sport,.score-circle,.score-tier-icon,.report-score) {display:none!important;}
+:root[data-theme] .rr-report[data-active-research=trend] .rr-prop-line {font-size:11px;line-height:1.4;margin:3px 0 0;}
+:root[data-theme] .rr-report[data-active-research=trend] .rr-save-dock {flex:none;padding:0!important;}
+:root[data-theme] .rr-report[data-active-research=trend] .rr-save-dock .save-btn {min-width:44px;width:44px;height:44px;padding:10px!important;border-radius:50%!important;}
+:root[data-theme] .rr-report[data-active-research=trend] .save-btn-label {display:none!important;}
+:root[data-theme] .rr-report[data-active-research=trend] .trend-back {display:grid;place-items:center;flex:0 0 32px;width:32px;min-height:44px;border:0;background:none;color:var(--theme-dim);font:24px var(--font-sans);cursor:pointer;}
+:root[data-theme] .rr-report[data-active-research=trend] .rr-tab {flex-direction:row;min-height:44px;font-size:11px;gap:4px;}
+:root[data-theme] .rr-report[data-active-research=trend] .rr-tab svg {width:16px;height:16px;}
+:root[data-theme] .rr-report[data-active-research=trend] [data-research-panel=trend] {display:flex;flex-direction:column;flex:1;min-height:0;gap:0;}
+:root[data-theme] #panel-research #gamelog-overlay.research-game-page {position:static!important;display:flex!important;flex:1;min-height:0;inset:auto!important;padding:0!important;overflow:visible!important;backdrop-filter:none!important;background:none!important;z-index:auto;}
 :root[data-theme] #panel-research #gamelog-overlay[hidden] {display:none!important;}
-:root[data-theme] #panel-research #gamelog-overlay .gamelog-modal {width:100%!important;max-width:none!important;height:auto!important;max-height:none!important;overflow:visible!important;display:block!important;transform:none!important;box-shadow:none!important;border-radius:20px!important;}
-:root[data-theme] #panel-research #gamelog-close {display:none!important;}
-:root[data-theme] #panel-research #gamelog-overlay .gamelog-studio {display:block!important;height:auto!important;overflow:visible!important;}
-:root[data-theme] #panel-research #gamelog-overlay .gamelog-stage {display:block!important;height:auto!important;overflow:visible!important;}
-:root[data-theme] #panel-research #gamelog-overlay .gamelog-chart {height:370px!important;min-height:0!important;overflow:hidden!important;border-radius:0 0 20px 20px!important;}
-:root[data-theme] #panel-research #gamelog-overlay .gamelog-filter-panel {position:static!important;inset:auto!important;height:auto!important;max-height:none!important;margin:12px!important;border:1px solid var(--theme-border)!important;border-radius:16px!important;background:var(--theme-panel)!important;box-shadow:none!important;}
-:root[data-theme] #panel-research #gamelog-overlay .gamelog-chart-track {max-width:100%!important;}
-@media(max-width:680px) {
- .research-view-tabs {width:100%;box-sizing:border-box;}
- .research-view-tabs button {flex:1;}
- :root[data-theme] #panel-research #gamelog-overlay .gamelog-chart {height:280px!important;}
- :root[data-theme] #panel-research #gamelog-overlay .gamelog-modal .modal-head {padding:14px!important;}
- :root[data-theme] #panel-research #gamelog-overlay .gamelog-workbench {padding:8px 12px 12px!important;}
- #research-games {padding-bottom:20px;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-modal {position:static!important;display:flex!important;flex-direction:column;width:100%!important;max-width:none!important;height:100%!important;max-height:none!important;min-height:0!important;overflow:visible!important;padding:0!important;transform:none!important;box-shadow:none!important;border-radius:16px!important;}
+:root[data-theme] #panel-research #gamelog-overlay :is(.modal-head,.gamelog-windowbar,.gamelog-filter-toggle,.posted-lines) {display:none!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-workbench {flex:none;padding:4px 10px 8px!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-toolbar {display:grid!important;grid-template-columns: minmax(110px,.8fr) minmax(0,1.2fr)!important;gap:6px!important;padding:0!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-stat-tabs {grid-column:1/-1;min-height:44px;gap:0!important;justify-content:space-between;overflow:visible!important;padding:0!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-stat-tabs button {flex:1;min-width:0;min-height:44px;padding:5px 0!important;font-size:11px!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-line-control {grid-column:1!important;width:100%!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-line-control>span {display:none!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-line-control>div {height:44px!important;grid-template-columns:44px minmax(30px,1fr) 44px;}
+:root[data-theme] #panel-research #gamelog-overlay .trend-lines-control {position:relative;display:block;grid-column:2;min-width:0;}
+:root[data-theme] #panel-research #gamelog-overlay .trend-lines-control>span {position:absolute;left:12px;top:5px;font:500 9px var(--font-sans);color:var(--theme-dim);pointer-events:none;z-index:1;}
+:root[data-theme] #panel-research #gamelog-overlay select {box-sizing:border-box;width:100%;height:44px;min-width:0;border:1px solid var(--theme-border);border-radius:10px;background:var(--theme-panel-2);color:var(--theme-text);padding:6px 24px 6px 10px;font:500 16px var(--font-sans);}
+:root[data-theme] #panel-research #gamelog-overlay #trend-lines {padding-top:17px;font-size:16px;}
+:root[data-theme] #panel-research #gamelog-overlay .research-game-windows {display:flex;gap:4px;margin:6px 0 0;}
+:root[data-theme] #panel-research #gamelog-overlay .research-game-windows button {flex:1;min-width:0;min-height:44px!important;height:44px!important;border:0!important;border-radius:99px!important;padding:6px 2px!important;background:var(--theme-panel-2)!important;color:var(--theme-dim)!important;font:600 11px var(--font-sans)!important;cursor:pointer;}
+:root[data-theme] #panel-research #gamelog-overlay .research-game-windows [aria-pressed=true] {background:var(--theme-accent)!important;color:var(--theme-on-accent)!important;}
+:root[data-theme] #panel-research #gamelog-overlay button:disabled {opacity:.4;cursor:default;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-filter-panel {position:static!important;display:block!important;inset:auto!important;height:auto!important;max-height:none!important;margin:6px 0 0!important;padding:0!important;border:0!important;background:none!important;box-shadow:none!important;animation:none!important;overflow:visible!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-filter-panel> :not(.trend-filter-row) {display:none!important;}
+.trend-filter-row {display:flex;gap:6px;}
+.trend-filter-row label {flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;font:500 10px var(--font-sans);color:var(--theme-dim);}
+:root[data-theme] #panel-research #gamelog-overlay [hidden] {display:none!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-studio {display:flex!important;flex:1!important;min-height:0!important;height:auto!important;overflow:visible!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-stage {display:flex!important;flex-direction:column;flex:1!important;min-height:0!important;min-width:0;height:auto!important;overflow:visible!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-summary {flex:none;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;padding:8px!important;gap:0!important;min-height:0!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-summary strong {font-size:22px!important;line-height:1.15!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-summary>div>span {font-size:9px!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-sub:empty {display:none!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-sub:not(:empty) {grid-column:1/-1;text-align:center!important;padding:6px!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-chart {flex:1;height:0!important;min-height:0!important;margin:0!important;padding:22px 12px 30px 38px!important;overflow:hidden!important;box-sizing:border-box;--chart-top:22px;border-radius:0 0 16px 16px!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-chart-track {display:flex!important;align-items:start!important;justify-content:center!important;width:100%!important;min-width:0!important;padding:0!important;gap:4px!important;margin:0!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gl-col {flex:0 1 var(--bar-width,48px)!important;width:var(--bar-width,48px)!important;min-width:0!important;max-width:64px!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gl-track {height:var(--plot-height)!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gl-bar-shell {width:100%!important;min-width:0!important;max-width:none!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gl-bar {max-width:none!important;transition:none!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gl-opponent-logo {height:20px!important;margin-top:5px!important;font-size:9px;}
+:root[data-theme] #panel-research #gamelog-overlay .gl-opponent-logo img {width:20px!important;height:20px!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gl-y-axis {height:var(--plot-height)!important;top:22px!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gl-line-marker {--chart-top:22px;left:38px!important;right:12px!important;}
+:root[data-theme] #panel-research #gamelog-overlay .gl-line-tag {left:-34px!important;}
+@media(min-width:681px){
+ :root[data-theme] #panel-research .rr-report[data-active-research=trend] {max-width:1100px;margin-inline:auto;min-height:540px;max-height:900px;}
+}
+@media(max-width:680px){
+ :root[data-theme] #panel-research.research-trends-active {padding-top:6px!important;}
+ :root[data-theme] .rr-report[data-active-research=trend] .rr-sticky .report-header {border-radius:16px 16px 0 0!important;}
+}
+@media(prefers-reduced-motion:reduce){.rr-report[data-active-research=trend] *{scroll-behavior:auto!important;}}
+/* Keep every control and the chart inside the phone viewport. */
+:root[data-theme] .rr-report[data-active-research=trend] :is(.rr-sticky,.rr-tab-panel) {margin:0!important;}
+:root[data-theme] .rr-report[data-active-research=trend] .score-badge {display:none!important;}
+:root[data-theme] .rr-report[data-active-research=trend] .rt-avatar-slot {display:block!important;}
+:root[data-theme] .rr-report[data-active-research=trend] .report-title-main {display:flex!important;align-items:center;gap:8px;}
+:root[data-theme] .rr-report[data-active-research=trend] .rr-save-dock {position:static!important;margin:0!important;border:0;box-shadow:none;}
+:root[data-theme] #panel-research #gamelog-overlay .gamelog-summary > div {padding:4px!important;}
+@media(max-width:680px){
+ body:has(#panel-research.research-trends-active:not([hidden])) .hero {display:none!important;}
+ :root[data-theme] #panel-research .rr-report[data-active-research=trend] {scroll-margin-top:16px!important;}
+ :root[data-theme] #panel-research.research-trends-active {padding-top:max(16px,env(safe-area-inset-top))!important;}
+}
+@media(max-width:680px){
+ body:has(#panel-research.research-trends-active:not([hidden])) {overflow:hidden;}
+ body:has(#panel-research.research-trends-active:not([hidden])) #settings-btn {display:none!important;}
 }
