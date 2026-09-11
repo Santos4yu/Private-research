@@ -750,7 +750,7 @@ function switchTab(tab, options = {}) {
   document.title = `${SCREEN_TITLES[tab]} · Krazy Data`;
   if (changed && screenHistoryReady && options.history !== false) {
     const url = new URL(location.href);
-    url.hash = tab === "research" && researchView === "games" ? "research/game-log" : tab;
+    url.hash = tab;
     history.pushState({ ...history.state, vortexTab: tab }, "", url);
   }
   els.tabs.querySelectorAll("[data-tab]").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
@@ -799,15 +799,13 @@ function switchTab(tab, options = {}) {
 }
 
 function wireAppNavigation() {
-  const requested = location.hash.slice(1).split("/")[0];
-  const requestedGames = location.hash === "#research/game-log";
+  const requested = location.hash.slice(1);
   const initialTab = Object.hasOwn(SCREEN_TITLES, requested) && (requested !== "admin" || state.adminUnlocked) ? requested : state.currentTab;
   const url = new URL(location.href);
   url.hash = initialTab;
   history.replaceState({ ...history.state, vortexTab: initialTab }, "", url);
   history.scrollRestoration = "manual";
   switchTab(initialTab, { history: false });
-  if(requestedGames){setResearchView("games",false);history.replaceState(history.state,"","#research/game-log");}
   screenHistoryReady = true;
   window.addEventListener("popstate", () => {
     // Reuse each sheet's existing Escape cleanup (including the game-log
@@ -816,8 +814,7 @@ function wireAppNavigation() {
     window.dispatchEvent(new Event("vortex:close-more"));
     els.settingsPanel.hidden = true;
     setManualBetSlipOpen(false);
-    const route = location.hash.slice(1).split("/")[0];
-    setResearchView(location.hash === "#research/game-log" ? "games" : "overview",false);
+    const route = location.hash.slice(1);
     const tab = Object.hasOwn(SCREEN_TITLES, route) && (route !== "admin" || state.adminUnlocked) ? route : "research";
     switchTab(tab, { history: false });
   });
@@ -2321,10 +2318,7 @@ function openGameLogModal(p) {
   // the actual opponent's team id.
   gameLogState.teamId = p.opponentTeamId || null;
   els.gamelogOverlay.hidden = false;
-  document.getElementById('research-games-empty').hidden=true;
-  switchTab('research',{history:false,scrollY:0});
-  setResearchView('games');
-  window.scrollTo({top:0,behavior:'instant'});
+  lockGameLogPageScroll();
   els.gamelogTitle.textContent = p.player || "Player";
   if (els.gamelogPropBadge) els.gamelogPropBadge.textContent = gameLogStatCode(p.betType);
   const teamName = p.teamAbbr || p.teamName || (typeof p.team === "string" ? p.team : p.team?.abbreviation) || "";
@@ -2471,7 +2465,6 @@ function renderGameLogSubfilters() {
 }
 
 function renderGameLogTabs() {
-  document.querySelectorAll(".research-game-windows button").forEach(b=>b.setAttribute("aria-pressed",String(gameLogState.window!=="h2h" && Number(b.dataset.count)===gameLogState.gameCount)));
   const max = gameLogPool().length;
   if (gameLogState.window !== "h2h") gameLogState.gameCount = Math.max(1, Math.min(gameLogState.gameCount, Math.max(1, max)));
   if (els.gamelogGamesCount) els.gamelogGamesCount.textContent = gameLogState.gameCount;
@@ -2631,41 +2624,13 @@ function renderGameLogChart() {
   gameLogState.animationDirection = "none";
 }
 
-let researchView = 'overview';
-function setResearchView(view, push = true) {
-  researchView = view === 'games' ? 'games' : 'overview';
-  const games = researchView === 'games';
-  document.getElementById('research-overview').hidden = games;
-  document.getElementById('research-games').hidden = !games;
-  document.querySelectorAll('[data-research-view]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.researchView===researchView)));
-  if(push) history.pushState({...history.state,vortexTab:'research'},'',games?'#research/game-log':'#research');
-  if(games && gameLogState.player) requestAnimationFrame(renderGameLogChart);
-}
-function mountResearchGamePage() {
-  const overview=document.createElement('div');overview.id='research-overview';
-  while(els.panelResearch.firstChild) overview.append(els.panelResearch.firstChild);
-  const tabs=document.createElement('nav');tabs.className='research-view-tabs';tabs.setAttribute('aria-label','Research views');
-  tabs.innerHTML='<button type="button" data-research-view="overview" aria-selected="true">Player research</button><button type="button" data-research-view="games" aria-selected="false">Game log</button>';
-  const page=document.createElement('div');page.id='research-games';page.hidden=true;
-  page.innerHTML='<div id="research-games-empty" class="research-games-empty"><h2>Every game. A clearer picture.</h2><p>Choose a prop in Finder or open a player’s game log to explore recent results, alternate lines, and matchup filters.</p><button type="button" id="research-games-finder">Find a prop</button></div>';
-  els.panelResearch.append(tabs,overview,page);
-  els.gamelogOverlay.classList.add('research-game-page');page.append(els.gamelogOverlay);els.gamelogClose.hidden=true;
-  tabs.onclick=event=>{const b=event.target.closest('[data-research-view]');if(b)setResearchView(b.dataset.researchView);};
-  document.getElementById('research-games-finder').onclick=()=>{switchTab('v2');document.querySelector('#board-filter-row [data-board-filter="strikeouts"]')?.click();};
-  const quick=document.createElement('div');quick.className='research-game-windows';
-  quick.innerHTML=[5,10,15,20].map(n=>`<button type="button" data-count="${n}">L${n}</button>`).join('');
-  document.querySelector('.gamelog-windowbar').after(quick);
-  quick.onclick=event=>{const b=event.target.closest('[data-count]');if(b){gameLogState.window='recent';setGameLogCount(Number(b.dataset.count),'none');}};
-  window.addEventListener('resize',()=>{if(state.currentTab==='research' && researchView==='games' && gameLogState.player)renderGameLogChart();});
-}
 function wireGameLogModal() {
-  mountResearchGamePage();
   els.gamelogClose.addEventListener("click", closeGameLogModal);
   els.gamelogOverlay.addEventListener("click", (e) => {
-    // Page backgrounds do not dismiss research.
+    if (e.target === els.gamelogOverlay) closeGameLogModal();
   });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && gameLogState.filtersOpen) setGameLogFiltersOpen(false);
+    if (e.key === "Escape" && !els.gamelogOverlay.hidden) closeGameLogModal();
   });
   const wireStableAction = (button, action) => {
     if (!button) return;

@@ -6347,7 +6347,7 @@ body::before{background:linear-gradient(115deg,transparent 12%,color-mix(in srgb
    sheet scroll on short screens. The separate body lock below prevents the
    research page from moving behind it. */
 @media(max-width:600px){
-  body:has(#gamelog-overlay:not(.research-game-page):not([hidden])){overflow:hidden}
+  body:has(#gamelog-overlay:not([hidden])){overflow:hidden}
   #gamelog-overlay{align-items:flex-start!important;padding:0!important;background:rgba(0,0,0,.88)}
   .gamelog-modal{
     width:100vw!important;max-width:none!important;height:auto!important;max-height:100dvh!important;
