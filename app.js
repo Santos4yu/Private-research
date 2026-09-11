@@ -5070,7 +5070,10 @@ function renderBotBoard(data) {
   const matchupResearch = data.matchup_research || [];
   const researchPitchers = data.pitcher_research || [];
   const sourceProps = state.boardFilter === "matchup"
-    ? [...(matchupResearch.length ? matchupResearch : recommendedProps), ...researchPitchers]
+    // Matchup is the union of the broad research feed, research-only pitcher
+    // rows, and official Strong/Elite props. Replacing official props with
+    // matchup_research caused promoted pitchers to disappear from this tab.
+    ? [...matchupResearch, ...researchPitchers, ...recommendedProps]
     : state.boardFilter === "strikeouts"
       ? [...recommendedProps, ...researchPitchers]
       : recommendedProps;

@@ -2197,6 +2197,7 @@ def _cached_team_insights(team_id: int, pitcher_id, pitcher_name: str,
     # requested only after the fast season summary has already reached the UI.
     with ThreadPoolExecutor(max_workers=4) as pool:
         lineup_future = pool.submit(_safe, stats_mlb.get_team_lineup, team_id, default=[])
+        projected_future = pool.submit(_safe, stats_mlb.get_projected_team_lineup, team_id, default={})
         roster_future = pool.submit(_safe, stats_mlb.get_team_hitters_roster, team_id, default=[])
         arsenal_future = (
             pool.submit(_safe, stats_mlb.get_pitcher_arsenal, pitcher_id, default=[])
@@ -2207,13 +2208,14 @@ def _cached_team_insights(team_id: int, pitcher_id, pitcher_name: str,
             if detail in {"matchup", "full"} and pitcher_id else None
         )
         lineup = lineup_future.result() or []
+        projected = projected_future.result() or {}
         roster = roster_future.result() or []
         pitcher_arsenal = arsenal_future.result() if arsenal_future else []
         arm_slot = arm_future.result() if arm_future else {}
 
     return _build_team_insights(
         team_id, pitcher_id, pitcher_name, pitcher_hand,
-        pitcher_arsenal or [], arm_slot or {}, lineup=lineup, roster=roster,
+        pitcher_arsenal or [], arm_slot or {}, lineup=lineup, projected=projected, roster=roster,
         detail=detail,
     )
 
@@ -2221,7 +2223,7 @@ def _cached_team_insights(team_id: int, pitcher_id, pitcher_name: str,
 def _build_team_insights(opp_team_id: int, opp_pitcher_id, opp_pitcher_name: str,
                           opp_pitcher_hand: str, pitcher_arsenal: list,
                           arm_slot: dict | None = None, lineup: list | None = None,
-                          roster: list | None = None, detail: str = "full") -> dict:
+                          projected: dict | None = None, roster: list | None = None, detail: str = "full") -> dict:
     """
     Whole-lineup view of the opposing team: batting order + season/hand/BvP
     stat lines, and every batter's real season performance vs each of
@@ -2236,12 +2238,21 @@ def _build_team_insights(opp_team_id: int, opp_pitcher_id, opp_pitcher_name: str
     """
     lineup = lineup if lineup is not None else stats_mlb.get_team_lineup(opp_team_id)
     lineup_confirmed = bool(lineup)
+    lineup_projected = False
     if not lineup:
         roster = roster if roster is not None else stats_mlb.get_team_hitters_roster(opp_team_id)
-        lineup = [
-            {"order": i + 1, "id": p["id"], "name": p["name"], "position": p["position"]}
-            for i, p in enumerate(roster)
-        ]
+        active_ids = {str(player.get("id")) for player in roster or [] if player.get("id")}
+        projected_rows = (projected or {}).get("lineup") or []
+        lineup = [player for player in projected_rows if str(player.get("id")) in active_ids]
+        used_ids = {str(player.get("id")) for player in lineup}
+        for player in roster or []:
+            if len(lineup) >= 9:
+                break
+            if str(player.get("id")) in used_ids:
+                continue
+            lineup.append({"id": player.get("id"), "name": player.get("name", ""), "position": player.get("position", "")})
+        lineup = [{**player, "order": index} for index, player in enumerate(lineup[:9], start=1)]
+        lineup_projected = bool(projected_rows)
     if not lineup:
         return {}
 
@@ -2343,6 +2354,7 @@ def _build_team_insights(opp_team_id: int, opp_pitcher_id, opp_pitcher_name: str
         "detail": detail,
         "battingOrder": order_rows,
         "lineupConfirmed": lineup_confirmed,
+        "lineupProjected": lineup_projected,
         "opponentPitcherHand": opp_pitcher_hand,
         "opponentPitcherName": opp_pitcher_name,
         "pitchTypes": [

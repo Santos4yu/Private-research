@@ -2919,8 +2919,18 @@ def get_all_projected_team_lineups(before_date=None, lookback_days: int = 21,
     wanted_teams = {int(team) for team in (team_ids or [])}
     appearances = {team: {} for team in wanted_teams}
     slots = {team: {} for team in wanted_teams}
+    latest_slots = {team: {} for team in wanted_teams}
+    player_meta = {team: {} for team in wanted_teams}
     game_counts = {team: 0 for team in wanted_teams}
     for date_entry in (data or {}).get("dates", []):
+        try:
+            played = datetime.strptime(str(date_entry.get("date"))[:10], "%Y-%m-%d").date()
+            days_old = max(1, (target - played).days)
+        except (TypeError, ValueError):
+            days_old = lookback_days
+        # Yesterday carries full weight; older cards decay quickly so a
+        # recent promotion from seventh to third is reflected immediately.
+        recency_weight = .72 ** max(0, days_old - 1)
         for game in date_entry.get("games", []):
             for club_side, lineup_side in (("home", "homePlayers"), ("away", "awayPlayers")):
                 team = int(((game.get("teams") or {}).get(club_side, {}).get("team") or {}).get("id", 0) or 0)
@@ -2937,8 +2947,15 @@ def get_all_projected_team_lineups(before_date=None, lookback_days: int = 21,
                         continue
                     order = str(player.get("battingOrder", ""))
                     slot = int(order[0]) if order[:1].isdigit() else index
-                    appearances[team][pid] = appearances[team].get(pid, 0) + 1
-                    slots[team].setdefault(pid, []).append(slot)
+                    appearances[team][pid] = appearances[team].get(pid, 0) + recency_weight
+                    slots[team].setdefault(pid, []).append((slot, recency_weight))
+                    latest = latest_slots[team].get(pid)
+                    if latest is None or days_old < latest[0]:
+                        latest_slots[team][pid] = (days_old, slot)
+                    player_meta[team][pid] = {
+                        "name": player.get("fullName", ""),
+                        "position": ((player.get("position") or player.get("primaryPosition") or {}).get("abbreviation", "")),
+                    }
 
     result = {}
     for team in wanted_teams:
@@ -2953,13 +2970,16 @@ def get_all_projected_team_lineups(before_date=None, lookback_days: int = 21,
         if len(selected) < 9:
             continue
         selected.sort(key=lambda pid: (
-            sum(slots[team].get(pid, [])) / len(slots[team][pid]) if slots[team].get(pid) else 10,
+            (latest_slots[team].get(pid) or (lookback_days + 1, 10))[1],
+            (sum(slot * weight for slot, weight in slots[team].get(pid, [])) /
+             sum(weight for _, weight in slots[team].get(pid, []))) if slots[team].get(pid) else 10,
             -(batter_splits.get(pid) or {}).get("pa", 0),
         ))
         result[team] = {
             "lineup": [{
                 "order": index, "id": int(pid),
-                "name": (batter_splits.get(pid) or {}).get("name", ""), "position": "",
+                "name": (player_meta[team].get(pid) or {}).get("name") or (batter_splits.get(pid) or {}).get("name", ""),
+                "position": (player_meta[team].get(pid) or {}).get("position", ""),
             } for index, pid in enumerate(selected, start=1)],
             "games": game_counts[team], "through": end.isoformat(),
         }
@@ -2968,12 +2988,9 @@ def get_all_projected_team_lineups(before_date=None, lookback_days: int = 21,
 
 def get_projected_team_lineup(team_id: int, before_date=None, lookback_days: int = 21) -> dict:
     """Compatibility wrapper for callers that only need one projected nine."""
-    # Overall PA is sufficient for selection callers that do not supply a
-    # matchup hand; the matchup card itself uses the hand-specific bulk map.
-    splits = _all_batter_splits_vs_hand("R")
     return get_all_projected_team_lineups(
         before_date=before_date, lookback_days=lookback_days,
-        batter_splits=splits, team_ids=[int(team_id)],
+        batter_splits={}, team_ids=[int(team_id)],
     ).get(int(team_id), {})
 
 
