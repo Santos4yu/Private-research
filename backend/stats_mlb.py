@@ -1070,33 +1070,34 @@ def get_statcast_bvp_batch(batter_ids: list[int], pitcher_id: int) -> dict[int, 
 
 def get_bvp_history(batter_id: int, pitcher_id: int) -> dict:
     """
-    Pull current-season head-to-head stats between a specific batter and pitcher.
+    Pull career head-to-head stats between a specific batter and pitcher.
 
-    Previous seasons are excluded even if the provider includes them.
+    BvP is the one research split that intentionally spans every available
+    season. Ordinary player, handedness, pitch-type, and venue splits remain
+    current-season only.
     """
     data = _get(f"/people/{batter_id}/stats", {
         "stats":             "vsPlayer",
         "group":             "hitting",
         "opposingPlayerId":  pitcher_id,
         "sportId":           1,
-        "season": SEASON,
-    }, cache_key=f"bvp_season_v3_{batter_id}_vs_{pitcher_id}_{SEASON}")
+    }, cache_key=f"bvp_career_v1_{batter_id}_vs_{pitcher_id}")
 
     if not data:
         return {"error": "BvP fetch failed"}
 
     splits = (data.get("stats") or [{}])[0].get("splits", [])
-    splits = [sp for sp in splits if str(sp.get("season", "")) == str(SEASON)
-              and str((sp.get("player") or {}).get("id", batter_id)) == str(batter_id)]
+    splits = [sp for sp in splits
+              if str((sp.get("player") or {}).get("id", batter_id)) == str(batter_id)]
     if not splits:
         return {
             "ab": 0, "hits": 0, "avg": ".---", "hr": 0, "rbi": 0,
             "k": 0, "bb": 0, "tb": 0, "ops": ".---",
-            "sample": f"No {SEASON} head-to-head sample",
+            "sample": "No career head-to-head sample",
             "seasons": [],
         }
 
-    # Aggregate current-season totals
+    # Aggregate every season returned by MLB's ID-validated vsPlayer split.
     season_total: dict = {
         "ab": 0, "hits": 0, "hr": 0, "rbi": 0,
         "k": 0, "bb": 0, "hbp": 0, "sf": 0, "tb": 0, "pa": 0,
@@ -1150,10 +1151,22 @@ def get_bvp_history(batter_id: int, pitcher_id: int) -> dict:
         "bb":      season_total["bb"],
         "tb":      season_total["tb"],
         "ops":     f"{ops:.3f}",
-        "sample":  f"{SEASON} · {sample_label}",
-        "season": SEASON,
+        "sample":  f"Career · {sample_label}",
+        "season": "career",
+        "source": "MLB Stats API career vsPlayer",
         "seasons": seasons,
     }
+
+def get_career_bvp_batch(batter_ids: list[int], pitcher_id: int) -> dict[int, dict]:
+    """Fetch career BvP for a lineup while keeping every result ID-scoped."""
+    ids = sorted({int(value) for value in batter_ids if value})
+    if not ids or not pitcher_id:
+        return {}
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=min(6, len(ids))) as pool:
+        rows = dict(zip(ids, pool.map(lambda batter_id: get_bvp_history(batter_id, int(pitcher_id)), ids)))
+    return {batter_id: row for batter_id, row in rows.items()
+            if row and not row.get("error") and int(row.get("ab", 0) or 0) > 0}
 
 # ── 5. Full card (main entry point) ──────────────────────────────────────────
 

@@ -343,8 +343,8 @@ def _team_k_context(team_id):
 
 
 def _bvp_split(batter_id, pitcher_id):
-    """Return exact ID-validated Statcast-era BvP totals."""
-    bvp = (_safe(stats_mlb.get_statcast_bvp_batch, [batter_id], pitcher_id, default={}) or {}).get(batter_id, {})
+    """Return exact ID-validated career BvP totals."""
+    bvp = (_safe(stats_mlb.get_career_bvp_batch, [batter_id], pitcher_id, default={}) or {}).get(batter_id, {})
     if bvp.get("error") or int(bvp.get("ab", 0) or 0) < 5:
         return {}
     return {
@@ -353,7 +353,7 @@ def _bvp_split(batter_id, pitcher_id):
         "tb": int(bvp.get("tb", 0) or 0), "bb": int(bvp.get("bb", 0) or 0),
         "k": int(bvp.get("k", 0) or 0), "avg": bvp.get("avg", ".000"),
         "ops": bvp.get("ops", ".000"), "sample": bvp.get("sample", "small sample"),
-        "source": bvp.get("source", "MLB Baseball Savant Statcast"),
+        "source": bvp.get("source", "MLB Stats API career vsPlayer"),
     }
 
 
@@ -386,7 +386,7 @@ def _compute_bvp_tool(schedule, lineups, today):
         futures = []
         for pitcher_id, group in groups.items():
             batter_ids = [hitter["id"] for hitter, _ in group["hitters"]]
-            futures.append((pool.submit(stats_mlb.get_statcast_bvp_batch, batter_ids, pitcher_id), group))
+            futures.append((pool.submit(stats_mlb.get_career_bvp_batch, batter_ids, pitcher_id), group))
         for future, group in futures:
             batch = future.result() or {}
             pitcher_name = group["pitcher_name"]
@@ -398,22 +398,22 @@ def _compute_bvp_tool(schedule, lineups, today):
                 reliability = min(ab / 20.0, 1.0)
                 quality = avg * .45 + ops * .35 + min(split["hr"] / max(ab, 1), .15) * 1.5
                 score = quality * (.45 + .55 * reliability)
-                tier = "Elite BvP" if ab >= 10 and (avg >= .350 or ops >= 1.000) else "Strong BvP" if ab >= 8 and (avg >= .300 or ops >= .850) else "Season BvP sample"
+                tier = "Elite BvP" if ab >= 10 and (avg >= .350 or ops >= 1.000) else "Strong BvP" if ab >= 8 and (avg >= .300 or ops >= .850) else "Career BvP sample"
                 lineup_note = "Confirmed batting order." if confirmed else "Active-roster candidate; batting order is not posted yet."
                 rows.append({
                 "title": f"{hitter['fullName']} vs {pitcher_name}", "badge": tier,
-                "tone": "good" if tier != "Season BvP sample" else "neutral",
+                "tone": "good" if tier != "Career BvP sample" else "neutral",
                 "summary": f"{split['hits']}-for-{ab} ({split['avg']} AVG, {split['ops']} OPS) against this pitcher.",
                 "evidence": [
-                    {"label": "Statcast line", "value": f"{split['hits']}-for-{ab}", "detail": split.get("sample", "Current season")},
-                    {"label": "AVG / OPS", "value": f"{split['avg']} / {split['ops']}", "detail": "MLB Statcast, current season"},
-                    {"label": "Production", "value": f"{split['hr']} HR · {split['tb']} TB", "detail": "Current-season matchup totals"},
-                    {"label": "Discipline", "value": f"{split['bb']} BB · {split['k']} K", "detail": "Current-season matchup totals"},
+                    {"label": "Career line", "value": f"{split['hits']}-for-{ab}", "detail": split.get("sample", "Career head-to-head")},
+                    {"label": "AVG / OPS", "value": f"{split['avg']} / {split['ops']}", "detail": "Career head-to-head"},
+                    {"label": "Production", "value": f"{split['hr']} HR · {split['tb']} TB", "detail": "Career matchup totals"},
+                    {"label": "Discipline", "value": f"{split['bb']} BB · {split['k']} K", "detail": "Career matchup totals"},
                 ],
-                "caution": f"{lineup_note} Source: MLB Baseball Savant pitch-level data, ID-validated for the current season. BvP is descriptive, not a guarantee.",
+                "caution": f"{lineup_note} Source: MLB Stats API career head-to-head data, ID-validated. BvP is descriptive, not a guarantee.",
                 "score": round(score, 4),
                 })
-    rows.sort(key=lambda row: (row["badge"] != "Season BvP sample", row["score"]), reverse=True)
+    rows.sort(key=lambda row: (row["badge"] != "Career BvP sample", row["score"]), reverse=True)
     return {"date": today, "entries": rows[:16], "tool": "bvp"}
 
 
@@ -583,9 +583,9 @@ def compute_tool(tool: str) -> dict:
                             quality = ((avg * .45) + (ops * .35) + (min(split["hr"] / max(ab, 1), .15) * 1.5))
                             bvp_score = quality * (.45 + .55 * reliability)
                             lineup_note = "Confirmed batting order." if confirmed_lineup else "Active-roster candidate; batting order is not posted yet."
-                            tier = "Elite BvP" if ab >= 10 and (avg >= .350 or ops >= 1.000) else "Strong BvP" if ab >= 8 and (avg >= .300 or ops >= .850) else "Season BvP sample"
-                            tone = "good" if tier != "Season BvP sample" else "neutral"
-                            game_rows.append((bvp_score, {"title": f"{hitter_name} vs {pitcher_name}", "badge": tier, "tone": tone, "summary": f"{split['hits']}-for-{ab} ({split['avg']} AVG, {split['ops']} OPS) against this pitcher.", "evidence": [{"label": "Season line", "value": f"{split['hits']}-for-{ab}", "detail": split.get("sample", "Current-season head-to-head")}, {"label": "AVG / OPS", "value": f"{split['avg']} / {split['ops']}", "detail": "Current-season head-to-head"}, {"label": "Production", "value": f"{split['hr']} HR · {split['rbi']} RBI", "detail": f"{split['tb']} total bases"}, {"label": "Discipline", "value": f"{split['bb']} BB · {split['k']} K", "detail": "Current-season matchup totals"}], "caution": f"{lineup_note} BvP is confirmed with handedness, arsenal and current form before it becomes a play.", "score": round(bvp_score, 4)}))
+                            tier = "Elite BvP" if ab >= 10 and (avg >= .350 or ops >= 1.000) else "Strong BvP" if ab >= 8 and (avg >= .300 or ops >= .850) else "Career BvP sample"
+                            tone = "good" if tier != "Career BvP sample" else "neutral"
+                            game_rows.append((bvp_score, {"title": f"{hitter_name} vs {pitcher_name}", "badge": tier, "tone": tone, "summary": f"{split['hits']}-for-{ab} ({split['avg']} AVG, {split['ops']} OPS) against this pitcher.", "evidence": [{"label": "Career line", "value": f"{split['hits']}-for-{ab}", "detail": split.get("sample", "Career head-to-head")}, {"label": "AVG / OPS", "value": f"{split['avg']} / {split['ops']}", "detail": "Career head-to-head"}, {"label": "Production", "value": f"{split['hr']} HR · {split['rbi']} RBI", "detail": f"{split['tb']} total bases"}, {"label": "Discipline", "value": f"{split['bb']} BB · {split['k']} K", "detail": "Career matchup totals"}], "caution": f"{lineup_note} BvP is confirmed with handedness, arsenal and current form before it becomes a play.", "score": round(bvp_score, 4)}))
             rich_rows.extend(entry for _, entry in sorted(game_rows, key=lambda item: item[0], reverse=True)[:10])
     rich_rows.sort(key=lambda row: row.get("score", 0), reverse=True)
     return {"date": today, "entries": rich_rows[:16], "tool": tool}

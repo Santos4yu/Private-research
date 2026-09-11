@@ -3627,6 +3627,17 @@ function fillSplitFactor(node, p) {
   node.querySelector(".volume-note").textContent = split.volume ? `📊 ${split.volume}` : "";
 }
 
+function formatMatchupDetail(value) {
+  return String(value || "")
+    .replace(/(-?\d+\.\d{3,})(?=%)/g, number => `${Number(number).toFixed(1)}`)
+    .replace(/(-?\d*\.\d{4,})(?=\s*(?:AVG|OPS|SLG|wOBA|xwOBA)\b)/gi, number => {
+      const fixed = Number(number).toFixed(3);
+      return Math.abs(Number(number)) < 1 ? fixed.replace(/^(-?)0\./, "$1.") : fixed;
+    })
+    .replace(/(-?\d+\.\d{4,})/g, number => `${Number(number).toFixed(2)}`)
+    .replace(/\b(\d+)\.00(?=\s+(?:innings?|outs?)\b)/gi, "$1");
+}
+
 function fillMatchup(node, p) {
   const m = p.matchup || {};
   const scoreCard = node.querySelector(".matchup-score-card");
@@ -3643,7 +3654,7 @@ function fillMatchup(node, p) {
     const factors = (p.matchupFactors || []).map(f => {
       const impact = Number(f.impact || 0);
       const signed = `${impact > 0 ? "+" : ""}${impact}`;
-      return `<div class="matchup-factor"><div><b>${escapeHtml(f.name || "Factor")}</b><small>${escapeHtml(f.detail || "Unavailable")}</small></div><strong>${signed} / ${Number(f.weight || 0)}</strong></div>`;
+      return `<div class="matchup-factor"><div><b>${escapeHtml(f.name || "Factor")}</b><small>${escapeHtml(formatMatchupDetail(f.detail || "Unavailable"))}</small></div><strong>${signed} / ${Number(f.weight || 0)}</strong></div>`;
     }).join("");
     scoreCard.querySelector(".matchup-score-factors").innerHTML = factors;
   } else if (scoreCard) {
@@ -5620,7 +5631,7 @@ async function buildResearchShareImage(prop,mode) {
 
     const factors=(prop.matchupFactors||prop.stats?.matchup_factors||[]).slice(0,6);text('WHAT DRIVES THE MATCHUP',160,1640,24,'#aab5c5',800);
     const factorFallback=[['Platoon split',matchup.handedness||'Season handedness split'],['Pitch mix',prop.pitchArsenal?.length?`${prop.pitchArsenal.length} pitch types tracked`:'Arsenal fit pending'],['Recent form','Current-season performance'],['Park factor',matchup.park||'Game environment']];
-    const factorRows=(factors.length?factors.map(f=>[f.name,f.detail,Number(f.impact||0)]):factorFallback.map(f=>[f[0],f[1],null])).slice(0,6);
+    const factorRows=(factors.length?factors.map(f=>[f.name,formatMatchupDetail(f.detail),Number(f.impact||0)]):factorFallback.map(f=>[f[0],f[1],null])).slice(0,6);
     factorRows.forEach(([name,detail,impact],i)=>{const col=i%2,row=Math.floor(i/2),x=160+col*925,y=1680+row*170,tone=impact==null?'#99a6b6':impact>0?'#35e6a7':impact<0?'#ff6475':'#cbd5e1';round(x,y,895,144,28,'rgba(255,255,255,.045)','rgba(255,255,255,.09)');round(x+24,y+28,58,58,18,`${tone}22`,`${tone}66`);text(impact==null?'•':impact>0?'↑':impact<0?'↓':'=',x+53,y+70,31,tone,850,'center');text(name||'Matchup factor',x+104,y+53,28,'#fff',800);wrap(detail||'Live model input',x+104,y+91,650,20,'#9caabd',600,25,2);if(impact!=null)text(`${impact>0?'+':''}${impact}`,x+855,y+82,31,tone,850,'right');});
 
     const split=prop.split||{},arsenal=prop.pitchArsenal||[],bvp=prop.bvpCard||{};const topPitches=arsenal.slice(0,3).map(p=>p.name||p.pitchName||p.type||p.code).filter(Boolean).join(' · ');

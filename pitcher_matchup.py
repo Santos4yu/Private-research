@@ -63,18 +63,28 @@ def pitcher_matchup_grade(*, k_card, opp_k=None, splits=None,
         value = number((metrics.get(key) or {}).get('rank'))
         return (value - 15.5) / 14.5 if value is not None and 1 <= value <= 30 else None
 
+    def metric_text(key):
+        value = number((metrics.get(key) or {}).get('value'))
+        if value is None:
+            return '—'
+        if key == 'avg':
+            return f'{value:.3f}'.lstrip('0')
+        if key in ('k_pct', 'bb_pct'):
+            return f'{value:.1f}'
+        return f'{value:.2f}'
+
     # AVG directly supports hits; run/HR production broadens the ER/outs view.
     offense_keys = [('avg', 1)] if prop_type == 'pitcher_hits_allowed' else [('avg', .5), ('runs_pg', .3), ('hr_pg', .2)]
     valid = [(rank(key), weight) for key, weight in offense_keys if rank(key) is not None]
     edge = sum(r * w for r, w in valid) / sum(w for _, w in valid) if valid else None
     add('offense', 'Opponent offense quality', weights[0], edge,
-        (' · '.join(f"{key}: {metrics[key].get('value')} (#{metrics[key].get('rank')}/30)" for key, _ in offense_keys if rank(key) is not None)
+        (' · '.join(f"{key}: {metric_text(key)} (#{int(number(metrics[key].get('rank')) or 0)}/30)" for key, _ in offense_keys if rank(key) is not None)
          + ' · AVG vs hand; R/HR full season') if valid else 'Opponent offense unavailable',
         team_conf * sum(w for _, w in valid))
     for key, name, weight in [('k_pct', 'Opponent K%', weights[1]), ('bb_pct', 'Opponent BB%', weights[2])]:
         row = metrics.get(key) or {}
         add(key, name, weight, rank(key),
-            f"{row.get('value', '—')}% vs pitcher hand · rank #{row.get('rank', '—')}/30 · {int(pa or 0)} PA",
+            f"{metric_text(key)}% vs pitcher hand · rank #{int(number(row.get('rank')) or 0)}/30 · {int(pa or 0)} PA",
             team_conf)
 
     starts = (k_card or {}).get('last_5_starts') or []
