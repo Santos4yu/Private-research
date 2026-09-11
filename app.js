@@ -2846,10 +2846,25 @@ function mergeTeamInsights(summary, matchup) {
 
 function prefetchTeamInsights(params) {
   const key = teamInsightsKey(params);
-  if (teamInsightsCache.get(key)?.summary) return;
-  requestTeamInsights(params, "summary").then((summary) => {
+  const cached = teamInsightsCache.get(key) || {};
+  if (!cached.summary) fetchTeamInsightsInBackground(params, "summary");
+  if (!cached.matchup) fetchTeamInsightsInBackground(params, "filters");
+}
+
+function fetchTeamInsightsInBackground(params, detail) {
+  const key = teamInsightsKey(params);
+  requestTeamInsights(params, detail).then(data => {
     const cached = teamInsightsCache.get(key) || {};
-    teamInsightsCache.set(key, { ...cached, summary, data: summary });
+    if (detail === "summary") cached.summary = data;
+    else if (detail === "filters") cached.matchup = data;
+    else cached.full = data;
+    cached.data = mergeTeamInsights(cached.summary || {}, cached.full || cached.matchup || {});
+    teamInsightsCache.set(key, cached);
+    if (key === teamState.cacheKey) {
+      teamState.data = cached.data;
+      teamState.deepReady = Boolean(cached.matchup || cached.full);
+      renderTeamModal();
+    }
   }).catch(() => {});
 }
 
@@ -2875,13 +2890,13 @@ function openTeamModal(params, opponentName) {
   teamState.cacheKey = key;
   teamState.params = params;
   teamState.data = cached.data || cached.summary || null;
-  teamState.deepReady = Boolean(cached.matchup);
+  teamState.deepReady = Boolean(cached.matchup || cached.full);
   teamState.deepLoading = false;
   teamState.deepError = "";
   teamState.orderFilter = "season";
   renderTeamModal(); // shows loading state
   if (!cached.summary) fetchTeamInsights(params, "summary");
-  else if (!cached.matchup) fetchTeamInsights(params, "matchup");
+  if (!cached.matchup && !cached.full) fetchTeamInsights(params, "filters");
 }
 
 function closeTeamModal() {
@@ -2896,19 +2911,22 @@ async function fetchTeamInsights(params, detail = "summary") {
     const cached = teamInsightsCache.get(key) || {};
     if (detail === "summary") {
       cached.summary = data;
-      cached.data = cached.matchup ? mergeTeamInsights(data, cached.matchup) : data;
-    } else {
+      cached.data = (cached.full || cached.matchup) ? mergeTeamInsights(data, cached.full || cached.matchup) : data;
+    } else if (detail === "filters") {
       cached.matchup = data;
+      cached.data = cached.summary ? mergeTeamInsights(cached.summary, data) : data;
+    } else {
+      cached.full = data;
       cached.data = cached.summary ? mergeTeamInsights(cached.summary, data) : data;
     }
     teamInsightsCache.set(key, cached);
     if (key !== teamState.cacheKey) return;
     teamState.data = cached.data;
-    teamState.deepReady = Boolean(cached.matchup);
+    teamState.deepReady = Boolean(cached.matchup || cached.full);
     teamState.deepLoading = false;
     teamState.deepError = "";
     renderTeamModal();
-    if (detail === "summary" && !cached.matchup) fetchTeamInsights(params, "matchup");
+    if (detail === "summary" && !cached.matchup && !cached.full) fetchTeamInsights(params, "filters");
   } catch (err) {
     if (key !== teamState.cacheKey) return;
     teamState.deepLoading = false;
@@ -2929,6 +2947,10 @@ function wireTeamModal() {
   els.teamTabs.querySelectorAll(".team-tab").forEach((btn) => {
     btn.addEventListener("click", () => {
       teamState.view = btn.dataset.view;
+      if (teamState.view === "arsenal") {
+        const cached = teamInsightsCache.get(teamState.cacheKey) || {};
+        if (!cached.full && teamState.params) fetchTeamInsights(teamState.params, "matchup");
+      }
       renderTeamModal();
     });
   });
@@ -3671,6 +3693,7 @@ function fillLineupStrip(node, p) {
   const shell = node.querySelector(".lineup-strip-shell");
   if (!shell || !p.teamInsightsParams) return;
   shell.hidden = false;
+  prefetchTeamInsights(p.teamInsightsParams);
   shell.innerHTML = `<div class="lineup-strip-head"><span>Projected lineup</span><small>Loading batting order…</small></div><div class="lineup-strip is-loading">${Array.from({ length: 9 }, (_, i) => `<i style="--i:${i}"></i>`).join("")}</div>`;
   requestTeamInsights(p.teamInsightsParams, "summary").then(data => {
     if (!shell.isConnected) return;
@@ -3758,7 +3781,7 @@ function fillMatchup(node, p) {
     // Start the accurate roster/Statcast request after the main card is
     // visible. By the time a user reaches this button, much or all of the
     // modal data is usually ready. The promise is reused on click.
-    const warmInsights = () => requestTeamInsights(p.teamInsightsParams);
+    const warmInsights = () => prefetchTeamInsights(p.teamInsightsParams);
     teamBtn.addEventListener("pointerenter", warmInsights, { once: true });
     teamBtn.addEventListener("focus", warmInsights, { once: true });
     if (typeof requestIdleCallback === "function") {

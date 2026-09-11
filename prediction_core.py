@@ -2182,7 +2182,7 @@ def get_team_insights(team_id: int, pitcher_id, pitcher_name: str = "", pitcher_
     would undo the latency work already done on the main card. Only runs
     when the user actually opens this view.
     """
-    detail = detail if detail in {"summary", "matchup", "full"} else "summary"
+    detail = detail if detail in {"summary", "filters", "matchup", "full"} else "summary"
     return _cached_team_insights(
         int(team_id), int(pitcher_id) if pitcher_id else None,
         pitcher_name or "", pitcher_hand or "R", detail,
@@ -2278,7 +2278,7 @@ def _build_team_insights(opp_team_id: int, opp_pitcher_id, opp_pitcher_name: str
                 futures[bid]["season"] = pool.submit(
                     _safe, stats_mlb.get_batter_season_line, bid, default={}
                 )
-            if detail in {"matchup", "full"}:
+            if detail in {"filters", "matchup", "full"}:
                 futures[bid]["hand"] = pool.submit(
                     _safe, stats_mlb.get_batter_hand_splits, bid, default={}
                 )
