@@ -32,7 +32,8 @@ body:has(#gamelog-overlay:not([hidden])){overflow:hidden!important}
  body.gamelog-scroll-locked{overflow:hidden!important;touch-action:none}
  :root[data-theme] #gamelog-overlay{inset:0!important;padding:0!important;align-items:stretch!important;justify-content:stretch!important;overflow:hidden!important}
  :root[data-theme] #gamelog-overlay .gamelog-modal{width:100%!important;height:100dvh!important;max-height:100dvh!important;border:0!important;border-radius:0!important;overflow:hidden!important;overscroll-behavior:none}
- :root[data-theme] #gamelog-overlay .modal-head{padding:max(10px,env(safe-area-inset-top)) 14px 8px!important}
+ :root[data-theme] #gamelog-overlay .modal-head{padding:max(28px,calc(env(safe-area-inset-top,0px) + 14px)) 14px 8px!important}
+ :root[data-theme] #gamelog-overlay #gamelog-close{position:static!important;z-index:6!important;align-self:center!important;flex:0 0 44px!important;width:44px!important;height:44px!important;margin:0!important;pointer-events:auto!important;touch-action:manipulation}
  :root[data-theme] #gamelog-overlay .gamelog-workbench{padding:4px 12px 7px!important}
  :root[data-theme] #gamelog-overlay .gamelog-toolbar{grid-template-columns:1fr!important;gap:4px!important}
  :root[data-theme] #gamelog-overlay .gamelog-line-control{display:none!important}

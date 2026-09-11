@@ -2367,13 +2367,13 @@ async function loadGameLogPostedLines(stat, player = gameLogState.player) {
     host = document.createElement('details'); host.id = 'gamelog-posted-lines'; host.className = 'posted-lines';
     document.querySelector('.gamelog-toolbar').appendChild(host);
   }
-  host.open = true;
+  host.open = false;
   host.innerHTML = '<summary>PrizePicks lines</summary><p>Loading posted lines…</p>';
   try {
     const feed = await requestFinderFeed();
     if (token !== postedLinesToken) return;
     const rows = feed.filter(row => nameKey(row.player) === nameKey(player) && pitcherFinderStat(row.stat).label === stat).sort((a,b) => a.line-b.line);
-    host.open = true;
+    host.open = false;
     host.innerHTML = `<summary><img src="/prizepicks/logo.png" alt=""><span>PrizePicks lines<small>Tap a line to compare instantly</small></span><b class="posted-selected">${Number(gameLogState.line)}</b></summary><div class="posted-options" role="group" aria-label="PrizePicks alternate lines"></div>`;
     const list = host.querySelector('div');
     if (!rows.length) list.textContent = 'No posted lines available for this market.';
@@ -2383,7 +2383,7 @@ async function loadGameLogPostedLines(stat, player = gameLogState.player) {
       button.setAttribute('aria-pressed', String(Number(row.line) === Number(gameLogState.line)));
       const icon = row.odds_type === 'goblin' ? '/prizepicks/goblin.png' : row.odds_type === 'demon' ? '/prizepicks/demon.png' : '/prizepicks/logo.png';
       button.innerHTML = `<span class="posted-line-main"><b>${Number(row.line)}</b><img src="${icon}" alt="" /></span><span>${escapeHtml(label)}<small>${row.odds_type === 'standard' ? 'More / Less' : 'More only'}</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4 10-10"/></svg>`;
-      button.onclick = () => {activeFinderProp={...(activeFinderProp||{}),player,betType:stat,line:Number(row.line),side:'Over',oddsType:row.odds_type||'standard'};setGameLogPreviewLine(Number(row.line), true); host.open = true; host.querySelector('.posted-selected').textContent = row.line; list.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed',String(b === button)));};
+      button.onclick = () => {activeFinderProp={...(activeFinderProp||{}),player,betType:stat,line:Number(row.line),side:'Over',oddsType:row.odds_type||'standard'};setGameLogPreviewLine(Number(row.line), true); host.open = false; host.querySelector('.posted-selected').textContent = row.line; list.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed',String(b === button)));};
       list.appendChild(button);
     });
   } catch (_) { if (token === postedLinesToken) host.innerHTML = '<summary>PrizePicks lines</summary><p>Posted lines unavailable. You can still explore a custom line.</p>'; }
