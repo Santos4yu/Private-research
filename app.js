@@ -5527,6 +5527,9 @@ function openFinderComparison() {
   sheet.hidden=false;sheet.querySelectorAll('[data-open-prop]').forEach(button=>button.onclick=()=>{sheet.hidden=true;openGameLogModal(finderCompare.get(button.dataset.openProp));});
 }
 function wireResearchPolish() {
+  const researchHead=document.querySelector('#gamelog-overlay .modal-head');
+  const placeMobileClose=()=>{if(matchMedia('(max-width:680px)').matches)researchHead.style.setProperty('padding-top','28px','important');else researchHead.style.removeProperty('padding-top');};
+  placeMobileClose();window.addEventListener('resize',placeMobileClose,{passive:true});
   const range=document.createElement('div');range.className='gamelog-range-chips';range.setAttribute('aria-label','Game range');range.innerHTML=[5,10,15,20].map(n=>`<button type="button" data-range="${n}">L${n}</button>`).join('')+'<button type="button" data-range="max">Max</button>';
   document.querySelector('.gamelog-windowbar').before(range);
   range.onclick=event=>{const button=event.target.closest('[data-range]');if(!button)return;const value=button.dataset.range==='max'?gameLogPool().length:Number(button.dataset.range);setGameLogCount(value,'none');};
