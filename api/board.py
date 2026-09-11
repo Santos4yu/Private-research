@@ -47,6 +47,26 @@ def _json_get(path, params=None):
         return json.loads(response.read().decode("utf-8"))
 
 
+def _schedule_games(date_str):
+    """Compact official matchup index used by the mobile game filter."""
+    try:
+        schedule = _json_get("/schedule", {"sportId": 1, "date": date_str})
+    except Exception:
+        return []
+    result = []
+    for day in schedule.get("dates", []):
+        for game in day.get("games", []):
+            teams = game.get("teams", {})
+            away = teams.get("away", {}).get("team", {})
+            home = teams.get("home", {}).get("team", {})
+            result.append({
+                "game_pk": game.get("gamePk"), "start_time": game.get("gameDate"),
+                "away_id": away.get("id"), "away": away.get("abbreviation") or away.get("name"),
+                "home_id": home.get("id"), "home": home.get("abbreviation") or home.get("name"),
+            })
+    return result
+
+
 def _live_game(game):
     pk = game.get("gamePk")
     status = game.get("status", {})
@@ -188,7 +208,9 @@ class handler(BaseHTTPRequestHandler):
         if not raw:
             return self._send(200, {"date": None, "generated_at": None, "props": []})
         try:
-            return self._send(200, json.loads(raw))
+            data = json.loads(raw)
+            data["games"] = _schedule_games(data.get("date")) if data.get("date") else []
+            return self._send(200, data)
         except json.JSONDecodeError:
             return self._send(200, {"date": None, "generated_at": None, "props": []})
 

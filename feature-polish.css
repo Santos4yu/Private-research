@@ -34,6 +34,12 @@
 .board-card-skeleton{display:flex;align-items:center;gap:12px;margin-bottom:10px;padding:15px;border:1px solid rgba(255,255,255,.07);border-radius:18px;background:#111722;animation:researchCardIn .25s ease both;animation-delay:calc(var(--i)*35ms)}.board-card-skeleton i{width:48px;height:48px;flex:0 0 48px;border-radius:50%}.board-card-skeleton div{display:grid;gap:7px;flex:1}.board-card-skeleton b{width:46%;height:13px}.board-card-skeleton span{width:72%;height:10px}.board-card-skeleton small{width:58%;height:8px}.board-card-skeleton em{width:54px;height:26px;border-radius:13px}.board-card-skeleton :is(i,b,span,small,em){display:block;background:linear-gradient(100deg,#18212d 30%,#2a3546 48%,#18212d 66%);background-size:250% 100%;animation:polishShimmer 1.25s linear infinite}
 @keyframes polishShimmer{to{background-position:-250% 0}}
 
+.matchup-game-logos>.matchup-game-logo{position:absolute;top:2px;display:grid;place-items:center;width:32px;height:32px;padding:4px;border:1px solid var(--theme-border);border-radius:50%;background:var(--theme-panel-2);overflow:hidden}
+.matchup-game-logos>.matchup-game-logo:first-child{left:0;z-index:2}.matchup-game-logos>.matchup-game-logo:last-child{right:0}
+.matchup-game-logos>.matchup-game-logo img{position:static!important;width:100%!important;height:100%!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;object-fit:contain}
+.matchup-game-logos>.matchup-game-logo small{position:absolute;inset:0;z-index:-1;display:grid;place-items:center;color:var(--theme-text);font:800 7px Sora,sans-serif}
+.matchup-game-trigger-icon:has(.trigger-logos){width:48px;flex-basis:48px;padding:0;background:transparent}.trigger-logos{display:block;width:48px;height:36px}
+
 @media(max-width:700px){
   .recent-player-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.recent-searches{margin-inline:0}
   .report .report-block{border-radius:16px;padding:15px}.report .block-title{font-size:14px}

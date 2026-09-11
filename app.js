@@ -2231,6 +2231,7 @@ const GAMELOG_STAT_CODES = {
   "Fantasy Score (Pitcher)": "PFS",
 };
 const MLB_TEAM_IDS = { ARI:109, AZ:109, ATL:144, BAL:110, BOS:111, CHC:112, CWS:145, CIN:113, CLE:114, COL:115, DET:116, HOU:117, KC:118, LAA:108, LAD:119, MIA:146, MIL:158, MIN:142, NYM:121, NYY:147, OAK:133, PHI:143, PIT:134, SD:135, SEA:136, SF:137, STL:138, TB:139, TEX:140, TOR:141, WSH:120 };
+const MLB_TEAM_ABBRS = { 108:"LAA",109:"ARI",110:"BAL",111:"BOS",112:"CHC",113:"CIN",114:"CLE",115:"COL",116:"DET",117:"HOU",118:"KC",119:"LAD",120:"WSH",121:"NYM",133:"ATH",134:"PIT",135:"SD",136:"SEA",137:"SF",138:"STL",139:"TB",140:"TEX",141:"TOR",142:"MIN",143:"PHI",144:"ATL",145:"CWS",146:"MIA",147:"NYY",158:"MIL" };
 let gameLogPageScrollY = 0;
 
 function lockGameLogPageScroll() {
@@ -4933,10 +4934,12 @@ function boardMatchupLabel(score) {
 
 function matchupGameDetails(prop) {
   const stats = prop.stats || {};
-  const ownName = stats.team_abbr || stats.team || prop.team_abbr || prop.team || "";
-  const opponentName = stats.opponent_abbr || stats.opponent || stats.matchup?.opponent || "";
+  let ownName = stats.team_abbr || stats.team || prop.team_abbr || prop.team || "";
+  let opponentName = stats.opponent_abbr || stats.opponent || stats.matchup?.opponent || "";
   const ownId = stats.team_id || prop.team_id || MLB_TEAM_IDS[String(ownName).toUpperCase()] || null;
   const opponentId = stats.opponent_team_id || MLB_TEAM_IDS[String(opponentName).toUpperCase()] || null;
+  ownName = MLB_TEAM_ABBRS[ownId] || ownName;
+  opponentName = MLB_TEAM_ABBRS[opponentId] || opponentName;
   const isHome = stats.is_home === true || String(stats.is_home).toLowerCase() === "true";
   const away = isHome ? opponentName : ownName;
   const home = isHome ? ownName : opponentName;
@@ -4944,14 +4947,34 @@ function matchupGameDetails(prop) {
   const homeId = isHome ? ownId : opponentId;
   const timestamp = Number.isFinite(Date.parse(prop.commence_time || "")) ? Date.parse(prop.commence_time) : Number.POSITIVE_INFINITY;
   const gamePk = stats.game_pk || stats.gamePk || prop.game_pk || prop.gamePk;
+  const schedule = state.v2BoardData?.games || [];
+  const propTime = Date.parse(prop.commence_time || "");
+  const opponentText = normalizePlayerSearch(opponentName);
+  const scheduled = schedule.find(game => gamePk && String(game.game_pk) === String(gamePk)) || schedule.find(game => {
+    const timeClose = Number.isFinite(propTime) && Number.isFinite(Date.parse(game.start_time || "")) && Math.abs(propTime - Date.parse(game.start_time)) < 20 * 60 * 1000;
+    const awayMatches = opponentText && [game.away, MLB_TEAM_ABBRS?.[game.away_id]].filter(Boolean).some(name => normalizePlayerSearch(name) === opponentText);
+    const homeMatches = opponentText && [game.home, MLB_TEAM_ABBRS?.[game.home_id]].filter(Boolean).some(name => normalizePlayerSearch(name) === opponentText);
+    return timeClose && (awayMatches || homeMatches);
+  });
+  if (scheduled) {
+    const scheduledAway = MLB_TEAM_ABBRS[scheduled.away_id] || scheduled.away;
+    const scheduledHome = MLB_TEAM_ABBRS[scheduled.home_id] || scheduled.home;
+    return {
+      key: String(scheduled.game_pk), label: `${scheduledAway} @ ${scheduledHome}`,
+      away: scheduledAway, home: scheduledHome, awayId: scheduled.away_id, homeId: scheduled.home_id,
+      opponentName, opponentId, timestamp: Date.parse(scheduled.start_time || prop.commence_time || ""),
+      commenceTime: scheduled.start_time || prop.commence_time || "",
+    };
+  }
   const key = String(gamePk || `${away}|${home}|${prop.commence_time || "tbd"}`).toLowerCase();
   const label = away && home ? `${away} @ ${home}` : opponentName ? `${isHome ? "vs" : "@"} ${opponentName}` : "Scheduled game";
   return { key, label, away, home, awayId, homeId, opponentName, opponentId, timestamp, commenceTime: prop.commence_time || "" };
 }
 
 function matchupGameLogo(teamId, teamName) {
-  if (!teamId) return teamName ? `<span class="matchup-game-logo-fallback">${escapeHtml(String(teamName).slice(0, 3).toUpperCase())}</span>` : "";
-  return `<img src="https://www.mlbstatic.com/team-logos/${encodeURIComponent(teamId)}.svg" alt="" loading="lazy" onerror="this.style.display='none'">`;
+  const abbr = String(teamName || "").slice(0, 3).toUpperCase();
+  if (!teamId) return abbr ? `<span class="matchup-game-logo-fallback">${escapeHtml(abbr)}</span>` : "";
+  return `<span class="matchup-game-logo"><img src="https://www.mlbstatic.com/team-logos/${encodeURIComponent(teamId)}.svg" alt="${escapeHtml(abbr)}" loading="lazy" onerror="this.remove()"><small>${escapeHtml(abbr)}</small></span>`;
 }
 
 function renderMatchupGamePicker(props) {
@@ -4971,6 +4994,10 @@ function renderMatchupGamePicker(props) {
   if (state.matchupGameFilter !== "all" && !gamesByKey.has(state.matchupGameFilter)) state.matchupGameFilter = "all";
   const selected = gamesByKey.get(state.matchupGameFilter);
   els.matchupGameLabel.textContent = selected ? selected.label : "All games";
+  const triggerIcon = els.matchupGameTrigger.querySelector(".matchup-game-trigger-icon");
+  if (triggerIcon) triggerIcon.innerHTML = selected
+    ? `<span class="matchup-game-logos trigger-logos">${matchupGameLogo(selected.awayId, selected.away)}${matchupGameLogo(selected.homeId, selected.home)}</span>`
+    : `<svg viewBox="0 0 24 24" fill="none"><path d="M7 3v3M17 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg>`;
   els.matchupGameMeta.textContent = selected && selected.timestamp !== Number.POSITIVE_INFINITY
     ? new Date(selected.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
     : `${games.length} game${games.length === 1 ? "" : "s"}`;
