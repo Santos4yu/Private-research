@@ -2216,6 +2216,7 @@ function regradeGameLog(line) {
 }
 
 function setGameLogPreviewLine(value, settle = false) {
+  const viewportState=captureGameLogViewport();
   const raw = Math.max(0.5, Number(value) || 0.5);
   const line = settle ? snapPropLine(raw) : raw;
   gameLogState.line = line;
@@ -2226,6 +2227,17 @@ function setGameLogPreviewLine(value, settle = false) {
   }
   renderGameLogChart();
   if (activeFinderProp) renderLineMovement({...activeFinderProp,line});
+  restoreGameLogViewport(viewportState);
+}
+
+function captureGameLogViewport() {
+  const modal=els.gamelogOverlay?.querySelector('.gamelog-modal');
+  return {pageY:window.scrollY,overlayTop:els.gamelogOverlay?.scrollTop||0,modal,modalTop:modal?.scrollTop||0,chartLeft:els.gamelogChart?.scrollLeft||0};
+}
+
+function restoreGameLogViewport(saved) {
+  const restore=()=>{if(!saved)return;if(els.gamelogOverlay)els.gamelogOverlay.scrollTop=saved.overlayTop;if(saved.modal)saved.modal.scrollTop=saved.modalTop;if(els.gamelogChart)els.gamelogChart.scrollLeft=saved.chartLeft;if(!document.body.classList.contains('gamelog-scroll-locked'))window.scrollTo({top:saved.pageY,left:0,behavior:'instant'});};
+  restore();requestAnimationFrame(()=>{restore();requestAnimationFrame(restore);});
 }
 
 function populateGameLogStats() {
@@ -2383,7 +2395,7 @@ async function loadGameLogPostedLines(stat, player = gameLogState.player) {
       button.setAttribute('aria-pressed', String(Number(row.line) === Number(gameLogState.line)));
       const icon = row.odds_type === 'goblin' ? '/prizepicks/goblin.png' : row.odds_type === 'demon' ? '/prizepicks/demon.png' : '/prizepicks/logo.png';
       button.innerHTML = `<span class="posted-line-main"><b>${Number(row.line)}</b><img src="${icon}" alt="" /></span><span>${escapeHtml(label)}<small>${row.odds_type === 'standard' ? 'More / Less' : 'More only'}</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4 10-10"/></svg>`;
-      button.onclick = () => {activeFinderProp={...(activeFinderProp||{}),player,betType:stat,line:Number(row.line),side:'Over',oddsType:row.odds_type||'standard'};setGameLogPreviewLine(Number(row.line), true); host.open = false; host.querySelector('.posted-selected').textContent = row.line; list.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed',String(b === button)));};
+      button.onclick = () => {activeFinderProp={...(activeFinderProp||{}),player,betType:stat,line:Number(row.line),side:'Over',oddsType:row.odds_type||'standard'};setGameLogPreviewLine(Number(row.line), true); host.open = true; host.querySelector('.posted-selected').textContent = row.line; list.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed',String(b === button)));};
       list.appendChild(button);
     });
   } catch (_) { if (token === postedLinesToken) host.innerHTML = '<summary>PrizePicks lines</summary><p>Posted lines unavailable. You can still explore a custom line.</p>'; }
@@ -5588,16 +5600,14 @@ async function buildResearchShareImage(prop,mode) {
 }
 
 function setGameLogCount(value, direction = "initial") {
-  const overlayTop=els.gamelogOverlay?.scrollTop||0;
-  const modal=els.gamelogOverlay?.querySelector('.gamelog-modal');
-  const modalTop=modal?.scrollTop||0;
+  const viewportState=captureGameLogViewport();
   const max = Math.max(1, gameLogPool().length);
   gameLogState.gameCount = Math.max(1, Math.min(max, Number(value) || 1));
   gameLogState.window = "recent";
   gameLogState.animationDirection = direction;
   renderGameLogTabs();
   renderGameLogChart();
-  requestAnimationFrame(()=>{if(els.gamelogOverlay)els.gamelogOverlay.scrollTop=overlayTop;if(modal)modal.scrollTop=modalTop;});
+  restoreGameLogViewport(viewportState);
 }
 
 async function gradeSlipImage() {
