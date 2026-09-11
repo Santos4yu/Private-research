@@ -210,6 +210,7 @@ async function init() {
   wireSearch();
   wireLinePicker();
   renderBrowseChips();
+  renderRecentSearches();
   wireSavedToolbar();
   wireManualBetSlip();
   renderSavedGrid();
@@ -235,6 +236,7 @@ async function init() {
 function cacheEls() {
   els.searchInput = document.getElementById("search-input");
   els.searchResults = document.getElementById("search-results");
+  els.recentSearches = document.getElementById("recent-searches");
   els.reportWrap = document.getElementById("report-wrap");
   els.emptyState = document.getElementById("empty-state");
   els.browseChips = document.getElementById("browse-chips");
@@ -1487,6 +1489,36 @@ function warmPlayerCatalog() {
 
 function clearSearchQuery() {
   els.searchInput.value = "";
+  renderRecentSearches();
+}
+
+const RECENT_RESEARCH_KEY = "krazy-data-recent-research-v1";
+
+function readRecentResearch() {
+  try { return JSON.parse(localStorage.getItem(RECENT_RESEARCH_KEY) || "[]").filter(item => item?.player).slice(0, 6); }
+  catch (_) { return []; }
+}
+
+function rememberResearchPlayer(entry) {
+  if (!entry?.player) return;
+  const recent = readRecentResearch().filter(item => normalizePlayerSearch(item.player) !== normalizePlayerSearch(entry.player));
+  recent.unshift({ player: entry.player, playerId: entry.playerId || null, teamId: entry.teamId || null, team: entry.team || "", sub: entry.sub || "MLB", headshot: entry.headshot || null, kind: "recent" });
+  try { localStorage.setItem(RECENT_RESEARCH_KEY, JSON.stringify(recent.slice(0, 6))); } catch (_) {}
+  renderRecentSearches();
+}
+
+function renderRecentSearches() {
+  if (!els.recentSearches) return;
+  const recent = readRecentResearch();
+  const show = !els.searchInput?.value.trim() && recent.length && els.playerProfile?.hidden;
+  els.recentSearches.hidden = !show;
+  if (!show) return;
+  els.recentSearches.innerHTML = `<div class="recent-searches-head"><span>Recent players</span><button type="button" data-clear-recent>Clear</button></div><div class="recent-player-strip">${recent.map((entry, index) => `<button type="button" class="recent-player" data-recent-index="${index}">${avatarHtml(entry, "sm")}<span><strong>${escapeHtml(entry.player)}</strong><small>${escapeHtml(entry.team || entry.sub || "MLB")}</small></span></button>`).join("")}</div>`;
+  els.recentSearches.querySelector("[data-clear-recent]")?.addEventListener("click", () => { localStorage.removeItem(RECENT_RESEARCH_KEY); renderRecentSearches(); });
+  els.recentSearches.querySelectorAll("[data-recent-index]").forEach(button => button.addEventListener("click", () => {
+    const entry = recent[Number(button.dataset.recentIndex)];
+    if (entry) selectPlayer(entry.player, entry.sub, { playerEntry: entry });
+  }));
 }
 
 function onSearchInput() {
@@ -1498,8 +1530,10 @@ function onSearchInput() {
     clearTimeout(searchDebounceTimer);
     searchRequestToken++;
     hideResults();
+    renderRecentSearches();
     return;
   }
+  if (els.recentSearches) els.recentSearches.hidden = true;
 
   // Static demo matches render instantly; live MLB suggestions follow after
   // a short debounce so we're not firing an API call on every keystroke.
@@ -1803,6 +1837,7 @@ function selectPlayer(player, position, { autoSelectStat = true, viaDeepDive = f
     els.v2BackBtn.hidden = true;
   }
   hideResults();
+  rememberResearchPlayer({ ...(playerEntry || {}), player, sub: position || playerEntry?.sub || "MLB" });
   cmd.player = player;
   cmd.playerId = playerEntry?.playerId || null;
   cmd.teamId = playerEntry?.teamId || null;
@@ -1858,6 +1893,7 @@ function selectPlayer(player, position, { autoSelectStat = true, viaDeepDive = f
 
   els.linePicker.hidden = true;
   els.playerProfile.hidden = false;
+  if (els.recentSearches) els.recentSearches.hidden = true;
   clearReport();
   els.playerProfile.scrollIntoView({ behavior: "smooth", block: "nearest" });
 
@@ -3198,6 +3234,7 @@ function openExactProp(p) {
 function buildReportNode(p) {
   const template = document.getElementById("report-template");
   const node = template.content.firstElementChild.cloneNode(true);
+  node.classList.add(p.isPitcherProp === true ? "report-pitcher" : "report-batter");
 
   node.querySelector(".rt-avatar-slot").innerHTML = avatarHtml(p, "lg");
 
@@ -3213,6 +3250,7 @@ function buildReportNode(p) {
   fillWhyItHits(node, p);
   fillBiggestEdgesRisks(node, p);
   fillPitchArsenal(node, p);
+  fillLineupStrip(node, p);
   fillPitcherLineupProfile(node, p);
   fillSplitFactor(node, p);
   fillMatchup(node, p);
@@ -3519,6 +3557,14 @@ function fillPitchArsenal(node, p) {
       <span>${escapeHtml(pitch.name)}</span><div><b>${Number(pitch.pct).toFixed(0)}%</b></div>
     </div>
   `).join("");
+  const visualPitches = pitches.slice(0, 5);
+  const pitchVisual = `<div class="pitch-visual" aria-label="Pitch usage visualization">
+    <div class="pitch-zone" aria-hidden="true"><i></i>${visualPitches.map((pitch, index) => {
+      const usage = Math.max(0, Math.min(100, Number(pitch.pct) || 0));
+      return `<span style="--pitch-color:${colors[index % colors.length]};--x:${20 + ((index * 31) % 63)}%;--y:${18 + ((index * 23) % 66)}%;--size:${Math.max(9, 12 + usage * .22)}px"></span>`;
+    }).join("")}</div>
+    <div class="pitch-visual-list">${visualPitches.map((pitch, index) => `<div><i style="--pitch-color:${colors[index % colors.length]}"></i><span>${escapeHtml(pitch.name)}</span><b>${Number(pitch.pct || 0).toFixed(0)}%</b><em>${Number.isFinite(Number(pitch.speed)) ? `${Number(pitch.speed).toFixed(1)} mph` : "usage"}</em><small><u style="width:${Math.max(3, Math.min(100, Number(pitch.pct) || 0))}%"></u></small></div>`).join("")}</div>
+  </div>`;
   const hasBvp = Number(bvp.ab) > 0;
   const bvpTitle = hasBvp
     ? `CAREER VS ${escapeHtml(String(starter.name || "STARTER").split(" ").slice(-1)[0].toUpperCase())}`
@@ -3584,6 +3630,7 @@ function fillPitchArsenal(node, p) {
       <article class="pitch-type-card pitcher-team-pitch-card">
         <div class="pitch-type-head"><div><p class="arsenal-eyebrow">${escapeHtml(`${teamShort} vs pitch types`)}</p></div><span>SZN</span></div>
         <p class="pitch-rank-explainer">How this lineup handles each pitch. <b>1 handles</b> · <b>30 struggles</b>.</p>
+        ${pitchVisual}
         ${recommendation}
         <div class="pitch-rank-scale"><span>1 HANDLES</span><i></i><span>30 STRUGGLES</span></div>
         <div class="pitch-type-scroll"><table><thead><tr><th>PITCH</th><th>KD</th><th>WHIFF%</th><th>wOBA</th><th>HARD-HIT%</th><th>LINEUP RANK</th></tr></thead><tbody>${pitchRows}</tbody></table></div>
@@ -3601,6 +3648,7 @@ function fillPitchArsenal(node, p) {
         <p>${starter.jerseyNumber ? `#${val(starter.jerseyNumber)} <i></i>` : ""}${starter.gamesStarted ? `${val(starter.gamesStarted)} GS` : "Current season"}${starter.wins !== undefined && starter.losses !== undefined ? ` <i></i> ${val(starter.wins)}-${val(starter.losses)}` : ""}</p></div>
       </div>
       <div class="starter-pitch-gauges">${pitchPills}</div>
+      ${pitchVisual}
       <div class="starter-metrics">
         <div>${metricIcon("era")}<span>ERA</span><strong>${val(starter.era)}</strong></div>
         <div>${metricIcon("whip")}<span>WHIP</span><strong>${val(starter.whip)}</strong></div>
@@ -3616,6 +3664,19 @@ function fillPitchArsenal(node, p) {
       <div class="pitch-type-head"><div><p class="arsenal-eyebrow">${escapeHtml(String(p.player || "BATTER").split(" ").slice(-1)[0].toUpperCase())} VS PITCH TYPE</p></div></div>
       <div class="pitch-type-scroll"><table><thead><tr><th>PITCH TYPE</th><th>THROWN</th><th>USAGE</th><th>WHIFF%</th><th>AVG</th><th>SLG</th><th>wOBA</th><th>K%</th></tr></thead><tbody>${pitchRows}</tbody></table></div>
     </article>`;
+}
+
+function fillLineupStrip(node, p) {
+  const shell = node.querySelector(".lineup-strip-shell");
+  if (!shell || !p.teamInsightsParams) return;
+  shell.hidden = false;
+  shell.innerHTML = `<div class="lineup-strip-head"><span>Projected lineup</span><small>Loading batting order…</small></div><div class="lineup-strip is-loading">${Array.from({ length: 9 }, (_, i) => `<i style="--i:${i}"></i>`).join("")}</div>`;
+  requestTeamInsights(p.teamInsightsParams, "summary").then(data => {
+    if (!shell.isConnected) return;
+    const rows = (data.battingOrder || []).slice(0, 9);
+    if (!rows.length) { shell.hidden = true; return; }
+    shell.innerHTML = `<div class="lineup-strip-head"><span>${data.lineupConfirmed ? "Confirmed lineup" : "Projected lineup"}</span><small>${rows.length} hitters · batting order</small></div><div class="lineup-strip">${rows.map(row => `<div class="lineup-player"><b>${row.order}</b><img src="https://img.mlbstatic.com/mlb-photos/image/upload/w_120,q_auto:best/v1/people/${row.id}/headshot/silo/current" alt="${escapeHtml(row.name)}" loading="lazy"><span>${escapeHtml(String(row.name || "").split(" ").slice(-1)[0])}</span><small>${escapeHtml(row.position || "")}</small></div>`).join("")}</div>`;
+  }).catch(() => { if (shell.isConnected) shell.hidden = true; });
 }
 
 function fillSplitFactor(node, p) {
@@ -3660,7 +3721,10 @@ function fillMatchup(node, p) {
     const factors = (p.matchupFactors || []).map(f => {
       const impact = Number(f.impact || 0);
       const signed = `${impact > 0 ? "+" : ""}${impact}`;
-      return `<div class="matchup-factor"><div><b>${escapeHtml(f.name || "Factor")}</b><small>${escapeHtml(formatMatchupDetail(f.detail || "Unavailable"))}</small></div><strong>${signed} / ${Number(f.weight || 0)}</strong></div>`;
+      const factorScore = Number(f.score);
+      const fill = Number.isFinite(factorScore) ? Math.max(0, Math.min(100, factorScore)) : Math.max(0, Math.min(100, 50 + impact * 4));
+      const factorTone = impact > 0 ? "positive" : impact < 0 ? "negative" : "neutral";
+      return `<div class="matchup-factor ${factorTone}"><div class="matchup-factor-copy"><b>${escapeHtml(f.name || "Factor")}</b><strong>${signed}</strong><small>${escapeHtml(formatMatchupDetail(f.detail || "Unavailable"))}</small></div><div class="factor-track"><i style="--factor-fill:${fill}%"></i></div></div>`;
     }).join("");
     scoreCard.querySelector(".matchup-score-factors").innerHTML = factors;
   } else if (scoreCard) {
@@ -4793,7 +4857,7 @@ async function loadV2Board(force = false) {
 
   els.v2BoardEmpty.hidden = true;
   els.v2BoardError.hidden = true;
-  els.v2BoardList.innerHTML = "";
+  els.v2BoardList.innerHTML = Array.from({ length: 5 }, (_, index) => `<article class="board-card-skeleton" style="--i:${index}" aria-hidden="true"><i></i><div><b></b><span></span><small></small></div><em></em></article>`).join("");
   els.v2RefreshBtn.classList.add("is-loading");
   els.v2RefreshBtn.disabled = true;
 
@@ -4801,6 +4865,7 @@ async function loadV2Board(force = false) {
     const res = await fetch("/api/board", { cache: "no-store" });
     const data = await res.json();
     if (!res.ok || data.error) {
+      els.v2BoardList.innerHTML = "";
       els.v2BoardError.innerHTML = `<span class="status-mark status-mark-error" aria-hidden="true"></span><span class="state-copy"><strong>Props are temporarily unavailable</strong><small>Refresh in a moment to try again.</small></span>`;
       els.v2BoardError.hidden = false;
       return;
@@ -4810,6 +4875,7 @@ async function loadV2Board(force = false) {
     state.v2BoardData = data;
     renderBotBoard(data);
   } catch (err) {
+    els.v2BoardList.innerHTML = "";
     els.v2BoardError.innerHTML = `<span class="status-mark status-mark-error" aria-hidden="true"></span><span class="state-copy"><strong>Props are temporarily unavailable</strong><small>Refresh in a moment to try again.</small></span>`;
     els.v2BoardError.hidden = false;
   } finally {

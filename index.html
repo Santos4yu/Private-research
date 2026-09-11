@@ -22,6 +22,7 @@
 <link rel="stylesheet" href="jarvis.css" />
 <link rel="stylesheet" href="gamelog-premium.css" />
 <link rel="stylesheet" href="arsenal-redesign.css" />
+<link rel="stylesheet" href="feature-polish.css" />
 <style>
   /* Inline (not the external stylesheet) so it applies before ANY paint --
      this is what actually prevents the flash of the app before the auth
@@ -323,6 +324,7 @@
       <button class="lab-search-submit" id="research-search-submit" type="button" aria-label="Search players"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="2"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
     </div>
     <ul class="search-results" id="search-results" hidden></ul>
+    <div class="recent-searches" id="recent-searches" hidden></div>
   </div>
 
   <div class="browse-row intro-anim" id="browse-row">
@@ -744,6 +746,7 @@
     <!-- Pitch arsenal -->
     <section class="report-block arsenal-block" data-reveal hidden>
       <h3 class="block-title">⚾ Starter, BvP &amp; Pitch Arsenal</h3>
+      <div class="lineup-strip-shell" hidden></div>
       <div class="arsenal-card-grid"></div>
     </section>
 
