@@ -750,7 +750,7 @@ function switchTab(tab, options = {}) {
   document.title = `${SCREEN_TITLES[tab]} · Krazy Data`;
   if (changed && screenHistoryReady && options.history !== false) {
     const url = new URL(location.href);
-    url.hash = tab;
+    url.hash = tab === "research" && researchView === "games" ? "research/game-log" : tab;
     history.pushState({ ...history.state, vortexTab: tab }, "", url);
   }
   els.tabs.querySelectorAll("[data-tab]").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
@@ -800,12 +800,14 @@ function switchTab(tab, options = {}) {
 
 function wireAppNavigation() {
   const requested = location.hash.slice(1).split("/")[0];
+  const requestedGames = location.hash === "#research/game-log";
   const initialTab = Object.hasOwn(SCREEN_TITLES, requested) && (requested !== "admin" || state.adminUnlocked) ? requested : state.currentTab;
   const url = new URL(location.href);
   url.hash = initialTab;
   history.replaceState({ ...history.state, vortexTab: initialTab }, "", url);
   history.scrollRestoration = "manual";
   switchTab(initialTab, { history: false });
+  if(requestedGames){setResearchView("games",false);history.replaceState(history.state,"","#research/game-log");}
   screenHistoryReady = true;
   window.addEventListener("popstate", () => {
     // Reuse each sheet's existing Escape cleanup (including the game-log
@@ -815,6 +817,7 @@ function wireAppNavigation() {
     els.settingsPanel.hidden = true;
     setManualBetSlipOpen(false);
     const route = location.hash.slice(1).split("/")[0];
+    setResearchView(location.hash === "#research/game-log" ? "games" : "overview",false);
     const tab = Object.hasOwn(SCREEN_TITLES, route) && (route !== "admin" || state.adminUnlocked) ? route : "research";
     switchTab(tab, { history: false });
   });
@@ -2108,9 +2111,6 @@ function syncProfileHeaderWithProp(p) {
 }
 
 function clearReport() {
-  parkTrendExplorer();
-  els.panelResearch.classList.remove('research-trends-active');
-  researchTabsController = null;
   els.reportWrap.querySelector(".report")?.remove();
   removeResearchLoader();
   // Keep the mounted research-home buttons intact when a player or stat changes.
@@ -2119,8 +2119,7 @@ function clearReport() {
 
 /* ---------- Report rendering (Research tab) ---------- */
 
-function renderReport(p, options = {}) {
-  parkTrendExplorer();
+function renderReport(p) {
   hideResults();
   els.emptyState.hidden = true;
   els.reportWrap.querySelector(".report")?.remove();
@@ -2134,34 +2133,12 @@ function renderReport(p, options = {}) {
   }
 
   const node = buildReportNode(p);
-  researchTabsController = mountResearchTabs(node, p, {
-    initialTab: options.initialTab,
-    trendContent: els.gamelogOverlay,
-    onSelect: key => {
-      els.panelResearch.classList.toggle('research-trends-active', key === 'trend');
-      requestAnimationFrame(() => {
-        if (!node.isConnected || node.dataset.activeResearch !== key) return;
-        if (key === 'trend') {
-          if (trendSourceProp !== p) { trendSourceProp = p; loadInlineTrend(p); }
-          els.gamelogOverlay.hidden = false;
-          syncTrendSelection();
-          fitTrendViewport(true);
-        } else {
-          node.querySelector('.rr-prop-line').textContent = `${p.side} ${p.line} ${p.betType}`;
-          syncSaveButton(node.querySelector('.save-btn'), p.id);
-        }
-      });
-    },
-  });
+  mountResearchTabs(node, p);
   els.reportWrap.appendChild(node);
 
-  const back = document.createElement('button'); back.type = 'button'; back.className = 'trend-back';
-  back.setAttribute('aria-label', 'Back to player research'); back.textContent = '‹';
-  back.onclick = () => document.getElementById('research-home-back').click();
-  node.querySelector('.report-header').prepend(back);
   const saveBtn = node.querySelector(".save-btn");
   syncSaveButton(saveBtn, p.id);
-  saveBtn.addEventListener("click", () => toggleSave(node.dataset.activeResearch === 'trend' ? currentTrendSelection() : p, saveBtn));
+  saveBtn.addEventListener("click", () => toggleSave(p, saveBtn));
 
   const revealBlocks = node.querySelectorAll("[data-reveal]");
   revealBlocks.forEach((block, i) => {
@@ -2171,13 +2148,20 @@ function renderReport(p, options = {}) {
   requestAnimationFrame(() => {
     countUpScoreNum(node, p.score);
     fillHitRateBars(node, p.hitRates || {});
-    if (node.querySelector("#sparkline-holder")) fillSparkline(node, p.last5 || [], p.line);
+    fillSparkline(node, p.last5 || [], p.line);
   });
 
-  if (node.dataset.activeResearch !== 'trend' && state.currentTab === 'research') {
-    node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const expandBtn = node.querySelector(".last5-expand-btn");
+  if (p.gameLogChart && Object.keys(p.gameLogChart).length) {
+    expandBtn.addEventListener("click", () => openGameLogModal(p));
+  } else {
+    expandBtn.classList.add("last5-expand-disabled");
+    expandBtn.disabled = true;
   }
 
+  if (state.currentTab === "research") {
+    node.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
 /* ---------- Expandable game log modal (L5/L10/L15/L20/H2H) ---------- */
@@ -2233,10 +2217,6 @@ function setGameLogPreviewLine(value, settle = false) {
   const line = settle ? snapPropLine(raw) : raw;
   gameLogState.line = line;
   if (els.gamelogLineValue) els.gamelogLineValue.textContent = Number(line).toFixed(1);
-  syncTrendLines();
-  syncTrendSelection();
-  const caption=els.reportWrap.querySelector('.rr-report[data-active-research="trend"] .rr-prop-line');
-  if(caption)caption.textContent=`Over ${line.toFixed(1)} ${gameLogState.stat}`;
   if (settle) {
     regradeGameLog(line);
     renderGameLogTabs();
@@ -2257,8 +2237,6 @@ async function loadGameLogStat(stat) {
   els.gamelogStatTabs?.querySelectorAll("button").forEach((button) => { button.disabled = true; });
   els.gamelogChart.classList.add("is-loading");
   els.gamelogTitle.textContent = gameLogState.player || "Player";
-  const caption=els.reportWrap.querySelector('.rr-prop-line');
-  if(caption)caption.textContent=`Over ${Number(gameLogState.line).toFixed(1)} ${stat}`;
   els.gamelogStatTabs?.querySelectorAll("button").forEach((button) => button.classList.toggle("active", button.dataset.stat === stat));
   try {
     // Each market has its own PrizePicks baseline. Resolve that line before
@@ -2310,20 +2288,11 @@ async function loadGameLogStat(stat) {
       els.gamelogChart.classList.remove("is-loading");
       renderGameLogTabs();
       renderGameLogChart();
-      syncTrendLines();
-      syncTrendSelection();
     }
   }
 }
 
-// All entry points share the existing player Research > Trend panel.
 function openGameLogModal(p) {
-  switchTab('research', {scrollY:0});
-  if (currentResearchProp === p && researchTabsController) researchTabsController.select('trend');
-  else openExactProp(p, {initialTab:'trend'});
-}
-
-function loadInlineTrend(p) {
   loadGameLogPostedLines(p.betType, p.player);
   gameLogState.chart = p.gameLogChart || {};
   if (!gameLogState.chart.all) {
@@ -2352,7 +2321,10 @@ function loadInlineTrend(p) {
   // the actual opponent's team id.
   gameLogState.teamId = p.opponentTeamId || null;
   els.gamelogOverlay.hidden = false;
-
+  document.getElementById('research-games-empty').hidden=true;
+  switchTab('research',{history:false,scrollY:0});
+  setResearchView('games');
+  window.scrollTo({top:0,behavior:'instant'});
   els.gamelogTitle.textContent = p.player || "Player";
   if (els.gamelogPropBadge) els.gamelogPropBadge.textContent = gameLogStatCode(p.betType);
   const teamName = p.teamAbbr || p.teamName || (typeof p.team === "string" ? p.team : p.team?.abbreviation) || "";
@@ -2383,30 +2355,32 @@ function loadInlineTrend(p) {
 }
 
 let postedLinesToken = 0;
-let trendPostedLines = [];
-function syncTrendLines() {
-  const select = document.getElementById('trend-lines');
-  if (!select) return;
-  const line = Number(gameLogState.line);
-  const rows = trendPostedLines;
-  select.replaceChildren();
-  if (!rows.some(row=>Number(row.line)===line)) select.add(new Option(`${line.toFixed(1)} · Custom`,String(line)));
-  rows.forEach(row=>select.add(new Option(`${Number(row.line).toFixed(1)} · ${row.odds_type === 'goblin' ? 'Goblin' : row.odds_type === 'demon' ? 'Demon' : 'Regular'}`,String(row.line))));
-  select.value=String(line);
-  select.disabled=!rows.length;
-  select.title=rows.length ? 'Choose a posted PrizePicks line' : 'Posted lines unavailable. Adjust the line with the − and + buttons.';
-}
 async function loadGameLogPostedLines(stat, player = gameLogState.player) {
   const token = ++postedLinesToken;
-  trendPostedLines=[];
-  const select=document.getElementById('trend-lines');
-  if(select){select.disabled=true;select.replaceChildren(new Option('Loading lines…',''));}
+  let host = document.getElementById('gamelog-posted-lines');
+  if (!host) {
+    host = document.createElement('details'); host.id = 'gamelog-posted-lines'; host.className = 'posted-lines';
+    document.querySelector('.gamelog-toolbar').appendChild(host);
+  }
+  host.open = false;
+  host.innerHTML = '<summary>PrizePicks lines</summary><p>Loading posted lines…</p>';
   try {
     const feed = await requestFinderFeed();
-    if(token!==postedLinesToken)return;
-    trendPostedLines=feed.filter(row=>nameKey(row.player)===nameKey(player) && pitcherFinderStat(row.stat).label===stat).sort((a,b)=>a.line-b.line);
-  } catch (_) { if(token!==postedLinesToken)return; }
-  syncTrendLines();
+    if (token !== postedLinesToken) return;
+    const rows = feed.filter(row => nameKey(row.player) === nameKey(player) && pitcherFinderStat(row.stat).label === stat).sort((a,b) => a.line-b.line);
+    host.innerHTML = `<summary><img src="/prizepicks/logo.png" alt=""><span>Available lines<small>PrizePicks · ${rows.length} options</small></span><b class="posted-selected">${Number(gameLogState.line)}</b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary><div class="posted-options"></div>`;
+    const list = host.querySelector('div');
+    if (!rows.length) list.textContent = 'No posted lines available for this market.';
+    rows.forEach(row => {
+      const button = document.createElement('button'); button.type = 'button';
+      const label = row.odds_type === 'standard' ? 'Regular' : row.odds_type || 'Regular';
+      button.setAttribute('aria-pressed', String(Number(row.line) === Number(gameLogState.line)));
+      const icon = row.odds_type === 'goblin' ? '/prizepicks/goblin.png' : row.odds_type === 'demon' ? '/prizepicks/demon.png' : '/prizepicks/logo.png';
+      button.innerHTML = `<span class="posted-line-main"><b>${Number(row.line)}</b><img src="${icon}" alt="" /></span><span>${escapeHtml(label)}<small>${row.odds_type === 'standard' ? 'More / Less' : 'More only'}</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4 10-10"/></svg>`;
+      button.onclick = () => {setGameLogPreviewLine(Number(row.line), true); host.open = false; host.querySelector('.posted-selected').textContent = row.line; list.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed',String(b === button)));};
+      list.appendChild(button);
+    });
+  } catch (_) { if (token === postedLinesToken) host.innerHTML = '<summary>PrizePicks lines</summary><p>Posted lines unavailable. You can still explore a custom line.</p>'; }
 }
 
 async function fetchGameLogDetails(p) {
@@ -2482,9 +2456,6 @@ function filterGames(games) {
 }
 
 function renderGameLogSubfilters() {
-  const venue=document.querySelector('.trend-venue'); if(venue)venue.value=gameLogState.venueFilter;
-  const hand=document.querySelector('.trend-hand');
-  if(hand){hand.value=gameLogState.handFilter;hand.disabled=gameLogState.isPitcher;hand.closest('label').hidden=gameLogState.isPitcher;}
   els.gamelogSubfilters.hidden = false;
   els.glHandFilter.querySelectorAll(".gl-filter-chip").forEach((b) => {
     b.classList.toggle("active", b.dataset.hand === gameLogState.handFilter);
@@ -2500,6 +2471,7 @@ function renderGameLogSubfilters() {
 }
 
 function renderGameLogTabs() {
+  document.querySelectorAll(".research-game-windows button").forEach(b=>b.setAttribute("aria-pressed",String(gameLogState.window!=="h2h" && Number(b.dataset.count)===gameLogState.gameCount)));
   const max = gameLogPool().length;
   if (gameLogState.window !== "h2h") gameLogState.gameCount = Math.max(1, Math.min(gameLogState.gameCount, Math.max(1, max)));
   if (els.gamelogGamesCount) els.gamelogGamesCount.textContent = gameLogState.gameCount;
@@ -2510,19 +2482,7 @@ function renderGameLogTabs() {
     els.gamelogH2HToggle.hidden = !(gameLogState.chart?.h2h || []).length;
     els.gamelogH2HToggle.classList.toggle("active", gameLogState.window === "h2h");
   }
-  document.querySelectorAll('.research-game-windows [data-count]').forEach(button=>{
-    const count=button.dataset.count==='max'?max:Number(button.dataset.count);
-    button.disabled=!max;
-    button.setAttribute('aria-pressed',String(gameLogState.window!=='h2h' && count===gameLogState.gameCount && (button.dataset.count!=='max' || ![5,10,15,20].includes(count))));
-  });
-  if(els.gamelogH2HToggle)els.gamelogH2HToggle.setAttribute('aria-pressed',String(gameLogState.window==='h2h'));
   const seasons = [...new Set(recentGameLogSource().map((game) => String(game.season || String(game.fullDate || "").slice(0, 4))).filter((season) => /^\d{4}$/.test(season)))].sort().concat("all");
-  const seasonSelect=document.querySelector('.trend-season');
-  if(seasonSelect){
-    const options=seasons.map(season=>`<option value="${season}">${season==='all'?'All':season}</option>`).join('');
-    if(seasonSelect.innerHTML!==options)seasonSelect.innerHTML=options;
-    seasonSelect.value=gameLogState.season;
-  }
   if (els.gamelogSeasonRow) {
     els.gamelogSeasonRow.innerHTML = seasons.map((season) => `<button type="button" data-season="${season}" class="${gameLogState.season === season ? "active" : ""}">${season === "all" ? "All" : season}</button>`).join("");
   }
@@ -2577,7 +2537,7 @@ function renderGameLogChart() {
   const line = gameLogState.line;
   // Match the responsive CSS track height exactly; using a shorter mobile
   // math scale made low lines such as 0.5 float far above the baseline.
-  const trackPx = els.gamelogOverlay.classList.contains("research-game-page") || window.innerWidth <= 680
+  const trackPx = window.innerWidth <= 680
     ? Math.max(48, holder.clientHeight - 64)
     : window.innerWidth <= 900 ? 238 : 280;
   holder.style.setProperty('--plot-height', `${trackPx}px`);
@@ -2671,65 +2631,32 @@ function renderGameLogChart() {
   gameLogState.animationDirection = "none";
 }
 
-let researchTabsController = null;
-let trendSourceProp = null;
-function currentTrendSelection() {
-  if (!trendSourceProp || (gameLogState.stat===trendSourceProp.betType && Number(gameLogState.line)===Number(trendSourceProp.line))) return trendSourceProp;
-  const row={player:gameLogState.player,stat:gameLogState.stat,line:gameLogState.line,headshot:trendSourceProp.headshot,team:trendSourceProp.teamAbbr || trendSourceProp.team,odds_type:trendPostedLines.find(row=>Number(row.line)===Number(gameLogState.line))?.odds_type || 'standard'};
-  return {...pitcherFinderGameLogProp(row),gameLogChart:gameLogState.chart,matchup:{opponent:gameLogState.opponent},opponentTeamId:gameLogState.teamId};
-}
-function syncTrendSelection() {
-  const report=els.reportWrap.querySelector('.rr-report[data-active-research="trend"]');
-  if(!report || !trendSourceProp)return;
-  report.querySelector('.rr-prop-line').textContent=`Over ${Number(gameLogState.line).toFixed(1)} ${gameLogState.stat}`;
-  const save=report.querySelector('.save-btn'); const prop=currentTrendSelection();
-  syncSaveButton(save,prop.id);
-  save.setAttribute('aria-label',`${state.savedProps.has(prop.id)?'Remove':'Add'} ${prop.player} Over ${prop.line} ${prop.betType} ${state.savedProps.has(prop.id)?'from':'to'} My Slip`);
-}
-function parkTrendExplorer() {
-  if (els.gamelogOverlay?.closest('.report')) {
-    els.gamelogOverlay.hidden = true;
-    document.body.append(els.gamelogOverlay);
-  }
-}
-function fitTrendViewport(enter = false) {
-  const report = els.reportWrap.querySelector('.rr-report[data-active-research="trend"]');
-  if (!report || state.currentTab !== 'research') return;
-  if (enter) report.scrollIntoView({block:'start', behavior:'instant'});
-  const viewport = window.visualViewport;
-  const nav = document.querySelector('.mobile-app-nav');
-  const navReserve = window.innerWidth <= 680 ? (nav?.offsetHeight || 70) + 20 : 16;
-  const available = (viewport?.height || window.innerHeight) - Math.max(0, report.getBoundingClientRect().top) - navReserve;
-  report.style.setProperty('--trend-available-height', `${Math.max(280, available)}px`);
-  if (trendSourceProp) renderGameLogChart();
+let researchView = 'overview';
+function setResearchView(view, push = true) {
+  researchView = view === 'games' ? 'games' : 'overview';
+  const games = researchView === 'games';
+  document.getElementById('research-overview').hidden = games;
+  document.getElementById('research-games').hidden = !games;
+  document.querySelectorAll('[data-research-view]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.researchView===researchView)));
+  if(push) history.pushState({...history.state,vortexTab:'research'},'',games?'#research/game-log':'#research');
+  if(games && gameLogState.player) requestAnimationFrame(renderGameLogChart);
 }
 function mountResearchGamePage() {
-  els.gamelogOverlay.classList.remove('modal-overlay');
-  els.gamelogOverlay.classList.add('research-game-page');
-  els.gamelogClose.hidden = true;
-  els.gamelogFilterToggle.hidden = true;
-  els.gamelogFilterClose.hidden = true;
-  const workbench = document.querySelector('.gamelog-workbench');
-  workbench.append(els.gamelogFilterPanel);
-  const row = document.createElement('div'); row.className='trend-filter-row';
-  row.innerHTML = '<label>Season<select class="trend-season" aria-label="Season"><option value="all">All</option></select></label><label>Venue<select class="trend-venue" aria-label="Venue"><option value="all">All</option><option value="home">Home</option><option value="road">Road</option></select></label><label class="trend-hand-label">Pitcher hand<select class="trend-hand" aria-label="Pitcher hand"><option value="all">All</option><option value="L">vs LHP</option><option value="R">vs RHP</option></select></label>';
-  els.gamelogFilterPanel.prepend(row);
-  const filter = (selector, key) => row.querySelector(selector).addEventListener('change', event => {
-    gameLogState[key] = event.target.value;
-    renderGameLogTabs(); renderGameLogChart();
-  });
-  filter('.trend-season','season'); filter('.trend-venue','venueFilter'); filter('.trend-hand','handFilter');
+  const overview=document.createElement('div');overview.id='research-overview';
+  while(els.panelResearch.firstChild) overview.append(els.panelResearch.firstChild);
+  const tabs=document.createElement('nav');tabs.className='research-view-tabs';tabs.setAttribute('aria-label','Research views');
+  tabs.innerHTML='<button type="button" data-research-view="overview" aria-selected="true">Player research</button><button type="button" data-research-view="games" aria-selected="false">Game log</button>';
+  const page=document.createElement('div');page.id='research-games';page.hidden=true;
+  page.innerHTML='<div id="research-games-empty" class="research-games-empty"><h2>Every game. A clearer picture.</h2><p>Choose a prop in Finder or open a player’s game log to explore recent results, alternate lines, and matchup filters.</p><button type="button" id="research-games-finder">Find a prop</button></div>';
+  els.panelResearch.append(tabs,overview,page);
+  els.gamelogOverlay.classList.add('research-game-page');page.append(els.gamelogOverlay);els.gamelogClose.hidden=true;
+  tabs.onclick=event=>{const b=event.target.closest('[data-research-view]');if(b)setResearchView(b.dataset.researchView);};
+  document.getElementById('research-games-finder').onclick=()=>{switchTab('v2');document.querySelector('#board-filter-row [data-board-filter="strikeouts"]')?.click();};
   const quick=document.createElement('div');quick.className='research-game-windows';
-  quick.innerHTML=[5,10,15,20].map(n=>`<button type="button" data-count="${n}">L${n}</button>`).join('')+'<button type="button" data-count="max">Max</button>';
-  quick.append(els.gamelogH2HToggle);
+  quick.innerHTML=[5,10,15,20].map(n=>`<button type="button" data-count="${n}">L${n}</button>`).join('');
   document.querySelector('.gamelog-windowbar').after(quick);
-  quick.addEventListener('click',event=>{const button=event.target.closest('[data-count]');if(button)setGameLogCount(button.dataset.count==='max'?gameLogPool().length:Number(button.dataset.count),'none');});
-  const lineControl=document.createElement('label'); lineControl.className='trend-lines-control';
-  lineControl.innerHTML='<span>PrizePicks lines</span><select id="trend-lines" aria-label="PrizePicks alternate line"><option>Loading lines…</option></select>';
-  document.querySelector('.gamelog-toolbar').append(lineControl);
-  lineControl.querySelector('select').onchange=event=>setGameLogPreviewLine(Number(event.target.value),true);
-  window.addEventListener('resize',()=>fitTrendViewport());
-  window.visualViewport?.addEventListener('resize',()=>fitTrendViewport());
+  quick.onclick=event=>{const b=event.target.closest('[data-count]');if(b){gameLogState.window='recent';setGameLogCount(Number(b.dataset.count),'none');}};
+  window.addEventListener('resize',()=>{if(state.currentTab==='research' && researchView==='games' && gameLogState.player)renderGameLogChart();});
 }
 function wireGameLogModal() {
   mountResearchGamePage();
@@ -3225,7 +3152,7 @@ function teamLoadingMarkup(title, detail) {
  * live result entirely or trigger a pointless (and possibly different, since
  * stats move) re-fetch instead of showing what was actually saved.
  */
-function openExactProp(p, options = {}) {
+function openExactProp(p) {
   selectPlayer(p.player, null, { autoSelectStat: false }); // builds the profile shell (avatar, stat select)
   cmd.player = p.player;
   cmd.stat = p.betType;
@@ -3265,7 +3192,7 @@ function openExactProp(p, options = {}) {
   els.linePicker.hidden = false;
   els.lineNoData.hidden = true;
 
-  renderReport(p, options);
+  renderReport(p);
 }
 
 function buildReportNode(p) {
@@ -5537,13 +5464,6 @@ function wireSlipAnalyzer() {
 }
 
 function setGameLogFiltersOpen(open) {
-  if (els.gamelogOverlay.classList.contains('research-game-page')) {
-    gameLogState.filtersOpen = false;
-    els.gamelogFilterPanel.hidden = false;
-    els.gamelogFilterPanel.classList.remove('is-closing');
-    els.gamelogStudio.classList.remove('filters-open');
-    return;
-  }
   gameLogState.filtersOpen = Boolean(open);
   clearTimeout(gameLogState.filterCloseTimer);
   if (gameLogState.filtersOpen) {
@@ -5574,9 +5494,9 @@ function gameLogPool() {
 }
 
 function setGameLogCount(value, direction = "initial") {
-  gameLogState.window = "recent";
   const max = Math.max(1, gameLogPool().length);
   gameLogState.gameCount = Math.max(1, Math.min(max, Number(value) || 1));
+  gameLogState.window = "recent";
   gameLogState.animationDirection = direction;
   renderGameLogTabs();
   renderGameLogChart();

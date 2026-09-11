@@ -18,7 +18,7 @@ function element(tag, className, text) {
 
 // Move the existing, populated sections rather than copying them: all event
 // handlers, data-availability gates, chart nodes, and save state stay intact.
-export function mountResearchTabs(report, prop, options = {}) {
+export function mountResearchTabs(report, prop) {
   const uid = `research-${++reportSequence}`;
   report.classList.add('rr-report');
   polishResearchCards(report);
@@ -104,13 +104,6 @@ export function mountResearchTabs(report, prop, options = {}) {
   move('.research-health-block', 'context');
   move('.model-confirm', 'context');
 
-  if (options.trendContent) {
-    // The interactive explorer is the Trends content, not a second route/sheet.
-    formBlock.remove();
-    [...panels.get('trend').children].forEach(block => panels.get('context').append(block));
-    panels.get('trend').append(options.trendContent);
-  }
-
   const verdict = header.querySelector('.verdict-strip');
   if (verdict) { verdict.classList.add('rr-verdict'); panels.get('overview').prepend(verdict); }
   const sizing = header.querySelector('.unit-row');
@@ -133,7 +126,6 @@ export function mountResearchTabs(report, prop, options = {}) {
 
   const select = (key, { focus = false, scroll = false } = {}) => {
     selectedTab = key;
-    report.dataset.activeResearch = key;
     buttons.forEach((button, name) => {
       button.setAttribute('aria-selected', String(name === key));
       button.tabIndex = name === key ? 0 : -1;
@@ -144,7 +136,6 @@ export function mountResearchTabs(report, prop, options = {}) {
     if (scroll && report.getBoundingClientRect().top < 0) {
       report.scrollIntoView({ block: 'start', behavior: 'instant' });
     }
-    options.onSelect?.(key, panels.get(key));
   };
   buttons.forEach((button, key) => {
     button.addEventListener('click', () => select(key, { scroll: true }));
@@ -158,6 +149,5 @@ export function mountResearchTabs(report, prop, options = {}) {
       select(tabs[next].key, { focus: true, scroll: true });
     });
   });
-  select(options.initialTab || selectedTab);
-  return { select, panels, buttons };
+  select(selectedTab);
 }
