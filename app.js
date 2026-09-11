@@ -5051,10 +5051,10 @@ function renderBotBoard(data) {
     const matchupDiff = currentMatchup(b) - currentMatchup(a);
     const vortexDiff = (Number(b.vortex_score) || 0) - (Number(a.vortex_score) || 0);
     if (state.boardFilter === "matchup") {
-      const gameTimeDiff = matchupGameDetails(a).timestamp - matchupGameDetails(b).timestamp;
-      if (gameTimeDiff) return gameTimeDiff;
       if (matchupDiff) return matchupDiff;
       if (vortexDiff) return vortexDiff;
+      const gameTimeDiff = matchupGameDetails(a).timestamp - matchupGameDetails(b).timestamp;
+      if (gameTimeDiff) return gameTimeDiff;
     } else {
       if (vortexDiff) return vortexDiff;
       if (matchupDiff) return matchupDiff;
@@ -5079,7 +5079,10 @@ function renderBotBoard(data) {
   }
   const totalMatchups = state.boardFilter === "matchup" ? props.length : 0;
   if (state.boardFilter === "matchup") {
-    props = props.slice(0, state.matchupDisplayLimit);
+    // Always expose every Strong/Elite matchup immediately. Lower grades use
+    // progressive batches so a 250-card slate remains smooth on mobile.
+    const strongCount = props.filter(p => Number(p.stats?.matchup_score) >= 75).length;
+    props = props.slice(0, Math.max(state.matchupDisplayLimit, strongCount));
   }
   props = props.map((p, index) => ({ ...p, _boardIndex: index }));
   state.v2RenderedProps = props;
@@ -5174,7 +5177,7 @@ function renderBotBoard(data) {
     const more = document.createElement("button");
     more.type = "button";
     more.className = "v2-matchup-more";
-    more.textContent = `Show 40 more (${totalMatchups - props.length} remaining)`;
+    more.textContent = `Show 40 more matchups (${totalMatchups - props.length} remaining)`;
     more.addEventListener("click", () => {
       state.matchupDisplayLimit += 40;
       renderBotBoard(state.v2BoardData);
