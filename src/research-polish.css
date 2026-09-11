@@ -5,11 +5,33 @@
 .line-movement-card{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;min-height:42px;padding:4px 14px;border-bottom:1px solid var(--theme-border);background:var(--theme-panel)}.line-movement-card>div:first-child{display:grid;gap:2px}.line-movement-card span{color:var(--theme-dim);font:700 8px var(--font-sans);letter-spacing:.12em}.line-movement-card strong{font:650 11px var(--font-sans)}.line-movement-chart{height:30px}.line-movement-chart svg{width:100%;height:100%;display:block;overflow:visible}.line-movement-chart path{fill:none;stroke:var(--theme-accent);stroke-width:2;vector-effect:non-scaling-stroke}.line-movement-chart circle{fill:var(--theme-accent)}#chart-label-toggle{width:38px;height:38px;border:1px solid var(--theme-border);border-radius:50%;background:var(--theme-panel-2);color:var(--theme-dim);font:650 10px var(--font-sans)}.chart-labels-collapsed :is(.gl-opponent-logo,.gl-val){opacity:0;pointer-events:none}.gamelog-summary>div:first-child{border-radius:12px;background:linear-gradient(180deg,color-mix(in srgb,var(--theme-accent) 10%,transparent),transparent)}
 .prop-compare-tray{position:fixed;z-index:115;left:50%;bottom:calc(var(--app-bottom,84px) + 12px);translate:-50%;display:flex;align-items:center;gap:8px;padding:7px 8px 7px 12px;border:1px solid var(--theme-border);border-radius:20px;background:color-mix(in srgb,var(--theme-panel) 95%,transparent);box-shadow:0 14px 40px #0008;backdrop-filter:blur(18px)}.prop-compare-tray[hidden]{display:none}.prop-compare-tray>span{color:var(--theme-dim);font:700 11px var(--font-sans)}.prop-compare-tray button{min-height:44px;border:0;border-radius:14px;padding:0 16px;background:var(--theme-accent);color:var(--theme-on-accent);font-weight:700}.prop-compare-tray button:disabled{opacity:.45}.prop-compare-tray [data-compare-clear]{width:44px;padding:0;background:transparent;color:var(--theme-dim);font-size:22px}
 .comparison-sheet{position:fixed;z-index:150;inset:0;display:flex;align-items:flex-end;justify-content:center;padding:12px;background:#000b;backdrop-filter:blur(8px)}.comparison-sheet[hidden]{display:none}.comparison-panel{width:min(680px,100%);max-height:78dvh;overflow:hidden;border:1px solid var(--theme-border);border-radius:22px;background:var(--theme-panel);box-shadow:0 24px 70px #000a}.comparison-panel>header{display:flex;align-items:center;justify-content:space-between;padding:18px}.comparison-panel header span{color:var(--theme-accent);font:700 9px var(--font-sans);letter-spacing:.14em}.comparison-panel h2,.comparison-panel h3{margin:3px 0 0;font-size:22px}.comparison-panel header p{margin:4px 0 0;color:var(--theme-dim);font-size:13px}.comparison-panel header button{width:44px;height:44px;border:0;border-radius:50%;background:var(--theme-panel-2);color:var(--theme-text);font-size:22px}.comparison-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;max-height:calc(78dvh - 82px);overflow:auto;padding:0 16px 18px}.comparison-grid article{padding:14px;border:1px solid var(--theme-border);border-radius:16px;background:var(--theme-panel-2)}.comparison-grid article>div{display:grid;gap:3px;min-width:0}.comparison-grid article>div span{color:var(--theme-dim);font-size:11px}.comparison-grid article>section{display:grid;grid-template-columns:1fr 1fr;margin:12px 0}.comparison-grid article>section span{padding:8px 4px;border-top:1px solid var(--theme-border);color:var(--theme-dim);font-size:9px}.comparison-grid article>section b{display:block;margin-top:3px;color:var(--theme-text);font-size:14px}.comparison-grid article>button,.quick-grid button{width:100%;min-height:46px;border:0;border-radius:12px;background:var(--theme-accent);color:var(--theme-on-accent);font-weight:700}.quick-grid{display:grid;gap:7px;padding:0 16px 18px}.quick-grid button{background:var(--theme-panel-2);color:var(--theme-text);border:1px solid var(--theme-border)}
+
+/* The research view is a fixed app surface: controls take only the room they
+   need and the chart absorbs the remaining viewport height. */
+body:has(#gamelog-overlay:not([hidden])){overflow:hidden!important}
+:root[data-theme] #gamelog-overlay{align-items:stretch!important;padding:10px!important;overflow:hidden!important}
+:root[data-theme] #gamelog-overlay .gamelog-modal{display:flex!important;flex-direction:column!important;width:min(1380px,100%)!important;height:calc(100dvh - 20px)!important;max-height:calc(100dvh - 20px)!important;overflow:hidden!important}
+:root[data-theme] #gamelog-overlay .modal-head,:root[data-theme] #gamelog-overlay .gamelog-workbench{flex:0 0 auto!important}
+:root[data-theme] #gamelog-overlay .gamelog-line-control{display:none!important}
+:root[data-theme] #gamelog-overlay .gamelog-toolbar{grid-template-columns:minmax(0,1fr)!important}
+:root[data-theme] #gamelog-overlay .gamelog-studio{flex:1 1 auto!important;min-height:0!important;overflow:hidden!important}
+:root[data-theme] #gamelog-overlay .gamelog-stage{display:flex!important;flex-direction:column!important;min-height:0!important;overflow:hidden!important}
+:root[data-theme] #gamelog-overlay .gamelog-chart{flex:1 1 auto!important;height:0!important;min-height:0!important;overflow:hidden!important}
+:root[data-theme] #gamelog-overlay .gamelog-chart-track{height:100%!important;min-height:0!important}
+@media(max-height:820px) and (min-width:681px){
+ :root[data-theme] #gamelog-overlay .modal-head{min-height:82px!important;padding:12px 22px!important}
+ :root[data-theme] #gamelog-overlay .gamelog-player-cutout{width:50px;height:50px}
+ :root[data-theme] #gamelog-overlay .gamelog-workbench{padding:8px 22px!important}
+ :root[data-theme] #gamelog-overlay .posted-lines{min-height:54px!important}
+ .gamelog-range-chips button{min-height:38px}
+ .line-movement-card{min-height:36px}
+ :root[data-theme] #gamelog-overlay .gamelog-summary{padding:9px 0!important}
+}
 @media(max-width:680px){
  body:has(#gamelog-overlay:not([hidden])) .mobile-app-nav,body:has(#gamelog-overlay:not([hidden])) .prop-compare-tray{display:none!important}
  body.gamelog-scroll-locked{overflow:hidden!important;touch-action:none}
  :root[data-theme] #gamelog-overlay{inset:0!important;padding:0!important;align-items:stretch!important;justify-content:stretch!important;overflow:hidden!important}
- :root[data-theme] #gamelog-overlay .gamelog-modal{width:100%!important;height:100dvh!important;max-height:none!important;border:0!important;border-radius:0!important;overflow:hidden!important;overscroll-behavior:none}
+ :root[data-theme] #gamelog-overlay .gamelog-modal{width:100%!important;height:100dvh!important;max-height:100dvh!important;border:0!important;border-radius:0!important;overflow:hidden!important;overscroll-behavior:none}
  :root[data-theme] #gamelog-overlay .modal-head{padding:max(10px,env(safe-area-inset-top)) 14px 8px!important}
  :root[data-theme] #gamelog-overlay .gamelog-workbench{padding:4px 12px 7px!important}
  :root[data-theme] #gamelog-overlay .gamelog-toolbar{grid-template-columns:1fr!important;gap:4px!important}
@@ -22,5 +44,17 @@
  :root[data-theme] #gamelog-overlay .gamelog-windowbar{margin:3px 0 0!important}.gamelog-range-chips{margin:5px 0 2px}
  :root[data-theme] #gamelog-overlay .gamelog-studio{flex:1!important;min-height:0!important;overflow:hidden!important}.line-movement-card{min-height:38px;padding-block:2px}:root[data-theme] #gamelog-overlay .gamelog-summary{padding:7px 6px!important}:root[data-theme] #gamelog-overlay .gamelog-summary strong{font-size:21px!important}:root[data-theme] #gamelog-overlay .gamelog-chart{flex:1!important;height:0!important;min-height:0!important;padding-top:20px!important;padding-bottom:28px!important;overflow:hidden!important}
  #gamelog-share{flex:0 0 44px}.gamelog-heading{touch-action:pan-y}.finder-player-cell{padding-right:4px!important}.finder-compare-button,.finder-slip-star{flex:0 0 42px!important;width:42px!important}.comparison-grid{grid-template-columns:1fr}.comparison-panel{max-height:82dvh}.comparison-grid{max-height:calc(82dvh - 82px)}
+}
+@media(max-width:680px) and (max-height:740px){
+ :root[data-theme] #gamelog-overlay .modal-head{min-height:64px!important}
+ :root[data-theme] #gamelog-overlay .gamelog-player-cutout{width:42px;height:42px}
+ :root[data-theme] #gamelog-overlay .gamelog-heading-row .modal-title{font-size:18px!important}
+ :root[data-theme] #gamelog-overlay .gamelog-stat-tabs button{min-height:36px!important}
+ :root[data-theme] #gamelog-overlay .posted-lines summary{min-height:34px!important}
+ .gamelog-range-chips button{min-height:38px}
+ :root[data-theme] #gamelog-overlay .gamelog-window-stepper,:root[data-theme] #gamelog-overlay .gamelog-h2h-toggle{height:38px!important}
+ .line-movement-card{min-height:34px}
+ :root[data-theme] #gamelog-overlay .gamelog-summary{padding:5px 4px!important}
+ :root[data-theme] #gamelog-overlay .gamelog-summary strong{font-size:18px!important}
 }
 @media(prefers-reduced-motion:reduce){.finder-compare-button,#gamelog-share{transition:none!important}}
