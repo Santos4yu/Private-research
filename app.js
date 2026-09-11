@@ -2403,6 +2403,8 @@ function openGameLogModal(p) {
   setGameLogFiltersOpen(false);
   renderGameLogTabs();
   renderGameLogChart();
+  gameLogLayoutSignature = "";
+  stabilizeGameLogLayout();
 
   // Career H2H is loaded lazily for every prop when the explorer opens.
   // Batter props also resolve opposing-starter handedness; pitcher props do
@@ -2559,6 +2561,22 @@ function renderGameLogTabs() {
   renderGameLogSubfilters();
 }
 
+let gameLogLayoutFrame = 0;
+let gameLogLayoutSignature = "";
+function stabilizeGameLogLayout() {
+  cancelAnimationFrame(gameLogLayoutFrame);
+  gameLogLayoutFrame = requestAnimationFrame(() => {
+    gameLogLayoutFrame = requestAnimationFrame(() => {
+      if (els.gamelogOverlay?.hidden || !els.gamelogChart) return;
+      const rect = els.gamelogChart.getBoundingClientRect();
+      const signature = `${Math.round(rect.width)}x${Math.round(rect.height)}`;
+      if (!rect.width || !rect.height || signature === gameLogLayoutSignature) return;
+      gameLogLayoutSignature = signature;
+      renderGameLogChart();
+    });
+  });
+}
+
 function renderGameLogChart() {
   const pool = gameLogPool();
   const games = gameLogState.window === "h2h" ? pool : pool.slice(-gameLogState.gameCount);
@@ -2704,6 +2722,10 @@ function wireGameLogModal() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !els.gamelogOverlay.hidden) closeGameLogModal();
   });
+  window.addEventListener("orientationchange", stabilizeGameLogLayout);
+  window.visualViewport?.addEventListener("resize", stabilizeGameLogLayout);
+  document.fonts?.ready?.then(stabilizeGameLogLayout).catch(() => {});
+  if (typeof ResizeObserver === "function") new ResizeObserver(stabilizeGameLogLayout).observe(els.gamelogChart);
   const wireStableAction = (button, action) => {
     if (!button) return;
     const activate = (event) => {
