@@ -36,7 +36,10 @@
 
 .matchup-game-logos>.matchup-game-logo{position:absolute;top:2px;display:grid;place-items:center;width:32px;height:32px;padding:2px;border:0;border-radius:0;background:transparent;overflow:visible}
 .matchup-game-logos>.matchup-game-logo:first-child{left:0;z-index:2}.matchup-game-logos>.matchup-game-logo:last-child{right:0}
-.matchup-game-logos>.matchup-game-logo img{position:static!important;width:100%!important;height:100%!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;object-fit:contain}
+.matchup-game-logos>.matchup-game-logo img{position:static!important;width:100%!important;height:100%!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;object-fit:contain;transform:scale(var(--team-logo-scale,.84));transform-origin:center;filter:drop-shadow(0 2px 3px rgba(0,0,0,.2))}
+.matchup-game-logo:is([data-team-id="108"],[data-team-id="109"],[data-team-id="117"],[data-team-id="120"],[data-team-id="121"],[data-team-id="133"],[data-team-id="136"],[data-team-id="139"],[data-team-id="140"]){--team-logo-scale:.98}
+.matchup-game-logo:is([data-team-id="110"],[data-team-id="111"],[data-team-id="112"],[data-team-id="118"],[data-team-id="119"],[data-team-id="137"],[data-team-id="141"],[data-team-id="143"],[data-team-id="144"],[data-team-id="145"],[data-team-id="146"],[data-team-id="147"]){--team-logo-scale:.78}
+.matchup-game-logo:is([data-team-id="113"],[data-team-id="114"],[data-team-id="115"],[data-team-id="116"],[data-team-id="134"],[data-team-id="135"],[data-team-id="138"],[data-team-id="142"],[data-team-id="158"]){--team-logo-scale:.86}
 .matchup-game-logos>.matchup-game-logo small{position:absolute;inset:2px;place-items:center;border:1px solid var(--theme-border);border-radius:50%;background:var(--theme-panel-2);color:var(--theme-text);font:800 7px Sora,sans-serif}.matchup-game-logos>.matchup-game-logo small:not([hidden]){display:grid}
 .matchup-game-trigger-icon:has(.trigger-logos){width:48px;flex-basis:48px;padding:0;background:transparent}.trigger-logos{display:block;width:48px;height:36px}
 
