@@ -4865,65 +4865,6 @@ function boardMatchupLabel(score) {
   return "UNFAVORABLE";
 }
 
-async function refreshVisibleMatchupScores(props) {
-  const refreshable = props.filter((p) => p.sport === "MLB"
-    && BOT_STAT_TO_RESEARCH_STAT[p.stat_type]
-    && p.stats?._live_matchup_ready !== true
-    && p.stats?._live_matchup_pending !== true);
-  if (!refreshable.length) return;
-
-  // The mirrored board contains the score calculated by the bot at scan time.
-  // Every Props view must use the current Research model, not only Matchup.
-  refreshable.forEach((p) => {
-    p.stats = p.stats || {};
-    p.stats._live_matchup_ready = false;
-    p.stats._live_matchup_pending = true;
-  });
-  const queue = [...refreshable];
-  let completed = 0;
-  // These are independent serverless reads. A wider pool keeps the Matchup
-  // view responsive without making users wait for sequential player cards.
-  const workers = Array.from({ length: Math.min(12, queue.length) }, async () => {
-    while (queue.length) {
-      const p = queue.shift();
-      const stat = BOT_STAT_TO_RESEARCH_STAT[p.stat_type];
-      const side = p.stats?.side === "under" ? "under" : "over";
-      try {
-        const url = `${API_SOURCE}?player=${encodeURIComponent(p.player_name)}&stat=${encodeURIComponent(stat)}&line=${p.line}&side=${side}`;
-        const res = await fetch(url, { cache: "no-store" });
-        const live = await res.json();
-        if (!res.ok || live.error || live.matchupScore == null
-            || !Number.isFinite(Number(live.matchupScore))) {
-          throw new Error("Current matchup score unavailable");
-        }
-        Object.assign(p.stats, {
-          matchup_score: Number(live.matchupScore),
-          matchup_label: live.matchupLabel,
-          matchup_coverage: live.matchupCoverage,
-          matchup_factors: live.matchupFactors || [],
-          _live_matchup_ready: true,
-          _live_matchup_pending: false,
-        });
-      } catch (_) {
-        // Never relabel the stored score as current when live research fails.
-        p.stats._live_matchup_pending = false;
-        p.stats._live_matchup_failed = true;
-      } finally {
-        completed += 1;
-        // Do not hold the whole board behind the slowest request. Publish a
-        // progressively improving ranking while the remaining candidates run.
-        if (completed % 8 === 0 && state.v2BoardData) {
-          renderBotBoard(state.v2BoardData, { scoresAreLive: true });
-        }
-      }
-    }
-  });
-  await Promise.all(workers);
-  if (state.v2BoardData) {
-    renderBotBoard(state.v2BoardData, { scoresAreLive: true });
-  }
-}
-
 function matchupGameDetails(prop) {
   const stats = prop.stats || {};
   const ownName = stats.team_abbr || stats.team || prop.team_abbr || prop.team || "";
@@ -4986,7 +4927,7 @@ function renderMatchupGamePicker(props) {
   return games;
 }
 
-function renderBotBoard(data, { scoresAreLive = false } = {}) {
+function renderBotBoard(data) {
   const recommendedProps = data.props || [];
   const matchupResearch = data.matchup_research || [];
   const researchPitchers = data.pitcher_research || [];
@@ -5011,8 +4952,8 @@ function renderBotBoard(data, { scoresAreLive = false } = {}) {
   // Sort each view by the score named by that view: Matchup uses the
   // authoritative 0-100 matchup grade; every prop-market tab uses VORTEX.
   props = props.sort((a, b) => {
-    const currentMatchup = (p) => p.stats?._live_matchup_ready === true
-      ? (Number(p.stats?.matchup_score) || 0)
+    const currentMatchup = (p) => Number.isFinite(Number(p.stats?.matchup_score))
+      ? Number(p.stats.matchup_score)
       : -1;
     const matchupDiff = currentMatchup(b) - currentMatchup(a);
     const vortexDiff = (Number(b.vortex_score) || 0) - (Number(a.vortex_score) || 0);
@@ -5044,7 +4985,7 @@ function renderBotBoard(data, { scoresAreLive = false } = {}) {
     });
   }
   const totalMatchups = state.boardFilter === "matchup" ? props.length : 0;
-  if (state.boardFilter === "matchup" && scoresAreLive) {
+  if (state.boardFilter === "matchup") {
     props = props.slice(0, state.matchupDisplayLimit);
   }
   props = props.map((p, index) => ({ ...p, _boardIndex: index }));
@@ -5053,7 +4994,7 @@ function renderBotBoard(data, { scoresAreLive = false } = {}) {
     ? new Date(data.generated_at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
     : "recently";
   els.v2BoardDate.textContent = props.length
-    ? `${state.boardFilter === "matchup" && scoresAreLive && totalMatchups > props.length ? `${props.length} of ${totalMatchups}` : props.length} ${state.boardFilter === "matchup" ? `matchup${totalMatchups === 1 ? "" : "s"}` : `prop${props.length === 1 ? "" : "s"}`} · updated ${boardUpdatedAt}`
+    ? `${state.boardFilter === "matchup" && totalMatchups > props.length ? `${props.length} of ${totalMatchups}` : props.length} ${state.boardFilter === "matchup" ? `matchup${totalMatchups === 1 ? "" : "s"}` : `prop${props.length === 1 ? "" : "s"}`} · updated ${boardUpdatedAt}`
     : "Active board";
   els.v2BoardEmpty.textContent =
     "";
@@ -5067,14 +5008,6 @@ function renderBotBoard(data, { scoresAreLive = false } = {}) {
   }
   els.v2BoardEmpty.hidden = true;
 
-  const liveScoreCandidates = props.filter((p) => p.sport === "MLB" && BOT_STAT_TO_RESEARCH_STAT[p.stat_type]);
-  const liveScoresPending = liveScoreCandidates.some((p) => p.stats?._live_matchup_ready !== true
-    && p.stats?._live_matchup_pending !== true && p.stats?._live_matchup_failed !== true);
-  if (!scoresAreLive && liveScoresPending) {
-    els.v2BoardDate.textContent += " · updating matchup scores…";
-    refreshVisibleMatchupScores(props);
-  }
-
   props.forEach((p, i) => {
     const row = document.createElement("div");
     row.className = "slate-row v2-row v2-card";
@@ -5084,11 +5017,9 @@ function renderBotBoard(data, { scoresAreLive = false } = {}) {
 
     const stats = p.stats || {};
     const matchupScore = Number(stats.matchup_score);
-    const requiresLiveMatchup = p.sport === "MLB" && Boolean(BOT_STAT_TO_RESEARCH_STAT[p.stat_type]);
-    const matchupIsCurrent = !requiresLiveMatchup || stats._live_matchup_ready === true;
-    const matchupBadge = matchupIsCurrent && Number.isFinite(matchupScore)
+    const matchupBadge = Number.isFinite(matchupScore)
       ? `<span class="v2-card-matchup-score" data-band="${matchupScore >= 75 ? "strong" : matchupScore >= 65 ? "favorable" : matchupScore >= 55 ? "slight" : matchupScore >= 45 ? "neutral" : matchupScore >= 35 ? "caution" : "unfavorable"}">MATCHUP ${Math.round(matchupScore)} · ${boardMatchupLabel(matchupScore)}</span>`
-      : `<span class="v2-card-matchup-score" data-band="neutral">${stats._live_matchup_failed ? "MATCHUP UNAVAILABLE · TRY REFRESH" : "UPDATING MATCHUP…"}</span>`;
+      : `<span class="v2-card-matchup-score" data-band="neutral">MATCHUP NOT GRADED</span>`;
     const sidePfx = stats.side === "under" ? "U" : "O";
     const tier = BOT_TIER[p.tier] || botScoreBadge(p.vortex_score);
     const sportTag = `${SPORT_EMOJI[p.sport] || "🎯"} ${p.sport || ""}`;
@@ -5146,14 +5077,14 @@ function renderBotBoard(data, { scoresAreLive = false } = {}) {
     });
     els.v2BoardList.appendChild(row);
   });
-  if (state.boardFilter === "matchup" && scoresAreLive && props.length < totalMatchups) {
+  if (state.boardFilter === "matchup" && props.length < totalMatchups) {
     const more = document.createElement("button");
     more.type = "button";
     more.className = "v2-matchup-more";
     more.textContent = `Show 40 more (${totalMatchups - props.length} remaining)`;
     more.addEventListener("click", () => {
       state.matchupDisplayLimit += 40;
-      renderBotBoard(state.v2BoardData, { scoresAreLive: true });
+      renderBotBoard(state.v2BoardData);
     });
     els.v2BoardList.appendChild(more);
   }
