@@ -121,6 +121,7 @@ const state = {
   v2RenderedProps: [],
   boardFilter: "all",
   matchupDisplayLimit: 40,
+  matchupGameFilter: "all",
   pitcherFinderLoaded: false,
   pitcherFinderProps: [],
   pitcherFinderFilter: "all",
@@ -299,6 +300,11 @@ function cacheEls() {
   els.v2BoardDate = document.getElementById("v2-board-date");
   els.v2RefreshBtn = document.getElementById("v2-refresh-btn");
   els.boardFilterRow = document.getElementById("board-filter-row");
+  els.matchupGamePicker = document.getElementById("matchup-game-picker");
+  els.matchupGameTrigger = document.getElementById("matchup-game-trigger");
+  els.matchupGameMenu = document.getElementById("matchup-game-menu");
+  els.matchupGameLabel = document.getElementById("matchup-game-label");
+  els.matchupGameMeta = document.getElementById("matchup-game-meta");
   els.pitcherFinder = document.getElementById("pitcher-finder");
   els.pitcherFinderTabs = document.getElementById("pitcher-finder-tabs");
   els.pitcherFinderList = document.getElementById("pitcher-finder-list");
@@ -4723,6 +4729,28 @@ function wireV2Board() {
     syncPitcherFinderVisibility();
     if (state.v2BoardData) renderBotBoard(state.v2BoardData);
   });
+  els.matchupGameTrigger.addEventListener("click", () => {
+    const willOpen = els.matchupGameMenu.hidden;
+    els.matchupGameMenu.hidden = !willOpen;
+    els.matchupGameTrigger.setAttribute("aria-expanded", String(willOpen));
+    els.matchupGamePicker.classList.toggle("open", willOpen);
+  });
+  els.matchupGameMenu.addEventListener("click", (event) => {
+    const option = event.target.closest("[data-matchup-game]");
+    if (!option) return;
+    state.matchupGameFilter = option.dataset.matchupGame || "all";
+    state.matchupDisplayLimit = 40;
+    els.matchupGameMenu.hidden = true;
+    els.matchupGameTrigger.setAttribute("aria-expanded", "false");
+    els.matchupGamePicker.classList.remove("open");
+    if (state.v2BoardData) renderBotBoard(state.v2BoardData);
+  });
+  document.addEventListener("pointerdown", (event) => {
+    if (els.matchupGameMenu.hidden || els.matchupGamePicker.contains(event.target)) return;
+    els.matchupGameMenu.hidden = true;
+    els.matchupGameTrigger.setAttribute("aria-expanded", "false");
+    els.matchupGamePicker.classList.remove("open");
+  });
 
   els.v2BoardList.addEventListener("click", (e) => {
     const closeBtn = e.target.closest(".v2-detail-close");
@@ -4896,6 +4924,68 @@ async function refreshVisibleMatchupScores(props) {
   }
 }
 
+function matchupGameDetails(prop) {
+  const stats = prop.stats || {};
+  const ownName = stats.team_abbr || stats.team || prop.team_abbr || prop.team || "";
+  const opponentName = stats.opponent_abbr || stats.opponent || stats.matchup?.opponent || "";
+  const ownId = stats.team_id || prop.team_id || MLB_TEAM_IDS[String(ownName).toUpperCase()] || null;
+  const opponentId = stats.opponent_team_id || MLB_TEAM_IDS[String(opponentName).toUpperCase()] || null;
+  const isHome = stats.is_home === true || String(stats.is_home).toLowerCase() === "true";
+  const away = isHome ? opponentName : ownName;
+  const home = isHome ? ownName : opponentName;
+  const awayId = isHome ? opponentId : ownId;
+  const homeId = isHome ? ownId : opponentId;
+  const timestamp = Number.isFinite(Date.parse(prop.commence_time || "")) ? Date.parse(prop.commence_time) : Number.POSITIVE_INFINITY;
+  const gamePk = stats.game_pk || stats.gamePk || prop.game_pk || prop.gamePk;
+  const key = String(gamePk || `${away}|${home}|${prop.commence_time || "tbd"}`).toLowerCase();
+  const label = away && home ? `${away} @ ${home}` : opponentName ? `${isHome ? "vs" : "@"} ${opponentName}` : "Scheduled game";
+  return { key, label, away, home, awayId, homeId, opponentName, opponentId, timestamp, commenceTime: prop.commence_time || "" };
+}
+
+function matchupGameLogo(teamId, teamName) {
+  if (!teamId) return teamName ? `<span class="matchup-game-logo-fallback">${escapeHtml(String(teamName).slice(0, 3).toUpperCase())}</span>` : "";
+  return `<img src="https://www.mlbstatic.com/team-logos/${encodeURIComponent(teamId)}.svg" alt="" loading="lazy" onerror="this.style.display='none'">`;
+}
+
+function renderMatchupGamePicker(props) {
+  const visible = state.boardFilter === "matchup";
+  els.matchupGamePicker.hidden = !visible;
+  if (!visible) {
+    els.matchupGameMenu.hidden = true;
+    els.matchupGameTrigger.setAttribute("aria-expanded", "false");
+    return [];
+  }
+  const gamesByKey = new Map();
+  props.forEach((prop) => {
+    const game = matchupGameDetails(prop);
+    if (!gamesByKey.has(game.key)) gamesByKey.set(game.key, game);
+  });
+  const games = [...gamesByKey.values()].sort((a, b) => a.timestamp - b.timestamp || `${a.away}${a.home}`.localeCompare(`${b.away}${b.home}`));
+  if (state.matchupGameFilter !== "all" && !gamesByKey.has(state.matchupGameFilter)) state.matchupGameFilter = "all";
+  const selected = gamesByKey.get(state.matchupGameFilter);
+  els.matchupGameLabel.textContent = selected ? selected.label : "All games";
+  els.matchupGameMeta.textContent = selected && selected.timestamp !== Number.POSITIVE_INFINITY
+    ? new Date(selected.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+    : `${games.length} game${games.length === 1 ? "" : "s"}`;
+  const allSelected = state.matchupGameFilter === "all";
+  els.matchupGameMenu.innerHTML = `
+    <button type="button" class="matchup-game-option${allSelected ? " selected" : ""}" data-matchup-game="all" role="option" aria-selected="${allSelected}">
+      <span class="matchup-all-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span>
+      <span class="matchup-game-option-copy"><strong>All games</strong><small>Full matchup slate</small></span>
+      <span class="matchup-game-count">${games.length}</span>
+    </button>
+    ${games.map((game) => {
+      const selectedGame = game.key === state.matchupGameFilter;
+      const time = game.timestamp === Number.POSITIVE_INFINITY ? "Time TBD" : new Date(game.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      return `<button type="button" class="matchup-game-option${selectedGame ? " selected" : ""}" data-matchup-game="${escapeHtml(game.key)}" role="option" aria-selected="${selectedGame}">
+        <span class="matchup-game-logos">${matchupGameLogo(game.awayId, game.away)}${matchupGameLogo(game.homeId, game.home) || matchupGameLogo(game.opponentId, game.opponentName)}</span>
+        <span class="matchup-game-option-copy"><strong>${escapeHtml(game.label)}</strong><small>${time}</small></span>
+        <svg class="matchup-game-check" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 12 4 4 8-9"/></svg>
+      </button>`;
+    }).join("")}`;
+  return games;
+}
+
 function renderBotBoard(data, { scoresAreLive = false } = {}) {
   const recommendedProps = data.props || [];
   const matchupResearch = data.matchup_research || [];
@@ -4908,12 +4998,16 @@ function renderBotBoard(data, { scoresAreLive = false } = {}) {
   // player_id is optional presentation metadata used for headshots. A scored
   // board row remains valid without it and must still mirror Discord.
   const allProps = sourceProps.map((p, sourceIndex) => ({ ...p, _boardIndex: sourceIndex }));
+  renderMatchupGamePicker(allProps.filter((p) => Number.isFinite(Number(p.stats?.matchup_score))));
   let props = allProps.filter((p) => {
     const filter = state.boardFilter;
     if (filter === "all") return true;
     if (filter === "matchup") return Number.isFinite(Number(p.stats?.matchup_score));
     return boardStatCategory(p.stat_type) === filter;
   });
+  if (state.boardFilter === "matchup" && state.matchupGameFilter !== "all") {
+    props = props.filter((prop) => matchupGameDetails(prop).key === state.matchupGameFilter);
+  }
   // Sort each view by the score named by that view: Matchup uses the
   // authoritative 0-100 matchup grade; every prop-market tab uses VORTEX.
   props = props.sort((a, b) => {
@@ -4923,6 +5017,8 @@ function renderBotBoard(data, { scoresAreLive = false } = {}) {
     const matchupDiff = currentMatchup(b) - currentMatchup(a);
     const vortexDiff = (Number(b.vortex_score) || 0) - (Number(a.vortex_score) || 0);
     if (state.boardFilter === "matchup") {
+      const gameTimeDiff = matchupGameDetails(a).timestamp - matchupGameDetails(b).timestamp;
+      if (gameTimeDiff) return gameTimeDiff;
       if (matchupDiff) return matchupDiff;
       if (vortexDiff) return vortexDiff;
     } else {

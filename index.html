@@ -438,6 +438,15 @@
     <button type="button" data-board-filter="strikeouts">Finder</button>
     <button type="button" data-board-filter="matchup">Matchup</button>
   </div>
+  <div class="matchup-game-picker" id="matchup-game-picker" hidden>
+    <button class="matchup-game-trigger" id="matchup-game-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="matchup-game-menu">
+      <span class="matchup-game-trigger-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M7 3v3M17 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></span>
+      <span class="matchup-game-trigger-copy"><small>FILTER BY GAME</small><strong id="matchup-game-label">All games</strong></span>
+      <span class="matchup-game-trigger-meta" id="matchup-game-meta">Full slate</span>
+      <svg class="matchup-game-chevron" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg>
+    </button>
+    <div class="matchup-game-menu" id="matchup-game-menu" role="listbox" aria-label="Choose a game" hidden></div>
+  </div>
   <section class="pitcher-finder" id="pitcher-finder" hidden aria-labelledby="pitcher-finder-title">
     <header class="pitcher-finder-head">
       <div><span>LIVE PROP FINDER</span><h2 id="pitcher-finder-title">Find the line you want.</h2><p>Pitchers and batters. Find your line, then explore the numbers.</p></div>
