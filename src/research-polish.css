@@ -22,7 +22,6 @@
 .research-share-sheet .share-mode-row button:active{transform:scale(.97)}
 .research-share-sheet .share-mode-row button.active{background:var(--theme-accent);color:var(--theme-on-accent);box-shadow:0 6px 18px color-mix(in srgb,var(--theme-accent) 24%,transparent)}
 .research-share-sheet .share-preview{isolation:isolate;margin:0 16px;min-height:300px;padding:10px;border-color:color-mix(in srgb,var(--theme-accent) 22%,var(--theme-border));border-radius:22px;background:linear-gradient(145deg,color-mix(in srgb,var(--theme-panel-2) 86%,#2b3b56 14%),#05080d);box-shadow:inset 0 1px 0 #ffffff12,0 14px 34px #0006}
-.research-share-sheet .share-preview::before{content:"";position:absolute;z-index:2;top:10px;right:10px;left:10px;height:3px;border-radius:999px;background:linear-gradient(90deg,#168cff,var(--theme-accent),#7257ff);pointer-events:none}
 .research-share-sheet .share-preview img{border-radius:14px;background:#080c11;box-shadow:0 8px 24px #0007}
 .research-share-sheet .share-actions{padding-top:16px}
 .research-share-sheet .share-actions button{border-radius:15px;transition:transform .16s ease,filter .16s ease}
