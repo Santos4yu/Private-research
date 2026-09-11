@@ -42,7 +42,7 @@ class PitcherContextTests(unittest.TestCase):
             self.assertEqual(over['score'] + under['score'], 100)
             for first, second in zip(over['factors'], under['factors']):
                 self.assertEqual(first['impact'], -second['impact'])
-        self.assertGreater(factor(grade(**sample()), 'offense')['impact'], 0)
+        self.assertGreater(factor(grade(**sample(), line=5.5), 'k_pct')['impact'], 0)
         self.assertLess(factor(grade(**sample(), prop_type='pitcher_earned_runs'), 'offense')['impact'], 0)
 
     def test_exposure_increases_hits_even_for_strong_pitcher(self):
@@ -58,13 +58,23 @@ class PitcherContextTests(unittest.TestCase):
 
     def test_thin_team_and_recent_samples_shrink(self):
         data = sample()
-        full = grade(**data)
+        full = grade(**data, line=5.5)
         data['opponent_offense']['totals']['plate_appearances'] = 60
         data['k_card']['last_5_starts'] = data['k_card']['last_5_starts'][:1]
-        thin = grade(**data)
+        thin = grade(**data, line=5.5)
         self.assertLess(factor(thin, 'k_pct')['impact'], factor(full, 'k_pct')['impact'])
         self.assertLess(factor(thin, 'form')['impact'], factor(full, 'form')['impact'])
         self.assertLess(thin['coverage'], full['coverage'])
+
+    def test_strikeout_score_uses_the_offered_line(self):
+        low = grade(**sample(), line=4.5)
+        high = grade(**sample(), line=8.5)
+        self.assertGreater(low['score'], high['score'])
+
+    def test_strikeout_under_reverses_the_matchup(self):
+        over = grade(**sample(), line=5.5)
+        under = grade(**sample(), line=5.5, side='under')
+        self.assertLess(under['score'], over['score'])
 
     def test_pitch_mix_needs_sample_and_coverage(self):
         data = sample()
@@ -86,7 +96,7 @@ class PitcherContextTests(unittest.TestCase):
         data = sample()
         data['weather'] = {'temp_f': float('nan'), 'error': 'unavailable'}
         data['park_factor'] = float('inf')
-        result = grade(**data)
+        result = grade(**data, prop_type='pitcher_earned_runs')
         self.assertFalse(factor(result, 'park')['available'])
         self.assertFalse(factor(result, 'weather')['available'])
 

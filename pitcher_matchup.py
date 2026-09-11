@@ -34,6 +34,125 @@ def innings(start):
     return int(whole) + int(fraction or 0) / 3
 
 
+def _strikeout_grade(*, k_card, opp_k, opponent_offense, arsenal,
+                     team_pitch_types, side, line):
+    season = (k_card or {}).get('season_stats') or {}
+    starts = (k_card or {}).get('last_5_starts') or []
+    is_under = str(side).lower() == 'under'
+    line_value = number(line)
+    factors, weighted = [], []
+
+    def directed(score):
+        score = max(0, min(100, score))
+        return 100 - score if is_under else score
+
+    def add(key, name, weight, score, detail, confidence=1):
+        available = score is not None and confidence > 0
+        confidence = max(0, min(1, confidence)) if available else 0
+        final_score = directed(score) if available else 50
+        impact = (final_score - 50) / 50 * weight * confidence if available else 0
+        factors.append(dict(key=key, name=name, weight=weight,
+                            score=round(final_score), impact=round(impact, 1),
+                            available=available, confidence=round(confidence, 2),
+                            detail=detail))
+        if available:
+            weighted.append((final_score, weight * confidence))
+
+    league_k = 22.0
+    offense = opponent_offense or {}
+    metrics = {row.get('key'): row for row in offense.get('metrics', [])}
+    hand_row = metrics.get('k_pct') or {}
+    hand_rate = number(hand_row.get('value'))
+    hand_pa = number((offense.get('totals') or {}).get('plate_appearances'))
+    venue_rate = number((opp_k or {}).get('k_pct'))
+    venue_pa = number((opp_k or {}).get('pa'))
+    season_rate = number((opp_k or {}).get('season_k_pct'))
+    season_pa = number((opp_k or {}).get('season_pa'))
+    if season_rate is None and not (opp_k or {}).get('season_rank'):
+        season_rate, season_pa = venue_rate, venue_pa
+
+    sources = []
+    for rate, pa, weight in ((season_rate, season_pa, .35),
+                             (hand_rate, hand_pa, .40),
+                             (venue_rate, venue_pa, .25)):
+        if rate is None or not pa:
+            continue
+        reliability = pa / (pa + 180)
+        sources.append((league_k + (rate - league_k) * reliability, weight, rate, pa))
+    opponent_rate = (sum(rate * weight for rate, weight, _, _ in sources)
+                     / sum(weight for _, weight, _, _ in sources)) if sources else None
+    add('k_pct', 'Opponent strikeout profile', 25,
+        50 + (opponent_rate - league_k) * 9 if opponent_rate is not None else None,
+        f'{opponent_rate:.1f}% stabilized current-season K rate' if opponent_rate is not None else 'Opponent K data unavailable')
+
+    pitcher_k_pct = number(season.get('k_pct'))
+    pitcher_k9 = number(season.get('k_per_9'))
+    skill = (50 + (pitcher_k_pct - 22) * 4 + (pitcher_k9 - 8.5) * 4
+             if pitcher_k_pct is not None and pitcher_k9 is not None else None)
+    add('skill', 'Current-season K skill', 20, skill,
+        f'{pitcher_k_pct:.1f}% K · {pitcher_k9:.1f} K/9' if skill is not None else 'Pitcher season data unavailable')
+
+    season_ip = innings({'ip': season.get('innings_pitched')})
+    season_gs = number(season.get('games_started'))
+    season_bf = number(season.get('batters_faced'))
+    recent_ip = [innings(start) for start in starts[:5]]
+    recent_ip = [value for value in recent_ip if value is not None and value > 0]
+    season_ip_start = season_ip / season_gs if season_ip and season_gs else None
+    recent_ip_start = sum(recent_ip) / len(recent_ip) if recent_ip else None
+    projected_ip = (season_ip_start * .65 + recent_ip_start * .35
+                    if season_ip_start and recent_ip_start else season_ip_start or recent_ip_start)
+    projected_k = None
+    if pitcher_k_pct is not None and season_bf and season_ip and projected_ip and opponent_rate is not None:
+        projected_k = projected_ip * (season_bf / season_ip) * pitcher_k_pct * (opponent_rate / league_k) / 100
+    elif pitcher_k9 is not None and projected_ip and opponent_rate is not None:
+        projected_k = pitcher_k9 * projected_ip / 9 * (opponent_rate / league_k)
+    add('projection', 'Projection vs line', 25,
+        50 + (projected_k - line_value) * 20 if projected_k is not None and line_value is not None else None,
+        f'{projected_k:.1f} projected Ks vs {line_value:g}' if projected_k is not None and line_value is not None else 'Projection unavailable')
+    add('workload', 'Projected workload', 12,
+        50 + (projected_ip - 5.3) * 20 if projected_ip is not None else None,
+        f'{projected_ip:.1f} projected innings' if projected_ip is not None else 'Workload unavailable')
+
+    recent_ks = [number(start.get('k')) for start in starts[:5]]
+    recent_ks = [value for value in recent_ks if value is not None]
+    recent_avg = sum(recent_ks) / len(recent_ks) if len(recent_ks) >= 3 else None
+    add('form', 'Recent strikeout output', 8,
+        50 + (recent_avg - line_value) * 12 if recent_avg is not None and line_value is not None else None,
+        f'{recent_avg:.1f} Ks/start over last {len(recent_ks)}' if recent_avg is not None else 'Recent sample unavailable',
+        min(1, len(recent_ks) / 5))
+
+    pitch_rows = {row.get('pitch_type'): row for row in team_pitch_types or []}
+    mix = coverage = sample = 0
+    for pitch in arsenal or []:
+        usage = number(pitch.get('pct')) or 0
+        row = pitch_rows.get(pitch.get('pitch_type')) or {}
+        rate, pa = number(row.get('k_pct')), number(row.get('pa')) or 0
+        if usage < 5 or rate is None or pa < 40:
+            continue
+        mix += max(0, min(100, 50 + (rate - league_k) * 5)) * usage
+        coverage += usage
+        sample += min(1, pa / 200) * usage
+    mix_ok = coverage >= 60
+    add('arsenal', 'Lineup vs pitch mix', 10, mix / coverage if mix_ok else None,
+        f'{coverage:.0f}% arsenal coverage · current-season batter results' if mix_ok else 'Pitch-mix sample unavailable',
+        sample / coverage if mix_ok else 0)
+
+    available_weight = sum(weight for _, weight in weighted)
+    score = round(sum(value * weight for value, weight in weighted) / available_weight) if available_weight else 50
+    coverage_value = round(available_weight / 100, 2)
+    core = opponent_rate is not None and skill is not None and projected_k is not None
+    if not core:
+        score = max(20, min(80, score))
+    score = max(3, min(97, score))
+    label = 'Strong support' if score >= 75 else 'Favorable' if score >= 65 else 'Slight support' if score >= 55 else 'Neutral' if score >= 45 else 'Caution' if score >= 35 else 'Tough matchup'
+    if coverage_value < .5:
+        label = 'Limited data · ' + label.lower()
+    return dict(score=score, label=label, coverage=coverage_value, factors=factors,
+                version='pitcher-k-current-season-v3', side=str(side).lower(),
+                market='pitcher_strikeouts', projected_ks=round(projected_k, 2) if projected_k is not None else None,
+                projected_ip=round(projected_ip, 2) if projected_ip is not None else None)
+
+
 def pitcher_matchup_grade(*, k_card, opp_k=None, splits=None,
                           opponent_offense=None, prop_type='pitcher_strikeouts',
                           park_factor=None, weather=None, umpire=None,
@@ -41,6 +160,12 @@ def pitcher_matchup_grade(*, k_card, opp_k=None, splits=None,
     if prop_type not in WEIGHTS:
         return dict(score=50, label='Matchup model unavailable', coverage=0,
                     factors=[], version='pitcher-context-v2', side=str(side).lower(), market=prop_type)
+    if prop_type == 'pitcher_strikeouts':
+        return _strikeout_grade(
+            k_card=k_card or {}, opp_k=opp_k or {},
+            opponent_offense=opponent_offense or {}, arsenal=arsenal or [],
+            team_pitch_types=team_pitch_types or [], side=side, line=line,
+        )
     weights = WEIGHTS[prop_type]
     prevention = prop_type in ('pitcher_hits_allowed', 'pitcher_earned_runs')
     direction = (-1 if prevention else 1) * (-1 if str(side).lower() == 'under' else 1)
