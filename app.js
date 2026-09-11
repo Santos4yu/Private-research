@@ -4997,7 +4997,7 @@ function matchupGameDetails(prop) {
 function matchupGameLogo(teamId, teamName) {
   const abbr = String(teamName || "").slice(0, 3).toUpperCase();
   if (!teamId) return abbr ? `<span class="matchup-game-logo-fallback">${escapeHtml(abbr)}</span>` : "";
-  return `<span class="matchup-game-logo"><img src="https://www.mlbstatic.com/team-logos/${encodeURIComponent(teamId)}.svg" alt="${escapeHtml(abbr)}" loading="lazy" onerror="this.remove()"><small>${escapeHtml(abbr)}</small></span>`;
+  return `<span class="matchup-game-logo"><img src="https://www.mlbstatic.com/team-logos/${encodeURIComponent(teamId)}.svg" alt="${escapeHtml(abbr)}" loading="lazy" onerror="this.nextElementSibling.hidden=false;this.remove()"><small hidden>${escapeHtml(abbr)}</small></span>`;
 }
 
 function renderMatchupGamePicker(props) {
