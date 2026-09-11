@@ -2374,7 +2374,7 @@ async function loadGameLogPostedLines(stat, player = gameLogState.player) {
     if (token !== postedLinesToken) return;
     const rows = feed.filter(row => nameKey(row.player) === nameKey(player) && pitcherFinderStat(row.stat).label === stat).sort((a,b) => a.line-b.line);
     host.open = false;
-    host.innerHTML = `<summary><img src="/prizepicks/logo.png" alt=""><span>PrizePicks lines<small>Tap a line to compare instantly</small></span><b class="posted-selected">${Number(gameLogState.line)}</b></summary><div class="posted-options" role="group" aria-label="PrizePicks alternate lines"></div>`;
+    host.innerHTML = `<summary><img src="/prizepicks/logo.png" alt=""><span>PrizePicks lines<small>Tap a line to compare instantly</small></span><span class="posted-line-choice"><b class="posted-selected">${Number(gameLogState.line)}</b><svg class="posted-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></span></summary><div class="posted-options" role="group" aria-label="PrizePicks alternate lines"></div>`;
     const list = host.querySelector('div');
     if (!rows.length) list.textContent = 'No posted lines available for this market.';
     rows.forEach(row => {
@@ -5532,7 +5532,7 @@ function wireResearchPolish() {
   placeMobileClose();window.addEventListener('resize',placeMobileClose,{passive:true});
   const range=document.createElement('div');range.className='gamelog-range-chips';range.setAttribute('aria-label','Game range');range.innerHTML=[5,10,15,20].map(n=>`<button type="button" data-range="${n}">L${n}</button>`).join('')+'<button type="button" data-range="max">Max</button>';
   document.querySelector('.gamelog-windowbar').before(range);
-  range.onclick=event=>{const button=event.target.closest('[data-range]');if(!button)return;const value=button.dataset.range==='max'?gameLogPool().length:Number(button.dataset.range);setGameLogCount(value,'none');};
+  range.onclick=event=>{const button=event.target.closest('[data-range]');if(!button)return;event.preventDefault();button.blur();const value=button.dataset.range==='max'?gameLogPool().length:Number(button.dataset.range);setGameLogCount(value,'none');};
   const eyeIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.7"/></svg>';
   const eyeOffIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 18M10.6 6.1A9 9 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-2.2 2.8M6.6 6.7C3.9 8.4 2.5 12 2.5 12s3.5 6 9.5 6a9 9 0 0 0 3-.5M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
   const movement=document.createElement('section');movement.id='gamelog-line-movement';movement.className='line-movement-card';movement.innerHTML=`<div><span>LINE MOVEMENT</span><strong>Tracking current line</strong></div><div class="line-movement-chart"></div><button type="button" id="chart-label-toggle" aria-label="Hide chart labels" aria-pressed="true">${eyeIcon}</button>`;
@@ -5551,12 +5551,16 @@ async function shareGameLogCard() {
 }
 
 function setGameLogCount(value, direction = "initial") {
+  const overlayTop=els.gamelogOverlay?.scrollTop||0;
+  const modal=els.gamelogOverlay?.querySelector('.gamelog-modal');
+  const modalTop=modal?.scrollTop||0;
   const max = Math.max(1, gameLogPool().length);
   gameLogState.gameCount = Math.max(1, Math.min(max, Number(value) || 1));
   gameLogState.window = "recent";
   gameLogState.animationDirection = direction;
   renderGameLogTabs();
   renderGameLogChart();
+  requestAnimationFrame(()=>{if(els.gamelogOverlay)els.gamelogOverlay.scrollTop=overlayTop;if(modal)modal.scrollTop=modalTop;});
 }
 
 async function gradeSlipImage() {
