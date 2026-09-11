@@ -4985,7 +4985,6 @@ function renderBotBoard(data, { scoresAreLive = false } = {}) {
     row.style.animationDelay = `${i * 35}ms`;
     row.setAttribute("role", "button");
     row.setAttribute("tabindex", "0");
-    row.setAttribute("aria-expanded", "false");
 
     const stats = p.stats || {};
     const matchupScore = Number(stats.matchup_score);
@@ -5035,27 +5034,19 @@ function renderBotBoard(data, { scoresAreLive = false } = {}) {
           ${matchupBadge}
         </span>
       </span>
-      <span class="v2-chevron" aria-hidden="true">▾</span>
+      <span class="v2-chevron" aria-hidden="true">›</span>
     `;
-    const toggle = () => {
-      const open = row.classList.toggle("v2-open");
-      row.setAttribute("aria-expanded", String(open));
-      let detail = row.nextElementSibling;
-      if (open) {
-        if (!detail || !detail.classList.contains("v2-detail")) {
-          detail = document.createElement("div");
-          detail.className = "v2-detail";
-          detail.innerHTML = buildBotDetailHtml(p, p._boardIndex);
-          row.after(detail);
-        }
-        detail.hidden = false;
-      } else if (detail && detail.classList.contains("v2-detail")) {
-        detail.hidden = true;
+    const openResearch = () => {
+      if (p.sport === "MLB" && BOT_STAT_TO_RESEARCH_STAT[p.stat_type]) {
+        deepDiveIntoBotProp(p);
+      } else {
+        openPlayerDetail(p);
       }
     };
-    row.addEventListener("click", toggle);
+    row.setAttribute("aria-label", `Open ${p.player_name} research`);
+    row.addEventListener("click", openResearch);
     row.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openResearch(); }
     });
     els.v2BoardList.appendChild(row);
   });
