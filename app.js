@@ -175,6 +175,11 @@ async function init() {
     console.error("wireGameLogModal failed:", err);
   }
   try {
+    wireResearchPolish();
+  } catch (err) {
+    console.error("wireResearchPolish failed:", err);
+  }
+  try {
     wireTeamModal();
   } catch (err) {
     console.error("wireTeamModal failed:", err);
@@ -795,6 +800,7 @@ function switchTab(tab, options = {}) {
   if (tab === "nrfi" && !state.specialsLoaded) loadSpecialMarkets();
   document.querySelectorAll(".side-link").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
   window.dispatchEvent(new CustomEvent("vortex:dock-sync", { detail: { tab, saved: state.savedProps.size } }));
+  renderFinderCompareTray();
   if (changed) window.scrollTo({ top: options.scrollY ?? screenScroll.get(tab) ?? 0, behavior: "instant" });
 }
 
@@ -2205,7 +2211,7 @@ function gameLogStatCode(stat) {
 
 function regradeGameLog(line) {
   Object.values(gameLogState.chart || {}).forEach((games) => {
-    (games || []).forEach((game) => { game.over = Number(game.value) >= line; });
+    (games || []).forEach((game) => { game.over = Number(game.value) > line; });
   });
 }
 
@@ -2219,6 +2225,7 @@ function setGameLogPreviewLine(value, settle = false) {
     renderGameLogTabs();
   }
   renderGameLogChart();
+  if (activeFinderProp) renderLineMovement({...activeFinderProp,line});
 }
 
 function populateGameLogStats() {
@@ -2290,6 +2297,7 @@ async function loadGameLogStat(stat) {
 }
 
 function openGameLogModal(p) {
+  activeFinderProp = p;
   loadGameLogPostedLines(p.betType, p.player);
   gameLogState.chart = p.gameLogChart || {};
   if (!gameLogState.chart.all) {
@@ -2320,6 +2328,8 @@ function openGameLogModal(p) {
   els.gamelogOverlay.hidden = false;
   lockGameLogPageScroll();
   els.gamelogTitle.textContent = p.player || "Player";
+  const liveState=document.getElementById('gamelog-live-state');
+  if(liveState)liveState.textContent=p.live?.status||p.gameStatus||(p.matchup?.lineup?'Lineup confirmed':'Pre-game');
   if (els.gamelogPropBadge) els.gamelogPropBadge.textContent = gameLogStatCode(p.betType);
   const teamName = p.teamAbbr || p.teamName || (typeof p.team === "string" ? p.team : p.team?.abbreviation) || "";
   const teamId = p.teamId || p.team_id || p.ownTeamId || p.team?.id || MLB_TEAM_IDS[String(teamName).toUpperCase()];
@@ -2346,6 +2356,7 @@ function openGameLogModal(p) {
   els.glHandFilter.hidden = isPitcherProp;
   renderGameLogSubfilters();
   fetchGameLogDetails(p);
+  renderLineMovement(p);
 }
 
 let postedLinesToken = 0;
@@ -2356,13 +2367,14 @@ async function loadGameLogPostedLines(stat, player = gameLogState.player) {
     host = document.createElement('details'); host.id = 'gamelog-posted-lines'; host.className = 'posted-lines';
     document.querySelector('.gamelog-toolbar').appendChild(host);
   }
-  host.open = false;
+  host.open = true;
   host.innerHTML = '<summary>PrizePicks lines</summary><p>Loading posted lines…</p>';
   try {
     const feed = await requestFinderFeed();
     if (token !== postedLinesToken) return;
     const rows = feed.filter(row => nameKey(row.player) === nameKey(player) && pitcherFinderStat(row.stat).label === stat).sort((a,b) => a.line-b.line);
-    host.innerHTML = `<summary><img src="/prizepicks/logo.png" alt=""><span>Available lines<small>PrizePicks · ${rows.length} options</small></span><b class="posted-selected">${Number(gameLogState.line)}</b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary><div class="posted-options"></div>`;
+    host.open = true;
+    host.innerHTML = `<summary><img src="/prizepicks/logo.png" alt=""><span>PrizePicks lines<small>Tap a line to compare instantly</small></span><b class="posted-selected">${Number(gameLogState.line)}</b></summary><div class="posted-options" role="group" aria-label="PrizePicks alternate lines"></div>`;
     const list = host.querySelector('div');
     if (!rows.length) list.textContent = 'No posted lines available for this market.';
     rows.forEach(row => {
@@ -2371,7 +2383,7 @@ async function loadGameLogPostedLines(stat, player = gameLogState.player) {
       button.setAttribute('aria-pressed', String(Number(row.line) === Number(gameLogState.line)));
       const icon = row.odds_type === 'goblin' ? '/prizepicks/goblin.png' : row.odds_type === 'demon' ? '/prizepicks/demon.png' : '/prizepicks/logo.png';
       button.innerHTML = `<span class="posted-line-main"><b>${Number(row.line)}</b><img src="${icon}" alt="" /></span><span>${escapeHtml(label)}<small>${row.odds_type === 'standard' ? 'More / Less' : 'More only'}</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4 10-10"/></svg>`;
-      button.onclick = () => {setGameLogPreviewLine(Number(row.line), true); host.open = false; host.querySelector('.posted-selected').textContent = row.line; list.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed',String(b === button)));};
+      button.onclick = () => {activeFinderProp={...(activeFinderProp||{}),player,betType:stat,line:Number(row.line),side:'Over',oddsType:row.odds_type||'standard'};setGameLogPreviewLine(Number(row.line), true); host.open = true; host.querySelector('.posted-selected').textContent = row.line; list.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed',String(b === button)));};
       list.appendChild(button);
     });
   } catch (_) { if (token === postedLinesToken) host.innerHTML = '<summary>PrizePicks lines</summary><p>Posted lines unavailable. You can still explore a custom line.</p>'; }
@@ -2483,6 +2495,11 @@ function renderGameLogTabs() {
     const value = btn.dataset.games === "max" ? max : Number(btn.dataset.games);
     btn.disabled = !max;
     btn.classList.toggle("active", gameLogState.window !== "h2h" && gameLogState.gameCount === value);
+  });
+  document.querySelectorAll('.gamelog-range-chips [data-range]').forEach(btn => {
+    const value=btn.dataset.range==='max'?max:Number(btn.dataset.range);
+    btn.disabled=!max;
+    btn.setAttribute('aria-pressed',String(gameLogState.window!=='h2h' && value===gameLogState.gameCount && (btn.dataset.range!=='max'||![5,10,15,20].includes(value))));
   });
   renderGameLogSubfilters();
 }
@@ -4387,6 +4404,18 @@ function pitcherFinderStat(value) {
   return finderMarket(value) || {key:'unsupported', label:value, short:value, pitcher:false};
 }
 const finderSelection = {category:'pitchers', modifier:'all', stat:'all', query:''};
+const finderCompare = new Map();
+let finderVisibleProps = [];
+let activeFinderProp = null;
+const LINE_HISTORY_KEY = 'vortex-line-history-v1';
+function finderPropKey(prop) { return `${nameKey(prop.player)}|${prop.betType}|${Number(prop.line)}`; }
+function lineHistoryKey(row) { return `${nameKey(row.player)}|${pitcherFinderStat(row.stat).label}|${String(row.odds_type || 'standard').toLowerCase()}`; }
+function recordLineHistory(rows) {
+  let history={}; try{history=JSON.parse(localStorage.getItem(LINE_HISTORY_KEY)||'{}');}catch{}
+  const now=Date.now(); rows.forEach(row=>{const line=Number(row.line);if(!Number.isFinite(line))return;const key=lineHistoryKey(row),points=Array.isArray(history[key])?history[key]:[],last=points.at(-1);if(!last||Number(last.line)!==line||now-last.at>21600000)points.push({line,at:now});history[key]=points.slice(-16);});
+  try{localStorage.setItem(LINE_HISTORY_KEY,JSON.stringify(history));}catch{}
+}
+function propLineHistory(prop) {try{return JSON.parse(localStorage.getItem(LINE_HISTORY_KEY)||'{}')[`${nameKey(prop.player)}|${prop.betType}|${String(prop.oddsType||'standard').toLowerCase()}`]||[];}catch{return[];}}
 function readFinderCache(key, maxAge) {
   try {
     const entry = JSON.parse(sessionStorage.getItem(`finder-v3:${key}`));
@@ -4422,6 +4451,7 @@ async function requestFinderFeed(force = false) {
     const data = await response.json();
     if (!response.ok || data.error) throw new Error(data.error || 'Live lines unavailable');
     state.pitcherFinderProps = (data.props || []).filter(row => finderMarket(row.stat));
+    recordLineHistory(state.pitcherFinderProps);
     state.pitcherFinderLoaded = true; finderFeedAt = Date.now();
     writeFinderCache('feed', {props:state.pitcherFinderProps, at:finderFeedAt});
     return state.pitcherFinderProps;
@@ -4453,6 +4483,7 @@ function pitcherFinderGameLogProp(row) {
     side: "Over",
     position: market.pitcher ? "P" : row.position || "",
     isPitcherProp: market.pitcher,
+    oddsType: modifier,
     sport: "MLB",
     teamId: stats.team_id || board?.team_id || null,
     teamName: stats.team || board?.team || "",
@@ -4509,6 +4540,7 @@ function renderPitcherComparison(rows) {
   const pages = Math.max(1, Math.ceil(rows.length / 20));
   pitcherComparisonPage = Math.min(pitcherComparisonPage, pages - 1);
   const visible = rows.slice(pitcherComparisonPage * 20, (pitcherComparisonPage + 1) * 20);
+  finderVisibleProps = visible.map(pitcherFinderGameLogProp);
   const pendingHistory = sourceRows.filter(row => pitcherTableValues(row).avg === undefined && !pitcherHistoryFailures.has(`${finderHistoryKey(row)}|${pitcherFinderStat(row.stat).label}|${Math.floor(Date.now()/600000)}`)).length;
   els.pitcherFinderCount.textContent = `${rows.length} line${rows.length === 1 ? '' : 's'} · historical More hit rates${pendingHistory && (active || pitcherTableFilter.sort) ? ` · checking ${pendingHistory} samples` : ''}`;
   els.pitcherFinderState.hidden = rows.length > 0;
@@ -4542,11 +4574,14 @@ function renderPitcherComparison(rows) {
     const initial = prop.headshot ? `<img class="pitcher-table-photo" src="${escapeHtml(prop.headshot)}" alt="" width="44" height="44">` : `<span class="finder-photo-placeholder" aria-hidden="true">${escapeHtml(row.player.split(' ').map(n => n[0]).slice(0,2).join(''))}</span>`;
     const modifier = String(row.odds_type || 'standard').toLowerCase();
     const modifierIcon = modifier === 'goblin' ? '/prizepicks/goblin.png' : modifier === 'demon' ? '/prizepicks/demon.png' : '';
-    tr.innerHTML = `<td class="finder-player-cell"><button type="button" class="pitcher-table-open">${initial}<span class="finder-player-copy"><b>${escapeHtml(row.player)}</b><span>More ${Number(row.line)} ${escapeHtml(pitcherFinderStat(row.stat).short)}</span><small class="finder-matchup">${escapeHtml(row.team || prop.teamAbbr || 'MLB')} · ${escapeHtml(modifier === 'standard' ? 'Regular line' : row.odds_type || 'Regular line')}</small></span><span class="finder-open-arrow" aria-hidden="true">›</span></button><button type="button" class="finder-slip-star" aria-label="Add ${escapeHtml(row.player)} to My Slip" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2 7.5 14 3 9.6l6.2-.9L12 3Z"/></svg></button></td><td class="finder-app-cell"><img width="24" height="24" src="/prizepicks/logo.png" alt="PrizePicks">${modifierIcon ? `<img width="20" height="20" src="${modifierIcon}" alt="">` : ''}<span>${escapeHtml(modifier === 'standard' ? 'Regular' : row.odds_type || 'Regular')} · ${modifier === 'standard' ? 'More / Less' : 'More only'}</span></td>${['Avg','Diff','L5','L10','L15','L20','H2H'].map(label => `<td class="pitcher-rate" data-label="${label}"><span>…</span></td>`).join('')}`;
+    const selectedCompare=finderCompare.has(finderPropKey(prop));
+    tr.innerHTML = `<td class="finder-player-cell"><button type="button" class="pitcher-table-open">${initial}<span class="finder-player-copy"><b>${escapeHtml(row.player)}</b><span>More ${Number(row.line)} ${escapeHtml(pitcherFinderStat(row.stat).short)}</span><small class="finder-matchup">${escapeHtml(row.team || prop.teamAbbr || 'MLB')} · ${escapeHtml(modifier === 'standard' ? 'Regular line' : row.odds_type || 'Regular line')}</small></span><span class="finder-open-arrow" aria-hidden="true">›</span></button><button type="button" class="finder-compare-button ${selectedCompare?'selected':''}" aria-label="Compare ${escapeHtml(row.player)} ${escapeHtml(pitcherFinderStat(row.stat).short)}" aria-pressed="${selectedCompare}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3v18M3 8l5-5 5 5M16 21V3m-5 13 5 5 5-5"/></svg></button><button type="button" class="finder-slip-star" aria-label="Add ${escapeHtml(row.player)} to My Slip" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2 7.5 14 3 9.6l6.2-.9L12 3Z"/></svg></button></td><td class="finder-app-cell"><img width="24" height="24" src="/prizepicks/logo.png" alt="PrizePicks">${modifierIcon ? `<img width="20" height="20" src="${modifierIcon}" alt="">` : ''}<span>${escapeHtml(modifier === 'standard' ? 'Regular' : row.odds_type || 'Regular')} · ${modifier === 'standard' ? 'More / Less' : 'More only'}</span></td>${['Avg','Diff','L5','L10','L15','L20','H2H'].map(label => `<td class="pitcher-rate" data-label="${label}"><span>…</span></td>`).join('')}`;
     tr.querySelector('img')?.addEventListener('error', event => {event.currentTarget.hidden = true;}, {once:true});
     const star = tr.querySelector('.finder-slip-star');
     syncSaveButton(star, prop.id);
     star.addEventListener('click', event => { event.stopPropagation(); toggleSave(prop, star); });
+    const compare=tr.querySelector('.finder-compare-button');compare.addEventListener('click',event=>{event.stopPropagation();toggleFinderCompare(prop,compare);});
+    wireFinderHold(tr.querySelector('.pitcher-table-open'),prop);
     tr.querySelector('.pitcher-table-open').addEventListener('click', () => openGameLogModal(prop));
     els.pitcherFinderList.querySelector('tbody').appendChild(tr);
     return {row, prop, tr};
@@ -4570,6 +4605,7 @@ function renderPitcherComparison(rows) {
         const all = data.all || data.l20 || [];
         const l10 = all.slice(-10);
         const average = l10.length ? l10.reduce((sum,g) => sum + Number(g.value),0) / l10.length : null;
+        prop.compareValues={average,diff:average===null?null:average-Number(row.line)};
         const cells = tr.querySelectorAll('.pitcher-rate');
         if (!cells.length) continue;
         cells[0].textContent = average === null ? '—' : average.toFixed(1);
@@ -4578,6 +4614,7 @@ function renderPitcherComparison(rows) {
           const games = size === 'h2h' ? (data.h2h || []) : all.slice(-size);
           const hits = games.filter(g => Number(g.value) > Number(row.line)).length;
           const pct = games.length ? hits / games.length * 100 : null;
+          prop.compareValues[size]=pct;
           const cell = cells[index + 2];
           cell.innerHTML = pct === null ? '—' : `<b>${Math.round(pct)}%</b><small>${hits}/${games.length}</small>`;
           cell.dataset.tone = pct === null ? 'empty' : pct >= 70 ? 'good' : pct >= 45 ? 'mid' : 'low';
@@ -5456,6 +5493,56 @@ function recentGameLogSource() {
 function gameLogPool() {
   const source = gameLogState.window === "h2h" ? (gameLogState.chart?.h2h || []) : recentGameLogSource();
   return filterGames(source);
+}
+
+function renderLineMovement(prop=activeFinderProp) {
+  const card=document.getElementById('gamelog-line-movement'); if(!card||!prop)return;
+  const points=propLineHistory(prop), values=points.length?points.map(point=>Number(point.line)):[Number(prop.line)];
+  card.querySelector('strong').textContent=values.length>1?`${values[0].toFixed(1)} → ${values.at(-1).toFixed(1)}`:`${Number(prop.line).toFixed(1)} · tracking from now`;
+  const min=Math.min(...values)-.5,max=Math.max(...values)+.5,span=Math.max(1,max-min);
+  const path=values.map((value,index)=>`${index?'L':'M'} ${values.length===1?50:index/(values.length-1)*100} ${30-(value-min)/span*24}`).join(' ');
+  card.querySelector('.line-movement-chart').innerHTML=`<svg viewBox="0 0 100 34" preserveAspectRatio="none" aria-label="Line movement from ${values[0].toFixed(1)} to ${values.at(-1).toFixed(1)}"><path d="${path}"/><circle cx="${values.length===1?50:100}" cy="${30-(values.at(-1)-min)/span*24}" r="2"/></svg>`;
+}
+
+function renderFinderCompareTray() {
+  const tray=document.getElementById('prop-compare-tray'); if(!tray)return; const props=[...finderCompare.values()];
+  tray.hidden=!props.length||state.currentTab!=='v2'; tray.querySelector('span').textContent=`${props.length}/3`;
+  tray.querySelector('[data-compare-open]').disabled=props.length<2;
+}
+function toggleFinderCompare(prop,button) {
+  const key=finderPropKey(prop); if(finderCompare.has(key))finderCompare.delete(key);else{if(finderCompare.size>=3)finderCompare.delete(finderCompare.keys().next().value);finderCompare.set(key,prop);}
+  button?.classList.toggle('selected',finderCompare.has(key));button?.setAttribute('aria-pressed',String(finderCompare.has(key)));renderFinderCompareTray();
+}
+function openFinderQuickActions(prop) {
+  const sheet=document.getElementById('prop-quick-sheet');sheet.querySelector('h3').textContent=prop.player;sheet.querySelector('p').textContent=`More ${prop.line} ${prop.betType}`;sheet.hidden=false;
+  sheet.querySelector('[data-quick=research]').onclick=()=>{sheet.hidden=true;openGameLogModal(prop);};sheet.querySelector('[data-quick=compare]').onclick=()=>{toggleFinderCompare(prop);sheet.hidden=true;};sheet.querySelector('[data-quick=save]').onclick=()=>{toggleSave(prop);sheet.hidden=true;};
+}
+function wireFinderHold(button,prop) {
+  let timer,held=false;button.addEventListener('pointerdown',event=>{if(event.pointerType==='mouse')return;held=false;timer=setTimeout(()=>{held=true;openFinderQuickActions(prop);},520);});['pointerup','pointercancel','pointerleave'].forEach(type=>button.addEventListener(type,()=>clearTimeout(timer)));button.addEventListener('click',event=>{if(held){event.preventDefault();event.stopImmediatePropagation();held=false;}},true);button.oncontextmenu=event=>{event.preventDefault();openFinderQuickActions(prop);};
+}
+function openFinderComparison() {
+  const sheet=document.getElementById('prop-comparison-sheet'),props=[...finderCompare.values()];if(props.length<2)return;
+  const metric=(prop,key,suffix='%')=>prop.compareValues?.[key]==null?'—':`${key==='diff'&&prop.compareValues[key]>=0?'+':''}${['average','diff'].includes(key)?prop.compareValues[key].toFixed(1):Math.round(prop.compareValues[key])}${suffix}`;
+  sheet.querySelector('.comparison-grid').innerHTML=props.map(prop=>`<article><div><strong>${escapeHtml(prop.player)}</strong><span>More ${prop.line} ${escapeHtml(prop.betType)}</span></div><section>${[['AVG','average',''],['DIFF','diff',''],['L5',5,'%'],['L10',10,'%'],['L20',20,'%'],['H2H','h2h','%']].map(([label,key,suffix])=>`<span>${label}<b>${metric(prop,key,suffix)}</b></span>`).join('')}</section><button type="button" data-open-prop="${escapeHtml(finderPropKey(prop))}">Open research</button></article>`).join('');
+  sheet.hidden=false;sheet.querySelectorAll('[data-open-prop]').forEach(button=>button.onclick=()=>{sheet.hidden=true;openGameLogModal(finderCompare.get(button.dataset.openProp));});
+}
+function wireResearchPolish() {
+  const range=document.createElement('div');range.className='gamelog-range-chips';range.setAttribute('aria-label','Game range');range.innerHTML=[5,10,15,20].map(n=>`<button type="button" data-range="${n}">L${n}</button>`).join('')+'<button type="button" data-range="max">Max</button>';
+  document.querySelector('.gamelog-windowbar').before(range);
+  range.onclick=event=>{const button=event.target.closest('[data-range]');if(!button)return;const value=button.dataset.range==='max'?gameLogPool().length:Number(button.dataset.range);setGameLogCount(value,'none');};
+  const movement=document.createElement('section');movement.id='gamelog-line-movement';movement.className='line-movement-card';movement.innerHTML='<div><span>LINE MOVEMENT</span><strong>Tracking current line</strong></div><div class="line-movement-chart"></div><button type="button" id="chart-label-toggle" aria-label="Toggle game labels" aria-pressed="true">Aa</button>';
+  document.querySelector('.gamelog-summary').before(movement);movement.querySelector('button').onclick=event=>{const collapsed=els.gamelogOverlay.classList.toggle('chart-labels-collapsed');event.currentTarget.setAttribute('aria-pressed',String(!collapsed));};
+  document.body.insertAdjacentHTML('beforeend','<aside id="prop-compare-tray" class="prop-compare-tray" hidden><span>0/3</span><button type="button" data-compare-open disabled>Compare props</button><button type="button" data-compare-clear aria-label="Clear comparison">×</button></aside><section id="prop-comparison-sheet" class="comparison-sheet" role="dialog" aria-modal="true" aria-label="Compare props" hidden><div class="comparison-panel"><header><div><span>SIDE BY SIDE</span><h2>Compare props</h2></div><button type="button" data-compare-close aria-label="Close">×</button></header><div class="comparison-grid"></div></div></section><section id="prop-quick-sheet" class="comparison-sheet quick-sheet" role="dialog" aria-modal="true" aria-label="Prop actions" hidden><div class="comparison-panel"><header><div><h3>Prop</h3><p></p></div><button type="button" data-quick-close aria-label="Close">×</button></header><div class="quick-grid"><button type="button" data-quick="research">Open research</button><button type="button" data-quick="compare">Add to compare</button><button type="button" data-quick="save">Add to My Slip</button></div></div></section>');
+  document.querySelector('[data-compare-open]').onclick=openFinderComparison;document.querySelector('[data-compare-clear]').onclick=()=>{finderCompare.clear();document.querySelectorAll('.finder-compare-button').forEach(button=>{button.classList.remove('selected');button.setAttribute('aria-pressed','false');});renderFinderCompareTray();};document.querySelector('[data-compare-close]').onclick=()=>document.getElementById('prop-comparison-sheet').hidden=true;
+  document.querySelector('[data-quick-close]').onclick=()=>document.getElementById('prop-quick-sheet').hidden=true;
+  const share=document.createElement('button');share.type='button';share.id='gamelog-share';share.setAttribute('aria-label','Share research card');share.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.5-4.4M8.2 13.2l7.5 4.4"/></svg>';share.onclick=shareGameLogCard;els.gamelogClose.before(share);
+  const liveState=document.createElement('span');liveState.id='gamelog-live-state';liveState.className='gamelog-live-state';liveState.textContent='Pre-game';document.querySelector('.gamelog-player-line').append(liveState);
+  let x=0,y=0;document.querySelector('.gamelog-heading').addEventListener('pointerdown',event=>{x=event.clientX;y=event.clientY;});document.querySelector('.gamelog-heading').addEventListener('pointerup',event=>{const dx=event.clientX-x,dy=event.clientY-y;if(Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*1.4||finderVisibleProps.length<2)return;let index=finderVisibleProps.findIndex(prop=>finderPropKey(prop)===finderPropKey(activeFinderProp));if(index<0)index=0;closeGameLogModal();setTimeout(()=>openGameLogModal(finderVisibleProps[(index+(dx<0?1:-1)+finderVisibleProps.length)%finderVisibleProps.length]),120);});
+}
+
+async function shareGameLogCard() {
+  const prop=activeFinderProp;if(!prop)return;const games=gameLogPool().slice(-Math.min(gameLogState.gameCount,10)),hits=games.filter(game=>Number(game.value)>Number(gameLogState.line)).length,avg=games.length?games.reduce((sum,game)=>sum+Number(game.value),0)/games.length:0;
+  const canvas=document.createElement('canvas');canvas.width=1080;canvas.height=1080;const ctx=canvas.getContext('2d'),accent=getComputedStyle(document.documentElement).getPropertyValue('--theme-accent').trim()||'#c9ff50';ctx.fillStyle='#0b0f14';ctx.fillRect(0,0,1080,1080);ctx.fillStyle=accent;ctx.fillRect(0,0,1080,18);ctx.fillStyle='#8d96a5';ctx.font='600 28px system-ui';ctx.fillText('KRAZY DATA · PLAYER RESEARCH',72,105);ctx.fillStyle='#fff';ctx.font='700 64px system-ui';ctx.fillText(prop.player,72,205);ctx.fillStyle=accent;ctx.font='700 38px system-ui';ctx.fillText(`Over ${gameLogState.line} ${gameLogState.stat}`,72,270);[['HIT RATE',games.length?`${Math.round(hits/games.length*100)}%`:'—'],['RECORD',`${hits}–${games.length-hits}`],['AVERAGE',games.length?avg.toFixed(2):'—']].forEach(([label,value],i)=>{const left=72+i*320;ctx.fillStyle='#8d96a5';ctx.font='600 22px system-ui';ctx.fillText(label,left,400);ctx.fillStyle='#fff';ctx.font='700 52px system-ui';ctx.fillText(value,left,470);});ctx.fillStyle='#8d96a5';ctx.font='500 22px system-ui';ctx.fillText(`Updated ${new Date().toLocaleString()} · Research only`,72,1000);const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));if(!blob)return;const file=new File([blob],`${nameKey(prop.player)}-research.png`,{type:'image/png'});try{if(navigator.canShare?.({files:[file]})){await navigator.share({title:`${prop.player} research`,files:[file]});return;}}catch(error){if(error?.name==='AbortError')return;}const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=file.name;link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);
 }
 
 function setGameLogCount(value, direction = "initial") {
