@@ -87,14 +87,31 @@ def _strikeout_grade(*, k_card, opp_k, opponent_offense, arsenal,
 
     pitcher_k_pct = number(season.get('k_pct'))
     pitcher_k9 = number(season.get('k_per_9'))
-    skill = (50 + (pitcher_k_pct - 22) * 4 + (pitcher_k9 - 8.5) * 4
-             if pitcher_k_pct is not None and pitcher_k9 is not None else None)
-    add('skill', 'Current-season K skill', 20, skill,
-        f'{pitcher_k_pct:.1f}% K · {pitcher_k9:.1f} K/9' if skill is not None else 'Pitcher season data unavailable')
-
-    season_ip = innings({'ip': season.get('innings_pitched')})
     season_gs = number(season.get('games_started'))
     season_bf = number(season.get('batters_faced'))
+    season_ks = number(season.get('strikeouts') or season.get('strike_outs'))
+    if pitcher_k_pct is None and season_ks is not None and season_bf:
+        pitcher_k_pct = season_ks / season_bf * 100
+    skill_parts = []
+    if pitcher_k_pct is not None:
+        skill_parts.append((50 + (pitcher_k_pct - 22) * 4, .55))
+    if pitcher_k9 is not None:
+        skill_parts.append((50 + (pitcher_k9 - 8.5) * 8, .45))
+    skill = (sum(value * weight for value, weight in skill_parts) /
+             sum(weight for _, weight in skill_parts)) if skill_parts else None
+    skill_confidence = min(1, .4 + .6 * min(1, (season_gs or 0) / 10)) if skill is not None else 0
+    skill_detail = 'Pitcher season data unavailable'
+    if skill is not None:
+        detail_parts = []
+        if pitcher_k_pct is not None:
+            detail_parts.append(f'{pitcher_k_pct:.1f}% K')
+        if pitcher_k9 is not None:
+            detail_parts.append(f'{pitcher_k9:.1f} K/9')
+        skill_detail = ' · '.join(detail_parts) + (f' · {int(season_gs)} GS' if season_gs else '')
+    add('skill', 'Current-season K skill', 20, skill,
+        skill_detail, skill_confidence)
+
+    season_ip = innings({'ip': season.get('innings_pitched')})
     recent_ip = [innings(start) for start in starts[:5]]
     recent_ip = [value for value in recent_ip if value is not None and value > 0]
     season_ip_start = season_ip / season_gs if season_ip and season_gs else None
@@ -138,7 +155,10 @@ def _strikeout_grade(*, k_card, opp_k, opponent_offense, arsenal,
         sample / coverage if mix_ok else 0)
 
     available_weight = sum(weight for _, weight in weighted)
-    score = round(sum(value * weight for value, weight in weighted) / available_weight) if available_weight else 50
+    # Factor impacts are already centered on 50, weighted and confidence-
+    # adjusted. Summing them makes the headline score reconcile exactly with
+    # the factor values shown in the UI and matches the other matchup models.
+    score = round(50 + sum(factor['impact'] for factor in factors)) if available_weight else 50
     coverage_value = round(available_weight / 100, 2)
     core = opponent_rate is not None and skill is not None and projected_k is not None
     if not core:
@@ -148,7 +168,7 @@ def _strikeout_grade(*, k_card, opp_k, opponent_offense, arsenal,
     if coverage_value < .5:
         label = 'Limited data · ' + label.lower()
     return dict(score=score, label=label, coverage=coverage_value, factors=factors,
-                version='pitcher-k-current-season-v3', side=str(side).lower(),
+                version='pitcher-k-current-season-v4', side=str(side).lower(),
                 market='pitcher_strikeouts', projected_ks=round(projected_k, 2) if projected_k is not None else None,
                 projected_ip=round(projected_ip, 2) if projected_ip is not None else None)
 
