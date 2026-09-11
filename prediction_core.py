@@ -1189,6 +1189,7 @@ def format_k_prop_response(*, player_name, team_abbr, headshot, stat_label, line
         "tierIcon": tier_icon,
         "estHitRate": l10_rate,
         "location": location,
+        "isHome": is_home,
         "unitSize": _unit_size_for(tier_label),
         "verdict": f"{side.upper()} {line}",
         "verdictDetail": (
@@ -1477,6 +1478,7 @@ def format_response(*, player_name, team_abbr, headshot, stat_label, prop_type, 
         "tierIcon": tier_icon,
         "estHitRate": l10_rate,
         "location": location,
+        "isHome": is_home,
         "unitSize": _unit_size_for(tier_label),
         "verdict": f"{side.upper()} {line}",
         "verdictDetail": (
