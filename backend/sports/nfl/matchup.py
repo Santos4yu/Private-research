@@ -73,6 +73,10 @@ def build_matchup(data,player,opponent_id,prop,week,opportunity=None,environment
     enabled=policy() if enabled is None else enabled
     latest=max(defense['sampleWeeks'])
     freshness=1. if week-latest<=2 else .5 if week-latest<=3 else 0.
+    # Consecutive season-week indices control recency, not calendar freshness.
+    # Prior-season-only defense is conditional offseason evidence.
+    if data.get('history',{}).get('usesPriorSeason') and latest<=0:
+        freshness=min(freshness,.5)
     components={name:unavailable(UNSUPPORTED.get(name,'Not applicable or supported for this prop')) for name in COMPONENTS}
     for component,metric in selected.items():
         components[component]=metric_score(metric,defense,reference,enabled,freshness)

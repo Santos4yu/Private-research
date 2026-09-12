@@ -8,9 +8,10 @@ from .matchup import build_matchup
 from .props import props_for_position
 from .cache import NFLCacheDomain,cached_nfl
 from .api import _json_value
+from .history_inputs import compact_history
 
 def matchup(season,player_id,week,prop):
-    return cached_nfl(NFLCacheDomain.MATCHUP,('nfl-matchup-v2',season,week,player_id,prop),lambda:_load(season,player_id,week,prop))
+    return cached_nfl(NFLCacheDomain.MATCHUP,('nfl-matchup-v3',season,week,player_id,prop),lambda:_load(season,player_id,week,prop))
 
 def _load(season,player_id,week,prop):
     roster=nflverse.players(season)
@@ -25,10 +26,11 @@ def _load(season,player_id,week,prop):
         return {'status':'NOT_AVAILABLE','reason':'No scheduled matchup'}
     opponent=game.away_team.id if game.home_team.id==player.team_id else game.home_team.id
     with ThreadPoolExecutor(max_workers=3) as executor:
-        raw=executor.submit(season_data,season)
+        raw=executor.submit(compact_history,season_data,season,week,('games','players','connections')) if week<=4 else executor.submit(season_data,season)
         volume=executor.submit(opportunity,season,player_id,week)
         injuries=executor.submit(nflverse.injuries,season,week)
         data=raw.result();opp=volume.result();reports=injuries.result()
+    if not data:return {'status':'NOT_AVAILABLE','reason':'Validated current/prior defensive data unavailable'}
     impacts={'CB':['coverageFit','alignmentFit'],'S':['coverageFit','explosiveFit'],'FS':['coverageFit','explosiveFit'],'SS':['coverageFit','explosiveFit'],
              'LB':['coverageFit','runSchemeFit'],'ILB':['coverageFit','runSchemeFit'],'OLB':['trenchFit','runSchemeFit'],
              'DE':['trenchFit','pressureInteraction','runSchemeFit'],'EDGE':['trenchFit','pressureInteraction'],'DT':['trenchFit','runSchemeFit'],
@@ -38,5 +40,7 @@ def _load(season,player_id,week,prop):
     personnel={'status':reports.status.value,'reports':_json_value(relevant),'reason':'Reports affect named component context only; no score points or presumed shadow defender'}
     environment={'roof':game.roof,'venue':game.venue,'forecastStatus':'NOT_AVAILABLE','reason':'Schedule weather is not a timestamped forecast; no weather adjustment'}
     result=build_matchup(data,asdict(player),opponent,prop,week,opp,environment,personnel)
+    if data.get('history',{}).get('usesPriorSeason'):
+        result.update(history=data['history'],modelVersion='NFL_MATCHUP_V3_EARLY_SEASON',status='LOW_CONFIDENCE')
     result.update(source='nflverse',sourceUrl=data['sourceUrl'],fetchedAt=data['fetchedAt'],observedAt=data.get('observedAt'))
     return result

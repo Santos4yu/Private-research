@@ -27,7 +27,7 @@ class handler(BaseHTTPRequestHandler):
         if not resource:
             path_parts = [part for part in urlparse(self.path).path.split("/") if part]
             resource = path_parts[-1].lower() if len(path_parts) > 2 else ""
-        allowed = {'players','teams','schedule','game-logs','usage','defense','injuries','depth-chart','team-stats','opportunity','matchup','projection','distribution','decision','value-board','model-health'}
+        allowed = {'players','teams','schedule','game-logs','usage','defense','injuries','depth-chart','team-stats','opportunity','matchup','projection','distribution','decision','value-board','model-health','props','prop-games'}
         if resource not in allowed:
             return send_json(self, 404, {'error': 'Unknown NFL resource.'})
         if len(self.path) > 2048 or any(len(value) > 120 for values in query.values() for value in values):
@@ -50,6 +50,18 @@ class handler(BaseHTTPRequestHandler):
         player_id = query.get("playerId", [""])[0].strip()
         if season_type not in nflverse.VALID_GAME_TYPES:
             return send_json(self, 400, {"error": "Unknown NFL season type."})
+
+        if resource in ('props','prop-games'):
+            if season_type!='REG' or (resource=='props' and not player_id and not query.get('eventId')):
+                return send_json(self,400,{'error':'Current NFL lines require regular season and a playerId or eventId.'})
+            from backend.sports.nfl.services import odds
+            try:
+                result=odds.events(season) if resource=='prop-games' else odds.lines(season,player_id or None,week,query.get('eventId',[None])[0])
+                return send_json(self,200, result)
+            except ValueError:
+                return send_json(self,400,{'error':'Unresolved NFL event/player or invalid line source.'})
+            except RuntimeError:
+                return send_json(self,503,{'error':'NFL line provider unavailable. Check quota and key in Settings.'})
 
         if resource == 'model-health':
             from v2.board.admin_auth import is_admin_request

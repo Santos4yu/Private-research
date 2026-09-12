@@ -8,8 +8,9 @@ from .services.play_by_play import season_summary
 from .opportunity import team_volume, player_opportunity
 from .allocation import allocate, absence_scenario
 from .cache import NFLCacheDomain, cached_nfl
+from .history_inputs import axis, optional_weekly, compact_history, VERSION as HISTORY_VERSION
 
-VERSION='opportunity-v3'
+VERSION='opportunity-v4'
 
 def _optional_pbp(season):
     try:
@@ -34,13 +35,24 @@ def _load(season, player_id, week):
     opponent=game.away_team.id if game.home_team.id==player.team_id else game.home_team.id
     with ThreadPoolExecutor(max_workers=4) as executor:
         pbp_future=executor.submit(_optional_pbp,season)
-        logs_future=executor.submit(source._source_rows,f'{source.RELEASE}/stats_player/stats_player_week_{season}.csv')
+        logs_future=executor.submit(optional_weekly,season)
         injuries_future=executor.submit(source.injuries,season,week)
         snaps_future=executor.submit(source.snap_counts,season)
         pbp,pbp_error=pbp_future.result()
         raw_players,logs_fetched,logs_observed=logs_future.result()
         injuries=injuries_future.result()
         snaps=snaps_future.result()
+    history=None
+    if week<=4:
+        historical_pbp=compact_history(season_summary,season,week,('teams','players'))
+        if historical_pbp:
+            pbp=historical_pbp;history=pbp['history']
+        older,_,_=optional_weekly(season-1)
+        raw_players=axis(raw_players,season,season,week,raw=True)+axis(older,season-1,season,week,raw=True)
+        prior_snaps=source.snap_counts(season-1)
+        usage_rows=axis(snaps.data or [],season,season,week)+axis(prior_snaps.data or [],season-1,season,week)
+        if usage_rows:
+            snaps=type(snaps)(source.DataStatus.AVAILABLE,usage_rows,snaps.source,snaps.fetched_at,snaps.observed_at)
     if pbp:
         team_rows=[r for r in pbp['teams'] if r['team_id']==player.team_id]
         allowed=[r for r in pbp['teams'] if r['opponent_team_id']==opponent]
@@ -49,14 +61,16 @@ def _load(season, player_id, week):
         team_rows=[asdict(r) for r in team.data or []]
         allowed=[]
     if not any(r['week']<week for r in team_rows):
-        return {'status':'NOT_AVAILABLE','reason':'No earlier same-season team volume'}
+        return {'status':'NOT_AVAILABLE','reason':'No usable current/prior-season team volume'}
     volume=team_volume(team_rows,allowed,week)
     by_player=defaultdict(list)
     pbp_by_player={(r['game_id'],r['player_id']):r for r in pbp['players']} if pbp else {}
     for row in raw_players:
         if row.get('season_type')!='REG' or source.canonical_team(row.get('team'))!=player.team_id:
             continue
-        row_week=source._integer(row,'week',required=True)
+        # Prior-season rows use a validated consecutive week axis that can
+        # be negative. The external-provider parser rejects negative weeks.
+        row_week=int(row['week']) if 'sourceSeason' in row else source._integer(row,'week',required=True)
         if row_week>=week:
             continue
         pid=row.get('player_id')
@@ -108,6 +122,11 @@ def _load(season, player_id, week):
     profiles,allocation=allocate(profiles,volume)
     conditional,_=allocate(conditional,volume)
     selected=profiles[player_id]
+    if history and history['usesPriorSeason']:
+        selected['roleStability']='LOW'
+        if selected['status']=='AVAILABLE':selected['status']='LOW_CONFIDENCE'
+        for metric in selected.get('metrics',{}).values():
+            if metric.get('mean') is not None:metric['status']='LOW_CONFIDENCE'
     scenarios=[]
     if player_id in injury_map or selected.get('reason','').startswith('UNCERTAIN_ROSTER'):
         scenarios=[{'condition':'Player active with observed role','probability':None,'status':'LOW_CONFIDENCE','player':conditional[player_id]},
@@ -136,5 +155,6 @@ def _load(season, player_id, week):
             'source':'nflverse','fetchedAt':logs_fetched.isoformat(),'observedAt':logs_observed.isoformat() if logs_observed else None,
             'sources':{'playByPlay':{'status':'AVAILABLE' if pbp else 'NOT_AVAILABLE','reason':pbp_error,'fetchedAt':pbp.get('fetchedAt') if pbp else None},
                        'snaps':{'status':snaps.status.value,'reason':snaps.reason},'injuries':{'status':injuries.status.value,'reason':injuries.reason}},
-            'modelVersion':VERSION,'limitations':['No routes provider; snaps do not imply routes','Script weights are historical exposure, not future scenario probabilities',
+            'history':history,'inputPolicyVersion':HISTORY_VERSION if history else None,
+            'modelVersion':VERSION,'limitations':['Early-season estimates may assume uncertain offseason role continuation; prior-team role shares excluded','No routes provider; snaps do not imply routes','Script weights are historical exposure, not future scenario probabilities',
             'Historical verified injury absences unavailable; no blind redistribution','Non-scramble QB rushes are a designed-opportunity proxy, not charted design']}

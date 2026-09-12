@@ -9,6 +9,9 @@
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "functions": {
+    "api/nfl.py": {
+      "maxDuration": 60
+    },
     "api/prediction.py": {
       "maxDuration": 60
     },

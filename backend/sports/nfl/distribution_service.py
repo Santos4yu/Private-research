@@ -38,6 +38,9 @@ def distribution(season,player_id,week,prop):
         try:values=simulate(record,config['method'],config['parameters'],count,seed)
         except (ValueError,KeyError,ZeroDivisionError) as error:return {**missing,'reason':'Distribution unavailable: '+str(error)}
         result=summarize(values)
+        if point.get('history',{}).get('usesPriorSeason'):
+            result.update(distributionModelVersion='NFL_EARLY_SEASON_DISTRIBUTION_V1',history=point['history'],
+                          projectionCondition=point.get('projectionCondition'),validationStatus='EXPERIMENTAL')
         sd=result['standardDeviation'];scale=max(1,abs(result['mean']));ratio=sd/scale
         return {**missing,**result,'status':'EXPERIMENTAL','pointModelStatus':point.get('promotion'),
                 'projectionMean':result['mean'],'pointProjectionMean':point.get('projectionMean'),'projectionMedian':result['median'],'outcomeVolatility':'HIGH' if ratio>=.75 else 'MEDIUM' if ratio>=.35 else 'LOW',

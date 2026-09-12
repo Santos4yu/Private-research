@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 from threading import Lock
+from concurrent.futures import Future
 import time
 from typing import Callable, TypeVar
 
@@ -43,6 +44,8 @@ NFL_CACHE_TTLS = {
 T = TypeVar("T")
 _memory: dict[str, tuple[float, object]] = {}
 _lock = Lock()
+_pending: dict[str, Future] = {}
+_generation = 0
 
 
 def nfl_cache_key(domain: NFLCacheDomain, *parts: object) -> str:
@@ -60,12 +63,35 @@ def cached_nfl(domain: NFLCacheDomain, parts: tuple[object, ...], loader: Callab
         entry = _memory.get(key)
         if entry and now - entry[0] < NFL_CACHE_TTLS[domain]:
             return entry[1]  # type: ignore[return-value]
-    value = loader()
-    with _lock:
-        _memory[key] = (now, value)
-    return value
+        pending = _pending.get(key)
+        owner = pending is None
+        if owner:
+            pending = Future()
+            _pending[key] = pending
+        generation = _generation
+    if not owner:
+        return pending.result()
+    try:
+        value = loader()
+        with _lock:
+            if generation == _generation:
+                _memory[key] = (time.time(), value)
+                if len(_memory) > 1024:
+                    _memory.pop(next(iter(_memory)))
+        pending.set_result(value)
+        return value
+    except BaseException as error:
+        pending.set_exception(error)
+        raise
+    finally:
+        with _lock:
+            if _pending.get(key) is pending:
+                del _pending[key]
 
 
 def clear_nfl_cache() -> None:
+    global _generation
     with _lock:
+        _generation += 1
         _memory.clear()
+        _pending.clear()

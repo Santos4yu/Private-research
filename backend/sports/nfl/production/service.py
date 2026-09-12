@@ -1,4 +1,4 @@
-"""Public NFL decisions abstain; no connected current line provider exists."""
+"""Public NFL decisions abstain until independent production gates pass."""
 from .audit import audit_models
 from .decisions import decide,value_board
 
@@ -12,4 +12,4 @@ def decision(position,prop,player_id=None,game_id=None):
             'eligibilityReasons':model['reasons']}
 
 def board():
-    return {'status':'NOT_AVAILABLE','mode':'SHADOW','rows':value_board([]),'reason':'No production-ready model or reliable current NFL line feed.'}
+    return {'status':'NOT_AVAILABLE','mode':'SHADOW','rows':value_board([]),'reason':'No NFL models meet production and betting-calibration gates. Browse current offers in NFL props; research lines are not ranked recommendations.'}

@@ -8,6 +8,12 @@ from backend.sports.nfl.services.matchup_data import aggregate
 
 
 class MatchupTests(unittest.TestCase):
+    def test_prior_season_axis_does_not_imply_current_calendar_freshness(self):
+        data=self.data()
+        for row in data['games']:row['week']-=8
+        data['history']={'usesPriorSeason':True,'seasons':[2025]}
+        result=build_matchup(data,{'id':'mock-rb','team_id':'O0','position':'RB'},'D0','rushing_yards',1,enabled={'run_epa':True})
+        self.assertEqual(result['freshness']['factor'],.5)
     def data(self):
         games=[]
         for w in range(1,9):

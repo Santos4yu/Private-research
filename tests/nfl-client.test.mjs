@@ -27,3 +27,7 @@ test('freshness does not turn absent timestamps into live data', () => {
   assert.equal(freshness(null), 'Timestamp unavailable');
   assert.equal(freshness('2026-09-12T12:00:00Z',Date.parse('2026-09-12T12:16:00Z')), 'Stale · refresh research');
 });
+test('current quotes expire at the stricter two-minute line threshold', () => {
+  assert.equal(freshness('2026-09-12T12:00:00Z',Date.parse('2026-09-12T12:02:00Z'),120000),'Stale · refresh research');
+  assert.equal(freshness('2026-09-12T12:00:00Z',Date.parse('2026-09-12T12:02:00Z')),'Updated 2m ago');
+});

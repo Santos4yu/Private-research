@@ -8,7 +8,7 @@ export function NFLDecisionPanel({resource,propKey}) {
   return <section className="nfl-chart-card"><div className="nfl-section-title"><h3>Production gate</h3><strong>PASS</strong><ModelBadge status={data.productionStatus} /></div>
     <p>{data.productionStatus==='SHADOW_ONLY'?'EXPERIMENTAL MODEL · shadow only':'Model unavailable for betting decisions'}</p>
     <small>Point {data.pointStatus} · distribution {data.distributionStatus} · health {data.health}</small>
-    <p>No production-grade recommendation. Betting calibration and current prop lines are unavailable.</p>
+    <p>No production-grade recommendation. Betting calibration is unavailable and model validation gates have not passed. Posted research lines do not establish a betting edge.</p>
     <details><summary>Why Vortex is passing</summary><ul>{(data.eligibilityReasons || data.reasons || []).map((reason,index)=><li key={index}>{reason}</li>)}</ul></details>
   </section>;
 }

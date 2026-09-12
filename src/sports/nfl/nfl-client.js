@@ -37,9 +37,9 @@ export function createNFLClient({ fetcher = fetch, now = Date.now } = {}) {
   return { get, clear };
 }
 
-export function freshness(timestamp, now = Date.now()) {
+export function freshness(timestamp, now = Date.now(), staleAfter = 900000) {
   const age = now - Date.parse(timestamp);
   if (!Number.isFinite(age) || age < -60000) return 'Timestamp unavailable';
-  if (age >= 900000) return 'Stale · refresh research';
+  if (age >= staleAfter) return 'Stale · refresh research';
   return age < 60000 ? 'Updated just now' : `Updated ${Math.floor(age / 60000)}m ago`;
 }
