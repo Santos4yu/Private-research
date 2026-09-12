@@ -1,0 +1,31 @@
+export type NFLDistributionStatus = 'VALIDATED' | 'EXPERIMENTAL' | 'DISABLED' | 'NOT_AVAILABLE';
+export interface NFLDistributionSummary {
+  playerId: string | null;
+  gameId: string | null;
+  propType: string;
+  pointModelStatus: NFLDistributionStatus;
+  status: NFLDistributionStatus;
+  projectionMean: number | null;
+  pointProjectionMean?: number | null;
+  projectionMedian: number | null;
+  percentiles: { p10: number; p25: number; p50: number; p75: number; p90: number } | null;
+  variance: number | null;
+  standardDeviation: number | null;
+  outcomeVolatility: 'LOW' | 'MEDIUM' | 'HIGH' | null;
+  histogram?: { lower: number; upper: number; mass: number }[];
+  modelCertainty: null;
+  line: null;
+  rawOverProbability: null;
+  rawUnderProbability: null;
+  rawPushProbability: null;
+  calibratedOverProbability: null;
+  calibratedUnderProbability: null;
+  calibrationStatus: 'NOT_AVAILABLE';
+  simulationCount: number | null;
+  simulationSeed?: number;
+  distributionModelVersion: string;
+  projectionModelVersion: string | null;
+  generatedAt?: string;
+  inputFingerprint?: string;
+  reason: string;
+}

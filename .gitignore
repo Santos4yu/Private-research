@@ -25,6 +25,7 @@ backend/cache/
 
 # Large generated training datasets
 v2/training/data/
+docs/nfl-distribution-forecasts.jsonl
 
 # Operating-system and editor files
 .DS_Store

@@ -1,0 +1,154 @@
+{
+  "method": "2023 frozen diagnostic slopes; 2024 selects; 2025 final check can only disable, never tune",
+  "features": {
+    "pass_epa": {
+      "targetMetric": "ypa",
+      "trainingN": 388,
+      "frozenSlope": 1.6930042631332392,
+      "screen2024": {
+        "n": 388,
+        "baselineMAE": 1.471741407733277,
+        "featureMAE": 1.4908140159150738,
+        "correlation": -0.027383394999684847
+      },
+      "final2025": {
+        "n": 388,
+        "baselineMAE": 1.460770955133979,
+        "featureMAE": 1.4402066690490702,
+        "correlation": 0.17356277936636214
+      },
+      "selectedBeforeFinal": false,
+      "enabled": false
+    },
+    "run_epa": {
+      "targetMetric": "ypc",
+      "trainingN": 388,
+      "frozenSlope": 0.6506674077790281,
+      "screen2024": {
+        "n": 388,
+        "baselineMAE": 1.0322853905843008,
+        "featureMAE": 1.0250929494000114,
+        "correlation": 0.14302043623350916
+      },
+      "final2025": {
+        "n": 388,
+        "baselineMAE": 1.1177527160474467,
+        "featureMAE": 1.1135394590953003,
+        "correlation": 0.11604471190279327
+      },
+      "selectedBeforeFinal": true,
+      "enabled": true
+    },
+    "completion_rate": {
+      "targetMetric": "completion_rate",
+      "trainingN": 388,
+      "frozenSlope": 0.2653172861721164,
+      "screen2024": {
+        "n": 388,
+        "baselineMAE": 0.07466453685506007,
+        "featureMAE": 0.07481646307528171,
+        "correlation": 0.049049143381211496
+      },
+      "final2025": {
+        "n": 388,
+        "baselineMAE": 0.0731231261479683,
+        "featureMAE": 0.07153338112598663,
+        "correlation": 0.2610634645510128
+      },
+      "selectedBeforeFinal": false,
+      "enabled": false
+    },
+    "sack_rate": {
+      "targetMetric": "sack_rate",
+      "trainingN": 388,
+      "frozenSlope": 0.1511393388266459,
+      "screen2024": {
+        "n": 388,
+        "baselineMAE": 0.03795539018612319,
+        "featureMAE": 0.03793622173133188,
+        "correlation": 0.05661487586317116
+      },
+      "final2025": {
+        "n": 388,
+        "baselineMAE": 0.038714414752165215,
+        "featureMAE": 0.0385292685778575,
+        "correlation": 0.1426941043384264
+      },
+      "selectedBeforeFinal": true,
+      "enabled": true
+    },
+    "yac_per_reception": {
+      "targetMetric": "yac_per_reception",
+      "trainingN": 388,
+      "frozenSlope": 0.07438053096761227,
+      "screen2024": {
+        "n": 388,
+        "baselineMAE": 1.3784199761217657,
+        "featureMAE": 1.3774305601802057,
+        "correlation": 0.046247116823139645
+      },
+      "final2025": {
+        "n": 388,
+        "baselineMAE": 1.449210731335604,
+        "featureMAE": 1.4397803383277994,
+        "correlation": 0.17495951717142527
+      },
+      "selectedBeforeFinal": true,
+      "enabled": true
+    },
+    "pass_explosive": {
+      "targetMetric": "pass_explosive",
+      "trainingN": 388,
+      "frozenSlope": 0.2976059205536628,
+      "screen2024": {
+        "n": 388,
+        "baselineMAE": 0.044001598107749375,
+        "featureMAE": 0.04417471961263333,
+        "correlation": -0.0462155036156959
+      },
+      "final2025": {
+        "n": 388,
+        "baselineMAE": 0.04374285678357221,
+        "featureMAE": 0.043906686671439224,
+        "correlation": 0.0624880965397619
+      },
+      "selectedBeforeFinal": false,
+      "enabled": false
+    },
+    "run_explosive": {
+      "targetMetric": "run_explosive",
+      "trainingN": 388,
+      "frozenSlope": 0.21796361450842824,
+      "screen2024": {
+        "n": 388,
+        "baselineMAE": 0.05405493092866794,
+        "featureMAE": 0.053905626672766695,
+        "correlation": 0.11458749087428367
+      },
+      "final2025": {
+        "n": 388,
+        "baselineMAE": 0.057530763041564466,
+        "featureMAE": 0.05715420880756861,
+        "correlation": 0.10411501210502991
+      },
+      "selectedBeforeFinal": true,
+      "enabled": true
+    }
+  },
+  "policy": {
+    "pass_epa": false,
+    "run_epa": true,
+    "completion_rate": false,
+    "sack_rate": true,
+    "yac_per_reception": true,
+    "pass_explosive": false,
+    "run_explosive": true
+  },
+  "limitations": [
+    "Team efficiency validation, not receiver-specific outcome validation",
+    "Corrected releases, not historical provider snapshots",
+    "No current coverage/routes/pressure charting to validate",
+    "No inference of betting probabilities",
+    "Final veto means an additional untouched season is needed for post-veto policy validation"
+  ]
+}

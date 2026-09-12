@@ -1,0 +1,145 @@
+{
+  "gateVersion": "NFL_PRODUCTION_GATE_V1",
+  "models": [
+    {
+      "position": "QB",
+      "propType": "passing_yards",
+      "pointStatus": "EXPERIMENTAL"
+    },
+    {
+      "position": "QB",
+      "propType": "passing_attempts",
+      "pointStatus": "DISABLED"
+    },
+    {
+      "position": "QB",
+      "propType": "pass_completions",
+      "pointStatus": "EXPERIMENTAL"
+    },
+    {
+      "position": "QB",
+      "propType": "passing_touchdowns",
+      "pointStatus": "NOT_AVAILABLE"
+    },
+    {
+      "position": "QB",
+      "propType": "interceptions",
+      "pointStatus": "DISABLED"
+    },
+    {
+      "position": "QB",
+      "propType": "rushing_yards",
+      "pointStatus": "NOT_AVAILABLE"
+    },
+    {
+      "position": "RB",
+      "propType": "rushing_yards",
+      "pointStatus": "EXPERIMENTAL"
+    },
+    {
+      "position": "QB",
+      "propType": "rush_attempts",
+      "pointStatus": "DISABLED"
+    },
+    {
+      "position": "RB",
+      "propType": "rush_attempts",
+      "pointStatus": "EXPERIMENTAL"
+    },
+    {
+      "position": "QB",
+      "propType": "passing_rushing_yards",
+      "pointStatus": "NOT_AVAILABLE"
+    },
+    {
+      "position": "RB",
+      "propType": "receiving_yards",
+      "pointStatus": "EXPERIMENTAL"
+    },
+    {
+      "position": "TE",
+      "propType": "receiving_yards",
+      "pointStatus": "EXPERIMENTAL"
+    },
+    {
+      "position": "WR",
+      "propType": "receiving_yards",
+      "pointStatus": "EXPERIMENTAL"
+    },
+    {
+      "position": "RB",
+      "propType": "receptions",
+      "pointStatus": "EXPERIMENTAL"
+    },
+    {
+      "position": "TE",
+      "propType": "receptions",
+      "pointStatus": "EXPERIMENTAL"
+    },
+    {
+      "position": "WR",
+      "propType": "receptions",
+      "pointStatus": "EXPERIMENTAL"
+    },
+    {
+      "position": "TE",
+      "propType": "targets",
+      "pointStatus": "DISABLED"
+    },
+    {
+      "position": "WR",
+      "propType": "targets",
+      "pointStatus": "EXPERIMENTAL"
+    },
+    {
+      "position": "TE",
+      "propType": "longest_reception",
+      "pointStatus": "NOT_AVAILABLE"
+    },
+    {
+      "position": "WR",
+      "propType": "longest_reception",
+      "pointStatus": "NOT_AVAILABLE"
+    },
+    {
+      "position": "RB",
+      "propType": "rushing_receiving_yards",
+      "pointStatus": "EXPERIMENTAL"
+    },
+    {
+      "position": "RB",
+      "propType": "touchdowns",
+      "pointStatus": "NOT_AVAILABLE"
+    },
+    {
+      "position": "TE",
+      "propType": "touchdowns",
+      "pointStatus": "NOT_AVAILABLE"
+    },
+    {
+      "position": "WR",
+      "propType": "touchdowns",
+      "pointStatus": "NOT_AVAILABLE"
+    },
+    {
+      "position": "QB",
+      "propType": "fantasy_score",
+      "pointStatus": "NOT_AVAILABLE"
+    },
+    {
+      "position": "RB",
+      "propType": "fantasy_score",
+      "pointStatus": "NOT_AVAILABLE"
+    },
+    {
+      "position": "TE",
+      "propType": "fantasy_score",
+      "pointStatus": "NOT_AVAILABLE"
+    },
+    {
+      "position": "WR",
+      "propType": "fantasy_score",
+      "pointStatus": "NOT_AVAILABLE"
+    }
+  ]
+}

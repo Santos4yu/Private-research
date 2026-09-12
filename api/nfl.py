@@ -12,6 +12,14 @@ from backend.sports.nfl.services import nflverse
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
+        from backend.sports.nfl.request_guard import event
+        try:
+            return self._get()
+        except Exception:
+            event('request_failure', 'nfl')
+            return send_json(self, 503, {'error': 'Data source temporarily unavailable.'})
+
+    def _get(self):
         if not session_with_live_access(self.headers):
             return send_json(self, 401, {"error": "Sign in to use NFL data.", "authRequired": True})
         query = parse_qs(urlparse(self.path).query)
@@ -19,6 +27,14 @@ class handler(BaseHTTPRequestHandler):
         if not resource:
             path_parts = [part for part in urlparse(self.path).path.split("/") if part]
             resource = path_parts[-1].lower() if len(path_parts) > 2 else ""
+        allowed = {'players','teams','schedule','game-logs','usage','defense','injuries','depth-chart','team-stats','opportunity','matchup','projection','distribution','decision','value-board','model-health'}
+        if resource not in allowed:
+            return send_json(self, 404, {'error': 'Unknown NFL resource.'})
+        if len(self.path) > 2048 or any(len(value) > 120 for values in query.values() for value in values):
+            return send_json(self, 400, {'error': 'NFL query is too long.'})
+        from backend.sports.nfl.request_guard import allow
+        if not allow(self.headers, resource):
+            return send_json(self, 429, {'error': 'Too many NFL requests. Retry shortly.'})
         try:
             season = int(query.get("season", [""])[0])
             week = int(query["week"][0]) if query.get("week") else None
@@ -35,6 +51,71 @@ class handler(BaseHTTPRequestHandler):
         if season_type not in nflverse.VALID_GAME_TYPES:
             return send_json(self, 400, {"error": "Unknown NFL season type."})
 
+        if resource == 'model-health':
+            from v2.board.admin_auth import is_admin_request
+            if not is_admin_request(self.headers):return send_json(self,403,{'error':'Admin access required.'})
+            from backend.sports.nfl.production.audit import audit_models
+            import os
+            ledger_path=os.getenv('NFL_SHADOW_DB')
+            if ledger_path and Path(ledger_path).is_file():
+                from backend.sports.nfl.production.ledger import ShadowLedger
+                from backend.sports.nfl.production.shadow import health_dashboard
+                ledger=ShadowLedger(ledger_path)
+                try:return send_json(self,200,{'data':health_dashboard(ledger)})
+                finally:ledger.close()
+            return send_json(self,200,{'data':audit_models()})
+        if resource == 'value-board':
+            from backend.sports.nfl.production.service import board
+            return send_json(self,200,{'data':board()})
+        if resource == 'decision':
+            position=query.get('position',[''])[0].upper();prop=query.get('prop',[''])[0]
+            if any(query.get(k) for k in ('line','side','probability','status')):
+                return send_json(self,400,{'error':'Decision inputs must come from verified server providers.'})
+            from backend.sports.nfl.production.service import decision
+            try:return send_json(self,200,{'data':decision(position,prop,player_id)})
+            except ValueError:return send_json(self,400,{'error':'Valid NFL position and prop required.'})
+        if resource == 'distribution':
+            prop=query.get('prop',[''])[0].strip()
+            if not player_id or week is None or not prop or season_type!='REG' or any(query.get(k) for k in ('line','side','over','under')):
+                return send_json(self,400,{'error':'Distribution requires regular season player/week/prop without market inputs.'})
+            from backend.sports.nfl.distribution_service import distribution
+            try:return send_json(self,200,{'data':distribution(season,player_id,week,prop)})
+            except ValueError:return send_json(self,400,{'error':'Invalid NFL identity or prop.'})
+            except (RuntimeError,OSError,EOFError):return send_json(self,503,{'error':'NFL distribution sources unavailable.'})
+        if resource == 'projection':
+            prop = query.get('prop', [''])[0].strip()
+            if not player_id or week is None or not prop or season_type != 'REG':
+                return send_json(self, 400, {'error': 'Projection requires playerId, week, prop and regular season.'})
+            if any(query.get(k) for k in ('line','side','over','under')):
+                return send_json(self, 400, {'error': 'Statistical projections do not accept market lines or sides.'})
+            from backend.sports.nfl.projections.service import projection
+            try:
+                return send_json(self, 200, {'data': projection(season, player_id, week, prop)})
+            except ValueError:
+                return send_json(self, 400, {'error': 'Invalid NFL projection identity or prop.'})
+            except (RuntimeError, OSError, EOFError):
+                return send_json(self, 503, {'error': 'Projection sources unavailable; no statistic fabricated.'})
+        if resource == 'matchup':
+            prop = query.get('prop', [''])[0].strip()
+            if not player_id or week is None or not prop or season_type != 'REG':
+                return send_json(self, 400, {'error': 'Matchup requires playerId, week, prop and regular season.'})
+            from backend.sports.nfl.matchup_service import matchup
+            try:
+                return send_json(self, 200, {'data': matchup(season, player_id, week, prop)})
+            except ValueError:
+                return send_json(self, 400, {'error': 'Invalid matchup identity or prop data.'})
+            except (RuntimeError, OSError, EOFError):
+                return send_json(self, 503, {'error': 'Matchup sources unavailable; no score fabricated.'})
+        if resource == "opportunity":
+            if not player_id or week is None:
+                return send_json(self, 400, {"error": "Opportunity requires a stable playerId and forecast week."})
+            if season_type != 'REG':
+                return send_json(self, 400, {"error": "Opportunity currently supports regular-season games only."})
+            from backend.sports.nfl.opportunity_service import opportunity
+            try:
+                return send_json(self, 200, {"data": opportunity(season, player_id, week)})
+            except (ValueError, RuntimeError, OSError):
+                return send_json(self, 503, {"error": "Opportunity inputs unavailable"})
         if resource == "teams":
             result = nflverse.teams(season)
         elif resource == "players":

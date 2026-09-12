@@ -1,5 +1,12 @@
 # NFL data provider capability matrix
 
+Phase 7B adds no external provider. Its distributions derive from existing
+validated nflverse weekly/PBP records, Phase 4 opportunity and Phase 6 means.
+There are still no reliable timestamped current/historical PrizePicks lines,
+complete as-of injury scenarios or advanced tracking tails. Statistical
+distribution validation is separate from betting calibration; the latter remains
+NOT_AVAILABLE. See `nfl-distribution-calibration-validation.md`.
+
 ## Selected sources
 
 Phase 2 uses the versioned CSV assets published by [nflverse-data](https://github.com/nflverse/nflverse-data/releases) and the maintained [nfldata](https://github.com/nflverse/nfldata) team/schedule files. The adapters fetch server-side, validate every record, normalize team aliases and stable GSIS player IDs, and return only internal NFL contracts.
@@ -22,7 +29,7 @@ Open-Meteo was evaluated but not selected. Its free API is limited to non-commer
 | Rush attempts/yards/TD | nflverse weekly player stats | Yes | Yes | After processing | Free | High | Direct fields; negative yards are valid measurements. |
 | Targets/receptions/receiving yards/TD | nflverse weekly player stats | Yes | Yes | After processing | Free | High | Direct fields. |
 | Longest reception | — | No | — | — | — | — | Not present in selected weekly stats; remains missing. |
-| Team offensive plays | nflverse weekly team stats | Derived | Yes | After processing | Free | High | Pass attempts + carries; documented as a derivation. |
+| Team offensive plays | nflverse weekly team stats / PBP | Derived | Yes | After processing | Free | High | Attempts + carries + sacks suffered; Phase 4 PBP validates the counted-play partition. |
 | Team pass/rush production | nflverse weekly team stats | Yes | Yes | After processing | Free | High | Direct fields. |
 | Team points | nfldata schedule/results | Yes | Yes | After result update | Free | High | Joined by game ID; absent before scores are posted. |
 | Drives | — | No | Possible from play-by-play | No | Free processing | Medium | Not implemented; requires a PBP adapter. |
@@ -82,3 +89,22 @@ Upstream data is naturally invalidated by TTL. Historical completed seasons may 
 3. nfldata supplies canonical team identities and schedule/results.
 4. nflverse weekly player/team stats supply measured box-score statistics.
 5. No second statistical source is merged in Phase 2, so conflicting stat-source precedence is intentionally deferred.
+## Phase 4 volume inputs
+
+`services/play_by_play.py` adds validated streaming PBP aggregates: real dropbacks, scrambles, sacks, called/official rushes, kneels/spikes, offensive drives, score-state exposure and within-drive clock pace. Definitions follow the [nflverse dictionary](https://nflreadr.nflverse.com/articles/dictionary_pbp.html); deleted/no-play/special-teams and two-point plays are excluded. Source/version/fetch metadata and optional disk/warm-process cache accompany compact summaries. Raw full-season PBP never reaches the browser.
+
+The NFL depth adapter can retain timestamped history for role-change detection while existing callers remain latest-only by default. Exact-crosswalk snap counts support expected snaps and verified historical zero-offensive-participation scenarios. Missing snap rows are not absences. Routes remain unsupported; no snap-to-route conversion exists. Non-scramble QB rushing is labelled a proxy rather than charted design.
+
+The [upstream availability schedule](https://nflreadr.nflverse.com/articles/nflverse_data_schedule.html) says its injury source died after 2024. Newer returned files do not guarantee complete current coverage. Opportunity injury certainty remains unknown/partial, and unresolved players receive conditional scenarios without probabilities. Missing data cannot become a confident projection.
+
+See `nfl-opportunity-engine-validation.md` and the JSON backtest artifact for exact methodology, output coverage and current accuracy. Earlier matrix entries describing unimplemented PBP/drive derivations are superseded by this Phase 4 section; advanced route, personnel and forecast-weather fields remain unavailable.
+
+## Phase 5 matchup capabilities
+
+Separate `services/matchup_data.py` validates PBP into same-season defensive, player, target-depth, run-direction and QB-receiver aggregates with field-specific valid exposures. Derived EPA, success, completion/CPOE, YPA/YPC, YAC, sacks, stuff and explosive rates are available diagnostics. Offense-strength residual adjustment uses earlier games with explicit raw-only fallback. A chronological validation policy enables only retained research features; quality is always partial and certainty reflects unsupported components.
+
+Current coverage/man-zone, routes, alignment/shadow defenders, true pressure/blitz/blocking, run concepts/box/contact/RYOE, tracking and personnel grouping scores remain unavailable. Future provider-neutral interaction ports are tests and architecture, not live data. Personnel and roof/venue are context only; incomplete current injuries and missing forecast weather cannot produce points. Source URL/version/fetch/observed timestamps and isolated NFL caches accompany responses. See `nfl-phase5-capabilities.md` and `nfl-matchup-engine-validation.md` for exact direct/derived/unavailable/commercial requirements, normalization and holdout results.
+
+## Phase 6 projection data
+
+The new `projections/dataset.py` uses the same public weekly stats release with strict season/player/game/count validation and explicit missingness. Negative air-yard shares are preserved as legitimate measurements. Position-specific priors exclude the player and future weeks. No new vendor or line provider is added. Phase 4 volume and Phase 5 underlying defense aggregates feed independent versioned mean-statistic models. Opponent effects require held-out improvement; coverage/tracking/weather/TD/tail gaps are not fabricated. Unknown teammate effects can supply a labelled conditional observed-role baseline, while selected-player or supported conflicting-volume scenarios remain unavailable without a mixture model. Forecast distributions, medians and betting outputs remain unimplemented. Projection source/version/freshness and existing isolated NFL cache keys are retained; full validation is in `nfl-projection-engine-validation.md`.

@@ -175,3 +175,45 @@ See `docs/nfl-data-provider-matrix.md` for exact field coverage, freshness, sour
 The NFL registry is now visible from the Research sport switcher. `src/sports/nfl/SportResearch.jsx` owns the NFL home, real player search, NFL-only recent players, featured players, player header, position-aware prop picker, and the Overview, Trend, Opportunity, Matchup, Opponent, Game, Injuries, and Research Health sections. The component calls only `/api/nfl/*` resources and stores NFL history under an NFL-specific key.
 
 Measured game logs, target and air-yard shares, snaps when an exact PFR crosswalk exists, defensive results, current-week injuries, schedules, venues, roofs, temperature, and wind are displayed when returned by Phase 2. Prop lines, projections, probabilities, matchup scores, routes, coverage, advanced run concepts, forecast precipitation, and betting context render as explicit unavailable states. NFL player URLs use `?sport=nfl&nflPlayer={gsis-id}` without changing the existing MLB hash routes.
+## Phase 4 isolated opportunity engine
+
+The `backend/sports/nfl/opportunity.py` volume-only module consumes validated NFL team/player records and returns position-specific opportunity estimates. `allocation.py` reconciles roster capacity and evidence-gates conditional absences. `opportunity_service.py` orchestrates bulk providers concurrently, keeps injury/QB uncertainty explicit and serves `/api/nfl/opportunity` through the existing single NFL handler. `services/play_by_play.py` provides compact validated PBP summaries with a versioned NFL cache. No existing MLB calculations/routes/components were refactored.
+
+NFL Opportunity and Health now display supported volume/role outputs, historical score-state tendencies, source freshness, sample reliability and conditional scenarios. Opportunity loads independently from the remaining research tabs. Football routes, distributions, yardage models and final betting outputs remain unavailable. Review `nfl-opportunity-engine-validation.md` for methodology, chronological 2024/2025 validation and data limits.
+
+## Phase 5 isolated matchup research
+
+`services/matchup_data.py` streams independently validated, field-specific PBP aggregates without changing Phase 4 counting. `matchup_profiles.py` constructs same-season prior-week defensive/offense-strength profiles. `matchup.py` selects prop-specific research features, applies the chronological gate in `matchup_policy.json`, and stores explainable contributions, group caps, reliability, freshness and separate quality/certainty. `matchup_interactions.py` provides tested future charting ports; no missing live coverage/routes/alignment/concepts/pressure are invented.
+
+The existing single NFL API handler serves `/api/nfl/matchup`; NFL `MatchupPanel.jsx` renders supported partial evidence and unavailable components independently of the other tabs. MLB calculations and routes remain unchanged. Read `nfl-matchup-engine-validation.md` for screening results and limitations: this is experimental research evidence, not a full validated matchup model or final prop prediction.
+
+## Phase 6 statistic-only projection boundary
+
+`backend/sports/nfl/projections/` owns separate versioned position/prop models, exposure-shrunk efficiency, validated bulk weekly box scores, walk-forward validation, frozen promotion/feature policy and orchestration. Models consume existing Phase 4 opportunity and underlying Phase 5 defense features; neither MLB nor those engines is rewritten. The old foundation unavailable-result constructor remains a pre-model boundary, while the UI's new `/api/nfl/projection` resource provides mean-statistic outputs independently.
+
+The existing authenticated NFL function handles the new resource without another serverless function. It rejects market lines/sides. NFL Overview shows supported EXPERIMENTAL means with expandable inputs and explicit conditional-role/injury limitations; DISABLED and missing results have no numerical projection. No final distributions, probabilities, confidence or verdict engine exists. See `nfl-projection-engine-validation.md` and its JSON artifact for per-prop holdout errors, availability and disabled models.
+
+## Phase 7B experimental statistical distributions
+
+The existing Phase 7 primitives are preserved. `distribution_engine.py` adds tested
+shared football-process candidates and prop-specific empirical forecast residuals;
+`validate_distributions.py` captures prior-week forecasts from the optional Phase 6
+replay path and performs chronological screening/holdout and convergence checks.
+`distribution_service.py` adds summarized NFL-only input-fingerprinted caching,
+served by the same authenticated function at `/api/nfl/distribution`. NFL Overview
+shows evidence-supported experimental percentiles and histogram markers. Exact
+outcome mass remains server-side. No line provider, betting calibration, verdict
+or validated overall model is implied. Review the distribution validation report
+for all results and point-in-time limitations.
+
+## Phase 8 production gate and prospective shadow tracking
+
+`backend/sports/nfl/production/` audits saved evidence, applies explicit release
+requirements, hard-passes all currently ineligible models and prepares validated
+decision/Value Board ports. No calibrated current NFL line provider or learned
+TAKE thresholds exist: twelve models are SHADOW_ONLY, with zero production-ready.
+The local explicit SQLite shadow CLI stores immutable pre-kickoff snapshots and
+source-verified final outcomes, while health monitors deduplicated per-version
+forecasts. Cloud persistent storage/scheduling is not deployed. The existing NFL
+function provides isolated decision/empty-board/admin-health resources. See
+`nfl-production-model-validation.md` for exact criteria and remaining blockers.

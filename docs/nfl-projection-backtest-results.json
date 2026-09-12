@@ -1,0 +1,4810 @@
+{
+  "version": "NFL_PROJECTION_POLICY_V1",
+  "method": "2023 fit; 2024 frozen selection; 2025 holdout can only disable; walk-forward prior-week inputs",
+  "models": {
+    "RB.rush_attempts": {
+      "method": "historical",
+      "coefficient": 0,
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion"
+    },
+    "RB.rushing_yards": {
+      "method": "opponent",
+      "coefficient": 0.910447535474902,
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion"
+    },
+    "RB.receptions": {
+      "method": "shrink",
+      "coefficient": 0,
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion"
+    },
+    "RB.receiving_yards": {
+      "method": "recency",
+      "coefficient": 0,
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion"
+    },
+    "RB.rushing_receiving_yards": {
+      "method": "componentSum",
+      "coefficient": 0,
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion"
+    },
+    "WR.targets": {
+      "method": "historical",
+      "coefficient": 0,
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion"
+    },
+    "WR.receptions": {
+      "method": "recency",
+      "coefficient": 0,
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion"
+    },
+    "WR.receiving_yards": {
+      "method": "recency",
+      "coefficient": 0,
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion"
+    },
+    "TE.targets": {
+      "method": "historical",
+      "coefficient": 0,
+      "promotion": "DISABLED",
+      "reason": "Insufficient sample or fails at least one simple baseline across screening/holdout; not served as a supported projection"
+    },
+    "TE.receptions": {
+      "method": "shrink",
+      "coefficient": 0,
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion"
+    },
+    "TE.receiving_yards": {
+      "method": "shrink",
+      "coefficient": 0,
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion"
+    },
+    "QB.passing_attempts": {
+      "method": "historical",
+      "coefficient": 0,
+      "promotion": "DISABLED",
+      "reason": "Insufficient sample or fails at least one simple baseline across screening/holdout; not served as a supported projection"
+    },
+    "QB.passing_yards": {
+      "method": "shrink",
+      "coefficient": 0,
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion"
+    },
+    "QB.pass_completions": {
+      "method": "shrink",
+      "coefficient": 0,
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion"
+    },
+    "QB.interceptions": {
+      "method": "recency",
+      "coefficient": 0,
+      "promotion": "DISABLED",
+      "reason": "Insufficient sample or fails at least one simple baseline across screening/holdout; not served as a supported projection"
+    },
+    "QB.rush_attempts": {
+      "method": "historical",
+      "coefficient": 0,
+      "promotion": "DISABLED",
+      "reason": "Insufficient sample or fails at least one simple baseline across screening/holdout; not served as a supported projection"
+    }
+  },
+  "reports": {
+    "RB.rush_attempts": {
+      "trainN": 896,
+      "frozenCoefficient": 0,
+      "screen2024": {
+        "historical": {
+          "n": 755,
+          "MAE": 3.2939061220201595,
+          "MedianAE": 2.288892796216791,
+          "RMSE": 4.5882068404965475,
+          "bias": -0.4381154645384772
+        },
+        "shrink": {
+          "n": 755,
+          "MAE": 3.2939061220201595,
+          "MedianAE": 2.288892796216791,
+          "RMSE": 4.5882068404965475,
+          "bias": -0.4381154645384772
+        },
+        "recency": {
+          "n": 755,
+          "MAE": 3.2939061220201595,
+          "MedianAE": 2.288892796216791,
+          "RMSE": 4.5882068404965475,
+          "bias": -0.4381154645384772
+        },
+        "opponent": {
+          "n": 755,
+          "MAE": 3.2939061220201595,
+          "MedianAE": 2.288892796216791,
+          "RMSE": 4.5882068404965475,
+          "bias": -0.4381154645384772
+        }
+      },
+      "selectedMethod": "historical",
+      "advancedChartingAblation": "NOT_AVAILABLE",
+      "roleSnapshots": "NOT_AVAILABLE",
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion",
+      "holdout2025": {
+        "n": 778,
+        "MAE": 3.1840588672567343,
+        "MedianAE": 2.1256034941243347,
+        "RMSE": 4.563632243318268,
+        "bias": -0.6005020615378516
+      },
+      "baselines2025": {
+        "seasonMean": {
+          "n": 778,
+          "MAE": 3.2272737973252115,
+          "MedianAE": 2.2182539682539675,
+          "RMSE": 4.581287502187108,
+          "bias": -0.4817190414555453
+        },
+        "recentMean": {
+          "n": 778,
+          "MAE": 3.1873856965567344,
+          "MedianAE": 2.1696120591107206,
+          "RMSE": 4.553905155630268,
+          "bias": -0.393163122760468
+        }
+      },
+      "baselines2024": {
+        "seasonMean": {
+          "n": 755,
+          "MAE": 3.3677718216294377,
+          "MedianAE": 2.5,
+          "RMSE": 4.61758172456484,
+          "bias": -0.03292497972961549
+        },
+        "recentMean": {
+          "n": 755,
+          "MAE": 3.3338473450290063,
+          "MedianAE": 2.431283613163732,
+          "RMSE": 4.571018407604214,
+          "bias": -0.05595589660697016
+        }
+      },
+      "screeningSelected": {
+        "n": 755,
+        "MAE": 3.2939061220201595,
+        "MedianAE": 2.288892796216791,
+        "RMSE": 4.5882068404965475,
+        "bias": -0.4381154645384772
+      },
+      "ablations2025": {
+        "historical": {
+          "n": 778,
+          "MAE": 3.1840588672567343,
+          "MedianAE": 2.1256034941243347,
+          "RMSE": 4.563632243318268,
+          "bias": -0.6005020615378516
+        },
+        "shrink": {
+          "n": 778,
+          "MAE": 3.1840588672567343,
+          "MedianAE": 2.1256034941243347,
+          "RMSE": 4.563632243318268,
+          "bias": -0.6005020615378516
+        },
+        "recency": {
+          "n": 778,
+          "MAE": 3.1840588672567343,
+          "MedianAE": 2.1256034941243347,
+          "RMSE": 4.563632243318268,
+          "bias": -0.6005020615378516
+        },
+        "opponent": {
+          "n": 778,
+          "MAE": 3.1840588672567343,
+          "MedianAE": 2.1256034941243347,
+          "RMSE": 4.563632243318268,
+          "bias": -0.6005020615378516
+        }
+      },
+      "eligibleOutcomeLogs": 969,
+      "knownRosterForecasts": 1259,
+      "noOutcomeLog": 290,
+      "conditionalAvailability": 0.8028895768833849,
+      "rosterAvailability": 0.6179507545671168,
+      "errorSlices": {
+        "position": {
+          "RB": {
+            "n": 778,
+            "MAE": 3.1840588672567343,
+            "MedianAE": 2.1256034941243347,
+            "RMSE": 4.563632243318268,
+            "bias": -0.6005020615378516
+          }
+        },
+        "week": {
+          "10": {
+            "n": 57,
+            "MAE": 3.457946493253501,
+            "MedianAE": 2.584060707996697,
+            "RMSE": 4.732219675817841,
+            "bias": -1.823694634054968
+          },
+          "11": {
+            "n": 60,
+            "MAE": 3.595273868721819,
+            "MedianAE": 2.382974409052206,
+            "RMSE": 4.957182570761066,
+            "bias": -1.0197048775505821
+          },
+          "12": {
+            "n": 56,
+            "MAE": 2.999466854265719,
+            "MedianAE": 1.7224912980334781,
+            "RMSE": 4.556101422147911,
+            "bias": -0.04351900911300151
+          },
+          "13": {
+            "n": 58,
+            "MAE": 2.8443531630050973,
+            "MedianAE": 1.8052924183012173,
+            "RMSE": 4.072384747030554,
+            "bias": -0.7833529404584224
+          },
+          "14": {
+            "n": 60,
+            "MAE": 2.6641318921986663,
+            "MedianAE": 1.6513907863900879,
+            "RMSE": 4.303394359542445,
+            "bias": 0.008996537308381052
+          },
+          "15": {
+            "n": 66,
+            "MAE": 3.0623749613353124,
+            "MedianAE": 2.737830943519173,
+            "RMSE": 3.965745232276621,
+            "bias": -0.532422427604021
+          },
+          "16": {
+            "n": 71,
+            "MAE": 3.060125549305141,
+            "MedianAE": 2.1150422253737826,
+            "RMSE": 4.1460900116688535,
+            "bias": -0.06828780402941934
+          },
+          "17": {
+            "n": 64,
+            "MAE": 2.701782605429882,
+            "MedianAE": 1.850356819540691,
+            "RMSE": 3.9998021919485764,
+            "bias": -0.731008422608956
+          },
+          "18": {
+            "n": 70,
+            "MAE": 4.101521863881089,
+            "MedianAE": 1.9287459547496302,
+            "RMSE": 6.115889107382953,
+            "bias": -1.4077784931743742
+          },
+          "6": {
+            "n": 55,
+            "MAE": 2.762623615432372,
+            "MedianAE": 2.193353341941112,
+            "RMSE": 3.69074320069647,
+            "bias": -0.20860298109287867
+          },
+          "7": {
+            "n": 58,
+            "MAE": 3.31533310029491,
+            "MedianAE": 2.1164418763860855,
+            "RMSE": 4.585631774543485,
+            "bias": -0.6706666991043128
+          },
+          "8": {
+            "n": 49,
+            "MAE": 3.95451430893617,
+            "MedianAE": 2.621600993845151,
+            "RMSE": 5.238112834804634,
+            "bias": 0.20335456701681048
+          },
+          "9": {
+            "n": 54,
+            "MAE": 2.8551255035211627,
+            "MedianAE": 1.8888158249501037,
+            "RMSE": 4.309550853538488,
+            "bias": -0.5370586604147852
+          }
+        },
+        "sampleReliability": {
+          "HIGH": {
+            "n": 345,
+            "MAE": 3.4626752480512235,
+            "MedianAE": 2.3582391365843005,
+            "RMSE": 4.827838864917214,
+            "bias": -0.5888625584296788
+          },
+          "LOW": {
+            "n": 57,
+            "MAE": 2.7140401600986195,
+            "MedianAE": 1.2963746099557891,
+            "RMSE": 4.87866949039661,
+            "bias": -0.8721405264559499
+          },
+          "MEDIUM": {
+            "n": 376,
+            "MAE": 2.9996663537831005,
+            "MedianAE": 2.0618382963265725,
+            "RMSE": 4.2543009307784185,
+            "bias": -0.5700026893888834
+          }
+        },
+        "role": {
+          "DECREASING": {
+            "n": 1,
+            "MAE": 1.2021007595436402,
+            "MedianAE": 1.2021007595436402,
+            "RMSE": 1.2021007595436402,
+            "bias": -1.2021007595436402
+          },
+          "INCREASING": {
+            "n": 1,
+            "MAE": 3.5042793905956877,
+            "MedianAE": 3.5042793905956877,
+            "RMSE": 3.5042793905956877,
+            "bias": 3.5042793905956877
+          },
+          "STABLE": {
+            "n": 776,
+            "MAE": 3.186200281669587,
+            "MedianAE": 2.1256034941243347,
+            "RMSE": 4.5675737031236645,
+            "bias": -0.6050164723034801
+          },
+          "UNCERTAIN": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          }
+        },
+        "dataCoverage": {
+          "0": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "100": {
+            "n": 778,
+            "MAE": 3.1840588672567343,
+            "MedianAE": 2.1256034941243347,
+            "RMSE": 4.563632243318268,
+            "bias": -0.6005020615378516
+          }
+        }
+      },
+      "servedConditionalAvailability": 0.8028895768833849,
+      "servedRosterAvailability": 0.6179507545671168
+    },
+    "RB.rushing_yards": {
+      "trainN": 896,
+      "frozenCoefficient": 0.910447535474902,
+      "screen2024": {
+        "historical": {
+          "n": 439,
+          "MAE": 24.48301351435346,
+          "MedianAE": 18.451834659967176,
+          "RMSE": 31.90613069734786,
+          "bias": -1.140862225832792
+        },
+        "shrink": {
+          "n": 439,
+          "MAE": 24.55020538836199,
+          "MedianAE": 18.55459782886608,
+          "RMSE": 31.954311907200374,
+          "bias": -1.1726639410726545
+        },
+        "recency": {
+          "n": 439,
+          "MAE": 24.615750328011767,
+          "MedianAE": 18.826823562946075,
+          "RMSE": 32.07352366060618,
+          "bias": -1.2986122060006693
+        },
+        "opponent": {
+          "n": 439,
+          "MAE": 24.46983368094454,
+          "MedianAE": 19.593762064516895,
+          "RMSE": 31.972835652200796,
+          "bias": -1.0803024740206388
+        }
+      },
+      "selectedMethod": "opponent",
+      "advancedChartingAblation": "NOT_AVAILABLE",
+      "roleSnapshots": "NOT_AVAILABLE",
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion",
+      "holdout2025": {
+        "n": 414,
+        "MAE": 27.37969192566698,
+        "MedianAE": 20.69380589130662,
+        "RMSE": 36.69497474856802,
+        "bias": -3.285674749202147
+      },
+      "baselines2025": {
+        "seasonMean": {
+          "n": 414,
+          "MAE": 27.77617807916721,
+          "MedianAE": 21.148351648351653,
+          "RMSE": 37.03807836131911,
+          "bias": -2.770089548803317
+        },
+        "recentMean": {
+          "n": 414,
+          "MAE": 27.735770626412112,
+          "MedianAE": 20.01682500061331,
+          "RMSE": 36.95031546220633,
+          "bias": -1.7760966213344198
+        }
+      },
+      "baselines2024": {
+        "seasonMean": {
+          "n": 439,
+          "MAE": 24.871088662033994,
+          "MedianAE": 19.46153846153846,
+          "RMSE": 32.06246007007239,
+          "bias": 1.3684279969587487
+        },
+        "recentMean": {
+          "n": 439,
+          "MAE": 24.748984782355034,
+          "MedianAE": 19.31953873396033,
+          "RMSE": 31.950885924649402,
+          "bias": 1.2327379973977755
+        }
+      },
+      "screeningSelected": {
+        "n": 439,
+        "MAE": 24.46983368094454,
+        "MedianAE": 19.593762064516895,
+        "RMSE": 31.972835652200796,
+        "bias": -1.0803024740206388
+      },
+      "ablations2025": {
+        "historical": {
+          "n": 414,
+          "MAE": 27.638540838746874,
+          "MedianAE": 20.90361613850127,
+          "RMSE": 36.94249824521993,
+          "bias": -3.267254789039112
+        },
+        "shrink": {
+          "n": 414,
+          "MAE": 27.49576878372671,
+          "MedianAE": 20.36208022051232,
+          "RMSE": 36.73077368073821,
+          "bias": -3.3255345431709835
+        },
+        "recency": {
+          "n": 414,
+          "MAE": 27.28563425272942,
+          "MedianAE": 20.129106121754493,
+          "RMSE": 36.47532037108202,
+          "bias": -3.2915845380908118
+        },
+        "opponent": {
+          "n": 414,
+          "MAE": 27.37969192566698,
+          "MedianAE": 20.69380589130662,
+          "RMSE": 36.69497474856802,
+          "bias": -3.285674749202147
+        }
+      },
+      "eligibleOutcomeLogs": 969,
+      "knownRosterForecasts": 1259,
+      "noOutcomeLog": 290,
+      "conditionalAvailability": 0.42724458204334365,
+      "rosterAvailability": 0.3288324066719619,
+      "errorSlices": {
+        "position": {
+          "RB": {
+            "n": 414,
+            "MAE": 27.37969192566698,
+            "MedianAE": 20.69380589130662,
+            "RMSE": 36.69497474856802,
+            "bias": -3.285674749202147
+          }
+        },
+        "week": {
+          "10": {
+            "n": 33,
+            "MAE": 32.168927563992376,
+            "MedianAE": 22.037603265001522,
+            "RMSE": 47.162471443189105,
+            "bias": -18.886807086734056
+          },
+          "11": {
+            "n": 33,
+            "MAE": 27.030157108430625,
+            "MedianAE": 24.93317123646198,
+            "RMSE": 32.13333862320384,
+            "bias": -5.565942331196546
+          },
+          "12": {
+            "n": 27,
+            "MAE": 31.624417907786068,
+            "MedianAE": 22.449364467461095,
+            "RMSE": 42.74843874146116,
+            "bias": -2.6052161301294663
+          },
+          "13": {
+            "n": 31,
+            "MAE": 22.919722821659327,
+            "MedianAE": 12.352505438474601,
+            "RMSE": 32.27404005228128,
+            "bias": -7.380633181008299
+          },
+          "14": {
+            "n": 31,
+            "MAE": 24.039731733040234,
+            "MedianAE": 13.69252853722437,
+            "RMSE": 34.96315359776871,
+            "bias": -0.7247058930349107
+          },
+          "15": {
+            "n": 38,
+            "MAE": 19.431662625371825,
+            "MedianAE": 15.515596280631037,
+            "RMSE": 23.621579973968966,
+            "bias": 1.9510698610576604
+          },
+          "16": {
+            "n": 43,
+            "MAE": 29.7514247307719,
+            "MedianAE": 23.437720476077473,
+            "RMSE": 36.03916255090473,
+            "bias": -1.060394637803777
+          },
+          "17": {
+            "n": 40,
+            "MAE": 26.08040770147461,
+            "MedianAE": 17.194308434856914,
+            "RMSE": 38.06008753856289,
+            "bias": -7.458710673081372
+          },
+          "18": {
+            "n": 41,
+            "MAE": 25.066766745240546,
+            "MedianAE": 22.217457894679406,
+            "RMSE": 32.45382396909129,
+            "bias": 5.059857486294721
+          },
+          "6": {
+            "n": 23,
+            "MAE": 30.17089169572811,
+            "MedianAE": 30.343350788080727,
+            "RMSE": 40.80250118377714,
+            "bias": -2.0176968112919083
+          },
+          "7": {
+            "n": 27,
+            "MAE": 30.60005494716015,
+            "MedianAE": 24.12773201481174,
+            "RMSE": 36.67601958328362,
+            "bias": -4.377248246146737
+          },
+          "8": {
+            "n": 20,
+            "MAE": 46.58155029176643,
+            "MedianAE": 39.31800187083832,
+            "RMSE": 54.814755868717135,
+            "bias": -0.7539917541600012
+          },
+          "9": {
+            "n": 27,
+            "MAE": 19.6884852636553,
+            "MedianAE": 18.65880610756396,
+            "RMSE": 25.514213267927538,
+            "bias": 0.381514092973127
+          }
+        },
+        "sampleReliability": {
+          "HIGH": {
+            "n": 243,
+            "MAE": 27.29745613254458,
+            "MedianAE": 20.16549008557925,
+            "RMSE": 37.327684706182076,
+            "bias": -3.6486807234842535
+          },
+          "LOW": {
+            "n": 11,
+            "MAE": 40.223701723883465,
+            "MedianAE": 47.13081203949628,
+            "RMSE": 52.51741853797649,
+            "bias": -15.854500088879412
+          },
+          "MEDIUM": {
+            "n": 160,
+            "MAE": 26.62156186284425,
+            "MedianAE": 21.601216176292997,
+            "RMSE": 34.32704603454119,
+            "bias": -1.8702526836583862
+          }
+        },
+        "role": {
+          "DECREASING": {
+            "n": 1,
+            "MAE": 53.145718332851516,
+            "MedianAE": 53.145718332851516,
+            "RMSE": 53.145718332851516,
+            "bias": -53.145718332851516
+          },
+          "INCREASING": {
+            "n": 1,
+            "MAE": 62.06774388500216,
+            "MedianAE": 62.06774388500216,
+            "RMSE": 62.06774388500216,
+            "bias": 62.06774388500216
+          },
+          "STABLE": {
+            "n": 412,
+            "MAE": 27.232958725748244,
+            "MedianAE": 20.535973883273655,
+            "RMSE": 36.56298239798941,
+            "bias": -3.3232800284510673
+          },
+          "UNCERTAIN": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          }
+        },
+        "dataCoverage": {
+          "0": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "75.0": {
+            "n": 414,
+            "MAE": 27.37969192566698,
+            "MedianAE": 20.69380589130662,
+            "RMSE": 36.69497474856802,
+            "bias": -3.285674749202147
+          }
+        }
+      },
+      "servedConditionalAvailability": 0.42724458204334365,
+      "servedRosterAvailability": 0.3288324066719619
+    },
+    "RB.receptions": {
+      "trainN": 896,
+      "frozenCoefficient": 0,
+      "screen2024": {
+        "historical": {
+          "n": 359,
+          "MAE": 1.4403725303301231,
+          "MedianAE": 1.2386790962077763,
+          "RMSE": 1.8017891525123113,
+          "bias": -0.004387705464128256
+        },
+        "shrink": {
+          "n": 359,
+          "MAE": 1.4402881975902249,
+          "MedianAE": 1.2249203595053477,
+          "RMSE": 1.801508049808988,
+          "bias": -0.009166651357164591
+        },
+        "recency": {
+          "n": 359,
+          "MAE": 1.4450340962220904,
+          "MedianAE": 1.2302367666968133,
+          "RMSE": 1.8085753856429065,
+          "bias": -0.020376101290634392
+        },
+        "opponent": {
+          "n": 359,
+          "MAE": 1.4450340962220904,
+          "MedianAE": 1.2302367666968133,
+          "RMSE": 1.8085753856429065,
+          "bias": -0.020376101290634392
+        }
+      },
+      "selectedMethod": "shrink",
+      "advancedChartingAblation": "NOT_AVAILABLE",
+      "roleSnapshots": "NOT_AVAILABLE",
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion",
+      "holdout2025": {
+        "n": 377,
+        "MAE": 1.4156364795811174,
+        "MedianAE": 1.200637951573003,
+        "RMSE": 1.8132632290722188,
+        "bias": 0.040857474328632966
+      },
+      "baselines2025": {
+        "seasonMean": {
+          "n": 377,
+          "MAE": 1.4806656539746728,
+          "MedianAE": 1.2307692307692308,
+          "RMSE": 1.8526575215416443,
+          "bias": 0.25236655107344763
+        },
+        "recentMean": {
+          "n": 377,
+          "MAE": 1.467355426723862,
+          "MedianAE": 1.2972397104866946,
+          "RMSE": 1.8436639366392744,
+          "bias": 0.22070319612174977
+        }
+      },
+      "baselines2024": {
+        "seasonMean": {
+          "n": 359,
+          "MAE": 1.4556187351800165,
+          "MedianAE": 1.25,
+          "RMSE": 1.814111761079786,
+          "bias": 0.14781424471535892
+        },
+        "recentMean": {
+          "n": 359,
+          "MAE": 1.4674132938488893,
+          "MedianAE": 1.2576272960636803,
+          "RMSE": 1.8288532772471273,
+          "bias": 0.14493383881109748
+        }
+      },
+      "screeningSelected": {
+        "n": 359,
+        "MAE": 1.4402881975902249,
+        "MedianAE": 1.2249203595053477,
+        "RMSE": 1.801508049808988,
+        "bias": -0.009166651357164591
+      },
+      "ablations2025": {
+        "historical": {
+          "n": 377,
+          "MAE": 1.4196238043437803,
+          "MedianAE": 1.194077172740231,
+          "RMSE": 1.81605985793452,
+          "bias": 0.04533856594060466
+        },
+        "shrink": {
+          "n": 377,
+          "MAE": 1.4156364795811174,
+          "MedianAE": 1.200637951573003,
+          "RMSE": 1.8132632290722188,
+          "bias": 0.040857474328632966
+        },
+        "recency": {
+          "n": 377,
+          "MAE": 1.4147119265435282,
+          "MedianAE": 1.2012882649679686,
+          "RMSE": 1.8163129980735202,
+          "bias": 0.03021639145564587
+        },
+        "opponent": {
+          "n": 377,
+          "MAE": 1.4147119265435282,
+          "MedianAE": 1.2012882649679686,
+          "RMSE": 1.8163129980735202,
+          "bias": 0.03021639145564587
+        }
+      },
+      "eligibleOutcomeLogs": 969,
+      "knownRosterForecasts": 1259,
+      "noOutcomeLog": 290,
+      "conditionalAvailability": 0.3890608875128999,
+      "rosterAvailability": 0.2994440031771247,
+      "errorSlices": {
+        "position": {
+          "RB": {
+            "n": 377,
+            "MAE": 1.4156364795811174,
+            "MedianAE": 1.200637951573003,
+            "RMSE": 1.8132632290722188,
+            "bias": 0.040857474328632966
+          }
+        },
+        "week": {
+          "10": {
+            "n": 25,
+            "MAE": 1.1147403716502045,
+            "MedianAE": 1.0454937888923674,
+            "RMSE": 1.4218249290880556,
+            "bias": 0.04413726643923324
+          },
+          "11": {
+            "n": 27,
+            "MAE": 1.6584560080639728,
+            "MedianAE": 1.6467577460503109,
+            "RMSE": 1.950621930149053,
+            "bias": 0.03522272313276164
+          },
+          "12": {
+            "n": 30,
+            "MAE": 1.860033702745768,
+            "MedianAE": 1.5458222613529156,
+            "RMSE": 2.3632239098343253,
+            "bias": -0.5231252009091786
+          },
+          "13": {
+            "n": 37,
+            "MAE": 1.4416613670780207,
+            "MedianAE": 1.2272204396338964,
+            "RMSE": 1.8022965247998506,
+            "bias": -0.0017750432441201688
+          },
+          "14": {
+            "n": 35,
+            "MAE": 1.359266015083848,
+            "MedianAE": 0.9960016793974282,
+            "RMSE": 1.7194664003660014,
+            "bias": 0.39558182069332154
+          },
+          "15": {
+            "n": 41,
+            "MAE": 1.2719184255251936,
+            "MedianAE": 1.125229654181607,
+            "RMSE": 1.664082056330852,
+            "bias": 0.2481743043681471
+          },
+          "16": {
+            "n": 41,
+            "MAE": 1.308616925404026,
+            "MedianAE": 1.0939369658970075,
+            "RMSE": 1.7175744601084293,
+            "bias": -0.1229649404975651
+          },
+          "17": {
+            "n": 44,
+            "MAE": 1.290465637693294,
+            "MedianAE": 1.0326699741356347,
+            "RMSE": 1.7240854964637267,
+            "bias": -0.04522701723676676
+          },
+          "18": {
+            "n": 35,
+            "MAE": 1.3379712156370727,
+            "MedianAE": 0.8703591288144097,
+            "RMSE": 1.8504204461632718,
+            "bias": -0.498872727327337
+          },
+          "6": {
+            "n": 10,
+            "MAE": 1.6212397735402284,
+            "MedianAE": 1.5203145494673431,
+            "RMSE": 1.8511406195779678,
+            "bias": 0.4068051375232834
+          },
+          "7": {
+            "n": 15,
+            "MAE": 1.1371655737379593,
+            "MedianAE": 1.042859337744046,
+            "RMSE": 1.3240363462786624,
+            "bias": 0.6441645941208932
+          },
+          "8": {
+            "n": 19,
+            "MAE": 1.4208169453511281,
+            "MedianAE": 1.4862007342430141,
+            "RMSE": 1.6830903355846203,
+            "bias": 1.1898486540259494
+          },
+          "9": {
+            "n": 18,
+            "MAE": 1.925250322436714,
+            "MedianAE": 1.4648909826498162,
+            "RMSE": 2.304082531659057,
+            "bias": -0.3754334932215455
+          }
+        },
+        "sampleReliability": {
+          "HIGH": {
+            "n": 197,
+            "MAE": 1.3722006197876795,
+            "MedianAE": 1.1560384335561364,
+            "RMSE": 1.8207201428111384,
+            "bias": -0.10142167969404813
+          },
+          "LOW": {
+            "n": 87,
+            "MAE": 1.2858534115691065,
+            "MedianAE": 0.9960016793974282,
+            "RMSE": 1.6534979781983092,
+            "bias": 0.0031993572231163686
+          },
+          "MEDIUM": {
+            "n": 93,
+            "MAE": 1.6290557408322166,
+            "MedianAE": 1.4719667669658802,
+            "RMSE": 1.9361447047754712,
+            "bias": 0.377473060679688
+          }
+        },
+        "role": {
+          "DECREASING": {
+            "n": 40,
+            "MAE": 1.1907799129070944,
+            "MedianAE": 1.0328760322313213,
+            "RMSE": 1.5667722042166423,
+            "bias": 0.2841250107973524
+          },
+          "INCREASING": {
+            "n": 45,
+            "MAE": 1.3623109557890285,
+            "MedianAE": 0.9490328164236979,
+            "RMSE": 1.7301749488323146,
+            "bias": -0.2208437521759293
+          },
+          "STABLE": {
+            "n": 292,
+            "MAE": 1.454656723545518,
+            "MedianAE": 1.2406743344724345,
+            "RMSE": 1.8567245678436601,
+            "bias": 0.047863822732593674
+          },
+          "UNCERTAIN": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          }
+        },
+        "dataCoverage": {
+          "0": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "75.0": {
+            "n": 377,
+            "MAE": 1.4156364795811174,
+            "MedianAE": 1.200637951573003,
+            "RMSE": 1.8132632290722188,
+            "bias": 0.040857474328632966
+          }
+        }
+      },
+      "servedConditionalAvailability": 0.3890608875128999,
+      "servedRosterAvailability": 0.2994440031771247
+    },
+    "RB.receiving_yards": {
+      "trainN": 896,
+      "frozenCoefficient": 0.066944830816599,
+      "screen2024": {
+        "historical": {
+          "n": 277,
+          "MAE": 15.32303270303279,
+          "MedianAE": 12.465118082848846,
+          "RMSE": 19.44704205798101,
+          "bias": -0.2550197389911832
+        },
+        "shrink": {
+          "n": 277,
+          "MAE": 15.21539806893422,
+          "MedianAE": 13.060745501228563,
+          "RMSE": 19.314931627149605,
+          "bias": -0.33929824448904916
+        },
+        "recency": {
+          "n": 277,
+          "MAE": 15.136706303384555,
+          "MedianAE": 13.099170822732844,
+          "RMSE": 19.270802631564102,
+          "bias": -0.41133622002425707
+        },
+        "opponent": {
+          "n": 277,
+          "MAE": 15.139361693225782,
+          "MedianAE": 13.193492856300455,
+          "RMSE": 19.274824965074735,
+          "bias": -0.41013127882631584
+        }
+      },
+      "selectedMethod": "recency",
+      "advancedChartingAblation": "NOT_AVAILABLE",
+      "roleSnapshots": "NOT_AVAILABLE",
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion",
+      "holdout2025": {
+        "n": 280,
+        "MAE": 14.349678436914436,
+        "MedianAE": 11.551070911941176,
+        "RMSE": 19.33157573946825,
+        "bias": 0.3337806637018946
+      },
+      "baselines2025": {
+        "seasonMean": {
+          "n": 280,
+          "MAE": 15.505551923275139,
+          "MedianAE": 12.55,
+          "RMSE": 20.186410352955377,
+          "bias": 2.5663936609025892
+        },
+        "recentMean": {
+          "n": 280,
+          "MAE": 15.09635223705046,
+          "MedianAE": 12.145590292361465,
+          "RMSE": 19.937663902806147,
+          "bias": 2.217568453407131
+        }
+      },
+      "baselines2024": {
+        "seasonMean": {
+          "n": 277,
+          "MAE": 15.468014606733018,
+          "MedianAE": 13.166666666666668,
+          "RMSE": 19.399075867989467,
+          "bias": 0.8606021134902
+        },
+        "recentMean": {
+          "n": 277,
+          "MAE": 15.48960263115938,
+          "MedianAE": 13.117350613421051,
+          "RMSE": 19.46800380924303,
+          "bias": 0.9791427655618545
+        }
+      },
+      "screeningSelected": {
+        "n": 277,
+        "MAE": 15.136706303384555,
+        "MedianAE": 13.099170822732844,
+        "RMSE": 19.270802631564102,
+        "bias": -0.41133622002425707
+      },
+      "ablations2025": {
+        "historical": {
+          "n": 280,
+          "MAE": 14.630862470574593,
+          "MedianAE": 11.457256025584655,
+          "RMSE": 19.682024308760433,
+          "bias": 0.7298825701584573
+        },
+        "shrink": {
+          "n": 280,
+          "MAE": 14.453187013469348,
+          "MedianAE": 11.808558975463104,
+          "RMSE": 19.45984241238979,
+          "bias": 0.5296919725075243
+        },
+        "recency": {
+          "n": 280,
+          "MAE": 14.349678436914436,
+          "MedianAE": 11.551070911941176,
+          "RMSE": 19.33157573946825,
+          "bias": 0.3337806637018946
+        },
+        "opponent": {
+          "n": 280,
+          "MAE": 14.347553087910587,
+          "MedianAE": 11.604703402278428,
+          "RMSE": 19.333033887350897,
+          "bias": 0.3316154935420317
+        }
+      },
+      "eligibleOutcomeLogs": 969,
+      "knownRosterForecasts": 1259,
+      "noOutcomeLog": 290,
+      "conditionalAvailability": 0.2889576883384933,
+      "rosterAvailability": 0.22239872915011913,
+      "errorSlices": {
+        "position": {
+          "RB": {
+            "n": 280,
+            "MAE": 14.349678436914436,
+            "MedianAE": 11.551070911941176,
+            "RMSE": 19.33157573946825,
+            "bias": 0.3337806637018946
+          }
+        },
+        "week": {
+          "10": {
+            "n": 19,
+            "MAE": 13.353928347131358,
+            "MedianAE": 11.170610724299314,
+            "RMSE": 16.810596813715463,
+            "bias": 0.07584763508239942
+          },
+          "11": {
+            "n": 20,
+            "MAE": 18.64137870327015,
+            "MedianAE": 13.925649392852122,
+            "RMSE": 26.951715143495004,
+            "bias": -0.2950259568625492
+          },
+          "12": {
+            "n": 23,
+            "MAE": 15.265868564621925,
+            "MedianAE": 12.886688667617774,
+            "RMSE": 21.61970605584256,
+            "bias": -5.687798843298193
+          },
+          "13": {
+            "n": 27,
+            "MAE": 13.184745896679576,
+            "MedianAE": 11.26395449702024,
+            "RMSE": 15.745187160681683,
+            "bias": 2.370455747827768
+          },
+          "14": {
+            "n": 27,
+            "MAE": 15.008041210736135,
+            "MedianAE": 12.343724837664078,
+            "RMSE": 19.823408229326972,
+            "bias": 2.638088545165391
+          },
+          "15": {
+            "n": 33,
+            "MAE": 14.65111974816178,
+            "MedianAE": 13.315868582246303,
+            "RMSE": 18.96699106261145,
+            "bias": 2.798302318974123
+          },
+          "16": {
+            "n": 32,
+            "MAE": 17.167655383010935,
+            "MedianAE": 11.373425755031828,
+            "RMSE": 23.18652287924278,
+            "bias": -6.18414418407464
+          },
+          "17": {
+            "n": 37,
+            "MAE": 11.128055843813838,
+            "MedianAE": 10.849088829698209,
+            "RMSE": 13.858929365845805,
+            "bias": 4.008282969265696
+          },
+          "18": {
+            "n": 29,
+            "MAE": 10.399679688570478,
+            "MedianAE": 7.453620931265554,
+            "RMSE": 13.971151325767181,
+            "bias": -0.0163911510253902
+          },
+          "6": {
+            "n": 3,
+            "MAE": 11.842717857750293,
+            "MedianAE": 8.025788585419729,
+            "RMSE": 13.861796176259482,
+            "bias": 11.842717857750293
+          },
+          "7": {
+            "n": 9,
+            "MAE": 21.259380057672228,
+            "MedianAE": 17.02035894991974,
+            "RMSE": 26.686045357917948,
+            "bias": -4.706068620136396
+          },
+          "8": {
+            "n": 11,
+            "MAE": 10.805519489318726,
+            "MedianAE": 5.099503599134508,
+            "RMSE": 14.04989972601301,
+            "bias": 6.246801104847501
+          },
+          "9": {
+            "n": 10,
+            "MAE": 18.713353117846342,
+            "MedianAE": 16.158122897667504,
+            "RMSE": 23.848864441368914,
+            "bias": -1.0664159871938792
+          }
+        },
+        "sampleReliability": {
+          "HIGH": {
+            "n": 157,
+            "MAE": 13.802843124266134,
+            "MedianAE": 11.106729913978509,
+            "RMSE": 18.504293528340053,
+            "bias": -0.48383807892651104
+          },
+          "LOW": {
+            "n": 58,
+            "MAE": 15.736325230621198,
+            "MedianAE": 12.835704546604445,
+            "RMSE": 21.16793192096504,
+            "bias": 0.07803175268380519
+          },
+          "MEDIUM": {
+            "n": 65,
+            "MAE": 14.433180437695835,
+            "MedianAE": 13.231898678575977,
+            "RMSE": 19.569142874387314,
+            "bias": 2.5368511164974157
+          }
+        },
+        "role": {
+          "DECREASING": {
+            "n": 28,
+            "MAE": 15.69006269848219,
+            "MedianAE": 10.89891749408471,
+            "RMSE": 21.281244697950378,
+            "bias": 0.1860466109516819
+          },
+          "INCREASING": {
+            "n": 29,
+            "MAE": 16.2539068304415,
+            "MedianAE": 14.685064541396297,
+            "RMSE": 21.418386868469035,
+            "bias": 0.04614987188752704
+          },
+          "STABLE": {
+            "n": 223,
+            "MAE": 13.933743985182678,
+            "MedianAE": 11.479089066126312,
+            "RMSE": 18.78054995797076,
+            "bias": 0.3897351320410095
+          },
+          "UNCERTAIN": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          }
+        },
+        "dataCoverage": {
+          "0": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "75.0": {
+            "n": 280,
+            "MAE": 14.349678436914436,
+            "MedianAE": 11.551070911941176,
+            "RMSE": 19.33157573946825,
+            "bias": 0.3337806637018946
+          }
+        }
+      },
+      "servedConditionalAvailability": 0.2889576883384933,
+      "servedRosterAvailability": 0.22239872915011913
+    },
+    "RB.rushing_receiving_yards": {
+      "trainN": 896,
+      "frozenCoefficient": 0,
+      "screen2024": {
+        "historical": {
+          "n": 198,
+          "MAE": 32.70635774305477,
+          "MedianAE": 28.29864884161465,
+          "RMSE": 41.81891559223042,
+          "bias": -0.8564516666103505
+        },
+        "shrink": {
+          "n": 198,
+          "MAE": 32.63001124289677,
+          "MedianAE": 28.500557844906595,
+          "RMSE": 41.81546441198692,
+          "bias": -1.0524482410718627
+        },
+        "recency": {
+          "n": 198,
+          "MAE": 32.64081624601268,
+          "MedianAE": 29.151905503623524,
+          "RMSE": 41.824126375391856,
+          "bias": -1.2637137028260725
+        },
+        "opponent": {
+          "n": 198,
+          "MAE": 31.870277932687138,
+          "MedianAE": 28.274369842262267,
+          "RMSE": 41.16158673918439,
+          "bias": -0.7613735749600177
+        }
+      },
+      "selectedMethod": "componentSum",
+      "advancedChartingAblation": "NOT_AVAILABLE",
+      "roleSnapshots": "NOT_AVAILABLE",
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion",
+      "holdout2025": {
+        "n": 207,
+        "MAE": 34.08349106962154,
+        "MedianAE": 24.901428571483336,
+        "RMSE": 45.07726943590807,
+        "bias": -3.6060660466428316
+      },
+      "baselines2025": {
+        "seasonMean": {
+          "n": 207,
+          "MAE": 34.92731606155519,
+          "MedianAE": 24.200000000000003,
+          "RMSE": 45.81013845819365,
+          "bias": -0.6358413124717469
+        },
+        "recentMean": {
+          "n": 207,
+          "MAE": 34.79167684750693,
+          "MedianAE": 23.874245586907662,
+          "RMSE": 45.751002940348684,
+          "bias": -0.25740532506891955
+        }
+      },
+      "baselines2024": {
+        "seasonMean": {
+          "n": 198,
+          "MAE": 33.350805129214216,
+          "MedianAE": 29.15,
+          "RMSE": 42.40509309038883,
+          "bias": 1.7993648186830007
+        },
+        "recentMean": {
+          "n": 198,
+          "MAE": 33.402074082632,
+          "MedianAE": 28.775638872390573,
+          "RMSE": 42.42927661781605,
+          "bias": 2.337177816785376
+        }
+      },
+      "screeningSelected": {
+        "n": 198,
+        "MAE": 31.879853715901636,
+        "MedianAE": 28.239642572453647,
+        "RMSE": 41.16721804019628,
+        "bias": -0.762541504284732
+      },
+      "ablations2025": {
+        "historical": {
+          "n": 207,
+          "MAE": 34.760730565280255,
+          "MedianAE": 26.42164479178669,
+          "RMSE": 45.78626104712455,
+          "bias": -2.632068465145454
+        },
+        "shrink": {
+          "n": 207,
+          "MAE": 34.40171532761766,
+          "MedianAE": 25.721856031305514,
+          "RMSE": 45.484866784205266,
+          "bias": -3.2304296709885847
+        },
+        "recency": {
+          "n": 207,
+          "MAE": 33.979031997088555,
+          "MedianAE": 25.117490316691217,
+          "RMSE": 45.130991886230646,
+          "bias": -3.526682479135989
+        },
+        "opponent": {
+          "n": 207,
+          "MAE": 34.08205751551756,
+          "MedianAE": 25.007251036695564,
+          "RMSE": 45.08701406917821,
+          "bias": -3.608869526662548
+        }
+      },
+      "eligibleOutcomeLogs": 969,
+      "knownRosterForecasts": 1259,
+      "noOutcomeLog": 290,
+      "conditionalAvailability": 0.21362229102167182,
+      "rosterAvailability": 0.16441620333598095,
+      "errorSlices": {
+        "position": {
+          "RB": {
+            "n": 207,
+            "MAE": 34.08349106962154,
+            "MedianAE": 24.901428571483336,
+            "RMSE": 45.07726943590807,
+            "bias": -3.6060660466428316
+          }
+        },
+        "week": {
+          "10": {
+            "n": 14,
+            "MAE": 52.492048415581515,
+            "MedianAE": 34.1279156731918,
+            "RMSE": 71.84305102432754,
+            "bias": -36.23082718154358
+          },
+          "11": {
+            "n": 16,
+            "MAE": 28.906978367103218,
+            "MedianAE": 20.432558710517668,
+            "RMSE": 35.61722424401463,
+            "bias": -0.7779247578381043
+          },
+          "12": {
+            "n": 18,
+            "MAE": 41.54974580642635,
+            "MedianAE": 30.864028047967793,
+            "RMSE": 51.53964844220423,
+            "bias": -8.076223314505054
+          },
+          "13": {
+            "n": 16,
+            "MAE": 29.697995488501043,
+            "MedianAE": 17.080716776258797,
+            "RMSE": 38.636998139997154,
+            "bias": -3.5180237890659525
+          },
+          "14": {
+            "n": 18,
+            "MAE": 27.37750353593851,
+            "MedianAE": 19.25471246147191,
+            "RMSE": 36.28887288367961,
+            "bias": 3.8995856187409723
+          },
+          "15": {
+            "n": 24,
+            "MAE": 26.950310863161974,
+            "MedianAE": 21.319893070766106,
+            "RMSE": 33.54297261704055,
+            "bias": -3.977293252980702
+          },
+          "16": {
+            "n": 24,
+            "MAE": 38.48528099611364,
+            "MedianAE": 29.957163465509126,
+            "RMSE": 47.80015725160722,
+            "bias": -4.434113074430664
+          },
+          "17": {
+            "n": 28,
+            "MAE": 27.494403550495512,
+            "MedianAE": 26.247684813236518,
+            "RMSE": 36.006532379370924,
+            "bias": 0.6136324068815109
+          },
+          "18": {
+            "n": 24,
+            "MAE": 32.181581667278174,
+            "MedianAE": 21.699986120569207,
+            "RMSE": 42.46812295835375,
+            "bias": 5.46020021999674
+          },
+          "6": {
+            "n": 3,
+            "MAE": 30.23336027728988,
+            "MedianAE": 23.334645904860935,
+            "RMSE": 38.35597313890131,
+            "bias": -11.077879588883581
+          },
+          "7": {
+            "n": 7,
+            "MAE": 48.92386190196333,
+            "MedianAE": 30.36151634371967,
+            "RMSE": 65.14409223249588,
+            "bias": -37.57022979343901
+          },
+          "8": {
+            "n": 8,
+            "MAE": 53.60813916249497,
+            "MedianAE": 51.44005307837093,
+            "RMSE": 60.031374171404146,
+            "bias": 18.285634315052498
+          },
+          "9": {
+            "n": 7,
+            "MAE": 23.905173177792005,
+            "MedianAE": 8.580367374462739,
+            "RMSE": 34.392013576397474,
+            "bias": 15.468282306619288
+          }
+        },
+        "sampleReliability": {
+          "HIGH": {
+            "n": 149,
+            "MAE": 34.84076729183928,
+            "MedianAE": 26.981069436451065,
+            "RMSE": 45.80649379014754,
+            "bias": -4.925995979175451
+          },
+          "LOW": {
+            "n": 1,
+            "MAE": 0.3251499787281631,
+            "MedianAE": 0.3251499787281631,
+            "RMSE": 0.3251499787281631,
+            "bias": 0.3251499787281631
+          },
+          "MEDIUM": {
+            "n": 57,
+            "MAE": 32.69619605173472,
+            "MedianAE": 23.1403662767824,
+            "RMSE": 43.52427506714872,
+            "bias": -0.2246915918710863
+          }
+        },
+        "role": {
+          "DECREASING": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "INCREASING": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "STABLE": {
+            "n": 207,
+            "MAE": 34.08349106962154,
+            "MedianAE": 24.901428571483336,
+            "RMSE": 45.07726943590807,
+            "bias": -3.6060660466428316
+          },
+          "UNCERTAIN": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          }
+        },
+        "dataCoverage": {
+          "0": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "75.0": {
+            "n": 207,
+            "MAE": 34.08349106962154,
+            "MedianAE": 24.901428571483336,
+            "RMSE": 45.07726943590807,
+            "bias": -3.6060660466428316
+          }
+        }
+      },
+      "servedConditionalAvailability": 0.21362229102167182,
+      "servedRosterAvailability": 0.16441620333598095
+    },
+    "WR.targets": {
+      "trainN": 1576,
+      "frozenCoefficient": 0,
+      "screen2024": {
+        "historical": {
+          "n": 1413,
+          "MAE": 1.8859786284513775,
+          "MedianAE": 1.37926714446394,
+          "RMSE": 2.582233538748337,
+          "bias": -0.41493745025300055
+        },
+        "shrink": {
+          "n": 1413,
+          "MAE": 1.8859786284513775,
+          "MedianAE": 1.37926714446394,
+          "RMSE": 2.582233538748337,
+          "bias": -0.41493745025300055
+        },
+        "recency": {
+          "n": 1413,
+          "MAE": 1.8859786284513775,
+          "MedianAE": 1.37926714446394,
+          "RMSE": 2.582233538748337,
+          "bias": -0.41493745025300055
+        },
+        "opponent": {
+          "n": 1413,
+          "MAE": 1.8859786284513775,
+          "MedianAE": 1.37926714446394,
+          "RMSE": 2.582233538748337,
+          "bias": -0.41493745025300055
+        }
+      },
+      "selectedMethod": "historical",
+      "advancedChartingAblation": "NOT_AVAILABLE",
+      "roleSnapshots": "NOT_AVAILABLE",
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion",
+      "holdout2025": {
+        "n": 1444,
+        "MAE": 1.8144982964744905,
+        "MedianAE": 1.3595268843265083,
+        "RMSE": 2.4888396273074167,
+        "bias": -0.2519330556371188
+      },
+      "baselines2025": {
+        "seasonMean": {
+          "n": 1444,
+          "MAE": 1.884507067037212,
+          "MedianAE": 1.4666666666666668,
+          "RMSE": 2.535251752335492,
+          "bias": 0.009656640455483543
+        },
+        "recentMean": {
+          "n": 1444,
+          "MAE": 1.847702981908158,
+          "MedianAE": 1.411036387556738,
+          "RMSE": 2.4928544952210343,
+          "bias": 0.026698053168173225
+        }
+      },
+      "baselines2024": {
+        "seasonMean": {
+          "n": 1413,
+          "MAE": 1.931624626847557,
+          "MedianAE": 1.4444444444444446,
+          "RMSE": 2.595374641846093,
+          "bias": -0.16220977654098673
+        },
+        "recentMean": {
+          "n": 1413,
+          "MAE": 1.9058976875603277,
+          "MedianAE": 1.4471332682428946,
+          "RMSE": 2.5578508305668475,
+          "bias": -0.11420520630060849
+        }
+      },
+      "screeningSelected": {
+        "n": 1413,
+        "MAE": 1.8859786284513775,
+        "MedianAE": 1.37926714446394,
+        "RMSE": 2.582233538748337,
+        "bias": -0.41493745025300055
+      },
+      "ablations2025": {
+        "historical": {
+          "n": 1444,
+          "MAE": 1.8144982964744905,
+          "MedianAE": 1.3595268843265083,
+          "RMSE": 2.4888396273074167,
+          "bias": -0.2519330556371188
+        },
+        "shrink": {
+          "n": 1444,
+          "MAE": 1.8144982964744905,
+          "MedianAE": 1.3595268843265083,
+          "RMSE": 2.4888396273074167,
+          "bias": -0.2519330556371188
+        },
+        "recency": {
+          "n": 1444,
+          "MAE": 1.8144982964744905,
+          "MedianAE": 1.3595268843265083,
+          "RMSE": 2.4888396273074167,
+          "bias": -0.2519330556371188
+        },
+        "opponent": {
+          "n": 1444,
+          "MAE": 1.8144982964744905,
+          "MedianAE": 1.3595268843265083,
+          "RMSE": 2.4888396273074167,
+          "bias": -0.2519330556371188
+        }
+      },
+      "eligibleOutcomeLogs": 1526,
+      "knownRosterForecasts": 2118,
+      "noOutcomeLog": 592,
+      "conditionalAvailability": 0.9462647444298821,
+      "rosterAvailability": 0.6817752596789424,
+      "errorSlices": {
+        "position": {
+          "WR": {
+            "n": 1444,
+            "MAE": 1.8144982964744905,
+            "MedianAE": 1.3595268843265083,
+            "RMSE": 2.4888396273074167,
+            "bias": -0.2519330556371188
+          }
+        },
+        "week": {
+          "10": {
+            "n": 102,
+            "MAE": 2.0052374090213343,
+            "MedianAE": 1.6197246597995234,
+            "RMSE": 2.628506846758687,
+            "bias": -0.28260225493772556
+          },
+          "11": {
+            "n": 111,
+            "MAE": 1.657037866132414,
+            "MedianAE": 1.170459451887993,
+            "RMSE": 2.4049146496747333,
+            "bias": -0.3250231737847174
+          },
+          "12": {
+            "n": 106,
+            "MAE": 1.8670937416114204,
+            "MedianAE": 1.3506177090770155,
+            "RMSE": 2.5743055158118806,
+            "bias": -0.3343736066579733
+          },
+          "13": {
+            "n": 126,
+            "MAE": 1.6809094224764576,
+            "MedianAE": 1.2463833598691247,
+            "RMSE": 2.333242886805939,
+            "bias": 0.2627290656020671
+          },
+          "14": {
+            "n": 105,
+            "MAE": 1.7737889902978288,
+            "MedianAE": 1.2009382816323724,
+            "RMSE": 2.5197676072820516,
+            "bias": -0.37904672561722913
+          },
+          "15": {
+            "n": 114,
+            "MAE": 1.7363488510775824,
+            "MedianAE": 1.160841149316853,
+            "RMSE": 2.346814214371246,
+            "bias": 0.27765245464096633
+          },
+          "16": {
+            "n": 125,
+            "MAE": 1.7446757096070273,
+            "MedianAE": 1.390865258752216,
+            "RMSE": 2.272892381336843,
+            "bias": -0.2607027152230992
+          },
+          "17": {
+            "n": 128,
+            "MAE": 1.7586371207768439,
+            "MedianAE": 1.4199395012002456,
+            "RMSE": 2.269277459157687,
+            "bias": 0.05318372346542545
+          },
+          "18": {
+            "n": 121,
+            "MAE": 1.9927873433352172,
+            "MedianAE": 1.3392220137355872,
+            "RMSE": 2.690294083932665,
+            "bias": -0.42885568679356073
+          },
+          "6": {
+            "n": 98,
+            "MAE": 1.8151438289117525,
+            "MedianAE": 1.361208730589051,
+            "RMSE": 2.510578172053699,
+            "bias": -0.16827577230596125
+          },
+          "7": {
+            "n": 107,
+            "MAE": 2.0279839432725417,
+            "MedianAE": 1.4455072166246916,
+            "RMSE": 3.02104892844278,
+            "bias": -0.98070116250913
+          },
+          "8": {
+            "n": 94,
+            "MAE": 1.8156096456179782,
+            "MedianAE": 1.5518025584205675,
+            "RMSE": 2.465837149489391,
+            "bias": -0.7446309920265544
+          },
+          "9": {
+            "n": 107,
+            "MAE": 1.756159035942524,
+            "MedianAE": 1.4973119469600213,
+            "RMSE": 2.304975184126798,
+            "bias": -0.18044709737694684
+          }
+        },
+        "sampleReliability": {
+          "HIGH": {
+            "n": 565,
+            "MAE": 1.8934525012054235,
+            "MedianAE": 1.4030271802718444,
+            "RMSE": 2.5556432228684898,
+            "bias": -0.03720027088524599
+          },
+          "LOW": {
+            "n": 117,
+            "MAE": 1.6690386338280137,
+            "MedianAE": 1.0826917322700225,
+            "RMSE": 2.3859311436845383,
+            "bias": -0.9740210294523878
+          },
+          "MEDIUM": {
+            "n": 762,
+            "MAE": 1.7782904944491105,
+            "MedianAE": 1.3599536125525375,
+            "RMSE": 2.453870593238655,
+            "bias": -0.3002791585878034
+          }
+        },
+        "role": {
+          "DECREASING": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "INCREASING": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "STABLE": {
+            "n": 1444,
+            "MAE": 1.8144982964744905,
+            "MedianAE": 1.3595268843265083,
+            "RMSE": 2.4888396273074167,
+            "bias": -0.2519330556371188
+          },
+          "UNCERTAIN": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          }
+        },
+        "dataCoverage": {
+          "0": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "100": {
+            "n": 1444,
+            "MAE": 1.8144982964744905,
+            "MedianAE": 1.3595268843265083,
+            "RMSE": 2.4888396273074167,
+            "bias": -0.2519330556371188
+          }
+        }
+      },
+      "servedConditionalAvailability": 0.9462647444298821,
+      "servedRosterAvailability": 0.6817752596789424
+    },
+    "WR.receptions": {
+      "trainN": 1576,
+      "frozenCoefficient": 0,
+      "screen2024": {
+        "historical": {
+          "n": 985,
+          "MAE": 1.6745485781755378,
+          "MedianAE": 1.3509692512659397,
+          "RMSE": 2.1850032872384366,
+          "bias": -0.29764693416397087
+        },
+        "shrink": {
+          "n": 985,
+          "MAE": 1.6686647054804997,
+          "MedianAE": 1.3492331197059884,
+          "RMSE": 2.1795050656314956,
+          "bias": -0.30035569602610646
+        },
+        "recency": {
+          "n": 985,
+          "MAE": 1.6613041571086593,
+          "MedianAE": 1.3227281109853255,
+          "RMSE": 2.173948956770529,
+          "bias": -0.29794451347988454
+        },
+        "opponent": {
+          "n": 985,
+          "MAE": 1.6613041571086593,
+          "MedianAE": 1.3227281109853255,
+          "RMSE": 2.173948956770529,
+          "bias": -0.29794451347988454
+        }
+      },
+      "selectedMethod": "recency",
+      "advancedChartingAblation": "NOT_AVAILABLE",
+      "roleSnapshots": "NOT_AVAILABLE",
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion",
+      "holdout2025": {
+        "n": 939,
+        "MAE": 1.5961676690180102,
+        "MedianAE": 1.3341033627728751,
+        "RMSE": 2.083341624797243,
+        "bias": -0.03926214955251978
+      },
+      "baselines2025": {
+        "seasonMean": {
+          "n": 939,
+          "MAE": 1.6584551040292441,
+          "MedianAE": 1.4,
+          "RMSE": 2.1191720618448646,
+          "bias": 0.2109339085048538
+        },
+        "recentMean": {
+          "n": 939,
+          "MAE": 1.6360515077404225,
+          "MedianAE": 1.3700305441812857,
+          "RMSE": 2.089515416899961,
+          "bias": 0.19514896073404933
+        }
+      },
+      "baselines2024": {
+        "seasonMean": {
+          "n": 985,
+          "MAE": 1.7108623750755731,
+          "MedianAE": 1.4000000000000004,
+          "RMSE": 2.1953662836885703,
+          "bias": -0.09480384815410196
+        },
+        "recentMean": {
+          "n": 985,
+          "MAE": 1.6799876167208239,
+          "MedianAE": 1.3437001951304217,
+          "RMSE": 2.1648869977547722,
+          "bias": -0.05634242474199866
+        }
+      },
+      "screeningSelected": {
+        "n": 985,
+        "MAE": 1.6613041571086593,
+        "MedianAE": 1.3227281109853255,
+        "RMSE": 2.173948956770529,
+        "bias": -0.29794451347988454
+      },
+      "ablations2025": {
+        "historical": {
+          "n": 939,
+          "MAE": 1.6036166563801013,
+          "MedianAE": 1.2975273231906144,
+          "RMSE": 2.0988636045000852,
+          "bias": -0.019981793170405292
+        },
+        "shrink": {
+          "n": 939,
+          "MAE": 1.59674084208555,
+          "MedianAE": 1.3309561201523072,
+          "RMSE": 2.0877461292061024,
+          "bias": -0.02196883108193874
+        },
+        "recency": {
+          "n": 939,
+          "MAE": 1.5961676690180102,
+          "MedianAE": 1.3341033627728751,
+          "RMSE": 2.083341624797243,
+          "bias": -0.03926214955251978
+        },
+        "opponent": {
+          "n": 939,
+          "MAE": 1.5961676690180102,
+          "MedianAE": 1.3341033627728751,
+          "RMSE": 2.083341624797243,
+          "bias": -0.03926214955251978
+        }
+      },
+      "eligibleOutcomeLogs": 1526,
+      "knownRosterForecasts": 2118,
+      "noOutcomeLog": 592,
+      "conditionalAvailability": 0.6153342070773263,
+      "rosterAvailability": 0.443342776203966,
+      "errorSlices": {
+        "position": {
+          "WR": {
+            "n": 939,
+            "MAE": 1.5961676690180102,
+            "MedianAE": 1.3341033627728751,
+            "RMSE": 2.083341624797243,
+            "bias": -0.03926214955251978
+          }
+        },
+        "week": {
+          "10": {
+            "n": 57,
+            "MAE": 1.7252665809524443,
+            "MedianAE": 1.6133000335470902,
+            "RMSE": 2.0315890049958027,
+            "bias": 0.18679392234935469
+          },
+          "11": {
+            "n": 69,
+            "MAE": 1.7790852532793247,
+            "MedianAE": 1.2439312299018646,
+            "RMSE": 2.5950034666744393,
+            "bias": 0.22637092627089334
+          },
+          "12": {
+            "n": 68,
+            "MAE": 1.6896133732479002,
+            "MedianAE": 1.4408481709342504,
+            "RMSE": 2.1137863837040776,
+            "bias": -0.148225110753605
+          },
+          "13": {
+            "n": 88,
+            "MAE": 1.5390162984437545,
+            "MedianAE": 1.337576910447392,
+            "RMSE": 2.062700290104136,
+            "bias": 0.39741995080837944
+          },
+          "14": {
+            "n": 77,
+            "MAE": 1.4039923484812264,
+            "MedianAE": 1.0297551781362118,
+            "RMSE": 1.9446965770400098,
+            "bias": -0.0886104808682764
+          },
+          "15": {
+            "n": 87,
+            "MAE": 1.4913876371797,
+            "MedianAE": 1.3602902001959807,
+            "RMSE": 1.7643729830387063,
+            "bias": 0.12766164912645622
+          },
+          "16": {
+            "n": 95,
+            "MAE": 1.3842448556483467,
+            "MedianAE": 1.1201270041704343,
+            "RMSE": 1.756020257703907,
+            "bias": -0.30102070123269503
+          },
+          "17": {
+            "n": 93,
+            "MAE": 1.5558018539428045,
+            "MedianAE": 1.3898824397533591,
+            "RMSE": 1.9614999575552803,
+            "bias": 0.10231503927896937
+          },
+          "18": {
+            "n": 86,
+            "MAE": 1.4101108285816297,
+            "MedianAE": 1.1290921727469998,
+            "RMSE": 1.8063236171082242,
+            "bias": -0.023842131156091274
+          },
+          "6": {
+            "n": 49,
+            "MAE": 1.846225340046602,
+            "MedianAE": 1.5332974491760614,
+            "RMSE": 2.4222435063783903,
+            "bias": -0.02612716672192564
+          },
+          "7": {
+            "n": 52,
+            "MAE": 1.95605283117906,
+            "MedianAE": 1.4719643533640305,
+            "RMSE": 2.6810973096362765,
+            "bias": -0.5644163249212618
+          },
+          "8": {
+            "n": 50,
+            "MAE": 1.753550246493057,
+            "MedianAE": 1.677576537646175,
+            "RMSE": 2.1985374959737367,
+            "bias": -0.3970949399755454
+          },
+          "9": {
+            "n": 68,
+            "MAE": 1.649991449061937,
+            "MedianAE": 1.3704533467952134,
+            "RMSE": 2.1040561205224706,
+            "bias": -0.3043307675855092
+          }
+        },
+        "sampleReliability": {
+          "HIGH": {
+            "n": 476,
+            "MAE": 1.545839672060048,
+            "MedianAE": 1.2883899942383712,
+            "RMSE": 1.9864723484072566,
+            "bias": 0.027370845170481665
+          },
+          "LOW": {
+            "n": 27,
+            "MAE": 1.7995219327125367,
+            "MedianAE": 1.6434286682584651,
+            "RMSE": 2.3465489571839138,
+            "bias": -0.7842067420787783
+          },
+          "MEDIUM": {
+            "n": 436,
+            "MAE": 1.6385198741378222,
+            "MedianAE": 1.3681506712722233,
+            "RMSE": 2.167606029179368,
+            "bias": -0.06587637315329894
+          }
+        },
+        "role": {
+          "DECREASING": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "INCREASING": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "STABLE": {
+            "n": 939,
+            "MAE": 1.5961676690180102,
+            "MedianAE": 1.3341033627728751,
+            "RMSE": 2.083341624797243,
+            "bias": -0.03926214955251978
+          },
+          "UNCERTAIN": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          }
+        },
+        "dataCoverage": {
+          "0": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "75.0": {
+            "n": 939,
+            "MAE": 1.5961676690180102,
+            "MedianAE": 1.3341033627728751,
+            "RMSE": 2.083341624797243,
+            "bias": -0.03926214955251978
+          }
+        }
+      },
+      "servedConditionalAvailability": 0.6153342070773263,
+      "servedRosterAvailability": 0.443342776203966
+    },
+    "WR.receiving_yards": {
+      "trainN": 1576,
+      "frozenCoefficient": 1,
+      "screen2024": {
+        "historical": {
+          "n": 757,
+          "MAE": 27.178013651864415,
+          "MedianAE": 22.90486805031999,
+          "RMSE": 35.993366130077355,
+          "bias": -3.651019867073281
+        },
+        "shrink": {
+          "n": 757,
+          "MAE": 26.73714066791641,
+          "MedianAE": 22.613065157965387,
+          "RMSE": 35.561419877070236,
+          "bias": -4.150953960729545
+        },
+        "recency": {
+          "n": 757,
+          "MAE": 26.58576899207845,
+          "MedianAE": 22.462656674532298,
+          "RMSE": 35.47082100426084,
+          "bias": -4.209297291958546
+        },
+        "opponent": {
+          "n": 757,
+          "MAE": 26.617202899202695,
+          "MedianAE": 22.01314813416598,
+          "RMSE": 35.56062457855129,
+          "bias": -4.174014195737597
+        }
+      },
+      "selectedMethod": "recency",
+      "advancedChartingAblation": "NOT_AVAILABLE",
+      "roleSnapshots": "NOT_AVAILABLE",
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion",
+      "holdout2025": {
+        "n": 720,
+        "MAE": 26.204406133469323,
+        "MedianAE": 21.01226649018783,
+        "RMSE": 34.20916872509952,
+        "bias": -0.0717618617604038
+      },
+      "baselines2025": {
+        "seasonMean": {
+          "n": 720,
+          "MAE": 27.46635309418704,
+          "MedianAE": 23.1,
+          "RMSE": 34.838723455939736,
+          "bias": 3.637333078708691
+        },
+        "recentMean": {
+          "n": 720,
+          "MAE": 27.28925399059139,
+          "MedianAE": 22.831382778474246,
+          "RMSE": 34.72121769237133,
+          "bias": 3.6668446447401917
+        }
+      },
+      "baselines2024": {
+        "seasonMean": {
+          "n": 757,
+          "MAE": 27.478278834404993,
+          "MedianAE": 22.75,
+          "RMSE": 35.866658462298716,
+          "bias": -0.9707017058238988
+        },
+        "recentMean": {
+          "n": 757,
+          "MAE": 27.72427746884686,
+          "MedianAE": 22.65036122774375,
+          "RMSE": 35.978315099916564,
+          "bias": -0.04894949159197789
+        }
+      },
+      "screeningSelected": {
+        "n": 757,
+        "MAE": 26.58576899207845,
+        "MedianAE": 22.462656674532298,
+        "RMSE": 35.47082100426084,
+        "bias": -4.209297291958546
+      },
+      "ablations2025": {
+        "historical": {
+          "n": 720,
+          "MAE": 26.683663600618406,
+          "MedianAE": 21.989486684121644,
+          "RMSE": 34.7513369069064,
+          "bias": 0.47832007030610924
+        },
+        "shrink": {
+          "n": 720,
+          "MAE": 26.41026768107514,
+          "MedianAE": 21.41260567466977,
+          "RMSE": 34.4038954762511,
+          "bias": 0.15247497922276276
+        },
+        "recency": {
+          "n": 720,
+          "MAE": 26.204406133469323,
+          "MedianAE": 21.01226649018783,
+          "RMSE": 34.20916872509952,
+          "bias": -0.0717618617604038
+        },
+        "opponent": {
+          "n": 720,
+          "MAE": 26.125735028315315,
+          "MedianAE": 20.73396439980403,
+          "RMSE": 34.27010815385616,
+          "bias": -0.12955122435532307
+        }
+      },
+      "eligibleOutcomeLogs": 1526,
+      "knownRosterForecasts": 2118,
+      "noOutcomeLog": 592,
+      "conditionalAvailability": 0.47182175622542594,
+      "rosterAvailability": 0.33994334277620397,
+      "errorSlices": {
+        "position": {
+          "WR": {
+            "n": 720,
+            "MAE": 26.204406133469323,
+            "MedianAE": 21.01226649018783,
+            "RMSE": 34.20916872509952,
+            "bias": -0.0717618617604038
+          }
+        },
+        "week": {
+          "10": {
+            "n": 43,
+            "MAE": 29.794803073715318,
+            "MedianAE": 29.19004905785453,
+            "RMSE": 35.46150248632024,
+            "bias": -0.3046575880687616
+          },
+          "11": {
+            "n": 51,
+            "MAE": 29.732220135176057,
+            "MedianAE": 23.208627594716802,
+            "RMSE": 40.22266127294303,
+            "bias": 0.9508947154424613
+          },
+          "12": {
+            "n": 52,
+            "MAE": 28.854469181170764,
+            "MedianAE": 23.960629283057045,
+            "RMSE": 37.27004587025231,
+            "bias": -2.367709234835341
+          },
+          "13": {
+            "n": 69,
+            "MAE": 25.311566221213646,
+            "MedianAE": 19.875323447764124,
+            "RMSE": 32.869192761868696,
+            "bias": 9.455944858086138
+          },
+          "14": {
+            "n": 63,
+            "MAE": 29.2897374285993,
+            "MedianAE": 24.776680658099934,
+            "RMSE": 36.92056695464101,
+            "bias": -2.4988755442125865
+          },
+          "15": {
+            "n": 75,
+            "MAE": 22.384768991733985,
+            "MedianAE": 20.539290128447774,
+            "RMSE": 27.576623011307923,
+            "bias": -1.5223500496183322
+          },
+          "16": {
+            "n": 80,
+            "MAE": 22.553675123645615,
+            "MedianAE": 16.83102548737908,
+            "RMSE": 32.3601462748108,
+            "bias": -4.8830306829038985
+          },
+          "17": {
+            "n": 80,
+            "MAE": 27.44104271082537,
+            "MedianAE": 21.665066056344727,
+            "RMSE": 34.60198676119547,
+            "bias": 2.8557858278939556
+          },
+          "18": {
+            "n": 70,
+            "MAE": 22.367875273393075,
+            "MedianAE": 16.86962071928427,
+            "RMSE": 29.511352321641162,
+            "bias": 0.6918839623494957
+          },
+          "6": {
+            "n": 29,
+            "MAE": 36.10620013519797,
+            "MedianAE": 33.65070892081842,
+            "RMSE": 44.44795932491202,
+            "bias": 7.453964290268074
+          },
+          "7": {
+            "n": 30,
+            "MAE": 30.954706546184813,
+            "MedianAE": 25.91359471980203,
+            "RMSE": 41.76668154912357,
+            "bias": -5.96690341391012
+          },
+          "8": {
+            "n": 33,
+            "MAE": 23.648377241153653,
+            "MedianAE": 18.209928007656686,
+            "RMSE": 30.02256912131087,
+            "bias": -7.0518045076347615
+          },
+          "9": {
+            "n": 45,
+            "MAE": 21.71477584018218,
+            "MedianAE": 17.70339091941389,
+            "RMSE": 28.45053262603156,
+            "bias": -0.788853308222893
+          }
+        },
+        "sampleReliability": {
+          "HIGH": {
+            "n": 423,
+            "MAE": 25.872718953279854,
+            "MedianAE": 20.167690619404766,
+            "RMSE": 33.9465825749709,
+            "bias": -0.07559177213725404
+          },
+          "LOW": {
+            "n": 13,
+            "MAE": 28.524436656150865,
+            "MedianAE": 15.200870684343833,
+            "RMSE": 41.144796456074346,
+            "bias": -8.699184164261528
+          },
+          "MEDIUM": {
+            "n": 284,
+            "MAE": 26.592234585671036,
+            "MedianAE": 22.543365537852026,
+            "RMSE": 34.249091081640245,
+            "bias": 0.32885976507735065
+          }
+        },
+        "role": {
+          "DECREASING": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "INCREASING": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "STABLE": {
+            "n": 720,
+            "MAE": 26.204406133469323,
+            "MedianAE": 21.01226649018783,
+            "RMSE": 34.20916872509952,
+            "bias": -0.0717618617604038
+          },
+          "UNCERTAIN": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          }
+        },
+        "dataCoverage": {
+          "0": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "75.0": {
+            "n": 720,
+            "MAE": 26.204406133469323,
+            "MedianAE": 21.01226649018783,
+            "RMSE": 34.20916872509952,
+            "bias": -0.0717618617604038
+          }
+        }
+      },
+      "servedConditionalAvailability": 0.47182175622542594,
+      "servedRosterAvailability": 0.33994334277620397
+    },
+    "TE.targets": {
+      "trainN": 721,
+      "frozenCoefficient": 0,
+      "screen2024": {
+        "historical": {
+          "n": 715,
+          "MAE": 1.701046216080781,
+          "MedianAE": 1.2280192964320191,
+          "RMSE": 2.372897375282162,
+          "bias": -0.5005126803389258
+        },
+        "shrink": {
+          "n": 715,
+          "MAE": 1.701046216080781,
+          "MedianAE": 1.2280192964320191,
+          "RMSE": 2.372897375282162,
+          "bias": -0.5005126803389258
+        },
+        "recency": {
+          "n": 715,
+          "MAE": 1.701046216080781,
+          "MedianAE": 1.2280192964320191,
+          "RMSE": 2.372897375282162,
+          "bias": -0.5005126803389258
+        },
+        "opponent": {
+          "n": 715,
+          "MAE": 1.701046216080781,
+          "MedianAE": 1.2280192964320191,
+          "RMSE": 2.372897375282162,
+          "bias": -0.5005126803389258
+        }
+      },
+      "selectedMethod": "historical",
+      "advancedChartingAblation": "NOT_AVAILABLE",
+      "roleSnapshots": "NOT_AVAILABLE",
+      "promotion": "DISABLED",
+      "reason": "Insufficient sample or fails at least one simple baseline across screening/holdout; not served as a supported projection",
+      "holdout2025": {
+        "n": 739,
+        "MAE": 1.5011253172827255,
+        "MedianAE": 1.0834819220071263,
+        "RMSE": 2.056159969137311,
+        "bias": -0.35966818155702235
+      },
+      "baselines2025": {
+        "seasonMean": {
+          "n": 739,
+          "MAE": 1.5325797586115584,
+          "MedianAE": 1.1666666666666665,
+          "RMSE": 2.081954879364115,
+          "bias": -0.16073694948864095
+        },
+        "recentMean": {
+          "n": 739,
+          "MAE": 1.5190345102491019,
+          "MedianAE": 1.1116987342246807,
+          "RMSE": 2.07353386978721,
+          "bias": -0.10636213218053539
+        }
+      },
+      "baselines2024": {
+        "seasonMean": {
+          "n": 715,
+          "MAE": 1.6980877552905527,
+          "MedianAE": 1.2000000000000002,
+          "RMSE": 2.3436654797165204,
+          "bias": -0.3223085034623496
+        },
+        "recentMean": {
+          "n": 715,
+          "MAE": 1.6782166596535784,
+          "MedianAE": 1.186410201434287,
+          "RMSE": 2.322115561906851,
+          "bias": -0.23745672300312615
+        }
+      },
+      "screeningSelected": {
+        "n": 715,
+        "MAE": 1.701046216080781,
+        "MedianAE": 1.2280192964320191,
+        "RMSE": 2.372897375282162,
+        "bias": -0.5005126803389258
+      },
+      "ablations2025": {
+        "historical": {
+          "n": 739,
+          "MAE": 1.5011253172827255,
+          "MedianAE": 1.0834819220071263,
+          "RMSE": 2.056159969137311,
+          "bias": -0.35966818155702235
+        },
+        "shrink": {
+          "n": 739,
+          "MAE": 1.5011253172827255,
+          "MedianAE": 1.0834819220071263,
+          "RMSE": 2.056159969137311,
+          "bias": -0.35966818155702235
+        },
+        "recency": {
+          "n": 739,
+          "MAE": 1.5011253172827255,
+          "MedianAE": 1.0834819220071263,
+          "RMSE": 2.056159969137311,
+          "bias": -0.35966818155702235
+        },
+        "opponent": {
+          "n": 739,
+          "MAE": 1.5011253172827255,
+          "MedianAE": 1.0834819220071263,
+          "RMSE": 2.056159969137311,
+          "bias": -0.35966818155702235
+        }
+      },
+      "eligibleOutcomeLogs": 770,
+      "knownRosterForecasts": 1092,
+      "noOutcomeLog": 322,
+      "conditionalAvailability": 0.9597402597402598,
+      "rosterAvailability": 0.6767399267399268,
+      "errorSlices": {
+        "position": {
+          "TE": {
+            "n": 739,
+            "MAE": 1.5011253172827255,
+            "MedianAE": 1.0834819220071263,
+            "RMSE": 2.056159969137311,
+            "bias": -0.35966818155702235
+          }
+        },
+        "week": {
+          "10": {
+            "n": 55,
+            "MAE": 1.5598435479832318,
+            "MedianAE": 0.9728653139740411,
+            "RMSE": 2.175397704059143,
+            "bias": -0.2892789425658054
+          },
+          "11": {
+            "n": 55,
+            "MAE": 1.6133826260664297,
+            "MedianAE": 0.9429918866595028,
+            "RMSE": 2.4127622676882288,
+            "bias": -0.6196406890451526
+          },
+          "12": {
+            "n": 58,
+            "MAE": 1.3152969836971757,
+            "MedianAE": 0.9560182756956821,
+            "RMSE": 1.8107915245939488,
+            "bias": -0.16304301042887565
+          },
+          "13": {
+            "n": 64,
+            "MAE": 1.3520896255145913,
+            "MedianAE": 0.8517473525665737,
+            "RMSE": 1.9477378005735126,
+            "bias": -0.4120682420455633
+          },
+          "14": {
+            "n": 64,
+            "MAE": 1.3869740914010238,
+            "MedianAE": 0.9284680321837302,
+            "RMSE": 1.8629951652980727,
+            "bias": -0.1091574627638798
+          },
+          "15": {
+            "n": 62,
+            "MAE": 1.583997645141846,
+            "MedianAE": 1.2144128693365288,
+            "RMSE": 2.1240392733449913,
+            "bias": -0.6302474686144122
+          },
+          "16": {
+            "n": 69,
+            "MAE": 1.5113386398160364,
+            "MedianAE": 1.027097655881497,
+            "RMSE": 1.9996784167026713,
+            "bias": -0.2227148633045145
+          },
+          "17": {
+            "n": 63,
+            "MAE": 1.5772197026799826,
+            "MedianAE": 1.3278739449583417,
+            "RMSE": 2.2102870053952466,
+            "bias": -0.36770377236892243
+          },
+          "18": {
+            "n": 59,
+            "MAE": 1.4259817730114792,
+            "MedianAE": 1.1492479573093064,
+            "RMSE": 2.0038852958557203,
+            "bias": -0.6392108875619966
+          },
+          "6": {
+            "n": 44,
+            "MAE": 1.5086539551622833,
+            "MedianAE": 1.0903740093954384,
+            "RMSE": 2.043516651733479,
+            "bias": -0.27301535053743947
+          },
+          "7": {
+            "n": 47,
+            "MAE": 2.086376297319377,
+            "MedianAE": 2.1059901023807814,
+            "RMSE": 2.5765561455934516,
+            "bias": -0.9647601375082281
+          },
+          "8": {
+            "n": 45,
+            "MAE": 1.5078740482594883,
+            "MedianAE": 1.1971818680176525,
+            "RMSE": 1.9598852079303923,
+            "bias": 0.14973437702272577
+          },
+          "9": {
+            "n": 54,
+            "MAE": 1.202483125309666,
+            "MedianAE": 0.9281777817328615,
+            "RMSE": 1.4897490507573712,
+            "bias": -0.13054561391372804
+          }
+        },
+        "sampleReliability": {
+          "HIGH": {
+            "n": 254,
+            "MAE": 1.7243029228851705,
+            "MedianAE": 1.328803401839326,
+            "RMSE": 2.3194353004522514,
+            "bias": -0.4922887045408704
+          },
+          "LOW": {
+            "n": 68,
+            "MAE": 1.1702510661695587,
+            "MedianAE": 0.8311359364733737,
+            "RMSE": 1.6966839310552944,
+            "bias": -0.2983506668519792
+          },
+          "MEDIUM": {
+            "n": 417,
+            "MAE": 1.419140514531345,
+            "MedianAE": 0.9660112525634632,
+            "RMSE": 1.9354830172518482,
+            "bias": -0.28888635460749124
+          }
+        },
+        "role": {
+          "INCREASING": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "STABLE": {
+            "n": 739,
+            "MAE": 1.5011253172827255,
+            "MedianAE": 1.0834819220071263,
+            "RMSE": 2.056159969137311,
+            "bias": -0.35966818155702235
+          },
+          "UNCERTAIN": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          }
+        },
+        "dataCoverage": {
+          "0": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "100": {
+            "n": 739,
+            "MAE": 1.5011253172827255,
+            "MedianAE": 1.0834819220071263,
+            "RMSE": 2.056159969137311,
+            "bias": -0.35966818155702235
+          }
+        }
+      },
+      "servedConditionalAvailability": 0,
+      "servedRosterAvailability": 0
+    },
+    "TE.receptions": {
+      "trainN": 721,
+      "frozenCoefficient": 0,
+      "screen2024": {
+        "historical": {
+          "n": 401,
+          "MAE": 1.7368488240351752,
+          "MedianAE": 1.3210681628073209,
+          "RMSE": 2.28460556832802,
+          "bias": -0.3583308306110861
+        },
+        "shrink": {
+          "n": 401,
+          "MAE": 1.7326413630659343,
+          "MedianAE": 1.3308845339151891,
+          "RMSE": 2.2807907786967,
+          "bias": -0.36391894988354634
+        },
+        "recency": {
+          "n": 401,
+          "MAE": 1.7369217683079123,
+          "MedianAE": 1.351148836103337,
+          "RMSE": 2.2850386217100183,
+          "bias": -0.37733742857654484
+        },
+        "opponent": {
+          "n": 401,
+          "MAE": 1.7369217683079123,
+          "MedianAE": 1.351148836103337,
+          "RMSE": 2.2850386217100183,
+          "bias": -0.37733742857654484
+        }
+      },
+      "selectedMethod": "shrink",
+      "advancedChartingAblation": "NOT_AVAILABLE",
+      "roleSnapshots": "NOT_AVAILABLE",
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion",
+      "holdout2025": {
+        "n": 419,
+        "MAE": 1.5557262453139111,
+        "MedianAE": 1.2729565286123217,
+        "RMSE": 2.0307464855427035,
+        "bias": -0.18972418382576836
+      },
+      "baselines2025": {
+        "seasonMean": {
+          "n": 419,
+          "MAE": 1.5992567794178774,
+          "MedianAE": 1.3636363636363633,
+          "RMSE": 2.0740815751179342,
+          "bias": 0.056771109426240696
+        },
+        "recentMean": {
+          "n": 419,
+          "MAE": 1.590112797645233,
+          "MedianAE": 1.2898121525977715,
+          "RMSE": 2.0794530756792953,
+          "bias": 0.09383085527657842
+        }
+      },
+      "baselines2024": {
+        "seasonMean": {
+          "n": 401,
+          "MAE": 1.7509983643400102,
+          "MedianAE": 1.4,
+          "RMSE": 2.2616934060601563,
+          "bias": -0.16450265583682044
+        },
+        "recentMean": {
+          "n": 401,
+          "MAE": 1.7427987811496013,
+          "MedianAE": 1.3899746207469597,
+          "RMSE": 2.256932975908635,
+          "bias": -0.0841343271226271
+        }
+      },
+      "screeningSelected": {
+        "n": 401,
+        "MAE": 1.7326413630659343,
+        "MedianAE": 1.3308845339151891,
+        "RMSE": 2.2807907786967,
+        "bias": -0.36391894988354634
+      },
+      "ablations2025": {
+        "historical": {
+          "n": 419,
+          "MAE": 1.5622856752799832,
+          "MedianAE": 1.2588030563752008,
+          "RMSE": 2.0397983591765345,
+          "bias": -0.18285279712510769
+        },
+        "shrink": {
+          "n": 419,
+          "MAE": 1.5557262453139111,
+          "MedianAE": 1.2729565286123217,
+          "RMSE": 2.0307464855427035,
+          "bias": -0.18972418382576836
+        },
+        "recency": {
+          "n": 419,
+          "MAE": 1.5523651495116886,
+          "MedianAE": 1.2687388320537751,
+          "RMSE": 2.028503069584392,
+          "bias": -0.20040038078814046
+        },
+        "opponent": {
+          "n": 419,
+          "MAE": 1.5523651495116886,
+          "MedianAE": 1.2687388320537751,
+          "RMSE": 2.028503069584392,
+          "bias": -0.20040038078814046
+        }
+      },
+      "eligibleOutcomeLogs": 770,
+      "knownRosterForecasts": 1092,
+      "noOutcomeLog": 322,
+      "conditionalAvailability": 0.5441558441558442,
+      "rosterAvailability": 0.3836996336996337,
+      "errorSlices": {
+        "position": {
+          "TE": {
+            "n": 419,
+            "MAE": 1.5557262453139111,
+            "MedianAE": 1.2729565286123217,
+            "RMSE": 2.0307464855427035,
+            "bias": -0.18972418382576836
+          }
+        },
+        "week": {
+          "10": {
+            "n": 29,
+            "MAE": 1.834555050489272,
+            "MedianAE": 1.3708049727181275,
+            "RMSE": 2.2936903442594025,
+            "bias": -0.001685610079270127
+          },
+          "11": {
+            "n": 35,
+            "MAE": 1.8363560750987127,
+            "MedianAE": 1.6924447761414911,
+            "RMSE": 2.366627517202191,
+            "bias": -0.29079825029359146
+          },
+          "12": {
+            "n": 32,
+            "MAE": 1.377614220834625,
+            "MedianAE": 1.3028749138826379,
+            "RMSE": 1.7425116393534446,
+            "bias": -0.016082364346990403
+          },
+          "13": {
+            "n": 38,
+            "MAE": 1.4880826041540944,
+            "MedianAE": 1.2236076855068463,
+            "RMSE": 1.9132289285218003,
+            "bias": -0.32867173797109833
+          },
+          "14": {
+            "n": 36,
+            "MAE": 1.6520766575567372,
+            "MedianAE": 1.4330777266027368,
+            "RMSE": 2.0752009600547856,
+            "bias": 0.2674603943735954
+          },
+          "15": {
+            "n": 37,
+            "MAE": 1.582855210632649,
+            "MedianAE": 1.1793160056787744,
+            "RMSE": 2.097860148444709,
+            "bias": -0.6562007925308889
+          },
+          "16": {
+            "n": 43,
+            "MAE": 1.4590101668590165,
+            "MedianAE": 1.190626827342709,
+            "RMSE": 1.896786857479213,
+            "bias": 0.17748059329114016
+          },
+          "17": {
+            "n": 43,
+            "MAE": 1.5248762767551909,
+            "MedianAE": 0.9409605900938547,
+            "RMSE": 2.1255461370149282,
+            "bias": -0.4459354411239374
+          },
+          "18": {
+            "n": 36,
+            "MAE": 1.1446694115238056,
+            "MedianAE": 0.8587863685388855,
+            "RMSE": 1.709675108660481,
+            "bias": -0.30253851613231136
+          },
+          "6": {
+            "n": 17,
+            "MAE": 2.141016398232433,
+            "MedianAE": 2.2493850522699796,
+            "RMSE": 2.4864459794411937,
+            "bias": -0.7310912685596654
+          },
+          "7": {
+            "n": 21,
+            "MAE": 1.6965497765221322,
+            "MedianAE": 1.3269665478183947,
+            "RMSE": 2.1449858776598303,
+            "bias": -0.7016133669861222
+          },
+          "8": {
+            "n": 26,
+            "MAE": 1.6349574205497641,
+            "MedianAE": 1.6113060905437053,
+            "RMSE": 2.0723017927469,
+            "bias": 0.0741204287735687
+          },
+          "9": {
+            "n": 26,
+            "MAE": 1.217484934707418,
+            "MedianAE": 1.0871097990010812,
+            "RMSE": 1.4885963006715524,
+            "bias": 0.23298659305615635
+          }
+        },
+        "sampleReliability": {
+          "HIGH": {
+            "n": 225,
+            "MAE": 1.5102918433712313,
+            "MedianAE": 1.132205882044282,
+            "RMSE": 2.02529833052506,
+            "bias": -0.2800912661442626
+          },
+          "LOW": {
+            "n": 3,
+            "MAE": 2.767153665983089,
+            "MedianAE": 2.2493850522699796,
+            "RMSE": 3.181593410192564,
+            "bias": -0.4968952803769202
+          },
+          "MEDIUM": {
+            "n": 191,
+            "MAE": 1.5902207907332588,
+            "MedianAE": 1.3708049727181275,
+            "RMSE": 2.013887778866038,
+            "bias": -0.07844613769323085
+          }
+        },
+        "role": {
+          "INCREASING": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "STABLE": {
+            "n": 419,
+            "MAE": 1.5557262453139111,
+            "MedianAE": 1.2729565286123217,
+            "RMSE": 2.0307464855427035,
+            "bias": -0.18972418382576836
+          },
+          "UNCERTAIN": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          }
+        },
+        "dataCoverage": {
+          "0": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "75.0": {
+            "n": 419,
+            "MAE": 1.5557262453139111,
+            "MedianAE": 1.2729565286123217,
+            "RMSE": 2.0307464855427035,
+            "bias": -0.18972418382576836
+          }
+        }
+      },
+      "servedConditionalAvailability": 0.5441558441558442,
+      "servedRosterAvailability": 0.3836996336996337
+    },
+    "TE.receiving_yards": {
+      "trainN": 721,
+      "frozenCoefficient": 0.334105022968385,
+      "screen2024": {
+        "historical": {
+          "n": 314,
+          "MAE": 21.77145769911643,
+          "MedianAE": 17.450189457103527,
+          "RMSE": 27.550267711160483,
+          "bias": -3.4597661056018167
+        },
+        "shrink": {
+          "n": 314,
+          "MAE": 21.727289751592476,
+          "MedianAE": 17.804239288600847,
+          "RMSE": 27.525889080747472,
+          "bias": -3.9356835564235038
+        },
+        "recency": {
+          "n": 314,
+          "MAE": 21.787674922228792,
+          "MedianAE": 17.01501540040727,
+          "RMSE": 27.592544591285197,
+          "bias": -4.174899680107858
+        },
+        "opponent": {
+          "n": 314,
+          "MAE": 21.731167726872336,
+          "MedianAE": 17.122451397773858,
+          "RMSE": 27.548246665504383,
+          "bias": -4.18013068898701
+        }
+      },
+      "selectedMethod": "shrink",
+      "advancedChartingAblation": "NOT_AVAILABLE",
+      "roleSnapshots": "NOT_AVAILABLE",
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion",
+      "holdout2025": {
+        "n": 341,
+        "MAE": 20.479833980047182,
+        "MedianAE": 16.537639289584817,
+        "RMSE": 26.4785397585973,
+        "bias": -2.25917077842223
+      },
+      "baselines2025": {
+        "seasonMean": {
+          "n": 341,
+          "MAE": 20.703897646016415,
+          "MedianAE": 16.733333333333334,
+          "RMSE": 26.80727431839737,
+          "bias": 0.6792730119343025
+        },
+        "recentMean": {
+          "n": 341,
+          "MAE": 20.83660511625233,
+          "MedianAE": 17.259775634653078,
+          "RMSE": 26.987025603130785,
+          "bias": 1.5443217310424737
+        }
+      },
+      "baselines2024": {
+        "seasonMean": {
+          "n": 314,
+          "MAE": 21.998081001623994,
+          "MedianAE": 18.68333333333333,
+          "RMSE": 27.43346661246666,
+          "bias": -1.370632989621843
+        },
+        "recentMean": {
+          "n": 314,
+          "MAE": 22.13034474611447,
+          "MedianAE": 18.996332775623294,
+          "RMSE": 27.510581866107305,
+          "bias": -0.16789353701874643
+        }
+      },
+      "screeningSelected": {
+        "n": 314,
+        "MAE": 21.727289751592476,
+        "MedianAE": 17.804239288600847,
+        "RMSE": 27.525889080747472,
+        "bias": -3.9356835564235038
+      },
+      "ablations2025": {
+        "historical": {
+          "n": 341,
+          "MAE": 20.508118396457128,
+          "MedianAE": 16.096858486101805,
+          "RMSE": 26.51447296281086,
+          "bias": -2.0155530423938797
+        },
+        "shrink": {
+          "n": 341,
+          "MAE": 20.479833980047182,
+          "MedianAE": 16.537639289584817,
+          "RMSE": 26.4785397585973,
+          "bias": -2.25917077842223
+        },
+        "recency": {
+          "n": 341,
+          "MAE": 20.370909861517863,
+          "MedianAE": 16.238967166877256,
+          "RMSE": 26.405169242942105,
+          "bias": -2.1905605439721385
+        },
+        "opponent": {
+          "n": 341,
+          "MAE": 20.324030764285027,
+          "MedianAE": 16.108090706974394,
+          "RMSE": 26.370106244697634,
+          "bias": -2.198646492940351
+        }
+      },
+      "eligibleOutcomeLogs": 770,
+      "knownRosterForecasts": 1092,
+      "noOutcomeLog": 322,
+      "conditionalAvailability": 0.44285714285714284,
+      "rosterAvailability": 0.31227106227106227,
+      "errorSlices": {
+        "position": {
+          "TE": {
+            "n": 341,
+            "MAE": 20.479833980047182,
+            "MedianAE": 16.537639289584817,
+            "RMSE": 26.4785397585973,
+            "bias": -2.25917077842223
+          }
+        },
+        "week": {
+          "10": {
+            "n": 22,
+            "MAE": 25.84340479905211,
+            "MedianAE": 22.378298699616693,
+            "RMSE": 31.138681308648334,
+            "bias": -1.9221173101048878
+          },
+          "11": {
+            "n": 28,
+            "MAE": 17.343221538526766,
+            "MedianAE": 14.955375168460165,
+            "RMSE": 21.284888684251325,
+            "bias": -3.7115851830436344
+          },
+          "12": {
+            "n": 26,
+            "MAE": 18.390171159851796,
+            "MedianAE": 15.266819223885108,
+            "RMSE": 25.076260143252192,
+            "bias": -1.457417956693648
+          },
+          "13": {
+            "n": 30,
+            "MAE": 18.3640767703023,
+            "MedianAE": 14.718203926337598,
+            "RMSE": 24.639587389213972,
+            "bias": -4.796384110335956
+          },
+          "14": {
+            "n": 29,
+            "MAE": 22.631254496324463,
+            "MedianAE": 19.647309806865067,
+            "RMSE": 27.39879930646344,
+            "bias": 5.649740446506204
+          },
+          "15": {
+            "n": 33,
+            "MAE": 23.113340228781226,
+            "MedianAE": 20.542447635672087,
+            "RMSE": 31.813295327902157,
+            "bias": -10.05194583087128
+          },
+          "16": {
+            "n": 40,
+            "MAE": 19.000299595850088,
+            "MedianAE": 13.295766474566364,
+            "RMSE": 25.205170985678784,
+            "bias": 4.32068729133594
+          },
+          "17": {
+            "n": 34,
+            "MAE": 20.79057223700089,
+            "MedianAE": 16.907371844754657,
+            "RMSE": 26.23641693417402,
+            "bias": -3.150091850159035
+          },
+          "18": {
+            "n": 32,
+            "MAE": 18.902544975995813,
+            "MedianAE": 15.888877660590358,
+            "RMSE": 23.262705348790654,
+            "bias": -2.100234457455246
+          },
+          "6": {
+            "n": 9,
+            "MAE": 21.45441264936828,
+            "MedianAE": 22.57492287140635,
+            "RMSE": 25.013025115246624,
+            "bias": -3.592681132936154
+          },
+          "7": {
+            "n": 14,
+            "MAE": 21.00704226665403,
+            "MedianAE": 16.521560031068695,
+            "RMSE": 27.009569376034328,
+            "bias": -4.182506974905141
+          },
+          "8": {
+            "n": 24,
+            "MAE": 20.54460714012128,
+            "MedianAE": 14.419834024956613,
+            "RMSE": 27.72466157863437,
+            "bias": -4.577225405928986
+          },
+          "9": {
+            "n": 20,
+            "MAE": 21.465658063275324,
+            "MedianAE": 19.028595205102608,
+            "RMSE": 27.30060027951551,
+            "bias": -3.6142184181167414
+          }
+        },
+        "sampleReliability": {
+          "HIGH": {
+            "n": 196,
+            "MAE": 21.04766102566664,
+            "MedianAE": 16.642789826041874,
+            "RMSE": 27.636804071865942,
+            "bias": -3.3499768028876304
+          },
+          "LOW": {
+            "n": 1,
+            "MAE": 23.775766793800607,
+            "MedianAE": 23.775766793800607,
+            "RMSE": 23.775766793800607,
+            "bias": 23.775766793800607
+          },
+          "MEDIUM": {
+            "n": 144,
+            "MAE": 19.684069856747413,
+            "MedianAE": 16.521560031068695,
+            "RMSE": 24.83429149594341,
+            "bias": -0.9552607560403159
+          }
+        },
+        "role": {
+          "INCREASING": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "STABLE": {
+            "n": 341,
+            "MAE": 20.479833980047182,
+            "MedianAE": 16.537639289584817,
+            "RMSE": 26.4785397585973,
+            "bias": -2.25917077842223
+          },
+          "UNCERTAIN": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          }
+        },
+        "dataCoverage": {
+          "0": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "75.0": {
+            "n": 341,
+            "MAE": 20.479833980047182,
+            "MedianAE": 16.537639289584817,
+            "RMSE": 26.4785397585973,
+            "bias": -2.25917077842223
+          }
+        }
+      },
+      "servedConditionalAvailability": 0.44285714285714284,
+      "servedRosterAvailability": 0.31227106227106227
+    },
+    "QB.passing_attempts": {
+      "trainN": 360,
+      "frozenCoefficient": 0,
+      "screen2024": {
+        "historical": {
+          "n": 282,
+          "MAE": 6.860093253607007,
+          "MedianAE": 5.396037740549154,
+          "RMSE": 8.6290807829159,
+          "bias": -0.07728245449995193
+        },
+        "shrink": {
+          "n": 282,
+          "MAE": 6.860093253607007,
+          "MedianAE": 5.396037740549154,
+          "RMSE": 8.6290807829159,
+          "bias": -0.07728245449995193
+        },
+        "recency": {
+          "n": 282,
+          "MAE": 6.860093253607007,
+          "MedianAE": 5.396037740549154,
+          "RMSE": 8.6290807829159,
+          "bias": -0.07728245449995193
+        },
+        "opponent": {
+          "n": 282,
+          "MAE": 6.860093253607007,
+          "MedianAE": 5.396037740549154,
+          "RMSE": 8.6290807829159,
+          "bias": -0.07728245449995193
+        }
+      },
+      "selectedMethod": "historical",
+      "advancedChartingAblation": "NOT_AVAILABLE",
+      "roleSnapshots": "NOT_AVAILABLE",
+      "promotion": "DISABLED",
+      "reason": "Insufficient sample or fails at least one simple baseline across screening/holdout; not served as a supported projection",
+      "holdout2025": {
+        "n": 270,
+        "MAE": 6.657981025996186,
+        "MedianAE": 5.526769523134931,
+        "RMSE": 8.759470757793094,
+        "bias": 0.9400210553115652
+      },
+      "baselines2025": {
+        "seasonMean": {
+          "n": 270,
+          "MAE": 7.031542927237371,
+          "MedianAE": 5.909090909090908,
+          "RMSE": 9.065142879590262,
+          "bias": 0.9517064365675476
+        },
+        "recentMean": {
+          "n": 270,
+          "MAE": 7.01649054105953,
+          "MedianAE": 5.605224929941457,
+          "RMSE": 9.09005659142679,
+          "bias": 1.064365034448348
+        }
+      },
+      "baselines2024": {
+        "seasonMean": {
+          "n": 282,
+          "MAE": 7.023761020303573,
+          "MedianAE": 5.775,
+          "RMSE": 8.86438062648123,
+          "bias": -0.19384910794485277
+        },
+        "recentMean": {
+          "n": 282,
+          "MAE": 6.858918151456021,
+          "MedianAE": 5.632831166511558,
+          "RMSE": 8.654040175147582,
+          "bias": 0.06634294278378687
+        }
+      },
+      "screeningSelected": {
+        "n": 282,
+        "MAE": 6.860093253607007,
+        "MedianAE": 5.396037740549154,
+        "RMSE": 8.6290807829159,
+        "bias": -0.07728245449995193
+      },
+      "ablations2025": {
+        "historical": {
+          "n": 270,
+          "MAE": 6.657981025996186,
+          "MedianAE": 5.526769523134931,
+          "RMSE": 8.759470757793094,
+          "bias": 0.9400210553115652
+        },
+        "shrink": {
+          "n": 270,
+          "MAE": 6.657981025996186,
+          "MedianAE": 5.526769523134931,
+          "RMSE": 8.759470757793094,
+          "bias": 0.9400210553115652
+        },
+        "recency": {
+          "n": 270,
+          "MAE": 6.657981025996186,
+          "MedianAE": 5.526769523134931,
+          "RMSE": 8.759470757793094,
+          "bias": 0.9400210553115652
+        },
+        "opponent": {
+          "n": 270,
+          "MAE": 6.657981025996186,
+          "MedianAE": 5.526769523134931,
+          "RMSE": 8.759470757793094,
+          "bias": 0.9400210553115652
+        }
+      },
+      "eligibleOutcomeLogs": 355,
+      "knownRosterForecasts": 515,
+      "noOutcomeLog": 160,
+      "conditionalAvailability": 0.7605633802816901,
+      "rosterAvailability": 0.5242718446601942,
+      "errorSlices": {
+        "position": {
+          "QB": {
+            "n": 270,
+            "MAE": 6.657981025996186,
+            "MedianAE": 5.526769523134931,
+            "RMSE": 8.759470757793094,
+            "bias": 0.9400210553115652
+          }
+        },
+        "week": {
+          "10": {
+            "n": 19,
+            "MAE": 6.477285137131509,
+            "MedianAE": 5.0691843766653975,
+            "RMSE": 8.27663127870584,
+            "bias": 2.0601290472272935
+          },
+          "11": {
+            "n": 24,
+            "MAE": 8.805890587042922,
+            "MedianAE": 7.6476951076962845,
+            "RMSE": 11.844186016891248,
+            "bias": 2.316285423705955
+          },
+          "12": {
+            "n": 21,
+            "MAE": 6.545010452592801,
+            "MedianAE": 5.893414849959672,
+            "RMSE": 8.739425531887727,
+            "bias": -1.9250696173887167
+          },
+          "13": {
+            "n": 22,
+            "MAE": 5.918294885731218,
+            "MedianAE": 5.658674944595745,
+            "RMSE": 6.8513625676705745,
+            "bias": 0.9641941324394291
+          },
+          "14": {
+            "n": 17,
+            "MAE": 7.359533523894386,
+            "MedianAE": 4.296675900372719,
+            "RMSE": 10.554542529146778,
+            "bias": 2.854202750407495
+          },
+          "15": {
+            "n": 24,
+            "MAE": 4.761553791825634,
+            "MedianAE": 3.689002337403547,
+            "RMSE": 6.14235795528476,
+            "bias": 1.1229066669010674
+          },
+          "16": {
+            "n": 21,
+            "MAE": 7.582641202348224,
+            "MedianAE": 4.788499646229482,
+            "RMSE": 9.700904440507538,
+            "bias": -0.78961495419542
+          },
+          "17": {
+            "n": 18,
+            "MAE": 5.740046684361037,
+            "MedianAE": 5.666177245171561,
+            "RMSE": 6.885839174085555,
+            "bias": -1.4483672338615317
+          },
+          "18": {
+            "n": 17,
+            "MAE": 9.37864853937879,
+            "MedianAE": 6.749902842837724,
+            "RMSE": 12.292700396780274,
+            "bias": 4.738100759892316
+          },
+          "6": {
+            "n": 24,
+            "MAE": 5.358455941508322,
+            "MedianAE": 5.548999854954927,
+            "RMSE": 6.3747914677019,
+            "bias": 2.3899784888957742
+          },
+          "7": {
+            "n": 25,
+            "MAE": 6.914788367326284,
+            "MedianAE": 5.035816175611153,
+            "RMSE": 8.749824216946879,
+            "bias": -1.119837784845848
+          },
+          "8": {
+            "n": 18,
+            "MAE": 5.113335231425057,
+            "MedianAE": 4.218864611101582,
+            "RMSE": 6.1313568941665135,
+            "bias": 2.831978482347612
+          },
+          "9": {
+            "n": 20,
+            "MAE": 7.035100037081361,
+            "MedianAE": 5.991121749144451,
+            "RMSE": 9.076864703141965,
+            "bias": -0.7709486654181852
+          }
+        },
+        "sampleReliability": {
+          "HIGH": {
+            "n": 124,
+            "MAE": 6.537994857070591,
+            "MedianAE": 4.929928474046246,
+            "RMSE": 8.633086810051902,
+            "bias": 0.8502451017682529
+          },
+          "LOW": {
+            "n": 24,
+            "MAE": 6.521164173293901,
+            "MedianAE": 6.149048027841237,
+            "RMSE": 7.894483534508531,
+            "bias": -2.034757282096786
+          },
+          "MEDIUM": {
+            "n": 122,
+            "MAE": 6.806848971993141,
+            "MedianAE": 5.436888594450238,
+            "RMSE": 9.044134212514537,
+            "bias": 1.6164710416818204
+          }
+        },
+        "role": {
+          "DECREASING": {
+            "n": 1,
+            "MAE": 9.376761328845767,
+            "MedianAE": 9.376761328845767,
+            "RMSE": 9.376761328845767,
+            "bias": -9.376761328845767
+          },
+          "INCREASING": {
+            "n": 2,
+            "MAE": 6.296173339857948,
+            "MedianAE": 6.296173339857948,
+            "RMSE": 6.302810682783472,
+            "bias": -6.296173339857948
+          },
+          "STABLE": {
+            "n": 267,
+            "MAE": 6.650508498166324,
+            "MedianAE": 5.263912513126165,
+            "RMSE": 8.772888533543108,
+            "bias": 1.0328643930437613
+          },
+          "UNCERTAIN": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          }
+        },
+        "dataCoverage": {
+          "0": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "100": {
+            "n": 270,
+            "MAE": 6.657981025996186,
+            "MedianAE": 5.526769523134931,
+            "RMSE": 8.759470757793094,
+            "bias": 0.9400210553115652
+          }
+        }
+      },
+      "servedConditionalAvailability": 0,
+      "servedRosterAvailability": 0
+    },
+    "QB.passing_yards": {
+      "trainN": 360,
+      "frozenCoefficient": 0.49120581165547517,
+      "screen2024": {
+        "historical": {
+          "n": 282,
+          "MAE": 61.951034983992436,
+          "MedianAE": 54.48998428871242,
+          "RMSE": 77.28711763299337,
+          "bias": 0.9748272586470035
+        },
+        "shrink": {
+          "n": 282,
+          "MAE": 61.146433838727646,
+          "MedianAE": 54.24269345457712,
+          "RMSE": 76.34953863936019,
+          "bias": -1.9589281722268221
+        },
+        "recency": {
+          "n": 282,
+          "MAE": 61.45879753250113,
+          "MedianAE": 54.16555508740058,
+          "RMSE": 76.76717635764012,
+          "bias": -2.761384185708479
+        },
+        "opponent": {
+          "n": 282,
+          "MAE": 61.849431270507765,
+          "MedianAE": 52.13515138165995,
+          "RMSE": 76.9914550694698,
+          "bias": -2.758465127483989
+        }
+      },
+      "selectedMethod": "shrink",
+      "advancedChartingAblation": "NOT_AVAILABLE",
+      "roleSnapshots": "NOT_AVAILABLE",
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion",
+      "holdout2025": {
+        "n": 268,
+        "MAE": 57.954259296198515,
+        "MedianAE": 48.489139619296964,
+        "RMSE": 73.80676545225556,
+        "bias": 6.149012254641067
+      },
+      "baselines2025": {
+        "seasonMean": {
+          "n": 268,
+          "MAE": 58.41925420661428,
+          "MedianAE": 49.94642857142857,
+          "RMSE": 74.70172260516509,
+          "bias": 7.892452391099777
+        },
+        "recentMean": {
+          "n": 268,
+          "MAE": 59.804452925117346,
+          "MedianAE": 51.856944391598375,
+          "RMSE": 76.03534506243602,
+          "bias": 9.63022654946001
+        }
+      },
+      "baselines2024": {
+        "seasonMean": {
+          "n": 282,
+          "MAE": 62.587160997001426,
+          "MedianAE": 51.9375,
+          "RMSE": 78.11822297817689,
+          "bias": -0.16134129857534182
+        },
+        "recentMean": {
+          "n": 282,
+          "MAE": 62.42290592903942,
+          "MedianAE": 53.95340366207623,
+          "RMSE": 77.9566228861963,
+          "bias": 3.099393223614422
+        }
+      },
+      "screeningSelected": {
+        "n": 282,
+        "MAE": 61.146433838727646,
+        "MedianAE": 54.24269345457712,
+        "RMSE": 76.34953863936019,
+        "bias": -1.9589281722268221
+      },
+      "ablations2025": {
+        "historical": {
+          "n": 268,
+          "MAE": 58.26723128468125,
+          "MedianAE": 49.14040127375863,
+          "RMSE": 74.83066970794803,
+          "bias": 8.356037430175945
+        },
+        "shrink": {
+          "n": 268,
+          "MAE": 57.954259296198515,
+          "MedianAE": 48.489139619296964,
+          "RMSE": 73.80676545225556,
+          "bias": 6.149012254641067
+        },
+        "recency": {
+          "n": 268,
+          "MAE": 58.40882035079001,
+          "MedianAE": 49.12957431518001,
+          "RMSE": 73.61411547527152,
+          "bias": 5.6202318705554175
+        },
+        "opponent": {
+          "n": 268,
+          "MAE": 57.721500765707866,
+          "MedianAE": 48.72340139808057,
+          "RMSE": 72.79645649871108,
+          "bias": 5.7520729292474755
+        }
+      },
+      "eligibleOutcomeLogs": 355,
+      "knownRosterForecasts": 515,
+      "noOutcomeLog": 160,
+      "conditionalAvailability": 0.7549295774647887,
+      "rosterAvailability": 0.5203883495145631,
+      "errorSlices": {
+        "position": {
+          "QB": {
+            "n": 268,
+            "MAE": 57.954259296198515,
+            "MedianAE": 48.489139619296964,
+            "RMSE": 73.80676545225556,
+            "bias": 6.149012254641067
+          }
+        },
+        "week": {
+          "10": {
+            "n": 19,
+            "MAE": 57.94618672655502,
+            "MedianAE": 55.270830029832524,
+            "RMSE": 65.38023077243082,
+            "bias": 21.091429655197167
+          },
+          "11": {
+            "n": 24,
+            "MAE": 75.64831480222234,
+            "MedianAE": 50.80579471192877,
+            "RMSE": 104.9744142094021,
+            "bias": 25.930414386369105
+          },
+          "12": {
+            "n": 21,
+            "MAE": 61.96420433539914,
+            "MedianAE": 50.478770795983365,
+            "RMSE": 76.93548375595482,
+            "bias": -0.11544358081848875
+          },
+          "13": {
+            "n": 22,
+            "MAE": 50.11428158676144,
+            "MedianAE": 42.978731880847235,
+            "RMSE": 63.32196962371178,
+            "bias": 13.018584150784136
+          },
+          "14": {
+            "n": 17,
+            "MAE": 63.447446130191835,
+            "MedianAE": 35.21899116451783,
+            "RMSE": 85.35189812508128,
+            "bias": 27.66487024593008
+          },
+          "15": {
+            "n": 24,
+            "MAE": 46.88117263498615,
+            "MedianAE": 42.00272913710283,
+            "RMSE": 55.36895181347036,
+            "bias": -18.898863096180204
+          },
+          "16": {
+            "n": 21,
+            "MAE": 70.89982910260363,
+            "MedianAE": 56.701603424417385,
+            "RMSE": 84.82029060808715,
+            "bias": -11.634272265138069
+          },
+          "17": {
+            "n": 18,
+            "MAE": 63.96431917728061,
+            "MedianAE": 54.28677792972712,
+            "RMSE": 76.20504374926503,
+            "bias": 0.05282067563997354
+          },
+          "18": {
+            "n": 17,
+            "MAE": 71.61798614525321,
+            "MedianAE": 65.16543469679627,
+            "RMSE": 88.1219486462679,
+            "bias": 41.31766310082003
+          },
+          "6": {
+            "n": 23,
+            "MAE": 37.603022359755634,
+            "MedianAE": 24.14847232993577,
+            "RMSE": 50.90036254577483,
+            "bias": 2.8217833735242204
+          },
+          "7": {
+            "n": 25,
+            "MAE": 57.02826228477883,
+            "MedianAE": 48.23506834475154,
+            "RMSE": 71.25835060516513,
+            "bias": 2.5593848025503805
+          },
+          "8": {
+            "n": 18,
+            "MAE": 51.552292559089864,
+            "MedianAE": 53.64619164701993,
+            "RMSE": 58.16276455752209,
+            "bias": -0.16914506799314527
+          },
+          "9": {
+            "n": 19,
+            "MAE": 49.021574560303094,
+            "MedianAE": 43.540187419107184,
+            "RMSE": 60.36657410349327,
+            "bias": -13.722041800465695
+          }
+        },
+        "sampleReliability": {
+          "HIGH": {
+            "n": 124,
+            "MAE": 58.93306056579567,
+            "MedianAE": 47.04534188057002,
+            "RMSE": 75.20707030955126,
+            "bias": 4.636276091963842
+          },
+          "LOW": {
+            "n": 22,
+            "MAE": 56.637277346161575,
+            "MedianAE": 58.489383027855766,
+            "RMSE": 67.99425617306017,
+            "bias": 12.155041754075823
+          },
+          "MEDIUM": {
+            "n": 122,
+            "MAE": 57.19690065251627,
+            "MedianAE": 48.489139619296964,
+            "RMSE": 73.37562869109362,
+            "bias": 6.603492870906734
+          }
+        },
+        "role": {
+          "DECREASING": {
+            "n": 1,
+            "MAE": 87.69592846255688,
+            "MedianAE": 87.69592846255688,
+            "RMSE": 87.69592846255688,
+            "bias": -87.69592846255688
+          },
+          "INCREASING": {
+            "n": 2,
+            "MAE": 52.60720174225702,
+            "MedianAE": 52.60720174225702,
+            "RMSE": 59.81151189289775,
+            "bias": -52.60720174225702
+          },
+          "STABLE": {
+            "n": 265,
+            "MAE": 57.88238173371371,
+            "MedianAE": 48.473545144089854,
+            "RMSE": 73.8450223697682,
+            "bias": 6.94658723090897
+          },
+          "UNCERTAIN": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          }
+        },
+        "dataCoverage": {
+          "0": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "75.0": {
+            "n": 268,
+            "MAE": 57.954259296198515,
+            "MedianAE": 48.489139619296964,
+            "RMSE": 73.80676545225556,
+            "bias": 6.149012254641067
+          }
+        }
+      },
+      "servedConditionalAvailability": 0.7549295774647887,
+      "servedRosterAvailability": 0.5203883495145631
+    },
+    "QB.pass_completions": {
+      "trainN": 360,
+      "frozenCoefficient": 0,
+      "screen2024": {
+        "historical": {
+          "n": 282,
+          "MAE": 4.728063598223567,
+          "MedianAE": 4.019249455921802,
+          "RMSE": 5.9594014550655015,
+          "bias": -0.08918958945221263
+        },
+        "shrink": {
+          "n": 282,
+          "MAE": 4.721180963717194,
+          "MedianAE": 3.9553902588397047,
+          "RMSE": 5.957954373368555,
+          "bias": -0.17331048210258884
+        },
+        "recency": {
+          "n": 282,
+          "MAE": 4.756129379224112,
+          "MedianAE": 4.0036373725031265,
+          "RMSE": 5.98569256551661,
+          "bias": -0.21853882664258834
+        },
+        "opponent": {
+          "n": 282,
+          "MAE": 4.756129379224112,
+          "MedianAE": 4.0036373725031265,
+          "RMSE": 5.98569256551661,
+          "bias": -0.21853882664258834
+        }
+      },
+      "selectedMethod": "shrink",
+      "advancedChartingAblation": "NOT_AVAILABLE",
+      "roleSnapshots": "NOT_AVAILABLE",
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion",
+      "holdout2025": {
+        "n": 268,
+        "MAE": 4.754452460470214,
+        "MedianAE": 4.076251238941927,
+        "RMSE": 6.055693688308944,
+        "bias": 1.0018376498374841
+      },
+      "baselines2025": {
+        "seasonMean": {
+          "n": 268,
+          "MAE": 4.988377216688784,
+          "MedianAE": 4.25,
+          "RMSE": 6.230558374676702,
+          "bias": 1.0365567838049181
+        },
+        "recentMean": {
+          "n": 268,
+          "MAE": 5.00853839549446,
+          "MedianAE": 4.264454182328835,
+          "RMSE": 6.264430749782041,
+          "bias": 1.0131201919376738
+        }
+      },
+      "baselines2024": {
+        "seasonMean": {
+          "n": 282,
+          "MAE": 4.845776199765561,
+          "MedianAE": 4.0,
+          "RMSE": 6.085711985017746,
+          "bias": -0.16963190473828765
+        },
+        "recentMean": {
+          "n": 282,
+          "MAE": 4.730055500316675,
+          "MedianAE": 3.8602281786009733,
+          "RMSE": 5.973452453698408,
+          "bias": 0.014649392894019909
+        }
+      },
+      "screeningSelected": {
+        "n": 282,
+        "MAE": 4.721180963717194,
+        "MedianAE": 3.9553902588397047,
+        "RMSE": 5.957954373368555,
+        "bias": -0.17331048210258884
+      },
+      "ablations2025": {
+        "historical": {
+          "n": 268,
+          "MAE": 4.7778805833566675,
+          "MedianAE": 4.0139138761610305,
+          "RMSE": 6.09969643139364,
+          "bias": 1.0346550121050448
+        },
+        "shrink": {
+          "n": 268,
+          "MAE": 4.754452460470214,
+          "MedianAE": 4.076251238941927,
+          "RMSE": 6.055693688308944,
+          "bias": 1.0018376498374841
+        },
+        "recency": {
+          "n": 268,
+          "MAE": 4.75800935249831,
+          "MedianAE": 4.066959215128854,
+          "RMSE": 6.045794465770925,
+          "bias": 0.9305420090052019
+        },
+        "opponent": {
+          "n": 268,
+          "MAE": 4.75800935249831,
+          "MedianAE": 4.066959215128854,
+          "RMSE": 6.045794465770925,
+          "bias": 0.9305420090052019
+        }
+      },
+      "eligibleOutcomeLogs": 355,
+      "knownRosterForecasts": 515,
+      "noOutcomeLog": 160,
+      "conditionalAvailability": 0.7549295774647887,
+      "rosterAvailability": 0.5203883495145631,
+      "errorSlices": {
+        "position": {
+          "QB": {
+            "n": 268,
+            "MAE": 4.754452460470214,
+            "MedianAE": 4.076251238941927,
+            "RMSE": 6.055693688308944,
+            "bias": 1.0018376498374841
+          }
+        },
+        "week": {
+          "10": {
+            "n": 19,
+            "MAE": 5.7312551249527734,
+            "MedianAE": 5.235249610133206,
+            "RMSE": 6.6981722711270155,
+            "bias": 2.3011128080489947
+          },
+          "11": {
+            "n": 24,
+            "MAE": 7.102089331486581,
+            "MedianAE": 6.010129333960794,
+            "RMSE": 8.682425007599978,
+            "bias": 2.848010105109358
+          },
+          "12": {
+            "n": 21,
+            "MAE": 5.09896203337846,
+            "MedianAE": 4.242709534006096,
+            "RMSE": 6.504356410002927,
+            "bias": -0.6442965280344027
+          },
+          "13": {
+            "n": 22,
+            "MAE": 4.152710575406643,
+            "MedianAE": 4.061883194242685,
+            "RMSE": 4.759733089459845,
+            "bias": 1.519473626572544
+          },
+          "14": {
+            "n": 17,
+            "MAE": 5.482382910622718,
+            "MedianAE": 3.3912878785851497,
+            "RMSE": 7.43081986272093,
+            "bias": 2.5710469112516745
+          },
+          "15": {
+            "n": 24,
+            "MAE": 2.7662975485137586,
+            "MedianAE": 2.05663488774322,
+            "RMSE": 3.5820485348554008,
+            "bias": 0.6060446547191553
+          },
+          "16": {
+            "n": 21,
+            "MAE": 5.000369337219486,
+            "MedianAE": 4.109567754350735,
+            "RMSE": 6.033131311670955,
+            "bias": -1.1144570686064859
+          },
+          "17": {
+            "n": 18,
+            "MAE": 4.082215067321792,
+            "MedianAE": 3.0458509910106546,
+            "RMSE": 5.079653984990791,
+            "bias": -0.3055609548300004
+          },
+          "18": {
+            "n": 17,
+            "MAE": 6.393042551731091,
+            "MedianAE": 5.756546881136185,
+            "RMSE": 7.995665617144748,
+            "bias": 2.4797607131111725
+          },
+          "6": {
+            "n": 23,
+            "MAE": 3.9195153395315447,
+            "MedianAE": 3.2981521809255874,
+            "RMSE": 4.735754720666267,
+            "bias": 1.193340104692538
+          },
+          "7": {
+            "n": 25,
+            "MAE": 3.8308993107107807,
+            "MedianAE": 3.4047908114955234,
+            "RMSE": 4.957827838583026,
+            "bias": 0.5440753872852324
+          },
+          "8": {
+            "n": 18,
+            "MAE": 4.240329816675779,
+            "MedianAE": 4.746834880246345,
+            "RMSE": 4.823886365080126,
+            "bias": 1.317392898034505
+          },
+          "9": {
+            "n": 19,
+            "MAE": 4.60016626954933,
+            "MedianAE": 4.417744593148434,
+            "RMSE": 5.929178315117253,
+            "bias": 0.013369822662344433
+          }
+        },
+        "sampleReliability": {
+          "HIGH": {
+            "n": 124,
+            "MAE": 4.609145523676549,
+            "MedianAE": 3.447857751819983,
+            "RMSE": 5.904905952647209,
+            "bias": 0.832263120454408
+          },
+          "LOW": {
+            "n": 22,
+            "MAE": 4.784186724827799,
+            "MedianAE": 4.631811901892556,
+            "RMSE": 5.808396016185551,
+            "bias": 0.10839433402321715
+          },
+          "MEDIUM": {
+            "n": 122,
+            "MAE": 4.896779561671422,
+            "MedianAE": 4.099437009774906,
+            "RMSE": 6.247685861368212,
+            "bias": 1.3353048186195766
+          }
+        },
+        "role": {
+          "DECREASING": {
+            "n": 1,
+            "MAE": 5.322012629309196,
+            "MedianAE": 5.322012629309196,
+            "RMSE": 5.322012629309196,
+            "bias": -5.322012629309196
+          },
+          "INCREASING": {
+            "n": 2,
+            "MAE": 5.182125303989999,
+            "MedianAE": 5.182125303989999,
+            "RMSE": 5.198808579004494,
+            "bias": -5.182125303989999
+          },
+          "STABLE": {
+            "n": 265,
+            "MAE": 4.749083004410294,
+            "MedianAE": 4.071209033027948,
+            "RMSE": 6.0642979779388035,
+            "bias": 1.0723726543159808
+          },
+          "UNCERTAIN": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          }
+        },
+        "dataCoverage": {
+          "0": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "75.0": {
+            "n": 268,
+            "MAE": 4.754452460470214,
+            "MedianAE": 4.076251238941927,
+            "RMSE": 6.055693688308944,
+            "bias": 1.0018376498374841
+          }
+        }
+      },
+      "servedConditionalAvailability": 0.7549295774647887,
+      "servedRosterAvailability": 0.5203883495145631
+    },
+    "QB.interceptions": {
+      "trainN": 360,
+      "frozenCoefficient": 0,
+      "screen2024": {
+        "historical": {
+          "n": 278,
+          "MAE": 0.7339748929731429,
+          "MedianAE": 0.6335029769364838,
+          "RMSE": 0.9120308000689775,
+          "bias": 0.018203376632345874
+        },
+        "shrink": {
+          "n": 278,
+          "MAE": 0.7313708913123242,
+          "MedianAE": 0.6375764090158964,
+          "RMSE": 0.887363597736021,
+          "bias": 0.041762793876805614
+        },
+        "recency": {
+          "n": 278,
+          "MAE": 0.7290170670799667,
+          "MedianAE": 0.6288726024255678,
+          "RMSE": 0.8849635372757185,
+          "bias": 0.042045948898613336
+        },
+        "opponent": {
+          "n": 278,
+          "MAE": 0.7290170670799667,
+          "MedianAE": 0.6288726024255678,
+          "RMSE": 0.8849635372757185,
+          "bias": 0.042045948898613336
+        }
+      },
+      "selectedMethod": "recency",
+      "advancedChartingAblation": "NOT_AVAILABLE",
+      "roleSnapshots": "NOT_AVAILABLE",
+      "promotion": "DISABLED",
+      "reason": "Insufficient sample or fails at least one simple baseline across screening/holdout; not served as a supported projection",
+      "holdout2025": {
+        "n": 264,
+        "MAE": 0.6772302398694571,
+        "MedianAE": 0.5994114229824732,
+        "RMSE": 0.8319395426877482,
+        "bias": -0.00577913216177006
+      },
+      "baselines2025": {
+        "seasonMean": {
+          "n": 264,
+          "MAE": 0.6809945578411487,
+          "MedianAE": 0.5166666666666666,
+          "RMSE": 0.8777019478084246,
+          "bias": -0.024653340136294683
+        },
+        "recentMean": {
+          "n": 264,
+          "MAE": 0.6766464468693304,
+          "MedianAE": 0.5338384478845462,
+          "RMSE": 0.8797256607093532,
+          "bias": -0.015578440537853894
+        }
+      },
+      "baselines2024": {
+        "seasonMean": {
+          "n": 278,
+          "MAE": 0.7403766647022042,
+          "MedianAE": 0.6306818181818181,
+          "RMSE": 0.9187409534234267,
+          "bias": 0.021712545048875986
+        },
+        "recentMean": {
+          "n": 278,
+          "MAE": 0.7326936801795458,
+          "MedianAE": 0.6129754272842051,
+          "RMSE": 0.9232199149065317,
+          "bias": 0.003652397309832242
+        }
+      },
+      "screeningSelected": {
+        "n": 278,
+        "MAE": 0.7290170670799667,
+        "MedianAE": 0.6288726024255678,
+        "RMSE": 0.8849635372757185,
+        "bias": 0.042045948898613336
+      },
+      "ablations2025": {
+        "historical": {
+          "n": 264,
+          "MAE": 0.6817232327416862,
+          "MedianAE": 0.5347397065011227,
+          "RMSE": 0.8723860194993421,
+          "bias": -0.0238050988545378
+        },
+        "shrink": {
+          "n": 264,
+          "MAE": 0.6713387058507523,
+          "MedianAE": 0.5590605775630735,
+          "RMSE": 0.8347951684347377,
+          "bias": -0.014839587976565064
+        },
+        "recency": {
+          "n": 264,
+          "MAE": 0.6772302398694571,
+          "MedianAE": 0.5994114229824732,
+          "RMSE": 0.8319395426877482,
+          "bias": -0.00577913216177006
+        },
+        "opponent": {
+          "n": 264,
+          "MAE": 0.6772302398694571,
+          "MedianAE": 0.5994114229824732,
+          "RMSE": 0.8319395426877482,
+          "bias": -0.00577913216177006
+        }
+      },
+      "eligibleOutcomeLogs": 355,
+      "knownRosterForecasts": 515,
+      "noOutcomeLog": 160,
+      "conditionalAvailability": 0.7436619718309859,
+      "rosterAvailability": 0.512621359223301,
+      "errorSlices": {
+        "position": {
+          "QB": {
+            "n": 264,
+            "MAE": 0.6772302398694571,
+            "MedianAE": 0.5994114229824732,
+            "RMSE": 0.8319395426877482,
+            "bias": -0.00577913216177006
+          }
+        },
+        "week": {
+          "10": {
+            "n": 19,
+            "MAE": 0.6034065528270262,
+            "MedianAE": 0.5533598999234016,
+            "RMSE": 0.6916898547124489,
+            "bias": -0.0846293671471233
+          },
+          "11": {
+            "n": 24,
+            "MAE": 0.7564223351583065,
+            "MedianAE": 0.6060477431062381,
+            "RMSE": 0.9826123451436063,
+            "bias": -0.05180320503068725
+          },
+          "12": {
+            "n": 20,
+            "MAE": 0.7618897470038721,
+            "MedianAE": 0.5733192386930688,
+            "RMSE": 0.9097889301455814,
+            "bias": -0.15200450345978817
+          },
+          "13": {
+            "n": 20,
+            "MAE": 0.5802575073972552,
+            "MedianAE": 0.5805559876348152,
+            "RMSE": 0.6491904653351604,
+            "bias": 0.12723016814408022
+          },
+          "14": {
+            "n": 17,
+            "MAE": 0.8742631958137327,
+            "MedianAE": 0.6015610371596932,
+            "RMSE": 1.1895817784999896,
+            "bias": -0.2794868870725233
+          },
+          "15": {
+            "n": 24,
+            "MAE": 0.6837065516650003,
+            "MedianAE": 0.6384861033047042,
+            "RMSE": 0.8174150740784727,
+            "bias": 0.0647766348135429
+          },
+          "16": {
+            "n": 21,
+            "MAE": 0.6201844190744207,
+            "MedianAE": 0.6342438853880269,
+            "RMSE": 0.6753198629858049,
+            "bias": 0.2448019382828745
+          },
+          "17": {
+            "n": 18,
+            "MAE": 0.7634387968800955,
+            "MedianAE": 0.5801324153674574,
+            "RMSE": 0.93635995257254,
+            "bias": -0.2896891948331708
+          },
+          "18": {
+            "n": 17,
+            "MAE": 0.564769046449792,
+            "MedianAE": 0.6193620071990151,
+            "RMSE": 0.5972802943648968,
+            "bias": 0.3365376559996854
+          },
+          "6": {
+            "n": 23,
+            "MAE": 0.6584741427867575,
+            "MedianAE": 0.5974665833550209,
+            "RMSE": 0.7907414066746522,
+            "bias": 0.15592649246008014
+          },
+          "7": {
+            "n": 24,
+            "MAE": 0.765802415994638,
+            "MedianAE": 0.6155045025038421,
+            "RMSE": 0.9442885991623698,
+            "bias": -0.09496209690572148
+          },
+          "8": {
+            "n": 18,
+            "MAE": 0.5704539846101296,
+            "MedianAE": 0.5309526863831551,
+            "RMSE": 0.664742564507523,
+            "bias": -0.08164759997798168
+          },
+          "9": {
+            "n": 19,
+            "MAE": 0.573492957695142,
+            "MedianAE": 0.5204094227758045,
+            "RMSE": 0.7334991886562062,
+            "bias": -0.02460363122801228
+          }
+        },
+        "sampleReliability": {
+          "HIGH": {
+            "n": 124,
+            "MAE": 0.6989762973724901,
+            "MedianAE": 0.6228489236456871,
+            "RMSE": 0.8385513888944497,
+            "bias": 0.06799265355413227
+          },
+          "LOW": {
+            "n": 18,
+            "MAE": 0.6917669488097595,
+            "MedianAE": 0.5771920031849258,
+            "RMSE": 0.8506233027705125,
+            "bias": -0.04282507723547739
+          },
+          "MEDIUM": {
+            "n": 122,
+            "MAE": 0.6529829292850181,
+            "MedianAE": 0.5534472560773143,
+            "RMSE": 0.8223497556050196,
+            "bias": -0.07529449623918937
+          }
+        },
+        "role": {
+          "DECREASING": {
+            "n": 1,
+            "MAE": 0.2492982093213676,
+            "MedianAE": 0.2492982093213676,
+            "RMSE": 0.2492982093213676,
+            "bias": -0.2492982093213676
+          },
+          "INCREASING": {
+            "n": 2,
+            "MAE": 0.5807643850447416,
+            "MedianAE": 0.5807643850447416,
+            "RMSE": 0.6157036834827576,
+            "bias": 0.20445966574813457
+          },
+          "STABLE": {
+            "n": 261,
+            "MAE": 0.6796090281460758,
+            "MedianAE": 0.6000269006429924,
+            "RMSE": 0.8348268149504017,
+            "bias": -0.006457134148973936
+          },
+          "UNCERTAIN": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          }
+        },
+        "dataCoverage": {
+          "0": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "50.0": {
+            "n": 264,
+            "MAE": 0.6772302398694571,
+            "MedianAE": 0.5994114229824732,
+            "RMSE": 0.8319395426877482,
+            "bias": -0.00577913216177006
+          }
+        }
+      },
+      "servedConditionalAvailability": 0,
+      "servedRosterAvailability": 0
+    },
+    "QB.rush_attempts": {
+      "trainN": 360,
+      "frozenCoefficient": 0,
+      "screen2024": {
+        "historical": {
+          "n": 334,
+          "MAE": 1.7944260939336205,
+          "MedianAE": 1.4744318665801766,
+          "RMSE": 2.317764444110866,
+          "bias": 0.041338016289667136
+        },
+        "shrink": {
+          "n": 334,
+          "MAE": 1.7944260939336205,
+          "MedianAE": 1.4744318665801766,
+          "RMSE": 2.317764444110866,
+          "bias": 0.041338016289667136
+        },
+        "recency": {
+          "n": 334,
+          "MAE": 1.7944260939336205,
+          "MedianAE": 1.4744318665801766,
+          "RMSE": 2.317764444110866,
+          "bias": 0.041338016289667136
+        },
+        "opponent": {
+          "n": 334,
+          "MAE": 1.7944260939336205,
+          "MedianAE": 1.4744318665801766,
+          "RMSE": 2.317764444110866,
+          "bias": 0.041338016289667136
+        }
+      },
+      "selectedMethod": "historical",
+      "advancedChartingAblation": "NOT_AVAILABLE",
+      "roleSnapshots": "NOT_AVAILABLE",
+      "promotion": "DISABLED",
+      "reason": "Insufficient sample or fails at least one simple baseline across screening/holdout; not served as a supported projection",
+      "holdout2025": {
+        "n": 319,
+        "MAE": 1.7444340810936299,
+        "MedianAE": 1.4586908945134716,
+        "RMSE": 2.2207759928113693,
+        "bias": 0.11785997745865444
+      },
+      "baselines2025": {
+        "seasonMean": {
+          "n": 319,
+          "MAE": 1.7724486676681033,
+          "MedianAE": 1.5,
+          "RMSE": 2.233215439998229,
+          "bias": 0.1543111538409344
+        },
+        "recentMean": {
+          "n": 319,
+          "MAE": 1.7734688377310517,
+          "MedianAE": 1.4690299260056632,
+          "RMSE": 2.235696979972154,
+          "bias": 0.14924264644312588
+        }
+      },
+      "baselines2024": {
+        "seasonMean": {
+          "n": 334,
+          "MAE": 1.7896432949950913,
+          "MedianAE": 1.4666666666666668,
+          "RMSE": 2.321221727456046,
+          "bias": 0.032842361397750625
+        },
+        "recentMean": {
+          "n": 334,
+          "MAE": 1.7976821473552702,
+          "MedianAE": 1.4952743461456792,
+          "RMSE": 2.316786089575215,
+          "bias": 0.06778592181294202
+        }
+      },
+      "screeningSelected": {
+        "n": 334,
+        "MAE": 1.7944260939336205,
+        "MedianAE": 1.4744318665801766,
+        "RMSE": 2.317764444110866,
+        "bias": 0.041338016289667136
+      },
+      "ablations2025": {
+        "historical": {
+          "n": 319,
+          "MAE": 1.7444340810936299,
+          "MedianAE": 1.4586908945134716,
+          "RMSE": 2.2207759928113693,
+          "bias": 0.11785997745865444
+        },
+        "shrink": {
+          "n": 319,
+          "MAE": 1.7444340810936299,
+          "MedianAE": 1.4586908945134716,
+          "RMSE": 2.2207759928113693,
+          "bias": 0.11785997745865444
+        },
+        "recency": {
+          "n": 319,
+          "MAE": 1.7444340810936299,
+          "MedianAE": 1.4586908945134716,
+          "RMSE": 2.2207759928113693,
+          "bias": 0.11785997745865444
+        },
+        "opponent": {
+          "n": 319,
+          "MAE": 1.7444340810936299,
+          "MedianAE": 1.4586908945134716,
+          "RMSE": 2.2207759928113693,
+          "bias": 0.11785997745865444
+        }
+      },
+      "eligibleOutcomeLogs": 355,
+      "knownRosterForecasts": 515,
+      "noOutcomeLog": 160,
+      "conditionalAvailability": 0.8985915492957747,
+      "rosterAvailability": 0.6194174757281553,
+      "errorSlices": {
+        "position": {
+          "QB": {
+            "n": 319,
+            "MAE": 1.7444340810936299,
+            "MedianAE": 1.4586908945134716,
+            "RMSE": 2.2207759928113693,
+            "bias": 0.11785997745865444
+          }
+        },
+        "week": {
+          "10": {
+            "n": 24,
+            "MAE": 1.4877395998899257,
+            "MedianAE": 1.207005877020045,
+            "RMSE": 1.8348819907681115,
+            "bias": -0.15839359320298863
+          },
+          "11": {
+            "n": 28,
+            "MAE": 1.6029086120705596,
+            "MedianAE": 1.1505437905329086,
+            "RMSE": 2.1253061600284817,
+            "bias": 0.650051861188366
+          },
+          "12": {
+            "n": 22,
+            "MAE": 1.196237531753256,
+            "MedianAE": 0.8820472020437249,
+            "RMSE": 1.6961591601121115,
+            "bias": -0.11827221364259088
+          },
+          "13": {
+            "n": 27,
+            "MAE": 1.7926458711773965,
+            "MedianAE": 1.758843029045464,
+            "RMSE": 2.1409815231800526,
+            "bias": 0.014119866819041694
+          },
+          "14": {
+            "n": 25,
+            "MAE": 1.9462703293437034,
+            "MedianAE": 1.6674339792801665,
+            "RMSE": 2.4149357097575344,
+            "bias": 0.20435290167279913
+          },
+          "15": {
+            "n": 28,
+            "MAE": 1.9530821293125376,
+            "MedianAE": 1.7112725247955254,
+            "RMSE": 2.462775387944774,
+            "bias": -0.1990262842396037
+          },
+          "16": {
+            "n": 27,
+            "MAE": 1.8017785156176882,
+            "MedianAE": 1.2235733979621184,
+            "RMSE": 2.360174530704839,
+            "bias": 0.1729696357106236
+          },
+          "17": {
+            "n": 24,
+            "MAE": 1.7794187378219304,
+            "MedianAE": 1.4429911155082884,
+            "RMSE": 2.281366667996467,
+            "bias": -0.5434787902476804
+          },
+          "18": {
+            "n": 22,
+            "MAE": 1.4953187354457305,
+            "MedianAE": 1.2631976589438738,
+            "RMSE": 1.864228407074359,
+            "bias": 0.4308489569823522
+          },
+          "6": {
+            "n": 24,
+            "MAE": 1.913330032299019,
+            "MedianAE": 1.2908532677186317,
+            "RMSE": 2.6771065281657433,
+            "bias": -0.38943305427935765
+          },
+          "7": {
+            "n": 27,
+            "MAE": 1.7699874234969846,
+            "MedianAE": 1.6596903406842043,
+            "RMSE": 2.0312995699991903,
+            "bias": 0.5246361242794085
+          },
+          "8": {
+            "n": 20,
+            "MAE": 2.3085371890518327,
+            "MedianAE": 2.379712984596214,
+            "RMSE": 2.6428276974587113,
+            "bias": 1.2706660361534623
+          },
+          "9": {
+            "n": 21,
+            "MAE": 1.6044834028089234,
+            "MedianAE": 1.484399209066657,
+            "RMSE": 2.0520324845743394,
+            "bias": -0.2597845896163288
+          }
+        },
+        "sampleReliability": {
+          "HIGH": {
+            "n": 124,
+            "MAE": 1.5717463965697565,
+            "MedianAE": 1.1895620806817426,
+            "RMSE": 1.9915828883355895,
+            "bias": 0.10808646753254016
+          },
+          "LOW": {
+            "n": 73,
+            "MAE": 2.0728353431002158,
+            "MedianAE": 1.5397017279991037,
+            "RMSE": 2.669175668320407,
+            "bias": -0.2163249489153324
+          },
+          "MEDIUM": {
+            "n": 122,
+            "MAE": 1.723450316786085,
+            "MedianAE": 1.6191360434406668,
+            "RMSE": 2.1450220123852306,
+            "bias": 0.32775682054176275
+          }
+        },
+        "role": {
+          "DECREASING": {
+            "n": 10,
+            "MAE": 2.2681436057350486,
+            "MedianAE": 2.163735653038783,
+            "RMSE": 2.8748351975368163,
+            "bias": -0.6743927712428094
+          },
+          "INCREASING": {
+            "n": 41,
+            "MAE": 1.9563573102821419,
+            "MedianAE": 1.5347169279307389,
+            "RMSE": 2.442950562694445,
+            "bias": 0.014445824790616416
+          },
+          "STABLE": {
+            "n": 268,
+            "MAE": 1.6924715898878717,
+            "MedianAE": 1.4273659165484607,
+            "RMSE": 2.1561468860193718,
+            "bias": 0.16324246904971487
+          },
+          "UNCERTAIN": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          }
+        },
+        "dataCoverage": {
+          "0": {
+            "n": 0,
+            "MAE": null,
+            "MedianAE": null,
+            "RMSE": null,
+            "bias": null
+          },
+          "100": {
+            "n": 319,
+            "MAE": 1.7444340810936299,
+            "MedianAE": 1.4586908945134716,
+            "RMSE": 2.2207759928113693,
+            "bias": 0.11785997745865444
+          }
+        }
+      },
+      "servedConditionalAvailability": 0,
+      "servedRosterAvailability": 0
+    }
+  },
+  "limitations": [
+    "No VALIDATED promotion without as-of snapshots/prospective validation",
+    "Outcome-log conditional errors; missed games have unknown outcomes, never synthetic zeros",
+    "No route/coverage/true pressure/weather ablation",
+    "Current same-season minimum four logs; early-season availability intentionally limited",
+    "Final veto needs another untouched season for prospective post-veto policy validation"
+  ]
+}

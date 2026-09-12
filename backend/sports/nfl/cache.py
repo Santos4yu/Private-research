@@ -19,6 +19,8 @@ class NFLCacheDomain(StrEnum):
     WEATHER = "weather"
     PROPS = "props"
     PROJECTIONS = "projections"
+    OPPORTUNITY = "opportunity"
+    MATCHUP = "matchup"
 
 
 NFL_CACHE_TTLS = {
@@ -34,6 +36,8 @@ NFL_CACHE_TTLS = {
     NFLCacheDomain.WEATHER: 10 * 60,
     NFLCacheDomain.PROPS: 2 * 60,
     NFLCacheDomain.PROJECTIONS: 10 * 60,
+    NFLCacheDomain.OPPORTUNITY: 10 * 60,
+    NFLCacheDomain.MATCHUP: 10 * 60,
 }
 
 T = TypeVar("T")

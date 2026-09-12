@@ -1,0 +1,12 @@
+{
+  "version": "screened-v1",
+  "enabled": {
+    "pass_epa": false,
+    "run_epa": true,
+    "completion_rate": false,
+    "sack_rate": true,
+    "yac_per_reception": true,
+    "pass_explosive": false,
+    "run_explosive": true
+  }
+}

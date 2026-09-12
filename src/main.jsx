@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Layers2 as BarChart3, Ticket as ClipboardList, Radar as FlaskConical, ScanLine, Compass as Search, Sparkles, ShieldCheck, CircleDot, Trophy, LayoutGrid, Diamond, Crosshair, Target } from 'lucide-react';
 import { MobileNavigation } from './MobileNavigation';
 import { MobileSlipActions } from './MobileSlipActions';
 import { ResearchHome } from './ResearchHome';
-import { SportResearch } from './sports/nfl/SportResearch';
+const SportResearch = lazy(() => import('./sports/nfl/SportResearch').then(module => ({ default: module.SportResearch })));
 import { ExpandableTabs } from '../components/ui/expandable-tabs';
 import { ResearchAILoader } from '../components/ui/research-ai-loader';
 import { ActivityDropdown } from '../components/ui/activity-dropdown';
@@ -82,7 +82,7 @@ if (mobileSlipRoot) createRoot(mobileSlipRoot).render(<MobileSlipActions />);
 const researchHomeRoot = document.getElementById('research-home-root');
 if (researchHomeRoot) createRoot(researchHomeRoot).render(<ResearchHome />);
 const sportResearchRoot = document.getElementById('sport-research-root');
-if (sportResearchRoot) createRoot(sportResearchRoot).render(<SportResearch />);
+if (sportResearchRoot) createRoot(sportResearchRoot).render(<Suspense fallback={<div role="status">Loading sport research…</div>}><SportResearch /></Suspense>);
 
 const menuIcons = { research: Search, slate: FlaskConical, v2: BarChart3, saved: ClipboardList, builder: Sparkles, slip: ScanLine, moneyline: Trophy, nrfi: CircleDot, admin: ShieldCheck };
 document.querySelectorAll('.side-link').forEach((button) => {

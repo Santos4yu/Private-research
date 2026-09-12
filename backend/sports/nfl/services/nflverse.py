@@ -262,7 +262,7 @@ def game_logs(season: int, player_id: str, season_type: str = "REG") -> Provider
     return _result(lambda: cached_nfl(NFLCacheDomain.GAME_LOGS, (SOURCE_VERSION, season, season_type, player_id), load))
 
 
-TEAM_STAT_FIELDS = ("attempts", "passing_yards", "carries", "rushing_yards", "def_sacks", "def_interceptions")
+TEAM_STAT_FIELDS = ("attempts", "passing_yards", "carries", "rushing_yards", "def_sacks", "def_interceptions", "sacks_suffered", "targets")
 
 
 def team_game_stats(season: int, team_id: str, season_type: str = "REG") -> ProviderResult[list[NFLTeamGameStats]]:
@@ -285,7 +285,9 @@ def team_game_stats(season: int, team_id: str, season_type: str = "REG") -> Prov
                 continue
             stats = {field: _number(row, field) for field in TEAM_STAT_FIELDS}
             attempts, carries = stats.get("attempts"), stats.get("carries")
-            stats["offensive_plays"] = attempts + carries if attempts is not None and carries is not None else None
+            sacks = stats.get("sacks_suffered")
+            stats["offensive_plays"] = attempts + carries + sacks if all(value is not None for value in (attempts, carries, sacks)) else None
+            stats["pass_plays"] = attempts + sacks if attempts is not None and sacks is not None else None
             stats["points"] = scores.get((str(row.get("game_id") or ""), team_id))
             stats["drives"] = None
             output.append(NFLTeamGameStats(
@@ -366,7 +368,7 @@ def injuries(season: int, week: int | None = None) -> ProviderResult[list[NFLInj
     return _result(lambda: cached_nfl(NFLCacheDomain.INJURIES, (SOURCE_VERSION, season, week or "all"), load))
 
 
-def depth_chart(season: int, team_id: str | None = None) -> ProviderResult[list[NFLDepthChartEntry]]:
+def depth_chart(season: int, team_id: str | None = None, *, latest_only: bool = True) -> ProviderResult[list[NFLDepthChartEntry]]:
     url = f"{RELEASE}/depth_charts/depth_charts_{season}.csv"
     normalized_team = canonical_team(team_id) if team_id else None
     def load():
@@ -391,11 +393,11 @@ def depth_chart(season: int, team_id: str | None = None) -> ProviderResult[list[
                 role=row.get("pos_name") or row.get("depth_position") or "",
                 rank=rank, updated_at=updated, source=SOURCE,
             ))
-        if output:
+        if output and latest_only:
             latest = max(entry.updated_at for entry in output)
             output = [entry for entry in output if entry.updated_at == latest]
         return output, fetched, observed
-    return _result(lambda: cached_nfl(NFLCacheDomain.DEPTH_CHARTS, (SOURCE_VERSION, season, normalized_team or "all"), load))
+    return _result(lambda: cached_nfl(NFLCacheDomain.DEPTH_CHARTS, (SOURCE_VERSION, season, normalized_team or "all", "latest" if latest_only else "history"), load))
 
 
 def snap_counts(season: int, pfr_player_id: str | None = None) -> ProviderResult[list[dict]]:

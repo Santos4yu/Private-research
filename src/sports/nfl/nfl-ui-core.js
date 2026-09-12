@@ -66,8 +66,9 @@ export function summarizeLogs(logs, propKey) {
   return { games: values.length, average: values.reduce((sum, value) => sum + value, 0) / values.length, median };
 }
 
-export function researchHealth({ player, logsStatus, usageStatus, injuryStatus, scheduleStatus, lineAvailable = false }) {
+export function researchHealth({ player, logsStatus, usageStatus, injuryStatus, scheduleStatus, lineAvailable = false, opportunityHealth }) {
   const checks = [Boolean(player?.id), logsStatus === 'AVAILABLE', usageStatus === 'AVAILABLE', injuryStatus === 'AVAILABLE', scheduleStatus === 'AVAILABLE'];
+  if (opportunityHealth) checks.push(opportunityHealth.opportunityData === 'STRONG', ['MEDIUM', 'HIGH'].includes(opportunityHealth.roleCertainty), ['MEDIUM', 'HIGH'].includes(opportunityHealth.volumeCertainty), ['MEDIUM', 'HIGH'].includes(opportunityHealth.sampleReliability));
   const available = checks.filter(Boolean).length;
   const label = available >= 5 ? 'STRONG' : available >= 4 ? 'GOOD' : available >= 2 ? 'LIMITED' : 'UNRELIABLE';
   return { label, coverage: Math.round((available / checks.length) * 100), lineAvailable };

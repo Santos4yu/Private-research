@@ -1,0 +1,3 @@
+docs/nfl-distribution-forecasts.jsonl
+docs/nfl-distribution-forecasts.jsonl.gz
+backend/cache/nfl-shadow.sqlite

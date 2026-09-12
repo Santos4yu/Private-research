@@ -1,0 +1,132 @@
+[
+  {
+    "season": 2024,
+    "method": "Weeks 6\u201318, prior same-season games only; \u22654 earlier player logs; full known-history roster reconciliation",
+    "metrics": {
+      "expectedPlays": {
+        "n": 388,
+        "MAE": 6.619,
+        "historicalMeanBaselineMAE": 6.778,
+        "unavailable": 0
+      },
+      "expectedDropbacks": {
+        "n": 388,
+        "MAE": 6.281,
+        "historicalMeanBaselineMAE": 6.458,
+        "unavailable": 0
+      },
+      "expectedRushAttempts": {
+        "n": 388,
+        "MAE": 5.769,
+        "historicalMeanBaselineMAE": 5.866,
+        "unavailable": 0
+      },
+      "expectedTeamPassAttempts": {
+        "n": 388,
+        "MAE": 6.035,
+        "historicalMeanBaselineMAE": 6.192,
+        "unavailable": 0
+      },
+      "expectedDrives": {
+        "n": 388,
+        "MAE": 1.357,
+        "historicalMeanBaselineMAE": 1.39,
+        "unavailable": 0
+      },
+      "expectedTargets": {
+        "n": 3086,
+        "MAE": 1.656,
+        "historicalMeanBaselineMAE": 1.679,
+        "unavailable": 70
+      },
+      "expectedCarries": {
+        "n": 1267,
+        "MAE": 3.039,
+        "historicalMeanBaselineMAE": 3.16,
+        "unavailable": 57
+      },
+      "expectedPassAttempts": {
+        "n": 331,
+        "MAE": 7.045,
+        "historicalMeanBaselineMAE": 7.504,
+        "unavailable": 39
+      }
+    },
+    "invariantFailures": 0,
+    "routes": {
+      "status": "NOT_AVAILABLE",
+      "reason": "No route data"
+    },
+    "limitations": [
+      "Conditional on appearing in outcome logs; missed games not scored",
+      "Corrected releases, not historical as-of snapshots",
+      "No historical injury or depth-chart information assumed",
+      "Known-history roster can retain departed players until new team evidence"
+    ]
+  },
+  {
+    "season": 2025,
+    "method": "Weeks 6\u201318, prior same-season games only; \u22654 earlier player logs; full known-history roster reconciliation",
+    "metrics": {
+      "expectedPlays": {
+        "n": 388,
+        "MAE": 6.871,
+        "historicalMeanBaselineMAE": 7.045,
+        "unavailable": 0
+      },
+      "expectedDropbacks": {
+        "n": 388,
+        "MAE": 6.211,
+        "historicalMeanBaselineMAE": 6.482,
+        "unavailable": 0
+      },
+      "expectedRushAttempts": {
+        "n": 388,
+        "MAE": 6.218,
+        "historicalMeanBaselineMAE": 6.376,
+        "unavailable": 0
+      },
+      "expectedTeamPassAttempts": {
+        "n": 388,
+        "MAE": 5.831,
+        "historicalMeanBaselineMAE": 6.194,
+        "unavailable": 0
+      },
+      "expectedDrives": {
+        "n": 388,
+        "MAE": 1.255,
+        "historicalMeanBaselineMAE": 1.29,
+        "unavailable": 0
+      },
+      "expectedTargets": {
+        "n": 3151,
+        "MAE": 1.577,
+        "historicalMeanBaselineMAE": 1.62,
+        "unavailable": 77
+      },
+      "expectedCarries": {
+        "n": 1269,
+        "MAE": 2.973,
+        "historicalMeanBaselineMAE": 3.064,
+        "unavailable": 47
+      },
+      "expectedPassAttempts": {
+        "n": 318,
+        "MAE": 6.823,
+        "historicalMeanBaselineMAE": 7.409,
+        "unavailable": 34
+      }
+    },
+    "invariantFailures": 0,
+    "routes": {
+      "status": "NOT_AVAILABLE",
+      "reason": "No route data"
+    },
+    "limitations": [
+      "Conditional on appearing in outcome logs; missed games not scored",
+      "Corrected releases, not historical as-of snapshots",
+      "No historical injury or depth-chart information assumed",
+      "Known-history roster can retain departed players until new team evidence"
+    ]
+  }
+]

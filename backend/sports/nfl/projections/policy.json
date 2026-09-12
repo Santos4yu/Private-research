@@ -1,0 +1,101 @@
+{
+  "version": "NFL_PROJECTION_POLICY_V1",
+  "models": {
+    "RB.rush_attempts": {
+      "method": "historical",
+      "coefficient": 0,
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion"
+    },
+    "RB.rushing_yards": {
+      "method": "opponent",
+      "coefficient": 0.910447535474902,
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion"
+    },
+    "RB.receptions": {
+      "method": "shrink",
+      "coefficient": 0,
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion"
+    },
+    "RB.receiving_yards": {
+      "method": "recency",
+      "coefficient": 0,
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion"
+    },
+    "RB.rushing_receiving_yards": {
+      "method": "componentSum",
+      "coefficient": 0,
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion"
+    },
+    "WR.targets": {
+      "method": "historical",
+      "coefficient": 0,
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion"
+    },
+    "WR.receptions": {
+      "method": "recency",
+      "coefficient": 0,
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion"
+    },
+    "WR.receiving_yards": {
+      "method": "recency",
+      "coefficient": 0,
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion"
+    },
+    "TE.targets": {
+      "method": "historical",
+      "coefficient": 0,
+      "promotion": "DISABLED",
+      "reason": "Insufficient sample or fails at least one simple baseline across screening/holdout; not served as a supported projection"
+    },
+    "TE.receptions": {
+      "method": "shrink",
+      "coefficient": 0,
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion"
+    },
+    "TE.receiving_yards": {
+      "method": "shrink",
+      "coefficient": 0,
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion"
+    },
+    "QB.passing_attempts": {
+      "method": "historical",
+      "coefficient": 0,
+      "promotion": "DISABLED",
+      "reason": "Insufficient sample or fails at least one simple baseline across screening/holdout; not served as a supported projection"
+    },
+    "QB.passing_yards": {
+      "method": "shrink",
+      "coefficient": 0,
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion"
+    },
+    "QB.pass_completions": {
+      "method": "shrink",
+      "coefficient": 0,
+      "promotion": "EXPERIMENTAL",
+      "reason": "Frozen 2024 selection; corrected releases and absent as-of injury/depth snapshots prevent validated promotion"
+    },
+    "QB.interceptions": {
+      "method": "recency",
+      "coefficient": 0,
+      "promotion": "DISABLED",
+      "reason": "Insufficient sample or fails at least one simple baseline across screening/holdout; not served as a supported projection"
+    },
+    "QB.rush_attempts": {
+      "method": "historical",
+      "coefficient": 0,
+      "promotion": "DISABLED",
+      "reason": "Insufficient sample or fails at least one simple baseline across screening/holdout; not served as a supported projection"
+    }
+  }
+}

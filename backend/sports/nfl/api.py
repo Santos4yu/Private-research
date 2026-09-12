@@ -34,10 +34,15 @@ def response_payload(result: ProviderResult) -> dict:
 
 
 def send_json(handler, status: int, body: dict) -> None:
+    if status >= 500:
+        from .request_guard import event
+        event('source_or_model_unavailable', 'nfl')
     payload = json.dumps(body, separators=(",", ":")).encode("utf-8")
     handler.send_response(status)
     handler.send_header("Content-Type", "application/json")
-    handler.send_header("Cache-Control", "private, max-age=60")
+    # Browser HTTP caching must not defeat explicit injury/line/model refreshes.
+    handler.send_header("Cache-Control", "private, no-store")
+    handler.send_header("X-Content-Type-Options", "nosniff")
     handler.send_header("Content-Length", str(len(payload)))
     handler.end_headers()
     handler.wfile.write(payload)

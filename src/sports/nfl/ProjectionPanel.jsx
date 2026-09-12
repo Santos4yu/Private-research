@@ -1,0 +1,26 @@
+import React from 'react';
+import { ModelBadge } from './ModelBadge';
+import { NFLFreshness } from './Freshness';
+import { Activity, FlaskConical } from 'lucide-react';
+import { projectionValue } from './projection-ui';
+
+const LABELS = { expectedTargets: 'Expected targets', expectedCarries: 'Expected carries', expectedPassAttempts: 'Expected pass attempts', expectedDesignedRushes: 'Non-scramble rush proxy', expectedScrambles: 'Expected scrambles', expectedKneels: 'Expected kneels', passingYPA: 'Passing yards per attempt', completionRate: 'Completion rate', interceptionRate: 'Interception rate', rushingYPC: 'Rushing yards per carry', catchRate: 'Catch rate', yardsPerReception: 'Yards per reception' };
+const RATES = new Set(['completionRate', 'interceptionRate', 'catchRate']);
+const number = (value, rate = false) => Number.isFinite(value) ? rate ? `${(value * 100).toFixed(1)}%` : value.toFixed(1) : 'NOT AVAILABLE';
+
+export function NFLProjectionPanel({ resource, selectedProp }) {
+  if (resource?.status === 'LOADING') return <section className="nfl-chart-card" role="status"><Activity aria-hidden="true" /><h3>Building statistical projection</h3><p>Using team volume, player role and regressed efficiency.</p></section>;
+  const data = resource?.data;
+  if (data?.propType && data.propType !== selectedProp.key) return <section className="nfl-chart-card" role="status"><h3>Loading selected prop model</h3></section>;
+  if (!data) return <section className="nfl-chart-card"><h3>Projection not available</h3><p>Required NFL model inputs have not loaded.</p></section>;
+  const value = projectionValue(data, selectedProp.key);
+  const supported = value !== null;
+  return <section className="nfl-panel-stack nfl-projection-panel">
+    <div className="nfl-chart-card"><div className="nfl-section-title"><div><span>MODEL-ONLY STATISTIC</span><h3>{selectedProp.label}</h3></div><FlaskConical aria-hidden="true" /></div><div className="nfl-stat-grid"><div className="nfl-stat"><span>Model projection</span><strong className={supported ? '' : 'nfl-model-status'}>{supported ? number(data.projectionMean) : 'NOT AVAILABLE'}</strong></div><div className="nfl-stat"><span>Model status</span><strong className="nfl-model-status"><ModelBadge status={data.promotion || 'NOT_AVAILABLE'} /></strong></div><div className="nfl-stat"><span>Core input coverage</span><strong>{Number.isFinite(data.dataCoverage) ? `${Math.round(data.dataCoverage)}%` : 'NOT AVAILABLE'}</strong></div></div><p>{data.reason}</p>{data.projectionCondition && <p>{data.projectionCondition}</p>}<small>{data.modelVersion || 'Model unavailable'} · {data.status?.replaceAll('_', ' ')}. Experimental statistics are not betting recommendations.</small></div>
+    {supported && <details className="nfl-chart-card"><summary>Why this projection?</summary><h3>Opportunity</h3>{Object.entries(data.opportunityInputs || {}).map(([key, metric]) => <div className="nfl-evidence-row" key={key}><strong>{LABELS[key] || key}</strong><span>{number(metric.mean)}</span><small>{metric.sample ?? 'Unknown'} earlier observations</small></div>)}<h3>Efficiency</h3>{Object.entries(data.efficiencyInputs || {}).map(([key, metric]) => <div className="nfl-evidence-row" key={key}><strong>{LABELS[key] || key}</strong><span>{number(metric.mean, RATES.has(key))}</span><small>{metric.sampleGames} games · {metric.validExposure} opportunities · regressed toward a real position baseline</small></div>)}<h3>Opponent and matchup</h3>{data.matchupAdjustments?.length ? data.matchupAdjustments.map((input, index) => <p key={index}>{input.feature.replaceAll('_', ' ')}: {input.enabled ? `${input.statAdjustment > 0 ? '+' : ''}${input.statAdjustment.toFixed(1)} to projected statistic` : 'No validated incremental effect enabled'} · {input.sample} observations</p>) : <p>No additional matchup adjustment is enabled.</p>}<h3>Environment and personnel</h3><p>Forecast weather and advanced charting are unavailable. Injury and role uncertainty remain in Phase 4 opportunity gates.</p><small>No median, prediction interval or probability is inferred from this mean.</small>{data.components?.map((component) => <p key={component.propType}>{component.propType.replaceAll('_', ' ')}: {number(component.projectionMean)} · {component.modelVersion}</p>)}</details>}
+    <NFLFreshness timestamp={data.generatedAt} />
+    <small>Role reliability {data.roleReliability || 'LOW'} · injury certainty {data.injuryCertainty || 'UNKNOWN'} · {data.generatedAt ? `generated ${new Date(data.generatedAt).toLocaleString()}` : 'timestamp unavailable'}</small>
+    <small>Transformed <a href="https://github.com/nflverse/nflverse-data" target="_blank" rel="noreferrer">nflverse data</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>{data.fetchedAt ? ` · fetched ${new Date(data.fetchedAt).toLocaleString()}` : ''}</small>
+    {!!data.injuryScenarios?.length && <details className="nfl-chart-card"><summary>Unresolved teammate scenarios</summary>{data.injuryScenarios.map((scenario,index) => <p key={index}>{scenario.condition} · alternative opportunity {scenario.player ? 'reported separately' : 'NOT AVAILABLE'}</p>)}<small>These scenarios are not assigned probabilities or averaged into a projection.</small></details>}
+  </section>;
+}

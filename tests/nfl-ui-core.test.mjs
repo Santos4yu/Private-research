@@ -7,6 +7,15 @@ const definitions = [
   { key: 'receiving_yards', positions: ['RB', 'WR', 'TE'] },
 ];
 
+test('opportunity coverage and certainty contribute to NFL research health', () => {
+  const common = { player: { id: 'mock' }, logsStatus: 'AVAILABLE', usageStatus: 'AVAILABLE', injuryStatus: 'AVAILABLE', scheduleStatus: 'AVAILABLE' };
+  const missing = researchHealth({ ...common, opportunityHealth: {} });
+  const supported = researchHealth({ ...common, opportunityHealth: { opportunityData: 'STRONG', roleCertainty: 'HIGH', volumeCertainty: 'MEDIUM', sampleReliability: 'HIGH' } });
+  assert.ok(supported.coverage > missing.coverage);
+  assert.equal(supported.coverage, 100);
+  assert.equal('probability' in supported, false);
+});
+
 test('position-aware props never mix quarterback and receiver markets', () => {
   assert.deepEqual(propsForPosition(definitions, 'QB').map((row) => row.key), ['passing_yards']);
   assert.deepEqual(propsForPosition(definitions, 'WR').map((row) => row.key), ['receiving_yards']);
