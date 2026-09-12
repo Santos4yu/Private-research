@@ -161,3 +161,11 @@ Provider field mappings, update schedules, rate limits, historical depth, correc
 4. **Feature datasets:** create timestamped historical snapshots and leakage-safe datasets per prop family.
 5. **Models incrementally:** begin with one prop, define its features/model/calibration/backtest, then add other props independently.
 6. **Board and production hardening:** scheduled refreshes, monitoring, stale-data gates, regression checks for both sports, and gradual NFL rollout.
+
+## Phase 2 provider implementation
+
+The real-data adapter now lives in `backend/sports/nfl/services/nflverse.py`. It normalizes nflverse/nfldata CSV releases for teams, offensive-skill players, schedules, weekly player logs, team game stats, injuries, current depth charts, snap counts, and defensive allowed production. `backend/sports/nfl/identity.py` resolves stable provider IDs and permits normalized-name fallback only for unique players. `backend/sports/nfl/api.py` serializes internal contracts without exposing raw source records.
+
+One authenticated Vercel function, `api/nfl.py`, serves the ready resources. `vercel.json` rewrites `/api/nfl/:resource` to it, preserving clean resource URLs without exceeding the Hobby-plan serverless-function cap. NFL remains disabled in `src/sports/registry.ts`, and none of these endpoints are called by the production UI.
+
+See `docs/nfl-data-provider-matrix.md` for exact field coverage, freshness, source limitations, licensing, and remaining paid-data requirements.

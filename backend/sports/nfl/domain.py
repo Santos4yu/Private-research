@@ -74,6 +74,26 @@ class NFLTeamRef:
 
 
 @dataclass(frozen=True)
+class NFLTeam(NFLTeamRef):
+    city: str
+    nickname: str
+    conference: str | None = None
+    division: str | None = None
+    logo_url: str | None = None
+    source_ids: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class NFLPlayer(NFLPlayerRef):
+    first_name: str
+    last_name: str
+    status: str
+    jersey_number: str | None = None
+    headshot_url: str | None = None
+    source_ids: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class NFLGame:
     id: str
     season: int
@@ -83,7 +103,68 @@ class NFLGame:
     status: str
     home_team: NFLTeamRef
     away_team: NFLTeamRef
+    venue: str | None = None
+    roof: str | None = None
+    temperature_f: float | None = None
+    wind_mph: float | None = None
+    precipitation_probability: float | None = None
     source_ids: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class NFLGameLog:
+    player_id: str
+    player_name: str
+    position: NFLPosition
+    game_id: str
+    season: int
+    season_type: str
+    week: int
+    team_id: str
+    opponent_team_id: str
+    is_home: bool | None
+    stats: dict[str, int | float | None]
+    source: str
+
+
+@dataclass(frozen=True)
+class NFLTeamGameStats:
+    game_id: str
+    season: int
+    season_type: str
+    week: int
+    team_id: str
+    opponent_team_id: str
+    stats: dict[str, int | float | None]
+    source: str
+
+
+@dataclass(frozen=True)
+class NFLInjury:
+    player_id: str
+    player_name: str
+    team_id: str
+    position: str
+    season: int
+    season_type: str
+    week: int
+    injury: str | None
+    game_status: str | None
+    practice_status: str | None
+    report_date: datetime | None
+    source: str
+
+
+@dataclass(frozen=True)
+class NFLDepthChartEntry:
+    team_id: str
+    player_id: str
+    player_name: str
+    position: str
+    role: str
+    rank: int
+    updated_at: datetime
+    source: str
 
 
 @dataclass(frozen=True)

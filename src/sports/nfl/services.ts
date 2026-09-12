@@ -23,10 +23,9 @@ export interface NFLDataServices {
     player(playerId: string, season: number): Promise<NFLProviderResult<NFLPlayerUsage>>;
     team(teamId: string, season: number): Promise<NFLProviderResult<NFLTeamUsage>>;
   };
-  injuries: { team(teamId: string): Promise<NFLProviderResult<NFLInjury[]>> };
-  depthCharts: { team(teamId: string): Promise<NFLProviderResult<NFLDepthChart>> };
+  injuries: { team(teamId: string, season: number, week?: number): Promise<NFLProviderResult<NFLInjury[]>> };
+  depthCharts: { team(teamId: string, season: number): Promise<NFLProviderResult<NFLDepthChart>> };
   defense: { team(teamId: string, season: number): Promise<NFLProviderResult<NFLDefense>> };
   weather: { game(gameId: string): Promise<NFLProviderResult<NFLGameEnvironment>> };
   props: { game(gameId: string): Promise<NFLProviderResult<NFLProp[]>> };
 }
-

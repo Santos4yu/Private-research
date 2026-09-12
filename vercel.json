@@ -5,6 +5,7 @@
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/api/auth/:action", "destination": "/api/session?action=:action" },
+    { "source": "/api/nfl/:resource", "destination": "/api/nfl?resource=:resource" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "functions": {
