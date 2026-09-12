@@ -16,6 +16,9 @@ class handler(BaseHTTPRequestHandler):
             return send_json(self, 401, {"error": "Sign in to use NFL data.", "authRequired": True})
         query = parse_qs(urlparse(self.path).query)
         resource = query.get("resource", [""])[0].strip().lower()
+        if not resource:
+            path_parts = [part for part in urlparse(self.path).path.split("/") if part]
+            resource = path_parts[-1].lower() if len(path_parts) > 2 else ""
         try:
             season = int(query.get("season", [""])[0])
             week = int(query["week"][0]) if query.get("week") else None
@@ -58,6 +61,10 @@ class handler(BaseHTTPRequestHandler):
             if not team:
                 return send_json(self, 400, {"error": "A team abbreviation is required."})
             result = nflverse.defense_game_stats(season, team, season_type)
+        elif resource == "usage":
+            if not player_id:
+                return send_json(self, 400, {"error": "A stable GSIS playerId is required."})
+            result = nflverse.provider.player_usage(player_id=player_id, season=season)
         else:
             return send_json(self, 404, {"error": "Unknown NFL data resource."})
 

@@ -48,6 +48,7 @@ ROUTES = {
     "/api/board": _load_handler("board.py"),
     "/api/v2-board": _load_handler("v2-board.py"),
     "/api/v2-admin": _load_handler("v2-admin.py"),
+    "/api/nfl": _load_handler("nfl.py"),
 }
 
 
@@ -67,14 +68,15 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()")
         self.send_header("Cross-Origin-Opener-Policy", "same-origin")
         self.send_header("Cross-Origin-Resource-Policy", "same-site")
-        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://img.mlbstatic.com https://cdn.nba.com; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'")
+        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://img.mlbstatic.com https://www.mlbstatic.com https://cdn.nba.com https://static.www.nfl.com https://github.com https://objects.githubusercontent.com; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'")
         if urlparse(self.path).path == "/index.html" or urlparse(self.path).path == "/":
             self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         super().end_headers()
 
     def do_GET(self):
         try:
-            route_cls = ROUTES.get(urlparse(self.path).path)
+            request_path = urlparse(self.path).path
+            route_cls = ROUTES.get(request_path) or (ROUTES.get("/api/nfl") if request_path.startswith("/api/nfl/") else None)
             if route_cls:
                 # Naively calling route_cls.do_GET(self) breaks the moment
                 # a handler uses its own helper methods (every api/*.py

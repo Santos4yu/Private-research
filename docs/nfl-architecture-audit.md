@@ -169,3 +169,9 @@ The real-data adapter now lives in `backend/sports/nfl/services/nflverse.py`. It
 One authenticated Vercel function, `api/nfl.py`, serves the ready resources. `vercel.json` rewrites `/api/nfl/:resource` to it, preserving clean resource URLs without exceeding the Hobby-plan serverless-function cap. NFL remains disabled in `src/sports/registry.ts`, and none of these endpoints are called by the production UI.
 
 See `docs/nfl-data-provider-matrix.md` for exact field coverage, freshness, source limitations, licensing, and remaining paid-data requirements.
+
+## Phase 3 read-only research UI
+
+The NFL registry is now visible from the Research sport switcher. `src/sports/nfl/SportResearch.jsx` owns the NFL home, real player search, NFL-only recent players, featured players, player header, position-aware prop picker, and the Overview, Trend, Opportunity, Matchup, Opponent, Game, Injuries, and Research Health sections. The component calls only `/api/nfl/*` resources and stores NFL history under an NFL-specific key.
+
+Measured game logs, target and air-yard shares, snaps when an exact PFR crosswalk exists, defensive results, current-week injuries, schedules, venues, roofs, temperature, and wind are displayed when returned by Phase 2. Prop lines, projections, probabilities, matchup scores, routes, coverage, advanced run concepts, forecast precipitation, and betting context render as explicit unavailable states. NFL player URLs use `?sport=nfl&nflPlayer={gsis-id}` without changing the existing MLB hash routes.

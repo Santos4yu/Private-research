@@ -19,9 +19,8 @@ export const SPORTS: Readonly<Record<SportId, SportRegistration>> = Object.freez
   nfl: {
     id: "nfl",
     label: "NFL",
-    enabled: false,
+    enabled: true,
     apiNamespace: "/api/nfl",
     storageNamespace: "nfl",
   },
 });
-

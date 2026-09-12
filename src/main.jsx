@@ -4,6 +4,7 @@ import { Layers2 as BarChart3, Ticket as ClipboardList, Radar as FlaskConical, S
 import { MobileNavigation } from './MobileNavigation';
 import { MobileSlipActions } from './MobileSlipActions';
 import { ResearchHome } from './ResearchHome';
+import { SportResearch } from './sports/nfl/SportResearch';
 import { ExpandableTabs } from '../components/ui/expandable-tabs';
 import { ResearchAILoader } from '../components/ui/research-ai-loader';
 import { ActivityDropdown } from '../components/ui/activity-dropdown';
@@ -22,6 +23,7 @@ import './accent-studio.css';
 import './gamelog-fix.css';
 import './research-polish.css';
 import './prop-finder.css';
+import './sports/nfl/nfl-research.css';
 
 const topTabs = [
   { title: 'Research', icon: Search, value: 'research' },
@@ -79,6 +81,8 @@ const mobileSlipRoot = document.getElementById('mobile-slip-actions-root');
 if (mobileSlipRoot) createRoot(mobileSlipRoot).render(<MobileSlipActions />);
 const researchHomeRoot = document.getElementById('research-home-root');
 if (researchHomeRoot) createRoot(researchHomeRoot).render(<ResearchHome />);
+const sportResearchRoot = document.getElementById('sport-research-root');
+if (sportResearchRoot) createRoot(sportResearchRoot).render(<SportResearch />);
 
 const menuIcons = { research: Search, slate: FlaskConical, v2: BarChart3, saved: ClipboardList, builder: Sparkles, slip: ScanLine, moneyline: Trophy, nrfi: CircleDot, admin: ShieldCheck };
 document.querySelectorAll('.side-link').forEach((button) => {
