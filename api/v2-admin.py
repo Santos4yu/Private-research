@@ -46,6 +46,10 @@ class handler(BaseHTTPRequestHandler):
         action = (qs.get("action") or [""])[0]
 
         try:
+            if action == "site-settings":
+                if not admin_auth.is_admin_request(self.headers):return self._send(401, {"error":"Admin session required"})
+                from site_controls import read
+                return self._send(200, read())
             if action == "key-status":
                 if not admin_auth.is_admin_request(self.headers):
                     return self._send(401, {"error": "Admin session required"})
@@ -71,6 +75,17 @@ class handler(BaseHTTPRequestHandler):
 
         action = body.get("action", "")
         try:
+            if action == "site-settings":
+                if not admin_auth.is_admin_request(self.headers):return self._send(401, {"error":"Admin session required"})
+                from site_controls import validate,same_origin,KEY
+                if not same_origin(self.headers):return self._send(403,{"error":"Same-origin request required"})
+                try: settings=validate(body.get('settings'))
+                except ValueError as exc:return self._send(400,{"error":str(exc)})
+                if settings['requireLogin']:
+                    from account_auth import configured
+                    if not configured():return self._send(409,{"error":"Configure email accounts before requiring login"})
+                if not store.set(KEY,json.dumps(settings)):return self._send(503,{"error":"Settings storage unavailable"})
+                return self._send(200,settings)
             if action == "auth":
                 return self._handle_auth(body)
             if action == "key":

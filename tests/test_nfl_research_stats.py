@@ -51,5 +51,5 @@ class NFLResearchStatsTests(unittest.TestCase):
         from datetime import datetime,timezone
         request=object.__new__(handler);request.headers={};request.path='/api/nfl/reception-logs?season=2025&playerId=mock-player'
         result=ProviderResult(DataStatus.AVAILABLE,[],'mock-only',datetime.now(timezone.utc))
-        with patch('api.nfl.session_with_live_access',return_value=True),patch('api.nfl.send_json') as send,patch('backend.sports.nfl.services.research_stats.reception_logs',return_value=result) as service:
+        with patch('site_controls.read',return_value={'maintenance':False,'disabledTabs':[],'requireLogin':False}),patch('api.nfl.session_with_live_access',return_value=True),patch('api.nfl.send_json') as send,patch('backend.sports.nfl.services.research_stats.reception_logs',return_value=result) as service:
             request.do_GET();self.assertEqual(send.call_args.args[1],200);service.assert_called_once_with(2025,'mock-player')

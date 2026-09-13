@@ -203,6 +203,9 @@ class handler(BaseHTTPRequestHandler):
         self._send(200, {})
 
     def do_GET(self):
+        from site_controls import allowed
+        if not allowed(self.headers,'research'):
+            return self._send(503, {"error":"This section is temporarily unavailable", "featureDisabled":True})
         # Live (uncached) Discord role check -- this is the "real data"
         # endpoint, so access revocation needs to be instant here, not
         # whenever a cached session cookie happens to expire.
@@ -271,6 +274,9 @@ class handler(BaseHTTPRequestHandler):
         return self._send(200, result)
 
     def do_POST(self):
+        from site_controls import allowed
+        tab='slip' if 'slip-analyzer' in self.path else 'builder'
+        if not allowed(self.headers,tab):return self._send(503,{'error':'This section is temporarily unavailable','featureDisabled':True})
         if not session_with_live_access(self.headers):
             return self._send(401, {
                 "error": "Sign in with Discord to export PrizePicks lineups.",

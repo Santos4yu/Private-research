@@ -26,6 +26,9 @@ class handler(BaseHTTPRequestHandler):
         self._send(200, {})
 
     def do_GET(self):
+        from site_controls import allowed
+        if not allowed(self.headers,'slate'):
+            return self._send(503, {"error":"This section is temporarily unavailable", "featureDisabled":True})
         # Live (uncached) Discord role check -- see api/prediction.py.
         if not session_with_live_access(self.headers):
             return self._send(401, {"error": "Sign in with Discord to view team insights.", "authRequired": True})

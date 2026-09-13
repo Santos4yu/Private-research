@@ -63,7 +63,7 @@ class OpportunityServiceTests(unittest.TestCase):
         request=object.__new__(handler)
         request.headers={}
         request.path='/api/nfl/opportunity?season=2025'
-        with patch('api.nfl.session_with_live_access',return_value=True),patch('api.nfl.send_json') as send:
+        with patch('site_controls.read',return_value={'maintenance':False,'disabledTabs':[],'requireLogin':False}),patch('api.nfl.session_with_live_access',return_value=True),patch('api.nfl.send_json') as send:
             request.do_GET()
             self.assertEqual(send.call_args.args[1],400)
 
@@ -71,7 +71,7 @@ class OpportunityServiceTests(unittest.TestCase):
         from api.nfl import handler
         request=object.__new__(handler); request.headers={}
         request.path='/api/nfl/opportunity?season=2025&week=8&playerId=mock-wr'
-        with patch('api.nfl.session_with_live_access',return_value=True),patch('api.nfl.send_json') as send,patch('backend.sports.nfl.opportunity_service.opportunity',return_value={'status':'NOT_AVAILABLE'}) as engine:
+        with patch('site_controls.read',return_value={'maintenance':False,'disabledTabs':[],'requireLogin':False}),patch('api.nfl.session_with_live_access',return_value=True),patch('api.nfl.send_json') as send,patch('backend.sports.nfl.opportunity_service.opportunity',return_value={'status':'NOT_AVAILABLE'}) as engine:
             request.do_GET()
             engine.assert_called_once_with(2025,'mock-wr',8)
             self.assertEqual(send.call_args.args[1],200)
@@ -80,7 +80,7 @@ class OpportunityServiceTests(unittest.TestCase):
         from api.nfl import handler
         request=object.__new__(handler); request.headers={}
         request.path='/api/nfl/opportunity?season=2025&week=8&playerId=mock-wr&seasonType=SB'
-        with patch('api.nfl.session_with_live_access',return_value=True),patch('api.nfl.send_json') as send:
+        with patch('site_controls.read',return_value={'maintenance':False,'disabledTabs':[],'requireLogin':False}),patch('api.nfl.session_with_live_access',return_value=True),patch('api.nfl.send_json') as send:
             request.do_GET()
             self.assertEqual(send.call_args.args[1],400)
 

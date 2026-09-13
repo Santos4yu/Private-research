@@ -23,6 +23,11 @@ class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         query = parse_qs(urlparse(self.path).query)
         action = (query.get("action") or [""])[0].strip().lower()
+        if action == "site-status":
+            from site_controls import read
+            from account_auth import configured,identity,cookies,REFRESH
+            from v2.board import admin_auth
+            return self._json(200,{**read(),'accountsConfigured':configured(),'account':identity(self.headers),'refreshAvailable':bool(cookies(self.headers).get(REFRESH)),'isAdmin':admin_auth.is_admin_request(self.headers)})
         if action == "login":
             return self._login()
         if action == "callback":
@@ -32,6 +37,59 @@ class handler(BaseHTTPRequestHandler):
         if action == "logout":
             return self._logout()
         return self._json(404, {"error": "Unknown session action"})
+
+    def do_POST(self):
+        from site_controls import same_origin,read
+        from account_auth import call,cookies,REFRESH,session_cookies,clear_cookies,identity
+        if not same_origin(self.headers):return self._json(403,{'error':'Same-origin request required'})
+        try:
+            length=int(self.headers.get('Content-Length','0'))
+            if not 0<length<=8192:return self._json(400,{'error':'Invalid request size'})
+            body=json.loads(self.rfile.read(length))
+            if not isinstance(body,dict):return self._json(400,{'error':'Invalid request'})
+            action=body.get('action')
+            email=body.get('email','');password=body.get('password','')
+            if action in ('sign-in','sign-up','recover','verify-recovery','verify-email'):
+                from account_auth import rate_allowed
+                if not rate_allowed(self.headers,email):return self._json(429,{'error':'Too many account attempts. Try again in 15 minutes.'})
+            if action in ('sign-in','sign-up','recover'):
+                if not isinstance(email,str) or '@' not in email or len(email)>254:return self._json(400,{'error':'Enter a valid email'})
+            if action in ('sign-in','sign-up','update-password'):
+                if not isinstance(password,str) or not 8<=len(password)<=128:return self._json(400,{'error':'Password must contain 8–128 characters'})
+            if action=='sign-up':
+                if not read()['registrationOpen']:return self._json(403,{'error':'Registration is currently closed'})
+                call('signup',{'email':email.strip(),'password':password})
+                return self._json(200,{'message':'Check your email to confirm your account, then sign in.'})
+            if action=='sign-in':data=call('token?grant_type=password',{'email':email.strip(),'password':password})
+            elif action=='refresh':data=call('token?grant_type=refresh_token',{'refresh_token':cookies(self.headers).get(REFRESH,'')})
+            elif action in ('verify-recovery','verify-email'):
+                data=call('verify',{'email':email.strip(),'token':body.get('code',''),'type':'recovery' if action=='verify-recovery' else 'email'})
+            elif action=='recover':
+                call('recover',{'email':email.strip()})
+                return self._json(200,{'message':'If this account exists, recovery instructions will arrive by email.'})
+            elif action=='update-password':
+                from account_auth import ACCESS
+                if not identity(self.headers):return self._json(401,{'error':'Sign in or verify a recovery code first'})
+                call('user',{'password':password},token=cookies(self.headers).get(ACCESS),method='PUT')
+                return self._json(200,{'message':'Password updated.'})
+            elif action=='sign-out':
+                from account_auth import ACCESS
+                token=cookies(self.headers).get(ACCESS)
+                if token:
+                    try:call('logout',{},token=token)
+                    except Exception:pass
+                return self._account_response({'ok':True},clear_cookies())
+            else:return self._json(400,{'error':'Unknown account action'})
+            return self._account_response({'ok':True},session_cookies(data))
+        except ValueError as exc:return self._json(400,{'error':str(exc) if str(exc).startswith('Account') else 'Invalid account request'})
+        except Exception:return self._json(503,{'error':'Account service temporarily unavailable or not configured'})
+
+    def _account_response(self,body,cookies):
+        self.send_response(200)
+        self.send_header('Content-Type','application/json')
+        self.send_header('Cache-Control','no-store')
+        for cookie in cookies:self.send_header('Set-Cookie',cookie)
+        self.end_headers();self.wfile.write(json.dumps(body).encode('utf-8'))
 
     def _login(self):
         state = secrets.token_urlsafe(24)
@@ -68,19 +126,9 @@ class handler(BaseHTTPRequestHandler):
         ])
 
     def _me(self):
-        if FREE_BETA_MODE:
-            payload = _beta_payload()
-        else:
-            token = parse_cookie_header(self.headers.get("Cookie", ""), SESSION_COOKIE_NAME)
-            payload = verify_session_token(token)
-        if not payload:
-            return self._json(200, {"authenticated": False})
-        return self._json(200, {
-            "authenticated": True,
-            "username": payload.get("username"),
-            "hasPremium": payload.get("has_premium", False),
-            "hasTester": payload.get("has_tester", False),
-        })
+        from account_auth import identity
+        payload=identity(self.headers)
+        return self._json(200,{'authenticated':bool(payload),'username':payload.get('username') if payload else None})
 
     def _logout(self):
         self.send_response(302)

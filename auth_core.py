@@ -220,6 +220,15 @@ def session_from_request_headers(headers) -> dict | None:
     (player-name autocomplete) where re-verifying Discord on every keystroke
     would be wasteful and risks hitting Discord's rate limits for no real
     security benefit."""
+    from site_controls import read
+    from account_auth import identity
+    from v2.board import admin_auth
+    if admin_auth.is_admin_request(headers):return {'id':'admin','username':'Administrator'}
+    policy=read()
+    if policy['maintenance']:return None
+    account=identity(headers)
+    if account:return account
+    if policy['requireLogin']:return None
     if FREE_BETA_MODE:
         return _beta_payload()
     cookie_header = headers.get("Cookie", "")
@@ -259,6 +268,15 @@ def session_with_live_access(headers) -> dict | None:
     (prediction, team-insights) so role removal takes effect immediately,
     not "eventually, once their cookie expires".
     """
+    from site_controls import read
+    from account_auth import identity
+    from v2.board import admin_auth
+    if admin_auth.is_admin_request(headers):return {'id':'admin','username':'Administrator'}
+    policy=read()
+    if policy['maintenance']:return None
+    account=identity(headers)
+    if account:return account
+    if policy['requireLogin']:return None
     if FREE_BETA_MODE:
         return _beta_payload()
     payload = session_from_request_headers(headers)

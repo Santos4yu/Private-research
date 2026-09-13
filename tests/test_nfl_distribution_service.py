@@ -20,7 +20,7 @@ class ServiceTests(unittest.TestCase):
     def test_route_rejects_line(self):
         from api.nfl import handler
         request=object.__new__(handler);request.headers={};request.path='/api/nfl/distribution?season=2025&week=8&playerId=x&prop=targets&line=5'
-        with patch('api.nfl.session_with_live_access',return_value=True),patch('api.nfl.send_json') as send:
+        with patch('site_controls.read',return_value={'maintenance':False,'disabledTabs':[],'requireLogin':False}),patch('api.nfl.session_with_live_access',return_value=True),patch('api.nfl.send_json') as send:
             request.do_GET();self.assertEqual(send.call_args.args[1],400)
 
     def test_missing_policy(self):

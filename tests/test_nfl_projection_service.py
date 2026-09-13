@@ -12,7 +12,7 @@ class ProjectionServiceTests(unittest.TestCase):
     def request(self,query,error=None):
         from api.nfl import handler
         request=object.__new__(handler);request.headers={};request.path='/api/nfl/projection?'+query
-        with patch('api.nfl.session_with_live_access',return_value=True),patch('api.nfl.send_json') as send,patch('backend.sports.nfl.projections.service.projection',return_value={'status':'NOT_AVAILABLE'},side_effect=error) as engine:
+        with patch('site_controls.read',return_value={'maintenance':False,'disabledTabs':[],'requireLogin':False}),patch('api.nfl.session_with_live_access',return_value=True),patch('api.nfl.send_json') as send,patch('backend.sports.nfl.projections.service.projection',return_value={'status':'NOT_AVAILABLE'},side_effect=error) as engine:
             request.do_GET()
             return send.call_args.args[1:],engine.call_args
 

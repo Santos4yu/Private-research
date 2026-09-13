@@ -1,3 +1,4 @@
+import {initSiteAccess,siteTabAllowed,loadSiteControls} from './src/site-access.js';
 /* =========================================================
    Vortex Prop Research — client-side renderer
    No backend, no database, no odds API. Reads a single JSON
@@ -755,6 +756,7 @@ function switchTab(tab, options = {}) {
     openV2PinPrompt();
     return;
   }
+  if (tab !== "admin" && !siteTabAllowed(tab)) {showToast("This section is temporarily unavailable", "warn");return;}
   const changed = state.currentTab !== tab;
   if (changed) screenScroll.set(state.currentTab, window.scrollY);
   state.currentTab = tab;
@@ -1030,6 +1032,7 @@ async function loadAdminRecords() {
   if (!res.ok) throw new Error("Admin reporting is still locked.");
   const data = await res.json(); state.adminRecords = data.records || {}; state.adminUnlocked = true;
   els.adminResultTabs.hidden = false; els.adminResultsList.hidden = false; renderAdminRecords();
+  if (!document.getElementById("site-controls")?.dataset.loaded) {await loadSiteControls();document.getElementById("site-controls").dataset.loaded="1";}
   if (!state.adminLiveTimer) {
     state.adminLiveTimer = window.setInterval(() => {
       if (state.currentTab === "admin" && state.adminUnlocked && !document.hidden) loadAdminRecords().catch(() => {});
@@ -1121,6 +1124,7 @@ function teamLogoHtml(teamId, teamName = "", className = "team-logo") {
 /* ---------- Auth gate (Discord OAuth + Premium/Tester role) ---------- */
 
 async function checkAuth() {
+  await initSiteAccess();
   // Private Research is public. Keep the old OAuth implementation below dormant
   // so no login request, Discord membership check, or account UI is used.
   return;

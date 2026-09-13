@@ -163,6 +163,9 @@ class handler(BaseHTTPRequestHandler):
         self._send(200, {})
 
     def do_GET(self):
+        from site_controls import allowed
+        tab={'prop-history':'research','moneyline':'moneyline','nrfi':'nrfi'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
+        if not allowed(self.headers,tab):return self._send(503,{'error':'This section is temporarily unavailable','featureDisabled':True})
         if not session_with_live_access(self.headers):
             return self._send(401, {"error": "Sign in with Discord to use live research.", "authRequired": True})
 
