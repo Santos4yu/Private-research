@@ -11,7 +11,7 @@ from .api import _json_value
 from .history_inputs import compact_history
 
 def matchup(season,player_id,week,prop):
-    return cached_nfl(NFLCacheDomain.MATCHUP,('nfl-matchup-v3',season,week,player_id,prop),lambda:_load(season,player_id,week,prop))
+    return cached_nfl(NFLCacheDomain.MATCHUP,('nfl-matchup-v4-context',season,week,player_id,prop),lambda:_load(season,player_id,week,prop))
 
 def _load(season,player_id,week,prop):
     roster=nflverse.players(season)
@@ -40,6 +40,8 @@ def _load(season,player_id,week,prop):
     personnel={'status':reports.status.value,'reports':_json_value(relevant),'reason':'Reports affect named component context only; no score points or presumed shadow defender'}
     environment={'roof':game.roof,'venue':game.venue,'forecastStatus':'NOT_AVAILABLE','reason':'Schedule weather is not a timestamped forecast; no weather adjustment'}
     result=build_matchup(data,asdict(player),opponent,prop,week,opp,environment,personnel)
+    from .matchup_volume_context import opponent_volume
+    result['opponentVolume'] = opponent_volume(data,asdict(player),opponent,prop,week,{p.id for p in roster.data or [] if p.position == 'QB'})
     if data.get('history',{}).get('usesPriorSeason'):
         result.update(history=data['history'],modelVersion='NFL_MATCHUP_V3_EARLY_SEASON',status='LOW_CONFIDENCE')
     result.update(source='nflverse',sourceUrl=data['sourceUrl'],fetchedAt=data['fetchedAt'],observedAt=data.get('observedAt'))

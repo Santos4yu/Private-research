@@ -19,6 +19,16 @@ test('NFL research components render controls and supported outputs without prod
   assert.ok(supported.includes('Beta estimate'));assert.ok(supported.includes('Expected pass attempts'));assert.ok(!supported.includes('TAKE'));
   const {NFLMarketLines}=await server.ssrLoadModule('/src/sports/nfl/MarketLines.jsx');
   const market=renderToStaticMarkup(React.createElement(NFLMarketLines,{load:()=>Promise.resolve({data:[]}),player:{id:'mock-only'},prop:'passing_yards',onSelect:()=>{}}));
+  const {SheetSelect}=await server.ssrLoadModule('/src/sports/nfl/ResearchSheet.jsx');
+  const picker=renderToStaticMarkup(React.createElement(SheetSelect,{value:'home',label:'Location'},React.createElement('option',{value:'home'},'Home')));
+  assert.ok(picker.includes('aria-haspopup="dialog"'));assert.ok(!picker.includes('<select'));assert.ok(picker.includes('Home'));
+  assert.ok(!market.includes('<select'));assert.ok(!market.includes('More 212.5'));
+  const {NFLMatchupPanel}=await server.ssrLoadModule('/src/sports/nfl/MatchupPanel.jsx');
+  const matchup=renderToStaticMarkup(React.createElement(NFLMatchupPanel,{selectedProp:prop,resource:{data:{components:{defenseQuality:{score:0,contributors:[]}},matchupQuality:0,dataCoverage:40}}}));
+  assert.ok(matchup.includes('Matchup score'));assert.ok(matchup.includes('Very difficult'));assert.ok(!matchup.split('</article>')[0].includes('NOT AVAILABLE'));
+  assert.ok(matchup.includes('Matchup certainty NOT AVAILABLE')); // Missing certainty stays missing in the expanded methodology.
+  const volume=renderToStaticMarkup(React.createElement(NFLMatchupPanel,{selectedProp:prop,resource:{data:{components:{},opponentVolume:{score:50,value:30,leagueMean:30,games:17,teams:32}}}}));
+  assert.ok(volume.includes('Opponent volume'));assert.ok(volume.includes('Historical percentile'));assert.ok(!volume.includes('Matchup score'));
   assert.ok(market.includes('PrizePicks'));assert.ok(market.includes('Goblins'));assert.ok(market.includes('Demons'));assert.ok(market.includes('Loading lines'));
  }finally{await server.close();}
 });

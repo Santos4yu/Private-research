@@ -47,3 +47,8 @@ export function filterOffers(rows,{prop,bookmaker='prizepicks',category='ALL'}={
   return rows.filter(row=>(!prop || row.propType===prop) && (!bookmaker || row.line.bookmaker===bookmaker) &&
     (category==='ALL' || category==='ALTERNATE' ? category==='ALL' || row.line.category!=='STANDARD' : row.line.category===category));
 }
+
+// One numeric level per market category; More/Less are sides, not alternates.
+export function postedLineLevels(offers) {
+  return [...new Set(offers.map(row=>row.line?.value).filter(Number.isFinite))].sort((a,b)=>a-b);
+}

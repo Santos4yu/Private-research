@@ -1,8 +1,10 @@
+import './mobile-research.css';
+import {ResearchSheet,SheetSelect} from './ResearchSheet';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Activity, AlertTriangle, ArrowLeft, ArrowUpRight, CalendarDays,
   CircleGauge, CloudSun, Crosshair, Database, HeartPulse,
-  Home, MapPin, Search, Shield, ShieldQuestion, TrendingUp, UserRound, Wind,
+  Home, MapPin, RefreshCw, Search, Shield, ShieldQuestion, TrendingUp, UserRound, Wind,
 } from 'lucide-react';
 import { getSelectedSport, setSelectedSport } from '../sport-state';
 import { NFL_PROP_DEFINITIONS } from './props';
@@ -80,7 +82,7 @@ function saveRecent(player) {
 
 function FeaturedCard({ player, onOpen }) {
   const last = player.last_name || player.name.split(' ').pop();
-  const first = player.first_name || player.name.slice(0, -(last?.length || 0));
+  const first = player.name.slice(0, -(last?.length || 0)).trim() || player.first_name;
   return <button type="button" className="nfl-feature-card" onClick={() => onOpen(player)} aria-label={`Open research for ${player.name}`}>
     {player.team_id && <img className="nfl-feature-watermark" src={teamLogoUrl(player.team_id)} alt="" aria-hidden="true" loading="lazy" decoding="async" width="180" height="180" />}
     <span className="nfl-feature-grid" aria-hidden="true" /><TeamLogo team={player.team_id} size="watermark" />
@@ -115,10 +117,10 @@ function NFLHome({ players, teams, loading, error, onOpen }) {
     if (event.key === 'Enter' && query === debounced && !dismissed && results[activeIndex]) { event.preventDefault(); open(results[activeIndex]); }
   };
   return <div className="nfl-home">
-    <header className="nfl-home-head"><span>NFL RESEARCH</span><h2>Find the player. Read the role.</h2><p>Real game logs, usage, opponent production, injuries, and game context.</p></header>
+    <header className="nfl-home-head"><h2>NFL research</h2></header>
     <div className="nfl-player-search">
       <Search aria-hidden="true" /><label htmlFor="nfl-player-search">Search an NFL player</label>
-      <input id="nfl-player-search" type="search" value={query} onChange={(event) => { setQuery(event.target.value); setDismissed(false); }} onKeyDown={keySearch} role="combobox" aria-autocomplete="list" aria-expanded={normalized.length >= 2 && !dismissed} aria-controls="nfl-search-options" aria-activedescendant={activeIndex >= 0 && !dismissed ? `nfl-search-option-${activeIndex}` : undefined} placeholder="Search an NFL player" autoComplete="off" />
+      <input id="nfl-player-search" aria-label="Search an NFL player" type="search" value={query} onChange={(event) => { setQuery(event.target.value); setDismissed(false); }} onKeyDown={keySearch} role="combobox" aria-autocomplete="list" aria-expanded={normalized.length >= 2 && !dismissed} aria-controls="nfl-search-options" aria-activedescendant={activeIndex >= 0 && !dismissed ? `nfl-search-option-${activeIndex}` : undefined} placeholder="Search an NFL player" autoComplete="off" />
       {normalized.length >= 2 && !dismissed && <div id="nfl-search-options" className="nfl-search-results" role="listbox" aria-label="NFL players">
         {results.map((player, index) => <button id={`nfl-search-option-${index}`} aria-selected={activeIndex === index} type="button" role="option" key={player.id} onClick={() => open(player)}><PlayerPhoto player={player} /><span><strong>{player.name}</strong><small>{player.position} · {player.team_id || 'Free agent'}</small></span><TeamLogo team={player.team_id} size="sm" /></button>)}
         {!results.length && !loading && <Notice title="No players found">Try a full first or last name.</Notice>}
@@ -127,17 +129,15 @@ function NFLHome({ players, teams, loading, error, onOpen }) {
     {loading && <LoadingCards label="Loading NFL players" />}
     {error && <Notice icon={AlertTriangle} title="NFL players unavailable" tone="error">{error}</Notice>}
     {!loading && players.length > 0 && <>
-      {recent.length > 0 && <section className="nfl-home-section"><div className="nfl-section-title"><div><span>YOUR HISTORY</span><h3>Recent players</h3></div><button type="button" onClick={() => { localStorage.removeItem(NFL_RECENT_KEY); setRecent([]); }}>Clear</button></div><div className="nfl-recent-row">{recent.map((player) => <button type="button" key={player.id} onClick={() => open(player)}><PlayerPhoto player={player} /><span><strong>{player.name}</strong><small>{player.position} · {player.team_id || 'FA'}</small></span></button>)}</div></section>}
-      <section className="nfl-home-section"><div className="nfl-section-title"><div><span>START HERE</span><h3>Featured players</h3></div><small>{teams.length} teams connected</small></div><div className="nfl-feature-grid-layout">{featured.map((player) => <FeaturedCard key={player.id} player={player} onOpen={open} />)}</div></section>
+      {recent.length > 0 && <section className="nfl-home-section"><div className="nfl-section-title"><div><h3>Recent players</h3></div><button type="button" onClick={() => { localStorage.removeItem(NFL_RECENT_KEY); setRecent([]); }}>Clear</button></div><div className="nfl-recent-row">{recent.map((player) => <button type="button" key={player.id} onClick={() => open(player)}><PlayerPhoto player={player} /><span><strong>{player.name}</strong><small>{player.position} · {player.team_id || 'FA'}</small></span></button>)}</div></section>}
+      <section className="nfl-home-section"><div className="nfl-section-title"><div><h3>Featured players</h3></div></div><div className="nfl-feature-grid-layout">{featured.map((player) => <FeaturedCard key={player.id} player={player} onOpen={open} />)}</div></section>
       <NFLPropBrowser load={getNFL} players={players} onOpen={open} /><section className="nfl-tool-strip"><article><CircleGauge aria-hidden="true" /><span><strong>Opportunity</strong><small>Snaps, volume and shares</small></span></article><article><Shield aria-hidden="true" /><span><strong>Opponent</strong><small>Measured defense results</small></span></article><article><HeartPulse aria-hidden="true" /><span><strong>Personnel</strong><small>Current injury reports</small></span></article></section>
     </>}
   </div>;
 }
 
 const TAB_ITEMS = [
-  ['overview', 'Overview', CircleGauge], ['trend', 'Trend', TrendingUp], ['opportunity', 'Opportunity', Activity],
-  ['matchup', 'Matchup', Crosshair], ['opponent', 'Opponent', Shield], ['environment', 'Game', CloudSun],
-  ['injuries', 'Injuries', HeartPulse], ['health', 'Health', Database],
+  ['trend','Trends',TrendingUp], ['matchup','Matchup',Crosshair], ['opportunity','Usage',Activity], ['context','Details',CircleGauge],
 ];
 
 function Stat({ label, value, suffix = '', unavailable = false }) {
@@ -156,7 +156,7 @@ function OverviewPanel({ selectedProp, logs, projection, quote }) {
 function HistoricalRolePanel({ player, logs, usage }) {
   const metrics = historicalUsage(logs, usage?.data || [], player.position);
   if (!logs.length) return null;
-  return <section className="nfl-panel-stack"><Notice icon={Activity} title="Observed opportunity baseline">Last {Math.min(10, logs.length)} available games · historical usage, not a forecast for the upcoming game. Previous-team games describe that former role.</Notice><div className="nfl-stat-grid">{metrics.map(metric => <div className="nfl-opportunity-metric" key={metric.key}><Stat label={metric.label} value={metric.value == null ? null : metric.value * (metric.percent ? 100 : 1)} suffix={metric.percent ? '%' : ''} /><small>{metric.sample} measured games</small></div>)}</div></section>;
+  return <section className="nfl-panel-stack nfl-usage-app"><header><h3>Recent usage</h3><small>Last {Math.min(10, logs.length)} games · historical averages</small></header><div className="nfl-stat-grid">{metrics.map(metric => <div className="nfl-opportunity-metric" key={metric.key}><Stat label={metric.label} value={metric.value == null ? null : metric.value * (metric.percent ? 100 : 1)} suffix={metric.percent ? '%' : ''} /><small>{metric.sample} measured games</small></div>)}</div></section>;
 }
 
 function OpportunityPanel({ opportunity }) {
@@ -182,7 +182,7 @@ function OpportunityPanel({ opportunity }) {
 function OpponentPanel({ defense, opponent }) {
   const rows = defense?.data || [];
   const avg = (key) => { const values = rows.map((row) => row.stats?.[key]).filter(Number.isFinite); return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null; };
-  return <section className="nfl-panel-stack"><div className="nfl-match-title"><TeamLogo team={opponent?.id} size="lg" /><div><span>OPPONENT DEFENSE BASELINE</span><h3>{opponent?.name || opponent?.id || 'Opponent pending'}</h3><small>{rows.length ? `${rows.length} regular-season games · ${defense.history?.label || 'selected season'}` : 'No defensive games available'}</small></div></div><div className="nfl-stat-grid"><Stat label="Pass yards allowed / game" value={avg('passing_yards_allowed')} /><Stat label="Pass attempts faced / game" value={avg('pass_attempts_faced')} /><Stat label="Rush yards allowed / game" value={avg('rushing_yards_allowed')} /><Stat label="Rush attempts faced / game" value={avg('rush_attempts_faced')} /><Stat label="Sacks / game" value={avg('sacks')} /><Stat label="Interceptions / game" value={avg('interceptions')} /><Stat label="Points allowed / game" value={avg('points_allowed')} /></div><small>Historical defensive production; personnel and scheme may have changed. These averages are not a matchup score.</small></section>;
+  return <section className="nfl-panel-stack nfl-opponent-panel"><div className="nfl-match-title"><TeamLogo team={opponent?.id} size="lg" /><div><span>OPPONENT DEFENSE BASELINE</span><h3>{opponent?.name || opponent?.id || 'Opponent pending'}</h3><small>{rows.length ? `${rows.length} regular-season games · ${defense.history?.label || 'selected season'}` : 'No defensive games available'}</small></div></div><div className="nfl-stat-grid"><Stat label="Pass yards allowed / game" value={avg('passing_yards_allowed')} /><Stat label="Pass attempts faced / game" value={avg('pass_attempts_faced')} /><Stat label="Rush yards allowed / game" value={avg('rushing_yards_allowed')} /><Stat label="Rush attempts faced / game" value={avg('rush_attempts_faced')} /><Stat label="Sacks / game" value={avg('sacks')} /><Stat label="Interceptions / game" value={avg('interceptions')} /><Stat label="Points allowed / game" value={avg('points_allowed')} /></div><small>Historical defensive production; personnel and scheme may have changed. These averages are not a matchup score.</small></section>;
 }
 
 function EnvironmentPanel({ game, player }) {
@@ -267,7 +267,7 @@ function NFLPlayerResearch({ player, teams, schedules, onBack }) {
   }, [tab, player.id, nextGame?.week, selectedProp.key, refreshKey]);
 
   useEffect(() => {
-    if (tab !== 'overview') return;
+    if (tab !== 'context') return;
     let active = true;
     setResources((current) => ({ ...current, projection: { status: 'LOADING' } }));
     getNFL('projection', { playerId: player.id, week: nextGame?.week, prop: selectedProp.key }).then((projection) => {
@@ -295,12 +295,11 @@ function NFLPlayerResearch({ player, teams, schedules, onBack }) {
   const props = propsForPosition(NFL_PROP_DEFINITIONS, player.position);
   const logs = (selectedProp.key === 'longest_reception' ? resources.receptionLogs?.data : resources.logs?.data) || [];
   return <div className="nfl-research-page">
-    <button type="button" className="nfl-refresh" onClick={() => { nflClient.clear(); setAnalyzedLine(null); setRefreshKey(key => key + 1); }}>Refresh current research</button>
-    <button type="button" className="nfl-back" onClick={onBack}><ArrowLeft aria-hidden="true" />NFL research</button>
-    <header className="nfl-player-header"><div className="nfl-headshot-wrap"><PlayerPhoto player={player} /></div><div className="nfl-player-identity"><span>PLAYER RESEARCH</span><h2>{player.name}</h2><p>{player.position} · {team?.name || player.team_id || 'Free agent'} <TeamLogo team={player.team_id} size="sm" /></p><div className="nfl-player-chips"><span>{statusLabel(player.status)}</span>{nextGame && matchup && <span>{matchup.location === 'HOME' ? 'vs' : '@'} {matchup.opponent.id} · {new Date(nextGame.starts_at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</span>}</div></div></header>
-    <section className="nfl-prop-selector"><div><span>RESEARCH PROP</span><small>Player statistics</small></div><div role="listbox" aria-label="Player props">{props.map((prop) => <button type="button" role="option" aria-selected={selectedProp.key === prop.key} className={selectedProp.key === prop.key ? 'active' : ''} key={prop.key} onClick={() => {setSelectedProp(prop);setAnalyzedLine(null);}}><strong>{prop.label}</strong></button>)}</div></section>
-    <NFLMarketLines key={`${player.id}.${refreshKey}`} load={getNFL} player={player} week={nextGame?.week} prop={selectedProp.key} onSelect={setAnalyzedLine} selected={analyzedLine} onRefresh={nflClient.clear} />
-    <section className="nfl-history-control"><label htmlFor="nfl-history-season">History<select id="nfl-history-season" value={historyMode} onChange={event => setHistoryMode(event.target.value)}><option value="recent">Recent seasons</option><option value="current">{SEASON} only</option><option value="previous">{SEASON - 1} only</option></select></label>{!loading && <p>{resources.logs?.history?.label || SEASON} / {logs.length} games</p>}{resources.logs?.reason && <p>{resources.logs.reason}</p>}</section>
+    <div className="nfl-research-actions"><button type="button" className="nfl-back" onClick={onBack}><ArrowLeft aria-hidden="true" />Players</button><button type="button" className="nfl-refresh" aria-label="Refresh current research" onClick={() => { nflClient.clear(); setAnalyzedLine(null); setRefreshKey(key => key + 1); }}><RefreshCw size={18}/></button></div>
+    <header className="nfl-player-header"><div className="nfl-headshot-wrap"><PlayerPhoto player={player} /></div><div className="nfl-player-identity"><h2>{player.name}</h2><p>{player.position} · {team?.name || player.team_id || 'Free agent'} <TeamLogo team={player.team_id} size="sm" /></p><div className="nfl-player-chips"><span>{statusLabel(player.status)}</span>{nextGame && matchup && <span>{matchup.location === 'HOME' ? 'vs' : '@'} {matchup.opponent.id} · {new Date(nextGame.starts_at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</span>}</div></div></header>
+    <section className="nfl-prop-selector"><div role="listbox" aria-label="Player props">{props.map((prop) => <button type="button" role="option" aria-selected={selectedProp.key === prop.key} className={selectedProp.key === prop.key ? 'active' : ''} key={prop.key} onClick={() => {setSelectedProp(prop);setAnalyzedLine(null);}}><strong>{prop.label}</strong></button>)}</div></section>
+
+
     <nav className="nfl-research-tabs" aria-label="NFL research sections">{TAB_ITEMS.map(([key, label, Icon]) => <button type="button" key={key} className={tab === key ? 'active' : ''} aria-current={tab === key ? 'page' : undefined} onClick={() => setTab(key)}><Icon aria-hidden="true" /><span>{label}</span></button>)}</nav>
     {loading && <LoadingCards label="Loading player research" />}
     {error && <Notice icon={AlertTriangle} title="Some player data did not load" tone="error">{error}</Notice>}
@@ -309,13 +308,14 @@ function NFLPlayerResearch({ player, teams, schedules, onBack }) {
       {tab === 'overview' && <NFLDistributionPanel resource={resources.distribution} propKey={selectedProp.key} quote={analyzedLine} />}
       {tab === 'trend' && selectedProp.key === 'longest_reception' && resources.receptionLogs?.status === 'UNRELIABLE' && <Notice title="Reception lengths temporarily unavailable">Refresh to retry the play-by-play source. Other game statistics remain available.</Notice>}
       {tab === 'trend' && selectedProp.key === 'longest_reception' && resources.receptionLogs?.status === 'LOADING' && <LoadingCards label="Loading reception lengths" />}
-      {tab === 'trend' && !(selectedProp.key === 'longest_reception' && resources.receptionLogs?.status === 'LOADING') && <NFLTrendPanel key={selectedProp.key} logs={logs} usage={resources.usage?.data || []} selectedProp={selectedProp} quote={analyzedLine} opponent={matchup?.opponent?.id} />}
-      {tab === 'opportunity' && <><HistoricalRolePanel player={player} logs={logs} usage={resources.usage} /><OpportunityPanel opportunity={resources.opportunity} /></>}
-      {tab === 'matchup' && <><OpponentPanel defense={resources.defense} opponent={matchup?.opponent} /><NFLMatchupPanel resource={resources.matchup} selectedProp={selectedProp} /></>}
+      {!(selectedProp.key === 'longest_reception' && resources.receptionLogs?.status === 'LOADING') && <div hidden={tab !== 'trend'}><NFLTrendPanel key={selectedProp.key} logs={logs} usage={resources.usage?.data || []} selectedProp={selectedProp} quote={analyzedLine} opponent={matchup?.opponent?.id} market={<NFLMarketLines key={`${player.id}.${refreshKey}`} load={getNFL} player={player} week={nextGame?.week} prop={selectedProp.key} onSelect={setAnalyzedLine} selected={analyzedLine} onRefresh={nflClient.clear} />} historyControl={<section className="nfl-history-control"><label htmlFor="nfl-history-season">History<SheetSelect label="History range" id="nfl-history-season" value={historyMode} onChange={event => setHistoryMode(event.target.value)}><option value="recent">Recent seasons</option><option value="current">{SEASON} only</option><option value="previous">{SEASON - 1} only</option></SheetSelect></label>{!loading && <p>{resources.logs?.history?.label || SEASON} / {logs.length} games</p>}{resources.logs?.reason && <p>{resources.logs.reason}</p>}</section>} /></div>}
+      {tab === 'opportunity' && <section className="nfl-panel-stack"><HistoricalRolePanel player={player} logs={logs} usage={resources.usage} /><details className="nfl-chart-card nfl-usage-app"><summary>Upcoming opportunity estimate</summary><OpportunityPanel opportunity={resources.opportunity} /></details></section>}
+      {tab === 'matchup' && <NFLMatchupPanel resource={resources.matchup} selectedProp={selectedProp} />}
       {tab === 'opponent' && <OpponentPanel defense={resources.defense} opponent={matchup?.opponent} />}
       {tab === 'environment' && <EnvironmentPanel game={nextGame} player={player} />}
       {tab === 'injuries' && <InjuriesPanel injuries={resources.injuries} />}
       {tab === 'health' && <HealthPanel player={player} resources={resources} quote={analyzedLine} />}
+      {tab === 'context' && <section className="nfl-panel-stack"><details className="nfl-chart-card"><summary>Model estimate</summary><OverviewPanel selectedProp={selectedProp} logs={logs} projection={resources.projection} quote={analyzedLine}/><NFLDistributionPanel resource={resources.distribution} propKey={selectedProp.key} quote={analyzedLine}/></details><details className="nfl-chart-card" open><summary>Opponent statistics</summary><OpponentPanel defense={resources.defense} opponent={matchup?.opponent}/></details><details className="nfl-chart-card"><summary>Game information</summary><EnvironmentPanel game={nextGame} player={player}/></details><details className="nfl-chart-card"><summary>Injuries</summary><InjuriesPanel injuries={resources.injuries}/></details><details className="nfl-chart-card"><summary>Data health</summary><HealthPanel player={player} resources={resources} quote={analyzedLine}/></details></section>}
     </div>}
   </div>;
 }

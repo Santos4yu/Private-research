@@ -45,3 +45,13 @@ test('platform, category and stat selection never invents offers or directions',
  assert.ok(filterOffers(rows).every(row=>row.line.direction==='OVER'));
  assert.notEqual(quoteIdentity(rows[0].line),quoteIdentity({...rows[0].line,category:'DEMON'}));
 });
+
+
+test('line levels deduplicate More/Less without mixing prop categories', async()=>{
+ const {postedLineLevels,filterOffers}=await import('../src/sports/nfl/trend-data.js');
+ const rows=[['STANDARD',200,'OVER'],['STANDARD',200,'UNDER'],['GOBLIN',150,'OVER'],['DEMON',250,'OVER']].map(([category,value,direction])=>({propType:'passing_yards',direction,line:{category,value,bookmaker:'prizepicks'}}));
+ assert.deepEqual(postedLineLevels(filterOffers(rows,{prop:'passing_yards',category:'STANDARD'})),[200]);
+ assert.deepEqual(postedLineLevels(filterOffers(rows,{category:'GOBLIN'})),[150]);
+ assert.deepEqual(postedLineLevels(filterOffers(rows,{category:'DEMON'})),[250]);
+ assert.deepEqual(postedLineLevels([{line:{value:null}}]),[]);
+});
