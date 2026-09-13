@@ -27,7 +27,7 @@ class handler(BaseHTTPRequestHandler):
         if not resource:
             path_parts = [part for part in urlparse(self.path).path.split("/") if part]
             resource = path_parts[-1].lower() if len(path_parts) > 2 else ""
-        allowed = {'players','teams','schedule','game-logs','usage','defense','injuries','depth-chart','team-stats','opportunity','matchup','projection','distribution','decision','value-board','model-health','props','prop-games','reception-logs'}
+        allowed = {'players','teams','schedule','game-logs','usage','defense','injuries','depth-chart','team-stats','opportunity','matchup','projection','distribution','decision','value-board','model-health','props','prop-games','reception-logs','research-board'}
         if resource not in allowed:
             return send_json(self, 404, {'error': 'Unknown NFL resource.'})
         if len(self.path) > 2048 or any(len(value) > 120 for values in query.values() for value in values):
@@ -62,6 +62,13 @@ class handler(BaseHTTPRequestHandler):
                 return send_json(self,400,{'error':'Unresolved NFL event/player or invalid line source.'})
             except RuntimeError:
                 return send_json(self,503,{'error':'NFL line provider unavailable. Check quota and key in Settings.'})
+
+        if resource == 'research-board':
+            event_id=query.get('eventId',[''])[0]
+            if not event_id:return send_json(self,400,{'error':'An NFL event is required.'})
+            from backend.sports.nfl.research_board import game_board
+            try:return send_json(self,200,game_board(season,event_id))
+            except ValueError:return send_json(self,400,{'error':'Upcoming NFL event required.'})
 
         if resource == 'model-health':
             from v2.board.admin_auth import is_admin_request

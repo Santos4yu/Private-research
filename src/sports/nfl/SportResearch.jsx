@@ -1,3 +1,4 @@
+import {NFLResearchBoard} from './ResearchBoard';
 import './mobile-research.css';
 import {ResearchSheet,SheetSelect} from './ResearchSheet';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -130,8 +131,9 @@ function NFLHome({ players, teams, loading, error, onOpen }) {
     {error && <Notice icon={AlertTriangle} title="NFL players unavailable" tone="error">{error}</Notice>}
     {!loading && players.length > 0 && <>
       {recent.length > 0 && <section className="nfl-home-section"><div className="nfl-section-title"><div><h3>Recent players</h3></div><button type="button" onClick={() => { localStorage.removeItem(NFL_RECENT_KEY); setRecent([]); }}>Clear</button></div><div className="nfl-recent-row">{recent.map((player) => <button type="button" key={player.id} onClick={() => open(player)}><PlayerPhoto player={player} /><span><strong>{player.name}</strong><small>{player.position} · {player.team_id || 'FA'}</small></span></button>)}</div></section>}
+      <NFLResearchBoard load={getNFL} players={players} onOpen={open} />
       <section className="nfl-home-section"><div className="nfl-section-title"><div><h3>Featured players</h3></div></div><div className="nfl-feature-grid-layout">{featured.map((player) => <FeaturedCard key={player.id} player={player} onOpen={open} />)}</div></section>
-      <NFLPropBrowser load={getNFL} players={players} onOpen={open} /><section className="nfl-tool-strip"><article><CircleGauge aria-hidden="true" /><span><strong>Opportunity</strong><small>Snaps, volume and shares</small></span></article><article><Shield aria-hidden="true" /><span><strong>Opponent</strong><small>Measured defense results</small></span></article><article><HeartPulse aria-hidden="true" /><span><strong>Personnel</strong><small>Current injury reports</small></span></article></section>
+      <section className="nfl-tool-strip"><article><CircleGauge aria-hidden="true" /><span><strong>Opportunity</strong><small>Snaps, volume and shares</small></span></article><article><Shield aria-hidden="true" /><span><strong>Opponent</strong><small>Measured defense results</small></span></article><article><HeartPulse aria-hidden="true" /><span><strong>Personnel</strong><small>Current injury reports</small></span></article></section>
     </>}
   </div>;
 }
@@ -325,13 +327,15 @@ export function SportResearch() {
   const [players, setPlayers] = useState([]); const [teams, setTeams] = useState([]); const [schedules, setSchedules] = useState([]);
   const [selectedPlayer, setSelectedPlayer] = useState(null); const [loading, setLoading] = useState(false); const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
+  const [boardView,setBoardView]=useState(location.hash==='#v2');
+  useEffect(()=>{const view=e=>{setBoardView(e.detail.view==='board');if(e.detail.view==='board')setSelectedPlayer(null);};window.addEventListener('vortex:nfl-view',view);return()=>window.removeEventListener('vortex:nfl-view',view);},[]);
   const syncUrl = (nextSport, playerId = null, replace = false) => {
     const url = new URL(location.href); url.searchParams.set('sport', nextSport);
     if (nextSport === 'nfl' && playerId) url.searchParams.set('nflPlayer', playerId); else url.searchParams.delete('nflPlayer');
     history[replace ? 'replaceState' : 'pushState']({}, '', url);
   };
-  const changeSport = (next) => { nflClient.clear(); setSelectedSport(next); setSport(next); setSelectedPlayer(null); syncUrl(next); window.dispatchEvent(new CustomEvent('vortex:sport-change', { detail: { sport: next } })); };
-  const openPlayer = (player) => { setSelectedPlayer(player); syncUrl('nfl', player.id); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const changeSport = (next) => { nflClient.clear(); setSelectedSport(next); setSport(next); setBoardView(false); setSelectedPlayer(null); syncUrl(next); window.dispatchEvent(new CustomEvent('vortex:switch-tab',{detail:{tab:'research'}})); window.dispatchEvent(new CustomEvent('vortex:sport-change', { detail: { sport: next } })); };
+  const openPlayer = (player) => { window.dispatchEvent(new CustomEvent('vortex:switch-tab',{detail:{tab:'research'}})); setBoardView(false); saveRecent(player); setSelectedPlayer(player); syncUrl('nfl', player.id); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const closePlayer = () => { setSelectedPlayer(null); syncUrl('nfl'); };
   useEffect(() => { document.documentElement.dataset.researchSport = sport; return () => { delete document.documentElement.dataset.researchSport; }; }, [sport]);
   useEffect(() => {
@@ -352,5 +356,5 @@ export function SportResearch() {
     const pop = () => { const params = new URLSearchParams(location.search); const requestedPlayer = params.get('nflPlayer'); setSelectedPlayer(players.find((player) => player.id === requestedPlayer) || null); };
     window.addEventListener('popstate', pop); return () => window.removeEventListener('popstate', pop);
   }, [players, sport]);
-  return <><SportSwitcher sport={sport} onChange={changeSport} />{sport === 'nfl' && <div className="nfl-app-shell">{error && <button className="nfl-refresh" type="button" onClick={() => { nflClient.clear(); setReloadKey(key => key + 1); }}>Retry data sources</button>}{selectedPlayer ? <NFLPlayerResearch key={selectedPlayer.id} player={selectedPlayer} teams={teams} schedules={schedules} onBack={closePlayer} /> : <NFLHome players={players} teams={teams} loading={loading} error={error} onOpen={openPlayer} />}<details className="nfl-sources"><summary>Data sources</summary><p>Game statistics: <a href="https://github.com/nflverse/nflverse-data">nflverse</a>, adapted for research · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. Live offers: The Odds API, labelled by platform.</p></details></div>}</>;
+  return <><SportSwitcher sport={sport} onChange={changeSport} />{sport === 'nfl' && <div className="nfl-app-shell">{error && <button className="nfl-refresh" type="button" onClick={() => { nflClient.clear(); setReloadKey(key => key + 1); }}>Retry data sources</button>}{selectedPlayer ? <NFLPlayerResearch key={selectedPlayer.id} player={selectedPlayer} teams={teams} schedules={schedules} onBack={closePlayer} /> : boardView ? <NFLResearchBoard load={getNFL} players={players} onOpen={openPlayer}/> : <NFLHome players={players} teams={teams} loading={loading} error={error} onOpen={openPlayer} />}<details className="nfl-sources"><summary>Data sources</summary><p>Game statistics: <a href="https://github.com/nflverse/nflverse-data">nflverse</a>, adapted for research · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. Live offers: The Odds API, labelled by platform.</p></details></div>}</>;
 }

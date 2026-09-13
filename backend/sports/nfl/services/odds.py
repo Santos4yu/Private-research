@@ -163,3 +163,12 @@ def lines(season, player_id=None, week=None, event_id=None):
     result=cached_nfl(NFLCacheDomain.PROPS,(VERSION,season,event['eventId'],key_id),load)
     if player:return {**result,'data':[row for row in result['data'] if row['playerId']==player.id]}
     return result
+
+
+def research_lines(season,event):
+    """One platform, standard markets only; avoids multi-book slate spending."""
+    def load():
+        response=_get(f"/sports/{SPORT}/events/{event['eventId']}/odds",{'markets':','.join(MARKETS),'bookmakers':'prizepicks','oddsFormat':'american'})
+        return normalize(response.json(),event,nflverse.players(season).data or [])
+    key_id=hashlib.sha256('|'.join(credentials()).encode()).hexdigest()[:16]
+    return cached_nfl(NFLCacheDomain.PROPS,(VERSION,'research',season,event['eventId'],key_id),load)

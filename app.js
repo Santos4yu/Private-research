@@ -784,9 +784,11 @@ function switchTab(tab, options = {}) {
     });
   }
 
-  els.panelResearch.hidden = tab !== "research";
+  const nflProps = tab === "v2" && (document.documentElement.dataset.researchSport === "nfl" || (!document.documentElement.dataset.researchSport && new URLSearchParams(location.search).get("sport") === "nfl"));
+  els.panelResearch.hidden = tab !== "research" && !nflProps;
   els.panelSlate.hidden = tab !== "slate";
-  els.panelV2.hidden = tab !== "v2";
+  els.panelV2.hidden = tab !== "v2" || nflProps;
+  if (tab === "research" || nflProps) window.dispatchEvent(new CustomEvent("vortex:nfl-view", {detail:{view:nflProps ? "board" : "research"}}));
   els.panelBuilder.hidden = tab !== "builder";
   els.panelSlip.hidden = tab !== "slip";
   els.panelMoneyline.hidden = tab !== "moneyline";
@@ -803,7 +805,7 @@ function switchTab(tab, options = {}) {
 
   if (tab === "saved") renderSavedGrid();
   if (tab === "slate" && !state.slateLoaded) loadSlate();
-  if (tab === "v2" && !state.v2BoardLoaded) loadV2Board();
+  if (tab === "v2" && !nflProps && !state.v2BoardLoaded) loadV2Board();
   if (tab === "builder" && !state.v2BoardLoaded) loadV2Board();
   if (tab === "nrfi" && !state.specialsLoaded) loadSpecialMarkets();
   document.querySelectorAll(".side-link").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));

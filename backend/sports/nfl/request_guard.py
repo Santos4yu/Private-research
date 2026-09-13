@@ -13,7 +13,7 @@ def allow(headers, resource, now=None):
     now = time.monotonic() if now is None else now
     # Hash used only in memory; never recorded. Auth is checked before this guard.
     identity = hashlib.sha256(headers.get('Cookie', '').encode()).hexdigest()
-    group = 'heavy' if resource in ('projection', 'distribution', 'matchup', 'opportunity', 'props', 'reception-logs') else 'read'
+    group = 'heavy' if resource in ('projection', 'distribution', 'matchup', 'opportunity', 'props', 'reception-logs', 'research-board') else 'read'
     key = (identity, group)
     limit = 40 if group == 'heavy' else 120
     with _lock:
