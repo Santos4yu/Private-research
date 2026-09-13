@@ -2,6 +2,10 @@
 import os
 import requests
 from http.cookies import SimpleCookie
+from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent / ".env.local")
 ACCESS='vortex_account_access'
 REFRESH='vortex_account_refresh'
 def configured():return bool(os.getenv('SUPABASE_URL') and os.getenv('SUPABASE_ANON_KEY'))
