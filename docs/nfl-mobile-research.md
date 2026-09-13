@@ -36,3 +36,10 @@ Matchup shows the existing prop-specific score first, when supported, with parti
 ## Remaining limits
 
 This is browser-based mobile QA, not physical iPhone/Android hardware certification. A cold play-by-play source may still take time; unaffected trend research stays usable. Line freshness still expires under the existing rule, and refresh is explicit. Only actually posted categories are available. Advanced coverage/route/tracking gaps and model validation requirements are unchanged. The UI work does not establish production betting-model accuracy.
+
+
+## September 13 follow-up — numeric line ladder
+
+Supersedes the category-sheet description above: every returned numeric level now appears in a single ascending horizontal row, across all categories, using the existing MLB PrizePicks/Goblin/Demon image assets. There are no category-name tabs. Opposite sides of the same level/category/game occupy one button; selection keeps the actual returned quote and centers that button within the row without scrolling the page. The platform selector and refresh remain available.
+
+Removed the customer-facing raw methodology and generic edge/risk text blocks from Matchup. The supported score, coverage, historical period and expandable measured factors remain; raw model diagnostics remain in backend outputs and validation documentation. Model calculations and promotion gates are unchanged. Added explicit closed-details hiding for Safari grid cards and expand/collapse indicators.

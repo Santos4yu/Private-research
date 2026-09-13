@@ -1,8 +1,8 @@
-import {ResearchSheet,SheetSelect} from './ResearchSheet';
+import {SheetSelect} from './ResearchSheet';
 import React,{useEffect,useRef,useState} from 'react';
-import {ChevronDown,RefreshCw} from 'lucide-react';
+import {RefreshCw} from 'lucide-react';
 import {NFLFreshness} from './Freshness';
-import {quoteIdentity,filterOffers,postedLineLevels} from './trend-data';
+import {quoteIdentity,filterOffers} from './trend-data';
 import {NFL_PROP_DEFINITIONS} from './props';
 
 const BOOKS=[['prizepicks','PrizePicks'],['underdog','Underdog'],['draftkings','DraftKings'],['fanduel','FanDuel'],['betmgm','BetMGM']];
@@ -11,29 +11,45 @@ const categoryLabel=value=>CATEGORIES.find(([key])=>key===value)?.[1] || 'Altern
 const directionLabel=value=>value==='OVER'?'More':'Less';
 const propLabel=value=>NFL_PROP_DEFINITIONS.find(p=>p.key===value)?.label || value.replaceAll('_',' ');
 
+export function NFLLineRail({offers,selected,onSelect}) {
+  const rail=useRef(null);
+  const unique=new Map();
+  for(const row of offers){
+    const line=row.line;if(!Number.isFinite(line?.value))continue;
+    const key=[line.gameId,line.category,line.value].join('|');
+    const prior=unique.get(key);
+    if(!prior || line.direction===(selected?.direction||'OVER'))unique.set(key,line);
+  }
+  const lines=[...unique.values()].sort((a,b)=>a.value-b.value);
+  useEffect(()=>{const button=rail.current?.querySelector('[aria-pressed="true"]');if(button)rail.current.scrollLeft=button.offsetLeft-(rail.current.clientWidth-button.offsetWidth)/2;},[selected?.value,selected?.category,selected?.gameId,lines.length]);
+  return <div ref={rail} className="nfl-posted-rail" role="group" aria-label="Posted prop lines">{lines.map(line=>{
+    const name=categoryLabel(line.category);
+    const icon=line.category==='GOBLIN'?'goblin':line.category==='DEMON'?'demon':line.category==='STANDARD'&&line.bookmaker==='prizepicks'?'logo':null;
+    return <button type="button" key={[line.gameId,line.category,line.value].join('|')} aria-label={`${line.value} ${name} line`} aria-pressed={selected?.value===line.value&&selected?.category===line.category&&selected?.gameId===line.gameId} onClick={()=>onSelect(line)}><strong>{line.value}</strong>{icon&&<img src={`/prizepicks/${icon}.png`} alt={name} width="25" height="25"/>}</button>;
+  })}</div>;
+}
+
 export function NFLMarketLines({load,player,week,prop,onSelect,selected,onRefresh}) {
-  const [body,setBody]=useState(null),[error,setError]=useState(''),[reload,setReload]=useState(0),[open,setOpen]=useState(false);
-  const [book,setBook]=useState(selected?.bookmaker || 'prizepicks'),[category,setCategory]=useState(selected?.category || 'STANDARD');
+  const [body,setBody]=useState(null),[error,setError]=useState(''),[reload,setReload]=useState(0);
+  const [book,setBook]=useState(selected?.bookmaker || 'prizepicks');
   useEffect(()=>{
     let active=true;setBody(null);setError('');
-    load('props',{playerId:player.id,week}).then(result=>{if(active)setBody(result);}).catch(()=>{if(active)setError('Lines could not refresh');});
+    load('props',{playerId:player.id,week}).then(result=>{if(active)setBody(result);}).catch(()=>{if(active)setError('Lines could not refresh. Try again.');});
     return ()=>{active=false;};
   },[load,player.id,week,reload]);
-  const offers=filterOffers(body?.data || [],{prop,bookmaker:book,category});
-  const levels=postedLineLevels(offers);
+  const offers=filterOffers(body?.data || [],{prop,bookmaker:book,category:'ALL'});
   useEffect(()=>{
     if(!body)return;
-    const matches=filterOffers(body.data || [],{prop,bookmaker:book,category});
+    const matches=filterOffers(body.data || [],{prop,bookmaker:book,category:'ALL'});
     const same=matches.find(row=>quoteIdentity(row.line)===quoteIdentity(selected));
-    onSelect((same || matches.find(row=>row.direction==='OVER') || matches[0])?.line || null);
-  },[body,prop,book,category,onSelect]);
-  const categories=book==='prizepicks'?[['STANDARD','Regular'],['GOBLIN','Goblins'],['DEMON','Demons']]:[['STANDARD','Regular'],['ALTERNATE','Alternates']];
-  const choose=value=>{const matches=offers.filter(row=>row.line.value===value);onSelect((matches.find(row=>row.direction===selected?.direction)||matches.find(row=>row.direction==='OVER')||matches[0])?.line||null);setOpen(false);};
+    const standard=matches.find(row=>row.line.category==='STANDARD'&&row.direction==='OVER')||matches.find(row=>row.line.category==='STANDARD');
+    onSelect((same||standard||matches.find(row=>row.direction==='OVER')||matches[0])?.line||null);
+  },[body,prop,book,onSelect]);
   return <div className="nfl-market-app">
-    <div className="nfl-line-categories" role="group" aria-label="Line category">{categories.map(([key,name])=><button type="button" key={key} className={key.toLowerCase()} aria-pressed={category===key} onClick={()=>setCategory(key)}>{name}</button>)}</div>
-    <div className="nfl-market-row"><button type="button" className="nfl-market-trigger" aria-haspopup="dialog" onClick={()=>setOpen(true)}><span>{BOOKS.find(([key])=>key===book)?.[1]}<small>{category==='STANDARD'?'Regular line':categoryLabel(category)}</small></span><strong>{selected?.value ?? (body||error?'No line':'Loading lines…')}</strong><ChevronDown size={17} aria-hidden="true"/></button><button type="button" className="nfl-line-refresh" aria-label="Refresh lines" onClick={()=>{onRefresh?.();onSelect(null);setReload(n=>n+1);}}><RefreshCw size={18}/></button></div>
+    <div className="nfl-market-row"><SheetSelect label="Line source" value={book} onChange={e=>{onSelect(null);setBook(e.target.value);}}>{BOOKS.map(([key,name])=><option key={key} value={key}>{name}</option>)}</SheetSelect><button type="button" className="nfl-line-refresh" aria-label="Refresh lines" onClick={()=>{onRefresh?.();onSelect(null);setReload(n=>n+1);}}><RefreshCw size={18}/></button></div>
+    {!body&&!error?<small role="status">Loading lines…</small>:<NFLLineRail offers={offers} selected={selected} onSelect={onSelect}/>}
+    {body&&!offers.length&&<small>No posted line for this stat. Enter a comparison line below.</small>}
     {selected&&<div className="nfl-quote-time"><NFLFreshness timestamp={selected.updatedAt} staleAfter={120000}/></div>}{error&&<small role="alert">{error}</small>}
-    <ResearchSheet open={open} title={`${propLabel(prop)} lines`} onClose={()=>setOpen(false)}><SheetSelect label="Platform" value={book} onChange={e=>{setBook(e.target.value);setCategory('STANDARD');}}>{BOOKS.map(([key,name])=><option key={key} value={key}>{name}</option>)}</SheetSelect><div className="nfl-line-categories" role="group" aria-label="Choose line category">{categories.map(([key,name])=><button type="button" key={key} aria-pressed={category===key} onClick={()=>setCategory(key)}>{name}</button>)}</div><div className="nfl-sheet-levels">{levels.map(value=><button type="button" key={value} aria-pressed={selected?.value===value} onClick={()=>choose(value)}><span>{category==='STANDARD'?'Regular':categoryLabel(category)}</span><strong>{value}</strong></button>)}</div>{!levels.length&&<p>No posted {category==='STANDARD'?'regular':categoryLabel(category).toLowerCase()} line for this stat. You can still edit a comparison line on the chart.</p>}</ResearchSheet>
   </div>;
 }
 

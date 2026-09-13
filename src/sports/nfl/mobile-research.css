@@ -110,3 +110,15 @@
 .nfl-app-shell .nfl-home-section { margin-top:4px; }
 .nfl-app-shell input#nfl-player-search { background:transparent!important;border:0!important; }
 .nfl-app-shell .nfl-feature-card::after { z-index:1;height:48%;background:linear-gradient(transparent,#0c131bec 60%);pointer-events:none; }
+
+.nfl-posted-rail { position:relative;display:flex;gap:8px;overflow-x:auto;min-width:0;max-width:100%;padding:4px 2px 8px;scroll-snap-type:x proximity;scrollbar-width:thin; }
+.nfl-trends .nfl-posted-rail button { flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:10px;min-width:94px;min-height:64px;padding:12px 14px;border:1px solid #394756;border-radius:14px;background:#202733;color:#eff5fa;scroll-snap-align:center; }
+.nfl-trends .nfl-posted-rail button strong { font-size:24px;line-height:1; }
+.nfl-trends .nfl-posted-rail button[aria-pressed=true] { border-color:#b3d6e2;background:#304553;box-shadow:inset 0 0 0 1px #b3d6e2; }
+.nfl-posted-rail img { object-fit:contain;flex-shrink:0; }
+.nfl-market-row>.nfl-sheet-select { flex:1;min-width:0;background:transparent;border:0;padding-left:0;font-weight:700; }
+
+/* Safari must keep grid-card details collapsed until explicitly opened. */
+.nfl-app-shell details.nfl-chart-card:not([open])>:not(summary) { display:none!important; }
+.nfl-app-shell details.nfl-chart-card>summary::after,.nfl-factor-list summary::after { content:'+';margin-left:auto;font-size:20px;line-height:1;color:#a6bbc9; }
+.nfl-app-shell details.nfl-chart-card[open]>summary::after,.nfl-factor-list details[open]>summary::after { content:'−'; }
