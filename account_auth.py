@@ -28,7 +28,7 @@ def identity(headers):
  if not token:return None
  try:
   user=call('user',token=token)
-  if not user.get('id') or not user.get('email_confirmed_at'):return None
+  if not user.get('id') or not user.get('email'):return None
   return {'id':user['id'],'username':user.get('email'),'email':user.get('email'),'has_premium':False,'has_tester':False,'account':True}
  except (ValueError,RuntimeError,requests.RequestException):return None
 def session_cookies(data):

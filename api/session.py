@@ -58,8 +58,10 @@ class handler(BaseHTTPRequestHandler):
                 if not isinstance(password,str) or not 8<=len(password)<=128:return self._json(400,{'error':'Password must contain 8–128 characters'})
             if action=='sign-up':
                 if not read()['registrationOpen']:return self._json(403,{'error':'Registration is currently closed'})
-                call('signup',{'email':email.strip(),'password':password})
-                return self._json(200,{'message':'Check your email to confirm your account, then sign in.'})
+                data=call('signup',{'email':email.strip(),'password':password})
+                if data.get('access_token') and data.get('refresh_token'):
+                    return self._account_response({'ok':True,'signedIn':True},session_cookies(data))
+                return self._json(200,{'message':'Email confirmation is still enabled in Supabase. Disable Confirm email to allow immediate signup.'})
             if action=='sign-in':data=call('token?grant_type=password',{'email':email.strip(),'password':password})
             elif action=='refresh':data=call('token?grant_type=refresh_token',{'refresh_token':cookies(self.headers).get(REFRESH,'')})
             elif action in ('verify-recovery','verify-email'):

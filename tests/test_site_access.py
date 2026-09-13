@@ -25,8 +25,8 @@ class SiteControlsTests(unittest.TestCase):
  def test_cookies_secure_and_tokens_not_response_fields(self):
   cookies=accounts.session_cookies({'access_token':'mock-access','refresh_token':'mock-refresh','expires_in':60})
   self.assertTrue(all('HttpOnly; Secure; SameSite=Strict' in c for c in cookies));self.assertEqual(len(accounts.clear_cookies()),2)
- def test_invalid_or_unconfirmed_session_not_account(self):
-  with patch.object(accounts,'call',return_value={'id':'mock','email_confirmed_at':None}):self.assertIsNone(accounts.identity({'Cookie':accounts.ACCESS+'=mock'}))
+ def test_invalid_provider_identity_not_account(self):
+  with patch.object(accounts,'call',return_value={'email':'test@example.invalid','email_confirmed_at':None}):self.assertIsNone(accounts.identity({'Cookie':accounts.ACCESS+'=mock'}))
  def test_shared_rate_counter(self):
   response=SimpleNamespace(raise_for_status=lambda:None,json=lambda:[{'result':21},{'result':1}])
   with patch.object(controls.store,'KV_URL','https://mock.invalid'),patch.object(controls.store,'KV_TOKEN','test-only'),patch.object(accounts.requests,'post',return_value=response):self.assertFalse(accounts.rate_allowed({},'test@example.invalid'))
@@ -60,3 +60,12 @@ class AccountRouteTests(unittest.TestCase):
   request=self.request({'action':'sign-in','email':'test@example.invalid','password':'test-only-password'})
   with patch.object(accounts,'rate_allowed',return_value=True),patch.object(accounts,'call',side_effect=RuntimeError('test-only secret')),patch.object(request,'_json') as send:
    request.do_POST();self.assertEqual(send.call_args.args[0],503);self.assertNotIn('secret',str(send.call_args.args[1]))
+
+class ImmediateSignupTests(unittest.TestCase):
+ def test_valid_provider_identity_does_not_require_email_confirmation(self):
+  with patch.object(accounts,'call',return_value={'id':'test-only','email':'test@example.invalid','email_confirmed_at':None}):
+   self.assertEqual(accounts.identity({'Cookie':accounts.ACCESS+'=mock'})['id'],'test-only')
+ def test_signup_auto_signs_in_when_provider_confirmation_disabled(self):
+  request=AccountRouteTests().request({'action':'sign-up','email':'test@example.invalid','password':'test-only-password'})
+  with patch.object(controls,'read',return_value={**controls.DEFAULT,'registrationOpen':True}),patch.object(accounts,'rate_allowed',return_value=True),patch.object(accounts,'call',return_value={'access_token':'mock-access','refresh_token':'mock-refresh'}),patch.object(request,'_account_response') as send:
+   request.do_POST();self.assertTrue(send.call_args.args[0]['signedIn']);self.assertNotIn('access_token',send.call_args.args[0])
