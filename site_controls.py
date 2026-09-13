@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from v2.board import store, admin_auth
 KEY='krazy_data:site_controls:v1'
 TABS=('research','v2','slate','saved','slip','builder','moneyline','nrfi')
-DEFAULT={'maintenance':False,'message':'We are updating Vortex. Please check back shortly.','requireLogin':False,'registrationOpen':True,'disabledTabs':[],'updatedAt':None}
+DEFAULT={'maintenance':False,'message':'We are updating Vortex. Please check back shortly.','requireLogin':True,'registrationOpen':True,'disabledTabs':[],'updatedAt':None}
 def read():
  raw=store.get(KEY)
  if raw is None:return dict(DEFAULT)

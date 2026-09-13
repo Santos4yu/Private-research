@@ -5,8 +5,8 @@ import site_controls as controls
 import account_auth as accounts
 import auth_core
 class SiteControlsTests(unittest.TestCase):
- def test_default_preserves_public_beta(self):
-  with patch.object(controls.store,'get',return_value=None):self.assertFalse(controls.read()['requireLogin'])
+ def test_default_requires_login(self):
+  with patch.object(controls.store,'get',return_value=None):self.assertTrue(controls.read()['requireLogin'])
  def test_validate_boolean_tabs_and_message(self):
   for value in ({**controls.DEFAULT,'maintenance':'false'},{**controls.DEFAULT,'disabledTabs':['admin']},{**controls.DEFAULT,'message':''}):
    with self.assertRaises(ValueError):controls.validate(value)

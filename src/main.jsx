@@ -80,9 +80,18 @@ if (builderDropdownRoot) createRoot(builderDropdownRoot).render(<ActivityDropdow
 const mobileSlipRoot = document.getElementById('mobile-slip-actions-root');
 if (mobileSlipRoot) createRoot(mobileSlipRoot).render(<MobileSlipActions />);
 const researchHomeRoot = document.getElementById('research-home-root');
-if (researchHomeRoot) createRoot(researchHomeRoot).render(<ResearchHome />);
+
 const sportResearchRoot = document.getElementById('sport-research-root');
-if (sportResearchRoot) createRoot(sportResearchRoot).render(<Suspense fallback={<div role="status">Loading sport research…</div>}><SportResearch /></Suspense>);
+let privateRoots=null;
+function mountPrivateResearch(granted){
+ if(granted&&!privateRoots){
+  privateRoots={home:researchHomeRoot?createRoot(researchHomeRoot):null,sport:sportResearchRoot?createRoot(sportResearchRoot):null};
+  privateRoots.home?.render(<ResearchHome/>);
+  privateRoots.sport?.render(<Suspense fallback={<div role="status">Loading sport research…</div>}><SportResearch/></Suspense>);
+ }else if(!granted&&privateRoots){privateRoots.home?.unmount();privateRoots.sport?.unmount();privateRoots=null;}
+}
+window.addEventListener('vortex:site-policy',event=>mountPrivateResearch(event.detail.accessGranted));
+mountPrivateResearch(document.documentElement.dataset.siteAccess==='granted');
 
 const menuIcons = { research: Search, slate: FlaskConical, v2: BarChart3, saved: ClipboardList, builder: Sparkles, slip: ScanLine, moneyline: Trophy, nrfi: CircleDot, admin: ShieldCheck };
 document.querySelectorAll('.side-link').forEach((button) => {

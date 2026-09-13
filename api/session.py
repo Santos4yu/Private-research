@@ -80,7 +80,9 @@ class handler(BaseHTTPRequestHandler):
                 if token:
                     try:call('logout',{},token=token)
                     except Exception:pass
-                return self._account_response({'ok':True},clear_cookies())
+                from v2.board import admin_auth
+                logout_cookies=clear_cookies()+[f'{admin_auth.ADMIN_COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict',f'{SESSION_COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax']
+                return self._account_response({'ok':True},logout_cookies)
             else:return self._json(400,{'error':'Unknown account action'})
             return self._account_response({'ok':True},session_cookies(data))
         except ValueError as exc:return self._json(400,{'error':str(exc) if str(exc).startswith('Account') else 'Invalid account request'})

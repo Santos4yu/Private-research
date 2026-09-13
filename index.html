@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Krazy Data</title>
 <meta name="description" content="Krazy Data sports research workspace." />
 <!-- Matches the default (dark) theme's --bg -- kept in sync with theme
@@ -28,6 +28,9 @@
      this is what actually prevents the flash of the app before the auth
      check resolves, since it's parsed before app.js has a chance to run. */
   .app-shell-hidden { display: none !important; }
+  html:not([data-site-access="granted"]) #settings-btn,
+  html:not([data-site-access="granted"]) #settings-panel,
+  html:not([data-site-access="granted"]) #dock-root { display:none!important; }
 </style>
 </head>
 <body>
