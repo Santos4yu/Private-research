@@ -43,18 +43,17 @@ export function gameStatValue(log, propKey) {
     receiving_yards: stat.receiving_yards,
     receptions: stat.receptions,
     targets: stat.targets,
-    longest_reception: null,
+    longest_reception: stat.longest_reception,
     rushing_receiving_yards: sumIfPresent(stat.rushing_yards, stat.receiving_yards),
     touchdowns: sumIfPresent(stat.rushing_tds, stat.receiving_tds),
-    fantasy_score: stat.fantasy_points_ppr ?? stat.fantasy_points,
+    fantasy_score: stat.prizepicks_fantasy_score,
   };
   const value = values[propKey];
   return Number.isFinite(value) ? value : null;
 }
 
 function sumIfPresent(...values) {
-  const available = values.filter(Number.isFinite);
-  return available.length ? available.reduce((sum, value) => sum + value, 0) : null;
+  return values.every(Number.isFinite) ? values.reduce((sum, value) => sum + value, 0) : null;
 }
 
 export function summarizeLogs(logs, propKey) {

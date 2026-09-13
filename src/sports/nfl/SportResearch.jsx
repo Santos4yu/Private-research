@@ -1,9 +1,8 @@
-import modelAudit from './model-status.json';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Activity, AlertTriangle, ArrowLeft, ArrowUpRight, BarChart3, CalendarDays, CheckCircle2,
-  ChevronRight, CircleGauge, Clock3, CloudSun, Crosshair, Database, Dumbbell, HeartPulse,
-  Home, MapPin, Search, Shield, ShieldQuestion, TrendingUp, UserRound, UsersRound, Wind,
+  Activity, AlertTriangle, ArrowLeft, ArrowUpRight, CalendarDays,
+  CircleGauge, CloudSun, Crosshair, Database, HeartPulse,
+  Home, MapPin, Search, Shield, ShieldQuestion, TrendingUp, UserRound, Wind,
 } from 'lucide-react';
 import { getSelectedSport, setSelectedSport } from '../sport-state';
 import { NFL_PROP_DEFINITIONS } from './props';
@@ -12,12 +11,10 @@ import { NFLProjectionPanel } from './ProjectionPanel';
 import { NFLDistributionPanel } from './DistributionPanel';
 import { createNFLClient } from './nfl-client';
 import { freshness } from './nfl-client';
-import { loadNFLHistory, historicalUsage, compareHistoryLine } from './nfl-history';
+import { loadNFLHistory, historicalUsage } from './nfl-history';
 import { NFLMarketLines, NFLPropBrowser } from './MarketLines';
-import { ModelBadge } from './ModelBadge';
-import { NFLValueBoard } from './ValueBoard';
-import { NFLDecisionPanel } from './DecisionPanel';
-import { filterNFLPlayers, gameStatValue, NFL_RECENT_KEY, propsForPosition, researchHealth, selectNextGame, summarizeLogs, teamLogoUrl, visibleGame } from './nfl-ui-core';
+import { NFLTrendPanel } from './TrendPanel';
+import { filterNFLPlayers, NFL_RECENT_KEY, propsForPosition, researchHealth, selectNextGame, summarizeLogs, teamLogoUrl, visibleGame } from './nfl-ui-core';
 
 const SEASON = new Date().getMonth() < 2 ? new Date().getFullYear() - 1 : new Date().getFullYear();
 const nflClient = createNFLClient();
@@ -45,7 +42,6 @@ function LeagueMark({ sport }) {
     : <span className="sport-league-mark nfl" aria-hidden="true"><img src="/leagues/nfl.svg" alt="" /></span>;
 }
 
-function propModelStatus(position, prop) { return modelAudit.models.find(model => model.position === position && model.propType === prop)?.pointStatus || 'NOT_AVAILABLE'; }
 
 function statusLabel(status) {
   const labels = { ACT: 'Active', ACTIVE: 'Active', INA: 'Inactive', INACTIVE: 'Inactive', RES: 'Reserve', DEV: 'Practice squad', CUT: 'Free agent', IR: 'Injured reserve' };
@@ -133,7 +129,7 @@ function NFLHome({ players, teams, loading, error, onOpen }) {
     {!loading && players.length > 0 && <>
       {recent.length > 0 && <section className="nfl-home-section"><div className="nfl-section-title"><div><span>YOUR HISTORY</span><h3>Recent players</h3></div><button type="button" onClick={() => { localStorage.removeItem(NFL_RECENT_KEY); setRecent([]); }}>Clear</button></div><div className="nfl-recent-row">{recent.map((player) => <button type="button" key={player.id} onClick={() => open(player)}><PlayerPhoto player={player} /><span><strong>{player.name}</strong><small>{player.position} · {player.team_id || 'FA'}</small></span></button>)}</div></section>}
       <section className="nfl-home-section"><div className="nfl-section-title"><div><span>START HERE</span><h3>Featured players</h3></div><small>{teams.length} teams connected</small></div><div className="nfl-feature-grid-layout">{featured.map((player) => <FeaturedCard key={player.id} player={player} onOpen={open} />)}</div></section>
-      <NFLPropBrowser load={getNFL} players={players} onOpen={open} /><NFLValueBoard load={getNFL} /><section className="nfl-tool-strip"><article><CircleGauge aria-hidden="true" /><span><strong>Opportunity</strong><small>Snaps, volume and shares</small></span></article><article><Shield aria-hidden="true" /><span><strong>Opponent</strong><small>Measured defense results</small></span></article><article><HeartPulse aria-hidden="true" /><span><strong>Personnel</strong><small>Current injury reports</small></span></article></section>
+      <NFLPropBrowser load={getNFL} players={players} onOpen={open} /><section className="nfl-tool-strip"><article><CircleGauge aria-hidden="true" /><span><strong>Opportunity</strong><small>Snaps, volume and shares</small></span></article><article><Shield aria-hidden="true" /><span><strong>Opponent</strong><small>Measured defense results</small></span></article><article><HeartPulse aria-hidden="true" /><span><strong>Personnel</strong><small>Current injury reports</small></span></article></section>
     </>}
   </div>;
 }
@@ -151,27 +147,10 @@ function Stat({ label, value, suffix = '', unavailable = false }) {
 
 function EmptyFeature({ title, reason }) { return <Notice icon={Database} title={`${title} unavailable`}>{reason}</Notice>; }
 
-function TrendPanel({ logs, selectedProp, windowKey, setWindowKey, next, quote }) {
-  let filtered = [...logs];
-  if (windowKey === 'h2h' && next) filtered = filtered.filter((log) => log.opponent_team_id === visibleGame(next.game, next.teamId)?.opponent?.id);
-  else if (windowKey !== 'season') filtered = filtered.slice(-Number(windowKey.slice(1)));
-  const summary = summarizeLogs(filtered, selectedProp.key);
-  const comparison = compareHistoryLine(filtered,selectedProp.key,quote,gameStatValue);
-  const values = filtered.map((log) => gameStatValue(log, selectedProp.key));
-  const max = Math.max(1, ...values.filter(Number.isFinite));
-  return <section className="nfl-panel-stack">
-    <div className="nfl-window-tabs" role="group" aria-label="Game sample">{['l5', 'l10', 'l15', 'l20', 'season', 'h2h'].map((key) => <button key={key} type="button" className={windowKey === key ? 'active' : ''} aria-pressed={windowKey === key} onClick={() => setWindowKey(key)}>{key === 'season' ? 'All history' : key.toUpperCase()}</button>)}</div>
-    <div className="nfl-stat-grid four"><Stat label="Games" value={summary.games} /><Stat label="Average" value={summary.average} /><Stat label="Median" value={summary.median} /><Stat label="History vs selected line" value={comparison?.hitRate} suffix="%" /></div>{comparison && <small>{comparison.hits} hits · {comparison.misses} misses · {comparison.pushes} pushes against {quote.direction} {quote.value}. This compares past stats with this quote; it is not historical betting performance or a forecast probability.</small>}
-    {!filtered.length ? <Notice title="No games found">There are no matching regular-season logs for this sample.</Notice> : <div className="nfl-chart-card"><div className="nfl-chart-head"><div><span>GAME LOG</span><h3>{selectedProp.label}</h3></div><small>Neutral bars · no verified prop line</small></div><div className="nfl-bars" style={{ '--bar-count': Math.max(filtered.length, 5) }}>{filtered.map((log, index) => { const value = values[index]; return <div className="nfl-bar-column" key={log.game_id}><span>{value ?? '—'}</span><i style={{ height: value == null ? '4px' : `${Math.max(8, (value / max) * 100)}%` }} /><TeamLogo team={log.opponent_team_id} size="xs" /><small>{log.season} · W{log.week}</small></div>; })}</div></div>}
-  </section>;
-}
-
 function OverviewPanel({ selectedProp, logs, projection, quote }) {
   const summary = summarizeLogs(logs, selectedProp.key);
   const line=quote?.verified && quote.propType===selectedProp.key && Number.isFinite(quote.value) ? quote : null;
-  const mean=projection?.data?.propType===selectedProp.key ? projection.data.projectionMean : null;
-  const edge=line && Number.isFinite(mean) ? mean-line.value : null;
-  return <section className="nfl-panel-stack"><div className="nfl-stat-grid"><Stat label="History average" value={summary.average} /><Stat label="History median" value={summary.median} /><Stat label="Games available" value={summary.games} /></div><NFLProjectionPanel resource={projection} selectedProp={selectedProp} /><div className="nfl-stat-grid"><Stat label="Selected prop line" value={line?.value} /><Stat label="Statistical difference · model minus line" value={edge} /><Stat label="Over probability" unavailable /><Stat label="Under probability" unavailable /></div>{line && <p>{line.direction} {line.value} · {line.platform}. The statistical difference is a comparison, not betting EV or a recommendation.</p>}</section>;
+  return <section className="nfl-panel-stack"><div className="nfl-stat-grid"><Stat label="Average" value={summary.average} /><Stat label="Median" value={summary.median} /><Stat label="Games" value={summary.games} />{line && <Stat label={`${line.platform} line`} value={line.value} />}</div><NFLProjectionPanel resource={projection} selectedProp={selectedProp} /></section>;
 }
 
 function HistoricalRolePanel({ player, logs, usage }) {
@@ -219,10 +198,10 @@ function InjuriesPanel({ injuries }) {
   return <section className="nfl-panel-stack">{['Offense', 'Defense'].map((unit) => { const unitRows = rows.filter((row) => INJURY_GROUP[row.position] === unit); return <div className="nfl-injury-unit" key={unit}><div className="nfl-section-title"><div><span>PERSONNEL</span><h3>{unit}</h3></div><small>{unitRows.length} reports</small></div>{unitRows.length ? unitRows.map((row, index) => <article key={`${row.player_id}-${row.team_id}-${index}`}><span className={`nfl-status-dot ${(row.game_status || '').toLowerCase()}`} /><div><strong>{row.player_name}</strong><small>{row.position} · {row.team_id} · {row.injury || 'Injury not specified'}</small></div><em>{row.game_status || row.practice_status || 'Not reported'}</em></article>) : <Notice title={`No ${unit.toLowerCase()} reports`}>No current injury rows were returned for these teams.</Notice>}</div>; })}</section>;
 }
 
-function HealthPanel({ player, resources }) {
+function HealthPanel({ player, resources, quote }) {
   const health = researchHealth({ player, logsStatus: resources.logs?.status, usageStatus: resources.usage?.status, injuryStatus: resources.injuries?.status, scheduleStatus: resources.schedule?.status, opportunityHealth: resources.opportunity?.data?.health || {} });
   const opportunityHealth = resources.opportunity?.data?.health || {};
-  const checks = [['Player identity', player?.id ? 'AVAILABLE' : 'MISSING'], ['Data freshness', freshness(resources.logs?.fetchedAt)], ['Game logs', resources.logs?.status], ['Usage', resources.usage?.status], ['Injuries', resources.injuries?.status], ['Game context', resources.schedule?.status], ['Opportunity engine', resources.opportunity?.data?.status], ['Opportunity data', opportunityHealth.opportunityData], ['Role certainty', opportunityHealth.roleCertainty], ['Volume certainty', opportunityHealth.volumeCertainty], ['Sample reliability', opportunityHealth.sampleReliability], ['Injury certainty', opportunityHealth.injuryCertainty], ['Matchup reliability', resources.matchup?.data?.sampleReliability], ['Distribution status', resources.distribution?.data?.promotion || resources.distribution?.data?.status], ['Model health', resources.decision?.data?.health], ['Weather forecast', 'NOT AVAILABLE'], ['Prop line', 'NOT AVAILABLE']];
+  const checks = [['Player identity', player?.id ? 'AVAILABLE' : 'MISSING'], ['Data freshness', freshness(resources.logs?.fetchedAt)], ['Game logs', resources.logs?.status], ['Usage', resources.usage?.status], ['Injuries', resources.injuries?.status], ['Game context', resources.schedule?.status], ['Opportunity engine', resources.opportunity?.data?.status], ['Opportunity data', opportunityHealth.opportunityData], ['Role certainty', opportunityHealth.roleCertainty], ['Volume certainty', opportunityHealth.volumeCertainty], ['Sample reliability', opportunityHealth.sampleReliability], ['Injury certainty', opportunityHealth.injuryCertainty], ['Matchup reliability', resources.matchup?.data?.sampleReliability], ['Distribution status', resources.distribution?.data?.promotion || resources.distribution?.data?.status],  ['Weather forecast', 'NOT AVAILABLE'], ['Prop line', quote?.verified ? freshness(quote.updatedAt,Date.now(),120000) : 'No posted line']];
   return <section className="nfl-panel-stack"><div className={`nfl-health-score ${health.label.toLowerCase()}`}><Database aria-hidden="true" /><div><span>RESEARCH HEALTH</span><strong>{health.label}</strong><small>{health.coverage}% of currently connected research categories available</small></div></div><div className="nfl-health-list">{checks.map(([label, value]) => <p key={label}><span>{label}</span><strong className={value === 'AVAILABLE' ? 'available' : ''}>{value || 'UNAVAILABLE'}</strong></p>)}</div><p className="nfl-health-foot">Research health measures data completeness and freshness. It does not grade the player or predict a result.</p></section>;
 }
 
@@ -230,8 +209,7 @@ function NFLPlayerResearch({ player, teams, schedules, onBack }) {
   const [historyMode, setHistoryMode] = useState('recent');
   const [analyzedLine,setAnalyzedLine] = useState(player.researchLine || null);
   const [selectedProp, setSelectedProp] = useState(() => {const options=propsForPosition(NFL_PROP_DEFINITIONS, player.position);return options.find(prop=>prop.key===player.researchProp) || options[0];});
-  const [tab, setTab] = useState('overview');
-  const [windowKey, setWindowKey] = useState('l5');
+  const [tab, setTab] = useState('trend');
   const [refreshKey, setRefreshKey] = useState(0);
   const [resources, setResources] = useState({ schedule: { status: 'AVAILABLE', data: schedules } });
   const [loading, setLoading] = useState(true);
@@ -298,39 +276,46 @@ function NFLPlayerResearch({ player, teams, schedules, onBack }) {
       if (active) setResources((current) => ({ ...current, projection: { data: { status: 'NOT_AVAILABLE', reason: 'Required statistical model inputs did not load. No value was fabricated.' } } }));
     });
     setResources((current)=>({...current,distribution:{status:'LOADING'}}));
-    setResources(current=>({...current,decision:{status:'LOADING'}}));
-    getNFL('decision',{playerId:player.id,position:player.position,prop:selectedProp.key}).then(decision=>{
-      if(active)setResources(current=>({...current,decision}));
-    }).catch(()=>{if(active)setResources(current=>({...current,decision:{data:null}}));});
     getNFL('distribution',{playerId:player.id,week:nextGame?.week,prop:selectedProp.key}).then((distribution)=>{
       if(active)setResources(current=>({...current,distribution}));
     }).catch(()=>{if(active)setResources(current=>({...current,distribution:{data:{status:'NOT_AVAILABLE'}}}));});
     return () => { active = false; };
   }, [tab, player.id, nextGame?.week, selectedProp.key, refreshKey]);
 
+  useEffect(() => {
+    if (selectedProp.key !== 'longest_reception') return;
+    let active = true;
+    setResources(current => ({...current, receptionLogs:{status:'LOADING',data:[]}}));
+    loadNFLHistory(getNFL,'reception-logs',{playerId:player.id,seasonType:'REG'},SEASON,historyMode)
+      .then(result => {if(active)setResources(current=>({...current,receptionLogs:result}));})
+      .catch(()=>{if(active)setResources(current=>({...current,receptionLogs:{status:'UNRELIABLE',data:[]}}));});
+    return () => {active=false;};
+  },[player.id,selectedProp.key,historyMode,refreshKey]);
+
   const props = propsForPosition(NFL_PROP_DEFINITIONS, player.position);
-  const logs = resources.logs?.data || [];
+  const logs = (selectedProp.key === 'longest_reception' ? resources.receptionLogs?.data : resources.logs?.data) || [];
   return <div className="nfl-research-page">
     <button type="button" className="nfl-refresh" onClick={() => { nflClient.clear(); setAnalyzedLine(null); setRefreshKey(key => key + 1); }}>Refresh current research</button>
     <button type="button" className="nfl-back" onClick={onBack}><ArrowLeft aria-hidden="true" />NFL research</button>
     <header className="nfl-player-header"><div className="nfl-headshot-wrap"><PlayerPhoto player={player} /></div><div className="nfl-player-identity"><span>PLAYER RESEARCH</span><h2>{player.name}</h2><p>{player.position} · {team?.name || player.team_id || 'Free agent'} <TeamLogo team={player.team_id} size="sm" /></p><div className="nfl-player-chips"><span>{statusLabel(player.status)}</span>{nextGame && matchup && <span>{matchup.location === 'HOME' ? 'vs' : '@'} {matchup.opponent.id} · {new Date(nextGame.starts_at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</span>}</div></div></header>
-    <section className="nfl-prop-selector"><div><span>RESEARCH PROP</span><small>Current lines: Odds API</small></div><div role="listbox" aria-label="Player props">{props.map((prop) => <button type="button" role="option" aria-selected={selectedProp.key === prop.key} className={selectedProp.key === prop.key ? 'active' : ''} key={prop.key} onClick={() => {setSelectedProp(prop);setAnalyzedLine(null);}}><strong>{prop.label}</strong><ModelBadge status={propModelStatus(player.position, prop.key)} /></button>)}</div></section>
-    <NFLMarketLines key={`${player.id}.${refreshKey}`} load={getNFL} player={player} week={nextGame?.week} prop={selectedProp.key} onSelect={setAnalyzedLine} selected={analyzedLine} />
-    <section className="nfl-history-control"><label htmlFor="nfl-history-season">Research history<select id="nfl-history-season" value={historyMode} onChange={event => setHistoryMode(event.target.value)}><option value="recent">Recent history · includes {SEASON - 1} when this season is short</option><option value="current">{SEASON} only</option><option value="previous">{SEASON - 1} only</option></select></label>{!loading && <p>Data: {resources.logs?.history?.label || SEASON} · {logs.length} available games. {resources.logs?.history?.includedPrevious ? 'Last-season games fill the early-season sample.' : ''} Current game and injury reports stay {SEASON}.</p>}{resources.logs?.reason && <p>{resources.logs.reason}</p>}</section>
+    <section className="nfl-prop-selector"><div><span>RESEARCH PROP</span><small>Player statistics</small></div><div role="listbox" aria-label="Player props">{props.map((prop) => <button type="button" role="option" aria-selected={selectedProp.key === prop.key} className={selectedProp.key === prop.key ? 'active' : ''} key={prop.key} onClick={() => {setSelectedProp(prop);setAnalyzedLine(null);}}><strong>{prop.label}</strong></button>)}</div></section>
+    <NFLMarketLines key={`${player.id}.${refreshKey}`} load={getNFL} player={player} week={nextGame?.week} prop={selectedProp.key} onSelect={setAnalyzedLine} selected={analyzedLine} onRefresh={nflClient.clear} />
+    <section className="nfl-history-control"><label htmlFor="nfl-history-season">History<select id="nfl-history-season" value={historyMode} onChange={event => setHistoryMode(event.target.value)}><option value="recent">Recent seasons</option><option value="current">{SEASON} only</option><option value="previous">{SEASON - 1} only</option></select></label>{!loading && <p>{resources.logs?.history?.label || SEASON} / {logs.length} games</p>}{resources.logs?.reason && <p>{resources.logs.reason}</p>}</section>
     <nav className="nfl-research-tabs" aria-label="NFL research sections">{TAB_ITEMS.map(([key, label, Icon]) => <button type="button" key={key} className={tab === key ? 'active' : ''} aria-current={tab === key ? 'page' : undefined} onClick={() => setTab(key)}><Icon aria-hidden="true" /><span>{label}</span></button>)}</nav>
     {loading && <LoadingCards label="Loading player research" />}
     {error && <Notice icon={AlertTriangle} title="Some player data did not load" tone="error">{error}</Notice>}
     {!loading && <div className="nfl-tab-content">
       {tab === 'overview' && <OverviewPanel selectedProp={selectedProp} logs={logs} projection={resources.projection} quote={analyzedLine} />}
       {tab === 'overview' && <NFLDistributionPanel resource={resources.distribution} propKey={selectedProp.key} quote={analyzedLine} />}
-      {tab === 'overview' && <NFLDecisionPanel resource={resources.decision} propKey={selectedProp.key} />}
-      {tab === 'trend' && <TrendPanel logs={logs} selectedProp={selectedProp} quote={analyzedLine} windowKey={windowKey} setWindowKey={setWindowKey} next={nextGame ? { game: nextGame, teamId: player.team_id } : null} />}
+      {tab === 'trend' && selectedProp.key === 'longest_reception' && resources.receptionLogs?.status === 'UNRELIABLE' && <Notice title="Reception lengths temporarily unavailable">Refresh to retry the play-by-play source. Other game statistics remain available.</Notice>}
+      {tab === 'trend' && selectedProp.key === 'longest_reception' && resources.receptionLogs?.status === 'LOADING' && <LoadingCards label="Loading reception lengths" />}
+      {tab === 'trend' && !(selectedProp.key === 'longest_reception' && resources.receptionLogs?.status === 'LOADING') && <NFLTrendPanel key={selectedProp.key} logs={logs} usage={resources.usage?.data || []} selectedProp={selectedProp} quote={analyzedLine} opponent={matchup?.opponent?.id} />}
       {tab === 'opportunity' && <><HistoricalRolePanel player={player} logs={logs} usage={resources.usage} /><OpportunityPanel opportunity={resources.opportunity} /></>}
       {tab === 'matchup' && <><OpponentPanel defense={resources.defense} opponent={matchup?.opponent} /><NFLMatchupPanel resource={resources.matchup} selectedProp={selectedProp} /></>}
       {tab === 'opponent' && <OpponentPanel defense={resources.defense} opponent={matchup?.opponent} />}
       {tab === 'environment' && <EnvironmentPanel game={nextGame} player={player} />}
       {tab === 'injuries' && <InjuriesPanel injuries={resources.injuries} />}
-      {tab === 'health' && <HealthPanel player={player} resources={resources} />}
+      {tab === 'health' && <HealthPanel player={player} resources={resources} quote={analyzedLine} />}
     </div>}
   </div>;
 }
@@ -367,5 +352,5 @@ export function SportResearch() {
     const pop = () => { const params = new URLSearchParams(location.search); const requestedPlayer = params.get('nflPlayer'); setSelectedPlayer(players.find((player) => player.id === requestedPlayer) || null); };
     window.addEventListener('popstate', pop); return () => window.removeEventListener('popstate', pop);
   }, [players, sport]);
-  return <><SportSwitcher sport={sport} onChange={changeSport} />{sport === 'nfl' && <div className="nfl-app-shell">{error && <button className="nfl-refresh" type="button" onClick={() => { nflClient.clear(); setReloadKey(key => key + 1); }}>Retry data sources</button>}{selectedPlayer ? <NFLPlayerResearch key={selectedPlayer.id} player={selectedPlayer} teams={teams} schedules={schedules} onBack={closePlayer} /> : <NFLHome players={players} teams={teams} loading={loading} error={error} onOpen={openPlayer} />}<p className="nfl-disclaimer">Vortex provides statistical research and model estimates. Outcomes are uncertain; projections are not guarantees. Transformed <a href="https://github.com/nflverse/nflverse-data">nflverse data</a> · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>.</p></div>}</>;
+  return <><SportSwitcher sport={sport} onChange={changeSport} />{sport === 'nfl' && <div className="nfl-app-shell">{error && <button className="nfl-refresh" type="button" onClick={() => { nflClient.clear(); setReloadKey(key => key + 1); }}>Retry data sources</button>}{selectedPlayer ? <NFLPlayerResearch key={selectedPlayer.id} player={selectedPlayer} teams={teams} schedules={schedules} onBack={closePlayer} /> : <NFLHome players={players} teams={teams} loading={loading} error={error} onOpen={openPlayer} />}<details className="nfl-sources"><summary>Data sources</summary><p>Game statistics: <a href="https://github.com/nflverse/nflverse-data">nflverse</a>, adapted for research · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. Live offers: The Odds API, labelled by platform.</p></details></div>}</>;
 }

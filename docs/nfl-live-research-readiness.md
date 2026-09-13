@@ -2,9 +2,9 @@
 
 ## Delivered
 
-NFL now has a separate real Odds API adapter, `props` / `prop-games` resources in the existing single NFL function, a game-ordered offer browser and selectable current quotes on player research. Offers retain exact provider, player, game, prop, direction, value and timestamp. PrizePicks, Underdog, DraftKings, FanDuel and BetMGM are requested; the UI never relabels sportsbook offers as PrizePicks. Only supported regular O/U markets are mapped. Alternatives, unknown identities, ambiguous names, invalid values and future/missing timestamps are rejected. No invented lines or payout EV.
+NFL now has a separate real Odds API adapter, `props` / `prop-games` resources in the existing single NFL function, a game-ordered offer browser and selectable current quotes on player research. Offers retain exact provider, player, game, prop, direction, value and timestamp. PrizePicks, Underdog, DraftKings, FanDuel and BetMGM are requested; the UI never relabels sportsbook offers as PrizePicks. Supported standard and alternate O/U markets are mapped separately. Unknown identities, ambiguous names, invalid values and future/missing timestamps are rejected. No invented lines or payout EV.
 
-Opening a posted offer preserves its player, prop, game and analyzed line. Refresh clears selected stale quotes. Quote ages update automatically, with the stricter two-minute freshness threshold. Historical hit/miss/push comparison excludes missing stats and pushes from hit-rate denominators and explicitly compares history with the current quote, rather than claiming historical betting performance. Overview shows model-minus-line statistical difference only when both values exist. The distribution shows a selected-line marker without exposing an uncalibrated probability.
+Opening a posted offer preserves its player, prop, game and analyzed line. Refresh clears selected stale quotes. Quote ages update automatically, with the stricter two-minute freshness threshold. Historical hit/miss/push comparison excludes missing stats and pushes from hit-rate denominators and explicitly compares history with the current quote, rather than claiming historical betting performance. Trend comparisons allow an explicitly labelled custom line; historical hit rates are descriptive, not calibrated probabilities. The distribution shows a selected-line marker without exposing an uncalibrated probability.
 
 Descriptive history defaults to current and prior regular seasons when the current sample has fewer than twenty games. Explicit season choices never silently backfill. Source failures preserve separately labelled available history; prior games display their season/week. Current schedule, roster, status, injuries and depth remain current-season sources.
 
@@ -12,7 +12,7 @@ Descriptive history defaults to current and prior regular seasons when the curre
 
 `NFL_EARLY_SEASON_INPUTS_V1` adds prior-season statistical history for forecast weeks 1–4. Both source season and original week remain in metadata. Only current rows before the forecast week and prior regular-season rows enter calculations. Prior weeks map to a consecutive season-week axis ending at zero. This controls recency, not calendar freshness: prior-only defense has reduced freshness/certainty, and prior-season role continuation has LOW certainty. Current-team role shares exclude former-team games. Efficiency retains conservative existing exposure shrinkage, including positional empirical baselines. No new yardage formula or score-to-projection multiplier.
 
-Opportunity cache/model version is `opportunity-v4`; early-season point results use `NFL_<POSITION>_<PROP>_V2_EARLY_SEASON`. Matchup results use `NFL_MATCHUP_V3_EARLY_SEASON`; distributions use `NFL_EARLY_SEASON_DISTRIBUTION_V1`. These candidates are EXPERIMENTAL and cannot inherit validated status from earlier versions. The prior historical validation reports do **not** validate this new input policy. No new backtest performance is claimed. Disabled and unsupported props remain disabled/unavailable. No model has become production-ready; public decisions abstain and the eligible Value Board remains empty.
+Opportunity cache/model version is `opportunity-v4`; early-season point results use `NFL_<POSITION>_<PROP>_V2_EARLY_SEASON`. Matchup results use `NFL_MATCHUP_V3_EARLY_SEASON`; distributions use `NFL_EARLY_SEASON_DISTRIBUTION_V1`. These candidates are EXPERIMENTAL and cannot inherit validated status from earlier versions. The prior historical validation reports do **not** validate this new input policy. No new backtest performance is claimed. Disabled and unsupported props remain disabled/unavailable. No model has become production-ready. Backend decision gates remain unchanged. The public research screen now omits the production-gate audit panels and uses the actual offer browser; supported estimates are labelled Beta estimate.
 
 NFL cache coalesces identical concurrent source requests and prevents cleared in-flight requests from repopulating stale entries. API calls remain isolated from MLB. Paid `props` requests share the heavy request budget. The NFL function receives a 60-second execution allowance without adding another serverless function.
 
@@ -27,8 +27,13 @@ NFL cache coalesces identical concurrent source requests and prevents cleared in
 
 ## Release boundaries
 
-The local credential is in ignored `.env.local`, explicitly excluded from Vercel upload. It is never committed or sent to client code. Deployment must configure `NFL_ODDS_API_KEY` server-side, or have a funded existing environment/stored fallback. A local file does not configure hosted environments. Credential selection bypasses successful free responses whose quota cannot cover the requested markets.
+The local credential is in ignored `.env.local`, explicitly excluded from Vercel upload. It is never committed or sent to client code. The user explicitly authorized saving the funded key to the existing Upstash store under `krazy_data:nfl:odds_api_key`; the write and readback were verified. The adapter prefers dedicated NFL environment/stored settings before shared legacy fallbacks. The MLB setting was not changed. Credential selection bypasses successful free responses whose quota cannot cover the requested markets.
 
 Missing current injury/QB completeness, advanced route/coverage/tracking sources, calibrated real historical lines, prospective validation and durable hosted shadow capture remain release blockers for public paid recommendations. Cold upstream downloads can still be slow; warm requests are cached and coalesced. Some players/games genuinely have no posted provider event or line. Supported research is functional; this is not certification of every NFL prop model.
 
 Main-branch push is authorized by the user. No separate deployment command or model promotion is part of this change.
+
+
+## Interactive beta update
+
+See [nfl-beta-research-qa.md](nfl-beta-research-qa.md) for the latest interactive controls, alternate-line verification, tests and remaining QA gaps. Earlier test counts and UI descriptions above are historical checkpoints.

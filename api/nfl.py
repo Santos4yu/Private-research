@@ -27,7 +27,7 @@ class handler(BaseHTTPRequestHandler):
         if not resource:
             path_parts = [part for part in urlparse(self.path).path.split("/") if part]
             resource = path_parts[-1].lower() if len(path_parts) > 2 else ""
-        allowed = {'players','teams','schedule','game-logs','usage','defense','injuries','depth-chart','team-stats','opportunity','matchup','projection','distribution','decision','value-board','model-health','props','prop-games'}
+        allowed = {'players','teams','schedule','game-logs','usage','defense','injuries','depth-chart','team-stats','opportunity','matchup','projection','distribution','decision','value-board','model-health','props','prop-games','reception-logs'}
         if resource not in allowed:
             return send_json(self, 404, {'error': 'Unknown NFL resource.'})
         if len(self.path) > 2048 or any(len(value) > 120 for values in query.values() for value in values):
@@ -138,6 +138,11 @@ class handler(BaseHTTPRequestHandler):
             if not player_id:
                 return send_json(self, 400, {"error": "A stable GSIS playerId is required."})
             result = nflverse.game_logs(season, player_id, season_type)
+        elif resource == 'reception-logs':
+            if not player_id or season_type != 'REG':
+                return send_json(self, 400, {'error': 'Regular-season playerId required.'})
+            from backend.sports.nfl.services.research_stats import reception_logs
+            result = reception_logs(season, player_id)
         elif resource == "injuries":
             result = nflverse.injuries(season, week)
             if team and result.data is not None:

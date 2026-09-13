@@ -13,7 +13,7 @@ from .nflverse import RELEASE, ProviderError, canonical_team
 from .play_by_play import number
 from ..cache import NFLCacheDomain, cached_nfl
 
-VERSION='nfl-matchup-pbp-v2'
+VERSION='nfl-matchup-pbp-v3-reception-history'
 REQUIRED={'game_id','week','posteam','defteam','season_type','play_type','play_deleted','two_point_attempt',
           'qb_dropback','qb_scramble','qb_kneel','qb_spike','sack','pass_attempt','rush_attempt',
           'epa','success','cpoe','complete_pass','yards_gained','air_yards','yards_after_catch',
@@ -79,6 +79,13 @@ def aggregate(records):
                     depth='DEEP' if air>=20 else 'INTERMEDIATE' if air>=10 else 'SHORT'
                     add(pm,'depth_'+depth,1.)
                 if flags['complete_pass']:
+                    detail=p.setdefault('receptionDetails', {'count':0,'lengths':[],'complete':True})
+                    detail['count']+=1
+                    length=number(r,'receiving_yards')
+                    if length is None or r.get('lateral_receiver_player_id') not in (None,'','NA'):
+                        detail['complete']=False
+                    else:
+                        detail['lengths'].append(length)
                     add(pm,'yac_per_reception',yac)
                     add(pm,'yards_per_reception',yards)
                 qb=r.get('passer_player_id')

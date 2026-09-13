@@ -55,3 +55,31 @@ class NFLOddsTests(unittest.TestCase):
         with patch.object(odds,'credentials',return_value=['test-secret']),patch.object(odds._session,'get',return_value=SimpleNamespace(status_code=401,ok=False)):
             with self.assertRaises(RuntimeError) as error:odds._get('/sports/americanfootball_nfl/events',{})
             self.assertNotIn('test-secret',str(error.exception))
+
+    def test_prizepicks_categories_follow_provider_price_convention(self):
+        market=self.payload['bookmakers'][0]['markets']
+        market.append({'key':'player_pass_yds_alternate','outcomes':[
+            {'name':'Over','description':self.player.name,'point':250.5,'price':100},
+            {'name':'Over','description':self.player.name,'point':175.5,'price':-110},
+            {'name':'Over','description':self.player.name,'point':180.5,'price':-120},
+        ]})
+        rows=self.run_payload()['data']
+        self.assertEqual([r['line']['category'] for r in rows],['STANDARD','DEMON','GOBLIN','ALTERNATE'])
+        self.assertTrue(all(r['direction']=='OVER' for r in rows))
+        self.assertTrue(all(r['line']['marketKey'].startswith('player_pass_yds') for r in rows))
+
+    def test_ambiguous_goblin_reference_and_malformed_prices_are_not_guessed(self):
+        market=self.payload['bookmakers'][0]['markets']
+        market[0]['outcomes'].append({'name':'Over','description':self.player.name,'point':201.5,'price':-120})
+        market.append({'key':'player_pass_yds_alternate','outcomes':[
+            {'name':'Over','description':self.player.name,'point':170,'price':-110},
+            {'name':'Under','description':self.player.name,'point':180,'price':{}},
+        ]})
+        rows=self.run_payload()['data'][-2:]
+        self.assertEqual([r['line']['category'] for r in rows],['ALTERNATE','ALTERNATE'])
+        self.assertIsNone(rows[1]['line']['price'])
+        self.assertEqual(rows[1]['direction'],'UNDER')
+
+    def test_nfl_stored_key_precedes_legacy_shared_setting(self):
+        with patch.object(odds,'load_dotenv'),patch.dict('os.environ',{'NFL_ODDS_API_KEY':'','ODDS_API_KEY_V2':'mock-legacy','ODDS_API_KEY':''}),patch('v2.board.store.get',return_value='mock-nfl-key'),patch('v2.board.store.get_odds_api_key_candidates',return_value=['mock-old']):
+            self.assertEqual(odds.credentials(),['mock-nfl-key','mock-legacy','mock-old'])

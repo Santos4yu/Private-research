@@ -2,13 +2,13 @@
 
 ## Live-line integration update — 2026-09-12
 
-`services/odds.py` now supplies real current NFL event/prop offers through the existing funded Odds API connection, with an optional dedicated server-only `NFL_ODDS_API_KEY`. Supported regular market keys are mapped explicitly to position-compatible NFL props. PrizePicks, Underdog and three sportsbook sources retain distinct labels. No alternate/goblin/demon lines or fake quotes are mixed in. Schema, event/kickoff, GSIS identity, current team, numerical values and timestamps are validated; ambiguous/unmapped players are rejected. Missing offers remain unavailable. Quotes cache for two minutes with concurrent request coalescing, a paid-request rate budget and secret-safe transport errors.
+`services/odds.py` now supplies real current NFL event/prop offers through the existing funded Odds API connection, with an optional dedicated server-only `NFL_ODDS_API_KEY`. Supported regular market keys are mapped explicitly to position-compatible NFL props. PrizePicks, Underdog and three sportsbook sources retain distinct labels. Version 2 also requests the documented alternate markets. PrizePicks +100 alternates are labelled Demons; alternates matching an unambiguous standard-market default price are labelled Goblins. Others remain Alternate. Only returned directions are displayed; none are synthesized. The dedicated NFL Upstash credential is now configured with explicit user approval, without modifying the MLB setting. Schema, event/kickoff, GSIS identity, current team, numerical values and timestamps are validated; ambiguous/unmapped players are rejected. Missing offers remain unavailable. Quotes cache for two minutes with concurrent request coalescing, a paid-request rate budget and secret-safe transport errors.
 
 Live offers support research comparison, not calibrated betting recommendations. Genuine historical lines, exact payout rules and production-ready models remain unavailable. Early-season statistical inputs use labelled current/prior data through a new experimental version without treating historical injury/depth as current. See [nfl-live-research-readiness.md](nfl-live-research-readiness.md).
 
 Phase 7B adds no external provider. Its distributions derive from existing
 validated nflverse weekly/PBP records, Phase 4 opportunity and Phase 6 means.
-There are still no reliable timestamped current/historical PrizePicks lines,
+At the original Phase 7B checkpoint there were no reliable current/historical PrizePicks lines; the current-line gap is now addressed, while historical lines remain unavailable. There are still no
 complete as-of injury scenarios or advanced tracking tails. Statistical
 distribution validation is separate from betting calibration; the latter remains
 NOT_AVAILABLE. See `nfl-distribution-calibration-validation.md`.

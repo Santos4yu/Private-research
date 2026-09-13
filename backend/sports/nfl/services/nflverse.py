@@ -16,6 +16,7 @@ from ..domain import (
     NFLPosition, NFLTeam, NFLTeamGameStats, NFLTeamRef,
 )
 from .base import ProviderResult
+from .research_stats import prizepicks_fantasy
 
 SOURCE = "nflverse"
 SOURCE_VERSION = "nflverse-data-v1"
@@ -247,6 +248,7 @@ def game_logs(season: int, player_id: str, season_type: str = "REG") -> Provider
                 continue
             if stats["completions"] is not None and stats["attempts"] is not None and stats["completions"] > stats["attempts"]:
                 continue
+            stats['prizepicks_fantasy_score'] = prizepicks_fantasy(row)
             seen.add(game_id)
             team, opponent = canonical_team(row.get("team")), canonical_team(row.get("opponent_team"))
             game_parts = game_id.split("_")
@@ -259,7 +261,7 @@ def game_logs(season: int, player_id: str, season_type: str = "REG") -> Provider
             ))
         output.sort(key=lambda item: item.week)
         return output, fetched, observed
-    return _result(lambda: cached_nfl(NFLCacheDomain.GAME_LOGS, (SOURCE_VERSION, season, season_type, player_id), load))
+    return _result(lambda: cached_nfl(NFLCacheDomain.GAME_LOGS, (SOURCE_VERSION, 'research-stats-v2', season, season_type, player_id), load))
 
 
 TEAM_STAT_FIELDS = ("attempts", "passing_yards", "carries", "rushing_yards", "def_sacks", "def_interceptions", "sacks_suffered", "targets")

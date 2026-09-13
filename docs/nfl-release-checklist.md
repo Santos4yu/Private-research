@@ -111,3 +111,8 @@ Opportunity adds observed targets/carries/attempts/receptions and matched offens
 Independent request completion now releases game logs without waiting for injuries/defense/usage. A failed current-season source can preserve labelled previous-season records; players without prior NFL history remain empty rather than receiving mock statistics.
 
 Public-source verification: Matthew Stafford GSIS `00-0026498` had one available 2026 regular-season log and seventeen 2025 regular-season logs; 2025 snap records were available. The Giants' 2025 defensive adapter returned seventeen regular-season games with measured passing/rushing/attempt/sack/interception/points fields. These are source-availability checks, not model validation or a claim of complete current data. Five new history tests cover ordering, season selection, backfill, failures and missing versus legitimate zero usage.
+
+
+## Interactive research beta follow-up
+
+Updated research controls and QA are documented in [nfl-beta-research-qa.md](nfl-beta-research-qa.md). The funded NFL key was written to the NFL-only Upstash setting after explicit approval and verified by readback. The MLB key and model logic were not changed. Public research no longer displays internal decision audit panels; this does not promote any model. After the temporary tool usage interruption, live endpoint checks and local browser interactions completed, including 390/412/768/1280px layout checks. Hosted and physical-device certification remain separate. See the latest QA document for measured results.

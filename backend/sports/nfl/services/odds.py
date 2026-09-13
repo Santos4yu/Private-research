@@ -1,6 +1,6 @@
 """Real NFL lines through the existing authorized Odds API transport.
 
-Only regular O/U markets. DFS prices are indicative, never a payout/EV model.
+Standard and alternate O/U markets retain their provider category.
 """
 from datetime import datetime, timezone
 import math
@@ -14,7 +14,8 @@ from ..identity import normalized_name, player_index
 from . import nflverse
 
 SPORT = 'americanfootball_nfl'
-VERSION = 'NFL_ODDS_ADAPTER_V1'
+VERSION = 'NFL_ODDS_ADAPTER_V2'
+NFL_KEY_STORAGE = 'krazy_data:nfl:odds_api_key'
 MARKETS = {
     'player_pass_yds':'passing_yards','player_pass_attempts':'passing_attempts',
     'player_pass_completions':'pass_completions','player_pass_tds':'passing_touchdowns',
@@ -25,17 +26,19 @@ MARKETS = {
     'player_rush_reception_tds':'touchdowns',
 }
 BOOKS = 'prizepicks,underdog,draftkings,fanduel,betmgm'
+ALTERNATE_MARKETS = {key+'_alternate':value for key,value in MARKETS.items()}
+ALL_MARKETS = {**MARKETS,**ALTERNATE_MARKETS}
 _session = requests.Session()
 
 def credentials():
     load_dotenv(Path(__file__).resolve().parents[4] / '.env.local', override=False)
-    from v2.board.store import get_odds_api_key_candidates
+    from v2.board.store import get_odds_api_key_candidates, get
     # Deployment-provided environment wins. The old MLB transport accepted an
     # exhausted stored key's 200 response and never tried the environment key.
-    try: stored = get_odds_api_key_candidates()
+    try: stored = [get(NFL_KEY_STORAGE) or '',*get_odds_api_key_candidates()]
     except requests.RequestException: stored = []
-    values = [os.getenv(name,'') for name in ('NFL_ODDS_API_KEY','ODDS_API_KEY_V2','ODDS_API_KEY')]
-    return list(dict.fromkeys(value for value in values+stored if value))
+    values = [os.getenv('NFL_ODDS_API_KEY',''),*(stored[:1]),os.getenv('ODDS_API_KEY_V2',''),os.getenv('ODDS_API_KEY',''),*stored[1:]]
+    return list(dict.fromkeys(value for value in values if value))
 
 def _get(path, params):
     keys=credentials()
@@ -47,7 +50,7 @@ def _get(path, params):
         if response.status_code in (401,429):continue
         if not response.ok:raise RuntimeError('NFL line provider returned an error')
         remaining=response.headers.get('x-requests-remaining')
-        if path.endswith('/events') and str(remaining).isdigit() and int(remaining)<len(MARKETS):
+        if path.endswith('/events') and str(remaining).isdigit() and int(remaining)<len(ALL_MARKETS):
             if exhausted is None or int(remaining)>int(exhausted.headers.get('x-requests-remaining','0')):exhausted=response
             continue
         return response
@@ -94,13 +97,22 @@ def normalize(payload, event, roster, now=None):
         raise ValueError('NFL line event/schema mismatch')
     if timestamp(payload.get('commence_time'))!=timestamp(event['startsAt']):raise ValueError('NFL line kickoff mismatch')
     rows=[];unresolved=0;seen=set();index=player_index(roster)
+    standard_prices={}
+    for book in payload['bookmakers']:
+        if not isinstance(book,dict) or not isinstance(book.get('markets'),list):continue
+        for market in book['markets']:
+            if not isinstance(market,dict) or market.get('key') not in MARKETS or not isinstance(market.get('outcomes'),list):continue
+            for outcome in market['outcomes']:
+                if isinstance(outcome,dict) and finite(outcome.get('price')) and outcome['price']<0:
+                    standard_prices.setdefault((book.get('key'),MARKETS[market['key']],outcome.get('name')),set()).add(outcome['price'])
     for book in payload['bookmakers']:
         if not isinstance(book,dict) or book.get('key') not in BOOKS.split(','):continue
         markets=book.get('markets',[])
         if not isinstance(markets,list):continue
         for market in markets:
             if not isinstance(market,dict):continue
-            prop=MARKETS.get(market.get('key'))
+            market_key=market.get('key')
+            prop=ALL_MARKETS.get(market_key)
             if not prop:continue
             updated=timestamp(market.get('last_update') or book.get('last_update'))
             if not updated or updated>now:continue
@@ -115,12 +127,18 @@ def normalize(payload, event, roster, now=None):
                 if not player or player.team_id not in (event['homeTeamId'],event['awayTeamId']):unresolved+=1;continue
                 from ..props import props_for_position
                 if prop not in [p.key.value for p in props_for_position(player.position)]:continue
-                key=(player.id,prop,book.get('key'),value,direction)
+                category='ALTERNATE' if market_key in ALTERNATE_MARKETS else 'STANDARD'
+                # Provider explicitly documents +100 demons. Unclassified
+                # alternate offers need the documented standard-price reference for goblins.
+                if category=='ALTERNATE' and book.get('key')=='prizepicks' and outcome.get('price')==100:category='DEMON'
+                if category=='ALTERNATE' and book.get('key')=='prizepicks' and finite(outcome.get('price')) and standard_prices.get((book['key'],prop,direction))=={outcome['price']}:
+                    category='GOBLIN'
+                key=(player.id,prop,book.get('key'),category,value,direction)
                 if key in seen:continue
                 seen.add(key)
                 line={'value':value,'platform':book.get('title') or book.get('key'),'bookmaker':book.get('key'),
                       'playerId':player.id,'gameId':event['gameId'],'propType':prop,'direction':direction.upper(),
-                      'source':'the-odds-api','updatedAt':updated.isoformat(),'verified':True,
+                      'source':'the-odds-api','updatedAt':updated.isoformat(),'verified':True,'category':category,'marketKey':market_key,
                       'price':outcome.get('price') if finite(outcome.get('price')) else None,
                       'ageSeconds':max(0,(now-updated).total_seconds()),'stale':(now-updated).total_seconds()>120}
                 rows.append({'playerId':player.id,'playerName':player.name,'position':player.position.value,'teamId':player.team_id,
@@ -138,8 +156,8 @@ def lines(season, player_id=None, week=None, event_id=None):
     if not candidates:return {'status':'NOT_AVAILABLE','data':[],'reason':'No verified upcoming NFL event mapping.','source':'the-odds-api'}
     event=candidates[0]
     def load():
-        if listing['creditsRemaining'] is not None and listing['creditsRemaining']<len(MARKETS):return {'status':'NOT_AVAILABLE','data':[],'reason':'Selected Odds API connection has insufficient credits for the NFL markets. Update the key or restore credits in Settings.','source':'the-odds-api'}
-        response=_get(f"/sports/{SPORT}/events/{event['eventId']}/odds",{'markets':','.join(MARKETS),'bookmakers':BOOKS,'oddsFormat':'american'})
+        if listing['creditsRemaining'] is not None and listing['creditsRemaining']<len(ALL_MARKETS):return {'status':'NOT_AVAILABLE','data':[],'reason':'Live lines are temporarily unavailable. You can still adjust a custom line in Trends.','source':'the-odds-api'}
+        response=_get(f"/sports/{SPORT}/events/{event['eventId']}/odds",{'markets':','.join(ALL_MARKETS),'bookmakers':BOOKS,'oddsFormat':'american'})
         return normalize(response.json(),event,nflverse.players(season).data or [])
     key_id=hashlib.sha256('|'.join(credentials()).encode()).hexdigest()[:16]
     result=cached_nfl(NFLCacheDomain.PROPS,(VERSION,season,event['eventId'],key_id),load)
