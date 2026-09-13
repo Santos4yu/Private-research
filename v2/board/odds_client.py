@@ -58,19 +58,35 @@ def _get(path: str, params: dict) -> requests.Response:
         raise RuntimeError("The private-site Odds API key is not configured.")
 
     last_status = None
+    quota_reached = False
+    exhausted_events = None
     for key in candidates:
-        response = _SESSION.get(
-            f"{BASE_URL}{path}", params={**params, "apiKey": key}, timeout=TIMEOUT
-        )
+        try:
+            response = _SESSION.get(
+                f"{BASE_URL}{path}", params={**params, "apiKey": key}, timeout=TIMEOUT
+            )
+        except requests.RequestException:
+            # Prepared request URLs can contain apiKey; never send them to UI.
+            continue
         last_status = response.status_code
         if response.status_code == 401:
             continue
         if response.status_code == 429:
-            raise RuntimeError("The live-lines quota has been reached. Add a new Odds API key in Settings.")
+            quota_reached = True
+            continue
         if not response.ok:
             raise RuntimeError(f"The live-lines provider returned HTTP {response.status_code}.")
+        if path.endswith('/events') and response.headers.get('x-requests-remaining') == '0':
+            # Free schedules can return 200 for an exhausted key. Prefer a
+            # funded configured fallback before the subsequent paid odds call.
+            exhausted_events = response
+            continue
         return response
 
+    if exhausted_events is not None:
+        return exhausted_events  # Schedule itself is still legitimate free data.
+    if quota_reached:
+        raise RuntimeError("The live-lines quota has been reached. Add a new Odds API key in Settings.")
     if last_status == 401:
         raise RuntimeError("The Odds API key was rejected. Add a valid key in Settings.")
     raise RuntimeError("Live lines are temporarily unavailable.")
