@@ -1,4 +1,4 @@
-import {initSiteAccess,siteTabAllowed,loadSiteControls} from './src/site-access.js';
+import {initSiteAccess,siteTabAllowed,loadSiteControls,showLockedTab,availableSiteTab,refreshSiteAccess} from './src/site-access.js';
 /* =========================================================
    Vortex Prop Research — client-side renderer
    No backend, no database, no odds API. Reads a single JSON
@@ -757,7 +757,11 @@ function switchTab(tab, options = {}) {
     openV2PinPrompt();
     return;
   }
-  if (tab !== "admin" && !siteTabAllowed(tab)) {showToast("This section is temporarily unavailable", "warn");return;}
+  if (tab !== "admin" && !siteTabAllowed(tab)) {
+    const fallback=availableSiteTab(state.currentTab);
+    if(fallback&&fallback!==state.currentTab)switchTab(fallback,{history:options.history,scrollY:0});
+    showLockedTab(tab);return;
+  }
   const changed = state.currentTab !== tab;
   if (changed) screenScroll.set(state.currentTab, window.scrollY);
   state.currentTab = tab;
@@ -1030,11 +1034,13 @@ function renderMoneylineResearch(games) {
 }
 
 async function loadAdminRecords() {
+  if (!document.getElementById("site-controls")?.dataset.loaded) {
+    await loadSiteControls();document.getElementById("site-controls").dataset.loaded="1";
+  }
   const res = await fetch("/api/board?view=results", { cache: "no-store", credentials: "same-origin" });
   if (!res.ok) throw new Error("Admin reporting is still locked.");
   const data = await res.json(); state.adminRecords = data.records || {}; state.adminUnlocked = true;
   els.adminResultTabs.hidden = false; els.adminResultsList.hidden = false; renderAdminRecords();
-  if (!document.getElementById("site-controls")?.dataset.loaded) {await loadSiteControls();document.getElementById("site-controls").dataset.loaded="1";}
   if (!state.adminLiveTimer) {
     state.adminLiveTimer = window.setInterval(() => {
       if (state.currentTab === "admin" && state.adminUnlocked && !document.hidden) loadAdminRecords().catch(() => {});
@@ -5993,7 +5999,8 @@ function wireAdminPanel() {
       }
       els.v2PinOverlay.hidden = true;
       try {
-        await loadAdminRecords();
+        state.adminUnlocked=true;
+        await refreshSiteAccess();
         switchTab("admin");
       } catch (err) {
         showToast(err.message || "Could not load admin results.", "warn");

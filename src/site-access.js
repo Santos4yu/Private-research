@@ -1,8 +1,21 @@
 import './site-access.css';
-import {accessGranted,canUseTab} from './site-access-core.js';
+import {accessGranted,canUseTab,availableTab} from './site-access-core.js';
 const names={research:'Research',v2:'Props',slate:'Tools',saved:'My Slip',slip:'Slip Analyzer',builder:'Builder',moneyline:'Moneyline',nrfi:'NRFI / YRFI'};
-let status=null,initPromise=null,activeDialog=null;
+let status=null,initPromise=null,activeDialog=null,lockedDialog=null;
 export function siteTabAllowed(tab){return canUseTab(status,tab);}
+export function availableSiteTab(current){return availableTab(status,current);}
+export function showLockedTab(tab){
+ if(!accessGranted(status)){renderStatus();return;}
+ if(lockedDialog)lockedDialog.close();
+ const trigger=document.activeElement;
+ const dialog=element('dialog',null,'site-account-dialog site-locked-dialog');lockedDialog=dialog;
+ const header=element('header');header.append(element('h2','Locked'),button('×',()=>dialog.close(),'site-dialog-close'));header.lastChild.setAttribute('aria-label','Close locked message');dialog.append(header);
+ const name=names[tab]||'This section';dialog.append(element('p',name,'site-locked-name'),element('p','In development. This section is temporarily unavailable.','site-account-email'),button('Go back',()=>dialog.close(),'site-primary-button'));
+ dialog.setAttribute('aria-label',name+' locked');
+ dialog.onclick=e=>{if(e.target===dialog)dialog.close();};
+ dialog.onclose=()=>{if(lockedDialog===dialog)lockedDialog=null;dialog.remove();if(trigger instanceof HTMLElement&&trigger.isConnected)trigger.focus({preventScroll:true});};
+ document.body.append(dialog);dialog.showModal();
+}
 async function request(url,body){
  const response=await fetch(url,{cache:'no-store',credentials:'same-origin',...(body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});
  let data;try{data=await response.json();}catch{throw new Error('Service temporarily unavailable. Please try again.');}
@@ -56,6 +69,7 @@ function accountDialog(){
  const dialog=element('dialog',null,'site-account-dialog');activeDialog=dialog;
  const header=element('header');header.append(element('h2','Your account'),button('×',()=>dialog.close(),'site-dialog-close'));header.lastChild.setAttribute('aria-label','Close account');dialog.append(header);
  dialog.append(element('p',status?.account?.email||'Administrator','site-account-email'));
+ dialog.append(button('Admin panel',()=>{dialog.close();window.dispatchEvent(new CustomEvent('vortex:switch-tab',{detail:{tab:'admin'}}));},'site-secondary-button'));
  dialog.append(button('Sign out',async()=>{try{await request('/api/session',{action:'sign-out'});location.reload();}catch(error){dialog.append(element('p',error.message));}},'site-primary-button'));
  dialog.onclose=()=>{activeDialog=null;dialog.remove();};document.body.append(dialog);dialog.showModal();
 }
@@ -65,13 +79,21 @@ function renderStatus(){
  document.getElementById('app-shell')?.classList.toggle('app-shell-hidden',!granted);
  document.getElementById('boot-loading')?.setAttribute('hidden','');
  if(!granted&&activeDialog)activeDialog.close();
+ if(!granted&&lockedDialog)lockedDialog.close();
  let bar=document.getElementById('site-account-bar');if(!bar){bar=element('div',null,'site-account-bar');bar.id='site-account-bar';document.body.append(bar);}
  bar.hidden=!granted;
  if(granted&&!bar.childElementCount){const account=button('',accountDialog,'site-account-trigger');account.setAttribute('aria-label','Your account');account.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M5 21v-2a7 7 0 0 1 14 0v2" stroke="currentColor" stroke-width="1.6"/></svg>';bar.append(account);}
- document.querySelectorAll('[data-tab],[data-launch-tab]').forEach(b=>{const tab=b.dataset.tab||b.dataset.launchTab;if(tab!=='admin')b.disabled=!siteTabAllowed(tab);});
+ document.querySelectorAll('[data-tab],[data-launch-tab]').forEach(b=>{const tab=b.dataset.tab||b.dataset.launchTab;if(tab!=='admin'){b.disabled=!granted;b.dataset.featureLocked=String(!siteTabAllowed(tab));}});
  let gate=document.getElementById('site-policy-gate');if(!gate){gate=element('main',null,'site-policy-gate');gate.id='site-policy-gate';document.body.append(gate);}
- const sectionDisabled=granted&&!status.isAdmin&&status.disabledTabs.includes(location.hash.slice(1)||'research');
- const kind=granted?(sectionDisabled?'section':'none'):status.maintenance?'maintenance':'login';gate.hidden=kind==='none';
+ const current=location.hash.slice(1)||'research';
+ const next=granted?availableTab(status,current):null;
+ document.documentElement.dataset.allTabsLocked=String(granted&&!next);
+ let empty=document.getElementById('site-all-locked');if(!empty){empty=element('section',null,'site-all-locked');empty.id='site-all-locked';empty.append(element('h2','In development'),element('p','Sections are temporarily locked. Your account and navigation are still available.'));document.body.append(empty);}empty.hidden=!(granted&&!next);
+ const kind=granted?'none':status.maintenance?'maintenance':'login';gate.hidden=kind==='none';
+ if(granted&&current!==next&&!siteTabAllowed(current)){
+  if(next)window.dispatchEvent(new CustomEvent('vortex:switch-tab',{detail:{tab:next}}));
+  if(gate.dataset.lockedTab!==current){gate.dataset.lockedTab=current;showLockedTab(current);}
+ }else delete gate.dataset.lockedTab;
  // Preserve typed credentials and recovery progress during background policy refresh.
  if(gate.dataset.kind!==kind){gate.dataset.kind=kind;gate.replaceChildren();
   if(kind!=='none'){
@@ -79,7 +101,7 @@ function renderStatus(){
    if(kind==='login'){
     if(status.accountsConfigured){const form=authForm(card);card.append(button('Administrator',()=>{form.siteSetMode('admin');form.elements.pin.focus();},'site-admin-link'));}
     else{card.append(element('h1','Sign-in is being configured'),element('p','Please check back shortly.','site-auth-subtitle'));const form=authForm(card,'admin');form.querySelector('.site-auth-back').hidden=true;}
-   }else{card.append(element('h1',kind==='maintenance'?'We’ll be back shortly':'Section unavailable'),element('p',kind==='maintenance'?status.message:'This section is temporarily disabled.','site-auth-subtitle'));if(kind==='section')card.append(button('Back to Research',()=>{window.dispatchEvent(new CustomEvent('vortex:switch-tab',{detail:{tab:'research'}}));renderStatus();},'site-primary-button'));const admin=button('Administrator',()=>{card.replaceChildren(brand());authForm(card,'admin');},'site-admin-link');card.append(admin);}
+   }else{card.append(element('h1','We’ll be back shortly'),element('p',status.message,'site-auth-subtitle'));const admin=button('Administrator',()=>{card.replaceChildren(brand());authForm(card,'admin');},'site-admin-link');card.append(admin);}
    gate.append(card);
   }
  }

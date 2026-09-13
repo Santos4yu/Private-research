@@ -4,3 +4,8 @@ export function accessGranted(policy) {
 export function canUseTab(policy,tab) {
   return accessGranted(policy) && (policy.isAdmin || !policy.disabledTabs.includes(tab));
 }
+
+export function availableTab(policy,current,tabs=['research','v2','slate','saved','slip','builder','moneyline','nrfi']) {
+ if(canUseTab(policy,current))return current;
+ return tabs.find(tab=>canUseTab(policy,tab))||null;
+}

@@ -46,3 +46,19 @@ html:not([data-site-access="granted"]) #dock-root{display:none!important}
 #site-controls button{min-height:44px;padding:10px 16px;border-radius:12px;border:1px solid #445166;background:#202a38;color:#f1f5f9;cursor:pointer}
 @media(max-width:760px){.site-policy-gate{padding:calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));align-items:center}.site-auth-card{padding:24px;border-radius:22px}.site-auth-brand{margin-bottom:24px}.site-auth-card h1{font-size:25px}.site-account-bar{top:calc(14px + env(safe-area-inset-top,0px));right:max(72px,calc(env(safe-area-inset-right,0px) + 72px))}:root[data-theme] .hero-brand{padding-right:108px!important}}
 @media(max-height:650px){.site-policy-gate{align-items:start}.site-auth-card{margin:auto 0}}
+
+.site-secondary-button{width:100%;min-height:48px;margin-bottom:12px;border:1px solid #445166;border-radius:12px;background:#202a38;color:#f1f5f9;cursor:pointer;font:500 14px 'Sora',sans-serif}
+.site-locked-name{font-size:16px;font-weight:600;margin:22px 0 0}
+.site-all-locked{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(380px,calc(100vw - 40px));padding:24px;box-sizing:border-box;border:1px solid #445166;border-radius:20px;background:var(--theme-panel,#141c28);color:var(--theme-text,#f1f5f9);z-index:10;text-align:center}
+.site-all-locked p{font-size:14px;line-height:1.6;color:var(--theme-dim,#aebbd0)}
+.site-all-locked[hidden]{display:none!important}
+html[data-all-tabs-locked=true] #app-shell .tab-panel{display:none!important}
+@media(max-width:760px){
+ html{--site-status-inset:max(44px,env(safe-area-inset-top,0px))}
+ html[data-site-access=granted]{--app-top:calc(72px + var(--site-status-inset))}
+ .site-account-bar{top:calc(14px + var(--site-status-inset));right:max(72px,calc(env(safe-area-inset-right,0px) + 72px))}
+ html[data-site-access=granted][data-theme] .settings-btn{top:calc(14px + var(--site-status-inset))!important}
+ html[data-site-access=granted][data-theme] .hero{padding-top:calc(12px + var(--site-status-inset))!important}
+ .site-policy-gate{padding-top:calc(24px + var(--site-status-inset));padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+ .site-account-dialog{margin-top:max(calc(24px + var(--site-status-inset)),calc((100dvh - 360px)/2));max-height:calc(100dvh - var(--site-status-inset) - env(safe-area-inset-bottom,0px) - 48px)}
+}
