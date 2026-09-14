@@ -8,7 +8,7 @@ from .history_inputs import compact_history
 from .matchup_volume_context import opponent_volume
 from .cache import cached_nfl, NFLCacheDomain
 
-VERSION='NFL_RESEARCH_BOARD_V1'
+VERSION='NFL_RESEARCH_BOARD_V2'
 FIELDS={'passing_yards':('passing_yards',),'passing_attempts':('attempts',),'pass_completions':('completions',),'passing_touchdowns':('passing_tds',),'interceptions':('passing_interceptions',),'rushing_yards':('rushing_yards',),'rush_attempts':('carries',),'receiving_yards':('receiving_yards',),'receptions':('receptions',),'targets':('targets',),'passing_rushing_yards':('passing_yards','rushing_yards'),'rushing_receiving_yards':('rushing_yards','receiving_yards'),'touchdowns':('rushing_tds','receiving_tds')}
 
 def finite(value):
@@ -19,6 +19,13 @@ def support(hits,n):
     if not n:return 0
     z=1.96;p=hits/n
     return (p+z*z/(2*n)-z*sqrt(p*(1-p)/n+z*z/(4*n*n)))/(1+z*z/n)
+
+def window_stats(values,line,direction):
+    # Same hit/miss/push accounting as the main screen, over whatever slice
+    # of values is passed in. No probability, no fabricated confidence.
+    if not values:return {'hits':0,'misses':0,'pushes':0,'decisions':0,'hitRate':None,'sample':0,'average':None}
+    pushes=values.count(line);hits=sum(v>line if direction=='OVER' else v<line for v in values);decisions=len(values)-pushes
+    return {'hits':hits,'misses':decisions-hits,'pushes':pushes,'decisions':decisions,'hitRate':hits/decisions*100 if decisions else None,'sample':len(values),'average':sum(values)/len(values)}
 
 def screen(offers,histories,event,now=None):
     now=now or datetime.now(timezone.utc);rows=[]
@@ -32,14 +39,22 @@ def screen(offers,histories,event,now=None):
         if offer.get('gameId')!=event['gameId'] or line.get('playerId')!=offer.get('playerId') or line.get('propType')!=offer.get('propType') or line.get('gameId')!=event['gameId']:continue
         direction=line.get('direction')
         if direction not in ('OVER','UNDER'):continue
-        logs=sorted([g for g in histories.get(offer['playerId'],[]) if g.season_type=='REG' and g.player_id==offer['playerId'] and g.team_id==offer['teamId'] and g.game_id!=event['gameId'] and (int(event['gameId'][:4])-1<=g.season<int(event['gameId'][:4]) or (g.season==int(event['gameId'][:4]) and g.week<event['week']))],key=lambda g:(g.season,g.week))
-        logs=list({g.game_id:g for g in logs if all(finite(g.stats.get(f)) for f in fields)}.values())[-20:]
+        eligible=sorted([g for g in histories.get(offer['playerId'],[]) if g.season_type=='REG' and g.player_id==offer['playerId'] and g.team_id==offer['teamId'] and g.game_id!=event['gameId'] and (int(event['gameId'][:4])-1<=g.season<int(event['gameId'][:4]) or (g.season==int(event['gameId'][:4]) and g.week<event['week']))],key=lambda g:(g.season,g.week))
+        eligible=list({g.game_id:g for g in eligible if all(finite(g.stats.get(f)) for f in fields)}.values())
+        logs=eligible[-20:]
         values=[sum(g.stats[f] for f in fields) for g in logs]
         if len(values)<8:continue
         recent=values[-10:];hits=sum(v>line['value'] if direction=='OVER' else v<line['value'] for v in values);pushes=values.count(line['value']);n=len(values)-pushes
         rh=sum(v>line['value'] if direction=='OVER' else v<line['value'] for v in recent);rn=len(recent)-recent.count(line['value'])
         if n<8 or rn<5:continue
-        rows.append({**offer,'startsAt':event['startsAt'],'support':support(hits,n),'hits':hits,'sample':len(values),'decisions':n,'pushes':pushes,'hitRate':hits/n*100,'recentHits':rh,'recentSample':len(recent),'recentDecisions':rn,'average':sum(values)/len(values),'seasons':sorted({g.season for g in logs}), 'historyOnly':all(g.season<int(event['gameId'][:4]) for g in logs),'screenVersion':VERSION})
+        # A same-window comparison strip (like the single-player Trends tab
+        # already has) so the board can show L5/L10/L15/L20/H2H side by side
+        # instead of forcing a click into every prop to compare windows.
+        h2h_opponent=offer.get('opponentId')
+        h2h_values=[sum(g.stats[f] for f in fields) for g in eligible if h2h_opponent and g.opponent_team_id==h2h_opponent]
+        windows={f'l{n}':window_stats(values[-n:],line['value'],direction) for n in (5,10,15,20)}
+        windows['h2h']=window_stats(h2h_values,line['value'],direction)
+        rows.append({**offer,'startsAt':event['startsAt'],'support':support(hits,n),'hits':hits,'sample':len(values),'decisions':n,'pushes':pushes,'hitRate':hits/n*100,'recentHits':rh,'recentSample':len(recent),'recentDecisions':rn,'average':sum(values)/len(values),'windows':windows,'seasons':sorted({g.season for g in logs}), 'historyOnly':all(g.season<int(event['gameId'][:4]) for g in logs),'screenVersion':VERSION})
     # One preferred posted direction per player/prop, no duplicate sides.
     ranked=sorted(rows,key=lambda r:(r['support'],r['recentHits']/r['recentDecisions'],r['sample']),reverse=True)
     seen=set();result=[]

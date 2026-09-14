@@ -105,6 +105,34 @@
 .nfl-position-defense-bar.good i { background:var(--nfl-green,#68d5ac);opacity:.6; }
 .nfl-position-defense-bar.bad i { background:var(--nfl-red,#ff8b96);opacity:.6; }
 @media(max-width:600px){ .nfl-position-defense-row { grid-template-columns:1fr;gap:6px; } }
+
+/* Props board: card/table view toggle + dense sortable table, for scanning
+   many props at once instead of scrolling through cards one at a time. */
+.nfl-board-view-toggle { display:flex;gap:4px;padding:4px;border:1px solid #384353;border-radius:12px;background:#0e131a; }
+.nfl-board-view-toggle button { display:grid;place-items:center;width:36px;height:36px;border:0;border-radius:9px;color:#8a97a6;background:transparent;cursor:pointer; }
+.nfl-board-view-toggle button[aria-pressed=true] { color:var(--nfl-on-accent,#fff);background:linear-gradient(135deg,var(--nfl-accent,#0082fe),var(--nfl-accent-soft,#4fa8ff)); }
+.nfl-board-table-wrap { overflow-x:auto;border:1px solid #384353;border-radius:16px;background:#171d26; }
+.nfl-board-table { width:100%;min-width:760px;border-collapse:collapse;font-size:13px; }
+.nfl-board-table thead th { position:sticky;top:0;background:#171d26;text-align:left;padding:12px 10px;border-bottom:1px solid #384353;white-space:nowrap;z-index:1; }
+.nfl-board-table thead th:first-child { min-width:220px; }
+.nfl-board-table th button { display:flex;align-items:center;gap:4px;border:0;background:transparent;color:#8a97a6;font:700 11px var(--font-mono,monospace);letter-spacing:.05em;text-transform:uppercase;cursor:pointer;padding:0; }
+.nfl-board-table th button.active,.nfl-board-table th button:hover { color:#e7edf5; }
+.nfl-board-table tbody tr { border-bottom:1px solid #232c38; }
+.nfl-board-table tbody tr.clickable { cursor:pointer; }
+.nfl-board-table tbody tr.clickable:hover { background:#1c232e; }
+.nfl-board-table td { padding:10px; vertical-align:middle; }
+.nfl-board-cell-player { display:flex;align-items:center;gap:10px; }
+.nfl-board-cell-player img { width:32px;height:32px;border-radius:8px;object-fit:cover;background:#232c38;flex-shrink:0; }
+.nfl-board-cell-player strong { display:block;font-size:13px;color:#f1f5f9; }
+.nfl-board-cell-player small { display:block;color:#aeb8c6;font-size:11px;margin-top:2px; }
+.nfl-board-cell-player .nfl-board-cell-meta { color:#7c8797; }
+.nfl-board-cell { text-align:center;white-space:nowrap; }
+.nfl-board-cell strong { display:block;font-size:13px; }
+.nfl-board-cell small { display:block;color:#8a97a6;font-size:10px;margin-top:2px; }
+.nfl-board-cell.muted { color:#57626f; }
+.nfl-board-cell.good strong { color:var(--nfl-green,#68d5ac); }
+.nfl-board-cell.bad strong { color:var(--nfl-red,#ff8b96); }
+@media(max-width:700px){ .nfl-board-table-wrap { border-radius:12px; } }
 .nfl-volume-comparison { display:flex;justify-content:space-between;gap:12px;padding:12px 0; }.nfl-volume-comparison b { display:block;font-size:24px; }.nfl-volume-comparison span { font-size:12px;color:#b8cbd8; }
 .nfl-opponent-panel .nfl-stat-grid { display:block; }.nfl-opponent-panel .nfl-stat { display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:48px;padding:12px 0;border:0;border-bottom:1px solid #2d3a47;background:none;border-radius:0; }.nfl-opponent-panel .nfl-stat span { font-size:12px;max-width:70%; }.nfl-opponent-panel .nfl-stat strong { font-size:20px; }
 .nfl-app-shell .nfl-home-head { margin:16px 0; }.nfl-app-shell .nfl-home-head h2 { font-size:22px;margin:0; }.nfl-app-shell .nfl-player-search { padding:12px;border-radius:16px;margin:0 0 18px; }.nfl-app-shell .nfl-player-search label { display:none; }.nfl-app-shell .nfl-player-search input { font-size:16px;background:none;padding:6px; }

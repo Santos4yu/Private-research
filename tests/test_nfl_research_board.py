@@ -5,7 +5,7 @@ from datetime import datetime,timezone
 from copy import deepcopy
 from dataclasses import dataclass
 from unittest.mock import patch
-from backend.sports.nfl.research_board import screen,support,attach_opponent_volume
+from backend.sports.nfl.research_board import screen,support,attach_opponent_volume,window_stats
 class ResearchBoardTests(unittest.TestCase):
  def setUp(self):
   self.now=datetime(2026,9,13,tzinfo=timezone.utc)
@@ -34,6 +34,33 @@ class ResearchBoardTests(unittest.TestCase):
  def test_sample_adjustment(self):self.assertGreater(support(20,20),support(8,8))
  def test_started_event_is_empty(self):
   self.event['startsAt']=self.now.isoformat();self.assertEqual(self.run_screen(),[])
+ def test_window_breakdown_present_and_consistent_with_legacy_fields(self):
+  r=self.run_screen()[0]
+  for key in ('l5','l10','l15','l20','h2h'):self.assertIn(key,r['windows'])
+  self.assertEqual(r['windows']['l10']['hits'],r['recentHits']);self.assertEqual(r['windows']['l10']['decisions'],r['recentDecisions'])
+  self.assertEqual(r['windows']['l20']['hits'],r['hits']);self.assertEqual(r['windows']['l20']['decisions'],r['decisions'])
+  self.assertEqual(r['windows']['l5']['sample'],5)
+  self.assertIsNone(r['windows']['h2h']['hitRate'])
+ def test_h2h_uses_full_history_not_capped_window(self):
+  self.row['opponentId']='DEN'
+  self.logs=[Obj(player_id='mock',team_id='A',season_type='REG',game_id=f'2025_{w}_A_C',season=2025,week=w,opponent_team_id='DEN' if w<=2 else 'BUF',stats={'passing_yards':300 if w<=2 else 150}) for w in range(1,25)]
+  r=self.run_screen()[0]
+  # The two oldest games (vs DEN) fall outside the capped 20-game main
+  # sample — main average reflects only the 22 later BUF games — but H2H
+  # looks at the player's full eligible history, not the capped window.
+  self.assertEqual(r['average'],150)
+  self.assertEqual(r['windows']['h2h']['sample'],2)
+  self.assertEqual(r['windows']['h2h']['hits'],2)
+
+class WindowStatsTests(unittest.TestCase):
+ def test_empty_values(self):self.assertEqual(window_stats([],200.5,'OVER'),{'hits':0,'misses':0,'pushes':0,'decisions':0,'hitRate':None,'sample':0,'average':None})
+ def test_hits_misses_pushes(self):
+  result=window_stats([250,180,200.5,300],200.5,'OVER')
+  self.assertEqual((result['hits'],result['misses'],result['pushes'],result['decisions']),(2,1,1,3))
+  self.assertAlmostEqual(result['hitRate'],200/3)
+ def test_under_direction(self):
+  result=window_stats([100,300],200.5,'UNDER')
+  self.assertEqual(result['hits'],1);self.assertEqual(result['hitRate'],50.0)
 
 @dataclass
 class MockPlayer:
