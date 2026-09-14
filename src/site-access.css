@@ -7,7 +7,7 @@ html:not([data-site-access="granted"]) #dock-root{display:none!important}
 .site-policy-gate[hidden],.site-account-bar[hidden],.site-auth-card [hidden]{display:none!important}
 .site-auth-card{width:min(100%,420px);box-sizing:border-box;padding:30px;border:1px solid #344152;border-radius:24px;background:#121a25;box-shadow:0 24px 80px #0005}
 .site-auth-brand{display:flex;gap:12px;align-items:center;color:#e9eef6;font-size:16px;font-weight:600;margin-bottom:28px}
-.site-auth-mark{display:grid;place-items:center;width:40px;height:40px;background:#d5fa64;color:#101711;border-radius:11px;font-size:30px;font-weight:800;font-style:italic}
+.site-auth-mark{display:grid;place-items:center;width:40px;height:40px;background:#0082fe;color:#ffffff;border-radius:11px;font-size:30px;font-weight:800;font-style:italic}
 .site-auth-card h1{font-size:26px;line-height:1.2;letter-spacing:-.045em;margin:24px 0 8px;font-weight:650}
 .site-auth-subtitle{color:#abb8c9;font-size:13px;line-height:1.6;margin:0 0 24px}
 .site-auth-modes{display:grid;grid-template-columns:1fr 1fr;gap:4px;border:1px solid #344152;background:#0b111a;border-radius:12px;padding:4px}
@@ -22,7 +22,7 @@ html:not([data-site-access="granted"]) #dock-root{display:none!important}
 .site-auth-links{display:flex;justify-content:flex-end;margin-top:4px}
 .site-text-button,.site-admin-link{min-height:44px;border:0;background:transparent;color:#bfcad9;font:500 12px 'Sora',sans-serif;cursor:pointer;padding:8px 0}
 .site-auth-links .site-text-button{min-height:44px;color:#d2dfef}
-.site-primary-button{width:100%;min-height:50px;padding:12px 16px;border:1px solid transparent;border-radius:12px;background:#d5fa64;color:#121a0b;font:650 14px 'Sora',sans-serif;cursor:pointer}
+.site-primary-button{width:100%;min-height:50px;padding:12px 16px;border:1px solid transparent;border-radius:12px;background:#0082fe;color:#ffffff;font:650 14px 'Sora',sans-serif;cursor:pointer}
 .site-primary-button:disabled{opacity:.6;cursor:wait}
 .site-auth-feedback{color:#edc99e;font-size:13px;line-height:1.6;margin:10px 0;overflow-wrap:anywhere}
 .site-auth-feedback:empty{display:none}
@@ -36,7 +36,7 @@ html:not([data-site-access="granted"]) #dock-root{display:none!important}
 .site-account-dialog h2{font-size:20px;margin:0}
 .site-dialog-close{min-width:44px;min-height:44px;border:1px solid #445166;border-radius:12px;background:#202a38;color:#f1f5f9;font-size:22px;cursor:pointer}
 .site-account-email{color:#aebbd0;font-size:14px;overflow-wrap:anywhere;margin:22px 0}
-.site-auth-card button:focus-visible,.site-auth-card input:focus-visible,.site-account-trigger:focus-visible,.site-account-dialog button:focus-visible{outline:2px solid #d5fa64;outline-offset:3px}
+.site-auth-card button:focus-visible,.site-auth-card input:focus-visible,.site-account-trigger:focus-visible,.site-account-dialog button:focus-visible{outline:2px solid #0082fe;outline-offset:3px}
 #site-controls{background:#141c28;border:1px solid #445166;padding:20px;border-radius:18px;margin:20px 0;color:#f1f5f9}
 #site-controls fieldset{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 #site-controls label{margin:14px 0;min-height:44px;display:flex;align-items:center}

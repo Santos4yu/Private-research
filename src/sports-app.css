@@ -2,7 +2,7 @@
 :root[data-theme="obsidian"] {
   --theme-bg: #0c0e12; --theme-bg-2: #11141a; --theme-panel: #171a20; --theme-panel-2: #20242c;
   --theme-border: #2b3039; --theme-text: #f5f7f7; --theme-dim: #b1b8c4; --theme-faint: #949cac;
-  --theme-accent: #d5fa64; --theme-accent-soft: #e6ff9f; --theme-accent-dim: #d5fa6416; --theme-on-accent: #152009;
+  --theme-accent: #0082fe; --theme-accent-soft: #7ec4ff; --theme-accent-dim: #0082fe16; --theme-on-accent: #ffffff;
 }
 :root[data-theme] #panel-research #empty-state.research-launchpad:not([hidden]) {
   display: block !important; width: 100% !important; max-width: 1120px !important;

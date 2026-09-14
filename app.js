@@ -146,7 +146,7 @@ const els = {};
 const THEME_KEY = "vortex_theme_mode";
 const ACCENT_THEME_KEY = "vortex_custom_accents";
 const ACCENT_PRESETS_KEY = "vortex_accent_presets";
-const DEFAULT_ACCENTS = Object.freeze({ primary: "#d5fa64", secondary: "#bca6ff", tint: 0 });
+const DEFAULT_ACCENTS = Object.freeze({ primary: "#0082fe", secondary: "#d6e1ea", tint: 0 });
 const EXPERIENCE_KEY = "private_jarvis_interface";
 // User accents are applied before the first paint and remain independent of
 // the fixed charcoal surface system.

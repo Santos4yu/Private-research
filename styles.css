@@ -6736,7 +6736,7 @@ html, body, #app-shell { min-height:100%; background-color:var(--theme-bg,var(--
 }
 :root[data-theme] .profile-stats-menu-item.active {
   background: var(--theme-accent-dim, rgba(255,157,22,.14))!important;
-  color: var(--theme-accent, #d5fa64)!important;
+  color: var(--theme-accent, #0082fe)!important;
 }
 :root[data-theme] .rate-filter {
   background: var(--theme-panel, #111)!important;
