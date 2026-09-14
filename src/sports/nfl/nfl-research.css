@@ -16,7 +16,7 @@
    section, applied here instead of per-rule so the whole area reads as one
    consistent, raised design system rather than a flat list of gray boxes. */
 .nfl-player-search, .nfl-search-results, .nfl-recent-row > button, .nfl-feature-card,
-.nfl-tool-strip article, .nfl-prop-selector button, .nfl-edge-badge, .nfl-stat,
+.nfl-tool-strip article, .nfl-prop-selector button, .nfl-edge-badge, .nfl-window-chip, .nfl-stat,
 .nfl-notice, .nfl-research-tabs, .nfl-window-tabs button, .nfl-chart-card,
 .nfl-match-title, .nfl-game-matchup, .nfl-context-list, .nfl-injury-unit,
 .nfl-health-score, .nfl-health-list, .nfl-loading, .nfl-history-control,
@@ -130,6 +130,19 @@
 .nfl-edge-badge.bad { border-color: color-mix(in srgb, var(--nfl-red) 55%, var(--nfl-border)); background: color-mix(in srgb, var(--nfl-red) 12%, var(--nfl-surface)); }
 .nfl-edge-badge.bad strong { color: var(--nfl-red); }
 .nfl-edge-caveat { width: 100%; color: var(--theme-faint, #8c96a6); font-size: 11px; }
+
+/* At-a-glance hit rate strip (Trends tab): every standard window compared
+   side by side instead of one number at a time. */
+.nfl-window-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; margin: 4px 0; }
+.nfl-window-chip { display: flex; flex-direction: column; gap: 3px; padding: 11px 13px; border: 1px solid var(--nfl-border); border-radius: 13px; background: var(--nfl-raised); }
+.nfl-window-chip span { color: var(--theme-faint, #8c96a6); font: 700 10px/1.2 var(--font-mono, monospace); letter-spacing: .1em; text-transform: uppercase; }
+.nfl-window-chip strong { font-size: 22px; letter-spacing: -.02em; color: var(--theme-text, #f5f7fa); }
+.nfl-window-chip small { color: var(--theme-muted, #adb6c4); font-size: 11px; }
+.nfl-window-chip.good { border-color: color-mix(in srgb, var(--nfl-green) 55%, var(--nfl-border)); background: color-mix(in srgb, var(--nfl-green) 14%, var(--nfl-raised)); }
+.nfl-window-chip.good strong { color: var(--nfl-green); }
+.nfl-window-chip.bad { border-color: color-mix(in srgb, var(--nfl-red) 55%, var(--nfl-border)); background: color-mix(in srgb, var(--nfl-red) 14%, var(--nfl-raised)); }
+.nfl-window-chip.bad strong { color: var(--nfl-red); }
+@media (max-width: 640px) { .nfl-window-strip { grid-template-columns: repeat(auto-fit, minmax(78px, 1fr)); } .nfl-window-chip strong { font-size: 18px; } }
 .nfl-research-tabs { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; padding: 6px; border: 1px solid var(--nfl-border); border-radius: 17px; background: var(--nfl-surface); }
 .nfl-research-tabs button { display: grid; place-items: center; gap: 5px; min-height: 58px; padding: 7px; border: 0; border-radius: 11px; color: var(--theme-faint, #8c96a6); background: transparent; cursor: pointer; }
 .nfl-research-tabs button svg { width: 18px; }

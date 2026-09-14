@@ -5,6 +5,7 @@ import {gameStatValue,teamLogoUrl} from './nfl-ui-core';
 import {selectTrendGames,compareTrend,opportunityField,quoteIdentity} from './trend-data';
 
 const fmt=value=>Number.isFinite(value)?Number(value.toFixed(1)):'—';
+const hitTone=rate=>rate==null?'neutral':rate>=60?'good':rate<=40?'bad':'neutral';
 const emptyFilters={season:'',venue:'',opponent:'',team:'',minVolume:'',maxVolume:'',minSnaps:''};
 const label={season:'Season',venue:'Location',opponent:'Opponent',team:'Team',minVolume:'Min opportunities',maxVolume:'Max opportunities',minSnaps:'Min snap %'};
 
@@ -17,6 +18,21 @@ export function NFLTrendPanel({logs,usage=[],selectedProp,quote,opponent,market,
   const field=opportunityField(selectedProp.key);
   const sample=useMemo(()=>selectTrendGames(logs,usage,selectedProp.key,filters,excluded,count),[logs,usage,selectedProp.key,filters,excluded,count]);
   const summary=compareTrend(sample.selected,selectedProp.key,line,direction);
+  // A PickFinder-style "at a glance" strip: every standard window compared
+  // side by side, independent of whatever custom count/filters the chart
+  // below is currently drilled into.
+  const windows=useMemo(()=>{
+    const eligible=sample.eligible;
+    const windowFor=n=>compareTrend(eligible.slice(-n),selectedProp.key,line,direction);
+    const h2hGames=opponent?logs.filter(row=>row.opponent_team_id===opponent && Number.isFinite(gameStatValue(row,selectedProp.key))):[];
+    return [
+      {key:'l5',label:'L5',...windowFor(5)},
+      {key:'l10',label:'L10',...windowFor(10)},
+      {key:'l15',label:'L15',...windowFor(15)},
+      {key:'season',label:'Season',...compareTrend(eligible,selectedProp.key,line,direction)},
+      ...(opponent?[{key:'h2h',label:'H2H',...compareTrend(h2hGames,selectedProp.key,line,direction)}]:[]),
+    ];
+  },[sample.eligible,logs,selectedProp.key,line,direction,opponent]);
   const activeFilters=Object.entries(filters).filter(([,v])=>v!=='');
   const setFilter=(key,value)=>setFilters(current=>({...current,[key]:value}));
   const changeLine=value=>{setCustom(true);setLine(value===''?null:Number.isFinite(Number(value))?Number(value):null);};
@@ -51,6 +67,7 @@ export function NFLTrendPanel({logs,usage=[],selectedProp,quote,opponent,market,
     <div className="nfl-line-editor"><div className="nfl-stepper"><button type="button" aria-label="Decrease comparison line" disabled={line==null} onClick={()=>changeLine(Number((line-.5).toFixed(1)))}><Minus size={18}/></button><input aria-label="Comparison line" type="number" inputMode="decimal" step="0.5" value={line??''} placeholder="Line" onChange={e=>changeLine(e.target.value)}/><button type="button" aria-label="Increase comparison line" disabled={line==null} onClick={()=>changeLine(Number((line+.5).toFixed(1)))}><Plus size={18}/></button></div><div className="nfl-side-switch" role="group" aria-label="Comparison direction">{[['OVER','More'],['UNDER','Less']].map(([key,text])=><button type="button" key={key} aria-pressed={direction===key} onClick={()=>{setDirection(key);setCustom(key!==quote?.direction || line!==quote?.value);}}>{text}</button>)}</div>{quote && custom && <button type="button" className="nfl-reset" onClick={()=>{setLine(quote.value);setDirection(quote.direction);setCustom(false);}}>Use posted line</button>}
 
     </div>
+    {line!=null && <div className="nfl-window-strip" role="group" aria-label="Hit rate by window">{windows.map(w=><div className={`nfl-window-chip ${hitTone(w.hitRate)}`} key={w.key}><span>{w.label}</span><strong>{w.hitRate==null?'—':`${Math.round(w.hitRate)}%`}</strong><small>{w.games?`${w.hits}-${w.misses}${w.pushes?` · ${w.pushes}p`:''} · avg ${fmt(w.average)}`:'No games'}</small></div>)}</div>}
     <div className="nfl-window-tabs" role="group" aria-label="Game sample">{[5,10,15,20].map(n=><button key={n} type="button" aria-pressed={count===n} className={count===n?'active':''} onClick={()=>setCount(n)}>L{n}</button>)}<button type="button" onClick={()=>setCount(Math.max(1,sample.included.length))}>Max</button><button type="button" disabled={!opponent} aria-pressed={filters.opponent===opponent} onClick={()=>setFilter('opponent',filters.opponent===opponent?'':opponent)}>H2H</button></div>
     <div className="nfl-game-count"><button type="button" className="nfl-filter-toggle" aria-haspopup="dialog" onClick={()=>setFiltersOpen(true)}><SlidersHorizontal size={16}/>Filters{activeFilters.length>0&&<b>{activeFilters.length}</b>}</button><div className="nfl-stepper"><button type="button" aria-label="Remove one game from sample" disabled={count<=1} onClick={()=>setCount(n=>Math.max(1,n-1))}><Minus size={18}/></button><input type="number" inputMode="numeric" aria-label="Number of games" min="1" max={Math.max(1,sample.included.length)} value={count} onChange={e=>setCount(Math.max(1,Math.min(100,Number(e.target.value)||1)))}/><button type="button" aria-label="Add one game to sample" disabled={count>=sample.included.length} onClick={()=>setCount(n=>n+1)}><Plus size={18}/></button></div></div>
     <div className="nfl-stat-grid nfl-trend-summary">{[['Hit rate',summary.hitRate==null?'—':`${fmt(summary.hitRate)}%`],['Record',summary.hits==null?'—':`${summary.hits}–${summary.misses}${summary.pushes?` · ${summary.pushes} push`:''}`],['Average',fmt(summary.average)]].map(([name,value])=><article className="nfl-stat" key={name}><span>{name}</span><strong>{value}</strong></article>)}</div>
