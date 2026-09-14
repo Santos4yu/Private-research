@@ -42,6 +42,8 @@ def _load(season,player_id,week,prop):
     result=build_matchup(data,asdict(player),opponent,prop,week,opp,environment,personnel)
     from .matchup_volume_context import opponent_volume
     result['opponentVolume'] = opponent_volume(data,asdict(player),opponent,prop,week,{p.id for p in roster.data or [] if p.position == 'QB'})
+    from .position_defense import position_defense_context
+    result['positionDefense'] = position_defense_context(data,{p.id:p for p in roster.data or []},opponent,player.position,week)
     if data.get('history',{}).get('usesPriorSeason'):
         result.update(history=data['history'],modelVersion='NFL_MATCHUP_V3_EARLY_SEASON',status='LOW_CONFIDENCE')
     result.update(source='nflverse',sourceUrl=data['sourceUrl'],fetchedAt=data['fetchedAt'],observedAt=data.get('observedAt'))
