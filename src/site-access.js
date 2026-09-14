@@ -119,9 +119,34 @@ export function initSiteAccess(){
  if(initPromise)return initPromise;
  initPromise=(async()=>{await refreshSiteAccess();setInterval(()=>{if(!document.hidden)refreshSiteAccess();},30000);if(accessGranted(status))return status;return new Promise(resolve=>{const listener=e=>{if(e.detail.accessGranted){window.removeEventListener('vortex:site-policy',listener);resolve(e.detail);}};window.addEventListener('vortex:site-policy',listener);});})();return initPromise;
 }
+// Downscales only if larger than maxDim (a smaller source photo is left
+// alone rather than upscaled/softened) and re-encodes as JPEG. Kept
+// tighter than the personal per-device version in app.js since this one
+// gets fetched by every visitor's browser, not just the admin's own.
+function resizeSiteImage(file,maxDim=1600){
+ return new Promise((resolve,reject)=>{
+  const reader=new FileReader();
+  reader.onerror=()=>reject(new Error('Could not read file'));
+  reader.onload=()=>{
+   const img=new Image();
+   img.onerror=()=>reject(new Error('Could not decode image'));
+   img.onload=()=>{
+    const scale=Math.min(1,maxDim/Math.max(img.naturalWidth,img.naturalHeight));
+    const width=Math.max(1,Math.round(img.naturalWidth*scale)),height=Math.max(1,Math.round(img.naturalHeight*scale));
+    const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
+    const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+    ctx.drawImage(img,0,0,width,height);
+    resolve(canvas.toDataURL('image/jpeg',0.85));
+   };
+   img.src=reader.result;
+  };
+  reader.readAsDataURL(file);
+ });
+}
+
 export async function loadSiteControls(){
  const policy=await request('/api/v2-admin?action=site-settings');let host=document.getElementById('site-controls');if(!host)return;
- host.hidden=false;host.innerHTML='<h3>Website controls</h3><form><div class="site-control-switches"></div><label>Maintenance message<textarea name="message" maxlength="240" required></textarea></label><fieldset><legend>Available tabs</legend></fieldset><fieldset class="site-sport-controls"><legend>Visible sports</legend></fieldset><div class="bg-image-control"><span class="settings-label">Site background image — everyone sees this</span><input type="url" name="bgUrl" placeholder="https://example.com/photo.jpg" autocomplete="off" inputmode="url" /><label class="accent-tint-control"><span>Opacity</span><input type="range" name="bgOpacity" min="5" max="100" step="1" value="35" aria-label="Site background opacity" /><output>35%</output></label><p class="theme-picker-note">This is separate from a member’s personal background in their own Settings — their choice always overrides this on their device. Members without a personal background see this one. Must be a real hosted link (no uploads) since it’s sent to every visitor.</p></div><p role="status"></p><button type="submit">Save website settings</button></form>';
+ host.hidden=false;host.innerHTML='<h3>Website controls</h3><form><div class="site-control-switches"></div><label>Maintenance message<textarea name="message" maxlength="240" required></textarea></label><fieldset><legend>Available tabs</legend></fieldset><fieldset class="site-sport-controls"><legend>Visible sports</legend></fieldset><div class="bg-image-control"><span class="settings-label">Site background image — everyone sees this</span><button type="button" class="bg-image-upload-btn" id="site-bg-upload">Upload a photo</button><input type="file" id="site-bg-file" accept="image/*" hidden /><div class="bg-image-divider"><span>or paste a link</span></div><input type="url" name="bgUrl" placeholder="https://example.com/photo.jpg" autocomplete="off" inputmode="url" /><label class="accent-tint-control"><span>Opacity</span><input type="range" name="bgOpacity" min="5" max="100" step="1" value="35" aria-label="Site background opacity" /><output>35%</output></label><p class="theme-picker-note">This is separate from a member’s personal background in their own Settings — their choice always overrides this on their device. Members without a personal background see this one.</p></div><p role="status"></p><button type="submit">Save website settings</button></form>';
  const form=host.querySelector('form');for(const [key,title] of Object.entries({maintenance:'Maintenance mode — members cannot use the website',requireLogin:'Require email account to access research',registrationOpen:'Allow new account registrations'})){const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.name=key;input.checked=policy[key];label.append(input,document.createTextNode(title));host.querySelector('.site-control-switches').append(label);}
  form.elements.message.value=policy.message;
  for(const [key,title] of Object.entries(names)){const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.name='tab';input.value=key;input.checked=!policy.disabledTabs.includes(key);label.append(input,document.createTextNode(title));host.querySelector('fieldset').append(label);}
@@ -130,5 +155,19 @@ export async function loadSiteControls(){
  form.elements.bgUrl.value=bg.url||'';form.elements.bgOpacity.value=String(bg.opacity??35);
  const bgOpacityOutput=host.querySelector('.bg-image-control output');bgOpacityOutput.textContent=`${form.elements.bgOpacity.value}%`;
  form.elements.bgOpacity.addEventListener('input',()=>{bgOpacityOutput.textContent=`${form.elements.bgOpacity.value}%`;});
- form.onsubmit=async e=>{e.preventDefault();const message=host.querySelector('[role=status]');const button=host.querySelector('[type=submit]');button.disabled=true;try{await request('/api/v2-admin',{action:'site-settings',settings:{maintenance:form.elements.maintenance.checked,requireLogin:form.elements.requireLogin.checked,registrationOpen:form.elements.registrationOpen.checked,message:form.elements.message.value,disabledSports:[...form.querySelectorAll('[name=sport]')].filter(c=>!c.checked).map(c=>c.value),disabledTabs:[...form.querySelectorAll('[name=tab]')].filter(c=>!c.checked).map(c=>c.value),backgroundImage:{url:form.elements.bgUrl.value.trim(),opacity:Number(form.elements.bgOpacity.value)}}});message.textContent='Saved. Changes apply to member requests immediately.';await refreshSiteAccess();}catch(error){message.textContent=error.message;}finally{button.disabled=false;}};
+ const statusEl=()=>host.querySelector('[role=status]');
+ host.querySelector('#site-bg-upload').addEventListener('click',()=>host.querySelector('#site-bg-file').click());
+ host.querySelector('#site-bg-file').addEventListener('change',async e=>{
+  const file=e.target.files?.[0];e.target.value='';
+  if(!file)return;
+  if(!file.type.startsWith('image/')){statusEl().textContent='Please choose an image file.';return;}
+  statusEl().textContent='Uploading photo…';
+  try{
+   const dataUrl=await resizeSiteImage(file);
+   const result=await request('/api/v2-admin',{action:'site-background-upload',image:dataUrl});
+   form.elements.bgUrl.value=result.url;
+   statusEl().textContent='Photo uploaded. Click "Save website settings" to publish it to everyone.';
+  }catch(error){statusEl().textContent=error.message;}
+ });
+ form.onsubmit=async e=>{e.preventDefault();const message=statusEl();const button=host.querySelector('[type=submit]');button.disabled=true;try{await request('/api/v2-admin',{action:'site-settings',settings:{maintenance:form.elements.maintenance.checked,requireLogin:form.elements.requireLogin.checked,registrationOpen:form.elements.registrationOpen.checked,message:form.elements.message.value,disabledSports:[...form.querySelectorAll('[name=sport]')].filter(c=>!c.checked).map(c=>c.value),disabledTabs:[...form.querySelectorAll('[name=tab]')].filter(c=>!c.checked).map(c=>c.value),backgroundImage:{url:form.elements.bgUrl.value.trim(),opacity:Number(form.elements.bgOpacity.value)}}});message.textContent='Saved. Changes apply to member requests immediately.';await refreshSiteAccess();}catch(error){message.textContent=error.message;}finally{button.disabled=false;}};
 }

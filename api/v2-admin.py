@@ -62,6 +62,11 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(200, result)
             if action == "cron-scan":
                 return self._handle_cron_scan()
+            if action == "site-background":
+                # Public and unauthenticated on purpose: this is the image
+                # every visitor's browser fetches directly (not through the
+                # JSON site-status poll), so it can be cached long-term.
+                return self._handle_site_background()
             return self._send(400, {"error": "Unknown or missing action"})
         except Exception as exc:  # noqa: BLE001 -- always return JSON, see do_POST
             return self._send(500, {"error": f"Unhandled error: {exc}"})
@@ -92,6 +97,16 @@ class handler(BaseHTTPRequestHandler):
                 return self._handle_key(body)
             if action == "scan":
                 return self._handle_scan(body)
+            if action == "site-background-upload":
+                if not admin_auth.is_admin_request(self.headers):return self._send(401, {"error":"Admin session required"})
+                from site_controls import same_origin
+                if not same_origin(self.headers):return self._send(403,{"error":"Same-origin request required"})
+                from site_background import save_image
+                try:
+                    version = save_image(body.get("image"))
+                except ValueError as exc:
+                    return self._send(400, {"error": str(exc)})
+                return self._send(200, {"url": f"/api/v2-admin?action=site-background&v={version}"})
             return self._send(400, {"error": "Unknown action"})
         except Exception as exc:  # noqa: BLE001 -- always return JSON, never let
             # Vercel's own generic (non-JSON) crash page reach the frontend,
@@ -141,6 +156,25 @@ class handler(BaseHTTPRequestHandler):
         top_per_stat = int(body.get("top_per_stat", 4))
         min_edge = float(body.get("min_edge", 0.0))
         return self._run_scan(top_per_stat=top_per_stat, min_edge=min_edge)
+
+    def _handle_site_background(self):
+        import base64
+        from site_background import read_image
+        record = read_image()
+        if not record:
+            return self._send(404, {"error": "No site background image set"})
+        try:
+            raw = base64.b64decode(record["data"])
+        except Exception:
+            return self._send(404, {"error": "No site background image set"})
+        self.send_response(200)
+        self.send_header("Content-Type", record["contentType"])
+        # The URL is cache-busted with ?v=<version> on every new upload, so
+        # this can be cached aggressively without ever serving a stale image.
+        self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
 
     def _handle_cron_scan(self):
         secret = os.getenv("CRON_SECRET", "")

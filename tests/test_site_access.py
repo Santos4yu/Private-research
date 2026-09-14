@@ -34,6 +34,33 @@ class SiteControlsTests(unittest.TestCase):
  def test_background_image_rejects_opacity_out_of_range_or_wrong_type(self):
   for opacity in (0,4,101,'50',True,None):
    with self.assertRaises(ValueError):controls.validate({**controls.DEFAULT,'backgroundImage':{'url':'','opacity':opacity}})
+ def test_background_image_accepts_own_uploaded_image_endpoint(self):
+  result=controls.validate({**controls.DEFAULT,'backgroundImage':{'url':'/api/v2-admin?action=site-background&v=1234567890','opacity':40}})
+  self.assertEqual(result['backgroundImage']['url'],'/api/v2-admin?action=site-background&v=1234567890')
+ def test_background_image_rejects_lookalike_or_traversal_paths(self):
+  for url in ('/api/v2-admin?action=site-background','/api/v2-admin?action=site-background&v=abc','/api/other?action=site-background&v=1','//evil.com/api/v2-admin?action=site-background&v=1'):
+   with self.assertRaises(ValueError):controls.validate({**controls.DEFAULT,'backgroundImage':{'url':url,'opacity':35}})
+
+import base64
+import site_background as bg_store
+class SiteBackgroundImageTests(unittest.TestCase):
+ SMALL_PNG=base64.b64encode(bytes.fromhex('89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de0000000c4944415478da6360606060000000050001a5f645400000000049454e44ae426082')).decode()
+ def test_save_and_read_round_trip(self):
+  with patch.object(bg_store.store,'set',return_value=True) as mock_set, patch.object(bg_store.store,'get',side_effect=lambda k:mock_set.call_args[0][1]):
+   version=bg_store.save_image(f'data:image/png;base64,{self.SMALL_PNG}')
+   self.assertTrue(version.isdigit())
+   record=bg_store.read_image()
+   self.assertEqual(record['contentType'],'image/png')
+   self.assertEqual(record['data'],self.SMALL_PNG)
+ def test_save_rejects_malformed_or_wrong_type(self):
+  for bad in ('not a data url',f'data:text/plain;base64,{self.SMALL_PNG}','data:image/png;base64,not-valid-base64!!!'):
+   with self.assertRaises(ValueError):bg_store.save_image(bad)
+ def test_save_rejects_oversized_image(self):
+  huge=base64.b64encode(b'0'*(bg_store.MAX_BYTES+1)).decode()
+  with self.assertRaises(ValueError):bg_store.save_image(f'data:image/jpeg;base64,{huge}')
+ def test_read_returns_none_when_unset_or_corrupt(self):
+  with patch.object(bg_store.store,'get',return_value=None):self.assertIsNone(bg_store.read_image())
+  with patch.object(bg_store.store,'get',return_value='not json'):self.assertIsNone(bg_store.read_image())
  def test_same_origin(self):
   self.assertTrue(controls.same_origin({'Origin':'https://example.com','Host':'example.com'}));self.assertFalse(controls.same_origin({'Origin':'https://evil.com','Host':'example.com'}));self.assertFalse(controls.same_origin({'Host':'example.com'}))
  def test_required_login_cannot_be_bypassed_by_beta(self):

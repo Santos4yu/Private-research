@@ -1,7 +1,9 @@
 """Shared operational policy. No sports/model logic lives here."""
 import json
+import re
 from datetime import datetime, timezone
 from v2.board import store, admin_auth
+SITE_BACKGROUND_PATH_RE=re.compile(r'^/api/v2-admin\?action=site-background&v=\d+$')
 KEY='krazy_data:site_controls:v1'
 TABS=('research','v2','slate','saved','slip','builder','moneyline','nrfi')
 DEFAULT={'maintenance':False,'message':'We are updating Vortex. Please check back shortly.','requireLogin':True,'registrationOpen':True,'disabledTabs':[],'disabledSports':[],'backgroundImage':{'url':'','opacity':35},'updatedAt':None}
@@ -13,6 +15,7 @@ def read():
 def _valid_background_url(url):
  if not isinstance(url,str):return False
  if url=='':return True
+ if SITE_BACKGROUND_PATH_RE.match(url):return True  # our own uploaded-image endpoint
  from urllib.parse import urlparse
  try:
   parsed=urlparse(url)
@@ -34,9 +37,10 @@ def validate(body):
  sports=body.get('disabledSports',[])
  if not isinstance(sports,list) or any(t!='nfl' for t in sports):raise ValueError('Invalid sport')
  result['disabledSports']=sorted(set(sports))
- # Site-wide background must be a real hosted link, not an uploaded data:
- # URL -- this gets embedded in every visitor's site-status poll response,
- # so a large inline image would bloat that payload for everyone.
+ # Site-wide background must be a real http(s) link or our own uploaded-
+ # image endpoint (see site_background.py) -- never a raw data: URL, since
+ # this whole object is embedded in every visitor's site-status poll
+ # response and a large inline image would bloat that payload for everyone.
  bg=body.get('backgroundImage') or {}
  if not isinstance(bg,dict):raise ValueError('Invalid background image settings')
  bg_url=bg.get('url','')
