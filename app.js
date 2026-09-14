@@ -6272,7 +6272,7 @@ async function buildResearchShareImage(prop,mode) {
 // the Community feed rather than screenshot the app's own UI directly.
 async function buildSlipShareImage(legs) {
   const scale = 3840 / 2160;
-  const rowH = 220, headerH = 480, footerH = 160;
+  const rowH = 260, headerH = 560, footerH = 180;
   const logicalH = headerH + legs.length * rowH + footerH;
   const canvas = document.createElement("canvas");
   canvas.width = 3840;
@@ -6281,42 +6281,80 @@ async function buildSlipShareImage(legs) {
   c.scale(scale, scale);
   const styles = getComputedStyle(document.documentElement);
   const accent = styles.getPropertyValue("--theme-accent").trim() || "#0082fe";
-  const round = (x, y, w, h, r, fill, stroke) => { c.beginPath(); c.roundRect(x, y, w, h, r); if (fill) { c.fillStyle = fill; c.fill(); } if (stroke) { c.strokeStyle = stroke; c.lineWidth = 3; c.stroke(); } };
+  const secondary = styles.getPropertyValue("--theme-secondary").trim() || "#d6e1ea";
+  const round = (x, y, w, h, r, fill, stroke, strokeWidth = 3) => { c.beginPath(); c.roundRect(x, y, w, h, r); if (fill) { c.fillStyle = fill; c.fill(); } if (stroke) { c.strokeStyle = stroke; c.lineWidth = strokeWidth; c.stroke(); } };
+  const circle = (x, y, r, fill, stroke, strokeWidth = 3) => { c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); if (fill) { c.fillStyle = fill; c.fill(); } if (stroke) { c.strokeStyle = stroke; c.lineWidth = strokeWidth; c.stroke(); } };
   const text = (value, x, y, size, color = "#fff", weight = 700, align = "left") => { c.fillStyle = color; c.font = `${weight} ${size}px Inter,system-ui,sans-serif`; c.textAlign = align; c.fillText(String(value), x, y); };
+  const glow = (x, y, r, color) => { const g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, color); g.addColorStop(1, "rgba(0,0,0,0)"); c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2); };
   const drawContain = (image, x, y, w, h) => { const iw = image.width || w, ih = image.height || h, scaleFit = Math.min(w / iw, h / ih), dw = iw * scaleFit, dh = ih * scaleFit; c.drawImage(image, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh); };
+  const clipCircleDraw = (image, cx, cy, r) => { c.save(); c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.clip(); drawContain(image, cx - r, cy - r, r * 2, r * 2); c.restore(); };
+  const triangle = (cx, cy, size, up, color) => { c.fillStyle = color; c.beginPath(); if (up) { c.moveTo(cx, cy - size); c.lineTo(cx - size, cy + size * .7); c.lineTo(cx + size, cy + size * .7); } else { c.moveTo(cx, cy + size); c.lineTo(cx - size, cy - size * .7); c.lineTo(cx + size, cy - size * .7); } c.closePath(); c.fill(); };
   const loadImg = async (url) => { if (!url) return null; try { const response = await fetch(url, { mode: "cors" }); if (!response.ok) return null; return await createImageBitmap(await response.blob()); } catch (_) { return null; } };
   const headshots = await Promise.all(legs.map((leg) => loadImg(leg.headshot ? String(leg.headshot).replace("/headshot/67/current", "/headshot/silo/current") : "")));
   const teamLogos = await Promise.all(legs.map((leg) => { const id = leg.teamId || MLB_TEAM_IDS[String(leg.team || "").toUpperCase()]; return loadImg(id ? `/api/mlb-logo?teamId=${id}` : ""); }));
 
+  // Base gradient + ambient glows + faint accent streaks, same technique as
+  // the single-player research card, so the two share styles feel like one
+  // family instead of two different products.
   const bg = c.createLinearGradient(0, 0, 2160, logicalH);
   bg.addColorStop(0, "#0c1b31"); bg.addColorStop(.5, "#07111f"); bg.addColorStop(1, "#050912");
   c.fillStyle = bg; c.fillRect(0, 0, 2160, logicalH);
-  round(80, 80, 2000, logicalH - 160, 60, "rgba(8,16,29,.78)", "rgba(142,175,224,.20)");
-  round(140, 140, 1880, 108, 30, "rgba(255,255,255,.05)");
-  text("KRAZY DATA", 180, 205, 36, "#fff", 800);
-  text(new Date().toLocaleDateString(), 1980, 203, 24, "#8e9aaa", 700, "right");
-  text(`${legs.length}-LEG PARLAY`, 180, 340, 78, accent, 850);
-  text("Research only · not betting advice", 180, 400, 26, "#8996a7", 650);
+  glow(1820, 140, 720, `${accent}30`);
+  glow(160, logicalH - 200, 640, "rgba(155,77,255,.16)");
+  c.save(); c.globalAlpha = .14; c.strokeStyle = accent; c.lineWidth = 3;
+  for (let i = 0; i < 4; i++) { c.beginPath(); c.moveTo(-100, 260 + i * 90); c.bezierCurveTo(700, 40 + i * 70, 1500, 420 - i * 55, 2260, 120 + i * 45); c.stroke(); }
+  c.restore();
+
+  round(80, 80, 2000, logicalH - 160, 64, "rgba(8,16,29,.80)", "rgba(142,175,224,.22)");
+
+  // Header
+  round(140, 140, 900, 96, 26, "rgba(255,255,255,.055)");
+  const brandDot = c.createLinearGradient(164, 164, 212, 212); brandDot.addColorStop(0, accent); brandDot.addColorStop(1, `color-mix(in srgb, ${accent} 60%, #9b4dff)`);
+  circle(188, 188, 24, brandDot); text("K", 188, 198, 24, "#fff", 900, "center");
+  text("KRAZY DATA", 236, 197, 32, "#fff", 800);
+  round(1400, 152, 620, 72, 22, "rgba(255,255,255,.045)", "rgba(255,255,255,.10)");
+  text(new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }), 2000, 197, 26, "#c3ccd9", 700, "right");
+
+  text(`${legs.length}-LEG PARLAY`, 140, 400, 96, "#fff", 850);
+  c.fillStyle = accent; c.fillRect(140, 424, 210, 10);
+  const sportBadges = [...new Set(legs.map((leg) => leg.sport).filter(Boolean))];
+  let badgeX = 140;
+  sportBadges.forEach((sport) => { const w = 26 + sport.length * 17; round(badgeX, 460, w, 56, 16, `${accent}22`, `${accent}55`); text(sport.toUpperCase(), badgeX + w / 2, 496, 22, accent, 800, "center"); badgeX += w + 14; });
+  text("Research only · not betting advice", 2020, 496, 24, "#8996a7", 650, "right");
+  c.strokeStyle = "rgba(255,255,255,.10)"; c.lineWidth = 2; c.beginPath(); c.moveTo(140, headerH - 30); c.lineTo(2020, headerH - 30); c.stroke();
 
   legs.forEach((leg, i) => {
-    const y = headerH + i * rowH;
-    round(140, y, 1880, rowH - 30, 30, "rgba(255,255,255,.03)", "rgba(255,255,255,.09)");
-    const avatarBox = 150;
-    if (headshots[i]) { round(172, y + 20, avatarBox, avatarBox, 26, "rgba(255,255,255,.04)"); drawContain(headshots[i], 172, y + 20, avatarBox, avatarBox); }
-    else { round(172, y + 20, avatarBox, avatarBox, 26, "rgba(255,255,255,.045)", "rgba(255,255,255,.09)"); text((leg.player || "?").split(" ").map((v) => v[0]).join("").slice(0, 2).toUpperCase(), 172 + avatarBox / 2, y + 20 + avatarBox / 2 + 14, 44, "#fff", 800, "center"); }
-    if (teamLogos[i]) { round(280, y + 118, 66, 66, 20, "rgba(255,255,255,.05)"); drawContain(teamLogos[i], 280, y + 118, 66, 66); }
-    text(leg.player || "Player", 360, y + 78, 44, "#fff", 800);
-    text([leg.team, leg.sport].filter(Boolean).join(" · ").toUpperCase(), 360, y + 122, 22, "#8996a7", 700);
+    const y = headerH + i * rowH, h = rowH - 34;
     const sideUp = String(leg.side || "over").toLowerCase() !== "under";
     const sideColor = sideUp ? "#35e89b" : "#ff6170";
-    round(1440, y + 34, 540, 100, 22, `${sideColor}1a`, `${sideColor}55`);
-    text(`${sideUp ? "OVER" : "UNDER"} ${leg.line}`, 1710, y + 78, 36, sideColor, 850, "center");
-    text(String(leg.betType || "").toUpperCase(), 1710, y + 108, 20, "#cfd8e3", 700, "center");
-    if (leg.tierIcon || leg.score != null) text(`${leg.tierIcon || ""} ${leg.score ?? ""}`.trim(), 360, y + 160, 24, "#8996a7", 700);
+    const rowFill = c.createLinearGradient(140, y, 2020, y);
+    rowFill.addColorStop(0, `${sideColor}14`); rowFill.addColorStop(.18, "rgba(255,255,255,.03)"); rowFill.addColorStop(1, "rgba(255,255,255,.02)");
+    round(140, y, 1880, h, 30, rowFill, "rgba(255,255,255,.09)");
+    c.fillStyle = sideColor; round(140, y, 10, h, 5, sideColor);
+    const cx = 250, cy = y + h / 2, r = 92;
+    circle(cx, cy, r + 6, null, `${sideColor}80`, 5);
+    if (headshots[i]) { circle(cx, cy, r, "rgba(255,255,255,.05)"); clipCircleDraw(headshots[i], cx, cy, r); }
+    else { circle(cx, cy, r, "rgba(255,255,255,.055)"); text((leg.player || "?").split(" ").map((v) => v[0]).join("").slice(0, 2).toUpperCase(), cx, cy + 16, 46, "#fff", 800, "center"); }
+    if (teamLogos[i]) { circle(cx + r - 14, cy + r - 14, 38, "#0e1826", "rgba(255,255,255,.25)", 4); drawContain(teamLogos[i], cx + r - 14 - 26, cy + r - 14 - 26, 52, 52); }
+    const textX = 380;
+    text(leg.player || "Player", textX, y + 88, 48, "#fff", 800);
+    const meta = [leg.team, leg.sport].filter(Boolean).join(" · ").toUpperCase();
+    if (meta) { const mw = c.measureText(meta).width + 32; round(textX, y + 110, mw, 44, 14, "rgba(255,255,255,.06)"); text(meta, textX + 16, y + 140, 21, "#aab5c5", 750); }
+    if (leg.tierIcon || leg.score != null) { const label = `${leg.tierIcon || "⭐"} ${leg.score ?? ""}`.trim(); const tw = c.measureText(label).width + 36; round(textX, y + h - 60, tw, 44, 14, `${accent}1c`, `${accent}45`); text(label, textX + 18, y + h - 30, 22, accent, 800); }
+
+    const pillW = 560, pillX = 1460, pillY = y + h / 2 - 66;
+    const pillFill = c.createLinearGradient(pillX, pillY, pillX + pillW, pillY);
+    pillFill.addColorStop(0, `${sideColor}26`); pillFill.addColorStop(1, `${sideColor}0d`);
+    round(pillX, pillY, pillW, 132, 26, pillFill, `${sideColor}70`, 4);
+    triangle(pillX + 66, pillY + 66, 22, sideUp, sideColor);
+    text(`${sideUp ? "OVER" : "UNDER"} ${leg.line}`, pillX + 116, pillY + 62, 42, sideColor, 850);
+    text(String(leg.betType || "").toUpperCase(), pillX + 116, pillY + 100, 22, "#dfe6ee", 700);
   });
 
-  text("KRAZY DATA", 140, logicalH - 90, 27, "#fff", 800);
-  text("Built with Krazy Data research", 2020, logicalH - 90, 23, "#7f8a99", 600, "right");
+  c.strokeStyle = "rgba(255,255,255,.10)"; c.lineWidth = 2; c.beginPath(); c.moveTo(140, logicalH - footerH + 20); c.lineTo(2020, logicalH - footerH + 20); c.stroke();
+  circle(164, logicalH - 96, 20, brandDot); text("K", 164, logicalH - 88, 20, "#fff", 900, "center");
+  text("KRAZY DATA", 200, logicalH - 84, 27, "#fff", 800);
+  text("Share your own picks — krazydata.site", 2020, logicalH - 84, 23, secondary || "#8fa2c2", 650, "right");
   return await new Promise((resolve) => canvas.toBlob(resolve, "image/png", 1));
 }
 
