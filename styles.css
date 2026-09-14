@@ -3123,6 +3123,13 @@ body.dropdown-scroll-locked{overflow:hidden}.profile-stats-menu,.pp-lines-menu{o
 }
 .modal-overlay[hidden] { display: none; }
 
+/* Admin PIN gate: fully opaque so the site underneath is never visible or
+   guessable through the blur while an admin passcode is being entered. */
+#v2-pin-overlay {
+  background: #0b0c0f !important;
+  backdrop-filter: none !important;
+}
+
 .modal-panel {
   width: 100%;
   max-width: 640px;
