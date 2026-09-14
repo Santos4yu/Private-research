@@ -401,6 +401,8 @@ function cacheEls() {
   els.bgImageApply = document.getElementById("bg-image-apply");
   els.bgImageRemove = document.getElementById("bg-image-remove");
   els.bgImageStatus = document.getElementById("bg-image-status");
+  els.bgImageUploadBtn = document.getElementById("bg-image-upload");
+  els.bgImageFile = document.getElementById("bg-image-file");
   els.gamelogOverlay = document.getElementById("gamelog-overlay");
   els.gamelogTitle = document.getElementById("gamelog-title");
   els.gamelogPropBadge = document.getElementById("gamelog-prop-badge");
@@ -560,18 +562,50 @@ function normalizeBgOpacity(value, fallback = 35) {
   return Number.isFinite(num) ? Math.max(5, Math.min(100, Math.round(num))) : fallback;
 }
 
-// Only http(s) is accepted -- background-image never executes a URL as
-// script, but rejecting anything else keeps the field predictable and
-// gives a clear error instead of a silently blank layer.
+// Only http(s) links or a same-origin data: image (from the device-upload
+// flow below) are accepted -- background-image never executes a URL as
+// script either way, but rejecting anything else keeps the field
+// predictable and gives a clear error instead of a silently blank layer.
 function normalizeBgUrl(value) {
   const trimmed = String(value || "").trim();
   if (!trimmed) return "";
+  if (/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(trimmed)) return trimmed;
   try {
     const parsed = new URL(trimmed);
     return ["http:", "https:"].includes(parsed.protocol) ? parsed.href : "";
   } catch (_) {
     return "";
   }
+}
+
+// Downscales only if larger than maxDim (never upscales a smaller photo,
+// which would soften it) and re-encodes at high JPEG quality -- keeps a
+// phone-camera-sized photo well under localStorage's quota without a
+// visible quality hit at normal background-image viewing sizes.
+function resizeImageFile(file, maxDim = 2560) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Could not read file"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Could not decode image"));
+      img.onload = () => {
+        const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+        const width = Math.max(1, Math.round(img.naturalWidth * scale));
+        const height = Math.max(1, Math.round(img.naturalHeight * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", 0.9));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 function loadBackgroundImage() {
@@ -583,6 +617,12 @@ function loadBackgroundImage() {
   }
 }
 
+// Tracks whatever is actually live on screen (a pasted link or an
+// uploaded photo's data URL) so opacity changes and Remove work the same
+// way regardless of which source produced it -- the visible text field
+// only ever holds the pasted-link case.
+let activeBgUrl = "";
+
 // Verifies the image actually loads before committing it as the live
 // background -- a broken URL should produce a clear error, not a blank
 // layer or a stuck spinner-less failure.
@@ -592,6 +632,7 @@ function applyBackgroundImage({ url, opacity }, { persist = true, onError, onSuc
   if (els.bgImageOpacity) els.bgImageOpacity.value = String(cleanOpacity);
   if (els.bgImageOpacityValue) els.bgImageOpacityValue.textContent = `${cleanOpacity}%`;
   if (!cleanUrl) {
+    activeBgUrl = "";
     els.bgImageLayer.hidden = true;
     els.bgImageLayer.style.backgroundImage = "";
     if (persist) localStorage.removeItem(BG_IMAGE_KEY);
@@ -599,10 +640,22 @@ function applyBackgroundImage({ url, opacity }, { persist = true, onError, onSuc
   }
   const probe = new Image();
   probe.onload = () => {
+    activeBgUrl = cleanUrl;
     els.bgImageLayer.style.backgroundImage = `url("${cleanUrl}")`;
     els.bgImageLayer.style.opacity = String(cleanOpacity / 100);
     els.bgImageLayer.hidden = false;
-    if (persist) localStorage.setItem(BG_IMAGE_KEY, JSON.stringify({ url: cleanUrl, opacity: cleanOpacity }));
+    if (persist) {
+      try {
+        localStorage.setItem(BG_IMAGE_KEY, JSON.stringify({ url: cleanUrl, opacity: cleanOpacity }));
+      } catch (_) {
+        // A very large data URL can exceed the per-origin quota -- the
+        // image still displays for this session, it just won't survive
+        // a reload. Surfaced to the user via onError rather than silently
+        // dropped.
+        onError?.(new Error("storage-quota"));
+        return;
+      }
+    }
     onSuccess?.();
   };
   probe.onerror = () => onError?.();
@@ -612,7 +665,7 @@ function applyBackgroundImage({ url, opacity }, { persist = true, onError, onSuc
 function wireBackgroundImage() {
   if (!els.bgImageUrl) return;
   const saved = loadBackgroundImage();
-  els.bgImageUrl.value = saved.url;
+  els.bgImageUrl.value = saved.url.startsWith("data:") ? "" : saved.url;
   applyBackgroundImage(saved, { persist: false });
   els.bgImageOpacity.addEventListener("input", () => {
     els.bgImageOpacityValue.textContent = `${normalizeBgOpacity(els.bgImageOpacity.value)}%`;
@@ -623,9 +676,10 @@ function wireBackgroundImage() {
   els.bgImageOpacity.addEventListener("change", () => {
     // The image is already showing and verified; just persist the new
     // opacity rather than re-fetching it to re-validate.
-    if (els.bgImageLayer.hidden) return;
-    const url = normalizeBgUrl(els.bgImageUrl.value);
-    if (url) localStorage.setItem(BG_IMAGE_KEY, JSON.stringify({ url, opacity: normalizeBgOpacity(els.bgImageOpacity.value) }));
+    if (els.bgImageLayer.hidden || !activeBgUrl) return;
+    try {
+      localStorage.setItem(BG_IMAGE_KEY, JSON.stringify({ url: activeBgUrl, opacity: normalizeBgOpacity(els.bgImageOpacity.value) }));
+    } catch (_) { /* Quota already surfaced when the image was first applied. */ }
   });
   els.bgImageApply.addEventListener("click", () => {
     const typed = els.bgImageUrl.value.trim();
@@ -641,6 +695,28 @@ function wireBackgroundImage() {
     els.bgImageUrl.value = "";
     applyBackgroundImage({ url: "", opacity: els.bgImageOpacity.value });
     els.bgImageStatus.textContent = "Background image removed.";
+  });
+  els.bgImageUploadBtn?.addEventListener("click", () => els.bgImageFile.click());
+  els.bgImageFile?.addEventListener("change", async () => {
+    const file = els.bgImageFile.files?.[0];
+    els.bgImageFile.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { els.bgImageStatus.textContent = "Please choose an image file."; return; }
+    els.bgImageStatus.textContent = "Processing photo…";
+    try {
+      const dataUrl = await resizeImageFile(file);
+      els.bgImageUrl.value = "";
+      applyBackgroundImage({ url: dataUrl, opacity: els.bgImageOpacity.value }, {
+        onSuccess: () => { els.bgImageStatus.textContent = "Photo applied from your device."; },
+        onError: (error) => {
+          els.bgImageStatus.textContent = error?.message === "storage-quota"
+            ? "That photo is too large to save on this device; it's applied for now but won't survive a refresh. Try a smaller image."
+            : "Couldn't apply that photo.";
+        },
+      });
+    } catch (_) {
+      els.bgImageStatus.textContent = "Couldn't read that file. Try a different image.";
+    }
   });
 }
 

@@ -93,9 +93,12 @@
     <p class="theme-picker-note" id="accent-status" aria-live="polite">Colors save automatically on this device.</p>
     <div class="bg-image-control">
       <span class="settings-label">Background image</span>
-      <input type="url" id="bg-image-url" placeholder="Paste an image URL" autocomplete="off" inputmode="url" />
+      <button type="button" class="bg-image-upload-btn" id="bg-image-upload">Upload a photo from your device</button>
+      <input type="file" id="bg-image-file" accept="image/*" hidden />
+      <div class="bg-image-divider"><span>or paste a link</span></div>
+      <input type="url" id="bg-image-url" placeholder="https://example.com/photo.jpg" autocomplete="off" inputmode="url" />
       <label class="accent-tint-control"><span>Opacity</span><input type="range" id="bg-image-opacity" min="5" max="100" step="1" value="35" aria-label="Background image opacity" /><output id="bg-image-opacity-value">35%</output></label>
-      <div class="bg-image-actions"><button type="button" id="bg-image-apply">Apply</button><button type="button" id="bg-image-remove">Remove</button></div>
+      <div class="bg-image-actions"><button type="button" id="bg-image-apply">Apply link</button><button type="button" id="bg-image-remove">Remove</button></div>
       <p class="theme-picker-note" id="bg-image-status" aria-live="polite">Use a high-resolution image (1920×1080 or larger) for the sharpest result.</p>
     </div>
   </div>
