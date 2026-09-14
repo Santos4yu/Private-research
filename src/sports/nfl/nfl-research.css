@@ -1,18 +1,37 @@
 :root {
-  --nfl-surface: color-mix(in srgb, var(--theme-panel, #171b22) 94%, #24354c 6%);
-  --nfl-raised: color-mix(in srgb, var(--theme-panel-2, #1d222b) 91%, #32445d 9%);
+  --nfl-surface: linear-gradient(180deg, color-mix(in srgb, var(--theme-panel, #171b22) 97%, #3a5686 3%), color-mix(in srgb, var(--theme-panel, #171b22) 88%, #060810 12%));
+  --nfl-raised: linear-gradient(180deg, color-mix(in srgb, var(--theme-panel-2, #1d222b) 94%, #4a6796 6%), color-mix(in srgb, var(--theme-panel-2, #1d222b) 85%, #080a10 15%));
   --nfl-border: color-mix(in srgb, var(--theme-border, #323945) 78%, #8ca4c6 22%);
   --nfl-blue: #8db8ee;
   --nfl-green: #68d5ac;
   --nfl-red: #ff8b96;
+  --nfl-accent: var(--theme-accent, #0082fe);
+  --nfl-accent-soft: var(--theme-accent-soft, #4fa8ff);
+  --nfl-on-accent: var(--theme-on-accent, #fff);
+  --nfl-shadow: 0 14px 34px -12px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .045);
+  --nfl-shadow-lg: 0 26px 60px -18px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .05);
+}
+
+/* One shared elevation treatment for every flat "card" surface in the NFL
+   section, applied here instead of per-rule so the whole area reads as one
+   consistent, raised design system rather than a flat list of gray boxes. */
+.nfl-player-search, .nfl-search-results, .nfl-recent-row > button, .nfl-feature-card,
+.nfl-tool-strip article, .nfl-prop-selector button, .nfl-edge-badge, .nfl-stat,
+.nfl-notice, .nfl-research-tabs, .nfl-window-tabs button, .nfl-chart-card,
+.nfl-match-title, .nfl-game-matchup, .nfl-context-list, .nfl-injury-unit,
+.nfl-health-score, .nfl-health-list, .nfl-loading, .nfl-history-control,
+.nfl-filter-grid, .nfl-line-editor, .nfl-market-compact, .nfl-market-quotes button,
+.sport-switch, .nfl-matchup-hero, .nfl-factor-list {
+  box-shadow: var(--nfl-shadow);
 }
 
 #sport-research-root { width: 100%; }
 .sport-switch-shell { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: min(100%, 1420px); margin: 0 auto 18px; }
 .sport-switch-shell > span, .nfl-home-head > span, .nfl-section-title span, .nfl-feature-kicker, .nfl-player-identity > span, .nfl-prop-selector > div:first-child > span, .nfl-chart-head span, .nfl-match-title span, .nfl-health-score span { color: var(--theme-faint, #8c96a6); font: 700 11px/1.2 var(--font-mono, monospace); letter-spacing: .14em; }
+.sport-switch-shell > span { padding: 6px 10px; border: 1px solid var(--nfl-border); border-radius: 999px; background: var(--nfl-raised); }
 .sport-switch { display: flex; gap: 6px; padding: 5px; border: 1px solid var(--nfl-border); border-radius: 16px; background: var(--nfl-surface); }
 .sport-switch button { display: flex; align-items: center; gap: 9px; min-width: 104px; min-height: 48px; padding: 8px 15px; border: 0; border-radius: 11px; color: var(--theme-muted, #adb6c4); background: transparent; cursor: pointer; transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease; }
-.sport-switch button.active { color: #101317; background: #f5f6f8; box-shadow: 0 4px 14px #0005; }
+.sport-switch button.active { color: var(--nfl-on-accent); background: linear-gradient(135deg, var(--nfl-accent), var(--nfl-accent-soft)); box-shadow: 0 6px 20px -4px color-mix(in srgb, var(--nfl-accent) 55%, transparent); }
 .sport-switch button:focus-visible, .nfl-app-shell button:focus-visible { outline: 3px solid var(--nfl-blue); outline-offset: 3px; }
 .sport-league-mark { position: relative; display: grid; grid-template-columns: 27px; grid-template-rows: 27px; place-items: stretch; width: 27px; height: 27px; overflow: hidden; border-radius: 8px; color: #fff; background: #263343; }
 .sport-league-mark img { display: block; width: 100%; height: 100%; object-fit: contain; }
@@ -47,12 +66,14 @@
 .nfl-section-title > button { min-height: 44px; padding: 0 12px; border: 0; color: var(--theme-muted, #adb6c4); background: transparent; cursor: pointer; }
 .nfl-section-title > small { color: var(--theme-faint, #8c96a6); }
 .nfl-recent-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
-.nfl-recent-row > button { display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 10px; min-height: 70px; padding: 9px; overflow: hidden; border: 1px solid var(--nfl-border); border-radius: 15px; color: inherit; text-align: left; background: var(--nfl-surface); cursor: pointer; }
+.nfl-recent-row > button { display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 10px; min-height: 70px; padding: 9px; overflow: hidden; border: 1px solid var(--nfl-border); border-radius: 15px; color: inherit; text-align: left; background: var(--nfl-surface); cursor: pointer; transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
+.nfl-recent-row > button:hover, .nfl-recent-row > button:focus-visible { transform: translateY(-3px); border-color: color-mix(in srgb, var(--nfl-accent) 55%, var(--nfl-border)); box-shadow: var(--nfl-shadow-lg); }
 .nfl-recent-row strong, .nfl-recent-row small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nfl-recent-row small { margin-top: 3px; color: var(--theme-faint, #8c96a6); }
 
 .nfl-feature-grid-layout { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
-.nfl-feature-card { position: relative; isolation: isolate; min-height: 390px; overflow: hidden; border: 1px solid var(--nfl-border); border-radius: 23px; color: #f8fafc; text-align: left; background: radial-gradient(circle at 75% 25%, #6686ab22, transparent 38%), linear-gradient(155deg, #1e252f, #11151b 70%); box-shadow: inset 0 1px #ffffff10, 0 18px 45px #0003; cursor: pointer; }
+.nfl-feature-card { position: relative; isolation: isolate; min-height: 390px; overflow: hidden; border: 1px solid var(--nfl-border); border-radius: 23px; color: #f8fafc; text-align: left; background: radial-gradient(circle at 75% 25%, #6686ab22, transparent 38%), linear-gradient(155deg, #1e252f, #11151b 70%); box-shadow: inset 0 1px #ffffff10, 0 18px 45px #0003; cursor: pointer; transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease; }
+.nfl-feature-card:hover, .nfl-feature-card:focus-visible { transform: translateY(-4px); border-color: color-mix(in srgb, var(--nfl-accent) 50%, var(--nfl-border)); box-shadow: inset 0 1px #ffffff10, var(--nfl-shadow-lg); }
 .nfl-feature-card::after { position: absolute; inset: auto 0 0; height: 55%; z-index: -1; background: linear-gradient(transparent, #0c1016ee 65%); content: ''; }
 .nfl-feature-grid { position: absolute; inset: 0; z-index: -2; opacity: .25; background-image: linear-gradient(#ffffff08 1px, transparent 1px), linear-gradient(90deg, #ffffff08 1px, transparent 1px); background-size: 28px 28px; mask-image: linear-gradient(to bottom, #000, transparent 70%); }
 .nfl-feature-kicker { position: absolute; top: 18px; left: 18px; z-index: 3; color: #b7c4d6; }
@@ -80,7 +101,8 @@
 
 .nfl-back { display: flex; align-items: center; gap: 8px; width: max-content; min-height: 44px; padding: 0 10px; border: 0; color: var(--theme-muted, #adb6c4); background: transparent; cursor: pointer; }
 .nfl-back svg { width: 18px; }
-.nfl-player-header { display: grid; grid-template-columns: 160px minmax(0, 1fr); align-items: end; min-height: 210px; overflow: hidden; border: 1px solid var(--nfl-border); border-radius: 24px; background: radial-gradient(circle at 80% 20%, #7595ba20, transparent 30%), linear-gradient(145deg, #1c232d, #12161d); }
+.nfl-player-header { position: relative; display: grid; grid-template-columns: 160px minmax(0, 1fr); align-items: end; min-height: 210px; overflow: hidden; border: 1px solid var(--nfl-border); border-radius: 24px; background: radial-gradient(circle at 82% 15%, color-mix(in srgb, var(--nfl-accent) 28%, transparent), transparent 45%), linear-gradient(145deg, #1c232d, #0d1015); box-shadow: var(--nfl-shadow-lg); }
+.nfl-player-header::before { content: ''; position: absolute; inset: 0 0 auto; height: 3px; background: linear-gradient(90deg, var(--nfl-accent), var(--nfl-accent-soft), transparent 85%); }
 .nfl-headshot-wrap { align-self: stretch; display: grid; place-items: end center; background: linear-gradient(135deg, #ffffff06, transparent); }
 .nfl-headshot-wrap .nfl-player-photo, .nfl-headshot-wrap .nfl-player-fallback { width: 100%; height: 200px; object-fit: contain; object-position: center bottom; border-radius: 0; background: transparent; }
 .nfl-player-identity { padding: 28px; }
@@ -93,10 +115,12 @@
 .nfl-prop-selector > div:first-child { padding: 12px 0; }
 .nfl-prop-selector > div:first-child small { display: block; margin-top: 7px; color: var(--theme-faint, #8c96a6); line-height: 1.4; }
 .nfl-prop-selector > div:last-child { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 8px; scrollbar-width: thin; }
-.nfl-prop-selector button { flex: 0 0 auto; min-height: 58px; padding: 9px 14px; border: 1px solid var(--nfl-border); border-radius: 13px; color: var(--theme-muted, #adb6c4); text-align: left; background: var(--nfl-surface); cursor: pointer; }
+.nfl-prop-selector button { flex: 0 0 auto; min-height: 58px; padding: 9px 14px; border: 1px solid var(--nfl-border); border-radius: 13px; color: var(--theme-muted, #adb6c4); text-align: left; background: var(--nfl-surface); cursor: pointer; transition: transform 160ms ease, border-color 160ms ease; }
+.nfl-prop-selector button:not(.active):hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--nfl-accent) 45%, var(--nfl-border)); color: var(--theme-text, #f5f7fa); }
 .nfl-prop-selector button strong, .nfl-prop-selector button small { display: block; }
 .nfl-prop-selector button small { margin-top: 3px; color: var(--theme-faint, #8c96a6); font-size: 10px; }
-.nfl-prop-selector button.active { border-color: #a9c8ec80; color: #f8fafc; background: #2c3949; box-shadow: inset 0 1px #fff10; }
+.nfl-prop-selector button.active { border-color: var(--nfl-accent); color: var(--nfl-on-accent); background: linear-gradient(135deg, var(--nfl-accent), color-mix(in srgb, var(--nfl-accent) 65%, #1a3a5c)); box-shadow: 0 8px 20px -6px color-mix(in srgb, var(--nfl-accent) 60%, transparent), inset 0 1px rgba(255, 255, 255, .12); }
+.nfl-prop-selector button.active small { color: color-mix(in srgb, var(--nfl-on-accent) 80%, transparent); }
 .nfl-edge-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .nfl-edge-badge { display: flex; flex-direction: column; gap: 2px; padding: 9px 13px; border: 1px solid var(--nfl-border); border-radius: 12px; background: var(--nfl-surface); }
 .nfl-edge-badge strong { font-size: 12px; font-weight: 700; color: var(--theme-text, #f5f7fa); }
@@ -110,7 +134,8 @@
 .nfl-research-tabs button { display: grid; place-items: center; gap: 5px; min-height: 58px; padding: 7px; border: 0; border-radius: 11px; color: var(--theme-faint, #8c96a6); background: transparent; cursor: pointer; }
 .nfl-research-tabs button svg { width: 18px; }
 .nfl-research-tabs button span { font-size: 11px; font-weight: 700; }
-.nfl-research-tabs button.active { color: #11151b; background: #f4f6f8; }
+.nfl-research-tabs button { transition: background-color 140ms ease, color 140ms ease; }
+.nfl-research-tabs button.active { color: var(--nfl-on-accent); background: linear-gradient(135deg, var(--nfl-accent), var(--nfl-accent-soft)); box-shadow: 0 6px 16px -4px color-mix(in srgb, var(--nfl-accent) 55%, transparent); }
 .nfl-tab-content, .nfl-panel-stack { display: grid; gap: 14px; }
 .nfl-stat-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
 .nfl-stat-grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -125,7 +150,7 @@
 .nfl-notice.error { border-color: #ff8b963d; }.nfl-notice.error > span { color: var(--nfl-red); background: #ff8b9614; }
 .nfl-window-tabs { display: flex; gap: 7px; overflow-x: auto; }
 .nfl-window-tabs button { flex: 1 0 70px; min-height: 46px; border: 1px solid var(--nfl-border); border-radius: 12px; color: var(--theme-muted, #adb6c4); background: var(--nfl-surface); cursor: pointer; }
-.nfl-window-tabs button.active { color: #11151b; background: #f3f5f7; }
+.nfl-window-tabs button.active { color: var(--nfl-on-accent); background: linear-gradient(135deg, var(--nfl-accent), var(--nfl-accent-soft)); border-color: var(--nfl-accent); }
 .nfl-chart-card { min-height: 390px; padding: 20px; border: 1px solid var(--nfl-border); border-radius: 19px; background: linear-gradient(180deg, var(--nfl-surface), #11151a); }
 .nfl-chart-head { display: flex; justify-content: space-between; gap: 12px; }.nfl-chart-head h3 { margin: 4px 0 0; }.nfl-chart-head small { color: var(--theme-faint, #8c96a6); }
 .nfl-bars { display: grid; grid-template-columns: repeat(var(--bar-count), minmax(44px, 1fr)); align-items: end; gap: 8px; height: 290px; margin-top: 20px; overflow-x: auto; padding: 26px 2px 0; border-bottom: 1px solid #ffffff18; background: repeating-linear-gradient(to bottom, #ffffff09 0 1px, transparent 1px 72px); }
@@ -237,7 +262,7 @@
 .nfl-stepper button:first-child { border-radius:12px 0 0 12px; }
 .nfl-stepper button:last-child { border-radius:0 12px 12px 0; }
 .nfl-side-switch { display:flex;gap:6px; }
-.nfl-side-switch button[aria-pressed=true],.nfl-window-tabs button[aria-pressed=true] { background:#f3f6f8;color:#111923; }
+.nfl-side-switch button[aria-pressed=true],.nfl-window-tabs button[aria-pressed=true] { background:linear-gradient(135deg, var(--nfl-accent), var(--nfl-accent-soft));color:var(--nfl-on-accent);border-color:var(--nfl-accent); }
 .nfl-line-range { flex:0 0 100%;width:100%;padding:0!important;accent-color:#a4e6ef;background:transparent!important;cursor:ew-resize; }
 .nfl-interactive-chart { overflow-x:auto;overflow-y:hidden;width:100%;color:#c6d0dd; }
 .nfl-interactive-chart svg { display:block;width:100%;height:auto; }
