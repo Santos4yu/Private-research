@@ -3,7 +3,9 @@ import unittest
 from types import SimpleNamespace as Obj
 from datetime import datetime,timezone
 from copy import deepcopy
-from backend.sports.nfl.research_board import screen,support
+from dataclasses import dataclass
+from unittest.mock import patch
+from backend.sports.nfl.research_board import screen,support,attach_opponent_volume
 class ResearchBoardTests(unittest.TestCase):
  def setUp(self):
   self.now=datetime(2026,9,13,tzinfo=timezone.utc)
@@ -32,3 +34,40 @@ class ResearchBoardTests(unittest.TestCase):
  def test_sample_adjustment(self):self.assertGreater(support(20,20),support(8,8))
  def test_started_event_is_empty(self):
   self.event['startsAt']=self.now.isoformat();self.assertEqual(self.run_screen(),[])
+
+@dataclass
+class MockPlayer:
+ id:str;position:str
+
+class AttachOpponentVolumeTests(unittest.TestCase):
+ """Descriptive enrichment only: must never drop/reorder rows or raise on missing data."""
+ def fixture(self):
+  data={'games':[],'players':[]}
+  for team in range(9):
+   for week in range(1,5):
+    identity={'game_id':f'mock-{team}-{week}','team_id':'OFF','week':week}
+    data['games'].append({**identity,'opponent_team_id':f'D{team}','metrics':{'ypc':{'n':20+team,'sum':100},'scramble_rate':{'n':35,'sum':2},'completion_rate':{'n':30+team,'sum':20}}})
+    data['players'].append({**identity,'player_id':'p1','metrics':{'sack_rate':{'n':35,'sum':2},'ypc':{'n':team+2,'sum':team*3}}})
+  return data
+ def roster(self):return {'p1':MockPlayer('p1','QB'),'p2':MockPlayer('p2','WR')}
+ @patch('backend.sports.nfl.research_board.season_data')
+ def test_attaches_context_for_supported_prop(self,mock_season_data):
+  mock_season_data.return_value=self.fixture()
+  rows=[{'playerId':'p1','propType':'passing_attempts','opponentId':'D4'}]
+  result=attach_opponent_volume(rows,2026,5,self.roster())
+  self.assertEqual(result[0]['opponentVolume']['score'],50)
+ @patch('backend.sports.nfl.research_board.season_data')
+ def test_unsupported_prop_leaves_row_unchanged(self,mock_season_data):
+  mock_season_data.return_value=self.fixture()
+  rows=[{'playerId':'p2','propType':'receiving_yards','opponentId':'D4'}]
+  self.assertEqual(attach_opponent_volume(rows,2026,5,self.roster()),rows)
+ @patch('backend.sports.nfl.research_board.season_data')
+ def test_dataset_failure_returns_rows_unchanged(self,mock_season_data):
+  mock_season_data.side_effect=RuntimeError('boom')
+  rows=[{'playerId':'p1','propType':'passing_attempts','opponentId':'D4'}]
+  self.assertEqual(attach_opponent_volume(rows,2026,5,self.roster()),rows)
+ def test_missing_player_or_opponent_leaves_row_unchanged(self):
+  rows=[{'playerId':'unknown','propType':'passing_attempts','opponentId':'D4'}]
+  self.assertEqual(attach_opponent_volume(rows,2026,5,self.roster()),rows)
+ def test_empty_rows_short_circuit(self):
+  self.assertEqual(attach_opponent_volume([],2026,5,self.roster()),[])

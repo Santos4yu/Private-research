@@ -1,7 +1,11 @@
 """Real-line historical research shortlist, independent of production verdicts."""
 from datetime import datetime, timezone
 from math import sqrt, isfinite
+from dataclasses import asdict
 from .services import nflverse, odds
+from .services.matchup_data import season_data
+from .history_inputs import compact_history
+from .matchup_volume_context import opponent_volume
 from .cache import cached_nfl, NFLCacheDomain
 
 VERSION='NFL_RESEARCH_BOARD_V1'
@@ -44,6 +48,24 @@ def screen(offers,histories,event,now=None):
         if key not in seen:seen.add(key);result.append(row)
     return result
 
+def attach_opponent_volume(rows,season,week,roster):
+    # Best-effort context, not a ranking input: opponent-volume percentile is
+    # only defined for a few volume props, and never blocks a row from
+    # appearing if the shared dataset or a given player/prop isn't covered.
+    if not rows:return rows
+    try:
+        data=compact_history(season_data,season,week,('games','players','connections')) if week<=4 else season_data(season)
+    except Exception:
+        data=None
+    if not data:return rows
+    quarterback_ids={pid for pid,p in roster.items() if p.position=='QB'}
+    enriched=[]
+    for row in rows:
+        player=roster.get(row['playerId'])
+        context=opponent_volume(data,asdict(player),row.get('opponentId'),row['propType'],week,quarterback_ids) if player and row.get('opponentId') else None
+        enriched.append({**row,'opponentVolume':context} if context else row)
+    return enriched
+
 def game_board(season,event_id):
     def load():
         listing=odds.events(season)
@@ -62,7 +84,8 @@ def game_board(season,event_id):
             older=nflverse.game_logs(season-1,pid)
             histories[pid]=list(older.data or [])+list(current.data or [])
             failed+=int(current.data is None or older.data is None)
-        return {'data':screen(offers.get('data',[]),histories,event),'event':event,'source':'the-odds-api + nflverse','historyFailures':failed,'injuryReportAvailable':injuries.data is not None,'fetchedAt':datetime.now(timezone.utc).isoformat(),'method':'Ranked by sample-adjusted historical support, not betting confidence. Current-team games only; regular posted lines only.'}
+        rows=attach_opponent_volume(screen(offers.get('data',[]),histories,event),season,event['week'],roster)
+        return {'data':rows,'event':event,'source':'the-odds-api + nflverse','historyFailures':failed,'injuryReportAvailable':injuries.data is not None,'fetchedAt':datetime.now(timezone.utc).isoformat(),'method':'Ranked by sample-adjusted historical support, not betting confidence. Current-team games only; regular posted lines only.'}
     result=cached_nfl(NFLCacheDomain.PROPS,(VERSION,season,event_id),load)
     now=datetime.now(timezone.utc)
     return {**result,'data':[r for r in result['data'] if odds.timestamp(r['startsAt'])>now and 0<=(now-odds.timestamp(r['line']['updatedAt'])).total_seconds()<=120]}
