@@ -156,7 +156,7 @@ const EXPERIENCE_KEY = "private_jarvis_interface";
 applyAccentTheme(loadAccentTheme(), { persist: false });
 applyExperience(localStorage.getItem(EXPERIENCE_KEY) === "true");
 
-const SCREEN_TITLES = Object.freeze({ research: "Research", v2: "Props", slate: "Tools", saved: "My Slip", builder: "Parlay Builder", slip: "Slip Analyzer", moneyline: "Moneylines", nrfi: "NRFI / YRFI", admin: "Admin Results" });
+const SCREEN_TITLES = Object.freeze({ research: "Research", v2: "Props", slate: "Tools", saved: "My Slip", builder: "Parlay Builder", slip: "Slip Analyzer", moneyline: "Moneylines", nrfi: "NRFI / YRFI", community: "Community", admin: "Admin Results" });
 const screenScroll = new Map();
 let screenHistoryReady = false;
 
@@ -199,6 +199,11 @@ async function init() {
   wireCardBorderGlow();
   wireTabs();
   wireMainMenu();
+  try {
+    wireCommunityFeed();
+  } catch (err) {
+    console.error("wireCommunityFeed failed:", err);
+  }
 
   try {
     const res = await fetch(DATA_SOURCE, { cache: "no-store" });
@@ -289,6 +294,20 @@ function cacheEls() {
   els.panelMoneyline = document.getElementById("panel-moneyline");
   els.panelNrfi = document.getElementById("panel-nrfi");
   els.panelAdmin = document.getElementById("panel-admin");
+  els.panelCommunity = document.getElementById("panel-community");
+  els.communityRefresh = document.getElementById("community-refresh");
+  els.communityComposer = document.getElementById("community-composer");
+  els.communityComposerText = document.getElementById("community-composer-text");
+  els.communityComposerPreview = document.getElementById("community-composer-preview");
+  els.communityComposerPreviewImg = document.getElementById("community-composer-preview-img");
+  els.communityComposerRemoveImage = document.getElementById("community-composer-remove-image");
+  els.communityComposerUpload = document.getElementById("community-composer-upload");
+  els.communityComposerFile = document.getElementById("community-composer-file");
+  els.communityComposerSubmit = document.getElementById("community-composer-submit");
+  els.communityComposerStatus = document.getElementById("community-composer-status");
+  els.communityFeedList = document.getElementById("community-feed-list");
+  els.communityEmpty = document.getElementById("community-empty");
+  els.communitySignedOut = document.getElementById("community-signed-out");
   els.moneylineList = document.getElementById("moneyline-list");
   els.moneylineEmpty = document.getElementById("moneyline-empty");
   els.nrfiList = document.getElementById("nrfi-list");
@@ -833,6 +852,162 @@ function wireBackgroundImage() {
   });
 }
 
+/* ---------- Community feed ---------- */
+// Member picks feed -- visibility is gated entirely server-side by the
+// admin's "community" entry in disabledTabs (site_controls.py), so this
+// tab simply loads or 401s/403s depending on that and sign-in state; no
+// separate feature flag needed here.
+let communityPosts = [];
+let communityReactionSet = [];
+let communityViewerId = null;
+let communityPendingImage = null;
+let communityLoading = false;
+
+function communityRelativeTime(epochSeconds) {
+  if (!epochSeconds) return "";
+  const diff = Date.now() / 1000 - epochSeconds;
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+function communityPostCard(post) {
+  const mine = post.authorId === communityViewerId;
+  const canDelete = mine || communityViewerId === "admin";
+  const reactionsHtml = communityReactionSet.map((emoji) => {
+    const reactors = post.reactions?.[emoji] || [];
+    const active = Boolean(communityViewerId) && reactors.includes(communityViewerId);
+    return `<button type="button" class="community-reaction${active ? " active" : ""}" data-community-react="${emoji}" aria-pressed="${active}">${emoji}${reactors.length ? `<b>${reactors.length}</b>` : ""}</button>`;
+  }).join("");
+  const imageHtml = post.imageId ? `<img class="community-post-image" src="/api/v2-admin?action=community-image&id=${encodeURIComponent(post.imageId)}" alt="" loading="lazy" />` : "";
+  return `<article class="community-post" data-post-id="${escapeHtml(post.id)}">
+    <div class="community-post-head">
+      <span class="community-post-avatar">${escapeHtml((post.authorName || "?").slice(0, 1).toUpperCase())}</span>
+      <div class="community-post-who"><strong>${escapeHtml(post.authorName || "Member")}</strong><small>${communityRelativeTime(post.createdAt)}</small></div>
+      ${canDelete ? `<button type="button" class="community-post-delete" data-community-delete aria-label="Delete post">✕</button>` : ""}
+    </div>
+    ${post.text ? `<p class="community-post-text">${escapeHtml(post.text)}</p>` : ""}
+    ${imageHtml}
+    <div class="community-reactions">${reactionsHtml}</div>
+  </article>`;
+}
+
+function renderCommunityFeed() {
+  els.communityEmpty.hidden = communityPosts.length > 0;
+  els.communityFeedList.innerHTML = communityPosts.map(communityPostCard).join("");
+  els.communityFeedList.querySelectorAll("[data-community-react]").forEach((btn) => {
+    btn.addEventListener("click", () => communityReact(btn.closest("[data-post-id]").dataset.postId, btn.dataset.communityReact));
+  });
+  els.communityFeedList.querySelectorAll("[data-community-delete]").forEach((btn) => {
+    btn.addEventListener("click", () => communityDelete(btn.closest("[data-post-id]").dataset.postId));
+  });
+}
+
+async function loadCommunityFeed() {
+  if (communityLoading || !els.communityFeedList) return;
+  communityLoading = true;
+  try {
+    const res = await fetch("/api/v2-admin?action=community-feed", { cache: "no-store", credentials: "same-origin" });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) {
+      els.communitySignedOut.hidden = false;
+      els.communityComposer.hidden = true;
+      els.communityFeedList.innerHTML = "";
+      els.communityEmpty.hidden = true;
+      return;
+    }
+    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+    els.communitySignedOut.hidden = true;
+    els.communityComposer.hidden = false;
+    communityPosts = data.posts || [];
+    communityReactionSet = data.reactions || [];
+    communityViewerId = data.viewerId || null;
+    renderCommunityFeed();
+  } catch (err) {
+    console.error("loadCommunityFeed failed:", err);
+    els.communityFeedList.innerHTML = `<p class="empty-state">Couldn't load the feed. Try again.</p>`;
+  } finally {
+    communityLoading = false;
+  }
+}
+
+async function communityReact(postId, emoji) {
+  try {
+    const res = await fetch("/api/v2-admin", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "community-react", postId, emoji }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Couldn't react");
+    const index = communityPosts.findIndex((p) => p.id === postId);
+    if (index >= 0) communityPosts[index] = data.post;
+    renderCommunityFeed();
+  } catch (err) {
+    showToast(err.message || "Couldn't react", "warn");
+  }
+}
+
+async function communityDelete(postId) {
+  if (!confirm("Delete this post?")) return;
+  try {
+    const res = await fetch("/api/v2-admin", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "community-delete", postId }) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Couldn't delete");
+    communityPosts = communityPosts.filter((p) => p.id !== postId);
+    renderCommunityFeed();
+  } catch (err) {
+    showToast(err.message || "Couldn't delete", "warn");
+  }
+}
+
+function wireCommunityFeed() {
+  if (!els.communityComposer) return;
+  els.communityRefresh?.addEventListener("click", () => loadCommunityFeed());
+  els.communityComposerUpload?.addEventListener("click", () => els.communityComposerFile.click());
+  els.communityComposerFile?.addEventListener("change", async () => {
+    const file = els.communityComposerFile.files?.[0];
+    els.communityComposerFile.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { els.communityComposerStatus.textContent = "Please choose an image file."; return; }
+    try {
+      communityPendingImage = await resizeImageFile(file, 1600);
+      els.communityComposerPreviewImg.src = communityPendingImage;
+      els.communityComposerPreview.hidden = false;
+    } catch (_) {
+      els.communityComposerStatus.textContent = "Couldn't read that image.";
+    }
+  });
+  els.communityComposerRemoveImage?.addEventListener("click", () => {
+    communityPendingImage = null;
+    els.communityComposerPreview.hidden = true;
+    els.communityComposerPreviewImg.src = "";
+  });
+  els.communityComposer.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const text = els.communityComposerText.value.trim();
+    if (!text && !communityPendingImage) {
+      els.communityComposerStatus.textContent = "Write something or attach a screenshot first.";
+      return;
+    }
+    els.communityComposerSubmit.disabled = true;
+    els.communityComposerStatus.textContent = "Posting…";
+    try {
+      const res = await fetch("/api/v2-admin", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "community-post", text, image: communityPendingImage }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Couldn't post");
+      communityPosts.unshift(data.post);
+      renderCommunityFeed();
+      els.communityComposerText.value = "";
+      communityPendingImage = null;
+      els.communityComposerPreview.hidden = true;
+      els.communityComposerPreviewImg.src = "";
+      els.communityComposerStatus.textContent = "Posted.";
+    } catch (err) {
+      els.communityComposerStatus.textContent = err.message || "Couldn't post.";
+    } finally {
+      els.communityComposerSubmit.disabled = false;
+    }
+  });
+}
+
 function applyExperience(enabled) {
   document.documentElement.removeAttribute("data-jarvis");
 }
@@ -1097,6 +1272,7 @@ function switchTab(tab, options = {}) {
   els.panelSlip.hidden = tab !== "slip";
   els.panelMoneyline.hidden = tab !== "moneyline";
   els.panelNrfi.hidden = tab !== "nrfi";
+  els.panelCommunity.hidden = tab !== "community";
   els.panelAdmin.hidden = tab !== "admin";
   els.panelSaved.hidden = tab !== "saved";
   els.parlayBar.hidden = tab !== "saved" || state.parlaySelection.size === 0;
@@ -1113,6 +1289,7 @@ function switchTab(tab, options = {}) {
   if (tab === "v2" && !nflProps && !state.v2BoardLoaded) loadV2Board();
   if (tab === "builder" && !state.v2BoardLoaded) loadV2Board();
   if (tab === "nrfi" && !state.specialsLoaded) loadSpecialMarkets();
+  if (tab === "community") loadCommunityFeed();
   document.querySelectorAll(".side-link").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
   window.dispatchEvent(new CustomEvent("vortex:dock-sync", { detail: { tab, saved: state.savedProps.size } }));
   renderFinderCompareTray();

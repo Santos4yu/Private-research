@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from v2.board import store, admin_auth
 SITE_BACKGROUND_PATH_RE=re.compile(r'^/api/v2-admin\?action=site-background&v=\d+$')
 KEY='krazy_data:site_controls:v1'
-TABS=('research','v2','slate','saved','slip','builder','moneyline','nrfi')
+TABS=('research','v2','slate','saved','slip','builder','moneyline','nrfi','community')
 HEX_COLOR_RE=re.compile(r'^#[0-9a-fA-F]{6}$')
 DEFAULT={'maintenance':False,'message':'We are updating Vortex. Please check back shortly.','requireLogin':True,'registrationOpen':True,'disabledTabs':[],'disabledSports':[],'backgroundImage':{'url':'','opacity':35},'theme':{'primary':'','secondary':'','tint':0},'updatedAt':None}
 def read():

@@ -1,6 +1,6 @@
 import './site-access.css';
 import {accessGranted,canUseTab,availableTab,canUseSport} from './site-access-core.js';
-const names={research:'Research',v2:'Props',slate:'Tools',saved:'My Slip',slip:'Slip Analyzer',builder:'Builder',moneyline:'Moneyline',nrfi:'NRFI / YRFI'};
+const names={research:'Research',v2:'Props',slate:'Tools',saved:'My Slip',slip:'Slip Analyzer',builder:'Builder',moneyline:'Moneyline',nrfi:'NRFI / YRFI',community:'Community'};
 let status=null,initPromise=null,activeDialog=null,lockedDialog=null;
 export function siteTabAllowed(tab){return canUseTab(status,tab);}
 export function siteSportAllowed(sport){return canUseSport(status,sport);}

@@ -67,6 +67,21 @@ class handler(BaseHTTPRequestHandler):
                 # every visitor's browser fetches directly (not through the
                 # JSON site-status poll), so it can be cached long-term.
                 return self._handle_site_background()
+            if action == "community-feed":
+                from site_controls import allowed
+                if not allowed(self.headers, "community"):
+                    return self._send(403, {"error": "Community feed is not available"})
+                from auth_core import session_from_request_headers
+                session = session_from_request_headers(self.headers)
+                if not session:
+                    return self._send(401, {"error": "Sign in required"})
+                import community_feed
+                return self._send(200, {"posts": community_feed.list_posts(), "reactions": list(community_feed.REACTIONS), "viewerId": session["id"]})
+            if action == "community-image":
+                # Public and unauthenticated, same reasoning as site-background:
+                # this is fetched directly by <img> tags, not through the feed
+                # poll, so it can be cached long-term.
+                return self._handle_community_image(qs)
             return self._send(400, {"error": "Unknown or missing action"})
         except Exception as exc:  # noqa: BLE001 -- always return JSON, see do_POST
             return self._send(500, {"error": f"Unhandled error: {exc}"})
@@ -107,6 +122,52 @@ class handler(BaseHTTPRequestHandler):
                 except ValueError as exc:
                     return self._send(400, {"error": str(exc)})
                 return self._send(200, {"url": f"/api/v2-admin?action=site-background&v={version}"})
+            if action == "community-post":
+                from site_controls import allowed, same_origin
+                if not allowed(self.headers, "community"):
+                    return self._send(403, {"error": "Community feed is not available"})
+                if not same_origin(self.headers):
+                    return self._send(403, {"error": "Same-origin request required"})
+                from auth_core import session_from_request_headers
+                session = session_from_request_headers(self.headers)
+                if not session:
+                    return self._send(401, {"error": "Sign in required"})
+                import community_feed
+                try:
+                    post = community_feed.create_post(session["id"], session.get("username") or session.get("email") or "Member", body.get("text"), body.get("image"))
+                except ValueError as exc:
+                    return self._send(400, {"error": str(exc)})
+                return self._send(200, {"post": post})
+            if action == "community-react":
+                from site_controls import allowed, same_origin
+                if not allowed(self.headers, "community"):
+                    return self._send(403, {"error": "Community feed is not available"})
+                if not same_origin(self.headers):
+                    return self._send(403, {"error": "Same-origin request required"})
+                from auth_core import session_from_request_headers
+                session = session_from_request_headers(self.headers)
+                if not session:
+                    return self._send(401, {"error": "Sign in required"})
+                import community_feed
+                try:
+                    post = community_feed.toggle_reaction(body.get("postId"), body.get("emoji"), session["id"])
+                except ValueError as exc:
+                    return self._send(400, {"error": str(exc)})
+                return self._send(200, {"post": post})
+            if action == "community-delete":
+                from site_controls import same_origin
+                if not same_origin(self.headers):
+                    return self._send(403, {"error": "Same-origin request required"})
+                from auth_core import session_from_request_headers
+                session = session_from_request_headers(self.headers)
+                if not session:
+                    return self._send(401, {"error": "Sign in required"})
+                import community_feed
+                try:
+                    community_feed.delete_post(body.get("postId"), session["id"], session["id"] == "admin")
+                except ValueError as exc:
+                    return self._send(400, {"error": str(exc)})
+                return self._send(200, {"ok": True})
             return self._send(400, {"error": "Unknown action"})
         except Exception as exc:  # noqa: BLE001 -- always return JSON, never let
             # Vercel's own generic (non-JSON) crash page reach the frontend,
@@ -171,6 +232,23 @@ class handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", record["contentType"])
         # The URL is cache-busted with ?v=<version> on every new upload, so
         # this can be cached aggressively without ever serving a stale image.
+        self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
+    def _handle_community_image(self, qs):
+        import base64
+        import community_feed
+        record = community_feed.read_image((qs.get("id") or [""])[0])
+        if not record:
+            return self._send(404, {"error": "Image not found"})
+        try:
+            raw = base64.b64decode(record["data"])
+        except Exception:
+            return self._send(404, {"error": "Image not found"})
+        self.send_response(200)
+        self.send_header("Content-Type", record["contentType"])
         self.send_header("Cache-Control", "public, max-age=31536000, immutable")
         self.send_header("Content-Length", str(len(raw)))
         self.end_headers()

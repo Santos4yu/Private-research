@@ -24,6 +24,7 @@ import './gamelog-fix.css';
 import './research-polish.css';
 import './prop-finder.css';
 import './sports/nfl/nfl-research.css';
+import './community-feed.css';
 
 const topTabs = [
   { title: 'Research', icon: Search, value: 'research' },

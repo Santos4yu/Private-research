@@ -311,6 +311,7 @@
   <button type="button" class="side-link" data-tab="moneyline">◈ <span>moneylines</span></button>
   <button type="button" class="side-link" data-tab="nrfi">◌ <span>nrfi / yrfi</span></button>
   <button type="button" class="side-link" data-tab="saved">♡ <span>prop builder</span></button>
+  <button type="button" class="side-link" data-tab="community">◆ <span>community</span></button>
   <div class="side-panel-divider"></div>
   <button type="button" class="side-link" data-tab="admin">⚙ <span>admin</span></button>
 </aside>
@@ -410,6 +411,24 @@
 <section class="tab-panel" id="panel-nrfi" hidden>
   <div class="market-page-head"><div><p class="eyebrow">LINEUP-CONFIRMED FIRST-INNING READS</p><h2>NRFI / YRFI Board</h2><p>Posted automatically once both starters and the top of each lineup are available.</p></div><button class="ghost-btn" id="nrfi-refresh">Refresh</button></div>
   <div class="market-grid" id="nrfi-list"></div><p class="empty-state" id="nrfi-empty" hidden>No decision-ready NRFI/YRFI plays right now.</p>
+</section>
+
+<!-- COMMUNITY TAB -->
+<section class="tab-panel" id="panel-community" hidden>
+  <div class="market-page-head"><div><p class="eyebrow">MEMBER PICKS</p><h2>Community</h2><p>Share your plays and see what everyone else is on. Everyone using this can see what you post here.</p></div><button class="ghost-btn" id="community-refresh">Refresh</button></div>
+  <form class="community-composer" id="community-composer">
+    <textarea id="community-composer-text" maxlength="500" placeholder="What's the play? Drop your parlay, a lean, or just talk your book." rows="3"></textarea>
+    <div class="community-composer-preview" id="community-composer-preview" hidden><img id="community-composer-preview-img" alt="" /><button type="button" id="community-composer-remove-image" aria-label="Remove photo">✕</button></div>
+    <div class="community-composer-row">
+      <button type="button" class="ghost-btn" id="community-composer-upload">📎 Add a screenshot</button>
+      <input type="file" id="community-composer-file" accept="image/*" hidden />
+      <button type="submit" class="primary-btn" id="community-composer-submit">Post</button>
+    </div>
+    <p class="community-composer-status" id="community-composer-status" aria-live="polite"></p>
+  </form>
+  <div class="community-feed" id="community-feed-list"></div>
+  <p class="empty-state" id="community-empty" hidden>No posts yet — be the first to share a play.</p>
+  <p class="empty-state" id="community-signed-out" hidden>Sign in to post and react in Community.</p>
 </section>
 
 <!-- ADMIN TAB -->
