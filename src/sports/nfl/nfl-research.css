@@ -276,7 +276,7 @@
 .nfl-side-switch { display:flex;gap:6px; }
 .nfl-side-switch button[aria-pressed=true],.nfl-window-tabs button[aria-pressed=true] { background:linear-gradient(135deg, var(--nfl-accent), var(--nfl-accent-soft));color:var(--nfl-on-accent);border-color:var(--nfl-accent); }
 .nfl-line-range { flex:0 0 100%;width:100%;padding:0!important;accent-color:#a4e6ef;background:transparent!important;cursor:ew-resize; }
-.nfl-interactive-chart { overflow-x:auto;overflow-y:hidden;width:100%;color:#c6d0dd; }
+.nfl-interactive-chart { overflow:hidden;width:100%;color:#c6d0dd; }
 .nfl-interactive-chart svg { display:block;width:100%;height:auto; }
 .nfl-chart-game { cursor:pointer; }
 .nfl-chart-game:hover rect,.nfl-chart-game:focus rect { filter:brightness(1.15);stroke:#fff;stroke-width:2; }

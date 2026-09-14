@@ -44,9 +44,14 @@
 .nfl-app-shell .nfl-research-tabs button { min-width:0;min-height:38px;padding:5px 4px;gap:3px;border-radius:9px;font-size:10.5px; }.nfl-app-shell .nfl-research-tabs svg { width:14px;height:14px; }
 .nfl-app-shell .nfl-tab-content { margin-top:0; }
 .nfl-app-shell .nfl-trends { gap:10px;padding:14px;border:1px solid #303c48;border-radius:18px;background:#151d26; }
-.nfl-trends .nfl-line-editor { padding:0;border:0;background:none;border-radius:0;gap:8px;flex-wrap:wrap; }
-.nfl-trends .nfl-line-editor .nfl-stepper { flex:1; }.nfl-trends .nfl-line-editor .nfl-stepper input { flex:1;max-width:90px;min-width:50px;font-size:17px;font-weight:700; }
-.nfl-trends .nfl-line-editor .nfl-side-switch { gap:3px; }.nfl-trends .nfl-side-switch button { padding:6px 10px;font-size:12px;min-height:34px; }
+.nfl-app-shell .nfl-window-strip { grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:6px;margin:2px 0; }
+.nfl-app-shell .nfl-window-chip { padding:7px 8px;border-radius:10px;gap:2px; }
+.nfl-app-shell .nfl-window-chip strong { font-size:15px; }
+.nfl-app-shell .nfl-window-chip span { font-size:9px; }
+.nfl-app-shell .nfl-window-chip small { font-size:9.5px; }
+.nfl-trends .nfl-line-editor { padding:0;border:0;background:none;border-radius:0;gap:8px;flex-wrap:wrap;align-items:center; }
+.nfl-trends .nfl-line-editor .nfl-stepper { flex:0 1 auto; }.nfl-trends .nfl-line-editor .nfl-stepper input { flex:0 1 auto;width:56px;max-width:56px;min-width:44px;font-size:15px;font-weight:700; }
+.nfl-trends .nfl-line-editor .nfl-side-switch { gap:3px;flex:0 0 auto; }.nfl-trends .nfl-side-switch button { padding:5px 9px;font-size:11.5px;min-height:34px; }
 .nfl-trends .nfl-line-editor .nfl-reset { font-size:11px;min-height:24px;flex-basis:100%;padding:0; }
 .nfl-trends .nfl-window-tabs { gap:3px; }.nfl-trends .nfl-window-tabs button { min-width:0;min-height:32px;flex:1 0 0;padding:5px 2px;border-radius:8px;font-size:11px; }
 .nfl-trends .nfl-game-count { gap:6px; }.nfl-trends .nfl-game-count .nfl-stepper button { min-height:34px;padding:5px 8px; }.nfl-trends .nfl-game-count .nfl-stepper input { width:36px;min-height:34px;padding:4px; }
