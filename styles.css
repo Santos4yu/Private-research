@@ -6935,3 +6935,18 @@ details.rate-filter summary b { margin-left: auto; color: var(--accent); font-si
 .rate-filter p {
   margin: 8px 14px 10px; font-size: 10px; color: var(--text-faint); line-height: 1.4;
 }
+
+/* User background image (Accent studio): once active, let it show through
+   by clearing the app's own full-bleed background layers. Card/panel
+   backgrounds are untouched -- only the base html/body/app-shell/hero/
+   tab-panel paint that would otherwise cover it entirely. Must stay last
+   in this file to win over the equal-or-lower-specificity !important
+   "theme final authority" rules earlier in the cascade. */
+:root[data-theme][data-user-bg] body,
+:root[data-theme][data-user-bg] #app-shell,
+:root[data-theme][data-user-bg] .hero,
+:root[data-theme][data-user-bg] .tab-panel {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+}

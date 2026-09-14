@@ -626,6 +626,21 @@ let activeBgUrl = "";
 // Verifies the image actually loads before committing it as the live
 // background -- a broken URL should produce a clear error, not a blank
 // layer or a stuck spinner-less failure.
+// The app's own base layers (body/#app-shell/.hero/every .tab-panel) each
+// paint their own solid background by default -- a stylesheet override
+// alone proved unreliable for some of them (this app's cascade is deep and
+// inconsistent across theme passes), so this sets/clears the same effect
+// as a direct, guaranteed-to-win inline style instead of trusting a
+// selector to out-specificity whatever else targets these elements.
+function setBaseBackgroundsCleared(active) {
+  const targets = [document.body, document.getElementById("app-shell"), ...document.querySelectorAll(".hero, .tab-panel")];
+  for (const el of targets) {
+    if (!el) continue;
+    if (active) el.style.setProperty("background-color", "transparent", "important");
+    else el.style.removeProperty("background-color");
+  }
+}
+
 function applyBackgroundImage({ url, opacity }, { persist = true, onError, onSuccess } = {}) {
   const cleanUrl = normalizeBgUrl(url);
   const cleanOpacity = normalizeBgOpacity(opacity);
@@ -635,6 +650,8 @@ function applyBackgroundImage({ url, opacity }, { persist = true, onError, onSuc
     activeBgUrl = "";
     els.bgImageLayer.hidden = true;
     els.bgImageLayer.style.backgroundImage = "";
+    document.documentElement.removeAttribute("data-user-bg");
+    setBaseBackgroundsCleared(false);
     if (persist) localStorage.removeItem(BG_IMAGE_KEY);
     return;
   }
@@ -644,6 +661,11 @@ function applyBackgroundImage({ url, opacity }, { persist = true, onError, onSuc
     els.bgImageLayer.style.backgroundImage = `url("${cleanUrl}")`;
     els.bgImageLayer.style.opacity = String(cleanOpacity / 100);
     els.bgImageLayer.hidden = false;
+    // The data-user-bg attribute also drives a stylesheet override (see
+    // styles.css) as a first line of defense; the inline call below is
+    // what actually guarantees it takes effect.
+    document.documentElement.setAttribute("data-user-bg", "true");
+    setBaseBackgroundsCleared(true);
     if (persist) {
       try {
         localStorage.setItem(BG_IMAGE_KEY, JSON.stringify({ url: cleanUrl, opacity: cleanOpacity }));
