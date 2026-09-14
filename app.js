@@ -5612,8 +5612,17 @@ function renderBotBoard(data) {
 
     const stats = p.stats || {};
     const matchupScore = Number(stats.matchup_score);
+    const matchupCoverage = Number(stats.matchup_coverage);
+    // The engine no longer hides a low-coverage matchup grade outright (a
+    // real elite score could otherwise vanish just because of scan timing
+    // -- coverage climbs through the day as more data becomes available),
+    // but it also shouldn't be presented with the same confidence as a
+    // well-covered one. Label it plainly instead of grading it.
+    const lowCoverage = Number.isFinite(matchupCoverage) && matchupCoverage < 0.45;
     const matchupBadge = Number.isFinite(matchupScore)
-      ? `<span class="v2-card-matchup-score" data-band="${matchupScore >= 75 ? "strong" : matchupScore >= 65 ? "favorable" : matchupScore >= 55 ? "slight" : matchupScore >= 45 ? "neutral" : matchupScore >= 35 ? "caution" : "unfavorable"}">MATCHUP ${Math.round(matchupScore)} · ${boardMatchupLabel(matchupScore)}</span>`
+      ? lowCoverage
+        ? `<span class="v2-card-matchup-score" data-band="limited">MATCHUP ${Math.round(matchupScore)} · LIMITED DATA (${Math.round(matchupCoverage * 100)}% cov.)</span>`
+        : `<span class="v2-card-matchup-score" data-band="${matchupScore >= 75 ? "strong" : matchupScore >= 65 ? "favorable" : matchupScore >= 55 ? "slight" : matchupScore >= 45 ? "neutral" : matchupScore >= 35 ? "caution" : "unfavorable"}">MATCHUP ${Math.round(matchupScore)} · ${boardMatchupLabel(matchupScore)}</span>`
       : `<span class="v2-card-matchup-score" data-band="neutral">MATCHUP NOT GRADED</span>`;
     const sidePfx = stats.side === "under" ? "U" : "O";
     const tier = BOT_TIER[p.tier] || botScoreBadge(p.vortex_score);
