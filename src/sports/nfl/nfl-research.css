@@ -97,6 +97,15 @@
 .nfl-prop-selector button strong, .nfl-prop-selector button small { display: block; }
 .nfl-prop-selector button small { margin-top: 3px; color: var(--theme-faint, #8c96a6); font-size: 10px; }
 .nfl-prop-selector button.active { border-color: #a9c8ec80; color: #f8fafc; background: #2c3949; box-shadow: inset 0 1px #fff10; }
+.nfl-edge-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.nfl-edge-badge { display: flex; flex-direction: column; gap: 2px; padding: 9px 13px; border: 1px solid var(--nfl-border); border-radius: 12px; background: var(--nfl-surface); }
+.nfl-edge-badge strong { font-size: 12px; font-weight: 700; color: var(--theme-text, #f5f7fa); }
+.nfl-edge-badge small { font-size: 11px; color: var(--theme-muted, #adb6c4); }
+.nfl-edge-badge.good { border-color: color-mix(in srgb, var(--nfl-green) 55%, var(--nfl-border)); background: color-mix(in srgb, var(--nfl-green) 12%, var(--nfl-surface)); }
+.nfl-edge-badge.good strong { color: var(--nfl-green); }
+.nfl-edge-badge.bad { border-color: color-mix(in srgb, var(--nfl-red) 55%, var(--nfl-border)); background: color-mix(in srgb, var(--nfl-red) 12%, var(--nfl-surface)); }
+.nfl-edge-badge.bad strong { color: var(--nfl-red); }
+.nfl-edge-caveat { width: 100%; color: var(--theme-faint, #8c96a6); font-size: 11px; }
 .nfl-research-tabs { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; padding: 6px; border: 1px solid var(--nfl-border); border-radius: 17px; background: var(--nfl-surface); }
 .nfl-research-tabs button { display: grid; place-items: center; gap: 5px; min-height: 58px; padding: 7px; border: 0; border-radius: 11px; color: var(--theme-faint, #8c96a6); background: transparent; cursor: pointer; }
 .nfl-research-tabs button svg { width: 18px; }

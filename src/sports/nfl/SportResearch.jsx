@@ -18,6 +18,7 @@ import { freshness } from './nfl-client';
 import { loadNFLHistory, historicalUsage } from './nfl-history';
 import { NFLMarketLines, NFLPropBrowser } from './MarketLines';
 import { NFLTrendPanel } from './TrendPanel';
+import { compareTrend } from './trend-data';
 import { filterNFLPlayers, NFL_RECENT_KEY, propsForPosition, researchHealth, selectNextGame, summarizeLogs, teamLogoUrl, visibleGame } from './nfl-ui-core';
 
 const SEASON = new Date().getMonth() < 2 ? new Date().getFullYear() - 1 : new Date().getFullYear();
@@ -150,6 +151,31 @@ function Stat({ label, value, suffix = '', unavailable = false }) {
 
 function EmptyFeature({ title, reason }) { return <Notice icon={Database} title={`${title} unavailable`}>{reason}</Notice>; }
 
+const MATCHUP_GRADE = (score) => score >= 80 ? 'Strong' : score >= 65 ? 'Favorable' : score >= 45 ? 'Neutral' : score >= 30 ? 'Difficult' : 'Very difficult';
+
+// A single at-a-glance synthesis of the signals a user would otherwise have to
+// visit three separate tabs to piece together. It only ever states numbers
+// already computed elsewhere (matchup score, hit rate at the posted line) —
+// it never estimates or grades beyond what those panels already produced.
+function EdgeSummary({ selectedProp, logs, matchup, quote }) {
+  const data = matchup?.data;
+  const quality = Number.isFinite(data?.matchupQuality) ? Math.round(data.matchupQuality) : null;
+  const grade = quality == null ? null : MATCHUP_GRADE(quality);
+  const line = quote?.verified && quote.propType === selectedProp.key && Number.isFinite(quote.value) ? quote.value : null;
+  const direction = quote?.direction || 'OVER';
+  const l5 = line != null ? compareTrend(logs.slice(-5), selectedProp.key, line, direction) : null;
+  const l10 = line != null ? compareTrend(logs.slice(-10), selectedProp.key, line, direction) : null;
+  const badges = [];
+  if (quality != null) badges.push({ key: 'matchup', tone: grade === 'Strong' || grade === 'Favorable' ? 'good' : grade === 'Difficult' || grade === 'Very difficult' ? 'bad' : 'neutral', label: `${grade} matchup`, detail: `${quality}/100` });
+  if (l5?.hitRate != null) badges.push({ key: 'l5', tone: l5.hitRate >= 60 ? 'good' : l5.hitRate <= 40 ? 'bad' : 'neutral', label: `L5 ${direction === 'OVER' ? 'over' : 'under'} ${line}`, detail: `${l5.hits}-${l5.misses}${l5.pushes ? ` (${l5.pushes} push)` : ''} · ${Math.round(l5.hitRate)}%` });
+  if (l10?.hitRate != null && l10.games >= 8) badges.push({ key: 'l10', tone: l10.hitRate >= 60 ? 'good' : l10.hitRate <= 40 ? 'bad' : 'neutral', label: `L${l10.games} ${direction === 'OVER' ? 'over' : 'under'} ${line}`, detail: `${Math.round(l10.hitRate)}%` });
+  if (!badges.length) return null;
+  return <section className="nfl-edge-summary" aria-label="Edge summary">
+    {badges.map((badge) => <span className={`nfl-edge-badge ${badge.tone}`} key={badge.key}><strong>{badge.label}</strong><small>{badge.detail}</small></span>)}
+    {data?.dataCoverage != null && data.dataCoverage < 50 && <small className="nfl-edge-caveat">Limited matchup evidence · {Math.round(data.dataCoverage)}% coverage</small>}
+  </section>;
+}
+
 function OverviewPanel({ selectedProp, logs, projection, quote }) {
   const summary = summarizeLogs(logs, selectedProp.key);
   const line=quote?.verified && quote.propType===selectedProp.key && Number.isFinite(quote.value) ? quote : null;
@@ -258,7 +284,9 @@ function NFLPlayerResearch({ player, teams, schedules, onBack }) {
   }, [player.id, nextGame?.week, refreshKey]);
 
   useEffect(() => {
-    if (tab !== 'matchup') return;
+    // Fetched eagerly (not gated to the Matchup tab) so the edge summary above
+    // the tabs has a score to show as soon as the player opens, not only after
+    // they click into Matchup.
     let active = true;
     setResources((current) => ({ ...current, matchup: { status: 'LOADING' } }));
     getNFL('matchup', { playerId: player.id, week: nextGame?.week, prop: selectedProp.key }).then((matchup) => {
@@ -267,7 +295,7 @@ function NFLPlayerResearch({ player, teams, schedules, onBack }) {
       if (active) setResources((current) => ({ ...current, matchup: { data: { status: 'NOT_AVAILABLE', reason: 'Required matchup sources did not load. No score was fabricated.' } } }));
     });
     return () => { active = false; };
-  }, [tab, player.id, nextGame?.week, selectedProp.key, refreshKey]);
+  }, [player.id, nextGame?.week, selectedProp.key, refreshKey]);
 
   useEffect(() => {
     if (tab !== 'context') return;
@@ -301,7 +329,7 @@ function NFLPlayerResearch({ player, teams, schedules, onBack }) {
     <div className="nfl-research-actions"><button type="button" className="nfl-back" onClick={onBack}><ArrowLeft aria-hidden="true" />Players</button><button type="button" className="nfl-refresh" aria-label="Refresh current research" onClick={() => { nflClient.clear(); setAnalyzedLine(null); setRefreshKey(key => key + 1); }}><RefreshCw size={18}/></button></div>
     <header className="nfl-player-header"><div className="nfl-headshot-wrap"><PlayerPhoto player={player} /></div><div className="nfl-player-identity"><h2>{player.name}</h2><p>{player.position} · {team?.name || player.team_id || 'Free agent'} <TeamLogo team={player.team_id} size="sm" /></p><div className="nfl-player-chips"><span>{statusLabel(player.status)}</span>{nextGame && matchup && <span>{matchup.location === 'HOME' ? 'vs' : '@'} {matchup.opponent.id} · {new Date(nextGame.starts_at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</span>}</div></div></header>
     <section className="nfl-prop-selector"><div role="listbox" aria-label="Player props">{props.map((prop) => <button type="button" role="option" aria-selected={selectedProp.key === prop.key} className={selectedProp.key === prop.key ? 'active' : ''} key={prop.key} onClick={() => {setSelectedProp(prop);setAnalyzedLine(null);}}><strong>{prop.label}</strong></button>)}</div></section>
-
+    <EdgeSummary selectedProp={selectedProp} logs={logs} matchup={resources.matchup} quote={analyzedLine} />
 
     <nav className="nfl-research-tabs" aria-label="NFL research sections">{TAB_ITEMS.map(([key, label, Icon]) => <button type="button" key={key} className={tab === key ? 'active' : ''} aria-current={tab === key ? 'page' : undefined} onClick={() => setTab(key)}><Icon aria-hidden="true" /><span>{label}</span></button>)}</nav>
     {loading && <LoadingCards label="Loading player research" />}
