@@ -1,3 +1,4 @@
+import {dockHiddenAt} from './src/mobile-nav-core.js';
 import {initSiteAccess,siteTabAllowed,loadSiteControls,showLockedTab,availableSiteTab,refreshSiteAccess} from './src/site-access.js';
 /* =========================================================
    Vortex Prop Research — client-side renderer
@@ -712,17 +713,15 @@ function wireTabs() {
 
 
 function wireMobileNavAutoHide() {
-  let lastY = window.scrollY;
+  let hidden = false;
   let ticking = false;
   const update = () => {
     const y = Math.max(0, window.scrollY || 0);
-    const scrollingDown = y > lastY + 8;
-    const nearTop = y < 18;
-    document.body.classList.toggle('mobile-dock-hidden', !nearTop && scrollingDown);
-    if (nearTop) document.body.classList.remove('mobile-dock-hidden');
-    lastY = y;
+    hidden = dockHiddenAt(y,hidden);
+    document.body.classList.toggle('mobile-dock-hidden',hidden);
     ticking = false;
   };
+  update();
   window.addEventListener('scroll', () => {
     if (!ticking) {
       ticking = true;

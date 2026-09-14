@@ -202,3 +202,12 @@
 @media (prefers-reduced-motion: reduce) {
   .lab-home *, .lab-search-submit { transition: none !important; }
 }
+
+/* Compact dock; its horizontal inset remains unchanged. */
+@media(max-width:760px){
+ :root[data-theme] .mobile-app-nav{min-height:62px;padding:5px;border-radius:20px;opacity:1;transform:translate3d(0,0,0);visibility:visible;transition:opacity 280ms ease,transform 280ms cubic-bezier(.22,1,.36,1),visibility 0s linear 0s}
+ :root[data-theme] .mobile-app-tab{min-height:50px;gap:3px;padding:3px 2px;border-radius:14px}
+ :root[data-theme] .mobile-app-tab-icon{height:25px;width:36px}
+ :root[data-theme] body.mobile-dock-hidden .mobile-app-nav{opacity:0;transform:translate3d(0,14px,0);visibility:hidden;pointer-events:none;transition:opacity 240ms ease,transform 280ms cubic-bezier(.22,1,.36,1),visibility 0s linear 280ms}
+}
+@media(prefers-reduced-motion:reduce){:root[data-theme] .mobile-app-nav,:root[data-theme] body.mobile-dock-hidden .mobile-app-nav{transition:none}}
