@@ -56,17 +56,26 @@ html[data-all-tabs-locked=true] #app-shell .tab-panel{display:none!important}
 @media(max-width:760px){
  html{--site-status-inset:max(44px,env(safe-area-inset-top,0px))}
  html[data-site-access=granted]{--app-top:calc(72px + var(--site-status-inset))}
- .site-account-bar{top:calc(14px + var(--site-status-inset));right:max(72px,calc(env(safe-area-inset-right,0px) + 72px))}
- html[data-site-access=granted][data-theme] .settings-btn{top:calc(14px + var(--site-status-inset))!important}
  html[data-site-access=granted][data-theme] .hero{padding-top:calc(12px + var(--site-status-inset))!important}
  .site-policy-gate{padding-top:calc(24px + var(--site-status-inset));padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
  .site-account-dialog{margin-top:max(calc(24px + var(--site-status-inset)),calc((100dvh - 360px)/2));max-height:calc(100dvh - var(--site-status-inset) - env(safe-area-inset-bottom,0px) - 48px)}
 }
 
-/* Profile and gear share the same scrolling header anchor. */
+/* Profile and settings icons: pinned to the viewport (never the scrolling
+   hero) and kept the same size/shape/offset as each other at every width. */
+.site-account-bar,
+#settings-btn{position:fixed!important;top:20px!important;z-index:70!important}
+#settings-btn{right:20px!important}
+.site-account-bar{right:68px!important}
+.site-account-trigger,
+#settings-btn{width:40px!important;height:40px!important;border-radius:12px!important}
 @media(max-width:760px){
- html[data-site-access=granted][data-theme] .hero{position:relative!important}
- .site-account-bar{position:absolute;top:calc(14px + var(--site-status-inset));z-index:65}
+ .site-account-bar,
+ #settings-btn{top:calc(14px + var(--site-status-inset))!important}
+ #settings-btn{right:max(12px,calc(env(safe-area-inset-right,0px) + 12px))!important}
+ .site-account-bar{right:max(58px,calc(env(safe-area-inset-right,0px) + 58px))!important}
+ .site-account-trigger,
+ #settings-btn{width:38px!important;height:38px!important}
 }
 html[data-site-maintenance=true],html[data-site-maintenance=true] body{height:100%;overflow:hidden!important;overscroll-behavior:none;touch-action:none}
 html[data-site-maintenance=true] .site-policy-gate{overflow:hidden;touch-action:none;height:100dvh;align-items:center}
