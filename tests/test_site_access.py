@@ -22,6 +22,18 @@ class SiteControlsTests(unittest.TestCase):
  def test_sport_settings_validated_and_old_settings_compatible(self):
   self.assertEqual(controls.validate({**controls.DEFAULT,'disabledSports':['nfl']})['disabledSports'],['nfl'])
   with self.assertRaises(ValueError):controls.validate({**controls.DEFAULT,'disabledSports':['unknown']})
+ def test_background_image_defaults_when_omitted(self):
+  body={k:v for k,v in controls.DEFAULT.items() if k!='backgroundImage'}
+  self.assertEqual(controls.validate(body)['backgroundImage'],{'url':'','opacity':35})
+ def test_background_image_accepts_valid_link_and_rounds_opacity(self):
+  result=controls.validate({**controls.DEFAULT,'backgroundImage':{'url':'https://example.com/a.jpg','opacity':62.6}})
+  self.assertEqual(result['backgroundImage'],{'url':'https://example.com/a.jpg','opacity':63})
+ def test_background_image_rejects_non_http_and_data_urls(self):
+  for url in ('javascript:alert(1)','data:image/png;base64,AAAA','ftp://example.com/a.jpg','not a url'):
+   with self.assertRaises(ValueError):controls.validate({**controls.DEFAULT,'backgroundImage':{'url':url,'opacity':35}})
+ def test_background_image_rejects_opacity_out_of_range_or_wrong_type(self):
+  for opacity in (0,4,101,'50',True,None):
+   with self.assertRaises(ValueError):controls.validate({**controls.DEFAULT,'backgroundImage':{'url':'','opacity':opacity}})
  def test_same_origin(self):
   self.assertTrue(controls.same_origin({'Origin':'https://example.com','Host':'example.com'}));self.assertFalse(controls.same_origin({'Origin':'https://evil.com','Host':'example.com'}));self.assertFalse(controls.same_origin({'Host':'example.com'}))
  def test_required_login_cannot_be_bypassed_by_beta(self):

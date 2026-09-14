@@ -684,11 +684,28 @@ function applyBackgroundImage({ url, opacity }, { persist = true, onError, onSuc
   probe.src = cleanUrl;
 }
 
+// The admin's site-wide background (from site-status, sent to every
+// visitor) is only ever the *fallback* -- a member's own personal choice
+// in Settings always wins on their device. Re-resolved whenever either
+// source changes.
+let siteBackgroundImage = null;
+function applyEffectiveBackground() {
+  const personal = loadBackgroundImage();
+  if (personal.url) { applyBackgroundImage(personal, { persist: false }); return; }
+  if (siteBackgroundImage?.url) { applyBackgroundImage(siteBackgroundImage, { persist: false }); return; }
+  applyBackgroundImage({ url: "", opacity: 35 }, { persist: false });
+}
+window.addEventListener("vortex:site-policy", (event) => {
+  const bg = event.detail?.backgroundImage;
+  siteBackgroundImage = bg?.url ? { url: bg.url, opacity: normalizeBgOpacity(bg.opacity) } : null;
+  applyEffectiveBackground();
+});
+
 function wireBackgroundImage() {
   if (!els.bgImageUrl) return;
   const saved = loadBackgroundImage();
   els.bgImageUrl.value = saved.url.startsWith("data:") ? "" : saved.url;
-  applyBackgroundImage(saved, { persist: false });
+  applyEffectiveBackground();
   els.bgImageOpacity.addEventListener("input", () => {
     els.bgImageOpacityValue.textContent = `${normalizeBgOpacity(els.bgImageOpacity.value)}%`;
     if (els.bgImageLayer.style.backgroundImage) {
@@ -715,8 +732,13 @@ function wireBackgroundImage() {
   });
   els.bgImageRemove.addEventListener("click", () => {
     els.bgImageUrl.value = "";
-    applyBackgroundImage({ url: "", opacity: els.bgImageOpacity.value });
-    els.bgImageStatus.textContent = "Background image removed.";
+    localStorage.removeItem(BG_IMAGE_KEY);
+    // Falls back to the site's own background (if the admin has set one)
+    // instead of forcing a blank background for everyone.
+    applyEffectiveBackground();
+    els.bgImageStatus.textContent = siteBackgroundImage?.url
+      ? "Personal background removed — showing the site default."
+      : "Background image removed.";
   });
   els.bgImageUploadBtn?.addEventListener("click", () => els.bgImageFile.click());
   els.bgImageFile?.addEventListener("change", async () => {
