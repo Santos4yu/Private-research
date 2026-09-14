@@ -1,6 +1,6 @@
 {
-  "name": "Krazy Data",
-  "short_name": "Krazy Data",
+  "name": "KD",
+  "short_name": "KD",
   "description": "MLB props, player research, matchup tools, and your saved slip.",
   "start_url": "/",
   "display": "standalone",
