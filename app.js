@@ -547,6 +547,12 @@ window.addEventListener("vortex:site-policy", (event) => {
 window.addEventListener("vortex:site-theme-preview", (event) => {
   applyAccentTheme(event.detail, { persist: false, syncControls: false });
 });
+// Fired by the admin panel's "Clear my personal theme" button -- lets an
+// admin who is also testing the site default on their own device drop
+// their personal override without having to find it in Settings themselves.
+window.addEventListener("vortex:clear-personal-accent", () => {
+  applyEffectiveAccentTheme();
+});
 
 function loadAccentPresets() {
   try {
