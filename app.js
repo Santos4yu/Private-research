@@ -562,16 +562,20 @@ function normalizeBgOpacity(value, fallback = 35) {
   return Number.isFinite(num) ? Math.max(5, Math.min(100, Math.round(num))) : fallback;
 }
 
-// Only http(s) links or a same-origin data: image (from the device-upload
-// flow below) are accepted -- background-image never executes a URL as
-// script either way, but rejecting anything else keeps the field
-// predictable and gives a clear error instead of a silently blank layer.
+// Only http(s) links, a same-origin data: image (from the device-upload
+// flow below), or our own relative hosted-image path (from the admin's
+// site-wide upload, e.g. /api/v2-admin?action=site-background&v=...) are
+// accepted -- background-image never executes a URL as script either way,
+// but rejecting anything else keeps the field predictable and gives a
+// clear error instead of a silently blank layer.
 function normalizeBgUrl(value) {
   const trimmed = String(value || "").trim();
   if (!trimmed) return "";
   if (/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(trimmed)) return trimmed;
   try {
-    const parsed = new URL(trimmed);
+    // A base is required to resolve our own relative paths -- passed for
+    // every case since it's a no-op when `trimmed` is already absolute.
+    const parsed = new URL(trimmed, window.location.origin);
     return ["http:", "https:"].includes(parsed.protocol) ? parsed.href : "";
   } catch (_) {
     return "";

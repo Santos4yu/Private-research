@@ -144,6 +144,18 @@ function resizeSiteImage(file,maxDim=1600){
  });
 }
 
+// Confirms the saved background link actually resolves to a loadable image
+// (a relative path like our own upload endpoint needs the base to resolve)
+// instead of only trusting that the settings write itself succeeded.
+function probeImageLoads(url){
+ return new Promise(resolve=>{
+  const img=new Image();
+  img.onload=()=>resolve(true);
+  img.onerror=()=>resolve(false);
+  img.src=new URL(url,window.location.origin).href;
+ });
+}
+
 export async function loadSiteControls(){
  const policy=await request('/api/v2-admin?action=site-settings');let host=document.getElementById('site-controls');if(!host)return;
  host.hidden=false;host.innerHTML='<h3>Website controls</h3><form><div class="site-control-switches"></div><label>Maintenance message<textarea name="message" maxlength="240" required></textarea></label><fieldset><legend>Available tabs</legend></fieldset><fieldset class="site-sport-controls"><legend>Visible sports</legend></fieldset><div class="bg-image-control"><span class="settings-label">Site background image — everyone sees this</span><button type="button" class="bg-image-upload-btn" id="site-bg-upload">Upload a photo</button><input type="file" id="site-bg-file" accept="image/*" hidden /><div class="bg-image-divider"><span>or paste a link</span></div><input type="text" name="bgUrl" placeholder="https://example.com/photo.jpg" autocomplete="off" inputmode="url" /><label class="accent-tint-control"><span>Opacity</span><input type="range" name="bgOpacity" min="5" max="100" step="1" value="35" aria-label="Site background opacity" /><output>35%</output></label><p class="theme-picker-note">This is separate from a member’s personal background in their own Settings — their choice always overrides this on their device. Members without a personal background see this one.</p></div><p role="status"></p><button type="submit">Save website settings</button></form>';
@@ -169,5 +181,14 @@ export async function loadSiteControls(){
    statusEl().textContent='Photo uploaded. Click "Save website settings" to publish it to everyone.';
   }catch(error){statusEl().textContent=error.message;}
  });
- form.onsubmit=async e=>{e.preventDefault();const message=statusEl();const button=host.querySelector('[type=submit]');button.disabled=true;try{await request('/api/v2-admin',{action:'site-settings',settings:{maintenance:form.elements.maintenance.checked,requireLogin:form.elements.requireLogin.checked,registrationOpen:form.elements.registrationOpen.checked,message:form.elements.message.value,disabledSports:[...form.querySelectorAll('[name=sport]')].filter(c=>!c.checked).map(c=>c.value),disabledTabs:[...form.querySelectorAll('[name=tab]')].filter(c=>!c.checked).map(c=>c.value),backgroundImage:{url:form.elements.bgUrl.value.trim(),opacity:Number(form.elements.bgOpacity.value)}}});message.textContent='Saved. Changes apply to member requests immediately.';await refreshSiteAccess();}catch(error){message.textContent=error.message;}finally{button.disabled=false;}};
+ form.onsubmit=async e=>{e.preventDefault();const message=statusEl();const button=host.querySelector('[type=submit]');button.disabled=true;const bgUrl=form.elements.bgUrl.value.trim();try{await request('/api/v2-admin',{action:'site-settings',settings:{maintenance:form.elements.maintenance.checked,requireLogin:form.elements.requireLogin.checked,registrationOpen:form.elements.registrationOpen.checked,message:form.elements.message.value,disabledSports:[...form.querySelectorAll('[name=sport]')].filter(c=>!c.checked).map(c=>c.value),disabledTabs:[...form.querySelectorAll('[name=tab]')].filter(c=>!c.checked).map(c=>c.value),backgroundImage:{url:bgUrl,opacity:Number(form.elements.bgOpacity.value)}}});
+  if(bgUrl){
+   message.textContent='Saved. Checking that the image loads…';
+   const loads=await probeImageLoads(bgUrl);
+   message.textContent=loads?'Saved — background image is live for everyone.':'Saved, but that image failed to load. Double-check the link or re-upload the photo.';
+  }else{
+   message.textContent='Saved. Changes apply to member requests immediately.';
+  }
+  await refreshSiteAccess();
+ }catch(error){message.textContent=error.message;}finally{button.disabled=false;}};
 }
