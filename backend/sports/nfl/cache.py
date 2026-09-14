@@ -22,6 +22,7 @@ class NFLCacheDomain(StrEnum):
     PROJECTIONS = "projections"
     OPPORTUNITY = "opportunity"
     MATCHUP = "matchup"
+    SOURCE_ROWS = "source_rows"
 
 
 NFL_CACHE_TTLS = {
@@ -39,6 +40,7 @@ NFL_CACHE_TTLS = {
     NFLCacheDomain.PROJECTIONS: 10 * 60,
     NFLCacheDomain.OPPORTUNITY: 10 * 60,
     NFLCacheDomain.MATCHUP: 10 * 60,
+    NFLCacheDomain.SOURCE_ROWS: 15 * 60,
 }
 
 T = TypeVar("T")

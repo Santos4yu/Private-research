@@ -1,4 +1,5 @@
 """Real-line historical research shortlist, independent of production verdicts."""
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from math import sqrt, isfinite
 from dataclasses import asdict
@@ -124,12 +125,18 @@ def game_board(season,event_id):
         uncertain={i.player_id for i in injuries.data or [] if str(i.game_status or '').upper() in ('OUT','DOUBTFUL','QUESTIONABLE')}
         offers={**offers,'data':[r for r in offers['data'] if r['playerId'] not in uncertain]}
         ids={r['playerId'] for r in offers.get('data',[]) if r['line'].get('bookmaker')=='prizepicks'}
+        # game_logs() itself is cheap now that the underlying season CSV is
+        # shared across players (see nflverse._source_rows), but fetching
+        # one player at a time still serializes N x 2 round trips on a cold
+        # cache -- run them concurrently so a game with many active props
+        # doesn't wait on each player in turn.
         histories={};failed=0
-        for pid in ids:
-            current=nflverse.game_logs(season,pid)
-            older=nflverse.game_logs(season-1,pid)
-            histories[pid]=list(older.data or [])+list(current.data or [])
-            failed+=int(current.data is None or older.data is None)
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            futures={pid:(executor.submit(nflverse.game_logs,season,pid),executor.submit(nflverse.game_logs,season-1,pid)) for pid in ids}
+            for pid,(current_future,older_future) in futures.items():
+                current=current_future.result();older=older_future.result()
+                histories[pid]=list(older.data or [])+list(current.data or [])
+                failed+=int(current.data is None or older.data is None)
         dataset=shared_matchup_dataset(season,event['week'])
         rows=screen(offers.get('data',[]),histories,event)
         rows=attach_opponent_volume(rows,dataset,event['week'],roster)

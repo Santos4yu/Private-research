@@ -121,7 +121,15 @@ def _result(loader: Callable[[], tuple[list, datetime, datetime | None]]) -> Pro
 
 
 def _source_rows(url: str):
-    return _fetch_csv(url)
+    # Every caller below (teams, schedule, game_logs, usage, injuries,
+    # depth_chart, team_stats) fetches from a season-wide static CSV, but
+    # each one is keyed by its OWN cache domain downstream -- game_logs in
+    # particular caches by (season, player_id), so looking up N different
+    # players for the same season previously re-downloaded and re-parsed
+    # this exact same file N times over the network, sequentially, once per
+    # player. Caching the raw rows here by URL means every caller shares
+    # one fetch+parse per file instead of paying for it again per player.
+    return cached_nfl(NFLCacheDomain.SOURCE_ROWS, (url,), lambda: _fetch_csv(url))
 
 
 def teams(season: int) -> ProviderResult[list[NFLTeam]]:
