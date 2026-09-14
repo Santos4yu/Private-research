@@ -55,7 +55,6 @@ function statusLabel(status) {
 
 function SportSwitcher({ sport, onChange }) {
   return <div className="sport-switch-shell" aria-label="Choose research sport">
-    <span>SPORT</span>
     <div className="sport-switch" role="group">
       {['mlb', 'nfl'].filter(siteSportAllowed).map((value) => <button key={value} type="button" aria-pressed={sport === value} className={sport === value ? 'active' : ''} onClick={() => onChange(value)}>
         <LeagueMark sport={value} /><strong>{value.toUpperCase()}</strong>
