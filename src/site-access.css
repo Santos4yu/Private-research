@@ -37,13 +37,48 @@ html:not([data-site-access="granted"]) #dock-root{display:none!important}
 .site-dialog-close{min-width:44px;min-height:44px;border:1px solid #445166;border-radius:12px;background:#202a38;color:#f1f5f9;font-size:22px;cursor:pointer}
 .site-account-email{color:#aebbd0;font-size:14px;overflow-wrap:anywhere;margin:22px 0}
 .site-auth-card button:focus-visible,.site-auth-card input:focus-visible,.site-account-trigger:focus-visible,.site-account-dialog button:focus-visible{outline:2px solid #0082fe;outline-offset:3px}
-#site-controls{background:#141c28;border:1px solid #445166;padding:20px;border-radius:18px;margin:20px 0;color:#f1f5f9}
-#site-controls fieldset{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-#site-controls label{margin:14px 0;min-height:44px;display:flex;align-items:center}
-#site-controls input{margin-right:10px}
-#site-controls label:has(textarea){display:block}
-#site-controls textarea{box-sizing:border-box;width:100%;padding:12px;border:1px solid #445166;border-radius:10px;background:#202a38;color:#f1f5f9}
-#site-controls button{min-height:44px;padding:10px 16px;border-radius:12px;border:1px solid #445166;background:#202a38;color:#f1f5f9;cursor:pointer}
+#site-controls{background:#141c28;border:1px solid #445166;padding:22px;border-radius:18px;margin:20px 0;color:#f1f5f9;box-shadow:0 18px 50px rgba(0,0,0,.28)}
+#site-controls h3{margin:0 0 18px;font-size:17px;letter-spacing:-.01em}
+#site-controls form{display:flex;flex-direction:column;gap:22px}
+#site-controls label:has(textarea){display:block;margin:0;font-size:13px;color:#9fb0c8}
+#site-controls textarea{box-sizing:border-box;width:100%;margin-top:8px;padding:12px;border:1px solid #445166;border-radius:10px;background:#202a38;color:#f1f5f9;font:400 13px/1.5 inherit;resize:vertical}
+#site-controls textarea:focus-visible{outline:2px solid var(--theme-accent,#0082fe);outline-offset:2px;border-color:var(--theme-accent,#0082fe)}
+
+/* Maintenance / login / registration toggles rendered as real switches. */
+.site-control-switches{display:flex;flex-direction:column;gap:10px}
+.site-control-switches label{position:relative;display:flex;align-items:center;gap:12px;margin:0;min-height:0;padding:14px 16px;border:1px solid #2b3543;border-radius:14px;background:#182230;cursor:pointer;font-size:13px;line-height:1.4;transition:border-color .15s ease,background .15s ease}
+.site-control-switches label:hover{border-color:#3b4859}
+.site-control-switches input{position:absolute;opacity:0;width:0;height:0;margin:0}
+.site-control-switches label::before{content:"";flex:0 0 40px;width:40px;height:24px;border-radius:999px;background:#2b3543;box-shadow:inset 0 0 0 1px #3b4859;transition:background .18s ease}
+.site-control-switches label::after{content:"";position:absolute;left:19px;top:50%;width:18px;height:18px;border-radius:50%;background:#f1f5f9;transform:translateY(-50%);box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}
+.site-control-switches label:has(input:checked){border-color:color-mix(in srgb,var(--theme-accent,#0082fe) 55%,#2b3543);background:color-mix(in srgb,var(--theme-accent,#0082fe) 12%,#182230)}
+.site-control-switches label:has(input:checked)::before{background:var(--theme-accent,#0082fe)}
+.site-control-switches label:has(input:checked)::after{transform:translate(16px,-50%)}
+.site-control-switches label:has(input:focus-visible){outline:2px solid var(--theme-accent,#0082fe);outline-offset:2px}
+
+/* Available tabs / visible sports rendered as selectable chips. */
+#site-controls fieldset{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0;padding:18px 14px 14px;border:1px solid #2b3543;border-radius:14px}
+#site-controls legend{padding:0 8px;color:#9fb0c8;font:700 11px var(--font-mono,monospace);letter-spacing:.08em;text-transform:uppercase}
+#site-controls fieldset label{position:relative;margin:0;min-height:46px;padding:0 14px 0 42px;border:1px solid #2b3543;border-radius:12px;background:#182230;display:flex;align-items:center;color:#c7d2e1;cursor:pointer;font-size:13px;transition:border-color .15s ease,background .15s ease,color .15s ease}
+#site-controls fieldset label:hover{border-color:#3b4859;color:#f1f5f9}
+#site-controls fieldset input{position:absolute;opacity:0;width:0;height:0;margin:0}
+#site-controls fieldset label::before{content:"";position:absolute;left:14px;top:50%;width:18px;height:18px;transform:translateY(-50%);border:1.5px solid #3b4859;border-radius:6px;background:#0f1620;transition:background .15s ease,border-color .15s ease}
+#site-controls fieldset label::after{content:"✓";position:absolute;left:14px;top:50%;width:18px;height:18px;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1;color:#fff;opacity:0;pointer-events:none;transition:opacity .12s ease}
+#site-controls fieldset label:has(input:checked){border-color:color-mix(in srgb,var(--theme-accent,#0082fe) 55%,#2b3543);background:color-mix(in srgb,var(--theme-accent,#0082fe) 14%,#182230);color:#f1f5f9}
+#site-controls fieldset label:has(input:checked)::before{background:var(--theme-accent,#0082fe);border-color:var(--theme-accent,#0082fe)}
+#site-controls fieldset label:has(input:checked)::after{opacity:1}
+#site-controls fieldset label:has(input:focus-visible){outline:2px solid var(--theme-accent,#0082fe);outline-offset:2px}
+
+#site-controls [role=status]{margin:0;font-size:12px;color:#9fb0c8;min-height:16px}
+#site-controls [role=status]:empty{display:none}
+#site-controls button[type=submit]{align-self:flex-start;min-height:48px;padding:0 22px;border-radius:12px;border:1px solid var(--theme-accent,#0082fe);background:var(--theme-accent,#0082fe);color:#fff;font:700 13px/1 inherit;cursor:pointer;transition:filter .15s ease,transform .15s ease}
+#site-controls button[type=submit]:hover{filter:brightness(1.1)}
+#site-controls button[type=submit]:active{transform:translateY(1px)}
+#site-controls button[type=submit]:disabled{opacity:.55;cursor:wait;filter:none}
+@media(max-width:520px){
+  #site-controls fieldset{grid-template-columns:1fr}
+  #site-controls button[type=submit]{align-self:stretch}
+}
 @media(max-width:760px){.site-policy-gate{padding:calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));align-items:center}.site-auth-card{padding:24px;border-radius:22px}.site-auth-brand{margin-bottom:24px}.site-auth-card h1{font-size:25px}.site-account-bar{top:calc(14px + env(safe-area-inset-top,0px));right:max(72px,calc(env(safe-area-inset-right,0px) + 72px))}:root[data-theme] .hero-brand{padding-right:108px!important}}
 @media(max-height:650px){.site-policy-gate{align-items:start}.site-auth-card{margin:auto 0}}
 
