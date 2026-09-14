@@ -40,17 +40,17 @@
 .nfl-app-shell .nfl-player-chips { gap:5px;margin-top:7px; }.nfl-app-shell .nfl-player-chips span { padding:4px 6px;font-size:10px; }
 .nfl-app-shell .nfl-prop-selector { display:block;margin:0 0 10px;padding:0;border:0;background:none; }.nfl-app-shell .nfl-prop-selector>div { gap:5px; }
 .nfl-app-shell .nfl-prop-selector button { min-height:44px;min-width:0;padding:9px 12px;border-radius:10px;font-size:12px;flex:0 0 auto; }.nfl-app-shell .nfl-prop-selector button strong { white-space:nowrap; }
-.nfl-app-shell .nfl-research-tabs { display:grid;grid-template-columns:repeat(4,1fr);padding:4px;gap:4px;margin:0 0 12px;border-radius:14px;overflow:visible; }
-.nfl-app-shell .nfl-research-tabs button { min-width:0;min-height:48px;padding:7px 4px;gap:4px;border-radius:10px;font-size:11px; }.nfl-app-shell .nfl-research-tabs svg { width:17px;height:17px; }
+.nfl-app-shell .nfl-research-tabs { display:grid;grid-template-columns:repeat(4,1fr);padding:3px;gap:3px;margin:0 0 12px;border-radius:12px;overflow:visible; }
+.nfl-app-shell .nfl-research-tabs button { min-width:0;min-height:38px;padding:5px 4px;gap:3px;border-radius:9px;font-size:10.5px; }.nfl-app-shell .nfl-research-tabs svg { width:14px;height:14px; }
 .nfl-app-shell .nfl-tab-content { margin-top:0; }
 .nfl-app-shell .nfl-trends { gap:10px;padding:14px;border:1px solid #303c48;border-radius:18px;background:#151d26; }
 .nfl-trends .nfl-line-editor { padding:0;border:0;background:none;border-radius:0;gap:8px;flex-wrap:wrap; }
 .nfl-trends .nfl-line-editor .nfl-stepper { flex:1; }.nfl-trends .nfl-line-editor .nfl-stepper input { flex:1;max-width:90px;min-width:50px;font-size:17px;font-weight:700; }
-.nfl-trends .nfl-line-editor .nfl-side-switch { gap:4px; }.nfl-trends .nfl-side-switch button { padding:8px 11px;font-size:13px; }
-.nfl-trends .nfl-line-editor .nfl-reset { font-size:11px;min-height:28px;flex-basis:100%;padding:0; }
-.nfl-trends .nfl-window-tabs { gap:4px; }.nfl-trends .nfl-window-tabs button { min-width:0;min-height:44px;flex:1 0 0;padding:7px 3px;border-radius:9px;font-size:12px; }
-.nfl-trends .nfl-game-count { gap:8px; }.nfl-trends .nfl-game-count .nfl-stepper button { min-height:44px;padding:6px 10px; }.nfl-trends .nfl-game-count .nfl-stepper input { width:42px;min-height:44px;padding:5px; }
-.nfl-trends .nfl-filter-toggle { min-height:44px;padding:7px 10px;font-size:12px;gap:6px; }
+.nfl-trends .nfl-line-editor .nfl-side-switch { gap:3px; }.nfl-trends .nfl-side-switch button { padding:6px 10px;font-size:12px;min-height:34px; }
+.nfl-trends .nfl-line-editor .nfl-reset { font-size:11px;min-height:24px;flex-basis:100%;padding:0; }
+.nfl-trends .nfl-window-tabs { gap:3px; }.nfl-trends .nfl-window-tabs button { min-width:0;min-height:32px;flex:1 0 0;padding:5px 2px;border-radius:8px;font-size:11px; }
+.nfl-trends .nfl-game-count { gap:6px; }.nfl-trends .nfl-game-count .nfl-stepper button { min-height:34px;padding:5px 8px; }.nfl-trends .nfl-game-count .nfl-stepper input { width:36px;min-height:34px;padding:4px; }
+.nfl-trends .nfl-filter-toggle { min-height:34px;padding:5px 9px;font-size:11.5px;gap:5px; }
 .nfl-trends .nfl-trend-summary { display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:0!important;border-top:1px solid #303b47;border-bottom:1px solid #303b47;padding:12px 0; }
 .nfl-trends .nfl-trend-summary .nfl-stat { padding:0 10px;min-height:0!important;border:0;border-right:1px solid #303b47;border-radius:0;background:none;gap:5px;display:flex;flex-direction:column;box-shadow:none; }
 .nfl-trends .nfl-trend-summary .nfl-stat:last-child { border-right:0; }.nfl-trends .nfl-trend-summary .nfl-stat span { font-size:10px;letter-spacing:.04em; }.nfl-trends .nfl-trend-summary .nfl-stat strong { font-size:22px;line-height:1.3; }
@@ -167,9 +167,9 @@
 
 .nfl-app-shell .nfl-player-identity { padding:0; }
 .nfl-trends .nfl-line-editor>.nfl-stepper { flex-direction:row;gap:0;flex:1 1 0;min-width:0; }
-.nfl-trends .nfl-line-editor .nfl-stepper button { width:44px;min-width:44px;padding:0;display:grid;place-items:center; }
-.nfl-trends .nfl-line-editor .nfl-stepper input { width:60px;max-width:none;min-width:40px;padding:8px 2px; }
-.nfl-trends .nfl-game-count .nfl-stepper button { width:44px;min-width:44px;padding:0;display:grid;place-items:center; }
+.nfl-trends .nfl-line-editor .nfl-stepper button { width:36px;min-width:36px;min-height:34px;padding:0;display:grid;place-items:center; }
+.nfl-trends .nfl-line-editor .nfl-stepper input { width:56px;max-width:none;min-width:40px;min-height:34px;padding:6px 2px;font-size:14px; }
+.nfl-trends .nfl-game-count .nfl-stepper button { width:34px;min-width:34px;min-height:34px;padding:0;display:grid;place-items:center; }
 
 .nfl-trends .nfl-trend-summary .nfl-stat { height:64px;justify-content:center; }
 .nfl-trends .nfl-trend-summary .nfl-stat strong { margin:0; }
