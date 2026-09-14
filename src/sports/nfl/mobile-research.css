@@ -32,7 +32,31 @@
 .nfl-market-row { display:flex;gap:8px;align-items:center; }
 .nfl-market-trigger { display:flex;align-items:center;gap:12px;width:100%;min-height:52px;background:#202b37!important;border:1px solid #394858!important;border-radius:12px!important;text-align:left; }
 .nfl-market-trigger>span:first-child { font-size:14px;font-weight:650; }.nfl-market-trigger small { display:block;color:#9eafc0;font-size:11px;margin-top:2px; }.nfl-market-trigger strong { margin-left:auto;font-size:21px; }
-.nfl-line-refresh { width:44px;min-width:44px;height:44px;background:transparent!important;border:0!important;font-size:24px!important; }
+.nfl-line-refresh { width:34px;min-width:34px;height:34px;background:transparent!important;border:0!important;font-size:24px!important; }
+.nfl-app-shell .nfl-market-app { gap:6px; }
+
+/* Compact "current line" trigger -- opens the Alt Lines sheet instead of
+   permanently occupying a row as a horizontally-scrolling strip. */
+.nfl-line-trigger { display:flex;align-items:center;gap:8px;flex:1;min-width:0;min-height:38px;padding:6px 12px;border:1px solid #394654;border-radius:11px;background:#1c2632;color:#eef4fa;font:inherit;font-size:13px;font-weight:650;cursor:pointer; }
+.nfl-line-trigger span { flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left; }
+.nfl-line-trigger b { font-size:12px;color:#9fadb9;font-weight:700; }
+.nfl-line-trigger i { flex:0 0 auto;display:grid;place-items:center;width:20px;height:20px;border-radius:6px;color:#0b1017;font:800 9px/1 var(--font-mono,monospace);font-style:normal; }
+.nfl-line-trigger:disabled { opacity:.6;cursor:default; }
+.nfl-line-trigger svg { flex:0 0 auto;color:#8599aa; }
+
+/* Alt Lines sheet: one row per value, every book's price for it together. */
+.nfl-alt-lines-list { display:grid;gap:6px; }
+.nfl-alt-lines-empty { color:#9fadb9;font-size:13px;text-align:center;padding:20px 0; }
+.nfl-alt-line-row { display:flex;align-items:center;gap:12px;min-height:52px;padding:10px 14px;border:1px solid #2b3543;border-radius:13px;background:#182230;color:#eef4fa;font:inherit;text-align:left;cursor:pointer; }
+.nfl-alt-line-row strong { flex:0 0 auto;min-width:36px;font-size:16px; }
+.nfl-alt-line-row.active { border-color:#4fa8ff;background:color-mix(in srgb,#0082fe 16%,#182230); }
+.nfl-alt-line-row.active > svg { color:#4fa8ff;flex:0 0 auto; }
+.nfl-alt-line-books { display:flex;flex-wrap:wrap;gap:8px;flex:1;min-width:0; }
+.nfl-alt-line-book { display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:8px;background:#0e1620;font-size:11px; }
+.nfl-alt-line-book i { display:grid;place-items:center;width:18px;height:18px;border-radius:5px;color:#0b1017;font:800 8px/1 var(--font-mono,monospace);font-style:normal;flex:0 0 auto; }
+.nfl-alt-line-book em { font-style:normal;font-weight:700; }
+.nfl-alt-line-book em.over { color:#4fd1a0; }
+.nfl-alt-line-book em.under { color:#ff8b96; }
 .nfl-quote-time { color:#8599aa;font-size:11px;line-height:1.3; }
 .nfl-app-shell .nfl-player-header { min-height:0;padding:14px 16px;margin:10px 0 12px;gap:14px;border-radius:18px; }
 .nfl-app-shell .nfl-headshot-wrap { height:80px;width:76px;min-width:76px; }.nfl-app-shell .nfl-player-header .nfl-player-photo { height:80px;width:76px;object-fit:contain; }
@@ -44,11 +68,19 @@
 .nfl-app-shell .nfl-research-tabs button { min-width:0;min-height:38px;padding:5px 4px;gap:3px;border-radius:9px;font-size:10.5px; }.nfl-app-shell .nfl-research-tabs svg { width:14px;height:14px; }
 .nfl-app-shell .nfl-tab-content { margin-top:0; }
 .nfl-app-shell .nfl-trends { gap:10px;padding:14px;border:1px solid #303c48;border-radius:18px;background:#151d26; }
-.nfl-app-shell .nfl-window-strip { grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:6px;margin:2px 0; }
-.nfl-app-shell .nfl-window-chip { padding:7px 8px;border-radius:10px;gap:2px; }
+/* One bordered strip with internal dividers -- matching the reference
+   app's L5/L10/L15/Season/H2H row -- instead of five separate bordered
+   cards that read as a disconnected grid of boxes. */
+.nfl-app-shell .nfl-window-strip { display:flex!important;grid-template-columns:none!important;gap:0!important;margin:2px 0 0;border:1px solid #303c48;border-radius:12px;overflow:hidden;background:#151d26; }
+.nfl-app-shell .nfl-window-chip { flex:1;min-width:0;padding:8px 7px;border:0!important;border-right:1px solid #303c48;border-radius:0!important;background:none!important;gap:2px; }
+.nfl-app-shell .nfl-window-chip:last-child { border-right:0; }
+.nfl-app-shell .nfl-window-chip.good,.nfl-app-shell .nfl-window-chip.bad { background:none!important; }
 .nfl-app-shell .nfl-window-chip strong { font-size:15px; }
 .nfl-app-shell .nfl-window-chip span { font-size:9px; }
 .nfl-app-shell .nfl-window-chip small { font-size:9.5px; }
+/* Sits directly under the strip above with no border of its own, reading
+   as the second half of one control instead of a separate component. */
+.nfl-app-shell .nfl-window-tabs { margin-top:6px; }
 .nfl-trends .nfl-line-editor { padding:0;border:0;background:none;border-radius:0;gap:8px;flex-wrap:wrap;align-items:center; }
 .nfl-trends .nfl-line-editor .nfl-stepper { flex:0 1 auto; }.nfl-trends .nfl-line-editor .nfl-stepper input { flex:0 1 auto;width:56px;max-width:56px;min-width:44px;font-size:15px;font-weight:700; }
 .nfl-trends .nfl-line-editor .nfl-side-switch { gap:3px;flex:0 0 auto; }.nfl-trends .nfl-side-switch button { padding:5px 9px;font-size:11.5px;min-height:34px; }
