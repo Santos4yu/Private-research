@@ -26,6 +26,28 @@ function element(tag,text,className){const node=document.createElement(tag);if(t
 function button(text,handler,className='site-text-button'){const node=element('button',text,className);node.type='button';node.onclick=handler;return node;}
 function brand(){const node=element('div',null,'site-auth-brand');const mark=document.createElement('img');mark.className='site-auth-mark';mark.src='/icons/kd-mark.png';mark.alt='';mark.width=40;mark.height=40;node.append(mark,element('span','Krazy Data'));return node;}
 
+// Shown once ever per device, in front of the sign-in gate, so a first-time
+// visitor gets a beat of "here's what this is" before being asked to sign
+// in -- purely a local, one-time overlay, independent of auth/site-status,
+// so it appears instantly without waiting on any network request.
+const WELCOME_KEY='vortex_welcome_seen';
+function showWelcomeIfNeeded(){
+ if(localStorage.getItem(WELCOME_KEY)==='true')return;
+ if(document.getElementById('welcome-gate'))return;
+ const overlay=element('main',null,'welcome-gate');overlay.id='welcome-gate';
+ const card=element('section',null,'welcome-card');card.append(brand());
+ card.append(element('h1','Your edge, organized.'));
+ card.append(element('p','Deep MLB & NFL research, live prop boards, a parlay builder, and a community feed to share your plays — all in one place.','welcome-sub'));
+ const list=element('ul',null,'welcome-points');
+ [['🔍','Player research with hit-rate trends and matchup scoring'],['📊','Live prop boards and moneyline research'],['🧩','Build parlays and export straight to PrizePicks'],['💬','Share your picks in Community and react to others’']].forEach(([icon,copy])=>{
+  const item=element('li');item.append(element('span',icon,'welcome-point-icon'),element('span',copy));list.append(item);
+ });
+ card.append(list);
+ card.append(button('Get started',()=>{localStorage.setItem(WELCOME_KEY,'true');overlay.remove();},'site-primary-button'));
+ overlay.append(card);
+ document.body.append(overlay);
+}
+
 function authForm(host,initialMode='sign-in'){
  let mode=initialMode,busy=false;
  const form=element('form',null,'site-auth-form');
@@ -117,6 +139,7 @@ export async function refreshSiteAccess(){
 }
 export function initSiteAccess(){
  if(initPromise)return initPromise;
+ showWelcomeIfNeeded();
  initPromise=(async()=>{await refreshSiteAccess();setInterval(()=>{if(!document.hidden)refreshSiteAccess();},30000);if(accessGranted(status))return status;return new Promise(resolve=>{const listener=e=>{if(e.detail.accessGranted){window.removeEventListener('vortex:site-policy',listener);resolve(e.detail);}};window.addEventListener('vortex:site-policy',listener);});})();return initPromise;
 }
 // Downscales only if larger than maxDim (a smaller source photo is left

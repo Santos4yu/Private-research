@@ -204,6 +204,11 @@ async function init() {
   } catch (err) {
     console.error("wireCommunityFeed failed:", err);
   }
+  try {
+    wireSlipShare();
+  } catch (err) {
+    console.error("wireSlipShare failed:", err);
+  }
 
   try {
     const res = await fetch(DATA_SOURCE, { cache: "no-store" });
@@ -374,6 +379,7 @@ function cacheEls() {
   els.savedGrid = document.getElementById("saved-grid");
   els.savedEmpty = document.getElementById("saved-empty");
   els.clearSavedBtn = document.getElementById("clear-saved-btn");
+  els.shareSlipBtn = document.getElementById("share-slip-btn");
 
   els.parlayBar = document.getElementById("parlay-bar");
   els.parlaySelectedCount = document.getElementById("parlay-selected-count");
@@ -6258,6 +6264,104 @@ async function buildResearchShareImage(prop,mode) {
     games.forEach((game,i)=>{const value=Number(game.value)||0,x=235+i*(barW+gap),h=Math.max(12,value/max*chartH),hit=value>line,bar=c.createLinearGradient(0,baseY-h,0,baseY);bar.addColorStop(0,hit?'#35e89b':'#ff6170');bar.addColorStop(1,hit?'#0da75b':'#d92843');round(x,baseY-h,barW,h,Math.min(18,barW/3),bar);round(x+Math.max(0,(barW-56)/2),baseY-h-58,Math.min(56,barW),36,18,hit?'rgba(53,232,155,.14)':'rgba(255,97,112,.14)');text(value,x+barW/2,baseY-h-32,20,'#fff',850,'center');if(gameLogos[i]){round(x+barW/2-25,baseY+18,50,50,25,'rgba(255,255,255,.055)','rgba(255,255,255,.10)');drawContain(gameLogos[i],x+barW/2-19,baseY+24,38,38);}else{text(String(game.opponent||'').slice(0,3).toUpperCase(),x+barW/2,baseY+50,18,'#9aa7b8',800,'center');}});c.strokeStyle=accent;c.lineWidth=4;c.setLineDash([16,12]);const lineY=baseY-line/max*chartH;c.beginPath();c.moveTo(210,lineY);c.lineTo(1950,lineY);c.stroke();c.setLineDash([]);round(1760,lineY-48,180,38,19,'rgba(7,12,18,.9)',accent);text(`${line.toFixed(1)} LINE`,1850,lineY-22,18,accent,850,'center');text(`${hits} CLEARED · ${games.length-hits} MISSED`,1940,2370,20,'#8f9cac',750,'right');
   }
   text('KRAZY DATA',160,2510,27,'#fff',800);text(`${new Date().toLocaleDateString()} · Research only`,2000,2510,23,'#7f8a99',600,'right');return await new Promise(resolve=>canvas.toBlob(resolve,'image/png',1));
+}
+
+/* ---------- Slip share card ---------- */
+// Same idea as the single-player research card above, but for a whole
+// saved slip -- a branded image of every leg, made to post to Discord or
+// the Community feed rather than screenshot the app's own UI directly.
+async function buildSlipShareImage(legs) {
+  const scale = 3840 / 2160;
+  const rowH = 220, headerH = 480, footerH = 160;
+  const logicalH = headerH + legs.length * rowH + footerH;
+  const canvas = document.createElement("canvas");
+  canvas.width = 3840;
+  canvas.height = Math.round(logicalH * scale);
+  const c = canvas.getContext("2d");
+  c.scale(scale, scale);
+  const styles = getComputedStyle(document.documentElement);
+  const accent = styles.getPropertyValue("--theme-accent").trim() || "#0082fe";
+  const round = (x, y, w, h, r, fill, stroke) => { c.beginPath(); c.roundRect(x, y, w, h, r); if (fill) { c.fillStyle = fill; c.fill(); } if (stroke) { c.strokeStyle = stroke; c.lineWidth = 3; c.stroke(); } };
+  const text = (value, x, y, size, color = "#fff", weight = 700, align = "left") => { c.fillStyle = color; c.font = `${weight} ${size}px Inter,system-ui,sans-serif`; c.textAlign = align; c.fillText(String(value), x, y); };
+  const drawContain = (image, x, y, w, h) => { const iw = image.width || w, ih = image.height || h, scaleFit = Math.min(w / iw, h / ih), dw = iw * scaleFit, dh = ih * scaleFit; c.drawImage(image, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh); };
+  const loadImg = async (url) => { if (!url) return null; try { const response = await fetch(url, { mode: "cors" }); if (!response.ok) return null; return await createImageBitmap(await response.blob()); } catch (_) { return null; } };
+  const headshots = await Promise.all(legs.map((leg) => loadImg(leg.headshot ? String(leg.headshot).replace("/headshot/67/current", "/headshot/silo/current") : "")));
+  const teamLogos = await Promise.all(legs.map((leg) => { const id = leg.teamId || MLB_TEAM_IDS[String(leg.team || "").toUpperCase()]; return loadImg(id ? `/api/mlb-logo?teamId=${id}` : ""); }));
+
+  const bg = c.createLinearGradient(0, 0, 2160, logicalH);
+  bg.addColorStop(0, "#0c1b31"); bg.addColorStop(.5, "#07111f"); bg.addColorStop(1, "#050912");
+  c.fillStyle = bg; c.fillRect(0, 0, 2160, logicalH);
+  round(80, 80, 2000, logicalH - 160, 60, "rgba(8,16,29,.78)", "rgba(142,175,224,.20)");
+  round(140, 140, 1880, 108, 30, "rgba(255,255,255,.05)");
+  text("KRAZY DATA", 180, 205, 36, "#fff", 800);
+  text(new Date().toLocaleDateString(), 1980, 203, 24, "#8e9aaa", 700, "right");
+  text(`${legs.length}-LEG PARLAY`, 180, 340, 78, accent, 850);
+  text("Research only · not betting advice", 180, 400, 26, "#8996a7", 650);
+
+  legs.forEach((leg, i) => {
+    const y = headerH + i * rowH;
+    round(140, y, 1880, rowH - 30, 30, "rgba(255,255,255,.03)", "rgba(255,255,255,.09)");
+    const avatarBox = 150;
+    if (headshots[i]) { round(172, y + 20, avatarBox, avatarBox, 26, "rgba(255,255,255,.04)"); drawContain(headshots[i], 172, y + 20, avatarBox, avatarBox); }
+    else { round(172, y + 20, avatarBox, avatarBox, 26, "rgba(255,255,255,.045)", "rgba(255,255,255,.09)"); text((leg.player || "?").split(" ").map((v) => v[0]).join("").slice(0, 2).toUpperCase(), 172 + avatarBox / 2, y + 20 + avatarBox / 2 + 14, 44, "#fff", 800, "center"); }
+    if (teamLogos[i]) { round(280, y + 118, 66, 66, 20, "rgba(255,255,255,.05)"); drawContain(teamLogos[i], 280, y + 118, 66, 66); }
+    text(leg.player || "Player", 360, y + 78, 44, "#fff", 800);
+    text([leg.team, leg.sport].filter(Boolean).join(" · ").toUpperCase(), 360, y + 122, 22, "#8996a7", 700);
+    const sideUp = String(leg.side || "over").toLowerCase() !== "under";
+    const sideColor = sideUp ? "#35e89b" : "#ff6170";
+    round(1440, y + 34, 540, 100, 22, `${sideColor}1a`, `${sideColor}55`);
+    text(`${sideUp ? "OVER" : "UNDER"} ${leg.line}`, 1710, y + 78, 36, sideColor, 850, "center");
+    text(String(leg.betType || "").toUpperCase(), 1710, y + 108, 20, "#cfd8e3", 700, "center");
+    if (leg.tierIcon || leg.score != null) text(`${leg.tierIcon || ""} ${leg.score ?? ""}`.trim(), 360, y + 160, 24, "#8996a7", 700);
+  });
+
+  text("KRAZY DATA", 140, logicalH - 90, 27, "#fff", 800);
+  text("Built with Krazy Data research", 2020, logicalH - 90, 23, "#7f8a99", 600, "right");
+  return await new Promise((resolve) => canvas.toBlob(resolve, "image/png", 1));
+}
+
+async function shareSlipCard() {
+  const legs = getSavedProps();
+  if (!legs.length) return;
+  const sheet = document.getElementById("slip-share-sheet");
+  const preview = sheet.querySelector(".share-preview");
+  const image = preview.querySelector("img");
+  sheet.hidden = false;
+  preview.classList.add("loading");
+  preview.querySelector("span").textContent = "Building high-resolution card…";
+  let blob = await buildSlipShareImage(legs);
+  let url = URL.createObjectURL(blob);
+  image.src = url;
+  preview.classList.remove("loading");
+  sheet.querySelector("[data-share-close]").onclick = () => { sheet.hidden = true; };
+  const save = () => { if (!blob) return; const link = document.createElement("a"); link.href = url; link.download = `krazy-data-${legs.length}-leg-parlay.png`; link.click(); };
+  sheet.querySelector("[data-share-download]").onclick = save;
+  sheet.querySelector("[data-share-copy]").onclick = async (event) => {
+    if (!blob) return;
+    const button = event.currentTarget, original = button.textContent;
+    try {
+      if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") throw new Error("unsupported");
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      button.textContent = "Copied ✓";
+    } catch (_) { button.textContent = "Copy unavailable"; }
+    setTimeout(() => { button.textContent = original; }, 1600);
+  };
+  sheet.querySelector("[data-share-send]").onclick = async () => {
+    if (!blob) return;
+    const file = new File([blob], `krazy-data-${legs.length}-leg-parlay.png`, { type: "image/png" });
+    try {
+      if (navigator.canShare?.({ files: [file] })) { await navigator.share({ title: `${legs.length}-leg parlay`, files: [file] }); return; }
+    } catch (error) { if (error?.name === "AbortError") return; }
+    save();
+  };
+}
+
+function wireSlipShare() {
+  if (!els.shareSlipBtn) return;
+  if (!document.getElementById("slip-share-sheet")) {
+    document.body.insertAdjacentHTML("beforeend", '<section id="slip-share-sheet" class="comparison-sheet research-share-sheet" role="dialog" aria-modal="true" aria-label="Share slip" hidden><div class="comparison-panel"><header><div><span>SHARE STUDIO</span><h2>Share your slip</h2></div><button type="button" data-share-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button></header><div class="share-preview"><span>Building high-resolution card…</span><img alt="Slip card preview"></div><div class="share-actions"><button type="button" data-share-download>Save</button><button type="button" data-share-copy>Copy image</button><button type="button" data-share-send>Share</button></div></div></section>');
+  }
+  els.shareSlipBtn.addEventListener("click", shareSlipCard);
 }
 
 function setGameLogCount(value, direction = "initial") {
