@@ -396,6 +396,9 @@ function cacheEls() {
   els.accentPresets = document.getElementById("accent-presets");
   els.accentReset = document.getElementById("accent-reset");
   els.accentStatus = document.getElementById("accent-status");
+  els.appearanceNotice = document.getElementById("site-appearance-notice");
+  els.appearanceNoticeText = document.getElementById("site-appearance-notice-text");
+  els.appearanceToggle = document.getElementById("site-appearance-toggle");
   els.bgImageLayer = document.getElementById("user-bg-layer");
   els.bgImageUrl = document.getElementById("bg-image-url");
   els.bgImageOpacity = document.getElementById("bg-image-opacity");
@@ -522,23 +525,59 @@ function applyAccentTheme(theme, { persist = true, syncControls = true } = {}) {
 }
 
 // The admin's site-wide color theme (from site-status, sent to every
-// visitor) is only ever the *fallback* -- a member's own personal accent
-// choice in Settings always wins on their device, exactly like the
-// background image above. `hasPersonalAccentTheme` distinguishes "never
+// visitor) normally only ever the *fallback* -- a member's own personal
+// accent choice in Settings wins on their device, exactly like the
+// background image above. But every time the admin actually publishes a
+// NEW site appearance (a new `updatedAt`), it's pushed as forced for
+// everyone at least once, even over an existing personal choice -- a
+// member can then explicitly switch back to their own colors, which is
+// remembered per-version via APPEARANCE_REVERT_KEY, so the next time the
+// admin pushes yet another change it forces again regardless of that
+// earlier opt-out. `hasPersonalAccentTheme` distinguishes "never
 // customized" from "customized to the same hex as the default", since
 // loadAccentTheme() always returns a full object either way.
+const APPEARANCE_REVERT_KEY = "vortex_appearance_reverted_version";
 let siteTheme = null;
+let siteUpdatedAt = null;
 function hasPersonalAccentTheme() {
   return localStorage.getItem(ACCENT_THEME_KEY) !== null;
 }
+// True unless this exact site update has already been explicitly opted out
+// of on this device (see the Settings-panel "Use my own instead" toggle).
+function isAppearanceForced() {
+  if (!siteUpdatedAt) return false;
+  return localStorage.getItem(APPEARANCE_REVERT_KEY) !== siteUpdatedAt;
+}
 function applyEffectiveAccentTheme() {
+  if (isAppearanceForced()) { applyAccentTheme(siteTheme || DEFAULT_ACCENTS, { persist: false }); return; }
   if (hasPersonalAccentTheme()) { applyAccentTheme(loadAccentTheme(), { persist: false }); return; }
   applyAccentTheme(siteTheme || DEFAULT_ACCENTS, { persist: false });
 }
+// Shows a small notice in Settings whenever the admin's site-wide colors or
+// background are the ones actually in effect (forced or not), with a
+// one-click toggle to switch to/from this device's own personal choice.
+function renderAppearanceNotice() {
+  if (!els.appearanceNotice) return;
+  if (!siteUpdatedAt || !(siteTheme || siteBackgroundImage?.url)) { els.appearanceNotice.hidden = true; return; }
+  els.appearanceNotice.hidden = false;
+  if (isAppearanceForced()) {
+    els.appearanceNoticeText.textContent = "The site admin set custom colors and/or a background for everyone.";
+    els.appearanceToggle.textContent = "Use my own instead";
+  } else {
+    els.appearanceNoticeText.textContent = "You're using your own colors/background instead of the site's.";
+    els.appearanceToggle.textContent = "Use the site's instead";
+  }
+}
 window.addEventListener("vortex:site-policy", (event) => {
-  const theme = event.detail?.theme;
+  const detail = event.detail || {};
+  siteUpdatedAt = detail.updatedAt || null;
+  const bg = detail.backgroundImage;
+  siteBackgroundImage = bg?.url ? { url: bg.url, opacity: normalizeBgOpacity(bg.opacity) } : null;
+  const theme = detail.theme;
   siteTheme = theme?.primary ? { primary: theme.primary, secondary: theme.secondary, tint: normalizeTint(theme.tint) } : null;
   applyEffectiveAccentTheme();
+  applyEffectiveBackground();
+  renderAppearanceNotice();
 });
 // Lets the admin panel show a live, unsaved preview of candidate site
 // colors on this page only -- always non-persistent, and re-resolves back
@@ -546,12 +585,6 @@ window.addEventListener("vortex:site-policy", (event) => {
 // time either of those actually changes.
 window.addEventListener("vortex:site-theme-preview", (event) => {
   applyAccentTheme(event.detail, { persist: false, syncControls: false });
-});
-// Fired by the admin panel's "Clear my personal theme" button -- lets an
-// admin who is also testing the site default on their own device drop
-// their personal override without having to find it in Settings themselves.
-window.addEventListener("vortex:clear-personal-accent", () => {
-  applyEffectiveAccentTheme();
 });
 
 function loadAccentPresets() {
@@ -724,21 +757,18 @@ function applyBackgroundImage({ url, opacity }, { persist = true, onError, onSuc
 }
 
 // The admin's site-wide background (from site-status, sent to every
-// visitor) is only ever the *fallback* -- a member's own personal choice
-// in Settings always wins on their device. Re-resolved whenever either
-// source changes.
+// visitor) normally only ever the *fallback* -- a member's own personal
+// choice in Settings wins on their device -- except right after the admin
+// actually publishes a new one, when it's forced at least once; see
+// isAppearanceForced() above. Re-resolved whenever either source changes.
 let siteBackgroundImage = null;
 function applyEffectiveBackground() {
+  if (isAppearanceForced()) { applyBackgroundImage(siteBackgroundImage || { url: "", opacity: 35 }, { persist: false }); return; }
   const personal = loadBackgroundImage();
   if (personal.url) { applyBackgroundImage(personal, { persist: false }); return; }
   if (siteBackgroundImage?.url) { applyBackgroundImage(siteBackgroundImage, { persist: false }); return; }
   applyBackgroundImage({ url: "", opacity: 35 }, { persist: false });
 }
-window.addEventListener("vortex:site-policy", (event) => {
-  const bg = event.detail?.backgroundImage;
-  siteBackgroundImage = bg?.url ? { url: bg.url, opacity: normalizeBgOpacity(bg.opacity) } : null;
-  applyEffectiveBackground();
-});
 
 function wireBackgroundImage() {
   if (!els.bgImageUrl) return;
@@ -864,6 +894,14 @@ function wireSettingsPanel() {
   applyEffectiveAccentTheme();
   renderAccentPresets();
   wireBackgroundImage();
+  renderAppearanceNotice();
+  els.appearanceToggle?.addEventListener("click", () => {
+    if (isAppearanceForced()) localStorage.setItem(APPEARANCE_REVERT_KEY, siteUpdatedAt || "");
+    else localStorage.removeItem(APPEARANCE_REVERT_KEY);
+    applyEffectiveAccentTheme();
+    applyEffectiveBackground();
+    renderAppearanceNotice();
+  });
 
   // 5 rapid clicks on the settings gear opens the hidden admin PIN prompt
   // instead of the normal theme panel -- the PIN itself is never checked

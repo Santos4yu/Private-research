@@ -203,8 +203,7 @@ export async function loadSiteControls(){
      +'<div class="bg-image-actions"><button type="button" id="site-theme-reset">Use default colors</button><button type="button" id="site-theme-apply-preview">Preview here</button></div>'
      +'<div class="accent-save-row"><label>Save current colors as a preset</label><div><input type="text" id="site-theme-preset-name" placeholder="Preset name" maxlength="40" /><button type="button" id="site-theme-preset-save">Save</button></div></div>'
      +'<div class="accent-presets" id="site-theme-presets"></div>'
-     +'<p class="theme-picker-note">Sets the default color theme for everyone. A member’s own theme choice in their Settings always overrides this on their device.</p>'
-     +'<p class="theme-picker-note site-theme-personal-warning" id="site-theme-personal-warning" hidden>⚠ This browser has its own personal color theme saved in Settings, so saving here won’t change what you see on this device — only what other members without a personal theme see. <button type="button" id="site-theme-clear-personal">Clear my personal theme to see the site default</button></p>'
+     +'<p class="theme-picker-note">Publishing this forces it onto every device at least once, even over someone’s own personal colors — from there, anyone (including you) can switch back to their own in Settings, until the next time this is saved.</p>'
     +'</div>'
    +'</div>'
    +'<p role="status"></p>'
@@ -251,19 +250,6 @@ export async function loadSiteControls(){
   form.elements.themePrimary.value=DEFAULT_THEME.primary;form.elements.themeSecondary.value=DEFAULT_THEME.secondary;form.elements.themeTint.value=String(DEFAULT_THEME.tint);
   syncThemeOutputs();
   statusEl().textContent='Colors reset to default here — click "Save website settings" to publish.';
- });
- // Must match app.js's ACCENT_THEME_KEY -- if this browser has a personal
- // color theme saved, it always wins over the site default on this device
- // (same rule as the background image), so saving here would otherwise
- // look like it silently did nothing to whoever is testing it themselves.
- const personalWarning=host.querySelector('#site-theme-personal-warning');
- personalWarning.hidden=localStorage.getItem('vortex_custom_accents')===null;
- host.querySelector('#site-theme-clear-personal').addEventListener('click',e=>{
-  e.stopPropagation();
-  localStorage.removeItem('vortex_custom_accents');
-  window.dispatchEvent(new CustomEvent('vortex:clear-personal-accent'));
-  personalWarning.hidden=true;
-  statusEl().textContent='Personal color theme cleared on this device — now showing the site default.';
  });
  host.querySelector('#site-theme-apply-preview').addEventListener('click',()=>{
   window.dispatchEvent(new CustomEvent('vortex:site-theme-preview',{detail:{primary:form.elements.themePrimary.value,secondary:form.elements.themeSecondary.value,tint:Number(form.elements.themeTint.value)}}));
