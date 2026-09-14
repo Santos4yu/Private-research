@@ -14,7 +14,7 @@
 .sport-switch button { display: flex; align-items: center; gap: 9px; min-width: 104px; min-height: 48px; padding: 8px 15px; border: 0; border-radius: 11px; color: var(--theme-muted, #adb6c4); background: transparent; cursor: pointer; transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease; }
 .sport-switch button.active { color: #101317; background: #f5f6f8; box-shadow: 0 4px 14px #0005; }
 .sport-switch button:focus-visible, .nfl-app-shell button:focus-visible { outline: 3px solid var(--nfl-blue); outline-offset: 3px; }
-.sport-league-mark { position: relative; display: grid; place-items: center; width: 27px; height: 27px; overflow: hidden; border-radius: 8px; color: #fff; background: #263343; }
+.sport-league-mark { position: relative; display: grid; grid-template-columns: 27px; grid-template-rows: 27px; place-items: stretch; width: 27px; height: 27px; overflow: hidden; border-radius: 8px; color: #fff; background: #263343; }
 .sport-league-mark img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .sport-league-mark.mlb { background: #132b4f; }
 .sport-league-mark.nfl { border-radius: 0; background: transparent; box-shadow: none; }
