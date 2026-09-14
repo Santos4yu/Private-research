@@ -146,6 +146,7 @@ const els = {};
 const THEME_KEY = "vortex_theme_mode";
 const ACCENT_THEME_KEY = "vortex_custom_accents";
 const ACCENT_PRESETS_KEY = "vortex_accent_presets";
+const BG_IMAGE_KEY = "vortex_bg_image";
 const DEFAULT_ACCENTS = Object.freeze({ primary: "#0082fe", secondary: "#d6e1ea", tint: 0 });
 const EXPERIENCE_KEY = "private_jarvis_interface";
 // User accents are applied before the first paint and remain independent of
@@ -393,6 +394,13 @@ function cacheEls() {
   els.accentPresets = document.getElementById("accent-presets");
   els.accentReset = document.getElementById("accent-reset");
   els.accentStatus = document.getElementById("accent-status");
+  els.bgImageLayer = document.getElementById("user-bg-layer");
+  els.bgImageUrl = document.getElementById("bg-image-url");
+  els.bgImageOpacity = document.getElementById("bg-image-opacity");
+  els.bgImageOpacityValue = document.getElementById("bg-image-opacity-value");
+  els.bgImageApply = document.getElementById("bg-image-apply");
+  els.bgImageRemove = document.getElementById("bg-image-remove");
+  els.bgImageStatus = document.getElementById("bg-image-status");
   els.gamelogOverlay = document.getElementById("gamelog-overlay");
   els.gamelogTitle = document.getElementById("gamelog-title");
   els.gamelogPropBadge = document.getElementById("gamelog-prop-badge");
@@ -545,6 +553,97 @@ function renderAccentPresets() {
   });
 }
 
+/* ---------- Background image (Accent studio) ---------- */
+
+function normalizeBgOpacity(value, fallback = 35) {
+  const num = Number(value);
+  return Number.isFinite(num) ? Math.max(5, Math.min(100, Math.round(num))) : fallback;
+}
+
+// Only http(s) is accepted -- background-image never executes a URL as
+// script, but rejecting anything else keeps the field predictable and
+// gives a clear error instead of a silently blank layer.
+function normalizeBgUrl(value) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return "";
+  try {
+    const parsed = new URL(trimmed);
+    return ["http:", "https:"].includes(parsed.protocol) ? parsed.href : "";
+  } catch (_) {
+    return "";
+  }
+}
+
+function loadBackgroundImage() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(BG_IMAGE_KEY) || "null");
+    return { url: normalizeBgUrl(saved?.url), opacity: normalizeBgOpacity(saved?.opacity) };
+  } catch (_) {
+    return { url: "", opacity: 35 };
+  }
+}
+
+// Verifies the image actually loads before committing it as the live
+// background -- a broken URL should produce a clear error, not a blank
+// layer or a stuck spinner-less failure.
+function applyBackgroundImage({ url, opacity }, { persist = true, onError, onSuccess } = {}) {
+  const cleanUrl = normalizeBgUrl(url);
+  const cleanOpacity = normalizeBgOpacity(opacity);
+  if (els.bgImageOpacity) els.bgImageOpacity.value = String(cleanOpacity);
+  if (els.bgImageOpacityValue) els.bgImageOpacityValue.textContent = `${cleanOpacity}%`;
+  if (!cleanUrl) {
+    els.bgImageLayer.hidden = true;
+    els.bgImageLayer.style.backgroundImage = "";
+    if (persist) localStorage.removeItem(BG_IMAGE_KEY);
+    return;
+  }
+  const probe = new Image();
+  probe.onload = () => {
+    els.bgImageLayer.style.backgroundImage = `url("${cleanUrl}")`;
+    els.bgImageLayer.style.opacity = String(cleanOpacity / 100);
+    els.bgImageLayer.hidden = false;
+    if (persist) localStorage.setItem(BG_IMAGE_KEY, JSON.stringify({ url: cleanUrl, opacity: cleanOpacity }));
+    onSuccess?.();
+  };
+  probe.onerror = () => onError?.();
+  probe.src = cleanUrl;
+}
+
+function wireBackgroundImage() {
+  if (!els.bgImageUrl) return;
+  const saved = loadBackgroundImage();
+  els.bgImageUrl.value = saved.url;
+  applyBackgroundImage(saved, { persist: false });
+  els.bgImageOpacity.addEventListener("input", () => {
+    els.bgImageOpacityValue.textContent = `${normalizeBgOpacity(els.bgImageOpacity.value)}%`;
+    if (els.bgImageLayer.style.backgroundImage) {
+      els.bgImageLayer.style.opacity = String(normalizeBgOpacity(els.bgImageOpacity.value) / 100);
+    }
+  });
+  els.bgImageOpacity.addEventListener("change", () => {
+    // The image is already showing and verified; just persist the new
+    // opacity rather than re-fetching it to re-validate.
+    if (els.bgImageLayer.hidden) return;
+    const url = normalizeBgUrl(els.bgImageUrl.value);
+    if (url) localStorage.setItem(BG_IMAGE_KEY, JSON.stringify({ url, opacity: normalizeBgOpacity(els.bgImageOpacity.value) }));
+  });
+  els.bgImageApply.addEventListener("click", () => {
+    const typed = els.bgImageUrl.value.trim();
+    if (!typed) { els.bgImageStatus.textContent = "Paste an image URL first."; return; }
+    if (!normalizeBgUrl(typed)) { els.bgImageStatus.textContent = "That doesn't look like a valid http(s) image URL."; return; }
+    els.bgImageStatus.textContent = "Loading image…";
+    applyBackgroundImage({ url: typed, opacity: els.bgImageOpacity.value }, {
+      onError: () => { els.bgImageStatus.textContent = "Couldn't load that image. Check the URL and try again."; },
+      onSuccess: () => { els.bgImageStatus.textContent = "Background image applied."; },
+    });
+  });
+  els.bgImageRemove.addEventListener("click", () => {
+    els.bgImageUrl.value = "";
+    applyBackgroundImage({ url: "", opacity: els.bgImageOpacity.value });
+    els.bgImageStatus.textContent = "Background image removed.";
+  });
+}
+
 function applyExperience(enabled) {
   document.documentElement.removeAttribute("data-jarvis");
 }
@@ -605,6 +704,7 @@ function wireCardBorderGlow() {
 function wireSettingsPanel() {
   applyAccentTheme(loadAccentTheme(), { persist: false });
   renderAccentPresets();
+  wireBackgroundImage();
 
   // 5 rapid clicks on the settings gear opens the hidden admin PIN prompt
   // instead of the normal theme panel -- the PIN itself is never checked

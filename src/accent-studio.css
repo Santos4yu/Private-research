@@ -34,6 +34,13 @@
 .accent-save-row > div { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:7px; }
 :root[data-theme] .accent-save-row input { min-width:0; height:46px; padding:0 12px !important; border:1px solid var(--theme-border) !important; border-radius:12px !important; background:var(--theme-panel-2) !important; color:var(--theme-text) !important; font:500 13px/1 var(--font-sans) !important; }
 .accent-save-row button { min-width:68px; min-height:46px; border:1px solid var(--theme-accent); border-radius:12px; background:var(--theme-accent); color:var(--theme-on-accent); font:800 11px/1 var(--font-sans); cursor:pointer; }
+.bg-image-control { display:grid; gap:9px; margin-top:6px; padding-top:16px; border-top:1px solid var(--theme-border); }
+.bg-image-control > .settings-label { margin-bottom:-2px; }
+:root[data-theme] .bg-image-control > input[type="url"] { min-width:0; height:46px; padding:0 12px !important; border:1px solid var(--theme-border) !important; border-radius:12px !important; background:var(--theme-panel-2) !important; color:var(--theme-text) !important; font:500 13px/1 var(--font-sans) !important; }
+.bg-image-actions { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+.bg-image-actions button { min-height:46px; border:1px solid var(--theme-border); border-radius:12px; background:var(--theme-panel-2); color:var(--theme-text); font:700 12px/1 var(--font-sans); cursor:pointer; }
+.bg-image-actions #bg-image-apply { border-color:var(--theme-accent); background:var(--theme-accent); color:var(--theme-on-accent); }
+.bg-image-actions button:disabled { opacity:.5; cursor:default; }
 .accent-presets { display:grid; gap:7px; }
 .accent-preset { display:grid; grid-template-columns:34px minmax(0,1fr) 44px; align-items:center; gap:9px; min-height:48px; padding:5px 5px 5px 8px; border:1px solid var(--theme-border); border-radius:12px; background:var(--theme-panel-2); color:var(--theme-text); }
 .accent-preset-preview { display:flex; width:32px; height:26px; overflow:hidden; border:1px solid var(--theme-border); border-radius:8px; }

@@ -279,6 +279,21 @@ html, body {
 
 .grid-bg { display: none; }
 
+/* User-supplied background image (Accent studio). Sits behind every other
+   background decoration and all app content; only opacity is adjustable so
+   the image itself is never resampled, blurred, or otherwise degraded. */
+.user-bg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transition: opacity .25s ease;
+}
+.user-bg-layer[hidden] { display: none; }
+
 body::before {
   content: "";
   position: fixed;
