@@ -5,7 +5,7 @@ from datetime import datetime,timezone
 from copy import deepcopy
 from dataclasses import dataclass
 from unittest.mock import patch
-from backend.sports.nfl.research_board import screen,support,attach_opponent_volume,window_stats
+from backend.sports.nfl.research_board import screen,support,attach_opponent_volume,attach_matchup_quality,shared_matchup_dataset,window_stats
 class ResearchBoardTests(unittest.TestCase):
  def setUp(self):
   self.now=datetime(2026,9,13,tzinfo=timezone.utc)
@@ -77,24 +77,51 @@ class AttachOpponentVolumeTests(unittest.TestCase):
     data['players'].append({**identity,'player_id':'p1','metrics':{'sack_rate':{'n':35,'sum':2},'ypc':{'n':team+2,'sum':team*3}}})
   return data
  def roster(self):return {'p1':MockPlayer('p1','QB'),'p2':MockPlayer('p2','WR')}
- @patch('backend.sports.nfl.research_board.season_data')
- def test_attaches_context_for_supported_prop(self,mock_season_data):
-  mock_season_data.return_value=self.fixture()
+ def test_attaches_context_for_supported_prop(self):
   rows=[{'playerId':'p1','propType':'passing_attempts','opponentId':'D4'}]
-  result=attach_opponent_volume(rows,2026,5,self.roster())
+  result=attach_opponent_volume(rows,self.fixture(),5,self.roster())
   self.assertEqual(result[0]['opponentVolume']['score'],50)
- @patch('backend.sports.nfl.research_board.season_data')
- def test_unsupported_prop_leaves_row_unchanged(self,mock_season_data):
-  mock_season_data.return_value=self.fixture()
+ def test_unsupported_prop_leaves_row_unchanged(self):
   rows=[{'playerId':'p2','propType':'receiving_yards','opponentId':'D4'}]
-  self.assertEqual(attach_opponent_volume(rows,2026,5,self.roster()),rows)
- @patch('backend.sports.nfl.research_board.season_data')
- def test_dataset_failure_returns_rows_unchanged(self,mock_season_data):
-  mock_season_data.side_effect=RuntimeError('boom')
+  self.assertEqual(attach_opponent_volume(rows,self.fixture(),5,self.roster()),rows)
+ def test_missing_dataset_returns_rows_unchanged(self):
   rows=[{'playerId':'p1','propType':'passing_attempts','opponentId':'D4'}]
-  self.assertEqual(attach_opponent_volume(rows,2026,5,self.roster()),rows)
+  self.assertEqual(attach_opponent_volume(rows,None,5,self.roster()),rows)
  def test_missing_player_or_opponent_leaves_row_unchanged(self):
   rows=[{'playerId':'unknown','propType':'passing_attempts','opponentId':'D4'}]
-  self.assertEqual(attach_opponent_volume(rows,2026,5,self.roster()),rows)
+  self.assertEqual(attach_opponent_volume(rows,self.fixture(),5,self.roster()),rows)
  def test_empty_rows_short_circuit(self):
-  self.assertEqual(attach_opponent_volume([],2026,5,self.roster()),[])
+  self.assertEqual(attach_opponent_volume([],self.fixture(),5,self.roster()),[])
+
+class SharedMatchupDatasetTests(unittest.TestCase):
+ @patch('backend.sports.nfl.research_board.season_data')
+ def test_late_week_uses_season_data(self,mock_season_data):
+  mock_season_data.return_value={'games':[]}
+  self.assertEqual(shared_matchup_dataset(2026,5),{'games':[]})
+ @patch('backend.sports.nfl.research_board.season_data')
+ def test_provider_failure_returns_none(self,mock_season_data):
+  mock_season_data.side_effect=RuntimeError('boom')
+  self.assertIsNone(shared_matchup_dataset(2026,5))
+
+class AttachMatchupQualityTests(unittest.TestCase):
+ """build_matchup already has its own extensive test suite; this only
+ checks the board-enrichment wiring: gate on coverage, never raise, never
+ drop a row."""
+ def roster(self):return {'p1':MockPlayer('p1','RB')}
+ def test_missing_dataset_or_player_leaves_row_unchanged(self):
+  row=[{'playerId':'p1','propType':'rushing_yards','opponentId':'DEN'}]
+  self.assertEqual(attach_matchup_quality(row,None,5,self.roster()),row)
+  self.assertEqual(attach_matchup_quality([{'playerId':'unknown','propType':'rushing_yards','opponentId':'DEN'}],{'games':[]},5,self.roster()),[{'playerId':'unknown','propType':'rushing_yards','opponentId':'DEN'}])
+ def test_build_matchup_exception_leaves_row_unchanged(self):
+  row=[{'playerId':'p1','propType':'rushing_yards','opponentId':'DEN'}]
+  with patch('backend.sports.nfl.research_board.build_matchup',side_effect=RuntimeError('boom')):
+   self.assertEqual(attach_matchup_quality(row,{'games':[]},5,self.roster()),row)
+ def test_low_coverage_result_is_not_attached(self):
+  row=[{'playerId':'p1','propType':'rushing_yards','opponentId':'DEN'}]
+  with patch('backend.sports.nfl.research_board.build_matchup',return_value={'matchupQuality':70,'dataCoverage':30}):
+   self.assertNotIn('matchupQuality',attach_matchup_quality(row,{'games':[]},5,self.roster())[0])
+ def test_sufficient_coverage_result_is_attached_and_rounded(self):
+  row=[{'playerId':'p1','propType':'rushing_yards','opponentId':'DEN'}]
+  with patch('backend.sports.nfl.research_board.build_matchup',return_value={'matchupQuality':71.6,'dataCoverage':62.4}):
+   result=attach_matchup_quality(row,{'games':[]},5,self.roster())[0]
+  self.assertEqual(result['matchupQuality'],72);self.assertEqual(result['matchupCoverage'],62)

@@ -6,9 +6,10 @@ from .services import nflverse, odds
 from .services.matchup_data import season_data
 from .history_inputs import compact_history
 from .matchup_volume_context import opponent_volume
+from .matchup import build_matchup
 from .cache import cached_nfl, NFLCacheDomain
 
-VERSION='NFL_RESEARCH_BOARD_V2'
+VERSION='NFL_RESEARCH_BOARD_V3'
 FIELDS={'passing_yards':('passing_yards',),'passing_attempts':('attempts',),'pass_completions':('completions',),'passing_touchdowns':('passing_tds',),'interceptions':('passing_interceptions',),'rushing_yards':('rushing_yards',),'rush_attempts':('carries',),'receiving_yards':('receiving_yards',),'receptions':('receptions',),'targets':('targets',),'passing_rushing_yards':('passing_yards','rushing_yards'),'rushing_receiving_yards':('rushing_yards','receiving_yards'),'touchdowns':('rushing_tds','receiving_tds')}
 
 def finite(value):
@@ -63,22 +64,52 @@ def screen(offers,histories,event,now=None):
         if key not in seen:seen.add(key);result.append(row)
     return result
 
-def attach_opponent_volume(rows,season,week,roster):
+def shared_matchup_dataset(season,week):
+    # One season-wide pull shared by every enrichment step below, instead of
+    # each one fetching its own copy (season_data caches to disk for 30
+    # minutes, but there is no reason to rely on that when one call and a
+    # shared reference does the job).
+    try:
+        return compact_history(season_data,season,week,('games','players','connections')) if week<=4 else season_data(season)
+    except Exception:
+        return None
+
+def attach_opponent_volume(rows,data,week,roster):
     # Best-effort context, not a ranking input: opponent-volume percentile is
     # only defined for a few volume props, and never blocks a row from
     # appearing if the shared dataset or a given player/prop isn't covered.
-    if not rows:return rows
-    try:
-        data=compact_history(season_data,season,week,('games','players','connections')) if week<=4 else season_data(season)
-    except Exception:
-        data=None
-    if not data:return rows
+    if not rows or not data:return rows
     quarterback_ids={pid for pid,p in roster.items() if p.position=='QB'}
     enriched=[]
     for row in rows:
         player=roster.get(row['playerId'])
         context=opponent_volume(data,asdict(player),row.get('opponentId'),row['propType'],week,quarterback_ids) if player and row.get('opponentId') else None
         enriched.append({**row,'opponentVolume':context} if context else row)
+    return enriched
+
+def attach_matchup_quality(rows,data,week,roster):
+    # Surfaces the SAME per-prop matchup-quality score the single-player
+    # Matchup tab computes (build_matchup) — descriptive fit context, not
+    # the separate production/decisions.py verdict engine, which abstains
+    # for NFL until a model clears its calibration/holdout gates. Only
+    # shown at >=50% data coverage, matching the frontend's own honesty
+    # threshold for when that score is meaningful.
+    if not rows or not data:return rows
+    enriched=[]
+    for row in rows:
+        player=roster.get(row['playerId'])
+        result=None
+        if player and row.get('opponentId'):
+            try:
+                result=build_matchup(data,asdict(player),row['opponentId'],row['propType'],week)
+            except Exception:
+                result=None
+        quality=result.get('matchupQuality') if result else None
+        coverage=result.get('dataCoverage') if result else None
+        if quality is not None and coverage is not None and coverage>=50:
+            enriched.append({**row,'matchupQuality':round(quality),'matchupCoverage':round(coverage)})
+        else:
+            enriched.append(row)
     return enriched
 
 def game_board(season,event_id):
@@ -99,7 +130,10 @@ def game_board(season,event_id):
             older=nflverse.game_logs(season-1,pid)
             histories[pid]=list(older.data or [])+list(current.data or [])
             failed+=int(current.data is None or older.data is None)
-        rows=attach_opponent_volume(screen(offers.get('data',[]),histories,event),season,event['week'],roster)
+        dataset=shared_matchup_dataset(season,event['week'])
+        rows=screen(offers.get('data',[]),histories,event)
+        rows=attach_opponent_volume(rows,dataset,event['week'],roster)
+        rows=attach_matchup_quality(rows,dataset,event['week'],roster)
         return {'data':rows,'event':event,'source':'the-odds-api + nflverse','historyFailures':failed,'injuryReportAvailable':injuries.data is not None,'fetchedAt':datetime.now(timezone.utc).isoformat(),'method':'Ranked by sample-adjusted historical support, not betting confidence. Current-team games only; regular posted lines only.'}
     result=cached_nfl(NFLCacheDomain.PROPS,(VERSION,season,event_id),load)
     now=datetime.now(timezone.utc)

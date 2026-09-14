@@ -7,9 +7,12 @@ import {rankResearch,researchPlayer} from './research-board';
 const WINDOW_COLUMNS=[['l5','L5'],['l10','L10'],['l15','L15'],['l20','L20'],['h2h','H2H']];
 
 function sortRows(rows,sort){
+ // No sort selected = the backend's own sample-adjusted-support ranking,
+ // unchanged. Clicking a column re-sorts client-side by that column only;
+ // it never silently replaces the validated default order.
  if(!sort)return rows;
  const {key,dir}=sort;
- const value=row=>key==='avg'?row.average:key==='diff'?(row.line?.value!=null?row.average-row.line.value:null):row.windows?.[key]?.hitRate;
+ const value=row=>key==='avg'?row.average:key==='diff'?(row.line?.value!=null?row.average-row.line.value:null):key==='matchup'?row.matchupQuality:row.windows?.[key]?.hitRate;
  return [...rows].sort((a,b)=>{const av=value(a),bv=value(b);if(av==null&&bv==null)return 0;if(av==null)return 1;if(bv==null)return -1;return dir==='asc'?av-bv:bv-av;});
 }
 
@@ -24,14 +27,21 @@ function WindowCell({w}){
  return <td className={`nfl-board-cell ${tone}`}><strong>{Math.round(w.hitRate)}%</strong><small>{w.hits}-{w.misses}{w.pushes?` · ${w.pushes}p`:''}</small></td>;
 }
 
+function MatchupCell({row}){
+ if(row.matchupQuality==null)return <td className="nfl-board-cell muted">—</td>;
+ const tone=row.matchupQuality>=65?'good':row.matchupQuality<=35?'bad':'';
+ return <td className={`nfl-board-cell ${tone}`}><strong>{row.matchupQuality}</strong><small>{row.matchupCoverage}% cov.</small></td>;
+}
+
 function BoardTable({rows,players,onOpen,labels,sort,onSort}){
  const sorted=useMemo(()=>sortRows(rows,sort),[rows,sort]);
  return <div className="nfl-board-table-wrap"><table className="nfl-board-table">
-  <thead><tr><th>Player / line</th><SortHeader label="Avg" columnKey="avg" sort={sort} onSort={onSort}/><SortHeader label="Diff" columnKey="diff" sort={sort} onSort={onSort}/>{WINDOW_COLUMNS.map(([key,label])=><SortHeader key={key} label={label} columnKey={key} sort={sort} onSort={onSort}/>)}</tr></thead>
+  <thead><tr><th>Player / line</th><SortHeader label="Avg" columnKey="avg" sort={sort} onSort={onSort}/><SortHeader label="Diff" columnKey="diff" sort={sort} onSort={onSort}/><SortHeader label="Matchup" columnKey="matchup" sort={sort} onSort={onSort}/>{WINDOW_COLUMNS.map(([key,label])=><SortHeader key={key} label={label} columnKey={key} sort={sort} onSort={onSort}/>)}</tr></thead>
   <tbody>{sorted.map(row=>{const player=researchPlayer(row,players);const diff=row.line?.value!=null?row.average-row.line.value:null;return <tr key={`${row.gameId}.${row.playerId}.${row.propType}`} className={player?'clickable':''} onClick={()=>player&&onOpen(player)}>
    <td className="nfl-board-cell-player"><img src={player?.headshot_url} width="32" height="32" loading="lazy" alt=""/><div><strong>{row.playerName}</strong><small>{row.line.direction==='OVER'?'More':'Less'} {row.line.value} {labels[row.propType]}</small><small className="nfl-board-cell-meta">{row.position} · {row.teamId} vs {row.opponentId}</small></div></td>
    <td className="nfl-board-cell"><strong>{Number(row.average.toFixed(1))}</strong></td>
    <td className={`nfl-board-cell ${diff>0?'good':diff<0?'bad':''}`}>{diff==null?'—':`${diff>0?'+':''}${diff.toFixed(1)}`}</td>
+   <MatchupCell row={row}/>
    {WINDOW_COLUMNS.map(([key])=><WindowCell w={row.windows?.[key]} key={key}/>)}
   </tr>;})}</tbody>
  </table></div>;
@@ -41,7 +51,7 @@ export function NFLResearchBoard({load,players,onOpen}) {
  const [rows,setRows]=useState([]),[events,setEvents]=useState([]),[progress,setProgress]=useState(null),[error,setError]=useState(''),[failed,setFailed]=useState(0),[refresh,setRefresh]=useState(0);
  const [position,setPosition]=useState(''),[game,setGame]=useState(''),[prop,setProp]=useState(''),[now,setNow]=useState(Date.now());
  const [view,setView]=useState(()=>typeof window!=='undefined'&&window.matchMedia?.('(min-width: 900px)').matches?'table':'cards');
- const [sort,setSort]=useState({key:'l10',dir:'desc'});
+ const [sort,setSort]=useState(null);
  const onSort=key=>setSort(current=>current?.key===key?{key,dir:current.dir==='desc'?'asc':'desc'}:{key,dir:'desc'});
  useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),15000);return()=>clearInterval(timer);},[]);
  useEffect(()=>{
@@ -71,6 +81,7 @@ export function NFLResearchBoard({load,players,onOpen}) {
    <div className="nfl-discovery-identity">{player?.headshot_url&&<img src={player.headshot_url} width="58" height="58" loading="lazy" alt=""/>}<div><strong>{row.playerName}</strong><small>{row.position} · {row.teamId} vs {row.opponentId} · {new Date(row.startsAt).toLocaleDateString([],{weekday:'short'})}</small></div><ArrowUpRight size={18}/></div>
    <div className="nfl-discovery-line"><img src="/prizepicks/logo.png" width="22" height="22" alt="PrizePicks"/><strong>{row.line.direction==='OVER'?'More':'Less'} {row.line.value} {labels[row.propType]}</strong></div>
    <div className="nfl-discovery-stats"><span>Last {row.recentSample}<b>{row.recentHits}/{row.recentDecisions} hit</b></span><span>Sample<b>{row.hits}/{row.decisions} hit</b></span><span>Average<b>{Number(row.average.toFixed(1))}</b></span></div>
+   {row.matchupQuality!=null && <div className={`nfl-discovery-volume ${row.matchupQuality>=65?'good':row.matchupQuality<=35?'bad':''}`}><Shield size={14}/><span>Matchup score {row.matchupQuality}/100 · {row.matchupCoverage}% coverage</span></div>}
    {row.opponentVolume && <div className={`nfl-discovery-volume ${row.opponentVolume.score>=60?'good':row.opponentVolume.score<=40?'bad':''}`}><Shield size={14}/><span>{row.opponentVolume.label}: {row.opponentVolume.score}th percentile vs league</span></div>}
    <small className="nfl-board-caption">{row.seasons.join(' / ')} · {row.sample} games{row.pushes?` · ${row.pushes} pushes`:''} · {row.injuryReportAvailable?'Open research':'Injury report unavailable'}</small>
   </button>;})}</div>}
