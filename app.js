@@ -150,7 +150,9 @@ const BG_IMAGE_KEY = "vortex_bg_image";
 const DEFAULT_ACCENTS = Object.freeze({ primary: "#0082fe", secondary: "#d6e1ea", tint: 0 });
 const EXPERIENCE_KEY = "private_jarvis_interface";
 // User accents are applied before the first paint and remain independent of
-// the fixed charcoal surface system.
+// the fixed charcoal surface system. The site's own theme (if any) arrives
+// later via the site-status poll and is applied by applyEffectiveAccentTheme
+// once it's known -- this first pass just avoids a flash of unstyled colors.
 applyAccentTheme(loadAccentTheme(), { persist: false });
 applyExperience(localStorage.getItem(EXPERIENCE_KEY) === "true");
 
@@ -519,6 +521,33 @@ function applyAccentTheme(theme, { persist = true, syncControls = true } = {}) {
   }
 }
 
+// The admin's site-wide color theme (from site-status, sent to every
+// visitor) is only ever the *fallback* -- a member's own personal accent
+// choice in Settings always wins on their device, exactly like the
+// background image above. `hasPersonalAccentTheme` distinguishes "never
+// customized" from "customized to the same hex as the default", since
+// loadAccentTheme() always returns a full object either way.
+let siteTheme = null;
+function hasPersonalAccentTheme() {
+  return localStorage.getItem(ACCENT_THEME_KEY) !== null;
+}
+function applyEffectiveAccentTheme() {
+  if (hasPersonalAccentTheme()) { applyAccentTheme(loadAccentTheme(), { persist: false }); return; }
+  applyAccentTheme(siteTheme || DEFAULT_ACCENTS, { persist: false });
+}
+window.addEventListener("vortex:site-policy", (event) => {
+  const theme = event.detail?.theme;
+  siteTheme = theme?.primary ? { primary: theme.primary, secondary: theme.secondary, tint: normalizeTint(theme.tint) } : null;
+  applyEffectiveAccentTheme();
+});
+// Lets the admin panel show a live, unsaved preview of candidate site
+// colors on this page only -- always non-persistent, and re-resolves back
+// to the real effective theme (personal, then site, then default) the next
+// time either of those actually changes.
+window.addEventListener("vortex:site-theme-preview", (event) => {
+  applyAccentTheme(event.detail, { persist: false, syncControls: false });
+});
+
 function loadAccentPresets() {
   try {
     const saved = JSON.parse(localStorage.getItem(ACCENT_PRESETS_KEY) || "[]");
@@ -826,7 +855,7 @@ function wireCardBorderGlow() {
 }
 
 function wireSettingsPanel() {
-  applyAccentTheme(loadAccentTheme(), { persist: false });
+  applyEffectiveAccentTheme();
   renderAccentPresets();
   wireBackgroundImage();
 
@@ -884,8 +913,9 @@ function wireSettingsPanel() {
   els.secondaryAccent.addEventListener("change", () => updateAccents({ saveNow: true }));
   els.accentTint?.addEventListener("change", () => updateAccents({ saveNow: true }));
   els.accentReset.addEventListener("click", () => {
-    applyAccentTheme(DEFAULT_ACCENTS);
-    els.accentStatus.textContent = "Default accents restored.";
+    localStorage.removeItem(ACCENT_THEME_KEY);
+    applyEffectiveAccentTheme();
+    els.accentStatus.textContent = siteTheme ? "Reset — using the site's default colors." : "Default accents restored.";
   });
   els.accentPresetSave.addEventListener("click", () => {
     const name = els.accentPresetName.value.trim();

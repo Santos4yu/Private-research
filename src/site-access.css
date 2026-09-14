@@ -40,6 +40,15 @@ html:not([data-site-access="granted"]) #dock-root{display:none!important}
 #site-controls{background:#141c28;border:1px solid #445166;padding:22px;border-radius:18px;margin:20px 0;color:#f1f5f9;box-shadow:0 18px 50px rgba(0,0,0,.28)}
 #site-controls h3{margin:0 0 18px;font-size:17px;letter-spacing:-.01em}
 #site-controls form{display:flex;flex-direction:column;gap:22px}
+
+/* Tab strip: keeps the panel from growing into one long scroll as more
+   admin controls get added over time. */
+.site-tabs{display:flex;gap:4px;margin:0 0 20px;padding:4px;border:1px solid #2b3543;background:#0e1621;border-radius:14px}
+.site-tab{flex:1;min-height:40px;border:0;border-radius:10px;background:transparent;color:#9fb0c8;font:700 12px/1 inherit;letter-spacing:.01em;cursor:pointer;transition:background .15s ease,color .15s ease}
+.site-tab:hover{color:#f1f5f9}
+.site-tab[aria-selected=true]{background:var(--theme-accent,#0082fe);color:var(--theme-on-accent,#fff)}
+.site-tab-panel{display:flex;flex-direction:column;gap:22px}
+.site-tab-panel[hidden]{display:none}
 #site-controls label:has(textarea){display:block;margin:0;font-size:13px;color:#9fb0c8}
 #site-controls textarea{box-sizing:border-box;width:100%;margin-top:8px;padding:12px;border:1px solid #445166;border-radius:10px;background:#202a38;color:#f1f5f9;font:400 13px/1.5 inherit;resize:vertical}
 #site-controls textarea:focus-visible{outline:2px solid var(--theme-accent,#0082fe);outline-offset:2px;border-color:var(--theme-accent,#0082fe)}

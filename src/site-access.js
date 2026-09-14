@@ -155,10 +155,65 @@ function probeImageLoads(url){
   img.src=new URL(url,window.location.origin).href;
  });
 }
+function escapeHtml(str){return String(str).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+// Site theme presets are a convenience local to the admin's own browser --
+// only whichever one gets picked and saved actually goes out to visitors.
+const THEME_PRESETS_KEY='krazy_data_site_theme_presets';
+const DEFAULT_THEME=Object.freeze({primary:'#0082fe',secondary:'#d6e1ea',tint:0});
+function loadThemePresets(){
+ try{const saved=JSON.parse(localStorage.getItem(THEME_PRESETS_KEY)||'[]');return Array.isArray(saved)?saved.filter(p=>p&&p.name).slice(0,12):[];}catch{return [];}
+}
 
 export async function loadSiteControls(){
  const policy=await request('/api/v2-admin?action=site-settings');let host=document.getElementById('site-controls');if(!host)return;
- host.hidden=false;host.innerHTML='<h3>Website controls</h3><form><div class="site-control-switches"></div><label>Maintenance message<textarea name="message" maxlength="240" required></textarea></label><fieldset><legend>Available tabs</legend></fieldset><fieldset class="site-sport-controls"><legend>Visible sports</legend></fieldset><div class="bg-image-control"><span class="settings-label">Site background image — everyone sees this</span><button type="button" class="bg-image-upload-btn" id="site-bg-upload">Upload a photo</button><input type="file" id="site-bg-file" accept="image/*" hidden /><div class="bg-image-divider"><span>or paste a link</span></div><input type="text" name="bgUrl" placeholder="https://example.com/photo.jpg" autocomplete="off" inputmode="url" /><label class="accent-tint-control"><span>Opacity</span><input type="range" name="bgOpacity" min="5" max="100" step="1" value="35" aria-label="Site background opacity" /><output>35%</output></label><p class="theme-picker-note">This is separate from a member’s personal background in their own Settings — their choice always overrides this on their device. Members without a personal background see this one.</p></div><p role="status"></p><button type="submit">Save website settings</button></form>';
+ host.hidden=false;
+ host.innerHTML='<h3>Website controls</h3>'
+  +'<div class="site-tabs" role="tablist">'
+   +'<button type="button" class="site-tab" data-panel-tab="general" role="tab" aria-selected="true">General</button>'
+   +'<button type="button" class="site-tab" data-panel-tab="access" role="tab" aria-selected="false">Access</button>'
+   +'<button type="button" class="site-tab" data-panel-tab="appearance" role="tab" aria-selected="false">Appearance</button>'
+  +'</div>'
+  +'<form>'
+   +'<div class="site-tab-panel" data-panel="general">'
+    +'<div class="site-control-switches"></div>'
+    +'<label>Maintenance message<textarea name="message" maxlength="240" required></textarea></label>'
+   +'</div>'
+   +'<div class="site-tab-panel" data-panel="access" hidden>'
+    +'<fieldset><legend>Available tabs</legend></fieldset>'
+    +'<fieldset class="site-sport-controls"><legend>Visible sports</legend></fieldset>'
+   +'</div>'
+   +'<div class="site-tab-panel" data-panel="appearance" hidden>'
+    +'<div class="bg-image-control">'
+     +'<span class="settings-label">Site background image — everyone sees this</span>'
+     +'<button type="button" class="bg-image-upload-btn" id="site-bg-upload">Upload a photo</button>'
+     +'<input type="file" id="site-bg-file" accept="image/*" hidden />'
+     +'<div class="bg-image-divider"><span>or paste a link</span></div>'
+     +'<input type="text" name="bgUrl" placeholder="https://example.com/photo.jpg" autocomplete="off" inputmode="url" />'
+     +'<label class="accent-tint-control"><span>Opacity</span><input type="range" name="bgOpacity" min="5" max="100" step="1" value="35" aria-label="Site background opacity" /><output>35%</output></label>'
+     +'<p class="theme-picker-note">This is separate from a member’s personal background in their own Settings — their choice always overrides this on their device. Members without a personal background see this one.</p>'
+    +'</div>'
+    +'<div class="site-theme-control">'
+     +'<span class="settings-label">Website color theme — everyone sees this</span>'
+     +'<div class="accent-controls">'
+      +'<label class="accent-control"><span>Primary</span><div><input type="color" name="themePrimary" value="#0082fe" /><output>#0082FE</output></div></label>'
+      +'<label class="accent-control"><span>Secondary</span><div><input type="color" name="themeSecondary" value="#d6e1ea" /><output>#D6E1EA</output></div></label>'
+     +'</div>'
+     +'<label class="accent-tint-control"><span>Background tint</span><input type="range" name="themeTint" min="0" max="35" step="1" value="0" /><output>0%</output></label>'
+     +'<div class="bg-image-actions"><button type="button" id="site-theme-reset">Use default colors</button><button type="button" id="site-theme-apply-preview">Preview here</button></div>'
+     +'<div class="accent-save-row"><label>Save current colors as a preset</label><div><input type="text" id="site-theme-preset-name" placeholder="Preset name" maxlength="40" /><button type="button" id="site-theme-preset-save">Save</button></div></div>'
+     +'<div class="accent-presets" id="site-theme-presets"></div>'
+     +'<p class="theme-picker-note">Sets the default color theme for everyone. A member’s own theme choice in their Settings always overrides this on their device.</p>'
+    +'</div>'
+   +'</div>'
+   +'<p role="status"></p>'
+   +'<button type="submit">Save website settings</button>'
+  +'</form>';
+ const tabs=[...host.querySelectorAll('.site-tab')],panels=[...host.querySelectorAll('.site-tab-panel')];
+ tabs.forEach(tab=>tab.addEventListener('click',()=>{
+  tabs.forEach(t=>t.setAttribute('aria-selected',String(t===tab)));
+  panels.forEach(p=>{p.hidden=p.dataset.panel!==tab.dataset.panelTab;});
+ }));
  const form=host.querySelector('form');for(const [key,title] of Object.entries({maintenance:'Maintenance mode — members cannot use the website',requireLogin:'Require email account to access research',registrationOpen:'Allow new account registrations'})){const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.name=key;input.checked=policy[key];label.append(input,document.createTextNode(title));host.querySelector('.site-control-switches').append(label);}
  form.elements.message.value=policy.message;
  for(const [key,title] of Object.entries(names)){const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.name='tab';input.value=key;input.checked=!policy.disabledTabs.includes(key);label.append(input,document.createTextNode(title));host.querySelector('fieldset').append(label);}
@@ -181,7 +236,68 @@ export async function loadSiteControls(){
    statusEl().textContent='Photo uploaded. Click "Save website settings" to publish it to everyone.';
   }catch(error){statusEl().textContent=error.message;}
  });
- form.onsubmit=async e=>{e.preventDefault();const message=statusEl();const button=host.querySelector('[type=submit]');button.disabled=true;const bgUrl=form.elements.bgUrl.value.trim();try{await request('/api/v2-admin',{action:'site-settings',settings:{maintenance:form.elements.maintenance.checked,requireLogin:form.elements.requireLogin.checked,registrationOpen:form.elements.registrationOpen.checked,message:form.elements.message.value,disabledSports:[...form.querySelectorAll('[name=sport]')].filter(c=>!c.checked).map(c=>c.value),disabledTabs:[...form.querySelectorAll('[name=tab]')].filter(c=>!c.checked).map(c=>c.value),backgroundImage:{url:bgUrl,opacity:Number(form.elements.bgOpacity.value)}}});
+
+ // ---- Website color theme ----
+ const theme=policy.theme&&policy.theme.primary?policy.theme:DEFAULT_THEME;
+ form.elements.themePrimary.value=theme.primary;form.elements.themeSecondary.value=theme.secondary;form.elements.themeTint.value=String(theme.tint??0);
+ const themeOutputs=host.querySelector('.site-theme-control').querySelectorAll('output');
+ const syncThemeOutputs=()=>{themeOutputs[0].textContent=form.elements.themePrimary.value.toUpperCase();themeOutputs[1].textContent=form.elements.themeSecondary.value.toUpperCase();themeOutputs[2].textContent=`${form.elements.themeTint.value}%`;};
+ syncThemeOutputs();
+ form.elements.themePrimary.addEventListener('input',syncThemeOutputs);
+ form.elements.themeSecondary.addEventListener('input',syncThemeOutputs);
+ form.elements.themeTint.addEventListener('input',syncThemeOutputs);
+ host.querySelector('#site-theme-reset').addEventListener('click',()=>{
+  form.elements.themePrimary.value=DEFAULT_THEME.primary;form.elements.themeSecondary.value=DEFAULT_THEME.secondary;form.elements.themeTint.value=String(DEFAULT_THEME.tint);
+  syncThemeOutputs();
+  statusEl().textContent='Colors reset to default here — click "Save website settings" to publish.';
+ });
+ host.querySelector('#site-theme-apply-preview').addEventListener('click',()=>{
+  window.dispatchEvent(new CustomEvent('vortex:site-theme-preview',{detail:{primary:form.elements.themePrimary.value,secondary:form.elements.themeSecondary.value,tint:Number(form.elements.themeTint.value)}}));
+  statusEl().textContent='Previewing these colors on this page only — not saved yet.';
+ });
+ const renderThemePresets=()=>{
+  const presets=loadThemePresets();const list=host.querySelector('#site-theme-presets');
+  list.innerHTML=presets.length?'':'<p class="accent-presets-empty">No saved presets yet.</p>';
+  presets.forEach((preset,index)=>{
+   const row=document.createElement('div');row.className='accent-preset';
+   row.innerHTML=`<span class="accent-preset-preview" style="--preset-primary:${preset.primary};--preset-secondary:${preset.secondary};--preset-tint:${preset.tint||0}%"><i></i><i></i></span><span class="accent-preset-name">${escapeHtml(preset.name)}</span><button type="button" aria-label="Delete ${escapeHtml(preset.name)} preset"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5m4-5v5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button><span class="accent-preset-apply" role="button" tabindex="0" aria-label="Apply ${escapeHtml(preset.name)} preset"></span>`;
+   const apply=()=>{
+    form.elements.themePrimary.value=preset.primary;form.elements.themeSecondary.value=preset.secondary;form.elements.themeTint.value=String(preset.tint||0);
+    syncThemeOutputs();
+    statusEl().textContent=`${preset.name} loaded — click "Save website settings" to publish it.`;
+   };
+   const applyButton=row.querySelector('.accent-preset-apply');
+   applyButton.addEventListener('click',apply);
+   applyButton.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();apply();}});
+   row.querySelector('button').addEventListener('click',e=>{
+    e.stopPropagation();
+    const next=loadThemePresets();next.splice(index,1);
+    localStorage.setItem(THEME_PRESETS_KEY,JSON.stringify(next));
+    renderThemePresets();
+    statusEl().textContent=`${preset.name} deleted.`;
+   });
+   list.append(row);
+  });
+ };
+ renderThemePresets();
+ host.querySelector('#site-theme-preset-name').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();host.querySelector('#site-theme-preset-save').click();}});
+ host.querySelector('#site-theme-preset-save').addEventListener('click',()=>{
+  const nameInput=host.querySelector('#site-theme-preset-name');const name=nameInput.value.trim();
+  if(!name){nameInput.focus();statusEl().textContent='Name the preset before saving it.';return;}
+  const presets=loadThemePresets();
+  const preset={name,primary:form.elements.themePrimary.value,secondary:form.elements.themeSecondary.value,tint:Number(form.elements.themeTint.value)};
+  const existing=presets.findIndex(p=>p.name.toLowerCase()===name.toLowerCase());
+  if(existing>=0)presets[existing]=preset;else presets.unshift(preset);
+  localStorage.setItem(THEME_PRESETS_KEY,JSON.stringify(presets.slice(0,12)));
+  nameInput.value='';
+  renderThemePresets();
+  statusEl().textContent=`${name} saved as a preset on this device.`;
+ });
+
+ form.onsubmit=async e=>{e.preventDefault();const message=statusEl();const button=host.querySelector('[type=submit]');button.disabled=true;const bgUrl=form.elements.bgUrl.value.trim();
+  const themePrimary=form.elements.themePrimary.value,themeSecondary=form.elements.themeSecondary.value,themeTint=Number(form.elements.themeTint.value);
+  const themeIsDefault=themePrimary.toLowerCase()===DEFAULT_THEME.primary&&themeSecondary.toLowerCase()===DEFAULT_THEME.secondary&&themeTint===DEFAULT_THEME.tint;
+  try{await request('/api/v2-admin',{action:'site-settings',settings:{maintenance:form.elements.maintenance.checked,requireLogin:form.elements.requireLogin.checked,registrationOpen:form.elements.registrationOpen.checked,message:form.elements.message.value,disabledSports:[...form.querySelectorAll('[name=sport]')].filter(c=>!c.checked).map(c=>c.value),disabledTabs:[...form.querySelectorAll('[name=tab]')].filter(c=>!c.checked).map(c=>c.value),backgroundImage:{url:bgUrl,opacity:Number(form.elements.bgOpacity.value)},theme:themeIsDefault?{primary:'',secondary:'',tint:0}:{primary:themePrimary,secondary:themeSecondary,tint:themeTint}}});
   if(bgUrl){
    message.textContent='Saved. Checking that the image loads…';
    const loads=await probeImageLoads(bgUrl);

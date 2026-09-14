@@ -6,7 +6,8 @@ from v2.board import store, admin_auth
 SITE_BACKGROUND_PATH_RE=re.compile(r'^/api/v2-admin\?action=site-background&v=\d+$')
 KEY='krazy_data:site_controls:v1'
 TABS=('research','v2','slate','saved','slip','builder','moneyline','nrfi')
-DEFAULT={'maintenance':False,'message':'We are updating Vortex. Please check back shortly.','requireLogin':True,'registrationOpen':True,'disabledTabs':[],'disabledSports':[],'backgroundImage':{'url':'','opacity':35},'updatedAt':None}
+HEX_COLOR_RE=re.compile(r'^#[0-9a-fA-F]{6}$')
+DEFAULT={'maintenance':False,'message':'We are updating Vortex. Please check back shortly.','requireLogin':True,'registrationOpen':True,'disabledTabs':[],'disabledSports':[],'backgroundImage':{'url':'','opacity':35},'theme':{'primary':'','secondary':'','tint':0},'updatedAt':None}
 def read():
  raw=store.get(KEY)
  if raw is None:return dict(DEFAULT)
@@ -49,6 +50,21 @@ def validate(body):
  if isinstance(bg_opacity,bool) or not isinstance(bg_opacity,(int,float)) or not 5<=bg_opacity<=100:
   raise ValueError('Background image opacity must be between 5 and 100')
  result['backgroundImage']={'url':bg_url.strip(),'opacity':int(round(bg_opacity))}
+ # Site-wide color theme: an empty primary means "no override, use the
+ # built-in default" -- same shape as the personal accent theme in app.js
+ # (primary/secondary hex + a 0-35 background tint), so the admin's choice
+ # can be applied with the exact same function on every visitor's device.
+ theme=body.get('theme') or {}
+ if not isinstance(theme,dict):raise ValueError('Invalid theme settings')
+ theme_primary=theme.get('primary','')
+ theme_secondary=theme.get('secondary','')
+ if theme_primary and not HEX_COLOR_RE.match(theme_primary):raise ValueError('Theme primary color must be a valid hex color')
+ if theme_secondary and not HEX_COLOR_RE.match(theme_secondary):raise ValueError('Theme secondary color must be a valid hex color')
+ if bool(theme_primary)!=bool(theme_secondary):raise ValueError('Set both theme colors, or neither')
+ theme_tint=theme.get('tint',0)
+ if isinstance(theme_tint,bool) or not isinstance(theme_tint,(int,float)) or not 0<=theme_tint<=35:
+  raise ValueError('Theme tint must be between 0 and 35')
+ result['theme']={'primary':theme_primary.lower(),'secondary':theme_secondary.lower(),'tint':int(round(theme_tint))}
  result['updatedAt']=datetime.now(timezone.utc).isoformat()
  return result
 RESOURCE_TABS={'players':'research','prediction':'research','game-log-filters':'research','team-insights':'slate','slate':'slate','v2-board':'v2','board':'v2'}

@@ -40,6 +40,21 @@ class SiteControlsTests(unittest.TestCase):
  def test_background_image_rejects_lookalike_or_traversal_paths(self):
   for url in ('/api/v2-admin?action=site-background','/api/v2-admin?action=site-background&v=abc','/api/other?action=site-background&v=1','//evil.com/api/v2-admin?action=site-background&v=1'):
    with self.assertRaises(ValueError):controls.validate({**controls.DEFAULT,'backgroundImage':{'url':url,'opacity':35}})
+ def test_theme_defaults_to_no_override_when_omitted(self):
+  body={k:v for k,v in controls.DEFAULT.items() if k!='theme'}
+  self.assertEqual(controls.validate(body)['theme'],{'primary':'','secondary':'','tint':0})
+ def test_theme_accepts_valid_colors_and_lowercases_hex(self):
+  result=controls.validate({**controls.DEFAULT,'theme':{'primary':'#0082FE','secondary':'#D6E1EA','tint':12.6}})
+  self.assertEqual(result['theme'],{'primary':'#0082fe','secondary':'#d6e1ea','tint':13})
+ def test_theme_rejects_invalid_hex_colors(self):
+  for primary in ('not-a-color','#fff','#gggggg','red','#0082fe;'):
+   with self.assertRaises(ValueError):controls.validate({**controls.DEFAULT,'theme':{'primary':primary,'secondary':'#d6e1ea','tint':0}})
+ def test_theme_requires_both_colors_or_neither(self):
+  with self.assertRaises(ValueError):controls.validate({**controls.DEFAULT,'theme':{'primary':'#0082fe','secondary':'','tint':0}})
+  with self.assertRaises(ValueError):controls.validate({**controls.DEFAULT,'theme':{'primary':'','secondary':'#d6e1ea','tint':0}})
+ def test_theme_rejects_tint_out_of_range_or_wrong_type(self):
+  for tint in (-1,36,'10',True,None):
+   with self.assertRaises(ValueError):controls.validate({**controls.DEFAULT,'theme':{'primary':'','secondary':'','tint':tint}})
 
 import base64
 import site_background as bg_store
