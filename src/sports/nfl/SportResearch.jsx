@@ -1,3 +1,4 @@
+import {siteSportAllowed} from '../../site-access';
 import {NFLResearchBoard} from './ResearchBoard';
 import './mobile-research.css';
 import {ResearchSheet,SheetSelect} from './ResearchSheet';
@@ -55,7 +56,7 @@ function SportSwitcher({ sport, onChange }) {
   return <div className="sport-switch-shell" aria-label="Choose research sport">
     <span>SPORT</span>
     <div className="sport-switch" role="group">
-      {['mlb', 'nfl'].map((value) => <button key={value} type="button" aria-pressed={sport === value} className={sport === value ? 'active' : ''} onClick={() => onChange(value)}>
+      {['mlb', 'nfl'].filter(siteSportAllowed).map((value) => <button key={value} type="button" aria-pressed={sport === value} className={sport === value ? 'active' : ''} onClick={() => onChange(value)}>
         <LeagueMark sport={value} /><strong>{value.toUpperCase()}</strong>
       </button>)}
     </div>
@@ -334,12 +335,14 @@ export function SportResearch() {
     if (nextSport === 'nfl' && playerId) url.searchParams.set('nflPlayer', playerId); else url.searchParams.delete('nflPlayer');
     history[replace ? 'replaceState' : 'pushState']({}, '', url);
   };
-  const changeSport = (next) => { nflClient.clear(); setSelectedSport(next); setSport(next); setBoardView(false); setSelectedPlayer(null); syncUrl(next); window.dispatchEvent(new CustomEvent('vortex:switch-tab',{detail:{tab:'research'}})); window.dispatchEvent(new CustomEvent('vortex:sport-change', { detail: { sport: next } })); };
+  const changeSport = (next) => { if(!siteSportAllowed(next))return; nflClient.clear(); setSelectedSport(next); setSport(next); setBoardView(false); setSelectedPlayer(null); syncUrl(next); window.dispatchEvent(new CustomEvent('vortex:switch-tab',{detail:{tab:'research'}})); window.dispatchEvent(new CustomEvent('vortex:sport-change', { detail: { sport: next } })); };
+  const [,setPolicyRevision]=useState(0);
+  useEffect(()=>{const update=()=>{setPolicyRevision(n=>n+1);if(!siteSportAllowed(sport))changeSport('mlb');};update();window.addEventListener('vortex:site-policy',update);return()=>window.removeEventListener('vortex:site-policy',update);},[sport]);
   const openPlayer = (player) => { window.dispatchEvent(new CustomEvent('vortex:switch-tab',{detail:{tab:'research'}})); setBoardView(false); saveRecent(player); setSelectedPlayer(player); syncUrl('nfl', player.id); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const closePlayer = () => { setSelectedPlayer(null); syncUrl('nfl'); };
   useEffect(() => { document.documentElement.dataset.researchSport = sport; return () => { delete document.documentElement.dataset.researchSport; }; }, [sport]);
   useEffect(() => {
-    if (sport !== 'nfl') return;
+    if (sport !== 'nfl'||!siteSportAllowed('nfl')) return;
     let active = true; setLoading(true); setError('');
     Promise.allSettled([getNFL('players'), getNFL('teams'), getNFL('schedule', { seasonType: 'REG' })]).then((parts) => {
       if (!active) return;
@@ -356,5 +359,5 @@ export function SportResearch() {
     const pop = () => { const params = new URLSearchParams(location.search); const requestedPlayer = params.get('nflPlayer'); setSelectedPlayer(players.find((player) => player.id === requestedPlayer) || null); };
     window.addEventListener('popstate', pop); return () => window.removeEventListener('popstate', pop);
   }, [players, sport]);
-  return <><SportSwitcher sport={sport} onChange={changeSport} />{sport === 'nfl' && <div className="nfl-app-shell">{error && <button className="nfl-refresh" type="button" onClick={() => { nflClient.clear(); setReloadKey(key => key + 1); }}>Retry data sources</button>}{selectedPlayer ? <NFLPlayerResearch key={selectedPlayer.id} player={selectedPlayer} teams={teams} schedules={schedules} onBack={closePlayer} /> : boardView ? <NFLResearchBoard load={getNFL} players={players} onOpen={openPlayer}/> : <NFLHome players={players} teams={teams} loading={loading} error={error} onOpen={openPlayer} />}<details className="nfl-sources"><summary>Data sources</summary><p>Game statistics: <a href="https://github.com/nflverse/nflverse-data">nflverse</a>, adapted for research · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. Live offers: The Odds API, labelled by platform.</p></details></div>}</>;
+  return <><SportSwitcher sport={sport} onChange={changeSport} />{sport === 'nfl' && siteSportAllowed('nfl') && <div className="nfl-app-shell">{error && <button className="nfl-refresh" type="button" onClick={() => { nflClient.clear(); setReloadKey(key => key + 1); }}>Retry data sources</button>}{selectedPlayer ? <NFLPlayerResearch key={selectedPlayer.id} player={selectedPlayer} teams={teams} schedules={schedules} onBack={closePlayer} /> : boardView ? <NFLResearchBoard load={getNFL} players={players} onOpen={openPlayer}/> : <NFLHome players={players} teams={teams} loading={loading} error={error} onOpen={openPlayer} />}<details className="nfl-sources"><summary>Data sources</summary><p>Game statistics: <a href="https://github.com/nflverse/nflverse-data">nflverse</a>, adapted for research · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. Live offers: The Odds API, labelled by platform.</p></details></div>}</>;
 }

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from v2.board import store, admin_auth
 KEY='krazy_data:site_controls:v1'
 TABS=('research','v2','slate','saved','slip','builder','moneyline','nrfi')
-DEFAULT={'maintenance':False,'message':'We are updating Vortex. Please check back shortly.','requireLogin':True,'registrationOpen':True,'disabledTabs':[],'updatedAt':None}
+DEFAULT={'maintenance':False,'message':'We are updating Vortex. Please check back shortly.','requireLogin':True,'registrationOpen':True,'disabledTabs':[],'disabledSports':[],'updatedAt':None}
 def read():
  raw=store.get(KEY)
  if raw is None:return dict(DEFAULT)
@@ -22,13 +22,16 @@ def validate(body):
  tabs=body.get('disabledTabs')
  if not isinstance(tabs,list) or any(t not in TABS for t in tabs):raise ValueError('Invalid tab')
  result['disabledTabs']=sorted(set(tabs))
+ sports=body.get('disabledSports',[])
+ if not isinstance(sports,list) or any(t!='nfl' for t in sports):raise ValueError('Invalid sport')
+ result['disabledSports']=sorted(set(sports))
  result['updatedAt']=datetime.now(timezone.utc).isoformat()
  return result
 RESOURCE_TABS={'players':'research','prediction':'research','game-log-filters':'research','team-insights':'slate','slate':'slate','v2-board':'v2','board':'v2'}
-def allowed(headers,tab=None):
+def allowed(headers,tab=None,sport=None):
  if admin_auth.is_admin_request(headers):return True
  policy=read()
- return not policy['maintenance'] and (not tab or tab not in policy['disabledTabs'])
+ return not policy['maintenance'] and (not tab or tab not in policy['disabledTabs']) and (not sport or sport not in policy.get('disabledSports',[]))
 def same_origin(headers):
  from urllib.parse import urlparse
  origin=urlparse(headers.get('Origin',''))

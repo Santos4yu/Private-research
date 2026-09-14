@@ -1,8 +1,9 @@
 import './site-access.css';
-import {accessGranted,canUseTab,availableTab} from './site-access-core.js';
+import {accessGranted,canUseTab,availableTab,canUseSport} from './site-access-core.js';
 const names={research:'Research',v2:'Props',slate:'Tools',saved:'My Slip',slip:'Slip Analyzer',builder:'Builder',moneyline:'Moneyline',nrfi:'NRFI / YRFI'};
 let status=null,initPromise=null,activeDialog=null,lockedDialog=null;
 export function siteTabAllowed(tab){return canUseTab(status,tab);}
+export function siteSportAllowed(sport){return canUseSport(status,sport);}
 export function availableSiteTab(current){return availableTab(status,current);}
 export function showLockedTab(tab){
  if(!accessGranted(status)){renderStatus();return;}
@@ -80,7 +81,7 @@ function renderStatus(){
  document.getElementById('boot-loading')?.setAttribute('hidden','');
  if(!granted&&activeDialog)activeDialog.close();
  if(!granted&&lockedDialog)lockedDialog.close();
- let bar=document.getElementById('site-account-bar');if(!bar){bar=element('div',null,'site-account-bar');bar.id='site-account-bar';document.body.append(bar);}
+ let bar=document.getElementById('site-account-bar');if(!bar){bar=element('div',null,'site-account-bar');bar.id='site-account-bar';(document.querySelector('.hero')||document.body).append(bar);}
  bar.hidden=!granted;
  if(granted&&!bar.childElementCount){const account=button('',accountDialog,'site-account-trigger');account.setAttribute('aria-label','Your account');account.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M5 21v-2a7 7 0 0 1 14 0v2" stroke="currentColor" stroke-width="1.6"/></svg>';bar.append(account);}
  document.querySelectorAll('[data-tab],[data-launch-tab]').forEach(b=>{const tab=b.dataset.tab||b.dataset.launchTab;if(tab!=='admin'){b.disabled=!granted;b.dataset.featureLocked=String(!siteTabAllowed(tab));}});
@@ -90,6 +91,9 @@ function renderStatus(){
  document.documentElement.dataset.allTabsLocked=String(granted&&!next);
  let empty=document.getElementById('site-all-locked');if(!empty){empty=element('section',null,'site-all-locked');empty.id='site-all-locked';empty.append(element('h2','In development'),element('p','Sections are temporarily locked. Your account and navigation are still available.'));document.body.append(empty);}empty.hidden=!(granted&&!next);
  const kind=granted?'none':status.maintenance?'maintenance':'login';gate.hidden=kind==='none';
+ document.documentElement.dataset.siteMaintenance=String(kind==='maintenance');
+ const viewport=document.querySelector('meta[name=viewport]');if(viewport){viewport.dataset.originalContent??=viewport.content;viewport.content=kind==='maintenance'?'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover':viewport.dataset.originalContent;}
+
  if(granted&&current!==next&&!siteTabAllowed(current)){
   if(next)window.dispatchEvent(new CustomEvent('vortex:switch-tab',{detail:{tab:next}}));
   if(gate.dataset.lockedTab!==current){gate.dataset.lockedTab=current;showLockedTab(current);}
@@ -117,9 +121,10 @@ export function initSiteAccess(){
 }
 export async function loadSiteControls(){
  const policy=await request('/api/v2-admin?action=site-settings');let host=document.getElementById('site-controls');if(!host)return;
- host.hidden=false;host.innerHTML='<h3>Website controls</h3><form><div class="site-control-switches"></div><label>Maintenance message<textarea name="message" maxlength="240" required></textarea></label><fieldset><legend>Available tabs</legend></fieldset><p role="status"></p><button type="submit">Save website settings</button></form>';
+ host.hidden=false;host.innerHTML='<h3>Website controls</h3><form><div class="site-control-switches"></div><label>Maintenance message<textarea name="message" maxlength="240" required></textarea></label><fieldset><legend>Available tabs</legend></fieldset><fieldset class="site-sport-controls"><legend>Visible sports</legend></fieldset><p role="status"></p><button type="submit">Save website settings</button></form>';
  const form=host.querySelector('form');for(const [key,title] of Object.entries({maintenance:'Maintenance mode — members cannot use the website',requireLogin:'Require email account to access research',registrationOpen:'Allow new account registrations'})){const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.name=key;input.checked=policy[key];label.append(input,document.createTextNode(title));host.querySelector('.site-control-switches').append(label);}
  form.elements.message.value=policy.message;
  for(const [key,title] of Object.entries(names)){const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.name='tab';input.value=key;input.checked=!policy.disabledTabs.includes(key);label.append(input,document.createTextNode(title));host.querySelector('fieldset').append(label);}
- form.onsubmit=async e=>{e.preventDefault();const message=host.querySelector('[role=status]');const button=host.querySelector('[type=submit]');button.disabled=true;try{await request('/api/v2-admin',{action:'site-settings',settings:{maintenance:form.elements.maintenance.checked,requireLogin:form.elements.requireLogin.checked,registrationOpen:form.elements.registrationOpen.checked,message:form.elements.message.value,disabledTabs:[...form.querySelectorAll('[name=tab]')].filter(c=>!c.checked).map(c=>c.value)}});message.textContent='Saved. Changes apply to member requests immediately.';await refreshSiteAccess();}catch(error){message.textContent=error.message;}finally{button.disabled=false;}};
+ const sportLabel=element('label');const sportInput=document.createElement('input');sportInput.type='checkbox';sportInput.name='sport';sportInput.value='nfl';sportInput.checked=!(policy.disabledSports||[]).includes('nfl');sportLabel.append(sportInput,document.createTextNode('NFL — show sport and allow NFL data'));host.querySelector('.site-sport-controls').append(sportLabel);
+ form.onsubmit=async e=>{e.preventDefault();const message=host.querySelector('[role=status]');const button=host.querySelector('[type=submit]');button.disabled=true;try{await request('/api/v2-admin',{action:'site-settings',settings:{maintenance:form.elements.maintenance.checked,requireLogin:form.elements.requireLogin.checked,registrationOpen:form.elements.registrationOpen.checked,message:form.elements.message.value,disabledSports:[...form.querySelectorAll('[name=sport]')].filter(c=>!c.checked).map(c=>c.value),disabledTabs:[...form.querySelectorAll('[name=tab]')].filter(c=>!c.checked).map(c=>c.value)}});message.textContent='Saved. Changes apply to member requests immediately.';await refreshSiteAccess();}catch(error){message.textContent=error.message;}finally{button.disabled=false;}};
 }

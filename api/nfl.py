@@ -29,7 +29,7 @@ class handler(BaseHTTPRequestHandler):
             resource = path_parts[-1].lower() if len(path_parts) > 2 else ""
         from site_controls import allowed as feature_allowed
         tab='v2' if resource in ('research-board','value-board') else 'research'
-        if not feature_allowed(self.headers,tab):return send_json(self,503,{'error':'This section is temporarily unavailable','featureDisabled':True})
+        if not feature_allowed(self.headers,tab,sport='nfl'):return send_json(self,503,{'error':'This section is temporarily unavailable','featureDisabled':True})
         allowed = {'players','teams','schedule','game-logs','usage','defense','injuries','depth-chart','team-stats','opportunity','matchup','projection','distribution','decision','value-board','model-health','props','prop-games','reception-logs','research-board'}
         if resource not in allowed:
             return send_json(self, 404, {'error': 'Unknown NFL resource.'})

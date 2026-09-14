@@ -14,6 +14,14 @@ class SiteControlsTests(unittest.TestCase):
   with patch.object(controls,'read',return_value={**controls.DEFAULT,'disabledTabs':['v2']}),patch.object(controls.admin_auth,'is_admin_request',return_value=False):
    self.assertFalse(controls.allowed({},'v2'));self.assertTrue(controls.allowed({},'research'))
   with patch.object(controls,'read',return_value={**controls.DEFAULT,'maintenance':True}),patch.object(controls.admin_auth,'is_admin_request',return_value=True):self.assertTrue(controls.allowed({},'v2'))
+ def test_hidden_nfl_blocks_data_and_admin_can_preview(self):
+  policy={**controls.DEFAULT,'disabledSports':['nfl']}
+  with patch.object(controls,'read',return_value=policy),patch.object(controls.admin_auth,'is_admin_request',return_value=False):
+   self.assertFalse(controls.allowed({},'research',sport='nfl'));self.assertTrue(controls.allowed({},'research'))
+  with patch.object(controls,'read',return_value=policy),patch.object(controls.admin_auth,'is_admin_request',return_value=True):self.assertTrue(controls.allowed({},'research',sport='nfl'))
+ def test_sport_settings_validated_and_old_settings_compatible(self):
+  self.assertEqual(controls.validate({**controls.DEFAULT,'disabledSports':['nfl']})['disabledSports'],['nfl'])
+  with self.assertRaises(ValueError):controls.validate({**controls.DEFAULT,'disabledSports':['unknown']})
  def test_same_origin(self):
   self.assertTrue(controls.same_origin({'Origin':'https://example.com','Host':'example.com'}));self.assertFalse(controls.same_origin({'Origin':'https://evil.com','Host':'example.com'}));self.assertFalse(controls.same_origin({'Host':'example.com'}))
  def test_required_login_cannot_be_bypassed_by_beta(self):
