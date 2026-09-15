@@ -432,6 +432,11 @@ function cacheEls() {
   els.settingsPanel = document.getElementById("settings-panel");
   els.primaryAccent = document.getElementById("primary-accent");
   els.secondaryAccent = document.getElementById("secondary-accent");
+  // The visual swatch+popover is a React-mounted Apple color picker
+  // (src/main.jsx); these hidden native <input type="color"> elements stay
+  // the real value source everything else here reads and writes.
+  els.primaryAccentSwatchBridge = wireBridge(window.vortexPrimaryAccentSwatch, ["setColor"]);
+  els.secondaryAccentSwatchBridge = wireBridge(window.vortexSecondaryAccentSwatch, ["setColor"]);
   els.accentTint = document.getElementById("accent-tint");
   els.primaryAccentValue = document.getElementById("primary-accent-value");
   els.secondaryAccentValue = document.getElementById("secondary-accent-value");
@@ -562,6 +567,8 @@ function applyAccentTheme(theme, { persist = true, syncControls = true } = {}) {
   if (syncControls && els.primaryAccent) {
     els.primaryAccent.value = primary;
     els.secondaryAccent.value = secondary;
+    els.primaryAccentSwatchBridge?.setColor(primary);
+    els.secondaryAccentSwatchBridge?.setColor(secondary);
     if (els.accentTint) els.accentTint.value = String(tint);
     els.primaryAccentValue.textContent = primary.toUpperCase();
     els.secondaryAccentValue.textContent = secondary.toUpperCase();

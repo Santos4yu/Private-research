@@ -24,6 +24,9 @@
 .accent-control input[type="color"] { flex:0 0 42px; width:42px; height:42px; padding:3px; border:1px solid var(--theme-border); border-radius:12px; background:var(--theme-bg); cursor:pointer; }
 .accent-control input[type="color"]::-webkit-color-swatch-wrapper { padding:0; }
 .accent-control input[type="color"]::-webkit-color-swatch { border:0; border-radius:8px; }
+/* Trigger for the React-mounted Apple color picker (src/main.jsx) that
+   replaced the native <input type="color"> above -- sized to match it. */
+.accent-swatch-trigger { flex:0 0 42px; width:42px; height:42px; padding:0; border:1px solid var(--theme-border); border-radius:12px; cursor:pointer; }
 .accent-control output { min-width:0; color:var(--theme-text); font:600 10px/1 var(--font-mono); }
 .accent-tint-control { display:grid; grid-template-columns:minmax(0,1fr) 52px; align-items:center; gap:10px; min-height:54px; padding:10px 11px; border:1px solid var(--theme-border); border-radius:14px; background:var(--theme-panel-2); }
 .accent-tint-control span { grid-column:1/-1; color:var(--theme-dim); font-size:10px; font-weight:700; }
