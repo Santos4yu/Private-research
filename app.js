@@ -267,8 +267,15 @@ function cacheEls() {
   els.profileStatsWrap = document.getElementById("profile-stats-wrap");
   // The visual picker is a React-mounted Select (src/main.jsx); this hidden
   // <select> stays the real value/change-event source everything else here
-  // reads and writes.
-  els.profileStatsBridge = window.vortexStatSelect || null;
+  // reads and writes. Wrapped so a problem in that picker can never take
+  // down the rest of profile rendering the way one regression already did
+  // (an unrelated leftover reference threw and silently skipped hiding
+  // search/recent-players right after this point in selectPlayer()).
+  const rawStatsBridge = window.vortexStatSelect || null;
+  els.profileStatsBridge = rawStatsBridge && {
+    setOptions: (list) => { try { rawStatsBridge.setOptions(list); } catch (err) { console.error("stat select bridge setOptions failed:", err); } },
+    setValue: (v) => { try { rawStatsBridge.setValue(v); } catch (err) { console.error("stat select bridge setValue failed:", err); } },
+  };
 
   els.linePicker = document.getElementById("line-picker");
   els.sideToggle = document.getElementById("side-toggle");
@@ -1842,7 +1849,6 @@ function wireSearch() {
     els.linePicker.hidden = true;
     els.v2BackBtn.hidden = true;
     clearSearchQuery();
-    closeStatsMenu();
     els.ppLinesMenu.hidden = true;
     syncDropdownScrollLock();
     hideResults();

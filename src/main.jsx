@@ -130,7 +130,12 @@ window.vortexMountResearchLoader = (host, props) => {
 function StatSelectHost({ controllerRef, onPick }) {
   const [options, setOptions] = useState([]);
   const [value, setValue] = useState('');
-  useEffect(() => { controllerRef.current = { setOptions, setValue }; }, [controllerRef]);
+  // Assigned during render, not inside useEffect: an effect only runs after
+  // the browser has painted, which is too late if app.js calls setOptions()
+  // in the same synchronous pass right after mounting this (as it does on
+  // the very first player selected). React's initial root.render() commits
+  // synchronously, so this ref is already live the instant render() returns.
+  controllerRef.current = { setOptions, setValue };
   return (
     <Select value={value} onValueChange={(next) => { setValue(next); onPick(next); }}>
       <SelectTrigger icon={ChartNoAxesCombined} placeholder="Select a stat" aria-label="Select a stat" />
