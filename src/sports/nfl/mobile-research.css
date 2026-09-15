@@ -195,7 +195,15 @@
 .nfl-board-cell strong { display:block;font-size:13px; }
 .nfl-board-cell small { display:block;color:#8a97a6;font-size:10px;margin-top:2px; }
 .nfl-board-cell.muted { color:#57626f; }
+/* Filled heat-map cells (green/yellow/red), matching the reference app's
+   board -- was text-only color before, and the whole middle range between
+   good/bad had no color at all, which read flat against the reference. */
+.nfl-board-cell.good,.nfl-board-cell.mid,.nfl-board-cell.bad { border-radius:10px; }
+.nfl-board-cell.good { background:color-mix(in srgb, var(--nfl-green,#68d5ac) 16%, transparent); }
 .nfl-board-cell.good strong { color:var(--nfl-green,#68d5ac); }
+.nfl-board-cell.mid { background:color-mix(in srgb, #f3c877 16%, transparent); }
+.nfl-board-cell.mid strong { color:#f3c877; }
+.nfl-board-cell.bad { background:color-mix(in srgb, var(--nfl-red,#ff8b96) 16%, transparent); }
 .nfl-board-cell.bad strong { color:var(--nfl-red,#ff8b96); }
 @media(max-width:700px){ .nfl-board-table-wrap { border-radius:12px; } }
 .nfl-volume-comparison { display:flex;justify-content:space-between;gap:12px;padding:12px 0; }.nfl-volume-comparison b { display:block;font-size:24px; }.nfl-volume-comparison span { font-size:12px;color:#b8cbd8; }
@@ -285,3 +293,5 @@
 .nfl-discovery-volume.good svg{color:var(--nfl-green,#68d5ac)}
 .nfl-discovery-volume.bad{border-color:color-mix(in srgb,var(--nfl-red,#ff8b96) 55%,var(--nfl-border,#384353));background:color-mix(in srgb,var(--nfl-red,#ff8b96) 14%,var(--nfl-raised,#1d222b));color:var(--nfl-red,#ff8b96)}
 .nfl-discovery-volume.bad svg{color:var(--nfl-red,#ff8b96)}
+.nfl-discovery-volume.mid{border-color:color-mix(in srgb,#f3c877 55%,var(--nfl-border,#384353));background:color-mix(in srgb,#f3c877 14%,var(--nfl-raised,#1d222b));color:#f3c877}
+.nfl-discovery-volume.mid svg{color:#f3c877}

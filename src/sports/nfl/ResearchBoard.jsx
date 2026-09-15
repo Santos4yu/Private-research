@@ -23,15 +23,18 @@ function SortHeader({label,columnKey,sort,onSort}){
  return <th><button type="button" className={active?'active':''} onClick={()=>onSort(columnKey)}>{label}{active&&(sort.dir==='desc'?<ArrowDown size={12}/>:<ArrowUp size={12}/>)}</button></th>;
 }
 
+// Three-tier heat coloring (green/yellow/red), matching the reference
+// app's board -- previously only good/bad were colored and the whole
+// middle range sat uncolored, which read as flat next to it.
 function WindowCell({w}){
  if(!w||w.hitRate==null)return <td className="nfl-board-cell muted">—</td>;
- const tone=w.hitRate>=60?'good':w.hitRate<=40?'bad':'';
+ const tone=w.hitRate>=60?'good':w.hitRate<=40?'bad':'mid';
  return <td className={`nfl-board-cell ${tone}`}><strong>{Math.round(w.hitRate)}%</strong><small>{w.hits}-{w.misses}{w.pushes?` · ${w.pushes}p`:''}</small></td>;
 }
 
 function MatchupCell({row}){
  if(row.matchupQuality==null)return <td className="nfl-board-cell muted">—</td>;
- const tone=row.matchupQuality>=65?'good':row.matchupQuality<=35?'bad':'';
+ const tone=row.matchupQuality>=65?'good':row.matchupQuality<=35?'bad':'mid';
  return <td className={`nfl-board-cell ${tone}`}><strong>{row.matchupQuality}</strong><small>{row.matchupCoverage}% cov.</small></td>;
 }
 
@@ -42,7 +45,7 @@ function BoardTable({rows,players,onOpen,labels,sort,onSort}){
   <tbody>{sorted.map(row=>{const player=researchPlayer(row,players);const diff=row.line?.value!=null?row.average-row.line.value:null;return <tr key={`${row.gameId}.${row.playerId}.${row.propType}`} className={player?'clickable':''} onClick={()=>player&&onOpen(player)}>
    <td className="nfl-board-cell-player"><img src={player?.headshot_url} width="32" height="32" loading="lazy" alt=""/><div><strong>{row.playerName}</strong><small>{row.line.direction==='OVER'?'More':'Less'} {row.line.value} {labels[row.propType]}</small><small className="nfl-board-cell-meta">{row.position} · {row.teamId} vs {row.opponentId}</small></div></td>
    <td className="nfl-board-cell"><strong>{Number(row.average.toFixed(1))}</strong></td>
-   <td className={`nfl-board-cell ${diff>0?'good':diff<0?'bad':''}`}>{diff==null?'—':`${diff>0?'+':''}${diff.toFixed(1)}`}</td>
+   <td className={`nfl-board-cell ${diff>0?'good':diff<0?'bad':''}`}><strong>{diff==null?'—':`${diff>0?'+':''}${diff.toFixed(1)}`}</strong></td>
    <MatchupCell row={row}/>
    {WINDOW_COLUMNS.map(([key])=><WindowCell w={row.windows?.[key]} key={key}/>)}
   </tr>;})}</tbody>
@@ -94,8 +97,8 @@ export function NFLResearchBoard({load,players,onOpen}) {
    <div className="nfl-discovery-identity">{player?.headshot_url&&<img src={player.headshot_url} width="58" height="58" loading="lazy" alt=""/>}<div><strong>{row.playerName}</strong><small>{row.position} · {row.teamId} vs {row.opponentId} · {new Date(row.startsAt).toLocaleDateString([],{weekday:'short'})}</small></div><ArrowUpRight size={18}/></div>
    <div className="nfl-discovery-line"><img src="/prizepicks/logo.png" width="22" height="22" alt="PrizePicks"/><strong>{row.line.direction==='OVER'?'More':'Less'} {row.line.value} {labels[row.propType]}</strong></div>
    <div className="nfl-discovery-stats"><span>Last {row.recentSample}<b>{row.recentHits}/{row.recentDecisions} hit</b></span><span>Sample<b>{row.hits}/{row.decisions} hit</b></span><span>Average<b>{Number(row.average.toFixed(1))}</b></span></div>
-   {row.matchupQuality!=null && <div className={`nfl-discovery-volume ${row.matchupQuality>=65?'good':row.matchupQuality<=35?'bad':''}`}><Shield size={14}/><span>Matchup score {row.matchupQuality}/100 · {row.matchupCoverage}% coverage</span></div>}
-   {row.opponentVolume && <div className={`nfl-discovery-volume ${row.opponentVolume.score>=60?'good':row.opponentVolume.score<=40?'bad':''}`}><Shield size={14}/><span>{row.opponentVolume.label}: {row.opponentVolume.score}th percentile vs league</span></div>}
+   {row.matchupQuality!=null && <div className={`nfl-discovery-volume ${row.matchupQuality>=65?'good':row.matchupQuality<=35?'bad':'mid'}`}><Shield size={14}/><span>Matchup score {row.matchupQuality}/100 · {row.matchupCoverage}% coverage</span></div>}
+   {row.opponentVolume && <div className={`nfl-discovery-volume ${row.opponentVolume.score>=60?'good':row.opponentVolume.score<=40?'bad':'mid'}`}><Shield size={14}/><span>{row.opponentVolume.label}: {row.opponentVolume.score}th percentile vs league</span></div>}
    <small className="nfl-board-caption">{row.seasons.join(' / ')} · {row.sample} games{row.pushes?` · ${row.pushes} pushes`:''} · {row.injuryReportAvailable?'Open research':'Injury report unavailable'}</small>
   </button>;})}</div>}
  </section>;
