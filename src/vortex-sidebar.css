@@ -4,6 +4,13 @@
    Collapsed width is reserved via padding on #app-shell (below) so the
    rail never covers the header/logo; the hover-expand then overlays on
    top of content with a shadow instead of pushing it. */
+/* Belt-and-suspenders: hide the whole mount point outright below the
+   breakpoint (not just the inner rail), so nothing in it -- rail, mobile
+   toggle, expanded panel -- can ever show on a phone regardless of which
+   internal piece is at fault. The bottom dock (MobileNavigation) already
+   owns navigation there. */
+#sidebar-root { display: none; }
+
 .vortex-sidebar-desktop {
   position: fixed;
   left: 0;
@@ -20,6 +27,7 @@
 }
 
 @media (min-width: 761px) {
+  #sidebar-root { display: block; }
   .vortex-sidebar-desktop { display: flex; }
   #app-shell { padding-left: 64px; }
   /* The sidebar replaces this bar's job on desktop; it already hides
