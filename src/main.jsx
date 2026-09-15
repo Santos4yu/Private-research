@@ -166,3 +166,61 @@ if (statSelectRoot) {
     },
   });
 }
+
+// A tiny image "icon" shaped like a LucideIcon (accepts size/strokeWidth,
+// ignores what it doesn't need) so the PrizePicks/goblin/demon art can ride
+// along in SelectTrigger's single icon slot the same way a lucide icon would.
+function imageIcon(src, label = '') {
+  const IconFromImage = ({ size = 16 }) => <img src={src} width={size} height={size} alt={label} />;
+  return IconFromImage;
+}
+const PP_LOGO_ICON = imageIcon('/prizepicks/logo.png', 'PrizePicks');
+const PP_TIER_ICON = { GOBLIN: imageIcon('/prizepicks/goblin.png', 'Goblin'), DEMON: imageIcon('/prizepicks/demon.png', 'Demon') };
+
+// Bridges the MLB "PrizePicks lines" alt-line picker into the same Select
+// component -- same reasoning as StatSelectHost above: app.js keeps owning
+// the fetch/cache/eligibility logic (loadPrizePicksLines in app.js) and just
+// hands this bridge a ready-to-render list plus the current line/status.
+function AltLinesSelectHost({ controllerRef, onPick }) {
+  const [lines, setLines] = useState([]);
+  const [value, setValue] = useState('');
+  const [status, setStatus] = useState('loading');
+  controllerRef.current = { setLines, setValue, setStatus };
+  const current = lines.find((line) => String(line.value) === value);
+  const placeholder = status === 'loading' ? 'Loading lines…' : status === 'error' ? 'Lines unavailable' : 'PrizePicks lines';
+  return (
+    <Select value={value} onValueChange={onPick} disabled={status !== 'ready'}>
+      <SelectTrigger icon={current ? (PP_TIER_ICON[current.tier] ?? PP_LOGO_ICON) : PP_LOGO_ICON} placeholder={placeholder} aria-label="PrizePicks lines" />
+      <SelectContent>
+        {lines.map((line, index) => {
+          const TierIcon = PP_TIER_ICON[line.tier];
+          return (
+            <SelectItem key={line.value} index={index} value={String(line.value)}>
+              <span className="pp-select-line-row">
+                <span>{line.value}</span>
+                <img src="/prizepicks/logo.png" width={14} height={14} alt="" />
+                {TierIcon && <TierIcon size={14} />}
+              </span>
+            </SelectItem>
+          );
+        })}
+      </SelectContent>
+    </Select>
+  );
+}
+
+window.vortexMountAltLinesSelect = (host, { onPick }) => {
+  const controllerRef = { current: null };
+  createRoot(host).render(<AltLinesSelectHost controllerRef={controllerRef} onPick={onPick} />);
+  return {
+    setLines: (list) => controllerRef.current?.setLines(list),
+    setValue: (v) => controllerRef.current?.setValue(v),
+    setStatus: (s) => controllerRef.current?.setStatus(s),
+  };
+};
+const ppLinesSelectRoot = document.getElementById('pp-lines-select-root');
+if (ppLinesSelectRoot) {
+  window.vortexAltLinesSelect = window.vortexMountAltLinesSelect(ppLinesSelectRoot, {
+    onPick: (value) => window.dispatchEvent(new CustomEvent('vortex:pp-line-pick', { detail: { value: Number(value) } })),
+  });
+}

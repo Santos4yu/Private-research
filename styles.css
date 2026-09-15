@@ -704,6 +704,11 @@ body::before {
    custom trigger+menu -- stretched to fill the wrap like that trigger did. */
 #profile-stats-select-root { display: block; width: 100%; }
 #profile-stats-select-root button[role="combobox"] { width: 100%; min-width: 0; }
+/* Host for the React-mounted alt-lines Select (src/main.jsx) that replaced
+   the old PrizePicks lines trigger+menu. */
+#pp-lines-select-root button[role="combobox"] { min-width: 160px; }
+.pp-select-line-row { display: inline-flex; align-items: center; gap: 5px; }
+.pp-select-line-row img { display: block; width: 16px; height: 16px; object-fit: contain; }
 .profile-stats-select-native {
   position: absolute;
   inset: 0;

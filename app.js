@@ -250,6 +250,22 @@ async function init() {
   else setTimeout(warmSlate, 900);
 }
 
+// Wraps a React-island bridge (src/main.jsx, e.g. window.vortexStatSelect)
+// so a problem inside it can never cascade into breaking the vanilla code
+// that calls it -- one such regression already took down the rest of
+// selectPlayer() (skipped hiding search/recent-players, left the report
+// half-rendered) when an unrelated bug threw partway through.
+function wireBridge(raw, methodNames) {
+  if (!raw) return null;
+  const safe = {};
+  for (const name of methodNames) {
+    safe[name] = (...args) => {
+      try { raw[name](...args); } catch (err) { console.error(`bridge ${name} failed:`, err); }
+    };
+  }
+  return safe;
+}
+
 function cacheEls() {
   els.searchInput = document.getElementById("search-input");
   els.searchResults = document.getElementById("search-results");
@@ -267,15 +283,8 @@ function cacheEls() {
   els.profileStatsWrap = document.getElementById("profile-stats-wrap");
   // The visual picker is a React-mounted Select (src/main.jsx); this hidden
   // <select> stays the real value/change-event source everything else here
-  // reads and writes. Wrapped so a problem in that picker can never take
-  // down the rest of profile rendering the way one regression already did
-  // (an unrelated leftover reference threw and silently skipped hiding
-  // search/recent-players right after this point in selectPlayer()).
-  const rawStatsBridge = window.vortexStatSelect || null;
-  els.profileStatsBridge = rawStatsBridge && {
-    setOptions: (list) => { try { rawStatsBridge.setOptions(list); } catch (err) { console.error("stat select bridge setOptions failed:", err); } },
-    setValue: (v) => { try { rawStatsBridge.setValue(v); } catch (err) { console.error("stat select bridge setValue failed:", err); } },
-  };
+  // reads and writes.
+  els.profileStatsBridge = wireBridge(window.vortexStatSelect, ["setOptions", "setValue"]);
 
   els.linePicker = document.getElementById("line-picker");
   els.sideToggle = document.getElementById("side-toggle");
@@ -285,8 +294,10 @@ function cacheEls() {
   els.lineStepUp = document.getElementById("line-step-up");
   els.lineNoData = document.getElementById("line-no-data");
   els.ppLinesWrap = document.getElementById("pp-lines-wrap");
-  els.ppLinesTrigger = document.getElementById("pp-lines-trigger");
-  els.ppLinesMenu = document.getElementById("pp-lines-menu");
+  // The visual picker is a React-mounted Select (src/main.jsx); loadPrizePicksLines()
+  // below stays the real fetch/cache/eligibility source of truth and just
+  // hands this a ready-to-render list, same pattern as profileStatsBridge.
+  els.ppLinesBridge = wireBridge(window.vortexAltLinesSelect, ["setLines", "setValue", "setStatus"]);
 
   els.tabs = document.getElementById("tabs");
   els.tabIndicator = document.getElementById("tab-indicator");
@@ -1849,8 +1860,6 @@ function wireSearch() {
     els.linePicker.hidden = true;
     els.v2BackBtn.hidden = true;
     clearSearchQuery();
-    els.ppLinesMenu.hidden = true;
-    syncDropdownScrollLock();
     hideResults();
     clearReport();
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -2178,13 +2187,6 @@ const prizePicksLineCache = new Map();
 let currentResearchProp = null;
 let prizePicksDefaultPending = false;
 
-function syncDropdownScrollLock() {
-  // The stat picker's open/closed state now lives inside the React-mounted
-  // Select (src/main.jsx) and isn't exposed outward, so it can't participate
-  // in this lock -- only the PrizePicks lines menu still can.
-  document.body.classList.toggle("dropdown-scroll-locked", !els.ppLinesMenu.hidden);
-}
-
 function wireLinePicker() {
   els.sideToggle.querySelectorAll(".side-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -2208,30 +2210,9 @@ function wireLinePicker() {
   });
   els.lineStepDown.addEventListener("click", () => { prizePicksDefaultPending = false; setLineValue(cmd.line - 0.5, { immediate: true }); });
   els.lineStepUp.addEventListener("click", () => { prizePicksDefaultPending = false; setLineValue(cmd.line + 0.5, { immediate: true }); });
-  const togglePrizePicksMenu = () => {
-    const opening = els.ppLinesMenu.hidden;
-    els.ppLinesMenu.hidden = !opening;
-    els.ppLinesTrigger.setAttribute("aria-expanded", String(opening));
-    syncDropdownScrollLock();
-    if (opening) loadPrizePicksLines();
-  };
-  els.ppLinesTrigger.addEventListener("pointerdown", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    els.ppLinesTrigger.focus();
-    togglePrizePicksMenu();
-  });
-  els.ppLinesTrigger.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    togglePrizePicksMenu();
-  });
-  document.addEventListener("click", (event) => {
-    if (!els.ppLinesMenu.hidden && !els.ppLinesWrap.contains(event.target)) {
-      els.ppLinesMenu.hidden = true;
-      els.ppLinesTrigger.setAttribute("aria-expanded", "false");
-      syncDropdownScrollLock();
-    }
+  window.addEventListener("vortex:pp-line-pick", (event) => {
+    prizePicksDefaultPending = false;
+    setLineValue(Number(event.detail.value), { immediate: true });
   });
 }
 
@@ -2243,7 +2224,7 @@ function americanOdds(value) {
 async function loadPrizePicksLines() {
   const opponent = currentResearchProp?.matchup?.opponent || "";
   const key = `${cmd.player}|${cmd.stat}|${opponent}`.toLowerCase();
-  els.ppLinesMenu.innerHTML = `<div class="pp-lines-state">Loading live PrizePicks lines…</div>`;
+  els.ppLinesBridge?.setStatus("loading");
   try {
     let data = prizePicksLineCache.get(key);
     if (!data) {
@@ -2257,28 +2238,16 @@ async function loadPrizePicksLines() {
     const availableLines = (data.lines || []).filter(row => cmd.side === "Under" ? row.ppUnder : row.ppOver);
     if (!availableLines.length) throw new Error(`PrizePicks has not posted ${cmd.side} lines for this player yet.`);
     const currentRow = availableLines.find(row => Math.abs(Number(row.line) - Number(cmd.line)) < .01);
-    if (`${cmd.player}|${cmd.stat}|${opponent}`.toLowerCase() === key) {
-      const currentTier = currentRow?.tier || (currentRow?.featured ? "STANDARD" : "ALT");
-      const currentTierIcon = currentTier === "GOBLIN" ? "/prizepicks/goblin.png" : currentTier === "DEMON" ? "/prizepicks/demon.png" : "";
-      els.ppLinesTrigger.querySelector("b").innerHTML = currentRow
-        ? `<span>${cmd.line}</span>${currentTierIcon ? `<img src="${currentTierIcon}" alt="" />` : ""}`
-        : "PrizePicks lines";
-    }
-    els.ppLinesMenu.innerHTML = `<div class="pp-lines-head"><div><span><img src="/prizepicks/logo.png" alt="" /> PrizePicks</span><b>${escapeHtml(cmd.stat)}</b></div></div>` + availableLines.map(row => {
-      const selected = Math.abs(Number(row.line) - Number(cmd.line)) < .01;
+    const tierFor = (row) => {
       const safer = featured != null && (cmd.side === "Over" ? row.line < featured : row.line > featured);
       const boosted = featured != null && (cmd.side === "Over" ? row.line > featured : row.line < featured);
-      const tier = row.tier || (row.featured ? "STANDARD" : safer ? "GOBLIN" : boosted ? "DEMON" : "ALT");
-      const tierIcon = tier === "GOBLIN" ? "/prizepicks/goblin.png" : tier === "DEMON" ? "/prizepicks/demon.png" : "";
-      return `<button type="button" class="pp-line-option ${selected ? "selected" : ""}" data-pp-line="${row.line}"><b>${row.line}</b><span class="pp-line-icons"><img src="/prizepicks/logo.png" alt="PrizePicks" />${tierIcon ? `<img class="pp-creature-icon" src="${tierIcon}" alt="" />` : ""}</span>${selected ? "<i>✓</i>" : ""}</button>`;
-    }).join("");
-    els.ppLinesMenu.querySelectorAll("[data-pp-line]").forEach(button => button.addEventListener("click", () => {
-      prizePicksDefaultPending = false;
-      els.ppLinesMenu.hidden = true;
-      els.ppLinesTrigger.setAttribute("aria-expanded", "false");
-      syncDropdownScrollLock();
-      setLineValue(Number(button.dataset.ppLine), { immediate: true });
-    }));
+      return row.tier || (row.featured ? "STANDARD" : safer ? "GOBLIN" : boosted ? "DEMON" : "ALT");
+    };
+    if (`${cmd.player}|${cmd.stat}|${opponent}`.toLowerCase() === key) {
+      els.ppLinesBridge?.setLines(availableLines.map(row => ({ value: row.line, tier: tierFor(row) })));
+      els.ppLinesBridge?.setValue(currentRow ? String(cmd.line) : "");
+      els.ppLinesBridge?.setStatus("ready");
+    }
     const stillCurrent = `${cmd.player}|${cmd.stat}|${currentResearchProp?.matchup?.opponent || ""}`.toLowerCase() === key;
     if (stillCurrent && prizePicksDefaultPending && featured != null
         && Math.abs(Number(featured) - Number(cmd.line)) >= .01) {
@@ -2286,8 +2255,7 @@ async function loadPrizePicksLines() {
       setLineValue(Number(featured), { immediate: true });
     }
   } catch (error) {
-    els.ppLinesTrigger.querySelector("b").textContent = "Lines unavailable";
-    els.ppLinesMenu.innerHTML = `<div class="pp-lines-state error">${escapeHtml(error.message)}</div>`;
+    els.ppLinesBridge?.setStatus("error");
   }
 }
 
@@ -2364,8 +2332,6 @@ function selectStat(stat) {
   prizePicksDefaultPending = true;
   currentResearchProp = null;
   els.ppLinesWrap.hidden = true;
-  els.ppLinesMenu.hidden = true;
-  syncDropdownScrollLock();
   if (els.profileStats.value !== stat) els.profileStats.value = stat;
   els.profileStatsBridge?.setValue(stat);
 
@@ -2623,7 +2589,7 @@ function renderReport(p) {
   currentResearchProp = p;
   els.ppLinesWrap.hidden = !(p?.matchup?.opponent && cmd.player && cmd.stat);
   if (!els.ppLinesWrap.hidden) {
-    els.ppLinesTrigger.querySelector("b").textContent = "Checking PrizePicks…";
+    els.ppLinesBridge?.setStatus("loading");
     loadPrizePicksLines();
   }
 
