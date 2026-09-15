@@ -1827,7 +1827,16 @@ function wireSearch() {
   });
   window.addEventListener("vortex:research-player", ({ detail }) => {
     if (!detail?.name || !Number.isInteger(detail.id)) return;
-    selectPlayer(detail.name, detail.position, { autoSelectStat: false, playerEntry: { player: detail.name, name: detail.name, playerId: detail.id, sport: "MLB", headshot: `https://img.mlbstatic.com/mlb-photos/image/upload/w_300,q_auto/v1/people/${detail.id}/headshot/silo/current` } });
+    const stat = detail.statType ? BOT_STAT_TO_RESEARCH_STAT[detail.statType] : null;
+    const isPitcher = detail.statType ? BOT_PITCHER_STATS.has(detail.statType) : false;
+    selectPlayer(detail.name, isPitcher ? "P" : detail.position, { autoSelectStat: !stat, playerEntry: { player: detail.name, name: detail.name, playerId: detail.id, sport: "MLB", headshot: `https://img.mlbstatic.com/mlb-photos/image/upload/w_300,q_auto/v1/people/${detail.id}/headshot/silo/current` } });
+    if (stat) {
+      selectStat(stat);
+      const side = detail.side === "U" ? "Under" : "Over";
+      cmd.side = side;
+      els.sideToggle.querySelectorAll(".side-btn").forEach((b) => b.classList.toggle("active", b.dataset.side === side));
+      if (Number.isFinite(Number(detail.line))) setLineValue(Number(detail.line), { immediate: true });
+    }
     els.emptyState.hidden = true;
     switchTab("research", { scrollY: 0 });
   });
