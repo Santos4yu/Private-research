@@ -6963,17 +6963,10 @@ details.rate-filter summary b { margin-left: auto; color: var(--accent); font-si
   background-image: none !important;
 }
 
-/* Brand pass: the mark was a raw, unstyled placeholder SVG (no rule ever
-   targeted .lab-brandmark) and the wordmark was flat solid text -- same
-   mark-chip + gradient-wordmark treatment already used on the boot loader,
-   so the two actually look like the same brand. Appended last so it wins
-   over the many stacked theme blocks earlier in this file. */
-.lab-brandmark {
-  display: grid !important; place-items: center !important; width: 34px !important; height: 34px !important;
-  border-radius: 10px !important; overflow: hidden !important; background: var(--theme-panel-2) !important;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--theme-accent) 35%, transparent), 0 0 20px color-mix(in srgb, var(--theme-accent) 25%, transparent) !important;
-}
-.lab-brandmark img { width: 100% !important; height: 100% !important; object-fit: contain !important; }
+/* Brand pass: the wordmark was flat solid text with no distinction --
+   gradient-text treatment matching the boot loader, so the two actually
+   read as the same brand. Appended last so it wins over the many stacked
+   theme blocks earlier in this file. */
 .hero-brand h1 {
   background: linear-gradient(180deg, var(--theme-text) 0%, color-mix(in srgb, var(--theme-accent-soft) 60%, var(--theme-text)) 65%, var(--theme-accent-soft) 100%) !important;
   -webkit-background-clip: text !important; background-clip: text !important; color: transparent !important;
@@ -6990,12 +6983,39 @@ details.rate-filter summary b { margin-left: auto; color: var(--accent); font-si
 .home-mode-switch button[data-home-tab] svg { flex: 0 0 auto; opacity: .8; }
 .home-mode-switch button[data-home-tab].active { box-shadow: 0 4px 16px color-mix(in srgb, var(--theme-accent) 38%, transparent) !important; }
 .home-mode-switch button[data-home-tab].active svg { opacity: 1; }
+
+/* The trigger is a full pill (border-radius:999px) but its icon sat in a
+   10px-radius square chip -- a rounded shape holding a squared-off one.
+   Dropped the chip so the icon sits plain and round like the Prop
+   Research tab's search icon, instead of trying to round-match a box. */
 .builder-activity-icon {
-  border-color: color-mix(in srgb, var(--theme-accent) 42%, var(--theme-border)) !important;
-  background: color-mix(in srgb, var(--theme-accent) 16%, var(--theme-panel-2)) !important;
+  width: auto !important; height: auto !important; border: 0 !important; background: transparent !important;
   color: var(--theme-accent) !important;
 }
 .builder-activity-trigger { border: 1px solid transparent !important; }
 .builder-activity-trigger:hover, .builder-activity-trigger[aria-expanded="true"] {
   border-color: color-mix(in srgb, var(--theme-accent) 32%, transparent) !important;
 }
+.builder-activity-count {
+  min-width: 16px !important; height: 16px !important; padding: 0 4px !important;
+  font-size: 8px !important; box-shadow: 0 0 0 2px var(--theme-panel-2) !important;
+}
+
+/* Panel: a new look rather than a tint pass -- an accent top edge instead
+   of a flat card, plain title (the icon-in-a-box repeated the trigger's
+   own mismatch), and slip rows drawn like ticket lines with a running
+   rule instead of hover-only cards. */
+.builder-activity-panel {
+  border-top: 2px solid var(--theme-accent) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, .5), 0 0 0 1px color-mix(in srgb, var(--theme-accent) 16%, transparent) !important;
+}
+.builder-activity-head { grid-template-columns: minmax(0, 1fr) 44px !important; padding-bottom: 14px !important; border-bottom: 1px solid var(--theme-border); }
+.builder-activity-head-icon { display: none !important; }
+.builder-activity-head h2 { font-size: 15px !important; }
+.builder-activity-leg { border-bottom: 1px solid var(--theme-border) !important; border-radius: 0 !important; padding: 12px 0 !important; }
+.builder-activity-leg:last-child { border-bottom: 0 !important; }
+.builder-activity-leg:hover { background: transparent !important; }
+.builder-activity-avatar { border-radius: 50% !important; }
+.builder-activity-clear { background: transparent !important; }
+.builder-activity-export { border-radius: 999px !important; font-weight: 800 !important; }
