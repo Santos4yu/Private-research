@@ -7053,10 +7053,11 @@ details.rate-filter summary b { margin-left: auto; color: var(--accent); font-si
   content: ""; position: absolute; inset: 0; z-index: 0;
   border-radius: inherit; padding: 1.5px;
   background: conic-gradient(from var(--beam-angle, 0deg),
-    transparent 0deg, transparent 260deg,
-    color-mix(in srgb, var(--theme-accent-soft, #7fc9ff) 65%, transparent) 300deg,
-    var(--theme-accent, #0082fe) 330deg,
-    color-mix(in srgb, var(--theme-accent-soft, #7fc9ff) 65%, transparent) 350deg,
+    transparent 0deg, transparent 200deg,
+    color-mix(in srgb, var(--theme-accent-soft, #7fc9ff) 75%, transparent) 260deg,
+    var(--theme-accent, #0082fe) 300deg,
+    var(--theme-accent, #0082fe) 340deg,
+    color-mix(in srgb, var(--theme-accent-soft, #7fc9ff) 75%, transparent) 355deg,
     transparent 360deg);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor; mask-composite: exclude;
@@ -7064,11 +7065,19 @@ details.rate-filter summary b { margin-left: auto; color: var(--accent); font-si
   pointer-events: none;
 }
 :root[data-theme] #app-shell #panel-research .search-beam::after {
-  /* Static ambient bloom (doesn't reference --beam-angle, so it isn't
-     animated -- just a soft constant glow, not tied to the beam's path). */
-  content: ""; position: absolute; inset: -6px; z-index: -1; border-radius: inherit;
-  background: radial-gradient(ellipse 70% 160% at 50% 50%, color-mix(in srgb, var(--theme-accent, #0082fe) 22%, transparent), transparent 72%);
-  filter: blur(10px); opacity: .8;
+  /* Bold, always-on ambient glow -- box-shadow rather than a blurred
+     absolutely-positioned layer, since a subtle mask+blur combo (the
+     first attempt: 22% alpha, 10px blur) turned out imperceptible
+     against the page's own textured background once seen on a real
+     phone, even though it was computing and painting correctly. A
+     box-shadow halo is blunt but unmistakable and works identically
+     everywhere -- no mask/composite/inset-sizing subtlety to get lost
+     in translation on a given engine. */
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit;
+  box-shadow:
+    0 0 0 1.5px color-mix(in srgb, var(--theme-accent, #0082fe) 70%, transparent),
+    0 0 22px 4px color-mix(in srgb, var(--theme-accent, #0082fe) 55%, transparent),
+    0 0 48px 10px color-mix(in srgb, var(--theme-accent, #0082fe) 30%, transparent);
   pointer-events: none;
 }
 @keyframes search-beam-spin { to { --beam-angle: 360deg; } }
