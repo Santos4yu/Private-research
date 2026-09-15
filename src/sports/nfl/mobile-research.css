@@ -66,6 +66,7 @@
 .nfl-alt-line-row.active > svg { color:#4fa8ff;flex:0 0 auto; }
 .nfl-alt-line-books { display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0; }
 .nfl-alt-line-book { display:inline-flex;align-items:center;gap:5px;padding:3px 7px;border-radius:7px;background:#0e1620;font-size:10px; }
+.nfl-alt-line-tier { flex:0 0 auto;object-fit:contain; }
 .nfl-alt-line-prices { display:inline-flex;gap:6px; }
 .nfl-alt-line-book em { font-style:normal;font-weight:700; }
 .nfl-alt-line-book em.over { color:#4fd1a0; }

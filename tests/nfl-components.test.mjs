@@ -17,13 +17,22 @@ test('NFL research components render controls and supported outputs without prod
   assert.equal(renderToStaticMarkup(React.createElement(NFLProjectionPanel,{resource:{data:{propType:'passing_yards',promotion:'DISABLED',projectionMean:300}},selectedProp:prop})), '');
   const supported=renderToStaticMarkup(React.createElement(NFLProjectionPanel,{resource:{data:{propType:'passing_yards',promotion:'EXPERIMENTAL',projectionMean:210,status:'LOW_CONFIDENCE',opportunityInputs:{expectedPassAttempts:{mean:30}},efficiencyInputs:{missing:null},modelVersion:'MOCK_TEST_ONLY'}},selectedProp:prop}));
   assert.ok(supported.includes('Beta estimate'));assert.ok(supported.includes('Expected pass attempts'));assert.ok(!supported.includes('TAKE'));
-  const {NFLMarketLines,NFLLineRail}=await server.ssrLoadModule('/src/sports/nfl/MarketLines.jsx');
+  // NFLLineRail (a horizontally-scrolling strip of single-book pills) was
+  // replaced by an anchored dropdown (NFLAltLinesPopover) that groups every
+  // book's price by line value and stays closed until the trigger is
+  // clicked -- so it renders nothing via a plain SSR pass with no DOM to
+  // anchor against. Test its grouping/tier logic directly instead, via the
+  // exported pure helpers, rather than the removed always-visible rail.
+  const {NFLMarketLines,altLineGroups,tierIcon,tierLabel}=await server.ssrLoadModule('/src/sports/nfl/MarketLines.jsx');
   const offers=[['GOBLIN',2.5,'OVER'],['STANDARD',4.5,'OVER'],['STANDARD',4.5,'UNDER'],['DEMON',5.5,'OVER']].map(([category,value,direction])=>({line:{gameId:'mock',bookmaker:'prizepicks',category,value,direction}}));
-  const rail=renderToStaticMarkup(React.createElement(NFLLineRail,{offers,onSelect:()=>{},selected:offers[1].line}));
-  assert.equal((rail.match(/<button/g)||[]).length,3);
-  assert.ok(rail.includes('/prizepicks/goblin.png'));assert.ok(rail.includes('/prizepicks/demon.png'));assert.ok(rail.includes('/prizepicks/logo.png'));
-  assert.ok(rail.indexOf('>2.5<')<rail.indexOf('>4.5<'));assert.ok(rail.indexOf('>4.5<')<rail.indexOf('>5.5<'));
-  assert.ok(!rail.includes('<span>Regular</span>'));
+  const groups=altLineGroups(offers);
+  assert.deepEqual(groups.map(g=>g.value),[2.5,4.5,5.5]);
+  const [goblin,standard,demon]=groups;
+  assert.equal(tierIcon(goblin.books[0].category),'/prizepicks/goblin.png');
+  assert.equal(tierIcon(demon.books[0].category),'/prizepicks/demon.png');
+  assert.equal(tierIcon(standard.books[0].category),null);
+  assert.equal(tierLabel(goblin.books[0].category),'Goblin');assert.equal(tierLabel(demon.books[0].category),'Demon');assert.equal(tierLabel(standard.books[0].category),null);
+  assert.equal(standard.books[0].OVER.line.direction,'OVER');assert.equal(standard.books[0].UNDER.line.direction,'UNDER');
   const market=renderToStaticMarkup(React.createElement(NFLMarketLines,{load:()=>Promise.resolve({data:[]}),player:{id:'mock-only'},prop:'passing_yards',onSelect:()=>{}}));
   const {SheetSelect}=await server.ssrLoadModule('/src/sports/nfl/ResearchSheet.jsx');
   const picker=renderToStaticMarkup(React.createElement(SheetSelect,{value:'home',label:'Location'},React.createElement('option',{value:'home'},'Home')));

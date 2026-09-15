@@ -26,6 +26,12 @@ function BookIcon({bookmaker,size=18}){
 }
 const priceLabel=price=>Number.isFinite(price)?(price>0?`+${price}`:`${price}`):'';
 const bookLabel=(bookmaker,platform)=>platform || BOOKS.find(([key])=>key===bookmaker)?.[1] || bookmaker || 'Sportsbook';
+// Goblins/demons are a PrizePicks-only concept (an easier/harder version of
+// the same stat, not a different price) -- shown as their own small badge
+// instead of folded into the book icon, so a Goblin/Demon line still reads
+// as PrizePicks at a glance while making which tier it is obvious.
+export const tierIcon=category=>category==='GOBLIN' ? '/prizepicks/goblin.png' : category==='DEMON' ? '/prizepicks/demon.png' : null;
+export const tierLabel=category=>category==='GOBLIN' ? 'Goblin' : category==='DEMON' ? 'Demon' : null;
 
 // A minimal anchored dropdown -- positioned off the trigger button itself
 // (not centered over the page like a modal sheet), closes on an outside
@@ -80,7 +86,7 @@ function NFLPopover({open,onClose,anchorRef,id,children}) {
 // One row per posted line value, every book's price for that value shown
 // together -- the "Alt Lines" picker from the reference app, not a
 // horizontally-scrolling strip of single-book pills.
-function altLineGroups(offers){
+export function altLineGroups(offers){
   const byValue=new Map();
   for(const row of offers){
     const line=row.line;if(!Number.isFinite(line?.value))continue;
@@ -116,12 +122,13 @@ function NFLAltLinesPopover({open,onClose,anchorRef,id,offers,selected,onSelect}
           if(line)onSelect(line);
           close();
         };
-        const prices=books.map(b=>`${bookLabel(b.bookmaker,b.platform)}: ${[b.OVER&&`More ${priceLabel(b.OVER.price)}`,b.UNDER&&`Less ${priceLabel(b.UNDER.price)}`].filter(Boolean).join(', ')}`).join('; ');
+        const prices=books.map(b=>`${bookLabel(b.bookmaker,b.platform)}${tierLabel(b.category)?` ${tierLabel(b.category)}`:''}: ${[b.OVER&&`More ${priceLabel(b.OVER.price)}`,b.UNDER&&`Less ${priceLabel(b.UNDER.price)}`].filter(Boolean).join(', ')}`).join('; ');
         return <button type="button" key={value} className={`nfl-alt-line-row${active?' active':''}`} aria-pressed={active} aria-label={`${value}, ${prices}`} onClick={pick}>
           <strong>{value}</strong>
           <span className="nfl-alt-line-books">{books.map(b=>
-            <span className="nfl-alt-line-book" key={b.bookmaker} title={bookLabel(b.bookmaker,b.platform)}>
+            <span className="nfl-alt-line-book" key={b.bookmaker} title={`${bookLabel(b.bookmaker,b.platform)}${tierLabel(b.category)?` ${tierLabel(b.category)}`:''}`}>
               <BookIcon bookmaker={b.bookmaker} size={16}/>
+              {tierIcon(b.category) && <img className="nfl-alt-line-tier" src={tierIcon(b.category)} width="14" height="14" alt={tierLabel(b.category)}/>}
               <span className="nfl-alt-line-prices">
                 {b.OVER && <em className="over">O {priceLabel(b.OVER.price)}</em>}
                 {b.UNDER && <em className="under">U {priceLabel(b.UNDER.price)}</em>}
