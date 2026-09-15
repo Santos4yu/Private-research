@@ -1,0 +1,79 @@
+/* Fixed overlay rail rather than a flex-row layout shift -- this app's
+   page shell is a large legacy stack (hero, tabs, panels) with its own
+   box model; overlaying avoids reflowing all of it just to fit a sidebar.
+   Collapsed width is reserved via padding on #app-shell (below) so the
+   rail never covers the header/logo; the hover-expand then overlays on
+   top of content with a shadow instead of pushing it. */
+.vortex-sidebar-desktop {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 500;
+  display: none;
+  flex-direction: column;
+  height: 100vh;
+  padding: 16px 10px;
+  overflow: hidden;
+  border-right: 1px solid var(--theme-border, #263b58);
+  background: var(--theme-panel, #0d192b);
+  box-shadow: 0 0 0 1px transparent;
+}
+
+@media (min-width: 761px) {
+  .vortex-sidebar-desktop { display: flex; }
+  #app-shell { padding-left: 64px; }
+  /* The sidebar replaces this bar's job on desktop; it already hides
+     itself below 760px (expandable-tabs.css), so mobile is untouched. */
+  :root[data-theme] .tabs[data-react-tabs="true"] { display: none !important; }
+}
+
+.vortex-sidebar-body { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 22px; }
+
+.vortex-sidebar-top { display: flex; align-items: center; gap: 10px; min-height: 28px; padding: 0 2px; }
+.vortex-sidebar-mark { flex: 0 0 auto; border-radius: 8px; object-fit: contain; }
+.vortex-sidebar-wordmark { flex: 0 0 auto; overflow: hidden; white-space: nowrap; font: 700 15px/1 "Space Grotesk", Arial, sans-serif; letter-spacing: -.03em; color: var(--theme-text, #edf4ff); }
+.vortex-sidebar-wordmark b { font-weight: 700; color: var(--theme-accent, #67a8ff); }
+
+.vortex-sidebar-links { display: flex; flex-direction: column; gap: 3px; }
+.vortex-sidebar-sep { height: 1px; margin: 8px 4px; background: var(--theme-border, #263b58); }
+
+.vortex-sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 42px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 11px;
+  color: var(--theme-dim, #9fb0c8);
+  background: transparent;
+  font: 600 13px/1 var(--font-sans, sans-serif);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.vortex-sidebar-link:hover { color: var(--theme-text, #edf4ff); background: var(--theme-panel-2, #122239); }
+.vortex-sidebar-link.active { color: var(--theme-on-accent, #06101f); background: var(--theme-accent, #67a8ff); box-shadow: 0 3px 12px color-mix(in srgb, var(--theme-accent, #67a8ff) 30%, transparent); }
+.vortex-sidebar-link-icon { display: grid; flex: 0 0 auto; place-items: center; }
+.vortex-sidebar-link-label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.vortex-sidebar-badge {
+  display: grid;
+  flex: 0 0 auto;
+  min-width: 17px;
+  height: 17px;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--theme-on-accent, #06101f) 85%, transparent);
+  color: var(--theme-accent, #67a8ff);
+  font: 800 9px/1 var(--font-mono, monospace);
+}
+.vortex-sidebar-link.active .vortex-sidebar-badge { background: color-mix(in srgb, var(--theme-on-accent, #06101f) 18%, transparent); color: var(--theme-on-accent, #06101f); }
+
+/* Mobile: the bottom dock (MobileNavigation) already covers this same
+   navigation, so the rail and its own toggle both stay off below the
+   breakpoint the desktop rail turns on at. */
+.vortex-sidebar-mobile { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .vortex-sidebar-desktop, .vortex-sidebar-link, .vortex-sidebar-link-label { transition: none !important; animation: none !important; }
+}

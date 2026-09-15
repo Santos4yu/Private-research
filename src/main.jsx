@@ -25,16 +25,10 @@ import './research-polish.css';
 import './prop-finder.css';
 import './sports/nfl/nfl-research.css';
 import './community-feed.css';
+import './vortex-sidebar.css';
 
-const topTabs = [
-  { title: 'Research', icon: Search, value: 'research' },
-  { title: 'Tools', icon: FlaskConical, value: 'slate' },
-  { title: 'Props', icon: BarChart3, value: 'v2' },
-  { title: 'Parlay', icon: Sparkles, value: 'builder' },
-  { title: 'Slip Analyzer', icon: ScanLine, value: 'slip' },
-  { type: 'separator' },
-  { title: 'Builder', icon: ClipboardList, value: 'saved' },
-];
+import { topTabs } from './navTabs';
+import { VortexSidebar } from './VortexSidebar';
 
 function VortexTopTabs() {
   const [tab, setTab] = useState('research');
@@ -76,6 +70,8 @@ const dockRoot = document.getElementById('dock-root');
 if (dockRoot) createRoot(dockRoot).render(<MobileNavigation />);
 const tabsRoot = document.getElementById('tabs');
 if (tabsRoot) createRoot(tabsRoot).render(<VortexTopTabs />);
+const sidebarRoot = document.getElementById('sidebar-root');
+if (sidebarRoot) createRoot(sidebarRoot).render(<VortexSidebar />);
 const builderDropdownRoot = document.getElementById('prop-builder-dropdown-root');
 if (builderDropdownRoot) createRoot(builderDropdownRoot).render(<ActivityDropdown />);
 const mobileSlipRoot = document.getElementById('mobile-slip-actions-root');
