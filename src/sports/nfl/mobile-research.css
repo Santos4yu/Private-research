@@ -40,8 +40,13 @@
 .nfl-book-icon { flex:0 0 auto;display:grid;place-items:center;width:18px;height:18px;border-radius:5px;object-fit:contain;background:#0e1620; }
 .nfl-book-icon-fallback { color:#0b1017;font:800 8px/1 var(--font-mono,monospace);font-style:normal; }
 /* Wraps the error/empty/freshness text onto its own row below the trigger
-   row, same technique as .nfl-reset's flex-basis:100% just above it. */
-.nfl-market-meta { flex-basis:100%; }
+   row, same technique as .nfl-reset's flex-basis:100% just above it. `order`
+   (not DOM position) controls flex wrapping, so this stays visually last
+   even though it renders (in the market fragment) before the side-switch
+   and reset button that follow it in .nfl-line-editor's actual markup --
+   without `order` those siblings would get shoved onto their own new row
+   right along with this one. */
+.nfl-market-meta { flex-basis:100%; order:20; }
 .nfl-quote-time { color:#8599aa;font-size:11px;line-height:1.3; }
 
 /* Anchored dropdown -- positioned off the trigger button itself (see
@@ -81,10 +86,10 @@
 /* Sits directly under the strip above with no border of its own, reading
    as the second half of one control instead of a separate component. */
 .nfl-app-shell .nfl-window-tabs { margin-top:6px; }
-.nfl-trends .nfl-line-editor { padding:0;border:0;background:none;border-radius:0;gap:8px;flex-wrap:wrap;align-items:center; }
+.nfl-trends .nfl-line-editor { padding:0;border:0;background:none;border-radius:0;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-start; }
 .nfl-trends .nfl-line-editor .nfl-stepper { flex:0 1 auto; }.nfl-trends .nfl-line-editor .nfl-stepper input { flex:0 1 auto;width:56px;max-width:56px;min-width:44px;font-size:15px;font-weight:700; }
 .nfl-trends .nfl-line-editor .nfl-side-switch { gap:3px;flex:0 0 auto; }.nfl-trends .nfl-side-switch button { padding:5px 9px;font-size:11.5px;min-height:34px; }
-.nfl-trends .nfl-line-editor .nfl-reset { font-size:11px;min-height:24px;flex-basis:100%;padding:0; }
+.nfl-trends .nfl-line-editor .nfl-reset { font-size:11px;min-height:24px;flex-basis:100%;padding:0;order:30; }
 .nfl-trends .nfl-window-tabs { gap:3px; }.nfl-trends .nfl-window-tabs button { min-width:0;min-height:32px;flex:1 0 0;padding:5px 2px;border-radius:8px;font-size:11px; }
 .nfl-trends .nfl-game-count { gap:6px; }.nfl-trends .nfl-game-count .nfl-stepper button { min-height:34px;padding:5px 8px; }.nfl-trends .nfl-game-count .nfl-stepper input { width:36px;min-height:34px;padding:4px; }
 .nfl-trends .nfl-filter-toggle { min-height:34px;padding:5px 9px;font-size:11.5px;gap:5px; }
