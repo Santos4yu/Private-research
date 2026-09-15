@@ -212,34 +212,18 @@
 .nfl-board-cell strong { display:block;font-size:13px; }
 .nfl-board-cell small { display:block;color:#8a97a6;font-size:10px;margin-top:2px; }
 .nfl-board-cell.muted { color:#57626f; }
-/* Heat cells are their own rounded block inside the td, not a tint on the
-   td itself -- td backgrounds butt straight up against each other with no
-   gap, which turned a row into one muddy band instead of readable cells.
-   Each level is a saturated vertical gradient with its own rim light, so
-   the scale reads as a real heat map rather than one flat green wash. */
-/* Full-bleed heat squares: the block fills its cell edge to edge and the
-   grid's own hairlines do the separating, so the board reads as one
-   continuous heat grid. Plain `border` rather than inset shadows -- with
-   6 cells x 50+ rows the shadows were a measurable scroll-repaint cost. */
-.nfl-board-cell { padding:0; }
-.nfl-heat { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:54px;padding:8px 6px;border-right:1px solid #0d1219;background:#161d26; }
-.nfl-heat strong { display:block;font-size:13px;font-weight:800;letter-spacing:-.01em;color:#c3ccd8; }
-.nfl-heat small { display:block;font-size:10px;color:#ffffff6b; }
-
-.nfl-heat.good { background:linear-gradient(160deg,#25a57a 0%,#17805d 48%,#0f6047 100%); }
-.nfl-heat.good strong { color:#eafff6; }
-.nfl-heat.good small { color:#c9f6e5c4; }
-.nfl-heat.good.peak { background:linear-gradient(160deg,#35d199 0%,#1da173 48%,#127a58 100%); }
-
-.nfl-heat.mid { background:linear-gradient(160deg,#b08a2a 0%,#8c6a1d 48%,#6c5015 100%); }
-.nfl-heat.mid strong { color:#fff6e2; }
-.nfl-heat.mid small { color:#ffeec7c4; }
-.nfl-heat.mid.low { background:linear-gradient(160deg,#a86c2b 0%,#84521d 48%,#653d14 100%); }
-
-.nfl-heat.bad { background:linear-gradient(160deg,#b13b4d 0%,#8d2b3a 48%,#6c1f2b 100%); }
-.nfl-heat.bad strong { color:#ffeef0; }
-.nfl-heat.bad small { color:#ffd7dcc4; }
-.nfl-heat.bad.peak { background:linear-gradient(160deg,#d0455a 0%,#a63042 48%,#7d2231 100%); }
+/* Ported directly from the MLB pitcher finder's own board (src/pitcher-
+   finder.css's .pitcher-rate[data-tone] + src/prop-finder.css's mobile
+   card variant of the same cells) instead of a fresh invented palette --
+   same data-tone values (good/mid/low), same colors, same border-bottom
+   accent, applied to the NFL cell markup. */
+.nfl-board-cell[data-tone] { position:relative; }
+.nfl-board-cell[data-tone] strong { font-weight:800; }
+.nfl-board-cell[data-tone="good"] { background:linear-gradient(0deg,#10b98133,transparent); color:#5ce0ac; border-bottom:2px solid #10b981; }
+.nfl-board-cell[data-tone="mid"] { background:linear-gradient(0deg,#eab30826,transparent); color:#f5d477; border-bottom:2px solid #c69b30; }
+.nfl-board-cell[data-tone="low"] { background:linear-gradient(0deg,#ef444426,transparent); color:#f7a1ab; border-bottom:2px solid #c86171; }
+.nfl-board-cell[data-tone] strong,.nfl-board-cell[data-tone] small { color:inherit; }
+.nfl-board-cell[data-tone] small { opacity:.75; }
 @media(max-width:700px){ .nfl-board-table-wrap { border-radius:12px; } }
 .nfl-volume-comparison { display:flex;justify-content:space-between;gap:12px;padding:12px 0; }.nfl-volume-comparison b { display:block;font-size:24px; }.nfl-volume-comparison span { font-size:12px;color:#b8cbd8; }
 .nfl-opponent-panel .nfl-stat-grid { display:block; }.nfl-opponent-panel .nfl-stat { display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:48px;padding:12px 0;border:0;border-bottom:1px solid #2d3a47;background:none;border-radius:0; }.nfl-opponent-panel .nfl-stat span { font-size:12px;max-width:70%; }.nfl-opponent-panel .nfl-stat strong { font-size:20px; }

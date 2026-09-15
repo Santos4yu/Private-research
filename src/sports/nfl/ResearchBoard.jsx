@@ -25,27 +25,20 @@ function SortHeader({label,columnKey,sort,onSort}){
  return <th><button type="button" className={active?'active':''} onClick={()=>onSort(columnKey)}>{label}{active&&(sort.dir==='desc'?<ArrowDown size={12}/>:<ArrowUp size={12}/>)}</button></th>;
 }
 
-// Five graduated heat levels rather than three flat ones, so a 90% and a
-// 61% don't land on the identical green. `peak` is the modifier for the
-// extreme end of each direction (deepest green / deepest red).
-function heatClass(value,{good=60,mid=45,bad=40,top=75,bottom=25}={}){
- if(value==null)return '';
- if(value>=top)return 'good peak';
- if(value>=good)return 'good';
- if(value<=bottom)return 'bad peak';
- if(value<bad)return 'bad';
- if(value>=mid)return 'mid';
- return 'mid low';
-}
+// Same three tiers/thresholds and the same data-tone attribute name as
+// the MLB pitcher finder's own board (app.js's renderPitcherComparison:
+// `pct >= 70 ? 'good' : pct >= 45 ? 'mid' : 'low'`), so this is the same
+// design applied here rather than a fresh guess at one.
+const heatTone=(value,good=70,mid=45)=>value==null?'':value>=good?'good':value>=mid?'mid':'low';
 
 function WindowCell({w}){
  if(!w||w.hitRate==null)return <td className="nfl-board-cell muted">—</td>;
- return <td className="nfl-board-cell"><div className={`nfl-heat ${heatClass(w.hitRate)}`}><strong>{Math.round(w.hitRate)}%</strong><small>{w.hits}-{w.misses}{w.pushes?` · ${w.pushes}p`:''}</small></div></td>;
+ return <td className="nfl-board-cell" data-tone={heatTone(w.hitRate)}><strong>{Math.round(w.hitRate)}%</strong><small>{w.hits}-{w.misses}{w.pushes?` · ${w.pushes}p`:''}</small></td>;
 }
 
 function MatchupCell({row}){
  if(row.matchupQuality==null)return <td className="nfl-board-cell muted">—</td>;
- return <td className="nfl-board-cell"><div className={`nfl-heat ${heatClass(row.matchupQuality,{good:65,mid:50,bad:35,top:80,bottom:20})}`}><strong>{row.matchupQuality}</strong><small>{row.matchupCoverage}% cov.</small></div></td>;
+ return <td className="nfl-board-cell" data-tone={heatTone(row.matchupQuality,65,45)}><strong>{row.matchupQuality}</strong><small>{row.matchupCoverage}% cov.</small></td>;
 }
 
 // Memoized per row: rows stream in one game at a time and a timer ticks the
@@ -60,7 +53,7 @@ const BoardRow=React.memo(function BoardRow({row,players,onOpen}){
  return <tr className={player?'clickable':''} onClick={()=>player&&onOpen(player)}>
   <td className="nfl-board-cell-player"><img src={player?.headshot_url} width="32" height="32" loading="lazy" alt=""/><div><strong>{row.playerName}</strong><small>{row.line.direction==='OVER'?'More':'Less'} {row.line.value} {PROP_LABELS[row.propType]}</small><small className="nfl-board-cell-meta">{row.position} · {row.teamId} vs {row.opponentId}</small></div></td>
   <td className="nfl-board-cell"><strong>{Number(row.average.toFixed(1))}</strong></td>
-  <td className="nfl-board-cell">{diff==null?<span className="muted">—</span>:<div className={`nfl-heat ${diff>0?'good':diff<0?'bad':'mid'}`}><strong>{`${diff>0?'+':''}${diff.toFixed(1)}`}</strong></div>}</td>
+  <td className="nfl-board-cell" data-tone={diff==null?'':diff>0?'good':diff<0?'low':'mid'}>{diff==null?<span className="muted">—</span>:<strong>{`${diff>0?'+':''}${diff.toFixed(1)}`}</strong>}</td>
   <MatchupCell row={row}/>
   {WINDOW_COLUMNS.map(([key])=><WindowCell w={row.windows?.[key]} key={key}/>)}
  </tr>;
