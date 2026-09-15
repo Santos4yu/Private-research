@@ -31,14 +31,14 @@ function SortHeader({label,columnKey,sort,onSort}){
 // design applied here rather than a fresh guess at one.
 const heatTone=(value,good=70,mid=45)=>value==null?'':value>=good?'good':value>=mid?'mid':'low';
 
-function WindowCell({w}){
- if(!w||w.hitRate==null)return <td className="nfl-board-cell muted">—</td>;
- return <td className="nfl-board-cell" data-tone={heatTone(w.hitRate)}><strong>{Math.round(w.hitRate)}%</strong><small>{w.hits}-{w.misses}{w.pushes?` · ${w.pushes}p`:''}</small></td>;
+function WindowCell({w,label}){
+ if(!w||w.hitRate==null)return <td className="nfl-board-cell muted" data-label={label}>—</td>;
+ return <td className="nfl-board-cell" data-label={label} data-tone={heatTone(w.hitRate)}><strong>{Math.round(w.hitRate)}%</strong><small>{w.hits}-{w.misses}{w.pushes?` · ${w.pushes}p`:''}</small></td>;
 }
 
 function MatchupCell({row}){
- if(row.matchupQuality==null)return <td className="nfl-board-cell muted">—</td>;
- return <td className="nfl-board-cell" data-tone={heatTone(row.matchupQuality,65,45)}><strong>{row.matchupQuality}</strong><small>{row.matchupCoverage}% cov.</small></td>;
+ if(row.matchupQuality==null)return <td className="nfl-board-cell muted" data-label="Matchup">—</td>;
+ return <td className="nfl-board-cell" data-label="Matchup" data-tone={heatTone(row.matchupQuality,65,45)}><strong>{row.matchupQuality}</strong><small>{row.matchupCoverage}% cov.</small></td>;
 }
 
 // Memoized per row: rows stream in one game at a time and a timer ticks the
@@ -52,10 +52,10 @@ const BoardRow=React.memo(function BoardRow({row,players,onOpen}){
  const diff=row.line?.value!=null?row.average-row.line.value:null;
  return <tr className={player?'clickable':''} onClick={()=>player&&onOpen(player)}>
   <td className="nfl-board-cell-player"><img src={player?.headshot_url} width="32" height="32" loading="lazy" alt=""/><div><strong>{row.playerName}</strong><small>{row.line.direction==='OVER'?'More':'Less'} {row.line.value} {PROP_LABELS[row.propType]}</small><small className="nfl-board-cell-meta">{row.position} · {row.teamId} vs {row.opponentId}</small></div></td>
-  <td className="nfl-board-cell"><strong>{Number(row.average.toFixed(1))}</strong></td>
-  <td className="nfl-board-cell" data-tone={diff==null?'':diff>0?'good':diff<0?'low':'mid'}>{diff==null?<span className="muted">—</span>:<strong>{`${diff>0?'+':''}${diff.toFixed(1)}`}</strong>}</td>
+  <td className="nfl-board-cell" data-label="Avg"><strong>{Number(row.average.toFixed(1))}</strong></td>
+  <td className="nfl-board-cell" data-label="Diff" data-tone={diff==null?'':diff>0?'good':diff<0?'low':'mid'}>{diff==null?<span className="muted">—</span>:<strong>{`${diff>0?'+':''}${diff.toFixed(1)}`}</strong>}</td>
   <MatchupCell row={row}/>
-  {WINDOW_COLUMNS.map(([key])=><WindowCell w={row.windows?.[key]} key={key}/>)}
+  {WINDOW_COLUMNS.map(([key,label])=><WindowCell w={row.windows?.[key]} label={label} key={key}/>)}
  </tr>;
 });
 
@@ -76,7 +76,10 @@ export function NFLResearchBoard({load,players,onOpen}) {
  const cached=boardCache && Date.now()-boardCache.ts<BOARD_CACHE_TTL ? boardCache : null;
  const [rows,setRows]=useState(()=>cached?.rows || []),[events,setEvents]=useState(()=>cached?.events || []),[progress,setProgress]=useState(null),[error,setError]=useState(''),[failed,setFailed]=useState(0),[refresh,setRefresh]=useState(0);
  const [position,setPosition]=useState(''),[game,setGame]=useState(''),[prop,setProp]=useState(''),[now,setNow]=useState(Date.now());
- const [view,setView]=useState(()=>typeof window!=='undefined'&&window.matchMedia?.('(min-width: 900px)').matches?'table':'cards');
+ // Table now has its own mobile layout (see the max-width:640px block in
+ // mobile-research.css, ported from the MLB finder's card treatment), so
+ // it no longer needs to default to the simpler card view on phones.
+ const [view,setView]=useState('table');
  const [sort,setSort]=useState(null);
  const onSort=key=>setSort(current=>current?.key===key?{key,dir:current.dir==='desc'?'asc':'desc'}:{key,dir:'desc'});
  // Only drives the 2-minute staleness filter, so it doesn't need to be

@@ -224,7 +224,32 @@
 .nfl-board-cell[data-tone="low"] { background:linear-gradient(0deg,#ef444426,transparent); color:#f7a1ab; border-bottom:2px solid #c86171; }
 .nfl-board-cell[data-tone] strong,.nfl-board-cell[data-tone] small { color:inherit; }
 .nfl-board-cell[data-tone] small { opacity:.75; }
-@media(max-width:700px){ .nfl-board-table-wrap { border-radius:12px; } }
+/* Below this width the table stops scrolling sideways and turns into a
+   stack of cards instead -- ported from the MLB finder's own mobile
+   layout (src/prop-finder.css's #pitcher-finder .pitcher-table media
+   block): the player row spans full width on top, then every stat cell
+   becomes a small labeled tile below it, using data-label for the
+   caption instead of a <thead> (which is hidden here) and the same
+   data-tone heat coloring already ported for the desktop table. NFL has
+   2 more rate columns than MLB's finder (Matchup, on top of Avg/Diff/L5-
+   L20/H2H), so this uses a plain wrapping grid instead of MLB's exact
+   7-column nth-child reorder, which only made sense for its column count. */
+@media(max-width:700px){
+  .nfl-board-table-wrap { overflow:visible;border:0;border-radius:0;background:none; }
+  .nfl-board-table { display:block;min-width:0;width:100%; }
+  .nfl-board-table thead { display:none; }
+  .nfl-board-table tbody { display:grid;gap:12px; }
+  .nfl-board-table tbody tr { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid #384353;border-radius:16px;background:#171d26;overflow:hidden; }
+  .nfl-board-table td { min-width:0;width:auto;padding:0;border:0; }
+  .nfl-board-cell-player { grid-column:1/-1;padding:12px;background:linear-gradient(120deg,#1d2530,#171d26); }
+  .nfl-board-cell { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:58px;padding:7px 2px;border-top:1px solid #232c38;border-right:1px solid #232c38;background:#1a212b; }
+  .nfl-board-cell:nth-child(4n+1) { border-right:0; }
+  .nfl-board-cell::before { content:attr(data-label);font:700 9px var(--font-mono,monospace);letter-spacing:.05em;text-transform:uppercase;color:#8a97a6; }
+  .nfl-board-cell[data-tone] { border-top:0; }
+  .nfl-board-cell[data-tone="good"] { background:linear-gradient(0deg,#10b98133,transparent);border-bottom:2px solid #10b981; }
+  .nfl-board-cell[data-tone="mid"] { background:linear-gradient(0deg,#eab30826,transparent);border-bottom:2px solid #c69b30; }
+  .nfl-board-cell[data-tone="low"] { background:linear-gradient(0deg,#ef444426,transparent);border-bottom:2px solid #c86171; }
+}
 .nfl-volume-comparison { display:flex;justify-content:space-between;gap:12px;padding:12px 0; }.nfl-volume-comparison b { display:block;font-size:24px; }.nfl-volume-comparison span { font-size:12px;color:#b8cbd8; }
 .nfl-opponent-panel .nfl-stat-grid { display:block; }.nfl-opponent-panel .nfl-stat { display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:48px;padding:12px 0;border:0;border-bottom:1px solid #2d3a47;background:none;border-radius:0; }.nfl-opponent-panel .nfl-stat span { font-size:12px;max-width:70%; }.nfl-opponent-panel .nfl-stat strong { font-size:20px; }
 .nfl-app-shell .nfl-home-head { margin:16px 0; }.nfl-app-shell .nfl-home-head h2 { font-size:22px;margin:0; }.nfl-app-shell .nfl-player-search { padding:12px;border-radius:16px;margin:0 0 18px; }.nfl-app-shell .nfl-player-search label { display:none; }.nfl-app-shell .nfl-player-search input { font-size:16px;background:none;padding:6px; }
