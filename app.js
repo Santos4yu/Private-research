@@ -197,6 +197,7 @@ async function init() {
     console.error("wireChromeAutoHide failed:", err);
   }
   wireCardBorderGlow();
+  wireBrandLoop();
   wireTabs();
   wireMainMenu();
   try {
@@ -1069,6 +1070,32 @@ function wireCardBorderGlow() {
       card.style.setProperty("--border-glow-strength", "0");
     }
   }, { passive: true });
+}
+
+const BRAND_LOOP_WORDS = ["Data", "Props", "Edge", "Signal"];
+
+// The "Data" half of the header wordmark cycles through a short list of
+// brand terms (highlight box + blinking cursor, CSS-driven in styles.css)
+// instead of sitting static -- purely decorative, so it degrades silently
+// with no rotor element or under reduced-motion.
+function wireBrandLoop() {
+  const rotor = document.querySelector(".brand-loop-rotor");
+  const wordEl = document.getElementById("brand-loop-word");
+  if (!rotor || !wordEl) return;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  requestAnimationFrame(() => rotor.classList.add("is-in"));
+  if (reduceMotion) return;
+
+  let index = 0;
+  setInterval(() => {
+    rotor.classList.remove("is-in");
+    setTimeout(() => {
+      index = (index + 1) % BRAND_LOOP_WORDS.length;
+      wordEl.textContent = BRAND_LOOP_WORDS[index];
+      rotor.classList.add("is-in");
+    }, 320);
+  }, 3000);
 }
 
 function wireSettingsPanel() {

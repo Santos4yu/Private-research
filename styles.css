@@ -6963,17 +6963,41 @@ details.rate-filter summary b { margin-left: auto; color: var(--accent); font-si
   background-image: none !important;
 }
 
-/* Brand pass: the wordmark was flat solid text with no distinction --
-   gradient-text treatment matching the boot loader, so the two actually
-   read as the same brand. Appended last so it wins over the many stacked
+/* Brand pass: "Krazy" stays a static gradient wordmark (matching the boot
+   loader); "Data" is now a text-loop -- a highlighted word that cycles
+   through a few brand terms with a blinking cursor, JS-driven in app.js
+   (#brand-loop-word). Appended last so it wins over the many stacked
    theme blocks earlier in this file. */
-.hero-brand h1 {
+.hero-brand h1.brand-loop { display: inline-flex !important; align-items: baseline !important; gap: .18em; }
+.hero-brand h1 .brand-loop-static {
   background: linear-gradient(180deg, var(--theme-text) 0%, color-mix(in srgb, var(--theme-accent-soft) 60%, var(--theme-text)) 65%, var(--theme-accent-soft) 100%) !important;
   -webkit-background-clip: text !important; background-clip: text !important; color: transparent !important;
 }
-.hero-brand h1 span {
+.hero-brand h1 .brand-loop-rotor { position: relative; display: inline-flex !important; align-items: baseline; }
+.hero-brand h1 .brand-loop-box {
+  position: absolute; z-index: 0; inset: -2% -8% -2% -6%; border-radius: .18em;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--theme-accent) 22%, transparent) 55%, color-mix(in srgb, var(--theme-accent) 38%, transparent));
+  opacity: 0; transform: scaleX(.4); transform-origin: left center;
+  transition: opacity 260ms ease, transform 420ms cubic-bezier(.2,.8,.2,1);
+}
+.hero-brand h1 .brand-loop-rotor.is-in .brand-loop-box { opacity: 1; transform: scaleX(1); }
+.hero-brand h1 .brand-loop-word {
+  position: relative; z-index: 1; display: inline-block; padding: 0 .06em;
   background: linear-gradient(180deg, var(--theme-accent-soft) 0%, var(--theme-accent) 100%) !important;
   -webkit-background-clip: text !important; background-clip: text !important; color: transparent !important;
+  opacity: 0; transform: translateY(.16em); filter: blur(6px);
+  transition: opacity 320ms ease, transform 380ms cubic-bezier(.2,.8,.2,1), filter 320ms ease;
+}
+.hero-brand h1 .brand-loop-rotor.is-in .brand-loop-word { opacity: 1; transform: translateY(0); filter: blur(0); }
+.hero-brand h1 .brand-loop-cursor {
+  position: relative; z-index: 1; width: .05em; margin-left: .05em; align-self: stretch;
+  background: var(--theme-accent); border-radius: 2px;
+  animation: brand-loop-blink 1s steps(1) infinite;
+}
+@keyframes brand-loop-blink { 0%, 45% { opacity: 1; } 46%, 100% { opacity: .15; } }
+@media (prefers-reduced-motion: reduce) {
+  .hero-brand h1 .brand-loop-box, .hero-brand h1 .brand-loop-word { transition: none !important; opacity: 1 !important; transform: none !important; filter: none !important; }
+  .hero-brand h1 .brand-loop-cursor { animation: none !important; }
 }
 
 /* Research / Builder switch: a tighter segmented pill with an icon on the
