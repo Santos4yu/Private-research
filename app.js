@@ -2667,6 +2667,15 @@ function renderReport(p) {
   const node = buildReportNode(p);
   mountResearchTabs(node, p);
   els.reportWrap.appendChild(node);
+  // mountResearchTabs() may have already selected a tab (e.g. the user's
+  // remembered choice from a prior player) while the report was still
+  // disconnected from the document -- any 'rr:panel-shown' it fired then
+  // couldn't animate anything. Re-fire for whichever panel is visible now
+  // that the node is actually on the page.
+  const visiblePanel = node.querySelector(".rr-tab-panel:not([hidden])");
+  if (visiblePanel) {
+    visiblePanel.dispatchEvent(new CustomEvent("rr:panel-shown", { bubbles: true, detail: { key: visiblePanel.dataset.researchPanel } }));
+  }
 
   const saveBtn = node.querySelector(".save-btn");
   syncSaveButton(saveBtn, p.id);
@@ -4240,26 +4249,54 @@ function formatMatchupDetail(value) {
 
 const MATCHUP_GAUGE_CIRCUMFERENCE = 263.89;
 
-// Animates the gauge ring's stroke-dashoffset and counts the center number
-// up to the target score, mirroring the spring/count-up feel of the
-// referenced gauge component without pulling in framer-motion for one ring.
-function animateMatchupGauge(scoreCard, score) {
+// The gauge is built while its tab panel is still hidden (report-tabs.js
+// moves it into a `hidden` panel right after) -- a CSS transition started on
+// a hidden/disconnected element never plays, so a fill-on-build call here
+// would look instant with no animation once the user actually opens the
+// Matchup tab. Set the final state immediately (nothing to see yet) and let
+// animateMatchupGaugeFill() do the real animated reveal once the panel with
+// this card in it actually becomes visible (wired via the 'rr:panel-shown'
+// event dispatched from report-tabs.js).
+function setMatchupGaugeInstant(scoreCard, score) {
   const fillEl = scoreCard.querySelector(".matchup-gauge-fill");
   const valueEl = scoreCard.querySelector(".matchup-score-value");
   if (!fillEl || !valueEl) return;
   const clamped = Math.max(0, Math.min(100, score));
   const arcLength = MATCHUP_GAUGE_CIRCUMFERENCE * (clamped / 100);
+  fillEl.style.transition = "none";
+  fillEl.style.strokeDasharray = `${arcLength} ${MATCHUP_GAUGE_CIRCUMFERENCE}`;
+  valueEl.textContent = `${Math.round(clamped)}`;
+  scoreCard.dataset.score = String(clamped);
+}
+
+// Animates the gauge ring's stroke-dasharray and counts the center number
+// up to the target score, mirroring the spring/count-up feel of the
+// referenced gauge component without pulling in framer-motion for one ring.
+function animateMatchupGaugeFill(scoreCard) {
+  const fillEl = scoreCard.querySelector(".matchup-gauge-fill");
+  const valueEl = scoreCard.querySelector(".matchup-score-value");
+  const clamped = Number(scoreCard.dataset.score);
+  if (!fillEl || !valueEl || !Number.isFinite(clamped)) return;
+  const arcLength = MATCHUP_GAUGE_CIRCUMFERENCE * (clamped / 100);
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (reduceMotion) {
+    fillEl.style.transition = "none";
     fillEl.style.strokeDasharray = `${arcLength} ${MATCHUP_GAUGE_CIRCUMFERENCE}`;
     valueEl.textContent = `${Math.round(clamped)}`;
     return;
   }
+  fillEl.style.transition = "none";
   fillEl.style.strokeDasharray = `0 ${MATCHUP_GAUGE_CIRCUMFERENCE}`;
   valueEl.textContent = "0";
-  requestAnimationFrame(() => requestAnimationFrame(() => {
+  // Force a style/layout flush between the "0" and target states so the
+  // browser has something committed to transition FROM -- two rAFs alone
+  // aren't always enough once a style write follows immediately after an
+  // element was just unhidden in the same tick.
+  void fillEl.getBoundingClientRect();
+  requestAnimationFrame(() => {
+    fillEl.style.transition = "";
     fillEl.style.strokeDasharray = `${arcLength} ${MATCHUP_GAUGE_CIRCUMFERENCE}`;
-  }));
+  });
   const duration = 1000;
   const start = performance.now();
   const tick = (now) => {
@@ -4270,6 +4307,12 @@ function animateMatchupGauge(scoreCard, score) {
   };
   requestAnimationFrame(tick);
 }
+
+document.addEventListener("rr:panel-shown", (event) => {
+  if (event.detail?.key !== "matchup") return;
+  const scoreCard = event.target.querySelector(".matchup-score-card");
+  if (scoreCard && !scoreCard.hidden) animateMatchupGaugeFill(scoreCard);
+});
 
 function fillMatchup(node, p) {
   const m = p.matchup || {};
@@ -4282,7 +4325,7 @@ function fillMatchup(node, p) {
     scoreCard.hidden = false;
     scoreCard.dataset.tone = tone;
     scoreCard.querySelector(".matchup-score-label").textContent = `${label} · ${Math.round((p.matchupCoverage || 0) * 100)}% data coverage`;
-    animateMatchupGauge(scoreCard, score);
+    setMatchupGaugeInstant(scoreCard, score);
     const factors = (p.matchupFactors || []).map(f => {
       const impact = Number(f.impact || 0);
       const signed = `${impact > 0 ? "+" : ""}${impact}`;

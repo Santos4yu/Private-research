@@ -127,9 +127,17 @@ export function mountResearchTabs(report, prop) {
   const select = (key, { focus = false, scroll = false } = {}) => {
     selectedTab = key;
     buttons.forEach((button, name) => {
+      const panel = panels.get(name);
+      const wasHidden = panel.hidden;
       button.setAttribute('aria-selected', String(name === key));
       button.tabIndex = name === key ? 0 : -1;
-      panels.get(name).hidden = name !== key;
+      panel.hidden = name !== key;
+      // Panel content built off-DOM (while every tab was still hidden) can't
+      // play its reveal animations then -- e.g. the matchup gauge fills
+      // silently before anyone can see it. Tell it to (re)play now instead.
+      if (wasHidden && !panel.hidden) {
+        panel.dispatchEvent(new CustomEvent('rr:panel-shown', { bubbles: true, detail: { key: name } }));
+      }
     });
     if (focus) buttons.get(key).focus({ preventScroll: true });
     // A short tab must not inherit a position halfway down a long matchup.
