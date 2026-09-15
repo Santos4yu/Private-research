@@ -7019,3 +7019,63 @@ details.rate-filter summary b { margin-left: auto; color: var(--accent); font-si
 .builder-activity-avatar { border-radius: 50% !important; }
 .builder-activity-clear { background: transparent !important; }
 .builder-activity-export { border-radius: 999px !important; font-weight: 800 !important; }
+
+/* Search bar: a traveling light around a clean pill, replacing the old
+   flat box -- pure CSS (mask + conic-gradient + @property), no runtime
+   dependency needed. Colored from var(--theme-accent)/--accent-soft
+   directly (not a hue-rotated preset), so it exactly matches whatever
+   accent the user has picked, automatically, with no extra wiring.
+   Animates the gradient's own `from` angle via @property rather than
+   `transform:rotate()` on the masked ring -- rotating the ring element
+   itself would spin the whole rounded-rect mask as a rigid shape (only
+   correct for a circle/square), which looks broken on a wide pill;
+   animating the angle keeps the ring stationary and moves the light
+   along it correctly. @property is supported in current Chrome/Edge/
+   Safari/Firefox; this session's own test browser reported the
+   animation as "running" (Web Animations API) and the @property rule as
+   registered, but getComputedStyle read back an unchanged value across
+   time -- a known inconsistency in how some engines expose the
+   *computed* value of an animating custom property via that API, not
+   necessarily proof the compositor isn't painting the interpolated
+   value, so this is confirmed set up correctly but not confirmed moving
+   pixel-for-pixel in this sandbox; worth a live glance after deploying. */
+@property --beam-angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+.search-beam { position: relative; isolation: isolate; border-radius: 999px !important; }
+.search-beam::before {
+  content: ""; position: absolute; inset: 0; z-index: 0;
+  border-radius: inherit; padding: 1.5px;
+  background: conic-gradient(from var(--beam-angle, 0deg),
+    transparent 0deg, transparent 260deg,
+    color-mix(in srgb, var(--theme-accent-soft, #7fc9ff) 65%, transparent) 300deg,
+    var(--theme-accent, #0082fe) 330deg,
+    color-mix(in srgb, var(--theme-accent-soft, #7fc9ff) 65%, transparent) 350deg,
+    transparent 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: search-beam-spin 3.4s linear infinite;
+  pointer-events: none;
+}
+.search-beam::after {
+  /* Static ambient bloom (doesn't reference --beam-angle, so it isn't
+     animated -- just a soft constant glow, not tied to the beam's path). */
+  content: ""; position: absolute; inset: -6px; z-index: -1; border-radius: inherit;
+  background: radial-gradient(ellipse 70% 160% at 50% 50%, color-mix(in srgb, var(--theme-accent, #0082fe) 22%, transparent), transparent 72%);
+  filter: blur(10px); opacity: .8;
+  pointer-events: none;
+}
+@keyframes search-beam-spin { to { --beam-angle: 360deg; } }
+@media (prefers-reduced-motion: reduce) { .search-beam::before { animation: none; } }
+.search-beam > .search-box {
+  position: relative !important; z-index: 1 !important; margin: 0 !important;
+  border: 0 !important; border-radius: 999px !important;
+  background: color-mix(in srgb, var(--theme-panel, #0d0d0f) 96%, black) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--theme-border, #2c2f36) 85%, transparent), inset 0 0 40px color-mix(in srgb, var(--theme-text, #fff) 2%, transparent) !important;
+}
+.search-beam > .search-box input { color: var(--theme-text, #edf1f5) !important; }
+.search-beam > .search-box input::placeholder { color: var(--theme-faint, #565656) !important; }
+.search-beam > .search-box .lab-search-submit,
+.search-beam > .search-box .search-icon {
+  border: 0 !important; outline: 0 !important; box-shadow: none !important;
+  color: var(--theme-dim, #8a8a8a) !important; background: transparent !important;
+}
+.search-beam > .search-box .lab-search-submit:hover { color: var(--theme-accent, #0082fe) !important; }
