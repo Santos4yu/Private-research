@@ -2,7 +2,6 @@ import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Layers2 as BarChart3, Ticket as ClipboardList, Radar as FlaskConical, ScanLine, Compass as Search, Sparkles, ShieldCheck, CircleDot, Trophy, LayoutGrid, Diamond, Crosshair, Target, ChartNoAxesCombined } from 'lucide-react';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '../components/ui/select';
-import { Component as AppleColorPicker } from '../components/ui/apple-color-picker';
 import { MobileNavigation } from './MobileNavigation';
 import { MobileSlipActions } from './MobileSlipActions';
 import { ResearchHome } from './ResearchHome';
@@ -225,48 +224,3 @@ if (ppLinesSelectRoot) {
     onPick: (value) => window.dispatchEvent(new CustomEvent('vortex:pp-line-pick', { detail: { value: Number(value) } })),
   });
 }
-
-// Bridges the Accent studio's primary/secondary color inputs to the Apple
-// color picker component. The hidden native <input type="color"> stays the
-// real value source everything in app.js (applyAccentTheme/updateAccents)
-// reads and writes -- this only owns the visual swatch + popover, same
-// bridge pattern as the stat and alt-lines pickers above. There's no
-// separate "commit" event exposed by the picker (onChange fires on every
-// drag tick), so this dispatches "input" continuously to match, and
-// "change" once the popover closes -- mirroring how a native color input
-// fires "input" while open and "change" only once it's dismissed.
-function AccentSwatchHost({ controllerRef, initialColor, onInput, onCommit }) {
-  const [color, setColor] = useState(initialColor);
-  const [isOpen, setIsOpen] = useState(false);
-  controllerRef.current = { setColor };
-  return (
-    <>
-      <button type="button" className="accent-swatch-trigger" style={{ background: color }} aria-label="Choose color" onClick={() => setIsOpen(true)} />
-      <AppleColorPicker
-        isOpen={isOpen}
-        onClose={() => { setIsOpen(false); onCommit(); }}
-        initialColor={color}
-        onChange={(next) => { setColor(next); onInput(next); }}
-      />
-    </>
-  );
-}
-
-window.vortexMountAccentSwatch = (host, { initialColor, onInput, onCommit }) => {
-  const controllerRef = { current: null };
-  createRoot(host).render(<AccentSwatchHost controllerRef={controllerRef} initialColor={initialColor} onInput={onInput} onCommit={onCommit} />);
-  return { setColor: (hex) => controllerRef.current?.setColor(hex) };
-};
-
-function mountAccentSwatch(rootId, inputId, fallbackColor) {
-  const root = document.getElementById(rootId);
-  const nativeInput = document.getElementById(inputId);
-  if (!root || !nativeInput) return;
-  window[`vortex${inputId === 'primary-accent' ? 'Primary' : 'Secondary'}AccentSwatch`] = window.vortexMountAccentSwatch(root, {
-    initialColor: nativeInput.value || fallbackColor,
-    onInput: (hex) => { nativeInput.value = hex; nativeInput.dispatchEvent(new Event('input')); },
-    onCommit: () => nativeInput.dispatchEvent(new Event('change')),
-  });
-}
-mountAccentSwatch('primary-accent-select-root', 'primary-accent', '#0082fe');
-mountAccentSwatch('secondary-accent-select-root', 'secondary-accent', '#d6e1ea');
