@@ -1,7 +1,7 @@
 import {SheetSelect} from './ResearchSheet';
-import React,{useEffect,useRef,useState} from 'react';
+import React,{useEffect,useId,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {RefreshCw,ChevronDown,Check} from 'lucide-react';
+import {RefreshCw,ChevronDown,Check,X} from 'lucide-react';
 import {NFLFreshness} from './Freshness';
 import {quoteIdentity,filterOffers} from './trend-data';
 import {NFL_PROP_DEFINITIONS} from './props';
@@ -25,37 +25,56 @@ function BookIcon({bookmaker,size=18}){
   return <i className="nfl-book-icon nfl-book-icon-fallback" style={{background:badge.color,width:size,height:size}}>{badge.label}</i>;
 }
 const priceLabel=price=>Number.isFinite(price)?(price>0?`+${price}`:`${price}`):'';
+const bookLabel=(bookmaker,platform)=>platform || BOOKS.find(([key])=>key===bookmaker)?.[1] || bookmaker || 'Sportsbook';
 
 // A minimal anchored dropdown -- positioned off the trigger button itself
 // (not centered over the page like a modal sheet), closes on an outside
 // click or Escape. Still fully custom-styled, so mobile never falls back to
 // a native <select> picker.
-function NFLPopover({open,onClose,anchorRef,children}) {
+function NFLPopover({open,onClose,anchorRef,id,children}) {
   const ref=useRef(null);
+  const focused=useRef(false);
   const [style,setStyle]=useState(null);
   useEffect(()=>{
     if(!open)return;
     const place=()=>{
       const rect=anchorRef.current?.getBoundingClientRect();if(!rect)return;
-      const width=Math.min(300,window.innerWidth-24);
+      const width=Math.min(390,window.innerWidth-24);
       const left=Math.max(12,Math.min(rect.left,window.innerWidth-width-12));
       const spaceBelow=window.innerHeight-rect.bottom;
-      const openUp=spaceBelow<260 && rect.top>260;
-      setStyle({left,width,...(openUp?{bottom:window.innerHeight-rect.top+6}:{top:rect.bottom+6}),maxHeight:Math.max(180,(openUp?rect.top:spaceBelow)-16)});
+      const openUp=spaceBelow<300 && rect.top>spaceBelow;
+      setStyle({left,width,...(openUp?{bottom:window.innerHeight-rect.top+8}:{top:rect.bottom+8}),maxHeight:Math.min(480,Math.max(0,(openUp?rect.top:spaceBelow)-20))});
     };
     place();
     window.addEventListener('resize',place);window.addEventListener('scroll',place,true);
     return ()=>{window.removeEventListener('resize',place);window.removeEventListener('scroll',place,true);};
   },[open,anchorRef]);
   useEffect(()=>{
+    if(!open){focused.current=false;return;}
+    if(!style || focused.current || !ref.current)return;
+    const target=ref.current.querySelector('.nfl-alt-line-row.active') || ref.current.querySelector('.nfl-alt-line-row') || ref.current.querySelector('button');
+    if(!target)return;
+    focused.current=true;
+    target.focus({preventScroll:true});
+    target.scrollIntoView({block:'nearest',behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'instant':'auto'});
+  },[open,style]);
+  useEffect(()=>{
     if(!open)return;
     const onDown=e=>{if(ref.current && !ref.current.contains(e.target) && !anchorRef.current?.contains(e.target))onClose();};
-    const onKey=e=>{if(e.key==='Escape')onClose();};
+    const onKey=e=>{if(e.key==='Escape'){e.preventDefault();onClose();anchorRef.current?.focus({preventScroll:true});}};
     document.addEventListener('pointerdown',onDown);document.addEventListener('keydown',onKey);
     return ()=>{document.removeEventListener('pointerdown',onDown);document.removeEventListener('keydown',onKey);};
   },[open,onClose,anchorRef]);
+  const onKeyDown=e=>{
+    if(!['ArrowDown','ArrowUp','Home','End'].includes(e.key))return;
+    const rows=[...ref.current.querySelectorAll('.nfl-alt-line-row')];
+    if(!rows.length)return;
+    const current=rows.indexOf(document.activeElement);
+    const index=e.key==='Home'?0:e.key==='End'?rows.length-1:e.key==='ArrowDown'?Math.min(rows.length-1,current+1):Math.max(0,current-1);
+    e.preventDefault();rows[index].focus({preventScroll:true});rows[index].scrollIntoView({block:'nearest',behavior:'instant'});
+  };
   if(!open || !style)return open ? createPortal(<div ref={ref}/>,document.body) : null;
-  return createPortal(<div ref={ref} className="nfl-popover" style={{position:'fixed',...style}} role="dialog" aria-label="Alt Lines">{children}</div>,document.body);
+  return createPortal(<div ref={ref} id={id} className="nfl-popover" style={{position:'fixed',...style}} role="dialog" aria-label="Available lines" onKeyDown={onKeyDown}>{children}</div>,document.body);
 }
 
 // One row per posted line value, every book's price for that value shown
@@ -79,9 +98,14 @@ const propLabel=value=>NFL_PROP_DEFINITIONS.find(p=>p.key===value)?.label || val
 // The "current line" trigger + its dropdown -- a compact icon-sized button
 // that sits directly in the stepper row, opening a small anchored popover
 // (not a full-screen sheet) right off the button itself.
-function NFLAltLinesPopover({open,onClose,anchorRef,offers,selected,onSelect}) {
+function NFLAltLinesPopover({open,onClose,anchorRef,id,offers,selected,onSelect}) {
   const groups=altLineGroups(offers);
-  return <NFLPopover open={open} onClose={onClose} anchorRef={anchorRef}>
+  const close=()=>{onClose();anchorRef.current?.focus({preventScroll:true});};
+  return <NFLPopover open={open} onClose={onClose} anchorRef={anchorRef} id={id}>
+    <div className="nfl-alt-lines-head">
+      <div><strong>Available lines</strong><span>{groups.length} {groups.length===1?'line':'lines'}</span></div>
+      <button type="button" className="nfl-alt-lines-close" aria-label="Close available lines" onClick={close}><X size={18}/></button>
+    </div>
     <div className="nfl-alt-lines-list">
       {!groups.length && <p className="nfl-alt-lines-empty">No posted lines for this stat yet.</p>}
       {groups.map(({value,books})=>{
@@ -90,17 +114,20 @@ function NFLAltLinesPopover({open,onClose,anchorRef,offers,selected,onSelect}) {
           const preferred=books.find(b=>b.bookmaker===selected?.bookmaker)||books[0];
           const line=(selected?.direction==='UNDER'?preferred.UNDER:preferred.OVER)?.line || preferred.OVER?.line || preferred.UNDER?.line;
           if(line)onSelect(line);
-          onClose();
+          close();
         };
-        return <button type="button" key={value} className={`nfl-alt-line-row${active?' active':''}`} aria-pressed={active} onClick={pick}>
+        const prices=books.map(b=>`${bookLabel(b.bookmaker,b.platform)}: ${[b.OVER&&`More ${priceLabel(b.OVER.price)}`,b.UNDER&&`Less ${priceLabel(b.UNDER.price)}`].filter(Boolean).join(', ')}`).join('; ');
+        return <button type="button" key={value} className={`nfl-alt-line-row${active?' active':''}`} aria-pressed={active} aria-label={`${value}, ${prices}`} onClick={pick}>
           <strong>{value}</strong>
-          <div className="nfl-alt-line-books">{books.map(b=>
-            <span className="nfl-alt-line-book" key={b.bookmaker}>
+          <span className="nfl-alt-line-books">{books.map(b=>
+            <span className="nfl-alt-line-book" key={b.bookmaker} title={bookLabel(b.bookmaker,b.platform)}>
               <BookIcon bookmaker={b.bookmaker} size={16}/>
-              {b.OVER && <em className="over">O{priceLabel(b.OVER.price)}</em>}
-              {b.UNDER && <em className="under">U{priceLabel(b.UNDER.price)}</em>}
+              <span className="nfl-alt-line-prices">
+                {b.OVER && <em className="over">O {priceLabel(b.OVER.price)}</em>}
+                {b.UNDER && <em className="under">U {priceLabel(b.UNDER.price)}</em>}
+              </span>
             </span>
-          )}</div>
+          )}</span>
           {active && <Check size={16}/>}
         </button>;
       })}
@@ -112,6 +139,7 @@ export function NFLMarketLines({load,player,week,prop,onSelect,selected,onRefres
   const [body,setBody]=useState(null),[error,setError]=useState(''),[reload,setReload]=useState(0),[altOpen,setAltOpen]=useState(false);
   const [book,setBook]=useState(selected?.bookmaker || 'prizepicks');
   const triggerRef=useRef(null);
+  const popoverId=useId();
   useEffect(()=>{
     let active=true;setBody(null);setError('');
     load('props',{playerId:player.id,week}).then(result=>{if(active)setBody(result);}).catch(()=>{if(active)setError('Lines could not refresh. Try again.');});
@@ -122,6 +150,8 @@ export function NFLMarketLines({load,player,week,prop,onSelect,selected,onRefres
   // picker does, instead of requiring a book to be chosen first.
   const allOffers=filterOffers(body?.data || [],{prop,bookmaker:'',category:'ALL'});
   const altCount=Math.max(0,new Set(allOffers.map(row=>row.line?.value).filter(Number.isFinite)).size-1);
+  const platform=bookLabel(selected?.bookmaker||book,selected?.platform);
+  const loading=!body&&!error;
   useEffect(()=>{
     if(!body)return;
     const matches=filterOffers(body.data || [],{prop,bookmaker:book,category:'ALL'});
@@ -130,19 +160,21 @@ export function NFLMarketLines({load,player,week,prop,onSelect,selected,onRefres
     onSelect((same||standard||matches.find(row=>row.direction==='OVER')||matches[0])?.line||null);
   },[body,prop,book,onSelect]);
   return <>
-    <button type="button" ref={triggerRef} className="nfl-line-trigger" aria-haspopup="dialog" aria-expanded={altOpen} onClick={()=>setAltOpen(o=>!o)} disabled={!body}>
-      <BookIcon bookmaker={selected?.bookmaker||'prizepicks'}/>
-      {altCount>0 && <b>+{altCount}</b>}
+    <button type="button" ref={triggerRef} className="nfl-line-trigger" aria-label={`${platform}, ${altCount} alternate ${altCount===1?'line':'lines'}`} aria-haspopup="dialog" aria-expanded={altOpen} aria-controls={altOpen?popoverId:undefined} aria-busy={loading} onClick={()=>setAltOpen(o=>!o)} disabled={!body}>
+      <BookIcon bookmaker={selected?.bookmaker||book}/>
+      <span className="nfl-line-trigger-label">Lines</span>
+      {altCount>0 && <b aria-hidden="true">+{altCount}</b>}
       <ChevronDown size={14}/>
     </button>
-    <button type="button" className="nfl-line-refresh" aria-label="Refresh lines" onClick={()=>{onRefresh?.();onSelect(null);setReload(n=>n+1);}}><RefreshCw size={16}/></button>
+    <button type="button" className="nfl-line-refresh" aria-label="Refresh lines" title="Refresh lines" disabled={loading} onClick={()=>{onRefresh?.();onSelect(null);setReload(n=>n+1);}}><RefreshCw size={16}/></button>
     {/* Deliberately doesn't touch `book` state here -- book only seeds the
         initial default selection below; changing it in response to an
         explicit pick would re-trigger that same effect and can fight the
         pick it just made. The trigger icon already reads the bookmaker
         straight off `selected`, so nothing depends on `book` tracking it. */}
-    <NFLAltLinesPopover open={altOpen} onClose={()=>setAltOpen(false)} anchorRef={triggerRef} offers={allOffers} selected={selected} onSelect={onSelect}/>
+    <NFLAltLinesPopover open={altOpen} onClose={()=>setAltOpen(false)} anchorRef={triggerRef} id={popoverId} offers={allOffers} selected={selected} onSelect={onSelect}/>
     <div className="nfl-market-meta">
+    {loading&&<small role="status">Loading lines…</small>}
     {error&&<small role="alert">{error}</small>}
     {body&&!allOffers.length&&<small>No posted line for this stat. Enter a comparison line below.</small>}
     {selected&&<div className="nfl-quote-time"><NFLFreshness timestamp={selected.updatedAt} staleAfter={120000}/></div>}
