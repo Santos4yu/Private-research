@@ -215,6 +215,15 @@
 
 .nfl-app-shell .nfl-research-page { grid-template-columns:minmax(0,1fr);gap:8px;min-width:0; }
 .nfl-app-shell .nfl-research-page>* { min-width:0;max-width:100%;box-sizing:border-box; }
+/* Every rule in this file styles the player page as one compact app-style
+   column (small padding, tight buttons, a single-file stack of controls) --
+   deliberately, to match a phone-sized reference app -- but nothing capped
+   its own outer width, so on a wide desktop window it just stretched that
+   same compact styling edge to edge: 6 window-tabs sharing 1400px, Filters
+   and the game-count stepper pushed to opposite ends of the screen. Capping
+   it to a comfortable reading width above phone/tablet sizes keeps the
+   compact design compact instead of stretching it thin. */
+@media (min-width:820px) { .nfl-app-shell .nfl-research-page { max-width:760px;margin-inline:auto; } }
 .nfl-app-shell .nfl-tab-content,.nfl-app-shell .nfl-panel-stack { grid-template-columns:minmax(0,1fr);min-width:0; }
 .nfl-app-shell .nfl-panel-stack>* { min-width:0; }
 .nfl-app-shell .nfl-player-header { margin:0 0 4px; }
