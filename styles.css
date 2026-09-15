@@ -7040,16 +7040,16 @@ details.rate-filter summary b { margin-left: auto; color: var(--accent); font-si
    value, so this is confirmed set up correctly but not confirmed moving
    pixel-for-pixel in this sandbox; worth a live glance after deploying. */
 @property --beam-angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
-/* Prefixed with :root[data-theme] to match (and beat) this file's own
-   highest-specificity convention -- earlier attempts used plain
-   .search-beam/.search-box selectors, which this file's many
-   :root[data-theme] .search-box {...} blocks (specificity 0,0,3+,0)
-   outrank regardless of source order, since !important vs !important
-   ties resolve by specificity first, position second. That's the actual
-   bug behind "not round, no glow": border-radius/height kept losing to
-   an earlier, more specific rule. */
-:root[data-theme] .search-beam { position: relative; isolation: isolate; border-radius: 999px !important; }
-:root[data-theme] .search-beam::before {
+/* Round 2 of the same bug: the :root[data-theme] prefix (0,0,3,0) still
+   lost, this time to :root[data-theme] #app-shell #panel-research
+   .search-box -- TWO id selectors, specificity (0,2,2,0), confirmed live
+   on krazydata.site by walking document.styleSheets for every rule that
+   actually matches the real .search-box node and reading them in the
+   order the browser would resolve them. Matching that exact prefix
+   (both ids) this time, verified against the live rule list rather than
+   assumed from reading source. */
+:root[data-theme] #app-shell #panel-research .search-beam { position: relative; isolation: isolate; border-radius: 999px !important; }
+:root[data-theme] #app-shell #panel-research .search-beam::before {
   content: ""; position: absolute; inset: 0; z-index: 0;
   border-radius: inherit; padding: 1.5px;
   background: conic-gradient(from var(--beam-angle, 0deg),
@@ -7063,7 +7063,7 @@ details.rate-filter summary b { margin-left: auto; color: var(--accent); font-si
   animation: search-beam-spin 3.4s linear infinite;
   pointer-events: none;
 }
-:root[data-theme] .search-beam::after {
+:root[data-theme] #app-shell #panel-research .search-beam::after {
   /* Static ambient bloom (doesn't reference --beam-angle, so it isn't
      animated -- just a soft constant glow, not tied to the beam's path). */
   content: ""; position: absolute; inset: -6px; z-index: -1; border-radius: inherit;
@@ -7072,18 +7072,18 @@ details.rate-filter summary b { margin-left: auto; color: var(--accent); font-si
   pointer-events: none;
 }
 @keyframes search-beam-spin { to { --beam-angle: 360deg; } }
-@media (prefers-reduced-motion: reduce) { :root[data-theme] .search-beam::before { animation: none; } }
-:root[data-theme] .search-beam > .search-box {
+@media (prefers-reduced-motion: reduce) { :root[data-theme] #app-shell #panel-research .search-beam::before { animation: none; } }
+:root[data-theme] #app-shell #panel-research .search-beam > .search-box {
   position: relative !important; z-index: 1 !important; margin: 0 !important;
-  border: 0 !important; border-radius: 999px !important;
+  border: 0 !important; border-radius: 999px !important; height: 58px !important;
   background: color-mix(in srgb, var(--theme-panel, #0d0d0f) 96%, black) !important;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--theme-border, #2c2f36) 85%, transparent), inset 0 0 40px color-mix(in srgb, var(--theme-text, #fff) 2%, transparent) !important;
 }
-:root[data-theme] .search-beam > .search-box input { color: var(--theme-text, #edf1f5) !important; }
-:root[data-theme] .search-beam > .search-box input::placeholder { color: var(--theme-faint, #565656) !important; }
-:root[data-theme] .search-beam > .search-box .lab-search-submit,
-:root[data-theme] .search-beam > .search-box .search-icon {
+:root[data-theme] #app-shell #panel-research .search-beam > .search-box input { color: var(--theme-text, #edf1f5) !important; }
+:root[data-theme] #app-shell #panel-research .search-beam > .search-box input::placeholder { color: var(--theme-faint, #565656) !important; }
+:root[data-theme] #app-shell #panel-research .search-beam > .search-box .lab-search-submit,
+:root[data-theme] #app-shell #panel-research .search-beam > .search-box .search-icon {
   border: 0 !important; outline: 0 !important; box-shadow: none !important;
   color: var(--theme-dim, #8a8a8a) !important; background: transparent !important;
 }
-:root[data-theme] .search-beam > .search-box .lab-search-submit:hover { color: var(--theme-accent, #0082fe) !important; }
+:root[data-theme] #app-shell #panel-research .search-beam > .search-box .lab-search-submit:hover { color: var(--theme-accent, #0082fe) !important; }
