@@ -12,6 +12,8 @@ const FALLBACK_PLAYERS = [
 
 const matchupBand = (score) => score >= 75 ? 'strong' : score >= 65 ? 'favorable' : score >= 55 ? 'slight' : score >= 45 ? 'neutral' : score >= 35 ? 'caution' : 'unfavorable';
 
+const teamLogoUrl = (teamId) => teamId ? `https://www.mlbstatic.com/team-logos/${Number(teamId)}.svg` : '';
+
 // Pulls the same /api/board feed the Matchup tab itself reads (data.
 // matchup_research), so "top matchup" here is exactly what that tab
 // would rank first -- not a second, separately-tuned ranking.
@@ -32,8 +34,25 @@ function useTopMatchups() {
         const key = String(row.player_name || '').trim().toLowerCase();
         if (!key || seen.has(key)) continue;
         seen.add(key);
+        const stats = row.stats || {};
         const [first, ...rest] = String(row.player_name).trim().split(/\s+/);
-        top.push({ name: row.player_name, first, last: rest.join(' ') || first, id: Number(row.stats.player_id), position: row.stats.position || '', matchupScore: Math.round(Number(row.stats.matchup_score)) });
+        const opponentAbbr = stats.opponent_abbr || stats.opponent || stats.matchup?.opponent || '';
+        top.push({
+          name: row.player_name,
+          first,
+          last: rest.join(' ') || first,
+          id: Number(stats.player_id),
+          position: stats.position || '',
+          matchupScore: Math.round(Number(stats.matchup_score)),
+          teamId: stats.team_id || null,
+          opponentTeamId: stats.opponent_team_id || null,
+          opponentAbbr,
+          isHome: Boolean(stats.is_home),
+          commenceTime: row.commence_time || null,
+          statType: row.stat_type || '',
+          line: row.line ?? null,
+          side: stats.side === 'under' ? 'U' : 'O',
+        });
         if (top.length >= 2) break;
       }
       setPlayers(top);
@@ -43,10 +62,46 @@ function useTopMatchups() {
   return players;
 }
 
-function PlayerShortcut({ player, accentRank }) {
+function MatchupCard({ player, accentRank }) {
   const [imageFailed, setImageFailed] = useState(false);
-  const isMatchup = accentRank != null;
-  return <button type="button" className={isMatchup ? `lab-player lab-player--accent-${accentRank}` : `lab-player lab-player--${player.color}`}
+  const gameDate = player.commenceTime ? new Date(player.commenceTime) : null;
+  const dateStr = gameDate ? gameDate.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+  const matchupLine = player.opponentAbbr ? `${player.isHome ? 'vs' : '@'} ${player.opponentAbbr}` : 'MLB';
+  const propLine = player.statType ? `${player.statType}${player.line != null ? ` • ${player.side} ${player.line}` : ''}` : '';
+  return <button type="button" className={`lab-matchup-card lab-matchup-card--accent-${accentRank}`}
+    aria-label={`Research ${player.name}`}
+    onClick={() => window.dispatchEvent(new CustomEvent('vortex:research-player', { detail: player }))}>
+    <span className="lab-matchup-head">
+      <span className="lab-matchup-context"><b>{matchupLine}</b>{dateStr && <small>{dateStr}</small>}</span>
+      <span className="lab-matchup-more" aria-hidden="true">⋮</span>
+    </span>
+    <span className="lab-matchup-photo-wrap">
+      {!imageFailed && <img className="lab-matchup-photo" alt="" width="300" height="300"
+        src={`https://img.mlbstatic.com/mlb-photos/image/upload/w_480,q_auto,f_auto/v1/people/${player.id}/headshot/silo/current`}
+        onError={() => setImageFailed(true)} />}
+    </span>
+    <span className="lab-matchup-name">{player.first}<strong>{player.last}</strong></span>
+    {propLine && <span className="lab-matchup-prop">{propLine}</span>}
+    <span className="lab-matchup-meter">
+      <span className="lab-matchup-meter-label">MATCHUP SCORE</span>
+      <span className="lab-matchup-meter-track"><span className="lab-matchup-meter-fill" data-band={matchupBand(player.matchupScore)} style={{ width: `${player.matchupScore}%` }} /></span>
+      <span className="lab-matchup-meter-score">{player.matchupScore} <small>/ 100</small></span>
+    </span>
+    <span className="lab-matchup-foot">
+      <span className="lab-matchup-icons">
+        {player.teamId && <img className="lab-matchup-icon" src={teamLogoUrl(player.teamId)} alt="" loading="lazy" />}
+        {player.opponentTeamId && <img className="lab-matchup-icon" src={teamLogoUrl(player.opponentTeamId)} alt="" loading="lazy" />}
+        {!imageFailed && <img className="lab-matchup-icon lab-matchup-icon--head" alt=""
+          src={`https://img.mlbstatic.com/mlb-photos/image/upload/w_120,q_auto:best/v1/people/${player.id}/headshot/67/current`} />}
+      </span>
+      <span className="lab-matchup-open">Open research <ArrowUpRight size={14} aria-hidden="true" /></span>
+    </span>
+  </button>;
+}
+
+function PlayerShortcut({ player }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  return <button type="button" className={`lab-player lab-player--${player.color}`}
     aria-label={`Research ${player.name}`}
     onClick={() => window.dispatchEvent(new CustomEvent('vortex:research-player', { detail: player }))}>
     <span className="lab-player-grid" aria-hidden="true" />
@@ -55,9 +110,7 @@ function PlayerShortcut({ player, accentRank }) {
       src={`https://img.mlbstatic.com/mlb-photos/image/upload/w_480,q_auto,f_auto/v1/people/${player.id}/headshot/silo/current`}
       onError={() => setImageFailed(true)} />}
     <span className="lab-player-copy">
-      {isMatchup
-        ? <span className="lab-player-tag" data-band={matchupBand(player.matchupScore)}>TOP MATCHUP <b>{player.matchupScore}</b></span>
-        : <span className="lab-player-tag">PLAYER RESEARCH</span>}
+      <span className="lab-player-tag">PLAYER RESEARCH</span>
       <span className="lab-player-name">{player.first}<strong>{player.last}</strong></span>
       <span className="lab-player-open">Open research <ArrowUpRight size={16} aria-hidden="true" /></span>
     </span>
@@ -92,7 +145,9 @@ export function ResearchHome() {
   const players = showMatchups ? topMatchups : FALLBACK_PLAYERS;
   return <div className="lab-home">
     <div className="lab-section-heading"><div><span className="lab-eyebrow">THE RESEARCH ROOM</span><h2>{showMatchups ? "Today's top matchups." : 'Pick a player. Dig deeper.'}</h2></div><span className="lab-league">MLB</span></div>
-    <div className="lab-player-grid-layout">{players.map((player, i) => <PlayerShortcut key={player.id} player={player} accentRank={showMatchups ? i : null} />)}</div>
+    <div className="lab-player-grid-layout">{players.map((player, i) => showMatchups
+      ? <MatchupCard key={player.id} player={player} accentRank={i} />
+      : <PlayerShortcut key={player.id} player={player} />)}</div>
     <div className="lab-section-heading lab-section-heading--tools"><h2>Your toolkit</h2><span>From context to a card</span></div>
     <div className="lab-tools">
       <button type="button" className="lab-tool lab-tool--green" onClick={() => go('slate')}>
