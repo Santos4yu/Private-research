@@ -52,6 +52,19 @@
 }
 .lab-matchup-card--accent-0 { background: radial-gradient(ellipse at 100% 0%, color-mix(in srgb, var(--theme-accent, #0082fe) 32%, transparent), transparent 65%), #101319; }
 .lab-matchup-card--accent-1 { background: radial-gradient(ellipse at 100% 0%, color-mix(in srgb, var(--theme-accent, #0082fe) 20%, transparent), transparent 65%), #101319; }
+/* Loading placeholder while /api/board resolves -- keeps the same footprint
+   as a real card so nothing jumps, and deliberately shows no content
+   (not the Ohtani/Judge fallback) so that fallback never flashes in on
+   every refresh only to be replaced a moment later by real matchups. */
+.lab-matchup-card--skeleton { cursor: default; background: #12141b; }
+.lab-matchup-card--skeleton::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(100deg, transparent 30%, #ffffff0a 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: lab-matchup-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes lab-matchup-skeleton-shimmer { 0% { background-position: 150% 0; } 100% { background-position: -50% 0; } }
+@media (prefers-reduced-motion: reduce) { .lab-matchup-card--skeleton::after { animation: none; } }
 .lab-matchup-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; z-index: 1; }
 .lab-matchup-context { display: flex; flex-direction: column; gap: 2px; color: #aab2c4; font-size: 10px; letter-spacing: .02em; }
 .lab-matchup-context b { color: #e3e7ef; font-weight: 700; font-size: 11px; }

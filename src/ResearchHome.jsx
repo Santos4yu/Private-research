@@ -141,13 +141,20 @@ function TicketArt() {
 
 export function ResearchHome() {
   const topMatchups = useTopMatchups();
+  // Three states: still loading (null -- show skeletons, never the
+  // fallback players, so Ohtani/Judge don't flash in before the real
+  // matchups arrive on every refresh), loaded with real matchups, or
+  // loaded-but-empty (only then does the Ohtani/Judge fallback show).
+  const isLoading = topMatchups === null;
   const showMatchups = Boolean(topMatchups && topMatchups.length);
   const players = showMatchups ? topMatchups : FALLBACK_PLAYERS;
   return <div className="lab-home">
-    <div className="lab-section-heading"><div><span className="lab-eyebrow">THE RESEARCH ROOM</span><h2>{showMatchups ? "Today's top matchups." : 'Pick a player. Dig deeper.'}</h2></div><span className="lab-league">MLB</span></div>
-    <div className="lab-player-grid-layout">{players.map((player, i) => showMatchups
-      ? <MatchupCard key={player.id} player={player} accentRank={i} />
-      : <PlayerShortcut key={player.id} player={player} />)}</div>
+    <div className="lab-section-heading"><div><span className="lab-eyebrow">THE RESEARCH ROOM</span><h2>{isLoading ? 'Loading today’s matchups…' : showMatchups ? "Today's top matchups." : 'Pick a player. Dig deeper.'}</h2></div><span className="lab-league">MLB</span></div>
+    <div className="lab-player-grid-layout">{isLoading
+      ? [0, 1].map((i) => <span key={i} className="lab-matchup-card lab-matchup-card--skeleton" aria-hidden="true" />)
+      : players.map((player, i) => showMatchups
+        ? <MatchupCard key={player.id} player={player} accentRank={i} />
+        : <PlayerShortcut key={player.id} player={player} />)}</div>
     <div className="lab-section-heading lab-section-heading--tools"><h2>Your toolkit</h2><span>From context to a card</span></div>
     <div className="lab-tools">
       <button type="button" className="lab-tool lab-tool--green" onClick={() => go('slate')}>
