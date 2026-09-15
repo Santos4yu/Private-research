@@ -23,19 +23,27 @@ function SortHeader({label,columnKey,sort,onSort}){
  return <th><button type="button" className={active?'active':''} onClick={()=>onSort(columnKey)}>{label}{active&&(sort.dir==='desc'?<ArrowDown size={12}/>:<ArrowUp size={12}/>)}</button></th>;
 }
 
-// Three-tier heat coloring (green/yellow/red), matching the reference
-// app's board -- previously only good/bad were colored and the whole
-// middle range sat uncolored, which read as flat next to it.
+// Five graduated heat levels rather than three flat ones, so a 90% and a
+// 61% don't land on the identical green. `peak` is the modifier for the
+// extreme end of each direction (deepest green / deepest red).
+function heatClass(value,{good=60,mid=45,bad=40,top=75,bottom=25}={}){
+ if(value==null)return '';
+ if(value>=top)return 'good peak';
+ if(value>=good)return 'good';
+ if(value<=bottom)return 'bad peak';
+ if(value<bad)return 'bad';
+ if(value>=mid)return 'mid';
+ return 'mid low';
+}
+
 function WindowCell({w}){
  if(!w||w.hitRate==null)return <td className="nfl-board-cell muted">—</td>;
- const tone=w.hitRate>=60?'good':w.hitRate<=40?'bad':'mid';
- return <td className={`nfl-board-cell ${tone}`}><strong>{Math.round(w.hitRate)}%</strong><small>{w.hits}-{w.misses}{w.pushes?` · ${w.pushes}p`:''}</small></td>;
+ return <td className="nfl-board-cell"><div className={`nfl-heat ${heatClass(w.hitRate)}`}><strong>{Math.round(w.hitRate)}%</strong><small>{w.hits}-{w.misses}{w.pushes?` · ${w.pushes}p`:''}</small></div></td>;
 }
 
 function MatchupCell({row}){
  if(row.matchupQuality==null)return <td className="nfl-board-cell muted">—</td>;
- const tone=row.matchupQuality>=65?'good':row.matchupQuality<=35?'bad':'mid';
- return <td className={`nfl-board-cell ${tone}`}><strong>{row.matchupQuality}</strong><small>{row.matchupCoverage}% cov.</small></td>;
+ return <td className="nfl-board-cell"><div className={`nfl-heat ${heatClass(row.matchupQuality,{good:65,mid:50,bad:35,top:80,bottom:20})}`}><strong>{row.matchupQuality}</strong><small>{row.matchupCoverage}% cov.</small></div></td>;
 }
 
 function BoardTable({rows,players,onOpen,labels,sort,onSort}){
@@ -45,7 +53,7 @@ function BoardTable({rows,players,onOpen,labels,sort,onSort}){
   <tbody>{sorted.map(row=>{const player=researchPlayer(row,players);const diff=row.line?.value!=null?row.average-row.line.value:null;return <tr key={`${row.gameId}.${row.playerId}.${row.propType}`} className={player?'clickable':''} onClick={()=>player&&onOpen(player)}>
    <td className="nfl-board-cell-player"><img src={player?.headshot_url} width="32" height="32" loading="lazy" alt=""/><div><strong>{row.playerName}</strong><small>{row.line.direction==='OVER'?'More':'Less'} {row.line.value} {labels[row.propType]}</small><small className="nfl-board-cell-meta">{row.position} · {row.teamId} vs {row.opponentId}</small></div></td>
    <td className="nfl-board-cell"><strong>{Number(row.average.toFixed(1))}</strong></td>
-   <td className={`nfl-board-cell ${diff>0?'good':diff<0?'bad':''}`}><strong>{diff==null?'—':`${diff>0?'+':''}${diff.toFixed(1)}`}</strong></td>
+   <td className="nfl-board-cell">{diff==null?<span className="muted">—</span>:<div className={`nfl-heat ${diff>0?'good':diff<0?'bad':'mid'}`}><strong>{`${diff>0?'+':''}${diff.toFixed(1)}`}</strong></div>}</td>
    <MatchupCell row={row}/>
    {WINDOW_COLUMNS.map(([key])=><WindowCell w={row.windows?.[key]} key={key}/>)}
   </tr>;})}</tbody>

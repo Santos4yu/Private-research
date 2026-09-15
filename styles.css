@@ -5371,14 +5371,19 @@ body{background:#070a10!important}body::before,body::after,.grid-bg,.glow-orb{di
 
 @media(max-width:640px){.player-detail-sheet{width:calc(100vw - 20px)!important;max-height:94vh!important;border-radius:8px!important}.pd-hero{height:120px!important}.pd-hero-img{right:4px;width:145px!important;height:116px!important}.pd-hero-content{top:18px!important;left:16px!important;right:135px!important}.pd-player-name{font-size:19px!important}.pd-matchup{font-size:9px!important;line-height:1.4}.pd-tabs{padding:0 5px!important}.pd-tab{min-height:43px!important;font-size:8px!important}.pd-body{max-height:58vh;padding:17px 16px!important}.pd-rate-grid>div{padding:10px 9px}.pd-rate-grid strong{font-size:13px}.pd-challenge-grid{grid-template-columns:1fr 1fr!important}.pd-stat-line{grid-template-columns:repeat(2,1fr)}.board-analysis-summary{grid-template-columns:1fr}.board-analysis-summary>div{border-right:0;border-bottom:1px solid #202938}.board-analysis-case{grid-template-columns:1fr}.board-analysis-case .risk{border-left:0;border-top:1px solid #202938}}
 
-/* Private Research entry — intentionally quiet, monochrome, and minimal. */
-.boot-loading.private-loader{position:fixed;inset:0;z-index:10000;display:grid!important;place-items:center;overflow:hidden;background:#000!important;opacity:1;visibility:visible;transition:opacity .65s cubic-bezier(.4,0,.2,1),visibility .65s ease}
+/* Branded entry screen. This was previously a deliberately monochrome
+   wordmark on black; it read as unfinished rather than restrained, so the
+   mark, the two-tone lockup and the accent now carry the brand. */
+.boot-loading.private-loader{position:fixed;inset:0;z-index:10000;display:grid!important;place-items:center;overflow:hidden;background:radial-gradient(ellipse 90% 60% at 50% 38%,#0d1b2e 0%,#05080e 62%,#000 100%)!important;opacity:1;visibility:visible;transition:opacity .65s cubic-bezier(.4,0,.2,1),visibility .65s ease}
 .boot-loading.private-loader::before,.boot-loading.private-loader::after{display:none!important}
-.private-loader-content{width:min(260px,68vw);color:#f7f7f5;text-align:center;animation:private-loader-arrive .9s cubic-bezier(.22,1,.36,1) both}
-.private-loader-content h1{margin:0;font-family:"Space Grotesk",Arial,sans-serif;font-size:clamp(38px,6vw,58px);font-style:normal;font-weight:500;line-height:1;letter-spacing:-.055em}
-.private-loader-content p{margin:14px 0 0;color:#777;font-family:"Space Grotesk",Arial,sans-serif;font-size:10px;font-weight:500;letter-spacing:.22em;text-transform:uppercase}
-.private-loader-line{height:1px;margin-top:26px;overflow:hidden;background:#202020}
-.private-loader-line span{display:block;width:44%;height:100%;background:#f2f2f0;animation:private-loader-progress 1.45s cubic-bezier(.65,0,.35,1) infinite}
+.private-loader-content{width:min(300px,74vw);color:#f7f7f5;text-align:center;animation:private-loader-arrive .9s cubic-bezier(.22,1,.36,1) both}
+.private-loader-mark{display:block;width:64px;height:64px;margin:0 auto 20px;border-radius:17px;object-fit:contain;filter:drop-shadow(0 10px 26px rgba(0,130,254,.42))}
+.private-loader-content h1{margin:0;font-family:"Space Grotesk",Arial,sans-serif;font-size:clamp(40px,6.4vw,60px);font-style:normal;font-weight:700;line-height:1;letter-spacing:-.055em;background:linear-gradient(180deg,#ffffff 0%,#cfe4ff 58%,#7fb6ff 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.private-loader-content h1 span{background:linear-gradient(180deg,#5cb2ff 0%,#0f7ce0 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.private-loader-content h1 span::before{content:" "}
+.private-loader-content p{margin:15px 0 0;color:#6f8399;font-family:"Space Grotesk",Arial,sans-serif;font-size:9.5px;font-weight:600;letter-spacing:.24em;text-transform:uppercase}
+.private-loader-line{height:2px;margin-top:26px;overflow:hidden;border-radius:2px;background:#132033}
+.private-loader-line span{display:block;width:44%;height:100%;border-radius:2px;background:linear-gradient(90deg,transparent,#0082fe 35%,#7fc9ff 65%,transparent);animation:private-loader-progress 1.45s cubic-bezier(.65,0,.35,1) infinite}
 .boot-loading.private-loader.private-loader-leaving{opacity:0;visibility:hidden;pointer-events:none}
 @keyframes private-loader-arrive{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes private-loader-progress{0%{transform:translateX(-115%)}50%{transform:translateX(68%)}100%{transform:translateX(230%)}}
