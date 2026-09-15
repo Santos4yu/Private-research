@@ -1,15 +1,52 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ArrowRight, ArrowUpRight, Crosshair, ScanLine, ChartNoAxesCombined } from 'lucide-react';
 
 const go = (tab) => window.dispatchEvent(new CustomEvent('vortex:switch-tab', { detail: { tab } }));
-const players = [
+
+// Shown whenever the board has no graded matchup yet -- unchanged from
+// before, same two players, same fixed blue/silver look.
+const FALLBACK_PLAYERS = [
   { name: 'Shohei Ohtani', first: 'Shohei', last: 'Ohtani', id: 660271, position: 'TWP', color: 'blue' },
   { name: 'Aaron Judge', first: 'Aaron', last: 'Judge', id: 592450, position: 'OF', color: 'silver' },
 ];
 
-function PlayerShortcut({ player }) {
+const matchupBand = (score) => score >= 75 ? 'strong' : score >= 65 ? 'favorable' : score >= 55 ? 'slight' : score >= 45 ? 'neutral' : score >= 35 ? 'caution' : 'unfavorable';
+
+// Pulls the same /api/board feed the Matchup tab itself reads (data.
+// matchup_research), so "top matchup" here is exactly what that tab
+// would rank first -- not a second, separately-tuned ranking.
+function useTopMatchups() {
+  const [players, setPlayers] = useState(null);
+  useEffect(() => {
+    let active = true;
+    fetch('/api/board', { cache: 'no-store' }).then((res) => res.json()).then((data) => {
+      if (!active) return;
+      const rows = (data?.matchup_research || []).filter((row) =>
+        (row.sport || 'MLB') === 'MLB'
+        && Number.isFinite(Number(row.stats?.matchup_score))
+        && Number.isInteger(Number(row.stats?.player_id)));
+      rows.sort((a, b) => Number(b.stats.matchup_score) - Number(a.stats.matchup_score));
+      const seen = new Set();
+      const top = [];
+      for (const row of rows) {
+        const key = String(row.player_name || '').trim().toLowerCase();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        const [first, ...rest] = String(row.player_name).trim().split(/\s+/);
+        top.push({ name: row.player_name, first, last: rest.join(' ') || first, id: Number(row.stats.player_id), position: row.stats.position || '', matchupScore: Math.round(Number(row.stats.matchup_score)) });
+        if (top.length >= 2) break;
+      }
+      setPlayers(top);
+    }).catch(() => { if (active) setPlayers([]); });
+    return () => { active = false; };
+  }, []);
+  return players;
+}
+
+function PlayerShortcut({ player, accentRank }) {
   const [imageFailed, setImageFailed] = useState(false);
-  return <button type="button" className={`lab-player lab-player--${player.color}`}
+  const isMatchup = accentRank != null;
+  return <button type="button" className={isMatchup ? `lab-player lab-player--accent-${accentRank}` : `lab-player lab-player--${player.color}`}
     aria-label={`Research ${player.name}`}
     onClick={() => window.dispatchEvent(new CustomEvent('vortex:research-player', { detail: player }))}>
     <span className="lab-player-grid" aria-hidden="true" />
@@ -17,7 +54,10 @@ function PlayerShortcut({ player }) {
     {!imageFailed && <img className="lab-player-photo" alt="" width="300" height="300"
       src={`https://img.mlbstatic.com/mlb-photos/image/upload/w_480,q_auto,f_auto/v1/people/${player.id}/headshot/silo/current`}
       onError={() => setImageFailed(true)} />}
-    <span className="lab-player-copy"><span className="lab-player-tag">PLAYER RESEARCH</span>
+    <span className="lab-player-copy">
+      {isMatchup
+        ? <span className="lab-player-tag" data-band={matchupBand(player.matchupScore)}>TOP MATCHUP <b>{player.matchupScore}</b></span>
+        : <span className="lab-player-tag">PLAYER RESEARCH</span>}
       <span className="lab-player-name">{player.first}<strong>{player.last}</strong></span>
       <span className="lab-player-open">Open research <ArrowUpRight size={16} aria-hidden="true" /></span>
     </span>
@@ -47,9 +87,12 @@ function TicketArt() {
 }
 
 export function ResearchHome() {
+  const topMatchups = useTopMatchups();
+  const showMatchups = Boolean(topMatchups && topMatchups.length);
+  const players = showMatchups ? topMatchups : FALLBACK_PLAYERS;
   return <div className="lab-home">
-    <div className="lab-section-heading"><div><span className="lab-eyebrow">THE RESEARCH ROOM</span><h2>Pick a player. Dig deeper.</h2></div><span className="lab-league">MLB</span></div>
-    <div className="lab-player-grid-layout">{players.map((player) => <PlayerShortcut key={player.id} player={player} />)}</div>
+    <div className="lab-section-heading"><div><span className="lab-eyebrow">THE RESEARCH ROOM</span><h2>{showMatchups ? "Today's top matchups." : 'Pick a player. Dig deeper.'}</h2></div><span className="lab-league">MLB</span></div>
+    <div className="lab-player-grid-layout">{players.map((player, i) => <PlayerShortcut key={player.id} player={player} accentRank={showMatchups ? i : null} />)}</div>
     <div className="lab-section-heading lab-section-heading--tools"><h2>Your toolkit</h2><span>From context to a card</span></div>
     <div className="lab-tools">
       <button type="button" className="lab-tool lab-tool--green" onClick={() => go('slate')}>
