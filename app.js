@@ -4238,6 +4238,39 @@ function formatMatchupDetail(value) {
     .replace(/\b(\d+)\.00(?=\s+(?:innings?|outs?)\b)/gi, "$1");
 }
 
+const MATCHUP_GAUGE_CIRCUMFERENCE = 263.89;
+
+// Animates the gauge ring's stroke-dashoffset and counts the center number
+// up to the target score, mirroring the spring/count-up feel of the
+// referenced gauge component without pulling in framer-motion for one ring.
+function animateMatchupGauge(scoreCard, score) {
+  const fillEl = scoreCard.querySelector(".matchup-gauge-fill");
+  const valueEl = scoreCard.querySelector(".matchup-score-value");
+  if (!fillEl || !valueEl) return;
+  const clamped = Math.max(0, Math.min(100, score));
+  const arcLength = MATCHUP_GAUGE_CIRCUMFERENCE * (clamped / 100);
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduceMotion) {
+    fillEl.style.strokeDasharray = `${arcLength} ${MATCHUP_GAUGE_CIRCUMFERENCE}`;
+    valueEl.textContent = `${Math.round(clamped)}`;
+    return;
+  }
+  fillEl.style.strokeDasharray = `0 ${MATCHUP_GAUGE_CIRCUMFERENCE}`;
+  valueEl.textContent = "0";
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    fillEl.style.strokeDasharray = `${arcLength} ${MATCHUP_GAUGE_CIRCUMFERENCE}`;
+  }));
+  const duration = 1000;
+  const start = performance.now();
+  const tick = (now) => {
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    valueEl.textContent = `${Math.round(clamped * eased)}`;
+    if (t < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
 function fillMatchup(node, p) {
   const m = p.matchup || {};
   const scoreCard = node.querySelector(".matchup-score-card");
@@ -4248,9 +4281,8 @@ function fillMatchup(node, p) {
     const tone = score >= 85 ? "elite" : score >= 75 ? "strong" : score >= 65 ? "favorable" : score >= 55 ? "slight" : score >= 45 ? "neutral" : score >= 35 ? "caution" : "unfavorable";
     scoreCard.hidden = false;
     scoreCard.dataset.tone = tone;
-    scoreCard.querySelector(".matchup-score-value").textContent = `${Math.round(score)}/100`;
     scoreCard.querySelector(".matchup-score-label").textContent = `${label} · ${Math.round((p.matchupCoverage || 0) * 100)}% data coverage`;
-    scoreCard.querySelector(".matchup-score-fill").style.width = `${Math.max(0, Math.min(100, score))}%`;
+    animateMatchupGauge(scoreCard, score);
     const factors = (p.matchupFactors || []).map(f => {
       const impact = Number(f.impact || 0);
       const signed = `${impact > 0 ? "+" : ""}${impact}`;

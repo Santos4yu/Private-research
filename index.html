@@ -824,11 +824,19 @@
     <section class="report-block" data-reveal>
       <h3 class="block-title">🆚 Matchup</h3>
       <div class="matchup-score-card" hidden>
-        <div class="matchup-score-head">
-          <div><span>Matchup Score</span><small class="matchup-score-label"></small></div>
-          <strong class="matchup-score-value">—</strong>
+        <div class="matchup-gauge-row">
+          <div class="matchup-gauge-wrap">
+            <svg class="matchup-gauge" viewBox="0 0 100 100" width="112" height="112" aria-hidden="true">
+              <circle class="matchup-gauge-track" cx="50" cy="50" r="42" />
+              <circle class="matchup-gauge-fill" cx="50" cy="50" r="42" />
+            </svg>
+            <div class="matchup-gauge-center"><strong class="matchup-score-value">—</strong><span>Matchup</span></div>
+          </div>
+          <div class="matchup-gauge-copy">
+            <span class="matchup-gauge-title">Matchup Score</span>
+            <small class="matchup-score-label"></small>
+          </div>
         </div>
-        <div class="matchup-score-track"><i class="matchup-score-fill"></i></div>
         <div class="matchup-score-scale"><span>Unfavorable</span><span>Caution</span><span>Neutral</span><span>Slight</span><span>Favorable</span><span>Strong</span><span>Elite</span></div>
         <p class="matchup-score-note">Matchup quality—not hit probability. This measures how much tonight’s opponent and environment support the prop.</p>
         <div class="matchup-score-factors"></div>

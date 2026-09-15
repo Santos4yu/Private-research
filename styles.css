@@ -1880,23 +1880,45 @@ body.dropdown-scroll-locked{overflow:hidden}.profile-stats-menu,.pp-lines-menu{o
 }
 .split-callout:first-of-type, .matchup-opp { margin-top: 0; }
 .matchup-score-card { margin: 0 0 14px; padding: 14px; border: 1px solid rgba(255,255,255,.09); border-radius: 14px; background: rgba(8,14,32,.58); }
-.matchup-score-head { display:flex; align-items:center; justify-content:space-between; gap:14px; }
-.matchup-score-head span { display:block; color:var(--text); font-size:13px; font-weight:800; }
-.matchup-score-head small { display:block; margin-top:3px; color:var(--text-dim); font-size:10px; }
-.matchup-score-value { color:#f5df4d; font-size:22px; letter-spacing:-.5px; }
+
+/* Circular gauge (replaces the old horizontal bar): an SVG ring animates
+   its stroke-dashoffset in from full circumference to the score, with the
+   number counting up in the center -- driven by fillMatchup() in app.js. */
+.matchup-gauge-row { display: flex; align-items: center; gap: 16px; }
+.matchup-gauge-wrap { position: relative; flex: 0 0 auto; width: 112px; height: 112px; }
+.matchup-gauge { display: block; transform: rotate(-90deg); transform-box: fill-box; transform-origin: center; }
+.matchup-gauge-track, .matchup-gauge-fill {
+  fill: none; stroke-width: 9; stroke-linecap: round;
+}
+.matchup-gauge-track { stroke: rgba(255,255,255,.08); }
+.matchup-gauge-fill {
+  stroke: #f5df4d;
+  stroke-dasharray: 0 263.89;
+  transition: stroke-dasharray 1s cubic-bezier(.2,.8,.2,1), stroke 300ms ease;
+  filter: drop-shadow(0 0 6px rgba(245,223,77,.45));
+}
+.matchup-score-card[data-tone="favorable"] .matchup-gauge-fill { stroke: #22ddb2; filter: drop-shadow(0 0 6px rgba(34,221,178,.45)); }
+.matchup-score-card[data-tone="strong"] .matchup-gauge-fill,
+.matchup-score-card[data-tone="elite"] .matchup-gauge-fill { stroke: #19ef9f; filter: drop-shadow(0 0 7px rgba(25,239,159,.5)); }
+.matchup-score-card[data-tone="caution"] .matchup-gauge-fill { stroke: #ff9b43; filter: drop-shadow(0 0 6px rgba(255,155,67,.45)); }
+.matchup-score-card[data-tone="unfavorable"] .matchup-gauge-fill { stroke: #ff3f9c; filter: drop-shadow(0 0 6px rgba(255,63,156,.45)); }
+.matchup-gauge-center {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+}
+.matchup-gauge-center span { color: var(--text-dim); font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.matchup-score-value { color:#f5df4d; font-size:26px; font-weight: 800; letter-spacing:-.5px; }
 .matchup-score-card[data-tone="favorable"] .matchup-score-value { color:#22ddb2; }
 .matchup-score-card[data-tone="strong"] .matchup-score-value,
 .matchup-score-card[data-tone="elite"] .matchup-score-value { color:#19ef9f; }
 .matchup-score-card[data-tone="slight"] .matchup-score-value { color:#f5df4d; }
 .matchup-score-card[data-tone="caution"] .matchup-score-value { color:#ff9b43; }
 .matchup-score-card[data-tone="unfavorable"] .matchup-score-value { color:#ff3f9c; }
-.matchup-score-track { height:6px; margin:11px 0 9px; overflow:hidden; border-radius:99px; background:rgba(255,255,255,.08); }
-.matchup-score-fill { display:block; width:0; height:100%; border-radius:inherit; background:#f5df4d; transition:width .45s ease; }
-.matchup-score-card[data-tone="favorable"] .matchup-score-fill { background:#22ddb2; }
-.matchup-score-card[data-tone="strong"] .matchup-score-fill,
-.matchup-score-card[data-tone="elite"] .matchup-score-fill { background:#19ef9f; }
-.matchup-score-card[data-tone="caution"] .matchup-score-fill { background:#ff9b43; }
-.matchup-score-card[data-tone="unfavorable"] .matchup-score-fill { background:#ff3f9c; }
+.matchup-gauge-copy { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.matchup-gauge-title { color: var(--text); font-size: 13px; font-weight: 800; }
+.matchup-gauge-copy .matchup-score-label { display: block; color: var(--text-dim); font-size: 10px; }
+@media (prefers-reduced-motion: reduce) {
+  .matchup-gauge-fill { transition: none !important; }
+}
 .matchup-score-scale { display:grid; grid-template-columns:35fr 10fr 10fr 10fr 10fr 10fr 15fr; margin:-4px 0 10px; color:var(--text-dim); font-size:8px; text-transform:uppercase; letter-spacing:.04em; }
 .matchup-score-scale span:nth-child(n+2) { text-align:center; }
 .matchup-score-scale span:last-child { text-align:right; }
@@ -6126,10 +6148,11 @@ body::before{background:linear-gradient(115deg,transparent 12%,color-mix(in srgb
 :root[data-theme] .player-profile{
   border-color:var(--theme-border)!important;background:var(--theme-panel)!important;color:var(--theme-text)!important;
 }
-:root[data-theme] .matchup-score-track{background:color-mix(in srgb,var(--theme-border) 72%,var(--theme-bg))!important}
-:root[data-theme] .matchup-score-fill{background:var(--theme-accent)!important}
+:root[data-theme] .matchup-gauge-track{stroke:color-mix(in srgb,var(--theme-border) 72%,var(--theme-bg))!important}
+:root[data-theme] .matchup-gauge-fill{stroke:var(--theme-accent)!important;filter:drop-shadow(0 0 7px color-mix(in srgb,var(--theme-accent) 55%,transparent))!important}
 :root[data-theme] .matchup-score-value,
 :root[data-theme] .matchup-score-card[data-tone] .matchup-score-value,
+:root[data-theme] .matchup-gauge-title,
 :root[data-theme] .matchup-score-factors b,
 :root[data-theme] .verdict-metric strong{color:var(--theme-text)!important}
 :root[data-theme] .matchup-score-note,
