@@ -1886,22 +1886,39 @@ body.dropdown-scroll-locked{overflow:hidden}.profile-stats-menu,.pp-lines-menu{o
    number counting up in the center -- driven by fillMatchup() in app.js. */
 .matchup-gauge-row { display: flex; align-items: center; gap: 16px; }
 .matchup-gauge-wrap { position: relative; flex: 0 0 auto; width: 112px; height: 112px; }
-.matchup-gauge { display: block; transform: rotate(-90deg); transform-box: fill-box; transform-origin: center; }
+.matchup-gauge { display: block; }
+/* Each ring gets its OWN rotate (not the whole <svg>) so the tick marks --
+   authored directly in math-angle space, -90deg = top -- stay put while
+   only the circle's dasharray start point rotates from 3 o'clock to 12. */
 .matchup-gauge-track, .matchup-gauge-fill {
   fill: none; stroke-width: 9; stroke-linecap: round;
+  transform: rotate(-90deg); transform-box: fill-box; transform-origin: center;
 }
 .matchup-gauge-track { stroke: rgba(255,255,255,.08); }
+.matchup-gauge-ticks line { stroke: rgba(5,8,16,.55); stroke-width: 1.4; }
 .matchup-gauge-fill {
-  stroke: #f5df4d;
+  stroke: url(#matchup-gauge-gradient);
   stroke-dasharray: 0 263.89;
-  transition: stroke-dasharray 1s cubic-bezier(.2,.8,.2,1), stroke 300ms ease;
-  filter: drop-shadow(0 0 6px rgba(245,223,77,.45));
+  transition: stroke-dasharray 1s cubic-bezier(.2,.8,.2,1);
+  filter:
+    drop-shadow(0 0 2px rgba(245,223,77,.5))
+    drop-shadow(0 0 6px rgba(245,223,77,.35))
+    drop-shadow(0 0 12px rgba(245,223,77,.22));
 }
-.matchup-score-card[data-tone="favorable"] .matchup-gauge-fill { stroke: #22ddb2; filter: drop-shadow(0 0 6px rgba(34,221,178,.45)); }
+.matchup-gauge-grad-start, .matchup-gauge-grad-end { stop-color: #f5df4d; }
+.matchup-score-card[data-tone="favorable"] .matchup-gauge-grad-start,
+.matchup-score-card[data-tone="favorable"] .matchup-gauge-grad-end { stop-color: #22ddb2; }
+.matchup-score-card[data-tone="strong"] .matchup-gauge-grad-start, .matchup-score-card[data-tone="strong"] .matchup-gauge-grad-end,
+.matchup-score-card[data-tone="elite"] .matchup-gauge-grad-start, .matchup-score-card[data-tone="elite"] .matchup-gauge-grad-end { stop-color: #19ef9f; }
+.matchup-score-card[data-tone="caution"] .matchup-gauge-grad-start,
+.matchup-score-card[data-tone="caution"] .matchup-gauge-grad-end { stop-color: #ff9b43; }
+.matchup-score-card[data-tone="unfavorable"] .matchup-gauge-grad-start,
+.matchup-score-card[data-tone="unfavorable"] .matchup-gauge-grad-end { stop-color: #ff3f9c; }
+.matchup-score-card[data-tone="favorable"] .matchup-gauge-fill { filter: drop-shadow(0 0 2px rgba(34,221,178,.5)) drop-shadow(0 0 6px rgba(34,221,178,.35)) drop-shadow(0 0 12px rgba(34,221,178,.22)); }
 .matchup-score-card[data-tone="strong"] .matchup-gauge-fill,
-.matchup-score-card[data-tone="elite"] .matchup-gauge-fill { stroke: #19ef9f; filter: drop-shadow(0 0 7px rgba(25,239,159,.5)); }
-.matchup-score-card[data-tone="caution"] .matchup-gauge-fill { stroke: #ff9b43; filter: drop-shadow(0 0 6px rgba(255,155,67,.45)); }
-.matchup-score-card[data-tone="unfavorable"] .matchup-gauge-fill { stroke: #ff3f9c; filter: drop-shadow(0 0 6px rgba(255,63,156,.45)); }
+.matchup-score-card[data-tone="elite"] .matchup-gauge-fill { filter: drop-shadow(0 0 2px rgba(25,239,159,.55)) drop-shadow(0 0 6px rgba(25,239,159,.4)) drop-shadow(0 0 12px rgba(25,239,159,.25)); }
+.matchup-score-card[data-tone="caution"] .matchup-gauge-fill { filter: drop-shadow(0 0 2px rgba(255,155,67,.5)) drop-shadow(0 0 6px rgba(255,155,67,.35)) drop-shadow(0 0 12px rgba(255,155,67,.22)); }
+.matchup-score-card[data-tone="unfavorable"] .matchup-gauge-fill { filter: drop-shadow(0 0 2px rgba(255,63,156,.5)) drop-shadow(0 0 6px rgba(255,63,156,.35)) drop-shadow(0 0 12px rgba(255,63,156,.22)); }
 .matchup-gauge-center {
   position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
 }
@@ -6149,7 +6166,9 @@ body::before{background:linear-gradient(115deg,transparent 12%,color-mix(in srgb
   border-color:var(--theme-border)!important;background:var(--theme-panel)!important;color:var(--theme-text)!important;
 }
 :root[data-theme] .matchup-gauge-track{stroke:color-mix(in srgb,var(--theme-border) 72%,var(--theme-bg))!important}
-:root[data-theme] .matchup-gauge-fill{stroke:var(--theme-accent)!important;filter:drop-shadow(0 0 7px color-mix(in srgb,var(--theme-accent) 55%,transparent))!important}
+:root[data-theme] .matchup-gauge-fill{filter:drop-shadow(0 0 2px color-mix(in srgb,var(--theme-accent) 60%,transparent)) drop-shadow(0 0 6px color-mix(in srgb,var(--theme-accent) 40%,transparent)) drop-shadow(0 0 12px color-mix(in srgb,var(--theme-accent) 25%,transparent))!important}
+:root[data-theme] .matchup-gauge-grad-start{stop-color:var(--theme-accent-soft,var(--theme-accent))!important}
+:root[data-theme] .matchup-gauge-grad-end{stop-color:var(--theme-accent)!important}
 :root[data-theme] .matchup-score-value,
 :root[data-theme] .matchup-score-card[data-tone] .matchup-score-value,
 :root[data-theme] .matchup-gauge-title,

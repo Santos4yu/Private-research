@@ -827,8 +827,24 @@
         <div class="matchup-gauge-row">
           <div class="matchup-gauge-wrap">
             <svg class="matchup-gauge" viewBox="0 0 100 100" width="112" height="112" aria-hidden="true">
+              <defs>
+                <linearGradient id="matchup-gauge-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop class="matchup-gauge-grad-start" offset="0%" stop-opacity="0.3" />
+                  <stop class="matchup-gauge-grad-end" offset="100%" stop-opacity="1" />
+                </linearGradient>
+              </defs>
               <circle class="matchup-gauge-track" cx="50" cy="50" r="42" />
               <circle class="matchup-gauge-fill" cx="50" cy="50" r="42" />
+              <g class="matchup-gauge-ticks">
+                <line x1="50" y1="18.5" x2="50" y2="12.5" />
+                <line x1="72.27" y1="27.73" x2="76.52" y2="23.48" />
+                <line x1="81.5" y1="50" x2="87.5" y2="50" />
+                <line x1="72.27" y1="72.27" x2="76.52" y2="76.52" />
+                <line x1="50" y1="81.5" x2="50" y2="87.5" />
+                <line x1="27.73" y1="72.27" x2="23.48" y2="76.52" />
+                <line x1="18.5" y1="50" x2="12.5" y2="50" />
+                <line x1="27.73" y1="27.73" x2="23.48" y2="23.48" />
+              </g>
             </svg>
             <div class="matchup-gauge-center"><strong class="matchup-score-value">—</strong><span>Matchup</span></div>
           </div>
