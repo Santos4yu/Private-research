@@ -30,6 +30,7 @@
 .vortex-sidebar-body { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 22px; }
 
 .vortex-sidebar-top { display: flex; align-items: center; gap: 10px; min-height: 28px; padding: 0 2px; }
+.vortex-sidebar-top.collapsed { justify-content: center; padding: 0; }
 .vortex-sidebar-mark { flex: 0 0 auto; border-radius: 8px; object-fit: contain; }
 .vortex-sidebar-wordmark { flex: 0 0 auto; overflow: hidden; white-space: nowrap; font: 700 15px/1 "Space Grotesk", Arial, sans-serif; letter-spacing: -.03em; color: var(--theme-text, #edf4ff); }
 .vortex-sidebar-wordmark b { font-weight: 700; color: var(--theme-accent, #67a8ff); }
@@ -55,19 +56,27 @@
 .vortex-sidebar-link.active { color: var(--theme-on-accent, #06101f); background: var(--theme-accent, #67a8ff); box-shadow: 0 3px 12px color-mix(in srgb, var(--theme-accent, #67a8ff) 30%, transparent); }
 .vortex-sidebar-link-icon { display: grid; flex: 0 0 auto; place-items: center; }
 .vortex-sidebar-link-label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
-.vortex-sidebar-badge {
+
+/* The icon's own positioning context, so the notification dot below can
+   pin to its corner regardless of whether the rail is collapsed or the
+   label has expanded next to it -- the icon's own position never moves. */
+.vortex-sidebar-icon-wrap { position: relative; display: grid; place-items: center; }
+.vortex-sidebar-notif {
+  position: absolute;
+  top: -6px;
+  right: -7px;
   display: grid;
-  flex: 0 0 auto;
-  min-width: 17px;
-  height: 17px;
+  min-width: 15px;
+  height: 15px;
   place-items: center;
-  padding: 0 5px;
+  padding: 0 3px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--theme-on-accent, #06101f) 85%, transparent);
-  color: var(--theme-accent, #67a8ff);
+  border: 2px solid var(--theme-panel, #0d192b);
+  background: var(--theme-accent, #67a8ff);
+  color: var(--theme-on-accent, #06101f);
   font: 800 9px/1 var(--font-mono, monospace);
 }
-.vortex-sidebar-link.active .vortex-sidebar-badge { background: color-mix(in srgb, var(--theme-on-accent, #06101f) 18%, transparent); color: var(--theme-on-accent, #06101f); }
+.vortex-sidebar-link.active .vortex-sidebar-notif { border-color: var(--theme-accent, #67a8ff); background: var(--theme-on-accent, #06101f); color: var(--theme-accent, #67a8ff); }
 
 /* Mobile: the bottom dock (MobileNavigation) already covers this same
    navigation, so the rail and its own toggle both stay off below the
