@@ -89,25 +89,29 @@
 .nfl-app-shell .nfl-research-tabs button { min-width:0;min-height:38px;padding:5px 4px;gap:3px;border-radius:9px;font-size:10.5px; }.nfl-app-shell .nfl-research-tabs svg { width:14px;height:14px; }
 .nfl-app-shell .nfl-tab-content { margin-top:0; }
 .nfl-app-shell .nfl-trends { gap:8px;padding:14px;border:1px solid #303c48;border-radius:18px;background:#151d26; }
-/* One bordered strip with internal dividers -- matching the reference
-   app's L5/L10/L15/Season/H2H row -- instead of five separate bordered
-   cards that read as a disconnected grid of boxes. */
-.nfl-app-shell .nfl-window-strip { display:flex!important;grid-template-columns:none!important;gap:0!important;margin:2px 0 0;border:1px solid #303c48;border-radius:12px;overflow:hidden;background:#151d26; }
-.nfl-app-shell .nfl-window-chip { flex:1;min-width:0;padding:8px 7px;border:0!important;border-right:1px solid #303c48;border-radius:0!important;background:none!important;gap:2px; }
-.nfl-app-shell .nfl-window-chip:last-child { border-right:0; }
-.nfl-app-shell .nfl-window-chip.good,.nfl-app-shell .nfl-window-chip.bad { background:none!important; }
-.nfl-app-shell .nfl-window-chip strong { font-size:15px; }
-.nfl-app-shell .nfl-window-chip span { font-size:9px; }
-.nfl-app-shell .nfl-window-chip small { font-size:9.5px; }
-/* Sits directly under the strip above with no border of its own, reading
-   as the second half of one control instead of a separate component. */
-.nfl-app-shell .nfl-window-tabs { margin-top:6px; }
-.nfl-trends .nfl-line-editor { padding:0;border:0;background:none;border-radius:0;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-start; }
+.nfl-app-shell .nfl-window-tabs { margin-top:6px;border:1px solid #303c48;border-radius:12px;background:#171d26;padding:4px; }
+/* The line/book/direction controls read as one deliberate control bar
+   rather than loose buttons floating on the panel background. */
+.nfl-trends .nfl-line-editor { padding:10px;border:1px solid #303c48;border-radius:14px;background:#171d26;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-start; }
 .nfl-trends .nfl-line-editor .nfl-stepper { flex:0 1 auto; }.nfl-trends .nfl-line-editor .nfl-stepper input { flex:0 1 auto;width:56px;max-width:56px;min-width:44px;font-size:15px;font-weight:700; }
 .nfl-trends .nfl-line-editor .nfl-side-switch { gap:3px;flex:0 0 auto; }.nfl-trends .nfl-side-switch button { padding:5px 9px;font-size:11.5px;min-height:34px; }
 .nfl-trends .nfl-line-editor .nfl-reset { font-size:11px;min-height:24px;flex-basis:100%;padding:0;order:30; }
-.nfl-trends .nfl-window-tabs { gap:3px; }.nfl-trends .nfl-window-tabs button { min-width:0;min-height:34px;flex:1 0 0;padding:5px 2px;font-size:11px; }
-.nfl-trends .nfl-game-count { gap:6px; }.nfl-trends .nfl-game-count .nfl-stepper button { min-height:34px;padding:5px 8px; }.nfl-trends .nfl-game-count .nfl-stepper input { width:36px;min-height:34px;padding:4px; }
+/* Each tab now carries its own hit rate (colored by tone) instead of a
+   separate strip of chips repeating the same five windows above a second,
+   plain L5/L10/L15/L20/Max/H2H selector -- one row does both jobs. */
+.nfl-trends .nfl-window-tabs { gap:3px; }
+.nfl-trends .nfl-window-tabs button { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:0;min-height:44px;flex:1 0 0;padding:6px 2px; }
+.nfl-trends .nfl-window-tabs button span { font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#8a97a6; }
+.nfl-trends .nfl-window-tabs button strong { font-size:13px;font-weight:800;color:#e7edf5; }
+.nfl-trends .nfl-window-tabs button.good strong { color:var(--nfl-green,#68d5ac); }
+.nfl-trends .nfl-window-tabs button.bad strong { color:var(--nfl-red,#ff8b96); }
+.nfl-trends .nfl-window-tabs button.neutral strong { color:#f3c877; }
+.nfl-trends .nfl-window-tabs button[aria-pressed=true] span,.nfl-trends .nfl-window-tabs button[aria-pressed=true] strong { color:var(--nfl-on-accent,#fff); }
+.nfl-trends .nfl-window-tabs button:disabled { opacity:.4; }
+/* Same card treatment as the control bar and summary above/below it, so
+   it doesn't read as a stray row floating between two defined blocks. */
+.nfl-trends .nfl-game-count { gap:6px;padding:8px 10px;border:1px solid #303c48;border-radius:14px;background:#171d26; }
+.nfl-trends .nfl-game-count .nfl-stepper button { min-height:34px;padding:5px 8px; }.nfl-trends .nfl-game-count .nfl-stepper input { width:36px;min-height:34px;padding:4px; }
 .nfl-trends .nfl-filter-toggle { min-height:34px;padding:5px 9px;font-size:11.5px;gap:5px; }
 /* One radius token across every button in this merged panel (stepper,
    side-switch, window tabs, filter toggle) -- the 8-12px mix here before
@@ -116,9 +120,22 @@
 .nfl-trends .nfl-line-editor .nfl-side-switch button,.nfl-trends .nfl-window-tabs button,.nfl-trends .nfl-filter-toggle,.nfl-trends .nfl-line-trigger,.nfl-trends .nfl-line-refresh { border-radius:10px; }
 .nfl-trends .nfl-stepper button:first-child { border-radius:10px 0 0 10px; }
 .nfl-trends .nfl-stepper button:last-child { border-radius:0 10px 10px 0; }
-.nfl-trends .nfl-trend-summary { display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:0!important;border-top:1px solid #303b47;border-bottom:1px solid #303b47;padding:12px 0; }
-.nfl-trends .nfl-trend-summary .nfl-stat { padding:0 10px;min-height:0!important;border:0;border-right:1px solid #303b47;border-radius:0;background:none;gap:5px;display:flex;flex-direction:column;box-shadow:none; }
-.nfl-trends .nfl-trend-summary .nfl-stat:last-child { border-right:0; }.nfl-trends .nfl-trend-summary .nfl-stat span { font-size:10px;letter-spacing:.04em; }.nfl-trends .nfl-trend-summary .nfl-stat strong { font-size:22px;line-height:1.3; }
+/* Hit rate leads; record/average support it. Tone tints the whole block
+   so the headline number reads at a glance instead of three identical
+   columns separated by hairlines. */
+.nfl-trends .nfl-trend-summary { display:flex;align-items:center;gap:14px;padding:14px;border:1px solid #303c48;border-radius:14px;background:#171d26; }
+.nfl-trends .nfl-trend-summary.good { border-color:color-mix(in srgb,var(--nfl-green,#68d5ac) 42%,#303c48);background:color-mix(in srgb,var(--nfl-green,#68d5ac) 9%,#171d26); }
+.nfl-trends .nfl-trend-summary.bad { border-color:color-mix(in srgb,var(--nfl-red,#ff8b96) 42%,#303c48);background:color-mix(in srgb,var(--nfl-red,#ff8b96) 9%,#171d26); }
+.nfl-trends .nfl-trend-headline { display:flex;flex-direction:column;gap:2px;flex:0 0 auto;min-width:96px;padding-right:14px;border-right:1px solid #303c48; }
+.nfl-trends .nfl-trend-headline span { font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8a97a6; }
+.nfl-trends .nfl-trend-headline strong { font-size:32px;font-weight:800;line-height:1.05;letter-spacing:-.03em;color:#e7edf5; }
+.nfl-trends .nfl-trend-summary.good .nfl-trend-headline strong { color:var(--nfl-green,#68d5ac); }
+.nfl-trends .nfl-trend-summary.bad .nfl-trend-headline strong { color:var(--nfl-red,#ff8b96); }
+.nfl-trends .nfl-trend-summary.neutral .nfl-trend-headline strong { color:#f3c877; }
+.nfl-trends .nfl-trend-support { display:flex;gap:26px;flex:1;min-width:0; }
+.nfl-trends .nfl-trend-support>div { display:flex;flex-direction:column;gap:3px;min-width:0; }
+.nfl-trends .nfl-trend-support span { font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8a97a6; }
+.nfl-trends .nfl-trend-support strong { font-size:16px;font-weight:700;color:#e7edf5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
 .nfl-trends>.nfl-chart-card { border:0;border-radius:0;padding:0;background:none;box-shadow:none; }.nfl-trends .nfl-chart-head { margin:4px 0 6px;gap:4px; }.nfl-trends .nfl-chart-head h3 { font-size:14px; }.nfl-trends .nfl-chart-head small { font-size:11px; }
 .nfl-trends .nfl-chart-caption { font-size:11px; }.nfl-trends .nfl-game-picker { border-top:1px solid #303c48;padding-top:4px; }.nfl-trends .nfl-game-picker summary { font-size:12px;min-height:44px; }
 .nfl-matchup-hero { padding:20px;background:#17212c;border:1px solid #3a4857;border-radius:18px; }
@@ -259,8 +276,6 @@
 .nfl-trends .nfl-line-editor .nfl-stepper input { width:56px;max-width:none;min-width:40px;min-height:34px;padding:6px 2px;font-size:14px; }
 .nfl-trends .nfl-game-count .nfl-stepper button { width:34px;min-width:34px;min-height:34px;padding:0;display:grid;place-items:center; }
 
-.nfl-trends .nfl-trend-summary .nfl-stat { height:64px;justify-content:center; }
-.nfl-trends .nfl-trend-summary .nfl-stat strong { margin:0; }
 .nfl-research-sheet input[type=range] { padding:0;min-height:32px; }
 
 .nfl-matchup-opponent { display:flex;align-items:center;gap:8px;color:#b6c7d5;font-size:12px;margin-bottom:12px; }.nfl-matchup-opponent img { object-fit:contain; }
