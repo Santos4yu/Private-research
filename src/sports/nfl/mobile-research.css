@@ -72,7 +72,15 @@
 .nfl-alt-line-book em.over { color:#4fd1a0; }
 .nfl-alt-line-book em.under { color:#ff8b96; }
 .nfl-app-shell .nfl-player-header { min-height:0;padding:14px 16px;margin:10px 0 12px;gap:14px;border-radius:18px; }
-.nfl-app-shell .nfl-headshot-wrap { height:80px;width:76px;min-width:76px; }.nfl-app-shell .nfl-player-header .nfl-player-photo { height:80px;width:76px;object-fit:contain; }
+/* Round avatar, not a rectangle -- object-fit:contain against the header's
+   own card background was showing every headshot's own square background
+   (most nflverse headshots are plain studio portraits, not transparent
+   cutouts) as a hard-edged box next to the player's name. Cropping to a
+   circle with object-fit:cover keeps the face framed and reads as a photo,
+   not a box, regardless of what's behind the subject in the source image. */
+.nfl-app-shell .nfl-headshot-wrap { height:92px;width:92px;min-width:92px;border-radius:50%;overflow:hidden;background:#1c232d; }
+.nfl-app-shell .nfl-player-header .nfl-player-photo { height:92px;width:92px;object-fit:cover;border-radius:50%; }
+.nfl-app-shell .nfl-player-header .nfl-player-fallback { height:92px;width:92px;border-radius:50%; }
 .nfl-app-shell .nfl-player-identity h2 { font-size:24px;line-height:1.15;margin:0 0 6px; }.nfl-app-shell .nfl-player-identity p { font-size:12px;margin:0; }
 .nfl-app-shell .nfl-player-chips { gap:5px;margin-top:7px; }.nfl-app-shell .nfl-player-chips span { padding:4px 6px;font-size:10px; }
 .nfl-app-shell .nfl-prop-selector { display:block;margin:0 0 10px;padding:0;border:0;background:none; }.nfl-app-shell .nfl-prop-selector>div { gap:5px; }
@@ -199,7 +207,7 @@
 
 .nfl-research-actions { display:flex;align-items:center;justify-content:space-between;margin:0 0 4px; }
 .nfl-research-actions .nfl-refresh { width:44px;height:44px;padding:0;display:grid;place-items:center;background:transparent;border:0; }
-.nfl-app-shell .nfl-player-header { grid-template-columns:76px minmax(0,1fr); }
+.nfl-app-shell .nfl-player-header { grid-template-columns:92px minmax(0,1fr); }
 .nfl-app-shell .nfl-prop-selector>div:first-child { padding:0 0 6px; }
 .nfl-usage-app { padding:16px;border:1px solid #303c48;border-radius:18px;background:#151d26; }
 .nfl-usage-app h3 { margin:0 0 6px;font-size:18px; }.nfl-usage-app header small { color:#9dafbf;font-size:12px; }
@@ -228,7 +236,7 @@
 .nfl-app-shell .nfl-tab-content,.nfl-app-shell .nfl-panel-stack { grid-template-columns:minmax(0,1fr);min-width:0; }
 .nfl-app-shell .nfl-panel-stack>* { min-width:0; }
 .nfl-app-shell .nfl-player-header { margin:0 0 4px; }
-.nfl-app-shell .nfl-headshot-wrap { min-height:80px; }
+.nfl-app-shell .nfl-headshot-wrap { min-height:92px; }
 .nfl-app-shell .nfl-prop-selector,.nfl-app-shell .nfl-research-tabs { margin-bottom:4px; }
 
 .nfl-app-shell .nfl-player-identity { padding:0; }

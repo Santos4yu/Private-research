@@ -91,7 +91,14 @@
 @media (max-width: 350px) {
   :root[data-theme] #panel-v2 #board-filter-row button { flex-direction: column !important; gap: 5px !important; min-height: 64px !important; }
 }
+/* Capped to 560px so it doesn't stretch into a huge bar on a wide screen,
+   but nothing centered that capped box -- it just sat flush against the
+   left edge with a lot of dead space next to it on a laptop-width screen.
+   Centered above the same 760px breakpoint the mobile override below
+   already uses (which sets width:100%, where centering is a no-op anyway,
+   so mobile is untouched either way). */
 .matchup-game-picker { position: relative; z-index: 18; width: min(100%, 560px); margin: -5px 0 18px; }
+@media (min-width: 761px) { .matchup-game-picker { margin-left: auto; margin-right: auto; } }
 .matchup-game-trigger { display: flex; align-items: center; width: 100%; min-height: 60px; gap: 12px; padding: 9px 12px; border: 1px solid color-mix(in srgb, var(--theme-accent) 24%, var(--theme-border)); border-radius: 17px; color: var(--theme-text); background: linear-gradient(145deg, color-mix(in srgb, var(--theme-accent) 8%, var(--theme-panel)), var(--theme-panel)); box-shadow: inset 0 1px 0 #ffffff0a, 0 12px 32px #00000018; text-align: left; }
 .matchup-game-trigger-icon { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 12px; color: var(--theme-accent); background: color-mix(in srgb, var(--theme-accent) 12%, transparent); }
 .matchup-game-trigger-icon svg { width: 20px; height: 20px; }
