@@ -5374,16 +5374,22 @@ body{background:#070a10!important}body::before,body::after,.grid-bg,.glow-orb{di
 /* Branded entry screen. This was previously a deliberately monochrome
    wordmark on black; it read as unfinished rather than restrained, so the
    mark, the two-tone lockup and the accent now carry the brand. */
-.boot-loading.private-loader{position:fixed;inset:0;z-index:10000;display:grid!important;place-items:center;overflow:hidden;background:radial-gradient(ellipse 90% 60% at 50% 38%,#0d1b2e 0%,#05080e 62%,#000 100%)!important;opacity:1;visibility:visible;transition:opacity .65s cubic-bezier(.4,0,.2,1),visibility .65s ease}
+/* Every color here reads from --theme-accent/--theme-accent-soft (set as
+   an inline style on <html> by applyAccentTheme(), which runs at the top
+   of app.js before this screen is ever seen) so picking a different site
+   accent recolors the wordmark, the mark's glow and the progress bar
+   along with the rest of the app -- not just the buttons. */
+.boot-loading.private-loader{position:fixed;inset:0;z-index:10000;display:grid!important;place-items:center;overflow:hidden;background:radial-gradient(ellipse 90% 60% at 50% 38%,color-mix(in srgb,var(--theme-accent,#0082fe) 16%,#05080e) 0%,#05080e 62%,#000 100%)!important;opacity:1;visibility:visible;transition:opacity .65s cubic-bezier(.4,0,.2,1),visibility .65s ease}
 .boot-loading.private-loader::before,.boot-loading.private-loader::after{display:none!important}
-.private-loader-content{width:min(300px,74vw);color:#f7f7f5;text-align:center;animation:private-loader-arrive .9s cubic-bezier(.22,1,.36,1) both}
-.private-loader-mark{display:block;width:64px;height:64px;margin:0 auto 20px;border-radius:17px;object-fit:contain;filter:drop-shadow(0 10px 26px rgba(0,130,254,.42))}
-.private-loader-content h1{margin:0;font-family:"Space Grotesk",Arial,sans-serif;font-size:clamp(40px,6.4vw,60px);font-style:normal;font-weight:700;line-height:1;letter-spacing:-.055em;background:linear-gradient(180deg,#ffffff 0%,#cfe4ff 58%,#7fb6ff 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
-.private-loader-content h1 span{background:linear-gradient(180deg,#5cb2ff 0%,#0f7ce0 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.private-loader-content{position:relative;width:min(300px,74vw);color:#f7f7f5;text-align:center;animation:private-loader-arrive .9s cubic-bezier(.22,1,.36,1) both}
+.private-loader-content::before{content:"";position:absolute;top:-40px;left:50%;width:240px;height:240px;background:radial-gradient(circle,color-mix(in srgb,var(--theme-accent,#0082fe) 55%,transparent) 0%,transparent 68%);transform:translateX(-50%);pointer-events:none;z-index:0}
+.private-loader-mark{position:relative;z-index:1;display:block;width:64px;height:64px;margin:0 auto 20px;border-radius:17px;object-fit:contain;filter:drop-shadow(0 0 22px color-mix(in srgb,var(--theme-accent,#0082fe) 65%,transparent)) drop-shadow(0 10px 26px rgba(0,0,0,.5))}
+.private-loader-content h1{position:relative;z-index:1;margin:0;font-family:"Space Grotesk",Arial,sans-serif;font-size:clamp(40px,6.4vw,60px);font-style:normal;font-weight:700;line-height:1;letter-spacing:-.055em;background:linear-gradient(180deg,#ffffff 0%,color-mix(in srgb,var(--theme-accent-soft,#7fb6ff) 45%,#fff) 58%,var(--theme-accent-soft,#7fb6ff) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.private-loader-content h1 span{background:linear-gradient(180deg,var(--theme-accent-soft,#5cb2ff) 0%,var(--theme-accent,#0f7ce0) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
 .private-loader-content h1 span::before{content:" "}
-.private-loader-content p{margin:15px 0 0;color:#6f8399;font-family:"Space Grotesk",Arial,sans-serif;font-size:9.5px;font-weight:600;letter-spacing:.24em;text-transform:uppercase}
-.private-loader-line{height:2px;margin-top:26px;overflow:hidden;border-radius:2px;background:#132033}
-.private-loader-line span{display:block;width:44%;height:100%;border-radius:2px;background:linear-gradient(90deg,transparent,#0082fe 35%,#7fc9ff 65%,transparent);animation:private-loader-progress 1.45s cubic-bezier(.65,0,.35,1) infinite}
+.private-loader-content p{position:relative;z-index:1;margin:15px 0 0;color:#6f8399;font-family:"Space Grotesk",Arial,sans-serif;font-size:9.5px;font-weight:600;letter-spacing:.24em;text-transform:uppercase}
+.private-loader-line{position:relative;z-index:1;height:2px;margin-top:26px;overflow:hidden;border-radius:2px;background:#132033}
+.private-loader-line span{display:block;width:44%;height:100%;border-radius:2px;background:linear-gradient(90deg,transparent,var(--theme-accent,#0082fe) 35%,var(--theme-accent-soft,#7fc9ff) 65%,transparent);animation:private-loader-progress 1.45s cubic-bezier(.65,0,.35,1) infinite}
 .boot-loading.private-loader.private-loader-leaving{opacity:0;visibility:hidden;pointer-events:none}
 @keyframes private-loader-arrive{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes private-loader-progress{0%{transform:translateX(-115%)}50%{transform:translateX(68%)}100%{transform:translateX(230%)}}
