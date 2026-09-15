@@ -7,6 +7,8 @@ import {rankResearch,researchPlayer} from './research-board';
 const WINDOW_COLUMNS=[['l5','L5'],['l10','L10'],['l15','L15'],['l20','L20'],['h2h','H2H']];
 let boardCache=null;
 const BOARD_CACHE_TTL=90000;
+// Static for the life of the module; was being rebuilt on every render.
+const PROP_LABELS=Object.fromEntries(NFL_PROP_DEFINITIONS.map(p=>[p.key,p.label]));
 
 function sortRows(rows,sort){
  // No sort selected = the backend's own sample-adjusted-support ranking,
@@ -46,17 +48,29 @@ function MatchupCell({row}){
  return <td className="nfl-board-cell"><div className={`nfl-heat ${heatClass(row.matchupQuality,{good:65,mid:50,bad:35,top:80,bottom:20})}`}><strong>{row.matchupQuality}</strong><small>{row.matchupCoverage}% cov.</small></div></td>;
 }
 
-function BoardTable({rows,players,onOpen,labels,sort,onSort}){
+// Memoized per row: rows stream in one game at a time and a timer ticks the
+// staleness clock, so without this every arriving batch repainted every
+// already-rendered row (and every gradient cell in it).
+// Takes the stable `players` array rather than a prebuilt player object:
+// researchPlayer() returns a fresh object every call, which would change
+// identity on each render and defeat the memo entirely.
+const BoardRow=React.memo(function BoardRow({row,players,onOpen}){
+ const player=researchPlayer(row,players);
+ const diff=row.line?.value!=null?row.average-row.line.value:null;
+ return <tr className={player?'clickable':''} onClick={()=>player&&onOpen(player)}>
+  <td className="nfl-board-cell-player"><img src={player?.headshot_url} width="32" height="32" loading="lazy" alt=""/><div><strong>{row.playerName}</strong><small>{row.line.direction==='OVER'?'More':'Less'} {row.line.value} {PROP_LABELS[row.propType]}</small><small className="nfl-board-cell-meta">{row.position} · {row.teamId} vs {row.opponentId}</small></div></td>
+  <td className="nfl-board-cell"><strong>{Number(row.average.toFixed(1))}</strong></td>
+  <td className="nfl-board-cell">{diff==null?<span className="muted">—</span>:<div className={`nfl-heat ${diff>0?'good':diff<0?'bad':'mid'}`}><strong>{`${diff>0?'+':''}${diff.toFixed(1)}`}</strong></div>}</td>
+  <MatchupCell row={row}/>
+  {WINDOW_COLUMNS.map(([key])=><WindowCell w={row.windows?.[key]} key={key}/>)}
+ </tr>;
+});
+
+function BoardTable({rows,players,onOpen,sort,onSort}){
  const sorted=useMemo(()=>sortRows(rows,sort),[rows,sort]);
  return <div className="nfl-board-table-wrap"><table className="nfl-board-table">
   <thead><tr><th>Player / line</th><SortHeader label="Avg" columnKey="avg" sort={sort} onSort={onSort}/><SortHeader label="Diff" columnKey="diff" sort={sort} onSort={onSort}/><SortHeader label="Matchup" columnKey="matchup" sort={sort} onSort={onSort}/>{WINDOW_COLUMNS.map(([key,label])=><SortHeader key={key} label={label} columnKey={key} sort={sort} onSort={onSort}/>)}</tr></thead>
-  <tbody>{sorted.map(row=>{const player=researchPlayer(row,players);const diff=row.line?.value!=null?row.average-row.line.value:null;return <tr key={`${row.gameId}.${row.playerId}.${row.propType}`} className={player?'clickable':''} onClick={()=>player&&onOpen(player)}>
-   <td className="nfl-board-cell-player"><img src={player?.headshot_url} width="32" height="32" loading="lazy" alt=""/><div><strong>{row.playerName}</strong><small>{row.line.direction==='OVER'?'More':'Less'} {row.line.value} {labels[row.propType]}</small><small className="nfl-board-cell-meta">{row.position} · {row.teamId} vs {row.opponentId}</small></div></td>
-   <td className="nfl-board-cell"><strong>{Number(row.average.toFixed(1))}</strong></td>
-   <td className="nfl-board-cell">{diff==null?<span className="muted">—</span>:<div className={`nfl-heat ${diff>0?'good':diff<0?'bad':'mid'}`}><strong>{`${diff>0?'+':''}${diff.toFixed(1)}`}</strong></div>}</td>
-   <MatchupCell row={row}/>
-   {WINDOW_COLUMNS.map(([key])=><WindowCell w={row.windows?.[key]} key={key}/>)}
-  </tr>;})}</tbody>
+  <tbody>{sorted.map(row=><BoardRow key={`${row.gameId}.${row.playerId}.${row.propType}`} row={row} players={players} onOpen={onOpen}/>)}</tbody>
  </table></div>;
 }
 
@@ -72,7 +86,9 @@ export function NFLResearchBoard({load,players,onOpen}) {
  const [view,setView]=useState(()=>typeof window!=='undefined'&&window.matchMedia?.('(min-width: 900px)').matches?'table':'cards');
  const [sort,setSort]=useState(null);
  const onSort=key=>setSort(current=>current?.key===key?{key,dir:current.dir==='desc'?'asc':'desc'}:{key,dir:'desc'});
- useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),15000);return()=>clearInterval(timer);},[]);
+ // Only drives the 2-minute staleness filter, so it doesn't need to be
+ // precise -- every tick re-filters and re-sorts the whole board.
+ useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),30000);return()=>clearInterval(timer);},[]);
  useEffect(()=>{
   let active=true;
   const fresh=refresh===0 && boardCache && Date.now()-boardCache.ts<BOARD_CACHE_TTL;
@@ -85,25 +101,29 @@ export function NFLResearchBoard({load,players,onOpen}) {
     const upcoming=listing.data.filter(e=>Date.parse(e.startsAt)>Date.now()&&Date.parse(e.startsAt)<Date.now()+7*86400000);
     if(!active)return;setEvents(upcoming);setProgress({done:0,total:upcoming.length});
     let index=0;
-    async function worker(){while(active&&index<upcoming.length){const event=upcoming[index++];try{const response=await load('research-board',{eventId:event.eventId});const withMeta=response.data.map(r=>({...r,injuryReportAvailable:response.injuryReportAvailable}));collected.push(...withMeta);if(active)setRows(old=>[...old,...withMeta]);}catch{if(active)setFailed(n=>n+1);}finally{if(active){setNow(Date.now());setProgress(p=>({...p,done:p.done+1}));}}}}
-    await Promise.all([worker(),worker(),worker()]);
+    // No setNow() here: it only feeds the staleness filter, and bumping it
+    // per finished game forced an extra full re-filter/re-sort/repaint of
+    // everything already on screen, on top of the setRows append.
+    async function worker(){while(active&&index<upcoming.length){const event=upcoming[index++];try{const response=await load('research-board',{eventId:event.eventId});const withMeta=response.data.map(r=>({...r,injuryReportAvailable:response.injuryReportAvailable}));collected.push(...withMeta);if(active)setRows(old=>[...old,...withMeta]);}catch{if(active)setFailed(n=>n+1);}finally{if(active)setProgress(p=>({...p,done:p.done+1}));}}}
+    await Promise.all([worker(),worker(),worker(),worker(),worker()]);
     if(active)boardCache={rows:collected,events:upcoming,ts:Date.now()};
    }catch{if(active)setError('Live props could not load. Refresh to try again.');}
    finally{if(active)setProgress(null);}
   })();return()=>{active=false;};
  },[load,refresh]);
- const ranked=rankResearch(rows,{position,game,prop,now});
- const labels=Object.fromEntries(NFL_PROP_DEFINITIONS.map(p=>[p.key,p.label]));
+ // Filters and sorts the entire board; was re-running on every render,
+ // including each of the ~16 streamed row batches and every timer tick.
+ const ranked=useMemo(()=>rankResearch(rows,{position,game,prop,now}),[rows,position,game,prop,now]);
  return <section className="nfl-discovery" aria-label="NFL props board">
   <header><div><h2>NFL props</h2><p>PrizePicks · Next 7 days</p></div><div className="nfl-board-view-toggle" role="group" aria-label="Board layout"><button type="button" aria-pressed={view==='cards'} onClick={()=>setView('cards')} aria-label="Card view"><LayoutGrid size={16}/></button><button type="button" aria-pressed={view==='table'} onClick={()=>setView('table')} aria-label="Table view"><Table2 size={16}/></button></div><button type="button" className="nfl-refresh" disabled={!!progress} aria-label="Refresh NFL props board" onClick={()=>setRefresh(n=>n+1)}><RefreshCw size={18}/></button></header>
   <div className="nfl-board-filters"><SheetSelect label="Position" value={position} onChange={e=>setPosition(e.target.value)}><option value="">Position</option>{['QB','RB','WR','TE'].map(p=><option key={p}>{p}</option>)}</SheetSelect><SheetSelect label="Game" value={game} onChange={e=>setGame(e.target.value)}><option value="">All games</option>{events.map(e=><option key={e.gameId} value={e.gameId}>{e.awayTeamId} @ {e.homeTeamId}</option>)}</SheetSelect><SheetSelect label="Prop" value={prop} onChange={e=>setProp(e.target.value)}><option value="">All props</option>{NFL_PROP_DEFINITIONS.map(p=><option key={p.key} value={p.key}>{p.label}</option>)}</SheetSelect></div>
   {(progress||failed>0)&&<div role="status" className="nfl-board-caption">{progress&&`Checking ${progress.done} of ${progress.total || '…'} games…`}{failed>0&&`${progress?' · ':''}${failed} games could not load`}</div>}
   {error&&<p role="alert">{error}</p>}
   {!progress&&!ranked.length&&!error&&<div className="nfl-chart-card">No fresh props match this view. Try another filter or refresh. Players remain available in Research.</div>}
-  {view==='table'?<BoardTable rows={ranked} players={players} onOpen={onOpen} labels={labels} sort={sort} onSort={onSort}/>:
+  {view==='table'?<BoardTable rows={ranked} players={players} onOpen={onOpen} sort={sort} onSort={onSort}/>:
   <div className="nfl-discovery-grid">{ranked.map(row=>{const player=researchPlayer(row,players);return <button type="button" className="nfl-discovery-card" key={`${row.gameId}.${row.playerId}.${row.propType}`} disabled={!player} onClick={()=>onOpen(player)}>
    <div className="nfl-discovery-identity">{player?.headshot_url&&<img src={player.headshot_url} width="58" height="58" loading="lazy" alt=""/>}<div><strong>{row.playerName}</strong><small>{row.position} · {row.teamId} vs {row.opponentId} · {new Date(row.startsAt).toLocaleDateString([],{weekday:'short'})}</small></div><ArrowUpRight size={18}/></div>
-   <div className="nfl-discovery-line"><img src="/prizepicks/logo.png" width="22" height="22" alt="PrizePicks"/><strong>{row.line.direction==='OVER'?'More':'Less'} {row.line.value} {labels[row.propType]}</strong></div>
+   <div className="nfl-discovery-line"><img src="/prizepicks/logo.png" width="22" height="22" alt="PrizePicks"/><strong>{row.line.direction==='OVER'?'More':'Less'} {row.line.value} {PROP_LABELS[row.propType]}</strong></div>
    <div className="nfl-discovery-stats"><span>Last {row.recentSample}<b>{row.recentHits}/{row.recentDecisions} hit</b></span><span>Sample<b>{row.hits}/{row.decisions} hit</b></span><span>Average<b>{Number(row.average.toFixed(1))}</b></span></div>
    {row.matchupQuality!=null && <div className={`nfl-discovery-volume ${row.matchupQuality>=65?'good':row.matchupQuality<=35?'bad':'mid'}`}><Shield size={14}/><span>Matchup score {row.matchupQuality}/100 · {row.matchupCoverage}% coverage</span></div>}
    {row.opponentVolume && <div className={`nfl-discovery-volume ${row.opponentVolume.score>=60?'good':row.opponentVolume.score<=40?'bad':'mid'}`}><Shield size={14}/><span>{row.opponentVolume.label}: {row.opponentVolume.score}th percentile vs league</span></div>}

@@ -217,27 +217,29 @@
    gap, which turned a row into one muddy band instead of readable cells.
    Each level is a saturated vertical gradient with its own rim light, so
    the scale reads as a real heat map rather than one flat green wash. */
-.nfl-board-cell { padding:4px 3px; }
-.nfl-heat { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:46px;padding:7px 6px;border-radius:9px;background:#1a212b;box-shadow:inset 0 0 0 1px #ffffff0a; }
+/* Full-bleed heat squares: the block fills its cell edge to edge and the
+   grid's own hairlines do the separating, so the board reads as one
+   continuous heat grid. Plain `border` rather than inset shadows -- with
+   6 cells x 50+ rows the shadows were a measurable scroll-repaint cost. */
+.nfl-board-cell { padding:0; }
+.nfl-heat { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:54px;padding:8px 6px;border-right:1px solid #0d1219;background:#161d26; }
 .nfl-heat strong { display:block;font-size:13px;font-weight:800;letter-spacing:-.01em;color:#c3ccd8; }
 .nfl-heat small { display:block;font-size:10px;color:#ffffff6b; }
 
-.nfl-heat.good { background:linear-gradient(180deg,#1b7f5e 0%,#12664a 100%);box-shadow:inset 0 1px 0 #ffffff1f,inset 0 0 0 1px #2ed39a2e; }
-.nfl-heat.good strong { color:#9dffd8; }
-.nfl-heat.good small { color:#c6ffe9a8; }
-.nfl-heat.good.peak { background:linear-gradient(180deg,#22a978 0%,#14855f 100%);box-shadow:inset 0 1px 0 #ffffff2e,inset 0 0 0 1px #3bf0ac52; }
-.nfl-heat.good.peak strong { color:#defff2; }
+.nfl-heat.good { background:linear-gradient(160deg,#25a57a 0%,#17805d 48%,#0f6047 100%); }
+.nfl-heat.good strong { color:#eafff6; }
+.nfl-heat.good small { color:#c9f6e5c4; }
+.nfl-heat.good.peak { background:linear-gradient(160deg,#35d199 0%,#1da173 48%,#127a58 100%); }
 
-.nfl-heat.mid { background:linear-gradient(180deg,#8a6a20 0%,#6f5317 100%);box-shadow:inset 0 1px 0 #ffffff1f,inset 0 0 0 1px #f3c8772e; }
-.nfl-heat.mid strong { color:#ffe4a6; }
-.nfl-heat.mid small { color:#ffeec7a8; }
-.nfl-heat.mid.low { background:linear-gradient(180deg,#7a5322 0%,#63401a 100%); }
+.nfl-heat.mid { background:linear-gradient(160deg,#b08a2a 0%,#8c6a1d 48%,#6c5015 100%); }
+.nfl-heat.mid strong { color:#fff6e2; }
+.nfl-heat.mid small { color:#ffeec7c4; }
+.nfl-heat.mid.low { background:linear-gradient(160deg,#a86c2b 0%,#84521d 48%,#653d14 100%); }
 
-.nfl-heat.bad { background:linear-gradient(180deg,#8f2f3f 0%,#73222f 100%);box-shadow:inset 0 1px 0 #ffffff1a,inset 0 0 0 1px #ff8b962e; }
-.nfl-heat.bad strong { color:#ffc3ca; }
-.nfl-heat.bad small { color:#ffd7dca8; }
-.nfl-heat.bad.peak { background:linear-gradient(180deg,#a82b3e 0%,#85202f 100%);box-shadow:inset 0 1px 0 #ffffff26,inset 0 0 0 1px #ff8b9652; }
-.nfl-heat.bad.peak strong { color:#ffe0e4; }
+.nfl-heat.bad { background:linear-gradient(160deg,#b13b4d 0%,#8d2b3a 48%,#6c1f2b 100%); }
+.nfl-heat.bad strong { color:#ffeef0; }
+.nfl-heat.bad small { color:#ffd7dcc4; }
+.nfl-heat.bad.peak { background:linear-gradient(160deg,#d0455a 0%,#a63042 48%,#7d2231 100%); }
 @media(max-width:700px){ .nfl-board-table-wrap { border-radius:12px; } }
 .nfl-volume-comparison { display:flex;justify-content:space-between;gap:12px;padding:12px 0; }.nfl-volume-comparison b { display:block;font-size:24px; }.nfl-volume-comparison span { font-size:12px;color:#b8cbd8; }
 .nfl-opponent-panel .nfl-stat-grid { display:block; }.nfl-opponent-panel .nfl-stat { display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:48px;padding:12px 0;border:0;border-bottom:1px solid #2d3a47;background:none;border-radius:0; }.nfl-opponent-panel .nfl-stat span { font-size:12px;max-width:70%; }.nfl-opponent-panel .nfl-stat strong { font-size:20px; }
