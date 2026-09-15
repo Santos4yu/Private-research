@@ -41,7 +41,8 @@
 :root[data-research-sport="nfl"] #panel-research > #browse-row,
 :root[data-research-sport="nfl"] #panel-research > #player-profile,
 :root[data-research-sport="nfl"] #panel-research > #report-wrap,
-:root[data-research-sport="nfl"] #v2-back-btn { display: none !important; }
+:root[data-research-sport="nfl"] #v2-back-btn,
+:root[data-research-sport="nfl"] .site-footer { display: none !important; }
 
 .nfl-app-shell { width: min(100%, 1420px); margin: 0 auto; color: var(--theme-text, #f5f7fa); }
 .nfl-home, .nfl-research-page { display: grid; gap: 24px; }

@@ -184,7 +184,6 @@ export function NFLMarketLines({load,player,week,prop,onSelect,selected,onRefres
     {loading&&<small role="status">Loading lines…</small>}
     {error&&<small role="alert">{error}</small>}
     {body&&!allOffers.length&&<small>No posted line for this stat. Enter a comparison line below.</small>}
-    {selected&&<div className="nfl-quote-time"><NFLFreshness timestamp={selected.updatedAt} staleAfter={120000}/></div>}
     </div>
   </>;
 }
