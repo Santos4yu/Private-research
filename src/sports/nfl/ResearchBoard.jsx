@@ -5,6 +5,8 @@ import {NFL_PROP_DEFINITIONS} from './props';
 import {rankResearch,researchPlayer} from './research-board';
 
 const WINDOW_COLUMNS=[['l5','L5'],['l10','L10'],['l15','L15'],['l20','L20'],['h2h','H2H']];
+let boardCache=null;
+const BOARD_CACHE_TTL=90000;
 
 function sortRows(rows,sort){
  // No sort selected = the backend's own sample-adjusted-support ranking,
@@ -48,22 +50,33 @@ function BoardTable({rows,players,onOpen,labels,sort,onSort}){
 }
 
 export function NFLResearchBoard({load,players,onOpen}) {
- const [rows,setRows]=useState([]),[events,setEvents]=useState([]),[progress,setProgress]=useState(null),[error,setError]=useState(''),[failed,setFailed]=useState(0),[refresh,setRefresh]=useState(0);
+ // Kept outside the component (module scope) so leaving the board -- opening
+ // a player, then coming back to Home -- doesn't blank the screen and re-run
+ // the whole "checking N of M games" scan. TTL sits just under the backend's
+ // own 2-minute posted-line freshness window (research_board.py), so a
+ // "fresh" cache never shows a row the API would already have discarded.
+ const cached=boardCache && Date.now()-boardCache.ts<BOARD_CACHE_TTL ? boardCache : null;
+ const [rows,setRows]=useState(()=>cached?.rows || []),[events,setEvents]=useState(()=>cached?.events || []),[progress,setProgress]=useState(null),[error,setError]=useState(''),[failed,setFailed]=useState(0),[refresh,setRefresh]=useState(0);
  const [position,setPosition]=useState(''),[game,setGame]=useState(''),[prop,setProp]=useState(''),[now,setNow]=useState(Date.now());
  const [view,setView]=useState(()=>typeof window!=='undefined'&&window.matchMedia?.('(min-width: 900px)').matches?'table':'cards');
  const [sort,setSort]=useState(null);
  const onSort=key=>setSort(current=>current?.key===key?{key,dir:current.dir==='desc'?'asc':'desc'}:{key,dir:'desc'});
  useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),15000);return()=>clearInterval(timer);},[]);
  useEffect(()=>{
-  let active=true;setRows([]);setError('');setFailed(0);setProgress({done:0,total:0});
+  let active=true;
+  const fresh=refresh===0 && boardCache && Date.now()-boardCache.ts<BOARD_CACHE_TTL;
+  if(fresh){setRows(boardCache.rows);setEvents(boardCache.events);setError('');setFailed(0);setProgress(null);return;}
+  setRows([]);setError('');setFailed(0);setProgress({done:0,total:0});
+  const collected=[];
   (async()=>{
    try {
     const listing=await load('prop-games');
     const upcoming=listing.data.filter(e=>Date.parse(e.startsAt)>Date.now()&&Date.parse(e.startsAt)<Date.now()+7*86400000);
     if(!active)return;setEvents(upcoming);setProgress({done:0,total:upcoming.length});
     let index=0;
-    async function worker(){while(active&&index<upcoming.length){const event=upcoming[index++];try{const response=await load('research-board',{eventId:event.eventId});if(active)setRows(old=>[...old,...response.data.map(r=>({...r,injuryReportAvailable:response.injuryReportAvailable}))]);}catch{if(active)setFailed(n=>n+1);}finally{if(active){setNow(Date.now());setProgress(p=>({...p,done:p.done+1}));}}}}
+    async function worker(){while(active&&index<upcoming.length){const event=upcoming[index++];try{const response=await load('research-board',{eventId:event.eventId});const withMeta=response.data.map(r=>({...r,injuryReportAvailable:response.injuryReportAvailable}));collected.push(...withMeta);if(active)setRows(old=>[...old,...withMeta]);}catch{if(active)setFailed(n=>n+1);}finally{if(active){setNow(Date.now());setProgress(p=>({...p,done:p.done+1}));}}}}
     await Promise.all([worker(),worker(),worker()]);
+    if(active)boardCache={rows:collected,events:upcoming,ts:Date.now()};
    }catch{if(active)setError('Live props could not load. Refresh to try again.');}
    finally{if(active)setProgress(null);}
   })();return()=>{active=false;};
