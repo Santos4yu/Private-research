@@ -6962,3 +6962,40 @@ details.rate-filter summary b { margin-left: auto; color: var(--accent); font-si
   background-color: transparent !important;
   background-image: none !important;
 }
+
+/* Brand pass: the mark was a raw, unstyled placeholder SVG (no rule ever
+   targeted .lab-brandmark) and the wordmark was flat solid text -- same
+   mark-chip + gradient-wordmark treatment already used on the boot loader,
+   so the two actually look like the same brand. Appended last so it wins
+   over the many stacked theme blocks earlier in this file. */
+.lab-brandmark {
+  display: grid !important; place-items: center !important; width: 34px !important; height: 34px !important;
+  border-radius: 10px !important; overflow: hidden !important; background: var(--theme-panel-2) !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--theme-accent) 35%, transparent), 0 0 20px color-mix(in srgb, var(--theme-accent) 25%, transparent) !important;
+}
+.lab-brandmark img { width: 100% !important; height: 100% !important; object-fit: contain !important; }
+.hero-brand h1 {
+  background: linear-gradient(180deg, var(--theme-text) 0%, color-mix(in srgb, var(--theme-accent-soft) 60%, var(--theme-text)) 65%, var(--theme-accent-soft) 100%) !important;
+  -webkit-background-clip: text !important; background-clip: text !important; color: transparent !important;
+}
+.hero-brand h1 span {
+  background: linear-gradient(180deg, var(--theme-accent-soft) 0%, var(--theme-accent) 100%) !important;
+  -webkit-background-clip: text !important; background-clip: text !important; color: transparent !important;
+}
+
+/* Research / Builder switch: a tighter segmented pill with an icon on the
+   active tab and a soft accent glow, instead of flat text-only buttons. */
+.home-mode-switch { gap: 4px !important; padding: 4px !important; border-radius: 13px !important; }
+.home-mode-switch button[data-home-tab] { display: flex !important; align-items: center !important; gap: 7px !important; border-radius: 9px !important; }
+.home-mode-switch button[data-home-tab] svg { flex: 0 0 auto; opacity: .8; }
+.home-mode-switch button[data-home-tab].active { box-shadow: 0 4px 16px color-mix(in srgb, var(--theme-accent) 38%, transparent) !important; }
+.home-mode-switch button[data-home-tab].active svg { opacity: 1; }
+.builder-activity-icon {
+  border-color: color-mix(in srgb, var(--theme-accent) 42%, var(--theme-border)) !important;
+  background: color-mix(in srgb, var(--theme-accent) 16%, var(--theme-panel-2)) !important;
+  color: var(--theme-accent) !important;
+}
+.builder-activity-trigger { border: 1px solid transparent !important; }
+.builder-activity-trigger:hover, .builder-activity-trigger[aria-expanded="true"] {
+  border-color: color-mix(in srgb, var(--theme-accent) 32%, transparent) !important;
+}
