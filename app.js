@@ -265,9 +265,10 @@ function cacheEls() {
   els.profileSub = document.getElementById("profile-sub");
   els.profileStats = document.getElementById("profile-stats");
   els.profileStatsWrap = document.getElementById("profile-stats-wrap");
-  els.profileStatsTrigger = document.getElementById("profile-stats-trigger");
-  els.profileStatsTriggerLabel = document.getElementById("profile-stats-trigger-label");
-  els.profileStatsMenu = document.getElementById("profile-stats-menu");
+  // The visual picker is a React-mounted Select (src/main.jsx); this hidden
+  // <select> stays the real value/change-event source everything else here
+  // reads and writes.
+  els.profileStatsBridge = window.vortexStatSelect || null;
 
   els.linePicker = document.getElementById("line-picker");
   els.sideToggle = document.getElementById("side-toggle");
@@ -1880,38 +1881,6 @@ function wireSearch() {
     }
   });
   els.profileStats.addEventListener("change", () => selectStat(els.profileStats.value));
-  wireStatsDropdown();
-}
-
-/**
- * Custom-styled dropdown replacing the stat <select>'s native OS popup
- * (the blue-highlighted browser-default listbox looked out of place next
- * to the rest of the themed UI). The real <select> stays in the DOM,
- * hidden, purely as the value/change-event source everything else reads.
- */
-function wireStatsDropdown() {
-  els.profileStatsTrigger.addEventListener("click", (e) => {
-    e.stopPropagation();
-    els.profileStatsMenu.hidden ? openStatsMenu() : closeStatsMenu();
-  });
-  document.addEventListener("click", (e) => {
-    if (!els.profileStatsMenu.hidden && !els.profileStatsWrap.contains(e.target)) closeStatsMenu();
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !els.profileStatsMenu.hidden) closeStatsMenu();
-  });
-}
-
-function openStatsMenu() {
-  els.profileStatsMenu.hidden = false;
-  els.profileStatsTrigger.classList.add("open");
-  syncDropdownScrollLock();
-}
-
-function closeStatsMenu() {
-  els.profileStatsMenu.hidden = true;
-  els.profileStatsTrigger.classList.remove("open");
-  syncDropdownScrollLock();
 }
 
 /** Group all props by player so the dropdown/chips show one row per player. */
@@ -2204,8 +2173,10 @@ let currentResearchProp = null;
 let prizePicksDefaultPending = false;
 
 function syncDropdownScrollLock() {
-  const menuOpen = !els.profileStatsMenu.hidden || !els.ppLinesMenu.hidden;
-  document.body.classList.toggle("dropdown-scroll-locked", menuOpen);
+  // The stat picker's open/closed state now lives inside the React-mounted
+  // Select (src/main.jsx) and isn't exposed outward, so it can't participate
+  // in this lock -- only the PrizePicks lines menu still can.
+  document.body.classList.toggle("dropdown-scroll-locked", !els.ppLinesMenu.hidden);
 }
 
 function wireLinePicker() {
@@ -2359,24 +2330,13 @@ function selectPlayer(player, position, { autoSelectStat = true, viaDeepDive = f
   const stats = [...new Set([...staticStats, ...standardForPosition])];
 
   els.profileStats.innerHTML = "";
-  els.profileStatsMenu.innerHTML = "";
   stats.forEach((stat) => {
     const opt = document.createElement("option");
     opt.value = stat;
     opt.textContent = stat;
     els.profileStats.appendChild(opt);
-
-    const li = document.createElement("li");
-    li.className = "profile-stats-menu-item";
-    li.setAttribute("role", "option");
-    li.textContent = stat;
-    li.addEventListener("click", () => {
-      els.profileStats.value = stat;
-      closeStatsMenu();
-      selectStat(stat);
-    });
-    els.profileStatsMenu.appendChild(li);
   });
+  els.profileStatsBridge?.setOptions(stats);
 
   els.linePicker.hidden = true;
   els.playerProfile.hidden = false;
@@ -2401,10 +2361,7 @@ function selectStat(stat) {
   els.ppLinesMenu.hidden = true;
   syncDropdownScrollLock();
   if (els.profileStats.value !== stat) els.profileStats.value = stat;
-  els.profileStatsTriggerLabel.textContent = stat;
-  els.profileStatsMenu.querySelectorAll(".profile-stats-menu-item").forEach((li) => {
-    li.classList.toggle("active", li.textContent === stat);
-  });
+  els.profileStatsBridge?.setValue(stat);
 
   const statMatches = propsForPlayer().filter((p) => p.betType === stat);
   const matches = statMatches.filter((p) => p.side === "Over");
@@ -3741,12 +3698,10 @@ function openExactProp(p) {
     opt.value = p.betType;
     opt.textContent = p.betType;
     els.profileStats.appendChild(opt);
+    els.profileStatsBridge?.setOptions([...els.profileStats.options].map((o) => o.value));
   }
   els.profileStats.value = p.betType;
-  els.profileStatsTriggerLabel.textContent = p.betType;
-  els.profileStatsMenu.querySelectorAll(".profile-stats-menu-item").forEach((li) => {
-    li.classList.toggle("active", li.textContent === p.betType);
-  });
+  els.profileStatsBridge?.setValue(p.betType);
 
   // Same scaled span as selectStat() — a flat ±1.5 boxed in high lines
   // (e.g. a saved 5.5 K prop could only slide 4–7 after reopening).

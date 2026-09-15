@@ -700,6 +700,10 @@ body::before {
 /* Real <select> stays mounted (value/change-event source for the rest of
    the app) but fully hidden -- the themed trigger+menu below is what's
    actually shown, replacing the unstyleable native OS popup list. */
+/* Host for the React-mounted Select (src/main.jsx) that replaced the old
+   custom trigger+menu -- stretched to fill the wrap like that trigger did. */
+#profile-stats-select-root { display: block; width: 100%; }
+#profile-stats-select-root button[role="combobox"] { width: 100%; min-width: 0; }
 .profile-stats-select-native {
   position: absolute;
   inset: 0;

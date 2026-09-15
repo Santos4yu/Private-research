@@ -364,12 +364,8 @@
     </div>
 
     <div class="profile-stats-select-wrap" id="profile-stats-wrap">
-      <select class="profile-stats-select-native" id="profile-stats"></select>
-      <button type="button" class="profile-stats-trigger" id="profile-stats-trigger" aria-haspopup="listbox">
-        <span id="profile-stats-trigger-label">Select a stat</span>
-        <svg class="profile-stats-chevron" width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <ul class="profile-stats-menu" id="profile-stats-menu" role="listbox" hidden></ul>
+      <select class="profile-stats-select-native" id="profile-stats" hidden></select>
+      <div id="profile-stats-select-root"></div>
     </div>
 
     <div class="line-picker" id="line-picker" hidden>

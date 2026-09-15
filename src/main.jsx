@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Layers2 as BarChart3, Ticket as ClipboardList, Radar as FlaskConical, ScanLine, Compass as Search, Sparkles, ShieldCheck, CircleDot, Trophy, LayoutGrid, Diamond, Crosshair, Target } from 'lucide-react';
+import { Layers2 as BarChart3, Ticket as ClipboardList, Radar as FlaskConical, ScanLine, Compass as Search, Sparkles, ShieldCheck, CircleDot, Trophy, LayoutGrid, Diamond, Crosshair, Target, ChartNoAxesCombined } from 'lucide-react';
+import { Select, SelectTrigger, SelectContent, SelectItem } from '../components/ui/select';
 import { MobileNavigation } from './MobileNavigation';
 import { MobileSlipActions } from './MobileSlipActions';
 import { ResearchHome } from './ResearchHome';
@@ -119,3 +120,44 @@ window.vortexMountResearchLoader = (host, props) => {
   root.render(<ResearchAILoader {...props} />);
   return () => root.unmount();
 };
+
+// Bridges the MLB "select a stat" picker into the new Select component.
+// The hidden native <select id="profile-stats"> stays the real value/
+// change-event source everything else in app.js reads and writes -- this
+// only owns the visual dropdown, imperatively driven from vanilla via the
+// returned {setOptions,setValue} controller (app.js has no reactive state
+// of its own to hand this a live `options`/`value` prop).
+function StatSelectHost({ controllerRef, onPick }) {
+  const [options, setOptions] = useState([]);
+  const [value, setValue] = useState('');
+  useEffect(() => { controllerRef.current = { setOptions, setValue }; }, [controllerRef]);
+  return (
+    <Select value={value} onValueChange={(next) => { setValue(next); onPick(next); }}>
+      <SelectTrigger icon={ChartNoAxesCombined} placeholder="Select a stat" aria-label="Select a stat" />
+      <SelectContent>
+        {options.map((stat, index) => <SelectItem key={stat} index={index} value={stat}>{stat}</SelectItem>)}
+      </SelectContent>
+    </Select>
+  );
+}
+
+window.vortexMountStatSelect = (host, { onPick }) => {
+  const controllerRef = { current: null };
+  createRoot(host).render(<StatSelectHost controllerRef={controllerRef} onPick={onPick} />);
+  return {
+    setOptions: (list) => controllerRef.current?.setOptions(list),
+    setValue: (v) => controllerRef.current?.setValue(v),
+  };
+};
+const statSelectRoot = document.getElementById('profile-stats-select-root');
+if (statSelectRoot) {
+  window.vortexStatSelect = window.vortexMountStatSelect(statSelectRoot, {
+    onPick: (value) => {
+      const nativeSelect = document.getElementById('profile-stats');
+      if (nativeSelect && nativeSelect.value !== value) {
+        nativeSelect.value = value;
+        nativeSelect.dispatchEvent(new Event('change'));
+      }
+    },
+  });
+}

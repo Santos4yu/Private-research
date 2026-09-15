@@ -1,6 +1,7 @@
 import React,{useEffect,useMemo,useState} from 'react';
-import {RefreshCw,ArrowUpRight,Shield,LayoutGrid,Table2,ArrowUp,ArrowDown} from 'lucide-react';
+import {RefreshCw,ArrowUpRight,Shield,LayoutGrid,Table2,ArrowUp,ArrowDown,Target} from 'lucide-react';
 import {SheetSelect} from './ResearchSheet';
+import {Select,SelectTrigger,SelectContent,SelectItem} from '../../../components/ui/select';
 import {NFL_PROP_DEFINITIONS} from './props';
 import {rankResearch,researchPlayer} from './research-board';
 
@@ -112,7 +113,15 @@ export function NFLResearchBoard({load,players,onOpen}) {
  const ranked=useMemo(()=>rankResearch(rows,{position,game,prop,now}),[rows,position,game,prop,now]);
  return <section className="nfl-discovery" aria-label="NFL props board">
   <header><div><h2>NFL props</h2><p>PrizePicks · Next 7 days</p></div><div className="nfl-board-view-toggle" role="group" aria-label="Board layout"><button type="button" aria-pressed={view==='cards'} onClick={()=>setView('cards')} aria-label="Card view"><LayoutGrid size={16}/></button><button type="button" aria-pressed={view==='table'} onClick={()=>setView('table')} aria-label="Table view"><Table2 size={16}/></button></div><button type="button" className="nfl-refresh" disabled={!!progress} aria-label="Refresh NFL props board" onClick={()=>setRefresh(n=>n+1)}><RefreshCw size={18}/></button></header>
-  <div className="nfl-board-filters"><SheetSelect label="Position" value={position} onChange={e=>setPosition(e.target.value)}><option value="">Position</option>{['QB','RB','WR','TE'].map(p=><option key={p}>{p}</option>)}</SheetSelect><SheetSelect label="Game" value={game} onChange={e=>setGame(e.target.value)}><option value="">All games</option>{events.map(e=><option key={e.gameId} value={e.gameId}>{e.awayTeamId} @ {e.homeTeamId}</option>)}</SheetSelect><SheetSelect label="Prop" value={prop} onChange={e=>setProp(e.target.value)}><option value="">All props</option>{NFL_PROP_DEFINITIONS.map(p=><option key={p.key} value={p.key}>{p.label}</option>)}</SheetSelect></div>
+  <div className="nfl-board-filters"><SheetSelect label="Position" value={position} onChange={e=>setPosition(e.target.value)}><option value="">Position</option>{['QB','RB','WR','TE'].map(p=><option key={p}>{p}</option>)}</SheetSelect><SheetSelect label="Game" value={game} onChange={e=>setGame(e.target.value)}><option value="">All games</option>{events.map(e=><option key={e.gameId} value={e.gameId}>{e.awayTeamId} @ {e.homeTeamId}</option>)}</SheetSelect>
+   <Select value={prop} onValueChange={setProp}>
+    <SelectTrigger icon={Target} placeholder="All props" aria-label="Prop" />
+    <SelectContent>
+     <SelectItem index={0} value="">All props</SelectItem>
+     {NFL_PROP_DEFINITIONS.map((p,i)=><SelectItem key={p.key} index={i+1} value={p.key}>{p.label}</SelectItem>)}
+    </SelectContent>
+   </Select>
+  </div>
   {(progress||failed>0)&&<div role="status" className="nfl-board-caption">{progress&&`Checking ${progress.done} of ${progress.total || '…'} games…`}{failed>0&&`${progress?' · ':''}${failed} games could not load`}</div>}
   {error&&<p role="alert">{error}</p>}
   {!progress&&!ranked.length&&!error&&<div className="nfl-chart-card">No fresh props match this view. Try another filter or refresh. Players remain available in Research.</div>}
