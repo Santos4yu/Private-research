@@ -150,27 +150,39 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
    on .gl-filter-chip.active with !important, and gamelog-fix.css forces
    border-radius:99px on these under 680px -- without matching !important
    here, those win regardless of this file loading later. */
-:root[data-theme] #gamelog-overlay .gl-filter-chip.active,
-:root[data-theme] #gamelog-overlay .gamelog-season-row button.active {
+/* Selectors deliberately include .gamelog-filter-panel: gamelog-fix.css's
+   mobile rule (".gamelog-filter-panel button.active") is MORE specific than
+   a plain ".gl-filter-chip.active" would be, so a shorter selector here
+   loses under 680px even with !important. Matching its specificity plus
+   loading later is what actually wins. */
+:root[data-theme] #gamelog-overlay .gamelog-filter-panel .gl-filter-chip.active,
+:root[data-theme] #gamelog-overlay .gamelog-filter-panel .gamelog-season-row button.active,
+:root[data-theme] #gamelog-overlay .gamelog-filter-panel button.active {
   color: var(--theme-text, #f9fafb) !important;
   background: var(--theme-panel, #10141c) !important;
   border-color: transparent !important;
   border-radius: 8px !important;
 }
-:root[data-theme] #gamelog-overlay .gl-filter-chip,
-:root[data-theme] #gamelog-overlay .gamelog-season-row button {
+:root[data-theme] #gamelog-overlay .gamelog-filter-panel .gl-filter-chip,
+:root[data-theme] #gamelog-overlay .gamelog-filter-panel .gamelog-season-row button,
+:root[data-theme] #gamelog-overlay .gamelog-filter-panel button {
   border-radius: 8px !important;
+  min-height: 30px !important;
 }
 
 /* Window-sample bar: L5/L10/L15/L20/Season/H2H, each showing its own hit
    rate + average instead of a plain +/- stepper. */
+/* gamelog-premium.css forces padding:0 / background:transparent / border:0
+   on .gamelog-windowbar with !important, and gamelog-fix.css +
+   research-polish.css both force their own margins -- all need matching
+   !important here or the grouped-container look silently doesn't apply. */
 :root[data-theme] #gamelog-overlay .gamelog-windowbar {
-  display: flex;
-  gap: 6px;
-  padding: 4px;
-  margin-bottom: 14px;
-  border-radius: 10px;
-  background: var(--theme-panel, #0a0e16);
+  display: flex !important;
+  gap: 6px !important;
+  padding: 4px !important;
+  margin: 0 0 14px !important;
+  border-radius: 10px !important;
+  background: var(--theme-panel, #0a0e16) !important;
   overflow-x: auto;
 }
 :root[data-theme] #gamelog-overlay .gamelog-windowbar button {
