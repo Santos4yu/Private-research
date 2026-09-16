@@ -37,7 +37,7 @@ const HEADINGS = { 'sign-in': 'Welcome back', 'sign-up': 'Create your account', 
 const SUBTITLES = { 'sign-in': 'Sign in to your research workspace.', 'sign-up': 'Your MLB and NFL research, in one place.', recover: 'We will send a recovery code to your email.', 'verify-recovery': 'Enter the recovery code to continue.', 'update-password': 'Use at least 8 characters.', admin: 'Enter your admin passcode to manage the website.' };
 const SUBMIT_LABEL = { 'sign-in': 'Sign in', 'sign-up': 'Create account', recover: 'Send recovery code', 'verify-recovery': 'Verify code', 'update-password': 'Save password', admin: 'Unlock admin' };
 
-export function AuthCard({ initialMode = 'sign-in', registrationOpen = true, accountEmail = '' }) {
+export function AuthCard({ initialMode = 'sign-in', registrationOpen = true, accountEmail = '', onModeChange, onBack }) {
   const [mode, setMode] = useState(initialMode);
   const [email, setEmail] = useState(accountEmail);
   const [password, setPassword] = useState('');
@@ -70,6 +70,7 @@ export function AuthCard({ initialMode = 'sign-in', registrationOpen = true, acc
     setMode(next);
     setFeedback('');
     setPassword('');
+    onModeChange?.(next);
   }
 
   async function onSubmit(e) {
@@ -133,7 +134,7 @@ export function AuthCard({ initialMode = 'sign-in', registrationOpen = true, acc
           type="button"
           variant="outline"
           className="h-9 rounded-lg border-zinc-800 bg-zinc-900 text-zinc-50 hover:bg-zinc-900/80"
-          onClick={() => { location.pathname = '/research'; }}
+          onClick={() => { if (onBack) onBack(); else location.pathname = '/'; }}
         >
           Back to home
         </Button>

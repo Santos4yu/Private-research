@@ -70,6 +70,58 @@ function authForm(host,initialMode='sign-in'){
  };
  form.siteSetMode=setMode;host.append(form);setMode(initialMode);return form;
 }
+// The signed-out front door gets its own clean URLs (/ for the landing
+// page, /sign-up and /sign-in for the auth card) instead of leaking
+// whatever internal app route happened to be in the address bar before
+// signing out (app.js never touches the URL until access is granted, so
+// without this the gate would just sit on top of a stale path like
+// /research). renderLanding/renderAuthCard both take the gate element so
+// the popstate listener below can call them without re-running renderStatus.
+function renderLanding(gate){
+ gate.dataset.view='landing';gate.replaceChildren();
+ // Explicit width: a plain block <div> directly inside this fixed,
+ // overflow:auto gate doesn't reliably stretch to fill it on its own in
+ // every browser (observed shrink-to-fit sizing instead) -- confirmed
+ // fixed by forcing it here rather than relying on the default.
+ const host=element('div');host.style.cssText='width:100%;min-height:100%';gate.append(host);
+ window.vortexMountLandingPage(host,{
+  onSignUp:()=>{history.pushState({},'','/sign-up');renderAuthCard(gate,'sign-up');},
+  onSignIn:()=>{history.pushState({},'','/sign-in');renderAuthCard(gate,'sign-in');},
+ });
+}
+function renderAuthCard(gate,initialMode){
+ gate.dataset.view='form';gate.replaceChildren();
+ const host=element('div');host.style.cssText='width:100%;height:100%';gate.append(host);
+ window.vortexMountAuthCard(host,{
+  initialMode:initialMode||'sign-in',
+  registrationOpen:!!status?.registrationOpen,
+  accountEmail:status?.account?.email||'',
+  // Only sign-in/sign-up get their own URL -- recover/verify-recovery/
+  // update-password/admin are sub-steps of whichever of those two the
+  // visitor was already on, so the address bar just stays put for them.
+  onModeChange:(mode)=>{
+   if(mode==='sign-up'&&location.pathname!=='/sign-up')history.pushState({},'','/sign-up');
+   else if(mode==='sign-in'&&location.pathname!=='/sign-in')history.pushState({},'','/sign-in');
+  },
+  onBack:()=>{history.pushState({},'','/');renderLanding(gate);},
+ });
+}
+// Picks landing vs. sign-up vs. sign-in from whatever's actually in the
+// address bar right now -- used both for the first paint and every
+// popstate (back/forward), so a bookmarked/shared /sign-up link, or the
+// back button from it, both land in the right place.
+function renderSignedOutView(gate){
+ const path=location.pathname;
+ if(path==='/sign-up')renderAuthCard(gate,'sign-up');
+ else if(path==='/sign-in')renderAuthCard(gate,'sign-in');
+ else {if(path!=='/')history.replaceState({},'','/');renderLanding(gate);}
+}
+window.addEventListener('popstate',()=>{
+ if(!status||accessGranted(status))return;
+ const gate=document.getElementById('site-policy-gate');
+ if(!gate||gate.dataset.kind!=='login'||!status.accountsConfigured)return;
+ renderSignedOutView(gate);
+});
 function accountDialog(){
  if(activeDialog)return;
  const dialog=element('dialog',null,'site-account-dialog');activeDialog=dialog;
@@ -109,11 +161,6 @@ function renderStatus(){
   if(next)window.dispatchEvent(new CustomEvent('vortex:switch-tab',{detail:{tab:next}}));
   if(gate.dataset.lockedTab!==current){gate.dataset.lockedTab=current;showLockedTab(current);}
  }else delete gate.dataset.lockedTab;
- function renderAuthCard(initialMode){
-  gate.dataset.view='form';gate.replaceChildren();
-  const host=element('div');host.style.cssText='width:100%;height:100%';gate.append(host);
-  window.vortexMountAuthCard(host,{initialMode:initialMode||'sign-in',registrationOpen:!!status?.registrationOpen,accountEmail:status?.account?.email||''});
- }
  // Preserve typed credentials, recovery progress, and which view (landing
  // vs. the actual form) a signed-out visitor is on during a background
  // policy refresh -- only rebuild when kind itself actually changes.
@@ -121,17 +168,9 @@ function renderStatus(){
   if(kind==='login'&&status.accountsConfigured){
    // Every signed-out visitor's real front door: the landing page, every
    // time (not a one-time overlay) -- the actual sign-in/sign-up form only
-   // shows once they pick one of its two buttons.
-   gate.dataset.view='landing';
-   // Explicit width: a plain block <div> directly inside this fixed,
-   // overflow:auto gate doesn't reliably stretch to fill it on its own in
-   // every browser (observed shrink-to-fit sizing instead) -- confirmed
-   // fixed by forcing it here rather than relying on the default.
-   const host=element('div');host.style.cssText='width:100%;min-height:100%';gate.append(host);
-   window.vortexMountLandingPage(host,{
-    onSignUp:()=>renderAuthCard('sign-up'),
-    onSignIn:()=>renderAuthCard('sign-in'),
-   });
+   // shows once they pick one of its two buttons. Which of the two (or
+   // landing) depends on the URL already in the address bar.
+   renderSignedOutView(gate);
   }else if(kind==='login'){
    delete gate.dataset.view;
    const card=element('section',null,'site-auth-card');card.append(brand());
