@@ -120,19 +120,17 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   min-width: 0;
 }
 :root[data-theme] #gamelog-overlay .gamelog-filter-field > span {
-  font: 700 11px/1.2 var(--font-sans, sans-serif);
-  color: var(--theme-dim, #8c96a6);
-  text-transform: uppercase;
-  letter-spacing: .04em;
+  font: 500 12px/1.2 var(--font-sans, sans-serif);
+  color: var(--theme-dim, #9ca3af);
 }
 :root[data-theme] #gamelog-overlay .gl-filter-group,
 :root[data-theme] #gamelog-overlay .gamelog-season-row {
   display: flex;
   gap: 4px;
   padding: 3px;
-  border: 1px solid var(--theme-border, #2a2a2a);
+  border: 0;
   border-radius: 10px;
-  background: var(--theme-panel-2, #171b22);
+  background: var(--theme-panel, #0a0e16);
   overflow-x: auto;
 }
 :root[data-theme] #gamelog-overlay .gl-filter-chip,
@@ -150,8 +148,8 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
 }
 :root[data-theme] #gamelog-overlay .gl-filter-chip.active,
 :root[data-theme] #gamelog-overlay .gamelog-season-row button.active {
-  color: var(--theme-on-accent, #fff);
-  background: var(--theme-accent, #0082fe);
+  color: var(--theme-text, #f9fafb);
+  background: var(--theme-panel, #10141c);
 }
 
 /* Window-sample bar: L5/L10/L15/L20/Season/H2H, each showing its own hit
@@ -159,7 +157,10 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
 :root[data-theme] #gamelog-overlay .gamelog-windowbar {
   display: flex;
   gap: 6px;
+  padding: 4px;
   margin-bottom: 14px;
+  border-radius: 10px;
+  background: var(--theme-panel, #0a0e16);
   overflow-x: auto;
 }
 :root[data-theme] #gamelog-overlay .gamelog-windowbar button {
@@ -170,15 +171,14 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   gap: 2px;
   min-height: 56px;
   padding: 8px 10px;
-  border: 1px solid var(--theme-border, #2a2a2a);
-  border-radius: 10px;
+  border: 0;
+  border-radius: 8px;
   color: var(--theme-dim, #8c96a6);
-  background: var(--theme-panel-2, #171b22);
+  background: transparent;
   cursor: pointer;
 }
 :root[data-theme] #gamelog-overlay .gamelog-windowbar button.active {
-  border-color: var(--theme-accent, #0082fe);
-  background: color-mix(in srgb, var(--theme-accent, #0082fe) 14%, var(--theme-panel-2, #171b22));
+  background: var(--theme-panel-2, #171b22);
 }
 :root[data-theme] #gamelog-overlay .gamelog-windowbar button strong {
   font: 700 12px/1 var(--font-sans, sans-serif);
