@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useLayoutEffect } from 'react';
 import {
   Card,
   CardHeader,
@@ -46,6 +46,24 @@ export function AuthCard({ initialMode = 'sign-in', registrationOpen = true, acc
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState('');
+
+  // Sign in and Create account render a different set of fields (the
+  // "Remember me" row only shows for sign-in), so the card's height jumps
+  // between the two -- animate that height change instead of letting it
+  // pop. cardSizerRef is the fixed-height box the transition runs on;
+  // cardInnerRef is the actual content it measures every render.
+  const cardSizerRef = useRef(null);
+  const cardInnerRef = useRef(null);
+  useLayoutEffect(() => {
+    const sizer = cardSizerRef.current, inner = cardInnerRef.current;
+    if (!sizer || !inner) return;
+    sizer.style.height = inner.offsetHeight + 'px';
+    const observer = new ResizeObserver(() => {
+      sizer.style.height = inner.offsetHeight + 'px';
+    });
+    observer.observe(inner);
+    return () => observer.disconnect();
+  }, []);
 
   function switchMode(next) {
     if (busy) return;
@@ -122,7 +140,9 @@ export function AuthCard({ initialMode = 'sign-in', registrationOpen = true, acc
       </header>
 
       <div className="relative z-10 h-full w-full grid place-items-center px-4">
-        <Card className="card-animate w-full max-w-sm border-zinc-800 bg-zinc-900/70 backdrop-blur supports-[backdrop-filter]:bg-zinc-900/60">
+        <div ref={cardSizerRef} className="card-animate w-full max-w-sm overflow-hidden transition-[height] duration-300 ease-[cubic-bezier(.22,.61,.36,1)]">
+        <div ref={cardInnerRef}>
+        <Card className="w-full border-zinc-800 bg-zinc-900/70 backdrop-blur supports-[backdrop-filter]:bg-zinc-900/60">
           <CardHeader className="space-y-1">
             {showModes && (
               <div className="flex gap-1 rounded-lg bg-zinc-950 border border-zinc-800 p-1 mb-2" role="group" aria-label="Account access">
@@ -225,6 +245,8 @@ export function AuthCard({ initialMode = 'sign-in', registrationOpen = true, acc
             </button>
           </CardFooter>
         </Card>
+        </div>
+        </div>
       </div>
     </section>
   );
