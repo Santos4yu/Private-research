@@ -4,14 +4,10 @@ html:not([data-site-access="granted"]) #settings-panel,
 html:not([data-site-access="granted"]) #dock-root{display:none!important}
 #boot-loading[hidden]{display:none!important}
 .site-policy-gate{position:fixed;inset:0;z-index:10000;display:grid;align-items:center;justify-items:center;overflow:auto;overscroll-behavior:contain;padding:32px 20px;box-sizing:border-box;background:radial-gradient(ellipse at 50% 0,#1a2535 0,transparent 60%),#080c12;color:#f3f6fa;font-family:'Sora',sans-serif}
-#welcome-gate{position:fixed;inset:0;z-index:10500;display:grid;align-items:center;justify-items:center;overflow:auto;overscroll-behavior:contain;padding:32px 20px;box-sizing:border-box;background:radial-gradient(ellipse at 50% 0,#1a2535 0,transparent 60%),#080c12;color:#f3f6fa;font-family:'Sora',sans-serif}
-.welcome-card{width:min(100%,440px);box-sizing:border-box;padding:32px 30px;border:1px solid #344152;border-radius:24px;background:#121a25;box-shadow:0 24px 80px #0005}
-.welcome-card h1{font-size:28px;line-height:1.2;letter-spacing:-.03em;margin:26px 0 10px;font-weight:700}
-.welcome-sub{color:#abb8c9;font-size:14px;line-height:1.6;margin:0 0 22px}
-.welcome-points{list-style:none;margin:0 0 26px;padding:0;display:grid;gap:12px}
-.welcome-points li{display:flex;align-items:flex-start;gap:12px;font-size:13.5px;line-height:1.5;color:#d5deea}
-.welcome-point-icon{flex:0 0 auto;font-size:18px;line-height:1.4}
-@media(max-width:520px){.welcome-card{padding:26px 22px;border-radius:20px}.welcome-card h1{font-size:24px}}
+/* The landing page (src/LandingPage.jsx) is full-bleed and paints its own
+   background -- strip the gate's centered-card padding/grid for it so it
+   actually reaches the edges instead of sitting inset like the auth card. */
+.site-policy-gate[data-view="landing"]{display:block;padding:0}
 .site-policy-gate[hidden],.site-account-bar[hidden],.site-auth-card [hidden]{display:none!important}
 .site-auth-card{width:min(100%,420px);box-sizing:border-box;padding:30px;border:1px solid #344152;border-radius:24px;background:#121a25;box-shadow:0 24px 80px #0005}
 .site-auth-brand{display:flex;gap:12px;align-items:center;color:#e9eef6;font-size:16px;font-weight:600;margin-bottom:28px}

@@ -26,27 +26,10 @@ function element(tag,text,className){const node=document.createElement(tag);if(t
 function button(text,handler,className='site-text-button'){const node=element('button',text,className);node.type='button';node.onclick=handler;return node;}
 function brand(){const node=element('div',null,'site-auth-brand');const mark=document.createElement('img');mark.className='site-auth-mark';mark.src='/icons/kd-mark.png';mark.alt='';mark.width=40;mark.height=40;node.append(mark,element('span','Krazy Data'));return node;}
 
-// Shown once ever per device, in front of the sign-in gate, so a first-time
-// visitor gets a beat of "here's what this is" before being asked to sign
-// in -- purely a local, one-time overlay, independent of auth/site-status,
-// so it appears instantly without waiting on any network request.
-const WELCOME_KEY='vortex_welcome_seen';
-function showWelcomeIfNeeded(){
- if(localStorage.getItem(WELCOME_KEY)==='true')return;
- if(document.getElementById('welcome-gate'))return;
- const overlay=element('main',null,'welcome-gate');overlay.id='welcome-gate';
- const card=element('section',null,'welcome-card');card.append(brand());
- card.append(element('h1','Your edge, organized.'));
- card.append(element('p','Deep MLB & NFL research, live prop boards, a parlay builder, and a community feed to share your plays — all in one place.','welcome-sub'));
- const list=element('ul',null,'welcome-points');
- [['🔍','Player research with hit-rate trends and matchup scoring'],['📊','Live prop boards and moneyline research'],['🧩','Build parlays and export straight to PrizePicks'],['💬','Share your picks in Community and react to others’']].forEach(([icon,copy])=>{
-  const item=element('li');item.append(element('span',icon,'welcome-point-icon'),element('span',copy));list.append(item);
- });
- card.append(list);
- card.append(button('Get started',()=>{localStorage.setItem(WELCOME_KEY,'true');overlay.remove();},'site-primary-button'));
- overlay.append(card);
- document.body.append(overlay);
-}
+// The one-time "welcome" overlay this used to be has been replaced by the
+// always-shown landing page (src/LandingPage.jsx, mounted from
+// renderStatus() below) -- every signed-out visitor lands there now,
+// every time, not just once per device.
 
 function authForm(host,initialMode='sign-in'){
  let mode=initialMode,busy=false;
@@ -120,14 +103,38 @@ function renderStatus(){
   if(next)window.dispatchEvent(new CustomEvent('vortex:switch-tab',{detail:{tab:next}}));
   if(gate.dataset.lockedTab!==current){gate.dataset.lockedTab=current;showLockedTab(current);}
  }else delete gate.dataset.lockedTab;
- // Preserve typed credentials and recovery progress during background policy refresh.
+ function renderAuthCard(initialMode){
+  gate.dataset.view='form';gate.replaceChildren();
+  const card=element('section',null,'site-auth-card');card.append(brand());
+  const form=authForm(card,initialMode||'sign-in');
+  card.append(button('Administrator',()=>{form.siteSetMode('admin');form.elements.pin.focus();},'site-admin-link'));
+  gate.append(card);
+ }
+ // Preserve typed credentials, recovery progress, and which view (landing
+ // vs. the actual form) a signed-out visitor is on during a background
+ // policy refresh -- only rebuild when kind itself actually changes.
  if(gate.dataset.kind!==kind){gate.dataset.kind=kind;gate.replaceChildren();
-  if(kind!=='none'){
+  if(kind==='login'&&status.accountsConfigured){
+   // Every signed-out visitor's real front door: the landing page, every
+   // time (not a one-time overlay) -- the actual sign-in/sign-up form only
+   // shows once they pick one of its two buttons.
+   gate.dataset.view='landing';
+   const host=element('div');gate.append(host);
+   window.vortexMountLandingPage(host,{
+    onSignUp:()=>renderAuthCard('sign-up'),
+    onSignIn:()=>renderAuthCard('sign-in'),
+   });
+  }else if(kind==='login'){
+   delete gate.dataset.view;
    const card=element('section',null,'site-auth-card');card.append(brand());
-   if(kind==='login'){
-    if(status.accountsConfigured){const form=authForm(card);card.append(button('Administrator',()=>{form.siteSetMode('admin');form.elements.pin.focus();},'site-admin-link'));}
-    else{card.append(element('h1','Sign-in is being configured'),element('p','Please check back shortly.','site-auth-subtitle'));const form=authForm(card,'admin');form.querySelector('.site-auth-back').hidden=true;}
-   }else{card.append(element('h1','We’ll be back shortly'),element('p',status.message,'site-auth-subtitle'));const admin=button('Administrator',()=>{card.replaceChildren(brand());authForm(card,'admin');},'site-admin-link');card.append(admin);}
+   card.append(element('h1','Sign-in is being configured'),element('p','Please check back shortly.','site-auth-subtitle'));
+   const form=authForm(card,'admin');form.querySelector('.site-auth-back').hidden=true;
+   gate.append(card);
+  }else if(kind==='maintenance'){
+   delete gate.dataset.view;
+   const card=element('section',null,'site-auth-card');card.append(brand());
+   card.append(element('h1','We’ll be back shortly'),element('p',status.message,'site-auth-subtitle'));
+   const admin=button('Administrator',()=>{card.replaceChildren(brand());authForm(card,'admin');},'site-admin-link');card.append(admin);
    gate.append(card);
   }
  }
@@ -139,7 +146,6 @@ export async function refreshSiteAccess(){
 }
 export function initSiteAccess(){
  if(initPromise)return initPromise;
- showWelcomeIfNeeded();
  initPromise=(async()=>{await refreshSiteAccess();setInterval(()=>{if(!document.hidden)refreshSiteAccess();},30000);if(accessGranted(status))return status;return new Promise(resolve=>{const listener=e=>{if(e.detail.accessGranted){window.removeEventListener('vortex:site-policy',listener);resolve(e.detail);}};window.addEventListener('vortex:site-policy',listener);});})();return initPromise;
 }
 // Downscales only if larger than maxDim (a smaller source photo is left

@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Layers2 as BarChart3, Ticket as ClipboardList, Radar as FlaskConical, ScanLine, Compass as Search, Sparkles, ShieldCheck, CircleDot, Trophy, LayoutGrid, Diamond, Crosshair, Target, ChartNoAxesCombined } from 'lucide-react';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '../components/ui/select';
+import { LandingPage } from './LandingPage';
 import { MobileNavigation } from './MobileNavigation';
 import { MobileSlipActions } from './MobileSlipActions';
 import { ResearchHome } from './ResearchHome';
@@ -118,6 +119,16 @@ document.querySelectorAll('[data-board-filter]').forEach((button) => {
 window.vortexMountResearchLoader = (host, props) => {
   const root = createRoot(host);
   root.render(<ResearchAILoader {...props} />);
+  return () => root.unmount();
+};
+
+// The signed-out landing page (src/LandingPage.jsx), mounted by
+// site-access.js's renderStatus() every time it rebuilds the gate for a
+// signed-out visitor -- same factory-takes-a-host pattern as
+// vortexMountResearchLoader since the host is built at runtime.
+window.vortexMountLandingPage = (host, props) => {
+  const root = createRoot(host);
+  root.render(<LandingPage {...props} />);
   return () => root.unmount();
 };
 
