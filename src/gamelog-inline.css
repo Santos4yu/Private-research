@@ -146,10 +146,20 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   cursor: pointer;
   white-space: nowrap;
 }
+/* !important throughout: styles.css:6097 sets an accent-tinted background
+   on .gl-filter-chip.active with !important, and gamelog-fix.css forces
+   border-radius:99px on these under 680px -- without matching !important
+   here, those win regardless of this file loading later. */
 :root[data-theme] #gamelog-overlay .gl-filter-chip.active,
 :root[data-theme] #gamelog-overlay .gamelog-season-row button.active {
-  color: var(--theme-text, #f9fafb);
-  background: var(--theme-panel, #10141c);
+  color: var(--theme-text, #f9fafb) !important;
+  background: var(--theme-panel, #10141c) !important;
+  border-color: transparent !important;
+  border-radius: 8px !important;
+}
+:root[data-theme] #gamelog-overlay .gl-filter-chip,
+:root[data-theme] #gamelog-overlay .gamelog-season-row button {
+  border-radius: 8px !important;
 }
 
 /* Window-sample bar: L5/L10/L15/L20/Season/H2H, each showing its own hit
