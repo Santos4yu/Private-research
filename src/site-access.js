@@ -105,15 +105,8 @@ function renderStatus(){
  }else delete gate.dataset.lockedTab;
  function renderAuthCard(initialMode){
   gate.dataset.view='form';gate.replaceChildren();
-  // Same glowing-dots background as the landing page, mounted full-bleed
-  // behind the card so the two screens visually match.
-  const bgHost=element('div');bgHost.style.cssText='position:absolute;inset:0;width:100%;height:100%';gate.append(bgHost);
-  window.vortexMountSparklesBackground(bgHost,{});
-  const wrap=element('div',null,'site-auth-card-wrap');gate.append(wrap);
-  const card=element('section',null,'site-auth-card');card.append(brand());
-  const form=authForm(card,initialMode||'sign-in');
-  card.append(button('Administrator',()=>{form.siteSetMode('admin');form.elements.pin.focus();},'site-admin-link'));
-  wrap.append(card);
+  const host=element('div');host.style.cssText='width:100%;height:100%';gate.append(host);
+  window.vortexMountAuthCard(host,{initialMode:initialMode||'sign-in',registrationOpen:!!status?.registrationOpen,accountEmail:status?.account?.email||''});
  }
  // Preserve typed credentials, recovery progress, and which view (landing
  // vs. the actual form) a signed-out visitor is on during a background

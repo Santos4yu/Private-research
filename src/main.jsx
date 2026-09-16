@@ -4,6 +4,7 @@ import { Layers2 as BarChart3, Ticket as ClipboardList, Radar as FlaskConical, S
 import { Select, SelectTrigger, SelectContent, SelectItem } from '../components/ui/select';
 import { LandingPage } from './LandingPage';
 import { SparklesBackground } from './SparklesBackground';
+import { AuthCard } from './AuthCard';
 import { MobileNavigation } from './MobileNavigation';
 import { MobileSlipActions } from './MobileSlipActions';
 import { ResearchHome } from './ResearchHome';
@@ -139,6 +140,14 @@ window.vortexMountLandingPage = (host, props) => {
 window.vortexMountSparklesBackground = (host, props) => {
   const root = createRoot(host);
   root.render(<SparklesBackground {...props} />);
+  return () => root.unmount();
+};
+
+// The sign-in/sign-up card (src/site-access.js renderAuthCard()), replacing
+// the old vanilla authForm() markup with the pasted "login-signup" design.
+window.vortexMountAuthCard = (host, props) => {
+  const root = createRoot(host);
+  root.render(<AuthCard {...props} />);
   return () => root.unmount();
 };
 
