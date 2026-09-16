@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, LayoutGrid, Puzzle, MessageCircle, ArrowRight } from 'lucide-react';
-import { SparklesCore } from '../components/ui/sparkles';
+import { LiquidButton } from '../components/ui/liquid-glass-button';
+import { SparklesBackground } from './SparklesBackground';
 
 const FEATURES = [
   { icon: Search, title: 'Player research', copy: 'Hit-rate trends and matchup scoring for every MLB and NFL player.' },
@@ -36,16 +37,7 @@ export function LandingPage({ onSignUp, onSignIn }) {
         boxSizing: 'border-box',
       }}
     >
-      <div className="absolute inset-0">
-        <SparklesCore
-          background="transparent"
-          minSize={0.4}
-          maxSize={1.2}
-          particleDensity={90}
-          particleColor="#0082fe"
-          className="w-full h-full"
-        />
-      </div>
+      <SparklesBackground />
 
       <div className="relative z-10 flex flex-col items-center flex-1 w-full">
         <div className="flex items-center gap-2 mb-10">
@@ -53,9 +45,9 @@ export function LandingPage({ onSignUp, onSignIn }) {
           <span className="font-sans text-white font-semibold text-sm tracking-wide">Krazy Data</span>
         </div>
 
-        <div className="flex bg-white/5 rounded-full p-1 mb-10 border border-white/10">
-          <button type="button" onClick={() => setTab('home')} className={`border-0 font-sans px-5 py-2 rounded-full text-sm font-medium transition ${tab === 'home' ? 'bg-white/15 text-white' : 'bg-transparent text-gray-400 hover:text-white'}`}>Home</button>
-          <button type="button" onClick={() => setTab('about')} className={`border-0 font-sans px-5 py-2 rounded-full text-sm font-medium transition ${tab === 'about' ? 'bg-white/15 text-white' : 'bg-transparent text-gray-400 hover:text-white'}`}>About</button>
+        <div className="flex gap-2 mb-10">
+          <LiquidButton type="button" size="sm" onClick={() => setTab('home')} className={`font-sans ${tab === 'home' ? 'text-white' : 'text-gray-400'}`}>Home</LiquidButton>
+          <LiquidButton type="button" size="sm" onClick={() => setTab('about')} className={`font-sans ${tab === 'about' ? 'text-white' : 'text-gray-400'}`}>About</LiquidButton>
         </div>
 
         {tab === 'home' ? (
@@ -66,13 +58,13 @@ export function LandingPage({ onSignUp, onSignIn }) {
             <p className="font-sans text-gray-400 text-base sm:text-lg mb-10 max-w-md">
               Deep MLB &amp; NFL research, live prop boards, and a parlay builder — all in one place.
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-              <button type="button" onClick={onSignUp} className="border-0 font-sans bg-[#0082fe] text-white font-semibold px-8 py-3 rounded-full shadow hover:brightness-110 transition text-sm">
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto items-center">
+              <LiquidButton type="button" size="lg" onClick={onSignUp} className="font-sans text-white w-full sm:w-auto">
                 Sign up
-              </button>
-              <button type="button" onClick={onSignIn} className="border-0 font-sans bg-white/10 text-white font-medium px-8 py-3 rounded-full shadow hover:bg-white/20 transition text-sm">
+              </LiquidButton>
+              <LiquidButton type="button" size="lg" onClick={onSignIn} className="font-sans text-white w-full sm:w-auto">
                 Sign in
-              </button>
+              </LiquidButton>
             </div>
           </div>
         ) : (

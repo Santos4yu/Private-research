@@ -19,6 +19,14 @@
   --muted: var(--theme-panel-2, #161b26);
   --muted-foreground: var(--theme-dim, #9aa4b2);
   --destructive: #ff3f9c;
+  --primary: var(--theme-accent, #0082fe);
+  --primary-foreground: var(--theme-on-accent, #ffffff);
+  --secondary: var(--theme-panel-2, #161b26);
+  --secondary-foreground: var(--theme-text, #edf1f5);
+  --accent: var(--theme-panel-2, #161b26);
+  --accent-foreground: var(--theme-text, #edf1f5);
+  --input: var(--theme-border, #263042);
+  --ring: var(--theme-accent, #0082fe);
 }
 @theme inline {
   --color-background: var(--background);
@@ -28,4 +36,12 @@
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-destructive: var(--destructive);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
 }

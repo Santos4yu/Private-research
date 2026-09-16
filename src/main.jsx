@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { Layers2 as BarChart3, Ticket as ClipboardList, Radar as FlaskConical, ScanLine, Compass as Search, Sparkles, ShieldCheck, CircleDot, Trophy, LayoutGrid, Diamond, Crosshair, Target, ChartNoAxesCombined } from 'lucide-react';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '../components/ui/select';
 import { LandingPage } from './LandingPage';
+import { SparklesBackground } from './SparklesBackground';
 import { MobileNavigation } from './MobileNavigation';
 import { MobileSlipActions } from './MobileSlipActions';
 import { ResearchHome } from './ResearchHome';
@@ -129,6 +130,15 @@ window.vortexMountResearchLoader = (host, props) => {
 window.vortexMountLandingPage = (host, props) => {
   const root = createRoot(host);
   root.render(<LandingPage {...props} />);
+  return () => root.unmount();
+};
+
+// Same sparkles background as the landing page, mounted behind the vanilla
+// sign-in/sign-up auth card (src/site-access.js renderAuthCard()) so the
+// two screens visually match.
+window.vortexMountSparklesBackground = (host, props) => {
+  const root = createRoot(host);
+  root.render(<SparklesBackground {...props} />);
   return () => root.unmount();
 };
 

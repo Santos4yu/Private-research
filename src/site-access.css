@@ -6,8 +6,12 @@ html:not([data-site-access="granted"]) #dock-root{display:none!important}
 .site-policy-gate{position:fixed;inset:0;z-index:10000;display:grid;align-items:center;justify-items:center;overflow:auto;overscroll-behavior:contain;padding:32px 20px;box-sizing:border-box;background:radial-gradient(ellipse at 50% 0,#1a2535 0,transparent 60%),#080c12;color:#f3f6fa;font-family:'Sora',sans-serif}
 /* The landing page (src/LandingPage.jsx) is full-bleed and paints its own
    background -- strip the gate's centered-card padding/grid for it so it
-   actually reaches the edges instead of sitting inset like the auth card. */
-.site-policy-gate[data-view="landing"]{display:block;padding:0}
+   actually reaches the edges instead of sitting inset like the auth card.
+   The auth card itself ("form" view) now also paints the same sparkles
+   background full-bleed behind it (src/SparklesBackground.jsx via
+   renderAuthCard()'s own centering wrapper), so it needs the same reset. */
+.site-policy-gate[data-view="landing"],.site-policy-gate[data-view="form"]{display:block;padding:0}
+.site-auth-card-wrap{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;min-height:100dvh;width:100%;box-sizing:border-box;padding:max(20px,env(safe-area-inset-top,0px)) max(20px,env(safe-area-inset-right,0px)) max(20px,env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px))}
 .site-policy-gate[hidden],.site-account-bar[hidden],.site-auth-card [hidden]{display:none!important}
 .site-auth-card{width:min(100%,420px);box-sizing:border-box;padding:30px;border:1px solid #344152;border-radius:24px;background:#121a25;box-shadow:0 24px 80px #0005}
 .site-auth-brand{display:flex;gap:12px;align-items:center;color:#e9eef6;font-size:16px;font-weight:600;margin-bottom:28px}
