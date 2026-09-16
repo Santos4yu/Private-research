@@ -244,7 +244,13 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
 :root[data-theme] #gamelog-overlay .posted-lines summary > b,
 :root[data-theme] #gamelog-overlay .posted-selected { font-size: 13px !important; padding: 4px 8px !important; }
 :root[data-theme] #gamelog-overlay .gamelog-line-control {
-  display: flex;
+  /* styles.css's base .gamelog-line-control rule sets width:100% completely
+     unscoped (no media query, no !important) -- my earlier pass never
+     actually overrode that, so this kept stretching to the full toolbar
+     width and forcing the posted-lines pill onto its own row below it
+     instead of sitting next to it, exactly as the reference does. */
+  width: fit-content !important;
+  display: flex !important;
   align-items: center;
   gap: 0;
   border: 1px solid var(--theme-border, #2a2a2a);
