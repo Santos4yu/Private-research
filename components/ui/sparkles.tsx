@@ -1,5 +1,5 @@
 "use client";
-import React, { useId, useMemo } from "react";
+import React, { useId, useMemo, memo } from "react";
 import { useEffect, useState } from "react";
 import Particles, { initParticlesEngine } from "@tsparticles/react";
 import type { Container, SingleOrMultiple } from "@tsparticles/engine";
@@ -18,7 +18,13 @@ type ParticlesProps = {
   particleColor?: string;
   particleDensity?: number;
 };
-export const SparklesCore = (props: ParticlesProps) => {
+// memo()'d: @tsparticles/react's <Particles> reinitializes its whole
+// particle system on every one of its own re-renders (its effect depends on
+// the entire props object it's handed, not just the parts that actually
+// changed) -- so without this, any parent re-render (e.g. a sibling form
+// field's keystroke) visibly restarts/jumps the dots even when none of
+// SparklesCore's own props changed.
+export const SparklesCore = memo((props: ParticlesProps) => {
   const {
     id,
     className,
@@ -437,4 +443,4 @@ export const SparklesCore = (props: ParticlesProps) => {
       )}
     </motion.div>
   );
-};
+});
