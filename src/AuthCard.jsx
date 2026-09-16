@@ -13,7 +13,7 @@ import { Button } from '../components/ui/liquid-glass-button';
 import { Checkbox } from '../components/ui/checkbox';
 import { Separator } from '../components/ui/separator';
 import { SparklesBackground } from './SparklesBackground';
-import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Lock, Mail } from 'lucide-react';
 
 // Ported as-given from the pasted "login-signup" design (particles +
 // accent-line intro + fade-up card), with only the GitHub/Google buttons
@@ -128,20 +128,25 @@ export function AuthCard({ initialMode = 'sign-in', registrationOpen = true, acc
           screens match exactly. */}
       <SparklesBackground />
 
-      <header className="absolute z-10 left-0 right-0 top-0 flex items-center justify-between px-6 py-4 border-b border-zinc-800/80">
+      <header className="absolute z-20 left-0 right-0 top-0 flex items-center justify-between px-6 py-4 border-b border-zinc-800/80">
         <span className="text-xs tracking-[0.14em] uppercase text-zinc-400">Krazy Data</span>
         <Button
           type="button"
           variant="outline"
-          className="h-9 rounded-lg border-zinc-800 bg-zinc-900 text-zinc-50 hover:bg-zinc-900/80"
+          className="h-9 gap-1.5 rounded-full border-zinc-800 bg-zinc-900/80 text-zinc-50 backdrop-blur transition-all hover:border-zinc-700 hover:bg-zinc-800 hover:scale-105"
           onClick={() => { if (onBack) onBack(); else location.pathname = '/'; }}
         >
+          <ArrowLeft className="h-3.5 w-3.5" />
           Back to home
         </Button>
       </header>
 
-      <div className="relative z-10 h-full w-full grid place-items-center px-4">
-        <div ref={cardSizerRef} className="card-animate w-full max-w-sm overflow-hidden transition-[height] duration-300 ease-[cubic-bezier(.22,.61,.36,1)]">
+      {/* pointer-events-none: this wrapper spans the full screen just to
+          center the card, but at the same z-index as (and after, in DOM
+          order) the header above -- without this it silently sat on top of
+          the header and swallowed every click on "Back to home". */}
+      <div className="relative z-10 h-full w-full grid place-items-center px-4 pointer-events-none">
+        <div ref={cardSizerRef} className="card-animate w-full max-w-sm overflow-hidden transition-[height] duration-300 ease-[cubic-bezier(.22,.61,.36,1)] pointer-events-auto">
         <div ref={cardInnerRef}>
         <Card className="w-full border-zinc-800 bg-zinc-900/70 backdrop-blur supports-[backdrop-filter]:bg-zinc-900/60">
           <CardHeader className="space-y-1">
