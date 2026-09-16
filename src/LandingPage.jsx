@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, LayoutGrid, Puzzle, MessageCircle, ArrowRight } from 'lucide-react';
 import { LiquidButton } from '../components/ui/liquid-glass-button';
+import { MetallicButton } from '../components/ui/metallic-button';
 import { SparklesBackground } from './SparklesBackground';
 import { BrandLoop } from './BrandLoop';
 
@@ -63,16 +64,13 @@ export function LandingPage({ onSignUp, onSignIn }) {
             <p className="font-sans text-gray-400 text-base sm:text-lg mb-10 max-w-md">
               Deep MLB &amp; NFL research, live prop boards, and a parlay builder — all in one place.
             </p>
-            {/* Fixed width instead of the old w-full: on mobile that stretched
-                these into oversized ovals spanning the whole screen width --
-                a normal button-sized pill reads a lot cleaner. */}
+            {/* Liquid-metal shader buttons, tinted with the site's blue
+                accent instead of the component's default black/white so
+                the chrome sheen reads as "Krazy Data" and not a generic
+                dark app. */}
             <div className="flex flex-col sm:flex-row gap-3 items-center">
-              <LiquidButton type="button" size="lg" onClick={onSignUp} className="border-0 font-sans text-white w-56 sm:w-auto">
-                Sign up
-              </LiquidButton>
-              <LiquidButton type="button" size="lg" onClick={onSignIn} className="border-0 font-sans text-white w-56 sm:w-auto">
-                Sign in
-              </LiquidButton>
+              <MetallicButton label="Sign up" onClick={onSignUp} baseColor="#05070c" sheenColor="#4db8ff" />
+              <MetallicButton label="Sign in" onClick={onSignIn} baseColor="#05070c" sheenColor="#4db8ff" />
             </div>
           </div>
         ) : (
