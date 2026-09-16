@@ -17,7 +17,25 @@ export function LandingPage({ onSignUp, onSignIn }) {
   const [tab, setTab] = useState('home');
 
   return (
-    <div className="relative w-full min-h-screen bg-black overflow-hidden flex flex-col">
+    // 100dvh (not the old min-h-screen/100vh) so this actually matches the
+    // real visible viewport on mobile browsers -- 100vh undercounts/overcounts
+    // as address bars show/hide, which is what left a gray gap at the bottom
+    // (the fixed #site-policy-gate parent behind this already spans inset:0,
+    // so a static-vh child never quite lined up with it). Safe-area padding
+    // on every edge matches the pattern already used everywhere else in this
+    // app (see src/mobile-app.css) instead of letting the header sit under
+    // a phone's notch/status bar.
+    <div
+      className="relative w-full bg-black overflow-hidden flex flex-col"
+      style={{
+        minHeight: '100dvh',
+        paddingTop: 'max(20px, env(safe-area-inset-top, 0px))',
+        paddingBottom: 'max(20px, env(safe-area-inset-bottom, 0px))',
+        paddingLeft: 'max(16px, env(safe-area-inset-left, 0px))',
+        paddingRight: 'max(16px, env(safe-area-inset-right, 0px))',
+        boxSizing: 'border-box',
+      }}
+    >
       <div className="absolute inset-0">
         <SparklesCore
           background="transparent"
@@ -29,7 +47,7 @@ export function LandingPage({ onSignUp, onSignIn }) {
         />
       </div>
 
-      <div className="relative z-10 flex flex-col items-center flex-1 px-6 pt-12 pb-10">
+      <div className="relative z-10 flex flex-col items-center flex-1 w-full">
         <div className="flex items-center gap-2 mb-10">
           <img src="/icons/kd-mark.png" width={32} height={32} alt="" className="rounded-lg" />
           <span className="font-sans text-white font-semibold text-sm tracking-wide">Krazy Data</span>
