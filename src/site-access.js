@@ -64,7 +64,7 @@ function authForm(host,initialMode='sign-in'){
    if(mode==='recover'){busy=false;setMode('verify-recovery');feedback.textContent='If your account exists, a recovery email will arrive shortly.';}
    else if(mode==='verify-recovery'){busy=false;setMode('update-password');password.value='';password.focus();}
    else if(mode==='sign-up'&&!data.signedIn){feedback.textContent=data.message||'Account could not be created. Please try signing in.';}
-   else {if(mode==='admin')location.hash='admin';location.reload();return;}
+   else {if(mode==='admin')location.pathname='/research';else location.reload();return;}
   }catch(error){feedback.textContent=error.message;}
   finally{busy=false;form.removeAttribute('aria-busy');submit.disabled=false;submit.textContent=text;if(['verify-recovery','update-password'].includes(mode))submit.textContent=mode==='verify-recovery'?'Verify code':'Save password';}
  };
@@ -91,7 +91,12 @@ function renderStatus(){
  if(granted&&!bar.childElementCount){const account=button('',accountDialog,'site-account-trigger');account.setAttribute('aria-label','Your account');account.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M5 21v-2a7 7 0 0 1 14 0v2" stroke="currentColor" stroke-width="1.6"/></svg>';bar.append(account);}
  document.querySelectorAll('[data-tab],[data-launch-tab]').forEach(b=>{const tab=b.dataset.tab||b.dataset.launchTab;if(tab!=='admin'){b.disabled=!granted;b.dataset.featureLocked=String(!siteTabAllowed(tab));}});
  let gate=document.getElementById('site-policy-gate');if(!gate){gate=element('main',null,'site-policy-gate');gate.id='site-policy-gate';document.body.append(gate);}
- const current=location.hash.slice(1)||'research';
+ // URL paths use a friendlier slug than the internal tab id for a few tabs
+ // (v2 -> /props, slate -> /tools, slip -> /slip-analyzer) -- app.js owns
+ // the canonical map, this is just the read side for the same paths.
+ const slugToTab={props:'v2',tools:'slate','slip-analyzer':'slip'};
+ const slug=location.pathname.slice(1)||location.hash.slice(1);
+ const current=slugToTab[slug]||slug||'research';
  const next=granted?availableTab(status,current):null;
  document.documentElement.dataset.allTabsLocked=String(granted&&!next);
  let empty=document.getElementById('site-all-locked');if(!empty){empty=element('section',null,'site-all-locked');empty.id='site-all-locked';empty.append(element('h2','In development'),element('p','Sections are temporarily locked. Your account and navigation are still available.'));document.body.append(empty);}empty.hidden=!(granted&&!next);

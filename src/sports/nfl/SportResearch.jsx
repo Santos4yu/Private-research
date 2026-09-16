@@ -328,7 +328,7 @@ export function SportResearch() {
   const [players, setPlayers] = useState([]); const [teams, setTeams] = useState([]); const [schedules, setSchedules] = useState([]);
   const [selectedPlayer, setSelectedPlayer] = useState(null); const [loading, setLoading] = useState(false); const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
-  const [boardView,setBoardView]=useState(location.hash==='#v2');
+  const [boardView,setBoardView]=useState(location.pathname==='/props');
   useEffect(()=>{const view=e=>{setBoardView(e.detail.view==='board');if(e.detail.view==='board')setSelectedPlayer(null);};window.addEventListener('vortex:nfl-view',view);return()=>window.removeEventListener('vortex:nfl-view',view);},[]);
   const syncUrl = (nextSport, playerId = null, replace = false) => {
     const url = new URL(location.href); url.searchParams.set('sport', nextSport);

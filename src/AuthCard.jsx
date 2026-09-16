@@ -75,8 +75,11 @@ export function AuthCard({ initialMode = 'sign-in', registrationOpen = true, acc
       } else if (mode === 'sign-up' && !data.signedIn) {
         setFeedback(data.message || 'Account could not be created. Please try signing in.');
       } else {
-        if (mode === 'admin') location.hash = 'admin';
-        location.reload();
+        // Admin unlock still grants access, it just no longer jumps straight
+        // to the admin panel -- land on the regular research home like any
+        // other sign-in, same as the vanilla authForm() this replaced used
+        // to do before it started forcing #admin.
+        location.pathname = '/research';
         return;
       }
     } catch (error) {
@@ -112,7 +115,7 @@ export function AuthCard({ initialMode = 'sign-in', registrationOpen = true, acc
           type="button"
           variant="outline"
           className="h-9 rounded-lg border-zinc-800 bg-zinc-900 text-zinc-50 hover:bg-zinc-900/80"
-          onClick={() => { location.hash = ''; location.reload(); }}
+          onClick={() => { location.pathname = '/research'; }}
         >
           Back to home
         </Button>

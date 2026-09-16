@@ -157,6 +157,11 @@ applyAccentTheme(loadAccentTheme(), { persist: false });
 applyExperience(localStorage.getItem(EXPERIENCE_KEY) === "true");
 
 const SCREEN_TITLES = Object.freeze({ research: "Research", v2: "Props", slate: "Tools", saved: "My Slip", builder: "Parlay Builder", slip: "Slip Analyzer", moneyline: "Moneylines", nrfi: "NRFI / YRFI", community: "Community", admin: "Admin Results" });
+// The URL path for each tab differs from its internal id in a few cases
+// (v2 -> /props, slate -> /tools, slip -> /slip-analyzer) so the address
+// bar reads naturally -- everything else just uses its id as-is.
+const SCREEN_SLUGS = Object.freeze({ v2: "props", slate: "tools", slip: "slip-analyzer" });
+const SLUG_TO_TAB = Object.freeze(Object.fromEntries(Object.keys(SCREEN_TITLES).map((tab) => [SCREEN_SLUGS[tab] || tab, tab])));
 const screenScroll = new Map();
 let screenHistoryReady = false;
 
@@ -1294,7 +1299,8 @@ function switchTab(tab, options = {}) {
   document.title = `${SCREEN_TITLES[tab]} · Krazy Data`;
   if (changed && screenHistoryReady && options.history !== false) {
     const url = new URL(location.href);
-    url.hash = tab;
+    url.hash = "";
+    url.pathname = "/" + (SCREEN_SLUGS[tab] || tab);
     history.pushState({ ...history.state, vortexTab: tab }, "", url);
   }
   els.tabs.querySelectorAll("[data-tab]").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
@@ -1349,10 +1355,15 @@ function switchTab(tab, options = {}) {
 }
 
 function wireAppNavigation() {
-  const requested = location.hash.slice(1);
+  // Back-compat: a link or bookmark carrying the old #tab hash (or a stray
+  // hash left over from before this became path-based routing) still lands
+  // on the right screen instead of always falling back to research.
+  const requestedSlug = location.pathname.slice(1) || location.hash.slice(1);
+  const requested = Object.hasOwn(SLUG_TO_TAB, requestedSlug) ? SLUG_TO_TAB[requestedSlug] : requestedSlug;
   const initialTab = Object.hasOwn(SCREEN_TITLES, requested) && (requested !== "admin" || state.adminUnlocked) ? requested : state.currentTab;
   const url = new URL(location.href);
-  url.hash = initialTab;
+  url.hash = "";
+  url.pathname = "/" + (SCREEN_SLUGS[initialTab] || initialTab);
   history.replaceState({ ...history.state, vortexTab: initialTab }, "", url);
   history.scrollRestoration = "manual";
   switchTab(initialTab, { history: false });
@@ -1364,7 +1375,8 @@ function wireAppNavigation() {
     window.dispatchEvent(new Event("vortex:close-more"));
     els.settingsPanel.hidden = true;
     setManualBetSlipOpen(false);
-    const route = location.hash.slice(1);
+    const slug = location.pathname.slice(1);
+    const route = Object.hasOwn(SLUG_TO_TAB, slug) ? SLUG_TO_TAB[slug] : slug;
     const tab = Object.hasOwn(SCREEN_TITLES, route) && (route !== "admin" || state.adminUnlocked) ? route : "research";
     switchTab(tab, { history: false });
   });
