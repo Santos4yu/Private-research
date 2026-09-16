@@ -289,3 +289,38 @@
  :root[data-theme] body.mobile-dock-hidden .mobile-app-nav{opacity:0;transform:translate3d(0,14px,0);visibility:hidden;pointer-events:none;transition:opacity 240ms ease,transform 280ms cubic-bezier(.22,1,.36,1),visibility 0s linear 280ms}
 }
 @media(prefers-reduced-motion:reduce){:root[data-theme] .mobile-app-nav,:root[data-theme] body.mobile-dock-hidden .mobile-app-nav{transition:none}}
+
+/* Landing page's animated wordmark (src/BrandLoop.jsx) -- identical rules to
+   the main header's .hero-brand h1 .brand-loop* in styles.css, just without
+   that .hero-brand h1 ancestor requirement since this renders standalone on
+   the landing page instead of inside the app header. */
+.brand-loop { display: inline-flex; align-items: baseline; gap: .18em; }
+.brand-loop .brand-loop-static {
+  background: linear-gradient(180deg, var(--theme-text, #edf1f5) 0%, color-mix(in srgb, var(--theme-accent-soft, #7fc9ff) 60%, var(--theme-text, #edf1f5)) 65%, var(--theme-accent-soft, #7fc9ff) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.brand-loop .brand-loop-rotor { position: relative; display: inline-flex; align-items: baseline; }
+.brand-loop .brand-loop-box {
+  position: absolute; z-index: 0; inset: -2% -8% -2% -6%; border-radius: .18em;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--theme-accent, #0082fe) 22%, transparent) 55%, color-mix(in srgb, var(--theme-accent, #0082fe) 38%, transparent));
+  opacity: 0; transform: scaleX(.4); transform-origin: left center;
+  transition: opacity 260ms ease, transform 420ms cubic-bezier(.2,.8,.2,1);
+}
+.brand-loop .brand-loop-rotor.is-in .brand-loop-box { opacity: 1; transform: scaleX(1); }
+.brand-loop .brand-loop-word {
+  position: relative; z-index: 1; display: inline-block; padding: 0 .06em;
+  background: linear-gradient(180deg, var(--theme-accent-soft, #7fc9ff) 0%, var(--theme-accent, #0082fe) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  opacity: 0; transform: translateY(.16em); filter: blur(6px);
+  transition: opacity 320ms ease, transform 380ms cubic-bezier(.2,.8,.2,1), filter 320ms ease;
+}
+.brand-loop .brand-loop-rotor.is-in .brand-loop-word { opacity: 1; transform: translateY(0); filter: blur(0); }
+.brand-loop .brand-loop-cursor {
+  position: relative; z-index: 1; width: .05em; margin-left: .05em; align-self: stretch;
+  background: var(--theme-accent, #0082fe); border-radius: 2px;
+  animation: brand-loop-blink 1s steps(1) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand-loop .brand-loop-box, .brand-loop .brand-loop-word { transition: none !important; opacity: 1 !important; transform: none !important; filter: none !important; }
+  .brand-loop .brand-loop-cursor { animation: none !important; }
+}

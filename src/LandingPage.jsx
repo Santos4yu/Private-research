@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Search, LayoutGrid, Puzzle, MessageCircle, ArrowRight } from 'lucide-react';
 import { LiquidButton } from '../components/ui/liquid-glass-button';
 import { SparklesBackground } from './SparklesBackground';
+import { BrandLoop } from './BrandLoop';
 
 const FEATURES = [
   { icon: Search, title: 'Player research', copy: 'Hit-rate trends and matchup scoring for every MLB and NFL player.' },
@@ -39,7 +40,11 @@ export function LandingPage({ onSignUp, onSignIn }) {
     >
       <SparklesBackground />
 
-      <div className="relative z-10 flex flex-col items-center flex-1 w-full">
+      {/* justify-center centers the whole block (logo, tabs, hero text,
+          buttons) together as one unit in the middle of the viewport --
+          previously only the hero text centered in the space left over
+          below the header, which read as sitting too low. */}
+      <div className="relative z-10 flex flex-col items-center justify-center flex-1 w-full">
         <div className="flex items-center gap-2 mb-10">
           <img src="/icons/kd-mark.png" width={32} height={32} alt="" className="rounded-lg" />
           <span className="font-sans text-white font-semibold text-sm tracking-wide">Krazy Data</span>
@@ -51,9 +56,9 @@ export function LandingPage({ onSignUp, onSignIn }) {
         </div>
 
         {tab === 'home' ? (
-          <div className="flex flex-col items-center text-center max-w-xl flex-1 justify-center">
-            <h1 className="font-sans text-5xl sm:text-7xl font-bold text-white mb-4 tracking-tight">
-              Krazy<span className="text-[#0082fe]">Data</span>
+          <div className="flex flex-col items-center text-center max-w-xl">
+            <h1 className="mb-4">
+              <BrandLoop className="text-5xl sm:text-7xl font-bold tracking-tight" />
             </h1>
             <p className="font-sans text-gray-400 text-base sm:text-lg mb-10 max-w-md">
               Deep MLB &amp; NFL research, live prop boards, and a parlay builder — all in one place.
