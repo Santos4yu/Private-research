@@ -63,11 +63,14 @@ export function LandingPage({ onSignUp, onSignIn }) {
             <p className="font-sans text-gray-400 text-base sm:text-lg mb-10 max-w-md">
               Deep MLB &amp; NFL research, live prop boards, and a parlay builder — all in one place.
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto items-center">
-              <LiquidButton type="button" size="lg" onClick={onSignUp} className="border-0 font-sans text-white w-full sm:w-auto">
+            {/* Fixed width instead of the old w-full: on mobile that stretched
+                these into oversized ovals spanning the whole screen width --
+                a normal button-sized pill reads a lot cleaner. */}
+            <div className="flex flex-col sm:flex-row gap-3 items-center">
+              <LiquidButton type="button" size="lg" onClick={onSignUp} className="border-0 font-sans text-white w-56 sm:w-auto">
                 Sign up
               </LiquidButton>
-              <LiquidButton type="button" size="lg" onClick={onSignIn} className="border-0 font-sans text-white w-full sm:w-auto">
+              <LiquidButton type="button" size="lg" onClick={onSignIn} className="border-0 font-sans text-white w-56 sm:w-auto">
                 Sign in
               </LiquidButton>
             </div>
