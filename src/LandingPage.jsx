@@ -51,8 +51,8 @@ export function LandingPage({ onSignUp, onSignIn }) {
         </div>
 
         <div className="flex gap-2 mb-10">
-          <LiquidButton type="button" size="sm" onClick={() => setTab('home')} className={`font-sans ${tab === 'home' ? 'text-white' : 'text-gray-400'}`}>Home</LiquidButton>
-          <LiquidButton type="button" size="sm" onClick={() => setTab('about')} className={`font-sans ${tab === 'about' ? 'text-white' : 'text-gray-400'}`}>About</LiquidButton>
+          <LiquidButton type="button" size="sm" onClick={() => setTab('home')} className={`border-0 font-sans ${tab === 'home' ? 'text-white' : 'text-gray-400'}`}>Home</LiquidButton>
+          <LiquidButton type="button" size="sm" onClick={() => setTab('about')} className={`border-0 font-sans ${tab === 'about' ? 'text-white' : 'text-gray-400'}`}>About</LiquidButton>
         </div>
 
         {tab === 'home' ? (
@@ -64,10 +64,10 @@ export function LandingPage({ onSignUp, onSignIn }) {
               Deep MLB &amp; NFL research, live prop boards, and a parlay builder — all in one place.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto items-center">
-              <LiquidButton type="button" size="lg" onClick={onSignUp} className="font-sans text-white w-full sm:w-auto">
+              <LiquidButton type="button" size="lg" onClick={onSignUp} className="border-0 font-sans text-white w-full sm:w-auto">
                 Sign up
               </LiquidButton>
-              <LiquidButton type="button" size="lg" onClick={onSignIn} className="font-sans text-white w-full sm:w-auto">
+              <LiquidButton type="button" size="lg" onClick={onSignIn} className="border-0 font-sans text-white w-full sm:w-auto">
                 Sign in
               </LiquidButton>
             </div>

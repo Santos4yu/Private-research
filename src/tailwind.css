@@ -5,6 +5,12 @@
 @source "../lib";
 @source "./";
 
+/* This app is always dark-themed regardless of OS preference, so dark:
+   variants (e.g. the liquid-glass button's shadow) should key off the
+   .dark class on <html> (set in index.html), not prefers-color-scheme,
+   which is Tailwind v4's default for dark: with no override. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* shadcn/ui semantic color tokens (components.json declares cssVariables:
    true, but nothing ever defined them) -- mapped onto this site's own
    accent-picker theme variables (--theme-*, set on <html> by
