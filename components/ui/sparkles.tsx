@@ -51,14 +51,11 @@ export const SparklesCore = (props: ParticlesProps) => {
   };
 
   const generatedId = useId();
-  return (
-    <motion.div animate={controls} className={cn("opacity-0", className)}>
-      {init && (
-        <Particles
-          id={id || generatedId}
-          className={cn("h-full w-full")}
-          particlesLoaded={particlesLoaded}
-          options={{
+  // Memoized so this identical-looking object isn't a NEW reference on
+  // every render -- Particles reinitializes (and visibly jumps/restarts
+  // its particles) whenever `options` changes identity, which used to
+  // happen on every keystroke in a parent form field re-rendering this.
+  const options = useMemo(() => ({
             background: {
               color: {
                 value: background || "#0d47a1",
@@ -426,7 +423,16 @@ export const SparklesCore = (props: ParticlesProps) => {
               },
             },
             detectRetina: true,
-          }}
+          }), [background, minSize, maxSize, speed, particleColor, particleDensity]);
+
+  return (
+    <motion.div animate={controls} className={cn("opacity-0", className)}>
+      {init && (
+        <Particles
+          id={id || generatedId}
+          className={cn("h-full w-full")}
+          particlesLoaded={particlesLoaded}
+          options={options}
         />
       )}
     </motion.div>
