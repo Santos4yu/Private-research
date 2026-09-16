@@ -119,7 +119,11 @@ function renderStatus(){
    // time (not a one-time overlay) -- the actual sign-in/sign-up form only
    // shows once they pick one of its two buttons.
    gate.dataset.view='landing';
-   const host=element('div');gate.append(host);
+   // Explicit width: a plain block <div> directly inside this fixed,
+   // overflow:auto gate doesn't reliably stretch to fill it on its own in
+   // every browser (observed shrink-to-fit sizing instead) -- confirmed
+   // fixed by forcing it here rather than relying on the default.
+   const host=element('div');host.style.cssText='width:100%;min-height:100%';gate.append(host);
    window.vortexMountLandingPage(host,{
     onSignUp:()=>renderAuthCard('sign-up'),
     onSignIn:()=>renderAuthCard('sign-in'),
