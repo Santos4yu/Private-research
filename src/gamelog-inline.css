@@ -71,12 +71,14 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   background: var(--theme-panel, #0f1115) !important;
   transform: none !important;
 }
-:root[data-theme] #gamelog-overlay .modal-head {
-  padding: 18px 20px !important;
-  min-height: 0 !important;
-  border-bottom: 1px solid var(--theme-border, #2a2a2a) !important;
-}
-:root[data-theme] #gamelog-overlay .gamelog-workbench { padding: 14px 20px !important; }
+/* This header (photo/name/prop badge/"Explore recent results...") just
+   repeated the report's own header verbatim, which is right above it on
+   screen now that this isn't a separate popup anymore -- a reference trend
+   screen the user pointed to only has ONE header, not two. The underlying
+   elements (#gamelog-title etc.) stay in the DOM since app.js still writes
+   to them; they're just not rendered. */
+:root[data-theme] #gamelog-overlay .modal-head { display: none !important; }
+:root[data-theme] #gamelog-overlay .gamelog-workbench { padding: 16px 20px !important; }
 
 /* ── Visual rebuild to match a reference trend screen the user pointed to:
    rounded-lg surfaces throughout, the filter row sitting above the chart
@@ -196,6 +198,51 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   gap: 10px;
   flex-wrap: wrap;
 }
+/* Stat tabs get their own full-width row (it's a wide scrollable list);
+   the line stepper + posted-lines pill sit together on the row below,
+   matching a reference trend screen's two-row toolbar instead of the
+   stepper and a tall separate "PrizePicks lines" card stacking on their
+   own lines below each other. */
+:root[data-theme] #gamelog-overlay .gamelog-stat-tabs {
+  flex: 1 1 100%;
+  display: flex;
+  gap: 18px;
+  padding-bottom: 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--theme-border, #2a2a2a);
+  overflow-x: auto;
+}
+:root[data-theme] #gamelog-overlay .gamelog-stat-tabs button {
+  flex: 0 0 auto;
+  padding: 0 0 10px;
+  margin-bottom: -11px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  font: 700 13px/1 var(--font-sans, sans-serif);
+  letter-spacing: .02em;
+}
+:root[data-theme] #gamelog-overlay .gamelog-stat-tabs button.active {
+  border-bottom-color: var(--theme-accent, #0082fe) !important;
+}
+:root[data-theme] #gamelog-overlay .posted-lines {
+  flex: 0 1 auto !important;
+  min-width: 0 !important;
+  width: auto !important;
+  padding: 0 12px !important;
+  border-radius: 10px !important;
+  background: var(--theme-panel-2, #171b22) !important;
+}
+:root[data-theme] #gamelog-overlay .posted-lines summary {
+  min-height: 32px !important;
+  padding: 0 !important;
+  gap: 8px !important;
+}
+:root[data-theme] #gamelog-overlay .posted-lines summary > span { flex: none !important; }
+:root[data-theme] #gamelog-overlay .posted-lines summary small { display: none !important; }
+:root[data-theme] #gamelog-overlay .posted-lines summary > img { width: 18px !important; height: 18px !important; }
+:root[data-theme] #gamelog-overlay .posted-lines summary > b,
+:root[data-theme] #gamelog-overlay .posted-selected { font-size: 13px !important; padding: 4px 8px !important; }
 :root[data-theme] #gamelog-overlay .gamelog-line-control {
   display: flex;
   align-items: center;
