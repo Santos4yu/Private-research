@@ -461,7 +461,6 @@ function cacheEls() {
   els.gamelogTabs = document.getElementById("gamelog-tabs");
   els.gamelogSub = document.getElementById("gamelog-sub");
   els.gamelogChart = document.getElementById("gamelog-chart");
-  els.gamelogSubfilters = document.getElementById("gamelog-subfilters");
   els.glHandFilter = document.getElementById("gl-hand-filter");
   els.glVenueFilter = document.getElementById("gl-venue-filter");
   els.gamelogStatTabs = document.getElementById("gamelog-stat-tabs");
@@ -471,13 +470,7 @@ function cacheEls() {
   els.gamelogFilterPanel = document.getElementById("gamelog-filter-panel");
   els.gamelogStudio = document.getElementById("gamelog-studio");
   els.gamelogSeasonRow = document.getElementById("gamelog-season-row");
-  els.gamelogPresetRow = document.getElementById("gamelog-preset-row");
-  els.gamelogGamesDown = document.getElementById("gamelog-games-down");
-  els.gamelogGamesUp = document.getElementById("gamelog-games-up");
-  els.gamelogGamesCount = document.getElementById("gamelog-games-count");
-  els.gamelogWindowLabel = document.getElementById("gamelog-window-label");
-  els.gamelogH2HToggle = document.getElementById("gamelog-h2h-toggle");
-  els.gamelogFilterCount = document.getElementById("gamelog-filter-count");
+  els.gamelogHandField = document.getElementById("gl-hand-field");
 
   els.teamOverlay = document.getElementById("team-overlay");
   els.teamTitle = document.getElementById("team-title");
@@ -2627,7 +2620,12 @@ function renderReport(p) {
 
   const expandBtn = node.querySelector(".last5-expand-btn");
   if (p.gameLogChart && Object.keys(p.gameLogChart).length) {
-    expandBtn.addEventListener("click", () => { openGameLogModal(p); focusResearchTab("trend"); });
+    // The Trend tab's full chart used to only populate once someone clicked
+    // this mini row -- now it's the tab's entire content, so it has to be
+    // ready the moment the tab exists, not gated behind a click nobody
+    // knows to make. The mini row's own click still just jumps to Trend.
+    openGameLogModal(p);
+    expandBtn.addEventListener("click", () => focusResearchTab("trend"));
   } else {
     expandBtn.classList.add("last5-expand-disabled");
     expandBtn.disabled = true;
@@ -2825,7 +2823,7 @@ function openGameLogModal(p) {
   // Batter props also resolve opposing-starter handedness; pitcher props do
   // not, because one start faces a mixed lineup rather than one pitcher hand.
   const isPitcherProp = gameLogState.isPitcher;
-  els.glHandFilter.hidden = isPitcherProp;
+  if (els.gamelogHandField) els.gamelogHandField.hidden = isPitcherProp;
   renderGameLogSubfilters();
   fetchGameLogDetails(p);
   renderLineMovement(p);
@@ -2928,45 +2926,51 @@ function filterGames(games) {
 }
 
 function renderGameLogSubfilters() {
-  els.gamelogSubfilters.hidden = false;
   els.glHandFilter.querySelectorAll(".gl-filter-chip").forEach((b) => {
     b.classList.toggle("active", b.dataset.hand === gameLogState.handFilter);
   });
   els.glVenueFilter.querySelectorAll(".gl-filter-chip").forEach((b) => {
     b.classList.toggle("active", b.dataset.venue === gameLogState.venueFilter);
   });
-  const activeCount = Number(gameLogState.handFilter !== "all") + Number(gameLogState.venueFilter !== "all") + Number(gameLogState.season !== "all");
-  if (els.gamelogFilterCount) {
-    els.gamelogFilterCount.hidden = activeCount === 0;
-    els.gamelogFilterCount.textContent = activeCount;
-  }
+}
+
+// Hit rate + average for one window's worth of games, for the window-tabs
+// bar below -- games are already regraded (.over set) by regradeGameLog()
+// before this runs.
+function windowStat(games) {
+  if (!games.length) return { hitRate: null, avg: null };
+  const hits = games.filter((g) => g.over).length;
+  const avg = games.reduce((sum, g) => sum + (Number(g.value) || 0), 0) / games.length;
+  return { hitRate: Math.round((hits / games.length) * 100), avg };
 }
 
 function renderGameLogTabs() {
-  const max = gameLogPool().length;
+  const filtered = filterGames(recentGameLogSource());
+  const max = filtered.length;
   if (gameLogState.window !== "h2h") gameLogState.gameCount = Math.max(1, Math.min(gameLogState.gameCount, Math.max(1, max)));
-  if (els.gamelogGamesCount) els.gamelogGamesCount.textContent = gameLogState.gameCount;
-  if (els.gamelogWindowLabel) els.gamelogWindowLabel.textContent = gameLogState.window === "h2h" ? "Career matchups" : `Last ${gameLogState.gameCount} game${gameLogState.gameCount === 1 ? "" : "s"}`;
-  if (els.gamelogGamesDown) els.gamelogGamesDown.disabled = gameLogState.window === "h2h" || gameLogState.gameCount <= 1;
-  if (els.gamelogGamesUp) els.gamelogGamesUp.disabled = gameLogState.window === "h2h" || gameLogState.gameCount >= max;
-  if (els.gamelogH2HToggle) {
-    els.gamelogH2HToggle.hidden = !(gameLogState.chart?.h2h || []).length;
-    els.gamelogH2HToggle.classList.toggle("active", gameLogState.window === "h2h");
+  const h2hGames = filterGames(gameLogState.chart?.h2h || []);
+
+  // One row that both selects the sample size AND shows that window's hit
+  // rate/average at a glance (matches a reference trend screen the user
+  // pointed to), instead of a plain +/- stepper with no numbers.
+  const windows = [5, 10, 15, 20]
+    .filter((n) => n === 5 || n <= Math.max(max, gameLogState.gameCount))
+    .map((n) => ({ key: String(n), label: `L${n}`, ...windowStat(filtered.slice(-n)) }));
+  windows.push({ key: "season", label: "Season", ...windowStat(filtered) });
+  if (h2hGames.length) windows.push({ key: "h2h", label: "H2H", ...windowStat(h2hGames) });
+
+  if (els.gamelogTabs) {
+    els.gamelogTabs.innerHTML = windows.map((w) => {
+      const active = w.key === "h2h" ? gameLogState.window === "h2h" : (gameLogState.window !== "h2h" && gameLogState.gameCount === (w.key === "season" ? max : Number(w.key)));
+      const stat = w.hitRate == null ? "" : `<span class="gl-window-rate">HR ${w.hitRate}%</span><span class="gl-window-avg">Avg ${w.avg.toFixed(2)}</span>`;
+      return `<button type="button" class="${active ? "active" : ""}" data-window="${w.key}"><strong>${w.label}</strong>${stat}</button>`;
+    }).join("");
   }
+
   const seasons = [...new Set(recentGameLogSource().map((game) => String(game.season || String(game.fullDate || "").slice(0, 4))).filter((season) => /^\d{4}$/.test(season)))].sort().concat("all");
   if (els.gamelogSeasonRow) {
     els.gamelogSeasonRow.innerHTML = seasons.map((season) => `<button type="button" data-season="${season}" class="${gameLogState.season === season ? "active" : ""}">${season === "all" ? "All" : season}</button>`).join("");
   }
-  els.gamelogPresetRow?.querySelectorAll("button").forEach((btn) => {
-    const value = btn.dataset.games === "max" ? max : Number(btn.dataset.games);
-    btn.disabled = !max;
-    btn.classList.toggle("active", gameLogState.window !== "h2h" && gameLogState.gameCount === value);
-  });
-  document.querySelectorAll('.gamelog-range-chips [data-range]').forEach(btn => {
-    const value=btn.dataset.range==='max'?max:Number(btn.dataset.range);
-    btn.disabled=!max;
-    btn.setAttribute('aria-pressed',String(gameLogState.window!=='h2h' && value===gameLogState.gameCount && (btn.dataset.range!=='max'||![5,10,15,20].includes(value))));
-  });
   renderGameLogSubfilters();
 }
 
@@ -3128,50 +3132,10 @@ function wireGameLogModal() {
   window.visualViewport?.addEventListener("resize", stabilizeGameLogLayout);
   document.fonts?.ready?.then(stabilizeGameLogLayout).catch(() => {});
   if (typeof ResizeObserver === "function") new ResizeObserver(stabilizeGameLogLayout).observe(els.gamelogChart);
-  const wireStableAction = (button, action) => {
-    if (!button) return;
-    const activate = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      button.dataset.pointerActivated = "true";
-      button.blur();
-      action();
-    };
-    button.addEventListener("pointerdown", activate, { passive: false });
-    button.addEventListener("click", (event) => {
-      if (button.dataset.pointerActivated === "true") {
-        delete button.dataset.pointerActivated;
-        return;
-      }
-      activate(event);
-    });
-  };
-  const wireCountButton = (button, delta, direction) => {
-    if (!button) return;
-    const activate = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      button.dataset.pointerActivated = "true";
-      button.blur();
-      setGameLogCount(gameLogState.gameCount + delta, direction);
-    };
-    button.addEventListener("pointerdown", activate, { passive: false });
-    // Keep Enter/Space keyboard activation accessible, while ignoring the
-    // synthetic click browsers emit after a touch pointerdown.
-    button.addEventListener("click", (event) => {
-      if (button.dataset.pointerActivated === "true") {
-        delete button.dataset.pointerActivated;
-        return;
-      }
-      activate(event);
-    });
-  };
-  wireCountButton(els.gamelogGamesDown, -1, "remove");
-  wireCountButton(els.gamelogGamesUp, 1, "add");
-  wireStableAction(els.gamelogH2HToggle, () => {
-    gameLogState.window = gameLogState.window === "h2h" ? "recent" : "h2h";
-    gameLogState.animationDirection = "initial";
-    renderGameLogTabs(); renderGameLogChart();
+  els.gamelogTabs?.addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-window]");
+    if (!btn) return;
+    setGameLogWindow(btn.dataset.window);
   });
   els.gamelogSeasonRow?.addEventListener("click", (event) => {
     const btn = event.target.closest("button[data-season]");
@@ -3180,12 +3144,6 @@ function wireGameLogModal() {
     gameLogState.window = "recent";
     gameLogState.animationDirection = "initial";
     renderGameLogTabs(); renderGameLogChart();
-  });
-  els.gamelogPresetRow?.addEventListener("click", (event) => {
-    const btn = event.target.closest("button[data-games]");
-    if (!btn || btn.disabled) return;
-    const next = btn.dataset.games === "max" ? gameLogPool().length : Number(btn.dataset.games);
-    setGameLogCount(next, next >= gameLogState.gameCount ? "add" : "remove");
   });
   els.glHandFilter.querySelectorAll(".gl-filter-chip").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -6192,9 +6150,6 @@ function wireResearchPolish() {
   const researchHead=document.querySelector('#gamelog-overlay .modal-head');
   const placeMobileClose=()=>{if(matchMedia('(max-width:680px)').matches)researchHead.style.setProperty('padding-top','52px','important');else researchHead.style.removeProperty('padding-top');};
   placeMobileClose();window.addEventListener('resize',placeMobileClose,{passive:true});
-  const range=document.createElement('div');range.className='gamelog-range-chips';range.setAttribute('aria-label','Game range');range.innerHTML=[5,10,15,20].map(n=>`<button type="button" data-range="${n}">L${n}</button>`).join('')+'<button type="button" data-range="max">Max</button>';
-  document.querySelector('.gamelog-windowbar').before(range);
-  range.onclick=event=>{const button=event.target.closest('[data-range]');if(!button)return;event.preventDefault();button.blur();const value=button.dataset.range==='max'?gameLogPool().length:Number(button.dataset.range);setGameLogCount(value,'none');};
   const eyeIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.7"/></svg>';
   const eyeOffIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 18M10.6 6.1A9 9 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-2.2 2.8M6.6 6.7C3.9 8.4 2.5 12 2.5 12s3.5 6 9.5 6a9 9 0 0 0 3-.5M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
   const movement=document.createElement('section');movement.id='gamelog-line-movement';movement.className='line-movement-card';movement.innerHTML=`<div><span>LINE MOVEMENT</span><strong>Tracking current line</strong></div><div class="line-movement-chart"></div><div class="line-movement-actions"><button type="button" id="gamelog-share-card" aria-label="Share research card"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.5-4.4M8.2 13.2l7.5 4.4"/></svg></button><button type="button" id="chart-label-toggle" aria-label="Hide chart labels" aria-pressed="true">${eyeIcon}</button></div>`;
@@ -6435,6 +6390,22 @@ function setGameLogCount(value, direction = "initial") {
   renderGameLogTabs();
   renderGameLogChart();
   restoreGameLogViewport(viewportState);
+}
+
+// Click handler for the window-tabs bar (L5/L10/L15/L20/Season/H2H) --
+// numeric/Season windows just set the sample size like setGameLogCount()
+// always has; H2H is its own toggle since it isn't a sample-size at all.
+function setGameLogWindow(key) {
+  if (key === "h2h") {
+    const viewportState = captureGameLogViewport();
+    gameLogState.window = gameLogState.window === "h2h" ? "recent" : "h2h";
+    gameLogState.animationDirection = "none";
+    renderGameLogTabs();
+    renderGameLogChart();
+    restoreGameLogViewport(viewportState);
+    return;
+  }
+  setGameLogCount(key === "season" ? filterGames(recentGameLogSource()).length : Number(key), "none");
 }
 
 async function gradeSlipImage() {

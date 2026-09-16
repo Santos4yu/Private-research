@@ -80,13 +80,19 @@ export function mountResearchTabs(report, prop) {
   move('.decision-panel', 'overview');
   move('.narrative-block', 'overview');
 
+  // This mini sparkline used to be the ONLY thing in the Trend tab (the
+  // real chart was a separate popup you had to click into). Now that the
+  // full interactive chart lives in Trend directly, keeping this here too
+  // just duplicated the same "recent form" information twice on one tab --
+  // moved to Overview instead, where it reads as a quick-glance summary
+  // rather than a redundant mini version of what's right below it.
   const formBlock = element('section', 'report-block rr-recent-results');
   formBlock.append(element('h3', 'block-title', 'Recent results'));
   ['.hitrate-bars', '.last5-row'].forEach((selector) => {
     const chart = report.querySelector(selector);
     if (chart) formBlock.append(chart);
   });
-  panels.get('trend').append(formBlock);
+  panels.get('overview').append(formBlock);
   // The full interactive game-log chart + filters used to be a separate
   // popup (#gamelog-overlay), opened by clicking the "Recent results" mini
   // row's expand button. It's a persistent singleton outside `report`

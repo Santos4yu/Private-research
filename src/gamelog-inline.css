@@ -20,11 +20,21 @@
   overflow: initial !important;
   overscroll-behavior: auto !important;
 }
-:root[data-theme] body:has(#gamelog-overlay:not([hidden])) .mobile-app-nav,
-:root[data-theme] body:has(#gamelog-overlay:not([hidden])) .prop-compare-tray {
+:root[data-theme] body:has(#gamelog-overlay:not([hidden])) .mobile-app-nav {
   display: revert !important;
 }
 body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial !important; }
+/* The floating "compare props" pill is a separate feature (comparing
+   multiple props side by side) that visually collides with the chart when
+   both are on screen -- it used to hide whenever the gamelog popup was
+   open, which is now true almost all the time (the panel stays populated,
+   not just while "open"). Re-scoped to just the Trend tab actually being
+   the visible one, so it still hides while you're looking at the chart but
+   reappears normally on Overview/Matchup/Context or once you're on a
+   different tab/screen. */
+:root[data-theme] body:has([data-research-panel="trend"]:not([hidden])) .prop-compare-tray {
+  display: none !important;
+}
 
 :root[data-theme] #gamelog-overlay {
   position: static !important;
@@ -68,24 +78,147 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
 }
 :root[data-theme] #gamelog-overlay .gamelog-workbench { padding: 14px 20px !important; }
 
-/* Season/Games/Matchup-context filters: always visible now (no more
-   toggle button, see index.html/app.js), so the side-column layout that
-   used to only apply while "open" just applies permanently. On mobile this
-   was previously an absolutely-positioned floating drawer -- now a normal
-   in-flow block, stacked under the chart instead of floating over it. */
+/* ── Visual rebuild to match a reference trend screen the user pointed to:
+   rounded-lg surfaces throughout, the filter row sitting above the chart
+   as its own plain horizontal row (not a side drawer), and window-sample
+   buttons that show their own hit-rate/average instead of a bare stepper. */
+
+:root[data-theme] #gamelog-overlay .gamelog-studio {
+  display: flex !important;
+  flex-direction: column !important;
+  height: auto !important;
+  min-height: 0 !important;
+  background: transparent !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-stage {
+  height: auto !important;
+  background: transparent !important;
+}
 :root[data-theme] #gamelog-overlay .gamelog-filter-panel {
   position: static !important;
   inset: auto !important;
   height: auto !important;
   max-height: none !important;
   z-index: auto !important;
-  margin: 16px 0 0 !important;
+  margin: 0 0 14px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
   animation: none !important;
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 10px;
+  order: -1;
+}
+:root[data-theme] #gamelog-overlay .gamelog-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+:root[data-theme] #gamelog-overlay .gamelog-filter-field > span {
+  font: 700 11px/1.2 var(--font-sans, sans-serif);
+  color: var(--theme-dim, #8c96a6);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+:root[data-theme] #gamelog-overlay .gl-filter-group,
+:root[data-theme] #gamelog-overlay .gamelog-season-row {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--theme-border, #2a2a2a);
+  border-radius: 10px;
+  background: var(--theme-panel-2, #171b22);
+  overflow-x: auto;
+}
+:root[data-theme] #gamelog-overlay .gl-filter-chip,
+:root[data-theme] #gamelog-overlay .gamelog-season-row button {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--theme-dim, #8c96a6);
+  background: transparent;
+  font: 600 12px/1 var(--font-sans, sans-serif);
+  cursor: pointer;
+  white-space: nowrap;
+}
+:root[data-theme] #gamelog-overlay .gl-filter-chip.active,
+:root[data-theme] #gamelog-overlay .gamelog-season-row button.active {
+  color: var(--theme-on-accent, #fff);
+  background: var(--theme-accent, #0082fe);
+}
+
+/* Window-sample bar: L5/L10/L15/L20/Season/H2H, each showing its own hit
+   rate + average instead of a plain +/- stepper. */
+:root[data-theme] #gamelog-overlay .gamelog-windowbar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+}
+:root[data-theme] #gamelog-overlay .gamelog-windowbar button {
+  flex: 1 0 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 56px;
+  padding: 8px 10px;
+  border: 1px solid var(--theme-border, #2a2a2a);
+  border-radius: 10px;
+  color: var(--theme-dim, #8c96a6);
+  background: var(--theme-panel-2, #171b22);
+  cursor: pointer;
+}
+:root[data-theme] #gamelog-overlay .gamelog-windowbar button.active {
+  border-color: var(--theme-accent, #0082fe);
+  background: color-mix(in srgb, var(--theme-accent, #0082fe) 14%, var(--theme-panel-2, #171b22));
+}
+:root[data-theme] #gamelog-overlay .gamelog-windowbar button strong {
+  font: 700 12px/1 var(--font-sans, sans-serif);
+  color: var(--theme-text, #edf1f5);
+}
+:root[data-theme] #gamelog-overlay .gamelog-windowbar .gl-window-rate,
+:root[data-theme] #gamelog-overlay .gamelog-windowbar .gl-window-avg {
+  font: 700 11px/1.2 var(--font-sans, sans-serif);
+  color: var(--theme-green, #35e0c4);
+}
+
+/* Line stepper + prop-market pills, matched to the reference's compact
+   bordered button-group instead of a taller labeled control. */
+:root[data-theme] #gamelog-overlay .gamelog-toolbar {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+:root[data-theme] #gamelog-overlay .gamelog-line-control {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: 1px solid var(--theme-border, #2a2a2a);
+  border-radius: 10px;
+  overflow: hidden;
+}
+:root[data-theme] #gamelog-overlay .gamelog-line-control button {
+  min-width: 32px;
+  min-height: 32px;
+  border: 0;
+  border-radius: 0;
+  background: var(--theme-panel-2, #171b22);
+  color: var(--theme-text, #edf1f5);
+}
+:root[data-theme] #gamelog-overlay .gamelog-line-control strong {
+  min-width: 42px;
+  text-align: center;
+  font: 700 14px/1 var(--font-sans, sans-serif);
 }
 
 @media (max-width: 680px) {
-  :root[data-theme] #gamelog-overlay .gamelog-studio { display: flex !important; flex-direction: column !important; height: auto !important; }
-  :root[data-theme] #gamelog-overlay .gamelog-stage { display: block !important; height: auto !important; }
   :root[data-theme] #gamelog-overlay .gamelog-chart { height: auto !important; min-height: 260px !important; padding: 24px 14px 18px 36px !important; }
-  :root[data-theme] #gamelog-overlay .gamelog-filter-panel { padding: 12px !important; border: 1px solid var(--theme-border) !important; box-shadow: none !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-windowbar button { flex: 1 0 52px; min-height: 50px; padding: 6px 8px; }
 }

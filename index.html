@@ -155,19 +155,15 @@
     <div class="gamelog-toolbar">
       <nav class="gamelog-stat-tabs" id="gamelog-stat-tabs" aria-label="Performance markets"></nav>
       <div class="gamelog-line-control" aria-label="Prop line controls">
-        <span>Line</span>
-        <div><button type="button" id="gamelog-line-down" aria-label="Decrease prop line">−</button><strong id="gamelog-line-value">—</strong><button type="button" id="gamelog-line-up" aria-label="Increase prop line">+</button></div>
+        <button type="button" id="gamelog-line-down" aria-label="Decrease prop line">−</button>
+        <strong id="gamelog-line-value">—</strong>
+        <button type="button" id="gamelog-line-up" aria-label="Increase prop line">+</button>
       </div>
     </div>
-    <div class="gamelog-windowbar" id="gamelog-tabs">
-      <div class="gamelog-window-copy"><span>Game sample</span><strong id="gamelog-window-label">Last 5 games</strong></div>
-      <div class="gamelog-window-stepper" aria-label="Number of games shown">
-        <button type="button" id="gamelog-games-down" aria-label="Show one fewer game">−</button>
-        <strong id="gamelog-games-count" aria-live="polite">5</strong>
-        <button type="button" id="gamelog-games-up" aria-label="Show one more game">+</button>
-      </div>
-      <button type="button" class="gamelog-h2h-toggle" id="gamelog-h2h-toggle">H2H</button>
-    </div>
+    <!-- One row that both selects the sample size AND shows that window's
+         hit rate/average at a glance, instead of a plain stepper with no
+         numbers -- matches a reference trend screen the user pointed to. -->
+    <div class="gamelog-windowbar" id="gamelog-tabs" role="group" aria-label="Game sample"></div>
     </div>
     <div class="gamelog-studio" id="gamelog-studio">
       <div class="gamelog-stage">
@@ -179,34 +175,31 @@
         </div>
         <div class="gamelog-chart" id="gamelog-chart"></div>
       </div>
-      <aside class="gamelog-filter-panel" id="gamelog-filter-panel" aria-label="Game log filters">
-        <header><div><strong>Filters</strong><span>Refine the performance sample</span></div></header>
-        <section class="gamelog-filter-section">
+      <!-- Season/Matchup/Location: always visible now, no toggle -- same
+           filters as before, just laid out as one inline row instead of a
+           panel you had to open. -->
+      <div class="gamelog-filter-panel" id="gamelog-filter-panel" aria-label="Game log filters">
+        <div class="gamelog-filter-field">
           <span>Season</span>
           <div class="gamelog-season-row" id="gamelog-season-row"></div>
-        </section>
-        <section class="gamelog-filter-section">
-          <span>Games</span>
-          <div class="gamelog-preset-row" id="gamelog-preset-row">
-            <button type="button" data-games="5">5</button><button type="button" data-games="10">10</button><button type="button" data-games="20">20</button><button type="button" data-games="max">Max</button>
-          </div>
-        </section>
-        <section class="gamelog-filter-section gamelog-context-filters">
-          <span>Matchup context</span>
-          <div class="gamelog-subfilters" id="gamelog-subfilters" hidden>
-        <div class="gl-filter-group" id="gl-hand-filter">
-          <button type="button" class="gl-filter-chip active" data-hand="all">All</button>
-          <button type="button" class="gl-filter-chip" data-hand="L">vs LHP</button>
-          <button type="button" class="gl-filter-chip" data-hand="R">vs RHP</button>
         </div>
-        <div class="gl-filter-group" id="gl-venue-filter">
-          <button type="button" class="gl-filter-chip active" data-venue="all">All</button>
-          <button type="button" class="gl-filter-chip" data-venue="home">Home</button>
-          <button type="button" class="gl-filter-chip" data-venue="road">Road</button>
-        </div>
+        <div class="gamelog-filter-field" id="gl-hand-field" hidden>
+          <span>Matchup</span>
+          <div class="gl-filter-group" id="gl-hand-filter">
+            <button type="button" class="gl-filter-chip active" data-hand="all">All</button>
+            <button type="button" class="gl-filter-chip" data-hand="L">vs LHP</button>
+            <button type="button" class="gl-filter-chip" data-hand="R">vs RHP</button>
           </div>
-        </section>
-      </aside>
+        </div>
+        <div class="gamelog-filter-field">
+          <span>Location</span>
+          <div class="gl-filter-group" id="gl-venue-filter">
+            <button type="button" class="gl-filter-chip active" data-venue="all">All</button>
+            <button type="button" class="gl-filter-chip" data-venue="home">Home</button>
+            <button type="button" class="gl-filter-chip" data-venue="road">Road</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
