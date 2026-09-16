@@ -2,7 +2,6 @@ import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Layers2 as BarChart3, Ticket as ClipboardList, Radar as FlaskConical, ScanLine, Compass as Search, Sparkles, ShieldCheck, CircleDot, Trophy, LayoutGrid, Diamond, Crosshair, Target, ChartNoAxesCombined } from 'lucide-react';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '../components/ui/select';
-import { SignIn1 } from '../components/ui/modern-stunning-sign-in';
 import { MobileNavigation } from './MobileNavigation';
 import { MobileSlipActions } from './MobileSlipActions';
 import { ResearchHome } from './ResearchHome';
@@ -120,16 +119,6 @@ window.vortexMountResearchLoader = (host, props) => {
   const root = createRoot(host);
   root.render(<ResearchAILoader {...props} />);
   return () => root.unmount();
-};
-
-// Mounted on demand by site-access.js wherever it builds the sign-in card
-// (the gate host div is created at runtime, not a static id in index.html,
-// so this follows vortexMountResearchLoader's factory-takes-a-host pattern
-// rather than main.jsx's usual "mount into a known #id on load" one).
-window.vortexMountSignIn = (host, props) => {
-  const root = createRoot(host);
-  root.render(<SignIn1 {...props} />);
-  return { update: (next) => root.render(<SignIn1 {...next} />), unmount: () => root.unmount() };
 };
 
 // Bridges the MLB "select a stat" picker into the new Select component.
