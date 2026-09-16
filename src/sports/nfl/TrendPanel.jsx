@@ -39,6 +39,11 @@ export function NFLTrendPanel({logs,usage=[],selectedProp,quote,opponent,market,
     ];
   },[sample.eligible,maxN,logs,selectedProp.key,line,direction,opponent]);
   const activeFilters=Object.entries(filters).filter(([,v])=>v!=='');
+  // Season/venue/opponent/team now render inline (always visible), so the
+  // "More filters" button's badge should only count what's actually still
+  // behind it -- the volume/snap% bounds -- not the inline ones too.
+  const secondaryFilterKeys=['minVolume','maxVolume','minSnaps'];
+  const secondaryFilterCount=activeFilters.filter(([key])=>secondaryFilterKeys.includes(key)).length;
   const setFilter=(key,value)=>setFilters(current=>({...current,[key]:value}));
   const changeLine=value=>{setCustom(true);setLine(value===''?null:Number.isFinite(Number(value))?Number(value):null);};
   const reset=()=>{setFilters({...emptyFilters});setExcluded([]);setCount(5);};
@@ -63,11 +68,20 @@ export function NFLTrendPanel({logs,usage=[],selectedProp,quote,opponent,market,
   const otherStats=selectedProp.key==='fantasy_score' ? ['passing_yards','passing_tds','rushing_yards','receiving_yards','receptions'] : field?.key==='attempts' ? ['attempts','completions','passing_yards','passing_tds','passing_interceptions'] : field?.key==='carries' ? ['carries','rushing_yards','targets','receptions','receiving_yards'] : ['targets','receptions','receiving_yards','receiving_tds'];
   return <section className="nfl-panel-stack nfl-trends">
 
-    <ResearchSheet open={filtersOpen} onClose={()=>setFiltersOpen(false)} title="Trend filters">{historyControl}<div className="nfl-filter-grid">
+    {/* Season/Location/Opponent/Team used to live behind a single "Filters"
+        button + popup sheet -- moved to their own always-visible row (same
+        SheetSelect controls, same filters state) to match the reference
+        layout, which shows these four inline with no extra tap. Only the
+        less-common numeric fields (volume/snap% bounds) and the comparison-
+        line slider stay in a smaller "More filters" sheet below. */}
+    {historyControl}
+    <div className="nfl-trend-filter-row">
       <label>Season<SheetSelect label="Season" value={filters.season} onChange={e=>setFilter('season',e.target.value)}><option value="">All loaded seasons</option>{[...new Set(logs.map(row=>row.season))].sort().reverse().map(v=><option key={v}>{v}</option>)}</SheetSelect></label>
       <label>Location<SheetSelect label="Location" value={filters.venue} onChange={e=>setFilter('venue',e.target.value)}><option value="">Home + away</option><option value="HOME">Home</option><option value="AWAY">Away</option></SheetSelect></label>
       <label>Opponent<SheetSelect label="Opponent" value={filters.opponent} onChange={e=>setFilter('opponent',e.target.value)}><option value="">All opponents</option>{[...new Set(logs.map(row=>row.opponent_team_id).filter(Boolean))].sort().map(v=><option key={v}>{v}</option>)}</SheetSelect></label>
       <label>Player’s team<SheetSelect label="Player team" value={filters.team} onChange={e=>setFilter('team',e.target.value)}><option value="">All teams played for</option>{[...new Set(logs.map(row=>row.team_id).filter(Boolean))].sort().map(v=><option key={v}>{v}</option>)}</SheetSelect></label>
+    </div>
+    <ResearchSheet open={filtersOpen} onClose={()=>setFiltersOpen(false)} title="More filters"><div className="nfl-filter-grid">
       {field && <><label>Minimum {field.label.toLowerCase()}<input type="number" inputMode="numeric" min="0" value={filters.minVolume} onChange={e=>setFilter('minVolume',e.target.value)} placeholder="Any"/></label><label>Maximum {field.label.toLowerCase()}<input type="number" inputMode="numeric" min="0" value={filters.maxVolume} onChange={e=>setFilter('maxVolume',e.target.value)} placeholder="Any"/></label></>}
       <label>Minimum offensive snap %<input type="number" inputMode="numeric" min="0" max="100" value={filters.minSnaps} onChange={e=>setFilter('minSnaps',e.target.value)} placeholder="Any" disabled={!usage.some(row=>Number.isFinite(row.offense_snap_rate))}/></label>
     </div>      {line!=null && <label>Comparison line · {line}<input className="nfl-line-range" type="range" aria-label="Move comparison line" min={Math.min(0,min,line)} max={Math.max(10,Math.ceil(max),line+1)} step="0.5" value={line} onChange={e=>changeLine(e.target.value)}/></label>}<button type="button" className="nfl-sheet-done" onClick={()=>setFiltersOpen(false)}>Show {sample.selected.length} games</button><button type="button" className="nfl-reset" onClick={reset}>Reset filters and sample</button></ResearchSheet>
@@ -76,7 +90,7 @@ export function NFLTrendPanel({logs,usage=[],selectedProp,quote,opponent,market,
 
     </div>
     <div className="nfl-window-tabs" role="group" aria-label="Game sample">{windows.map(w=>{const isH2H=w.key==='h2h',pressed=isH2H?filters.opponent===opponent:count===(w.key==='max'?maxN:w.key);const onClick=isH2H?()=>setFilter('opponent',filters.opponent===opponent?'':opponent):()=>setCount(w.key==='max'?maxN:w.key);return <button key={w.key} type="button" aria-pressed={pressed} disabled={isH2H&&!opponent} className={`${pressed?'active':''} ${line!=null?hitTone(w.hitRate):''}`} onClick={onClick}><span>{w.label}</span>{line!=null&&<strong>{w.hitRate==null?'—':`${Math.round(w.hitRate)}%`}</strong>}</button>;})}</div>
-    <div className="nfl-game-count"><button type="button" className="nfl-filter-toggle" aria-haspopup="dialog" onClick={()=>setFiltersOpen(true)}><SlidersHorizontal size={16}/>Filters{activeFilters.length>0&&<b>{activeFilters.length}</b>}</button><div className="nfl-stepper"><button type="button" aria-label="Remove one game from sample" disabled={count<=1} onClick={()=>setCount(n=>Math.max(1,n-1))}><Minus size={18}/></button><input type="number" inputMode="numeric" aria-label="Number of games" min="1" max={Math.max(1,sample.included.length)} value={count} onChange={e=>setCount(Math.max(1,Math.min(100,Number(e.target.value)||1)))}/><button type="button" aria-label="Add one game to sample" disabled={count>=sample.included.length} onClick={()=>setCount(n=>n+1)}><Plus size={18}/></button></div></div>
+    <div className="nfl-game-count"><button type="button" className="nfl-filter-toggle" aria-haspopup="dialog" onClick={()=>setFiltersOpen(true)}><SlidersHorizontal size={16}/>More filters{secondaryFilterCount>0&&<b>{secondaryFilterCount}</b>}</button><div className="nfl-stepper"><button type="button" aria-label="Remove one game from sample" disabled={count<=1} onClick={()=>setCount(n=>Math.max(1,n-1))}><Minus size={18}/></button><input type="number" inputMode="numeric" aria-label="Number of games" min="1" max={Math.max(1,sample.included.length)} value={count} onChange={e=>setCount(Math.max(1,Math.min(100,Number(e.target.value)||1)))}/><button type="button" aria-label="Add one game to sample" disabled={count>=sample.included.length} onClick={()=>setCount(n=>n+1)}><Plus size={18}/></button></div></div>
     {/* Hit rate is the one number this whole panel exists to answer, so it
         leads at full size with its own tone; record and average are the
         supporting detail rather than three equal-weight columns. */}

@@ -241,6 +241,13 @@
 .nfl-trends .nfl-reset { background:transparent;color:#b9c8d7;font-size:13px; }
 .nfl-filter-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;background:#111923;border:1px solid #303c4c;border-radius:18px;padding:18px; }
 .nfl-filter-grid label,.nfl-offer-controls label { display:flex;flex-direction:column;gap:7px;color:#b7c2d0;font-size:13px;min-width:0; }
+/* Season/Location/Opponent/Team as their own always-visible row (matched to
+   a reference trend screen that shows these four inline, no filter menu) --
+   same label+SheetSelect look as .nfl-filter-grid, just a wrapping flex row
+   instead of a boxed grid since there's no popup card around it anymore. */
+.nfl-trend-filter-row { display:flex;flex-wrap:wrap;gap:12px; }
+.nfl-trend-filter-row label { display:flex;flex-direction:column;gap:7px;flex:1 1 140px;min-width:0;color:#b7c2d0;font-size:13px; }
+.nfl-trend-filter-row .nfl-sheet-select { width:100%; }
 .nfl-filter-chips { display:flex;flex-wrap:wrap;gap:8px; }
 .nfl-trends .nfl-filter-chips button { font-size:12px;background:#17323b;color:#b9eced; }
 .nfl-line-editor { background:#151d27;border:1px solid #34404e;border-radius:18px;padding:16px; }
