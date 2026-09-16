@@ -1,0 +1,91 @@
+/* The game-log/Trend panel used to be a full-screen popup (#gamelog-overlay),
+   toggled visible/hidden by openGameLogModal()/closeGameLogModal(). It's now
+   relocated into the research report's Trend tab and left visible for as
+   long as a report is loaded (see src/report-tabs.js, app.js's
+   openGameLogModal) -- it is never "closed" again.
+
+   Every one of styles.css / gamelog-premium.css / gamelog-fix.css /
+   research-polish.css's modal-chrome rules keyed off
+   "#gamelog-overlay:not([hidden])" (fixed positioning, full-viewport
+   backdrop, page-scroll lock via html/body :has(), hiding the mobile nav
+   dock) assumed that selector meant "the popup is open right now". Once the
+   panel can stay visible indefinitely, those same rules would permanently
+   lock page scroll and hide the mobile nav the first time anyone views a
+   player's trends. Imported last (see src/main.jsx) so this reliably wins
+   over all of them instead of hunting down and editing every prior
+   !important rule individually. */
+
+:root[data-theme] html:has(#gamelog-overlay:not([hidden])),
+:root[data-theme] body:has(#gamelog-overlay:not([hidden])) {
+  overflow: initial !important;
+  overscroll-behavior: auto !important;
+}
+:root[data-theme] body:has(#gamelog-overlay:not([hidden])) .mobile-app-nav,
+:root[data-theme] body:has(#gamelog-overlay:not([hidden])) .prop-compare-tray {
+  display: revert !important;
+}
+body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial !important; }
+
+:root[data-theme] #gamelog-overlay {
+  position: static !important;
+  inset: auto !important;
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  max-height: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  overflow: visible !important;
+  align-items: initial !important;
+  justify-content: initial !important;
+  z-index: auto !important;
+}
+:root[data-theme] #gamelog-overlay[hidden] { display: none !important; }
+
+:root[data-theme] #gamelog-overlay .gamelog-modal {
+  position: static !important;
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1px solid var(--theme-border, #2a2a2a) !important;
+  border-radius: 18px !important;
+  overflow: visible !important;
+  overscroll-behavior: auto !important;
+  box-shadow: none !important;
+  background: var(--theme-panel, #0f1115) !important;
+  transform: none !important;
+}
+:root[data-theme] #gamelog-overlay .modal-head {
+  padding: 18px 20px !important;
+  min-height: 0 !important;
+  border-bottom: 1px solid var(--theme-border, #2a2a2a) !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-workbench { padding: 14px 20px !important; }
+
+/* Season/Games/Matchup-context filters: always visible now (no more
+   toggle button, see index.html/app.js), so the side-column layout that
+   used to only apply while "open" just applies permanently. On mobile this
+   was previously an absolutely-positioned floating drawer -- now a normal
+   in-flow block, stacked under the chart instead of floating over it. */
+:root[data-theme] #gamelog-overlay .gamelog-filter-panel {
+  position: static !important;
+  inset: auto !important;
+  height: auto !important;
+  max-height: none !important;
+  z-index: auto !important;
+  margin: 16px 0 0 !important;
+  animation: none !important;
+}
+
+@media (max-width: 680px) {
+  :root[data-theme] #gamelog-overlay .gamelog-studio { display: flex !important; flex-direction: column !important; height: auto !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-stage { display: block !important; height: auto !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-chart { height: auto !important; min-height: 260px !important; padding: 24px 14px 18px 36px !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-filter-panel { padding: 12px !important; border: 1px solid var(--theme-border) !important; box-shadow: none !important; }
+}

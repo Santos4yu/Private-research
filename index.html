@@ -137,9 +137,11 @@
   </div>
 </div>
 
-<!-- Game log modal: expandable L5/L10/L15/L20/H2H chart -->
-<div class="modal-overlay" id="gamelog-overlay" hidden>
-  <div class="modal-panel gamelog-modal">
+<!-- Game log panel: L5/L10/L15/L20/H2H chart, moved into the research
+     report's Trend tab by src/report-tabs.js instead of staying a popup --
+     see mountResearchTabs(). Starts hidden until a report populates it. -->
+<div id="gamelog-overlay" hidden>
+  <div class="gamelog-modal">
     <div class="modal-head">
       <div class="gamelog-heading">
         <span>PLAYER PERFORMANCE</span>
@@ -148,7 +150,6 @@
           <div class="gamelog-player-copy"><div class="gamelog-player-line"><h3 class="modal-title" id="gamelog-title">Player</h3><span class="gamelog-prop-badge" id="gamelog-prop-badge">HRR</span><span class="gamelog-team-mark" id="gamelog-team-mark" hidden></span></div><p>Explore recent results and adjust the prop line.</p></div>
         </div>
       </div>
-      <button type="button" class="modal-close" id="gamelog-close" aria-label="Close">✕</button>
     </div>
     <div class="gamelog-workbench">
     <div class="gamelog-toolbar">
@@ -157,10 +158,6 @@
         <span>Line</span>
         <div><button type="button" id="gamelog-line-down" aria-label="Decrease prop line">−</button><strong id="gamelog-line-value">—</strong><button type="button" id="gamelog-line-up" aria-label="Increase prop line">+</button></div>
       </div>
-      <button type="button" class="gamelog-filter-toggle" id="gamelog-filter-toggle" aria-expanded="false" aria-controls="gamelog-filter-panel">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
-        <span>Filters</span><i id="gamelog-filter-count" hidden>0</i>
-      </button>
     </div>
     <div class="gamelog-windowbar" id="gamelog-tabs">
       <div class="gamelog-window-copy"><span>Game sample</span><strong id="gamelog-window-label">Last 5 games</strong></div>
@@ -182,8 +179,8 @@
         </div>
         <div class="gamelog-chart" id="gamelog-chart"></div>
       </div>
-      <aside class="gamelog-filter-panel" id="gamelog-filter-panel" aria-label="Game log filters" hidden>
-        <header><div><strong>Filters</strong><span>Refine the performance sample</span></div><button type="button" id="gamelog-filter-close" aria-label="Close filters">✕</button></header>
+      <aside class="gamelog-filter-panel" id="gamelog-filter-panel" aria-label="Game log filters">
+        <header><div><strong>Filters</strong><span>Refine the performance sample</span></div></header>
         <section class="gamelog-filter-section">
           <span>Season</span>
           <div class="gamelog-season-row" id="gamelog-season-row"></div>

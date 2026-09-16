@@ -8,6 +8,15 @@ const tabs = [
 ];
 let selectedTab = 'overview';
 let reportSequence = 0;
+// Set by mountResearchTabs() each time it runs, so a caller elsewhere in
+// app.js (a stat-card expand button, pitcher finder row, etc.) can jump
+// straight to a tab after populating it -- e.g. the game-log panel used to
+// be a popup you "opened"; now it just always lives in the Trend tab, and
+// opening it means switching to that tab instead.
+let currentSelect = null;
+export function focusResearchTab(key) {
+  currentSelect?.(key, { scroll: true });
+}
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -78,6 +87,14 @@ export function mountResearchTabs(report, prop) {
     if (chart) formBlock.append(chart);
   });
   panels.get('trend').append(formBlock);
+  // The full interactive game-log chart + filters used to be a separate
+  // popup (#gamelog-overlay), opened by clicking the "Recent results" mini
+  // row's expand button. It's a persistent singleton outside `report`
+  // (app.js keeps populating the same DOM node across player/prop
+  // switches), so it's relocated here rather than built fresh -- same
+  // move-not-copy approach as everything else in this function.
+  const gamelog = document.getElementById('gamelog-overlay');
+  if (gamelog) panels.get('trend').append(gamelog);
   disclose(report.querySelector('.why-list')?.closest('.report-block'), 'All supporting factors', 'overview');
   move('.alternate-props-block', 'overview');
   move('.form-ladder-block', 'trend');
@@ -157,5 +174,6 @@ export function mountResearchTabs(report, prop) {
       select(tabs[next].key, { focus: true, scroll: true });
     });
   });
+  currentSelect = select;
   select(selectedTab);
 }

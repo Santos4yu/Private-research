@@ -31,6 +31,7 @@ import './prop-finder.css';
 import './sports/nfl/nfl-research.css';
 import './community-feed.css';
 import './vortex-sidebar.css';
+import './gamelog-inline.css';
 
 import { topTabs } from './navTabs';
 import { VortexSidebar } from './VortexSidebar';

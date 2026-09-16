@@ -15,7 +15,7 @@ import {initSiteAccess,siteTabAllowed,loadSiteControls,showLockedTab,availableSi
  * and nothing else in this file needs to change, as long as the
  * response shape matches { props: [...] }.
  */
-import { mountResearchTabs } from './src/report-tabs.js';
+import { mountResearchTabs, focusResearchTab } from './src/report-tabs.js';
 import { finderMarket, finderRows, historyChart, nameKey } from './src/prop-finder-core.js';
 import { liveBuilderProp, historicalSides } from './src/builder-live-core.js';
 
@@ -458,7 +458,6 @@ function cacheEls() {
   els.gamelogPropBadge = document.getElementById("gamelog-prop-badge");
   els.gamelogTeamMark = document.getElementById("gamelog-team-mark");
   els.gamelogPlayerCutout = document.getElementById("gamelog-player-cutout");
-  els.gamelogClose = document.getElementById("gamelog-close");
   els.gamelogTabs = document.getElementById("gamelog-tabs");
   els.gamelogSub = document.getElementById("gamelog-sub");
   els.gamelogChart = document.getElementById("gamelog-chart");
@@ -469,8 +468,6 @@ function cacheEls() {
   els.gamelogLineDown = document.getElementById("gamelog-line-down");
   els.gamelogLineUp = document.getElementById("gamelog-line-up");
   els.gamelogLineValue = document.getElementById("gamelog-line-value");
-  els.gamelogFilterToggle = document.getElementById("gamelog-filter-toggle");
-  els.gamelogFilterClose = document.getElementById("gamelog-filter-close");
   els.gamelogFilterPanel = document.getElementById("gamelog-filter-panel");
   els.gamelogStudio = document.getElementById("gamelog-studio");
   els.gamelogSeasonRow = document.getElementById("gamelog-season-row");
@@ -2630,7 +2627,7 @@ function renderReport(p) {
 
   const expandBtn = node.querySelector(".last5-expand-btn");
   if (p.gameLogChart && Object.keys(p.gameLogChart).length) {
-    expandBtn.addEventListener("click", () => openGameLogModal(p));
+    expandBtn.addEventListener("click", () => { openGameLogModal(p); focusResearchTab("trend"); });
   } else {
     expandBtn.classList.add("last5-expand-disabled");
     expandBtn.disabled = true;
@@ -2664,21 +2661,6 @@ const GAMELOG_STAT_CODES = {
 };
 const MLB_TEAM_IDS = { ARI:109, AZ:109, ATL:144, BAL:110, BOS:111, CHC:112, CWS:145, CIN:113, CLE:114, COL:115, DET:116, HOU:117, KC:118, LAA:108, LAD:119, MIA:146, MIL:158, MIN:142, NYM:121, NYY:147, OAK:133, PHI:143, PIT:134, SD:135, SEA:136, SF:137, STL:138, TB:139, TEX:140, TOR:141, WSH:120 };
 const MLB_TEAM_ABBRS = { 108:"LAA",109:"ARI",110:"BAL",111:"BOS",112:"CHC",113:"CIN",114:"CLE",115:"COL",116:"DET",117:"HOU",118:"KC",119:"LAD",120:"WSH",121:"NYM",133:"ATH",134:"PIT",135:"SD",136:"SEA",137:"SF",138:"STL",139:"TB",140:"TEX",141:"TOR",142:"MIN",143:"PHI",144:"ATL",145:"CWS",146:"MIA",147:"NYY",158:"MIL" };
-let gameLogPageScrollY = 0;
-
-function lockGameLogPageScroll() {
-  if (document.body.classList.contains("gamelog-scroll-locked")) return;
-  gameLogPageScrollY = window.scrollY;
-  document.body.style.setProperty("--gamelog-lock-top", `${-gameLogPageScrollY}px`);
-  document.body.classList.add("gamelog-scroll-locked");
-}
-
-function unlockGameLogPageScroll() {
-  if (!document.body.classList.contains("gamelog-scroll-locked")) return;
-  document.body.classList.remove("gamelog-scroll-locked");
-  document.body.style.removeProperty("--gamelog-lock-top");
-  window.scrollTo(0, gameLogPageScrollY);
-}
 
 function gameLogStatCode(stat) {
   return GAMELOG_STAT_CODES[stat] || stat;
@@ -2806,14 +2788,12 @@ function openGameLogModal(p) {
   // could temporarily collapse the chart to one game while the detail request
   // was still loading, which made the modal visibly jump after opening.
   gameLogState.season = "all";
-  gameLogState.filtersOpen = false;
   gameLogState.animationDirection = "initial";
   // Deliberately NOT teamInsightsParams.teamId -- that's the player's own
   // team (for the Team Insights lineup view), while H2H filtering here needs
   // the actual opponent's team id.
   gameLogState.teamId = p.opponentTeamId || null;
   els.gamelogOverlay.hidden = false;
-  lockGameLogPageScroll();
   els.gamelogTitle.textContent = p.player || "Player";
   const liveState=document.getElementById('gamelog-live-state');
   if(liveState)liveState.textContent=p.live?.status||p.gameStatus||(p.matchup?.lineup?'Lineup confirmed':'Pre-game');
@@ -2832,7 +2812,10 @@ function openGameLogModal(p) {
     : avatarHtml(p, "lg");
   els.gamelogLineValue.textContent = Number(p.line).toFixed(1);
   populateGameLogStats();
-  setGameLogFiltersOpen(false);
+  // Filters used to default closed behind a toggle; they're a permanently
+  // visible section now, so this just keeps the chart's "filters open"
+  // narrower layout applied instead of ever collapsing it.
+  setGameLogFiltersOpen(true);
   renderGameLogTabs();
   renderGameLogChart();
   gameLogLayoutSignature = "";
@@ -2932,12 +2915,6 @@ async function fetchGameLogDetails(p) {
     renderGameLogTabs();
     renderGameLogChart();
   }
-}
-
-function closeGameLogModal() {
-  gameLogState.fetchToken++; postedLinesToken++;
-  els.gamelogOverlay.hidden = true;
-  unlockGameLogPageScroll();
 }
 
 function filterGames(games) {
@@ -3147,13 +3124,6 @@ function renderGameLogChart() {
 }
 
 function wireGameLogModal() {
-  els.gamelogClose.addEventListener("click", closeGameLogModal);
-  els.gamelogOverlay.addEventListener("click", (e) => {
-    if (e.target === els.gamelogOverlay) closeGameLogModal();
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !els.gamelogOverlay.hidden) closeGameLogModal();
-  });
   window.addEventListener("orientationchange", stabilizeGameLogLayout);
   window.visualViewport?.addEventListener("resize", stabilizeGameLogLayout);
   document.fonts?.ready?.then(stabilizeGameLogLayout).catch(() => {});
@@ -3176,8 +3146,6 @@ function wireGameLogModal() {
       activate(event);
     });
   };
-  wireStableAction(els.gamelogFilterToggle, () => setGameLogFiltersOpen(!gameLogState.filtersOpen));
-  els.gamelogFilterClose?.addEventListener("click", () => setGameLogFiltersOpen(false));
   const wireCountButton = (button, delta, direction) => {
     if (!button) return;
     const activate = (event) => {
@@ -5222,7 +5190,7 @@ function renderPitcherComparison(rows) {
     star.addEventListener('click', event => { event.stopPropagation(); toggleSave(prop, star); });
     const compare=tr.querySelector('.finder-compare-button');compare.addEventListener('click',event=>{event.stopPropagation();toggleFinderCompare(prop,compare);});
     wireFinderHold(tr.querySelector('.pitcher-table-open'),prop);
-    tr.querySelector('.pitcher-table-open').addEventListener('click', () => openGameLogModal(prop));
+    tr.querySelector('.pitcher-table-open').addEventListener('click', () => { openGameLogModal(prop); switchTab("research"); focusResearchTab("trend"); });
     els.pitcherFinderList.querySelector('tbody').appendChild(tr);
     return {row, prop, tr};
   });
@@ -6178,7 +6146,6 @@ function setGameLogFiltersOpen(open) {
       els.gamelogFilterPanel.classList.remove("is-closing");
     }
   }
-  if (els.gamelogFilterToggle) els.gamelogFilterToggle.setAttribute("aria-expanded", String(gameLogState.filtersOpen));
 }
 
 function recentGameLogSource() {
@@ -6210,7 +6177,7 @@ function toggleFinderCompare(prop,button) {
 }
 function openFinderQuickActions(prop) {
   const sheet=document.getElementById('prop-quick-sheet');sheet.querySelector('h3').textContent=prop.player;sheet.querySelector('p').textContent=`More ${prop.line} ${prop.betType}`;sheet.hidden=false;
-  sheet.querySelector('[data-quick=research]').onclick=()=>{sheet.hidden=true;openGameLogModal(prop);};sheet.querySelector('[data-quick=compare]').onclick=()=>{toggleFinderCompare(prop);sheet.hidden=true;};sheet.querySelector('[data-quick=save]').onclick=()=>{toggleSave(prop);sheet.hidden=true;};sheet.querySelector('[data-quick=share]').onclick=()=>{sheet.hidden=true;activeFinderProp=prop;shareGameLogCard();};
+  sheet.querySelector('[data-quick=research]').onclick=()=>{sheet.hidden=true;openGameLogModal(prop);switchTab("research");focusResearchTab("trend");};sheet.querySelector('[data-quick=compare]').onclick=()=>{toggleFinderCompare(prop);sheet.hidden=true;};sheet.querySelector('[data-quick=save]').onclick=()=>{toggleSave(prop);sheet.hidden=true;};sheet.querySelector('[data-quick=share]').onclick=()=>{sheet.hidden=true;activeFinderProp=prop;shareGameLogCard();};
 }
 function wireFinderHold(button,prop) {
   let timer,held=false;button.addEventListener('pointerdown',event=>{if(event.pointerType==='mouse')return;held=false;timer=setTimeout(()=>{held=true;openFinderQuickActions(prop);},520);});['pointerup','pointercancel','pointerleave'].forEach(type=>button.addEventListener(type,()=>clearTimeout(timer)));button.addEventListener('click',event=>{if(held){event.preventDefault();event.stopImmediatePropagation();held=false;}},true);button.oncontextmenu=event=>{event.preventDefault();openFinderQuickActions(prop);};
@@ -6219,7 +6186,7 @@ function openFinderComparison() {
   const sheet=document.getElementById('prop-comparison-sheet'),props=[...finderCompare.values()];if(props.length<2)return;
   const metric=(prop,key,suffix='%')=>prop.compareValues?.[key]==null?'—':`${key==='diff'&&prop.compareValues[key]>=0?'+':''}${['average','diff'].includes(key)?prop.compareValues[key].toFixed(1):Math.round(prop.compareValues[key])}${suffix}`;
   sheet.querySelector('.comparison-grid').innerHTML=props.map(prop=>`<article><div><strong>${escapeHtml(prop.player)}</strong><span>More ${prop.line} ${escapeHtml(prop.betType)}</span></div><section>${[['AVG','average',''],['DIFF','diff',''],['L5',5,'%'],['L10',10,'%'],['L20',20,'%'],['H2H','h2h','%']].map(([label,key,suffix])=>`<span>${label}<b>${metric(prop,key,suffix)}</b></span>`).join('')}</section><button type="button" data-open-prop="${escapeHtml(finderPropKey(prop))}">Open research</button></article>`).join('');
-  sheet.hidden=false;sheet.querySelectorAll('[data-open-prop]').forEach(button=>button.onclick=()=>{sheet.hidden=true;openGameLogModal(finderCompare.get(button.dataset.openProp));});
+  sheet.hidden=false;sheet.querySelectorAll('[data-open-prop]').forEach(button=>button.onclick=()=>{sheet.hidden=true;openGameLogModal(finderCompare.get(button.dataset.openProp));switchTab("research");focusResearchTab("trend");});
 }
 function wireResearchPolish() {
   const researchHead=document.querySelector('#gamelog-overlay .modal-head');
@@ -6237,9 +6204,12 @@ function wireResearchPolish() {
   document.querySelector('[data-quick-close]').onclick=()=>document.getElementById('prop-quick-sheet').hidden=true;
   document.querySelector('[data-share-close]').onclick=()=>document.getElementById('research-share-sheet').hidden=true;
   document.getElementById('gamelog-share-card').onclick=shareGameLogCard;
-  const share=document.createElement('button');share.type='button';share.id='gamelog-share';share.setAttribute('aria-label','Share research card');share.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.5-4.4M8.2 13.2l7.5 4.4"/></svg>';share.onclick=shareGameLogCard;els.gamelogClose.before(share);
+  const share=document.createElement('button');share.type='button';share.id='gamelog-share';share.setAttribute('aria-label','Share research card');share.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.5-4.4M8.2 13.2l7.5 4.4"/></svg>';share.onclick=shareGameLogCard;document.querySelector('.gamelog-heading').append(share);
   const liveState=document.createElement('span');liveState.id='gamelog-live-state';liveState.className='gamelog-live-state';liveState.textContent='Pre-game';document.querySelector('.gamelog-player-line').append(liveState);
-  let x=0,y=0;document.querySelector('.gamelog-heading').addEventListener('pointerdown',event=>{x=event.clientX;y=event.clientY;});document.querySelector('.gamelog-heading').addEventListener('pointerup',event=>{const dx=event.clientX-x,dy=event.clientY-y;if(Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*1.4||finderVisibleProps.length<2)return;let index=finderVisibleProps.findIndex(prop=>finderPropKey(prop)===finderPropKey(activeFinderProp));if(index<0)index=0;closeGameLogModal();setTimeout(()=>openGameLogModal(finderVisibleProps[(index+(dx<0?1:-1)+finderVisibleProps.length)%finderVisibleProps.length]),120);});
+  // Swipe between props: used to close-then-reopen the modal on a timer so
+  // the close animation could finish first -- there's no modal to animate
+  // shut anymore, so this just repopulates the panel in place.
+  let x=0,y=0;document.querySelector('.gamelog-heading').addEventListener('pointerdown',event=>{x=event.clientX;y=event.clientY;});document.querySelector('.gamelog-heading').addEventListener('pointerup',event=>{const dx=event.clientX-x,dy=event.clientY-y;if(Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*1.4||finderVisibleProps.length<2)return;let index=finderVisibleProps.findIndex(prop=>finderPropKey(prop)===finderPropKey(activeFinderProp));if(index<0)index=0;openGameLogModal(finderVisibleProps[(index+(dx<0?1:-1)+finderVisibleProps.length)%finderVisibleProps.length]);});
 }
 
 async function shareGameLogCard() {
