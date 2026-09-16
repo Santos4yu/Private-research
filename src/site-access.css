@@ -110,7 +110,15 @@ html[data-all-tabs-locked=true] #app-shell .tab-panel{display:none!important}
  html[data-site-access=granted]{--app-top:calc(72px + var(--site-status-inset))}
  html[data-site-access=granted][data-theme] .hero{padding-top:calc(12px + var(--site-status-inset))!important}
  .site-policy-gate{padding-top:calc(24px + var(--site-status-inset));padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
- .site-account-dialog{margin-top:max(calc(24px + var(--site-status-inset)),calc((100dvh - 360px)/2));max-height:calc(100dvh - var(--site-status-inset) - env(safe-area-inset-bottom,0px) - 48px)}
+ /* Was margin-top only (with the browser's default auto margin-bottom for
+    a <dialog>), computed from a guessed 360px content height -- any
+    mismatch between that guess and the real content, or 100dvh settling
+    late as mobile browser chrome shows/hides, could leave the dialog's
+    auto bottom margin swallowing the space and the dialog reading as
+    "dropped" near the bottom of the screen. margin:auto on every side is
+    what a plain <dialog> centers itself with by default; asking for that
+    explicitly here is robust regardless of content height or dvh timing. */
+ .site-account-dialog{margin:auto;max-height:calc(100dvh - var(--site-status-inset) - env(safe-area-inset-bottom,0px) - 48px)}
 }
 
 /* Profile and settings icons: pinned to the viewport (never the scrolling

@@ -107,21 +107,10 @@
 
 </div>
 
-<!-- Hidden admin unlock: 5 rapid clicks on the settings gear opens this instead
-     of the normal theme panel. The PIN itself is verified server-side
+<!-- Hidden admin unlock: 3 rapid clicks on the settings gear opens the
+     "Administrator access" card (src/AdminPinCard.jsx) instead of the
+     normal theme panel. The PIN itself is verified server-side
      (api/v2-admin-auth.py) -- nothing secret lives in this page's code. -->
-<div class="modal-overlay" id="v2-pin-overlay" hidden>
-  <div class="modal-panel" style="max-width:280px; text-align:center;">
-    <div class="modal-head">
-      <h3 class="modal-title">Admin</h3>
-      <button type="button" class="modal-close" id="v2-pin-close" aria-label="Close">✕</button>
-    </div>
-    <input type="password" inputmode="numeric" maxlength="8" id="v2-pin-input"
-           placeholder="PIN" style="width:100%; text-align:center; font-size:20px; letter-spacing:4px; padding:10px; border-radius:8px; background:var(--surface-2,#1a1c22); color:inherit; border:1px solid var(--border,#333); margin:12px 0;" />
-    <button type="button" class="primary-btn" id="v2-pin-submit" style="width:100%;">Unlock</button>
-    <p id="v2-pin-error" style="color:#e05d5d; font-size:13px; margin-top:10px;" hidden></p>
-  </div>
-</div>
 
 <div class="modal-overlay" id="v2-admin-overlay" hidden>
   <div class="modal-panel" style="max-width:420px;">

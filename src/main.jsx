@@ -5,6 +5,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem } from '../components/
 import { LandingPage } from './LandingPage';
 import { SparklesBackground } from './SparklesBackground';
 import { AuthCard } from './AuthCard';
+import { AdminPinCard } from './AdminPinCard';
 import { MobileNavigation } from './MobileNavigation';
 import { MobileSlipActions } from './MobileSlipActions';
 import { ResearchHome } from './ResearchHome';
@@ -148,6 +149,14 @@ window.vortexMountSparklesBackground = (host, props) => {
 window.vortexMountAuthCard = (host, props) => {
   const root = createRoot(host);
   root.render(<AuthCard {...props} />);
+  return () => root.unmount();
+};
+
+// The hidden in-app admin PIN prompt (3 rapid clicks on the settings gear,
+// app.js's openV2PinPrompt()), styled the same as AuthCard's admin mode.
+window.vortexMountAdminPin = (host, props) => {
+  const root = createRoot(host);
+  root.render(<AdminPinCard {...props} />);
   return () => root.unmount();
 };
 

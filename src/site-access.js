@@ -74,8 +74,9 @@ function accountDialog(){
  if(activeDialog)return;
  const dialog=element('dialog',null,'site-account-dialog');activeDialog=dialog;
  const header=element('header');header.append(element('h2','Your account'),button('×',()=>dialog.close(),'site-dialog-close'));header.lastChild.setAttribute('aria-label','Close account');dialog.append(header);
+ // Admin access lives behind 3 rapid clicks on the settings gear now, not
+ // here -- this dialog is just account info + signing out.
  dialog.append(element('p',status?.account?.email||'Administrator','site-account-email'));
- dialog.append(button('Admin panel',()=>{dialog.close();window.dispatchEvent(new CustomEvent('vortex:switch-tab',{detail:{tab:'admin'}}));},'site-secondary-button'));
  dialog.append(button('Sign out',async()=>{try{await request('/api/session',{action:'sign-out'});location.reload();}catch(error){dialog.append(element('p',error.message));}},'site-primary-button'));
  dialog.onclose=()=>{activeDialog=null;dialog.remove();};document.body.append(dialog);dialog.showModal();
 }

@@ -387,11 +387,6 @@ function cacheEls() {
   els.slipGradeBtn = document.getElementById("slip-grade-btn");
   els.slipAnalysisResult = document.getElementById("slip-analysis-result");
 
-  els.v2PinOverlay = document.getElementById("v2-pin-overlay");
-  els.v2PinInput = document.getElementById("v2-pin-input");
-  els.v2PinSubmit = document.getElementById("v2-pin-submit");
-  els.v2PinClose = document.getElementById("v2-pin-close");
-  els.v2PinError = document.getElementById("v2-pin-error");
   els.v2AdminOverlay = document.getElementById("v2-admin-overlay");
   els.v2AdminClose = document.getElementById("v2-admin-close");
   els.v2AdminKeyStatus = document.getElementById("v2-admin-key-status");
@@ -1135,7 +1130,7 @@ function wireSettingsPanel() {
     renderAppearanceNotice();
   });
 
-  // 5 rapid clicks on the settings gear opens the hidden admin PIN prompt
+  // 3 rapid clicks on the settings gear opens the hidden admin PIN prompt
   // instead of the normal theme panel -- the PIN itself is never checked
   // here, only on the server (api/v2-admin-auth.py).
   let v2ClickTimes = [];
@@ -1143,14 +1138,14 @@ function wireSettingsPanel() {
     e.stopPropagation();
     const now = Date.now();
     // Window measured from the FIRST click in the run, not a rolling
-    // per-click cutoff -- gives 5 real clicks (mouse or trackpad) a full
+    // per-click cutoff -- gives 3 real clicks (mouse or trackpad) a full
     // 4 seconds to land instead of resetting after any single gap.
     if (v2ClickTimes.length === 0 || now - v2ClickTimes[0] > 4000) {
       v2ClickTimes = [now];
     } else {
       v2ClickTimes.push(now);
     }
-    if (v2ClickTimes.length >= 5) {
+    if (v2ClickTimes.length >= 3) {
       v2ClickTimes = [];
       els.settingsPanel.hidden = true;
       openV2PinPrompt();
@@ -6605,11 +6600,29 @@ function deepDiveIntoBotProp(p) {
 
 /* ---------- V2 Admin panel (hidden, PIN-gated) ---------- */
 
+let v2PinUnmount = null;
+function closeV2PinPrompt() {
+  v2PinUnmount?.();
+  v2PinUnmount = null;
+}
 function openV2PinPrompt() {
-  els.v2PinInput.value = "";
-  els.v2PinError.hidden = true;
-  els.v2PinOverlay.hidden = false;
-  els.v2PinInput.focus();
+  closeV2PinPrompt();
+  const host = document.createElement("div");
+  document.body.append(host);
+  v2PinUnmount = window.vortexMountAdminPin(host, {
+    onClose: () => { closeV2PinPrompt(); host.remove(); },
+    onUnlocked: async () => {
+      closeV2PinPrompt();
+      host.remove();
+      try {
+        state.adminUnlocked = true;
+        await refreshSiteAccess();
+        switchTab("admin");
+      } catch (err) {
+        showToast(err.message || "Could not load admin results.", "warn");
+      }
+    },
+  });
 }
 
 function openAdminPanel() {
@@ -6653,40 +6666,7 @@ async function refreshAdminKeyStatus() {
 }
 
 function wireAdminPanel() {
-  els.v2PinClose.addEventListener("click", () => { els.v2PinOverlay.hidden = true; });
   els.v2AdminClose.addEventListener("click", () => { els.v2AdminOverlay.hidden = true; });
-
-  const submitPin = async () => {
-    const pin = els.v2PinInput.value.trim();
-    if (!pin) return;
-    try {
-      const res = await fetch("/api/v2-admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ action: "auth", pin }),
-      });
-      const data = await readAdminJson(res);
-      if (!res.ok || !data.ok) {
-        els.v2PinError.textContent = data.error || "Incorrect PIN";
-        els.v2PinError.hidden = false;
-        return;
-      }
-      els.v2PinOverlay.hidden = true;
-      try {
-        state.adminUnlocked=true;
-        await refreshSiteAccess();
-        switchTab("admin");
-      } catch (err) {
-        showToast(err.message || "Could not load admin results.", "warn");
-      }
-    } catch (err) {
-      els.v2PinError.textContent = err.message || "Request failed";
-      els.v2PinError.hidden = false;
-    }
-  };
-  els.v2PinSubmit.addEventListener("click", submitPin);
-  els.v2PinInput.addEventListener("keydown", (e) => { if (e.key === "Enter") submitPin(); });
 
   els.v2AdminKeySave.addEventListener("click", async () => {
     const key = els.v2AdminKeyInput.value.trim();
