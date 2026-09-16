@@ -48,45 +48,11 @@ function showWelcomeIfNeeded(){
  document.body.append(overlay);
 }
 
-function authForm(host,initialMode='sign-in'){
- let mode=initialMode,busy=false;
- const form=element('form',null,'site-auth-form');
- form.innerHTML=`<div class="site-auth-modes" role="group" aria-label="Account access"><button type="button" data-mode="sign-in">Sign in</button><button type="button" data-mode="sign-up">Create account</button></div><h1></h1><p class="site-auth-subtitle"></p><label class="site-email-label">Email address<input name="email" type="email" autocomplete="email" required placeholder="you@example.com"></label><label class="site-password-label">Password<span class="site-password-wrap"><input name="password" type="password" minlength="8" maxlength="128" autocomplete="current-password" required placeholder="Enter your password"><button type="button" class="site-show-password" aria-label="Show password">Show</button></span></label><label class="site-code-label" hidden>Recovery code<input name="code" inputmode="numeric" autocomplete="one-time-code" placeholder="Code from your email"></label><label class="site-pin-label" hidden>Admin passcode<input name="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="32"></label><div class="site-auth-links"><button type="button" class="site-text-button site-forgot">Forgot password?</button></div><p class="site-auth-feedback" role="status" aria-live="polite"></p><button type="submit" class="site-primary-button"></button><button type="button" class="site-text-button site-auth-back" hidden>Back to sign in</button>`;
- const email=form.elements.email,password=form.elements.password,code=form.elements.code,pin=form.elements.pin;
- email.value=status?.account?.email||'';
- const feedback=form.querySelector('[role=status]');
- function setMode(next){
-  if(busy)return;mode=next;feedback.textContent='';
-  const headings={'sign-in':'Welcome back','sign-up':'Create your account',recover:'Reset your password','verify-recovery':'Check your email','update-password':'Choose a new password',admin:'Administrator access'};
-  const subtitles={'sign-in':'Sign in to your research workspace.','sign-up':'Your MLB and NFL research, in one place.',recover:'We will send a recovery code to your email.','verify-recovery':'Enter the recovery code to continue.','update-password':'Use at least 8 characters.',admin:'Enter your admin passcode to manage the website.'};
-  form.querySelector('h1').textContent=headings[mode];form.querySelector('.site-auth-subtitle').textContent=subtitles[mode];
-  const showEmail=!['admin','update-password'].includes(mode),showPassword=['sign-in','sign-up','update-password'].includes(mode);
-  form.querySelector('.site-email-label').hidden=!showEmail;email.required=showEmail;email.disabled=!showEmail;
-  form.querySelector('.site-password-label').hidden=!showPassword;password.required=showPassword;password.disabled=!showPassword;password.autocomplete=mode==='sign-in'?'current-password':'new-password';
-  form.querySelector('.site-code-label').hidden=mode!=='verify-recovery';code.required=mode==='verify-recovery';code.disabled=mode!=='verify-recovery';
-  form.querySelector('.site-pin-label').hidden=mode!=='admin';pin.required=mode==='admin';pin.disabled=mode!=='admin';
-  form.querySelector('.site-auth-modes').hidden=!['sign-in','sign-up'].includes(mode);
-  form.querySelector('.site-auth-links').hidden=mode!=='sign-in';form.querySelector('.site-auth-back').hidden=['sign-in','sign-up'].includes(mode);
-  form.querySelectorAll('[data-mode]').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.mode===mode));b.disabled=b.dataset.mode==='sign-up'&&!status?.registrationOpen;});
-  form.querySelector('[type=submit]').textContent={'sign-in':'Sign in','sign-up':'Create account',recover:'Send recovery code','verify-recovery':'Verify code','update-password':'Save password',admin:'Unlock admin'}[mode];
- }
- form.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
- form.querySelector('.site-forgot').onclick=()=>setMode('recover');form.querySelector('.site-auth-back').onclick=()=>setMode('sign-in');
- form.querySelector('.site-show-password').onclick=e=>{password.type=password.type==='password'?'text':'password';e.target.textContent=password.type==='password'?'Show':'Hide';e.target.setAttribute('aria-label',password.type==='password'?'Show password':'Hide password');};
- form.onsubmit=async e=>{
-  e.preventDefault();if(busy)return;busy=true;feedback.textContent='';form.setAttribute('aria-busy','true');const submit=form.querySelector('[type=submit]');const text=submit.textContent;submit.disabled=true;submit.textContent='Please wait…';
-  try{
-   const fields=Object.fromEntries(new FormData(form));
-   const data=await request(mode==='admin'?'/api/v2-admin':'/api/session',{action:mode==='admin'?'auth':mode,...fields});
-   if(mode==='recover'){busy=false;setMode('verify-recovery');feedback.textContent='If your account exists, a recovery email will arrive shortly.';}
-   else if(mode==='verify-recovery'){busy=false;setMode('update-password');password.value='';password.focus();}
-   else if(mode==='sign-up'&&!data.signedIn){feedback.textContent=data.message||'Account could not be created. Please try signing in.';}
-   else {if(mode==='admin')location.hash='admin';location.reload();return;}
-  }catch(error){feedback.textContent=error.message;}
-  finally{busy=false;form.removeAttribute('aria-busy');submit.disabled=false;submit.textContent=text;if(['verify-recovery','update-password'].includes(mode))submit.textContent=mode==='verify-recovery'?'Verify code':'Save password';}
- };
- form.siteSetMode=setMode;host.append(form);setMode(initialMode);return form;
-}
+// The sign-in/sign-up/recovery/admin form itself is now the React-mounted
+// SignIn1 component (components/ui/modern-stunning-sign-in.tsx, bridged via
+// window.vortexMountSignIn in main.jsx) -- this used to be a hand-built
+// vanilla <form>. It posted to the same /api/session /api/v2-admin actions
+// SignIn1 now calls directly.
 function accountDialog(){
  if(activeDialog)return;
  const dialog=element('dialog',null,'site-account-dialog');activeDialog=dialog;
@@ -125,9 +91,20 @@ function renderStatus(){
   if(kind!=='none'){
    const card=element('section',null,'site-auth-card');card.append(brand());
    if(kind==='login'){
-    if(status.accountsConfigured){const form=authForm(card);card.append(button('Administrator',()=>{form.siteSetMode('admin');form.elements.pin.focus();},'site-admin-link'));}
-    else{card.append(element('h1','Sign-in is being configured'),element('p','Please check back shortly.','site-auth-subtitle'));const form=authForm(card,'admin');form.querySelector('.site-auth-back').hidden=true;}
-   }else{card.append(element('h1','We’ll be back shortly'),element('p',status.message,'site-auth-subtitle'));const admin=button('Administrator',()=>{card.replaceChildren(brand());authForm(card,'admin');},'site-admin-link');card.append(admin);}
+    if(status.accountsConfigured){
+     const host=element('div');card.append(host);
+     const mounted=window.vortexMountSignIn(host,{initialEmail:status.account?.email||'',registrationOpen:!!status.registrationOpen});
+     card.append(button('Administrator',()=>mounted.update({initialEmail:status.account?.email||'',registrationOpen:!!status.registrationOpen,forceMode:'admin'}),'site-admin-link'));
+    }else{
+     card.append(element('h1','Sign-in is being configured'),element('p','Please check back shortly.','site-auth-subtitle'));
+     const host=element('div');card.append(host);
+     window.vortexMountSignIn(host,{forceMode:'admin'});
+    }
+   }else{
+    card.append(element('h1','We’ll be back shortly'),element('p',status.message,'site-auth-subtitle'));
+    const admin=button('Administrator',()=>{card.replaceChildren(brand());const host=element('div');card.append(host);window.vortexMountSignIn(host,{forceMode:'admin'});},'site-admin-link');
+    card.append(admin);
+   }
    gate.append(card);
   }
  }
