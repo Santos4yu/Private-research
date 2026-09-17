@@ -1159,6 +1159,17 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   object-fit: contain;
   border-radius: 4px;
 }
+/* Books we hold no logo file for (FanDuel, BetMGM, ESPN Bet, Underdog)
+   show their name instead of being dropped from the row entirely. */
+:root[data-theme] #gamelog-overlay .gamelog-odds-name {
+  display: inline-block;
+  max-width: 76px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: rgb(226, 232, 240);
+  font: 700 11px/1.2 var(--font-sans, sans-serif);
+}
 :root[data-theme] #gamelog-overlay .gamelog-odds-values {
   display: flex;
   flex-direction: column;

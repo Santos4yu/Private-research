@@ -139,18 +139,25 @@ def fetch_event_props(event_id: str) -> dict:
 
 
 # Books quoted alongside the PrizePicks ladder on a player's trend screen.
-# Traditional sportsbooks (DraftKings/BetRivers/Caesars/...) only carry the
-# plain single-stat markets -- combo props like batter_hits_runs_rbis exist
-# almost exclusively on pick'em/exchange books (Fliff, Novig, ProphetX, DK
-# Pick6), so quoting only the traditional two left the combo markets with
-# nothing to show. Every key here has a real logo in public/sportsbooks/;
-# an unknown key just comes back empty rather than erroring the batch.
-# Cost note: the Odds API bills per market per region, and a `bookmakers`
-# list counts ~10 books as one region -- so this single call is cheaper
-# than the two separate per-book calls it replaces.
+# Deliberately broad: which books actually return a price depends entirely on
+# the market. Traditional sportsbooks (DraftKings/FanDuel/BetMGM/...) carry
+# the plain single-stat markets, while combo markets like
+# batter_hits_runs_rbis exist almost exclusively on the pick'em/DFS and
+# exchange books (Underdog, DK Pick6, Fliff, Novig, ProphetX) -- so a short
+# list guarantees an empty row on whichever kind of market it left out.
+# These keys match the ones the main board already uses successfully
+# (TARGET_BOOKS above); an unknown key just comes back empty rather than
+# erroring the batch.
+# Cost note: the Odds API bills per market per region and counts ~10
+# bookmakers as one region, so this sits at roughly two regions' worth per
+# market -- still one HTTP call, and cheaper than per-book calls.
 QUOTE_BOOKS = [
-    "draftkings", "betrivers", "williamhill_us", "fanatics",
-    "hardrockbet", "novig", "prophetx", "fliff", "draftkings_pick6",
+    # Traditional sportsbooks -- single-stat markets
+    "draftkings", "fanduel", "betmgm", "espnbet", "betrivers",
+    "williamhill_us", "fanatics", "hardrockbet",
+    # DFS / pick'em and exchanges -- where the combo markets live
+    "underdog", "underdogfantasy", "draftkings_pick6", "fliff",
+    "novig", "prophetx",
 ]
 
 

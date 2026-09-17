@@ -1232,6 +1232,31 @@ function wireTabs() {
     btn.addEventListener("click", () => switchTab(btn.dataset.homeTab));
   });
   wireMobileNavAutoHide();
+  freezeStatusInset();
+}
+
+// The profile/settings buttons are pinned with
+// top: calc(14px + var(--site-status-inset)), and that variable resolves to
+// max(44px, env(safe-area-inset-top)) (src/site-access.css). On iOS Safari
+// env(safe-area-inset-top) is NOT constant: it changes as the browser's top
+// toolbar collapses and expands during scrolling, so the variable
+// recalculates mid-scroll and slides both buttons down and back up. They are
+// position:fixed and provably don't move under plain window scroll, which is
+// why this only ever showed up on a real iPhone. Measuring the inset once and
+// writing it back as a static px value pins them for good; re-measured on
+// orientation change (a real layout change) but deliberately never on scroll.
+function freezeStatusInset() {
+  const probe = document.createElement("div");
+  probe.style.cssText = "position:fixed;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px);";
+  const apply = () => {
+    document.documentElement.style.removeProperty("--site-status-inset");
+    document.body.appendChild(probe);
+    const inset = parseFloat(getComputedStyle(probe).paddingTop) || 0;
+    probe.remove();
+    document.documentElement.style.setProperty("--site-status-inset", `${Math.max(44, Math.round(inset))}px`);
+  };
+  apply();
+  window.addEventListener("orientationchange", () => setTimeout(apply, 250));
 }
 
 
@@ -2918,19 +2943,28 @@ async function loadGameLogPostedLines(stat, player = gameLogState.player) {
 }
 
 // Real per-line sportsbook odds, matching pickfinder.app's odds-pill row.
-// Keyed by the Odds API's own bookmaker key (see QUOTE_BOOKS in
-// v2/board/odds_client.py); every entry has a real logo in
-// public/sportsbooks/, and a book with no logo here simply isn't quoted
-// rather than getting an invented or stand-in mark. Which of these
-// actually return odds depends on the market: traditional sportsbooks
-// carry the single-stat markets, while combo markets (Hits+Runs+RBIs)
-// are usually only quoted by the pick'em/exchange books -- quoting only
-// DraftKings/BetRivers previously left every combo market blank.
+// Keyed by the Odds API's own bookmaker key -- these mirror QUOTE_BOOKS in
+// v2/board/odds_client.py, so anything quoted server-side can render here.
+//
+// Which books actually return a price depends on the market, not on us:
+// traditional sportsbooks carry the single-stat markets, while combo
+// markets (Hits+Runs+RBIs) are quoted almost exclusively by the DFS
+// pick'em and exchange books. Restricting this list to the books we happen
+// to hold a logo for meant FanDuel, BetMGM, ESPN Bet and Underdog were
+// never shown at all -- so books with no logo asset now fall back to their
+// name as a text chip rather than being dropped. A real logo is still
+// preferred wherever we have one; nothing here is an invented mark.
+//
 // PrizePicks stays out of this row on purpose: it's a DFS pick'em product
 // with one price per line, not genuine two-sided odds, so it has no real
 // Under number to show.
 const GAMELOG_ODDS_BOOKS = [
   { key: "draftkings", name: "DraftKings", logo: "/sportsbooks/draftkings.png" },
+  { key: "fanduel", name: "FanDuel", logo: null },
+  { key: "betmgm", name: "BetMGM", logo: null },
+  { key: "espnbet", name: "ESPN Bet", logo: null },
+  { key: "underdog", name: "Underdog", logo: null },
+  { key: "underdogfantasy", name: "Underdog", logo: null },
   { key: "draftkings_pick6", name: "DK Pick6", logo: "/sportsbooks/dkpick6.png" },
   { key: "betrivers", name: "BetRivers", logo: "/sportsbooks/betrivers.png" },
   { key: "williamhill_us", name: "Caesars", logo: "/sportsbooks/caesars.png" },
@@ -2967,13 +3001,21 @@ function renderGameLogBookOdds() {
   const row = gamelogBookOddsRows.find((r) => Number(r.line) === Number(gameLogState.line));
   if (!row) { els.gamelogOddsRow.innerHTML = ""; return; }
   const fmtOdds = (value) => value == null ? "—" : americanOdds(value);
+  const shown = new Set();
   els.gamelogOddsRow.innerHTML = GAMELOG_ODDS_BOOKS.map((book) => {
     const quote = row.books?.[book.key];
     const overPrice = quote?.over ?? null;
     const underPrice = quote?.under ?? null;
     if (overPrice == null && underPrice == null) return "";
-    return `<div class="gamelog-odds-pill">
-      <img src="${book.logo}" alt="${escapeHtml(book.name)}" />
+    // Underdog is reachable under two different bookmaker keys; whichever
+    // one the feed uses, only show the book once.
+    if (shown.has(book.name)) return "";
+    shown.add(book.name);
+    const mark = book.logo
+      ? `<img src="${book.logo}" alt="${escapeHtml(book.name)}" />`
+      : `<span class="gamelog-odds-name">${escapeHtml(book.name)}</span>`;
+    return `<div class="gamelog-odds-pill" title="${escapeHtml(book.name)}">
+      ${mark}
       <div class="gamelog-odds-values">
         <span><b>O</b>${escapeHtml(fmtOdds(overPrice))}</span>
         <span><b>U</b>${escapeHtml(fmtOdds(underPrice))}</span>
