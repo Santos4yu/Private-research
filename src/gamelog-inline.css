@@ -309,3 +309,43 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   :root[data-theme] #gamelog-overlay .gamelog-chart { height: auto !important; min-height: 260px !important; padding: 24px 14px 18px 36px !important; }
   :root[data-theme] #gamelog-overlay .gamelog-windowbar button { flex: 1 0 52px; min-height: 50px; padding: 6px 8px; }
 }
+
+/* Bar gradients, radius, label styling and the dashed line marker pulled
+   from pickfinder.app's actual rendered game-log chart (real gradient
+   stops read via getComputedStyle/SVG inspection, not guessed) -- every
+   other stylesheet's .gl-bar rules lose to this via the #gamelog-overlay
+   ancestor, same specificity trick used throughout this file. */
+:root[data-theme] #gamelog-overlay .gl-bar {
+  border-radius: 8px 8px 0 0 !important;
+  background: linear-gradient(180deg, #12d393 0%, #10b981 48%, #0d9467 100%) !important;
+  box-shadow: none !important;
+}
+:root[data-theme] #gamelog-overlay .gl-bar-under {
+  background: linear-gradient(180deg, #ff4e4e 0%, #ef4444 48%, #bf3636 100%) !important;
+}
+:root[data-theme] #gamelog-overlay .gl-val {
+  position: absolute !important;
+  top: -20px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  color: #10b981 !important;
+  font: 500 12px/16px var(--font-sans, sans-serif) !important;
+}
+:root[data-theme] #gamelog-overlay .gl-bar-under .gl-val { color: #ef4444 !important; }
+:root[data-theme] #gamelog-overlay .gl-opp {
+  order: 1;
+  margin-top: 8px !important;
+  font: 500 11px/1.2 var(--font-sans, sans-serif) !important;
+  color: var(--theme-text, #edf1f5) !important;
+  letter-spacing: 0 !important;
+}
+:root[data-theme] #gamelog-overlay .gl-date {
+  order: 2;
+  margin-top: 2px !important;
+  font: 500 11px/1.2 var(--font-sans, sans-serif) !important;
+  color: var(--theme-dim, #8c96a6) !important;
+}
+:root[data-theme] #gamelog-overlay .gl-line-marker {
+  border-top: 2px dashed #64748b !important;
+  opacity: 0.85 !important;
+}

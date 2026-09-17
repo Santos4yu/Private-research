@@ -2990,6 +2990,13 @@ function stabilizeGameLogLayout() {
   });
 }
 
+function formatGameLogDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
 function renderGameLogChart() {
   const pool = gameLogPool();
   const games = gameLogState.window === "h2h" ? pool : pool.slice(-gameLogState.gameCount);
@@ -3069,7 +3076,8 @@ function renderGameLogChart() {
           ${details ? `<div class="gl-detail-card" role="tooltip"><header><strong>${escapeHtml(fullDate)}</strong><span>${escapeHtml(g.opponent || "")}</span></header><div class="gl-detail-result">${g.over ? "Cleared" : "Under"} by ${Math.abs(Number(g.value) - Number(gameLogState.line)).toFixed(1)}</div>${tooltipRows}</div>` : ""}
         </div>
       </div>
-      ${games.length <= 20 ? `<span class="gl-opponent-logo">${opponentId ? `<img src="https://www.mlbstatic.com/team-logos/${encodeURIComponent(opponentId)}.svg" alt="" loading="lazy" onerror="this.parentElement.textContent='${escapeHtml(String(g.opponent || "").slice(0, 3))}'">` : escapeHtml(String(g.opponent || "").slice(0, 3))}</span>` : ""}
+      <span class="gl-date">${escapeHtml(formatGameLogDate(fullDate))}</span>
+      <span class="gl-opp">${escapeHtml(String(g.opponent || "").slice(0, 4))}</span>
     `;
     const shell = col.querySelector(".gl-bar-shell");
     shell?.addEventListener("click", () => {
