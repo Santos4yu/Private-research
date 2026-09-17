@@ -3776,17 +3776,8 @@ function teamLoadingMarkup(title, detail) {
  * live result entirely or trigger a pointless (and possibly different, since
  * stats move) re-fetch instead of showing what was actually saved.
  */
-/**
- * Everything openExactProp() does to stand the research screen up for an
- * exact prop -- profile shell, stat select, line slider bounds, side toggle
- * -- stopping short of actually producing a report. Split out so the two
- * callers can differ on that last step: a saved prop renders its stored
- * snapshot, while a Finder prop has no research payload attached (see
- * pitcherFinderGameLogProp -- identity/chart fields only, no score,
- * projection or matchup) and has to fetch one.
- */
-function prepareResearchShell(p, playerEntry = null) {
-  selectPlayer(p.player, null, { autoSelectStat: false, playerEntry }); // builds the profile shell (avatar, stat select)
+function openExactProp(p) {
+  selectPlayer(p.player, null, { autoSelectStat: false }); // builds the profile shell (avatar, stat select)
   cmd.player = p.player;
   cmd.stat = p.betType;
   cmd.line = p.line;
@@ -3822,31 +3813,41 @@ function prepareResearchShell(p, playerEntry = null) {
 
   els.linePicker.hidden = false;
   els.lineNoData.hidden = true;
-}
 
-function openExactProp(p) {
-  prepareResearchShell(p);
   renderReport(p);
 }
 
 /**
- * Opens a Finder prop as a full research report. The Finder used to call
- * openGameLogModal() directly, which only repopulates the game-log chart --
- * it never rebuilt the report, so the Research tab kept showing whichever
- * player was rendered last and clicking a prop looked like it did nothing.
- * Going through applyLineSelection() runs the same fetch the normal
- * player+stat+line flow does, which ends in renderReport() and therefore
- * populates the Trend tab for the prop that was actually clicked.
+ * Opens a Finder prop as a full research report, mirroring
+ * deepDiveIntoBotProp() -- the already-proven way to jump into Research
+ * from a board that lives in another tab.
+ *
+ * Two earlier attempts got this wrong. Calling openGameLogModal() only
+ * repopulated the game-log chart and never rebuilt the report, so the
+ * Research tab kept showing whichever player was rendered last. Replacing
+ * that with a hand-rolled setup plus applyLineSelection() then left the
+ * screen half-initialised, because selectStat() is what resets
+ * currentResearchProp, re-arms the PrizePicks line default, syncs the stat
+ * picker and works out the line range -- none of which a hand-rolled shell
+ * did -- and setLineValue() is what actually kicks off the lookup.
  */
 function researchFinderProp(prop) {
   if (!prop) return;
-  prepareResearchShell(prop, {
-    playerId: prop.playerId || null,
-    teamId: prop.teamId || null,
-    team: prop.teamName || prop.teamAbbr || "",
-  });
-  applyLineSelection();
-  switchTab("research");
+  selectPlayer(prop.player, prop.isPitcherProp ? "P" : null, { autoSelectStat: false });
+  // A Finder line can be for a market this player has no static entry for,
+  // so the option has to exist before it can be selected.
+  if (![...els.profileStats.options].some((o) => o.value === prop.betType)) {
+    const opt = document.createElement("option");
+    opt.value = prop.betType;
+    opt.textContent = prop.betType;
+    els.profileStats.appendChild(opt);
+    els.profileStatsBridge?.setOptions([...els.profileStats.options].map((o) => o.value));
+  }
+  selectStat(prop.betType);
+  cmd.side = prop.side === "Under" ? "Under" : "Over";
+  els.sideToggle.querySelectorAll(".side-btn").forEach((b) => b.classList.toggle("active", b.dataset.side === cmd.side));
+  setLineValue(prop.line, { immediate: true });
+  switchTab("research", { scrollY: 0 });
   focusResearchTab("trend");
 }
 
