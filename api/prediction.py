@@ -160,37 +160,38 @@ def _prizepicks_lines(player_name, stat_label, opponent):
                 row = rows.setdefault(point, {"line": point, "featured": False,
                                                "prizePicksPrice": price,
                                                "ppOver": False, "ppUnder": False,
-                                               "dkOverOdds": None, "dkUnderOdds": None,
-                                               "brOverOdds": None, "brUnderOdds": None})
+                                               "books": {}})
                 side = str(outcome.get("name") or "").lower()
                 if side == "over": row["ppOver"] = True
                 if side == "under": row["ppUnder"] = True
                 row["featured"] = row["featured"] or is_featured
-    # Attach real sportsbook odds only to an identical line. Alternate lines
-    # are never requested for these books and can never leak into this
-    # ladder.
-    def _attach_book_odds(book_key, over_field, under_field):
-        for book in payload.get(book_key, {}).get("bookmakers", []):
-            if book.get("key") != book_key:
+    # Attach every quoting book's real odds, keyed by book, onto an
+    # identical line only -- alternate lines are never requested for these
+    # books and can never leak into this ladder. Which books actually come
+    # back depends entirely on the market: traditional sportsbooks carry the
+    # single-stat markets, while combo markets (hits+runs+RBIs) are usually
+    # only quoted by the pick'em/exchange books.
+    for book in payload.get("quotes", {}).get("bookmakers", []):
+        book_key = book.get("key")
+        if not book_key:
+            continue
+        for market_row in book.get("markets", []):
+            if market_row.get("key") != market:
                 continue
-            for market_row in book.get("markets", []):
-                if market_row.get("key") != market:
+            for outcome in market_row.get("outcomes", []):
+                if _norm(outcome.get("description")) != _norm(player_name):
                     continue
-                for outcome in market_row.get("outcomes", []):
-                    if _norm(outcome.get("description")) != _norm(player_name):
-                        continue
-                    try:
-                        point, price = float(outcome.get("point")), int(outcome.get("price"))
-                    except (TypeError, ValueError):
-                        continue
-                    row = rows.get(point)
-                    if not row:
-                        continue
-                    side = str(outcome.get("name") or "").lower()
-                    if side == "over": row[over_field] = price
-                    if side == "under": row[under_field] = price
-    _attach_book_odds("draftkings", "dkOverOdds", "dkUnderOdds")
-    _attach_book_odds("betrivers", "brOverOdds", "brUnderOdds")
+                try:
+                    point, price = float(outcome.get("point")), int(outcome.get("price"))
+                except (TypeError, ValueError):
+                    continue
+                row = rows.get(point)
+                if not row:
+                    continue
+                side = str(outcome.get("name") or "").lower()
+                if side not in ("over", "under"):
+                    continue
+                row["books"].setdefault(book_key, {"over": None, "under": None})[side] = price
     for row in rows.values():
         row["tier"] = ("STANDARD" if row["featured"] else
                        "DEMON" if row.get("prizePicksPrice") == 100 else "GOBLIN")

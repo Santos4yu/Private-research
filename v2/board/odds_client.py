@@ -138,11 +138,27 @@ def fetch_event_props(event_id: str) -> dict:
     return r.json()
 
 
+# Books quoted alongside the PrizePicks ladder on a player's trend screen.
+# Traditional sportsbooks (DraftKings/BetRivers/Caesars/...) only carry the
+# plain single-stat markets -- combo props like batter_hits_runs_rbis exist
+# almost exclusively on pick'em/exchange books (Fliff, Novig, ProphetX, DK
+# Pick6), so quoting only the traditional two left the combo markets with
+# nothing to show. Every key here has a real logo in public/sportsbooks/;
+# an unknown key just comes back empty rather than erroring the batch.
+# Cost note: the Odds API bills per market per region, and a `bookmakers`
+# list counts ~10 books as one region -- so this single call is cheaper
+# than the two separate per-book calls it replaces.
+QUOTE_BOOKS = [
+    "draftkings", "betrivers", "williamhill_us", "fanatics",
+    "hardrockbet", "novig", "prophetx", "fliff", "draftkings_pick6",
+]
+
+
 def fetch_prizepicks_prop_lines(event_id: str, market: str) -> dict:
     """Fetch PrizePicks' projection ladder plus matching sportsbook prices.
 
-    PrizePicks Goblins/Demons live in the DFS ``_alternate`` market. Real
-    sportsbooks are deliberately requested only for the featured market,
+    PrizePicks Goblins/Demons live in the DFS ``_alternate`` market. The
+    other books are deliberately requested only for the featured market,
     never its alts.
     """
     markets = [market]
@@ -154,29 +170,17 @@ def fetch_prizepicks_prop_lines(event_id: str, market: str) -> dict:
          "markets": ",".join(markets), "oddsFormat": "american"},
     )
     try:
-        dk_response = _get(
+        quotes_response = _get(
             f"/sports/{SPORT_KEY}/events/{event_id}/odds",
-            {"regions": "us", "bookmakers": "draftkings",
+            {"bookmakers": ",".join(QUOTE_BOOKS),
              "markets": market, "oddsFormat": "american"},
         )
     except RuntimeError:
-        dk_response = None
-    try:
-        br_response = _get(
-            f"/sports/{SPORT_KEY}/events/{event_id}/odds",
-            {"regions": "us", "bookmakers": "betrivers",
-             "markets": market, "oddsFormat": "american"},
-        )
-    except RuntimeError:
-        br_response = None
-    # PrizePicks is the required source. A missing sportsbook price must not
+        quotes_response = None
+    # PrizePicks is the required source. Missing sportsbook prices must not
     # hide the projection ladder, so retain an empty payload on that error.
     try:
-        draftkings = dk_response.json() if dk_response is not None else {"bookmakers": []}
+        quotes = quotes_response.json() if quotes_response is not None else {"bookmakers": []}
     except (requests.RequestException, ValueError):
-        draftkings = {"bookmakers": []}
-    try:
-        betrivers = br_response.json() if br_response is not None else {"bookmakers": []}
-    except (requests.RequestException, ValueError):
-        betrivers = {"bookmakers": []}
-    return {"prizepicks": pp_response.json(), "draftkings": draftkings, "betrivers": betrivers}
+        quotes = {"bookmakers": []}
+    return {"prizepicks": pp_response.json(), "quotes": quotes}

@@ -2904,17 +2904,27 @@ async function loadGameLogPostedLines(stat, player = gameLogState.player) {
 }
 
 // Real per-line sportsbook odds, matching pickfinder.app's odds-pill row.
-// Only DraftKings/BetRivers: PrizePicks is a DFS pick'em product with one
-// price per line (prizePicksPrice), not genuine two-sided American odds --
-// showing a fabricated "Under" number for it would be inventing data that
-// doesn't exist. DK/BetRivers are the only 2 real sportsbooks this app has
-// both real per-line O/U odds for (via /api/prediction.py's
-// _prizepicks_lines, which already batches them alongside the PrizePicks
-// ladder) AND a real logo file for -- no invented or stand-in logos for
-// books we can't back with a real asset either.
+// Keyed by the Odds API's own bookmaker key (see QUOTE_BOOKS in
+// v2/board/odds_client.py); every entry has a real logo in
+// public/sportsbooks/, and a book with no logo here simply isn't quoted
+// rather than getting an invented or stand-in mark. Which of these
+// actually return odds depends on the market: traditional sportsbooks
+// carry the single-stat markets, while combo markets (Hits+Runs+RBIs)
+// are usually only quoted by the pick'em/exchange books -- quoting only
+// DraftKings/BetRivers previously left every combo market blank.
+// PrizePicks stays out of this row on purpose: it's a DFS pick'em product
+// with one price per line, not genuine two-sided odds, so it has no real
+// Under number to show.
 const GAMELOG_ODDS_BOOKS = [
-  { key: "dk", name: "DraftKings", logo: "/sportsbooks/draftkings.png", over: "dkOverOdds", under: "dkUnderOdds" },
-  { key: "br", name: "BetRivers", logo: "/sportsbooks/betrivers.png", over: "brOverOdds", under: "brUnderOdds" },
+  { key: "draftkings", name: "DraftKings", logo: "/sportsbooks/draftkings.png" },
+  { key: "draftkings_pick6", name: "DK Pick6", logo: "/sportsbooks/dkpick6.png" },
+  { key: "betrivers", name: "BetRivers", logo: "/sportsbooks/betrivers.png" },
+  { key: "williamhill_us", name: "Caesars", logo: "/sportsbooks/caesars.png" },
+  { key: "fanatics", name: "Fanatics", logo: "/sportsbooks/fanatics.png" },
+  { key: "hardrockbet", name: "Hard Rock Bet", logo: "/sportsbooks/hardrockbet.png" },
+  { key: "fliff", name: "Fliff", logo: "/sportsbooks/fliff.png" },
+  { key: "novig", name: "Novig", logo: "/sportsbooks/novig.png" },
+  { key: "prophetx", name: "ProphetX", logo: "/sportsbooks/prophetx.png" },
 ];
 let gamelogBookOddsToken = 0;
 let gamelogBookOddsRows = [];
@@ -2944,8 +2954,9 @@ function renderGameLogBookOdds() {
   if (!row) { els.gamelogOddsRow.innerHTML = ""; return; }
   const fmtOdds = (value) => value == null ? "—" : americanOdds(value);
   els.gamelogOddsRow.innerHTML = GAMELOG_ODDS_BOOKS.map((book) => {
-    const overPrice = row[book.over];
-    const underPrice = row[book.under];
+    const quote = row.books?.[book.key];
+    const overPrice = quote?.over ?? null;
+    const underPrice = quote?.under ?? null;
     if (overPrice == null && underPrice == null) return "";
     return `<div class="gamelog-odds-pill">
       <img src="${book.logo}" alt="${escapeHtml(book.name)}" />
