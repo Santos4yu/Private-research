@@ -464,6 +464,7 @@ function cacheEls() {
   els.gamelogTabs = document.getElementById("gamelog-tabs");
   els.gamelogSub = document.getElementById("gamelog-sub");
   els.gamelogChart = document.getElementById("gamelog-chart");
+  els.gamelogOddsRow = document.getElementById("gamelog-odds-row");
   // Season/Matchup/Location used to be native <select> elements; now
   // React-mounted Selects (src/main.jsx's SimpleSelectHost) -- these
   // bridges are the same setOptions/setValue/setDisabled pattern as
@@ -2709,6 +2710,7 @@ function setGameLogPreviewLine(value, settle = false) {
   gameLogState.line = line;
   if (els.gamelogLineValue) els.gamelogLineValue.textContent = Number(line).toFixed(1);
   syncGameLogContext();
+  renderGameLogBookOdds();
   if (settle) {
     regradeGameLog(line);
     renderGameLogTabs();
@@ -2735,6 +2737,7 @@ function populateGameLogStats() {
 
 async function loadGameLogStat(stat) {
   loadGameLogPostedLines(stat);
+  loadGameLogBookOdds(stat);
   const token = ++gameLogState.fetchToken;
   gameLogState.stat = stat;
   syncGameLogContext();
@@ -2802,6 +2805,7 @@ async function loadGameLogStat(stat) {
 function openGameLogModal(p) {
   activeFinderProp = p;
   loadGameLogPostedLines(p.betType, p.player);
+  loadGameLogBookOdds(p.betType, p.player);
   gameLogState.chart = p.gameLogChart || {};
   if (!gameLogState.chart.all) {
     gameLogState.chart.all = [...(gameLogState.chart.l20 || gameLogState.chart.l15 || gameLogState.chart.l10 || gameLogState.chart.l5 || [])];
@@ -2897,6 +2901,60 @@ async function loadGameLogPostedLines(stat, player = gameLogState.player) {
     els.gamelogLinesBridge?.setValue(currentRow ? String(gameLogState.line) : '');
     els.gamelogLinesBridge?.setStatus('ready');
   } catch (_) { if (token === postedLinesToken) els.gamelogLinesBridge?.setStatus('error'); }
+}
+
+// Real per-line sportsbook odds, matching pickfinder.app's odds-pill row.
+// Only DraftKings/BetRivers: PrizePicks is a DFS pick'em product with one
+// price per line (prizePicksPrice), not genuine two-sided American odds --
+// showing a fabricated "Under" number for it would be inventing data that
+// doesn't exist. DK/BetRivers are the only 2 real sportsbooks this app has
+// both real per-line O/U odds for (via /api/prediction.py's
+// _prizepicks_lines, which already batches them alongside the PrizePicks
+// ladder) AND a real logo file for -- no invented or stand-in logos for
+// books we can't back with a real asset either.
+const GAMELOG_ODDS_BOOKS = [
+  { key: "dk", name: "DraftKings", logo: "/sportsbooks/draftkings.png", over: "dkOverOdds", under: "dkUnderOdds" },
+  { key: "br", name: "BetRivers", logo: "/sportsbooks/betrivers.png", over: "brOverOdds", under: "brUnderOdds" },
+];
+let gamelogBookOddsToken = 0;
+let gamelogBookOddsRows = [];
+async function loadGameLogBookOdds(stat, player = gameLogState.player) {
+  const token = ++gamelogBookOddsToken;
+  const opponent = gameLogState.opponent || currentResearchProp?.matchup?.opponent || "";
+  try {
+    const url = `${API_SOURCE}?action=prizepicks-lines&player=${encodeURIComponent(player)}&stat=${encodeURIComponent(stat)}&opponent=${encodeURIComponent(opponent)}`;
+    const response = await fetch(url, { cache: "no-store" });
+    const data = await response.json();
+    if (token !== gamelogBookOddsToken) return;
+    if (!response.ok || data.error) throw new Error(data.error || "Odds unavailable");
+    gamelogBookOddsRows = data.lines || [];
+  } catch (_) {
+    if (token !== gamelogBookOddsToken) return;
+    gamelogBookOddsRows = [];
+  }
+  renderGameLogBookOdds();
+}
+// Re-renders from the already-fetched ladder for whatever gameLogState.line
+// currently is -- no new fetch needed on every line change (+/-, alt-lines
+// picker), same "fetch once per stat, redraw per line" pattern the alt-lines
+// Select already uses.
+function renderGameLogBookOdds() {
+  if (!els.gamelogOddsRow) return;
+  const row = gamelogBookOddsRows.find((r) => Number(r.line) === Number(gameLogState.line));
+  if (!row) { els.gamelogOddsRow.innerHTML = ""; return; }
+  const fmtOdds = (value) => value == null ? "—" : americanOdds(value);
+  els.gamelogOddsRow.innerHTML = GAMELOG_ODDS_BOOKS.map((book) => {
+    const overPrice = row[book.over];
+    const underPrice = row[book.under];
+    if (overPrice == null && underPrice == null) return "";
+    return `<div class="gamelog-odds-pill">
+      <img src="${book.logo}" alt="${escapeHtml(book.name)}" />
+      <div class="gamelog-odds-values">
+        <span><b>O</b>${escapeHtml(fmtOdds(overPrice))}</span>
+        <span><b>U</b>${escapeHtml(fmtOdds(underPrice))}</span>
+      </div>
+    </div>`;
+  }).join("");
 }
 
 async function fetchGameLogDetails(p) {

@@ -1125,3 +1125,51 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   font-size: 11px !important;
   white-space: normal !important;
 }
+
+/* Real per-line sportsbook odds row (see loadGameLogBookOdds/
+   renderGameLogBookOdds in app.js), styled with the same real bordered-pill
+   colors pulled from pickfinder.app earlier in this file (rgb(25,31,56)
+   bg / rgb(33,37,59) border) for visual consistency with the rest of the
+   redesign. */
+:root[data-theme] #gamelog-overlay .gamelog-odds-row {
+  display: flex !important;
+  gap: 8px;
+  overflow-x: auto;
+  margin: 0 0 12px !important;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+:root[data-theme] #gamelog-overlay .gamelog-odds-row::-webkit-scrollbar { display: none; }
+:root[data-theme] #gamelog-overlay .gamelog-odds-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  border: 0.8px solid rgb(33, 37, 59);
+  border-radius: 8px;
+  background: rgb(25, 31, 56);
+}
+:root[data-theme] #gamelog-overlay .gamelog-odds-pill img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+:root[data-theme] #gamelog-overlay .gamelog-odds-values {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font: 700 12px/1.2 var(--font-sans, sans-serif);
+}
+:root[data-theme] #gamelog-overlay .gamelog-odds-values span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: rgb(249, 250, 251);
+}
+:root[data-theme] #gamelog-overlay .gamelog-odds-values b {
+  color: rgb(156, 163, 175);
+  font-size: 10px;
+  font-weight: 700;
+}

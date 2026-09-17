@@ -167,6 +167,12 @@
       </article>
     </div>
     <div class="gamelog-workbench">
+    <!-- Real per-line sportsbook odds (PrizePicks/DraftKings/BetRivers --
+         the only 3 books this app has both real odds data AND a real logo
+         file for). Populated by loadGameLogBookOdds()/renderGameLogBookOdds()
+         in app.js and re-rendered (no new fetch) every time the line or
+         stat changes, matching pickfinder.app's own odds-pill row. -->
+    <div class="gamelog-odds-row" id="gamelog-odds-row" aria-label="Sportsbook odds for this line"></div>
     <nav class="gamelog-stat-tabs" id="gamelog-stat-tabs" aria-label="Performance markets"></nav>
     <div class="gamelog-toolbar">
       <h4 class="gamelog-market-title" id="gamelog-market-title">Prop performance</h4>

@@ -139,10 +139,11 @@ def fetch_event_props(event_id: str) -> dict:
 
 
 def fetch_prizepicks_prop_lines(event_id: str, market: str) -> dict:
-    """Fetch PrizePicks' projection ladder plus matching DraftKings prices.
+    """Fetch PrizePicks' projection ladder plus matching sportsbook prices.
 
-    PrizePicks Goblins/Demons live in the DFS ``_alternate`` market. DK is
-    deliberately requested only for the featured market, never its alts.
+    PrizePicks Goblins/Demons live in the DFS ``_alternate`` market. Real
+    sportsbooks are deliberately requested only for the featured market,
+    never its alts.
     """
     markets = [market]
     if not market.endswith("_alternate"):
@@ -160,10 +161,22 @@ def fetch_prizepicks_prop_lines(event_id: str, market: str) -> dict:
         )
     except RuntimeError:
         dk_response = None
-    # PrizePicks is the required source. A missing DK price must not hide the
-    # projection ladder, so retain an empty DK payload on that optional error.
+    try:
+        br_response = _get(
+            f"/sports/{SPORT_KEY}/events/{event_id}/odds",
+            {"regions": "us", "bookmakers": "betrivers",
+             "markets": market, "oddsFormat": "american"},
+        )
+    except RuntimeError:
+        br_response = None
+    # PrizePicks is the required source. A missing sportsbook price must not
+    # hide the projection ladder, so retain an empty payload on that error.
     try:
         draftkings = dk_response.json() if dk_response is not None else {"bookmakers": []}
     except (requests.RequestException, ValueError):
         draftkings = {"bookmakers": []}
-    return {"prizepicks": pp_response.json(), "draftkings": draftkings}
+    try:
+        betrivers = br_response.json() if br_response is not None else {"bookmakers": []}
+    except (requests.RequestException, ValueError):
+        betrivers = {"bookmakers": []}
+    return {"prizepicks": pp_response.json(), "draftkings": draftkings, "betrivers": betrivers}
