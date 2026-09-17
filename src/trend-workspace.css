@@ -1,0 +1,318 @@
+/* Krazy Data player research. Loaded after the legacy modal styles so the
+   embedded Trend panel has one predictable, responsive layout. Page-scroll
+   recovery and singleton mounting remain in gamelog-inline.css. */
+:root[data-theme] .rr-report {
+  --kd-panel: #0c1025;
+  --kd-input: #1b203b;
+  --kd-border: #2a3050;
+  --kd-text: #f5f6ff;
+  --kd-muted: #a4acc4;
+  --kd-accent: #a99aff;
+  --kd-positive: #26dfad;
+  --kd-negative: #ff7b88;
+}
+.rr-brandline { color: #e2ddff; font: 750 13px/1.3 var(--font-sans, sans-serif); letter-spacing: -.02em; }
+:root[data-theme] .rr-report .rr-sticky .report-header {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px 20px;
+  padding: 18px 22px !important;
+  background: linear-gradient(112deg, #5640df, #3624a5 58%, #211668) !important;
+  border-color: #6350d9 !important;
+  color: var(--kd-text) !important;
+}
+:root[data-theme] .rr-report .rr-brandline { grid-column: 1 / -1; margin: 0; }
+:root[data-theme] .rr-report .report-header .report-title-row { grid-column: 1; min-width: 0; }
+:root[data-theme] .rr-report .report-header .rt-avatar-slot { display: block !important; }
+:root[data-theme] .rr-report .report-header .rt-avatar-slot .avatar { width: 64px; height: 64px; border: 1px solid #ffffff60; background: #201960; }
+:root[data-theme] .rr-report .report-header .rt-avatar-slot > img { width: 64px; height: 64px; object-fit: contain; border: 1px solid #ffffff60; border-radius: 50%; background: #201960; }
+:root[data-theme] .rr-report .rr-sticky .rt-title { font-size: clamp(22px, 2.2vw, 28px) !important; color: #fff !important; letter-spacing: -.035em; }
+:root[data-theme] .rr-report .rr-sticky .rt-sub,
+:root[data-theme] .rr-report .rr-prop-line { color: #e0dcff !important; font-size: 13px !important; }
+:root[data-theme] .rr-report .rr-sticky .rt-sport { color: #d1c9ff !important; }
+:root[data-theme] .rr-report .rr-save-dock { grid-column: 2; align-self: center; padding: 0 !important; }
+:root[data-theme] .rr-report .rr-save-dock .save-btn { background: #ffffff16 !important; color: #fff !important; border-color: #ffffff55 !important; }
+:root[data-theme] .rr-report .rr-save-dock .save-btn.saved { background: #ffffff2a !important; }
+:root[data-theme] .rr-report .rr-tablist { background: var(--kd-panel); border-color: var(--kd-border); }
+:root[data-theme] .rr-report .rr-tab { color: var(--kd-muted); }
+:root[data-theme] .rr-report .rr-tab[aria-selected="true"] { color: #fff; background: #7960ee30; box-shadow: inset 0 -2px #a99aff; }
+
+:root[data-theme] #gamelog-overlay {
+  --kd-panel: #0c1025;
+  --kd-input: #1b203b;
+  --kd-border: #2a3050;
+  --kd-text: #f5f6ff;
+  --kd-muted: #a4acc4;
+  --kd-accent: #a99aff;
+  --kd-positive: #26dfad;
+  --kd-negative: #ff7b88;
+  color: var(--kd-text);
+  font-variant-numeric: tabular-nums;
+}
+:root[data-theme] #gamelog-overlay .gamelog-modal {
+  min-height: 0 !important;
+  background: var(--kd-panel) !important;
+  border-color: var(--kd-border) !important;
+  border-radius: 16px !important;
+}
+/* The report above already supplies the single player identity and save action. */
+:root[data-theme] #gamelog-overlay .modal-head { display: none !important; }
+:root[data-theme] #gamelog-overlay .gamelog-market-strip {
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 24px !important;
+  padding: 14px 18px 6px !important;
+  margin: 0 !important;
+  background: var(--kd-panel) !important;
+  overflow: visible;
+}
+:root[data-theme] #gamelog-overlay .gamelog-market-strip article {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 auto !important;
+  min-height: 28px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-book-card > small,
+:root[data-theme] #gamelog-overlay .gamelog-matchup-card > .gamelog-market-card-label { display: none; }
+:root[data-theme] #gamelog-overlay .gamelog-market-card-label { color: var(--kd-muted); font: 700 11px/1.3 var(--font-sans, sans-serif); letter-spacing: .03em; }
+:root[data-theme] #gamelog-overlay .gamelog-book-card > strong { margin: 0 !important; font: 750 13px/1.3 var(--font-sans, sans-serif); }
+:root[data-theme] #gamelog-overlay .gamelog-matchup-card { margin-left: auto; }
+:root[data-theme] #gamelog-overlay .gamelog-matchup-row { margin: 0 !important; gap: 8px !important; }
+:root[data-theme] #gamelog-overlay .gamelog-matchup-row > span:last-child { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
+:root[data-theme] #gamelog-overlay .gamelog-matchup-row strong { font-size: 13px; }
+:root[data-theme] #gamelog-overlay .gamelog-matchup-row small { color: var(--kd-muted); font-size: 12px; }
+:root[data-theme] #gamelog-overlay .gamelog-matchup-logos > span { width: 24px !important; height: 24px !important; }
+:root[data-theme] #gamelog-overlay .gamelog-matchup-logos img { width: 20px !important; height: 20px !important; }
+
+:root[data-theme] #gamelog-overlay .gamelog-workbench {
+  display: flex !important;
+  flex-direction: column;
+  align-items: stretch !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  gap: 0 !important;
+  padding: 0 18px 14px !important;
+  border: 0 !important;
+  background: var(--kd-panel) !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-workbench > * { width: 100% !important; align-self: stretch !important; box-sizing: border-box; }
+:root[data-theme] #gamelog-overlay .gamelog-odds-row {
+  order: 0;
+  display: flex !important;
+  gap: 8px;
+  padding: 8px 0 14px !important;
+  margin: 0 !important;
+  overflow-x: auto;
+}
+:root[data-theme] #gamelog-overlay .gamelog-odds-row:empty { display: none !important; }
+:root[data-theme] #gamelog-overlay .gamelog-odds-pill {
+  justify-content: center;
+  flex: 1 0 116px;
+  min-height: 58px;
+  padding: 10px 12px;
+  border: 1px solid var(--kd-border);
+  border-radius: 9px;
+  background: var(--kd-input);
+  gap: 12px;
+}
+:root[data-theme] #gamelog-overlay .gamelog-odds-pill img { width: 28px; height: 28px; }
+:root[data-theme] #gamelog-overlay .gamelog-odds-name { max-width: 70px; font-size: 12px; }
+:root[data-theme] #gamelog-overlay .gamelog-odds-values { gap: 3px; font-size: 13px; }
+:root[data-theme] #gamelog-overlay .gamelog-odds-values b { color: var(--kd-muted); font-size: 11px; }
+:root[data-theme] #gamelog-overlay .gamelog-stat-tabs {
+  order: 1;
+  flex: 0 0 auto;
+  min-height: 46px;
+  gap: 4px !important;
+  margin: 0 0 16px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border-bottom: 1px solid var(--kd-border) !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-stat-tabs button {
+  min-height: 46px;
+  padding: 0 15px !important;
+  color: var(--kd-muted) !important;
+  border-radius: 8px 8px 0 0;
+  font: 700 13px/1 var(--font-sans, sans-serif) !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-stat-tabs button.active {
+  color: #fff !important;
+  border-bottom-color: var(--kd-accent) !important;
+  background: #9c84ff15 !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-toolbar {
+  order: 2;
+  display: grid !important;
+  grid-template-columns: minmax(240px, .85fr) minmax(0, 1.4fr) !important;
+  grid-template-rows: auto auto !important;
+  align-items: center !important;
+  gap: 8px 20px !important;
+  min-height: 0;
+  margin: 0 0 14px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-market-title {
+  grid-column: 1;
+  grid-row: 1;
+  margin: 0 !important;
+  font: 750 21px/1.2 var(--font-sans, sans-serif) !important;
+  letter-spacing: -.035em;
+  white-space: normal;
+  overflow: visible;
+}
+:root[data-theme] #gamelog-overlay .gamelog-toolbar-row { grid-column: 1; grid-row: 2; margin: 0; }
+:root[data-theme] #gamelog-overlay .gamelog-toolbar-head { flex-wrap: wrap; gap: 8px; }
+:root[data-theme] #gamelog-overlay .gamelog-line-control {
+  order: 0;
+  height: 40px !important;
+  min-height: 40px !important;
+  margin: 0;
+  background: #12162e !important;
+  border: 1px solid var(--kd-border);
+  border-radius: 8px;
+}
+:root[data-theme] #gamelog-overlay .gamelog-line-control button { min-width: 36px !important; height: 40px; min-height: 40px !important; color: var(--kd-muted); }
+:root[data-theme] #gamelog-overlay .gamelog-line-control strong { min-width: 46px; font: 750 16px/1 var(--font-sans, sans-serif); color: #fff; background: transparent; }
+:root[data-theme] #gamelog-overlay #gamelog-lines-select-root button,
+:root[data-theme] #gamelog-overlay .gamelog-filter-field button {
+  min-width: 0 !important;
+  min-height: 40px !important;
+  height: 40px !important;
+  padding: 0 12px !important;
+  border: 1px solid var(--kd-border) !important;
+  border-radius: 8px !important;
+  background: var(--kd-input) !important;
+  color: var(--kd-text) !important;
+  font: 600 13px/1.3 var(--font-sans, sans-serif) !important;
+}
+:root[data-theme] #gamelog-overlay #gamelog-lines-select-root { width: 112px; }
+:root[data-theme] #gamelog-overlay #gamelog-lines-select-root button { width: 100%; }
+:root[data-theme] #gamelog-overlay .gamelog-toolbar .gamelog-windowbar {
+  grid-column: 2 !important;
+  grid-row: 1 / 3 !important;
+  align-self: center !important;
+  display: flex !important;
+  width: 100%;
+  min-width: 0;
+  gap: 3px !important;
+  padding: 4px !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 10px;
+  background: #070a1b !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-windowbar button {
+  flex: 1 0 65px;
+  min-height: 70px;
+  padding: 10px 8px !important;
+  border: 1px solid transparent !important;
+  border-radius: 7px !important;
+  gap: 4px;
+}
+:root[data-theme] #gamelog-overlay .gamelog-windowbar button.active { background: #252443 !important; border-color: #71609f !important; }
+:root[data-theme] #gamelog-overlay .gamelog-windowbar button strong { font: 700 13px/1.2 var(--font-sans, sans-serif); margin: 0; }
+:root[data-theme] #gamelog-overlay .gamelog-windowbar .gl-window-rate { color: var(--kd-positive) !important; font: 700 12px/1.2 var(--font-sans, sans-serif); }
+:root[data-theme] #gamelog-overlay .gamelog-windowbar .gl-window-rate.is-low { color: var(--kd-negative) !important; }
+:root[data-theme] #gamelog-overlay .gamelog-windowbar .gl-window-avg { color: var(--kd-muted) !important; font: 500 11px/1.2 var(--font-sans, sans-serif); }
+:root[data-theme] #gamelog-overlay .gamelog-windowbar button[data-capped="true"] { opacity: 1; }
+:root[data-theme] #gamelog-overlay .gamelog-filter-panel {
+  order: 3;
+  display: flex !important;
+  flex-wrap: wrap;
+  width: 100%;
+  min-height: 0;
+  margin: 0 !important;
+  gap: 10px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-filter-field { flex: 0 1 136px !important; gap: 6px; min-width: 0 !important; }
+:root[data-theme] #gamelog-overlay .gamelog-filter-field > span { color: var(--kd-muted); font: 500 12px/1.2 var(--font-sans, sans-serif); }
+:root[data-theme] #gamelog-overlay [hidden] { display: none !important; }
+
+:root[data-theme] #gamelog-overlay .gamelog-studio,
+:root[data-theme] #gamelog-overlay .gamelog-stage { display: block !important; min-height: 0 !important; padding: 0 !important; background: var(--kd-panel) !important; }
+:root[data-theme] #gamelog-overlay .gamelog-chart {
+  --gl-track-height: 320px;
+  --chart-top: 30px;
+  position: relative;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 30px 18px 18px !important;
+  background: linear-gradient(180deg, #0d1529 0%, #103731 100%) !important;
+  border: 0 !important;
+  overflow: hidden !important;
+  scrollbar-gutter: auto;
+}
+:root[data-theme] #gamelog-overlay .gamelog-chart-track {
+  display: flex !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  justify-content: stretch !important;
+  align-items: flex-start !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  gap: var(--gl-gap, 8px) !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-chart-track .gl-col {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0 !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-chart-track .gl-bar-shell { width: 100% !important; min-width: 0 !important; max-width: none !important; }
+:root[data-theme] #gamelog-overlay .gl-bar {
+  max-width: none !important;
+  border-radius: 7px 7px 0 0 !important;
+  background: linear-gradient(180deg, #17d5a1, #0e996e) !important;
+}
+:root[data-theme] #gamelog-overlay .gl-bar-under { background: linear-gradient(180deg, #ff6374, #dc3d50) !important; }
+:root[data-theme] #gamelog-overlay .gl-val { top: -21px !important; bottom: auto !important; color: var(--kd-positive) !important; font: 650 12px/1.2 var(--font-sans, sans-serif) !important; }
+:root[data-theme] #gamelog-overlay .gl-bar-under .gl-val { color: var(--kd-negative) !important; }
+:root[data-theme] #gamelog-overlay .gl-date { order: 1; margin-top: 10px !important; font: 600 12px/1.2 var(--font-sans, sans-serif) !important; color: #b6bfd1 !important; }
+:root[data-theme] #gamelog-overlay .gl-opp { order: 2; margin-top: 4px !important; font: 500 11px/1.2 var(--font-sans, sans-serif) !important; color: #a4b2c5 !important; }
+:root[data-theme] #gamelog-overlay .gl-y-axis { display: none; }
+:root[data-theme] #gamelog-overlay .gl-line-marker { --chart-top: 30px; left: 18px !important; right: 18px !important; touch-action: none; }
+:root[data-theme] #gamelog-overlay .gl-line-marker::before { border-top: 2px dashed #a7b2cc !important; }
+:root[data-theme] #gamelog-overlay .gl-line-marker .gl-line-tag { left: 0 !important; color: #fff !important; background: #172336 !important; border: 1px solid #74849d !important; font-size: 11px !important; }
+:root[data-theme] #gamelog-overlay .gl-empty { display: grid; align-content: center; justify-items: center; min-height: 230px; gap: 8px; color: var(--kd-text); }
+:root[data-theme] #gamelog-overlay .gl-empty p { margin: 0; color: var(--kd-muted); font-size: 13px; }
+:root[data-theme] #gamelog-overlay button:focus-visible,
+:root[data-theme] #gamelog-overlay .gl-line-marker:focus-visible { outline: 2px solid #c5baff !important; outline-offset: 3px; }
+:root[data-theme] #gamelog-overlay button:hover { filter: brightness(1.15); }
+
+@media (max-width: 900px) {
+  :root[data-theme] #gamelog-overlay .gamelog-toolbar { grid-template-columns: minmax(0, 1fr) !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-toolbar .gamelog-windowbar { grid-column: 1 !important; grid-row: 3 !important; margin-top: 4px !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-chart { --gl-track-height: 280px; }
+}
+@media (max-width: 600px) {
+  :root[data-theme] .rr-report .rr-sticky .report-header { padding: 16px !important; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  :root[data-theme] .rr-report .rr-save-dock { grid-column: 1; }
+  :root[data-theme] .rr-report .rr-sticky .rt-title { font-size: 22px !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-market-strip { padding: 12px 12px 4px !important; gap: 6px; }
+  :root[data-theme] #gamelog-overlay .gamelog-matchup-card { margin-left: 0; }
+  :root[data-theme] #gamelog-overlay .gamelog-workbench { padding: 0 12px 14px !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-odds-pill { flex: 0 0 110px; min-height: 54px; }
+  :root[data-theme] #gamelog-overlay .gamelog-windowbar button { flex: 1 0 0; padding: 8px 4px !important; min-height: 66px; }
+  :root[data-theme] #gamelog-overlay .gamelog-windowbar button strong { font-size: 12px; }
+  :root[data-theme] #gamelog-overlay .gamelog-windowbar .gl-window-rate { font-size: 11px; }
+  :root[data-theme] #gamelog-overlay .gamelog-windowbar .gl-window-avg { font-size: 10px; }
+  :root[data-theme] #gamelog-overlay .gamelog-filter-field { flex: 1 1 0 !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-chart { --gl-track-height: 250px; padding-inline: 12px !important; }
+  :root[data-theme] #gamelog-overlay .gl-line-marker { left: 12px !important; right: 12px !important; }
+  :root[data-theme] #gamelog-overlay .gl-date { font-size: 10px !important; }
+  :root[data-theme] #gamelog-overlay .gl-opp { font-size: 9px !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-line-control,
+  :root[data-theme] #gamelog-overlay .gamelog-line-control button,
+  :root[data-theme] #gamelog-overlay #gamelog-lines-select-root button,
+  :root[data-theme] #gamelog-overlay .gamelog-filter-field button { height: 44px !important; min-height: 44px !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-line-control button { min-width: 44px !important; }
+}

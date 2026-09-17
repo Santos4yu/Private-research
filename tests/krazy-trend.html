@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en" data-theme="obsidian">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Krazy Data · Trend design preview</title>
+  <style>
+    body { margin:0; }
+    .fixture-page { width:min(1160px,100%); margin:0 auto; padding:20px; box-sizing:border-box; }
+    .fixture-notice { margin:0 0 16px; padding:12px 16px; border:1px solid #454068; border-radius:12px; background:#17152b; color:#ddd8ff; font:13px/1.5 system-ui,sans-serif; }
+    .fixture-notice strong { display:block; color:white; }
+    .fixture-notice button { margin:10px 8px 0 0; padding:8px 12px; border:1px solid #655a95; border-radius:8px; background:#30264e; color:white; cursor:pointer; }
+    #fixture-status { display:block; margin-top:8px; color:#a8e5cd; }
+    @media(max-width:600px) { .fixture-page { padding:10px; } }
+  </style>
+</head>
+<body>
+  <main class="fixture-page">
+    <aside class="fixture-notice">
+      <strong>Krazy Data design preview · synthetic sample data</strong>
+      These player results and prices are made up for layout testing. This page makes no live API requests.
+      <div><button id="fixture-reset" type="button">Reset sample</button><button id="fixture-empty" type="button">Empty sample</button><button id="fixture-dense" type="button">Dense season sample</button></div>
+      <output id="fixture-status" aria-live="polite">Loading production research components…</output>
+    </aside>
+    <div id="fixture-report"></div>
+  </main>
+  <script type="module" src="/tests/krazy-trend.jsx"></script>
+</body>
+</html>

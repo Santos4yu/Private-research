@@ -45,6 +45,7 @@ export function mountResearchTabs(report, prop) {
   report.classList.add('rr-report');
   polishResearchCards(report);
   const header = report.querySelector('.report-header');
+  header.prepend(element('div', 'rr-brandline', 'Krazy Data'));
   const save = header.querySelector('.save-btn');
   const sticky = element('div', 'rr-sticky');
   const tablist = element('div', 'rr-tablist');

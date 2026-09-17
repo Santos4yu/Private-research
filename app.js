@@ -1506,7 +1506,7 @@ function renderMoneylineResearch(games) {
   const tier = String(game.tier || "PASS").toUpperCase();
   const actionable = isV5 && game.lineups_confirmed && (tier === "LEAN" || tier === "STRONG");
   const noBetReason = !isV5
-    ? "The website is waiting for a fresh v5 expected-runs snapshot from the Vortex bot. Older model data is not presented as a current pick."
+    ? "The website is waiting for a fresh v5 expected-runs snapshot from the Krazy Data model. Older model data is not presented as a current pick."
     : !game.lineups_confirmed
     ? "Awaiting confirmed lineups and reliable starters. This is research, not a pick."
     : game.volatility === "HIGH"
@@ -2694,12 +2694,12 @@ function renderReport(p) {
 let gameLogState = {
   chart: null, line: null, player: "", opponent: "", window: "recent",
   handFilter: "all", venueFilter: "all", handDataLoaded: false, teamId: null,
-  stat: "", isPitcher: false, fetchToken: 0, gameCount: 5, season: "all",
+  stat: "", isPitcher: false, fetchToken: 0, gameCount: 10, season: "all",
   // Which window button is selected, kept separately from gameCount because
   // gameCount gets clamped to however many games survive the filters -- pick
   // L20 with only 6 matching games and gameCount becomes 6, which would
   // otherwise light up "Season" instead of the button actually clicked.
-  windowKey: "5",
+  windowKey: "10",
   filtersOpen: false, animationDirection: "none",
 };
 
@@ -2735,7 +2735,7 @@ function syncGameLogContext({ matchup, status } = {}) {
   const bookLine = document.getElementById("gamelog-book-line");
   const marketTitle = document.getElementById("gamelog-market-title");
   if (line) line.textContent = `${gameLogStatCode(gameLogState.stat || "Prop")} ${Number(gameLogState.line || 0).toFixed(1)}`;
-  if (bookLine) bookLine.textContent = `Line ${Number(gameLogState.line || 0).toFixed(1)}`;
+  if (bookLine) bookLine.textContent = Number(gameLogState.line || 0).toFixed(1);
   if (marketTitle) marketTitle.textContent = String(gameLogState.stat || "Prop performance").replace(/\s*\(Pitcher\)\s*$/i, "");
   if (matchupEl && matchup !== undefined) matchupEl.textContent = matchup || "Live prop performance explorer";
   if (statusEl && status !== undefined) statusEl.textContent = String(status || "Pre-game").toUpperCase();
@@ -2858,8 +2858,8 @@ function openGameLogModal(p) {
   gameLogState.handFilter = "all";
   gameLogState.venueFilter = "all";
   gameLogState.handDataLoaded = false;
-  gameLogState.gameCount = Math.min(5, gameLogState.chart.all.length || 5);
-  gameLogState.windowKey = "5";
+  gameLogState.gameCount = 10;
+  gameLogState.windowKey = "10";
   gameLogState.window = "recent";
   // Start with the complete recent sample. Selecting the newest season here
   // could temporarily collapse the chart to one game while the detail request
@@ -3060,10 +3060,6 @@ async function fetchGameLogDetails(p) {
       // returned games for; leave everything else as it was.
       for (const key of Object.keys(data)) if (Array.isArray(data[key])) gameLogState.chart[key] = data[key];
       regradeGameLog(gameLogState.line);
-      if (openedWithoutHistory) {
-        gameLogState.gameCount = Math.min(5, recentGameLogSource().length || 5);
-        gameLogState.windowKey = "5";
-      }
       const resolvedPlayerId = data.meta?.player_id;
       if (resolvedPlayerId && !p.headshot) {
         els.gamelogPlayerCutout.innerHTML = `<img src="https://img.mlbstatic.com/mlb-photos/image/upload/w_300,q_auto:best/v1/people/${encodeURIComponent(resolvedPlayerId)}/headshot/silo/current" alt="" onerror="this.src='https://img.mlbstatic.com/mlb-photos/image/upload/w_300,q_auto:best/v1/people/${encodeURIComponent(resolvedPlayerId)}/headshot/67/current';this.onerror=null;">`;
@@ -3133,7 +3129,12 @@ function windowStat(games) {
 function renderGameLogTabs() {
   const filtered = filterGames(recentGameLogSource());
   const max = filtered.length;
-  if (gameLogState.window !== "h2h") gameLogState.gameCount = Math.max(1, Math.min(gameLogState.gameCount, Math.max(1, max)));
+  // Keep the requested window as filters/data change. Clamping the stored
+  // count to a partial response left L10 showing only 1–5 games after load.
+  if (gameLogState.window !== "h2h") {
+    const requested = gameLogState.windowKey === "season" ? max : Number(gameLogState.windowKey);
+    gameLogState.gameCount = Math.max(1, requested || gameLogState.gameCount);
+  }
   const h2hGames = filterGames(gameLogState.chart?.h2h || []);
 
   // One row that both selects the sample size AND shows that window's hit
@@ -3149,15 +3150,15 @@ function renderGameLogTabs() {
   // are explained rather than confusing.
   const windows = [5, 10, 15, 20]
     .map((n) => ({ key: String(n), label: `L${n}`, capped: max > 0 && max < n, sample: Math.min(n, max), ...windowStat(filtered.slice(-n)) }));
-  windows.push({ key: "season", label: "Season", sample: max, ...windowStat(filtered) });
+  windows.push({ key: "season", label: gameLogState.season === "all" ? "All" : "Season", sample: max, ...windowStat(filtered) });
   if (h2hGames.length) windows.push({ key: "h2h", label: "H2H", sample: h2hGames.length, ...windowStat(h2hGames) });
 
   if (els.gamelogTabs) {
     els.gamelogTabs.innerHTML = windows.map((w) => {
       const active = w.key === gameLogState.windowKey;
-      const stat = w.hitRate == null ? "" : `<span class="gl-window-rate">HR ${w.hitRate}%</span><span class="gl-window-avg">Avg ${w.avg.toFixed(2)}</span>`;
+      const stat = w.hitRate == null ? '<span class="gl-window-rate">—</span><span class="gl-window-avg">No games</span>' : `<span class="gl-window-rate${w.hitRate < 50 ? " is-low" : ""}">HR ${w.hitRate}%</span><span class="gl-window-avg">Avg ${w.avg.toFixed(2)}</span>`;
       const title = w.capped ? ` title="Only ${w.sample} game${w.sample === 1 ? "" : "s"} match the current filters"` : "";
-      return `<button type="button" class="${active ? "active" : ""}"${w.capped ? ' data-capped="true"' : ""}${title} data-window="${w.key}"><strong>${w.label}</strong>${stat}</button>`;
+      return `<button type="button" class="${active ? "active" : ""}" aria-pressed="${active}"${w.capped ? ' data-capped="true"' : ""}${title} data-window="${w.key}"><strong>${w.label}</strong>${stat}</button>`;
     }).join("");
   }
 
@@ -3217,6 +3218,7 @@ function renderGameLogChart() {
     document.getElementById("gamelog-summary-rate-percent").textContent = "—";
     document.getElementById("gamelog-summary-record").textContent = "—";
     document.getElementById("gamelog-summary-average").textContent = "—";
+    holder.innerHTML = '<div class="gl-empty" role="status"><strong>No matching games</strong><p>Try another season, matchup, or location.</p></div>';
     return;
   }
 
@@ -3237,9 +3239,7 @@ function renderGameLogChart() {
   const line = gameLogState.line;
   // Match the responsive CSS track height exactly; using a shorter mobile
   // math scale made low lines such as 0.5 float far above the baseline.
-  const trackPx = window.innerWidth <= 680
-    ? Math.max(48, holder.clientHeight - 64)
-    : window.innerWidth <= 900 ? 238 : 280;
+  const trackPx = parseFloat(getComputedStyle(holder).getPropertyValue('--gl-track-height')) || 280;
   holder.style.setProperty('--plot-height', `${trackPx}px`);
   const scaleFloors = { "Hits": 3, "Home Runs": 2, "Total Bases": 6, "Hits+Runs+RBIs": 4, "Runs Scored": 2, "RBIs": 3, "Walks": 2, "Strikeouts": 8, "Pitching Outs": 24, "Hits Allowed": 7, "Earned Runs Allowed": 5, "Strikeouts (Pitcher)": 8, "Walks Allowed": 3 };
   const observedMax = Math.max(...games.map((game) => Number(game.value) || 0), Number(line) || 0, 1);
@@ -3288,10 +3288,10 @@ function renderGameLogChart() {
       ["Pitch count", details.pitchCount], ["Walks", details.walks], ["Strikeouts", details.strikeouts],
     ].filter(([, value]) => value !== null && value !== undefined && value !== "").map(([label, value]) => `<div><span>${label}</span><strong>${escapeHtml(String(value))}</strong></div>`).join("") : "";
     const fullDate = g.fullDate || g.date || "";
-    const aria = `${fullDate}, ${g.opponent || "opponent"}, ${gameLogStatCode(gameLogState.stat)} ${g.value}`;
+    const aria = `${fullDate}, ${g.opponent || "opponent"}, ${gameLogStatCode(gameLogState.stat)} ${g.value}, ${g.over ? "above" : "below"} the ${line} line`;
     col.innerHTML = `
       <div class="gl-track" style="height:${trackPx}px">
-        <div class="gl-bar-shell" tabindex="0" role="button" aria-label="${escapeHtml(aria)}">
+        <div class="gl-bar-shell" tabindex="0" role="img" aria-label="${escapeHtml(aria)}" title="${escapeHtml(aria)}">
           <div class="gl-bar${g.over ? "" : " gl-bar-under"}" style="height:${heightPx}px">
             <span class="gl-val">${g.value}</span>
           </div>
@@ -3319,7 +3319,20 @@ function renderGameLogChart() {
     marker.style.setProperty("--line-offset", `${topPx}px`);
     marker.innerHTML = `<span class="gl-line-tag">${Number(line).toFixed(1)}</span>`;
     marker.setAttribute("role", "slider");
-    marker.setAttribute("aria-label", "Drag prop line");
+    marker.tabIndex = 0;
+    marker.setAttribute("aria-label", "Prop line");
+    marker.setAttribute("aria-valuemin", "0.5");
+    marker.setAttribute("aria-valuemax", String(max));
+    marker.setAttribute("aria-valuenow", String(line));
+    marker.setAttribute("aria-orientation", "vertical");
+    marker.addEventListener("keydown", (event) => {
+      const delta = event.key === "ArrowUp" || event.key === "ArrowRight" ? 1
+        : event.key === "ArrowDown" || event.key === "ArrowLeft" ? -1 : 0;
+      if (!delta) return;
+      event.preventDefault();
+      setGameLogPreviewLine(Math.max(0.5, Number(gameLogState.line) + delta), true);
+      holder.querySelector('.gl-line-marker')?.focus({ preventScroll: true });
+    });
     marker.addEventListener("pointerdown", (event) => {
       event.preventDefault();
       marker.setPointerCapture(event.pointerId);
@@ -3377,6 +3390,10 @@ function wireGameLogModal() {
   // so translate back to the internal key filterGames() matches on.
   window.addEventListener("vortex:gamelog-season-pick", (event) => {
     gameLogState.season = seasonKey(event.detail.value);
+    if (gameLogState.window === "h2h" || gameLogState.windowKey === "h2h") {
+      gameLogState.windowKey = "10";
+      gameLogState.gameCount = 10;
+    }
     gameLogState.window = "recent";
     gameLogState.animationDirection = "initial";
     renderGameLogTabs(); renderGameLogChart();
@@ -3397,8 +3414,8 @@ function wireGameLogModal() {
     const button = event.target.closest("button[data-stat]");
     if (button && !button.disabled) loadGameLogStat(button.dataset.stat);
   });
-  els.gamelogLineDown.addEventListener("click", () => setGameLogPreviewLine(gameLogState.line - 0.5, true));
-  els.gamelogLineUp.addEventListener("click", () => setGameLogPreviewLine(gameLogState.line + 0.5, true));
+  els.gamelogLineDown.addEventListener("click", () => setGameLogPreviewLine(gameLogState.line - 1, true));
+  els.gamelogLineUp.addEventListener("click", () => setGameLogPreviewLine(gameLogState.line + 1, true));
 }
 
 /* ---------- Team insights modal (Batting Order & Pitch Arsenal) ---------- */
@@ -7132,7 +7149,7 @@ function evaluatePdChallenge(p, key) {
   const stats = p.stats || {}, drivers = pdDecisionDrivers(p);
   const terms = { recent:/recent|form|l5|l10|l20/i, hand:/hand|platoon/i, pitcher:/pitch|matchup|opposing/i, bullpen:/bullpen/i, opportunity:/lineup|opportunity|plate appearance/i, workload:/workload|pitch count|leash|innings/i, environment:/weather|park|wind/i, price:/market|price|odds|line/i, bvp:/batter vs|bvp/i };
   const matches = drivers.filter(d => terms[key]?.test(`${d.name} ${d.detail}`));
-  let status = "NEEDS VERIFICATION", strength = "Unknown", shift = 0, explanation = "VORTEX does not currently have a verified input for this concern. Treat it as a wait condition, not an automatic fade.";
+  let status = "NEEDS VERIFICATION", strength = "Unknown", shift = 0, explanation = "Krazy Data does not currently have a verified input for this concern. Treat it as a wait condition, not an automatic fade.";
   if (key === "gut") {
     status = "NOT QUANTIFIABLE"; strength = "Unverified";
     explanation = "A gut concern is worth noticing, but it cannot overturn the model until you can name the underlying baseball or pricing assumption.";
@@ -7141,7 +7158,7 @@ function evaluatePdChallenge(p, key) {
     shift = adverse ? Math.min(8, matches.filter(d => d.impact < 0).reduce((n, d) => n + Math.min(4, Math.abs(d.impact)), 0)) : 0;
     strength = adverse ? (shift >= 6 ? "Material" : shift >= 3 ? "Moderate" : "Minor") : "Does not weaken play";
     status = adverse ? "ALREADY MODELED" : "MODELED — NOT A RED FLAG";
-    explanation = adverse ? `This concern already reduces the grade through ${matches.filter(d => d.impact < 0).map(d => d.name).join(" and ")}. The remaining evidence still supports the current verdict.` : `VORTEX already evaluates ${matches.map(d => d.name).join(" and ")}. In the available data, this factor supports the play rather than opposing it.`;
+    explanation = adverse ? `This concern already reduces the grade through ${matches.filter(d => d.impact < 0).map(d => d.name).join(" and ")}. The remaining evidence still supports the current verdict.` : `Krazy Data already evaluates ${matches.map(d => d.name).join(" and ")}. In the available data, this factor supports the play rather than opposing it.`;
   } else if (["bullpen", "opportunity", "workload", "environment"].includes(key)) {
     strength = "Potentially material";
     explanation = "This can change the play, but the current card does not expose enough verified data to measure it. Confirm the latest information before treating the recommendation as final.";

@@ -154,9 +154,9 @@
     </div>
     <div class="gamelog-market-strip" aria-label="Current market overview">
       <article class="gamelog-book-card">
-        <span class="gamelog-market-card-label"><img src="/prizepicks/logo.png" alt="" /> PRIZEPICKS</span>
+        <span class="gamelog-market-card-label">RESEARCH LINE</span>
         <strong id="gamelog-book-line">Line —</strong>
-        <small>Current posted line</small>
+        <small>Research line</small>
       </article>
       <article class="gamelog-matchup-card">
         <span class="gamelog-market-card-label">MATCHUP</span>
@@ -176,10 +176,8 @@
     <nav class="gamelog-stat-tabs" id="gamelog-stat-tabs" aria-label="Performance markets"></nav>
     <div class="gamelog-toolbar">
       <h4 class="gamelog-market-title" id="gamelog-market-title">Prop performance</h4>
-      <!-- Line-stepper + alt-lines picker share one row; the window-sample
-           bar sits on its own full-width row below them (not squeezed onto
-           the right half of this row -- that side-by-side version read as
-           cramped/lopsided). -->
+      <!-- Line controls and sample metrics share the desktop toolbar;
+           the sample metrics wrap below the controls on smaller screens. -->
       <div class="gamelog-toolbar-row">
         <div class="gamelog-toolbar-head">
           <div class="gamelog-line-control" aria-label="Prop line controls">
@@ -515,7 +513,7 @@
     <div class="pitcher-finder-list" id="pitcher-finder-list"></div>
     <div class="pitcher-finder-state" id="pitcher-finder-state" hidden></div>
   </section>
-  <div class="pitcher-board-label" id="pitcher-board-label" hidden>Vortex recommended plays</div>
+  <div class="pitcher-board-label" id="pitcher-board-label" hidden>Krazy Data recommended plays</div>
   <div class="slate-list" id="v2-board-list"></div>
   <p class="empty-state" id="v2-board-empty" hidden>The board is empty right now — it fills as soon as the data engine runs.</p>
   <p class="slate-error" id="v2-board-error" hidden></p>
@@ -661,7 +659,7 @@
         <div class="score-badge">
           <span class="score-tier-icon"></span>
           <span class="score-num" data-target="0">0</span>
-          <span class="score-badge-label">SCORE</span>
+          <span class="score-badge-label">MODEL SCORE</span>
         </div>
       </div>
 
