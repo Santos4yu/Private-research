@@ -181,23 +181,23 @@
       <div class="gamelog-filter-panel" id="gamelog-filter-panel" aria-label="Game log filters">
         <div class="gamelog-filter-field">
           <span>Season</span>
-          <div class="gamelog-season-row" id="gamelog-season-row"></div>
+          <select class="gamelog-combobox" id="gamelog-season-row"></select>
         </div>
         <div class="gamelog-filter-field" id="gl-hand-field" hidden>
           <span>Matchup</span>
-          <div class="gl-filter-group" id="gl-hand-filter">
-            <button type="button" class="gl-filter-chip active" data-hand="all">All</button>
-            <button type="button" class="gl-filter-chip" data-hand="L">vs LHP</button>
-            <button type="button" class="gl-filter-chip" data-hand="R">vs RHP</button>
-          </div>
+          <select class="gamelog-combobox" id="gl-hand-filter">
+            <option value="all">All</option>
+            <option value="L">vs LHP</option>
+            <option value="R">vs RHP</option>
+          </select>
         </div>
         <div class="gamelog-filter-field">
           <span>Location</span>
-          <div class="gl-filter-group" id="gl-venue-filter">
-            <button type="button" class="gl-filter-chip active" data-venue="all">All</button>
-            <button type="button" class="gl-filter-chip" data-venue="home">Home</button>
-            <button type="button" class="gl-filter-chip" data-venue="road">Road</button>
-          </div>
+          <select class="gamelog-combobox" id="gl-venue-filter">
+            <option value="all">All</option>
+            <option value="home">Home</option>
+            <option value="road">Road</option>
+          </select>
         </div>
       </div>
     </div>

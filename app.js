@@ -2864,7 +2864,7 @@ async function fetchGameLogDetails(p) {
   const requestedPlayer = p.player;
   const requestToken = ++gameLogState.fetchToken;
   const openedWithoutHistory = recentGameLogSource().length <= 1;
-  els.glHandFilter.querySelectorAll(".gl-filter-chip").forEach((b) => { b.disabled = true; });
+  els.glHandFilter.disabled = true;
   try {
     if (openedWithoutHistory && finderMarket(p.betType)) {
       try {
@@ -2909,7 +2909,7 @@ async function fetchGameLogDetails(p) {
     console.error("game-log-filters fetch failed:", err);
   } finally {
     if (gameLogState.fetchToken !== requestToken || gameLogState.player !== requestedPlayer) return;
-    els.glHandFilter.querySelectorAll(".gl-filter-chip").forEach((b) => { b.disabled = false; });
+    els.glHandFilter.disabled = false;
     renderGameLogTabs();
     renderGameLogChart();
   }
@@ -2926,12 +2926,8 @@ function filterGames(games) {
 }
 
 function renderGameLogSubfilters() {
-  els.glHandFilter.querySelectorAll(".gl-filter-chip").forEach((b) => {
-    b.classList.toggle("active", b.dataset.hand === gameLogState.handFilter);
-  });
-  els.glVenueFilter.querySelectorAll(".gl-filter-chip").forEach((b) => {
-    b.classList.toggle("active", b.dataset.venue === gameLogState.venueFilter);
-  });
+  els.glHandFilter.value = gameLogState.handFilter;
+  els.glVenueFilter.value = gameLogState.venueFilter;
 }
 
 // Hit rate + average for one window's worth of games, for the window-tabs
@@ -2969,7 +2965,8 @@ function renderGameLogTabs() {
 
   const seasons = [...new Set(recentGameLogSource().map((game) => String(game.season || String(game.fullDate || "").slice(0, 4))).filter((season) => /^\d{4}$/.test(season)))].sort().concat("all");
   if (els.gamelogSeasonRow) {
-    els.gamelogSeasonRow.innerHTML = seasons.map((season) => `<button type="button" data-season="${season}" class="${gameLogState.season === season ? "active" : ""}">${season === "all" ? "All" : season}</button>`).join("");
+    els.gamelogSeasonRow.innerHTML = seasons.map((season) => `<option value="${season}">${season === "all" ? "All" : season}</option>`).join("");
+    els.gamelogSeasonRow.value = gameLogState.season;
   }
   renderGameLogSubfilters();
 }
@@ -3145,30 +3142,24 @@ function wireGameLogModal() {
     if (!btn) return;
     setGameLogWindow(btn.dataset.window);
   });
-  els.gamelogSeasonRow?.addEventListener("click", (event) => {
-    const btn = event.target.closest("button[data-season]");
-    if (!btn) return;
-    gameLogState.season = btn.dataset.season;
+  els.gamelogSeasonRow?.addEventListener("change", () => {
+    gameLogState.season = els.gamelogSeasonRow.value;
     gameLogState.window = "recent";
     gameLogState.animationDirection = "initial";
     renderGameLogTabs(); renderGameLogChart();
   });
-  els.glHandFilter.querySelectorAll(".gl-filter-chip").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      if (btn.disabled) return;
-      gameLogState.handFilter = btn.dataset.hand;
-      renderGameLogSubfilters();
-      renderGameLogTabs();
-      renderGameLogChart();
-    });
+  els.glHandFilter.addEventListener("change", () => {
+    if (els.glHandFilter.disabled) return;
+    gameLogState.handFilter = els.glHandFilter.value;
+    renderGameLogSubfilters();
+    renderGameLogTabs();
+    renderGameLogChart();
   });
-  els.glVenueFilter.querySelectorAll(".gl-filter-chip").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      gameLogState.venueFilter = btn.dataset.venue;
-      renderGameLogSubfilters();
-      renderGameLogTabs();
-      renderGameLogChart();
-    });
+  els.glVenueFilter.addEventListener("change", () => {
+    gameLogState.venueFilter = els.glVenueFilter.value;
+    renderGameLogSubfilters();
+    renderGameLogTabs();
+    renderGameLogChart();
   });
   els.gamelogStatTabs?.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-stat]");
