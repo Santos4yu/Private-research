@@ -2818,8 +2818,8 @@ function openGameLogModal(p) {
     status: currentStatus,
   });
   if (els.gamelogPropBadge) els.gamelogPropBadge.textContent = gameLogStatCode(p.betType);
-  const teamName = p.teamAbbr || p.teamName || (typeof p.team === "string" ? p.team : p.team?.abbreviation) || "";
-  const teamId = p.teamId || p.team_id || p.ownTeamId || p.team?.id || MLB_TEAM_IDS[String(teamName).toUpperCase()];
+  const teamName = p.teamAbbr || p.teamName || (typeof p.team === "string" ? p.team : p.team?.abbreviation) || cmd.teamName || "";
+  const teamId = p.teamId || p.team_id || p.ownTeamId || p.team?.id || cmd.teamId || MLB_TEAM_IDS[String(teamName).toUpperCase()];
   const matchup = matchupGameDetails({...p, team_id: p.team_id || teamId, team: p.team || teamName});
   const matchupLogosEl = document.getElementById('gamelog-matchup-logos');
   const marketMatchupEl = document.getElementById('gamelog-market-matchup');
@@ -5451,10 +5451,11 @@ function matchupGameDetails(prop) {
   const propTime = Date.parse(suppliedTime);
   const opponentText = normalizePlayerSearch(opponentName);
   const scheduled = schedule.find(game => gamePk && String(game.game_pk) === String(gamePk)) || schedule.find(game => {
+    const exactTeams = ownId && opponentId && [Number(game.away_id), Number(game.home_id)].includes(Number(ownId)) && [Number(game.away_id), Number(game.home_id)].includes(Number(opponentId));
     const timeClose = Number.isFinite(propTime) && Number.isFinite(Date.parse(game.start_time || "")) && Math.abs(propTime - Date.parse(game.start_time)) < 20 * 60 * 1000;
     const awayMatches = opponentText && [game.away, MLB_TEAM_ABBRS?.[game.away_id]].filter(Boolean).some(name => normalizePlayerSearch(name) === opponentText);
     const homeMatches = opponentText && [game.home, MLB_TEAM_ABBRS?.[game.home_id]].filter(Boolean).some(name => normalizePlayerSearch(name) === opponentText);
-    return timeClose && (awayMatches || homeMatches);
+    return exactTeams || (timeClose && (awayMatches || homeMatches));
   });
   if (scheduled) {
     const scheduledAway = MLB_TEAM_ABBRS[scheduled.away_id] || scheduled.away;

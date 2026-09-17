@@ -735,3 +735,20 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   :root[data-theme] #gamelog-overlay .gamelog-matchup-card { flex-basis: 230px; }
   :root[data-theme] #gamelog-overlay .posted-lines { min-width: 180px !important; }
 }
+
+:root[data-theme] #gamelog-overlay .gamelog-live-state { display: none !important; }
+:root[data-theme] #gamelog-overlay .posted-lines summary > span,
+:root[data-theme] #gamelog-overlay .posted-lines summary > span small { white-space: nowrap !important; }
+:root[data-theme] #gamelog-overlay .gamelog-chart-track:not([data-dense="true"]) {
+  justify-content: space-around !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-chart-track:not([data-dense="true"]) .gl-col {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  min-width: 58px !important;
+  max-width: 132px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-chart-track:not([data-dense="true"]) .gl-bar-shell {
+  width: min(82%, 94px) !important;
+  margin-inline: auto !important;
+}
