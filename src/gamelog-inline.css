@@ -990,7 +990,12 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   display: flex !important;
   min-width: 0 !important;
   justify-content: center !important;
-  gap: 8px !important;
+  /* app.js scales this down for large game counts (see renderGameLogChart)
+     -- a fixed gap here would, for a multi-year season sample of hundreds
+     of games, consume far more width than the chart itself has, forcing
+     the equal-fill columns toward 0 width regardless of anything else
+     being correct. */
+  gap: var(--gl-gap, 8px) !important;
 }
 :root[data-theme] #gamelog-overlay .gamelog-chart-track .gl-col {
   flex: 1 1 0 !important;

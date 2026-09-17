@@ -3106,6 +3106,17 @@ function renderGameLogChart() {
   // and hide those labels once columns get too narrow for them.
   const chartWidth = holder.clientWidth || window.innerWidth || 360;
   track.dataset.compact = (chartWidth / Math.max(games.length, 1)) < 34 ? "true" : "false";
+  // gamelog-inline.css's equal-fill columns (flex:1 1 0, min-width:0) can
+  // shrink to fit any width -- but the gap BETWEEN them was a fixed 8px
+  // regardless of count. For a true multi-year season sample (hundreds of
+  // games) that fixed gap alone can add up to far more than the chart's
+  // whole width (e.g. 300 games x 8px = 2400px), which forces the
+  // shrinkable columns down toward 0 width even though nothing else is
+  // wrong -- bars vanish while the dashed line/marker (positioned
+  // independently) still renders fine. Scale the gap down as the count
+  // grows so it can never consume more room than the bars themselves.
+  const gapPx = games.length > 80 ? 1 : games.length > 40 ? 2 : games.length > 20 ? 4 : 8;
+  track.style.setProperty("--gl-gap", `${gapPx}px`);
   games.forEach((g) => {
     const col = document.createElement("div");
     col.className = "gl-col";
