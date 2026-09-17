@@ -3025,11 +3025,23 @@ function filterGames(games) {
 
 const GL_HAND_OPTIONS = [{ value: "all", label: "All" }, { value: "L", label: "vs LHP" }, { value: "R", label: "vs RHP" }];
 const GL_VENUE_OPTIONS = [{ value: "all", label: "All" }, { value: "home", label: "Home" }, { value: "road", label: "Road" }];
+// components/ui/select.tsx's SelectTrigger resolves its display text with
+// labelMap.current.get(value) DURING render, but SelectItem only registers
+// that value->label pair in a post-commit useEffect. Setting the options
+// and the value in the same pass therefore renders the trigger before any
+// label exists, so it falls back to showing the raw value ("all" instead
+// of "All") -- and because labelMap is a ref, populating it later never
+// re-renders the trigger, so it stays stuck that way for any filter the
+// user never changes. Handing the value over on a later frame lets the
+// items register their labels first.
+function setBridgeValueAfterOptions(bridge, options, value) {
+  if (!bridge) return;
+  bridge.setOptions(options);
+  requestAnimationFrame(() => bridge.setValue(value));
+}
 function renderGameLogSubfilters() {
-  els.glHandFilterBridge?.setOptions(GL_HAND_OPTIONS);
-  els.glHandFilterBridge?.setValue(gameLogState.handFilter);
-  els.glVenueFilterBridge?.setOptions(GL_VENUE_OPTIONS);
-  els.glVenueFilterBridge?.setValue(gameLogState.venueFilter);
+  setBridgeValueAfterOptions(els.glHandFilterBridge, GL_HAND_OPTIONS, gameLogState.handFilter);
+  setBridgeValueAfterOptions(els.glVenueFilterBridge, GL_VENUE_OPTIONS, gameLogState.venueFilter);
 }
 
 // Hit rate + average for one window's worth of games, for the window-tabs
@@ -3066,8 +3078,11 @@ function renderGameLogTabs() {
   }
 
   const seasons = [...new Set(recentGameLogSource().map((game) => String(game.season || String(game.fullDate || "").slice(0, 4))).filter((season) => /^\d{4}$/.test(season)))].sort().concat("all");
-  els.gamelogSeasonBridge?.setOptions(seasons.map((season) => ({ value: season, label: season === "all" ? "All" : season })));
-  els.gamelogSeasonBridge?.setValue(gameLogState.season);
+  setBridgeValueAfterOptions(
+    els.gamelogSeasonBridge,
+    seasons.map((season) => ({ value: season, label: season === "all" ? "All" : season })),
+    gameLogState.season,
+  );
   renderGameLogSubfilters();
 }
 

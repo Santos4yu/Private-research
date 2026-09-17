@@ -229,24 +229,15 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
 :root[data-theme] #gamelog-overlay .gamelog-toolbar {
   display: block !important;
 }
-/* Title on its own line; the line-stepper+alt-lines group sits on the LEFT
-   of the row below it, the window-sample bar on the RIGHT of that same
-   row -- both sides of the row used, directly above the filter dropdowns.
-   Explicit layout requested after the previous title-priority version
-   kept pushing the window bar onto its own wrapped row instead. */
+/* Title on its own line, then the line-stepper + alt-lines picker share
+   one row, and the window-sample bar sits on its own full-width row below
+   them. An earlier version squeezed the window bar onto the right half of
+   the stepper's row, which read as cramped and lopsided. */
 :root[data-theme] #gamelog-overlay .gamelog-toolbar-row {
   display: flex !important;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
-  /* Never wrap into a second row -- the combined natural width of the
-     left group (alt-lines select + stepper) plus all 6 window-tab buttons
-     doesn't reliably fit next to each other, and flex-wrap was silently
-     falling back to the old stacked layout instead of staying side by
-     side. The window bar shrinks/scrolls internally (min-width:0 below,
-     it already has its own overflow-x:auto) rather than the whole row
-     wrapping. */
-  flex-wrap: nowrap !important;
+  flex-wrap: wrap;
   margin-top: 8px;
 }
 :root[data-theme] #gamelog-overlay .gamelog-toolbar-head {
@@ -255,22 +246,13 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   gap: 8px;
   flex: 0 0 auto;
 }
-/* The shared alt-lines Select trigger's own min-width (160px, meant for
-   the main line-picker's roomier row) is more than this tighter toolbar
-   can spare alongside the window-tabs bar. Shrinking it here only. */
-:root[data-theme] #gamelog-overlay #gamelog-lines-select-root button {
-  min-width: 92px !important;
+/* Window bar is its own full-width row again (see index.html: it's a
+   sibling of .gamelog-toolbar-row now, not a child), with its buttons at
+   their regular size from the base .gamelog-windowbar button rule above. */
+:root[data-theme] #gamelog-overlay .gamelog-toolbar .gamelog-windowbar {
+  width: 100%;
+  margin-top: 10px !important;
 }
-:root[data-theme] #gamelog-overlay .gamelog-toolbar-row .gamelog-windowbar {
-  flex: 1 1 auto;
-  min-width: 0;
-  max-width: 100%;
-}
-/* Window-tab buttons keep their regular size (the base .gamelog-windowbar
-   button rule above: flex 1 0 64px, min-height 56px) instead of the
-   shrunken 62px/48px this row previously forced -- the windowbar's own
-   overflow-x:auto (already set) scrolls internally if the row is ever too
-   tight for all 6 at full size, rather than squashing them smaller. */
 /* Stat tabs get their own full-width row (it's a wide scrollable list);
    the line stepper + posted-lines pill sit together on the row below,
    matching a reference trend screen's two-row toolbar instead of the

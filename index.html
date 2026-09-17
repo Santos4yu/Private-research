@@ -176,12 +176,10 @@
     <nav class="gamelog-stat-tabs" id="gamelog-stat-tabs" aria-label="Performance markets"></nav>
     <div class="gamelog-toolbar">
       <h4 class="gamelog-market-title" id="gamelog-market-title">Prop performance</h4>
-      <!-- Left side: line-stepper + alt-lines picker, grouped together.
-           Right side: the window-sample bar. Both sides of one row, sitting
-           directly above the Season/Matchup/Location filters -- explicit
-           layout the user asked for after the title-priority version kept
-           pushing the window bar onto its own wrapped row instead of using
-           the row's right half. -->
+      <!-- Line-stepper + alt-lines picker share one row; the window-sample
+           bar sits on its own full-width row below them (not squeezed onto
+           the right half of this row -- that side-by-side version read as
+           cramped/lopsided). -->
       <div class="gamelog-toolbar-row">
         <div class="gamelog-toolbar-head">
           <div class="gamelog-line-control" aria-label="Prop line controls">
@@ -197,8 +195,8 @@
                exactly. -->
           <div id="gamelog-lines-select-root"></div>
         </div>
-        <div class="gamelog-windowbar" id="gamelog-tabs" role="group" aria-label="Game sample"></div>
       </div>
+      <div class="gamelog-windowbar" id="gamelog-tabs" role="group" aria-label="Game sample"></div>
     </div>
     <div class="gamelog-filter-panel" id="gamelog-filter-panel" aria-label="Game log filters">
       <!-- These three used to be native <select> elements -- a browser's
