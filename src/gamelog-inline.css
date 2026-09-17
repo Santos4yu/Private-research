@@ -919,3 +919,17 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   :root[data-theme] #gamelog-overlay .gamelog-stat-tabs { margin-inline:-8px !important; padding-inline:8px !important; }
   :root[data-theme] #gamelog-overlay .gamelog-chart { height:304px !important; padding:26px 10px 36px 32px !important; }
 }
+
+/* pickfinder.app's chart has a plain flat dark background and no visible
+   y-axis scale -- ours still carried an older teal/navy gradient tint
+   (styles.css) plus a left-side 4/2/0 axis column, both of which read as
+   visual noise against the reference. Keep .gl-y-axis in the DOM (app.js
+   still writes to it) so nothing has to change there; just stop rendering
+   it and flatten the background to match. */
+:root[data-theme] #gamelog-overlay .gamelog-chart {
+  background: var(--theme-bg, #05070c) !important;
+  padding-left: 16px !important;
+}
+:root[data-theme] #gamelog-overlay .gl-y-axis {
+  display: none !important;
+}
