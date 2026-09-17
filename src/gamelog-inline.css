@@ -982,3 +982,26 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
 :root[data-theme] #gamelog-overlay .gamelog-filter-panel {
   margin-bottom: 10px !important;
 }
+
+/* Moving the "PrizePicks lines" pill onto the same row as the title and
+   line-stepper (previous commit) put three flex children in a row that's
+   often too narrow for all of them at their natural width. Neither
+   .gamelog-line-control nor .posted-lines set flex-shrink, so the default
+   (1) let the row's flexbox math shrink them below their content size --
+   combined with .gamelog-line-control's overflow:hidden, that clipped
+   "1.5" down to "1" instead of wrapping or truncating visibly. Numbers and
+   controls should never shrink; the title text is the right thing to
+   truncate when space is tight. */
+:root[data-theme] #gamelog-overlay .gamelog-line-control {
+  flex: 0 0 auto !important;
+}
+:root[data-theme] #gamelog-overlay .posted-lines {
+  flex: 0 0 auto !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-market-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
