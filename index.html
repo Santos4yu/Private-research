@@ -169,12 +169,20 @@
     <div class="gamelog-workbench">
     <nav class="gamelog-stat-tabs" id="gamelog-stat-tabs" aria-label="Performance markets"></nav>
     <div class="gamelog-toolbar">
-      <h4 class="gamelog-market-title" id="gamelog-market-title">Prop performance</h4>
-      <div class="gamelog-line-control" aria-label="Prop line controls">
-        <button type="button" id="gamelog-line-down" aria-label="Decrease prop line">−</button>
-        <strong id="gamelog-line-value">—</strong>
-        <button type="button" id="gamelog-line-up" aria-label="Increase prop line">+</button>
+      <div class="gamelog-toolbar-head">
+        <h4 class="gamelog-market-title" id="gamelog-market-title">Prop performance</h4>
+        <div class="gamelog-line-control" aria-label="Prop line controls">
+          <button type="button" id="gamelog-line-down" aria-label="Decrease prop line">−</button>
+          <strong id="gamelog-line-value">—</strong>
+          <button type="button" id="gamelog-line-up" aria-label="Increase prop line">+</button>
+        </div>
       </div>
+      <!-- One row that both selects the sample size AND shows that window's
+           hit rate/average at a glance, instead of a plain stepper with no
+           numbers -- matches a reference trend screen the user pointed to.
+           Sits inline beside the title/line-stepper (like pickfinder.app),
+           not as its own full-width row below. -->
+      <div class="gamelog-windowbar" id="gamelog-tabs" role="group" aria-label="Game sample"></div>
     </div>
     <div class="gamelog-filter-panel" id="gamelog-filter-panel" aria-label="Game log filters">
       <div class="gamelog-filter-field">
@@ -198,10 +206,6 @@
         </select>
       </div>
     </div>
-    <!-- One row that both selects the sample size AND shows that window's
-         hit rate/average at a glance, instead of a plain stepper with no
-         numbers -- matches a reference trend screen the user pointed to. -->
-    <div class="gamelog-windowbar" id="gamelog-tabs" role="group" aria-label="Game sample"></div>
     </div>
     <div class="gamelog-studio" id="gamelog-studio">
       <div class="gamelog-stage">

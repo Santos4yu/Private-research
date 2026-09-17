@@ -217,9 +217,29 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
    bordered button-group instead of a taller labeled control. */
 :root[data-theme] #gamelog-overlay .gamelog-toolbar {
   display: flex !important;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 10px;
   flex-wrap: wrap;
+}
+/* Title + line-stepper on the left, the window-sample bar on the right,
+   same row -- matches pickfinder.app's layout instead of stacking the
+   window bar as its own full-width row underneath. */
+:root[data-theme] #gamelog-overlay .gamelog-toolbar-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+:root[data-theme] #gamelog-overlay .gamelog-toolbar .gamelog-windowbar {
+  flex: 0 1 auto;
+  max-width: 100%;
+}
+:root[data-theme] #gamelog-overlay .gamelog-toolbar .gamelog-windowbar button {
+  flex: 0 0 62px;
+  min-height: 48px;
+  padding: 6px 8px;
 }
 /* Stat tabs get their own full-width row (it's a wide scrollable list);
    the line stepper + posted-lines pill sit together on the row below,
