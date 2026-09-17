@@ -1011,3 +1011,63 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* The "PrizePicks lines" trigger, restyled to pickfinder.app's own compact
+   book-select pill (real class: "min-w-20 w-max px-2 bg-input-bg
+   rounded-lg border border-input-border min-h-8 h-8 inline-flex
+   items-center hover:bg-input-border") instead of the taller bordered card
+   look several earlier rules in this file and gamelog-fix.css/
+   research-polish.css built up in layers. Strip the outer <details> down
+   to a bare positioning wrapper and put all the visible chrome on the
+   <summary> itself, since that's the one clickable pill in the reference. */
+:root[data-theme] #gamelog-overlay .posted-lines {
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+:root[data-theme] #gamelog-overlay .posted-lines summary {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  width: max-content !important;
+  min-width: 80px !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 8px !important;
+  border: 0.8px solid rgb(33, 37, 59) !important;
+  border-radius: 8px !important;
+  background: rgb(25, 31, 56) !important;
+  color: rgb(249, 250, 251) !important;
+  font: 500 13px/1 var(--font-sans, sans-serif) !important;
+  cursor: pointer;
+}
+:root[data-theme] #gamelog-overlay .posted-lines summary:hover {
+  background: rgb(33, 37, 59) !important;
+}
+:root[data-theme] #gamelog-overlay .posted-selected {
+  padding: 0 !important;
+  background: transparent !important;
+  color: rgb(249, 250, 251) !important;
+  font-size: 13px !important;
+}
+:root[data-theme] #gamelog-overlay .posted-options {
+  display: flex !important;
+  flex-direction: column !important;
+  min-width: 220px;
+  gap: 6px !important;
+}
+:root[data-theme] #gamelog-overlay .posted-options button {
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+}
+:root[data-theme] #gamelog-overlay .posted-options button > span:not(.posted-line-main) {
+  display: block !important;
+  font-size: 11px !important;
+  white-space: normal !important;
+}
