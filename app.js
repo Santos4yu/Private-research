@@ -2991,7 +2991,10 @@ function formatGameLogDate(iso) {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  return `${d.getMonth() + 1}/${d.getDate()}`;
+  // Date-only ISO strings ("2026-09-11") parse as UTC midnight -- reading
+  // them back with local getters rolls the date back a day for anyone west
+  // of UTC. Use the UTC getters since there's no time component to localize.
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
 }
 
 function renderGameLogChart() {
