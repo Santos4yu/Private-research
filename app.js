@@ -2670,6 +2670,11 @@ let gameLogState = {
   chart: null, line: null, player: "", opponent: "", window: "recent",
   handFilter: "all", venueFilter: "all", handDataLoaded: false, teamId: null,
   stat: "", isPitcher: false, fetchToken: 0, gameCount: 5, season: "all",
+  // Which window button is selected, kept separately from gameCount because
+  // gameCount gets clamped to however many games survive the filters -- pick
+  // L20 with only 6 matching games and gameCount becomes 6, which would
+  // otherwise light up "Season" instead of the button actually clicked.
+  windowKey: "5",
   filtersOpen: false, animationDirection: "none",
 };
 
@@ -2829,6 +2834,7 @@ function openGameLogModal(p) {
   gameLogState.venueFilter = "all";
   gameLogState.handDataLoaded = false;
   gameLogState.gameCount = Math.min(5, gameLogState.chart.all.length || 5);
+  gameLogState.windowKey = "5";
   gameLogState.window = "recent";
   // Start with the complete recent sample. Selecting the newest season here
   // could temporarily collapse the chart to one game while the detail request
@@ -3010,6 +3016,7 @@ async function fetchGameLogDetails(p) {
       regradeGameLog(gameLogState.line);
       if (openedWithoutHistory) {
         gameLogState.gameCount = Math.min(5, recentGameLogSource().length || 5);
+        gameLogState.windowKey = "5";
       }
       const resolvedPlayerId = data.meta?.player_id;
       if (resolvedPlayerId && !p.headshot) {
@@ -3086,17 +3093,25 @@ function renderGameLogTabs() {
   // One row that both selects the sample size AND shows that window's hit
   // rate/average at a glance (matches a reference trend screen the user
   // pointed to), instead of a plain +/- stepper with no numbers.
+  // Every window is always offered. These used to be dropped whenever the
+  // filtered sample was smaller than the window (L10/L15/L20 vanished the
+  // moment a Season/Matchup/Location filter narrowed things below 10), which
+  // made the row reflow and look like data had been lost. A window that asks
+  // for more games than the filters matched simply covers all of them --
+  // "last 10 games matching these filters" really is those 6 games -- so the
+  // figure stays correct; it's flagged as capped so identical-looking rows
+  // are explained rather than confusing.
   const windows = [5, 10, 15, 20]
-    .filter((n) => n === 5 || n <= Math.max(max, gameLogState.gameCount))
-    .map((n) => ({ key: String(n), label: `L${n}`, ...windowStat(filtered.slice(-n)) }));
-  windows.push({ key: "season", label: "Season", ...windowStat(filtered) });
-  if (h2hGames.length) windows.push({ key: "h2h", label: "H2H", ...windowStat(h2hGames) });
+    .map((n) => ({ key: String(n), label: `L${n}`, capped: max > 0 && max < n, sample: Math.min(n, max), ...windowStat(filtered.slice(-n)) }));
+  windows.push({ key: "season", label: "Season", sample: max, ...windowStat(filtered) });
+  if (h2hGames.length) windows.push({ key: "h2h", label: "H2H", sample: h2hGames.length, ...windowStat(h2hGames) });
 
   if (els.gamelogTabs) {
     els.gamelogTabs.innerHTML = windows.map((w) => {
-      const active = w.key === "h2h" ? gameLogState.window === "h2h" : (gameLogState.window !== "h2h" && gameLogState.gameCount === (w.key === "season" ? max : Number(w.key)));
+      const active = w.key === gameLogState.windowKey;
       const stat = w.hitRate == null ? "" : `<span class="gl-window-rate">HR ${w.hitRate}%</span><span class="gl-window-avg">Avg ${w.avg.toFixed(2)}</span>`;
-      return `<button type="button" class="${active ? "active" : ""}" data-window="${w.key}"><strong>${w.label}</strong>${stat}</button>`;
+      const title = w.capped ? ` title="Only ${w.sample} game${w.sample === 1 ? "" : "s"} match the current filters"` : "";
+      return `<button type="button" class="${active ? "active" : ""}"${w.capped ? ' data-capped="true"' : ""}${title} data-window="${w.key}"><strong>${w.label}</strong>${stat}</button>`;
     }).join("");
   }
 
@@ -6603,13 +6618,16 @@ function setGameLogCount(value, direction = "initial") {
 function setGameLogWindow(key) {
   if (key === "h2h") {
     const viewportState = captureGameLogViewport();
-    gameLogState.window = gameLogState.window === "h2h" ? "recent" : "h2h";
+    const toH2H = gameLogState.window !== "h2h";
+    gameLogState.window = toH2H ? "h2h" : "recent";
+    gameLogState.windowKey = toH2H ? "h2h" : String(gameLogState.gameCount);
     gameLogState.animationDirection = "none";
     renderGameLogTabs();
     renderGameLogChart();
     restoreGameLogViewport(viewportState);
     return;
   }
+  gameLogState.windowKey = key;
   setGameLogCount(key === "season" ? filterGames(recentGameLogSource()).length : Number(key), "none");
 }
 

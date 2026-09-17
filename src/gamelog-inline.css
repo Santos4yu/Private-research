@@ -1219,3 +1219,13 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   min-width: 0 !important;
   width: 100% !important;
 }
+
+/* A window asking for more games than the current filters matched (L20 when
+   only 6 games qualify) still shows -- it just covers every matching game,
+   so its figures equal the shorter windows'. Dimming it marks that as
+   "capped by the filters" rather than leaving several identical-looking
+   buttons unexplained. These used to be removed from the row entirely,
+   which made the bar reflow and look like data had gone missing. */
+:root[data-theme] #gamelog-overlay .gamelog-windowbar button[data-capped="true"] {
+  opacity: 0.55;
+}
