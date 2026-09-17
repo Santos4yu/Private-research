@@ -1179,3 +1179,33 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
 :root[data-theme] #gamelog-overlay .gamelog-chart-track {
   touch-action: pan-y !important;
 }
+
+/* Measured on a 375px viewport: .gamelog-workbench is a grid whose "1fr"
+   track resolved to 466.6px inside a 373.6px container, so the card and
+   every row in it (stat tabs, toolbar, window bar, filters) rendered wider
+   than the phone screen and got clipped at the right edge. Classic grid
+   blowout: a "1fr" track's implicit minimum is min-content, and
+   .gamelog-toolbar still had min-width:auto, so the widest row dragged the
+   whole track past the container -- which is why every row was cut off at
+   the same x, not just the scrollable ones. minmax(0,1fr) lets the track
+   shrink, and min-width:0 lets each row shrink inside it; the rows that
+   already set overflow-x:auto then scroll internally instead of widening
+   the card. The !important beats the max-width:900px "1fr" rule above. */
+:root[data-theme] #gamelog-overlay .gamelog-workbench {
+  grid-template-columns: minmax(0, 1fr) !important;
+  max-width: 100%;
+}
+:root[data-theme] #gamelog-overlay .gamelog-workbench > * {
+  min-width: 0 !important;
+  max-width: 100%;
+}
+/* The shared Select trigger carries a hard min-width:160px (sized for the
+   roomier main line-picker). Three of them can't fit a phone row, so the
+   filter row overflowed and clipped Location even after its own field
+   shrank correctly to ~114px. Let the trigger fill whatever its field
+   gets instead -- scoped to the filter fields so the alt-lines picker in
+   the toolbar keeps its natural width. */
+:root[data-theme] #gamelog-overlay .gamelog-filter-field button {
+  min-width: 0 !important;
+  width: 100% !important;
+}

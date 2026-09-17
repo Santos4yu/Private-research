@@ -3034,25 +3034,29 @@ function filterGames(games) {
   });
 }
 
-const GL_HAND_OPTIONS = [{ value: "all", label: "All" }, { value: "L", label: "vs LHP" }, { value: "R", label: "vs RHP" }];
-const GL_VENUE_OPTIONS = [{ value: "all", label: "All" }, { value: "home", label: "Home" }, { value: "road", label: "Road" }];
 // components/ui/select.tsx's SelectTrigger resolves its display text with
 // labelMap.current.get(value) DURING render, but SelectItem only registers
-// that value->label pair in a post-commit useEffect. Setting the options
-// and the value in the same pass therefore renders the trigger before any
-// label exists, so it falls back to showing the raw value ("all" instead
-// of "All") -- and because labelMap is a ref, populating it later never
-// re-renders the trigger, so it stays stuck that way for any filter the
-// user never changes. Handing the value over on a later frame lets the
-// items register their labels first.
-function setBridgeValueAfterOptions(bridge, options, value) {
-  if (!bridge) return;
-  bridge.setOptions(options);
-  requestAnimationFrame(() => bridge.setValue(value));
-}
+// each value->label pair in a post-commit useEffect, and labelMap is a ref
+// so filling it in later never re-renders the trigger. Any filter the user
+// never touches therefore stays stuck rendering the trigger's raw-value
+// fallback ("all" instead of "All"). Deferring the value by a frame was
+// not a real fix -- requestAnimationFrame doesn't run at all in a
+// backgrounded tab, so it could simply never apply. Instead these selects
+// use the label AS the value, which makes that raw-value fallback already
+// correct no matter when it renders; the pick handlers translate back to
+// the internal key that gameLogState/filterGames() expect.
+const GL_HAND_PAIRS = [["all", "All"], ["L", "vs LHP"], ["R", "vs RHP"]];
+const GL_VENUE_PAIRS = [["all", "All"], ["home", "Home"], ["road", "Road"]];
+const seasonLabel = (key) => (key === "all" ? "All" : String(key));
+const seasonKey = (label) => (label === "All" ? "all" : String(label));
+const pairOptions = (pairs) => pairs.map(([, label]) => ({ value: label, label }));
+const labelForKey = (pairs, key) => (pairs.find(([k]) => k === key) || pairs[0])[1];
+const keyForLabel = (pairs, label) => (pairs.find(([, l]) => l === label) || pairs[0])[0];
 function renderGameLogSubfilters() {
-  setBridgeValueAfterOptions(els.glHandFilterBridge, GL_HAND_OPTIONS, gameLogState.handFilter);
-  setBridgeValueAfterOptions(els.glVenueFilterBridge, GL_VENUE_OPTIONS, gameLogState.venueFilter);
+  els.glHandFilterBridge?.setOptions(pairOptions(GL_HAND_PAIRS));
+  els.glHandFilterBridge?.setValue(labelForKey(GL_HAND_PAIRS, gameLogState.handFilter));
+  els.glVenueFilterBridge?.setOptions(pairOptions(GL_VENUE_PAIRS));
+  els.glVenueFilterBridge?.setValue(labelForKey(GL_VENUE_PAIRS, gameLogState.venueFilter));
 }
 
 // Hit rate + average for one window's worth of games, for the window-tabs
@@ -3089,11 +3093,8 @@ function renderGameLogTabs() {
   }
 
   const seasons = [...new Set(recentGameLogSource().map((game) => String(game.season || String(game.fullDate || "").slice(0, 4))).filter((season) => /^\d{4}$/.test(season)))].sort().concat("all");
-  setBridgeValueAfterOptions(
-    els.gamelogSeasonBridge,
-    seasons.map((season) => ({ value: season, label: season === "all" ? "All" : season })),
-    gameLogState.season,
-  );
+  els.gamelogSeasonBridge?.setOptions(seasons.map((season) => ({ value: seasonLabel(season), label: seasonLabel(season) })));
+  els.gamelogSeasonBridge?.setValue(seasonLabel(gameLogState.season));
   renderGameLogSubfilters();
 }
 
@@ -3303,20 +3304,22 @@ function wireGameLogModal() {
     if (!btn) return;
     setGameLogWindow(btn.dataset.window);
   });
+  // These selects carry the label as their value (see renderGameLogSubfilters),
+  // so translate back to the internal key filterGames() matches on.
   window.addEventListener("vortex:gamelog-season-pick", (event) => {
-    gameLogState.season = event.detail.value;
+    gameLogState.season = seasonKey(event.detail.value);
     gameLogState.window = "recent";
     gameLogState.animationDirection = "initial";
     renderGameLogTabs(); renderGameLogChart();
   });
   window.addEventListener("vortex:gamelog-hand-pick", (event) => {
-    gameLogState.handFilter = event.detail.value;
+    gameLogState.handFilter = keyForLabel(GL_HAND_PAIRS, event.detail.value);
     renderGameLogSubfilters();
     renderGameLogTabs();
     renderGameLogChart();
   });
   window.addEventListener("vortex:gamelog-venue-pick", (event) => {
-    gameLogState.venueFilter = event.detail.value;
+    gameLogState.venueFilter = keyForLabel(GL_VENUE_PAIRS, event.detail.value);
     renderGameLogSubfilters();
     renderGameLogTabs();
     renderGameLogChart();
