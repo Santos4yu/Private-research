@@ -3095,6 +3095,15 @@ function renderGameLogChart() {
   track.dataset.count = String(games.length);
   track.dataset.dense = games.length > 20 ? "true" : "false";
   track.dataset.logo = games.length <= 12 ? "true" : "false";
+  // Every window's games always fit on screen at once now (see
+  // gamelog-inline.css's equal-fill .gl-col rule) instead of scrolling --
+  // but that means a big season sample can shrink each column below the
+  // width its date/opponent text needs. Estimate the column width from the
+  // chart's real rendered width (not a fixed game-count cutoff, since the
+  // same count reads very differently on a phone vs. a wide desktop chart)
+  // and hide those labels once columns get too narrow for them.
+  const chartWidth = holder.clientWidth || window.innerWidth || 360;
+  track.dataset.compact = (chartWidth / Math.max(games.length, 1)) < 34 ? "true" : "false";
   games.forEach((g) => {
     const col = document.createElement("div");
     col.className = "gl-col";
