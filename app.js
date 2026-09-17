@@ -2674,7 +2674,11 @@ function syncGameLogContext({ matchup, status } = {}) {
   const line = document.getElementById("gamelog-context-line");
   const matchupEl = document.getElementById("gamelog-context-matchup");
   const statusEl = document.getElementById("gamelog-context-status");
+  const bookLine = document.getElementById("gamelog-book-line");
+  const marketTitle = document.getElementById("gamelog-market-title");
   if (line) line.textContent = `${gameLogStatCode(gameLogState.stat || "Prop")} ${Number(gameLogState.line || 0).toFixed(1)}`;
+  if (bookLine) bookLine.textContent = `Line ${Number(gameLogState.line || 0).toFixed(1)}`;
+  if (marketTitle) marketTitle.textContent = String(gameLogState.stat || "Prop performance").replace(/\s*\(Pitcher\)\s*$/i, "");
   if (matchupEl && matchup !== undefined) matchupEl.textContent = matchup || "Live prop performance explorer";
   if (statusEl && status !== undefined) statusEl.textContent = String(status || "Pre-game").toUpperCase();
 }
@@ -2809,6 +2813,19 @@ function openGameLogModal(p) {
   const liveState=document.getElementById('gamelog-live-state');
   const currentStatus = p.live?.status || p.gameStatus || (p.matchup?.lineup ? 'Lineup confirmed' : 'Pre-game');
   if(liveState)liveState.textContent=currentStatus;
+  const selectedRate = Number(p.estHitRate ?? p.hitRates?.l10 ?? p.compareValues?.[10]);
+  const selectedIsUnder = /under/i.test(String(p.side || p.pick || p.direction || ''));
+  const selectedProbability = Number.isFinite(selectedRate) ? Math.max(0, Math.min(100, selectedRate)) : null;
+  const modelOver = selectedProbability == null ? null : (selectedIsUnder ? 100 - selectedProbability : selectedProbability);
+  const modelUnder = modelOver == null ? null : 100 - modelOver;
+  const modelOverEl = document.getElementById('gamelog-model-over');
+  const modelUnderEl = document.getElementById('gamelog-model-under');
+  const marketStatusEl = document.getElementById('gamelog-market-status');
+  const marketMatchupEl = document.getElementById('gamelog-market-matchup');
+  if(modelOverEl) modelOverEl.textContent = modelOver == null ? '—' : `${Math.round(modelOver)}%`;
+  if(modelUnderEl) modelUnderEl.textContent = modelUnder == null ? '—' : `${Math.round(modelUnder)}%`;
+  if(marketStatusEl) marketStatusEl.textContent = String(currentStatus || 'Pre-game').toUpperCase();
+  if(marketMatchupEl) marketMatchupEl.textContent = p.matchup?.opponent ? `vs ${p.matchup.opponent}` : 'Matchup pending';
   syncGameLogContext({
     matchup: p.matchup?.opponent ? `vs ${p.matchup.opponent} · performance history` : "Live prop performance explorer",
     status: currentStatus,

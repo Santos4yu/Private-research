@@ -361,3 +361,237 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
 :root[data-theme] #gamelog-overlay .gamelog-chart-track[data-dense="true"] .gl-bar-shell {
   width: 100% !important;
 }
+
+/* ── Embedded Trend screen -------------------------------------------------
+   This file is loaded last, so this is the authoritative layout for the
+   report-embedded version of the game log. */
+:root[data-theme] #gamelog-overlay .gamelog-modal {
+  border-color: #1d2944 !important;
+  border-radius: 18px !important;
+  background: #070e20 !important;
+  color: #f8fafc !important;
+  overflow: hidden !important;
+}
+
+:root[data-theme] #gamelog-overlay .modal-head {
+  display: block !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 16px 20px 18px !important;
+  border: 0 !important;
+  background: linear-gradient(118deg, #2835dc 0%, #1721a8 52%, #3429f2 100%) !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-heading { padding: 0 !important; }
+:root[data-theme] #gamelog-overlay .gamelog-topline {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 18px !important;
+  color: #c7d2fe !important;
+  font: 700 13px/1 var(--font-sans, sans-serif) !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-brand {
+  color: #fff !important;
+  font-size: 16px !important;
+  letter-spacing: -.02em !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-brand i { color: #65d5ff; font-style: normal; }
+:root[data-theme] #gamelog-overlay .gamelog-heading-row {
+  display: grid !important;
+  grid-template-columns: 68px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 14px;
+}
+:root[data-theme] #gamelog-overlay .gamelog-player-cutout {
+  width: 64px !important;
+  height: 64px !important;
+  border: 2px solid rgba(255,255,255,.24) !important;
+  border-radius: 50% !important;
+  background: rgba(4,10,28,.42) !important;
+  overflow: hidden;
+}
+:root[data-theme] #gamelog-overlay .gamelog-player-cutout img { width: 100%; height: 100%; object-fit: contain; object-position: center bottom; }
+:root[data-theme] #gamelog-overlay .gamelog-player-line { display: flex !important; align-items: center; flex-wrap: wrap; gap: 8px; }
+:root[data-theme] #gamelog-overlay .gamelog-heading-row .modal-title {
+  margin: 0 !important;
+  color: #fff !important;
+  font: 800 clamp(22px,3vw,30px)/1.05 var(--font-sans, sans-serif) !important;
+  letter-spacing: -.045em !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-prop-badge,
+:root[data-theme] #gamelog-overlay .gamelog-live-state {
+  display: inline-flex !important;
+  align-items: center;
+  min-height: 24px;
+  padding: 4px 8px !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+  border-radius: 999px !important;
+  background: rgba(5,12,42,.28) !important;
+  color: #dbeafe !important;
+  font: 800 10px/1 var(--font-sans, sans-serif) !important;
+  letter-spacing: .04em !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-player-copy > p {
+  display: block !important;
+  margin: 7px 0 0 !important;
+  color: #dbeafe !important;
+  font: 600 13px/1.35 var(--font-sans, sans-serif) !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-context-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3,minmax(86px,1fr));
+  gap: 6px;
+}
+:root[data-theme] #gamelog-overlay .gamelog-context-grid > div {
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 10px;
+  background: rgba(5,12,42,.25);
+}
+:root[data-theme] #gamelog-overlay .gamelog-context-grid span { display:block; color:#a5b4fc; font:800 8px/1 var(--font-sans,sans-serif); letter-spacing:.1em; }
+:root[data-theme] #gamelog-overlay .gamelog-context-grid strong { display:block; margin-top:5px; color:#fff; font:800 11px/1.1 var(--font-sans,sans-serif); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+:root[data-theme] #gamelog-overlay .gamelog-market-strip {
+  display: flex !important;
+  gap: 8px;
+  padding: 0 20px 12px;
+  margin-top: -1px;
+  overflow-x: auto;
+  background: linear-gradient(180deg,#1721a8 0 38%,#070e20 38% 100%);
+  scrollbar-width: none;
+}
+:root[data-theme] #gamelog-overlay .gamelog-market-strip::-webkit-scrollbar { display:none; }
+:root[data-theme] #gamelog-overlay .gamelog-market-strip article {
+  flex: 1 0 190px;
+  min-height: 68px;
+  padding: 11px 13px;
+  border: 1px solid #243456;
+  border-radius: 10px;
+  background: #111a2d;
+  box-shadow: 0 8px 24px rgba(0,0,0,.16);
+}
+:root[data-theme] #gamelog-overlay .gamelog-market-card-label { display:flex; align-items:center; gap:7px; color:#9aa9c4; font:800 9px/1 var(--font-sans,sans-serif); letter-spacing:.08em; }
+:root[data-theme] #gamelog-overlay .gamelog-market-card-label img { width:18px; height:18px; object-fit:contain; border-radius:4px; }
+:root[data-theme] #gamelog-overlay .gamelog-vortex-mark { display:grid; place-items:center; width:19px; height:19px; border-radius:50%; background:#3764ff; color:#fff; font:900 10px/1 var(--font-sans,sans-serif); }
+:root[data-theme] #gamelog-overlay .gamelog-model-card > div { display:flex; gap:14px; margin-top:8px; }
+:root[data-theme] #gamelog-overlay .gamelog-model-card > div span { color:#8491ab; font:800 11px/1 var(--font-sans,sans-serif); }
+:root[data-theme] #gamelog-overlay .gamelog-model-card strong { color:#38e0b2; font-size:14px; }
+:root[data-theme] #gamelog-overlay :is(.gamelog-book-card,.gamelog-matchup-card) > strong { display:block; margin-top:8px; color:#f8fafc; font:800 14px/1 var(--font-sans,sans-serif); }
+:root[data-theme] #gamelog-overlay :is(.gamelog-book-card,.gamelog-matchup-card) > small { display:block; margin-top:5px; color:#35ddb0; font:700 10px/1 var(--font-sans,sans-serif); }
+
+:root[data-theme] #gamelog-overlay .gamelog-workbench {
+  display: flex !important;
+  flex-direction: column;
+  gap: 0;
+  padding: 0 14px 12px !important;
+  background: #070e20 !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-toolbar { padding: 0 !important; }
+:root[data-theme] #gamelog-overlay .gamelog-stat-tabs {
+  order: 1;
+  min-height: 52px;
+  margin: 0 -14px 14px !important;
+  padding: 0 14px !important;
+  gap: 4px !important;
+  border-bottom: 1px solid #1c2841 !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-stat-tabs button {
+  min-width: 48px;
+  min-height: 50px;
+  padding: 0 12px !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-bottom: 3px solid transparent !important;
+  color: #8f9bb1 !important;
+  font-size: 12px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-stat-tabs button.active {
+  border-bottom-color: #2d8cff !important;
+  background: #111a33 !important;
+  color: #fff !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-market-title {
+  order: 2;
+  flex: 1 1 100%;
+  margin: 0 0 10px;
+  color: #f8fafc;
+  font: 800 22px/1.15 var(--font-sans,sans-serif);
+  letter-spacing: -.035em;
+}
+:root[data-theme] #gamelog-overlay .gamelog-line-control { order: 3; min-height: 40px; background:#0d1629; }
+:root[data-theme] #gamelog-overlay .gamelog-line-control button { min-width:40px; min-height:40px; font-size:20px; }
+:root[data-theme] #gamelog-overlay .gamelog-line-control strong { min-width:48px; color:#f8fafc; font-weight:800; }
+:root[data-theme] #gamelog-overlay .posted-lines { order: 4; min-height:40px !important; border:1px solid #243456 !important; background:#111a2d !important; }
+
+:root[data-theme] #gamelog-overlay .gamelog-filter-panel {
+  order: initial;
+  width: 100%;
+  margin: 12px 0 14px !important;
+  gap: 10px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-filter-field { flex: 0 1 150px; }
+:root[data-theme] #gamelog-overlay .gamelog-filter-panel .gamelog-combobox {
+  min-height: 44px !important;
+  height: 44px !important;
+  border-color: #243456 !important;
+  background-color: #111a2d !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-windowbar {
+  gap: 5px !important;
+  margin: 0 !important;
+  padding: 4px !important;
+  border: 1px solid #18243d !important;
+  background: #050b19 !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-windowbar button { min-height:64px; border-radius:8px; }
+:root[data-theme] #gamelog-overlay .gamelog-windowbar button.active { background:#141d33 !important; }
+:root[data-theme] #gamelog-overlay .gamelog-windowbar button strong { color:#f8fafc !important; }
+
+:root[data-theme] #gamelog-overlay .line-movement-card,
+:root[data-theme] #gamelog-overlay .gamelog-summary { display:none !important; }
+:root[data-theme] #gamelog-overlay .gamelog-studio,
+:root[data-theme] #gamelog-overlay .gamelog-stage { background:#070e20 !important; }
+:root[data-theme] #gamelog-overlay .gamelog-chart {
+  height: auto !important;
+  min-height: 470px !important;
+  margin: 0 !important;
+  padding: 38px 18px 44px 42px !important;
+  border: 0 !important;
+  border-top: 1px solid #16223a !important;
+  border-radius: 0 !important;
+  background: linear-gradient(180deg,#071123 0%,#08202c 42%,#093629 100%) !important;
+  overflow-x: auto !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-chart-track {
+  min-height: 390px !important;
+  justify-content: stretch !important;
+  align-items: flex-end !important;
+}
+
+@media (max-width: 760px) {
+  :root[data-theme] #gamelog-overlay .modal-head { padding: 14px 14px 16px !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-topline { margin-bottom:14px !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-heading-row { grid-template-columns:54px minmax(0,1fr); gap:10px; }
+  :root[data-theme] #gamelog-overlay .gamelog-player-cutout { width:52px !important; height:52px !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-heading-row .modal-title { font-size:21px !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-context-grid { display:none !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-player-copy > p { font-size:12px !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-market-strip { padding:0 14px 10px; }
+  :root[data-theme] #gamelog-overlay .gamelog-market-strip article { flex-basis:152px; min-height:62px; padding:10px 11px; }
+  :root[data-theme] #gamelog-overlay .gamelog-workbench { padding:0 10px 10px !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-stat-tabs { margin-inline:-10px !important; padding-inline:10px !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-market-title { font-size:20px; }
+  :root[data-theme] #gamelog-overlay .gamelog-filter-panel { flex-wrap:nowrap; overflow-x:auto; padding-bottom:2px !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-filter-field { flex:0 0 118px; }
+  :root[data-theme] #gamelog-overlay .gamelog-filter-panel .gamelog-combobox { width:100%; min-width:0; }
+  :root[data-theme] #gamelog-overlay .gamelog-windowbar { overflow-x:auto; }
+  :root[data-theme] #gamelog-overlay .gamelog-windowbar button { flex:0 0 76px; min-height:58px; }
+  :root[data-theme] #gamelog-overlay .gamelog-chart { min-height:390px !important; padding:34px 12px 38px 34px !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-chart-track { min-height:325px !important; justify-content:flex-start !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme] #gamelog-overlay * { scroll-behavior:auto !important; animation:none !important; transition:none !important; }
+}

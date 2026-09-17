@@ -157,13 +157,52 @@
         </div>
       </div>
     </div>
+    <div class="gamelog-market-strip" aria-label="Current market overview">
+      <article class="gamelog-model-card">
+        <span class="gamelog-market-card-label"><i class="gamelog-vortex-mark" aria-hidden="true">V</i> VORTEX MODEL</span>
+        <div><span>O <strong id="gamelog-model-over">—</strong></span><span>U <strong id="gamelog-model-under">—</strong></span></div>
+      </article>
+      <article class="gamelog-book-card">
+        <span class="gamelog-market-card-label"><img src="/prizepicks/logo.png" alt="" /> PRIZEPICKS</span>
+        <strong id="gamelog-book-line">Line —</strong>
+        <small>Current posted line</small>
+      </article>
+      <article class="gamelog-matchup-card">
+        <span class="gamelog-market-card-label">GAME STATUS</span>
+        <strong id="gamelog-market-status">PRE-GAME</strong>
+        <small id="gamelog-market-matchup">Matchup pending</small>
+      </article>
+    </div>
     <div class="gamelog-workbench">
     <div class="gamelog-toolbar">
       <nav class="gamelog-stat-tabs" id="gamelog-stat-tabs" aria-label="Performance markets"></nav>
+      <h4 class="gamelog-market-title" id="gamelog-market-title">Prop performance</h4>
       <div class="gamelog-line-control" aria-label="Prop line controls">
         <button type="button" id="gamelog-line-down" aria-label="Decrease prop line">−</button>
         <strong id="gamelog-line-value">—</strong>
         <button type="button" id="gamelog-line-up" aria-label="Increase prop line">+</button>
+      </div>
+    </div>
+    <div class="gamelog-filter-panel" id="gamelog-filter-panel" aria-label="Game log filters">
+      <div class="gamelog-filter-field">
+        <span>Season</span>
+        <select class="gamelog-combobox" id="gamelog-season-row"></select>
+      </div>
+      <div class="gamelog-filter-field" id="gl-hand-field" hidden>
+        <span>Matchup</span>
+        <select class="gamelog-combobox" id="gl-hand-filter">
+          <option value="all">All</option>
+          <option value="L">vs LHP</option>
+          <option value="R">vs RHP</option>
+        </select>
+      </div>
+      <div class="gamelog-filter-field">
+        <span>Location</span>
+        <select class="gamelog-combobox" id="gl-venue-filter">
+          <option value="all">All</option>
+          <option value="home">Home</option>
+          <option value="road">Road</option>
+        </select>
       </div>
     </div>
     <!-- One row that both selects the sample size AND shows that window's
@@ -180,31 +219,6 @@
           <p class="gamelog-sub" id="gamelog-sub"></p>
         </div>
         <div class="gamelog-chart" id="gamelog-chart"></div>
-      </div>
-      <!-- Season/Matchup/Location: always visible now, no toggle -- same
-           filters as before, just laid out as one inline row instead of a
-           panel you had to open. -->
-      <div class="gamelog-filter-panel" id="gamelog-filter-panel" aria-label="Game log filters">
-        <div class="gamelog-filter-field">
-          <span>Season</span>
-          <select class="gamelog-combobox" id="gamelog-season-row"></select>
-        </div>
-        <div class="gamelog-filter-field" id="gl-hand-field" hidden>
-          <span>Matchup</span>
-          <select class="gamelog-combobox" id="gl-hand-filter">
-            <option value="all">All</option>
-            <option value="L">vs LHP</option>
-            <option value="R">vs RHP</option>
-          </select>
-        </div>
-        <div class="gamelog-filter-field">
-          <span>Location</span>
-          <select class="gamelog-combobox" id="gl-venue-filter">
-            <option value="all">All</option>
-            <option value="home">Home</option>
-            <option value="road">Road</option>
-          </select>
-        </div>
       </div>
     </div>
   </div>
