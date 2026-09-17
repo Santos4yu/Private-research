@@ -303,6 +303,9 @@ function cacheEls() {
   // below stays the real fetch/cache/eligibility source of truth and just
   // hands this a ready-to-render list, same pattern as profileStatsBridge.
   els.ppLinesBridge = wireBridge(window.vortexAltLinesSelect, ["setLines", "setValue", "setStatus"]);
+  // Same bridge pattern, separate mount -- the Trend tab's own alt-lines
+  // picker (src/main.jsx's second AltLinesSelectHost instance).
+  els.gamelogLinesBridge = wireBridge(window.vortexGamelogLinesSelect, ["setLines", "setValue", "setStatus"]);
 
   els.tabs = document.getElementById("tabs");
   els.tabIndicator = document.getElementById("tab-indicator");
@@ -2860,37 +2863,24 @@ function openGameLogModal(p) {
 }
 
 let postedLinesToken = 0;
+let gamelogPostedLinesContext = { stat: null, player: null };
+function gamelogLineTier(row) {
+  return row.odds_type === 'goblin' ? 'GOBLIN' : row.odds_type === 'demon' ? 'DEMON' : row.odds_type === 'standard' ? 'STANDARD' : 'ALT';
+}
 async function loadGameLogPostedLines(stat, player = gameLogState.player) {
   const token = ++postedLinesToken;
-  let host = document.getElementById('gamelog-posted-lines');
-  if (!host) {
-    host = document.createElement('details'); host.id = 'gamelog-posted-lines'; host.className = 'posted-lines';
-    // Sits right after the line-stepper on the SAME row as the title, like
-    // pickfinder.app's sportsbook pill -- appending to .gamelog-toolbar
-    // directly made it a third flex child that always wrapped onto its own
-    // row, reading as a separate section instead of part of one toolbar.
-    (document.querySelector('.gamelog-toolbar-head') || document.querySelector('.gamelog-toolbar')).appendChild(host);
-  }
-  host.open = false;
-  host.innerHTML = '<summary>PrizePicks lines</summary><p>Loading posted lines…</p>';
+  gamelogPostedLinesContext = { stat, player };
+  els.gamelogLinesBridge?.setStatus('loading');
   try {
     const feed = await requestFinderFeed();
     if (token !== postedLinesToken) return;
     const rows = feed.filter(row => nameKey(row.player) === nameKey(player) && pitcherFinderStat(row.stat).label === stat).sort((a,b) => a.line-b.line);
-    host.open = false;
-    host.innerHTML = `<summary><img src="/prizepicks/logo.png" alt=""><span>PrizePicks lines<small>Tap a line to compare instantly</small></span><span class="posted-line-choice"><b class="posted-selected">${Number(gameLogState.line)}</b><svg class="posted-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></span></summary><div class="posted-options" role="group" aria-label="PrizePicks alternate lines"></div>`;
-    const list = host.querySelector('div');
-    if (!rows.length) list.textContent = 'No posted lines available for this market.';
-    rows.forEach(row => {
-      const button = document.createElement('button'); button.type = 'button';
-      const label = row.odds_type === 'standard' ? 'Regular' : row.odds_type || 'Regular';
-      button.setAttribute('aria-pressed', String(Number(row.line) === Number(gameLogState.line)));
-      const icon = row.odds_type === 'goblin' ? '/prizepicks/goblin.png' : row.odds_type === 'demon' ? '/prizepicks/demon.png' : '/prizepicks/logo.png';
-      button.innerHTML = `<span class="posted-line-main"><b>${Number(row.line)}</b><img src="${icon}" alt="" /></span><span>${escapeHtml(label)}<small>${row.odds_type === 'standard' ? 'More / Less' : 'More only'}</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4 10-10"/></svg>`;
-      button.onclick = () => {activeFinderProp={...(activeFinderProp||{}),player,betType:stat,line:Number(row.line),side:'Over',oddsType:row.odds_type||'standard'};setGameLogPreviewLine(Number(row.line), true); host.open = true; host.querySelector('.posted-selected').textContent = row.line; list.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed',String(b === button)));};
-      list.appendChild(button);
-    });
-  } catch (_) { if (token === postedLinesToken) host.innerHTML = '<summary>PrizePicks lines</summary><p>Posted lines unavailable. You can still explore a custom line.</p>'; }
+    if (!rows.length) throw new Error('No posted lines available for this market.');
+    const currentRow = rows.find(row => Number(row.line) === Number(gameLogState.line));
+    els.gamelogLinesBridge?.setLines(rows.map(row => ({ value: row.line, tier: gamelogLineTier(row) })));
+    els.gamelogLinesBridge?.setValue(currentRow ? String(gameLogState.line) : '');
+    els.gamelogLinesBridge?.setStatus('ready');
+  } catch (_) { if (token === postedLinesToken) els.gamelogLinesBridge?.setStatus('error'); }
 }
 
 async function fetchGameLogDetails(p) {
@@ -3187,6 +3177,12 @@ function renderGameLogChart() {
 function wireGameLogModal() {
   window.addEventListener("orientationchange", stabilizeGameLogLayout);
   window.visualViewport?.addEventListener("resize", stabilizeGameLogLayout);
+  window.addEventListener("vortex:gamelog-line-pick", (event) => {
+    const { stat, player } = gamelogPostedLinesContext;
+    if (player) activeFinderProp = { ...(activeFinderProp || {}), player, betType: stat, line: Number(event.detail.value), side: "Over" };
+    setGameLogPreviewLine(Number(event.detail.value), true);
+    els.gamelogLinesBridge?.setValue(String(event.detail.value));
+  });
   document.fonts?.ready?.then(stabilizeGameLogLayout).catch(() => {});
   if (typeof ResizeObserver === "function") new ResizeObserver(stabilizeGameLogLayout).observe(els.gamelogChart);
   els.gamelogTabs?.addEventListener("click", (event) => {

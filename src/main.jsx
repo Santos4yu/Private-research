@@ -264,3 +264,12 @@ if (ppLinesSelectRoot) {
     onPick: (value) => window.dispatchEvent(new CustomEvent('vortex:pp-line-pick', { detail: { value: Number(value) } })),
   });
 }
+// The Trend tab's own alt-lines picker -- same component, separate mount
+// (own value/status state, own pick event) since it drives gameLogState
+// in app.js rather than the main finder's cmd state.
+const gamelogLinesSelectRoot = document.getElementById('gamelog-lines-select-root');
+if (gamelogLinesSelectRoot) {
+  window.vortexGamelogLinesSelect = window.vortexMountAltLinesSelect(gamelogLinesSelectRoot, {
+    onPick: (value) => window.dispatchEvent(new CustomEvent('vortex:gamelog-line-pick', { detail: { value: Number(value) } })),
+  });
+}

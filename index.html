@@ -176,6 +176,12 @@
           <strong id="gamelog-line-value">—</strong>
           <button type="button" id="gamelog-line-up" aria-label="Increase prop line">+</button>
         </div>
+        <!-- Same React-mounted alt-lines Select the main prop line-picker
+             uses (src/main.jsx's AltLinesSelectHost / #pp-lines-select-root)
+             -- this used to be a separate hand-built <details> dropdown with
+             its own goblin/demon text labels; mounting the shared component
+             here instead matches its clean value+icon list exactly. -->
+        <div id="gamelog-lines-select-root"></div>
       </div>
       <!-- One row that both selects the sample size AND shows that window's
            hit rate/average at a glance, instead of a plain stepper with no

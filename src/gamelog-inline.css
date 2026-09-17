@@ -1006,7 +1006,8 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
 :root[data-theme] #gamelog-overlay .gamelog-line-control {
   flex: 0 0 auto !important;
 }
-:root[data-theme] #gamelog-overlay .posted-lines {
+:root[data-theme] #gamelog-overlay .posted-lines,
+:root[data-theme] #gamelog-overlay #gamelog-lines-select-root {
   flex: 0 0 auto !important;
 }
 :root[data-theme] #gamelog-overlay .gamelog-market-title {
