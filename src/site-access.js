@@ -139,7 +139,16 @@ function renderStatus(){
  document.getElementById('boot-loading')?.setAttribute('hidden','');
  if(!granted&&activeDialog)activeDialog.close();
  if(!granted&&lockedDialog)lockedDialog.close();
- let bar=document.getElementById('site-account-bar');if(!bar){bar=element('div',null,'site-account-bar');bar.id='site-account-bar';(document.querySelector('.hero')||document.body).append(bar);}
+ // Lives on <body>, never inside .hero. .hero is position:relative with
+ // z-index:1, which makes it a stacking context -- nesting this in there
+ // meant the account button's own z-index:70 only ever competed INSIDE
+ // .hero (at .hero's level of 1), so any card stacked above that painted
+ // straight over it, while the settings gear stayed clear purely because
+ // it's a direct child of <body>. Keeping both at the same level also
+ // means position:fixed here resolves against the viewport with no
+ // ancestor that could ever trap it into scrolling with the page.
+ let bar=document.getElementById('site-account-bar');if(!bar){bar=element('div',null,'site-account-bar');bar.id='site-account-bar';}
+ if(bar.parentElement!==document.body)document.body.append(bar);
  bar.hidden=!granted;
  if(granted&&!bar.childElementCount){const account=button('',accountDialog,'site-account-trigger');account.setAttribute('aria-label','Your account');account.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M5 21v-2a7 7 0 0 1 14 0v2" stroke="currentColor" stroke-width="1.6"/></svg>';bar.append(account);}
  document.querySelectorAll('[data-tab],[data-launch-tab]').forEach(b=>{const tab=b.dataset.tab||b.dataset.launchTab;if(tab!=='admin'){b.disabled=!granted;b.dataset.featureLocked=String(!siteTabAllowed(tab));}});
