@@ -27,7 +27,18 @@
   top: auto !important;
 }
 
-:root[data-theme] html:has(#gamelog-overlay:not([hidden])),
+/* `:root[data-theme] html:has(...)` (the original form of the first
+   selector below) can never match anything: html IS :root, so it can
+   never be its own descendant. That silently dead selector meant
+   research-polish.css's mobile-only ".. html:has(#gamelog-overlay:not(
+   [hidden])){overflow:hidden!important}" was NEVER actually being
+   overridden -- since the Trend tab keeps #gamelog-overlay permanently
+   un-hidden, that rule permanently locked page scroll on every mobile
+   viewport, sitewide, the moment any report was viewed. Fixed by
+   extending :root[data-theme] with :has() directly (the same element,
+   not a separate descendant) instead of pairing it with a second `html`
+   compound that could never match. */
+:root[data-theme]:has(#gamelog-overlay:not([hidden])),
 :root[data-theme] body:has(#gamelog-overlay:not([hidden])) {
   overflow: initial !important;
   overscroll-behavior: auto !important;

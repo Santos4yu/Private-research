@@ -1,5 +1,15 @@
 /* Private app shell. Loaded last so the existing report/chart styling stays intact. */
 .mobile-app-nav, .mobile-screen-title, .mobile-slip-actions { display: none; }
+
+/* Feels like a native app, not a website: no pinch-zoom, no double-tap
+   zoom, no rubber-band pan of the page itself -- the viewport meta tag's
+   user-scalable=no/maximum-scale=1 (index.html) isn't fully honored by
+   every mobile browser (iOS Safari in particular still allows pinch-zoom
+   as an accessibility override), so touch-action is the actually-reliable
+   way to kill it while still allowing normal single-finger scrolling. */
+@media (max-width: 760px) {
+  html, body { touch-action: manipulation; }
+}
 .mobile-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 @media (max-width: 760px) {
