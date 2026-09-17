@@ -954,22 +954,28 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   display: none !important;
 }
 
-/* Bars sat much farther apart than the reference: .gl-col is a flex item,
-   and styles.css's unscoped ".gl-col{flex-basis:74px!important}" wins the
-   item's actual size over gamelog-premium.css's "width:var(--bar-width)"
-   (flex-basis beats width on a flex main axis) -- so a 52px bar sat inside
-   a 74px column, adding 22px of dead space on top of the explicit gap.
-   Tie the column's flex-basis to the same --bar-width var the bar itself
-   uses, and tighten the gap, so bars read as closely packed like the
-   reference instead of spaced out. */
-:root[data-theme] #gamelog-overlay .gamelog-chart-track:not([data-dense="true"]) .gl-col {
-  flex: 0 0 var(--bar-width, 52px) !important;
-  width: var(--bar-width, 52px) !important;
-  min-width: var(--bar-width, 52px) !important;
-}
+/* An earlier pass here tried to fix "bars too far apart" by pinning every
+   column to a fixed --bar-width and left-aligning the track. That broke
+   the layout in two ways: (1) it overrode an existing equal-fill rule
+   (below, .gl-col at flex:1 1 0) that already made every window's bars
+   share the track's full width -- fixed widths for a small sample (e.g.
+   L5) left a big empty gap on the right instead of centering; (2) fixed
+   widths for a large sample (L15/L20) can exceed the viewport, forcing
+   horizontal scroll on mobile, which the reference never needs. Reverted
+   to equal-fill + centered, which packs bars closely AND always fits the
+   screen AND stays centered, at every game count and viewport width.
+   !important + :not([data-dense]) both here and below beats the
+   pre-existing max-width:760px rule that forced justify-content:flex-start
+   on mobile specifically. */
 :root[data-theme] #gamelog-overlay .gamelog-chart-track:not([data-dense="true"]) {
-  gap: 10px !important;
-  justify-content: flex-start !important;
+  justify-content: center !important;
+  gap: 8px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-chart-track:not([data-dense="true"]) .gl-col {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: 90px !important;
 }
 
 /* Collapse the visual gap between the toolbar/filter row and the chart so
