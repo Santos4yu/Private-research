@@ -169,26 +169,30 @@
     <div class="gamelog-workbench">
     <nav class="gamelog-stat-tabs" id="gamelog-stat-tabs" aria-label="Performance markets"></nav>
     <div class="gamelog-toolbar">
-      <div class="gamelog-toolbar-head">
-        <h4 class="gamelog-market-title" id="gamelog-market-title">Prop performance</h4>
-        <div class="gamelog-line-control" aria-label="Prop line controls">
-          <button type="button" id="gamelog-line-down" aria-label="Decrease prop line">−</button>
-          <strong id="gamelog-line-value">—</strong>
-          <button type="button" id="gamelog-line-up" aria-label="Increase prop line">+</button>
+      <h4 class="gamelog-market-title" id="gamelog-market-title">Prop performance</h4>
+      <!-- Left side: line-stepper + alt-lines picker, grouped together.
+           Right side: the window-sample bar. Both sides of one row, sitting
+           directly above the Season/Matchup/Location filters -- explicit
+           layout the user asked for after the title-priority version kept
+           pushing the window bar onto its own wrapped row instead of using
+           the row's right half. -->
+      <div class="gamelog-toolbar-row">
+        <div class="gamelog-toolbar-head">
+          <div class="gamelog-line-control" aria-label="Prop line controls">
+            <button type="button" id="gamelog-line-down" aria-label="Decrease prop line">−</button>
+            <strong id="gamelog-line-value">—</strong>
+            <button type="button" id="gamelog-line-up" aria-label="Increase prop line">+</button>
+          </div>
+          <!-- Same React-mounted alt-lines Select the main prop line-picker
+               uses (src/main.jsx's AltLinesSelectHost / #pp-lines-select-root)
+               -- this used to be a separate hand-built <details> dropdown
+               with its own goblin/demon text labels; mounting the shared
+               component here instead matches its clean value+icon list
+               exactly. -->
+          <div id="gamelog-lines-select-root"></div>
         </div>
-        <!-- Same React-mounted alt-lines Select the main prop line-picker
-             uses (src/main.jsx's AltLinesSelectHost / #pp-lines-select-root)
-             -- this used to be a separate hand-built <details> dropdown with
-             its own goblin/demon text labels; mounting the shared component
-             here instead matches its clean value+icon list exactly. -->
-        <div id="gamelog-lines-select-root"></div>
+        <div class="gamelog-windowbar" id="gamelog-tabs" role="group" aria-label="Game sample"></div>
       </div>
-      <!-- One row that both selects the sample size AND shows that window's
-           hit rate/average at a glance, instead of a plain stepper with no
-           numbers -- matches a reference trend screen the user pointed to.
-           Sits inline beside the title/line-stepper (like pickfinder.app),
-           not as its own full-width row below. -->
-      <div class="gamelog-windowbar" id="gamelog-tabs" role="group" aria-label="Game sample"></div>
     </div>
     <div class="gamelog-filter-panel" id="gamelog-filter-panel" aria-label="Game log filters">
       <div class="gamelog-filter-field">
