@@ -15,6 +15,18 @@
    over all of them instead of hunting down and editing every prior
    !important rule individually. */
 
+/* The report header (.rr-sticky) pins itself near the top of the viewport
+   while scrolling on desktop (src/report-tabs.css: position:sticky) --
+   already disabled on mobile only (research-cards.css, max-width:760px).
+   With the Trend tab now a full page of content instead of a short popup,
+   that pinned header visibly floats above/overlaps the chart as you
+   scroll past it. Disabled everywhere, not just mobile: it just scrolls
+   away with the rest of the report now. */
+:root[data-theme] .rr-report .rr-sticky {
+  position: static !important;
+  top: auto !important;
+}
+
 :root[data-theme] html:has(#gamelog-overlay:not([hidden])),
 :root[data-theme] body:has(#gamelog-overlay:not([hidden])) {
   overflow: initial !important;
