@@ -21,6 +21,7 @@
 <link rel="stylesheet" href="styles.css" />
 <link rel="stylesheet" href="jarvis.css" />
 <link rel="stylesheet" href="gamelog-premium.css" />
+<link rel="stylesheet" href="gamelog-reference.css" />
 <link rel="stylesheet" href="arsenal-redesign.css" />
 <link rel="stylesheet" href="feature-polish.css" />
 <style>
@@ -144,10 +145,15 @@
   <div class="gamelog-modal">
     <div class="modal-head">
       <div class="gamelog-heading">
-        <span>PLAYER PERFORMANCE</span>
+        <div class="gamelog-topline"><span class="gamelog-back-label">‹ Research</span><span class="gamelog-brand">VORTEX <i aria-hidden="true">◌</i> GAME LOG</span></div>
         <div class="gamelog-heading-row">
           <div class="gamelog-player-cutout" id="gamelog-player-cutout" aria-hidden="true"></div>
-          <div class="gamelog-player-copy"><div class="gamelog-player-line"><h3 class="modal-title" id="gamelog-title">Player</h3><span class="gamelog-prop-badge" id="gamelog-prop-badge">HRR</span><span class="gamelog-team-mark" id="gamelog-team-mark" hidden></span></div><p>Explore recent results and adjust the prop line.</p></div>
+          <div class="gamelog-player-copy"><div class="gamelog-player-line"><h3 class="modal-title" id="gamelog-title">Player</h3><span class="gamelog-prop-badge" id="gamelog-prop-badge">HRR</span><span class="gamelog-team-mark" id="gamelog-team-mark" hidden></span></div><p id="gamelog-context-matchup">Live prop performance explorer</p></div>
+          <div class="gamelog-context-grid" aria-label="Current prop context">
+            <div><span>MARKET</span><strong id="gamelog-context-line">—</strong></div>
+            <div><span>STATUS</span><strong id="gamelog-context-status">PRE-GAME</strong></div>
+            <div><span>MODE</span><strong>LIVE DATA</strong></div>
+          </div>
         </div>
       </div>
     </div>

@@ -2670,12 +2670,22 @@ function regradeGameLog(line) {
   });
 }
 
+function syncGameLogContext({ matchup, status } = {}) {
+  const line = document.getElementById("gamelog-context-line");
+  const matchupEl = document.getElementById("gamelog-context-matchup");
+  const statusEl = document.getElementById("gamelog-context-status");
+  if (line) line.textContent = `${gameLogStatCode(gameLogState.stat || "Prop")} ${Number(gameLogState.line || 0).toFixed(1)}`;
+  if (matchupEl && matchup !== undefined) matchupEl.textContent = matchup || "Live prop performance explorer";
+  if (statusEl && status !== undefined) statusEl.textContent = String(status || "Pre-game").toUpperCase();
+}
+
 function setGameLogPreviewLine(value, settle = false) {
   const viewportState=captureGameLogViewport();
   const raw = Math.max(0.5, Number(value) || 0.5);
   const line = settle ? snapPropLine(raw) : raw;
   gameLogState.line = line;
   if (els.gamelogLineValue) els.gamelogLineValue.textContent = Number(line).toFixed(1);
+  syncGameLogContext();
   if (settle) {
     regradeGameLog(line);
     renderGameLogTabs();
@@ -2704,6 +2714,7 @@ async function loadGameLogStat(stat) {
   loadGameLogPostedLines(stat);
   const token = ++gameLogState.fetchToken;
   gameLogState.stat = stat;
+  syncGameLogContext();
   gameLogState.chart = {};
   els.gamelogStatTabs?.querySelectorAll("button").forEach((button) => { button.disabled = true; });
   els.gamelogChart.classList.add("is-loading");
@@ -2722,12 +2733,14 @@ async function loadGameLogStat(stat) {
       if (posted && Number.isFinite(Number(posted.line))) {
         gameLogState.line = Number(posted.line);
         els.gamelogLineValue.textContent = gameLogState.line.toFixed(1);
+        syncGameLogContext();
         resolvedPrizePicksLine = true;
       }
     } catch (_) { /* fall back to the current line when live lines are unavailable */ }
     if (!resolvedPrizePicksLine && Number.isFinite(Number(STAT_DEFAULT_LINE[stat]))) {
       gameLogState.line = STAT_DEFAULT_LINE[stat];
       els.gamelogLineValue.textContent = gameLogState.line.toFixed(1);
+      syncGameLogContext();
     }
     if (finderMarket(stat)) {
       try {
@@ -2794,7 +2807,12 @@ function openGameLogModal(p) {
   els.gamelogOverlay.hidden = false;
   els.gamelogTitle.textContent = p.player || "Player";
   const liveState=document.getElementById('gamelog-live-state');
-  if(liveState)liveState.textContent=p.live?.status||p.gameStatus||(p.matchup?.lineup?'Lineup confirmed':'Pre-game');
+  const currentStatus = p.live?.status || p.gameStatus || (p.matchup?.lineup ? 'Lineup confirmed' : 'Pre-game');
+  if(liveState)liveState.textContent=currentStatus;
+  syncGameLogContext({
+    matchup: p.matchup?.opponent ? `vs ${p.matchup.opponent} · performance history` : "Live prop performance explorer",
+    status: currentStatus,
+  });
   if (els.gamelogPropBadge) els.gamelogPropBadge.textContent = gameLogStatCode(p.betType);
   const teamName = p.teamAbbr || p.teamName || (typeof p.team === "string" ? p.team : p.team?.abbreviation) || "";
   const teamId = p.teamId || p.team_id || p.ownTeamId || p.team?.id || MLB_TEAM_IDS[String(teamName).toUpperCase()];
