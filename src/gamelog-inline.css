@@ -420,7 +420,13 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
 }
 
 :root[data-theme] #gamelog-overlay .modal-head {
-  display: block !important;
+  /* display intentionally left unset here: an earlier, later-in-file
+     "display: block !important" directly fought the "display: none
+     !important" hide rule above (same selector, same specificity, so the
+     later declaration in the file was winning the tie) -- that's exactly
+     why the duplicate player-name/PrizePicks/matchup header was still
+     showing despite the hide rule existing. min-height/margin/padding/
+     background below are dead on a hidden element but harmless to leave. */
   min-height: 0 !important;
   margin: 0 !important;
   padding: 16px 20px 18px !important;
@@ -629,8 +635,13 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   :root[data-theme] #gamelog-overlay .gamelog-workbench { padding:0 10px 10px !important; }
   :root[data-theme] #gamelog-overlay .gamelog-stat-tabs { margin-inline:-10px !important; padding-inline:10px !important; }
   :root[data-theme] #gamelog-overlay .gamelog-market-title { font-size:20px; }
-  :root[data-theme] #gamelog-overlay .gamelog-filter-panel { flex-wrap:nowrap; overflow-x:auto; padding-bottom:2px !important; }
-  :root[data-theme] #gamelog-overlay .gamelog-filter-field { flex:0 0 118px; }
+  /* Wraps instead of requiring a horizontal scroll to see Location --
+     nowrap+overflow-x here meant the 3rd filter was cut off the visible
+     screen on a phone-width viewport, and every extra horizontal-scroll
+     zone on mobile is one more place that can swallow a vertical page
+     scroll gesture that starts on it. */
+  :root[data-theme] #gamelog-overlay .gamelog-filter-panel { flex-wrap:wrap; overflow-x:visible; padding-bottom:2px !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-filter-field { flex:1 1 100px; min-width:100px; }
   :root[data-theme] #gamelog-overlay .gamelog-filter-panel .gamelog-combobox { width:100%; min-width:0; }
   :root[data-theme] #gamelog-overlay .gamelog-windowbar { overflow-x:auto; }
   :root[data-theme] #gamelog-overlay .gamelog-windowbar button { flex:0 0 76px; min-height:58px; }
@@ -1172,4 +1183,17 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   color: rgb(156, 163, 175);
   font-size: 10px;
   font-weight: 700;
+}
+
+/* On mobile, a vertical swipe that starts on the chart (a horizontally-
+   scrollable container via overflow-x:auto) could get captured as a
+   horizontal-scroll gesture attempt instead of passing through as a normal
+   page scroll -- exactly the "have to scroll starting outside the trends
+   area" symptom. Safe to force now: the equal-fill chart layout (see the
+   .gamelog-chart-track rules above) no longer relies on horizontal
+   touch-drag scrolling in normal use, so explicitly allowing only vertical
+   panning here doesn't take anything away. */
+:root[data-theme] #gamelog-overlay .gamelog-chart,
+:root[data-theme] #gamelog-overlay .gamelog-chart-track {
+  touch-action: pan-y !important;
 }
