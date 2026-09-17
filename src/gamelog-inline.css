@@ -43,8 +43,18 @@
   overflow: initial !important;
   overscroll-behavior: auto !important;
 }
-:root[data-theme] body:has(#gamelog-overlay:not([hidden])) .mobile-app-nav {
-  display: revert !important;
+/* research-polish.css hides the mobile dock while the game-log overlay is
+   open, which is now effectively always on a research page -- so it needs
+   countering. "display: revert" was the wrong way to do it: reverting a
+   <nav> lands on the UA default (block), not the grid that mobile-app.css
+   actually lays this dock out with, so the five tabs stacked into a
+   vertical column instead of a bottom bar. Restore the real value, and
+   only at the width where the dock exists at all -- outside this
+   breakpoint .mobile-app-nav is display:none on purpose. */
+@media (max-width: 760px) {
+  :root[data-theme] body:has(#gamelog-overlay:not([hidden])) .mobile-app-nav {
+    display: grid !important;
+  }
 }
 body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial !important; }
 /* The floating "compare props" pill is a separate feature (comparing
