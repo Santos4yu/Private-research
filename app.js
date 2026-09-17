@@ -2813,19 +2813,6 @@ function openGameLogModal(p) {
   const liveState=document.getElementById('gamelog-live-state');
   const currentStatus = p.live?.status || p.gameStatus || (p.matchup?.lineup ? 'Lineup confirmed' : 'Pre-game');
   if(liveState)liveState.textContent=currentStatus;
-  const selectedRate = Number(p.estHitRate ?? p.hitRates?.l10 ?? p.compareValues?.[10]);
-  const selectedIsUnder = /under/i.test(String(p.side || p.pick || p.direction || ''));
-  const selectedProbability = Number.isFinite(selectedRate) ? Math.max(0, Math.min(100, selectedRate)) : null;
-  const modelOver = selectedProbability == null ? null : (selectedIsUnder ? 100 - selectedProbability : selectedProbability);
-  const modelUnder = modelOver == null ? null : 100 - modelOver;
-  const modelOverEl = document.getElementById('gamelog-model-over');
-  const modelUnderEl = document.getElementById('gamelog-model-under');
-  const marketStatusEl = document.getElementById('gamelog-market-status');
-  const marketMatchupEl = document.getElementById('gamelog-market-matchup');
-  if(modelOverEl) modelOverEl.textContent = modelOver == null ? '—' : `${Math.round(modelOver)}%`;
-  if(modelUnderEl) modelUnderEl.textContent = modelUnder == null ? '—' : `${Math.round(modelUnder)}%`;
-  if(marketStatusEl) marketStatusEl.textContent = String(currentStatus || 'Pre-game').toUpperCase();
-  if(marketMatchupEl) marketMatchupEl.textContent = p.matchup?.opponent ? `vs ${p.matchup.opponent}` : 'Matchup pending';
   syncGameLogContext({
     matchup: p.matchup?.opponent ? `vs ${p.matchup.opponent} · performance history` : "Live prop performance explorer",
     status: currentStatus,
@@ -2833,6 +2820,14 @@ function openGameLogModal(p) {
   if (els.gamelogPropBadge) els.gamelogPropBadge.textContent = gameLogStatCode(p.betType);
   const teamName = p.teamAbbr || p.teamName || (typeof p.team === "string" ? p.team : p.team?.abbreviation) || "";
   const teamId = p.teamId || p.team_id || p.ownTeamId || p.team?.id || MLB_TEAM_IDS[String(teamName).toUpperCase()];
+  const matchup = matchupGameDetails({...p, team_id: p.team_id || teamId, team: p.team || teamName});
+  const matchupLogosEl = document.getElementById('gamelog-matchup-logos');
+  const marketMatchupEl = document.getElementById('gamelog-market-matchup');
+  const marketTimeEl = document.getElementById('gamelog-market-time');
+  if(matchupLogosEl) matchupLogosEl.innerHTML = `${matchupGameLogo(matchup.awayId || teamId, matchup.away || teamName)}${matchupGameLogo(matchup.homeId || p.opponentTeamId, matchup.home || p.matchup?.opponent)}`;
+  if(marketMatchupEl) marketMatchupEl.textContent = matchup.label || (p.matchup?.opponent ? `vs ${p.matchup.opponent}` : 'Matchup pending');
+  const matchupDate = Number.isFinite(matchup.timestamp) ? new Date(matchup.timestamp) : null;
+  if(marketTimeEl) marketTimeEl.textContent = matchupDate ? matchupDate.toLocaleString([], {weekday:'short',hour:'numeric',minute:'2-digit'}) : 'Time TBA';
   if (els.gamelogTeamMark) {
     els.gamelogTeamMark.hidden = !teamName && !teamId;
     els.gamelogTeamMark.innerHTML = teamId
@@ -5438,10 +5433,10 @@ function boardMatchupLabel(score) {
 
 function matchupGameDetails(prop) {
   const stats = prop.stats || {};
-  let ownName = stats.team_abbr || stats.team || prop.team_abbr || prop.team || "";
-  let opponentName = stats.opponent_abbr || stats.opponent || stats.matchup?.opponent || "";
-  const ownId = stats.team_id || prop.team_id || MLB_TEAM_IDS[String(ownName).toUpperCase()] || null;
-  const opponentId = stats.opponent_team_id || MLB_TEAM_IDS[String(opponentName).toUpperCase()] || null;
+  let ownName = stats.team_abbr || stats.team || prop.team_abbr || prop.teamAbbr || prop.teamName || prop.team || "";
+  let opponentName = stats.opponent_abbr || stats.opponent || stats.matchup?.opponent || prop.matchup?.opponent || prop.opponent || "";
+  const ownId = stats.team_id || prop.team_id || prop.teamId || MLB_TEAM_IDS[String(ownName).toUpperCase()] || null;
+  const opponentId = stats.opponent_team_id || prop.opponentTeamId || MLB_TEAM_IDS[String(opponentName).toUpperCase()] || null;
   ownName = MLB_TEAM_ABBRS[ownId] || ownName;
   opponentName = MLB_TEAM_ABBRS[opponentId] || opponentName;
   const isHome = stats.is_home === true || String(stats.is_home).toLowerCase() === "true";
@@ -5449,10 +5444,11 @@ function matchupGameDetails(prop) {
   const home = isHome ? ownName : opponentName;
   const awayId = isHome ? opponentId : ownId;
   const homeId = isHome ? ownId : opponentId;
-  const timestamp = Number.isFinite(Date.parse(prop.commence_time || "")) ? Date.parse(prop.commence_time) : Number.POSITIVE_INFINITY;
+  const suppliedTime = prop.commence_time || prop.gameTime || prop.startTime || prop.matchup?.startTime || "";
+  const timestamp = Number.isFinite(Date.parse(suppliedTime)) ? Date.parse(suppliedTime) : Number.POSITIVE_INFINITY;
   const gamePk = stats.game_pk || stats.gamePk || prop.game_pk || prop.gamePk;
   const schedule = state.v2BoardData?.games || [];
-  const propTime = Date.parse(prop.commence_time || "");
+  const propTime = Date.parse(suppliedTime);
   const opponentText = normalizePlayerSearch(opponentName);
   const scheduled = schedule.find(game => gamePk && String(game.game_pk) === String(gamePk)) || schedule.find(game => {
     const timeClose = Number.isFinite(propTime) && Number.isFinite(Date.parse(game.start_time || "")) && Math.abs(propTime - Date.parse(game.start_time)) < 20 * 60 * 1000;
@@ -5466,13 +5462,13 @@ function matchupGameDetails(prop) {
     return {
       key: String(scheduled.game_pk), label: `${scheduledAway} @ ${scheduledHome}`,
       away: scheduledAway, home: scheduledHome, awayId: scheduled.away_id, homeId: scheduled.home_id,
-      opponentName, opponentId, timestamp: Date.parse(scheduled.start_time || prop.commence_time || ""),
-      commenceTime: scheduled.start_time || prop.commence_time || "",
+      opponentName, opponentId, timestamp: Date.parse(scheduled.start_time || suppliedTime),
+      commenceTime: scheduled.start_time || suppliedTime,
     };
   }
-  const key = String(gamePk || `${away}|${home}|${prop.commence_time || "tbd"}`).toLowerCase();
+  const key = String(gamePk || `${away}|${home}|${suppliedTime || "tbd"}`).toLowerCase();
   const label = away && home ? `${away} @ ${home}` : opponentName ? `${isHome ? "vs" : "@"} ${opponentName}` : "Scheduled game";
-  return { key, label, away, home, awayId, homeId, opponentName, opponentId, timestamp, commenceTime: prop.commence_time || "" };
+  return { key, label, away, home, awayId, homeId, opponentName, opponentId, timestamp, commenceTime: suppliedTime };
 }
 
 function matchupGameLogo(teamId, teamName) {

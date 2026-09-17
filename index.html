@@ -145,32 +145,25 @@
   <div class="gamelog-modal">
     <div class="modal-head">
       <div class="gamelog-heading">
-        <div class="gamelog-topline"><span class="gamelog-back-label">‹ Research</span><span class="gamelog-brand">VORTEX <i aria-hidden="true">◌</i> GAME LOG</span></div>
+        <div class="gamelog-topline"><span class="gamelog-back-label">‹ Research</span></div>
         <div class="gamelog-heading-row">
           <div class="gamelog-player-cutout" id="gamelog-player-cutout" aria-hidden="true"></div>
           <div class="gamelog-player-copy"><div class="gamelog-player-line"><h3 class="modal-title" id="gamelog-title">Player</h3><span class="gamelog-prop-badge" id="gamelog-prop-badge">HRR</span><span class="gamelog-team-mark" id="gamelog-team-mark" hidden></span></div><p id="gamelog-context-matchup">Live prop performance explorer</p></div>
-          <div class="gamelog-context-grid" aria-label="Current prop context">
-            <div><span>MARKET</span><strong id="gamelog-context-line">—</strong></div>
-            <div><span>STATUS</span><strong id="gamelog-context-status">PRE-GAME</strong></div>
-            <div><span>MODE</span><strong>LIVE DATA</strong></div>
-          </div>
         </div>
       </div>
     </div>
     <div class="gamelog-market-strip" aria-label="Current market overview">
-      <article class="gamelog-model-card">
-        <span class="gamelog-market-card-label"><i class="gamelog-vortex-mark" aria-hidden="true">V</i> VORTEX MODEL</span>
-        <div><span>O <strong id="gamelog-model-over">—</strong></span><span>U <strong id="gamelog-model-under">—</strong></span></div>
-      </article>
       <article class="gamelog-book-card">
         <span class="gamelog-market-card-label"><img src="/prizepicks/logo.png" alt="" /> PRIZEPICKS</span>
         <strong id="gamelog-book-line">Line —</strong>
         <small>Current posted line</small>
       </article>
       <article class="gamelog-matchup-card">
-        <span class="gamelog-market-card-label">GAME STATUS</span>
-        <strong id="gamelog-market-status">PRE-GAME</strong>
-        <small id="gamelog-market-matchup">Matchup pending</small>
+        <span class="gamelog-market-card-label">MATCHUP</span>
+        <div class="gamelog-matchup-row">
+          <span class="gamelog-matchup-logos" id="gamelog-matchup-logos" aria-hidden="true"></span>
+          <span><strong id="gamelog-market-matchup">Matchup pending</strong><small id="gamelog-market-time">Time TBA</small></span>
+        </div>
       </article>
     </div>
     <div class="gamelog-workbench">
