@@ -973,7 +973,17 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
    the per-bar labels below a width threshold instead. !important here and
    below beats the pre-existing max-width:760px rule that forced
    justify-content:flex-start on mobile specifically. */
+/* gamelog-premium.css has an UNSCOPED (not just [data-dense]) rule --
+   ".gamelog-chart-track{display:grid!important;
+   min-width:calc(var(--game-count) * 58px)!important; ...}" -- that forces
+   a hard minimum width of 58px PER GAME regardless of container size. For
+   a ~34-game season sample that's ~1972px, which is exactly why "always
+   fit, no scroll" kept failing: nothing above actually countered that
+   base rule, only the old [data-dense="true"]-scoped one. display:flex
+   and min-width:0 here beat it (both !important, higher specificity). */
 :root[data-theme] #gamelog-overlay .gamelog-chart-track {
+  display: flex !important;
+  min-width: 0 !important;
   justify-content: center !important;
   gap: 8px !important;
 }
@@ -984,13 +994,16 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   max-width: 90px !important;
 }
 /* Once a window has enough games that equal-fill shrinks each column below
-   a legible width, the per-bar date/opponent text has nowhere to go
-   without overlapping its neighbors. app.js sets this flag from the
-   actual estimated column width (see renderGameLogChart) rather than a
-   fixed game-count threshold, since the same count reads very differently
-   on a phone vs. a wide desktop chart. */
+   a legible width, the per-bar date/opponent/value text has nowhere to go
+   without overlapping its neighbors -- pickfinder.app's own dense charts
+   drop per-bar numbers entirely at this point and rely on the bars/colors
+   alone. app.js sets this flag from the actual estimated column width
+   (see renderGameLogChart) rather than a fixed game-count threshold,
+   since the same count reads very differently on a phone vs. a wide
+   desktop chart. */
 :root[data-theme] #gamelog-overlay .gamelog-chart-track[data-compact="true"] .gl-date,
-:root[data-theme] #gamelog-overlay .gamelog-chart-track[data-compact="true"] .gl-opp {
+:root[data-theme] #gamelog-overlay .gamelog-chart-track[data-compact="true"] .gl-opp,
+:root[data-theme] #gamelog-overlay .gamelog-chart-track[data-compact="true"] .gl-val {
   display: none !important;
 }
 
