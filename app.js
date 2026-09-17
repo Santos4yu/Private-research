@@ -3065,8 +3065,9 @@ function renderGameLogChart() {
   document.getElementById("gamelog-summary-record").textContent = `${overCount}–${games.length - overCount}`;
   document.getElementById("gamelog-summary-average").textContent = average.toFixed(2);
 
-  // Keep the vertical scale anchored to the market, never to the current
-  // sample. This stops the prop line from jumping when a bar is added/removed.
+  // Scale to the visible sample with a small market-specific floor. The old
+  // fixed caps (for example 10 for H+R+RBI) left most of a short chart empty
+  // when the visible values only reached 2 or 3.
   const line = gameLogState.line;
   // Match the responsive CSS track height exactly; using a shorter mobile
   // math scale made low lines such as 0.5 float far above the baseline.
@@ -3074,8 +3075,13 @@ function renderGameLogChart() {
     ? Math.max(48, holder.clientHeight - 64)
     : window.innerWidth <= 900 ? 238 : 280;
   holder.style.setProperty('--plot-height', `${trackPx}px`);
-  const scaleCaps = { "Hits": 6, "Home Runs": 4, "Total Bases": 12, "Hits+Runs+RBIs": 10, "Runs Scored": 6, "RBIs": 6, "Walks": 5, "Strikeouts": 12, "Pitching Outs": 27, "Hits Allowed": 10, "Earned Runs Allowed": 8, "Strikeouts (Pitcher)": 12, "Walks Allowed": 5 };
-  const max = Math.max(scaleCaps[gameLogState.stat] || 10, typeof line === "number" ? Math.ceil(line * 1.6) : 1);
+  const scaleFloors = { "Hits": 3, "Home Runs": 2, "Total Bases": 6, "Hits+Runs+RBIs": 4, "Runs Scored": 2, "RBIs": 3, "Walks": 2, "Strikeouts": 8, "Pitching Outs": 24, "Hits Allowed": 7, "Earned Runs Allowed": 5, "Strikeouts (Pitcher)": 8, "Walks Allowed": 3 };
+  const observedMax = Math.max(...games.map((game) => Number(game.value) || 0), Number(line) || 0, 1);
+  const max = Math.max(
+    scaleFloors[gameLogState.stat] || 2,
+    Math.ceil(observedMax * 1.2),
+    typeof line === "number" ? Math.ceil(line * 1.35) : 1,
+  );
   const track = document.createElement("div");
   track.className = "gamelog-chart-track";
   track.style.setProperty("--game-count", String(games.length));

@@ -755,3 +755,167 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   width: min(82%, 94px) !important;
   margin-inline: auto !important;
 }
+
+/* Compact Trend composition: the market controls and sample metrics share the
+   available row, and no flex child is allowed to create a blank tail below the
+   chart. */
+:root[data-theme] #gamelog-overlay .modal-head {
+  padding: 10px 18px 12px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-topline {
+  margin-bottom: 7px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-heading-row {
+  grid-template-columns: 52px minmax(0,1fr) !important;
+  gap: 11px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-player-cutout {
+  width: 50px !important;
+  height: 50px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-heading-row .modal-title {
+  font-size: clamp(20px,2.2vw,25px) !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-player-copy > p {
+  margin-top: 3px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-market-strip {
+  padding: 7px 12px !important;
+  gap: 7px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-market-strip article {
+  min-height: 50px !important;
+  padding: 7px 10px !important;
+  border-radius: 8px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-matchup-row {
+  gap: 9px !important;
+  margin-top: 4px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-matchup-logos > span {
+  width: 28px !important;
+  height: 28px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-matchup-logos img {
+  width: 23px !important;
+  height: 23px !important;
+}
+
+:root[data-theme] #gamelog-overlay .gamelog-workbench {
+  display: grid !important;
+  grid-template-columns: minmax(330px,1fr) minmax(390px,.95fr) !important;
+  grid-template-rows: auto auto auto !important;
+  column-gap: 16px !important;
+  row-gap: 8px !important;
+  padding: 0 12px 10px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-stat-tabs {
+  grid-column: 1 / -1 !important;
+  grid-row: 1 !important;
+  margin-inline: -12px !important;
+  padding-inline: 12px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-toolbar {
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+  align-content: start !important;
+  gap: 7px !important;
+  padding: 0 !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-market-title {
+  margin-bottom: 4px !important;
+  font-size: 20px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-line-control,
+:root[data-theme] #gamelog-overlay .posted-lines {
+  min-height: 38px !important;
+  height: 38px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-line-control button {
+  min-width: 36px !important;
+  min-height: 36px !important;
+}
+:root[data-theme] #gamelog-overlay .posted-lines summary {
+  min-height: 36px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-filter-panel {
+  grid-column: 1 !important;
+  grid-row: 3 !important;
+  margin: 0 !important;
+  gap: 8px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-filter-field {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-filter-panel .gamelog-combobox {
+  min-height: 38px !important;
+  height: 38px !important;
+  border-radius: 9px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-windowbar {
+  grid-column: 2 !important;
+  grid-row: 2 / span 2 !important;
+  align-self: stretch !important;
+  display: grid !important;
+  grid-template-columns: repeat(6,minmax(0,1fr)) !important;
+  gap: 3px !important;
+  padding: 3px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-windowbar button {
+  min-width: 0 !important;
+  min-height: 58px !important;
+  padding: 7px 6px !important;
+}
+
+:root[data-theme] #gamelog-overlay .gamelog-modal,
+:root[data-theme] #gamelog-overlay .gamelog-studio,
+:root[data-theme] #gamelog-overlay .gamelog-stage,
+:root[data-theme] #gamelog-overlay .gamelog-chart {
+  flex: none !important;
+  height: auto !important;
+  min-height: 0 !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-studio,
+:root[data-theme] #gamelog-overlay .gamelog-stage {
+  display: block !important;
+  overflow: visible !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-chart {
+  height: 362px !important;
+  padding: 30px 18px 40px 42px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-chart-track {
+  min-height: 0 !important;
+}
+
+@media (max-width: 900px) {
+  :root[data-theme] #gamelog-overlay .gamelog-workbench {
+    grid-template-columns: 1fr !important;
+  }
+  :root[data-theme] #gamelog-overlay .gamelog-toolbar,
+  :root[data-theme] #gamelog-overlay .gamelog-filter-panel,
+  :root[data-theme] #gamelog-overlay .gamelog-windowbar {
+    grid-column: 1 !important;
+    grid-row: auto !important;
+  }
+  :root[data-theme] #gamelog-overlay .gamelog-windowbar {
+    grid-template-columns: repeat(6,minmax(74px,1fr)) !important;
+    overflow-x: auto !important;
+  }
+  :root[data-theme] #gamelog-overlay .gamelog-chart {
+    height: 318px !important;
+    padding-top: 28px !important;
+  }
+}
+
+@media (max-width: 520px) {
+  :root[data-theme] #gamelog-overlay .modal-head { padding: 8px 12px 10px !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-topline { margin-bottom: 5px !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-heading-row { grid-template-columns: 46px minmax(0,1fr) !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-player-cutout { width:44px !important; height:44px !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-market-strip { padding:6px 8px !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-workbench { padding-inline:8px !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-stat-tabs { margin-inline:-8px !important; padding-inline:8px !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-chart { height:304px !important; padding:26px 10px 36px 32px !important; }
+}
