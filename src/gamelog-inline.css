@@ -339,3 +339,25 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   border-top: 2px dashed #64748b !important;
   opacity: 0.85 !important;
 }
+
+/* gamelog-premium.css's [data-dense="true"] mode (app.js sets it once a
+   window has >20 games -- true for "Season" on any regular, i.e. hundreds
+   of games) divides the chart's 100%-wide grid into one column PER GAME,
+   so a season sample squeezes 300+ bars into a few hundred px -- every
+   value label and bar overlaps into an unreadable smear. Restore the same
+   scrollable, fixed-bar-width layout the non-dense path already uses
+   instead of forcing everything to fit on screen at once. */
+:root[data-theme] #gamelog-overlay .gamelog-chart-track[data-dense="true"] {
+  display: flex !important;
+  width: max-content !important;
+  min-width: 100% !important;
+  grid-template-columns: none !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-chart-track[data-dense="true"] .gl-col {
+  width: var(--bar-width, 20px) !important;
+  min-width: var(--bar-width, 20px) !important;
+  flex: 0 0 auto !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-chart-track[data-dense="true"] .gl-bar-shell {
+  width: 100% !important;
+}
