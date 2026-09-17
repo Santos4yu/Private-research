@@ -3753,12 +3753,21 @@ function teamLoadingMarkup(title, detail) {
  * live result entirely or trigger a pointless (and possibly different, since
  * stats move) re-fetch instead of showing what was actually saved.
  */
-function openExactProp(p) {
-  selectPlayer(p.player, null, { autoSelectStat: false }); // builds the profile shell (avatar, stat select)
+/**
+ * Everything openExactProp() does to stand the research screen up for an
+ * exact prop -- profile shell, stat select, line slider bounds, side toggle
+ * -- stopping short of actually producing a report. Split out so the two
+ * callers can differ on that last step: a saved prop renders its stored
+ * snapshot, while a Finder prop has no research payload attached (see
+ * pitcherFinderGameLogProp -- identity/chart fields only, no score,
+ * projection or matchup) and has to fetch one.
+ */
+function prepareResearchShell(p, playerEntry = null) {
+  selectPlayer(p.player, null, { autoSelectStat: false, playerEntry }); // builds the profile shell (avatar, stat select)
   cmd.player = p.player;
   cmd.stat = p.betType;
   cmd.line = p.line;
-  cmd.side = "Over";
+  cmd.side = p.side === "Under" ? "Under" : "Over";
 
   if (![...els.profileStats.options].some((o) => o.value === p.betType)) {
     const opt = document.createElement("option");
@@ -3785,13 +3794,37 @@ function openExactProp(p) {
 
   els.sideToggle.querySelectorAll(".side-btn").forEach((b) => {
     b.disabled = false;
-    b.classList.toggle("active", b.dataset.side === "Over");
+    b.classList.toggle("active", b.dataset.side === cmd.side);
   });
 
   els.linePicker.hidden = false;
   els.lineNoData.hidden = true;
+}
 
+function openExactProp(p) {
+  prepareResearchShell(p);
   renderReport(p);
+}
+
+/**
+ * Opens a Finder prop as a full research report. The Finder used to call
+ * openGameLogModal() directly, which only repopulates the game-log chart --
+ * it never rebuilt the report, so the Research tab kept showing whichever
+ * player was rendered last and clicking a prop looked like it did nothing.
+ * Going through applyLineSelection() runs the same fetch the normal
+ * player+stat+line flow does, which ends in renderReport() and therefore
+ * populates the Trend tab for the prop that was actually clicked.
+ */
+function researchFinderProp(prop) {
+  if (!prop) return;
+  prepareResearchShell(prop, {
+    playerId: prop.playerId || null,
+    teamId: prop.teamId || null,
+    team: prop.teamName || prop.teamAbbr || "",
+  });
+  applyLineSelection();
+  switchTab("research");
+  focusResearchTab("trend");
 }
 
 function buildReportNode(p) {
@@ -5310,7 +5343,7 @@ function renderPitcherComparison(rows) {
     star.addEventListener('click', event => { event.stopPropagation(); toggleSave(prop, star); });
     const compare=tr.querySelector('.finder-compare-button');compare.addEventListener('click',event=>{event.stopPropagation();toggleFinderCompare(prop,compare);});
     wireFinderHold(tr.querySelector('.pitcher-table-open'),prop);
-    tr.querySelector('.pitcher-table-open').addEventListener('click', () => { openGameLogModal(prop); switchTab("research"); focusResearchTab("trend"); });
+    tr.querySelector('.pitcher-table-open').addEventListener('click', () => researchFinderProp(prop));
     els.pitcherFinderList.querySelector('tbody').appendChild(tr);
     return {row, prop, tr};
   });
@@ -6299,7 +6332,7 @@ function toggleFinderCompare(prop,button) {
 }
 function openFinderQuickActions(prop) {
   const sheet=document.getElementById('prop-quick-sheet');sheet.querySelector('h3').textContent=prop.player;sheet.querySelector('p').textContent=`More ${prop.line} ${prop.betType}`;sheet.hidden=false;
-  sheet.querySelector('[data-quick=research]').onclick=()=>{sheet.hidden=true;openGameLogModal(prop);switchTab("research");focusResearchTab("trend");};sheet.querySelector('[data-quick=compare]').onclick=()=>{toggleFinderCompare(prop);sheet.hidden=true;};sheet.querySelector('[data-quick=save]').onclick=()=>{toggleSave(prop);sheet.hidden=true;};sheet.querySelector('[data-quick=share]').onclick=()=>{sheet.hidden=true;activeFinderProp=prop;shareGameLogCard();};
+  sheet.querySelector('[data-quick=research]').onclick=()=>{sheet.hidden=true;researchFinderProp(prop);};sheet.querySelector('[data-quick=compare]').onclick=()=>{toggleFinderCompare(prop);sheet.hidden=true;};sheet.querySelector('[data-quick=save]').onclick=()=>{toggleSave(prop);sheet.hidden=true;};sheet.querySelector('[data-quick=share]').onclick=()=>{sheet.hidden=true;activeFinderProp=prop;shareGameLogCard();};
 }
 function wireFinderHold(button,prop) {
   let timer,held=false;button.addEventListener('pointerdown',event=>{if(event.pointerType==='mouse')return;held=false;timer=setTimeout(()=>{held=true;openFinderQuickActions(prop);},520);});['pointerup','pointercancel','pointerleave'].forEach(type=>button.addEventListener(type,()=>clearTimeout(timer)));button.addEventListener('click',event=>{if(held){event.preventDefault();event.stopImmediatePropagation();held=false;}},true);button.oncontextmenu=event=>{event.preventDefault();openFinderQuickActions(prop);};
@@ -6308,7 +6341,7 @@ function openFinderComparison() {
   const sheet=document.getElementById('prop-comparison-sheet'),props=[...finderCompare.values()];if(props.length<2)return;
   const metric=(prop,key,suffix='%')=>prop.compareValues?.[key]==null?'—':`${key==='diff'&&prop.compareValues[key]>=0?'+':''}${['average','diff'].includes(key)?prop.compareValues[key].toFixed(1):Math.round(prop.compareValues[key])}${suffix}`;
   sheet.querySelector('.comparison-grid').innerHTML=props.map(prop=>`<article><div><strong>${escapeHtml(prop.player)}</strong><span>More ${prop.line} ${escapeHtml(prop.betType)}</span></div><section>${[['AVG','average',''],['DIFF','diff',''],['L5',5,'%'],['L10',10,'%'],['L20',20,'%'],['H2H','h2h','%']].map(([label,key,suffix])=>`<span>${label}<b>${metric(prop,key,suffix)}</b></span>`).join('')}</section><button type="button" data-open-prop="${escapeHtml(finderPropKey(prop))}">Open research</button></article>`).join('');
-  sheet.hidden=false;sheet.querySelectorAll('[data-open-prop]').forEach(button=>button.onclick=()=>{sheet.hidden=true;openGameLogModal(finderCompare.get(button.dataset.openProp));switchTab("research");focusResearchTab("trend");});
+  sheet.hidden=false;sheet.querySelectorAll('[data-open-prop]').forEach(button=>button.onclick=()=>{sheet.hidden=true;researchFinderProp(finderCompare.get(button.dataset.openProp));});
 }
 function wireResearchPolish() {
   const researchHead=document.querySelector('#gamelog-overlay .modal-head');
