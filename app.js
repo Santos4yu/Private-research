@@ -2583,6 +2583,18 @@ function clearReport() {
 function renderReport(p) {
   hideResults();
   els.emptyState.hidden = true;
+  // #gamelog-overlay starts as a top-level element in index.html and only
+  // becomes a descendant of ".report" once mountResearchTabs() first moves
+  // it into the Trend tab. On every render AFTER the first, the line below
+  // would remove ".report" -- and #gamelog-overlay along with it, since
+  // it's now nested inside -- leaving it fully detached from the document.
+  // The next mountResearchTabs() call's document.getElementById(
+  // 'gamelog-overlay') then returns null, so it's silently never
+  // reattached: the Trend tab's chart is gone until a full page reload.
+  // Rescue it back out to a stable parent first so removing the old report
+  // can't take it down too.
+  const gamelogOverlay = document.getElementById("gamelog-overlay");
+  if (gamelogOverlay) document.body.appendChild(gamelogOverlay);
   els.reportWrap.querySelector(".report")?.remove();
   removeResearchLoader();
   syncProfileHeaderWithProp(p);
