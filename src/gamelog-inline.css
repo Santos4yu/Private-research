@@ -953,3 +953,32 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
 :root[data-theme] #gamelog-overlay .gl-y-axis {
   display: none !important;
 }
+
+/* Bars sat much farther apart than the reference: .gl-col is a flex item,
+   and styles.css's unscoped ".gl-col{flex-basis:74px!important}" wins the
+   item's actual size over gamelog-premium.css's "width:var(--bar-width)"
+   (flex-basis beats width on a flex main axis) -- so a 52px bar sat inside
+   a 74px column, adding 22px of dead space on top of the explicit gap.
+   Tie the column's flex-basis to the same --bar-width var the bar itself
+   uses, and tighten the gap, so bars read as closely packed like the
+   reference instead of spaced out. */
+:root[data-theme] #gamelog-overlay .gamelog-chart-track:not([data-dense="true"]) .gl-col {
+  flex: 0 0 var(--bar-width, 52px) !important;
+  width: var(--bar-width, 52px) !important;
+  min-width: var(--bar-width, 52px) !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-chart-track:not([data-dense="true"]) {
+  gap: 10px !important;
+  justify-content: flex-start !important;
+}
+
+/* Collapse the visual gap between the toolbar/filter row and the chart so
+   the whole thing reads as one continuous panel (title, stepper, window
+   tabs, filters) instead of stacked separate-looking sections, matching
+   the reference's single unbroken toolbar block. */
+:root[data-theme] #gamelog-overlay .gamelog-toolbar {
+  margin-bottom: 10px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-filter-panel {
+  margin-bottom: 10px !important;
+}

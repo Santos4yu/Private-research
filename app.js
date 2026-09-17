@@ -2865,7 +2865,11 @@ async function loadGameLogPostedLines(stat, player = gameLogState.player) {
   let host = document.getElementById('gamelog-posted-lines');
   if (!host) {
     host = document.createElement('details'); host.id = 'gamelog-posted-lines'; host.className = 'posted-lines';
-    document.querySelector('.gamelog-toolbar').appendChild(host);
+    // Sits right after the line-stepper on the SAME row as the title, like
+    // pickfinder.app's sportsbook pill -- appending to .gamelog-toolbar
+    // directly made it a third flex child that always wrapped onto its own
+    // row, reading as a separate section instead of part of one toolbar.
+    (document.querySelector('.gamelog-toolbar-head') || document.querySelector('.gamelog-toolbar')).appendChild(host);
   }
   host.open = false;
   host.innerHTML = '<summary>PrizePicks lines</summary><p>Loading posted lines…</p>';
