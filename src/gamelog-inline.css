@@ -336,8 +336,11 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   color: var(--theme-dim, #8c96a6) !important;
 }
 :root[data-theme] #gamelog-overlay .gl-line-marker {
-  border-top: 2px dashed #64748b !important;
+  border-top: 0 !important;
   opacity: 0.85 !important;
+}
+:root[data-theme] #gamelog-overlay .gl-line-marker::before {
+  border-top: 2px dashed #64748b !important;
 }
 
 /* gamelog-premium.css's [data-dense="true"] mode (app.js sets it once a
