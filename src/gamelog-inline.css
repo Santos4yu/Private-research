@@ -239,7 +239,14 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  flex-wrap: wrap;
+  /* Never wrap into a second row -- the combined natural width of the
+     left group (alt-lines select + stepper) plus all 6 window-tab buttons
+     doesn't reliably fit next to each other, and flex-wrap was silently
+     falling back to the old stacked layout instead of staying side by
+     side. The window bar shrinks/scrolls internally (min-width:0 below,
+     it already has its own overflow-x:auto) rather than the whole row
+     wrapping. */
+  flex-wrap: nowrap !important;
   margin-top: 8px;
 }
 :root[data-theme] #gamelog-overlay .gamelog-toolbar-head {
@@ -248,8 +255,15 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   gap: 8px;
   flex: 0 0 auto;
 }
+/* The shared alt-lines Select trigger's own min-width (160px, meant for
+   the main line-picker's roomier row) is more than this tighter toolbar
+   can spare alongside the window-tabs bar. Shrinking it here only. */
+:root[data-theme] #gamelog-overlay #gamelog-lines-select-root button {
+  min-width: 92px !important;
+}
 :root[data-theme] #gamelog-overlay .gamelog-toolbar-row .gamelog-windowbar {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
   max-width: 100%;
 }
 :root[data-theme] #gamelog-overlay .gamelog-toolbar-row .gamelog-windowbar button {

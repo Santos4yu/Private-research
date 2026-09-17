@@ -464,15 +464,19 @@ function cacheEls() {
   els.gamelogTabs = document.getElementById("gamelog-tabs");
   els.gamelogSub = document.getElementById("gamelog-sub");
   els.gamelogChart = document.getElementById("gamelog-chart");
-  els.glHandFilter = document.getElementById("gl-hand-filter");
-  els.glVenueFilter = document.getElementById("gl-venue-filter");
+  // Season/Matchup/Location used to be native <select> elements; now
+  // React-mounted Selects (src/main.jsx's SimpleSelectHost) -- these
+  // bridges are the same setOptions/setValue/setDisabled pattern as
+  // profileStatsBridge/ppLinesBridge above.
+  els.glHandFilterBridge = wireBridge(window.vortexGamelogHandSelect, ["setOptions", "setValue", "setDisabled"]);
+  els.glVenueFilterBridge = wireBridge(window.vortexGamelogVenueSelect, ["setOptions", "setValue"]);
+  els.gamelogSeasonBridge = wireBridge(window.vortexGamelogSeasonSelect, ["setOptions", "setValue"]);
   els.gamelogStatTabs = document.getElementById("gamelog-stat-tabs");
   els.gamelogLineDown = document.getElementById("gamelog-line-down");
   els.gamelogLineUp = document.getElementById("gamelog-line-up");
   els.gamelogLineValue = document.getElementById("gamelog-line-value");
   els.gamelogFilterPanel = document.getElementById("gamelog-filter-panel");
   els.gamelogStudio = document.getElementById("gamelog-studio");
-  els.gamelogSeasonRow = document.getElementById("gamelog-season-row");
   els.gamelogHandField = document.getElementById("gl-hand-field");
 
   els.teamOverlay = document.getElementById("team-overlay");
@@ -2900,7 +2904,7 @@ async function fetchGameLogDetails(p) {
   const requestedPlayer = p.player;
   const requestToken = ++gameLogState.fetchToken;
   const openedWithoutHistory = recentGameLogSource().length <= 1;
-  els.glHandFilter.disabled = true;
+  els.glHandFilterBridge?.setDisabled(true);
   try {
     if (openedWithoutHistory && finderMarket(p.betType)) {
       try {
@@ -2945,7 +2949,7 @@ async function fetchGameLogDetails(p) {
     console.error("game-log-filters fetch failed:", err);
   } finally {
     if (gameLogState.fetchToken !== requestToken || gameLogState.player !== requestedPlayer) return;
-    els.glHandFilter.disabled = false;
+    els.glHandFilterBridge?.setDisabled(false);
     renderGameLogTabs();
     renderGameLogChart();
   }
@@ -2961,9 +2965,13 @@ function filterGames(games) {
   });
 }
 
+const GL_HAND_OPTIONS = [{ value: "all", label: "All" }, { value: "L", label: "vs LHP" }, { value: "R", label: "vs RHP" }];
+const GL_VENUE_OPTIONS = [{ value: "all", label: "All" }, { value: "home", label: "Home" }, { value: "road", label: "Road" }];
 function renderGameLogSubfilters() {
-  els.glHandFilter.value = gameLogState.handFilter;
-  els.glVenueFilter.value = gameLogState.venueFilter;
+  els.glHandFilterBridge?.setOptions(GL_HAND_OPTIONS);
+  els.glHandFilterBridge?.setValue(gameLogState.handFilter);
+  els.glVenueFilterBridge?.setOptions(GL_VENUE_OPTIONS);
+  els.glVenueFilterBridge?.setValue(gameLogState.venueFilter);
 }
 
 // Hit rate + average for one window's worth of games, for the window-tabs
@@ -3000,10 +3008,8 @@ function renderGameLogTabs() {
   }
 
   const seasons = [...new Set(recentGameLogSource().map((game) => String(game.season || String(game.fullDate || "").slice(0, 4))).filter((season) => /^\d{4}$/.test(season)))].sort().concat("all");
-  if (els.gamelogSeasonRow) {
-    els.gamelogSeasonRow.innerHTML = seasons.map((season) => `<option value="${season}">${season === "all" ? "All" : season}</option>`).join("");
-    els.gamelogSeasonRow.value = gameLogState.season;
-  }
+  els.gamelogSeasonBridge?.setOptions(seasons.map((season) => ({ value: season, label: season === "all" ? "All" : season })));
+  els.gamelogSeasonBridge?.setValue(gameLogState.season);
   renderGameLogSubfilters();
 }
 
@@ -3213,21 +3219,20 @@ function wireGameLogModal() {
     if (!btn) return;
     setGameLogWindow(btn.dataset.window);
   });
-  els.gamelogSeasonRow?.addEventListener("change", () => {
-    gameLogState.season = els.gamelogSeasonRow.value;
+  window.addEventListener("vortex:gamelog-season-pick", (event) => {
+    gameLogState.season = event.detail.value;
     gameLogState.window = "recent";
     gameLogState.animationDirection = "initial";
     renderGameLogTabs(); renderGameLogChart();
   });
-  els.glHandFilter.addEventListener("change", () => {
-    if (els.glHandFilter.disabled) return;
-    gameLogState.handFilter = els.glHandFilter.value;
+  window.addEventListener("vortex:gamelog-hand-pick", (event) => {
+    gameLogState.handFilter = event.detail.value;
     renderGameLogSubfilters();
     renderGameLogTabs();
     renderGameLogChart();
   });
-  els.glVenueFilter.addEventListener("change", () => {
-    gameLogState.venueFilter = els.glVenueFilter.value;
+  window.addEventListener("vortex:gamelog-venue-pick", (event) => {
+    gameLogState.venueFilter = event.detail.value;
     renderGameLogSubfilters();
     renderGameLogTabs();
     renderGameLogChart();

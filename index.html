@@ -195,25 +195,24 @@
       </div>
     </div>
     <div class="gamelog-filter-panel" id="gamelog-filter-panel" aria-label="Game log filters">
+      <!-- These three used to be native <select> elements -- a browser's
+           own <option> popup can't be restyled (it renders outside CSS's
+           reach), which is exactly the mismatched white/blue list a
+           native select shows. Replaced with the same React-mounted
+           Select component already used for the PrizePicks-lines and
+           stat pickers (components/ui/select.tsx, mounted via
+           window.vortexMountSimpleSelect in src/main.jsx). -->
       <div class="gamelog-filter-field">
         <span>Season</span>
-        <select class="gamelog-combobox" id="gamelog-season-row"></select>
+        <div id="gamelog-season-select-root"></div>
       </div>
       <div class="gamelog-filter-field" id="gl-hand-field" hidden>
         <span>Matchup</span>
-        <select class="gamelog-combobox" id="gl-hand-filter">
-          <option value="all">All</option>
-          <option value="L">vs LHP</option>
-          <option value="R">vs RHP</option>
-        </select>
+        <div id="gamelog-hand-select-root"></div>
       </div>
       <div class="gamelog-filter-field">
         <span>Location</span>
-        <select class="gamelog-combobox" id="gl-venue-filter">
-          <option value="all">All</option>
-          <option value="home">Home</option>
-          <option value="road">Road</option>
-        </select>
+        <div id="gamelog-venue-select-root"></div>
       </div>
     </div>
     </div>

@@ -273,3 +273,53 @@ if (gamelogLinesSelectRoot) {
     onPick: (value) => window.dispatchEvent(new CustomEvent('vortex:gamelog-line-pick', { detail: { value: Number(value) } })),
   });
 }
+
+// A plain single-value picker (Season/Matchup/Location on the Trend tab):
+// same Select component as the stat/alt-lines pickers above, just with a
+// caller-supplied, static-ish option list instead of a fetched one. Value
+// updates locally on pick (like StatSelectHost) since there's no external
+// "is this pick still valid" check the way PrizePicks lines needs.
+function SimpleSelectHost({ controllerRef, onPick, ariaLabel }) {
+  const [options, setOptions] = useState([]);
+  const [value, setValue] = useState('');
+  const [disabled, setDisabled] = useState(false);
+  controllerRef.current = { setOptions, setValue, setDisabled };
+  return (
+    <Select value={value} onValueChange={(next) => { setValue(next); onPick(next); }} disabled={disabled}>
+      <SelectTrigger placeholder="All" aria-label={ariaLabel} />
+      <SelectContent>
+        {options.map((opt, index) => <SelectItem key={opt.value} index={index} value={opt.value}>{opt.label}</SelectItem>)}
+      </SelectContent>
+    </Select>
+  );
+}
+window.vortexMountSimpleSelect = (host, { onPick, ariaLabel }) => {
+  const controllerRef = { current: null };
+  createRoot(host).render(<SimpleSelectHost ariaLabel={ariaLabel} controllerRef={controllerRef} onPick={onPick} />);
+  return {
+    setOptions: (list) => controllerRef.current?.setOptions(list),
+    setValue: (v) => controllerRef.current?.setValue(v),
+    setDisabled: (d) => controllerRef.current?.setDisabled(d),
+  };
+};
+const gamelogSeasonSelectRoot = document.getElementById('gamelog-season-select-root');
+if (gamelogSeasonSelectRoot) {
+  window.vortexGamelogSeasonSelect = window.vortexMountSimpleSelect(gamelogSeasonSelectRoot, {
+    ariaLabel: 'Season',
+    onPick: (value) => window.dispatchEvent(new CustomEvent('vortex:gamelog-season-pick', { detail: { value } })),
+  });
+}
+const gamelogHandSelectRoot = document.getElementById('gamelog-hand-select-root');
+if (gamelogHandSelectRoot) {
+  window.vortexGamelogHandSelect = window.vortexMountSimpleSelect(gamelogHandSelectRoot, {
+    ariaLabel: 'Matchup',
+    onPick: (value) => window.dispatchEvent(new CustomEvent('vortex:gamelog-hand-pick', { detail: { value } })),
+  });
+}
+const gamelogVenueSelectRoot = document.getElementById('gamelog-venue-select-root');
+if (gamelogVenueSelectRoot) {
+  window.vortexGamelogVenueSelect = window.vortexMountSimpleSelect(gamelogVenueSelectRoot, {
+    ariaLabel: 'Location',
+    onPick: (value) => window.dispatchEvent(new CustomEvent('vortex:gamelog-venue-pick', { detail: { value } })),
+  });
+}
