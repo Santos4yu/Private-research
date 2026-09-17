@@ -14,6 +14,10 @@ let reportSequence = 0;
 // be a popup you "opened"; now it just always lives in the Trend tab, and
 // opening it means switching to that tab instead.
 let currentSelect = null;
+// The game-log overlay node, kept across mounts so it survives a report
+// teardown even if it was still attached inside one -- see where it's used
+// in mountResearchTabs().
+let gamelogNode = null;
 export function focusResearchTab(key) {
   currentSelect?.(key, { scroll: true });
 }
@@ -99,8 +103,16 @@ export function mountResearchTabs(report, prop) {
   // (app.js keeps populating the same DOM node across player/prop
   // switches), so it's relocated here rather than built fresh -- same
   // move-not-copy approach as everything else in this function.
-  const gamelog = document.getElementById('gamelog-overlay');
-  if (gamelog) panels.get('trend').append(gamelog);
+  // Remembered across mounts on purpose: getElementById only finds attached
+  // nodes, so if any teardown path ever removes the report while the
+  // overlay is still inside it, the lookup returns null and the Trend tab
+  // would stay empty for the rest of the session. Holding the reference
+  // lets us re-attach the very same node (state, listeners and all) even
+  // after it's been detached. app.js parks it on <body> before tearing a
+  // report down (see parkGameLogOverlay) -- this is the backstop for any
+  // path that ever forgets to.
+  gamelogNode = document.getElementById('gamelog-overlay') || gamelogNode;
+  if (gamelogNode) panels.get('trend').append(gamelogNode);
   disclose(report.querySelector('.why-list')?.closest('.report-block'), 'All supporting factors', 'overview');
   move('.alternate-props-block', 'overview');
   move('.form-ladder-block', 'trend');

@@ -2506,6 +2506,7 @@ async function fetchLivePrediction(player, stat, line, side, token) {
 }
 
 function renderLoadingState(player, stat, line, side) {
+  parkGameLogOverlay();
   els.reportWrap.querySelector(".report")?.remove();
   removeResearchLoader();
   els.emptyState.hidden = true;
@@ -2576,7 +2577,25 @@ function syncProfileHeaderWithProp(p) {
   }
 }
 
+// #gamelog-overlay starts as a top-level element in index.html and becomes
+// a descendant of ".report" the first time mountResearchTabs() moves it
+// into the Trend tab. From then on ANY teardown of the report takes the
+// overlay down with it, and since it's found by id, a detached one is
+// unreachable -- mountResearchTabs() then can't re-add it and the Trend
+// tab stays empty for the rest of the session. Park it back on <body>
+// before tearing the report down. Every teardown path has to call this;
+// renderLoadingState() not doing so is what made the Trend tab vanish at
+// seemingly random times, since it runs on every live research fetch
+// (the static-match path skips it, which is why it only sometimes broke).
+// mountResearchTabs() also keeps its own reference as a second line of
+// defence -- see src/report-tabs.js.
+function parkGameLogOverlay() {
+  const overlay = document.getElementById("gamelog-overlay");
+  if (overlay && overlay.parentElement !== document.body) document.body.appendChild(overlay);
+}
+
 function clearReport() {
+  parkGameLogOverlay();
   els.reportWrap.querySelector(".report")?.remove();
   removeResearchLoader();
   // Keep the mounted research-home buttons intact when a player or stat changes.
@@ -2588,18 +2607,7 @@ function clearReport() {
 function renderReport(p) {
   hideResults();
   els.emptyState.hidden = true;
-  // #gamelog-overlay starts as a top-level element in index.html and only
-  // becomes a descendant of ".report" once mountResearchTabs() first moves
-  // it into the Trend tab. On every render AFTER the first, the line below
-  // would remove ".report" -- and #gamelog-overlay along with it, since
-  // it's now nested inside -- leaving it fully detached from the document.
-  // The next mountResearchTabs() call's document.getElementById(
-  // 'gamelog-overlay') then returns null, so it's silently never
-  // reattached: the Trend tab's chart is gone until a full page reload.
-  // Rescue it back out to a stable parent first so removing the old report
-  // can't take it down too.
-  const gamelogOverlay = document.getElementById("gamelog-overlay");
-  if (gamelogOverlay) document.body.appendChild(gamelogOverlay);
+  parkGameLogOverlay();
   els.reportWrap.querySelector(".report")?.remove();
   removeResearchLoader();
   syncProfileHeaderWithProp(p);
