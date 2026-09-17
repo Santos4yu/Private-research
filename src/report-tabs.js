@@ -19,6 +19,15 @@ let currentSelect = null;
 // in mountResearchTabs().
 let gamelogNode = null;
 export function focusResearchTab(key) {
+  if (!tabs.some((tab) => tab.key === key)) return;
+  // Recorded even when nothing is mounted yet. The Finder asks for the Trend
+  // tab while its report is still being fetched, so the panel that will show
+  // it doesn't exist until mountResearchTabs() runs -- and with only the
+  // currentSelect call below, that request was dropped on the floor and the
+  // report opened on whatever tab was last used (Overview). mountResearchTabs
+  // ends with select(selectedTab), so setting it here is what makes the
+  // not-yet-built report come up on the right tab.
+  selectedTab = key;
   currentSelect?.(key, { scroll: true });
 }
 

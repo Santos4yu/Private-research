@@ -171,12 +171,23 @@ def _prizepicks_lines(player_name, stat_label, opponent):
     # back depends entirely on the market: traditional sportsbooks carry the
     # single-stat markets, while combo markets (hits+runs+RBIs) are usually
     # only quoted by the pick'em/exchange books.
+    # Sportsbook prices are collected for EVERY line a book quotes, not just
+    # the ones PrizePicks happens to post. Keeping them in their own map
+    # matters for two reasons: "lines" below is the PrizePicks projection
+    # ladder and must stay exactly that (adding lines PrizePicks doesn't
+    # offer would put fictional entries in its picker), and odds should
+    # still be available at whatever line the user steps to. Previously a
+    # quote was dropped unless PrizePicks had the identical line, which --
+    # combined with only the featured market being requested -- is why odds
+    # showed at a single line and disappeared everywhere else.
+    book_rows = {}
+    quote_markets = {market, f"{market}_alternate"}
     for book in payload.get("quotes", {}).get("bookmakers", []):
         book_key = book.get("key")
         if not book_key:
             continue
         for market_row in book.get("markets", []):
-            if market_row.get("key") != market:
+            if market_row.get("key") not in quote_markets:
                 continue
             for outcome in market_row.get("outcomes", []):
                 if _norm(outcome.get("description")) != _norm(player_name):
@@ -185,13 +196,16 @@ def _prizepicks_lines(player_name, stat_label, opponent):
                     point, price = float(outcome.get("point")), int(outcome.get("price"))
                 except (TypeError, ValueError):
                     continue
-                row = rows.get(point)
-                if not row:
-                    continue
                 side = str(outcome.get("name") or "").lower()
                 if side not in ("over", "under"):
                     continue
-                row["books"].setdefault(book_key, {"over": None, "under": None})[side] = price
+                quote = book_rows.setdefault(point, {}).setdefault(book_key, {"over": None, "under": None})
+                quote[side] = price
+                # Mirrored onto the matching ladder row where one exists, so
+                # existing consumers of "lines" keep working unchanged.
+                row = rows.get(point)
+                if row:
+                    row["books"].setdefault(book_key, {"over": None, "under": None})[side] = price
     for row in rows.values():
         row["tier"] = ("STANDARD" if row["featured"] else
                        "DEMON" if row.get("prizePicksPrice") == 100 else "GOBLIN")
@@ -199,6 +213,7 @@ def _prizepicks_lines(player_name, stat_label, opponent):
         "player": player_name, "stat": stat_label, "book": "PrizePicks",
         "eventId": event["id"], "lastUpdate": updated,
         "lines": sorted(rows.values(), key=lambda row: row["line"]),
+        "bookLines": [{"line": point, "books": books} for point, books in sorted(book_rows.items())],
     }
     _ODDS_CACHE[cache_key] = (time.time(), result)
     return result

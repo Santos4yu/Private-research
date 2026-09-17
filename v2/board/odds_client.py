@@ -164,9 +164,11 @@ QUOTE_BOOKS = [
 def fetch_prizepicks_prop_lines(event_id: str, market: str) -> dict:
     """Fetch PrizePicks' projection ladder plus matching sportsbook prices.
 
-    PrizePicks Goblins/Demons live in the DFS ``_alternate`` market. The
-    other books are deliberately requested only for the featured market,
-    never its alts.
+    Both PrizePicks (whose Goblins/Demons live in the DFS ``_alternate``
+    market) and the sportsbooks are asked for the featured market AND its
+    alternates. The books used to be asked for the featured market only,
+    which returns a single line each -- so odds appeared at one line and
+    vanished as soon as the line was stepped anywhere else.
     """
     markets = [market]
     if not market.endswith("_alternate"):
@@ -180,7 +182,7 @@ def fetch_prizepicks_prop_lines(event_id: str, market: str) -> dict:
         quotes_response = _get(
             f"/sports/{SPORT_KEY}/events/{event_id}/odds",
             {"bookmakers": ",".join(QUOTE_BOOKS),
-             "markets": market, "oddsFormat": "american"},
+             "markets": ",".join(markets), "oddsFormat": "american"},
         )
     except RuntimeError:
         quotes_response = None

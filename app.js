@@ -2985,7 +2985,11 @@ async function loadGameLogBookOdds(stat, player = gameLogState.player) {
     const data = await response.json();
     if (token !== gamelogBookOddsToken) return;
     if (!response.ok || data.error) throw new Error(data.error || "Odds unavailable");
-    gamelogBookOddsRows = data.lines || [];
+    // bookLines covers every line the sportsbooks quote, including ones
+    // PrizePicks doesn't post; data.lines (the PrizePicks ladder, which only
+    // carries book prices where a line happens to coincide) is the fallback
+    // for a cached response from before that field existed.
+    gamelogBookOddsRows = data.bookLines?.length ? data.bookLines : (data.lines || []);
   } catch (_) {
     if (token !== gamelogBookOddsToken) return;
     gamelogBookOddsRows = [];
