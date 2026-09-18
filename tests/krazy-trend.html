@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>Krazy Data · Trend design preview</title>
+  <title>Krazy Data · Trend switching preview</title>
   <style>
     body { margin:0; }
     .fixture-page { width:min(1160px,100%); margin:0 auto; padding:20px; box-sizing:border-box; }
@@ -17,9 +17,9 @@
 <body>
   <main class="fixture-page">
     <aside class="fixture-notice">
-      <strong>Krazy Data design preview · synthetic sample data</strong>
-      These player results and prices are made up for layout testing. This page makes no live API requests.
-      <div><button id="fixture-reset" type="button">Reset sample</button><button id="fixture-empty" type="button">Empty sample</button><button id="fixture-dense" type="button">Dense season sample</button></div>
+      <strong>Krazy Data Trend preview · synthetic sample data</strong>
+      Switch between K and OUTS quickly, or adjust the line during loading. These made-up results use the production switching and chart handlers with delayed local responses. No live stats API requests.
+      <div><button id="fixture-reset" type="button">Reset sample</button><button id="fixture-slow" type="button">Slow reload</button><button id="fixture-failure" type="button">Recoverable failure</button><button id="fixture-empty" type="button">Empty sample</button><button id="fixture-dense" type="button">Dense season sample</button></div>
       <output id="fixture-status" aria-live="polite">Loading production research components…</output>
     </aside>
     <div id="fixture-report"></div>

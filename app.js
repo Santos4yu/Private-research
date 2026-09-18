@@ -17,6 +17,7 @@ import {initSiteAccess,siteTabAllowed,loadSiteControls,showLockedTab,availableSi
  */
 import { mountResearchTabs, focusResearchTab } from './src/report-tabs.js';
 import { finderMarket, finderRows, historyChart, nameKey } from './src/prop-finder-core.js';
+import { createTrendCache, trendContextKey, gradeTrendChart, mergeTrendCharts } from './src/trend-data.js';
 import { liveBuilderProp, historicalSides } from './src/builder-live-core.js';
 
 const DATA_SOURCE = "/predictions.json";
@@ -2701,7 +2702,14 @@ let gameLogState = {
   // otherwise light up "Season" instead of the button actually clicked.
   windowKey: "10",
   filtersOpen: false, animationDirection: "none",
+  loading: false, error: '', lineEdited: false, dragging: false,
 };
+const gameLogDetailsCache = createTrendCache();
+const gameLogOddsCache = createTrendCache({ maxAge: 120000 });
+const gameLogCustomLines = new Map();
+function gameLogLineKey() {
+  return `${nameKey(gameLogState.player)}|${gameLogState.stat}`;
+}
 
 function snapPropLine(value) {
   return Math.max(0.5, Math.round(Number(value) - 0.5) + 0.5);
@@ -2712,7 +2720,7 @@ const GAMELOG_STAT_CODES = {
   "Home Runs": "HR", "RBIs": "RBI", "Runs Scored": "R",
   "Strikeouts": "SO", "Walks": "BB", "Fantasy Score": "FS",
   "Strikeouts (Pitcher)": "K", "Pitching Outs": "OUTS",
-  "Earned Runs Allowed": "ER", "Hits Allowed": "HA", "Walks Allowed": "BB",
+  "Earned Runs Allowed": "ER", "Hits Allowed": "HA", "Walks Allowed": "PBB",
   "Fantasy Score (Pitcher)": "PFS",
 };
 const MLB_TEAM_IDS = { ARI:109, AZ:109, ATL:144, BAL:110, BOS:111, CHC:112, CWS:145, CIN:113, CLE:114, COL:115, DET:116, HOU:117, KC:118, LAA:108, LAD:119, MIA:146, MIL:158, MIN:142, NYM:121, NYY:147, OAK:133, PHI:143, PIT:134, SD:135, SEA:136, SF:137, STL:138, TB:139, TEX:140, TOR:141, WSH:120 };
@@ -2723,9 +2731,7 @@ function gameLogStatCode(stat) {
 }
 
 function regradeGameLog(line) {
-  Object.values(gameLogState.chart || {}).forEach((games) => {
-    (games || []).forEach((game) => { game.over = Number(game.value) > line; });
-  });
+  gameLogState.chart = gradeTrendChart(gameLogState.chart, line);
 }
 
 function syncGameLogContext({ matchup, status } = {}) {
@@ -2741,11 +2747,16 @@ function syncGameLogContext({ matchup, status } = {}) {
   if (statusEl && status !== undefined) statusEl.textContent = String(status || "Pre-game").toUpperCase();
 }
 
-function setGameLogPreviewLine(value, settle = false) {
+function setGameLogPreviewLine(value, settle = false, userInitiated = true) {
   const viewportState=captureGameLogViewport();
   const raw = Math.max(0.5, Number(value) || 0.5);
   const line = settle ? snapPropLine(raw) : raw;
   gameLogState.line = line;
+  if (userInitiated) {
+    gameLogState.lineEdited = true;
+    gameLogCustomLines.set(gameLogLineKey(), line);
+  }
+  els.gamelogLinesBridge?.setValue(String(line));
   if (els.gamelogLineValue) els.gamelogLineValue.textContent = Number(line).toFixed(1);
   syncGameLogContext();
   renderGameLogBookOdds();
@@ -2754,7 +2765,10 @@ function setGameLogPreviewLine(value, settle = false) {
     renderGameLogTabs();
   }
   renderGameLogChart();
-  if (activeFinderProp) renderLineMovement({...activeFinderProp,line});
+  if (activeFinderProp) {
+    activeFinderProp = {...activeFinderProp, player: gameLogState.player, betType: gameLogState.stat, line};
+    renderLineMovement(activeFinderProp);
+  }
   restoreGameLogViewport(viewportState);
 }
 
@@ -2770,81 +2784,111 @@ function restoreGameLogViewport(saved) {
 
 function populateGameLogStats() {
   const stats = gameLogState.availableStats || (gameLogState.isPitcher ? PITCHER_STATS : BATTER_STATS);
-  els.gamelogStatTabs.innerHTML = stats.map((stat) => `<button type="button" data-stat="${escapeHtml(stat)}" class="${stat === gameLogState.stat ? "active" : ""}">${escapeHtml(gameLogStatCode(stat))}</button>`).join("");
+  els.gamelogStatTabs.innerHTML = stats.filter(stat => finderMarket(stat)).map((stat) => `<button type="button" data-stat="${escapeHtml(stat)}" title="${escapeHtml(stat)}" aria-label="${escapeHtml(stat)}" aria-pressed="${stat === gameLogState.stat}" class="${stat === gameLogState.stat ? "active" : ""}">${escapeHtml(gameLogStatCode(stat))}</button>`).join("");
 }
 
-async function loadGameLogStat(stat) {
-  loadGameLogPostedLines(stat);
-  loadGameLogBookOdds(stat);
+async function loadGameLogStat(stat, { initialProp = null } = {}) {
   const token = ++gameLogState.fetchToken;
+  const previousPitcher = gameLogState.isPitcher;
   gameLogState.stat = stat;
-  syncGameLogContext();
-  gameLogState.chart = {};
-  els.gamelogStatTabs?.querySelectorAll("button").forEach((button) => { button.disabled = true; });
-  els.gamelogChart.classList.add("is-loading");
-  els.gamelogTitle.textContent = gameLogState.player || "Player";
-  els.gamelogStatTabs?.querySelectorAll("button").forEach((button) => button.classList.toggle("active", button.dataset.stat === stat));
-  try {
-    // Each market has its own PrizePicks baseline. Resolve that line before
-    // fetching the new log so switching to K/OUTS/etc. never inherits the
-    // previous market's number.
-    let resolvedPrizePicksLine = false;
-    try {
-      const feed = await requestFinderFeed();
-      if (token !== gameLogState.fetchToken) return;
-      const options = feed.filter(row => nameKey(row.player) === nameKey(gameLogState.player) && pitcherFinderStat(row.stat).label === stat);
-      const posted = options.find(row => row.odds_type === 'standard') || options[0];
-      if (posted && Number.isFinite(Number(posted.line))) {
-        gameLogState.line = Number(posted.line);
-        els.gamelogLineValue.textContent = gameLogState.line.toFixed(1);
-        syncGameLogContext();
-        resolvedPrizePicksLine = true;
-      }
-    } catch (_) { /* fall back to the current line when live lines are unavailable */ }
-    if (!resolvedPrizePicksLine && Number.isFinite(Number(STAT_DEFAULT_LINE[stat]))) {
-      gameLogState.line = STAT_DEFAULT_LINE[stat];
-      els.gamelogLineValue.textContent = gameLogState.line.toFixed(1);
-      syncGameLogContext();
-    }
-    if (finderMarket(stat)) {
-      try {
-        const row = {player:gameLogState.player, stat, line:gameLogState.line};
-        const payload = await requestFinderHistory(row);
-        if (token !== gameLogState.fetchToken) return;
-        gameLogState.chart = historyChart(payload,row);
-        gameLogState.window = 'recent';
-        regradeGameLog(gameLogState.line);
-        renderGameLogTabs(); renderGameLogChart();
-        els.gamelogChart.classList.remove('is-loading');
-      } catch { /* Detailed lookup can recover a missing lightweight history. */ }
-    }
-    const url = `/api/game-log-filters?player=${encodeURIComponent(gameLogState.player)}&stat=${encodeURIComponent(stat)}&line=${gameLogState.line}&season=all` +
-      (gameLogState.teamId ? `&teamId=${gameLogState.teamId}` : "") +
-      (gameLogState.opponent ? `&opponent=${encodeURIComponent(gameLogState.opponent)}` : "");
-    const res = await fetch(url);
-    const data = await res.json();
-    if (token !== gameLogState.fetchToken) return;
-    if (!res.ok || data.error) throw new Error(data.error || "Unable to load this stat");
-    gameLogState.chart = data;
-    regradeGameLog(gameLogState.line);
-    gameLogState.window = "recent";
-  } catch (err) {
-    els.gamelogSub.textContent = err.message || "This stat is unavailable right now.";
-  } finally {
-    if (token === gameLogState.fetchToken) {
-      els.gamelogStatTabs?.querySelectorAll("button").forEach((button) => { button.disabled = false; });
-      els.gamelogChart.classList.remove("is-loading");
-      renderGameLogTabs();
-      renderGameLogChart();
-    }
+  gameLogState.isPitcher = !!finderMarket(stat)?.pitcher;
+  if (previousPitcher !== gameLogState.isPitcher) gameLogState.handFilter = 'all';
+  gameLogState.dragging = false;
+  gameLogState.chart = gradeTrendChart(initialProp?.gameLogChart || {}, initialProp?.line);
+  gameLogState.error = '';
+  gameLogState.loading = true;
+  gameLogState.handDataLoaded = false;
+  gameLogState.animationDirection = 'none';
+  if (gameLogState.window === 'h2h' || gameLogState.windowKey === 'h2h') {
+    gameLogState.window = 'recent';
+    gameLogState.windowKey = '10';
+    gameLogState.gameCount = 10;
   }
+  const remembered = gameLogCustomLines.get(gameLogLineKey());
+  const requestedLine = Number(initialProp?.line ?? remembered ?? STAT_DEFAULT_LINE[stat] ?? 0.5);
+  gameLogState.line = Number.isFinite(requestedLine) ? requestedLine : 0.5;
+  gameLogState.lineEdited = initialProp != null || remembered != null;
+  els.gamelogLineValue.textContent = gameLogState.line.toFixed(1);
+  if (els.gamelogPropBadge) els.gamelogPropBadge.textContent = gameLogStatCode(stat);
+  if (els.gamelogHandField) els.gamelogHandField.hidden = gameLogState.isPitcher;
+  els.gamelogTitle.textContent = gameLogState.player || "Player";
+  if (activeFinderProp) {
+    activeFinderProp = { ...activeFinderProp, player: gameLogState.player, betType: stat, line: gameLogState.line };
+    renderLineMovement(activeFinderProp);
+  }
+  els.gamelogStatTabs?.querySelectorAll('button').forEach(button => {
+    button.disabled = false;
+    button.classList.toggle('active', button.dataset.stat === stat);
+    button.setAttribute('aria-pressed', String(button.dataset.stat === stat));
+  });
+  syncGameLogContext();
+  const context = { player: gameLogState.player, stat, teamId: gameLogState.teamId, opponent: gameLogState.opponent };
+  const current = () => token === gameLogState.fetchToken && context.player === gameLogState.player && stat === gameLogState.stat;
+  let detailed = false;
+  const paint = () => {
+    if (!current()) return;
+    if (recentGameLogSource().length) gameLogState.loading = false;
+    regradeGameLog(gameLogState.line);
+    els.glHandFilterBridge?.setDisabled(!gameLogState.handDataLoaded);
+    renderGameLogTabs(); renderGameLogChart();
+  };
+  const accept = (data, isDetail = false) => {
+    if (!current() || (!isDetail && detailed)) return;
+    detailed ||= isDetail;
+    gameLogState.chart = gameLogState.isPitcher ? data : mergeTrendCharts(gameLogState.chart, data);
+    gameLogState.handDataLoaded = isDetail;
+    if (data.meta?.player_id && !initialProp?.headshot && els.gamelogPlayerCutout) {
+      els.gamelogPlayerCutout.innerHTML = `<img src="https://img.mlbstatic.com/mlb-photos/image/upload/w_300/v1/people/${encodeURIComponent(data.meta.player_id)}/headshot/silo/current" alt="">`;
+    }
+    paint();
+  };
+  // Raw pitching history contains every supported pitching stat. Recalculate
+  // locally; do not replace starts with the detail endpoint's relief games.
+  const cachedHistory = finderMarket(stat) ? cachedFinderHistory(context) : null;
+  const cachedDetails = gameLogState.isPitcher ? null : gameLogDetailsCache.peek(trendContextKey(context));
+  if (cachedDetails) accept(cachedDetails, true);
+  else if (cachedHistory) accept(historyChart(cachedHistory, { ...context, line: gameLogState.line }));
+  else paint(); // Clear the previous market's bars before any network response.
+  const lines = loadGameLogPostedLines(stat, context.player);
+  loadGameLogBookOdds(stat, context.player);
+  if (!finderMarket(stat)) {
+    gameLogState.chart = {};
+    gameLogState.loading = false;
+    gameLogState.error = 'This market is not supported yet.';
+    paint();
+    return;
+  }
+  const requests = [];
+  if (!cachedHistory && !cachedDetails) requests.push(requestFinderHistory(context).then(payload => {
+    accept(historyChart(payload, { ...context, line: gameLogState.line }));
+  }));
+  if (!gameLogState.isPitcher && !cachedDetails) requests.push(requestGameLogDetails(context).then(data => accept(data, true)));
+  const results = await Promise.allSettled(requests);
+  if (!current()) return;
+  const wasLoading = gameLogState.loading;
+  gameLogState.loading = false;
+  if (results.length && results.every(result => result.status === 'rejected') && !recentGameLogSource().length) {
+    gameLogState.error = 'Could not load this stat. Try again.';
+  }
+  if (requests.length || wasLoading) paint();
+  await lines;
+}
+
+function requestGameLogDetails(context) {
+  return gameLogDetailsCache.request(trendContextKey(context), async () => {
+    const url = `/api/game-log-filters?player=${encodeURIComponent(context.player)}&stat=${encodeURIComponent(context.stat)}&line=0.5&season=all` +
+      (context.teamId ? `&teamId=${encodeURIComponent(context.teamId)}` : '') +
+      (context.opponent ? `&opponent=${encodeURIComponent(context.opponent)}` : '');
+    const response = await fetch(url, { signal: AbortSignal.timeout(30000) });
+    const data = await response.json();
+    if (!response.ok || data.error) throw new Error(data.error || 'History unavailable');
+    return data;
+  });
 }
 
 function openGameLogModal(p) {
   activeFinderProp = p;
-  loadGameLogPostedLines(p.betType, p.player);
-  loadGameLogBookOdds(p.betType, p.player);
-  gameLogState.chart = p.gameLogChart || {};
+  gameLogState.chart = gradeTrendChart(p.gameLogChart || {}, p.line);
   if (!gameLogState.chart.all) {
     gameLogState.chart.all = [...(gameLogState.chart.l20 || gameLogState.chart.l15 || gameLogState.chart.l10 || gameLogState.chart.l5 || [])];
   }
@@ -2917,7 +2961,7 @@ function openGameLogModal(p) {
   const isPitcherProp = gameLogState.isPitcher;
   if (els.gamelogHandField) els.gamelogHandField.hidden = isPitcherProp;
   renderGameLogSubfilters();
-  fetchGameLogDetails(p);
+  loadGameLogStat(p.betType, { initialProp: p });
   renderLineMovement(p);
 }
 
@@ -2928,18 +2972,26 @@ function gamelogLineTier(row) {
 }
 async function loadGameLogPostedLines(stat, player = gameLogState.player) {
   const token = ++postedLinesToken;
+  const requestToken = gameLogState.fetchToken;
+  const current = () => token === postedLinesToken && requestToken === gameLogState.fetchToken && stat === gameLogState.stat && player === gameLogState.player;
   gamelogPostedLinesContext = { stat, player };
+  els.gamelogLinesBridge?.setLines([]);
+  els.gamelogLinesBridge?.setValue('');
   els.gamelogLinesBridge?.setStatus('loading');
   try {
     const feed = await requestFinderFeed();
-    if (token !== postedLinesToken) return;
-    const rows = feed.filter(row => nameKey(row.player) === nameKey(player) && pitcherFinderStat(row.stat).label === stat).sort((a,b) => a.line-b.line);
-    if (!rows.length) throw new Error('No posted lines available for this market.');
+    if (!current()) return;
+    const rows = feed.filter(row => nameKey(row.player) === nameKey(player) && pitcherFinderStat(row.stat).label === stat && Number.isFinite(Number(row.line))).sort((a,b) => a.line-b.line);
+    if (!rows.length) { els.gamelogLinesBridge?.setStatus('empty'); return; }
+    const baseline = rows.find(row => (row.odds_type || 'standard') === 'standard') || rows[0];
+    // A quote arriving late must not undo a step, drag, or saved custom line.
+    if (!gameLogState.lineEdited && Number(baseline.line) !== gameLogState.line) setGameLogPreviewLine(Number(baseline.line), true, false);
     const currentRow = rows.find(row => Number(row.line) === Number(gameLogState.line));
-    els.gamelogLinesBridge?.setLines(rows.map(row => ({ value: row.line, tier: gamelogLineTier(row) })));
+    const unique = [...new Map(rows.map(row => [Number(row.line), row])).values()];
+    els.gamelogLinesBridge?.setLines(unique.map(row => ({ value: row.line, tier: gamelogLineTier(row) })));
     els.gamelogLinesBridge?.setValue(currentRow ? String(gameLogState.line) : '');
     els.gamelogLinesBridge?.setStatus('ready');
-  } catch (_) { if (token === postedLinesToken) els.gamelogLinesBridge?.setStatus('error'); }
+  } catch (_) { if (current()) els.gamelogLinesBridge?.setStatus('error'); }
 }
 
 // Real per-line sportsbook odds, matching pickfinder.app's odds-pill row.
@@ -2978,20 +3030,24 @@ let gamelogBookOddsToken = 0;
 let gamelogBookOddsRows = [];
 async function loadGameLogBookOdds(stat, player = gameLogState.player) {
   const token = ++gamelogBookOddsToken;
-  const opponent = gameLogState.opponent || currentResearchProp?.matchup?.opponent || "";
+  const requestToken = gameLogState.fetchToken;
+  const current = () => token === gamelogBookOddsToken && requestToken === gameLogState.fetchToken && stat === gameLogState.stat && player === gameLogState.player;
+  const opponent = gameLogState.opponent || '';
+  const key = trendContextKey({ player, stat, opponent });
+  gamelogBookOddsRows = gameLogOddsCache.peek(key) || [];
+  renderGameLogBookOdds();
   try {
     const url = `${API_SOURCE}?action=prizepicks-lines&player=${encodeURIComponent(player)}&stat=${encodeURIComponent(stat)}&opponent=${encodeURIComponent(opponent)}`;
-    const response = await fetch(url, { cache: "no-store" });
-    const data = await response.json();
-    if (token !== gamelogBookOddsToken) return;
-    if (!response.ok || data.error) throw new Error(data.error || "Odds unavailable");
-    // bookLines covers every line the sportsbooks quote, including ones
-    // PrizePicks doesn't post; data.lines (the PrizePicks ladder, which only
-    // carries book prices where a line happens to coincide) is the fallback
-    // for a cached response from before that field existed.
-    gamelogBookOddsRows = data.bookLines?.length ? data.bookLines : (data.lines || []);
+    const rows = await gameLogOddsCache.request(key, async () => {
+      const response = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+      const data = await response.json();
+      if (!response.ok || data.error) throw new Error(data.error || 'Odds unavailable');
+      return data.bookLines?.length ? data.bookLines : (data.lines || []);
+    });
+    if (!current()) return;
+    gamelogBookOddsRows = rows;
   } catch (_) {
-    if (token !== gamelogBookOddsToken) return;
+    if (!current()) return;
     gamelogBookOddsRows = [];
   }
   renderGameLogBookOdds();
@@ -3028,58 +3084,6 @@ function renderGameLogBookOdds() {
   }).join("");
 }
 
-async function fetchGameLogDetails(p) {
-  const requestedStat = p.betType;
-  const requestedPlayer = p.player;
-  const requestToken = ++gameLogState.fetchToken;
-  const openedWithoutHistory = recentGameLogSource().length <= 1;
-  els.glHandFilterBridge?.setDisabled(true);
-  try {
-    if (openedWithoutHistory && finderMarket(p.betType)) {
-      try {
-        const row = {player:p.player, stat:p.betType, line:p.line};
-        const payload = await requestFinderHistory(row);
-        if (gameLogState.player !== requestedPlayer || gameLogState.fetchToken !== requestToken) return;
-        gameLogState.chart = historyChart(payload,row);
-        if (payload.player?.id) els.gamelogPlayerCutout.innerHTML = `<img src="https://img.mlbstatic.com/mlb-photos/image/upload/w_180/v1/people/${payload.player.id}/headshot/67/current" alt="">`;
-        renderGameLogTabs(); renderGameLogChart();
-      } catch { /* The full detail lookup below can still recover. */ }
-    }
-    const url = `/api/game-log-filters?player=${encodeURIComponent(p.player)}&stat=${encodeURIComponent(p.betType)}&line=${p.line}&season=all` +
-      (gameLogState.teamId ? `&teamId=${gameLogState.teamId}` : "") +
-      (gameLogState.opponent ? `&opponent=${encodeURIComponent(gameLogState.opponent)}` : "");
-    const res = await fetch(url);
-    const data = await res.json();
-    if (res.ok && !data.error && gameLogState.stat === requestedStat && gameLogState.player === requestedPlayer && gameLogState.fetchToken === requestToken) {
-      // Merge per-window, don't replace wholesale -- teamInsightsParams
-      // (and so gameLogState.teamId) can be null when the lineup/pitcher
-      // isn't confirmed yet, which means THIS fetch can't resolve H2H even
-      // though the initial card load already had it. Overwriting the whole
-      // chart in that case silently threw away good H2H data the moment
-      // this lazy fetch resolved. Only replace windows this fetch actually
-      // returned games for; leave everything else as it was.
-      for (const key of Object.keys(data)) if (Array.isArray(data[key])) gameLogState.chart[key] = data[key];
-      regradeGameLog(gameLogState.line);
-      const resolvedPlayerId = data.meta?.player_id;
-      if (resolvedPlayerId && !p.headshot) {
-        els.gamelogPlayerCutout.innerHTML = `<img src="https://img.mlbstatic.com/mlb-photos/image/upload/w_300,q_auto:best/v1/people/${encodeURIComponent(resolvedPlayerId)}/headshot/silo/current" alt="" onerror="this.src='https://img.mlbstatic.com/mlb-photos/image/upload/w_300,q_auto:best/v1/people/${encodeURIComponent(resolvedPlayerId)}/headshot/67/current';this.onerror=null;">`;
-      }
-      if (data.meta?.opponent_team_id) gameLogState.teamId = data.meta.opponent_team_id;
-      if (data.meta?.opponent) gameLogState.opponent = data.meta.opponent;
-      gameLogState.handDataLoaded = true;
-      // A background detail refresh must never look like a user-triggered
-      // chart transition.
-      gameLogState.animationDirection = "none";
-    }
-  } catch (err) {
-    console.error("game-log-filters fetch failed:", err);
-  } finally {
-    if (gameLogState.fetchToken !== requestToken || gameLogState.player !== requestedPlayer) return;
-    els.glHandFilterBridge?.setDisabled(false);
-    renderGameLogTabs();
-    renderGameLogChart();
-  }
-}
 
 function filterGames(games) {
   return games.filter((g) => {
@@ -3157,7 +3161,9 @@ function renderGameLogTabs() {
     els.gamelogTabs.innerHTML = windows.map((w) => {
       const active = w.key === gameLogState.windowKey;
       const stat = w.hitRate == null ? '<span class="gl-window-rate">—</span><span class="gl-window-avg">No games</span>' : `<span class="gl-window-rate${w.hitRate < 50 ? " is-low" : ""}">HR ${w.hitRate}%</span><span class="gl-window-avg">Avg ${w.avg.toFixed(2)}</span>`;
-      const title = w.capped ? ` title="Only ${w.sample} game${w.sample === 1 ? "" : "s"} match the current filters"` : "";
+      const titleText = w.key === 'h2h' && gameLogState.chart?.meta?.h2hLabel ? gameLogState.chart.meta.h2hLabel
+        : w.capped ? `Only ${w.sample} game${w.sample === 1 ? "" : "s"} match the current filters` : '';
+      const title = titleText ? ` title="${escapeHtml(titleText)}"` : '';
       return `<button type="button" class="${active ? "active" : ""}" aria-pressed="${active}"${w.capped ? ' data-capped="true"' : ""}${title} data-window="${w.key}"><strong>${w.label}</strong>${stat}</button>`;
     }).join("");
   }
@@ -3174,7 +3180,7 @@ function stabilizeGameLogLayout() {
   cancelAnimationFrame(gameLogLayoutFrame);
   gameLogLayoutFrame = requestAnimationFrame(() => {
     gameLogLayoutFrame = requestAnimationFrame(() => {
-      if (els.gamelogOverlay?.hidden || !els.gamelogChart) return;
+      if (els.gamelogOverlay?.hidden || !els.gamelogChart || gameLogState.dragging) return;
       const rect = els.gamelogChart.getBoundingClientRect();
       const signature = `${Math.round(rect.width)}x${Math.round(rect.height)}`;
       if (!rect.width || !rect.height || signature === gameLogLayoutSignature) return;
@@ -3195,9 +3201,14 @@ function formatGameLogDate(iso) {
 }
 
 function renderGameLogChart() {
+  // Background data may refresh during a pointer gesture. Keep the captured
+  // marker mounted until the gesture ends, then paint the latest results.
+  if (gameLogState.dragging) return;
   const pool = gameLogPool();
   const games = gameLogState.window === "h2h" ? pool : pool.slice(-gameLogState.gameCount);
   const holder = els.gamelogChart;
+  holder.classList.toggle('is-loading', gameLogState.loading && !recentGameLogSource().length);
+  holder.setAttribute('aria-busy', String(gameLogState.loading));
   holder.dataset.window = gameLogState.window;
   holder.dataset.change = gameLogState.animationDirection;
   holder.innerHTML = "";
@@ -3218,7 +3229,14 @@ function renderGameLogChart() {
     document.getElementById("gamelog-summary-rate-percent").textContent = "—";
     document.getElementById("gamelog-summary-record").textContent = "—";
     document.getElementById("gamelog-summary-average").textContent = "—";
-    holder.innerHTML = '<div class="gl-empty" role="status"><strong>No matching games</strong><p>Try another season, matchup, or location.</p></div>';
+    if (gameLogState.loading) {
+      holder.innerHTML = `<div class="gl-loading"><div class="gl-loading-bars" aria-hidden="true">${'<span></span>'.repeat(10)}</div><div role="status" aria-live="polite"><strong>Loading ${escapeHtml(gameLogState.stat)}…</strong><p>You can keep switching stats or adjust the line.</p></div></div>`;
+    } else if (gameLogState.error) {
+      holder.innerHTML = `<div class="gl-error" role="status"><strong>${escapeHtml(gameLogState.error)}</strong><button type="button" data-trend-retry>Try again</button></div>`;
+      holder.querySelector('[data-trend-retry]').addEventListener('click', () => loadGameLogStat(gameLogState.stat));
+    } else {
+      holder.innerHTML = '<div class="gl-empty" role="status"><strong>No matching games</strong><p>Try another season, matchup, or location.</p></div>';
+    }
     return;
   }
 
@@ -3299,7 +3317,7 @@ function renderGameLogChart() {
         </div>
       </div>
       <span class="gl-date">${escapeHtml(formatGameLogDate(fullDate))}</span>
-      <span class="gl-opp">${escapeHtml(String(g.opponent || "").slice(0, 4))}</span>
+      <span class="gl-opp">${escapeHtml(MLB_TEAM_ABBRS[opponentId] || String(g.opponent || "").slice(0, 4))}</span>
     `;
     const shell = col.querySelector(".gl-bar-shell");
     shell?.addEventListener("click", () => {
@@ -3335,9 +3353,13 @@ function renderGameLogChart() {
     });
     marker.addEventListener("pointerdown", (event) => {
       event.preventDefault();
+      gameLogState.dragging = true;
+      gameLogState.lineEdited = true;
       marker.setPointerCapture(event.pointerId);
+      const dragToken = gameLogState.fetchToken;
       const bounds = track.getBoundingClientRect();
       const update = (ev, settle) => {
+        if (dragToken !== gameLogState.fetchToken) return;
         const chartTop = bounds.top;
         const relative = Math.max(0, Math.min(trackPx, chartTop + trackPx - ev.clientY));
         const raw = Math.max(0.5, (relative / trackPx) * max);
@@ -3353,9 +3375,14 @@ function renderGameLogChart() {
       marker.onpointerup = (ev) => {
         marker.onpointermove = null;
         marker.onpointerup = null;
+        gameLogState.dragging = false;
         update(ev, true);
       };
-      marker.onpointercancel = marker.onpointerup;
+      marker.onpointercancel = marker.onlostpointercapture = () => {
+        if (!gameLogState.dragging) return;
+        gameLogState.dragging = false;
+        renderGameLogChart();
+      };
     });
     holder.appendChild(marker);
   }
@@ -3375,6 +3402,7 @@ function wireGameLogModal() {
   window.visualViewport?.addEventListener("resize", stabilizeGameLogLayout);
   window.addEventListener("vortex:gamelog-line-pick", (event) => {
     const { stat, player } = gamelogPostedLinesContext;
+    if (stat !== gameLogState.stat || player !== gameLogState.player) return;
     if (player) activeFinderProp = { ...(activeFinderProp || {}), player, betType: stat, line: Number(event.detail.value), side: "Over" };
     setGameLogPreviewLine(Number(event.detail.value), true);
     els.gamelogLinesBridge?.setValue(String(event.detail.value));
@@ -5276,14 +5304,20 @@ function writeFinderCache(key, value) {
 const finderPlayerHistory = new Map();
 const finderHistoryRequests = new Map();
 function finderHistoryKey(row) { return `${nameKey(row.player)}|${pitcherFinderStat(row.stat).pitcher ? 'pitching' : 'hitting'}`; }
-async function requestFinderHistory(row) {
+function cachedFinderHistory(row) {
   const key = finderHistoryKey(row);
   const cached = finderPlayerHistory.get(key) || readFinderCache(key, 600000);
   if (cached && Date.now() - cached.updatedAt < 600000) {
     finderPlayerHistory.set(key, cached); return cached;
   }
+  return null;
+}
+async function requestFinderHistory(row) {
+  const key = finderHistoryKey(row);
+  const cached = cachedFinderHistory(row);
+  if (cached) return cached;
   if (!finderHistoryRequests.has(key)) {
-    finderHistoryRequests.set(key, fetch(`/api/board?view=prop-history&player=${encodeURIComponent(row.player)}&group=${pitcherFinderStat(row.stat).pitcher ? 'pitching' : 'hitting'}`)
+    finderHistoryRequests.set(key, fetch(`/api/board?view=prop-history&player=${encodeURIComponent(row.player)}&group=${pitcherFinderStat(row.stat).pitcher ? 'pitching' : 'hitting'}`, { signal: AbortSignal.timeout(30000) })
       .then(async response => { const data = await response.json(); if (!response.ok || data.error) throw new Error(data.error || 'History unavailable');
         finderPlayerHistory.set(key, data); writeFinderCache(key, data); return data; })
       .finally(() => finderHistoryRequests.delete(key)));
@@ -5295,7 +5329,7 @@ let finderFeedAt = 0;
 async function requestFinderFeed(force = false) {
   if (!force && state.pitcherFinderLoaded && Date.now() - finderFeedAt < 120000) return state.pitcherFinderProps;
   if (force && finderFeedRequest) { await finderFeedRequest; }
-  if (!finderFeedRequest) finderFeedRequest = fetch(`/api/board?view=props${force ? '&refresh=1' : ''}`, {cache:'no-store'}).then(async response => {
+  if (!finderFeedRequest) finderFeedRequest = fetch(`/api/board?view=props${force ? '&refresh=1' : ''}`, {cache:'no-store', signal: AbortSignal.timeout(15000)}).then(async response => {
     const data = await response.json();
     if (!response.ok || data.error) throw new Error(data.error || 'Live lines unavailable');
     state.pitcherFinderProps = (data.props || []).filter(row => finderMarket(row.stat));

@@ -52,11 +52,15 @@ export function gameValue(stat, m) {
 }
 export function historyChart(payload, row) {
   const m = finderMarket(row.stat);
-  const all = (payload.games || []).map(g => ({value: gameValue(g.stat, m), fullDate: g.date, date: g.date.slice(5).replace('-', '/'),
+  const opponentId = row.teamId || payload.matchup?.opponent?.id;
+  const all = (payload.games || []).map(g => ({gameId: g.gameId ?? g.gamePk, value: gameValue(g.stat, m), fullDate: g.date, date: g.date.slice(5).replace('-', '/'),
     season: g.date.slice(0,4), opponent: g.opponent?.name || '', opponentTeamId: g.opponent?.id,
-    isHome: g.isHome, home: g.isHome, over: gameValue(g.stat,m) > Number(row.line)})).filter(g => g.value != null);
+    isHome: g.isHome, home: g.isHome, over: gameValue(g.stat,m) > Number(row.line),
+    ...(m.pitcher ? {pitcherDetails: {inningsPitched: g.stat.inningsPitched, battersFaced: g.stat.battersFaced,
+      pitchCount: g.stat.numberOfPitches, walks: g.stat.baseOnBalls, strikeouts: g.stat.strikeOuts}} : {}),
+  })).filter(g => g.value != null);
   return {all, l5: all.slice(-5), l10: all.slice(-10), l15: all.slice(-15), l20: all.slice(-20),
-    h2h: all.filter(g => g.opponentTeamId === payload.matchup?.opponent?.id),
-    meta: {player_id: payload.player?.id, opponent: payload.matchup?.opponent?.name,
-      opponent_team_id: payload.matchup?.opponent?.id, h2hLabel: payload.h2hLabel}};
+    h2h: opponentId == null ? [] : all.filter(g => String(g.opponentTeamId) === String(opponentId)),
+    meta: {player_id: payload.player?.id, opponent: row.opponent || payload.matchup?.opponent?.name,
+      opponent_team_id: opponentId, h2hLabel: payload.h2hLabel}};
 }

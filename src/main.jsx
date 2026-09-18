@@ -222,18 +222,27 @@ const PP_TIER_ICON = { GOBLIN: imageIcon('/prizepicks/goblin.png', 'Goblin'), DE
 // component -- same reasoning as StatSelectHost above: app.js keeps owning
 // the fetch/cache/eligibility logic (loadPrizePicksLines in app.js) and just
 // hands this bridge a ready-to-render list plus the current line/status.
-function AltLinesSelectHost({ controllerRef, onPick }) {
+function AltLinesSelectHost({ controllerRef, onPick, canAdjustLine = false }) {
   const [lines, setLines] = useState([]);
   const [value, setValue] = useState('');
   const [status, setStatus] = useState('loading');
   controllerRef.current = { setLines, setValue, setStatus };
-  const current = lines.find((line) => String(line.value) === value);
-  const placeholder = status === 'loading' ? 'Loading lines…' : status === 'error' ? 'Lines unavailable' : 'PrizePicks lines';
+  const ready = status === 'ready' && lines.length > 0;
+  const current = ready ? lines.find((line) => String(line.value) === String(value)) : null;
+  const placeholder = status === 'loading' ? 'Loading…' : status === 'error' ? 'Unavailable' : ready ? 'Lines' : 'No lines';
+  const lineHint = canAdjustLine ? ' You can still adjust the research line with the minus and plus buttons.' : '';
+  const description = status === 'loading'
+    ? `Loading PrizePicks lines.${lineHint}`
+    : status === 'error'
+      ? `PrizePicks lines are unavailable.${lineHint}`
+      : ready ? 'Choose a posted PrizePicks line.' : `No PrizePicks lines are posted for this stat.${lineHint}`;
   return (
-    <Select value={value} onValueChange={onPick} disabled={status !== 'ready'}>
-      <SelectTrigger icon={current ? (PP_TIER_ICON[current.tier] ?? PP_LOGO_ICON) : PP_LOGO_ICON} placeholder={placeholder} aria-label="PrizePicks lines" />
+    <Select key={status} value={current ? String(current.value) : ''} onValueChange={(next) => {
+      if (ready && lines.some((line) => String(line.value) === next)) onPick(next);
+    }} disabled={!ready}>
+      <SelectTrigger icon={current ? (PP_TIER_ICON[current.tier] ?? PP_LOGO_ICON) : PP_LOGO_ICON} placeholder={placeholder} aria-label={`PrizePicks lines: ${current ? current.value : placeholder}`} title={description} aria-busy={status === 'loading'} />
       <SelectContent>
-        {lines.map((line, index) => {
+        {(ready ? lines : []).map((line, index) => {
           const TierIcon = PP_TIER_ICON[line.tier];
           return (
             <SelectItem key={line.value} index={index} value={String(line.value)}>
@@ -252,7 +261,7 @@ function AltLinesSelectHost({ controllerRef, onPick }) {
 
 window.vortexMountAltLinesSelect = (host, { onPick }) => {
   const controllerRef = { current: null };
-  createRoot(host).render(<AltLinesSelectHost controllerRef={controllerRef} onPick={onPick} />);
+  createRoot(host).render(<AltLinesSelectHost controllerRef={controllerRef} onPick={onPick} canAdjustLine={host.id === 'gamelog-lines-select-root'} />);
   return {
     setLines: (list) => controllerRef.current?.setLines(list),
     setValue: (v) => controllerRef.current?.setValue(v),
