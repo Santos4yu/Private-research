@@ -27,10 +27,10 @@ def _headers() -> dict:
     return {"Authorization": f"Bearer {KV_TOKEN}"}
 
 
-def get(key: str) -> str | None:
+def get(key: str, *, timeout=TIMEOUT) -> str | None:
     if not KV_URL or not KV_TOKEN:
         return None
-    r = requests.get(f"{KV_URL}/get/{key}", headers=_headers(), timeout=TIMEOUT)
+    r = requests.get(f"{KV_URL}/get/{key}", headers=_headers(), timeout=timeout)
     r.raise_for_status()
     return r.json().get("result")
 

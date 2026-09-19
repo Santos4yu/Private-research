@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { matchupNumber, matchupUpdatedText } from './matchup-rating.js';
 import { ArrowRight, ArrowUpRight, Crosshair, ScanLine, ChartNoAxesCombined } from 'lucide-react';
 
 const go = (tab) => window.dispatchEvent(new CustomEvent('vortex:switch-tab', { detail: { tab } }));
@@ -23,9 +24,9 @@ function useTopMatchups() {
     let active = true;
     fetch('/api/board', { cache: 'no-store' }).then((res) => res.json()).then((data) => {
       if (!active) return;
-      const rows = (data?.matchup_research || []).filter((row) =>
+      const rows = [...(data?.matchup_research || []), ...(data?.pitcher_research || []), ...(data?.props || [])].filter((row) =>
         (row.sport || 'MLB') === 'MLB'
-        && Number.isFinite(Number(row.stats?.matchup_score))
+        && Number.isFinite(matchupNumber(row.stats?.matchup_score))
         && Number.isInteger(Number(row.stats?.player_id)));
       rows.sort((a, b) => Number(b.stats.matchup_score) - Number(a.stats.matchup_score));
       const seen = new Set();
@@ -44,6 +45,8 @@ function useTopMatchups() {
           id: Number(stats.player_id),
           position: stats.position || '',
           matchupScore: Math.round(Number(stats.matchup_score)),
+          matchupLabel: stats.matchup_label,
+          matchupContext: stats.matchup_context,
           teamId: stats.team_id || null,
           opponentTeamId: stats.opponent_team_id || null,
           opponentAbbr,
@@ -85,7 +88,7 @@ function MatchupCard({ player, accentRank }) {
     <span className="lab-matchup-meter">
       <span className="lab-matchup-meter-label">MATCHUP SCORE</span>
       <span className="lab-matchup-meter-track"><span className="lab-matchup-meter-fill" data-band={matchupBand(player.matchupScore)} style={{ width: `${player.matchupScore}%` }} /></span>
-      <span className="lab-matchup-meter-score">{player.matchupScore} <small>/ 100</small></span>
+      <span className="lab-matchup-meter-score" title={`${player.matchupLabel || 'Matchup rating'} · ${matchupUpdatedText(player.matchupContext)} · Not a win probability`}>{player.matchupScore} <small>/ 100</small></span>
     </span>
     <span className="lab-matchup-foot">
       <span className="lab-matchup-icons">

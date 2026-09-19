@@ -24,14 +24,14 @@ class MatchupScoringRegressionTests(unittest.TestCase):
             prop_type="total_bases",
             weather={"dome": True},
         )
-        self.assertEqual(_factor(result, "handedness")["impact"], -17)
-        self.assertEqual(_factor(result, "pitcher_quality")["impact"], 19)
-        self.assertEqual(_factor(result, "bvp")["impact"], 3)
+        self.assertAlmostEqual(_factor(result, "handedness")["impact"], -8.74, places=2)
+        self.assertAlmostEqual(_factor(result, "pitcher_quality")["impact"], 9.46, places=2)
+        self.assertLess(_factor(result, "bvp")["impact"], 2)
 
     def test_kody_platoon_and_recent_form_use_expected_scale(self):
         result = _matchup_score_100(
             {"recent_batting_form": {
-                "delta_pct": 19.7, "l10_ops": .831, "season_ops": .759,
+                "delta_pct": 19.7, "l10_ops": .831, "season_ops": .759, "pa": 40,
             }},
             pitcher={"hand": "L", "name": "Jeffrey Springs", "era": 6.20,
                      "fip": 6.09, "whip": 1.52, "hr_per_9": 2.30},
@@ -42,9 +42,41 @@ class MatchupScoringRegressionTests(unittest.TestCase):
             },
             prop_type="hits_runs_rbis",
         )
-        self.assertEqual(_factor(result, "handedness")["impact"], 11)
+        self.assertAlmostEqual(_factor(result, "handedness")["impact"], 5.29, places=2)
         self.assertEqual(_factor(result, "bvp")["impact"], 0)
-        self.assertEqual(_factor(result, "recent_form")["impact"], 7)
+        self.assertAlmostEqual(_factor(result, "recent_form")["impact"], 3.53, places=2)
+
+    def test_missing_avg_or_slg_never_falls_back_to_ops(self):
+        for prop_type in ("hits", "total_bases", "home_runs"):
+            result = _matchup_score_100({}, arsenal=[{"pitch_type": "FF", "pct": 100}],
+                bat_vs_pitch=[{"pitch_type": "FF", "pa": 200, "ops": ".950", "woba": ".400"}], prop_type=prop_type)
+            self.assertFalse(_factor(result, "arsenal_fit")["available"])
+            self.assertEqual(_factor(result, "arsenal_fit")["impact"], 0)
+
+    def test_zero_avg_and_zero_era_are_real_data(self):
+        result = _matchup_score_100({}, pitcher={"era": 0, "fip": "invalid"},
+            arsenal=[{"pitch_type": "FF", "pct": 100}],
+            bat_vs_pitch=[{"pitch_type": "FF", "pa": 200, "avg": 0, "ops": .950}], prop_type="hits")
+        self.assertTrue(_factor(result, "arsenal_fit")["available"])
+        self.assertLess(_factor(result, "arsenal_fit")["impact"], 0)
+        self.assertTrue(_factor(result, "pitcher_quality")["available"])
+        self.assertLess(_factor(result, "pitcher_quality")["impact"], 0)
+
+    def test_single_game_streak_does_not_equal_established_sample(self):
+        thin = _matchup_score_100({"l10": {"rate": 100, "games": 1}})
+        full = _matchup_score_100({"l10": {"rate": 100, "games": 10}})
+        self.assertLess(_factor(thin, "recent_form")["impact"], _factor(full, "recent_form")["impact"])
+
+    def test_indoor_weather_is_known_neutral(self):
+        result = _matchup_score_100({}, weather={"dome": True})
+        self.assertTrue(_factor(result, "weather")["available"])
+        self.assertEqual(_factor(result, "weather")["impact"], 0)
+
+    def test_invalid_numbers_do_not_create_false_signal(self):
+        result = _matchup_score_100({}, pitcher={"era": "NaN", "fip": "Infinity", "hand": "L"},
+            bvp={"avg": None, "ab": 10}, vs_hand_splits={"L": {"pa": "NaN", "ops": "Infinity"}},
+            park_factor="NaN", weather={"temp_f": "NaN"})
+        self.assertIsNone(result["score"])
 
     def test_arsenal_metric_changes_with_market(self):
         arsenal = [{"pitch_type": "FF", "pitch_name": "Four-seam FB", "pct": 70}]

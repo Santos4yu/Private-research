@@ -643,7 +643,8 @@ def compute_prediction(player_name: str, prop_type: str, stat_label: str, line: 
     # batter-vs-pitcher context (BvP, handedness splits, arsenal fit) applies
     # since this player IS the pitcher tonight, not a hitter facing one.
     if prop_type in PITCHER_PROP_TYPES:
-        return compute_k_prop(player_id, canonical_name, team_abbr, matchup, line, side, stat_label, prop_type)
+        result = compute_k_prop(player_id, canonical_name, team_abbr, matchup, line, side, stat_label, prop_type)
+        return _matchup_provenance(result, player_id, matchup, line, side, stat_label, pitcher=True)
 
     is_home = bool(matchup.get("is_home"))
     # PARK_FACTOR is keyed by the HOME team's name — that's the batter's own
@@ -823,7 +824,7 @@ def compute_prediction(player_name: str, prop_type: str, stat_label: str, line: 
     )
     picked_grade_v2 = grade_v2["over_grade"] if side == "over" else grade_v2["under_grade"]
 
-    return format_response(
+    result = format_response(
         player_name=canonical_name,
         team_abbr=team_abbr,
         headshot=f"https://img.mlbstatic.com/mlb-photos/image/upload/w_180,q_auto:best/v1/people/{player_id}/headshot/67/current",
@@ -853,6 +854,20 @@ def compute_prediction(player_name: str, prop_type: str, stat_label: str, line: 
         picked_grade=picked_grade,
         picked_score=picked_score,
     )
+    return _matchup_provenance(result, player_id, {**matchup, "pitcher_id": pitcher_id}, line, side, stat_label)
+
+
+def _matchup_provenance(result, player_id, matchup, line, side, stat_label, pitcher=False):
+    from matchup_ratings import VERSION
+    result["matchupVersion"] = VERSION
+    result["matchupContext"] = {
+        "playerId": player_id, "gameId": matchup.get("game_pk"),
+        "opponentId": matchup.get("opp_team_id"),
+        "pitcherId": None if pitcher else matchup.get("pitcher_id"),
+        "line": float(line), "side": side.lower(), "stat": stat_label,
+        "updatedAt": datetime.now(timezone.utc).isoformat(), "source": "live",
+    }
+    return result
 
 
 def compute_k_prop(player_id, canonical_name, team_abbr, matchup, line, side, stat_label,

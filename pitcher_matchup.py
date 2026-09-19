@@ -4,6 +4,7 @@ Weights are heuristic allocations, not fitted probabilities. Missing and thin
 inputs shrink to neutral; market/side determine which direction supports a prop.
 """
 import math
+from matchup_ratings import finalize
 
 
 WEIGHTS = {
@@ -40,7 +41,7 @@ def _strikeout_grade(*, k_card, opp_k, opponent_offense, arsenal,
     starts = (k_card or {}).get('last_5_starts') or []
     is_under = str(side).lower() == 'under'
     line_value = number(line)
-    factors, weighted = [], []
+    factors = []
 
     def directed(score):
         score = max(0, min(100, score))
@@ -55,8 +56,6 @@ def _strikeout_grade(*, k_card, opp_k, opponent_offense, arsenal,
                             score=round(final_score), impact=round(impact, 1),
                             available=available, confidence=round(confidence, 2),
                             detail=detail))
-        if available:
-            weighted.append((final_score, weight * confidence))
 
     league_k = 22.0
     offense = opponent_offense or {}
@@ -154,21 +153,7 @@ def _strikeout_grade(*, k_card, opp_k, opponent_offense, arsenal,
         f'{coverage:.0f}% arsenal coverage · current-season batter results' if mix_ok else 'Pitch-mix sample unavailable',
         sample / coverage if mix_ok else 0)
 
-    available_weight = sum(weight for _, weight in weighted)
-    # Factor impacts are already centered on 50, weighted and confidence-
-    # adjusted. Summing them makes the headline score reconcile exactly with
-    # the factor values shown in the UI and matches the other matchup models.
-    score = round(50 + sum(factor['impact'] for factor in factors)) if available_weight else 50
-    coverage_value = round(available_weight / 100, 2)
-    core = opponent_rate is not None and skill is not None and projected_k is not None
-    if not core:
-        score = max(20, min(80, score))
-    score = max(3, min(97, score))
-    label = 'Strong support' if score >= 75 else 'Favorable' if score >= 65 else 'Slight support' if score >= 55 else 'Neutral' if score >= 45 else 'Caution' if score >= 35 else 'Tough matchup'
-    if coverage_value < .5:
-        label = 'Limited data · ' + label.lower()
-    return dict(score=score, label=label, coverage=coverage_value, factors=factors,
-                version='pitcher-k-current-season-v4', side=str(side).lower(),
+    return dict(**finalize(factors, hitter=False, raw_scores=True), side=str(side).lower(),
                 market='pitcher_strikeouts', projected_ks=round(projected_k, 2) if projected_k is not None else None,
                 projected_ip=round(projected_ip, 2) if projected_ip is not None else None)
 
@@ -178,8 +163,7 @@ def pitcher_matchup_grade(*, k_card, opp_k=None, splits=None,
                           park_factor=None, weather=None, umpire=None,
                           arsenal=None, team_pitch_types=None, side='over', line=None):
     if prop_type not in WEIGHTS:
-        return dict(score=50, label='Matchup model unavailable', coverage=0,
-                    factors=[], version='pitcher-context-v2', side=str(side).lower(), market=prop_type)
+        return dict(**finalize([], hitter=False), side=str(side).lower(), market=prop_type)
     if prop_type == 'pitcher_strikeouts':
         return _strikeout_grade(
             k_card=k_card or {}, opp_k=opp_k or {},
@@ -282,10 +266,4 @@ def pitcher_matchup_grade(*, k_card, opp_k=None, splits=None,
         weather_edge += min(.6, max(0, speed) / 25) * (-1 if wind else 1)
     add('weather', 'Weather', weights[7], weather_edge if known else None,
         'Indoor · neutral' if dome else f"{temp if temp is not None else '—'}°F · wind {speed if speed is not None else '—'} mph" if known else 'Weather unavailable')
-    score = max(3, min(97, round(50 + sum(f['impact'] for f in factors))))
-    coverage = sum(f['weight'] * f['confidence'] for f in factors) / 100
-    label = 'Strong support' if score >= 75 else 'Favorable' if score >= 65 else 'Slight support' if score >= 55 else 'Neutral' if score >= 45 else 'Caution' if score >= 35 else 'Tough matchup'
-    if coverage < .5:
-        label = 'Limited data · ' + label.lower()
-    return dict(score=score, label=label, coverage=round(coverage, 2), factors=factors,
-                version='pitcher-context-v2', side=str(side).lower(), market=prop_type)
+    return dict(**finalize(factors, hitter=False), side=str(side).lower(), market=prop_type)

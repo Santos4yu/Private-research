@@ -19,6 +19,7 @@ import { mountResearchTabs, focusResearchTab } from './src/report-tabs.js';
 import { finderMarket, finderRows, historyChart, nameKey } from './src/prop-finder-core.js';
 import { createTrendCache, trendContextKey, gradeTrendChart, mergeTrendCharts } from './src/trend-data.js';
 import { liveBuilderProp, historicalSides } from './src/builder-live-core.js';
+import { matchupNumber, boardResearchSide, matchupUpdatedText, canReuseResearch } from './src/matchup-rating.js';
 
 const DATA_SOURCE = "/predictions.json";
 
@@ -2445,19 +2446,22 @@ function setLineValue(value, { immediate = false } = {}) {
 let lineSelectionToken = 0;
 
 function withAuthoritativeBoardMatchup(prop, player, stat, line, side) {
-  // The board remains authoritative for the official VORTEX pick score/tier.
-  // Matchup is deliberately NOT copied from the board: Research and the
-  // Matchup tab both use the current live matchup calculation.
+  // Official pick score/tier and matchup rating are separate measures.
+  // The API resolves the matching, regraded matchup snapshot by game and side.
   const boardContext = state.boardResearchContext;
   const sameBoardProp = boardContext
     && boardContext.player.toLowerCase() === String(player).toLowerCase()
     && boardContext.stat === stat
     && Math.abs(Number(boardContext.line) - Number(line)) < 0.01
-    && boardContext.side === String(side).toLowerCase();
+    && boardContext.side === String(side).toLowerCase()
+    && boardContext.matchupContext?.gameId === prop.matchupContext?.gameId
+    && boardContext.matchupContext?.playerId === prop.matchupContext?.playerId
+    && boardContext.matchupContext?.pitcherId === prop.matchupContext?.pitcherId
+    && boardContext.matchupContext?.updatedAt === prop.matchupContext?.updatedAt;
   if (!sameBoardProp) return prop;
   return {
     ...prop,
-    ...(Number.isFinite(Number(boardContext.vortexScore))
+    ...(boardContext.vortexScore != null && Number.isFinite(Number(boardContext.vortexScore))
       ? { score: Number(boardContext.vortexScore), tier: boardContext.tier || prop.tier }
       : {}),
   };
@@ -2465,7 +2469,7 @@ function withAuthoritativeBoardMatchup(prop, player, stat, line, side) {
 
 function applyLineSelection() {
   const match = propsForPlayer().find(
-    (p) => p.betType === cmd.stat && Math.abs(p.line - cmd.line) < 0.01 && p.side === cmd.side
+    (p) => canReuseResearch(p) && !state.boardResearchContext && p.betType === cmd.stat && Math.abs(p.line - cmd.line) < 0.01 && p.side === cmd.side
   );
 
   const token = ++lineSelectionToken; // race guard for fast slider drags
@@ -4487,14 +4491,15 @@ document.addEventListener("rr:panel-shown", (event) => {
 function fillMatchup(node, p) {
   const m = p.matchup || {};
   const scoreCard = node.querySelector(".matchup-score-card");
-  const score = Number(p.matchupScore);
+  const score = matchupNumber(p.matchupScore);
   if (scoreCard && Number.isFinite(score)) {
     const fallbackLabel = score >= 85 ? "Elite Matchup" : score >= 75 ? "Strong Matchup" : score >= 65 ? "Favorable" : score >= 55 ? "Slight Edge" : score >= 45 ? "Neutral" : score >= 35 ? "Caution" : "Unfavorable";
     const label = p.matchupLabel || fallbackLabel;
     const tone = score >= 85 ? "elite" : score >= 75 ? "strong" : score >= 65 ? "favorable" : score >= 55 ? "slight" : score >= 45 ? "neutral" : score >= 35 ? "caution" : "unfavorable";
     scoreCard.hidden = false;
     scoreCard.dataset.tone = tone;
-    scoreCard.querySelector(".matchup-score-label").textContent = `${label} · ${Math.round((p.matchupCoverage || 0) * 100)}% data coverage`;
+    scoreCard.querySelector(".matchup-score-label").textContent = [label, `${Math.round((p.matchupCoverage || 0) * 100)}% data coverage`, matchupUpdatedText(p.matchupContext)].filter(Boolean).join(' · ');
+    scoreCard.title = `${p.matchupContext?.source === 'board' ? 'Rating from the latest published board update.' : 'Live research rating.'} Matchup score out of 100, not a win probability.`;
     setMatchupGaugeInstant(scoreCard, score);
     const factors = (p.matchupFactors || []).map(f => {
       const impact = Number(f.impact || 0);
@@ -5704,7 +5709,7 @@ function fmtBotEv(p) {
 }
 
 function boardMatchupLabel(score) {
-  const n = Number(score);
+  const n = matchupNumber(score);
   if (!Number.isFinite(n)) return "";
   if (n >= 85) return "ELITE MATCHUP";
   if (n >= 75) return "STRONG MATCHUP";
@@ -5820,11 +5825,11 @@ function renderBotBoard(data) {
   // player_id is optional presentation metadata used for headshots. A scored
   // board row remains valid without it and must still mirror Discord.
   const allProps = sourceProps.map((p, sourceIndex) => ({ ...p, _boardIndex: sourceIndex }));
-  renderMatchupGamePicker(allProps.filter((p) => Number.isFinite(Number(p.stats?.matchup_score))));
+  renderMatchupGamePicker(allProps.filter((p) => Number.isFinite(matchupNumber(p.stats?.matchup_score))));
   let props = allProps.filter((p) => {
     const filter = state.boardFilter;
     if (filter === "all") return true;
-    if (filter === "matchup") return Number.isFinite(Number(p.stats?.matchup_score));
+    if (filter === "matchup") return Number.isFinite(matchupNumber(p.stats?.matchup_score));
     return boardStatCategory(p.stat_type) === filter;
   });
   if (state.boardFilter === "matchup" && state.matchupGameFilter !== "all") {
@@ -5833,7 +5838,7 @@ function renderBotBoard(data) {
   // Sort each view by the score named by that view: Matchup uses the
   // authoritative 0-100 matchup grade; every prop-market tab uses VORTEX.
   props = props.sort((a, b) => {
-    const currentMatchup = (p) => Number.isFinite(Number(p.stats?.matchup_score))
+    const currentMatchup = (p) => Number.isFinite(matchupNumber(p.stats?.matchup_score))
       ? Number(p.stats.matchup_score)
       : -1;
     const matchupDiff = currentMatchup(b) - currentMatchup(a);
@@ -5900,18 +5905,14 @@ function renderBotBoard(data) {
     row.setAttribute("tabindex", "0");
 
     const stats = p.stats || {};
-    const matchupScore = Number(stats.matchup_score);
+    const matchupScore = matchupNumber(stats.matchup_score);
     const matchupCoverage = Number(stats.matchup_coverage);
-    // The engine no longer hides a low-coverage matchup grade outright (a
-    // real elite score could otherwise vanish just because of scan timing
-    // -- coverage climbs through the day as more data becomes available),
-    // but it also shouldn't be presented with the same confidence as a
-    // well-covered one. Label it plainly instead of grading it.
-    const lowCoverage = Number.isFinite(matchupCoverage) && matchupCoverage < 0.45;
+    // Confidence comes from usable sample sizes, not just present fields.
+    const lowCoverage = !Number.isFinite(matchupCoverage) || matchupCoverage < 0.65;
     const matchupBadge = Number.isFinite(matchupScore)
       ? lowCoverage
         ? `<span class="v2-card-matchup-score" data-band="limited">MATCHUP ${Math.round(matchupScore)} · LIMITED DATA (${Math.round(matchupCoverage * 100)}% cov.)</span>`
-        : `<span class="v2-card-matchup-score" data-band="${matchupScore >= 75 ? "strong" : matchupScore >= 65 ? "favorable" : matchupScore >= 55 ? "slight" : matchupScore >= 45 ? "neutral" : matchupScore >= 35 ? "caution" : "unfavorable"}">MATCHUP ${Math.round(matchupScore)} · ${boardMatchupLabel(matchupScore)}</span>`
+        : `<span class="v2-card-matchup-score" title="${escapeHtml(matchupUpdatedText(stats.matchup_context))}" data-band="${matchupScore >= 75 ? "strong" : matchupScore >= 65 ? "favorable" : matchupScore >= 55 ? "slight" : matchupScore >= 45 ? "neutral" : matchupScore >= 35 ? "caution" : "unfavorable"}">MATCHUP ${Math.round(matchupScore)} · ${escapeHtml(stats.matchup_label || boardMatchupLabel(matchupScore))}</span>`
       : `<span class="v2-card-matchup-score" data-band="neutral">MATCHUP NOT GRADED</span>`;
     const sidePfx = stats.side === "under" ? "U" : "O";
     const tier = BOT_TIER[p.tier] || botScoreBadge(p.vortex_score);
@@ -6018,7 +6019,7 @@ function builderEffectiveRate(stats, windowName) {
 function parlayCandidate(p, modeName) {
   const mode = BUILDER_MODES[modeName];
   const stats = p.stats || {};
-  const matchup = Number(stats.matchup_score);
+  const matchup = matchupNumber(stats.matchup_score);
   const coverage = Number(stats.matchup_coverage);
   const l10 = builderEffectiveRate(stats, "l10");
   const l20 = builderEffectiveRate(stats, "l20");
@@ -6533,7 +6534,7 @@ async function buildResearchShareImage(prop,mode) {
     if(!pitches.length){round(160,1680,1840,300,32,'rgba(255,255,255,.025)','rgba(255,255,255,.075)');text('Pitch arsenal data is loading',1080,1845,36,'#9caabd',750,'center');}
     text('Current-season batter results against each pitch type',160,2440,23,'#8da0b8',650);
   }else if(mode==='matchup'){
-    const matchup=prop.matchup||{},score=Number(prop.matchupScore??prop.stats?.matchup_score),scoreValue=Number.isFinite(score)?Math.round(score):null;
+    const matchup=prop.matchup||{},score=matchupNumber(prop.matchupScore??prop.stats?.matchup_score),scoreValue=Number.isFinite(score)?Math.round(score):null;
     const scoreTone=scoreValue==null?'#94a3b8':scoreValue>=65?'#35e6a7':scoreValue>=45?'#ffd166':'#ff6475';
     const scoreLabel=prop.matchupLabel||(scoreValue==null?'DATA PENDING':scoreValue>=65?'FAVORABLE':scoreValue>=45?'NEUTRAL':'TOUGH');
     round(160,1300,1840,280,38,'rgba(21,31,43,.96)','rgba(255,255,255,.11)');
@@ -6799,10 +6800,10 @@ function buildBotDetailHtml(p, i) {
   let html = `<div class="v2-detail-toolbar"><button type="button" class="v2-detail-close" aria-label="Close expanded matchup">× <span>Close</span></button></div><div class="board-analysis-summary">
     <div><span>PRICE</span><strong>${escapeHtml(fmtBotEv(p))}</strong><small>${escapeHtml(p.sportsbook || "Best available")}${typeof stats.best_odds === "number" ? ` · ${stats.best_odds > 0 ? "+" : ""}${stats.best_odds}` : ""}</small></div>
     <div><span>RECENT</span><strong>${typeof l10 === "number" ? `${l10}% L10` : "No sample"}</strong><small>${typeof l5 === "number" ? `${l5}% L5` : "L5 —"}${typeof l20 === "number" ? ` · ${l20}% L20` : ""}</small></div>
-    <div><span>MATCHUP</span><strong>${Number.isFinite(Number(stats.matchup_score)) ? `${Math.round(Number(stats.matchup_score))}/100` : "Not graded"}</strong><small>${escapeHtml(boardMatchupLabel(stats.matchup_score) || "Coverage unavailable")}</small></div>
+    <div><span>MATCHUP</span><strong>${Number.isFinite(matchupNumber(stats.matchup_score)) ? `${Math.round(Number(stats.matchup_score))}/100` : "Not graded"}</strong><small>${escapeHtml(stats.matchup_label || boardMatchupLabel(stats.matchup_score) || "Coverage unavailable")}</small></div>
   </div><div class="board-analysis-case"><div><span>CASE</span><p>${escapeHtml(cleanAnalysisText(p.case_summary || "Model and matchup signals align with this side."))}</p></div><div class="risk"><span>RISK</span><p>${escapeHtml(cleanAnalysisText(p.risk_summary || "No material conflict reported."))}</p></div></div>`;
 
-  if (Number.isFinite(Number(stats.matchup_score)) && (stats.matchup_factors || []).length) {
+  if (Number.isFinite(matchupNumber(stats.matchup_score)) && (stats.matchup_factors || []).length) {
     const factors = stats.matchup_factors.slice().sort((a,b) => Math.abs(Number(b.score)-50)-Math.abs(Number(a.score)-50)).slice(0,3).map((factor) => `<div class="board-factor-row"><div><strong>${escapeHtml(factor.name || "Factor")}</strong><small>${escapeHtml(cleanAnalysisText(factor.detail || ""))}</small></div><b>${escapeHtml(String(factor.score ?? "—"))}</b></div>`).join("");
     html += `
       <div class="board-factor-table"><div class="board-factor-head"><span>Key matchup drivers</span><small>Top 3 by signal strength</small></div>${factors}</div>`;
@@ -6839,22 +6840,24 @@ function deepDiveIntoBotProp(p) {
     player: p.player_name,
     stat,
     line: Number(p.line),
-    side: "over",
+    side: boardResearchSide(p).toLowerCase(),
     vortexScore: p.vortex_score,
     tier: p.tier,
     matchupScore: boardStats.matchup_score,
     matchupLabel: boardStats.matchup_label,
     matchupCoverage: boardStats.matchup_coverage,
     matchupFactors: boardStats.matchup_factors || [],
+    matchupContext: boardStats.matchup_context,
   };
   els.v2BackBtn.hidden = false;
 
   const isPitcher = BOT_PITCHER_STATS.has(p.stat_type);
-  selectPlayer(p.player_name, isPitcher ? "P" : null, { autoSelectStat: false, viaDeepDive: true });
+  selectPlayer(p.player_name, isPitcher ? "P" : null, { autoSelectStat: false, viaDeepDive: true,
+    playerEntry: { player: p.player_name, name: p.player_name, playerId: boardStats.player_id, teamId: boardStats.team_id, sport: "MLB" } });
   selectStat(stat);
 
-  cmd.side = "Over";
-  els.sideToggle.querySelectorAll(".side-btn").forEach((b) => b.classList.toggle("active", b.dataset.side === "Over"));
+  cmd.side = boardResearchSide(p);
+  els.sideToggle.querySelectorAll(".side-btn").forEach((b) => b.classList.toggle("active", b.dataset.side === cmd.side));
   setLineValue(p.line, { immediate: true });
 
   switchTab("research", { scrollY: 0 });

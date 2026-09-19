@@ -3,9 +3,8 @@ Vercel serverless function: public read of the Discord bot's props board.
 
 backend/update_board.py (the Vortex Data Engine that feeds the Discord bot's
 /menu) mirrors its props_board table to the KV store after every run — this
-endpoint just reads that mirror, so the site's Props tab always shows the
-exact same board the bot serves. Never computes anything and never spends
-odds credits.
+endpoint reads that mirror and recomputes the private site's matchup rating
+from its factors. No board scan or odds credits are required.
 """
 import json
 import sys
@@ -23,6 +22,7 @@ from v2.board import store  # noqa: E402
 from v2.board import admin_auth  # noqa: E402
 from prizepicks_export_core import _fetch_projection_rows, _norm_stat  # noqa: E402
 from live_props_core import player_history  # noqa: E402
+from matchup_ratings import prepare_board
 
 BOT_BOARD_KEY = "vortex:site_board"
 SPECIALS_KEY = "vortex:site_specials"
@@ -50,7 +50,7 @@ def _json_get(path, params=None):
 def _schedule_games(date_str):
     """Compact official matchup index used by the mobile game filter."""
     try:
-        schedule = _json_get("/schedule", {"sportId": 1, "date": date_str})
+        schedule = _json_get("/schedule", {"sportId": 1, "date": date_str, "hydrate": "probablePitcher"})
     except Exception:
         return []
     result = []
@@ -63,6 +63,8 @@ def _schedule_games(date_str):
                 "game_pk": game.get("gamePk"), "start_time": game.get("gameDate"),
                 "away_id": away.get("id"), "away": away.get("abbreviation") or away.get("name"),
                 "home_id": home.get("id"), "home": home.get("abbreviation") or home.get("name"),
+                "away_pitcher_id": (teams.get("away", {}).get("probablePitcher") or {}).get("id"),
+                "home_pitcher_id": (teams.get("home", {}).get("probablePitcher") or {}).get("id"),
             })
     return result
 
@@ -213,6 +215,7 @@ class handler(BaseHTTPRequestHandler):
         try:
             data = json.loads(raw)
             data["games"] = _schedule_games(data.get("date")) if data.get("date") else []
+            data = prepare_board(data, games=data["games"])
             return self._send(200, data)
         except json.JSONDecodeError:
             return self._send(200, {"date": None, "generated_at": None, "props": []})
@@ -220,6 +223,7 @@ class handler(BaseHTTPRequestHandler):
     def _send(self, status, body):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")

@@ -17,6 +17,7 @@ import sys
 import time
 import unicodedata
 import threading
+import math
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
@@ -25,9 +26,12 @@ from urllib.parse import urlparse, parse_qs
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 import analyze  # noqa: E402
+from vortextime import vortex_board_day
 from prediction_core import compute_prediction, PlayerNotFound, NoGameFound, STAT_LABEL_TO_PROP_TYPE  # noqa: E402
 from auth_core import session_with_live_access  # noqa: E402
 from prizepicks_export_core import build_export  # noqa: E402
+from matchup_ratings import prepare_board, reconcile_research, VERSION as MATCHUP_VERSION
+from v2.board import store
 
 
 _ODDS_CACHE = {}
@@ -260,6 +264,8 @@ class handler(BaseHTTPRequestHandler):
 
         try:
             line = float(line_raw)
+            if not math.isfinite(line) or line < 0:
+                raise ValueError("Line must be finite and nonnegative")
         except (TypeError, ValueError):
             return self._send(400, {"error": f"Invalid line value: {line_raw!r}"})
 
@@ -274,7 +280,7 @@ class handler(BaseHTTPRequestHandler):
             player_id = int(player_id_raw) if player_id_raw else None
             team_id = int(team_id_raw) if team_id_raw else None
             cache_key = (player_id or _norm(player_name), prop_type, line, side,
-                         team_id, _norm(team_name))
+                         team_id, _norm(team_name), MATCHUP_VERSION, vortex_board_day())
             with _PREDICTION_CACHE_LOCK:
                 cached = _PREDICTION_CACHE.get(cache_key)
             if cached and time.time() - cached[0] < _PREDICTION_CACHE_SECONDS:
@@ -292,6 +298,14 @@ class handler(BaseHTTPRequestHandler):
         except Exception as exc:  # noqa: BLE001 — never leak a stack trace to the client
             return self._send(500, {"error": f"Live lookup failed: {exc}"})
 
+        # Resolve against the current board after the live cache, so a board
+        # refresh cannot leave an older rating stuck in the 3-minute cache.
+        try:
+            raw_board = store.get("vortex:site_board", timeout=2)
+            if raw_board:
+                result = reconcile_research(result, prepare_board(json.loads(raw_board)), stat=stat_label)
+        except Exception:
+            pass  # The fresh live grade remains usable during a board outage.
         return self._send(200, result)
 
     def do_POST(self):
@@ -344,6 +358,7 @@ class handler(BaseHTTPRequestHandler):
             }).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
