@@ -1,8 +1,8 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { motion, useAnimationFrame, useReducedMotion } from "framer-motion";
-import { useRef, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { useEffect, useState } from "react";
 
 export const AI_LOADER_CYCLE_SECONDS = 1.2;
 
@@ -71,15 +71,14 @@ const Grid = ({ reduced }: { reduced: boolean }) => (
 );
 
 const Elapsed = () => {
-  const startRef = useRef<number | null>(null);
   const [seconds, setSeconds] = useState(0);
-
-  useAnimationFrame((time) => {
-    const start = startRef.current ?? time;
-    startRef.current = start;
-    const next = (time - start) / 1000;
-    setSeconds((current) => next.toFixed(1) === current.toFixed(1) ? current : next);
-  });
+  useEffect(() => {
+    const start = performance.now();
+    const timer = window.setInterval(() => {
+      if (!document.hidden) setSeconds((performance.now() - start) / 1000);
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, []);
 
   return <span className="tabular-nums opacity-60" aria-hidden="true">{seconds.toFixed(1)}s</span>;
 };

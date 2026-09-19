@@ -7,6 +7,7 @@ Fuzzy name search, live splits, pitcher matchup, recent game log, Statcast metri
 import sys
 import time
 import unicodedata
+import hashlib
 import requests
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -80,11 +81,14 @@ def get_active_player_list() -> list[dict]:
     if cached and time.time() - cached_at < 3600:
         return cached
     try:
-        r = requests.get(f"{stats_mlb.BASE}/sports/1/players",
-                         params={"season": 2026, "hydrate": "currentTeam"},
-                         timeout=15)
-        r.raise_for_status()
-        players = r.json().get("people", [])
+        data = stats_mlb._get(
+            "/sports/1/players",
+            {"season": stats_mlb.SEASON, "hydrate": "currentTeam"},
+            cache_key=f"active_roster_{stats_mlb.SEASON}",
+        )
+        if data is None:
+            return cached or []
+        players = data.get("people", [])
         _PLAYER_LIST_CACHE = (time.time(), players)
         return players
     except Exception:
@@ -143,42 +147,30 @@ def fuzzy_search(query: str) -> list[dict]:
     Tries multiple name formats (Last/First swap, dotted initials) before giving up.
     Falls back to lenient fuzzy matching across all active players if API fails.
     """
-    BASE = stats_mlb.BASE
     fatal_errors: list[str] = []
 
     def _api(name: str) -> list:
         try:
-            r = requests.get(f"{BASE}/people/search",
-                             params={"names": name, "sportId": 1, "hydrate": "currentTeam"},
-                             timeout=10)
-            r.raise_for_status()
-            return r.json().get("people", [])
-        except requests.HTTPError as exc:
-            status = exc.response.status_code if exc.response is not None else None
-            if status not in (404, 406):
-                fatal_errors.append(f"{type(exc).__name__}: {exc}")
-            return []
+            # Use the same transport/cache as autocomplete and the card.
+            # Repeated name-only props no longer re-fetch player identity,
+            # and a failed proxy gets the standard direct MLB fallback.
+            name_key = hashlib.sha256(name.strip().casefold().encode("utf-8")).hexdigest()[:24]
+            data = stats_mlb._get(
+                "/people/search",
+                {"names": name, "sportId": 1, "hydrate": "currentTeam"},
+                cache_key=f"profile_search_{stats_mlb.SEASON}_{name_key}",
+            )
+            if data is None:
+                fatal_errors.append("MLB player search did not respond")
+                return []
+            return data.get("people", [])
         except Exception as exc:
             fatal_errors.append(f"{type(exc).__name__}: {exc}")
             return []
 
     def _active_players() -> list[dict]:
-        global _PLAYER_LIST_CACHE
-        cached_at, cached = _PLAYER_LIST_CACHE
-        if cached and time.time() - cached_at < 3600:
-            return cached
         try:
-            r = requests.get(f"{BASE}/sports/1/players",
-                             params={"season": 2026, "hydrate": "currentTeam"},
-                             timeout=15)
-            r.raise_for_status()
-            players = r.json().get("people", [])
-            _PLAYER_LIST_CACHE = (time.time(), players)
-            return players
-        except requests.HTTPError as exc:
-            status = exc.response.status_code if exc.response is not None else None
-            if status not in (404, 406):
-                fatal_errors.append(f"{type(exc).__name__}: {exc}")
+            return get_active_player_list()
         except Exception as exc:
             fatal_errors.append(f"{type(exc).__name__}: {exc}")
         return []

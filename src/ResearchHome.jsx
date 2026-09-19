@@ -3,6 +3,7 @@ import { matchupNumber, matchupUpdatedText } from './matchup-rating.js';
 import { ArrowRight, ArrowUpRight, Crosshair, ScanLine, ChartNoAxesCombined } from 'lucide-react';
 
 const go = (tab) => window.dispatchEvent(new CustomEvent('vortex:switch-tab', { detail: { tab } }));
+const warmPlayer = (player) => window.dispatchEvent(new CustomEvent('vortex:prefetch-player', { detail: player }));
 
 // Shown whenever the board has no graded matchup yet -- unchanged from
 // before, same two players, same fixed blue/silver look.
@@ -73,6 +74,8 @@ function MatchupCard({ player, accentRank }) {
   const propLine = player.statType ? `${player.statType}${player.line != null ? ` • ${player.side} ${player.line}` : ''}` : '';
   return <button type="button" className={`lab-matchup-card lab-matchup-card--accent-${accentRank}`}
     aria-label={`Research ${player.name}`}
+    onPointerEnter={() => warmPlayer(player)} onFocus={() => warmPlayer(player)}
+    onPointerLeave={() => warmPlayer(null)} onBlur={() => warmPlayer(null)}
     onClick={() => window.dispatchEvent(new CustomEvent('vortex:research-player', { detail: player }))}>
     <span className="lab-matchup-head">
       <span className="lab-matchup-context"><b>{matchupLine}</b>{dateStr && <small>{dateStr}</small>}</span>
@@ -106,6 +109,8 @@ function PlayerShortcut({ player }) {
   const [imageFailed, setImageFailed] = useState(false);
   return <button type="button" className={`lab-player lab-player--${player.color}`}
     aria-label={`Research ${player.name}`}
+    onPointerEnter={() => warmPlayer(player)} onFocus={() => warmPlayer(player)}
+    onPointerLeave={() => warmPlayer(null)} onBlur={() => warmPlayer(null)}
     onClick={() => window.dispatchEvent(new CustomEvent('vortex:research-player', { detail: player }))}>
     <span className="lab-player-grid" aria-hidden="true" />
     <span className="lab-player-watermark" aria-hidden="true">{player.last.slice(0, 1)}</span>

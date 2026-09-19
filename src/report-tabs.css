@@ -1,4 +1,8 @@
 /* Research is a set of focused screens; original data and charts stay intact. */
+@keyframes research-report-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.research-enter { animation: research-report-in 220ms cubic-bezier(.2,.8,.2,1) both; }
+:root[data-theme] .research-enter { will-change: opacity, transform; }
+@media (prefers-reduced-motion: reduce) { .research-enter { animation: none; } }
 :root[data-theme] .rr-report { display: block !important; overflow: visible !important; scroll-margin-top: calc(var(--app-top, 16px) + 12px); padding-bottom: 24px; }
 .rr-sticky { position: sticky; top: 12px; z-index: 35; padding-bottom: 12px; background: var(--theme-bg); }
 :root[data-theme] .rr-sticky .report-header { min-height: 0 !important; margin: 0 !important; padding: 16px !important; border-radius: 20px 20px 0 0 !important; box-shadow: none !important; }

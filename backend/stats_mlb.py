@@ -34,6 +34,8 @@ import math
 import hashlib
 import logging
 import threading
+from concurrent.futures import Future, ThreadPoolExecutor
+from copy import deepcopy
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
@@ -75,6 +77,7 @@ _SESSION_LAX = requests.Session()
 _SESSION_LAX.mount("https://", _LaxTLSAdapter(pool_connections=40, pool_maxsize=40))
 _THREAD_LOCAL = threading.local()
 _CACHE_IO_LOCK = threading.RLock()
+_GET_INFLIGHT = {}
 
 
 def _thread_sessions():
@@ -201,6 +204,36 @@ PROP_STAT_MAP = {
 # ── HTTP helpers ─────────────────────────────────────────────────────────────
 
 def _get(endpoint: str, params: dict = None, cache_key: str = None) -> Optional[dict]:
+    """Coalesce concurrent reads of the same cached MLB resource.
+
+    A single player card requests some shared resources from multiple
+    workers (game logs, lineups, team totals). Hold the lock only while
+    claiming a request, never while waiting on the network or another key.
+    """
+    if not cache_key:
+        return _get_cached_response(endpoint, params, cache_key)
+    key = (cache_key, endpoint, json.dumps(params or {}, sort_keys=True, default=str))
+    with _CACHE_IO_LOCK:
+        pending = _GET_INFLIGHT.get(key)
+        owner = pending is None
+        if owner:
+            pending = Future()
+            _GET_INFLIGHT[key] = pending
+    if not owner:
+        return deepcopy(pending.result())
+    try:
+        result = _get_cached_response(endpoint, params, cache_key)
+        pending.set_result(deepcopy(result))
+        return result
+    except BaseException as exc:
+        pending.set_exception(exc)
+        raise
+    finally:
+        with _CACHE_IO_LOCK:
+            _GET_INFLIGHT.pop(key, None)
+
+
+def _get_cached_response(endpoint: str, params: dict = None, cache_key: str = None) -> Optional[dict]:
     """
     GET a MLB Stats API endpoint.
     Optionally serves from a session-level cache file to avoid hammering
@@ -843,7 +876,7 @@ def get_vs_team_game_log_history(player_id: int, opp_team_id: int,
 
 # ── 4. Pitcher metrics ────────────────────────────────────────────────────────
 
-def get_pitcher_metrics(pitcher_name: str) -> dict:
+def get_pitcher_metrics(pitcher_name: str, pitcher_id: int | None = None) -> dict:
     """
     Fetch the pitcher's current-season stats + handedness.
 
@@ -854,17 +887,32 @@ def get_pitcher_metrics(pitcher_name: str) -> dict:
       last_5_starts       — list of recent start summaries
       season_k_rate       — K / batter faced
     """
-    pitcher_id = get_player_id(pitcher_name)
+    # Schedule responses already include the official ID. Avoid a redundant
+    # serial name lookup when the caller has that authoritative value.
+    pitcher_id = int(pitcher_id) if pitcher_id else get_player_id(pitcher_name)
     if pitcher_id is None:
         return {"error": f"Pitcher not found: {pitcher_name}"}
 
-    profile = _get_player_profile(pitcher_id)
-    hand    = profile.get("pitchHand", {}).get("code", "?")
-
-    season_data = _get(f"/people/{pitcher_id}/stats", {
-        "stats": "season", "group": "pitching",
-        "season": SEASON, "sportId": 1,
-    }, cache_key=f"season_pitch_{pitcher_id}_{SEASON}")
+    # These required reads are independent after resolving the MLB ID.
+    # A cold card should wait for the slowest one, not three network trips
+    # in sequence; the shared transport coalesces concurrent cache misses.
+    from datetime import date as _date, timedelta as _td
+    _yesterday = (_date.fromisoformat(vortex_day()) - _td(days=1)).strftime("%Y-%m-%d")
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        profile_future = pool.submit(_get_player_profile, pitcher_id)
+        season_future = pool.submit(_get, f"/people/{pitcher_id}/stats", {
+            "stats": "season", "group": "pitching",
+            "season": SEASON, "sportId": 1,
+        }, cache_key=f"season_pitch_{pitcher_id}_{SEASON}")
+        log_future = pool.submit(_get, f"/people/{pitcher_id}/stats", {
+            "stats": "gameLog", "group": "pitching",
+            "season": SEASON, "sportId": 1,
+            "endDate": _yesterday,
+        }, cache_key=f"gamelog_pitch_{pitcher_id}_{SEASON}_{_yesterday}")
+        profile = profile_future.result()
+        season_data = season_future.result()
+        log_data = log_future.result()
+    hand = profile.get("pitchHand", {}).get("code", "?")
 
     season_splits = ((season_data or {}).get("stats") or [{}])[0].get("splits", [])
     if not season_splits:
@@ -874,15 +922,6 @@ def get_pitcher_metrics(pitcher_name: str) -> dict:
     # those rows so the displayed record and rate stats represent the full season.
     s = _combined_player_split(season_splits).get("stat", {})
     batters_faced = int(s.get("battersFaced", 1)) or 1
-
-    # Recent starts
-    from datetime import date as _date, timedelta as _td
-    _yesterday = (_date.today() - _td(days=1)).strftime("%Y-%m-%d")
-    log_data = _get(f"/people/{pitcher_id}/stats", {
-        "stats": "gameLog", "group": "pitching",
-        "season": SEASON, "sportId": 1,
-        "endDate": _yesterday,
-    }, cache_key=f"gamelog_pitch_{pitcher_id}_{SEASON}_{_yesterday}")
 
     log_splits = list(reversed(
         ((log_data or {}).get("stats") or [{}])[0].get("splits", [])

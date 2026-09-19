@@ -290,6 +290,9 @@ html, body {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+  /* One isolated background surface can be reused while content scrolls. */
+  contain: paint;
+  transform: translateZ(0);
   transition: opacity .25s ease;
 }
 .user-bg-layer[hidden] { display: none; }
@@ -7036,10 +7039,10 @@ details.rate-filter summary b { margin-left: auto; color: var(--accent); font-si
   position: relative; z-index: 1; display: inline-block; padding: 0 .06em;
   background: linear-gradient(180deg, var(--theme-accent-soft) 0%, var(--theme-accent) 100%) !important;
   -webkit-background-clip: text !important; background-clip: text !important; color: transparent !important;
-  opacity: 0; transform: translateY(.16em); filter: blur(6px);
-  transition: opacity 320ms ease, transform 380ms cubic-bezier(.2,.8,.2,1), filter 320ms ease;
+  opacity: 0; transform: translateY(.16em);
+  transition: opacity 220ms ease, transform 280ms cubic-bezier(.2,.8,.2,1);
 }
-.hero-brand h1 .brand-loop-rotor.is-in .brand-loop-word { opacity: 1; transform: translateY(0); filter: blur(0); }
+.hero-brand h1 .brand-loop-rotor.is-in .brand-loop-word { opacity: 1; transform: translateY(0); }
 .hero-brand h1 .brand-loop-cursor {
   position: relative; z-index: 1; width: .05em; margin-left: .05em; align-self: stretch;
   background: var(--theme-accent); border-radius: 2px;

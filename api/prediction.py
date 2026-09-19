@@ -18,7 +18,8 @@ import time
 import unicodedata
 import threading
 import math
-from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
+from concurrent.futures import Future, ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
@@ -38,6 +39,8 @@ _ODDS_CACHE = {}
 _PREDICTION_CACHE = {}
 _PREDICTION_CACHE_LOCK = threading.Lock()
 _PREDICTION_CACHE_SECONDS = 180
+_PREDICTION_CACHE_MAX_ENTRIES = 128
+_PREDICTION_INFLIGHT = {}
 _MARKET_FOR_PROP = {
     "hits": "batter_hits", "total_bases": "batter_total_bases",
     "home_runs": "batter_home_runs", "rbis": "batter_rbis",
@@ -60,6 +63,46 @@ _SLIP_PROP_LABELS = {
     "pitcher_hits_allowed": "Hits Allowed", "pitcher_walks": "Walks Allowed",
     "pitcher_fantasy_score": "Fantasy Score (Pitcher)",
 }
+
+
+def _cached_prediction(cache_key, compute):
+    """Share one calculation between prefetch/open requests on this instance.
+
+    Authorization stays in the handler before this cache, and board ratings
+    are still reconciled after it. Never retain failures or extend the
+    existing three-minute data freshness window.
+    """
+    now = time.monotonic()
+    with _PREDICTION_CACHE_LOCK:
+        for key, (cached_at, _) in list(_PREDICTION_CACHE.items()):
+            if now - cached_at >= _PREDICTION_CACHE_SECONDS:
+                del _PREDICTION_CACHE[key]
+        cached = _PREDICTION_CACHE.get(cache_key)
+        if cached is not None:
+            return {**deepcopy(cached[1]), "cached": True}
+        pending = _PREDICTION_INFLIGHT.get(cache_key)
+        owner = pending is None
+        if owner:
+            pending = Future()
+            _PREDICTION_INFLIGHT[cache_key] = pending
+
+    if not owner:
+        return {**deepcopy(pending.result()), "cached": True}
+
+    try:
+        result = compute()
+        with _PREDICTION_CACHE_LOCK:
+            while len(_PREDICTION_CACHE) >= _PREDICTION_CACHE_MAX_ENTRIES:
+                del _PREDICTION_CACHE[next(iter(_PREDICTION_CACHE))]
+            _PREDICTION_CACHE[cache_key] = (time.monotonic(), deepcopy(result))
+        pending.set_result(deepcopy(result))
+        return result
+    except BaseException as exc:
+        pending.set_exception(exc)
+        raise
+    finally:
+        with _PREDICTION_CACHE_LOCK:
+            _PREDICTION_INFLIGHT.pop(cache_key, None)
 
 
 def _grade_slip_prop(prop):
@@ -281,16 +324,10 @@ class handler(BaseHTTPRequestHandler):
             team_id = int(team_id_raw) if team_id_raw else None
             cache_key = (player_id or _norm(player_name), prop_type, line, side,
                          team_id, _norm(team_name), MATCHUP_VERSION, vortex_board_day())
-            with _PREDICTION_CACHE_LOCK:
-                cached = _PREDICTION_CACHE.get(cache_key)
-            if cached and time.time() - cached[0] < _PREDICTION_CACHE_SECONDS:
-                result = {**cached[1], "cached": True}
-            else:
-                result = compute_prediction(player_name, prop_type, stat_label, line, side,
-                                            player_id=player_id, team_id=team_id,
-                                            team_name=team_name)
-                with _PREDICTION_CACHE_LOCK:
-                    _PREDICTION_CACHE[cache_key] = (time.time(), result)
+            result = _cached_prediction(cache_key, lambda: compute_prediction(
+                player_name, prop_type, stat_label, line, side,
+                player_id=player_id, team_id=team_id, team_name=team_name,
+            ))
         except PlayerNotFound as exc:
             return self._send(404, {"error": str(exc)})
         except NoGameFound as exc:

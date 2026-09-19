@@ -311,10 +311,10 @@
   position: relative; z-index: 1; display: inline-block; padding: 0 .06em;
   background: linear-gradient(180deg, var(--theme-accent-soft, #7fc9ff) 0%, var(--theme-accent, #0082fe) 100%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
-  opacity: 0; transform: translateY(.16em); filter: blur(6px);
-  transition: opacity 320ms ease, transform 380ms cubic-bezier(.2,.8,.2,1), filter 320ms ease;
+  opacity: 0; transform: translateY(.16em);
+  transition: opacity 220ms ease, transform 280ms cubic-bezier(.2,.8,.2,1);
 }
-.brand-loop .brand-loop-rotor.is-in .brand-loop-word { opacity: 1; transform: translateY(0); filter: blur(0); }
+.brand-loop .brand-loop-rotor.is-in .brand-loop-word { opacity: 1; transform: translateY(0); }
 .brand-loop .brand-loop-cursor {
   position: relative; z-index: 1; width: .05em; margin-left: .05em; align-self: stretch;
   background: var(--theme-accent, #0082fe); border-radius: 2px;
@@ -323,4 +323,16 @@
 @media (prefers-reduced-motion: reduce) {
   .brand-loop .brand-loop-box, .brand-loop .brand-loop-word { transition: none !important; opacity: 1 !important; transform: none !important; filter: none !important; }
   .brand-loop .brand-loop-cursor { animation: none !important; }
+}
+
+/* These controls already use nearly opaque surfaces. An opaque fill keeps
+   their appearance stable without re-blurring the content on every scroll. */
+:root[data-theme] :is(.mobile-app-nav, .prop-compare-tray) {
+  background: var(--theme-panel) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+:root[data-theme] :is(.settings-btn, .side-menu-toggle, .search-box) {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }

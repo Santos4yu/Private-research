@@ -669,7 +669,7 @@ def compute_prediction(player_name: str, prop_type: str, stat_label: str, line: 
     pool = ThreadPoolExecutor(max_workers=16)
     try:
         f_splits = pool.submit(analyze.compute_hit_rates, player_id, line, prop_type)
-        f_pitcher = pool.submit(_safe, stats_mlb.get_pitcher_metrics, pitcher_name, default={}) if pitcher_name else None
+        f_pitcher = pool.submit(_safe, stats_mlb.get_pitcher_metrics, pitcher_name, matchup.get("pitcher_id"), default={}) if pitcher_name else None
         f_hand_splits = pool.submit(_safe, stats_mlb.get_batter_hand_splits, player_id, default={})
         f_statcast = pool.submit(_safe, stats_mlb.get_statcast_by_id, player_id, default={})
         f_vs_team = pool.submit(_safe, stats_mlb.get_vs_team_splits, player_id, opp_team_id, line, prop_type, default={}) if opp_team_id else None

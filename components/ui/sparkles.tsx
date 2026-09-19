@@ -1,11 +1,11 @@
 "use client";
-import React, { useId, useMemo, memo } from "react";
+import React, { useId, useMemo, useCallback, memo } from "react";
 import { useEffect, useState } from "react";
 import Particles, { initParticlesEngine } from "@tsparticles/react";
 import type { Container, SingleOrMultiple } from "@tsparticles/engine";
 import { loadSlim } from "@tsparticles/slim";
 import { cn } from "@/lib/utils";
-import { motion, useAnimation } from "framer-motion";
+import { motion, useAnimation, useReducedMotion } from "framer-motion";
 
 type ParticlesProps = {
   id?: string;
@@ -36,25 +36,32 @@ export const SparklesCore = memo((props: ParticlesProps) => {
     particleDensity,
   } = props;
   const [init, setInit] = useState(false);
+  const reduceMotion = useReducedMotion();
   useEffect(() => {
+    let active = true;
     initParticlesEngine(async (engine) => {
       await loadSlim(engine);
     }).then(() => {
-      setInit(true);
+      if (active) setInit(true);
     });
+    return () => { active = false; };
   }, []);
   const controls = useAnimation();
 
-  const particlesLoaded = async (container?: Container) => {
+  const particlesLoaded = useCallback(async (container?: Container) => {
     if (container) {
+      if (reduceMotion) {
+        container.pause();
+        container.draw(true);
+      }
       controls.start({
         opacity: 1,
         transition: {
-          duration: 1,
+          duration: reduceMotion ? 0 : 0.35,
         },
       });
     }
-  };
+  }, [controls, reduceMotion]);
 
   const generatedId = useId();
   // Memoized so this identical-looking object isn't a NEW reference on
@@ -72,11 +79,16 @@ export const SparklesCore = memo((props: ParticlesProps) => {
               zIndex: 1,
             },
 
-            fpsLimit: 120,
+            // Ambient decoration shares the GPU with scrolling and research
+            // transitions. Keep its work bounded on large/retina displays.
+            fpsLimit: 60,
+            autoPlay: !reduceMotion,
+            pauseOnBlur: !reduceMotion,
+            pauseOnOutsideViewport: !reduceMotion,
             interactivity: {
               events: {
                 onClick: {
-                  enable: true,
+                  enable: false,
                   mode: "push",
                 },
                 onHover: {
@@ -186,7 +198,7 @@ export const SparklesCore = memo((props: ParticlesProps) => {
                 distance: {},
                 direction: "none",
                 drift: 0,
-                enable: true,
+                enable: !reduceMotion,
                 gravity: {
                   acceleration: 9.81,
                   enable: false,
@@ -225,15 +237,15 @@ export const SparklesCore = memo((props: ParticlesProps) => {
               },
               number: {
                 density: {
-                  enable: true,
-                  width: 400,
-                  height: 400,
+                  // An area multiplier used to create over 1,000 particles
+                  // on desktop. Use a bounded count at every viewport size.
+                  enable: false,
                 },
                 limit: {
                   mode: "delete",
-                  value: 0,
+                  value: 180,
                 },
-                value: particleDensity || 120,
+                value: Math.min(180, Math.max(0, particleDensity ?? 120)),
               },
               opacity: {
                 value: {
@@ -242,7 +254,7 @@ export const SparklesCore = memo((props: ParticlesProps) => {
                 },
                 animation: {
                   count: 0,
-                  enable: true,
+                  enable: !reduceMotion,
                   speed: speed || 4,
                   decay: 0,
                   delay: 0,
@@ -428,8 +440,8 @@ export const SparklesCore = memo((props: ParticlesProps) => {
                 speed: 1,
               },
             },
-            detectRetina: true,
-          }), [background, minSize, maxSize, speed, particleColor, particleDensity]);
+            detectRetina: false,
+          }), [background, minSize, maxSize, speed, particleColor, particleDensity, reduceMotion]);
 
   return (
     <motion.div animate={controls} className={cn("opacity-0", className)}>

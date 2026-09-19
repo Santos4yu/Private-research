@@ -20,6 +20,7 @@ import { finderMarket, finderRows, historyChart, nameKey } from './src/prop-find
 import { createTrendCache, trendContextKey, gradeTrendChart, mergeTrendCharts } from './src/trend-data.js';
 import { liveBuilderProp, historicalSides } from './src/builder-live-core.js';
 import { matchupNumber, boardResearchSide, matchupUpdatedText, canReuseResearch } from './src/matchup-rating.js';
+import { createResearchClient } from './src/research-client.js';
 
 const DATA_SOURCE = "/predictions.json";
 
@@ -33,6 +34,7 @@ const API_SOURCE = "/api/prediction";
 const API_PLAYERS_SOURCE = "/api/players";
 const API_PRIZEPICKS_EXPORT = "/api/prediction?action=prizepicks-export";
 const API_SLIP_ANALYZER = "/api/prediction?action=slip-analyzer";
+const researchClient = createResearchClient({ endpoint: API_SOURCE });
 
 const SAVED_KEY = "vortex_saved_prop_ids";
 const AVATAR_HUES = [168, 262, 24, 200, 330, 48, 140, 300];
@@ -144,6 +146,9 @@ const state = {
 };
 
 const els = {};
+let lineDebounceTimer = null;
+let lineSelectionToken = 0;
+let researchPrefetchTimer = null;
 
 const THEME_KEY = "vortex_theme_mode";
 const ACCENT_THEME_KEY = "vortex_custom_accents";
@@ -615,6 +620,13 @@ function renderAppearanceNotice() {
 }
 window.addEventListener("vortex:site-policy", (event) => {
   const detail = event.detail || {};
+  if (detail.accessGranted === false) {
+    researchClient.clear();
+    lineSelectionToken++;
+    clearTimeout(lineDebounceTimer);
+    clearTimeout(researchPrefetchTimer);
+    if (els.reportWrap) clearReport();
+  }
   siteUpdatedAt = detail.updatedAt || null;
   const bg = detail.backgroundImage;
   siteBackgroundImage = bg?.url ? { url: bg.url, opacity: normalizeBgOpacity(bg.opacity) } : null;
@@ -1054,6 +1066,8 @@ const CARD_GLOW_SELECTOR = [
 ].join(", ");
 
 function wireCardBorderGlow() {
+  let glowFrame = 0;
+  let pendingGlow = null;
   const enableGlow = (card) => {
     if (card.classList.contains("border-glow-enabled")) return;
     card.classList.add("border-glow-enabled");
@@ -1071,16 +1085,23 @@ function wireCardBorderGlow() {
     if (!card) return;
 
     enableGlow(card);
-    const rect = card.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    const distanceToEdge = Math.min(x, y, rect.width - x, rect.height - y);
-    const edgeRange = Math.min(76, Math.min(rect.width, rect.height) * 0.35);
-    const strength = Math.max(0, 1 - distanceToEdge / edgeRange);
-
-    card.style.setProperty("--border-glow-x", `${x}px`);
-    card.style.setProperty("--border-glow-y", `${y}px`);
-    card.style.setProperty("--border-glow-strength", strength.toFixed(3));
+    pendingGlow = { card, x: event.clientX, y: event.clientY };
+    if (glowFrame) return;
+    glowFrame = requestAnimationFrame(() => {
+      glowFrame = 0;
+      const next = pendingGlow;
+      pendingGlow = null;
+      if (!next) return;
+      const rect = next.card.getBoundingClientRect();
+      const x = next.x - rect.left;
+      const y = next.y - rect.top;
+      const distanceToEdge = Math.min(x, y, rect.width - x, rect.height - y);
+      const edgeRange = Math.min(76, Math.min(rect.width, rect.height) * 0.35);
+      const strength = Math.max(0, 1 - distanceToEdge / edgeRange);
+      next.card.style.setProperty("--border-glow-x", `${x}px`);
+      next.card.style.setProperty("--border-glow-y", `${y}px`);
+      next.card.style.setProperty("--border-glow-strength", strength.toFixed(3));
+    });
   }, { passive: true });
 
   document.addEventListener("pointerout", (event) => {
@@ -1904,7 +1925,7 @@ function wireSearch() {
     if (!detail?.name || !Number.isInteger(detail.id)) return;
     const stat = detail.statType ? BOT_STAT_TO_RESEARCH_STAT[detail.statType] : null;
     const isPitcher = detail.statType ? BOT_PITCHER_STATS.has(detail.statType) : false;
-    selectPlayer(detail.name, isPitcher ? "P" : detail.position, { autoSelectStat: !stat, playerEntry: { player: detail.name, name: detail.name, playerId: detail.id, sport: "MLB", headshot: `https://img.mlbstatic.com/mlb-photos/image/upload/w_300,q_auto/v1/people/${detail.id}/headshot/silo/current` } });
+    selectPlayer(detail.name, isPitcher ? "P" : detail.position, { autoSelectStat: !stat, playerEntry: { player: detail.name, name: detail.name, playerId: detail.id, teamId: detail.teamId || null, team: detail.team || "", sport: "MLB", headshot: `https://img.mlbstatic.com/mlb-photos/image/upload/w_300,q_auto/v1/people/${detail.id}/headshot/silo/current` } });
     if (stat) {
       selectStat(stat);
       const side = detail.side === "U" ? "Under" : "Over";
@@ -1914,6 +1935,14 @@ function wireSearch() {
     }
     els.emptyState.hidden = true;
     switchTab("research", { scrollY: 0 });
+  });
+  window.addEventListener("vortex:prefetch-player", ({ detail }) => {
+    clearTimeout(researchPrefetchTimer);
+    if (!detail?.name) return;
+    queueResearchPrefetch({ player: detail.name, playerId: detail.id, teamId: detail.teamId, team: detail.team, sub: detail.position }, {
+      stat: BOT_STAT_TO_RESEARCH_STAT[detail.statType], line: detail.line,
+      side: detail.side === "U" ? "Under" : "Over",
+    });
   });
   els.searchInput.addEventListener("input", onSearchInput);
   els.searchInput.addEventListener("focus", onSearchInput);
@@ -1975,6 +2004,27 @@ function staticEntriesFor(query) {
 let searchDebounceTimer = null;
 let searchRequestToken = 0;
 let researchLoaderCleanup = null;
+function queueResearchPrefetch(entry, overrides = {}) {
+  clearTimeout(researchPrefetchTimer);
+  const connection = navigator.connection;
+  if (document.documentElement.dataset.siteAccess !== "granted" || connection?.saveData
+      || /(^|-)2g$/.test(connection?.effectiveType || "")) return;
+  const stat = overrides.stat || (entry.sub === "P" ? PITCHER_STATS[0] : BATTER_STATS[0]);
+  const context = { player: entry.player, playerId: entry.playerId || null,
+    teamId: entry.teamId || null, teamName: entry.team || "", stat,
+    line: overrides.line != null ? Number(overrides.line) : STAT_DEFAULT_LINE[stat] ?? 0.5,
+    side: overrides.side || "Over" };
+  researchPrefetchTimer = setTimeout(() => researchClient.prefetch(context), 100);
+}
+
+function bindResearchPrefetch(node, entry) {
+  const warm = () => queueResearchPrefetch(entry);
+  const cancel = () => clearTimeout(researchPrefetchTimer);
+  node.addEventListener("pointerenter", warm);
+  node.addEventListener("focus", warm);
+  node.addEventListener("pointerleave", cancel);
+  node.addEventListener("blur", cancel);
+}
 const playerSearchCache = new Map();
 let playerCatalog = [];
 let catalogPromise;
@@ -2018,10 +2068,13 @@ function renderRecentSearches() {
   if (!show) return;
   els.recentSearches.innerHTML = `<div class="recent-searches-head"><span>Recent players</span><button type="button" data-clear-recent>Clear</button></div><div class="recent-player-strip">${recent.map((entry, index) => `<button type="button" class="recent-player" data-recent-index="${index}">${avatarHtml(entry, "sm")}<span><strong>${escapeHtml(entry.player)}</strong><small>${escapeHtml(entry.team || entry.sub || "MLB")}</small></span></button>`).join("")}</div>`;
   els.recentSearches.querySelector("[data-clear-recent]")?.addEventListener("click", () => { localStorage.removeItem(RECENT_RESEARCH_KEY); renderRecentSearches(); });
-  els.recentSearches.querySelectorAll("[data-recent-index]").forEach(button => button.addEventListener("click", () => {
+  els.recentSearches.querySelectorAll("[data-recent-index]").forEach(button => {
     const entry = recent[Number(button.dataset.recentIndex)];
-    if (entry) selectPlayer(entry.player, entry.sub, { playerEntry: entry });
-  }));
+    bindResearchPrefetch(button, entry);
+    button.addEventListener("click", () => {
+      if (entry) selectPlayer(entry.player, entry.sub, { playerEntry: entry });
+    });
+  });
 }
 
 function onSearchInput() {
@@ -2126,6 +2179,7 @@ function onSearchKeydown(e) {
 
 function highlightActive(items) {
   items.forEach((item, i) => item.classList.toggle("active", i === state.activeIndex));
+  items[state.activeIndex]?.dispatchEvent(new Event("focus"));
 }
 
 function renderResults(entries, { loading = false, fetchFailed = false } = {}) {
@@ -2159,6 +2213,7 @@ function renderResults(entries, { loading = false, fetchFailed = false } = {}) {
       selectPlayer(entry.player, entry.kind === "live" ? entry.sub : null, { playerEntry: entry });
     };
     item.addEventListener("click", choosePlayer);
+    bindResearchPrefetch(item, entry);
     els.searchResults.appendChild(item);
   });
 
@@ -2207,6 +2262,7 @@ function renderBrowseChips() {
     chip.type = "button";
     chip.className = "browse-chip";
     chip.textContent = player;
+    bindResearchPrefetch(chip, { player });
     chip.addEventListener("click", () => selectPlayer(player));
     els.browseChips.appendChild(chip);
   });
@@ -2296,7 +2352,11 @@ async function loadPrizePicksLines() {
 // skipped autocomplete) -> both, so a valid option is never hidden just
 // because we couldn't confirm the position.
 function selectPlayer(player, position, { autoSelectStat = true, viaDeepDive = false, playerEntry = null } = {}) {
+  lineSelectionToken++;
+  clearTimeout(lineDebounceTimer);
+  clearTimeout(researchPrefetchTimer);
   if (!viaDeepDive) {
+    state.boardResearchContext = null;
     state.v2DeepDiveReturn = null;
     els.v2BackBtn.hidden = true;
   }
@@ -2401,14 +2461,13 @@ function selectStat(stat) {
   setLineValue(defaultProp ? defaultProp.line : lines[0]);
 }
 
-let lineDebounceTimer = null;
-
 // Dragging the slider fires an "input" event per pixel of movement. Running
 // applyLineSelection() (which re-renders a loading skeleton, or the whole
 // report, on every tick) on each of those made the slider visibly stutter
 // mid-drag. The value/fill/number stay perfectly live (cheap, no re-render);
 // only the actual lookup is debounced until the drag settles.
 function setLineValue(value, { immediate = false } = {}) {
+  lineSelectionToken++;
   let min = Number(els.lineSlider.min);
   let max = Number(els.lineSlider.max);
   // The slider's min/max is only a starting guess (STAT_DEFAULT_LINE, or the
@@ -2442,8 +2501,6 @@ function setLineValue(value, { immediate = false } = {}) {
     lineDebounceTimer = setTimeout(applyLineSelection, 120);
   }
 }
-
-let lineSelectionToken = 0;
 
 function withAuthoritativeBoardMatchup(prop, player, stat, line, side) {
   // Official pick score/tier and matchup rating are separate measures.
@@ -2485,54 +2542,26 @@ function applyLineSelection() {
 }
 
 async function fetchLivePrediction(player, stat, line, side, token) {
-  renderLoadingState(player, stat, line, side);
-
-  let result = null;
-  let errorMessage = null;
-  const controller = new AbortController();
-  const requestTimeout = setTimeout(() => controller.abort(), 15000);
-  try {
-    // Build this URL the same way as the player-search request. Older iOS
-    // WebKit can throw "The string did not match the expected pattern" while
-    // constructing URLSearchParams from a record, before fetch ever reaches
-    // the API. Explicit encoding is supported by every Safari version that
-    // can run the rest of this app and keeps spaces/accents safe.
-    const query = [
-      ["player", player],
-      ["stat", stat],
-      ["line", String(line)],
-      ["side", side.toLowerCase()],
-      ...(cmd.playerId ? [["playerId", String(cmd.playerId)]] : []),
-      ...(cmd.teamId ? [["teamId", String(cmd.teamId)]] : []),
-      ...(cmd.teamName ? [["team", cmd.teamName]] : []),
-    ].map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join("&");
-    const res = await fetch(`${API_SOURCE}?${query}`, {
-      signal: controller.signal,
-      cache: "no-store",
-      credentials: "same-origin",
-    });
-    const data = await res.json();
-    if (!res.ok || data.error) {
-      errorMessage = data.error || `Request failed (${res.status})`;
-    } else {
-      result = data;
-    }
-  } catch (err) {
-    errorMessage = err.name === "AbortError"
-      ? "Research took longer than 15 seconds. Please retry."
-      : "Live research is temporarily unavailable. Please tap the stat to retry.";
-  } finally {
-    clearTimeout(requestTimeout);
-  }
-
-  if (token !== lineSelectionToken) return; // a newer selection superseded this one
-
-  if (result) {
-    renderReport(withAuthoritativeBoardMatchup(result, player, stat, line, side));
+  const context = { player, stat, line, side, playerId: cmd.playerId,
+    teamId: cmd.teamId, teamName: cmd.teamName,
+    boardRevision: state.boardResearchContext ? JSON.stringify(state.boardResearchContext) : "" };
+  const cached = researchClient.peek(context);
+  if (cached) {
+    renderReport(withAuthoritativeBoardMatchup(cached, player, stat, line, side));
     return;
   }
-
-  showNoDataMessage(stat, line, side, errorMessage);
+  renderLoadingState(player, stat, line, side);
+  try {
+    const result = await researchClient.request(context);
+    if (token !== lineSelectionToken) return;
+    renderReport(withAuthoritativeBoardMatchup(result, player, stat, line, side));
+  } catch (err) {
+    if (token !== lineSelectionToken) return;
+    const errorMessage = err.name === "AbortError"
+      ? "Research took longer than 15 seconds. Please retry."
+      : err.message || "Live research is temporarily unavailable. Please tap the stat to retry.";
+    showNoDataMessage(stat, line, side, errorMessage);
+  }
 }
 
 function renderLoadingState(player, stat, line, side) {
@@ -2542,6 +2571,7 @@ function renderLoadingState(player, stat, line, side) {
   els.emptyState.hidden = true;
 
   const skeleton = document.createElement("div");
+  els.reportWrap.setAttribute("aria-busy", "true");
   skeleton.className = "report-skeleton";
   const host = document.createElement("div");
   host.className = "research-ai-loader-host";
@@ -2558,6 +2588,7 @@ function removeResearchLoader() {
   researchLoaderCleanup?.();
   researchLoaderCleanup = null;
   els.reportWrap.querySelector(".report-skeleton")?.remove();
+  els.reportWrap.removeAttribute("aria-busy");
 }
 
 function showNoDataMessage(stat, line, side, liveError) {
@@ -2649,6 +2680,7 @@ function renderReport(p) {
   }
 
   const node = buildReportNode(p);
+  node.classList.add("research-enter");
   mountResearchTabs(node, p);
   els.reportWrap.appendChild(node);
   // mountResearchTabs() may have already selected a tab (e.g. the user's
@@ -2666,9 +2698,7 @@ function renderReport(p) {
   saveBtn.addEventListener("click", () => toggleSave(p, saveBtn));
 
   const revealBlocks = node.querySelectorAll("[data-reveal]");
-  revealBlocks.forEach((block, i) => {
-    setTimeout(() => block.classList.add("in"), 120 + i * 90);
-  });
+  revealBlocks.forEach(block => block.classList.add("in"));
 
   requestAnimationFrame(() => {
     countUpScoreNum(node, p.score);

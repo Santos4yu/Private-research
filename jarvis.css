@@ -55,3 +55,44 @@
 @keyframes j-ambient{0%{background-position:0% 0%}50%{background-position:100% 45%}100%{background-position:35% 100%}}
 @keyframes j-card-sheen{0%,35%{transform:translateX(-120%)}70%,100%{transform:translateX(120%)}}
 @keyframes j-toast-out{from{opacity:1;transform:translateY(0) scale(1);filter:none}to{opacity:0;transform:translateY(-10px) scale(.96);filter:blur(5px)}}
+
+/* Keep the cinematic palette, but leave the scroll frame for the content.
+   Whole-viewport background-position/blur animations and an endless sheen
+   on every card used to repaint even when the user was only reading. */
+:root[data-jarvis] body{animation:none;background-size:100% 100%!important}
+:root[data-jarvis] body::before{
+  inset:0!important;filter:none!important;animation:none!important;
+  background:radial-gradient(ellipse at 20% 10%,var(--j-line),transparent 60%),radial-gradient(ellipse at 85% 65%,color-mix(in srgb,var(--theme-accent-soft) 8%,transparent),transparent 55%)!important;
+}
+:root[data-jarvis] body::after,
+:root[data-jarvis] .grid-bg,
+:root[data-jarvis] .glow-orb{animation:none!important}
+:root[data-jarvis] .search-box::after{animation:none}
+:root[data-jarvis] .search-box .search-icon{animation:none}
+:root[data-jarvis] .hero-brand h1{animation:none}
+:root[data-jarvis] :is(.tabs,.home-mode-switch,.dock-panel){
+  background:var(--theme-panel)!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+:root[data-jarvis] .tab-panel:not([hidden]),
+:root[data-jarvis] :is(.player-profile,.report-block,.report-card,.slate-card,.slate-row,.saved-card,.v2-card,.board-card,.market-card,.market-page-head,.builder-card,.builder-leg,.slip-result-leg,.slip-grade-summary,.team-modal,.gamelog-modal){animation-duration:220ms;animation-delay:0s!important}
+:root[data-jarvis] :is(.report-card,.player-profile,.saved-card,.v2-card,.board-card,.market-card,.builder-card,.slate-card)::before,
+:root[data-jarvis] :is(.player-profile,.report-block,.report-card,.slate-card,.slate-row,.saved-card,.v2-card,.board-card,.market-card,.builder-card,.builder-leg,.slip-result-leg)::after{animation:none;opacity:0}
+:root[data-jarvis] :is(.player-profile,.report-block,.report-card,.slate-card,.slate-row,.saved-card,.v2-card,.board-card,.market-card,.builder-card,.builder-leg,.slip-result-leg)::after{left:0}
+@media (hover:hover) and (prefers-reduced-motion:no-preference){
+  :root[data-jarvis] :is(.report-card,.player-profile,.saved-card,.v2-card,.board-card,.market-card,.builder-card,.slate-card):hover::before{opacity:1;animation:j-card-sheen 750ms ease-out both}
+  :root[data-jarvis] :is(.player-profile,.report-block,.report-card,.slate-card,.slate-row,.saved-card,.v2-card,.board-card,.market-card,.builder-card,.builder-leg,.slip-result-leg):hover::after{opacity:.65;animation:j-card-scan 750ms ease-out both}
+}
+/* Opacity/transform entrances avoid rasterizing a blurred snapshot of an
+   entire report (and every child card) on each animation frame. */
+@keyframes j-header{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+@keyframes j-panel{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@keyframes j-search{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes j-page{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes j-card{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes j-modal{from{opacity:0;transform:translateY(12px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes j-toast{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+@keyframes j-toast-out{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-8px)}}
+@keyframes j-side{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:none}}
+@keyframes j-card-scan{from{transform:translateX(-160%)}to{transform:translateX(280%)}}
