@@ -1,5 +1,5 @@
 // Null/empty API fields are missing evidence, never zero-rated matchups.
-export const MATCHUP_VERSION = 'krazy-matchup-2026-09-19';
+export const MATCHUP_VERSION = 'krazy-matchup-f4042bf';
 
 export function canReuseResearch(prop, now = Date.now()) {
   const age = now - new Date(prop?.matchupContext?.updatedAt || '').getTime();

@@ -20,7 +20,7 @@ class PitcherContextTests(unittest.TestCase):
     def test_unsupported_market_does_not_receive_k_score(self):
         result = grade(**sample(), prop_type='pitcher_walks')
         self.assertEqual(result['coverage'], 0)
-        self.assertIsNone(result['score'])
+        self.assertEqual(result['score'], 50)
 
     def test_outs_not_decimal_innings(self):
         self.assertAlmostEqual(innings({'ip': '5.2'}), 17 / 3)
@@ -50,9 +50,9 @@ class PitcherContextTests(unittest.TestCase):
         self.assertGreater(factor(result, 'workload')['impact'], 0)
         self.assertLess(factor(result, 'form')['impact'], 0)
 
-    def test_missing_inputs_stay_unrated(self):
+    def test_missing_inputs_stay_neutral(self):
         result = grade(k_card={})
-        self.assertIsNone(result['score'])
+        self.assertEqual(result['score'], 50)
         self.assertEqual(result['coverage'], 0)
         self.assertTrue(all(not f['available'] for f in result['factors']))
 

@@ -44,11 +44,21 @@ test('clearing the client invalidates an in-flight response', async () => {
   assert.equal(client.peek(context), null);
 });
 
-test('expired research is not reused', () => {
-  let now = 1000;
-  const client = createResearchClient({ now: () => now, maxAge: 100 });
-  // No network call is needed: an empty client must simply miss.
+test('restored ratings stay cached for three minutes without extending freshness', async () => {
+  let now = Date.parse('2026-09-20T06:00:00Z');
+  let calls = 0;
+  const client = createResearchClient({ now: () => now, fetcher: async () => {
+    calls++;
+    return { ok: true, json: async () => ({ matchupScore: 97,
+      matchupVersion: MATCHUP_VERSION,
+      matchupContext: { updatedAt: new Date(now).toISOString(), source: 'live' } }) };
+  } });
+  await client.request(context);
+  now += 179000;
+  assert.equal((await client.request(context)).matchupScore, 97);
+  assert.equal(calls, 1);
+  now += 1000;
   assert.equal(client.peek(context), null);
-  now += 200;
-  assert.equal(client.peek(context), null);
+  await client.request(context);
+  assert.equal(calls, 2);
 });

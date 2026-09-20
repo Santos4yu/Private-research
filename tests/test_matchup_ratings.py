@@ -111,12 +111,15 @@ class MatchupRatingsTests(unittest.TestCase):
         ready = prepare_board(source)
         self.assertEqual(ready["props"][0]["stats"]["matchup_score"], ready["matchup_research"][0]["stats"]["matchup_score"])
 
-    def test_board_and_prediction_endpoints_share_rating_even_after_live_cache_hit(self):
+    def test_endpoints_preserve_published_board_and_live_research_ratings(self):
         from api import board as board_api, prediction as prediction_api
+        from prediction_core import _matchup_provenance, MATCHUP_VERSION
         source = board()
-        ready = prepare_board(source)
-        identity = ready["props"][0]["stats"]["matchup_context"]
-        live = dict(matchupScore=97, matchupContext=identity)
+        live = _matchup_provenance(
+            dict(matchupScore=97, matchupLabel="Elite Matchup", matchupCoverage=.85,
+                 matchupFactors=[dict(key="handedness", impact=11)]),
+            1, dict(game_pk=2, opp_team_id=3, pitcher_id=4), .5, "under", "Hits",
+        )
         games = [dict(game_pk=2, home_id=3, home_pitcher_id=4, away_id=5)]
         def invoke(module, path):
             request = object.__new__(module.handler)
@@ -129,18 +132,23 @@ class MatchupRatingsTests(unittest.TestCase):
              patch.object(board_api, "session_with_live_access", return_value=True), \
              patch.object(prediction_api, "session_with_live_access", return_value=True), \
              patch.object(board_api, "_schedule_games", return_value=games), \
-             patch.object(board_api.store, "get", side_effect=lambda key, **kwargs: json.dumps(source)), \
+             patch.object(board_api.store, "get", side_effect=lambda key, **kwargs: json.dumps(source)) as read_board, \
              patch.object(prediction_api, "compute_prediction", return_value=live) as compute, \
              patch.dict(prediction_api._PREDICTION_CACHE, {}, clear=True):
             query = "/api/prediction?player=Example&stat=Hits&line=0.5&side=under&playerId=1"
             status, first = invoke(prediction_api, query)
             self.assertEqual(status, 200)
+            self.assertEqual(first, live)
+            self.assertEqual(first["matchupVersion"], MATCHUP_VERSION)
+            self.assertEqual(first["matchupContext"]["source"], "live")
+            read_board.assert_not_called()
             _, displayed = invoke(board_api, "/api/board")
-            self.assertEqual(first["matchupScore"], displayed["props"][0]["stats"]["matchup_score"])
-            self.assertEqual(first["matchupScore"], 70)
+            self.assertEqual(displayed["props"], source["props"])
+            self.assertEqual(displayed["props"][0]["stats"]["matchup_score"], 100)
             source["props"][0]["stats"]["matchup_factors"] = factors()
             _, second = invoke(prediction_api, query)
-            self.assertEqual(second["matchupScore"], 50)
+            self.assertEqual(second, {**live, "cached": True})
+            read_board.assert_called_once_with(board_api.BOT_BOARD_KEY)
             self.assertEqual(compute.call_count, 1)
 
 

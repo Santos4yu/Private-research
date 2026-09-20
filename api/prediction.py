@@ -28,11 +28,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 import analyze  # noqa: E402
 from vortextime import vortex_board_day
-from prediction_core import compute_prediction, PlayerNotFound, NoGameFound, STAT_LABEL_TO_PROP_TYPE  # noqa: E402
+from prediction_core import compute_prediction, PlayerNotFound, NoGameFound, STAT_LABEL_TO_PROP_TYPE, MATCHUP_VERSION  # noqa: E402
 from auth_core import session_with_live_access  # noqa: E402
 from prizepicks_export_core import build_export  # noqa: E402
-from matchup_ratings import prepare_board, reconcile_research, VERSION as MATCHUP_VERSION
-from v2.board import store
 
 
 _ODDS_CACHE = {}
@@ -68,9 +66,8 @@ _SLIP_PROP_LABELS = {
 def _cached_prediction(cache_key, compute):
     """Share one calculation between prefetch/open requests on this instance.
 
-    Authorization stays in the handler before this cache, and board ratings
-    are still reconciled after it. Never retain failures or extend the
-    existing three-minute data freshness window.
+    Authorization stays in the handler before this cache. Never retain
+    failures or extend the existing three-minute data freshness window.
     """
     now = time.monotonic()
     with _PREDICTION_CACHE_LOCK:
@@ -335,14 +332,6 @@ class handler(BaseHTTPRequestHandler):
         except Exception as exc:  # noqa: BLE001 — never leak a stack trace to the client
             return self._send(500, {"error": f"Live lookup failed: {exc}"})
 
-        # Resolve against the current board after the live cache, so a board
-        # refresh cannot leave an older rating stuck in the 3-minute cache.
-        try:
-            raw_board = store.get("vortex:site_board", timeout=2)
-            if raw_board:
-                result = reconcile_research(result, prepare_board(json.loads(raw_board)), stat=stat_label)
-        except Exception:
-            pass  # The fresh live grade remains usable during a board outage.
         return self._send(200, result)
 
     def do_POST(self):

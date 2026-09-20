@@ -48,6 +48,9 @@ import stats_mlb         # backend/stats_mlb.py
 import vortextime        # backend/vortextime.py
 import research as vortex_research  # backend/research.py — fuzzy_search
 
+# Keep cached research distinct from the superseded unified matchup model.
+MATCHUP_VERSION = "krazy-matchup-f4042bf"
+
 # MLB's 30 franchise team IDs are permanent -- used as a fallback when the
 # API's currentTeam hydration omits "name" for a player (a real, observed
 # quirk; e.g. Michael Busch's record only carried currentTeam.id).
@@ -858,8 +861,7 @@ def compute_prediction(player_name: str, prop_type: str, stat_label: str, line: 
 
 
 def _matchup_provenance(result, player_id, matchup, line, side, stat_label, pitcher=False):
-    from matchup_ratings import VERSION
-    result["matchupVersion"] = VERSION
+    result["matchupVersion"] = MATCHUP_VERSION
     result["matchupContext"] = {
         "playerId": player_id, "gameId": matchup.get("game_pk"),
         "opponentId": matchup.get("opp_team_id"),

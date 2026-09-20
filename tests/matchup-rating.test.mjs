@@ -26,6 +26,7 @@ test('unversioned static props and expired research cannot bypass live grading',
   const fresh = { matchupVersion: MATCHUP_VERSION, matchupContext: { updatedAt: new Date(now - 1000).toISOString() } };
   assert.ok(canReuseResearch(fresh, now));
   assert.equal(canReuseResearch({ ...fresh, matchupVersion: 'old' }, now), false);
+  assert.equal(canReuseResearch({ ...fresh, matchupVersion: 'krazy-matchup-2026-09-19' }, now), false);
   assert.equal(canReuseResearch(fresh, now + 180000), false);
   assert.equal(canReuseResearch({ matchupScore: 100 }, now), false);
 });

@@ -131,7 +131,6 @@ class ResearchCacheTests(unittest.TestCase):
         with patch("site_controls.allowed", return_value=True), \
              patch.object(api, "session_with_live_access", return_value=True) as access, \
              patch.object(api, "vortex_board_day", side_effect=lambda: day[0]), \
-             patch.object(api.store, "get", return_value=None), \
              patch.object(api, "compute_prediction", return_value={"score": 80}) as compute:
             self.assertEqual(self.invoke_api()[0], 200)
             self.assertTrue(self.invoke_api()[1]["cached"])

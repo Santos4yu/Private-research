@@ -2503,18 +2503,14 @@ function setLineValue(value, { immediate = false } = {}) {
 }
 
 function withAuthoritativeBoardMatchup(prop, player, stat, line, side) {
-  // Official pick score/tier and matchup rating are separate measures.
-  // The API resolves the matching, regraded matchup snapshot by game and side.
+  // The board remains authoritative for the official VORTEX pick score/tier.
+  // Research keeps the live matchup grade from the restored f4042bf model.
   const boardContext = state.boardResearchContext;
   const sameBoardProp = boardContext
     && boardContext.player.toLowerCase() === String(player).toLowerCase()
     && boardContext.stat === stat
     && Math.abs(Number(boardContext.line) - Number(line)) < 0.01
-    && boardContext.side === String(side).toLowerCase()
-    && boardContext.matchupContext?.gameId === prop.matchupContext?.gameId
-    && boardContext.matchupContext?.playerId === prop.matchupContext?.playerId
-    && boardContext.matchupContext?.pitcherId === prop.matchupContext?.pitcherId
-    && boardContext.matchupContext?.updatedAt === prop.matchupContext?.updatedAt;
+    && boardContext.side === String(side).toLowerCase();
   if (!sameBoardProp) return prop;
   return {
     ...prop,
@@ -5937,12 +5933,12 @@ function renderBotBoard(data) {
     const stats = p.stats || {};
     const matchupScore = matchupNumber(stats.matchup_score);
     const matchupCoverage = Number(stats.matchup_coverage);
-    // Confidence comes from usable sample sizes, not just present fields.
-    const lowCoverage = !Number.isFinite(matchupCoverage) || matchupCoverage < 0.65;
+    // Preserve the f4042bf threshold for labeling limited matchup coverage.
+    const lowCoverage = Number.isFinite(matchupCoverage) && matchupCoverage < 0.45;
     const matchupBadge = Number.isFinite(matchupScore)
       ? lowCoverage
         ? `<span class="v2-card-matchup-score" data-band="limited">MATCHUP ${Math.round(matchupScore)} · LIMITED DATA (${Math.round(matchupCoverage * 100)}% cov.)</span>`
-        : `<span class="v2-card-matchup-score" title="${escapeHtml(matchupUpdatedText(stats.matchup_context))}" data-band="${matchupScore >= 75 ? "strong" : matchupScore >= 65 ? "favorable" : matchupScore >= 55 ? "slight" : matchupScore >= 45 ? "neutral" : matchupScore >= 35 ? "caution" : "unfavorable"}">MATCHUP ${Math.round(matchupScore)} · ${escapeHtml(stats.matchup_label || boardMatchupLabel(matchupScore))}</span>`
+        : `<span class="v2-card-matchup-score" data-band="${matchupScore >= 75 ? "strong" : matchupScore >= 65 ? "favorable" : matchupScore >= 55 ? "slight" : matchupScore >= 45 ? "neutral" : matchupScore >= 35 ? "caution" : "unfavorable"}">MATCHUP ${Math.round(matchupScore)} · ${boardMatchupLabel(matchupScore)}</span>`
       : `<span class="v2-card-matchup-score" data-band="neutral">MATCHUP NOT GRADED</span>`;
     const sidePfx = stats.side === "under" ? "U" : "O";
     const tier = BOT_TIER[p.tier] || botScoreBadge(p.vortex_score);
@@ -6830,7 +6826,7 @@ function buildBotDetailHtml(p, i) {
   let html = `<div class="v2-detail-toolbar"><button type="button" class="v2-detail-close" aria-label="Close expanded matchup">× <span>Close</span></button></div><div class="board-analysis-summary">
     <div><span>PRICE</span><strong>${escapeHtml(fmtBotEv(p))}</strong><small>${escapeHtml(p.sportsbook || "Best available")}${typeof stats.best_odds === "number" ? ` · ${stats.best_odds > 0 ? "+" : ""}${stats.best_odds}` : ""}</small></div>
     <div><span>RECENT</span><strong>${typeof l10 === "number" ? `${l10}% L10` : "No sample"}</strong><small>${typeof l5 === "number" ? `${l5}% L5` : "L5 —"}${typeof l20 === "number" ? ` · ${l20}% L20` : ""}</small></div>
-    <div><span>MATCHUP</span><strong>${Number.isFinite(matchupNumber(stats.matchup_score)) ? `${Math.round(Number(stats.matchup_score))}/100` : "Not graded"}</strong><small>${escapeHtml(stats.matchup_label || boardMatchupLabel(stats.matchup_score) || "Coverage unavailable")}</small></div>
+    <div><span>MATCHUP</span><strong>${Number.isFinite(matchupNumber(stats.matchup_score)) ? `${Math.round(Number(stats.matchup_score))}/100` : "Not graded"}</strong><small>${escapeHtml(boardMatchupLabel(stats.matchup_score) || "Coverage unavailable")}</small></div>
   </div><div class="board-analysis-case"><div><span>CASE</span><p>${escapeHtml(cleanAnalysisText(p.case_summary || "Model and matchup signals align with this side."))}</p></div><div class="risk"><span>RISK</span><p>${escapeHtml(cleanAnalysisText(p.risk_summary || "No material conflict reported."))}</p></div></div>`;
 
   if (Number.isFinite(matchupNumber(stats.matchup_score)) && (stats.matchup_factors || []).length) {

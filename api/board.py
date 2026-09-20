@@ -3,8 +3,9 @@ Vercel serverless function: public read of the Discord bot's props board.
 
 backend/update_board.py (the Vortex Data Engine that feeds the Discord bot's
 /menu) mirrors its props_board table to the KV store after every run — this
-endpoint reads that mirror and recomputes the private site's matchup rating
-from its factors. No board scan or odds credits are required.
+endpoint just reads that mirror, so the site's Props tab always shows the
+exact same board the bot serves. Never computes anything and never spends
+odds credits.
 """
 import json
 import sys
@@ -22,7 +23,6 @@ from v2.board import store  # noqa: E402
 from v2.board import admin_auth  # noqa: E402
 from prizepicks_export_core import _fetch_projection_rows, _norm_stat  # noqa: E402
 from live_props_core import player_history  # noqa: E402
-from matchup_ratings import prepare_board
 
 BOT_BOARD_KEY = "vortex:site_board"
 SPECIALS_KEY = "vortex:site_specials"
@@ -215,7 +215,6 @@ class handler(BaseHTTPRequestHandler):
         try:
             data = json.loads(raw)
             data["games"] = _schedule_games(data.get("date")) if data.get("date") else []
-            data = prepare_board(data, games=data["games"])
             return self._send(200, data)
         except json.JSONDecodeError:
             return self._send(200, {"date": None, "generated_at": None, "props": []})
