@@ -3,7 +3,10 @@ from __future__ import annotations
 import csv
 import io
 import time
-from dataclasses import asdict
+from dataclasses import asdict, fields as dataclass_fields, is_dataclass
+from enum import Enum
+from types import UnionType
+from typing import Union, get_args, get_origin, get_type_hints
 from datetime import datetime, time as dt_time, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from typing import Callable
@@ -120,6 +123,70 @@ def _result(loader: Callable[[], tuple[list, datetime, datetime | None]]) -> Pro
         return ProviderResult(DataStatus.MISSING, None, SOURCE, datetime.now(timezone.utc), reason=str(exc))
 
 
+# Every loader below returns (rows, fetched, observed) where rows are frozen
+# dataclasses and the timestamps are datetimes -- a shape json.dumps refuses,
+# which meant cache._kv_set silently dropped ALL of it and the durable cache
+# was dead for the whole provider. api/nfl.py caches finished payloads for the
+# resources it serves, but nothing internal goes through there: the props
+# board looks up game_logs per player for every game on the slate, and
+# opportunity/matchup/projection all call straight into this module. This
+# codec is what lets those share one cache instead of each cold instance
+# re-downloading a season CSV.
+def _jsonable(value):
+    # asdict() rebuilds nested dataclasses but leaves datetimes (and any
+    # other non-JSON scalar) exactly as they were, so the encoded row was
+    # still unserialisable. StrEnum members already dump as their string.
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {key: _jsonable(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(item) for item in value]
+    return value
+
+
+def _coerce(hint, raw):
+    if raw is None:
+        return None
+    origin = get_origin(hint)
+    if origin in (Union, UnionType):
+        options = [arg for arg in get_args(hint) if arg is not type(None)]
+        # Optional[X] revives as X; a genuine multi-type union (int | float)
+        # is already exactly what JSON gave back.
+        return _coerce(options[0], raw) if len(options) == 1 else raw
+    if origin is not None:
+        return raw  # dict[...]/list[...] round-trip as themselves
+    if is_dataclass(hint):
+        return _revive(hint, raw)
+    if isinstance(hint, type) and issubclass(hint, Enum):
+        return hint(raw)
+    if hint is datetime:
+        return datetime.fromisoformat(raw)
+    return raw
+
+
+def _revive(cls, data):
+    hints = get_type_hints(cls)
+    return cls(**{f.name: _coerce(hints[f.name], data.get(f.name)) for f in dataclass_fields(cls)})
+
+
+def _provider_codec(row_class):
+    """(encode, decode) for this module's (rows, fetched, observed) tuples.
+    `row_class` is None where the rows are already plain dicts."""
+    def encode(value):
+        rows, fetched, observed = value
+        return {'rows': [_jsonable(asdict(row) if is_dataclass(row) else row) for row in rows],
+                'fetched': fetched.isoformat(),
+                'observed': observed.isoformat() if observed else None}
+
+    def decode(raw):
+        rows = [_revive(row_class, row) for row in raw['rows']] if row_class else list(raw['rows'])
+        return (rows, datetime.fromisoformat(raw['fetched']),
+                datetime.fromisoformat(raw['observed']) if raw['observed'] else None)
+
+    return encode, decode
+
+
 def _source_rows(url: str):
     # Every caller below (teams, schedule, game_logs, usage, injuries,
     # depth_chart, team_stats) fetches from a season-wide static CSV, but
@@ -129,7 +196,11 @@ def _source_rows(url: str):
     # this exact same file N times over the network, sequentially, once per
     # player. Caching the raw rows here by URL means every caller shares
     # one fetch+parse per file instead of paying for it again per player.
-    return cached_nfl(NFLCacheDomain.SOURCE_ROWS, (url,), lambda: _fetch_csv(url))
+    # Memory-only: one season's player-stats CSV is ~68MB as JSON, far past
+    # anything worth putting in a shared store. The per-result caches below
+    # are what make a cold instance cheap; this just stops the callers in a
+    # single request re-parsing the same file.
+    return cached_nfl(NFLCacheDomain.SOURCE_ROWS, (url,), lambda: _fetch_csv(url), durable=False)
 
 
 def teams(season: int) -> ProviderResult[list[NFLTeam]]:
@@ -152,7 +223,7 @@ def teams(season: int) -> ProviderResult[list[NFLTeam]]:
         if len(by_team) < 32:
             raise ProviderError(f"team validation retained only {len(by_team)} records")
         return sorted(by_team.values(), key=lambda team: team.abbreviation), fetched, observed
-    return _result(lambda: cached_nfl(NFLCacheDomain.TEAMS, (SOURCE_VERSION, season), load))
+    return _result(lambda: cached_nfl(NFLCacheDomain.TEAMS, (SOURCE_VERSION, season), load, codec=_provider_codec(NFLTeam)))
 
 
 def players(season: int) -> ProviderResult[list[NFLPlayer]]:
@@ -180,7 +251,7 @@ def players(season: int) -> ProviderResult[list[NFLPlayer]]:
         if not output:
             raise ProviderError("no valid offensive skill players")
         return output, fetched, observed
-    return _result(lambda: cached_nfl(NFLCacheDomain.PLAYERS, (SOURCE_VERSION, season), load))
+    return _result(lambda: cached_nfl(NFLCacheDomain.PLAYERS, (SOURCE_VERSION, season), load, codec=_provider_codec(NFLPlayer)))
 
 
 def schedule(season: int, week: int | None = None, season_type: str | None = None) -> ProviderResult[list[NFLGame]]:
@@ -222,7 +293,7 @@ def schedule(season: int, week: int | None = None, season_type: str | None = Non
                 source_ids={key: str(row[key]) for key in ("old_game_id", "gsis", "nfl_detail_id", "pfr", "pff", "espn") if row.get(key)},
             ))
         return output, fetched, observed
-    return _result(lambda: cached_nfl(NFLCacheDomain.SCHEDULE, (SOURCE_VERSION, season, week or "all", season_type or "all"), load))
+    return _result(lambda: cached_nfl(NFLCacheDomain.SCHEDULE, (SOURCE_VERSION, season, week or "all", season_type or "all"), load, codec=_provider_codec(NFLGame)))
 
 
 PLAYER_STAT_FIELDS = (
@@ -269,7 +340,7 @@ def game_logs(season: int, player_id: str, season_type: str = "REG") -> Provider
             ))
         output.sort(key=lambda item: item.week)
         return output, fetched, observed
-    return _result(lambda: cached_nfl(NFLCacheDomain.GAME_LOGS, (SOURCE_VERSION, 'research-stats-v2', season, season_type, player_id), load))
+    return _result(lambda: cached_nfl(NFLCacheDomain.GAME_LOGS, (SOURCE_VERSION, 'research-stats-v2', season, season_type, player_id), load, codec=_provider_codec(NFLGameLog)))
 
 
 TEAM_STAT_FIELDS = ("attempts", "passing_yards", "carries", "rushing_yards", "def_sacks", "def_interceptions", "sacks_suffered", "targets")
@@ -306,7 +377,7 @@ def team_game_stats(season: int, team_id: str, season_type: str = "REG") -> Prov
                 opponent_team_id=canonical_team(row.get("opponent_team")), stats=stats, source=SOURCE,
             ))
         return output, fetched, observed
-    return _result(lambda: cached_nfl(NFLCacheDomain.STATS, (SOURCE_VERSION, season, season_type, team_id), load))
+    return _result(lambda: cached_nfl(NFLCacheDomain.STATS, (SOURCE_VERSION, season, season_type, team_id), load, codec=_provider_codec(NFLTeamGameStats)))
 
 
 def defense_game_stats(season: int, team_id: str, season_type: str = "REG") -> ProviderResult[list[NFLTeamGameStats]]:
@@ -347,7 +418,7 @@ def defense_game_stats(season: int, team_id: str, season_type: str = "REG") -> P
                 opponent_team_id=canonical_team(row.get("team")), stats=stats, source=SOURCE,
             ))
         return output, fetched, observed
-    return _result(lambda: cached_nfl(NFLCacheDomain.DEFENSE, (SOURCE_VERSION, season, season_type, team_id), load))
+    return _result(lambda: cached_nfl(NFLCacheDomain.DEFENSE, (SOURCE_VERSION, season, season_type, team_id), load, codec=_provider_codec(NFLTeamGameStats)))
 
 
 def injuries(season: int, week: int | None = None) -> ProviderResult[list[NFLInjury]]:
@@ -375,7 +446,7 @@ def injuries(season: int, week: int | None = None) -> ProviderResult[list[NFLInj
                 report_date=None, source=SOURCE,
             ))
         return output, fetched, observed
-    return _result(lambda: cached_nfl(NFLCacheDomain.INJURIES, (SOURCE_VERSION, season, week or "all"), load))
+    return _result(lambda: cached_nfl(NFLCacheDomain.INJURIES, (SOURCE_VERSION, season, week or "all"), load, codec=_provider_codec(NFLInjury)))
 
 
 def depth_chart(season: int, team_id: str | None = None, *, latest_only: bool = True) -> ProviderResult[list[NFLDepthChartEntry]]:
@@ -407,7 +478,7 @@ def depth_chart(season: int, team_id: str | None = None, *, latest_only: bool = 
             latest = max(entry.updated_at for entry in output)
             output = [entry for entry in output if entry.updated_at == latest]
         return output, fetched, observed
-    return _result(lambda: cached_nfl(NFLCacheDomain.DEPTH_CHARTS, (SOURCE_VERSION, season, normalized_team or "all", "latest" if latest_only else "history"), load))
+    return _result(lambda: cached_nfl(NFLCacheDomain.DEPTH_CHARTS, (SOURCE_VERSION, season, normalized_team or "all", "latest" if latest_only else "history"), load, codec=_provider_codec(NFLDepthChartEntry)))
 
 
 def snap_counts(season: int, pfr_player_id: str | None = None) -> ProviderResult[list[dict]]:
@@ -432,7 +503,7 @@ def snap_counts(season: int, pfr_player_id: str | None = None) -> ProviderResult
                 "source": SOURCE,
             })
         return output, fetched, observed
-    return _result(lambda: cached_nfl(NFLCacheDomain.USAGE, (SOURCE_VERSION, season, pfr_player_id or "all"), load))
+    return _result(lambda: cached_nfl(NFLCacheDomain.USAGE, (SOURCE_VERSION, season, pfr_player_id or "all"), load, codec=_provider_codec(None)))
 
 
 def serialize_result(result: ProviderResult[list]) -> dict:

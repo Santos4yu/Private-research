@@ -137,7 +137,14 @@ def _kv_set(key: str, value: object) -> None:
         pass
 
 
-def cached_nfl(domain: NFLCacheDomain, parts: tuple[object, ...], loader: Callable[[], T]) -> T:
+def cached_nfl(domain: NFLCacheDomain, parts: tuple[object, ...], loader: Callable[[], T],
+               codec: tuple[Callable[[T], object], Callable[[object], T]] | None = None,
+               durable: bool = True) -> T:
+    """`codec` is an (encode, decode) pair for values that cannot round-trip
+    through JSON on their own -- notably everything in services/nflverse.py,
+    which returns (list[dataclass], datetime, datetime | None). Without one,
+    _kv_set silently drops the value and the domain is memory-only, so each
+    cold instance redoes the work."""
     key = nfl_cache_key(domain, *parts)
     now = time.time()
     with _lock:
@@ -153,7 +160,14 @@ def cached_nfl(domain: NFLCacheDomain, parts: tuple[object, ...], loader: Callab
     if not owner:
         return pending.result()
     try:
-        kv_value = _kv_get(key, NFL_CACHE_TTLS[domain])
+        kv_value = _kv_get(key, NFL_CACHE_TTLS[domain]) if durable else None
+        if kv_value is not None and codec is not None:
+            try:
+                kv_value = codec[1](kv_value)
+            except Exception:
+                # A shape this build no longer understands is a cache miss,
+                # never an error -- fall through and reload it.
+                kv_value = None
         if kv_value is not None:
             with _lock:
                 if generation == _generation:
@@ -166,7 +180,11 @@ def cached_nfl(domain: NFLCacheDomain, parts: tuple[object, ...], loader: Callab
                 _memory[key] = (time.time(), value)
                 if len(_memory) > 1024:
                     _memory.pop(next(iter(_memory)))
-        _kv_set(key, value)
+        try:
+            if durable:
+                _kv_set(key, codec[0](value) if codec is not None else value)
+        except Exception:
+            pass  # Durable caching is best-effort; never fail the request.
         pending.set_result(value)
         return value
     except BaseException as error:
