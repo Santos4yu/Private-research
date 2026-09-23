@@ -141,11 +141,11 @@ function NFLHome({ players, teams, loading, error, onOpen }) {
         {!results.length && !loading && <Notice title="No players found">Try a full first or last name.</Notice>}
       </div>}
     </div>
+    <PropsBoardLink />
     {loading && <LoadingCards label="Loading NFL players" />}
     {error && <Notice icon={AlertTriangle} title="NFL players unavailable" tone="error">{error}</Notice>}
     {!loading && players.length > 0 && <>
       {recent.length > 0 && <section className="nfl-home-section"><div className="nfl-section-title"><div><h3>Recent players</h3></div><button type="button" onClick={() => { localStorage.removeItem(NFL_RECENT_KEY); setRecent([]); }}>Clear</button></div><div className="nfl-recent-row">{recent.map((player) => <button type="button" key={player.id} onClick={() => open(player)}><PlayerPhoto player={player} /><span><strong>{player.name}</strong><small>{player.position} · {player.team_id || 'FA'}</small></span></button>)}</div></section>}
-      <PropsBoardLink />
       <section className="nfl-home-section"><div className="nfl-section-title"><div><h3>Featured players</h3></div></div><div className="nfl-feature-grid-layout">{featured.map((player) => <FeaturedCard key={player.id} player={player} onOpen={open} />)}</div></section>
       <section className="nfl-tool-strip"><article><CircleGauge aria-hidden="true" /><span><strong>Opportunity</strong><small>Snaps, volume and shares</small></span></article><article><Shield aria-hidden="true" /><span><strong>Opponent</strong><small>Measured defense results</small></span></article><article><HeartPulse aria-hidden="true" /><span><strong>Personnel</strong><small>Current injury reports</small></span></article></section>
     </>}
@@ -430,7 +430,11 @@ function NFLPlayerResearch({ player, teams, schedules, onBack }) {
   return <div className="nfl-research-page">
     <div className="nfl-research-actions"><button type="button" className="nfl-back" onClick={onBack}><ArrowLeft aria-hidden="true" />Players</button><button type="button" className="nfl-refresh" aria-label="Refresh current research" onClick={() => { nflClient.clear(); setAnalyzedLine(null); setRefreshKey(key => key + 1); }}><RefreshCw size={18}/></button></div>
     <header className="nfl-player-header"><div className="nfl-headshot-wrap"><PlayerPhoto player={player} /></div><div className="nfl-player-identity"><h2>{player.name}</h2><p>{player.position} · {team?.name || player.team_id || 'Free agent'} <TeamLogo team={player.team_id} size="sm" /></p><div className="nfl-player-chips"><span>{statusLabel(player.status)}</span>{nextGame && matchup && <span>{matchup.location === 'HOME' ? 'vs' : '@'} {matchup.opponent.id} · {new Date(nextGame.starts_at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</span>}</div></div></header>
-    <section className="nfl-prop-selector"><div role="listbox" aria-label="Player props">{props.map((prop) => <button type="button" role="option" aria-selected={selectedProp.key === prop.key} className={selectedProp.key === prop.key ? 'active' : ''} key={prop.key} onClick={() => {setSelectedProp(prop);setAnalyzedLine(null);}}><strong>{prop.label}</strong></button>)}</div></section>
+    {/* The Trend panel has its own stat strip wired to this same state
+        (see onStat/switchProp), so showing this as well put two selectors
+        for one value on screen -- on the tab that opens by default. It
+        stays for the tabs that have no selector of their own. */}
+    {tab !== 'trend' && <section className="nfl-prop-selector"><div role="listbox" aria-label="Player props">{props.map((prop) => <button type="button" role="option" aria-selected={selectedProp.key === prop.key} className={selectedProp.key === prop.key ? 'active' : ''} key={prop.key} onClick={() => {setSelectedProp(prop);setAnalyzedLine(null);}}><strong>{prop.label}</strong></button>)}</div></section>}
 
     <nav className="nfl-research-tabs" aria-label="NFL research sections">{TAB_ITEMS.map(([key, label, Icon]) => <button type="button" key={key} className={tab === key ? 'active' : ''} aria-current={tab === key ? 'page' : undefined} onClick={() => setTab(key)}><Icon aria-hidden="true" /><span>{label}</span></button>)}</nav>
     {loading && <LoadingCards label="Loading player research" />}
