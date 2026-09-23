@@ -2,7 +2,7 @@ import {siteSportAllowed} from '../../site-access';
 import {NFLResearchBoard} from './ResearchBoard';
 import './mobile-research.css';
 import {ResearchSheet,SheetSelect} from './ResearchSheet';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity, AlertTriangle, ArrowLeft, ArrowUpRight, CalendarDays,
   CircleGauge, CloudSun, Crosshair, Database, HeartPulse,
@@ -16,8 +16,8 @@ import { NFLDistributionPanel } from './DistributionPanel';
 import { createNFLClient } from './nfl-client';
 import { freshness } from './nfl-client';
 import { loadNFLHistory, historicalUsage } from './nfl-history';
-import { NFLMarketLines, NFLPropBrowser } from './MarketLines';
-import { NFLTrendPanel } from './TrendPanel';
+import { NFLTrendHost } from './TrendHost';
+import { filterOffers } from './trend-data';
 import { filterNFLPlayers, NFL_RECENT_KEY, propsForPosition, researchHealth, selectNextGame, summarizeLogs, teamLogoUrl, visibleGame } from './nfl-ui-core';
 
 const SEASON = new Date().getMonth() < 2 ? new Date().getFullYear() - 1 : new Date().getFullYear();
@@ -296,8 +296,40 @@ function NFLPlayerResearch({ player, teams, schedules, onBack }) {
     return () => {active=false;};
   },[player.id,selectedProp.key,historyMode,refreshKey]);
 
-  const props = propsForPosition(NFL_PROP_DEFINITIONS, player.position);
+  // Posted offers for this player's upcoming game. The shared trend panel
+  // drives BOTH its alt-line picker and its sportsbook odds row from these,
+  // so they are loaded at this level rather than inside one line-picker
+  // component -- and the "which line are we analysing" default that used to
+  // live in NFLMarketLines' own effect moves here with them.
+  const [offersBody, setOffersBody] = useState(null);
+  useEffect(() => {
+    let active = true;
+    setOffersBody(null);
+    getNFL('props', { playerId: player.id, week: nextGame?.week })
+      .then((result) => { if (active) setOffersBody(result); })
+      .catch(() => { if (active) setOffersBody({ data: [] }); });
+    return () => { active = false; };
+  }, [player.id, nextGame?.week, refreshKey]);
+
+  const propOffers = useMemo(
+    () => filterOffers(offersBody?.data || [], { prop: selectedProp.key, bookmaker: '', category: 'ALL' }),
+    [offersBody, selectedProp.key],
+  );
+
+  useEffect(() => {
+    if (!offersBody) return;
+    const matches = filterOffers(offersBody.data || [], { prop: selectedProp.key, bookmaker: 'prizepicks', category: 'ALL' });
+    const standard = matches.find((row) => row.line.category === 'STANDARD' && row.direction === 'OVER')
+      || matches.find((row) => row.line.category === 'STANDARD');
+    setAnalyzedLine((standard || matches.find((row) => row.direction === 'OVER') || matches[0])?.line || null);
+  }, [offersBody, selectedProp.key]);
+
+  const props = useMemo(() => propsForPosition(NFL_PROP_DEFINITIONS, player.position), [player.position]);
   const logs = (selectedProp.key === 'longest_reception' ? resources.receptionLogs?.data : resources.logs?.data) || [];
+  const switchProp = useCallback((key) => {
+    const next = NFL_PROP_DEFINITIONS.find((prop) => prop.key === key);
+    if (next) { setSelectedProp(next); setAnalyzedLine(null); }
+  }, []);
   return <div className="nfl-research-page">
     <div className="nfl-research-actions"><button type="button" className="nfl-back" onClick={onBack}><ArrowLeft aria-hidden="true" />Players</button><button type="button" className="nfl-refresh" aria-label="Refresh current research" onClick={() => { nflClient.clear(); setAnalyzedLine(null); setRefreshKey(key => key + 1); }}><RefreshCw size={18}/></button></div>
     <header className="nfl-player-header"><div className="nfl-headshot-wrap"><PlayerPhoto player={player} /></div><div className="nfl-player-identity"><h2>{player.name}</h2><p>{player.position} · {team?.name || player.team_id || 'Free agent'} <TeamLogo team={player.team_id} size="sm" /></p><div className="nfl-player-chips"><span>{statusLabel(player.status)}</span>{nextGame && matchup && <span>{matchup.location === 'HOME' ? 'vs' : '@'} {matchup.opponent.id} · {new Date(nextGame.starts_at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</span>}</div></div></header>
@@ -311,7 +343,10 @@ function NFLPlayerResearch({ player, teams, schedules, onBack }) {
       {tab === 'overview' && <NFLDistributionPanel resource={resources.distribution} propKey={selectedProp.key} quote={analyzedLine} />}
       {tab === 'trend' && selectedProp.key === 'longest_reception' && resources.receptionLogs?.status === 'UNRELIABLE' && <Notice title="Reception lengths temporarily unavailable">Refresh to retry the play-by-play source. Other game statistics remain available.</Notice>}
       {tab === 'trend' && selectedProp.key === 'longest_reception' && resources.receptionLogs?.status === 'LOADING' && <LoadingCards label="Loading reception lengths" />}
-      {!(selectedProp.key === 'longest_reception' && resources.receptionLogs?.status === 'LOADING') && <div hidden={tab !== 'trend'}><NFLTrendPanel key={selectedProp.key} logs={logs} usage={resources.usage?.data || []} selectedProp={selectedProp} quote={analyzedLine} opponent={matchup?.opponent?.id} market={<NFLMarketLines key={`${player.id}.${refreshKey}`} load={getNFL} player={player} week={nextGame?.week} prop={selectedProp.key} onSelect={setAnalyzedLine} selected={analyzedLine} onRefresh={nflClient.clear} />} historyControl={<section className="nfl-history-control"><label htmlFor="nfl-history-season">History<SheetSelect label="History range" id="nfl-history-season" value={historyMode} onChange={event => setHistoryMode(event.target.value)}><option value="recent">Recent seasons</option><option value="current">{SEASON} only</option><option value="previous">{SEASON - 1} only</option></SheetSelect></label>{!loading && <p>{resources.logs?.history?.label || SEASON} / {logs.length} games</p>}{resources.logs?.reason && <p>{resources.logs.reason}</p>}</section>} /></div>}
+      {!(selectedProp.key === 'longest_reception' && resources.receptionLogs?.status === 'LOADING') && <div hidden={tab !== 'trend'} className="nfl-trend-shell">
+        <section className="nfl-history-control"><label htmlFor="nfl-history-season">History<SheetSelect label="History range" id="nfl-history-season" value={historyMode} onChange={event => setHistoryMode(event.target.value)}><option value="recent">Recent seasons</option><option value="current">{SEASON} only</option><option value="previous">{SEASON - 1} only</option></SheetSelect></label>{!loading && <p>{resources.logs?.history?.label || SEASON} / {logs.length} games</p>}{resources.logs?.reason && <p>{resources.logs.reason}</p>}</section>
+        <NFLTrendHost player={player} props={props} logs={logs} offers={propOffers} offersReady={Boolean(offersBody)} selectedProp={selectedProp} quote={analyzedLine} opponent={matchup?.opponent?.id} matchupLabel={matchup ? `${matchup.location === 'HOME' ? 'vs' : '@'} ${matchup.opponent.id}` : 'Matchup pending'} kickoffLabel={nextGame ? new Date(nextGame.starts_at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : 'Time TBA'} status={statusLabel(player.status)} loading={loading} onStat={switchProp} />
+      </div>}
       {tab === 'opportunity' && <section className="nfl-panel-stack"><HistoricalRolePanel player={player} logs={logs} usage={resources.usage} /><details className="nfl-chart-card nfl-usage-app"><summary>Upcoming opportunity estimate</summary><OpportunityPanel opportunity={resources.opportunity} /></details></section>}
       {tab === 'matchup' && <NFLMatchupPanel resource={resources.matchup} selectedProp={selectedProp} />}
       {tab === 'opponent' && <OpponentPanel defense={resources.defense} opponent={matchup?.opponent} />}

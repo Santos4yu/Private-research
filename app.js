@@ -2647,6 +2647,12 @@ function syncProfileHeaderWithProp(p) {
 // mountResearchTabs() also keeps its own reference as a second line of
 // defence -- see src/report-tabs.js.
 function parkGameLogOverlay() {
+  // Only MLB's report owns the panel here. While another sport has it
+  // mounted (see window.vortexTrendPanel), an MLB teardown running in the
+  // background -- clearReport/renderLoadingState fire on flows that are
+  // still live even when the MLB surface is hidden -- would rip the node
+  // out of that sport's Trend tab and blank it.
+  if (!isMlbTrend()) return;
   const overlay = document.getElementById("gamelog-overlay");
   if (overlay && overlay.parentElement !== document.body) document.body.appendChild(overlay);
 }
@@ -2756,8 +2762,69 @@ const GAMELOG_STAT_CODES = {
 const MLB_TEAM_IDS = { ARI:109, AZ:109, ATL:144, BAL:110, BOS:111, CHC:112, CWS:145, CIN:113, CLE:114, COL:115, DET:116, HOU:117, KC:118, LAA:108, LAD:119, MIA:146, MIL:158, MIN:142, NYM:121, NYY:147, OAK:133, PHI:143, PIT:134, SD:135, SEA:136, SF:137, STL:138, TB:139, TEX:140, TOR:141, WSH:120 };
 const MLB_TEAM_ABBRS = { 108:"LAA",109:"ARI",110:"BAL",111:"BOS",112:"CHC",113:"CIN",114:"CLE",115:"COL",116:"DET",117:"HOU",118:"KC",119:"LAD",120:"WSH",121:"NYM",133:"ATH",134:"PIT",135:"SD",136:"SEA",137:"SF",138:"STL",139:"TB",140:"TEX",141:"TOR",142:"MIN",143:"PHI",144:"ATL",145:"CWS",146:"MIA",147:"NYY",158:"MIL" };
 
+/* ---------- Sport adapters for the trend panel ----------
+ * #gamelog-overlay is a singleton, and its renderers -- renderGameLogChart,
+ * renderGameLogTabs, renderGameLogSubfilters, the window bar, the line
+ * marker, the odds row -- only ever read gameLogState. They are already
+ * sport-agnostic. The only MLB-specific parts are the HEADER (team marks,
+ * headshot, matchup logos) and the LOADERS (which endpoints supply the
+ * games, the posted-line ladder and the book quotes).
+ *
+ * So a second sport does NOT get a second trend panel: it mounts this very
+ * node (see window.vortexTrendPanel further down) and swaps in its own
+ * adapter here. Everything visual stays literally the same code, the same
+ * markup and the same CSS.
+ */
+const MLB_TREND_ADAPTER = {
+  sport: "MLB",
+  statCode: (stat) => GAMELOG_STAT_CODES[stat] || stat,
+  statList() {
+    const stats = gameLogState.availableStats || (gameLogState.isPitcher ? PITCHER_STATS : BATTER_STATS);
+    return stats.filter((stat) => finderMarket(stat));
+  },
+  classify(p) {
+    gameLogState.isPitcher = PITCHER_STATS.includes(p.betType) || p.position === "P" || p.isPitcherProp === true;
+    const twoWay = p.isTwoWay === true || p.position === "TWP" || /shohei\s+ohtani/i.test(p.player || "");
+    gameLogState.availableStats = twoWay ? STANDARD_STATS : (gameLogState.isPitcher ? PITCHER_STATS : BATTER_STATS);
+  },
+  renderHeader(p) {
+    const liveState = document.getElementById("gamelog-live-state");
+    const currentStatus = p.live?.status || p.gameStatus || (p.matchup?.lineup ? "Lineup confirmed" : "Pre-game");
+    if (liveState) liveState.textContent = currentStatus;
+    syncGameLogContext({
+      matchup: p.matchup?.opponent ? `vs ${p.matchup.opponent} · performance history` : "Live prop performance explorer",
+      status: currentStatus,
+    });
+    if (els.gamelogPropBadge) els.gamelogPropBadge.textContent = gameLogStatCode(p.betType);
+    const teamName = p.teamAbbr || p.teamName || (typeof p.team === "string" ? p.team : p.team?.abbreviation) || cmd.teamName || "";
+    const teamId = p.teamId || p.team_id || p.ownTeamId || p.team?.id || cmd.teamId || MLB_TEAM_IDS[String(teamName).toUpperCase()];
+    const matchup = matchupGameDetails({ ...p, team_id: p.team_id || teamId, team: p.team || teamName });
+    const matchupLogosEl = document.getElementById("gamelog-matchup-logos");
+    const marketMatchupEl = document.getElementById("gamelog-market-matchup");
+    const marketTimeEl = document.getElementById("gamelog-market-time");
+    const lineMovement = document.getElementById("gamelog-line-movement");
+    if (lineMovement) lineMovement.hidden = false;
+    if (matchupLogosEl) matchupLogosEl.innerHTML = `${matchupGameLogo(matchup.awayId || teamId, matchup.away || teamName)}${matchupGameLogo(matchup.homeId || p.opponentTeamId, matchup.home || p.matchup?.opponent)}`;
+    if (marketMatchupEl) marketMatchupEl.textContent = matchup.label || (p.matchup?.opponent ? `vs ${p.matchup.opponent}` : "Matchup pending");
+    const matchupDate = Number.isFinite(matchup.timestamp) ? new Date(matchup.timestamp) : null;
+    if (marketTimeEl) marketTimeEl.textContent = matchupDate ? matchupDate.toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" }) : "Time TBA";
+    if (els.gamelogTeamMark) {
+      els.gamelogTeamMark.hidden = !teamName && !teamId;
+      els.gamelogTeamMark.innerHTML = teamId
+        ? `<img src="https://www.mlbstatic.com/team-logos/${encodeURIComponent(teamId)}.svg" alt="" onerror="this.style.display='none'"><span>${escapeHtml(teamName)}</span>`
+        : `<span>${escapeHtml(teamName)}</span>`;
+    }
+    const cutout = String(p.headshot || "").replace("/headshot/67/current", "/headshot/silo/current");
+    els.gamelogPlayerCutout.innerHTML = cutout
+      ? `<img src="${escapeHtml(cutout)}" alt="" onerror="this.parentElement.innerHTML=''">`
+      : avatarHtml(p, "lg");
+  },
+};
+let trendAdapter = MLB_TREND_ADAPTER;
+const isMlbTrend = () => trendAdapter === MLB_TREND_ADAPTER;
+
 function gameLogStatCode(stat) {
-  return GAMELOG_STAT_CODES[stat] || stat;
+  return trendAdapter.statCode(stat);
 }
 
 function regradeGameLog(line) {
@@ -2799,6 +2866,7 @@ function setGameLogPreviewLine(value, settle = false, userInitiated = true) {
     activeFinderProp = {...activeFinderProp, player: gameLogState.player, betType: gameLogState.stat, line};
     renderLineMovement(activeFinderProp);
   }
+  if (userInitiated) externalTrendConfig?.onLine?.(line);
   restoreGameLogViewport(viewportState);
 }
 
@@ -2813,11 +2881,26 @@ function restoreGameLogViewport(saved) {
 }
 
 function populateGameLogStats() {
-  const stats = gameLogState.availableStats || (gameLogState.isPitcher ? PITCHER_STATS : BATTER_STATS);
-  els.gamelogStatTabs.innerHTML = stats.filter(stat => finderMarket(stat)).map((stat) => `<button type="button" data-stat="${escapeHtml(stat)}" title="${escapeHtml(stat)}" aria-label="${escapeHtml(stat)}" aria-pressed="${stat === gameLogState.stat}" class="${stat === gameLogState.stat ? "active" : ""}">${escapeHtml(gameLogStatCode(stat))}</button>`).join("");
+  els.gamelogStatTabs.innerHTML = trendAdapter.statList().map((stat) => `<button type="button" data-stat="${escapeHtml(stat)}" title="${escapeHtml(stat)}" aria-label="${escapeHtml(stat)}" aria-pressed="${stat === gameLogState.stat}" class="${stat === gameLogState.stat ? "active" : ""}">${escapeHtml(gameLogStatCode(stat))}</button>`).join("");
+}
+
+// The sport-neutral half of switching the panel to another stat: badge,
+// title, line readout, which stat tab reads as selected. Every sport's
+// loader starts here and only differs in where the GAMES come from.
+function syncTrendStatHeader(stat) {
+  els.gamelogLineValue.textContent = Number(gameLogState.line || 0).toFixed(1);
+  if (els.gamelogPropBadge) els.gamelogPropBadge.textContent = gameLogStatCode(stat);
+  els.gamelogTitle.textContent = gameLogState.player || "Player";
+  els.gamelogStatTabs?.querySelectorAll('button').forEach(button => {
+    button.disabled = false;
+    button.classList.toggle('active', button.dataset.stat === stat);
+    button.setAttribute('aria-pressed', String(button.dataset.stat === stat));
+  });
+  syncGameLogContext();
 }
 
 async function loadGameLogStat(stat, { initialProp = null } = {}) {
+  if (!isMlbTrend()) return trendAdapter.loadStat(stat);
   const token = ++gameLogState.fetchToken;
   const previousPitcher = gameLogState.isPitcher;
   gameLogState.stat = stat;
@@ -2838,20 +2921,12 @@ async function loadGameLogStat(stat, { initialProp = null } = {}) {
   const requestedLine = Number(initialProp?.line ?? remembered ?? STAT_DEFAULT_LINE[stat] ?? 0.5);
   gameLogState.line = Number.isFinite(requestedLine) ? requestedLine : 0.5;
   gameLogState.lineEdited = initialProp != null || remembered != null;
-  els.gamelogLineValue.textContent = gameLogState.line.toFixed(1);
-  if (els.gamelogPropBadge) els.gamelogPropBadge.textContent = gameLogStatCode(stat);
   if (els.gamelogHandField) els.gamelogHandField.hidden = gameLogState.isPitcher;
-  els.gamelogTitle.textContent = gameLogState.player || "Player";
   if (activeFinderProp) {
     activeFinderProp = { ...activeFinderProp, player: gameLogState.player, betType: stat, line: gameLogState.line };
     renderLineMovement(activeFinderProp);
   }
-  els.gamelogStatTabs?.querySelectorAll('button').forEach(button => {
-    button.disabled = false;
-    button.classList.toggle('active', button.dataset.stat === stat);
-    button.setAttribute('aria-pressed', String(button.dataset.stat === stat));
-  });
-  syncGameLogContext();
+  syncTrendStatHeader(stat);
   const context = { player: gameLogState.player, stat, teamId: gameLogState.teamId, opponent: gameLogState.opponent };
   const current = () => token === gameLogState.fetchToken && context.player === gameLogState.player && stat === gameLogState.stat;
   let detailed = false;
@@ -2916,7 +2991,12 @@ function requestGameLogDetails(context) {
   });
 }
 
-function openGameLogModal(p) {
+// `adapter` decides which sport this panel is now showing. It defaults to
+// MLB so that every existing MLB entry point (a report rendering, the
+// pitcher finder, the quick-action sheet, swipe-to-next-prop) automatically
+// reclaims the shared panel from whichever sport had it last.
+function openGameLogModal(p, adapter = MLB_TREND_ADAPTER) {
+  trendAdapter = adapter;
   activeFinderProp = p;
   gameLogState.chart = gradeTrendChart(p.gameLogChart || {}, p.line);
   if (!gameLogState.chart.all) {
@@ -2925,9 +3005,7 @@ function openGameLogModal(p) {
   gameLogState.line = p.line;
   gameLogState.player = p.player;
   gameLogState.stat = p.betType;
-  gameLogState.isPitcher = PITCHER_STATS.includes(p.betType) || p.position === "P" || p.isPitcherProp === true;
-  const twoWay = p.isTwoWay === true || p.position === "TWP" || /shohei\s+ohtani/i.test(p.player || "");
-  gameLogState.availableStats = twoWay ? STANDARD_STATS : (gameLogState.isPitcher ? PITCHER_STATS : BATTER_STATS);
+  trendAdapter.classify(p);
   gameLogState.opponent = (p.matchup && p.matchup.opponent) || "";
   gameLogState.handFilter = "all";
   gameLogState.venueFilter = "all";
@@ -2946,34 +3024,7 @@ function openGameLogModal(p) {
   gameLogState.teamId = p.opponentTeamId || null;
   els.gamelogOverlay.hidden = false;
   els.gamelogTitle.textContent = p.player || "Player";
-  const liveState=document.getElementById('gamelog-live-state');
-  const currentStatus = p.live?.status || p.gameStatus || (p.matchup?.lineup ? 'Lineup confirmed' : 'Pre-game');
-  if(liveState)liveState.textContent=currentStatus;
-  syncGameLogContext({
-    matchup: p.matchup?.opponent ? `vs ${p.matchup.opponent} · performance history` : "Live prop performance explorer",
-    status: currentStatus,
-  });
-  if (els.gamelogPropBadge) els.gamelogPropBadge.textContent = gameLogStatCode(p.betType);
-  const teamName = p.teamAbbr || p.teamName || (typeof p.team === "string" ? p.team : p.team?.abbreviation) || cmd.teamName || "";
-  const teamId = p.teamId || p.team_id || p.ownTeamId || p.team?.id || cmd.teamId || MLB_TEAM_IDS[String(teamName).toUpperCase()];
-  const matchup = matchupGameDetails({...p, team_id: p.team_id || teamId, team: p.team || teamName});
-  const matchupLogosEl = document.getElementById('gamelog-matchup-logos');
-  const marketMatchupEl = document.getElementById('gamelog-market-matchup');
-  const marketTimeEl = document.getElementById('gamelog-market-time');
-  if(matchupLogosEl) matchupLogosEl.innerHTML = `${matchupGameLogo(matchup.awayId || teamId, matchup.away || teamName)}${matchupGameLogo(matchup.homeId || p.opponentTeamId, matchup.home || p.matchup?.opponent)}`;
-  if(marketMatchupEl) marketMatchupEl.textContent = matchup.label || (p.matchup?.opponent ? `vs ${p.matchup.opponent}` : 'Matchup pending');
-  const matchupDate = Number.isFinite(matchup.timestamp) ? new Date(matchup.timestamp) : null;
-  if(marketTimeEl) marketTimeEl.textContent = matchupDate ? matchupDate.toLocaleString([], {weekday:'short',hour:'numeric',minute:'2-digit'}) : 'Time TBA';
-  if (els.gamelogTeamMark) {
-    els.gamelogTeamMark.hidden = !teamName && !teamId;
-    els.gamelogTeamMark.innerHTML = teamId
-      ? `<img src="https://www.mlbstatic.com/team-logos/${encodeURIComponent(teamId)}.svg" alt="" onerror="this.style.display='none'"><span>${escapeHtml(teamName)}</span>`
-      : `<span>${escapeHtml(teamName)}</span>`;
-  }
-  const cutout = String(p.headshot || "").replace("/headshot/67/current", "/headshot/silo/current");
-  els.gamelogPlayerCutout.innerHTML = cutout
-    ? `<img src="${escapeHtml(cutout)}" alt="" onerror="this.parentElement.innerHTML=''">`
-    : avatarHtml(p, "lg");
+  trendAdapter.renderHeader(p);
   els.gamelogLineValue.textContent = Number(p.line).toFixed(1);
   populateGameLogStats();
   // Filters used to default closed behind a toggle; they're a permanently
@@ -3346,7 +3397,7 @@ function renderGameLogChart() {
           ${details ? `<div class="gl-detail-card" role="tooltip"><header><strong>${escapeHtml(fullDate)}</strong><span>${escapeHtml(g.opponent || "")}</span></header><div class="gl-detail-result">${g.over ? "Cleared" : "Under"} by ${Math.abs(Number(g.value) - Number(gameLogState.line)).toFixed(1)}</div>${tooltipRows}</div>` : ""}
         </div>
       </div>
-      <span class="gl-date">${escapeHtml(formatGameLogDate(fullDate))}</span>
+      <span class="gl-date">${escapeHtml(g.dateLabel || formatGameLogDate(fullDate))}</span>
       <span class="gl-opp">${escapeHtml(MLB_TEAM_ABBRS[opponentId] || String(g.opponent || "").slice(0, 4))}</span>
     `;
     const shell = col.querySelector(".gl-bar-shell");
@@ -3475,6 +3526,162 @@ function wireGameLogModal() {
   els.gamelogLineDown.addEventListener("click", () => setGameLogPreviewLine(gameLogState.line - 1, true));
   els.gamelogLineUp.addEventListener("click", () => setGameLogPreviewLine(gameLogState.line + 1, true));
 }
+
+/* ---------- External-sport trend panel (NFL) ----------
+ * NFL research mounts THIS panel -- the same #gamelog-overlay node, the
+ * same chart, window bar, filters, line stepper, alt-line picker and
+ * sportsbook odds row -- into its own Trend tab, instead of carrying a
+ * parallel implementation that would drift from the MLB one. The React
+ * side owns the data (game logs, posted offers); everything below is the
+ * thin sport-specific surface the shared renderers need.
+ *
+ * The host hands over games already in this panel's own shape:
+ *   { value, fullDate, dateLabel, opponent, isHome, season }
+ * which is exactly what filterGames()/renderGameLogChart() already read.
+ */
+let externalTrendConfig = null;
+let externalTrendHost = null;
+
+const EXTERNAL_TREND_ADAPTER = {
+  get sport() { return externalTrendConfig?.sport || "NFL"; },
+  statCode(stat) {
+    return externalTrendConfig?.stats?.find((entry) => entry.label === stat)?.code || stat;
+  },
+  statList() {
+    return (externalTrendConfig?.stats || []).map((entry) => entry.label);
+  },
+  // No pitcher/batter split outside MLB, and no vs-LHP/RHP data, so the
+  // handedness filter is hidden rather than shown permanently disabled.
+  classify() {
+    gameLogState.isPitcher = false;
+    gameLogState.availableStats = null;
+  },
+  renderHeader(p) {
+    const config = externalTrendConfig || {};
+    const status = config.status || "Pre-game";
+    const liveState = document.getElementById("gamelog-live-state");
+    if (liveState) liveState.textContent = status;
+    syncGameLogContext({
+      matchup: config.opponent ? `vs ${config.opponent} · performance history` : "Live prop performance explorer",
+      status,
+    });
+    if (els.gamelogPropBadge) els.gamelogPropBadge.textContent = gameLogStatCode(p.betType);
+    const logoImg = (src) => (src ? `<img src="${escapeHtml(src)}" alt="" onerror="this.style.display='none'">` : "");
+    const matchupLogosEl = document.getElementById("gamelog-matchup-logos");
+    const marketMatchupEl = document.getElementById("gamelog-market-matchup");
+    const marketTimeEl = document.getElementById("gamelog-market-time");
+    const lineMovement = document.getElementById("gamelog-line-movement");
+    // Line movement is an MLB-only localStorage series (see propLineHistory).
+    if (lineMovement) lineMovement.hidden = true;
+    if (matchupLogosEl) matchupLogosEl.innerHTML = `${logoImg(config.teamLogo)}${logoImg(config.opponentLogo)}`;
+    if (marketMatchupEl) marketMatchupEl.textContent = config.matchupLabel || (config.opponent ? `vs ${config.opponent}` : "Matchup pending");
+    if (marketTimeEl) marketTimeEl.textContent = config.kickoffLabel || "Time TBA";
+    if (els.gamelogTeamMark) {
+      els.gamelogTeamMark.hidden = !config.teamAbbr && !config.teamLogo;
+      els.gamelogTeamMark.innerHTML = `${logoImg(config.teamLogo)}<span>${escapeHtml(config.teamAbbr || "")}</span>`;
+    }
+    els.gamelogPlayerCutout.innerHTML = config.headshot
+      ? `<img src="${escapeHtml(config.headshot)}" alt="" onerror="this.parentElement.innerHTML=''">`
+      : avatarHtml({ player: p.player }, "lg");
+  },
+  // Nothing to fetch: the host already loaded this sport's game logs. A tab
+  // click for a DIFFERENT stat is reported back so the host can load that
+  // stat's logs/offers and return them through vortexTrendPanel.update().
+  loadStat(stat) {
+    const config = externalTrendConfig;
+    if (!config) return;
+    gameLogState.stat = stat;
+    gameLogState.dragging = false;
+    gameLogState.error = "";
+    gameLogState.handDataLoaded = false;
+    gameLogState.animationDirection = "none";
+    if (els.gamelogHandField) els.gamelogHandField.hidden = true;
+    const entry = config.stats?.find((item) => item.label === stat);
+    const switching = Boolean(entry) && entry.key !== config.statKey;
+    gameLogState.loading = switching;
+    syncTrendStatHeader(stat);
+    renderGameLogTabs();
+    renderGameLogChart();
+    if (switching) config.onStat?.(entry.key);
+  },
+};
+
+// Posted-line ladder + book quotes, straight from the host's already-fetched
+// offers -- same shape the MLB loaders produce, so the alt-lines Select and
+// renderGameLogBookOdds() need no sport branch of their own.
+function applyExternalTrendMarket(config) {
+  gamelogBookOddsRows = Array.isArray(config.odds) ? config.odds : [];
+  gamelogPostedLinesContext = { stat: config.stat, player: config.player };
+  const lines = Array.isArray(config.lines) ? config.lines : [];
+  const hasCurrent = lines.some((row) => Number(row.value) === Number(gameLogState.line));
+  els.gamelogLinesBridge?.setLines(lines);
+  els.gamelogLinesBridge?.setValue(hasCurrent ? String(gameLogState.line) : "");
+  els.gamelogLinesBridge?.setStatus(config.linesStatus || (lines.length ? "ready" : "empty"));
+  renderGameLogBookOdds();
+}
+
+window.vortexTrendPanel = {
+  // Relocates the live panel into `host` -- move, not copy, exactly like
+  // mountResearchTabs() does for MLB, so every listener and all state
+  // survive. MLB reclaims the node by id the next time a report mounts.
+  mount(host, config) {
+    const overlay = document.getElementById("gamelog-overlay") || els.gamelogOverlay;
+    if (!overlay || !host) return false;
+    if (overlay.parentElement !== host) host.appendChild(overlay);
+    externalTrendHost = host;
+    this.update(config, true);
+    return true;
+  },
+  update(config, remount = false) {
+    if (!config) return;
+    const previous = externalTrendConfig;
+    const switched = remount || trendAdapter !== EXTERNAL_TREND_ADAPTER
+      || previous?.player !== config.player || previous?.statKey !== config.statKey;
+    externalTrendConfig = config;
+    trendAdapter = EXTERNAL_TREND_ADAPTER;
+    if (switched) {
+      // A different player or market starts the panel over: window back to
+      // L10, filters cleared, line reset -- same reset MLB gets per prop.
+      activeFinderProp = null;
+      openGameLogModal({
+        player: config.player,
+        betType: config.stat,
+        line: config.line,
+        side: config.side || "Over",
+        gameLogChart: config.chart || {},
+        matchup: { opponent: config.opponent || "" },
+        teamAbbr: config.teamAbbr || "",
+        gameStatus: config.status || "Pre-game",
+      }, EXTERNAL_TREND_ADAPTER);
+    } else {
+      gameLogState.loading = Boolean(config.loading);
+      gameLogState.chart = gradeTrendChart(config.chart || {}, gameLogState.line);
+      if (!gameLogState.chart.all) gameLogState.chart.all = [];
+      renderGameLogTabs();
+      renderGameLogChart();
+    }
+    applyExternalTrendMarket(config);
+  },
+  // Park the shared node back on <body> so a later MLB report can reclaim
+  // it (getElementById only ever finds an ATTACHED node -- see
+  // parkGameLogOverlay for the bug class this avoids).
+  unmount() {
+    const host = externalTrendHost;
+    if (trendAdapter === EXTERNAL_TREND_ADAPTER) trendAdapter = MLB_TREND_ADAPTER;
+    externalTrendConfig = null;
+    externalTrendHost = null;
+    const overlay = document.getElementById("gamelog-overlay") || els.gamelogOverlay;
+    // Only park it if this host still holds it. Leaving one sport for the
+    // other can run the two teardowns in either order, and parking a node
+    // MLB has already mounted into its own Trend tab would blank that tab.
+    if (!overlay || !host || !host.contains(overlay)) return;
+    overlay.hidden = true;
+    document.body.appendChild(overlay);
+  },
+  // The line lives in gameLogState; the host reads it back after a step,
+  // drag or alt-line pick to keep its own "analyzed line" in sync.
+  currentLine() { return gameLogState.line; },
+};
 
 /* ---------- Team insights modal (Batting Order & Pitch Arsenal) ---------- */
 
@@ -6461,7 +6668,7 @@ function gameLogPool() {
 }
 
 function renderLineMovement(prop=activeFinderProp) {
-  const card=document.getElementById('gamelog-line-movement'); if(!card||!prop)return;
+  const card=document.getElementById('gamelog-line-movement'); if(!card||!prop||!isMlbTrend())return;
   const points=propLineHistory(prop), values=points.length?points.map(point=>Number(point.line)):[Number(prop.line)];
   card.querySelector('strong').textContent=values.length>1?`${values[0].toFixed(1)} → ${values.at(-1).toFixed(1)}`:`${Number(prop.line).toFixed(1)} · tracking from now`;
   const min=Math.min(...values)-.5,max=Math.max(...values)+.5,span=Math.max(1,max-min);

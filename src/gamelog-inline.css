@@ -1240,3 +1240,15 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
 :root[data-theme] #gamelog-overlay .gamelog-windowbar button[data-capped="true"] {
   opacity: 0.55;
 }
+
+/* ---------- NFL Trend tab ----------
+   NFL research mounts THIS panel (src/sports/nfl/TrendHost.jsx) instead of
+   carrying its own trend screen, so nothing below restyles the panel -- it
+   only gives the relocated node the same page rhythm as the NFL cards
+   around it, and keeps the grid from blowing out on a phone (a 1fr track's
+   implicit minimum is min-content, which a wide chart would otherwise
+   push past the viewport). */
+.nfl-trend-shell { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; }
+.nfl-trend-shell > * { min-width: 0; }
+.nfl-trend-host { min-width: 0; }
+.nfl-trend-host:empty { display: none; }
