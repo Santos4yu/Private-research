@@ -1,5 +1,5 @@
 import {siteSportAllowed} from '../../site-access';
-import {NFLResearchBoard} from './ResearchBoard';
+import {NFLResearchBoard, prefetchNFLBoard} from './ResearchBoard';
 import './mobile-research.css';
 import {ResearchSheet,SheetSelect} from './ResearchSheet';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -460,6 +460,16 @@ export function SportResearch() {
   const [selectedPlayer, setSelectedPlayer] = useState(null); const [loading, setLoading] = useState(false); const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
   const [boardView,setBoardView]=useState(location.pathname==='/props');
+  // The props board's 16-game scan is the slow part, and it used to only
+  // begin when the board mounted -- in full view, counting games. Start it
+  // the moment NFL opens so it is already done (or nearly) by the time the
+  // Props tab is opened. Repeat scans inside the server's 10-minute props
+  // cache cost no Odds API credits, and a failure here is silent: the board
+  // still scans normally when it mounts.
+  useEffect(()=>{
+    if(sport!=='nfl'||!siteSportAllowed('nfl'))return;
+    prefetchNFLBoard(getNFL);
+  },[sport,reloadKey]);
   useEffect(()=>{const view=e=>{setBoardView(e.detail.view==='board');if(e.detail.view==='board')setSelectedPlayer(null);};window.addEventListener('vortex:nfl-view',view);return()=>window.removeEventListener('vortex:nfl-view',view);},[]);
   const syncUrl = (nextSport, playerId = null, replace = false) => {
     const url = new URL(location.href); url.searchParams.set('sport', nextSport);

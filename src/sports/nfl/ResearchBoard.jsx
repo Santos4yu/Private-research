@@ -8,6 +8,47 @@ import {freshness} from './nfl-client';
 
 const WINDOW_COLUMNS=[['l5','L5'],['l10','L10'],['l15','L15'],['l20','L20'],['h2h','H2H']];
 let boardCache=null;
+// One scan at a time, shared process-wide. The NFL shell kicks this off as
+// soon as the section opens (see SportResearch.jsx) so the slate is already
+// scanned by the time anyone taps Props -- the scan is the slow part, and it
+// used to only start when the board itself mounted, in full view.
+//
+// Nothing here is wasted work: research-board responses are cached
+// server-side for 10 minutes, so repeat scans inside that window cost no
+// Odds API credits, and the result lands in boardCache for the component to
+// render immediately.
+let pendingScan=null;
+export function prefetchNFLBoard(load) {
+  if(boardCache && Date.now()-boardCache.ts<BOARD_CACHE_TTL) return Promise.resolve(boardCache);
+  if(pendingScan) return pendingScan;
+  pendingScan=scanBoard(load).catch(()=>null).finally(()=>{pendingScan=null;});
+  return pendingScan;
+}
+// The scan itself. onBatch streams each game's rows out as they land so the
+// board can paint progressively when it is the one driving; the prefetch
+// just ignores it.
+async function scanBoard(load,{onBatch,isActive=()=>true}={}) {
+  const listing=await load('prop-games');
+  const upcoming=listing.data.filter(e=>Date.parse(e.startsAt)>Date.now()&&Date.parse(e.startsAt)<Date.now()+7*86400000);
+  onBatch?.({events:upcoming,total:upcoming.length});
+  const collected=[];
+  let index=0;
+  async function worker(){
+    while(isActive()&&index<upcoming.length){
+      const event=upcoming[index++];
+      try{
+        const response=await load('research-board',{eventId:event.eventId});
+        const withMeta=response.data.map(r=>({...r,injuryReportAvailable:response.injuryReportAvailable}));
+        collected.push(...withMeta);
+        onBatch?.({rows:withMeta});
+      }catch{onBatch?.({failed:true});}
+      finally{onBatch?.({done:true});}
+    }
+  }
+  await Promise.all([worker(),worker(),worker(),worker(),worker()]);
+  boardCache={rows:collected,events:upcoming,ts:Date.now()};
+  return boardCache;
+}
 // Matched to the server's props cache. At 90s this expired while a scan
 // was still finishing, so leaving the board and coming straight back
 // restarted all 16 games from scratch.
@@ -97,22 +138,30 @@ export function NFLResearchBoard({load,players,onOpen}) {
   const fresh=refresh===0 && boardCache && Date.now()-boardCache.ts<BOARD_CACHE_TTL;
   if(fresh){setRows(boardCache.rows);setEvents(boardCache.events);setError('');setFailed(0);setProgress(null);setScannedAt(boardCache.ts);return;}
   setRows([]);setError('');setFailed(0);setProgress({done:0,total:0});
-  const collected=[];
-  (async()=>{
-   try {
-    const listing=await load('prop-games');
-    const upcoming=listing.data.filter(e=>Date.parse(e.startsAt)>Date.now()&&Date.parse(e.startsAt)<Date.now()+7*86400000);
-    if(!active)return;setEvents(upcoming);setProgress({done:0,total:upcoming.length});
-    let index=0;
-    // No setNow() here: it only feeds the staleness filter, and bumping it
-    // per finished game forced an extra full re-filter/re-sort/repaint of
-    // everything already on screen, on top of the setRows append.
-    async function worker(){while(active&&index<upcoming.length){const event=upcoming[index++];try{const response=await load('research-board',{eventId:event.eventId});const withMeta=response.data.map(r=>({...r,injuryReportAvailable:response.injuryReportAvailable}));collected.push(...withMeta);if(active)setRows(old=>[...old,...withMeta]);}catch{if(active)setFailed(n=>n+1);}finally{if(active)setProgress(p=>({...p,done:p.done+1}));}}}
-    await Promise.all([worker(),worker(),worker(),worker(),worker()]);
-    if(active){boardCache={rows:collected,events:upcoming,ts:Date.now()};setScannedAt(boardCache.ts);}
-   }catch{if(active)setError('Live props could not load. Refresh to try again.');}
-   finally{if(active)setProgress(null);}
-  })();return()=>{active=false;};
+  // A prefetch started by the shell may already be running. Wait for it
+  // instead of launching a second scan of the same 16 games.
+  const joining=refresh===0 && pendingScan;
+  if(joining){
+   joining.then(result=>{
+    if(!active)return;
+    if(result){setRows(result.rows);setEvents(result.events);setScannedAt(result.ts);}
+    else setError('Live props could not load. Refresh to try again.');
+   }).finally(()=>{if(active)setProgress(null);});
+   return()=>{active=false;};
+  }
+  scanBoard(load,{
+   isActive:()=>active,
+   onBatch:({events:list,total,rows:batch,failed:miss,done})=>{
+    if(!active)return;
+    if(list){setEvents(list);setProgress({done:0,total});}
+    if(batch)setRows(old=>[...old,...batch]);
+    if(miss)setFailed(n=>n+1);
+    if(done)setProgress(p=>p?{...p,done:p.done+1}:p);
+   },
+  }).then(result=>{if(active&&result)setScannedAt(result.ts);})
+    .catch(()=>{if(active)setError('Live props could not load. Refresh to try again.');})
+    .finally(()=>{if(active)setProgress(null);});
+  return()=>{active=false;};
  },[load,refresh]);
  // Filters and sorts the entire board; was re-running on every render,
  // including each of the ~16 streamed row batches and every timer tick.
