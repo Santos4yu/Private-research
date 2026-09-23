@@ -101,6 +101,13 @@ export function nflLineLadder(offers) {
   for (const row of offers || []) {
     const value = row.line?.value;
     if (!Number.isFinite(value)) continue;
+    // PrizePicks only. This picker is the PrizePicks projection ladder --
+    // the same thing it is on the MLB side -- and it labels every row with
+    // the PrizePicks mark. It was being passed offers from every book, so
+    // DraftKings and FanDuel line values were being presented as PrizePicks
+    // projections. The other books' prices belong in the odds row below,
+    // which still receives all of them.
+    if (row.line.bookmaker !== 'prizepicks') continue;
     const tier = offerTier(row.line.category);
     const current = tiers.get(value);
     if (!current || TIER_RANK[tier] > TIER_RANK[current]) tiers.set(value, tier);

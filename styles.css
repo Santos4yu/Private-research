@@ -710,8 +710,15 @@ body::before {
 /* Host for the React-mounted alt-lines Select (src/main.jsx) that replaced
    the old PrizePicks lines trigger+menu. */
 #pp-lines-select-root button[role="combobox"] { min-width: 160px; }
-.pp-select-line-row { display: inline-flex; align-items: center; gap: 5px; }
+.pp-select-line-row { display: inline-flex; align-items: center; gap: 7px; }
 .pp-select-line-row img { display: block; width: 16px; height: 16px; object-fit: contain; }
+.pp-select-line-value { min-width: 38px; font-variant-numeric: tabular-nums; }
+/* The regular posted line has to be unmistakable next to its alternates. */
+.pp-select-line-tier { margin-left: auto; padding: 2px 7px; border-radius: 999px; font: 700 10px/1.4 var(--font-mono, monospace); letter-spacing: .06em; text-transform: uppercase; }
+.pp-select-line-tier.is-standard { color: #dcd6ff; background: #7960ee44; }
+.pp-select-line-tier.is-alt { color: #a4acc4; background: #ffffff12; }
+.pp-select-line-tier.is-goblin { color: #0e2a1c; background: #6fe3a8; }
+.pp-select-line-tier.is-demon { color: #2c0d12; background: #ff8b96; }
 .profile-stats-select-native {
   position: absolute;
   inset: 0;

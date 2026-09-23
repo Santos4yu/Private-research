@@ -217,6 +217,12 @@ function imageIcon(src, label = '') {
 }
 const PP_LOGO_ICON = imageIcon('/prizepicks/logo.png', 'PrizePicks');
 const PP_TIER_ICON = { GOBLIN: imageIcon('/prizepicks/goblin.png', 'Goblin'), DEMON: imageIcon('/prizepicks/demon.png', 'Demon') };
+// Only Goblin and Demon have an icon, so STANDARD and ALT rows rendered
+// identically -- value plus the PrizePicks mark -- and there was no way to
+// tell the regular posted line from an alternate. Every row is PrizePicks
+// (the trigger already carries the mark), so the per-row logo said nothing
+// and the tier now gets the space instead.
+const PP_TIER_LABEL = { STANDARD: 'Standard', GOBLIN: 'Goblin', DEMON: 'Demon', ALT: 'Alt' };
 
 // Bridges the MLB "PrizePicks lines" alt-line picker into the same Select
 // component -- same reasoning as StatSelectHost above: app.js keeps owning
@@ -240,16 +246,18 @@ function AltLinesSelectHost({ controllerRef, onPick, canAdjustLine = false }) {
     <Select key={status} value={current ? String(current.value) : ''} onValueChange={(next) => {
       if (ready && lines.some((line) => String(line.value) === next)) onPick(next);
     }} disabled={!ready}>
-      <SelectTrigger icon={current ? (PP_TIER_ICON[current.tier] ?? PP_LOGO_ICON) : PP_LOGO_ICON} placeholder={placeholder} aria-label={`PrizePicks lines: ${current ? current.value : placeholder}`} title={description} aria-busy={status === 'loading'} />
+      <SelectTrigger icon={current ? (PP_TIER_ICON[current.tier] ?? PP_LOGO_ICON) : PP_LOGO_ICON} placeholder={placeholder} aria-label={`PrizePicks lines: ${current ? `${current.value} ${PP_TIER_LABEL[current.tier] || 'Alt'}` : placeholder}`} title={description} aria-busy={status === 'loading'} />
       <SelectContent>
         {(ready ? lines : []).map((line, index) => {
           const TierIcon = PP_TIER_ICON[line.tier];
           return (
             <SelectItem key={line.value} index={index} value={String(line.value)}>
               <span className="pp-select-line-row">
-                <span>{line.value}</span>
-                <img src="/prizepicks/logo.png" width={14} height={14} alt="" />
+                <span className="pp-select-line-value">{line.value}</span>
                 {TierIcon && <TierIcon size={14} />}
+                <span className={`pp-select-line-tier is-${String(line.tier || 'alt').toLowerCase()}`}>
+                  {PP_TIER_LABEL[line.tier] || 'Alt'}
+                </span>
               </span>
             </SelectItem>
           );
