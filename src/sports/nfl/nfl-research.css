@@ -138,7 +138,7 @@
 .nfl-prop-selector button small { margin-top: 3px; color: var(--theme-faint, #8c96a6); font-size: 10px; }
 .nfl-prop-selector button.active { border-color: var(--nfl-accent); color: var(--nfl-on-accent); background: linear-gradient(135deg, var(--nfl-accent), color-mix(in srgb, var(--nfl-accent) 65%, #1a3a5c)); box-shadow: 0 8px 20px -6px color-mix(in srgb, var(--nfl-accent) 60%, transparent), inset 0 1px rgba(255, 255, 255, .12); }
 .nfl-prop-selector button.active small { color: color-mix(in srgb, var(--nfl-on-accent) 80%, transparent); }
-.nfl-research-tabs { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; padding: 6px; border: 1px solid var(--nfl-border); border-radius: 17px; background: var(--nfl-surface); }
+.nfl-research-tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; padding: 6px; border: 1px solid var(--nfl-border); border-radius: 17px; background: var(--nfl-surface); }
 .nfl-research-tabs button { display: grid; place-items: center; gap: 5px; min-height: 58px; padding: 7px; border: 0; border-radius: 11px; color: var(--theme-faint, #8c96a6); background: transparent; cursor: pointer; }
 .nfl-research-tabs button svg { width: 18px; }
 .nfl-research-tabs button span { font-size: 11px; font-weight: 700; }
@@ -175,7 +175,7 @@
 .nfl-loading { display: grid; justify-items: center; gap: 12px; padding: 30px; border: 1px solid var(--nfl-border); border-radius: 18px; color: var(--theme-muted, #adb6c4); background: var(--nfl-surface); }.nfl-loading > div { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: min(100%, 500px); }.nfl-loading i { height: 70px; border-radius: 12px; background: linear-gradient(90deg, #ffffff06, #ffffff10, #ffffff06); background-size: 200%; animation: nfl-shimmer 1.2s infinite; }.nfl-spinner { width: 26px; height: 26px; border: 2px solid #ffffff1b; border-top-color: var(--nfl-blue); border-radius: 50%; animation: nfl-spin .8s linear infinite; }
 @keyframes nfl-spin { to { transform: rotate(360deg); } } @keyframes nfl-shimmer { to { background-position: -200% 0; } }
 
-@media (max-width: 1000px) { .nfl-feature-grid-layout { grid-template-columns: repeat(2, 1fr); }.nfl-recent-row { grid-template-columns: repeat(3, 1fr); }.nfl-stat-grid { grid-template-columns: repeat(3, 1fr); }.nfl-research-tabs { grid-template-columns: repeat(4, 1fr); }.nfl-context-list { grid-template-columns: repeat(2, 1fr); }.nfl-context-list p:nth-child(2) { border-right: 0; }.nfl-context-list p:nth-child(-n+2) { border-bottom: 1px solid var(--nfl-border); } }
+@media (max-width: 1000px) { .nfl-feature-grid-layout { grid-template-columns: repeat(2, 1fr); }.nfl-recent-row { grid-template-columns: repeat(3, 1fr); }.nfl-stat-grid { grid-template-columns: repeat(3, 1fr); }.nfl-research-tabs { grid-template-columns: repeat(5, minmax(0, 1fr)); }.nfl-context-list { grid-template-columns: repeat(2, 1fr); }.nfl-context-list p:nth-child(2) { border-right: 0; }.nfl-context-list p:nth-child(-n+2) { border-bottom: 1px solid var(--nfl-border); } }
 @media (max-width: 640px) {
   .sport-switch-shell { margin-bottom: 14px; }.sport-switch { width: 100%; }.sport-switch button { flex: 1; justify-content: center; min-width: 0; }
   .nfl-home, .nfl-research-page { gap: 16px; }.nfl-home-head { padding-top: 8px; }.nfl-home-head h2 { font-size: 31px; }
@@ -350,3 +350,28 @@
 .nfl-props-entry span { display: grid; gap: 3px; min-width: 0; }
 .nfl-props-entry strong { font-size: 15px; }
 .nfl-props-entry small { color: var(--nfl-muted); font-size: 12px; line-height: 1.4; }
+
+/* ---------- Lineup tab (depth chart + injury report) ---------- */
+/* .nfl-chart-card reserves 390px for a chart; these cards hold lists. */
+.nfl-lineup-card { min-height: 0; }
+.nfl-depth-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.nfl-depth-group { padding: 12px; border: 1px solid var(--nfl-border); border-radius: 10px; background: var(--nfl-input); }
+.nfl-depth-position { display: block; margin-bottom: 8px; color: var(--nfl-muted); font: 700 11px/1.2 var(--font-mono, monospace); letter-spacing: .14em; }
+.nfl-depth-group ol { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.nfl-depth-group li { display: flex; align-items: center; gap: 8px; padding: 5px 7px; border-radius: 7px; color: var(--nfl-muted); font-size: 13px; }
+.nfl-depth-group li b { flex: 0 0 auto; width: 18px; color: var(--nfl-muted); font: 700 11px/1 var(--font-mono, monospace); text-align: center; }
+.nfl-depth-group li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The whole point of this view is "where does THIS player sit". */
+.nfl-depth-group li.is-player { color: var(--nfl-text); background: color-mix(in srgb, var(--nfl-accent) 18%, transparent); box-shadow: inset 0 0 0 1px var(--nfl-accent); }
+.nfl-depth-group li.is-player b { color: var(--nfl-accent); }
+.nfl-depth-group li em { margin-left: auto; color: var(--nfl-accent); font-size: 10px; font-style: normal; letter-spacing: .06em; text-transform: uppercase; }
+
+.nfl-lineup-teams { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.nfl-injury-rows { display: grid; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
+.nfl-injury-rows li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 9px; align-items: center; padding: 8px 10px; border: 1px solid var(--nfl-border); border-radius: 9px; background: var(--nfl-input); }
+.nfl-injury-rows strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.nfl-injury-rows small { grid-column: 2; color: var(--nfl-muted); font-size: 11px; }
+.nfl-injury-status { grid-row: span 2; align-self: center; padding: 3px 7px; border-radius: 999px; font: 700 10px/1.3 var(--font-mono, monospace); letter-spacing: .06em; }
+.nfl-injury-status.out { color: #2a0d12; background: var(--nfl-red); }
+.nfl-injury-status.doubtful { color: #2a1a06; background: #f0b45c; }
+.nfl-injury-status.questionable { color: var(--nfl-text); background: color-mix(in srgb, var(--nfl-accent) 32%, transparent); }

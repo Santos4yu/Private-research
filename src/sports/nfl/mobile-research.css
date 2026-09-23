@@ -84,7 +84,11 @@
 .nfl-app-shell .nfl-player-chips { gap:5px;margin-top:7px; }.nfl-app-shell .nfl-player-chips span { padding:4px 6px;font-size:10px; }
 .nfl-app-shell .nfl-prop-selector { display:block;margin:0 0 10px;padding:0;border:0;background:none; }.nfl-app-shell .nfl-prop-selector>div { gap:5px; }
 .nfl-app-shell .nfl-prop-selector button { min-height:44px;min-width:0;padding:9px 12px;border-radius:10px;font-size:12px;flex:0 0 auto; }.nfl-app-shell .nfl-prop-selector button strong { white-space:nowrap; }
-.nfl-app-shell .nfl-research-tabs { display:grid;grid-template-columns:repeat(4,1fr);padding:3px;gap:3px;margin:0 0 12px;border-radius:12px;overflow:visible; }
+/* Five tabs since Lineup was added; auto-fit keeps them even if that
+   count changes again, instead of a hard-coded column count that leaves
+   one tab overflowing its track. */
+.nfl-app-shell .nfl-research-tabs { display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:3px;gap:3px;margin:0 0 12px;border-radius:12px;overflow:visible; }
+.nfl-app-shell .nfl-research-tabs button span { font-size:9.5px;letter-spacing:-.01em; }
 .nfl-app-shell .nfl-research-tabs button { min-width:0;min-height:38px;padding:5px 4px;gap:3px;border-radius:9px;font-size:10.5px; }.nfl-app-shell .nfl-research-tabs svg { width:14px;height:14px; }
 .nfl-app-shell .nfl-tab-content { margin-top:0; }
 .nfl-app-shell .nfl-trends { gap:8px;padding:14px;border:1px solid #303c48;border-radius:18px;background:#151d26; }
