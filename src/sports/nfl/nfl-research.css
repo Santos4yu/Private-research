@@ -1,15 +1,32 @@
 :root {
-  --nfl-surface: linear-gradient(180deg, color-mix(in srgb, var(--theme-panel, #171b22) 97%, #3a5686 3%), color-mix(in srgb, var(--theme-panel, #171b22) 88%, #060810 12%));
-  --nfl-raised: linear-gradient(180deg, color-mix(in srgb, var(--theme-panel-2, #1d222b) 94%, #4a6796 6%), color-mix(in srgb, var(--theme-panel-2, #1d222b) 85%, #080a10 15%));
-  --nfl-border: color-mix(in srgb, var(--theme-border, #323945) 78%, #8ca4c6 22%);
-  --nfl-blue: #8db8ee;
-  --nfl-green: #68d5ac;
-  --nfl-red: #ff8b96;
-  --nfl-accent: var(--theme-accent, #0082fe);
-  --nfl-accent-soft: var(--theme-accent-soft, #4fa8ff);
-  --nfl-on-accent: var(--theme-on-accent, #fff);
-  --nfl-shadow: 0 14px 34px -12px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .045);
-  --nfl-shadow-lg: 0 26px 60px -18px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .05);
+  /* The NFL chrome used to carry its own blue-tinted gradient palette on
+     top of the site theme, which is why it read as a different product
+     from the Trend panel embedded inside it. These now mirror the panel's
+     own --kd-* palette -- see src/trend-workspace.css, which loads last
+     and is what actually paints it: flat navy surfaces, one hairline
+     border, and a soft purple accent used ONLY as a small active marker,
+     never as a saturated fill.
+
+     The values are mirrored here rather than shared from that file on
+     purpose: nothing in this stylesheet can then affect the Trend panel,
+     which styles itself entirely through #gamelog-overlay. */
+  --nfl-panel: #0c1025;
+  --nfl-input: #1b203b;
+  --nfl-surface: var(--nfl-panel);
+  --nfl-raised: var(--nfl-input);
+  --nfl-border: #2a3050;
+  --nfl-text: #f5f6ff;
+  --nfl-muted: #a4acc4;
+  --nfl-blue: #a99aff;
+  --nfl-green: #26dfad;
+  --nfl-red: #ff7b88;
+  --nfl-accent: #a99aff;
+  --nfl-accent-soft: #c3b8ff;
+  --nfl-on-accent: #120f2e;
+  /* The panel's cards are flat -- one border, no elevation -- so the NFL
+     cards sitting around them are too. */
+  --nfl-shadow: none;
+  --nfl-shadow-lg: none;
 }
 
 /* One shared elevation treatment for every flat "card" surface in the NFL
@@ -282,3 +299,75 @@
 .nfl-offer-category.goblin { color:#9fe0c1;border-color:#42745d; }.nfl-offer-category.demon { color:#f4b4ba;border-color:#82505b; }
 .nfl-posted-lines>.nfl-reset { min-height:44px;background:transparent;color:#b9c8d7;border:0;cursor:pointer; }
 @media(max-width:600px) { .nfl-trends input,.nfl-trends select,.nfl-offer-controls select,.nfl-prop-browser select,.nfl-prop-browser input { font-size:16px; } }
+
+/* ---------- Match the embedded Trend panel ----------
+   Everything below re-states a rule from earlier in this file so the NFL
+   chrome uses the same visual language as the Trend panel it wraps. Same
+   selectors, later in the file, so they win the cascade on a tie.
+
+   The panel marks an active control the way .rr-tab[aria-selected] does in
+   trend-workspace.css -- a translucent accent wash plus a 2px inset accent
+   underline -- rather than filling it with a saturated accent gradient and
+   a coloured glow. Copying that idiom is most of what made the two halves
+   of this screen look like different apps.
+
+   Nothing here touches #gamelog-overlay; the panel keeps its own styles. */
+
+/* Flat panel surfaces instead of tinted gradients. */
+.nfl-player-header {
+  border-radius: 16px;
+  background: var(--nfl-panel);
+}
+.nfl-chart-card {
+  border-radius: 14px;
+  background: var(--nfl-panel);
+}
+.nfl-history-control { border-radius: 12px; }
+.nfl-player-chips span {
+  border-color: var(--nfl-border);
+  color: var(--nfl-muted);
+  background: var(--nfl-input);
+}
+
+/* Segmented controls: container is the flat panel, the active item is an
+   accent wash + inset underline. */
+.sport-switch { border-radius: 12px; }
+.sport-switch button { border-radius: 9px; }
+.sport-switch button.active,
+.nfl-research-tabs button.active,
+.nfl-app-shell .nfl-research-tabs button.active {
+  color: var(--nfl-text);
+  background: color-mix(in srgb, var(--nfl-accent) 22%, transparent);
+  box-shadow: inset 0 -2px var(--nfl-accent);
+}
+.nfl-research-tabs { border-radius: 12px; }
+.nfl-research-tabs button { border-radius: 9px; }
+
+/* Prop chips: bordered surface, accent only on the border + text. */
+.nfl-prop-selector button {
+  border-radius: 10px;
+  color: var(--nfl-muted);
+  background: var(--nfl-input);
+}
+.nfl-prop-selector button.active {
+  border-color: var(--nfl-accent);
+  color: var(--nfl-text);
+  background: color-mix(in srgb, var(--nfl-accent) 18%, var(--nfl-input));
+  box-shadow: none;
+}
+.nfl-prop-selector button.active small { color: var(--nfl-muted); }
+.nfl-prop-selector button:not(.active):hover {
+  border-color: var(--nfl-accent);
+  color: var(--nfl-text);
+}
+
+/* The remaining pressed/active states in this section, same treatment. */
+.nfl-window-tabs button.active,
+.nfl-window-tabs button[aria-pressed="true"],
+.nfl-side-switch button[aria-pressed="true"] {
+  border-color: var(--nfl-accent);
+  color: var(--nfl-text);
+  background: color-mix(in srgb, var(--nfl-accent) 18%, var(--nfl-input));
+}
+
+.nfl-back { color: var(--nfl-muted); }
