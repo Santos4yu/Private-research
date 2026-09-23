@@ -6,7 +6,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity, AlertTriangle, ArrowLeft, ArrowUpRight, CalendarDays,
   CircleGauge, CloudSun, Crosshair, Database, HeartPulse,
-  Home, MapPin, RefreshCw, Search, Shield, ShieldQuestion, TrendingUp, UserRound, Wind,
+  Home, MapPin, RefreshCw, Search, Shield, ShieldQuestion, Target, TrendingUp, UserRound, Wind,
 } from 'lucide-react';
 import { getSelectedSport, setSelectedSport } from '../sport-state';
 import { NFL_PROP_DEFINITIONS } from './props';
@@ -92,6 +92,20 @@ function FeaturedCard({ player, onOpen }) {
   </button>;
 }
 
+// Home no longer renders the props board itself -- it points at the Props
+// tab, which has shown the same board standalone all along. Keeping both
+// meant the 16-game scan ran on the research screen too, and put two
+// unrelated jobs (look up a player / browse the slate) on one page.
+function PropsBoardLink() {
+  return <section className="nfl-home-section">
+    <button type="button" className="nfl-props-entry" onClick={() => window.dispatchEvent(new CustomEvent('vortex:switch-tab', { detail: { tab: 'v2' } }))}>
+      <Target aria-hidden="true" />
+      <span><strong>NFL props board</strong><small>PrizePicks lines across the next 7 days, ranked by historical support</small></span>
+      <ArrowUpRight aria-hidden="true" />
+    </button>
+  </section>;
+}
+
 function NFLHome({ players, teams, loading, error, onOpen }) {
   const [query, setQuery] = useState('');
   const [recent, setRecent] = useState(readRecent);
@@ -131,7 +145,7 @@ function NFLHome({ players, teams, loading, error, onOpen }) {
     {error && <Notice icon={AlertTriangle} title="NFL players unavailable" tone="error">{error}</Notice>}
     {!loading && players.length > 0 && <>
       {recent.length > 0 && <section className="nfl-home-section"><div className="nfl-section-title"><div><h3>Recent players</h3></div><button type="button" onClick={() => { localStorage.removeItem(NFL_RECENT_KEY); setRecent([]); }}>Clear</button></div><div className="nfl-recent-row">{recent.map((player) => <button type="button" key={player.id} onClick={() => open(player)}><PlayerPhoto player={player} /><span><strong>{player.name}</strong><small>{player.position} · {player.team_id || 'FA'}</small></span></button>)}</div></section>}
-      <NFLResearchBoard load={getNFL} players={players} onOpen={open} />
+      <PropsBoardLink />
       <section className="nfl-home-section"><div className="nfl-section-title"><div><h3>Featured players</h3></div></div><div className="nfl-feature-grid-layout">{featured.map((player) => <FeaturedCard key={player.id} player={player} onOpen={open} />)}</div></section>
       <section className="nfl-tool-strip"><article><CircleGauge aria-hidden="true" /><span><strong>Opportunity</strong><small>Snaps, volume and shares</small></span></article><article><Shield aria-hidden="true" /><span><strong>Opponent</strong><small>Measured defense results</small></span></article><article><HeartPulse aria-hidden="true" /><span><strong>Personnel</strong><small>Current injury reports</small></span></article></section>
     </>}

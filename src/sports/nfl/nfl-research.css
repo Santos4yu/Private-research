@@ -326,3 +326,27 @@
 }
 
 .nfl-back { color: var(--nfl-muted); }
+
+/* Home's pointer at the Props tab, in place of the board it used to
+   render inline. Same flat surface / hairline / accent language as
+   everything else on the screen. */
+.nfl-props-entry {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 64px;
+  padding: 14px 16px;
+  border: 1px solid var(--nfl-border);
+  border-radius: 12px;
+  color: var(--nfl-text);
+  background: var(--nfl-panel);
+  text-align: left;
+  cursor: pointer;
+}
+.nfl-props-entry:hover { border-color: var(--nfl-accent); }
+.nfl-props-entry > svg:first-child { flex: 0 0 auto; width: 22px; height: 22px; color: var(--nfl-accent); }
+.nfl-props-entry > svg:last-child { flex: 0 0 auto; width: 18px; height: 18px; margin-left: auto; color: var(--nfl-muted); }
+.nfl-props-entry span { display: grid; gap: 3px; min-width: 0; }
+.nfl-props-entry strong { font-size: 15px; }
+.nfl-props-entry small { color: var(--nfl-muted); font-size: 12px; line-height: 1.4; }
