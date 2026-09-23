@@ -128,11 +128,28 @@ export function NFLResearchBoard({load,players,onOpen}) {
  // mobile-research.css, ported from the MLB finder's card treatment), so
  // it no longer needs to default to the simpler card view on phones.
  const [view,setView]=useState('table');
+ // The prebuilt board, read in one request (api/nfl.py 'board'), the same
+ // way MLB's tab reads whatever its last scan stored. It paints immediately
+ // while the live scan is still running, and the live rows replace it the
+ // moment they land.
+ const [snapshotAt,setSnapshotAt]=useState(null);
  const [sort,setSort]=useState(null);
  const onSort=key=>setSort(current=>current?.key===key?{key,dir:current.dir==='desc'?'asc':'desc'}:{key,dir:'desc'});
  // Only drives the 2-minute staleness filter, so it doesn't need to be
  // precise -- every tick re-filters and re-sorts the whole board.
  useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),30000);return()=>clearInterval(timer);},[]);
+ useEffect(()=>{
+  // Skip entirely if a recent scan already gave us live rows.
+  if(boardCache && Date.now()-boardCache.ts<BOARD_CACHE_TTL) return undefined;
+  let active=true;
+  load('board').then(result=>{
+   const stored=result?.data || [];
+   // Only fill an empty board -- never overwrite live rows that have
+   // already arrived.
+   if(active && stored.length) setRows(current=>current.length?current:(setSnapshotAt(result.builtAt||null),stored));
+  }).catch(()=>{});
+  return()=>{active=false;};
+ },[load,refresh]);
  useEffect(()=>{
   let active=true;
   const fresh=refresh===0 && boardCache && Date.now()-boardCache.ts<BOARD_CACHE_TTL;
@@ -144,7 +161,7 @@ export function NFLResearchBoard({load,players,onOpen}) {
   if(joining){
    joining.then(result=>{
     if(!active)return;
-    if(result){setRows(result.rows);setEvents(result.events);setScannedAt(result.ts);}
+    if(result){setSnapshotAt(null);setRows(result.rows);setEvents(result.events);setScannedAt(result.ts);}
     else setError('Live props could not load. Refresh to try again.');
    }).finally(()=>{if(active)setProgress(null);});
    return()=>{active=false;};
@@ -154,7 +171,7 @@ export function NFLResearchBoard({load,players,onOpen}) {
    onBatch:({events:list,total,rows:batch,failed:miss,done})=>{
     if(!active)return;
     if(list){setEvents(list);setProgress({done:0,total});}
-    if(batch)setRows(old=>[...old,...batch]);
+    if(batch){setSnapshotAt(null);setRows(old=>[...old,...batch]);}
     if(miss)setFailed(n=>n+1);
     if(done)setProgress(p=>p?{...p,done:p.done+1}:p);
    },
@@ -165,7 +182,11 @@ export function NFLResearchBoard({load,players,onOpen}) {
  },[load,refresh]);
  // Filters and sorts the entire board; was re-running on every render,
  // including each of the ~16 streamed row batches and every timer tick.
- const ranked=useMemo(()=>rankResearch(rows,{position,game,prop,now}),[rows,position,game,prop,now]);
+ // While showing the prebuilt board the posted-line age window is lifted:
+ // it is a snapshot, deliberately older than the live window, and applying
+ // that window to it would filter every row away. The caption says which
+ // one you are looking at rather than hiding the difference.
+ const ranked=useMemo(()=>rankResearch(rows,{position,game,prop,now,maxAge:snapshotAt?Infinity:LINE_MAX_AGE_MS}),[rows,position,game,prop,now,snapshotAt]);
  return <section className="nfl-discovery" aria-label="NFL props board">
   <header><div><h2>NFL props</h2><p>PrizePicks · Next 7 days</p></div><div className="nfl-board-view-toggle" role="group" aria-label="Board layout"><button type="button" aria-pressed={view==='cards'} onClick={()=>setView('cards')} aria-label="Card view"><LayoutGrid size={16}/></button><button type="button" aria-pressed={view==='table'} onClick={()=>setView('table')} aria-label="Table view"><Table2 size={16}/></button></div><button type="button" className="nfl-refresh" disabled={!!progress} aria-label="Refresh NFL props board" onClick={()=>setRefresh(n=>n+1)}><RefreshCw size={18}/></button></header>
   <div className="nfl-board-filters"><SheetSelect label="Position" value={position} onChange={e=>setPosition(e.target.value)}><option value="">Position</option>{['QB','RB','WR','TE'].map(p=><option key={p}>{p}</option>)}</SheetSelect><SheetSelect label="Game" value={game} onChange={e=>setGame(e.target.value)}><option value="">All games</option>{events.map(e=><option key={e.gameId} value={e.gameId}>{e.awayTeamId} @ {e.homeTeamId}</option>)}</SheetSelect>
@@ -177,7 +198,7 @@ export function NFLResearchBoard({load,players,onOpen}) {
     </SelectContent>
    </Select>
   </div>
-  {(progress||failed>0||scannedAt)&&<div role="status" className="nfl-board-caption">{progress&&`Checking ${progress.done} of ${progress.total || '…'} games…`}{!progress&&scannedAt&&`${ranked.length} props · ${freshness(new Date(scannedAt).toISOString(),now,LINE_MAX_AGE_MS)}`}{failed>0&&`${progress||scannedAt?' · ':''}${failed} games could not load`}</div>}
+  {(progress||failed>0||scannedAt||snapshotAt)&&<div role="status" className="nfl-board-caption">{progress&&`Checking ${progress.done} of ${progress.total || '…'} games…`}{!progress&&scannedAt&&`${ranked.length} props · ${freshness(new Date(scannedAt).toISOString(),now,LINE_MAX_AGE_MS)}`}{!scannedAt&&snapshotAt&&`${ranked.length} props · lines as of ${new Date(snapshotAt).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'})}${progress?' · refreshing':''}`}{failed>0&&`${progress||scannedAt?' · ':''}${failed} games could not load`}</div>}
   {error&&<p role="alert">{error}</p>}
   {!progress&&!ranked.length&&!error&&<div className="nfl-chart-card">No fresh props match this view. Try another filter or refresh. Players remain available in Research.</div>}
   {view==='table'?<BoardTable rows={ranked} players={players} onOpen={onOpen} sort={sort} onSort={onSort}/>:

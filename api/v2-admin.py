@@ -62,6 +62,8 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(200, result)
             if action == "cron-scan":
                 return self._handle_cron_scan()
+            if action == "nfl-cron-scan":
+                return self._handle_nfl_cron_scan()
             if action == "site-background":
                 # Public and unauthenticated on purpose: this is the image
                 # every visitor's browser fetches directly (not through the
@@ -265,6 +267,29 @@ class handler(BaseHTTPRequestHandler):
         elif "vercel-cron" not in user_agent.lower() and cron_header != "1":
             return self._send(401, {"error": "Cron request required"})
         return self._run_scan(top_per_stat=6, min_edge=0.0, trigger="cron")
+
+    def _handle_nfl_cron_scan(self):
+        # Same gate as the MLB scan above: a Vercel cron secret if one is
+        # configured, otherwise Vercel's own cron markers.
+        secret = os.getenv("CRON_SECRET", "")
+        auth = self.headers.get("Authorization", "")
+        user_agent = self.headers.get("User-Agent", "")
+        cron_header = self.headers.get("x-vercel-cron", "")
+        if secret:
+            if auth != f"Bearer {secret}":
+                return self._send(401, {"error": "Cron auth required"})
+        elif "vercel-cron" not in user_agent.lower() and cron_header != "1":
+            return self._send(401, {"error": "Cron request required"})
+        try:
+            from datetime import datetime as _dt
+            from backend.sports.nfl.board_snapshot import store_board
+            season = _dt.now().year - 1 if _dt.now().month < 3 else _dt.now().year
+            payload = store_board(season)
+        except Exception as exc:  # noqa: BLE001 -- report, don't hang the cron
+            return self._send(500, {"error": f"NFL scan failed: {exc}"})
+        return self._send(200, {"ok": True, "season": payload["season"],
+                                "games": payload["gamesScanned"], "failed": payload["gamesFailed"],
+                                "rows": len(payload["rows"]), "builtAt": payload["builtAt"]})
 
     def _run_scan(self, top_per_stat=4, min_edge=0.0, trigger="manual"):
         try:

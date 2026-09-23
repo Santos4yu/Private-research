@@ -114,7 +114,7 @@ class handler(BaseHTTPRequestHandler):
         from site_controls import allowed as feature_allowed
         tab='v2' if resource in ('research-board','value-board') else 'research'
         if not feature_allowed(self.headers,tab,sport='nfl'):return send_json(self,503,{'error':'This section is temporarily unavailable','featureDisabled':True})
-        allowed = {'players','teams','schedule','game-logs','usage','defense','injuries','depth-chart','team-stats','opportunity','matchup','projection','distribution','decision','value-board','model-health','props','prop-games','reception-logs','research-board'}
+        allowed = {'players','teams','schedule','game-logs','usage','defense','injuries','depth-chart','team-stats','opportunity','matchup','projection','distribution','decision','value-board','model-health','props','prop-games','reception-logs','research-board','board'}
         if resource not in allowed:
             return send_json(self, 404, {'error': 'Unknown NFL resource.'})
         if len(self.path) > 2048 or any(len(value) > 120 for values in query.values() for value in values):
@@ -149,6 +149,16 @@ class handler(BaseHTTPRequestHandler):
                 return send_json(self,400,{'error':'Unresolved NFL event/player or invalid line source.'})
             except RuntimeError:
                 return send_json(self,503,{'error':'NFL line provider unavailable. Check quota and key in Settings.'})
+
+        if resource == 'board':
+            # The prebuilt slate, exactly like api/v2-board.py does for MLB:
+            # read what the last build wrote and return it. Never scans, so
+            # opening the props tab costs nothing and waits for nothing.
+            from backend.sports.nfl.board_snapshot import stored_board
+            snapshot = stored_board()
+            if not snapshot:
+                return send_json(self, 200, {'data': [], 'builtAt': None, 'events': [], 'pending': True})
+            return send_json(self, 200, {**snapshot, 'data': snapshot.get('rows', [])})
 
         if resource == 'research-board':
             event_id=query.get('eventId',[''])[0]
