@@ -405,6 +405,8 @@ function cacheEls() {
   els.v2AdminKeyMsg = document.getElementById("v2-admin-key-msg");
   els.v2AdminScanBtn = document.getElementById("v2-admin-scan-btn");
   els.v2AdminScanMsg = document.getElementById("v2-admin-scan-msg");
+  els.nflAdminScanBtn = document.getElementById("nfl-admin-scan-btn");
+  els.nflAdminScanMsg = document.getElementById("nfl-admin-scan-msg");
 
   els.savedGrid = document.getElementById("saved-grid");
   els.savedEmpty = document.getElementById("saved-empty");
@@ -7191,6 +7193,37 @@ function wireAdminPanel() {
     } catch (err) {
       els.v2AdminKeyMsg.textContent = err.message || "Request failed";
       els.v2AdminKeyMsg.style.color = "#e05d5d";
+    }
+  });
+
+  // Builds the stored NFL board on demand. Same job as the daily cron, so
+  // the props tab can be made instant right now rather than after the next
+  // scheduled run.
+  els.nflAdminScanBtn?.addEventListener("click", async () => {
+    els.nflAdminScanBtn.disabled = true;
+    els.nflAdminScanMsg.textContent = "Scanning the NFL slate — this can take up to a minute…";
+    els.nflAdminScanMsg.style.color = "";
+    try {
+      const res = await fetch("/api/v2-admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ action: "nfl-scan" }),
+      });
+      const data = await readAdminJson(res);
+      els.nflAdminScanBtn.disabled = false;
+      if (!res.ok || !data.ok) {
+        els.nflAdminScanMsg.textContent = data.error || "NFL scan failed.";
+        els.nflAdminScanMsg.style.color = "#e05d5d";
+        return;
+      }
+      const missed = data.failed ? `, ${data.failed} game${data.failed === 1 ? "" : "s"} failed` : "";
+      els.nflAdminScanMsg.textContent = `Done — ${data.games} game${data.games === 1 ? "" : "s"} scanned, ${data.rows} props stored${missed}.`;
+      els.nflAdminScanMsg.style.color = "#35e0c4";
+    } catch (err) {
+      els.nflAdminScanBtn.disabled = false;
+      els.nflAdminScanMsg.textContent = err.message || "Request failed";
+      els.nflAdminScanMsg.style.color = "#e05d5d";
     }
   });
 

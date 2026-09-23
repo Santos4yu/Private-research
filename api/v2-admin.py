@@ -114,6 +114,10 @@ class handler(BaseHTTPRequestHandler):
                 return self._handle_key(body)
             if action == "scan":
                 return self._handle_scan(body)
+            if action == "nfl-scan":
+                if not admin_auth.is_admin_request(self.headers):
+                    return self._send(401, {"error": "Admin session required"})
+                return self._build_nfl_board(trigger="manual")
             if action == "site-background-upload":
                 if not admin_auth.is_admin_request(self.headers):return self._send(401, {"error":"Admin session required"})
                 from site_controls import same_origin
@@ -280,16 +284,28 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(401, {"error": "Cron auth required"})
         elif "vercel-cron" not in user_agent.lower() and cron_header != "1":
             return self._send(401, {"error": "Cron request required"})
+        return self._build_nfl_board(trigger="cron")
+
+    def _build_nfl_board(self, trigger="manual"):
+        """Scan the NFL slate once and store the finished board.
+
+        Shared by the daily cron and the admin panel's button, so a board can
+        be built on demand instead of waiting for the next scheduled run --
+        which otherwise means the props tab keeps scanning live in front of
+        whoever opens it.
+        """
         try:
             from datetime import datetime as _dt
             from backend.sports.nfl.board_snapshot import store_board
-            season = _dt.now().year - 1 if _dt.now().month < 3 else _dt.now().year
+            now = _dt.now()
+            season = now.year - 1 if now.month < 3 else now.year
             payload = store_board(season)
-        except Exception as exc:  # noqa: BLE001 -- report, don't hang the cron
+        except Exception as exc:  # noqa: BLE001 -- report, don't hang the caller
             return self._send(500, {"error": f"NFL scan failed: {exc}"})
-        return self._send(200, {"ok": True, "season": payload["season"],
+        return self._send(200, {"ok": True, "season": payload["season"], "trigger": trigger,
                                 "games": payload["gamesScanned"], "failed": payload["gamesFailed"],
-                                "rows": len(payload["rows"]), "builtAt": payload["builtAt"]})
+                                "rows": len(payload["rows"]), "rowsAvailable": payload["rowsAvailable"],
+                                "builtAt": payload["builtAt"]})
 
     def _run_scan(self, top_per_stat=4, min_edge=0.0, trigger="manual"):
         try:
