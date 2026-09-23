@@ -52,6 +52,22 @@ function statusLabel(status) {
   return labels[String(status || '').toUpperCase()] || (status ? String(status).replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase()) : 'Status unavailable');
 }
 
+// A render error anywhere under here used to take the whole component down
+// with it -- including the MLB/NFL switcher, which is a sibling -- so the
+// screen simply went blank with no way back. The switcher stays outside the
+// boundary; everything sport-specific sits inside it.
+class NFLErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) { console.error('NFL research error:', error, info?.componentStack); }
+  render() {
+    if (!this.state.error) return this.props.children;
+    return <Notice icon={AlertTriangle} title="NFL research hit an error" tone="error">
+      Switch to MLB and back, or reload the page. The error has been logged to the browser console.
+    </Notice>;
+  }
+}
+
 function SportSwitcher({ sport, onChange }) {
   return <div className="sport-switch-shell" aria-label="Choose research sport">
     <div className="sport-switch" role="group">
@@ -507,5 +523,5 @@ export function SportResearch() {
     const pop = () => { const params = new URLSearchParams(location.search); const requestedPlayer = params.get('nflPlayer'); setSelectedPlayer(players.find((player) => player.id === requestedPlayer) || null); };
     window.addEventListener('popstate', pop); return () => window.removeEventListener('popstate', pop);
   }, [players, sport]);
-  return <><SportSwitcher sport={sport} onChange={changeSport} />{sport === 'nfl' && siteSportAllowed('nfl') && <div className="nfl-app-shell">{error && <button className="nfl-refresh" type="button" onClick={() => { nflClient.clear(); setReloadKey(key => key + 1); }}>Retry data sources</button>}{selectedPlayer ? <NFLPlayerResearch key={selectedPlayer.id} player={selectedPlayer} teams={teams} schedules={schedules} onBack={closePlayer} /> : boardView ? <NFLResearchBoard load={getNFL} players={players} onOpen={openPlayer}/> : <NFLHome players={players} teams={teams} loading={loading} error={error} onOpen={openPlayer} />}<details className="nfl-sources"><summary>Data sources</summary><p>Game statistics: <a href="https://github.com/nflverse/nflverse-data">nflverse</a>, adapted for research · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. Live offers: The Odds API, labelled by platform.</p></details></div>}</>;
+  return <><SportSwitcher sport={sport} onChange={changeSport} />{sport === 'nfl' && siteSportAllowed('nfl') && <NFLErrorBoundary><div className="nfl-app-shell">{error && <button className="nfl-refresh" type="button" onClick={() => { nflClient.clear(); setReloadKey(key => key + 1); }}>Retry data sources</button>}{selectedPlayer ? <NFLPlayerResearch key={selectedPlayer.id} player={selectedPlayer} teams={teams} schedules={schedules} onBack={closePlayer} /> : boardView ? <NFLResearchBoard load={getNFL} players={players} onOpen={openPlayer}/> : <NFLHome players={players} teams={teams} loading={loading} error={error} onOpen={openPlayer} />}<details className="nfl-sources"><summary>Data sources</summary><p>Game statistics: <a href="https://github.com/nflverse/nflverse-data">nflverse</a>, adapted for research · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. Live offers: The Odds API, labelled by platform.</p></details></div></NFLErrorBoundary>}</>;
 }

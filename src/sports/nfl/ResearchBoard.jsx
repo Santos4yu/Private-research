@@ -74,6 +74,63 @@ async function scanBoard(load) {
   return boardCache;
 }
 
+function sortRows(rows,sort){
+ // No sort selected = the backend's own sample-adjusted-support ranking,
+ // unchanged. Clicking a column re-sorts client-side by that column only;
+ // it never silently replaces the validated default order.
+ if(!sort)return rows;
+ const {key,dir}=sort;
+ const value=row=>key==='avg'?row.average:key==='diff'?(row.line?.value!=null?row.average-row.line.value:null):key==='matchup'?row.matchupQuality:row.windows?.[key]?.hitRate;
+ return [...rows].sort((a,b)=>{const av=value(a),bv=value(b);if(av==null&&bv==null)return 0;if(av==null)return 1;if(bv==null)return -1;return dir==='asc'?av-bv:bv-av;});
+}
+
+function SortHeader({label,columnKey,sort,onSort}){
+ const active=sort?.key===columnKey;
+ return <th><button type="button" className={active?'active':''} onClick={()=>onSort(columnKey)}>{label}{active&&(sort.dir==='desc'?<ArrowDown size={12}/>:<ArrowUp size={12}/>)}</button></th>;
+}
+
+// Same three tiers/thresholds and the same data-tone attribute name as
+// the MLB pitcher finder's own board (app.js's renderPitcherComparison:
+// `pct >= 70 ? 'good' : pct >= 45 ? 'mid' : 'low'`), so this is the same
+// design applied here rather than a fresh guess at one.
+const heatTone=(value,good=70,mid=45)=>value==null?'':value>=good?'good':value>=mid?'mid':'low';
+
+function WindowCell({w,label}){
+ if(!w||w.hitRate==null)return <td className="nfl-board-cell muted" data-label={label}>—</td>;
+ return <td className="nfl-board-cell" data-label={label} data-tone={heatTone(w.hitRate)}><strong>{Math.round(w.hitRate)}%</strong><small>{w.hits}-{w.misses}{w.pushes?` · ${w.pushes}p`:''}</small></td>;
+}
+
+function MatchupCell({row}){
+ if(row.matchupQuality==null)return <td className="nfl-board-cell muted" data-label="Matchup">—</td>;
+ return <td className="nfl-board-cell" data-label="Matchup" data-tone={heatTone(row.matchupQuality,65,45)}><strong>{row.matchupQuality}</strong><small>{row.matchupCoverage}% cov.</small></td>;
+}
+
+// Memoized per row: rows stream in one game at a time and a timer ticks the
+// staleness clock, so without this every arriving batch repainted every
+// already-rendered row (and every gradient cell in it).
+// Takes the stable `players` array rather than a prebuilt player object:
+// researchPlayer() returns a fresh object every call, which would change
+// identity on each render and defeat the memo entirely.
+const BoardRow=React.memo(function BoardRow({row,players,onOpen}){
+ const player=researchPlayer(row,players);
+ const diff=row.line?.value!=null?row.average-row.line.value:null;
+ return <tr className={player?'clickable':''} onClick={()=>player&&onOpen(player)}>
+  <td className="nfl-board-cell-player"><img src={player?.headshot_url} width="32" height="32" loading="lazy" alt=""/><div><strong>{row.playerName}</strong><small>{row.line.direction==='OVER'?'More':'Less'} {row.line.value} {PROP_LABELS[row.propType]}</small><small className="nfl-board-cell-meta">{row.position} · {row.teamId} vs {row.opponentId}</small></div></td>
+  <td className="nfl-board-cell" data-label="Avg"><strong>{Number(row.average.toFixed(1))}</strong></td>
+  <td className="nfl-board-cell" data-label="Diff" data-tone={diff==null?'':diff>0?'good':diff<0?'low':'mid'}>{diff==null?<span className="muted">—</span>:<strong>{`${diff>0?'+':''}${diff.toFixed(1)}`}</strong>}</td>
+  <MatchupCell row={row}/>
+  {WINDOW_COLUMNS.map(([key,label])=><WindowCell w={row.windows?.[key]} label={label} key={key}/>)}
+ </tr>;
+});
+
+function BoardTable({rows,players,onOpen,sort,onSort}){
+ const sorted=useMemo(()=>sortRows(rows,sort),[rows,sort]);
+ return <div className="nfl-board-table-wrap"><table className="nfl-board-table">
+  <thead><tr><th>Player / line</th><SortHeader label="Avg" columnKey="avg" sort={sort} onSort={onSort}/><SortHeader label="Diff" columnKey="diff" sort={sort} onSort={onSort}/><SortHeader label="Matchup" columnKey="matchup" sort={sort} onSort={onSort}/>{WINDOW_COLUMNS.map(([key,label])=><SortHeader key={key} label={label} columnKey={key} sort={sort} onSort={onSort}/>)}</tr></thead>
+  <tbody>{sorted.map(row=><BoardRow key={`${row.gameId}.${row.playerId}.${row.propType}`} row={row} players={players} onOpen={onOpen}/>)}</tbody>
+ </table></div>;
+}
+
 export function NFLResearchBoard({load,players,onOpen}) {
  // Kept outside the component (module scope) so leaving the board -- opening
  // a player, then coming back to Home -- doesn't blank the screen and re-run
