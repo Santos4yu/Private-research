@@ -7,7 +7,91 @@ from urllib.parse import parse_qs, urlparse
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from auth_core import session_with_live_access
 from backend.sports.nfl.api import response_payload, send_json
+from backend.sports.nfl.cache import NFLCacheDomain, cached_nfl
 from backend.sports.nfl.services import nflverse
+
+# Every resource below is a pure, read-only projection of one of nflverse's
+# season-wide CSVs, so its whole response can be cached durably -- and it
+# very much needs to be.
+#
+# cached_nfl's Upstash L2 exists precisely because a Vercel function
+# cold-starts constantly, but it has never actually held ANY nflverse data:
+# every loader in services/nflverse.py returns
+# (list[dataclass], datetime, datetime | None), and cache._kv_set silently
+# drops any value json.dumps rejects. So the durable cache was a no-op for
+# teams, players, schedule, game-logs, usage, defense, injuries, depth
+# charts AND the shared raw-CSV cache underneath them. Every cold instance
+# re-downloaded ~9MB of stats_player_week and re-parsed ~19k rows just to
+# project one player's 8KB of game logs -- twice over, since the research
+# screen asks for the current AND previous season.
+#
+# Caching the FINISHED payload instead fixes that with a value that
+# round-trips by construction (it is already the JSON we send), and it is
+# small: 8KB for a player's game logs, 4KB for usage, 6KB for defense,
+# 444KB for the full season roster. The TTL comes from the matching cache
+# domain, so nothing is served staler than it would have been anyway.
+RESPONSE_VERSION = 'nfl-response-v1'
+RESPONSE_DOMAINS = {
+    'teams': NFLCacheDomain.TEAMS,
+    'players': NFLCacheDomain.PLAYERS,
+    'schedule': NFLCacheDomain.SCHEDULE,
+    'game-logs': NFLCacheDomain.GAME_LOGS,
+    'reception-logs': NFLCacheDomain.GAME_LOGS,
+    'injuries': NFLCacheDomain.INJURIES,
+    'depth-chart': NFLCacheDomain.DEPTH_CHARTS,
+    'team-stats': NFLCacheDomain.STATS,
+    'defense': NFLCacheDomain.DEFENSE,
+    'usage': NFLCacheDomain.USAGE,
+}
+
+
+class SourceUnavailable(RuntimeError):
+    """Raised instead of returning, so a failed provider read is never
+    written to either cache layer -- a 30-minute cached outage would be far
+    worse than re-asking the provider on the next request."""
+
+    def __init__(self, payload):
+        super().__init__('nfl source unavailable')
+        self.payload = payload
+
+
+def _source_result(resource, season, week, season_type, team, player_id, season_type_given):
+    if resource == 'teams':
+        return nflverse.teams(season)
+    if resource == 'players':
+        return nflverse.players(season)
+    if resource == 'schedule':
+        return nflverse.schedule(season, week, season_type if season_type_given else None)
+    if resource == 'game-logs':
+        return nflverse.game_logs(season, player_id, season_type)
+    if resource == 'reception-logs':
+        from backend.sports.nfl.services.research_stats import reception_logs
+        return reception_logs(season, player_id)
+    if resource == 'injuries':
+        result = nflverse.injuries(season, week)
+        if team and result.data is not None:
+            canonical = nflverse.canonical_team(team)
+            result = type(result)(result.status, [row for row in result.data if row.team_id == canonical],
+                                  result.source, result.fetched_at, result.observed_at, result.reason)
+        return result
+    if resource == 'depth-chart':
+        return nflverse.depth_chart(season, team or None)
+    if resource == 'team-stats':
+        return nflverse.team_game_stats(season, team, season_type)
+    if resource == 'defense':
+        return nflverse.defense_game_stats(season, team, season_type)
+    if resource == 'usage':
+        return nflverse.provider.player_usage(player_id=player_id, season=season)
+    return None
+
+
+def _source_payload(resource, season, week, season_type, team, player_id, season_type_given):
+    result = _source_result(resource, season, week, season_type, team, player_id, season_type_given)
+    payload = response_payload(result)
+    payload['sourceVersion'] = nflverse.SOURCE_VERSION
+    if result.data is None:
+        raise SourceUnavailable(payload)
+    return payload
 
 
 class handler(BaseHTTPRequestHandler):
@@ -138,44 +222,25 @@ class handler(BaseHTTPRequestHandler):
                 return send_json(self, 200, {"data": opportunity(season, player_id, week)})
             except (ValueError, RuntimeError, OSError):
                 return send_json(self, 503, {"error": "Opportunity inputs unavailable"})
-        if resource == "teams":
-            result = nflverse.teams(season)
-        elif resource == "players":
-            result = nflverse.players(season)
-        elif resource == "schedule":
-            result = nflverse.schedule(season, week, season_type if query.get("seasonType") else None)
-        elif resource == "game-logs":
-            if not player_id:
-                return send_json(self, 400, {"error": "A stable GSIS playerId is required."})
-            result = nflverse.game_logs(season, player_id, season_type)
-        elif resource == 'reception-logs':
-            if not player_id or season_type != 'REG':
-                return send_json(self, 400, {'error': 'Regular-season playerId required.'})
-            from backend.sports.nfl.services.research_stats import reception_logs
-            result = reception_logs(season, player_id)
-        elif resource == "injuries":
-            result = nflverse.injuries(season, week)
-            if team and result.data is not None:
-                canonical = nflverse.canonical_team(team)
-                result = type(result)(result.status, [row for row in result.data if row.team_id == canonical],
-                                      result.source, result.fetched_at, result.observed_at, result.reason)
-        elif resource == "depth-chart":
-            result = nflverse.depth_chart(season, team or None)
-        elif resource == "team-stats":
-            if not team:
-                return send_json(self, 400, {"error": "A team abbreviation is required."})
-            result = nflverse.team_game_stats(season, team, season_type)
-        elif resource == "defense":
-            if not team:
-                return send_json(self, 400, {"error": "A team abbreviation is required."})
-            result = nflverse.defense_game_stats(season, team, season_type)
-        elif resource == "usage":
-            if not player_id:
-                return send_json(self, 400, {"error": "A stable GSIS playerId is required."})
-            result = nflverse.provider.player_usage(player_id=player_id, season=season)
-        else:
+        domain = RESPONSE_DOMAINS.get(resource)
+        if domain is None:
             return send_json(self, 404, {"error": "Unknown NFL data resource."})
+        # Argument checks stay OUT of the cached loader: they are free, and a
+        # rejection must never occupy a cache slot.
+        if resource in ('game-logs', 'usage') and not player_id:
+            return send_json(self, 400, {"error": "A stable GSIS playerId is required."})
+        if resource == 'reception-logs' and (not player_id or season_type != 'REG'):
+            return send_json(self, 400, {'error': 'Regular-season playerId required.'})
+        if resource in ('team-stats', 'defense') and not team:
+            return send_json(self, 400, {"error": "A team abbreviation is required."})
 
-        payload = response_payload(result)
-        payload["sourceVersion"] = nflverse.SOURCE_VERSION
-        send_json(self, 200 if result.data is not None else 503, payload)
+        season_type_given = bool(query.get("seasonType"))
+        parts = (RESPONSE_VERSION, resource, season, season_type, season_type_given,
+                 week if week is not None else 'all',
+                 nflverse.canonical_team(team) or 'all', player_id or 'all')
+        try:
+            payload = cached_nfl(domain, parts, lambda: _source_payload(
+                resource, season, week, season_type, team, player_id, season_type_given))
+        except SourceUnavailable as unavailable:
+            return send_json(self, 503, unavailable.payload)
+        send_json(self, 200, payload)

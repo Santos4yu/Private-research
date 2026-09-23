@@ -2,14 +2,22 @@
 // never consume these merged records or silently switch season.
 export async function loadNFLHistory(load, resource, params, season, mode = 'recent') {
   const requested = mode === 'previous' ? season - 1 : season;
-  let current;
-  try { current = await load(resource, { ...params, season: requested }); }
-  catch { current = { status: 'UNRELIABLE', data: [], reason: 'Selected-season source temporarily unavailable.' }; }
+  const attempt = (requestedSeason, reason) => load(resource, { ...params, season: requestedSeason })
+    .catch(() => ({ status: 'UNRELIABLE', data: [], reason }));
+  // Both seasons are requested TOGETHER rather than one after the other.
+  // The previous season used to be fetched only after the current one came
+  // back short (< 20 rows) -- but every resource this loads is per-game and
+  // an NFL regular season is 17 games, so that branch was never not taken:
+  // 'recent' mode always made two full round trips, strictly one after the
+  // other, on every player open. Running them side by side halves that wait
+  // and wastes nothing, because the second request was never optional.
+  const [current, speculative] = await Promise.all([
+    attempt(requested, 'Selected-season source temporarily unavailable.'),
+    mode === 'recent' ? attempt(season - 1, null) : null,
+  ]);
   const rows = Array.isArray(current.data) ? current.data : [];
   if (mode !== 'recent' || rows.length >= 20) return withHistory(current, rows, requested, season, false);
-  let previous;
-  try { previous = await load(resource, { ...params, season: season - 1 }); }
-  catch { previous = { status: 'UNRELIABLE', data: [] }; }
+  const previous = speculative || { status: 'UNRELIABLE', data: [] };
   const older = Array.isArray(previous.data) ? previous.data : [];
   // Require a verified season and identity supplied by the provider adapter.
   const combined = [...older, ...rows].filter(row => row.season === season || row.season === season - 1);

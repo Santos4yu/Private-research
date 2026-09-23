@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import gzip
 import json
 import sys
 from enum import StrEnum
@@ -76,16 +78,31 @@ def nfl_cache_key(domain: NFLCacheDomain, *parts: object) -> str:
     return ":".join(("krazy_data", "nfl", "v1", domain.value, *clean))
 
 
+# Anything bigger than this is stored gzipped. The play-by-play season
+# summary behind every opportunity/matchup request is 1.55MB of JSON, which
+# is over Upstash's per-record limit -- so the write failed, the exception
+# was swallowed below, and EVERY cold serverless instance re-downloaded and
+# re-summarised the whole season's play-by-play (~16s) instead of reading a
+# cached copy. It gzips to 118KB in ~10ms, which fits with room to spare.
+_KV_GZIP_PREFIX = "gz:"
+_KV_COMPRESS_OVER = 32 * 1024
+# Past this, skip the write entirely rather than pay a doomed upload on
+# every single request -- a failing POST still costs the round trip.
+_KV_MAX_BYTES = 900 * 1024
+
+
 def _kv_get(key: str, ttl: float) -> object | None:
     """Best-effort durable-cache read. Never raises -- a KV outage or a
     value that was never written must degrade to "cache miss", not break
-    the request."""
+    the request. Reads both the compressed and the older plain format."""
     if _kv_store is None:
         return None
     try:
         raw = _kv_store.get(key)
         if not raw:
             return None
+        if isinstance(raw, str) and raw.startswith(_KV_GZIP_PREFIX):
+            raw = gzip.decompress(base64.b64decode(raw[len(_KV_GZIP_PREFIX):])).decode("utf-8")
         envelope = json.loads(raw)
         if time.time() - envelope["ts"] >= ttl:
             return None
@@ -96,12 +113,23 @@ def _kv_get(key: str, ttl: float) -> object | None:
 
 def _kv_set(key: str, value: object) -> None:
     """Best-effort durable-cache write. Silently does nothing for a value
-    that can't round-trip through JSON (e.g. a dataclass-bearing result) --
-    those domains just keep behaving exactly as before, no regression."""
+    that can't round-trip through JSON (e.g. a dataclass-bearing result).
+
+    That exemption is not as harmless as it reads: every loader in
+    services/nflverse.py returns (list[dataclass], datetime, datetime|None),
+    so the durable cache was a no-op for all of them and each cold instance
+    re-downloaded ~9MB of season CSV to project one player's 8KB of game
+    logs. api/nfl.py now caches the finished JSON payload for those
+    resources instead, which round-trips by construction."""
     if _kv_store is None:
         return
     try:
-        _kv_store.set(key, json.dumps({"ts": time.time(), "value": value}))
+        blob = json.dumps({"ts": time.time(), "value": value})
+        if len(blob) > _KV_COMPRESS_OVER:
+            blob = _KV_GZIP_PREFIX + base64.b64encode(gzip.compress(blob.encode("utf-8"), 6)).decode("ascii")
+        if len(blob) > _KV_MAX_BYTES:
+            return
+        _kv_store.set(key, blob)
     except Exception:
         pass
 
