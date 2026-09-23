@@ -125,7 +125,7 @@ def attach_matchup_quality(rows,data,week,roster):
             enriched.append(row)
     return enriched
 
-def game_board(season,event_id):
+def game_board(season,event_id,max_line_age=LINE_MAX_AGE_SECONDS):
     def load():
         listing=odds.events(season)
         event=next((e for e in listing['data'] if e['eventId']==event_id),None)
@@ -156,8 +156,19 @@ def game_board(season,event_id):
         return {'data':rows,'event':event,'source':'the-odds-api + nflverse','historyFailures':failed,'injuryReportAvailable':injuries.data is not None,'fetchedAt':datetime.now(timezone.utc).isoformat(),'method':'Ranked by sample-adjusted historical support, not betting confidence. Current-team games only; regular posted lines only.'}
     result=cached_nfl(NFLCacheDomain.PROPS,(VERSION,season,event_id),load)
     now=datetime.now(timezone.utc)
+    def keep(row):
+        # A game that has already kicked off is never shown, either way.
+        start=odds.timestamp(row['startsAt'])
+        if not start or start<=now:return False
+        # max_line_age None means "every posted prop", which is what the
+        # prebuilt board wants. Applying the live window at BUILD time would
+        # have stored only the props whose line happened to move in the
+        # preceding ten minutes -- and since updatedAt is the bookmaker's
+        # last_update, a steady projection is older than that almost always.
+        if max_line_age is None:return True
+        age=(now-odds.timestamp(row['line']['updatedAt'])).total_seconds()
+        return 0<=age<=max_line_age
     # lineMaxAgeSeconds is published so the client filters on exactly the
     # same window instead of keeping its own copy of the number.
-    return {**result,'lineMaxAgeSeconds':LINE_MAX_AGE_SECONDS,
-            'data':[r for r in result['data'] if odds.timestamp(r['startsAt'])>now
-                    and 0<=(now-odds.timestamp(r['line']['updatedAt'])).total_seconds()<=LINE_MAX_AGE_SECONDS]}
+    return {**result,'lineMaxAgeSeconds':max_line_age,
+            'data':[r for r in result['data'] if keep(r)]}

@@ -62,7 +62,9 @@ def build_board(season: int) -> dict:
         # Same width the browser used, for the same reason: the per-event
         # cost is dominated by one network round trip, not by CPU.
         with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [executor.submit(game_board, season, event["eventId"]) for event in events]
+            # max_line_age=None: store every posted prop. The live window is
+            # applied when the board is READ, not when it is built.
+            futures = [executor.submit(game_board, season, event["eventId"], None) for event in events]
             for future in futures:
                 try:
                     rows.extend(future.result().get("data", []))
