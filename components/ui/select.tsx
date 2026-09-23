@@ -4,6 +4,7 @@ import {
   forwardRef,
   useRef,
   useEffect,
+  useLayoutEffect,
   useState,
   useCallback,
   createContext,
@@ -248,12 +249,46 @@ const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
     const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
     const [checkedIndex, setCheckedIndex] = useState<number | undefined>(undefined);
 
-    useEffect(() => {
-      if (open && triggerRef.current) setTriggerRect(triggerRef.current.getBoundingClientRect());
-    }, [open, triggerRef]);
+    // The menu is rendered in a portal at position:fixed, so its coordinates
+    // are viewport coordinates of the trigger AT THE MOMENT IT OPENED. That
+    // measurement used to be taken once: scrolling the page (or any ancestor
+    // scroll container) then moved the trigger while the menu stayed put, and
+    // it ended up floating somewhere else entirely. Re-measure for as long as
+    // it is open, and stop tracking once it closes.
+    useLayoutEffect(() => {
+      if (!open) { setTriggerRect(null); return; }
+      const measure = () => {
+        const trigger = triggerRef.current;
+        if (!trigger) return;
+        const rect = trigger.getBoundingClientRect();
+        // Once the trigger has scrolled clean out of view there is nothing
+        // left to anchor to, and a menu floating over unrelated content is
+        // worse than no menu -- close instead of following it off-screen.
+        if (rect.bottom < 0 || rect.top > window.innerHeight) { setOpen(false); return; }
+        setTriggerRect(rect);
+      };
+      measure();
+      // Measured synchronously on purpose. Throttling through
+      // requestAnimationFrame looks like the careful choice, but rAF does not
+      // run at all while the tab is hidden, so the menu would come back
+      // attached to wherever the trigger used to be. Scroll events are already
+      // frame-aligned, and this reads one element's rect.
+      // capture:true -- a scroll inside any ancestor container moves the
+      // trigger just as much as a page scroll does, and those do not bubble.
+      window.addEventListener("scroll", measure, true);
+      window.addEventListener("resize", measure);
+      const observer = typeof ResizeObserver === "function" ? new ResizeObserver(measure) : null;
+      if (observer && triggerRef.current) observer.observe(triggerRef.current);
+      return () => {
+        window.removeEventListener("scroll", measure, true);
+        window.removeEventListener("resize", measure);
+        observer?.disconnect();
+      };
+    }, [open, triggerRef, setOpen]);
 
+    const hasRect = triggerRect !== null;
     useEffect(() => {
-      if (!open || !triggerRect) return;
+      if (!open || !hasRect) return;
       let outer: number; let inner: number;
       outer = requestAnimationFrame(() => {
         inner = requestAnimationFrame(() => {
@@ -268,7 +303,7 @@ const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
         });
       });
       return () => { cancelAnimationFrame(outer); cancelAnimationFrame(inner); };
-    }, [open, triggerRect, measureItems, value]);
+    }, [open, hasRect, measureItems, value]);
 
     useEffect(() => {
       if (!open) return;
@@ -305,9 +340,27 @@ const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
     const focusRect = focusedIndex !== null ? itemRects[focusedIndex] : null;
     const isHoveringOther = activeIndex !== null && activeIndex !== checkedIndex;
 
+    const GAP = 6;
+    const EDGE = 8;
+    const viewportHeight = typeof window === "undefined" ? 0 : window.innerHeight;
+    const viewportWidth = typeof window === "undefined" ? 0 : window.innerWidth;
+    const spaceBelow = viewportHeight - triggerRect.bottom - GAP - EDGE;
+    const spaceAbove = triggerRect.top - GAP - EDGE;
+    const flipUp = spaceBelow < 180 && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(120, Math.min(300, flipUp ? spaceAbove : spaceBelow));
+    const width = Math.max(triggerRect.width, 160);
+    const left = Math.min(Math.max(EDGE, triggerRect.left), Math.max(EDGE, viewportWidth - width - EDGE));
+
     return createPortal(
       <SelectContentContext.Provider value={{ registerItem, activeIndex, checkedIndex }}>
-        <div style={{ position: "fixed", top: triggerRect.bottom + 6, left: triggerRect.left, minWidth: triggerRect.width, zIndex: 50 }}>
+        <div style={{
+          position: "fixed",
+          top: flipUp ? undefined : triggerRect.bottom + GAP,
+          bottom: flipUp ? viewportHeight - triggerRect.top + GAP : undefined,
+          left,
+          minWidth: triggerRect.width,
+          zIndex: 50,
+        }}>
           <motion.div
             ref={(node) => {
               (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
@@ -325,10 +378,10 @@ const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
             onBlur={(e) => { if (containerRef.current?.contains(e.relatedTarget as Node)) return; setFocusedIndex(null); setActiveIndex(null); }}
             onKeyDown={handleKeyDown}
             className={cn(`relative flex flex-col gap-0.5 max-h-[300px] overflow-y-auto ${shape.container} bg-card shadow-[0_4px_12px_rgba(0,0,0,0.02)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-border/60 p-1 select-none outline-none`, className)}
-            initial={{ opacity: 0, y: -4, scaleY: 0.96 }}
+            initial={{ opacity: 0, y: flipUp ? 4 : -4, scaleY: 0.96 }}
             animate={{ opacity: 1, y: 0, scaleY: 1 }}
             transition={springs.fast}
-            style={{ transformOrigin: "top center" }}
+            style={{ transformOrigin: flipUp ? "bottom center" : "top center", maxHeight }}
           >
             <AnimatePresence>
               {checkedRect && (
