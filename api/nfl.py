@@ -154,9 +154,15 @@ class handler(BaseHTTPRequestHandler):
             # The prebuilt slate, exactly like api/v2-board.py does for MLB:
             # read what the last build wrote and return it. Never scans, so
             # opening the props tab costs nothing and waits for nothing.
-            from backend.sports.nfl.board_snapshot import stored_board
-            snapshot = stored_board()
+            from backend.sports.nfl.board_snapshot import ensure_board
+            try:
+                snapshot = ensure_board(season)
+            except Exception:  # noqa: BLE001 -- fall back to the live scan
+                snapshot = None
             if not snapshot:
+                # Nothing stored and nothing built (another instance is
+                # building, or the provider is down). The client falls back
+                # to scanning live, exactly as it did before.
                 return send_json(self, 200, {'data': [], 'builtAt': None, 'events': [], 'pending': True})
             return send_json(self, 200, {**snapshot, 'data': snapshot.get('rows', [])})
 
