@@ -8,6 +8,12 @@ import {freshness} from './nfl-client';
 
 const WINDOW_COLUMNS=[['l5','L5'],['l10','L10'],['l15','L15'],['l20','L20'],['h2h','H2H']];
 let boardCache=null;
+// Matched to the server's props cache. At 90s this expired while a scan was
+// still finishing, so leaving the board and coming straight back restarted
+// all 16 games from scratch.
+const BOARD_CACHE_TTL=600000;
+// Static for the life of the module; was being rebuilt on every render.
+const PROP_LABELS=Object.fromEntries(NFL_PROP_DEFINITIONS.map(p=>[p.key,p.label]));
 // One scan at a time, shared process-wide. The NFL shell kicks this off as
 // soon as the section opens (see SportResearch.jsx) so the slate is already
 // scanned by the time anyone taps Props -- the scan is the slow part, and it
