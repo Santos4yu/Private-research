@@ -149,10 +149,14 @@ function Stat({ label, value, suffix = '', unavailable = false }) {
 
 function EmptyFeature({ title, reason }) { return <Notice icon={Database} title={`${title} unavailable`}>{reason}</Notice>; }
 
-function OverviewPanel({ selectedProp, logs, projection, quote }) {
+// Average, game count and the posted line were all removed from here: the
+// Trend panel shows every one of them now -- the average in its summary
+// card and again per window, the sample size in the window bar, and the
+// line in its RESEARCH LINE header, stepper and sportsbook odds row. Only
+// the median is kept, because the panel does not show that anywhere.
+function OverviewPanel({ selectedProp, logs, projection }) {
   const summary = summarizeLogs(logs, selectedProp.key);
-  const line=quote?.verified && quote.propType===selectedProp.key && Number.isFinite(quote.value) ? quote : null;
-  return <section className="nfl-panel-stack"><div className="nfl-stat-grid"><Stat label="Average" value={summary.average} /><Stat label="Median" value={summary.median} /><Stat label="Games" value={summary.games} />{line && <Stat label={`${line.platform} line`} value={line.value} />}</div><NFLProjectionPanel resource={projection} selectedProp={selectedProp} /></section>;
+  return <section className="nfl-panel-stack"><div className="nfl-stat-grid compact"><Stat label="Median" value={summary.median} /></div><NFLProjectionPanel resource={projection} selectedProp={selectedProp} /></section>;
 }
 
 function HistoricalRolePanel({ player, logs, usage }) {
@@ -339,8 +343,6 @@ function NFLPlayerResearch({ player, teams, schedules, onBack }) {
     {loading && <LoadingCards label="Loading player research" />}
     {error && <Notice icon={AlertTriangle} title="Some player data did not load" tone="error">{error}</Notice>}
     {!loading && <div className="nfl-tab-content">
-      {tab === 'overview' && <OverviewPanel selectedProp={selectedProp} logs={logs} projection={resources.projection} quote={analyzedLine} />}
-      {tab === 'overview' && <NFLDistributionPanel resource={resources.distribution} propKey={selectedProp.key} quote={analyzedLine} />}
       {tab === 'trend' && selectedProp.key === 'longest_reception' && resources.receptionLogs?.status === 'UNRELIABLE' && <Notice title="Reception lengths temporarily unavailable">Refresh to retry the play-by-play source. Other game statistics remain available.</Notice>}
       {tab === 'trend' && selectedProp.key === 'longest_reception' && resources.receptionLogs?.status === 'LOADING' && <LoadingCards label="Loading reception lengths" />}
       {!(selectedProp.key === 'longest_reception' && resources.receptionLogs?.status === 'LOADING') && <div hidden={tab !== 'trend'} className="nfl-trend-shell">
@@ -349,11 +351,7 @@ function NFLPlayerResearch({ player, teams, schedules, onBack }) {
       </div>}
       {tab === 'opportunity' && <section className="nfl-panel-stack"><HistoricalRolePanel player={player} logs={logs} usage={resources.usage} /><details className="nfl-chart-card nfl-usage-app"><summary>Upcoming opportunity estimate</summary><OpportunityPanel opportunity={resources.opportunity} /></details></section>}
       {tab === 'matchup' && <NFLMatchupPanel resource={resources.matchup} selectedProp={selectedProp} />}
-      {tab === 'opponent' && <OpponentPanel defense={resources.defense} opponent={matchup?.opponent} />}
-      {tab === 'environment' && <EnvironmentPanel game={nextGame} player={player} />}
-      {tab === 'injuries' && <InjuriesPanel injuries={resources.injuries} />}
-      {tab === 'health' && <HealthPanel player={player} resources={resources} quote={analyzedLine} />}
-      {tab === 'context' && <section className="nfl-panel-stack"><details className="nfl-chart-card"><summary>Model estimate</summary><OverviewPanel selectedProp={selectedProp} logs={logs} projection={resources.projection} quote={analyzedLine}/><NFLDistributionPanel resource={resources.distribution} propKey={selectedProp.key} quote={analyzedLine}/></details><details className="nfl-chart-card" open><summary>Opponent statistics</summary><OpponentPanel defense={resources.defense} opponent={matchup?.opponent}/></details><details className="nfl-chart-card"><summary>Game information</summary><EnvironmentPanel game={nextGame} player={player}/></details><details className="nfl-chart-card"><summary>Injuries</summary><InjuriesPanel injuries={resources.injuries}/></details><details className="nfl-chart-card"><summary>Data health</summary><HealthPanel player={player} resources={resources} quote={analyzedLine}/></details></section>}
+      {tab === 'context' && <section className="nfl-panel-stack"><details className="nfl-chart-card"><summary>Model estimate</summary><OverviewPanel selectedProp={selectedProp} logs={logs} projection={resources.projection}/><NFLDistributionPanel resource={resources.distribution} propKey={selectedProp.key} quote={analyzedLine}/></details><details className="nfl-chart-card" open><summary>Opponent statistics</summary><OpponentPanel defense={resources.defense} opponent={matchup?.opponent}/></details><details className="nfl-chart-card"><summary>Game information</summary><EnvironmentPanel game={nextGame} player={player}/></details><details className="nfl-chart-card"><summary>Injuries</summary><InjuriesPanel injuries={resources.injuries}/></details><details className="nfl-chart-card"><summary>Data health</summary><HealthPanel player={player} resources={resources} quote={analyzedLine}/></details></section>}
     </div>}
   </div>;
 }

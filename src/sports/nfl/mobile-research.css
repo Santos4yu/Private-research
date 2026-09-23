@@ -18,7 +18,6 @@
 .nfl-research-sheet label { display:grid;gap:7px;font-size:13px;color:#b5c2cf; }
 .nfl-research-sheet input { min-height:44px;width:100%;min-width:0;font-size:16px;padding:10px;border:1px solid #394654;border-radius:12px;color:#f1f5f8;background:#1e2935; }
 .nfl-research-sheet .nfl-filter-grid { border:0;padding:0;background:none;grid-template-columns:1fr 1fr;gap:14px; }
-.nfl-sheet-done { min-height:48px;border:0;border-radius:14px;background:#ecf3f6;color:#14202a;font:inherit;font-weight:700;cursor:pointer; }
 .nfl-research-sheet .nfl-reset { min-height:44px;background:none;border:0;color:#bccbd5;font:inherit;cursor:pointer; }
 .nfl-sheet-body .nfl-history-control { padding:0;border:0;background:none;margin:0; }
 .nfl-sheet-body .nfl-history-control p { font-size:12px;margin:8px 0 0; }
@@ -90,54 +89,12 @@
 .nfl-app-shell .nfl-tab-content { margin-top:0; }
 .nfl-app-shell .nfl-trends { gap:8px;padding:14px;border:1px solid #303c48;border-radius:18px;background:#151d26; }
 .nfl-app-shell .nfl-window-tabs { margin-top:6px;border:1px solid #303c48;border-radius:12px;background:#171d26;padding:4px; }
-/* The line/book/direction controls read as one deliberate control bar
-   rather than loose buttons floating on the panel background. */
-.nfl-trends .nfl-line-editor { padding:10px;border:1px solid #303c48;border-radius:14px;background:#171d26;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-start; }
-.nfl-trends .nfl-line-editor .nfl-stepper { flex:0 1 auto; }.nfl-trends .nfl-line-editor .nfl-stepper input { flex:0 1 auto;width:56px;max-width:56px;min-width:44px;font-size:15px;font-weight:700; }
-.nfl-trends .nfl-line-editor .nfl-side-switch { gap:3px;flex:0 0 auto; }.nfl-trends .nfl-side-switch button { padding:5px 9px;font-size:11.5px;min-height:34px; }
-.nfl-trends .nfl-line-editor .nfl-reset { font-size:11px;min-height:24px;flex-basis:100%;padding:0;order:30; }
-/* Each tab now carries its own hit rate (colored by tone) instead of a
-   separate strip of chips repeating the same five windows above a second,
-   plain L5/L10/L15/L20/Max/H2H selector -- one row does both jobs. */
-.nfl-trends .nfl-window-tabs { gap:3px; }
-.nfl-trends .nfl-window-tabs button { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:0;min-height:44px;flex:1 0 0;padding:6px 2px; }
-.nfl-trends .nfl-window-tabs button span { font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#8a97a6; }
-.nfl-trends .nfl-window-tabs button strong { font-size:13px;font-weight:800;color:#e7edf5; }
-.nfl-trends .nfl-window-tabs button.good strong { color:var(--nfl-green,#68d5ac); }
-.nfl-trends .nfl-window-tabs button.bad strong { color:var(--nfl-red,#ff8b96); }
-.nfl-trends .nfl-window-tabs button.neutral strong { color:#f3c877; }
-.nfl-trends .nfl-window-tabs button[aria-pressed=true] span,.nfl-trends .nfl-window-tabs button[aria-pressed=true] strong { color:var(--nfl-on-accent,#fff); }
-.nfl-trends .nfl-window-tabs button:disabled { opacity:.4; }
-/* Same card treatment as the control bar and summary above/below it, so
-   it doesn't read as a stray row floating between two defined blocks. */
-.nfl-trends .nfl-game-count { gap:6px;padding:8px 10px;border:1px solid #303c48;border-radius:14px;background:#171d26; }
-.nfl-trends .nfl-game-count .nfl-stepper button { min-height:34px;padding:5px 8px; }.nfl-trends .nfl-game-count .nfl-stepper input { width:36px;min-height:34px;padding:4px; }
-.nfl-trends .nfl-filter-toggle { min-height:34px;padding:5px 9px;font-size:11.5px;gap:5px; }
 /* One radius token across every button in this merged panel (stepper,
    side-switch, window tabs, filter toggle) -- the 8-12px mix here before
    was the "ugly, mismatched buttons" part of the PickFinder-style ask,
    separate from the row-grouping work above. */
 .nfl-trends .nfl-line-editor .nfl-side-switch button,.nfl-trends .nfl-window-tabs button,.nfl-trends .nfl-filter-toggle,.nfl-trends .nfl-line-trigger,.nfl-trends .nfl-line-refresh { border-radius:10px; }
-.nfl-trends .nfl-stepper button:first-child { border-radius:10px 0 0 10px; }
-.nfl-trends .nfl-stepper button:last-child { border-radius:0 10px 10px 0; }
-/* Hit rate leads; record/average support it. Tone tints the whole block
-   so the headline number reads at a glance instead of three identical
-   columns separated by hairlines. */
-.nfl-trends .nfl-trend-summary { display:flex;align-items:center;gap:14px;padding:14px;border:1px solid #303c48;border-radius:14px;background:#171d26; }
-.nfl-trends .nfl-trend-summary.good { border-color:color-mix(in srgb,var(--nfl-green,#68d5ac) 42%,#303c48);background:color-mix(in srgb,var(--nfl-green,#68d5ac) 9%,#171d26); }
-.nfl-trends .nfl-trend-summary.bad { border-color:color-mix(in srgb,var(--nfl-red,#ff8b96) 42%,#303c48);background:color-mix(in srgb,var(--nfl-red,#ff8b96) 9%,#171d26); }
-.nfl-trends .nfl-trend-headline { display:flex;flex-direction:column;gap:2px;flex:0 0 auto;min-width:96px;padding-right:14px;border-right:1px solid #303c48; }
-.nfl-trends .nfl-trend-headline span { font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8a97a6; }
-.nfl-trends .nfl-trend-headline strong { font-size:32px;font-weight:800;line-height:1.05;letter-spacing:-.03em;color:#e7edf5; }
-.nfl-trends .nfl-trend-summary.good .nfl-trend-headline strong { color:var(--nfl-green,#68d5ac); }
-.nfl-trends .nfl-trend-summary.bad .nfl-trend-headline strong { color:var(--nfl-red,#ff8b96); }
-.nfl-trends .nfl-trend-summary.neutral .nfl-trend-headline strong { color:#f3c877; }
-.nfl-trends .nfl-trend-support { display:flex;gap:26px;flex:1;min-width:0; }
-.nfl-trends .nfl-trend-support>div { display:flex;flex-direction:column;gap:3px;min-width:0; }
-.nfl-trends .nfl-trend-support span { font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#8a97a6; }
-.nfl-trends .nfl-trend-support strong { font-size:16px;font-weight:700;color:#e7edf5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-.nfl-trends>.nfl-chart-card { border:0;border-radius:0;padding:0;background:none;box-shadow:none; }.nfl-trends .nfl-chart-head { margin:4px 0 6px;gap:4px; }.nfl-trends .nfl-chart-head h3 { font-size:14px; }.nfl-trends .nfl-chart-head small { font-size:11px; }
-.nfl-trends .nfl-chart-caption { font-size:11px; }.nfl-trends .nfl-game-picker { border-top:1px solid #303c48;padding-top:4px; }.nfl-trends .nfl-game-picker summary { font-size:12px;min-height:44px; }
+.nfl-trends>.nfl-chart-card { border:0;border-radius:0;padding:0;background:none;box-shadow:none; }
 .nfl-matchup-hero { padding:20px;background:#17212c;border:1px solid #3a4857;border-radius:18px; }
 .nfl-matchup-heading { display:flex;align-items:center;gap:12px;justify-content:space-between; }.nfl-matchup-heading span { font-size:12px;color:#9eb0c1; }.nfl-matchup-heading h3 { font-size:20px;margin:5px 0 14px; }.nfl-matchup-heading>strong { font-size:44px;letter-spacing:-.06em; }.nfl-matchup-heading>strong small { font-size:16px;color:#91a4b4;letter-spacing:0; }
 .nfl-matchup-meta { display:flex;justify-content:space-between;gap:10px;font-size:12px;margin:12px 0;color:#bad1db; }.nfl-matchup-hero>small { color:#91a4b4;font-size:11px; }
@@ -292,16 +249,6 @@
 .nfl-app-shell .nfl-prop-selector,.nfl-app-shell .nfl-research-tabs { margin-bottom:4px; }
 
 .nfl-app-shell .nfl-player-identity { padding:0; }
-/* flex:1 1 0 + min-width:0 let the browser shrink this stepper below its
-   buttons' actual width, so the +/- and input rendered past their own box
-   and visually overlapped the book-line trigger sitting right after it in
-   the row. This group should sit at its natural content width, not stretch
-   or shrink, so it stays a fixed, self-contained control like the other
-   buttons in this row. */
-.nfl-trends .nfl-line-editor>.nfl-stepper { flex-direction:row;gap:0;flex:0 0 auto; }
-.nfl-trends .nfl-line-editor .nfl-stepper button { width:36px;min-width:36px;min-height:34px;padding:0;display:grid;place-items:center; }
-.nfl-trends .nfl-line-editor .nfl-stepper input { width:56px;max-width:none;min-width:40px;min-height:34px;padding:6px 2px;font-size:14px; }
-.nfl-trends .nfl-game-count .nfl-stepper button { width:34px;min-width:34px;min-height:34px;padding:0;display:grid;place-items:center; }
 
 .nfl-research-sheet input[type=range] { padding:0;min-height:32px; }
 
