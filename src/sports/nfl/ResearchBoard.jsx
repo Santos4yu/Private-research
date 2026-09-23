@@ -158,6 +158,7 @@ export function NFLResearchBoard({load,players,onOpen}) {
  // moment they land.
  const [snapshotAt,setSnapshotAt]=useState(null);
  const [loadingBoard,setLoadingBoard]=useState(false);
+ const [boardReason,setBoardReason]=useState('');
  const [sort,setSort]=useState(null);
  const onSort=key=>setSort(current=>current?.key===key?{key,dir:current.dir==='desc'?'asc':'desc'}:{key,dir:'desc'});
  // Only drives the 2-minute staleness filter, so it doesn't need to be
@@ -197,19 +198,30 @@ export function NFLResearchBoard({load,players,onOpen}) {
   // client cache lapsed meant the "checking N of 16" counter came back every
   // ten minutes even though a finished board was sitting in the store.
   setLoadingBoard(true);
+  // The very first request after a deploy has to BUILD the board, which can
+  // take most of a minute. Waiting for it before doing anything meant
+  // staring at a blank board with no progress -- so if it has not answered
+  // quickly, start scanning live alongside it. The two share the same
+  // per-event server cache, so whichever gets to a game first warms it for
+  // the other; this is not double work.
+  let scanning=false;
+  const scanIfSlow=setTimeout(()=>{ if(active){ scanning=true; runScan(); } },1200);
   load('board').then(result=>{
    if(!active)return;
    const stored=result?.data||[];
-   if(stored.length){
+   // Live rows beat a snapshot -- never replace a scan already under way.
+   if(stored.length&&!scanning){
+    clearTimeout(scanIfSlow);
     setRows(stored);
     if(result.events)setEvents(result.events);
     setSnapshotAt(result.builtAt||null);
     return;
    }
-   runScan();   // nothing built yet -- scan live, as before
-  }).catch(()=>{ if(active) runScan(); })
+   if(result?.pending&&result.reason&&result.reason!=='another build is already running') setBoardReason(String(result.reason));
+   if(!scanning){ clearTimeout(scanIfSlow); scanning=true; runScan(); }
+  }).catch(()=>{ if(active&&!scanning){ clearTimeout(scanIfSlow); scanning=true; runScan(); } })
     .finally(()=>{ if(active) setLoadingBoard(false); });
-  return()=>{active=false;unsubscribe?.();};
+  return()=>{active=false;clearTimeout(scanIfSlow);unsubscribe?.();};
  },[load,refresh]);
  // Filters and sorts the entire board; was re-running on every render,
  // including each of the ~16 streamed row batches and every timer tick.
@@ -229,9 +241,9 @@ export function NFLResearchBoard({load,players,onOpen}) {
     </SelectContent>
    </Select>
   </div>
-  {(progress||failed>0||scannedAt||snapshotAt||loadingBoard)&&<div role="status" className="nfl-board-caption">{loadingBoard&&!progress&&'Loading props…'}{progress&&(progress.total?`Checking ${progress.done} of ${progress.total} games…`:'Finding games…')}{!progress&&scannedAt&&`${ranked.length} props · ${freshness(new Date(scannedAt).toISOString(),now,LINE_MAX_AGE_MS)}`}{!scannedAt&&snapshotAt&&`${ranked.length} props · lines as of ${new Date(snapshotAt).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'})}${progress?' · refreshing':''}`}{failed>0&&`${progress||scannedAt?' · ':''}${failed} games could not load`}</div>}
+  {(progress||failed>0||scannedAt||snapshotAt||loadingBoard||boardReason)&&<div role="status" className="nfl-board-caption">{loadingBoard&&!progress&&'Loading props…'}{progress&&(progress.total?`Checking ${progress.done} of ${progress.total} games…`:'Finding games…')}{!progress&&scannedAt&&`${ranked.length} props · ${freshness(new Date(scannedAt).toISOString(),now,LINE_MAX_AGE_MS)}`}{!scannedAt&&snapshotAt&&`${ranked.length} props · lines as of ${new Date(snapshotAt).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'})}${progress?' · refreshing':''}`}{failed>0&&`${progress||scannedAt?' · ':''}${failed} games could not load`}{boardReason&&!ranked.length&&` · prebuilt board unavailable (${boardReason})`}</div>}
   {error&&<p role="alert">{error}</p>}
-  {!progress&&!ranked.length&&!error&&<div className="nfl-chart-card">No fresh props match this view. Try another filter or refresh. Players remain available in Research.</div>}
+  {!progress&&!loadingBoard&&!ranked.length&&!error&&<div className="nfl-chart-card">No fresh props match this view. Try another filter or refresh. Players remain available in Research.</div>}
   {view==='table'?<BoardTable rows={ranked} players={players} onOpen={onOpen} sort={sort} onSort={onSort}/>:
   <div className="nfl-discovery-grid">{ranked.map(row=>{const player=researchPlayer(row,players);return <button type="button" className="nfl-discovery-card" key={`${row.gameId}.${row.playerId}.${row.propType}`} disabled={!player} onClick={()=>onOpen(player)}>
    <div className="nfl-discovery-identity">{player?.headshot_url&&<img src={player.headshot_url} width="58" height="58" loading="lazy" alt=""/>}<div><strong>{row.playerName}</strong><small>{row.position} · {row.teamId} vs {row.opponentId} · {new Date(row.startsAt).toLocaleDateString([],{weekday:'short'})}</small></div><ArrowUpRight size={18}/></div>

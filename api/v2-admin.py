@@ -305,6 +305,8 @@ class handler(BaseHTTPRequestHandler):
         return self._send(200, {"ok": True, "season": payload["season"], "trigger": trigger,
                                 "games": payload["gamesScanned"], "failed": payload["gamesFailed"],
                                 "rows": len(payload["rows"]), "rowsAvailable": payload["rowsAvailable"],
+                                "partial": payload.get("partial", False), "stored": payload.get("stored"),
+                                "storedBytes": payload.get("storedBytes"),
                                 "builtAt": payload["builtAt"]})
 
     def _run_scan(self, top_per_stat=4, min_edge=0.0, trigger="manual"):

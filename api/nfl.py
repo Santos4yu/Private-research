@@ -156,15 +156,16 @@ class handler(BaseHTTPRequestHandler):
             # opening the props tab costs nothing and waits for nothing.
             from backend.sports.nfl.board_snapshot import ensure_board
             try:
-                snapshot = ensure_board(season)
-            except Exception:  # noqa: BLE001 -- fall back to the live scan
-                snapshot = None
+                snapshot, reason = ensure_board(season)
+            except Exception as exc:  # noqa: BLE001 -- fall back to the live scan
+                snapshot, reason = None, f'{type(exc).__name__}: {exc}'
             if not snapshot:
-                # Nothing stored and nothing built (another instance is
-                # building, or the provider is down). The client falls back
-                # to scanning live, exactly as it did before.
-                return send_json(self, 200, {'data': [], 'builtAt': None, 'events': [], 'pending': True})
-            return send_json(self, 200, {**snapshot, 'data': snapshot.get('rows', [])})
+                # Nothing stored and nothing built. Say why: the client falls
+                # back to scanning live either way, but an invisible failure
+                # here looks identical to "slow" and is untraceable.
+                return send_json(self, 200, {'data': [], 'builtAt': None, 'events': [],
+                                             'pending': True, 'reason': reason})
+            return send_json(self, 200, {**snapshot, 'data': snapshot.get('rows', []), 'reason': reason})
 
         if resource == 'research-board':
             event_id=query.get('eventId',[''])[0]

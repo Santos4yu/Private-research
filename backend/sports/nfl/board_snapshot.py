@@ -18,6 +18,8 @@ The only difference is who pays for it and when.
 """
 from __future__ import annotations
 
+import base64
+import gzip
 import json
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
@@ -117,10 +119,41 @@ def build_board(season: int, deadline_seconds: float | None = BUILD_DEADLINE_SEC
     }
 
 
+# The board is written straight to the KV store, which has a per-record
+# limit. 400 rows measured ~1.6KB each, so an uncompressed blob lands around
+# 640KB -- close enough to the limit that a busy slate would start failing
+# the write silently, leaving the tab scanning live forever. Same gzip
+# envelope the NFL cache uses (see cache.py), and the row count is trimmed
+# to fit rather than letting the write fail.
+_GZIP_PREFIX = "gz:"
+_COMPRESS_OVER = 32 * 1024
+_MAX_BYTES = 800 * 1024
+
+
+def _encode(payload: dict) -> str:
+    blob = json.dumps(payload)
+    if len(blob) > _COMPRESS_OVER:
+        blob = _GZIP_PREFIX + base64.b64encode(gzip.compress(blob.encode("utf-8"), 6)).decode("ascii")
+    return blob
+
+
+def _decode(raw: str) -> dict:
+    if isinstance(raw, str) and raw.startswith(_GZIP_PREFIX):
+        raw = gzip.decompress(base64.b64decode(raw[len(_GZIP_PREFIX):])).decode("utf-8")
+    return json.loads(raw)
+
+
 def store_board(season: int, deadline_seconds: float | None = BUILD_DEADLINE_SECONDS) -> dict:
     """Build and persist. Returns the payload actually stored."""
     payload = build_board(season, deadline_seconds)
-    _store().set(NFL_BOARD_KEY, json.dumps(payload))
+    blob = _encode(payload)
+    # Drop the weakest rows until it fits. Losing the tail of a shortlist is
+    # far better than storing nothing at all.
+    while len(blob) > _MAX_BYTES and len(payload["rows"]) > 25:
+        payload = {**payload, "rows": payload["rows"][: max(25, len(payload["rows"]) // 2)], "trimmed": True}
+        blob = _encode(payload)
+    payload = {**payload, "storedBytes": len(blob)}
+    payload["stored"] = bool(_store().set(NFL_BOARD_KEY, _encode(payload)))
     return payload
 
 
@@ -155,27 +188,30 @@ def _set_lock(value: str) -> None:
         pass
 
 
-def ensure_board(season: int) -> dict | None:
+def ensure_board(season: int) -> tuple[dict | None, str]:
     """The stored board, built once if nothing is stored yet.
 
-    Without this the props tab keeps scanning live until the daily cron
-    first runs, which is exactly the behaviour the stored board exists to
-    replace. One request pays for the build; everyone after reads it.
+    Returns (snapshot, reason). `reason` explains an empty result so the
+    failure is visible instead of showing as a permanently empty tab --
+    three rounds of this were lost to guessing at an invisible one.
     """
     snapshot = stored_board()
     # A partial board finishes itself: the second pass starts with most games
     # already cached from the first, so it is quick and cheap.
     if snapshot and not snapshot.get("partial"):
-        return snapshot
+        return snapshot, "stored"
     if snapshot and _age_seconds(snapshot) < PARTIAL_RETRY_SECONDS:
-        return snapshot
+        return snapshot, "partial-recent"
     if _build_in_progress():
-        return snapshot
+        return snapshot, "another build is already running"
     _set_lock(str(time.time()))
     try:
-        return store_board(season)
-    except Exception:  # noqa: BLE001 -- serve the partial board we already had
-        return snapshot
+        built = store_board(season)
+        if not built.get("stored"):
+            return built, "built but the store rejected the write"
+        return built, "built"
+    except Exception as exc:  # noqa: BLE001 -- serve the partial board we had
+        return snapshot, f"{type(exc).__name__}: {exc}"
     finally:
         _set_lock("0")
 
@@ -189,6 +225,6 @@ def stored_board() -> dict | None:
     if not raw:
         return None
     try:
-        return json.loads(raw)
-    except (TypeError, ValueError):
+        return _decode(raw)
+    except Exception:  # noqa: BLE001 -- an unreadable record is "no snapshot"
         return None
