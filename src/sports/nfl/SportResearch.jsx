@@ -467,8 +467,15 @@ export function SportResearch() {
   // cache cost no Odds API credits, and a failure here is silent: the board
   // still scans normally when it mounts.
   useEffect(()=>{
-    if(sport!=='nfl'||!siteSportAllowed('nfl'))return;
-    prefetchNFLBoard(getNFL);
+    if(sport!=='nfl'||!siteSportAllowed('nfl'))return undefined;
+    let active=true;
+    // Ask for the prebuilt board first. If one exists there is nothing to
+    // scan at all -- and this request is also what tells the server to build
+    // one when it finds none, so the next visitor gets it instantly.
+    getNFL('board')
+      .then(result=>{ if(active && !(result?.data||[]).length) prefetchNFLBoard(getNFL); })
+      .catch(()=>{ if(active) prefetchNFLBoard(getNFL); });
+    return ()=>{ active=false; };
   },[sport,reloadKey]);
   useEffect(()=>{const view=e=>{setBoardView(e.detail.view==='board');if(e.detail.view==='board')setSelectedPlayer(null);};window.addEventListener('vortex:nfl-view',view);return()=>window.removeEventListener('vortex:nfl-view',view);},[]);
   const syncUrl = (nextSport, playerId = null, replace = false) => {

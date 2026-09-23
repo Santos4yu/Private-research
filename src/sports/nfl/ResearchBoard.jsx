@@ -18,99 +18,60 @@ let boardCache=null;
 // Odds API credits, and the result lands in boardCache for the component to
 // render immediately.
 let pendingScan=null;
+// Live state of the shared scan. A board that mounts partway through a
+// prefetch has to be able to see it: without this it joined the promise and
+// sat on "Checking 0 of ... games" for the whole scan, because the progress
+// callbacks belonged to whoever started it.
+let scanState=null;
+const scanListeners=new Set();
+function publishScan(next){ scanState=next; for(const listener of [...scanListeners]) listener(scanState); }
+export function subscribeToScan(listener){
+  scanListeners.add(listener);
+  listener(scanState);
+  return ()=>{ scanListeners.delete(listener); };
+}
+// Kicked off by the NFL shell as soon as the section opens (see
+// SportResearch.jsx) so the slate is already scanned by the time anyone taps
+// Props. Nothing is wasted: research-board responses are cached server-side
+// for 10 minutes, so repeat scans inside that window cost no Odds API
+// credits, and the result lands in boardCache for the component to render.
 export function prefetchNFLBoard(load) {
   if(boardCache && Date.now()-boardCache.ts<BOARD_CACHE_TTL) return Promise.resolve(boardCache);
   if(pendingScan) return pendingScan;
-  pendingScan=scanBoard(load).catch(()=>null).finally(()=>{pendingScan=null;});
+  pendingScan=scanBoard(load).catch(()=>null).finally(()=>{ pendingScan=null; publishScan(null); });
   return pendingScan;
 }
-// The scan itself. onBatch streams each game's rows out as they land so the
-// board can paint progressively when it is the one driving; the prefetch
-// just ignores it.
-async function scanBoard(load,{onBatch,isActive=()=>true}={}) {
+export function startBoardScan(load) {
+  // Explicit refresh: ignore both caches and any scan already running.
+  pendingScan=scanBoard(load).catch(()=>null).finally(()=>{ pendingScan=null; publishScan(null); });
+  return pendingScan;
+}
+async function scanBoard(load) {
+  publishScan({done:0,total:0,failed:0,rows:[],events:null});
   const listing=await load('prop-games');
   const upcoming=listing.data.filter(e=>Date.parse(e.startsAt)>Date.now()&&Date.parse(e.startsAt)<Date.now()+7*86400000);
-  onBatch?.({events:upcoming,total:upcoming.length});
+  publishScan({done:0,total:upcoming.length,failed:0,rows:[],events:upcoming});
   const collected=[];
   let index=0;
   async function worker(){
-    while(isActive()&&index<upcoming.length){
+    while(index<upcoming.length){
       const event=upcoming[index++];
+      let batch=null;
       try{
         const response=await load('research-board',{eventId:event.eventId});
-        const withMeta=response.data.map(r=>({...r,injuryReportAvailable:response.injuryReportAvailable}));
-        collected.push(...withMeta);
-        onBatch?.({rows:withMeta});
-      }catch{onBatch?.({failed:true});}
-      finally{onBatch?.({done:true});}
+        batch=response.data.map(r=>({...r,injuryReportAvailable:response.injuryReportAvailable}));
+        collected.push(...batch);
+      }catch{ /* one bad game must not lose the slate */ }
+      publishScan({...scanState,
+        done:(scanState?.done||0)+1,
+        failed:(scanState?.failed||0)+(batch?0:1),
+        rows:batch?[...(scanState?.rows||[]),...batch]:(scanState?.rows||[]),
+      });
     }
   }
   await Promise.all([worker(),worker(),worker(),worker(),worker()]);
   boardCache={rows:collected,events:upcoming,ts:Date.now()};
   return boardCache;
-}
-// Matched to the server's props cache. At 90s this expired while a scan
-// was still finishing, so leaving the board and coming straight back
-// restarted all 16 games from scratch.
-const BOARD_CACHE_TTL=600000;
-// Static for the life of the module; was being rebuilt on every render.
-const PROP_LABELS=Object.fromEntries(NFL_PROP_DEFINITIONS.map(p=>[p.key,p.label]));
-
-function sortRows(rows,sort){
- // No sort selected = the backend's own sample-adjusted-support ranking,
- // unchanged. Clicking a column re-sorts client-side by that column only;
- // it never silently replaces the validated default order.
- if(!sort)return rows;
- const {key,dir}=sort;
- const value=row=>key==='avg'?row.average:key==='diff'?(row.line?.value!=null?row.average-row.line.value:null):key==='matchup'?row.matchupQuality:row.windows?.[key]?.hitRate;
- return [...rows].sort((a,b)=>{const av=value(a),bv=value(b);if(av==null&&bv==null)return 0;if(av==null)return 1;if(bv==null)return -1;return dir==='asc'?av-bv:bv-av;});
-}
-
-function SortHeader({label,columnKey,sort,onSort}){
- const active=sort?.key===columnKey;
- return <th><button type="button" className={active?'active':''} onClick={()=>onSort(columnKey)}>{label}{active&&(sort.dir==='desc'?<ArrowDown size={12}/>:<ArrowUp size={12}/>)}</button></th>;
-}
-
-// Same three tiers/thresholds and the same data-tone attribute name as
-// the MLB pitcher finder's own board (app.js's renderPitcherComparison:
-// `pct >= 70 ? 'good' : pct >= 45 ? 'mid' : 'low'`), so this is the same
-// design applied here rather than a fresh guess at one.
-const heatTone=(value,good=70,mid=45)=>value==null?'':value>=good?'good':value>=mid?'mid':'low';
-
-function WindowCell({w,label}){
- if(!w||w.hitRate==null)return <td className="nfl-board-cell muted" data-label={label}>—</td>;
- return <td className="nfl-board-cell" data-label={label} data-tone={heatTone(w.hitRate)}><strong>{Math.round(w.hitRate)}%</strong><small>{w.hits}-{w.misses}{w.pushes?` · ${w.pushes}p`:''}</small></td>;
-}
-
-function MatchupCell({row}){
- if(row.matchupQuality==null)return <td className="nfl-board-cell muted" data-label="Matchup">—</td>;
- return <td className="nfl-board-cell" data-label="Matchup" data-tone={heatTone(row.matchupQuality,65,45)}><strong>{row.matchupQuality}</strong><small>{row.matchupCoverage}% cov.</small></td>;
-}
-
-// Memoized per row: rows stream in one game at a time and a timer ticks the
-// staleness clock, so without this every arriving batch repainted every
-// already-rendered row (and every gradient cell in it).
-// Takes the stable `players` array rather than a prebuilt player object:
-// researchPlayer() returns a fresh object every call, which would change
-// identity on each render and defeat the memo entirely.
-const BoardRow=React.memo(function BoardRow({row,players,onOpen}){
- const player=researchPlayer(row,players);
- const diff=row.line?.value!=null?row.average-row.line.value:null;
- return <tr className={player?'clickable':''} onClick={()=>player&&onOpen(player)}>
-  <td className="nfl-board-cell-player"><img src={player?.headshot_url} width="32" height="32" loading="lazy" alt=""/><div><strong>{row.playerName}</strong><small>{row.line.direction==='OVER'?'More':'Less'} {row.line.value} {PROP_LABELS[row.propType]}</small><small className="nfl-board-cell-meta">{row.position} · {row.teamId} vs {row.opponentId}</small></div></td>
-  <td className="nfl-board-cell" data-label="Avg"><strong>{Number(row.average.toFixed(1))}</strong></td>
-  <td className="nfl-board-cell" data-label="Diff" data-tone={diff==null?'':diff>0?'good':diff<0?'low':'mid'}>{diff==null?<span className="muted">—</span>:<strong>{`${diff>0?'+':''}${diff.toFixed(1)}`}</strong>}</td>
-  <MatchupCell row={row}/>
-  {WINDOW_COLUMNS.map(([key,label])=><WindowCell w={row.windows?.[key]} label={label} key={key}/>)}
- </tr>;
-});
-
-function BoardTable({rows,players,onOpen,sort,onSort}){
- const sorted=useMemo(()=>sortRows(rows,sort),[rows,sort]);
- return <div className="nfl-board-table-wrap"><table className="nfl-board-table">
-  <thead><tr><th>Player / line</th><SortHeader label="Avg" columnKey="avg" sort={sort} onSort={onSort}/><SortHeader label="Diff" columnKey="diff" sort={sort} onSort={onSort}/><SortHeader label="Matchup" columnKey="matchup" sort={sort} onSort={onSort}/>{WINDOW_COLUMNS.map(([key,label])=><SortHeader key={key} label={label} columnKey={key} sort={sort} onSort={onSort}/>)}</tr></thead>
-  <tbody>{sorted.map(row=><BoardRow key={`${row.gameId}.${row.playerId}.${row.propType}`} row={row} players={players} onOpen={onOpen}/>)}</tbody>
- </table></div>;
 }
 
 export function NFLResearchBoard({load,players,onOpen}) {
@@ -133,52 +94,59 @@ export function NFLResearchBoard({load,players,onOpen}) {
  // while the live scan is still running, and the live rows replace it the
  // moment they land.
  const [snapshotAt,setSnapshotAt]=useState(null);
+ const [loadingBoard,setLoadingBoard]=useState(false);
  const [sort,setSort]=useState(null);
  const onSort=key=>setSort(current=>current?.key===key?{key,dir:current.dir==='desc'?'asc':'desc'}:{key,dir:'desc'});
  // Only drives the 2-minute staleness filter, so it doesn't need to be
  // precise -- every tick re-filters and re-sorts the whole board.
  useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),30000);return()=>clearInterval(timer);},[]);
- useEffect(()=>{
-  // Skip entirely if a recent scan already gave us live rows.
-  if(boardCache && Date.now()-boardCache.ts<BOARD_CACHE_TTL) return undefined;
-  let active=true;
-  load('board').then(result=>{
-   const stored=result?.data || [];
-   // Only fill an empty board -- never overwrite live rows that have
-   // already arrived.
-   if(active && stored.length) setRows(current=>current.length?current:(setSnapshotAt(result.builtAt||null),stored));
-  }).catch(()=>{});
-  return()=>{active=false;};
- },[load,refresh]);
+
  useEffect(()=>{
   let active=true;
   const fresh=refresh===0 && boardCache && Date.now()-boardCache.ts<BOARD_CACHE_TTL;
   if(fresh){setRows(boardCache.rows);setEvents(boardCache.events);setError('');setFailed(0);setProgress(null);setScannedAt(boardCache.ts);return;}
-  setRows([]);setError('');setFailed(0);setProgress({done:0,total:0});
-  // A prefetch started by the shell may already be running. Wait for it
-  // instead of launching a second scan of the same 16 games.
-  const joining=refresh===0 && pendingScan;
-  if(joining){
-   joining.then(result=>{
+  setRows([]);setError('');setFailed(0);
+
+  // Follow the shared scan, whether this component starts it or joins one
+  // the shell already had running.
+  let unsubscribe=null;
+  const runScan=()=>{
+   if(!active)return;
+   setProgress({done:0,total:0});
+   unsubscribe=subscribeToScan(state=>{
+    if(!active||!state)return;
+    if(state.events)setEvents(state.events);
+    setProgress({done:state.done,total:state.total});
+    setFailed(state.failed);
+    if(state.rows.length){setSnapshotAt(null);setRows(state.rows);}
+   });
+   (refresh===0?prefetchNFLBoard(load):startBoardScan(load)).then(result=>{
     if(!active)return;
     if(result){setSnapshotAt(null);setRows(result.rows);setEvents(result.events);setScannedAt(result.ts);}
     else setError('Live props could not load. Refresh to try again.');
    }).finally(()=>{if(active)setProgress(null);});
-   return()=>{active=false;};
-  }
-  scanBoard(load,{
-   isActive:()=>active,
-   onBatch:({events:list,total,rows:batch,failed:miss,done})=>{
-    if(!active)return;
-    if(list){setEvents(list);setProgress({done:0,total});}
-    if(batch){setSnapshotAt(null);setRows(old=>[...old,...batch]);}
-    if(miss)setFailed(n=>n+1);
-    if(done)setProgress(p=>p?{...p,done:p.done+1}:p);
-   },
-  }).then(result=>{if(active&&result)setScannedAt(result.ts);})
-    .catch(()=>{if(active)setError('Live props could not load. Refresh to try again.');})
-    .finally(()=>{if(active)setProgress(null);});
-  return()=>{active=false;};
+  };
+
+  if(refresh!==0){ runScan(); return()=>{active=false;unsubscribe?.();}; }
+
+  // Prefer the prebuilt board. It is one request and no scan at all, which
+  // is the whole point of building it -- scanning 16 games live whenever the
+  // client cache lapsed meant the "checking N of 16" counter came back every
+  // ten minutes even though a finished board was sitting in the store.
+  setLoadingBoard(true);
+  load('board').then(result=>{
+   if(!active)return;
+   const stored=result?.data||[];
+   if(stored.length){
+    setRows(stored);
+    if(result.events)setEvents(result.events);
+    setSnapshotAt(result.builtAt||null);
+    return;
+   }
+   runScan();   // nothing built yet -- scan live, as before
+  }).catch(()=>{ if(active) runScan(); })
+    .finally(()=>{ if(active) setLoadingBoard(false); });
+  return()=>{active=false;unsubscribe?.();};
  },[load,refresh]);
  // Filters and sorts the entire board; was re-running on every render,
  // including each of the ~16 streamed row batches and every timer tick.
@@ -198,7 +166,7 @@ export function NFLResearchBoard({load,players,onOpen}) {
     </SelectContent>
    </Select>
   </div>
-  {(progress||failed>0||scannedAt||snapshotAt)&&<div role="status" className="nfl-board-caption">{progress&&`Checking ${progress.done} of ${progress.total || '…'} games…`}{!progress&&scannedAt&&`${ranked.length} props · ${freshness(new Date(scannedAt).toISOString(),now,LINE_MAX_AGE_MS)}`}{!scannedAt&&snapshotAt&&`${ranked.length} props · lines as of ${new Date(snapshotAt).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'})}${progress?' · refreshing':''}`}{failed>0&&`${progress||scannedAt?' · ':''}${failed} games could not load`}</div>}
+  {(progress||failed>0||scannedAt||snapshotAt||loadingBoard)&&<div role="status" className="nfl-board-caption">{loadingBoard&&!progress&&'Loading props…'}{progress&&(progress.total?`Checking ${progress.done} of ${progress.total} games…`:'Finding games…')}{!progress&&scannedAt&&`${ranked.length} props · ${freshness(new Date(scannedAt).toISOString(),now,LINE_MAX_AGE_MS)}`}{!scannedAt&&snapshotAt&&`${ranked.length} props · lines as of ${new Date(snapshotAt).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'})}${progress?' · refreshing':''}`}{failed>0&&`${progress||scannedAt?' · ':''}${failed} games could not load`}</div>}
   {error&&<p role="alert">{error}</p>}
   {!progress&&!ranked.length&&!error&&<div className="nfl-chart-card">No fresh props match this view. Try another filter or refresh. Players remain available in Research.</div>}
   {view==='table'?<BoardTable rows={ranked} players={players} onOpen={onOpen} sort={sort} onSort={onSort}/>:
