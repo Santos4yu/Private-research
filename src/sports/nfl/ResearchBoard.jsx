@@ -3,11 +3,15 @@ import {RefreshCw,ArrowUpRight,Shield,LayoutGrid,Table2,ArrowUp,ArrowDown,Target
 import {SheetSelect} from './ResearchSheet';
 import {Select,SelectTrigger,SelectContent,SelectItem} from '../../../components/ui/select';
 import {NFL_PROP_DEFINITIONS} from './props';
-import {rankResearch,researchPlayer} from './research-board';
+import {rankResearch,researchPlayer,LINE_MAX_AGE_MS} from './research-board';
+import {freshness} from './nfl-client';
 
 const WINDOW_COLUMNS=[['l5','L5'],['l10','L10'],['l15','L15'],['l20','L20'],['h2h','H2H']];
 let boardCache=null;
-const BOARD_CACHE_TTL=90000;
+// Matched to the server's props cache. At 90s this expired while a scan
+// was still finishing, so leaving the board and coming straight back
+// restarted all 16 games from scratch.
+const BOARD_CACHE_TTL=600000;
 // Static for the life of the module; was being rebuilt on every render.
 const PROP_LABELS=Object.fromEntries(NFL_PROP_DEFINITIONS.map(p=>[p.key,p.label]));
 
@@ -71,12 +75,14 @@ function BoardTable({rows,players,onOpen,sort,onSort}){
 export function NFLResearchBoard({load,players,onOpen}) {
  // Kept outside the component (module scope) so leaving the board -- opening
  // a player, then coming back to Home -- doesn't blank the screen and re-run
- // the whole "checking N of M games" scan. TTL sits just under the backend's
- // own 2-minute posted-line freshness window (research_board.py), so a
- // "fresh" cache never shows a row the API would already have discarded.
+ // the whole "checking N of M games" scan. TTL matches the backend's posted
+ // line freshness window (LINE_MAX_AGE_SECONDS in research_board.py), so a
+ // "fresh" cache never shows a row the API would already have discarded --
+ // and, unlike the old 90s, never expires mid-scan.
  const cached=boardCache && Date.now()-boardCache.ts<BOARD_CACHE_TTL ? boardCache : null;
  const [rows,setRows]=useState(()=>cached?.rows || []),[events,setEvents]=useState(()=>cached?.events || []),[progress,setProgress]=useState(null),[error,setError]=useState(''),[failed,setFailed]=useState(0),[refresh,setRefresh]=useState(0);
  const [position,setPosition]=useState(''),[game,setGame]=useState(''),[prop,setProp]=useState(''),[now,setNow]=useState(Date.now());
+ const [scannedAt,setScannedAt]=useState(cached?cached.ts:null);
  // Table now has its own mobile layout (see the max-width:640px block in
  // mobile-research.css, ported from the MLB finder's card treatment), so
  // it no longer needs to default to the simpler card view on phones.
@@ -89,7 +95,7 @@ export function NFLResearchBoard({load,players,onOpen}) {
  useEffect(()=>{
   let active=true;
   const fresh=refresh===0 && boardCache && Date.now()-boardCache.ts<BOARD_CACHE_TTL;
-  if(fresh){setRows(boardCache.rows);setEvents(boardCache.events);setError('');setFailed(0);setProgress(null);return;}
+  if(fresh){setRows(boardCache.rows);setEvents(boardCache.events);setError('');setFailed(0);setProgress(null);setScannedAt(boardCache.ts);return;}
   setRows([]);setError('');setFailed(0);setProgress({done:0,total:0});
   const collected=[];
   (async()=>{
@@ -103,7 +109,7 @@ export function NFLResearchBoard({load,players,onOpen}) {
     // everything already on screen, on top of the setRows append.
     async function worker(){while(active&&index<upcoming.length){const event=upcoming[index++];try{const response=await load('research-board',{eventId:event.eventId});const withMeta=response.data.map(r=>({...r,injuryReportAvailable:response.injuryReportAvailable}));collected.push(...withMeta);if(active)setRows(old=>[...old,...withMeta]);}catch{if(active)setFailed(n=>n+1);}finally{if(active)setProgress(p=>({...p,done:p.done+1}));}}}
     await Promise.all([worker(),worker(),worker(),worker(),worker()]);
-    if(active)boardCache={rows:collected,events:upcoming,ts:Date.now()};
+    if(active){boardCache={rows:collected,events:upcoming,ts:Date.now()};setScannedAt(boardCache.ts);}
    }catch{if(active)setError('Live props could not load. Refresh to try again.');}
    finally{if(active)setProgress(null);}
   })();return()=>{active=false;};
@@ -122,7 +128,7 @@ export function NFLResearchBoard({load,players,onOpen}) {
     </SelectContent>
    </Select>
   </div>
-  {(progress||failed>0)&&<div role="status" className="nfl-board-caption">{progress&&`Checking ${progress.done} of ${progress.total || '…'} games…`}{failed>0&&`${progress?' · ':''}${failed} games could not load`}</div>}
+  {(progress||failed>0||scannedAt)&&<div role="status" className="nfl-board-caption">{progress&&`Checking ${progress.done} of ${progress.total || '…'} games…`}{!progress&&scannedAt&&`${ranked.length} props · ${freshness(new Date(scannedAt).toISOString(),now,LINE_MAX_AGE_MS)}`}{failed>0&&`${progress||scannedAt?' · ':''}${failed} games could not load`}</div>}
   {error&&<p role="alert">{error}</p>}
   {!progress&&!ranked.length&&!error&&<div className="nfl-chart-card">No fresh props match this view. Try another filter or refresh. Players remain available in Research.</div>}
   {view==='table'?<BoardTable rows={ranked} players={players} onOpen={onOpen} sort={sort} onSort={onSort}/>:

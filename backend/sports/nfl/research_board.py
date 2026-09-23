@@ -11,6 +11,18 @@ from .matchup import build_matchup
 from .cache import cached_nfl, NFLCacheDomain
 
 VERSION='NFL_RESEARCH_BOARD_V3'
+# How old a posted line may be and still be shown.
+#
+# This is measured against the BOOKMAKER's last_update -- when the line
+# last moved -- not when we fetched it. At the previous 120 seconds that
+# quietly discarded almost the whole board: a line that simply hadn't
+# moved in three minutes was dropped as if it were missing, and because
+# the cached result is reused for minutes, its own rows aged out of the
+# window while sitting in the cache -- a cached hit returned steadily
+# fewer rows until it returned none, forcing another full 16-game scan.
+# A line that has held steady is good information, not stale data; the
+# board now shows its age instead of hiding it.
+LINE_MAX_AGE_SECONDS=600
 FIELDS={'passing_yards':('passing_yards',),'passing_attempts':('attempts',),'pass_completions':('completions',),'passing_touchdowns':('passing_tds',),'interceptions':('passing_interceptions',),'rushing_yards':('rushing_yards',),'rush_attempts':('carries',),'receiving_yards':('receiving_yards',),'receptions':('receptions',),'targets':('targets',),'passing_rushing_yards':('passing_yards','rushing_yards'),'rushing_receiving_yards':('rushing_yards','receiving_yards'),'touchdowns':('rushing_tds','receiving_tds')}
 
 def finite(value):
@@ -144,4 +156,8 @@ def game_board(season,event_id):
         return {'data':rows,'event':event,'source':'the-odds-api + nflverse','historyFailures':failed,'injuryReportAvailable':injuries.data is not None,'fetchedAt':datetime.now(timezone.utc).isoformat(),'method':'Ranked by sample-adjusted historical support, not betting confidence. Current-team games only; regular posted lines only.'}
     result=cached_nfl(NFLCacheDomain.PROPS,(VERSION,season,event_id),load)
     now=datetime.now(timezone.utc)
-    return {**result,'data':[r for r in result['data'] if odds.timestamp(r['startsAt'])>now and 0<=(now-odds.timestamp(r['line']['updatedAt'])).total_seconds()<=120]}
+    # lineMaxAgeSeconds is published so the client filters on exactly the
+    # same window instead of keeping its own copy of the number.
+    return {**result,'lineMaxAgeSeconds':LINE_MAX_AGE_SECONDS,
+            'data':[r for r in result['data'] if odds.timestamp(r['startsAt'])>now
+                    and 0<=(now-odds.timestamp(r['line']['updatedAt'])).total_seconds()<=LINE_MAX_AGE_SECONDS]}

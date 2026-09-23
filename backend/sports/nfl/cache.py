@@ -56,7 +56,10 @@ NFL_CACHE_TTLS = {
     NFLCacheDomain.DEPTH_CHARTS: 30 * 60,
     NFLCacheDomain.DEFENSE: 30 * 60,
     NFLCacheDomain.WEATHER: 10 * 60,
-    NFLCacheDomain.PROPS: 2 * 60,
+    # Was 2 minutes, which is shorter than a full 16-game board scan
+    # takes -- entries expired while the scan that populated them was
+    # still running, so the board could never be served from cache.
+    NFLCacheDomain.PROPS: 10 * 60,
     NFLCacheDomain.PROJECTIONS: 10 * 60,
     NFLCacheDomain.OPPORTUNITY: 10 * 60,
     NFLCacheDomain.MATCHUP: 10 * 60,
