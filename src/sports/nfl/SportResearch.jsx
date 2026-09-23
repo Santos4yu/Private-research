@@ -62,8 +62,17 @@ class NFLErrorBoundary extends React.Component {
   componentDidCatch(error, info) { console.error('NFL research error:', error, info?.componentStack); }
   render() {
     if (!this.state.error) return this.props.children;
+    // Show the actual message, not just "something went wrong". A screenshot
+    // of this is enough to identify the fault; asking someone to open a
+    // browser console on a phone is not.
+    const error = this.state.error;
+    const where = String(error?.stack || '').split('\n')[1]?.trim();
     return <Notice icon={AlertTriangle} title="NFL research hit an error" tone="error">
-      Switch to MLB and back, or reload the page. The error has been logged to the browser console.
+      <code style={{ display:'block', margin:'6px 0', fontSize:12, lineHeight:1.5, wordBreak:'break-word' }}>
+        {String(error?.message || error)}
+      </code>
+      {where && <code style={{ display:'block', fontSize:11, opacity:.7, wordBreak:'break-word' }}>{where}</code>}
+      <span style={{ display:'block', marginTop:8 }}>Switch to MLB and back, or reload the page.</span>
     </Notice>;
   }
 }
