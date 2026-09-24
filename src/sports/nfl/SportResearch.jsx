@@ -500,7 +500,15 @@ function NFLPlayerResearch({ player, players, teams, schedules, onBack }) {
   </>;
   return <div className="nfl-research-page">
     <div className="nfl-research-actions"><button type="button" className="nfl-back" onClick={onBack}><ArrowLeft aria-hidden="true" />Players</button><button type="button" className="nfl-refresh" aria-label="Refresh current research" onClick={() => { nflClient.clear(); setAnalyzedLine(null); setRefreshKey(key => key + 1); }}><RefreshCw size={18}/></button></div>
-    <header className="nfl-player-header"><div className="nfl-headshot-wrap"><PlayerPhoto player={player} /></div><div className="nfl-player-identity"><h2>{player.name}</h2><p>{player.position} · {team?.name || player.team_id || 'Free agent'} <TeamLogo team={player.team_id} size="sm" /></p><div className="nfl-player-chips"><span>{statusLabel(player.status)}</span>{nextGame && matchup && <span>{matchup.location === 'HOME' ? 'vs' : '@'} {matchup.opponent.id} · {new Date(nextGame.starts_at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</span>}</div></div></header>
+    <header className="nfl-player-header">
+      <div className="nfl-headshot-wrap"><PlayerPhoto player={player} /></div>
+      <div className="nfl-player-identity"><span>PLAYER PROFILE</span><h2>{player.name}</h2><p>{player.position} · {team?.name || player.team_id || 'Free agent'} <TeamLogo team={player.team_id} size="sm" /></p><div className="nfl-player-chips"><span>{statusLabel(player.status)}</span></div></div>
+      <div className="nfl-player-summary">
+        <article><span className="nfl-summary-icon">{matchup?<TeamLogo team={matchup.opponent.id} size="sm"/>:<ShieldQuestion aria-hidden="true"/>}</span><div><small>Matchup</small><strong>{matchup?`${matchup.location==='HOME'?'vs':'@'} ${matchup.opponent.id}`:'Not posted'}</strong></div></article>
+        <article><span className="nfl-summary-icon"><CalendarDays aria-hidden="true"/></span><div><small>Kickoff</small><strong>{nextGame?new Date(nextGame.starts_at).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'}):'TBA'}</strong></div></article>
+        <article><span className="nfl-summary-icon"><Target aria-hidden="true"/></span><div><small>Researching</small><strong>{selectedProp.label}{analyzedLine?.value!=null?` · ${analyzedLine.value}`:''}</strong></div></article>
+      </div>
+    </header>
     {/* The Trend panel has its own stat strip wired to this same state
         (see onStat/switchProp), so showing this as well put two selectors
         for one value on screen -- on the tab that opens by default. It

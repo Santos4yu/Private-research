@@ -47,8 +47,8 @@
 .nfl-home-head > span, .nfl-section-title span, .nfl-feature-kicker, .nfl-player-identity > span, .nfl-prop-selector > div:first-child > span, .nfl-chart-head span, .nfl-match-title span, .nfl-health-score span { color: var(--theme-faint, #8c96a6); font: 700 11px/1.2 var(--font-mono, monospace); letter-spacing: .14em; }
 .sport-switch { display: flex; gap: 6px; padding: 5px; border: 1px solid var(--nfl-border); border-radius: 16px; background: var(--nfl-surface); }
 .sport-switch button { display: flex; align-items: center; gap: 9px; min-width: 104px; min-height: 48px; padding: 8px 15px; border: 0; border-radius: 11px; color: var(--theme-muted, #adb6c4); background: transparent; cursor: pointer; transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease; }
-.sport-switch button.active { color: var(--nfl-on-accent); background: linear-gradient(135deg, var(--nfl-accent), var(--nfl-accent-soft)); box-shadow: 0 6px 20px -4px color-mix(in srgb, var(--nfl-accent) 55%, transparent); }
-.sport-switch button:focus-visible, .nfl-app-shell button:focus-visible { outline: 3px solid var(--nfl-blue); outline-offset: 3px; }
+.sport-switch button.active { color: var(--theme-on-accent, #07101b); background: linear-gradient(135deg, var(--theme-accent, #67a8ff), var(--theme-accent-soft, #a9d0ff)); box-shadow: 0 6px 20px -4px color-mix(in srgb, var(--theme-accent, #67a8ff) 55%, transparent); }
+.sport-switch button:focus-visible, .nfl-app-shell button:focus-visible { outline: 3px solid var(--theme-accent, #67a8ff); outline-offset: 3px; }
 .sport-league-mark { position: relative; display: grid; grid-template-columns: 27px; grid-template-rows: 27px; place-items: stretch; width: 27px; height: 27px; overflow: hidden; border-radius: 8px; color: #fff; background: #263343; }
 .sport-league-mark img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .sport-league-mark.mlb { background: #132b4f; }
@@ -128,6 +128,13 @@
 .nfl-player-identity > p .nfl-team-logo { width: 26px; height: 26px; }
 .nfl-player-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 17px; }
 .nfl-player-chips span { padding: 7px 10px; border: 1px solid #ffffff16; border-radius: 999px; color: #c4cfdd; background: #ffffff08; font-size: 12px; }
+.nfl-player-summary { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:14px 16px;border-left:1px solid var(--nfl-border); }
+.nfl-player-summary article { display:grid;grid-template-columns:40px minmax(0,1fr);align-items:center;gap:10px;min-height:66px;padding:10px 12px;border:1px solid var(--nfl-border);border-radius:12px;background:color-mix(in srgb,var(--nfl-input) 82%,transparent); }
+.nfl-summary-icon { display:grid;place-items:center;width:40px;height:40px;border-radius:10px;background:var(--theme-accent-dim,rgba(103,168,255,.14));color:var(--theme-accent,#67a8ff); }
+.nfl-summary-icon svg,.nfl-summary-icon .nfl-team-logo { width:24px;height:24px; }
+.nfl-player-summary small,.nfl-player-summary strong { display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.nfl-player-summary small { color:var(--theme-faint,#8c96a6);font:700 9px/1.2 var(--font-mono,monospace);letter-spacing:.1em;text-transform:uppercase; }
+.nfl-player-summary strong { margin-top:5px;color:var(--nfl-text);font-size:12px; }
 .nfl-prop-selector { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 16px; align-items: start; }
 .nfl-prop-selector > div:first-child { padding: 12px 0; }
 .nfl-prop-selector > div:first-child small { display: block; margin-top: 7px; color: var(--theme-faint, #8c96a6); line-height: 1.4; }
@@ -368,8 +375,8 @@
 .nfl-research-tabs button.active,
 .nfl-app-shell .nfl-research-tabs button.active {
   color: var(--nfl-text);
-  background: color-mix(in srgb, var(--nfl-accent) 22%, transparent);
-  box-shadow: inset 0 -2px var(--nfl-accent);
+  background: color-mix(in srgb, var(--theme-accent, #67a8ff) 22%, transparent);
+  box-shadow: inset 0 -2px var(--theme-accent, #67a8ff);
 }
 .nfl-research-tabs { border-radius: 12px; }
 .nfl-research-tabs button { border-radius: 9px; }

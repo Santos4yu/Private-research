@@ -260,7 +260,7 @@
 
 .nfl-research-actions { display:flex;align-items:center;justify-content:space-between;margin:0 0 4px; }
 .nfl-research-actions .nfl-refresh { width:44px;height:44px;padding:0;display:grid;place-items:center;background:transparent;border:0; }
-.nfl-app-shell .nfl-player-header { grid-template-columns:92px minmax(0,1fr); }
+.nfl-app-shell .nfl-player-header { grid-template-columns:92px minmax(210px,.62fr) minmax(430px,1fr);align-items:center; }
 .nfl-app-shell .nfl-prop-selector>div:first-child { padding:0 0 6px; }
 .nfl-usage-app { padding:16px;border:1px solid #303c48;border-radius:18px;background:#151d26; }
 .nfl-usage-app h3 { margin:0 0 6px;font-size:18px; }.nfl-usage-app header small { color:#9dafbf;font-size:12px; }
@@ -293,6 +293,15 @@
 .nfl-app-shell .nfl-prop-selector,.nfl-app-shell .nfl-research-tabs { margin-bottom:4px; }
 
 .nfl-app-shell .nfl-player-identity { padding:0; }
+
+@media(max-width:900px){
+  .nfl-app-shell .nfl-player-header { grid-template-columns:92px minmax(0,1fr); }
+  .nfl-app-shell .nfl-player-summary { grid-column:1/-1;width:100%;padding:10px 0 0;border-left:0;border-top:1px solid var(--nfl-border); }
+}
+@media(max-width:560px){
+  .nfl-app-shell .nfl-player-summary { grid-template-columns:1fr; }
+  .nfl-app-shell .nfl-player-summary article { min-height:54px; }
+}
 
 .nfl-research-sheet input[type=range] { padding:0;min-height:32px; }
 
