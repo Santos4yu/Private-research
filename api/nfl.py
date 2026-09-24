@@ -30,7 +30,7 @@ from backend.sports.nfl.services import nflverse
 # small: 8KB for a player's game logs, 4KB for usage, 6KB for defense,
 # 444KB for the full season roster. The TTL comes from the matching cache
 # domain, so nothing is served staler than it would have been anyway.
-RESPONSE_VERSION = 'nfl-response-v1'
+RESPONSE_VERSION = 'nfl-response-v2'
 RESPONSE_DOMAINS = {
     'teams': NFLCacheDomain.TEAMS,
     'players': NFLCacheDomain.PLAYERS,
@@ -88,6 +88,9 @@ def _source_result(resource, season, week, season_type, team, player_id, season_
 def _source_payload(resource, season, week, season_type, team, player_id, season_type_given):
     result = _source_result(resource, season, week, season_type, team, player_id, season_type_given)
     payload = response_payload(result)
+    if resource in ('injuries', 'depth-chart') and payload.get('data'):
+        photos = nflverse.roster_headshots(season)
+        payload['data'] = [{**row, 'headshot_url': photos.get(row.get('player_id'))} for row in payload['data']]
     payload['sourceVersion'] = nflverse.SOURCE_VERSION
     if result.data is None:
         raise SourceUnavailable(payload)
@@ -114,7 +117,7 @@ class handler(BaseHTTPRequestHandler):
         from site_controls import allowed as feature_allowed
         tab='v2' if resource in ('research-board','value-board') else 'research'
         if not feature_allowed(self.headers,tab,sport='nfl'):return send_json(self,503,{'error':'This section is temporarily unavailable','featureDisabled':True})
-        allowed = {'players','teams','schedule','game-logs','usage','defense','injuries','depth-chart','team-stats','opportunity','matchup','projection','distribution','decision','value-board','model-health','props','prop-games','reception-logs','research-board','board'}
+        allowed = {'players','teams','schedule','game-logs','usage','defense','injuries','depth-chart','team-stats','opportunity','matchup','projection','distribution','decision','value-board','model-health','props','prop-games','game-lines','reception-logs','research-board','board'}
         if resource not in allowed:
             return send_json(self, 404, {'error': 'Unknown NFL resource.'})
         if len(self.path) > 2048 or any(len(value) > 120 for values in query.values() for value in values):
@@ -149,6 +152,13 @@ class handler(BaseHTTPRequestHandler):
                 return send_json(self,400,{'error':'Unresolved NFL event/player or invalid line source.'})
             except RuntimeError:
                 return send_json(self,503,{'error':'NFL line provider unavailable. Check quota and key in Settings.'})
+
+        if resource == 'game-lines':
+            game_id=query.get('gameId',[''])[0].strip()
+            if not game_id:return send_json(self,400,{'error':'A verified NFL game is required.'})
+            from backend.sports.nfl.services import odds
+            try:return send_json(self,200,odds.game_lines(season,game_id))
+            except (RuntimeError,ValueError):return send_json(self,503,{'error':'Verified NFL game lines are temporarily unavailable.'})
 
         if resource == 'board':
             # The prebuilt slate, exactly like api/v2-board.py does for MLB:

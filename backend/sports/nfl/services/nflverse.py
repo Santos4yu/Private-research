@@ -22,7 +22,7 @@ from .base import ProviderResult
 from .research_stats import prizepicks_fantasy
 
 SOURCE = "nflverse"
-SOURCE_VERSION = "nflverse-data-v1"
+SOURCE_VERSION = "nflverse-data-v2"
 TEAM_URL = "https://raw.githubusercontent.com/nflverse/nfldata/master/data/teams.csv"
 SCHEDULE_URL = "https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv"
 RELEASE = "https://github.com/nflverse/nflverse-data/releases/download"
@@ -241,17 +241,38 @@ def players(season: int) -> ProviderResult[list[NFLPlayer]]:
             source_ids = {key: str(row[key]) for key in (
                 "gsis_id", "espn_id", "sportradar_id", "yahoo_id", "rotowire_id", "pff_id", "pfr_id", "sleeper_id"
             ) if row.get(key) and row.get(key) not in {"NA", "0"}}
+            espn_id = source_ids.get("espn_id")
+            verified_headshot = row.get("headshot_url") or (f"https://a.espncdn.com/i/headshots/nfl/players/full/{espn_id}.png" if espn_id else None)
             output.append(NFLPlayer(
                 id=player_id, name=row.get("full_name") or row.get("football_name") or "",
                 position=NFLPosition(position), team_id=team_id,
                 first_name=row.get("first_name") or "", last_name=row.get("last_name") or "",
                 status=row.get("status") or "UNKNOWN", jersey_number=row.get("jersey_number") or None,
-                headshot_url=row.get("headshot_url") or None, source_ids=source_ids,
+                headshot_url=verified_headshot, source_ids=source_ids,
             ))
         if not output:
             raise ProviderError("no valid offensive skill players")
         return output, fetched, observed
     return _result(lambda: cached_nfl(NFLCacheDomain.PLAYERS, (SOURCE_VERSION, season), load, codec=_provider_codec(NFLPlayer)))
+
+
+def roster_headshots(season: int) -> dict[str, str]:
+    """Verified GSIS -> headshot mapping for every roster position.
+
+    The public player search intentionally keeps only fantasy positions, but
+    depth charts and injury reports also contain OL/DL/DB/LB players. Joining
+    the complete roster here prevents those context cards from losing photos.
+    """
+    url = f"{RELEASE}/rosters/roster_{season}.csv"
+    rows, _, _ = _source_rows(url)
+    output = {}
+    for row in rows:
+        player_id = str(row.get("gsis_id") or "").strip()
+        espn_id = str(row.get("espn_id") or "").strip()
+        headshot = row.get("headshot_url") or (f"https://a.espncdn.com/i/headshots/nfl/players/full/{espn_id}.png" if espn_id not in ("", "NA", "0") else None)
+        if player_id and headshot:
+            output[player_id] = headshot
+    return output
 
 
 def schedule(season: int, week: int | None = None, season_type: str | None = None) -> ProviderResult[list[NFLGame]]:

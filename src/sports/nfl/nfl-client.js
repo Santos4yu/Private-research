@@ -16,7 +16,7 @@ const RESOURCE_TTL = {
   defense: 900000, 'team-stats': 900000, 'depth-chart': 900000,
   injuries: 300000,
   matchup: 300000, opportunity: 300000, projection: 300000, distribution: 300000, decision: 300000,
-  props: 60000, 'prop-games': 60000, 'research-board': 60000, 'value-board': 60000,
+  props: 60000, 'prop-games': 60000, 'game-lines': 60000, 'research-board': 60000, 'value-board': 60000,
   // Prebuilt slate: rebuilt daily, so it does not need re-fetching per minute.
   board: 300000,
 };

@@ -83,3 +83,21 @@ class NFLOddsTests(unittest.TestCase):
     def test_nfl_stored_key_precedes_legacy_shared_setting(self):
         with patch.object(odds,'load_dotenv'),patch.dict('os.environ',{'NFL_ODDS_API_KEY':'','ODDS_API_KEY_V2':'mock-legacy','ODDS_API_KEY':''}),patch('v2.board.store.get',return_value='mock-nfl-key'),patch('v2.board.store.get_odds_api_key_candidates',return_value=['mock-old']):
             self.assertEqual(odds.credentials(),['mock-nfl-key','mock-legacy','mock-old'])
+
+    def test_game_lines_are_verified_and_mapped_to_home_away(self):
+        payload={'id':'test-event','home_team':'Pittsburgh Steelers','away_team':'Atlanta Falcons','bookmakers':[
+            {'key':'fanduel','title':'FanDuel','last_update':self.now.isoformat(),'markets':[
+                {'key':'spreads','last_update':self.now.isoformat(),'outcomes':[{'name':'Pittsburgh Steelers','point':-2.5},{'name':'Atlanta Falcons','point':2.5}]},
+                {'key':'totals','last_update':self.now.isoformat(),'outcomes':[{'name':'Over','point':44.5},{'name':'Under','point':44.5}]},
+            ]}
+        ]}
+        response=SimpleNamespace(json=lambda:payload)
+        listing={'data':[self.event]}
+        with patch.object(odds,'events',return_value=listing),patch.object(odds,'credentials',return_value=['test-key']),patch.object(odds,'cached_nfl',side_effect=lambda domain,parts,loader:loader()),patch.object(odds,'_get',return_value=response):
+            result=odds.game_lines(2026,'test-game')
+        self.assertEqual(result['status'],'AVAILABLE')
+        self.assertTrue(result['data']['verified'])
+        self.assertEqual(result['data']['homeSpread'],-2.5)
+        self.assertEqual(result['data']['awaySpread'],2.5)
+        self.assertEqual(result['data']['total'],44.5)
+        self.assertEqual(result['source'],'the-odds-api')

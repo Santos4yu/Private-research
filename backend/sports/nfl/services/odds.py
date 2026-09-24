@@ -165,6 +165,47 @@ def lines(season, player_id=None, week=None, event_id=None):
     return result
 
 
+def game_lines(season, game_id):
+    """Verified pregame spread and total for one mapped NFL game."""
+    listing = events(season)
+    event = next((row for row in listing['data'] if row['gameId'] == game_id), None)
+    if not event:
+        return {'status':'NOT_AVAILABLE','data':None,'reason':'No verified upcoming NFL event mapping.','source':'the-odds-api'}
+    key_id = hashlib.sha256('|'.join(credentials()).encode()).hexdigest()[:16]
+    def load():
+        response = _get(f"/sports/{SPORT}/events/{event['eventId']}/odds", {
+            'markets':'spreads,totals', 'bookmakers':'fanduel,draftkings,betmgm', 'oddsFormat':'american'
+        })
+        payload = response.json()
+        if not isinstance(payload, dict) or payload.get('id') != event['eventId']:
+            raise ValueError('NFL game-line event/schema mismatch')
+        quotes = []
+        for book in payload.get('bookmakers', []):
+            if not isinstance(book, dict): continue
+            spread = total = None
+            updated = timestamp(book.get('last_update'))
+            for market in book.get('markets', []):
+                if not isinstance(market, dict): continue
+                updated = timestamp(market.get('last_update')) or updated
+                outcomes = market.get('outcomes', [])
+                if market.get('key') == 'spreads':
+                    home = next((item for item in outcomes if item.get('name') == payload.get('home_team')), None)
+                    if home and finite(home.get('point')): spread = float(home['point'])
+                elif market.get('key') == 'totals':
+                    over = next((item for item in outcomes if item.get('name') == 'Over'), None)
+                    if over and finite(over.get('point')): total = float(over['point'])
+            if spread is None and total is None: continue
+            quotes.append({'bookmaker':book.get('key'),'platform':book.get('title') or book.get('key'),
+                           'homeSpread':spread,'awaySpread':-spread if spread is not None else None,
+                           'total':total,'updatedAt':updated.isoformat() if updated else None})
+        if not quotes:
+            return {'status':'NOT_AVAILABLE','data':None,'reason':'No verified spread or total is currently posted.','source':'the-odds-api'}
+        preferred = next((quote for key in ('fanduel','draftkings','betmgm') for quote in quotes if quote['bookmaker']==key), quotes[0])
+        return {'status':'AVAILABLE','data':{**preferred,'quotes':quotes,'gameId':game_id,'verified':True},
+                'source':'the-odds-api','fetchedAt':datetime.now(timezone.utc).isoformat()}
+    return cached_nfl(NFLCacheDomain.PROPS,(VERSION,'game-lines',season,event['eventId'],key_id),load)
+
+
 def research_lines(season,event):
     """One platform, standard markets only; avoids multi-book slate spending."""
     def load():

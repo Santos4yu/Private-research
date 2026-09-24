@@ -192,7 +192,8 @@ function statusTone(status) {
 
 function PlayerMini({ entry, players }) {
   const profile=players.find(item=>item.id===entry.player_id)||players.find(item=>item.name===entry.player_name);
-  return <span className="nfl-person-avatar">{profile?.headshot_url?<img src={profile.headshot_url} alt="" loading="lazy"/>:<UserRound aria-hidden="true"/>}</span>;
+  const headshot=entry.headshot_url||profile?.headshot_url;
+  return <span className="nfl-person-avatar">{headshot?<img src={headshot} alt={`${entry.player_name} headshot`} loading="lazy" decoding="async"/>:<UserRound aria-label="No verified player photo available"/>}</span>;
 }
 
 function DepthGroup({ entries, playerId, players }) {
@@ -298,11 +299,15 @@ function OpponentPanel({ defense, opponent }) {
   return <section className="nfl-panel-stack nfl-opponent-panel"><div className="nfl-match-title"><TeamLogo team={opponent?.id} size="lg" /><div><span>OPPONENT DEFENSE BASELINE</span><h3>{opponent?.name || opponent?.id || 'Opponent pending'}</h3><small>{rows.length ? `${rows.length} regular-season games · ${defense.history?.label || 'selected season'}` : 'No defensive games available'}</small></div></div><div className="nfl-stat-grid"><Stat label="Pass yards allowed / game" value={avg('passing_yards_allowed')} /><Stat label="Pass attempts faced / game" value={avg('pass_attempts_faced')} /><Stat label="Rush yards allowed / game" value={avg('rushing_yards_allowed')} /><Stat label="Rush attempts faced / game" value={avg('rush_attempts_faced')} /><Stat label="Sacks / game" value={avg('sacks')} /><Stat label="Interceptions / game" value={avg('interceptions')} /><Stat label="Points allowed / game" value={avg('points_allowed')} /></div><small>Historical defensive production; personnel and scheme may have changed. These averages are not a matchup score.</small></section>;
 }
 
-function EnvironmentPanel({ game, player }) {
+function EnvironmentPanel({ game, player, gameLines }) {
   const context = visibleGame(game, player.team_id);
   if (!game || !context) return <Notice icon={CalendarDays} title="No game found">A current or upcoming game is not available for this player.</Notice>;
   const home = game.home_team; const away = game.away_team;
-  return <section className="nfl-panel-stack"><div className="nfl-game-matchup"><div><TeamLogo team={away.id} size="xl" /><strong>{away.id}</strong></div><span><small>WEEK {game.week}</small><b>@</b><em>{new Date(game.starts_at).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</em></span><div><TeamLogo team={home.id} size="xl" /><strong>{home.id}</strong></div></div><div className="nfl-context-list"><p><Home aria-hidden="true" /><span>Player location</span><strong>{context.location === 'HOME' ? 'Home' : 'Away'}</strong></p><p><MapPin aria-hidden="true" /><span>Venue</span><strong>{game.venue || 'Not reported'}</strong></p><p><CloudSun aria-hidden="true" /><span>Roof</span><strong>{game.roof || 'Not reported'}</strong></p><p><Wind aria-hidden="true" /><span>Conditions</span><strong>{game.temperature_f == null && game.wind_mph == null ? 'Not available' : `${game.temperature_f ?? '—'}°F · ${game.wind_mph ?? '—'} mph`}</strong></p></div><div className="nfl-stat-grid four"><Stat label="Spread" unavailable /><Stat label="Game total" unavailable /><Stat label="Implied points" unavailable /><Stat label="Expected plays" unavailable /></div></section>;
+  const market=gameLines?.data;
+  const spread=market ? (context.location==='HOME'?market.homeSpread:market.awaySpread) : null;
+  const implied=Number.isFinite(market?.total)&&Number.isFinite(spread)?market.total/2-spread/2:null;
+  const conditions=[game.temperature_f!=null?`${game.temperature_f}°F`:null,game.wind_mph!=null?`${game.wind_mph} mph wind`:null].filter(Boolean).join(' · ');
+  return <section className="nfl-panel-stack"><div className="nfl-game-matchup"><div><TeamLogo team={away.id} size="xl" /><strong>{away.id}</strong></div><span><small>WEEK {game.week}</small><b>@</b><em>{new Date(game.starts_at).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</em></span><div><TeamLogo team={home.id} size="xl" /><strong>{home.id}</strong></div></div><div className="nfl-context-list"><p><Home aria-hidden="true" /><span>Player location</span><strong>{context.location === 'HOME' ? 'Home' : 'Away'}</strong></p><p><MapPin aria-hidden="true" /><span>Venue</span><strong>{game.venue || 'Venue not published'}</strong></p>{game.roof&&<p><CloudSun aria-hidden="true" /><span>Roof</span><strong>{game.roof}</strong></p>}{conditions&&<p><Wind aria-hidden="true" /><span>Recorded conditions</span><strong>{conditions}</strong></p>}</div>{gameLines?.status==='LOADING'?<LoadingCards label="Loading verified game lines"/>:market?.verified?<><div className="nfl-stat-grid compact"><Stat label={`${player.team_id} spread`} value={spread>0?`+${spread}`:spread}/><Stat label="Game total" value={market.total}/><Stat label={`${player.team_id} implied points`} value={implied}/></div><small className="nfl-verified-source">Verified market data · {market.platform} · The Odds API{market.updatedAt?` · ${new Date(market.updatedAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}`:''}</small></>:<Notice icon={Database} title="No verified game market posted">Spread, total, and implied points stay hidden until a connected sportsbook publishes them.</Notice>}</section>;
 }
 
 const INJURY_GROUP = { QB: 'Offense', RB: 'Offense', WR: 'Offense', TE: 'Offense', C: 'Offense', G: 'Offense', T: 'Offense', OL: 'Offense', CB: 'Defense', DB: 'Defense', S: 'Defense', LB: 'Defense', EDGE: 'Defense', DE: 'Defense', DT: 'Defense', DL: 'Defense' };
@@ -324,7 +329,7 @@ function InjuriesPanel({ injuries, players, teams }) {
       <div className="nfl-team-toggle" role="group" aria-label="Injury report team">{availableTeams.map(teamId=><button type="button" key={teamId} className={team===teamId?'active':''} aria-pressed={team===teamId} onClick={()=>setTeam(teamId)}><TeamLogo team={teamId} size="sm"/><span>{teamId}</span></button>)}</div>
       <div className="nfl-injury-legend"><span><Ban/>OUT <small>Out</small></span><span><CircleAlert/>Q <small>Questionable</small></span><span><Dumbbell/>DNP <small>Did not practice</small></span><span><Activity/>LP <small>Limited</small></span><span><CheckCircle2/>FP <small>Full</small></span></div>
     </section>
-    {['Offense','Defense'].map(unit=>{const unitRows=shown.filter(row=>INJURY_GROUP[row.position]===unit);return <div className="nfl-injury-unit" key={unit}><div className="nfl-section-title"><div><span>PERSONNEL</span><h3>{unit}</h3></div><small>{unitRows.length} reports</small></div>{unitRows.length?<div className="nfl-injury-cards">{unitRows.map((row,index)=>{const profile=players.find(item=>item.id===row.player_id)||players.find(item=>item.name===row.player_name);const game=String(row.game_status||'').toUpperCase();const practice=practiceCode(row.practice_status);return <article key={`${row.player_id}-${row.team_id}-${index}`}><span className="nfl-person-avatar">{profile?.headshot_url?<img src={profile.headshot_url} alt="" loading="lazy"/>:<UserRound aria-hidden="true"/>}</span><div><strong>{row.player_name}</strong><small>{row.position} · {row.injury||'Injury not specified'}</small></div><span className={`nfl-practice-badge ${practice.toLowerCase()}`}>{practice}</span>{game&&<em className={`nfl-game-status ${game.toLowerCase()}`}>{game}</em>}</article>;})}</div>:<div className="nfl-empty-state"><CheckCircle2/><strong>No {unit.toLowerCase()} designations</strong><small>No current reports were returned for this unit.</small></div>}</div>})}
+    {['Offense','Defense'].map(unit=>{const unitRows=shown.filter(row=>INJURY_GROUP[row.position]===unit);return <div className="nfl-injury-unit" key={unit}><div className="nfl-section-title"><div><span>PERSONNEL</span><h3>{unit}</h3></div><small>{unitRows.length} reports</small></div>{unitRows.length?<div className="nfl-injury-cards">{unitRows.map((row,index)=>{const profile=players.find(item=>item.id===row.player_id)||players.find(item=>item.name===row.player_name);const headshot=row.headshot_url||profile?.headshot_url;const game=String(row.game_status||'').toUpperCase();const practice=practiceCode(row.practice_status);return <article key={`${row.player_id}-${row.team_id}-${index}`}><span className="nfl-person-avatar">{headshot?<img src={headshot} alt={`${row.player_name} headshot`} loading="lazy" decoding="async"/>:<UserRound aria-label="No verified player photo available"/>}</span><div><strong>{row.player_name}</strong><small>{row.position} · {row.injury||'Injury not specified'}</small></div><span className={`nfl-practice-badge ${practice.toLowerCase()}`}>{practice}</span>{game&&<em className={`nfl-game-status ${game.toLowerCase()}`}>{game}</em>}</article>;})}</div>:<div className="nfl-empty-state"><CheckCircle2/><strong>No {unit.toLowerCase()} designations</strong><small>No current reports were returned for this unit.</small></div>}</div>})}
   </section>;
 }
 
@@ -408,6 +413,16 @@ function NFLPlayerResearch({ player, players, teams, schedules, onBack }) {
   }, [activeContext, player.team_id, matchup?.opponent?.id, nextGame?.week, refreshKey]);
 
   useEffect(() => {
+    if (activeContext !== 'game' || !nextGame?.id) return undefined;
+    let active=true;
+    setResources(current=>({...current,gameLines:{status:'LOADING',data:null}}));
+    getNFL('game-lines',{gameId:nextGame.id})
+      .then(gameLines=>{if(active)setResources(current=>({...current,gameLines}));})
+      .catch(()=>{if(active)setResources(current=>({...current,gameLines:{status:'NOT_AVAILABLE',data:null}}));});
+    return()=>{active=false;};
+  },[activeContext,nextGame?.id,refreshKey]);
+
+  useEffect(() => {
     if (selectedProp.key !== 'longest_reception') return;
     let active = true;
     setResources(current => ({...current, receptionLogs:{status:'LOADING',data:[]}}));
@@ -471,7 +486,7 @@ function NFLPlayerResearch({ player, players, teams, schedules, onBack }) {
     {key === 'matchup' && <NFLMatchupPanel resource={resources.matchup} selectedProp={selectedProp} />}
     {key === 'lineup' && <LineupPanel player={player} depth={resources.depth} players={players} opponent={matchup?.opponent?.id} />}
     {key === 'injuries' && <InjuriesPanel injuries={resources.injuries} players={players} teams={[player.team_id,matchup?.opponent?.id]} />}
-    {key === 'game' && <section className="nfl-panel-stack"><EnvironmentPanel game={nextGame} player={player}/><details className="nfl-chart-card"><summary>Data freshness and availability</summary><HealthPanel player={player} resources={resources} quote={analyzedLine}/></details></section>}
+    {key === 'game' && <section className="nfl-panel-stack"><EnvironmentPanel game={nextGame} player={player} gameLines={resources.gameLines}/><details className="nfl-chart-card"><summary>Data freshness and availability</summary><HealthPanel player={player} resources={resources} quote={analyzedLine}/></details></section>}
   </>;
   const trendContent = <>
     {selectedProp.key === 'longest_reception' && resources.receptionLogs?.status === 'UNRELIABLE' && <Notice title="Reception lengths temporarily unavailable">Refresh to retry the play-by-play source. Other game statistics remain available.</Notice>}

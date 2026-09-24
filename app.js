@@ -3646,6 +3646,7 @@ window.vortexTrendPanel = {
       // A different player or market starts the panel over: window back to
       // L10, filters cleared, line reset -- same reset MLB gets per prop.
       activeFinderProp = null;
+      gameLogState.lineEdited = false;
       openGameLogModal({
         player: config.player,
         betType: config.stat,
@@ -3657,6 +3658,10 @@ window.vortexTrendPanel = {
         gameStatus: config.status || "Pre-game",
       }, EXTERNAL_TREND_ADAPTER);
     } else {
+      const verifiedLineArrived = Number.isFinite(config.line) && Number(config.line) !== Number(previous?.line);
+      if (verifiedLineArrived && !gameLogState.lineEdited) {
+        gameLogState.line = Number(config.line);
+      }
       gameLogState.loading = Boolean(config.loading);
       gameLogState.side = config.side || "Over";
       gameLogState.chart = gradeTrendChart(config.chart || {}, gameLogState.line, gameLogState.side);
