@@ -22,7 +22,7 @@ from .base import ProviderResult
 from .research_stats import prizepicks_fantasy
 
 SOURCE = "nflverse"
-SOURCE_VERSION = "nflverse-data-v2"
+SOURCE_VERSION = "nflverse-data-v3"
 TEAM_URL = "https://raw.githubusercontent.com/nflverse/nfldata/master/data/teams.csv"
 SCHEDULE_URL = "https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv"
 RELEASE = "https://github.com/nflverse/nflverse-data/releases/download"
@@ -242,7 +242,7 @@ def players(season: int) -> ProviderResult[list[NFLPlayer]]:
                 "gsis_id", "espn_id", "sportradar_id", "yahoo_id", "rotowire_id", "pff_id", "pfr_id", "sleeper_id"
             ) if row.get(key) and row.get(key) not in {"NA", "0"}}
             espn_id = source_ids.get("espn_id")
-            verified_headshot = row.get("headshot_url") or (f"https://a.espncdn.com/i/headshots/nfl/players/full/{espn_id}.png" if espn_id else None)
+            verified_headshot = (f"https://a.espncdn.com/i/headshots/nfl/players/full/{espn_id}.png" if espn_id else None) or row.get("headshot_url")
             output.append(NFLPlayer(
                 id=player_id, name=row.get("full_name") or row.get("football_name") or "",
                 position=NFLPosition(position), team_id=team_id,
@@ -269,7 +269,7 @@ def roster_headshots(season: int) -> dict[str, str]:
     for row in rows:
         player_id = str(row.get("gsis_id") or "").strip()
         espn_id = str(row.get("espn_id") or "").strip()
-        headshot = row.get("headshot_url") or (f"https://a.espncdn.com/i/headshots/nfl/players/full/{espn_id}.png" if espn_id not in ("", "NA", "0") else None)
+        headshot = (f"https://a.espncdn.com/i/headshots/nfl/players/full/{espn_id}.png" if espn_id not in ("", "NA", "0") else None) or row.get("headshot_url")
         if player_id and headshot:
             output[player_id] = headshot
     return output

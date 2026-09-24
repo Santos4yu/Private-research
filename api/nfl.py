@@ -30,7 +30,7 @@ from backend.sports.nfl.services import nflverse
 # small: 8KB for a player's game logs, 4KB for usage, 6KB for defense,
 # 444KB for the full season roster. The TTL comes from the matching cache
 # domain, so nothing is served staler than it would have been anyway.
-RESPONSE_VERSION = 'nfl-response-v2'
+RESPONSE_VERSION = 'nfl-response-v3'
 RESPONSE_DOMAINS = {
     'teams': NFLCacheDomain.TEAMS,
     'players': NFLCacheDomain.PLAYERS,

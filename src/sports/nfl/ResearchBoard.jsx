@@ -1,10 +1,9 @@
-import React,{useEffect,useMemo,useState} from 'react';
-import {RefreshCw,ArrowUpRight,Shield,LayoutGrid,Table2,ArrowUp,ArrowDown,Target} from 'lucide-react';
-import {SheetSelect} from './ResearchSheet';
-import {Select,SelectTrigger,SelectContent,SelectItem} from '../../../components/ui/select';
+import React,{useEffect,useMemo,useRef,useState} from 'react';
+import {RefreshCw,ArrowUpRight,Shield,LayoutGrid,Table2,ArrowUp,ArrowDown,ChevronDown,Search,Users,Swords,ChartNoAxesColumnIncreasing,Check,Target} from 'lucide-react';
 import {NFL_PROP_DEFINITIONS} from './props';
 import {rankResearch,researchPlayer,LINE_MAX_AGE_MS} from './research-board';
 import {freshness} from './nfl-client';
+import {teamLogoUrl} from './nfl-ui-core';
 
 const WINDOW_COLUMNS=[['l5','L5'],['l10','L10'],['l15','L15'],['l20','L20'],['h2h','H2H']];
 let boardCache=null;
@@ -106,11 +105,6 @@ function WindowCell({w,label}){
  return <td className="nfl-board-cell" data-label={label} data-tone={heatTone(w.hitRate)}><strong>{Math.round(w.hitRate)}%</strong><small>{w.hits}-{w.misses}{w.pushes?` · ${w.pushes}p`:''}</small></td>;
 }
 
-function MatchupCell({row}){
- if(row.matchupQuality==null)return <td className="nfl-board-cell muted" data-label="Matchup">—</td>;
- return <td className="nfl-board-cell" data-label="Matchup" data-tone={heatTone(row.matchupQuality,65,45)}><strong>{row.matchupQuality}</strong><small>{row.matchupCoverage}% cov.</small></td>;
-}
-
 // Memoized per row: rows stream in one game at a time and a timer ticks the
 // staleness clock, so without this every arriving batch repainted every
 // already-rendered row (and every gradient cell in it).
@@ -122,10 +116,9 @@ const BoardRow=React.memo(function BoardRow({row,players,onOpen}){
  const rawDiff=row.line?.value!=null?row.average-row.line.value:null;
  const favorableDiff=rawDiff==null?null:rawDiff*(row.line.direction==='UNDER'?-1:1);
  return <tr className={player?'clickable':''} onClick={()=>player&&onOpen(player)}>
-  <td className="nfl-board-cell-player"><img src={player?.headshot_url} width="32" height="32" loading="lazy" alt=""/><div><strong>{row.playerName}</strong><small>{row.line.direction==='OVER'?'More':'Less'} {row.line.value} {PROP_LABELS[row.propType]}</small><small className="nfl-board-cell-meta">{row.position} · {row.teamId} vs {row.opponentId}</small></div></td>
+  <td className="nfl-board-cell-player"><img src={player?.headshot_url} width="48" height="48" loading="lazy" decoding="async" alt={`${row.playerName} headshot`}/><div><strong>{row.playerName}</strong><small>{row.line.direction==='OVER'?'More':'Less'} {row.line.value} {PROP_LABELS[row.propType]}</small><small className="nfl-board-cell-meta">{row.position} · {row.teamId} vs {row.opponentId}</small></div></td>
   <td className="nfl-board-cell" data-label="Avg"><strong>{Number(row.average.toFixed(1))}</strong></td>
   <td className="nfl-board-cell" data-label="Edge" data-tone={favorableDiff==null?'':favorableDiff>0?'good':favorableDiff<0?'low':'mid'}>{rawDiff==null?<span className="muted">—</span>:<strong>{`${rawDiff>0?'+':''}${rawDiff.toFixed(1)}`}</strong>}</td>
-  <MatchupCell row={row}/>
   {WINDOW_COLUMNS.map(([key,label])=><WindowCell w={row.windows?.[key]} label={label} key={key}/>)}
  </tr>;
 });
@@ -133,9 +126,30 @@ const BoardRow=React.memo(function BoardRow({row,players,onOpen}){
 function BoardTable({rows,players,onOpen,sort,onSort}){
  const sorted=useMemo(()=>sortRows(rows,sort),[rows,sort]);
  return <div className="nfl-board-table-wrap"><table className="nfl-board-table">
-  <thead><tr><th>Player / line</th><SortHeader label="Avg" columnKey="avg" sort={sort} onSort={onSort}/><SortHeader label="Diff" columnKey="diff" sort={sort} onSort={onSort}/><SortHeader label="Matchup" columnKey="matchup" sort={sort} onSort={onSort}/>{WINDOW_COLUMNS.map(([key,label])=><SortHeader key={key} label={label} columnKey={key} sort={sort} onSort={onSort}/>)}</tr></thead>
+  <thead><tr><th>Player / line</th><SortHeader label="Avg" columnKey="avg" sort={sort} onSort={onSort}/><SortHeader label="Diff" columnKey="diff" sort={sort} onSort={onSort}/>{WINDOW_COLUMNS.map(([key,label])=><SortHeader key={key} label={label} columnKey={key} sort={sort} onSort={onSort}/>)}</tr></thead>
   <tbody>{sorted.map(row=><BoardRow key={`${row.gameId}.${row.playerId}.${row.propType}`} row={row} players={players} onOpen={onOpen}/>)}</tbody>
  </table></div>;
+}
+
+function FilterMenu({label,Icon,options,selected,onToggle,renderOption}){
+ const [open,setOpen]=useState(false),[query,setQuery]=useState('');
+ const root=useRef(null);
+ useEffect(()=>{if(!open)return undefined;const close=e=>{if(!root.current?.contains(e.target))setOpen(false);};const escape=e=>{if(e.key==='Escape')setOpen(false);};document.addEventListener('pointerdown',close);document.addEventListener('keydown',escape);return()=>{document.removeEventListener('pointerdown',close);document.removeEventListener('keydown',escape);};},[open]);
+ const visible=options.filter(option=>option.search.toLowerCase().includes(query.trim().toLowerCase()));
+ return <div className="nfl-filter-menu" ref={root}>
+  <button type="button" className={selected.length?'nfl-filter-trigger active':'nfl-filter-trigger'} aria-expanded={open} onClick={()=>setOpen(value=>!value)}><Icon aria-hidden="true"/><span>{label}</span>{selected.length>0&&<b>{selected.length}</b>}<ChevronDown aria-hidden="true"/></button>
+  {open&&<div className="nfl-filter-popover" role="dialog" aria-label={`${label} filters`}>
+   <label className="nfl-filter-search"><Search aria-hidden="true"/><span className="sr-only">Search {label}</span><input autoFocus value={query} onChange={event=>setQuery(event.target.value)} placeholder={`Search ${label.toLowerCase()}…`}/></label>
+   <div className="nfl-filter-options">{visible.map(option=>{const checked=selected.includes(option.value);return <button type="button" role="checkbox" aria-checked={checked} className={checked?'selected':''} key={option.value} onClick={()=>onToggle(option.value)}><span className="nfl-filter-check">{checked&&<Check/>}</span>{renderOption?renderOption(option):<span><strong>{option.label}</strong>{option.detail&&<small>{option.detail}</small>}</span>}</button>;})}{!visible.length&&<p>No matches</p>}</div>
+   <footer><button type="button" onClick={()=>selected.forEach(onToggle)} disabled={!selected.length}>Clear</button><button type="button" onClick={()=>setOpen(false)}>Done</button></footer>
+  </div>}
+ </div>;
+}
+
+function HitRateMenu({windowKey,setWindowKey,min,setMin,max,setMax}){
+ const [open,setOpen]=useState(false);const root=useRef(null);const active=min>0||max<100||windowKey!=='l10';
+ useEffect(()=>{if(!open)return undefined;const close=e=>{if(!root.current?.contains(e.target))setOpen(false);};const escape=e=>{if(e.key==='Escape')setOpen(false);};document.addEventListener('pointerdown',close);document.addEventListener('keydown',escape);return()=>{document.removeEventListener('pointerdown',close);document.removeEventListener('keydown',escape);};},[open]);
+ return <div className="nfl-filter-menu" ref={root}><button type="button" className={active?'nfl-filter-trigger active':'nfl-filter-trigger'} aria-expanded={open} onClick={()=>setOpen(v=>!v)}><ChartNoAxesColumnIncreasing/><span>Hit rate</span>{active&&<b>1</b>}<ChevronDown/></button>{open&&<div className="nfl-filter-popover nfl-hit-rate-popover" role="dialog" aria-label="Hit rate filters"><div className="nfl-filter-popover-title"><div><strong>Hit rate between</strong><small>Select a sample and verified range</small></div><button type="button" onClick={()=>{setWindowKey('l10');setMin(0);setMax(100);}}>Reset</button></div><div className="nfl-hit-window">{WINDOW_COLUMNS.map(([key,label])=><button type="button" key={key} className={windowKey===key?'active':''} onClick={()=>setWindowKey(key)}>{label}</button>)}</div><div className="nfl-hit-fields"><label>From<input type="number" min="0" max="100" value={min} onChange={e=>setMin(Math.max(0,Math.min(Number(e.target.value),max)))}/></label><label>To<input type="number" min="0" max="100" value={max} onChange={e=>setMax(Math.min(100,Math.max(Number(e.target.value),min)))}/></label></div><div className="nfl-hit-presets">{[55,60,70,80].map(value=><button type="button" key={value} onClick={()=>{setMin(value);setMax(100);}}>{value}%+</button>)}</div><footer><span>{windowKey.toUpperCase()} · {min}%–{max}%</span><button type="button" onClick={()=>setOpen(false)}>Apply</button></footer></div>}</div>;
 }
 
 export function NFLResearchBoard({load,players,onOpen}) {
@@ -147,7 +161,7 @@ export function NFLResearchBoard({load,players,onOpen}) {
  // and, unlike the old 90s, never expires mid-scan.
  const cached=boardCache && Date.now()-boardCache.ts<BOARD_CACHE_TTL ? boardCache : null;
  const [rows,setRows]=useState(()=>cached?.rows || []),[events,setEvents]=useState(()=>cached?.events || []),[progress,setProgress]=useState(null),[error,setError]=useState(''),[failed,setFailed]=useState(0),[refresh,setRefresh]=useState(0);
- const [position,setPosition]=useState(''),[game,setGame]=useState(''),[prop,setProp]=useState(''),[now,setNow]=useState(Date.now());
+ const [positions,setPositions]=useState([]),[games,setGames]=useState([]),[props,setProps]=useState([]),[hitWindow,setHitWindow]=useState('l10'),[hitMin,setHitMin]=useState(0),[hitMax,setHitMax]=useState(100),[now,setNow]=useState(Date.now());
  const [scannedAt,setScannedAt]=useState(cached?cached.ts:null);
  // Table now has its own mobile layout (see the max-width:640px block in
  // mobile-research.css, ported from the MLB finder's card treatment), so
@@ -230,27 +244,36 @@ export function NFLResearchBoard({load,players,onOpen}) {
  // it is a snapshot, deliberately older than the live window, and applying
  // that window to it would filter every row away. The caption says which
  // one you are looking at rather than hiding the difference.
- const ranked=useMemo(()=>rankResearch(rows,{position,game,prop,now,maxAge:snapshotAt?Infinity:LINE_MAX_AGE_MS}),[rows,position,game,prop,now,snapshotAt]);
+ const toggle=(setter,value)=>setter(current=>current.includes(value)?current.filter(item=>item!==value):[...current,value]);
+ const ranked=useMemo(()=>rankResearch(rows,{now,maxAge:snapshotAt?Infinity:LINE_MAX_AGE_MS}).filter(row=>{
+  if(positions.length&&!positions.includes(row.position))return false;
+  if(games.length&&!games.includes(row.gameId))return false;
+  if(props.length&&!props.includes(row.propType))return false;
+  const rate=row.windows?.[hitWindow]?.hitRate;
+  if(rate==null)return hitWindow==='l10'&&hitMin===0&&hitMax===100;
+  return rate>=hitMin&&rate<=hitMax;
+ }),[rows,positions,games,props,hitWindow,hitMin,hitMax,now,snapshotAt]);
+ const positionOptions=['QB','RB','WR','TE'].map(value=>({value,label:value,search:value}));
+ const gameOptions=events.map(event=>({value:event.gameId,label:`${event.awayTeamId} @ ${event.homeTeamId}`,detail:new Date(event.startsAt).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'}),search:`${event.awayTeamId} ${event.homeTeamId}`}));
+ const propOptions=NFL_PROP_DEFINITIONS.map(item=>({value:item.key,label:item.label,search:item.label}));
+ const filterCount=positions.length+games.length+props.length+(hitMin>0||hitMax<100||hitWindow!=='l10'?1:0);
  return <section className="nfl-discovery" aria-label="NFL props board">
   <header><div><h2>NFL props</h2><p>PrizePicks · Next 7 days</p></div><div className="nfl-board-view-toggle" role="group" aria-label="Board layout"><button type="button" aria-pressed={view==='cards'} onClick={()=>setView('cards')} aria-label="Card view"><LayoutGrid size={16}/></button><button type="button" aria-pressed={view==='table'} onClick={()=>setView('table')} aria-label="Table view"><Table2 size={16}/></button></div><button type="button" className="nfl-refresh" disabled={!!progress} aria-label="Refresh NFL props board" onClick={()=>setRefresh(n=>n+1)}><RefreshCw size={18}/></button></header>
-  <div className="nfl-board-filters"><SheetSelect label="Position" value={position} onChange={e=>setPosition(e.target.value)}><option value="">Position</option>{['QB','RB','WR','TE'].map(p=><option key={p}>{p}</option>)}</SheetSelect><SheetSelect label="Game" value={game} onChange={e=>setGame(e.target.value)}><option value="">All games</option>{events.map(e=><option key={e.gameId} value={e.gameId}>{e.awayTeamId} @ {e.homeTeamId}</option>)}</SheetSelect>
-   <Select value={prop} onValueChange={setProp}>
-    <SelectTrigger icon={Target} placeholder="All props" aria-label="Prop" />
-    <SelectContent>
-     <SelectItem index={0} value="">All props</SelectItem>
-     {NFL_PROP_DEFINITIONS.map((p,i)=><SelectItem key={p.key} index={i+1} value={p.key}>{p.label}</SelectItem>)}
-    </SelectContent>
-   </Select>
+  <div className="nfl-board-filterbar" aria-label="NFL prop filters">
+   <FilterMenu label="Positions" Icon={Users} options={positionOptions} selected={positions} onToggle={value=>toggle(setPositions,value)}/>
+   <FilterMenu label="Stats" Icon={Target} options={propOptions} selected={props} onToggle={value=>toggle(setProps,value)}/>
+   <FilterMenu label="Games" Icon={Swords} options={gameOptions} selected={games} onToggle={value=>toggle(setGames,value)} renderOption={option=>{const event=events.find(item=>item.gameId===option.value);return <span className="nfl-game-filter-option"><span><img src={teamLogoUrl(event?.awayTeamId)} alt=""/><strong>{event?.awayTeamId}</strong></span><em>@</em><span><img src={teamLogoUrl(event?.homeTeamId)} alt=""/><strong>{event?.homeTeamId}</strong></span><small>{option.detail}</small></span>;}}/>
+   <HitRateMenu windowKey={hitWindow} setWindowKey={setHitWindow} min={hitMin} setMin={setHitMin} max={hitMax} setMax={setHitMax}/>
+   {filterCount>0&&<button type="button" className="nfl-filter-reset" onClick={()=>{setPositions([]);setGames([]);setProps([]);setHitWindow('l10');setHitMin(0);setHitMax(100);}}><X/>Clear all <b>{filterCount}</b></button>}
   </div>
   {(progress||failed>0||scannedAt||snapshotAt||loadingBoard||boardReason)&&<div role="status" className="nfl-board-caption">{loadingBoard&&!progress&&'Loading props…'}{progress&&(progress.total?`Checking ${progress.done} of ${progress.total} games…`:'Finding games…')}{!progress&&scannedAt&&`${ranked.length} props · ${freshness(new Date(scannedAt).toISOString(),now,LINE_MAX_AGE_MS)}`}{!scannedAt&&snapshotAt&&`${ranked.length} props · lines as of ${new Date(snapshotAt).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'})}${progress?' · refreshing':''}`}{failed>0&&`${progress||scannedAt?' · ':''}${failed} games could not load`}{boardReason&&!ranked.length&&` · prebuilt board unavailable (${boardReason})`}</div>}
   {error&&<p role="alert">{error}</p>}
   {!progress&&!loadingBoard&&!ranked.length&&!error&&<div className="nfl-chart-card">No fresh props match this view. Try another filter or refresh. Players remain available in Research.</div>}
   {view==='table'?<BoardTable rows={ranked} players={players} onOpen={onOpen} sort={sort} onSort={onSort}/>:
   <div className="nfl-discovery-grid">{ranked.map(row=>{const player=researchPlayer(row,players);return <button type="button" className="nfl-discovery-card" key={`${row.gameId}.${row.playerId}.${row.propType}`} disabled={!player} onClick={()=>onOpen(player)}>
-   <div className="nfl-discovery-identity">{player?.headshot_url&&<img src={player.headshot_url} width="58" height="58" loading="lazy" alt=""/>}<div><strong>{row.playerName}</strong><small>{row.position} · {row.teamId} vs {row.opponentId} · {new Date(row.startsAt).toLocaleDateString([],{weekday:'short'})}</small></div><ArrowUpRight size={18}/></div>
+   <div className="nfl-discovery-identity">{player?.headshot_url&&<img src={player.headshot_url} width="64" height="64" loading="lazy" decoding="async" alt={`${row.playerName} headshot`}/>}<div><strong>{row.playerName}</strong><small>{row.position} · {row.teamId} vs {row.opponentId} · {new Date(row.startsAt).toLocaleDateString([],{weekday:'short'})}</small></div><ArrowUpRight size={18}/></div>
    <div className="nfl-discovery-line"><img src="/prizepicks/logo.png" width="22" height="22" alt="PrizePicks"/><strong>{row.line.direction==='OVER'?'More':'Less'} {row.line.value} {PROP_LABELS[row.propType]}</strong></div>
    <div className="nfl-discovery-stats"><span>Last {row.recentSample}<b>{row.recentHits}/{row.recentDecisions} hit</b></span><span>Sample<b>{row.hits}/{row.decisions} hit</b></span><span>Average<b>{Number(row.average.toFixed(1))}</b></span></div>
-   {row.matchupQuality!=null && <div className={`nfl-discovery-volume ${row.matchupQuality>=65?'good':row.matchupQuality<=35?'bad':'mid'}`}><Shield size={14}/><span>Matchup score {row.matchupQuality}/100 · {row.matchupCoverage}% coverage</span></div>}
    {row.opponentVolume && <div className={`nfl-discovery-volume ${row.opponentVolume.score>=60?'good':row.opponentVolume.score<=40?'bad':'mid'}`}><Shield size={14}/><span>{row.opponentVolume.label}: {row.opponentVolume.score}th percentile vs league</span></div>}
    <small className="nfl-board-caption">{row.seasons.join(' / ')} · {row.sample} games{row.pushes?` · ${row.pushes} pushes`:''} · {row.injuryReportAvailable?'Open research':'Injury report unavailable'}</small>
   </button>;})}</div>}
