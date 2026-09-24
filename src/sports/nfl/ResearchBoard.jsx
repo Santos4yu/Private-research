@@ -6,7 +6,21 @@ import {freshness} from './nfl-client';
 import {teamLogoUrl} from './nfl-ui-core';
 
 const WINDOW_COLUMNS=[['l5','L5'],['l10','L10'],['l15','L15'],['l20','L20'],['h2h','H2H']];
-let boardCache=null;
+const PERSISTED_BOARD_KEY='vortex:nfl:finder-board:v1';
+const PERSISTED_BOARD_TTL=24*60*60*1000;
+function readPersistedBoard(){
+ try{
+  const value=JSON.parse(localStorage.getItem(PERSISTED_BOARD_KEY)||'null');
+  if(!value||!Array.isArray(value.rows)||!value.rows.length||Date.now()-value.ts>PERSISTED_BOARD_TTL)return null;
+  const rows=value.rows.filter(row=>Date.parse(row.startsAt)>Date.now());
+  if(!rows.length)return null;
+  return {...value,rows,persisted:true,snapshotAt:value.snapshotAt||new Date(value.ts).toISOString()};
+ }catch{return null;}
+}
+function persistBoard(value){
+ try{localStorage.setItem(PERSISTED_BOARD_KEY,JSON.stringify(value));}catch{/* Storage is an optimization; live loading remains available. */}
+}
+let boardCache=typeof localStorage==='undefined'?null:readPersistedBoard();
 // Matched to the server's props cache. At 90s this expired while a scan was
 // still finishing, so leaving the board and coming straight back restarted
 // all 16 games from scratch.
@@ -75,7 +89,8 @@ async function scanBoard(load) {
     }
   }
   await Promise.all([worker(),worker(),worker(),worker(),worker()]);
-  boardCache={rows:collected,events:upcoming,ts:Date.now()};
+  boardCache={rows:collected,events:upcoming,ts:Date.now(),snapshotAt:null};
+  persistBoard(boardCache);
   return boardCache;
 }
 
@@ -158,7 +173,7 @@ export function NFLResearchBoard({load,players,onOpen}) {
  // line freshness window (LINE_MAX_AGE_SECONDS in research_board.py), so a
  // "fresh" cache never shows a row the API would already have discarded --
  // and, unlike the old 90s, never expires mid-scan.
- const cached=boardCache && Date.now()-boardCache.ts<BOARD_CACHE_TTL ? boardCache : null;
+ const cached=boardCache && Date.now()-boardCache.ts<(boardCache.persisted?PERSISTED_BOARD_TTL:BOARD_CACHE_TTL) ? boardCache : null;
  const [rows,setRows]=useState(()=>cached?.rows || []),[events,setEvents]=useState(()=>cached?.events || []),[progress,setProgress]=useState(null),[error,setError]=useState(''),[failed,setFailed]=useState(0),[refresh,setRefresh]=useState(0);
  const [query,setQuery]=useState(''),[positions,setPositions]=useState([]),[games,setGames]=useState([]),[teamsFilter,setTeamsFilter]=useState([]),[dates,setDates]=useState([]),[props,setProps]=useState([]),[hitWindow,setHitWindow]=useState('l10'),[hitMin,setHitMin]=useState(0),[hitMax,setHitMax]=useState(100),[now,setNow]=useState(Date.now());
  const [page,setPage]=useState(1),[rowsPerPage,setRowsPerPage]=useState(20);
@@ -171,7 +186,7 @@ export function NFLResearchBoard({load,players,onOpen}) {
  // way MLB's tab reads whatever its last scan stored. It paints immediately
  // while the live scan is still running, and the live rows replace it the
  // moment they land.
- const [snapshotAt,setSnapshotAt]=useState(null);
+ const [snapshotAt,setSnapshotAt]=useState(cached?.snapshotAt||null);
  const [loadingBoard,setLoadingBoard]=useState(false);
  const [boardReason,setBoardReason]=useState('');
  const [sort,setSort]=useState(null);
@@ -183,8 +198,9 @@ export function NFLResearchBoard({load,players,onOpen}) {
  useEffect(()=>{
   let active=true;
   const fresh=refresh===0 && boardCache && Date.now()-boardCache.ts<BOARD_CACHE_TTL;
-  if(fresh){setRows(boardCache.rows);setEvents(boardCache.events);setError('');setFailed(0);setProgress(null);setScannedAt(boardCache.ts);return;}
-  setRows([]);setError('');setFailed(0);
+  if(fresh&&!boardCache.persisted){setRows(boardCache.rows);setEvents(boardCache.events);setError('');setFailed(0);setProgress(null);setScannedAt(boardCache.ts);return;}
+  // Never blank a last-good board while checking for a newer snapshot.
+  if(!cached)setRows([]);setError('');setFailed(0);
 
   // Follow the shared scan, whether this component starts it or joins one
   // the shell already had running.
@@ -220,7 +236,7 @@ export function NFLResearchBoard({load,players,onOpen}) {
   // per-event server cache, so whichever gets to a game first warms it for
   // the other; this is not double work.
   let scanning=false;
-  const scanIfSlow=setTimeout(()=>{ if(active){ scanning=true; runScan(); } },1200);
+  const scanIfSlow=setTimeout(()=>{ if(active&&!cached){ scanning=true; runScan(); } },1200);
   load('board').then(result=>{
    if(!active)return;
    const stored=result?.data||[];
@@ -229,7 +245,8 @@ export function NFLResearchBoard({load,players,onOpen}) {
     clearTimeout(scanIfSlow);
     setRows(stored);
     if(result.events)setEvents(result.events);
-    setSnapshotAt(result.builtAt||null);
+    const saved={rows:stored,events:result.events||[],ts:Date.now(),snapshotAt:result.builtAt||new Date().toISOString(),persisted:true};
+    boardCache=saved;persistBoard(saved);setScannedAt(saved.ts);setSnapshotAt(saved.snapshotAt);
     return;
    }
    if(result?.pending&&result.reason&&result.reason!=='another build is already running') setBoardReason(String(result.reason));
