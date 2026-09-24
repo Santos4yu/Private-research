@@ -230,11 +230,11 @@
 .nfl-defense-rank-row:last-child { border-bottom:0; }
 .nfl-defense-rank-row>div:first-child strong { display:block;font-size:13px;color:#eaf0f7; }
 .nfl-defense-rank-row>div:first-child small { display:block;margin-top:4px;color:#8f9bad;font-size:11px; }
-.nfl-defense-rank-track { height:6px;border-radius:999px;background:linear-gradient(90deg,#22c55e 0 25%,#eab308 48% 55%,#f43f5e 78%);overflow:hidden; }
+.nfl-defense-rank-track { height:6px;border-radius:999px;background:linear-gradient(90deg,#f43f5e 0 25%,#eab308 48% 55%,#22c55e 78%);overflow:hidden; }
 .nfl-defense-rank-track i { display:block;height:100%;border-right:3px solid #fff;background:#0d1421aa; }
 .nfl-defense-rank-row>b { color:#f4f7fb;font-size:13px;text-align:right; }
 .nfl-defense-rank-row>span { justify-self:end;padding:5px 8px;border-radius:999px;font:800 9px/1 var(--font-mono,monospace);text-transform:uppercase; }
-.nfl-defense-rank-row>span.tough { color:#6ee7a7;background:#123526; }.nfl-defense-rank-row>span.weak { color:#ff94a3;background:#3a1821; }.nfl-defense-rank-row>span.neutral { color:#f4cf74;background:#382f18; }
+.nfl-defense-rank-row>span.tough { color:#ff9daa;background:#3a1821; }.nfl-defense-rank-row>span.easy { color:#6ee7a7;background:#123526; }.nfl-defense-rank-row>span.neutral { color:#f4cf74;background:#382f18; }
 .nfl-defense-metrics { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:14px; }
 .nfl-defense-metrics article { display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:13px;border:1px solid #2d394a;border-radius:12px;background:#121a27; }
 .nfl-defense-metrics article span { color:#b8c2d0;font-size:12px; }.nfl-defense-metrics article strong { color:#f4f7fb;font-size:15px; }.nfl-defense-metrics article small { grid-column:1/-1;color:#78869a;font-size:10px; }

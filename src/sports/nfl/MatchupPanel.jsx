@@ -8,13 +8,13 @@ const PERCENT=new Set(['pass_success','completion_rate','catch_rate','pass_explo
 const metricText=(key,value)=>!Number.isFinite(value)?'—':PERCENT.has(key)?`${(value*100).toFixed(1)}%`:value.toFixed(key.includes('epa')?3:2);
 const ordinal=value=>{const n=Math.max(1,Math.round(value));const mod=n%100;return `${n}${mod>=11&&mod<=13?'th':n%10===1?'st':n%10===2?'nd':n%10===3?'rd':'th'}`;};
 const defenseRank=row=>Math.max(1,row.teams-Math.round((row.percentile/100)*(row.teams-1)));
-const strength=rank=>rank<=8?['Tough','tough']:rank>=25?['Weak','weak']:['Neutral','neutral'];
+const strength=rank=>rank<=8?['Tough','tough']:rank>=25?['Easy','easy']:['Neutral','neutral'];
 
 function PositionRow({row}) {
   const rank=defenseRank(row); const [label,tone]=strength(rank);
   return <article className="nfl-defense-rank-row">
     <div><strong>{row.label}</strong><small>{row.value} allowed/game · NFL avg {row.leagueMean}</small></div>
-    <div className="nfl-defense-rank-track" aria-label={`${row.label}: ${ordinal(rank)} of ${row.teams}`}><i style={{width:`${Math.max(4,Math.min(96,row.percentile))}%`}} /></div>
+    <div className="nfl-defense-rank-track" aria-label={`${row.label}: ${ordinal(rank)} of ${row.teams}`}><i style={{width:`${Math.max(4,Math.min(96,100-row.percentile))}%`}} /></div>
     <b>{ordinal(rank)}</b><span className={tone}>{label}</span>
   </article>;
 }
