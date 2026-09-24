@@ -24,6 +24,12 @@ const FEATURED_NAMES = ['Josh Allen', 'Justin Jefferson', 'Bijan Robinson', 'Tra
 
 function getNFL(resource, params = {}) { return nflClient.get(resource, { season: String(SEASON), ...params }); }
 
+async function getNFLDepthCharts(teamIds) {
+  const result = await getNFL('depth-chart');
+  const wanted = new Set((teamIds || []).filter(Boolean));
+  return {...result, data:(result.data || []).filter(entry=>wanted.has(entry.team_id))};
+}
+
 function TeamLogo({ team, size = 'md' }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [team]);
@@ -372,7 +378,6 @@ function NFLPlayerResearch({ player, players, teams, schedules, onBack }) {
   }, [player.id, refreshKey]);
 
   useEffect(() => {
-    if (activeContext !== 'opportunity') return undefined;
     let active = true;
     setResources((current) => ({ ...current, usage: { status: 'LOADING', data: [] } }));
     loadNFLHistory(getNFL, 'usage', { playerId: player.id }, SEASON, historyMode)
@@ -385,10 +390,9 @@ function NFLPlayerResearch({ player, players, teams, schedules, onBack }) {
       if (active) setResources((current) => ({ ...current, opportunity: { data: { status: 'NOT_AVAILABLE', reason: 'Required opportunity sources did not load. No estimate has been fabricated.' } } }));
     });
     return () => { active = false; };
-  }, [activeContext, player.id, nextGame?.week, refreshKey]);
+  }, [player.id, nextGame?.week, refreshKey]);
 
   useEffect(() => {
-    if (activeContext !== 'matchup') return undefined;
     let active = true;
     setResources((current) => ({ ...current, matchup: { status: 'LOADING' } }));
     getNFL('matchup', { playerId: player.id, week: nextGame?.week, prop: selectedProp.key }).then((matchup) => {
@@ -397,10 +401,9 @@ function NFLPlayerResearch({ player, players, teams, schedules, onBack }) {
       if (active) setResources((current) => ({ ...current, matchup: { data: { status: 'NOT_AVAILABLE', reason: 'Required matchup sources did not load. No score was fabricated.' } } }));
     });
     return () => { active = false; };
-  }, [activeContext, player.id, nextGame?.week, selectedProp.key, refreshKey]);
+  }, [player.id, nextGame?.week, selectedProp.key, refreshKey]);
 
   useEffect(() => {
-    if (activeContext !== 'injuries') return undefined;
     let active = true;
     const opponent = matchup?.opponent?.id;
     setResources((current) => ({ ...current, injuries: { status: 'LOADING', data: [] } }));
@@ -410,17 +413,17 @@ function NFLPlayerResearch({ player, players, teams, schedules, onBack }) {
       setResources((current) => ({ ...current, injuries: { status: results.some(item => item.status === 'rejected') ? 'UNRELIABLE' : parts.some(part => part.status === 'AVAILABLE') ? 'AVAILABLE' : 'MISSING', data: parts.flatMap(part => part.data || []), fetchedAt: parts[0]?.fetchedAt } }));
     });
     return () => { active = false; };
-  }, [activeContext, player.team_id, matchup?.opponent?.id, nextGame?.week, refreshKey]);
+  }, [player.team_id, matchup?.opponent?.id, nextGame?.week, refreshKey]);
 
   useEffect(() => {
-    if (activeContext !== 'game' || !nextGame?.id) return undefined;
+    if (!nextGame?.id) return undefined;
     let active=true;
     setResources(current=>({...current,gameLines:{status:'LOADING',data:null}}));
     getNFL('game-lines',{gameId:nextGame.id})
       .then(gameLines=>{if(active)setResources(current=>({...current,gameLines}));})
       .catch(()=>{if(active)setResources(current=>({...current,gameLines:{status:'NOT_AVAILABLE',data:null}}));});
     return()=>{active=false;};
-  },[activeContext,nextGame?.id,refreshKey]);
+  },[nextGame?.id,refreshKey]);
 
   useEffect(() => {
     if (selectedProp.key !== 'longest_reception') return;
@@ -438,17 +441,17 @@ function NFLPlayerResearch({ player, players, teams, schedules, onBack }) {
   // component -- and the "which line are we analysing" default that used to
   // live in NFLMarketLines' own effect moves here with them.
   // The depth chart is published per team and changes rarely, so it is
-  // fetched once per team rather than per prop.
+  // prefetched once for the league, cached, then filtered locally. That
+  // makes switching to Lineup instant without duplicating team requests.
   useEffect(() => {
-    if (activeContext !== 'lineup') return undefined;
     if (!player.team_id) return undefined;
     let active = true;
     setResources((current) => ({ ...current, depth: { status: 'LOADING', data: [] } }));
-    Promise.allSettled([player.team_id,matchup?.opponent?.id].filter(Boolean).map(teamId=>getNFL('depth-chart',{team:teamId})))
-      .then(results => { if (active) { const parts=results.filter(item=>item.status==='fulfilled').map(item=>item.value); setResources((current) => ({ ...current, depth:{status:parts.length?'AVAILABLE':'MISSING',data:parts.flatMap(part=>part.data||[]),fetchedAt:parts[0]?.fetchedAt} })); } })
+    getNFLDepthCharts([player.team_id,matchup?.opponent?.id])
+      .then(result => { if (active) setResources((current) => ({ ...current, depth:{...result,status:(result.data||[]).length?'AVAILABLE':'MISSING'} })); })
       .catch(() => { if (active) setResources((current) => ({ ...current, depth: { status: 'UNRELIABLE', data: [] } })); });
     return () => { active = false; };
-  }, [activeContext, player.team_id, matchup?.opponent?.id, refreshKey]);
+  }, [player.team_id, matchup?.opponent?.id, refreshKey]);
 
   const [offersBody, setOffersBody] = useState(null);
   useEffect(() => {
@@ -542,6 +545,9 @@ export function SportResearch() {
       if (!active) return;
       const data = parts.map(part => part.status === 'fulfilled' ? part.value.data : []);
       setPlayers(data[0]); setTeams(data[1]); setSchedules(data[2]);
+      // Warm the slow, season-wide personnel source while the user is still
+      // browsing. Player pages reuse this exact cached response.
+      getNFL('depth-chart').catch(() => {});
       if (parts.some(part => part.status === 'rejected')) setError('A data source is temporarily unavailable. Unaffected research remains accessible.');
     }).catch((reason) => active && setError(reason.message)).finally(() => active && setLoading(false));
     return () => { active = false; };
