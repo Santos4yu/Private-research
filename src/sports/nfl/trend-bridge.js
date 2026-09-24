@@ -103,11 +103,19 @@ export function nflLineLadder(offers) {
     if (!Number.isFinite(value)) continue;
     const tier = offerTier(row.line.category);
     let current = lines.get(value);
-    if (!current) { current = { value, tier, books: [] }; lines.set(value, current); }
-    if (TIER_RANK[tier] > TIER_RANK[current.tier]) current.tier = tier;
+    if (!current) { current = { value, tier, books: [], primaryBook: null, bestPrice: -Infinity }; lines.set(value, current); }
+    if (current.primaryBook !== 'prizepicks' && TIER_RANK[tier] > TIER_RANK[current.tier]) current.tier = tier;
     if (!current.books.includes(row.line.bookmaker)) current.books.push(row.line.bookmaker);
+    // PrizePicks owns its Goblin/Demon/standard presentation, so it always
+    // leads when posted. Otherwise show the book offering the best American
+    // price while preserving the complete book count for the availability
+    // signal in the menu.
+    const price = Number.isFinite(row.line.price) ? row.line.price : -Infinity;
+    if (row.line.bookmaker === 'prizepicks') { current.primaryBook = 'prizepicks'; current.tier = tier; }
+    else if (current.primaryBook !== 'prizepicks' && price > current.bestPrice) current.primaryBook = row.line.bookmaker;
+    if (row.line.bookmaker !== 'prizepicks' && price > current.bestPrice) current.bestPrice = price;
   }
-  return [...lines.values()].sort((a, b) => a.value - b.value);
+  return [...lines.values()].map(({ bestPrice, ...line }) => line).sort((a, b) => a.value - b.value);
 }
 
 // Book quotes per line, keyed by the same bookmaker keys the panel's

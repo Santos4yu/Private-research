@@ -710,8 +710,11 @@ body::before {
 /* Host for the React-mounted alt-lines Select (src/main.jsx) that replaced
    the old PrizePicks lines trigger+menu. */
 #pp-lines-select-root button[role="combobox"] { min-width: 160px; }
-.pp-select-line-row { display: inline-flex; align-items: center; gap: 7px; }
-.pp-select-line-row img { display: block; width: 16px; height: 16px; object-fit: contain; }
+.pp-select-line-row { display: inline-flex; align-items: center; gap: 9px; width: 100%; }
+.pp-select-line-row img { display: block; width: 22px; height: 22px; object-fit: contain; }
+.posted-line-primary { display: inline-grid; place-items: center; flex: 0 0 28px; width: 28px; height: 28px; border: 1px solid #ffffff12; border-radius: 8px; background: #101827; }
+.posted-line-primary img { width: 22px; height: 22px; object-fit: contain; }
+.posted-line-primary i { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: #273149; color: #fff; font: 800 8px/1 var(--font-mono, monospace); font-style: normal; }
 .pp-select-line-value { min-width: 38px; font-variant-numeric: tabular-nums; }
 /* The regular posted line has to be unmistakable next to its alternates. */
 .pp-select-line-tier { margin-left: auto; padding: 2px 7px; border-radius: 999px; font: 700 10px/1.4 var(--font-mono, monospace); letter-spacing: .06em; text-transform: uppercase; }

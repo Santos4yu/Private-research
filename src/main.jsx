@@ -227,11 +227,14 @@ const BOOK_ICON_SRC = {
   underdogfantasy: '/sportsbooks/underdog.png',
 };
 const BOOK_NAME = { prizepicks: 'PrizePicks', draftkings: 'DraftKings', draftkings_pick6: 'DK Pick6', fanduel: 'FanDuel', betmgm: 'BetMGM', underdog: 'Underdog', underdogfantasy: 'Underdog' };
-function LineBookMarks({ books = [], size = 16 }) {
-  const unique = [...new Set(books)].slice(0, 4);
-  return <span className="posted-line-books" aria-label={unique.map(book => BOOK_NAME[book] || book).join(', ')}>{unique.map(book => BOOK_ICON_SRC[book]
-    ? <img key={book} src={BOOK_ICON_SRC[book]} width={size} height={size} alt={BOOK_NAME[book] || book} />
-    : <i key={book}>{String(book).slice(0, 2).toUpperCase()}</i>)}</span>;
+function LinePrimaryMark({ line, size = 22 }) {
+  const tierIcon = line?.primaryBook === 'prizepicks' ? PP_TIER_ICON[line?.tier] : null;
+  const Icon = tierIcon || (line?.primaryBook === 'prizepicks' ? PP_LOGO_ICON : null);
+  if (Icon) return <span className="posted-line-primary"><Icon size={size} /></span>;
+  const book = line?.primaryBook || line?.books?.[0];
+  return <span className="posted-line-primary" aria-label={BOOK_NAME[book] || book || 'Sportsbook'}>{BOOK_ICON_SRC[book]
+    ? <img src={BOOK_ICON_SRC[book]} width={size} height={size} alt={BOOK_NAME[book] || book} />
+    : <i>{String(book || '?').slice(0, 2).toUpperCase()}</i>}</span>;
 }
 // Only Goblin and Demon have an icon, so STANDARD and ALT rows rendered
 // identically -- value plus the PrizePicks mark -- and there was no way to
@@ -260,7 +263,7 @@ function AltLinesSelectHost({ controllerRef, onPick, canAdjustLine = false }) {
       ? `Posted lines are unavailable.${lineHint}`
       : ready ? 'Choose a posted line from the available books.' : `No lines are posted for this stat.${lineHint}`;
   const TriggerIcon = current?.books?.length
-    ? ({ size = 16 }) => <LineBookMarks books={current.books} size={size} />
+    ? ({ size = 20 }) => <LinePrimaryMark line={current} size={size} />
     : (PP_TIER_ICON[current?.tier] ?? PP_LOGO_ICON);
   return (
     <Select key={status} value={current ? String(current.value) : ''} onValueChange={(next) => {
@@ -269,12 +272,11 @@ function AltLinesSelectHost({ controllerRef, onPick, canAdjustLine = false }) {
       <SelectTrigger icon={TriggerIcon} placeholder={placeholder} aria-label={`${isMultiBook ? 'Sportsbook' : 'PrizePicks'} lines: ${current ? `${current.value} ${PP_TIER_LABEL[current.tier] || 'Alt'}` : placeholder}`} title={description} aria-busy={status === 'loading'} />
       <SelectContent>
         {(ready ? lines : []).map((line, index) => {
-          const TierIcon = PP_TIER_ICON[line.tier];
           return (
             <SelectItem key={line.value} index={index} value={String(line.value)}>
               <span className="pp-select-line-row">
                 <span className="pp-select-line-value">{line.value}</span>
-                {line.books?.length ? <LineBookMarks books={line.books} size={14} /> : TierIcon && <TierIcon size={14} />}
+                {line.books?.length ? <LinePrimaryMark line={line} /> : PP_TIER_ICON[line.tier] && <LinePrimaryMark line={{...line,primaryBook:'prizepicks'}} />}
                 <span className={`pp-select-line-tier is-${String(line.tier || 'alt').toLowerCase()}`}>
                   {line.books?.length ? `${new Set(line.books.map(book => BOOK_NAME[book] || book)).size} ${new Set(line.books.map(book => BOOK_NAME[book] || book)).size === 1 ? 'book' : 'books'}` : PP_TIER_LABEL[line.tier] || 'Alt'}
                 </span>
