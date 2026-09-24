@@ -87,9 +87,10 @@
 /* Five tabs since Lineup was added; auto-fit keeps them even if that
    count changes again, instead of a hard-coded column count that leaves
    one tab overflowing its track. */
-.nfl-app-shell .nfl-research-tabs { display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:3px;gap:3px;margin:0 0 12px;border-radius:12px;overflow:visible; }
+.nfl-app-shell .nfl-research-tabs { display:flex;padding:3px;gap:3px;margin:0 0 12px;border-radius:12px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity; }
+.nfl-app-shell .nfl-research-tabs::-webkit-scrollbar { display:none; }
 .nfl-app-shell .nfl-research-tabs button span { font-size:9.5px;letter-spacing:-.01em; }
-.nfl-app-shell .nfl-research-tabs button { min-width:0;min-height:38px;padding:5px 4px;gap:3px;border-radius:9px;font-size:10.5px; }.nfl-app-shell .nfl-research-tabs svg { width:14px;height:14px; }
+.nfl-app-shell .nfl-research-tabs button { flex:1 0 74px;min-width:74px;min-height:42px;padding:5px 4px;gap:3px;border-radius:9px;font-size:10.5px;scroll-snap-align:start; }.nfl-app-shell .nfl-research-tabs svg { width:14px;height:14px; }
 .nfl-app-shell .nfl-tab-content { margin-top:0; }
 .nfl-app-shell .nfl-trends { gap:8px;padding:14px;border:1px solid #303c48;border-radius:18px;background:#151d26; }
 .nfl-app-shell .nfl-window-tabs { margin-top:6px;border:1px solid #303c48;border-radius:12px;background:#171d26;padding:4px; }
@@ -215,7 +216,7 @@
 .nfl-opponent-panel .nfl-stat-grid { display:block; }.nfl-opponent-panel .nfl-stat { display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:48px;padding:12px 0;border:0;border-bottom:1px solid #2d3a47;background:none;border-radius:0; }.nfl-opponent-panel .nfl-stat span { font-size:12px;max-width:70%; }.nfl-opponent-panel .nfl-stat strong { font-size:20px; }
 .nfl-app-shell .nfl-home-head { margin:16px 0; }.nfl-app-shell .nfl-home-head h2 { font-size:22px;margin:0; }.nfl-app-shell .nfl-player-search { padding:12px;border-radius:16px;margin:0 0 18px; }.nfl-app-shell .nfl-player-search label { display:none; }.nfl-app-shell .nfl-player-search input { font-size:16px;background:none;padding:6px; }
 .nfl-app-shell .nfl-home-section { margin-top:20px; }.nfl-app-shell .nfl-section-title h3 { font-size:18px; }.nfl-app-shell .nfl-tool-strip { display:none; }
-@media(min-width:720px) { .nfl-research-sheet { inset:10vh 0 auto;border-radius:22px; }.nfl-app-shell .nfl-player-header { padding:18px 24px; }.nfl-app-shell .nfl-research-tabs { max-width:600px; }.nfl-app-shell .nfl-trends { padding:20px; } }
+@media(min-width:720px) { .nfl-research-sheet { inset:10vh 0 auto;border-radius:22px; }.nfl-app-shell .nfl-player-header { padding:18px 24px; }.nfl-app-shell .nfl-research-tabs { max-width:none; }.nfl-app-shell .nfl-trends { padding:20px; } }
 @media(prefers-reduced-motion:no-preference) { .nfl-research-sheet[open] { animation:nfl-sheet-in .18s ease-out; }@keyframes nfl-sheet-in { from { transform:translateY(25px);opacity:0; }to { transform:translateY(0);opacity:1; } } }
 
 .nfl-research-actions { display:flex;align-items:center;justify-content:space-between;margin:0 0 4px; }
@@ -245,7 +246,7 @@
    and the game-count stepper pushed to opposite ends of the screen. Capping
    it to a comfortable reading width above phone/tablet sizes keeps the
    compact design compact instead of stretching it thin. */
-@media (min-width:820px) { .nfl-app-shell .nfl-research-page { max-width:760px;margin-inline:auto; } }
+@media (min-width:820px) { .nfl-app-shell .nfl-research-page { max-width:980px;margin-inline:auto; } }
 .nfl-app-shell .nfl-tab-content,.nfl-app-shell .nfl-panel-stack { grid-template-columns:minmax(0,1fr);min-width:0; }
 .nfl-app-shell .nfl-panel-stack>* { min-width:0; }
 .nfl-app-shell .nfl-player-header { margin:0 0 4px; }

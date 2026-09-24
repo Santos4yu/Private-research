@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {selectTrendGames,compareTrend,filterOffers,quoteIdentity,opportunityField} from '../src/sports/nfl/trend-data.js';
 import {gameStatValue} from '../src/sports/nfl/nfl-ui-core.js';
+import {gradeTrendChart} from '../src/trend-data.js';
 // All records in this file are explicit test fixtures, never live player data.
 const logs=Array.from({length:6},(_,i)=>({game_id:`mock-${i}`,season:i===5?2026:2025,week:i+1,team_id:'PIT',opponent_team_id:i%2?'ATL':'BAL',is_home:i%2===0,stats:{passing_yards:i*50,attempts:10+i*5,carries:i,targets:i+1,receptions:i,receiving_yards:i*10,rushing_yards:i*5,receiving_tds:0,rushing_tds:0,longest_reception:i*4,prizepicks_fantasy_score:i*2}}));
 test('sample counts add older games; excluding a game refills without mutating source',()=>{
@@ -28,6 +29,11 @@ test('moving line and direction recalculates hits, misses and pushes',()=>{
  assert.equal(compareTrend(logs,'passing_yards',null).hitRate,null);
  assert.equal(compareTrend([],'passing_yards',0).average,null);
  assert.equal(compareTrend([logs[0]],'passing_yards',0).hitRate,null);
+});
+test('shared trend chart grades the selected More or Less direction',()=>{
+ const chart={all:[{value:10},{value:30}]};
+ assert.deepEqual(gradeTrendChart(chart,20,'Over').all.map(row=>row.over),[false,true]);
+ assert.deepEqual(gradeTrendChart(chart,20,'Under').all.map(row=>row.over),[true,false]);
 });
 test('each stat uses its own raw field; incomplete combined totals stay missing',()=>{
  assert.equal(gameStatValue(logs[3],'passing_yards'),150);assert.equal(gameStatValue(logs[3],'rushing_yards'),15);

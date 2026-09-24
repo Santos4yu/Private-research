@@ -138,7 +138,7 @@
 .nfl-prop-selector button small { margin-top: 3px; color: var(--theme-faint, #8c96a6); font-size: 10px; }
 .nfl-prop-selector button.active { border-color: var(--nfl-accent); color: var(--nfl-on-accent); background: linear-gradient(135deg, var(--nfl-accent), color-mix(in srgb, var(--nfl-accent) 65%, #1a3a5c)); box-shadow: 0 8px 20px -6px color-mix(in srgb, var(--nfl-accent) 60%, transparent), inset 0 1px rgba(255, 255, 255, .12); }
 .nfl-prop-selector button.active small { color: color-mix(in srgb, var(--nfl-on-accent) 80%, transparent); }
-.nfl-research-tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; padding: 6px; border: 1px solid var(--nfl-border); border-radius: 17px; background: var(--nfl-surface); }
+.nfl-research-tabs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; padding: 6px; border: 1px solid var(--nfl-border); border-radius: 17px; background: var(--nfl-surface); }
 .nfl-research-tabs button { display: grid; place-items: center; gap: 5px; min-height: 58px; padding: 7px; border: 0; border-radius: 11px; color: var(--theme-faint, #8c96a6); background: transparent; cursor: pointer; }
 .nfl-research-tabs button svg { width: 18px; }
 .nfl-research-tabs button span { font-size: 11px; font-weight: 700; }
@@ -175,7 +175,41 @@
 .nfl-loading { display: grid; justify-items: center; gap: 12px; padding: 30px; border: 1px solid var(--nfl-border); border-radius: 18px; color: var(--theme-muted, #adb6c4); background: var(--nfl-surface); }.nfl-loading > div { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: min(100%, 500px); }.nfl-loading i { height: 70px; border-radius: 12px; background: linear-gradient(90deg, #ffffff06, #ffffff10, #ffffff06); background-size: 200%; animation: nfl-shimmer 1.2s infinite; }.nfl-spinner { width: 26px; height: 26px; border: 2px solid #ffffff1b; border-top-color: var(--nfl-blue); border-radius: 50%; animation: nfl-spin .8s linear infinite; }
 @keyframes nfl-spin { to { transform: rotate(360deg); } } @keyframes nfl-shimmer { to { background-position: -200% 0; } }
 
-@media (max-width: 1000px) { .nfl-feature-grid-layout { grid-template-columns: repeat(2, 1fr); }.nfl-recent-row { grid-template-columns: repeat(3, 1fr); }.nfl-stat-grid { grid-template-columns: repeat(3, 1fr); }.nfl-research-tabs { grid-template-columns: repeat(5, minmax(0, 1fr)); }.nfl-context-list { grid-template-columns: repeat(2, 1fr); }.nfl-context-list p:nth-child(2) { border-right: 0; }.nfl-context-list p:nth-child(-n+2) { border-bottom: 1px solid var(--nfl-border); } }
+@media (max-width: 1000px) { .nfl-feature-grid-layout { grid-template-columns: repeat(2, 1fr); }.nfl-recent-row { grid-template-columns: repeat(3, 1fr); }.nfl-stat-grid { grid-template-columns: repeat(3, 1fr); }.nfl-research-tabs { grid-template-columns: repeat(6, minmax(0, 1fr)); }.nfl-context-list { grid-template-columns: repeat(2, 1fr); }.nfl-context-list p:nth-child(2) { border-right: 0; }.nfl-context-list p:nth-child(-n+2) { border-bottom: 1px solid var(--nfl-border); } }
+
+/* NFL defensive research: readable rankings and raw evidence, never an
+   opaque combined matchup verdict. */
+.nfl-defense-page { display:grid;gap:12px; }
+.nfl-defense-card { padding:18px;border:1px solid var(--nfl-border);border-radius:18px;background:linear-gradient(145deg,color-mix(in srgb,var(--nfl-surface) 94%,#253352),var(--nfl-surface));box-shadow:0 14px 34px -30px #000; }
+.nfl-defense-hero { display:flex;align-items:center;justify-content:space-between;gap:18px; }
+.nfl-defense-title { display:flex;align-items:center;gap:13px;min-width:0; }
+.nfl-defense-title>img { object-fit:contain;flex:0 0 auto; }
+.nfl-defense-title svg { color:var(--nfl-accent-soft);flex:0 0 auto; }
+.nfl-defense-title span,.nfl-defense-section-head span { display:block;color:var(--theme-faint,#8c96a6);font:700 10px/1.2 var(--font-mono,monospace);letter-spacing:.14em;text-transform:uppercase; }
+.nfl-defense-title h3,.nfl-defense-section-head h3 { margin:4px 0 0;font-size:18px;color:#f3f7fb; }
+.nfl-defense-title p { margin:4px 0 0;color:var(--theme-muted,#adb6c4);font-size:12px; }
+.nfl-defense-prop { display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end;padding:10px 12px;border:1px solid #344256;border-radius:12px;background:#111827;color:#aeb8c6;font-size:11px; }
+.nfl-defense-prop strong { color:#f4f7fb; }
+.nfl-defense-section-head { display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding-bottom:14px;border-bottom:1px solid var(--nfl-border); }
+.nfl-defense-section-head small { color:#8d99aa;font-size:11px; }
+.nfl-defense-rank-list { display:grid; }
+.nfl-defense-rank-row { display:grid;grid-template-columns:minmax(180px,1.4fr) minmax(120px,1fr) 52px 64px;align-items:center;gap:14px;min-height:72px;border-bottom:1px solid color-mix(in srgb,var(--nfl-border) 72%,transparent); }
+.nfl-defense-rank-row:last-child { border-bottom:0; }
+.nfl-defense-rank-row>div:first-child strong { display:block;font-size:13px;color:#eaf0f7; }
+.nfl-defense-rank-row>div:first-child small { display:block;margin-top:4px;color:#8f9bad;font-size:11px; }
+.nfl-defense-rank-track { height:6px;border-radius:999px;background:linear-gradient(90deg,#22c55e 0 25%,#eab308 48% 55%,#f43f5e 78%);overflow:hidden; }
+.nfl-defense-rank-track i { display:block;height:100%;border-right:3px solid #fff;background:#0d1421aa; }
+.nfl-defense-rank-row>b { color:#f4f7fb;font-size:13px;text-align:right; }
+.nfl-defense-rank-row>span { justify-self:end;padding:5px 8px;border-radius:999px;font:800 9px/1 var(--font-mono,monospace);text-transform:uppercase; }
+.nfl-defense-rank-row>span.tough { color:#6ee7a7;background:#123526; }.nfl-defense-rank-row>span.weak { color:#ff94a3;background:#3a1821; }.nfl-defense-rank-row>span.neutral { color:#f4cf74;background:#382f18; }
+.nfl-defense-metrics { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:14px; }
+.nfl-defense-metrics article { display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:13px;border:1px solid #2d394a;border-radius:12px;background:#121a27; }
+.nfl-defense-metrics article span { color:#b8c2d0;font-size:12px; }.nfl-defense-metrics article strong { color:#f4f7fb;font-size:15px; }.nfl-defense-metrics article small { grid-column:1/-1;color:#78869a;font-size:10px; }
+.nfl-defense-notes { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px; }
+.nfl-defense-notes h4 { display:flex;align-items:center;gap:7px;margin:0 0 8px;font-size:12px; }.nfl-defense-notes p { margin:6px 0;color:#aeb9c7;font-size:12px;line-height:1.45; }
+.nfl-defense-notes>div:first-child h4 { color:#63dca3; }.nfl-defense-notes>div:last-child h4 { color:#ff8e9c; }
+.nfl-defense-footnote,.nfl-defense-empty { margin:0;color:#8491a3;font-size:11px;line-height:1.5; }
+@media(max-width:620px){.nfl-defense-hero{align-items:flex-start;flex-direction:column}.nfl-defense-prop{justify-content:flex-start}.nfl-defense-rank-row{grid-template-columns:minmax(0,1fr) 50px 60px;gap:9px;padding:12px 0}.nfl-defense-rank-track{grid-column:1/-1;grid-row:2}.nfl-defense-rank-row>b{grid-column:2;grid-row:1}.nfl-defense-rank-row>span{grid-column:3;grid-row:1}.nfl-defense-metrics,.nfl-defense-notes{grid-template-columns:1fr}}
 @media (max-width: 640px) {
   .sport-switch-shell { margin-bottom: 14px; }.sport-switch { width: 100%; }.sport-switch button { flex: 1; justify-content: center; min-width: 0; }
   .nfl-home, .nfl-research-page { gap: 16px; }.nfl-home-head { padding-top: 8px; }.nfl-home-head h2 { font-size: 31px; }

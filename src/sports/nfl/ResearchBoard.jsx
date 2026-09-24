@@ -86,7 +86,7 @@ function sortRows(rows,sort){
  // it never silently replaces the validated default order.
  if(!sort)return rows;
  const {key,dir}=sort;
- const value=row=>key==='avg'?row.average:key==='diff'?(row.line?.value!=null?row.average-row.line.value:null):key==='matchup'?row.matchupQuality:row.windows?.[key]?.hitRate;
+ const value=row=>key==='avg'?row.average:key==='diff'?(row.line?.value!=null?(row.average-row.line.value)*(row.line.direction==='UNDER'?-1:1):null):key==='matchup'?row.matchupQuality:row.windows?.[key]?.hitRate;
  return [...rows].sort((a,b)=>{const av=value(a),bv=value(b);if(av==null&&bv==null)return 0;if(av==null)return 1;if(bv==null)return -1;return dir==='asc'?av-bv:bv-av;});
 }
 
@@ -119,11 +119,12 @@ function MatchupCell({row}){
 // identity on each render and defeat the memo entirely.
 const BoardRow=React.memo(function BoardRow({row,players,onOpen}){
  const player=researchPlayer(row,players);
- const diff=row.line?.value!=null?row.average-row.line.value:null;
+ const rawDiff=row.line?.value!=null?row.average-row.line.value:null;
+ const favorableDiff=rawDiff==null?null:rawDiff*(row.line.direction==='UNDER'?-1:1);
  return <tr className={player?'clickable':''} onClick={()=>player&&onOpen(player)}>
   <td className="nfl-board-cell-player"><img src={player?.headshot_url} width="32" height="32" loading="lazy" alt=""/><div><strong>{row.playerName}</strong><small>{row.line.direction==='OVER'?'More':'Less'} {row.line.value} {PROP_LABELS[row.propType]}</small><small className="nfl-board-cell-meta">{row.position} · {row.teamId} vs {row.opponentId}</small></div></td>
   <td className="nfl-board-cell" data-label="Avg"><strong>{Number(row.average.toFixed(1))}</strong></td>
-  <td className="nfl-board-cell" data-label="Diff" data-tone={diff==null?'':diff>0?'good':diff<0?'low':'mid'}>{diff==null?<span className="muted">—</span>:<strong>{`${diff>0?'+':''}${diff.toFixed(1)}`}</strong>}</td>
+  <td className="nfl-board-cell" data-label="Edge" data-tone={favorableDiff==null?'':favorableDiff>0?'good':favorableDiff<0?'low':'mid'}>{rawDiff==null?<span className="muted">—</span>:<strong>{`${rawDiff>0?'+':''}${rawDiff.toFixed(1)}`}</strong>}</td>
   <MatchupCell row={row}/>
   {WINDOW_COLUMNS.map(([key,label])=><WindowCell w={row.windows?.[key]} label={label} key={key}/>)}
  </tr>;

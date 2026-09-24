@@ -31,9 +31,10 @@ export function trendContextKey({ player, stat, teamId, opponent }) {
   return JSON.stringify([player, stat, teamId || '', opponent || '']);
 }
 
-export function gradeTrendChart(chart, line) {
+export function gradeTrendChart(chart, line, side = 'Over') {
+  const isUnder = String(side || '').toLowerCase() === 'under' || String(side || '').toLowerCase() === 'less';
   return Object.fromEntries(Object.entries(chart || {}).map(([key, value]) => [key,
-    Array.isArray(value) ? value.map(game => ({ ...game, over: Number(game.value) > Number(line) })) : value,
+    Array.isArray(value) ? value.map(game => ({ ...game, over: isUnder ? Number(game.value) < Number(line) : Number(game.value) > Number(line) })) : value,
   ]));
 }
 

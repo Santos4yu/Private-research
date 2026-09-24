@@ -2830,7 +2830,7 @@ function gameLogStatCode(stat) {
 }
 
 function regradeGameLog(line) {
-  gameLogState.chart = gradeTrendChart(gameLogState.chart, line);
+  gameLogState.chart = gradeTrendChart(gameLogState.chart, line, gameLogState.side);
 }
 
 function syncGameLogContext({ matchup, status } = {}) {
@@ -3000,7 +3000,8 @@ function requestGameLogDetails(context) {
 function openGameLogModal(p, adapter = MLB_TREND_ADAPTER) {
   trendAdapter = adapter;
   activeFinderProp = p;
-  gameLogState.chart = gradeTrendChart(p.gameLogChart || {}, p.line);
+  gameLogState.side = p.side || "Over";
+  gameLogState.chart = gradeTrendChart(p.gameLogChart || {}, p.line, gameLogState.side);
   if (!gameLogState.chart.all) {
     gameLogState.chart.all = [...(gameLogState.chart.l20 || gameLogState.chart.l15 || gameLogState.chart.l10 || gameLogState.chart.l5 || [])];
   }
@@ -3657,7 +3658,8 @@ window.vortexTrendPanel = {
       }, EXTERNAL_TREND_ADAPTER);
     } else {
       gameLogState.loading = Boolean(config.loading);
-      gameLogState.chart = gradeTrendChart(config.chart || {}, gameLogState.line);
+      gameLogState.side = config.side || "Over";
+      gameLogState.chart = gradeTrendChart(config.chart || {}, gameLogState.line, gameLogState.side);
       if (!gameLogState.chart.all) gameLogState.chart.all = [];
       renderGameLogTabs();
       renderGameLogChart();

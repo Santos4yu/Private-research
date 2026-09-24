@@ -202,9 +202,8 @@ function DepthGroup({ entries, playerId }) {
   </div>;
 }
 
-function LineupPanel({ player, depth, injuries, opponent }) {
+function LineupPanel({ player, depth }) {
   const entries = depth?.data || [];
-  const rows = injuries?.data || [];
   const byPosition = useMemo(() => {
     const groups = new Map();
     for (const entry of entries) {
@@ -216,36 +215,18 @@ function LineupPanel({ player, depth, injuries, opponent }) {
     return LINEUP_POSITIONS.filter((p) => groups.has(p)).map((p) => [p, groups.get(p)]);
   }, [entries]);
   const mine = entries.find((entry) => entry.player_id === player.id);
-  const designated = useMemo(
-    () => rows.filter((row) => OUT_STATUSES.includes(String(row.game_status || '').toUpperCase())),
-    [rows],
-  );
-  const forTeam = (team) => designated.filter((row) => row.team_id === team);
-
-  return <section className="nfl-panel-stack">
+  return <section className="nfl-panel-stack nfl-lineup-page">
     <section className="nfl-chart-card nfl-lineup-card">
-      <div className="nfl-chart-head"><h3>Depth chart</h3><small>{player.team_id || 'Team'} · published order{mine ? ` · ${player.name} is ${mine.position}${mine.rank}` : ''}</small></div>
+      <div className="nfl-chart-head"><div><span>OFFENSIVE PERSONNEL</span><h3>{player.team_id || 'Team'} depth chart</h3></div><small>{mine ? `${player.name} is listed ${mine.position}${mine.rank}` : 'Published team order'}</small></div>
       {depth?.status === 'LOADING' ? <p role="status">Loading depth chart…</p>
         : !byPosition.length ? <p>No published depth chart for this team yet.</p>
         : <div className="nfl-depth-grid">{byPosition.map(([position, list]) => <DepthGroup key={position} entries={list} playerId={player.id} />)}</div>}
-    </section>
-    <section className="nfl-chart-card nfl-lineup-card">
-      <div className="nfl-chart-head"><h3>Injury report</h3><small>Players carrying a game designation this week</small></div>
-      {injuries?.status === 'LOADING' ? <p role="status">Loading injury report…</p>
-        : !designated.length ? <p>No player on either team carries a designation this week.</p>
-        : <div className="nfl-lineup-teams">{[player.team_id, opponent].filter(Boolean).map((team) => <div key={team}>
-            <span className="nfl-depth-position">{team}</span>
-            {!forTeam(team).length ? <p>No designations.</p> : <ul className="nfl-injury-rows">{forTeam(team).map((row) => <li key={row.player_id}>
-              <span className={`nfl-injury-status ${statusTone(row.game_status)}`}>{row.game_status}</span>
-              <strong>{row.player_name}</strong><small>{row.position}{row.injury ? ` · ${row.injury}` : ''}</small>
-            </li>)}</ul>}
-          </div>)}</div>}
     </section>
   </section>;
 }
 
 const TAB_ITEMS = [
-  ['trend','Trends',TrendingUp], ['matchup','Matchup',Crosshair], ['lineup','Lineup',Users], ['opportunity','Usage',Activity], ['context','Details',CircleGauge],
+  ['trend','Trends',TrendingUp], ['opportunity','Usage',Activity], ['lineup','Lineup',Users], ['injuries','Injuries',HeartPulse], ['matchup','Defense',Shield], ['game','Game',CalendarDays],
 ];
 
 function Stat({ label, value, suffix = '', unavailable = false }) {
@@ -381,7 +362,7 @@ function NFLPlayerResearch({ player, teams, schedules, onBack }) {
   }, [player.id, nextGame?.week, selectedProp.key, refreshKey]);
 
   useEffect(() => {
-    if (tab !== 'context') return;
+    if (tab !== 'game') return;
     let active = true;
     setResources((current) => ({ ...current, projection: { status: 'LOADING' } }));
     getNFL('projection', { playerId: player.id, week: nextGame?.week, prop: selectedProp.key }).then((projection) => {
@@ -473,8 +454,9 @@ function NFLPlayerResearch({ player, teams, schedules, onBack }) {
       </div>}
       {tab === 'opportunity' && <section className="nfl-panel-stack"><HistoricalRolePanel player={player} logs={logs} usage={resources.usage} /><details className="nfl-chart-card nfl-usage-app"><summary>Upcoming opportunity estimate</summary><OpportunityPanel opportunity={resources.opportunity} /></details></section>}
       {tab === 'matchup' && <NFLMatchupPanel resource={resources.matchup} selectedProp={selectedProp} />}
-      {tab === 'lineup' && <LineupPanel player={player} depth={resources.depth} injuries={resources.injuries} opponent={matchup?.opponent?.id} />}
-      {tab === 'context' && <section className="nfl-panel-stack"><details className="nfl-chart-card"><summary>Model estimate</summary><OverviewPanel selectedProp={selectedProp} logs={logs} projection={resources.projection}/><NFLDistributionPanel resource={resources.distribution} propKey={selectedProp.key} quote={analyzedLine}/></details><details className="nfl-chart-card" open><summary>Opponent statistics</summary><OpponentPanel defense={resources.defense} opponent={matchup?.opponent}/></details><details className="nfl-chart-card"><summary>Game information</summary><EnvironmentPanel game={nextGame} player={player}/></details><details className="nfl-chart-card"><summary>Injuries</summary><InjuriesPanel injuries={resources.injuries}/></details><details className="nfl-chart-card"><summary>Data health</summary><HealthPanel player={player} resources={resources} quote={analyzedLine}/></details></section>}
+      {tab === 'lineup' && <LineupPanel player={player} depth={resources.depth} />}
+      {tab === 'injuries' && <InjuriesPanel injuries={resources.injuries} />}
+      {tab === 'game' && <section className="nfl-panel-stack"><EnvironmentPanel game={nextGame} player={player}/><details className="nfl-chart-card"><summary>Data freshness and availability</summary><HealthPanel player={player} resources={resources} quote={analyzedLine}/></details></section>}
     </div>}
   </div>;
 }
