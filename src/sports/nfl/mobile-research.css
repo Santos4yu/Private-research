@@ -186,7 +186,11 @@
 .nfl-board-cell[data-tone="low"] { background:linear-gradient(0deg,#ef444426,transparent); color:#f7a1ab; border-bottom:2px solid #c86171; }
 .nfl-board-cell[data-tone] strong,.nfl-board-cell[data-tone] small { color:inherit; }
 .nfl-board-cell[data-tone] small { opacity:.75; }
-.nfl-board-filterbar { position:relative;z-index:8;display:flex;align-items:center;gap:8px;min-width:0;padding:8px;border:1px solid #303c51;border-radius:16px;background:linear-gradient(180deg,#151d2e,#111827);box-shadow:0 14px 36px -30px #000; }
+.nfl-finder-topline { display:grid;grid-template-columns:minmax(260px,1fr) minmax(250px,.45fr);gap:8px; }
+.nfl-finder-search,.nfl-platform-summary { min-height:48px;border:1px solid #303c51;border-radius:13px;background:#182238; }
+.nfl-finder-search { display:flex;align-items:center;gap:10px;padding:0 14px;color:#8290a6; }.nfl-finder-search svg { width:17px; }.nfl-finder-search input { min-width:0;flex:1;border:0;outline:0;background:transparent;color:#fff;font:600 14px var(--font-sans,system-ui); }.nfl-finder-search input::placeholder { color:#8290a6; }
+.nfl-platform-summary { display:grid;grid-template-columns:auto 1fr;grid-template-rows:1fr 1fr;column-gap:9px;align-items:center;padding:7px 13px; }.nfl-platform-summary img { grid-row:1/3;width:26px;height:26px;object-fit:contain; }.nfl-platform-summary span { align-self:end;color:#fff;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.03em; }.nfl-platform-summary small { align-self:start;color:#8592a7;font-size:10px; }
+.nfl-board-filterbar { position:relative;z-index:8;display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0;padding:8px;border:1px solid #303c51;border-radius:16px;background:linear-gradient(180deg,#151d2e,#111827);box-shadow:0 14px 36px -30px #000; }
 .nfl-filter-menu { position:relative;min-width:0; }
 .nfl-filter-trigger,.nfl-filter-reset { display:flex;align-items:center;gap:8px;min-height:44px;padding:0 13px;border:1px solid #303c51;border-radius:11px;background:#1a2336;color:#b7c1d0;font:700 12px/1 var(--font-sans,system-ui);cursor:pointer;transition:border-color 140ms ease,background-color 140ms ease,color 140ms ease; }
 .nfl-filter-trigger:hover,.nfl-filter-trigger[aria-expanded=true] { border-color:#53627d;background:#202c43;color:#f5f7fb; }
@@ -213,11 +217,13 @@
 .nfl-filter-popover footer button:disabled { opacity:.4;cursor:not-allowed; }
 .nfl-game-filter-option { display:grid!important;grid-template-columns:1fr auto 1fr auto;align-items:center;gap:7px;width:100%; }
 .nfl-game-filter-option>span { display:flex;align-items:center;gap:6px; }.nfl-game-filter-option img { width:22px;height:22px;object-fit:contain; }.nfl-game-filter-option em { color:#7e8ca1;font-style:normal; }.nfl-game-filter-option small { margin:0!important;padding:5px 7px;border-radius:7px;background:#1d2940;white-space:nowrap; }
+.nfl-team-filter-option { display:flex!important;align-items:center;gap:10px; }.nfl-team-filter-option img { width:27px;height:27px;object-fit:contain; }
 .nfl-hit-rate-popover { width:min(390px,calc(100vw - 32px)); }
 .nfl-filter-popover-title { display:flex;align-items:start;justify-content:space-between;gap:12px;padding:4px 3px 11px; }.nfl-filter-popover-title strong,.nfl-filter-popover-title small { display:block; }.nfl-filter-popover-title small { margin-top:5px;color:#8491a6;font-size:11px; }.nfl-filter-popover-title>button { border:0;border-radius:8px;background:#202a3e;color:#dce4ef;padding:8px 10px;cursor:pointer; }
 .nfl-hit-window,.nfl-hit-presets { display:grid;grid-template-columns:repeat(5,1fr);gap:5px;padding:5px;border:1px solid #28364d;border-radius:11px;background:#121a2d; }.nfl-hit-window button,.nfl-hit-presets button { min-height:44px;border:0;border-radius:8px;background:transparent;color:#8f9bb0;font-weight:750;cursor:pointer; }.nfl-hit-window button.active,.nfl-hit-window button:hover,.nfl-hit-presets button:hover { background:#293653;color:#fff; }
 .nfl-hit-fields { display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:10px 0; }.nfl-hit-fields label { color:#8d9aaf;font-size:11px; }.nfl-hit-fields input { width:100%;height:43px;margin-top:5px;padding:0 12px;border:1px solid #2d3a51;border-radius:9px;background:#182137;color:#fff;font:700 13px var(--font-mono,monospace); }
 .nfl-hit-presets { grid-template-columns:repeat(4,1fr);border:0;padding:0;background:transparent; }.nfl-hit-presets button { background:#172138; }
+.nfl-board-pagination { display:flex;align-items:center;justify-content:center;gap:8px;padding:12px; }.nfl-board-pagination>button { display:grid;place-items:center;width:38px;height:38px;border:1px solid #303c51;border-radius:10px;background:#182238;color:#dbe4f0;cursor:pointer; }.nfl-board-pagination>button:disabled { opacity:.35;cursor:not-allowed; }.nfl-board-pagination svg { width:16px; }.nfl-board-pagination>span { padding:0 8px;color:#95a2b5;font-size:12px; }.nfl-board-pagination>span b { color:#fff; }.nfl-board-pagination label { display:flex;align-items:center;gap:7px;margin-left:10px;color:#8996aa;font-size:11px; }.nfl-board-pagination select { height:38px;padding:0 28px 0 10px;border:1px solid #303c51;border-radius:10px;background:#182238;color:#fff;font-weight:700; }
 /* Below this width the table stops scrolling sideways and turns into a
    stack of cards instead -- ported from the MLB finder's own mobile
    layout (src/prop-finder.css's #pitcher-finder .pitcher-table media
@@ -229,7 +235,7 @@
    L20/H2H), so this uses a plain wrapping grid instead of MLB's exact
    7-column nth-child reorder, which only made sense for its column count. */
 @media(max-width:700px){
-  .nfl-board-filterbar { overflow-x:auto;padding:7px;scrollbar-width:none; }.nfl-board-filterbar::-webkit-scrollbar { display:none; }.nfl-filter-trigger { white-space:nowrap; }.nfl-filter-reset { margin-left:0;white-space:nowrap; }.nfl-filter-popover { position:fixed;left:12px;right:12px;top:auto;bottom:calc(76px + env(safe-area-inset-bottom));width:auto;max-height:min(70dvh,620px); }
+  .nfl-finder-topline { grid-template-columns:1fr; }.nfl-platform-summary { display:none; }.nfl-board-filterbar { overflow-x:auto;padding:7px;scrollbar-width:none; }.nfl-board-filterbar::-webkit-scrollbar { display:none; }.nfl-filter-trigger { white-space:nowrap; }.nfl-filter-reset { margin-left:0;white-space:nowrap; }.nfl-filter-popover { position:fixed;left:12px;right:12px;top:auto;bottom:calc(76px + env(safe-area-inset-bottom));width:auto;max-height:min(70dvh,620px); }.nfl-board-pagination { flex-wrap:wrap; }.nfl-board-pagination label { margin-left:0; }
   .nfl-board-table-wrap { overflow:visible;border:0;border-radius:0;background:none; }
   .nfl-board-table { display:block;min-width:0;width:100%; }
   .nfl-board-table thead { display:none; }

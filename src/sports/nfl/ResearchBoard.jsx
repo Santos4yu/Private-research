@@ -1,5 +1,5 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import {RefreshCw,ArrowUpRight,Shield,LayoutGrid,Table2,ArrowUp,ArrowDown,ChevronDown,Search,Users,Swords,ChartNoAxesColumnIncreasing,Check,Target} from 'lucide-react';
+import {RefreshCw,ArrowUpRight,Shield,LayoutGrid,Table2,ArrowUp,ArrowDown,ChevronDown,Search,Users,Swords,ChartNoAxesColumnIncreasing,Check,Target,CalendarDays,ChevronLeft,ChevronRight} from 'lucide-react';
 import {NFL_PROP_DEFINITIONS} from './props';
 import {rankResearch,researchPlayer,LINE_MAX_AGE_MS} from './research-board';
 import {freshness} from './nfl-client';
@@ -124,10 +124,9 @@ const BoardRow=React.memo(function BoardRow({row,players,onOpen}){
 });
 
 function BoardTable({rows,players,onOpen,sort,onSort}){
- const sorted=useMemo(()=>sortRows(rows,sort),[rows,sort]);
  return <div className="nfl-board-table-wrap"><table className="nfl-board-table">
   <thead><tr><th>Player / line</th><SortHeader label="Avg" columnKey="avg" sort={sort} onSort={onSort}/><SortHeader label="Diff" columnKey="diff" sort={sort} onSort={onSort}/>{WINDOW_COLUMNS.map(([key,label])=><SortHeader key={key} label={label} columnKey={key} sort={sort} onSort={onSort}/>)}</tr></thead>
-  <tbody>{sorted.map(row=><BoardRow key={`${row.gameId}.${row.playerId}.${row.propType}`} row={row} players={players} onOpen={onOpen}/>)}</tbody>
+  <tbody>{rows.map(row=><BoardRow key={`${row.gameId}.${row.playerId}.${row.propType}`} row={row} players={players} onOpen={onOpen}/>)}</tbody>
  </table></div>;
 }
 
@@ -161,7 +160,8 @@ export function NFLResearchBoard({load,players,onOpen}) {
  // and, unlike the old 90s, never expires mid-scan.
  const cached=boardCache && Date.now()-boardCache.ts<BOARD_CACHE_TTL ? boardCache : null;
  const [rows,setRows]=useState(()=>cached?.rows || []),[events,setEvents]=useState(()=>cached?.events || []),[progress,setProgress]=useState(null),[error,setError]=useState(''),[failed,setFailed]=useState(0),[refresh,setRefresh]=useState(0);
- const [positions,setPositions]=useState([]),[games,setGames]=useState([]),[props,setProps]=useState([]),[hitWindow,setHitWindow]=useState('l10'),[hitMin,setHitMin]=useState(0),[hitMax,setHitMax]=useState(100),[now,setNow]=useState(Date.now());
+ const [query,setQuery]=useState(''),[positions,setPositions]=useState([]),[games,setGames]=useState([]),[teamsFilter,setTeamsFilter]=useState([]),[dates,setDates]=useState([]),[props,setProps]=useState([]),[hitWindow,setHitWindow]=useState('l10'),[hitMin,setHitMin]=useState(0),[hitMax,setHitMax]=useState(100),[now,setNow]=useState(Date.now());
+ const [page,setPage]=useState(1),[rowsPerPage,setRowsPerPage]=useState(20);
  const [scannedAt,setScannedAt]=useState(cached?cached.ts:null);
  // Table now has its own mobile layout (see the max-width:640px block in
  // mobile-research.css, ported from the MLB finder's card treatment), so
@@ -248,34 +248,47 @@ export function NFLResearchBoard({load,players,onOpen}) {
  const ranked=useMemo(()=>rankResearch(rows,{now,maxAge:snapshotAt?Infinity:LINE_MAX_AGE_MS}).filter(row=>{
   if(positions.length&&!positions.includes(row.position))return false;
   if(games.length&&!games.includes(row.gameId))return false;
+  if(teamsFilter.length&&!teamsFilter.some(team=>team===row.teamId||team===row.opponentId))return false;
+  if(dates.length&&!dates.includes(new Date(row.startsAt).toLocaleDateString('en-CA')))return false;
   if(props.length&&!props.includes(row.propType))return false;
+  if(query.trim()&&!row.playerName.toLowerCase().includes(query.trim().toLowerCase()))return false;
   const rate=row.windows?.[hitWindow]?.hitRate;
   if(rate==null)return hitWindow==='l10'&&hitMin===0&&hitMax===100;
   return rate>=hitMin&&rate<=hitMax;
- }),[rows,positions,games,props,hitWindow,hitMin,hitMax,now,snapshotAt]);
+ }),[rows,query,positions,games,teamsFilter,dates,props,hitWindow,hitMin,hitMax,now,snapshotAt]);
  const positionOptions=['QB','RB','WR','TE'].map(value=>({value,label:value,search:value}));
  const gameOptions=events.map(event=>({value:event.gameId,label:`${event.awayTeamId} @ ${event.homeTeamId}`,detail:new Date(event.startsAt).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'}),search:`${event.awayTeamId} ${event.homeTeamId}`}));
+ const teamOptions=[...new Set(events.flatMap(event=>[event.awayTeamId,event.homeTeamId]))].sort().map(value=>({value,label:value,search:value}));
+ const dateOptions=[...new Map(events.map(event=>{const value=new Date(event.startsAt).toLocaleDateString('en-CA');return [value,{value,label:new Date(event.startsAt).toLocaleDateString([],{weekday:'long',month:'short',day:'numeric'}),search:value}]})).values()];
  const propOptions=NFL_PROP_DEFINITIONS.map(item=>({value:item.key,label:item.label,search:item.label}));
- const filterCount=positions.length+games.length+props.length+(hitMin>0||hitMax<100||hitWindow!=='l10'?1:0);
+ const filterCount=positions.length+games.length+teamsFilter.length+dates.length+props.length+(hitMin>0||hitMax<100||hitWindow!=='l10'?1:0);
+ const ordered=useMemo(()=>sortRows(ranked,sort),[ranked,sort]);
+ const pageCount=Math.max(1,Math.ceil(ordered.length/rowsPerPage));
+ const paged=ordered.slice((Math.min(page,pageCount)-1)*rowsPerPage,Math.min(page,pageCount)*rowsPerPage);
+ useEffect(()=>setPage(1),[query,positions,games,teamsFilter,dates,props,hitWindow,hitMin,hitMax,sort,rowsPerPage]);
  return <section className="nfl-discovery" aria-label="NFL props board">
   <header><div><h2>NFL props</h2><p>PrizePicks · Next 7 days</p></div><div className="nfl-board-view-toggle" role="group" aria-label="Board layout"><button type="button" aria-pressed={view==='cards'} onClick={()=>setView('cards')} aria-label="Card view"><LayoutGrid size={16}/></button><button type="button" aria-pressed={view==='table'} onClick={()=>setView('table')} aria-label="Table view"><Table2 size={16}/></button></div><button type="button" className="nfl-refresh" disabled={!!progress} aria-label="Refresh NFL props board" onClick={()=>setRefresh(n=>n+1)}><RefreshCw size={18}/></button></header>
+  <div className="nfl-finder-topline"><label className="nfl-finder-search"><Search/><span className="sr-only">Search players</span><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search players…"/></label><div className="nfl-platform-summary"><img src="/prizepicks/logo.png" alt=""/><span>PrizePicks fixed</span><small>Verified standard lines</small></div></div>
   <div className="nfl-board-filterbar" aria-label="NFL prop filters">
    <FilterMenu label="Positions" Icon={Users} options={positionOptions} selected={positions} onToggle={value=>toggle(setPositions,value)}/>
    <FilterMenu label="Stats" Icon={Target} options={propOptions} selected={props} onToggle={value=>toggle(setProps,value)}/>
    <FilterMenu label="Games" Icon={Swords} options={gameOptions} selected={games} onToggle={value=>toggle(setGames,value)} renderOption={option=>{const event=events.find(item=>item.gameId===option.value);return <span className="nfl-game-filter-option"><span><img src={teamLogoUrl(event?.awayTeamId)} alt=""/><strong>{event?.awayTeamId}</strong></span><em>@</em><span><img src={teamLogoUrl(event?.homeTeamId)} alt=""/><strong>{event?.homeTeamId}</strong></span><small>{option.detail}</small></span>;}}/>
+   <FilterMenu label="Teams" Icon={Shield} options={teamOptions} selected={teamsFilter} onToggle={value=>toggle(setTeamsFilter,value)} renderOption={option=><span className="nfl-team-filter-option"><img src={teamLogoUrl(option.value)} alt=""/><strong>{option.label}</strong></span>}/>
+   <FilterMenu label="Date" Icon={CalendarDays} options={dateOptions} selected={dates} onToggle={value=>toggle(setDates,value)}/>
    <HitRateMenu windowKey={hitWindow} setWindowKey={setHitWindow} min={hitMin} setMin={setHitMin} max={hitMax} setMax={setHitMax}/>
-   {filterCount>0&&<button type="button" className="nfl-filter-reset" onClick={()=>{setPositions([]);setGames([]);setProps([]);setHitWindow('l10');setHitMin(0);setHitMax(100);}}><X/>Clear all <b>{filterCount}</b></button>}
+   {filterCount>0&&<button type="button" className="nfl-filter-reset" onClick={()=>{setPositions([]);setGames([]);setTeamsFilter([]);setDates([]);setProps([]);setHitWindow('l10');setHitMin(0);setHitMax(100);}}><X/>Clear all <b>{filterCount}</b></button>}
   </div>
   {(progress||failed>0||scannedAt||snapshotAt||loadingBoard||boardReason)&&<div role="status" className="nfl-board-caption">{loadingBoard&&!progress&&'Loading props…'}{progress&&(progress.total?`Checking ${progress.done} of ${progress.total} games…`:'Finding games…')}{!progress&&scannedAt&&`${ranked.length} props · ${freshness(new Date(scannedAt).toISOString(),now,LINE_MAX_AGE_MS)}`}{!scannedAt&&snapshotAt&&`${ranked.length} props · lines as of ${new Date(snapshotAt).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'})}${progress?' · refreshing':''}`}{failed>0&&`${progress||scannedAt?' · ':''}${failed} games could not load`}{boardReason&&!ranked.length&&` · prebuilt board unavailable (${boardReason})`}</div>}
   {error&&<p role="alert">{error}</p>}
   {!progress&&!loadingBoard&&!ranked.length&&!error&&<div className="nfl-chart-card">No fresh props match this view. Try another filter or refresh. Players remain available in Research.</div>}
-  {view==='table'?<BoardTable rows={ranked} players={players} onOpen={onOpen} sort={sort} onSort={onSort}/>:
-  <div className="nfl-discovery-grid">{ranked.map(row=>{const player=researchPlayer(row,players);return <button type="button" className="nfl-discovery-card" key={`${row.gameId}.${row.playerId}.${row.propType}`} disabled={!player} onClick={()=>onOpen(player)}>
+  {view==='table'?<BoardTable rows={paged} players={players} onOpen={onOpen} sort={sort} onSort={onSort}/>:
+  <div className="nfl-discovery-grid">{paged.map(row=>{const player=researchPlayer(row,players);return <button type="button" className="nfl-discovery-card" key={`${row.gameId}.${row.playerId}.${row.propType}`} disabled={!player} onClick={()=>onOpen(player)}>
    <div className="nfl-discovery-identity">{player?.headshot_url&&<img src={player.headshot_url} width="64" height="64" loading="lazy" decoding="async" alt={`${row.playerName} headshot`}/>}<div><strong>{row.playerName}</strong><small>{row.position} · {row.teamId} vs {row.opponentId} · {new Date(row.startsAt).toLocaleDateString([],{weekday:'short'})}</small></div><ArrowUpRight size={18}/></div>
    <div className="nfl-discovery-line"><img src="/prizepicks/logo.png" width="22" height="22" alt="PrizePicks"/><strong>{row.line.direction==='OVER'?'More':'Less'} {row.line.value} {PROP_LABELS[row.propType]}</strong></div>
    <div className="nfl-discovery-stats"><span>Last {row.recentSample}<b>{row.recentHits}/{row.recentDecisions} hit</b></span><span>Sample<b>{row.hits}/{row.decisions} hit</b></span><span>Average<b>{Number(row.average.toFixed(1))}</b></span></div>
    {row.opponentVolume && <div className={`nfl-discovery-volume ${row.opponentVolume.score>=60?'good':row.opponentVolume.score<=40?'bad':'mid'}`}><Shield size={14}/><span>{row.opponentVolume.label}: {row.opponentVolume.score}th percentile vs league</span></div>}
    <small className="nfl-board-caption">{row.seasons.join(' / ')} · {row.sample} games{row.pushes?` · ${row.pushes} pushes`:''} · {row.injuryReportAvailable?'Open research':'Injury report unavailable'}</small>
   </button>;})}</div>}
+  {ordered.length>0&&<nav className="nfl-board-pagination" aria-label="NFL props pages"><button type="button" onClick={()=>setPage(value=>Math.max(1,value-1))} disabled={page<=1} aria-label="Previous page"><ChevronLeft/></button><span>Page <b>{Math.min(page,pageCount)}</b> of {pageCount}</span><button type="button" onClick={()=>setPage(value=>Math.min(pageCount,value+1))} disabled={page>=pageCount} aria-label="Next page"><ChevronRight/></button><label>Rows<select value={rowsPerPage} onChange={event=>setRowsPerPage(Number(event.target.value))}><option value="20">20</option><option value="40">40</option><option value="60">60</option></select></label></nav>}
  </section>;
 }
