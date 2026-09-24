@@ -1,5 +1,5 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import {RefreshCw,ArrowUpRight,Shield,LayoutGrid,Table2,ArrowUp,ArrowDown,ChevronDown,Search,Users,Swords,ChartNoAxesColumnIncreasing,Check,Target,CalendarDays,ChevronLeft,ChevronRight} from 'lucide-react';
+import {RefreshCw,ArrowUpRight,Shield,LayoutGrid,Table2,ArrowUp,ArrowDown,ChevronDown,Search,Users,Swords,ChartNoAxesColumnIncreasing,Check,Target,CalendarDays,ChevronLeft,ChevronRight,X} from 'lucide-react';
 import {NFL_PROP_DEFINITIONS} from './props';
 import {rankResearch,researchPlayer,LINE_MAX_AGE_MS} from './research-board';
 import {freshness} from './nfl-client';
