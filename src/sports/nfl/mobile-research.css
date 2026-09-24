@@ -246,7 +246,7 @@
    and the game-count stepper pushed to opposite ends of the screen. Capping
    it to a comfortable reading width above phone/tablet sizes keeps the
    compact design compact instead of stretching it thin. */
-@media (min-width:820px) { .nfl-app-shell .nfl-research-page { max-width:980px;margin-inline:auto; } }
+@media (min-width:820px) and (max-width:1099px) { .nfl-app-shell .nfl-research-page { max-width:980px;margin-inline:auto; } }
 .nfl-app-shell .nfl-tab-content,.nfl-app-shell .nfl-panel-stack { grid-template-columns:minmax(0,1fr);min-width:0; }
 .nfl-app-shell .nfl-panel-stack>* { min-width:0; }
 .nfl-app-shell .nfl-player-header { margin:0 0 4px; }
