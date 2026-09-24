@@ -124,6 +124,12 @@
 :root[data-theme] #gamelog-overlay .gamelog-odds-name { max-width: 70px; font-size: 12px; }
 :root[data-theme] #gamelog-overlay .gamelog-odds-values { gap: 3px; font-size: 13px; }
 :root[data-theme] #gamelog-overlay .gamelog-odds-values b { color: var(--kd-muted); font-size: 11px; }
+:root[data-theme] #gamelog-overlay .posted-line-books { display:inline-flex;align-items:center;isolation:isolate; }
+:root[data-theme] #gamelog-overlay .posted-line-books img,
+:root[data-theme] #gamelog-overlay .posted-line-books i { width:18px;height:18px;margin-left:-4px;border:2px solid #111827;border-radius:50%;object-fit:contain;background:#fff; }
+:root[data-theme] #gamelog-overlay .posted-line-books img:first-child,
+:root[data-theme] #gamelog-overlay .posted-line-books i:first-child { margin-left:0; }
+:root[data-theme] #gamelog-overlay .posted-line-books i { display:grid;place-items:center;color:#101827;font:800 7px/1 system-ui;font-style:normal; }
 :root[data-theme] #gamelog-overlay .gamelog-stat-tabs {
   order: 1;
   flex: 0 0 auto;

@@ -217,6 +217,22 @@ function imageIcon(src, label = '') {
 }
 const PP_LOGO_ICON = imageIcon('/prizepicks/logo.png', 'PrizePicks');
 const PP_TIER_ICON = { GOBLIN: imageIcon('/prizepicks/goblin.png', 'Goblin'), DEMON: imageIcon('/prizepicks/demon.png', 'Demon') };
+const BOOK_ICON_SRC = {
+  prizepicks: '/prizepicks/logo.png',
+  draftkings: '/sportsbooks/draftkings.png',
+  draftkings_pick6: '/sportsbooks/dkpick6.png',
+  fanduel: '/sportsbooks/fanduel.png',
+  betmgm: '/sportsbooks/betmgm.png',
+  underdog: '/sportsbooks/underdog.png',
+  underdogfantasy: '/sportsbooks/underdog.png',
+};
+const BOOK_NAME = { prizepicks: 'PrizePicks', draftkings: 'DraftKings', draftkings_pick6: 'DK Pick6', fanduel: 'FanDuel', betmgm: 'BetMGM', underdog: 'Underdog', underdogfantasy: 'Underdog' };
+function LineBookMarks({ books = [], size = 16 }) {
+  const unique = [...new Set(books)].slice(0, 4);
+  return <span className="posted-line-books" aria-label={unique.map(book => BOOK_NAME[book] || book).join(', ')}>{unique.map(book => BOOK_ICON_SRC[book]
+    ? <img key={book} src={BOOK_ICON_SRC[book]} width={size} height={size} alt={BOOK_NAME[book] || book} />
+    : <i key={book}>{String(book).slice(0, 2).toUpperCase()}</i>)}</span>;
+}
 // Only Goblin and Demon have an icon, so STANDARD and ALT rows rendered
 // identically -- value plus the PrizePicks mark -- and there was no way to
 // tell the regular posted line from an alternate. Every row is PrizePicks
@@ -235,18 +251,22 @@ function AltLinesSelectHost({ controllerRef, onPick, canAdjustLine = false }) {
   controllerRef.current = { setLines, setValue, setStatus };
   const ready = status === 'ready' && lines.length > 0;
   const current = ready ? lines.find((line) => String(line.value) === String(value)) : null;
+  const isMultiBook = Boolean(lines.some(line => line.books?.some(book => book !== 'prizepicks')));
   const placeholder = status === 'loading' ? 'Loading…' : status === 'error' ? 'Unavailable' : ready ? 'Lines' : 'No lines';
   const lineHint = canAdjustLine ? ' You can still adjust the research line with the minus and plus buttons.' : '';
   const description = status === 'loading'
-    ? `Loading PrizePicks lines.${lineHint}`
+    ? `Loading posted lines.${lineHint}`
     : status === 'error'
-      ? `PrizePicks lines are unavailable.${lineHint}`
-      : ready ? 'Choose a posted PrizePicks line.' : `No PrizePicks lines are posted for this stat.${lineHint}`;
+      ? `Posted lines are unavailable.${lineHint}`
+      : ready ? 'Choose a posted line from the available books.' : `No lines are posted for this stat.${lineHint}`;
+  const TriggerIcon = current?.books?.length
+    ? ({ size = 16 }) => <LineBookMarks books={current.books} size={size} />
+    : (PP_TIER_ICON[current?.tier] ?? PP_LOGO_ICON);
   return (
     <Select key={status} value={current ? String(current.value) : ''} onValueChange={(next) => {
       if (ready && lines.some((line) => String(line.value) === next)) onPick(next);
     }} disabled={!ready}>
-      <SelectTrigger icon={current ? (PP_TIER_ICON[current.tier] ?? PP_LOGO_ICON) : PP_LOGO_ICON} placeholder={placeholder} aria-label={`PrizePicks lines: ${current ? `${current.value} ${PP_TIER_LABEL[current.tier] || 'Alt'}` : placeholder}`} title={description} aria-busy={status === 'loading'} />
+      <SelectTrigger icon={TriggerIcon} placeholder={placeholder} aria-label={`${isMultiBook ? 'Sportsbook' : 'PrizePicks'} lines: ${current ? `${current.value} ${PP_TIER_LABEL[current.tier] || 'Alt'}` : placeholder}`} title={description} aria-busy={status === 'loading'} />
       <SelectContent>
         {(ready ? lines : []).map((line, index) => {
           const TierIcon = PP_TIER_ICON[line.tier];
@@ -254,9 +274,9 @@ function AltLinesSelectHost({ controllerRef, onPick, canAdjustLine = false }) {
             <SelectItem key={line.value} index={index} value={String(line.value)}>
               <span className="pp-select-line-row">
                 <span className="pp-select-line-value">{line.value}</span>
-                {TierIcon && <TierIcon size={14} />}
+                {line.books?.length ? <LineBookMarks books={line.books} size={14} /> : TierIcon && <TierIcon size={14} />}
                 <span className={`pp-select-line-tier is-${String(line.tier || 'alt').toLowerCase()}`}>
-                  {PP_TIER_LABEL[line.tier] || 'Alt'}
+                  {line.books?.length ? `${new Set(line.books.map(book => BOOK_NAME[book] || book)).size} ${new Set(line.books.map(book => BOOK_NAME[book] || book)).size === 1 ? 'book' : 'books'}` : PP_TIER_LABEL[line.tier] || 'Alt'}
                 </span>
               </span>
             </SelectItem>

@@ -161,7 +161,8 @@
   .nfl-context-tabs button.active { color:#f7f9fc;border-color:#465474;background:linear-gradient(145deg,#283451,#202940);box-shadow:inset 0 1px #ffffff12; }
   .nfl-context-tabs svg { width:17px;height:17px; }
   .nfl-context-tabs span { max-width:100%;overflow:hidden;text-overflow:ellipsis;font-size:10px;font-weight:750;white-space:nowrap; }
-  .nfl-context-dock-body { min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:12px;scrollbar-width:thin;scrollbar-color:#44516a transparent; }
+  .nfl-context-dock-body { min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:12px;scrollbar-width:thin;scrollbar-color:#44516a transparent;contain:layout paint; }
+  .nfl-context-dock-body>.nfl-panel-stack,.nfl-context-dock-body>.nfl-defense-page { content-visibility:auto;contain-intrinsic-size:600px; }
   .nfl-context-dock-body>.nfl-panel-stack,.nfl-context-dock-body>.nfl-defense-page { gap:10px; }
   .nfl-context-dock-body .nfl-chart-card,.nfl-context-dock-body .nfl-defense-card,.nfl-context-dock-body .nfl-injury-unit { min-height:0;border-radius:14px; }
   .nfl-context-dock-body .nfl-defense-card { padding:14px; }

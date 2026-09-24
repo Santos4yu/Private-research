@@ -1,5 +1,5 @@
 import {siteSportAllowed} from '../../site-access';
-import {NFLResearchBoard, prefetchNFLBoard} from './ResearchBoard';
+import {NFLResearchBoard} from './ResearchBoard';
 import './mobile-research.css';
 import {ResearchSheet,SheetSelect} from './ResearchSheet';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -11,8 +11,6 @@ import {
 import { getSelectedSport, setSelectedSport } from '../sport-state';
 import { NFL_PROP_DEFINITIONS } from './props';
 import { NFLMatchupPanel } from './MatchupPanel';
-import { NFLProjectionPanel } from './ProjectionPanel';
-import { NFLDistributionPanel } from './DistributionPanel';
 import { createNFLClient } from './nfl-client';
 import { freshness } from './nfl-client';
 import { loadNFLHistory, historicalUsage } from './nfl-history';
@@ -338,7 +336,7 @@ function HealthPanel({ player, resources, quote }) {
 }
 
 function NFLPlayerResearch({ player, players, teams, schedules, onBack }) {
-  const [historyMode, setHistoryMode] = useState('recent');
+  const historyMode = 'recent';
   const [analyzedLine,setAnalyzedLine] = useState(player.researchLine || null);
   const [selectedProp, setSelectedProp] = useState(() => {const options=propsForPosition(NFL_PROP_DEFINITIONS, player.position);return options.find(prop=>prop.key===player.researchProp) || options[0];});
   const [tab, setTab] = useState('trend');
@@ -352,33 +350,29 @@ function NFLPlayerResearch({ player, players, teams, schedules, onBack }) {
   const nextGame = requestedGame || selectNextGame(schedules, player.team_id);
   const matchup = visibleGame(nextGame, player.team_id);
   const team = teams.find((item) => item.id === player.team_id);
+  const activeContext = desktopResearch ? contextTab : tab;
 
   useEffect(() => {
     let active = true; setLoading(true); setError('');
-    const opponent = matchup?.opponent?.id;
-    const names = ['logs', 'usage', 'defense', 'injuries'];
-    setResources(current => ({ ...current, ...Object.fromEntries(names.map(name => [name, { status: 'LOADING', data: [] }])) }));
-    Promise.allSettled([
-      loadNFLHistory(getNFL, 'game-logs', { playerId: player.id, seasonType: 'REG' }, SEASON, historyMode),
-      loadNFLHistory(getNFL, 'usage', { playerId: player.id }, SEASON, historyMode),
-      opponent ? loadNFLHistory(getNFL, 'defense', { team: opponent, seasonType: 'REG' }, SEASON, historyMode) : Promise.resolve({ status: 'MISSING', data: [] }),
-      Promise.allSettled([player.team_id, opponent].filter(Boolean).map((teamId) => getNFL('injuries', { team: teamId, week: nextGame?.week }))).then((results) => {
-        const parts = results.filter(item => item.status === 'fulfilled').map(item => item.value);
-        return { status: results.some(item => item.status === 'rejected') ? 'UNRELIABLE' : parts.some(part => part.status === 'AVAILABLE') ? 'AVAILABLE' : 'MISSING', data: parts.flatMap(part => part.data || []), fetchedAt: parts[0]?.fetchedAt };
-      }),
-    ].map((request, index) => request.catch(reason => ({ status: 'UNRELIABLE', data: [], reason: reason.message })).then(result => {
+    setResources(current => ({ ...current, logs: { status: 'LOADING', data: [] } }));
+    loadNFLHistory(getNFL, 'game-logs', { playerId: player.id, seasonType: 'REG' }, SEASON, historyMode)
+      .catch(reason => ({ status: 'UNRELIABLE', data: [], reason: reason.message }))
+      .then(result => {
       if (!active) return;
-      setResources(current => ({ ...current, [names[index]]: result }));
-      if (index === 0) {
-        setLoading(false);
-        if (result.status !== 'AVAILABLE') setError(result.reason || 'Game logs are temporarily unavailable.');
-      }
-    })));
+      setResources(current => ({ ...current, logs: result }));
+      setLoading(false);
+      if (result.status !== 'AVAILABLE') setError(result.reason || 'Game logs are temporarily unavailable.');
+    });
     return () => { active = false; };
-  }, [player.id, player.team_id, matchup?.opponent?.id, nextGame?.week, refreshKey, historyMode]);
+  }, [player.id, refreshKey]);
 
   useEffect(() => {
+    if (activeContext !== 'opportunity') return undefined;
     let active = true;
+    setResources((current) => ({ ...current, usage: { status: 'LOADING', data: [] } }));
+    loadNFLHistory(getNFL, 'usage', { playerId: player.id }, SEASON, historyMode)
+      .then((usage) => { if (active) setResources((current) => ({ ...current, usage })); })
+      .catch((reason) => { if (active) setResources((current) => ({ ...current, usage: { status: 'UNRELIABLE', data: [], reason: reason.message } })); });
     setResources((current) => ({ ...current, opportunity: { status: 'LOADING' } }));
     getNFL('opportunity', { playerId: player.id, week: nextGame?.week }).then((opportunity) => {
       if (active) setResources((current) => ({ ...current, opportunity }));
@@ -386,12 +380,10 @@ function NFLPlayerResearch({ player, players, teams, schedules, onBack }) {
       if (active) setResources((current) => ({ ...current, opportunity: { data: { status: 'NOT_AVAILABLE', reason: 'Required opportunity sources did not load. No estimate has been fabricated.' } } }));
     });
     return () => { active = false; };
-  }, [player.id, nextGame?.week, refreshKey]);
+  }, [activeContext, player.id, nextGame?.week, refreshKey]);
 
   useEffect(() => {
-    // Fetched eagerly (not gated to the Matchup tab) so the edge summary above
-    // the tabs has a score to show as soon as the player opens, not only after
-    // they click into Matchup.
+    if (activeContext !== 'matchup') return undefined;
     let active = true;
     setResources((current) => ({ ...current, matchup: { status: 'LOADING' } }));
     getNFL('matchup', { playerId: player.id, week: nextGame?.week, prop: selectedProp.key }).then((matchup) => {
@@ -400,23 +392,20 @@ function NFLPlayerResearch({ player, players, teams, schedules, onBack }) {
       if (active) setResources((current) => ({ ...current, matchup: { data: { status: 'NOT_AVAILABLE', reason: 'Required matchup sources did not load. No score was fabricated.' } } }));
     });
     return () => { active = false; };
-  }, [player.id, nextGame?.week, selectedProp.key, refreshKey]);
+  }, [activeContext, player.id, nextGame?.week, selectedProp.key, refreshKey]);
 
   useEffect(() => {
-    if (tab !== 'game') return;
+    if (activeContext !== 'injuries') return undefined;
     let active = true;
-    setResources((current) => ({ ...current, projection: { status: 'LOADING' } }));
-    getNFL('projection', { playerId: player.id, week: nextGame?.week, prop: selectedProp.key }).then((projection) => {
-      if (active) setResources((current) => ({ ...current, projection }));
-    }).catch(() => {
-      if (active) setResources((current) => ({ ...current, projection: { data: { status: 'NOT_AVAILABLE', reason: 'Required statistical model inputs did not load. No value was fabricated.' } } }));
+    const opponent = matchup?.opponent?.id;
+    setResources((current) => ({ ...current, injuries: { status: 'LOADING', data: [] } }));
+    Promise.allSettled([player.team_id, opponent].filter(Boolean).map((teamId) => getNFL('injuries', { team: teamId, week: nextGame?.week }))).then((results) => {
+      if (!active) return;
+      const parts = results.filter(item => item.status === 'fulfilled').map(item => item.value);
+      setResources((current) => ({ ...current, injuries: { status: results.some(item => item.status === 'rejected') ? 'UNRELIABLE' : parts.some(part => part.status === 'AVAILABLE') ? 'AVAILABLE' : 'MISSING', data: parts.flatMap(part => part.data || []), fetchedAt: parts[0]?.fetchedAt } }));
     });
-    setResources((current)=>({...current,distribution:{status:'LOADING'}}));
-    getNFL('distribution',{playerId:player.id,week:nextGame?.week,prop:selectedProp.key}).then((distribution)=>{
-      if(active)setResources(current=>({...current,distribution}));
-    }).catch(()=>{if(active)setResources(current=>({...current,distribution:{data:{status:'NOT_AVAILABLE'}}}));});
     return () => { active = false; };
-  }, [tab, player.id, nextGame?.week, selectedProp.key, refreshKey]);
+  }, [activeContext, player.team_id, matchup?.opponent?.id, nextGame?.week, refreshKey]);
 
   useEffect(() => {
     if (selectedProp.key !== 'longest_reception') return;
@@ -436,6 +425,7 @@ function NFLPlayerResearch({ player, players, teams, schedules, onBack }) {
   // The depth chart is published per team and changes rarely, so it is
   // fetched once per team rather than per prop.
   useEffect(() => {
+    if (activeContext !== 'lineup') return undefined;
     if (!player.team_id) return undefined;
     let active = true;
     setResources((current) => ({ ...current, depth: { status: 'LOADING', data: [] } }));
@@ -443,7 +433,7 @@ function NFLPlayerResearch({ player, players, teams, schedules, onBack }) {
       .then(results => { if (active) { const parts=results.filter(item=>item.status==='fulfilled').map(item=>item.value); setResources((current) => ({ ...current, depth:{status:parts.length?'AVAILABLE':'MISSING',data:parts.flatMap(part=>part.data||[]),fetchedAt:parts[0]?.fetchedAt} })); } })
       .catch(() => { if (active) setResources((current) => ({ ...current, depth: { status: 'UNRELIABLE', data: [] } })); });
     return () => { active = false; };
-  }, [player.team_id, matchup?.opponent?.id, refreshKey]);
+  }, [activeContext, player.team_id, matchup?.opponent?.id, refreshKey]);
 
   const [offersBody, setOffersBody] = useState(null);
   useEffect(() => {
@@ -462,10 +452,12 @@ function NFLPlayerResearch({ player, players, teams, schedules, onBack }) {
 
   useEffect(() => {
     if (!offersBody) return;
-    const matches = filterOffers(offersBody.data || [], { prop: selectedProp.key, bookmaker: 'prizepicks', category: 'ALL' });
-    const standard = matches.find((row) => row.line.category === 'STANDARD' && row.direction === 'OVER')
+    const matches = filterOffers(offersBody.data || [], { prop: selectedProp.key, bookmaker: '', category: 'ALL' });
+    const preferred = matches.filter((row) => row.line.bookmaker === 'prizepicks');
+    const pool = preferred.length ? preferred : matches;
+    const standard = pool.find((row) => row.line.category === 'STANDARD' && row.direction === 'OVER')
       || matches.find((row) => row.line.category === 'STANDARD');
-    setAnalyzedLine((standard || matches.find((row) => row.direction === 'OVER') || matches[0])?.line || null);
+    setAnalyzedLine((standard || pool.find((row) => row.direction === 'OVER') || pool[0])?.line || null);
   }, [offersBody, selectedProp.key]);
 
   const props = useMemo(() => propsForPosition(NFL_PROP_DEFINITIONS, player.position), [player.position]);
@@ -485,7 +477,6 @@ function NFLPlayerResearch({ player, players, teams, schedules, onBack }) {
     {selectedProp.key === 'longest_reception' && resources.receptionLogs?.status === 'UNRELIABLE' && <Notice title="Reception lengths temporarily unavailable">Refresh to retry the play-by-play source. Other game statistics remain available.</Notice>}
     {selectedProp.key === 'longest_reception' && resources.receptionLogs?.status === 'LOADING' && <LoadingCards label="Loading reception lengths" />}
     {!(selectedProp.key === 'longest_reception' && resources.receptionLogs?.status === 'LOADING') && <div className="nfl-trend-shell">
-      <section className="nfl-history-control"><label htmlFor="nfl-history-season">History<SheetSelect label="History range" id="nfl-history-season" value={historyMode} onChange={event => setHistoryMode(event.target.value)}><option value="recent">Recent seasons</option><option value="current">{SEASON} only</option><option value="previous">{SEASON - 1} only</option></SheetSelect></label>{!loading && <p>{resources.logs?.history?.label || SEASON} / {logs.length} games</p>}{resources.logs?.reason && <p>{resources.logs.reason}</p>}</section>
       <NFLTrendHost player={player} props={props} logs={logs} offers={propOffers} offersReady={Boolean(offersBody)} selectedProp={selectedProp} quote={analyzedLine} opponent={matchup?.opponent?.id} matchupLabel={matchup ? `${matchup.location === 'HOME' ? 'vs' : '@'} ${matchup.opponent.id}` : 'Matchup pending'} kickoffLabel={nextGame ? new Date(nextGame.starts_at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : 'Time TBA'} status={statusLabel(player.status)} loading={loading} onStat={switchProp} />
     </div>}
   </>;
@@ -517,23 +508,6 @@ export function SportResearch() {
   const [selectedPlayer, setSelectedPlayer] = useState(null); const [loading, setLoading] = useState(false); const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
   const [boardView,setBoardView]=useState(location.pathname==='/props');
-  // The props board's 16-game scan is the slow part, and it used to only
-  // begin when the board mounted -- in full view, counting games. Start it
-  // the moment NFL opens so it is already done (or nearly) by the time the
-  // Props tab is opened. Repeat scans inside the server's 10-minute props
-  // cache cost no Odds API credits, and a failure here is silent: the board
-  // still scans normally when it mounts.
-  useEffect(()=>{
-    if(sport!=='nfl'||!siteSportAllowed('nfl'))return undefined;
-    let active=true;
-    // Ask for the prebuilt board first. If one exists there is nothing to
-    // scan at all -- and this request is also what tells the server to build
-    // one when it finds none, so the next visitor gets it instantly.
-    getNFL('board')
-      .then(result=>{ if(active && !(result?.data||[]).length) prefetchNFLBoard(getNFL); })
-      .catch(()=>{ if(active) prefetchNFLBoard(getNFL); });
-    return ()=>{ active=false; };
-  },[sport,reloadKey]);
   useEffect(()=>{const view=e=>{setBoardView(e.detail.view==='board');if(e.detail.view==='board')setSelectedPlayer(null);};window.addEventListener('vortex:nfl-view',view);return()=>window.removeEventListener('vortex:nfl-view',view);},[]);
   const syncUrl = (nextSport, playerId = null, replace = false) => {
     const url = new URL(location.href); url.searchParams.set('sport', nextSport);

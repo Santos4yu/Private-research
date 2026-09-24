@@ -97,22 +97,17 @@ function offerTier(category) {
 // The posted-line ladder behind the panel's alt-lines Select: one entry per
 // distinct value, tagged with the most specific tier posted at that value.
 export function nflLineLadder(offers) {
-  const tiers = new Map();
+  const lines = new Map();
   for (const row of offers || []) {
     const value = row.line?.value;
     if (!Number.isFinite(value)) continue;
-    // PrizePicks only. This picker is the PrizePicks projection ladder --
-    // the same thing it is on the MLB side -- and it labels every row with
-    // the PrizePicks mark. It was being passed offers from every book, so
-    // DraftKings and FanDuel line values were being presented as PrizePicks
-    // projections. The other books' prices belong in the odds row below,
-    // which still receives all of them.
-    if (row.line.bookmaker !== 'prizepicks') continue;
     const tier = offerTier(row.line.category);
-    const current = tiers.get(value);
-    if (!current || TIER_RANK[tier] > TIER_RANK[current]) tiers.set(value, tier);
+    let current = lines.get(value);
+    if (!current) { current = { value, tier, books: [] }; lines.set(value, current); }
+    if (TIER_RANK[tier] > TIER_RANK[current.tier]) current.tier = tier;
+    if (!current.books.includes(row.line.bookmaker)) current.books.push(row.line.bookmaker);
   }
-  return [...tiers.entries()].sort((a, b) => a[0] - b[0]).map(([value, tier]) => ({ value, tier }));
+  return [...lines.values()].sort((a, b) => a.value - b.value);
 }
 
 // Book quotes per line, keyed by the same bookmaker keys the panel's

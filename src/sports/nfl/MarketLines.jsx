@@ -13,10 +13,10 @@ const BOOKS=[['prizepicks','PrizePicks'],['underdog','Underdog'],['draftkings','
 // colored-letter badge if a given icon ever fails to load.
 const BOOK_BADGE={
   prizepicks:{label:'PP',color:'#7c3aed',icon:'/prizepicks/logo.png'},
-  underdog:{label:'UD',color:'#22c55e',icon:'https://www.google.com/s2/favicons?sz=64&domain=underdogfantasy.com'},
-  draftkings:{label:'DK',color:'#00873c',icon:'https://www.google.com/s2/favicons?sz=64&domain=draftkings.com'},
-  fanduel:{label:'FD',color:'#1493ff',icon:'https://www.google.com/s2/favicons?sz=64&domain=fanduel.com'},
-  betmgm:{label:'MGM',color:'#b8860b',icon:'https://www.google.com/s2/favicons?sz=64&domain=betmgm.com'},
+  underdog:{label:'UD',color:'#22c55e',icon:'/sportsbooks/underdog.png'},
+  draftkings:{label:'DK',color:'#00873c',icon:'/sportsbooks/draftkings.png'},
+  fanduel:{label:'FD',color:'#1493ff',icon:'/sportsbooks/fanduel.png'},
+  betmgm:{label:'MGM',color:'#b8860b',icon:'/sportsbooks/betmgm.png'},
 };
 function BookIcon({bookmaker,size=18}){
   const badge=BOOK_BADGE[bookmaker]||{label:(bookmaker||'?').slice(0,3).toUpperCase(),color:'#5b6b7c'};

@@ -3096,11 +3096,11 @@ async function loadGameLogPostedLines(stat, player = gameLogState.player) {
 // Under number to show.
 const GAMELOG_ODDS_BOOKS = [
   { key: "draftkings", name: "DraftKings", logo: "/sportsbooks/draftkings.png" },
-  { key: "fanduel", name: "FanDuel", logo: null },
-  { key: "betmgm", name: "BetMGM", logo: null },
-  { key: "espnbet", name: "ESPN Bet", logo: null },
-  { key: "underdog", name: "Underdog", logo: null },
-  { key: "underdogfantasy", name: "Underdog", logo: null },
+  { key: "fanduel", name: "FanDuel", logo: "/sportsbooks/fanduel.png" },
+  { key: "betmgm", name: "BetMGM", logo: "/sportsbooks/betmgm.png" },
+  { key: "espnbet", name: "ESPN Bet", logo: "/sportsbooks/espnbet.png" },
+  { key: "underdog", name: "Underdog", logo: "/sportsbooks/underdog.png" },
+  { key: "underdogfantasy", name: "Underdog", logo: "/sportsbooks/underdog.png" },
   { key: "draftkings_pick6", name: "DK Pick6", logo: "/sportsbooks/dkpick6.png" },
   { key: "betrivers", name: "BetRivers", logo: "/sportsbooks/betrivers.png" },
   { key: "williamhill_us", name: "Caesars", logo: "/sportsbooks/caesars.png" },
