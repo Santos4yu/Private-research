@@ -23,7 +23,7 @@ from v2.board import store  # noqa: E402
 import requests  # noqa: E402
 
 SPORT = "basketball_wnba"
-CACHE_KEY = "krazy_data:wnba:v5:finder_board"
+CACHE_KEY = "krazy_data:wnba:v6:finder_board"
 ROSTER_CACHE_KEY = "krazy_data:wnba:v1:roster_directory"
 CACHE_SECONDS = 10 * 60
 ROSTER_CACHE_SECONDS = 6 * 60 * 60
@@ -186,6 +186,36 @@ def _game_logs(player_id, season):
     return result
 
 
+def _window(values, line):
+    decided = [value for value in values if value != line]
+    hits = sum(value > line for value in decided)
+    return {"hitRate": hits / len(decided) * 100 if decided else None, "hits": hits,
+            "misses": len(decided) - hits, "pushes": len(values) - len(decided), "sample": len(values)}
+
+
+def _attach_history(rows, season):
+    player_ids = sorted({row.get("playerId") for row in rows if row.get("playerId")})
+    histories = {}
+    def load(player_id):
+        try: return player_id, _game_logs(player_id, season).get("rows", [])
+        except Exception: return player_id, []
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        for player_id, logs in pool.map(load, player_ids): histories[player_id] = logs
+    for row in rows:
+        logs = histories.get(row.get("playerId"), [])
+        values = [(log.get("values") or {}).get(row["marketKey"]) for log in logs]
+        values = [value for value in values if value is not None]
+        recent = values[-10:]
+        row["average"] = sum(recent) / len(recent) if recent else None
+        row["diff"] = row["average"] - row["line"] if row["average"] is not None else None
+        opponent = row.get("awayTeamAbbr") if row.get("teamAbbr") == row.get("homeTeamAbbr") else row.get("homeTeamAbbr")
+        h2h = [(log.get("values") or {}).get(row["marketKey"]) for log in logs if log.get("opponent") == opponent]
+        h2h = [value for value in h2h if value is not None]
+        row["windows"] = {key: _window(values[-size:], row["line"]) for key, size in (("l5", 5), ("l10", 10), ("l15", 15), ("l20", 20))}
+        row["windows"]["h2h"] = _window(h2h, row["line"])
+    return rows
+
+
 def _board():
     cached = _cached()
     if cached is not None:
@@ -254,6 +284,7 @@ def _board():
                 row["primaryBook"] = row["apps"][0]["key"]
                 rows.append(row)
     rows.sort(key=lambda row: (row["startsAt"], row["player"], row["market"], row["line"]))
+    _attach_history(rows, now.year)
     remaining = event_response.headers.get("x-requests-remaining")
     result = {
         "status": "AVAILABLE", "source": "the-odds-api", "sport": "wnba",
