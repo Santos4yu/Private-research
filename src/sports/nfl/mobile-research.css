@@ -187,8 +187,10 @@
 .nfl-board-cell[data-tone] strong,.nfl-board-cell[data-tone] small { color:inherit; }
 .nfl-board-cell[data-tone] small { opacity:.75; }
 .nfl-finder-topline { display:grid;grid-template-columns:minmax(260px,1fr) minmax(250px,.45fr);gap:8px; }
-.nfl-finder-search,.nfl-platform-summary { min-height:48px;border:1px solid #303c51;border-radius:13px;background:#182238; }
-.nfl-finder-search { display:flex;align-items:center;gap:10px;padding:0 14px;color:#8290a6; }.nfl-finder-search svg { width:17px; }.nfl-finder-search input { min-width:0;flex:1;border:0;outline:0;background:transparent;color:#fff;font:600 14px var(--font-sans,system-ui); }.nfl-finder-search input::placeholder { color:#8290a6; }
+.nfl-finder-search,.nfl-platform-summary { min-height:46px;border:1px solid var(--theme-border);border-radius:12px;background:var(--theme-panel); }
+.nfl-finder-search { display:flex;align-items:center;gap:10px;padding:0 12px;color:var(--theme-dim);transition:border-color 160ms ease,box-shadow 160ms ease; }.nfl-finder-search svg { width:17px;flex:0 0 auto; }.nfl-finder-search:focus-within { border-color:var(--theme-accent);box-shadow:0 0 0 3px var(--theme-accent-dim); }
+:root[data-theme] .nfl-finder-search input,:root[data-theme] .nfl-finder-search input:focus,:root[data-theme] .nfl-finder-search input:focus-visible { min-width:0;width:100%;min-height:44px;flex:1;margin:0;padding:0!important;border:0!important;border-radius:0!important;outline:0!important;box-shadow:none!important;background:transparent!important;color:var(--theme-text)!important;font:inherit;font-size:16px;appearance:none; }
+.nfl-finder-search input::placeholder { color:var(--theme-dim);opacity:1; }
 .nfl-platform-summary { display:grid;grid-template-columns:auto 1fr;grid-template-rows:1fr 1fr;column-gap:9px;align-items:center;padding:7px 13px; }.nfl-platform-summary img { grid-row:1/3;width:26px;height:26px;object-fit:contain; }.nfl-platform-summary span { align-self:end;color:#fff;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.03em; }.nfl-platform-summary small { align-self:start;color:#8592a7;font-size:10px; }
 .nfl-board-filterbar { position:relative;z-index:8;display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0;padding:8px;border:1px solid #303c51;border-radius:16px;background:linear-gradient(180deg,#151d2e,#111827);box-shadow:0 14px 36px -30px #000; }
 .nfl-filter-menu { position:relative;min-width:0; }
