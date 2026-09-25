@@ -8,5 +8,5 @@ export function rankResearch(rows, {position='', game='', prop='', now=Date.now(
 }
 export function researchPlayer(row,players) {
  const player=players.find(p=>p.id===row.playerId);
- return player ? {...player,researchProp:row.propType,researchLine:row.line,researchGameId:row.gameId} : null;
+ return player ? {...player,researchProp:row.propType,researchLine:row.line,researchGameId:row.gameId,researchMatchup:row.matchupContext||null} : null;
 }

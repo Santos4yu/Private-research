@@ -8,9 +8,10 @@ from .services.matchup_data import season_data
 from .history_inputs import compact_history
 from .matchup_volume_context import opponent_volume
 from .matchup import build_matchup
+from .position_defense import position_defense_context
 from .cache import cached_nfl, NFLCacheDomain
 
-VERSION='NFL_RESEARCH_BOARD_V3'
+VERSION='NFL_RESEARCH_BOARD_V4'
 # How old a posted line may be and still be shown.
 #
 # This is measured against the BOOKMAKER's last_update -- when the line
@@ -120,7 +121,15 @@ def attach_matchup_quality(rows,data,week,roster):
         quality=result.get('matchupQuality') if result else None
         coverage=result.get('dataCoverage') if result else None
         if quality is not None and coverage is not None and coverage>=50:
-            enriched.append({**row,'matchupQuality':round(quality),'matchupCoverage':round(coverage)})
+            supported_components={name:value for name,value in (result.get('components') or {}).items() if value.get('contributors')}
+            context={
+                'status':result.get('status'),'opponentId':result.get('opponentId'),'propKey':result.get('propKey'),
+                'matchupQuality':quality,'matchupCertainty':result.get('matchupCertainty'),'dataCoverage':coverage,
+                'components':supported_components,'edges':result.get('edges') or [],'risks':result.get('risks') or [],
+                'positionDefense':position_defense_context(data,roster,row['opponentId'],player.position,week),
+                'fetchedAt':data.get('fetchedAt'),'sampleReliability':result.get('sampleReliability'),
+            }
+            enriched.append({**row,'matchupQuality':round(quality),'matchupCoverage':round(coverage),'matchupContext':context})
         else:
             enriched.append(row)
     return enriched

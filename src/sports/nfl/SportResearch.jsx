@@ -104,7 +104,7 @@ function readRecent() {
 }
 
 function saveRecent(player) {
-  const {researchProp,researchLine,researchGameId,...identity}=player;
+  const {researchProp,researchLine,researchGameId,researchMatchup,...identity}=player;
   const next = [identity, ...readRecent().filter((item) => item.id !== player.id)].slice(0, 6);
   try { localStorage.setItem(NFL_RECENT_KEY, JSON.stringify(next)); } catch { /* Storage can be disabled; research still opens. */ }
   return next;
@@ -354,7 +354,7 @@ function NFLPlayerResearch({ player, players, teams, schedules, onBack }) {
   const [contextTab,setContextTab]=useState('matchup');
   const desktopResearch=useDesktopResearch();
   const [refreshKey, setRefreshKey] = useState(0);
-  const [resources, setResources] = useState({ schedule: { status: 'AVAILABLE', data: schedules } });
+  const [resources, setResources] = useState({ schedule: { status: 'AVAILABLE', data: schedules }, ...(player.researchMatchup?{matchup:{status:'AVAILABLE',data:player.researchMatchup,fetchedAt:player.researchMatchup.fetchedAt}}:{}) });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const requestedGame=schedules.find(game=>game.id===player.researchGameId && visibleGame(game,player.team_id) && game.status!=='FINAL');
@@ -394,7 +394,10 @@ function NFLPlayerResearch({ player, players, teams, schedules, onBack }) {
 
   useEffect(() => {
     let active = true;
-    setResources((current) => ({ ...current, matchup: { status: 'LOADING' } }));
+    // Finder rows already carry this verified compact context. Keep it on
+    // screen while the player endpoint refreshes instead of flashing an
+    // empty loading card for data we just computed on the board.
+    setResources((current) => current.matchup?.data ? current : ({ ...current, matchup: { status: 'LOADING' } }));
     getNFL('matchup', { playerId: player.id, week: nextGame?.week, prop: selectedProp.key }).then((matchup) => {
       if (active) setResources((current) => ({ ...current, matchup }));
     }).catch(() => {
