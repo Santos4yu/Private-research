@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -22,7 +23,7 @@ from v2.board import store  # noqa: E402
 import requests  # noqa: E402
 
 SPORT = "basketball_wnba"
-CACHE_KEY = "krazy_data:wnba:v3:finder_board"
+CACHE_KEY = "krazy_data:wnba:v5:finder_board"
 ROSTER_CACHE_KEY = "krazy_data:wnba:v1:roster_directory"
 CACHE_SECONDS = 10 * 60
 ROSTER_CACHE_SECONDS = 6 * 60 * 60
@@ -139,6 +140,52 @@ def _save(value):
         pass
 
 
+def _number(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _made(value):
+    return _number(str(value or "").split("-", 1)[0])
+
+
+def _game_logs(player_id, season):
+    cache_key = f"krazy_data:wnba:v1:gamelog:{player_id}:{season}"
+    now = time.time()
+    try:
+        raw = store.get(cache_key)
+        envelope = json.loads(raw) if raw else None
+        if envelope and now - float(envelope.get("at", 0)) < 30 * 60:
+            return envelope["value"]
+    except Exception:
+        pass
+    data = _espn_json(f"https://site.web.api.espn.com/apis/common/v3/sports/basketball/wnba/athletes/{player_id}/gamelog?region=us&lang=en&contentorigin=espn&season={season}")
+    names, events = data.get("names", []), data.get("events", {})
+    rows, seen = [], set()
+    for season_type in data.get("seasonTypes", []):
+        for category in season_type.get("categories", []):
+            for item in category.get("events", []):
+                event_id = str(item.get("eventId") or ""); event = events.get(event_id, {})
+                if not event_id or event_id in seen or not event: continue
+                seen.add(event_id); stats = dict(zip(names, item.get("stats", [])))
+                points=_number(stats.get("points")); rebounds=_number(stats.get("totalRebounds")); assists=_number(stats.get("assists")); steals=_number(stats.get("steals")); blocks=_number(stats.get("blocks")); turnovers=_number(stats.get("turnovers"))
+                values={"player_points":points,"player_rebounds":rebounds,"player_assists":assists,"player_threes":_made(stats.get("threePointFieldGoalsMade-threePointFieldGoalsAttempted")),"player_blocks":blocks,"player_steals":steals,"player_turnovers":turnovers,"player_field_goals":_made(stats.get("fieldGoalsMade-fieldGoalsAttempted")),"player_frees_made":_made(stats.get("freeThrowsMade-freeThrowsAttempted"))}
+                if all(v is not None for v in (blocks,steals)): values["player_blocks_steals"]=blocks+steals
+                if all(v is not None for v in (points,rebounds)): values["player_points_rebounds"]=points+rebounds
+                if all(v is not None for v in (points,assists)): values["player_points_assists"]=points+assists
+                if all(v is not None for v in (rebounds,assists)): values["player_rebounds_assists"]=rebounds+assists
+                if all(v is not None for v in (points,rebounds,assists)): values["player_points_rebounds_assists"]=points+rebounds+assists
+                if all(v is not None for v in (points,rebounds,assists,blocks,steals,turnovers)): values["player_fantasy_points"]=round(points+1.2*rebounds+1.5*assists+3*blocks+3*steals-turnovers,1)
+                rows.append({"gameId":event_id,"date":event.get("gameDate"),"season":season,"seasonType":season_type.get("displayName"),"opponent":(event.get("opponent") or {}).get("abbreviation"),"opponentLogo":(event.get("opponent") or {}).get("logo"),"isHome":event.get("atVs")=="vs","result":event.get("gameResult"),"score":event.get("score"),"minutes":_number(stats.get("minutes")),"values":values})
+    rows.sort(key=lambda row: row.get("date") or "")
+    result={"status":"AVAILABLE","source":"espn","playerId":player_id,"season":season,"rows":rows,"fetchedAt":datetime.now(timezone.utc).isoformat()}
+    try: store.set(cache_key,json.dumps({"at":now,"value":result},separators=(",",":")))
+    except Exception: pass
+    return result
+
+
 def _board():
     cached = _cached()
     if cached is not None:
@@ -197,8 +244,11 @@ def _board():
             identity = next((item for item in identities if item["team"] in (row["homeTeam"], row["awayTeam"])), identities[0] if len(identities) == 1 else None)
             if identity:
                 row.update({key: identity.get(key) for key in ("headshot", "position", "team", "teamAbbr", "teamLogo")})
+                row["playerId"] = identity.get("id")
             row["homeTeamLogo"] = (directory["teams"].get(_norm(row["homeTeam"])) or {}).get("logo")
             row["awayTeamLogo"] = (directory["teams"].get(_norm(row["awayTeam"])) or {}).get("logo")
+            row["homeTeamAbbr"] = (directory["teams"].get(_norm(row["homeTeam"])) or {}).get("abbr")
+            row["awayTeamAbbr"] = (directory["teams"].get(_norm(row["awayTeam"])) or {}).get("abbr")
             row["apps"] = sorted(row["apps"].values(), key=lambda app: BOOK_PRIORITY.get(app["key"], 99))
             if row["apps"]:
                 row["primaryBook"] = row["apps"][0]["key"]
@@ -218,7 +268,16 @@ class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if not session_with_live_access(self.headers):
             return _send(self, 401, {"error": "Sign in to use WNBA data.", "authRequired": True})
+        query = parse_qs(urlparse(self.path).query)
+        resource = query.get("resource", ["board"])[0]
         try:
+            if resource == "gamelog":
+                player_id = query.get("playerId", [""])[0].strip()
+                try: season = int(query.get("season", [str(datetime.now(timezone.utc).year)])[0])
+                except ValueError: return _send(self, 400, {"error": "A valid WNBA season is required."})
+                if not player_id.isdigit() or not 2000 <= season <= 2100: return _send(self, 400, {"error": "A verified WNBA player and season are required."})
+                return _send(self, 200, _game_logs(player_id, season))
+            if resource != "board": return _send(self, 404, {"error": "Unknown WNBA resource."})
             return _send(self, 200, _board())
         except RuntimeError as exc:
             return _send(self, 503, {"error": str(exc), "rows": [], "source": "the-odds-api"})
