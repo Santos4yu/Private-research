@@ -49,6 +49,7 @@ ROUTES = {
     "/api/v2-board": _load_handler("v2-board.py"),
     "/api/v2-admin": _load_handler("v2-admin.py"),
     "/api/nfl": _load_handler("nfl.py"),
+    "/api/wnba": _load_handler("wnba.py"),
     "/api/session": _load_handler("session.py"),
 }
 

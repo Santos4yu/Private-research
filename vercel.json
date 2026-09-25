@@ -12,6 +12,9 @@
     "api/nfl.py": {
       "maxDuration": 60
     },
+    "api/wnba.py": {
+      "maxDuration": 60
+    },
     "api/prediction.py": {
       "maxDuration": 60
     },
