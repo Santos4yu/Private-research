@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Layers2 as BarChart3, Ticket as ClipboardList, Radar as FlaskConical, Grid2X2 as MoreHorizontal, Compass as Search } from 'lucide-react';
+import { Layers2 as BarChart3, Ticket as ClipboardList, Grid2X2 as MoreHorizontal, Compass as Search, SearchCheck } from 'lucide-react';
 
 const destinations = [
   { key: 'research', label: 'Research', icon: Search },
+  { key: 'finder', label: 'Finder', icon: SearchCheck },
   { key: 'v2', label: 'Props', icon: BarChart3 },
-  { key: 'slate', label: 'Tools', icon: FlaskConical },
   { key: 'saved', label: 'My Slip', icon: ClipboardList },
 ];
 

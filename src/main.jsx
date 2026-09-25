@@ -9,6 +9,7 @@ import { AdminPinCard } from './AdminPinCard';
 import { MobileNavigation } from './MobileNavigation';
 import { MobileSlipActions } from './MobileSlipActions';
 import { ResearchHome } from './ResearchHome';
+import { UnifiedFinder } from './UnifiedFinder';
 const SportResearch = lazy(() => import('./sports/nfl/SportResearch').then(module => ({ default: module.SportResearch })));
 import { ExpandableTabs } from '../components/ui/expandable-tabs';
 import { ResearchAILoader } from '../components/ui/research-ai-loader';
@@ -86,12 +87,14 @@ if (mobileSlipRoot) createRoot(mobileSlipRoot).render(<MobileSlipActions />);
 const researchHomeRoot = document.getElementById('research-home-root');
 
 const sportResearchRoot = document.getElementById('sport-research-root');
+const unifiedFinderRoot = document.getElementById('unified-finder-root');
 let privateRoots=null;
 function mountPrivateResearch(granted){
  if(granted&&!privateRoots){
-  privateRoots={home:researchHomeRoot?createRoot(researchHomeRoot):null,sport:sportResearchRoot?createRoot(sportResearchRoot):null};
+  privateRoots={home:researchHomeRoot?createRoot(researchHomeRoot):null,sport:sportResearchRoot?createRoot(sportResearchRoot):null,finder:unifiedFinderRoot?createRoot(unifiedFinderRoot):null};
   privateRoots.home?.render(<ResearchHome/>);
   privateRoots.sport?.render(<Suspense fallback={<div role="status">Loading sport research…</div>}><SportResearch/></Suspense>);
+  privateRoots.finder?.render(<UnifiedFinder/>);
  }else if(!granted&&privateRoots){privateRoots.home?.unmount();privateRoots.sport?.unmount();privateRoots=null;}
 }
 window.addEventListener('vortex:site-policy',event=>mountPrivateResearch(event.detail.accessGranted));
