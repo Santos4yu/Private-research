@@ -1,4 +1,5 @@
 import {siteSportAllowed} from '../../site-access';
+import {MLBSearchField} from '../../../components/ui/mlb-search-field';
 import {NFLResearchBoard} from './ResearchBoard';
 import './mobile-research.css';
 import {ResearchSheet,SheetSelect} from './ResearchSheet';
@@ -6,7 +7,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity, AlertTriangle, ArrowLeft, ArrowUpRight, CalendarDays,
   Ban, CheckCircle2, CircleAlert, CircleGauge, CloudSun, Crosshair, Database, Dumbbell, HeartPulse,
-  Home, MapPin, RefreshCw, Search, Shield, ShieldQuestion, Target, TrendingUp, UserRound, Users, Wind,
+  Home, MapPin, RefreshCw, Shield, ShieldQuestion, Target, TrendingUp, UserRound, Users, Wind,
 } from 'lucide-react';
 import { getSelectedSport, setSelectedSport } from '../sport-state';
 import { NFL_PROP_DEFINITIONS } from './props';
@@ -162,14 +163,12 @@ function NFLHome({ players, teams, loading, error, onOpen }) {
   };
   return <div className="nfl-home">
     <header className="nfl-home-head"><h2>NFL research</h2></header>
-    <div className="nfl-player-search">
-      <Search aria-hidden="true" /><label htmlFor="nfl-player-search">Search an NFL player</label>
-      <input id="nfl-player-search" aria-label="Search an NFL player" type="search" value={query} onChange={(event) => { setQuery(event.target.value); setDismissed(false); }} onKeyDown={keySearch} role="combobox" aria-autocomplete="list" aria-expanded={normalized.length >= 2 && !dismissed} aria-controls="nfl-search-options" aria-activedescendant={activeIndex >= 0 && !dismissed ? `nfl-search-option-${activeIndex}` : undefined} placeholder="Search an NFL player" autoComplete="off" />
+    <MLBSearchField id="nfl-player-search" ariaLabel="Search NFL players" placeholder="Search a player" value={query} onChange={(event) => { setQuery(event.target.value); setDismissed(false); }} onKeyDown={keySearch} expanded={normalized.length >= 2 && !dismissed} controls="nfl-search-options" activeDescendant={activeIndex >= 0 && !dismissed ? `nfl-search-option-${activeIndex}` : undefined} className="nfl-player-search-shell">
       {normalized.length >= 2 && !dismissed && <div id="nfl-search-options" className="nfl-search-results" role="listbox" aria-label="NFL players">
         {results.map((player, index) => <button id={`nfl-search-option-${index}`} aria-selected={activeIndex === index} type="button" role="option" key={player.id} onClick={() => open(player)}><PlayerPhoto player={player} /><span><strong>{player.name}</strong><small>{player.position} · {player.team_id || 'Free agent'}</small></span><TeamLogo team={player.team_id} size="sm" /></button>)}
         {!results.length && !loading && <Notice title="No players found">Try a full first or last name.</Notice>}
       </div>}
-    </div>
+    </MLBSearchField>
     <PropsBoardLink />
     {loading && <LoadingCards label="Loading NFL players" />}
     {error && <Notice icon={AlertTriangle} title="NFL players unavailable" tone="error">{error}</Notice>}

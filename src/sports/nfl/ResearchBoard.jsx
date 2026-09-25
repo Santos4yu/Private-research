@@ -4,6 +4,7 @@ import {NFL_PROP_DEFINITIONS} from './props';
 import {rankResearch,researchPlayer,LINE_MAX_AGE_MS} from './research-board';
 import {freshness} from './nfl-client';
 import {teamLogoUrl} from './nfl-ui-core';
+import {MLBSearchField} from '../../../components/ui/mlb-search-field';
 
 const WINDOW_COLUMNS=[['l5','L5'],['l10','L10'],['l15','L15'],['l20','L20'],['h2h','H2H']];
 const PERSISTED_BOARD_KEY='vortex:nfl:finder-board:v1';
@@ -285,7 +286,7 @@ export function NFLResearchBoard({load,players,onOpen}) {
  useEffect(()=>setPage(1),[query,positions,games,teamsFilter,dates,props,hitWindow,hitMin,hitMax,sort,rowsPerPage]);
  return <section className="nfl-discovery" aria-label="NFL props board">
   <header><div><h2>NFL props</h2><p>PrizePicks · Next 7 days</p></div><div className="nfl-board-view-toggle" role="group" aria-label="Board layout"><button type="button" aria-pressed={view==='cards'} onClick={()=>setView('cards')} aria-label="Card view"><LayoutGrid size={16}/></button><button type="button" aria-pressed={view==='table'} onClick={()=>setView('table')} aria-label="Table view"><Table2 size={16}/></button></div><button type="button" className="nfl-refresh" disabled={!!progress} aria-label="Refresh NFL props board" onClick={()=>setRefresh(n=>n+1)}><RefreshCw size={18}/></button></header>
-  <div className="nfl-finder-topline"><label className="nfl-finder-search"><Search aria-hidden="true"/><input aria-label="Search players" type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search players…" autoComplete="off"/></label><div className="nfl-platform-summary"><img src="/prizepicks/logo.png" alt=""/><span>PrizePicks fixed</span><small>Verified standard lines</small></div></div>
+  <div className="nfl-finder-topline"><MLBSearchField id="nfl-finder-player-search" ariaLabel="Search NFL props by player" placeholder="Search a player" value={query} onChange={event=>setQuery(event.target.value)} className="nfl-finder-search-shell"/><div className="nfl-platform-summary"><img src="/prizepicks/logo.png" alt=""/><span>PrizePicks fixed</span><small>Verified standard lines</small></div></div>
   <div className="nfl-board-filterbar" aria-label="NFL prop filters">
    <FilterMenu label="Positions" Icon={Users} options={positionOptions} selected={positions} onToggle={value=>toggle(setPositions,value)}/>
    <FilterMenu label="Stats" Icon={Target} options={propOptions} selected={props} onToggle={value=>toggle(setProps,value)}/>
