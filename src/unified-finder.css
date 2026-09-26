@@ -130,3 +130,69 @@
 @media(max-width:760px){:root[data-theme] #app-shell #panel-finder{width:calc(100% - 16px)!important;padding:64px 0 90px!important}.unified-finder{border-radius:11px}.finder-topbar{padding:7px 9px;gap:8px;flex-wrap:wrap}.finder-title{gap:6px}.finder-title h1{font-size:15px}.finder-title>span{margin-left:1px}.finder-sports{gap:3px;flex:1}.finder-sports>button{padding:4px 7px;gap:5px;font-size:11px;min-height:36px}.finder-top-save{display:none}.finder-controls{padding:7px 7px 0}.finder-search-row{grid-template-columns:minmax(0,1fr) 40px}.finder-search{height:44px}.finder-search input{font-size:16px}.finder-search-row>.finder-icon{height:44px}.finder-app-filter{grid-column:1/-1;grid-row:2}.finder-app-filter .finder-filter{height:38px}.finder-filters{display:flex;flex-wrap:wrap;gap:5px}.finder-filters .finder-filter{flex:1 1 28%;height:40px;padding-inline:8px}.finder-filters .finder-filter select{font-size:11px}.finder-reset{width:40px;height:40px}.finder-saved{display:none}.finder-meta{padding:8px 10px;align-items:flex-start}.finder-meta>span{flex-wrap:wrap}.finder-legend{display:none!important}.finder-board{margin:0 7px 7px}.finder-scroll{min-height:300px;max-height:calc(100dvh - 360px)}.finder-table{min-width:980px}.finder-table th:first-child{width:225px}.finder-table th:nth-child(2){width:160px}.finder-table th:first-child,.finder-table td:first-child{position:sticky;left:0;z-index:2;border-right:1px solid #29314b}.finder-table th:first-child{z-index:5}.finder-table .finder-player-cell{padding-left:8px}.finder-player{gap:7px}.finder-name{font-size:11px}.finder-market{font-size:10px}.finder-game{font-size:9px}.finder-portrait{width:32px;height:32px}.finder-pagination{padding:7px 6px;gap:5px}.finder-pagination>span{font-size:9px}.finder-pagination>div{gap:3px}.finder-pagination>div>span{padding:0 6px}.finder-pagination label{padding:0 6px;margin-left:2px}.finder-pagination button{width:28px}.finder-detail,.finder-trend-view{padding:8px}}
 @media(max-width:420px){.finder-title{width:100%}.finder-title>span{display:none}.finder-sports{flex-basis:100%;justify-content:space-between}.finder-sports>button{flex:1;justify-content:center}}
 @media(prefers-reduced-motion:reduce){.finder-spin{animation:none}.unified-finder button{transition:none}}
+
+/* Phone Finder is a card feed, not a shrunken desktop table. */
+.finder-mobile-sort{display:none}
+@media(max-width:760px){
+ .unified-finder{border:0;background:#070b1c;padding-bottom:env(safe-area-inset-bottom)}
+ .finder-topbar{border-radius:0;background:linear-gradient(110deg,#262891,#10143d);padding:8px 10px}
+ .finder-title{width:auto}.finder-title>span{display:inline}
+ .finder-sports{flex-basis:auto;justify-content:flex-start;overflow-x:auto;min-width:0}
+ .finder-sports>button{flex:0 0 auto;min-height:44px;padding:5px 8px}
+ .finder-topbar .finder-title h1{font-size:14px}
+ .finder-controls{padding:6px 6px 0}
+ .finder-search-row{gap:6px}.finder-app-filter{background:#171e36;border-radius:10px}
+ .finder-filters{flex-wrap:nowrap;overflow-x:auto;padding-bottom:5px;scrollbar-width:thin}
+ .finder-filters .finder-filter{flex:0 0 120px;height:44px}
+ .finder-filters .finder-filter select{font-size:12px}
+ .finder-reset{flex:0 0 44px;height:44px;background:#3730cf}
+ .finder-mobile-sort{display:flex;gap:5px;padding:3px 6px;overflow-x:auto}
+ .finder-mobile-sort button{display:flex;align-items:center;justify-content:center;gap:4px;flex:1;min-width:44px;min-height:44px;padding:6px 3px;border:1px solid #303b59;border-radius:7px;background:#10182c;color:#aab9d0;font-size:11px}
+ .finder-mobile-sort button[aria-pressed=true]{border-color:#608af7;background:#182d53;color:#daebff}
+ .finder-meta{padding:5px 9px;font-size:10px}.finder-meta small{font-size:9px}
+ .finder-board{border:0;background:none;margin:0 6px 8px;overflow:visible}
+ .finder-scroll{max-height:none;min-height:0;overflow:visible}
+ .finder-table{display:block;min-width:0;width:100%;table-layout:auto}
+ .finder-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+ .finder-table tbody{display:grid;gap:8px}
+ .finder-table tbody tr{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));position:relative;isolation:isolate;overflow:hidden;border:1px solid #35425b;border-radius:12px;background:linear-gradient(170deg,#1d2939 0%,#0b1023 36%,#070b1b 70%);padding:0;box-shadow:0 3px 10px #0002}
+ .finder-table tbody tr:active{border-color:#718fdb}
+ .finder-table td{height:auto;border:0;min-width:0;padding:0}
+ .finder-table .finder-player-cell{grid-column:1/-1;grid-row:1;padding:10px 72px 10px 8px;position:static;border:0;background:none!important}
+ .finder-player{gap:8px;align-items:center}.finder-portrait{width:38px;height:38px}.finder-portrait-wrap{flex:0 0 38px}
+ .finder-open{min-height:52px}.finder-name{font-size:12px;white-space:normal;line-height:1.4}.finder-market{font-size:11px;white-space:normal;line-height:1.35}.finder-game{font-size:10px;white-space:normal;line-height:1.35;margin-top:3px}
+ .finder-star{width:44px;height:44px;left:-3px;bottom:-17px;background:transparent;border:0;box-shadow:none}
+ .finder-star svg{background:#17243c;border-radius:50%;padding:3px;width:20px;height:20px}
+ .finder-table td:nth-child(2){grid-column:1/-1;grid-row:3;padding:8px 10px;border-top:1px solid #26324a}
+ .finder-books{gap:12px;flex-wrap:wrap}.finder-book>img{width:27px;height:27px}.finder-book>span>span{font-size:11px}
+ .finder-table .finder-prob-cell{position:absolute;right:8px;top:9px;width:56px}
+ .finder-probability{border:3px solid #19b894;border-radius:50%;width:56px;height:56px;padding:0;display:flex;flex-direction:column;justify-content:center;gap:2px;background:#0b1c2a}
+ .finder-probability span{justify-content:center;gap:2px;font-size:8px}
+ .finder-table .finder-stat{grid-row:2;padding:0;border-right:1px solid #101b2c}
+ .finder-table .finder-stat:before{display:block;text-align:center;padding-top:5px;color:#b4c8d8;font-size:9px;background:#0c2930;line-height:12px}
+ .finder-table td:nth-child(4){grid-column:6}.finder-table td:nth-child(4):before{content:'AVG L10'}
+ .finder-table td:nth-child(5){grid-column:7}.finder-table td:nth-child(5):before{content:'DIFF'}
+ .finder-table td:nth-child(6){grid-column:1}.finder-table td:nth-child(6):before{content:'L5'}
+ .finder-table td:nth-child(7){grid-column:2}.finder-table td:nth-child(7):before{content:'L10'}
+ .finder-table td:nth-child(8){grid-column:3}.finder-table td:nth-child(8):before{content:'L15'}
+ .finder-table td:nth-child(9){grid-column:4}.finder-table td:nth-child(9):before{content:'H2H'}
+ .finder-table td:nth-child(10){grid-column:5}.finder-table td:nth-child(10):before{content:'STRK'}
+ .finder-table td:nth-child(11){grid-column:8}.finder-table td:nth-child(11):before{content:'SZN'}
+ .finder-heat{height:35px;gap:2px}.finder-heat strong{font-size:10px}.finder-heat small{font-size:8px}
+ .finder-pagination{margin-top:9px;flex-wrap:wrap;justify-content:center;border-radius:9px;padding:8px 4px}
+ .finder-pagination button,.finder-pagination label,.finder-pagination>div>span{min-height:44px}
+ .finder-pagination button{width:44px}.finder-pagination>span{width:100%;text-align:center}
+ .finder-detail-active>.finder-topbar{display:none}
+ .finder-detail,.finder-trend-view{padding:6px;min-width:0}
+ .finder-back,.wnba-trend-back{min-height:44px;margin-bottom:6px;border:0!important;background:transparent}
+ .finder-nfl-trend-view .nfl-player-header{display:grid;grid-template-columns:44px minmax(0,1fr);gap:8px;padding:12px;background:linear-gradient(110deg,#27278c,#111637);border-radius:10px}
+ .finder-nfl-trend-view .nfl-headshot-wrap .nfl-player-photo{width:44px;height:44px;border-radius:50%;object-fit:cover}
+ .finder-nfl-trend-view .nfl-player-identity h2{font-size:18px;margin:0}.finder-nfl-trend-view .nfl-player-identity>span,.finder-nfl-trend-view .nfl-player-chips{display:none}
+ .finder-nfl-trend-view .nfl-player-identity p{font-size:11px;margin:4px 0}
+ .finder-nfl-trend-view .nfl-player-summary{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px}.finder-nfl-trend-view .nfl-player-summary article{padding:4px;background:transparent;border:0;min-width:0}
+ .finder-nfl-trend-view .nfl-player-summary article:last-child{display:none}
+ .finder-nfl-trend-view .nfl-player-summary strong{font-size:11px}
+ .finder-nfl-trend-view .nfl-chart-card{padding:8px;border-radius:10px;background:#0d1329}
+ .finder-detail .gamelog-modal,.finder-trend-view .gamelog-modal{width:100%;max-width:100%;min-width:0;margin:0;border-radius:10px}
+ .wnba-trend-title{padding:6px 0 12px}.wnba-trend-title h1{font-size:19px}
+}
