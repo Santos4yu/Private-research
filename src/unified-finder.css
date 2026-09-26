@@ -367,28 +367,26 @@
 .finder-table tbody tr:hover{filter:brightness(1.08)}
 .finder-board{box-shadow:0 10px 30px #0003,inset 0 1px #ffffff06}
 
-/* Research is an app surface on phones, not another page inside the site
-   shell. Keep one intentional scroll region and keep the exit action within
-   thumb reach while the chart/context content moves underneath it. */
+/* Compact research flows with the page; avoid a nested fullscreen scroll trap. */
 @media(max-width:760px){
- :root[data-theme] body:has(.unified-finder.finder-detail-active){overflow:hidden!important;overscroll-behavior:none!important}
+ :root[data-theme] body:has(.unified-finder.finder-detail-active){overflow:auto!important}
  :root[data-theme] body:has(.unified-finder.finder-detail-active) #app-shell #panel-finder{
-  position:fixed!important;inset:0!important;z-index:70!important;width:100%!important;max-width:none!important;
-  height:100dvh!important;min-height:0!important;margin:0!important;padding:0!important;overflow:hidden!important;
+  position:relative!important;inset:auto!important;z-index:auto!important;width:100%!important;max-width:100%!important;
+  height:auto!important;min-height:0!important;margin:0!important;padding:0!important;overflow:visible!important;
   background:var(--theme-bg)!important
  }
  :root[data-theme] body:has(.unified-finder.finder-detail-active) .site-account-bar,
  :root[data-theme] body:has(.unified-finder.finder-detail-active) .site-account-trigger,
  :root[data-theme] body:has(.unified-finder.finder-detail-active) #settings-btn{display:none!important}
- .unified-finder.finder-detail-active{height:100dvh!important;min-height:0!important;border:0!important;border-radius:0!important;overflow:hidden!important;background:var(--theme-bg)!important}
- .unified-finder.finder-detail-active .finder-detail{height:100%!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch;padding:env(safe-area-inset-top,8px) 8px calc(var(--app-bottom,68px) + 18px)!important}
- .unified-finder.finder-detail-active .finder-trend-view{min-height:0!important;padding:0!important}
+ .unified-finder.finder-detail-active{height:auto!important;min-height:0!important;border:0!important;border-radius:0!important;overflow:visible!important;background:var(--theme-bg)!important}
+ .unified-finder.finder-detail-active>.finder-detail,
+ .unified-finder.finder-detail-active>.finder-trend-view{box-sizing:border-box;height:auto!important;min-height:0!important;overflow:visible!important;padding:max(env(safe-area-inset-top),8px) 8px calc(var(--app-bottom,68px) + 18px)!important}
  .unified-finder.finder-detail-active .finder-back,
  .unified-finder.finder-detail-active .wnba-trend-back,
  .unified-finder.finder-detail-active .nfl-research-actions{
   position:sticky!important;top:0!important;z-index:50!important;display:flex!important;align-items:center!important;min-height:48px!important;
-  margin:0 -8px 8px!important;padding:0 14px!important;border:0!important;border-bottom:1px solid var(--theme-border,#263452)!important;
-  border-radius:0!important;background:color-mix(in srgb,var(--theme-bg) 88%,transparent)!important;color:var(--theme-text)!important;
+  width:max-content!important;max-width:100%;margin:0 0 4px!important;padding:0 8px!important;border:0!important;
+  border-radius:8px!important;background:#0c1127!important;color:#b9d4ff!important;font-size:12px!important;box-shadow:none!important;
   backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)
  }
  .unified-finder.finder-detail-active .finder-back{justify-content:flex-start;gap:8px}
@@ -400,6 +398,22 @@
  .unified-finder.finder-detail-active .nfl-research-page{padding-bottom:0!important}
  .unified-finder.finder-detail-active .wnba-research-columns{display:block!important}
  .unified-finder.finder-detail-active .wnba-research-context{display:grid!important;grid-template-columns:minmax(0,1fr)!important;margin-top:12px}
+}
+
+.posted-line-primary{display:inline-flex;align-items:center;gap:3px;flex-shrink:0}
+.posted-line-primary img{object-fit:contain}
+/* Keep the embedded chart in document flow, never as a second fullscreen modal. */
+:root[data-theme] .unified-finder #gamelog-overlay{position:relative!important;inset:auto!important;width:100%!important;height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}
+:root[data-theme] .unified-finder #gamelog-overlay .gamelog-modal{height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}
+@media(max-width:760px){
+ .unified-finder .wnba-player-banner{padding:10px;gap:10px;margin-bottom:6px}
+ .unified-finder .wnba-player-banner h1{font-size:18px;margin:2px 0 4px}
+ :root[data-theme] .unified-finder #gamelog-overlay .gamelog-market-strip{padding:6px!important}
+ :root[data-theme] .unified-finder #gamelog-overlay .gamelog-matchup-card{display:none!important}
+ :root[data-theme] .unified-finder #gamelog-overlay .gamelog-workbench{padding:0 6px 8px!important}
+ :root[data-theme] .unified-finder #gamelog-overlay .gamelog-toolbar{gap:6px!important}
+ :root[data-theme] .unified-finder #gamelog-overlay .gamelog-windowbar button{min-height:48px!important;padding:5px 3px!important}
+ :root[data-theme] .unified-finder #gamelog-overlay .gamelog-chart{--gl-track-height:clamp(140px,27dvh,240px);padding-inline:6px!important}
 }
 
 @media(prefers-reduced-motion:reduce){

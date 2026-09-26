@@ -232,8 +232,7 @@ const BOOK_ICON_SRC = {
 const BOOK_NAME = { prizepicks: 'PrizePicks', draftkings: 'DraftKings', draftkings_pick6: 'DK Pick6', fanduel: 'FanDuel', betmgm: 'BetMGM', underdog: 'Underdog', underdogfantasy: 'Underdog' };
 function LinePrimaryMark({ line, size = 22 }) {
   const tierIcon = line?.primaryBook === 'prizepicks' ? PP_TIER_ICON[line?.tier] : null;
-  const Icon = tierIcon || (line?.primaryBook === 'prizepicks' ? PP_LOGO_ICON : null);
-  if (Icon) return <span className="posted-line-primary"><Icon size={size} /></span>;
+  if (line?.primaryBook === 'prizepicks') {const TierIcon=tierIcon;return <span className="posted-line-primary"><PP_LOGO_ICON size={size}/>{TierIcon&&<TierIcon size={size}/>}</span>;}
   const book = line?.primaryBook || line?.books?.[0];
   return <span className="posted-line-primary" aria-label={BOOK_NAME[book] || book || 'Sportsbook'}>{BOOK_ICON_SRC[book]
     ? <img src={BOOK_ICON_SRC[book]} width={size} height={size} alt={BOOK_NAME[book] || book} />
@@ -281,7 +280,7 @@ function AltLinesSelectHost({ controllerRef, onPick, canAdjustLine = false }) {
                 <span className="pp-select-line-value">{line.value}</span>
                 {line.books?.length ? <LinePrimaryMark line={line} /> : PP_TIER_ICON[line.tier] && <LinePrimaryMark line={{...line,primaryBook:'prizepicks'}} />}
                 <span className={`pp-select-line-tier is-${String(line.tier || 'alt').toLowerCase()}`}>
-                  {line.books?.length ? `${new Set(line.books.map(book => BOOK_NAME[book] || book)).size} ${new Set(line.books.map(book => BOOK_NAME[book] || book)).size === 1 ? 'book' : 'books'}` : PP_TIER_LABEL[line.tier] || 'Alt'}
+                  {PP_TIER_ICON[line.tier] ? PP_TIER_LABEL[line.tier] : line.books?.length ? `${new Set(line.books.map(book => BOOK_NAME[book] || book)).size} ${new Set(line.books.map(book => BOOK_NAME[book] || book)).size === 1 ? 'book' : 'books'}` : PP_TIER_LABEL[line.tier] || 'Alt'}
                 </span>
               </span>
             </SelectItem>
