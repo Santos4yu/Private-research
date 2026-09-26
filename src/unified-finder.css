@@ -26,10 +26,10 @@
 .finder-icon{display:grid;place-items:center;width:40px;height:40px;flex-shrink:0;border:1px solid var(--f-border)!important;border-radius:8px;background:var(--f-control);color:#b8c1dc}
 .finder-icon:hover{background:#2b3452;color:#fff}
 .finder-top-save{background:#ffffff15;border-color:#ffffff30!important;width:34px;height:34px}
-.finder-controls{padding:9px 10px 0;display:grid;gap:7px}
+.unified-finder .finder-controls{padding:9px 10px 0;display:grid;grid-template-columns:minmax(0,1fr);gap:7px;margin:0}
 .finder-search-row{display:grid;grid-template-columns:minmax(200px,1fr) minmax(240px,1fr) 40px;gap:7px}
-.finder-search{display:flex;align-items:center;gap:10px;padding:0 12px;height:40px;background:var(--f-control);border:1px solid var(--f-border);border-radius:8px;color:var(--f-muted)}
-.finder-search input{width:100%;height:100%;min-width:0;padding:0;border:0;background:none;outline:none;color:var(--f-text);font-size:12px}
+.unified-finder label.finder-search{display:flex;align-items:center;gap:10px;padding:0 12px;height:40px;background:var(--f-control);border:1px solid var(--f-border);border-radius:8px;color:var(--f-muted);margin:0}
+.unified-finder .finder-search input{width:100%;height:100%;min-height:0;min-width:0;padding:0;border:0;border-radius:0;background:none;outline:none;color:var(--f-text);font-size:12px}
 .finder-search input::placeholder{color:var(--f-muted)}
 .finder-search:focus-within{border-color:#8d8afe}
 .finder-app-filter{position:relative;display:flex;align-items:center;border-radius:8px;background:var(--f-control)}
@@ -38,10 +38,12 @@
 .finder-app-icons{position:absolute;right:33px;display:flex;align-items:center;gap:3px;pointer-events:none}
 .finder-app-icons img{width:23px;height:23px;object-fit:contain}
 .finder-filters{display:grid;grid-template-columns:1fr 1.45fr 1fr 1fr 1.15fr auto 40px;gap:7px}
-.finder-filter{height:39px;position:relative;display:flex;align-items:center;gap:8px;border:1px solid var(--f-border);border-radius:8px;padding:0 11px;background:var(--f-control);color:var(--f-muted);min-width:0;overflow:hidden}
+.unified-finder label.finder-filter{height:39px;position:relative;display:flex;align-items:center;gap:8px;border:1px solid var(--f-border);border-radius:8px;padding:0 11px;background:var(--f-control);color:var(--f-muted);min-width:0;overflow:hidden;margin:0}
 .finder-filter>svg{flex-shrink:0}
 .finder-filter>svg:last-child{position:absolute;right:10px;pointer-events:none}
-.finder-filter select{position:relative;min-width:0;width:100%;height:100%;border:0;background:transparent;padding-right:14px;font-weight:600;font-size:12px;appearance:none;cursor:pointer;text-overflow:ellipsis;outline:none}
+.unified-finder .finder-filter select{position:relative;min-width:0;min-height:0;width:100%;height:100%;border:0;border-radius:0;background:transparent;padding:0 14px 0 0;font-weight:600;font-size:12px;appearance:none;cursor:pointer;text-overflow:ellipsis;outline:none}
+:root[data-theme] .unified-finder .finder-controls :is(input,select){background-color:transparent!important;border-color:transparent!important;color:var(--f-text)!important;box-shadow:none!important}
+.unified-finder .finder-app-filter .finder-filter select{padding-right:155px}
 .finder-filter option{background:var(--f-control);color:var(--f-text)}
 .finder-filter:focus-within{border-color:#8d8afe}
 .finder-filter.is-active{background:#3734cc;border-color:#615df5;color:#fff}
@@ -132,7 +134,8 @@
 @media(prefers-reduced-motion:reduce){.finder-spin{animation:none}.unified-finder button{transition:none}}
 
 /* Phone Finder is a card feed, not a shrunken desktop table. */
-.finder-mobile-sort{display:none}
+.unified-finder .finder-mobile-sort{display:none}
+.finder-mobile-sport,.finder-mobile-search-toggle{display:none}
 @media(max-width:760px){
  .unified-finder{border:0;background:#070b1c;padding-bottom:env(safe-area-inset-bottom)}
  .finder-topbar{border-radius:0;background:linear-gradient(110deg,#262891,#10143d);padding:8px 10px}
@@ -146,7 +149,7 @@
  .finder-filters .finder-filter{flex:0 0 120px;height:44px}
  .finder-filters .finder-filter select{font-size:12px}
  .finder-reset{flex:0 0 44px;height:44px;background:#3730cf}
- .finder-mobile-sort{display:flex;gap:5px;padding:3px 6px;overflow-x:auto}
+ .unified-finder .finder-mobile-sort{display:flex;gap:5px;padding:3px 6px;margin:0;overflow-x:auto}
  .finder-mobile-sort button{display:flex;align-items:center;justify-content:center;gap:4px;flex:1;min-width:44px;min-height:44px;padding:6px 3px;border:1px solid #303b59;border-radius:7px;background:#10182c;color:#aab9d0;font-size:11px}
  .finder-mobile-sort button[aria-pressed=true]{border-color:#608af7;background:#182d53;color:#daebff}
  .finder-meta{padding:5px 9px;font-size:10px}.finder-meta small{font-size:9px}
@@ -195,4 +198,28 @@
  .finder-nfl-trend-view .nfl-chart-card{padding:8px;border-radius:10px;background:#0d1329}
  .finder-detail .gamelog-modal,.finder-trend-view .gamelog-modal{width:100%;max-width:100%;min-width:0;margin:0;border-radius:10px}
  .wnba-trend-title{padding:6px 0 12px}.wnba-trend-title h1{font-size:19px}
+}
+
+/* Keep these controls independent of the older MLB Finder's global rules. */
+@media(max-width:760px){
+ .unified-finder{position:relative}
+ .unified-finder .finder-topbar{height:58px;min-height:58px;flex-wrap:nowrap}
+ .unified-finder .finder-sports{display:none}
+ .unified-finder .finder-top-save{display:grid;margin-left:auto;width:44px;height:44px}
+ .unified-finder .finder-mobile-sport{display:flex;position:absolute;z-index:2;top:7px;left:112px;align-items:center;gap:6px;height:44px;max-width:150px;border:1px solid #7585c8;border-radius:10px;padding:0 9px;background:#293e75;color:#f0f4ff}
+ :root[data-theme] .unified-finder .finder-mobile-sport select{appearance:none;background:transparent!important;color:#f0f4ff!important;border:0!important;min-width:0;width:82px;height:42px;padding:0;font-size:13px}
+ .unified-finder .finder-mobile-search-toggle{display:grid;position:absolute;top:64px;right:52px;z-index:3;width:44px;height:44px}
+ .unified-finder .finder-controls{padding:6px 6px 0;gap:6px}
+ .unified-finder .finder-search-row{grid-template-columns:minmax(0,1fr) 44px 44px;gap:6px}
+ .unified-finder .finder-app-filter{grid-row:1;grid-column:1;min-width:0;height:44px}
+ .unified-finder .finder-app-filter .finder-filter{height:44px}
+ .unified-finder .finder-search-row>.finder-icon{grid-column:3;height:44px;width:44px}
+ .unified-finder label.finder-search{display:none;height:44px}
+ .unified-finder.finder-search-expanded label.finder-search{display:flex;grid-row:2;grid-column:1/-1}
+ .unified-finder .finder-search input{font-size:16px}
+ .unified-finder .finder-app-filter .finder-filter select{padding-right:90px;font-size:12px}
+ .unified-finder .finder-app-icons img{width:20px;height:20px}.unified-finder .finder-app-icons img:nth-child(n+4){display:none}
+ .unified-finder .finder-filters label.finder-filter{height:44px;flex:0 0 128px}
+ .unified-finder .finder-table .finder-player-cell{padding:10px 72px 10px 8px!important}
+ .unified-finder.finder-detail-active .finder-mobile-sport{display:none}
 }
