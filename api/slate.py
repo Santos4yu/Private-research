@@ -43,6 +43,8 @@ class handler(BaseHTTPRequestHandler):
         try:
             query = parse_qs(urlparse(self.path).query)
             tool = query.get("tool", ["attack"])[0]
+            if tool == "mlb-matchup":
+                return self._matchup(query)
             force_refresh = "refresh" in query
             cached = _CACHE.get(tool)
             cache_seconds = _CACHE_SECONDS.get(tool, 600)
@@ -56,12 +58,27 @@ class handler(BaseHTTPRequestHandler):
 
         return self._send(200, result)
 
+    def _matchup(self, query):
+        from mlb_matchup import get_matchup
+
+        values = [query.get(key, [""])[0].strip() for key in ("team", "opponent", "startsAt")]
+        if any(not value or len(value) > 100 for value in values):
+            return self._send(400, {"error": "Team, opponent and game start are required."})
+        try:
+            # The helper caches by game; never use the tool-only slate cache here.
+            result = get_matchup(*values)
+        except ValueError:
+            return self._send(400, {"error": "Invalid game date or source response."})
+        except Exception:
+            return self._send(503, {"error": "ESPN predictor is temporarily unavailable."})
+        return self._send(200, result)
+
     def _send(self, status, body):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.send_header("Cache-Control", "private, max-age=180, stale-while-revalidate=600")
+        self.send_header("Cache-Control", "private, max-age=180, stale-while-revalidate=600" if status == 200 else "no-store")
         self.end_headers()
         self.wfile.write(json.dumps(body).encode("utf-8"))
