@@ -3,7 +3,7 @@ import {Select,SelectTrigger,SelectContent,SelectItem} from '../components/ui/se
 
 export const FinderDropdownAssets=createContext({});
 function OptionLabel({text,logo}){
- return <span className="finder-option-label">{logo&&<img src={logo} alt="" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}<span>{text}</span></span>;
+ return <span className="finder-option-label">{logo&&<img src={logo} alt="" decoding="async" onError={e=>{e.currentTarget.hidden=true;}}/>}<span>{text}</span></span>;
 }
 export function FinderDropdown({value,onChange,children,'aria-label':label}){
  const assets=useContext(FinderDropdownAssets);

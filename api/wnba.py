@@ -227,7 +227,7 @@ def _attach_history(rows, season):
     return rows
 
 
-def _board():
+def _board(include_history=True):
     cached = _cached()
     if cached is not None:
         return cached
@@ -295,14 +295,20 @@ def _board():
                 row["primaryBook"] = row["apps"][0]["key"]
                 rows.append(row)
     rows.sort(key=lambda row: (row["startsAt"], row["player"], row["market"], row["line"]))
-    _attach_history(rows, now.year)
+    # The prop board itself is useful before the comparatively expensive
+    # ESPN game-log fan-out finishes.  The Finder asks for this fast shape
+    # first and hydrates the history progressively in the browser.
+    if include_history:
+        _attach_history(rows, now.year)
     remaining = event_response.headers.get("x-requests-remaining")
     result = {
         "status": "AVAILABLE", "source": "the-odds-api", "sport": "wnba",
         "fetchedAt": now.isoformat(), "creditsRemaining": int(remaining) if str(remaining).isdigit() else None,
         "events": len(events), "rows": rows,
     }
-    _save(result)
+    # Never replace a warm, history-complete cache with the lightweight shape.
+    if include_history:
+        _save(result)
     return result
 
 
@@ -320,7 +326,8 @@ class handler(BaseHTTPRequestHandler):
                 if not player_id.isdigit() or not 2000 <= season <= 2100: return _send(self, 400, {"error": "A verified WNBA player and season are required."})
                 return _send(self, 200, _game_logs(player_id, season))
             if resource != "board": return _send(self, 404, {"error": "Unknown WNBA resource."})
-            return _send(self, 200, _board())
+            fast = query.get("fast", ["0"])[0].lower() in ("1", "true", "yes")
+            return _send(self, 200, _board(include_history=not fast))
         except RuntimeError as exc:
             return _send(self, 503, {"error": str(exc), "rows": [], "source": "the-odds-api"})
         except Exception:

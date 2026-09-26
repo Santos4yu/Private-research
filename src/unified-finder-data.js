@@ -79,7 +79,8 @@ export function normalizeFinderRows(sport, payload, players = [], {now = Date.no
         : raw.teamAbbr && raw.teamAbbr === raw.awayTeamAbbr ? raw.homeTeamAbbr : null;
       return finish({...raw, id: `wnba:${raw.id}`, sport, player: raw.player, playerId: optional(raw.playerId),
         headshot: optional(raw.headshot), position: optional(raw.position), teamAbbr: optional(raw.teamAbbr),
-        teamLogo: optional(raw.teamLogo), opponent, startsAt: optional(raw.startsAt), direction: 'OVER', raw});
+        teamLogo: optional(raw.teamLogo), opponent, startsAt: optional(raw.startsAt), direction: 'OVER',
+        historyStatus: raw.windows && Object.keys(raw.windows).length ? 'ready' : 'pending', raw});
     }
     if (sport === 'nfl') {
       const player = byId.get(String(raw.playerId));
@@ -124,7 +125,7 @@ export function normalizeFinderRows(sport, payload, players = [], {now = Date.no
 /** Read existing sport feeds. NFL uses its saved board, never a browser-driven odds scan. */
 export async function loadFinderSport(sport, options = {}) {
   if (sport === 'wnba') {
-    const payload = await request('/api/wnba', options);
+    const payload = await request(options.fast ? '/api/wnba?fast=1' : '/api/wnba', options);
     return {...payload, rows: normalizeFinderRows(sport, payload), fetchedAt: payload.fetchedAt || null};
   }
   if (sport === 'mlb') {
@@ -149,6 +150,73 @@ export async function loadFinderSport(sport, options = {}) {
       fetchedAt: board.value.builtAt || board.value.fetchedAt || null};
   }
   throw new Error('This sport is not supported by Finder.');
+}
+
+const wnbaHistoryKey = row => String(row.playerId || '');
+
+export async function loadWnbaHistory(row, options = {}) {
+  aborted(options.signal);
+  const playerId = wnbaHistoryKey(row);
+  if (!playerId) throw new Error('WNBA player identity unavailable.');
+  const season = options.season || new Date().getUTCFullYear();
+  const key = `${playerId}:${season}`;
+  const cached = historyCache.get(`wnba:${key}`);
+  if (cached && Date.now() - cached.at < HISTORY_TTL) return cached.value;
+  const payload = await request(`/api/wnba?resource=gamelog&playerId=${encodeURIComponent(playerId)}&season=${season}`, options);
+  historyCache.set(`wnba:${key}`, {at: Date.now(), value: payload});
+  if (historyCache.size > 500) historyCache.delete(historyCache.keys().next().value);
+  return payload;
+}
+
+export function applyWnbaHistory(row, payload) {
+  const logs = (payload?.rows || []).filter(log => log?.date && number(log?.values?.[row.marketKey]) != null)
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.gameId || '').localeCompare(String(b.gameId || '')));
+  const values = logs.map(log => number(log.values[row.marketKey])).filter(value => value != null);
+  const h2hValues = logs.filter(log => !row.opponent || log.opponent === row.opponent)
+    .map(log => number(log.values[row.marketKey])).filter(value => value != null);
+  const windows = Object.fromEntries([5, 10, 15, 20].map(size => [`l${size}`, finderWindow(values.slice(-size), row.line, row.direction)]));
+  windows.h2h = finderWindow(h2hValues, row.line, row.direction);
+  windows.season = finderWindow(values, row.line, row.direction);
+  let streak = 0;
+  for (let index = values.length - 1; index >= 0; index -= 1) {
+    if (values[index] === row.line) break;
+    const sign = values[index] > row.line ? 1 : -1;
+    if (streak && Math.sign(streak) !== sign) break;
+    streak += sign;
+  }
+  return finish({...row, average: mean(values.slice(-10)), windows, streak: values.length ? streak : null,
+    historyStatus: 'ready', history: payload});
+}
+
+/** Hydrate WNBA history after the market rows are already visible. */
+export async function enrichWnbaRows(rows, {signal, onRows, concurrency = 6, ...options} = {}) {
+  const groups = new Map();
+  for (const row of rows) {
+    if (row.sport !== 'wnba' || row.historyStatus === 'ready' || !row.playerId) continue;
+    const key = wnbaHistoryKey(row);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(row);
+  }
+  const queue = [...groups.values()];
+  let next = 0;
+  async function worker() {
+    while (next < queue.length) {
+      aborted(signal);
+      const batch = queue[next++];
+      let updates;
+      try {
+        const payload = await loadWnbaHistory(batch[0], {signal, ...options});
+        aborted(signal);
+        updates = batch.map(row => applyWnbaHistory(row, payload));
+      } catch (error) {
+        if (signal?.aborted || error.name === 'AbortError') throw error;
+        updates = batch.map(row => ({...row, historyStatus: 'unavailable'}));
+      }
+      onRows?.(updates);
+    }
+  }
+  await Promise.all(Array.from({length: Math.min(queue.length, Math.max(1, Math.min(8, concurrency)))}, worker));
+  return rows;
 }
 
 const mlbHistoryKey = row => `${nameKey(row.player)}|${finderMarket(row.raw?.stat || row.stat)?.pitcher ? 'pitching' : 'hitting'}`;

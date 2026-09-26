@@ -1,6 +1,6 @@
 import React,{lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowDown,ArrowUp,ArrowUpDown,ArrowLeft,Bookmark,ChartNoAxesColumnIncreasing,ChevronDown,ChevronLeft,ChevronRight,Grid2X2,ListFilter,LoaderCircle,RefreshCw,Search,SlidersHorizontal,Star,Table2,Trash2,Users,CalendarDays} from 'lucide-react';
-import {loadFinderSport,enrichMlbRows} from './unified-finder-data';
+import {loadFinderSport,enrichMlbRows,enrichWnbaRows} from './unified-finder-data';
 import {WNBATrendHost} from './sports/wnba/TrendHost';
 import './unified-finder.css';
 import {FinderDropdown,FinderDropdownAssets} from './FinderDropdown';
@@ -38,19 +38,22 @@ export function UnifiedFinder(){
  const [query,setQuery]=useState(''),[market,setMarket]=useState('all'),[book,setBook]=useState('all'),[team,setTeam]=useState('all'),[day,setDay]=useState('all'),[modifier,setModifier]=useState('all'),[hitRate,setHitRate]=useState('all');
  const [sort,setSort]=useState({key:'l10',direction:'desc'}),[page,setPage]=useState(0),[pageSize,setPageSize]=useState(20),[selected,setSelected]=useState(null),[savedOnly,setSavedOnly]=useState(false);
  const [saved,setSaved]=useState(()=>{try{return new Set(JSON.parse(localStorage.getItem('krazy-finder-watchlist')||'[]'));}catch{return new Set();}});
- const requests=useRef(new Map()),controllers=useRef(new Set()),generation=useRef(0),boardsRef=useRef(boards),tableRef=useRef(null),trigger=useRef(null);boardsRef.current=boards;
+ const requests=useRef(new Map()),controllers=useRef(new Set()),generation=useRef(new Map()),boardsRef=useRef(boards),tableRef=useRef(null),trigger=useRef(null);boardsRef.current=boards;
  const load=useCallback(async(key,force=false)=>{
   if(requests.current.has(key)||(!force&&boardsRef.current[key].state==='ready'))return;
   const c=new AbortController();requests.current.set(key,c);controllers.current.add(c);
   setBoards(old=>({...old,[key]:{...old[key],state:'loading',error:null}}));
-  try{const result=await loadFinderSport(key,{signal:c.signal});if(c.signal.aborted)return;setBoards(old=>({...old,[key]:{...result,state:'ready',error:null}}));
-   if(key==='mlb'){const run=++generation.current;await enrichMlbRows(result.rows,{signal:c.signal,concurrency:3,onRows:batch=>{if(run!==generation.current||c.signal.aborted)return;const updates=new Map(batch.map(r=>[r.id,r]));setBoards(old=>({...old,mlb:{...old.mlb,rows:old.mlb.rows.map(r=>updates.get(r.id)||r)}}));}});}
+  try{const result=await loadFinderSport(key,{signal:c.signal,fast:key==='wnba'});if(c.signal.aborted)return;setBoards(old=>({...old,[key]:{...result,state:'ready',error:null}}));
+   const run=(generation.current.get(key)||0)+1;generation.current.set(key,run);
+   const applyBatch=(sportKey,batch)=>{if(generation.current.get(sportKey)!==run||c.signal.aborted)return;const updates=new Map(batch.map(r=>[r.id,r]));setBoards(old=>({...old,[sportKey]:{...old[sportKey],rows:old[sportKey].rows.map(r=>updates.get(r.id)||r)}}));};
+   if(key==='wnba')await enrichWnbaRows(result.rows,{signal:c.signal,concurrency:6,onRows:batch=>applyBatch('wnba',batch)});
+   if(key==='mlb')await enrichMlbRows(result.rows,{signal:c.signal,concurrency:3,onRows:batch=>applyBatch('mlb',batch)});
   }
   catch(e){if(e.name!=='AbortError')setBoards(old=>({...old,[key]:{...old[key],state:'error',error:e.message}}));}
   finally{requests.current.delete(key);controllers.current.delete(c);}
  },[]);
  useEffect(()=>{(sport==='all'?KEYS:[sport]).forEach(key=>load(key));},[sport,load]);
- useEffect(()=>()=>{controllers.current.forEach(c=>c.abort());generation.current++;},[]);
+ useEffect(()=>()=>{controllers.current.forEach(c=>c.abort());generation.current.clear();},[]);
  const scope=sport==='all'?KEYS:[sport];
  const allRows=useMemo(()=>KEYS.flatMap(k=>boards[k].rows||[]),[boards]);
  const sportRows=useMemo(()=>allRows.filter(r=>sport==='all'||r.sport===sport),[allRows,sport]);
@@ -75,7 +78,7 @@ export function UnifiedFinder(){
  const onSort=key=>setSort(old=>({key,direction:old.key===key&&old.direction==='desc'?'asc':'desc'}));
  const changePage=n=>{setPage(n);tableRef.current?.scrollTo({top:0});};
  const playerRows=selected?allRows.filter(r=>r.sport===selected.sport&&(selected.playerId?r.playerId===selected.playerId:r.player===selected.player)):[];
- const dropdownAssets=useMemo(()=>({Teams:Object.fromEntries(sportRows.filter(row=>row.teamAbbr&&row.teamLogo).map(row=>[row.teamAbbr,row.teamLogo])),Apps:LOGOS,'Choose sport':{mlb:'/leagues/mlb.svg',nfl:'/leagues/nfl.svg'}}),[sportRows]);
+ const dropdownAssets=useMemo(()=>({Teams:Object.fromEntries(sportRows.filter(row=>row.teamAbbr&&row.teamLogo).map(row=>[row.teamAbbr,row.teamLogo])),Apps:LOGOS,'Choose sport':{wnba:'/leagues/wnba.svg',mlb:'/leagues/mlb.svg',nfl:'/leagues/nfl.svg'},'Line type':{standard:'/prizepicks/logo.png',goblin:'/prizepicks/goblin.png',demon:'/prizepicks/demon.png'}}),[sportRows]);
  return <FinderDropdownAssets.Provider value={dropdownAssets}><main className={'unified-finder'+(selected?' finder-detail-active':'')+(mobileSearch?' finder-search-expanded':'')} aria-label="Multi-sport prop Finder">
   <label className="finder-mobile-sport"><Grid2X2 size={15}/><FinderDropdown aria-label="Choose sport" value={sport} onChange={e=>changeSport(e.target.value)}>{SPORTS.map(key=><option key={key} value={key}>{key==='all'?'All sports':key.toUpperCase()}</option>)}</FinderDropdown><ChevronDown size={13}/></label>
   {!selected&&<button type="button" className="finder-mobile-search-toggle finder-icon" aria-label="Toggle player search" aria-expanded={mobileSearch} onClick={()=>setMobileSearch(v=>!v)}><Search size={18}/></button>}
