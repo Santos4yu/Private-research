@@ -145,6 +145,20 @@
 /* Phone Finder is a card feed, not a shrunken desktop table. */
 .unified-finder .finder-mobile-sort{display:none}
 .finder-mobile-sport,.finder-mobile-search-toggle{display:none}
+@media(max-width:760px){
+ :root[data-theme] body #app-shell #panel-finder{padding-top:calc(68px + env(safe-area-inset-top,0px))!important;padding-bottom:calc(86px + env(safe-area-inset-bottom,0px))!important}
+ :root[data-theme] body:has(#panel-finder:not([hidden])) .site-account-bar,
+ :root[data-theme] body:has(#panel-finder:not([hidden])) #settings-btn{top:calc(10px + env(safe-area-inset-top,0px))!important}
+ :root[data-theme] body:has(#panel-finder:not([hidden])) .site-account-trigger,
+ :root[data-theme] body:has(#panel-finder:not([hidden])) #settings-btn{width:44px!important;height:44px!important;border-radius:13px!important;background:#10172b!important;border-color:#29344c!important}
+ .unified-finder .finder-table .finder-portrait-wrap{position:static;flex-basis:32px}
+ .unified-finder .finder-table .finder-portrait{width:32px;height:32px;object-fit:cover}
+ .unified-finder .finder-table .finder-star{position:absolute;left:auto;top:auto;right:3px;bottom:2px;width:44px;height:44px;display:grid;place-items:center;padding:0;border:0;background:transparent;color:#96a6c5;z-index:3}
+ .unified-finder .finder-table .finder-star svg{width:17px;height:17px;padding:0;background:none;border-radius:0;stroke-width:1.7}
+ .unified-finder .finder-table .finder-star[aria-pressed=true]{color:#a9b9ff}
+ .unified-finder .finder-table td:nth-child(2){min-height:48px;padding-right:48px}
+ .unified-finder .finder-table .finder-player{gap:9px}
+}
 .finder-custom-select{flex:1;min-width:0;width:100%}
 .finder-custom-select>div{min-width:0;width:100%}
 .unified-finder .finder-custom-select .finder-select-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;height:38px;min-height:0;padding:0;border:0;border-radius:6px;background:transparent;color:#e9efff;font-family:Inter,Arial,sans-serif;font-size:13px;font-weight:600;line-height:1.4;letter-spacing:0;text-transform:none;box-shadow:none}

@@ -289,6 +289,16 @@
  :root[data-theme] body.mobile-dock-hidden .mobile-app-nav{opacity:0;transform:translate3d(0,14px,0);visibility:hidden;pointer-events:none;transition:opacity 240ms ease,transform 280ms cubic-bezier(.22,1,.36,1),visibility 0s linear 280ms}
 }
 @media(prefers-reduced-motion:reduce){:root[data-theme] .mobile-app-nav,:root[data-theme] body.mobile-dock-hidden .mobile-app-nav{transition:none}}
+/* Compact mobile navigation: quiet surface, small icons, full touch targets. */
+@media(max-width:760px){
+ :root[data-theme] body .mobile-app-nav{inset:auto 12px calc(8px + env(safe-area-inset-bottom,0px));width:calc(100% - 24px);max-width:400px;margin-inline:auto;min-height:56px;padding:4px 6px;gap:0;border:1px solid #303a4f;border-radius:19px;background:#101625f5;box-shadow:0 5px 18px #0004;backdrop-filter:blur(16px)}
+ :root[data-theme] body .mobile-app-nav .mobile-app-tab{min-height:46px;padding:3px 1px;gap:3px;border:0;border-radius:12px;background:transparent;color:#8f9bb1;font:500 9px/1.2 'Sora',Arial,sans-serif;letter-spacing:0;box-shadow:none}
+ :root[data-theme] body .mobile-app-nav .mobile-app-tab[aria-current=page]{color:#b8c7ff;background:#26345155;box-shadow:none;font-weight:600}
+ :root[data-theme] body .mobile-app-nav .mobile-app-tab-icon{width:28px;height:22px;background:transparent;border-radius:0}
+ :root[data-theme] body .mobile-app-nav .mobile-app-tab svg{width:19px;height:19px;stroke-width:1.7;fill:none}
+ :root[data-theme] body .mobile-app-nav .mobile-app-count{top:-3px;right:-4px;min-width:13px;height:13px;padding:0 3px;font-size:8px;background:#b8c7ff;color:#101625;box-shadow:0 0 0 2px #101625}
+ :root[data-theme] body .mobile-app-nav .mobile-app-tab:active{background:#283550;transform:none}
+}
 
 /* Landing page's animated wordmark (src/BrandLoop.jsx) -- identical rules to
    the main header's .hero-brand h1 .brand-loop* in styles.css, just without
