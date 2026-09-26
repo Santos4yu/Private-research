@@ -17,9 +17,9 @@ function usePopover(open,triggerRef,menuRef){
  return rect;
 }
 
-function menuStyle(rect){
+function menuStyle(rect,width=240){
  if(!rect)return {visibility:'hidden'};
- const width=Math.min(Math.max(rect.width,280),window.innerWidth-24);
+ width=Math.min(width,window.innerWidth-24);
  const maxTop=Math.max(12,window.innerHeight-420);
  return {left:Math.max(12,Math.min(rect.left,window.innerWidth-width-12)),top:Math.max(12,Math.min(rect.top,maxTop)),width};
 }
@@ -50,7 +50,7 @@ export function FinderHitRateFilter({value=emptyHit,onChange}){
  useEffect(()=>{if(!open)return undefined;const escape=event=>{if(event.key==='Escape')setOpen(false);};document.addEventListener('keydown',escape);return()=>document.removeEventListener('keydown',escape);},[open]);
  useEffect(()=>{if(!open)return undefined;const outside=event=>{if(!triggerRef.current?.contains(event.target)&&!menuRef.current?.contains(event.target))setOpen(false);};document.addEventListener('pointerdown',outside);return()=>document.removeEventListener('pointerdown',outside);},[open]);
  const toggleWindow=key=>onChange({...current,windows:current.windows.includes(key)?current.windows.filter(item=>item!==key):[...current.windows,key]});
- const content=open&&typeof document!=='undefined'?createPortal(<div className="finder-hit-popover" ref={menuRef} style={menuStyle(rect)} role="dialog" aria-label="Hit rate filters">
+ const content=open&&typeof document!=='undefined'?createPortal(<div className="finder-hit-popover" ref={menuRef} style={menuStyle(rect,300)} role="dialog" aria-label="Hit rate filters">
    <header><div><strong>Hit Rate Between</strong><small>Select columns and range</small></div><button type="button" onClick={()=>onChange(emptyHit)}>Reset</button></header>
    <div className="finder-hit-windows">{HIT_WINDOWS.map(([key,label])=><button type="button" key={key} className={current.windows.includes(key)?'is-selected':''} onClick={()=>toggleWindow(key)}>{label}</button>)}</div>
    <div className="finder-hit-fields"><label>From<input type="number" min="0" max="100" inputMode="numeric" value={current.min} onChange={event=>onChange({...current,min:Math.max(0,Math.min(Number(event.target.value)||0,current.max))})}/></label><label>To<input type="number" min="0" max="100" inputMode="numeric" value={current.max} onChange={event=>onChange({...current,max:Math.min(100,Math.max(Number(event.target.value)||0,current.min))})}/></label></div>

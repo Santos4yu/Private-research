@@ -23,7 +23,7 @@ from v2.board import store  # noqa: E402
 import requests  # noqa: E402
 
 SPORT = "basketball_wnba"
-CACHE_KEY = "krazy_data:wnba:v7:finder_board"
+CACHE_KEY = "krazy_data:wnba:v8:finder_board"
 ROSTER_CACHE_KEY = "krazy_data:wnba:v1:roster_directory"
 CACHE_SECONDS = 10 * 60
 ROSTER_CACHE_SECONDS = 6 * 60 * 60
@@ -290,9 +290,13 @@ def _board(include_history=True):
                     price = outcome.get("price")
                     if not player or side not in ("Over", "Under") or not finite(line):
                         continue
-                    key = (player.casefold(), market_key, float(line))
+                    # Same player/market/threshold across main and alternate
+                    # feeds is one line. Otherwise matching Under prices and
+                    # comparison books can be stranded on a separate row.
+                    key = (player.casefold(), base_market_key, float(line))
                     modifier = "standard"
                     if market_key in ALTERNATE_MARKETS and book_key == "prizepicks":
+                        modifier = "alternate"
                         if price == 100:
                             modifier = "demon"
                         elif finite(price) and standard_prices.get((book_key, base_market_key, side)) == {price}:
@@ -308,11 +312,14 @@ def _board(include_history=True):
                         "key": book_key, "name": book.get("title") or book_key,
                         "over": None, "under": None, "updatedAt": updated.isoformat() if updated else None,
                     })
-                    quote[side.lower()] = price if finite(price) else None
+                    if finite(price):
+                        quote[side.lower()] = price
                     # A PrizePicks tier is the row's source of truth even when
                     # the same line also has comparison-book quotes.
-                    if book_key == "prizepicks" and modifier in ("goblin", "demon"):
-                        row["modifier"] = modifier
+                    if book_key == "prizepicks":
+                        if "modifier" not in quote or market_key in MARKETS:
+                            quote["modifier"] = modifier
+                        row["modifier"] = quote["modifier"]
         for row in grouped.values():
             identities = directory["players"].get(_norm(row["player"]), [])
             identity = next((item for item in identities if item["team"] in (row["homeTeam"], row["awayTeam"])), identities[0] if len(identities) == 1 else None)

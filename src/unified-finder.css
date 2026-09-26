@@ -325,6 +325,10 @@
 .unified-finder .finder-app-filter .finder-multi-trigger{padding-right:108px}
 .unified-finder .finder-app-filter .finder-app-icons{display:flex}
 .finder-multi-popover,.finder-hit-popover{position:fixed;z-index:1000;overflow:hidden;border:1px solid #344361;border-radius:16px;background:linear-gradient(180deg,#0f172e 0%,#0a1023 100%);box-shadow:0 22px 70px #000b,0 0 0 1px #ffffff08 inset;color:#edf2ff;max-height:calc(100dvh - 24px)}
+/* Portals sit outside .unified-finder, so reset native control chrome here. */
+:root .finder-multi-popover button,:root .finder-hit-popover button{appearance:none;border:0;outline:none;box-shadow:none;font-family:var(--font-sans,Arial,sans-serif);cursor:pointer}
+:root .finder-multi-popover button:focus-visible,:root .finder-hit-popover button:focus-visible{outline:2px solid #719cf5!important;outline-offset:-3px!important}
+:root .finder-multi-search input{appearance:none;background:transparent!important;border:0!important;box-shadow:none!important;outline:none!important;font-family:var(--font-sans,Arial,sans-serif)}
 .finder-multi-search{display:flex;align-items:center;gap:10px;height:56px;padding:0 16px;border-bottom:1px solid #26334e;color:#8f9bb8}
 .finder-multi-search input{width:100%;height:100%;min-width:0;border:0;outline:0;background:transparent;color:#f4f6ff;font-size:16px}
 .finder-multi-search input::placeholder{color:#9da8bf}
@@ -356,6 +360,19 @@
  .finder-multi-trigger{height:44px;font-size:14px;padding:0 12px}.finder-multi-popover,.finder-hit-popover{max-width:calc(100vw - 24px);border-radius:16px}.finder-multi-option,.finder-multi-select-all{min-height:56px;font-size:16px}.finder-multi-options{max-height:48vh}.finder-multi-close{height:48px;font-size:16px}.finder-hit-popover{padding:16px}.finder-filters .finder-multi-select{flex:0 0 128px;height:44px;border:1px solid var(--f-border);border-radius:8px;background:var(--f-control)}.finder-filters .finder-hit-filter{flex:0 0 128px}.finder-app-filter .finder-multi-select{height:44px}.finder-app-filter{border:1px solid var(--f-border)}
 }
 @media(prefers-reduced-motion:reduce){.finder-multi-popover,.finder-hit-popover{scroll-behavior:auto}}
+
+/* Dense desktop menus, with full-size touch targets retained on phones. */
+.finder-multi-popover{border-radius:10px}
+.finder-multi-search{height:42px;padding-inline:12px}
+.finder-multi-search input{font-size:13px}
+.finder-multi-select-all,.finder-multi-option{min-height:36px;padding:6px 12px;gap:9px;font-size:13px}
+.finder-multi-check{width:20px;height:20px;flex-basis:20px}
+.finder-multi-option-logo{width:21px;height:21px;flex-basis:21px}
+.finder-multi-options{max-height:min(36vh,260px)}
+.finder-multi-close{height:36px;font-size:13px;border-radius:7px;margin:6px 10px 10px;width:calc(100% - 20px)}
+.finder-hit-popover{padding:12px;border-radius:10px}
+.finder-hit-fields{margin:10px 0}.finder-hit-fields input{height:40px;font-size:14px}
+@media(max-width:760px){.finder-multi-option,.finder-multi-select-all,.finder-multi-close{min-height:44px}.finder-multi-search{height:44px}.finder-multi-search input{font-size:16px}}
 
 /* A restrained glass/highlight layer gives the surface the finished product
    depth seen in native sportsbook apps without blurring the data grid. */

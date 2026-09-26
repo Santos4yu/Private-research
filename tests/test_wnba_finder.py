@@ -69,5 +69,24 @@ class WNBAFinderHistoryTests(unittest.TestCase):
         self.assertNotIn("player_fantasy_points", rows[1]["values"])
 
 
+class QuotePairingTests(unittest.TestCase):
+    def test_main_and_alternate_quotes_merge_without_inventing_under(self):
+        from api.wnba import _board
+        from unittest.mock import Mock
+        events = [{"id":"fixture", "commence_time":"2099-01-01T12:00:00Z", "home_team":"Home", "away_team":"Away"}]
+        def market(key, side, price):
+            return {"key":key,"outcomes":[{"description":"Fixture player","name":side,"point":7.5,"price":price}]}
+        payload = {"bookmakers":[
+            {"key":"draftkings","markets":[market("player_points_alternate","Over",-180)]},
+            {"key":"prizepicks","markets":[market("player_points","Over",-119),market("player_points_alternate","Under",-119)]},
+        ]}
+        with patch("api.wnba._cached",return_value=None), patch("api.wnba._roster_directory",return_value={"players":{},"teams":{}}), patch("api.wnba._get",side_effect=[Mock(json=lambda:events),Mock(json=lambda:payload)]), patch("api.wnba.store.set"):
+            result = _board(include_history=False)
+        self.assertEqual(len(result["rows"]),1)
+        row = result["rows"][0]
+        self.assertEqual(row["apps"][0]["key"],"prizepicks")
+        self.assertEqual(row["apps"][0]["under"],-119)
+        self.assertIsNone(row["apps"][1]["under"])
+
 if __name__ == "__main__":
     unittest.main()

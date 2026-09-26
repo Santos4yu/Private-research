@@ -6,7 +6,7 @@ const BOOK_NAMES = {prizepicks: 'PrizePicks', underdog: 'Underdog', draftkings: 
 const NFL_LABELS = {passing_yards: 'Passing Yards', passing_attempts: 'Passing Attempts', pass_completions: 'Pass Completions', passing_touchdowns: 'Passing TDs', interceptions: 'Interceptions', rushing_yards: 'Rushing Yards', rush_attempts: 'Rush Attempts', passing_rushing_yards: 'Passing + Rushing Yards', receiving_yards: 'Receiving Yards', receptions: 'Receptions', targets: 'Targets', longest_reception: 'Longest Reception', rushing_receiving_yards: 'Rushing + Receiving Yards', touchdowns: 'Touchdowns', fantasy_score: 'Fantasy Score'};
 const historyCache = new Map();
 const HISTORY_TTL = 10 * 60 * 1000;
-const FINDER_CACHE_PREFIX = 'vortex:finder:board:v3:';
+const FINDER_CACHE_PREFIX = 'vortex:finder:board:v4:';
 const FINDER_CACHE_TTL = 24 * 60 * 60 * 1000;
 
 const number = value => value == null || value === '' || typeof value === 'boolean' ? null : Number.isFinite(Number(value)) ? Number(value) : null;
@@ -87,6 +87,11 @@ function applications(apps) {
   return (Array.isArray(apps) ? apps : []).map(app => ({...app, key: app.key,
     name: app.name || BOOK_NAMES[app.key] || app.key, over: number(app.over), under: number(app.under)}))
     .sort((a, b) => (a.key === 'prizepicks' ? -1 : b.key === 'prizepicks' ? 1 : 0));
+}
+
+// PrizePicks defines the playable line/tier; other books are comparisons only.
+export function matchesPrizePicksLine(row,modifiers=[]){
+ return row.apps?.some(app=>app.key==='prizepicks')&&(!modifiers.length||modifiers.includes(row.modifier));
 }
 
 function finish(row) {

@@ -1,6 +1,6 @@
 import React,{lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowDown,ArrowUp,ArrowUpDown,ArrowLeft,Bookmark,ChartNoAxesColumnIncreasing,ChevronDown,ChevronLeft,ChevronRight,Grid2X2,ListFilter,LoaderCircle,RefreshCw,Search,SlidersHorizontal,Star,Table2,Trash2,Users,CalendarDays} from 'lucide-react';
-import {loadFinderSport,enrichMlbRows,enrichWnbaRows,persistFinderCache,readFinderCache} from './unified-finder-data';
+import {loadFinderSport,enrichMlbRows,enrichWnbaRows,persistFinderCache,readFinderCache,matchesPrizePicksLine} from './unified-finder-data';
 import {WNBATrendHost} from './sports/wnba/TrendHost';
 import './unified-finder.css';
 import {FinderDropdown,FinderDropdownAssets} from './FinderDropdown';
@@ -82,7 +82,7 @@ export function UnifiedFinder(){
   const hitActive=hitFilter.windows.length>0||hitFilter.min>0||hitFilter.max<100;
   const hitWindows=hitFilter.windows.length?hitFilter.windows:['l5','l10','l15','h2h','season'];
   const filtered=sportRows.filter(r=>(!marketFilter.length||marketFilter.includes(r.market))&&(!bookFilter.length||bookFilter.some(book=>r.apps.some(a=>a.key===book)))&&(!teamFilter.length||teamFilter.includes(r.teamAbbr))&&(!dayFilter.length||dayFilter.includes(dayKey(r.startsAt)))&&
-    (!modifierFilter.length||modifierFilter.includes(r.modifier))&&(!modifierFilter.some(value=>['goblin','demon'].includes(value))||r.apps.some(a=>a.key==='prizepicks'))&&
+    matchesPrizePicksLine(r,modifierFilter)&&
     (!hitActive||hitWindows.every(key=>finite(r.windows?.[key]?.hitRate)&&r.windows[key].hitRate>=hitFilter.min&&r.windows[key].hitRate<=hitFilter.max))&&(!savedOnly||saved.has(r.id))&&(!query.trim()||(r.player+' '+(r.teamAbbr||'')+' '+(r.opponent||'')).toLowerCase().includes(query.trim().toLowerCase())));
   const value=r=>sort.key==='player'?r.player:sort.key==='average'?r.average:sort.key==='diff'?r.diff:sort.key==='streak'?r.streak:r.windows?.[sort.key]?.hitRate;
   return filtered.sort((a,b)=>{const av=value(a),bv=value(b);if(av==null&&bv==null)return a.player.localeCompare(b.player);if(av==null)return 1;if(bv==null)return -1;const n=typeof av==='string'?av.localeCompare(bv):av-bv;return (sort.direction==='asc'?n:-n)||a.player.localeCompare(b.player);});
