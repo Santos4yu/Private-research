@@ -6,6 +6,8 @@ const BOOK_NAMES = {prizepicks: 'PrizePicks', underdog: 'Underdog', draftkings: 
 const NFL_LABELS = {passing_yards: 'Passing Yards', passing_attempts: 'Passing Attempts', pass_completions: 'Pass Completions', passing_touchdowns: 'Passing TDs', interceptions: 'Interceptions', rushing_yards: 'Rushing Yards', rush_attempts: 'Rush Attempts', passing_rushing_yards: 'Passing + Rushing Yards', receiving_yards: 'Receiving Yards', receptions: 'Receptions', targets: 'Targets', longest_reception: 'Longest Reception', rushing_receiving_yards: 'Rushing + Receiving Yards', touchdowns: 'Touchdowns', fantasy_score: 'Fantasy Score'};
 const historyCache = new Map();
 const HISTORY_TTL = 10 * 60 * 1000;
+const FINDER_CACHE_PREFIX = 'vortex:finder:board:v3:';
+const FINDER_CACHE_TTL = 24 * 60 * 60 * 1000;
 
 const number = value => value == null || value === '' || typeof value === 'boolean' ? null : Number.isFinite(Number(value)) ? Number(value) : null;
 const side = value => String(value || '').toUpperCase() === 'UNDER' ? 'UNDER' : 'OVER';
@@ -13,6 +15,41 @@ const optional = value => value || null;
 const mean = values => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
 const photo = id => id ? `https://img.mlbstatic.com/mlb-photos/image/upload/w_300,q_auto:best/v1/people/${encodeURIComponent(id)}/headshot/silo/current` : null;
 const mlbLogo = id => id ? `https://www.mlbstatic.com/team-logos/${encodeURIComponent(id)}.svg` : null;
+
+function cacheStore() {
+  return typeof window === 'undefined' ? null : window.localStorage;
+}
+
+/** Persist the compact board snapshot so returning users paint before a fetch. */
+export function readFinderCache(sport, now = Date.now()) {
+  try {
+    const store = cacheStore();
+    if (!store) return null;
+    const value = JSON.parse(store.getItem(FINDER_CACHE_PREFIX + sport) || 'null');
+    if (!value || !Array.isArray(value.rows) || !value.rows.length || now - Number(value.ts || 0) > FINDER_CACHE_TTL) return null;
+    const rows = value.rows.filter(row => !row.startsAt || !Number.isFinite(Date.parse(row.startsAt)) || Date.parse(row.startsAt) > now);
+    return rows.length ? {...value, rows, persisted: true} : null;
+  } catch { return null; }
+}
+
+export function persistFinderCache(sport, value) {
+  try {
+    const store = cacheStore();
+    if (!store || !value?.rows?.length) return;
+    const rows = value.rows.map(row => {
+      const compact = {...row};
+      // History/chart payloads are shared by many lines and can be re-fetched
+      // from the in-memory cache. Keeping them out of storage avoids blocking
+      // the main thread and keeps mobile localStorage well below quota.
+      delete compact.history;
+      delete compact.chart;
+      return compact;
+    });
+    store.setItem(FINDER_CACHE_PREFIX + sport, JSON.stringify({
+      ts: Date.now(), fetchedAt: value.fetchedAt || null, rows,
+    }));
+  } catch { /* Storage is an optimization; live data remains authoritative. */ }
+}
 
 function aborted(signal) {
   if (signal?.aborted) throw signal.reason || new DOMException('Request aborted', 'AbortError');
@@ -200,6 +237,7 @@ export async function enrichWnbaRows(rows, {signal, onRows, concurrency = 6, ...
     groups.get(key).push(row);
   }
   const queue = [...groups.values()];
+  const enriched = new Map();
   let next = 0;
   async function worker() {
     while (next < queue.length) {
@@ -214,11 +252,12 @@ export async function enrichWnbaRows(rows, {signal, onRows, concurrency = 6, ...
         if (signal?.aborted || error.name === 'AbortError') throw error;
         updates = batch.map(row => ({...row, historyStatus: 'unavailable'}));
       }
+      updates.forEach(row => enriched.set(row.id, row));
       onRows?.(updates);
     }
   }
   await Promise.all(Array.from({length: Math.min(queue.length, Math.max(1, Math.min(8, concurrency)))}, worker));
-  return rows;
+  return rows.map(row => enriched.get(row.id) || row);
 }
 
 const mlbHistoryKey = row => `${nameKey(row.player)}|${finderMarket(row.raw?.stat || row.stat)?.pitcher ? 'pitching' : 'hitting'}`;
