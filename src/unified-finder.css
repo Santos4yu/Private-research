@@ -363,3 +363,42 @@
 .finder-table tbody tr{box-shadow:inset 0 1px #ffffff0a,0 3px 14px #0002}
 .finder-table tbody tr:hover{filter:brightness(1.08)}
 .finder-board{box-shadow:0 10px 30px #0003,inset 0 1px #ffffff06}
+
+/* Research is an app surface on phones, not another page inside the site
+   shell. Keep one intentional scroll region and keep the exit action within
+   thumb reach while the chart/context content moves underneath it. */
+@media(max-width:760px){
+ :root[data-theme] body:has(.unified-finder.finder-detail-active){overflow:hidden!important;overscroll-behavior:none!important}
+ :root[data-theme] body:has(.unified-finder.finder-detail-active) #app-shell #panel-finder{
+  position:fixed!important;inset:0!important;z-index:70!important;width:100%!important;max-width:none!important;
+  height:100dvh!important;min-height:0!important;margin:0!important;padding:0!important;overflow:hidden!important;
+  background:var(--theme-bg)!important
+ }
+ :root[data-theme] body:has(.unified-finder.finder-detail-active) .site-account-bar,
+ :root[data-theme] body:has(.unified-finder.finder-detail-active) .site-account-trigger,
+ :root[data-theme] body:has(.unified-finder.finder-detail-active) #settings-btn{display:none!important}
+ .unified-finder.finder-detail-active{height:100dvh!important;min-height:0!important;border:0!important;border-radius:0!important;overflow:hidden!important;background:var(--theme-bg)!important}
+ .unified-finder.finder-detail-active .finder-detail{height:100%!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch;padding:env(safe-area-inset-top,8px) 8px calc(var(--app-bottom,68px) + 18px)!important}
+ .unified-finder.finder-detail-active .finder-trend-view{min-height:0!important;padding:0!important}
+ .unified-finder.finder-detail-active .finder-back,
+ .unified-finder.finder-detail-active .wnba-trend-back,
+ .unified-finder.finder-detail-active .nfl-research-actions{
+  position:sticky!important;top:0!important;z-index:50!important;display:flex!important;align-items:center!important;min-height:48px!important;
+  margin:0 -8px 8px!important;padding:0 14px!important;border:0!important;border-bottom:1px solid var(--theme-border,#263452)!important;
+  border-radius:0!important;background:color-mix(in srgb,var(--theme-bg) 88%,transparent)!important;color:var(--theme-text)!important;
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)
+ }
+ .unified-finder.finder-detail-active .finder-back{justify-content:flex-start;gap:8px}
+ .unified-finder.finder-detail-active .nfl-research-actions{justify-content:space-between}
+ .unified-finder.finder-detail-active .nfl-research-actions .nfl-back{min-height:44px!important;display:inline-flex!important;align-items:center!important;gap:8px!important;background:transparent!important;color:var(--theme-text)!important}
+ .unified-finder.finder-detail-active .nfl-research-actions .nfl-refresh{min-width:44px!important;min-height:44px!important}
+ .unified-finder.finder-detail-active .wnba-player-banner{margin-top:0!important}
+ .unified-finder.finder-detail-active .finder-mlb-trend-host{padding-bottom:10px}
+ .unified-finder.finder-detail-active .nfl-research-page{padding-bottom:0!important}
+ .unified-finder.finder-detail-active .wnba-research-columns{display:block!important}
+ .unified-finder.finder-detail-active .wnba-research-context{display:grid!important;grid-template-columns:minmax(0,1fr)!important;margin-top:12px}
+}
+
+@media(prefers-reduced-motion:reduce){
+ .unified-finder.finder-detail-active .finder-detail{scroll-behavior:auto!important}
+}
