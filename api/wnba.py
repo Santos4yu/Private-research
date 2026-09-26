@@ -23,7 +23,7 @@ from v2.board import store  # noqa: E402
 import requests  # noqa: E402
 
 SPORT = "basketball_wnba"
-CACHE_KEY = "krazy_data:wnba:v6:finder_board"
+CACHE_KEY = "krazy_data:wnba:v7:finder_board"
 ROSTER_CACHE_KEY = "krazy_data:wnba:v1:roster_directory"
 CACHE_SECONDS = 10 * 60
 ROSTER_CACHE_SECONDS = 6 * 60 * 60
@@ -43,6 +43,11 @@ MARKETS = {
     "player_points_rebounds_assists": "Points + Rebounds + Assists",
     "player_fantasy_points": "Fantasy Points",
 }
+# The Odds API exposes PrizePicks' alternate lines through the matching
+# `_alternate` market. Keep the base label while retaining the line tier so
+# Finder can distinguish Regular, Goblin, and Demon rows.
+ALTERNATE_MARKETS = {f"{key}_alternate": label for key, label in MARKETS.items()}
+ALL_MARKETS = {**MARKETS, **ALTERNATE_MARKETS}
 BOOK_PRIORITY = {"prizepicks": 0, "underdog": 1, "draftkings": 2, "fanduel": 3, "betmgm": 4}
 _memory = {"at": 0.0, "value": None}
 _roster_memory = {"at": 0.0, "value": None}
@@ -247,10 +252,14 @@ def _board(include_history=True):
         if not event_id or not starts_at or starts_at <= now:
             continue
         response = _get(f"/sports/{SPORT}/events/{event_id}/odds", {
-            "markets": ",".join(MARKETS), "bookmakers": BOOKS, "oddsFormat": "american"
+            "markets": ",".join(ALL_MARKETS), "bookmakers": BOOKS, "oddsFormat": "american"
         })
         payload = response.json()
         grouped = {}
+        standard_prices = {}
+        # Capture standard PrizePicks prices first. The provider documents
+        # +100 alternate offers as Demons and uses the standard price for
+        # Goblins, matching the existing NFL line classification.
         for book in payload.get("bookmakers", []) if isinstance(payload, dict) else []:
             book_key = book.get("key")
             if book_key not in BOOK_PRIORITY:
@@ -259,6 +268,20 @@ def _board(include_history=True):
                 market_key = market.get("key")
                 if market_key not in MARKETS:
                     continue
+                for outcome in market.get("outcomes", []):
+                    side = outcome.get("name")
+                    price = outcome.get("price")
+                    if side in ("Over", "Under") and finite(price):
+                        standard_prices.setdefault((book_key, market_key, side), set()).add(price)
+        for book in payload.get("bookmakers", []) if isinstance(payload, dict) else []:
+            book_key = book.get("key")
+            if book_key not in BOOK_PRIORITY:
+                continue
+            for market in book.get("markets", []):
+                market_key = market.get("key")
+                if market_key not in ALL_MARKETS:
+                    continue
+                base_market_key = market_key.removesuffix("_alternate")
                 updated = timestamp(market.get("last_update") or book.get("last_update"))
                 for outcome in market.get("outcomes", []):
                     player = str(outcome.get("description") or "").strip()
@@ -268,10 +291,16 @@ def _board(include_history=True):
                     if not player or side not in ("Over", "Under") or not finite(line):
                         continue
                     key = (player.casefold(), market_key, float(line))
+                    modifier = "standard"
+                    if market_key in ALTERNATE_MARKETS and book_key == "prizepicks":
+                        if price == 100:
+                            modifier = "demon"
+                        elif finite(price) and standard_prices.get((book_key, base_market_key, side)) == {price}:
+                            modifier = "goblin"
                     row = grouped.setdefault(key, {
                         "id": f"{event_id}:{market_key}:{player}:{line}", "sport": "wnba",
-                        "eventId": event_id, "player": player, "marketKey": market_key,
-                        "market": MARKETS[market_key], "line": float(line),
+                        "eventId": event_id, "player": player, "marketKey": base_market_key,
+                        "market": ALL_MARKETS[market_key], "line": float(line), "modifier": modifier,
                         "homeTeam": event.get("home_team"), "awayTeam": event.get("away_team"),
                         "startsAt": starts_at.isoformat(), "apps": {}, "verified": True,
                     })
@@ -280,6 +309,10 @@ def _board(include_history=True):
                         "over": None, "under": None, "updatedAt": updated.isoformat() if updated else None,
                     })
                     quote[side.lower()] = price if finite(price) else None
+                    # A PrizePicks tier is the row's source of truth even when
+                    # the same line also has comparison-book quotes.
+                    if book_key == "prizepicks" and modifier in ("goblin", "demon"):
+                        row["modifier"] = modifier
         for row in grouped.values():
             identities = directory["players"].get(_norm(row["player"]), [])
             identity = next((item for item in identities if item["team"] in (row["homeTeam"], row["awayTeam"])), identities[0] if len(identities) == 1 else None)

@@ -62,7 +62,9 @@ export function UnifiedFinder(){
  const teams=useMemo(()=>[...new Set(sportRows.map(r=>r.teamAbbr).filter(Boolean))].sort(),[sportRows]);
  const days=useMemo(()=>[...new Set(sportRows.map(r=>dayKey(r.startsAt)).filter(Boolean))].sort(),[sportRows]);
  const rows=useMemo(()=>{
-  const filtered=sportRows.filter(r=>(market==='all'||r.market===market)&&(book==='all'||r.apps.some(a=>a.key===book))&&(team==='all'||r.teamAbbr===team)&&(day==='all'||dayKey(r.startsAt)===day)&&(modifier==='all'||r.modifier===modifier)&&(hitRate==='all'||(finite(r.windows?.l10?.hitRate)&&r.windows.l10.hitRate>=Number(hitRate)))&&(!savedOnly||saved.has(r.id))&&(!query.trim()||(r.player+' '+(r.teamAbbr||'')+' '+(r.opponent||'')).toLowerCase().includes(query.trim().toLowerCase())));
+  const filtered=sportRows.filter(r=>(market==='all'||r.market===market)&&(book==='all'||r.apps.some(a=>a.key===book))&&(team==='all'||r.teamAbbr===team)&&(day==='all'||dayKey(r.startsAt)===day)&&
+    (modifier==='all'||r.modifier===modifier)&&(['goblin','demon'].includes(modifier)?r.apps.some(a=>a.key==='prizepicks'):true)&&
+    (hitRate==='all'||(finite(r.windows?.l10?.hitRate)&&r.windows.l10.hitRate>=Number(hitRate)))&&(!savedOnly||saved.has(r.id))&&(!query.trim()||(r.player+' '+(r.teamAbbr||'')+' '+(r.opponent||'')).toLowerCase().includes(query.trim().toLowerCase())));
   const value=r=>sort.key==='player'?r.player:sort.key==='average'?r.average:sort.key==='diff'?r.diff:sort.key==='streak'?r.streak:r.windows?.[sort.key]?.hitRate;
   return filtered.sort((a,b)=>{const av=value(a),bv=value(b);if(av==null&&bv==null)return a.player.localeCompare(b.player);if(av==null)return 1;if(bv==null)return -1;const n=typeof av==='string'?av.localeCompare(bv):av-bv;return (sort.direction==='asc'?n:-n)||a.player.localeCompare(b.player);});
  },[sportRows,market,book,team,day,modifier,hitRate,savedOnly,saved,query,sort]);

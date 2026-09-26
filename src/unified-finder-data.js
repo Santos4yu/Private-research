@@ -48,7 +48,8 @@ function normalizeWindows(windows) {
 
 function applications(apps) {
   return (Array.isArray(apps) ? apps : []).map(app => ({...app, key: app.key,
-    name: app.name || BOOK_NAMES[app.key] || app.key, over: number(app.over), under: number(app.under)}));
+    name: app.name || BOOK_NAMES[app.key] || app.key, over: number(app.over), under: number(app.under)}))
+    .sort((a, b) => (a.key === 'prizepicks' ? -1 : b.key === 'prizepicks' ? 1 : 0));
 }
 
 function finish(row) {
@@ -80,6 +81,7 @@ export function normalizeFinderRows(sport, payload, players = [], {now = Date.no
       return finish({...raw, id: `wnba:${raw.id}`, sport, player: raw.player, playerId: optional(raw.playerId),
         headshot: optional(raw.headshot), position: optional(raw.position), teamAbbr: optional(raw.teamAbbr),
         teamLogo: optional(raw.teamLogo), opponent, startsAt: optional(raw.startsAt), direction: 'OVER',
+        modifier: raw.modifier || raw.odds_type || 'standard',
         historyStatus: raw.windows && Object.keys(raw.windows).length ? 'ready' : 'pending', raw});
     }
     if (sport === 'nfl') {
