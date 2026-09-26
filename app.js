@@ -2656,7 +2656,7 @@ function parkGameLogOverlay() {
   // background -- clearReport/renderLoadingState fire on flows that are
   // still live even when the MLB surface is hidden -- would rip the node
   // out of that sport's Trend tab and blank it.
-  if (!isMlbTrend()) return;
+  if (!isMlbTrend() || externalTrendHost?.isConnected) return;
   const overlay = document.getElementById("gamelog-overlay");
   if (overlay && overlay.parentElement !== document.body) document.body.appendChild(overlay);
 }
@@ -3626,6 +3626,27 @@ function applyExternalTrendMarket(config) {
 }
 
 window.vortexTrendPanel = {
+  // Finder hosts MLB's mature chart directly, without navigating away from
+  // the unified board. The normal MLB loaders still provide every stat,
+  // posted alternative, sportsbook quote and historical filter.
+  mountMlb(host, row) {
+    const overlay = document.getElementById("gamelog-overlay") || els.gamelogOverlay;
+    if (!overlay || !host || !row) return false;
+    const source = row.raw || row;
+    const prop = pitcherFinderGameLogProp(source);
+    prop.headshot = row.headshot || prop.headshot;
+    prop.teamAbbr = row.teamAbbr || prop.teamAbbr;
+    prop.teamId = row.teamId || prop.teamId;
+    prop.opponentTeamId = row.opponentTeamId || prop.opponentTeamId;
+    prop.matchup = { ...prop.matchup, opponent: row.opponentAbbr || row.opponent || prop.matchup.opponent };
+    prop.side = String(row.direction || 'OVER').toUpperCase() === 'UNDER' ? 'Under' : 'Over';
+    if (overlay.parentElement !== host) host.appendChild(overlay);
+    externalTrendConfig = null;
+    externalTrendHost = host;
+    gameLogState.lineEdited = false;
+    openGameLogModal(prop, MLB_TREND_ADAPTER);
+    return true;
+  },
   // Relocates the live panel into `host` -- move, not copy, exactly like
   // mountResearchTabs() does for MLB, so every listener and all state
   // survive. MLB reclaims the node by id the next time a report mounts.

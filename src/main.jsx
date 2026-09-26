@@ -95,7 +95,7 @@ function mountPrivateResearch(granted){
   privateRoots.home?.render(<ResearchHome/>);
   privateRoots.sport?.render(<Suspense fallback={<div role="status">Loading sport research…</div>}><SportResearch/></Suspense>);
   privateRoots.finder?.render(<UnifiedFinder/>);
- }else if(!granted&&privateRoots){privateRoots.home?.unmount();privateRoots.sport?.unmount();privateRoots=null;}
+ }else if(!granted&&privateRoots){privateRoots.home?.unmount();privateRoots.sport?.unmount();privateRoots.finder?.unmount();privateRoots=null;}
 }
 window.addEventListener('vortex:site-policy',event=>mountPrivateResearch(event.detail.accessGranted));
 mountPrivateResearch(document.documentElement.dataset.siteAccess==='granted');

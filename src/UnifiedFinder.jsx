@@ -1,79 +1,86 @@
-import React, {useEffect, useMemo, useState} from 'react';
-import {ArrowLeft, CalendarDays, ChevronDown, CircleDot, Database, ListFilter, RefreshCw, SearchCheck, SlidersHorizontal, Trophy} from 'lucide-react';
-import {MLBSearchField} from '../components/ui/mlb-search-field';
+import React,{lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import {ArrowDown,ArrowUp,ArrowUpDown,ArrowLeft,Bookmark,ChartNoAxesColumnIncreasing,ChevronDown,ChevronLeft,ChevronRight,Grid2X2,ListFilter,LoaderCircle,RefreshCw,Search,SlidersHorizontal,Star,Table2,Trash2,Users,CalendarDays} from 'lucide-react';
+import {loadFinderSport,enrichMlbRows} from './unified-finder-data';
 import {WNBATrendHost} from './sports/wnba/TrendHost';
-import {WNBA_STATS} from './sports/wnba/trend-data';
 import './unified-finder.css';
-
-const SPORTS=[
-  {key:'all',label:'All'},
-  {key:'wnba',label:'WNBA'},
-  {key:'mlb',label:'MLB'},
-  {key:'nfl',label:'NFL'},
-  {key:'soccer',label:'Soccer'},
-];
-
-const BOOK_LOGOS={prizepicks:'/prizepicks/logo.png',draftkings:'/sportsbooks/draftkings.png',fanduel:'/sportsbooks/fanduel.png',betmgm:'/sportsbooks/betmgm.png',underdog:'/sportsbooks/underdog.png'};
-const fmtPrice=value=>Number.isFinite(value)?`${value>0?'+':''}${value}`:'—';
-const fmtStart=value=>{try{return new Intl.DateTimeFormat(undefined,{weekday:'short',hour:'numeric',minute:'2-digit'}).format(new Date(value));}catch{return 'Upcoming';}};
-const heatTone=value=>value==null?'':value>=70?'good':value>=45?'mid':'low';
-const fmtMetric=value=>Number.isFinite(value)?Number(value.toFixed(1)):'—';
-
-function RateCell({window,label}){
- if(!window||window.hitRate==null)return <td className="unified-rate-cell muted" data-label={label}>—</td>;
- return <td className="unified-rate-cell" data-label={label} data-tone={heatTone(window.hitRate)}><strong>{Math.round(window.hitRate)}%</strong><small>{window.hits}-{window.misses}{window.pushes?` · ${window.pushes}p`:''}</small></td>;
+const FinderTrendView=lazy(()=>import('./FinderTrendView').then(m=>({default:m.FinderTrendView})));
+const SPORTS=['all','wnba','mlb','nfl'],KEYS=SPORTS.slice(1),EMPTY={state:'idle',rows:[]};
+const LOGOS={prizepicks:'/prizepicks/logo.png',draftkings:'/sportsbooks/draftkings.png',fanduel:'/sportsbooks/fanduel.png',betmgm:'/sportsbooks/betmgm.png',underdog:'/sportsbooks/underdog.png'};
+const WINDOWS=[['l5','L5'],['l10','L10'],['l15','L15'],['h2h','H2H'],['season','SZN']];
+const finite=v=>typeof v==='number'&&Number.isFinite(v);
+const num=v=>finite(v)?Number(v.toFixed(1)).toLocaleString():'—';
+const price=v=>finite(v)?(v>0?'+':'')+v:'—';
+const tone=v=>!finite(v)?'none':v>=70?'good':v>=45?'mid':'low';
+const dayKey=v=>Number.isFinite(Date.parse(v))?new Date(v).toLocaleDateString('en-CA'):'';
+const when=v=>Number.isFinite(Date.parse(v))?new Date(v).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'}):'';
+const bookName=k=>({prizepicks:'PrizePicks',draftkings:'DraftKings',fanduel:'FanDuel',betmgm:'BetMGM',underdog:'Underdog'}[k]||k);
+function Photo({src,className='',fallback=null,...props}){const [bad,setBad]=useState(false);useEffect(()=>setBad(false),[src]);return src&&!bad?<img src={src} alt="" className={className} onError={()=>setBad(true)} {...props}/>:fallback;}
+function League({sport}){return sport==='mlb'||sport==='nfl'?<img src={'/leagues/'+sport+'.svg'} alt="" className="finder-league" width="17" height="19"/>:<span className="finder-wnba" aria-hidden="true"><svg viewBox="0 0 20 24"><circle cx="12" cy="4" r="2" fill="currentColor"/><path d="m11 8-3 6 4 2-1 5m-1-12 5 3 2-5M8 14l-4 5M8 11 4 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></span>;}
+function Filter({label,icon:Icon,value,onChange,children}){return <label className={'finder-filter '+(value!=='all'?'is-active':'')}><Icon size={15} aria-hidden="true"/><select aria-label={label} value={value} onChange={e=>onChange(e.target.value)}>{children}</select><ChevronDown size={12} aria-hidden="true"/></label>;}
+function Heading({label,name,sort,onSort}){const active=sort.key===name;return <th scope="col" aria-sort={active?(sort.direction==='desc'?'descending':'ascending'):'none'}><button type="button" className={active?'is-sorted':''} onClick={()=>onSort(name)}>{label}{active?(sort.direction==='desc'?<ArrowDown size={12}/>:<ArrowUp size={12}/>):<ArrowUpDown size={11}/>}</button></th>;}
+function Heat({value,kind,detail,loading}){return <td className="finder-stat"><div className="finder-heat" data-tone={kind||tone(value)}>{finite(value)?<><strong>{num(value)}{!kind?'%':''}</strong>{detail&&<small>{detail}</small>}</>:<span className="finder-no-data" title={loading?'Loading history':'No verified sample'}>{loading?'…':'—'}</span>}</div></td>;}
+function Books({apps=[]}){return <div className="finder-books">{apps.slice(0,2).map(app=><div className="finder-book" key={app.key} title={app.name||bookName(app.key)}><Photo src={LOGOS[app.key]||'/sportsbooks/'+app.key+'.png'} width="25" height="25" fallback={<span className="finder-book-fallback">{(app.name||app.key||'?').slice(0,2)}</span>}/><span>{finite(app.over)||finite(app.under)?<><span><b className="finder-over">O</b> {price(app.over)}</span><span><b className="finder-under">U</b> {price(app.under)}</span></>:<small>More / Less</small>}</span></div>)}{apps.length>2&&<span className="finder-extra" title={apps.slice(2).map(a=>bookName(a.key)+': O '+price(a.over)+' / U '+price(a.under)).join('; ')}>+{apps.length-2}</span>}</div>;}
+function Probability({apps=[]}){const app=apps.find(a=>finite(a.over)&&finite(a.under));if(!app)return <span className="finder-no-data">—</span>;const ip=o=>o<0?-o/(-o+100):100/(o+100);const over=100*ip(app.over)/(ip(app.over)+ip(app.under));return <div className="finder-probability" title={(app.name||bookName(app.key))+' odds-implied probability, normalized to remove margin. Not a model prediction.'}><span>O <b>{over.toFixed(1)}%</b></span><span>U <b>{(100-over).toFixed(1)}%</b></span></div>;}
+const Row=React.memo(function Row({row,onOpen,saved,onSave}){
+ const record=w=>w?String(w.hits??0)+'/'+((w.hits??0)+(w.misses??0))+(w.pushes?' · '+w.pushes+'P':''):'';
+ const delta=finite(row.average)?row.average-row.line:null,edge=row.diff,loading=row.historyStatus==='pending';
+ return <tr onClick={()=>onOpen(row)}><td className="finder-player-cell"><div className="finder-player"><div className="finder-portrait-wrap"><Photo src={row.headshot} className="finder-portrait" width="38" height="38" loading="lazy" fallback={<span className="finder-portrait finder-initials">{row.player.split(' ').map(p=>p[0]).slice(0,2).join('')}</span>}/><button className="finder-star" type="button" aria-label={(saved?'Unsave ':'Save ')+row.player+' '+row.market} aria-pressed={saved} onClick={e=>{e.stopPropagation();onSave(row.id);}}><Star size={11} fill={saved?'currentColor':'none'}/></button></div><button type="button" className="finder-open" onClick={e=>{e.stopPropagation();onOpen(row);}} aria-label={'Open '+row.sport.toUpperCase()+' '+row.player+' '+row.line+' '+row.market+' trends'}><span className="finder-name">{row.player} {row.position&&<em>({row.position})</em>}</span><span className="finder-market"><League sport={row.sport}/><b>{row.direction==='UNDER'?'U ':''}{row.line}</b> {row.market}{['goblin','demon'].includes(row.modifier)&&<img src={'/prizepicks/'+row.modifier+'.png'} alt={row.modifier} width="14" height="14"/>}</span><span className="finder-game">{row.teamAbbr||row.sport.toUpperCase()}{row.opponent?' vs '+row.opponent:''}{row.startsAt?' · '+when(row.startsAt):''}</span></button></div></td><td><Books apps={row.apps}/></td><td className="finder-prob-cell"><Probability apps={row.apps}/></td><Heat value={row.average} kind={tone(row.windows?.l10?.hitRate)} loading={loading}/><Heat value={delta} kind={edge==null?'none':edge>0?'good':edge<0?'low':'mid'} loading={loading} detail={delta!=null&&row.line!==0?(delta>0?'+':'')+num(100*delta/row.line)+'%':null}/>{WINDOWS.slice(0,4).map(([key])=><Heat key={key} value={row.windows?.[key]?.hitRate} detail={record(row.windows?.[key])} loading={loading}/>)}<Heat value={row.streak} kind={row.streak>0?'good':row.streak<0?'low':'none'} loading={loading}/><Heat value={row.windows?.season?.hitRate} detail={record(row.windows?.season)} loading={loading}/></tr>;
+});
+function WNBADetail({row,playerRows,onBack}){
+ const [selected,setSelected]=useState(row),[trend,setTrend]=useState({state:'loading',rows:[]});
+ useEffect(()=>{if(!row.playerId)return;const c=new AbortController();fetch('/api/wnba?resource=gamelog&playerId='+encodeURIComponent(row.playerId)+'&season='+new Date().getUTCFullYear(),{signal:c.signal}).then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error||'Game logs unavailable');setTrend({state:'ready',rows:d.rows||[]});}).catch(e=>{if(e.name!=='AbortError')setTrend({state:'error',rows:[],error:e.message});});return()=>c.abort();},[row.playerId]);
+ return <div className="finder-detail"><button type="button" className="finder-back" onClick={onBack}><ArrowLeft size={16}/>Back to Finder</button>{!row.playerId?<div className="finder-message">Historical identity is not available for this player yet.</div>:trend.error?<div className="finder-message" role="alert">{trend.error}</div>:<WNBATrendHost row={selected} playerRows={playerRows} logs={trend.rows} loading={trend.state==='loading'} onStat={key=>{const next=playerRows.find(r=>r.marketKey===key);if(next)setSelected(next);}}/>}</div>;
 }
-
-function FilterButton({icon:Icon,label,disabled=false}){
- return <button type="button" className="unified-filter-button" disabled={disabled}><Icon size={16} aria-hidden="true"/><span>{label}</span><ChevronDown size={14} aria-hidden="true"/></button>;
-}
-
 export function UnifiedFinder(){
- const [sport,setSport]=useState('wnba');
- const [query,setQuery]=useState('');
- const [market,setMarket]=useState('all');
- const [board,setBoard]=useState({state:'loading',rows:[],fetchedAt:null,error:null});
- const [selected,setSelected]=useState(null);
- const [trend,setTrend]=useState({state:'idle',rows:[],error:null});
- const load=()=>{setBoard(current=>({...current,state:'loading',error:null}));fetch('/api/wnba',{cache:'no-store'}).then(async response=>{const data=await response.json();if(!response.ok)throw new Error(data.error||'WNBA lines are unavailable.');setBoard({state:'ready',rows:Array.isArray(data.rows)?data.rows:[],fetchedAt:data.fetchedAt,error:null});}).catch(error=>setBoard({state:'error',rows:[],fetchedAt:null,error:error.message}));};
- useEffect(()=>{load();},[]);
- const chooseSport=key=>{
-  if(key==='mlb'||key==='nfl'){
-   const url=new URL('/props',window.location.origin);url.searchParams.set('sport',key);window.location.assign(url.toString());return;
+ const [sport,setSport]=useState('wnba'),[boards,setBoards]=useState({wnba:EMPTY,mlb:EMPTY,nfl:EMPTY});
+ const [query,setQuery]=useState(''),[market,setMarket]=useState('all'),[book,setBook]=useState('all'),[team,setTeam]=useState('all'),[day,setDay]=useState('all'),[modifier,setModifier]=useState('all'),[hitRate,setHitRate]=useState('all');
+ const [sort,setSort]=useState({key:'l10',direction:'desc'}),[page,setPage]=useState(0),[pageSize,setPageSize]=useState(20),[selected,setSelected]=useState(null),[savedOnly,setSavedOnly]=useState(false);
+ const [saved,setSaved]=useState(()=>{try{return new Set(JSON.parse(localStorage.getItem('krazy-finder-watchlist')||'[]'));}catch{return new Set();}});
+ const requests=useRef(new Map()),controllers=useRef(new Set()),generation=useRef(0),boardsRef=useRef(boards),tableRef=useRef(null),trigger=useRef(null);boardsRef.current=boards;
+ const load=useCallback(async(key,force=false)=>{
+  if(requests.current.has(key)||(!force&&boardsRef.current[key].state==='ready'))return;
+  const c=new AbortController();requests.current.set(key,c);controllers.current.add(c);
+  setBoards(old=>({...old,[key]:{...old[key],state:'loading',error:null}}));
+  try{const result=await loadFinderSport(key,{signal:c.signal});if(c.signal.aborted)return;setBoards(old=>({...old,[key]:{...result,state:'ready',error:null}}));
+   if(key==='mlb'){const run=++generation.current;await enrichMlbRows(result.rows,{signal:c.signal,concurrency:3,onRows:batch=>{if(run!==generation.current||c.signal.aborted)return;const updates=new Map(batch.map(r=>[r.id,r]));setBoards(old=>({...old,mlb:{...old.mlb,rows:old.mlb.rows.map(r=>updates.get(r.id)||r)}}));}});}
   }
-  setSport(key);
- };
- const markets=useMemo(()=>[...new Set(board.rows.map(row=>row.market))].sort(),[board.rows]);
- const rows=useMemo(()=>board.rows.filter(row=>(sport==='all'||sport==='wnba')&&(market==='all'||row.market===market)&&(!query.trim()||row.player.toLowerCase().includes(query.trim().toLowerCase()))),[board.rows,sport,market,query]);
- const playerRows=useMemo(()=>selected?board.rows.filter(row=>row.playerId===selected.playerId):[],[board.rows,selected]);
- const openTrend=row=>{if(!row.playerId)return;setSelected(row);setTrend({state:'loading',rows:[],error:null});fetch(`/api/wnba?resource=gamelog&playerId=${encodeURIComponent(row.playerId)}&season=${new Date().getUTCFullYear()}`,{cache:'no-store'}).then(async response=>{const data=await response.json();if(!response.ok)throw new Error(data.error||'WNBA game logs are unavailable.');setTrend({state:'ready',rows:data.rows||[],error:null});}).catch(error=>setTrend({state:'error',rows:[],error:error.message}));};
- const switchTrendStat=key=>{const definition=WNBA_STATS.find(stat=>stat.key===key);const next=playerRows.find(row=>row.marketKey===key);if(next&&definition)setSelected({...next,market:definition.label});};
- if(selected)return <main className="unified-finder wnba-trend-page"><button type="button" className="wnba-trend-back" onClick={()=>setSelected(null)}><ArrowLeft size={17} aria-hidden="true"/>Back to WNBA Finder</button><header className="wnba-trend-title"><div className="wnba-player-cell"><img className="wnba-player-photo" src={selected.headshot} alt="" width="56" height="56"/><div><span>WNBA TRENDS</span><h1>{selected.player}</h1><p>{selected.market} · Line {selected.line}</p></div></div><div className="wnba-team-pair">{selected.awayTeamLogo&&<img src={selected.awayTeamLogo} alt=""/>}{selected.homeTeamLogo&&<img src={selected.homeTeamLogo} alt=""/>}</div></header>{trend.state==='error'?<div className="wnba-board-message"><Database size={22}/><strong>Trends unavailable</strong><span>{trend.error}</span></div>:<WNBATrendHost row={selected} playerRows={playerRows} logs={trend.rows} loading={trend.state==='loading'} onStat={switchTrendStat}/>}</main>;
- return <main className="unified-finder" aria-labelledby="unified-finder-title">
-  <header className="unified-finder-head">
-   <div><span className="unified-finder-kicker">MULTI-SPORT RESEARCH</span><h1 id="unified-finder-title">Finder</h1><p>One verified market board across every supported sport.</p></div>
-   <span className="unified-finder-beta">Foundation</span>
-  </header>
-  <nav className="unified-sport-tabs" aria-label="Filter Finder by sport">
-   {SPORTS.map(item=><button type="button" key={item.key} aria-pressed={sport===item.key} onClick={()=>chooseSport(item.key)}>{item.label}</button>)}
-  </nav>
-  <section className="unified-finder-toolbar" aria-label="Finder controls">
-   <MLBSearchField id="unified-finder-search" ariaLabel="Search Finder players" placeholder="Search a player" value={query} onChange={event=>setQuery(event.target.value)} className="unified-finder-search"/>
-   <div className="unified-finder-filters">
-    <FilterButton icon={SlidersHorizontal} label="Modifiers" disabled/>
-    <label className="unified-market-filter"><ListFilter size={16} aria-hidden="true"/><span className="sr-only">Stat market</span><select value={market} onChange={event=>setMarket(event.target.value)}><option value="all">All stats</option>{markets.map(item=><option key={item}>{item}</option>)}</select><ChevronDown size={14} aria-hidden="true"/></label>
-    <FilterButton icon={Trophy} label="Matches" disabled/>
-    <FilterButton icon={CircleDot} label="Rankings" disabled/>
-    <FilterButton icon={CalendarDays} label="Date" disabled/>
-   </div>
-  </section>
-  {sport!=='wnba'&&sport!=='all'?<section className="unified-finder-stage" aria-live="polite">
-   <div className="unified-finder-status-icon"><SearchCheck size={26} aria-hidden="true"/></div>
-   <div><span>SPORT FOUNDATION</span><h2>{sport.toUpperCase()} is not connected yet.</h2><p>This workspace will only show a sport after its market and historical sources pass identity, freshness and coverage checks.</p></div>
-   <div className="unified-finder-proof"><Database size={18} aria-hidden="true"/><span><strong>No mock props</strong><small>Every future row must retain its source and update time.</small></span></div>
-  </section>:<section className="wnba-finder-board" aria-live="polite">
-   <header><div><span>WNBA PROPS</span><strong>{board.state==='ready'?`${rows.length} verified lines`:'Loading verified lines…'}</strong><small>{board.fetchedAt?`Updated ${new Date(board.fetchedAt).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}`:'PrizePicks prioritized when available'}</small></div><button type="button" onClick={load} disabled={board.state==='loading'} aria-label="Refresh WNBA lines"><RefreshCw size={17} aria-hidden="true"/></button></header>
-   {board.state==='error'?<div className="wnba-board-message"><Database size={22}/><strong>WNBA feed unavailable</strong><span>{board.error}</span></div>:board.state==='loading'?<div className="wnba-board-message"><span className="wnba-loader"/><strong>Loading the cached WNBA board</strong><span>Current lines and performance windows are verified before display.</span></div>:rows.length===0?<div className="wnba-board-message"><SearchCheck size={22}/><strong>No matching WNBA props</strong><span>{board.rows.length?'Try a different player or stat.':'No supported books have posted a verified line yet.'}</span></div>:<div className="wnba-table-wrap"><table className="wnba-finder-table"><thead><tr><th>Player / prop</th><th>Apps</th><th>Avg L10</th><th>Diff</th><th>L5</th><th>L10</th><th>L15</th><th>H2H</th></tr></thead><tbody>{rows.map(row=><tr key={row.id} className="wnba-clickable-row" tabIndex="0" role="button" aria-label={`Open ${row.player} ${row.market} trends`} onClick={()=>openTrend(row)} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openTrend(row);}}}><td><div className="wnba-player-cell">{row.headshot?<img className="wnba-player-photo" src={row.headshot} alt="" width="48" height="48" loading="lazy"/>:<span className="wnba-player-fallback" aria-hidden="true">{row.player.split(' ').map(part=>part[0]).slice(0,2).join('')}</span>}<div><strong>{row.player}</strong><span>{row.position&&row.teamAbbr?`${row.position} · ${row.teamAbbr} · `:''}{row.market}</span><b>{row.line}</b><small>{row.awayTeamAbbr} @ {row.homeTeamAbbr} · {fmtStart(row.startsAt)}</small></div></div></td><td><div className="wnba-book-lines compact">{row.apps.map(app=><div className={`wnba-book-line ${app.key==='prizepicks'?'is-prizepicks':''}`} key={app.key}><span className="wnba-book-logo">{BOOK_LOGOS[app.key]?<img src={BOOK_LOGOS[app.key]} alt={app.name} width="28" height="28"/>:<b>{app.name.slice(0,2)}</b>}</span><span><small>O</small><b className="wnba-over">{fmtPrice(app.over)}</b></span><span><small>U</small><b className="wnba-under">{fmtPrice(app.under)}</b></span></div>)}</div></td><td className="unified-rate-cell" data-label="Avg"><strong>{fmtMetric(row.average)}</strong></td><td className="unified-rate-cell" data-label="Diff" data-tone={row.diff==null?'':row.diff>0?'good':row.diff<0?'low':'mid'}><strong>{row.diff==null?'—':`${row.diff>0?'+':''}${row.diff.toFixed(1)}`}</strong></td><RateCell window={row.windows?.l5} label="L5"/><RateCell window={row.windows?.l10} label="L10"/><RateCell window={row.windows?.l15} label="L15"/><RateCell window={row.windows?.h2h} label="H2H"/></tr>)}</tbody></table></div>}
-  </section>}
+  catch(e){if(e.name!=='AbortError')setBoards(old=>({...old,[key]:{...old[key],state:'error',error:e.message}}));}
+  finally{requests.current.delete(key);controllers.current.delete(c);}
+ },[]);
+ useEffect(()=>{(sport==='all'?KEYS:[sport]).forEach(key=>load(key));},[sport,load]);
+ useEffect(()=>()=>{controllers.current.forEach(c=>c.abort());generation.current++;},[]);
+ const scope=sport==='all'?KEYS:[sport];
+ const allRows=useMemo(()=>KEYS.flatMap(k=>boards[k].rows||[]),[boards]);
+ const sportRows=useMemo(()=>allRows.filter(r=>sport==='all'||r.sport===sport),[allRows,sport]);
+ const markets=useMemo(()=>[...new Set(sportRows.map(r=>r.market))].sort(),[sportRows]);
+ const books=useMemo(()=>[...new Set(sportRows.flatMap(r=>r.apps.map(a=>a.key)))].sort(),[sportRows]);
+ const teams=useMemo(()=>[...new Set(sportRows.map(r=>r.teamAbbr).filter(Boolean))].sort(),[sportRows]);
+ const days=useMemo(()=>[...new Set(sportRows.map(r=>dayKey(r.startsAt)).filter(Boolean))].sort(),[sportRows]);
+ const rows=useMemo(()=>{
+  const filtered=sportRows.filter(r=>(market==='all'||r.market===market)&&(book==='all'||r.apps.some(a=>a.key===book))&&(team==='all'||r.teamAbbr===team)&&(day==='all'||dayKey(r.startsAt)===day)&&(modifier==='all'||r.modifier===modifier)&&(hitRate==='all'||(finite(r.windows?.l10?.hitRate)&&r.windows.l10.hitRate>=Number(hitRate)))&&(!savedOnly||saved.has(r.id))&&(!query.trim()||(r.player+' '+(r.teamAbbr||'')+' '+(r.opponent||'')).toLowerCase().includes(query.trim().toLowerCase())));
+  const value=r=>sort.key==='player'?r.player:sort.key==='average'?r.average:sort.key==='diff'?r.diff:sort.key==='streak'?r.streak:r.windows?.[sort.key]?.hitRate;
+  return filtered.sort((a,b)=>{const av=value(a),bv=value(b);if(av==null&&bv==null)return a.player.localeCompare(b.player);if(av==null)return 1;if(bv==null)return -1;const n=typeof av==='string'?av.localeCompare(bv):av-bv;return (sort.direction==='asc'?n:-n)||a.player.localeCompare(b.player);});
+ },[sportRows,market,book,team,day,modifier,hitRate,savedOnly,saved,query,sort]);
+ useEffect(()=>setPage(0),[sport,query,market,book,team,day,modifier,hitRate,pageSize,savedOnly,sort]);
+ const pages=Math.max(1,Math.ceil(rows.length/pageSize)),currentPage=Math.min(page,pages-1),visible=rows.slice(currentPage*pageSize,(currentPage+1)*pageSize);
+ const loading=scope.some(k=>['loading','idle'].includes(boards[k].state)),errors=scope.filter(k=>boards[k].error).map(k=>k.toUpperCase()+': '+boards[k].error),histories=sportRows.filter(r=>r.historyStatus==='pending').length;
+ const timestamp=scope.map(k=>boards[k].fetchedAt).filter(Boolean).sort().at(-1);
+ const onSave=useCallback(id=>setSaved(old=>{const next=new Set(old);if(next.has(id))next.delete(id);else next.add(id);try{localStorage.setItem('krazy-finder-watchlist',JSON.stringify([...next]));}catch{}return next;}),[]);
+ const open=useCallback(row=>{trigger.current='Open '+row.sport.toUpperCase()+' '+row.player+' '+row.line+' '+row.market+' trends';setSelected(row);},[]);
+ const back=()=>{setSelected(null);requestAnimationFrame(()=>{const button=[...document.querySelectorAll('.finder-open')].find(el=>el.getAttribute('aria-label')===trigger.current);button?.focus({preventScroll:true});});};
+ const changeSport=key=>{setSport(key);setSelected(null);setMarket('all');setTeam('all');setDay('all');setModifier('all');};
+ const clear=()=>{setQuery('');setMarket('all');setBook('all');setTeam('all');setDay('all');setModifier('all');setHitRate('all');setSavedOnly(false);};
+ const onSort=key=>setSort(old=>({key,direction:old.key===key&&old.direction==='desc'?'asc':'desc'}));
+ const changePage=n=>{setPage(n);tableRef.current?.scrollTo({top:0});};
+ const playerRows=selected?allRows.filter(r=>r.sport===selected.sport&&(selected.playerId?r.playerId===selected.playerId:r.player===selected.player)):[];
+ return <main className="unified-finder" aria-label="Multi-sport prop Finder">
+  <header className="finder-topbar"><div className="finder-title"><Table2 size={19}/><h1>Finder</h1><span>/</span></div><nav className="finder-sports" aria-label="Finder sport">{SPORTS.map(key=><button type="button" key={key} aria-pressed={sport===key} onClick={()=>changeSport(key)}>{key==='all'?<Grid2X2 size={15}/>:<League sport={key}/>}<span>{key==='all'?'All':key.toUpperCase()}</span></button>)}</nav><span className="finder-brand">KRAZY<span>EDGE</span></span><button type="button" className="finder-icon finder-top-save" aria-label="Show saved Finder props" aria-pressed={savedOnly} onClick={()=>{setSelected(null);setSavedOnly(v=>!v);}}><Bookmark size={17}/></button></header>
+  {selected?<Suspense fallback={<div className="finder-message"><LoaderCircle className="finder-spin"/>Loading player trends…</div>}>{selected.sport==='wnba'?<WNBADetail row={selected} playerRows={playerRows} onBack={back}/>:<FinderTrendView row={selected} playerRows={playerRows} onBack={back}/>}</Suspense>:<>
+   <div className="finder-controls"><div className="finder-search-row"><label className="finder-search"><Search size={16}/><input type="search" aria-label="Search players or teams" placeholder="Search players or teams…" value={query} onChange={e=>setQuery(e.target.value)}/></label><div className="finder-app-filter"><Filter label="Apps" icon={Grid2X2} value={book} onChange={setBook}><option value="all">All apps</option>{books.map(k=><option value={k} key={k}>{bookName(k)}</option>)}</Filter><span className="finder-app-icons" aria-hidden="true">{books.slice(0,6).map(k=><Photo key={k} src={LOGOS[k]||'/sportsbooks/'+k+'.png'} width="23" height="23"/>)}</span></div><button type="button" className="finder-icon" aria-label="Refresh Finder" onClick={()=>scope.forEach(k=>load(k,true))} disabled={loading}><RefreshCw size={16} className={loading?'finder-spin':''}/></button></div>
+   <div className="finder-filters"><Filter label="Line type" icon={SlidersHorizontal} value={modifier} onChange={setModifier}><option value="all">All lines</option><option value="standard">Regular</option><option value="goblin">Goblins</option><option value="demon">Demons</option></Filter><Filter label="Stats" icon={ChartNoAxesColumnIncreasing} value={market} onChange={setMarket}><option value="all">All stats</option>{markets.map(m=><option key={m}>{m}</option>)}</Filter><Filter label="Teams" icon={Users} value={team} onChange={setTeam}><option value="all">All teams</option>{teams.map(t=><option key={t}>{t}</option>)}</Filter><Filter label="Date" icon={CalendarDays} value={day} onChange={setDay}><option value="all">All dates</option>{days.map(d=><option key={d} value={d}>{new Date(d+'T12:00:00').toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'})}</option>)}</Filter><Filter label="Minimum L10 hit rate" icon={ListFilter} value={hitRate} onChange={setHitRate}><option value="all">Hit rate</option>{[50,60,70,80,90].map(n=><option key={n} value={n}>L10 · {n}%+</option>)}</Filter><button type="button" className={'finder-saved '+(savedOnly?'is-active':'')} aria-pressed={savedOnly} onClick={()=>setSavedOnly(v=>!v)}><Bookmark size={15}/>Saved{saved.size>0&&<b>{saved.size}</b>}</button><button type="button" className="finder-icon finder-reset" aria-label="Reset all Finder filters" onClick={clear}><Trash2 size={16}/></button></div></div>
+   <div className="finder-meta"><span role="status">{loading?<><LoaderCircle size={12} className="finder-spin"/>Loading {scope.filter(k=>boards[k].state!=='ready').map(k=>k.toUpperCase()).join(', ')}…</>:<><i/>{rows.length.toLocaleString()} props</>}{histories>0&&<small> · History loading for {histories} lines</small>}</span><span className="finder-legend"><i data-tone="good"/>70%+<i data-tone="mid"/>45–69%<i data-tone="low"/>&lt;45% <span>·</span>{timestamp?'Updated '+new Date(timestamp).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'Pushes excluded'}</span></div>
+   {errors.length>0&&<div className="finder-error" role="alert">{errors.join(' · ')}<button type="button" onClick={()=>scope.filter(k=>boards[k].error).forEach(k=>load(k,true))}>Retry</button></div>}
+   <section className="finder-board" aria-label="Player props"><div className="finder-scroll" ref={tableRef}><table className="finder-table"><caption className="finder-sr-only">Historical hit rates for the displayed line and side. Green 70 percent or more, yellow 45 to 69 percent, red below 45 percent. Missing data is shown as a dash.</caption><thead><tr><Heading name="player" label="Line" sort={sort} onSort={onSort}/><th scope="col">Apps</th><th scope="col" title="Odds-implied probability, normalized to remove margin">Book %</th><Heading name="average" label="Avg L10" sort={sort} onSort={onSort}/><Heading name="diff" label="Diff" sort={sort} onSort={onSort}/>{WINDOWS.slice(0,4).map(([key,label])=><Heading key={key} name={key} label={label} sort={sort} onSort={onSort}/>)}<Heading name="streak" label="Streak" sort={sort} onSort={onSort}/><Heading name="season" label="SZN" sort={sort} onSort={onSort}/></tr></thead><tbody>{visible.map(row=><Row key={row.id} row={row} onOpen={open} saved={saved.has(row.id)} onSave={onSave}/>)}</tbody></table>{!visible.length&&<div className="finder-message">{loading?<><LoaderCircle className="finder-spin"/><strong>Loading the prop board</strong><span>Lines appear here as each sport loads.</span></>:<><Search size={24}/><strong>{savedOnly?'No saved props match':'No props match these filters'}</strong><span>{sportRows.length?'Try another player, stat, or team.':'No upcoming lines are available from this feed right now.'}</span><button type="button" onClick={clear}>Clear filters</button></>}</div>}</div><footer className="finder-pagination"><span>{rows.length?(currentPage*pageSize+1)+'–'+Math.min((currentPage+1)*pageSize,rows.length)+' of '+rows.length.toLocaleString():'0 props'}</span><div><button type="button" aria-label="Previous page" disabled={currentPage===0} onClick={()=>changePage(currentPage-1)}><ChevronLeft size={17}/></button><span>Page <b>{currentPage+1}</b> / {pages}</span><button type="button" aria-label="Next page" disabled={currentPage>=pages-1} onClick={()=>changePage(currentPage+1)}><ChevronRight size={17}/></button><label><ListFilter size={14}/><select aria-label="Rows per page" value={pageSize} onChange={e=>setPageSize(Number(e.target.value))}>{[20,50,100].map(n=><option value={n} key={n}>{n} rows</option>)}</select><ChevronDown size={12}/></label></div><span className="finder-page-hint">Select a player to open Trends</span></footer></section>
+  </>}
  </main>;
 }

@@ -10,7 +10,7 @@ export const WNBA_STATS=[
 export function wnbaChart(logs,marketKey,opponent){
  const all=(logs||[]).map(row=>({value:row.values?.[marketKey],season:String(row.season||''),fullDate:row.date||'',opponent:row.opponent||'',isHome:row.isHome,gameId:row.gameId,result:row.result,score:row.score})).filter(row=>Number.isFinite(row.value));
  const chart={all};const h2h=opponent?all.filter(game=>game.opponent===opponent):[];
- if(h2h.length){chart.h2h=h2h;chart.meta={h2hLabel:`Career vs ${opponent}`};}return chart;
+ if(h2h.length){chart.h2h=h2h;chart.meta={h2hLabel:`vs ${opponent}`};}return chart;
 }
 export function wnbaLines(rows,marketKey){
  const lines=new Map();for(const row of rows||[]){if(row.marketKey!==marketKey||!Number.isFinite(row.line))continue;let item=lines.get(row.line);if(!item){item={value:row.line,tier:'STANDARD',books:[],primaryBook:null};lines.set(row.line,item);}for(const app of row.apps||[]){if(!item.books.includes(app.key))item.books.push(app.key);if(app.key==='prizepicks')item.primaryBook='prizepicks';else if(!item.primaryBook)item.primaryBook=app.key;}}return [...lines.values()].sort((a,b)=>a.value-b.value);

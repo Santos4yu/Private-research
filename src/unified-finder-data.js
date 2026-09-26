@@ -1,0 +1,238 @@
+import {finderMarket, gameValue, historyChart, nameKey} from './prop-finder-core.js';
+import {teamLogoUrl} from './sports/nfl/nfl-ui-core.js';
+
+const WINDOW_KEYS = ['l5', 'l10', 'l15', 'l20', 'h2h', 'season'];
+const BOOK_NAMES = {prizepicks: 'PrizePicks', underdog: 'Underdog', draftkings: 'DraftKings', fanduel: 'FanDuel', betmgm: 'BetMGM'};
+const NFL_LABELS = {passing_yards: 'Passing Yards', passing_attempts: 'Passing Attempts', pass_completions: 'Pass Completions', passing_touchdowns: 'Passing TDs', interceptions: 'Interceptions', rushing_yards: 'Rushing Yards', rush_attempts: 'Rush Attempts', passing_rushing_yards: 'Passing + Rushing Yards', receiving_yards: 'Receiving Yards', receptions: 'Receptions', targets: 'Targets', longest_reception: 'Longest Reception', rushing_receiving_yards: 'Rushing + Receiving Yards', touchdowns: 'Touchdowns', fantasy_score: 'Fantasy Score'};
+const historyCache = new Map();
+const HISTORY_TTL = 10 * 60 * 1000;
+
+const number = value => value == null || value === '' || typeof value === 'boolean' ? null : Number.isFinite(Number(value)) ? Number(value) : null;
+const side = value => String(value || '').toUpperCase() === 'UNDER' ? 'UNDER' : 'OVER';
+const optional = value => value || null;
+const mean = values => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+const photo = id => id ? `https://img.mlbstatic.com/mlb-photos/image/upload/w_300,q_auto:best/v1/people/${encodeURIComponent(id)}/headshot/silo/current` : null;
+const mlbLogo = id => id ? `https://www.mlbstatic.com/team-logos/${encodeURIComponent(id)}.svg` : null;
+
+function aborted(signal) {
+  if (signal?.aborted) throw signal.reason || new DOMException('Request aborted', 'AbortError');
+}
+
+async function request(url, {signal, fetcher = fetch} = {}) {
+  aborted(signal);
+  const response = await fetcher(url, {signal, cache: 'no-store', credentials: 'same-origin'});
+  const data = await response.json();
+  if (!response.ok || data.error) throw new Error(data.error || 'Prop data is temporarily unavailable.');
+  return data;
+}
+
+export function finderWindow(values, line, direction = 'OVER') {
+  const valid = values.map(number).filter(value => value != null);
+  const threshold = number(line);
+  const pushes = threshold == null ? null : valid.filter(value => value === threshold).length;
+  const hits = threshold == null ? null : valid.filter(value => side(direction) === 'UNDER' ? value < threshold : value > threshold).length;
+  const decisions = threshold == null ? 0 : valid.length - pushes;
+  return {hits, misses: threshold == null ? null : decisions - hits, pushes, decisions, sample: valid.length,
+    hitRate: decisions ? hits / decisions * 100 : null, average: mean(valid)};
+}
+
+function normalizeWindows(windows) {
+  return Object.fromEntries(WINDOW_KEYS.map(key => {
+    const source = windows?.[key] || (key === 'season' ? windows?.szn : null);
+    if (!source) return [key, null];
+    const sample = number(source.sample);
+    return [key, {...source, sample, hits: number(source.hits), misses: number(source.misses), pushes: number(source.pushes),
+      hitRate: sample === 0 ? null : number(source.hitRate), average: number(source.average)}];
+  }));
+}
+
+function applications(apps) {
+  return (Array.isArray(apps) ? apps : []).map(app => ({...app, key: app.key,
+    name: app.name || BOOK_NAMES[app.key] || app.key, over: number(app.over), under: number(app.under)}));
+}
+
+function finish(row) {
+  const average = number(row.average);
+  const line = number(row.line);
+  const direction = side(row.direction);
+  return {...row, average, line, direction, windows: normalizeWindows(row.windows),
+    diff: average == null || line == null ? null : (average - line) * (direction === 'UNDER' ? -1 : 1),
+    averageDelta: average == null || line == null ? null : average - line,
+    modifier: String(row.modifier || 'standard').toLowerCase(),
+    streak: number(row.streak), moneyline: number(row.moneyline), defense: number(row.defense),
+    apps: applications(row.apps)};
+}
+
+/** Normalize verified provider rows; never infer missing prices or game results. */
+export function normalizeFinderRows(sport, payload, players = [], {now = Date.now()} = {}) {
+  const playerList = Array.isArray(players) ? players : [];
+  const byId = new Map(playerList.map(player => [String(player.id), player]));
+  const names = new Map();
+  for (const player of playerList) {
+    const key = nameKey(player.name);
+    names.set(key, names.has(key) ? null : player);
+  }
+  const source = sport === 'mlb' ? payload.props : payload.rows || payload.data;
+  const rows = (Array.isArray(source) ? source : []).map(raw => {
+    if (sport === 'wnba') {
+      const opponent = raw.teamAbbr && raw.teamAbbr === raw.homeTeamAbbr ? raw.awayTeamAbbr
+        : raw.teamAbbr && raw.teamAbbr === raw.awayTeamAbbr ? raw.homeTeamAbbr : null;
+      return finish({...raw, id: `wnba:${raw.id}`, sport, player: raw.player, playerId: optional(raw.playerId),
+        headshot: optional(raw.headshot), position: optional(raw.position), teamAbbr: optional(raw.teamAbbr),
+        teamLogo: optional(raw.teamLogo), opponent, startsAt: optional(raw.startsAt), direction: 'OVER', raw});
+    }
+    if (sport === 'nfl') {
+      const player = byId.get(String(raw.playerId));
+      const quote = raw.line || {};
+      if (!quote.verified || !NFL_LABELS[raw.propType]) return null;
+      const direction = side(quote.direction || raw.direction);
+      const key = quote.bookmaker;
+      const event = (payload.events || []).find(item => item.gameId === raw.gameId);
+      return finish({id: `nfl:${[raw.playerId, raw.gameId, raw.propType, key, quote.category, quote.value, direction].join(':')}`,
+        sport, player: raw.playerName || player?.name, playerId: optional(raw.playerId), headshot: optional(player?.headshot_url || raw.headshot),
+        position: optional(raw.position || player?.position), teamAbbr: optional(raw.teamId || player?.team_id),
+        teamLogo: optional(teamLogoUrl(raw.teamId || player?.team_id)), opponent: optional(raw.opponentId),
+        awayTeamAbbr: event?.awayTeamId || null, homeTeamAbbr: event?.homeTeamId || null,
+        startsAt: optional(raw.startsAt), market: NFL_LABELS[raw.propType], marketKey: raw.propType,
+        line: quote.value, direction, modifier: quote.category,
+        apps: key ? [{key, name: quote.platform || BOOK_NAMES[key] || key,
+          over: direction === 'OVER' ? quote.price : null, under: direction === 'UNDER' ? quote.price : null}] : [],
+        // The NFL row.average is L20; only the explicit L10 average belongs in Avg L10.
+        average: raw.windows?.l10?.average, windows: raw.windows, streak: raw.streak,
+        defense: raw.matchupContext?.positionDefense?.rank, raw, playerObject: player || null});
+    }
+    if (sport === 'mlb') {
+      const definition = finderMarket(raw.stat);
+      if (!definition) return null;
+      const player = names.get(nameKey(raw.player));
+      const playerId = player?.id || raw.playerId || null;
+      return finish({id: `mlb:${raw.id || [nameKey(raw.player), nameKey(raw.stat), raw.line, raw.odds_type].join(':')}`,
+        sport, player: raw.player, playerId, headshot: photo(playerId) || optional(raw.headshot),
+        position: definition.pitcher ? 'P' : optional(raw.position || player?.position),
+        teamAbbr: optional(raw.team), teamLogo: mlbLogo(player?.team_id), opponent: optional(raw.opponent),
+        startsAt: optional(raw.start_time), market: definition.label, marketKey: `${definition.pitcher ? 'pitching' : 'hitting'}:${definition.key}`,
+        line: raw.line, direction: 'OVER', modifier: raw.odds_type,
+        apps: [{key: 'prizepicks', name: 'PrizePicks', over: null, under: null}],
+        average: null, windows: null, raw, historyStatus: 'pending'});
+    }
+    return null;
+  });
+  return rows.filter(row => row && row.player && row.line != null &&
+    (!row.startsAt || !Number.isFinite(Date.parse(row.startsAt)) || Date.parse(row.startsAt) > now));
+}
+
+/** Read existing sport feeds. NFL uses its saved board, never a browser-driven odds scan. */
+export async function loadFinderSport(sport, options = {}) {
+  if (sport === 'wnba') {
+    const payload = await request('/api/wnba', options);
+    return {...payload, rows: normalizeFinderRows(sport, payload), fetchedAt: payload.fetchedAt || null};
+  }
+  if (sport === 'mlb') {
+    const [board, roster] = await Promise.allSettled([
+      request('/api/board?view=props', options), request('/api/players?catalog=1', options),
+    ]);
+    aborted(options.signal);
+    if (board.status === 'rejected') throw board.reason;
+    return {...board.value, rows: normalizeFinderRows(sport, board.value, roster.status === 'fulfilled' ? roster.value.players : []),
+      fetchedAt: board.value.fetchedAt || null};
+  }
+  if (sport === 'nfl') {
+    const today = new Date();
+    const season = options.season || today.getUTCFullYear() - (today.getUTCMonth() < 2 ? 1 : 0);
+    const [board, roster] = await Promise.allSettled([
+      request(`/api/nfl?resource=board&season=${season}`, options),
+      request(`/api/nfl?resource=players&season=${season}`, options),
+    ]);
+    aborted(options.signal);
+    if (board.status === 'rejected') throw board.reason;
+    return {...board.value, rows: normalizeFinderRows(sport, board.value, roster.status === 'fulfilled' ? roster.value.data : []),
+      fetchedAt: board.value.builtAt || board.value.fetchedAt || null};
+  }
+  throw new Error('This sport is not supported by Finder.');
+}
+
+const mlbHistoryKey = row => `${nameKey(row.player)}|${finderMarket(row.raw?.stat || row.stat)?.pitcher ? 'pitching' : 'hitting'}`;
+
+/** Shared by progressive table enrichment and the inline Trends view. */
+export async function loadMlbHistory(row, options = {}) {
+  aborted(options.signal);
+  const key = mlbHistoryKey(row);
+  const cached = historyCache.get(key);
+  if (cached && Date.now() - cached.at < HISTORY_TTL) return cached.value;
+  const group = key.split('|')[1];
+  const payload = await request(`/api/board?view=prop-history&player=${encodeURIComponent(row.player)}&group=${group}`, options);
+  historyCache.set(key, {at: Date.now(), value: payload});
+  if (historyCache.size > 500) historyCache.delete(historyCache.keys().next().value);
+  return payload;
+}
+
+function strictMlbValue(stat, definition) {
+  const requirements = definition.field === 'hrr' ? ['hits', 'runs', 'rbi']
+    : definition.field === 'fantasy' ? ['hits', 'doubles', 'triples', 'homeRuns', 'runs', 'rbi', 'baseOnBalls', 'hitByPitch', 'stolenBases']
+    : definition.field === 'totalBases' && stat.totalBases == null ? ['hits', 'doubles', 'triples', 'homeRuns']
+    : definition.field === 'outs' && stat.outs == null ? ['inningsPitched'] : [definition.field];
+  if (requirements.some(key => number(stat[key]) == null)) return null;
+  return number(gameValue(stat, definition));
+}
+
+export function applyMlbHistory(row, payload) {
+  const definition = finderMarket(row.raw?.stat || row.stat);
+  if (!definition) return row;
+  const validGames = (payload.games || []).filter(game => game.date && strictMlbValue(game.stat || {}, definition) != null)
+    .sort((a, b) => a.date.localeCompare(b.date) || String(a.gameId || '').localeCompare(String(b.gameId || '')));
+  const chart = historyChart({...payload, games: validGames}, {...row.raw, stat: row.raw?.stat || row.stat,
+    line: row.line, teamId: payload.matchup?.opponent?.id});
+  const values = chart.all.map(game => game.value);
+  const windows = Object.fromEntries([5, 10, 15, 20].map(size => [`l${size}`, finderWindow(values.slice(-size), row.line, row.direction)]));
+  windows.h2h = finderWindow(chart.h2h.map(game => game.value), row.line, row.direction);
+  windows.season = payload.season == null ? null : finderWindow(chart.all.filter(game => String(game.season) === String(payload.season)).map(game => game.value), row.line, row.direction);
+  let streak = 0;
+  for (let index = values.length - 1; index >= 0; index--) {
+    if (values[index] === row.line) break;
+    const hit = side(row.direction) === 'UNDER' ? values[index] < row.line : values[index] > row.line;
+    const sign = hit ? 1 : -1;
+    if (streak && Math.sign(streak) !== sign) break;
+    streak += sign;
+  }
+  return finish({...row, playerId: payload.player?.id || row.playerId,
+    headshot: photo(payload.player?.id) || row.headshot, teamLogo: mlbLogo(payload.player?.team_id) || row.teamLogo,
+    position: row.position || optional(payload.player?.position),
+    opponent: optional(payload.matchup?.opponent?.abbreviation || payload.matchup?.opponent?.name),
+    opponentTeamId: payload.matchup?.opponent?.id || null,
+    startsAt: row.startsAt || optional(payload.matchup?.startTime),
+    average: mean(values.slice(-10)), windows, streak: values.length ? streak : null,
+    historyStatus: 'ready', history: payload, chart});
+}
+
+/** Emits one batch per player/group so rows become useful before the full slate finishes. */
+export async function enrichMlbRows(rows, {signal, onRows, concurrency = 4, ...options} = {}) {
+  const groups = new Map();
+  for (const row of rows) {
+    if (row.sport !== 'mlb' || row.historyStatus === 'ready') continue;
+    const key = mlbHistoryKey(row);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(row);
+  }
+  const queue = [...groups.values()];
+  const enriched = new Map();
+  let next = 0;
+  async function worker() {
+    while (next < queue.length) {
+      aborted(signal);
+      const batch = queue[next++];
+      let updates;
+      try {
+        const payload = await loadMlbHistory(batch[0], {signal, ...options});
+        aborted(signal);
+        updates = batch.map(row => applyMlbHistory(row, payload));
+      } catch (error) {
+        if (signal?.aborted || error.name === 'AbortError') throw error;
+        updates = batch.map(row => ({...row, historyStatus: 'unavailable'}));
+      }
+      updates.forEach(row => enriched.set(row.id, row));
+      onRows?.(updates);
+    }
+  }
+  await Promise.all(Array.from({length: Math.min(queue.length, Math.max(1, Math.min(8, concurrency)))}, worker));
+  return rows.map(row => enriched.get(row.id) || row);
+}

@@ -345,10 +345,10 @@ function HealthPanel({ player, resources, quote }) {
   return <section className="nfl-panel-stack"><div className={`nfl-health-score ${health.label.toLowerCase()}`}><Database aria-hidden="true" /><div><span>RESEARCH HEALTH</span><strong>{health.label}</strong><small>{health.coverage}% of currently connected research categories available</small></div></div><div className="nfl-health-list">{checks.map(([label, value]) => <p key={label}><span>{label}</span><strong className={value === 'AVAILABLE' ? 'available' : ''}>{value || 'UNAVAILABLE'}</strong></p>)}</div><p className="nfl-health-foot">Research health measures data completeness and freshness. It does not grade the player or predict a result.</p></section>;
 }
 
-function NFLPlayerResearch({ player, players, teams, schedules, onBack }) {
+export function NFLPlayerResearch({ player, players, teams, schedules, onBack, backLabel = 'Players' }) {
   const historyMode = 'recent';
   const [analyzedLine,setAnalyzedLine] = useState(player.researchLine || null);
-  const [selectedProp, setSelectedProp] = useState(() => {const options=propsForPosition(NFL_PROP_DEFINITIONS, player.position);return options.find(prop=>prop.key===player.researchProp) || options[0];});
+  const [selectedProp, setSelectedProp] = useState(() => {const options=propsForPosition(NFL_PROP_DEFINITIONS, player.position);return NFL_PROP_DEFINITIONS.find(prop=>prop.key===player.researchProp) || options[0] || NFL_PROP_DEFINITIONS[0];});
   const [tab, setTab] = useState('trend');
   const [contextTab,setContextTab]=useState('matchup');
   const desktopResearch=useDesktopResearch();
@@ -477,7 +477,9 @@ function NFLPlayerResearch({ player, players, teams, schedules, onBack }) {
     const pool = preferred.length ? preferred : matches;
     const standard = pool.find((row) => row.line.category === 'STANDARD' && row.direction === 'OVER')
       || matches.find((row) => row.line.category === 'STANDARD');
-    setAnalyzedLine((standard || pool.find((row) => row.direction === 'OVER') || pool[0])?.line || null);
+    // Preserve the exact verified line opened from Finder when offers finish
+    // loading. Changing markets or refreshing clears this selection explicitly.
+    setAnalyzedLine(current => current?.propType === selectedProp.key ? current : (standard || pool.find((row) => row.direction === 'OVER') || pool[0])?.line || null);
   }, [offersBody, selectedProp.key]);
 
   const props = useMemo(() => propsForPosition(NFL_PROP_DEFINITIONS, player.position), [player.position]);
@@ -501,7 +503,7 @@ function NFLPlayerResearch({ player, players, teams, schedules, onBack }) {
     </div>}
   </>;
   return <div className="nfl-research-page">
-    <div className="nfl-research-actions"><button type="button" className="nfl-back" onClick={onBack}><ArrowLeft aria-hidden="true" />Players</button><button type="button" className="nfl-refresh" aria-label="Refresh current research" onClick={() => { nflClient.clear(); setAnalyzedLine(null); setRefreshKey(key => key + 1); }}><RefreshCw size={18}/></button></div>
+    <div className="nfl-research-actions"><button type="button" className="nfl-back" onClick={onBack}><ArrowLeft aria-hidden="true" />{backLabel}</button><button type="button" className="nfl-refresh" aria-label="Refresh current research" onClick={() => { nflClient.clear(); setAnalyzedLine(null); setRefreshKey(key => key + 1); }}><RefreshCw size={18}/></button></div>
     <header className="nfl-player-header">
       <div className="nfl-headshot-wrap"><PlayerPhoto player={player} /></div>
       <div className="nfl-player-identity"><span>PLAYER PROFILE</span><h2>{player.name}</h2><p>{player.position} · {team?.name || player.team_id || 'Free agent'} <TeamLogo team={player.team_id} size="sm" /></p><div className="nfl-player-chips"><span>{statusLabel(player.status)}</span></div></div>

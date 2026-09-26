@@ -213,6 +213,17 @@ def _attach_history(rows, season):
         h2h = [value for value in h2h if value is not None]
         row["windows"] = {key: _window(values[-size:], row["line"]) for key, size in (("l5", 5), ("l10", 10), ("l15", 15), ("l20", 20))}
         row["windows"]["h2h"] = _window(h2h, row["line"])
+        row["windows"]["season"] = _window(values, row["line"])
+        row["season"] = season
+        streak = 0
+        for value in reversed(values):
+            if value == row["line"]:
+                break
+            sign = 1 if value > row["line"] else -1
+            if streak and (streak > 0) != (sign > 0):
+                break
+            streak += sign
+        row["streak"] = streak if values else None
     return rows
 
 
