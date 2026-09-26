@@ -1284,6 +1284,8 @@ def format_k_prop_response(*, player_name, team_abbr, headshot, stat_label, line
         "scorecardV2": picked_grade_v2,
         # This player's OWN arsenal -- the whiff weapons driving the K total.
         "pitchArsenal": _format_arsenal(arsenal),
+        "researchSeason": stats_mlb.SEASON,
+        "ballparkWeather": weather or None,
         "pitcherTeamPitchTypes": team_pitch_types or [],
         "pitcherTeamPitchLabel": f"{opponent} lineup vs pitch type",
         "opponentOffense": opponent_offense or {},
@@ -1293,6 +1295,10 @@ def format_k_prop_response(*, player_name, team_abbr, headshot, stat_label, line
             "name": player_name,
             "hand": k_card.get("hand") or season.get("hand") or "?",
             "era": season.get("era"),
+            "inningsPitched": season.get("innings_pitched"),
+            "avgAgainst": season.get("avg_against"),
+            "opsAgainst": season.get("ops_against"),
+            "hrPer9": season.get("hr_per_9"),
             "whip": season.get("whip"),
             "kPer9": season.get("k_per_9"),
             "bbPer9": season.get("bb_per_9"),
@@ -1612,6 +1618,8 @@ def format_response(*, player_name, team_abbr, headshot, stat_label, prop_type, 
         # The OPPOSING pitcher's arsenal, with how this batter has hit each
         # pitch type this season (Savant, vs all pitchers) merged in.
         "pitchArsenal": _format_arsenal(arsenal, bat_vs_pitch),
+        "researchSeason": stats_mlb.SEASON,
+        "ballparkWeather": weather or None,
         "pitchArsenalLabel": (
             (f"{pitcher.get('name', 'Opposing pitcher')}'s arsenal" if pitcher else "Opposing pitcher's arsenal")
             + (f" · {player_name.split()[-1]}'s {stats_mlb.SEASON} results vs each pitch type (all MLB pitchers)" if bat_vs_pitch else "")

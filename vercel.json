@@ -9,6 +9,9 @@
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "functions": {
+    "api/team-insights.py": {
+      "maxDuration": 60
+    },
     "api/nfl.py": {
       "maxDuration": 60
     },

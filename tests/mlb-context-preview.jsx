@@ -1,0 +1,7 @@
+// Local visual fixture only: not imported by the production entrypoint.
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import MLBFinderContext from '../src/MLBFinderContext';
+const fixture={researchSeason:2026,isPitcherProp:true,starterProfile:{id:434378,name:'Fixture pitcher',hand:'R',era:3.25,whip:1.15,kPer9:9.3,bbPer9:2.1,inningsPitched:'120.2',wins:9,losses:4},matchup:{opponent:'Fixture opponent',leash:'5 days rest'},pitchArsenal:[{code:'FF',name:'Four-seam fastball',pct:55,speed:95},{code:'SL',name:'Slider',pct:30,speed:86},{code:'CH',name:'Changeup',pct:15,speed:84}],teamInsightsParams:{teamId:134,pitcherId:434378},teamInsightsTeamName:'Fixture team',split:{homeAvg:5,roadAvg:4},ballparkWeather:{venue:'Fixture ballpark',temp_f:68,speed_mph:8,humidity_pct:34,rain_probability:1}};
+window.fetch=async url=>({ok:true,json:async()=>String(url).startsWith('/api/team-insights')?{lineupProjected:true,battingOrder:[{id:1,name:'Fixture batter',order:1,position:'CF',season:{ab:100,hits:27,avg:.270,hr:4,rbi:18,ops:.780,k_pct:21},handSplitL:{ab:30,hits:9,avg:.300}}]}:fixture});
+createRoot(document.getElementById('root')).render(<main style={{maxWidth:480,margin:'16px auto',padding:8}}><p style={{color:'white',fontFamily:'sans-serif'}}>TEST FIXTURE — not live stats</p><MLBFinderContext row={{id:'test',player:'Fixture pitcher',market:'Strikeouts (Pitcher)',line:5.5,direction:'OVER'}}/></main>);

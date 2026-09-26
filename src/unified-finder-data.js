@@ -149,7 +149,7 @@ export function normalizeFinderRows(sport, payload, players = [], {now = Date.no
       return finish({id: `mlb:${raw.id || [nameKey(raw.player), nameKey(raw.stat), raw.line, raw.odds_type].join(':')}`,
         sport, player: raw.player, playerId, headshot: photo(playerId) || optional(raw.headshot),
         position: definition.pitcher ? 'P' : optional(raw.position || player?.position),
-        teamAbbr: optional(raw.team), teamLogo: mlbLogo(player?.team_id), opponent: optional(raw.opponent),
+        teamId: optional(player?.team_id || raw.teamId), teamAbbr: optional(raw.team), teamLogo: mlbLogo(player?.team_id), opponent: optional(raw.opponent),
         startsAt: optional(raw.start_time), market: definition.label, marketKey: `${definition.pitcher ? 'pitching' : 'hitting'}:${definition.key}`,
         line: raw.line, direction: 'OVER', modifier: raw.odds_type,
         apps: [{key: 'prizepicks', name: 'PrizePicks', over: null, under: null}],
