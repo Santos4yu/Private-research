@@ -1,4 +1,5 @@
-import React,{createPortal,useContext,useEffect,useMemo,useRef,useState} from 'react';
+import React,{useContext,useEffect,useMemo,useRef,useState} from 'react';
+import {createPortal} from 'react-dom';
 import {Check,ChevronDown,ChartNoAxesColumnIncreasing,Search} from 'lucide-react';
 import {FinderDropdownAssets} from './FinderDropdown';
 

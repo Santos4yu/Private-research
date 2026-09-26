@@ -313,6 +313,9 @@
 /* Premium, touch-first filter menus. The popovers are portaled so they never
    get clipped by the horizontal mobile toolbar or table scroll container. */
 .finder-multi-select{position:relative;min-width:0;flex:1}
+.finder-filters .finder-multi-select{display:flex;align-items:center;min-height:39px;overflow:hidden;border:1px solid var(--f-border);border-radius:8px;background:var(--f-control);box-shadow:inset 0 1px #ffffff08,0 5px 14px #0002}
+.finder-filters .finder-multi-select.is-active{border-color:#625df3;background:#3033b9}
+.finder-app-filter{border:1px solid var(--f-border)}
 .finder-multi-trigger{display:flex;align-items:center;gap:8px;width:100%;height:39px;min-width:0;padding:0 10px;border:0;border-radius:8px;background:transparent;color:var(--f-muted);font-size:12px;font-weight:650;text-align:left}
 .finder-multi-trigger>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .finder-multi-trigger>svg:last-child{margin-left:auto;flex:0 0 auto;color:#96a4c1}
