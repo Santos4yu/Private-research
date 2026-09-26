@@ -419,6 +419,8 @@
 
 .posted-line-primary{display:inline-flex;align-items:center;gap:3px;flex-shrink:0}
 .posted-line-primary img{object-fit:contain}
+.unified-finder .wnba-trend-title{padding:8px 10px 10px;background:linear-gradient(110deg,#29239e,#131a42);border-radius:9px;margin-bottom:6px}
+.unified-finder .wnba-trend-title h1{font-size:20px;margin:0 0 3px}.unified-finder .wnba-trend-title .wnba-player-cell{gap:9px}.unified-finder .wnba-trend-title .wnba-player-photo{width:42px;height:42px}.unified-finder .wnba-trend-title p{font-size:12px}.unified-finder .wnba-trend-title .wnba-player-cell>div>span{display:none}
 /* Keep the embedded chart in document flow, never as a second fullscreen modal. */
 :root[data-theme] .unified-finder #gamelog-overlay{position:relative!important;inset:auto!important;width:100%!important;height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}
 :root[data-theme] .unified-finder #gamelog-overlay .gamelog-modal{height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}
@@ -429,6 +431,13 @@
  :root[data-theme] .unified-finder #gamelog-overlay .gamelog-matchup-card{display:none!important}
  :root[data-theme] .unified-finder #gamelog-overlay .gamelog-workbench{padding:0 6px 8px!important}
  :root[data-theme] .unified-finder #gamelog-overlay .gamelog-toolbar{gap:6px!important}
+ :root[data-theme] .unified-finder #gamelog-overlay .gamelog-toolbar{margin-bottom:6px!important}
+ :root[data-theme] .unified-finder #gamelog-overlay .gamelog-market-title{font-size:17px!important}
+ :root[data-theme] .unified-finder #gamelog-overlay .gamelog-toolbar .gamelog-windowbar{grid-row:4!important;padding:2px!important}
+ :root[data-theme] .unified-finder #gamelog-overlay .gamelog-filter-field{gap:3px!important}
+ :root[data-theme] .unified-finder #gamelog-overlay .gamelog-odds-pill{min-height:44px!important;flex-basis:100px}
+ :root[data-theme] .unified-finder #gamelog-overlay .gamelog-modal{padding:0!important}
+ .unified-finder .wnba-trend-title{padding:6px 8px;margin-bottom:4px}.unified-finder .wnba-trend-title h1{font-size:17px}
  :root[data-theme] .unified-finder #gamelog-overlay .gamelog-windowbar button{min-height:48px!important;padding:5px 3px!important}
  :root[data-theme] .unified-finder #gamelog-overlay .gamelog-chart{--gl-track-height:clamp(140px,27dvh,240px);padding-inline:6px!important}
 }

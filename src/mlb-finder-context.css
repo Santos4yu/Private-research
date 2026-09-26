@@ -1,5 +1,13 @@
 .mlb-finder-workspace{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(340px,1fr);gap:12px;align-items:start}
 .mlb-finder-workspace>.wnba-trend-host{min-width:0;min-height:0}
+.mlb-trend-main{min-width:0;display:grid;gap:8px}.mlb-trend-main>.wnba-trend-host{min-height:0}
+.mlb-support-tabs{display:flex;padding:6px;gap:4px}.mlb-support-tabs button{flex:1;min-width:0;min-height:48px;border:0;border-radius:6px;background:transparent;color:#afbdd3;font-size:12px;cursor:pointer}.mlb-support-tabs button[aria-pressed=true]{background:#202944;color:#fff}.mlb-support-tabs strong{display:block;margin-top:5px;color:#edf2ff}.mlb-support-tabs small{font-weight:400}
+.mlb-support-chart{display:flex;gap:6px;padding:24px 10px 10px}.mlb-support-chart>div{flex:1;min-width:0;text-align:center}.mlb-support-track{height:125px;display:flex;align-items:flex-end}.mlb-support-track>div{position:relative;width:100%;border-radius:5px 5px 0 0;background:linear-gradient(#919eb4,#53617c)}.mlb-support-track span{position:absolute;top:-18px;left:0;right:0;color:#acbad3;font-size:10px}.mlb-support-chart small{font-size:9px;color:#afbdd3}
+.mlb-finder-context>.mlb-context-card{order:2}.mlb-finder-context>.mlb-win-predictor{order:1}
+.mlb-win-body{display:flex;align-items:center;justify-content:space-evenly;gap:10px;padding:18px 12px}
+.mlb-win-team{display:grid;justify-items:center;gap:6px;min-width:0;font-size:13px}.mlb-win-team img{object-fit:contain}.mlb-win-team small{font-size:10px;text-align:center}.mlb-win-team b{color:#70e3c0;background:#12312e;border-radius:6px;padding:4px 7px;font-variant-numeric:tabular-nums}
+.mlb-win-ring{width:116px;height:116px;border-radius:50%;display:grid;place-items:center;flex-shrink:0}.mlb-win-ring>span{width:86px;height:86px;border-radius:50%;background:#0c1127;display:grid;place-content:center;text-align:center;color:#9dabca;font-size:10px;letter-spacing:.08em}
+.mlb-win-predictor a{color:#a7c7ff;text-decoration:underline;text-underline-offset:3px}
 .mlb-finder-context{display:grid;gap:10px;min-width:0;font-family:var(--font-sans,Arial,sans-serif);color:#edf2ff}
 .mlb-context-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
 .mlb-context-tabs button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:64px;border:1px solid #29314b;border-radius:9px;background:#171d34;color:#aebad0;font:600 12px/1.3 inherit;cursor:pointer}

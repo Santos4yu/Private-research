@@ -2,6 +2,7 @@ import React,{useEffect,useMemo,useState} from 'react';
 import {Trophy,Users,ChartPie,CloudSun,ListOrdered,RefreshCw} from 'lucide-react';
 import {createMLBContextClient,researchParams,statText,lineupState} from './mlb-finder-research';
 import './mlb-finder-context.css';
+import MLBWinPredictor from './MLBWinPredictor';
 
 const request=createMLBContextClient();
 const tabs=[['matchup','Matchup',Trophy],['lineups','Lineups',Users],['arsenal','Pitch arsenal',ChartPie],['rankings','Rankings',ListOrdered],['weather','Weather',CloudSun]];
@@ -42,5 +43,6 @@ export default function MLBFinderContext({row}){
  const data=state.data;
  return <aside className="mlb-finder-context" aria-label="MLB matchup research"><nav className="mlb-context-tabs" aria-label="Research sections">{tabs.map(([key,label,Icon])=><button key={key} type="button" aria-pressed={tab===key} onClick={()=>setTab(key)}><Icon size={18} aria-hidden="true"/>{label}</button>)}</nav>
  {state.loading?<Card title="MLB research"><Empty>Loading matchup data. Your trend chart remains available.</Empty></Card>:state.error?<Card title="Research unavailable"><Empty>{state.error}</Empty><button type="button" className="mlb-context-retry" onClick={()=>setRetry(n=>n+1)}><RefreshCw size={15}/>Retry</button></Card>:data?<>{tab==='matchup'&&<><Starter data={data}/><Card title="Matchup" note={data.matchup?.opponent}><Empty>{data.matchup?.pitcher}</Empty><Empty>{data.matchup?.handedness||data.matchup?.leash}</Empty><Empty>{data.vsMatchup?.career}</Empty></Card></>}{tab==='lineups'&&(teamParams?<Lineup data={lineup.data} team={data.teamInsightsTeamName} loading={lineup.loading} error={lineup.error} onRetry={()=>setRetry(n=>n+1)}/>:<Card title="Batting order"><Empty>Team or opposing starter has not been resolved yet.</Empty></Card>)}{tab==='arsenal'&&<Arsenal data={data}/>} {tab==='rankings'&&<Rankings data={data}/>} {tab==='weather'&&<Weather data={data}/>}<Averages data={data} row={row}/></>:null}
+ {tab==='matchup'&&<MLBWinPredictor row={row} data={data}/>}
  </aside>;
 }

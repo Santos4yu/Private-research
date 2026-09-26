@@ -40,6 +40,7 @@ def _load_handler(rel_path: str):
 # wfile/send_response, etc.), so calling the unbound method with OUR request
 # instance as self works directly -- no need for a second real socket/request.
 ROUTES = {
+    "/api/mlb-matchup": _load_handler("mlb-matchup.py"),
     "/api/prediction": _load_handler("prediction.py"),
     "/api/game-log-filters": _load_handler("game-log-filters.py"),
     "/api/players": _load_handler("players.py"),
