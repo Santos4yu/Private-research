@@ -192,13 +192,14 @@ const triggerVariants = cva(
 );
 
 interface SelectTriggerProps extends Omit<HTMLAttributes<HTMLButtonElement>, "children">, VariantProps<typeof triggerVariants> {
+  displayValue?: ReactNode;
   icon?: LucideIcon;
   placeholder?: string;
   error?: string;
 }
 
 const SelectTrigger = forwardRef<HTMLButtonElement, SelectTriggerProps>(
-  ({ className, variant, icon: Icon, placeholder = "Select…", error, ...props }, ref) => {
+  ({ className, variant, icon: Icon, placeholder = "Select…", error, displayValue, ...props }, ref) => {
     const { value, open, setOpen, disabled, triggerRef, labelMap } = useSelectContext();
     const label = value ? labelMap.current.get(value) ?? value : undefined;
 
@@ -220,7 +221,7 @@ const SelectTrigger = forwardRef<HTMLButtonElement, SelectTriggerProps>(
           <span className="flex items-center gap-2 min-w-0 flex-1">
             {Icon && <Icon size={16} strokeWidth={1.5} className="shrink-0 text-muted-foreground transition-[color,stroke-width] duration-80 group-hover:text-foreground group-hover:stroke-[2]" />}
             <span className="min-w-0 flex-1 text-left truncate">
-              {label ?? <span className="text-muted-foreground">{placeholder}</span>}
+              {displayValue ?? label ?? <span className="text-muted-foreground">{placeholder}</span>}
             </span>
           </span>
           <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground transition-colors duration-80 group-hover:text-foreground">

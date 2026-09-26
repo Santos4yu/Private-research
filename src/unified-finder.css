@@ -145,6 +145,20 @@
 /* Phone Finder is a card feed, not a shrunken desktop table. */
 .unified-finder .finder-mobile-sort{display:none}
 .finder-mobile-sport,.finder-mobile-search-toggle{display:none}
+.finder-custom-select{flex:1;min-width:0;width:100%}
+.finder-custom-select>div{min-width:0;width:100%}
+.unified-finder .finder-custom-select .finder-select-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;height:38px;min-height:0;padding:0;border:0;border-radius:6px;background:transparent;color:#e9efff;font-family:Inter,Arial,sans-serif;font-size:13px;font-weight:600;line-height:1.4;letter-spacing:0;text-transform:none;box-shadow:none}
+.unified-finder .finder-filter>.finder-custom-select+svg,.unified-finder .finder-mobile-sport>.finder-custom-select+svg,.unified-finder .finder-pagination label>.finder-custom-select+svg{display:none}
+.finder-option-label{display:flex;align-items:center;gap:9px;min-width:0;text-align:left}
+.finder-option-label>img{flex:0 0 22px;width:22px;height:22px;object-fit:contain}
+.finder-option-label>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.finder-select-menu{background:#11182d!important;border:1px solid #35415e!important;border-radius:12px!important;padding:5px!important;color:#eaf0ff!important;box-shadow:0 16px 40px #0008!important;font:500 13px/1.45 Inter,Arial,sans-serif!important;scrollbar-width:thin;scrollbar-color:#425273 #11182d}
+.finder-select-menu .finder-select-option{min-height:42px;padding:9px 11px;border-radius:7px;color:#c7d2e9;cursor:pointer;font:500 13px/1.45 Inter,Arial,sans-serif;letter-spacing:0}
+.finder-select-menu .finder-select-option:hover,.finder-select-menu .finder-select-option:focus{background:#223350;color:#fff;outline:2px solid #708fff;outline-offset:-2px}
+.finder-select-menu .finder-select-option[aria-selected=true]{background:#233d75;color:#f5f8ff;font-weight:650}
+.unified-finder .finder-app-icons{display:none}
+.unified-finder .finder-pagination .finder-custom-select{width:100px}.unified-finder .finder-pagination .finder-select-trigger{height:28px;font-size:12px}
+@media(max-width:760px){.unified-finder .finder-custom-select .finder-select-trigger{height:42px;font-size:13px}.finder-select-menu .finder-select-option{min-height:44px}.unified-finder .finder-mobile-sport .finder-custom-select{width:100px}.unified-finder .finder-pagination .finder-custom-select{width:90px}}
 .wnba-player-banner{display:flex;align-items:center;gap:14px;padding:22px 20px;background:linear-gradient(110deg,#3930ca,#171650);border-radius:12px 12px 0 0;margin-bottom:14px;color:#f4f5ff}
 .wnba-player-avatar{position:relative;display:grid;place-items:center;flex:0 0 66px;width:66px;height:66px;border-radius:50%;background:#303a67}
 .wnba-player-avatar>img:not(.wnba-player-team-logo){width:66px;height:66px;object-fit:cover;border-radius:50%}
