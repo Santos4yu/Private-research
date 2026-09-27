@@ -712,7 +712,7 @@ body::before {
 #pp-lines-select-root button[role="combobox"] { min-width: 160px; }
 .pp-select-line-row { display: inline-flex; align-items: center; gap: 9px; width: 100%; }
 .pp-select-line-row img { display: block; width: 22px; height: 22px; object-fit: contain; }
-.posted-line-primary { display: inline-grid; place-items: center; flex: 0 0 28px; width: 28px; height: 28px; border: 1px solid #ffffff12; border-radius: 8px; background: #101827; }
+.posted-line-primary { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; width: max-content; height: 28px; border: 0; background: transparent; }
 .posted-line-primary img { width: 22px; height: 22px; object-fit: contain; }
 .posted-line-primary i { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: #273149; color: #fff; font: 800 8px/1 var(--font-mono, monospace); font-style: normal; }
 .pp-select-line-value { min-width: 38px; font-variant-numeric: tabular-nums; }

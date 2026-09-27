@@ -7,6 +7,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem } from '../components/
 import { mountResearchTabs } from '../src/report-tabs.js';
 import { createTrendCache, trendContextKey, gradeTrendChart, mergeTrendCharts } from '../src/trend-data.js';
 import { finderMarket, historyChart, nameKey } from '../src/prop-finder-core.js';
+import '../src/unified-finder.css';
 
 const status = document.getElementById('fixture-status');
 try {
@@ -76,6 +77,17 @@ async function initialize() {
   report.querySelector('[data-research-tab="trend"]')?.click();
   const trendTab = [...report.querySelectorAll('[role="tab"]')].find(button => button.textContent.trim() === 'Trend');
   trendTab?.click();
+  if(new URLSearchParams(location.search).has('finder')) {
+    // Reproduce the embedded Finder hierarchy with the production chart engine.
+    const finder=document.createElement('div');
+    finder.className='unified-finder finder-detail-active';
+    finder.innerHTML='<section class="finder-detail"><button class="finder-back">← Back</button><header class="wnba-player-banner"><div><h1>Sample player</h1><p>Test matchup · synthetic data</p></div></header><div class="wnba-research-columns"><div class="wnba-research-main"><div class="wnba-trend-host"></div><section class="wnba-research-card"><h2>Supporting stats</h2></section></div></div></section>';
+    report.remove();
+    finder.querySelector('.wnba-trend-host').append(overlay);
+    document.getElementById('fixture-report').append(finder);
+    document.querySelector('.fixture-notice').style.display='none';
+    document.querySelector('.fixture-page').style.padding='0';
+  }
   const els = Object.fromEntries([
     ['gamelogOverlay','gamelog-overlay'], ['gamelogTitle','gamelog-title'],
     ['gamelogTabs','gamelog-tabs'], ['gamelogSub','gamelog-sub'], ['gamelogChart','gamelog-chart'],
@@ -110,7 +122,7 @@ async function initialize() {
   els.gamelogLinesBridge = lines;
   document.getElementById('gl-hand-field').hidden = false;
 
-  const functions = ['snapPropLine','gameLogStatCode','regradeGameLog','syncGameLogContext','setGameLogPreviewLine',
+  const functions = ['syncTrendStatHeader','snapPropLine','gameLogStatCode','regradeGameLog','syncGameLogContext','setGameLogPreviewLine',
     'captureGameLogViewport','restoreGameLogViewport','populateGameLogStats','renderGameLogBookOdds','filterGames',
     'renderGameLogSubfilters','windowStat','renderGameLogTabs','stabilizeGameLogLayout','formatGameLogDate',
     'renderGameLogChart','wireGameLogModal','recentGameLogSource','gameLogPool','setGameLogCount','setGameLogWindow',

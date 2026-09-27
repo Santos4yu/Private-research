@@ -68,10 +68,10 @@ function harness(respond = () => undefined) {
       values: (gameLogState.chart.all || []).map(game => game.value), line: gameLogState.line,
       loading: gameLogState.loading, error: gameLogState.error }),
     syncGameLogContext: () => {}, captureGameLogViewport: () => ({}), restoreGameLogViewport: () => {},
-    recordLineHistory: () => {}, renderLineMovement: () => {},
+    recordLineHistory: () => {}, renderLineMovement: () => {}, isMlbTrend: () => true, trendAdapter: {statCode: stat => stat}, externalTrendConfig: null,
     escapeHtml: value => String(value), americanOdds: value => Number(value) > 0 ? `+${value}` : String(value),
   };
-  const names = ['gameLogLineKey','snapPropLine','gameLogStatCode','regradeGameLog','setGameLogPreviewLine',
+  const names = ['syncTrendStatHeader','gameLogLineKey','snapPropLine','gameLogStatCode','regradeGameLog','setGameLogPreviewLine',
     'loadGameLogStat','requestGameLogDetails','gamelogLineTier','loadGameLogPostedLines','loadGameLogBookOdds',
     'renderGameLogBookOdds','recentGameLogSource','pitcherFinderStat','readFinderCache','writeFinderCache',
     'finderHistoryKey','cachedFinderHistory','requestFinderHistory','requestFinderFeed'];
