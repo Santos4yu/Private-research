@@ -3346,11 +3346,12 @@ function renderGameLogChart() {
   const trackPx = parseFloat(getComputedStyle(holder).getPropertyValue('--gl-track-height')) || 280;
   holder.style.setProperty('--plot-height', `${trackPx}px`);
   const scaleFloors = { "Hits": 3, "Home Runs": 2, "Total Bases": 6, "Hits+Runs+RBIs": 4, "Runs Scored": 2, "RBIs": 3, "Walks": 2, "Strikeouts": 8, "Pitching Outs": 24, "Hits Allowed": 7, "Earned Runs Allowed": 5, "Strikeouts (Pitcher)": 8, "Walks Allowed": 3 };
-  const observedMax = Math.max(...games.map((game) => Number(game.value) || 0), Number(line) || 0, 1);
+  // Scale only to the displayed results. Editing the threshold must never
+  // resize historical bars or compress them toward the baseline.
+  const observedMax = Math.max(...games.map((game) => Number(game.value) || 0), 1);
   const max = Math.max(
     scaleFloors[gameLogState.stat] || 2,
     Math.ceil(observedMax * 1.2),
-    typeof line === "number" ? Math.ceil(line * 1.35) : 1,
   );
   const track = document.createElement("div");
   track.className = "gamelog-chart-track";
@@ -3415,7 +3416,7 @@ function renderGameLogChart() {
     track.appendChild(col);
   });
 
-  if (typeof line === "number") {
+  if (typeof line === "number" && line >= 0 && line <= max) {
     const topPx = Math.max(0, trackPx - (line / max) * trackPx);
     const marker = document.createElement("div");
     marker.className = "gl-line-marker";

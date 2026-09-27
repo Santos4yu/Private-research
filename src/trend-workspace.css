@@ -286,8 +286,9 @@
 :root[data-theme] #gamelog-overlay .gl-opp { order: 2; margin-top: 4px !important; font: 500 11px/1.2 var(--font-sans, sans-serif) !important; color: #a4b2c5 !important; }
 :root[data-theme] #gamelog-overlay .gl-y-axis { display: none; }
 :root[data-theme] #gamelog-overlay .gl-line-marker { --chart-top: 30px; left: 18px !important; right: 18px !important; touch-action: none; }
-:root[data-theme] #gamelog-overlay .gl-line-marker::before { border-top: 2px dashed #a7b2cc !important; }
-:root[data-theme] #gamelog-overlay .gl-line-marker .gl-line-tag { left: 0 !important; color: #fff !important; background: #172336 !important; border: 1px solid #74849d !important; font-size: 11px !important; }
+:root[data-theme] #gamelog-overlay .gl-line-marker { border: 0 !important; background: none !important; box-shadow: none !important; }
+:root[data-theme] #gamelog-overlay .gl-line-marker::before { border: 0 !important; height: 1px !important; background: repeating-linear-gradient(to right, #8190aa 0 8px, transparent 8px 13px) !important; box-shadow: none !important; opacity: .8; }
+:root[data-theme] #gamelog-overlay .gl-line-marker .gl-line-tag { left: 0 !important; right: auto !important; color: #dce4f2 !important; background: #172336 !important; border: 1px solid #53627a !important; box-shadow: none !important; font-size: 10px !important; border-radius: 5px !important; padding: 2px 6px !important; }
 :root[data-theme] #gamelog-overlay .gl-empty { display: grid; align-content: center; justify-items: center; min-height: 230px; gap: 8px; color: var(--kd-text); }
 :root[data-theme] #gamelog-overlay .gl-empty p { margin: 0; color: var(--kd-muted); font-size: 13px; }
 :root[data-theme] #gamelog-overlay .gamelog-chart.is-loading { opacity: 1; pointer-events: auto; }
