@@ -58,3 +58,14 @@
 .mlb-injury-reported { display:block; margin-top:8px; color:#a8b5cc; font-size:11px; }
 .mlb-injuries button:focus-visible { outline:2px solid #b5a7ff; outline-offset:2px; }
 @media(max-width:600px) { .mlb-injury-list { max-height:none; } .mlb-injury-card { padding:10px; } }
+.mlb-player-gamelog { margin-top:8px; min-width:0; max-width:100%; }
+.mlb-player-gamelog header { flex-wrap:wrap; gap:6px; }
+.mlb-player-log-scroll { overflow:auto; max-height:520px; max-width:100%; scrollbar-width:thin; scrollbar-color:#454e70 #10162a; }
+.mlb-player-log-scroll:focus-visible { outline:2px solid #a99aff; outline-offset:-2px; }
+.mlb-player-gamelog table { width:100%; border-collapse:collapse; white-space:nowrap; font-size:12px; font-variant-numeric:tabular-nums; }
+.mlb-player-gamelog th,.mlb-player-gamelog td { padding:10px 9px; text-align:right; border-bottom:1px solid #252d44; color:#dce3f4; }
+.mlb-player-gamelog thead th { position:sticky; top:0; background:#1a2137; color:#adbcd5; font-size:11px; z-index:1; }
+.mlb-player-gamelog th:first-child,.mlb-player-gamelog td:nth-child(2),.mlb-player-gamelog th:nth-child(2) { text-align:left; }
+.mlb-player-gamelog tbody tr:nth-child(even) { background:#ffffff03; }
+.mlb-player-gamelog tbody tr:hover { background:#a99aff0c; }
+@media(max-width:600px) { .mlb-player-log-scroll { max-height:420px; } .mlb-player-gamelog th,.mlb-player-gamelog td { padding:9px 8px; } }

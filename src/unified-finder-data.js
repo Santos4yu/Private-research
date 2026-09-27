@@ -266,6 +266,7 @@ export async function enrichWnbaRows(rows, {signal, onRows, concurrency = 6, ...
 }
 
 const mlbHistoryKey = row => `${nameKey(row.player)}|${finderMarket(row.raw?.stat || row.stat)?.pitcher ? 'pitching' : 'hitting'}`;
+const mlbHistoryPending = new Map();
 
 /** Shared by progressive table enrichment and the inline Trends view. */
 export async function loadMlbHistory(row, options = {}) {
@@ -274,7 +275,18 @@ export async function loadMlbHistory(row, options = {}) {
   const cached = historyCache.get(key);
   if (cached && Date.now() - cached.at < HISTORY_TTL) return cached.value;
   const group = key.split('|')[1];
-  const payload = await request(`/api/board?view=prop-history&player=${encodeURIComponent(row.player)}&group=${group}`, options);
+  // The supporting chart and game log mount together. Share their transport,
+  // but keep abortable board requests independent of component lifetimes.
+  const url = `/api/board?view=prop-history&player=${encodeURIComponent(row.player)}&group=${group}`;
+  let task = !options.signal && mlbHistoryPending.get(key);
+  if (!task) {
+    task = request(url, options);
+    if (!options.signal) {
+      task = task.finally(() => mlbHistoryPending.delete(key));
+      mlbHistoryPending.set(key, task);
+    }
+  }
+  const payload = await task;
   historyCache.set(key, {at: Date.now(), value: payload});
   if (historyCache.size > 500) historyCache.delete(historyCache.keys().next().value);
   return payload;

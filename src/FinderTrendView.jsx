@@ -5,6 +5,7 @@ import { createNFLClient } from './sports/nfl/nfl-client';
 import './sports/nfl/nfl-research.css';
 import MLBFinderContext from './MLBFinderContext';
 import MLBSupportingStats from './MLBSupportingStats';
+import MLBPlayerGameLog from './MLBPlayerGameLog';
 
 const nflClient = createNFLClient();
 const nflSeason = () => new Date().getMonth() < 2 ? new Date().getFullYear() - 1 : new Date().getFullYear();
@@ -24,7 +25,7 @@ function MLBTrends({ row, onBack }) {
       <div><span>MLB TRENDS</span><h1>{row.player}</h1><p>{row.market} · Line {row.line}</p></div>
     </div></header>
     {!available && <div className="wnba-board-message" role="status"><Database size={22} aria-hidden="true" /><strong>Trends could not open</strong><span>Refresh the page to reload player research.</span></div>}
-    <div className="mlb-finder-workspace"><div className="mlb-trend-main"><div className="wnba-trend-host finder-mlb-trend-host" ref={host} /><MLBSupportingStats key={row.id} row={row}/></div><MLBFinderContext key={row.id} row={row}/></div>
+    <div className="mlb-finder-workspace"><div className="mlb-trend-main"><div className="wnba-trend-host finder-mlb-trend-host" ref={host} /><MLBSupportingStats key={row.id} row={row}/><MLBPlayerGameLog key={`log-${row.id}`} row={row}/></div><MLBFinderContext key={row.id} row={row}/></div>
   </section>;
 }
 
