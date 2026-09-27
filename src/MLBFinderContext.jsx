@@ -4,9 +4,11 @@ import {createMLBContextClient,researchParams,statText,lineupState,battingBand,m
 import './mlb-finder-context.css';
 import MLBWinPredictor from './MLBWinPredictor';
 import MLBPitcherArsenal from './MLBPitcherArsenal';
+import MLBInjuries from './MLBInjuries';
+import {HeartPulse} from 'lucide-react';
 
 const request=createMLBContextClient();
-const tabs=[['matchup','Matchup',Trophy],['lineups','Lineups',Users],['arsenal','Pitch arsenal',ChartPie],['rankings','Rankings',ListOrdered],['weather','Weather',CloudSun]];
+const tabs=[['matchup','Matchup',Trophy],['lineups','Lineups',Users],['arsenal','Pitch arsenal',ChartPie],['injuries','Injuries',HeartPulse],['rankings','Rankings',ListOrdered],['weather','Weather',CloudSun]];
 const palette=['#28cb98','#ff5869','#9170ff','#f4b847','#51aaff','#55d8df'];
 function Card({title,note,children,icon:Icon=Activity}){return <section className="mlb-context-card"><header><h2><Icon size={16} aria-hidden="true"/>{title}</h2>{note&&<small>{note}</small>}</header>{children}</section>;}
 function Empty({children}){return <p className="mlb-context-note">{children}</p>;}
@@ -58,7 +60,7 @@ export default function MLBFinderContext({row}){
  useEffect(()=>{if(!teamParams||(tab!=='lineups'&&!(state.data?.isPitcherProp&&tab==='matchup'&&split!=='season')))return;let active=true;setSplits({loading:true});request('/api/team-insights',{...teamParams,detail:'filters'}).then(data=>{if(active)setSplits({data});}).catch(()=>{if(active)setSplits({error:'Batting splits are temporarily unavailable.'});});return()=>{active=false;};},[tab,teamParams,retry,split,state.data?.isPitcherProp]);
  const data=state.data,merged=useMemo(()=>mergeLineupSplits(lineup.data,splits.data),[lineup.data,splits.data]);
  return <aside className="mlb-finder-context" data-tab={tab} aria-label="MLB matchup research"><nav className="mlb-context-tabs" aria-label="Research sections">{tabs.map(([key,label,Icon])=><button key={key} data-section={key} type="button" aria-pressed={tab===key} onClick={()=>setTab(key)}><Icon size={18} aria-hidden="true"/>{label}</button>)}</nav>
- {state.loading?<Card title="MLB research"><Skeleton/></Card>:state.error?<Card title="Research unavailable"><Empty>{state.error}</Empty><button type="button" className="mlb-context-retry" onClick={()=>setRetry(n=>n+1)}><RefreshCw size={15}/>Retry</button></Card>:data?<>
+ {tab==='injuries'?<MLBInjuries row={row} data={data}/>:state.loading?<Card title="MLB research"><Skeleton/></Card>:state.error?<Card title="Research unavailable"><Empty>{state.error}</Empty><button type="button" className="mlb-context-retry" onClick={()=>setRetry(n=>n+1)}><RefreshCw size={15}/>Retry</button></Card>:data?<>
   {tab==='matchup'&&<><Starter data={data}/>{!data.isPitcherProp&&<Card title="Batter matchup" note={data.matchup?.opponent} icon={Trophy}><Empty>{data.matchup?.pitcher}</Empty><Empty>{data.matchup?.handedness||data.matchup?.leash}</Empty><Empty>{data.vsMatchup?.career}</Empty></Card>}</>}
   {(tab==='lineups'||(data.isPitcherProp&&tab==='matchup'))&&(teamParams?<Lineup data={merged} team={data.teamInsightsTeamName} loading={lineup.loading||(split!=='season'&&splits.loading)} error={lineup.error||(split!=='season'&&splits.error)} split={split} setSplit={setSplit} onRetry={()=>setRetry(n=>n+1)}/>:<Card title="Batting order"><Empty>Team or opposing starter has not been resolved yet.</Empty></Card>)}
   {tab==='arsenal'&&<Arsenal data={data}/>} {tab==='rankings'&&<Rankings data={data}/>} {tab==='weather'&&<Weather data={data}/>}<Averages data={data} row={row}/>

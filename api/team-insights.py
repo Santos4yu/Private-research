@@ -40,6 +40,13 @@ class handler(BaseHTTPRequestHandler):
         pitcher_hand = (qs.get("pitcherHand", ["R"])[0]).strip() or "R"
         detail = (qs.get("detail", ["summary"])[0]).strip().lower()
 
+        if detail == "injuries":
+            from mlb_injuries import get_injury_report
+            try:
+                return self._send(200, get_injury_report())
+            except Exception:
+                return self._send(502, {"error": "Injury report is temporarily unavailable."})
+
         if not team_id:
             return self._send(400, {"error": "Missing teamId"})
 

@@ -42,3 +42,19 @@
 .mlb-pitch-speed{display:block;margin-top:3px}.mlb-support-tabs{flex-wrap:wrap}.mlb-support-tabs button{flex:1 1 80px}
 @media(max-width:1050px){.mlb-finder-workspace{grid-template-columns:minmax(0,1fr)}.mlb-context-tabs{grid-template-columns:repeat(5,minmax(0,1fr))}}
 @media(max-width:480px){.mlb-context-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.mlb-arsenal-summary{gap:14px}.mlb-context-card>header{padding:12px}}
+.mlb-injuries .mlb-context-switch button { display:flex; align-items:center; gap:7px; min-height:44px; }
+.mlb-injury-list { display:grid; gap:8px; padding:0 10px 10px; max-height:480px; overflow-y:auto; scrollbar-width:thin; }
+.mlb-injury-card { min-width:0; padding:12px; border:1px solid #2c344e; border-radius:12px; background:linear-gradient(135deg,#171e34,#11182b); }
+.mlb-injury-heading { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.mlb-injury-avatar { position:relative; display:grid; place-items:center; width:44px; height:44px; flex-shrink:0; border-radius:10px; overflow:hidden; background:#29334a; color:#b6c2d6; }
+.mlb-injury-avatar img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.mlb-injury-heading h3 { margin:0; font-size:13px; color:#f1f3fc; }
+.mlb-injury-heading small { color:#b6c2d6; font-size:11px; }
+.mlb-injury-status { margin-left:auto; padding:4px 8px; border-radius:6px; background:#ff994c18; color:#ffc083; font-size:11px; font-weight:700; }
+.mlb-injury-status[data-day="true"] { background:#ffd45418; color:#ffda78; }
+.mlb-injury-reason { margin:10px 0 8px; color:#e0e5f4; font-size:13px; line-height:1.5; }
+.mlb-injury-return { display:flex; align-items:center; gap:6px; color:#c2b9ff; font-size:12px; line-height:1.5; }
+.mlb-injury-return svg { flex-shrink:0; }
+.mlb-injury-reported { display:block; margin-top:8px; color:#a8b5cc; font-size:11px; }
+.mlb-injuries button:focus-visible { outline:2px solid #b5a7ff; outline-offset:2px; }
+@media(max-width:600px) { .mlb-injury-list { max-height:none; } .mlb-injury-card { padding:10px; } }
