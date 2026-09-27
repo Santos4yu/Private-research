@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createMLBContextClient,researchParams,statText,lineupState,battingBand,mergeLineupSplits} from '../src/mlb-finder-research.js';
+import {createMLBContextClient,researchParams,statText,lineupState,battingBand,mergeLineupSplits,supportingChoices,supportingValue,pitchTypeStats} from '../src/mlb-finder-research.js';
 
 test('context cache coalesces requests and expires',async()=>{
  let calls=0,clock=0;
@@ -47,4 +47,22 @@ test('equivalent parameter order shares cache without duplicate loads',async()=>
  await request('/api/team-insights',{teamId:1,detail:'summary'});
  await request('/api/team-insights',{detail:'summary',teamId:1});
  assert.equal(calls,1);
+});
+test('pitchers and batters have distinct supporting metrics',()=>{
+ assert.equal(supportingChoices(true)[0][0],'inningsPitched');
+ assert.equal(supportingChoices(false)[0][0],'plateAppearances');
+ assert.ok(supportingChoices(true).some(([key])=>key==='earnedRuns'));
+});
+test('innings use outs, never baseball decimal notation as decimal math',()=>{
+ assert.equal(supportingValue({stat:{inningsPitched:'5.2'}},'inningsPitched'),17/3);
+ assert.equal(supportingValue({stat:{outs:16,inningsPitched:'5.2'}},'inningsPitched'),16/3);
+ assert.equal(supportingValue({stat:{inningsPitched:'5.8'}},'inningsPitched'),null);
+ assert.equal(supportingValue({stat:{}},'earnedRuns'),null);
+});
+test('pitch-type totals weight available rates and preserve missing stats',()=>{
+ const row={byPitch:{FF:{pa:100,pitches:400,k_pct:20,woba:.300},SL:{pa:50,pitches:200,k_pct:35,woba:.330}}};
+ assert.deepEqual(pitchTypeStats(row,'FF'),row.byPitch.FF);
+ const all=pitchTypeStats(row,'all');assert.equal(all.pa,150);assert.equal(all.k_pct,25);assert.ok(Math.abs(all.woba-.310)<.0001);
+ assert.deepEqual(pitchTypeStats(row,'CH'),{});
+ row.byPitch.SL.woba=null;assert.equal(pitchTypeStats(row,'all').woba,null);
 });

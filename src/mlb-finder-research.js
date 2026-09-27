@@ -44,3 +44,26 @@ export function mergeLineupSplits(summary,details){
   return extra?{...p,handSplitL:extra.handSplitL,handSplitR:extra.handSplitR,vsPitcher:extra.vsPitcher}:p;
  })};
 }
+
+export function supportingChoices(pitcher){return pitcher?
+ [['inningsPitched','Innings pitched'],['earnedRuns','Earned runs allowed'],['hits','Hits allowed'],['numberOfPitches','Pitch count']]:
+ [['plateAppearances','Plate appearances'],['hits','Hits'],['baseOnBalls','Walks']];}
+export function supportingValue(game,key){
+ const value=game.stat?.[key];
+ if(key==='inningsPitched'){
+  const outs=game.stat?.outs;
+  if(outs!=null&&outs!==''&&Number.isFinite(Number(outs)))return Number(outs)/3;
+  const match=String(value??'').match(/^(\d+)(?:\.([012]))?$/);
+  return match?Number(match[1])+Number(match[2]||0)/3:null;
+ }
+ return value!=null&&value!==''&&Number.isFinite(Number(value))?Number(value):null;
+}
+export function pitchTypeStats(row,code){
+ if(code!=='all')return row?.byPitch?.[code]||{};
+ const stats=Object.values(row?.byPitch||{}).filter(s=>Number(s.pa)>0);
+ if(!stats.length)return {};
+ const total=key=>stats.every(s=>s[key]!=null&&Number.isFinite(Number(s[key])))?stats.reduce((n,s)=>n+Number(s[key]),0):null;
+ const pa=total('pa');
+ const weighted=key=>pa&&stats.every(s=>s[key]!=null&&Number.isFinite(Number(s[key])))?stats.reduce((n,s)=>n+Number(s[key])*Number(s.pa),0)/pa:null;
+ return {pa,pitches:total('pitches'),k_pct:weighted('k_pct'),woba:weighted('woba')};
+}

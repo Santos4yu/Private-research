@@ -2207,7 +2207,7 @@ def get_team_insights(team_id: int, pitcher_id, pitcher_name: str = "", pitcher_
     would undo the latency work already done on the main card. Only runs
     when the user actually opens this view.
     """
-    detail = detail if detail in {"summary", "filters", "matchup", "full"} else "summary"
+    detail = detail if detail in {"summary", "filters", "arsenal", "matchup", "full"} else "summary"
     return _cached_team_insights(
         int(team_id), int(pitcher_id) if pitcher_id else None,
         pitcher_name or "", pitcher_hand or "R", detail,
@@ -2226,7 +2226,7 @@ def _cached_team_insights(team_id: int, pitcher_id, pitcher_name: str,
         roster_future = pool.submit(_safe, stats_mlb.get_team_hitters_roster, team_id, default=[])
         arsenal_future = (
             pool.submit(_safe, stats_mlb.get_pitcher_arsenal, pitcher_id, default=[])
-            if detail in {"matchup", "full"} and pitcher_id else None
+            if detail in {"arsenal", "matchup", "full"} and pitcher_id else None
         )
         arm_future = (
             pool.submit(_safe, stats_mlb.get_pitcher_arm_slot, pitcher_id, default={})
@@ -2297,7 +2297,7 @@ def _build_team_insights(opp_team_id: int, opp_pitcher_id, opp_pitcher_name: str
     with ThreadPoolExecutor(max_workers=min(29, len(lineup) * 3 + 2)) as pool:
         arsenal_rows_future = (
             pool.submit(_load_arsenal_rows)
-            if detail in {"matchup", "full"} else None
+            if detail in {"arsenal", "matchup", "full"} else None
         )
         arm_results_future = (
             pool.submit(
