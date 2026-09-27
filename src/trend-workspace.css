@@ -380,3 +380,101 @@
   :root[data-theme] #gamelog-overlay .gamelog-filter-field button { height: 44px !important; min-height: 44px !important; }
   :root[data-theme] #gamelog-overlay .gamelog-line-control button { min-width: 44px !important; }
 }
+/* Trends controls: restrained depth, consistent hit areas and explicit states. */
+:root[data-theme] #gamelog-overlay {
+  --trend-control-edge: #394463;
+  --trend-control-text: #eef1ff;
+  --trend-control-accent: #a99aff;
+}
+:root[data-theme] #gamelog-overlay :is(#gamelog-lines-select-root, .gamelog-filter-field) button[role="combobox"] {
+  min-width: 0 !important;
+  border: 1px solid var(--trend-control-edge) !important;
+  border-radius: 10px !important;
+  background: linear-gradient(165deg, #222b45, #171e33) !important;
+  color: var(--trend-control-text) !important;
+  box-shadow: inset 0 1px 0 #ffffff09, 0 2px 5px #00000018 !important;
+  font-variant-numeric: tabular-nums;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease !important;
+}
+:root[data-theme] #gamelog-overlay :is(#gamelog-lines-select-root, .gamelog-filter-field) button[aria-expanded="true"] {
+  border-color: var(--trend-control-accent) !important;
+  background: linear-gradient(165deg, #302d52, #21263f) !important;
+  box-shadow: 0 0 0 2px #a99aff18 !important;
+}
+:root[data-theme] #gamelog-overlay button[role="combobox"] > svg {
+  width: 13px;
+  color: #aeb9d4;
+  transition: transform 140ms ease;
+}
+:root[data-theme] #gamelog-overlay button[aria-expanded="true"] > svg { transform: rotate(180deg); }
+:root[data-theme] #gamelog-overlay .gamelog-line-control {
+  border: 1px solid var(--trend-control-edge) !important;
+  border-radius: 10px !important;
+  background: #12192d !important;
+  box-shadow: inset 0 1px 0 #ffffff08 !important;
+  overflow: hidden;
+  gap: 0 !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-line-control button {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: linear-gradient(165deg, #222b45, #171e33) !important;
+  color: #c9c1ff !important;
+  box-shadow: none !important;
+  transition: background 140ms ease, color 140ms ease !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-line-control strong {
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  border-inline: 1px solid #394463;
+  color: #f4f2ff;
+  font-variant-numeric: tabular-nums;
+}
+:root[data-theme] #gamelog-overlay :is(.gamelog-line-control button, button[role="combobox"]):focus-visible {
+  outline: 2px solid var(--trend-control-accent) !important;
+  outline-offset: -3px !important;
+}
+:root[data-theme] #gamelog-overlay .gamelog-line-control button:active { background: #40385f !important; }
+:root[data-theme] #gamelog-overlay button[role="combobox"]:disabled { opacity: .5; cursor: not-allowed; }
+:root[data-theme] .trend-select-menu[role="listbox"] {
+  min-width: 160px !important;
+  max-width: calc(100vw - 16px) !important;
+  padding: 5px !important;
+  border: 1px solid #414b6b !important;
+  border-radius: 12px !important;
+  background: linear-gradient(155deg, #1b2239, #10172a) !important;
+  box-shadow: 0 16px 40px #00000066, inset 0 1px 0 #ffffff08 !important;
+  scrollbar-width: thin;
+  scrollbar-color: #4c5578 transparent;
+}
+:root[data-theme] .trend-select-menu [role="option"] {
+  min-height: 36px;
+  padding: 8px 10px !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  color: #c4cee4 !important;
+  font-size: 12px;
+}
+:root[data-theme] .trend-select-menu [role="option"][aria-selected="true"] {
+  background: #343361 !important;
+  color: #f4f2ff !important;
+  box-shadow: inset 3px 0 0 #a99aff;
+}
+:root[data-theme] .trend-select-menu [role="option"]:focus-visible { outline: 2px solid #a99aff !important; outline-offset: -2px; }
+:root[data-theme] .trend-lines-menu .pp-select-line-row { gap: 8px; }
+:root[data-theme] .trend-lines-menu .posted-line-primary img,
+:root[data-theme] #gamelog-lines-select-root .posted-line-primary img { width: 18px; height: 18px; object-fit: contain; }
+:root[data-theme] .trend-lines-menu .pp-select-line-value { min-width: 28px; font-weight: 750; font-variant-numeric: tabular-nums; }
+:root[data-theme] .trend-lines-menu .pp-select-line-tier { margin-left: auto; font-size: 10px; }
+@media (hover: hover) {
+  :root[data-theme] #gamelog-overlay button[role="combobox"]:hover { border-color: #8077b4 !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-line-control button:hover { background: #302b4d !important; color: #fff !important; }
+  :root[data-theme] .trend-select-menu [role="option"]:hover { background: #29324e !important; color: #fff !important; }
+}
+@media (pointer: coarse) { :root[data-theme] .trend-select-menu [role="option"] { min-height: 44px; } }
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme] #gamelog-overlay button[role="combobox"],
+  :root[data-theme] #gamelog-overlay button[role="combobox"] > svg,
+  :root[data-theme] #gamelog-overlay .gamelog-line-control button { transition: none !important; }
+}
