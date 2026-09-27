@@ -69,3 +69,15 @@
 .mlb-player-gamelog tbody tr:nth-child(even) { background:#ffffff03; }
 .mlb-player-gamelog tbody tr:hover { background:#a99aff0c; }
 @media(max-width:600px) { .mlb-player-log-scroll { max-height:420px; } .mlb-player-gamelog th,.mlb-player-gamelog td { padding:9px 8px; } }
+.mlb-starter-card .mlb-starter-season { padding:4px 9px; border-radius:12px; background:#10162a; border:1px solid #30384f; color:#dfe5f5; font-size:11px; font-weight:700; }
+.mlb-starter-card .mlb-starter-table { width:100%; border-collapse:collapse; table-layout:fixed; font-variant-numeric:tabular-nums; }
+.mlb-starter-card .mlb-starter-table th:first-child { width:74%; text-align:left; }
+.mlb-starter-card .mlb-starter-table th,.mlb-starter-card .mlb-starter-table td { padding:8px 12px; border-bottom:1px solid #252d414d; font-size:12px; line-height:1.4; background:transparent; }
+.mlb-starter-card .mlb-starter-table thead th { color:#aeb9ce; font-size:11px; text-align:center; padding-block:12px; }
+.mlb-starter-card .mlb-starter-table tbody th { color:#b4bfd3; font-weight:400; }
+.mlb-starter-card .mlb-starter-table td { color:#edf1fc; font-weight:700; text-align:center; }
+.mlb-starter-identity { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+.mlb-starter-identity strong { color:#f4d25b; font-size:12px; }
+.mlb-starter-identity small { color:#aeb9ce; font-size:10px; }
+.mlb-starter-identity .mlb-context-photo { width:26px; height:26px; }
+.mlb-starter-footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px; padding:9px 12px; background:#ffffff03; color:#aeb9ce; font-size:10px; }
