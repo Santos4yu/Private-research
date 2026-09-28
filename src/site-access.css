@@ -144,3 +144,24 @@ html[data-all-tabs-locked=true] #app-shell .tab-panel{display:none!important}
 html[data-site-maintenance=true],html[data-site-maintenance=true] body{height:100%;overflow:hidden!important;overscroll-behavior:none;touch-action:none}
 html[data-site-maintenance=true] .site-policy-gate{overflow:hidden;touch-action:none;height:100dvh;align-items:center}
 html[data-site-maintenance=true] .site-auth-card{max-height:calc(100dvh - 100px);overflow:hidden;touch-action:none}
+
+/* Sections switched off in the admin panel are gone for everyone but admins
+   (site-access.js lists them in html[data-hidden-tabs]; it is empty for an
+   admin). Every button that leads to a section carries its tab in
+   data-requires-tab. :is(#_,*) matches any element but counts as an id, so
+   these beat component styles that force display with !important (the
+   Finder's phone star). */
+html[data-hidden-tabs~="research"] [data-requires-tab~="research"]:is(#_,*),
+html[data-hidden-tabs~="finder"] [data-requires-tab~="finder"]:is(#_,*),
+html[data-hidden-tabs~="v2"] [data-requires-tab~="v2"]:is(#_,*),
+html[data-hidden-tabs~="slate"] [data-requires-tab~="slate"]:is(#_,*),
+html[data-hidden-tabs~="saved"] [data-requires-tab~="saved"]:is(#_,*),
+html[data-hidden-tabs~="slip"] [data-requires-tab~="slip"]:is(#_,*),
+html[data-hidden-tabs~="builder"] [data-requires-tab~="builder"]:is(#_,*),
+html[data-hidden-tabs~="moneyline"] [data-requires-tab~="moneyline"]:is(#_,*),
+html[data-hidden-tabs~="nrfi"] [data-requires-tab~="nrfi"]:is(#_,*),
+html[data-hidden-tabs~="community"] [data-requires-tab~="community"]:is(#_,*){display:none!important}
+/* Research home's toolkit: one card left takes the full row; none left
+   takes its heading with it. */
+html[data-hidden-tabs~="slate"] .lab-tools,html[data-hidden-tabs~="slip"] .lab-tools{grid-template-columns:minmax(0,1fr)!important}
+html[data-hidden-tabs~="slate"][data-hidden-tabs~="slip"] :is(.lab-tools,.lab-section-heading--tools){display:none!important}

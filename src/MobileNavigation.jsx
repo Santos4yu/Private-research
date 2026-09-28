@@ -34,7 +34,7 @@ export function MobileNavigation() {
       {destinations.map(({ key, label, icon: Icon }) => (
         // My Slip opens the side panel at the Pick Builder rather than the
         // old My Slip page.
-        <button key={key} type="button" className="mobile-app-tab"
+        <button key={key} type="button" className="mobile-app-tab" data-requires-tab={key}
           aria-current={tab === key ? 'page' : undefined}
           {...(key === 'saved' ? { 'aria-controls': 'side-panel', 'aria-haspopup': 'dialog' } : {})}
           onClick={() => key === 'saved' ? pickBuilder.open()
