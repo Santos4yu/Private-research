@@ -103,11 +103,19 @@ def _norm(value):
     return " ".join(re.sub(r"[^a-z0-9 ]", " ", text.casefold()).split())
 
 
-_CLUB_WORDS = {"fc", "cf", "sc", "afc", "ac", "club", "de", "the", "cd", "ud", "sv", "fk", "sk", "bk", "if", "calcio", "1", "04", "05", "09"}
+_CLUB_WORDS = {"fc", "cf", "sc", "afc", "ac", "club", "de", "the", "cd", "ud", "sv", "fk", "sk", "bk", "if", "calcio",
+               "and", "of", "1", "04", "05", "09"}
+# The same country under the name PrizePicks uses and the one ESPN does.
+_NAME_ALIASES = {"turkiye": "turkey", "czechia": "czech republic", "usa": "united states", "usmnt": "united states",
+                 "korea republic": "south korea", "republic of korea": "south korea", "ir iran": "iran",
+                 "cote d ivoire": "ivory coast", "cote divoire": "ivory coast", "cabo verde": "cape verde",
+                 "north macedonia": "macedonia", "republic of ireland": "ireland", "bosnia herzegovina": "bosnia and herzegovina"}
 
 
 def _name_words(value):
-    return {word for word in _norm(value).split() if word not in _CLUB_WORDS and len(word) > 1}
+    text = _norm(value)
+    text = _NAME_ALIASES.get(text, text)
+    return {word for word in text.split() if word not in _CLUB_WORDS and len(word) > 1}
 
 
 def _number(value):
@@ -252,17 +260,20 @@ def fixtures(now=None):
     return _cached("soccer:fixtures:v2", 10 * 60, build, keep=lambda value: bool(value))
 
 
-def _side_score(side, abbr, name):
+def _side_score(side, team, name=None):
+    """How well a line's team (an abbreviation like "ARS", or the full name
+    PrizePicks gives soccer teams, "Azerbaijan") fits one side of a match."""
     score = 0
-    if abbr and side.get("abbr") and abbr.upper() == side["abbr"].upper():
+    if team and len(team) <= 4 and side.get("abbr") and team.upper() == side["abbr"].upper():
         score += 3
-    words = _name_words(name)
-    if words:
-        theirs = _name_words(side.get("name")) | _name_words(side.get("short"))
+    theirs = _name_words(side.get("name")) | _name_words(side.get("short"))
+    best = 0
+    for text in {team, name}:
+        words = _name_words(text)
         overlap = len(words & theirs)
         if overlap:
-            score += 2 if overlap == len(words) else 1
-    return score
+            best = max(best, 2 if overlap == len(words) else 1)
+    return score + best
 
 
 def match_fixture(team, opponent, starts_at, fixture_list, team_name=None):

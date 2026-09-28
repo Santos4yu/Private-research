@@ -74,3 +74,15 @@
 .soccer-status[data-out=true]{background:#3b2430;color:#ff8290;border-color:#6b2f3b}
 .soccer-player-search{margin:4px 12px 12px!important}
 .soccer-mini-log table{font-size:11px}
+
+/* Tabs: four across the top, three below. */
+.soccer-finder-context .mlb-context-tabs{grid-template-columns:repeat(12,minmax(0,1fr))!important}
+.soccer-finder-context .mlb-context-tabs>button{grid-column:span 3}
+.soccer-finder-context .mlb-context-tabs>button:nth-child(n+5){grid-column:span 4}
+@media(max-width:480px){.soccer-finder-context .mlb-context-tabs>button{font-size:11px;padding-inline:2px}}
+
+/* A line with no match found: a message card rather than loose text. */
+.soccer-player-page .wnba-board-message{display:grid;justify-items:center;gap:8px;margin:14px 0;padding:28px 18px;border:1px solid var(--f-border,#2a2f34);border-radius:14px;background:#101419;text-align:center;color:#aeb4bb}
+.soccer-player-page .wnba-board-message strong{color:#edf3fa;font-size:14px}
+.soccer-player-page .wnba-board-message span{max-width:420px;font-size:12px;line-height:1.5}
+.soccer-player-page .wnba-board-message svg{color:#8d949c}

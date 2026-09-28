@@ -1,11 +1,12 @@
 import React,{useEffect,useMemo,useState} from 'react';
-import {Activity,CalendarClock,ChartColumn,HeartPulse,ListOrdered,RefreshCw,Search,Shirt,Trophy,UserCheck,UserRound,Users,UserX} from 'lucide-react';
+import {Activity,CalendarClock,ChartColumn,ChartPie,HeartPulse,ListOrdered,RefreshCw,Search,Shirt,Trophy,UserCheck,UserRound,Users,UserX} from 'lucide-react';
 import {TEAM_GROUPS,average,finite,findPlayer,fmt,longDate,price,shortDate,squad,statKeyOf,statOf,teamAverages,teamLogParams,teammateSplit,useSoccer,valueOf} from './soccer-finder';
 
 // The soccer matchup panel, on the WNBA / MLB panel's layout. Matchup and
 // Form read the match's own ESPN summary; Team Comparison and Similar read
 // both teams' recent matches (soccer_research.py).
-const tabs=[['matchup','Matchup',Trophy],['similar','Similar',Users],['lineups','Lineups',Shirt],['injuries','Injuries',HeartPulse],['form','Form',CalendarClock],['stats','Stats',ChartColumn]];
+// Four across the top, three below (soccer-player.css).
+const tabs=[['matchup','Matchup',Trophy],['similar','Similar',Users],['lineups','Lineups',Shirt],['injuries','Injuries',HeartPulse],['odds','Odds',ChartPie],['stats','Stats',ChartColumn],['form','Form',CalendarClock]];
 function Card({title,note,children,icon:Icon=Activity,className=''}){return <section className={'mlb-context-card '+className}><header><h2><Icon size={16} aria-hidden="true"/>{title}</h2>{note&&<small>{note}</small>}</header>{children}</section>;}
 function Empty({children}){return <p className="mlb-context-note">{children}</p>;}
 function Skeleton(){return <div className="mlb-context-skeleton" role="status" aria-label="Loading research"><span/><span/><span/><span/></div>;}
@@ -58,10 +59,23 @@ function WinPredictor({row,match}){
     style={{background:`conic-gradient(${colors[0]} 0% ${chance.home}%, ${colors[1]} ${chance.home}% ${chance.home+(chance.draw||0)}%, ${colors[2]} ${chance.home+(chance.draw||0)}% 100%)`}}><span>DRAW<br/><b>{fmt(chance.draw)}%</b></span></div>
    <div className="mlb-win-team"><Logo src={away.logo} size={32}/><strong>{away.abbr}</strong><small>Away</small><b style={{color:colors[2]}}>{fmt(chance.away)}%</b></div>
   </div>:<Empty>No moneyline is posted for this match yet.</Empty>}
-  {m.odds&&home&&away&&<div className="mlb-context-table-wrap"><table><thead><tr><th scope="col">Moneyline</th><th scope="col">{home.abbr}</th><th scope="col">Draw</th><th scope="col">{away.abbr}</th></tr></thead>
-   <tbody><tr><th scope="row">{m.odds.provider||'Book'}</th><td>{price(m.odds.home)}</td><td>{price(m.odds.draw)}</td><td>{price(m.odds.away)}</td></tr></tbody></table></div>}
   {(m.leagueName||m.venue?.name)&&<Empty>{[m.leagueName,m.venue?.name,m.venue?.city].filter(Boolean).join(' · ')}</Empty>}
  </section>;
+}
+
+// The match's moneyline: each result's price and its chance with the
+// bookmaker's margin taken out.
+function MatchOdds({match}){
+ const m=match.data;
+ if(!m)return <Card title="Match odds" icon={ChartPie}>{match.loading?<Skeleton/>:<Failed state={match} label="Match odds"/>}</Card>;
+ const [home,away]=m.teams||[];
+ if(!m.odds||!home||!away)return <Card title="Match odds" icon={ChartPie}><Empty>No moneyline is posted for this match yet.</Empty></Card>;
+ const rows=[[home.abbr,home.logo,m.odds.home,m.odds.noVig?.home],['Draw',null,m.odds.draw,m.odds.noVig?.draw],[away.abbr,away.logo,m.odds.away,m.odds.noVig?.away]];
+ return <Card title="Match odds" note={m.odds.provider||'Moneyline'} icon={ChartPie} className="soccer-odds">
+  <div className="mlb-context-table-wrap"><table><thead><tr><th scope="col">Result</th><th scope="col">Moneyline</th><th scope="col">No-vig chance</th></tr></thead><tbody>
+   {rows.map(([label,logo,line,chance])=><tr key={label}><th scope="row"><span className="wnba-team-cell"><Logo src={logo} size={18}/>{label==='Draw'?'Draw':`${label} win`}</span></th><td>{price(line)}</td><td>{finite(chance)?`${fmt(chance)}%`:'—'}</td></tr>)}
+  </tbody></table></div>
+ </Card>;
 }
 
 const WINDOWS=[[5,'L5'],[15,'L15'],[30,'L30']];
@@ -128,7 +142,7 @@ function groupOf(pos){
  if(/^G/.test(p))return 'GK';
  if(/^(D|CB|LB|RB|LWB|RWB|CD|SW)/.test(p))return 'DEF';
  if(/^(M|CM|DM|AM|LM|RM|CDM|CAM)/.test(p))return 'MID';
- if(/^(F|ST|CF|LW|RW|W|S)/.test(p))return 'FWD';
+ if(/^(F|A|ST|CF|LW|RW|W|S)/.test(p))return 'FWD';
  return null;
 }
 function ago(value){const date=new Date(value);if(Number.isNaN(date.getTime()))return '';const days=Math.round((Date.now()-date.getTime())/86400000);return days<=0?'Today':days===1?'Yesterday':days<45?`${days} days ago`:`${Math.round(days/30)} months ago`;}
@@ -266,6 +280,7 @@ export default function SoccerFinderContext({row,games,teamGames,log,playerRows,
   {tab==='similar'&&<SimilarPlayers row={row} games={games} opponentLog={opponentLog}/>}
   {tab==='lineups'&&<Lineups row={row} match={match} own={log} opponentLog={opponentLog}/>}
   {tab==='injuries'&&<Injuries row={row} match={match} own={log} opponentLog={opponentLog} teamGames={teamGames} filters={filters} onToggleFilter={onToggleFilter}/>}
+  {tab==='odds'&&<MatchOdds match={match}/>}
   {tab==='form'&&<><LastFive row={row} match={match} own={log} opponentLog={opponentLog}/><Standings row={row} match={match}/></>}
   {tab==='stats'&&<HeadToHead row={row} match={match}/>}
   {stat&&<Averages row={row} games={games}/>}

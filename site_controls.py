@@ -10,9 +10,11 @@ TABS=('research','finder','v2','slate','saved','slip','builder','moneyline','nrf
 # governs Research's own MLB/NFL switch -- hiding NFL from the Finder must not
 # take NFL research away from anyone.
 FINDER_SPORTS=('wnba','mlb','nfl','soccer')
-# The Finder leagues settings saved before finderSportsKnown existed knew of.
+# The Finder leagues settings saved before finderSportsSeen existed knew of.
 # A league added later starts switched off until the admin turns it on, so a
 # half-built league never appears for everyone the moment it deploys.
+# (finderSportsSeen replaced finderSportsKnown, which put soccer back to off
+# once while it is still in preview.)
 LEGACY_FINDER_SPORTS=('wnba','mlb','nfl')
 HEX_COLOR_RE=re.compile(r'^#[0-9a-fA-F]{6}$')
 DEFAULT={'maintenance':False,'message':'We are updating Vortex. Please check back shortly.','requireLogin':True,'registrationOpen':True,'disabledTabs':[],'disabledSports':[],'disabledFinderSports':[],'backgroundImage':{'url':'','opacity':35},'theme':{'primary':'','secondary':'','tint':0},'updatedAt':None}
@@ -20,7 +22,7 @@ def read():
  raw=store.get(KEY)
  value=json.loads(raw) if raw is not None else {}
  policy={**DEFAULT,**value}
- known=value.get('finderSportsKnown')
+ known=value.get('finderSportsSeen')
  known=set(known) if isinstance(known,list) else set(LEGACY_FINDER_SPORTS)
  unseen=[sport for sport in FINDER_SPORTS if sport not in known]
  if unseen:policy['disabledFinderSports']=sorted(set(policy.get('disabledFinderSports') or [])|set(unseen))
@@ -54,7 +56,7 @@ def validate(body):
  if not isinstance(finder_sports,list) or any(t not in FINDER_SPORTS for t in finder_sports):raise ValueError('Invalid Finder sport')
  result['disabledFinderSports']=sorted(set(finder_sports))
  # Every league the admin saw a switch for is now a deliberate choice.
- result['finderSportsKnown']=list(FINDER_SPORTS)
+ result['finderSportsSeen']=list(FINDER_SPORTS)
  # Site-wide background must be a real http(s) link or our own uploaded-
  # image endpoint (see site_background.py) -- never a raw data: URL, since
  # this whole object is embedded in every visitor's site-status poll
