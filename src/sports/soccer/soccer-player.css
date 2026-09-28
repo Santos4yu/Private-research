@@ -1,0 +1,17 @@
+.soccer-player-page{display:flex;flex-direction:column;gap:12px}
+.soccer-markets{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;align-items:start}
+.soccer-market{background:var(--f-row);border:1px solid var(--f-border);border-radius:12px;padding:11px 12px 12px}
+.soccer-market[data-current]{border-color:color-mix(in srgb,var(--theme-accent-soft,var(--theme-accent)) 55%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--theme-accent-soft,var(--theme-accent)) 20%,transparent)}
+.soccer-market h2{margin:0 0 9px;font-size:13px;font-weight:700;letter-spacing:-.1px;color:var(--f-text)}
+.soccer-market ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.soccer-market li{display:flex;align-items:center;gap:9px;min-height:44px;padding:4px 4px 4px 9px;border-radius:9px;background:var(--f-control);border:1px solid var(--f-border)}
+.soccer-app{width:22px;height:22px;border-radius:6px;object-fit:contain;flex-shrink:0}
+.soccer-line{display:flex;align-items:center;gap:5px;font-size:16px;font-variant-numeric:tabular-nums}
+.soccer-line img{width:16px;height:16px;object-fit:contain}
+.soccer-tier{color:var(--f-muted);font-size:11px}
+.unified-finder .soccer-save{margin-left:auto;display:grid;place-items:center;width:40px;height:40px;border-radius:8px;border:1px solid transparent!important;background:transparent;color:#a1a6ad}
+.unified-finder .soccer-save:hover{background:#ffffff12;color:#fff}
+.unified-finder .soccer-save[aria-pressed=true]{color:#ffda67}
+.unified-finder .soccer-save[data-side=over]{border-color:#6ce4bb!important}
+.unified-finder .soccer-save[data-side=under]{border-color:#ff929e!important}
+@media(max-width:760px){.soccer-markets{grid-template-columns:minmax(0,1fr)}.unified-finder .soccer-save{width:44px;height:44px}}

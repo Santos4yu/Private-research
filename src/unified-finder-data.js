@@ -325,6 +325,15 @@ export function normalizeFinderRows(sport, payload, players = [], {now = Date.no
         apps: Array.isArray(raw.apps) && raw.apps.length ? raw.apps : [{key: 'prizepicks', name: 'PrizePicks', over: null, under: null}],
         average: null, windows: null, raw, historyStatus: 'pending'});
     }
+    if (sport === 'soccer') {
+      // PrizePicks' soccer lines as posted (soccer_board.py). There is no
+      // match history behind them yet, so the hit-rate cells stay blank.
+      return finish({id: `soccer:${raw.id}`, sport, player: raw.player, playerId: null, headshot: optional(raw.headshot),
+        position: optional(raw.position), teamAbbr: optional(raw.team), opponent: optional(raw.opponent),
+        startsAt: optional(raw.startsAt), market: raw.stat, marketKey: raw.marketKey, line: raw.line, direction: 'OVER',
+        modifier: raw.modifier, apps: Array.isArray(raw.apps) && raw.apps.length ? raw.apps : [{key: 'prizepicks', name: 'PrizePicks', over: null, under: null}],
+        average: null, windows: null, raw, historyStatus: 'none'});
+    }
     return null;
   });
   return rows.filter(row => row && row.player && row.line != null &&
@@ -357,6 +366,10 @@ export async function loadFinderSport(sport, options = {}) {
     if (board.status === 'rejected') throw board.reason;
     return {...board.value, rows: normalizeFinderRows(sport, board.value, roster.status === 'fulfilled' ? roster.value.data : []),
       fetchedAt: board.value.builtAt || board.value.fetchedAt || null};
+  }
+  if (sport === 'soccer') {
+    const payload = await request('/api/board?view=soccer', options);
+    return {...payload, rows: normalizeFinderRows(sport, payload), fetchedAt: payload.builtAt || null};
   }
   throw new Error('This sport is not supported by Finder.');
 }
