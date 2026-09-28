@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Layers2 as BarChart3, Ticket as ClipboardList, Grid2X2 as MoreHorizontal, Compass as Search, SearchCheck } from 'lucide-react';
+import { pickBuilder } from './pick-builder-client';
 
 const destinations = [
   { key: 'research', label: 'Research', icon: Search },
@@ -31,9 +32,13 @@ export function MobileNavigation() {
   return (
     <nav className="mobile-app-nav" aria-label="Primary navigation">
       {destinations.map(({ key, label, icon: Icon }) => (
+        // My Slip opens the side panel at the Pick Builder rather than the
+        // old My Slip page.
         <button key={key} type="button" className="mobile-app-tab"
           aria-current={tab === key ? 'page' : undefined}
-          onClick={() => window.dispatchEvent(new CustomEvent('vortex:switch-tab', { detail: { tab: key } }))}>
+          {...(key === 'saved' ? { 'aria-controls': 'side-panel', 'aria-haspopup': 'dialog' } : {})}
+          onClick={() => key === 'saved' ? pickBuilder.open()
+            : window.dispatchEvent(new CustomEvent('vortex:switch-tab', { detail: { tab: key } }))}>
           <span className="mobile-app-tab-icon"><Icon size={24} strokeWidth={2} aria-hidden="true" />
             {key === 'saved' && saved > 0 && <span className="mobile-app-count" aria-hidden="true">{saved}</span>}
           </span>

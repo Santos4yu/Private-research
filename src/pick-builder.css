@@ -73,10 +73,9 @@
 .pick-builder-clear:disabled,.pick-builder-export:disabled{opacity:.45;box-shadow:none}
 .pick-builder button:focus-visible{outline:2px solid #b69cff;outline-offset:2px}
 
-/* Desktop: the rail is the navigation there (VortexSidebar), and the side
-   panel was only reachable from phones' More button. Opened from the
-   Finder bar, it sits beside the rail and holds just the Pick Builder. */
+/* Desktop: the panel opens beside the rail (VortexSidebar), which is the
+   menu there, so it holds just the Pick Builder (side-menu.css hides the
+   phone menu). */
 @media(min-width:761px){
  .side-panel{left:64px!important}
- .side-panel>:is(.side-panel-label,.side-link,.side-panel-divider){display:none!important}
 }

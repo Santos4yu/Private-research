@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Layers2 as BarChart3, Ticket as ClipboardList, Radar as FlaskConical, ScanLine, Compass as Search, Sparkles, ShieldCheck, CircleDot, Trophy, LayoutGrid, Diamond, Crosshair, Target, ChartNoAxesCombined } from 'lucide-react';
+import { Layers2 as BarChart3, CircleDot, LayoutGrid, Diamond, Crosshair, Target, ChartNoAxesCombined } from 'lucide-react';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '../components/ui/select';
 import { LandingPage } from './LandingPage';
 import { SparklesBackground } from './SparklesBackground';
@@ -9,6 +9,7 @@ import { AdminPinCard } from './AdminPinCard';
 import { MobileNavigation } from './MobileNavigation';
 import { MobileSlipActions } from './MobileSlipActions';
 import { PickBuilder } from './PickBuilder';
+import { SideMenu } from './SideMenu';
 import { ResearchHome } from './ResearchHome';
 import { UnifiedFinder } from './UnifiedFinder';
 const SportResearch = lazy(() => import('./sports/nfl/SportResearch').then(module => ({ default: module.SportResearch })));
@@ -85,6 +86,8 @@ const builderDropdownRoot = document.getElementById('prop-builder-dropdown-root'
 if (builderDropdownRoot) createRoot(builderDropdownRoot).render(<ActivityDropdown />);
 const mobileSlipRoot = document.getElementById('mobile-slip-actions-root');
 if (mobileSlipRoot) createRoot(mobileSlipRoot).render(<MobileSlipActions />);
+const sideMenuRoot = document.getElementById('side-menu-root');
+if (sideMenuRoot) createRoot(sideMenuRoot).render(<SideMenu />);
 const pickBuilderRoot = document.getElementById('pick-builder-root');
 if (pickBuilderRoot) createRoot(pickBuilderRoot).render(<PickBuilder />);
 const researchHomeRoot = document.getElementById('research-home-root');
@@ -102,18 +105,6 @@ function mountPrivateResearch(granted){
 }
 window.addEventListener('vortex:site-policy',event=>mountPrivateResearch(event.detail.accessGranted));
 mountPrivateResearch(document.documentElement.dataset.siteAccess==='granted');
-
-const menuIcons = { research: Search, slate: FlaskConical, v2: BarChart3, saved: ClipboardList, builder: Sparkles, slip: ScanLine, moneyline: Trophy, nrfi: CircleDot, admin: ShieldCheck };
-document.querySelectorAll('.side-link').forEach((button) => {
-  const MenuIcon = menuIcons[button.dataset.tab];
-  if (!MenuIcon) return;
-  [...button.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).forEach((node) => node.remove());
-  const iconHost = document.createElement('span');
-  iconHost.className = 'side-link-icon';
-  iconHost.setAttribute('aria-hidden', 'true');
-  button.prepend(iconHost);
-  createRoot(iconHost).render(<MenuIcon size={21} strokeWidth={1.8} />);
-});
 
 const filterIcons = { all: LayoutGrid, hrr: BarChart3, 'total-bases': Diamond, hits: CircleDot, strikeouts: Target, matchup: Crosshair };
 document.querySelectorAll('[data-board-filter]').forEach((button) => {

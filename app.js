@@ -1395,7 +1395,6 @@ function switchTab(tab, options = {}) {
   if (tab === "builder" && !state.v2BoardLoaded) loadV2Board();
   if (tab === "nrfi" && !state.specialsLoaded) loadSpecialMarkets();
   if (tab === "community") loadCommunityFeed();
-  document.querySelectorAll(".side-link").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
   window.dispatchEvent(new CustomEvent("vortex:dock-sync", { detail: { tab, saved: state.savedProps.size } }));
   renderFinderCompareTray();
   if (changed) window.scrollTo({ top: options.scrollY ?? screenScroll.get(tab) ?? 0, behavior: "instant" });
@@ -1448,14 +1447,27 @@ function wireSidePanel() {
   els.sideMenuToggle.setAttribute("aria-controls", "side-panel");
   els.sideMenuToggle.setAttribute("aria-expanded", "false");
   const close = () => {
+    // A menu row can open something else first (Admin's PIN prompt); only
+    // hand focus back if it is still in the panel.
+    const hadFocus = els.sidePanel.contains(document.activeElement);
     els.sidePanel.hidden = true;
     els.sideScrim.hidden = true;
     els.sideMenuToggle.setAttribute("aria-expanded", "false");
     document.body.classList.remove("side-panel-open");
     window.dispatchEvent(new CustomEvent("vortex:more-sync", { detail: { open: false } }));
-    returnFocus?.focus({ preventScroll: true });
+    if (hadFocus) returnFocus?.focus({ preventScroll: true });
   };
-  const open = () => {
+  // My Slip and the Finder bar's left icon open the panel for the picks
+  // (detail.section "pick-builder"); on phones the menu comes first, so
+  // bring the Pick Builder up to the top third, leaving the last menu rows
+  // in view. The More button opens it at the top.
+  const reveal = (section) => {
+    const target = section === "pick-builder" && document.getElementById("pick-builder-root");
+    if (!target) { els.sidePanel.scrollTop = 0; return; }
+    const top = target.getBoundingClientRect().top - els.sidePanel.getBoundingClientRect().top + els.sidePanel.scrollTop;
+    els.sidePanel.scrollTop = Math.max(0, top - els.sidePanel.clientHeight * 0.3);
+  };
+  const open = (event) => {
     returnFocus = document.activeElement;
     els.sidePanel.hidden = false;
     els.sideScrim.hidden = false;
@@ -1464,7 +1476,8 @@ function wireSidePanel() {
     els.sidePanel.setAttribute("role", "dialog");
     els.sidePanel.setAttribute("aria-modal", "true");
     window.dispatchEvent(new CustomEvent("vortex:more-sync", { detail: { open: true } }));
-    els.sideMenuClose.focus();
+    els.sideMenuClose.focus({ preventScroll: true });
+    reveal(event?.detail?.section);
   };
   els.sideMenuToggle.addEventListener("click", open);
   window.addEventListener("vortex:open-more", open);
@@ -1473,7 +1486,6 @@ function wireSidePanel() {
   // from it closes the panel like the panel's own links do.
   window.addEventListener("vortex:switch-tab", () => { if (!els.sidePanel.hidden) close(); });
   els.sideMenuClose.addEventListener("click", close); els.sideScrim.addEventListener("click", close);
-  document.querySelectorAll(".side-link").forEach((btn) => btn.addEventListener("click", () => { close(); switchTab(btn.dataset.tab); }));
   els.sidePanel.addEventListener("keydown", (event) => {
     if (event.key !== "Tab") return;
     const buttons = [...els.sidePanel.querySelectorAll("button:not([disabled])")].filter((button) => button.getClientRects().length);
