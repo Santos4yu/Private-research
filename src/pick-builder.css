@@ -79,3 +79,10 @@
 @media(min-width:761px){
  .side-panel{left:64px!important}
 }
+
+/* Close, when the builder sits in the desktop rail (VortexSidebar). */
+.pick-builder-close { display: grid; place-items: center; width: 30px; height: 30px; margin-left: 6px; border: 1px solid var(--theme-border, #263b58); border-radius: 8px; background: transparent; color: var(--theme-dim, #9fb0c8); cursor: pointer; }
+.pick-builder-close:hover { color: var(--theme-text, #edf4ff); background: var(--theme-panel-2, #122239); }
+.vortex-sidebar-builder .pick-builder{padding:12px;border:1px solid var(--theme-border,#263b58);border-radius:14px;background:linear-gradient(180deg,#111 0%,#0b0b0b 100%);color:#eee;font-family:Inter,Arial,sans-serif;letter-spacing:0;white-space:normal}
+.vortex-sidebar-builder .pick-builder-head{align-items:center}
+.vortex-sidebar-builder .pick-builder-head>span{margin-left:auto}

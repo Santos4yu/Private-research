@@ -21,6 +21,10 @@ interface SidebarContextProps {
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
   animate: boolean;
+  // A wider open width, and no collapse on mouse-out, while something is
+  // shown inside the rail (the Pick Builder).
+  width?: string;
+  pinned?: boolean;
 }
 
 const SidebarContext = createContext<SidebarContextProps | undefined>(undefined);
@@ -36,16 +40,20 @@ export const SidebarProvider = ({
   open: openProp,
   setOpen: setOpenProp,
   animate = true,
+  width,
+  pinned = false,
 }: {
   children: React.ReactNode;
   open?: boolean;
   setOpen?: React.Dispatch<React.SetStateAction<boolean>>;
   animate?: boolean;
+  width?: string;
+  pinned?: boolean;
 }) => {
   const [openState, setOpenState] = useState(false);
   const open = openProp !== undefined ? openProp : openState;
   const setOpen = setOpenProp !== undefined ? setOpenProp : setOpenState;
-  return <SidebarContext.Provider value={{ open, setOpen, animate }}>{children}</SidebarContext.Provider>;
+  return <SidebarContext.Provider value={{ open, setOpen, animate, width, pinned }}>{children}</SidebarContext.Provider>;
 };
 
 export const Sidebar = ({
@@ -53,32 +61,35 @@ export const Sidebar = ({
   open,
   setOpen,
   animate,
+  width,
+  pinned,
 }: {
   children: React.ReactNode;
   open?: boolean;
   setOpen?: React.Dispatch<React.SetStateAction<boolean>>;
   animate?: boolean;
+  width?: string;
+  pinned?: boolean;
 }) => (
-  <SidebarProvider open={open} setOpen={setOpen} animate={animate}>
+  <SidebarProvider open={open} setOpen={setOpen} animate={animate} width={width} pinned={pinned}>
     {children}
   </SidebarProvider>
 );
 
-export const SidebarBody = (props: React.ComponentProps<typeof motion.div>) => (
-  <>
-    <DesktopSidebar {...props} />
-    <MobileSidebar {...(props as React.ComponentProps<"div">)} />
-  </>
-);
+// Desktop rail only: phones navigate with the bottom dock and the side
+// panel, and the mobile variant here was always hidden (vortex-sidebar.css)
+// -- rendering it just duplicated the rail's contents in the page.
+export const SidebarBody = (props: React.ComponentProps<typeof motion.div>) => <DesktopSidebar {...props} />;
 
 export const DesktopSidebar = ({ className, children, ...props }: React.ComponentProps<typeof motion.div>) => {
-  const { open, setOpen, animate } = useSidebar();
+  const { open, setOpen, animate, width, pinned } = useSidebar();
+  const wide = width || "220px";
   return (
     <motion.div
       className={cn("vortex-sidebar-desktop", className)}
-      animate={{ width: animate ? (open ? "220px" : "64px") : "220px" }}
+      animate={{ width: pinned ? wide : animate ? (open ? wide : "64px") : wide }}
       onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      onMouseLeave={() => { if (!pinned) setOpen(false); }}
       transition={{ type: "spring", stiffness: 400, damping: 38, mass: 0.6 }}
       {...props}
     >
@@ -115,7 +126,8 @@ export const MobileSidebar = ({ className, children, ...props }: React.Component
 };
 
 export const SidebarLink = ({ link, className, ...props }: { link: Links; className?: string }) => {
-  const { open, animate } = useSidebar();
+  const { open, animate, pinned } = useSidebar();
+  const shown = pinned || open;
   return (
     <button
       type="button"
@@ -128,8 +140,8 @@ export const SidebarLink = ({ link, className, ...props }: { link: Links; classN
       <span className="vortex-sidebar-link-icon">{link.icon}</span>
       <motion.span
         animate={{
-          display: animate ? (open ? "inline-block" : "none") : "inline-block",
-          opacity: animate ? (open ? 1 : 0) : 1,
+          display: animate ? (shown ? "inline-block" : "none") : "inline-block",
+          opacity: animate ? (shown ? 1 : 0) : 1,
         }}
         className="vortex-sidebar-link-label"
       >

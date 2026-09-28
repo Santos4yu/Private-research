@@ -59,13 +59,14 @@ function Leg({leg,busy}){
  </article>;
 }
 
-export function PickBuilder(){
+export function PickBuilder({onClose,titleId='pick-builder-title'}){
  const builder=usePickBuilder();
  const count=builder.legs.length;
- return <section className="pick-builder" aria-labelledby="pick-builder-title">
+ return <section className="pick-builder" aria-labelledby={titleId}>
   <header className="pick-builder-head">
-   <h2 id="pick-builder-title">Pick Builder</h2>
+   <h2 id={titleId}>Pick Builder</h2>
    <span>{count} of 6 picks</span>
+   {onClose&&<button type="button" className="pick-builder-close" aria-label="Close Pick Builder" onClick={onClose}><X size={16} aria-hidden="true"/></button>}
   </header>
   {count===0?<div className="pick-builder-empty"><ClipboardList size={20} aria-hidden="true"/><span><strong>No picks yet</strong>Tap the star on a Finder prop, or add one from Research.</span></div>
    :<div className="pick-builder-list" aria-live="polite">{builder.legs.map(leg=><Leg key={leg.id} leg={leg} busy={builder.busy}/>)}</div>}

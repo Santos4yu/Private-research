@@ -598,3 +598,13 @@
 @media(max-width:760px){.finder-moneyline{font-size:11px;padding:3px 8px}.finder-moneyline img{width:16px;height:16px}}
 .finder-admin-note{color:#f4c53f}
 .finder-admin-missing{display:block;margin-top:3px;white-space:normal}
+
+/* Desktop filter row: however many filters a sport has (Games comes and
+   goes), they share the row evenly and Saved and the reset button keep
+   their size at the end -- nothing wraps onto a second line. */
+@media(min-width:761px){
+ .unified-finder .finder-filters{display:flex!important;align-items:stretch;gap:7px}
+ .unified-finder .finder-filters>.finder-multi-select{flex:1 1 0;min-width:0}
+ .unified-finder .finder-filters>.finder-saved{flex:0 0 auto;white-space:nowrap}
+ .unified-finder .finder-filters>.finder-reset{flex:0 0 40px;width:40px;height:auto;min-height:39px}
+}

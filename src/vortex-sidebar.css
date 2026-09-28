@@ -107,3 +107,10 @@
 @media (prefers-reduced-motion: reduce) {
   .vortex-sidebar-desktop, .vortex-sidebar-link, .vortex-sidebar-link-label { transition: none !important; animation: none !important; }
 }
+
+/* The Pick Builder inside the rail: the rail widens and the builder takes
+   the space between the links and the footer, scrolling on its own. */
+.vortex-sidebar-body.has-builder { gap: 14px; }
+.vortex-sidebar-body.has-builder .vortex-sidebar-links { flex: 0 0 auto; }
+.vortex-sidebar-builder { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0 -4px; padding: 0 4px; scrollbar-width: thin; }
+.vortex-sidebar-desktop:has(.vortex-sidebar-builder) { box-shadow: 18px 0 40px rgba(0, 0, 0, .45); }
