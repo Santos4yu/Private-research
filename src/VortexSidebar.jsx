@@ -59,8 +59,8 @@ export function VortexSidebar() {
             was always rendered and just clipped by overflow:hidden, which
             let a sliver of "Ki" show through in the collapsed rail. */}
         <div className={`vortex-sidebar-top${!open ? ' collapsed' : ''}`}>
-          <img src="/icons/kd-mark.png" alt="" className="vortex-sidebar-mark" width={28} height={28} />
-          {open && <span className="vortex-sidebar-wordmark">Krazy<b>Data</b></span>}
+          <img src="/icons/krazy-data-mark.png" alt="" className="vortex-sidebar-mark" width={28} height={28} />
+          {open && <img src="/icons/krazy-data-name.png" alt="Krazy Data" className="vortex-sidebar-wordmark" width={112} height={16} />}
         </div>
         <nav className="vortex-sidebar-links">
           {topTabs.map((item, index) => item.type === 'separator'

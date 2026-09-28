@@ -29,7 +29,7 @@ async function request(url,body){
 }
 function element(tag,text,className){const node=document.createElement(tag);if(text)node.textContent=text;if(className)node.className=className;return node;}
 function button(text,handler,className='site-text-button'){const node=element('button',text,className);node.type='button';node.onclick=handler;return node;}
-function brand(){const node=element('div',null,'site-auth-brand');const mark=document.createElement('img');mark.className='site-auth-mark';mark.src='/icons/kd-mark.png';mark.alt='';mark.width=40;mark.height=40;node.append(mark,element('span','Krazy Data'));return node;}
+function brand(){const node=element('div',null,'site-auth-brand');const mark=document.createElement('img');mark.className='site-auth-wordmark';mark.src='/icons/krazy-data-wordmark.png';mark.alt='Krazy Data';mark.width=158;mark.height=28;node.append(mark);return node;}
 
 // The one-time "welcome" overlay this used to be has been replaced by the
 // always-shown landing page (src/LandingPage.jsx, mounted from

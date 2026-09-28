@@ -132,7 +132,7 @@ export function AuthCard({ initialMode = 'sign-in', registrationOpen = true, acc
       <SparklesBackground />
 
       <header className="absolute z-20 left-0 right-0 top-0 flex items-center justify-between px-6 py-4 border-b border-zinc-800/80">
-        <span className="text-xs tracking-[0.14em] uppercase text-zinc-400">Krazy Data</span>
+        <img src="/icons/krazy-data-wordmark.png" width={124} height={22} alt="Krazy Data" />
         <Button
           type="button"
           variant="outline"
