@@ -1324,34 +1324,21 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   max-width: none !important;
 }
 
-/* Market title with its save star (app.js renderTrendSave), shown when the
-   host keeps picks. The row takes the title's place in every layout; the
-   star is filled once saved and its ring shows the side. */
-:root[data-theme] #gamelog-overlay .gamelog-market-head {
-  order: 2;
-  flex: 1 1 100%;
-  grid-column: 1;
-  grid-row: 1;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-:root[data-theme] .unified-finder #gamelog-overlay .gamelog-market-head { width: 100%; }
+/* Save star beside the line picker (app.js renderTrendSave), shown when
+   the host keeps picks. Filled once saved; its border shows the side. */
 :root[data-theme] #gamelog-overlay .gamelog-save {
   display: grid;
   place-items: center;
-  /* After the title, which older rules give order 2. */
-  order: 3;
   flex: 0 0 40px;
   width: 40px !important;
   height: 40px !important;
-  min-height: 0 !important;
-  margin: 0 0 0 auto !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  margin: 0 !important;
   padding: 0 !important;
-  border: 1px solid #3a3f46 !important;
-  border-radius: 50% !important;
-  background: #171b20 !important;
+  border: 1px solid var(--kd-border, #30353b) !important;
+  border-radius: 8px !important;
+  background: #15191e !important;
   color: #aeb4bb !important;
   box-shadow: none !important;
   cursor: pointer;
@@ -1360,7 +1347,14 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
 :root[data-theme] #gamelog-overlay .gamelog-save[hidden] { display: none; }
 :root[data-theme] #gamelog-overlay .gamelog-save:hover { color: #fff !important; }
 :root[data-theme] #gamelog-overlay .gamelog-save svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
-:root[data-theme] #gamelog-overlay .gamelog-save[aria-pressed="true"] { color: #ffd45c !important; background: rgba(255, 212, 92, .14) !important; }
+:root[data-theme] #gamelog-overlay .gamelog-save[aria-pressed="true"] { color: #ffd45c !important; background: rgba(255, 212, 92, .12) !important; }
 :root[data-theme] #gamelog-overlay .gamelog-save[aria-pressed="true"] svg { fill: currentColor; }
 :root[data-theme] #gamelog-overlay .gamelog-save[data-side="over"] { border-color: #6ce4bb !important; }
 :root[data-theme] #gamelog-overlay .gamelog-save[data-side="under"] { border-color: #ff929e !important; }
+/* Room for the star: the desktop grid's first column fits stepper, picker
+   and star; a phone-width Finder panel narrows the picker instead. */
+:root[data-theme] #gamelog-overlay .gamelog-toolbar:has(.gamelog-save:not([hidden])) { grid-template-columns: minmax(324px, .85fr) minmax(0, 1.4fr) !important; }
+:root[data-theme] .unified-finder #gamelog-overlay .gamelog-toolbar-head:has(.gamelog-save:not([hidden])) #gamelog-lines-select-root { max-width: calc(100% - 184px); }
+@media (max-width: 760px) {
+  :root[data-theme] .unified-finder #gamelog-overlay .gamelog-save { flex-basis: 44px; width: 44px !important; height: 44px !important; min-width: 44px !important; min-height: 44px !important; }
+}
