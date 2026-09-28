@@ -9,6 +9,8 @@ and the 4 auth/* routes); splitting admin auth/key/scan into 3 separate
 files pushed the total to 13 and the deployment was rejected. Dispatching on
 an `action` field keeps this at one function instead of upgrading plans.
 
+GET  ?action=members                 -- admin only (site_members.py)
+POST {"action": "member-rule", ...}  -- admin only
 GET  ?action=key-status              -- admin only
 GET  ?action=cron-scan               -- Vercel Cron only
 POST {"action": "auth", "pin": ...}
@@ -50,6 +52,13 @@ class handler(BaseHTTPRequestHandler):
                 if not admin_auth.is_admin_request(self.headers):return self._send(401, {"error":"Admin session required"})
                 from site_controls import read
                 return self._send(200, read())
+            if action == "members":
+                if not admin_auth.is_admin_request(self.headers):return self._send(401, {"error":"Admin session required"})
+                import site_members
+                from site_controls import read
+                return self._send(200, {"members": site_members.list_members(), "items": site_members.access_items(),
+                                        "badges": [{"key": key, "label": label} for key, label in site_members.BADGES.items()],
+                                        "policy": read()})
             if action == "key-status":
                 if not admin_auth.is_admin_request(self.headers):
                     return self._send(401, {"error": "Admin session required"})
@@ -78,7 +87,11 @@ class handler(BaseHTTPRequestHandler):
                 if not session:
                     return self._send(401, {"error": "Sign in required"})
                 import community_feed
-                return self._send(200, {"posts": community_feed.list_posts(), "reactions": list(community_feed.REACTIONS), "viewerId": session["id"]})
+                import site_members
+                posts = community_feed.list_posts()
+                badges = site_members.author_badges(posts)
+                posts = [{**post, "authorBadge": badges[post.get("id")]} if post.get("id") in badges else post for post in posts]
+                return self._send(200, {"posts": posts, "reactions": list(community_feed.REACTIONS), "viewerId": session["id"]})
             if action == "community-image":
                 # Public and unauthenticated, same reasoning as site-background:
                 # this is fetched directly by <img> tags, not through the feed
@@ -108,6 +121,20 @@ class handler(BaseHTTPRequestHandler):
                     if not configured():return self._send(409,{"error":"Configure email accounts before requiring login"})
                 if not store.set(KEY,json.dumps(settings)):return self._send(503,{"error":"Settings storage unavailable"})
                 return self._send(200,settings)
+            if action == "member-rule":
+                if not admin_auth.is_admin_request(self.headers):return self._send(401, {"error":"Admin session required"})
+                from site_controls import same_origin
+                if not same_origin(self.headers):return self._send(403,{"error":"Same-origin request required"})
+                import site_members
+                try:
+                    email = site_members.normalize_email(body.get("email"))
+                    if not email:raise ValueError("Enter a valid email")
+                    site_members.save_rule(email, site_members.validate_rule(body.get("rule")))
+                except ValueError as exc:
+                    return self._send(400, {"error": str(exc)})
+                except RuntimeError as exc:
+                    return self._send(503, {"error": str(exc)})
+                return self._send(200, {"member": site_members.member(email)})
             if action == "auth":
                 return self._handle_auth(body)
             if action == "key":

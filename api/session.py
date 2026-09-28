@@ -33,7 +33,16 @@ class handler(BaseHTTPRequestHandler):
             # `refreshAvailable` now means "not confirmed yet, but still
             # recoverable" -- the client retries instead of signing out.
             account,session_updates,pending=ensure_session(self.headers)
-            return self._json(200,{**read(),'accountsConfigured':configured(),'account':account,'refreshAvailable':pending,'isAdmin':admin_auth.is_admin_request(self.headers)},session_updates)
+            policy=read()
+            # A member sees the site's switches with their own rule applied
+            # (site_members.py): early access, removed sections, suspension
+            # and their badge. Admin notes stay server-side.
+            viewer={}
+            if account:
+                import site_members
+                viewer=site_members.viewer_policy(policy,site_members.rule_for(site_members.read_rules(),account))
+                site_members.touch(account)
+            return self._json(200,{**policy,**viewer,'accountsConfigured':configured(),'account':account,'refreshAvailable':pending,'isAdmin':admin_auth.is_admin_request(self.headers)},session_updates)
         if action == "login":
             return self._login()
         if action == "callback":

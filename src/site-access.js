@@ -1,5 +1,6 @@
 import './site-access.css';
 import {accessGranted,canUseTab,availableTab,canUseSport,canUseFinderSport,hiddenTabs,FINDER_SPORTS} from './site-access-core.js';
+import {mountMembersPanel,memberBadge} from './site-members.js';
 const names={research:'Research',finder:'Finder',v2:'Props',slate:'Tools',saved:'My Slip',slip:'Slip Analyzer',builder:'Builder',moneyline:'Moneyline',nrfi:'NRFI / YRFI',community:'Community'};
 let status=null,initPromise=null,activeDialog=null,lockedDialog=null;
 export function siteTabAllowed(tab){return canUseTab(status,tab);}
@@ -130,7 +131,10 @@ function accountDialog(){
  const header=element('header');header.append(element('h2','Your account'),button('×',()=>dialog.close(),'site-dialog-close'));header.lastChild.setAttribute('aria-label','Close account');dialog.append(header);
  // Admin access lives behind 3 rapid clicks on the settings gear now, not
  // here -- this dialog is just account info + signing out.
- dialog.append(element('p',status?.account?.email||'Administrator','site-account-email'));
+ const who=element('p',status?.account?.email||'Administrator','site-account-email');
+ const badge=status?.isAdmin&&!status?.account?{key:'admin',label:'Admin'}:status?.badge;
+ if(badge)who.append(' ',memberBadge(badge));
+ dialog.append(who);
  dialog.append(button('Sign out',async()=>{try{await request('/api/session',{action:'sign-out'});location.reload();}catch(error){dialog.append(element('p',error.message));}},'site-primary-button'));
  dialog.onclose=()=>{activeDialog=null;dialog.remove();};document.body.append(dialog);dialog.showModal();
 }
@@ -183,7 +187,7 @@ function renderStatus(){
  const next=granted?availableTab(status,current):null;
  document.documentElement.dataset.allTabsLocked=String(granted&&!next);
  let empty=document.getElementById('site-all-locked');if(!empty){empty=element('section',null,'site-all-locked');empty.id='site-all-locked';empty.append(element('h2','In development'),element('p','Sections are temporarily locked. Your account and navigation are still available.'));document.body.append(empty);}empty.hidden=!(granted&&!next);
- const kind=granted?'none':status.maintenance?'maintenance':'login';gate.hidden=kind==='none';
+ const kind=granted?'none':status.maintenance?'maintenance':status.suspended&&status.account?'suspended':'login';gate.hidden=kind==='none';
  document.documentElement.dataset.siteMaintenance=String(kind==='maintenance');
  const viewport=document.querySelector('meta[name=viewport]');if(viewport){viewport.dataset.originalContent??=viewport.content;viewport.content=kind==='maintenance'?'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover':viewport.dataset.originalContent;}
 
@@ -206,6 +210,13 @@ function renderStatus(){
    const card=element('section',null,'site-auth-card');card.append(brand());
    card.append(element('h1','Sign-in is being configured'),element('p','Please check back shortly.','site-auth-subtitle'));
    const form=authForm(card,'admin');form.querySelector('.site-auth-back').hidden=true;
+   gate.append(card);
+  }else if(kind==='suspended'){
+   delete gate.dataset.view;
+   const card=element('section',null,'site-auth-card');card.append(brand());
+   card.append(element('h1','Account suspended'),element('p','An administrator has paused access for this account. If you think this is a mistake, reach out to support.','site-auth-subtitle'));
+   card.append(element('p',status.account.email||'','site-account-email'));
+   card.append(button('Sign out',async()=>{try{await request('/api/session',{action:'sign-out'});}catch{}location.reload();},'site-primary-button'));
    gate.append(card);
   }else if(kind==='maintenance'){
    delete gate.dataset.view;
@@ -334,6 +345,7 @@ export async function loadSiteControls(){
    +'<button type="button" class="site-tab" data-panel-tab="general" role="tab" aria-selected="true">General</button>'
    +'<button type="button" class="site-tab" data-panel-tab="access" role="tab" aria-selected="false">Access</button>'
    +'<button type="button" class="site-tab" data-panel-tab="appearance" role="tab" aria-selected="false">Appearance</button>'
+   +'<button type="button" class="site-tab" data-panel-tab="members" role="tab" aria-selected="false">Members</button>'
   +'</div>'
   +'<form>'
    +'<div class="site-tab-panel" data-panel="general">'
@@ -369,11 +381,16 @@ export async function loadSiteControls(){
    +'</div>'
    +'<p role="status"></p>'
    +'<button type="submit">Save website settings</button>'
-  +'</form>';
+  +'</form>'
+  // Members saves person by person, so it sits outside the settings form.
+  +'<div class="site-tab-panel site-members-panel" data-panel="members" hidden></div>';
  const tabs=[...host.querySelectorAll('.site-tab')],panels=[...host.querySelectorAll('.site-tab-panel')];
  tabs.forEach(tab=>tab.addEventListener('click',()=>{
   tabs.forEach(t=>t.setAttribute('aria-selected',String(t===tab)));
   panels.forEach(p=>{p.hidden=p.dataset.panel!==tab.dataset.panelTab;});
+  const members=tab.dataset.panelTab==='members';
+  host.querySelector('form').hidden=members;
+  if(members)mountMembersPanel(host.querySelector('.site-members-panel'),{request,names});
  }));
  const form=host.querySelector('form');for(const [key,title] of Object.entries({maintenance:'Maintenance mode — members cannot use the website',requireLogin:'Require email account to access research',registrationOpen:'Allow new account registrations'})){const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.name=key;input.checked=policy[key];label.append(input,document.createTextNode(title));host.querySelector('.site-control-switches').append(label);}
  form.elements.message.value=policy.message;

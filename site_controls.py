@@ -75,18 +75,31 @@ def validate(body):
  result['updatedAt']=datetime.now(timezone.utc).isoformat()
  return result
 RESOURCE_TABS={'players':'research','prediction':'research','game-log-filters':'research','team-insights':'slate','slate':'slate','v2-board':'v2','board':'v2'}
+def _items_open(headers,policy,items):
+ """Whether every access item is on for whoever sent these headers: the site
+ switches, adjusted by that member's own rule (site_members.py). Who is
+ asking is only looked up when some member's rule could change the answer."""
+ import site_members
+ rules=site_members.read_rules()
+ rule=None
+ if rules and site_members.decides(rules,items):
+  from account_auth import identity
+  rule=site_members.rule_for(rules,identity(headers))
+ if rule and rule.get('suspended'):return False
+ return all(site_members.item_open(policy,rule,item) for item in items)
 def allowed(headers,tab=None,sport=None):
  if admin_auth.is_admin_request(headers):return True
  policy=read()
- return not policy['maintenance'] and (not tab or tab not in policy['disabledTabs']) and (not sport or sport not in policy.get('disabledSports',[]))
+ if policy['maintenance']:return False
+ return _items_open(headers,policy,[item for item in (tab and f'tab:{tab}',sport and f'sport:{sport}') if item])
 def finder_sport_allowed(headers,sport):
  """Whether a regular user may load `sport` inside the Finder. Admins always
  may. Closed if the site is in maintenance, the Finder tab is off, or that
- one league is off inside it."""
+ one league is off inside it -- unless that member has their own access."""
  if admin_auth.is_admin_request(headers):return True
  policy=read()
- return (not policy['maintenance'] and 'finder' not in policy['disabledTabs']
-         and sport not in policy.get('disabledFinderSports',[]))
+ if policy['maintenance']:return False
+ return _items_open(headers,policy,['tab:finder',f'finderSport:{sport}'])
 def same_origin(headers):
  from urllib.parse import urlparse
  origin=urlparse(headers.get('Origin',''))
