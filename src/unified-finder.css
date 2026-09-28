@@ -490,3 +490,12 @@
 @media(prefers-reduced-motion:reduce){
  .unified-finder.finder-detail-active .finder-detail{scroll-behavior:auto!important}
 }
+.finder-availability { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 14px; color:#aab5cd; background:#141b30; font-size:12px; }
+.finder-availability button { min-height:36px; padding:6px 12px; border:1px solid #35415b; border-radius:7px; background:#202941; color:#e4eafa; }
+.finder-scroll:has(.finder-empty-board) { position:relative; min-height:480px; }
+.finder-empty-board { position:relative; min-height:440px; isolation:isolate; }
+.finder-empty-board::before { content:""; position:absolute; inset:12px; z-index:-1; pointer-events:none; background:repeating-linear-gradient(to bottom,#1b2238 0 10px,transparent 10px 36px); border-radius:8px; opacity:.65; mask-image:radial-gradient(ellipse 210px 100px at center,transparent 50%,#000 100%); }
+.finder-empty-board>svg { box-sizing:content-box; padding:10px; border:1px solid #36405a; border-radius:11px; background:linear-gradient(145deg,#2a334d,#161d31); color:#b9c4dc; }
+.finder-empty-board>span { max-width:290px; line-height:1.6; font-size:12px; }
+.finder-empty-board>strong { font-size:14px; }
+@media(max-width:760px) { .finder-scroll:has(.finder-empty-board) { min-height:360px; } .finder-empty-board { min-height:320px; } }
