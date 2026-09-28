@@ -227,7 +227,9 @@ def session_from_request_headers(headers) -> dict | None:
     policy=read()
     if policy['maintenance']:return None
     account=identity(headers)
-    if account:return account
+    if account:
+        from site_members import is_suspended
+        return None if is_suspended(account) else account
     if policy['requireLogin']:return None
     if FREE_BETA_MODE:
         return _beta_payload()
@@ -275,7 +277,9 @@ def session_with_live_access(headers) -> dict | None:
     policy=read()
     if policy['maintenance']:return None
     account=identity(headers)
-    if account:return account
+    if account:
+        from site_members import is_suspended
+        return None if is_suspended(account) else account
     if policy['requireLogin']:return None
     if FREE_BETA_MODE:
         return _beta_payload()

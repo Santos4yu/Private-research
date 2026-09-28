@@ -924,7 +924,7 @@ function communityPostCard(post) {
   return `<article class="community-post" data-post-id="${escapeHtml(post.id)}">
     <div class="community-post-head">
       <span class="community-post-avatar">${escapeHtml((post.authorName || "?").slice(0, 1).toUpperCase())}</span>
-      <div class="community-post-who"><strong>${escapeHtml(post.authorName || "Member")}</strong><small>${communityRelativeTime(post.createdAt)}</small></div>
+      <div class="community-post-who"><strong>${escapeHtml(post.authorName || "Member")}${post.authorBadge ? ` <span class="member-badge" data-badge="${escapeHtml(post.authorBadge.key)}">${escapeHtml(post.authorBadge.label)}</span>` : ""}</strong><small>${communityRelativeTime(post.createdAt)}</small></div>
       ${canDelete ? `<button type="button" class="community-post-delete" data-community-delete aria-label="Delete post">✕</button>` : ""}
     </div>
     ${post.text ? `<p class="community-post-text">${escapeHtml(post.text)}</p>` : ""}

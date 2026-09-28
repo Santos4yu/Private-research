@@ -22,3 +22,8 @@ test('switched-off sections are hidden from members only, never from admins',asy
  assert.deepEqual(hiddenTabs({...policy,account:null},tabs),[]);
  assert.deepEqual(hiddenTabs(null,tabs),[]);
 });
+test('a suspended member is signed in but let into nothing, admins never suspended',()=>{
+ const policy={...base,account:{id:'mock'},suspended:true};
+ assert.equal(accessGranted(policy),false);assert.equal(canUseTab(policy,'research'),false);
+ assert.equal(accessGranted({...policy,isAdmin:true}),true);
+});
