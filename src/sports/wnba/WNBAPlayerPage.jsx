@@ -11,13 +11,23 @@ import './wnba-context.css';
 // trend chart, supporting stats and game log on the left, the tabbed
 // matchup panel on the right (MLBTrends in FinderTrendView.jsx).
 
+// The known stats in their usual order, then any other market PrizePicks
+// posts for this player (shown by its own name; no history to chart yet).
+function statTabs(playerRows,available){
+ const known=WNBA_STATS.filter(stat=>available.has(stat.key));
+ const extra=[...available].filter(key=>key&&!WNBA_STATS.some(stat=>stat.key===key)).map(key=>{
+  const label=playerRows.find(item=>item.marketKey===key)?.market||key;
+  return {key,label,code:label.replace(/[^A-Za-z0-9+]/g,'').slice(0,5).toUpperCase()};
+ });
+ return [...known,...extra];
+}
 function TrendChart({row,playerRows,logs,loading,onStat,chips,chipsNote,onChipRemove,onChipsClear}){
  const host=useRef(null);
  const opponent=opponentOf(row),available=new Set(playerRows.map(item=>item.marketKey));
  const config=useMemo(()=>({sport:'WNBA',player:row.player,teamAbbr:row.teamAbbr||'',teamLogo:row.teamLogo||'',opponent:opponent||'',
   opponentLogo:row.team===row.homeTeam?row.awayTeamLogo:row.homeTeamLogo,matchupLabel:`${row.awayTeam} @ ${row.homeTeam}`,
   kickoffLabel:new Date(row.startsAt).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'}),status:'Pre-game',headshot:row.headshot||null,
-  stats:WNBA_STATS.filter(stat=>available.has(stat.key)),statKey:row.marketKey,stat:row.market,side:row.direction==='UNDER'?'Under':'Over',line:row.line,
+  stats:statTabs(playerRows,available),statKey:row.marketKey,stat:row.market,side:row.direction==='UNDER'?'Under':'Over',line:row.line,
   chart:wnbaChart(logs,row.marketKey,opponent),lines:wnbaLines(playerRows,row.marketKey),linesStatus:'ready',odds:wnbaOdds(playerRows,row.marketKey),loading,onStat,
   chips,chipsNote,onChipRemove,onChipsClear}),
   [row,playerRows,logs,loading,onStat,opponent,chips,chipsNote,onChipRemove,onChipsClear]);

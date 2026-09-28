@@ -24,7 +24,7 @@ from v2.board import store  # noqa: E402
 import requests  # noqa: E402
 
 SPORT = "basketball_wnba"
-CACHE_KEY = "krazy_data:wnba:v8:finder_board"
+CACHE_KEY = "krazy_data:wnba:v9:finder_board"
 ROSTER_CACHE_KEY = "krazy_data:wnba:v2:roster_directory"  # v2: adds height
 CACHE_SECONDS = 10 * 60
 ROSTER_CACHE_SECONDS = 6 * 60 * 60
@@ -50,6 +50,24 @@ MARKETS = {
 ALTERNATE_MARKETS = {f"{key}_alternate": label for key, label in MARKETS.items()}
 ALL_MARKETS = {**MARKETS, **ALTERNATE_MARKETS}
 BOOK_PRIORITY = {"prizepicks": 0, "underdog": 1, "draftkings": 2, "fanduel": 3, "betmgm": 4}
+# PrizePicks' own stat names (normalized) -> the board's market keys. Its
+# feed carries markets The Odds API does not (3-PT Attempted, FG Made, Free
+# Throws Made), and every line it posts, not just the ones The Odds API
+# relays.
+PRIZEPICKS_MARKETS = {
+    "points": "player_points", "rebounds": "player_rebounds", "assists": "player_assists",
+    "3ptmade": "player_threes", "3pointersmade": "player_threes", "threepointersmade": "player_threes",
+    "3ptattempted": "player_threes_attempts", "3pointersattempted": "player_threes_attempts",
+    "3ptattempts": "player_threes_attempts",
+    "fgmade": "player_field_goals", "fieldgoalsmade": "player_field_goals",
+    "freethrowsmade": "player_frees_made", "ftmade": "player_frees_made",
+    "blockedshots": "player_blocks", "blocks": "player_blocks", "steals": "player_steals",
+    "turnovers": "player_turnovers", "ptsrebs": "player_points_rebounds", "ptsasts": "player_points_assists",
+    "rebsasts": "player_rebounds_assists", "ptsrebsasts": "player_points_rebounds_assists",
+    "blksstls": "player_blocks_steals", "fantasyscore": "player_fantasy_points",
+}
+PRIZEPICKS_LABELS = {**MARKETS, "player_threes_attempts": "3-PT Attempted", "player_field_goals": "FG Made",
+                     "player_frees_made": "Free Throws Made"}
 _memory = {"at": 0.0, "value": None}
 _roster_memory = {"at": 0.0, "value": None}
 # The league context derived from the stored season, per (season, builtAt).
@@ -172,7 +190,7 @@ def _game_logs(player_id, season):
     # v4: rows carry the full box line (attempts, fouls) for the game log
     # and supporting-stats views, are tagged by season type, and give the
     # score with this player's team first.
-    cache_key = f"krazy_data:wnba:v4:gamelog:{player_id}:{season}"
+    cache_key = f"krazy_data:wnba:v5:gamelog:{player_id}:{season}"
     now = time.time()
     try:
         raw = store.get(cache_key)
@@ -199,6 +217,7 @@ def _game_logs(player_id, season):
                 if all(v is not None for v in (points,rebounds,assists)): values["player_points_rebounds_assists"]=points+rebounds+assists
                 if all(v is not None for v in (points,rebounds,assists,blocks,steals,turnovers)): values["player_fantasy_points"]=round(points+1.2*rebounds+1.5*assists+3*blocks+3*steals-turnovers,1)
                 fg=str(stats.get("fieldGoalsMade-fieldGoalsAttempted") or "").split("-"); tp=str(stats.get("threePointFieldGoalsMade-threePointFieldGoalsAttempted") or "").split("-"); ft=str(stats.get("freeThrowsMade-freeThrowsAttempted") or "").split("-")
+                values["player_threes_attempts"]=_number(tp[1]) if len(tp)==2 else None
                 box={"min":_number(stats.get("minutes")),"pts":points,"reb":rebounds,"ast":assists,"stl":steals,"blk":blocks,"to":turnovers,"pf":_number(stats.get("fouls")),
                      "fgm":_number(fg[0]) if len(fg)==2 else None,"fga":_number(fg[1]) if len(fg)==2 else None,"tpm":_number(tp[0]) if len(tp)==2 else None,"tpa":_number(tp[1]) if len(tp)==2 else None,"ftm":_number(ft[0]) if len(ft)==2 else None,"fta":_number(ft[1]) if len(ft)==2 else None}
                 display_type=str(season_type.get("displayName") or "")
@@ -254,14 +273,86 @@ def _attach_history(rows, season):
     return rows
 
 
+def _events_by_team(events, now):
+    """Full team name -> (the team's next event, its start)."""
+    index = {}
+    for event in events:
+        starts = timestamp(event.get("commence_time")) if isinstance(event, dict) else None
+        if not starts or starts <= now:
+            continue
+        for side in ("home_team", "away_team"):
+            name = event.get(side)
+            if name and (name not in index or starts < index[name][1]):
+                index[name] = (event, starts)
+    return index
+
+
+def _merge_prizepicks(rows, events, directory, now):
+    """Add every line PrizePicks posts that the board does not have yet.
+    A line both feeds carry keeps its comparison-book prices and takes
+    PrizePicks' own tier (standard / goblin / demon)."""
+    try:
+        from prizepicks_export_core import _fetch_projection_rows
+        lines = _fetch_projection_rows(league="WNBA")
+    except Exception:  # noqa: BLE001 -- the Odds API rows still stand alone
+        return rows
+    by_key = {(row["player"].casefold(), row["marketKey"], row["line"]): row for row in rows}
+    by_team = _events_by_team(events, now)
+    for line in lines:
+        starts = timestamp(line.get("start_time"))
+        try:
+            value = float(line.get("line"))
+        except (TypeError, ValueError):
+            continue
+        if line.get("combo") or not starts or starts <= now:
+            continue
+        name = str(line.get("player") or "").strip()
+        stat = re.sub(r"[^a-z0-9]", "", str(line.get("stat") or "").lower())
+        market = PRIZEPICKS_MARKETS.get(stat) or f"pp:{stat}"
+        modifier = str(line.get("odds_type") or "standard").lower()
+        existing = by_key.get((name.casefold(), market, value))
+        if existing:
+            for app in existing["apps"]:
+                if app.get("key") == "prizepicks":
+                    app["modifier"] = existing["modifier"] = modifier
+            continue
+        identities = directory["players"].get(_norm(name), [])
+        identity = next((item for item in identities if item.get("team") in by_team), identities[0] if len(identities) == 1 else None)
+        event = by_team[identity["team"]][0] if identity and identity.get("team") in by_team else None
+        row = {"id": f"pp:{line.get('id')}", "sport": "wnba", "eventId": event.get("id") if event else None,
+               "player": name, "marketKey": market, "market": PRIZEPICKS_LABELS.get(market) or line.get("stat"),
+               "line": value, "modifier": modifier, "homeTeam": event.get("home_team") if event else None,
+               "awayTeam": event.get("away_team") if event else None, "startsAt": starts.isoformat(),
+               "apps": [{"key": "prizepicks", "name": "PrizePicks", "over": None, "under": None,
+                         "updatedAt": line.get("updated_at") or None, "modifier": modifier}],
+               "verified": True, "primaryBook": "prizepicks", "source": "prizepicks"}
+        if identity:
+            row.update({key: identity.get(key) for key in ("headshot", "position", "height", "team", "teamAbbr", "teamLogo")})
+            row["playerId"] = identity.get("id")
+        elif line.get("headshot"):
+            row["headshot"] = line["headshot"]
+        for side in ("home", "away"):
+            team = directory["teams"].get(_norm(row.get(f"{side}Team"))) or {}
+            row[f"{side}TeamLogo"], row[f"{side}TeamAbbr"] = team.get("logo"), team.get("abbr")
+        rows.append(row)
+        by_key[(name.casefold(), market, value)] = row
+    return rows
+
+
 def _board(include_history=True):
     cached = _cached()
     if cached is not None:
         return cached
-    event_response = _get(f"/sports/{SPORT}/events", {})
-    events = event_response.json()
-    if not isinstance(events, list):
-        raise RuntimeError("WNBA event schema unavailable")
+    # PrizePicks' feed can carry the board on its own, so an Odds API outage
+    # (or spent credits) no longer blanks it.
+    try:
+        event_response = _get(f"/sports/{SPORT}/events", {})
+        events = event_response.json()
+        if not isinstance(events, list):
+            raise RuntimeError("WNBA event schema unavailable")
+        odds_error = None
+    except Exception as error:  # noqa: BLE001
+        event_response, events, odds_error = None, [], error
     now = datetime.now(timezone.utc)
     try:
         directory = _roster_directory()
@@ -273,10 +364,13 @@ def _board(include_history=True):
         starts_at = timestamp(event.get("commence_time")) if isinstance(event, dict) else None
         if not event_id or not starts_at or starts_at <= now:
             continue
-        response = _get(f"/sports/{SPORT}/events/{event_id}/odds", {
-            "markets": ",".join(ALL_MARKETS), "bookmakers": BOOKS, "oddsFormat": "american"
-        })
-        payload = response.json()
+        try:
+            response = _get(f"/sports/{SPORT}/events/{event_id}/odds", {
+                "markets": ",".join(ALL_MARKETS), "bookmakers": BOOKS, "oddsFormat": "american"
+            })
+            payload = response.json()
+        except Exception:  # noqa: BLE001 -- one game must not sink the board
+            continue
         grouped = {}
         standard_prices = {}
         # Capture standard PrizePicks prices first. The provider documents
@@ -356,15 +450,18 @@ def _board(include_history=True):
             if row["apps"]:
                 row["primaryBook"] = row["apps"][0]["key"]
                 rows.append(row)
+    _merge_prizepicks(rows, events, directory, now)
+    if not rows and odds_error is not None:
+        raise odds_error
     rows.sort(key=lambda row: (row["startsAt"], row["player"], row["market"], row["line"]))
     # The prop board itself is useful before the comparatively expensive
     # ESPN game-log fan-out finishes.  The Finder asks for this fast shape
     # first and hydrates the history progressively in the browser.
     if include_history:
         _attach_history(rows, now.year)
-    remaining = event_response.headers.get("x-requests-remaining")
+    remaining = event_response.headers.get("x-requests-remaining") if event_response is not None else None
     result = {
-        "status": "AVAILABLE", "source": "the-odds-api", "sport": "wnba",
+        "status": "AVAILABLE", "source": "the-odds-api + prizepicks", "sport": "wnba",
         "fetchedAt": now.isoformat(), "creditsRemaining": int(remaining) if str(remaining).isdigit() else None,
         "events": len(events), "rows": rows,
     }

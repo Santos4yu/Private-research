@@ -80,7 +80,8 @@ class QuotePairingTests(unittest.TestCase):
             {"key":"draftkings","markets":[market("player_points_alternate","Over",-180)]},
             {"key":"prizepicks","markets":[market("player_points","Over",-119),market("player_points_alternate","Under",-119)]},
         ]}
-        with patch("api.wnba._cached",return_value=None), patch("api.wnba._roster_directory",return_value={"players":{},"teams":{}}), patch("api.wnba._get",side_effect=[Mock(json=lambda:events),Mock(json=lambda:payload)]), patch("api.wnba.store.set"):
+        with patch("api.wnba._cached",return_value=None), patch("api.wnba._roster_directory",return_value={"players":{},"teams":{}}), patch("api.wnba._get",side_effect=[Mock(json=lambda:events),Mock(json=lambda:payload)]), patch("api.wnba.store.set"), \
+                patch("prizepicks_export_core._fetch_projection_rows", return_value=[]):
             result = _board(include_history=False)
         self.assertEqual(len(result["rows"]),1)
         row = result["rows"][0]
@@ -90,3 +91,47 @@ class QuotePairingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WNBAPrizePicksLineTests(unittest.TestCase):
+    """PrizePicks' feed adds the lines The Odds API does not carry."""
+
+    def test_merge_adds_missing_lines_and_keeps_book_prices(self):
+        from datetime import datetime, timezone
+        from api.wnba import _merge_prizepicks
+
+        now = datetime(2026, 7, 1, 12, tzinfo=timezone.utc)
+        starts = "2026-07-01T23:00:00Z"
+        events = [{"id": "e1", "home_team": "Las Vegas Aces", "away_team": "Seattle Storm", "commence_time": starts}]
+        directory = {"players": {"a'ja wilson": [{"id": "w1", "team": "Las Vegas Aces", "teamAbbr": "LV", "position": "F"}]},
+                     "teams": {"las vegas aces": {"abbr": "LV", "logo": "lv.png"}}}
+        existing = {"player": "A'ja Wilson", "marketKey": "player_points", "line": 24.5, "modifier": "standard",
+                    "apps": [{"key": "prizepicks", "modifier": "standard"}, {"key": "draftkings", "over": -115}]}
+        base = {"player": "A'ja Wilson", "start_time": starts, "odds_type": "standard"}
+        lines = [
+            {**base, "id": 1, "stat": "Points", "line": 24.5, "odds_type": "goblin"},
+            {**base, "id": 2, "stat": "3-PT Attempted", "line": 1.5},
+            {**base, "id": 3, "stat": "FG Made", "line": 9.5},
+            {**base, "id": 4, "stat": "Free Throws Made", "line": 5.5},
+            {**base, "id": 5, "stat": "Personal Fouls", "line": 2.5},
+            {**base, "id": 6, "stat": "Points", "line": 40.5, "combo": True},
+            {**base, "id": 7, "stat": "Rebounds", "line": 9.5, "start_time": "2026-07-01T10:00:00Z"},
+        ]
+        with patch("prizepicks_export_core._fetch_projection_rows", return_value=lines):
+            rows = _merge_prizepicks([existing], events, directory, now)
+        self.assertEqual(existing["modifier"], "goblin")
+        self.assertEqual(existing["apps"][1], {"key": "draftkings", "over": -115})
+        added = {row["marketKey"]: row for row in rows[1:]}
+        self.assertEqual(set(added), {"player_threes_attempts", "player_field_goals", "player_frees_made", "pp:personalfouls"})
+        threes = added["player_threes_attempts"]
+        self.assertEqual((threes["market"], threes["playerId"], threes["eventId"], threes["homeTeamAbbr"]),
+                         ("3-PT Attempted", "w1", "e1", "LV"))
+        self.assertEqual(added["pp:personalfouls"]["market"], "Personal Fouls")
+
+    def test_merge_leaves_the_board_alone_when_prizepicks_is_down(self):
+        from datetime import datetime, timezone
+        from api.wnba import _merge_prizepicks
+
+        rows = [{"player": "A", "marketKey": "player_points", "line": 1.5, "apps": []}]
+        with patch("prizepicks_export_core._fetch_projection_rows", side_effect=RuntimeError("down")):
+            self.assertEqual(_merge_prizepicks(list(rows), [], {"players": {}, "teams": {}}, datetime.now(timezone.utc)), rows)

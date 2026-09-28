@@ -138,7 +138,9 @@ class ContextTests(unittest.TestCase):
         self.assertEqual(similar[0]["avg"], 25.0)  # her average in her OTHER games
 
     def test_market_mapping_covers_the_board(self):
-        self.assertEqual(set(context.MARKET_STAT), set(wnba_api.MARKETS))
+        # Every Odds API market, plus the ones only PrizePicks' feed posts.
+        self.assertEqual(set(context.MARKET_STAT), set(wnba_api.PRIZEPICKS_LABELS))
+        self.assertTrue(set(wnba_api.MARKETS) <= set(context.MARKET_STAT))
 
 
 class TopUpTests(unittest.TestCase):

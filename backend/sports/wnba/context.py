@@ -24,6 +24,7 @@ STATS = (
     ("ra", "Rebs+Asts", ("reb", "ast")),
     ("pra", "Pts+Rebs+Asts", ("pts", "reb", "ast")),
     ("tpm", "3-PT Made", ("tpm",)),
+    ("tpa", "3-PT Attempted", ("tpa",)),
     ("fgm", "FG Made", ("fgm",)),
     ("ftm", "FT Made", ("ftm",)),
     ("stl", "Steals", ("stl",)),
@@ -41,6 +42,8 @@ MARKET_STAT = {
     "player_blocks": "blk", "player_steals": "stl", "player_blocks_steals": "bs", "player_turnovers": "to",
     "player_points_rebounds": "pr", "player_points_assists": "pa", "player_rebounds_assists": "ra",
     "player_points_rebounds_assists": "pra", "player_fantasy_points": "fs",
+    # Posted by PrizePicks only (see api/wnba.py _merge_prizepicks).
+    "player_threes_attempts": "tpa", "player_field_goals": "fgm", "player_frees_made": "ftm",
 }
 # Same fantasy formula the game-log endpoint uses (api/wnba.py).
 _FANTASY = {"pts": 1, "reb": 1.2, "ast": 1.5, "blk": 3, "stl": 3, "to": -1}

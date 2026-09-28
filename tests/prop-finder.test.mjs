@@ -51,3 +51,19 @@ test('live research clears the actual Builder gates; missing starter or samples 
   assert.equal(candidate({...good,stats:{...good.stats,sample_l10:1}},'safe').valid,false);
   assert.equal(candidate({...good,stats:{...good.stats,pitcher:{validated_role:false}}},'safe').valid,false);
 });
+test('restored MLB markets are recognized and charted from game logs',()=>{
+ for(const [stat,key,pitcher] of [['Stolen Bases','sb',false],['Singles','singles',false],['Pitches Thrown','pitches',true],['Pitcher Fantasy Score','pitcher-fantasy',true],
+  ['Fantasy Score (Pitcher)','pitcher-fantasy',true],['1st Inning Hits Allowed','first-hits',true],['1st Inning Runs Allowed','first-runs',true],['1st Inning Pitches Thrown','first-pitches',true]]){
+  const market=finderMarket(stat);assert.ok(market,stat);assert.equal(market.key,key);assert.equal(market.pitcher,pitcher);
+ }
+ assert.equal(finderMarket('1st Inning Runs Allowed').firstInning,true);assert.equal(finderMarket('Pitches Thrown').firstInning,undefined);
+ assert.equal(gameValue({hits:3,doubles:1,triples:0,homeRuns:1},finderMarket('Singles')),1);
+ assert.equal(gameValue({stolenBases:2},finderMarket('Stolen Bases')),2);
+ assert.equal(gameValue({numberOfPitches:97},finderMarket('Pitches Thrown')),97);
+ // Win 6 + quality start 4 - 2 ER x3 + 7 K x3 + 19 outs
+ assert.equal(gameValue({wins:1,earnedRuns:2,strikeOuts:7,inningsPitched:'6.1'},finderMarket('Pitcher Fantasy Score')),6+4-6+21+19);
+ // No quality start with 4 earned runs.
+ assert.equal(gameValue({wins:0,earnedRuns:4,strikeOuts:5,outs:18},finderMarket('Pitcher Fantasy Score')),-12+15+18);
+ assert.equal(gameValue({firstInningRuns:0},finderMarket('1st Inning Runs Allowed')),0);
+ assert.equal(gameValue({},finderMarket('1st Inning Hits Allowed')),null);
+});

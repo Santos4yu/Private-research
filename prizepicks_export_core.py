@@ -16,7 +16,7 @@ PRIZEPICKS_LEAGUES_URL = "https://partner-api.prizepicks.com/leagues"
 PRIZEPICKS_APP_URL = "https://app.prizepicks.com/?projections="
 # PrizePicks' own league ids. MLB's has always been 2. WNBA's is read from
 # the leagues feed by name (_league_id) and this is only the fallback.
-LEAGUE_IDS = {"MLB": "2", "WNBA": "3"}
+LEAGUE_IDS = {"MLB": "2", "WNBA": "3", "NFL": "9"}
 _HEADERS = {
     "Accept": "application/json",
     "User-Agent": "Mozilla/5.0 (compatible; VORTEX-Private-Research/1.0)",
@@ -160,6 +160,10 @@ def _fetch_projection_rows(force=False, league="MLB"):
             "team": str(player.get("team") or ""),
             "position": str(player.get("position") or ""),
             "start_time": str(attrs.get("start_time") or ""),
+            # The opponent on single-player lines; combo lines ("A + B")
+            # are flagged so a board can keep them apart.
+            "description": str(attrs.get("description") or ""),
+            "combo": bool(player.get("combo")) or " + " in str(player.get("display_name") or player.get("name") or ""),
         })
     if not rows:
         raise RuntimeError(f"PrizePicks returned no active {league} projections.")

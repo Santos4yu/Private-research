@@ -162,12 +162,12 @@ class PrizePicksExportTests(unittest.TestCase):
 
     def test_unsupported_league_is_rejected_before_any_request(self):
         legs = [
-            {"league": "NFL", "player": "Josh Allen", "stat": "Passing Yards", "line": 250.5, "side": "over"},
+            {"league": "NHL", "player": "Connor McDavid", "stat": "Points", "line": 1.5, "side": "over"},
             {"league": "WNBA", "player": "A'ja Wilson", "stat": "Points", "line": 22.5, "side": "over"},
         ]
         status, body, fake = self.run_export(legs)
         self.assertEqual(status, 400)
-        self.assertIn("NFL", body["error"])
+        self.assertIn("NHL", body["error"])
         self.assertEqual(fake.urls, [])
 
     def test_mlb_stat_normalization_is_unchanged(self):

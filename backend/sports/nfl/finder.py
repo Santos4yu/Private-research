@@ -26,7 +26,7 @@ from .cache import NFLCacheDomain, cached_nfl
 from .services.nflverse import RELEASE, SCHEDULE_URL, TEAM_URL, ProviderError, _source_rows, canonical_team
 from .services.research_stats import numeric, prizepicks_fantasy
 
-VERSION = "nfl-finder-v1"
+VERSION = "nfl-finder-v2"
 USER_AGENT = {"User-Agent": "KrazyData-NFL-finder/1.0"}
 
 CONFERENCES = {
@@ -70,6 +70,22 @@ def player_rows(season):
     return _rows(f"{RELEASE}/stats_player/stats_player_week_{season}.csv")
 
 
+_player_index = {}
+
+
+def player_games(season, player_id):
+    """One player's weekly rows. Indexed once per loaded season file, so a
+    board with hundreds of players does not rescan every row for each one."""
+    rows = player_rows(season)
+    cached = _player_index.get(season)
+    if not cached or cached[0] is not rows:
+        index = defaultdict(list)
+        for row in rows:
+            index[row.get("player_id")].append(row)
+        cached = _player_index[season] = (rows, index)
+    return cached[1].get(player_id, [])
+
+
 def team_rows(season):
     return _rows(f"{RELEASE}/stats_team/stats_team_week_{season}.csv")
 
@@ -111,16 +127,24 @@ def _starts_at(row):
     return (local.replace(tzinfo=timezone.utc).timestamp() + offset * 3600)
 
 
+_games_memo = [None, None]
+
+
 def games_index():
-    """game_id -> the schedule row, with its kickoff and a final flag."""
+    """game_id -> the schedule row, with its kickoff and a final flag.
+    Rebuilt only when the schedule file itself is reloaded."""
+    rows = schedule_rows()
+    if _games_memo[0] is rows and _games_memo[1] is not None:
+        return _games_memo[1]
     index = {}
-    for row in schedule_rows():
+    for row in rows:
         game_id = row.get("game_id")
         if not game_id or str(row.get("game_type") or "").upper() not in SEASON_KIND:
             continue
         final = row.get("home_score") not in (None, "", "NA") and row.get("away_score") not in (None, "", "NA")
         index[game_id] = {**row, "home": canonical_team(row.get("home_team")), "away": canonical_team(row.get("away_team")),
                           "kickoff": _starts_at(row), "final": final}
+    _games_memo[:] = [rows, index]
     return index
 
 
@@ -163,9 +187,56 @@ BOX_FIELDS = (
 )
 
 
+# PrizePicks' kicker fantasy scoring: 3 points for a field goal under 40
+# yards, 4 for 40-49, 5 for 50+, and 1 per extra point.
+KICKER_BUCKETS = (("fg_made_0_19", 3), ("fg_made_20_29", 3), ("fg_made_30_39", 3),
+                  ("fg_made_40_49", 4), ("fg_made_50_59", 5), ("fg_made_60_", 5))
+
+
+def _fg_made_distances(row):
+    """Each made field goal's distance ("25;43;32")."""
+    parts = str(row.get("fg_made_list") or "").replace(",", ";").split(";")
+    return [value for value in (numeric(part.strip()) for part in parts) if value is not None]
+
+
+def _kicking(row):
+    made, attempts, pats, pat_attempts = (_n(row, key) for key in ("fg_made", "fg_att", "pat_made", "pat_att"))
+    if str(row.get("position") or "").upper() != "K" and not (attempts or pat_attempts):
+        return {}
+    if attempts is None and pat_attempts is None:
+        return {}
+    made, attempts, pats, pat_attempts = (value or 0 for value in (made, attempts, pats, pat_attempts))
+    distances = _fg_made_distances(row)
+    buckets = [_n(row, key) for key, _points in KICKER_BUCKETS]
+    if any(count is not None for count in buckets):
+        fg_points = sum((count or 0) * points for count, (_key, points) in zip(buckets, KICKER_BUCKETS))
+    else:
+        fg_points = sum(3 if distance < 40 else 4 if distance < 50 else 5 for distance in distances)
+    return {
+        "fg_made": made, "fg_attempts": attempts, "pat_attempts": pat_attempts,
+        "fg_yards": sum(distances) if distances else (_n(row, "fg_made_distance") or 0),
+        "kicking_points": made * 3 + pats, "kicker_fantasy": fg_points + pats,
+        "longest_fg": max(distances) if distances else (0 if not made else _n(row, "fg_long")),
+        # No made field goal has no shortest one.
+        "shortest_fg": min(distances) if distances else None,
+    }
+
+
+def _defense(row):
+    solo, with_assist, assists = (_n(row, key) for key in ("def_tackles_solo", "def_tackles_with_assist", "def_tackle_assists"))
+    if solo is None and with_assist is None and assists is None:
+        return {}
+    # Solo tackles plus every assisted one the player took part in -- the
+    # combined total a tackles prop settles on.
+    return {"tackles": (solo or 0) + (with_assist or 0) + (assists or 0), "sacks": _n(row, "def_sacks") or 0,
+            "tackles_for_loss": _n(row, "def_tackles_for_loss") or 0,
+            "def_interceptions": _n(row, "def_interceptions") or 0}
+
+
 def market_values(row):
     values = {market: _int(_sum(row, *fields)) for market, fields in MARKET_FIELDS.items()}
     values["fantasy_score"] = prizepicks_fantasy(row)
+    values.update({key: _int(value) for key, value in {**_kicking(row), **_defense(row)}.items()})
     return values
 
 
@@ -188,97 +259,144 @@ def _involved(row):
 def player_log(season, player_id):
     """The player's games this season and last, oldest first, with a DNP row
     for each of his team's finished games he missed between appearances."""
-    def load():
-        games = games_index()
-        rows, player = [], None
-        for year in (season - 1, season):
-            played = [row for row in player_rows(year) if row.get("player_id") == player_id
-                      and str(row.get("season_type")).upper() in ("REG", "POST") and row.get("game_id")]
-            played.sort(key=lambda row: (games.get(row["game_id"], {}).get("kickoff") or 0))
-            seen = set()
-            for row in played:
-                game = games.get(row["game_id"])
-                team = canonical_team(row.get("team"))
-                if not game or row["game_id"] in seen:
-                    continue
-                seen.add(row["game_id"])
-                player = {"id": player_id, "name": row.get("player_display_name") or row.get("player_name") or "",
-                          "position": row.get("position") or "", "team": team, "headshot": row.get("headshot_url") or ""}
-                rows.append({**team_view(game, team), "dnp": False, "box": box(row), "values": market_values(row)})
-            # Missed games: the team he was with at the time, from his first
-            # game of the season to his last (or to now, this season).
-            if not seen:
+    return cached_nfl(NFLCacheDomain.GAME_LOGS, (VERSION, "log", season, player_id),
+                      lambda: _player_log_rows(season, player_id))
+
+
+def _player_log_rows(season, player_id):
+    """player_log() without its cache -- the board computes hundreds of these
+    at once from files already in memory."""
+    games = games_index()
+    rows, player = [], None
+    for year in (season - 1, season):
+        played = [row for row in player_games(year, player_id)
+                  if str(row.get("season_type")).upper() in ("REG", "POST") and row.get("game_id")]
+        played.sort(key=lambda row: (games.get(row["game_id"], {}).get("kickoff") or 0))
+        seen = set()
+        for row in played:
+            game = games.get(row["game_id"])
+            team = canonical_team(row.get("team"))
+            if not game or row["game_id"] in seen:
                 continue
-            appearances = [games[game_id] for game_id in seen]
-            first = min(game["kickoff"] or 0 for game in appearances)
-            last = max(game["kickoff"] or 0 for game in appearances)
-            teams = {canonical_team(row.get("team")) for row in played}
-            for team in teams:
-                for game in _team_games(games, year, team):
-                    kickoff = game["kickoff"] or 0
-                    if game["game_id"] in seen or kickoff < first or (kickoff > last and year != season):
-                        continue
-                    # Traded mid-season: only the games while he was there.
-                    with_team = [row for row in played if canonical_team(row.get("team")) == team]
-                    span = [games[row["game_id"]]["kickoff"] or 0 for row in with_team if row["game_id"] in games]
-                    if len(teams) > 1 and not (min(span) <= kickoff <= max(span)):
-                        continue
-                    rows.append({**team_view(game, team), "dnp": True, "box": {}, "values": {}})
-        rows.sort(key=lambda row: (row["date"], row["gameId"]))
-        return {"season": season, "player": player, "rows": rows, "version": VERSION}
-    return cached_nfl(NFLCacheDomain.GAME_LOGS, (VERSION, "log", season, player_id), load)
+            seen.add(row["game_id"])
+            player = {"id": player_id, "name": row.get("player_display_name") or row.get("player_name") or "",
+                      "position": row.get("position") or "", "team": team, "headshot": row.get("headshot_url") or ""}
+            rows.append({**team_view(game, team), "dnp": False, "box": box(row), "values": market_values(row)})
+        # Missed games: the team he was with at the time, from his first
+        # game of the season to his last (or to now, this season).
+        if not seen:
+            continue
+        appearances = [games[game_id] for game_id in seen]
+        first = min(game["kickoff"] or 0 for game in appearances)
+        last = max(game["kickoff"] or 0 for game in appearances)
+        teams = {canonical_team(row.get("team")) for row in played}
+        for team in teams:
+            for game in _team_games(games, year, team):
+                kickoff = game["kickoff"] or 0
+                if game["game_id"] in seen or kickoff < first or (kickoff > last and year != season):
+                    continue
+                # Traded mid-season: only the games while he was there.
+                with_team = [row for row in played if canonical_team(row.get("team")) == team]
+                span = [games[row["game_id"]]["kickoff"] or 0 for row in with_team if row["game_id"] in games]
+                if len(teams) > 1 and not (min(span) <= kickoff <= max(span)):
+                    continue
+                rows.append({**team_view(game, team), "dnp": True, "box": {}, "values": {}})
+    rows.sort(key=lambda row: (row["date"], row["gameId"]))
+    return {"season": season, "player": player, "rows": rows, "version": VERSION}
 
 
 # ------------------------------------------------------------------ play-by-play extras
 
 PBP_FIELDS = ("game_id", "season_type", "posteam", "defteam", "play_type", "yardline_100", "pass_attempt", "sack",
               "complete_pass", "receiver_player_id", "receiving_yards", "rush_attempt", "rusher_player_id",
-              "rushing_yards", "two_point_attempt")
+              "rushing_yards", "two_point_attempt", "passer_player_id", "passing_yards", "punt_attempt",
+              "punter_player_id", "kick_distance", "punt_inside_twenty")
+
+# A prop market -> the play-by-play summary field it reads (see
+# _aggregate_pbp). A game the file covers but the player had none of counts
+# as 0, which is how these props settle.
+PBP_MARKETS = {"longest_reception": "longestReception", "longest_rush": "longestRush",
+               "longest_completion": "longestCompletion", "rush_yards_first_5": "rushFirst5",
+               "rec_yards_first_2": "recFirst2", "punts_inside_20": "puntsIn20",
+               "gross_punt_yards": "puntYards", "punts_50_plus": "punts50"}
+
+
+def _team_entry():
+    return {"rzTargets": 0, "longestReception": None, "longestRush": None, "longestCompletion": None}
 
 
 def _aggregate_pbp(records):
+    """Per player-game and per team-game numbers that only exist play by
+    play. Plays arrive in game order, which is what "first 5 rushes" and
+    "first 2 receptions" count."""
     players, teams = defaultdict(dict), defaultdict(dict)
 
-    def mark(store, key, game_id, field, value, how, team=None):
-        game = store[key].setdefault(game_id, {"rzTargets": 0, "longestReception": None, "longestRush": None,
-                                                "longestCompletion": None})
-        if team:
-            game["team"] = team
-        if how == "count":
-            game[field] += 1
-        elif value is not None and (game[field] is None or value > game[field]):
-            game[field] = value
+    def player(player_id, game_id, team):
+        entry = players[player_id].setdefault(game_id, {"team": team})
+        return entry
+
+    def team(team_id, game_id):
+        return teams[team_id].setdefault(game_id, _team_entry())
+
+    def high(entry, field, value):
+        if value is not None and (entry.get(field) is None or value > entry[field]):
+            entry[field] = value
+
+    def present(value):
+        return value not in (None, "", "NA")
 
     for row in records:
         if str(row.get("season_type")).upper() not in ("REG", "POST") or _n(row, "two_point_attempt") == 1:
             continue
-        game_id, team = row.get("game_id"), canonical_team(row.get("posteam"))
-        if not game_id or not team:
+        game_id, posteam = row.get("game_id"), canonical_team(row.get("posteam"))
+        if not game_id or not posteam:
+            continue
+        if _n(row, "punt_attempt") == 1:
+            punter, distance = row.get("punter_player_id"), _n(row, "kick_distance")
+            if present(punter):
+                entry = player(punter, game_id, posteam)
+                entry["punts"] = entry.get("punts", 0) + 1
+                entry["puntYards"] = entry.get("puntYards", 0) + (distance or 0)
+                entry["puntsIn20"] = entry.get("puntsIn20", 0) + int(_n(row, "punt_inside_twenty") == 1)
+                entry["punts50"] = entry.get("punts50", 0) + int((distance or 0) >= 50)
+            team(posteam, game_id)
             continue
         if _n(row, "pass_attempt") == 1 and _n(row, "sack") != 1:
-            receiver = row.get("receiver_player_id")
+            receiver, passer = row.get("receiver_player_id"), row.get("passer_player_id")
             yardline = _n(row, "yardline_100")
-            if receiver not in (None, "", "NA") and yardline is not None and yardline <= 20:
-                mark(players, receiver, game_id, "rzTargets", None, "count", team)
-                mark(teams, team, game_id, "rzTargets", None, "count")
+            team_game = team(posteam, game_id)
+            if present(receiver) and yardline is not None and yardline <= 20:
+                entry = player(receiver, game_id, posteam)
+                entry["rzTargets"] = entry.get("rzTargets", 0) + 1
+                team_game["rzTargets"] += 1
             if _n(row, "complete_pass") == 1:
                 yards = _n(row, "receiving_yards")
-                if receiver not in (None, "", "NA"):
-                    mark(players, receiver, game_id, "longestReception", yards, "max", team)
-                mark(teams, team, game_id, "longestCompletion", yards, "max")
+                if present(receiver):
+                    entry = player(receiver, game_id, posteam)
+                    high(entry, "longestReception", yards)
+                    if entry.get("catches", 0) < 2:
+                        entry["recFirst2"] = entry.get("recFirst2", 0) + (yards or 0)
+                    entry["catches"] = entry.get("catches", 0) + 1
+                if present(passer):
+                    high(player(passer, game_id, posteam), "longestCompletion", _n(row, "passing_yards"))
+                high(team_game, "longestCompletion", yards)
         elif _n(row, "rush_attempt") == 1:
             rusher, yards = row.get("rusher_player_id"), _n(row, "rushing_yards")
-            if rusher not in (None, "", "NA"):
-                mark(players, rusher, game_id, "longestRush", yards, "max", team)
-            mark(teams, team, game_id, "longestRush", yards, "max")
+            team_game = team(posteam, game_id)
+            if present(rusher):
+                entry = player(rusher, game_id, posteam)
+                high(entry, "longestRush", yards)
+                if entry.get("rushes", 0) < 5:
+                    entry["rushFirst5"] = entry.get("rushFirst5", 0) + (yards or 0)
+                entry["rushes"] = entry.get("rushes", 0) + 1
+            high(team_game, "longestRush", yards)
     # A team's "Longest Reception" is what a Longest Reception prop adds up
     # across its receivers: each one's longest catch in the game, summed.
     # Its single longest play through the air is Longest Completion.
     for games in players.values():
         for game_id, entry in games.items():
-            if entry.get("team") and entry["longestReception"] is not None:
-                team_game = teams[entry["team"]].setdefault(game_id, {"rzTargets": 0, "longestReception": None, "longestRush": None,
-                                                                      "longestCompletion": None})
+            if entry.get("team") and entry.get("longestReception") is not None:
+                team_game = team(entry["team"], game_id)
                 team_game["longestReception"] = (team_game["longestReception"] or 0) + entry["longestReception"]
     return {"players": players, "teams": teams}
 
@@ -300,7 +418,34 @@ def pbp_extras(season):
                 raise
             result = {"players": {}, "teams": {}}
         return {"players": dict(result["players"]), "teams": dict(result["teams"])}
-    return cached_nfl(NFLCacheDomain.STATS, (VERSION, "pbp", season), load)
+    return cached_nfl(NFLCacheDomain.PLAY_BY_PLAY, (VERSION, "pbp", season), load)
+
+
+def pbp_values(season, player_id, log=None):
+    """gameId -> the play-by-play markets for each game the player played,
+    this season and last. Games the file does not cover yet are left out."""
+    values = {}
+    for row in (log or player_log(season, player_id))["rows"]:
+        if row["dnp"]:
+            continue
+        extras = pbp_extras(row["season"])
+        covered = row["gameId"] in extras["teams"].get(row["team"], {})
+        entry = extras["players"].get(player_id, {}).get(row["gameId"])
+        if entry is None and not covered:
+            continue
+        entry = entry or {}
+        values[row["gameId"]] = {market: entry.get(field) if entry.get(field) is not None else 0
+                                 for market, field in PBP_MARKETS.items()}
+    return values
+
+
+def game_values(season, player_id, cached=True):
+    """The player's played games, oldest first, each with every market's
+    value: weekly stats plus play-by-play."""
+    log = player_log(season, player_id) if cached else _player_log_rows(season, player_id)
+    extra = pbp_values(season, player_id, log)
+    return [{**row, "values": {**row["values"], **extra.get(row["gameId"], {})}}
+            for row in log["rows"] if not row["dnp"]]
 
 
 PBP_TEAM_STATS = (("longest_reception", "Longest Reception", "longestReception"),
@@ -330,7 +475,8 @@ def pbp_resource(season, player_id):
                     per_team[opponent]["def"][key].append(values[field])
     stats = {team: {side: {key: sum(values) / len(values) for key, values in per_team[team][side].items() if values}
                     for side in ("off", "def")} for team in per_team}
-    return {"season": season, "games": games, "teamStats": _ranked(stats, [key for key, *_ in PBP_TEAM_STATS]),
+    return {"season": season, "games": games, "values": pbp_values(season, player_id),
+            "teamStats": _ranked(stats, [key for key, *_ in PBP_TEAM_STATS]),
             "stats": [[key, label] for key, label, _field in PBP_TEAM_STATS], "version": VERSION}
 
 
@@ -789,7 +935,11 @@ def _value(row, market):
     if market == "fantasy_score":
         return prizepicks_fantasy(row)
     fields = MARKET_FIELDS.get(market)
-    return _sum(row, *fields) if fields else None
+    if fields:
+        return _sum(row, *fields)
+    # Kicking and defense come from the same weekly row; play-by-play
+    # markets have no weekly value.
+    return {**_kicking(row), **_defense(row)}.get(market)
 
 
 def player_context(season, player_id, team, opponent, market, line):

@@ -1,6 +1,7 @@
 export const WNBA_STATS=[
  ['player_points','Points','PTS'],['player_rebounds','Rebounds','REB'],['player_assists','Assists','AST'],
- ['player_threes','3-Pointers Made','3PM'],['player_blocks','Blocks','BLK'],['player_steals','Steals','STL'],
+ ['player_threes','3-Pointers Made','3PM'],['player_threes_attempts','3-PT Attempted','3PA'],['player_field_goals','FG Made','FGM'],
+ ['player_frees_made','Free Throws Made','FTM'],['player_blocks','Blocks','BLK'],['player_steals','Steals','STL'],
  ['player_blocks_steals','Blocks + Steals','B+S'],['player_turnovers','Turnovers','TO'],
  ['player_points_rebounds','Points + Rebounds','PR'],['player_points_assists','Points + Assists','PA'],
  ['player_rebounds_assists','Rebounds + Assists','RA'],['player_points_rebounds_assists','Points + Rebounds + Assists','PRA'],
