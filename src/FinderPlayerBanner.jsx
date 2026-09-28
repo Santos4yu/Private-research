@@ -60,7 +60,7 @@ export function FinderPlayerBanner({row,playerRows=[],onBack}){
  return <header className="fpb">
   <div className="fpb-top">
    <button type="button" className="fpb-back" aria-label="Back to Finder" onClick={onBack}><ArrowLeft size={18} aria-hidden="true"/>Back</button>
-   <span className="fpb-brand"><img src="/icons/kd-mark.png" alt="" width="26" height="26"/>Krazy Data</span>
+   <span className="fpb-brand"><img src="/icons/krazy-data-wordmark.png" alt="Krazy Data" width="124" height="22"/></span>
    <button type="button" className="fpb-account" aria-label="Your account" aria-haspopup="dialog" onClick={pressAccount}><UserRound size={18} aria-hidden="true"/></button>
   </div>
   <div className="fpb-player">

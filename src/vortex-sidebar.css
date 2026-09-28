@@ -48,8 +48,8 @@
 .vortex-sidebar-top { display: flex; align-items: center; gap: 10px; min-height: 28px; padding: 0 2px; }
 .vortex-sidebar-top.collapsed { justify-content: center; padding: 0; }
 .vortex-sidebar-mark { flex: 0 0 auto; border-radius: 8px; object-fit: contain; }
-.vortex-sidebar-wordmark { flex: 0 0 auto; overflow: hidden; white-space: nowrap; font: 700 15px/1 "Space Grotesk", Arial, sans-serif; letter-spacing: -.03em; color: var(--theme-text, #edf4ff); }
-.vortex-sidebar-wordmark b { font-weight: 700; color: var(--theme-accent, #67a8ff); }
+/* The "KRAZY DATA" lettering from the brand wordmark, beside the mark. */
+.vortex-sidebar-wordmark { flex: 0 0 auto; display: block; width: auto; height: 16px; object-fit: contain; }
 
 /* The links give way (scroll) on a short window, so the footer below is
    never pushed out of the rail. */

@@ -22,7 +22,7 @@
   border: 0; background: transparent; color: var(--theme-accent-soft,var(--theme-accent)); font: 500 16px/1 inherit; cursor: pointer;
 }
 .fpb-brand { display: inline-flex; align-items: center; gap: 9px; color: #fff; font: 700 17px/1 inherit; letter-spacing: -.01em; white-space: nowrap; }
-.fpb-brand img { border-radius: 8px; object-fit: contain; }
+.fpb-brand img { display: block; width: auto; height: 22px; object-fit: contain; }
 .fpb-account {
   justify-self: end; display: none; place-items: center; width: 40px; height: 40px; padding: 0;
   border: 1px solid rgba(255, 255, 255, .22); border-radius: 50%; background: #0d111659; color: #e9eef6; cursor: pointer;

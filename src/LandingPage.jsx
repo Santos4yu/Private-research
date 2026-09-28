@@ -47,8 +47,7 @@ export function LandingPage({ onSignUp, onSignIn }) {
           below the header, which read as sitting too low. */}
       <div className="relative z-10 flex flex-col items-center justify-center flex-1 w-full">
         <div className="flex items-center gap-2 mb-10">
-          <img src="/icons/kd-mark.png" width={32} height={32} alt="" className="rounded-lg" />
-          <span className="font-sans text-white font-semibold text-sm tracking-wide">Krazy Data</span>
+          <img src="/icons/krazy-data-wordmark.png" width={158} height={28} alt="Krazy Data" />
         </div>
 
         <div className="flex gap-2 mb-10">
