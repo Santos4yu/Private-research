@@ -1,8 +1,8 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import {ArrowLeft,CalendarDays,Database,Filter,ListOrdered,RefreshCw,Shield,Users,X} from 'lucide-react';
+import {ArrowLeft,CalendarDays,Database,Filter,ListOrdered,RefreshCw,Shield,UserCheck,UserRound,Users,UserX,X} from 'lucide-react';
 import {WNBA_STATS,wnbaChart,wnbaLines,wnbaOdds} from './trend-data';
 import WNBAFinderContext from './WNBAFinderContext';
-import {finite,fmt,logValue,opponentOf,positionOf,realGames,shortDate,useWnba} from './wnba-research';
+import {finite,fmt,hasPlayerContext,logValue,opponentOf,playerContextParams,positionOf,realGames,shortDate,splitFilter,useWnba} from './wnba-research';
 import '../../mlb-finder-context.css';
 import './wnba-context.css';
 
@@ -58,27 +58,63 @@ function PlayerGameLog({row,logs,loading,error,onRetry}){
  </section>;
 }
 
-// ESPN publishes no WNBA depth chart, so this is the rotation each coach
-// has actually used: last game's starters, then the bench by minutes.
-function DepthChart({row,matchup}){
+// ESPN publishes no WNBA depth chart, so this is built from the rotation each
+// coach has actually used: last game's starters fill the five slots by
+// position, then the bench joins its position's rows by minutes, and anyone
+// on the injury report who hasn't been playing joins at the end.
+const SLOTS=[['G1','G'],['G2','G'],['F1','F'],['F2','F'],['C','C']];
+// A starter with no slot left at her own position (a third guard, say) takes
+// the nearest open one.
+const OVERFLOW={G:['F1','F2','C'],F:['C','F2','F1','G2','G1'],C:['F2','F1','G2','G1']};
+const BENCH_ROWS={G:['G1','G2'],F:['F1','F2'],C:['C']};
+function depthRows(players,injuries){
+ const rows=Object.fromEntries(SLOTS.map(([slot])=>[slot,[]]));
+ const starters=players.filter(player=>player.lastStart).sort((a,b)=>b.min-a.min),overflow=[];
+ for(const player of starters){const slot=SLOTS.find(([name,position])=>position===positionOf(player.pos)&&!rows[name].length);if(slot)rows[slot[0]].push(player);else overflow.push(player);}
+ for(const player of overflow){const slot=(OVERFLOW[positionOf(player.pos)]||SLOTS.map(([name])=>name)).find(name=>!rows[name].length);if(slot)rows[slot].push(player);}
+ const inRotation=new Set(players.map(player=>player.id));
+ const bench=[...players.filter(player=>!player.lastStart).sort((a,b)=>b.min-a.min),
+  ...injuries.filter(item=>item.id&&!inRotation.has(item.id)).map(item=>({id:item.id,name:item.name,pos:item.position,headshot:item.headshot,min:null,injuredOnly:true}))];
+ for(const player of bench){const options=BENCH_ROWS[positionOf(player.pos)]||['F1','F2'];rows[options.reduce((best,name)=>rows[name].length<rows[best].length?name:best,options[0])].push(player);}
+ return SLOTS.map(([slot])=>[slot,rows[slot]]);
+}
+const INJURY_CODES={OUT:'OUT',O:'OUT',OFS:'OFS',D:'DOUBT',DOUBTFUL:'DOUBT',Q:'Q',QUESTIONABLE:'Q',GTD:'GTD','DAY-TO-DAY':'DTD',DTD:'DTD',SUSP:'SUSP'};
+const LEGEND=[['OUT','Out for game'],['Q','Questionable'],['DOUBT','Doubtful'],['OFS','Out for season']];
+const injuryCode=item=>item?INJURY_CODES[String(item.code||item.status||'').toUpperCase()]||String(item.code||item.status||'').toUpperCase():null;
+const shortName=name=>{const parts=String(name||'').trim().split(/\s+/);return parts.length>1?`${parts[0][0]}. ${parts.slice(1).join(' ')}`:parts[0]||'';};
+const columnLabel=index=>index===0?'Starter':['2nd','3rd','4th','5th','6th'][index-1]||`${index+1}th`;
+function DepthChart({row,matchup,filter,onFilter}){
  const league=useWnba('league-context',{});
+ const context=useWnba('player-context',playerContextParams(row),hasPlayerContext(row));
  const team=row.teamAbbr,opponent=opponentOf(row);
  const [side,setSide]=useState(team);
  useEffect(()=>setSide(row.teamAbbr),[row.teamAbbr]);
- const rotation=league.data?.rotation?.[side];
- const teams=league.data?.teams||{};
- const injured=new Map((matchup?.injuries?.[side]||[]).map(item=>[item.id,item]));
- const groups=['G','F','C'].map(position=>[position,(rotation?.players||[]).filter(player=>positionOf(player.pos)===position)]);
- return <section className="mlb-context-card wnba-depth"><header><h2><Users size={15} aria-hidden="true"/>Depth chart</h2><small>{rotation?`Last ${rotation.games} games`:''}</small></header>
-  <div className="mlb-context-switch" aria-label="Depth chart team">{[team,opponent].filter(Boolean).map(abbr=><button type="button" key={abbr} aria-pressed={side===abbr} onClick={()=>setSide(abbr)}>{teams[abbr]?.logo&&<img src={teams[abbr].logo} alt="" width="18" height="18"/>}{abbr}</button>)}</div>
-  {league.loading&&!rotation?<div className="mlb-context-skeleton" role="status" aria-label="Loading rotation"><span/><span/><span/></div>
+ const rotation=league.data?.rotation?.[side],teams=league.data?.teams||{};
+ const injuries=matchup?.injuries?.[side]||[];
+ const injured=new Map(injuries.map(item=>[item.id,item]));
+ const rows=useMemo(()=>rotation?depthRows(rotation.players,injuries):[],[rotation,injuries]);
+ const columns=Math.max(1,...rows.map(([,players])=>players.length));
+ // With/without only means something for the player's own teammates.
+ const impact=side===team?new Map((context.data?.withWithout||[]).map(item=>[item.id,item])):null;
+ const used=new Set(rows.flatMap(([,players])=>players.map(player=>injuryCode(injured.get(player.id)))).filter(Boolean));
+ const legend=[...LEGEND,...[...used].filter(code=>!LEGEND.some(([key])=>key===code)).map(code=>[code,{DTD:'Day-to-day',GTD:'Game-time decision',SUSP:'Suspended'}[code]||code])];
+ const toggle=(player,kind)=>{const split=impact?.get(player.id)?.[kind];if(!split?.games)return;const next=splitFilter(player.id,kind,player.name,split.gameIds);onFilter(filter?.key===next.key?null:next);};
+ return <section className="mlb-context-card wnba-depth"><header><h2><Users size={15} aria-hidden="true"/>Depth charts</h2>
+  <div className="wnba-depth-teams" aria-label="Depth chart team">{[team,opponent].filter(Boolean).map(abbr=><button type="button" key={abbr} aria-pressed={side===abbr} onClick={()=>setSide(abbr)}>{teams[abbr]?.logo&&<img src={teams[abbr].logo} alt="" width="18" height="18"/>}{abbr}</button>)}</div></header>
+  <div className="wnba-depth-legend">{legend.map(([code,label])=><span key={code}><b data-code={code}>{code}</b>{label}</span>)}</div>
+  {league.loading&&!rotation?<div className="mlb-context-skeleton" role="status" aria-label="Loading depth chart"><span/><span/><span/></div>
   :league.error?<p className="mlb-context-note" role="status">{league.error} <button type="button" onClick={league.retry}>Retry</button></p>
   :!rotation?<p className="mlb-context-note">No games recorded for this team yet.</p>
-  :<div className="wnba-depth-rows">{groups.filter(([,players])=>players.length).map(([position,players])=><div className="wnba-depth-row" key={position}><b>{position}</b><div>{players.map(player=>{const injury=injured.get(player.id);return <span className="wnba-depth-player" data-starter={player.lastStart} key={player.id} title={`${player.name} · ${fmt(player.min)} min over ${player.games} games · ${player.starts} starts`}>
-    <span className="wnba-avatar">{player.headshot&&<img src={player.headshot} alt="" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}</span>
-    <span><strong className={player.id===String(row.playerId)?'is-self':''}>{player.name}</strong><small>{fmt(player.min)} min{player.lastStart?' · Starter':''}</small></span>
-    {injury&&<em className="wnba-injury-code" title={[injury.status,injury.injury].filter(Boolean).join(' · ')}>{injury.code||injury.status}</em>}</span>;})}</div></div>)}</div>}
-  <p className="mlb-context-note">Order and minutes from the last {rotation?.games||5} games — ESPN publishes no official WNBA depth chart. Injury tags are from the current report.</p>
+  :<div className="wnba-depth-scroll" tabIndex={0} role="region" aria-label={`${side} depth chart; scroll for more columns`}><table className="wnba-depth-table"><thead><tr><th scope="col"><span className="finder-sr-only">Slot</span></th>{Array.from({length:columns},(_,index)=><th scope="col" key={index}>{columnLabel(index)}</th>)}</tr></thead>
+   <tbody>{rows.map(([slot,players])=><tr key={slot}><th scope="row">{slot}</th>{Array.from({length:columns},(_,index)=>{const player=players[index];if(!player)return <td key={index}/>;
+    const code=injuryCode(injured.get(player.id)),self=String(player.id)===String(row.playerId),effect=impact?.get(player.id);
+    return <td key={index}><div className="wnba-depth-cell">
+     <span className="wnba-avatar"><UserRound size={20} aria-hidden="true"/>{player.headshot&&<img src={player.headshot} alt="" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}</span>
+     <span className="wnba-depth-name" title={`${player.name}${player.min!=null?` · ${fmt(player.min)} min over the last ${rotation.games} games`:''}`}><strong className={self?'is-self':''}>{shortName(player.name)}</strong>{code&&<em data-code={code}>{code}</em>}</span>
+     {impact&&!self&&<span className="wnba-depth-actions">{[['without',UserX,'Without'],['with',UserCheck,'With']].map(([kind,Icon,label])=>{const split=effect?.[kind],pressed=filter?.key===`${player.id}:${kind}`;
+      return <button type="button" key={kind} data-kind={kind} aria-pressed={pressed} disabled={!split?.games} onClick={()=>toggle(player,kind)} aria-label={`${label} ${player.name}`} title={split?.games?`Chart: ${split.games} ${split.games===1?'game':'games'} ${kind} ${player.name}${finite(split.avg)?` · ${row.player} averaged ${fmt(split.avg)}`:''}`:`No games ${kind} ${player.name} this season`}><Icon size={15} aria-hidden="true"/></button>;})}</span>}
+    </div></td>;})}</tr>)}</tbody></table></div>}
+  <p className="mlb-context-note">{impact?`Red and green put ${row.player}'s games without or with that teammate on the chart. `:''}Built from the last {rotation?.games||5} games' starters and minutes — ESPN publishes no official WNBA depth chart.</p>
  </section>;
 }
 
@@ -109,7 +145,7 @@ export function WNBAPlayerPage({row,playerRows,onBack}){
    <TrendChart row={selected} playerRows={playerRows} logs={chartLogs} loading={loading} onStat={onStat}/>
    <SupportingStats logs={trend.rows} loading={loading}/>
    <PlayerGameLog row={selected} logs={trend.rows} loading={loading} error={trend.state==='error'} onRetry={()=>setRetry(n=>n+1)}/>
-   <DepthChart row={selected} matchup={matchup.data}/>
+   <DepthChart row={selected} matchup={matchup.data} filter={filter} onFilter={setFilter}/>
   </div>
   <WNBAFinderContext row={selected} logs={trend.rows} matchup={matchup} filter={filter} onFilter={setFilter}/></div></>}
  </section>;

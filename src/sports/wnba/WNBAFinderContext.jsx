@@ -1,7 +1,7 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {Activity,ArrowLeftRight,CalendarClock,ChartColumn,HeartPulse,ListOrdered,RefreshCw,Shield,Target,Trophy,UserRound,Users} from 'lucide-react';
 import {FinderDropdown,FinderDropdownAssets} from '../../FinderDropdown';
-import {MARKET_STAT,POSITIONS,ago,average,finite,fmt,opponentOf,ordinal,positionOf,price,rankTone,realGames,shortDate,signed,teamColor,useWnba} from './wnba-research';
+import {MARKET_STAT,POSITIONS,ago,average,finite,fmt,hasPlayerContext,opponentOf,ordinal,playerContextParams,positionOf,price,rankTone,realGames,shortDate,signed,splitFilter,teamColor,useWnba} from './wnba-research';
 
 const tabs=[['matchup','Matchup',Trophy],['defense','Defense',Shield],['shooting','Shooting',Target],['similar','Similar',Users],['injuries','Injuries',HeartPulse],['rankings','Rankings',ListOrdered]];
 function Card({title,note,children,icon:Icon=Activity,className=''}){return <section className={'mlb-context-card '+className}><header><h2><Icon size={16} aria-hidden="true"/>{title}</h2>{note&&<small>{note}</small>}</header>{children}</section>;}
@@ -178,7 +178,7 @@ function SplitLine({label,split,line}){
 }
 function FilterButtons({name,impact,filter,onFilter}){
  if(!impact)return null;
- const choose=(kind,ids)=>onFilter(filter?.key===`${impact.id}:${kind}`?null:{key:`${impact.id}:${kind}`,label:`${kind} ${name}`,ids});
+ const choose=(kind,ids)=>onFilter(filter?.key===`${impact.id}:${kind}`?null:splitFilter(impact.id,kind,name,ids));
  return <div className="wnba-filter-buttons">{[['without',impact.without],['with',impact.with]].map(([kind,split])=><button type="button" key={kind} data-kind={kind} disabled={!split.games} aria-pressed={filter?.key===`${impact.id}:${kind}`} onClick={()=>choose(kind,split.gameIds)}>{kind==='without'?'Without':'With'} <small>{split.games}</small></button>)}</div>;
 }
 function Injuries({matchup,player,row,filter,onFilter}){
@@ -247,7 +247,7 @@ export default function WNBAFinderContext({row,logs,matchup,filter,onFilter}){
  const [tab,setTab]=useState('matchup');
  const opponent=opponentOf(row);
  const league=useWnba('league-context',{});
- const player=useWnba('player-context',{playerId:row.playerId,team:row.teamAbbr,opponent,market:row.marketKey,line:row.line},Boolean(row.playerId&&row.teamAbbr&&opponent&&MARKET_STAT[row.marketKey]));
+ const player=useWnba('player-context',playerContextParams(row),hasPlayerContext(row));
  const stat=MARKET_STAT[row.marketKey]||'pts';
  const playerPosition=positionOf(player.data?.position||row.position);
  const statLabel=useMemo(()=>Object.fromEntries(league.data?.stats||[])[stat]||row.market,[league.data,stat,row.market]);

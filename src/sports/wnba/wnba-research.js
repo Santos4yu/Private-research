@@ -37,6 +37,13 @@ export function useWnba(resource,params,enabled=true){
 export const MARKET_STAT={player_points:'pts',player_rebounds:'reb',player_assists:'ast',player_threes:'tpm',player_blocks:'blk',player_steals:'stl',player_blocks_steals:'bs',player_turnovers:'to',player_points_rebounds:'pr',player_points_assists:'pa',player_rebounds_assists:'ra',player_points_rebounds_assists:'pra',player_fantasy_points:'fs'};
 export const POSITIONS=[['G','Guards'],['F','Forwards'],['C','Centers']];
 export const opponentOf=row=>row.team===row.homeTeam?row.awayTeamAbbr:row.homeTeamAbbr;
+// One definition, so every card asking for the player's context shares a
+// single request (wnbaGet keys on the URL, and the URL on this order).
+export const playerContextParams=row=>({playerId:row.playerId,team:row.teamAbbr,opponent:opponentOf(row),market:row.marketKey,line:row.line});
+export const hasPlayerContext=row=>Boolean(row.playerId&&row.teamAbbr&&opponentOf(row)&&MARKET_STAT[row.marketKey]);
+// The chart filter a with/without choice sets. Same key everywhere, so the
+// depth chart and the Injuries tab show the same choice as pressed.
+export const splitFilter=(id,kind,name,ids)=>({key:`${id}:${kind}`,label:`${kind} ${name}`,ids});
 export const positionOf=value=>{const p=String(value||'').toUpperCase()[0];return ['G','F','C'].includes(p)?p:null;};
 export const finite=value=>typeof value==='number'&&Number.isFinite(value);
 export function fmt(value,digits=1){if(!finite(value))return '—';return Number(value.toFixed(digits)).toLocaleString();}

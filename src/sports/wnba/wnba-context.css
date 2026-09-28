@@ -31,16 +31,38 @@
 .wnba-filter-banner svg{color:#b2a2ff}.wnba-filter-banner button{display:inline-flex;align-items:center;gap:5px;margin-left:auto;min-height:36px;padding:6px 10px;border:1px solid #3b4670;border-radius:7px;background:#171f36;color:#dfe3ff;cursor:pointer}
 .wnba-result{font-weight:700}.wnba-result[data-result=W]{color:#65dfb1}.wnba-result[data-result=L]{color:#ff8290}
 .wnba-po-tag{margin-left:6px;padding:2px 5px;border-radius:4px;background:#272751;color:#c8c0ff;font-size:9px;font-weight:700}
-.wnba-depth .mlb-context-switch button{display:inline-flex;align-items:center;gap:6px}
-.wnba-depth-rows{display:grid;gap:6px;padding:4px 10px 6px}
-.wnba-depth-row{display:grid;grid-template-columns:28px minmax(0,1fr);align-items:start;gap:8px;padding:8px;border:1px solid #232c45;border-radius:9px;background:#10172c}
-.wnba-depth-row>b{display:grid;place-items:center;height:34px;border-radius:7px;background:#1b2440;color:#c8d2ea;font-size:12px}
-.wnba-depth-row>div{display:flex;flex-wrap:wrap;gap:6px}
-.wnba-depth-player{position:relative;display:flex;align-items:center;gap:8px;min-width:150px;flex:1 1 150px;max-width:230px;padding:5px 8px 5px 5px;border:1px solid #28314b;border-radius:8px;background:#141b31}
-.wnba-depth-player[data-starter=true]{border-color:#4d4a9c;background:linear-gradient(120deg,#1d1f45,#141b31)}
-.wnba-depth-player strong{display:block;font-size:12px;color:#e8edfb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wnba-depth-player strong.is-self{color:#f4d25b}
-.wnba-depth-player small{font-size:10px;color:#a8b5cd}.wnba-depth-player>span:nth-child(2){min-width:0}
-.wnba-injury-code{margin-left:auto;padding:2px 5px;border-radius:4px;background:#3b2430;color:#ff9da9;font-size:9px;font-style:normal;font-weight:800}
+/* Depth charts: slot rows (G1-C) across depth columns, like a coach's sheet. */
+.wnba-depth>header{flex-wrap:wrap}
+.wnba-depth-teams{display:flex;gap:6px}
+.wnba-depth-teams button{display:inline-flex;align-items:center;gap:7px;min-height:38px;padding:6px 13px;border:1px solid #2c3552;border-radius:9px;background:#131a30;color:#aeb9ce;font:700 12px/1 inherit;cursor:pointer}
+.wnba-depth-teams button[aria-pressed=true]{border-color:#56607f;background:#1f2946;color:#fff}
+.wnba-depth-legend{display:flex;flex-wrap:wrap;gap:8px 20px;padding:12px 16px;border-bottom:1px solid #1d2439;font-size:12px;color:#aeb9ce}
+.wnba-depth-legend span{display:inline-flex;align-items:center;gap:8px}
+.wnba-depth-legend b{padding:4px 8px;border-radius:5px;background:#222b42;color:#eef2fb;font-size:10px;font-weight:800;letter-spacing:.03em}
+.wnba-depth-scroll{overflow-x:auto;scrollbar-width:thin;scrollbar-color:#454e70 #10162a}
+.wnba-depth-scroll:focus-visible{outline:2px solid #a99aff;outline-offset:-2px}
+.wnba-depth-table{width:100%;min-width:640px;border-collapse:collapse}
+.wnba-depth-table thead th{padding:13px 10px;text-align:left;font-size:13px;font-weight:700;color:#e8edfb}
+.wnba-depth-table thead th:first-child,.wnba-depth-table tbody th{width:56px}
+.wnba-depth-table tbody tr{border-top:1px solid #1a2136;background:#0c1127}.wnba-depth-table tbody tr:nth-child(odd){background:#10162b}
+.wnba-depth-table tbody th{position:sticky;left:0;z-index:1;padding:0 0 0 16px;background:inherit;text-align:left;font-size:13px;font-weight:600;color:#aeb9ce}
+.wnba-depth-table td{min-width:232px;padding:9px 10px}
+.wnba-depth-cell{display:flex;align-items:center;gap:10px}
+.wnba-depth-cell .wnba-avatar{width:40px;height:40px;background:#1a2239}
+.wnba-depth-name{display:grid;gap:3px;flex:1;min-width:0}
+/* A long name wraps to a second line rather than losing letters. */
+.wnba-depth-name strong{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:2;font-size:13px;font-weight:600;line-height:1.25;color:#c9d2e6;overflow-wrap:anywhere}
+.wnba-depth-name strong.is-self{color:#f4d25b}
+.wnba-depth-name em{font-size:11px;font-style:normal;font-weight:800;letter-spacing:.03em;color:#ffc56b}
+.wnba-depth-name em:is([data-code=OUT],[data-code=OFS],[data-code=SUSP]){color:#ff8a3d}
+.wnba-depth-actions{display:flex;flex-shrink:0;gap:6px}
+.wnba-depth-actions button{display:grid;place-items:center;width:34px;height:34px;border:1px solid transparent;border-radius:8px;cursor:pointer}
+.wnba-depth-actions button[data-kind=without]{background:#34202b;color:#ff7b8a}
+.wnba-depth-actions button[data-kind=with]{background:#12302a;color:#5fe0a7}
+.wnba-depth-actions button[data-kind=without][aria-pressed=true]{border-color:#ff7b8a;background:#58243a}
+.wnba-depth-actions button[data-kind=with][aria-pressed=true]{border-color:#5fe0a7;background:#17493a}
+.wnba-depth-actions button:disabled{opacity:.3;cursor:not-allowed}
+.wnba-depth-actions button:focus-visible,.wnba-depth-teams button:focus-visible{outline:2px solid #86baff;outline-offset:2px}
 
 /* Matchup */
 .wnba-odds td{white-space:nowrap}.wnba-odds .wnba-team-cell small{margin-left:2px;font-size:10px}
@@ -114,11 +136,12 @@
 .wnba-season-grid span{font-size:10px;color:#a8b5cd}.wnba-season-grid strong{display:block;margin-top:4px;font-size:15px;font-variant-numeric:tabular-nums}
 
 @media(max-width:600px){
+ .wnba-depth-table td{min-width:214px;padding:8px}.wnba-depth-cell{gap:8px}.wnba-depth-cell .wnba-avatar{width:34px;height:34px}
+ .wnba-depth-actions{gap:4px}.wnba-depth-actions button{width:32px;height:32px}.wnba-depth-table tbody th{width:44px;padding-left:12px}
  .wnba-finder-context .mlb-context-table-wrap th,.wnba-finder-context .mlb-context-table-wrap td{padding:10px 6px}
  .wnba-dvp .wnba-bar-col{display:none}
  .wnba-last-five-grid{grid-template-columns:minmax(0,1fr)}
  .wnba-similar-row{grid-template-columns:34px minmax(0,1fr) minmax(90px,38%)}.wnba-similar-min{display:none}
  .wnba-teammate{grid-template-columns:34px minmax(0,1fr);row-gap:6px}.wnba-teammate-splits,.wnba-teammate .wnba-filter-buttons{grid-column:1/-1}
- .wnba-depth-player{max-width:none}
  .wnba-season-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
 }
