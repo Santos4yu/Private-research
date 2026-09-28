@@ -336,7 +336,11 @@ class handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         from site_controls import allowed
-        tab='slip' if 'slip-analyzer' in self.path else 'builder'
+        # The Parlay page's export follows the Parlay section. The Pick Builder
+        # in the side panel is there for everyone, so its export closes only
+        # with the site itself (maintenance) or for a suspended member.
+        source=(parse_qs(urlparse(self.path).query).get('from') or [''])[0]
+        tab='slip' if 'slip-analyzer' in self.path else 'builder' if source=='parlay' else None
         if not allowed(self.headers,tab):return self._send(503,{'error':'This section is temporarily unavailable','featureDisabled':True})
         if not session_with_live_access(self.headers):
             return self._send(401, {
