@@ -464,3 +464,31 @@
 .finder-empty-board>span { max-width:290px; line-height:1.6; font-size:12px; }
 .finder-empty-board>strong { font-size:14px; }
 @media(max-width:760px) { .finder-scroll:has(.finder-empty-board) { min-height:360px; } .finder-empty-board { min-height:320px; } }
+
+/* Phones: no empty band at the top of the Finder. Account and settings sit
+   in the Finder bar itself (UnifiedFinder.jsx) instead of floating in a
+   strip above it, and on a player page Back sits inside the header card. */
+.unified-finder .finder-top-account,.unified-finder .finder-top-settings{display:none}
+@media(max-width:760px){
+ :root[data-theme] body #app-shell #panel-finder{padding-top:calc(8px + env(safe-area-inset-top,0px))!important}
+ :root[data-theme] body:has(#panel-finder:not([hidden])) .site-account-bar,
+ :root[data-theme] body:has(#panel-finder:not([hidden])) .site-account-trigger,
+ :root[data-theme] body:has(#panel-finder:not([hidden])) #settings-btn{display:none!important}
+ .unified-finder .finder-topbar{gap:8px}
+ .unified-finder .finder-top-account,.unified-finder .finder-top-settings{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;padding:0;background:#ffffff15;border-color:#ffffff30!important}
+ .unified-finder .finder-top-save{margin-left:auto}
+ /* Player page: Back in the header card's top-left corner, like
+    pickfinder.app, instead of alone on a row above it. */
+ .unified-finder.finder-detail-active .finder-trend-view.wnba-trend-page{display:grid!important;grid-template-columns:minmax(0,1fr);align-content:start}
+ .unified-finder.finder-detail-active .wnba-trend-page>.wnba-trend-back{grid-area:1/1;align-self:start;justify-self:start;z-index:1;min-height:40px!important;margin:2px 0 0 2px!important;padding:0 8px!important;color:#dfe6ff!important}
+ .unified-finder.finder-detail-active .wnba-trend-page>.wnba-trend-title{grid-area:1/1;padding-top:40px!important}
+}
+/* The bar's "Finder /" label makes way for the two buttons on narrow
+   phones -- the bottom nav already says where you are. */
+@media(max-width:519px){
+ .unified-finder .finder-topbar .finder-title>:is(h1,span){display:none!important}
+ .unified-finder .finder-mobile-sport{left:44px}
+}
+@media(max-width:380px){
+ .unified-finder .finder-topbar :is(.finder-top-save,.finder-top-account,.finder-top-settings){flex-basis:40px;width:40px;height:40px}
+}
