@@ -81,6 +81,7 @@ export const STATS={
  shortest_fg:{label:'Shortest FG Made',short:'Sht FG',get:g=>g.values?.shortest_fg},
  pat_att:{label:'PAT Attempts',short:'PAT Att',get:g=>g.values?.pat_attempts},
  kicker_fantasy:{label:'Kicker Fantasy Score',short:'K Fantasy',get:g=>g.values?.kicker_fantasy},
+ punts:{label:'Punts',short:'Punts',get:g=>g.values?.punts},
  punts_in20:{label:'Punts Inside 20',short:'In 20',get:g=>g.values?.punts_inside_20},
  punt_yards:{label:'Gross Punt Yards',short:'Punt Yds',get:g=>g.values?.gross_punt_yards},
  punts_50:{label:'50+ Yard Punts',short:'50+',get:g=>g.values?.punts_50_plus},
@@ -96,7 +97,7 @@ const FAMILY={
   log:['rushing_yards','carries','rushing_tds','receptions','receiving_yards','targets','rz_targets','receiving_tds','rush_rec_yards','longest_reception','rec_first2','fantasy']},
  K:{support:['fg_made','fg_att','fg_yards','longest_fg','kicking_points','kicker_fantasy'],
   log:['fg_made','fg_att','fg_yards','longest_fg','shortest_fg','pat_made','pat_att','kicking_points','kicker_fantasy']},
- P:{support:['punt_yards','punts_in20','punts_50'],log:['punt_yards','punts_in20','punts_50']},
+ P:{support:['punts','punt_yards','punts_in20','punts_50'],log:['punts','punt_yards','punts_in20','punts_50']},
  DEF:{support:['total_tackles','tackles','assists','sacks','tfl','def_int'],log:['total_tackles','tackles','assists','sacks','tfl','def_int','pass_defended']},
 };
 export function family(position){
@@ -111,12 +112,12 @@ export const STAT_MARKET={receptions:'receptions',targets:'targets',receiving_ya
  attempts:'passing_attempts',passing_yards:'passing_yards',passing_tds:'passing_touchdowns',interceptions:'interceptions',pass_rush_yards:'passing_rushing_yards',fantasy:'fantasy_score',
  longest_completion:'longest_completion',longest_rush:'longest_rush',rush_first5:'rush_yards_first_5',rec_first2:'rec_yards_first_2',fg_made:'fg_made',fg_att:'fg_attempts',
  fg_yards:'fg_yards',longest_fg:'longest_fg',shortest_fg:'shortest_fg',pat_att:'pat_attempts',kicking_points:'kicking_points',kicker_fantasy:'kicker_fantasy',
- punts_in20:'punts_inside_20',punt_yards:'gross_punt_yards',punts_50:'punts_50_plus',total_tackles:'tackles',sacks:'sacks',tfl:'tackles_for_loss',def_int:'def_interceptions'};
+ punts:'punts',punts_in20:'punts_inside_20',punt_yards:'gross_punt_yards',punts_50:'punts_50_plus',total_tackles:'tackles',sacks:'sacks',tfl:'tackles_for_loss',def_int:'def_interceptions'};
 // The stat-tab order on the player page (backend/sports/nfl/markets.py).
 export const MARKET_ORDER=['passing_yards','passing_touchdowns','passing_attempts','pass_completions','interceptions','longest_completion','passing_rushing_yards',
- 'rushing_yards','rush_attempts','rush_yards_first_5','longest_rush','receptions','targets','receiving_yards','longest_reception','rec_yards_first_2',
- 'rushing_receiving_yards','touchdowns','fantasy_score','fg_made','fg_attempts','fg_yards','kicking_points','kicker_fantasy','longest_fg','shortest_fg',
- 'pat_attempts','punts_inside_20','gross_punt_yards','punts_50_plus','tackles','sacks','tackles_for_loss','def_interceptions'];
+ 'sacks_taken','rushing_yards','rush_attempts','rush_yards_first_5','longest_rush','rushing_tds','receptions','targets','receiving_yards','longest_reception','rec_yards_first_2',
+ 'receiving_tds','rushing_receiving_yards','touchdowns','fumbles_lost','fantasy_score','fg_made','fg_attempts','fg_yards','kicking_points','kicker_fantasy','longest_fg','shortest_fg',
+ 'pat_attempts','pat_made','punts','punts_inside_20','gross_punt_yards','punts_50_plus','tackles','solo_tackles','sacks','tackles_for_loss','def_interceptions'];
 
 // Play-by-play extras arrive separately (they need the heaviest file) and
 // are folded into the game log when they land.

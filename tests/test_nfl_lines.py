@@ -21,7 +21,8 @@ class MarketNameTests(unittest.TestCase):
             "FG Made": "fg_made", "Kicking Points": "kicking_points", "Longest FG Made": "longest_fg",
             "Shortest FG Made": "shortest_fg", "PAT Attempts": "pat_attempts", "Punts Inside 20": "punts_inside_20",
             "Gross Punt Yards": "gross_punt_yards", "50+ Yard Punts": "punts_50_plus", "Tackles+Ast": "tackles",
-            "Tackles for Loss": "tackles_for_loss",
+            "Tackles for Loss": "tackles_for_loss", "Punts": "punts", "Sacks Taken": "sacks_taken", "Rush TDs": "rushing_tds",
+            "Rec TDs": "receiving_tds", "Fumbles Lost": "fumbles_lost", "PAT Made": "pat_made", "Solo Tackles": "solo_tackles",
         }
         for stat, market in cases.items():
             self.assertEqual(markets.market_for(stat, "WR"), market, stat)
@@ -58,7 +59,7 @@ class WeeklyValueTests(unittest.TestCase):
     def test_total_tackles_count_every_assisted_tackle(self):
         values = finder._defense({"def_tackles_solo": "5", "def_tackles_with_assist": "1", "def_tackle_assists": "3",
                                   "def_sacks": "1.5", "def_tackles_for_loss": "2", "def_interceptions": "1"})
-        self.assertEqual(values, {"tackles": 9, "sacks": 1.5, "tackles_for_loss": 2, "def_interceptions": 1})
+        self.assertEqual(values, {"tackles": 9, "solo_tackles": 5, "sacks": 1.5, "tackles_for_loss": 2, "def_interceptions": 1})
         self.assertEqual(finder._defense({}), {})
         self.assertEqual(finder._value({"def_tackles_solo": "2", "def_tackle_assists": "1"}, "tackles"), 3)
 
@@ -101,6 +102,17 @@ class PlayByPlayTests(unittest.TestCase):
 
 
 class BoardTests(unittest.TestCase):
+    def test_weekly_markets_settle_on_their_columns(self):
+        row = {"position": "QB", "sacks_suffered": "3", "rushing_tds": "1", "receiving_tds": "0", "fumbles_lost_total": "1",
+               "def_tackles_solo": "4", "def_tackles_with_assist": "1", "def_tackle_assists": "2"}
+        values = finder.market_values(row)
+        self.assertEqual((values["sacks_taken"], values["rushing_tds"], values["receiving_tds"], values["fumbles_lost"]), (3, 1, 0, 1))
+        self.assertEqual((values["solo_tackles"], values["tackles"]), (4, 7))
+        kicker = finder.market_values({"position": "K", "fg_made": "2", "fg_att": "2", "pat_made": "3", "pat_att": "3", "fg_made_list": "30;41"})
+        self.assertEqual(kicker["pat_made"], 3)
+        # Punts come from play by play, like the other punting markets.
+        self.assertEqual(finder.PBP_MARKETS["punts"], "punts")
+
     def test_history_windows_streak_and_h2h(self):
         games = [{"opponent": "CLE" if index % 2 else "BAL", "values": {"receptions": value}}
                  for index, value in enumerate([2, 6, 5, 3, 7, 8])]

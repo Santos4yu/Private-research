@@ -24,7 +24,7 @@ from . import finder, markets
 from .cache import NFLCacheDomain, cached_nfl
 from .services.nflverse import canonical_team
 
-VERSION = "nfl-pp-board-v2"
+VERSION = "nfl-pp-board-v3"
 WINDOWS = (5, 10, 15, 20)
 CATEGORY = {"standard": "STANDARD", "goblin": "GOBLIN", "demon": "DEMON"}
 SUFFIXES = {"jr", "sr", "ii", "iii", "iv", "v"}

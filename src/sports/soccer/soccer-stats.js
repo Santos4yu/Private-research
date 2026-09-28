@@ -21,6 +21,9 @@ const MARKETS={goals:'goals',goal:'goals',goalassist:'ga',goalsassists:'ga',goal
  foulsdrawn:'fd',foulssuffered:'fd',goaliesaves:'saves',saves:'saves',goalsallowed:'gc',goalsconceded:'gc',
  shotsontargetfaced:'sotf',shotsfaced:'sotf',attempteddribbles:'drib',dribblesattempted:'drib',dribbles:'drib',
  fouls:'fouls',foulscommitted:'fouls',offsides:'off',yellowcards:'yc',cards:'yc'};
+// The stats ESPN publishes per player per match -- the ones a soccer line
+// can have history for.
+export const ESPN_STATS=new Set(['goals','ga','shots','sot','ast','fd','saves','gc','sotf','fouls','off','yc']);
 export const statKeyOf=marketKey=>MARKETS[String(marketKey||'').toLowerCase().replace(/[^a-z0-9]/g,'')]||null;
 export const statOf=key=>STAT_BY_KEY[key]||null;
 

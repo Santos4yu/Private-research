@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {applySoccerHistory,finderWindow,normalizeFinderRows,applyMlbHistory,enrichMlbRows,loadFinderSport,finderSlipProp,bookProbability,powerDevig,defenseRank,withDefense,trendPickRow} from '../src/unified-finder-data.js';
+import {applySoccerHistory,missingMarkets,finderWindow,normalizeFinderRows,applyMlbHistory,enrichMlbRows,loadFinderSport,finderSlipProp,bookProbability,powerDevig,defenseRank,withDefense,trendPickRow} from '../src/unified-finder-data.js';
 
 test('book chance comes from the books\' prices with the margin removed, never a fixed 50/50',()=>{
  // PrizePicks' payouts and an app quoting the same price both ways say nothing.
@@ -181,4 +181,10 @@ test('a teammate\'s with / without split covers the player\'s own matches for hi
  const filters=toggleSplit([], {id:'3',kind:'without',name:'Martin Odegaard',ids:split.without});
  assert.deepEqual(applySplits(games,filters).map(game=>game.gameId),['2']);
  assert.deepEqual(toggleSplit(filters,{id:'3',kind:'without',ids:[]}),[]);
+});
+
+test('admins get the markets with no history behind them, by sport',()=>{
+ assert.deepEqual(missingMarkets('nfl',{},[{marketKey:'pp:punts',market:'Punts'},{marketKey:'pp:punts',market:'Punts'},{marketKey:'receptions',market:'Receptions'}]),{Punts:2});
+ assert.deepEqual(missingMarkets('mlb',{props:[{stat:'Hits'},{stat:'Mystery Stat'}]},[]),{'Mystery Stat':1});
+ assert.deepEqual(missingMarkets('soccer',{},[{marketKey:'shots',market:'Shots'},{marketKey:'passesattempted',market:'Passes Attempted'},{marketKey:'clearances',market:'Clearances'}]),{'Passes Attempted':1,Clearances:1});
 });

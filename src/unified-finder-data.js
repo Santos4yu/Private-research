@@ -1,7 +1,7 @@
 import {finderMarket, gameValue, historyChart, nameKey} from './prop-finder-core.js';
 import {teamLogoUrl} from './sports/nfl/nfl-ui-core.js';
 import {MARKET_STAT as WNBA_DVP_STAT, positionOf} from './sports/wnba/wnba-research.js';
-import {playerGames, statKeyOf, valueOf} from './sports/soccer/soccer-stats.js';
+import {ESPN_STATS, playerGames, statKeyOf, valueOf} from './sports/soccer/soccer-stats.js';
 
 const WINDOW_KEYS = ['l5', 'l10', 'l15', 'l20', 'h2h', 'season'];
 export const BOOK_NAMES = {prizepicks: 'PrizePicks', underdog: 'Underdog', pick6: 'DK Pick6', betr_us_dfs: 'Betr Picks',
@@ -348,8 +348,27 @@ export function normalizeFinderRows(sport, payload, players = [], {now = Date.no
     (!row.startsAt || !Number.isFinite(Date.parse(row.startsAt)) || Date.parse(row.startsAt) > now));
 }
 
+/**
+ * PrizePicks markets on a board that have no history behind them, by name
+ * and count (admins see this on the board). MLB's unknown markets never
+ * reach the board, so they are counted from the raw feed.
+ */
+export function missingMarkets(sport, payload, rows) {
+  const counts = {};
+  const add = name => { const key = String(name || 'Unknown'); counts[key] = (counts[key] || 0) + 1; };
+  if (sport === 'mlb') (payload?.props || []).filter(prop => !finderMarket(prop.stat)).forEach(prop => add(prop.stat));
+  else if (sport === 'soccer') rows.filter(row => !ESPN_STATS.has(statKeyOf(row.marketKey))).forEach(row => add(row.market));
+  else rows.filter(row => String(row.marketKey || '').startsWith('pp:')).forEach(row => add(row.market));
+  return counts;
+}
+
 /** Read existing sport feeds. NFL uses its saved board, never a browser-driven odds scan. */
 export async function loadFinderSport(sport, options = {}) {
+  const result = await loadFinderBoard(sport, options);
+  return {...result, missingMarkets: missingMarkets(sport, result, result.rows)};
+}
+
+async function loadFinderBoard(sport, options = {}) {
   if (sport === 'wnba') {
     const payload = await request(options.fast ? '/api/wnba?fast=1' : '/api/wnba', options);
     return {...payload, rows: normalizeFinderRows(sport, payload), fetchedAt: payload.fetchedAt || null};
