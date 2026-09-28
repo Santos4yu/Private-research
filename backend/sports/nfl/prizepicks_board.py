@@ -1,19 +1,22 @@
-"""The Finder's NFL lines, straight from PrizePicks' own feed.
+"""The Finder's NFL lines: PrizePicks' own feed plus the sportsbooks and
+other pick'em apps The Odds API carries.
 
-The Odds API only carries 13 NFL markets, and the old research board kept
-just its standard PrizePicks lines that had moved in the last two minutes
-for players with 8+ games -- so most lines never reached the Finder at all.
 PrizePicks' feed has every market it posts (kickers, punters, defense, first
-5 rushes / first 2 catches, goblins and demons), so the board is built from
-it and each line gets its hit rates from nflverse (finder.game_values).
+5 rushes / first 2 catches, goblins and demons). The Odds API adds each
+book's main line for the markets it prices: a line several apps share is one
+row listing every app's prices, and a line only a sportsbook posts is its
+own row. Each line gets its hit rates from nflverse (finder.game_values).
 
-A line whose market we cannot chart, or whose player we cannot match, is
-still shown; it simply has no hit rates.
+Either source can be down without sinking the board. A PrizePicks line whose
+market we cannot chart, or whose player we cannot match, is still shown; it
+simply has no hit rates.
 """
 from __future__ import annotations
 
+import hashlib
 import re
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from math import isfinite, sqrt
 
@@ -21,12 +24,42 @@ from . import finder, markets
 from .cache import NFLCacheDomain, cached_nfl
 from .services.nflverse import canonical_team
 
-VERSION = "nfl-pp-board-v1"
+VERSION = "nfl-pp-board-v2"
 WINDOWS = (5, 10, 15, 20)
 CATEGORY = {"standard": "STANDARD", "goblin": "GOBLIN", "demon": "DEMON"}
 SUFFIXES = {"jr", "sr", "ii", "iii", "iv", "v"}
 # A PrizePicks start time and our schedule's kickoff for the same game.
 SAME_GAME_SECONDS = 8 * 3600
+
+# Sportsbooks and apps through The Odds API. Up to 10 bookmakers cost the
+# same credits as one; PrizePicks comes from its own feed, so it is not here.
+ODDS_BOOKS = ("underdog", "pick6", "draftkings", "fanduel", "betmgm", "williamhill_us", "espnbet", "fanatics",
+              "betrivers", "hardrockbet")
+# Asked instead if the provider ever refuses the longer list.
+CORE_BOOKS = ("underdog", "draftkings", "fanduel", "betmgm", "williamhill_us")
+BOOK_NAMES = {"prizepicks": "PrizePicks", "underdog": "Underdog", "pick6": "DK Pick6", "draftkings": "DraftKings",
+              "fanduel": "FanDuel", "betmgm": "BetMGM", "williamhill_us": "Caesars", "espnbet": "ESPN BET",
+              "fanatics": "Fanatics", "betrivers": "BetRivers", "hardrockbet": "Hard Rock Bet"}
+# The Odds API's NFL player markets -> ours (markets.py). Main lines only:
+# alternates would multiply the cost for lines nobody plays.
+ODDS_MARKETS = {
+    "player_pass_yds": "passing_yards", "player_pass_tds": "passing_touchdowns",
+    "player_pass_attempts": "passing_attempts", "player_pass_completions": "pass_completions",
+    "player_pass_interceptions": "interceptions", "player_pass_longest_completion": "longest_completion",
+    "player_pass_rush_yds": "passing_rushing_yards", "player_rush_yds": "rushing_yards",
+    "player_rush_attempts": "rush_attempts", "player_rush_longest": "longest_rush",
+    "player_receptions": "receptions", "player_reception_yds": "receiving_yards",
+    "player_reception_longest": "longest_reception", "player_rush_reception_yds": "rushing_receiving_yards",
+    "player_rush_reception_tds": "touchdowns", "player_kicking_points": "kicking_points",
+    "player_field_goals": "fg_made", "player_tackles_assists": "tackles", "player_sacks": "sacks",
+    "player_defensive_interceptions": "def_interceptions",
+}
+# The Odds API charges per market returned for each game fetched, so only
+# games in the next few days are priced, each at most every half hour
+# (cache.py SPORTSBOOK_LINES), and never once the account runs low -- the
+# MLB and WNBA boards share the same credits.
+ODDS_DAYS = 6
+ODDS_CREDIT_FLOOR = 1500
 
 
 def _finite(value):
@@ -144,13 +177,102 @@ def _projections():
         raise
 
 
-def build(season, projections=None, now=None):
+def _parse_event_odds(payload, event):
+    """One game's player props: each book's Over / Under at each line."""
+    if not isinstance(payload, dict) or payload.get("id") != event["eventId"] or not isinstance(payload.get("bookmakers"), list):
+        raise ValueError("NFL odds event/schema mismatch")
+    lines = []
+    for book in payload["bookmakers"]:
+        key = book.get("key") if isinstance(book, dict) else None
+        if key not in ODDS_BOOKS:
+            continue
+        for market in book.get("markets") or []:
+            ours = ODDS_MARKETS.get(market.get("key")) if isinstance(market, dict) else None
+            if not ours:
+                continue
+            quotes = {}
+            for outcome in market.get("outcomes") or []:
+                name, side = str(outcome.get("description") or "").strip(), outcome.get("name")
+                point, price = outcome.get("point"), outcome.get("price")
+                if not name or side not in ("Over", "Under") or not _finite(point) or point < 0:
+                    continue
+                quote = quotes.setdefault((name, float(point)), {
+                    "book": key, "player": name, "market": ours, "line": float(point), "over": None, "under": None,
+                    "updatedAt": market.get("last_update") or book.get("last_update")})
+                if _finite(price):
+                    quote[side.lower()] = price
+            lines.extend(quotes.values())
+    return lines
+
+
+def _sportsbook_lines(season, now):
+    """Every book's lines for the games in the next ODDS_DAYS days, each with
+    its game (odds.events maps The Odds API's events onto nflverse games)."""
+    from .services import odds
+    listing = odds.events(season)
+    credits = listing.get("creditsRemaining")
+    if credits is not None and credits < ODDS_CREDIT_FLOOR:
+        raise RuntimeError(f"Odds API credits are low ({credits}); sportsbook lines paused")
+    horizon = now + ODDS_DAYS * 86400
+    events = [event for event in listing["data"] if now < (_timestamp(event["startsAt"]) or 0) <= horizon]
+    key_id = hashlib.sha256("|".join(odds.credentials()).encode()).hexdigest()[:16]
+
+    def one(event):
+        def load():
+            def fetch(books):
+                return odds._get(f"/sports/{odds.SPORT}/events/{event['eventId']}/odds", {
+                    "markets": ",".join(ODDS_MARKETS), "bookmakers": ",".join(books), "oddsFormat": "american"})
+            try:
+                response = fetch(ODDS_BOOKS)
+            except RuntimeError:
+                response = fetch(CORE_BOOKS)
+            return _parse_event_odds(response.json(), event)
+        try:
+            return cached_nfl(NFLCacheDomain.SPORTSBOOK_LINES, (VERSION, event["eventId"], key_id), load)
+        except Exception:  # noqa: BLE001 -- one game must not sink the rest
+            return []
+
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        results = list(pool.map(one, events))
+    return [{**line, "event": event} for event, lines in zip(events, results) for line in lines]
+
+
+def _match_in_game(roster, name, teams):
+    candidates = roster.get(_name_key(name), [])
+    playing = [entry for entry in candidates if entry["team"] in teams]
+    return playing[0] if len(playing) == 1 else None
+
+
+def _app(key, over=None, under=None, updated=None, modifier="standard"):
+    return {"key": key, "name": BOOK_NAMES.get(key, key), "over": over, "under": under, "updatedAt": updated,
+            "modifier": modifier}
+
+
+def build(season, projections=None, now=None, sportsbook_lines=None):
     now = now or datetime.now(timezone.utc).timestamp()
-    projections = _projections() if projections is None else projections
+    sources = {}
+    if projections is None:
+        try:
+            projections = _projections()
+        except Exception as error:  # noqa: BLE001 -- the sportsbooks' lines still stand
+            projections, sources["prizepicksError"] = [], str(error)
+    if sportsbook_lines is None:
+        try:
+            sportsbook_lines = _sportsbook_lines(season, now)
+        except Exception as error:  # noqa: BLE001 -- PrizePicks' lines still stand
+            sportsbook_lines, sources["sportsbooksError"] = [], str(error)
     games = finder.games_index()
     roster = _roster(season)
     histories = {}
     rows, events = [], {}
+
+    def history_of(player_id):
+        if player_id and player_id not in histories:
+            try:
+                histories[player_id] = finder.game_values(season, player_id, cached=False)
+            except Exception:  # noqa: BLE001 -- one player's history must not sink the board
+                histories[player_id] = []
+        return histories.get(player_id, [])
     for line in projections:
         if line.get("combo"):
             continue
@@ -164,14 +286,9 @@ def build(season, projections=None, now=None):
         market = markets.market_for(line.get("stat"), position)
         game = _game(games, team, starts) if team else None
         opponent = (game["away"] if game["home"] == team else game["home"]) if game else canonical_team(line.get("description"))
-        if player and player["id"] not in histories:
-            try:
-                histories[player["id"]] = finder.game_values(season, player["id"], cached=False)
-            except Exception:  # noqa: BLE001 -- one player's history must not sink the board
-                histories[player["id"]] = []
         category = CATEGORY.get(str(line.get("odds_type") or "standard").lower(), "STANDARD")
         value = line.get("line")
-        history = history_fields(histories.get((player or {}).get("id"), []), market, value, opponent)
+        history = history_fields(history_of((player or {}).get("id")), market, value, opponent)
         game_id = game["game_id"] if game else None
         if game:
             events[game_id] = {"gameId": game_id, "awayTeamId": game["away"], "homeTeamId": game["home"],
@@ -185,11 +302,59 @@ def build(season, projections=None, now=None):
             "line": {"verified": True, "bookmaker": "prizepicks", "platform": "PrizePicks", "category": category,
                      "value": value, "direction": "OVER", "price": None, "updatedAt": line.get("updated_at") or None,
                      "playerId": (player or {}).get("id"), "propType": prop_type, "gameId": game_id},
+            "apps": [_app("prizepicks", updated=line.get("updated_at") or None, modifier=category.lower())],
             **history,
         })
+    prizepicks_rows = len(rows)
+
+    # Sportsbooks and other apps: a line PrizePicks also posts gains their
+    # prices; any other line is its own row.
+    by_line = {}
+    for row in rows:
+        by_line.setdefault((_name_key(row["playerName"]), row["propType"], row["line"]["value"]), row)
+    grouped, unmatched = {}, 0
+    for quote in sportsbook_lines:
+        event = quote["event"]
+        key = (_name_key(quote["player"]), quote["market"], quote["line"])
+        group = grouped.setdefault(key, {"quote": quote, "event": event, "apps": {}})
+        group["apps"].setdefault(quote["book"], _app(quote["book"], quote["over"], quote["under"], quote["updatedAt"]))
+    for key, group in grouped.items():
+        apps = sorted(group["apps"].values(), key=lambda app: ODDS_BOOKS.index(app["key"]))
+        existing = by_line.get(key)
+        if existing:
+            existing["apps"] += [app for app in apps if all(app["key"] != other["key"] for other in existing["apps"])]
+            continue
+        quote, event = group["quote"], group["event"]
+        teams = (event["homeTeamId"], event["awayTeamId"])
+        player = _match_in_game(roster, quote["player"], teams)
+        if not player:
+            unmatched += 1
+            continue
+        team, market, value = player["team"], quote["market"], quote["line"]
+        opponent = teams[1] if team == teams[0] else teams[0]
+        game_id = event["gameId"]
+        events[game_id] = {"gameId": game_id, "awayTeamId": event["awayTeamId"], "homeTeamId": event["homeTeamId"],
+                           "startsAt": event["startsAt"]}
+        first = apps[0]
+        rows.append({
+            "id": f"odds:{game_id}:{player['id']}:{market}:{value:g}", "playerId": player["id"],
+            "playerName": player["name"] or quote["player"], "position": player["position"],
+            "headshot": player["headshot"] or None, "propType": market, "propLabel": markets.LABELS.get(market),
+            "teamId": team, "opponentId": opponent, "gameId": game_id, "startsAt": event["startsAt"],
+            "line": {"verified": True, "bookmaker": first["key"], "platform": first["name"], "category": "STANDARD",
+                     "value": value, "direction": "OVER", "price": first["over"], "updatedAt": first["updatedAt"],
+                     "playerId": player["id"], "propType": market, "gameId": game_id},
+            "apps": apps,
+            **history_fields(history_of(player["id"]), market, value, opponent),
+        })
+    sources.update(prizepicks=prizepicks_rows, sportsbooks=len(rows) - prizepicks_rows, sportsbookQuotes=len(sportsbook_lines),
+                   unmatchedPlayers=unmatched)
+    if not rows and (sources.get("prizepicksError") or sources.get("sportsbooksError")):
+        raise RuntimeError(sources.get("prizepicksError") or sources.get("sportsbooksError"))
     rows.sort(key=lambda row: (row["startsAt"] or "", -row["support"], row["playerName"] or "",
                                markets.ORDER.get(row["propType"], 999), row["line"]["value"]))
-    return {"builtAt": datetime.now(timezone.utc).isoformat(), "season": season, "source": "prizepicks + nflverse",
+    return {"builtAt": datetime.now(timezone.utc).isoformat(), "season": season,
+            "source": "prizepicks + the-odds-api + nflverse", "sources": sources,
             "events": sorted(events.values(), key=lambda event: event["startsAt"]), "rows": rows,
             "labels": {key: label for key, label, _code in markets.MARKETS}, "version": VERSION}
 

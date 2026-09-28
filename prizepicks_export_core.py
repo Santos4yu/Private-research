@@ -9,6 +9,7 @@ import re
 import threading
 import time
 import unicodedata
+from urllib.parse import urljoin, urlparse
 
 import requests
 
@@ -30,6 +31,9 @@ _CACHE_SECONDS = 120
 # How old a feed may be to stand in while PrizePicks is briefly unreachable.
 _STALE_SECONDS = 15 * 60
 _TIER_ORDER = {"standard": 0, "goblin": 1, "demon": 2}
+# The feed can arrive in pages (JSON:API links.next); a full NFL week is
+# well over one page's worth of lines.
+_MAX_PAGES = 12
 _LEAGUE_CACHE_SECONDS = 6 * 60 * 60
 _CACHE_LOCK = threading.Lock()
 _PROJECTION_CACHE = {}  # league -> {"loaded_at": float, "rows": list}
@@ -137,13 +141,30 @@ def _fetch_projection_rows(force=False, league="MLB"):
         if cached and cached["rows"] and now - cached["loaded_at"] < _STALE_SECONDS:
             return cached["rows"]
         raise
+    data, included = list(payload["data"]), list(payload.get("included") or [])
+    next_url, pages = (payload.get("links") or {}).get("next"), 1
+    while next_url and pages < _MAX_PAGES:
+        url = urljoin(PRIZEPICKS_PROJECTIONS_URL, str(next_url))
+        if urlparse(url).netloc != urlparse(PRIZEPICKS_PROJECTIONS_URL).netloc:
+            break
+        try:
+            response = requests.get(url, headers=_HEADERS, timeout=25)
+            response.raise_for_status()
+            page = response.json()
+        except (requests.RequestException, ValueError):
+            break  # The pages already read still stand.
+        if not isinstance(page.get("data"), list):
+            break
+        data += page["data"]
+        included += page.get("included") or []
+        next_url, pages = (page.get("links") or {}).get("next"), pages + 1
 
     players = {
         str(item.get("id")): item.get("attributes") or {}
-        for item in payload.get("included", []) if item.get("type") == "new_player"
+        for item in included if item.get("type") == "new_player"
     }
     rows = []
-    for projection in payload["data"]:
+    for projection in data:
         attrs = projection.get("attributes") or {}
         relationships = projection.get("relationships") or {}
         row_league_id = str(((relationships.get("league") or {}).get("data") or {}).get("id") or "")
@@ -153,8 +174,13 @@ def _fetch_projection_rows(force=False, league="MLB"):
             continue
         if attrs.get("status") != "pre_game" or attrs.get("is_live"):
             continue
-        if "over" not in str(attrs.get("allowed_wager_types") or "").lower():
+        odds_type = str(attrs.get("odds_type") or "standard").lower()
+        # A line that names its sides must offer More. One that names none
+        # is kept: a standard line plays both ways, a Goblin or Demon More only.
+        wagers = str(attrs.get("allowed_wager_types") or "").lower()
+        if wagers and "over" not in wagers:
             continue
+        wagers = wagers or ("over,under" if odds_type == "standard" else "over")
         line = attrs.get("flash_sale_line_score")
         if line is None:
             line = attrs.get("line_score")
@@ -168,8 +194,8 @@ def _fetch_projection_rows(force=False, league="MLB"):
             "player": str(player.get("display_name") or player.get("name") or ""),
             "stat": str(attrs.get("stat_type") or attrs.get("stat_display_name") or ""),
             "line": line,
-            "odds_type": str(attrs.get("odds_type") or "standard").lower(),
-            "allowed_wager_types": str(attrs.get("allowed_wager_types") or "").lower(),
+            "odds_type": odds_type,
+            "allowed_wager_types": wagers,
             "updated_at": str(attrs.get("updated_at") or ""),
             "headshot": str(player.get("image_url") or ""),
             "team": str(player.get("team") or ""),

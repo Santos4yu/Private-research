@@ -24,11 +24,14 @@ from v2.board import store  # noqa: E402
 import requests  # noqa: E402
 
 SPORT = "basketball_wnba"
-CACHE_KEY = "krazy_data:wnba:v9:finder_board"
+CACHE_KEY = "krazy_data:wnba:v10:finder_board"
 ROSTER_CACHE_KEY = "krazy_data:wnba:v2:roster_directory"  # v2: adds height
 CACHE_SECONDS = 10 * 60
 ROSTER_CACHE_SECONDS = 6 * 60 * 60
-BOOKS = "prizepicks,underdog,draftkings,fanduel,betmgm"
+# Up to 10 bookmakers cost The Odds API credits of one. If the provider ever
+# refuses the longer list, the original five are asked instead.
+BOOKS = "prizepicks,underdog,pick6,draftkings,fanduel,betmgm,williamhill_us,espnbet,fanatics,betrivers"
+CORE_BOOKS = "prizepicks,underdog,draftkings,fanduel,betmgm"
 MARKETS = {
     "player_points": "Points",
     "player_rebounds": "Rebounds",
@@ -49,7 +52,7 @@ MARKETS = {
 # Finder can distinguish Regular, Goblin, and Demon rows.
 ALTERNATE_MARKETS = {f"{key}_alternate": label for key, label in MARKETS.items()}
 ALL_MARKETS = {**MARKETS, **ALTERNATE_MARKETS}
-BOOK_PRIORITY = {"prizepicks": 0, "underdog": 1, "draftkings": 2, "fanduel": 3, "betmgm": 4}
+BOOK_PRIORITY = {key: index for index, key in enumerate(BOOKS.split(","))}
 # PrizePicks' own stat names (normalized) -> the board's market keys. Its
 # feed carries markets The Odds API does not (3-PT Attempted, FG Made, Free
 # Throws Made), and every line it posts, not just the ones The Odds API
@@ -364,12 +367,17 @@ def _board(include_history=True):
         starts_at = timestamp(event.get("commence_time")) if isinstance(event, dict) else None
         if not event_id or not starts_at or starts_at <= now:
             continue
-        try:
-            response = _get(f"/sports/{SPORT}/events/{event_id}/odds", {
-                "markets": ",".join(ALL_MARKETS), "bookmakers": BOOKS, "oddsFormat": "american"
-            })
-            payload = response.json()
-        except Exception:  # noqa: BLE001 -- one game must not sink the board
+        payload = None
+        for books in (BOOKS, CORE_BOOKS):
+            try:
+                response = _get(f"/sports/{SPORT}/events/{event_id}/odds", {
+                    "markets": ",".join(ALL_MARKETS), "bookmakers": books, "oddsFormat": "american"
+                })
+                payload = response.json()
+                break
+            except Exception:  # noqa: BLE001 -- one game must not sink the board
+                continue
+        if payload is None:
             continue
         grouped = {}
         standard_prices = {}
@@ -424,6 +432,10 @@ def _board(include_history=True):
                         "homeTeam": event.get("home_team"), "awayTeam": event.get("away_team"),
                         "startsAt": starts_at.isoformat(), "apps": {}, "verified": True,
                     })
+                    # A line only another book's alternate market carries is
+                    # a comparison price, not a line of its own (see below).
+                    if market_key in MARKETS or book_key == "prizepicks":
+                        row["main"] = True
                     quote = row["apps"].setdefault(book_key, {
                         "key": book_key, "name": book.get("title") or book_key,
                         "over": None, "under": None, "updatedAt": updated.isoformat() if updated else None,
@@ -437,6 +449,10 @@ def _board(include_history=True):
                             quote["modifier"] = modifier
                         row["modifier"] = quote["modifier"]
         for row in grouped.values():
+            # Each book's main line is a row; another book's alternates only
+            # add prices to a line that is already on the board.
+            if not row.pop("main", False):
+                continue
             identities = directory["players"].get(_norm(row["player"]), [])
             identity = next((item for item in identities if item["team"] in (row["homeTeam"], row["awayTeam"])), identities[0] if len(identities) == 1 else None)
             if identity:
