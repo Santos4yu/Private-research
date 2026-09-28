@@ -18,7 +18,7 @@
 .side-menu-link svg{flex:0 0 auto;color:#9fa4ac;transition:color .15s}
 .side-menu-link:hover{background:#ffffff08;color:#fff}
 .side-menu-link:active{background:#ffffff0f}
-.side-menu-link[aria-current=page]{background:#1b1f25;border-color:#353a40;color:#fff}
+.side-menu-link[aria-current=page]{background:color-mix(in srgb,var(--theme-accent) 14%,#171a1f);border-color:color-mix(in srgb,var(--theme-accent) 45%,#353a40);color:#fff}
 .side-menu-link[aria-current=page] svg{color:var(--theme-accent-soft,var(--theme-accent))}
 .side-menu-link:disabled{opacity:.4;cursor:not-allowed}
 .side-menu-link:focus-visible{outline:2px solid var(--theme-accent-soft,var(--theme-accent));outline-offset:1px}
