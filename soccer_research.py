@@ -62,7 +62,9 @@ _lock = threading.Lock()
 # ---------------------------------------------------------------- plumbing
 
 def _get(url, timeout=10):
-    response = requests.get(url, headers={"Accept": "application/json", "User-Agent": "Mozilla/5.0"}, timeout=timeout)
+    # The same plain request the WNBA pages make to ESPN (a bare browser
+    # User-Agent from a server is the kind of thing bot filters turn away).
+    response = requests.get(url, headers={"Accept": "application/json"}, timeout=timeout)
     response.raise_for_status()
     return response.json()
 
@@ -235,29 +237,48 @@ def _scoreboard(slug, start, end):
     return fixtures
 
 
-def fixtures(now=None):
-    """Upcoming and live matches over the next few days, every competition."""
+def fetch_error(error):
+    """A short name for why an ESPN request failed ("HTTP 403", "Timeout")."""
+    response = getattr(error, "response", None)
+    if getattr(response, "status_code", None):
+        return f"HTTP {response.status_code}"
+    return type(error).__name__
+
+
+def fixture_scan(now=None):
+    """fixtures() plus how the scan went: how many ESPN schedule requests
+    found matches, came back empty or failed (and why)."""
     def build():
         today = datetime.fromtimestamp(now or time.time(), timezone.utc) - timedelta(hours=6)
-        end = today + timedelta(days=FIXTURE_DAYS)
 
         def load(task):
             slug, day = task
             try:
-                return _cached(f"soccer:fixture-day:v2:{slug}:{day:%Y%m%d}", 600,
-                               lambda: _scoreboard(slug, day, day))
-            except Exception:
-                return []
+                games = _cached(f"soccer:fixture-day:v2:{slug}:{day:%Y%m%d}", 600,
+                                lambda: _scoreboard(slug, day, day))
+                return games, "found" if games else "empty"
+            except Exception as error:
+                return [], fetch_error(error)
 
         with ThreadPoolExecutor(max_workers=12) as pool:
             tasks = [(slug, today + timedelta(days=offset))
                      for offset in range(FIXTURE_DAYS + 1) for slug in LEAGUES]
-            found = [fixture for batch in pool.map(load, tasks) for fixture in batch]
-        unique = {}
-        for fixture in found:
-            unique.setdefault(fixture["id"], fixture)
-        return sorted(unique.values(), key=lambda item: item.get("date") or "")
-    return _cached("soccer:fixtures:v2", 10 * 60, build, keep=lambda value: bool(value))
+            results = list(pool.map(load, tasks))
+        unique, report = {}, {"requests": len(tasks), "found": 0, "empty": 0, "errors": {}}
+        for games, outcome in results:
+            if outcome in ("found", "empty"):
+                report[outcome] += 1
+            else:
+                report["errors"][outcome] = report["errors"].get(outcome, 0) + 1
+            for fixture in games:
+                unique.setdefault(fixture["id"], fixture)
+        return {"fixtures": sorted(unique.values(), key=lambda item: item.get("date") or ""), "report": report}
+    return _cached("soccer:fixtures:v3", 10 * 60, build, keep=lambda value: bool(value["fixtures"]))
+
+
+def fixtures(now=None):
+    """Upcoming and live matches over the next few days, every competition."""
+    return fixture_scan(now)["fixtures"]
 
 
 def _side_score(side, team, name=None):

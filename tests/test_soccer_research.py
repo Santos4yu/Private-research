@@ -89,11 +89,31 @@ class FixtureTests(Offline):
     def test_international_fast_path_requires_every_active_fixture(self):
         fixture = research._fixture(scoreboard("900", ARS, CHE, "2026-09-29T14:00Z")["events"][0], "uefa.nations", "Nations")
         line = {"team": "ARS", "description": "CHE", "start_time": "2026-09-29T14:00Z"}
-        with patch.object(research, "_scoreboard", return_value=[fixture]), patch.object(research, "fixtures", return_value=[fixture]) as full:
-            self.assertEqual(soccer_board._fixtures(1790000000, [line]), [fixture])
+        with patch.object(research, "_scoreboard", return_value=[fixture]), patch.object(research, "fixture_scan", return_value={"fixtures": [fixture], "report": {}}) as full:
+            self.assertEqual(soccer_board._fixtures(1790000000, [line])[0], [fixture])
             full.assert_not_called()
             soccer_board._fixtures(1790000000, [{**line, "team": "UNKNOWN", "description": "OTHER"}])
             full.assert_called_once()
+
+
+class DiagnosticsTests(Offline):
+    def test_the_board_says_how_many_lines_found_their_match_and_why_not(self):
+        import requests as http
+        refused = http.HTTPError("403")
+        refused.response = type("Response", (), {"status_code": 403})()
+        def scoreboard_for(slug, start, end):
+            if slug == "eng.1":
+                raise refused
+            return []
+        line = {"id": "1", "player": "Adam Hlozek", "team": "Czechia", "description": "England", "stat": "Shots", "line": 1.5,
+                "odds_type": "goblin", "start_time": "2026-09-29T18:45:00Z", "position": "Attacker"}
+        with patch.object(research, "_scoreboard", side_effect=scoreboard_for):
+            board = soccer_board.build([line], now=1790000000)
+        diagnostics = board["diagnostics"]
+        self.assertEqual((diagnostics["fixtures"], diagnostics["lines"], diagnostics["matched"]), (0, 1, 0))
+        self.assertEqual(diagnostics["scan"]["errors"], {"HTTP 403": research.FIXTURE_DAYS + 1})
+        self.assertEqual(diagnostics["scan"]["requests"], len(research.LEAGUES) * (research.FIXTURE_DAYS + 1))
+        self.assertEqual(diagnostics["unmatched"], [{"team": "Czechia", "opponent": "England", "startsAt": "2026-09-29T18:45:00+00:00"}])
 
 
 class RecordTests(Offline):

@@ -50,8 +50,10 @@ def _projections():
 
 
 def _fixtures(now, projections=None):
+    """(fixtures, report): the ESPN matches the lines can belong to, and how
+    fetching them went (shown to admins on the board)."""
     try:
-        from soccer_research import fixtures, _scoreboard, _cached
+        from soccer_research import fixture_scan, _scoreboard, _cached, fetch_error
         from concurrent.futures import ThreadPoolExecutor
         # International slates often contain thousands of lines for only a
         # handful of dates. Try their competition first; scan all leagues
@@ -63,20 +65,22 @@ def _fixtures(now, projections=None):
             def load(day):
                 try:
                     return _cached(f"soccer:nations-day:v3:{day}", 600,
-                                   lambda: _scoreboard("uefa.nations", day, day))
-                except Exception:
-                    return []
+                                   lambda: _scoreboard("uefa.nations", day, day)), None
+                except Exception as error:
+                    return [], fetch_error(error)
             with ThreadPoolExecutor(max_workers=7) as pool:
-                early = [game for batch in pool.map(load, dates) for game in batch]
+                results = list(pool.map(load, dates))
+            early = [game for batch, _ in results for game in batch]
             if early:
                 found = {}
                 active = [line for line in projections if not line.get("combo")
                           and (_timestamp(line.get("start_time")) or 0) > now]
                 if active and all(_match_info(line, early, found) for line in active):
-                    return early
-        return fixtures(now)
-    except Exception:
-        return []
+                    return early, {"source": "uefa.nations", "requests": len(dates), "found": len(early), "errors": {}}
+        scan = fixture_scan(now)
+        return scan["fixtures"], scan["report"]
+    except Exception as error:
+        return [], {"errors": {f"{type(error).__name__}: {error}"[:120]: 1}}
 
 
 def _match_info(line, fixture_list, found):
@@ -92,7 +96,9 @@ def build(projections=None, now=None, fixture_list=None):
     """Every upcoming single-player soccer line PrizePicks posts."""
     now = now or time.time()
     projections = _projections() if projections is None else projections
-    fixture_list = _fixtures(now, projections) if fixture_list is None else fixture_list
+    report = None
+    if fixture_list is None:
+        fixture_list, report = _fixtures(now, projections)
     found = {}
     rows = []
     for line in projections:
@@ -130,7 +136,19 @@ def build(projections=None, now=None, fixture_list=None):
             **game,
         })
     rows.sort(key=lambda row: (row["startsAt"] or "", row["player"] or "", row["stat"] or "", row["line"]))
-    return {"builtAt": datetime.now(timezone.utc).isoformat(), "source": "prizepicks", "rows": rows, "version": VERSION}
+    # How many lines found their match, and why not when they didn't -- the
+    # board shows this to admins.
+    unmatched = [row for row in rows if not row.get("eventId")]
+    seen, sample = set(), []
+    for row in unmatched:
+        key = (row["team"], row["opponent"], row["startsAt"])
+        if key not in seen and len(sample) < 6:
+            seen.add(key)
+            sample.append({"team": row["team"], "opponent": row["opponent"], "startsAt": row["startsAt"]})
+    diagnostics = {"fixtures": len(fixture_list), "lines": len(rows), "matched": len(rows) - len(unmatched),
+                   "scan": report, "unmatched": sample}
+    return {"builtAt": datetime.now(timezone.utc).isoformat(), "source": "prizepicks", "rows": rows, "version": VERSION,
+            "diagnostics": diagnostics}
 
 
 def board():
