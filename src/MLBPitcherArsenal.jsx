@@ -22,7 +22,6 @@ export default function MLBPitcherArsenal({data}){
     <p className="mlb-context-note">{lineupState(state.data)}</p>
     <div className="mlb-context-table-wrap"><table><thead><tr>{['Hitter','PA','Pitches','K%','wOBA'].map(h=><th key={h} scope="col">{h}</th>)}</tr></thead><tbody>{rows.map(p=>{const s=pitchTypeStats(p,selected);return <tr key={p.id}><th scope="row"><span className="mlb-context-batter">{(state.data.lineupConfirmed||state.data.lineupProjected)&&<small>{p.order}</small>}<span>{p.name}<small>{p.position}</small></span></span></th><td>{statText(s.pa)}</td><td>{statText(s.pitches)}</td><td>{statText(s.k_pct,1)}{s.k_pct!=null?'%':''}</td><td>{statText(s.woba,3)}</td></tr>;})}</tbody></table></div>
    </>:<p className="mlb-context-note">Pitch-type results are not available for this lineup yet.</p>}
-   <p className="mlb-context-note">Season results against these pitch types, not head-to-head against this pitcher. All combines available pitch types; rates are PA-weighted. — unavailable.</p>
   </section>
  </>;
 }

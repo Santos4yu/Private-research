@@ -22,6 +22,5 @@ export default function MLBInjuries({row,data}){
    <div className="mlb-injury-return"><CalendarClock size={15} aria-hidden="true"/><span>{injuryDate(player.expectedReturn)?`Estimated return · ${injuryDate(player.expectedReturn)}`:'Return timetable not reported'}</span></div>
    {injuryDate(player.reportedAt)&&<small className="mlb-injury-reported">Reported {injuryDate(player.reportedAt)}</small>}
   </article>)}</div>}
-  <p className="mlb-context-note">Return dates are estimates, not clearance to play. IL length is a roster designation, not days remaining.</p>
  </section>;
 }

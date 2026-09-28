@@ -16,13 +16,12 @@ function WinPredictor({matchup}){
  const m=matchup.data;
  if(!m)return <section className="mlb-context-card mlb-win-predictor"><header><h2>Win predictor</h2><small>Pregame</small></header>{matchup.loading?<Skeleton/>:<Empty>{matchup.error||'Matchup prediction is not available yet.'}</Empty>}</section>;
  const [away,home]=m.teams;const market=m.odds?.noVig;
- const source=m.predictor?{away:m.predictor.away,home:m.predictor.home,label:'ESPN Matchup Predictor'}:market?{away:market.away,home:market.home,label:`${m.odds.provider||'Sportsbook'} moneyline, margin removed`}:null;
+ const source=m.predictor?{away:m.predictor.away,home:m.predictor.home,}:market?{away:market.away,home:market.home}:null;
  const colors=[teamColor(away,'#7b8cff'),teamColor(home,'#28cb98')];
  if(colors[0]===colors[1])colors[1]='#28cb98';
  return <section className="mlb-context-card mlb-win-predictor"><header><h2>Win predictor</h2><small>{m.status?.detail||'Pregame'}</small></header>
   {source?<><div className="mlb-win-body">{[away,home].map((team,index)=><React.Fragment key={team.id}>{index===1&&<div className="mlb-win-ring" role="img" aria-label={`${away.abbr} ${source.away}%, ${home.abbr} ${source.home}%`} style={{background:`conic-gradient(${colors[0]} 0% ${source.away}%, ${colors[1]} ${source.away}% 100%)`}}><span>WIN<br/>CHANCE</span></div>}
-   <div className="mlb-win-team"><Logo src={team.logo} size={32}/><strong>{team.abbr}</strong><small>{team.record||'Record unavailable'}{index===1?' · Home':''}</small><b style={{color:colors[index]}}>{fmt(index?source.home:source.away)}%</b></div></React.Fragment>)}</div>
-  <Empty>{source.label}.{market&&m.predictor?` Market: ${away.abbr} ${fmt(market.away)}% · ${home.abbr} ${fmt(market.home)}% (${m.odds.provider}, margin removed).`:''} Pregame estimate, not a guarantee.</Empty></>
+   <div className="mlb-win-team"><Logo src={team.logo} size={32}/><strong>{team.abbr}</strong><small>{team.record||'Record unavailable'}{index===1?' · Home':''}</small><b style={{color:colors[index]}}>{fmt(index?source.home:source.away)}%</b></div></React.Fragment>)}</div></>
   :<Empty>No pregame prediction or moneyline is posted for this game yet.</Empty>}
  </section>;
 }
@@ -87,7 +86,6 @@ function DefenseVsPosition({league,row,stat,playerPosition}){
     <td><span className="wnba-strength" data-tone={tone(rank)}>{strength[tone(rank)]||'—'}</span></td></tr>;})}
   </tbody></table></div>:<Empty>No games recorded for this defense yet.</Empty>}
   <div className="wnba-scale" aria-hidden="true"><span>Tougher</span><i/><span>Weaker</span></div>
-  <Empty>Per opposing {POSITIONS.find(([key])=>key===position)[1].toLowerCase().replace(/s$/,'')} who played {data.dvpMinMinutes}+ minutes. Rank 1 of {n} allows the least; ranks cover the season, last 10 and last 5 games.</Empty>
  </Card>;
 }
 const OVD=[['pr','Pts+Rebs'],['pts','Points'],['reb','Rebounds'],['ast','Assists'],['tpm','3-PT Made'],['fgm','FG Made'],['ftm','FT Made'],['fgPct','FG%']];
@@ -104,7 +102,6 @@ function OffenseVsDefense({league,row}){
    const strong=rank=>rank<=Math.ceil(n/3);
    return <div className="wnba-ovd-row" key={key}><span data-side="off" data-strong={strong(or)}>{ordinal(or)}<small>{fmt(ov)}{key==='fgPct'?'%':''}</small></span><div><small>{label}</small><span className="wnba-ovd-bar" role="img" aria-label={`${label}: ${offense} offense ranks ${ordinal(or)}, ${defense} defense ranks ${ordinal(dr)}`}><i style={{width:`${share}%`}}/></span></div><span data-side="def" data-strong={strong(dr)}>{ordinal(dr)}<small>{fmt(dv)}{key==='fgPct'?'%':''}</small></span></div>;})}</div>
   <div className="wnba-ovd-legend"><span><i data-side="off"/>Offensive advantage</span><span>Defensive advantage<i data-side="def"/></span></div>
-  <Empty>Per-game team totals this season. Offense rank 1 scores the most; defense rank 1 allows the least.</Empty>
  </Card>;
 }
 
@@ -128,7 +125,6 @@ function ShotChart({player,league,row}){
  const summary=[['Inside the arc',inside],['From three',three]].map(([name,group])=>({name,share:groupShare(group),rank:weightedRank(group)}));
  return <Card title="Shot chart" note={`vs ${opponent} defense`} icon={Target} className="wnba-shots">
   {makes?<>
-  <Empty>Percentages are the share of {row.player}'s made field goals from each zone this season. Colors show how {opponent} defends that zone (FG% allowed, rank 1 of {n} = toughest).</Empty>
   <svg className="wnba-court" viewBox="0 0 300 220" role="img" aria-label={`Shot chart: ${Object.keys(ZONE_LABELS).map(zone=>`${ZONE_LABELS[zone]} ${fmt(share(zone),0)}% of makes, ${opponent} rank ${defense[zone]?.[1]??'unavailable'}`).join('; ')}`}>
    <rect x="0" y="0" width="300" height="220" fill={fill('ab3')}/>
    <rect x="0" y="130" width="40" height="90" fill={fill('c3l')}/><rect x="260" y="130" width="40" height="90" fill={fill('c3r')}/>
@@ -165,7 +161,6 @@ function SimilarPlayers({player,row,statLabel,playerPosition}){
    <span className="wnba-similar-min">{fmt(entry.min,0)} min</span>
    <span className="wnba-similar-result"><b data-tone={entry.diff>0?'good':'poor'}>{fmt(entry.value)}</b><small>avg {fmt(entry.avg)}</small><span className="wnba-similar-bar" aria-hidden="true"><i data-tone={entry.diff>0?'good':'poor'} style={{width:`${entry.value/max*100}%`}}/><em style={{left:`${entry.avg/max*100}%`}}/></span></span></div>)}</div>
   :<Empty>No {noun.toLowerCase()} have played {p.similarMinMinutes}+ minutes against {opponent} yet this season.</Empty>}
-  <Empty>The last {entries.length||10} {noun.toLowerCase()} to play {p.similarMinMinutes}+ minutes against {opponent}, compared with their own average in their other games — not their posted lines, which are not kept.</Empty>
  </Card>;
 }
 
@@ -200,7 +195,6 @@ function Injuries({matchup,player,row,filters,onToggleFilter}){
    {effect&&<div className="wnba-impact"><span className="wnba-impact-title">{row.player} · {row.market}</span><SplitLine label="Without" split={effect.without} line={row.line}/><SplitLine label="With" split={effect.with} line={row.line}/><FilterButtons name={item.name} pos={item.position} impact={effect} filters={filters} onToggleFilter={onToggleFilter}/></div>}
    {injuryDate(item.date)&&<small className="mlb-injury-reported">Reported {injuryDate(item.date)}</small>}
   </article>;})}</div>}
-  <Empty>Return dates are ESPN's estimates, not clearance to play.</Empty>
  </Card>
  {side===team&&<Card title="Teammate impact" note={`${row.player} · ${row.market}`} icon={Users} className="wnba-teammates">
   {player.loading&&!player.data?<Skeleton/>:!player.data?<Failed state={player} label="Teammate splits"/>:others.length?<div className="wnba-teammate-list">{others.map(item=><div className="wnba-teammate" key={item.id}>
@@ -208,7 +202,6 @@ function Injuries({matchup,player,row,filters,onToggleFilter}){
    <span className="wnba-teammate-splits"><SplitLine label="Without" split={item.without} line={row.line}/><SplitLine label="With" split={item.with} line={row.line}/></span>
    <FilterButtons name={item.name} pos={item.pos} impact={item} filters={filters} onToggleFilter={onToggleFilter}/></div>)}</div>
   :<Empty>{row.player} has played every game alongside each current teammate.</Empty>}
-  <Empty>{row.player}'s results this season in games each teammate missed, and in games they played. "Without" or "With" narrows the chart to those games; pick several to combine them.</Empty>
  </Card>}
  </>;
 }
@@ -225,7 +218,6 @@ function Rankings({league,row}){
    {['off','def'].map(group=><React.Fragment key={group}><tr className="wnba-rank-group"><th scope="rowgroup" colSpan={teams.length+1}>{group==='off'?'Offense':'Defense'}</th></tr>
     {RANKINGS.filter(([g])=>g===group).map(([g,key,label])=><tr key={g+key}><th scope="row">{label}</th>{teams.map(abbr=>{const [value,rank]=data.teamStats[abbr][g][key]||[];return <td key={abbr}><span data-tone={rankTone(rank,n)}>{fmt(value)}{key.endsWith('Pct')?'%':''}</span> <small>{ordinal(rank)}</small></td>;})}</tr>)}</React.Fragment>)}
   </tbody></table></div>
-  <Empty>Rank 1 of {n} is the best: most produced on offense, least allowed on defense (most forced for turnovers).</Empty>
  </Card>;
 }
 
@@ -239,7 +231,6 @@ function Averages({row,logs}){
  return <Card title="Prop averages" note={row.market} icon={Activity} className="wnba-averages">
   <div className="mlb-average-grid">{metrics.map(([label,value])=><div key={label}><span>{label}</span><strong data-tone={finite(value)?(value>row.line?'good':value<row.line?'poor':'fair'):undefined}>{fmt(value,2)}</strong><div className="mlb-average-track" aria-hidden="true"><i style={{width:finite(value)?`${value/max*100}%`:'0%'}}/></div></div>)}</div>
   <div className="wnba-season-grid">{SEASON_MARKETS.map(([market,label])=><div key={market} data-current={market===row.marketKey}><span>{label}</span><strong>{fmt(average(games.map(g=>g.values?.[market])),1)}</strong></div>)}</div>
-  <Empty>{games.length} games this season, preseason excluded. Colored against the {row.line} line.</Empty>
  </Card>;
 }
 

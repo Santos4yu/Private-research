@@ -99,7 +99,6 @@ function DepthChart({row,season,context,filters,onToggleFilter}){
      {impact&&!self&&<span className="wnba-depth-actions">{[['without',UserX,'Without'],['with',UserCheck,'With']].map(([kind,Icon,label])=>{const split=effect?.[kind],pressed=filters.some(filter=>filter.id===String(player.id)&&filter.kind===kind);
       return <button type="button" key={kind} data-kind={kind} aria-pressed={pressed} disabled={!split?.games} onClick={()=>toggle(labelled,kind)} aria-label={`${label} ${player.name}`} title={split?.games?`Chart: ${split.games} ${split.games===1?'game':'games'} ${kind} ${player.name}${finite(split.avg)?` · ${row.player} averaged ${fmt(split.avg)}`:''}`:`No games ${kind} ${player.name}`}><Icon size={15} aria-hidden="true"/></button>;})}</span>}
     </div></td>;})}</tr>)}</tbody></table></div>}
-  <p className="mlb-context-note">{impact?`Red and green put ${row.player}'s games without or with that teammate on the chart — pick several to combine them. `:''}nflverse depth chart{depth?.updatedAt?`, updated ${new Date(depth.updatedAt).toLocaleDateString([],{month:'short',day:'numeric'})}`:''}.</p>
  </section>;
 }
 
@@ -141,7 +140,6 @@ function PlayerGameLog({row,rows,loading,error,onRetry,position}){
    <td><span className="wnba-result" data-result={game.result}>{game.result||'—'}</span> {game.score||''}{game.seasonKind==='postseason'&&<small className="wnba-po-tag">PO</small>}</td>
    {columns.map(key=>{const value=STATS[key].get(game);return <td key={key}>{game.dnp?<span className="nfl-dnp">DNP</span>:finite(value)?fmt(value,Number.isInteger(value)?0:1):'—'}</td>;})}</tr>)}</tbody></table></div>
   :<p className="mlb-context-note">No games are available for this player yet.</p>}
-  <p className="mlb-context-note">DNP marks his team's games he did not play. Red-zone targets and longest reception come from play-by-play.</p>
  </section>;
 }
 

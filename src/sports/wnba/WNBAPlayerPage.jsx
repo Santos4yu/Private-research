@@ -126,7 +126,6 @@ function DepthChart({row,matchup,filters,onToggleFilter}){
      {impact&&!self&&<span className="wnba-depth-actions">{[['without',UserX,'Without'],['with',UserCheck,'With']].map(([kind,Icon,label])=>{const split=effect?.[kind],pressed=hasSplit(filters,player.id,kind);
       return <button type="button" key={kind} data-kind={kind} aria-pressed={pressed} disabled={!split?.games} onClick={()=>toggle(player,kind)} aria-label={`${label} ${player.name}`} title={split?.games?`Chart: ${split.games} ${split.games===1?'game':'games'} ${kind} ${player.name}${finite(split.avg)?` · ${row.player} averaged ${fmt(split.avg)}`:''}`:`No games ${kind} ${player.name} this season`}><Icon size={15} aria-hidden="true"/></button>;})}</span>}
     </div></td>;})}</tr>)}</tbody></table></div>}
-  <p className="mlb-context-note">{impact?`Red and green put ${row.player}'s games without or with that teammate on the chart — pick several to combine them. `:''}Built from the last {rotation?.games||5} games' starters and minutes — ESPN publishes no official WNBA depth chart.</p>
  </section>;
 }
 
