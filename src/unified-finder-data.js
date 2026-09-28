@@ -94,6 +94,32 @@ export function matchesPrizePicksLine(row,modifiers=[]){
  return row.apps?.some(app=>app.key==='prizepicks')&&(!modifiers.length||modifiers.includes(row.modifier));
 }
 
+/** Book prices kept on a saved pick: just enough for the Pick Builder. */
+export function slipApps(apps) {
+  return (Array.isArray(apps) ? apps : []).filter(app => app?.key).map(app => ({key: app.key,
+    name: app.name || BOOK_NAMES[app.key] || app.key, over: number(app.over), under: number(app.under)}));
+}
+
+export const finderSlipId = row => `finder:${row.id}`;
+
+/**
+ * A Finder row as a pick in the site's one saved-picks list (My Slip / Prop
+ * Builder, app.js state.savedProps). The side is chosen separately. MLB rows
+ * keep PrizePicks' own stat name for the export, which matches legs against
+ * the live PrizePicks board (prizepicks_export_core.py).
+ */
+export function finderSlipProp(row) {
+  return {
+    id: finderSlipId(row), finderId: row.id, source: 'finder', sport: String(row.sport || '').toUpperCase(),
+    player: row.player, playerId: row.playerId || null, position: row.position || '',
+    betType: row.market, exportStat: row.sport === 'mlb' ? row.raw?.stat || row.market : row.market,
+    line: row.line, side: side(row.direction) === 'UNDER' ? 'Under' : 'Over',
+    team: row.teamAbbr || '', teamAbbr: row.teamAbbr || '', teamId: row.teamId || null, teamLogo: row.teamLogo || '',
+    opponent: row.opponent || '', startsAt: row.startsAt || '', headshot: row.headshot || '',
+    modifier: String(row.modifier || 'standard').toLowerCase(), apps: slipApps(row.apps),
+  };
+}
+
 function finish(row) {
   const average = number(row.average);
   const line = number(row.line);

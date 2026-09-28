@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {finderWindow,normalizeFinderRows,applyMlbHistory,enrichMlbRows,loadFinderSport} from '../src/unified-finder-data.js';
+import {finderWindow,normalizeFinderRows,applyMlbHistory,enrichMlbRows,loadFinderSport,finderSlipProp} from '../src/unified-finder-data.js';
 
 test('pushes are excluded, missing values stay missing, and Under reverses the outcome',()=>{
  assert.equal(finderWindow([null,undefined,'',0,2,3],2).hitRate,50);
@@ -36,4 +36,18 @@ test('MLB player history is shared across lines and failures remain unknown',asy
 test('NFL uses stored board and roster endpoints without a browser scan',async()=>{
  const urls=[];await loadFinderSport('nfl',{season:2026,fetcher:async url=>{urls.push(url);return {ok:true,json:async()=>({data:[]})};}});
  assert.deepEqual(urls.sort(),['/api/nfl?resource=board&season=2026','/api/nfl?resource=players&season=2026']);
+});
+test('a Finder row becomes a My Slip pick the PrizePicks export can match',()=>{
+ const [wnba]=normalizeFinderRows('wnba',{rows:[{id:'e1:player_threes:Kelsey Plum:2.5',player:'Kelsey Plum',market:'3-Pointers Made',line:2.5,modifier:'goblin',startsAt:'2099-01-01T00:00:00Z',teamAbbr:'LV',homeTeamAbbr:'LV',awayTeamAbbr:'IND',teamLogo:'lv.png',apps:[{key:'prizepicks',over:-137},{key:'draftkings',name:'DraftKings',over:-120,under:-105}]}]});
+ const pick=finderSlipProp(wnba);
+ assert.equal(pick.id,'finder:wnba:e1:player_threes:Kelsey Plum:2.5');assert.equal(pick.finderId,wnba.id);assert.equal(pick.source,'finder');
+ assert.equal(pick.sport,'WNBA');assert.equal(pick.betType,'3-Pointers Made');assert.equal(pick.exportStat,'3-Pointers Made');
+ assert.equal(pick.side,'Over');assert.equal(pick.modifier,'goblin');assert.equal(pick.teamLogo,'lv.png');assert.equal(pick.startsAt,'2099-01-01T00:00:00Z');
+ assert.deepEqual(pick.apps,[{key:'prizepicks',name:'PrizePicks',over:-137,under:null},{key:'draftkings',name:'DraftKings',over:-120,under:-105}]);
+ // Only what the Pick Builder shows is kept, so localStorage stays small.
+ assert.equal(pick.raw,undefined);assert.equal(pick.windows,undefined);
+ // MLB picks export under PrizePicks' own stat name, not the Finder label.
+ const [mlb]=normalizeFinderRows('mlb',{props:[{id:'9001',player:'Aaron Judge',stat:'Hitter Fantasy Score',line:9.5,start_time:'2099-01-01T00:00:00Z'}]});
+ const mlbPick=finderSlipProp(mlb);
+ assert.equal(mlbPick.sport,'MLB');assert.equal(mlbPick.betType,'Fantasy Score');assert.equal(mlbPick.exportStat,'Hitter Fantasy Score');
 });
