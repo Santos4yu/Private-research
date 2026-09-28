@@ -1,4 +1,4 @@
-"""Resolve builder legs to exact, active PrizePicks MLB projections."""
+"""Resolve builder legs to exact, active PrizePicks MLB and WNBA projections."""
 
 import re
 import threading
@@ -10,12 +10,22 @@ import requests
 
 PRIZEPICKS_PROJECTIONS_URL = (
     "https://partner-api.prizepicks.com/projections"
-    "?single_stat=true&league_id=2"
+    "?single_stat=true&league_id={league_id}"
 )
+PRIZEPICKS_LEAGUES_URL = "https://partner-api.prizepicks.com/leagues"
 PRIZEPICKS_APP_URL = "https://app.prizepicks.com/?projections="
+# PrizePicks' own league ids. MLB's has always been 2. WNBA's is read from
+# the leagues feed by name (_league_id) and this is only the fallback.
+LEAGUE_IDS = {"MLB": "2", "WNBA": "3"}
+_HEADERS = {
+    "Accept": "application/json",
+    "User-Agent": "Mozilla/5.0 (compatible; VORTEX-Private-Research/1.0)",
+}
 _CACHE_SECONDS = 120
+_LEAGUE_CACHE_SECONDS = 6 * 60 * 60
 _CACHE_LOCK = threading.Lock()
-_PROJECTION_CACHE = {"loaded_at": 0.0, "rows": []}
+_PROJECTION_CACHE = {}  # league -> {"loaded_at": float, "rows": list}
+_LEAGUE_CACHE = {}  # league -> {"loaded_at": float, "id": str}
 
 _STAT_ALIASES = {
     "hitsrunsrbis": "hitsrunsrbis", "hits": "hits", "totalbases": "totalbases",
@@ -27,6 +37,21 @@ _STAT_ALIASES = {
     "earnedrunsallowed": "earnedrunsallowed", "earnedruns": "earnedrunsallowed",
     "walksallowed": "pitcherwalks", "pitcherwalksallowed": "pitcherwalks",
     "pitcherwalks": "pitcherwalks",
+    # WNBA: the Finder's market names (api/wnba.py MARKETS) on the left,
+    # PrizePicks' stat_type spellings ("3-PT Made", "Pts+Rebs+Asts") on the
+    # right, so the two meet on one key.
+    "points": "points", "rebounds": "rebounds", "assists": "assists",
+    "3pointersmade": "3ptmade", "threepointersmade": "3ptmade", "threes": "3ptmade", "3ptmade": "3ptmade",
+    "blocks": "blockedshots", "blockedshots": "blockedshots", "steals": "steals",
+    "blockssteals": "blksstls", "blksstls": "blksstls", "turnovers": "turnovers",
+    "pointsrebounds": "ptsrebs", "ptsrebs": "ptsrebs",
+    "pointsassists": "ptsasts", "ptsasts": "ptsasts",
+    "reboundsassists": "rebsasts", "rebsasts": "rebsasts",
+    "pointsreboundsassists": "ptsrebsasts", "ptsrebsasts": "ptsrebsasts",
+    "fantasypoints": "fantasyscore", "fantasyscore": "fantasyscore",
+    # PrizePicks calls the MLB one "Hitter Fantasy Score"; the Finder shows
+    # "Fantasy Score".
+    "hitterfantasyscore": "fantasyscore",
 }
 
 
@@ -41,18 +66,56 @@ def _norm_stat(value):
     return _STAT_ALIASES.get(normalized, normalized)
 
 
-def _fetch_projection_rows(force=False):
+def _league_of(leg):
+    return str(leg.get("league") or leg.get("sport") or "MLB").strip().upper()[:12]
+
+
+def _league_id(league):
+    """PrizePicks' id for ``league``, read from its leagues feed by name.
+
+    MLB keeps its fixed id. For anything else a failed or unexpected leagues
+    response falls back to LEAGUE_IDS -- rows are still checked against the
+    league name below, so a stale id can only find nothing, never the wrong
+    league's lines.
+    """
+    fallback = LEAGUE_IDS[league]
+    if league == "MLB":
+        return fallback
     now = time.time()
     with _CACHE_LOCK:
-        if not force and _PROJECTION_CACHE["rows"] and now - _PROJECTION_CACHE["loaded_at"] < _CACHE_SECONDS:
-            return _PROJECTION_CACHE["rows"]
+        cached = _LEAGUE_CACHE.get(league)
+        if cached and now - cached["loaded_at"] < _LEAGUE_CACHE_SECONDS:
+            return cached["id"]
+    league_id = fallback
+    try:
+        response = requests.get(PRIZEPICKS_LEAGUES_URL, headers=_HEADERS, timeout=10)
+        response.raise_for_status()
+        for item in response.json().get("data") or []:
+            name = str((item.get("attributes") or {}).get("name") or "").strip().upper()
+            if name == league and item.get("id") is not None:
+                league_id = str(item["id"])
+                break
+    except (requests.RequestException, ValueError, AttributeError):
+        pass
+    with _CACHE_LOCK:
+        _LEAGUE_CACHE[league] = {"loaded_at": now, "id": league_id}
+    return league_id
 
+
+def _fetch_projection_rows(force=False, league="MLB"):
+    league = str(league or "MLB").upper()
+    if league not in LEAGUE_IDS:
+        raise ValueError(f"PrizePicks export does not support {league}.")
+    now = time.time()
+    with _CACHE_LOCK:
+        cached = _PROJECTION_CACHE.get(league)
+        if not force and cached and cached["rows"] and now - cached["loaded_at"] < _CACHE_SECONDS:
+            return cached["rows"]
+
+    league_id = _league_id(league)
     response = requests.get(
-        PRIZEPICKS_PROJECTIONS_URL,
-        headers={
-            "Accept": "application/json",
-            "User-Agent": "Mozilla/5.0 (compatible; VORTEX-Private-Research/1.0)",
-        },
+        PRIZEPICKS_PROJECTIONS_URL.format(league_id=league_id),
+        headers=_HEADERS,
         timeout=25,
     )
     response.raise_for_status()
@@ -68,10 +131,10 @@ def _fetch_projection_rows(force=False):
     for projection in payload["data"]:
         attrs = projection.get("attributes") or {}
         relationships = projection.get("relationships") or {}
-        league_id = str(((relationships.get("league") or {}).get("data") or {}).get("id") or "")
+        row_league_id = str(((relationships.get("league") or {}).get("data") or {}).get("id") or "")
         player_id = str(((relationships.get("new_player") or {}).get("data") or {}).get("id") or "")
         player = players.get(player_id) or {}
-        if league_id != "2" and str(player.get("league") or "").upper() != "MLB":
+        if row_league_id != league_id and str(player.get("league") or "").upper() != league:
             continue
         if attrs.get("status") != "pre_game" or attrs.get("is_live"):
             continue
@@ -86,6 +149,7 @@ def _fetch_projection_rows(force=False):
             continue
         rows.append({
             "id": str(projection.get("id") or ""),
+            "league": league,
             "player": str(player.get("display_name") or player.get("name") or ""),
             "stat": str(attrs.get("stat_type") or attrs.get("stat_display_name") or ""),
             "line": line,
@@ -98,9 +162,9 @@ def _fetch_projection_rows(force=False):
             "start_time": str(attrs.get("start_time") or ""),
         })
     if not rows:
-        raise RuntimeError("PrizePicks returned no active MLB projections.")
+        raise RuntimeError(f"PrizePicks returned no active {league} projections.")
     with _CACHE_LOCK:
-        _PROJECTION_CACHE.update({"loaded_at": now, "rows": rows})
+        _PROJECTION_CACHE[league] = {"loaded_at": now, "rows": rows}
     return rows
 
 
@@ -110,6 +174,7 @@ def _resolve_legs(legs, rows):
         player = str(leg.get("player") or "").strip()
         stat = str(leg.get("stat") or "").strip()
         side = str(leg.get("side") or "over").strip().lower()
+        league = _league_of(leg)
         try:
             line = float(leg.get("line"))
         except (TypeError, ValueError):
@@ -120,7 +185,8 @@ def _resolve_legs(legs, rows):
             continue
         candidates = [
             row for row in rows
-            if _norm(row["player"]) == _norm(player)
+            if row.get("league", "MLB") == league
+            and _norm(row["player"]) == _norm(player)
             and _norm_stat(row["stat"]) == _norm_stat(stat)
             and abs(row["line"] - line) < 0.001
             and row["id"] not in used_ids
@@ -151,7 +217,7 @@ def _resolve_legs(legs, rows):
         line_token = f"{match['line']:g}"
         direction_token = "o" if side == "over" else "u"
         matches.append({
-            "projectionId": match["id"], "player": player, "stat": match["stat"],
+            "projectionId": match["id"], "league": league, "player": player, "stat": match["stat"],
             "line": match["line"], "side": "More" if side == "over" else "Less",
             "oddsType": match["odds_type"],
             "projectionToken": f"{match['id']}-{direction_token}-{line_token}",
@@ -165,8 +231,16 @@ def build_export(legs):
         return 400, {"error": "A PrizePicks lineup needs 2 to 6 legs."}
     if any(not isinstance(leg, dict) for leg in legs):
         return 400, {"error": "Every lineup leg must be an object."}
+    leagues = sorted({_league_of(leg) for leg in legs})
+    unsupported = [league for league in leagues if league not in LEAGUE_IDS]
+    if unsupported:
+        return 400, {
+            "error": f"PrizePicks export supports MLB and WNBA picks only. "
+                     f"Remove {', '.join(unsupported)} picks first.",
+        }
     try:
-        matches, unmatched = _resolve_legs(legs, _fetch_projection_rows())
+        rows = [row for league in leagues for row in _fetch_projection_rows(league=league)]
+        matches, unmatched = _resolve_legs(legs, rows)
     except (requests.RequestException, RuntimeError, ValueError) as exc:
         return 502, {"error": f"PrizePicks projections are temporarily unavailable: {exc}"}
     if unmatched:

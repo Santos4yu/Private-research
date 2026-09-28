@@ -1469,6 +1469,9 @@ function wireSidePanel() {
   els.sideMenuToggle.addEventListener("click", open);
   window.addEventListener("vortex:open-more", open);
   window.addEventListener("vortex:close-more", () => { if (!els.sidePanel.hidden) close(); });
+  // The desktop rail stays usable beside the open panel; going somewhere
+  // from it closes the panel like the panel's own links do.
+  window.addEventListener("vortex:switch-tab", () => { if (!els.sidePanel.hidden) close(); });
   els.sideMenuClose.addEventListener("click", close); els.sideScrim.addEventListener("click", close);
   document.querySelectorAll(".side-link").forEach((btn) => btn.addEventListener("click", () => { close(); switchTab(btn.dataset.tab); }));
   els.sidePanel.addEventListener("keydown", (event) => {
@@ -5178,25 +5181,45 @@ function setManualBetSlipOpen(open) {
   els.headerBuilderTrigger?.setAttribute("aria-expanded", String(open));
 }
 
+// prizepicks_export_core.py matches MLB and WNBA legs on the live board.
+const SLIP_EXPORT_LEAGUES = new Set(["MLB", "WNBA"]);
+const slipLeague = (prop) => String(prop.sport || "MLB").toUpperCase();
+const slipModifier = (prop) => String(prop.modifier || prop.oddsType || "standard").toLowerCase();
+// Goblin and Demon lines are More-only on PrizePicks.
+const slipMoreOnly = (prop) => ["goblin", "demon"].includes(slipModifier(prop));
+// A research score was worked out for the side the prop was saved on; once
+// the pick is flipped in the Pick Builder that score no longer applies.
+const slipScore = (prop) => (prop.scoredSide && prop.scoredSide !== prop.side ? "—" : String(prop.score ?? "—"));
+const slipTeamLogo = (prop) => prop.teamLogo
+  || (prop.teamId && slipLeague(prop) === "MLB" ? `https://www.mlbstatic.com/team-logos/${Number(prop.teamId)}.svg` : "");
+
 function manualSlipLegPayload(prop) {
   return {
+    league: slipLeague(prop),
     player: prop.player,
-    stat: prop.betType,
+    // Finder picks carry PrizePicks' own stat name; the label is for display.
+    stat: prop.exportStat || prop.betType,
     line: prop.line,
     side: String(prop.side || "over").toLowerCase() === "under" ? "under" : "over",
   };
 }
 
-function manualBetSlipStatus(count) {
+function manualBetSlipStatus(legs) {
+  const count = legs.length;
+  const blocked = [...new Set(legs.map(slipLeague).filter((league) => !SLIP_EXPORT_LEAGUES.has(league)))];
   if (count === 0) return "Add at least 2 props to export.";
+  if (blocked.length) return `PrizePicks export covers MLB and WNBA. Remove ${blocked.join(", ")} picks to export.`;
   if (count < 2) return "Add 1 more prop to export.";
   if (count > 6) return "Remove legs until 6 remain.";
   return `${count}-leg slip ready to verify.`;
 }
 
+function manualBetSlipCanExport(legs) {
+  return legs.length >= 2 && legs.length <= 6 && legs.every((prop) => SLIP_EXPORT_LEAGUES.has(slipLeague(prop)));
+}
+
 function syncManualBetSlipUi({ busy = false, status = "" } = {}) {
   const legs = getSavedProps();
-  const count = legs.length;
   const detail = {
     legs: legs.map((prop) => ({
       id: String(prop.id),
@@ -5205,14 +5228,78 @@ function syncManualBetSlipUi({ busy = false, status = "" } = {}) {
       line: String(prop.line ?? "—"),
       stat: String(prop.betType || "Prop"),
       team: String(prop.team || prop.sport || "MLB"),
-      score: String(prop.score ?? "—"),
+      score: slipScore(prop),
       headshot: prop.headshot ? String(prop.headshot).replace("/headshot/67/current", "/headshot/silo/current") : "",
+      // Pick Builder (src/PickBuilder.jsx) and the Finder's stars.
+      sport: slipLeague(prop),
+      finderId: String(prop.finderId || ""),
+      teamLogo: slipTeamLogo(prop),
+      startsAt: String(prop.startsAt || ""),
+      modifier: slipModifier(prop),
+      apps: (Array.isArray(prop.apps) ? prop.apps : []).map(({ key, name, over, under }) => ({ key, name, over, under })),
+      exportable: SLIP_EXPORT_LEAGUES.has(slipLeague(prop)),
     })),
-    status: status || els.betSlipStatus?.textContent || manualBetSlipStatus(count),
-    canExport: count >= 2 && count <= 6,
+    status: status || els.betSlipStatus?.textContent || manualBetSlipStatus(legs),
+    canExport: manualBetSlipCanExport(legs),
     busy,
   };
   window.dispatchEvent(new CustomEvent("vortex:prop-builder-sync", { detail }));
+}
+
+function savedPropKey(id) {
+  return [...state.savedProps.keys()].find((key) => String(key) === String(id));
+}
+
+// Adds a pick on the given side, or moves a saved one to it. The Finder's
+// stars and the Pick Builder's Over/Under toggle both come through here, so
+// they write to the same list as every other "Add to My Slip".
+function setManualBetSlipPick(prop, side) {
+  if (!prop?.id) return;
+  const pickSide = String(side).toLowerCase() === "under" ? "Under" : "Over";
+  const storedKey = savedPropKey(prop.id);
+  const saved = storedKey === undefined ? null : state.savedProps.get(storedKey);
+  if (pickSide === "Under" && slipMoreOnly(saved || prop)) {
+    showToast("Goblin and Demon lines are More only on PrizePicks.", "warn");
+    return;
+  }
+  if (saved) {
+    if (saved.side === pickSide) return;
+    if (saved.score != null && !saved.scoredSide) saved.scoredSide = saved.side;
+    saved.side = pickSide;
+    showToast(`Switched to ${pickSide}`, "default", `${saved.player} · ${pickSide} ${saved.line} ${saved.betType}`);
+  } else {
+    if (state.savedProps.size >= 6) {
+      showToast("PrizePicks allows up to 6 legs. Remove one from the builder first.", "warn");
+      return;
+    }
+    state.savedProps.set(prop.id, { ...prop, side: pickSide });
+    showToast("Added to Pick Builder", "default", `${prop.player} · ${pickSide} ${prop.line} ${prop.betType}`);
+  }
+  persistSaved();
+  updateSavedCount();
+  if (state.currentTab === "saved") renderSavedGrid();
+  const reportButton = els.reportWrap.querySelector(".save-btn");
+  if (reportButton && currentResearchProp) syncSaveButton(reportButton, currentResearchProp.id);
+}
+
+// The Finder re-sends its current prices and start times for saved picks
+// whenever its board loads, so the Pick Builder's odds are not left at
+// whatever they were when the pick was starred.
+function refreshManualBetSlipPicks(updates) {
+  let changed = false;
+  (Array.isArray(updates) ? updates : []).forEach((update) => {
+    const storedKey = savedPropKey(update?.id);
+    if (storedKey === undefined) return;
+    const saved = state.savedProps.get(storedKey);
+    ["apps", "startsAt", "teamLogo", "headshot"].forEach((field) => {
+      if (update[field] === undefined || JSON.stringify(saved[field]) === JSON.stringify(update[field])) return;
+      saved[field] = update[field];
+      changed = true;
+    });
+  });
+  if (!changed) return;
+  persistSaved();
+  renderManualBetSlip();
 }
 
 function removeManualBetSlipLeg(id) {
@@ -5239,13 +5326,13 @@ function renderManualBetSlip() {
   els.betSlipEmpty.hidden = count > 0;
   els.betSlipLegs.hidden = count === 0;
   els.betSlipClear.disabled = count === 0;
-  els.betSlipExport.disabled = count < 2 || count > 6;
-  els.betSlipStatus.textContent = manualBetSlipStatus(count);
+  els.betSlipExport.disabled = !manualBetSlipCanExport(legs);
+  els.betSlipStatus.textContent = manualBetSlipStatus(legs);
   els.betSlipLegs.innerHTML = legs.map((prop, index) => `
     <article class="bet-slip-leg" style="--slip-delay:${index * 45}ms">
       <span class="bet-slip-rank">${index + 1}</span>
       <div class="bet-slip-avatar">${avatarHtml(prop, "sm")}</div>
-      <div class="bet-slip-copy"><strong>${escapeHtml(prop.player)}</strong><span>${escapeHtml(prop.side)} ${escapeHtml(String(prop.line))} ${escapeHtml(prop.betType)}</span><small>${escapeHtml(prop.team || prop.sport || "MLB")} · Score ${escapeHtml(String(prop.score ?? "—"))}</small></div>
+      <div class="bet-slip-copy"><strong>${escapeHtml(prop.player)}</strong><span>${escapeHtml(prop.side)} ${escapeHtml(String(prop.line))} ${escapeHtml(prop.betType)}</span><small>${escapeHtml(prop.team || prop.sport || "MLB")} · Score ${escapeHtml(slipScore(prop))}</small></div>
       <button type="button" class="bet-slip-remove" data-slip-remove="${escapeHtml(String(prop.id))}" aria-label="Remove ${escapeHtml(prop.player)}">×</button>
     </article>`).join("");
   els.betSlipLegs.querySelectorAll("[data-slip-remove]").forEach((button) => button.addEventListener("click", () => {
@@ -5256,7 +5343,7 @@ function renderManualBetSlip() {
 
 async function exportManualBetSlip() {
   const legs = getSavedProps();
-  if (legs.length < 2 || legs.length > 6) return;
+  if (!manualBetSlipCanExport(legs)) return;
   const originalLabel = els.betSlipExport.textContent;
   els.betSlipExport.disabled = true;
   els.betSlipExport.textContent = "Matching live lines…";
@@ -5310,6 +5397,12 @@ function wireManualBetSlip() {
   window.addEventListener("vortex:prop-builder-remove", (event) => removeManualBetSlipLeg(event.detail?.id));
   window.addEventListener("vortex:prop-builder-clear", clearManualBetSlip);
   window.addEventListener("vortex:prop-builder-export", exportManualBetSlip);
+  window.addEventListener("vortex:prop-builder-set", (event) => setManualBetSlipPick(event.detail?.prop, event.detail?.side));
+  window.addEventListener("vortex:prop-builder-side", (event) => {
+    const storedKey = savedPropKey(event.detail?.id);
+    if (storedKey !== undefined) setManualBetSlipPick(state.savedProps.get(storedKey), event.detail?.side);
+  });
+  window.addEventListener("vortex:prop-builder-refresh", (event) => refreshManualBetSlipPicks(event.detail?.updates));
   renderManualBetSlip();
 }
 
@@ -5333,7 +5426,7 @@ function renderSavedGrid() {
     const correlation = node.querySelector(".saved-correlation");
     correlation.textContent = related.length ? `↗ ${related.length} related saved leg${related.length === 1 ? "" : "s"}` : "";
     correlation.hidden = related.length === 0;
-    node.querySelector(".saved-score").textContent = `${p.tierIcon || ""} ${p.score ?? "—"}`;
+    node.querySelector(".saved-score").textContent = `${p.tierIcon || ""} ${slipScore(p)}`;
     node.querySelector(".saved-sport-tag").textContent = p.sport || "";
 
     const checkbox = node.querySelector(".saved-checkbox");
@@ -5373,6 +5466,9 @@ function renderSavedGrid() {
     });
 
     node.addEventListener("click", () => {
+      // Finder picks (WNBA and the Finder's MLB lines) open in the Finder,
+      // which has their trends; MLB Research only knows MLB props.
+      if (p.source === "finder") { switchTab("finder", { scrollY: 0 }); return; }
       switchTab("research", { scrollY: 0 });
       openExactProp(p);
     });

@@ -8,6 +8,7 @@ import { AuthCard } from './AuthCard';
 import { AdminPinCard } from './AdminPinCard';
 import { MobileNavigation } from './MobileNavigation';
 import { MobileSlipActions } from './MobileSlipActions';
+import { PickBuilder } from './PickBuilder';
 import { ResearchHome } from './ResearchHome';
 import { UnifiedFinder } from './UnifiedFinder';
 const SportResearch = lazy(() => import('./sports/nfl/SportResearch').then(module => ({ default: module.SportResearch })));
@@ -84,6 +85,8 @@ const builderDropdownRoot = document.getElementById('prop-builder-dropdown-root'
 if (builderDropdownRoot) createRoot(builderDropdownRoot).render(<ActivityDropdown />);
 const mobileSlipRoot = document.getElementById('mobile-slip-actions-root');
 if (mobileSlipRoot) createRoot(mobileSlipRoot).render(<MobileSlipActions />);
+const pickBuilderRoot = document.getElementById('pick-builder-root');
+if (pickBuilderRoot) createRoot(pickBuilderRoot).render(<PickBuilder />);
 const researchHomeRoot = document.getElementById('research-home-root');
 
 const sportResearchRoot = document.getElementById('sport-research-root');

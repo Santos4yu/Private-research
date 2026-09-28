@@ -1,0 +1,33 @@
+import {useEffect,useState} from 'react';
+
+// The saved-picks list lives in app.js (state.savedProps, kept in
+// localStorage as "vortex_saved_prop_ids") and these are the events it
+// answers. Every view of it -- the Prop Builder dropdown, My Slip, the Pick
+// Builder side panel and the Finder's stars -- goes through the same ones,
+// so there is one list and one PrizePicks export.
+const send=(name,detail)=>window.dispatchEvent(new CustomEvent(name,{detail}));
+export const pickBuilder={
+ // Add a pick on a side, or move a saved one to it.
+ set:(prop,side)=>send('vortex:prop-builder-set',{prop,side}),
+ side:(id,side)=>send('vortex:prop-builder-side',{id,side}),
+ remove:id=>send('vortex:prop-builder-remove',{id}),
+ clear:()=>send('vortex:prop-builder-clear'),
+ export:()=>send('vortex:prop-builder-export'),
+ // Current prices and start times for saved Finder picks.
+ refresh:updates=>send('vortex:prop-builder-refresh',{updates}),
+ // The side panel (#side-panel), whose first section is the Pick Builder.
+ open:()=>send('vortex:open-more',{section:'pick-builder'}),
+};
+
+export const EMPTY_PICKS={legs:[],status:'Add at least 2 props to export.',canExport:false,busy:false};
+
+export function usePickBuilder(){
+ const [state,setState]=useState(EMPTY_PICKS);
+ useEffect(()=>{
+  const sync=({detail})=>setState(current=>({...current,...(detail||{})}));
+  window.addEventListener('vortex:prop-builder-sync',sync);
+  window.dispatchEvent(new Event('vortex:prop-builder-request-sync'));
+  return()=>window.removeEventListener('vortex:prop-builder-sync',sync);
+ },[]);
+ return state;
+}

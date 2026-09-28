@@ -1,0 +1,82 @@
+/* Pick Builder: the Finder star's Over / Under menu and the side panel's
+   saved-picks section (PickSideMenu.jsx, PickBuilder.jsx). */
+
+/* ---- Finder star menu (portaled to <body>) ---- */
+.pick-side-menu{position:fixed;z-index:1000;width:min(264px,calc(100vw - 24px));padding:12px;border:1px solid #344361;border-radius:16px;background:linear-gradient(180deg,#0f172e 0%,#0a1023 100%);box-shadow:0 22px 70px #000b,0 0 0 1px #ffffff08 inset;color:#edf2ff;font:500 13px/1.4 Inter,Arial,sans-serif;letter-spacing:0;animation:pick-side-in .16s ease-out}
+.pick-side-menu *{box-sizing:border-box}
+.pick-side-menu header{display:grid;gap:2px;margin:0 2px 10px}
+.pick-side-menu header strong{font-size:14px;font-weight:750;color:#fff}
+.pick-side-menu header span{color:#a4acc3;font-size:12px}
+.pick-side-menu header b[data-side=over]{color:#6ce4bb}.pick-side-menu header b[data-side=under]{color:#ff929e}
+.pick-side-options{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pick-side-menu button{display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;margin:0;padding:0 10px;border:1px solid #303b59;border-radius:11px;background:#141d36;color:#dfe6fb;font:650 13px/1 Inter,Arial,sans-serif;letter-spacing:0;cursor:pointer;box-shadow:none;transition:background-color .15s,border-color .15s,color .15s}
+.pick-side-menu button b{font-weight:800;font-variant-numeric:tabular-nums}
+.pick-side-options button[data-side=over]:hover,.pick-side-options button[data-side=over][aria-pressed=true]{border-color:#2fbf8f;background:#0f3b33;color:#b9f5df}
+.pick-side-options button[data-side=under]:hover,.pick-side-options button[data-side=under][aria-pressed=true]{border-color:#d9566d;background:#3f1726;color:#ffd0d8}
+.pick-side-options button[aria-pressed=true]{box-shadow:inset 0 0 0 1px currentColor}
+.pick-side-menu button:disabled{cursor:not-allowed;opacity:.4}
+.pick-side-menu button:disabled:hover{border-color:#303b59;background:#141d36;color:#dfe6fb}
+.pick-side-menu button:focus-visible{outline:2px solid #aaa8ff;outline-offset:2px}
+.pick-side-note{display:block;margin:8px 2px 0;color:#a4acc3;font-size:11px}
+.pick-side-menu .pick-side-remove{width:100%;margin-top:8px;background:transparent;border-color:#3a2536;color:#ff9fb0}
+.pick-side-menu .pick-side-remove:hover{background:#2a1422}
+@keyframes pick-side-in{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.pick-side-menu{animation:none}}
+
+/* ---- Side panel section ---- */
+.side-panel .pick-builder{margin:0 0 22px;padding:14px;border:1px solid #262626;border-radius:18px;background:linear-gradient(180deg,#111 0%,#0b0b0b 100%);color:#eee;font-family:Inter,Arial,sans-serif;letter-spacing:0}
+.pick-builder *{box-sizing:border-box}
+.pick-builder-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:0 2px 12px}
+.pick-builder-head h2{margin:0;font:650 17px/1.2 "Space Grotesk",Inter,Arial,sans-serif;letter-spacing:-.2px;color:#f4f4f2}
+.pick-builder-head>span{color:#8a8a8a;font-size:12px;font-variant-numeric:tabular-nums}
+.pick-builder-empty{display:flex;align-items:center;gap:12px;padding:14px 12px;border:1px dashed #2f2f2f;border-radius:14px;color:#8d8d8d}
+.pick-builder-empty strong{display:block;margin-bottom:2px;color:#ddd;font-size:13px}
+.pick-builder-empty span{font-size:12px;line-height:1.45}
+.pick-builder-empty svg{flex:0 0 auto}
+.pick-builder-list{display:grid;gap:8px}
+.pick-builder-leg{position:relative;display:grid;grid-template-columns:48px minmax(0,1fr);gap:4px 11px;padding:11px 11px 10px;border:1px solid #242424;border-radius:14px;background:#141414}
+.pick-builder-leg[data-side=over]{border-left:3px solid #2fbf8f}
+.pick-builder-leg[data-side=under]{border-left:3px solid #e05a73}
+.pick-builder-photo{position:relative;display:grid;place-items:center;width:48px;height:48px;border-radius:50%;background:#1f1f1f;border:1px solid #333;color:#aaa;font-size:13px;font-weight:700}
+.pick-builder-headshot{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:top}
+.pick-builder-team{position:absolute;right:-5px;bottom:-4px;width:22px;height:22px;padding:2px;border-radius:50%;background:#0b0b0b;border:1px solid #333;object-fit:contain}
+.pick-builder-copy{display:grid;gap:2px;min-width:0;padding-right:26px}
+.pick-builder-copy strong{overflow:hidden;color:#f4f4f2;font-size:14px;font-weight:700;line-height:1.25;text-overflow:ellipsis;white-space:nowrap}
+.pick-builder-stat{display:flex;align-items:center;gap:5px;min-width:0;color:#c9c9c9;font-size:12px}
+.pick-builder-stat b{color:#fff;font-weight:800;font-variant-numeric:tabular-nums}
+.pick-builder-stat img{flex:0 0 auto;object-fit:contain}
+.pick-builder-meta{display:flex;align-items:center;gap:5px;color:#8a8a8a;font-size:11px}
+.pick-builder-odds{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+.pick-builder-book{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 7px 0 3px;border:1px solid #2a2a2a;border-radius:999px;background:#0e0e0e;color:#ddd;font-size:11px;font-weight:650;font-variant-numeric:tabular-nums}
+.pick-builder-book>img{width:18px;height:18px;border-radius:5px;object-fit:contain}
+.pick-builder-book small{color:#8a8a8a;font-size:10px;font-weight:600}
+.pick-builder-side{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:8px;padding:3px;border:1px solid #262626;border-radius:12px;background:#0c0c0c}
+.pick-builder button{margin:0;font-family:inherit;letter-spacing:0;cursor:pointer;box-shadow:none}
+.pick-builder button:disabled{cursor:not-allowed}
+.pick-builder-side button{min-height:36px;padding:0 10px;border:0;border-radius:9px;background:transparent;color:#9a9a9a;font-size:13px;font-weight:650;transition:background-color .15s,color .15s}
+.pick-builder-side button:not(:disabled):hover{color:#fff;background:#1b1b1b}
+.pick-builder-side button[data-side=over][aria-pressed=true]{background:#123f35;color:#bff5e1}
+.pick-builder-side button[data-side=under][aria-pressed=true]{background:#46192a;color:#ffd2da}
+.pick-builder-side button:disabled:not([aria-pressed=true]){opacity:.38}
+.pick-builder-remove{position:absolute;top:8px;right:8px;display:grid;place-items:center;width:30px;height:30px;padding:0;border:0;border-radius:50%;background:transparent;color:#8a8a8a}
+.pick-builder-remove:hover{background:#222;color:#fff}
+/* Keep the tap area 44px on touch screens without enlarging the glyph. */
+@media(pointer:coarse){.pick-builder-remove::after{content:'';position:absolute;inset:-7px;border-radius:50%}}
+.pick-builder-footer{margin-top:12px}
+.pick-builder-footer p{margin:0 2px 10px;color:#9a9a9a;font-size:12px;line-height:1.4}
+.pick-builder-footer>div{display:grid;grid-template-columns:auto 1fr;gap:8px}
+.pick-builder-clear,.pick-builder-export{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:0 14px;border-radius:12px;font-size:13px;font-weight:700}
+.pick-builder-clear{border:1px solid #333;background:#111;color:#ddd}
+.pick-builder-clear:not(:disabled):hover{border-color:#555;color:#fff}
+.pick-builder-export{border:1px solid #8b5cf6;background:linear-gradient(135deg,#8b5cf6 0%,#6d28d9 100%);color:#fff;box-shadow:0 8px 22px rgba(109,40,217,.35)}
+.pick-builder-export:not(:disabled):hover{background:linear-gradient(135deg,#9d74f8 0%,#7c3aed 100%)}
+.pick-builder-clear:disabled,.pick-builder-export:disabled{opacity:.45;box-shadow:none}
+.pick-builder button:focus-visible{outline:2px solid #b69cff;outline-offset:2px}
+
+/* Desktop: the rail is the navigation there (VortexSidebar), and the side
+   panel was only reachable from phones' More button. Opened from the
+   Finder bar, it sits beside the rail and holds just the Pick Builder. */
+@media(min-width:761px){
+ .side-panel{left:64px!important}
+ .side-panel>:is(.side-panel-label,.side-link,.side-panel-divider){display:none!important}
+}
