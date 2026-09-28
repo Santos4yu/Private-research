@@ -28,10 +28,14 @@ ESPN = "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba"
 LEAGUE_KEY = "krazy_data:wnba:v1:league:{season}"
 BUILD_LOCK_KEY = "krazy_data:wnba:v1:league_building"
 BUILD_LOCK_SECONDS = 180
-# Games finish in the evening; a stored season older than this is topped up
-# on the next read. Only newly finished games are fetched, so a top-up is a
-# handful of requests.
+# A stored season older than this is topped up on the next read. Only newly
+# finished games are fetched, so a top-up is a handful of requests.
 REFRESH_SECONDS = 3 * 3600
+# ...and sooner when a game on the stored schedule should be over by now but
+# isn't recorded yet, so last night's game shows up within minutes of the
+# final instead of up to three hours later. Checked at most this often.
+FINISHED_AFTER_SECONDS = int(2.5 * 3600)
+RECHECK_SECONDS = 10 * 60
 # Same reasoning as the NFL board: stay well inside the 60s function limit,
 # store what finished, and let the next build fetch the rest.
 BUILD_DEADLINE_SECONDS = 40
@@ -327,6 +331,23 @@ def _set_lock(value: str) -> None:
         pass
 
 
+def _game_due(payload: dict) -> bool:
+    """A game that should have finished but isn't recorded. Only recent ones
+    count, so a long-postponed game can't make every read re-check."""
+    now = datetime.now(timezone.utc)
+    recorded = payload.get("games") or {}
+    for game in payload.get("schedule") or []:
+        if game["id"] in recorded:
+            continue
+        try:
+            started = datetime.fromisoformat(str(game.get("date")).replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if FINISHED_AFTER_SECONDS < (now - started).total_seconds() < 2 * 86400:
+            return True
+    return False
+
+
 def ensure(season: int) -> dict | None:
     """The stored season, topped up first when it is stale or unfinished.
 
@@ -334,7 +355,9 @@ def ensure(season: int) -> dict | None:
     full backfill is the cron's job. Another instance already building
     means serving what is stored now."""
     payload = stored(season)
-    if payload and not payload.get("partial") and _age_seconds(payload) < REFRESH_SECONDS:
+    age = _age_seconds(payload) if payload else float("inf")
+    stale = age >= REFRESH_SECONDS or (age >= RECHECK_SECONDS and _game_due(payload))
+    if payload and not payload.get("partial") and not stale:
         return payload
     if payload and payload.get("partial") and _age_seconds(payload) < 60:
         return payload

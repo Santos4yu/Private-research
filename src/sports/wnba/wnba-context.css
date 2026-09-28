@@ -27,8 +27,7 @@
 .wnba-strength[data-tone=good]{background:#13342d}.wnba-strength[data-tone=fair]{background:#382f20}.wnba-strength[data-tone=poor]{background:#392332}
 
 /* Main column */
-.wnba-filter-banner{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 12px;border:1px solid #7773da;border-radius:9px;background:linear-gradient(110deg,#272751,#171d34);color:#dfe3ff;font-size:12px}
-.wnba-filter-banner svg{color:#b2a2ff}.wnba-filter-banner button{display:inline-flex;align-items:center;gap:5px;margin-left:auto;min-height:36px;padding:6px 10px;border:1px solid #3b4670;border-radius:7px;background:#171f36;color:#dfe3ff;cursor:pointer}
+.wnba-filter-empty{margin:0;padding:10px 12px;border:1px dashed #3b4670;border-radius:9px;color:#c3cbe0;font-size:12px}
 .wnba-result{font-weight:700}.wnba-result[data-result=W]{color:#65dfb1}.wnba-result[data-result=L]{color:#ff8290}
 .wnba-po-tag{margin-left:6px;padding:2px 5px;border-radius:4px;background:#272751;color:#c8c0ff;font-size:9px;font-weight:700}
 /* Depth charts: slot rows (G1-C) across depth columns, like a coach's sheet. */

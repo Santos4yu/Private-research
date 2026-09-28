@@ -3396,7 +3396,7 @@ function renderGameLogChart() {
         </div>
       </div>
       <span class="gl-date">${escapeHtml(g.dateLabel || formatGameLogDate(fullDate))}</span>
-      <span class="gl-opp">${escapeHtml(MLB_TEAM_ABBRS[opponentId] || String(g.opponent || "").slice(0, 4))}</span>
+      <span class="gl-opp">${escapeHtml(g.opponentLabel || MLB_TEAM_ABBRS[opponentId] || String(g.opponent || "").slice(0, 4))}</span>
     `;
     const shell = col.querySelector(".gl-bar-shell");
     shell?.addEventListener("click", () => {
@@ -3534,7 +3534,7 @@ function wireGameLogModal() {
  * thin sport-specific surface the shared renderers need.
  *
  * The host hands over games already in this panel's own shape:
- *   { value, fullDate, dateLabel, opponent, isHome, season }
+ *   { value, fullDate, dateLabel, opponent, opponentLabel, isHome, season }
  * which is exactly what filterGames()/renderGameLogChart() already read.
  */
 let externalTrendConfig = null;
@@ -3618,6 +3618,49 @@ function applyExternalTrendMarket(config) {
   renderGameLogBookOdds();
 }
 
+// Chips for filters the host applied to config.chart (WNBA's with/without
+// teammate choices). The host owns the filtering; a chip only reports it and
+// asks the host to drop it.
+function renderExternalTrendChips(config) {
+  const slot = document.getElementById("gamelog-ext-chips");
+  if (!slot) return;
+  const chips = Array.isArray(config?.chips) ? config.chips : [];
+  slot.hidden = !chips.length;
+  const nodes = [];
+  if (chips.length && config.chipsNote) {
+    const note = document.createElement("span");
+    note.className = "gamelog-ext-note";
+    note.textContent = config.chipsNote;
+    nodes.push(note);
+  }
+  for (const chip of chips) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "gamelog-ext-chip";
+    button.dataset.kind = chip.kind || "";
+    button.title = chip.title || "";
+    button.setAttribute("aria-label", `Remove filter: ${chip.label}`);
+    const label = document.createElement("span");
+    label.textContent = chip.label;
+    const close = document.createElement("span");
+    close.className = "gamelog-ext-chip-x";
+    close.setAttribute("aria-hidden", "true");
+    close.textContent = "×";
+    button.append(label, close);
+    button.addEventListener("click", () => externalTrendConfig?.onChipRemove?.(chip.key));
+    nodes.push(button);
+  }
+  if (chips.length > 1) {
+    const clear = document.createElement("button");
+    clear.type = "button";
+    clear.className = "gamelog-ext-clear";
+    clear.textContent = "Clear all";
+    clear.addEventListener("click", () => externalTrendConfig?.onChipsClear?.());
+    nodes.push(clear);
+  }
+  slot.replaceChildren(...nodes);
+}
+
 window.vortexTrendPanel = {
   // Finder hosts MLB's mature chart directly, without navigating away from
   // the unified board. The normal MLB loaders still provide every stat,
@@ -3636,6 +3679,7 @@ window.vortexTrendPanel = {
     if (overlay.parentElement !== host) host.appendChild(overlay);
     externalTrendConfig = null;
     externalTrendHost = host;
+    renderExternalTrendChips(null);
     gameLogState.lineEdited = false;
     openGameLogModal(prop, MLB_TREND_ADAPTER);
     return true;
@@ -3686,6 +3730,7 @@ window.vortexTrendPanel = {
       renderGameLogChart();
     }
     applyExternalTrendMarket(config);
+    renderExternalTrendChips(config);
   },
   // Park the shared node back on <body> so a later MLB report can reclaim
   // it (getElementById only ever finds an ATTACHED node -- see
@@ -3695,6 +3740,7 @@ window.vortexTrendPanel = {
     if (trendAdapter === EXTERNAL_TREND_ADAPTER) trendAdapter = MLB_TREND_ADAPTER;
     externalTrendConfig = null;
     externalTrendHost = null;
+    renderExternalTrendChips(null);
     const overlay = document.getElementById("gamelog-overlay") || els.gamelogOverlay;
     // Only park it if this host still holds it. Leaving one sport for the
     // other can run the two teardowns in either order, and parking a node

@@ -41,9 +41,20 @@ export const opponentOf=row=>row.team===row.homeTeam?row.awayTeamAbbr:row.homeTe
 // single request (wnbaGet keys on the URL, and the URL on this order).
 export const playerContextParams=row=>({playerId:row.playerId,team:row.teamAbbr,opponent:opponentOf(row),market:row.marketKey,line:row.line});
 export const hasPlayerContext=row=>Boolean(row.playerId&&row.teamAbbr&&opponentOf(row)&&MARKET_STAT[row.marketKey]);
-// The chart filter a with/without choice sets. Same key everywhere, so the
-// depth chart and the Injuries tab show the same choice as pressed.
-export const splitFilter=(id,kind,name,ids)=>({key:`${id}:${kind}`,label:`${kind} ${name}`,ids});
+// With/without choices on the chart. Several can be on at once (two
+// teammates out, one in...); the chart keeps only the games matching all of
+// them. The depth chart and the Injuries tab share this one list.
+export const splitFilter=(id,kind,name,pos,ids)=>({id:String(id),kind,name,pos:positionOf(pos),ids:(ids||[]).map(String)});
+export const splitKey=filter=>`${filter.id}:${filter.kind}`;
+export const hasSplit=(filters,id,kind)=>filters.some(filter=>filter.id===String(id)&&filter.kind===kind);
+// Same teammate, same choice: off. Same teammate, other choice: switch.
+export function toggleSplit(filters,entry){
+ const current=filters.find(filter=>filter.id===entry.id);
+ if(current?.kind===entry.kind)return filters.filter(filter=>filter.id!==entry.id);
+ return [...filters.filter(filter=>filter.id!==entry.id),entry];
+}
+export const splitLabel=filter=>`${filter.kind==='without'?'W/O':'W/'} ${filter.name}${filter.pos?` (${filter.pos})`:''}`;
+export const applySplits=(logs,filters)=>filters.length?(logs||[]).filter(game=>filters.every(filter=>filter.ids.includes(String(game.gameId)))):(logs||[]);
 export const positionOf=value=>{const p=String(value||'').toUpperCase()[0];return ['G','F','C'].includes(p)?p:null;};
 export const finite=value=>typeof value==='number'&&Number.isFinite(value);
 export function fmt(value,digits=1){if(!finite(value))return '—';return Number(value.toFixed(digits)).toLocaleString();}

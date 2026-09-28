@@ -1,7 +1,7 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {Activity,ArrowLeftRight,CalendarClock,ChartColumn,HeartPulse,ListOrdered,RefreshCw,Shield,Target,Trophy,UserRound,Users} from 'lucide-react';
 import {FinderDropdown,FinderDropdownAssets} from '../../FinderDropdown';
-import {MARKET_STAT,POSITIONS,ago,average,finite,fmt,hasPlayerContext,opponentOf,ordinal,playerContextParams,positionOf,price,rankTone,realGames,shortDate,signed,splitFilter,teamColor,useWnba} from './wnba-research';
+import {MARKET_STAT,POSITIONS,ago,average,finite,fmt,hasPlayerContext,hasSplit,opponentOf,ordinal,playerContextParams,positionOf,price,rankTone,realGames,shortDate,signed,splitFilter,teamColor,useWnba} from './wnba-research';
 
 const tabs=[['matchup','Matchup',Trophy],['defense','Defense',Shield],['shooting','Shooting',Target],['similar','Similar',Users],['injuries','Injuries',HeartPulse],['rankings','Rankings',ListOrdered]];
 function Card({title,note,children,icon:Icon=Activity,className=''}){return <section className={'mlb-context-card '+className}><header><h2><Icon size={16} aria-hidden="true"/>{title}</h2>{note&&<small>{note}</small>}</header>{children}</section>;}
@@ -176,12 +176,12 @@ function SplitLine({label,split,line}){
  const decided=(split.hits??0)+(split.misses??0);
  return <span className="wnba-split"><b>{label}</b> {split.games} {split.games===1?'game':'games'} · avg {fmt(split.avg)}{finite(line)&&decided?` · over ${line} in ${split.hits}/${decided}`:''}</span>;
 }
-function FilterButtons({name,impact,filter,onFilter}){
+function FilterButtons({name,pos,impact,filters,onToggleFilter}){
  if(!impact)return null;
- const choose=(kind,ids)=>onFilter(filter?.key===`${impact.id}:${kind}`?null:splitFilter(impact.id,kind,name,ids));
- return <div className="wnba-filter-buttons">{[['without',impact.without],['with',impact.with]].map(([kind,split])=><button type="button" key={kind} data-kind={kind} disabled={!split.games} aria-pressed={filter?.key===`${impact.id}:${kind}`} onClick={()=>choose(kind,split.gameIds)}>{kind==='without'?'Without':'With'} <small>{split.games}</small></button>)}</div>;
+ const choose=(kind,ids)=>onToggleFilter(splitFilter(impact.id,kind,name,pos||impact.pos,ids));
+ return <div className="wnba-filter-buttons">{[['without',impact.without],['with',impact.with]].map(([kind,split])=><button type="button" key={kind} data-kind={kind} disabled={!split.games} aria-pressed={hasSplit(filters,impact.id,kind)} onClick={()=>choose(kind,split.gameIds)}>{kind==='without'?'Without':'With'} <small>{split.games}</small></button>)}</div>;
 }
-function Injuries({matchup,player,row,filter,onFilter}){
+function Injuries({matchup,player,row,filters,onToggleFilter}){
  const team=row.teamAbbr,opponent=opponentOf(row),[side,setSide]=useState(team);
  useEffect(()=>setSide(team),[team]);
  const m=matchup.data,impact=new Map((player.data?.withWithout||[]).map(item=>[item.id,item]));
@@ -197,7 +197,7 @@ function Injuries({matchup,player,row,filter,onFilter}){
    <div className="mlb-injury-heading"><span className="mlb-injury-avatar"><UserRound size={26} aria-hidden="true"/>{item.headshot&&<img src={item.headshot} alt="" width="48" height="48" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}</span><div><h3>{item.name}</h3><small>{item.position}</small></div><span className="mlb-injury-status" data-day={item.status!=='Out'}>{[item.code||item.status,item.injury].filter(Boolean).join(' · ')}</span></div>
    {(item.comment||item.detail)&&<p className="mlb-injury-reason">{item.comment||item.detail}</p>}
    <div className="mlb-injury-return"><CalendarClock size={15} aria-hidden="true"/><span>{item.code==='OFS'?'Out for the season':injuryDate(item.returnDate)?`Estimated return · ${injuryDate(item.returnDate)}`:'Return timetable not reported'}</span></div>
-   {effect&&<div className="wnba-impact"><span className="wnba-impact-title">{row.player} · {row.market}</span><SplitLine label="Without" split={effect.without} line={row.line}/><SplitLine label="With" split={effect.with} line={row.line}/><FilterButtons name={item.name} impact={effect} filter={filter} onFilter={onFilter}/></div>}
+   {effect&&<div className="wnba-impact"><span className="wnba-impact-title">{row.player} · {row.market}</span><SplitLine label="Without" split={effect.without} line={row.line}/><SplitLine label="With" split={effect.with} line={row.line}/><FilterButtons name={item.name} pos={item.position} impact={effect} filters={filters} onToggleFilter={onToggleFilter}/></div>}
    {injuryDate(item.date)&&<small className="mlb-injury-reported">Reported {injuryDate(item.date)}</small>}
   </article>;})}</div>}
   <Empty>Return dates are ESPN's estimates, not clearance to play.</Empty>
@@ -206,9 +206,9 @@ function Injuries({matchup,player,row,filter,onFilter}){
   {player.loading&&!player.data?<Skeleton/>:!player.data?<Failed state={player} label="Teammate splits"/>:others.length?<div className="wnba-teammate-list">{others.map(item=><div className="wnba-teammate" key={item.id}>
    <Avatar src={item.headshot}/><span className="wnba-similar-name"><strong>{item.name}</strong><small>{item.pos} · {fmt(item.min)} min</small></span>
    <span className="wnba-teammate-splits"><SplitLine label="Without" split={item.without} line={row.line}/><SplitLine label="With" split={item.with} line={row.line}/></span>
-   <FilterButtons name={item.name} impact={item} filter={filter} onFilter={onFilter}/></div>)}</div>
+   <FilterButtons name={item.name} pos={item.pos} impact={item} filters={filters} onToggleFilter={onToggleFilter}/></div>)}</div>
   :<Empty>{row.player} has played every game alongside each current teammate.</Empty>}
-  <Empty>{row.player}'s results this season in games each teammate missed, and in games they played. "Without" or "With" narrows the chart to those games.</Empty>
+  <Empty>{row.player}'s results this season in games each teammate missed, and in games they played. "Without" or "With" narrows the chart to those games; pick several to combine them.</Empty>
  </Card>}
  </>;
 }
@@ -243,7 +243,7 @@ function Averages({row,logs}){
  </Card>;
 }
 
-export default function WNBAFinderContext({row,logs,matchup,filter,onFilter}){
+export default function WNBAFinderContext({row,logs,matchup,filters,onToggleFilter}){
  const [tab,setTab]=useState('matchup');
  const opponent=opponentOf(row);
  const league=useWnba('league-context',{});
@@ -257,7 +257,7 @@ export default function WNBAFinderContext({row,logs,matchup,filter,onFilter}){
   {tab==='defense'&&<><DefenseVsPosition league={league} row={row} stat={stat} playerPosition={playerPosition}/><OffenseVsDefense league={league} row={row}/></>}
   {tab==='shooting'&&<ShotChart player={player} league={league} row={row}/>}
   {tab==='similar'&&<SimilarPlayers player={player} row={row} statLabel={statLabel} playerPosition={playerPosition}/>}
-  {tab==='injuries'&&<Injuries matchup={matchup} player={player} row={row} filter={filter} onFilter={onFilter}/>}
+  {tab==='injuries'&&<Injuries matchup={matchup} player={player} row={row} filters={filters} onToggleFilter={onToggleFilter}/>}
   {tab==='rankings'&&<Rankings league={league} row={row}/>}
   <Averages row={row} logs={logs}/>
  </aside>;

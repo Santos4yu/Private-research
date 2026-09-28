@@ -1252,3 +1252,61 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
 .nfl-trend-shell > * { min-width: 0; }
 .nfl-trend-host { min-width: 0; }
 .nfl-trend-host:empty { display: none; }
+
+/* Lineup filters a host sport applied to the chart (WNBA "W/O <teammate>"):
+   removable pills at the right end of the filter row, like pickfinder.app. */
+:root[data-theme] #gamelog-overlay .gamelog-ext-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  align-self: flex-end;
+  gap: 6px;
+  margin-left: auto;
+  min-width: 0;
+}
+:root[data-theme] #gamelog-overlay .gamelog-ext-chips[hidden] { display: none; }
+:root[data-theme] #gamelog-overlay .gamelog-filter-panel .gamelog-ext-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  max-width: 100%;
+  padding: 0 10px 0 14px;
+  border: 1px solid #343d5c;
+  border-radius: 999px;
+  background: #1a2138;
+  color: #e7ebf7;
+  font: 600 13px/1 var(--font-sans, sans-serif);
+  cursor: pointer;
+}
+:root[data-theme] #gamelog-overlay .gamelog-ext-chip > span:first-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+:root[data-theme] #gamelog-overlay .gamelog-ext-chip::before { content: ""; flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: #ff7b8a; }
+:root[data-theme] #gamelog-overlay .gamelog-ext-chip[data-kind=with]::before { background: #5fe0a7; }
+:root[data-theme] #gamelog-overlay .gamelog-ext-chip-x { font-size: 17px; line-height: 1; color: #9aa6c2; }
+:root[data-theme] #gamelog-overlay .gamelog-filter-panel .gamelog-ext-chip:hover { border-color: #56607f; background: #212a45; }
+:root[data-theme] #gamelog-overlay .gamelog-filter-panel .gamelog-ext-chip:hover .gamelog-ext-chip-x { color: #fff; }
+:root[data-theme] #gamelog-overlay .gamelog-ext-note { color: #9aa6c2; font: 500 12px/1 var(--font-sans, sans-serif); }
+:root[data-theme] #gamelog-overlay .gamelog-filter-panel .gamelog-ext-clear {
+  min-height: 36px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #a9b6d3;
+  font: 600 12px/1 var(--font-sans, sans-serif);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+:root[data-theme] #gamelog-overlay .gamelog-filter-panel :is(.gamelog-ext-chip, .gamelog-ext-clear):focus-visible { outline: 2px solid #86baff; outline-offset: 2px; }
+/* Chips never squeeze the Season/Location pickers: those keep their size
+   and the chips wrap onto their own line instead (a full line on phones).
+   The Finder's phone layout pins this row to one line (unified-finder.css),
+   so wrapping is re-allowed here only while chips are showing. */
+:root[data-theme] #gamelog-overlay .gamelog-filter-panel:has(.gamelog-ext-chips:not([hidden])),
+:root[data-theme] .unified-finder #gamelog-overlay .gamelog-filter-panel:has(.gamelog-ext-chips:not([hidden])) { flex-wrap: wrap !important; }
+:root[data-theme] #gamelog-overlay .gamelog-filter-panel:has(.gamelog-ext-chips:not([hidden])) .gamelog-filter-field { flex-shrink: 0; }
+@media (max-width: 680px) {
+  :root[data-theme] #gamelog-overlay .gamelog-ext-chips { flex: 1 0 100%; justify-content: flex-start; margin-left: 0; }
+}

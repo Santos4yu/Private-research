@@ -141,6 +141,18 @@ class ContextTests(unittest.TestCase):
         self.assertEqual(set(context.MARKET_STAT), set(wnba_api.MARKETS))
 
 
+class TopUpTests(unittest.TestCase):
+    def test_a_finished_but_unrecorded_game_is_due(self):
+        from datetime import datetime, timedelta, timezone
+        ago = lambda hours: (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%MZ")
+        payload = lambda game: {"games": {"old": {}}, "schedule": [game]}
+        self.assertTrue(league._game_due(payload({"id": "g", "date": ago(3)})))
+        self.assertFalse(league._game_due(payload({"id": "g", "date": ago(1)})))      # still being played
+        self.assertFalse(league._game_due(payload({"id": "old", "date": ago(3)})))    # already recorded
+        # A long-postponed game never makes every read re-check.
+        self.assertFalse(league._game_due(payload({"id": "g", "date": ago(24 * 5)})))
+
+
 class PreseasonTests(unittest.TestCase):
     def test_preseason_games_never_count_toward_hit_rates(self):
         from unittest.mock import patch
