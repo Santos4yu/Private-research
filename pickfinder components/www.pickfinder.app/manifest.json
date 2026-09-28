@@ -1,0 +1,27 @@
+{
+  "theme_color": "#060A1C",
+  "background_color": "#060A1C",
+  "icons": [
+    {
+      "purpose": "maskable",
+      "sizes": "512x512",
+      "src": "/pwa/icon512_maskable.png",
+      "type": "image/png"
+    },
+    {
+      "purpose": "any",
+      "sizes": "512x512",
+      "src": "/pwa/icon512_rounded.png",
+      "type": "image/png"
+    }
+  ],
+  "orientation": "any",
+  "display": "standalone",
+  "lang": "en-US",
+  "name": "PickFinder",
+  "short_name": "PickFinder",
+  "start_url": "/props",
+  "scope": "/",
+  "description": "Elevate your sports betting experience with PickFinder's comprehensive analytics platform for PrizePicks and Underdog.",
+  "id": "/"
+}

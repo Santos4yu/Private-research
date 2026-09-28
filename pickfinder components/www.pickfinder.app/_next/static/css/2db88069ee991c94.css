@@ -1,0 +1,23 @@
+@font-face {
+    font-family: __GeistSans_8adcd2;
+    src: url(/_next/static/media/0b78ff376f6b9734-s.p.woff2) format("woff2");
+    font-display: swap;
+    font-weight: 100 900
+}
+
+@font-face {
+    font-family: __GeistSans_Fallback_8adcd2;
+    src: local("Arial");
+    ascent-override: 94.56%;
+    descent-override: 27.76%;
+    line-gap-override: 0.00%;
+    size-adjust: 106.28%
+}
+
+.__className_8adcd2 {
+    font-family: __GeistSans_8adcd2, __GeistSans_Fallback_8adcd2
+}
+
+.__variable_8adcd2 {
+    --font-geist-sans: "__GeistSans_8adcd2", "__GeistSans_Fallback_8adcd2"
+}
