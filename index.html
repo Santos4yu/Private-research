@@ -9,7 +9,12 @@
      switches by app.js, so mobile Safari's status-bar/toolbar area blends
      with the app instead of showing its own default grey. -->
 <meta name="theme-color" content="#000000" id="theme-color-meta" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<!-- Opaque, not black-translucent: on iOS 26+ a translucent status bar over
+     a viewport-fit=cover page gets the system "Liquid Glass" blur band,
+     which smears the top ~35px of the page and can't be turned off. With a
+     solid bar the page never goes under the clock. (Home-screen installs
+     keep the old setting until the icon is removed and added again.) -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="KD" />
 <link rel="manifest" href="/manifest.json?v=3" />

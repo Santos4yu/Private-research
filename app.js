@@ -1262,7 +1262,7 @@ function wireTabs() {
 
 // The profile/settings buttons are pinned with
 // top: calc(14px + var(--site-status-inset)), and that variable resolves to
-// max(44px, env(safe-area-inset-top)) (src/site-access.css). On iOS Safari
+// the safe-area inset plus iOS 26's glass band (src/site-access.css). On iOS Safari
 // env(safe-area-inset-top) is NOT constant: it changes as the browser's top
 // toolbar collapses and expands during scrolling, so the variable
 // recalculates mid-scroll and slides both buttons down and back up. They are
@@ -1278,7 +1278,10 @@ function freezeStatusInset() {
     document.body.appendChild(probe);
     const inset = parseFloat(getComputedStyle(probe).paddingTop) || 0;
     probe.remove();
-    document.documentElement.style.setProperty("--site-status-inset", `${Math.max(44, Math.round(inset))}px`);
+    // Same formula as src/site-access.css: the inset, plus -- when the page
+    // runs under the clock at all -- the ~35px glass blur band iOS 26+ draws
+    // below it. 0 with the solid status bar, so no empty band at the top.
+    document.documentElement.style.setProperty("--site-status-inset", `${Math.round(inset + Math.min(inset, 36))}px`);
   };
   apply();
   window.addEventListener("orientationchange", () => setTimeout(apply, 250));

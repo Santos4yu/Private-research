@@ -106,7 +106,12 @@ html:not([data-site-access="granted"]) #dock-root{display:none!important}
 .site-all-locked[hidden]{display:none!important}
 html[data-all-tabs-locked=true] #app-shell .tab-panel{display:none!important}
 @media(max-width:760px){
- html{--site-status-inset:max(44px,env(safe-area-inset-top,0px))}
+ /* How far the phone's own chrome reaches over the page. 0 when the status
+    bar is solid (the page starts below it). When the page does run under
+    the clock -- Safari, or a home-screen icon saved with the old
+    translucent status bar -- iOS 26+ adds a ~35px glass blur band below
+    the inset that the inset doesn't include, so that is cleared too. */
+ html{--site-status-inset:calc(env(safe-area-inset-top,0px) + min(env(safe-area-inset-top,0px),36px))}
  html[data-site-access=granted]{--app-top:calc(72px + var(--site-status-inset))}
  html[data-site-access=granted][data-theme] .hero{padding-top:calc(12px + var(--site-status-inset))!important}
  .site-policy-gate{padding-top:calc(24px + var(--site-status-inset));padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
