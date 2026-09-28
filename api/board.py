@@ -186,6 +186,14 @@ class handler(BaseHTTPRequestHandler):
                 force = (parse_qs(urlparse(self.path).query).get("refresh") or [""])[0] == "1"
                 rows = [row for row in _fetch_projection_rows(force=force)
                         if view == "props" or _norm_stat(row.get("stat")) in PITCHER_MARKETS]
+                # The Finder asks for every book's price at each line too
+                # (mlb_book_lines.py). Without them the lines still stand.
+                if view == "props" and (parse_qs(urlparse(self.path).query).get("apps") or [""])[0] == "1":
+                    try:
+                        from mlb_book_lines import attach
+                        rows = attach(rows)
+                    except Exception:
+                        pass
                 rows.sort(key=lambda row: (
                     0 if row.get("odds_type") == "goblin" else 1,
                     str(row.get("player") or ""),
