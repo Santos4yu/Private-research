@@ -596,3 +596,4 @@
 .finder-moneyline[data-tone=mid] b{background:#3a2f12;color:#f4c53f}
 .finder-moneyline[data-tone=low] b{background:#3b2430;color:#ff8290}
 @media(max-width:760px){.finder-moneyline{font-size:11px;padding:3px 8px}.finder-moneyline img{width:16px;height:16px}}
+.finder-admin-note{color:#f4c53f}
