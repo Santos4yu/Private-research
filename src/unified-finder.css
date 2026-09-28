@@ -328,6 +328,12 @@
 .finder-multi-search{display:flex;align-items:center;gap:10px;height:56px;padding:0 16px;border-bottom:1px solid #2f343a;color:#969ca3}
 .finder-multi-search input{width:100%;height:100%;min-width:0;border:0;outline:0;background:transparent;color:#f1f7ff;font-size:16px}
 .finder-multi-search input::placeholder{color:#a3a8af}
+/* The site's themed inputs (a filled panel and a 2px focus outline) outrank
+   the rule above; the ID in :is() lifts this one past them. The search row
+   itself shows focus instead: an accent underline and icon. */
+:root .finder-multi-search input:is(*,#_){height:100%!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;outline:none!important}
+.finder-multi-search{transition:color .15s,box-shadow .15s}
+.finder-multi-search:focus-within{color:var(--theme-accent-soft,var(--theme-accent));box-shadow:inset 0 -2px 0 var(--theme-accent)}
 .finder-multi-select-all,.finder-multi-option{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:8px 16px;background:transparent;color:#ebf1f8;text-align:left;font-size:15px}
 .finder-multi-select-all:hover,.finder-multi-option:hover{background:#22272c}
 .finder-multi-select-all{border-bottom:1px solid #292d33}
