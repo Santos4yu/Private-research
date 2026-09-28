@@ -29,7 +29,7 @@ class FixtureTests(Offline):
         day = datetime(2026, 9, 29, tzinfo=timezone.utc)
         with patch.object(research, "_get", return_value=scoreboard("900", ARS, CHE, "2026-09-29T14:00Z")) as get:
             [fixture] = research._scoreboard("eng.1", day, day)
-        self.assertIn("/eng.1/scoreboard?dates=20260929-20260929", get.call_args.args[0])
+        self.assertIn("/eng.1/scoreboard?dates=20260929&", get.call_args.args[0])
         self.assertEqual((fixture["leagueName"], fixture["venue"]), ("English Premier League", "Emirates Stadium"))
         self.assertEqual((fixture["home"]["abbr"], fixture["away"]["abbr"]), ("ARS", "CHE"))
         chances = fixture["odds"]["noVig"]
@@ -56,6 +56,17 @@ class FixtureTests(Offline):
         self.assertEqual((row["eventId"], row["competition"], row["teamId"], row["opponentId"], row["isHome"]), ("900", "eng.1", "359", "363", True))
         self.assertEqual(row["teamLogo"], ARS["logo"])
         self.assertGreater(row["winChance"], 50)
+
+    def test_full_team_names_match_without_abbreviations(self):
+        fixture = research._fixture(scoreboard("900", ARS, CHE, "2026-09-29T14:00Z")["events"][0], "eng.1", "EPL")
+        result = research.match_fixture(ARS["displayName"], CHE["displayName"], "2026-09-29T14:00Z", [fixture])
+        self.assertEqual(result["team"]["id"], str(ARS["id"]))
+
+    def test_fixture_scan_queries_every_day_separately(self):
+        with patch.object(research, "LEAGUES", ("eng.1",)), patch.object(research, "_scoreboard", return_value=[]) as board:
+            research.fixtures(1790000000)
+        self.assertEqual(board.call_count, research.FIXTURE_DAYS + 1)
+        self.assertTrue(all(call.args[1] == call.args[2] for call in board.call_args_list))
 
 
 class RecordTests(Offline):

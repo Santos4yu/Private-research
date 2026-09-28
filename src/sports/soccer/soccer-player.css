@@ -1,5 +1,10 @@
 /* The soccer player page borrows the WNBA / MLB page styles; these are the
    soccer-only cards. */
+.soccer-history-empty{display:flex;flex-direction:column;align-items:center;gap:12px;margin:20px;padding:32px 20px;text-align:center;border:1px solid #30343a;border-radius:16px;background:#151a20;color:#c6ccd3}
+.soccer-history-empty strong{font-size:17px;color:#edf3fa}
+.soccer-history-empty p{max-width:380px;margin:0;line-height:1.6;font-size:14px}
+.soccer-history-empty button{min-height:44px;padding:10px 18px;border:1px solid #465363;border-radius:10px;background:#202d3b;color:#edf3fa;font:inherit;cursor:pointer}
+.soccer-history-empty button:focus-visible{outline:2px solid #008cff;outline-offset:3px}
 .soccer-win .mlb-win-ring>span b{display:block;margin-top:3px;font-size:15px;letter-spacing:0;color:#edf3fa}
 
 .soccer-compare-teams{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:10px;padding:12px 14px 4px}

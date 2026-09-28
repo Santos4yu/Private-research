@@ -104,7 +104,7 @@ export function SoccerPlayerPage({row,playerRows,onBack}){
  const chipsNote=filters.length?`${chartGames.length} ${chartGames.length===1?'match':'matches'}`:'';
  return <section className="finder-trend-view wnba-trend-page wnba-player-page soccer-player-page">
   <FinderPlayerBanner row={selected} playerRows={playerRows} onBack={onBack}/>
-  {!matched?<div className="wnba-board-message" role="status"><Database size={22} aria-hidden="true"/><strong>Match history unavailable</strong><span>This line could not be matched to its match yet, so trends and matchup research are not available.</span></div>:<>
+  {!matched?<div className="soccer-history-empty" role="status"><Database size={26} aria-hidden="true"/><strong>Match history not available yet</strong><p>We haven't linked this prop to its fixture yet. Stats will appear once a match is found.</p><button type="button" onClick={onBack}>Back to Finder</button></div>:<>
   {log.error&&<div className="wnba-board-message" role="alert"><span>{log.error}</span><button type="button" className="wnba-trend-back" onClick={log.retry}><RefreshCw size={16} aria-hidden="true"/>Retry</button></div>}
   <div className="mlb-finder-workspace"><div className="mlb-trend-main">
    <TrendChart row={selected} playerRows={playerRows} games={chartGames} loading={loading} onStat={onStat} chips={chips} chipsNote={chipsNote} onChipRemove={removeFilter} onChipsClear={clearFilters}/>

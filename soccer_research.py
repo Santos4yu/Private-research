@@ -215,7 +215,8 @@ def _fixture(event, slug, league_name):
 
 
 def _scoreboard(slug, start, end):
-    data = _get(f"{ESPN}/{slug}/scoreboard?dates={start:%Y%m%d}-{end:%Y%m%d}&limit=300")
+    # Soccer scoreboards silently return no events for date ranges.
+    data = _get(f"{ESPN}/{slug}/scoreboard?dates={start:%Y%m%d}&limit=300")
     league = (data.get("leagues") or [{}])[0]
     name = league.get("name") or league.get("abbreviation") or slug
     fixtures = []
@@ -232,19 +233,23 @@ def fixtures(now=None):
         today = datetime.fromtimestamp(now or time.time(), timezone.utc) - timedelta(hours=6)
         end = today + timedelta(days=FIXTURE_DAYS)
 
-        def load(slug):
+        def load(task):
+            slug, day = task
             try:
-                return _scoreboard(slug, today, end)
+                return _cached(f"soccer:fixture-day:v2:{slug}:{day:%Y%m%d}", 600,
+                               lambda: _scoreboard(slug, day, day))
             except Exception:
                 return []
 
         with ThreadPoolExecutor(max_workers=12) as pool:
-            found = [fixture for batch in pool.map(load, LEAGUES) for fixture in batch]
+            tasks = [(slug, today + timedelta(days=offset))
+                     for offset in range(FIXTURE_DAYS + 1) for slug in LEAGUES]
+            found = [fixture for batch in pool.map(load, tasks) for fixture in batch]
         unique = {}
         for fixture in found:
             unique.setdefault(fixture["id"], fixture)
         return sorted(unique.values(), key=lambda item: item.get("date") or "")
-    return _cached("soccer:fixtures:v1", 10 * 60, build, keep=lambda value: bool(value))
+    return _cached("soccer:fixtures:v2", 10 * 60, build, keep=lambda value: bool(value))
 
 
 def _side_score(side, abbr, name):
@@ -271,8 +276,8 @@ def match_fixture(team, opponent, starts_at, fixture_list, team_name=None):
         if starts is not None and when is not None and abs(when - starts) > 3 * 3600:
             continue
         for side, other in (("home", "away"), ("away", "home")):
-            mine = _side_score(fixture[side], team, team_name)
-            theirs = _side_score(fixture[other], opponent, None)
+            mine = _side_score(fixture[side], team, team_name or team)
+            theirs = _side_score(fixture[other], opponent, opponent)
             if not mine and not theirs:
                 continue
             # One side known and the kickoff exact is enough; otherwise both.
