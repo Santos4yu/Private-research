@@ -39,7 +39,7 @@ LEAGUES = (
 )
 SLUG = re.compile(r"^[a-z0-9._]{2,40}$")
 ID = re.compile(r"^\d{1,12}$")
-LOG_GAMES = 20
+LOG_GAMES = 30
 FIXTURE_DAYS = 4
 
 # ESPN's per-player match stats, under the keys the Finder uses. Any other
@@ -493,7 +493,7 @@ def team_log(team_id, event_id=None, slug=None, games=LOG_GAMES):
             team = next((item for item in value["teams"] if item["id"] == team_id), None) or team
         return {"team": {key: (team or {}).get(key) for key in ("id", "abbr", "name", "logo", "color", "altColor")},
                 "games": rows, "builtAt": datetime.now(timezone.utc).isoformat()}
-    return _cached(f"soccer:teamlog:v1:{team_id}:{event_id or 'latest'}", 3 * 3600, build, keep=lambda value: bool(value["games"]))
+    return _cached(f"soccer:teamlog:v2:{team_id}:{event_id or 'latest'}", 3 * 3600, build, keep=lambda value: bool(value["games"]))
 
 
 # ---------------------------------------------------------------- club matches
@@ -567,8 +567,11 @@ def _standings(summary):
             stats = {stat.get("name") or stat.get("type"): _number(stat.get("value") if stat.get("value") is not None else stat.get("displayValue"))
                      for stat in entry.get("stats") or []}
             logos = entry.get("logo") or (team.get("logos") if isinstance(team, dict) else None) or []
+            note = entry.get("note") or {}
             entries.append({"id": str(entry.get("id") or (team.get("id") if isinstance(team, dict) else "") or ""), "name": name or "",
                             "logo": logos[0].get("href") if logos and isinstance(logos[0], dict) else None,
+                            # The zone a place leads to (qualification, relegation), in ESPN's color.
+                            "zone": note.get("color"), "zoneName": note.get("description"),
                             "rank": stats.get("rank"), "played": stats.get("gamesPlayed"), "wins": stats.get("wins"),
                             "draws": stats.get("ties"), "losses": stats.get("losses"),
                             "gd": stats.get("pointDifferential"), "points": stats.get("points")})
@@ -591,6 +594,29 @@ def _lineups(summary):
         if players:
             lineups[team_id] = {"formation": roster.get("formation"), "players": players}
     return lineups
+
+
+def _injuries(summary):
+    """ESPN's injury report for the match, by team id (same shape as its
+    other sports' summaries)."""
+    found = {}
+    for block in summary.get("injuries") or []:
+        team_id = str(((block.get("team") or {}).get("id")) or "")
+        if not team_id:
+            continue
+        listed = []
+        for item in block.get("injuries") or []:
+            athlete, details = item.get("athlete") or {}, item.get("details") or {}
+            injury = " ".join(part for part in (details.get("side"), details.get("type")) if part and part != "Not Specified")
+            listed.append({"id": str(athlete.get("id") or ""), "name": athlete.get("displayName") or "",
+                           "headshot": (athlete.get("headshot") or {}).get("href"),
+                           "pos": (athlete.get("position") or {}).get("abbreviation") or "",
+                           "status": item.get("status") or "", "injury": injury or None,
+                           "code": ((details.get("fantasyStatus") or {}).get("abbreviation")) or None,
+                           "returnDate": details.get("returnDate"), "comment": item.get("shortComment") or item.get("longComment")})
+        if listed:
+            found[team_id] = listed
+    return found
 
 
 def match(event_id, slug=None):
@@ -619,5 +645,6 @@ def match(event_id, slug=None):
                 "leagueName": (header.get("league") or {}).get("name") or "", "date": competition.get("date"),
                 "status": status.get("shortDetail") or status.get("detail"), "teams": teams, "form": form,
                 "h2h": h2h[:10], "standings": _standings(summary), "lineups": _lineups(summary), "odds": odds,
+                "injuries": _injuries(summary),
                 "venue": {"name": venue.get("fullName"), "city": (venue.get("address") or {}).get("city")}}
-    return _cached(f"soccer:match:v1:{event_id}", 15 * 60, build)
+    return _cached(f"soccer:match:v2:{event_id}", 15 * 60, build)

@@ -1,11 +1,11 @@
 import React,{useEffect,useMemo,useState} from 'react';
-import {Activity,CalendarClock,ChartColumn,ListOrdered,RefreshCw,Shirt,Trophy,UserRound,Users} from 'lucide-react';
-import {TEAM_GROUPS,average,finite,fmt,longDate,price,shortDate,statKeyOf,statOf,teamAverages,teamLogParams,useSoccer,valueOf} from './soccer-finder';
+import {Activity,CalendarClock,ChartColumn,HeartPulse,ListOrdered,RefreshCw,Search,Shirt,Trophy,UserCheck,UserRound,Users,UserX} from 'lucide-react';
+import {TEAM_GROUPS,average,finite,findPlayer,fmt,longDate,price,shortDate,squad,statKeyOf,statOf,teamAverages,teamLogParams,teammateSplit,useSoccer,valueOf} from './soccer-finder';
 
 // The soccer matchup panel, on the WNBA / MLB panel's layout. Matchup and
 // Form read the match's own ESPN summary; Team Comparison and Similar read
 // both teams' recent matches (soccer_research.py).
-const tabs=[['matchup','Matchup',Trophy],['similar','Similar',Users],['lineups','Lineups',Shirt],['form','Form',CalendarClock],['stats','Stats',ChartColumn]];
+const tabs=[['matchup','Matchup',Trophy],['similar','Similar',Users],['lineups','Lineups',Shirt],['injuries','Injuries',HeartPulse],['form','Form',CalendarClock],['stats','Stats',ChartColumn]];
 function Card({title,note,children,icon:Icon=Activity,className=''}){return <section className={'mlb-context-card '+className}><header><h2><Icon size={16} aria-hidden="true"/>{title}</h2>{note&&<small>{note}</small>}</header>{children}</section>;}
 function Empty({children}){return <p className="mlb-context-note">{children}</p>;}
 function Skeleton(){return <div className="mlb-context-skeleton" role="status" aria-label="Loading research"><span/><span/><span/><span/></div>;}
@@ -64,9 +64,9 @@ function WinPredictor({row,match}){
  </section>;
 }
 
-const WINDOWS=[[5,'L5'],[10,'L10'],[20,'L20']];
+const WINDOWS=[[5,'L5'],[15,'L15'],[30,'L30']];
 function TeamComparison({row,match,own,opponentLog}){
- const [n,setN]=useState(10),[group,setGroup]=useState('attack');
+ const [n,setN]=useState(15),[group,setGroup]=useState('attack');
  const [mine,theirs]=sides(row,match.data);
  if((own.loading&&!own.data)||(opponentLog.loading&&!opponentLog.data))return <Card title="Team comparison" icon={ChartColumn}><Skeleton/></Card>;
  if(!own.data&&!opponentLog.data)return <Card title="Team comparison" icon={ChartColumn}><Failed state={own.error?own:opponentLog} label="Team comparison"/></Card>;
@@ -98,7 +98,7 @@ function LastFive({row,match,own,opponentLog}){
  const lists=[match.data?.form?.[teams[0].id]?.length?match.data.form[teams[0].id]:fromLog(own),match.data?.form?.[teams[1].id]?.length?match.data.form[teams[1].id]:fromLog(opponentLog)];
  if(!lists[0].length&&!lists[1].length&&(match.loading||own.loading))return <Card title="Last 5 matches" icon={CalendarClock}><Skeleton/></Card>;
  return <Card title="Last 5 matches" icon={CalendarClock} className="wnba-last-five">
-  <div className="wnba-last-five-grid">{teams.map((team,index)=><div key={team.abbr||index}><h3><Logo src={team.logo}/>{team.name}</h3>
+  <div className="wnba-last-five-grid">{teams.map((team,index)=><div key={team.abbr||index}><h3 data-self={index===0}><Logo src={team.logo}/>{team.name}</h3>
    {lists[index].map(game=><div className="wnba-last-five-row" key={game.id||game.date}><span>{shortDate(game.date)}</span><span className="wnba-team-cell">{game.atVs==='@'?'@':'vs'} <Logo src={game.opponentLogo} size={18}/>{game.opponent}</span><b data-result={game.result}>{game.result}</b><span>{game.score}</span></div>)}
    {!lists[index].length&&<Empty>No recent matches.</Empty>}</div>)}</div>
  </Card>;
@@ -115,7 +115,7 @@ function Standings({row,match}){
  return <Card title="Standings" note={match.data.leagueName} icon={ListOrdered} className="wnba-standings soccer-standings">
   {groups.length>1&&<div className="mlb-context-switch soccer-group-switch" aria-label="Group">{groups.map(item=><button type="button" key={item.name} aria-pressed={item.name===group.name} onClick={()=>setName(item.name)}>{item.name.replace(/^Group\s+/i,'')}</button>)}</div>}
   <div className="mlb-context-table-wrap"><table><thead><tr><th scope="col">Team</th><th scope="col">P</th><th scope="col">W</th><th scope="col">D</th><th scope="col">L</th><th scope="col">GD</th><th scope="col">PTS</th></tr></thead><tbody>
-   {group.entries.map((entry,index)=><tr key={entry.id||entry.name} data-involved={involved.has(entry.id)}><th scope="row"><span className="wnba-team-cell"><em className="wnba-rank">{entry.rank??index+1}</em><Logo src={entry.logo} size={18}/>{entry.name}</span></th>
+   {group.entries.map((entry,index)=><tr key={entry.id||entry.name} data-involved={involved.has(entry.id)}><th scope="row"><span className="wnba-team-cell"><em className="wnba-rank" style={entry.zone?{'--zone':entry.zone}:undefined} data-zone={Boolean(entry.zone)} title={entry.zoneName||undefined}>{entry.rank??index+1}</em><Logo src={entry.logo} size={18}/>{entry.name}</span></th>
     <td>{fmt(entry.played,0)}</td><td>{fmt(entry.wins,0)}</td><td>{fmt(entry.draws,0)}</td><td>{fmt(entry.losses,0)}</td><td>{finite(entry.gd)&&entry.gd>0?'+':''}{fmt(entry.gd,0)}</td><td><strong>{fmt(entry.points,0)}</strong></td></tr>)}
   </tbody></table></div>
  </Card>;
@@ -155,6 +155,7 @@ function SimilarPlayers({row,games,opponentLog}){
    <span className="wnba-similar-min">{fmt(entry.min,0)} mins</span>
    <span className="wnba-similar-result"><b data-tone={entry.value>row.line?'good':'poor'}>{fmt(entry.value,0)}</b><small>line {row.line}</small><span className="wnba-similar-bar" aria-hidden="true"><i data-tone={entry.value>row.line?'good':'poor'} style={{width:`${Math.min(100,entry.value/max*100)}%`}}/><em style={{left:`${row.line/max*100}%`}}/></span></span></div>)}</div>
   :<Empty>No {noun.toLowerCase()} have played against {row.opponent} in its recent matches.</Empty>}
+  {entries.length>0&&<div className="soccer-similar-legend"><span><i data-tone="good"/>Went over line</span><span><i data-tone="poor"/>Went under line</span></div>}
  </Card>;
 }
 
@@ -179,6 +180,58 @@ function Lineups({row,match,own,opponentLog}){
  </Card>;
 }
 
+// ---------------------------------------------------------------- Injuries
+// ESPN's injury report for both sides, and any player on either squad by
+// search. For the player's own teammates, Without / With narrow the chart to
+// the matches that teammate missed or played; Stats opens his last matches.
+const STATUS_TEXT={'Day-To-Day':'GTD',Questionable:'GTD',Doubtful:'Doubt',Out:'Out',Suspension:'Susp',Suspended:'Susp'};
+function statusLabel(item){if(!item)return null;const code=item.code||STATUS_TEXT[item.status]||item.status;return [code,item.injury].filter(Boolean).join(' · ')||null;}
+function MiniLog({log,name,keeper}){
+ const games=(log?.games||[]).map(game=>({game,line:findPlayer(game.players||[],name)})).filter(item=>item.line).slice(-5).reverse();
+ const cols=keeper?[['saves','SV'],['gc','GA'],['sotf','SOTF']]:[['goals','G'],['ast','A'],['shots','SH'],['sot','SOT'],['fouls','F']];
+ if(!games.length)return <Empty>No recent matches logged for {name}.</Empty>;
+ return <div className="mlb-context-table-wrap soccer-mini-log"><table><thead><tr><th scope="col">Date</th><th scope="col">Opp</th><th scope="col">Min</th>{cols.map(([key,label])=><th scope="col" key={key}>{label}</th>)}</tr></thead><tbody>
+  {games.map(({game,line})=><tr key={game.id}><th scope="row">{shortDate(game.date)}</th><td>{game.isHome?'':'@'}{game.opponent?.abbr}</td><td>{fmt(line.min,0)}</td>{cols.map(([key])=><td key={key}>{fmt(valueOf(line,key),0)}</td>)}</tr>)}
+ </tbody></table></div>;
+}
+function PlayerCard({player,status,log,own,row,split,filters,onToggleFilter}){
+ const [open,setOpen]=useState(false);
+ const self=player.name===row.player;
+ const pressed=kind=>filters.some(filter=>filter.id===String(player.id||player.name)&&filter.kind===kind);
+ const choose=kind=>onToggleFilter({id:String(player.id||player.name),kind,name:player.name,pos:player.pos||'',ids:split[kind]});
+ return <article className="mlb-injury-card soccer-player-card">
+  <div className="mlb-injury-heading"><span className="mlb-injury-avatar"><UserRound size={22} aria-hidden="true"/>{player.headshot&&<img src={player.headshot} alt="" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}</span>
+   <div className="soccer-card-name"><h3>{player.name}</h3>{player.pos&&<small>{player.pos}</small>}</div>
+   {statusLabel(status)&&<span className="soccer-status" data-out={String(status.status).toLowerCase()==='out'}>{statusLabel(status)}</span>}</div>
+  {status?.comment&&<p className="mlb-injury-reason">{status.comment}</p>}
+  <div className="wnba-filter-buttons">
+   {own&&!self&&[['without',UserX,'Without'],['with',UserCheck,'With']].map(([kind,Icon,label])=><button type="button" key={kind} data-kind={kind} aria-pressed={pressed(kind)} disabled={!split?.[kind]?.length} onClick={()=>choose(kind)}
+    title={`${row.player}'s matches ${kind} ${player.name}`}><Icon size={14} aria-hidden="true"/>{label} <small>{split?.[kind]?.length||0}</small></button>)}
+   <button type="button" aria-expanded={open} onClick={()=>setOpen(value=>!value)}><ChartColumn size={14} aria-hidden="true"/>Stats</button>
+  </div>
+  {open&&<MiniLog log={log} name={player.name} keeper={/^G/i.test(player.pos||'')}/>}
+ </article>;
+}
+function Injuries({row,match,own,opponentLog,teamGames,filters,onToggleFilter}){
+ const teams=sides(row,match.data);
+ const [side,setSide]=useState(0),[query,setQuery]=useState('');
+ useEffect(()=>{setSide(0);setQuery('');},[row.player]);
+ const log=side===0?own:opponentLog,team=teams[side];
+ const listed=match.data?.injuries?.[team.id]||[];
+ const members=useMemo(()=>squad(log.data),[log.data]);
+ const found=query.trim().length>1?members.filter(player=>player.name.toLowerCase().includes(query.trim().toLowerCase())).slice(0,8):[];
+ const split=player=>side===0?teammateSplit(own.data,teamGames,player):null;
+ return <Card title="Injuries" note={team.abbr} icon={HeartPulse} className="soccer-injuries">
+  <div className="mlb-context-switch" aria-label="Team">{teams.map((item,index)=><button type="button" key={item.abbr||index} aria-pressed={side===index} onClick={()=>setSide(index)}><Logo src={item.logo} size={18}/>{item.abbr}</button>)}</div>
+  <div className="soccer-injury-legend"><span><b data-kind="without"><UserX size={13} aria-hidden="true"/>Without</b>Matches he missed</span><span><b data-kind="with"><UserCheck size={13} aria-hidden="true"/>With</b>Matches he played</span><span><b><ChartColumn size={13} aria-hidden="true"/>Stats</b>His last matches</span></div>
+  {match.loading&&!match.data?<Skeleton/>:listed.length?<div className="mlb-injury-list">{listed.map(item=><PlayerCard key={item.id||item.name} player={item} status={item} log={log.data} own={side===0} row={row} split={split(item)} filters={filters} onToggleFilter={onToggleFilter}/>)}</div>
+  :<Empty>No injuries reported for {team.name||team.abbr}.</Empty>}
+  <label className="finder-multi-search soccer-player-search"><Search size={15} aria-hidden="true"/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search any player…" aria-label={`Search ${team.abbr} players`}/></label>
+  {found.length>0&&<div className="mlb-injury-list">{found.map(player=><PlayerCard key={player.id||player.name} player={player} status={listed.find(item=>item.name===player.name)} log={log.data} own={side===0} row={row} split={split(player)} filters={filters} onToggleFilter={onToggleFilter}/>)}</div>}
+  {query.trim().length>1&&!found.length&&<Empty>{log.loading?'Loading the squad…':`No ${team.abbr} player matches “${query.trim()}”.`}</Empty>}
+ </Card>;
+}
+
 // ---------------------------------------------------------------- Stats
 function HeadToHead({row,match}){
  const games=match.data?.h2h||[];
@@ -200,7 +253,7 @@ function Averages({row,games}){
  </Card>;
 }
 
-export default function SoccerFinderContext({row,games,log,playerRows}){
+export default function SoccerFinderContext({row,games,teamGames,log,playerRows,filters=[],onToggleFilter}){
  const [tab,setTab]=useState('matchup');
  const matched=Boolean(row.eventId);
  const match=useSoccer('match',{league:row.competition,event:row.eventId},matched);
@@ -212,6 +265,7 @@ export default function SoccerFinderContext({row,games,log,playerRows}){
   {tab==='matchup'&&<><WinPredictor row={row} match={match}/><TeamComparison row={row} match={match} own={log} opponentLog={opponentLog}/></>}
   {tab==='similar'&&<SimilarPlayers row={row} games={games} opponentLog={opponentLog}/>}
   {tab==='lineups'&&<Lineups row={row} match={match} own={log} opponentLog={opponentLog}/>}
+  {tab==='injuries'&&<Injuries row={row} match={match} own={log} opponentLog={opponentLog} teamGames={teamGames} filters={filters} onToggleFilter={onToggleFilter}/>}
   {tab==='form'&&<><LastFive row={row} match={match} own={log} opponentLog={opponentLog}/><Standings row={row} match={match}/></>}
   {tab==='stats'&&<HeadToHead row={row} match={match}/>}
   {stat&&<Averages row={row} games={games}/>}

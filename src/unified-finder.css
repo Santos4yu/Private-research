@@ -568,3 +568,31 @@
 @media(max-width:519px){
  .unified-finder .finder-mobile-sport{left:62px}
 }
+
+/* Filter menus: a heading per group, a second line per option, an Only
+   shortcut, and the Games menu's match rows. */
+.finder-multi-row{display:flex;align-items:center;min-width:0}
+.finder-multi-row>.finder-multi-option{flex:1;min-width:0}
+.finder-multi-group{display:block;padding:12px 16px 4px;color:#9aa1a9;font-size:12px;font-weight:700;letter-spacing:.02em}
+.finder-multi-option-text{display:grid;gap:1px}
+.finder-multi-option .finder-multi-option-sub{margin:0;color:#9aa1a9;font-size:12px;font-weight:500;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.finder-multi-popover.is-wide .finder-multi-option{padding-right:8px}
+.finder-game-option{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto;align-items:center;gap:8px;flex:1;min-width:0}
+.finder-game-side{display:flex;align-items:center;gap:8px;min-width:0}
+.finder-game-side.is-home{justify-content:flex-end;text-align:right}
+.finder-game-side>span{display:grid;gap:2px;min-width:0}
+.finder-game-side b{font-size:14px;font-weight:700;color:#edf3fa}
+.finder-game-side em{justify-self:start;padding:1px 6px;border-radius:6px;font-style:normal;font-size:11px;font-weight:700;color:#65dfb1;background:#13342d;border:1px solid #1f5445}
+.finder-game-side.is-home em{justify-self:end}
+.finder-game-side em[data-tone=low]{color:#ff8290;background:#3b2430;border-color:#5a2f39}
+.finder-game-logo{width:26px;height:26px;border-radius:50%;object-fit:contain;flex-shrink:0}
+.finder-game-at{color:#8d949c;font-size:13px}
+.finder-game-time{padding:4px 8px;border-radius:7px;background:#1f242a;color:#c9ced6;font-size:11px;font-weight:600;white-space:nowrap}
+
+/* The player's team's chance to win, on soccer rows. */
+.finder-moneyline{display:inline-flex;align-items:center;gap:5px;margin-top:4px;padding:2px 7px;border-radius:6px;border:1px solid #30353c;background:#161a1f;color:#c9ced6;font-size:9px;font-weight:600;white-space:nowrap}
+.finder-moneyline img{width:14px;height:14px;object-fit:contain}
+.finder-moneyline b{padding:1px 5px;border-radius:4px;background:#13342d;color:#65dfb1}
+.finder-moneyline[data-tone=mid] b{background:#3a2f12;color:#f4c53f}
+.finder-moneyline[data-tone=low] b{background:#3b2430;color:#ff8290}
+@media(max-width:760px){.finder-moneyline{font-size:11px;padding:3px 8px}.finder-moneyline img{width:16px;height:16px}}

@@ -168,3 +168,17 @@ test('the soccer chart draws shots faced behind saves and carries league and tea
  assert.equal(soccerChart([game('4','2026-09-01T15:00Z','Arsenal',{sot:2,shots:5})],'sot').all[0].context,5);
  assert.equal(soccerChart([game('4','2026-09-01T15:00Z','Arsenal',{goals:1,shots:5})],'goals').all[0].context,undefined);
 });
+
+test('a teammate\'s with / without split covers the player\'s own matches for his team',async()=>{
+ const {teammateSplit,squad,applySplits,toggleSplit}=await import('../src/sports/soccer/soccer-stats.js');
+ const game=(id,names)=>({id,date:`2026-09-0${id}T15:00Z`,players:names.map(name=>({id:name==='Bukayo Saka'?'2':'3',name,pos:'M',min:90,s:{}}))});
+ const log={games:[game('1',['Bukayo Saka','Martin Odegaard']),game('2',['Bukayo Saka']),game('3',['Bukayo Saka','Martin Odegaard']),game('4',['Martin Odegaard'])]};
+ // Saka's matches: 1, 2, 3 (he missed 4), plus a club match from elsewhere.
+ const games=[{gameId:'1'},{gameId:'2'},{gameId:'3'},{gameId:'club-9'}];
+ const split=teammateSplit(log,games,{name:'Martin Odegaard'});
+ assert.deepEqual(split,{with:['1','3'],without:['2']});
+ assert.deepEqual(squad(log).map(player=>[player.name,player.games]),[['Bukayo Saka',3],['Martin Odegaard',3]]);
+ const filters=toggleSplit([], {id:'3',kind:'without',name:'Martin Odegaard',ids:split.without});
+ assert.deepEqual(applySplits(games,filters).map(game=>game.gameId),['2']);
+ assert.deepEqual(toggleSplit(filters,{id:'3',kind:'without',ids:[]}),[]);
+});
