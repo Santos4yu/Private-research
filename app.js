@@ -3118,7 +3118,7 @@ async function loadGameLogPostedLines(stat, player = gameLogState.player) {
   } catch (_) { if (current()) els.gamelogLinesBridge?.setStatus('error'); }
 }
 
-// Real per-line sportsbook odds, matching pickfinder.app's odds-pill row.
+// Real per-line sportsbook odds, shown as a row of odds pills.
 // Keyed by the Odds API's own bookmaker key -- these mirror QUOTE_BOOKS in
 // v2/board/odds_client.py, so anything quoted server-side can render here.
 //
@@ -3890,8 +3890,8 @@ function fetchTeamInsightsInBackground(params, detail) {
 }
 
 // Fixed thresholds (not "vs this player's own baseline") -- green/red mean
-// "statistically strong/weak performance," matching how the reference
-// screenshots color raw values directly. Applied to every filter equally.
+// "statistically strong/weak performance," coloring raw values directly.
+// Applied to every filter equally.
 function tierClassFor(metric, value) {
   const v = parseFloat(value);
   if (value == null || value === "" || Number.isNaN(v)) return "";

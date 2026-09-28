@@ -127,15 +127,15 @@
   :root[data-theme] #saved-grid:empty { display: none !important; }
   :root[data-theme] #saved-empty:not([hidden]) { margin: 24px 0 0 !important; padding: 24px !important; min-height: 0 !important; border: 1px dashed var(--theme-border); border-radius: 16px; background: var(--theme-panel) !important; font: 400 14px/1.6 var(--font-sans) !important; color: var(--theme-dim) !important; }
 
-  /* More and My Slip open a left drawer, like pickfinder.app's sidebar: the
+  /* More and My Slip open a left drawer: the
      menu (SideMenu.jsx) with the Pick Builder under it. It starts below
      the phone's status bar and iOS's blur band (--site-status-inset). */
   :root[data-theme] .side-panel {
     position: fixed; z-index: 140 !important; inset: 0 auto 0 0 !important;
     width: min(340px, 86vw) !important; max-width: none !important; height: 100% !important; max-height: none;
     padding: calc(var(--site-status-inset, env(safe-area-inset-top, 0px)) + 12px) 14px calc(18px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px)) !important;
-    overflow-y: auto; overscroll-behavior: contain; border: 0 !important; border-right: 1px solid #1d2540 !important;
-    border-radius: 0 22px 22px 0 !important; background: linear-gradient(180deg, #0d1329 0%, #090d1c 100%) !important;
+    overflow-y: auto; overscroll-behavior: contain; border: 0 !important; border-right: 1px solid #23272d !important;
+    border-radius: 0 22px 22px 0 !important; background: linear-gradient(180deg, #11151a 0%, #0b0e13 100%) !important;
     box-shadow: 24px 0 60px rgba(0, 0, 0, .5) !important; animation: mobile-drawer-in 240ms cubic-bezier(.22, 1, .36, 1);
   }
   :root[data-theme] .side-scrim { z-index: 135 !important; }

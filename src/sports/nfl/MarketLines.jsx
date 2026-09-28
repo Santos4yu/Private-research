@@ -35,7 +35,7 @@ export const tierLabel=category=>category==='GOBLIN' ? 'Goblin' : category==='DE
 
 
 // One row per posted line value, every book's price for that value shown
-// together -- the "Alt Lines" picker from the reference app, not a
+// together -- an "Alt Lines" picker, not a
 // horizontally-scrolling strip of single-book pills.
 export function altLineGroups(offers){
   const byValue=new Map();
@@ -102,8 +102,8 @@ export function NFLMarketLines({load,player,week,prop,onSelect,selected,onRefres
     return ()=>{active=false;};
   },[load,player.id,week,reload]);
   // All books, not just the one currently preferred -- the dropdown shows
-  // every book's price for a value at once, the way the reference app's
-  // picker does, instead of requiring a book to be chosen first.
+  // every book's price for a value at once, instead of requiring a book
+  // to be chosen first.
   const allOffers=filterOffers(body?.data || [],{prop,bookmaker:'',category:'ALL'});
   const altCount=Math.max(0,new Set(allOffers.map(row=>row.line?.value).filter(Number.isFinite)).size-1);
   const platform=bookLabel(selected?.bookmaker||book,selected?.platform);

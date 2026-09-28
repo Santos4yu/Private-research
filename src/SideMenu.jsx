@@ -3,7 +3,7 @@ import {moreTabs,topTabs} from './navTabs';
 import {siteIsAdmin,siteTabAllowed} from './site-access';
 import './side-menu.css';
 
-// The side panel's menu on phones, laid out like pickfinder.app's sidebar:
+// The side panel's menu on phones, laid out as a sidebar:
 // the desktop rail's destinations (navTabs.js topTabs, the same list
 // VortexSidebar shows), then the tools that only ever lived in this panel.
 // My Slip isn't a row -- the Pick Builder right below the menu is the slip.

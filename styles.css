@@ -3867,7 +3867,7 @@ body::before,body::after{display:none}.grid-bg,.vortex-swirl,.glow-orb{display:n
   .report-wrap { padding-left: 14px; padding-right: 14px; }
 }
 
-/* The reference is a phone-first composition. Limit the narrow card width
+/* This is a phone-first composition. Limit the narrow card width
    only here; laptop and tablet layouts use the full research column above. */
 @media (max-width: 640px) {
   .player-profile,

@@ -96,8 +96,7 @@
 .nfl-app-shell .nfl-window-tabs { margin-top:6px;border:1px solid #303c48;border-radius:12px;background:#171d26;padding:4px; }
 /* One radius token across every button in this merged panel (stepper,
    side-switch, window tabs, filter toggle) -- the 8-12px mix here before
-   was the "ugly, mismatched buttons" part of the PickFinder-style ask,
-   separate from the row-grouping work above. */
+   made the buttons look mismatched. */
 .nfl-trends .nfl-line-editor .nfl-side-switch button,.nfl-trends .nfl-window-tabs button,.nfl-trends .nfl-filter-toggle,.nfl-trends .nfl-line-trigger,.nfl-trends .nfl-line-refresh { border-radius:10px; }
 .nfl-trends>.nfl-chart-card { border:0;border-radius:0;padding:0;background:none;box-shadow:none; }
 .nfl-matchup-hero { padding:20px;background:#17212c;border:1px solid #3a4857;border-radius:18px; }
@@ -278,7 +277,7 @@
 .nfl-app-shell .nfl-research-page>* { min-width:0;max-width:100%;box-sizing:border-box; }
 /* Every rule in this file styles the player page as one compact app-style
    column (small padding, tight buttons, a single-file stack of controls) --
-   deliberately, to match a phone-sized reference app -- but nothing capped
+   deliberately, to keep a phone-sized layout -- but nothing capped
    its own outer width, so on a wide desktop window it just stretched that
    same compact styling edge to edge: 6 window-tabs sharing 1400px, Filters
    and the game-count stepper pushed to opposite ends of the screen. Capping
