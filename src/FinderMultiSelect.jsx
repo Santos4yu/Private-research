@@ -1,6 +1,6 @@
 import React,{useContext,useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {Check,ChevronDown,ChartNoAxesColumnIncreasing,Search} from 'lucide-react';
+import {Check,ChevronDown,ChartNoAxesColumnIncreasing,Grid2X2,Search} from 'lucide-react';
 import {FinderDropdownAssets} from './FinderDropdown';
 
 function optionLogo(assets,label,option){return option.logo || assets[label]?.[option.value] || null;}
@@ -40,6 +40,38 @@ export function FinderMultiSelect({label,icon:Icon,values=[],onChange,options=[]
    <button type="button" className="finder-multi-close" onClick={()=>{setOpen(false);setQuery('');}}>Close</button>
  </div>,document.body):null;
  return <><div className={'finder-multi-select '+(active?'is-active':'')}><button ref={triggerRef} type="button" className="finder-multi-trigger" aria-expanded={open} aria-haspopup="dialog" onClick={()=>setOpen(value=>!value)}><Icon size={15} aria-hidden="true"/><span>{display}</span>{active&&<b>{values.length}</b>}<ChevronDown size={14} aria-hidden="true"/></button></div>{content}</>;
+}
+
+/**
+ * The Finder's league picker on phones: several leagues at once, "Only" to
+ * keep just one. No league picked means every league, like the other
+ * filters' "All".
+ */
+export function FinderSportMenu({sports=[],values=[],onChange,logos={}}){
+ const [open,setOpen]=useState(false);const [query,setQuery]=useState('');
+ const triggerRef=useRef(null);const menuRef=useRef(null);const rect=usePopover(open,triggerRef,menuRef);
+ useEffect(()=>{if(!open)return undefined;const escape=event=>{if(event.key==='Escape')setOpen(false);};document.addEventListener('keydown',escape);return()=>document.removeEventListener('keydown',escape);},[open]);
+ useEffect(()=>{if(!open)return undefined;const outside=event=>{if(!triggerRef.current?.contains(event.target)&&!menuRef.current?.contains(event.target))setOpen(false);};document.addEventListener('pointerdown',outside);return()=>document.removeEventListener('pointerdown',outside);},[open]);
+ const picked=values.filter(key=>sports.includes(key));const name=key=>key.toUpperCase();
+ const visible=sports.filter(key=>!query.trim()||name(key).toLowerCase().includes(query.trim().toLowerCase()));
+ const every=sports.length>0&&sports.every(key=>picked.includes(key));
+ const toggle=key=>onChange(picked.includes(key)?picked.filter(item=>item!==key):[...picked,key]);
+ const close=()=>{setOpen(false);setQuery('');};
+ const tile=key=><span className="finder-sport-tile" aria-hidden="true"><img src={logos[key]} alt="" decoding="async" onError={event=>{event.currentTarget.hidden=true;}}/></span>;
+ const label=picked.length===0||every?'All sports':picked.length===1?name(picked[0]):`${picked.length} sports`;
+ const content=open&&typeof document!=='undefined'?createPortal(<div className="finder-multi-popover finder-sport-popover" ref={menuRef} style={menuStyle(rect,320)} role="dialog" aria-label="Choose sports">
+   <label className="finder-multi-search"><Search size={17}/><input autoFocus value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search sports…" aria-label="Search sports"/></label>
+   <button type="button" className="finder-multi-select-all" onClick={()=>onChange(every?[]:sports)}><span className={'finder-multi-check '+(every?'is-checked':'')}>{every&&<Check size={15}/>}</span><strong>Select All</strong></button>
+   <div className="finder-multi-options" role="listbox" aria-multiselectable="true">{visible.map(key=>{const checked=picked.includes(key);return <div key={key} className={'finder-sport-row '+(checked?'is-selected':'')}>
+    <button type="button" role="option" aria-selected={checked} className="finder-multi-option" onClick={()=>toggle(key)}><span className={'finder-multi-check '+(checked?'is-checked':'')}>{checked&&<Check size={15}/>}</span>{tile(key)}<span className="finder-multi-option-text">{name(key)}</span></button>
+    <button type="button" className="finder-sport-only" aria-label={`Only ${name(key)}`} onClick={()=>{onChange([key]);close();}}>Only</button>
+   </div>;})}</div>
+   <div className="finder-sport-footer"><button type="button" className="finder-multi-close" onClick={()=>onChange([])}>Clear</button><button type="button" className="finder-multi-close" onClick={close}>Close</button></div>
+ </div>,document.body):null;
+ const shown=picked.length&&!every?picked:[];
+ return <><button ref={triggerRef} type="button" className="finder-mobile-sport" aria-expanded={open} aria-haspopup="dialog" aria-label={`Sports: ${label}`} onClick={()=>setOpen(value=>!value)}>
+  {shown.length?<span className="finder-sport-stack">{shown.slice(0,3).map(key=><img key={key} src={logos[key]} alt="" decoding="async" onError={event=>{event.currentTarget.hidden=true;}}/>)}</span>:<Grid2X2 size={15} aria-hidden="true"/>}
+  <span className="finder-sport-label">{label}</span><ChevronDown size={13} aria-hidden="true"/></button>{content}</>;
 }
 
 const HIT_WINDOWS=[['l5','L5'],['l10','L10'],['l15','L15'],['h2h','H2H'],['season','SZN']];
