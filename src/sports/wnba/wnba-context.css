@@ -144,3 +144,15 @@
  .wnba-teammate{grid-template-columns:34px minmax(0,1fr);row-gap:6px}.wnba-teammate-splits,.wnba-teammate .wnba-filter-buttons{grid-column:1/-1}
  .wnba-season-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
 }
+
+/* One column (phones, small tablets): trend chart, supporting stats, depth
+   chart, then the matchup tabs, with the game log last. The left column is
+   flattened into the page grid so the tabs can sit between its cards. */
+@media(max-width:1050px){
+ .wnba-player-page .mlb-trend-main{display:contents}
+ .wnba-player-page .mlb-trend-main>:is(.finder-mlb-trend-host,.wnba-board-message,.wnba-filter-empty){order:1}
+ .wnba-player-page .mlb-supporting{order:2}
+ .wnba-player-page .wnba-depth{order:3}
+ .wnba-player-page .wnba-finder-context{order:4}
+ .wnba-player-page .mlb-player-gamelog{order:5;margin-top:0}
+}
