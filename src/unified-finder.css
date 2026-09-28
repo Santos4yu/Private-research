@@ -348,6 +348,22 @@
 .finder-multi-empty{display:block;padding:24px 16px;color:#91979e;text-align:center}
 .finder-multi-close{display:block;width:calc(100% - 24px);height:46px;margin:8px 12px 12px;border-radius:10px;background:#25292e;color:#f1f7ff;font-size:15px;font-weight:700}
 .finder-multi-close:hover{background:#33383e}
+/* League picker (FinderSportMenu): logo tiles, "Only", Clear + Close. */
+.finder-sport-row{display:flex;align-items:center}
+.finder-sport-row .finder-multi-option{flex:1;min-width:0}
+.finder-sport-tile{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border:1px solid #2f343a;border-radius:10px;background:#1c2126}
+.finder-sport-tile img{width:24px;height:24px;object-fit:contain}
+.finder-sport-row.is-selected .finder-sport-tile{border-color:color-mix(in srgb,var(--theme-accent) 55%,#2f343a);background:color-mix(in srgb,var(--theme-accent) 12%,#1c2126)}
+.finder-sport-row .finder-multi-option-text{font-weight:650;letter-spacing:.01em}
+:root .finder-multi-popover .finder-sport-only{flex:0 0 auto;min-height:44px;padding:0 16px;background:transparent;color:#80868d;font-size:11px;font-weight:750;letter-spacing:.14em;text-transform:uppercase}
+:root .finder-multi-popover .finder-sport-only:hover{color:var(--theme-accent-soft,var(--theme-accent))}
+.finder-sport-footer{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px 12px 12px}
+.finder-sport-footer .finder-multi-close{width:100%;margin:0}
+.finder-sport-stack{display:flex;align-items:center}
+.finder-sport-stack img{width:20px;height:20px;object-fit:contain}
+.finder-sport-stack img+img{margin-left:-4px}
+.finder-sport-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:650}
+:root .unified-finder button.finder-mobile-sport:is(*,#_){appearance:none;font:inherit;cursor:pointer;box-shadow:none}
 .finder-hit-popover{padding:16px}
 .finder-hit-popover header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
 .finder-hit-popover header strong{display:block;font-size:16px;line-height:1.3}.finder-hit-popover header small{display:block;margin-top:4px;color:#91979e;font-size:12px}
