@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {finderWindow,normalizeFinderRows,applyMlbHistory,enrichMlbRows,loadFinderSport,finderSlipProp,bookProbability,powerDevig,defenseRank,withDefense,trendPickRow} from '../src/unified-finder-data.js';
+import {applySoccerHistory,finderWindow,normalizeFinderRows,applyMlbHistory,enrichMlbRows,loadFinderSport,finderSlipProp,bookProbability,powerDevig,defenseRank,withDefense,trendPickRow} from '../src/unified-finder-data.js';
 
 test('book chance comes from the books\' prices with the margin removed, never a fixed 50/50',()=>{
  // PrizePicks' payouts and an app quoting the same price both ways say nothing.
@@ -130,4 +130,25 @@ test('soccer rows carry PrizePicks\' own stat and tier, and export as SOCCER pic
  const loaded=await loadFinderSport('soccer',{fetcher:async url=>{urls.push(url);return {ok:true,json:async()=>payload};}});
  assert.deepEqual(urls,['/api/board?view=soccer']);
  assert.equal(loaded.fetchedAt,'2026-09-28T12:00:00Z');
+});
+
+test('soccer hit rates come from the player\'s own matches in his team\'s log',()=>{
+ const game=(id,date,opponent,isHome,shots,name='Bukayo Saka')=>({id,date,isHome,opponent:{abbr:opponent},result:'W',score:'1-0',teamStats:{},oppStats:{},
+  players:[{id:'2',name,pos:'F',min:90,starter:true,s:{shots,sot:1,goals:0,ast:0}},{id:'9',name:'Someone Else',pos:'M',min:90,starter:true,s:{shots:9}}]});
+ const log={games:[game('1','2026-05-01T15:00Z','CHE',true,4),game('2','2026-08-20T15:00Z','LIV',false,1),game('3','2026-08-27T15:00Z','CHE',true,3),
+  // Not in the squad that day: the match doesn't count for him.
+  {...game('4','2026-09-03T15:00Z','TOT',false,0),players:[]},game('5','2026-09-10T15:00Z','AVL',true,2,'B. Saka')]};
+ const [row]=normalizeFinderRows('soccer',{rows:[{id:'pp:1',player:'Bukayo Saka',team:'ARS',opponent:'CHE',stat:'Shots',marketKey:'shots',line:2.5,
+  startsAt:'2026-09-29T14:00:00Z',eventId:'900',teamId:'359',competition:'eng.1'}]},[],{now:Date.parse('2026-09-28T12:00:00Z')});
+ assert.equal(row.historyStatus,'pending');
+ const ready=applySoccerHistory(row,log);
+ // 4, 1, 3, 2 over 2.5: two of four; vs CHE both; this season (from July) 1, 3, 2.
+ assert.deepEqual([ready.windows.l5.hits,ready.windows.l5.decisions],[2,4]);
+ assert.deepEqual([ready.windows.h2h.hits,ready.windows.h2h.decisions],[2,2]);
+ assert.deepEqual([ready.windows.season.hits,ready.windows.season.decisions],[1,3]);
+ assert.equal(ready.streak,-1);
+ assert.equal(ready.average,2.5);
+ // A stat ESPN doesn't publish has no history rather than zeros.
+ const passes=applySoccerHistory({...row,marketKey:'passesattempted'},log);
+ assert.equal(passes.historyStatus,'unavailable');
 });

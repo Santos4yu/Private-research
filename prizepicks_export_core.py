@@ -199,6 +199,7 @@ def _fetch_projection_rows(force=False, league="MLB"):
             "updated_at": str(attrs.get("updated_at") or ""),
             "headshot": str(player.get("image_url") or ""),
             "team": str(player.get("team") or ""),
+            "team_name": str(player.get("team_name") or player.get("market") or ""),
             "position": str(player.get("position") or ""),
             "start_time": str(attrs.get("start_time") or ""),
             # The opponent on single-player lines; combo lines ("A + B")

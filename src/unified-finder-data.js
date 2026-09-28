@@ -1,6 +1,7 @@
 import {finderMarket, gameValue, historyChart, nameKey} from './prop-finder-core.js';
 import {teamLogoUrl} from './sports/nfl/nfl-ui-core.js';
 import {MARKET_STAT as WNBA_DVP_STAT, positionOf} from './sports/wnba/wnba-research.js';
+import {playerGames, statKeyOf, valueOf} from './sports/soccer/soccer-stats.js';
 
 const WINDOW_KEYS = ['l5', 'l10', 'l15', 'l20', 'h2h', 'season'];
 export const BOOK_NAMES = {prizepicks: 'PrizePicks', underdog: 'Underdog', pick6: 'DK Pick6', betr_us_dfs: 'Betr Picks',
@@ -328,11 +329,18 @@ export function normalizeFinderRows(sport, payload, players = [], {now = Date.no
     if (sport === 'soccer') {
       // PrizePicks' soccer lines as posted (soccer_board.py). There is no
       // match history behind them yet, so the hit-rate cells stay blank.
+      // Pinned to its ESPN match (soccer_research.py), the row can load its
+      // team's recent matches for the hit rates.
+      const matched = Boolean(raw.eventId && raw.teamId && statKeyOf(raw.marketKey));
       return finish({id: `soccer:${raw.id}`, sport, player: raw.player, playerId: null, headshot: optional(raw.headshot),
-        position: optional(raw.position), teamAbbr: optional(raw.team), opponent: optional(raw.opponent),
+        position: optional(raw.position), teamAbbr: optional(raw.team), teamLogo: optional(raw.teamLogo), teamName: optional(raw.teamName),
+        opponent: optional(raw.opponent), opponentLogo: optional(raw.opponentLogo), opponentName: optional(raw.opponentName),
+        homeTeamAbbr: optional(raw.homeTeamAbbr), awayTeamAbbr: optional(raw.awayTeamAbbr), isHome: raw.isHome ?? null,
+        eventId: optional(raw.eventId), competition: optional(raw.competition), competitionName: optional(raw.competitionName),
+        teamId: optional(raw.teamId), opponentId: optional(raw.opponentId), winChance: number(raw.winChance), drawChance: number(raw.drawChance),
         startsAt: optional(raw.startsAt), market: raw.stat, marketKey: raw.marketKey, line: raw.line, direction: 'OVER',
         modifier: raw.modifier, apps: Array.isArray(raw.apps) && raw.apps.length ? raw.apps : [{key: 'prizepicks', name: 'PrizePicks', over: null, under: null}],
-        average: null, windows: null, raw, historyStatus: 'none'});
+        average: null, windows: null, raw, historyStatus: matched ? 'pending' : 'none'});
     }
     return null;
   });
@@ -546,5 +554,75 @@ export async function enrichMlbRows(rows, {signal, onRows, concurrency = 4, ...o
     }
   }
   await Promise.all(Array.from({length: Math.min(queue.length, Math.max(1, Math.min(8, concurrency)))}, worker));
+  return rows.map(row => enriched.get(row.id) || row);
+}
+
+// ---------------------------------------------------------------- soccer
+
+// One request per team and match: the team's recent matches carry every
+// player's line (soccer_research.team_log), so the whole squad's rows fill
+// from it.
+const soccerLogKey = row => `${row.competition || ''}:${row.eventId}:${row.teamId}`;
+export async function loadSoccerLog(row, options = {}) {
+  const key = soccerLogKey(row);
+  const cached = historyCache.get(`soccer:${key}`);
+  if (cached && Date.now() - cached.at < HISTORY_TTL) return cached.value;
+  const query = new URLSearchParams({view: 'soccer', resource: 'log', event: row.eventId, team: row.teamId});
+  if (row.competition) query.set('league', row.competition);
+  const payload = await request(`/api/board?${query}`, options);
+  historyCache.set(`soccer:${key}`, {at: Date.now(), value: payload});
+  if (historyCache.size > 500) historyCache.delete(historyCache.keys().next().value);
+  return payload;
+}
+
+export function applySoccerHistory(row, log) {
+  const stat = statKeyOf(row.marketKey);
+  const games = playerGames(log, row.player).filter(game => number(valueOf(game, stat)) != null);
+  if (!stat || !games.length) return {...row, historyStatus: 'unavailable'};
+  const values = games.map(game => valueOf(game, stat));
+  const season = games.at(-1).season;
+  const windows = Object.fromEntries([5, 10, 15, 20].map(size => [`l${size}`, finderWindow(values.slice(-size), row.line, row.direction)]));
+  windows.h2h = finderWindow(games.filter(game => row.opponent && game.opponent === row.opponent).map(game => valueOf(game, stat)), row.line, row.direction);
+  windows.season = finderWindow(games.filter(game => game.season === season).map(game => valueOf(game, stat)), row.line, row.direction);
+  let streak = 0;
+  for (let index = values.length - 1; index >= 0; index -= 1) {
+    if (values[index] === row.line) break;
+    const sign = values[index] > row.line ? 1 : -1;
+    if (streak && Math.sign(streak) !== sign) break;
+    streak += sign;
+  }
+  return finish({...row, average: mean(values.slice(-10)), windows, streak, historyStatus: 'ready'});
+}
+
+/** Hydrate soccer hit rates after the lines are already on the board. */
+export async function enrichSoccerRows(rows, {signal, onRows, concurrency = 4, ...options} = {}) {
+  const groups = new Map();
+  for (const row of rows) {
+    if (row.sport !== 'soccer' || row.historyStatus !== 'pending') continue;
+    const key = soccerLogKey(row);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(row);
+  }
+  const queue = [...groups.values()];
+  const enriched = new Map();
+  let next = 0;
+  async function worker() {
+    while (next < queue.length) {
+      aborted(signal);
+      const batch = queue[next++];
+      let updates;
+      try {
+        const log = await loadSoccerLog(batch[0], {signal, ...options});
+        aborted(signal);
+        updates = batch.map(row => applySoccerHistory(row, log));
+      } catch (error) {
+        if (signal?.aborted || error.name === 'AbortError') throw error;
+        updates = batch.map(row => ({...row, historyStatus: 'unavailable'}));
+      }
+      updates.forEach(row => enriched.set(row.id, row));
+      onRows?.(updates);
+    }
+  }
+  await Promise.all(Array.from({length: Math.min(queue.length, Math.max(1, Math.min(6, concurrency)))}, worker));
   return rows.map(row => enriched.get(row.id) || row);
 }
