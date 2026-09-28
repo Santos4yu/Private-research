@@ -63,8 +63,9 @@ export function UnifiedFinder(){
  const allowedKeys=useMemo(()=>KEYS.filter(siteFinderSportAllowed),[policyRevision]);
  // "All" only means something with more than one league to combine.
  const visibleSports=allowedKeys.length>1?['all',...allowedKeys]:allowedKeys;
- // The leagues on the board. None picked means every league the site allows.
- const [picked,setPicked]=useState(()=>KEYS.filter(siteFinderSportAllowed).slice(0,1)),[boards,setBoards]=useState({wnba:EMPTY,mlb:EMPTY,nfl:EMPTY});
+ // The leagues on the board. None picked -- the default -- means every
+ // league the site allows.
+ const [picked,setPicked]=useState([]),[boards,setBoards]=useState({wnba:EMPTY,mlb:EMPTY,nfl:EMPTY});
  const scope=useMemo(()=>{const chosen=picked.filter(key=>allowedKeys.includes(key));return chosen.length?chosen:allowedKeys;},[picked,allowedKeys]),scopeKey=scope.join();
  const [query,setQuery]=useState(''),[marketFilter,setMarketFilter]=useState([]),[bookFilter,setBookFilter]=useState([]),[teamFilter,setTeamFilter]=useState([]),[dayFilter,setDayFilter]=useState([]),[modifierFilter,setModifierFilter]=useState([]),[hitFilter,setHitFilter]=useState({windows:[],min:0,max:100});
  const [sorts,setSorts]=useState([]),[page,setPage]=useState(0),[pageSize,setPageSize]=useState(20),[selected,setSelected]=useState(null),[savedOnly,setSavedOnly]=useState(false);

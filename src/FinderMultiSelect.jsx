@@ -6,6 +6,10 @@ import {FinderDropdownAssets} from './FinderDropdown';
 function optionLogo(assets,label,option){return option.logo || assets[label]?.[option.value] || null;}
 function OptionIcon({src}){return src?<img className="finder-multi-option-logo" src={src} alt="" decoding="async" onError={event=>{event.currentTarget.hidden=true;}}/>:null;}
 
+// Focus the search box on opening only with a mouse: on a phone it would
+// pop the keyboard up over a list of a few options.
+const focusSearch=()=>typeof window!=='undefined'&&Boolean(window.matchMedia?.('(pointer: fine)').matches);
+
 function usePopover(open,triggerRef,menuRef){
  const [rect,setRect]=useState(null);
  useEffect(()=>{
@@ -34,7 +38,7 @@ export function FinderMultiSelect({label,icon:Icon,values=[],onChange,options=[]
  const toggle=value=>onChange(selected.has(value)?values.filter(item=>item!==value):[...values,value]);
  const selectAll=()=>{const all=visible.map(option=>option.value);const every=all.length>0&&all.every(value=>selected.has(value));onChange(every?values.filter(value=>!all.includes(value)):[...new Set([...values,...all])]);};
  const content=open&&typeof document!=='undefined'?createPortal(<div className="finder-multi-popover" ref={menuRef} style={menuStyle(rect)} role="dialog" aria-label={label}>
-   {searchable&&<label className="finder-multi-search"><Search size={17}/><input autoFocus value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search…" aria-label={`Search ${label}`}/></label>}
+   {searchable&&<label className="finder-multi-search"><Search size={17}/><input autoFocus={focusSearch()} value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search…" aria-label={`Search ${label}`}/></label>}
    <button type="button" className="finder-multi-select-all" onClick={selectAll}><span className={'finder-multi-check '+(visible.length>0&&visible.every(option=>selected.has(option.value))?'is-checked':'')}>{visible.length>0&&visible.every(option=>selected.has(option.value))&&<Check size={15}/>}</span><strong>Select All</strong></button>
    <div className="finder-multi-options" role="listbox" aria-multiselectable="true">{visible.map(option=>{const checked=selected.has(option.value);return <button type="button" role="option" aria-selected={checked} key={option.value} className={'finder-multi-option '+(checked?'is-selected':'')} onClick={()=>toggle(option.value)} disabled={option.disabled}><span className={'finder-multi-check '+(checked?'is-checked':'')}>{checked&&<Check size={15}/>}</span><OptionIcon src={optionLogo(assets,label,option)}/><span className="finder-multi-option-text">{option.label}</span>{option.meta&&<small>{option.meta}</small>}</button>;})}{!visible.length&&<span className="finder-multi-empty">No matching options</span>}</div>
    <button type="button" className="finder-multi-close" onClick={()=>{setOpen(false);setQuery('');}}>Close</button>
@@ -60,7 +64,7 @@ export function FinderSportMenu({sports=[],values=[],onChange,logos={}}){
  const tile=key=><span className="finder-sport-tile" aria-hidden="true"><img src={logos[key]} alt="" decoding="async" onError={event=>{event.currentTarget.hidden=true;}}/></span>;
  const label=picked.length===0||every?'All sports':picked.length===1?name(picked[0]):`${picked.length} sports`;
  const content=open&&typeof document!=='undefined'?createPortal(<div className="finder-multi-popover finder-sport-popover" ref={menuRef} style={menuStyle(rect,320)} role="dialog" aria-label="Choose sports">
-   <label className="finder-multi-search"><Search size={17}/><input autoFocus value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search sports…" aria-label="Search sports"/></label>
+   <label className="finder-multi-search"><Search size={17}/><input autoFocus={focusSearch()} value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search sports…" aria-label="Search sports"/></label>
    <button type="button" className="finder-multi-select-all" onClick={()=>onChange(every?[]:sports)}><span className={'finder-multi-check '+(every?'is-checked':'')}>{every&&<Check size={15}/>}</span><strong>Select All</strong></button>
    <div className="finder-multi-options" role="listbox" aria-multiselectable="true">{visible.map(key=>{const checked=picked.includes(key);return <div key={key} className={'finder-sport-row '+(checked?'is-selected':'')}>
     <button type="button" role="option" aria-selected={checked} className="finder-multi-option" onClick={()=>toggle(key)}><span className={'finder-multi-check '+(checked?'is-checked':'')}>{checked&&<Check size={15}/>}</span>{tile(key)}<span className="finder-multi-option-text">{name(key)}</span></button>
