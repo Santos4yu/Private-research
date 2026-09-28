@@ -121,17 +121,16 @@ html[data-all-tabs-locked=true] #app-shell .tab-panel{display:none!important}
  .site-account-dialog{margin:auto;max-height:calc(100dvh - var(--site-status-inset) - env(safe-area-inset-bottom,0px) - 48px)}
 }
 
-/* Profile and settings icons: pinned to the viewport (never the scrolling
-   hero) and kept the same size/shape/offset as each other at every width. */
-.site-account-bar,
-#settings-btn{position:fixed!important;top:20px!important;z-index:70!important}
+/* Document-top controls: scroll away with the page, never float over data. */
+:root[data-theme] body > .site-account-bar,
+:root[data-theme] body > #settings-btn{position:absolute!important;top:20px!important;z-index:70!important}
 #settings-btn{right:20px!important}
 .site-account-bar{right:68px!important}
 .site-account-trigger,
 #settings-btn{width:40px!important;height:40px!important;border-radius:12px!important}
 @media(max-width:760px){
- .site-account-bar,
- #settings-btn{top:calc(14px + var(--site-status-inset))!important}
+ :root[data-theme] body > .site-account-bar,
+ :root[data-theme] body > #settings-btn{top:calc(14px + var(--site-status-inset))!important}
  #settings-btn{right:max(12px,calc(env(safe-area-inset-right,0px) + 12px))!important}
  .site-account-bar{right:max(58px,calc(env(safe-area-inset-right,0px) + 58px))!important}
  .site-account-trigger,

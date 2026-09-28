@@ -145,8 +145,7 @@ function renderStatus(){
  // .hero (at .hero's level of 1), so any card stacked above that painted
  // straight over it, while the settings gear stayed clear purely because
  // it's a direct child of <body>. Keeping both at the same level also
- // means position:fixed here resolves against the viewport with no
- // ancestor that could ever trap it into scrolling with the page.
+ // keeps document-top positioning independent of sticky app headers.
  let bar=document.getElementById('site-account-bar');if(!bar){bar=element('div',null,'site-account-bar');bar.id='site-account-bar';}
  if(bar.parentElement!==document.body)document.body.append(bar);
  bar.hidden=!granted;

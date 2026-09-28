@@ -401,10 +401,10 @@
  .unified-finder.finder-detail-active .finder-back,
  .unified-finder.finder-detail-active .wnba-trend-back,
  .unified-finder.finder-detail-active .nfl-research-actions{
-  position:sticky!important;top:0!important;z-index:50!important;display:flex!important;align-items:center!important;min-height:48px!important;
+  position:relative!important;top:auto!important;z-index:auto!important;display:flex!important;align-items:center!important;min-height:44px!important;
   width:max-content!important;max-width:100%;margin:0 0 4px!important;padding:0 8px!important;border:0!important;
-  border-radius:8px!important;background:#0c1127!important;color:#b9d4ff!important;font-size:12px!important;box-shadow:none!important;
-  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)
+  border-radius:0!important;background:transparent!important;color:#b9d4ff!important;font-size:13px!important;box-shadow:none!important;
+  backdrop-filter:none;-webkit-backdrop-filter:none
  }
  .unified-finder.finder-detail-active .finder-back{justify-content:flex-start;gap:8px}
  .unified-finder.finder-detail-active .nfl-research-actions{justify-content:space-between}

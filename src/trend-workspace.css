@@ -479,3 +479,26 @@
   :root[data-theme] #gamelog-overlay button[role="combobox"] > svg,
   :root[data-theme] #gamelog-overlay .gamelog-line-control button { transition: none !important; }
 }
+/* Clip painted surfaces at the card boundary, without creating a new scroller. */
+:root[data-theme] .unified-finder #gamelog-overlay .gamelog-modal {
+  border-radius:12px!important;
+  overflow:clip!important;
+  isolation:isolate;
+}
+:root[data-theme] .unified-finder #gamelog-overlay .gamelog-chart {
+  border-radius:0 0 12px 12px!important;
+  overflow:clip!important;
+}
+:root[data-theme] .unified-finder :is(.finder-back,.wnba-trend-back) {
+  background:transparent!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  min-height:44px!important;
+  padding:0 6px!important;
+  color:#b9d4ff!important;
+}
+:root[data-theme] .unified-finder :is(.finder-back,.wnba-trend-back):focus-visible {
+  outline:2px solid #a99aff!important;
+  outline-offset:-2px!important;
+}
