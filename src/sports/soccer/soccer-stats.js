@@ -117,3 +117,31 @@ export function teamAverages(log,n,group){
  const [, ,rows]=TEAM_GROUPS.find(([key])=>key===group)||TEAM_GROUPS[0];
  return {games:games.length,rows:rows.map(([label,get,unit='',lowerIsBetter=false])=>({label,unit,lowerIsBetter,value:average(games.map(get))}))};
 }
+
+// With / without a teammate on the chart. Several can be on at once; the
+// chart keeps only the matches that fit every one of them.
+export const splitKey=filter=>`${filter.id}:${filter.kind}`;
+export function toggleSplit(filters,entry){
+ const current=filters.find(filter=>filter.id===entry.id);
+ if(current?.kind===entry.kind)return filters.filter(filter=>filter.id!==entry.id);
+ return [...filters.filter(filter=>filter.id!==entry.id),entry];
+}
+export const applySplits=(games,filters)=>filters.length?(games||[]).filter(game=>filters.every(filter=>filter.ids.includes(String(game.gameId)))):(games||[]);
+// A teammate's with / without split over the player's own matches for his
+// team: which of them the teammate played in.
+export function teammateSplit(log,games,teammate){
+ const played=new Set((log?.games||[]).filter(game=>findPlayer(game.players||[],teammate.name)).map(game=>String(game.id)));
+ const own=(games||[]).filter(game=>(log?.games||[]).some(item=>String(item.id)===String(game.gameId)));
+ const ids=kind=>own.filter(game=>played.has(String(game.gameId))===(kind==='with')).map(game=>String(game.gameId));
+ return {with:ids('with'),without:ids('without')};
+}
+// Everyone who has played for the team in its logged matches, most
+// appearances first.
+export function squad(log){
+ const byName=new Map();
+ for(const game of log?.games||[])for(const player of game.players||[]){
+  const key=player.id||player.name;const entry=byName.get(key)||{id:player.id,name:player.name,pos:player.pos,games:0,min:0};
+  entry.games+=1;entry.min+=finite(player.min)?player.min:0;entry.pos=player.pos||entry.pos;byName.set(key,entry);
+ }
+ return [...byName.values()].sort((a,b)=>b.games-a.games||b.min-a.min);
+}

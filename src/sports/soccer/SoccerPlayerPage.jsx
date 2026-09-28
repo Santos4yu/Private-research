@@ -1,9 +1,9 @@
-import React,{useEffect,useMemo,useRef,useState} from 'react';
+import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {CalendarDays,Database,ListOrdered,RefreshCw,Shield} from 'lucide-react';
 import {FinderPlayerBanner} from '../../FinderPlayerBanner';
 import {wnbaLines,wnbaOdds} from '../wnba/trend-data';
 import SoccerFinderContext from './SoccerFinderContext';
-import {SOCCER_STATS,average,finite,fmt,mergeGames,playerGames,shortDate,soccerChart,statKeyOf,statOf,teamLogParams,useSoccer,valueOf} from './soccer-finder';
+import {SOCCER_STATS,applySplits,average,finite,fmt,mergeGames,playerGames,shortDate,soccerChart,splitKey,statKeyOf,statOf,teamLogParams,toggleSplit,useSoccer,valueOf} from './soccer-finder';
 import '../../mlb-finder-context.css';
 import '../wnba/wnba-context.css';
 import './soccer-player.css';
@@ -24,14 +24,15 @@ function statTabs(playerRows){
 }
 const kickoff=value=>{const date=new Date(value);return Number.isNaN(date.getTime())?'':date.toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'});};
 
-function TrendChart({row,playerRows,games,loading,onStat}){
+function TrendChart({row,playerRows,games,loading,onStat,chips,chipsNote,onChipRemove,onChipsClear}){
  const host=useRef(null);
  const config=useMemo(()=>({sport:'SOCCER',player:row.player,teamAbbr:row.teamAbbr||'',teamLogo:row.teamLogo||'',opponent:row.opponent||'',
   opponentLogo:row.opponentLogo||'',matchupLabel:row.awayTeamAbbr&&row.homeTeamAbbr?`${row.awayTeamAbbr} @ ${row.homeTeamAbbr}`:'',
   kickoffLabel:kickoff(row.startsAt),status:'Pre-game',headshot:row.headshot||null,
   stats:statTabs(playerRows),statKey:row.marketKey,stat:row.market,side:row.direction==='UNDER'?'Under':'Over',line:row.line,
   chart:soccerChart(games,statKeyOf(row.marketKey),row.opponent),lines:wnbaLines(playerRows,row.marketKey),linesStatus:'ready',
-  odds:wnbaOdds(playerRows,row.marketKey),loading,onStat,filters:['opponent','league','team']}),[row,playerRows,games,loading,onStat]);
+  odds:wnbaOdds(playerRows,row.marketKey),loading,onStat,filters:['opponent','league','team'],chips,chipsNote,onChipRemove,onChipsClear}),
+  [row,playerRows,games,loading,onStat,chips,chipsNote,onChipRemove,onChipsClear]);
  const latest=useRef(config);latest.current=config;
  const [ready,setReady]=useState(true);
  useEffect(()=>{const panel=window.vortexTrendPanel;if(!panel||!host.current){setReady(false);return undefined;}setReady(Boolean(panel.mount(host.current,latest.current)));return()=>panel.unmount();},[]);
@@ -80,8 +81,12 @@ function PlayerGameLog({row,games,loading,error,onRetry}){
 }
 
 export function SoccerPlayerPage({row,playerRows,onBack}){
- const [selected,setSelected]=useState(row);
- useEffect(()=>setSelected(row),[row]);
+ const [selected,setSelected]=useState(row),[filters,setFilters]=useState([]);
+ useEffect(()=>{setSelected(row);setFilters([]);},[row]);
+ // With / without choices from the Injuries tab.
+ const toggleFilter=useCallback(entry=>setFilters(old=>toggleSplit(old,entry)),[]);
+ const removeFilter=useCallback(key=>setFilters(old=>old.filter(filter=>splitKey(filter)!==key)),[]);
+ const clearFilters=useCallback(()=>setFilters([]),[]);
  const matched=Boolean(row.eventId&&row.teamId);
  const log=useSoccer('log',teamLogParams(row),matched);
  const teamGames=useMemo(()=>playerGames(log.data,row.player),[log.data,row.player]);
@@ -93,15 +98,20 @@ export function SoccerPlayerPage({row,playerRows,onBack}){
  // Switching stat keeps the tier this row came from where possible.
  const onStat=useMemo(()=>key=>{const options=playerRows.filter(item=>item.marketKey===key);const next=options.find(item=>item.modifier===selected.modifier)||options[0];if(next)setSelected(next);},[playerRows,selected.modifier]);
  const loading=Boolean(log.loading);
+ const chartGames=useMemo(()=>applySplits(games,filters),[games,filters]);
+ const chips=useMemo(()=>filters.map(filter=>({key:splitKey(filter),kind:filter.kind,label:`${filter.kind==='without'?'W/O':'W/'} ${filter.name}${filter.pos?` (${filter.pos})`:''}`,
+  title:`${filter.ids.length} of ${row.player}'s matches ${filter.kind} ${filter.name}`})),[filters,row.player]);
+ const chipsNote=filters.length?`${chartGames.length} ${chartGames.length===1?'match':'matches'}`:'';
  return <section className="finder-trend-view wnba-trend-page wnba-player-page soccer-player-page">
   <FinderPlayerBanner row={selected} playerRows={playerRows} onBack={onBack}/>
   {!matched?<div className="wnba-board-message" role="status"><Database size={22} aria-hidden="true"/><strong>Match history unavailable</strong><span>This line could not be matched to its match yet, so trends and matchup research are not available.</span></div>:<>
   {log.error&&<div className="wnba-board-message" role="alert"><span>{log.error}</span><button type="button" className="wnba-trend-back" onClick={log.retry}><RefreshCw size={16} aria-hidden="true"/>Retry</button></div>}
   <div className="mlb-finder-workspace"><div className="mlb-trend-main">
-   <TrendChart row={selected} playerRows={playerRows} games={games} loading={loading} onStat={onStat}/>
+   <TrendChart row={selected} playerRows={playerRows} games={chartGames} loading={loading} onStat={onStat} chips={chips} chipsNote={chipsNote} onChipRemove={removeFilter} onChipsClear={clearFilters}/>
+   {filters.length>0&&!chartGames.length&&!loading&&<p className="wnba-filter-empty" role="status">No matches fit all of these together. Remove a filter to see more.</p>}
    <SupportingStats row={selected} games={games} loading={loading}/>
    <PlayerGameLog row={selected} games={games} loading={loading} error={Boolean(log.error)} onRetry={log.retry}/>
   </div>
-  <SoccerFinderContext row={selected} games={games} log={log} playerRows={playerRows}/></div></>}
+  <SoccerFinderContext row={selected} games={games} teamGames={teamGames} log={log} playerRows={playerRows} filters={filters} onToggleFilter={toggleFilter}/></div></>}
  </section>;
 }

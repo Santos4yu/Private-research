@@ -106,7 +106,7 @@ class TeamLogTests(Offline):
         # Finished matches are kept for weeks; the log for a few hours.
         keys = {call.args[0]: call.kwargs.get("ex") for call in self.saved.call_args_list}
         self.assertEqual(keys["soccer:event:v1:701"], 45 * 86400)
-        self.assertEqual(keys["soccer:teamlog:v1:359:900"], 3 * 3600)
+        self.assertEqual(keys["soccer:teamlog:v2:359:900"], 3 * 3600)
 
 
 class ClubTests(Offline):
@@ -138,8 +138,14 @@ class MatchTests(Offline):
             {"team": "Arsenal", "id": "359", "logo": [{"href": "a.png"}], "stats": [{"name": "rank", "value": 1}, {"name": "points", "value": 15}]}]}}]}
         value["pickcenter"] = [{"provider": {"name": "DraftKings"}, "moneyline": {"home": {"close": {"odds": "-150"}}, "away": {"close": {"odds": "+400"}},
                                                                                    "draw": {"close": {"odds": "+280"}}}}]
+        value["standings"]["groups"][0]["standings"]["entries"][1]["note"] = {"color": "#81D6AC", "description": "Champions League"}
+        value["injuries"] = [{"team": CHE, "injuries": [{"athlete": {"id": "51", "displayName": "Cole Palmer", "position": {"abbreviation": "M"}},
+                                                          "status": "Day-To-Day", "details": {"type": "Ankle", "fantasyStatus": {"abbreviation": "GTD"}}}]}]
         with patch.object(research, "_get", return_value=value):
             context = research.match("900", "eng.1")
+        self.assertEqual(context["standings"][0]["entries"][0]["zone"], "#81D6AC")
+        self.assertEqual(context["injuries"]["363"][0], {"id": "51", "name": "Cole Palmer", "headshot": None, "pos": "M", "status": "Day-To-Day",
+                                                         "injury": "Ankle", "code": "GTD", "returnDate": None, "comment": None})
         self.assertEqual([team["abbr"] for team in context["teams"]], ["ARS", "CHE"])
         self.assertEqual(context["form"]["359"][0]["result"], "D")
         self.assertEqual(context["h2h"][0]["score"], "2-1")
