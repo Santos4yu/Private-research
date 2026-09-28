@@ -249,9 +249,9 @@ def _attach_history(rows, season):
     with ThreadPoolExecutor(max_workers=8) as pool:
         for player_id, logs in pool.map(load, player_ids): histories[player_id] = logs
     for row in rows:
-        # Preseason games are not the player's real role or minutes; they
-        # stay in the game log but never count toward a hit rate.
-        logs = [log for log in histories.get(row.get("playerId"), []) if log.get("seasonKind") != "preseason"]
+        # Every game counts, preseason included -- the same games the
+        # player page's chart shows before its Season menu narrows them.
+        logs = histories.get(row.get("playerId"), [])
         values = [(log.get("values") or {}).get(row["marketKey"]) for log in logs]
         values = [value for value in values if value is not None]
         recent = values[-10:]

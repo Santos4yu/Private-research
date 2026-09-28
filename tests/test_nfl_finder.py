@@ -38,9 +38,13 @@ class NoCache:
     def __enter__(self):
         self.patch = patch.object(finder, "cached_nfl", side_effect=lambda _domain, _parts, loader, **_: loader())
         self.patch.start()
+        # No ESPN preseason lookups (test_nfl_preseason.py covers those).
+        self.ids = patch.object(finder, "espn_ids", return_value={})
+        self.ids.start()
 
     def __exit__(self, *exc):
         self.patch.stop()
+        self.ids.stop()
 
 
 class GamesTests(unittest.TestCase):

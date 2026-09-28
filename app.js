@@ -500,6 +500,9 @@ function cacheEls() {
   els.gamelogHandField = document.getElementById("gl-hand-field");
   els.glExtraFields = Object.fromEntries(["opponent", "league", "team"].map((field) => [field, document.getElementById(`gl-${field}-field`)]));
   els.glExtraBridges = Object.fromEntries(["opponent", "league", "team"].map((field) => [field, wireBridge(window.vortexGamelogExtraSelects?.[field], ["setOptions", "setValue"])]));
+  els.glKindField = document.getElementById("gl-kind-field");
+  els.glKindBridge = wireBridge(window.vortexGamelogKindSelect, ["setOptions", "setValue"]);
+  els.glYearLabel = document.getElementById("gl-year-label");
 
   els.teamOverlay = document.getElementById("team-overlay");
   els.teamTitle = document.getElementById("team-title");
@@ -3089,6 +3092,7 @@ function openGameLogModal(p, adapter = MLB_TREND_ADAPTER) {
   gameLogState.handFilter = "all";
   gameLogState.venueFilter = "all";
   gameLogState.extraFilters = {};
+  gameLogState.seasonKind = "all";
   gameLogState.handDataLoaded = false;
   gameLogState.gameCount = 10;
   gameLogState.windowKey = "10";
@@ -3266,10 +3270,15 @@ function extraFilterValues(field) {
 function extraFilterOn(field) {
   return trendAdapter === EXTERNAL_TREND_ADAPTER && Boolean(externalTrendConfig?.filters?.includes(field));
 }
+// Season part (config.filters "seasonKind"): every game by default, or only
+// preseason, regular season or postseason games.
+const GL_KIND_PAIRS = [["all", "All"], ["preseason", "Preseason"], ["regular", "Regular Season"], ["postseason", "Postseason"]];
+const seasonKindOn = () => extraFilterOn("seasonKind");
 
 function filterGames(games) {
   return games.filter((g) => {
     if (gameLogState.season !== "all" && String(g.season || String(g.fullDate || "").slice(0, 4)) !== gameLogState.season) return false;
+    if (seasonKindOn() && gameLogState.seasonKind && gameLogState.seasonKind !== "all" && g.seasonKind !== gameLogState.seasonKind) return false;
     for (const [field] of GL_EXTRA_FILTERS) {
       const wanted = gameLogState.extraFilters?.[field];
       if (wanted && wanted !== "all" && String(g[field] || "") !== wanted) return false;
@@ -3304,6 +3313,14 @@ function renderGameLogSubfilters() {
   els.glHandFilterBridge?.setValue(labelForKey(GL_HAND_PAIRS, gameLogState.handFilter));
   els.glVenueFilterBridge?.setOptions(pairOptions(GL_VENUE_PAIRS));
   els.glVenueFilterBridge?.setValue(labelForKey(GL_VENUE_PAIRS, gameLogState.venueFilter));
+  const kinds = seasonKindOn();
+  if (els.glKindField) els.glKindField.hidden = !kinds;
+  // Two "Season" menus would read the same; the year one becomes "Year".
+  if (els.glYearLabel) els.glYearLabel.textContent = kinds ? "Year" : "Season";
+  if (kinds) {
+    els.glKindBridge?.setOptions(pairOptions(GL_KIND_PAIRS));
+    els.glKindBridge?.setValue(labelForKey(GL_KIND_PAIRS, gameLogState.seasonKind || "all"));
+  }
   for (const [field] of GL_EXTRA_FILTERS) {
     const values = extraFilterOn(field) ? extraFilterValues(field) : [];
     const current = gameLogState.extraFilters?.[field] || "all";
@@ -3415,6 +3432,7 @@ function renderGameLogChart() {
   if (gameLogState.handFilter !== "all") filterBits.push(`vs ${gameLogState.handFilter}HP`);
   if (gameLogState.venueFilter !== "all") filterBits.push(gameLogState.venueFilter === "home" ? "at home" : "on the road");
   if (gameLogState.season !== "all") filterBits.push(gameLogState.season);
+  if (seasonKindOn() && gameLogState.seasonKind && gameLogState.seasonKind !== "all") filterBits.push(labelForKey(GL_KIND_PAIRS, gameLogState.seasonKind));
   for (const [field] of GL_EXTRA_FILTERS) {
     const wanted = gameLogState.extraFilters?.[field];
     if (wanted && wanted !== "all") filterBits.push(field === "opponent" ? `vs ${wanted}` : wanted);
@@ -3675,6 +3693,12 @@ function wireGameLogModal() {
   });
   window.addEventListener("vortex:gamelog-hand-pick", (event) => {
     gameLogState.handFilter = keyForLabel(GL_HAND_PAIRS, event.detail.value);
+    renderGameLogSubfilters();
+    renderGameLogTabs();
+    renderGameLogChart();
+  });
+  window.addEventListener("vortex:gamelog-kind-pick", (event) => {
+    gameLogState.seasonKind = keyForLabel(GL_KIND_PAIRS, event.detail?.value);
     renderGameLogSubfilters();
     renderGameLogTabs();
     renderGameLogChart();

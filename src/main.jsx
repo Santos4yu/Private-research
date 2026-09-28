@@ -341,8 +341,15 @@ window.vortexMountSimpleSelect = (host, { onPick, ariaLabel }) => {
 const gamelogSeasonSelectRoot = document.getElementById('gamelog-season-select-root');
 if (gamelogSeasonSelectRoot) {
   window.vortexGamelogSeasonSelect = window.vortexMountSimpleSelect(gamelogSeasonSelectRoot, {
-    ariaLabel: 'Season',
+    ariaLabel: 'Season year',
     onPick: (value) => window.dispatchEvent(new CustomEvent('vortex:gamelog-season-pick', { detail: { value } })),
+  });
+}
+const gamelogKindSelectRoot = document.getElementById('gamelog-kind-select-root');
+if (gamelogKindSelectRoot) {
+  window.vortexGamelogKindSelect = window.vortexMountSimpleSelect(gamelogKindSelectRoot, {
+    ariaLabel: 'Season',
+    onPick: (value) => window.dispatchEvent(new CustomEvent('vortex:gamelog-kind-pick', { detail: { value } })),
   });
 }
 const gamelogHandSelectRoot = document.getElementById('gamelog-hand-select-root');

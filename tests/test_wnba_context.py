@@ -156,7 +156,7 @@ class TopUpTests(unittest.TestCase):
 
 
 class PreseasonTests(unittest.TestCase):
-    def test_preseason_games_never_count_toward_hit_rates(self):
+    def test_preseason_games_count_toward_hit_rates(self):
         from unittest.mock import patch
         logs = [{"opponent": "OPP", "seasonKind": "preseason", "values": {"player_points": 40}},
                 {"opponent": "OPP", "seasonKind": "regular", "values": {"player_points": 10}}]
@@ -164,9 +164,10 @@ class PreseasonTests(unittest.TestCase):
                  "teamAbbr": "TEAM", "homeTeamAbbr": "OPP", "awayTeamAbbr": "TEAM"}]
         with patch.object(wnba_api, "_game_logs", return_value={"rows": logs}):
             result = wnba_api._attach_history(rows, 2026)[0]
-        self.assertEqual(result["windows"]["season"]["sample"], 1)
-        self.assertEqual(result["windows"]["season"]["hitRate"], 0)
-        self.assertEqual(result["average"], 10)
+        # The default is every game, as on the player page's chart.
+        self.assertEqual(result["windows"]["season"]["sample"], 2)
+        self.assertEqual(result["windows"]["season"]["hitRate"], 50)
+        self.assertEqual(result["average"], 25)
 
 
 class ScoreTests(unittest.TestCase):

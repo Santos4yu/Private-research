@@ -22,6 +22,7 @@ from datetime import datetime, timezone
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+from . import preseason
 from .cache import NFLCacheDomain, cached_nfl
 from .services.nflverse import RELEASE, SCHEDULE_URL, TEAM_URL, ProviderError, _source_rows, canonical_team
 from .services.research_stats import numeric, prizepicks_fantasy
@@ -92,6 +93,25 @@ def team_rows(season):
 
 def roster_rows(season):
     return _rows(f"{RELEASE}/rosters/roster_{season}.csv")
+
+
+_espn_memo = [None, None]
+
+
+def espn_ids(season):
+    """gsis id -> ESPN athlete id, from this season's roster and last's --
+    how a player is found in ESPN's preseason box scores."""
+    sources = (roster_rows(season), roster_rows(season - 1))
+    if _espn_memo[0] == [id(rows) for rows in sources]:
+        return _espn_memo[1]
+    ids = {}
+    for rows in sources:
+        for row in rows:
+            player_id, espn = str(row.get("gsis_id") or "").strip(), str(row.get("espn_id") or "").strip()
+            if player_id and player_id != "NA" and espn not in ("", "NA", "0"):
+                ids.setdefault(player_id, espn.split(".")[0])
+    _espn_memo[:] = [[id(rows) for rows in sources], ids]
+    return ids
 
 
 def schedule_rows():
@@ -311,8 +331,33 @@ def _player_log_rows(season, player_id):
                 if len(teams) > 1 and not (min(span) <= kickoff <= max(span)):
                     continue
                 rows.append({**team_view(game, team), "dnp": True, "box": {}, "values": {}})
+    preseason_rows, found = _preseason_rows(season, player_id, player)
+    rows.extend(preseason_rows)
+    player = player or found
     rows.sort(key=lambda row: (row["date"], row["gameId"]))
     return {"season": season, "player": player, "rows": rows, "version": VERSION}
+
+
+def _preseason_rows(season, player_id, player):
+    """The player's preseason games this season and last, from ESPN's box
+    scores (nflverse has none). Only games he played in: most starters sit
+    most of the preseason, and those are not missed games."""
+    espn = espn_ids(season).get(player_id)
+    if not espn:
+        return [], None
+    rows, found = [], None
+    for year in (season - 1, season):
+        try:
+            games = preseason.player_games(year, espn)
+        except Exception:  # noqa: BLE001 -- the regular season log still stands
+            games = []
+        for event_id, game, entry in games:
+            row = preseason.full_row(entry, (player or {}).get("position") or "")
+            found = {"id": player_id, "name": entry.get("name") or "", "position": (player or {}).get("position") or "",
+                     "team": entry["team"], "headshot": ""}
+            rows.append({**preseason.team_view(event_id, game, entry["team"], year), "dnp": False, "box": box(row),
+                         "values": {**market_values(row), **preseason.extra_values(row)}})
+    return rows, found
 
 
 # ------------------------------------------------------------------ play-by-play extras
@@ -474,7 +519,8 @@ def pbp_values(season, player_id, log=None):
     this season and last. Games the file does not cover yet are left out."""
     values = {}
     for row in (log or player_log(season, player_id))["rows"]:
-        if row["dnp"]:
+        # Preseason games carry their own (ESPN box score) values.
+        if row["dnp"] or row.get("seasonKind") == "preseason":
             continue
         extras = pbp_extras(row["season"])
         covered = row["gameId"] in extras["teams"].get(row["team"], {})
