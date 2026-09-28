@@ -134,7 +134,7 @@ class BoardTests(unittest.TestCase):
         with patch.object(finder, "games_index", return_value=games), \
                 patch.object(finder, "roster_rows", side_effect=lambda year: roster if year == 2026 else []), \
                 patch.object(finder, "game_values", side_effect=lambda _season, pid, cached=True: history[pid]) as values:
-            result = prizepicks_board.build(2026, projections, now=now)
+            result = prizepicks_board.build(2026, projections, now=now, sportsbook_lines=[])
         rows = {row["id"]: row for row in result["rows"]}
         self.assertEqual(set(rows), {"pp:1", "pp:2", "pp:3", "pp:4"})
         # One history load per player, whatever the number of lines.
@@ -151,6 +151,101 @@ class BoardTests(unittest.TestCase):
         self.assertEqual((rows["pp:4"]["propType"], rows["pp:4"]["propLabel"]), ("pp:receivingairyards", "Receiving Air Yards"))
         self.assertEqual(rows["pp:4"]["windows"], {})
         self.assertEqual([event["gameId"] for event in result["events"]], ["2026_03_PIT_CLE"])
+
+    def setup_game(self):
+        self.now = datetime(2026, 9, 20, 12, tzinfo=timezone.utc).timestamp()
+        kickoff = datetime(2026, 9, 20, 17, tzinfo=timezone.utc)
+        self.starts = kickoff.isoformat()
+        self.games = {"2026_03_PIT_CLE": {"game_id": "2026_03_PIT_CLE", "home": "CLE", "away": "PIT", "final": False,
+                                          "kickoff": kickoff.timestamp()}}
+        self.event = {"eventId": "e1", "gameId": "2026_03_PIT_CLE", "homeTeamId": "CLE", "awayTeamId": "PIT",
+                      "startsAt": self.starts}
+        self.roster = [{"gsis_id": "00-2", "full_name": "DK Metcalf", "team": "PIT", "position": "WR", "espn_id": "4047650"},
+                       {"gsis_id": "00-3", "full_name": "Jerry Jeudy", "team": "CLE", "position": "WR", "espn_id": "1"}]
+
+    def run_board(self, projections, sportsbook_lines):
+        with patch.object(finder, "games_index", return_value=self.games), \
+                patch.object(finder, "roster_rows", side_effect=lambda year: self.roster if year == 2026 else []), \
+                patch.object(finder, "game_values", return_value=[{"opponent": "CLE", "values": {"receptions": 5, "receiving_yards": 60}}]):
+            return prizepicks_board.build(2026, projections, now=self.now, sportsbook_lines=sportsbook_lines)
+
+    def quote(self, book, player, market, line, over, under):
+        return {"book": book, "player": player, "market": market, "line": line, "over": over, "under": under,
+                "updatedAt": "2026-09-20T11:00:00Z", "event": self.event}
+
+    def test_sportsbook_lines_join_prizepicks_or_stand_alone(self):
+        self.setup_game()
+        projections = [{"id": 3, "player": "DK Metcalf", "position": "WR", "stat": "Receptions", "line": 4.5, "team": "PIT",
+                        "start_time": self.starts, "odds_type": "standard", "updated_at": ""}]
+        lines = [self.quote("draftkings", "DK Metcalf", "receptions", 4.5, -125, -105),
+                 self.quote("fanduel", "DK Metcalf", "receptions", 4.5, -130, 100),
+                 # Only the sportsbooks post this one: its own row.
+                 self.quote("fanduel", "DK Metcalf", "receiving_yards", 52.5, -115, -115),
+                 self.quote("draftkings", "Jerry Jeudy", "receptions", 3.5, 105, -135),
+                 # Nobody on either team by this name: left out.
+                 self.quote("fanduel", "Someone Else", "receptions", 2.5, -110, -110)]
+        result = self.run_board(projections, lines)
+        rows = {(row["playerName"], row["propType"], row["line"]["value"]): row for row in result["rows"]}
+        joined = rows[("DK Metcalf", "receptions", 4.5)]
+        self.assertEqual([app["key"] for app in joined["apps"]], ["prizepicks", "draftkings", "fanduel"])
+        self.assertEqual((joined["apps"][1]["over"], joined["apps"][1]["under"]), (-125, -105))
+        yards = rows[("DK Metcalf", "receiving_yards", 52.5)]
+        self.assertEqual((yards["propLabel"], yards["line"]["bookmaker"], yards["opponentId"], yards["teamId"]),
+                         ("Receiving Yards", "fanduel", "CLE", "PIT"))
+        self.assertEqual(yards["windows"]["l5"]["hits"], 1)
+        jeudy = rows[("Jerry Jeudy", "receptions", 3.5)]
+        self.assertEqual((jeudy["teamId"], jeudy["opponentId"]), ("CLE", "PIT"))
+        self.assertEqual(len(rows), 3)
+        self.assertEqual((result["sources"]["prizepicks"], result["sources"]["sportsbooks"], result["sources"]["unmatchedPlayers"]), (1, 2, 1))
+
+    def test_either_source_can_fail_alone(self):
+        self.setup_game()
+        line = [self.quote("draftkings", "DK Metcalf", "receptions", 4.5, -125, -105)]
+        with patch.object(prizepicks_board, "_projections", side_effect=RuntimeError("PrizePicks down")):
+            result = self.run_board(None, line)
+        self.assertEqual(len(result["rows"]), 1)
+        self.assertEqual(result["sources"]["prizepicksError"], "PrizePicks down")
+        with patch.object(prizepicks_board, "_projections", side_effect=RuntimeError("PrizePicks down")), \
+                patch.object(prizepicks_board, "_sportsbook_lines", side_effect=RuntimeError("no key")), \
+                self.assertRaises(RuntimeError):
+            self.run_board(None, None)
+
+    def test_event_odds_parse_each_books_over_and_under(self):
+        event = {"eventId": "e1"}
+        payload = {"id": "e1", "bookmakers": [
+            {"key": "draftkings", "last_update": "t", "markets": [{"key": "player_receptions", "outcomes": [
+                {"name": "Over", "description": "DK Metcalf", "point": 4.5, "price": -125},
+                {"name": "Under", "description": "DK Metcalf", "point": 4.5, "price": -105}]},
+                {"key": "player_anytime_td", "outcomes": [{"name": "Yes", "description": "DK Metcalf", "price": 150}]}]},
+            {"key": "prizepicks", "markets": [{"key": "player_receptions", "outcomes": [
+                {"name": "Over", "description": "DK Metcalf", "point": 4.5, "price": -137}]}]}]}
+        lines = prizepicks_board._parse_event_odds(payload, event)
+        self.assertEqual(lines, [{"book": "draftkings", "player": "DK Metcalf", "market": "receptions", "line": 4.5,
+                                  "over": -125, "under": -105, "updatedAt": "t"}])
+        with self.assertRaises(ValueError):
+            prizepicks_board._parse_event_odds({"id": "other", "bookmakers": []}, event)
+
+    def test_sportsbook_fetch_stays_in_window_and_above_the_credit_floor(self):
+        from backend.sports.nfl.services import odds
+        now = datetime(2026, 9, 28, 12, tzinfo=timezone.utc).timestamp()
+        soon = {"eventId": "a", "startsAt": "2026-09-29T00:15:00+00:00"}
+        later = {"eventId": "b", "startsAt": "2026-10-12T17:00:00+00:00"}
+        payload = {"id": "a", "bookmakers": []}
+        calls = []
+
+        def get(path, params):
+            calls.append((path, params))
+            return type("R", (), {"json": lambda self: payload})()
+        passthrough = lambda _domain, _parts, loader, **_: loader()
+        with patch.object(odds, "events", return_value={"data": [soon, later], "creditsRemaining": 90000}), \
+                patch.object(odds, "credentials", return_value=["k"]), patch.object(odds, "_get", side_effect=get), \
+                patch.object(prizepicks_board, "cached_nfl", side_effect=passthrough):
+            self.assertEqual(prizepicks_board._sportsbook_lines(2026, now), [])
+        self.assertEqual([path.split("/")[4] for path, _ in calls], ["a"])
+        self.assertEqual(len(calls[0][1]["bookmakers"].split(",")), 10)
+        with patch.object(odds, "events", return_value={"data": [soon], "creditsRemaining": 200}), \
+                self.assertRaises(RuntimeError):
+            prizepicks_board._sportsbook_lines(2026, now)
 
     def test_same_name_on_two_teams_matches_by_team(self):
         roster = {"joshallen": [{"id": "a", "team": "BUF"}, {"id": "b", "team": "JAX"}]}

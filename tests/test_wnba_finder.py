@@ -89,6 +89,28 @@ class QuotePairingTests(unittest.TestCase):
         self.assertEqual(row["apps"][0]["under"],-119)
         self.assertIsNone(row["apps"][1]["under"])
 
+    def test_book_main_lines_are_rows_and_alternates_only_add_prices(self):
+        from api.wnba import _board
+        from unittest.mock import Mock
+        events = [{"id":"fixture", "commence_time":"2099-01-01T12:00:00Z", "home_team":"Home", "away_team":"Away"}]
+        def market(key, point, over, under):
+            return {"key":key,"outcomes":[{"description":"Fixture player","name":"Over","point":point,"price":over},
+                                          {"description":"Fixture player","name":"Under","point":point,"price":under}]}
+        payload = {"bookmakers":[
+            # FanDuel's main line is its own row; its alternates at 5.5 and
+            # 9.5 are no one's line, so they are not rows.
+            {"key":"fanduel","markets":[market("player_points",8.5,-120,-110),market("player_points_alternate",5.5,-300,220),
+                                        market("player_points_alternate",9.5,110,-140)]},
+            {"key":"espnbet","markets":[market("player_points",8.5,-118,-112)]},
+        ]}
+        with patch("api.wnba._cached",return_value=None), patch("api.wnba._roster_directory",return_value={"players":{},"teams":{}}), patch("api.wnba._get",side_effect=[Mock(json=lambda:events),Mock(json=lambda:payload)]) as get, patch("api.wnba.store.set"), \
+                patch("prizepicks_export_core._fetch_projection_rows", return_value=[]):
+            result = _board(include_history=False)
+        self.assertEqual([(row["line"], [app["key"] for app in row["apps"]]) for row in result["rows"]],
+                         [(8.5, ["fanduel", "espnbet"])])
+        # Ten books, still one bookmakers group.
+        self.assertEqual(len(get.call_args.args[1]["bookmakers"].split(",")), 10)
+
 if __name__ == "__main__":
     unittest.main()
 

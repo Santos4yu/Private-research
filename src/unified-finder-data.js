@@ -3,11 +3,13 @@ import {teamLogoUrl} from './sports/nfl/nfl-ui-core.js';
 import {MARKET_STAT as WNBA_DVP_STAT, positionOf} from './sports/wnba/wnba-research.js';
 
 const WINDOW_KEYS = ['l5', 'l10', 'l15', 'l20', 'h2h', 'season'];
-const BOOK_NAMES = {prizepicks: 'PrizePicks', underdog: 'Underdog', draftkings: 'DraftKings', fanduel: 'FanDuel', betmgm: 'BetMGM'};
+export const BOOK_NAMES = {prizepicks: 'PrizePicks', underdog: 'Underdog', pick6: 'DK Pick6', betr_us_dfs: 'Betr Picks',
+  draftkings: 'DraftKings', fanduel: 'FanDuel', betmgm: 'BetMGM', williamhill_us: 'Caesars', espnbet: 'ESPN BET',
+  fanatics: 'Fanatics', betrivers: 'BetRivers', hardrockbet: 'Hard Rock Bet'};
 const NFL_LABELS = {passing_yards: 'Passing Yards', passing_attempts: 'Passing Attempts', pass_completions: 'Pass Completions', passing_touchdowns: 'Passing TDs', interceptions: 'Interceptions', rushing_yards: 'Rushing Yards', rush_attempts: 'Rush Attempts', passing_rushing_yards: 'Passing + Rushing Yards', receiving_yards: 'Receiving Yards', receptions: 'Receptions', targets: 'Targets', longest_reception: 'Longest Reception', rushing_receiving_yards: 'Rushing + Receiving Yards', touchdowns: 'Touchdowns', fantasy_score: 'Fantasy Score'};
 const historyCache = new Map();
 const HISTORY_TTL = 10 * 60 * 1000;
-const FINDER_CACHE_PREFIX = 'vortex:finder:board:v4:';
+const FINDER_CACHE_PREFIX = 'vortex:finder:board:v5:';
 const FINDER_CACHE_TTL = 24 * 60 * 60 * 1000;
 
 const number = value => value == null || value === '' || typeof value === 'boolean' ? null : Number.isFinite(Number(value)) ? Number(value) : null;
@@ -69,7 +71,7 @@ async function request(url, {signal, fetcher = fetch} = {}) {
 // Pick'em apps post one fixed price on both sides (PrizePicks -137 / -137),
 // which always reads 50/50. The market's lean comes from sportsbooks, which
 // price each side on its own.
-export const PICKEM_APPS = new Set(['prizepicks', 'underdog', 'sleeper', 'dabble', 'betr', 'pick6', 'parlayplay', 'chalkboard']);
+export const PICKEM_APPS = new Set(['prizepicks', 'underdog', 'sleeper', 'dabble', 'betr', 'betr_us_dfs', 'pick6', 'parlayplay', 'chalkboard']);
 const validPrice = price => typeof price === 'number' && Number.isFinite(price) && Math.abs(price) >= 100;
 const impliedChance = price => price < 0 ? -price / (-price + 100) : 100 / (price + 100);
 
@@ -166,9 +168,10 @@ function applications(apps) {
     .sort((a, b) => (a.key === 'prizepicks' ? -1 : b.key === 'prizepicks' ? 1 : 0));
 }
 
-// PrizePicks defines the playable line/tier; other books are comparisons only.
+// Every app's lines show. Choosing a line type (Regular / Goblins / Demons)
+// narrows the board to PrizePicks lines of that tier.
 export function matchesPrizePicksLine(row,modifiers=[]){
- return row.apps?.some(app=>app.key==='prizepicks')&&(!modifiers.length||modifiers.includes(row.modifier));
+ return !modifiers.length||(row.apps?.some(app=>app.key==='prizepicks')&&modifiers.includes(row.modifier));
 }
 
 /** Book prices kept on a saved pick: just enough for the Pick Builder. */
@@ -239,15 +242,18 @@ export function normalizeFinderRows(sport, payload, players = [], {now = Date.no
       const direction = side(quote.direction || raw.direction);
       const key = quote.bookmaker;
       const event = (payload.events || []).find(item => item.gameId === raw.gameId);
-      return finish({id: `nfl:${[raw.playerId, raw.gameId, raw.propType, key, quote.category, quote.value, direction].join(':')}`,
+      // Every app posting this line (backend/sports/nfl/prizepicks_board.py).
+      const apps = Array.isArray(raw.apps) && raw.apps.length ? raw.apps
+        : key ? [{key, name: quote.platform || BOOK_NAMES[key] || key,
+          over: direction === 'OVER' ? quote.price : null, under: direction === 'UNDER' ? quote.price : null}] : [];
+      return finish({id: `nfl:${raw.id || [raw.playerId, raw.gameId, raw.propType, key, quote.category, quote.value, direction].join(':')}`,
         sport, player: raw.playerName || player?.name, playerId: optional(raw.playerId), headshot: optional(player?.headshot_url || raw.headshot),
         position: optional(raw.position || player?.position), teamAbbr: optional(raw.teamId || player?.team_id),
         teamLogo: optional(teamLogoUrl(raw.teamId || player?.team_id)), opponent: optional(raw.opponentId),
         awayTeamAbbr: event?.awayTeamId || null, homeTeamAbbr: event?.homeTeamId || null,
         startsAt: optional(raw.startsAt), market: label, marketKey: raw.propType,
         line: quote.value, direction, modifier: quote.category,
-        apps: key ? [{key, name: quote.platform || BOOK_NAMES[key] || key,
-          over: direction === 'OVER' ? quote.price : null, under: direction === 'UNDER' ? quote.price : null}] : [],
+        apps,
         // The NFL row.average is L20; only the explicit L10 average belongs in Avg L10.
         average: raw.windows?.l10?.average, windows: raw.windows, streak: raw.streak,
         defense: raw.matchupContext?.positionDefense?.rank, raw, playerObject: player || null});

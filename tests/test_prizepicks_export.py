@@ -233,6 +233,39 @@ class PrizePicksExportTests(unittest.TestCase):
         self.assertIn("NHL", body["error"])
         self.assertEqual(fake.urls, [])
 
+    def test_every_page_of_the_feed_is_read(self):
+        first = {"data": [projection("9001", "2", "p1", "Total Bases", 1.5)], "included": [player("p1", "Aaron Judge", "MLB")],
+                 "links": {"next": "/projections?single_stat=true&league_id=2&page=2"}}
+        second = {"data": [projection("9002", "2", "p2", "Hits", 0.5)], "included": [player("p2", "Juan Soto", "MLB")],
+                  "links": {"next": None}}
+        urls = []
+
+        def get(url, **_kwargs):
+            urls.append(url)
+            return response(second if "page=2" in url else first)
+        with patch.object(export.requests, "get", side_effect=get):
+            rows = export._fetch_projection_rows(force=True)
+        self.assertEqual([row["player"] for row in rows], ["Aaron Judge", "Juan Soto"])
+        self.assertEqual(urls[1], "https://partner-api.prizepicks.com/projections?single_stat=true&league_id=2&page=2")
+        # A next link to another site is never followed.
+        first["links"]["next"] = "https://elsewhere.example/projections?page=2"
+        urls.clear()
+        with patch.object(export.requests, "get", side_effect=get):
+            rows = export._fetch_projection_rows(force=True)
+        self.assertEqual(len(urls), 1)
+
+    def test_a_line_that_names_no_sides_is_kept(self):
+        standard = projection("9001", "2", "p1", "Total Bases", 1.5)
+        goblin = projection("9002", "2", "p1", "Total Bases", 0.5, odds_type="goblin")
+        under_only = projection("9003", "2", "p1", "Hits", 0.5, wagers="under")
+        for item in (standard, goblin):
+            del item["attributes"]["allowed_wager_types"]
+        feed = {"data": [standard, goblin, under_only], "included": [player("p1", "Aaron Judge", "MLB")]}
+        with patch.object(export.requests, "get", return_value=response(feed)):
+            rows = export._fetch_projection_rows(force=True)
+        self.assertEqual([(row["id"], row["allowed_wager_types"]) for row in rows],
+                         [("9001", "over,under"), ("9002", "over")])
+
     def test_mlb_stat_normalization_is_unchanged(self):
         self.assertEqual(export._norm_stat("Pitcher Strikeouts"), "pitcherstrikeouts")
         self.assertEqual(export._norm_stat("Strikeouts"), "hitterstrikeouts")

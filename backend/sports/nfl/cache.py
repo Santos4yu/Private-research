@@ -44,6 +44,7 @@ class NFLCacheDomain(StrEnum):
     MATCHUP = "matchup"
     SOURCE_ROWS = "source_rows"
     PLAY_BY_PLAY = "play_by_play"
+    SPORTSBOOK_LINES = "sportsbook_lines"
 
 
 NFL_CACHE_TTLS = {
@@ -68,6 +69,9 @@ NFL_CACHE_TTLS = {
     # A season's play-by-play summary. nflverse republishes it overnight, and
     # rebuilding it means streaming the whole season file.
     NFLCacheDomain.PLAY_BY_PLAY: 12 * 60 * 60,
+    # One game's player props from The Odds API, which charges per market
+    # returned for every game fetched.
+    NFLCacheDomain.SPORTSBOOK_LINES: 30 * 60,
 }
 
 T = TypeVar("T")

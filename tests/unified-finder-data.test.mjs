@@ -28,6 +28,15 @@ test('defense rank reads the opponent\'s table for the player\'s position and st
  assert.deepEqual([ranked.defense,ranked.defenseTeams],[4,13]);
  assert.equal(plain.defense,null);
 });
+test('NFL rows list every app posting the line',()=>{
+ const raw={id:'odds:g:00-2:receptions:4.5',playerId:'00-2',playerName:'DK Metcalf',propType:'receptions',propLabel:'Receptions',teamId:'PIT',opponentId:'CLE',gameId:'g',startsAt:'2099-09-01T00:00:00Z',
+  line:{verified:true,bookmaker:'draftkings',category:'STANDARD',value:4.5,direction:'OVER',price:-125},
+  apps:[{key:'draftkings',name:'DraftKings',over:-125,under:-105},{key:'williamhill_us',name:'Caesars',over:-120,under:-110}]};
+ const [row]=normalizeFinderRows('nfl',{data:[raw]});
+ assert.equal(row.id,'nfl:odds:g:00-2:receptions:4.5');
+ assert.deepEqual(row.apps.map(app=>[app.key,app.over,app.under]),[['draftkings',-125,-105],['williamhill_us',-120,-110]]);
+ assert.equal(bookProbability(row.apps).books.length,2);
+});
 test('pushes are excluded, missing values stay missing, and Under reverses the outcome',()=>{
  assert.equal(finderWindow([null,undefined,'',0,2,3],2).hitRate,50);
  assert.equal(finderWindow([0,1,2,3],2,'UNDER').hits,2);
