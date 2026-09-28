@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {finderWindow,normalizeFinderRows,applyMlbHistory,enrichMlbRows,loadFinderSport,finderSlipProp,bookProbability,powerDevig,defenseRank,withDefense} from '../src/unified-finder-data.js';
+import {finderWindow,normalizeFinderRows,applyMlbHistory,enrichMlbRows,loadFinderSport,finderSlipProp,bookProbability,powerDevig,defenseRank,withDefense,trendPickRow} from '../src/unified-finder-data.js';
 
 test('book chance comes from the books\' prices with the margin removed, never a fixed 50/50',()=>{
  // PrizePicks' payouts and an app quoting the same price both ways say nothing.
@@ -102,4 +102,13 @@ test('a Finder row becomes a My Slip pick the PrizePicks export can match',()=>{
  const [mlb]=normalizeFinderRows('mlb',{props:[{id:'9001',player:'Aaron Judge',stat:'Hitter Fantasy Score',line:9.5,start_time:'2099-01-01T00:00:00Z'}]});
  const mlbPick=finderSlipProp(mlb);
  assert.equal(mlbPick.sport,'MLB');assert.equal(mlbPick.betType,'Fantasy Score');assert.equal(mlbPick.exportStat,'Hitter Fantasy Score');
+});
+test('the trend star saves the line on screen, or that market\'s nearest posted line',()=>{
+ const rows=[{id:'a',marketKey:'receptions',market:'Receptions',line:3.5},{id:'b',marketKey:'receptions',market:'Receptions',line:1.5,modifier:'goblin'},
+  {id:'c',marketKey:'targets',market:'Targets',line:6.5}];
+ assert.equal(trendPickRow(rows,{statKey:'receptions',line:1.5}).id,'b');
+ assert.equal(trendPickRow(rows,{statKey:'receptions',line:4}).id,'a');
+ // MLB panels name the market by its label.
+ assert.equal(trendPickRow(rows,{stat:'Targets',line:9}).id,'c');
+ assert.equal(trendPickRow(rows,{statKey:'rushing_yards',line:40}),null);
 });

@@ -1,6 +1,6 @@
 import React,{lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowDown,ArrowUp,ArrowUpDown,ArrowLeft,Bookmark,ChartNoAxesColumnIncreasing,ChevronDown,ChevronLeft,ChevronRight,Grid2X2,ListFilter,LoaderCircle,RefreshCw,Search,SlidersHorizontal,Star,Table2,Trash2,Users,CalendarDays,Settings,UserRound,X} from 'lucide-react';
-import {loadFinderSport,enrichMlbRows,enrichWnbaRows,persistFinderCache,readFinderCache,matchesPrizePicksLine,finderSlipId,slipApps,bookProbability,loadFinderDefense,withDefense,BOOK_NAMES} from './unified-finder-data';
+import {loadFinderSport,enrichMlbRows,enrichWnbaRows,persistFinderCache,readFinderCache,matchesPrizePicksLine,finderSlipId,slipApps,bookProbability,loadFinderDefense,withDefense,trendPickRow,BOOK_NAMES} from './unified-finder-data';
 import {WNBAPlayerPage} from './sports/wnba/WNBAPlayerPage';
 import {siteFinderSportAllowed} from './site-access';
 import {LEAGUE_LOGOS} from './league-logos';
@@ -157,7 +157,18 @@ export function UnifiedFinder(){
  const removeSort=key=>setSorts(old=>old.filter(item=>item.key!==key));
  const hasDefense=useMemo(()=>sportRows.some(row=>finite(row.defense)),[sportRows]);
  const changePage=n=>{setPage(n);tableRef.current?.scrollTo({top:0});};
- const playerRows=selected?allRows.filter(r=>r.sport===selected.sport&&(selected.playerId?r.playerId===selected.playerId:r.player===selected.player)):[];
+ const playerRows=useMemo(()=>selected?allRows.filter(r=>r.sport===selected.sport&&(selected.playerId?r.playerId===selected.playerId:r.player===selected.player)):[],[allRows,selected]);
+ // The trend panel's save star (app.js vortexTrendPanel.setSave): it saves
+ // the line the panel is showing, through the same Over / Under chooser as
+ // the board's stars.
+ useEffect(()=>{
+  const panel=window.vortexTrendPanel;
+  if(!panel?.setSave)return undefined;
+  if(!selected){panel.setSave(null);return undefined;}
+  const line=current=>trendPickRow(playerRows,current)||selected;
+  panel.setSave({savedSide:current=>picks.get(line(current).id)||null,onClick:(anchor,current)=>onPick(line(current),anchor)});
+  return()=>panel.setSave(null);
+ },[selected,playerRows,picks,onPick]);
  const dropdownAssets=useMemo(()=>({Teams:Object.fromEntries(sportRows.filter(row=>row.teamAbbr&&row.teamLogo).map(row=>[row.teamAbbr,row.teamLogo])),Apps:Object.fromEntries(books.map(key=>[key,LOGOS[key]||'/sportsbooks/'+key+'.png'])),'Choose sport':LEAGUE_LOGOS,'Line type':{standard:'/prizepicks/logo.png',goblin:'/prizepicks/goblin.png',demon:'/prizepicks/demon.png'}}),[sportRows,books]);
  if(!allowedKeys.length)return <main className="unified-finder" aria-label="Finder"><div className="finder-message">The Finder is not available right now. Check back soon.</div></main>;
  return <FinderDropdownAssets.Provider value={dropdownAssets}><main className={'unified-finder'+(selected?' finder-detail-active':'')+(mobileSearch?' finder-search-expanded':'')} aria-label="Multi-sport prop Finder">

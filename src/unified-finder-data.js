@@ -213,6 +213,19 @@ export function matchesPrizePicksLine(row,modifiers=[]){
  return !modifiers.length||(row.apps?.some(app=>app.key==='prizepicks')&&modifiers.includes(row.modifier));
 }
 
+/**
+ * The board line a player's trend panel is showing, for its save star: the
+ * panel's market at the panel's line when that line is posted (a Goblin or
+ * Demon included), otherwise that market's nearest posted line. NFL and WNBA
+ * panels name the market by key; MLB's by its label.
+ */
+export function trendPickRow(rows, {stat, statKey, line} = {}) {
+  const same = (Array.isArray(rows) ? rows : []).filter(row => statKey ? row.marketKey === statKey : row.market === stat);
+  if (!same.length) return null;
+  const target = Number(line);
+  return same.reduce((best, row) => Math.abs(Number(row.line) - target) < Math.abs(Number(best.line) - target) ? row : best);
+}
+
 /** Book prices kept on a saved pick: just enough for the Pick Builder. */
 export function slipApps(apps) {
   return (Array.isArray(apps) ? apps : []).filter(app => app?.key).map(app => ({key: app.key,

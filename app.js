@@ -476,6 +476,7 @@ function cacheEls() {
   els.bgImageFile = document.getElementById("bg-image-file");
   els.gamelogOverlay = document.getElementById("gamelog-overlay");
   els.gamelogTitle = document.getElementById("gamelog-title");
+  els.gamelogSave = document.getElementById("gamelog-save");
   els.gamelogPropBadge = document.getElementById("gamelog-prop-badge");
   els.gamelogTeamMark = document.getElementById("gamelog-team-mark");
   els.gamelogPlayerCutout = document.getElementById("gamelog-player-cutout");
@@ -2914,6 +2915,7 @@ function syncGameLogContext({ matchup, status } = {}) {
   if (line) line.textContent = `${gameLogStatCode(gameLogState.stat || "Prop")} ${Number(gameLogState.line || 0).toFixed(1)}`;
   if (bookLine) bookLine.textContent = Number(gameLogState.line || 0).toFixed(1);
   if (marketTitle) marketTitle.textContent = String(gameLogState.stat || "Prop performance").replace(/\s*\(Pitcher\)\s*$/i, "");
+  renderTrendSave();
   if (matchupEl && matchup !== undefined) matchupEl.textContent = matchup || "Live prop performance explorer";
   if (statusEl && status !== undefined) statusEl.textContent = String(status || "Pre-game").toUpperCase();
 }
@@ -3579,7 +3581,31 @@ function renderGameLogChart() {
   gameLogState.animationDirection = "none";
 }
 
+// The save star beside the market title, for a host that keeps picks (the
+// Finder: vortexTrendPanel.setSave). The host decides which of its lines
+// "this prop" is from the panel's market and line, and whether it is saved.
+let trendSave = null;
+function trendSaveCurrent() {
+  const stat = gameLogState.stat;
+  const statKey = externalTrendConfig?.stats?.find((item) => item.label === stat)?.key || "";
+  return { stat, statKey, line: Number(gameLogState.line) };
+}
+function renderTrendSave() {
+  const button = els.gamelogSave;
+  if (!button) return;
+  button.hidden = !trendSave;
+  if (!trendSave) return;
+  const side = trendSave.savedSide?.(trendSaveCurrent()) || null;
+  button.setAttribute("aria-pressed", String(Boolean(side)));
+  button.dataset.side = side ? String(side).toLowerCase() : "";
+  button.setAttribute("aria-label", side ? `In your picks (${side}). Change or remove` : "Save this prop to your picks");
+}
+
 function wireGameLogModal() {
+  els.gamelogSave?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    trendSave?.onClick?.(els.gamelogSave, trendSaveCurrent());
+  });
   window.addEventListener("orientationchange", stabilizeGameLogLayout);
   window.visualViewport?.addEventListener("resize", stabilizeGameLogLayout);
   window.addEventListener("vortex:gamelog-line-pick", (event) => {
@@ -3855,6 +3881,12 @@ window.vortexTrendPanel = {
   // The line lives in gameLogState; the host reads it back after a step,
   // drag or alt-line pick to keep its own "analyzed line" in sync.
   currentLine() { return gameLogState.line; },
+  // { savedSide(current), onClick(anchor, current) } shows the save star;
+  // null hides it. Called again whenever the host's picks change.
+  setSave(save) {
+    trendSave = save || null;
+    renderTrendSave();
+  },
 };
 
 /* ---------- Team insights modal (Batting Order & Pitch Arsenal) ---------- */
