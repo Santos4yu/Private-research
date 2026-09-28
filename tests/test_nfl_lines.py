@@ -221,9 +221,28 @@ class BoardTests(unittest.TestCase):
                 {"name": "Over", "description": "DK Metcalf", "point": 4.5, "price": -137}]}]}]}
         lines = prizepicks_board._parse_event_odds(payload, event)
         self.assertEqual(lines, [{"book": "draftkings", "player": "DK Metcalf", "market": "receptions", "line": 4.5,
-                                  "over": -125, "under": -105, "updatedAt": "t"}])
+                                  "over": -125, "under": -105, "updatedAt": "t", "alternate": False}])
         with self.assertRaises(ValueError):
             prizepicks_board._parse_event_odds({"id": "other", "bookmakers": []}, event)
+
+    def test_alternate_lines_price_goblins_but_are_never_rows(self):
+        event = {"eventId": "e1"}
+        def outcome(side, point, price):
+            return {"name": side, "description": "DK Metcalf", "point": point, "price": price}
+        payload = {"id": "e1", "bookmakers": [{"key": "fanduel", "markets": [
+            {"key": "player_reception_yds_alternate", "outcomes": [outcome("Over", 44.5, -130), outcome("Over", 19.5, -900)]},
+            {"key": "player_reception_yds", "outcomes": [outcome("Over", 44.5, -115), outcome("Under", 44.5, -115)]}]}]}
+        lines = {(line["line"], line["alternate"]): (line["over"], line["under"]) for line in prizepicks_board._parse_event_odds(payload, event)}
+        # The main line wins over the same book's alternate at that number.
+        self.assertEqual(lines, {(44.5, False): (-115, -115), (19.5, True): (-900, None)})
+        self.setup_game()
+        goblin = [{"id": 9, "player": "DK Metcalf", "position": "WR", "stat": "Receiving Yards", "line": 19.5, "team": "PIT",
+                   "start_time": self.starts, "odds_type": "goblin", "updated_at": ""}]
+        quotes = [{**self.quote("fanduel", "DK Metcalf", "receiving_yards", 19.5, -900, None), "alternate": True},
+                  {**self.quote("draftkings", "DK Metcalf", "receiving_yards", 69.5, 400, None), "alternate": True}]
+        result = self.run_board(goblin, quotes)
+        self.assertEqual(len(result["rows"]), 1)
+        self.assertEqual([(app["key"], app["over"]) for app in result["rows"][0]["apps"]], [("prizepicks", None), ("fanduel", -900)])
 
     def test_sportsbook_fetch_stays_in_window_and_above_the_credit_floor(self):
         from backend.sports.nfl.services import odds

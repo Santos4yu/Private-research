@@ -5,7 +5,7 @@ import {MARKET_STAT as WNBA_DVP_STAT, positionOf} from './sports/wnba/wnba-resea
 const WINDOW_KEYS = ['l5', 'l10', 'l15', 'l20', 'h2h', 'season'];
 export const BOOK_NAMES = {prizepicks: 'PrizePicks', underdog: 'Underdog', pick6: 'DK Pick6', betr_us_dfs: 'Betr Picks',
   draftkings: 'DraftKings', fanduel: 'FanDuel', betmgm: 'BetMGM', williamhill_us: 'Caesars', espnbet: 'ESPN BET',
-  fanatics: 'Fanatics', betrivers: 'BetRivers', hardrockbet: 'Hard Rock Bet'};
+  fanatics: 'Fanatics', betrivers: 'BetRivers', hardrockbet: 'Hard Rock Bet', pinnacle: 'Pinnacle'};
 const NFL_LABELS = {passing_yards: 'Passing Yards', passing_attempts: 'Passing Attempts', pass_completions: 'Pass Completions', passing_touchdowns: 'Passing TDs', interceptions: 'Interceptions', rushing_yards: 'Rushing Yards', rush_attempts: 'Rush Attempts', passing_rushing_yards: 'Passing + Rushing Yards', receiving_yards: 'Receiving Yards', receptions: 'Receptions', targets: 'Targets', longest_reception: 'Longest Reception', rushing_receiving_yards: 'Rushing + Receiving Yards', touchdowns: 'Touchdowns', fantasy_score: 'Fantasy Score'};
 const historyCache = new Map();
 const HISTORY_TTL = 10 * 60 * 1000;
@@ -68,27 +68,66 @@ async function request(url, {signal, fetcher = fetch} = {}) {
 
 // ---------------------------------------------------------------- matchup
 
-// Pick'em apps post one fixed price on both sides (PrizePicks -137 / -137),
-// which always reads 50/50. The market's lean comes from sportsbooks, which
-// price each side on its own.
+// Pick'em apps. PrizePicks' prices are fixed payouts, never odds, and any
+// app quoting the same price on both sides (-137 / -137) says nothing about
+// which side is likelier -- both are left out. A pick'em app that does
+// price the sides apart (Underdog's adjusted payouts) counts, at half weight.
 export const PICKEM_APPS = new Set(['prizepicks', 'underdog', 'sleeper', 'dabble', 'betr', 'betr_us_dfs', 'pick6', 'parlayplay', 'chalkboard']);
+// Pinnacle's lines move on sharp money: when it prices a line, it counts
+// three times.
+const SHARP_WEIGHT = {pinnacle: 3};
+// What a book's two prices usually add up to on a player prop (about
+// -115 / -115 on a main line, more on alternates). A line quoted on one
+// side only -- most alternate "Over" lines behind Goblins and Demons -- is
+// read as if its other side filled out this total.
+export const ONE_SIDED_OVERROUND = 1.08;
 const validPrice = price => typeof price === 'number' && Number.isFinite(price) && Math.abs(price) >= 100;
 const impliedChance = price => price < 0 ? -price / (-price + 100) : 100 / (price + 100);
 
 /**
- * The Over / Under chance the sportsbooks' prices imply for this line, with
- * each book's margin taken out and the books averaged. Null when no
- * sportsbook prices both sides -- never a made-up 50/50.
+ * Fair chance of the first side, with the book's margin removed by the
+ * power method: the k where a^k + b^k = 1. Unlike scaling both sides by the
+ * same factor, it takes more margin off the long shot than the favorite,
+ * which is how books price lopsided lines (-650 / +375).
+ */
+export function powerDevig(a, b) {
+  let low = 0.05, high = 20;
+  for (let step = 0; step < 60; step += 1) {
+    const k = (low + high) / 2;
+    if (a ** k + b ** k > 1) low = k; else high = k;
+  }
+  return a ** ((low + high) / 2);
+}
+
+function bookChance(app) {
+  const over = validPrice(app.over) ? impliedChance(app.over) : null;
+  const under = validPrice(app.under) ? impliedChance(app.under) : null;
+  if (over != null && under != null) return {over: powerDevig(over, under), twoSided: true};
+  if (over != null) return {over: powerDevig(over, Math.max(0.01, ONE_SIDED_OVERROUND - over)), twoSided: false};
+  if (under != null) return {over: 1 - powerDevig(under, Math.max(0.01, ONE_SIDED_OVERROUND - under)), twoSided: false};
+  return null;
+}
+
+/**
+ * The Over / Under chance the books' prices imply for this line: each
+ * book's margin removed, then a weighted average -- a book pricing both
+ * sides counts twice as much as one quoting only the Over, Pinnacle three
+ * times as much, a pick'em app half. Null when no book prices the line --
+ * never a made-up 50/50.
  */
 export function bookProbability(apps) {
-  const books = (Array.isArray(apps) ? apps : [])
-    .filter(app => app && !PICKEM_APPS.has(app.key) && validPrice(app.over) && validPrice(app.under));
+  const books = [];
+  for (const app of Array.isArray(apps) ? apps : []) {
+    if (!app || app.key === 'prizepicks' || (PICKEM_APPS.has(app.key) && app.over === app.under)) continue;
+    const chance = bookChance(app);
+    if (!chance) continue;
+    const weight = (SHARP_WEIGHT[app.key] || 1) * (chance.twoSided ? 1 : 0.5) * (PICKEM_APPS.has(app.key) ? 0.5 : 1);
+    books.push({name: app.name || BOOK_NAMES[app.key] || app.key, over: chance.over * 100, twoSided: chance.twoSided, weight});
+  }
   if (!books.length) return null;
-  const over = books.reduce((sum, app) => {
-    const o = impliedChance(app.over), u = impliedChance(app.under);
-    return sum + o / (o + u);
-  }, 0) / books.length * 100;
-  return {over, under: 100 - over, books: books.map(app => app.name || BOOK_NAMES[app.key] || app.key)};
+  const total = books.reduce((sum, book) => sum + book.weight, 0);
+  const over = books.reduce((sum, book) => sum + book.over * book.weight, 0) / total;
+  return {over, under: 100 - over, books};
 }
 
 // NFL market -> the stat the league's defense-vs-position table ranks
@@ -269,7 +308,8 @@ export function normalizeFinderRows(sport, payload, players = [], {now = Date.no
         teamId: optional(player?.team_id || raw.teamId), teamAbbr: optional(raw.team), teamLogo: mlbLogo(player?.team_id), opponent: optional(raw.opponent),
         startsAt: optional(raw.start_time), market: definition.label, marketKey: `${definition.pitcher ? 'pitching' : 'hitting'}:${definition.key}`,
         line: raw.line, direction: 'OVER', modifier: raw.odds_type,
-        apps: [{key: 'prizepicks', name: 'PrizePicks', over: null, under: null}],
+        // PrizePicks plus every book pricing the same number (mlb_book_lines.py).
+        apps: Array.isArray(raw.apps) && raw.apps.length ? raw.apps : [{key: 'prizepicks', name: 'PrizePicks', over: null, under: null}],
         average: null, windows: null, raw, historyStatus: 'pending'});
     }
     return null;
@@ -286,7 +326,7 @@ export async function loadFinderSport(sport, options = {}) {
   }
   if (sport === 'mlb') {
     const [board, roster] = await Promise.allSettled([
-      request('/api/board?view=props', options), request('/api/players?catalog=1', options),
+      request('/api/board?view=props&apps=1', options), request('/api/players?catalog=1', options),
     ]);
     aborted(options.signal);
     if (board.status === 'rejected') throw board.reason;

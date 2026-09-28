@@ -1,19 +1,30 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {finderWindow,normalizeFinderRows,applyMlbHistory,enrichMlbRows,loadFinderSport,finderSlipProp,bookProbability,defenseRank,withDefense} from '../src/unified-finder-data.js';
+import {finderWindow,normalizeFinderRows,applyMlbHistory,enrichMlbRows,loadFinderSport,finderSlipProp,bookProbability,powerDevig,defenseRank,withDefense} from '../src/unified-finder-data.js';
 
-test('book chance comes from sportsbooks with the margin removed, never a pick\'em app\'s fixed 50/50',()=>{
- // PrizePicks prices both sides the same: no market lean to show.
+test('book chance comes from the books\' prices with the margin removed, never a fixed 50/50',()=>{
+ // PrizePicks' payouts and an app quoting the same price both ways say nothing.
  assert.equal(bookProbability([{key:'prizepicks',over:-137,under:-137},{key:'underdog',over:-122,under:-122}]),null);
- // DraftKings -122 / -111: 54.95% vs 52.61% implied, 51.1% once the margin is out.
+ // DraftKings -122 / -111 with the margin removed.
  const dk=bookProbability([{key:'prizepicks',over:-137,under:-137},{key:'draftkings',name:'DraftKings',over:-122,under:-111}]);
- assert.equal(dk.over.toFixed(1),'51.1');
+ assert.equal(dk.over.toFixed(1),'51.2');
  assert.equal((dk.over+dk.under).toFixed(6),'100.000000');
- assert.deepEqual(dk.books,['DraftKings']);
- // Several books are averaged; a one-sided price is not used.
- const two=bookProbability([{key:'draftkings',over:-122,under:-111},{key:'fanduel',over:-150,under:120},{key:'betmgm',over:-110,under:null}]);
- assert.equal(two.books.length,2);
- assert.ok(two.over>51.1&&two.over<59);
+ assert.deepEqual(dk.books.map(book=>[book.name,book.twoSided,book.weight]),[['DraftKings',true,1]]);
+ // A lopsided line keeps more of its chance on the favorite than scaling would (80.5%).
+ assert.equal(bookProbability([{key:'hardrockbet',over:-650,under:375}]).over.toFixed(1),'84.3');
+ // An Over-only alternate line still reads, as if its other side filled out a usual margin.
+ const alt=bookProbability([{key:'draftkings',over:-452}]);
+ assert.equal(alt.over.toFixed(1),'79.2');
+ assert.equal(alt.books[0].twoSided,false);
+ // Pinnacle counts three times; an Over-only quote half; a pick'em app pricing sides apart half.
+ assert.equal(bookProbability([{key:'pinnacle',over:-130,under:110},{key:'draftkings',over:-110,under:-110}]).over.toFixed(1),'53.4');
+ const mixed=bookProbability([{key:'hardrockbet',over:-650,under:375},{key:'draftkings',over:-1040},{key:'underdog',over:-150,under:115}]);
+ assert.deepEqual(mixed.books.map(book=>book.weight),[1,0.5,0.5]);
+});
+test('power de-vig splits a fair line evenly and solves a^k + b^k = 1',()=>{
+ assert.equal(powerDevig(0.5238,0.5238).toFixed(4),'0.5000');
+ const a=0.8667,b=0.2105,fair=powerDevig(a,b),k=Math.log(fair)/Math.log(a);
+ assert.equal((a**k+b**k).toFixed(6),'1.000000');
 });
 test('defense rank reads the opponent\'s table for the player\'s position and stat',()=>{
  const wnbaLeague={teamCount:13,dvp:{ATL:{G:{stats:{pts:{szn:[18.2,4],l5:[20,9]}}}}}};

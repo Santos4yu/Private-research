@@ -150,6 +150,20 @@ class WNBAPrizePicksLineTests(unittest.TestCase):
                          ("3-PT Attempted", "w1", "e1", "LV"))
         self.assertEqual(added["pp:personalfouls"]["market"], "Personal Fouls")
 
+    def test_a_goblin_only_prizepicks_posts_picks_up_the_books_alternate_price(self):
+        from datetime import datetime, timezone
+        from api.wnba import _merge_prizepicks
+
+        now = datetime(2026, 7, 1, 12, tzinfo=timezone.utc)
+        line = {"player": "A'ja Wilson", "start_time": "2026-07-01T23:00:00Z", "id": 1, "stat": "Points", "line": 17.5,
+                "odds_type": "goblin"}
+        alternates = {("a'ja wilson", "player_points", 17.5): [
+            {"key": "draftkings", "name": "DraftKings", "over": -600, "under": None},
+            {"key": "prizepicks", "name": "PrizePicks", "over": -137, "under": None}]}
+        with patch("prizepicks_export_core._fetch_projection_rows", return_value=[line]):
+            rows = _merge_prizepicks([], [], {"players": {}, "teams": {}}, now, alternates)
+        self.assertEqual([(app["key"], app["over"]) for app in rows[0]["apps"]], [("prizepicks", None), ("draftkings", -600)])
+
     def test_merge_leaves_the_board_alone_when_prizepicks_is_down(self):
         from datetime import datetime, timezone
         from api.wnba import _merge_prizepicks

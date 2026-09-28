@@ -34,14 +34,14 @@ SAME_GAME_SECONDS = 8 * 3600
 # Sportsbooks and apps through The Odds API. Up to 10 bookmakers cost the
 # same credits as one; PrizePicks comes from its own feed, so it is not here.
 ODDS_BOOKS = ("underdog", "pick6", "draftkings", "fanduel", "betmgm", "williamhill_us", "espnbet", "fanatics",
-              "betrivers", "hardrockbet")
-# Asked instead if the provider ever refuses the longer list.
-CORE_BOOKS = ("underdog", "draftkings", "fanduel", "betmgm", "williamhill_us")
+              "hardrockbet", "pinnacle")
+# Asked instead if the provider ever refuses the longer lists: the books and
+# markets services/odds.py has always used.
+CORE_BOOKS = ("underdog", "draftkings", "fanduel", "betmgm")
 BOOK_NAMES = {"prizepicks": "PrizePicks", "underdog": "Underdog", "pick6": "DK Pick6", "draftkings": "DraftKings",
               "fanduel": "FanDuel", "betmgm": "BetMGM", "williamhill_us": "Caesars", "espnbet": "ESPN BET",
-              "fanatics": "Fanatics", "betrivers": "BetRivers", "hardrockbet": "Hard Rock Bet"}
-# The Odds API's NFL player markets -> ours (markets.py). Main lines only:
-# alternates would multiply the cost for lines nobody plays.
+              "fanatics": "Fanatics", "hardrockbet": "Hard Rock Bet", "pinnacle": "Pinnacle"}
+# The Odds API's NFL player markets -> ours (markets.py).
 ODDS_MARKETS = {
     "player_pass_yds": "passing_yards", "player_pass_tds": "passing_touchdowns",
     "player_pass_attempts": "passing_attempts", "player_pass_completions": "pass_completions",
@@ -54,6 +54,15 @@ ODDS_MARKETS = {
     "player_field_goals": "fg_made", "player_tackles_assists": "tackles", "player_sacks": "sacks",
     "player_defensive_interceptions": "def_interceptions",
 }
+# The books' alternate lines ("20+ receiving yards" is Over 19.5) are where a
+# Goblin's or Demon's odds come from. They only add prices to a line already
+# on the board, never a row of their own. These are the markets the Odds API
+# transport (services/odds.py) has always asked alternates for.
+ODDS_ALTERNATES = {f"{key}_alternate": ODDS_MARKETS[key] for key in (
+    "player_pass_yds", "player_pass_attempts", "player_pass_completions", "player_pass_tds",
+    "player_pass_interceptions", "player_rush_yds", "player_rush_attempts", "player_pass_rush_yds",
+    "player_reception_yds", "player_receptions", "player_reception_longest", "player_rush_reception_yds",
+    "player_rush_reception_tds")}
 # The Odds API charges per market returned for each game fetched, so only
 # games in the next few days are priced, each at most every half hour
 # (cache.py SPORTSBOOK_LINES), and never once the account runs low -- the
@@ -186,22 +195,30 @@ def _parse_event_odds(payload, event):
         key = book.get("key") if isinstance(book, dict) else None
         if key not in ODDS_BOOKS:
             continue
-        for market in book.get("markets") or []:
-            ours = ODDS_MARKETS.get(market.get("key")) if isinstance(market, dict) else None
+        quotes = {}
+        # Main markets first, so a book's main line wins over its own
+        # alternate at the same number.
+        for market in sorted(book.get("markets") or [], key=lambda item: str(item.get("key", "")).endswith("_alternate")):
+            market_key = market.get("key") if isinstance(market, dict) else None
+            ours = ODDS_MARKETS.get(market_key) or ODDS_ALTERNATES.get(market_key)
             if not ours:
                 continue
-            quotes = {}
+            alternate = market_key in ODDS_ALTERNATES
+            seen = {}
             for outcome in market.get("outcomes") or []:
                 name, side = str(outcome.get("description") or "").strip(), outcome.get("name")
                 point, price = outcome.get("point"), outcome.get("price")
                 if not name or side not in ("Over", "Under") or not _finite(point) or point < 0:
                     continue
-                quote = quotes.setdefault((name, float(point)), {
+                spot = (name, ours, float(point))
+                if spot in quotes and spot not in seen:
+                    continue  # this book's main line is already here
+                quote = seen.setdefault(spot, quotes.setdefault(spot, {
                     "book": key, "player": name, "market": ours, "line": float(point), "over": None, "under": None,
-                    "updatedAt": market.get("last_update") or book.get("last_update")})
+                    "updatedAt": market.get("last_update") or book.get("last_update"), "alternate": alternate}))
                 if _finite(price):
                     quote[side.lower()] = price
-            lines.extend(quotes.values())
+        lines.extend(quotes.values())
     return lines
 
 
@@ -219,13 +236,13 @@ def _sportsbook_lines(season, now):
 
     def one(event):
         def load():
-            def fetch(books):
+            def fetch(books, markets):
                 return odds._get(f"/sports/{odds.SPORT}/events/{event['eventId']}/odds", {
-                    "markets": ",".join(ODDS_MARKETS), "bookmakers": ",".join(books), "oddsFormat": "american"})
+                    "markets": ",".join(markets), "bookmakers": ",".join(books), "oddsFormat": "american"})
             try:
-                response = fetch(ODDS_BOOKS)
+                response = fetch(ODDS_BOOKS, [*ODDS_MARKETS, *ODDS_ALTERNATES])
             except RuntimeError:
-                response = fetch(CORE_BOOKS)
+                response = fetch(CORE_BOOKS, list(odds.ALL_MARKETS))
             return _parse_event_odds(response.json(), event)
         try:
             return cached_nfl(NFLCacheDomain.SPORTSBOOK_LINES, (VERSION, event["eventId"], key_id), load)
@@ -316,7 +333,8 @@ def build(season, projections=None, now=None, sportsbook_lines=None):
     for quote in sportsbook_lines:
         event = quote["event"]
         key = (_name_key(quote["player"]), quote["market"], quote["line"])
-        group = grouped.setdefault(key, {"quote": quote, "event": event, "apps": {}})
+        group = grouped.setdefault(key, {"quote": quote, "event": event, "apps": {}, "main": False})
+        group["main"] = group["main"] or not quote.get("alternate")
         group["apps"].setdefault(quote["book"], _app(quote["book"], quote["over"], quote["under"], quote["updatedAt"]))
     for key, group in grouped.items():
         apps = sorted(group["apps"].values(), key=lambda app: ODDS_BOOKS.index(app["key"]))
@@ -324,6 +342,8 @@ def build(season, projections=None, now=None, sportsbook_lines=None):
         if existing:
             existing["apps"] += [app for app in apps if all(app["key"] != other["key"] for other in existing["apps"])]
             continue
+        if not group["main"]:
+            continue  # only alternate prices: no line of its own
         quote, event = group["quote"], group["event"]
         teams = (event["homeTeamId"], event["awayTeamId"])
         player = _match_in_game(roster, quote["player"], teams)

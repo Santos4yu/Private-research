@@ -30,7 +30,7 @@ CACHE_SECONDS = 10 * 60
 ROSTER_CACHE_SECONDS = 6 * 60 * 60
 # Up to 10 bookmakers cost The Odds API credits of one. If the provider ever
 # refuses the longer list, the original five are asked instead.
-BOOKS = "prizepicks,underdog,pick6,draftkings,fanduel,betmgm,williamhill_us,espnbet,fanatics,betrivers"
+BOOKS = "prizepicks,underdog,pick6,draftkings,fanduel,betmgm,williamhill_us,espnbet,fanatics,pinnacle"
 CORE_BOOKS = "prizepicks,underdog,draftkings,fanduel,betmgm"
 MARKETS = {
     "player_points": "Points",
@@ -290,10 +290,13 @@ def _events_by_team(events, now):
     return index
 
 
-def _merge_prizepicks(rows, events, directory, now):
+def _merge_prizepicks(rows, events, directory, now, alternates=None):
     """Add every line PrizePicks posts that the board does not have yet.
     A line both feeds carry keeps its comparison-book prices and takes
-    PrizePicks' own tier (standard / goblin / demon)."""
+    PrizePicks' own tier (standard / goblin / demon). A new line picks up
+    the books' alternate prices at the same number (`alternates`), which is
+    where a Goblin's or Demon's odds come from."""
+    alternates = alternates or {}
     try:
         from prizepicks_export_core import _fetch_projection_rows
         lines = _fetch_projection_rows(league="WNBA")
@@ -327,7 +330,8 @@ def _merge_prizepicks(rows, events, directory, now):
                "line": value, "modifier": modifier, "homeTeam": event.get("home_team") if event else None,
                "awayTeam": event.get("away_team") if event else None, "startsAt": starts.isoformat(),
                "apps": [{"key": "prizepicks", "name": "PrizePicks", "over": None, "under": None,
-                         "updatedAt": line.get("updated_at") or None, "modifier": modifier}],
+                         "updatedAt": line.get("updated_at") or None, "modifier": modifier}]
+               + [app for app in alternates.get((name.casefold(), market, value), []) if app["key"] != "prizepicks"],
                "verified": True, "primaryBook": "prizepicks", "source": "prizepicks"}
         if identity:
             row.update({key: identity.get(key) for key in ("headshot", "position", "height", "team", "teamAbbr", "teamLogo")})
@@ -362,6 +366,9 @@ def _board(include_history=True):
     except Exception:
         directory = {"players": {}, "teams": {}}
     rows = []
+    # Books' alternate prices at numbers no main line is on -- held for the
+    # PrizePicks lines added below.
+    alternates = {}
     for event in events:
         event_id = event.get("id") if isinstance(event, dict) else None
         starts_at = timestamp(event.get("commence_time")) if isinstance(event, dict) else None
@@ -452,6 +459,8 @@ def _board(include_history=True):
             # Each book's main line is a row; another book's alternates only
             # add prices to a line that is already on the board.
             if not row.pop("main", False):
+                alternates[(row["player"].casefold(), row["marketKey"], row["line"])] = sorted(
+                    row["apps"].values(), key=lambda app: BOOK_PRIORITY.get(app["key"], 99))
                 continue
             identities = directory["players"].get(_norm(row["player"]), [])
             identity = next((item for item in identities if item["team"] in (row["homeTeam"], row["awayTeam"])), identities[0] if len(identities) == 1 else None)
@@ -466,7 +475,7 @@ def _board(include_history=True):
             if row["apps"]:
                 row["primaryBook"] = row["apps"][0]["key"]
                 rows.append(row)
-    _merge_prizepicks(rows, events, directory, now)
+    _merge_prizepicks(rows, events, directory, now, alternates)
     if not rows and odds_error is not None:
         raise odds_error
     rows.sort(key=lambda row: (row["startsAt"], row["player"], row["market"], row["line"]))
