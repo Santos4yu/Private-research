@@ -33,6 +33,14 @@
   /* The sidebar replaces this bar's job on desktop; it already hides
      itself below 760px (expandable-tabs.css), so mobile is untouched. */
   :root[data-theme] .tabs[data-react-tabs="true"] { display: none !important; }
+  /* Account and Settings are rail items here (the footer below), so the
+     floating originals no longer sit over each tab's own header. They stay
+     in the page, hidden, because the rail items work by pressing them. */
+  body > #site-account-bar,
+  body > #settings-btn { display: none !important; }
+  /* The settings panel opens beside the rail item that opened it rather
+     than in the top-right corner it used to drop down from. */
+  #settings-panel { top: auto; right: auto; bottom: 16px; left: 76px; }
 }
 
 .vortex-sidebar-body { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 22px; }
@@ -43,7 +51,12 @@
 .vortex-sidebar-wordmark { flex: 0 0 auto; overflow: hidden; white-space: nowrap; font: 700 15px/1 "Space Grotesk", Arial, sans-serif; letter-spacing: -.03em; color: var(--theme-text, #edf4ff); }
 .vortex-sidebar-wordmark b { font-weight: 700; color: var(--theme-accent, #67a8ff); }
 
-.vortex-sidebar-links { display: flex; flex-direction: column; gap: 3px; }
+/* The links give way (scroll) on a short window, so the footer below is
+   never pushed out of the rail. */
+.vortex-sidebar-links { display: flex; flex-direction: column; gap: 3px; flex: 0 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+.vortex-sidebar-links::-webkit-scrollbar { display: none; }
+.vortex-sidebar-footer { display: flex; flex-direction: column; gap: 3px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--theme-border, #263b58); }
+.vortex-sidebar-link.is-open { color: var(--theme-text, #edf4ff); background: var(--theme-panel-2, #122239); }
 .vortex-sidebar-sep { height: 1px; margin: 8px 4px; background: var(--theme-border, #263b58); }
 
 .vortex-sidebar-link {

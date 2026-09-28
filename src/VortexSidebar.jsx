@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Sidebar, SidebarBody, SidebarLink } from '../components/ui/sidebar';
+import { Settings, UserRound } from 'lucide-react';
 import { topTabs } from './navTabs';
 import './vortex-sidebar.css';
 
@@ -22,6 +23,30 @@ export function VortexSidebar() {
   }, []);
 
   const go = (value) => window.dispatchEvent(new CustomEvent('vortex:switch-tab', { detail: { tab: value } }));
+
+  // Account and Settings used to float over the top-right corner of every
+  // page, on top of whatever each tab put there (the Finder's header lost
+  // its label and Saved button under them). On desktop they are rail items
+  // instead. The original buttons stay in the page, hidden, and keep doing
+  // the work -- the gear still owns the settings panel and its triple-click
+  // admin unlock, the account button still owns the account dialog -- so
+  // these only press them.
+  const press = (selector) => (event) => {
+    // The page closes the settings panel on any click that reaches the
+    // document; stop this one before it does, exactly as the gear itself does.
+    event.stopPropagation();
+    document.querySelector(selector)?.click();
+  };
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  useEffect(() => {
+    const panel = document.getElementById('settings-panel');
+    if (!panel) return undefined;
+    const sync = () => setSettingsOpen(!panel.hidden);
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(panel, { attributes: true, attributeFilter: ['hidden'] });
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <Sidebar open={open} setOpen={setOpen}>
@@ -58,6 +83,26 @@ export function VortexSidebar() {
               />
             ))}
         </nav>
+        <div className="vortex-sidebar-footer">
+          <SidebarLink
+            link={{
+              label: 'Account',
+              icon: <span className="vortex-sidebar-icon-wrap"><UserRound size={19} strokeWidth={1.8} /></span>,
+              onClick: press('.site-account-trigger'),
+            }}
+            aria-haspopup="dialog"
+          />
+          <SidebarLink
+            className={settingsOpen ? 'is-open' : undefined}
+            link={{
+              label: 'Settings',
+              icon: <span className="vortex-sidebar-icon-wrap"><Settings size={19} strokeWidth={1.8} /></span>,
+              onClick: press('#settings-btn'),
+            }}
+            aria-haspopup="true"
+            aria-expanded={settingsOpen}
+          />
+        </div>
       </SidebarBody>
     </Sidebar>
   );
