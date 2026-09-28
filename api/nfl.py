@@ -1,4 +1,5 @@
 """Single NFL data handler, keeping the Vercel deployment under its function cap."""
+import re
 import sys
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
@@ -97,7 +98,48 @@ def _source_payload(resource, season, week, season_type, team, player_id, season
     return payload
 
 
+# The Finder's NFL player page (backend/sports/nfl/finder.py).
+FINDER_RESOURCES = ('finder-log', 'finder-pbp', 'finder-league', 'finder-team', 'finder-matchup', 'finder-player')
+PLAYER_ID = re.compile(r'^\d{2}-\d{7}$')
+TEAM = re.compile(r'^[A-Z]{2,3}$')
+GAME_ID = re.compile(r'^\d{4}_\d{2}_[A-Z]{2,3}_[A-Z]{2,3}$')
+
+
 class handler(BaseHTTPRequestHandler):
+    def _finder(self, resource, query, season):
+        from backend.sports.nfl import finder
+        arg = lambda name: (query.get(name) or [''])[0].strip()
+        player_id, team, opponent, game_id = arg('playerId'), arg('team').upper(), arg('opponent').upper(), arg('gameId')
+        if resource in ('finder-log', 'finder-pbp', 'finder-player') and not PLAYER_ID.match(player_id):
+            return send_json(self, 400, {'error': 'A verified NFL player is required.'})
+        if resource in ('finder-team', 'finder-player') and not TEAM.match(team):
+            return send_json(self, 400, {'error': 'A team abbreviation is required.'})
+        try:
+            if resource == 'finder-log':
+                return send_json(self, 200, finder.player_log(season, player_id))
+            if resource == 'finder-pbp':
+                return send_json(self, 200, finder.pbp_resource(season, player_id))
+            if resource == 'finder-league':
+                return send_json(self, 200, finder.league(season))
+            if resource == 'finder-team':
+                return send_json(self, 200, finder.team_context(season, team))
+            if resource == 'finder-matchup':
+                if not GAME_ID.match(game_id):
+                    return send_json(self, 400, {'error': 'A verified NFL game is required.'})
+                return send_json(self, 200, finder.matchup(season, game_id))
+            market = arg('market')
+            if not TEAM.match(opponent) or market not in (*finder.MARKET_FIELDS, 'fantasy_score'):
+                return send_json(self, 400, {'error': 'Opponent and a supported market are required.'})
+            try:
+                line = float(arg('line')) if arg('line') else None
+            except ValueError:
+                return send_json(self, 400, {'error': 'The line must be a number.'})
+            return send_json(self, 200, finder.player_context(season, player_id, team, opponent, market, line))
+        except ValueError:
+            return send_json(self, 404, {'error': 'That NFL game is not on the schedule.'})
+        except Exception:  # noqa: BLE001 -- provider outage; never a stack trace
+            return send_json(self, 503, {'error': 'NFL research is temporarily unavailable. Try again shortly.'})
+
     def do_GET(self):
         from backend.sports.nfl.request_guard import event
         try:
@@ -114,10 +156,16 @@ class handler(BaseHTTPRequestHandler):
         if not resource:
             path_parts = [part for part in urlparse(self.path).path.split("/") if part]
             resource = path_parts[-1].lower() if len(path_parts) > 2 else ""
-        from site_controls import allowed as feature_allowed
-        tab='v2' if resource in ('research-board','value-board') else 'research'
-        if not feature_allowed(self.headers,tab,sport='nfl'):return send_json(self,503,{'error':'This section is temporarily unavailable','featureDisabled':True})
-        allowed = {'players','teams','schedule','game-logs','usage','defense','injuries','depth-chart','team-stats','opportunity','matchup','projection','distribution','decision','value-board','model-health','props','prop-games','game-lines','reception-logs','research-board','board'}
+        from site_controls import allowed as feature_allowed, finder_sport_allowed
+        if resource in FINDER_RESOURCES:
+            # The Finder's NFL player page answers to the Finder's own NFL
+            # switch, like api/wnba.py, not to Research's.
+            if not finder_sport_allowed(self.headers, 'nfl'):
+                return send_json(self, 503, {'error': 'This section is temporarily unavailable', 'featureDisabled': True})
+        else:
+            tab='v2' if resource in ('research-board','value-board') else 'research'
+            if not feature_allowed(self.headers,tab,sport='nfl'):return send_json(self,503,{'error':'This section is temporarily unavailable','featureDisabled':True})
+        allowed = {'players','teams','schedule','game-logs','usage','defense','injuries','depth-chart','team-stats','opportunity','matchup','projection','distribution','decision','value-board','model-health','props','prop-games','game-lines','reception-logs','research-board','board', *FINDER_RESOURCES}
         if resource not in allowed:
             return send_json(self, 404, {'error': 'Unknown NFL resource.'})
         if len(self.path) > 2048 or any(len(value) > 120 for values in query.values() for value in values):
@@ -140,6 +188,9 @@ class handler(BaseHTTPRequestHandler):
         player_id = query.get("playerId", [""])[0].strip()
         if season_type not in nflverse.VALID_GAME_TYPES:
             return send_json(self, 400, {"error": "Unknown NFL season type."})
+
+        if resource in FINDER_RESOURCES:
+            return self._finder(resource, query, season)
 
         if resource in ('props','prop-games'):
             if season_type!='REG' or (resource=='props' and not player_id and not query.get('eventId')):
