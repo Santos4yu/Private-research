@@ -152,8 +152,8 @@ export function WNBAPlayerPage({row,playerRows,onBack}){
    <TrendChart row={selected} playerRows={playerRows} logs={chartLogs} loading={loading} onStat={onStat} chips={chips} chipsNote={chipsNote} onChipRemove={removeFilter} onChipsClear={clearFilters}/>
    {filters.length>0&&!shown&&!loading&&<p className="wnba-filter-empty" role="status">No games match all of these together. Remove a filter to see more.</p>}
    <SupportingStats logs={trend.rows} loading={loading}/>
-   <PlayerGameLog row={selected} logs={trend.rows} loading={loading} error={trend.state==='error'} onRetry={()=>setRetry(n=>n+1)}/>
    <DepthChart row={selected} matchup={matchup.data} filters={filters} onToggleFilter={toggleFilter}/>
+   <PlayerGameLog row={selected} logs={trend.rows} loading={loading} error={trend.state==='error'} onRetry={()=>setRetry(n=>n+1)}/>
   </div>
   <WNBAFinderContext row={selected} logs={trend.rows} matchup={matchup} filters={filters} onToggleFilter={toggleFilter}/></div></>}
  </section>;
