@@ -739,6 +739,12 @@ function resizeImageFile(file, maxDim = 2560) {
   });
 }
 
+// A photo uploaded from a device (or carried over from the member's account)
+// rather than a link they pasted -- the link field stays empty for those.
+function isUploadedBackground(url) {
+  return url.startsWith("data:") || url.includes("action=account-image");
+}
+
 function loadBackgroundImage() {
   try {
     const saved = JSON.parse(localStorage.getItem(BG_IMAGE_KEY) || "null");
@@ -832,7 +838,7 @@ function applyEffectiveBackground() {
 function wireBackgroundImage() {
   if (!els.bgImageUrl) return;
   const saved = loadBackgroundImage();
-  els.bgImageUrl.value = saved.url.startsWith("data:") ? "" : saved.url;
+  els.bgImageUrl.value = isUploadedBackground(saved.url) ? "" : saved.url;
   applyEffectiveBackground();
   els.bgImageOpacity.addEventListener("input", () => {
     els.bgImageOpacityValue.textContent = `${normalizeBgOpacity(els.bgImageOpacity.value)}%`;
@@ -923,7 +929,7 @@ function communityPostCard(post) {
   const imageHtml = post.imageId ? `<img class="community-post-image" src="/api/v2-admin?action=community-image&id=${encodeURIComponent(post.imageId)}" alt="" loading="lazy" />` : "";
   return `<article class="community-post" data-post-id="${escapeHtml(post.id)}">
     <div class="community-post-head">
-      <span class="community-post-avatar">${escapeHtml((post.authorName || "?").slice(0, 1).toUpperCase())}</span>
+      <span class="community-post-avatar">${escapeHtml((post.authorName || "?").slice(0, 1).toUpperCase())}${post.authorAvatar ? `<img src="${escapeHtml(post.authorAvatar)}" alt="" loading="lazy" onerror="this.remove()" />` : ""}</span>
       <div class="community-post-who"><strong>${escapeHtml(post.authorName || "Member")}${post.authorBadge ? ` <span class="member-badge" data-badge="${escapeHtml(post.authorBadge.key)}">${escapeHtml(post.authorBadge.label)}</span>` : ""}</strong><small>${communityRelativeTime(post.createdAt)}</small></div>
       ${canDelete ? `<button type="button" class="community-post-delete" data-community-delete aria-label="Delete post">✕</button>` : ""}
     </div>
@@ -1830,6 +1836,28 @@ function updateSavedCount() {
   window.dispatchEvent(new CustomEvent("vortex:dock-sync", { detail: { tab: state.currentTab, saved: state.savedProps.size } }));
   renderManualBetSlip();
 }
+
+// Settings that arrived from the member's account (src/account-sync.js has
+// already written them to localStorage): reload whatever this page shows.
+window.addEventListener("vortex:account-prefs-applied", (event) => {
+  const keys = new Set(event.detail?.keys || []);
+  if (keys.has(SAVED_KEY)) {
+    state.savedProps = loadSaved();
+    for (const id of state.parlaySelection) if (!state.savedProps.has(id)) state.parlaySelection.delete(id);
+    updateSavedCount();
+    if (state.currentTab === "saved") renderSavedGrid();
+    const reportButton = els.reportWrap?.querySelector(".save-btn");
+    if (reportButton && currentResearchProp) syncSaveButton(reportButton, currentResearchProp.id);
+  }
+  if (keys.has(ACCENT_THEME_KEY)) applyEffectiveAccentTheme();
+  if (keys.has(ACCENT_PRESETS_KEY) && els.accentPresets) renderAccentPresets();
+  if (keys.has(BG_IMAGE_KEY)) {
+    const saved = loadBackgroundImage();
+    if (els.bgImageUrl) els.bgImageUrl.value = isUploadedBackground(saved.url) ? "" : saved.url;
+    applyEffectiveBackground();
+  }
+  if (keys.has(RECENT_RESEARCH_KEY)) renderRecentSearches();
+});
 
 // No minimum display time any more: that hold existed so the old animated
 // intro could finish playing, and it now just delayed the site for no reason.

@@ -1,6 +1,8 @@
 import './site-access.css';
 import {accessGranted,canUseTab,availableTab,canUseSport,canUseFinderSport,hiddenTabs,FINDER_SPORTS} from './site-access-core.js';
 import {mountMembersPanel,memberBadge} from './site-members.js';
+import {accountProfile,saveAccountProfile} from './account-sync.js';
+const ACCOUNT_ICON='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M5 21v-2a7 7 0 0 1 14 0v2" stroke="currentColor" stroke-width="1.6"/></svg>';
 const names={research:'Research',finder:'Finder',v2:'Props',slate:'Tools',saved:'My Slip',slip:'Slip Analyzer',builder:'Builder',moneyline:'Moneyline',nrfi:'NRFI / YRFI',community:'Community'};
 let status=null,initPromise=null,activeDialog=null,lockedDialog=null;
 export function siteTabAllowed(tab){return canUseTab(status,tab);}
@@ -130,14 +132,78 @@ function accountDialog(){
  const dialog=element('dialog',null,'site-account-dialog');activeDialog=dialog;
  const header=element('header');header.append(element('h2','Your account'),button('×',()=>dialog.close(),'site-dialog-close'));header.lastChild.setAttribute('aria-label','Close account');dialog.append(header);
  // Admin access lives behind 3 rapid clicks on the settings gear now, not
- // here -- this dialog is just account info + signing out.
- const who=element('p',status?.account?.email||'Administrator','site-account-email');
- const badge=status?.isAdmin&&!status?.account?{key:'admin',label:'Admin'}:status?.badge;
- if(badge)who.append(' ',memberBadge(badge));
- dialog.append(who);
- dialog.append(button('Sign out',async()=>{try{await request('/api/session',{action:'sign-out'});location.reload();}catch(error){dialog.append(element('p',error.message));}},'site-primary-button'));
- dialog.onclose=()=>{activeDialog=null;dialog.remove();};document.body.append(dialog);dialog.showModal();
+ // here -- this dialog is the member's profile + signing out.
+ const account=status?.account;
+ const badge=status?.isAdmin&&!account?{key:'admin',label:'Admin'}:status?.badge;
+ const signOut=button('Sign out',async()=>{try{await request('/api/session',{action:'sign-out'});location.reload();}catch(error){dialog.append(element('p',error.message));}},account?'site-secondary-button site-profile-signout':'site-primary-button');
+ dialog.onclose=()=>{activeDialog=null;window.removeEventListener('vortex:account-profile',fill);dialog.remove();};
+ if(!account){
+  const who=element('p','Administrator','site-account-email');if(badge)who.append(' ',memberBadge(badge));
+  dialog.append(who,signOut);document.body.append(dialog);dialog.showModal();return;
+ }
+ // Name and photo live on the account (account_profile.py), so they show on
+ // every device and next to the member's community posts.
+ let photo,preview=null;
+ const form=element('form',null,'site-profile');
+ const avatar=element('span',null,'site-profile-avatar');
+ const file=document.createElement('input');file.type='file';file.accept='image/*';file.hidden=true;
+ const photoButton=button('',()=>file.click(),'site-profile-photo');photoButton.setAttribute('aria-label','Change profile photo');
+ photoButton.append(avatar,element('span','Edit','site-profile-photo-edit'));
+ const removePhoto=button('Remove photo',()=>{photo=null;paint();},'site-text-button site-profile-remove');
+ const nameInput=document.createElement('input');nameInput.name='displayName';nameInput.maxLength=32;nameInput.autocomplete='nickname';nameInput.placeholder='How you appear in Community';
+ const nameLabel=element('label',null,'site-profile-name');nameLabel.append(element('span','Display name'),nameInput);
+ const who=element('p',account.email||'','site-account-email site-profile-email');if(badge)who.append(' ',memberBadge(badge));
+ const message=element('p',null,'site-profile-status');message.setAttribute('role','status');
+ const save=element('button','Save profile','site-primary-button');save.type='submit';
+ function paint(){
+  const current=accountProfile();
+  const src=photo===null?null:preview||current?.avatarUrl;
+  avatar.replaceChildren((nameInput.value||current?.name||account.email||'?').trim().slice(0,1).toUpperCase());
+  if(src){const img=document.createElement('img');img.src=src;img.alt='';img.onerror=()=>img.remove();avatar.append(img);}
+  removePhoto.hidden=!src;
+ }
+ function fill(){
+  const current=accountProfile();
+  nameInput.disabled=save.disabled=!current;
+  if(current&&document.activeElement!==nameInput&&!form.dataset.edited)nameInput.value=current.name||'';
+  if(!current)nameInput.placeholder='Loading your profile…';else nameInput.placeholder='How you appear in Community';
+  paint();
+ }
+ window.addEventListener('vortex:account-profile',fill);
+ nameInput.addEventListener('input',()=>{form.dataset.edited='1';paint();});
+ file.addEventListener('change',()=>{
+  const chosen=file.files?.[0];file.value='';if(!chosen)return;
+  if(!chosen.type.startsWith('image/')){message.textContent='Choose an image file.';return;}
+  photo=chosen;if(preview)URL.revokeObjectURL(preview);preview=URL.createObjectURL(chosen);paint();
+  message.textContent='Looks good. Save to use this photo.';
+ });
+ form.onsubmit=async event=>{
+  event.preventDefault();save.disabled=true;message.textContent='Saving…';
+  try{
+   await saveAccountProfile({name:nameInput.value,...(photo!==undefined?{photo}:{})});
+   photo=undefined;if(preview){URL.revokeObjectURL(preview);preview=null;}delete form.dataset.edited;
+   fill();message.textContent='Saved. Your name and photo show on every device.';
+  }catch(error){message.textContent=error.message;}
+  finally{save.disabled=!accountProfile();}
+ };
+ const row=element('div',null,'site-profile-row');
+ const fields=element('div',null,'site-profile-fields');fields.append(nameLabel,who);
+ row.append(photoButton,fields);
+ form.append(row,file,removePhoto,message,save);
+ dialog.append(form,element('p','Your slip, colors, presets and background follow this account to every device you sign in on.','site-profile-note'),signOut);
+ fill();
+ document.body.append(dialog);dialog.showModal();
 }
+// The account button shows the member's photo once they have one.
+function paintAccountTrigger(){
+ const trigger=document.querySelector('.site-account-trigger');if(!trigger)return;
+ const url=status?.account?accountProfile()?.avatarUrl:null;
+ if(trigger.dataset.avatar===(url||''))return;
+ trigger.dataset.avatar=url||'';
+ trigger.innerHTML=ACCOUNT_ICON;
+ if(url){const img=document.createElement('img');img.src=url;img.alt='';img.onload=()=>trigger.replaceChildren(img);}
+}
+window.addEventListener('vortex:account-profile',paintAccountTrigger);
 // The one way the boot screen leaves: fade, then drop it from the page.
 // The access check used to set `hidden` on it -- an instant cut -- while app
 // start-up separately tried to fade it out after it was already gone, so the
@@ -171,7 +237,8 @@ function renderStatus(){
  let bar=document.getElementById('site-account-bar');if(!bar){bar=element('div',null,'site-account-bar');bar.id='site-account-bar';}
  if(bar.parentElement!==document.body)document.body.append(bar);
  bar.hidden=!granted;
- if(granted&&!bar.childElementCount){const account=button('',accountDialog,'site-account-trigger');account.setAttribute('aria-label','Your account');account.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M5 21v-2a7 7 0 0 1 14 0v2" stroke="currentColor" stroke-width="1.6"/></svg>';bar.append(account);}
+ if(granted&&!bar.childElementCount){const account=button('',accountDialog,'site-account-trigger');account.setAttribute('aria-label','Your account');account.innerHTML=ACCOUNT_ICON;bar.append(account);}
+ paintAccountTrigger();
  document.querySelectorAll('[data-tab],[data-launch-tab]').forEach(b=>{const tab=b.dataset.tab||b.dataset.launchTab;if(tab!=='admin'){b.disabled=!granted;b.dataset.featureLocked=String(!siteTabAllowed(tab));}});
  // A section switched off in the admin panel disappears for everyone but
  // admins: site-access.css hides every element marked data-requires-tab

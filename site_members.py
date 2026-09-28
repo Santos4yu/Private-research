@@ -212,7 +212,16 @@ def list_members():
         except (TypeError, ValueError):
             record = {}
         members.append({'email': email, 'id': record.get('id'), 'lastSeen': record.get('lastSeen'),
-                        'firstSeen': first.get(email), 'rule': rules.get(email)})
+                        'firstSeen': first.get(email), 'rule': rules.get(email), 'name': '', 'avatarUrl': None})
+    # Their profile name and photo (account_profile.py), when they set one.
+    import account_profile
+    try:
+        profiles = account_profile.profiles_for(entry['id'] for entry in members)
+    except Exception:  # noqa: BLE001 -- the list still works without them
+        profiles = {}
+    for entry in members:
+        if entry['id'] in profiles:
+            entry.update(account_profile.public_profile(entry['id'], profiles[entry['id']]))
     members.sort(key=lambda member: (member['lastSeen'] or '', member['email']), reverse=True)
     return members
 
@@ -220,7 +229,7 @@ def list_members():
 def member(email):
     email = normalize_email(email)
     return next((entry for entry in list_members() if entry['email'] == email),
-                {'email': email, 'id': None, 'lastSeen': None, 'firstSeen': None, 'rule': None})
+                {'email': email, 'id': None, 'lastSeen': None, 'firstSeen': None, 'rule': None, 'name': '', 'avatarUrl': None})
 
 
 def author_badges(posts):

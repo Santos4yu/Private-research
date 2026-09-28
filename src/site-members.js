@@ -129,8 +129,9 @@ export function mountMembersPanel(host,{request,names}){
    on>0&&h('span',{className:'site-member-chip','data-tone':'on',text:`+${on} access`}),
    off>0&&h('span',{className:'site-member-chip','data-tone':'off',text:`${off} removed`}));
   const head=h('button',{type:'button',className:'site-member-head','aria-expanded':String(expanded),onClick:()=>{open=expanded?null:member.email;render();}},
-   h('span',{className:'site-member-avatar','aria-hidden':'true',text:member.email.slice(0,1).toUpperCase()}),
-   h('span',{className:'site-member-who'},h('strong',{text:member.email}),h('small',{text:meta})),
+   h('span',{className:'site-member-avatar','aria-hidden':'true',text:(member.name||member.email).slice(0,1).toUpperCase()},
+    member.avatarUrl&&h('img',{src:member.avatarUrl,alt:'',loading:'lazy',onError:e=>{e.currentTarget.remove();}})),
+   h('span',{className:'site-member-who'},member.name?h('strong',{text:member.name},h('small',{text:member.email})):h('strong',{text:member.email}),h('small',{text:meta})),
    chips,h('span',{className:'site-member-chevron','aria-hidden':'true',text:'⌄'}));
   return h('article',{className:'site-member','data-open':String(expanded)},head,expanded&&editor(member));
  }
