@@ -29,7 +29,6 @@ function CurrentLine({row,playerRows}){
    <th scope="row">{row.direction==='UNDER'?'U ':''}{row.line}</th>
    <td><span className="nfl-line-apps">{[...new Set(offers.flatMap(item=>(item.apps||[]).map(app=>app.key)))].map(key=><img key={key} src={bookLogo(key)} alt={bookName(key)} title={bookName(key)} width="22" height="22" onError={e=>{e.currentTarget.hidden=true;}}/>)}{tier&&<img src={`/prizepicks/${tier}.png`} alt={tier} width="20" height="20"/>}</span></td>
    <td>{updated?new Date(updated).toLocaleString([],{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}):'—'}</td></tr></tbody></table></div>
-  <Empty>Line history is not kept, so this is the line as posted now.</Empty>
  </Card>;
 }
 function WinPredictor({matchup}){
@@ -40,8 +39,7 @@ function WinPredictor({matchup}){
  if(colors[0]===colors[1])colors[1]='#28cb98';
  return <section className="mlb-context-card mlb-win-predictor"><header><h2>Win predictor</h2><small>{m.game.divisional?'Division game':'Regular season'}</small></header>
   {source?<><div className="mlb-win-body">{[away,home].map((team,index)=><React.Fragment key={team.abbr}>{index===1&&<div className="mlb-win-ring" role="img" aria-label={`${away.abbr} ${fmt(source.away,0)}%, ${home.abbr} ${fmt(source.home,0)}%`} style={{background:`conic-gradient(${colors[0]} 0% ${source.away}%, ${colors[1]} ${source.away}% 100%)`}}><span>WIN<br/>CHANCE</span></div>}
-   <div className="mlb-win-team"><Logo src={team.logo} size={32}/><strong>{team.abbr}</strong><small>{team.record||'0-0'}{index===1?' · Home':''}</small><b style={{color:colors[index]}}>{fmt(index?source.home:source.away,0)}%</b></div></React.Fragment>)}</div>
-  <Empty>From the sportsbook moneylines with the margin removed. Pregame estimate, not a guarantee.</Empty></>
+   <div className="mlb-win-team"><Logo src={team.logo} size={32}/><strong>{team.abbr}</strong><small>{team.record||'0-0'}{index===1?' · Home':''}</small><b style={{color:colors[index]}}>{fmt(index?source.home:source.away,0)}%</b></div></React.Fragment>)}</div></>
   :<Empty>No moneyline is posted for this game yet.</Empty>}
  </section>;
 }
@@ -108,7 +106,6 @@ function DefenseVsPosition({row,position}){
     <td><span className="wnba-strength" data-tone={tone(rank)}>{strength[tone(rank)]||'—'}</span></td></tr>;})}
   </tbody></table></div>:<Empty>No {pos} has played against {team} in {season} yet.</Empty>}
   <div className="wnba-scale" aria-hidden="true"><span>Tougher</span><i/><span>Weaker</span></div>
-  <Empty>Per opposing {pos} with a {['K'].includes(pos)?'kick':['DL','LB','DB'].includes(pos)?'tackle':'target, carry or pass'} in each game. Rank 1 of {n} allows the least; SZN is the season, L5 the last five games.</Empty>
  </Card>;
 }
 const OVD_ORDER=['receiving_yards','receptions','targets','receiving_tds','longest_reception','passing_yards','passing_tds','attempts','completions','interceptions','rushing_yards','carries','rushing_tds','redzone_targets','rush_rec_tds','rush_rec_yards','pass_rush_yards','sacks','tackles','assists','tackles_assists','fg_made','pat_made','kicking_points','fumbles_lost','fantasy','longest_rush','longest_completion','completion_pct','sacks_taken','punts','punts_inside_20'];
@@ -132,7 +129,6 @@ function OffenseVsDefense({league,pbp,row}){
    return <div className="wnba-ovd-row" key={key}><span data-side="off" data-strong={strong(or)}>{ordinal(or)}<small>{fmt(ov)}{pct}</small></span><div><small>{labels[key]||key}</small><span className="wnba-ovd-bar" role="img" aria-label={`${labels[key]}: ${offense} ranks ${ordinal(or)}, ${defense} allows ${ordinal(dr)}`}><i style={{width:`${share}%`}}/></span></div><span data-side="def" data-strong={strong(dr)}>{ordinal(dr)}<small>{fmt(dv)}{pct}</small></span></div>;})}
    {!pbp.data&&pbp.loading&&<Empty>Loading red-zone and longest-play ranks…</Empty>}</div>
   <div className="wnba-ovd-legend"><span><i data-side="off"/>Offensive advantage</span><span>Defensive advantage<i data-side="def"/></span></div>
-  <Empty>Per game this season: what {offense} does, and what {defense}'s opponents do against it. Offense rank 1 does the most; defense rank 1 allows the least.</Empty>
  </Card>;
 }
 
@@ -156,7 +152,6 @@ function SimilarPlayers({context,row,position}){
    <span className="wnba-similar-min">{entry.usage} {entry.usageLabel}</span>
    <span className="wnba-similar-result"><b data-tone={!finite(entry.diff)?undefined:entry.diff>0?'good':'poor'}>{fmt(entry.value)}</b><small>{finite(entry.avg)?`avg ${fmt(entry.avg)}`:'first game'}</small><span className="wnba-similar-bar" aria-hidden="true"><i data-tone={entry.diff>0?'good':'poor'} style={{width:`${entry.value/max*100}%`}}/>{finite(entry.avg)&&<em style={{left:`${entry.avg/max*100}%`}}/>}</span></span></div>)}</div>
   :<Empty>No {pos}s have played {opponent} yet this season.</Empty>}
-  <Empty>The latest {pos}s to face {opponent}, compared with their own average in their other games — historical lines are not kept.</Empty>
  </Card>;
 }
 
@@ -178,7 +173,6 @@ function Injuries({row,season,context,filters,onToggleFilter}){
    {item.practice&&<small className="mlb-injury-reported">{item.week?`Week ${item.week}: `:''}{item.practice}</small>}
   </article>;})}</div>}
   <label className="nfl-injury-search"><Search size={15} aria-hidden="true"/><input type="search" placeholder="Search any player…" value={query} onChange={e=>setQuery(e.target.value)} aria-label="Search the injury report"/></label>
-  <Empty>The weekly NFL injury report and reserve lists (IR, PUP, NFI), from nflverse.</Empty>
  </Card>;
 }
 
@@ -207,7 +201,6 @@ function Rankings({league,pbp,row}){
    {['off','def'].map(group=><React.Fragment key={group}><tr className="wnba-rank-group"><th scope="rowgroup" colSpan={teams.length+1}>{group==='off'?'Offense':'Defense (allowed)'}</th></tr>
     {RANKINGS.filter(([g])=>g===group).map(([g,key])=><tr key={g+key}><th scope="row">{labels[key]}</th>{teams.map(abbr=>{const [value,rank]=stats[abbr][g][key]||[];return <td key={abbr}><span data-tone={rankTone(rank,n)}>{fmt(value)}{key==='completion_pct'?'%':''}</span> <small>{ordinal(rank)}</small></td>;})}</tr>)}</React.Fragment>)}
   </tbody></table></div>
-  <Empty>Rank 1 of {n} does the most on offense and allows the least on defense.</Empty>
  </Card>;
 }
 

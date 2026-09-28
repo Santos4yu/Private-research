@@ -21,6 +21,5 @@ export default function MLBPlayerGameLog({row}){
  const opponent=logOpponent(game);
  return <tr key={game.gameId||`${game.date}-${index}`}><th scope="row" title={game.date}><span className="mlb-log-date"><CalendarDays size={12} aria-hidden="true"/>{game.date?.slice(5).replace('-','/')||'—'}</span></th><td><span className="mlb-log-opponent" title={`${game.isHome===false?'Away at ':game.isHome===true?'Home vs ':''}${opponent.name||opponent.label}`}><span className="mlb-log-logo"><Shield size={17} aria-hidden="true"/>{opponent.logo&&<img src={opponent.logo} width="20" height="20" alt="" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}</span><span>{game.isHome===false?'@ ':''}{opponent.label}</span></span></td>{columns.map(([key])=><td key={key}>{gameLogValue(game,key)}</td>)}</tr>;
  })}</tbody></table></div>:<p className="mlb-context-note">No recent games are available for this player.</p>}
- {!loading&&games.length>0&&games.length<15&&<p className="mlb-context-note">{games.length} MLB {pitcher?'starts':'games'} available across the current and previous season. Showing all available results.</p>}
  </section>;
 }
