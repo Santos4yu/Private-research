@@ -35,10 +35,12 @@ def get(key: str, *, timeout=TIMEOUT) -> str | None:
     return r.json().get("result")
 
 
-def set(key: str, value: str) -> bool:
+def set(key: str, value: str, *, ex: int | None = None) -> bool:
+    """Store `value`; with `ex`, Upstash drops it after that many seconds."""
     if not KV_URL or not KV_TOKEN:
         return False
-    r = requests.post(f"{KV_URL}/set/{key}", data=value.encode("utf-8"), headers=_headers(), timeout=TIMEOUT)
+    r = requests.post(f"{KV_URL}/set/{key}", data=value.encode("utf-8"), headers=_headers(), timeout=TIMEOUT,
+                      params={"EX": int(ex)} if ex else None)
     r.raise_for_status()
     return r.json().get("result") == "OK"
 

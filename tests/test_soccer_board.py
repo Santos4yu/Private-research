@@ -47,7 +47,7 @@ class SoccerBoardTests(unittest.TestCase):
     def fetch(self, feed=SOCCER_FEED):
         fake = FakePrizePicks(leagues=LEAGUES, feeds={"82": feed})
         with patch.object(export.requests, "get", side_effect=fake):
-            return soccer_board.build(now=NOW), fake
+            return soccer_board.build(now=NOW, fixture_list=[]), fake
 
     def test_upcoming_single_player_lines_become_finder_rows(self):
         board, _ = self.fetch()

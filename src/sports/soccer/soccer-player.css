@@ -1,17 +1,41 @@
-.soccer-player-page{display:flex;flex-direction:column;gap:12px}
-.soccer-markets{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;align-items:start}
-.soccer-market{background:var(--f-row);border:1px solid var(--f-border);border-radius:12px;padding:11px 12px 12px}
-.soccer-market[data-current]{border-color:color-mix(in srgb,var(--theme-accent-soft,var(--theme-accent)) 55%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--theme-accent-soft,var(--theme-accent)) 20%,transparent)}
-.soccer-market h2{margin:0 0 9px;font-size:13px;font-weight:700;letter-spacing:-.1px;color:var(--f-text)}
-.soccer-market ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
-.soccer-market li{display:flex;align-items:center;gap:9px;min-height:44px;padding:4px 4px 4px 9px;border-radius:9px;background:var(--f-control);border:1px solid var(--f-border)}
-.soccer-app{width:22px;height:22px;border-radius:6px;object-fit:contain;flex-shrink:0}
-.soccer-line{display:flex;align-items:center;gap:5px;font-size:16px;font-variant-numeric:tabular-nums}
-.soccer-line img{width:16px;height:16px;object-fit:contain}
-.soccer-tier{color:var(--f-muted);font-size:11px}
-.unified-finder .soccer-save{margin-left:auto;display:grid;place-items:center;width:40px;height:40px;border-radius:8px;border:1px solid transparent!important;background:transparent;color:#a1a6ad}
-.unified-finder .soccer-save:hover{background:#ffffff12;color:#fff}
-.unified-finder .soccer-save[aria-pressed=true]{color:#ffda67}
-.unified-finder .soccer-save[data-side=over]{border-color:#6ce4bb!important}
-.unified-finder .soccer-save[data-side=under]{border-color:#ff929e!important}
-@media(max-width:760px){.soccer-markets{grid-template-columns:minmax(0,1fr)}.unified-finder .soccer-save{width:44px;height:44px}}
+/* The soccer player page borrows the WNBA / MLB page styles; these are the
+   soccer-only cards. */
+.soccer-win .mlb-win-ring>span b{display:block;margin-top:3px;font-size:15px;letter-spacing:0;color:#edf3fa}
+
+.soccer-compare-teams{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:10px;padding:12px 14px 4px}
+.soccer-compare-teams>span:last-child{justify-content:flex-end}
+.soccer-compare .soccer-compare-teams .mlb-context-switch{margin:0}
+.soccer-compare-teams>span{display:flex;align-items:center;gap:9px;min-width:0}
+.soccer-compare-teams>span:last-child{text-align:right}
+.soccer-compare-teams strong{display:block;font-size:13px;color:#edf3fa}
+.soccer-compare-teams small{display:block;font-size:10px;color:#9aa1a9}
+.soccer-compare .mlb-context-switch{margin:8px 12px}
+.soccer-compare-rows{display:grid;padding:2px 14px 12px}
+.soccer-compare-row{display:grid;gap:6px;padding:9px 0;border-bottom:1px solid #1e2228}
+.soccer-compare-row:last-child{border-bottom:0}
+.soccer-compare-row>div{display:grid;grid-template-columns:minmax(52px,auto) 1fr minmax(52px,auto);align-items:baseline;gap:8px;font-variant-numeric:tabular-nums}
+.soccer-compare-row>div>span{text-align:center;font-size:11px;font-weight:600;color:#d8dde4}
+.soccer-compare-row>div>b{font-size:12px;color:#c6ccd3}
+.soccer-compare-row>div>b:last-child{text-align:right}
+.soccer-compare-row b[data-better=true]{color:#65dfb1}
+.soccer-compare-bar{display:flex;height:5px;border-radius:5px;overflow:hidden;background:#2e3238;gap:2px}
+.soccer-compare-bar i{display:block;height:100%;background:#4b5260}
+.soccer-compare-bar i[data-tone=good]{background:#35c77e}
+.soccer-compare-bar i[data-tone=poor]{background:#ef4b5a}
+
+.soccer-group-switch{flex-wrap:wrap}
+.soccer-group-switch button{min-width:38px}
+
+.soccer-lineups .mlb-context-switch button{display:inline-flex;align-items:center;gap:6px}
+.soccer-lineup-list{display:grid;gap:4px;padding:4px 12px 12px}
+.soccer-lineup-list h3{margin:8px 0 4px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#9aa1a9}
+.soccer-lineup-row{display:grid;grid-template-columns:28px minmax(0,1fr) auto auto;align-items:center;gap:9px;padding:7px 4px;border-bottom:1px solid #1e2228;font-size:12px}
+.soccer-lineup-row strong{font-weight:600;color:#e6ebf1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.soccer-lineup-row small{font-size:10px;color:#9aa1a9}
+.soccer-lineup-row[data-self=true] strong{color:#f4d25b}
+.soccer-jersey{display:grid;place-items:center;width:26px;height:26px;border-radius:7px;background:#1b1f25;border:1px solid #30343a;font-size:11px;font-weight:700;color:#d8dde4;font-variant-numeric:tabular-nums}
+
+.soccer-h2h .wnba-last-five-row{padding-inline:14px}
+.soccer-h2h .wnba-team-cell small{margin-left:6px;font-size:9px;color:#8d949c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wnba-last-five-row b[data-result=D]{color:#c6ccd3}
+.wnba-result[data-result=T]{color:#c6ccd3}
