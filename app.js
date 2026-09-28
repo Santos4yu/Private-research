@@ -5230,7 +5230,13 @@ function manualBetSlipCanExport(legs) {
   return legs.length >= 2 && legs.length <= 6 && legs.every((prop) => SLIP_EXPORT_LEAGUES.has(slipLeague(prop)));
 }
 
-function syncManualBetSlipUi({ busy = false, status = "" } = {}) {
+// True only while the live PrizePicks check is running. Every view reads it
+// from here, so a redraw in the middle of an export (the Finder refreshing
+// prices, the dropdown opening) can't flip the buttons back early.
+let manualSlipExporting = false;
+const MANUAL_SLIP_EXPORT_TIMEOUT_MS = 30000;
+
+function syncManualBetSlipUi({ status = "" } = {}) {
   const legs = getSavedProps();
   const detail = {
     legs: legs.map((prop) => ({
@@ -5253,7 +5259,7 @@ function syncManualBetSlipUi({ busy = false, status = "" } = {}) {
     })),
     status: status || els.betSlipStatus?.textContent || manualBetSlipStatus(legs),
     canExport: manualBetSlipCanExport(legs),
-    busy,
+    busy: manualSlipExporting,
   };
   window.dispatchEvent(new CustomEvent("vortex:prop-builder-sync", { detail }));
 }
@@ -5338,8 +5344,8 @@ function renderManualBetSlip() {
   els.betSlipEmpty.hidden = count > 0;
   els.betSlipLegs.hidden = count === 0;
   els.betSlipClear.disabled = count === 0;
-  els.betSlipExport.disabled = !manualBetSlipCanExport(legs);
-  els.betSlipStatus.textContent = manualBetSlipStatus(legs);
+  els.betSlipExport.disabled = manualSlipExporting || !manualBetSlipCanExport(legs);
+  if (!manualSlipExporting) els.betSlipStatus.textContent = manualBetSlipStatus(legs);
   els.betSlipLegs.innerHTML = legs.map((prop, index) => `
     <article class="bet-slip-leg" style="--slip-delay:${index * 45}ms">
       <span class="bet-slip-rank">${index + 1}</span>
@@ -5355,33 +5361,51 @@ function renderManualBetSlip() {
 
 async function exportManualBetSlip() {
   const legs = getSavedProps();
-  if (!manualBetSlipCanExport(legs)) return;
+  if (manualSlipExporting || !manualBetSlipCanExport(legs)) return;
+  manualSlipExporting = true;
   const originalLabel = els.betSlipExport.textContent;
   els.betSlipExport.disabled = true;
   els.betSlipExport.textContent = "Matching live lines…";
   els.betSlipStatus.textContent = "Checking every leg on the live PrizePicks board…";
-  syncManualBetSlipUi({ busy: true, status: els.betSlipStatus.textContent });
+  syncManualBetSlipUi({ status: els.betSlipStatus.textContent });
+  // Never leave the button on "Checking lines…" if the check stalls.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), MANUAL_SLIP_EXPORT_TIMEOUT_MS);
+  let url = "";
+  let status;
   try {
     const response = await fetch(API_PRIZEPICKS_EXPORT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
       body: JSON.stringify({ legs: legs.map(manualSlipLegPayload) }),
+      signal: controller.signal,
     });
     const payload = await response.json();
     if (!response.ok || !payload.url) {
       const detail = payload.unmatched?.map((leg) => `${leg.player} ${leg.line} ${leg.stat}`).join("; ");
       throw new Error(detail ? `${payload.error} ${detail}` : (payload.error || "PrizePicks export failed."));
     }
-    els.betSlipStatus.textContent = `${payload.matches.length} live legs matched. Opening PrizePicks…`;
-    syncManualBetSlipUi({ busy: true, status: els.betSlipStatus.textContent });
-    window.location.assign(payload.url);
+    url = payload.url;
+    status = `${payload.matches.length} live legs matched and sent to PrizePicks.`;
   } catch (error) {
-    els.betSlipStatus.textContent = error.message || "PrizePicks export is temporarily unavailable.";
-    els.betSlipExport.disabled = false;
-    els.betSlipExport.textContent = originalLabel;
-    syncManualBetSlipUi({ busy: false, status: els.betSlipStatus.textContent });
+    // No connection (TypeError) or a non-JSON reply (SyntaxError) get a
+    // plain message rather than the browser's own wording.
+    status = error.name === "AbortError" ? "PrizePicks took too long to answer. Try exporting again."
+      : error instanceof TypeError || error instanceof SyntaxError ? "Couldn't reach PrizePicks. Check your connection and try again."
+      : error.message || "PrizePicks export is temporarily unavailable.";
+  } finally {
+    clearTimeout(timeout);
   }
+  // Back to normal as soon as the check is done. On a phone PrizePicks
+  // usually opens in its own app and this page stays open behind it, so
+  // it must not be left saying "Checking lines…" with Export disabled.
+  manualSlipExporting = false;
+  els.betSlipExport.textContent = originalLabel;
+  els.betSlipExport.disabled = !manualBetSlipCanExport(getSavedProps());
+  els.betSlipStatus.textContent = status;
+  syncManualBetSlipUi({ status });
+  if (url) window.location.assign(url);
 }
 
 function clearManualBetSlip() {
@@ -5415,6 +5439,13 @@ function wireManualBetSlip() {
     if (storedKey !== undefined) setManualBetSlipPick(state.savedProps.get(storedKey), event.detail?.side);
   });
   window.addEventListener("vortex:prop-builder-refresh", (event) => refreshManualBetSlipPicks(event.detail?.updates));
+  // Returning from PrizePicks can restore this page from the browser's
+  // back/forward cache exactly as it was left; repaint it from the store.
+  window.addEventListener("pageshow", (event) => {
+    if (!event.persisted) return;
+    manualSlipExporting = false;
+    renderManualBetSlip();
+  });
   renderManualBetSlip();
 }
 
