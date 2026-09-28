@@ -212,13 +212,68 @@ function renderStatus(){
  }
  window.dispatchEvent(new CustomEvent('vortex:site-policy',{detail:{...status,accessGranted:granted}}));
 }
-export async function refreshSiteAccess(){
- try{status=await request('/api/session?action=site-status');if(status.refreshAvailable&&!status.account){try{await request('/api/session',{action:'refresh'});status=await request('/api/session?action=site-status');}catch{}}renderStatus();return status;}
- catch{status={maintenance:true,message:'Website access is temporarily unavailable. Please retry shortly.',disabledTabs:[],requireLogin:true,registrationOpen:false,isAdmin:false};renderStatus();return status;}
+// Only signing out ends a session. Everything below exists because members
+// used to be thrown back to the sign-in screen by things that were never a
+// verdict on them: one failed status request (a phone switching networks)
+// replaced the whole page with the "unavailable" screen, and a session the
+// server merely couldn't confirm this time -- Supabase slow, a refresh still
+// in flight -- rendered as signed out.
+//
+// "Unsettled" is that second case: the member still has a session cookie,
+// the server just has no definite answer yet (the server reports it as
+// refreshAvailable without an account).
+const unsettled=s=>Boolean(s?.refreshAvailable&&!s.account);
+let retryTimer=0,failures=0;
+function retrySoon(){
+ clearTimeout(retryTimer);
+ // 2s, 4s, 8s, 16s, then every 30s until an answer comes back.
+ retryTimer=setTimeout(()=>{retryTimer=0;refreshSiteAccess();},Math.min(30000,2000*2**Math.min(failures-1,4)));
+}
+async function readStatus(){
+ let next=await request('/api/session?action=site-status');
+ if(unsettled(next)){try{await request('/api/session',{action:'refresh'});next=await request('/api/session?action=site-status');}catch{}}
+ return next;
+}
+async function checkSiteAccess(){
+ let next=null;
+ // On first load the boot screen is still up, so a couple of quick retries
+ // settle it before anything is shown. After that, one attempt per check.
+ for(let attempt=0;attempt<(status&&!status.offline?1:3);attempt++){
+  if(attempt)await new Promise(r=>setTimeout(r,700*attempt));
+  try{next=await readStatus();}catch{next=null;}
+  if(next&&!unsettled(next))break;
+ }
+ if(next&&!unsettled(next)){failures=0;clearTimeout(retryTimer);retryTimer=0;status=next;renderStatus();return status;}
+ // No definite answer. Whoever is already in stays in, on the status we
+ // last knew, and we ask again shortly -- nobody is signed out for a blip.
+ failures++;retrySoon();
+ if(status&&!(status.offline&&next))return status;
+ status=next||{offline:true,maintenance:true,message:'Website access is temporarily unavailable. Please retry shortly.',disabledTabs:[],requireLogin:true,registrationOpen:false,isAdmin:false};
+ renderStatus();return status;
+}
+// One check at a time. A call made while one is running is not dropped --
+// the running check goes round once more, so e.g. the admin panel's
+// refresh-after-save still sees the settings it just saved.
+let checking=null,checkAgain=false;
+export function refreshSiteAccess(){
+ if(checking){checkAgain=true;return checking;}
+ checking=(async()=>{let result;do{checkAgain=false;result=await checkSiteAccess();}while(checkAgain);return result;})().finally(()=>{checking=null;});
+ return checking;
+}
+// A tab left in the background stops polling (and phones freeze it
+// outright), so by the time someone comes back the access token has often
+// expired. Check the moment the page is visible again rather than up to 30s
+// later -- the server refreshes the session in that same request.
+let lastWake=0;
+function wake(){
+ if(document.hidden||Date.now()-lastWake<5000)return;
+ lastWake=Date.now();refreshSiteAccess();
 }
 export function initSiteAccess(){
  if(initPromise)return initPromise;
- initPromise=(async()=>{await refreshSiteAccess();setInterval(()=>{if(!document.hidden)refreshSiteAccess();},30000);if(accessGranted(status))return status;return new Promise(resolve=>{const listener=e=>{if(e.detail.accessGranted){window.removeEventListener('vortex:site-policy',listener);resolve(e.detail);}};window.addEventListener('vortex:site-policy',listener);});})();return initPromise;
+ initPromise=(async()=>{await refreshSiteAccess();setInterval(()=>{if(!document.hidden)refreshSiteAccess();},30000);
+  document.addEventListener('visibilitychange',wake);window.addEventListener('focus',wake);window.addEventListener('online',wake);window.addEventListener('pageshow',e=>{if(e.persisted)wake();});
+  if(accessGranted(status))return status;return new Promise(resolve=>{const listener=e=>{if(e.detail.accessGranted){window.removeEventListener('vortex:site-policy',listener);resolve(e.detail);}};window.addEventListener('vortex:site-policy',listener);});})();return initPromise;
 }
 // Downscales only if larger than maxDim (a smaller source photo is left
 // alone rather than upscaled/softened) and re-encodes as JPEG. Kept

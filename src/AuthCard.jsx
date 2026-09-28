@@ -44,6 +44,9 @@ export function AuthCard({ initialMode = 'sign-in', registrationOpen = true, acc
   const [code, setCode] = useState('');
   const [pin, setPin] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  // Checked: stay signed in on this device, across browser restarts, until
+  // signing out. Unchecked: the session ends when the browser is closed.
+  const [remember, setRemember] = useState(true);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState('');
 
@@ -79,7 +82,7 @@ export function AuthCard({ initialMode = 'sign-in', registrationOpen = true, acc
     setBusy(true);
     setFeedback('');
     try {
-      const fields = { email, password, code, pin };
+      const fields = mode === 'admin' ? { pin } : { email, password, code, remember };
       const data = await request(mode === 'admin' ? '/api/v2-admin' : '/api/session', { action: mode === 'admin' ? 'auth' : mode, ...fields });
       if (mode === 'recover') {
         setBusy(false);
@@ -207,7 +210,7 @@ export function AuthCard({ initialMode = 'sign-in', registrationOpen = true, acc
               {mode === 'sign-in' && (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Checkbox id="remember" className="border-zinc-700 data-[state=checked]:bg-zinc-50 data-[state=checked]:text-zinc-900" />
+                    <Checkbox id="remember" checked={remember} onCheckedChange={(value) => setRemember(value === true)} className="border-zinc-700 data-[state=checked]:bg-zinc-50 data-[state=checked]:text-zinc-900" />
                     <Label htmlFor="remember" className="text-zinc-400">Remember me</Label>
                   </div>
                   {showForgot && (

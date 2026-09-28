@@ -25,9 +25,15 @@ class handler(BaseHTTPRequestHandler):
         action = (query.get("action") or [""])[0].strip().lower()
         if action == "site-status":
             from site_controls import read
-            from account_auth import configured,identity,cookies,REFRESH
+            from account_auth import configured,ensure_session
             from v2.board import admin_auth
-            return self._json(200,{**read(),'accountsConfigured':configured(),'account':identity(self.headers),'refreshAvailable':bool(cookies(self.headers).get(REFRESH)),'isAdmin':admin_auth.is_admin_request(self.headers)})
+            # This poll runs every 30s on every open page, which makes it the
+            # natural place to keep the session alive: ensure_session()
+            # refreshes ahead of expiry and returns the cookies to set.
+            # `refreshAvailable` now means "not confirmed yet, but still
+            # recoverable" -- the client retries instead of signing out.
+            account,session_updates,pending=ensure_session(self.headers)
+            return self._json(200,{**read(),'accountsConfigured':configured(),'account':account,'refreshAvailable':pending,'isAdmin':admin_auth.is_admin_request(self.headers)},session_updates)
         if action == "login":
             return self._login()
         if action == "callback":
@@ -40,7 +46,7 @@ class handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         from site_controls import same_origin,read
-        from account_auth import call,cookies,REFRESH,session_cookies,clear_cookies,identity
+        from account_auth import call,cookies,REFRESH,session_cookies,clear_cookies,identity,refresh_session,remembered
         if not same_origin(self.headers):return self._json(403,{'error':'Same-origin request required'})
         try:
             length=int(self.headers.get('Content-Length','0'))
@@ -49,6 +55,11 @@ class handler(BaseHTTPRequestHandler):
             if not isinstance(body,dict):return self._json(400,{'error':'Invalid request'})
             action=body.get('action')
             email=body.get('email','');password=body.get('password','')
+            # Remember me: persistent cookies that survive closing the browser,
+            # or session cookies that don't. Defaults to remembering, which is
+            # what someone expects from a site they signed into on purpose.
+            remember=body.get('remember',True)
+            if not isinstance(remember,bool):return self._json(400,{'error':'Invalid request'})
             if action in ('sign-in','sign-up','recover','verify-recovery','verify-email'):
                 from account_auth import rate_allowed
                 if not rate_allowed(self.headers,email):return self._json(429,{'error':'Too many account attempts. Try again in 15 minutes.'})
@@ -60,10 +71,12 @@ class handler(BaseHTTPRequestHandler):
                 if not read()['registrationOpen']:return self._json(403,{'error':'Registration is currently closed'})
                 data=call('signup',{'email':email.strip(),'password':password})
                 if data.get('access_token') and data.get('refresh_token'):
-                    return self._account_response({'ok':True,'signedIn':True},session_cookies(data))
+                    return self._account_response({'ok':True,'signedIn':True},session_cookies(data,remember))
                 return self._json(200,{'message':'Email confirmation is still enabled in Supabase. Disable Confirm email to allow immediate signup.'})
             if action=='sign-in':data=call('token?grant_type=password',{'email':email.strip(),'password':password})
-            elif action=='refresh':data=call('token?grant_type=refresh_token',{'refresh_token':cookies(self.headers).get(REFRESH,'')})
+            elif action=='refresh':
+                data=refresh_session(cookies(self.headers).get(REFRESH,''))
+                remember=remembered(self.headers)
             elif action in ('verify-recovery','verify-email'):
                 data=call('verify',{'email':email.strip(),'token':body.get('code',''),'type':'recovery' if action=='verify-recovery' else 'email'})
             elif action=='recover':
@@ -84,7 +97,7 @@ class handler(BaseHTTPRequestHandler):
                 logout_cookies=clear_cookies()+[f'{admin_auth.ADMIN_COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict',f'{SESSION_COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax']
                 return self._account_response({'ok':True},logout_cookies)
             else:return self._json(400,{'error':'Unknown account action'})
-            return self._account_response({'ok':True},session_cookies(data))
+            return self._account_response({'ok':True},session_cookies(data,remember))
         except ValueError as exc:return self._json(400,{'error':str(exc) if str(exc).startswith('Account') else 'Invalid account request'})
         except Exception:return self._json(503,{'error':'Account service temporarily unavailable or not configured'})
 
@@ -147,11 +160,13 @@ class handler(BaseHTTPRequestHandler):
             self.send_header(name, value)
         self.end_headers()
 
-    def _json(self, status, payload):
+    def _json(self, status, payload, cookies=None):
         body = json.dumps(payload).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Cache-Control", "no-store")
+        for cookie in cookies or []:
+            self.send_header("Set-Cookie", cookie)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
