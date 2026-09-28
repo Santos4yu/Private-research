@@ -19,6 +19,10 @@ from auth_core import (  # noqa: E402
 )
 
 
+ACCOUNT_DATA_ACTIONS = ('profile-save', 'prefs-save', 'account-image-save')
+ACCOUNT_BODY_MAX = 2200 * 1024
+
+
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         query = parse_qs(urlparse(self.path).query)
@@ -43,6 +47,16 @@ class handler(BaseHTTPRequestHandler):
                 viewer=site_members.viewer_policy(policy,site_members.rule_for(site_members.read_rules(),account))
                 site_members.touch(account)
             return self._json(200,{**policy,**viewer,'accountsConfigured':configured(),'account':account,'refreshAvailable':pending,'isAdmin':admin_auth.is_admin_request(self.headers)},session_updates)
+        if action == "account":
+            # The member's own profile and synced settings (account_profile.py).
+            import account_profile
+            from account_auth import identity
+            account=identity(self.headers)
+            if not account or not account_profile.valid_uid(account.get('id')):return self._json(401,{'error':'Sign in to load your account'})
+            uid=account['id']
+            return self._json(200,{'profile':account_profile.public_profile(uid,account_profile.read_profile(uid)),'prefs':account_profile.read_prefs(uid)})
+        if action == "account-image":
+            return self._account_image(query)
         if action == "login":
             return self._login()
         if action == "callback":
@@ -59,10 +73,13 @@ class handler(BaseHTTPRequestHandler):
         if not same_origin(self.headers):return self._json(403,{'error':'Same-origin request required'})
         try:
             length=int(self.headers.get('Content-Length','0'))
-            if not 0<length<=8192:return self._json(400,{'error':'Invalid request size'})
+            # Photos and synced settings are the only large bodies.
+            if not 0<length<=ACCOUNT_BODY_MAX:return self._json(400,{'error':'Invalid request size'})
             body=json.loads(self.rfile.read(length))
             if not isinstance(body,dict):return self._json(400,{'error':'Invalid request'})
             action=body.get('action')
+            if action in ACCOUNT_DATA_ACTIONS:return self._account_data(action,body)
+            if length>8192:return self._json(400,{'error':'Invalid request size'})
             email=body.get('email','');password=body.get('password','')
             # Remember me: persistent cookies that survive closing the browser,
             # or session cookies that don't. Defaults to remembering, which is
@@ -109,6 +126,44 @@ class handler(BaseHTTPRequestHandler):
             return self._account_response({'ok':True},session_cookies(data,remember))
         except ValueError as exc:return self._json(400,{'error':str(exc) if str(exc).startswith('Account') else 'Invalid account request'})
         except Exception:return self._json(503,{'error':'Account service temporarily unavailable or not configured'})
+
+    def _account_data(self,action,body):
+        """Profile edits, photo uploads and settings sync for the signed-in
+        member. Only ever touches their own records."""
+        import account_profile
+        from account_auth import identity
+        account=identity(self.headers)
+        if not account or not account_profile.valid_uid(account.get('id')):return self._json(401,{'error':'Sign in to save to your account'})
+        uid=account['id']
+        try:
+            if action=='profile-save':
+                fields={key:body[key] for key in ('name','avatar') if key in body}
+                if not fields:return self._json(400,{'error':'Nothing to save'})
+                profile=account_profile.save_profile(uid,**fields)
+                return self._json(200,{'profile':account_profile.public_profile(uid,profile)})
+            if action=='account-image-save':
+                slot=body.get('slot')
+                if slot!='background':return self._json(400,{'error':'Unknown image'})
+                version=account_profile.save_image(uid,slot,body.get('image'))
+                return self._json(200,{'url':account_profile.image_url(uid,slot,version)})
+            return self._json(200,{'prefs':account_profile.merge_prefs(uid,body.get('changes'))})
+        except ValueError as exc:return self._json(400,{'error':str(exc)})
+        except Exception:return self._json(503,{'error':'Account storage is temporarily unavailable'})
+
+    def _account_image(self,query):
+        import base64
+        import account_profile
+        record=account_profile.read_image((query.get('u') or [''])[0],(query.get('slot') or [''])[0])
+        if not record:return self._json(404,{'error':'No image'})
+        try:raw=base64.b64decode(record['data'])
+        except Exception:return self._json(404,{'error':'No image'})
+        self.send_response(200)
+        self.send_header('Content-Type',record['contentType'])
+        # Every upload gets a new ?v=, so a URL never changes what it shows.
+        self.send_header('Cache-Control','public, max-age=31536000, immutable')
+        self.send_header('X-Content-Type-Options','nosniff')
+        self.send_header('Content-Length',str(len(raw)))
+        self.end_headers();self.wfile.write(raw)
 
     def _account_response(self,body,cookies):
         self.send_response(200)

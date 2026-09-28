@@ -13,7 +13,8 @@
 .community-feed { display:flex; flex-direction:column; gap:14px; }
 .community-post { padding:14px 16px; border:1px solid var(--theme-border); border-radius:16px; background:var(--theme-panel); }
 .community-post-head { display:flex; align-items:center; gap:10px; }
-.community-post-avatar { display:flex; align-items:center; justify-content:center; flex:0 0 34px; width:34px; height:34px; border-radius:50%; background:var(--theme-accent); color:var(--theme-on-accent); font:800 14px/1 var(--font-sans); }
+.community-post-avatar { position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center; flex:0 0 34px; width:34px; height:34px; border-radius:50%; background:var(--theme-accent); color:var(--theme-on-accent); font:800 14px/1 var(--font-sans); }
+.community-post-avatar img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
 .community-post-who { min-width:0; flex:1; }
 .community-post-who strong { display:block; color:var(--theme-text); font-size:13px; }
 .community-post-who small { display:block; margin-top:1px; color:var(--theme-dim); font-size:11px; }

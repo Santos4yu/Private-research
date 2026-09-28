@@ -88,9 +88,12 @@ class handler(BaseHTTPRequestHandler):
                     return self._send(401, {"error": "Sign in required"})
                 import community_feed
                 import site_members
+                import account_profile
                 posts = community_feed.list_posts()
                 badges = site_members.author_badges(posts)
                 posts = [{**post, "authorBadge": badges[post.get("id")]} if post.get("id") in badges else post for post in posts]
+                # Names and photos from each author's profile; emails never leave the server.
+                posts = account_profile.community_authors(posts)
                 return self._send(200, {"posts": posts, "reactions": list(community_feed.REACTIONS), "viewerId": session["id"]})
             if action == "community-image":
                 # Public and unauthenticated, same reasoning as site-background:
@@ -174,7 +177,10 @@ class handler(BaseHTTPRequestHandler):
                     post = community_feed.create_post(session["id"], session.get("username") or session.get("email") or "Member", body.get("text"), body.get("image"))
                 except ValueError as exc:
                     return self._send(400, {"error": str(exc)})
-                return self._send(200, {"post": post})
+                import site_members
+                import account_profile
+                badge = site_members.author_badges([post]).get(post.get("id"))
+                return self._send(200, {"post": account_profile.community_authors([{**post, "authorBadge": badge} if badge else post])[0]})
             if action == "community-react":
                 from site_controls import allowed, same_origin
                 if not allowed(self.headers, "community"):
@@ -190,6 +196,10 @@ class handler(BaseHTTPRequestHandler):
                     post = community_feed.toggle_reaction(body.get("postId"), body.get("emoji"), session["id"])
                 except ValueError as exc:
                     return self._send(400, {"error": str(exc)})
+                import site_members
+                import account_profile
+                badge = site_members.author_badges([post]).get(post.get("id"))
+                post = account_profile.community_authors([{**post, "authorBadge": badge} if badge else post])[0]
                 return self._send(200, {"post": post})
             if action == "community-delete":
                 from site_controls import same_origin
