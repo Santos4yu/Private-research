@@ -27,7 +27,7 @@ function statTabs(playerRows){
  const labels=new Map();
  for(const item of playerRows)if(item.marketKey&&!labels.has(item.marketKey))labels.set(item.marketKey,item.market);
  const rank=key=>{const index=MARKET_ORDER.indexOf(key);return index<0?MARKET_ORDER.length:index;};
- return [...labels].sort((a,b)=>rank(a[0])-rank(b[0])).map(([key,label])=>({key,label,code:nflStatCode(key)}));
+ return [...labels].sort((a,b)=>rank(a[0])-rank(b[0])).map(([key,label])=>({key,label,code:nflStatCode(key,label)}));
 }
 const offersFor=(rows,market)=>(rows||[]).filter(row=>row.marketKey===market&&row.raw?.line).map(row=>row.raw);
 const shortDay=date=>{const day=new Date(`${date}T12:00:00`);return Number.isNaN(day.getTime())?'—':day.toLocaleDateString([],{month:'numeric',day:'numeric',year:'2-digit'});};
