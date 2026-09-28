@@ -181,15 +181,21 @@ class handler(BaseHTTPRequestHandler):
             qs = parse_qs(urlparse(self.path).query)
             arg = lambda name: (qs.get(name) or [""])[0].strip()
             resource = arg("resource")
-            if resource in {"log", "match"}:
-                # A team's recent matches, or the match's own context
-                # (soccer_research.py). ESPN ids and slugs only.
+            if resource in {"log", "match", "club"}:
+                # A team's recent matches, the match's own context, or a
+                # player's club matches (soccer_research.py). ESPN ids and
+                # slugs only.
                 import soccer_research
-                event, league, team = arg("event"), arg("league"), arg("team")
-                if not soccer_research.valid_id(event) or (league and not soccer_research.valid_slug(league)) \
+                event, league, team, athlete = arg("event"), arg("league"), arg("team"), arg("athlete")
+                if resource == "club":
+                    if not soccer_research.valid_id(athlete) or not soccer_research.valid_id(team):
+                        return self._send(400, {"error": "Unknown player."})
+                elif not soccer_research.valid_id(event) or (league and not soccer_research.valid_slug(league)) \
                         or (resource == "log" and not soccer_research.valid_id(team)):
                     return self._send(400, {"error": "Unknown match."})
                 try:
+                    if resource == "club":
+                        return self._send(200, soccer_research.club_log(athlete, team))
                     if resource == "log":
                         return self._send(200, soccer_research.team_log(team, event, league or None))
                     return self._send(200, soccer_research.match(event, league or None))

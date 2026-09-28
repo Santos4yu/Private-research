@@ -352,6 +352,13 @@ if (gamelogHandSelectRoot) {
     onPick: (value) => window.dispatchEvent(new CustomEvent('vortex:gamelog-hand-pick', { detail: { value } })),
   });
 }
+window.vortexGamelogExtraSelects = Object.fromEntries([['opponent', 'Opponent'], ['league', 'League'], ['team', 'Team']].map(([field, label]) => {
+  const root = document.getElementById(`gamelog-${field}-select-root`);
+  return [field, root ? window.vortexMountSimpleSelect(root, {
+    ariaLabel: label,
+    onPick: (value) => window.dispatchEvent(new CustomEvent('vortex:gamelog-extra-pick', { detail: { field, value } })),
+  }) : null];
+}));
 const gamelogVenueSelectRoot = document.getElementById('gamelog-venue-select-root');
 if (gamelogVenueSelectRoot) {
   window.vortexGamelogVenueSelect = window.vortexMountSimpleSelect(gamelogVenueSelectRoot, {

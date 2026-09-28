@@ -68,6 +68,7 @@ export function playerGames(log,name){
   const line=findPlayer(game.players||[],name);
   if(!line)continue;
   rows.push({gameId:game.id,date:game.date,season:seasonOf(game.date),league:game.league,leagueName:game.leagueName,isHome:game.isHome,
+   teamName:log.team?.name||log.team?.abbr||'',teamAbbr:log.team?.abbr||'',
    opponent:game.opponent?.abbr||'',opponentName:game.opponent?.name||'',opponentLogo:game.opponent?.logo||null,opponentId:game.opponent?.id||'',
    result:game.result,score:game.score,min:line.min,starter:line.starter,pos:line.pos,playerId:line.id,s:line.s||{},
    teamStats:game.teamStats||{},oppStats:game.oppStats||{},goals:game.goals,against:game.against});
@@ -75,10 +76,23 @@ export function playerGames(log,name){
  return rows.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
 }
 
+// Club and country matches together, one row per match, oldest first.
+export function mergeGames(...lists){
+ const byId=new Map();
+ for(const list of lists)for(const game of list||[])if(!byId.has(game.gameId))byId.set(game.gameId,game);
+ return [...byId.values()].sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+}
+
+// The number drawn behind a result on the chart: the shots a keeper faced
+// behind his saves, a player's shots behind his shots on target.
+const CONTEXT={saves:['sotf','faced'],sot:['shots','of shots'],passes:['passAtt','attempted']};
 const playedOn=date=>{const day=new Date(date);return Number.isNaN(day.getTime())?'':day.toLocaleDateString([],{month:'numeric',day:'numeric'});};
 export function soccerChart(games,key,opponent){
+ const [contextKey,contextLabel]=CONTEXT[key]||[];
  const all=(games||[]).map(game=>({value:valueOf(game,key),season:game.season,fullDate:game.date||'',dateLabel:playedOn(game.date),
-  opponent:game.opponent,opponentLabel:(game.isHome===false?'@':'')+game.opponent,isHome:game.isHome,gameId:game.gameId,result:game.result,score:game.score}))
+  opponent:game.opponent,opponentLabel:(game.isHome===false?'@':'')+game.opponent,isHome:game.isHome,gameId:game.gameId,result:game.result,score:game.score,
+  league:game.leagueName||'',team:game.teamName||'',
+  ...(contextKey&&finite(valueOf(game,contextKey))?{context:valueOf(game,contextKey),contextLabel}:{})}))
   .filter(game=>finite(game.value));
  const chart={all};const h2h=opponent?all.filter(game=>game.opponent===opponent):[];
  if(h2h.length){chart.h2h=h2h;chart.meta={h2hLabel:`vs ${opponent}`};}
