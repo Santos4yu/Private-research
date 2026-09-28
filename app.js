@@ -5253,8 +5253,8 @@ function setManualBetSlipOpen(open) {
   els.headerBuilderTrigger?.setAttribute("aria-expanded", String(open));
 }
 
-// prizepicks_export_core.py matches MLB and WNBA legs on the live board.
-const SLIP_EXPORT_LEAGUES = new Set(["MLB", "WNBA"]);
+// prizepicks_export_core.py matches MLB, NFL and WNBA legs on the live board.
+const SLIP_EXPORT_LEAGUES = new Set(["MLB", "NFL", "WNBA"]);
 const slipLeague = (prop) => String(prop.sport || "MLB").toUpperCase();
 const slipModifier = (prop) => String(prop.modifier || prop.oddsType || "standard").toLowerCase();
 // Goblin and Demon lines are More-only on PrizePicks.
@@ -5273,6 +5273,9 @@ function manualSlipLegPayload(prop) {
     stat: prop.exportStat || prop.betType,
     line: prop.line,
     side: String(prop.side || "over").toLowerCase() === "under" ? "under" : "over",
+    // When PrizePicks has moved the line, its current line in the same tier
+    // (standard / goblin / demon) is used first.
+    modifier: slipModifier(prop),
   };
 }
 
@@ -5280,7 +5283,7 @@ function manualBetSlipStatus(legs) {
   const count = legs.length;
   const blocked = [...new Set(legs.map(slipLeague).filter((league) => !SLIP_EXPORT_LEAGUES.has(league)))];
   if (count === 0) return "Add at least 2 props to export.";
-  if (blocked.length) return `PrizePicks export covers MLB and WNBA. Remove ${blocked.join(", ")} picks to export.`;
+  if (blocked.length) return `PrizePicks export covers MLB, NFL and WNBA. Remove ${blocked.join(", ")} picks to export.`;
   if (count < 2) return "Add 1 more prop to export.";
   if (count > 6) return "Remove legs until 6 remain.";
   return `${count}-leg slip ready to verify.`;
@@ -5419,6 +5422,29 @@ function renderManualBetSlip() {
   syncManualBetSlipUi();
 }
 
+// The export goes out on PrizePicks' current lines, so a pick whose line (or
+// tier) PrizePicks has moved since it was saved follows it here too.
+function applyExportedLines(legs, matches) {
+  const changed = [];
+  let updated = false;
+  (Array.isArray(matches) ? matches : []).forEach((match) => {
+    const prop = legs[match.leg];
+    const line = Number(match.line);
+    const modifier = String(match.oddsType || "standard").toLowerCase();
+    if (!prop || !Number.isFinite(line)) return;
+    if (Number(prop.line) !== line) changed.push(`${prop.player} ${prop.betType} ${prop.line} → ${line}`);
+    if (Number(prop.line) === line && slipModifier(prop) === modifier) return;
+    prop.line = line;
+    prop.modifier = modifier;
+    updated = true;
+  });
+  if (updated) {
+    persistSaved();
+    renderManualBetSlip();
+  }
+  return changed;
+}
+
 async function exportManualBetSlip() {
   const legs = getSavedProps();
   if (manualSlipExporting || !manualBetSlipCanExport(legs)) return;
@@ -5447,7 +5473,13 @@ async function exportManualBetSlip() {
       throw new Error(detail ? `${payload.error} ${detail}` : (payload.error || "PrizePicks export failed."));
     }
     url = payload.url;
-    status = `${payload.matches.length} live legs matched and sent to PrizePicks.`;
+    const changed = applyExportedLines(legs, payload.matches);
+    const skipped = (payload.skipped || []).map((leg) => `${leg.player} ${leg.line} ${leg.stat}`);
+    status = [
+      `${payload.matches.length} live leg${payload.matches.length === 1 ? "" : "s"} sent to PrizePicks.`,
+      changed.length ? `Moved to PrizePicks' current line: ${changed.join("; ")}.` : "",
+      skipped.length ? `Left out (no longer on PrizePicks): ${skipped.join("; ")}.` : "",
+    ].filter(Boolean).join(" ");
   } catch (error) {
     // No connection (TypeError) or a non-JSON reply (SyntaxError) get a
     // plain message rather than the browser's own wording.
@@ -6703,7 +6735,8 @@ async function exportBuilderToPrizePicks(event) {
   button.textContent = "Matching live lines…";
   els.builderStatus.textContent = "Verifying every leg against the live PrizePicks board…";
   try {
-    const response = await fetch(API_PRIZEPICKS_EXPORT, {
+    // The Parlay page's export follows the Parlay section's switch.
+    const response = await fetch(`${API_PRIZEPICKS_EXPORT}&from=parlay`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
@@ -6721,7 +6754,8 @@ async function exportBuilderToPrizePicks(event) {
       const detail = payload.unmatched?.map((leg) => `${leg.player} ${leg.line} ${leg.stat}`).join("; ");
       throw new Error(detail ? `${payload.error} ${detail}` : (payload.error || "PrizePicks export failed."));
     }
-    els.builderStatus.textContent = `${payload.matches.length} live PrizePicks legs matched. Opening your lineup for review…`;
+    const moved = (payload.changed || []).length, skipped = (payload.skipped || []).length;
+    els.builderStatus.textContent = `${payload.matches.length} live PrizePicks legs matched${moved ? `, ${moved} on a new line` : ""}${skipped ? `, ${skipped} no longer listed` : ""}. Opening your lineup for review…`;
     window.location.assign(payload.url);
   } catch (error) {
     els.builderStatus.textContent = error.message || "PrizePicks export is temporarily unavailable.";

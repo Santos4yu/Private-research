@@ -1,4 +1,4 @@
-"""PrizePicks export: legs resolve to live projection ids for MLB and WNBA."""
+"""PrizePicks export: legs resolve to live projection ids for MLB, NFL and WNBA."""
 import sys
 import unittest
 from pathlib import Path
@@ -148,17 +148,80 @@ class PrizePicksExportTests(unittest.TestCase):
         self.assertTrue(any("league_id=3" in url for url in fake.urls))
 
     def test_other_leagues_rows_and_more_only_tiers_are_not_matched(self):
+        # A Goblin line cannot be played Less, and the WNBA1H row is another
+        # league's line: nothing is left to export.
         legs = [
-            # Only the WNBA1H row has this line.
-            {"league": "WNBA", "player": "Sabrina Ionescu", "stat": "Points", "line": 10.5, "side": "over"},
-            # A Goblin line cannot be played Less.
             {"league": "WNBA", "player": "Sabrina Ionescu", "stat": "Points", "line": 20.5, "side": "under"},
+            {"league": "WNBA", "player": "Sabrina Ionescu", "stat": "Rebounds", "line": 4.5, "side": "over"},
         ]
         status, body, _ = self.run_export(legs)
         self.assertEqual(status, 409, body)
         reasons = [item["reason"] for item in body["unmatched"]]
-        self.assertEqual(reasons[0], "That exact line is not active on PrizePicks")
-        self.assertEqual(reasons[1], "PrizePicks Goblin lines are More-only")
+        self.assertEqual(reasons, ["PrizePicks only offers More on this pick", "No longer on PrizePicks"])
+
+    def test_a_moved_line_exports_on_prizepicks_current_line(self):
+        feed = {"data": [projection("8001", "2", "k1", "Pitcher Strikeouts", 6.5),
+                         projection("8002", "2", "k1", "Pitcher Strikeouts", 3.5, odds_type="goblin", wagers="over"),
+                         projection("8003", "2", "k1", "Pitcher Strikeouts", 8.5, odds_type="demon", wagers="over"),
+                         projection("9001", "2", "p1", "Total Bases", 1.5)],
+                "included": [player("k1", "Michael King", "MLB"), player("p1", "Aaron Judge", "MLB")]}
+        legs = [
+            # Saved as a 2.5 Goblin; PrizePicks' Goblin is now 3.5.
+            {"player": "Michael King", "stat": "Pitcher Strikeouts", "line": 2.5, "side": "over", "modifier": "goblin"},
+            {"player": "Aaron Judge", "stat": "Total Bases", "line": 1.5, "side": "over"},
+        ]
+        status, body, _ = self.run_export(legs, FakePrizePicks(feeds={"2": feed}))
+        self.assertEqual(status, 200, body)
+        self.assertEqual(body["url"], export.PRIZEPICKS_APP_URL + "8002-o-3.5,9001-o-1.5")
+        king = body["matches"][0]
+        self.assertEqual((king["leg"], king["line"], king["oddsType"], king["changed"], king["previousLine"]),
+                         (0, 3.5, "goblin", True, 2.5))
+        self.assertEqual([match["leg"] for match in body["changed"]], [0])
+        self.assertFalse(body["matches"][1]["changed"])
+        # A Less pick moves to the standard line, the only one playable Less.
+        legs[0].update(side="under")
+        status, body, _ = self.run_export(legs, FakePrizePicks(feeds={"2": feed}))
+        self.assertEqual(body["matches"][0]["projectionToken"], "8001-u-6.5")
+
+    def test_a_removed_pick_is_left_out_and_the_rest_still_exports(self):
+        legs = [
+            {"player": "Aaron Judge", "stat": "Total Bases", "line": 1.5, "side": "over"},
+            {"player": "Juan Soto", "stat": "Hits", "line": 0.5, "side": "over"},
+        ]
+        status, body, _ = self.run_export(legs)
+        self.assertEqual(status, 200, body)
+        self.assertEqual(body["url"], export.PRIZEPICKS_APP_URL + "9001-o-1.5")
+        self.assertEqual([(leg["leg"], leg["player"], leg["reason"]) for leg in body["skipped"]],
+                         [(1, "Juan Soto", "No longer on PrizePicks")])
+
+    def test_the_saved_tier_is_kept_when_two_tiers_share_a_line(self):
+        feed = {"data": [projection("6001", "2", "p1", "Hits+Runs+RBIs", 0.5),
+                         projection("6002", "2", "p1", "Hits+Runs+RBIs", 0.5, odds_type="goblin", wagers="over"),
+                         projection("9001", "2", "p2", "Total Bases", 1.5)],
+                "included": [player("p1", "Fernando Tatis Jr.", "MLB"), player("p2", "Aaron Judge", "MLB")]}
+        legs = [{"player": "Fernando Tatis Jr.", "stat": "Hits+Runs+RBIs", "line": 0.5, "side": "over", "modifier": "goblin"},
+                {"player": "Aaron Judge", "stat": "Total Bases", "line": 1.5, "side": "over"}]
+        status, body, _ = self.run_export(legs, FakePrizePicks(feeds={"2": feed}))
+        self.assertEqual(status, 200, body)
+        self.assertEqual(body["matches"][0]["projectionId"], "6002")
+
+    def test_a_brief_outage_uses_the_last_good_feed(self):
+        legs = [{"player": "Aaron Judge", "stat": "Total Bases", "line": 1.5, "side": "over"},
+                {"player": "Aaron Judge", "stat": "Total Bases", "line": 1.5, "side": "under"}]
+        feed = {"2": {"data": MLB_FEED["data"] + [projection("9002", "2", "p1", "Total Bases", 1.5)],
+                      "included": MLB_FEED["included"]}}
+        self.assertEqual(self.run_export(legs, FakePrizePicks(feeds=feed))[0], 200)
+        # Past the 2-minute cache, PrizePicks times out: the feed from a
+        # few minutes ago still exports.
+        export._PROJECTION_CACHE["MLB"]["loaded_at"] -= 300
+        with patch.object(export.requests, "get", side_effect=export.requests.Timeout("slow")):
+            status, body = export.build_export(legs)
+        self.assertEqual(status, 200, body)
+        # Too old to trust: the outage is reported.
+        export._PROJECTION_CACHE["MLB"]["loaded_at"] -= 3600
+        with patch.object(export.requests, "get", side_effect=export.requests.Timeout("slow")):
+            status, body = export.build_export(legs)
+        self.assertEqual(status, 502, body)
 
     def test_unsupported_league_is_rejected_before_any_request(self):
         legs = [
@@ -178,3 +241,32 @@ class PrizePicksExportTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ExportRouteTests(unittest.TestCase):
+    """Which site switch closes the export (api/prediction.py do_POST)."""
+
+    def post(self, path, **patches):
+        import io
+        import json
+        from api import prediction
+        body = json.dumps({"legs": []}).encode()
+        handler = prediction.handler.__new__(prediction.handler)
+        handler.path, handler.headers = path, {"Content-Length": str(len(body)), "Content-Type": "application/json"}
+        handler.rfile = io.BytesIO(body)
+        sent = {}
+        with patch("site_controls.allowed", side_effect=lambda _headers, tab=None, sport=None: tab != "builder") as gate, \
+                patch.object(prediction, "session_with_live_access", return_value=True), \
+                patch.object(prediction.handler, "_send", lambda _self, status, payload: sent.update(status=status, body=payload)):
+            handler.do_POST()
+        return sent, gate
+
+    def test_pick_builder_export_does_not_follow_the_parlay_switch(self):
+        # Parlay (tab "builder") is switched off in this test.
+        sent, gate = self.post("/api/prediction?action=prizepicks-export")
+        self.assertEqual(gate.call_args.args[1], None)
+        # Past the gate: the empty lineup is what gets rejected.
+        self.assertEqual(sent["status"], 400)
+        sent, gate = self.post("/api/prediction?action=prizepicks-export&from=parlay")
+        self.assertEqual(gate.call_args.args[1], "builder")
+        self.assertEqual((sent["status"], sent["body"].get("featureDisabled")), (503, True))

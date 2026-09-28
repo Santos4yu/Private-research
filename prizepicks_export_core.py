@@ -1,4 +1,9 @@
-"""Resolve builder legs to exact, active PrizePicks MLB and WNBA projections."""
+"""Resolve builder legs to active PrizePicks MLB, NFL and WNBA projections.
+
+A leg whose line PrizePicks has since moved goes out on PrizePicks' current
+line for the same pick (the response says which), and a pick PrizePicks has
+taken down is left out -- the rest of the lineup still opens.
+"""
 
 import re
 import threading
@@ -22,6 +27,9 @@ _HEADERS = {
     "User-Agent": "Mozilla/5.0 (compatible; VORTEX-Private-Research/1.0)",
 }
 _CACHE_SECONDS = 120
+# How old a feed may be to stand in while PrizePicks is briefly unreachable.
+_STALE_SECONDS = 15 * 60
+_TIER_ORDER = {"standard": 0, "goblin": 1, "demon": 2}
 _LEAGUE_CACHE_SECONDS = 6 * 60 * 60
 _CACHE_LOCK = threading.Lock()
 _PROJECTION_CACHE = {}  # league -> {"loaded_at": float, "rows": list}
@@ -113,15 +121,22 @@ def _fetch_projection_rows(force=False, league="MLB"):
             return cached["rows"]
 
     league_id = _league_id(league)
-    response = requests.get(
-        PRIZEPICKS_PROJECTIONS_URL.format(league_id=league_id),
-        headers=_HEADERS,
-        timeout=25,
-    )
-    response.raise_for_status()
-    payload = response.json()
-    if payload.get("error") or not isinstance(payload.get("data"), list):
-        raise RuntimeError(payload.get("error") or "PrizePicks returned an invalid projection feed.")
+    try:
+        response = requests.get(
+            PRIZEPICKS_PROJECTIONS_URL.format(league_id=league_id),
+            headers=_HEADERS,
+            timeout=25,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if payload.get("error") or not isinstance(payload.get("data"), list):
+            raise RuntimeError(payload.get("error") or "PrizePicks returned an invalid projection feed.")
+    except (requests.RequestException, ValueError, RuntimeError):
+        # A brief PrizePicks hiccup (a timeout, a rate limit): the last good
+        # feed from the past few minutes stands in rather than failing.
+        if cached and cached["rows"] and now - cached["loaded_at"] < _STALE_SECONDS:
+            return cached["rows"]
+        raise
 
     players = {
         str(item.get("id")): item.get("attributes") or {}
@@ -172,58 +187,63 @@ def _fetch_projection_rows(force=False, league="MLB"):
     return rows
 
 
+def _playable(row, side):
+    # Goblin/Demon alternate projections are More-only in the app even when
+    # the partner feed's allowed_wager_types field is overly broad.
+    if side == "under" and row["odds_type"] in {"goblin", "demon"}:
+        return False
+    return side in row["allowed_wager_types"]
+
+
 def _resolve_legs(legs, rows):
     matches, unmatched, used_ids = [], [], set()
-    for leg in legs:
+    for index, leg in enumerate(legs):
         player = str(leg.get("player") or "").strip()
         stat = str(leg.get("stat") or "").strip()
         side = str(leg.get("side") or "over").strip().lower()
         league = _league_of(leg)
+        tier = str(leg.get("modifier") or "").strip().lower()
         try:
             line = float(leg.get("line"))
         except (TypeError, ValueError):
-            unmatched.append({"player": player, "stat": stat, "line": leg.get("line"), "reason": "Invalid line"})
+            unmatched.append({"leg": index, "player": player, "stat": stat, "line": leg.get("line"), "reason": "Invalid line"})
             continue
         if side not in {"over", "under"}:
-            unmatched.append({"player": player, "stat": stat, "line": line, "reason": "Side must be More or Less"})
+            unmatched.append({"leg": index, "player": player, "stat": stat, "line": line, "reason": "Side must be More or Less"})
             continue
-        candidates = [
+        same_pick = [
             row for row in rows
             if row.get("league", "MLB") == league
             and _norm(row["player"]) == _norm(player)
             and _norm_stat(row["stat"]) == _norm_stat(stat)
-            and abs(row["line"] - line) < 0.001
             and row["id"] not in used_ids
         ]
-        candidates.sort(key=lambda row: (
-            {"standard": 0, "goblin": 1, "demon": 2}.get(row["odds_type"], 3),
-            row["updated_at"],
-        ))
-        if not candidates:
-            unmatched.append({"player": player, "stat": stat, "line": line, "reason": "That exact line is not active on PrizePicks"})
-            continue
-        match = candidates[0]
-        # Goblin/Demon alternate projections are More-only in the app even
-        # when the partner feed's allowed_wager_types field is overly broad.
-        if side == "under" and match["odds_type"] in {"goblin", "demon"}:
-            unmatched.append({
-                "player": player, "stat": stat, "line": line,
-                "reason": f"PrizePicks {match['odds_type'].title()} lines are More-only",
-            })
-            continue
-        if side not in match["allowed_wager_types"]:
-            unmatched.append({
-                "player": player, "stat": stat, "line": line,
-                "reason": f"PrizePicks does not currently offer {side.title()} for that line",
-            })
+        playable = [row for row in same_pick if _playable(row, side)]
+        # The saved line when PrizePicks still has it (the saved tier first);
+        # otherwise PrizePicks' current line for the same pick -- same tier,
+        # then the closest line.
+        exact = [row for row in playable if abs(row["line"] - line) < 0.001]
+        wanted = tier or "standard"
+        if exact:
+            exact.sort(key=lambda row: (row["odds_type"] != wanted, _TIER_ORDER.get(row["odds_type"], 3), row["updated_at"]))
+            match = exact[0]
+        elif playable:
+            playable.sort(key=lambda row: (row["odds_type"] != wanted, abs(row["line"] - line),
+                                           _TIER_ORDER.get(row["odds_type"], 3), row["updated_at"]))
+            match = playable[0]
+        else:
+            reason = ("PrizePicks only offers More on this pick" if same_pick
+                      else "No longer on PrizePicks")
+            unmatched.append({"leg": index, "player": player, "stat": stat, "line": line, "reason": reason})
             continue
         used_ids.add(match["id"])
         line_token = f"{match['line']:g}"
         direction_token = "o" if side == "over" else "u"
         matches.append({
-            "projectionId": match["id"], "league": league, "player": player, "stat": match["stat"],
+            "leg": index, "projectionId": match["id"], "league": league, "player": player, "stat": match["stat"],
             "line": match["line"], "side": "More" if side == "over" else "Less",
             "oddsType": match["odds_type"],
+            "changed": abs(match["line"] - line) >= 0.001, "previousLine": line,
             "projectionToken": f"{match['id']}-{direction_token}-{line_token}",
         })
     return matches, unmatched
@@ -239,7 +259,7 @@ def build_export(legs):
     unsupported = [league for league in leagues if league not in LEAGUE_IDS]
     if unsupported:
         return 400, {
-            "error": f"PrizePicks export supports MLB and WNBA picks only. "
+            "error": f"PrizePicks export supports {', '.join(sorted(LEAGUE_IDS))} picks only. "
                      f"Remove {', '.join(unsupported)} picks first.",
         }
     try:
@@ -247,16 +267,19 @@ def build_export(legs):
         matches, unmatched = _resolve_legs(legs, rows)
     except (requests.RequestException, RuntimeError, ValueError) as exc:
         return 502, {"error": f"PrizePicks projections are temporarily unavailable: {exc}"}
-    if unmatched:
+    if not matches:
         return 409, {
-            "error": "PrizePicks changed or removed one or more lines. Rebuild before exporting.",
+            "error": "None of these picks are on PrizePicks right now.",
             "matched": matches, "unmatched": unmatched,
         }
     # PrizePicks' outcome-level deep links encode both direction and line in
     # each projection token (``<id>-o-1.5`` / ``<id>-u-1.5``). A bare ID
     # lets the app choose a default side and can silently turn More into Less.
     projection_ids = ",".join(match["projectionToken"] for match in matches)
+    # Moved lines went out on PrizePicks' current line ("changed"); picks it
+    # took down are left out ("skipped"). The lineup opens for review either way.
     return 200, {
         "url": PRIZEPICKS_APP_URL + projection_ids,
-        "matches": matches, "reviewRequired": True,
+        "matches": matches, "changed": [match for match in matches if match["changed"]],
+        "skipped": unmatched, "reviewRequired": True,
     }
