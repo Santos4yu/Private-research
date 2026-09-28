@@ -237,8 +237,14 @@
            Select component already used for the PrizePicks-lines and
            stat pickers (components/ui/select.tsx, mounted via
            window.vortexMountSimpleSelect in src/main.jsx). -->
-      <div class="gamelog-filter-field">
+      <!-- Preseason / Regular Season / Postseason, for a sport that asks for
+           it (vortexTrendPanel config.filters "seasonKind"). -->
+      <div class="gamelog-filter-field" id="gl-kind-field" hidden>
         <span>Season</span>
+        <div id="gamelog-kind-select-root"></div>
+      </div>
+      <div class="gamelog-filter-field">
+        <span id="gl-year-label">Season</span>
         <div id="gamelog-season-select-root"></div>
       </div>
       <div class="gamelog-filter-field" id="gl-hand-field" hidden>

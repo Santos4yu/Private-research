@@ -45,7 +45,7 @@ function TrendChart({row,playerRows,rows,loading,onStat,chips,chipsNote,onChipRe
   kickoffLabel:row.startsAt?new Date(row.startsAt).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'}):'',status:'Pre-game',headshot:row.headshot||null,
   stats:statTabs(playerRows),statKey:row.marketKey,stat:row.market,
   side:row.direction==='UNDER'?'Under':'Over',line:row.line,chart:nflFinderChart(rows,row.marketKey,opponent),lines:nflLineLadder(offers),linesStatus:'ready',
-  odds:nflOddsRows(offers),loading,onStat,chips,chipsNote,onChipRemove,onChipsClear}),
+  odds:nflOddsRows(offers),loading,onStat,filters:['seasonKind'],chips,chipsNote,onChipRemove,onChipsClear}),
   [row,rows,loading,onStat,opponent,offers,home,away,chips,chipsNote,onChipRemove,onChipsClear,playerRows]);
  const latest=useRef(config);latest.current=config;
  const [ready,setReady]=useState(true);
@@ -139,7 +139,7 @@ function PlayerGameLog({row,rows,loading,error,onRetry,position}){
   <div className="mlb-player-log-scroll" tabIndex={0} role="region" aria-label={`${row.player} recent game statistics; scroll for more columns`}><table><thead><tr><th scope="col">Date</th><th scope="col">Opponent</th><th scope="col">Result</th>{columns.map(key=><th scope="col" key={key}>{STATS[key].short}</th>)}</tr></thead>
   <tbody>{games.map(game=><tr key={game.gameId} data-dnp={game.dnp}><th scope="row" title={game.date}><span className="mlb-log-date"><CalendarDays size={12} aria-hidden="true"/>{shortDay(game.date)}</span></th>
    <td><span className="mlb-log-opponent"><span className="mlb-log-logo"><Shield size={17} aria-hidden="true"/><img src={`https://static.www.nfl.com/t_q-best/league/api/clubs/logos/${game.opponent}.svg`} width="20" height="20" alt="" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/></span><span>{game.isHome===false?'@ ':''}{game.opponent}</span></span></td>
-   <td><span className="wnba-result" data-result={game.result}>{game.result||'—'}</span> {game.score||''}{game.seasonKind==='postseason'&&<small className="wnba-po-tag">PO</small>}</td>
+   <td><span className="wnba-result" data-result={game.result}>{game.result||'—'}</span> {game.score||''}{game.seasonKind==='postseason'&&<small className="wnba-po-tag">PO</small>}{game.seasonKind==='preseason'&&<small className="wnba-po-tag">PRE</small>}</td>
    {columns.map(key=>{const value=STATS[key].get(game);return <td key={key}>{game.dnp?<span className="nfl-dnp">DNP</span>:finite(value)?fmt(value,Number.isInteger(value)?0:1):'—'}</td>;})}</tr>)}</tbody></table></div>
   :<p className="mlb-context-note">No games are available for this player yet.</p>}
  </section>;

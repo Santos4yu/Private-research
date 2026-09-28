@@ -137,7 +137,8 @@ export const playedGames=rows=>(rows||[]).filter(row=>!row.dnp);
 const playedOn=date=>{const day=new Date(`${date}T12:00:00`);return Number.isNaN(day.getTime())?'':day.toLocaleDateString([],{month:'numeric',day:'numeric'});};
 export function nflFinderChart(rows,market,opponent){
  const all=playedGames(rows).map(row=>({value:row.values?.[market],season:String(row.season||''),fullDate:row.date||'',dateLabel:playedOn(row.date),
-  opponent:row.opponent||'',opponentLabel:(row.isHome===false?'@':'')+(row.opponent||''),isHome:row.isHome,gameId:row.gameId,result:row.result,score:row.score}))
+  opponent:row.opponent||'',opponentLabel:(row.isHome===false?'@':'')+(row.opponent||''),isHome:row.isHome,gameId:row.gameId,result:row.result,score:row.score,
+  seasonKind:row.seasonKind||'regular'}))
   .filter(game=>finite(game.value));
  const chart={all};const h2h=opponent?all.filter(game=>game.opponent===opponent):[];
  if(h2h.length){chart.h2h=h2h;chart.meta={h2hLabel:`vs ${opponent}`};}

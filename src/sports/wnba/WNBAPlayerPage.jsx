@@ -29,7 +29,7 @@ function TrendChart({row,playerRows,logs,loading,onStat,chips,chipsNote,onChipRe
   kickoffLabel:new Date(row.startsAt).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'}),status:'Pre-game',headshot:row.headshot||null,
   stats:statTabs(playerRows,available),statKey:row.marketKey,stat:row.market,side:row.direction==='UNDER'?'Under':'Over',line:row.line,
   chart:wnbaChart(logs,row.marketKey,opponent),lines:wnbaLines(playerRows,row.marketKey),linesStatus:'ready',odds:wnbaOdds(playerRows,row.marketKey),loading,onStat,
-  chips,chipsNote,onChipRemove,onChipsClear}),
+  filters:['seasonKind'],chips,chipsNote,onChipRemove,onChipsClear}),
   [row,playerRows,logs,loading,onStat,opponent,chips,chipsNote,onChipRemove,onChipsClear]);
  const latest=useRef(config);latest.current=config;
  const [available_,setAvailable]=useState(true);
@@ -64,7 +64,7 @@ function PlayerGameLog({row,logs,loading,error,onRetry}){
   <div className="mlb-player-log-scroll" tabIndex={0} role="region" aria-label={`${row.player} recent game statistics; scroll for more columns`}><table><thead><tr><th scope="col">Date</th><th scope="col">Opponent</th><th scope="col">Result</th>{LOG_COLUMNS.map(([key,label])=><th scope="col" key={key}>{label}</th>)}</tr></thead>
   <tbody>{games.map(game=><tr key={game.gameId}><th scope="row" title={game.date}><span className="mlb-log-date"><CalendarDays size={12} aria-hidden="true"/>{shortDate(game.date)}</span></th>
    <td><span className="mlb-log-opponent"><span className="mlb-log-logo"><Shield size={17} aria-hidden="true"/>{game.opponentLogo&&<img src={game.opponentLogo} width="20" height="20" alt="" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}</span><span>{game.isHome===false?'@ ':''}{game.opponent}</span></span></td>
-   <td><span className="wnba-result" data-result={game.result}>{game.result||'—'}</span> {game.score||''}{game.seasonKind==='postseason'&&<small className="wnba-po-tag">PO</small>}</td>
+   <td><span className="wnba-result" data-result={game.result}>{game.result||'—'}</span> {game.score||''}{game.seasonKind==='postseason'&&<small className="wnba-po-tag">PO</small>}{game.seasonKind==='preseason'&&<small className="wnba-po-tag">PRE</small>}</td>
    {LOG_COLUMNS.map(([key])=><td key={key}>{logCell(game,key)}</td>)}</tr>)}</tbody></table></div>
   :<p className="mlb-context-note">No games are available for this player yet.</p>}
  </section>;

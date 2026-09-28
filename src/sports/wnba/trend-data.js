@@ -12,8 +12,9 @@ export const WNBA_STATS=[
 // The chart shows the day the game was played where the viewer is.
 const playedOn=date=>{const day=new Date(date);return Number.isNaN(day.getTime())?'':day.toLocaleDateString([],{month:'numeric',day:'numeric'});};
 export function wnbaChart(logs,marketKey,opponent){
- // Preseason games stay out, same as the board's hit rates (api/wnba.py).
- const all=(logs||[]).filter(row=>row.seasonKind!=='preseason').map(row=>({value:row.values?.[marketKey],season:String(row.season||''),fullDate:row.date||'',dateLabel:playedOn(row.date),opponent:row.opponent||'',opponentLabel:(row.isHome===false?'@':'')+(row.opponent||''),isHome:row.isHome,gameId:row.gameId,result:row.result,score:row.score})).filter(row=>Number.isFinite(row.value));
+ // Every game by default; the chart's Season menu narrows it to
+ // preseason, regular season or postseason.
+ const all=(logs||[]).map(row=>({value:row.values?.[marketKey],season:String(row.season||''),fullDate:row.date||'',dateLabel:playedOn(row.date),opponent:row.opponent||'',opponentLabel:(row.isHome===false?'@':'')+(row.opponent||''),isHome:row.isHome,gameId:row.gameId,result:row.result,score:row.score,seasonKind:row.seasonKind||'regular'})).filter(row=>Number.isFinite(row.value));
  const chart={all};const h2h=opponent?all.filter(game=>game.opponent===opponent):[];
  if(h2h.length){chart.h2h=h2h;chart.meta={h2hLabel:`vs ${opponent}`};}return chart;
 }

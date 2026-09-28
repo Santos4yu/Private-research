@@ -476,7 +476,7 @@
  :root[data-theme] .unified-finder #gamelog-overlay .gamelog-toolbar-head{display:flex!important;flex-wrap:nowrap!important;gap:8px!important}
  :root[data-theme] .unified-finder #gamelog-overlay .gamelog-line-control{width:auto!important;flex:0 0 auto!important}
  :root[data-theme] .unified-finder #gamelog-overlay #gamelog-lines-select-root{width:138px;max-width:calc(100% - 136px);min-width:0}
- :root[data-theme] .unified-finder #gamelog-overlay .gamelog-filter-panel{order:4;display:flex!important;flex-wrap:nowrap!important;gap:8px!important;margin:0!important}
+ :root[data-theme] .unified-finder #gamelog-overlay .gamelog-filter-panel{order:4;display:flex!important;flex-wrap:nowrap!important;gap:8px!important;margin:0!important;border-radius:0!important}
  :root[data-theme] .unified-finder #gamelog-overlay .gamelog-filter-field{flex:0 1 112px!important;min-width:0!important;gap:2px!important}
  :root[data-theme] .unified-finder #gamelog-overlay .gamelog-filter-field>span{font-size:10px!important}
  :root[data-theme] .unified-finder #gamelog-overlay .gamelog-toolbar .gamelog-windowbar{order:5;min-width:0!important;width:100%!important;box-sizing:border-box;gap:2px!important;margin:0!important;padding:2px!important}
