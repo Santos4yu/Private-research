@@ -9,14 +9,22 @@ TABS=('research','finder','v2','slate','saved','slip','builder','moneyline','nrf
 # Leagues offered inside the Finder. Kept separate from disabledSports, which
 # governs Research's own MLB/NFL switch -- hiding NFL from the Finder must not
 # take NFL research away from anyone.
-FINDER_SPORTS=('wnba','mlb','nfl')
+FINDER_SPORTS=('wnba','mlb','nfl','soccer')
+# The Finder leagues settings saved before finderSportsKnown existed knew of.
+# A league added later starts switched off until the admin turns it on, so a
+# half-built league never appears for everyone the moment it deploys.
+LEGACY_FINDER_SPORTS=('wnba','mlb','nfl')
 HEX_COLOR_RE=re.compile(r'^#[0-9a-fA-F]{6}$')
 DEFAULT={'maintenance':False,'message':'We are updating Vortex. Please check back shortly.','requireLogin':True,'registrationOpen':True,'disabledTabs':[],'disabledSports':[],'disabledFinderSports':[],'backgroundImage':{'url':'','opacity':35},'theme':{'primary':'','secondary':'','tint':0},'updatedAt':None}
 def read():
  raw=store.get(KEY)
- if raw is None:return dict(DEFAULT)
- value=json.loads(raw)
- return {**DEFAULT,**value}
+ value=json.loads(raw) if raw is not None else {}
+ policy={**DEFAULT,**value}
+ known=value.get('finderSportsKnown')
+ known=set(known) if isinstance(known,list) else set(LEGACY_FINDER_SPORTS)
+ unseen=[sport for sport in FINDER_SPORTS if sport not in known]
+ if unseen:policy['disabledFinderSports']=sorted(set(policy.get('disabledFinderSports') or [])|set(unseen))
+ return policy
 def _valid_background_url(url):
  if not isinstance(url,str):return False
  if url=='':return True
@@ -45,6 +53,8 @@ def validate(body):
  finder_sports=body.get('disabledFinderSports',[])
  if not isinstance(finder_sports,list) or any(t not in FINDER_SPORTS for t in finder_sports):raise ValueError('Invalid Finder sport')
  result['disabledFinderSports']=sorted(set(finder_sports))
+ # Every league the admin saw a switch for is now a deliberate choice.
+ result['finderSportsKnown']=list(FINDER_SPORTS)
  # Site-wide background must be a real http(s) link or our own uploaded-
  # image endpoint (see site_background.py) -- never a raw data: URL, since
  # this whole object is embedded in every visitor's site-status poll

@@ -20,9 +20,9 @@ PRIZEPICKS_PROJECTIONS_URL = (
 )
 PRIZEPICKS_LEAGUES_URL = "https://partner-api.prizepicks.com/leagues"
 PRIZEPICKS_APP_URL = "https://app.prizepicks.com/?projections="
-# PrizePicks' own league ids. MLB's has always been 2. WNBA's is read from
-# the leagues feed by name (_league_id) and this is only the fallback.
-LEAGUE_IDS = {"MLB": "2", "WNBA": "3", "NFL": "9"}
+# PrizePicks' own league ids. MLB's has always been 2. The others are read
+# from the leagues feed by name (_league_id) and these are only fallbacks.
+LEAGUE_IDS = {"MLB": "2", "WNBA": "3", "NFL": "9", "SOCCER": "82"}
 _HEADERS = {
     "Accept": "application/json",
     "User-Agent": "Mozilla/5.0 (compatible; VORTEX-Private-Research/1.0)",

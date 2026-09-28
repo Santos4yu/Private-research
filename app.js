@@ -5299,8 +5299,8 @@ function setManualBetSlipOpen(open) {
   els.headerBuilderTrigger?.setAttribute("aria-expanded", String(open));
 }
 
-// prizepicks_export_core.py matches MLB, NFL and WNBA legs on the live board.
-const SLIP_EXPORT_LEAGUES = new Set(["MLB", "NFL", "WNBA"]);
+// prizepicks_export_core.py matches MLB, NFL, WNBA and soccer legs on the live board.
+const SLIP_EXPORT_LEAGUES = new Set(["MLB", "NFL", "WNBA", "SOCCER"]);
 const slipLeague = (prop) => String(prop.sport || "MLB").toUpperCase();
 const slipModifier = (prop) => String(prop.modifier || prop.oddsType || "standard").toLowerCase();
 // Goblin and Demon lines are More-only on PrizePicks.
@@ -5329,7 +5329,7 @@ function manualBetSlipStatus(legs) {
   const count = legs.length;
   const blocked = [...new Set(legs.map(slipLeague).filter((league) => !SLIP_EXPORT_LEAGUES.has(league)))];
   if (count === 0) return "Add at least 2 props to export.";
-  if (blocked.length) return `PrizePicks export covers MLB, NFL and WNBA. Remove ${blocked.join(", ")} picks to export.`;
+  if (blocked.length) return `PrizePicks export covers MLB, NFL, WNBA and soccer. Remove ${blocked.join(", ")} picks to export.`;
   if (count < 2) return "Add 1 more prop to export.";
   if (count > 6) return "Remove legs until 6 remain.";
   return `${count}-leg slip ready to verify.`;

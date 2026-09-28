@@ -112,3 +112,22 @@ test('the trend star saves the line on screen, or that market\'s nearest posted 
  assert.equal(trendPickRow(rows,{stat:'Targets',line:9}).id,'c');
  assert.equal(trendPickRow(rows,{statKey:'rushing_yards',line:40}),null);
 });
+
+test('soccer rows carry PrizePicks\' own stat and tier, and export as SOCCER picks',async()=>{
+ const payload={builtAt:'2026-09-28T12:00:00Z',rows:[
+  {id:'pp:5001',player:'Bukayo Saka',team:'ARS',opponent:'CHE',position:'M',headshot:null,stat:'Shots On Target',marketKey:'shotsontarget',line:1.5,modifier:'standard',startsAt:'2026-09-28T19:00:00+00:00',apps:[{key:'prizepicks',name:'PrizePicks',over:null,under:null}]},
+  {id:'pp:5002',player:'Bukayo Saka',team:'ARS',opponent:'CHE',position:'M',stat:'Shots On Target',marketKey:'shotsontarget',line:0.5,modifier:'goblin',startsAt:'2026-09-28T19:00:00+00:00',apps:[]},
+  {id:'pp:5003',player:'Old Match',stat:'Shots',line:2.5,startsAt:'2026-09-28T11:00:00+00:00'},
+ ]};
+ const rows=normalizeFinderRows('soccer',payload,[],{now:Date.parse('2026-09-28T12:00:00Z')});
+ assert.deepEqual(rows.map(row=>[row.id,row.market,row.line,row.modifier]),[['soccer:pp:5001','Shots On Target',1.5,'standard'],['soccer:pp:5002','Shots On Target',0.5,'goblin']]);
+ assert.equal(rows[0].historyStatus,'none');
+ assert.ok(Object.values(rows[0].windows).every(window=>window===null));
+ assert.deepEqual(rows[1].apps.map(app=>app.key),['prizepicks']);
+ const pick=finderSlipProp(rows[0]);
+ assert.deepEqual([pick.sport,pick.exportStat,pick.team,pick.opponent],['SOCCER','Shots On Target','ARS','CHE']);
+ const urls=[];
+ const loaded=await loadFinderSport('soccer',{fetcher:async url=>{urls.push(url);return {ok:true,json:async()=>payload};}});
+ assert.deepEqual(urls,['/api/board?view=soccer']);
+ assert.equal(loaded.fetchedAt,'2026-09-28T12:00:00Z');
+});
