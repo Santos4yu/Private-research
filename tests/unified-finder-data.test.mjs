@@ -1,7 +1,33 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {finderWindow,normalizeFinderRows,applyMlbHistory,enrichMlbRows,loadFinderSport,finderSlipProp} from '../src/unified-finder-data.js';
+import {finderWindow,normalizeFinderRows,applyMlbHistory,enrichMlbRows,loadFinderSport,finderSlipProp,bookProbability,defenseRank,withDefense} from '../src/unified-finder-data.js';
 
+test('book chance comes from sportsbooks with the margin removed, never a pick\'em app\'s fixed 50/50',()=>{
+ // PrizePicks prices both sides the same: no market lean to show.
+ assert.equal(bookProbability([{key:'prizepicks',over:-137,under:-137},{key:'underdog',over:-122,under:-122}]),null);
+ // DraftKings -122 / -111: 54.95% vs 52.61% implied, 51.1% once the margin is out.
+ const dk=bookProbability([{key:'prizepicks',over:-137,under:-137},{key:'draftkings',name:'DraftKings',over:-122,under:-111}]);
+ assert.equal(dk.over.toFixed(1),'51.1');
+ assert.equal((dk.over+dk.under).toFixed(6),'100.000000');
+ assert.deepEqual(dk.books,['DraftKings']);
+ // Several books are averaged; a one-sided price is not used.
+ const two=bookProbability([{key:'draftkings',over:-122,under:-111},{key:'fanduel',over:-150,under:120},{key:'betmgm',over:-110,under:null}]);
+ assert.equal(two.books.length,2);
+ assert.ok(two.over>51.1&&two.over<59);
+});
+test('defense rank reads the opponent\'s table for the player\'s position and stat',()=>{
+ const wnbaLeague={teamCount:13,dvp:{ATL:{G:{stats:{pts:{szn:[18.2,4],l5:[20,9]}}}}}};
+ const wnbaRow={sport:'wnba',opponent:'ATL',position:'G',marketKey:'player_points'};
+ assert.equal(defenseRank(wnbaRow,wnbaLeague),4);
+ assert.equal(defenseRank({...wnbaRow,marketKey:'player_rebounds'},wnbaLeague),null);
+ const nflLeague={teamCount:32,dvp:{CLE:{WR:{stats:{receptions:{szn:[5.1,27]}}},DB:{stats:{tackles_assists:{szn:[6,3]}}}}}};
+ assert.equal(defenseRank({sport:'nfl',opponent:'CLE',position:'WR',marketKey:'receptions'},nflLeague),27);
+ // A cornerback's tackles read the defensive-back table.
+ assert.equal(defenseRank({sport:'nfl',opponent:'CLE',position:'CB',marketKey:'tackles'},nflLeague),3);
+ const [ranked,plain]=withDefense([{...wnbaRow,id:1},{sport:'wnba',opponent:'SEA',position:'F',marketKey:'player_points',id:2,defense:null}],wnbaLeague);
+ assert.deepEqual([ranked.defense,ranked.defenseTeams],[4,13]);
+ assert.equal(plain.defense,null);
+});
 test('pushes are excluded, missing values stay missing, and Under reverses the outcome',()=>{
  assert.equal(finderWindow([null,undefined,'',0,2,3],2).hitRate,50);
  assert.equal(finderWindow([0,1,2,3],2,'UNDER').hits,2);

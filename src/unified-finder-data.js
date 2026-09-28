@@ -1,5 +1,6 @@
 import {finderMarket, gameValue, historyChart, nameKey} from './prop-finder-core.js';
 import {teamLogoUrl} from './sports/nfl/nfl-ui-core.js';
+import {MARKET_STAT as WNBA_DVP_STAT, positionOf} from './sports/wnba/wnba-research.js';
 
 const WINDOW_KEYS = ['l5', 'l10', 'l15', 'l20', 'h2h', 'season'];
 const BOOK_NAMES = {prizepicks: 'PrizePicks', underdog: 'Underdog', draftkings: 'DraftKings', fanduel: 'FanDuel', betmgm: 'BetMGM'};
@@ -61,6 +62,82 @@ async function request(url, {signal, fetcher = fetch} = {}) {
   const data = await response.json();
   if (!response.ok || data.error) throw new Error(data.error || 'Prop data is temporarily unavailable.');
   return data;
+}
+
+// ---------------------------------------------------------------- matchup
+
+// Pick'em apps post one fixed price on both sides (PrizePicks -137 / -137),
+// which always reads 50/50. The market's lean comes from sportsbooks, which
+// price each side on its own.
+export const PICKEM_APPS = new Set(['prizepicks', 'underdog', 'sleeper', 'dabble', 'betr', 'pick6', 'parlayplay', 'chalkboard']);
+const validPrice = price => typeof price === 'number' && Number.isFinite(price) && Math.abs(price) >= 100;
+const impliedChance = price => price < 0 ? -price / (-price + 100) : 100 / (price + 100);
+
+/**
+ * The Over / Under chance the sportsbooks' prices imply for this line, with
+ * each book's margin taken out and the books averaged. Null when no
+ * sportsbook prices both sides -- never a made-up 50/50.
+ */
+export function bookProbability(apps) {
+  const books = (Array.isArray(apps) ? apps : [])
+    .filter(app => app && !PICKEM_APPS.has(app.key) && validPrice(app.over) && validPrice(app.under));
+  if (!books.length) return null;
+  const over = books.reduce((sum, app) => {
+    const o = impliedChance(app.over), u = impliedChance(app.under);
+    return sum + o / (o + u);
+  }, 0) / books.length * 100;
+  return {over, under: 100 - over, books: books.map(app => app.name || BOOK_NAMES[app.key] || app.key)};
+}
+
+// NFL market -> the stat the league's defense-vs-position table ranks
+// (backend/sports/nfl/finder.py DVP_STATS).
+const NFL_DVP_STAT = {
+  passing_yards: 'passing_yards', passing_touchdowns: 'passing_tds', passing_attempts: 'attempts',
+  pass_completions: 'completions', interceptions: 'interceptions', rushing_yards: 'rushing_yards',
+  rush_attempts: 'carries', receptions: 'receptions', receiving_yards: 'receiving_yards', targets: 'targets',
+  rushing_receiving_yards: 'rush_rec_yards', fantasy_score: 'fantasy', fg_made: 'fg_made',
+  kicking_points: 'kicking_points', tackles: 'tackles_assists', sacks: 'sacks', def_interceptions: 'interceptions_def',
+};
+function nflDvpPosition(value) {
+  const position = String(value || '').toUpperCase();
+  if (['QB', 'RB', 'WR', 'TE', 'FB', 'K'].includes(position)) return position;
+  if (['DE', 'DT', 'NT', 'DL', 'EDGE'].includes(position)) return 'DL';
+  if (['LB', 'OLB', 'ILB', 'MLB'].includes(position)) return 'LB';
+  if (['CB', 'S', 'SS', 'FS', 'DB', 'SAF'].includes(position)) return 'DB';
+  return null;
+}
+
+/**
+ * The opponent's season rank for what it allows the player's position in
+ * this stat -- the player page's Defense vs position numbers. Rank 1 allows
+ * the least (toughest); the last rank allows the most.
+ */
+export function defenseRank(row, league) {
+  if (!league?.dvp || !row?.opponent) return null;
+  const wnba = row.sport === 'wnba';
+  const position = wnba ? positionOf(row.position) : nflDvpPosition(row.position);
+  const stat = wnba ? WNBA_DVP_STAT[row.marketKey] : NFL_DVP_STAT[row.marketKey];
+  const rank = league.dvp[row.opponent]?.[position]?.stats?.[stat]?.szn?.[1];
+  return typeof rank === 'number' && Number.isFinite(rank) ? rank : null;
+}
+
+export function withDefense(rows, league) {
+  if (!league?.dvp || !Array.isArray(rows)) return rows;
+  return rows.map(row => {
+    const rank = defenseRank(row, league);
+    return rank === row.defense ? row : {...row, defense: rank, defenseTeams: league.teamCount || null};
+  });
+}
+
+/** The league table the defense ranks come from (WNBA and NFL). */
+export function loadFinderDefense(sport, options = {}) {
+  if (sport === 'wnba') return request('/api/wnba?resource=league-context', options);
+  if (sport === 'nfl') {
+    const today = new Date();
+    const season = options.season || today.getUTCFullYear() - (today.getUTCMonth() < 2 ? 1 : 0);
+    return request(`/api/nfl?resource=finder-league&season=${season}`, options);
+  }
+  return Promise.resolve(null);
 }
 
 export function finderWindow(values, line, direction = 'OVER') {
