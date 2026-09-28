@@ -10,7 +10,7 @@ export const BOOK_NAMES = {prizepicks: 'PrizePicks', underdog: 'Underdog', pick6
 const NFL_LABELS = {passing_yards: 'Passing Yards', passing_attempts: 'Passing Attempts', pass_completions: 'Pass Completions', passing_touchdowns: 'Passing TDs', interceptions: 'Interceptions', rushing_yards: 'Rushing Yards', rush_attempts: 'Rush Attempts', passing_rushing_yards: 'Passing + Rushing Yards', receiving_yards: 'Receiving Yards', receptions: 'Receptions', targets: 'Targets', longest_reception: 'Longest Reception', rushing_receiving_yards: 'Rushing + Receiving Yards', touchdowns: 'Touchdowns', fantasy_score: 'Fantasy Score'};
 const historyCache = new Map();
 const HISTORY_TTL = 10 * 60 * 1000;
-const FINDER_CACHE_PREFIX = 'vortex:finder:board:v5:';
+const FINDER_CACHE_PREFIX = 'vortex:finder:board:v6:';
 const FINDER_CACHE_TTL = 24 * 60 * 60 * 1000;
 
 const number = value => value == null || value === '' || typeof value === 'boolean' ? null : Number.isFinite(Number(value)) ? Number(value) : null;

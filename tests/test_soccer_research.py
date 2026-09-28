@@ -68,6 +68,15 @@ class FixtureTests(Offline):
         self.assertEqual(board.call_count, research.FIXTURE_DAYS + 1)
         self.assertTrue(all(call.args[1] == call.args[2] for call in board.call_args_list))
 
+    def test_international_fast_path_requires_every_active_fixture(self):
+        fixture = research._fixture(scoreboard("900", ARS, CHE, "2026-09-29T14:00Z")["events"][0], "uefa.nations", "Nations")
+        line = {"team": "ARS", "description": "CHE", "start_time": "2026-09-29T14:00Z"}
+        with patch.object(research, "_scoreboard", return_value=[fixture]), patch.object(research, "fixtures", return_value=[fixture]) as full:
+            self.assertEqual(soccer_board._fixtures(1790000000, [line]), [fixture])
+            full.assert_not_called()
+            soccer_board._fixtures(1790000000, [{**line, "team": "UNKNOWN", "description": "OTHER"}])
+            full.assert_called_once()
+
 
 class RecordTests(Offline):
     def test_a_match_becomes_team_stats_and_the_lines_of_who_played(self):

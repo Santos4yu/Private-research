@@ -127,6 +127,13 @@ export function UnifiedFinder(){
  const [leagues,setLeagues]=useState({}),leagueRequests=useRef(new Set());
  useEffect(()=>{['wnba','nfl'].forEach(key=>{if(boards[key].state!=='ready'||leagueRequests.current.has(key))return;leagueRequests.current.add(key);loadFinderDefense(key).then(data=>{if(data?.dvp)setLeagues(old=>({...old,[key]:data}));}).catch(()=>leagueRequests.current.delete(key));});},[boards.wnba.state,boards.nfl.state]);
  const allRows=useMemo(()=>allowedKeys.flatMap(k=>withDefense(boards[k].rows||[],leagues[k])),[boards,allowedKeys,leagues]);
+ // A detail page opened from a saved board must receive fresh fixture IDs
+ // when the live board arrives, rather than retaining its stale snapshot.
+ useEffect(()=>{setSelected(current=>{
+  if(!current||current.sport!=='soccer')return current;
+  const fresh=allRows.find(row=>row.id===current.id);
+  return fresh&&fresh.eventId&&(!current.eventId||fresh.eventId!==current.eventId||fresh.teamId!==current.teamId)?fresh:current;
+ });},[allRows]);
  const sportRows=useMemo(()=>allRows.filter(r=>scope.includes(r.sport)),[allRows,scopeKey]);
  const markets=useMemo(()=>[...new Set(sportRows.map(r=>r.market))].sort(),[sportRows]);
  const books=useMemo(()=>[...new Set(sportRows.flatMap(r=>r.apps.map(a=>a.key)))].sort((a,b)=>a==='prizepicks'?-1:b==='prizepicks'?1:a.localeCompare(b)),[sportRows]);

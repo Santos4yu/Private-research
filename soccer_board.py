@@ -40,9 +40,31 @@ def _projections():
         raise
 
 
-def _fixtures(now):
+def _fixtures(now, projections=None):
     try:
-        from soccer_research import fixtures
+        from soccer_research import fixtures, _scoreboard, _cached
+        from concurrent.futures import ThreadPoolExecutor
+        # International slates often contain thousands of lines for only a
+        # handful of dates. Try their competition first; scan all leagues
+        # only when actual lines remain unmatched.
+        dates = sorted({datetime.fromtimestamp(stamp, timezone.utc).date()
+                        for line in (projections or [])
+                        if (stamp := _timestamp(line.get("start_time"))) is not None and stamp > now})
+        if dates and len(dates) <= 7:
+            def load(day):
+                try:
+                    return _cached(f"soccer:nations-day:v3:{day}", 600,
+                                   lambda: _scoreboard("uefa.nations", day, day))
+                except Exception:
+                    return []
+            with ThreadPoolExecutor(max_workers=7) as pool:
+                early = [game for batch in pool.map(load, dates) for game in batch]
+            if early:
+                found = {}
+                active = [line for line in projections if not line.get("combo")
+                          and (_timestamp(line.get("start_time")) or 0) > now]
+                if active and all(_match_info(line, early, found) for line in active):
+                    return early
         return fixtures(now)
     except Exception:
         return []
@@ -61,7 +83,7 @@ def build(projections=None, now=None, fixture_list=None):
     """Every upcoming single-player soccer line PrizePicks posts."""
     now = now or time.time()
     projections = _projections() if projections is None else projections
-    fixture_list = _fixtures(now) if fixture_list is None else fixture_list
+    fixture_list = _fixtures(now, projections) if fixture_list is None else fixture_list
     found = {}
     rows = []
     for line in projections:
