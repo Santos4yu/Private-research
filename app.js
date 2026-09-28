@@ -3463,6 +3463,12 @@ function renderGameLogChart() {
   // grows so it can never consume more room than the bars themselves.
   const gapPx = games.length > 80 ? 1 : games.length > 40 ? 2 : games.length > 20 ? 4 : 8;
   track.style.setProperty("--gl-gap", `${gapPx}px`);
+  // All can be two seasons -- hundreds of games. Below about 4px a game, the
+  // columns round down to nothing on a phone and the chart looks empty, so
+  // past that point each bar keeps a fixed width and the bars scroll
+  // sideways instead, opening on the latest games. The line and axis stay put.
+  const scrolling = chartWidth / Math.max(games.length, 1) < 4;
+  track.dataset.scroll = scrolling ? "true" : "false";
   games.forEach((g) => {
     const col = document.createElement("div");
     col.className = "gl-col";
@@ -3554,7 +3560,15 @@ function renderGameLogChart() {
     });
     holder.appendChild(marker);
   }
-  holder.appendChild(track);
+  if (scrolling) {
+    const scroller = document.createElement("div");
+    scroller.className = "gl-scroller";
+    scroller.appendChild(track);
+    holder.appendChild(scroller);
+    scroller.scrollLeft = scroller.scrollWidth;
+  } else {
+    holder.appendChild(track);
+  }
   const axis = document.createElement("div");
   axis.className = "gl-y-axis";
   axis.setAttribute("aria-hidden", "true");

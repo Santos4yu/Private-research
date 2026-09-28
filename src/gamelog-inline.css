@@ -1300,3 +1300,26 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
 @media (max-width: 680px) {
   :root[data-theme] #gamelog-overlay .gamelog-ext-chips { flex: 1 0 100%; justify-content: flex-start; margin-left: 0; }
 }
+
+/* A window too long to fit (All across two seasons) scrolls sideways
+   instead of shrinking its bars to nothing (app.js renderGameLogChart). */
+:root[data-theme] #gamelog-overlay .gl-scroller {
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+:root[data-theme] #gamelog-overlay .gl-scroller::-webkit-scrollbar { display: none; }
+:root[data-theme] #gamelog-overlay .gl-scroller > .gamelog-chart-track[data-scroll="true"] {
+  width: max-content !important;
+  min-width: 100% !important;
+  max-width: none !important;
+  justify-content: flex-end !important;
+  gap: 1px !important;
+}
+:root[data-theme] #gamelog-overlay .gl-scroller > .gamelog-chart-track[data-scroll="true"] > .gl-col {
+  flex: 0 0 4px !important;
+  width: 4px !important;
+  min-width: 4px !important;
+  max-width: none !important;
+}
