@@ -196,12 +196,6 @@
 :root[data-theme] #search-input::placeholder { color: var(--theme-faint) !important; }
 .lab-search-submit { display: grid; place-items: center; flex: 0 0 46px; width: 46px; height: 46px; padding: 0; border: 1px solid #ffffff20; border-radius: 12px; color: var(--theme-on-accent); background: var(--theme-accent); box-shadow: inset 0 1px 0 #fff5, 0 3px 0 color-mix(in srgb, var(--theme-accent) 50%, #000); cursor: pointer; transition: transform 150ms ease; }
 .lab-search-submit:active { transform: translateY(2px); box-shadow: none; }
-:root[data-theme] .side-link .side-link-icon { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; border: 1px solid var(--theme-border); border-radius: 12px; background: var(--theme-panel-2); color: var(--theme-accent); }
-:root[data-theme] .side-link[data-tab="slip"] .side-link-icon { color: #bca6ff; }
-:root[data-theme] .side-link[data-tab="moneyline"] .side-link-icon { color: #f1bf6d; }
-:root[data-theme] .side-link[data-tab="nrfi"] .side-link-icon { color: #7ebcf6; }
-:root[data-theme] .side-link[data-tab="admin"] .side-link-icon { color: var(--theme-dim); }
-:root[data-theme] .side-link { gap: 12px; }
 
 @media (hover: hover) {
   .lab-player:hover { transform: translateY(-3px); box-shadow: 0 10px 22px #0003; }
@@ -256,11 +250,6 @@
   .lab-board-button { padding: 13px; gap: 11px; }
   .lab-board-button strong { font-size: 13px; }
   .lab-board-button small { font-size: 10px; }
-  :root[data-theme] .side-link { min-height: 64px; padding: 8px 10px; background: transparent !important; box-shadow: none !important; border: 0 !important; }
-  :root[data-theme] .side-link:hover { background: var(--theme-panel-2) !important; }
-  :root[data-theme] .side-link span:not(.side-link-icon) { font-size: 14px; }
-  :root[data-theme] .side-panel-head strong { font-size: 22px !important; }
-  :root[data-theme] .side-panel-label { color: var(--theme-faint); }
 }
 @media (max-width: 360px) {
   .lab-section-heading h2 { font-size: 18px; }

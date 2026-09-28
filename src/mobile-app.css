@@ -127,24 +127,18 @@
   :root[data-theme] #saved-grid:empty { display: none !important; }
   :root[data-theme] #saved-empty:not([hidden]) { margin: 24px 0 0 !important; padding: 24px !important; min-height: 0 !important; border: 1px dashed var(--theme-border); border-radius: 16px; background: var(--theme-panel) !important; font: 400 14px/1.6 var(--font-sans) !important; color: var(--theme-dim) !important; }
 
-  /* More is a thumb-reachable sheet, reusing the existing navigation actions. */
+  /* More and My Slip open a left drawer, like pickfinder.app's sidebar: the
+     menu (SideMenu.jsx) with the Pick Builder under it. It starts below
+     the phone's status bar and iOS's blur band (--site-status-inset). */
   :root[data-theme] .side-panel {
-    position: fixed; z-index: 140 !important; inset: auto 0 0 !important;
-    width: 100% !important; max-width: none !important; height: auto !important; max-height: 85dvh;
-    padding: 12px max(20px, env(safe-area-inset-right, 0px)) calc(20px + env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px)) !important;
-    overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--theme-border) !important;
-    border-radius: 24px 24px 0 0 !important; background: var(--theme-panel) !important;
-    transform: none !important; animation: mobile-sheet-in 200ms ease-out;
+    position: fixed; z-index: 140 !important; inset: 0 auto 0 0 !important;
+    width: min(340px, 86vw) !important; max-width: none !important; height: 100% !important; max-height: none;
+    padding: calc(var(--site-status-inset, env(safe-area-inset-top, 0px)) + 12px) 14px calc(18px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px)) !important;
+    overflow-y: auto; overscroll-behavior: contain; border: 0 !important; border-right: 1px solid #1d2540 !important;
+    border-radius: 0 22px 22px 0 !important; background: linear-gradient(180deg, #0d1329 0%, #090d1c 100%) !important;
+    box-shadow: 24px 0 60px rgba(0, 0, 0, .5) !important; animation: mobile-drawer-in 240ms cubic-bezier(.22, 1, .36, 1);
   }
-  .side-panel::before { content: ""; display: block; width: 32px; height: 4px; margin: 0 auto 12px; border-radius: 4px; background: var(--theme-border); }
   :root[data-theme] .side-scrim { z-index: 135 !important; }
-  :root[data-theme] .side-panel-head { margin-bottom: 8px !important; }
-  :root[data-theme] #side-menu-close { width: 44px; height: 44px; border-radius: 12px; font-size: 24px; }
-  :root[data-theme] .side-panel-label { font-size: 11px; margin: 12px 0; }
-  :root[data-theme] .side-link { display: flex; align-items: center; min-height: 52px; width: 100%; border-radius: 12px; padding: 12px 14px; text-align: left; font-size: 0; }
-  :root[data-theme] .side-link span { font: 500 15px/1.4 var(--font-sans); text-transform: capitalize; }
-  .side-link::after { content: ""; width: 7px; height: 7px; margin-left: auto; border: solid currentColor; border-width: 1.5px 1.5px 0 0; transform: rotate(45deg); }
-  :root[data-theme] .side-link:is([data-tab="research"], [data-tab="slate"], [data-tab="v2"], [data-tab="saved"]) { display: none !important; }
   body.side-panel-open, body:has(.modal-overlay:not([hidden])), body:has(.bet-slip-drawer:not([hidden])) { overflow: hidden; }
 
   /* Details use available screen height, with explicit close controls. */
@@ -168,6 +162,7 @@
   :root[data-theme] .bet-slip-leg { grid-template-columns: 24px 36px minmax(0, 1fr) 44px !important; gap: 8px !important; }
   :root[data-theme] :is(button, a, input, select, summary):focus-visible { outline: 2px solid var(--theme-accent) !important; outline-offset: 3px !important; }
   @keyframes mobile-sheet-in { from { transform: translateY(24px); opacity: .4; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes mobile-drawer-in { from { transform: translateX(-28px); opacity: .5; } to { transform: translateX(0); opacity: 1; } }
   @media (prefers-reduced-motion: reduce) {
     :root[data-theme] :is(.side-panel, .player-detail-sheet, .panel-enter, .mobile-app-tab) { animation: none !important; transition: none !important; }
   }

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Sidebar, SidebarBody, SidebarLink } from '../components/ui/sidebar';
 import { Settings, UserRound } from 'lucide-react';
 import { topTabs } from './navTabs';
+import { pickBuilder } from './pick-builder-client';
 import './vortex-sidebar.css';
 
 // Same destinations, same dock-sync wiring as the top pill bar
@@ -22,7 +23,10 @@ export function VortexSidebar() {
     return () => window.removeEventListener('vortex:dock-sync', sync);
   }, []);
 
-  const go = (value) => window.dispatchEvent(new CustomEvent('vortex:switch-tab', { detail: { tab: value } }));
+  // Builder opens the side panel's Pick Builder beside the rail, as My Slip
+  // does on phones, instead of the old My Slip page.
+  const go = (value) => value === 'saved' ? pickBuilder.open()
+    : window.dispatchEvent(new CustomEvent('vortex:switch-tab', { detail: { tab: value } }));
 
   // Account and Settings used to float over the top-right corner of every
   // page, on top of whatever each tab put there (the Finder's header lost
