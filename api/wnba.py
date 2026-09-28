@@ -356,6 +356,12 @@ class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if not session_with_live_access(self.headers):
             return _send(self, 401, {"error": "Sign in to use WNBA data.", "authRequired": True})
+        # WNBA is only reachable through the Finder, so the Finder's admin
+        # switches are enforced here too -- hiding it in the UI alone would
+        # leave the data one URL away. Admins pass through.
+        from site_controls import finder_sport_allowed
+        if not finder_sport_allowed(self.headers, "wnba"):
+            return _send(self, 503, {"error": "This section is temporarily unavailable", "featureDisabled": True})
         query = parse_qs(urlparse(self.path).query)
         resource = query.get("resource", ["board"])[0]
         try:

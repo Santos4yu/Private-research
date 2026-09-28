@@ -1,9 +1,10 @@
 import './site-access.css';
-import {accessGranted,canUseTab,availableTab,canUseSport} from './site-access-core.js';
+import {accessGranted,canUseTab,availableTab,canUseSport,canUseFinderSport,FINDER_SPORTS} from './site-access-core.js';
 const names={research:'Research',finder:'Finder',v2:'Props',slate:'Tools',saved:'My Slip',slip:'Slip Analyzer',builder:'Builder',moneyline:'Moneyline',nrfi:'NRFI / YRFI',community:'Community'};
 let status=null,initPromise=null,activeDialog=null,lockedDialog=null;
 export function siteTabAllowed(tab){return canUseTab(status,tab);}
 export function siteSportAllowed(sport){return canUseSport(status,sport);}
+export function siteFinderSportAllowed(sport){return canUseFinderSport(status,sport);}
 export function availableSiteTab(current){return availableTab(status,current);}
 export function showLockedTab(tab){
  if(!accessGranted(status)){renderStatus();return;}
@@ -265,7 +266,7 @@ export async function loadSiteControls(){
    +'</div>'
    +'<div class="site-tab-panel" data-panel="access" hidden>'
     +'<fieldset><legend>Available tabs</legend></fieldset>'
-    +'<fieldset class="site-sport-controls"><legend>Visible sports</legend></fieldset>'
+    +'<fieldset class="site-sport-controls"><legend>Visible sports</legend></fieldset><fieldset class="site-finder-sport-controls"><legend>Finder sports</legend><p class="site-controls-hint">Leagues offered inside the Finder. Separate from the Research sports above. Admins always see every league.</p></fieldset>'
    +'</div>'
    +'<div class="site-tab-panel" data-panel="appearance" hidden>'
     +'<div class="bg-image-control">'
@@ -302,6 +303,9 @@ export async function loadSiteControls(){
  form.elements.message.value=policy.message;
  for(const [key,title] of Object.entries(names)){const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.name='tab';input.value=key;input.checked=!policy.disabledTabs.includes(key);label.append(input,document.createTextNode(title));host.querySelector('fieldset').append(label);}
  const sportLabel=element('label');const sportInput=document.createElement('input');sportInput.type='checkbox';sportInput.name='sport';sportInput.value='nfl';sportInput.checked=!(policy.disabledSports||[]).includes('nfl');sportLabel.append(sportInput,document.createTextNode('NFL — show sport and allow NFL data'));host.querySelector('.site-sport-controls').append(sportLabel);
+ // Finder leagues, one switch each. Unchecked = hidden from regular users.
+ const finderSportNames={wnba:'WNBA',mlb:'MLB',nfl:'NFL'};
+ for(const sport of FINDER_SPORTS){const label=element('label');const input=document.createElement('input');input.type='checkbox';input.name='finderSport';input.value=sport;input.checked=!(policy.disabledFinderSports||[]).includes(sport);label.append(input,document.createTextNode(`${finderSportNames[sport]} in the Finder`));host.querySelector('.site-finder-sport-controls').append(label);}
  const bg=policy.backgroundImage||{url:'',opacity:35};
  form.elements.bgUrl.value=bg.url||'';form.elements.bgOpacity.value=String(bg.opacity??35);
  const bgOpacityOutput=host.querySelector('.bg-image-control output');bgOpacityOutput.textContent=`${form.elements.bgOpacity.value}%`;
@@ -381,7 +385,7 @@ export async function loadSiteControls(){
  form.onsubmit=async e=>{e.preventDefault();const message=statusEl();const button=host.querySelector('[type=submit]');button.disabled=true;const bgUrl=form.elements.bgUrl.value.trim();
   const themePrimary=form.elements.themePrimary.value,themeSecondary=form.elements.themeSecondary.value,themeTint=Number(form.elements.themeTint.value);
   const themeIsDefault=themePrimary.toLowerCase()===DEFAULT_THEME.primary&&themeSecondary.toLowerCase()===DEFAULT_THEME.secondary&&themeTint===DEFAULT_THEME.tint;
-  try{await request('/api/v2-admin',{action:'site-settings',settings:{maintenance:form.elements.maintenance.checked,requireLogin:form.elements.requireLogin.checked,registrationOpen:form.elements.registrationOpen.checked,message:form.elements.message.value,disabledSports:[...form.querySelectorAll('[name=sport]')].filter(c=>!c.checked).map(c=>c.value),disabledTabs:[...form.querySelectorAll('[name=tab]')].filter(c=>!c.checked).map(c=>c.value),backgroundImage:{url:bgUrl,opacity:Number(form.elements.bgOpacity.value)},theme:themeIsDefault?{primary:'',secondary:'',tint:0}:{primary:themePrimary,secondary:themeSecondary,tint:themeTint}}});
+  try{await request('/api/v2-admin',{action:'site-settings',settings:{maintenance:form.elements.maintenance.checked,requireLogin:form.elements.requireLogin.checked,registrationOpen:form.elements.registrationOpen.checked,message:form.elements.message.value,disabledSports:[...form.querySelectorAll('[name=sport]')].filter(c=>!c.checked).map(c=>c.value),disabledFinderSports:[...form.querySelectorAll('[name=finderSport]')].filter(c=>!c.checked).map(c=>c.value),disabledTabs:[...form.querySelectorAll('[name=tab]')].filter(c=>!c.checked).map(c=>c.value),backgroundImage:{url:bgUrl,opacity:Number(form.elements.bgOpacity.value)},theme:themeIsDefault?{primary:'',secondary:'',tint:0}:{primary:themePrimary,secondary:themeSecondary,tint:themeTint}}});
   if(bgUrl){
    message.textContent='Saved. Checking that the image loads…';
    const loads=await probeImageLoads(bgUrl);

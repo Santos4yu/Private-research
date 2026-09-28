@@ -2,6 +2,7 @@ import React,{lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState} from 
 import {ArrowDown,ArrowUp,ArrowUpDown,ArrowLeft,Bookmark,ChartNoAxesColumnIncreasing,ChevronDown,ChevronLeft,ChevronRight,Grid2X2,ListFilter,LoaderCircle,RefreshCw,Search,SlidersHorizontal,Star,Table2,Trash2,Users,CalendarDays} from 'lucide-react';
 import {loadFinderSport,enrichMlbRows,enrichWnbaRows,persistFinderCache,readFinderCache,matchesPrizePicksLine} from './unified-finder-data';
 import {WNBATrendHost} from './sports/wnba/TrendHost';
+import {siteFinderSportAllowed} from './site-access';
 import './unified-finder.css';
 import {FinderDropdown,FinderDropdownAssets} from './FinderDropdown';
 import {FinderHitRateFilter,FinderMultiSelect} from './FinderMultiSelect';
@@ -34,7 +35,17 @@ function WNBADetail({row,playerRows,onBack}){
 }
 export function UnifiedFinder(){
  const [mobileSearch,setMobileSearch]=useState(false);
- const [sport,setSport]=useState('wnba'),[boards,setBoards]=useState({wnba:EMPTY,mlb:EMPTY,nfl:EMPTY});
+ // Which leagues a regular user may see here is an admin switch
+ // (site_controls disabledFinderSports); admins always get all three. Re-read
+ // whenever the site policy changes rather than only on mount.
+ const [policyRevision,setPolicyRevision]=useState(0);
+ useEffect(()=>{const bump=()=>setPolicyRevision(n=>n+1);window.addEventListener('vortex:site-policy',bump);return()=>window.removeEventListener('vortex:site-policy',bump);},[]);
+ const allowedKeys=useMemo(()=>KEYS.filter(siteFinderSportAllowed),[policyRevision]);
+ // "All" only means something with more than one league to combine.
+ const visibleSports=allowedKeys.length>1?['all',...allowedKeys]:allowedKeys;
+ const [sport,setSport]=useState(()=>KEYS.find(siteFinderSportAllowed)||'wnba'),[boards,setBoards]=useState({wnba:EMPTY,mlb:EMPTY,nfl:EMPTY});
+ // If the league being viewed gets switched off, move to one still allowed.
+ useEffect(()=>{if(visibleSports.length&&!visibleSports.includes(sport))setSport(visibleSports[0]);},[visibleSports.join(),sport]);
  const [query,setQuery]=useState(''),[marketFilter,setMarketFilter]=useState([]),[bookFilter,setBookFilter]=useState([]),[teamFilter,setTeamFilter]=useState([]),[dayFilter,setDayFilter]=useState([]),[modifierFilter,setModifierFilter]=useState([]),[hitFilter,setHitFilter]=useState({windows:[],min:0,max:100});
  const [sort,setSort]=useState({key:'l10',direction:'desc'}),[page,setPage]=useState(0),[pageSize,setPageSize]=useState(20),[selected,setSelected]=useState(null),[savedOnly,setSavedOnly]=useState(false);
  const [saved,setSaved]=useState(()=>{try{return new Set(JSON.parse(localStorage.getItem('krazy-finder-watchlist')||'[]'));}catch{return new Set();}});
@@ -56,18 +67,21 @@ export function UnifiedFinder(){
   catch(e){if(e.name!=='AbortError')setBoards(old=>({...old,[key]:{...old[key],state:old[key].rows?.length?'ready':'error',error:old[key].rows?.length?null:e.message}}));}
   finally{requests.current.delete(key);controllers.current.delete(c);}
  },[]);
- useEffect(()=>{(sport==='all'?KEYS:[sport]).forEach(key=>load(key));},[sport,load]);
+ useEffect(()=>{(sport==='all'?allowedKeys:[sport]).filter(key=>allowedKeys.includes(key)).forEach(key=>load(key));},[sport,load,allowedKeys]);
  // Warm the other leagues during idle time so switching sports is a local
  // state change for returning users instead of a blank/loading transition.
  useEffect(()=>{
   let cancelled=false;
-  const prefetch=()=>{if(cancelled)return;KEYS.filter(key=>key!==sport).forEach(key=>load(key));};
+  // Never warm a league the user is not allowed to see.
+  const prefetch=()=>{if(cancelled)return;allowedKeys.filter(key=>key!==sport).forEach(key=>load(key));};
   const idle=typeof window!=='undefined'&&window.requestIdleCallback?window.requestIdleCallback(prefetch,{timeout:1800}):setTimeout(prefetch,900);
   return()=>{cancelled=true;if(typeof window!=='undefined'&&window.cancelIdleCallback&&typeof idle==='number')window.cancelIdleCallback(idle);else clearTimeout(idle);};
- },[sport,load]);
+ },[sport,load,allowedKeys]);
  useEffect(()=>()=>{controllers.current.forEach(c=>c.abort());generation.current.clear();},[]);
- const scope=sport==='all'?KEYS:[sport];
- const allRows=useMemo(()=>KEYS.flatMap(k=>boards[k].rows||[]),[boards]);
+ const scope=sport==='all'?allowedKeys:[sport];
+ // Rows already loaded for a league that was since switched off must not
+ // keep showing under "All".
+ const allRows=useMemo(()=>allowedKeys.flatMap(k=>boards[k].rows||[]),[boards,allowedKeys]);
  const sportRows=useMemo(()=>allRows.filter(r=>sport==='all'||r.sport===sport),[allRows,sport]);
  const markets=useMemo(()=>[...new Set(sportRows.map(r=>r.market))].sort(),[sportRows]);
  const books=useMemo(()=>[...new Set(sportRows.flatMap(r=>r.apps.map(a=>a.key)))].sort((a,b)=>a==='prizepicks'?-1:b==='prizepicks'?1:a.localeCompare(b)),[sportRows]);
@@ -100,10 +114,11 @@ export function UnifiedFinder(){
  const changePage=n=>{setPage(n);tableRef.current?.scrollTo({top:0});};
  const playerRows=selected?allRows.filter(r=>r.sport===selected.sport&&(selected.playerId?r.playerId===selected.playerId:r.player===selected.player)):[];
  const dropdownAssets=useMemo(()=>({Teams:Object.fromEntries(sportRows.filter(row=>row.teamAbbr&&row.teamLogo).map(row=>[row.teamAbbr,row.teamLogo])),Apps:LOGOS,'Choose sport':{wnba:'/leagues/wnba.svg',mlb:'/leagues/mlb.svg',nfl:'/leagues/nfl.svg'},'Line type':{standard:'/prizepicks/logo.png',goblin:'/prizepicks/goblin.png',demon:'/prizepicks/demon.png'}}),[sportRows]);
+ if(!allowedKeys.length)return <main className="unified-finder" aria-label="Finder"><div className="finder-message">The Finder is not available right now. Check back soon.</div></main>;
  return <FinderDropdownAssets.Provider value={dropdownAssets}><main className={'unified-finder'+(selected?' finder-detail-active':'')+(mobileSearch?' finder-search-expanded':'')} aria-label="Multi-sport prop Finder">
-  <label className="finder-mobile-sport"><Grid2X2 size={15}/><FinderDropdown aria-label="Choose sport" value={sport} onChange={e=>changeSport(e.target.value)}>{SPORTS.map(key=><option key={key} value={key}>{key==='all'?'All sports':key.toUpperCase()}</option>)}</FinderDropdown><ChevronDown size={13}/></label>
+  <label className="finder-mobile-sport"><Grid2X2 size={15}/><FinderDropdown aria-label="Choose sport" value={sport} onChange={e=>changeSport(e.target.value)}>{visibleSports.map(key=><option key={key} value={key}>{key==='all'?'All sports':key.toUpperCase()}</option>)}</FinderDropdown><ChevronDown size={13}/></label>
   {!selected&&<button type="button" className="finder-mobile-search-toggle finder-icon" aria-label="Toggle player search" aria-expanded={mobileSearch} onClick={()=>setMobileSearch(v=>!v)}><Search size={18}/></button>}
-  <header className="finder-topbar"><div className="finder-title"><Table2 size={19}/><h1>Finder</h1><span>/</span></div><nav className="finder-sports" aria-label="Finder sport">{SPORTS.map(key=><button type="button" key={key} aria-pressed={sport===key} onClick={()=>changeSport(key)}>{key==='all'?<Grid2X2 size={15}/>:<League sport={key}/>}<span>{key==='all'?'All':key.toUpperCase()}</span></button>)}</nav><span className="finder-brand">KRAZY<span>EDGE</span></span><button type="button" className="finder-icon finder-top-save" aria-label="Show saved Finder props" aria-pressed={savedOnly} onClick={()=>{setSelected(null);setSavedOnly(v=>!v);}}><Bookmark size={17}/></button></header>
+  <header className="finder-topbar"><div className="finder-title"><Table2 size={19}/><h1>Finder</h1><span>/</span></div><nav className="finder-sports" aria-label="Finder sport">{visibleSports.map(key=><button type="button" key={key} aria-pressed={sport===key} onClick={()=>changeSport(key)}>{key==='all'?<Grid2X2 size={15}/>:<League sport={key}/>}<span>{key==='all'?'All':key.toUpperCase()}</span></button>)}</nav><span className="finder-brand">KRAZY<span>EDGE</span></span><button type="button" className="finder-icon finder-top-save" aria-label="Show saved Finder props" aria-pressed={savedOnly} onClick={()=>{setSelected(null);setSavedOnly(v=>!v);}}><Bookmark size={17}/></button></header>
   {selected?<Suspense fallback={<div className="finder-message"><LoaderCircle className="finder-spin"/>Loading player trends…</div>}>{selected.sport==='wnba'?<WNBADetail row={selected} playerRows={playerRows} onBack={back}/>:<FinderTrendView row={selected} playerRows={playerRows} onBack={back}/>}</Suspense>:<>
    <div className="finder-controls"><div className="finder-search-row"><label className="finder-search"><Search size={16}/><input type="search" aria-label="Search players or teams" placeholder="Search players or teams…" value={query} onChange={e=>setQuery(e.target.value)}/></label><div className="finder-app-filter"><FinderMultiSelect label="Apps" icon={Grid2X2} values={bookFilter} onChange={setBookFilter} options={bookOptions} placeholder="All apps"/><span className="finder-app-icons" aria-hidden="true">{books.slice(0,6).map(k=><Photo key={k} src={LOGOS[k]||'/sportsbooks/'+k+'.png'} width="23" height="23"/>)}</span></div><button type="button" className="finder-icon" aria-label="Refresh Finder" onClick={()=>scope.forEach(k=>load(k,true))} disabled={loading}><RefreshCw size={16} className={loading?'finder-spin':''}/></button></div>
    <div className="finder-filters"><FinderMultiSelect label="Line type" icon={SlidersHorizontal} values={modifierFilter} onChange={setModifierFilter} options={lineOptions} placeholder="All lines" searchable={false}/><FinderMultiSelect label="Stats" icon={ChartNoAxesColumnIncreasing} values={marketFilter} onChange={setMarketFilter} options={marketOptions} placeholder="All stats"/><FinderMultiSelect label="Teams" icon={Users} values={teamFilter} onChange={setTeamFilter} options={teamOptions} placeholder="All teams"/><FinderMultiSelect label="Date" icon={CalendarDays} values={dayFilter} onChange={setDayFilter} options={dayOptions} placeholder="All dates" searchable={false}/><FinderHitRateFilter value={hitFilter} onChange={setHitFilter}/><button type="button" className={'finder-saved '+(savedOnly?'is-active':'')} aria-pressed={savedOnly} onClick={()=>setSavedOnly(v=>!v)}><Bookmark size={15}/>Saved{saved.size>0&&<b>{saved.size}</b>}</button><button type="button" className="finder-icon finder-reset" aria-label="Reset all Finder filters" onClick={clear}><Trash2 size={16}/></button></div></div>
