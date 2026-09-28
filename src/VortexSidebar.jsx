@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Sidebar, SidebarBody, SidebarLink } from '../components/ui/sidebar';
 import { Settings, UserRound } from 'lucide-react';
 import { topTabs } from './navTabs';
-import { pickBuilder } from './pick-builder-client';
+import { PickBuilder } from './PickBuilder';
 import './vortex-sidebar.css';
 
 // Same destinations, same dock-sync wiring as the top pill bar
@@ -12,6 +12,37 @@ export function VortexSidebar() {
   const [tab, setTab] = useState('research');
   const [saved, setSaved] = useState(0);
   const [open, setOpen] = useState(false);
+  // The Pick Builder shows inside this rail (widened) rather than in a
+  // second panel beside it. It stays open while picks are added from the
+  // page, and closes from its own x, Esc, the Builder item or navigating.
+  const [builderOpen, setBuilderOpen] = useState(false);
+  useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 761px)');
+    window.vortexRailBuilder = {
+      available: () => desktop.matches,
+      open: () => setBuilderOpen(true),
+      close: () => setBuilderOpen(false),
+    };
+    return () => { delete window.vortexRailBuilder; };
+  }, []);
+  useEffect(() => {
+    // Closing the builder folds the rail back up (the pointer is usually
+    // out on the page by then, so no mouse-out will come to do it).
+    if (!builderOpen) { setOpen(false); return undefined; }
+    const escape = (event) => { if (event.key === 'Escape') setBuilderOpen(false); };
+    const leave = () => setBuilderOpen(false);
+    // Down to phone width, the side panel holds the builder instead.
+    const desktop = window.matchMedia('(min-width: 761px)');
+    const resize = () => { if (!desktop.matches) setBuilderOpen(false); };
+    document.addEventListener('keydown', escape);
+    window.addEventListener('vortex:switch-tab', leave);
+    desktop.addEventListener?.('change', resize);
+    return () => {
+      document.removeEventListener('keydown', escape);
+      window.removeEventListener('vortex:switch-tab', leave);
+      desktop.removeEventListener?.('change', resize);
+    };
+  }, [builderOpen]);
 
   useEffect(() => {
     const sync = (event) => {
@@ -23,9 +54,8 @@ export function VortexSidebar() {
     return () => window.removeEventListener('vortex:dock-sync', sync);
   }, []);
 
-  // Builder opens the side panel's Pick Builder beside the rail, as My Slip
-  // does on phones, instead of the old My Slip page.
-  const go = (value) => value === 'saved' ? pickBuilder.open()
+  // Builder opens (or closes) the Pick Builder right here in the rail.
+  const go = (value) => value === 'saved' ? setBuilderOpen((current) => !current)
     : window.dispatchEvent(new CustomEvent('vortex:switch-tab', { detail: { tab: value } }));
 
   // Account and Settings used to float over the top-right corner of every
@@ -53,14 +83,14 @@ export function VortexSidebar() {
   }, []);
 
   return (
-    <Sidebar open={open} setOpen={setOpen}>
-      <SidebarBody className="vortex-sidebar-body">
+    <Sidebar open={open || builderOpen} setOpen={setOpen} width={builderOpen ? '380px' : undefined} pinned={builderOpen}>
+      <SidebarBody className={`vortex-sidebar-body${builderOpen ? ' has-builder' : ''}`}>
         {/* Wordmark only exists in the DOM while expanded -- previously it
             was always rendered and just clipped by overflow:hidden, which
             let a sliver of "Ki" show through in the collapsed rail. */}
-        <div className={`vortex-sidebar-top${!open ? ' collapsed' : ''}`}>
+        <div className={`vortex-sidebar-top${!open && !builderOpen ? ' collapsed' : ''}`}>
           <img src="/icons/krazy-data-mark.png" alt="" className="vortex-sidebar-mark" width={28} height={28} />
-          {open && <img src="/icons/krazy-data-name.png" alt="Krazy Data" className="vortex-sidebar-wordmark" width={112} height={16} />}
+          {(open || builderOpen) && <img src="/icons/krazy-data-name.png" alt="Krazy Data" className="vortex-sidebar-wordmark" width={112} height={16} />}
         </div>
         <nav className="vortex-sidebar-links">
           {topTabs.map((item, index) => item.type === 'separator'
@@ -84,12 +114,17 @@ export function VortexSidebar() {
                       )}
                     </span>
                   ),
-                  active: tab === item.value,
+                  active: item.value === 'saved' ? builderOpen : tab === item.value && !builderOpen,
                   onClick: () => go(item.value),
                 }}
               />
             ))}
         </nav>
+        {builderOpen && (
+          <div className="vortex-sidebar-builder" data-requires-tab="saved">
+            <PickBuilder titleId="rail-pick-builder-title" onClose={() => setBuilderOpen(false)} />
+          </div>
+        )}
         <div className="vortex-sidebar-footer">
           <SidebarLink
             link={{

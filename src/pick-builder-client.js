@@ -15,8 +15,14 @@ export const pickBuilder={
  export:()=>send('vortex:prop-builder-export'),
  // Current prices and start times for saved Finder picks.
  refresh:updates=>send('vortex:prop-builder-refresh',{updates}),
- // The side panel (#side-panel), whose first section is the Pick Builder.
- open:()=>send('vortex:open-more',{section:'pick-builder'}),
+ // On desktop the Pick Builder opens inside the sidebar rail
+ // (VortexSidebar registers window.vortexRailBuilder); on phones, in the
+ // side panel (#side-panel) under the menu.
+ open:()=>{
+  const rail=typeof window!=='undefined'?window.vortexRailBuilder:null;
+  if(rail?.available())rail.open();
+  else send('vortex:open-more',{section:'pick-builder'});
+ },
 };
 
 export const EMPTY_PICKS={legs:[],status:'Add at least 2 props to export.',canExport:false,busy:false};
