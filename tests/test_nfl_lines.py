@@ -23,6 +23,11 @@ class MarketNameTests(unittest.TestCase):
             "Gross Punt Yards": "gross_punt_yards", "50+ Yard Punts": "punts_50_plus", "Tackles+Ast": "tackles",
             "Tackles for Loss": "tackles_for_loss", "Punts": "punts", "Sacks Taken": "sacks_taken", "Rush TDs": "rushing_tds",
             "Rec TDs": "receiving_tds", "Fumbles Lost": "fumbles_lost", "PAT Made": "pat_made", "Solo Tackles": "solo_tackles",
+            "Anytime TDs": "touchdowns", "Pass+Rush+Rec TDs": "pass_rush_rec_tds", "Completion Percentage": "completion_pct",
+            "Rush Yards Per Carry": "yards_per_carry", "Yards on First Rush Attempt": "first_rush_yards",
+            "Quarters with 1+ Reception": "quarters_1_rec", "Quarters with 5+ Receiving Yards": "quarters_5_rec_yds",
+            "Quarters with 5+ Rush Yards": "quarters_5_rush_yds", "Quarters with 25+ Pass Yards": "quarters_25_pass_yds",
+            "Halves with 25+ Receiving Yards": "halves_25_rec_yds", "Halves with 25+ Rush Yards": "halves_25_rush_yds",
         }
         for stat, market in cases.items():
             self.assertEqual(markets.market_for(stat, "WR"), market, stat)
@@ -81,6 +86,29 @@ class PlayByPlayTests(unittest.TestCase):
         self.assertEqual((rusher["rushFirst5"], rusher["longestRush"]), (22, 40))
         self.assertEqual((receiver["recFirst2"], receiver["longestReception"]), (24, 30))
         self.assertEqual(passer["longestCompletion"], 30)
+
+    def test_quarters_halves_and_first_rush(self):
+        plays = [self.play(qtr=1, rush_attempt=1, rusher_player_id="r1", rushing_yards=3),
+                 self.play(qtr=1, rush_attempt=1, rusher_player_id="r1", rushing_yards=9),
+                 self.play(qtr=2, pass_attempt=1, complete_pass=1, receiver_player_id="w1", passer_player_id="q1", receiving_yards=12, passing_yards=12),
+                 self.play(qtr=2, pass_attempt=1, complete_pass=1, receiver_player_id="w1", passer_player_id="q1", receiving_yards=15, passing_yards=15),
+                 self.play(qtr=3, rush_attempt=1, rusher_player_id="r1", rushing_yards=4),
+                 self.play(qtr=4, pass_attempt=1, complete_pass=1, receiver_player_id="w1", passer_player_id="q1", receiving_yards=3, passing_yards=3),
+                 # Overtime counts toward the second half, never as a quarter.
+                 self.play(qtr=5, rush_attempt=1, rusher_player_id="r1", rushing_yards=22)]
+        players = finder._aggregate_pbp(plays)["players"]
+        rusher, receiver, passer = players["r1"]["g1"], players["w1"]["g1"], players["q1"]["g1"]
+        self.assertEqual(rusher["firstRush"], 3)
+        self.assertEqual((rusher["quartersRushYds5"], rusher["halvesRushYds25"]), (1, 1))
+        self.assertEqual((receiver["quartersRec1"], receiver["quartersRecYds5"], receiver["halvesRecYds25"]), (2, 1, 1))
+        self.assertEqual(passer["quartersPassYds25"], 1)
+        self.assertNotIn("byQuarter", rusher)
+
+    def test_ratios_only_when_he_threw_or_ran(self):
+        values = finder.market_values({"completions": "18", "attempts": "30", "rushing_yards": "45", "carries": "10",
+                                       "passing_tds": "2", "rushing_tds": "1", "receiving_tds": "0"})
+        self.assertEqual((values["completion_pct"], values["yards_per_carry"], values["pass_rush_rec_tds"]), (60.0, 4.5, 3))
+        self.assertIsNone(finder.market_values({"attempts": "0", "carries": "0"})["completion_pct"])
 
     def test_punts(self):
         punts = [self.play(punt_attempt=1, punter_player_id="p1", kick_distance=distance, punt_inside_twenty=inside)

@@ -19,7 +19,9 @@ import './nfl-finder.css';
 // borrow their closest weekly one. Punting and markets we don't chart have
 // none, and skip that request.
 const CONTEXT_BASE={longest_reception:'receiving_yards',rec_yards_first_2:'receiving_yards',longest_rush:'rushing_yards',
- rush_yards_first_5:'rushing_yards',longest_completion:'passing_yards'};
+ rush_yards_first_5:'rushing_yards',longest_completion:'passing_yards',completion_pct:'pass_completions',quarters_25_pass_yds:'passing_yards',
+ yards_per_carry:'rushing_yards',first_rush_yards:'rushing_yards',quarters_5_rush_yds:'rushing_yards',halves_25_rush_yds:'rushing_yards',
+ quarters_1_rec:'receptions',quarters_5_rec_yds:'receiving_yards',halves_25_rec_yds:'receiving_yards'};
 const NO_CONTEXT=new Set(['punts','punts_inside_20','gross_punt_yards','punts_50_plus']);
 const CONTEXT_MARKET=market=>!market||NO_CONTEXT.has(market)||String(market).startsWith('pp:')?null:CONTEXT_BASE[market]||market;
 // One tab per market this player has a line on, in the catalog's order.
