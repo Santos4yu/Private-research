@@ -1,5 +1,5 @@
 import {dockHiddenAt} from './src/mobile-nav-core.js';
-import {initSiteAccess,siteTabAllowed,loadSiteControls,showLockedTab,availableSiteTab,refreshSiteAccess} from './src/site-access.js';
+import {initSiteAccess,siteTabAllowed,loadSiteControls,showLockedTab,availableSiteTab,refreshSiteAccess,dismissBootLoader} from './src/site-access.js';
 /* =========================================================
    Vortex Prop Research — client-side renderer
    No backend, no database, no odds API. Reads a single JSON
@@ -175,7 +175,6 @@ let screenHistoryReady = false;
 init();
 
 async function init() {
-  const loaderStartedAt = performance.now();
   cacheEls();
   try {
     const access=await checkAuth();
@@ -253,7 +252,7 @@ async function init() {
   wirePlayerDetailModal();
   updateSavedCount();
   updateParlayBar();
-  await finishPrivateLoader(loaderStartedAt);
+  await finishPrivateLoader();
   wireAppNavigation();
   const warmSlate = () => requestSlateData(false).catch(() => {});
   warmPlayerCatalog();
@@ -1814,18 +1813,11 @@ function updateSavedCount() {
   renderManualBetSlip();
 }
 
-async function finishPrivateLoader(startedAt) {
-  const minimumDisplayMs = 1500;
-  const elapsed = performance.now() - startedAt;
-  if (elapsed < minimumDisplayMs) {
-    await new Promise((resolve) => setTimeout(resolve, minimumDisplayMs - elapsed));
-  }
-
+// No minimum display time any more: that hold existed so the old animated
+// intro could finish playing, and it now just delayed the site for no reason.
+async function finishPrivateLoader() {
   if(document.documentElement.dataset.siteAccess==="granted") els.appShell.classList.remove("app-shell-hidden");
-  const loader = document.getElementById("boot-loading");
-  if (!loader) return;
-  loader.classList.add("private-loader-leaving");
-  window.setTimeout(() => loader.remove(), 700);
+  dismissBootLoader();
 }
 
 function propLiveActual(row) {

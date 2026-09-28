@@ -133,11 +133,27 @@ function accountDialog(){
  dialog.append(button('Sign out',async()=>{try{await request('/api/session',{action:'sign-out'});location.reload();}catch(error){dialog.append(element('p',error.message));}},'site-primary-button'));
  dialog.onclose=()=>{activeDialog=null;dialog.remove();};document.body.append(dialog);dialog.showModal();
 }
+// The one way the boot screen leaves: fade, then drop it from the page.
+// The access check used to set `hidden` on it -- an instant cut -- while app
+// start-up separately tried to fade it out after it was already gone, so the
+// site always arrived with a jump. Both now call this, and only the first
+// call does anything.
+let bootDismissed=false;
+export function dismissBootLoader(){
+ if(bootDismissed)return;bootDismissed=true;
+ const loader=document.getElementById('boot-loading');if(!loader)return;
+ loader.classList.add('private-loader-leaving');
+ const remove=()=>loader.remove();
+ loader.addEventListener('transitionend',remove,{once:true});
+ // transitionend never fires when there is no transition (reduced motion)
+ // or the tab is in the background, so a timer finishes the job either way.
+ setTimeout(remove,700);
+}
 function renderStatus(){
  if(!status)return;
  const granted=accessGranted(status);document.documentElement.dataset.siteAccess=granted?'granted':'locked';
  document.getElementById('app-shell')?.classList.toggle('app-shell-hidden',!granted);
- document.getElementById('boot-loading')?.setAttribute('hidden','');
+ dismissBootLoader();
  if(!granted&&activeDialog)activeDialog.close();
  if(!granted&&lockedDialog)lockedDialog.close();
  // Lives on <body>, never inside .hero. .hero is position:relative with

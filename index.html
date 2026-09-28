@@ -32,6 +32,31 @@
   html:not([data-site-access="granted"]) #settings-btn,
   html:not([data-site-access="granted"]) #settings-panel,
   html:not([data-site-access="granted"]) #dock-root { display:none!important; }
+
+  /* Boot screen: a quiet fade into the site. It is the site's own background
+     colour, so fading it out reads as the site fading in. The mark only
+     appears if loading takes a moment -- a fast load never shows it at all.
+     ID selectors so these win over the older loader rules in styles.css and
+     the jarvis theme without an !important arms race on every property. */
+  #boot-loading.private-loader {
+    position: fixed; inset: 0; z-index: 10000;
+    display: grid !important; place-items: center;
+    background: var(--theme-bg, #05070d) !important;
+    opacity: 1; transition: opacity .5s ease;
+  }
+  #boot-loading.private-loader::before,
+  #boot-loading.private-loader::after { display: none !important; content: none !important; }
+  #boot-loading.private-loader.private-loader-leaving { opacity: 0; pointer-events: none; }
+  #boot-loading .private-loader-mark {
+    width: 40px; height: 40px; margin: 0; border-radius: 11px;
+    object-fit: contain; filter: none; opacity: 0;
+    animation: boot-mark-in .6s ease .3s forwards;
+  }
+  @keyframes boot-mark-in { to { opacity: .8; } }
+  @media (prefers-reduced-motion: reduce) {
+    #boot-loading.private-loader { transition: none; }
+    #boot-loading .private-loader-mark { animation: none; opacity: .8; }
+  }
 </style>
 </head>
 <body>
@@ -48,12 +73,7 @@
 <!-- Shown immediately, before the auth check resolves; hidden once the
      gate or the app shell takes over. -->
 <div class="boot-loading private-loader" id="boot-loading" role="status" aria-live="polite" aria-label="Loading Krazy Data">
-  <div class="private-loader-content">
-    <img class="private-loader-mark" src="/icons/kd-mark.png" alt="" width="64" height="64" />
-    <h1>Krazy<span>Data</span></h1>
-    <div class="private-loader-line" aria-hidden="true"><span></span></div>
-    <p>Sports research workspace</p>
-  </div>
+  <img class="private-loader-mark" src="/icons/kd-mark.png" alt="" width="40" height="40" />
 </div>
 
 <!-- Login gate: full-screen, non-dismissable until authenticated + role-checked -->
