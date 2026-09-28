@@ -48,6 +48,24 @@ class FixtureTests(Offline):
         # A day off: no match.
         self.assertIsNone(research.match_fixture("CHE", "ARS", "2026-09-30T14:00:00Z", fixtures))
 
+    def test_prizepicks_full_team_names_find_their_match(self):
+        aze, lie, bih, tur = (research._team({"id": tid, "abbreviation": abbr, "displayName": name}) for tid, abbr, name in
+                              (("1", "AZE", "Azerbaijan"), ("2", "LIE", "Liechtenstein"), ("3", "BIH", "Bosnia-Herzegovina"), ("4", "TUR", "Turkey")))
+        fixtures = [{"id": "920", "league": "fifa.worldq.uefa", "leagueName": "WC Qualifying", "date": "2026-10-01T16:00Z",
+                     "home": aze, "away": lie, "odds": None},
+                    {"id": "921", "league": "uefa.nations", "leagueName": "Nations League", "date": "2026-10-01T18:45Z",
+                     "home": bih, "away": tur, "odds": None}]
+        found = research.match_fixture("Liechtenstein", "Azerbaijan", "2026-10-01T16:00:00Z", fixtures)
+        self.assertEqual((found["eventId"], found["isHome"], found["team"]["abbr"]), ("920", False, "LIE"))
+        found = research.match_fixture("Türkiye", "Bosnia and Herzegovina", "2026-10-01T18:45:00Z", fixtures)
+        self.assertEqual((found["eventId"], found["team"]["abbr"], found["opponent"]["abbr"]), ("921", "TUR", "BIH"))
+        # The board then uses ESPN's codes and a short position.
+        line = {"id": "7", "player": "Abdulla Xaybulayev", "team": "Azerbaijan", "description": "Liechtenstein", "stat": "Goals",
+                "line": 0.5, "odds_type": "demon", "start_time": "2026-10-01T16:00:00Z", "position": "Midfielder"}
+        [row] = soccer_board.build([line], now=1790000000, fixture_list=fixtures)["rows"]
+        self.assertEqual((row["team"], row["opponent"], row["teamName"], row["position"], row["eventId"]),
+                         ("AZE", "LIE", "Azerbaijan", "M", "920"))
+
     def test_board_rows_carry_their_match(self):
         fixtures = [research._fixture(scoreboard("900", ARS, CHE, "2026-09-29T14:00Z")["events"][0], "eng.1", "EPL")]
         line = {"id": "1", "player": "Bukayo Saka", "team": "ARS", "description": "CHE", "stat": "Shots", "line": 2.5,

@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 
 from prizepicks_export_core import _fetch_projection_rows
 
-VERSION = "soccer-board-v2"
+VERSION = "soccer-board-v3"
 CACHE_SECONDS = 5 * 60
 _cache = {"at": 0.0, "value": None}
 _lock = threading.Lock()
@@ -24,6 +24,15 @@ def _timestamp(value):
         return datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp()
     except (TypeError, ValueError):
         return None
+
+
+# PrizePicks spells soccer positions out; the board shows them short.
+_POSITIONS = {"goalkeeper": "GK", "goalie": "GK", "defender": "D", "midfielder": "M", "attacker": "F", "forward": "F", "striker": "F"}
+
+
+def _position(value):
+    text = str(value or "").strip()
+    return _POSITIONS.get(text.lower(), text) or None
 
 
 def market_key(stat):
@@ -102,13 +111,17 @@ def build(projections=None, now=None, fixture_list=None):
         if info:
             team, opponent = info["team"], info["opponent"]
             game = {"eventId": info["eventId"], "competition": info["league"], "competitionName": info["leagueName"],
-                    "teamId": team["id"], "teamName": team["name"], "teamLogo": team["logo"], "opponentId": opponent["id"],
-                    "opponentName": opponent["name"], "opponentLogo": opponent["logo"], "isHome": info["isHome"],
+                    "teamId": team["id"], "teamName": team["name"] or line.get("team"), "teamLogo": team["logo"], "opponentId": opponent["id"],
+                    "opponentName": opponent["name"] or line.get("description"), "opponentLogo": opponent["logo"], "isHome": info["isHome"],
                     "homeTeamAbbr": info["homeTeam"]["abbr"] or None, "awayTeamAbbr": info["awayTeam"]["abbr"] or None,
                     "winChance": info["winChance"], "drawChance": info["drawChance"]}
         rows.append({
-            "id": f"pp:{line.get('id')}", "player": line.get("player"), "team": line.get("team") or None,
-            "opponent": line.get("description") or None, "position": line.get("position") or None,
+            "id": f"pp:{line.get('id')}", "player": line.get("player"),
+            # Matched, the teams go by ESPN's short codes (ARS, AZE) so the
+            # match logs' opponents and head-to-head line up with them.
+            "team": (info and info["team"]["abbr"]) or line.get("team") or None,
+            "opponent": (info and info["opponent"]["abbr"]) or line.get("description") or None,
+            "position": _position(line.get("position")),
             "headshot": line.get("headshot") or None, "stat": line.get("stat"), "marketKey": market_key(line.get("stat")),
             "line": value, "modifier": tier,
             "startsAt": datetime.fromtimestamp(starts, timezone.utc).isoformat() if starts is not None else None,

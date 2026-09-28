@@ -34,12 +34,15 @@ class SiteControlsTests(unittest.TestCase):
   import json
   # Settings saved before soccer existed: soccer is off, the rest unchanged.
   old={**controls.DEFAULT,'disabledFinderSports':['nfl']}
-  old.pop('finderSportsKnown',None)
   with patch.object(controls.store,'get',return_value=json.dumps(old)):
    self.assertEqual(controls.read()['disabledFinderSports'],['nfl','soccer'])
+  # So are settings saved with soccer on under the earlier marker: soccer
+  # went back to off once while it is in preview.
+  with patch.object(controls.store,'get',return_value=json.dumps({**old,'disabledFinderSports':[],'finderSportsKnown':list(controls.FINDER_SPORTS)})):
+   self.assertEqual(controls.read()['disabledFinderSports'],['soccer'])
   # The admin then saves with soccer switched on: it stays on.
   saved=controls.validate({**controls.DEFAULT,'disabledFinderSports':['nfl']})
-  self.assertEqual(saved['finderSportsKnown'],list(controls.FINDER_SPORTS))
+  self.assertEqual(saved['finderSportsSeen'],list(controls.FINDER_SPORTS))
   with patch.object(controls.store,'get',return_value=json.dumps(saved)):
    self.assertEqual(controls.read()['disabledFinderSports'],['nfl'])
   with patch.object(controls.store,'get',return_value=None):
