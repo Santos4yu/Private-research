@@ -3,8 +3,8 @@ import {ArrowLeft,Info,Percent,UserRound} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import './finder-player-banner.css';
 
-// The player header on a Finder player page (WNBA and MLB), laid out like
-// pickfinder.app's: the page's own gradient header rather than a separate
+// The player header on a Finder player page (WNBA and MLB): the page's own
+// gradient header rather than a separate
 // card -- back / brand / account, the player with team badge, position and
 // height, the game, and the book odds for the line on the chart.
 //

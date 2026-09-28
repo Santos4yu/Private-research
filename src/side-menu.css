@@ -1,27 +1,27 @@
-/* The side panel's header and menu (SideMenu.jsx), laid out like
-   pickfinder.app's sidebar: the brand, then plain icon-and-label rows with
+/* The side panel's header and menu (SideMenu.jsx), laid out as a sidebar:
+   the brand, then plain icon-and-label rows with
    the current page in a soft outlined pill. The Pick Builder sits below
    (pick-builder.css). The drawer itself is in mobile-app.css. */
 
 #side-panel .side-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 14px!important;padding:2px 2px 0}
 #side-panel .side-panel-brand{display:flex;align-items:center;gap:10px;min-width:0}
 #side-panel .side-panel-brand img{flex:0 0 auto;width:32px;height:32px;border-radius:10px}
-#side-panel .side-panel-head strong{color:#f4f6ff!important;font:750 20px/1 Inter,Arial,sans-serif!important;letter-spacing:-.3px!important;text-transform:none!important}
-#side-panel .side-panel-head strong b{color:#8ea2ff;font-weight:750}
-#side-panel #side-menu-close{display:grid;place-items:center;flex:0 0 auto;width:40px;height:40px;padding:0;border:1px solid #232c48!important;border-radius:12px;background:#121a33!important;color:#aab4d4;font-size:22px;line-height:1;box-shadow:none}
-#side-panel #side-menu-close:hover{color:#fff;border-color:#35406a!important}
+#side-panel .side-panel-head strong{color:#f1f7ff!important;font:750 20px/1 Inter,Arial,sans-serif!important;letter-spacing:-.3px!important;text-transform:none!important}
+#side-panel .side-panel-head strong b{color:var(--theme-accent-soft,var(--theme-accent));font-weight:750}
+#side-panel #side-menu-close{display:grid;place-items:center;flex:0 0 auto;width:40px;height:40px;padding:0;border:1px solid #2a2e34!important;border-radius:12px;background:#181c21!important;color:#b0b6bd;font-size:22px;line-height:1;box-shadow:none}
+#side-panel #side-menu-close:hover{color:#fff;border-color:#3f4349!important}
 
 .side-menu{display:grid;gap:10px;margin:0 0 18px}
 .side-menu-group{display:grid;gap:2px}
-.side-menu-label{margin:6px 14px 2px;color:#7d87a8;font:600 12px/1.2 Inter,Arial,sans-serif;letter-spacing:.02em}
-.side-menu-link{display:flex;align-items:center;gap:14px;width:100%;min-height:46px;margin:0;padding:0 14px;border:1px solid transparent;border-radius:12px;background:transparent;color:#d9def0;font:500 16px/1.2 Inter,Arial,sans-serif;letter-spacing:0;text-align:left;text-transform:none;box-shadow:none;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background-color .15s,border-color .15s,color .15s}
-.side-menu-link svg{flex:0 0 auto;color:#98a3c4;transition:color .15s}
+.side-menu-label{margin:6px 14px 2px;color:#848990;font:600 12px/1.2 Inter,Arial,sans-serif;letter-spacing:.02em}
+.side-menu-link{display:flex;align-items:center;gap:14px;width:100%;min-height:46px;margin:0;padding:0 14px;border:1px solid transparent;border-radius:12px;background:transparent;color:#d9dfe7;font:500 16px/1.2 Inter,Arial,sans-serif;letter-spacing:0;text-align:left;text-transform:none;box-shadow:none;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background-color .15s,border-color .15s,color .15s}
+.side-menu-link svg{flex:0 0 auto;color:#9fa4ac;transition:color .15s}
 .side-menu-link:hover{background:#ffffff08;color:#fff}
 .side-menu-link:active{background:#ffffff0f}
-.side-menu-link[aria-current=page]{background:#151d38;border-color:#2b3660;color:#fff}
-.side-menu-link[aria-current=page] svg{color:#b3c0ff}
+.side-menu-link[aria-current=page]{background:#1b1f25;border-color:#353a40;color:#fff}
+.side-menu-link[aria-current=page] svg{color:var(--theme-accent-soft,var(--theme-accent))}
 .side-menu-link:disabled{opacity:.4;cursor:not-allowed}
-.side-menu-link:focus-visible{outline:2px solid #aaa8ff;outline-offset:1px}
+.side-menu-link:focus-visible{outline:2px solid var(--theme-accent-soft,var(--theme-accent));outline-offset:1px}
 
 /* Desktop: the rail (VortexSidebar) is the menu, so the panel it opens
    beside holds just the Pick Builder. */

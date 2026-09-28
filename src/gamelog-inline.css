@@ -101,7 +101,7 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   overflow: visible !important;
   overscroll-behavior: auto !important;
   box-shadow: none !important;
-  background: var(--theme-panel, #0f1115) !important;
+  background: var(--theme-panel, #0e1115) !important;
   transform: none !important;
 }
 /* This header (photo/name/prop badge/"Explore recent results...") just
@@ -154,14 +154,12 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
 }
 :root[data-theme] #gamelog-overlay .gamelog-filter-field > span {
   font: 500 12px/16px var(--font-sans, sans-serif);
-  color: rgb(156, 163, 175);
+  color: #9ea3aa;
 }
-/* Season/Matchup/Location are single-value pickers on pickfinder.app --
-   one bordered dropdown button per field showing just the selected value,
-   not a segmented row showing every option at once. A native <select>
-   reproduces that exact closed-state look (bg/border/radius/height/font
-   below are pickfinder.app's real computed values, pulled the same way as
-   the chart gradient) without building a custom popover. !important beats
+/* Season/Matchup/Location are single-value pickers -- one bordered
+   dropdown button per field showing just the selected value, not a
+   segmented row showing every option at once. A native <select> gives that
+   closed-state look without building a custom popover. !important beats
    styles.css/gamelog-fix.css's older .gl-filter-chip-era rules the same
    way every other override in this file does. */
 :root[data-theme] #gamelog-overlay .gamelog-filter-panel .gamelog-combobox {
@@ -173,13 +171,13 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   min-width: 80px;
   max-width: 160px;
   padding: 8px 28px 8px 16px !important;
-  border: 0.8px solid rgb(33, 37, 59) !important;
+  border: 0.8px solid #23272d !important;
   border-radius: 8px !important;
-  background-color: rgb(25, 31, 56) !important;
+  background-color: #1d2127 !important;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") !important;
   background-repeat: no-repeat !important;
   background-position: right 8px center !important;
-  color: rgb(249, 250, 251) !important;
+  color: #f9fafb !important;
   font: 500 14px/20px var(--font-sans, sans-serif) !important;
   cursor: pointer;
 }
@@ -188,8 +186,8 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   cursor: not-allowed;
 }
 :root[data-theme] #gamelog-overlay .gamelog-filter-panel .gamelog-combobox option {
-  background: rgb(25, 31, 56);
-  color: rgb(249, 250, 251);
+  background: #1d2127;
+  color: #f9fafb;
 }
 
 /* Window-sample bar: L5/L10/L15/L20/Season/H2H, each showing its own hit
@@ -204,7 +202,7 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   padding: 4px !important;
   margin: 0 0 14px !important;
   border-radius: 10px !important;
-  background: var(--theme-panel, #0a0e16) !important;
+  background: var(--theme-panel, #0b0e13) !important;
   overflow-x: auto;
 }
 :root[data-theme] #gamelog-overlay .gamelog-windowbar button {
@@ -217,12 +215,12 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   padding: 8px 10px;
   border: 0;
   border-radius: 8px;
-  color: var(--theme-dim, #8c96a6);
+  color: var(--theme-dim, #90969d);
   background: transparent;
   cursor: pointer;
 }
 :root[data-theme] #gamelog-overlay .gamelog-windowbar button.active {
-  background: var(--theme-panel-2, #171b22);
+  background: var(--theme-panel-2, #171b20);
 }
 :root[data-theme] #gamelog-overlay .gamelog-windowbar button strong {
   font: 700 12px/1 var(--font-sans, sans-serif);
@@ -234,7 +232,7 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   color: var(--theme-green, #35e0c4);
 }
 
-/* Line stepper + prop-market pills, matched to the reference's compact
+/* Line stepper + prop-market pills, as a compact
    bordered button-group instead of a taller labeled control. */
 :root[data-theme] #gamelog-overlay .gamelog-toolbar {
   display: block !important;
@@ -288,7 +286,7 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   letter-spacing: .02em;
 }
 :root[data-theme] #gamelog-overlay .gamelog-stat-tabs button.active {
-  border-bottom-color: var(--theme-accent, #0082fe) !important;
+  border-bottom-color: var(--theme-accent, var(--theme-accent)) !important;
 }
 :root[data-theme] #gamelog-overlay .posted-lines {
   flex: 0 1 auto !important;
@@ -296,7 +294,7 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   width: auto !important;
   padding: 0 12px !important;
   border-radius: 10px !important;
-  background: var(--theme-panel-2, #171b22) !important;
+  background: var(--theme-panel-2, #171b20) !important;
 }
 :root[data-theme] #gamelog-overlay .posted-lines summary {
   min-height: 32px !important;
@@ -313,12 +311,12 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
      unscoped (no media query, no !important) -- my earlier pass never
      actually overrode that, so this kept stretching to the full toolbar
      width and forcing the posted-lines pill onto its own row below it
-     instead of sitting next to it, exactly as the reference does. */
+     instead of sitting next to it. */
   width: fit-content !important;
   display: flex !important;
   align-items: center;
   gap: 0;
-  border: 0.8px solid rgb(33, 37, 59);
+  border: 0.8px solid #23272d;
   border-radius: 8px;
   overflow: hidden;
 }
@@ -333,7 +331,7 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
 :root[data-theme] #gamelog-overlay .gamelog-line-control strong {
   min-width: 42px;
   text-align: center;
-  color: rgb(148, 163, 184);
+  color: #9da2a9;
   font: 500 16px/24px var(--font-sans, sans-serif);
 }
 
@@ -342,28 +340,27 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   :root[data-theme] #gamelog-overlay .gamelog-windowbar button { flex: 1 0 52px; min-height: 50px; padding: 6px 8px; }
 }
 
-/* Bar gradients, radius, label styling and the dashed line marker pulled
-   from pickfinder.app's actual rendered game-log chart (real gradient
-   stops read via getComputedStyle/SVG inspection, not guessed) -- every
-   other stylesheet's .gl-bar rules lose to this via the #gamelog-overlay
+/* Krazy Data's bars: the site's hit/miss colors (--good #45e59b, --bad
+   #ff536d), a lit top edge and a soft fade toward the baseline. Every other
+   stylesheet's .gl-bar rules lose to this via the #gamelog-overlay
    ancestor, same specificity trick used throughout this file. */
 :root[data-theme] #gamelog-overlay .gl-bar {
-  border-radius: 8px 8px 0 0 !important;
-  background: linear-gradient(180deg, #12d393 0%, #10b981 48%, #0d9467 100%) !important;
-  box-shadow: none !important;
+  border-radius: 7px 7px 2px 2px !important;
+  background: linear-gradient(180deg, #5ff0ae 0%, #45e59b 30%, #1f9e6a 100%) !important;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, .32) !important;
 }
 :root[data-theme] #gamelog-overlay .gl-bar-under {
-  background: linear-gradient(180deg, #ff4e4e 0%, #ef4444 48%, #bf3636 100%) !important;
+  background: linear-gradient(180deg, #ff7a8c 0%, #ff536d 30%, #b8334a 100%) !important;
 }
 :root[data-theme] #gamelog-overlay .gl-val {
   position: absolute !important;
   top: -20px !important;
   padding: 0 !important;
   background: transparent !important;
-  color: #10b981 !important;
-  font: 500 12px/16px var(--font-sans, sans-serif) !important;
+  color: #45e59b !important;
+  font: 600 12px/16px var(--font-sans, sans-serif) !important;
 }
-:root[data-theme] #gamelog-overlay .gl-bar-under .gl-val { color: #ef4444 !important; }
+:root[data-theme] #gamelog-overlay .gl-bar-under .gl-val { color: #ff6b80 !important; }
 :root[data-theme] #gamelog-overlay .gl-opp {
   order: 1;
   margin-top: 8px !important;
@@ -375,14 +372,14 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   order: 2;
   margin-top: 2px !important;
   font: 500 11px/1.2 var(--font-sans, sans-serif) !important;
-  color: var(--theme-dim, #8c96a6) !important;
+  color: var(--theme-dim, #90969d) !important;
 }
 :root[data-theme] #gamelog-overlay .gl-line-marker {
   border-top: 0 !important;
   opacity: 0.85 !important;
 }
 :root[data-theme] #gamelog-overlay .gl-line-marker::before {
-  border-top: 2px dashed #64748b !important;
+  border-top: 2px dashed #6e737a !important;
 }
 
 /* Every game in the current window should always fit on screen at once --
@@ -391,7 +388,7 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
    a 100%-wide CSS grid into one column PER GAME, squeezing 300+ bars into
    an unreadable smear; a later fix swapped that for a fixed-bar-width
    SCROLLABLE track instead, which stopped the smear but reintroduced the
-   scrolling the reference never needs (a ~34-game season sample visibly
+   scrolling a chart should never need (a ~34-game season sample visibly
    overflowed the right edge). Unified dense and non-dense on the same
    equal-fill layout below instead: :root[data-theme] #gamelog-overlay
    .gamelog-chart-track (no [data-dense] qualifier) always divides the
@@ -404,9 +401,9 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
    This file is loaded last, so this is the authoritative layout for the
    report-embedded version of the game log. */
 :root[data-theme] #gamelog-overlay .gamelog-modal {
-  border-color: #1d2944 !important;
+  border-color: #262a30 !important;
   border-radius: 18px !important;
-  background: #070e20 !important;
+  background: #0c0f14 !important;
   color: #f8fafc !important;
   overflow: hidden !important;
 }
@@ -423,7 +420,7 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   margin: 0 !important;
   padding: 16px 20px 18px !important;
   border: 0 !important;
-  background: linear-gradient(118deg, #2835dc 0%, #1721a8 52%, #3429f2 100%) !important;
+  background: linear-gradient(118deg, var(--theme-accent) 0%, var(--theme-accent) 52%, var(--theme-accent) 100%) !important;
 }
 :root[data-theme] #gamelog-overlay .gamelog-heading { padding: 0 !important; }
 :root[data-theme] #gamelog-overlay .gamelog-topline {
@@ -432,7 +429,7 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   justify-content: space-between;
   gap: 16px;
   margin: 0 0 18px !important;
-  color: #c7d2fe !important;
+  color: #cfd5dc !important;
   font: 700 13px/1 var(--font-sans, sans-serif) !important;
 }
 :root[data-theme] #gamelog-overlay .gamelog-brand {
@@ -452,7 +449,7 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   height: 64px !important;
   border: 2px solid rgba(255,255,255,.24) !important;
   border-radius: 50% !important;
-  background: rgba(4,10,28,.42) !important;
+  background: #080b106b !important;
   overflow: hidden;
 }
 :root[data-theme] #gamelog-overlay .gamelog-player-cutout img { width: 100%; height: 100%; object-fit: contain; object-position: center bottom; }
@@ -471,15 +468,15 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   padding: 4px 8px !important;
   border: 1px solid rgba(255,255,255,.18) !important;
   border-radius: 999px !important;
-  background: rgba(5,12,42,.28) !important;
-  color: #dbeafe !important;
+  background: #0c101547 !important;
+  color: #e3e9f1 !important;
   font: 800 10px/1 var(--font-sans, sans-serif) !important;
   letter-spacing: .04em !important;
 }
 :root[data-theme] #gamelog-overlay .gamelog-player-copy > p {
   display: block !important;
   margin: 7px 0 0 !important;
-  color: #dbeafe !important;
+  color: #e3e9f1 !important;
   font: 600 13px/1.35 var(--font-sans, sans-serif) !important;
 }
 :root[data-theme] #gamelog-overlay .gamelog-context-grid {
@@ -492,9 +489,9 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   padding: 9px 10px;
   border: 1px solid rgba(255,255,255,.15);
   border-radius: 10px;
-  background: rgba(5,12,42,.25);
+  background: #0c101540;
 }
-:root[data-theme] #gamelog-overlay .gamelog-context-grid span { display:block; color:#a5b4fc; font:800 8px/1 var(--font-sans,sans-serif); letter-spacing:.1em; }
+:root[data-theme] #gamelog-overlay .gamelog-context-grid span { display:block; color:var(--theme-accent-soft,var(--theme-accent)); font:800 8px/1 var(--font-sans,sans-serif); letter-spacing:.1em; }
 :root[data-theme] #gamelog-overlay .gamelog-context-grid strong { display:block; margin-top:5px; color:#fff; font:800 11px/1.1 var(--font-sans,sans-serif); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 :root[data-theme] #gamelog-overlay .gamelog-market-strip {
@@ -503,7 +500,7 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   padding: 0 20px 12px;
   margin-top: -1px;
   overflow-x: auto;
-  background: linear-gradient(180deg,#1721a8 0 38%,#070e20 38% 100%);
+  background: linear-gradient(180deg,var(--theme-accent) 0 38%,#0c0f14 38% 100%);
   scrollbar-width: none;
 }
 :root[data-theme] #gamelog-overlay .gamelog-market-strip::-webkit-scrollbar { display:none; }
@@ -511,16 +508,16 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   flex: 1 0 190px;
   min-height: 68px;
   padding: 11px 13px;
-  border: 1px solid #243456;
+  border: 1px solid #31353b;
   border-radius: 10px;
-  background: #111a2d;
+  background: #171b20;
   box-shadow: 0 8px 24px rgba(0,0,0,.16);
 }
-:root[data-theme] #gamelog-overlay .gamelog-market-card-label { display:flex; align-items:center; gap:7px; color:#9aa9c4; font:800 9px/1 var(--font-sans,sans-serif); letter-spacing:.08em; }
+:root[data-theme] #gamelog-overlay .gamelog-market-card-label { display:flex; align-items:center; gap:7px; color:#a3a9b0; font:800 9px/1 var(--font-sans,sans-serif); letter-spacing:.08em; }
 :root[data-theme] #gamelog-overlay .gamelog-market-card-label img { width:18px; height:18px; object-fit:contain; border-radius:4px; }
-:root[data-theme] #gamelog-overlay .gamelog-vortex-mark { display:grid; place-items:center; width:19px; height:19px; border-radius:50%; background:#3764ff; color:#fff; font:900 10px/1 var(--font-sans,sans-serif); }
+:root[data-theme] #gamelog-overlay .gamelog-vortex-mark { display:grid; place-items:center; width:19px; height:19px; border-radius:50%; background:var(--theme-accent); color:#fff; font:900 10px/1 var(--font-sans,sans-serif); }
 :root[data-theme] #gamelog-overlay .gamelog-model-card > div { display:flex; gap:14px; margin-top:8px; }
-:root[data-theme] #gamelog-overlay .gamelog-model-card > div span { color:#8491ab; font:800 11px/1 var(--font-sans,sans-serif); }
+:root[data-theme] #gamelog-overlay .gamelog-model-card > div span { color:#8c9198; font:800 11px/1 var(--font-sans,sans-serif); }
 :root[data-theme] #gamelog-overlay .gamelog-model-card strong { color:#38e0b2; font-size:14px; }
 :root[data-theme] #gamelog-overlay :is(.gamelog-book-card,.gamelog-matchup-card) > strong { display:block; margin-top:8px; color:#f8fafc; font:800 14px/1 var(--font-sans,sans-serif); }
 :root[data-theme] #gamelog-overlay :is(.gamelog-book-card,.gamelog-matchup-card) > small { display:block; margin-top:5px; color:#35ddb0; font:700 10px/1 var(--font-sans,sans-serif); }
@@ -530,7 +527,7 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   flex-direction: column;
   gap: 0;
   padding: 0 14px 12px !important;
-  background: #070e20 !important;
+  background: #0c0f14 !important;
 }
 :root[data-theme] #gamelog-overlay .gamelog-toolbar { padding: 0 !important; }
 :root[data-theme] #gamelog-overlay .gamelog-stat-tabs {
@@ -539,7 +536,7 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   margin: 0 -14px 14px !important;
   padding: 0 14px !important;
   gap: 4px !important;
-  border-bottom: 1px solid #1c2841 !important;
+  border-bottom: 1px solid #25292f !important;
 }
 :root[data-theme] #gamelog-overlay .gamelog-stat-tabs button {
   min-width: 48px;
@@ -548,12 +545,12 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   margin: 0 !important;
   border: 0 !important;
   border-bottom: 3px solid transparent !important;
-  color: #8f9bb1 !important;
+  color: #969ba2 !important;
   font-size: 12px !important;
 }
 :root[data-theme] #gamelog-overlay .gamelog-stat-tabs button.active {
-  border-bottom-color: #2d8cff !important;
-  background: #111a33 !important;
+  border-bottom-color: var(--theme-accent) !important;
+  background: #181c21 !important;
   color: #fff !important;
 }
 :root[data-theme] #gamelog-overlay .gamelog-market-title {
@@ -564,10 +561,10 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   font: 800 22px/1.15 var(--font-sans,sans-serif);
   letter-spacing: -.035em;
 }
-:root[data-theme] #gamelog-overlay .gamelog-line-control { order: 3; min-height: 40px; background:#0d1629; }
+:root[data-theme] #gamelog-overlay .gamelog-line-control { order: 3; min-height: 40px; background:#13171c; }
 :root[data-theme] #gamelog-overlay .gamelog-line-control button { min-width:40px; min-height:40px; font-size:20px; }
 :root[data-theme] #gamelog-overlay .gamelog-line-control strong { min-width:48px; color:#f8fafc; font-weight:800; }
-:root[data-theme] #gamelog-overlay .posted-lines { order: 4; min-height:40px !important; border:1px solid #243456 !important; background:#111a2d !important; }
+:root[data-theme] #gamelog-overlay .posted-lines { order: 4; min-height:40px !important; border:1px solid #31353b !important; background:#171b20 !important; }
 
 :root[data-theme] #gamelog-overlay .gamelog-filter-panel {
   order: initial;
@@ -579,33 +576,33 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
 :root[data-theme] #gamelog-overlay .gamelog-filter-panel .gamelog-combobox {
   min-height: 44px !important;
   height: 44px !important;
-  border-color: #243456 !important;
-  background-color: #111a2d !important;
+  border-color: #31353b !important;
+  background-color: #171b20 !important;
 }
 :root[data-theme] #gamelog-overlay .gamelog-windowbar {
   gap: 5px !important;
   margin: 0 !important;
   padding: 4px !important;
-  border: 1px solid #18243d !important;
-  background: #050b19 !important;
+  border: 1px solid #21252b !important;
+  background: #080c11 !important;
 }
 :root[data-theme] #gamelog-overlay .gamelog-windowbar button { min-height:64px; border-radius:8px; }
-:root[data-theme] #gamelog-overlay .gamelog-windowbar button.active { background:#141d33 !important; }
+:root[data-theme] #gamelog-overlay .gamelog-windowbar button.active { background:#1a1e24 !important; }
 :root[data-theme] #gamelog-overlay .gamelog-windowbar button strong { color:#f8fafc !important; }
 
 :root[data-theme] #gamelog-overlay .line-movement-card,
 :root[data-theme] #gamelog-overlay .gamelog-summary { display:none !important; }
 :root[data-theme] #gamelog-overlay .gamelog-studio,
-:root[data-theme] #gamelog-overlay .gamelog-stage { background:#070e20 !important; }
+:root[data-theme] #gamelog-overlay .gamelog-stage { background:#0c0f14 !important; }
 :root[data-theme] #gamelog-overlay .gamelog-chart {
   height: auto !important;
   min-height: 470px !important;
   margin: 0 !important;
   padding: 38px 18px 44px 42px !important;
   border: 0 !important;
-  border-top: 1px solid #16223a !important;
+  border-top: 1px solid #1f2328 !important;
   border-radius: 0 !important;
-  background: linear-gradient(180deg,#071123 0%,#08202c 42%,#093629 100%) !important;
+  background: linear-gradient(180deg,#0e1217 0%,#08202c 42%,#093629 100%) !important;
   overflow-x: auto !important;
 }
 :root[data-theme] #gamelog-overlay .gamelog-chart-track {
@@ -655,7 +652,7 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
 :root[data-theme] #gamelog-overlay .gamelog-market-strip {
   align-items: stretch;
   padding-top: 10px !important;
-  background: #070e20 !important;
+  background: #0c0f14 !important;
 }
 :root[data-theme] #gamelog-overlay .gamelog-market-strip article {
   box-shadow: none !important;
@@ -692,7 +689,7 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   width: 34px;
   height: 34px;
   margin-left: -7px;
-  border: 2px solid #111a2d;
+  border: 2px solid #171b20;
   border-radius: 50%;
   background: #f8fafc;
   overflow: hidden;
@@ -705,7 +702,7 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   box-shadow: none !important;
 }
 :root[data-theme] #gamelog-overlay .gamelog-stat-tabs {
-  background: #0b1427 !important;
+  background: #11151a !important;
   border-top: 0 !important;
   border-right: 0 !important;
   border-left: 0 !important;
@@ -715,7 +712,7 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   background: transparent !important;
 }
 :root[data-theme] #gamelog-overlay .gamelog-stat-tabs button.active {
-  background: rgba(49,112,255,.10) !important;
+  background: color-mix(in srgb,var(--theme-accent) 10%,transparent) !important;
 }
 
 /* Make the Trend controls share the same calm, bordered trigger language as
@@ -727,7 +724,7 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   padding: 0 12px !important;
   border: 1px solid rgba(255,255,255,.10) !important;
   border-radius: 12px !important;
-  background: linear-gradient(180deg,rgba(24,34,57,.96),rgba(15,23,40,.96)) !important;
+  background: linear-gradient(180deg,#1f2329f5,#14181df5) !important;
   box-shadow: inset 0 1px rgba(255,255,255,.03) !important;
 }
 :root[data-theme] #gamelog-overlay .posted-lines summary {
@@ -752,7 +749,7 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   padding: 6px !important;
   border: 1px solid rgba(255,255,255,.10) !important;
   border-radius: 12px !important;
-  background: #111827 !important;
+  background: #15191e !important;
   box-shadow: 0 18px 45px rgba(0,0,0,.48) !important;
   overflow-y: auto;
 }
@@ -766,7 +763,7 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   padding: 0 38px 0 14px !important;
   border: 1px solid rgba(255,255,255,.10) !important;
   border-radius: 12px !important;
-  background-color: #111827 !important;
+  background-color: #15191e !important;
   background-position: right 13px center !important;
   color: #f8fafc !important;
   font: 700 13px/1 var(--font-sans,sans-serif) !important;
@@ -774,8 +771,8 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
 }
 :root[data-theme] #gamelog-overlay .gamelog-filter-panel .gamelog-combobox:hover,
 :root[data-theme] #gamelog-overlay .gamelog-filter-panel .gamelog-combobox:focus {
-  border-color: rgba(51,143,255,.65) !important;
-  outline: 3px solid rgba(51,143,255,.12) !important;
+  border-color: color-mix(in srgb,var(--theme-accent) 65%,transparent) !important;
+  outline: 3px solid color-mix(in srgb,var(--theme-accent) 12%,transparent) !important;
 }
 
 @media (max-width: 760px) {
@@ -966,10 +963,10 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   :root[data-theme] #gamelog-overlay .gamelog-chart { height:304px !important; padding:26px 10px 36px 32px !important; }
 }
 
-/* pickfinder.app's chart has a plain flat dark background and no visible
-   y-axis scale -- ours still carried an older teal/navy gradient tint
-   (styles.css) plus a left-side 4/2/0 axis column, both of which read as
-   visual noise against the reference. Keep .gl-y-axis in the DOM (app.js
+/* The chart sits on a plain flat dark background with no visible y-axis
+   scale -- it used to carry an older teal/navy gradient tint (styles.css)
+   plus a left-side 4/2/0 axis column, both of which read as visual
+   noise. Keep .gl-y-axis in the DOM (app.js
    still writes to it) so nothing has to change there; just stop rendering
    it and flatten the background to match. */
 :root[data-theme] #gamelog-overlay .gamelog-chart {
@@ -987,7 +984,7 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
    share the track's full width -- fixed widths for a small sample (e.g.
    L5) left a big empty gap on the right instead of centering; (2) fixed
    widths for a large sample (L15/L20) can exceed the viewport, forcing
-   horizontal scroll on mobile, which the reference never needs. Reverted
+   horizontal scroll on mobile, which the chart should never need. Reverted
    to equal-fill + centered, which packs bars closely AND always fits the
    screen AND stays centered, at every game count and viewport width.
    Applies unconditionally now (no [data-dense] qualifier), so a large
@@ -1022,9 +1019,8 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
 }
 /* Once a window has enough games that equal-fill shrinks each column below
    a legible width, the per-bar date/opponent/value text has nowhere to go
-   without overlapping its neighbors -- pickfinder.app's own dense charts
-   drop per-bar numbers entirely at this point and rely on the bars/colors
-   alone. app.js sets this flag from the actual estimated column width
+   without overlapping its neighbors, so dense charts drop per-bar numbers
+   entirely at this point and rely on the bars/colors alone. app.js sets this flag from the actual estimated column width
    (see renderGameLogChart) rather than a fixed game-count threshold,
    since the same count reads very differently on a phone vs. a wide
    desktop chart. */
@@ -1036,8 +1032,7 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
 
 /* Collapse the visual gap between the toolbar/filter row and the chart so
    the whole thing reads as one continuous panel (title, stepper, window
-   tabs, filters) instead of stacked separate-looking sections, matching
-   the reference's single unbroken toolbar block. */
+   tabs, filters) instead of stacked separate-looking sections. */
 :root[data-theme] #gamelog-overlay .gamelog-toolbar {
   margin-bottom: 10px !important;
 }
@@ -1069,14 +1064,11 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   white-space: nowrap;
 }
 
-/* The "PrizePicks lines" trigger, restyled to pickfinder.app's own compact
-   book-select pill (real class: "min-w-20 w-max px-2 bg-input-bg
-   rounded-lg border border-input-border min-h-8 h-8 inline-flex
-   items-center hover:bg-input-border") instead of the taller bordered card
-   look several earlier rules in this file and gamelog-fix.css/
+/* The "PrizePicks lines" trigger, restyled as a compact book-select pill
+   instead of the taller bordered card look several earlier rules in this file and gamelog-fix.css/
    research-polish.css built up in layers. Strip the outer <details> down
    to a bare positioning wrapper and put all the visible chrome on the
-   <summary> itself, since that's the one clickable pill in the reference. */
+   <summary> itself, since that's the one clickable pill. */
 :root[data-theme] #gamelog-overlay .posted-lines {
   min-width: 0 !important;
   height: auto !important;
@@ -1096,20 +1088,20 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   height: 32px !important;
   min-height: 32px !important;
   padding: 0 8px !important;
-  border: 0.8px solid rgb(33, 37, 59) !important;
+  border: 0.8px solid #23272d !important;
   border-radius: 8px !important;
-  background: rgb(25, 31, 56) !important;
-  color: rgb(249, 250, 251) !important;
+  background: #1d2127 !important;
+  color: #f9fafb !important;
   font: 500 13px/1 var(--font-sans, sans-serif) !important;
   cursor: pointer;
 }
 :root[data-theme] #gamelog-overlay .posted-lines summary:hover {
-  background: rgb(33, 37, 59) !important;
+  background: #23272d !important;
 }
 :root[data-theme] #gamelog-overlay .posted-selected {
   padding: 0 !important;
   background: transparent !important;
-  color: rgb(249, 250, 251) !important;
+  color: #f9fafb !important;
   font-size: 13px !important;
 }
 :root[data-theme] #gamelog-overlay .posted-options {
@@ -1130,10 +1122,8 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
 }
 
 /* Real per-line sportsbook odds row (see loadGameLogBookOdds/
-   renderGameLogBookOdds in app.js), styled with the same real bordered-pill
-   colors pulled from pickfinder.app earlier in this file (rgb(25,31,56)
-   bg / rgb(33,37,59) border) for visual consistency with the rest of the
-   redesign. */
+   renderGameLogBookOdds in app.js), in the same bordered-pill colors as
+   the filter pickers above. */
 :root[data-theme] #gamelog-overlay .gamelog-odds-row {
   display: flex !important;
   gap: 8px;
@@ -1149,9 +1139,9 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   gap: 8px;
   flex: 0 0 auto;
   padding: 8px 12px;
-  border: 0.8px solid rgb(33, 37, 59);
+  border: 0.8px solid #23272d;
   border-radius: 8px;
-  background: rgb(25, 31, 56);
+  background: #1d2127;
 }
 :root[data-theme] #gamelog-overlay .gamelog-odds-pill img {
   width: 20px;
@@ -1180,10 +1170,10 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   display: flex;
   align-items: center;
   gap: 4px;
-  color: rgb(249, 250, 251);
+  color: #f9fafb;
 }
 :root[data-theme] #gamelog-overlay .gamelog-odds-values b {
-  color: rgb(156, 163, 175);
+  color: #9ea3aa;
   font-size: 10px;
   font-weight: 700;
 }
@@ -1254,7 +1244,7 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
 .nfl-trend-host:empty { display: none; }
 
 /* Lineup filters a host sport applied to the chart (WNBA "W/O <teammate>"):
-   removable pills at the right end of the filter row, like pickfinder.app. */
+   removable pills at the right end of the filter row. */
 :root[data-theme] #gamelog-overlay .gamelog-ext-chips {
   display: flex;
   flex-wrap: wrap;
@@ -1273,33 +1263,33 @@ body.gamelog-scroll-locked { overflow: initial !important; touch-action: initial
   min-height: 36px;
   max-width: 100%;
   padding: 0 10px 0 14px;
-  border: 1px solid #343d5c;
+  border: 1px solid #3b3f45;
   border-radius: 999px;
-  background: #1a2138;
-  color: #e7ebf7;
+  background: #1f2328;
+  color: #e6ecf3;
   font: 600 13px/1 var(--font-sans, sans-serif);
   cursor: pointer;
 }
 :root[data-theme] #gamelog-overlay .gamelog-ext-chip > span:first-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 :root[data-theme] #gamelog-overlay .gamelog-ext-chip::before { content: ""; flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: #ff7b8a; }
 :root[data-theme] #gamelog-overlay .gamelog-ext-chip[data-kind=with]::before { background: #5fe0a7; }
-:root[data-theme] #gamelog-overlay .gamelog-ext-chip-x { font-size: 17px; line-height: 1; color: #9aa6c2; }
-:root[data-theme] #gamelog-overlay .gamelog-filter-panel .gamelog-ext-chip:hover { border-color: #56607f; background: #212a45; }
+:root[data-theme] #gamelog-overlay .gamelog-ext-chip-x { font-size: 17px; line-height: 1; color: #a1a7ae; }
+:root[data-theme] #gamelog-overlay .gamelog-filter-panel .gamelog-ext-chip:hover { border-color: #5d6268; background: #282c31; }
 :root[data-theme] #gamelog-overlay .gamelog-filter-panel .gamelog-ext-chip:hover .gamelog-ext-chip-x { color: #fff; }
-:root[data-theme] #gamelog-overlay .gamelog-ext-note { color: #9aa6c2; font: 500 12px/1 var(--font-sans, sans-serif); }
+:root[data-theme] #gamelog-overlay .gamelog-ext-note { color: #a1a7ae; font: 500 12px/1 var(--font-sans, sans-serif); }
 :root[data-theme] #gamelog-overlay .gamelog-filter-panel .gamelog-ext-clear {
   min-height: 36px;
   padding: 0 6px;
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: #a9b6d3;
+  color: #b1b7be;
   font: 600 12px/1 var(--font-sans, sans-serif);
   text-decoration: underline;
   text-underline-offset: 3px;
   cursor: pointer;
 }
-:root[data-theme] #gamelog-overlay .gamelog-filter-panel :is(.gamelog-ext-chip, .gamelog-ext-clear):focus-visible { outline: 2px solid #86baff; outline-offset: 2px; }
+:root[data-theme] #gamelog-overlay .gamelog-filter-panel :is(.gamelog-ext-chip, .gamelog-ext-clear):focus-visible { outline: 2px solid var(--theme-accent-soft,var(--theme-accent)); outline-offset: 2px; }
 /* Chips never squeeze the Season/Location pickers: those keep their size
    and the chips wrap onto their own line instead (a full line on phones).
    The Finder's phone layout pins this row to one line (unified-finder.css),
