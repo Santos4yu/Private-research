@@ -58,8 +58,12 @@ export const NFL_STAT_CODES = {
   def_interceptions: 'D INT',
 };
 
-export function nflStatCode(key) {
-  return NFL_STAT_CODES[key] || String(key || '').replaceAll('_', ' ').toUpperCase();
+// A market we have no short code for goes by its own name ("PUNTS"),
+// never the internal "pp:" key PrizePicks-only markets carry.
+export function nflStatCode(key, label) {
+  if (NFL_STAT_CODES[key]) return NFL_STAT_CODES[key];
+  const name = label || String(key || '').replace(/^pp:/, '');
+  return name.replaceAll('_', ' ').toUpperCase();
 }
 
 // The panel's stat tabs take plain labels and hand the label back on click,
