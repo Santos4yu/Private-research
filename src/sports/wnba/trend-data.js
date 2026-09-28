@@ -8,7 +8,8 @@ export const WNBA_STATS=[
 ].map(([key,label,code])=>({key,label,code}));
 
 export function wnbaChart(logs,marketKey,opponent){
- const all=(logs||[]).map(row=>({value:row.values?.[marketKey],season:String(row.season||''),fullDate:row.date||'',opponent:row.opponent||'',isHome:row.isHome,gameId:row.gameId,result:row.result,score:row.score})).filter(row=>Number.isFinite(row.value));
+ // Preseason games stay out, same as the board's hit rates (api/wnba.py).
+ const all=(logs||[]).filter(row=>row.seasonKind!=='preseason').map(row=>({value:row.values?.[marketKey],season:String(row.season||''),fullDate:row.date||'',opponent:row.opponent||'',isHome:row.isHome,gameId:row.gameId,result:row.result,score:row.score})).filter(row=>Number.isFinite(row.value));
  const chart={all};const h2h=opponent?all.filter(game=>game.opponent===opponent):[];
  if(h2h.length){chart.h2h=h2h;chart.meta={h2hLabel:`vs ${opponent}`};}return chart;
 }

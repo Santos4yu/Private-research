@@ -118,6 +118,10 @@ class handler(BaseHTTPRequestHandler):
                 if not admin_auth.is_admin_request(self.headers):
                     return self._send(401, {"error": "Admin session required"})
                 return self._build_nfl_board(trigger="manual")
+            if action == "wnba-league-build":
+                if not admin_auth.is_admin_request(self.headers):
+                    return self._send(401, {"error": "Admin session required"})
+                return self._build_wnba_league(trigger="manual")
             if action == "site-background-upload":
                 if not admin_auth.is_admin_request(self.headers):return self._send(401, {"error":"Admin session required"})
                 from site_controls import same_origin
@@ -285,6 +289,23 @@ class handler(BaseHTTPRequestHandler):
         elif "vercel-cron" not in user_agent.lower() and cron_header != "1":
             return self._send(401, {"error": "Cron request required"})
         return self._build_nfl_board(trigger="cron")
+
+    def _build_wnba_league(self, trigger="manual"):
+        """Add every newly finished WNBA game to the stored season, on demand.
+
+        Reads already top the season up every few hours (league.ensure), so
+        this is only needed to force it. The matchup views (defense vs
+        position, shot zones, similar players, with/without) read that stored
+        season, and finished games are only ever fetched once."""
+        try:
+            from backend.sports.wnba.league import build, current_season
+            payload = build(current_season())
+        except Exception as exc:  # noqa: BLE001 -- report, don't hang the caller
+            return self._send(500, {"error": f"WNBA season build failed: {exc}"})
+        return self._send(200, {"ok": True, "season": payload["season"], "trigger": trigger,
+                                "games": len(payload["games"]), "failed": payload["failed"],
+                                "partial": payload["partial"], "stored": payload.get("stored"),
+                                "storedBytes": payload.get("storedBytes"), "builtAt": payload["builtAt"]})
 
     def _build_nfl_board(self, trigger="manual"):
         """Scan the NFL slate once and store the finished board.

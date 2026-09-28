@@ -6,6 +6,7 @@ profiles belong to a separate stats source and are never inferred from odds.
 from __future__ import annotations
 
 import json
+import re
 import sys
 import time
 import unicodedata
@@ -51,6 +52,8 @@ ALL_MARKETS = {**MARKETS, **ALTERNATE_MARKETS}
 BOOK_PRIORITY = {"prizepicks": 0, "underdog": 1, "draftkings": 2, "fanduel": 3, "betmgm": 4}
 _memory = {"at": 0.0, "value": None}
 _roster_memory = {"at": 0.0, "value": None}
+# The league context derived from the stored season, per (season, builtAt).
+_league_memory = {}
 
 
 def _norm(value):
@@ -156,8 +159,18 @@ def _made(value):
     return _number(str(value or "").split("-", 1)[0])
 
 
+def _own_score_first(score, result):
+    """ESPN writes scores winner-first ("102-85" for an 85-102 loss, and
+    "86-84 OT" with the overtime marker after both numbers)."""
+    match = re.match(r"^\s*(\d+)-(\d+)(.*)$", str(score or ""))
+    return f"{match[2]}-{match[1]}{match[3]}" if result == "L" and match else score
+
+
 def _game_logs(player_id, season):
-    cache_key = f"krazy_data:wnba:v1:gamelog:{player_id}:{season}"
+    # v4: rows carry the full box line (attempts, fouls) for the game log
+    # and supporting-stats views, are tagged by season type, and give the
+    # score with this player's team first.
+    cache_key = f"krazy_data:wnba:v4:gamelog:{player_id}:{season}"
     now = time.time()
     try:
         raw = store.get(cache_key)
@@ -183,7 +196,12 @@ def _game_logs(player_id, season):
                 if all(v is not None for v in (rebounds,assists)): values["player_rebounds_assists"]=rebounds+assists
                 if all(v is not None for v in (points,rebounds,assists)): values["player_points_rebounds_assists"]=points+rebounds+assists
                 if all(v is not None for v in (points,rebounds,assists,blocks,steals,turnovers)): values["player_fantasy_points"]=round(points+1.2*rebounds+1.5*assists+3*blocks+3*steals-turnovers,1)
-                rows.append({"gameId":event_id,"date":event.get("gameDate"),"season":season,"seasonType":season_type.get("displayName"),"opponent":(event.get("opponent") or {}).get("abbreviation"),"opponentLogo":(event.get("opponent") or {}).get("logo"),"isHome":event.get("atVs")=="vs","result":event.get("gameResult"),"score":event.get("score"),"minutes":_number(stats.get("minutes")),"values":values})
+                fg=str(stats.get("fieldGoalsMade-fieldGoalsAttempted") or "").split("-"); tp=str(stats.get("threePointFieldGoalsMade-threePointFieldGoalsAttempted") or "").split("-"); ft=str(stats.get("freeThrowsMade-freeThrowsAttempted") or "").split("-")
+                box={"min":_number(stats.get("minutes")),"pts":points,"reb":rebounds,"ast":assists,"stl":steals,"blk":blocks,"to":turnovers,"pf":_number(stats.get("fouls")),
+                     "fgm":_number(fg[0]) if len(fg)==2 else None,"fga":_number(fg[1]) if len(fg)==2 else None,"tpm":_number(tp[0]) if len(tp)==2 else None,"tpa":_number(tp[1]) if len(tp)==2 else None,"ftm":_number(ft[0]) if len(ft)==2 else None,"fta":_number(ft[1]) if len(ft)==2 else None}
+                display_type=str(season_type.get("displayName") or "")
+                kind="postseason" if "Postseason" in display_type else "preseason" if "Preseason" in display_type else "regular"
+                rows.append({"gameId":event_id,"date":event.get("gameDate"),"season":season,"seasonType":display_type,"seasonKind":kind,"opponent":(event.get("opponent") or {}).get("abbreviation"),"opponentLogo":(event.get("opponent") or {}).get("logo"),"isHome":event.get("atVs")=="vs","result":event.get("gameResult"),"score":_own_score_first(event.get("score"),event.get("gameResult")),"minutes":_number(stats.get("minutes")),"values":values,"box":box})
     rows.sort(key=lambda row: row.get("date") or "")
     result={"status":"AVAILABLE","source":"espn","playerId":player_id,"season":season,"rows":rows,"fetchedAt":datetime.now(timezone.utc).isoformat()}
     try: store.set(cache_key,json.dumps({"at":now,"value":result},separators=(",",":")))
@@ -207,7 +225,9 @@ def _attach_history(rows, season):
     with ThreadPoolExecutor(max_workers=8) as pool:
         for player_id, logs in pool.map(load, player_ids): histories[player_id] = logs
     for row in rows:
-        logs = histories.get(row.get("playerId"), [])
+        # Preseason games are not the player's real role or minutes; they
+        # stay in the game log but never count toward a hit rate.
+        logs = [log for log in histories.get(row.get("playerId"), []) if log.get("seasonKind") != "preseason"]
         values = [(log.get("values") or {}).get(row["marketKey"]) for log in logs]
         values = [value for value in values if value is not None]
         recent = values[-10:]
@@ -371,6 +391,8 @@ class handler(BaseHTTPRequestHandler):
                 except ValueError: return _send(self, 400, {"error": "A valid WNBA season is required."})
                 if not player_id.isdigit() or not 2000 <= season <= 2100: return _send(self, 400, {"error": "A verified WNBA player and season are required."})
                 return _send(self, 200, _game_logs(player_id, season))
+            if resource in ("matchup", "league-context", "player-context"):
+                return self._context(resource, query)
             if resource != "board": return _send(self, 404, {"error": "Unknown WNBA resource."})
             fast = query.get("fast", ["0"])[0].lower() in ("1", "true", "yes")
             return _send(self, 200, _board(include_history=not fast))
@@ -378,3 +400,39 @@ class handler(BaseHTTPRequestHandler):
             return _send(self, 503, {"error": str(exc), "rows": [], "source": "the-odds-api"})
         except Exception:
             return _send(self, 503, {"error": "WNBA lines are temporarily unavailable.", "rows": [], "source": "the-odds-api"})
+
+    def _context(self, resource, query):
+        """Matchup research for the player page. All of it comes from ESPN:
+        the game summary for the matchup itself, and the stored season of
+        box scores (backend/sports/wnba/league.py) for everything else."""
+        from backend.sports.wnba import context, league, matchup
+        arg = lambda name: (query.get(name) or [""])[0].strip()
+        team_code = lambda value: value.upper() if value.isalnum() and 1 < len(value) <= 4 else ""
+        try:
+            if resource == "matchup":
+                home, away = team_code(arg("home")), team_code(arg("away"))
+                if not home or not away or not arg("startsAt"):
+                    return _send(self, 400, {"error": "Both teams and the start time are required."})
+                event_id = matchup.find_event(home, away, arg("startsAt"))
+                if not event_id:
+                    return _send(self, 404, {"error": "This game is not on ESPN's schedule yet."})
+                return _send(self, 200, matchup.matchup(event_id))
+            season = league.current_season()
+            payload = league.ensure(season)
+            if not payload or not payload.get("games"):
+                return _send(self, 503, {"error": "Season data is still being prepared. Try again shortly."})
+            if resource == "league-context":
+                built = payload.get("builtAt")
+                if _league_memory.get("key") != (season, built):
+                    _league_memory.update(key=(season, built), value=context.league_context(payload))
+                return _send(self, 200, _league_memory["value"])
+            player_id, team, opponent = arg("playerId"), team_code(arg("team")), team_code(arg("opponent"))
+            if not player_id.isdigit() or not team or not opponent:
+                return _send(self, 400, {"error": "A verified player, team and opponent are required."})
+            market = arg("market")
+            if market not in context.MARKET_STAT:
+                return _send(self, 400, {"error": "Unknown market."})
+            line = _number(arg("line"))
+            return _send(self, 200, context.player_context(payload, player_id, team, opponent, market, line))
+        except Exception:
+            return _send(self, 503, {"error": "Matchup research is temporarily unavailable."})
