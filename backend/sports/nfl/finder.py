@@ -26,7 +26,7 @@ from .cache import NFLCacheDomain, cached_nfl
 from .services.nflverse import RELEASE, SCHEDULE_URL, TEAM_URL, ProviderError, _source_rows, canonical_team
 from .services.research_stats import numeric, prizepicks_fantasy
 
-VERSION = "nfl-finder-v2"
+VERSION = "nfl-finder-v3"
 USER_AGENT = {"User-Agent": "KrazyData-NFL-finder/1.0"}
 
 CONFERENCES = {
@@ -178,6 +178,8 @@ MARKET_FIELDS = {
     "passing_rushing_yards": ("passing_yards", "rushing_yards"),
     "receiving_yards": ("receiving_yards",), "receptions": ("receptions",), "targets": ("targets",),
     "rushing_receiving_yards": ("rushing_yards", "receiving_yards"), "touchdowns": ("rushing_tds", "receiving_tds"),
+    "sacks_taken": ("sacks_suffered",), "rushing_tds": ("rushing_tds",), "receiving_tds": ("receiving_tds",),
+    "fumbles_lost": ("fumbles_lost_total",),
 }
 BOX_FIELDS = (
     "completions", "attempts", "passing_yards", "passing_tds", "passing_interceptions", "sacks_suffered",
@@ -213,7 +215,7 @@ def _kicking(row):
     else:
         fg_points = sum(3 if distance < 40 else 4 if distance < 50 else 5 for distance in distances)
     return {
-        "fg_made": made, "fg_attempts": attempts, "pat_attempts": pat_attempts,
+        "fg_made": made, "fg_attempts": attempts, "pat_attempts": pat_attempts, "pat_made": pats,
         "fg_yards": sum(distances) if distances else (_n(row, "fg_made_distance") or 0),
         "kicking_points": made * 3 + pats, "kicker_fantasy": fg_points + pats,
         "longest_fg": max(distances) if distances else (0 if not made else _n(row, "fg_long")),
@@ -228,7 +230,7 @@ def _defense(row):
         return {}
     # Solo tackles plus every assisted one the player took part in -- the
     # combined total a tackles prop settles on.
-    return {"tackles": (solo or 0) + (with_assist or 0) + (assists or 0), "sacks": _n(row, "def_sacks") or 0,
+    return {"tackles": (solo or 0) + (with_assist or 0) + (assists or 0), "solo_tackles": solo or 0, "sacks": _n(row, "def_sacks") or 0,
             "tackles_for_loss": _n(row, "def_tackles_for_loss") or 0,
             "def_interceptions": _n(row, "def_interceptions") or 0}
 
@@ -317,7 +319,7 @@ PBP_FIELDS = ("game_id", "season_type", "posteam", "defteam", "play_type", "yard
 # as 0, which is how these props settle.
 PBP_MARKETS = {"longest_reception": "longestReception", "longest_rush": "longestRush",
                "longest_completion": "longestCompletion", "rush_yards_first_5": "rushFirst5",
-               "rec_yards_first_2": "recFirst2", "punts_inside_20": "puntsIn20",
+               "rec_yards_first_2": "recFirst2", "punts": "punts", "punts_inside_20": "puntsIn20",
                "gross_punt_yards": "puntYards", "punts_50_plus": "punts50"}
 
 

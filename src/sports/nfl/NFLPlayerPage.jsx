@@ -20,7 +20,7 @@ import './nfl-finder.css';
 // none, and skip that request.
 const CONTEXT_BASE={longest_reception:'receiving_yards',rec_yards_first_2:'receiving_yards',longest_rush:'rushing_yards',
  rush_yards_first_5:'rushing_yards',longest_completion:'passing_yards'};
-const NO_CONTEXT=new Set(['punts_inside_20','gross_punt_yards','punts_50_plus']);
+const NO_CONTEXT=new Set(['punts','punts_inside_20','gross_punt_yards','punts_50_plus']);
 const CONTEXT_MARKET=market=>!market||NO_CONTEXT.has(market)||String(market).startsWith('pp:')?null:CONTEXT_BASE[market]||market;
 // One tab per market this player has a line on, in the catalog's order.
 function statTabs(playerRows){
