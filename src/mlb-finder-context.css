@@ -60,7 +60,12 @@
 @media(max-width:600px) { .mlb-injury-list { max-height:none; } .mlb-injury-card { padding:10px; } }
 .mlb-player-gamelog { margin-top:8px; min-width:0; max-width:100%; }
 .mlb-player-gamelog header { flex-wrap:wrap; gap:6px; }
-.mlb-player-log-scroll { overflow:auto; max-height:520px; max-width:100%; scrollbar-width:thin; scrollbar-color:#454e70 #10162a; }
+/* Sideways only. A box that also scrolled down (overflow:auto plus a max
+   height) let a finger drag the table diagonally, and iOS's rubber-band
+   bounce then pulled it off its top and left edges. All 15 rows sit in
+   the page instead, the page does the vertical scrolling, and the
+   sideways scroll stops dead at either end. */
+.mlb-player-log-scroll { overflow-x:auto; overflow-y:hidden; overscroll-behavior-x:none; max-width:100%; scrollbar-width:thin; scrollbar-color:#454e70 #10162a; }
 .mlb-player-log-scroll:focus-visible { outline:2px solid #a99aff; outline-offset:-2px; }
 .mlb-player-gamelog table { width:100%; border-collapse:collapse; white-space:nowrap; font-size:12px; font-variant-numeric:tabular-nums; }
 .mlb-player-gamelog th,.mlb-player-gamelog td { padding:10px 9px; text-align:right; border-bottom:1px solid #252d44; color:#dce3f4; }
@@ -68,7 +73,7 @@
 .mlb-player-gamelog th:first-child,.mlb-player-gamelog td:nth-child(2),.mlb-player-gamelog th:nth-child(2) { text-align:left; }
 .mlb-player-gamelog tbody tr:nth-child(even) { background:#ffffff03; }
 .mlb-player-gamelog tbody tr:hover { background:#a99aff0c; }
-@media(max-width:600px) { .mlb-player-log-scroll { max-height:420px; } .mlb-player-gamelog th,.mlb-player-gamelog td { padding:9px 8px; } }
+@media(max-width:600px) { .mlb-player-gamelog th,.mlb-player-gamelog td { padding:9px 8px; } }
 .mlb-starter-card .mlb-starter-season { padding:4px 9px; border-radius:12px; background:#10162a; border:1px solid #30384f; color:#dfe5f5; font-size:11px; font-weight:700; }
 .mlb-starter-card .mlb-starter-table { width:100%; border-collapse:collapse; table-layout:fixed; font-variant-numeric:tabular-nums; }
 .mlb-starter-card .mlb-starter-table th:first-child { width:74%; text-align:left; }
@@ -81,7 +86,6 @@
 .mlb-starter-identity small { color:#aeb9ce; font-size:10px; }
 .mlb-starter-identity .mlb-context-photo { width:26px; height:26px; }
 .mlb-starter-footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px; padding:9px 12px; background:#ffffff03; color:#aeb9ce; font-size:10px; }
-.mlb-player-gamelog .mlb-player-log-scroll { max-height:620px; }
 .mlb-player-gamelog table { table-layout:auto; }
 .mlb-player-gamelog tbody th,.mlb-player-gamelog tbody td { height:40px; padding:8px 12px; border-bottom:0; color:#b9c6db; }
 .mlb-player-gamelog tbody tr:nth-child(even) { background:#1b23383d; }
@@ -91,7 +95,7 @@
 .mlb-log-logo { width:22px; height:22px; display:grid; place-items:center; position:relative; color:#7f8ba6; }
 .mlb-log-logo:has(img:not([hidden]))>svg { visibility:hidden; }
 .mlb-log-logo img { position:absolute; inset:1px; object-fit:contain; }
-@media(max-width:600px) { .mlb-player-gamelog .mlb-player-log-scroll { max-height:440px; } .mlb-player-gamelog tbody td,.mlb-player-gamelog tbody th { padding:8px; } }
+@media(max-width:600px) { .mlb-player-gamelog tbody td,.mlb-player-gamelog tbody th { padding:8px; } }
 .mlb-starter-comparison .mlb-starter-scroll { overflow-x:auto; scrollbar-width:thin; }
 .mlb-starter-comparison .mlb-starter-table { min-width:410px; }
 .mlb-starter-card.mlb-starter-comparison .mlb-starter-table th:first-child { width:43%; }
