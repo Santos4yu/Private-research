@@ -39,3 +39,9 @@
 .soccer-h2h .wnba-team-cell small{margin-left:6px;font-size:9px;color:#8d949c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wnba-last-five-row b[data-result=D]{color:#c6ccd3}
 .wnba-result[data-result=T]{color:#c6ccd3}
+
+.soccer-lines-card tr[data-current=true]{background:color-mix(in srgb,var(--theme-accent-soft,var(--theme-accent)) 12%,transparent)}
+.soccer-line-value{display:inline-flex;align-items:center;gap:5px;font-variant-numeric:tabular-nums}
+.soccer-line-app{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.soccer-line-app img{border-radius:5px}
+.soccer-finder-context>.soccer-lines-card{order:-1}

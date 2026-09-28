@@ -152,3 +152,19 @@ test('soccer hit rates come from the player\'s own matches in his team\'s log',(
  const passes=applySoccerHistory({...row,marketKey:'passesattempted'},log);
  assert.equal(passes.historyStatus,'unavailable');
 });
+
+test('the soccer chart draws shots faced behind saves and carries league and team for its filters',async()=>{
+ const {soccerChart,mergeGames}=await import('../src/sports/soccer/soccer-stats.js');
+ const game=(gameId,date,teamName,s)=>({gameId,date,season:'2026',opponent:'CHE',isHome:true,leagueName:'Premier League',teamName,s});
+ const club=[game('1','2026-08-20T15:00Z','Liverpool',{saves:4,sotf:6}),game('2','2026-09-13T15:00Z','Liverpool',{saves:3,sotf:3})];
+ const country=[game('3','2026-09-05T15:00Z','Georgia',{saves:5,sotf:7}),game('1','2026-08-20T15:00Z','Liverpool',{saves:4,sotf:6})];
+ const games=mergeGames(country,club);
+ assert.deepEqual(games.map(item=>item.gameId),['1','3','2']);
+ const chart=soccerChart(games,'saves','CHE');
+ assert.deepEqual(chart.all.map(item=>[item.value,item.context,item.team]),[[4,6,'Liverpool'],[5,7,'Georgia'],[3,3,'Liverpool']]);
+ assert.equal(chart.all[0].contextLabel,'faced');
+ assert.equal(chart.all[0].league,'Premier League');
+ // Shots on target sit in front of shots; goals have no context bar.
+ assert.equal(soccerChart([game('4','2026-09-01T15:00Z','Arsenal',{sot:2,shots:5})],'sot').all[0].context,5);
+ assert.equal(soccerChart([game('4','2026-09-01T15:00Z','Arsenal',{goals:1,shots:5})],'goals').all[0].context,undefined);
+});

@@ -27,6 +27,23 @@ function colorOf(team,fallback){
  return fallback;
 }
 
+// ---------------------------------------------------------------- Lines
+// Every PrizePicks line on this stat for the player, with when PrizePicks
+// last moved it.
+function when(value){const date=new Date(value||'');return !value||Number.isNaN(date.getTime())?'—':date.toLocaleString([],{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'});}
+function Lines({row,playerRows}){
+ const lines=(playerRows||[]).filter(item=>item.marketKey===row.marketKey).sort((a,b)=>a.line-b.line);
+ if(!lines.length)return null;
+ return <Card title="Lines" note={row.market} icon={ListOrdered} className="soccer-lines-card">
+  <div className="mlb-context-table-wrap"><table><thead><tr><th scope="col">Line</th><th scope="col">App</th><th scope="col">Updated</th></tr></thead><tbody>
+   {lines.map(item=>{const app=(item.apps||[]).find(entry=>entry.key==='prizepicks');return <tr key={item.id} data-current={item.id===row.id}>
+    <th scope="row"><span className="soccer-line-value">{item.line}{['goblin','demon'].includes(item.modifier)&&<img src={'/prizepicks/'+item.modifier+'.png'} alt={item.modifier} width="14" height="14"/>}</span></th>
+    <td><span className="soccer-line-app"><img src="/prizepicks/logo.png" alt="" width="18" height="18"/>{item.modifier==='standard'?'More / Less':'More only'}</span></td>
+    <td>{when(app?.updatedAt)}</td></tr>;})}
+  </tbody></table></div>
+ </Card>;
+}
+
 // ---------------------------------------------------------------- Matchup
 function WinPredictor({row,match}){
  const m=match.data,chance=m?.odds?.noVig;
@@ -183,13 +200,14 @@ function Averages({row,games}){
  </Card>;
 }
 
-export default function SoccerFinderContext({row,games,log}){
+export default function SoccerFinderContext({row,games,log,playerRows}){
  const [tab,setTab]=useState('matchup');
  const matched=Boolean(row.eventId);
  const match=useSoccer('match',{league:row.competition,event:row.eventId},matched);
  const opponentLog=useSoccer('log',teamLogParams(row,row.opponentId),Boolean(matched&&row.opponentId));
  const stat=useMemo(()=>statKeyOf(row.marketKey),[row.marketKey]);
  return <aside className="mlb-finder-context wnba-finder-context soccer-finder-context" data-tab={tab} aria-label="Soccer matchup research">
+  <Lines row={row} playerRows={playerRows}/>
   <nav className="mlb-context-tabs" aria-label="Research sections">{tabs.map(([key,label,Icon])=><button key={key} data-section={key} type="button" aria-pressed={tab===key} onClick={()=>setTab(key)}><Icon size={18} aria-hidden="true"/>{label}</button>)}</nav>
   {tab==='matchup'&&<><WinPredictor row={row} match={match}/><TeamComparison row={row} match={match} own={log} opponentLog={opponentLog}/></>}
   {tab==='similar'&&<SimilarPlayers row={row} games={games} opponentLog={opponentLog}/>}

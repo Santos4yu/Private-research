@@ -109,6 +109,22 @@ class TeamLogTests(Offline):
         self.assertEqual(keys["soccer:teamlog:v1:359:900"], 3 * 3600)
 
 
+class ClubTests(Offline):
+    def test_a_player_away_with_his_country_brings_his_club_matches(self):
+        profile = {"athlete": {"id": "2", "team": {"$ref": "http://sports.core.api.espn.com/v2/sports/soccer/leagues/eng.1/seasons/2026/teams/359?lang=en"}}}
+        self.assertEqual(research._club_from(profile), {"id": "359", "league": "eng.1", "name": ""})
+        self.assertEqual(research._club_from({"athlete": {"team": {"id": "359", "displayName": "Arsenal"}, "defaultLeague": {"slug": "eng.1"}}}),
+                         {"id": "359", "league": "eng.1", "name": "Arsenal"})
+        self.assertIsNone(research._club_from({"athlete": {}}))
+        with patch.object(research, "_get", return_value=profile), \
+             patch.object(research, "team_log", return_value={"team": {"id": "359"}, "games": [{"id": "1"}]}) as log:
+            # England's match: Arsenal's log.
+            self.assertEqual(research.club_log("2", "448")["games"], [{"id": "1"}])
+            log.assert_called_once_with("359", None, "eng.1")
+            # Arsenal's own match: nothing extra.
+            self.assertEqual(research.club_log("2", "359"), {"team": None, "games": []})
+
+
 class MatchTests(Offline):
     def test_match_context_reads_form_h2h_standings_lineups_and_odds(self):
         value = summary("900", dated(-1), ARS, CHE, 0, 0, arsenal_roster(0, 0), opponent_roster(0), completed=False,

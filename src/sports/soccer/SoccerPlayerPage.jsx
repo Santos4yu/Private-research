@@ -3,7 +3,7 @@ import {CalendarDays,Database,ListOrdered,RefreshCw,Shield} from 'lucide-react';
 import {FinderPlayerBanner} from '../../FinderPlayerBanner';
 import {wnbaLines,wnbaOdds} from '../wnba/trend-data';
 import SoccerFinderContext from './SoccerFinderContext';
-import {SOCCER_STATS,average,finite,fmt,playerGames,shortDate,soccerChart,statKeyOf,statOf,teamLogParams,useSoccer,valueOf} from './soccer-finder';
+import {SOCCER_STATS,average,finite,fmt,mergeGames,playerGames,shortDate,soccerChart,statKeyOf,statOf,teamLogParams,useSoccer,valueOf} from './soccer-finder';
 import '../../mlb-finder-context.css';
 import '../wnba/wnba-context.css';
 import './soccer-player.css';
@@ -31,7 +31,7 @@ function TrendChart({row,playerRows,games,loading,onStat}){
   kickoffLabel:kickoff(row.startsAt),status:'Pre-game',headshot:row.headshot||null,
   stats:statTabs(playerRows),statKey:row.marketKey,stat:row.market,side:row.direction==='UNDER'?'Under':'Over',line:row.line,
   chart:soccerChart(games,statKeyOf(row.marketKey),row.opponent),lines:wnbaLines(playerRows,row.marketKey),linesStatus:'ready',
-  odds:wnbaOdds(playerRows,row.marketKey),loading,onStat}),[row,playerRows,games,loading,onStat]);
+  odds:wnbaOdds(playerRows,row.marketKey),loading,onStat,filters:['opponent','league','team']}),[row,playerRows,games,loading,onStat]);
  const latest=useRef(config);latest.current=config;
  const [ready,setReady]=useState(true);
  useEffect(()=>{const panel=window.vortexTrendPanel;if(!panel||!host.current){setReady(false);return undefined;}setReady(Boolean(panel.mount(host.current,latest.current)));return()=>panel.unmount();},[]);
@@ -84,7 +84,12 @@ export function SoccerPlayerPage({row,playerRows,onBack}){
  useEffect(()=>setSelected(row),[row]);
  const matched=Boolean(row.eventId&&row.teamId);
  const log=useSoccer('log',teamLogParams(row),matched);
- const games=useMemo(()=>playerGames(log.data,row.player),[log.data,row.player]);
+ const teamGames=useMemo(()=>playerGames(log.data,row.player),[log.data,row.player]);
+ // Away with his country, his club's matches count too (the Team filter
+ // on the chart splits them).
+ const athlete=teamGames.at(-1)?.playerId;
+ const club=useSoccer('club',{athlete,team:row.teamId},Boolean(athlete&&row.teamId));
+ const games=useMemo(()=>mergeGames(teamGames,playerGames(club.data,row.player)),[teamGames,club.data,row.player]);
  // Switching stat keeps the tier this row came from where possible.
  const onStat=useMemo(()=>key=>{const options=playerRows.filter(item=>item.marketKey===key);const next=options.find(item=>item.modifier===selected.modifier)||options[0];if(next)setSelected(next);},[playerRows,selected.modifier]);
  const loading=Boolean(log.loading);
@@ -97,6 +102,6 @@ export function SoccerPlayerPage({row,playerRows,onBack}){
    <SupportingStats row={selected} games={games} loading={loading}/>
    <PlayerGameLog row={selected} games={games} loading={loading} error={Boolean(log.error)} onRetry={log.retry}/>
   </div>
-  <SoccerFinderContext row={selected} games={games} log={log}/></div></>}
+  <SoccerFinderContext row={selected} games={games} log={log} playerRows={playerRows}/></div></>}
  </section>;
 }

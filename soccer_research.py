@@ -496,6 +496,52 @@ def team_log(team_id, event_id=None, slug=None, games=LOG_GAMES):
     return _cached(f"soccer:teamlog:v1:{team_id}:{event_id or 'latest'}", 3 * 3600, build, keep=lambda value: bool(value["games"]))
 
 
+# ---------------------------------------------------------------- club matches
+
+_TEAM_REF = re.compile(r"/leagues/([a-z0-9._]+)/(?:.*/)?teams/(\d+)|/teams/(\d+)")
+
+
+def _club_from(data):
+    athlete = data.get("athlete") if isinstance(data.get("athlete"), dict) else data
+    team = athlete.get("team") or {}
+    league = ((athlete.get("defaultLeague") or {}).get("slug")) or None
+    team_id = str(team.get("id") or "")
+    ref = team.get("$ref") or ""
+    found = _TEAM_REF.search(ref) if ref else None
+    if found:
+        league = league or found.group(1)
+        team_id = team_id or found.group(2) or found.group(3) or ""
+    if not team_id:
+        return None
+    return {"id": team_id, "league": league if league and valid_slug(league) else None,
+            "name": team.get("displayName") or team.get("name") or ""}
+
+
+def athlete_club(athlete_id):
+    """The club an ESPN player plays for (its id and league), from his ESPN
+    profile; {} when ESPN doesn't say."""
+    def build():
+        for url in (f"https://site.web.api.espn.com/apis/common/v3/sports/soccer/athletes/{athlete_id}",
+                    f"https://sports.core.api.espn.com/v2/sports/soccer/athletes/{athlete_id}"):
+            try:
+                found = _club_from(_get(url))
+            except Exception:
+                continue
+            if found:
+                return found
+        return {}
+    return _cached(f"soccer:club:v1:{athlete_id}", 86400, build, keep=lambda value: bool(value))
+
+
+def club_log(athlete_id, team_id):
+    """His club's recent matches when he is away with his country (the
+    match's own team is `team_id`); nothing when the club is that team."""
+    club = athlete_club(athlete_id)
+    if not club or club["id"] == str(team_id):
+        return {"team": None, "games": []}
+    return team_log(club["id"], None, club.get("league"))
+
+
 # ---------------------------------------------------------------- match context
 
 def _form_rows(block):

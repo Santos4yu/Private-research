@@ -245,9 +245,23 @@
         <span>Matchup</span>
         <div id="gamelog-hand-select-root"></div>
       </div>
+      <!-- Opponent / League / Team only show for a sport that asks for them
+           (vortexTrendPanel config.filters) and has more than one choice. -->
+      <div class="gamelog-filter-field" id="gl-opponent-field" hidden>
+        <span>Opponent</span>
+        <div id="gamelog-opponent-select-root"></div>
+      </div>
+      <div class="gamelog-filter-field" id="gl-league-field" hidden>
+        <span>League</span>
+        <div id="gamelog-league-select-root"></div>
+      </div>
       <div class="gamelog-filter-field">
         <span>Location</span>
         <div id="gamelog-venue-select-root"></div>
+      </div>
+      <div class="gamelog-filter-field" id="gl-team-field" hidden>
+        <span>Team</span>
+        <div id="gamelog-team-select-root"></div>
       </div>
       <!-- Filters a host sport applied to the chart itself (WNBA's "W/O
            <teammate>"), one removable chip each. MLB never sets any. -->

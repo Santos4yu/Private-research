@@ -498,6 +498,8 @@ function cacheEls() {
   els.gamelogFilterPanel = document.getElementById("gamelog-filter-panel");
   els.gamelogStudio = document.getElementById("gamelog-studio");
   els.gamelogHandField = document.getElementById("gl-hand-field");
+  els.glExtraFields = Object.fromEntries(["opponent", "league", "team"].map((field) => [field, document.getElementById(`gl-${field}-field`)]));
+  els.glExtraBridges = Object.fromEntries(["opponent", "league", "team"].map((field) => [field, wireBridge(window.vortexGamelogExtraSelects?.[field], ["setOptions", "setValue"])]));
 
   els.teamOverlay = document.getElementById("team-overlay");
   els.teamTitle = document.getElementById("team-title");
@@ -3086,6 +3088,7 @@ function openGameLogModal(p, adapter = MLB_TREND_ADAPTER) {
   gameLogState.opponent = (p.matchup && p.matchup.opponent) || "";
   gameLogState.handFilter = "all";
   gameLogState.venueFilter = "all";
+  gameLogState.extraFilters = {};
   gameLogState.handDataLoaded = false;
   gameLogState.gameCount = 10;
   gameLogState.windowKey = "10";
@@ -3254,9 +3257,23 @@ function renderGameLogBookOdds() {
 }
 
 
+// Filters a host sport can switch on for its chart (config.filters): each
+// matches a field on the chart's games. Soccer uses all three.
+const GL_EXTRA_FILTERS = [["opponent", "Opponent"], ["league", "League"], ["team", "Team"]];
+function extraFilterValues(field) {
+  return [...new Set(recentGameLogSource().map((game) => game[field]).filter(Boolean).map(String))].sort();
+}
+function extraFilterOn(field) {
+  return trendAdapter === EXTERNAL_TREND_ADAPTER && Boolean(externalTrendConfig?.filters?.includes(field));
+}
+
 function filterGames(games) {
   return games.filter((g) => {
     if (gameLogState.season !== "all" && String(g.season || String(g.fullDate || "").slice(0, 4)) !== gameLogState.season) return false;
+    for (const [field] of GL_EXTRA_FILTERS) {
+      const wanted = gameLogState.extraFilters?.[field];
+      if (wanted && wanted !== "all" && String(g[field] || "") !== wanted) return false;
+    }
     if (gameLogState.handFilter !== "all" && g.oppHand !== gameLogState.handFilter) return false;
     if (gameLogState.venueFilter === "home" && g.isHome !== true) return false;
     if (gameLogState.venueFilter === "road" && g.isHome !== false) return false;
@@ -3287,6 +3304,17 @@ function renderGameLogSubfilters() {
   els.glHandFilterBridge?.setValue(labelForKey(GL_HAND_PAIRS, gameLogState.handFilter));
   els.glVenueFilterBridge?.setOptions(pairOptions(GL_VENUE_PAIRS));
   els.glVenueFilterBridge?.setValue(labelForKey(GL_VENUE_PAIRS, gameLogState.venueFilter));
+  for (const [field] of GL_EXTRA_FILTERS) {
+    const values = extraFilterOn(field) ? extraFilterValues(field) : [];
+    const current = gameLogState.extraFilters?.[field] || "all";
+    // Only worth showing with a choice to make (or one already made).
+    const shown = values.length > 1 || current !== "all";
+    const fieldEl = els.glExtraFields?.[field];
+    if (fieldEl) fieldEl.hidden = !shown;
+    if (!shown) continue;
+    els.glExtraBridges?.[field]?.setOptions(["All", ...values].map((value) => ({ value, label: value })));
+    els.glExtraBridges?.[field]?.setValue(current === "all" ? "All" : current);
+  }
 }
 
 // Hit rate + average for one window's worth of games, for the window-tabs
@@ -3387,6 +3415,10 @@ function renderGameLogChart() {
   if (gameLogState.handFilter !== "all") filterBits.push(`vs ${gameLogState.handFilter}HP`);
   if (gameLogState.venueFilter !== "all") filterBits.push(gameLogState.venueFilter === "home" ? "at home" : "on the road");
   if (gameLogState.season !== "all") filterBits.push(gameLogState.season);
+  for (const [field] of GL_EXTRA_FILTERS) {
+    const wanted = gameLogState.extraFilters?.[field];
+    if (wanted && wanted !== "all") filterBits.push(field === "opponent" ? `vs ${wanted}` : wanted);
+  }
   const filterSuffix = filterBits.length ? ` (${filterBits.join(", ")})` : "";
 
   if (!games.length) {
@@ -3431,7 +3463,8 @@ function renderGameLogChart() {
   const scaleFloors = { "Hits": 3, "Home Runs": 2, "Total Bases": 6, "Hits+Runs+RBIs": 4, "Runs Scored": 2, "RBIs": 3, "Walks": 2, "Strikeouts": 8, "Pitching Outs": 24, "Hits Allowed": 7, "Earned Runs Allowed": 5, "Strikeouts (Pitcher)": 8, "Walks Allowed": 3 };
   // Scale only to the displayed results. Editing the threshold must never
   // resize historical bars or compress them toward the baseline.
-  const observedMax = Math.max(...games.map((game) => Number(game.value) || 0), 1);
+  // A game's context number (shots faced behind saves) shares the scale.
+  const observedMax = Math.max(...games.map((game) => Math.max(Number(game.value) || 0, Number.isFinite(game.context) ? game.context : 0)), 1);
   const max = Math.max(
     scaleFloors[gameLogState.stat] || 2,
     Math.ceil(observedMax * 1.2),
@@ -3482,10 +3515,16 @@ function renderGameLogChart() {
       ["Pitch count", details.pitchCount], ["Walks", details.walks], ["Strikeouts", details.strikeouts],
     ].filter(([, value]) => value !== null && value !== undefined && value !== "").map(([label, value]) => `<div><span>${label}</span><strong>${escapeHtml(String(value))}</strong></div>`).join("") : "";
     const fullDate = g.fullDate || g.date || "";
-    const aria = `${fullDate}, ${g.opponent || "opponent"}, ${gameLogStatCode(gameLogState.stat)} ${g.value}, ${g.over ? "above" : "below"} the ${line} line`;
+    // An optional context bar drawn behind the result -- the shots a keeper
+    // faced behind his saves -- with its own number on top.
+    const context = Number.isFinite(g.context) && g.context > Number(g.value) ? g.context : null;
+    const contextPx = context == null ? 0 : Math.max(4, (context / max) * trackPx);
+    const contextText = context == null ? "" : `, ${g.contextLabel || "of"} ${context}`;
+    const aria = `${fullDate}, ${g.opponent || "opponent"}, ${gameLogStatCode(gameLogState.stat)} ${g.value}${contextText}, ${g.over ? "above" : "below"} the ${line} line`;
     col.innerHTML = `
       <div class="gl-track" style="height:${trackPx}px">
-        <div class="gl-bar-shell" tabindex="0" role="img" aria-label="${escapeHtml(aria)}" title="${escapeHtml(aria)}">
+        <div class="gl-bar-shell${context == null ? "" : " has-context"}" tabindex="0" role="img" aria-label="${escapeHtml(aria)}" title="${escapeHtml(aria)}">
+          ${context == null ? "" : `<div class="gl-bar-context${contextPx - heightPx < 44 ? " is-tight" : ""}" style="height:${contextPx}px" aria-hidden="true"><span>${context}</span></div>`}
           <div class="gl-bar${g.over ? "" : " gl-bar-under"}" style="height:${heightPx}px">
             <span class="gl-val">${g.value}</span>
           </div>
@@ -3636,6 +3675,14 @@ function wireGameLogModal() {
   });
   window.addEventListener("vortex:gamelog-hand-pick", (event) => {
     gameLogState.handFilter = keyForLabel(GL_HAND_PAIRS, event.detail.value);
+    renderGameLogSubfilters();
+    renderGameLogTabs();
+    renderGameLogChart();
+  });
+  window.addEventListener("vortex:gamelog-extra-pick", (event) => {
+    const {field, value} = event.detail || {};
+    if (!GL_EXTRA_FILTERS.some(([key]) => key === field)) return;
+    gameLogState.extraFilters = {...(gameLogState.extraFilters || {}), [field]: value === "All" ? "all" : String(value)};
     renderGameLogSubfilters();
     renderGameLogTabs();
     renderGameLogChart();
