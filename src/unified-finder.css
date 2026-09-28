@@ -470,7 +470,12 @@
    strip above it, and on a player page Back sits inside the header card. */
 .unified-finder .finder-top-account,.unified-finder .finder-top-settings{display:none}
 @media(max-width:760px){
- :root[data-theme] body #app-shell #panel-finder{padding-top:calc(8px + env(safe-area-inset-top,0px))!important}
+ /* Start below the status bar. Safari can report a 0 safe area while
+    still drawing its frosted status bar over the page, so this uses the
+    site's floor (--site-status-inset, site-access.css), not the raw inset
+    -- otherwise the Finder bar sits under the clock, blurred. */
+ :root[data-theme] body #app-shell #panel-finder{padding-top:calc(var(--site-status-inset,44px) + 6px)!important}
+ .unified-finder.finder-detail-active>:is(.finder-detail,.finder-trend-view){padding-top:calc(var(--site-status-inset,44px) + 6px)!important}
  :root[data-theme] body:has(#panel-finder:not([hidden])) .site-account-bar,
  :root[data-theme] body:has(#panel-finder:not([hidden])) .site-account-trigger,
  :root[data-theme] body:has(#panel-finder:not([hidden])) #settings-btn{display:none!important}

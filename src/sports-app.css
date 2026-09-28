@@ -256,12 +256,6 @@
   .lab-board-button { padding: 13px; gap: 11px; }
   .lab-board-button strong { font-size: 13px; }
   .lab-board-button small { font-size: 10px; }
-  .mobile-app-nav { inset: auto max(10px, env(safe-area-inset-right, 0px)) max(10px, env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px)); gap: 4px; min-height: 70px; padding: 7px; border: 1px solid var(--theme-border); border-radius: 22px; background: color-mix(in srgb, var(--theme-panel) 96%, transparent); box-shadow: 0 12px 35px #0006, inset 0 1px 0 #ffffff0a; backdrop-filter: blur(20px); }
-  .mobile-app-tab { min-height: 54px; gap: 4px; border-radius: 15px; color: var(--theme-faint); font-size: 10px; }
-  .mobile-app-tab-icon { height: 28px; width: 36px; }
-  .mobile-app-tab[aria-current="page"] { background: var(--theme-accent); color: var(--theme-on-accent); box-shadow: inset 0 1px 0 #fff5, 0 3px 8px #0002; }
-  .mobile-app-tab[aria-current="page"] .mobile-app-tab-icon { background: none; }
-  .mobile-app-tab[aria-current="page"] svg { fill: currentColor; fill-opacity: .12; }
   :root[data-theme] .side-link { min-height: 64px; padding: 8px 10px; background: transparent !important; box-shadow: none !important; border: 0 !important; }
   :root[data-theme] .side-link:hover { background: var(--theme-panel-2) !important; }
   :root[data-theme] .side-link span:not(.side-link-icon) { font-size: 14px; }
@@ -281,24 +275,6 @@
   .lab-home *, .lab-search-submit { transition: none !important; }
 }
 
-/* Compact dock; its horizontal inset remains unchanged. */
-@media(max-width:760px){
- :root[data-theme] .mobile-app-nav{min-height:62px;padding:5px;border-radius:20px;opacity:1;transform:translate3d(0,0,0);visibility:visible;transition:opacity 280ms ease,transform 280ms cubic-bezier(.22,1,.36,1),visibility 0s linear 0s}
- :root[data-theme] .mobile-app-tab{min-height:50px;gap:3px;padding:3px 2px;border-radius:14px}
- :root[data-theme] .mobile-app-tab-icon{height:25px;width:36px}
- :root[data-theme] body.mobile-dock-hidden .mobile-app-nav{opacity:0;transform:translate3d(0,14px,0);visibility:hidden;pointer-events:none;transition:opacity 240ms ease,transform 280ms cubic-bezier(.22,1,.36,1),visibility 0s linear 280ms}
-}
-@media(prefers-reduced-motion:reduce){:root[data-theme] .mobile-app-nav,:root[data-theme] body.mobile-dock-hidden .mobile-app-nav{transition:none}}
-/* Compact mobile navigation: quiet surface, small icons, full touch targets. */
-@media(max-width:760px){
- :root[data-theme] body .mobile-app-nav{inset:auto 12px calc(8px + env(safe-area-inset-bottom,0px));width:calc(100% - 24px);max-width:400px;margin-inline:auto;min-height:56px;padding:4px 6px;gap:0;border:1px solid #303a4f;border-radius:19px;background:#101625f5;box-shadow:0 5px 18px #0004;backdrop-filter:blur(16px)}
- :root[data-theme] body .mobile-app-nav .mobile-app-tab{min-height:46px;padding:3px 1px;gap:3px;border:0;border-radius:12px;background:transparent;color:#8f9bb1;font:500 9px/1.2 'Sora',Arial,sans-serif;letter-spacing:0;box-shadow:none}
- :root[data-theme] body .mobile-app-nav .mobile-app-tab[aria-current=page]{color:#b8c7ff;background:#26345155;box-shadow:none;font-weight:600}
- :root[data-theme] body .mobile-app-nav .mobile-app-tab-icon{width:28px;height:22px;background:transparent;border-radius:0}
- :root[data-theme] body .mobile-app-nav .mobile-app-tab svg{width:19px;height:19px;stroke-width:1.7;fill:none}
- :root[data-theme] body .mobile-app-nav .mobile-app-count{top:-3px;right:-4px;min-width:13px;height:13px;padding:0 3px;font-size:8px;background:#b8c7ff;color:#101625;box-shadow:0 0 0 2px #101625}
- :root[data-theme] body .mobile-app-nav .mobile-app-tab:active{background:#283550;transform:none}
-}
 
 /* Landing page's animated wordmark (src/BrandLoop.jsx) -- identical rules to
    the main header's .hero-brand h1 .brand-loop* in styles.css, just without
@@ -335,9 +311,10 @@
   .brand-loop .brand-loop-cursor { animation: none !important; }
 }
 
-/* These controls already use nearly opaque surfaces. An opaque fill keeps
-   their appearance stable without re-blurring the content on every scroll. */
-:root[data-theme] :is(.mobile-app-nav, .prop-compare-tray) {
+/* The compare tray is nearly opaque already; an opaque fill keeps it stable
+   without re-blurring the content on every scroll. (The phone dock is
+   frosted on purpose -- see mobile-app.css.) */
+:root[data-theme] .prop-compare-tray {
   background: var(--theme-panel) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
