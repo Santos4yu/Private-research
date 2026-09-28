@@ -26,7 +26,7 @@ from .cache import NFLCacheDomain, cached_nfl
 from .services.nflverse import RELEASE, SCHEDULE_URL, TEAM_URL, ProviderError, _source_rows, canonical_team
 from .services.research_stats import numeric, prizepicks_fantasy
 
-VERSION = "nfl-finder-v3"
+VERSION = "nfl-finder-v4"
 USER_AGENT = {"User-Agent": "KrazyData-NFL-finder/1.0"}
 
 CONFERENCES = {
@@ -179,7 +179,7 @@ MARKET_FIELDS = {
     "receiving_yards": ("receiving_yards",), "receptions": ("receptions",), "targets": ("targets",),
     "rushing_receiving_yards": ("rushing_yards", "receiving_yards"), "touchdowns": ("rushing_tds", "receiving_tds"),
     "sacks_taken": ("sacks_suffered",), "rushing_tds": ("rushing_tds",), "receiving_tds": ("receiving_tds",),
-    "fumbles_lost": ("fumbles_lost_total",),
+    "fumbles_lost": ("fumbles_lost_total",), "pass_rush_rec_tds": ("passing_tds", "rushing_tds", "receiving_tds"),
 }
 BOX_FIELDS = (
     "completions", "attempts", "passing_yards", "passing_tds", "passing_interceptions", "sacks_suffered",
@@ -235,9 +235,17 @@ def _defense(row):
             "def_interceptions": _n(row, "def_interceptions") or 0}
 
 
+def _ratio(row, top, bottom, scale=1):
+    numerator, denominator = _n(row, top), _n(row, bottom)
+    return round(numerator / denominator * scale, 1) if numerator is not None and denominator else None
+
+
 def market_values(row):
     values = {market: _int(_sum(row, *fields)) for market, fields in MARKET_FIELDS.items()}
     values["fantasy_score"] = prizepicks_fantasy(row)
+    # Ratios only exist when he threw (or ran) at all.
+    values["completion_pct"] = _ratio(row, "completions", "attempts", 100)
+    values["yards_per_carry"] = _ratio(row, "rushing_yards", "carries")
     values.update({key: _int(value) for key, value in {**_kicking(row), **_defense(row)}.items()})
     return values
 
@@ -312,7 +320,7 @@ def _player_log_rows(season, player_id):
 PBP_FIELDS = ("game_id", "season_type", "posteam", "defteam", "play_type", "yardline_100", "pass_attempt", "sack",
               "complete_pass", "receiver_player_id", "receiving_yards", "rush_attempt", "rusher_player_id",
               "rushing_yards", "two_point_attempt", "passer_player_id", "passing_yards", "punt_attempt",
-              "punter_player_id", "kick_distance", "punt_inside_twenty")
+              "punter_player_id", "kick_distance", "punt_inside_twenty", "qtr")
 
 # A prop market -> the play-by-play summary field it reads (see
 # _aggregate_pbp). A game the file covers but the player had none of counts
@@ -320,6 +328,9 @@ PBP_FIELDS = ("game_id", "season_type", "posteam", "defteam", "play_type", "yard
 PBP_MARKETS = {"longest_reception": "longestReception", "longest_rush": "longestRush",
                "longest_completion": "longestCompletion", "rush_yards_first_5": "rushFirst5",
                "rec_yards_first_2": "recFirst2", "punts": "punts", "punts_inside_20": "puntsIn20",
+               "first_rush_yards": "firstRush", "quarters_1_rec": "quartersRec1", "quarters_5_rec_yds": "quartersRecYds5",
+               "quarters_5_rush_yds": "quartersRushYds5", "quarters_25_pass_yds": "quartersPassYds25",
+               "halves_25_rec_yds": "halvesRecYds25", "halves_25_rush_yds": "halvesRushYds25",
                "gross_punt_yards": "puntYards", "punts_50_plus": "punts50"}
 
 
@@ -346,6 +357,15 @@ def _aggregate_pbp(records):
 
     def present(value):
         return value not in (None, "", "NA")
+
+    def by_quarter(entry, row, field, amount):
+        # Per quarter (5 = overtime), for the "Quarters with..." and
+        # "Halves with..." props.
+        quarter = _n(row, "qtr")
+        if quarter is None:
+            return
+        slot = entry.setdefault("byQuarter", {}).setdefault(int(quarter), {})
+        slot[field] = slot.get(field, 0) + (amount or 0)
 
     for row in records:
         if str(row.get("season_type")).upper() not in ("REG", "POST") or _n(row, "two_point_attempt") == 1:
@@ -376,11 +396,15 @@ def _aggregate_pbp(records):
                 if present(receiver):
                     entry = player(receiver, game_id, posteam)
                     high(entry, "longestReception", yards)
+                    by_quarter(entry, row, "rec", 1)
+                    by_quarter(entry, row, "recYds", yards)
                     if entry.get("catches", 0) < 2:
                         entry["recFirst2"] = entry.get("recFirst2", 0) + (yards or 0)
                     entry["catches"] = entry.get("catches", 0) + 1
                 if present(passer):
-                    high(player(passer, game_id, posteam), "longestCompletion", _n(row, "passing_yards"))
+                    entry = player(passer, game_id, posteam)
+                    high(entry, "longestCompletion", _n(row, "passing_yards"))
+                    by_quarter(entry, row, "passYds", _n(row, "passing_yards"))
                 high(team_game, "longestCompletion", yards)
         elif _n(row, "rush_attempt") == 1:
             rusher, yards = row.get("rusher_player_id"), _n(row, "rushing_yards")
@@ -388,10 +412,32 @@ def _aggregate_pbp(records):
             if present(rusher):
                 entry = player(rusher, game_id, posteam)
                 high(entry, "longestRush", yards)
+                if not entry.get("rushes"):
+                    entry["firstRush"] = yards or 0
+                by_quarter(entry, row, "rushYds", yards)
                 if entry.get("rushes", 0) < 5:
                     entry["rushFirst5"] = entry.get("rushFirst5", 0) + (yards or 0)
                 entry["rushes"] = entry.get("rushes", 0) + 1
             high(team_game, "longestRush", yards)
+    # Quarters (regulation, 1-4) and halves (1-2, then 3-4 with overtime)
+    # that reached each prop's mark.
+    for games in players.values():
+        for entry in games.values():
+            quarters = entry.pop("byQuarter", None)
+            if quarters is None:
+                continue
+            regulation = [quarters.get(number, {}) for number in (1, 2, 3, 4)]
+            halves = [{}, {}]
+            for number, slot in quarters.items():
+                half = halves[0 if number <= 2 else 1]
+                for field, amount in slot.items():
+                    half[field] = half.get(field, 0) + amount
+            entry["quartersRec1"] = sum(slot.get("rec", 0) >= 1 for slot in regulation)
+            entry["quartersRecYds5"] = sum(slot.get("recYds", 0) >= 5 for slot in regulation)
+            entry["quartersRushYds5"] = sum(slot.get("rushYds", 0) >= 5 for slot in regulation)
+            entry["quartersPassYds25"] = sum(slot.get("passYds", 0) >= 25 for slot in regulation)
+            entry["halvesRecYds25"] = sum(half.get("recYds", 0) >= 25 for half in halves)
+            entry["halvesRushYds25"] = sum(half.get("rushYds", 0) >= 25 for half in halves)
     # A team's "Longest Reception" is what a Longest Reception prop adds up
     # across its receivers: each one's longest catch in the game, summed.
     # Its single longest play through the air is Longest Completion.

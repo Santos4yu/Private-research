@@ -115,8 +115,9 @@ export const STAT_MARKET={receptions:'receptions',targets:'targets',receiving_ya
  punts:'punts',punts_in20:'punts_inside_20',punt_yards:'gross_punt_yards',punts_50:'punts_50_plus',total_tackles:'tackles',sacks:'sacks',tfl:'tackles_for_loss',def_int:'def_interceptions'};
 // The stat-tab order on the player page (backend/sports/nfl/markets.py).
 export const MARKET_ORDER=['passing_yards','passing_touchdowns','passing_attempts','pass_completions','interceptions','longest_completion','passing_rushing_yards',
- 'sacks_taken','rushing_yards','rush_attempts','rush_yards_first_5','longest_rush','rushing_tds','receptions','targets','receiving_yards','longest_reception','rec_yards_first_2',
- 'receiving_tds','rushing_receiving_yards','touchdowns','fumbles_lost','fantasy_score','fg_made','fg_attempts','fg_yards','kicking_points','kicker_fantasy','longest_fg','shortest_fg',
+ 'sacks_taken','pass_rush_rec_tds','completion_pct','quarters_25_pass_yds','rushing_yards','rush_attempts','rush_yards_first_5','longest_rush','rushing_tds',
+ 'yards_per_carry','first_rush_yards','quarters_5_rush_yds','halves_25_rush_yds','receptions','targets','receiving_yards','longest_reception','rec_yards_first_2',
+ 'receiving_tds','quarters_1_rec','quarters_5_rec_yds','halves_25_rec_yds','rushing_receiving_yards','touchdowns','fumbles_lost','fantasy_score','fg_made','fg_attempts','fg_yards','kicking_points','kicker_fantasy','longest_fg','shortest_fg',
  'pat_attempts','pat_made','punts','punts_inside_20','gross_punt_yards','punts_50_plus','tackles','solo_tackles','sacks','tackles_for_loss','def_interceptions'];
 
 // Play-by-play extras arrive separately (they need the heaviest file) and
