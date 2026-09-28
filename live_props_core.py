@@ -60,7 +60,56 @@ def search_players(query, limit=10):
                   key=lambda p: (not name_key(p["name"]).startswith(key), p["name"]))[:limit]
 
 
-def player_history(name, group):
+# First-inning props (hits / runs / pitches / walks / strikeouts allowed in
+# the 1st) are not in MLB's game logs. They are read per start from the
+# game's line score and play-by-play -- only when one of those markets is
+# opened, and only for the most recent starts a chart can show.
+FIRST_INNING_STARTS = 25
+FIRST_INNING_FIELDS = "allPlays,about,inning,matchup,pitcher,id,playEvents,isPitch,result,eventType"
+
+
+def first_inning(game_pk, pitcher_id, is_home):
+    """The starter's first inning in one game, or None when MLB has no line
+    score for it. The opposing half of the 1st is the starter's inning."""
+    def load():
+        linescore = mlb(f"/game/{game_pk}/linescore", {})
+        first = next((inning for inning in linescore.get("innings") or [] if inning.get("num") == 1), None)
+        if first is None:
+            return None
+        batting = first.get("away" if is_home else "home") or {}
+        result = {"firstInningHits": batting.get("hits"), "firstInningRuns": batting.get("runs")}
+        try:
+            plays = mlb(f"/game/{game_pk}/playByPlay", {"fields": FIRST_INNING_FIELDS}).get("allPlays") or []
+        except Exception:  # noqa: BLE001 -- hits and runs still stand
+            return result
+        pitches = walks = strikeouts = 0
+        for play in plays:
+            pitcher = ((play.get("matchup") or {}).get("pitcher") or {}).get("id")
+            if (play.get("about") or {}).get("inning") != 1 or pitcher != pitcher_id:
+                continue
+            pitches += sum(1 for event in play.get("playEvents") or [] if event.get("isPitch"))
+            kind = (play.get("result") or {}).get("eventType")
+            walks += kind in ("walk", "intent_walk")
+            strikeouts += kind in ("strikeout", "strikeout_double_play")
+        return {**result, "firstInningPitches": pitches, "firstInningWalks": walks, "firstInningStrikeouts": strikeouts}
+    # A finished game never changes.
+    return cached(("first-inning", game_pk, pitcher_id), 7 * 86400, load)
+
+
+def with_first_inning(games, pitcher_id):
+    """Each recent start with its first-inning numbers added to `stat`."""
+    recent = [game for game in games if game.get("gameId")][-FIRST_INNING_STARTS:]
+    def load(game):
+        try:
+            return game["gameId"], first_inning(game["gameId"], pitcher_id, bool(game.get("isHome")))
+        except Exception:  # noqa: BLE001 -- one missing game is a gap, not a failure
+            return game["gameId"], None
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        extra = dict(pool.map(load, recent))
+    return [{**game, "stat": {**game["stat"], **(extra.get(game.get("gameId")) or {})}} for game in games]
+
+
+def player_history(name, group, first_inning_stats=False):
     if group not in {"pitching", "hitting"}:
         raise ValueError("Unknown player group")
     matches = [p for p in player_catalog() if name_key(p["name"]) == name_key(name)]
@@ -99,6 +148,8 @@ def player_history(name, group):
         return games
 
     games = cached(("history", player["id"], group, day), 600, load)
+    if first_inning_stats and group == "pitching":
+        games = with_first_inning(games, player["id"])
     schedule = cached(("schedule", day), 120, lambda: mlb("/schedule", {"sportId": 1, "date": day}))
     matchup = None
     for date in schedule.get("dates", []):

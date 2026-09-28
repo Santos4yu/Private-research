@@ -43,6 +43,7 @@ class NFLCacheDomain(StrEnum):
     OPPORTUNITY = "opportunity"
     MATCHUP = "matchup"
     SOURCE_ROWS = "source_rows"
+    PLAY_BY_PLAY = "play_by_play"
 
 
 NFL_CACHE_TTLS = {
@@ -64,6 +65,9 @@ NFL_CACHE_TTLS = {
     NFLCacheDomain.OPPORTUNITY: 10 * 60,
     NFLCacheDomain.MATCHUP: 10 * 60,
     NFLCacheDomain.SOURCE_ROWS: 15 * 60,
+    # A season's play-by-play summary. nflverse republishes it overnight, and
+    # rebuilding it means streaming the whole season file.
+    NFLCacheDomain.PLAY_BY_PLAY: 12 * 60 * 60,
 }
 
 T = TypeVar("T")

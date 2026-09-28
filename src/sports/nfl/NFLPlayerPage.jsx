@@ -1,9 +1,8 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {CalendarDays,Database,ListOrdered,PieChart,RefreshCw,Shield,UserCheck,UserRound,Users,UserX} from 'lucide-react';
 import {FinderPlayerBanner} from '../../FinderPlayerBanner';
-import {NFL_PROP_DEFINITIONS} from './props';
-import {nflLineLadder,nflOddsRows,nflPropLabel,nflStatTabs} from './trend-bridge';
-import {INJURY_LEGEND,STATS,family,gameIdOf,injuryCode,mergePlayByPlay,nflFinderChart,nflSeason,opponentOf,playedGames,positionOf,teamColor,useNfl} from './nfl-finder';
+import {nflLineLadder,nflOddsRows,nflStatCode} from './trend-bridge';
+import {INJURY_LEGEND,MARKET_ORDER,STATS,family,gameIdOf,injuryCode,mergePlayByPlay,nflFinderChart,nflSeason,opponentOf,playedGames,positionOf,teamColor,useNfl} from './nfl-finder';
 import {applySplits,finite,fmt,splitKey,toggleSplit} from '../wnba/wnba-research';
 import NFLFinderContext from './NFLFinderContext';
 import '../../mlb-finder-context.css';
@@ -15,22 +14,34 @@ import './nfl-finder.css';
 // on the left, the tabbed matchup panel on the right. Data: /api/nfl's
 // finder-* resources (backend/sports/nfl/finder.py).
 
-// Markets the player page can research: the context resources speak weekly
-// stats, so Longest Reception (play-by-play) borrows Receiving Yards there.
-const CONTEXT_MARKET=market=>market==='longest_reception'?'receiving_yards':market;
+// Markets the player page can research: the context resources (similar
+// players, with/without splits) speak weekly stats, so play-by-play markets
+// borrow their closest weekly one. Punting and markets we don't chart have
+// none, and skip that request.
+const CONTEXT_BASE={longest_reception:'receiving_yards',rec_yards_first_2:'receiving_yards',longest_rush:'rushing_yards',
+ rush_yards_first_5:'rushing_yards',longest_completion:'passing_yards'};
+const NO_CONTEXT=new Set(['punts_inside_20','gross_punt_yards','punts_50_plus']);
+const CONTEXT_MARKET=market=>!market||NO_CONTEXT.has(market)||String(market).startsWith('pp:')?null:CONTEXT_BASE[market]||market;
+// One tab per market this player has a line on, in the catalog's order.
+function statTabs(playerRows){
+ const labels=new Map();
+ for(const item of playerRows)if(item.marketKey&&!labels.has(item.marketKey))labels.set(item.marketKey,item.market);
+ const rank=key=>{const index=MARKET_ORDER.indexOf(key);return index<0?MARKET_ORDER.length:index;};
+ return [...labels].sort((a,b)=>rank(a[0])-rank(b[0])).map(([key,label])=>({key,label,code:nflStatCode(key)}));
+}
 const offersFor=(rows,market)=>(rows||[]).filter(row=>row.marketKey===market&&row.raw?.line).map(row=>row.raw);
 const shortDay=date=>{const day=new Date(`${date}T12:00:00`);return Number.isNaN(day.getTime())?'—':day.toLocaleDateString([],{month:'numeric',day:'numeric',year:'2-digit'});};
 const shortName=name=>{const parts=String(name||'').trim().split(/\s+/);return parts.length>1?`${parts[0][0]}. ${parts.slice(1).join(' ')}`:parts[0]||'';};
 
 function TrendChart({row,playerRows,rows,loading,onStat,chips,chipsNote,onChipRemove,onChipsClear}){
  const host=useRef(null);
- const opponent=opponentOf(row),available=new Set(playerRows.map(item=>item.marketKey));
+ const opponent=opponentOf(row);
  const offers=useMemo(()=>offersFor(playerRows,row.marketKey),[playerRows,row.marketKey]);
  const home=row.homeTeamAbbr,away=row.awayTeamAbbr;
  const config=useMemo(()=>({sport:'NFL',player:row.player,teamAbbr:row.teamAbbr||'',teamLogo:row.teamLogo||'',opponent,
   opponentLogo:opponent?`https://static.www.nfl.com/t_q-best/league/api/clubs/logos/${opponent}.svg`:'',matchupLabel:away&&home?`${away} @ ${home}`:'',
   kickoffLabel:row.startsAt?new Date(row.startsAt).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'}):'',status:'Pre-game',headshot:row.headshot||null,
-  stats:nflStatTabs(NFL_PROP_DEFINITIONS.filter(definition=>available.has(definition.key))),statKey:row.marketKey,stat:nflPropLabel(row.marketKey),
+  stats:statTabs(playerRows),statKey:row.marketKey,stat:row.market,
   side:row.direction==='UNDER'?'Under':'Over',line:row.line,chart:nflFinderChart(rows,row.marketKey,opponent),lines:nflLineLadder(offers),linesStatus:'ready',
   odds:nflOddsRows(offers),loading,onStat,chips,chipsNote,onChipRemove,onChipsClear}),
   [row,rows,loading,onStat,opponent,offers,home,away,chips,chipsNote,onChipRemove,onChipsClear,playerRows]);
@@ -145,8 +156,9 @@ export function NFLPlayerPage({row,playerRows,onBack}){
  const pbp=useNfl('pbp',{season,playerId:row.playerId},Boolean(row.playerId));
  const league=useNfl('league',{season});
  const opponent=opponentOf(selected);
- const context=useNfl('player',{season,playerId:row.playerId,team:selected.teamAbbr,opponent,market:CONTEXT_MARKET(selected.marketKey),line:selected.marketKey==='longest_reception'?'':selected.line},
-  Boolean(row.playerId&&selected.teamAbbr&&opponent));
+ const contextMarket=CONTEXT_MARKET(selected.marketKey);
+ const context=useNfl('player',{season,playerId:row.playerId,team:selected.teamAbbr,opponent,market:contextMarket,line:contextMarket===selected.marketKey?selected.line:''},
+  Boolean(row.playerId&&selected.teamAbbr&&opponent&&contextMarket));
  const matchup=useNfl('matchup',{season,gameId:gameIdOf(selected)},Boolean(gameIdOf(selected)));
  const rows=useMemo(()=>mergePlayByPlay(log.data?.rows,pbp.data),[log.data,pbp.data]);
  const position=positionOf(log.data?.player?.position||selected.position);

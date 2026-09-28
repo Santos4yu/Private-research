@@ -108,6 +108,15 @@ const STAT_DEFAULT_LINE = {
   "Hits Allowed": 5.5,
   "Walks Allowed": 1.5,
   "Fantasy Score (Pitcher)": 15.5,
+  "Stolen Bases": 0.5,
+  "Singles": 0.5,
+  "Pitches Thrown": 85.5,
+  "Pitcher Fantasy Score": 15.5,
+  "1st Inning Hits Allowed": 0.5,
+  "1st Inning Runs Allowed": 0.5,
+  "1st Inning Pitches Thrown": 15.5,
+  "1st Inning Walks Allowed": 0.5,
+  "1st Inning Strikeouts": 0.5,
 };
 
 const state = {
@@ -2800,7 +2809,16 @@ const GAMELOG_STAT_CODES = {
   "Strikeouts (Pitcher)": "K", "Pitching Outs": "OUTS",
   "Earned Runs Allowed": "ER", "Hits Allowed": "HA", "Walks Allowed": "PBB",
   "Fantasy Score (Pitcher)": "PFS",
+  "Stolen Bases": "SB", "Singles": "1B", "Pitches Thrown": "PC", "Pitcher Fantasy Score": "PFS",
+  "1st Inning Hits Allowed": "1ST H", "1st Inning Runs Allowed": "1ST R", "1st Inning Pitches Thrown": "1ST PC",
+  "1st Inning Walks Allowed": "1ST BB", "1st Inning Strikeouts": "1ST K",
 };
+// Markets only the Finder's trend panel charts (from the Finder's own
+// history, prop-finder-core gameValue). Research's own dropdowns keep
+// BATTER_STATS / PITCHER_STATS, which its engine supports.
+const FINDER_BATTER_EXTRAS = ["Stolen Bases", "Singles"];
+const FINDER_PITCHER_EXTRAS = ["Pitches Thrown", "1st Inning Hits Allowed", "1st Inning Runs Allowed",
+  "1st Inning Pitches Thrown", "1st Inning Walks Allowed", "1st Inning Strikeouts"];
 const MLB_TEAM_IDS = { ARI:109, AZ:109, ATL:144, BAL:110, BOS:111, CHC:112, CWS:145, CIN:113, CLE:114, COL:115, DET:116, HOU:117, KC:118, LAA:108, LAD:119, MIA:146, MIL:158, MIN:142, NYM:121, NYY:147, OAK:133, PHI:143, PIT:134, SD:135, SEA:136, SF:137, STL:138, TB:139, TEX:140, TOR:141, WSH:120 };
 const MLB_TEAM_ABBRS = { 108:"LAA",109:"ARI",110:"BAL",111:"BOS",112:"CHC",113:"CIN",114:"CLE",115:"COL",116:"DET",117:"HOU",118:"KC",119:"LAD",120:"WSH",121:"NYM",133:"ATH",134:"PIT",135:"SD",136:"SEA",137:"SF",138:"STL",139:"TB",140:"TEX",141:"TOR",142:"MIN",143:"PHI",144:"ATL",145:"CWS",146:"MIA",147:"NYY",158:"MIL" };
 
@@ -2822,12 +2840,26 @@ const MLB_TREND_ADAPTER = {
   statCode: (stat) => GAMELOG_STAT_CODES[stat] || stat,
   statList() {
     const stats = gameLogState.availableStats || (gameLogState.isPitcher ? PITCHER_STATS : BATTER_STATS);
-    return stats.filter((stat) => finderMarket(stat));
+    // One tab per market, however many spellings of it are listed.
+    const seen = new Set();
+    return stats.filter((stat) => {
+      const market = finderMarket(stat);
+      const id = market && `${market.pitcher}:${market.key}`;
+      if (!market || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
   },
   classify(p) {
-    gameLogState.isPitcher = PITCHER_STATS.includes(p.betType) || p.position === "P" || p.isPitcherProp === true;
+    gameLogState.isPitcher = PITCHER_STATS.includes(p.betType) || p.position === "P" || p.isPitcherProp === true || !!finderMarket(p.betType)?.pitcher;
     const twoWay = p.isTwoWay === true || p.position === "TWP" || /shohei\s+ohtani/i.test(p.player || "");
-    gameLogState.availableStats = twoWay ? STANDARD_STATS : (gameLogState.isPitcher ? PITCHER_STATS : BATTER_STATS);
+    const base = twoWay ? STANDARD_STATS : (gameLogState.isPitcher ? PITCHER_STATS : BATTER_STATS);
+    // Opened from the Finder: its market names, plus the markets only it charts.
+    gameLogState.availableStats = externalTrendHost
+      ? [...base.map((stat) => finderMarket(stat)?.label || stat),
+        ...(twoWay || !gameLogState.isPitcher ? FINDER_BATTER_EXTRAS : []),
+        ...(twoWay || gameLogState.isPitcher ? ["Pitcher Fantasy Score", ...FINDER_PITCHER_EXTRAS] : [])]
+      : base;
   },
   renderHeader(p) {
     const liveState = document.getElementById("gamelog-live-state");
@@ -5793,7 +5825,7 @@ function writeFinderCache(key, value) {
 }
 const finderPlayerHistory = new Map();
 const finderHistoryRequests = new Map();
-function finderHistoryKey(row) { return `${nameKey(row.player)}|${pitcherFinderStat(row.stat).pitcher ? 'pitching' : 'hitting'}`; }
+function finderHistoryKey(row) { const market = pitcherFinderStat(row.stat); return `${nameKey(row.player)}|${market.pitcher ? 'pitching' : 'hitting'}${market.firstInning ? '|innings' : ''}`; }
 function cachedFinderHistory(row) {
   const key = finderHistoryKey(row);
   const cached = finderPlayerHistory.get(key) || readFinderCache(key, 600000);
@@ -5807,7 +5839,7 @@ async function requestFinderHistory(row) {
   const cached = cachedFinderHistory(row);
   if (cached) return cached;
   if (!finderHistoryRequests.has(key)) {
-    finderHistoryRequests.set(key, fetch(`/api/board?view=prop-history&player=${encodeURIComponent(row.player)}&group=${pitcherFinderStat(row.stat).pitcher ? 'pitching' : 'hitting'}`, { signal: AbortSignal.timeout(30000) })
+    finderHistoryRequests.set(key, fetch(`/api/board?view=prop-history&player=${encodeURIComponent(row.player)}&group=${pitcherFinderStat(row.stat).pitcher ? 'pitching' : 'hitting'}${pitcherFinderStat(row.stat).firstInning ? '&innings=1' : ''}`, { signal: AbortSignal.timeout(30000) })
       .then(async response => { const data = await response.json(); if (!response.ok || data.error) throw new Error(data.error || 'History unavailable');
         finderPlayerHistory.set(key, data); writeFinderCache(key, data); return data; })
       .finally(() => finderHistoryRequests.delete(key)));

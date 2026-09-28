@@ -175,7 +175,8 @@ class handler(BaseHTTPRequestHandler):
         if view == "prop-history":
             qs = parse_qs(urlparse(self.path).query)
             try:
-                return self._send(200, player_history((qs.get("player") or [""])[0], (qs.get("group") or ["pitching"])[0]))
+                return self._send(200, player_history((qs.get("player") or [""])[0], (qs.get("group") or ["pitching"])[0],
+                                                      first_inning_stats=(qs.get("innings") or [""])[0] == "1"))
             except ValueError as exc:
                 return self._send(400, {"error": str(exc)})
             except Exception:

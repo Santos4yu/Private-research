@@ -155,7 +155,10 @@ export function normalizeFinderRows(sport, payload, players = [], {now = Date.no
     if (sport === 'nfl') {
       const player = byId.get(String(raw.playerId));
       const quote = raw.line || {};
-      if (!quote.verified || !NFL_LABELS[raw.propType]) return null;
+      // PrizePicks' own stat name (backend/sports/nfl/prizepicks_board.py),
+      // so every market it posts shows and Export matches it exactly.
+      const label = raw.propLabel || NFL_LABELS[raw.propType];
+      if (!quote.verified || !label) return null;
       const direction = side(quote.direction || raw.direction);
       const key = quote.bookmaker;
       const event = (payload.events || []).find(item => item.gameId === raw.gameId);
@@ -164,7 +167,7 @@ export function normalizeFinderRows(sport, payload, players = [], {now = Date.no
         position: optional(raw.position || player?.position), teamAbbr: optional(raw.teamId || player?.team_id),
         teamLogo: optional(teamLogoUrl(raw.teamId || player?.team_id)), opponent: optional(raw.opponentId),
         awayTeamAbbr: event?.awayTeamId || null, homeTeamAbbr: event?.homeTeamId || null,
-        startsAt: optional(raw.startsAt), market: NFL_LABELS[raw.propType], marketKey: raw.propType,
+        startsAt: optional(raw.startsAt), market: label, marketKey: raw.propType,
         line: quote.value, direction, modifier: quote.category,
         apps: key ? [{key, name: quote.platform || BOOK_NAMES[key] || key,
           over: direction === 'OVER' ? quote.price : null, under: direction === 'UNDER' ? quote.price : null}] : [],
@@ -211,7 +214,7 @@ export async function loadFinderSport(sport, options = {}) {
     const today = new Date();
     const season = options.season || today.getUTCFullYear() - (today.getUTCMonth() < 2 ? 1 : 0);
     const [board, roster] = await Promise.allSettled([
-      request(`/api/nfl?resource=board&season=${season}`, options),
+      request(`/api/nfl?resource=finder-board&season=${season}`, options),
       request(`/api/nfl?resource=players&season=${season}`, options),
     ]);
     aborted(options.signal);
@@ -291,7 +294,11 @@ export async function enrichWnbaRows(rows, {signal, onRows, concurrency = 6, ...
   return rows.map(row => enriched.get(row.id) || row);
 }
 
-const mlbHistoryKey = row => `${nameKey(row.player)}|${finderMarket(row.raw?.stat || row.stat)?.pitcher ? 'pitching' : 'hitting'}`;
+const mlbHistoryKey = row => {
+  const market = finderMarket(row.raw?.stat || row.stat);
+  // First-inning markets need each start's inning data (a heavier request).
+  return `${nameKey(row.player)}|${market?.pitcher ? 'pitching' : 'hitting'}${market?.firstInning ? '|innings' : ''}`;
+};
 const mlbHistoryPending = new Map();
 
 /** Shared by progressive table enrichment and the inline Trends view. */
@@ -303,7 +310,7 @@ export async function loadMlbHistory(row, options = {}) {
   const group = key.split('|')[1];
   // The supporting chart and game log mount together. Share their transport,
   // but keep abortable board requests independent of component lifetimes.
-  const url = `/api/board?view=prop-history&player=${encodeURIComponent(row.player)}&group=${group}`;
+  const url = `/api/board?view=prop-history&player=${encodeURIComponent(row.player)}&group=${group}${key.endsWith('|innings') ? '&innings=1' : ''}`;
   let task = !options.signal && mlbHistoryPending.get(key);
   if (!task) {
     task = request(url, options);
@@ -319,9 +326,13 @@ export async function loadMlbHistory(row, options = {}) {
 }
 
 function strictMlbValue(stat, definition) {
+  const outs = stat.outs == null ? 'inningsPitched' : 'outs';
   const requirements = definition.field === 'hrr' ? ['hits', 'runs', 'rbi']
     : definition.field === 'fantasy' ? ['hits', 'doubles', 'triples', 'homeRuns', 'runs', 'rbi', 'baseOnBalls', 'hitByPitch', 'stolenBases']
     : definition.field === 'totalBases' && stat.totalBases == null ? ['hits', 'doubles', 'triples', 'homeRuns']
+    : definition.field === 'singles' ? ['hits', 'doubles', 'triples', 'homeRuns']
+    : definition.field === 'numberOfPitches' ? [stat.numberOfPitches == null ? 'pitchesThrown' : 'numberOfPitches']
+    : definition.field === 'pitcherFantasy' ? ['strikeOuts', 'earnedRuns', outs]
     : definition.field === 'outs' && stat.outs == null ? ['inningsPitched'] : [definition.field];
   if (requirements.some(key => number(stat[key]) == null)) return null;
   return number(gameValue(stat, definition));

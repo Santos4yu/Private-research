@@ -33,9 +33,15 @@ test('MLB player history is shared across lines and failures remain unknown',asy
  const failed=await enrichMlbRows(normalizeFinderRows('mlb',{props:[{id:'c',player:'Unavailable Test',stat:'Hits',line:.5}]}),{fetcher:async()=>{throw new Error('offline');}});
  assert.equal(failed[0].historyStatus,'unavailable');assert.equal(failed[0].windows.l10,null);
 });
-test('NFL uses stored board and roster endpoints without a browser scan',async()=>{
+test('NFL uses the server-built PrizePicks board and roster endpoints without a browser scan',async()=>{
  const urls=[];await loadFinderSport('nfl',{season:2026,fetcher:async url=>{urls.push(url);return {ok:true,json:async()=>({data:[]})};}});
- assert.deepEqual(urls.sort(),['/api/nfl?resource=board&season=2026','/api/nfl?resource=players&season=2026']);
+ assert.deepEqual(urls.sort(),['/api/nfl?resource=finder-board&season=2026','/api/nfl?resource=players&season=2026']);
+});
+test('NFL rows show every PrizePicks market under its own name',()=>{
+ const line=(propType,propLabel)=>({playerId:'00-1',playerName:'Chris Boswell',position:'K',propType,propLabel,teamId:'PIT',opponentId:'CLE',gameId:'g',startsAt:'2099-01-01T00:00:00Z',
+  line:{verified:true,bookmaker:'prizepicks',platform:'PrizePicks',category:'GOBLIN',value:7.5,direction:'OVER',price:null}});
+ const rows=normalizeFinderRows('nfl',{data:[line('kicking_points','Kicking Points'),line('pp:puntsdowned','Punts Downed'),line('passing_yards',undefined)],events:[]});
+ assert.deepEqual(rows.map(row=>[row.marketKey,row.market,row.modifier]),[['kicking_points','Kicking Points','goblin'],['pp:puntsdowned','Punts Downed','goblin'],['passing_yards','Passing Yards','goblin']]);
 });
 test('a Finder row becomes a My Slip pick the PrizePicks export can match',()=>{
  const [wnba]=normalizeFinderRows('wnba',{rows:[{id:'e1:player_threes:Kelsey Plum:2.5',player:'Kelsey Plum',market:'3-Pointers Made',line:2.5,modifier:'goblin',startsAt:'2099-01-01T00:00:00Z',teamAbbr:'LV',homeTeamAbbr:'LV',awayTeamAbbr:'IND',teamLogo:'lv.png',apps:[{key:'prizepicks',over:-137},{key:'draftkings',name:'DraftKings',over:-120,under:-105}]}]});

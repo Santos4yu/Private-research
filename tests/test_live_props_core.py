@@ -49,6 +49,47 @@ class LivePropsTests(unittest.TestCase):
         self.assertFalse(env['_builder_evidence']({}, {}, {}, 'over', 300, True)['starterConfirmed'])
         self.assertIsNone(evidence['projectionEdge'])
 
+    def test_first_inning_reads_the_opposing_half_and_the_starters_pitches(self):
+        def play(pitcher, inning, pitches, event):
+            return {'about': {'inning': inning}, 'matchup': {'pitcher': {'id': pitcher}},
+                    'playEvents': [{'isPitch': True}] * pitches + [{'isPitch': False}],
+                    'result': {'eventType': event}}
+        def mlb(path, params):
+            if path.endswith('/linescore'):
+                return {'innings': [{'num': 1, 'home': {'hits': 0, 'runs': 0}, 'away': {'hits': 2, 'runs': 1}},
+                                    {'num': 2, 'home': {'hits': 3, 'runs': 2}, 'away': {'hits': 0, 'runs': 0}}]}
+            self.assertIn('allPlays', params['fields'])
+            # 100 starts at home, so he pitches the top of the 1st.
+            return {'allPlays': [play(100, 1, 4, 'strikeout'), play(100, 1, 6, 'walk'), play(100, 1, 2, 'single'),
+                                 play(200, 1, 5, 'strikeout'), play(100, 2, 3, 'strikeout')]}
+        with patch.object(core, 'mlb', side_effect=mlb):
+            result = core.first_inning(7, 100, True)
+        self.assertEqual(result, {'firstInningHits': 2, 'firstInningRuns': 1, 'firstInningPitches': 12,
+                                  'firstInningWalks': 1, 'firstInningStrikeouts': 1})
+
+    def test_first_inning_keeps_hits_and_runs_when_play_by_play_fails(self):
+        def mlb(path, params):
+            if path.endswith('/linescore'):
+                return {'innings': [{'num': 1, 'home': {'hits': 1, 'runs': 0}, 'away': {'hits': 0, 'runs': 0}}]}
+            raise RuntimeError('down')
+        with patch.object(core, 'mlb', side_effect=mlb):
+            self.assertEqual(core.first_inning(8, 100, False), {'firstInningHits': 1, 'firstInningRuns': 0})
+        with patch.object(core, 'mlb', return_value={'innings': []}):
+            self.assertIsNone(core.first_inning(9, 100, False))
+
+    def test_first_inning_numbers_join_each_start(self):
+        games = [{'gameId': 1, 'isHome': True, 'stat': {'strikeOuts': 5}},
+                 {'gameId': 2, 'isHome': False, 'stat': {'strikeOuts': 7}}]
+        def first(game_pk, pitcher_id, is_home):
+            if game_pk == 2:
+                raise RuntimeError('missing')
+            return {'firstInningHits': 0, 'firstInningRuns': 0}
+        with patch.object(core, 'first_inning', side_effect=first):
+            result = core.with_first_inning(games, 100)
+        self.assertEqual(result[0]['stat'], {'strikeOuts': 5, 'firstInningHits': 0, 'firstInningRuns': 0})
+        # A game MLB cannot answer for stays as it was.
+        self.assertEqual(result[1]['stat'], {'strikeOuts': 7})
+
 
 if __name__ == '__main__':
     unittest.main()

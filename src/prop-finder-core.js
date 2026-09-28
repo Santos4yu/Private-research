@@ -15,11 +15,31 @@ const markets = {
   strikeouts: market('strikeouts', 'Strikeouts', "Batter K's", 'strikeOuts'),
   walks: market('walks', 'Walks', 'Walks', 'baseOnBalls'),
   hitterfantasyscore: market('fantasy', 'Fantasy Score', 'Fantasy score', 'fantasy'),
+  stolenbases: market('sb', 'Stolen Bases', 'Stolen bases', 'stolenBases'),
+  singles: market('singles', 'Singles', 'Singles', 'singles'),
+  pitchesthrown: market('pitches', 'Pitches Thrown', 'Pitches', 'numberOfPitches', true),
+  pitcherfantasyscore: market('pitcher-fantasy', 'Pitcher Fantasy Score', 'Pitcher fantasy', 'pitcherFantasy', true),
+  // Read per start from the game's line score and play-by-play
+  // (live_props_core.first_inning), so their history asks for it.
+  '1stinninghitsallowed': {...market('first-hits', '1st Inning Hits Allowed', '1st-inning hits', 'firstInningHits', true), firstInning: true},
+  '1stinningrunsallowed': {...market('first-runs', '1st Inning Runs Allowed', '1st-inning runs', 'firstInningRuns', true), firstInning: true},
+  '1stinningpitchesthrown': {...market('first-pitches', '1st Inning Pitches Thrown', '1st-inning pitches', 'firstInningPitches', true), firstInning: true},
+  '1stinningwalksallowed': {...market('first-walks', '1st Inning Walks Allowed', '1st-inning walks', 'firstInningWalks', true), firstInning: true},
+  '1stinningstrikeouts': {...market('first-ks', '1st Inning Strikeouts', "1st-inning K's", 'firstInningStrikeouts', true), firstInning: true},
 };
 Object.assign(markets, {strikeoutspitcher: markets.pitcherstrikeouts, pitcherwalks: markets.walksallowed,
   pitcherwalksallowed: markets.walksallowed, earnedruns: markets.earnedrunsallowed, outs: markets.pitchingouts,
   runs: markets.runsscored, hitterstrikeouts: markets.strikeouts, fantasyscore: markets.hitterfantasyscore,
-  fantasyscorepp: markets.hitterfantasyscore});
+  fantasyscorepp: markets.hitterfantasyscore, stolenbase: markets.stolenbases, sb: markets.stolenbases,
+  pitchcount: markets.pitchesthrown, pitches: markets.pitchesthrown, fantasyscorepitcher: markets.pitcherfantasyscore,
+  pitchingfantasyscore: markets.pitcherfantasyscore,
+  firstinninghitsallowed: markets['1stinninghitsallowed'], hitsallowed1stinning: markets['1stinninghitsallowed'],
+  firstinningrunsallowed: markets['1stinningrunsallowed'], runsallowed1stinning: markets['1stinningrunsallowed'],
+  '1stinningruns': markets['1stinningrunsallowed'], norunfirstinning: markets['1stinningrunsallowed'], nrfi: markets['1stinningrunsallowed'],
+  firstinningpitchesthrown: markets['1stinningpitchesthrown'], pitchesthrown1stinning: markets['1stinningpitchesthrown'],
+  '1stinningpitches': markets['1stinningpitchesthrown'],
+  firstinningwalksallowed: markets['1stinningwalksallowed'], '1stinningwalks': markets['1stinningwalksallowed'],
+  firstinningstrikeouts: markets['1stinningstrikeouts'], '1stinningpitcherstrikeouts': markets['1stinningstrikeouts']});
 export function finderMarket(value) { return markets[nameKey(value)] || null; }
 export function finderRows(rows, {category = 'pitchers', modifier = 'all', stat = 'all', query = ''} = {}) {
   const grouped = new Map();
@@ -48,6 +68,15 @@ export function gameValue(stat, m) {
     return Number(ip) * 3 + Number(partial);
   }
   if (m.field === 'totalBases' && stat.totalBases == null) return n('hits') + n('doubles') + 2 * n('triples') + 3 * n('homeRuns');
+  if (m.field === 'singles') return n('hits') - n('doubles') - n('triples') - n('homeRuns');
+  if (m.field === 'numberOfPitches') { const pitches = stat.numberOfPitches ?? stat.pitchesThrown; return pitches == null ? null : Number(pitches); }
+  if (m.field === 'pitcherFantasy') {
+    // PrizePicks' pitcher scoring: win 6, quality start 4, earned run -3,
+    // strikeout 3, out 1.
+    const outs = gameValue(stat, {field: 'outs'});
+    const earned = n('earnedRuns');
+    return n('wins') * 6 + (outs >= 18 && earned <= 3 ? 4 : 0) - earned * 3 + n('strikeOuts') * 3 + outs;
+  }
   return stat[m.field] == null ? null : Number(stat[m.field]);
 }
 export function historyChart(payload, row) {

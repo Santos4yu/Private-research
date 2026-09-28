@@ -72,34 +72,61 @@ export const STATS={
  fg_att:{label:'FG Attempts',short:'FGA',get:g=>g.box?.fg_att},
  pat_made:{label:'Extra Points',short:'XP',get:g=>g.box?.pat_made},
  kicking_points:{label:'Kicking Points',short:'Kick Pts',get:g=>finite(g.box?.fg_made)&&finite(g.box?.pat_made)?g.box.fg_made*3+g.box.pat_made:undefined},
+ longest_completion:{label:'Longest Completion',short:'Lng Cmp',get:g=>g.values?.longest_completion},
+ longest_rush:{label:'Longest Rush',short:'Lng Rush',get:g=>g.values?.longest_rush},
+ rush_first5:{label:'Rush Yds, First 5',short:'1st 5 Rush',get:g=>g.values?.rush_yards_first_5},
+ rec_first2:{label:'Rec Yds, First 2',short:'1st 2 Rec',get:g=>g.values?.rec_yards_first_2},
+ fg_yards:{label:'FG Yards',short:'FG Yds',get:g=>g.values?.fg_yards},
+ longest_fg:{label:'Longest FG Made',short:'Lng FG',get:g=>g.values?.longest_fg},
+ shortest_fg:{label:'Shortest FG Made',short:'Sht FG',get:g=>g.values?.shortest_fg},
+ pat_att:{label:'PAT Attempts',short:'PAT Att',get:g=>g.values?.pat_attempts},
+ kicker_fantasy:{label:'Kicker Fantasy Score',short:'K Fantasy',get:g=>g.values?.kicker_fantasy},
+ punts_in20:{label:'Punts Inside 20',short:'In 20',get:g=>g.values?.punts_inside_20},
+ punt_yards:{label:'Gross Punt Yards',short:'Punt Yds',get:g=>g.values?.gross_punt_yards},
+ punts_50:{label:'50+ Yard Punts',short:'50+',get:g=>g.values?.punts_50_plus},
+ total_tackles:{label:'Total Tackles',short:'Tot Tkl',get:g=>g.values?.tackles},
+ tfl:{label:'Tackles for Loss',short:'TFL',get:g=>g.values?.tackles_for_loss},
 };
 const FAMILY={
  QB:{support:['completions','attempts','passing_yards','passing_tds','interceptions','rushing_yards'],
-  log:['completions','attempts','passing_yards','passing_tds','interceptions','sacks_taken','carries','rushing_yards','rushing_tds','pass_rush_yards','fantasy']},
+  log:['completions','attempts','passing_yards','passing_tds','interceptions','longest_completion','sacks_taken','carries','rushing_yards','rushing_tds','pass_rush_yards','fantasy']},
  RB:{support:['carries','rushing_yards','receptions','targets','receiving_yards','touchdowns'],
-  log:['rushing_yards','carries','rushing_tds','receptions','receiving_yards','targets','rz_targets','receiving_tds','rush_rec_yards','fantasy']},
+  log:['rushing_yards','carries','rush_first5','longest_rush','rushing_tds','receptions','receiving_yards','targets','rz_targets','receiving_tds','rush_rec_yards','fantasy']},
  WR:{support:['receptions','targets','longest_reception','receiving_tds','receiving_yards','rz_targets'],
-  log:['rushing_yards','carries','rushing_tds','receptions','receiving_yards','targets','rz_targets','receiving_tds','rush_rec_yards','longest_reception','fantasy']},
- K:{support:['fg_made','fg_att','pat_made','kicking_points'],log:['fg_made','fg_att','pat_made','kicking_points']},
- DEF:{support:['tackles','assists','sacks','def_int','pass_defended'],log:['tackles','assists','sacks','def_int','pass_defended']},
+  log:['rushing_yards','carries','rushing_tds','receptions','receiving_yards','targets','rz_targets','receiving_tds','rush_rec_yards','longest_reception','rec_first2','fantasy']},
+ K:{support:['fg_made','fg_att','fg_yards','longest_fg','kicking_points','kicker_fantasy'],
+  log:['fg_made','fg_att','fg_yards','longest_fg','shortest_fg','pat_made','pat_att','kicking_points','kicker_fantasy']},
+ P:{support:['punt_yards','punts_in20','punts_50'],log:['punt_yards','punts_in20','punts_50']},
+ DEF:{support:['total_tackles','tackles','assists','sacks','tfl','def_int'],log:['total_tackles','tackles','assists','sacks','tfl','def_int','pass_defended']},
 };
 export function family(position){
  const p=positionOf(position);
- if(p==='QB')return FAMILY.QB;if(p==='RB'||p==='FB')return FAMILY.RB;if(p==='K')return FAMILY.K;
+ if(p==='QB')return FAMILY.QB;if(p==='RB'||p==='FB')return FAMILY.RB;if(p==='K')return FAMILY.K;if(p==='P')return FAMILY.P;
  if(['WR','TE'].includes(p)||!p)return FAMILY.WR;return FAMILY.DEF;
 }
 // Which prop market a stat card stands for, so the averages can show which
 // apps post a line on it.
 export const STAT_MARKET={receptions:'receptions',targets:'targets',receiving_yards:'receiving_yards',longest_reception:'longest_reception',
  carries:'rush_attempts',rushing_yards:'rushing_yards',rush_rec_yards:'rushing_receiving_yards',touchdowns:'touchdowns',completions:'pass_completions',
- attempts:'passing_attempts',passing_yards:'passing_yards',passing_tds:'passing_touchdowns',interceptions:'interceptions',pass_rush_yards:'passing_rushing_yards',fantasy:'fantasy_score'};
+ attempts:'passing_attempts',passing_yards:'passing_yards',passing_tds:'passing_touchdowns',interceptions:'interceptions',pass_rush_yards:'passing_rushing_yards',fantasy:'fantasy_score',
+ longest_completion:'longest_completion',longest_rush:'longest_rush',rush_first5:'rush_yards_first_5',rec_first2:'rec_yards_first_2',fg_made:'fg_made',fg_att:'fg_attempts',
+ fg_yards:'fg_yards',longest_fg:'longest_fg',shortest_fg:'shortest_fg',pat_att:'pat_attempts',kicking_points:'kicking_points',kicker_fantasy:'kicker_fantasy',
+ punts_in20:'punts_inside_20',punt_yards:'gross_punt_yards',punts_50:'punts_50_plus',total_tackles:'tackles',sacks:'sacks',tfl:'tackles_for_loss',def_int:'def_interceptions'};
+// The stat-tab order on the player page (backend/sports/nfl/markets.py).
+export const MARKET_ORDER=['passing_yards','passing_touchdowns','passing_attempts','pass_completions','interceptions','longest_completion','passing_rushing_yards',
+ 'rushing_yards','rush_attempts','rush_yards_first_5','longest_rush','receptions','targets','receiving_yards','longest_reception','rec_yards_first_2',
+ 'rushing_receiving_yards','touchdowns','fantasy_score','fg_made','fg_attempts','fg_yards','kicking_points','kicker_fantasy','longest_fg','shortest_fg',
+ 'pat_attempts','punts_inside_20','gross_punt_yards','punts_50_plus','tackles','sacks','tackles_for_loss','def_interceptions'];
 
 // Play-by-play extras arrive separately (they need the heaviest file) and
 // are folded into the game log when they land.
 export function mergePlayByPlay(rows,pbp){
- const games=pbp?.games||{};
- return (rows||[]).map(row=>{const extra=games[row.gameId];if(!extra||row.dnp)return row;
-  return {...row,box:{...row.box,rz_targets:extra.rzTargets,longest_rush:extra.longestRush},values:{...row.values,longest_reception:finite(extra.longestReception)?extra.longestReception:row.values?.longest_reception}};});
+ const games=pbp?.games||{},values=pbp?.values||{};
+ return (rows||[]).map(row=>{const extra=games[row.gameId],more=values[row.gameId];if(row.dnp||(!extra&&!more))return row;
+  // `values` holds every play-by-play market for the game, 0 where the
+  // player had none (backend/sports/nfl/finder.py pbp_values).
+  return {...row,box:{...row.box,rz_targets:extra?.rzTargets??(more?0:undefined),longest_rush:more?.longest_rush??extra?.longestRush},
+   values:{...row.values,...(more||{}),...(!more&&finite(extra?.longestReception)?{longest_reception:extra.longestReception}:{})}};});
 }
 export const playedGames=rows=>(rows||[]).filter(row=>!row.dnp);
 

@@ -99,7 +99,7 @@ def _source_payload(resource, season, week, season_type, team, player_id, season
 
 
 # The Finder's NFL player page (backend/sports/nfl/finder.py).
-FINDER_RESOURCES = ('finder-log', 'finder-pbp', 'finder-league', 'finder-team', 'finder-matchup', 'finder-player')
+FINDER_RESOURCES = ('finder-board', 'finder-log', 'finder-pbp', 'finder-league', 'finder-team', 'finder-matchup', 'finder-player')
 PLAYER_ID = re.compile(r'^\d{2}-\d{7}$')
 TEAM = re.compile(r'^[A-Z]{2,3}$')
 GAME_ID = re.compile(r'^\d{4}_\d{2}_[A-Z]{2,3}_[A-Z]{2,3}$')
@@ -115,6 +115,12 @@ class handler(BaseHTTPRequestHandler):
         if resource in ('finder-team', 'finder-player') and not TEAM.match(team):
             return send_json(self, 400, {'error': 'A team abbreviation is required.'})
         try:
+            if resource == 'finder-board':
+                # Every line PrizePicks posts, with hit rates from nflverse
+                # (backend/sports/nfl/prizepicks_board.py).
+                from backend.sports.nfl.prizepicks_board import board
+                payload = board(season)
+                return send_json(self, 200, {**payload, 'data': payload['rows']})
             if resource == 'finder-log':
                 return send_json(self, 200, finder.player_log(season, player_id))
             if resource == 'finder-pbp':
@@ -128,7 +134,8 @@ class handler(BaseHTTPRequestHandler):
                     return send_json(self, 400, {'error': 'A verified NFL game is required.'})
                 return send_json(self, 200, finder.matchup(season, game_id))
             market = arg('market')
-            if not TEAM.match(opponent) or market not in (*finder.MARKET_FIELDS, 'fantasy_score'):
+            from backend.sports.nfl import markets
+            if not TEAM.match(opponent) or market not in markets.LABELS:
                 return send_json(self, 400, {'error': 'Opponent and a supported market are required.'})
             try:
                 line = float(arg('line')) if arg('line') else None
