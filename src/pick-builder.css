@@ -7,12 +7,14 @@
 .pick-side-menu header{display:grid;gap:2px;margin:0 2px 10px}
 .pick-side-menu header strong{font-size:14px;font-weight:750;color:#fff}
 .pick-side-menu header span{color:#a8adb4;font-size:12px}
-.pick-side-menu header b[data-side=over]{color:#6ce4bb}.pick-side-menu header b[data-side=under]{color:#ff929e}
+.pick-side-menu header b[data-side]{color:var(--theme-accent-soft,var(--theme-accent))}
 .pick-side-options{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .pick-side-menu button{display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;margin:0;padding:0 10px;border:1px solid #383d43;border-radius:11px;background:#1b1f24;color:#e1e7ef;font:650 13px/1 Inter,Arial,sans-serif;letter-spacing:0;cursor:pointer;box-shadow:none;transition:background-color .15s,border-color .15s,color .15s}
 .pick-side-menu button b{font-weight:800;font-variant-numeric:tabular-nums}
-.pick-side-options button[data-side=over]:hover,.pick-side-options button[data-side=over][aria-pressed=true]{border-color:#2fbf8f;background:#0f3b33;color:#b9f5df}
-.pick-side-options button[data-side=under]:hover,.pick-side-options button[data-side=under][aria-pressed=true]{border-color:#d9566d;background:#3f1726;color:#ffd0d8}
+/* Over and Under both take the site's accent color (Settings or the admin's
+   site theme), like every other chosen control. */
+.pick-side-options button:not(:disabled):hover{border-color:color-mix(in srgb,var(--theme-accent) 55%,#383d43);background:color-mix(in srgb,var(--theme-accent) 12%,#1b1f24);color:#fff}
+.pick-side-options button[aria-pressed=true]{border-color:var(--theme-accent);background:color-mix(in srgb,var(--theme-accent) 26%,#1b1f24);color:#fff}
 .pick-side-options button[aria-pressed=true]{box-shadow:inset 0 0 0 1px currentColor}
 .pick-side-menu button:disabled{cursor:not-allowed;opacity:.4}
 .pick-side-menu button:disabled:hover{border-color:#383d43;background:#1b1f24;color:#e1e7ef}
@@ -35,8 +37,7 @@
 .pick-builder-empty svg{flex:0 0 auto}
 .pick-builder-list{display:grid;gap:8px}
 .pick-builder-leg{position:relative;display:grid;grid-template-columns:48px minmax(0,1fr);gap:4px 11px;padding:11px 11px 10px;border:1px solid #242424;border-radius:14px;background:#141414}
-.pick-builder-leg[data-side=over]{border-left:3px solid #2fbf8f}
-.pick-builder-leg[data-side=under]{border-left:3px solid #e05a73}
+.pick-builder-leg[data-side]{border-left:3px solid var(--theme-accent)}
 .pick-builder-photo{position:relative;display:grid;place-items:center;width:48px;height:48px;border-radius:50%;background:#1f1f1f;border:1px solid #333;color:#aaa;font-size:13px;font-weight:700}
 .pick-builder-headshot{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:top}
 .pick-builder-team{position:absolute;right:-5px;bottom:-4px;width:22px;height:22px;padding:2px;border-radius:50%;background:#0b0b0b;border:1px solid #333;object-fit:contain}
@@ -55,8 +56,7 @@
 .pick-builder button:disabled{cursor:not-allowed}
 .pick-builder-side button{min-height:36px;padding:0 10px;border:0;border-radius:9px;background:transparent;color:#9a9a9a;font-size:13px;font-weight:650;transition:background-color .15s,color .15s}
 .pick-builder-side button:not(:disabled):hover{color:#fff;background:#1b1b1b}
-.pick-builder-side button[data-side=over][aria-pressed=true]{background:#123f35;color:#bff5e1}
-.pick-builder-side button[data-side=under][aria-pressed=true]{background:#46192a;color:#ffd2da}
+.pick-builder-side button[aria-pressed=true]{background:color-mix(in srgb,var(--theme-accent) 28%,#0c0c0c);color:#fff;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--theme-accent) 60%,transparent)}
 .pick-builder-side button:disabled:not([aria-pressed=true]){opacity:.38}
 .pick-builder-remove{position:absolute;top:8px;right:8px;display:grid;place-items:center;width:30px;height:30px;padding:0;border:0;border-radius:50%;background:transparent;color:#8a8a8a}
 .pick-builder-remove:hover{background:#222;color:#fff}
@@ -68,8 +68,8 @@
 .pick-builder-clear,.pick-builder-export{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:0 14px;border-radius:12px;font-size:13px;font-weight:700}
 .pick-builder-clear{border:1px solid #333;background:#111;color:#ddd}
 .pick-builder-clear:not(:disabled):hover{border-color:#555;color:#fff}
-.pick-builder-export{border:1px solid var(--theme-accent);background:linear-gradient(135deg,var(--theme-accent) 0%,var(--theme-accent) 100%);color:#fff;box-shadow:0 8px 22px color-mix(in srgb,var(--theme-accent) 35%,transparent)}
-.pick-builder-export:not(:disabled):hover{background:linear-gradient(135deg,var(--theme-accent) 0%,var(--theme-accent) 100%)}
+.pick-builder-export{border:1px solid var(--theme-accent);background:var(--theme-accent);color:var(--theme-on-accent,#fff);box-shadow:0 8px 22px color-mix(in srgb,var(--theme-accent) 35%,transparent)}
+.pick-builder-export:not(:disabled):hover{filter:brightness(1.08)}
 .pick-builder-clear:disabled,.pick-builder-export:disabled{opacity:.45;box-shadow:none}
 .pick-builder button:focus-visible{outline:2px solid var(--theme-accent-soft,var(--theme-accent));outline-offset:2px}
 
