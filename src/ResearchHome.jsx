@@ -165,16 +165,16 @@ export function ResearchHome() {
         : <PlayerShortcut key={player.id} player={player} />)}</div>
     <div className="lab-section-heading lab-section-heading--tools"><h2>Your toolkit</h2><span>From context to a card</span></div>
     <div className="lab-tools">
-      <button type="button" className="lab-tool lab-tool--green" onClick={() => go('slate')}>
+      <button type="button" className="lab-tool lab-tool--green" data-requires-tab="slate" onClick={() => go('slate')}>
         <span className="lab-tool-top"><span className="lab-icon-box"><Crosshair size={21} aria-hidden="true" /></span><ArrowUpRight size={19} aria-hidden="true" /></span>
         <DiamondArt /><strong>Matchup tools</strong><span>Pitchers, parks & weather</span>
       </button>
-      <button type="button" className="lab-tool lab-tool--purple" onClick={() => go('slip')}>
+      <button type="button" className="lab-tool lab-tool--purple" data-requires-tab="slip" onClick={() => go('slip')}>
         <span className="lab-tool-top"><span className="lab-icon-box"><ScanLine size={21} aria-hidden="true" /></span><ArrowUpRight size={19} aria-hidden="true" /></span>
         <TicketArt /><strong>Scan a slip</strong><span>A screenshot. A full breakdown.</span>
       </button>
     </div>
-    <button type="button" className="lab-board-button" onClick={() => go('v2')}>
+    <button type="button" className="lab-board-button" data-requires-tab="v2" onClick={() => go('v2')}>
       <span className="lab-board-icon"><ChartNoAxesCombined size={24} aria-hidden="true" /></span>
       <span><strong>Explore the prop board</strong><small>Browse the model’s graded plays</small></span>
       <span className="lab-board-arrow"><ArrowRight size={21} aria-hidden="true" /></span>

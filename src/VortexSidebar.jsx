@@ -64,10 +64,13 @@ export function VortexSidebar() {
         </div>
         <nav className="vortex-sidebar-links">
           {topTabs.map((item, index) => item.type === 'separator'
-            ? <div className="vortex-sidebar-sep" key={`sep-${index}`} />
+            // A divider goes with the item under it, so it doesn't dangle
+            // when that item's section is switched off.
+            ? <div className="vortex-sidebar-sep" key={`sep-${index}`} data-requires-tab={topTabs[index + 1]?.value} />
             : (
               <SidebarLink
                 key={item.value}
+                data-requires-tab={item.value}
                 link={{
                   label: item.title,
                   // Badge lives inside the icon's own wrapper (not after the

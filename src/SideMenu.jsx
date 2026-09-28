@@ -1,6 +1,6 @@
 import React,{useEffect,useState} from 'react';
 import {moreTabs,topTabs} from './navTabs';
-import {siteTabAllowed} from './site-access';
+import {siteIsAdmin,siteTabAllowed} from './site-access';
 import './side-menu.css';
 
 // The side panel's menu on phones, laid out like pickfinder.app's sidebar:
@@ -13,7 +13,9 @@ const PRIMARY=topTabs.filter(item=>item.value&&item.value!=='saved');
 export function SideMenu(){
  const [tab,setTab]=useState('research');
  // Which tabs a user may see is a site setting (site_controls
- // disabledTabs); re-read it whenever the policy changes or the panel opens.
+ // disabledTabs): a section switched off is left out for everyone but
+ // admins. Admin itself is listed only for an admin session (unlocked from
+ // the settings gear). Re-read whenever the policy changes or the panel opens.
  const [,setRevision]=useState(0);
  useEffect(()=>{
   const sync=({detail})=>setTab(detail?.tab||'research');
@@ -34,7 +36,7 @@ export function SideMenu(){
   <item.icon size={20} strokeWidth={1.8} aria-hidden="true"/><span>{item.title}</span>
  </button>;
  const primary=PRIMARY.filter(item=>siteTabAllowed(item.value));
- const more=moreTabs.filter(item=>siteTabAllowed(item.value));
+ const more=moreTabs.filter(item=>item.value==='admin'?siteIsAdmin():siteTabAllowed(item.value));
  return <nav className="side-menu" aria-label="Main menu">
   {primary.length>0&&<div className="side-menu-group">{primary.map(row)}</div>}
   {more.length>0&&<><p className="side-menu-label">More</p><div className="side-menu-group">{more.map(row)}</div></>}

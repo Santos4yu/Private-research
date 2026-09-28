@@ -52,7 +52,7 @@
      pages keep --app-bottom of space for it. */
   #dock-root { position: static !important; }
   .mobile-app-nav {
-    position: fixed; z-index: 75; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0;
+    position: fixed; z-index: 75; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0;
     left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px));
     top: auto; bottom: calc(8px + env(safe-area-inset-bottom, 0px));
     max-width: 440px; margin-inline: auto; min-height: 68px; padding: 6px 8px;

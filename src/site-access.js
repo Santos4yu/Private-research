@@ -1,8 +1,9 @@
 import './site-access.css';
-import {accessGranted,canUseTab,availableTab,canUseSport,canUseFinderSport,FINDER_SPORTS} from './site-access-core.js';
+import {accessGranted,canUseTab,availableTab,canUseSport,canUseFinderSport,hiddenTabs,FINDER_SPORTS} from './site-access-core.js';
 const names={research:'Research',finder:'Finder',v2:'Props',slate:'Tools',saved:'My Slip',slip:'Slip Analyzer',builder:'Builder',moneyline:'Moneyline',nrfi:'NRFI / YRFI',community:'Community'};
 let status=null,initPromise=null,activeDialog=null,lockedDialog=null;
 export function siteTabAllowed(tab){return canUseTab(status,tab);}
+export function siteIsAdmin(){return Boolean(status?.isAdmin);}
 export function siteSportAllowed(sport){return canUseSport(status,sport);}
 export function siteFinderSportAllowed(sport){return canUseFinderSport(status,sport);}
 export function availableSiteTab(current){return availableTab(status,current);}
@@ -168,6 +169,10 @@ function renderStatus(){
  bar.hidden=!granted;
  if(granted&&!bar.childElementCount){const account=button('',accountDialog,'site-account-trigger');account.setAttribute('aria-label','Your account');account.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M5 21v-2a7 7 0 0 1 14 0v2" stroke="currentColor" stroke-width="1.6"/></svg>';bar.append(account);}
  document.querySelectorAll('[data-tab],[data-launch-tab]').forEach(b=>{const tab=b.dataset.tab||b.dataset.launchTab;if(tab!=='admin'){b.disabled=!granted;b.dataset.featureLocked=String(!siteTabAllowed(tab));}});
+ // A section switched off in the admin panel disappears for everyone but
+ // admins: site-access.css hides every element marked data-requires-tab
+ // for a tab listed here, wherever and whenever it is drawn.
+ document.documentElement.dataset.hiddenTabs=hiddenTabs(status,Object.keys(names)).join(' ');
  let gate=document.getElementById('site-policy-gate');if(!gate){gate=element('main',null,'site-policy-gate');gate.id='site-policy-gate';document.body.append(gate);}
  // URL paths use a friendlier slug than the internal tab id for a few tabs
  // (v2 -> /props, slate -> /tools, slip -> /slip-analyzer) -- app.js owns
