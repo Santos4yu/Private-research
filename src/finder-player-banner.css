@@ -1,0 +1,89 @@
+/* Finder player banner (FinderPlayerBanner.jsx): the page's own gradient
+   header, pickfinder.app style, instead of a separate little card. */
+.fpb {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  margin: 0 0 12px;
+  padding: 12px 16px 16px;
+  border-radius: 16px;
+  overflow: hidden;
+  color: #fff;
+  background:
+    radial-gradient(120% 85% at 50% -10%, rgba(92, 84, 255, .55), transparent 70%),
+    linear-gradient(180deg, #3530d8 0%, #2a27b2 40%, #1b1d66 70%, rgba(16, 19, 47, .6) 90%, rgba(16, 19, 47, 0) 100%);
+  font-family: var(--font-sans, Arial, sans-serif);
+}
+.fpb-top { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 44px; }
+.fpb-back {
+  justify-self: start; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 6px 0 0;
+  border: 0; background: transparent; color: #a9c4ff; font: 500 16px/1 inherit; cursor: pointer;
+}
+.fpb-brand { display: inline-flex; align-items: center; gap: 9px; color: #fff; font: 700 17px/1 inherit; letter-spacing: -.01em; white-space: nowrap; }
+.fpb-brand img { border-radius: 8px; object-fit: contain; }
+.fpb-account {
+  justify-self: end; display: none; place-items: center; width: 40px; height: 40px; padding: 0;
+  border: 1px solid rgba(255, 255, 255, .22); border-radius: 50%; background: rgba(10, 13, 40, .35); color: #e9edff; cursor: pointer;
+}
+.fpb-player { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.fpb-avatar {
+  position: relative; flex: 0 0 auto; display: grid; place-items: center; width: 66px; height: 66px;
+  border: 2px solid rgba(255, 255, 255, .22); border-radius: 50%; background: #1f2560;
+}
+.fpb-initials { font: 700 20px/1 var(--font-sans, Arial, sans-serif); color: #c9d0ff; }
+.fpb-photo { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; object-position: top; background: #1f2560; }
+.fpb-team {
+  position: absolute; right: -6px; bottom: -4px; width: 28px; height: 28px; padding: 3px; box-sizing: border-box;
+  border-radius: 50%; object-fit: contain; background: #0e1233; box-shadow: 0 0 0 2px rgba(255, 255, 255, .12);
+}
+.fpb-identity { min-width: 0; display: grid; gap: 6px; }
+.fpb-identity h1 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 10px; margin: 0; font: 700 23px/1.15 inherit; letter-spacing: -.02em; color: #fff; }
+.fpb-identity h1 span { font-size: 18px; font-weight: 500; letter-spacing: 0; color: rgba(255, 255, 255, .58); }
+.fpb-identity p { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin: 0; font: 500 14px/1.3 inherit; color: rgba(255, 255, 255, .78); }
+.fpb-identity p i { font-style: normal; opacity: .6; }
+.fpb-league { width: 22px; height: 22px; padding: 2px; box-sizing: border-box; border-radius: 5px; object-fit: contain; background: #fff; }
+
+/* Odds: a row of cards that scrolls sideways, like the app's. */
+.fpb-odds {
+  display: flex; gap: 8px; margin: 0 -16px; padding: 2px 16px 0; overflow-x: auto;
+  scroll-snap-type: x proximity; scrollbar-width: none; overscroll-behavior-x: contain;
+}
+.fpb-odds::-webkit-scrollbar { display: none; }
+.fpb-card {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 10px; min-width: 112px; height: 60px; padding: 0 14px;
+  box-sizing: border-box; scroll-snap-align: start;
+  border: 1px solid rgba(255, 255, 255, .1); border-radius: 14px; background: rgba(9, 12, 32, .72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
+}
+.fpb-card > img { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 8px; object-fit: contain; }
+.fpb-lines { display: grid; gap: 3px; font: 600 14px/1.1 var(--font-sans, Arial, sans-serif); color: #eef1fb; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fpb-lines b { display: inline-block; width: 14px; margin-right: 5px; font-weight: 600; color: rgba(255, 255, 255, .5); }
+.fpb-lines b[data-side=over] { color: #5fe0a7; }
+.fpb-lines b[data-side=under] { color: #ff7b8a; }
+.fpb-chance-mark { display: grid; place-items: center; width: 34px; height: 34px; border: 2px solid rgba(255, 255, 255, .85); border-radius: 50%; color: #fff; }
+.fpb-chance .fpb-lines em { font-style: normal; font-weight: 700; }
+.fpb-chance .fpb-lines em[data-side=over] { color: #5fe0a7; }
+.fpb-chance .fpb-lines em[data-side=under] { color: #ff7b8a; }
+.fpb-info { color: rgba(255, 255, 255, .6); flex: 0 0 auto; }
+.fpb-pick small { font: 600 12px/1.2 var(--font-sans, Arial, sans-serif); color: rgba(255, 255, 255, .7); }
+.fpb button:focus-visible { outline: 2px solid #9fc0ff; outline-offset: 2px; }
+
+/* The chart panel's own odds row and matchup strip: these pages show the
+   odds and the game in the banner instead. */
+:root[data-theme] .wnba-trend-page #gamelog-overlay #gamelog-odds-row,
+:root[data-theme] .wnba-trend-page #gamelog-overlay .gamelog-market-strip { display: none !important; }
+
+/* Phones: the gradient runs edge to edge from the top of the screen, and
+   the account button joins the header (the floating one is hidden here). */
+@media (max-width: 760px) {
+  .unified-finder.finder-detail-active .fpb {
+    margin: calc(-1 * (var(--site-status-inset, 0px) + 6px)) -8px 10px;
+    padding: calc(var(--site-status-inset, 0px) + 8px) 16px 16px;
+    border-radius: 0;
+  }
+  .fpb-account { display: grid; }
+  .fpb-brand { font-size: 16px; }
+  .fpb-identity h1 { font-size: 21px; }
+  .fpb-identity h1 span { font-size: 16px; }
+  .fpb-avatar { width: 60px; height: 60px; }
+}

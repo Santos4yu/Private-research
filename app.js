@@ -3138,28 +3138,39 @@ async function loadGameLogBookOdds(stat, player = gameLogState.player) {
 // picker), same "fetch once per stat, redraw per line" pattern the alt-lines
 // Select already uses.
 function renderGameLogBookOdds() {
-  if (!els.gamelogOddsRow) return;
   const row = gamelogBookOddsRows.find((r) => Number(r.line) === Number(gameLogState.line));
-  if (!row) { els.gamelogOddsRow.innerHTML = ""; return; }
-  const fmtOdds = (value) => value == null ? "—" : americanOdds(value);
+  const quotes = [];
   const shown = new Set();
-  els.gamelogOddsRow.innerHTML = GAMELOG_ODDS_BOOKS.map((book) => {
-    const quote = row.books?.[book.key];
-    const overPrice = quote?.over ?? null;
-    const underPrice = quote?.under ?? null;
-    if (overPrice == null && underPrice == null) return "";
+  for (const book of GAMELOG_ODDS_BOOKS) {
+    const quote = row?.books?.[book.key];
+    const over = quote?.over ?? null;
+    const under = quote?.under ?? null;
+    if (over == null && under == null) continue;
     // Underdog is reachable under two different bookmaker keys; whichever
     // one the feed uses, only show the book once.
-    if (shown.has(book.name)) return "";
+    if (shown.has(book.name)) continue;
     shown.add(book.name);
+    quotes.push({ key: book.key, name: book.name, logo: book.logo, over, under });
+  }
+  // The Finder's player banner shows these same quotes in its own odds row
+  // (and hides this one), so it follows every line change the chart makes.
+  // (Guarded: tests run this function outside a browser.)
+  if (typeof window !== "undefined" && typeof CustomEvent === "function") {
+    window.dispatchEvent(new CustomEvent("vortex:trend-odds", {
+      detail: { player: gameLogState.player, stat: gameLogState.stat, line: gameLogState.line, books: quotes },
+    }));
+  }
+  if (!els.gamelogOddsRow) return;
+  const fmtOdds = (value) => value == null ? "—" : americanOdds(value);
+  els.gamelogOddsRow.innerHTML = quotes.map((book) => {
     const mark = book.logo
       ? `<img src="${book.logo}" alt="${escapeHtml(book.name)}" />`
       : `<span class="gamelog-odds-name">${escapeHtml(book.name)}</span>`;
     return `<div class="gamelog-odds-pill" title="${escapeHtml(book.name)}">
       ${mark}
       <div class="gamelog-odds-values">
-        <span><b>O</b>${escapeHtml(fmtOdds(overPrice))}</span>
-        <span><b>U</b>${escapeHtml(fmtOdds(underPrice))}</span>
+        <span><b>O</b>${escapeHtml(fmtOdds(book.over))}</span>
+        <span><b>U</b>${escapeHtml(fmtOdds(book.under))}</span>
       </div>
     </div>`;
   }).join("");

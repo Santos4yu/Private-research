@@ -6,11 +6,12 @@ import './sports/nfl/nfl-research.css';
 import MLBFinderContext from './MLBFinderContext';
 import MLBSupportingStats from './MLBSupportingStats';
 import MLBPlayerGameLog from './MLBPlayerGameLog';
+import { FinderPlayerBanner } from './FinderPlayerBanner';
 
 const nflClient = createNFLClient();
 const nflSeason = () => new Date().getMonth() < 2 ? new Date().getFullYear() - 1 : new Date().getFullYear();
 
-function MLBTrends({ row, onBack }) {
+function MLBTrends({ row, playerRows, onBack }) {
   const host = useRef(null);
   const [available, setAvailable] = useState(true);
   useEffect(() => {
@@ -19,11 +20,7 @@ function MLBTrends({ row, onBack }) {
     return () => panel?.unmount();
   }, [row]);
   return <section className="finder-trend-view wnba-trend-page">
-    <button type="button" className="wnba-trend-back" aria-label="Back to Finder" onClick={onBack}><ArrowLeft size={17} aria-hidden="true" />Back</button>
-    <header className="wnba-trend-title"><div className="wnba-player-cell">
-      {row.headshot && <img className="wnba-player-photo" src={row.headshot} alt="" width="56" height="56" />}
-      <div><span>MLB TRENDS</span><h1>{row.player}</h1><p>{row.market} · Line {row.line}</p></div>
-    </div></header>
+    <FinderPlayerBanner row={row} playerRows={playerRows} onBack={onBack} />
     {!available && <div className="wnba-board-message" role="status"><Database size={22} aria-hidden="true" /><strong>Trends could not open</strong><span>Refresh the page to reload player research.</span></div>}
     <div className="mlb-finder-workspace"><div className="mlb-trend-main"><div className="wnba-trend-host finder-mlb-trend-host" ref={host} /><MLBSupportingStats key={row.id} row={row}/><MLBPlayerGameLog key={`log-${row.id}`} row={row}/></div><MLBFinderContext key={row.id} row={row}/></div>
   </section>;
@@ -73,5 +70,5 @@ function NFLTrends({ row, onBack }) {
 export function FinderTrendView({ row, playerRows, onBack }) {
   return String(row.sport).toLowerCase() === 'nfl'
     ? <NFLTrends row={row} playerRows={playerRows} onBack={onBack} />
-    : <MLBTrends row={row} onBack={onBack} />;
+    : <MLBTrends row={row} playerRows={playerRows} onBack={onBack} />;
 }

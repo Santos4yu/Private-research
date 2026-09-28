@@ -25,7 +25,7 @@ import requests  # noqa: E402
 
 SPORT = "basketball_wnba"
 CACHE_KEY = "krazy_data:wnba:v8:finder_board"
-ROSTER_CACHE_KEY = "krazy_data:wnba:v1:roster_directory"
+ROSTER_CACHE_KEY = "krazy_data:wnba:v2:roster_directory"  # v2: adds height
 CACHE_SECONDS = 10 * 60
 ROSTER_CACHE_SECONDS = 6 * 60 * 60
 BOOKS = "prizepicks,underdog,draftkings,fanduel,betmgm"
@@ -104,6 +104,8 @@ def _roster_directory():
                     "id": athlete.get("id"), "name": name, "team": team["name"], "teamAbbr": team["abbr"],
                     "teamLogo": team["logo"], "headshot": (athlete.get("headshot") or {}).get("href"),
                     "position": (athlete.get("position") or {}).get("abbreviation"),
+                    # ESPN writes 6' 3"; the player banner shows 6'3.
+                    "height": str(athlete.get("displayHeight") or "").replace("' ", "'").rstrip('"') or None,
                 })
     value = {"players": players, "teams": {_norm(meta["name"]): meta for meta in team_meta.values()}}
     _roster_memory.update(at=now, value=value)
@@ -344,7 +346,7 @@ def _board(include_history=True):
             identities = directory["players"].get(_norm(row["player"]), [])
             identity = next((item for item in identities if item["team"] in (row["homeTeam"], row["awayTeam"])), identities[0] if len(identities) == 1 else None)
             if identity:
-                row.update({key: identity.get(key) for key in ("headshot", "position", "team", "teamAbbr", "teamLogo")})
+                row.update({key: identity.get(key) for key in ("headshot", "position", "height", "team", "teamAbbr", "teamLogo")})
                 row["playerId"] = identity.get("id")
             row["homeTeamLogo"] = (directory["teams"].get(_norm(row["homeTeam"])) or {}).get("logo")
             row["awayTeamLogo"] = (directory["teams"].get(_norm(row["awayTeam"])) or {}).get("logo")

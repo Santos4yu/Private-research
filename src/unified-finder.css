@@ -155,7 +155,7 @@
 .finder-spin{animation:finder-spin 1s linear infinite}@keyframes finder-spin{to{transform:rotate(360deg)}}
 .finder-detail,.finder-trend-view{padding:14px;min-height:500px}
 .finder-back,.wnba-trend-back{display:inline-flex;align-items:center;gap:8px;min-height:38px;border:1px solid var(--f-border)!important;border-radius:7px;padding:0 12px;margin-bottom:12px;background:var(--f-control);color:var(--f-text)}
-.wnba-trend-title{padding:10px 0 18px}.wnba-trend-title .wnba-player-cell{display:flex;align-items:center;gap:12px}.wnba-trend-title h1{margin:3px 0;font-size:22px}.wnba-trend-title p{margin:0;color:var(--f-muted)}.wnba-player-photo{border-radius:50%;object-fit:cover}.wnba-trend-host{min-height:500px}.wnba-trend-host #gamelog-overlay{margin:0!important}
+.wnba-trend-host{min-height:500px}.wnba-trend-host #gamelog-overlay{margin:0!important}
 @media(min-width:1600px){.finder-table th:first-child{width:26%}.finder-table td{height:64px}.finder-heat{height:56px}.finder-name{font-size:13px}.finder-heat strong{font-size:12px}}
 @media(max-width:1100px){.finder-brand{display:none}.finder-top-save{margin-left:auto}.finder-page-hint{display:none}.finder-filters{grid-template-columns:1fr 1.4fr 1fr 1fr 1.1fr 40px}.finder-saved{display:none}.finder-legend{font-size:9px}}
 @media(max-width:760px){:root[data-theme] #app-shell #panel-finder{width:calc(100% - 16px)!important;padding:64px 0 90px!important}.unified-finder{border-radius:11px}.finder-topbar{padding:7px 9px;gap:8px;flex-wrap:wrap}.finder-title{gap:6px}.finder-title h1{font-size:15px}.finder-title>span{margin-left:1px}.finder-sports{gap:3px;flex:1}.finder-sports>button{padding:4px 7px;gap:5px;font-size:11px;min-height:36px}.finder-top-save{display:none}.finder-controls{padding:7px 7px 0}.finder-search-row{grid-template-columns:minmax(0,1fr) 40px}.finder-search{height:44px}.finder-search input{font-size:16px}.finder-search-row>.finder-icon{height:44px}.finder-app-filter{grid-column:1/-1;grid-row:2}.finder-app-filter .finder-filter{height:38px}.finder-filters{display:flex;flex-wrap:wrap;gap:5px}.finder-filters .finder-filter{flex:1 1 28%;height:40px;padding-inline:8px}.finder-filters .finder-filter select{font-size:11px}.finder-reset{width:40px;height:40px}.finder-saved{display:none}.finder-meta{padding:8px 10px;align-items:flex-start}.finder-meta>span{flex-wrap:wrap}.finder-legend{display:none!important}.finder-board{margin:0 7px 7px}.finder-scroll{min-height:300px;max-height:calc(100dvh - 360px)}.finder-table{min-width:980px}.finder-table th:first-child{width:225px}.finder-table th:nth-child(2){width:160px}.finder-table th:first-child,.finder-table td:first-child{position:sticky;left:0;z-index:2;border-right:1px solid #29314b}.finder-table th:first-child{z-index:5}.finder-table .finder-player-cell{padding-left:8px}.finder-player{gap:7px}.finder-name{font-size:11px}.finder-market{font-size:10px}.finder-game{font-size:9px}.finder-portrait{width:32px;height:32px}.finder-pagination{padding:7px 6px;gap:5px}.finder-pagination>span{font-size:9px}.finder-pagination>div{gap:3px}.finder-pagination>div>span{padding:0 6px}.finder-pagination label{padding:0 6px;margin-left:2px}.finder-pagination button{width:28px}.finder-detail,.finder-trend-view{padding:8px}}
@@ -254,7 +254,6 @@
  .finder-nfl-trend-view .nfl-player-summary strong{font-size:11px}
  .finder-nfl-trend-view .nfl-chart-card{padding:8px;border-radius:10px;background:#0d1329}
  .finder-detail .gamelog-modal,.finder-trend-view .gamelog-modal{width:100%;max-width:100%;min-width:0;margin:0;border-radius:10px}
- .wnba-trend-title{padding:6px 0 12px}.wnba-trend-title h1{font-size:19px}
 }
 
 /* Keep these controls independent of the older MLB Finder's global rules. */
@@ -389,8 +388,6 @@
 
 .posted-line-primary{display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;width:max-content;border:0;background:transparent}
 .posted-line-primary img{object-fit:contain}
-.unified-finder .wnba-trend-title{padding:8px 10px 10px;background:linear-gradient(110deg,#29239e,#131a42);border-radius:9px;margin-bottom:6px}
-.unified-finder .wnba-trend-title h1{font-size:20px;margin:0 0 3px}.unified-finder .wnba-trend-title .wnba-player-cell{gap:9px}.unified-finder .wnba-trend-title .wnba-player-photo{width:42px;height:42px}.unified-finder .wnba-trend-title p{font-size:12px}.unified-finder .wnba-trend-title .wnba-player-cell>div>span{display:none}
 /* Keep the embedded chart in document flow, never as a second fullscreen modal. */
 :root[data-theme] .unified-finder #gamelog-overlay{position:relative!important;inset:auto!important;width:100%!important;height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}
 :root[data-theme] .unified-finder #gamelog-overlay .gamelog-modal{height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}
@@ -405,7 +402,6 @@
  :root[data-theme] .unified-finder #gamelog-overlay .gamelog-filter-field{gap:3px!important}
  :root[data-theme] .unified-finder #gamelog-overlay .gamelog-odds-pill{min-height:44px!important;flex-basis:100px}
  :root[data-theme] .unified-finder #gamelog-overlay .gamelog-modal{padding:0!important}
- .unified-finder .wnba-trend-title{padding:6px 8px;margin-bottom:4px}.unified-finder .wnba-trend-title h1{font-size:17px}
  :root[data-theme] .unified-finder #gamelog-overlay .gamelog-windowbar button{min-height:48px!important;padding:5px 3px!important}
  :root[data-theme] .unified-finder #gamelog-overlay .gamelog-chart{--gl-track-height:180px;padding-inline:6px!important}
 }
@@ -481,11 +477,6 @@
  .unified-finder .finder-topbar{gap:8px}
  .unified-finder .finder-top-account,.unified-finder .finder-top-settings{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;padding:0;background:#ffffff15;border-color:#ffffff30!important}
  .unified-finder .finder-top-save{margin-left:auto}
- /* Player page: Back in the header card's top-left corner, like
-    pickfinder.app, instead of alone on a row above it. */
- .unified-finder.finder-detail-active .finder-trend-view.wnba-trend-page{display:grid!important;grid-template-columns:minmax(0,1fr);align-content:start}
- .unified-finder.finder-detail-active .wnba-trend-page>.wnba-trend-back{grid-area:1/1;align-self:start;justify-self:start;z-index:1;min-height:40px!important;margin:2px 0 0 2px!important;padding:0 8px!important;color:#dfe6ff!important}
- .unified-finder.finder-detail-active .wnba-trend-page>.wnba-trend-title{grid-area:1/1;padding-top:40px!important}
 }
 /* The bar's "Finder /" label makes way for the two buttons on narrow
    phones -- the bottom nav already says where you are. */

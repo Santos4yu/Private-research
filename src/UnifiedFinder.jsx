@@ -3,6 +3,7 @@ import {ArrowDown,ArrowUp,ArrowUpDown,ArrowLeft,Bookmark,ChartNoAxesColumnIncrea
 import {loadFinderSport,enrichMlbRows,enrichWnbaRows,persistFinderCache,readFinderCache,matchesPrizePicksLine} from './unified-finder-data';
 import {WNBAPlayerPage} from './sports/wnba/WNBAPlayerPage';
 import {siteFinderSportAllowed} from './site-access';
+import {LEAGUE_LOGOS} from './league-logos';
 import './unified-finder.css';
 import {FinderDropdown,FinderDropdownAssets} from './FinderDropdown';
 import {FinderHitRateFilter,FinderMultiSelect} from './FinderMultiSelect';
@@ -18,12 +19,7 @@ const dayKey=v=>Number.isFinite(Date.parse(v))?new Date(v).toLocaleDateString('e
 const when=v=>Number.isFinite(Date.parse(v))?new Date(v).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'}):'';
 const bookName=k=>({prizepicks:'PrizePicks',draftkings:'DraftKings',fanduel:'FanDuel',betmgm:'BetMGM',underdog:'Underdog'}[k]||k);
 function Photo({src,className='',fallback=null,...props}){const [bad,setBad]=useState(false);useEffect(()=>setBad(false),[src]);return src&&!bad?<img src={src} alt="" className={className} onError={()=>setBad(true)} {...props}/>:fallback;}
-// One source for every league mark in the Finder. WNBA used to be a
-// hand-drawn stick-figure placeholder here, while the sport dropdown pointed
-// at /leagues/wnba.svg -- a file that never existed, so it rendered broken.
-// WNBA is the league's official mark from ESPN's image CDN, the same provider
-// all of the Finder's WNBA data already comes from.
-const LEAGUE_LOGOS={mlb:'/leagues/mlb.svg',nfl:'/leagues/nfl.svg',wnba:'https://a.espncdn.com/i/teamlogos/leagues/500/wnba.png'};
+
 function League({sport}){return <img src={LEAGUE_LOGOS[sport]} alt="" className="finder-league" width="17" height="19"/>;}
 function Heading({label,name,sort,onSort}){const active=sort.key===name;return <th scope="col" aria-sort={active?(sort.direction==='desc'?'descending':'ascending'):'none'}><button type="button" className={active?'is-sorted':''} onClick={()=>onSort(name)}>{label}{active?(sort.direction==='desc'?<ArrowDown size={12}/>:<ArrowUp size={12}/>):<ArrowUpDown size={11}/>}</button></th>;}
 function Heat({value,kind,detail,loading}){return <td className="finder-stat"><div className="finder-heat" data-tone={kind||tone(value)}>{finite(value)?<><strong>{num(value)}{!kind?'%':''}</strong>{detail&&<small>{detail}</small>}</>:<span className="finder-no-data" title={loading?'Loading history':'No verified sample'}>{loading?'…':'—'}</span>}</div></td>;}

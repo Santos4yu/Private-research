@@ -2,6 +2,7 @@ import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowLeft,CalendarDays,Database,ListOrdered,RefreshCw,Shield,UserCheck,UserRound,Users,UserX} from 'lucide-react';
 import {WNBA_STATS,wnbaChart,wnbaLines,wnbaOdds} from './trend-data';
 import WNBAFinderContext from './WNBAFinderContext';
+import {FinderPlayerBanner} from '../../FinderPlayerBanner';
 import {applySplits,finite,fmt,hasPlayerContext,hasSplit,logValue,opponentOf,playerContextParams,positionOf,realGames,shortDate,splitFilter,splitKey,splitLabel,toggleSplit,useWnba} from './wnba-research';
 import '../../mlb-finder-context.css';
 import './wnba-context.css';
@@ -141,11 +142,7 @@ export function WNBAPlayerPage({row,playerRows,onBack}){
  const chipsNote=filters.length?`${shown} ${shown===1?'game':'games'}`:'';
  const loading=trend.state==='loading';
  return <section className="finder-trend-view wnba-trend-page wnba-player-page">
-  <button type="button" className="wnba-trend-back" aria-label="Back to Finder" onClick={onBack}><ArrowLeft size={17} aria-hidden="true"/>Back</button>
-  <header className="wnba-trend-title"><div className="wnba-player-cell">
-   {selected.headshot&&<img className="wnba-player-photo" src={selected.headshot} alt="" width="56" height="56" onError={e=>{e.currentTarget.hidden=true;}}/>}
-   <div><span>WNBA TRENDS</span><h1>{selected.player}</h1><p>{selected.market} · Line {selected.line}{selected.teamAbbr?` · ${selected.teamAbbr} ${selected.team===selected.homeTeam?'vs':'@'} ${opponentOf(selected)||''}`:''}</p></div>
-  </div></header>
+  <FinderPlayerBanner row={selected} playerRows={playerRows} onBack={onBack}/>
   {!row.playerId?<div className="wnba-board-message" role="status"><Database size={22} aria-hidden="true"/><strong>Player history unavailable</strong><span>This player could not be matched to ESPN's roster yet, so trends and matchup research are not available.</span></div>:<>
   {trend.state==='error'&&<div className="wnba-board-message" role="alert"><span>{trend.error}</span><button type="button" className="wnba-trend-back" onClick={()=>setRetry(n=>n+1)}><RefreshCw size={16} aria-hidden="true"/>Retry</button></div>}
   <div className="mlb-finder-workspace"><div className="mlb-trend-main">
