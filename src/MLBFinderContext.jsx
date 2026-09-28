@@ -5,6 +5,7 @@ import './mlb-finder-context.css';
 import MLBWinPredictor from './MLBWinPredictor';
 import MLBPitcherArsenal from './MLBPitcherArsenal';
 import MLBInjuries from './MLBInjuries';
+import MLBStarterComparison from './MLBStarterComparison';
 import {HeartPulse} from 'lucide-react';
 
 const request=createMLBContextClient();
@@ -14,8 +15,8 @@ function Card({title,note,children,icon:Icon=Activity}){return <section classNam
 function Empty({children}){return <p className="mlb-context-note">{children}</p>;}
 function Skeleton(){return <div className="mlb-context-skeleton" role="status" aria-label="Loading research"><span/><span/><span/><span/></div>;}
 function Portrait({id}){return id?<img className="mlb-context-photo" src={`https://img.mlbstatic.com/mlb-photos/image/upload/w_100,q_auto:best/v1/people/${encodeURIComponent(id)}/headshot/silo/current`} alt="" width="30" height="30" loading="lazy" onError={e=>{e.currentTarget.style.visibility='hidden';}}/>:null;}
-function BattingValue({stat,value,ab}){
- const band=battingBand(stat,value,ab),Icon=band.tone==='good'?TrendingUp:band.tone==='poor'?TrendingDown:Minus;
+function BattingValue({stat,value,ab,bvp=false}){
+ const band=battingBand(stat,value,ab,bvp),Icon=band.tone==='good'?TrendingUp:band.tone==='poor'?TrendingDown:Minus;
  return <span className="mlb-stat-pill" data-tone={band.tone} aria-label={`${stat}: ${statText(value,stat==='k_pct'?1:3)}${band.label?', '+band.label:''}`} title={band.label}><Icon size={11} aria-hidden="true"/>{statText(value,stat==='k_pct'?1:3)}{stat==='k_pct'&&value!=null?'%':''}</span>;
 }
 function Starter({data}){
@@ -30,8 +31,9 @@ function Lineup({data,team,loading,error,onRetry,split,setSplit}){
   <Empty>{data?lineupState(data):'Checking batting order…'}{data?.source?.season?' · '+data.source.season:''}{split==='vsPitcher'?' · career matchup; K% uses AB + BB as approximate PA':''}</Empty>
   <div className="mlb-stat-legend"><span data-tone="good"><TrendingUp size={12}/>Strong</span><span data-tone="fair"><Minus size={12}/>Moderate</span><span data-tone="poor"><TrendingDown size={12}/>Low</span><span>Batting performance</span></div>
   {error&&<Empty>{error} <button type="button" onClick={onRetry}>Retry</button></Empty>}
-  {loading?<Skeleton/>:rows.length?<div className="mlb-context-table-wrap"><table><thead><tr>{['Player','AB','H','AVG','HR','RBI','OPS','K%'].map(label=><th key={label} scope="col">{label}</th>)}</tr></thead><tbody>{rows.map(p=>{const s=p[split]||{};return <tr key={p.id}><th scope="row"><span className="mlb-context-batter">{data.lineupConfirmed||data.lineupProjected?<small>{p.order}</small>:null}<Portrait id={p.id}/><span>{p.name}<small>{p.position}</small></span></span></th>{['ab','hits','avg','hr','rbi','ops','k_pct'].map(key=><td key={key}>{['avg','ops','k_pct'].includes(key)?<BattingValue stat={key} value={s[key]} ab={s.ab}/>:statText(s[key])}</td>)}</tr>;})}</tbody></table></div>:!error&&<Empty>No batting order is available yet.</Empty>}
-  <details className="mlb-band-guide"><summary>How colors work</summary><p>Display bands: AVG ≥ .270 strong, .240–.269 moderate. OPS ≥ .800 strong, .700–.799 moderate. K% ≤ 20 strong, 20–25 moderate; lower is better. Values outside those bands are low. Fewer than 30 AB stays neutral. These are fixed guides, not a prediction.</p></details>
+  {loading?<Skeleton/>:rows.length?<div className="mlb-context-table-wrap"><table><thead><tr>{['Player','AB','H','AVG','HR','RBI','OPS','K%'].map(label=><th key={label} scope="col">{label}</th>)}</tr></thead><tbody>{rows.map(p=>{const s=p[split]||{};return <tr key={p.id}><th scope="row"><span className="mlb-context-batter">{data.lineupConfirmed||data.lineupProjected?<small>{p.order}</small>:null}<Portrait id={p.id}/><span>{p.name}<small>{p.position}</small></span></span></th>{['ab','hits','avg','hr','rbi','ops','k_pct'].map(key=><td key={key}>{['avg','ops','k_pct'].includes(key)?<BattingValue stat={key} value={s[key]} ab={s.ab} bvp={split==='vsPitcher'}/>:statText(s[key])}</td>)}</tr>;})}</tbody></table></div>:!error&&<Empty>No batting order is available yet.</Empty>}
+  {split==='vsPitcher'&&<Empty>BvP colors describe recorded results, including small samples—not predictive confidence. No matchup sample stays gray.</Empty>}
+  <details className="mlb-band-guide"><summary>How colors work</summary><p>Display bands: AVG ≥ .270 strong, .240–.269 moderate. OPS ≥ .800 strong, .700–.799 moderate. K% ≤ 20 strong, 20–25 moderate; lower is better. Values outside those bands are low. Season and handedness splits below 30 AB stay neutral. BvP uses color from 1 AB, with a small-sample warning below 30 AB. These are fixed guides, not a prediction.</p></details>
  </Card>;
 }
 function Arsenal({data}){
@@ -61,7 +63,7 @@ export default function MLBFinderContext({row}){
  const data=state.data,merged=useMemo(()=>mergeLineupSplits(lineup.data,splits.data),[lineup.data,splits.data]);
  return <aside className="mlb-finder-context" data-tab={tab} aria-label="MLB matchup research"><nav className="mlb-context-tabs" aria-label="Research sections">{tabs.map(([key,label,Icon])=><button key={key} data-section={key} type="button" aria-pressed={tab===key} onClick={()=>setTab(key)}><Icon size={18} aria-hidden="true"/>{label}</button>)}</nav>
  {tab==='injuries'?<MLBInjuries row={row} data={data}/>:state.loading?<Card title="MLB research"><Skeleton/></Card>:state.error?<Card title="Research unavailable"><Empty>{state.error}</Empty><button type="button" className="mlb-context-retry" onClick={()=>setRetry(n=>n+1)}><RefreshCw size={15}/>Retry</button></Card>:data?<>
-  {tab==='matchup'&&<><Starter data={data}/>{!data.isPitcherProp&&<Card title="Batter matchup" note={data.matchup?.opponent} icon={Trophy}><Empty>{data.matchup?.pitcher}</Empty><Empty>{data.matchup?.handedness||data.matchup?.leash}</Empty><Empty>{data.vsMatchup?.career}</Empty></Card>}</>}
+  {tab==='matchup'&&<><MLBStarterComparison data={data}/>{!data.isPitcherProp&&<Card title="Batter matchup" note={data.matchup?.opponent} icon={Trophy}><Empty>{data.matchup?.pitcher}</Empty><Empty>{data.matchup?.handedness||data.matchup?.leash}</Empty><Empty>{data.vsMatchup?.career}</Empty></Card>}</>}
   {(tab==='lineups'||(data.isPitcherProp&&tab==='matchup'))&&(teamParams?<Lineup data={merged} team={data.teamInsightsTeamName} loading={lineup.loading||(split!=='season'&&splits.loading)} error={lineup.error||(split!=='season'&&splits.error)} split={split} setSplit={setSplit} onRetry={()=>setRetry(n=>n+1)}/>:<Card title="Batting order"><Empty>Team or opposing starter has not been resolved yet.</Empty></Card>)}
   {tab==='arsenal'&&<Arsenal data={data}/>} {tab==='rankings'&&<Rankings data={data}/>} {tab==='weather'&&<Weather data={data}/>}<Averages data={data} row={row}/>
  </>:null}

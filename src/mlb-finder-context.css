@@ -92,3 +92,10 @@
 .mlb-log-logo:has(img:not([hidden]))>svg { visibility:hidden; }
 .mlb-log-logo img { position:absolute; inset:1px; object-fit:contain; }
 @media(max-width:600px) { .mlb-player-gamelog .mlb-player-log-scroll { max-height:440px; } .mlb-player-gamelog tbody td,.mlb-player-gamelog tbody th { padding:8px; } }
+.mlb-starter-comparison .mlb-starter-scroll { overflow-x:auto; scrollbar-width:thin; }
+.mlb-starter-comparison .mlb-starter-table { min-width:410px; }
+.mlb-starter-card.mlb-starter-comparison .mlb-starter-table th:first-child { width:43%; }
+.mlb-starter-card.mlb-starter-comparison .mlb-starter-table td,.mlb-starter-card.mlb-starter-comparison .mlb-starter-table th { padding:8px 6px; font-size:11px; }
+.mlb-starter-card.mlb-starter-comparison .mlb-starter-table td[data-tone="good"],.mlb-pitch-good { color:#65dfb1; }
+.mlb-starter-card.mlb-starter-comparison .mlb-starter-table td[data-tone="poor"],.mlb-pitch-poor { color:#ff8290; }
+.mlb-starter-scroll:focus-visible { outline:2px solid #a99aff; outline-offset:-2px; }

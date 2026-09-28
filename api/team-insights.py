@@ -39,6 +39,20 @@ class handler(BaseHTTPRequestHandler):
         pitcher_name = (qs.get("pitcherName", [""])[0]).strip()
         pitcher_hand = (qs.get("pitcherHand", ["R"])[0]).strip() or "R"
         detail = (qs.get("detail", ["summary"])[0]).strip().lower()
+        if detail == "pitcher-comparisons":
+            from pitcher_comparisons import get_pitcher_comparisons
+            try:
+                season = int((qs.get("season") or [""])[0])
+                pitcher = int(pitcher_id)
+                opponent = int(team_id) if team_id else None
+                if not 1900 <= season <= 2100 or pitcher <= 0:
+                    raise ValueError()
+            except ValueError:
+                return self._send(400, {"error": "Invalid pitcher or season."})
+            try:
+                return self._send(200, get_pitcher_comparisons(pitcher, opponent, season))
+            except Exception:
+                return self._send(502, {"error": "Pitching comparisons are temporarily unavailable."})
 
         if detail == "injuries":
             from mlb_injuries import get_injury_report

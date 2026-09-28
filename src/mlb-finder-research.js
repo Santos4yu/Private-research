@@ -25,15 +25,15 @@ export function statText(value,digits){if(value==null||value===''||!Number.isFin
 export function lineupState(data){return data?.lineupConfirmed?'Confirmed batting order':data?.lineupProjected?'Projected batting order':'Active roster · order unconfirmed';}
 
 // Explicit display bands, not predictions or live league-average comparisons.
-export function battingBand(key,value,ab){
+export function battingBand(key,value,ab,bvp=false){
  if(value==null||value===''||!Number.isFinite(Number(value)))return {tone:'neutral',label:'Unavailable'};
- if(ab==null||Number(ab)<30)return {tone:'neutral',label:'Small sample'};
+ if(ab==null||Number(ab)<(bvp?1:30))return {tone:'neutral',label:bvp?'No matchup sample':'Small sample'};
  const n=Number(value);
  const bands={avg:[.270,.240],ops:[.800,.700],k_pct:[20,25]};
  if(!bands[key])return {tone:'neutral',label:''};
  const [good,fair]=bands[key];
  const tone=key==='k_pct'?(n<=good?'good':n<=fair?'fair':'poor'):(n>=good?'good':n>=fair?'fair':'poor');
- return {tone,label:{good:'Strong',fair:'Moderate',poor:'Low'}[tone]};
+ return {tone,label:{good:'Strong',fair:'Moderate',poor:'Low'}[tone]+(bvp&&Number(ab)<30?' · Small BvP sample':'')};
 }
 
 export function mergeLineupSplits(summary,details){
