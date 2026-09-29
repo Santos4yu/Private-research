@@ -166,7 +166,7 @@ class handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         from site_controls import allowed
-        tab={'prop-history':'research','moneyline':'moneyline','nrfi':'nrfi','soccer':'finder'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
+        tab={'prop-history':'research','moneyline':'moneyline','nrfi':'nrfi','soccer':'finder','nhl':'finder'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
         if not allowed(self.headers,tab):return self._send(503,{'error':'This section is temporarily unavailable','featureDisabled':True})
         if not session_with_live_access(self.headers):
             return self._send(401, {"error": "Sign in with Discord to use live research.", "authRequired": True})
@@ -206,6 +206,43 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(200, soccer_board())
             except Exception:
                 return self._send(502, {"error": "Soccer lines are temporarily unavailable."})
+        if view == "nhl":
+            # The Finder's NHL lines (nhl_board.py) and research
+            # (nhl_research.py); its admin switch is "NHL in the Finder".
+            from site_controls import finder_sport_allowed
+            if not finder_sport_allowed(self.headers, "nhl"):
+                return self._send(503, {"error": "This section is temporarily unavailable", "featureDisabled": True})
+            qs = parse_qs(urlparse(self.path).query)
+            arg = lambda name: (qs.get(name) or [""])[0].strip()
+            resource = arg("resource")
+            if resource:
+                import nhl_research
+                team, opponent, game = arg("team").upper(), arg("opponent").upper(), arg("game")
+                if (team and not nhl_research.valid_team(team)) or (opponent and not nhl_research.valid_team(opponent)) \
+                        or (game and not nhl_research.valid_id(game)):
+                    return self._send(400, {"error": "Unknown team or game."})
+                try:
+                    if resource == "log" and team:
+                        return self._send(200, nhl_research.team_log(team, opponent or None))
+                    if resource == "team" and team:
+                        return self._send(200, nhl_research.team_context(team))
+                    if resource == "matchup" and game:
+                        return self._send(200, nhl_research.matchup(game))
+                    if resource == "league":
+                        return self._send(200, nhl_research.league())
+                    if resource == "similar" and opponent:
+                        position, market = arg("position").upper(), arg("market")
+                        if position not in {"C", "LW", "RW", "D", "G", "L", "R"} or not (market.replace("_", "").isalnum() and market.islower() and len(market) <= 24):
+                            return self._send(400, {"error": "Unknown position or stat."})
+                        return self._send(200, nhl_research.similar(opponent, position, market))
+                except Exception:
+                    return self._send(502, {"error": "NHL data is temporarily unavailable."})
+                return self._send(400, {"error": "Unknown NHL resource."})
+            try:
+                from nhl_board import board as nhl_board
+                return self._send(200, nhl_board())
+            except Exception:
+                return self._send(502, {"error": "NHL lines are temporarily unavailable."})
         if view == "prop-history":
             qs = parse_qs(urlparse(self.path).query)
             try:

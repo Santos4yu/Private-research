@@ -225,12 +225,12 @@ class PrizePicksExportTests(unittest.TestCase):
 
     def test_unsupported_league_is_rejected_before_any_request(self):
         legs = [
-            {"league": "NHL", "player": "Connor McDavid", "stat": "Points", "line": 1.5, "side": "over"},
+            {"league": "NBA", "player": "Shai Gilgeous-Alexander", "stat": "Points", "line": 30.5, "side": "over"},
             {"league": "WNBA", "player": "A'ja Wilson", "stat": "Points", "line": 22.5, "side": "over"},
         ]
         status, body, fake = self.run_export(legs)
         self.assertEqual(status, 400)
-        self.assertIn("NHL", body["error"])
+        self.assertIn("NBA", body["error"])
         self.assertEqual(fake.urls, [])
 
     def test_every_page_of_the_feed_is_read(self):

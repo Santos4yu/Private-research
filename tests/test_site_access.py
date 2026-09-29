@@ -35,11 +35,15 @@ class SiteControlsTests(unittest.TestCase):
   # Settings saved before soccer existed: soccer is off, the rest unchanged.
   old={**controls.DEFAULT,'disabledFinderSports':['nfl']}
   with patch.object(controls.store,'get',return_value=json.dumps(old)):
-   self.assertEqual(controls.read()['disabledFinderSports'],['nfl','soccer'])
+   self.assertEqual(controls.read()['disabledFinderSports'],['nfl','nhl','soccer'])
   # So are settings saved with soccer on under the earlier marker: soccer
   # went back to off once while it is in preview.
   with patch.object(controls.store,'get',return_value=json.dumps({**old,'disabledFinderSports':[],'finderSportsKnown':list(controls.FINDER_SPORTS)})):
-   self.assertEqual(controls.read()['disabledFinderSports'],['soccer'])
+   self.assertEqual(controls.read()['disabledFinderSports'],['nhl','soccer'])
+  # Saved with soccer switched on before NHL existed: soccer stays on and
+  # NHL starts off.
+  with patch.object(controls.store,'get',return_value=json.dumps({**old,'disabledFinderSports':[],'finderSportsSeen':['wnba','mlb','nfl','soccer']})):
+   self.assertEqual(controls.read()['disabledFinderSports'],['nhl'])
   # The admin then saves with soccer switched on: it stays on.
   saved=controls.validate({**controls.DEFAULT,'disabledFinderSports':['nfl']})
   self.assertEqual(saved['finderSportsSeen'],list(controls.FINDER_SPORTS))
@@ -47,6 +51,7 @@ class SiteControlsTests(unittest.TestCase):
    self.assertEqual(controls.read()['disabledFinderSports'],['nfl'])
   with patch.object(controls.store,'get',return_value=None):
    self.assertIn('soccer',controls.read()['disabledFinderSports'])
+   self.assertIn('nhl',controls.read()['disabledFinderSports'])
  def test_background_image_defaults_when_omitted(self):
   body={k:v for k,v in controls.DEFAULT.items() if k!='backgroundImage'}
   self.assertEqual(controls.validate(body)['backgroundImage'],{'url':'','opacity':35})
