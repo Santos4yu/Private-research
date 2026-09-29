@@ -18,7 +18,7 @@ DAY = date(2026, 9, 29)
 
 def reset():
     nhl._memory.clear()
-    nhl._web_blocked[0] = 0.0
+    nhl._blocked.update(web=0.0, stats=0.0)
 
 
 def no_kv():
@@ -99,7 +99,7 @@ class FeedTests(unittest.TestCase):
             with self.assertRaises(nhl.Busy):
                 nhl._web("/roster/CAR/current")
         self.assertEqual(get.call_count, 1)
-        self.assertAlmostEqual(nhl._web_blocked[0], time.time() + 45, delta=2)
+        self.assertAlmostEqual(nhl._blocked["web"], time.time() + 45, delta=2)
 
     def test_an_older_copy_stands_in_while_the_feed_is_busy(self):
         stored = json.dumps({"at": time.time() - 3600, "value": {"CAR": {}}})
@@ -114,7 +114,7 @@ class FeedTests(unittest.TestCase):
 def feed(schedule=None, boxes=None):
     """The game feed: a club schedule, box scores and nothing else."""
     def web(path, timeout=12):
-        if time.time() < nhl._web_blocked[0]:
+        if time.time() < nhl._blocked["web"]:
             raise nhl.Busy(path)
         if path.startswith("/club-schedule-season/"):
             return schedule or {"games": []}
@@ -160,7 +160,7 @@ class TeamLogTests(unittest.TestCase):
 
     def test_regular_season_stands_when_the_feed_refuses(self):
         with patch.object(nhl, "_stats", s.fake_stats()), patch.object(nhl, "_web", feed()), no_kv():
-            nhl._web_blocked[0] = time.time() + 60
+            nhl._blocked["web"] = time.time() + 60
             log = nhl.team_log("CAR", day=DAY)
         self.assertEqual((len(log["games"]), log["complete"]), (2, False))
 
@@ -169,9 +169,26 @@ class TeamLogTests(unittest.TestCase):
         with patch.object(nhl, "_stats", stats), patch.object(nhl, "_web", feed()), no_kv():
             nhl.team_log("CAR", day=DAY)
             nhl.team_log("CAR", "FLA", day=DAY)
-        # Five reports, once, filtered to the team's two seasons.
-        self.assertEqual(len(stats.calls), 5)
-        self.assertTrue(all(cayenne == 'teamAbbrev="CAR" and seasonId>=20252026' for _report, cayenne, _game in stats.calls))
+            # Nothing kept yet: both seasons in one set of five requests.
+            self.assertEqual({cayenne for _report, cayenne, _game in stats.calls}, {'teamAbbrev="CAR" and seasonId>=20252026'})
+            self.assertEqual(len(stats.calls), 5)
+            # Half an hour on, only this season is asked for again.
+            key = f"nhl:teamrows:{nhl.VERSION}:CAR:20262027"
+            nhl._memory[key] = (time.time() - 31 * 60, nhl._memory[key][1])
+            log = nhl.team_log("CAR", day=DAY)
+            # No game played since: one request, the kept copy stands.
+            self.assertEqual(stats.calls[5:], [("team/summary", 'teamAbbrev="CAR" and seasonId=20262027', True)])
+            self.assertEqual(len(log["games"]), 2)
+            # A new game: the season is read again.
+            rows = s.season_rows()
+            rows["team/summary"].append(s.team_row("2026020010", "CAR", "NJD", True, "2026-10-09", 4, 1, wins=1, winsInRegulation=1))
+            rows["skater/summary"].append(s.summary_row("2026020010", s.STAAL, "Jordan Staal", "CAR", "NJD", "C", "2026-10-09", goals=1, points=1))
+            newer = s.fake_stats(rows)
+            with patch.object(nhl, "_stats", newer):
+                nhl._memory[key] = (time.time() - 31 * 60, nhl._memory[key][1])
+                log = nhl.team_log("CAR", day=DAY)
+        self.assertEqual(len(newer.calls), 6)
+        self.assertEqual([game["score"] for game in log["games"]], ["4-3 SO", "1-2 OT", "4-1"])
 
 
 class DepthTests(unittest.TestCase):
@@ -188,6 +205,60 @@ class DepthTests(unittest.TestCase):
         # Aho averaged 19:35, Staal 17:02.
         self.assertEqual(rows["C"], ["Sebastian Aho", "Jordan Staal"])
         self.assertEqual((rows["LD"], rows["RD"], rows["G"]), (["Jaccob Slavin"], [], ["Frederik Andersen"]))
+
+
+    def test_extra_centers_fill_the_open_wings(self):
+        game = {"gameId": "1", "date": "2026-09-25", "players": {str(pid): {"toi": 20 - pid} for pid in range(1, 8)}}
+        info = {str(pid): {"name": f"C{pid}", "pos": "C", "shoots": "R" if pid == 6 else "L", "season": "20262027"} for pid in range(1, 8)}
+        built = {"games": [game], "players": info, "complete": True}
+        with patch.object(nhl, "team_games", return_value=built), patch.object(nhl, "roster", side_effect=nhl.Busy("web")):
+            rows = {row["slot"]: [player["name"] for player in row["players"]] for row in nhl.depth("CAR", DAY)}
+        # The four with the most ice time stay at center; the right-handed
+        # one goes to right wing, the others to left.
+        self.assertEqual((rows["C"], rows["LW"], rows["RW"]), (["C1", "C2", "C3", "C4"], ["C5", "C7"], ["C6"]))
+
+
+class BusyTests(unittest.TestCase):
+    def setUp(self):
+        reset()
+
+    def test_zipped_copies_come_back(self):
+        saved = {}
+        with patch.multiple(nhl.store, get=MagicMock(side_effect=lambda key: saved.get(key)),
+                            set=MagicMock(side_effect=lambda key, value, ex=None: saved.__setitem__(key, value))):
+            nhl._cached("big", 60, lambda: {"games": [1, 2, 3]}, packed=True)
+            self.assertIn('"z"', saved["big"])
+            nhl._memory.clear()
+            self.assertEqual(nhl._cached("big", 60, MagicMock(side_effect=AssertionError)), {"games": [1, 2, 3]})
+
+    def test_a_refusing_stats_service_is_left_alone(self):
+        busy = MagicMock(status_code=429, headers={})
+        with patch.object(nhl.requests, "get", return_value=busy) as get:
+            for _ in range(3):
+                with self.assertRaises(nhl.Busy):
+                    nhl._stats("skater/summary", 'teamAbbrev="CAR" and seasonId=20262027')
+        self.assertEqual(get.call_count, 1)
+
+    def test_older_copies_while_the_stats_service_refuses(self):
+        refused = MagicMock(side_effect=nhl.Busy("stats"))
+        with patch.object(nhl, "_stats", s.fake_stats()), patch.object(nhl, "_web", feed()), no_kv():
+            nhl.team_log("CAR", day=DAY)
+        for key in [key for key in nhl._memory if key.startswith("nhl:teamrows:")]:
+            nhl._memory[key] = (time.time() - 3600, nhl._memory[key][1])
+        with patch.object(nhl, "_stats", refused), patch.object(nhl, "_web", feed()), no_kv():
+            log = nhl.team_log("CAR", day=DAY)
+        self.assertEqual((len(log["games"]), log["complete"]), (2, True))
+
+    def test_last_season_alone_while_this_seasons_read_is_refused(self):
+        with patch.object(nhl, "_stats", s.fake_stats()), no_kv():
+            last = nhl._fetch_rows("CAR", 'teamAbbrev="CAR" and seasonId=20252026')["20252026"]
+        nhl._put(f"nhl:teamrows:{nhl.VERSION}:CAR:20252026", last, 3600, durable=False)
+        with patch.object(nhl, "_stats", MagicMock(side_effect=nhl.Busy("stats"))), patch.object(nhl, "_web", feed()), no_kv():
+            log = nhl.team_log("CAR", day=DAY)
+            self.assertEqual((len(log["games"]), log["complete"]), (2, False))
+            nhl._memory.clear()
+            with self.assertRaises(nhl.Busy):
+                nhl.team_log("CAR", day=DAY)
 
 
 class LeagueTests(unittest.TestCase):

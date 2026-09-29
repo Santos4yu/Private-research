@@ -25,12 +25,14 @@ What it serves the Finder:
   games, ranked, and what each defense allows by position.
 * similar() -- other players at a position in their games against a team.
 """
+import base64
 import json
 import re
 import threading
 import time
 import unicodedata
 import urllib.parse
+import zlib
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
@@ -84,16 +86,21 @@ _lock = threading.Lock()
 # ---------------------------------------------------------------- plumbing
 
 class Busy(RuntimeError):
-    """The NHL's game feed is refusing requests for now."""
+    """One of the NHL's services is refusing requests for now."""
 
 
-# When the game feed may be asked again (it names the wait when it refuses).
-_web_blocked = [0.0]
+# When each NHL service may be asked again: both refuse once asked too often
+# (the game feed after about fifty requests a minute, the stats service
+# after about a hundred) and name the wait.
+_blocked = {"web": 0.0, "stats": 0.0}
 
 
-def _get(url, timeout=20, attempts=3):
+def _get(url, timeout=20, attempts=3, service=None):
     """One JSON read. A server hiccup (5xx, a dropped connection) is asked
-    again after a short pause."""
+    again after a short pause. For one of the NHL's services, a refusal
+    (429) stops all asking of it until the wait it names has passed."""
+    if service and time.time() < _blocked[service]:
+        raise Busy(service)
     for attempt in range(attempts):
         try:
             response = requests.get(url, headers=HEADERS, timeout=timeout)
@@ -101,6 +108,9 @@ def _get(url, timeout=20, attempts=3):
             if attempt == attempts - 1:
                 raise
         else:
+            if service and response.status_code == 429:
+                _blocked[service] = time.time() + (_num(response.headers.get("Retry-After")) or 60)
+                raise Busy(service)
             if response.status_code < 500 or attempt == attempts - 1:
                 response.raise_for_status()
                 return response.json()
@@ -109,23 +119,29 @@ def _get(url, timeout=20, attempts=3):
 
 
 def _web(path, timeout=12):
-    """One read from the NHL's game feed. Once it refuses (429), nothing more
-    is asked of it until the wait it names has passed."""
-    if time.time() < _web_blocked[0]:
-        raise Busy(path)
-    response = requests.get(f"{NHL}{path}", headers=HEADERS, timeout=timeout)
-    if response.status_code == 429:
-        _web_blocked[0] = time.time() + (_num(response.headers.get("Retry-After")) or 60)
-        raise Busy(path)
-    response.raise_for_status()
-    return response.json()
+    """One read from the NHL's game feed."""
+    return _get(f"{NHL}{path}", timeout=timeout, attempts=1, service="web")
 
 
 def _stats(report, cayenne, game=True):
     """Every row of one stats-service report that matches `cayenne`."""
     url = (f"{STATS}/{report}?isAggregate=false&isGame={'true' if game else 'false'}&start=0&limit=-1"
            f"&cayenneExp={urllib.parse.quote(cayenne)}")
-    return (_get(url, timeout=40) or {}).get("data") or []
+    return (_get(url, timeout=40, service="stats") or {}).get("data") or []
+
+
+def _stored(key):
+    """The KV copy: (stored at, value) or None. Large values are kept zipped."""
+    try:
+        raw = store.get(key)
+        envelope = json.loads(raw) if raw else None
+        if not envelope:
+            return None
+        if "z" in envelope:
+            return float(envelope.get("at", 0)), json.loads(zlib.decompress(base64.b64decode(envelope["z"])))
+        return (float(envelope.get("at", 0)), envelope["value"]) if "value" in envelope else None
+    except Exception:
+        return None
 
 
 def _peek(key):
@@ -134,51 +150,67 @@ def _peek(key):
         hit = _memory.get(key)
     if hit:
         return hit
-    try:
-        raw = store.get(key)
-        envelope = json.loads(raw) if raw else None
-    except Exception:
-        return None
-    if not envelope or "value" not in envelope:
-        return None
-    found = (float(envelope.get("at", 0)), envelope["value"])
-    with _lock:
-        _memory[key] = found
+    found = _stored(key)
+    if found:
+        with _lock:
+            _memory[key] = found
     return found
 
 
-def _cached(key, seconds, build, *, keep=None, durable=True, stale=0):
-    """build(), kept in memory (and in KV when `durable`) for `seconds`.
-    `keep(value)` says whether a value may be stored at all. With `stale`,
-    a value up to that many seconds old stands in when build() fails."""
+def _fresh(key, seconds, durable=True):
+    """A stored value younger than `seconds`: (stored at, value) or None."""
     now = time.time()
     with _lock:
         hit = _memory.get(key)
     if hit and now - hit[0] < seconds:
-        return hit[1]
-    old = hit
+        return hit
+    found = _stored(key) if durable else None
+    if found and now - found[0] < seconds:
+        with _lock:
+            _memory[key] = found
+        return found
+    return None
+
+
+def _put(key, value, seconds, *, durable=True, stale=0, packed=False):
+    now = time.time()
+    with _lock:
+        _memory[key] = (now, value)
+        if len(_memory) > 3000:
+            for gone in sorted(_memory, key=lambda item: _memory[item][0])[:800]:
+                _memory.pop(gone, None)
     if durable:
-        found = _peek(key) if not hit else None
-        if found and now - found[0] < seconds:
-            return found[1]
-        old = old or found
+        text = json.dumps(value, separators=(",", ":"))
+        envelope = {"at": now, "z": base64.b64encode(zlib.compress(text.encode(), 6)).decode()} if packed else {"at": now, "value": value}
+        try:
+            store.set(key, json.dumps(envelope, separators=(",", ":")), ex=int(max(seconds, stale)))
+        except Exception:
+            pass
+
+
+def _older(key, stale):
+    """A stored copy up to `stale` seconds old, or None."""
+    found = _peek(key)
+    return found[1] if found and time.time() - found[0] < stale else None
+
+
+def _cached(key, seconds, build, *, keep=None, durable=True, stale=0, packed=False):
+    """build(), kept in memory (and in KV when `durable`, zipped when
+    `packed`) for `seconds`. `keep(value)` says whether a value may be stored
+    at all. With `stale`, a copy up to that many seconds old stands in when
+    build() fails (a service busy or down)."""
+    found = _fresh(key, seconds, durable)
+    if found:
+        return found[1]
     try:
         value = build()
     except Exception:
-        if stale and old and now - old[0] < stale:
-            return old[1]
+        old = _older(key, stale) if stale else None
+        if old is not None:
+            return old
         raise
     if keep is None or keep(value):
-        with _lock:
-            _memory[key] = (now, value)
-            if len(_memory) > 3000:
-                for gone in sorted(_memory, key=lambda item: _memory[item][0])[:800]:
-                    _memory.pop(gone, None)
-        if durable:
-            try:
-                store.set(key, json.dumps({"at": now, "value": value}, separators=(",", ":")), ex=int(max(seconds, stale)))
-            except Exception:
-                pass
+        _put(key, value, seconds, durable=durable, stale=stale, packed=packed)
     return value
 
 
@@ -350,46 +382,93 @@ def _index(rows):
 TEAM_STATS = ("goals", "assists", "points", "sog", "hits", "blocked", "pim", "fow", "fol", "ppp", "attempts", "fantasy")
 
 
-def _team_rows(team, season):
-    """The team's regular season and playoff games this season and last from
-    the stats service: {"games": [...], "players": {id: {name, pos, shoots}}}.
-    Kept in memory only (two seasons of lines are large); they are five quick
-    requests to build again."""
-    def build():
-        where = f'teamAbbrev="{team}" and seasonId>={previous_season(season)}'
-        reports = ("team/summary", "skater/summary", "skater/realtime", "skater/faceoffwins", "goalie/summary")
-        with ThreadPoolExecutor(max_workers=len(reports)) as pool:
-            results, summary, realtime, faceoffs, goalies = pool.map(lambda report: _stats(report, where), reports)
-        games, players = {}, {}
-        for row in results:
-            game_id = str(row.get("gameId") or "")
-            if not game_id:
-                continue
-            result, score, extra = _result(row)
-            games[game_id] = {"gameId": game_id, "season": season_of(game_id), "seasonKind": kind_of(game_id),
-                              "date": str(row.get("gameDate") or "")[:10], "team": team,
-                              "opponent": canonical(row.get("opponentTeamAbbrev")), "isHome": row.get("homeRoad") == "H",
-                              "result": result, "score": score, "extra": extra, "players": {},
-                              "totals": {"goals": _num(row.get("goalsFor")), "sog": _num(row.get("shotsForPerGame"))},
-                              "against": {"goals": _num(row.get("goalsAgainst")), "sog": _num(row.get("shotsAgainstPerGame"))}}
-        extras, faceoff_rows = _index(realtime), _index(faceoffs)
-        for row in summary:
-            key = (str(row.get("gameId")), str(row.get("playerId")))
-            if key[0] not in games:
-                continue
-            games[key[0]]["players"][key[1]] = _skater(row, extras.get(key), faceoff_rows.get(key))
-            players[key[1]] = {"name": row.get("skaterFullName") or "", "pos": row.get("positionCode") or "",
-                               "shoots": row.get("shootsCatches") or "", "season": season_of(key[0])}
-        for row in goalies:
-            game_id, pid = str(row.get("gameId")), str(row.get("playerId"))
-            if game_id in games and _played(row):
-                games[game_id]["players"][pid] = _goalie(row)
-                players[pid] = {"name": row.get("goalieFullName") or "", "pos": "G", "shoots": row.get("shootsCatches") or "",
-                                "season": season_of(game_id)}
-        for game in games.values():
-            game["totals"] = {**_sum_lines(game["players"]), **game["totals"]}
-        return {"games": list(games.values()), "players": players}
-    return _cached(f"nhl:teamrows:{VERSION}:{team}:{season}", 20 * 60, build, durable=False)
+# How long a team's season of lines is kept: a finished season for a week,
+# the current one for half an hour; older copies stand in while the stats
+# service is busy.
+FINISHED_ROWS = (7 * 24 * 3600, 60 * 24 * 3600)
+CURRENT_ROWS = (30 * 60, 3 * 24 * 3600)
+
+
+def _fetch_rows(team, where):
+    """The team's regular season and playoff games matching `where` from the
+    stats service (five requests), by season: {season: {"games": [...],
+    "players": {id: {name, pos, shoots, season}}}}."""
+    reports = ("team/summary", "skater/summary", "skater/realtime", "skater/faceoffwins", "goalie/summary")
+    with ThreadPoolExecutor(max_workers=len(reports)) as pool:
+        results, summary, realtime, faceoffs, goalies = pool.map(lambda report: _stats(report, where), reports)
+    games, players = {}, {}
+    for row in results:
+        game_id = str(row.get("gameId") or "")
+        if not game_id:
+            continue
+        result, score, extra = _result(row)
+        games[game_id] = {"gameId": game_id, "season": season_of(game_id), "seasonKind": kind_of(game_id),
+                          "date": str(row.get("gameDate") or "")[:10], "team": team,
+                          "opponent": canonical(row.get("opponentTeamAbbrev")), "isHome": row.get("homeRoad") == "H",
+                          "result": result, "score": score, "extra": extra, "players": {},
+                          "totals": {"goals": _num(row.get("goalsFor")), "sog": _num(row.get("shotsForPerGame"))},
+                          "against": {"goals": _num(row.get("goalsAgainst")), "sog": _num(row.get("shotsAgainstPerGame"))}}
+    extras, faceoff_rows = _index(realtime), _index(faceoffs)
+    for row in summary:
+        key = (str(row.get("gameId")), str(row.get("playerId")))
+        if key[0] not in games:
+            continue
+        games[key[0]]["players"][key[1]] = _skater(row, extras.get(key), faceoff_rows.get(key))
+        players.setdefault(season_of(key[0]), {})[key[1]] = {
+            "name": row.get("skaterFullName") or "", "pos": row.get("positionCode") or "",
+            "shoots": row.get("shootsCatches") or "", "season": season_of(key[0])}
+    for row in goalies:
+        game_id, pid = str(row.get("gameId")), str(row.get("playerId"))
+        if game_id in games and _played(row):
+            games[game_id]["players"][pid] = _goalie(row)
+            players.setdefault(season_of(game_id), {})[pid] = {
+                "name": row.get("goalieFullName") or "", "pos": "G", "shoots": row.get("shootsCatches") or "",
+                "season": season_of(game_id)}
+    seasons = {}
+    for game in games.values():
+        game["totals"] = {**_sum_lines(game["players"]), **game["totals"]}
+        seasons.setdefault(game["season"], {"games": [], "players": {}})["games"].append(game)
+    for season, known in players.items():
+        seasons.setdefault(season, {"games": [], "players": {}})["players"] = known
+    return seasons
+
+
+def _team_seasons(team, season):
+    """The team's lines last season and this one: [{"games", "players"}, ...]
+    and whether both could be read. A season kept recently enough is not
+    asked for again; when both are due they come in one set of requests."""
+    wanted = {previous_season(season): FINISHED_ROWS, season: CURRENT_ROWS}
+    key = lambda year: f"nhl:teamrows:{VERSION}:{team}:{year}"
+    found = {year: hit[1] for year in wanted if (hit := _fresh(key(year), wanted[year][0]))}
+    due = [year for year in wanted if year not in found]
+    if due == [season] and (kept := _older(key(season), CURRENT_ROWS[1])) is not None:
+        # One request says whether a game has been played since: most looks
+        # find none, and the kept copy stands for another half hour.
+        try:
+            played = {str(row.get("gameId")) for row in _stats("team/summary", f'teamAbbrev="{team}" and seasonId={season}')}
+        except Exception:  # noqa: BLE001 -- the full read below decides
+            played = None
+        if played == {game["gameId"] for game in kept["games"]}:
+            found[season], due = kept, []
+            _put(key(season), kept, CURRENT_ROWS[0], stale=CURRENT_ROWS[1], packed=True)
+    complete = True
+    if due:
+        where = f'teamAbbrev="{team}" and ' + (f"seasonId={due[0]}" if len(due) == 1 else f"seasonId>={min(due)}")
+        try:
+            fetched = _fetch_rows(team, where)
+        except Exception:
+            fetched = None
+        for year in due:
+            if fetched is not None:
+                found[year] = fetched.get(year) or {"games": [], "players": {}}
+                _put(key(year), found[year], wanted[year][0], stale=wanted[year][1], packed=True)
+            elif (old := _older(key(year), wanted[year][1])) is not None:
+                found[year] = old
+            else:
+                complete = False
+    if not found:
+        raise Busy("stats")
+    return [found[year] for year in sorted(found)], complete
 
 
 def team_games(team, day=None):
@@ -397,11 +476,11 @@ def team_games(team, day=None):
     of its players' lines: regular season and playoffs from the stats
     service, this preseason from the game feed's box scores."""
     team, season = canonical(team), season_id(day)
-    rows = _team_rows(team, season)
-    players = {pid: dict(info) for pid, info in rows["players"].items()}
+    seasons, read = _team_seasons(team, season)
+    players = {pid: dict(info) for rows in seasons for pid, info in rows["players"].items()}
     preseason, complete = _preseason_games(team, season, players)
-    games = sorted(rows["games"] + preseason, key=lambda game: (game["date"], game["gameId"]))
-    return {"team": team, "games": games, "players": players, "complete": complete}
+    games = sorted([game for rows in seasons for game in rows["games"]] + preseason, key=lambda game: (game["date"], game["gameId"]))
+    return {"team": team, "games": games, "players": players, "complete": complete and read}
 
 
 def _sum_lines(lines):
@@ -453,7 +532,7 @@ def _preseason_games(team, season, players):
         found = _peek(key)
         record = found[1] if found else None
         if record is None:
-            if fetched >= PRESEASON_PER_CALL or time.time() < _web_blocked[0]:
+            if fetched >= PRESEASON_PER_CALL or time.time() < _blocked["web"]:
                 missing += 1
                 continue
             fetched += 1
@@ -728,10 +807,21 @@ def depth(team, day=None):
         else:
             slot = {"L": "LW", "R": "RW"}.get(position, "C")
         slots[slot].append(pid)
+    average = lambda pid: sum(toi[pid]) / len(toi[pid])
+    order = lambda slot, pids: sorted(pids, key=lambda pid: (starts.get(pid, 0) if slot == "G" else 0, pid in last, average(pid)), reverse=True)
+    # The NHL lists many wingers as centers: centers beyond the chart's four
+    # fill the open wing spots, on the side they shoot from where it has room.
+    room = dict(DEPTH_SLOTS)
+    for pid in order("C", slots["C"])[room["C"]:]:
+        shoots = (current.get(pid) or {}).get("shoots") or (built["players"].get(pid) or {}).get("shoots")
+        sides = ("RW", "LW") if shoots == "R" else ("LW", "RW")
+        side = next((wing for wing in sides if len(slots[wing]) < room[wing]), None)
+        if side:
+            slots["C"].remove(pid)
+            slots[side].append(pid)
     rows = []
     for slot, count in DEPTH_SLOTS:
-        average = lambda pid: sum(toi[pid]) / len(toi[pid])
-        ordered = sorted(slots[slot], key=lambda pid: (starts.get(pid, 0) if slot == "G" else 0, pid in last, average(pid)), reverse=True)
+        ordered = order(slot, slots[slot])
         rows.append({"slot": slot, "players": [
             {"id": pid, "name": (current.get(pid) or {}).get("name") or (built["players"].get(pid) or {}).get("name") or "",
              "headshot": (current.get(pid) or {}).get("headshot") or mug((built["players"].get(pid) or {}).get("season"), team, pid)}
@@ -1113,7 +1203,8 @@ def league(day=None):
                 "dvpStats": {position: [list(item) for item in (GOALIE_DVP if position == "G" else DVP_STATS)] for position in DVP_POSITIONS},
                 "dvpPositions": list(DVP_POSITIONS), "windows": [name for name, _size in WINDOWS],
                 "logos": {code: logo(code) for code in TEAMS}, "complete": True, "builtAt": time.time(), "version": VERSION}
-    return _cached(f"nhl:league:{VERSION}:{season_id(day)}", 3 * 3600, build, keep=lambda value: value["teamCount"] > 0)
+    return _cached(f"nhl:league:{VERSION}:{season_id(day)}", 3 * 3600, build, keep=lambda value: value["teamCount"] > 0,
+                   stale=3 * 24 * 3600)
 
 
 def similar(opponent, position, market, day=None):
@@ -1144,4 +1235,4 @@ def similar(opponent, position, market, day=None):
             entry["avg"] = average
             entry["diff"] = round(entry["value"] - average, 2) if average is not None else None
         return {"opponent": opponent, "position": position, "market": market, "entries": entries}
-    return _cached(f"nhl:similar:{VERSION}:{opponent}:{position}:{market}:{season}", 60 * 60, build)
+    return _cached(f"nhl:similar:{VERSION}:{opponent}:{position}:{market}:{season}", 60 * 60, build, stale=3 * 24 * 3600)

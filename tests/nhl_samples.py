@@ -158,6 +158,9 @@ def fake_stats(rows=None):
         if 'teamAbbrev="' in cayenne:
             team = cayenne.split('teamAbbrev="')[1].split('"')[0]
             found = [row for row in found if row.get("teamAbbrev", {v: k for k, v in TEAM_NAMES.items()}.get(row.get("teamFullName"))) == team]
+        if "seasonId=" in cayenne:
+            season = cayenne.split("seasonId=")[1][:4]
+            found = [row for row in found if str(row["gameId"]).startswith(season)]
         return [dict(row) for row in found]
     run.calls = calls
     return run
