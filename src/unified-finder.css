@@ -524,15 +524,6 @@
  .unified-finder .finder-top-account,.unified-finder .finder-top-settings{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;padding:0;background:#ffffff15;border-color:#ffffff30!important}
  .unified-finder .finder-top-save{margin-left:auto}
 }
-/* The bar's "Finder /" label makes way for the two buttons on narrow
-   phones -- the bottom nav already says where you are. */
-@media(max-width:519px){
- .unified-finder .finder-topbar .finder-title>:is(h1,span){display:none!important}
- .unified-finder .finder-mobile-sport{left:44px}
-}
-@media(max-width:380px){
- .unified-finder .finder-topbar :is(.finder-top-save,.finder-top-account,.finder-top-settings){flex-basis:40px;width:40px;height:40px}
-}
 
 /* The bar's left icon opens the side panel, whose first section is the
    Pick Builder (src/PickBuilder.jsx); the badge counts saved picks. */
@@ -545,8 +536,6 @@
 @media(max-width:760px){
  .unified-finder .finder-picks-trigger{width:44px;height:44px;margin:0;border-radius:11px}
  .unified-finder .finder-picks-trigger>b{box-shadow:0 0 0 2px color-mix(in srgb,var(--theme-accent) 53%,#0e1116)}
- /* The sport picker sits just past the (now larger) left icon. */
- .unified-finder .finder-mobile-sport{left:148px}
  /* Phones: the star is a small glass circle on the corner of the player's
     photo instead of floating beside the odds ring. */
  .unified-finder .finder-table .finder-portrait-wrap{position:relative!important;flex:0 0 42px!important;width:42px;height:42px}
@@ -564,9 +553,6 @@
  .unified-finder .finder-table .finder-portrait-wrap .finder-star[aria-pressed=true]{color:#ffd45c!important;background:rgba(255,212,92,.18)!important}
  .unified-finder .finder-table .finder-portrait-wrap .finder-star[data-side=over]{border-color:#6ce4bb!important}
  .unified-finder .finder-table .finder-portrait-wrap .finder-star[data-side=under]{border-color:#ff929e!important}
-}
-@media(max-width:519px){
- .unified-finder .finder-mobile-sport{left:62px}
 }
 
 /* Filter menus: a heading per group, a second line per option, an Only
@@ -605,4 +591,52 @@
  .unified-finder .finder-filters>.finder-multi-select{flex:1 1 0;min-width:0}
  .unified-finder .finder-filters>.finder-saved{flex:0 0 auto;white-space:nowrap}
  .unified-finder .finder-filters>.finder-reset{flex:0 0 40px;width:40px;height:auto;min-height:39px}
+}
+
+/* Phones: the Finder is the page, not a card on it. It runs edge to edge
+   with no border; the bar's color reaches up behind the status bar and
+   fades into the page, while the bar's own content stays below iOS's
+   blurred band (--site-status-inset). The bar reads "Finder / sport" with
+   light round buttons on the right; the Pick Builder is the dock's My Slip. */
+@media(max-width:760px){
+ :root[data-theme] body #app-shell #panel-finder{width:100%!important;max-width:none!important;margin:0!important;padding-top:0!important}
+ .unified-finder{border:0!important;border-radius:0!important;background:#090d12;overflow:visible}
+ .unified-finder::before{content:"";position:absolute;z-index:-1;inset:0 0 auto;height:calc(var(--site-status-inset,0px) + 200px);pointer-events:none;
+  background:radial-gradient(110% 80% at 12% 0%,color-mix(in srgb,var(--theme-accent) 48%,transparent),transparent 72%),
+   linear-gradient(180deg,color-mix(in srgb,var(--theme-accent) 40%,#0a0f1a) 0%,color-mix(in srgb,var(--theme-accent) 15%,#090d12) 58%,#090d12 100%)}
+ .unified-finder.finder-detail-active::before{display:none}
+ .unified-finder .finder-topbar{height:auto;min-height:0;gap:2px;padding:calc(var(--site-status-inset,0px) + 10px) 16px 6px;border:0;background:none!important;box-shadow:none!important}
+ .unified-finder .finder-title{display:flex;flex:1 1 auto;align-items:center;gap:9px;min-width:0;width:auto}
+ .unified-finder .finder-title .finder-picks-trigger{display:none}
+ .unified-finder .finder-topbar .finder-title>h1{display:block!important;flex:none;color:#fff;font-size:21px;font-weight:700;letter-spacing:-.035em}
+ .unified-finder .finder-topbar .finder-title>span{display:inline!important;flex:none;margin:0;color:#fff;opacity:.4;font-size:21px;font-weight:300}
+ :root .unified-finder .finder-topbar button.finder-mobile-sport:is(*,#_){position:static;display:flex;flex:0 1 auto;align-items:center;gap:7px;min-width:0;max-width:none;height:36px;padding:0 10px 0 9px;gap:6px;
+  border:1px solid rgba(255,255,255,.3);border-radius:999px;background:rgba(255,255,255,.13);color:#fff;box-shadow:inset 0 1px rgba(255,255,255,.2),0 4px 14px rgba(0,0,0,.18)}
+ .unified-finder .finder-topbar .finder-mobile-sport .finder-sport-label{font-size:13px;font-weight:700;letter-spacing:.01em;text-transform:uppercase}
+ .unified-finder .finder-topbar .finder-mobile-sport>svg:last-child{flex:none;opacity:.8}
+ .unified-finder .finder-topbar :is(.finder-top-save,.finder-top-settings,.finder-top-account){display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;padding:0;border:0!important;border-radius:50%;background:transparent;color:#eef4fb}
+ .unified-finder .finder-topbar .finder-top-save{margin-left:auto}
+ .unified-finder .finder-topbar .finder-top-save[aria-pressed=true]{background:rgba(255,255,255,.16);color:#fff}
+ .unified-finder .finder-topbar .finder-top-account{flex-basis:34px;width:34px;height:34px;margin-left:4px;overflow:hidden;border:1.5px solid rgba(255,255,255,.4)!important;background:linear-gradient(145deg,color-mix(in srgb,var(--theme-accent) 70%,#fff 0%),color-mix(in srgb,var(--theme-accent) 35%,#0b1020))}
+ .unified-finder .finder-topbar .finder-top-account img{width:100%;height:100%;object-fit:cover}
+ .unified-finder .finder-topbar .finder-top-account b{font-size:15px;font-weight:700;line-height:1}
+ .unified-finder .finder-controls{padding:4px 12px 0;background:none}
+ .unified-finder .finder-search-row>.finder-mobile-search-toggle{position:static;display:grid;grid-column:2;grid-row:1;width:44px;height:44px}
+ .unified-finder .finder-search-row>.finder-icon:last-child{grid-column:3;grid-row:1}
+ .unified-finder .finder-mobile-sort{padding:3px 12px}
+ .unified-finder .finder-meta{padding:6px 14px}
+ .unified-finder .finder-board{margin:0 12px 8px}
+}
+/* Narrow phones: the slash goes first, then the title, so the sport pill
+   and the buttons keep their room. */
+@media(max-width:389px){
+ .unified-finder .finder-topbar .finder-title>span{display:none!important}
+}
+@media(max-width:369px){
+ .unified-finder .finder-topbar{padding-inline:12px}
+ .unified-finder .finder-topbar .finder-title>h1{font-size:19px}
+ .unified-finder .finder-topbar :is(.finder-top-save,.finder-top-settings){flex-basis:32px;width:32px}
+}
+@media(max-width:339px){
+ .unified-finder .finder-topbar .finder-title>h1{display:none!important}
 }
