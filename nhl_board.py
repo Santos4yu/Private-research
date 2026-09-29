@@ -1,8 +1,9 @@
 """The Finder's NHL lines, from PrizePicks' NHL feed.
 
 Each line comes as PrizePicks posts it -- its stat name, tier and opponent --
-pinned to its game on the NHL's schedule and to the player's NHL id on his
-team's roster (nhl_research.py), so the Finder can load the team's recent
+pinned to its game on the NHL's schedule and to the player's NHL id (from the
+NHL's list of everyone who played this season or last, and the team's roster
+for anyone new; nhl_research.py), so the Finder can load the team's recent
 games for the hit rates and the player page.
 """
 import re
@@ -20,7 +21,7 @@ _cache = {"at": 0.0, "value": None}
 _lock = threading.Lock()
 
 # PrizePicks' NHL stat names (lowercased, letters and digits only) -> the
-# game-log value each one settles on (nhl_research.parse_game).
+# game-log value each one settles on (nhl_research's player lines).
 MARKETS = {
     "points": "points", "goals": "goals", "assists": "assists", "shotsongoal": "sog", "sog": "sog",
     "hits": "hits", "blockedshots": "blocked", "blocks": "blocked", "timeonice": "toi", "toi": "toi",
@@ -29,10 +30,6 @@ MARKETS = {
     "goaliesaves": "saves", "saves": "saves", "goalsallowed": "ga", "goalsagainst": "ga", "fantasyscore": "fantasy",
     "hitsblockedshots": "hits_blocks", "blockedshotshits": "hits_blocks", "shotsblocked": "blocked",
     "goaliefantasyscore": "fantasy", "powerplaypts": "ppp", "ppp": "ppp", "totalsaves": "saves", "faceoffwins": "fow",
-    "1stperiodpoints": "points_1p", "1stperiodgoals": "goals_1p", "1stperiodassists": "assists_1p",
-    "1stperiodshotsongoal": "sog_1p", "1stperiodsog": "sog_1p", "1stperiodsaves": "saves_1p",
-    "1stperiodgoaliesaves": "saves_1p", "1stperiodgoalsallowed": "ga_1p",
-    "goalsallowedinfirst10minutes": "ga_first10", "goalsallowedfirst10minutes": "ga_first10",
 }
 
 
@@ -77,18 +74,27 @@ def _schedule(projections, now):
     return list(games.values())
 
 
-def _rosters(teams):
-    codes = sorted({nhl.canonical(code) for code in teams if nhl.valid_team(code)})
+def _rosters(lines):
+    """{team: {id: player}}: everyone with an NHL game this season or last,
+    under his latest team, plus the current roster of any team with a name
+    that is not among them (a rookie, a new signing)."""
     rosters = {}
+    try:
+        for pid, player in nhl.directory().items():
+            rosters.setdefault(player["team"], {})[pid] = player
+    except Exception:  # noqa: BLE001 -- the rosters alone still match most names
+        pass
+    unmatched = sorted({nhl.canonical(line.get("team")) for line in lines if nhl.valid_team(line.get("team"))
+                        and not nhl.match_player(line.get("player"), line.get("team"), rosters)})
 
     def load(code):
         try:
             return code, nhl.roster(code)
         except Exception:  # noqa: BLE001 -- one roster missing leaves those lines unmatched
             return code, {}
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        for code, players in pool.map(load, codes):
-            rosters[code] = players
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        for code, players in pool.map(load, unmatched):
+            rosters[code] = {**rosters.get(code, {}), **players}
     return rosters
 
 
@@ -103,7 +109,7 @@ def build(projections=None, now=None, games=None, rosters=None):
         except Exception:  # noqa: BLE001 -- the lines still show, unmatched
             games = []
     if rosters is None:
-        rosters = _rosters({line.get("team") for line in live} | {line.get("description") for line in live})
+        rosters = _rosters(live)
     rows, matched = [], {}
     for line in live:
         starts = _timestamp(line.get("start_time"))
@@ -132,7 +138,7 @@ def build(projections=None, now=None, games=None, rosters=None):
             "team": team or None, "teamName": nhl.TEAMS.get(team) or line.get("team_name") or None, "teamLogo": nhl.logo(team) if nhl.valid_team(team) else None,
             "opponent": opponent or None, "opponentName": nhl.TEAMS.get(opponent), "opponentLogo": nhl.logo(opponent) if nhl.valid_team(opponent) else None,
             "position": nhl.POSITION_NAMES.get(info.get("pos"), info.get("pos")) or line.get("position") or None, "number": info.get("number"),
-            "headshot": info.get("headshot") or line.get("headshot") or None,
+            "headshot": info.get("headshot") or nhl.mug(info.get("season"), player_team, player_id) or line.get("headshot") or None,
             "stat": line.get("stat"), "marketKey": market_key(line.get("stat")), "valueKey": value_key(line.get("stat")),
             "line": value, "modifier": tier,
             "startsAt": datetime.fromtimestamp(starts, timezone.utc).isoformat() if starts is not None else None,

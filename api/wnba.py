@@ -74,11 +74,16 @@ PRIZEPICKS_MARKETS = {
     "twopointersmade": "player_twos", "2ptmade": "player_twos", "2pointersmade": "player_twos",
     "twopointersattempted": "player_twos_attempts", "2ptattempted": "player_twos_attempts", "2pointersattempted": "player_twos_attempts",
     "personalfouls": "player_fouls", "fouls": "player_fouls",
+    "offensiverebounds": "player_offensive_rebounds", "offrebounds": "player_offensive_rebounds",
+    "defensiverebounds": "player_defensive_rebounds", "defrebounds": "player_defensive_rebounds",
+    "doubledouble": "player_double_double", "doubledoubles": "player_double_double",
 }
 PRIZEPICKS_LABELS = {**MARKETS, "player_threes_attempts": "3-PT Attempted", "player_field_goals": "FG Made",
                      "player_frees_made": "Free Throws Made", "player_field_goals_attempts": "FG Attempted",
                      "player_frees_attempts": "Free Throws Attempted", "player_twos": "Two Pointers Made",
-                     "player_twos_attempts": "Two Pointers Attempted", "player_fouls": "Personal Fouls"}
+                     "player_twos_attempts": "Two Pointers Attempted", "player_fouls": "Personal Fouls",
+                     "player_offensive_rebounds": "Offensive Rebounds", "player_defensive_rebounds": "Defensive Rebounds",
+                     "player_double_double": "Double-Double"}
 _memory = {"at": 0.0, "value": None}
 _roster_memory = {"at": 0.0, "value": None}
 # The league context derived from the stored season, per (season, builtAt).
@@ -197,6 +202,25 @@ def _own_score_first(score, result):
     return f"{match[2]}-{match[1]}{match[3]}" if result == "L" and match else score
 
 
+def _rebound_split(player_id, season):
+    """event id -> (offensive, defensive) rebounds for one player, from the
+    stored season of box scores (backend/sports/wnba/league.py) -- ESPN's
+    player game log only has total rebounds."""
+    try:
+        from backend.sports.wnba import league
+        stored = league.stored(season) or {}
+        at = (2 + league.FIELDS.index("oreb"), 2 + league.FIELDS.index("dreb"))
+    except Exception:  # noqa: BLE001 -- no split, just the totals
+        return {}
+    split = {}
+    for event_id, record in (stored.get("games") or {}).items():
+        for side in (record.get("t") or {}).values():
+            for line in side.get("p") or []:
+                if str(line[0]) == str(player_id) and line[at[0]] is not None and line[at[1]] is not None:
+                    split[str(record.get("id") or event_id)] = (line[at[0]], line[at[1]])
+    return split
+
+
 def _game_logs(player_id, season):
     # v4: rows carry the full box line (attempts, fouls) for the game log
     # and supporting-stats views, are tagged by season type, and give the
@@ -212,6 +236,7 @@ def _game_logs(player_id, season):
         pass
     data = _espn_json(f"https://site.web.api.espn.com/apis/common/v3/sports/basketball/wnba/athletes/{player_id}/gamelog?region=us&lang=en&contentorigin=espn&season={season}")
     names, events = data.get("names", []), data.get("events", {})
+    boards = _rebound_split(player_id, season)
     rows, seen = [], set()
     for season_type in data.get("seasonTypes", []):
         for category in season_type.get("categories", []):
@@ -235,6 +260,12 @@ def _game_logs(player_id, season):
                 # Two-pointers: field goals less threes.
                 if len(fg)==2 and len(tp)==2 and None not in (_number(fg[0]),_number(tp[0]),_number(fg[1]),_number(tp[1])):
                     values["player_twos"]=_number(fg[0])-_number(tp[0]); values["player_twos_attempts"]=_number(fg[1])-_number(tp[1])
+                # A double-double: 10 or more in two of points, rebounds,
+                # assists, steals and blocks (1 if so, 0 if not).
+                counting=[points,rebounds,assists,steals,blocks]
+                if all(v is not None for v in counting): values["player_double_double"]=1.0 if sum(v>=10 for v in counting)>=2 else 0.0
+                split=boards.get(event_id)
+                if split: values["player_offensive_rebounds"],values["player_defensive_rebounds"]=split
                 box={"min":_number(stats.get("minutes")),"pts":points,"reb":rebounds,"ast":assists,"stl":steals,"blk":blocks,"to":turnovers,"pf":_number(stats.get("fouls")),
                      "fgm":_number(fg[0]) if len(fg)==2 else None,"fga":_number(fg[1]) if len(fg)==2 else None,"tpm":_number(tp[0]) if len(tp)==2 else None,"tpa":_number(tp[1]) if len(tp)==2 else None,"ftm":_number(ft[0]) if len(ft)==2 else None,"fta":_number(ft[1]) if len(ft)==2 else None}
                 display_type=str(season_type.get("displayName") or "")

@@ -79,7 +79,7 @@ function DepthChart({row,log,filters,onToggleFilter}){
   :!groups.length?<p className="mlb-context-note">No depth chart is published for {side} yet.</p>
   :<div className="wnba-depth-scroll" tabIndex={0} role="region" aria-label={`${side} depth chart; scroll for more columns`}><table className="wnba-depth-table nfl-depth-table"><thead><tr><th scope="col"><span className="finder-sr-only">Position</span></th>{Array.from({length:columns},(_,index)=><th scope="col" key={index}>{index===0?'Starter':['2nd','3rd','4th'][index-1]||`${index+1}th`}</th>)}</tr></thead>
    <tbody>{groups.map(group=><tr key={group.slot}><th scope="row">{group.slot}</th>{Array.from({length:columns},(_,index)=>{const player=group.players[index];if(!player)return <td key={index}/>;
-    const status=player.id?injured.get(String(player.id)):null,code=status?(/out|injured reserve|ir/i.test(status.status)?'OUT':'DTD'):null;
+    const status=player.id?injured.get(String(player.id)):null,code=status?(/out|reserve|suspen/i.test(status.status)?'OUT':'DTD'):null;
     const self=player.id&&String(player.id)===String(row.playerId),effect=player.id?impact?.[player.id]:null;
     return <td key={index}><div className="wnba-depth-cell">
      <span className="wnba-avatar"><UserRound size={20} aria-hidden="true"/>{player.headshot&&<img src={player.headshot} alt="" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}</span>

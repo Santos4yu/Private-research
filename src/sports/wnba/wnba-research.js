@@ -34,7 +34,7 @@ export function useWnba(resource,params,enabled=true){
 }
 
 // Prop-board market -> the stat key the matchup data uses.
-export const MARKET_STAT={player_points:'pts',player_rebounds:'reb',player_assists:'ast',player_threes:'tpm',player_blocks:'blk',player_steals:'stl',player_blocks_steals:'bs',player_turnovers:'to',player_points_rebounds:'pr',player_points_assists:'pa',player_rebounds_assists:'ra',player_points_rebounds_assists:'pra',player_fantasy_points:'fs',player_threes_attempts:'tpa',player_field_goals:'fgm',player_frees_made:'ftm',player_field_goals_attempts:'fga',player_frees_attempts:'fta',player_twos:'twos',player_twos_attempts:'twosa',player_fouls:'pf'};
+export const MARKET_STAT={player_points:'pts',player_rebounds:'reb',player_assists:'ast',player_threes:'tpm',player_blocks:'blk',player_steals:'stl',player_blocks_steals:'bs',player_turnovers:'to',player_points_rebounds:'pr',player_points_assists:'pa',player_rebounds_assists:'ra',player_points_rebounds_assists:'pra',player_fantasy_points:'fs',player_threes_attempts:'tpa',player_field_goals:'fgm',player_frees_made:'ftm',player_field_goals_attempts:'fga',player_frees_attempts:'fta',player_twos:'twos',player_twos_attempts:'twosa',player_fouls:'pf',player_offensive_rebounds:'oreb',player_defensive_rebounds:'dreb',player_double_double:'dd'};
 export const POSITIONS=[['G','Guards'],['F','Forwards'],['C','Centers']];
 export const opponentOf=row=>row.team===row.homeTeam?row.awayTeamAbbr:row.homeTeamAbbr;
 // One definition, so every card asking for the player's context shares a

@@ -1,37 +1,50 @@
-"""NHL research for the Finder, from the NHL's own public stats feed
-(api-web.nhle.com) and ESPN's hockey feed.
+"""NHL research for the Finder.
 
-* game() -- one finished game, reduced to every player's line: the box score
-  (goals, assists, shots on goal, hits, blocks, time on ice, a goalie's saves)
-  plus what only the play-by-play has (faceoffs won, power-play and
-  shorthanded points, each period's goals, points and shots). Finished games
-  never change, so each is kept for weeks.
+Where the numbers come from:
+
+* The NHL's stats service (api.nhle.com/stats/rest): every player's line in
+  every regular season and playoff game -- goals, assists, points, shots on
+  goal, shot attempts, hits, blocks, penalty minutes, time on ice, power-play
+  and shorthanded points, faceoffs won and lost; a goalie's saves, shots
+  faced and goals allowed -- and each team's result. A team's two seasons are
+  five requests.
+* The NHL's game feed (api-web.nhle.com): the schedule, standings, rosters
+  and preseason box scores (the stats service has no preseason). It answers
+  about fifty requests a minute and then refuses for a minute, so it is used
+  for little, cached, and left alone while it is refusing.
+* ESPN: the injury report and each game's odds.
+
+What it serves the Finder:
+
 * team_log() -- a team's recent games (this season and last, preseason and
   playoffs included) with each of its players' lines: the board's hit rates,
-  the player page's chart, game log and splits all read it.
-* team() -- injuries and the depth chart (ESPN).
-* matchup() -- both teams' records, last five, the game's odds.
-* league() -- every team's per-game numbers for and against, ranked, and what
-  each defense allows to each position.
+  the player page's chart, game log and splits.
+* team_context() -- injuries and the depth chart (by recent ice time).
+* matchup() -- both teams' records, last five games and the game's odds.
+* league() -- every team's per-game numbers for and against over its last 20
+  games, ranked, and what each defense allows by position.
+* similar() -- other players at a position in their games against a team.
 """
 import json
 import re
 import threading
 import time
 import unicodedata
-from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
-from datetime import date, datetime, timedelta, timezone
+import urllib.parse
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 
 import requests
 
 from v2.board import store
 
 NHL = "https://api-web.nhle.com/v1"
+STATS = "https://api.nhle.com/stats/rest/en"
 ESPN = "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl"
-VERSION = "nhl-v1"
+VERSION = "nhl-v2"
 LOG_GAMES = 40
 ID = re.compile(r"^\d{1,12}$")
-TEAM_CODE = re.compile(r"^[A-Z]{2,4}$")
+HEADERS = {"Accept": "application/json"}
 
 TEAMS = {
     "ANA": "Anaheim Ducks", "BOS": "Boston Bruins", "BUF": "Buffalo Sabres", "CGY": "Calgary Flames",
@@ -47,7 +60,6 @@ TEAMS = {
 ALIASES = {"LA": "LAK", "NJ": "NJD", "SJ": "SJS", "TB": "TBL", "WAS": "WSH", "MON": "MTL", "UTAH": "UTA", "ARI": "UTA",
            "PHX": "UTA", "VEG": "VGK", "LV": "VGK", "CLS": "CBJ", "CLB": "CBJ", "NAS": "NSH", "CAL": "CGY", "WIN": "WPG",
            "WPJ": "WPG", "MTR": "MTL"}
-ESPN_CODES = {"LAK": "LA", "NJD": "NJ", "SJS": "SJ", "TBL": "TB", "UTA": "UTAH"}
 DIVISIONS = {
     "Atlantic": ("BOS", "BUF", "DET", "FLA", "MTL", "OTT", "TBL", "TOR"),
     "Metropolitan": ("CAR", "CBJ", "NJD", "NYI", "NYR", "PHI", "PIT", "WSH"),
@@ -59,10 +71,9 @@ KIND = {1: "preseason", 2: "regular", 3: "postseason"}
 POSITION_NAMES = {"L": "LW", "R": "RW"}
 
 # PrizePicks' NHL Fantasy Score. Skaters: 8 a goal, 5 an assist, 1.5 a shot
-# on goal and a blocked shot, 2 more for a shorthanded point, 1.5 a shootout
-# goal and 3 for a hat trick. Goalies: 6 a win, 0.6 a save, -3 a goal
-# allowed and 4 for a shutout.
-SKATER_FANTASY = {"goals": 8, "assists": 5, "sog": 1.5, "blocked": 1.5, "shp": 2, "so_goals": 1.5}
+# on goal and a blocked shot, 2 more for a shorthanded point and 3 for a hat
+# trick. Goalies: 6 a win, 0.6 a save, -3 a goal allowed, 4 for a shutout.
+SKATER_FANTASY = {"goals": 8, "assists": 5, "sog": 1.5, "blocked": 1.5, "shp": 2}
 HAT_TRICK = 3
 GOALIE_FANTASY = {"win": 6, "saves": 0.6, "ga": -3, "shutout": 4}
 
@@ -72,40 +83,102 @@ _lock = threading.Lock()
 
 # ---------------------------------------------------------------- plumbing
 
-def _get(url, timeout=12):
-    response = requests.get(url, headers={"Accept": "application/json"}, timeout=timeout)
+class Busy(RuntimeError):
+    """The NHL's game feed is refusing requests for now."""
+
+
+# When the game feed may be asked again (it names the wait when it refuses).
+_web_blocked = [0.0]
+
+
+def _get(url, timeout=20, attempts=3):
+    """One JSON read. A server hiccup (5xx, a dropped connection) is asked
+    again after a short pause."""
+    for attempt in range(attempts):
+        try:
+            response = requests.get(url, headers=HEADERS, timeout=timeout)
+        except (requests.ConnectionError, requests.Timeout):
+            if attempt == attempts - 1:
+                raise
+        else:
+            if response.status_code < 500 or attempt == attempts - 1:
+                response.raise_for_status()
+                return response.json()
+        time.sleep(0.6 * (attempt + 1))
+    raise RuntimeError("unreachable")
+
+
+def _web(path, timeout=12):
+    """One read from the NHL's game feed. Once it refuses (429), nothing more
+    is asked of it until the wait it names has passed."""
+    if time.time() < _web_blocked[0]:
+        raise Busy(path)
+    response = requests.get(f"{NHL}{path}", headers=HEADERS, timeout=timeout)
+    if response.status_code == 429:
+        _web_blocked[0] = time.time() + (_num(response.headers.get("Retry-After")) or 60)
+        raise Busy(path)
     response.raise_for_status()
     return response.json()
 
 
-def _cached(key, seconds, build, *, keep=None):
-    """build(), kept in memory and in KV for `seconds`. `keep(value)` says
-    whether a value may be stored at all (an unfinished game may not)."""
-    now = time.time()
+def _stats(report, cayenne, game=True):
+    """Every row of one stats-service report that matches `cayenne`."""
+    url = (f"{STATS}/{report}?isAggregate=false&isGame={'true' if game else 'false'}&start=0&limit=-1"
+           f"&cayenneExp={urllib.parse.quote(cayenne)}")
+    return (_get(url, timeout=40) or {}).get("data") or []
+
+
+def _peek(key):
+    """A stored value (memory, then KV) whatever its age: (stored at, value) or None."""
     with _lock:
         hit = _memory.get(key)
-        if hit and now - hit[0] < seconds:
-            return hit[1]
+    if hit:
+        return hit
     try:
         raw = store.get(key)
         envelope = json.loads(raw) if raw else None
-        if envelope and now - float(envelope.get("at", 0)) < seconds:
-            with _lock:
-                _memory[key] = (float(envelope["at"]), envelope["value"])
-            return envelope["value"]
     except Exception:
-        pass
-    value = build()
+        return None
+    if not envelope or "value" not in envelope:
+        return None
+    found = (float(envelope.get("at", 0)), envelope["value"])
+    with _lock:
+        _memory[key] = found
+    return found
+
+
+def _cached(key, seconds, build, *, keep=None, durable=True, stale=0):
+    """build(), kept in memory (and in KV when `durable`) for `seconds`.
+    `keep(value)` says whether a value may be stored at all. With `stale`,
+    a value up to that many seconds old stands in when build() fails."""
+    now = time.time()
+    with _lock:
+        hit = _memory.get(key)
+    if hit and now - hit[0] < seconds:
+        return hit[1]
+    old = hit
+    if durable:
+        found = _peek(key) if not hit else None
+        if found and now - found[0] < seconds:
+            return found[1]
+        old = old or found
+    try:
+        value = build()
+    except Exception:
+        if stale and old and now - old[0] < stale:
+            return old[1]
+        raise
     if keep is None or keep(value):
         with _lock:
             _memory[key] = (now, value)
-            if len(_memory) > 4000:
-                for stale in sorted(_memory, key=lambda item: _memory[item][0])[:1000]:
-                    _memory.pop(stale, None)
-        try:
-            store.set(key, json.dumps({"at": now, "value": value}, separators=(",", ":")), ex=int(seconds))
-        except Exception:
-            pass
+            if len(_memory) > 3000:
+                for gone in sorted(_memory, key=lambda item: _memory[item][0])[:800]:
+                    _memory.pop(gone, None)
+        if durable:
+            try:
+                store.set(key, json.dumps({"at": now, "value": value}, separators=(",", ":")), ex=int(max(seconds, stale)))
+            except Exception:
+                pass
     return value
 
 
@@ -115,7 +188,7 @@ def _norm(value):
 
 
 def _text(value):
-    """The NHL feed's names come as {"default": "..."}."""
+    """The game feed's names come as {"default": "..."}."""
     if isinstance(value, dict):
         return str(value.get("default") or "")
     return str(value or "")
@@ -164,6 +237,19 @@ def previous_season(season):
     return f"{start}{start + 1}"
 
 
+def season_of(game_id):
+    """A game id starts with its season's first year: 2025020426 -> "20252026"."""
+    start = int(str(game_id)[:4])
+    return f"{start}{start + 1}"
+
+
+def kind_of(game_id):
+    """Its fifth and sixth digits are the game type: 01 preseason, 02
+    regular season, 03 playoffs."""
+    digits = str(game_id)[4:6]
+    return KIND.get(int(digits), "other") if digits.isdigit() else "other"
+
+
 def _minutes(clock):
     """"17:23" -> 17.38 minutes."""
     try:
@@ -173,251 +259,378 @@ def _minutes(clock):
         return None
 
 
-# ---------------------------------------------------------------- one game
-
-def _strength(code, home_scored):
-    """"pp", "sh" or "ev" for the scoring team, from the play's situation
-    code: away goalie, away skaters, home skaters, home goalie ("1451" is
-    four away skaters against five: a home power play). A pulled goalie's
-    extra attacker does not make a power play."""
-    digits = str(code or "")
-    if len(digits) != 4 or not digits.isdigit():
-        return "ev"
-    away_goalie, away_skaters, home_skaters, home_goalie = (int(d) for d in digits)
-    away = away_skaters - (1 if away_goalie == 0 else 0)
-    home = home_skaters - (1 if home_goalie == 0 else 0)
-    own, other = (home, away) if home_scored else (away, home)
-    return "pp" if own > other else "sh" if own < other else "ev"
+def _mean(values):
+    values = [value for value in values if isinstance(value, (int, float))]
+    return round(sum(values) / len(values), 2) if values else None
 
 
-def _period_seconds(clock):
+def _team_code(row):
+    """A stats-service row's club: its code, or its full name looked up."""
+    if row.get("teamAbbrev"):
+        return canonical(row["teamAbbrev"])
+    wanted = _norm(row.get("teamFullName"))
+    return next((code for code, name in TEAMS.items() if _norm(name) == wanted), "")
+
+
+# ---------------------------------------------------------------- player lines
+
+def _skater(summary, realtime=None, faceoffs=None):
+    """One skater's game from the stats service's summary, real-time
+    (hits, blocks, shot attempts) and faceoff rows."""
+    toi = _num(summary.get("timeOnIcePerGame"))
+    line = {"goals": _num(summary.get("goals")) or 0, "assists": _num(summary.get("assists")) or 0,
+            "points": _num(summary.get("points")) or 0, "sog": _num(summary.get("shots")) or 0,
+            "pim": _num(summary.get("penaltyMinutes")) or 0, "plus_minus": _num(summary.get("plusMinus")) or 0,
+            "ppg": _num(summary.get("ppGoals")) or 0, "ppp": _num(summary.get("ppPoints")) or 0,
+            "shp": _num(summary.get("shPoints")) or 0, "toi": round(toi / 60, 2) if toi is not None else None}
+    if realtime:
+        line.update(hits=_num(realtime.get("hits")) or 0, blocked=_num(realtime.get("blockedShots")) or 0,
+                    attempts=_num(realtime.get("totalShotAttempts")))
+    # The faceoff report leaves out players who took none.
+    faceoffs = faceoffs or {}
+    line.update(fow=_num(faceoffs.get("totalFaceoffWins")) or 0, fol=_num(faceoffs.get("totalFaceoffLosses")) or 0,
+                faceoffs=_num(faceoffs.get("totalFaceoffs")) or 0)
+    return _finish_skater(line)
+
+
+def _finish_skater(line):
+    """Hits + blocks and the fantasy score, once a line has what they need."""
+    if isinstance(line.get("hits"), (int, float)) and isinstance(line.get("blocked"), (int, float)):
+        line["hits_blocks"] = line["hits"] + line["blocked"]
+        if isinstance(line.get("shp"), (int, float)):
+            fantasy = sum((line.get(key) or 0) * weight for key, weight in SKATER_FANTASY.items())
+            line["fantasy"] = round(fantasy + (HAT_TRICK if line["goals"] >= 3 else 0), 2)
+    return line
+
+
+def _goalie(row):
+    """One goalie's game from the stats service's goalie row."""
+    toi = _num(row.get("timeOnIce"))
+    return _finish_goalie({
+        "saves": _num(row.get("saves")) or 0, "shots_against": _num(row.get("shotsAgainst")) or 0,
+        "ga": _num(row.get("goalsAgainst")) or 0, "toi": round(toi / 60, 2) if toi is not None else None,
+        "starter": bool(row.get("gamesStarted")), "win": 1 if row.get("wins") else 0,
+        "shutout": 1 if row.get("shutouts") else 0,
+        "decision": "W" if row.get("wins") else "O" if row.get("otLosses") else "L" if row.get("losses") else ""})
+
+
+def _finish_goalie(line):
+    line["fantasy"] = round(sum((line.get(key) or 0) * weight for key, weight in GOALIE_FANTASY.items()), 2)
+    return line
+
+
+def _played(row):
+    """A goalie row for a game he actually went into."""
+    return bool(row.get("timeOnIce") or row.get("shotsAgainst"))
+
+
+def _result(row):
+    """(result, score, extra) from a team's per-game row. The stats service
+    leaves the shootout goal out of the score, so a shootout reads as a tie
+    there; the final score counts it."""
+    own, other = _num(row.get("goalsFor")), _num(row.get("goalsAgainst"))
+    if own is None or other is None:
+        return None, "", ""
+    extra = ""
+    if row.get("winsInShootout"):
+        own, extra = own + 1, "SO"
+    elif row.get("otLosses") and own == other:
+        other, extra = other + 1, "SO"
+    elif row.get("otLosses") or (row.get("wins") and not row.get("winsInRegulation")):
+        extra = "OT"
+    return ("W" if own > other else "L"), f"{own}-{other}{' ' + extra if extra else ''}", extra
+
+
+def _index(rows):
+    return {(str(row.get("gameId")), str(row.get("playerId"))): row for row in rows}
+
+
+# ---------------------------------------------------------------- team games
+
+TEAM_STATS = ("goals", "assists", "points", "sog", "hits", "blocked", "pim", "fow", "fol", "ppp", "attempts", "fantasy")
+
+
+def _team_rows(team, season):
+    """The team's regular season and playoff games this season and last from
+    the stats service: {"games": [...], "players": {id: {name, pos, shoots}}}.
+    Kept in memory only (two seasons of lines are large); they are five quick
+    requests to build again."""
+    def build():
+        where = f'teamAbbrev="{team}" and seasonId>={previous_season(season)}'
+        reports = ("team/summary", "skater/summary", "skater/realtime", "skater/faceoffwins", "goalie/summary")
+        with ThreadPoolExecutor(max_workers=len(reports)) as pool:
+            results, summary, realtime, faceoffs, goalies = pool.map(lambda report: _stats(report, where), reports)
+        games, players = {}, {}
+        for row in results:
+            game_id = str(row.get("gameId") or "")
+            if not game_id:
+                continue
+            result, score, extra = _result(row)
+            games[game_id] = {"gameId": game_id, "season": season_of(game_id), "seasonKind": kind_of(game_id),
+                              "date": str(row.get("gameDate") or "")[:10], "team": team,
+                              "opponent": canonical(row.get("opponentTeamAbbrev")), "isHome": row.get("homeRoad") == "H",
+                              "result": result, "score": score, "extra": extra, "players": {},
+                              "totals": {"goals": _num(row.get("goalsFor")), "sog": _num(row.get("shotsForPerGame"))},
+                              "against": {"goals": _num(row.get("goalsAgainst")), "sog": _num(row.get("shotsAgainstPerGame"))}}
+        extras, faceoff_rows = _index(realtime), _index(faceoffs)
+        for row in summary:
+            key = (str(row.get("gameId")), str(row.get("playerId")))
+            if key[0] not in games:
+                continue
+            games[key[0]]["players"][key[1]] = _skater(row, extras.get(key), faceoff_rows.get(key))
+            players[key[1]] = {"name": row.get("skaterFullName") or "", "pos": row.get("positionCode") or "",
+                               "shoots": row.get("shootsCatches") or "", "season": season_of(key[0])}
+        for row in goalies:
+            game_id, pid = str(row.get("gameId")), str(row.get("playerId"))
+            if game_id in games and _played(row):
+                games[game_id]["players"][pid] = _goalie(row)
+                players[pid] = {"name": row.get("goalieFullName") or "", "pos": "G", "shoots": row.get("shootsCatches") or "",
+                                "season": season_of(game_id)}
+        for game in games.values():
+            game["totals"] = {**_sum_lines(game["players"]), **game["totals"]}
+        return {"games": list(games.values()), "players": players}
+    return _cached(f"nhl:teamrows:{VERSION}:{team}:{season}", 20 * 60, build, durable=False)
+
+
+def team_games(team, day=None):
+    """A team's games this season and last, oldest first, each with every one
+    of its players' lines: regular season and playoffs from the stats
+    service, this preseason from the game feed's box scores."""
+    team, season = canonical(team), season_id(day)
+    rows = _team_rows(team, season)
+    players = {pid: dict(info) for pid, info in rows["players"].items()}
+    preseason, complete = _preseason_games(team, season, players)
+    games = sorted(rows["games"] + preseason, key=lambda game: (game["date"], game["gameId"]))
+    return {"team": team, "games": games, "players": players, "complete": complete}
+
+
+def _sum_lines(lines):
+    totals = {}
+    for line in lines.values():
+        if "saves" in line:
+            continue
+        for key in TEAM_STATS:
+            value = line.get(key)
+            if isinstance(value, (int, float)):
+                totals[key] = round(totals.get(key, 0) + value, 2)
+    return totals
+
+
+# ---------------------------------------------------------------- preseason
+
+def _club_schedule(team, season):
+    """The team's games in a season from the game feed."""
+    def build():
+        try:
+            payload = _web(f"/club-schedule-season/{team}/{season}")
+        except requests.HTTPError as error:
+            if error.response is not None and error.response.status_code == 404:
+                return []
+            raise
+        return [{"id": str(item.get("id")), "gameType": int(item.get("gameType") or 0),
+                 "date": str(item.get("gameDate") or "")[:10],
+                 "final": str(item.get("gameState") or "").upper() in ("OFF", "FINAL")}
+                for item in payload.get("games") or []]
+    return _cached(f"nhl:club:{VERSION}:{team}:{season}", 3 * 3600, build, stale=7 * 24 * 3600)
+
+
+# Box scores read per request at most, so a cold start stays well inside the
+# game feed's allowance; the rest come on the next look.
+PRESEASON_PER_CALL = 6
+FOREVER = 400 * 24 * 3600
+
+
+def _preseason_games(team, season, players):
+    """This season's finished preseason games from the game feed's box
+    scores (each kept for good once read): (games, complete)."""
     try:
-        minutes, seconds = str(clock).split(":")
-        return int(minutes) * 60 + int(seconds)
-    except (TypeError, ValueError):
-        return None
+        schedule = [item for item in _club_schedule(team, season) if item["gameType"] == 1 and item["final"]]
+    except Exception:  # noqa: BLE001 -- busy or failing: the preseason comes on a later look
+        return [], False
+    games, missing, fetched = [], 0, 0
+    for item in schedule:
+        key = f"nhl:box:{VERSION}:{item['id']}"
+        found = _peek(key)
+        record = found[1] if found else None
+        if record is None:
+            if fetched >= PRESEASON_PER_CALL or time.time() < _web_blocked[0]:
+                missing += 1
+                continue
+            fetched += 1
+            try:
+                record = _cached(key, FOREVER, lambda item=item: parse_box(_web(f"/gamecenter/{item['id']}/boxscore")),
+                                 keep=lambda value: value["final"])
+            except Exception:  # noqa: BLE001 -- busy, or this one game failing
+                missing += 1
+                continue
+        if record["final"]:
+            games.append(_box_view(record, team, players))
+    return games, missing == 0
 
 
-def _add(entry, key, amount=1):
-    entry[key] = entry.get(key, 0) + amount
-
-
-def parse_game(box, pbp):
-    """A finished game's box score and play-by-play -> one record."""
+def parse_box(box):
+    """A game-feed box score -> both teams' lines. It has no power-play
+    points, shot attempts or faceoff counts, so those stay blank."""
     home, away = box.get("homeTeam") or {}, box.get("awayTeam") or {}
-    home_code, away_code = canonical(home.get("abbrev")), canonical(away.get("abbrev"))
-    game_type = int(box.get("gameType") or 0)
-    record = {
-        "id": str(box.get("id")), "season": str(box.get("season") or ""), "gameType": game_type,
-        "kind": KIND.get(game_type, "other"), "date": str(box.get("gameDate") or "")[:10],
-        "start": box.get("startTimeUTC"), "home": home_code, "away": away_code,
-        "homeScore": _num(home.get("score")), "awayScore": _num(away.get("score")),
-        "lastPeriod": ((box.get("gameOutcome") or {}).get("lastPeriodType") or ""),
-        "state": box.get("gameState") or "", "players": {}, "version": VERSION,
-    }
-    players = record["players"]
+    record = {"id": str(box.get("id")), "date": str(box.get("gameDate") or "")[:10],
+              "home": canonical(home.get("abbrev")), "away": canonical(away.get("abbrev")),
+              "homeScore": _num(home.get("score")), "awayScore": _num(away.get("score")),
+              "homeSog": _num(home.get("sog")), "awaySog": _num(away.get("sog")),
+              "lastPeriod": ((box.get("gameOutcome") or {}).get("lastPeriodType") or ""),
+              "final": str(box.get("gameState") or "").upper() in ("OFF", "FINAL"), "lines": {}}
     stats = box.get("playerByGameStats") or {}
-    for side, code in (("homeTeam", home_code), ("awayTeam", away_code)):
+    for side, code in (("homeTeam", record["home"]), ("awayTeam", record["away"])):
         groups = stats.get(side) or {}
         for group in ("forwards", "defense"):
             for skater in groups.get(group) or []:
                 pid = str(skater.get("playerId") or "")
                 if not pid:
                     continue
-                players[pid] = {
-                    "team": code, "name": _text(skater.get("name")), "pos": str(skater.get("position") or ""),
-                    "number": skater.get("sweaterNumber"), "goals": _num(skater.get("goals")) or 0,
-                    "assists": _num(skater.get("assists")) or 0, "points": _num(skater.get("points")) or 0,
-                    "sog": _num(skater.get("sog", skater.get("shots"))) or 0, "hits": _num(skater.get("hits")) or 0,
-                    "blocked": _num(skater.get("blockedShots")) or 0, "pim": _num(skater.get("pim")) or 0,
-                    "ppg": _num(skater.get("powerPlayGoals")) or 0, "plus_minus": _num(skater.get("plusMinus")) or 0,
-                    "toi": _minutes(skater.get("toi")), "shifts": _num(skater.get("shifts")),
-                }
+                line = _finish_skater({
+                    "goals": _num(skater.get("goals")) or 0, "assists": _num(skater.get("assists")) or 0,
+                    "points": _num(skater.get("points")) or 0, "sog": _num(skater.get("sog", skater.get("shots"))) or 0,
+                    "hits": _num(skater.get("hits")) or 0, "blocked": _num(skater.get("blockedShots")) or 0,
+                    "pim": _num(skater.get("pim")) or 0, "ppg": _num(skater.get("powerPlayGoals")) or 0,
+                    "plus_minus": _num(skater.get("plusMinus")) or 0, "toi": _minutes(skater.get("toi"))})
+                record["lines"][pid] = {"team": code, "name": _text(skater.get("name")), "pos": skater.get("position") or "", "line": line}
         for goalie in groups.get("goalies") or []:
             pid = str(goalie.get("playerId") or "")
-            if not pid:
-                continue
-            saves, against = _num(goalie.get("saves")), _num(goalie.get("shotsAgainst"))
-            if saves is None or against is None:
-                made, _, faced = str(goalie.get("saveShotsAgainst") or "").partition("/")
-                saves = saves if saves is not None else _num(made)
-                against = against if against is not None else _num(faced)
+            made, _, faced = str(goalie.get("saveShotsAgainst") or "").partition("/")
             toi = _minutes(goalie.get("toi"))
-            if not toi and not against:
+            saves = _num(goalie.get("saves")) if goalie.get("saves") is not None else _num(made)
+            against = _num(goalie.get("shotsAgainst")) if goalie.get("shotsAgainst") is not None else _num(faced)
+            if not pid or (not toi and not against):
                 continue  # dressed as the backup, never went in
-            players[pid] = {
-                "team": code, "name": _text(goalie.get("name")), "pos": "G", "number": goalie.get("sweaterNumber"),
-                "saves": saves or 0, "shots_against": against or 0, "ga": _num(goalie.get("goalsAgainst")) or 0,
-                "toi": toi, "starter": bool(goalie.get("starter")), "decision": goalie.get("decision") or "",
-            }
-    _add_plays(record, pbp or {})
-    for entry in players.values():
-        _finish(entry, record)
+            ga = _num(goalie.get("goalsAgainst")) or 0
+            won = goalie.get("decision") == "W"
+            record["lines"][pid] = {"team": code, "name": _text(goalie.get("name")), "pos": "G", "line": _finish_goalie({
+                "saves": saves or 0, "shots_against": against or 0, "ga": ga, "toi": toi, "starter": bool(goalie.get("starter")),
+                "win": 1 if won else 0, "shutout": 1 if won and ga == 0 and (toi or 0) >= 59 else 0,
+                "decision": goalie.get("decision") or ""})}
     return record
 
 
-def _add_plays(record, pbp):
-    """What only the play-by-play has: faceoffs, power-play and shorthanded
-    points, each period's numbers, missed shots, shootout goals."""
-    players = record["players"]
-    ids = {}
-    for side in ("homeTeam", "awayTeam"):
-        team = pbp.get(side) or {}
-        if team.get("id") is not None:
-            ids[team["id"]] = canonical(team.get("abbrev"))
-    home_code = record["home"]
-    names = {}
-    for spot in pbp.get("rosterSpots") or []:
-        pid = str(spot.get("playerId") or "")
-        if pid:
-            names[pid] = f"{_text(spot.get('firstName'))} {_text(spot.get('lastName'))}".strip()
-    for pid, full in names.items():
-        if pid in players and full:
-            players[pid]["fullName"] = full
-
-    def entry(pid):
-        return players.get(str(pid)) if pid is not None else None
-
-    plays = pbp.get("plays") or []
-    record["plays"] = bool(plays)
-    for play in plays:
-        kind = play.get("typeDescKey")
-        details = play.get("details") or {}
-        period = (play.get("periodDescriptor") or {})
-        number, period_type = int(period.get("number") or 0), str(period.get("periodType") or "REG")
-        if period_type == "SO":
-            if kind == "goal" and entry(details.get("scoringPlayerId")) is not None:
-                _add(entry(details["scoringPlayerId"]), "so_goals")
+def _box_view(record, team, players):
+    """A preseason box score from `team`'s side, in the team log's shape."""
+    home = record["home"] == team
+    own, other = (record["homeScore"], record["awayScore"])[:: 1 if home else -1]
+    sog, sog_against = (record.get("homeSog"), record.get("awaySog"))[:: 1 if home else -1]
+    extra = record["lastPeriod"] if record["lastPeriod"] in ("OT", "SO") else ""
+    lines = {}
+    for pid, entry in record["lines"].items():
+        if entry["team"] != team:
             continue
-        slot = f"_{number}p" if 1 <= number <= 3 else "_ot"
-        if kind == "faceoff":
-            won, lost = entry(details.get("winningPlayerId")), entry(details.get("losingPlayerId"))
-            if won is not None:
-                _add(won, "fow")
-            if lost is not None:
-                _add(lost, "fol")
-        elif kind in ("shot-on-goal", "goal"):
-            shooter = entry(details.get("shootingPlayerId") or details.get("scoringPlayerId"))
-            if shooter is not None:
-                _add(shooter, "sog" + slot)
-            goalie = entry(details.get("goalieInNetId"))
-            if goalie is not None:
-                _add(goalie, "faced" + slot)
-                if kind == "goal":
-                    _add(goalie, "ga" + slot)
-                    seconds = _period_seconds(play.get("timeInPeriod"))
-                    if number == 1 and seconds is not None and seconds < 600:
-                        _add(goalie, "ga_first10")
-            if kind == "goal":
-                home_scored = ids.get(details.get("eventOwnerTeamId")) == home_code
-                strength = _strength(play.get("situationCode"), home_scored)
-                scorer = entry(details.get("scoringPlayerId"))
-                helpers = [entry(details.get(key)) for key in ("assist1PlayerId", "assist2PlayerId")]
-                for who, stat in [(scorer, "goals")] + [(helper, "assists") for helper in helpers]:
-                    if who is None:
-                        continue
-                    _add(who, stat + slot)
-                    _add(who, "points" + slot)
-                    if strength == "pp":
-                        _add(who, "ppp_pbp")
-                    elif strength == "sh":
-                        _add(who, "shp")
-        elif kind == "missed-shot":
-            shooter = entry(details.get("shootingPlayerId"))
-            if shooter is not None:
-                _add(shooter, "missed")
-        elif kind == "blocked-shot":
-            shooter = entry(details.get("shootingPlayerId"))
-            if shooter is not None:
-                _add(shooter, "was_blocked")
+        lines[pid] = dict(entry["line"])
+        players.setdefault(pid, {"name": entry["name"], "pos": entry["pos"], "shoots": "", "season": season_of(record["id"])})
+    scored = own is not None and other is not None
+    return {"gameId": record["id"], "season": season_of(record["id"]), "seasonKind": "preseason", "date": record["date"],
+            "team": team, "opponent": record["away"] if home else record["home"], "isHome": home,
+            "result": ("W" if own > other else "L") if scored else None,
+            "score": f"{own}-{other}{' ' + extra if extra else ''}" if scored else "", "extra": extra, "players": lines,
+            "totals": {**_sum_lines(lines), "goals": own, "sog": sog}, "against": {"goals": other, "sog": sog_against}}
 
 
-def _finish(entry, record):
-    """Totals and fantasy score for one player's game."""
-    if entry["pos"] == "G":
-        for slot in ("_1p", "_2p", "_3p"):
-            faced, against = entry.pop("faced" + slot, 0), entry.get("ga" + slot, 0)
-            entry["saves" + slot] = faced - against
-            entry.setdefault("ga" + slot, 0)
-        entry.pop("faced_ot", None)
-        entry.setdefault("ga_first10", 0)
-        team_won = _won(record, entry["team"])
-        entry["win"] = 1 if entry.get("decision") == "W" else 0
-        # A shutout: the whole game in net, no goal allowed.
-        entry["shutout"] = 1 if entry["ga"] == 0 and entry.get("starter") and team_won and (entry.get("toi") or 0) >= 59 else 0
-        entry["fantasy"] = round(sum(entry.get(key, 0) * weight for key, weight in GOALIE_FANTASY.items()), 2)
-        return
-    if record.get("plays"):
-        for slot in ("_1p", "_2p", "_3p"):
-            for stat in ("goals", "assists", "points", "sog"):
-                entry.setdefault(stat + slot, 0)
-        entry["fow"], entry["fol"] = entry.get("fow", 0), entry.get("fol", 0)
-        entry["faceoffs"] = entry["fow"] + entry["fol"]
-        entry["ppp"] = entry.pop("ppp_pbp", 0)
-        entry["shp"] = entry.get("shp", 0)
-        entry["so_goals"] = entry.get("so_goals", 0)
-        entry["attempts"] = entry["sog"] + entry.pop("missed", 0) + entry.pop("was_blocked", 0)
-        fantasy = sum(entry.get(key, 0) * weight for key, weight in SKATER_FANTASY.items())
-        entry["fantasy"] = round(fantasy + (HAT_TRICK if entry["goals"] >= 3 else 0), 2)
-    for key in [key for key in entry if key.endswith("_ot")]:
-        entry.pop(key)
-    entry["hits_blocks"] = entry["hits"] + entry["blocked"]
+# ---------------------------------------------------------------- team log
+
+def team_log(team, opponent=None, day=None):
+    """The team's last LOG_GAMES games plus every game against `opponent`
+    this season and last, with each of its players' lines."""
+    team, opponent = canonical(team), canonical(opponent) if opponent else None
+    built = team_games(team, day)
+    games = built["games"]
+    chosen = games[-LOG_GAMES:]
+    if opponent:
+        ids = {game["gameId"] for game in chosen}
+        chosen = sorted([game for game in games if game["gameId"] not in ids and game["opponent"] == opponent] + chosen,
+                        key=lambda game: (game["date"], game["gameId"]))
+    try:
+        current = roster(team)
+    except Exception:  # noqa: BLE001 -- the log stands with the NHL's season photos
+        current = {}
+    players = {}
+    for pid, info in built["players"].items():
+        known = current.get(pid) or {}
+        players[pid] = {"name": info["name"], "pos": info["pos"],
+                        "headshot": known.get("headshot") or mug(info.get("season"), team, pid)}
+    return {"team": team, "opponent": opponent, "games": chosen, "players": players, "complete": built["complete"],
+            "builtAt": time.time(), "version": VERSION}
 
 
-def _won(record, team):
-    own, other = (record["homeScore"], record["awayScore"])[:: 1 if record["home"] == team else -1]
-    return own is not None and other is not None and own > other
+# ---------------------------------------------------------------- players
 
+def directory(day=None):
+    """Every player with an NHL game this season or last: {id: {name, team,
+    pos, shoots, season}}, his team being his latest. Two requests to the
+    stats service, for matching PrizePicks' names to NHL ids."""
+    season = season_id(day)
 
-def _final(state):
-    return str(state or "").upper() in ("OFF", "FINAL")
-
-
-def game(game_id):
-    """One game's record (parse_game), kept for weeks once it is final."""
     def build():
-        base = f"{NHL}/gamecenter/{game_id}"
-        box = _get(f"{base}/boxscore")
-        try:
-            pbp = _get(f"{base}/play-by-play")
-        except Exception:  # noqa: BLE001 -- the box score alone still counts most stats
-            pbp = {}
-        return parse_game(box, pbp)
-    return _cached(f"nhl:game:{VERSION}:{game_id}", 45 * 24 * 3600, build,
-                   keep=lambda value: _final(value.get("state")) and value.get("plays"))
+        where = f"seasonId>={previous_season(season)}"
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            skaters, goalies = pool.map(lambda report: _stats(report, where, game=False), ("skater/summary", "goalie/summary"))
+        players = {}
+        for row in sorted(skaters + goalies, key=lambda row: str(row.get("seasonId") or "")):
+            pid = str(row.get("playerId") or "")
+            teams = [canonical(code) for code in str(row.get("teamAbbrevs") or row.get("teamAbbrev") or "").split(",") if code.strip()]
+            if pid and teams:
+                players[pid] = {"name": row.get("skaterFullName") or row.get("goalieFullName") or "", "team": teams[-1],
+                                "pos": "G" if row.get("goalieFullName") else row.get("positionCode") or "",
+                                "shoots": row.get("shootsCatches") or "", "season": str(row.get("seasonId") or "")}
+        return players
+    return _cached(f"nhl:directory:{VERSION}:{season}", 6 * 3600, build, stale=7 * 24 * 3600)
 
 
-# ---------------------------------------------------------------- schedules
-
-def club_schedule(team, season):
-    """A team's games in a season: [{id, gameType, date, home, away, scores, final}]."""
+def roster(team):
+    """A team's current players from the game feed: {id: {name, pos, number, headshot, shoots}}."""
     team = canonical(team)
 
     def build():
-        try:
-            payload = _get(f"{NHL}/club-schedule-season/{team}/{season}")
-        except requests.HTTPError as error:
-            if error.response is not None and error.response.status_code == 404:
-                return []
-            raise
-        games = []
-        for item in payload.get("games") or []:
-            home, away = item.get("homeTeam") or {}, item.get("awayTeam") or {}
-            games.append({"id": str(item.get("id")), "gameType": int(item.get("gameType") or 0),
-                          "date": str(item.get("gameDate") or "")[:10], "start": item.get("startTimeUTC"),
-                          "home": canonical(home.get("abbrev")), "away": canonical(away.get("abbrev")),
-                          "homeScore": _num(home.get("score")), "awayScore": _num(away.get("score")),
-                          "lastPeriod": ((item.get("gameOutcome") or {}).get("lastPeriodType") or ""),
-                          "final": _final(item.get("gameState"))})
-        return [item for item in games if item["gameType"] in KIND]
-    return _cached(f"nhl:club:{VERSION}:{team}:{season}", 20 * 60, build)
+        payload = _web(f"/roster/{team}/current")
+        players = {}
+        for group in ("forwards", "defensemen", "goalies"):
+            for item in payload.get(group) or []:
+                pid = str(item.get("id") or "")
+                if pid:
+                    players[pid] = {"name": f"{_text(item.get('firstName'))} {_text(item.get('lastName'))}".strip(),
+                                    "pos": str(item.get("positionCode") or ""), "number": item.get("sweaterNumber"),
+                                    "headshot": item.get("headshot") or "", "shoots": item.get("shootsCatches") or ""}
+        return players
+    return _cached(f"nhl:roster:{VERSION}:{team}", 6 * 3600, build, stale=7 * 24 * 3600)
 
+
+def _name_parts(name):
+    words = _norm(name).split()
+    return " ".join(words), (words[-1] if words else ""), (words[0][:1] if words else "")
+
+
+def match_player(name, team, rosters):
+    """(NHL id, team) for the player PrizePicks names: his full name on his
+    team; else the one player there with his last name and first initial
+    ("Mitch Marner" / "Mitchell Marner"); else the one player anywhere with
+    his full name. `rosters` is {team: {id: {name, ...}}}."""
+    full, last, initial = _name_parts(name)
+    if not full:
+        return None
+    team = canonical(team)
+    own = rosters.get(team) or {}
+    for pid, player in own.items():
+        if _name_parts(player["name"])[0] == full:
+            return pid, team
+    close = [pid for pid, player in own.items() if _name_parts(player["name"])[1:] == (last, initial)]
+    if len(close) == 1:
+        return close[0], team
+    anywhere = [(pid, code) for code, players in rosters.items() if code != team
+                for pid, player in players.items() if _name_parts(player["name"])[0] == full]
+    return anywhere[0] if len(anywhere) == 1 else None
+
+
+# ---------------------------------------------------------------- schedule
 
 def schedule_day(day):
-    """Every game in the week that starts on `day` (the NHL feed's own
+    """Every game in the week that starts on `day` (the game feed's own
     week), so one read covers a slate's dates."""
     def build():
-        payload = _get(f"{NHL}/schedule/{day}")
+        payload = _web(f"/schedule/{day}")
         games = []
         for week in payload.get("gameWeek") or []:
             for item in week.get("games") or []:
@@ -427,7 +640,7 @@ def schedule_day(day):
                               "home": canonical(home.get("abbrev")), "away": canonical(away.get("abbrev")),
                               "state": item.get("gameState") or ""})
         return games
-    return _cached(f"nhl:schedule:{VERSION}:{day}", 10 * 60, build)
+    return _cached(f"nhl:schedule:{VERSION}:{day}", 10 * 60, build, stale=24 * 3600)
 
 
 def find_game(team, opponent, starts_at, games):
@@ -448,185 +661,7 @@ def find_game(team, opponent, starts_at, games):
     return best
 
 
-# ---------------------------------------------------------------- rosters
-
-def roster(team):
-    """A team's current players: {id: {name, first, last, pos, number, headshot}}."""
-    team = canonical(team)
-
-    def build():
-        payload = _get(f"{NHL}/roster/{team}/current")
-        players = {}
-        for group in ("forwards", "defensemen", "goalies"):
-            for item in payload.get(group) or []:
-                pid = str(item.get("id") or "")
-                if not pid:
-                    continue
-                first, last = _text(item.get("firstName")), _text(item.get("lastName"))
-                players[pid] = {"name": f"{first} {last}".strip(), "first": first, "last": last,
-                                "pos": str(item.get("positionCode") or ""), "number": item.get("sweaterNumber"),
-                                "headshot": item.get("headshot") or ""}
-        return players
-    return _cached(f"nhl:roster:{VERSION}:{team}", 6 * 3600, build)
-
-
-def match_player(name, team, rosters):
-    """The NHL id of the player PrizePicks names, on his team's roster first."""
-    wanted = _norm(name)
-    if not wanted:
-        return None
-    words = wanted.split()
-    order = [canonical(team)] + [code for code in rosters if code != canonical(team)]
-    for strict in (True, False):
-        for code in order:
-            for pid, player in (rosters.get(code) or {}).items():
-                full = _norm(player["name"])
-                if full == wanted:
-                    return pid, code
-                if not strict and code == canonical(team) and words:
-                    # "Mitch Marner" / "Mitchell Marner": same last name and
-                    # first initial on the same team.
-                    last, first = _norm(player["last"]), _norm(player["first"])
-                    if last and words[-1] == last.split()[-1] and first[:1] == words[0][:1]:
-                        return pid, code
-    return None
-
-
-# ---------------------------------------------------------------- team log
-
-BUDGET = 20
-
-
-def _load_games(ids, budget=BUDGET):
-    """game() for each id, in parallel, for up to `budget` seconds. Games not
-    in by then are left for the next request."""
-    records, started = {}, time.monotonic()
-    if not ids:
-        return records, True
-    pool = ThreadPoolExecutor(max_workers=12)
-    pending = {pool.submit(_safe_game, game_id): game_id for game_id in ids}
-    while pending:
-        done, _ = wait(pending, timeout=max(0, budget - (time.monotonic() - started)), return_when=FIRST_COMPLETED)
-        if not done:
-            break
-        for future in done:
-            game_id, record = pending.pop(future), future.result()
-            if record is not None:
-                records[game_id] = record
-    complete = not pending and len(records) == len(ids)
-    pool.shutdown(wait=False, cancel_futures=True)
-    return records, complete
-
-
-def _safe_game(game_id):
-    try:
-        return game(game_id)
-    except Exception:  # noqa: BLE001 -- one game failing leaves it out, not the log
-        return None
-
-
-def finished_games(team, day=None):
-    """The team's finished games this season and last, oldest first."""
-    season = season_id(day)
-    games = [item for year in (previous_season(season), season) for item in club_schedule(team, year) if item["final"]]
-    games.sort(key=lambda item: (item["date"], item["id"]))
-    return games
-
-
-def recent_games(team, opponent=None, limit=LOG_GAMES, day=None):
-    """The team's finished games, oldest first: the last `limit` across this
-    season and last, plus every game against `opponent` in those seasons."""
-    team, opponent = canonical(team), canonical(opponent) if opponent else None
-    games = finished_games(team, day)
-    chosen = games[-limit:]
-    if opponent:
-        ids = {item["id"] for item in chosen}
-        chosen = [item for item in games if item["id"] not in ids and opponent in (item["home"], item["away"])] + chosen
-        chosen.sort(key=lambda item: (item["date"], item["id"]))
-    return chosen
-
-
-def _view(record, team):
-    """The game from `team`'s side."""
-    home = record["home"] == team
-    own, other = (record["homeScore"], record["awayScore"])[:: 1 if home else -1]
-    result = None
-    if own is not None and other is not None:
-        result = "W" if own > other else "L"
-    extra = record.get("lastPeriod") if record.get("lastPeriod") in ("OT", "SO") else ""
-    return {"gameId": record["id"], "season": record["season"], "seasonKind": record["kind"], "date": record["date"],
-            "team": team, "opponent": record["away"] if home else record["home"], "isHome": home, "result": result,
-            "score": f"{own}-{other}{' ' + extra if extra else ''}" if own is not None and other is not None else "",
-            "extra": extra}
-
-
-TEAM_STATS = ("goals", "assists", "points", "sog", "hits", "blocked", "pim", "fow", "fol", "ppp", "attempts", "fantasy", "toi")
-
-
-def _team_totals(record, team):
-    totals = {key: 0 for key in TEAM_STATS}
-    saves = against = 0
-    for entry in record["players"].values():
-        if entry["team"] != team:
-            continue
-        if entry["pos"] == "G":
-            saves += entry.get("saves") or 0
-            against += entry.get("shots_against") or 0
-            continue
-        for key in TEAM_STATS:
-            value = entry.get(key)
-            if isinstance(value, (int, float)):
-                totals[key] += value
-    totals["saves"], totals["shots_faced"] = saves, against
-    totals["ga"] = record["awayScore"] if record["home"] == team else record["homeScore"]
-    totals["toi"] = round(totals["toi"], 1)
-    totals["fantasy"] = round(totals["fantasy"], 2)
-    return totals
-
-
-def team_log(team, opponent=None, day=None):
-    """The team's recent games (recent_games) with each of its players'
-    lines and both sides' team totals."""
-    team, opponent = canonical(team), canonical(opponent) if opponent else None
-
-    def build():
-        chosen = recent_games(team, opponent, day=day)
-        records, complete = _load_games([item["id"] for item in chosen])
-        games, players = [], {}
-        for item in chosen:
-            record = records.get(item["id"])
-            if not record:
-                continue
-            other = record["away"] if record["home"] == team else record["home"]
-            lines = {}
-            for pid, entry in record["players"].items():
-                if entry["team"] != team:
-                    continue
-                lines[pid] = {key: value for key, value in entry.items() if key not in ("team", "name", "fullName", "number", "pos")}
-                known = players.setdefault(pid, {"name": entry.get("fullName") or entry["name"], "pos": entry["pos"]})
-                known["name"] = entry.get("fullName") or known["name"]
-                known["pos"] = entry["pos"] or known["pos"]
-            games.append({**_view(record, team), "players": lines, "totals": _team_totals(record, team),
-                          "against": _team_totals(record, other)})
-        try:
-            current = roster(team)
-        except Exception:  # noqa: BLE001 -- the log stands without headshots
-            current = {}
-        for pid, player in current.items():
-            known = players.setdefault(pid, {"name": player["name"], "pos": player["pos"]})
-            known.update(name=player["name"], headshot=player["headshot"], number=player["number"], current=True)
-        return {"team": team, "opponent": opponent, "games": games, "players": players, "complete": complete,
-                "builtAt": time.time(), "version": VERSION}
-    return _cached(f"nhl:teamlog:{VERSION}:{team}:{opponent or '-'}:{season_id(day)}", 30 * 60, build,
-                   keep=lambda value: value.get("complete"))
-
-
-# ---------------------------------------------------------------- ESPN
-
-def _espn_team(team):
-    team = canonical(team)
-    return ESPN_CODES.get(team, team).lower()
-
+# ---------------------------------------------------------------- injuries and depth
 
 def injuries(team):
     """The team's injury report (ESPN): [{name, position, status, injury, note, date, headshot}]."""
@@ -651,53 +686,84 @@ def injuries(team):
                                "date": str(item.get("date") or "")[:10],
                                "headshot": ((athlete.get("headshot") or {}).get("href") or "")})
         return report
-    return _cached(f"nhl:injuries:{VERSION}:{team}", 15 * 60, build)
+    return _cached(f"nhl:injuries:{VERSION}:{team}", 15 * 60, build, stale=6 * 3600)
 
 
-DEPTH_SLOTS = (("lw", "LW"), ("c", "C"), ("rw", "RW"), ("ld", "LD"), ("rd", "RD"), ("g", "G"))
+# The lines as a team has been playing them: how many of each position the
+# chart shows, top of the lineup first.
+DEPTH_SLOTS = (("LW", 4), ("C", 4), ("RW", 4), ("LD", 3), ("RD", 3), ("G", 2))
+DEPTH_GAMES = 5
 
 
-def depth(team):
-    """The team's depth chart (ESPN): [{slot, players: [{name, headshot}]}]."""
+def depth(team, day=None):
+    """The team's depth chart from its last five games: each position's
+    players by time on ice (goalies by starts), defensemen split left and
+    right by the side they shoot from. Players no longer on the team are
+    left off when the roster can be read."""
     team = canonical(team)
-
-    def build():
-        payload = _get(f"{ESPN}/teams/{_espn_team(team)}/depthcharts")
-        charts = payload.get("depthchart") or payload.get("depthCharts") or []
-        positions = {}
-        for chart in charts:
-            for key, value in (chart.get("positions") or {}).items():
-                positions.setdefault(str(key).lower(), value)
-        rows = []
-        for key, label in DEPTH_SLOTS:
-            athletes = (positions.get(key) or {}).get("athletes") or []
-            rows.append({"slot": label, "players": [{"name": athlete.get("displayName") or athlete.get("fullName") or "",
-                                                     "headshot": ((athlete.get("headshot") or {}).get("href") or "")}
-                                                    for athlete in athletes if athlete.get("displayName") or athlete.get("fullName")][:3]})
-        return rows
-    return _cached(f"nhl:depth:{VERSION}:{team}", 6 * 3600, build)
+    built = team_games(team, day)
+    recent = built["games"][-DEPTH_GAMES:]
+    try:
+        current = roster(team)
+    except Exception:  # noqa: BLE001 -- the chart stands without the roster check
+        current = {}
+    toi, starts, last = {}, {}, set()
+    for index, game in enumerate(recent):
+        for pid, line in game["players"].items():
+            if current and pid not in current:
+                continue
+            toi.setdefault(pid, []).append(line.get("toi") or 0)
+            if line.get("starter"):
+                starts[pid] = starts.get(pid, 0) + 1
+            if index == len(recent) - 1:
+                last.add(pid)
+    slots = {slot: [] for slot, _count in DEPTH_SLOTS}
+    for pid in toi:
+        info = {**(built["players"].get(pid) or {}), **{key: value for key, value in (current.get(pid) or {}).items() if value}}
+        position = info.get("pos") or ""
+        if position == "G":
+            slot = "G"
+        elif position == "D":
+            slot = "RD" if info.get("shoots") == "R" else "LD"
+        else:
+            slot = {"L": "LW", "R": "RW"}.get(position, "C")
+        slots[slot].append(pid)
+    rows = []
+    for slot, count in DEPTH_SLOTS:
+        average = lambda pid: sum(toi[pid]) / len(toi[pid])
+        ordered = sorted(slots[slot], key=lambda pid: (starts.get(pid, 0) if slot == "G" else 0, pid in last, average(pid)), reverse=True)
+        rows.append({"slot": slot, "players": [
+            {"id": pid, "name": (current.get(pid) or {}).get("name") or (built["players"].get(pid) or {}).get("name") or "",
+             "headshot": (current.get(pid) or {}).get("headshot") or mug((built["players"].get(pid) or {}).get("season"), team, pid)}
+            for pid in ordered[:count]]})
+    return rows
 
 
 def _with_ids(people, team):
-    """ESPN names -> the NHL id and headshot from the team's roster."""
+    """ESPN's names -> the NHL id and headshot, from the team's players."""
+    known = {}
     try:
-        current = roster(team)
+        known.update({pid: {"name": info["name"], "headshot": mug(info.get("season"), team, pid)}
+                      for pid, info in team_games(team)["players"].items()})
     except Exception:  # noqa: BLE001
-        current = {}
-    by_name = {_norm(player["name"]): (pid, player) for pid, player in current.items()}
-    by_last = {}
-    for pid, player in current.items():
-        by_last.setdefault((_norm(player["last"]), _norm(player["first"])[:1]), []).append((pid, player))
+        pass
+    try:
+        known.update(roster(team))
+    except Exception:  # noqa: BLE001
+        pass
+    by_name, by_last = {}, {}
+    for pid, player in known.items():
+        full, last, initial = _name_parts(player["name"])
+        by_name[full] = pid
+        by_last.setdefault((last, initial), []).append(pid)
     out = []
     for person in people:
-        name = _norm(person.get("name"))
-        found = by_name.get(name)
-        if not found and name:
-            words = name.split()
-            options = by_last.get((words[-1], words[0][:1])) or []
-            found = options[0] if len(options) == 1 else None
-        pid, player = found or (None, None)
-        out.append({**person, "id": pid, "headshot": (player or {}).get("headshot") or person.get("headshot") or ""})
+        full, last, initial = _name_parts(person.get("name"))
+        pid = by_name.get(full)
+        if not pid:
+            options = by_last.get((last, initial)) or []
+            pid = options[0] if len(options) == 1 else None
+        out.append({**person, "id": pid, "headshot": (known.get(pid) or {}).get("headshot") or person.get("headshot") or ""})
     return out
 
 
@@ -710,11 +776,13 @@ def team_context(team_code):
     except Exception:  # noqa: BLE001
         result["injuries"], result["injuriesError"] = [], True
     try:
-        result["depth"] = [{**row, "players": _with_ids(row["players"], team_code)} for row in depth(team_code)]
+        result["depth"] = depth(team_code)
     except Exception:  # noqa: BLE001
         result["depth"], result["depthError"] = [], True
     return result
 
+
+# ---------------------------------------------------------------- odds
 
 def _odds(game_row):
     """The game's moneyline, puck line and total from ESPN's scoreboard."""
@@ -722,9 +790,9 @@ def _odds(game_row):
         start = datetime.fromisoformat(str(game_row["start"]).replace("Z", "+00:00"))
     except (TypeError, ValueError, KeyError):
         return None
-    for day in {(start - timedelta(hours=8)).strftime("%Y%m%d"), start.strftime("%Y%m%d")}:
+    for day in sorted({(start - timedelta(hours=8)).strftime("%Y%m%d"), start.strftime("%Y%m%d")}):
         try:
-            board = _cached(f"nhl:espn-board:{VERSION}:{day}", 10 * 60, lambda: _get(f"{ESPN}/scoreboard?dates={day}"))
+            board = _cached(f"nhl:espn-board:{VERSION}:{day}", 10 * 60, lambda day=day: _get(f"{ESPN}/scoreboard?dates={day}"), durable=False)
         except Exception:  # noqa: BLE001
             continue
         for event in board.get("events") or []:
@@ -735,16 +803,55 @@ def _odds(game_row):
             line = (competition.get("odds") or [None])[0]
             if not line:
                 return None
-            home, away = line.get("homeTeamOdds") or {}, line.get("awayTeamOdds") or {}
-            spread = _num(line.get("spread"))
-            odds = {"home": {"moneyline": _num(home.get("moneyLine")), "spread": spread, "spreadOdds": _num(home.get("spreadOdds"))},
-                    "away": {"moneyline": _num(away.get("moneyLine")), "spread": -spread if isinstance(spread, (int, float)) else None,
-                             "spreadOdds": _num(away.get("spreadOdds"))},
-                    "total": _num(line.get("overUnder")), "overOdds": _num(line.get("overOdds")), "underOdds": _num(line.get("underOdds")),
-                    "provider": ((line.get("provider") or {}).get("name") or "")}
-            odds["noVig"] = _no_vig(odds["away"]["moneyline"], odds["home"]["moneyline"])
-            return odds
+            odds = parse_odds(line)
+            return odds if odds["home"]["moneyline"] is not None or odds["total"] is not None else None
     return None
+
+
+def _odds_number(value):
+    """ESPN writes prices as "-130", "+170", "EVEN" and lines as "-1.5",
+    "o6.5", "u6.5"."""
+    if isinstance(value, (int, float)):
+        return value
+    text = str(value or "").strip().lower()
+    if text in ("even", "ev"):
+        return 100
+    return _num(text.lstrip("ou+"))
+
+
+def _close(side, field):
+    """ESPN's current number for one side: its closing one, else its opening one."""
+    side = side or {}
+    for moment in ("close", "current", "open"):
+        value = (side.get(moment) or {}).get(field)
+        if value not in (None, ""):
+            return _odds_number(value)
+    return None
+
+
+def parse_odds(line):
+    """The moneyline, puck line and total from one ESPN odds entry, in
+    either of the shapes ESPN has used (flat, or moneyline / pointSpread /
+    total blocks with open and close numbers)."""
+    home, away = line.get("homeTeamOdds") or {}, line.get("awayTeamOdds") or {}
+    money, spread_block, total_block = line.get("moneyline") or {}, line.get("pointSpread") or {}, line.get("total") or {}
+    spread = _num(line.get("spread"))
+    home_line = _close(spread_block.get("home"), "line")
+    if home_line is not None:
+        spread = home_line
+    odds = {"home": {"moneyline": _close(money.get("home"), "odds") if money else _num(home.get("moneyLine")),
+                     "spread": spread, "spreadOdds": _close(spread_block.get("home"), "odds") if spread_block else _num(home.get("spreadOdds"))},
+            "away": {"moneyline": _close(money.get("away"), "odds") if money else _num(away.get("moneyLine")),
+                     "spread": -spread if isinstance(spread, (int, float)) else None,
+                     "spreadOdds": _close(spread_block.get("away"), "odds") if spread_block else _num(away.get("spreadOdds"))},
+            "total": _close(total_block.get("over"), "line") if total_block else None,
+            "overOdds": _close(total_block.get("over"), "odds") if total_block else _num(line.get("overOdds")),
+            "underOdds": _close(total_block.get("under"), "odds") if total_block else _num(line.get("underOdds")),
+            "provider": ((line.get("provider") or {}).get("name") or "")}
+    if odds["total"] is None:
+        odds["total"] = _num(line.get("overUnder"))
+    odds["noVig"] = _no_vig(odds["away"]["moneyline"], odds["home"]["moneyline"])
+    return odds
 
 
 def _implied(price):
@@ -760,63 +867,97 @@ def _no_vig(away, home):
     return {"away": round(a / (a + h) * 100, 1), "home": round(h / (a + h) * 100, 1)}
 
 
+# ---------------------------------------------------------------- matchup
+
+def _division(code):
+    return next((name for name, codes in DIVISIONS.items() if code in codes), "")
+
+
 def standings():
-    """Every team's record and place (the NHL's standings)."""
-    def build():
-        payload = _get(f"{NHL}/standings/now")
+    """Every team's record: the game feed's standings, else the stats
+    service's season totals (this regular season, or last before it starts)."""
+    def from_feed():
+        payload = _web("/standings/now")
         rows = {}
         for item in payload.get("standings") or []:
             code = canonical(_text(item.get("teamAbbrev")))
             rows[code] = {"abbr": code, "name": _text(item.get("teamName")) or TEAMS.get(code, code),
-                          "logo": logo(code), "division": item.get("divisionName") or "",
-                          "conference": item.get("conferenceName") or "",
+                          "logo": logo(code), "division": item.get("divisionName") or _division(code),
                           "wins": _num(item.get("wins")) or 0, "losses": _num(item.get("losses")) or 0,
                           "otl": _num(item.get("otLosses")) or 0, "points": _num(item.get("points")) or 0,
                           "played": _num(item.get("gamesPlayed")) or 0, "pct": _num(item.get("pointPctg")),
-                          "streak": f"{item.get('streakCode') or ''}{item.get('streakCount') or ''}",
-                          "divisionRank": _num(item.get("divisionSequence")), "leagueRank": _num(item.get("leagueSequence"))}
+                          "streak": f"{item.get('streakCode') or ''}{item.get('streakCount') or ''}"}
         return rows
-    return _cached(f"nhl:standings:{VERSION}", 30 * 60, build)
+
+    def from_stats():
+        season = season_id()
+        rows = []
+        for year in (season, previous_season(season)):
+            rows = _stats("team/summary", f"seasonId={year} and gameTypeId=2", game=False)
+            if rows:
+                break
+        table = {}
+        for row in rows:
+            code = _team_code(row)
+            if code in TEAMS:
+                table[code] = {"abbr": code, "name": TEAMS[code], "logo": logo(code), "division": _division(code),
+                               "wins": _num(row.get("wins")) or 0, "losses": _num(row.get("losses")) or 0,
+                               "otl": _num(row.get("otLosses")) or 0, "points": _num(row.get("points")) or 0,
+                               "played": _num(row.get("gamesPlayed")) or 0, "pct": _num(row.get("pointPct")), "streak": ""}
+        return table
+
+    def build():
+        try:
+            table = from_feed()
+        except Exception:  # noqa: BLE001 -- the stats service has the records too
+            table = {}
+        return table or from_stats()
+    return _cached(f"nhl:standings:{VERSION}", 30 * 60, build, stale=24 * 3600)
 
 
-def matchup(game_id):
-    """Both teams' records, last five games and the game's odds."""
+def _scheduled(game_id):
+    day = datetime.now(timezone.utc).date()
+    for offset in (0, 7):
+        for item in schedule_day((day + timedelta(days=offset)).isoformat()):
+            if item["id"] == game_id:
+                return item
+    raise LookupError("game not on the schedule")
+
+
+def matchup(game_id, home=None, away=None, start=None):
+    """Both teams' records, last five games and the game's odds. The Finder
+    passes the game's teams and start from its line; without them the game
+    is looked up on the schedule."""
     game_id = str(game_id)
 
     def build():
-        found = None
-        day = datetime.now(timezone.utc).date()
-        for offset in (0, 7):
-            for item in schedule_day((day + timedelta(days=offset)).isoformat()):
-                if item["id"] == game_id:
-                    found = item
-            if found:
-                break
-        if not found:
-            raise LookupError("game not on the schedule")
+        if home and away:
+            found = {"id": game_id, "home": canonical(home), "away": canonical(away), "start": start,
+                     "kind": kind_of(game_id)}
+        else:
+            item = _scheduled(game_id)
+            found = {**item, "kind": KIND.get(item["gameType"], "other")}
         try:
             table = standings()
         except Exception:  # noqa: BLE001
             table = {}
-        teams = []
+        teams, last_five = [], {}
         for side in ("away", "home"):
             code = found[side]
             entry = table.get(code) or {}
-            record = f"{entry['wins']}-{entry['losses']}-{entry['otl']}" if entry else ""
-            teams.append({"abbr": code, "name": TEAMS.get(code, code), "logo": logo(code), "side": side, "record": record,
-                          "points": entry.get("points"), "division": entry.get("division") or ""})
-        last_five = {}
-        for code in (found["away"], found["home"]):
-            games = finished_games(code, day)
-            last_five[code] = [{**_view({"id": item["id"], "season": "", "kind": KIND.get(item["gameType"], "other"),
-                                         "date": item["date"], "home": item["home"], "away": item["away"],
-                                         "homeScore": item["homeScore"], "awayScore": item["awayScore"],
-                                         "lastPeriod": item["lastPeriod"]}, code),
-                                "opponentLogo": logo(item["away"] if item["home"] == code else item["home"])} for item in games[-5:]]
-        divisional = any(found["home"] in group and found["away"] in group for group in DIVISIONS.values())
-        return {"game": {"id": game_id, "start": found["start"], "kind": KIND.get(found["gameType"], "other"),
-                         "divisional": divisional}, "teams": teams, "lastFive": last_five, "odds": _odds(found),
-                "standings": _standings_groups(table)}
+            teams.append({"abbr": code, "name": TEAMS.get(code, code), "logo": logo(code), "side": side,
+                          "record": f"{entry['wins']}-{entry['losses']}-{entry['otl']}" if entry else "",
+                          "points": entry.get("points"), "division": entry.get("division") or _division(code)})
+            try:
+                games = team_games(code)["games"]
+            except Exception:  # noqa: BLE001 -- the rest of the matchup stands
+                games = []
+            last_five[code] = [{"gameId": game["gameId"], "date": game["date"], "opponent": game["opponent"],
+                                "isHome": game["isHome"], "result": game["result"], "score": game["score"],
+                                "seasonKind": game["seasonKind"], "opponentLogo": logo(game["opponent"])} for game in games[-5:]]
+        divisional = _division(found["home"]) == _division(found["away"]) != ""
+        return {"game": {"id": game_id, "start": found.get("start"), "kind": found["kind"], "divisional": divisional},
+                "teams": teams, "lastFive": last_five, "odds": _odds(found), "standings": _standings_groups(table)}
     return _cached(f"nhl:matchup:{VERSION}:{game_id}", 10 * 60, build)
 
 
@@ -837,131 +978,170 @@ RANK_STATS = (("goals", "Goals"), ("assists", "Assists"), ("points", "Points"), 
               ("attempts", "Shot Attempts"), ("hits", "Hits"), ("blocked", "Blocked Shots"), ("fow", "Faceoffs Won"),
               ("fol", "Faceoffs Lost"), ("ppp", "Power Play Points"), ("pim", "Penalty Minutes"),
               ("fantasy", "Fantasy Score"), ("saves", "Goalie Saves"), ("ga", "Goals Allowed"), ("shots_faced", "Shots Faced"))
-# What a defense allows to each position, by skater stat.
+# What a defense allows to each position, by stat.
 DVP_STATS = (("goals", "Goals"), ("assists", "Assists"), ("points", "Points"), ("sog", "Shots on Goal"),
-             ("hits", "Hits"), ("blocked", "Blocked Shots"), ("ppp", "Power Play Points"), ("fantasy", "Fantasy Score"))
+             ("hits", "Hits"), ("blocked", "Blocked Shots"), ("ppp", "Power Play Points"), ("fow", "Faceoffs Won"),
+             ("fantasy", "Fantasy Score"))
 GOALIE_DVP = (("saves", "Saves"), ("ga", "Goals Allowed"), ("shots_against", "Shots Faced"), ("fantasy", "Fantasy Score"))
 DVP_POSITIONS = ("C", "LW", "RW", "D", "G")
 _POSITION = {"L": "LW", "R": "RW", "C": "C", "D": "D", "G": "G", "LW": "LW", "RW": "RW"}
+WINDOWS = (("l20", LEAGUE_GAMES), ("l10", 10), ("l5", 5))
 
 
-def _mean(values):
-    values = [value for value in values if isinstance(value, (int, float))]
-    return round(sum(values) / len(values), 2) if values else None
+def _league_rows(day=None):
+    """Every team's last LEAGUE_GAMES regular season and playoff games, with
+    every player's line in them: {"games": {team: [game ids, oldest first]},
+    "lines": {game id: {player id: line}}, "names": {id: name}}. Five
+    requests to the stats service; kept in memory for a few hours."""
+    season = season_id(day)
+
+    def build():
+        by_team = {}
+        for row in _stats("team/summary", f"seasonId>={previous_season(season)}"):
+            code = _team_code(row)
+            if code in TEAMS and row.get("gameId"):
+                by_team.setdefault(code, []).append(row)
+        chosen, cutoff = {}, None
+        for code, rows in by_team.items():
+            rows.sort(key=lambda row: (str(row.get("gameDate")), str(row.get("gameId"))))
+            recent = rows[-LEAGUE_GAMES:]
+            chosen[code] = [str(row["gameId"]) for row in recent]
+            first = str(recent[0].get("gameDate"))[:10]
+            cutoff = first if cutoff is None or first < cutoff else cutoff
+        lines, names = {}, {}
+        if cutoff:
+            where = f'gameDate>="{cutoff}"'
+            reports = ("skater/summary", "skater/realtime", "skater/faceoffwins", "goalie/summary")
+            with ThreadPoolExecutor(max_workers=len(reports)) as pool:
+                summary, realtime, faceoffs, goalies = pool.map(lambda report: _stats(report, where), reports)
+            extras, faceoff_rows = _index(realtime), _index(faceoffs)
+            for row in summary:
+                key = (str(row.get("gameId")), str(row.get("playerId")))
+                line = _skater(row, extras.get(key), faceoff_rows.get(key))
+                line.update(team=canonical(row.get("teamAbbrev")), opp=canonical(row.get("opponentTeamAbbrev")),
+                            pos=row.get("positionCode") or "", date=str(row.get("gameDate") or "")[:10])
+                lines.setdefault(key[0], {})[key[1]] = line
+                names[key[1]] = row.get("skaterFullName") or ""
+            for row in goalies:
+                if not _played(row):
+                    continue
+                key = (str(row.get("gameId")), str(row.get("playerId")))
+                line = _goalie(row)
+                line.update(team=canonical(row.get("teamAbbrev")), opp=canonical(row.get("opponentTeamAbbrev")), pos="G",
+                            date=str(row.get("gameDate") or "")[:10])
+                lines.setdefault(key[0], {})[key[1]] = line
+                names[key[1]] = row.get("goalieFullName") or ""
+        return {"games": chosen, "lines": lines, "names": names}
+    return _cached(f"nhl:leaguerows:{VERSION}:{season}", 3 * 3600, build, durable=False)
 
 
-def _rank(table, key, high_first=True):
-    """team -> rank of table[team][key] (1 = most)."""
-    ordered = sorted((team for team in table if table[team].get(key) is not None),
-                     key=lambda team: table[team][key], reverse=high_first)
+def _rank(table, high_first=True):
+    """team -> its place in `table` (1 = the most when high_first). Ties share a place."""
+    ordered = sorted((team for team in table if table[team] is not None), key=lambda team: table[team], reverse=high_first)
     ranks, previous, place = {}, None, 0
     for index, team in enumerate(ordered, start=1):
-        if table[team][key] != previous:
-            place, previous = index, table[team][key]
+        if table[team] != previous:
+            place, previous = index, table[team]
         ranks[team] = place
     return ranks
 
 
+def _team_line(lines, team):
+    """A team's totals in one game, from its players' lines."""
+    totals = {key: 0 for key, _label in RANK_STATS}
+    for line in lines.values():
+        if line["team"] != team:
+            continue
+        if line["pos"] == "G":
+            totals["saves"] += line.get("saves") or 0
+            totals["shots_faced"] += line.get("shots_against") or 0
+            totals["ga"] += line.get("ga") or 0
+            continue
+        for key, _label in RANK_STATS:
+            if key not in ("saves", "shots_faced", "ga") and isinstance(line.get(key), (int, float)):
+                totals[key] += line[key]
+    totals["fantasy"] = round(totals["fantasy"], 2)
+    return totals
+
+
+def _opponent_in(lines, team):
+    return next((line["team"] for line in lines.values() if line["team"] != team), "")
+
+
 def league(day=None):
-    """Every team's last LEAGUE_GAMES games: per-game numbers for and against
-    (L20, L10, L5) with ranks, and what each defense allows by position."""
+    """Every team's per-game numbers for and against over its last 20, 10
+    and 5 games, ranked, and what each defense allows by position."""
     def build():
-        with ThreadPoolExecutor(max_workers=8) as pool:
-            schedules = dict(zip(TEAMS, pool.map(lambda code: finished_games(code, day), TEAMS)))
-        chosen = {code: [item["id"] for item in games[-LEAGUE_GAMES:]] for code, games in schedules.items()}
-        records, complete = _load_games(sorted({game_id for ids in chosen.values() for game_id in ids}), budget=35)
-        windows = {"l20": LEAGUE_GAMES, "l10": 10, "l5": 5}
+        data = _league_rows(day)
         teams, dvp = {}, {}
-        for code, ids in chosen.items():
-            played = [records[game_id] for game_id in ids if game_id in records]
+        for code, ids in data["games"].items():
+            played = [game_id for game_id in ids if game_id in data["lines"]]
             if not played:
                 continue
             entry = {"off": {}, "def": {}}
-            for name, size in windows.items():
+            for name, size in WINDOWS:
                 recent = played[-size:]
-                own = [_team_totals(record, code) for record in recent]
-                other = [_team_totals(record, record["away"] if record["home"] == code else record["home"]) for record in recent]
+                own = [_team_line(data["lines"][game_id], code) for game_id in recent]
+                other = [_team_line(data["lines"][game_id], _opponent_in(data["lines"][game_id], code)) for game_id in recent]
                 for key, _label in RANK_STATS:
-                    entry["off"].setdefault(key, {})[name] = [_mean(total.get(key) for total in own), None]
-                    entry["def"].setdefault(key, {})[name] = [_mean(total.get(key) for total in other), None]
+                    entry["off"].setdefault(key, {})[name] = [_mean(total[key] for total in own), None]
+                    entry["def"].setdefault(key, {})[name] = [_mean(total[key] for total in other), None]
             teams[code] = entry
-            # Defense vs position: the opposing players' lines in these games.
-            by_position = {}
-            for record in played:
-                for pid, line in record["players"].items():
-                    if line["team"] == code:
-                        continue
-                    position = _POSITION.get(line["pos"])
-                    if not position:
-                        continue
-                    by_position.setdefault(position, {}).setdefault(record["id"], []).append(line)
             dvp[code] = {}
-            for position, per_game in by_position.items():
-                stats = GOALIE_DVP if position == "G" else DVP_STATS
-                ordered_games = [record["id"] for record in played if record["id"] in per_game]
-                cells = {}
-                for key, _label in stats:
-                    cells[key] = {}
-                    for name, size in (("l20", LEAGUE_GAMES), ("l10", 10), ("l5", 5)):
-                        sums = [sum((line.get(key) or 0) for line in per_game[game_id]) for game_id in ordered_games[-size:]]
-                        cells[key][name] = [_mean(sums), None]
-                dvp[code][position] = cells
-        # Offense ranks: most first. Defense ranks: 1 = allows the fewest.
+            for position in DVP_POSITIONS:
+                per_game = [lines for lines in ([line for line in data["lines"][game_id].values()
+                                                 if line["team"] != code and _POSITION.get(line["pos"]) == position] for game_id in played) if lines]
+                if per_game:
+                    dvp[code][position] = {key: {name: [_mean(sum(line.get(key) or 0 for line in game) for game in per_game[-size:]), None]
+                                                 for name, size in WINDOWS}
+                                           for key, _label in (GOALIE_DVP if position == "G" else DVP_STATS)}
+        # Offense: 1 = the most. Defense and what it allows: 1 = the fewest.
         for side in ("off", "def"):
             for key, _label in RANK_STATS:
-                for name in windows:
-                    table = {code: {"v": teams[code][side][key][name][0]} for code in teams}
-                    ranks = _rank(table, "v", high_first=(side == "off"))
+                for name, _size in WINDOWS:
+                    ranks = _rank({code: teams[code][side][key][name][0] for code in teams}, high_first=(side == "off"))
                     for code in teams:
                         teams[code][side][key][name][1] = ranks.get(code)
         for position in DVP_POSITIONS:
-            stats = GOALIE_DVP if position == "G" else DVP_STATS
-            for key, _label in stats:
-                for name in windows:
-                    table = {code: {"v": dvp[code][position][key][name][0]} for code in dvp if position in dvp[code]}
-                    # 1 = allows the fewest (toughest), as the defense ranks.
-                    ranks = _rank(table, "v", high_first=False)
+            for key, _label in (GOALIE_DVP if position == "G" else DVP_STATS):
+                for name, _size in WINDOWS:
+                    table = {code: dvp[code][position][key][name][0] for code in dvp if position in dvp[code]}
+                    ranks = _rank(table, high_first=False)
                     for code in table:
                         dvp[code][position][key][name][1] = ranks.get(code)
         return {"teams": teams, "dvp": dvp, "teamCount": len(teams), "stats": [list(item) for item in RANK_STATS],
                 "dvpStats": {position: [list(item) for item in (GOALIE_DVP if position == "G" else DVP_STATS)] for position in DVP_POSITIONS},
-                "dvpPositions": list(DVP_POSITIONS), "windows": list(windows), "logos": {code: logo(code) for code in TEAMS},
-                "complete": complete, "builtAt": time.time(), "version": VERSION}
-    return _cached(f"nhl:league:{VERSION}:{season_id(day)}", 3 * 3600, build, keep=lambda value: value.get("complete"))
+                "dvpPositions": list(DVP_POSITIONS), "windows": [name for name, _size in WINDOWS],
+                "logos": {code: logo(code) for code in TEAMS}, "complete": True, "builtAt": time.time(), "version": VERSION}
+    return _cached(f"nhl:league:{VERSION}:{season_id(day)}", 3 * 3600, build, keep=lambda value: value["teamCount"] > 0)
 
 
 def similar(opponent, position, market, day=None):
-    """Other players at `position` in their games against `opponent`: what
-    they put up in `market` and their own average over their recent games."""
+    """Other players at `position` in their recent games against `opponent`:
+    what they put up in `market`, and their own average over the games the
+    league table covers."""
     opponent = canonical(opponent)
     position = _POSITION.get(str(position or "").upper(), str(position or "").upper())
+    season = season_id(day)
 
     def build():
-        log = team_log(opponent, day=day)
-        records, _ = _load_games([item["gameId"] for item in log["games"][-15:]])
-        entries = []
-        for record in records.values():
-            for pid, line in record["players"].items():
-                if line["team"] == opponent or _POSITION.get(line["pos"]) != position:
-                    continue
+        data = _league_rows(day)
+        entries, history = [], {}
+        for game_id, lines in data["lines"].items():
+            for pid, line in lines.items():
                 value = line.get(market)
                 if not isinstance(value, (int, float)):
                     continue
-                entries.append({"id": pid, "name": line.get("fullName") or line["name"], "team": line["team"],
-                                "gameId": record["id"], "date": record["date"], "value": value,
-                                "toi": line.get("toi"), "headshot": mug(record["season"], line["team"], pid)})
-        entries.sort(key=lambda item: item["date"], reverse=True)
+                history.setdefault(pid, []).append(value)
+                if line["opp"] == opponent and _POSITION.get(line["pos"]) == position:
+                    entries.append({"id": pid, "name": data["names"].get(pid) or "", "team": line["team"], "gameId": game_id,
+                                    "date": line["date"], "value": value, "toi": line.get("toi"),
+                                    "headshot": mug(season_of(game_id), line["team"], pid)})
+        entries.sort(key=lambda item: (item["date"], item["value"]), reverse=True)
         entries = entries[:12]
-        # Each one's own average over his team's last ten games.
-        codes = sorted({entry["team"] for entry in entries})
-        with ThreadPoolExecutor(max_workers=6) as pool:
-            recent = dict(zip(codes, pool.map(lambda code: [item["id"] for item in finished_games(code, day)[-10:]], codes)))
-        records, _ = _load_games(sorted({game_id for ids in recent.values() for game_id in ids}), budget=15)
         for entry in entries:
-            values = [records[game_id]["players"][entry["id"]].get(market) for game_id in recent.get(entry["team"], [])
-                      if game_id in records and entry["id"] in records[game_id]["players"]]
-            average = _mean(values)
+            average = _mean(history.get(entry["id"]) or [])
             entry["avg"] = average
             entry["diff"] = round(entry["value"] - average, 2) if average is not None else None
         return {"opponent": opponent, "position": position, "market": market, "entries": entries}
-    return _cached(f"nhl:similar:{VERSION}:{opponent}:{position}:{market}:{season_id(day)}", 60 * 60, build)
+    return _cached(f"nhl:similar:{VERSION}:{opponent}:{position}:{market}:{season}", 60 * 60, build)

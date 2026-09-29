@@ -157,7 +157,7 @@ function Injuries({row,log,filters,onToggleFilter}){
   <div className="mlb-context-switch" aria-label="Injury report team">{[team,opponent].filter(Boolean).map(abbr=><button type="button" key={abbr} aria-pressed={side===abbr} onClick={()=>setSide(abbr)}><img src={nhlLogo(abbr)} alt="" width="20" height="20" onError={e=>{e.currentTarget.hidden=true;}}/>{abbr}</button>)}</div>
   {side===team&&<div className="nfl-injury-legend"><span><b data-kind="without"><UserX size={14} aria-hidden="true"/>Without</b>Games this player missed</span><span><b data-kind="with"><UserCheck size={14} aria-hidden="true"/>With</b>Games this player played</span></div>}
   {!data.data?(data.loading?<Skeleton/>:<Failed state={data} label="The injury report"/>):!listed.length?<Empty>{query?'No listed player matches that search.':`No injuries listed for ${side}.`}</Empty>:
-  <div className="mlb-injury-list">{listed.map(item=>{const effect=item.id?impact[item.id]:null,out=/out|reserve/i.test(item.status);return <article className="mlb-injury-card" key={item.id||item.name}>
+  <div className="mlb-injury-list">{listed.map(item=>{const effect=item.id?impact[item.id]:null,out=/out|reserve|suspen/i.test(item.status);return <article className="mlb-injury-card" key={item.id||item.name}>
    <div className="mlb-injury-heading"><span className="mlb-injury-avatar"><UserRound size={26} aria-hidden="true"/>{item.headshot&&<img src={item.headshot} alt="" width="48" height="48" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}</span><div><h3>{item.name}</h3><small>{item.position}</small></div><span className="mlb-injury-status" data-day={!out}>{[item.status,item.injury].filter(Boolean).join(' · ')}</span></div>
    {effect&&<div className="wnba-filter-buttons">{[['without','Without'],['with','With']].map(([kind,label])=><button type="button" key={kind} data-kind={kind} disabled={!effect[kind].games} aria-pressed={filters.some(filter=>filter.id===String(item.id)&&filter.kind===kind)} onClick={()=>choose(item,kind)}>{kind==='without'?<UserX size={14} aria-hidden="true"/>:<UserCheck size={14} aria-hidden="true"/>}{label} <small>{effect[kind].games}</small></button>)}</div>}
    {(item.date||item.note)&&<small className="mlb-injury-reported">{item.date?`Reported ${item.date}. `:''}{item.note}</small>}
@@ -222,7 +222,7 @@ function Averages({row,rows,position,playerRows}){
 
 export default function NHLFinderContext({row,playerRows,rows,log,position,filters,onToggleFilter}){
  const [tab,setTab]=useState('matchup');
- const matchup=useNhl('matchup',{game:row.gameId},Boolean(row.gameId));
+ const matchup=useNhl('matchup',{game:row.gameId,home:row.homeTeamAbbr,away:row.awayTeamAbbr,start:row.startsAt},Boolean(row.gameId));
  const league=useNhl('league',{},['defense','rankings'].includes(tab));
  return <aside className="mlb-finder-context wnba-finder-context nfl-finder-context nhl-finder-context" data-tab={tab} aria-label="NHL matchup research">
   <nav className="mlb-context-tabs" aria-label="Research sections">{tabs.map(([key,label,Icon])=><button key={key} data-section={key} type="button" aria-pressed={tab===key} onClick={()=>setTab(key)}><Icon size={18} aria-hidden="true"/>{label}</button>)}</nav>

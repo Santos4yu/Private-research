@@ -185,6 +185,18 @@ class GameLogTests(unittest.TestCase):
         self.assertEqual((values["player_field_goals_attempts"], values["player_frees_attempts"], values["player_fouls"]), (17, 5, 3))
         # Two-pointers: nine field goals, three of them threes.
         self.assertEqual((values["player_twos"], values["player_twos_attempts"]), (6, 10))
+        # 25 points and 6 rebounds: one category in double figures.
+        self.assertEqual(values["player_double_double"], 0)
+
+    def test_offensive_and_defensive_rebounds_come_from_the_stored_box_scores(self):
+        from unittest.mock import patch
+        from backend.sports.wnba import league
+        line = ["test-only-log", 1] + [None] * len(league.FIELDS)
+        line[2 + league.FIELDS.index("oreb")], line[2 + league.FIELDS.index("dreb")] = 2, 7
+        stored = {"games": {"401": {"id": "401", "t": {"LV": {"p": [line]}}}}}
+        with patch.object(league, "stored", return_value=stored):
+            self.assertEqual(wnba_api._rebound_split("test-only-log", 2026), {"401": (2, 7)})
+        self.assertEqual(context.stat_value(["x", 1] + [12 if field in ("pts", "reb") else 3 for field in league.FIELDS], "dd"), 1)
 
 
 class ScoreTests(unittest.TestCase):

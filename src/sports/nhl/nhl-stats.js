@@ -9,7 +9,7 @@ export const nhlLogo=team=>team?`https://assets.nhle.com/logos/nhl/svg/${team}_d
 export const nhlSeason=(now=new Date())=>now.getMonth()>=7?now.getFullYear():now.getFullYear()-1;
 export const isGoalie=position=>String(position||'').toUpperCase()==='G';
 
-// Every number a game log line carries (nhl_research.parse_game).
+// Every number a game log line carries (nhl_research's player lines).
 export const STATS={
  goals:{label:'Goals',short:'G'},assists:{label:'Assists',short:'A'},points:{label:'Points',short:'PTS'},
  sog:{label:'Shots on Goal',short:'SOG'},attempts:{label:'Shot Attempts',short:'SAT'},hits:{label:'Hits',short:'HIT'},
@@ -17,21 +17,16 @@ export const STATS={
  fow:{label:'Faceoffs Won',short:'FOW'},faceoffs:{label:'Faceoffs Taken',short:'FO'},ppp:{label:'Power Play Points',short:'PPP'},
  shp:{label:'Shorthanded Points',short:'SHP'},pim:{label:'Penalty Minutes',short:'PIM'},plus_minus:{label:'Plus/Minus',short:'+/-'},
  fantasy:{label:'Fantasy Score',short:'FS'},
- goals_1p:{label:'1st Period Goals',short:'1P G'},assists_1p:{label:'1st Period Assists',short:'1P A'},
- points_1p:{label:'1st Period Points',short:'1P PTS'},sog_1p:{label:'1st Period SOG',short:'1P SOG'},
  saves:{label:'Saves',short:'SV'},ga:{label:'Goals Allowed',short:'GA'},shots_against:{label:'Shots Faced',short:'SA'},
- saves_1p:{label:'1st Period Saves',short:'1P SV'},ga_1p:{label:'1st Period GA',short:'1P GA'},
- ga_first10:{label:'GA, First 10 Min',short:'GA 10'},win:{label:'Wins',short:'W'},shutout:{label:'Shutouts',short:'SO'},
+ win:{label:'Wins',short:'W'},shutout:{label:'Shutouts',short:'SO'},
 };
 // A stat's number from a game (null when the game has none).
 export const statValue=(game,key)=>{const value=game?.values?.[key];return finite(value)?value:null;};
-// Per-period versions of a stat, for the chart's 1P/2P/3P buttons.
-export const PERIOD_STATS={goals:'goals',assists:'assists',points:'points',sog:'sog',saves:'saves',ga:'ga'};
 
 const FAMILY={
  F:{support:['toi','sog','points','hits','blocked','fow'],log:['goals','assists','points','sog','attempts','hits','blocked','fow','ppp','pim','toi','fantasy']},
  D:{support:['toi','sog','points','hits','blocked','assists'],log:['goals','assists','points','sog','attempts','hits','blocked','ppp','pim','plus_minus','toi','fantasy']},
- G:{support:['saves','shots_against','ga','toi'],log:['saves','shots_against','ga','saves_1p','ga_1p','toi','fantasy']},
+ G:{support:['saves','shots_against','ga','toi'],log:['saves','shots_against','ga','toi','fantasy']},
 };
 export function family(position){
  const p=String(position||'').toUpperCase();
@@ -40,10 +35,9 @@ export function family(position){
 
 // The page's stat tabs, in this order where the player has a line.
 export const MARKET_ORDER=['points','goals','assists','sog','attempts','hits','blocked','hits_blocks','toi','fow','faceoffs','ppp','pim','plus_minus','fantasy',
- 'points_1p','goals_1p','assists_1p','sog_1p','saves','ga','saves_1p','ga_1p','ga_first10'];
+ 'saves','ga'];
 const CODES={points:'PTS',goals:'GOALS',assists:'ASTS',sog:'SOG',attempts:'SHOTS',hits:'HITS',blocked:'BLK',hits_blocks:'H+B',toi:'TOI',
- fow:'FOW',faceoffs:'FO',ppp:'PPP',pim:'PIM',plus_minus:'+/-',fantasy:'FS',points_1p:'1P PTS',goals_1p:'1P G',assists_1p:'1P A',
- sog_1p:'1P SOG',saves:'SAVES',ga:'GA',saves_1p:'1P SV',ga_1p:'1P GA',ga_first10:'GA 10'};
+ fow:'FOW',faceoffs:'FO',ppp:'PPP',pim:'PIM',plus_minus:'+/-',fantasy:'FS',saves:'SAVES',ga:'GA'};
 export const nhlStatCode=(valueKey,label)=>CODES[valueKey]||String(label||'').split(/\s+/).map(word=>word[0]).join('').toUpperCase().slice(0,5);
 
 /** One player's games from his team's log, oldest first. Games the team
