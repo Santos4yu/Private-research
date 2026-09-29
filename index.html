@@ -120,19 +120,27 @@
     <div class="accent-save-row"><label for="accent-preset-name">Preset name</label><div><input type="text" id="accent-preset-name" maxlength="24" placeholder="Game night" autocomplete="off" /><button type="button" id="accent-preset-save">Save</button></div></div>
     <div class="accent-presets" id="accent-presets" aria-label="Saved accent presets"></div>
     <p class="theme-picker-note" id="accent-status" aria-live="polite">Colors save automatically on this device.</p>
-    <div class="bg-image-control">
-      <span class="settings-label">Background image</span>
-      <button type="button" class="bg-image-upload-btn" id="bg-image-upload">Upload a photo from your device</button>
-      <input type="file" id="bg-image-file" accept="image/*" hidden />
-      <div class="bg-image-divider"><span>or paste a link</span></div>
-      <input type="url" id="bg-image-url" placeholder="https://example.com/photo.jpg" autocomplete="off" inputmode="url" />
-      <label class="accent-tint-control"><span>Opacity</span><input type="range" id="bg-image-opacity" min="5" max="100" step="1" value="35" aria-label="Background image opacity" /><output id="bg-image-opacity-value">35%</output></label>
-      <div class="bg-image-actions"><button type="button" id="bg-image-apply">Apply link</button><button type="button" id="bg-image-remove">Remove</button></div>
-      <p class="theme-picker-note" id="bg-image-status" aria-live="polite">Use a high-resolution image (1920×1080 or larger) for the sharpest result.</p>
-    </div>
+    <!-- Background image opens on tap: it's the least-used part of the
+         panel and the tallest. -->
+    <details class="bg-image-control bg-image-details">
+      <summary class="settings-label">Background image</summary>
+      <div class="bg-image-body">
+        <button type="button" class="bg-image-upload-btn" id="bg-image-upload">Upload a photo from your device</button>
+        <input type="file" id="bg-image-file" accept="image/*" hidden />
+        <div class="bg-image-divider"><span>or paste a link</span></div>
+        <input type="url" id="bg-image-url" placeholder="https://example.com/photo.jpg" autocomplete="off" inputmode="url" />
+        <label class="accent-tint-control"><span>Opacity</span><input type="range" id="bg-image-opacity" min="5" max="100" step="1" value="35" aria-label="Background image opacity" /><output id="bg-image-opacity-value">35%</output></label>
+        <div class="bg-image-actions"><button type="button" id="bg-image-apply">Apply link</button><button type="button" id="bg-image-remove">Remove</button></div>
+        <p class="theme-picker-note" id="bg-image-status" aria-live="polite">Use a high-resolution image (1920×1080 or larger) for the sharpest result.</p>
+      </div>
+    </details>
   </div>
 
 </div>
+
+<!-- Dims the page behind the settings sheet on phones (accent-studio.css);
+     a tap on it lands outside the panel, which closes it (app.js). -->
+<div class="settings-backdrop" aria-hidden="true"></div>
 
 <!-- Hidden admin unlock: 3 rapid clicks on the settings gear opens the
      "Administrator access" card (src/AdminPinCard.jsx) instead of the
