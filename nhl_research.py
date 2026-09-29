@@ -9,9 +9,12 @@ Where the numbers come from:
   faced and goals allowed -- and each team's result. A team's two seasons are
   five requests.
 * The NHL's game feed (api-web.nhle.com): the schedule, standings, rosters
-  and preseason box scores (the stats service has no preseason). It answers
-  about fifty requests a minute and then refuses for a minute, so it is used
-  for little, cached, and left alone while it is refusing.
+  and preseason box scores (the stats service has no preseason).
+
+The two share one allowance of about 130 requests a minute and then refuse
+for a minute, so everything read is kept (in KV, finished seasons for a
+week), older copies stand in while they refuse, and nothing is asked of
+them until the wait is over.
 * ESPN: the injury report and each game's odds.
 
 What it serves the Finder:
@@ -34,7 +37,7 @@ import unicodedata
 import urllib.parse
 import zlib
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import requests
 
@@ -86,21 +89,49 @@ _lock = threading.Lock()
 # ---------------------------------------------------------------- plumbing
 
 class Busy(RuntimeError):
-    """One of the NHL's services is refusing requests for now."""
+    """The NHL is refusing requests for now."""
 
 
-# When each NHL service may be asked again: both refuse once asked too often
-# (the game feed after about fifty requests a minute, the stats service
-# after about a hundred) and name the wait.
-_blocked = {"web": 0.0, "stats": 0.0}
+# The NHL's stats service and game feed share one allowance -- about 130
+# requests a minute from an address, and a host's addresses are shared with
+# other sites -- then both refuse for a minute and say how long. The wait is
+# kept in KV as well, so every server instance leaves them alone meanwhile.
+BUSY_KEY = f"nhl:busy-until:{VERSION}"
+_busy = [0.0]          # until when the NHL refuses
+_busy_read = [0.0]     # when KV's copy was last read
 
 
-def _get(url, timeout=20, attempts=3, service=None):
+def retry_after():
+    """Seconds until the NHL may be asked again (at least a few)."""
+    return max(5, round(_busy[0] - time.time()))
+
+
+def _check_busy():
+    now = time.time()
+    if now - _busy_read[0] > 5:
+        _busy_read[0] = now
+        try:
+            _busy[0] = max(_busy[0], float(store.get(BUSY_KEY) or 0))
+        except Exception:
+            pass
+    if now < _busy[0]:
+        raise Busy("nhl")
+
+
+def _mark_busy(seconds):
+    _busy[0] = time.time() + seconds
+    try:
+        store.set(BUSY_KEY, str(_busy[0]), ex=int(seconds) + 1)
+    except Exception:
+        pass
+
+
+def _get(url, timeout=20, attempts=3, nhl=False):
     """One JSON read. A server hiccup (5xx, a dropped connection) is asked
-    again after a short pause. For one of the NHL's services, a refusal
-    (429) stops all asking of it until the wait it names has passed."""
-    if service and time.time() < _blocked[service]:
-        raise Busy(service)
+    again after a short pause. For the NHL (`nhl`), a refusal (429) stops
+    all asking until the wait it names has passed."""
+    if nhl:
+        _check_busy()
     for attempt in range(attempts):
         try:
             response = requests.get(url, headers=HEADERS, timeout=timeout)
@@ -108,9 +139,9 @@ def _get(url, timeout=20, attempts=3, service=None):
             if attempt == attempts - 1:
                 raise
         else:
-            if service and response.status_code == 429:
-                _blocked[service] = time.time() + (_num(response.headers.get("Retry-After")) or 60)
-                raise Busy(service)
+            if nhl and response.status_code == 429:
+                _mark_busy(_num(response.headers.get("Retry-After")) or 60)
+                raise Busy("nhl")
             if response.status_code < 500 or attempt == attempts - 1:
                 response.raise_for_status()
                 return response.json()
@@ -120,14 +151,14 @@ def _get(url, timeout=20, attempts=3, service=None):
 
 def _web(path, timeout=12):
     """One read from the NHL's game feed."""
-    return _get(f"{NHL}{path}", timeout=timeout, attempts=1, service="web")
+    return _get(f"{NHL}{path}", timeout=timeout, attempts=1, nhl=True)
 
 
 def _stats(report, cayenne, game=True):
     """Every row of one stats-service report that matches `cayenne`."""
     url = (f"{STATS}/{report}?isAggregate=false&isGame={'true' if game else 'false'}&start=0&limit=-1"
            f"&cayenneExp={urllib.parse.quote(cayenne)}")
-    return (_get(url, timeout=40, service="stats") or {}).get("data") or []
+    return (_get(url, timeout=40, nhl=True) or {}).get("data") or []
 
 
 def _stored(key):
@@ -478,7 +509,7 @@ def team_games(team, day=None):
     team, season = canonical(team), season_id(day)
     seasons, read = _team_seasons(team, season)
     players = {pid: dict(info) for rows in seasons for pid, info in rows["players"].items()}
-    preseason, complete = _preseason_games(team, season, players)
+    preseason, complete = _preseason_games(team, season, players, day)
     games = sorted([game for rows in seasons for game in rows["games"]] + preseason, key=lambda game: (game["date"], game["gameId"]))
     return {"team": team, "games": games, "players": players, "complete": complete and read}
 
@@ -497,33 +528,31 @@ def _sum_lines(lines):
 
 # ---------------------------------------------------------------- preseason
 
-def _club_schedule(team, season):
-    """The team's games in a season from the game feed."""
-    def build():
-        try:
-            payload = _web(f"/club-schedule-season/{team}/{season}")
-        except requests.HTTPError as error:
-            if error.response is not None and error.response.status_code == 404:
-                return []
-            raise
-        return [{"id": str(item.get("id")), "gameType": int(item.get("gameType") or 0),
-                 "date": str(item.get("gameDate") or "")[:10],
-                 "final": str(item.get("gameState") or "").upper() in ("OFF", "FINAL")}
-                for item in payload.get("games") or []]
-    return _cached(f"nhl:club:{VERSION}:{team}:{season}", 3 * 3600, build, stale=7 * 24 * 3600)
+def _preseason_schedule(season, day=None):
+    """This season's preseason games from the game feed's weekly schedules:
+    a few requests for the whole league, finished weeks kept for a month."""
+    first = int(str(season)[:4])
+    today = day or datetime.now(timezone.utc).date()
+    week, games = date(first, 9, 10), []
+    while week <= min(today, date(first, 10, 20)):
+        done = week + timedelta(days=8) < today
+        games += [item for item in schedule_day(week.isoformat(), 30 * 24 * 3600 if done else 10 * 60) if item["gameType"] == 1]
+        week += timedelta(days=7)
+    return games
 
 
 # Box scores read per request at most, so a cold start stays well inside the
-# game feed's allowance; the rest come on the next look.
+# NHL's allowance; the rest come on the next look.
 PRESEASON_PER_CALL = 6
 FOREVER = 400 * 24 * 3600
 
 
-def _preseason_games(team, season, players):
+def _preseason_games(team, season, players, day=None):
     """This season's finished preseason games from the game feed's box
     scores (each kept for good once read): (games, complete)."""
     try:
-        schedule = [item for item in _club_schedule(team, season) if item["gameType"] == 1 and item["final"]]
+        schedule = [item for item in _preseason_schedule(season, day)
+                    if team in (item["home"], item["away"]) and item["state"].upper() in ("OFF", "FINAL")]
     except Exception:  # noqa: BLE001 -- busy or failing: the preseason comes on a later look
         return [], False
     games, missing, fetched = [], 0, 0
@@ -532,7 +561,7 @@ def _preseason_games(team, season, players):
         found = _peek(key)
         record = found[1] if found else None
         if record is None:
-            if fetched >= PRESEASON_PER_CALL or time.time() < _blocked["web"]:
+            if fetched >= PRESEASON_PER_CALL or time.time() < _busy[0]:
                 missing += 1
                 continue
             fetched += 1
@@ -622,15 +651,9 @@ def team_log(team, opponent=None, day=None):
         ids = {game["gameId"] for game in chosen}
         chosen = sorted([game for game in games if game["gameId"] not in ids and game["opponent"] == opponent] + chosen,
                         key=lambda game: (game["date"], game["gameId"]))
-    try:
-        current = roster(team)
-    except Exception:  # noqa: BLE001 -- the log stands with the NHL's season photos
-        current = {}
-    players = {}
-    for pid, info in built["players"].items():
-        known = current.get(pid) or {}
-        players[pid] = {"name": info["name"], "pos": info["pos"],
-                        "headshot": known.get("headshot") or mug(info.get("season"), team, pid)}
+    # Each player's photo from his latest season with the team.
+    players = {pid: {"name": info["name"], "pos": info["pos"], "headshot": mug(info.get("season"), team, pid)}
+               for pid, info in built["players"].items()}
     return {"team": team, "opponent": opponent, "games": chosen, "players": players, "complete": built["complete"],
             "builtAt": time.time(), "version": VERSION}
 
@@ -705,7 +728,7 @@ def match_player(name, team, rosters):
 
 # ---------------------------------------------------------------- schedule
 
-def schedule_day(day):
+def schedule_day(day, seconds=10 * 60):
     """Every game in the week that starts on `day` (the game feed's own
     week), so one read covers a slate's dates."""
     def build():
@@ -719,7 +742,7 @@ def schedule_day(day):
                               "home": canonical(home.get("abbrev")), "away": canonical(away.get("abbrev")),
                               "state": item.get("gameState") or ""})
         return games
-    return _cached(f"nhl:schedule:{VERSION}:{day}", 10 * 60, build, stale=24 * 3600)
+    return _cached(f"nhl:schedule:{VERSION}:{day}", seconds, build, stale=max(seconds, 24 * 3600))
 
 
 def find_game(team, opponent, starts_at, games):
@@ -1082,7 +1105,7 @@ def _league_rows(day=None):
     """Every team's last LEAGUE_GAMES regular season and playoff games, with
     every player's line in them: {"games": {team: [game ids, oldest first]},
     "lines": {game id: {player id: line}}, "names": {id: name}}. Five
-    requests to the stats service; kept in memory for a few hours."""
+    requests to the stats service, kept for a few hours."""
     season = season_id(day)
 
     def build():
@@ -1122,7 +1145,7 @@ def _league_rows(day=None):
                 lines.setdefault(key[0], {})[key[1]] = line
                 names[key[1]] = row.get("goalieFullName") or ""
         return {"games": chosen, "lines": lines, "names": names}
-    return _cached(f"nhl:leaguerows:{VERSION}:{season}", 3 * 3600, build, durable=False)
+    return _cached(f"nhl:leaguerows:{VERSION}:{season}", 3 * 3600, build, stale=3 * 24 * 3600, packed=True)
 
 
 def _rank(table, high_first=True):

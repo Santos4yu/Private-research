@@ -18,7 +18,7 @@ DAY = date(2026, 9, 29)
 
 def reset():
     nhl._memory.clear()
-    nhl._blocked.update(web=0.0, stats=0.0)
+    nhl._busy[0] = nhl._busy_read[0] = 0.0
 
 
 def no_kv():
@@ -93,13 +93,23 @@ class FeedTests(unittest.TestCase):
 
     def test_a_refusal_stops_asking_for_the_wait_it_names(self):
         busy = MagicMock(status_code=429, headers={"Retry-After": "45"})
-        with patch.object(nhl.requests, "get", return_value=busy) as get:
+        with patch.object(nhl.requests, "get", return_value=busy) as get, no_kv():
             with self.assertRaises(nhl.Busy):
                 nhl._web("/schedule/2026-09-29")
+            # The two services share the allowance: the stats service waits too.
+            with self.assertRaises(nhl.Busy):
+                nhl._stats("skater/summary", 'teamAbbrev="CAR" and seasonId=20262027')
             with self.assertRaises(nhl.Busy):
                 nhl._web("/roster/CAR/current")
         self.assertEqual(get.call_count, 1)
-        self.assertAlmostEqual(nhl._blocked["web"], time.time() + 45, delta=2)
+        self.assertEqual(nhl.retry_after(), 45)
+
+    def test_a_wait_another_instance_saw(self):
+        until = str(time.time() + 30)
+        with patch.object(nhl.requests, "get") as get, patch.multiple(nhl.store, get=MagicMock(return_value=until), set=MagicMock()):
+            with self.assertRaises(nhl.Busy):
+                nhl._web("/standings/now")
+        get.assert_not_called()
 
     def test_an_older_copy_stands_in_while_the_feed_is_busy(self):
         stored = json.dumps({"at": time.time() - 3600, "value": {"CAR": {}}})
@@ -112,12 +122,13 @@ class FeedTests(unittest.TestCase):
 
 
 def feed(schedule=None, boxes=None):
-    """The game feed: a club schedule, box scores and nothing else."""
+    """The game feed: weekly schedules of `schedule`'s games, box scores and
+    nothing else."""
     def web(path, timeout=12):
-        if time.time() < nhl._blocked["web"]:
+        if time.time() < nhl._busy[0]:
             raise nhl.Busy(path)
-        if path.startswith("/club-schedule-season/"):
-            return schedule or {"games": []}
+        if path.startswith("/schedule/"):
+            return s.schedule_week(path.split("/")[2], schedule or [])
         if path.startswith("/gamecenter/"):
             return (boxes or {})[path.split("/")[2]]
         raise nhl.Busy(path)
@@ -129,7 +140,7 @@ class TeamLogTests(unittest.TestCase):
         reset()
 
     def test_season_games_and_preseason_box_scores(self):
-        schedule = s.club_schedule(("2026010030", 1, "2026-09-22", "OFF"), ("2026010099", 1, "2026-10-01", "FUT"))
+        schedule = s.schedule_games(("2026010030", 1, "2026-09-22", "OFF"), ("2026010099", 1, "2026-09-29", "FUT"))
         with patch.object(nhl, "_stats", s.fake_stats()), patch.object(nhl, "_web", feed(schedule, {"2026010030": s.box()})), no_kv():
             log = nhl.team_log("CAR", "FLA", day=DAY)
         self.assertEqual([game["gameId"] for game in log["games"]], [s.SO_GAME, s.OT_GAME, "2026010030"])
@@ -149,7 +160,7 @@ class TeamLogTests(unittest.TestCase):
         self.assertTrue(staal["headshot"].endswith(f"/20252026/CAR/{s.STAAL}.png"))
 
     def test_busy_feed_leaves_the_preseason_for_later(self):
-        schedule = s.club_schedule(*[(f"20260100{n:02d}", 1, "2026-09-22", "OFF") for n in range(10)])
+        schedule = s.schedule_games(*[(f"20260100{n:02d}", 1, "2026-09-22", "OFF") for n in range(10)])
         boxes = {f"20260100{n:02d}": s.box(game_id=f"20260100{n:02d}") for n in range(10)}
         with patch.object(nhl, "_stats", s.fake_stats()), patch.object(nhl, "_web", feed(schedule, boxes)), no_kv():
             first = nhl.team_log("CAR", day=DAY)
@@ -160,7 +171,7 @@ class TeamLogTests(unittest.TestCase):
 
     def test_regular_season_stands_when_the_feed_refuses(self):
         with patch.object(nhl, "_stats", s.fake_stats()), patch.object(nhl, "_web", feed()), no_kv():
-            nhl._blocked["web"] = time.time() + 60
+            nhl._busy[0] = time.time() + 60
             log = nhl.team_log("CAR", day=DAY)
         self.assertEqual((len(log["games"]), log["complete"]), (2, False))
 
@@ -259,6 +270,36 @@ class BusyTests(unittest.TestCase):
             nhl._memory.clear()
             with self.assertRaises(nhl.Busy):
                 nhl.team_log("CAR", day=DAY)
+
+
+class RouteTests(unittest.TestCase):
+    def setUp(self):
+        reset()
+
+    def get(self, path):
+        from api.board import handler
+        request = object.__new__(handler)
+        request.path, request.headers = path, {"Host": "test.invalid"}
+        sent = MagicMock()
+        with patch("site_controls.allowed", return_value=True), patch("site_controls.finder_sport_allowed", return_value=True), \
+                patch("api.board.session_with_live_access", return_value={"id": "test-only"}), patch.object(request, "_send", sent):
+            request.do_GET()
+        return sent.call_args.args
+
+    def test_a_busy_nhl_says_when_to_ask_again(self):
+        nhl._busy[0] = time.time() + 40
+        with patch.object(nhl, "team_log", side_effect=nhl.Busy("stats")):
+            status, body = self.get("/api/board?view=nhl&resource=log&team=BOS")
+        self.assertEqual((status, body["error"]), (503, "NHL data is temporarily unavailable."))
+        self.assertAlmostEqual(body["retryAfter"], 40, delta=2)
+
+    def test_matchup_uses_the_lines_teams(self):
+        with patch.object(nhl, "matchup", return_value={"ok": True}) as matchup:
+            self.assertEqual(self.get("/api/board?view=nhl&resource=matchup&game=2026020001&home=CAR&away=FLA"
+                                      "&start=2026-10-08T23:00:00Z")[0], 200)
+            self.get("/api/board?view=nhl&resource=matchup&game=2026020001&home=XYZ&away=FLA&start=soon")
+        self.assertEqual(matchup.call_args_list[0].args, ("2026020001", "CAR", "FLA", "2026-10-08T23:00:00Z"))
+        self.assertEqual(matchup.call_args_list[1].args, ("2026020001", None, None, None))
 
 
 class LeagueTests(unittest.TestCase):
