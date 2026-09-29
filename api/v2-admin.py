@@ -11,6 +11,8 @@ an `action` field keeps this at one function instead of upgrading plans.
 
 GET  ?action=members                 -- admin only (site_members.py)
 POST {"action": "member-rule", ...}  -- admin only
+GET  ?action=announce-status         -- admin only (push_notices.py)
+POST {"action": "announce", ...}     -- admin only
 GET  ?action=key-status              -- admin only
 GET  ?action=cron-scan               -- Vercel Cron only
 POST {"action": "auth", "pin": ...}
@@ -59,6 +61,13 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(200, {"members": site_members.list_members(), "items": site_members.access_items(),
                                         "badges": [{"key": key, "label": label} for key, label in site_members.BADGES.items()],
                                         "policy": read()})
+            if action == "announce-status":
+                if not admin_auth.is_admin_request(self.headers):return self._send(401, {"error":"Admin session required"})
+                import push_notices
+                try:
+                    return self._send(200, push_notices.status())
+                except Exception:  # noqa: BLE001
+                    return self._send(503, {"error": "Alerts are unavailable right now"})
             if action == "key-status":
                 if not admin_auth.is_admin_request(self.headers):
                     return self._send(401, {"error": "Admin session required"})
@@ -138,6 +147,8 @@ class handler(BaseHTTPRequestHandler):
                 except RuntimeError as exc:
                     return self._send(503, {"error": str(exc)})
                 return self._send(200, {"member": site_members.member(email)})
+            if action == "announce":
+                return self._handle_announce(body)
             if action == "auth":
                 return self._handle_auth(body)
             if action == "key":
@@ -243,6 +254,31 @@ class handler(BaseHTTPRequestHandler):
         )
         self.end_headers()
         self.wfile.write(json.dumps({"ok": True}).encode("utf-8"))
+
+    def _handle_announce(self, body):
+        """A notification to every device with alerts on -- or, with
+        "onlyMe", to the admin's own devices first."""
+        if not admin_auth.is_admin_request(self.headers):
+            return self._send(401, {"error": "Admin session required"})
+        from site_controls import same_origin
+        if not same_origin(self.headers):
+            return self._send(403, {"error": "Same-origin request required"})
+        import push_notices
+        account_id = None
+        if body.get("onlyMe"):
+            from account_auth import identity
+            account_id = (identity(self.headers) or {}).get("id")
+            if not account_id:
+                return self._send(400, {"error": "Sign in to send to your own phone"})
+        subject = os.getenv("VAPID_SUBJECT", "").strip() or f"https://{self.headers.get('Host', '')}"
+        try:
+            result = push_notices.announce(body.get("title"), body.get("body"), subject, body.get("url") or "/",
+                                           account_id=account_id)
+        except ValueError as exc:
+            return self._send(400, {"error": str(exc)})
+        except Exception:  # noqa: BLE001
+            return self._send(503, {"error": "Alerts are unavailable right now"})
+        return self._send(200, {**result, **push_notices.status()})
 
     def _handle_key(self, body):
         if not admin_auth.is_admin_request(self.headers):

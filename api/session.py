@@ -21,6 +21,7 @@ from auth_core import (  # noqa: E402
 
 ACCOUNT_DATA_ACTIONS = ('profile-save', 'prefs-save', 'account-image-save')
 ACCOUNT_BODY_MAX = 2200 * 1024
+PUSH_ACTIONS = ('push-subscribe', 'push-unsubscribe')
 
 
 class handler(BaseHTTPRequestHandler):
@@ -57,6 +58,11 @@ class handler(BaseHTTPRequestHandler):
             return self._json(200,{'profile':account_profile.public_profile(uid,account_profile.read_profile(uid)),'prefs':account_profile.read_prefs(uid)})
         if action == "account-image":
             return self._account_image(query)
+        if action == "push-key":
+            # The site's public key, which a browser needs to turn alerts on.
+            import push_notices
+            try:return self._json(200,{'key':push_notices.public_key()})
+            except Exception:return self._json(503,{'error':'Alerts are unavailable right now'})
         if action == "login":
             return self._login()
         if action == "callback":
@@ -80,6 +86,7 @@ class handler(BaseHTTPRequestHandler):
             action=body.get('action')
             if action in ACCOUNT_DATA_ACTIONS:return self._account_data(action,body)
             if length>8192:return self._json(400,{'error':'Invalid request size'})
+            if action in PUSH_ACTIONS:return self._push(action,body)
             email=body.get('email','');password=body.get('password','')
             # Remember me: persistent cookies that survive closing the browser,
             # or session cookies that don't. Defaults to remembering, which is
@@ -126,6 +133,21 @@ class handler(BaseHTTPRequestHandler):
             return self._account_response({'ok':True},session_cookies(data,remember))
         except ValueError as exc:return self._json(400,{'error':str(exc) if str(exc).startswith('Account') else 'Invalid account request'})
         except Exception:return self._json(503,{'error':'Account service temporarily unavailable or not configured'})
+
+    def _push(self,action,body):
+        """Alerts on this device: its push subscription is kept so
+        announcements reach it (push_notices.py)."""
+        import push_notices
+        from account_auth import identity
+        account=identity(self.headers)
+        if not account:return self._json(401,{'error':'Sign in to turn on alerts'})
+        subscription=body.get('subscription')
+        try:
+            if action=='push-subscribe':push_notices.subscribe(account.get('id'),subscription)
+            else:push_notices.unsubscribe(subscription.get('endpoint') if isinstance(subscription,dict) else None)
+        except ValueError as exc:return self._json(400,{'error':str(exc)})
+        except Exception:return self._json(503,{'error':'Alerts are unavailable right now'})
+        return self._json(200,{'ok':True})
 
     def _account_data(self,action,body):
         """Profile edits, photo uploads and settings sync for the signed-in

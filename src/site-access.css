@@ -51,8 +51,9 @@ html:not([data-site-access="granted"]) #dock-root{display:none!important}
 
 /* Tab strip: keeps the panel from growing into one long scroll as more
    admin controls get added over time. */
-.site-tabs{display:flex;gap:4px;margin:0 0 20px;padding:4px;border:1px solid #2b3543;background:#0e1621;border-radius:14px}
-.site-tab{flex:1;min-height:40px;border:0;border-radius:10px;background:transparent;color:#9fb0c8;font:700 12px/1 inherit;letter-spacing:.01em;cursor:pointer;transition:background .15s ease,color .15s ease}
+.site-tabs{display:flex;gap:4px;margin:0 0 20px;padding:4px;border:1px solid #2b3543;background:#0e1621;border-radius:14px;overflow-x:auto;scrollbar-width:none}
+.site-tabs::-webkit-scrollbar{display:none}
+.site-tab{flex:1 0 auto;padding:0 12px;min-height:40px;border:0;border-radius:10px;background:transparent;color:#9fb0c8;font:700 12px/1 inherit;letter-spacing:.01em;cursor:pointer;transition:background .15s ease,color .15s ease}
 .site-tab:hover{color:#f1f5f9}
 .site-tab[aria-selected=true]{background:var(--theme-accent,#0082fe);color:var(--theme-on-accent,#fff)}
 .site-tab-panel{display:flex;flex-direction:column;gap:22px}
@@ -87,6 +88,23 @@ html:not([data-site-access="granted"]) #dock-root{display:none!important}
 #site-controls fieldset label:has(input:focus-visible){outline:2px solid var(--theme-accent,#0082fe);outline-offset:2px}
 
 #site-controls [role=status]{margin:0;font-size:12px;color:#9fb0c8;min-height:16px}
+/* Announce tab (site-announce.js). */
+.announce-reach{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border:1px solid #2b3543;border-radius:14px;background:#182230;color:#9fb0c8;font-size:13px}
+.announce-reach strong{color:#f1f5f9;font-size:15px}
+.announce-field{display:grid;gap:8px;margin:0;color:#9fb0c8;font-size:13px}
+.announce-field-head{display:flex;justify-content:space-between}
+.announce-left{color:#6f7f95;font:600 11px var(--font-mono,monospace)}
+#site-controls .announce-field input,#site-controls .announce-field textarea{box-sizing:border-box;width:100%;margin:0;padding:12px;border:1px solid #445166;border-radius:10px;background:#202a38;color:#f1f5f9;font-family:inherit;font-size:14px;line-height:1.45}
+#site-controls .announce-field input:focus-visible{outline:2px solid var(--theme-accent,#0082fe);outline-offset:2px;border-color:var(--theme-accent,#0082fe)}
+.announce-actions{display:grid;grid-template-columns:1fr 1.4fr;gap:10px}
+.announce-actions button{min-height:48px;border-radius:12px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.announce-me{border:1px solid #445166;background:#202a38;color:#f1f5f9}
+.announce-all{border:1px solid var(--theme-accent,#0082fe);background:var(--theme-accent,#0082fe);color:var(--theme-on-accent,#fff)}
+.announce-actions button:disabled{opacity:.55;cursor:wait}
+.announce-last{display:grid;gap:4px;padding:12px 14px;border:1px solid #2b3543;border-radius:12px;color:#c7d2e1;font-size:13px}
+.announce-last[hidden]{display:none}
+.announce-last span{color:#6f7f95;font-size:11px}
+.announce-last p{margin:0;color:#9fb0c8}
 #site-controls [role=status]:empty{display:none}
 #site-controls button[type=submit]{align-self:flex-start;min-height:48px;padding:0 22px;border-radius:12px;border:1px solid var(--theme-accent,#0082fe);background:var(--theme-accent,#0082fe);color:#fff;font:700 13px/1 inherit;cursor:pointer;transition:filter .15s ease,transform .15s ease}
 #site-controls button[type=submit]:hover{filter:brightness(1.1)}
