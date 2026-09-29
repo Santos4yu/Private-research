@@ -129,7 +129,7 @@ const state = {
 
 
   parlaySelection: new Set(),
-  currentTab: "research",
+  currentTab: "finder",
   slateLoaded: false,
   v2BoardLoaded: false,
   v2BoardData: null,
@@ -1444,7 +1444,7 @@ function wireAppNavigation() {
     setManualBetSlipOpen(false);
     const slug = location.pathname.slice(1);
     const route = Object.hasOwn(SLUG_TO_TAB, slug) ? SLUG_TO_TAB[slug] : slug;
-    const tab = Object.hasOwn(SCREEN_TITLES, route) && (route !== "admin" || state.adminUnlocked) ? route : "research";
+    const tab = Object.hasOwn(SCREEN_TITLES, route) && (route !== "admin" || state.adminUnlocked) ? route : "finder";
     switchTab(tab, { history: false });
   });
 
@@ -1460,7 +1460,7 @@ function wireAppNavigation() {
   document.addEventListener("focusout", () => requestAnimationFrame(syncKeyboard));
 }
 
-window.addEventListener("vortex:switch-tab", (event) => switchTab(event.detail?.tab || "research"));
+window.addEventListener("vortex:switch-tab", (event) => switchTab(event.detail?.tab || "finder"));
 window.addEventListener("vortex:dock-ready", () => window.dispatchEvent(new CustomEvent("vortex:dock-sync", { detail: { tab: state.currentTab, saved: state.savedProps.size } })));
 
 function wireSidePanel() {

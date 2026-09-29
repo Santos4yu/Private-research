@@ -41,12 +41,12 @@ import { topTabs } from './navTabs';
 import { VortexSidebar } from './VortexSidebar';
 
 function VortexTopTabs() {
-  const [tab, setTab] = useState('research');
+  const [tab, setTab] = useState('finder');
   const [saved, setSaved] = useState(0);
 
   useEffect(() => {
     const sync = (event) => {
-      setTab(event.detail?.tab || 'research');
+      setTab(event.detail?.tab || 'finder');
       setSaved(event.detail?.saved ?? 0);
     };
     window.addEventListener('vortex:dock-sync', sync);

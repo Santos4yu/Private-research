@@ -13,7 +13,7 @@ export function hiddenTabs(policy,tabs){
  return accessGranted(policy)?tabs.filter(tab=>!canUseTab(policy,tab)):[];
 }
 
-export function availableTab(policy,current,tabs=['research','v2','finder','slate','saved','slip','builder','moneyline','nrfi','community']) {
+export function availableTab(policy,current,tabs=['finder','research','v2','slate','saved','slip','builder','moneyline','nrfi','community']) {
  if(canUseTab(policy,current))return current;
  return tabs.find(tab=>canUseTab(policy,tab))||null;
 }

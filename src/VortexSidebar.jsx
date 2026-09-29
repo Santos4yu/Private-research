@@ -9,7 +9,7 @@ import './vortex-sidebar.css';
 // (VortexTopTabs in main.jsx) -- this is a second view onto the identical
 // navigation state, not a separate nav system.
 export function VortexSidebar() {
-  const [tab, setTab] = useState('research');
+  const [tab, setTab] = useState('finder');
   const [saved, setSaved] = useState(0);
   const [open, setOpen] = useState(false);
   // The Pick Builder shows inside this rail (widened) rather than in a
@@ -46,7 +46,7 @@ export function VortexSidebar() {
 
   useEffect(() => {
     const sync = (event) => {
-      setTab(event.detail?.tab || 'research');
+      setTab(event.detail?.tab || 'finder');
       setSaved(event.detail?.saved ?? 0);
     };
     window.addEventListener('vortex:dock-sync', sync);
