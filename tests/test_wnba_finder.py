@@ -137,7 +137,7 @@ class WNBAPrizePicksLineTests(unittest.TestCase):
             {**base, "id": 4, "stat": "Free Throws Made", "line": 5.5},
             {**base, "id": 5, "stat": "Personal Fouls", "line": 2.5},
             # A stat with no history yet still shows, under PrizePicks' name.
-            {**base, "id": 8, "stat": "Offensive Rebounds", "line": 1.5},
+            {**base, "id": 8, "stat": "Dunks", "line": 0.5},
             {**base, "id": 6, "stat": "Points", "line": 40.5, "combo": True},
             {**base, "id": 7, "stat": "Rebounds", "line": 9.5, "start_time": "2026-07-01T10:00:00Z"},
         ]
@@ -147,12 +147,12 @@ class WNBAPrizePicksLineTests(unittest.TestCase):
         self.assertEqual(existing["apps"][1], {"key": "draftkings", "over": -115})
         added = {row["marketKey"]: row for row in rows[1:]}
         self.assertEqual(set(added), {"player_threes_attempts", "player_field_goals", "player_frees_made", "player_fouls",
-                                      "pp:offensiverebounds"})
+                                      "pp:dunks"})
         threes = added["player_threes_attempts"]
         self.assertEqual((threes["market"], threes["playerId"], threes["eventId"], threes["homeTeamAbbr"]),
                          ("3-PT Attempted", "w1", "e1", "LV"))
         self.assertEqual(added["player_fouls"]["market"], "Personal Fouls")
-        self.assertEqual(added["pp:offensiverebounds"]["market"], "Offensive Rebounds")
+        self.assertEqual(added["pp:dunks"]["market"], "Dunks")
 
     def test_a_goblin_only_prizepicks_posts_picks_up_the_books_alternate_price(self):
         from datetime import datetime, timezone

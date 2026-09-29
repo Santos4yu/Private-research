@@ -227,7 +227,16 @@ class handler(BaseHTTPRequestHandler):
                     if resource == "team" and team:
                         return self._send(200, nhl_research.team_context(team))
                     if resource == "matchup" and game:
-                        return self._send(200, nhl_research.matchup(game))
+                        # The line's teams and start, so the game need not be
+                        # looked up on the NHL's schedule.
+                        home, away, start = arg("home").upper(), arg("away").upper(), arg("start")
+                        try:
+                            datetime.fromisoformat(start.replace("Z", "+00:00"))
+                        except ValueError:
+                            start = ""
+                        if not (nhl_research.valid_team(home) and nhl_research.valid_team(away) and start):
+                            home = away = start = None
+                        return self._send(200, nhl_research.matchup(game, home, away, start))
                     if resource == "league":
                         return self._send(200, nhl_research.league())
                     if resource == "similar" and opponent:
