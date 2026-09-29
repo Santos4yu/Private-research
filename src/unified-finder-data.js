@@ -3,6 +3,7 @@ import {teamLogoUrl} from './sports/nfl/nfl-ui-core.js';
 import {MARKET_STAT as WNBA_DVP_STAT, positionOf} from './sports/wnba/wnba-research.js';
 import {playerGames, statKeyOf, valueOf} from './sports/soccer/soccer-stats.js';
 import {playerGames as nhlPlayerGames, statValue as nhlValue} from './sports/nhl/nhl-stats.js';
+import {storedBoard, storeBoard} from './finder-store.js';
 
 const WINDOW_KEYS = ['l5', 'l10', 'l15', 'l20', 'h2h', 'season'];
 export const BOOK_NAMES = {prizepicks: 'PrizePicks', underdog: 'Underdog', pick6: 'DK Pick6', betr_us_dfs: 'Betr Picks',
@@ -21,39 +22,71 @@ const mean = values => values.length ? values.reduce((sum, value) => sum + value
 const photo = id => id ? `https://img.mlbstatic.com/mlb-photos/image/upload/w_300,q_auto:best/v1/people/${encodeURIComponent(id)}/headshot/silo/current` : null;
 const mlbLogo = id => id ? `https://www.mlbstatic.com/team-logos/${encodeURIComponent(id)}.svg` : null;
 
-function cacheStore() {
-  return typeof window === 'undefined' ? null : window.localStorage;
+function legacyStore() {
+  try { return typeof window === 'undefined' ? null : window.localStorage; } catch { return null; }
 }
 
-/** Persist the compact board snapshot so returning users paint before a fetch. */
-export function readFinderCache(sport, now = Date.now()) {
+function usableBoard(value, now) {
+  if (!value || !Array.isArray(value.rows) || !value.rows.length || now - Number(value.ts || 0) > FINDER_CACHE_TTL) return null;
+  const rows = value.rows.filter(row => !row.startsAt || !Number.isFinite(Date.parse(row.startsAt)) || Date.parse(row.startsAt) > now);
+  return rows.length ? {...value, rows, persisted: true} : null;
+}
+
+/** The saved board for a sport (IndexedDB, finder-store.js), so a returning
+ * user sees props and hit rates before any request: null when there is none
+ * from the last day. Boards saved by older versions in localStorage are
+ * read once, then cleared. */
+export async function readFinderCache(sport, now = Date.now()) {
   try {
-    const store = cacheStore();
-    if (!store) return null;
-    const value = JSON.parse(store.getItem(FINDER_CACHE_PREFIX + sport) || 'null');
-    if (!value || !Array.isArray(value.rows) || !value.rows.length || now - Number(value.ts || 0) > FINDER_CACHE_TTL) return null;
-    const rows = value.rows.filter(row => !row.startsAt || !Number.isFinite(Date.parse(row.startsAt)) || Date.parse(row.startsAt) > now);
-    return rows.length ? {...value, rows, persisted: true} : null;
+    const saved = usableBoard(await storedBoard(sport), now);
+    if (saved) return saved;
+    const legacy = legacyStore();
+    const value = legacy ? JSON.parse(legacy.getItem(FINDER_CACHE_PREFIX + sport) || 'null') : null;
+    legacy?.removeItem(FINDER_CACHE_PREFIX + sport);
+    return usableBoard(value, now);
   } catch { return null; }
 }
 
 export function persistFinderCache(sport, value) {
-  try {
-    const store = cacheStore();
-    if (!store || !value?.rows?.length) return;
-    const rows = value.rows.map(row => {
-      const compact = {...row};
-      // History/chart payloads are shared by many lines and can be re-fetched
-      // from the in-memory cache. Keeping them out of storage avoids blocking
-      // the main thread and keeps mobile localStorage well below quota.
-      delete compact.history;
-      delete compact.chart;
-      return compact;
-    });
-    store.setItem(FINDER_CACHE_PREFIX + sport, JSON.stringify({
-      ts: Date.now(), fetchedAt: value.fetchedAt || null, rows,
-    }));
-  } catch { /* Storage is an optimization; live data remains authoritative. */ }
+  if (!value?.rows?.length) return Promise.resolve();
+  const rows = value.rows.map(row => {
+    const compact = {...row};
+    // History and chart payloads are shared by many lines and are fetched
+    // again when a player page needs them.
+    delete compact.history;
+    delete compact.chart;
+    return compact;
+  });
+  // ts is when the board was fetched (kept through later saves), so a board
+  // re-saved from the screen doesn't pass for a newer one.
+  return storeBoard(sport, {ts: Number(value.ts) || Date.now(), fetchedAt: value.fetchedAt || null, rows}).catch(() => {});
+}
+
+// A line's hit rates stay good until the player's next game, and a line is
+// for one upcoming game, so a refreshed board keeps them for every line
+// that is still the same prop at the same number. Only new lines, and lines
+// that moved, load history again.
+const HISTORY_KEEP = 6 * 60 * 60 * 1000;
+const HISTORY_FIELDS = ['average', 'windows', 'streak', 'diff', 'averageDelta', 'historyStatus', 'enrichedAt'];
+// What history fills in that a board can leave blank (an MLB player's id,
+// photo and opponent). Prices and odds are never carried: the new board's
+// are the current ones.
+const IDENTITY_FIELDS = ['playerId', 'headshot', 'teamLogo', 'position', 'opponent', 'opponentTeamId', 'startsAt'];
+export function carryHistory(rows, previous = [], now = Date.now()) {
+  const before = new Map();
+  for (const row of previous || []) {
+    if (row?.historyStatus === 'ready' && now - Number(row.enrichedAt || 0) < HISTORY_KEEP) before.set(row.id, row);
+  }
+  if (!before.size) return rows;
+  return rows.map(row => {
+    const old = before.get(row.id);
+    if (!old || row.historyStatus === 'ready' || old.line !== row.line || old.direction !== row.direction
+      || (old.valueKey || old.marketKey || old.stat) !== (row.valueKey || row.marketKey || row.stat)) return row;
+    const kept = {...row};
+    for (const key of IDENTITY_FIELDS) if (kept[key] == null && old[key] != null) kept[key] = old[key];
+    for (const key of HISTORY_FIELDS) kept[key] = old[key];
+    return kept;
+  });
 }
 
 function aborted(signal) {

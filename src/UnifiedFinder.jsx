@@ -1,6 +1,6 @@
 import React,{lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowDown,ArrowUp,ArrowUpDown,ArrowLeft,Bookmark,ChartNoAxesColumnIncreasing,ChevronDown,ChevronLeft,ChevronRight,Grid2X2,ListFilter,LoaderCircle,RefreshCw,Search,SlidersHorizontal,Star,Swords,Table2,Trash2,Users,CalendarDays,Settings,UserRound,X} from 'lucide-react';
-import {loadFinderSport,enrichMlbRows,enrichWnbaRows,enrichSoccerRows,enrichNhlRows,persistFinderCache,readFinderCache,matchesPrizePicksLine,finderSlipId,slipApps,bookProbability,loadFinderDefense,withDefense,trendPickRow,BOOK_NAMES} from './unified-finder-data';
+import {loadFinderSport,enrichMlbRows,enrichWnbaRows,enrichSoccerRows,enrichNhlRows,persistFinderCache,readFinderCache,carryHistory,matchesPrizePicksLine,finderSlipId,slipApps,bookProbability,loadFinderDefense,withDefense,trendPickRow,BOOK_NAMES} from './unified-finder-data';
 import {WNBAPlayerPage} from './sports/wnba/WNBAPlayerPage';
 import {siteFinderSportAllowed} from './site-access';
 import {accountProfile} from './account-sync';
@@ -14,6 +14,13 @@ const FinderTrendView=lazy(()=>import('./FinderTrendView').then(m=>({default:m.F
 const SoccerPlayerPage=lazy(()=>import('./sports/soccer/SoccerPlayerPage').then(m=>({default:m.SoccerPlayerPage})));
 const NHLPlayerPage=lazy(()=>import('./sports/nhl/NHLPlayerPage').then(m=>({default:m.NHLPlayerPage})));
 const SPORTS=['all','wnba','mlb','nfl','nhl','soccer'],KEYS=SPORTS.slice(1),EMPTY={state:'idle',rows:[]};
+// How each league's lines get their hit rates after the board arrives.
+const ENRICH={wnba:enrichWnbaRows,mlb:enrichMlbRows,soccer:enrichSoccerRows,nhl:enrichNhlRows};
+const ENRICH_CONCURRENCY={wnba:6,mlb:3,soccer:4,nhl:4};
+// A saved board younger than this is shown without asking again.
+const BOARD_FRESH=2*60*1000;
+// When each line's hit rates were worked out, so a later board can keep them.
+const stamped=rows=>{const now=Date.now();return rows.map(row=>row.historyStatus==='ready'&&!row.enrichedAt?{...row,enrichedAt:now}:row);};
 const LOGOS={prizepicks:'/prizepicks/logo.png',draftkings:'/sportsbooks/draftkings.png',fanduel:'/sportsbooks/fanduel.png',betmgm:'/sportsbooks/betmgm.png',underdog:'/sportsbooks/underdog.png'};
 const WINDOWS=[['l5','L5'],['l10','L10'],['l15','L15'],['h2h','H2H'],['season','SZN']];
 // With no sort chosen the board runs L10 high to low.
@@ -109,21 +116,41 @@ export function UnifiedFinder(){
  const load=useCallback(async(key,force=false)=>{
   if(requests.current.has(key)||(!force&&boardsRef.current[key].state==='ready'))return;
   const c=new AbortController();requests.current.set(key,c);controllers.current.add(c);
-  const cached=!force?readFinderCache(key):null;
-  if(cached)setBoards(old=>({...old,[key]:{...old[key],...cached,state:'ready',error:null}}));
-  else setBoards(old=>({...old,[key]:{...old[key],state:'loading',error:null}}));
-  try{const result=await loadFinderSport(key,{signal:c.signal,fast:key==='wnba'});if(c.signal.aborted)return;setBoards(old=>({...old,[key]:{...result,state:'ready',error:null}}));persistFinderCache(key,result);
+  try{
+   // The saved board first, props and hit rates together, before any request.
+   const cached=!force?await readFinderCache(key):null;
+   if(c.signal.aborted)return;
+   if(cached)setBoards(old=>({...old,[key]:{...old[key],...cached,state:'ready',error:null}}));
+   else setBoards(old=>({...old,[key]:{...old[key],state:old[key].rows?.length?'ready':'loading',error:null}}));
+   let result=cached;
+   // A board saved moments ago is current; otherwise ask again, keeping the
+   // hit rates of every line that hasn't changed (carryHistory).
+   if(!cached||Date.now()-Number(cached.ts||0)>=BOARD_FRESH){
+    const fresh=await loadFinderSport(key,{signal:c.signal,fast:key==='wnba'});if(c.signal.aborted)return;
+    const previous=boardsRef.current[key].rows?.length?boardsRef.current[key].rows:cached?.rows||[];
+    result={...fresh,ts:Date.now(),rows:carryHistory(fresh.rows,previous)};
+    setBoards(old=>({...old,[key]:{...result,state:'ready',error:null}}));persistFinderCache(key,result);
+   }
+   const enrich=ENRICH[key];
+   if(!enrich||!result.rows.some(row=>row.historyStatus==='pending'||(key==='wnba'||key==='mlb')&&row.historyStatus!=='ready'&&row.historyStatus!=='none'))return;
    const run=(generation.current.get(key)||0)+1;generation.current.set(key,run);
    let pendingUpdates=new Map(),flushTimer=null;
    const flushUpdates=()=>{flushTimer=null;if(generation.current.get(key)!==run||c.signal.aborted||!pendingUpdates.size)return;const updates=pendingUpdates;pendingUpdates=new Map();setBoards(old=>({...old,[key]:{...old[key],rows:old[key].rows.map(r=>updates.get(r.id)||r)}}));};
-   const applyBatch=(sportKey,batch)=>{if(generation.current.get(sportKey)!==run||c.signal.aborted)return;batch.forEach(row=>pendingUpdates.set(row.id,row));if(flushTimer===null)flushTimer=setTimeout(flushUpdates,48);};
-   if(key==='wnba'){const enriched=await enrichWnbaRows(result.rows,{signal:c.signal,concurrency:6,onRows:batch=>applyBatch('wnba',batch)});flushUpdates();if(!c.signal.aborted)persistFinderCache(key,{...result,rows:enriched});}
-   if(key==='mlb'){const enriched=await enrichMlbRows(result.rows,{signal:c.signal,concurrency:3,onRows:batch=>applyBatch('mlb',batch)});flushUpdates();if(!c.signal.aborted)persistFinderCache(key,{...result,rows:enriched});}
-   if(key==='soccer'){const enriched=await enrichSoccerRows(result.rows,{signal:c.signal,concurrency:4,onRows:batch=>applyBatch('soccer',batch)});flushUpdates();if(!c.signal.aborted)persistFinderCache(key,{...result,rows:enriched});}
-   if(key==='nhl'){const enriched=await enrichNhlRows(result.rows,{signal:c.signal,concurrency:4,onRows:batch=>applyBatch('nhl',batch)});flushUpdates();if(!c.signal.aborted)persistFinderCache(key,{...result,rows:enriched});}
+   // Hit rates land in batches; the list updates a few times a second
+   // rather than on every batch.
+   const applyBatch=batch=>{if(generation.current.get(key)!==run||c.signal.aborted)return;stamped(batch).forEach(row=>pendingUpdates.set(row.id,row));if(flushTimer===null)flushTimer=setTimeout(flushUpdates,150);};
+   const enriched=await enrich(result.rows,{signal:c.signal,concurrency:ENRICH_CONCURRENCY[key],onRows:applyBatch});
+   flushUpdates();
+   if(!c.signal.aborted)persistFinderCache(key,{...result,rows:stamped(enriched)});
   }
   catch(e){if(e.name!=='AbortError')setBoards(old=>({...old,[key]:{...old[key],state:old[key].rows?.length?'ready':'error',error:e.message}}));}
   finally{requests.current.delete(key);controllers.current.delete(c);}
+ },[]);
+ // Save what is on screen when the app goes to the background, so hit rates
+ // loaded so far are there on the next open even if loading was cut short.
+ useEffect(()=>{
+  const save=()=>{if(document.visibilityState!=='hidden')return;KEYS.forEach(key=>{const board=boardsRef.current[key];if(board.state==='ready'&&board.rows?.length)persistFinderCache(key,board);});};
+  document.addEventListener('visibilitychange',save);return()=>document.removeEventListener('visibilitychange',save);
  },[]);
  useEffect(()=>{scope.forEach(key=>load(key));},[scopeKey,load]);
  // Warm the other leagues during idle time so switching sports is a local
