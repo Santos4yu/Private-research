@@ -1,32 +1,90 @@
-"""One-off check of the NHL stats service (fourth pass): preseason games."""
+"""One-off check of nhl_research / nhl_board against the live services."""
+import sys
 import time
-import urllib.parse
+import traceback
+from collections import Counter
 
-import requests
+sys.path.insert(0, ".")
+import nhl_board  # noqa: E402
+import nhl_research as nhl  # noqa: E402
 
-H = {"Accept": "application/json"}
-BASE = "https://api.nhle.com/stats/rest/en"
-
-
-def query(report, cayenne):
-    url = f"{BASE}/{report}?isAggregate=false&isGame=true&start=0&limit=-1&cayenneExp={urllib.parse.quote(cayenne)}"
-    r = requests.get(url, headers=H, timeout=40)
-    rows = (r.json() if r.ok else {}).get("data") or []
-    print(f"   {report} [{cayenne}] -> {r.status_code} rows={len(rows)} dates={sorted({row.get('gameDate') for row in rows})[-6:]}")
-    return rows
+MCAVOY = "8479325"
 
 
-query("skater/summary", 'teamAbbrev="BOS" and seasonId=20262027 and gameTypeId=1')
-query("skater/summary", 'teamAbbrev="BOS" and seasonId>=20252026 and gameTypeId>=1')
-query("skater/summary", 'teamAbbrev="BOS" and seasonId=20252026 and gameTypeId=1')
-query("goalie/summary", 'teamAbbrev="BOS" and seasonId=20262027 and gameTypeId=1')
-rows = query("team/summary", 'teamAbbrev="BOS" and seasonId>=20252026 and gameTypeId>=1')
-shootout = [row for row in rows if row.get("winsInShootout") or row.get("otLosses")][:4]
-for row in shootout:
-    print("   OT/SO row", row["gameId"], row["gameDate"], row["goalsFor"], row["goalsAgainst"], "W", row["wins"], "SOW", row["winsInShootout"], "OTL", row["otLosses"])
-club = requests.get("https://api-web.nhle.com/v1/club-schedule-season/BOS/20252026", headers=H, timeout=20).json()
-by_id = {g["id"]: g for g in club.get("games", [])}
-for row in shootout:
-    game = by_id.get(row["gameId"]) or {}
-    print("   club", row["gameId"], (game.get("awayTeam") or {}).get("abbrev"), (game.get("awayTeam") or {}).get("score"),
-          (game.get("homeTeam") or {}).get("abbrev"), (game.get("homeTeam") or {}).get("score"), game.get("gameOutcome"))
+def timed(label, build):
+    started = time.time()
+    try:
+        value = build()
+    except Exception:  # noqa: BLE001
+        print(f"== {label}: FAILED after {time.time() - started:.1f}s")
+        traceback.print_exc()
+        return None
+    print(f"== {label}: ok in {time.time() - started:.1f}s (feed blocked: {nhl._web_blocked[0] > time.time()})")
+    return value
+
+
+log = timed("team_log BOS vs TOR", lambda: nhl.team_log("BOS", "TOR"))
+if log:
+    games = log["games"]
+    print("   games", len(games), "complete", log["complete"], Counter(game["seasonKind"] for game in games))
+    print("   first", games[0]["date"], games[0]["score"], "last", games[-1]["date"], games[-1]["opponent"], games[-1]["score"])
+    print("   scores", [game["score"] for game in games[-12:]])
+    mine = [game for game in games if MCAVOY in game["players"]]
+    print("   McAvoy games", len(mine), "last line", mine[-1]["players"][MCAVOY] if mine else None)
+    print("   McAvoy info", log["players"].get(MCAVOY))
+    print("   vs TOR", [(game["date"], game["score"]) for game in games if game["opponent"] == "TOR"])
+    print("   totals", games[-1]["totals"], games[-1]["against"])
+for team in ("TOR", "CAR", "FLA"):
+    again = timed(f"team_log {team}", lambda team=team: nhl.team_log(team))
+    if again:
+        print("   games", len(again["games"]), "complete", again["complete"], Counter(game["seasonKind"] for game in again["games"]))
+again = timed("team_log BOS again", lambda: nhl.team_log("BOS", "TOR"))
+if again:
+    print("   games", len(again["games"]), "complete", again["complete"], Counter(game["seasonKind"] for game in again["games"]))
+
+context = timed("team_context BOS", lambda: nhl.team_context("BOS"))
+if context:
+    print("   injuries", [(item["name"], item["status"], item["id"]) for item in context["injuries"]])
+    print("   depth", [(row["slot"], [player["name"] for player in row["players"]]) for row in context["depth"]])
+    print("   errors", {key: value for key, value in context.items() if key.endswith("Error")})
+
+table = timed("standings", nhl.standings)
+if table:
+    print("   teams", len(table), table.get("BOS"))
+rows = timed("stats standings", lambda: nhl._stats("team/summary", "seasonId=20252026 and gameTypeId=2", game=False))
+if rows:
+    print("   rows", len(rows), "mapped", len({nhl._team_code(row) for row in rows} & set(nhl.TEAMS)),
+          "unmapped", [row.get("teamFullName") for row in rows if nhl._team_code(row) not in nhl.TEAMS])
+
+people = timed("directory", nhl.directory)
+if people:
+    print("   players", len(people), people.get(MCAVOY), Counter(player["team"] for player in people.values()).most_common(3))
+
+data = timed("league", nhl.league)
+if data:
+    print("   teams", data["teamCount"], "BOS sog", data["teams"]["BOS"]["off"]["sog"], "def", data["teams"]["BOS"]["def"]["sog"])
+    print("   BOS vs C goals", data["dvp"]["BOS"].get("C", {}).get("goals"), "G saves", data["dvp"]["BOS"].get("G", {}).get("saves"))
+    print("   ranks fow l20", sorted((value["off"]["fow"]["l20"][1], code) for code, value in data["teams"].items())[:4])
+
+similar = timed("similar TOR C sog", lambda: nhl.similar("TOR", "C", "sog"))
+if similar:
+    print("   ", [(entry["name"], entry["team"], entry["date"], entry["value"], entry["avg"]) for entry in similar["entries"][:6]])
+
+board = timed("board", nhl_board.build)
+if board:
+    rows = board["rows"]
+    print("   rows", len(rows), "players matched", sum(1 for row in rows if row["playerId"]), "games", sum(1 for row in rows if row.get("gameId")))
+    print("   unmatched", sorted({(row["player"], row["team"]) for row in rows if not row["playerId"]})[:15])
+    print("   stats", Counter(row["stat"] for row in rows), "unmapped", Counter(row["stat"] for row in rows if not row["valueKey"]))
+    first = next((row for row in rows if row.get("gameId")), None)
+    if first:
+        game = timed(f"matchup {first['gameId']}", lambda: nhl.matchup(first["gameId"], first["homeTeamAbbr"], first["awayTeamAbbr"], first["startsAt"]))
+        if game:
+            print("   ", game["game"], [(team["abbr"], team["record"]) for team in game["teams"]], game["odds"])
+            print("   last five", {code: [item["score"] for item in items] for code, items in game["lastFive"].items()})
+    if rows:
+        team = rows[0]["team"]
+        started = time.time()
+        logs = timed(f"logs for the board's teams ({len({row['team'] for row in rows})})",
+                     lambda: {code: nhl.team_log(code)["complete"] for code in sorted({row["team"] for row in rows if row["team"]})})
+        print("   ", logs)
