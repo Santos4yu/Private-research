@@ -1,10 +1,11 @@
-import { Layers2 as BarChart3, Ticket as ClipboardList, Radar as FlaskConical, ScanLine, Compass as Search, Sparkles, SearchCheck, Trophy, CircleDot, MessagesSquare, ShieldCheck } from 'lucide-react';
+import { Layers2 as BarChart3, Ticket as ClipboardList, Radar as FlaskConical, ScanLine, Compass as Search, Sparkles, SearchCheck, Trophy, CircleDot, MessagesSquare, ShieldCheck, Activity } from 'lucide-react';
 
 // Single source of truth for the site's primary navigation destinations,
 // shared by the top pill bar (VortexTopTabs) and the sidebar (VortexSidebar)
 // so the two can never drift apart on where a tab actually goes.
 export const topTabs = [
   { title: 'Finder', icon: SearchCheck, value: 'finder' },
+  { title: 'Line Moves', icon: Activity, value: 'moves' },
   { title: 'Research', icon: Search, value: 'research' },
   { title: 'Tools', icon: FlaskConical, value: 'slate' },
   { title: 'Props', icon: BarChart3, value: 'v2' },

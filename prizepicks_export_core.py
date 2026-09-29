@@ -182,6 +182,7 @@ def _fetch_projection_rows(force=False, league="MLB"):
             continue
         wagers = wagers or ("over,under" if odds_type == "standard" else "over")
         line = attrs.get("flash_sale_line_score")
+        flash = line is not None
         if line is None:
             line = attrs.get("line_score")
         try:
@@ -206,11 +207,19 @@ def _fetch_projection_rows(force=False, league="MLB"):
             # are flagged so a board can keep them apart.
             "description": str(attrs.get("description") or ""),
             "combo": bool(player.get("combo")) or " + " in str(player.get("display_name") or player.get("name") or ""),
+            "flash": flash,
         })
     if not rows:
         raise RuntimeError(f"PrizePicks returned no active {league} projections.")
     with _CACHE_LOCK:
         _PROJECTION_CACHE[league] = {"loaded_at": now, "rows": rows}
+    # Every fresh feed, whichever board asked for it, is where the Line
+    # Moves page learns a line changed (line_moves.py).
+    try:
+        import line_moves
+        line_moves.observe_prizepicks(league, rows, fetched_at=now)
+    except Exception:  # noqa: BLE001 -- never at the cost of the feed itself
+        pass
     return rows
 
 

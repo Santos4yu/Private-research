@@ -171,6 +171,7 @@ html[data-site-maintenance=true] .site-auth-card{max-height:calc(100dvh - 100px)
    Finder's phone star). */
 html[data-hidden-tabs~="research"] [data-requires-tab~="research"]:is(#_,*),
 html[data-hidden-tabs~="finder"] [data-requires-tab~="finder"]:is(#_,*),
+html[data-hidden-tabs~="moves"] :is([data-requires-tab~="moves"],[data-tab="moves"]):is(#_,*),
 html[data-hidden-tabs~="v2"] [data-requires-tab~="v2"]:is(#_,*),
 html[data-hidden-tabs~="slate"] [data-requires-tab~="slate"]:is(#_,*),
 html[data-hidden-tabs~="saved"] [data-requires-tab~="saved"]:is(#_,*),

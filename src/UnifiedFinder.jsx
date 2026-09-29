@@ -77,7 +77,7 @@ function useAccountFace(){
  useEffect(()=>{const sync=()=>setFace(read());window.addEventListener('vortex:account-profile',sync);return()=>window.removeEventListener('vortex:account-profile',sync);},[]);
  return face;
 }
-function PhoneAccountButtons(){
+export function PhoneAccountButtons(){
  const face=useAccountFace();
  const [broken,setBroken]=useState('');
  return <>
