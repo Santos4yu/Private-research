@@ -605,7 +605,7 @@
   background:radial-gradient(110% 80% at 12% 0%,color-mix(in srgb,var(--theme-accent) 48%,transparent),transparent 72%),
    linear-gradient(180deg,color-mix(in srgb,var(--theme-accent) 40%,#0a0f1a) 0%,color-mix(in srgb,var(--theme-accent) 15%,#090d12) 58%,#090d12 100%)}
  .unified-finder.finder-detail-active::before{display:none}
- .unified-finder .finder-topbar{height:auto;min-height:0;gap:2px;padding:calc(var(--site-status-inset,0px) + 10px) 16px 6px;border:0;background:none!important;box-shadow:none!important}
+ .unified-finder .finder-topbar{height:auto;min-height:0;gap:2px;padding:calc(var(--site-status-inset,0px) + 12px) 16px 6px;border:0;background:none!important;box-shadow:none!important}
  .unified-finder .finder-title{display:flex;flex:1 1 auto;align-items:center;gap:9px;min-width:0;width:auto}
  .unified-finder .finder-title .finder-picks-trigger{display:none}
  .unified-finder .finder-topbar .finder-title>h1{display:block!important;flex:none;color:#fff;font-size:21px;font-weight:700;letter-spacing:-.035em}
@@ -640,3 +640,14 @@
 @media(max-width:339px){
  .unified-finder .finder-topbar .finder-title>h1{display:none!important}
 }
+
+/* The sport picker is a short list: compact rows and small league marks,
+   no search box or footer (FinderSportMenu), still 44px tall to tap. */
+:root .finder-multi-popover.finder-sport-popover{padding:4px 0;border-radius:14px}
+:root .finder-multi-popover.finder-sport-popover :is(.finder-multi-select-all,.finder-multi-option){min-height:44px;padding:4px 12px;gap:10px;font-size:14px}
+:root .finder-multi-popover.finder-sport-popover .finder-multi-select-all{border-bottom:1px solid #262a30}
+:root .finder-multi-popover.finder-sport-popover .finder-multi-check{flex:0 0 20px;width:20px;height:20px}
+:root .finder-multi-popover.finder-sport-popover .finder-sport-tile{flex:0 0 26px;width:26px;height:26px;border-radius:7px}
+:root .finder-multi-popover.finder-sport-popover .finder-sport-tile img{width:17px;height:17px}
+:root .finder-multi-popover.finder-sport-popover .finder-multi-options{max-height:none;padding:2px 0}
+:root .finder-multi-popover.finder-sport-popover .finder-sport-only{min-height:44px;padding:0 12px;font-size:10px;letter-spacing:.1em}
