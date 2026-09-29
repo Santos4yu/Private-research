@@ -143,11 +143,23 @@ class handler(BaseHTTPRequestHandler):
         if not account:return self._json(401,{'error':'Sign in to turn on alerts'})
         subscription=body.get('subscription')
         try:
-            if action=='push-subscribe':push_notices.subscribe(account.get('id'),subscription)
+            if action=='push-subscribe':
+                push_notices.subscribe(account.get('id'),subscription,site='https://'+str(self.headers.get('Host') or ''))
+                # Picks saved before alerts were on count too (pick_alerts.py).
+                self._watch_picks(account.get('id'))
             else:push_notices.unsubscribe(subscription.get('endpoint') if isinstance(subscription,dict) else None)
         except ValueError as exc:return self._json(400,{'error':str(exc)})
         except Exception:return self._json(503,{'error':'Alerts are unavailable right now'})
         return self._json(200,{'ok':True})
+
+    def _watch_picks(self,uid,prefs=None):
+        """Keep this member's saved picks where alerts look for them. A
+        failure here never fails what the member was doing."""
+        try:
+            import account_profile,pick_alerts
+            prefs=account_profile.read_prefs(uid) if prefs is None else prefs
+            pick_alerts.watch(uid,(prefs.get('slip') or {}).get('value'))
+        except Exception:pass
 
     def _account_data(self,action,body):
         """Profile edits, photo uploads and settings sync for the signed-in
@@ -168,7 +180,9 @@ class handler(BaseHTTPRequestHandler):
                 if slot!='background':return self._json(400,{'error':'Unknown image'})
                 version=account_profile.save_image(uid,slot,body.get('image'))
                 return self._json(200,{'url':account_profile.image_url(uid,slot,version)})
-            return self._json(200,{'prefs':account_profile.merge_prefs(uid,body.get('changes'))})
+            prefs=account_profile.merge_prefs(uid,body.get('changes'))
+            if 'slip' in (body.get('changes') or {}):self._watch_picks(uid,prefs)
+            return self._json(200,{'prefs':prefs})
         except ValueError as exc:return self._json(400,{'error':str(exc)})
         except Exception:return self._json(503,{'error':'Account storage is temporarily unavailable'})
 

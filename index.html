@@ -18,10 +18,24 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="KD" />
-<link rel="manifest" href="/manifest.json?v=4" />
+<link rel="manifest" href="/manifest.json?v=5" />
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png?v=4" />
 <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png?v=4" />
 <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=4" />
+<!-- Launch screens for the home-screen app, one per iPhone screen size
+     (public/splash): the KD mark on the app's background instead of a
+     blank flash while it opens. -->
+<link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1320x2868.png" />
+<link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1290x2796.png" />
+<link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1284x2778.png" />
+<link rel="apple-touch-startup-image" media="(device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1260x2736.png" />
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1242x2688.png" />
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/828x1792.png" />
+<link rel="apple-touch-startup-image" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1206x2622.png" />
+<link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1179x2556.png" />
+<link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1170x2532.png" />
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1125x2436.png" />
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/750x1334.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="styles.css" />
@@ -110,10 +124,21 @@
   </div>
   <div class="settings-section alerts-setting" id="alerts-setting" hidden>
     <div class="alerts-setting-row">
-      <div><span class="settings-label">Alerts</span><strong>Updates and new props</strong></div>
+      <div><span class="settings-label">Alerts</span><strong>Updates and your saved picks</strong></div>
       <button type="button" class="alerts-switch" id="alerts-switch" role="switch" aria-checked="false" aria-label="Alerts"><span></span></button>
     </div>
     <p class="theme-picker-note alerts-note" id="alerts-note" hidden></p>
+  </div>
+  <!-- src/install-guide.js -->
+  <div class="settings-section app-links">
+    <button type="button" class="app-link-row" id="get-app-row" hidden>
+      <span class="app-link-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M12 7.5v6M9.5 11l2.5 2.5 2.5-2.5"/></svg></span>
+      <span><b>Get the app</b><small>Add Krazy Data to your Home Screen</small></span>
+    </button>
+    <button type="button" class="app-link-row" id="invite-row">
+      <span class="app-link-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg></span>
+      <span><b>Share Krazy Data</b><small>Send friends the link</small></span>
+    </button>
   </div>
   <div class="settings-section">
     <div class="accent-studio-head"><div><span class="settings-label">Accent studio</span><strong>Make it yours.</strong></div><button type="button" id="accent-reset" aria-label="Reset accent colors">Reset</button></div>

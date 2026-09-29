@@ -48,12 +48,14 @@ function App({move}){
  return <span className="moves-app" title={move.appName}><Photo src={logo} width="18" height="18" fallback={<i>{(move.appName||move.app).slice(0,2)}</i>}/><span>{move.appName||move.app}</span></span>;
 }
 function Change({move}){
+ if(move.kind==='pulled')return <span className="moves-change" data-way="pulled">Pulled</span>;
  const way=direction(move);
  const Icon=way==='down'?ArrowDown:ArrowUp;
  return <span className="moves-change" data-way={way}>{way!=='flat'&&<Icon size={13} strokeWidth={2.6} aria-hidden="true"/>}
   {move.kind==='odds'?signed(move.change)+'%':signed(move.change)}</span>;
 }
 function Numbers({move}){
+ if(move.kind==='pulled')return <span className="moves-numbers"><s>{line(move.from)}</s><ArrowRight/><em>Off the board</em></span>;
  if(move.kind==='odds')return <span className="moves-numbers"><small>{move.side==='under'?'U':'O'} {line(move.line)}</small><s>{price(move.from)}</s><ArrowRight/><b>{price(move.to)}</b></span>;
  return <span className="moves-numbers"><s>{line(move.from)}</s><ArrowRight/><b>{line(move.to)}</b></span>;
 }

@@ -45,6 +45,11 @@ class FakeKV:
             return 1
         if name == 'HGETALL':
             return [item for pair in self.data.get(key, {}).items() for item in pair]
+        if name == 'HDEL':
+            table = self.data.get(key, {})
+            return sum(table.pop(field, None) is not None for field in args)
+        if name == 'HLEN':
+            return len(self.data.get(key, {}))
         if name == 'LPUSH':
             items = self.data.setdefault(key, [])
             for value in args:

@@ -35,12 +35,26 @@ export function mountAnnouncePanel(host,{request}){
  const toMe=h('button',{type:'button',className:'announce-me',text:'Send to me',onClick:()=>send(true)});
  const toAll=h('button',{type:'button',className:'announce-all',text:'Send to everyone',onClick:()=>send(false)});
  body.addEventListener('input',()=>{left.textContent=String(BODY_MAX-body.value.length);});
+ // The line-check link (line_moves.py): an outside timer calls it every few
+ // minutes so line moves and saved-pick alerts don't wait for someone to
+ // have the site open. Shows when lines were last checked.
+ const timerLink=h('input',{type:'text',readonly:true,className:'announce-timer-link','aria-label':'Line check link'});
+ const timerSeen=h('span',{className:'announce-left'});
+ const timerCopy=h('button',{type:'button',className:'announce-me',text:'Copy',onClick:async()=>{
+  try{await navigator.clipboard.writeText(timerLink.value);timerCopy.textContent='Copied';}
+  catch{timerLink.select();document.execCommand?.('copy');timerCopy.textContent='Copied';}
+  setTimeout(()=>{timerCopy.textContent='Copy';},1600);
+ }});
+ const timer=h('div',{className:'announce-timer',hidden:true},
+  h('span',{className:'announce-field-head'},'Line check link',timerSeen),
+  h('div',{className:'announce-timer-row'},timerLink,timerCopy),
+  h('small',{text:'Add it at cron-job.org, every 5 minutes.'}));
  host.append(
   h('div',{className:'announce-reach'},h('span',{text:'Alerts on'}),count),
   h('label',{className:'announce-field'},'Title',title),
   h('label',{className:'announce-field'},h('span',{className:'announce-field-head'},'Message',left),body),
   h('div',{className:'announce-actions'},toMe,toAll),
-  status,last);
+  status,last,timer);
 
  let reach=0;
  function show(data){
@@ -49,6 +63,12 @@ export function mountAnnouncePanel(host,{request}){
   const item=data.last;
   last.hidden=!item;
   if(item)last.replaceChildren(h('span',{text:`Last sent ${when(item.at)} · ${devices(Number(item.sent)||0)}`}),h('b',{text:item.title}),h('p',{text:item.body}));
+  if('timer' in data){
+   timer.hidden=!data.timer?.path;
+   if(data.timer?.path)timerLink.value=location.origin+data.timer.path;
+   const newest=Math.max(0,...Object.values(data.timer?.checked||{}).map(value=>Date.parse(value)/1000||0));
+   timerSeen.textContent=newest?`Last check ${when(newest)}`:'Not checked yet';
+  }
  }
  async function refresh(){
   try{show(await request('/api/v2-admin?action=announce-status'));}

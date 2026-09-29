@@ -1,6 +1,6 @@
 import React,{lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowDown,ArrowUp,ArrowUpDown,ArrowLeft,Bookmark,ChartNoAxesColumnIncreasing,ChevronDown,ChevronLeft,ChevronRight,Grid2X2,ListFilter,LoaderCircle,RefreshCw,Search,SlidersHorizontal,Star,Swords,Table2,Trash2,Users,CalendarDays,Settings,UserRound,X} from 'lucide-react';
-import {loadFinderSport,enrichMlbRows,enrichWnbaRows,enrichSoccerRows,enrichNhlRows,persistFinderCache,readFinderCache,carryHistory,matchesPrizePicksLine,finderSlipId,slipApps,bookProbability,loadFinderDefense,withDefense,trendPickRow,BOOK_NAMES} from './unified-finder-data';
+import {loadFinderSport,enrichMlbRows,enrichWnbaRows,enrichSoccerRows,enrichNhlRows,persistFinderCache,readFinderCache,carryHistory,matchesPrizePicksLine,finderSlipId,slipApps,bookProbability,loadFinderDefense,withDefense,trendPickRow,BOOK_NAMES,linkTarget,findLinkedRow,readFinderView,saveFinderView} from './unified-finder-data';
 import {WNBAPlayerPage} from './sports/wnba/WNBAPlayerPage';
 import {siteFinderSportAllowed} from './site-access';
 import {accountProfile} from './account-sync';
@@ -87,8 +87,14 @@ export function PhoneAccountButtons(){
   </button>
  </>;
 }
+const storage=()=>{try{return window.localStorage;}catch{return null;}};
 export function UnifiedFinder(){
- const [mobileSearch,setMobileSearch]=useState(false);
+ // A notification's link (/finder?sport=&player=&stat=) opens that prop;
+ // otherwise the Finder comes back the way it was left (readFinderView).
+ const [target]=useState(()=>typeof location==='undefined'?null:linkTarget(location.search));
+ const [view]=useState(()=>target?{}:readFinderView(storage()));
+ const linked=useRef(target),restoring=useRef(Boolean(view.marketFilter?.length||view.bookFilter?.length||view.teamFilter?.length));
+ const [mobileSearch,setMobileSearch]=useState(Boolean(target));
  // Which leagues a regular user may see here is an admin switch
  // (site_controls disabledFinderSports); admins always get every league. Re-read
  // whenever the site policy changes rather than only on mount.
@@ -99,10 +105,10 @@ export function UnifiedFinder(){
  const visibleSports=allowedKeys.length>1?['all',...allowedKeys]:allowedKeys;
  // The leagues on the board. None picked -- the default -- means every
  // league the site allows.
- const [picked,setPicked]=useState([]),[boards,setBoards]=useState(()=>Object.fromEntries(KEYS.map(key=>[key,EMPTY])));
+ const [picked,setPicked]=useState(target?[target.sport]:view.picked||[]),[boards,setBoards]=useState(()=>Object.fromEntries(KEYS.map(key=>[key,EMPTY])));
  const scope=useMemo(()=>{const chosen=picked.filter(key=>allowedKeys.includes(key));return chosen.length?chosen:allowedKeys;},[picked,allowedKeys]),scopeKey=scope.join();
- const [query,setQuery]=useState(''),[marketFilter,setMarketFilter]=useState([]),[bookFilter,setBookFilter]=useState([]),[teamFilter,setTeamFilter]=useState([]),[dayFilter,setDayFilter]=useState([]),[gameFilter,setGameFilter]=useState([]),[modifierFilter,setModifierFilter]=useState([]),[hitFilter,setHitFilter]=useState({windows:[],min:0,max:100});
- const [sorts,setSorts]=useState([]),[page,setPage]=useState(0),[pageSize,setPageSize]=useState(20),[selected,setSelected]=useState(null),[savedOnly,setSavedOnly]=useState(false);
+ const [query,setQuery]=useState(target?target.player:''),[marketFilter,setMarketFilter]=useState(view.marketFilter||[]),[bookFilter,setBookFilter]=useState(view.bookFilter||[]),[teamFilter,setTeamFilter]=useState(view.teamFilter||[]),[dayFilter,setDayFilter]=useState([]),[gameFilter,setGameFilter]=useState([]),[modifierFilter,setModifierFilter]=useState(view.modifierFilter||[]),[hitFilter,setHitFilter]=useState(view.hitFilter||{windows:[],min:0,max:100});
+ const [sorts,setSorts]=useState(view.sorts||[]),[page,setPage]=useState(0),[pageSize,setPageSize]=useState(view.pageSize||20),[selected,setSelected]=useState(null),[savedOnly,setSavedOnly]=useState(false);
  // Starred lines are picks in the site's one saved-picks list (My Slip /
  // Prop Builder, kept by app.js), not a Finder-only watchlist. This only
  // mirrors which rows are in it and on which side.
@@ -211,6 +217,15 @@ export function UnifiedFinder(){
  const pages=Math.max(1,Math.ceil(rows.length/pageSize)),currentPage=Math.min(page,pages-1),visible=rows.slice(currentPage*pageSize,(currentPage+1)*pageSize);
  const loading=scope.some(k=>['loading','idle'].includes(boards[k].state)),errors=scope.filter(k=>boards[k].error).map(k=>k.toUpperCase()+': '+boards[k].error),histories=sportRows.filter(r=>r.historyStatus==='pending').length;
  const timestamp=scope.map(k=>boards[k].fetchedAt).filter(Boolean).sort().at(-1);
+ useEffect(()=>{saveFinderView(storage(),{picked,marketFilter,bookFilter,teamFilter,modifierFilter,hitFilter,sorts,pageSize});},[picked,marketFilter,bookFilter,teamFilter,modifierFilter,hitFilter,sorts,pageSize]);
+ // A filter brought back from last time that today's board doesn't have
+ // (a team not playing) is dropped once the board is in, so it never
+ // leaves the board empty.
+ useEffect(()=>{
+  if(!restoring.current||loading||!sportRows.length)return;
+  restoring.current=false;
+  setMarketFilter(values=>values.filter(value=>markets.includes(value)));setBookFilter(values=>values.filter(value=>books.includes(value)));setTeamFilter(values=>values.filter(value=>teams.includes(value)));
+ },[loading,sportRows,markets,books,teams]);
  // Keep saved picks' prices and start times current with the board.
  useEffect(()=>{
   if(!picks.size)return;
@@ -218,6 +233,17 @@ export function UnifiedFinder(){
   if(updates.length)pickBuilder.refresh(updates);
  },[allRows,picks]);
  const open=useCallback(row=>{trigger.current='Open '+row.sport.toUpperCase()+' '+row.player+' '+row.line+' '+row.market+' trends';setSelected(row);},[]);
+ // The linked prop opens once its league's board is in; a line no longer
+ // posted leaves that player's other lines showing (the search holds the
+ // name). The link is then taken off the address.
+ useEffect(()=>{
+  const want=linked.current,board=want&&boards[want.sport];
+  if(!want||!board||!['ready','error'].includes(board.state))return;
+  linked.current=null;
+  const row=board.state==='ready'?findLinkedRow(allRows,want):null;
+  if(row)open(row);
+  try{const url=new URL(location.href);['sport','player','stat'].forEach(name=>url.searchParams.delete(name));history.replaceState(history.state,'',url.pathname+url.search+url.hash);}catch{}
+ },[boards,allRows,open]);
  const back=()=>{setSelected(null);requestAnimationFrame(()=>{const button=[...document.querySelectorAll('.finder-open')].find(el=>el.getAttribute('aria-label')===trigger.current);button?.focus({preventScroll:true});});};
  const changeSports=keys=>{setPicked(keys);setSelected(null);setMarketFilter([]);setBookFilter([]);setTeamFilter([]);setDayFilter([]);setGameFilter([]);setModifierFilter([]);setHitFilter({windows:[],min:0,max:100});};
  const clear=()=>{setQuery('');setMarketFilter([]);setBookFilter([]);setTeamFilter([]);setDayFilter([]);setGameFilter([]);setModifierFilter([]);setHitFilter({windows:[],min:0,max:100});setSavedOnly(false);};

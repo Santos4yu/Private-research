@@ -82,6 +82,8 @@
 .moves-change{display:inline-flex;align-items:center;justify-content:center;gap:2px;min-width:64px;height:28px;padding:0 9px;border-radius:8px;font:700 13px/1 var(--font-mono,monospace);background:#ffffff0d;color:var(--m-muted)}
 .moves-change[data-way="up"]{background:color-mix(in srgb,var(--m-up) 14%,transparent);color:var(--m-up)}
 .moves-change[data-way="down"]{background:color-mix(in srgb,var(--m-down) 14%,transparent);color:var(--m-down)}
+.moves-change[data-way="pulled"]{background:color-mix(in srgb,#f6c35b 14%,transparent);color:#f6c35b;font-family:var(--font-sans,Arial,sans-serif);font-size:12px}
+.moves-numbers em{color:var(--m-muted);font:600 12px/1 var(--font-sans,Arial,sans-serif);font-style:normal}
 .moves-app{display:flex;align-items:center;gap:7px;min-width:0;color:var(--m-muted);font-size:12px;font-weight:600}
 .moves-app img,.moves-app i{flex:none;width:18px;height:18px;border-radius:5px;object-fit:contain}
 .moves-app i{display:grid;place-items:center;background:var(--m-control);font-size:8px;font-style:normal;text-transform:uppercase}

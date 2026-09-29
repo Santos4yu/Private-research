@@ -263,6 +263,59 @@ function applications(apps) {
     .sort((a, b) => (a.key === 'prizepicks' ? -1 : b.key === 'prizepicks' ? 1 : 0));
 }
 
+// A notification's link (pick_alerts.py) names a prop as sport, player and
+// PrizePicks' stat: /finder?sport=mlb&player=Aaron+Judge&stat=Total+Bases.
+// The Finder's labels sometimes spell a stat out where PrizePicks abbreviates
+// it ("Points + Rebounds + Assists" / "Pts+Rebs+Asts"); both read the same.
+const STAT_WORDS = {points: 'pts', point: 'pts', score: 'pts', rebounds: 'rebs', rebound: 'rebs', assists: 'asts',
+  assist: 'asts', blocks: 'blks', block: 'blks', steals: 'stls', steal: 'stls', pointers: 'pt', pointer: 'pt',
+  turnovers: 'to', yards: 'yds', yard: 'yds', receiving: 'rec', rushing: 'rush', passing: 'pass', strikeouts: 'ks',
+  strikeout: 'ks', and: ''};
+export const propStatKey = value => (String(value || '').toLowerCase().match(/[a-z0-9]+/g) || [])
+  .map(word => STAT_WORDS[word] ?? word).join('');
+const playerKey = value => String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+export function linkTarget(search) {
+  const params = new URLSearchParams(search || '');
+  const sport = (params.get('sport') || '').toLowerCase(), player = params.get('player') || '';
+  return sport && player ? {sport, player, stat: params.get('stat') || ''} : null;
+}
+
+/** The board line a link names: that player's line for that stat, the
+ * standard one first. Null when it's no longer posted. */
+export function findLinkedRow(rows, target) {
+  if (!target) return null;
+  const stat = propStatKey(target.stat);
+  const theirs = rows.filter(row => row.sport === target.sport && playerKey(row.player) === playerKey(target.player));
+  const same = theirs.filter(row => !stat || [row.market, row.raw?.stat, row.raw?.propLabel].some(value => value && propStatKey(value) === stat));
+  return same.find(row => (row.modifier || 'standard') === 'standard') || same[0] || null;
+}
+
+// Where the Finder was left: leagues, filters, sort and page size, brought
+// back when it opens again within a day. Game and date filters stay out --
+// those games are over by then.
+export const FINDER_VIEW_KEY = 'krazy-finder-view';
+const VIEW_KEEP = 24 * 60 * 60 * 1000;
+const VIEW_LISTS = ['picked', 'marketFilter', 'bookFilter', 'teamFilter', 'modifierFilter'];
+
+export function readFinderView(storage, now = Date.now()) {
+  try {
+    const view = JSON.parse(storage?.getItem(FINDER_VIEW_KEY) || 'null');
+    if (!view || typeof view !== 'object' || !(now - Number(view.at) < VIEW_KEEP)) return {};
+    const out = {};
+    for (const name of VIEW_LISTS) if (Array.isArray(view[name])) out[name] = view[name].filter(item => typeof item === 'string').slice(0, 40);
+    const hit = view.hitFilter;
+    if (hit && Array.isArray(hit.windows) && Number.isFinite(hit.min) && Number.isFinite(hit.max)) out.hitFilter = {windows: hit.windows.filter(item => typeof item === 'string'), min: hit.min, max: hit.max};
+    if (Array.isArray(view.sorts)) out.sorts = view.sorts.filter(item => item && typeof item.key === 'string' && ['asc', 'desc'].includes(item.direction)).slice(0, 6);
+    if ([10, 20, 50, 100].includes(view.pageSize)) out.pageSize = view.pageSize;
+    return out;
+  } catch { return {}; }
+}
+
+export function saveFinderView(storage, view, now = Date.now()) {
+  try { storage?.setItem(FINDER_VIEW_KEY, JSON.stringify({...view, at: now})); } catch { /* private mode */ }
+}
+
 // Every app's lines show. Choosing a line type (Regular / Goblins / Demons)
 // narrows the board to PrizePicks lines of that tier.
 export function matchesPrizePicksLine(row,modifiers=[]){

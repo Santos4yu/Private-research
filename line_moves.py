@@ -7,8 +7,10 @@ Two kinds of line are watched:
   books. Each board reports its books' quotes as it builds (observe_books).
 Each report is compared with the last one kept for that sport and source
 (in KV). A line on a new number is a move; so is a sportsbook price that
-shifts enough at the same number. Moves go on one list, newest first, which
-the Line Moves page reads (recent).
+shifts enough at the same number, and a PrizePicks line taken down before
+its game ("pulled"). Moves go on one list, newest first, which the Line
+Moves page reads (recent); members whose saved picks moved are told
+(pick_alerts.py).
 
 Nothing here may break a board: every entry point swallows its own errors
 and does nothing when KV is not configured.
@@ -18,6 +20,7 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import time
 import unicodedata
 import zlib
@@ -32,6 +35,8 @@ PREFIX = 'krazy:moves:v1'
 LIST_KEY = f'{PREFIX}:list'
 # sport -> when its lines were last compared, for the page's "updated" time.
 CHECKED_KEY = f'{PREFIX}:checked'
+# The secret in the line-check link an outside timer calls (timer_key).
+TIMER_KEY = f'{PREFIX}:timer'
 KEEP_MOVES = 1500
 # How many of the newest the page reads.
 READ_MOVES = 500
@@ -42,6 +47,11 @@ FORGET_SECONDS = 8 * 3600
 ODDS_STEP = 0.03
 # The page keeps PrizePicks' feeds this fresh while someone is watching it.
 POLL_SECONDS = 90
+# A line gone this close to its start is the game starting, not a pull.
+PULL_BEFORE_START = 10 * 60
+# A feed missing more than this share of its lines at once is taken as
+# incomplete (a page that failed to load), not as lines pulled.
+PULL_SHARE = 0.3
 LEAGUES = {'MLB': 'mlb', 'WNBA': 'wnba', 'NFL': 'nfl', 'NHL': 'nhl', 'SOCCER': 'soccer'}
 SPORTS = tuple(LEAGUES.values())
 BOOK_NAMES = {'prizepicks': 'PrizePicks', 'underdog': 'Underdog', 'pick6': 'DK Pick6', 'betr_us_dfs': 'Betr Picks',
@@ -156,13 +166,16 @@ _checked_at = {}
 
 def _compare(sport, source, entries, fetched_at, find_moves, extra=None, width=None):
     """Compare this report (`entries`: key -> values) with the last one kept,
-    keep the new one, and add the moves `find_moves(old, new)` finds. Runs
-    under a short lock so two servers never compare the same change twice;
-    a report older than the one kept is ignored. A report whose first
-    `width` values match the last one this server compared is skipped."""
+    keep the new one, and add the moves `find_moves(before, now, previous_at,
+    state, old)` finds. `state` is kept with the copy for the next report;
+    `extra(old, kept)` adds to the copy. Runs under a short lock so two
+    servers never compare the same change twice; a report older than the one
+    kept is ignored. A report whose first `width` values match the last one
+    this server compared is skipped, unless something is waiting on the
+    next look."""
     fingerprint = hashlib.sha1(json.dumps(sorted((key, value[:width]) for key, value in entries.items())).encode()).hexdigest()
     last = _last.get((sport, source))
-    if last and last[0] == fingerprint and fetched_at - last[1] < 15 * 60:
+    if last and last[0] == fingerprint and not last[2] and fetched_at - last[1] < 15 * 60:
         _checked(sport, fetched_at)
         return []
     snap_key, lock_key = f'{PREFIX}:snap:{sport}:{source}', f'{PREFIX}:lock:{sport}:{source}'
@@ -175,11 +188,12 @@ def _compare(sport, source, entries, fetched_at, find_moves, extra=None, width=N
             _pipeline([['DEL', lock_key]])
             return []
         before = (old or {}).get('lines') or {}
-        moves = find_moves(before, entries, float((old or {}).get('at') or 0)) if old else []
+        state = dict((old or {}).get('state') or {})
+        moves = find_moves(before, entries, float((old or {}).get('at') or 0), state, old) if old else []
         kept = {key: value for key, value in before.items()
                 if key not in entries and fetched_at - float(value[-1] or 0) < FORGET_SECONDS}
         kept.update({key: [*value, fetched_at] for key, value in entries.items()})
-        snapshot = {'at': fetched_at, 'lines': kept, **(extra or {})}
+        snapshot = {'at': fetched_at, 'lines': kept, 'state': state, **(extra(old or {}, kept) if extra else {})}
         _checked_at[sport] = fetched_at
         commands = [['SET', snap_key, _pack(snapshot)], ['HSET', CHECKED_KEY, sport, int(fetched_at)]]
         if moves:
@@ -187,7 +201,7 @@ def _compare(sport, source, entries, fetched_at, find_moves, extra=None, width=N
             commands += [['LPUSH', LIST_KEY, *(json.dumps(move, separators=(',', ':')) for move in moves)],
                          ['LTRIM', LIST_KEY, 0, KEEP_MOVES - 1]]
         _pipeline([*commands, ['DEL', lock_key]])
-        _last[(sport, source)] = (fingerprint, fetched_at)
+        _last[(sport, source)] = (fingerprint, fetched_at, bool(state.get('pending')))
         return moves
     except Exception:
         try:
@@ -205,7 +219,7 @@ def observe_prizepicks(league, rows, fetched_at=None):
     if not sport or not enabled():
         return []
     fetched_at = fetched_at or time.time()
-    entries, rows_by_key, people = {}, {}, {}
+    entries, rows_by_key, people, stats = {}, {}, {}, {}
     for row in rows or []:
         # A flash sale is a promotion, not the line moving.
         if row.get('combo') or row.get('flash') or str(row.get('odds_type') or 'standard') != 'standard':
@@ -217,25 +231,78 @@ def observe_prizepicks(league, rows, fetched_at=None):
         key = f"{norm(player)}|{norm(stat)}|{_hour(row.get('start_time'))}"
         if key in entries:
             continue
-        entries[key] = [line, _timestamp(row.get('updated_at')) or 0]
+        entries[key] = [line, _timestamp(row.get('updated_at')) or 0, _timestamp(row.get('start_time')) or 0]
         rows_by_key[key] = row
         people.setdefault(norm(player), [player, row.get('team') or '', row.get('headshot') or '',
                                          row.get('description') or ''])
+        stats.setdefault(norm(stat), stat)
 
-    def find_moves(before, now, previous_at):
+    def find_moves(before, now, previous_at, state, old):
         moves = []
-        for key, (line, updated) in now.items():
+        for key, (line, updated, _start) in now.items():
             if key not in before or before[key][0] == line:
                 continue
-            row, old = rows_by_key[key], before[key]
-            moves.append(_move(sport, 'line', 'prizepicks', row['player'], row['stat'], old[0], line,
-                               _when(updated, max(float(old[1] or 0), previous_at), fetched_at),
+            row, was = rows_by_key[key], before[key]
+            moves.append(_move(sport, 'line', 'prizepicks', row['player'], row['stat'], was[0], line,
+                               _when(updated, max(float(was[1] or 0), previous_at), fetched_at),
                                team=row.get('team'), opponent=row.get('description'), headshot=row.get('headshot'),
                                startsAt=row.get('start_time')))
-        return moves
+        return moves + _pulled(sport, before, now, fetched_at, state, old)
+
+    def extra(old, kept):
+        # Names, teams and stat names for lines no longer in the feed, so a
+        # pulled line can still be described; only for lines still kept.
+        players = {key.split('|', 1)[0] for key in kept}
+        known = {**(old.get('people') or {}), **people}
+        return {'people': {key: value for key, value in known.items() if key in players},
+                'stats': {**(old.get('stats') or {}), **stats}}
     # Only the numbers decide whether anything moved; PrizePicks' update
     # times change far more often than its lines.
-    return _compare(sport, 'pp', entries, fetched_at, find_moves, {'people': people}, width=1)
+    moves = _compare(sport, 'pp', entries, fetched_at, find_moves, extra, width=1)
+    if moves:
+        try:
+            import pick_alerts
+            pick_alerts.notify(moves)
+        except Exception:  # noqa: BLE001 -- the moves stand without their alerts
+            pass
+    return moves
+
+
+def _pulled(sport, before, now, fetched_at, state, old):
+    """PrizePicks lines taken down before their game. A line is pulled once it
+    is still gone on the next look (PrizePicks sometimes drops and reposts a
+    line within moments), its game has not started, and the same prop is not
+    back under another start time. A feed missing a large share of its lines
+    at once is taken as incomplete: nothing is called pulled from it."""
+    pending = state.setdefault('pending', {})
+    previous_at = float(old.get('at') or 0)
+    people, stats = old.get('people') or {}, old.get('stats') or {}
+    present = {key.rsplit('|', 1)[0] for key in now}
+    for key in [key for key in pending if key in now or key not in before]:
+        pending.pop(key)  # back, or forgotten
+    last_seen = [key for key, value in before.items() if float(value[-1] or 0) >= previous_at - 1]
+    gone = [key for key in last_seen if key not in now]
+    if len(gone) > max(10, PULL_SHARE * len(last_seen)):
+        return []
+
+    def upcoming(key):
+        start = float(before[key][2] or 0) if len(before[key]) > 3 else 0
+        return start > fetched_at + PULL_BEFORE_START and key.rsplit('|', 1)[0] not in present
+    moves = []
+    for key, first_gone in list(pending.items()):
+        pending.pop(key)
+        if not upcoming(key):
+            continue
+        player_key, stat_key = key.split('|')[:2]
+        person = people.get(player_key) or []
+        moves.append(_move(sport, 'pulled', 'prizepicks', person[0] if person else player_key,
+                           stats.get(stat_key, stat_key), before[key][0], None, float(first_gone),
+                           team=person[1] if len(person) > 1 else None, headshot=person[2] if len(person) > 2 else None,
+                           opponent=person[3] if len(person) > 3 else None, startsAt=_iso(float(before[key][2]))))
+    for key in gone:
+        if upcoming(key):
+            pending[key] = fetched_at
+    return moves
 
 
 def observe_books(sport, quotes, fetched_at=None):
@@ -262,7 +329,7 @@ def observe_books(sport, quotes, fetched_at=None):
     for key in doubled:
         entries.pop(key, None)
 
-    def find_moves(before, now, previous_at):
+    def find_moves(before, now, previous_at, state, old):
         # Faces and teams come from PrizePicks' copy of the same sport, read
         # only when there is something to compare.
         people = {}
@@ -334,6 +401,25 @@ def keep_fresh(sports, fetch=None, budget=6.0):
     futures = [pool.submit(safely, fetch, league=league) for league in due]
     wait(futures, timeout=budget)
     pool.shutdown(wait=False)
+
+
+def timer_key():
+    """The secret in the line-check link (api/v2-admin.py moves-tick), made
+    once and kept in KV. The admin copies the link into a free timer service
+    so lines are checked even when no one has the site open."""
+    reply = _pipeline([['GET', TIMER_KEY]])
+    if reply is None:
+        return None
+    if not reply[0]:
+        _pipeline([['SET', TIMER_KEY, secrets.token_urlsafe(24), 'NX']])
+        reply = _pipeline([['GET', TIMER_KEY]])
+    return reply[0]
+
+
+def checked():
+    """sport -> when its lines were last compared."""
+    flat = (_pipeline([['HGETALL', CHECKED_KEY]]) or [[]])[0] or []
+    return {sport: _iso(float(seconds)) for sport, seconds in zip(flat[0::2], flat[1::2]) if _number(seconds)}
 
 
 def recent(sports, limit=500):

@@ -105,6 +105,12 @@ html:not([data-site-access="granted"]) #dock-root{display:none!important}
 .announce-last[hidden]{display:none}
 .announce-last span{color:#6f7f95;font-size:11px}
 .announce-last p{margin:0;color:#9fb0c8}
+.announce-timer{display:grid;gap:8px;padding-top:16px;border-top:1px solid #2b3543;color:#9fb0c8;font-size:13px}
+.announce-timer[hidden]{display:none}
+.announce-timer-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+#site-controls .announce-timer-link{box-sizing:border-box;width:100%;min-width:0;margin:0;padding:0 12px;height:44px;border:1px solid #445166;border-radius:10px;background:#202a38;color:#c7d2e1;font:500 12px/1 var(--font-mono,monospace)}
+.announce-timer-row .announce-me{min-height:44px;padding:0 16px;border-radius:10px;font-family:inherit;font-weight:700;cursor:pointer}
+.announce-timer small{color:#6f7f95;font-size:11px}
 #site-controls [role=status]:empty{display:none}
 #site-controls button[type=submit]{align-self:flex-start;min-height:48px;padding:0 22px;border-radius:12px;border:1px solid var(--theme-accent,#0082fe);background:var(--theme-accent,#0082fe);color:#fff;font:700 13px/1 inherit;cursor:pointer;transition:filter .15s ease,transform .15s ease}
 #site-controls button[type=submit]:hover{filter:brightness(1.1)}

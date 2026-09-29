@@ -3,6 +3,8 @@
 // home-screen app, and only from a tap -- so the key and the service worker
 // are ready before the switch is touched, and the tap goes straight to the
 // browser's subscribe.
+import {openInstallGuide} from './install-guide.js';
+
 const SYNC_KEY = 'krazy-alerts-synced';
 const SYNC_EVERY = 24 * 60 * 60 * 1000;
 
@@ -102,6 +104,8 @@ async function render(note = '') {
     || (blocked ? 'Notifications are off for Krazy Data in your device settings.' : '');
   noteEl.textContent = message;
   noteEl.hidden = !message;
+  // On an iPhone's browser the note opens the Home Screen steps.
+  noteEl.toggleAttribute('data-install', needsHomeScreen && !note);
 }
 
 async function toggleAlerts() {
@@ -123,6 +127,11 @@ async function toggleAlerts() {
 
 function start() {
   document.getElementById('alerts-switch')?.addEventListener('click', toggleAlerts);
+  document.getElementById('alerts-note')?.addEventListener('click', event => {
+    if (!event.currentTarget.hasAttribute('data-install')) return;
+    event.stopPropagation();
+    openInstallGuide();
+  });
   window.addEventListener('vortex:site-policy', event => {
     const detail = event.detail || {};
     const now = Boolean(detail.accessGranted !== false && detail.account?.id);

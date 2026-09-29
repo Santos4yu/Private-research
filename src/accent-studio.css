@@ -66,6 +66,16 @@ details.bg-image-details { display:block; }
 .alerts-switch[aria-checked="true"] > span { transform:translateX(20px); }
 .alerts-switch:disabled { opacity:.45; cursor:default; }
 .alerts-note { font-size:10.5px !important; }
+.alerts-note[data-install] { cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+/* Get the app / Share Krazy Data (src/install-guide.js) */
+.app-links { gap:6px !important; padding-bottom:14px; border-bottom:1px solid var(--theme-border); }
+.app-link-row { display:flex; align-items:center; gap:12px; width:100%; min-height:52px; padding:8px 10px; border:1px solid var(--theme-border); border-radius:14px; background:var(--theme-panel-2); color:var(--theme-text); text-align:left; cursor:pointer; }
+.app-link-row[hidden] { display:none; }
+.app-link-row:hover { border-color:color-mix(in srgb,var(--theme-accent) 55%,var(--theme-border)); }
+.app-link-icon { display:grid; place-items:center; flex:none; width:34px; height:34px; border-radius:10px; background:color-mix(in srgb,var(--theme-accent) 18%,var(--theme-panel)); color:color-mix(in srgb,var(--theme-accent) 75%,#fff); }
+.app-link-icon svg { width:19px; height:19px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.app-link-row b { display:block; font-size:13px; font-weight:600; }
+.app-link-row small { display:block; margin-top:2px; color:var(--theme-dim); font-size:11px; overflow-wrap:anywhere; }
 .accent-presets-empty { margin:0; color:var(--theme-faint,var(--theme-dim)); font-size:11px; }
 .accent-preset { display:grid; grid-template-columns:34px minmax(0,1fr) 44px; align-items:center; gap:9px; min-height:48px; padding:5px 5px 5px 8px; border:1px solid var(--theme-border); border-radius:12px; background:var(--theme-panel-2); color:var(--theme-text); }
 .accent-preset-preview { display:flex; width:32px; height:26px; overflow:hidden; border:1px solid var(--theme-border); border-radius:8px; }

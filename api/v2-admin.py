@@ -12,6 +12,7 @@ an `action` field keeps this at one function instead of upgrading plans.
 GET  ?action=members                 -- admin only (site_members.py)
 POST {"action": "member-rule", ...}  -- admin only
 GET  ?action=announce-status         -- admin only (push_notices.py)
+GET  ?action=moves-tick&key=...      -- the line-check timer (line_moves.py)
 POST {"action": "announce", ...}     -- admin only
 GET  ?action=key-status              -- admin only
 GET  ?action=cron-scan               -- Vercel Cron only
@@ -63,11 +64,23 @@ class handler(BaseHTTPRequestHandler):
                                         "policy": read()})
             if action == "announce-status":
                 if not admin_auth.is_admin_request(self.headers):return self._send(401, {"error":"Admin session required"})
+                import line_moves
                 import push_notices
                 try:
-                    return self._send(200, push_notices.status())
+                    status = push_notices.status()
                 except Exception:  # noqa: BLE001
                     return self._send(503, {"error": "Alerts are unavailable right now"})
+                # The line-check link for an outside timer, and when lines
+                # were last checked, so the admin can see it running.
+                try:
+                    key = line_moves.timer_key()
+                    status["timer"] = {"path": f"/api/v2-admin?action=moves-tick&key={key}" if key else None,
+                                       "checked": line_moves.checked()}
+                except Exception:  # noqa: BLE001
+                    status["timer"] = None
+                return self._send(200, status)
+            if action == "moves-tick":
+                return self._handle_moves_tick(qs)
             if action == "key-status":
                 if not admin_auth.is_admin_request(self.headers):
                     return self._send(401, {"error": "Admin session required"})
@@ -336,6 +349,25 @@ class handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(raw)))
         self.end_headers()
         self.wfile.write(raw)
+
+    def _handle_moves_tick(self, qs):
+        """Check every league's PrizePicks lines now (line_moves.py), which
+        records moves and sends saved-pick alerts. Called every few minutes
+        by an outside timer with the link from announce-status."""
+        import hmac
+        import line_moves
+        given = (qs.get("key") or [""])[0]
+        secret = os.getenv("CRON_SECRET", "")
+        try:
+            key = line_moves.timer_key() or ""
+        except Exception:  # noqa: BLE001
+            key = ""
+        bearer = self.headers.get("Authorization", "")
+        if not ((key and given and hmac.compare_digest(given, key))
+                or (secret and hmac.compare_digest(bearer, f"Bearer {secret}"))):
+            return self._send(401, {"error": "Timer key required"})
+        line_moves.safely(line_moves.keep_fresh, set(line_moves.SPORTS), budget=25)
+        return self._send(200, {"ok": True, "checked": line_moves.checked()})
 
     def _handle_cron_scan(self):
         secret = os.getenv("CRON_SECRET", "")

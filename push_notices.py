@@ -16,6 +16,7 @@ import base64
 import hashlib
 import json
 import os
+import re
 import struct
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -33,6 +34,9 @@ from v2.board import store
 VAPID_KEY = 'krazy:push:vapid'
 SUBSCRIPTIONS_KEY = 'krazy:push:subscriptions'
 LAST_KEY = 'krazy:push:last'
+# The site's own address, noted when a member turns alerts on: automatic
+# alerts (pick_alerts.py) sign with it, having no request of their own.
+SITE_KEY = 'krazy:push:site'
 TITLE_MAX, BODY_MAX, URL_MAX = 60, 180, 200
 # How long a push service keeps trying a phone that is off.
 TTL_SECONDS = 24 * 60 * 60
@@ -159,10 +163,26 @@ def valid_subscription(value):
     return {'endpoint': endpoint, 'keys': {'p256dh': keys['p256dh'], 'auth': keys['auth']}}
 
 
-def subscribe(account_id, subscription):
+def subscribe(account_id, subscription, site=None):
     subscription = valid_subscription(subscription)
     record = {'subscription': subscription, 'account': str(account_id or ''), 'at': int(time.time())}
-    _pipeline([['HSET', SUBSCRIPTIONS_KEY, _subscription_id(subscription['endpoint']), json.dumps(record)]])
+    commands = [['HSET', SUBSCRIPTIONS_KEY, _subscription_id(subscription['endpoint']), json.dumps(record)]]
+    if site and re.fullmatch(r'https://[a-z0-9.-]+(:[0-9]+)?', site):
+        commands.append(['SET', SITE_KEY, site])
+    _pipeline(commands)
+
+
+def site_subject():
+    """Who is sending, for alerts that aren't sent from a request."""
+    configured = os.getenv('VAPID_SUBJECT', '').strip()
+    if configured:
+        return configured
+    try:
+        site = _pipeline([['GET', SITE_KEY]])[0]
+    except Exception:  # noqa: BLE001
+        site = None
+    production = os.getenv('VERCEL_PROJECT_PRODUCTION_URL', '').strip()
+    return site or (f'https://{production}' if production else 'mailto:alerts@krazydata.app')
 
 
 def unsubscribe(endpoint):
@@ -215,6 +235,38 @@ def send_one(subscription, payload, subject):
     return response.status_code
 
 
+def _send_all(jobs, subject):
+    """Send each (subscription id, subscription, payload); drop devices whose
+    subscription is gone. {sent, removed, failed}."""
+    vapid_keys()  # loaded once here, not by every sending thread at the same time
+
+    def deliver_one(job):
+        key, subscription, payload = job
+        try:
+            return key, send_one(subscription, payload, subject)
+        except Exception:  # noqa: BLE001 -- one device failing doesn't stop the rest
+            return key, None
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        results = list(pool.map(deliver_one, jobs))
+    gone = sorted({key for key, code in results if code in (404, 410)})
+    sent = sum(1 for _key, code in results if code is not None and 200 <= code < 300)
+    if gone:
+        _pipeline([['HDEL', SUBSCRIPTIONS_KEY, *gone]])
+    return {'sent': sent, 'removed': len(gone), 'failed': len(results) - sent - sum(code in (404, 410) for _k, code in results)}
+
+
+def deliver(messages, subject=None):
+    """Personal notifications, {account id: [message]}, each message a dict
+    with title, body, url and tag. Every device of each account gets its
+    messages."""
+    jobs = [(key, record['subscription'], json.dumps(message, separators=(',', ':')).encode())
+            for key, record in subscriptions().items()
+            for message in messages.get(str(record.get('account') or ''), [])]
+    if not jobs:
+        return {'sent': 0, 'removed': 0, 'failed': 0}
+    return _send_all(jobs, subject or site_subject())
+
+
 def announce(title, body, subject, url='/', account_id=None):
     """Send an announcement to every device, or only `account_id`'s. Devices
     whose subscription is gone (404 / 410) are dropped. {sent, removed, failed}."""
@@ -223,21 +275,7 @@ def announce(title, body, subject, url='/', account_id=None):
     payload = json.dumps(message, separators=(',', ':')).encode()
     targets = {key: record for key, record in subscriptions().items()
                if account_id is None or record.get('account') == str(account_id)}
-    vapid_keys()  # loaded once here, not by every sending thread at the same time
-
-    def deliver(item):
-        key, record = item
-        try:
-            return key, send_one(record['subscription'], payload, subject)
-        except Exception:  # noqa: BLE001 -- one device failing doesn't stop the rest
-            return key, None
-    with ThreadPoolExecutor(max_workers=16) as pool:
-        results = list(pool.map(deliver, targets.items()))
-    gone = [key for key, code in results if code in (404, 410)]
-    sent = sum(1 for _key, code in results if code is not None and 200 <= code < 300)
-    commands = [['HDEL', SUBSCRIPTIONS_KEY, *gone]] if gone else []
+    result = _send_all([(key, record['subscription'], payload) for key, record in targets.items()], subject)
     if account_id is None:
-        commands.append(['SET', LAST_KEY, json.dumps({**message, 'sent': sent, 'at': int(time.time())})])
-    if commands:
-        _pipeline(commands)
-    return {'sent': sent, 'removed': len(gone), 'failed': len(results) - sent - len(gone)}
+        _pipeline([['SET', LAST_KEY, json.dumps({**message, 'sent': result['sent'], 'at': int(time.time())})]])
+    return result
