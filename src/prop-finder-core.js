@@ -17,6 +17,14 @@ const markets = {
   hitterfantasyscore: market('fantasy', 'Fantasy Score', 'Fantasy score', 'fantasy'),
   stolenbases: market('sb', 'Stolen Bases', 'Stolen bases', 'stolenBases'),
   singles: market('singles', 'Singles', 'Singles', 'singles'),
+  doubles: market('doubles', 'Doubles', 'Doubles', 'doubles'),
+  triples: market('triples', 'Triples', 'Triples', 'triples'),
+  runsrbis: market('runs-rbis', 'Runs+RBIs', 'Runs + RBIs', 'runsRbi'),
+  extrabasehits: market('xbh', 'Extra Base Hits', 'Extra-base hits', 'extraBaseHits'),
+  hitswalks: market('hits-walks', 'Hits+Walks', 'Hits + walks', 'hitsWalks'),
+  runsallowed: market('runs-allowed', 'Runs Allowed', 'Runs allowed', 'runs', true),
+  homerunsallowed: market('hr-allowed', 'Home Runs Allowed', 'Home runs allowed', 'homeRuns', true),
+  battersfaced: market('batters-faced', 'Batters Faced', 'Batters faced', 'battersFaced', true),
   pitchesthrown: market('pitches', 'Pitches Thrown', 'Pitches', 'numberOfPitches', true),
   pitcherfantasyscore: market('pitcher-fantasy', 'Pitcher Fantasy Score', 'Pitcher fantasy', 'pitcherFantasy', true),
   // Read per start from the game's line score and play-by-play
@@ -31,7 +39,11 @@ Object.assign(markets, {strikeoutspitcher: markets.pitcherstrikeouts, pitcherwal
   pitcherwalksallowed: markets.walksallowed, earnedruns: markets.earnedrunsallowed, outs: markets.pitchingouts,
   runs: markets.runsscored, hitterstrikeouts: markets.strikeouts, fantasyscore: markets.hitterfantasyscore,
   fantasyscorepp: markets.hitterfantasyscore, stolenbase: markets.stolenbases, sb: markets.stolenbases,
-  pitchcount: markets.pitchesthrown, pitches: markets.pitchesthrown, fantasyscorepitcher: markets.pitcherfantasyscore,
+  pitchcount: markets.pitchesthrown, pitches: markets.pitchesthrown,
+  batterwalks: markets.walks, hitterwalks: markets.walks, walksdrawn: markets.walks, runsrbi: markets.runsrbis,
+  xbh: markets.extrabasehits, hitsplusrunsplusrbis: markets.hitsrunsrbis, hitsrunsrbi: markets.hitsrunsrbis,
+  batterfantasyscore: markets.hitterfantasyscore, strikeoutsthrown: markets.pitcherstrikeouts, outsrecorded: markets.pitchingouts,
+  hrallowed: markets.homerunsallowed, totalrunsallowed: markets.runsallowed, fantasyscorepitcher: markets.pitcherfantasyscore,
   pitchingfantasyscore: markets.pitcherfantasyscore,
   firstinninghitsallowed: markets['1stinninghitsallowed'], hitsallowed1stinning: markets['1stinninghitsallowed'],
   firstinningrunsallowed: markets['1stinningrunsallowed'], runsallowed1stinning: markets['1stinningrunsallowed'],
@@ -59,6 +71,9 @@ export function finderRows(rows, {category = 'pitchers', modifier = 'all', stat 
 export function gameValue(stat, m) {
   const n = field => Number(stat[field] || 0);
   if (m.field === 'hrr') return n('hits') + n('runs') + n('rbi');
+  if (m.field === 'runsRbi') return n('runs') + n('rbi');
+  if (m.field === 'extraBaseHits') return n('doubles') + n('triples') + n('homeRuns');
+  if (m.field === 'hitsWalks') return n('hits') + n('baseOnBalls');
   if (m.field === 'fantasy') {
     const singles = n('hits') - n('doubles') - n('triples') - n('homeRuns');
     return singles * 3 + n('doubles') * 5 + n('triples') * 8 + n('homeRuns') * 10 + n('runs') * 2 + n('rbi') * 2 + n('baseOnBalls') * 2 + n('hitByPitch') * 2 + n('stolenBases') * 5;

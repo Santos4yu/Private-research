@@ -68,9 +68,17 @@ PRIZEPICKS_MARKETS = {
     "turnovers": "player_turnovers", "ptsrebs": "player_points_rebounds", "ptsasts": "player_points_assists",
     "rebsasts": "player_rebounds_assists", "ptsrebsasts": "player_points_rebounds_assists",
     "blksstls": "player_blocks_steals", "fantasyscore": "player_fantasy_points",
+    "fgattempted": "player_field_goals_attempts", "fieldgoalsattempted": "player_field_goals_attempts",
+    "fgattempts": "player_field_goals_attempts",
+    "freethrowsattempted": "player_frees_attempts", "ftattempted": "player_frees_attempts",
+    "twopointersmade": "player_twos", "2ptmade": "player_twos", "2pointersmade": "player_twos",
+    "twopointersattempted": "player_twos_attempts", "2ptattempted": "player_twos_attempts", "2pointersattempted": "player_twos_attempts",
+    "personalfouls": "player_fouls", "fouls": "player_fouls",
 }
 PRIZEPICKS_LABELS = {**MARKETS, "player_threes_attempts": "3-PT Attempted", "player_field_goals": "FG Made",
-                     "player_frees_made": "Free Throws Made"}
+                     "player_frees_made": "Free Throws Made", "player_field_goals_attempts": "FG Attempted",
+                     "player_frees_attempts": "Free Throws Attempted", "player_twos": "Two Pointers Made",
+                     "player_twos_attempts": "Two Pointers Attempted", "player_fouls": "Personal Fouls"}
 _memory = {"at": 0.0, "value": None}
 _roster_memory = {"at": 0.0, "value": None}
 # The league context derived from the stored season, per (season, builtAt).
@@ -193,7 +201,7 @@ def _game_logs(player_id, season):
     # v4: rows carry the full box line (attempts, fouls) for the game log
     # and supporting-stats views, are tagged by season type, and give the
     # score with this player's team first.
-    cache_key = f"krazy_data:wnba:v5:gamelog:{player_id}:{season}"
+    cache_key = f"krazy_data:wnba:v6:gamelog:{player_id}:{season}"
     now = time.time()
     try:
         raw = store.get(cache_key)
@@ -221,6 +229,12 @@ def _game_logs(player_id, season):
                 if all(v is not None for v in (points,rebounds,assists,blocks,steals,turnovers)): values["player_fantasy_points"]=round(points+1.2*rebounds+1.5*assists+3*blocks+3*steals-turnovers,1)
                 fg=str(stats.get("fieldGoalsMade-fieldGoalsAttempted") or "").split("-"); tp=str(stats.get("threePointFieldGoalsMade-threePointFieldGoalsAttempted") or "").split("-"); ft=str(stats.get("freeThrowsMade-freeThrowsAttempted") or "").split("-")
                 values["player_threes_attempts"]=_number(tp[1]) if len(tp)==2 else None
+                values["player_field_goals_attempts"]=_number(fg[1]) if len(fg)==2 else None
+                values["player_frees_attempts"]=_number(ft[1]) if len(ft)==2 else None
+                values["player_fouls"]=_number(stats.get("fouls"))
+                # Two-pointers: field goals less threes.
+                if len(fg)==2 and len(tp)==2 and None not in (_number(fg[0]),_number(tp[0]),_number(fg[1]),_number(tp[1])):
+                    values["player_twos"]=_number(fg[0])-_number(tp[0]); values["player_twos_attempts"]=_number(fg[1])-_number(tp[1])
                 box={"min":_number(stats.get("minutes")),"pts":points,"reb":rebounds,"ast":assists,"stl":steals,"blk":blocks,"to":turnovers,"pf":_number(stats.get("fouls")),
                      "fgm":_number(fg[0]) if len(fg)==2 else None,"fga":_number(fg[1]) if len(fg)==2 else None,"tpm":_number(tp[0]) if len(tp)==2 else None,"tpa":_number(tp[1]) if len(tp)==2 else None,"ftm":_number(ft[0]) if len(ft)==2 else None,"fta":_number(ft[1]) if len(ft)==2 else None}
                 display_type=str(season_type.get("displayName") or "")

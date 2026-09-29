@@ -32,6 +32,11 @@ STATS = (
     ("bs", "Blks+Stls", ("blk", "stl")),
     ("to", "Turnovers", ("to",)),
     ("pf", "Fouls", ("pf",)),
+    ("fga", "FG Attempted", ("fga",)),
+    ("fta", "FT Attempted", ("fta",)),
+    # Two-pointers: field goals less threes.
+    ("twos", "Two Pointers Made", ("fgm", "tpm")),
+    ("twosa", "Two Pointers Attempted", ("fga", "tpa")),
     ("fs", "Fantasy Score", ("pts", "reb", "ast", "blk", "stl", "to")),
 )
 STAT_KEYS = tuple(key for key, _, _ in STATS)
@@ -44,6 +49,8 @@ MARKET_STAT = {
     "player_points_rebounds_assists": "pra", "player_fantasy_points": "fs",
     # Posted by PrizePicks only (see api/wnba.py _merge_prizepicks).
     "player_threes_attempts": "tpa", "player_field_goals": "fgm", "player_frees_made": "ftm",
+    "player_field_goals_attempts": "fga", "player_frees_attempts": "fta", "player_twos": "twos",
+    "player_twos_attempts": "twosa", "player_fouls": "pf",
 }
 # Same fantasy formula the game-log endpoint uses (api/wnba.py).
 _FANTASY = {"pts": 1, "reb": 1.2, "ast": 1.5, "blk": 3, "stl": 3, "to": -1}
@@ -63,6 +70,8 @@ def stat_value(row, key):
         return None
     if key == "fs":
         return round(sum(_FANTASY[part] * value for part, value in zip(parts, values)), 1)
+    if key in ("twos", "twosa"):
+        return values[0] - values[1]
     return sum(values)
 
 

@@ -156,5 +156,5 @@ def market_for(stat, position=""):
     if name in ("fantasyscore", "fantasypoints") and position == "K":
         return "kicker_fantasy"
     if name == "sacks" and position == "QB":
-        return None  # Sacks taken -- not charted.
+        return "sacks_taken"  # A quarterback's sacks are the ones he took.
     return ALIASES.get(name)

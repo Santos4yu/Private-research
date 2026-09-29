@@ -11,6 +11,7 @@ export const SOCCER_STATS=[
  ['cross','Crosses','CROSS'],['sa','Shots Assisted','SA'],['clear','Clearances','CLEAR'],['tackles','Tackles','TACK'],
  ['fd','Fouls Drawn','FD'],['saves','Goalie Saves','SAVES'],['gc','Goals Allowed','GA'],['sotf','Shots Faced','SOTF'],
  ['drib','Attempted Dribbles','DRIB'],['fouls','Fouls','FOUL'],['off','Offsides','OFF'],['yc','Yellow Cards','YC'],
+ ['int','Interceptions','INT'],['blk','Blocked Shots','BLK'],['crossAcc','Accurate Crosses','ACC CROSS'],['tacklesWon','Tackles Won','TKL W'],
 ].map(([key,label,code])=>({key,label,code}));
 const STAT_BY_KEY=Object.fromEntries(SOCCER_STATS.map(stat=>[stat.key,stat]));
 // PrizePicks' stat names (soccer_board.py marketKey: lowercase, letters and
@@ -20,7 +21,9 @@ const MARKETS={goals:'goals',goal:'goals',goalassist:'ga',goalsassists:'ga',goal
  touches:'touch',assists:'ast',crosses:'cross',shotsassisted:'sa',keypasses:'sa',clearances:'clear',tackles:'tackles',
  foulsdrawn:'fd',foulssuffered:'fd',goaliesaves:'saves',saves:'saves',goalsallowed:'gc',goalsconceded:'gc',
  shotsontargetfaced:'sotf',shotsfaced:'sotf',attempteddribbles:'drib',dribblesattempted:'drib',dribbles:'drib',
- fouls:'fouls',foulscommitted:'fouls',offsides:'off',yellowcards:'yc',cards:'yc'};
+ fouls:'fouls',foulscommitted:'fouls',offsides:'off',yellowcards:'yc',cards:'yc',
+ interceptions:'int',blockedshots:'blk',shotsblocked:'blk',accuratecrosses:'crossAcc',crossescompleted:'crossAcc',
+ tackleswon:'tacklesWon',successfultackles:'tacklesWon'};
 export const statKeyOf=marketKey=>MARKETS[String(marketKey||'').toLowerCase().replace(/[^a-z0-9]/g,'')]||null;
 export const statOf=key=>STAT_BY_KEY[key]||null;
 
