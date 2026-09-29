@@ -2944,9 +2944,23 @@ def get_team_lineup(team_id: int, game_pk=None, game_date=None) -> list[dict]:
     return []
 
 
-def get_all_projected_team_lineups(before_date=None, lookback_days: int = 21,
+# Where a projected nine plays: one of each infield spot and catcher, three
+# outfielders (they swap corners from day to day) and a designated hitter.
+LINEUP_SLOTS = {"C": 1, "1B": 1, "2B": 1, "3B": 1, "SS": 1, "OF": 3, "DH": 1}
+_SLOT_OF = {"LF": "OF", "CF": "OF", "RF": "OF", "OF": "OF"}
+
+
+def get_all_projected_team_lineups(before_date=None, lookback_days: int = 30,
                                    batter_splits=None, team_ids=None) -> dict:
-    """Build the same recent-order nine-player projection for every team."""
+    """Each team's most likely nine before its lineup is posted, from the
+    lineups it has actually used lately.
+
+    Who plays is how often each hitter has started over the last month
+    (recent games count a little more). A regular who sat a few days --
+    rested, or back from a knock -- keeps his spot, and a fill-in does not
+    push him out of it: the nine is filled one position at a time, so a
+    second third baseman only gets in as the designated hitter. Batting
+    order follows each player's latest slot."""
     from datetime import timedelta as _td
     from vortextime import vortex_board_day
     try:
@@ -2958,10 +2972,11 @@ def get_all_projected_team_lineups(before_date=None, lookback_days: int = 21,
     data = _get("/schedule", {
         "sportId": 1, "startDate": start.isoformat(), "endDate": end.isoformat(),
         "hydrate": "lineups",
-    }, cache_key=f"projected_lineups_all_{end.isoformat()}")
+    }, cache_key=f"projected_lineups_all_{end.isoformat()}_{lookback_days}")
     batter_splits = batter_splits or {}
     wanted_teams = {int(team) for team in (team_ids or [])}
-    appearances = {team: {} for team in wanted_teams}
+    starts = {team: {} for team in wanted_teams}
+    positions = {team: {} for team in wanted_teams}
     slots = {team: {} for team in wanted_teams}
     latest_slots = {team: {} for team in wanted_teams}
     player_meta = {team: {} for team in wanted_teams}
@@ -2972,9 +2987,11 @@ def get_all_projected_team_lineups(before_date=None, lookback_days: int = 21,
             days_old = max(1, (target - played).days)
         except (TypeError, ValueError):
             days_old = lookback_days
-        # Yesterday carries full weight; older cards decay quickly so a
-        # recent promotion from seventh to third is reflected immediately.
-        recency_weight = .72 ** max(0, days_old - 1)
+        # Who starts: a gentle fade, so a few days out of the lineup does
+        # not erase a month of starts. Where he bats: a steep one, so a
+        # recent move from seventh to third shows at once.
+        start_weight = .93 ** max(0, days_old - 1)
+        slot_weight = .72 ** max(0, days_old - 1)
         for game in date_entry.get("games", []):
             for club_side, lineup_side in (("home", "homePlayers"), ("away", "awayPlayers")):
                 team = int(((game.get("teams") or {}).get(club_side, {}).get("team") or {}).get("id", 0) or 0)
@@ -2984,33 +3001,56 @@ def get_all_projected_team_lineups(before_date=None, lookback_days: int = 21,
                            if (player.get("position") or player.get("primaryPosition") or {}).get("abbreviation") != "P"]
                 if len(players) < 9:
                     continue
-                game_counts[team] += 1
+                game_counts[team] += start_weight
                 for index, player in enumerate(players[:9], start=1):
                     pid = str(player.get("id", ""))
                     if not pid:
                         continue
                     order = str(player.get("battingOrder", ""))
                     slot = int(order[0]) if order[:1].isdigit() else index
-                    appearances[team][pid] = appearances[team].get(pid, 0) + recency_weight
-                    slots[team].setdefault(pid, []).append((slot, recency_weight))
+                    position = ((player.get("position") or player.get("primaryPosition") or {}).get("abbreviation", ""))
+                    starts[team][pid] = starts[team].get(pid, 0) + start_weight
+                    spot = _SLOT_OF.get(position, position)
+                    if spot in LINEUP_SLOTS:
+                        played_at = positions[team].setdefault(pid, {})
+                        played_at[spot] = played_at.get(spot, 0) + start_weight
+                    slots[team].setdefault(pid, []).append((slot, slot_weight))
                     latest = latest_slots[team].get(pid)
                     if latest is None or days_old < latest[0]:
                         latest_slots[team][pid] = (days_old, slot)
-                    player_meta[team][pid] = {
-                        "name": player.get("fullName", ""),
-                        "position": ((player.get("position") or player.get("primaryPosition") or {}).get("abbreviation", "")),
-                    }
+                    player_meta[team][pid] = {"name": player.get("fullName", ""), "position": position}
 
     result = {}
     for team in wanted_teams:
-        # Recent participants lead; bulk platoon PA fills/tiebreaks the nine.
-        candidates = set(appearances[team])
+        # Most starts first; bulk platoon PA breaks ties and fills in.
+        candidates = set(starts[team])
         candidates.update(pid for pid, row in batter_splits.items() if team in row.get("team_ids", set()))
-        selected = sorted(
+        ranked = sorted(
             candidates,
-            key=lambda pid: (appearances[team].get(pid, 0), (batter_splits.get(pid) or {}).get("pa", 0)),
+            key=lambda pid: (starts[team].get(pid, 0), (batter_splits.get(pid) or {}).get("pa", 0)),
             reverse=True,
-        )[:9]
+        )
+        open_slots = dict(LINEUP_SLOTS)
+        selected, bench = [], []
+        for pid in ranked:
+            if len(selected) == 9:
+                break
+            played_at = positions[team].get(pid) or {}
+            # His usual spot in the field; a hitter who only DHs has "DH".
+            spot = max((key for key in played_at if key != "DH"), key=played_at.get, default="DH" if played_at else None)
+            if spot is None:
+                bench.append(pid)
+                continue
+            for choice in (spot, "DH"):
+                if open_slots.get(choice, 0) > 0:
+                    open_slots[choice] -= 1
+                    selected.append(pid)
+                    break
+            else:
+                bench.append(pid)
+        # A lineup card with an odd position count (two catchers, no DH)
+        # still makes nine: the best of the rest fill it.
+        selected += [pid for pid in bench if pid not in selected][:9 - len(selected)]
         if len(selected) < 9:
             continue
         selected.sort(key=lambda pid: (
@@ -3025,12 +3065,12 @@ def get_all_projected_team_lineups(before_date=None, lookback_days: int = 21,
                 "name": (player_meta[team].get(pid) or {}).get("name") or (batter_splits.get(pid) or {}).get("name", ""),
                 "position": (player_meta[team].get(pid) or {}).get("position", ""),
             } for index, pid in enumerate(selected, start=1)],
-            "games": game_counts[team], "through": end.isoformat(),
+            "games": round(game_counts[team], 2), "through": end.isoformat(),
         }
     return result
 
 
-def get_projected_team_lineup(team_id: int, before_date=None, lookback_days: int = 21) -> dict:
+def get_projected_team_lineup(team_id: int, before_date=None, lookback_days: int = 30) -> dict:
     """Compatibility wrapper for callers that only need one projected nine."""
     return get_all_projected_team_lineups(
         before_date=before_date, lookback_days=lookback_days,
