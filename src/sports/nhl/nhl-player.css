@@ -1,0 +1,5 @@
+/* The NHL player page borrows the WNBA / MLB / NFL page styles; these are
+   the few NHL-only touches. */
+.nhl-depth .wnba-depth-legend b[data-code=DTD]{color:#f4c53f;border-color:#6b5418}
+.nhl-depth .nfl-depth-role em[data-code=DTD]{color:#f4c53f}
+.nhl-finder-context .mlb-injury-reported{display:block;line-height:1.5}

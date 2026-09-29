@@ -2,6 +2,7 @@ import {finderMarket, gameValue, historyChart, nameKey} from './prop-finder-core
 import {teamLogoUrl} from './sports/nfl/nfl-ui-core.js';
 import {MARKET_STAT as WNBA_DVP_STAT, positionOf} from './sports/wnba/wnba-research.js';
 import {playerGames, statKeyOf, valueOf} from './sports/soccer/soccer-stats.js';
+import {playerGames as nhlPlayerGames, statValue as nhlValue} from './sports/nhl/nhl-stats.js';
 
 const WINDOW_KEYS = ['l5', 'l10', 'l15', 'l20', 'h2h', 'season'];
 export const BOOK_NAMES = {prizepicks: 'PrizePicks', underdog: 'Underdog', pick6: 'DK Pick6', betr_us_dfs: 'Betr Picks',
@@ -342,6 +343,19 @@ export function normalizeFinderRows(sport, payload, players = [], {now = Date.no
         modifier: raw.modifier, apps: Array.isArray(raw.apps) && raw.apps.length ? raw.apps : [{key: 'prizepicks', name: 'PrizePicks', over: null, under: null}],
         average: null, windows: null, raw, historyStatus: matched ? 'pending' : 'none'});
     }
+    if (sport === 'nhl') {
+      // PrizePicks' NHL lines (nhl_board.py), pinned to the game and the
+      // player's NHL id; the hit rates fill in from his team's recent games.
+      const ready = Boolean(raw.playerId && raw.valueKey && raw.team);
+      return finish({id: `nhl:${raw.id}`, sport, player: raw.player, playerId: optional(raw.playerId), headshot: optional(raw.headshot),
+        position: optional(raw.position), teamAbbr: optional(raw.team), teamLogo: optional(raw.teamLogo), teamName: optional(raw.teamName),
+        opponent: optional(raw.opponent), opponentLogo: optional(raw.opponentLogo), opponentName: optional(raw.opponentName),
+        homeTeamAbbr: optional(raw.homeTeamAbbr), awayTeamAbbr: optional(raw.awayTeamAbbr), isHome: raw.isHome ?? null,
+        gameId: optional(raw.gameId), gameKind: optional(raw.gameKind), startsAt: optional(raw.startsAt), market: raw.stat,
+        marketKey: raw.marketKey, valueKey: optional(raw.valueKey), line: raw.line, direction: 'OVER', modifier: raw.modifier,
+        apps: Array.isArray(raw.apps) && raw.apps.length ? raw.apps : [{key: 'prizepicks', name: 'PrizePicks', over: null, under: null}],
+        average: null, windows: null, raw, historyStatus: ready ? 'pending' : 'none'});
+    }
     return null;
   });
   return rows.filter(row => row && row.player && row.line != null &&
@@ -377,6 +391,10 @@ export async function loadFinderSport(sport, options = {}) {
   }
   if (sport === 'soccer') {
     const payload = await request('/api/board?view=soccer', options);
+    return {...payload, rows: normalizeFinderRows(sport, payload), fetchedAt: payload.builtAt || null};
+  }
+  if (sport === 'nhl') {
+    const payload = await request('/api/board?view=nhl', options);
     return {...payload, rows: normalizeFinderRows(sport, payload), fetchedAt: payload.builtAt || null};
   }
   throw new Error('This sport is not supported by Finder.');
@@ -615,6 +633,76 @@ export async function enrichSoccerRows(rows, {signal, onRows, concurrency = 4, .
         const log = await loadSoccerLog(batch[0], {signal, ...options});
         aborted(signal);
         updates = batch.map(row => applySoccerHistory(row, log));
+      } catch (error) {
+        if (signal?.aborted || error.name === 'AbortError') throw error;
+        updates = batch.map(row => ({...row, historyStatus: 'unavailable'}));
+      }
+      updates.forEach(row => enriched.set(row.id, row));
+      onRows?.(updates);
+    }
+  }
+  await Promise.all(Array.from({length: Math.min(queue.length, Math.max(1, Math.min(6, concurrency)))}, worker));
+  return rows.map(row => enriched.get(row.id) || row);
+}
+
+// ---------------------------------------------------------------- NHL
+
+// One request per team and opponent: the team's recent games carry every
+// player's line (nhl_research.team_log), so the whole roster's rows fill
+// from it.
+const nhlLogKey = (team, opponent) => `${team || ''}:${opponent || ''}`;
+export async function loadNhlLog(team, opponent, options = {}) {
+  const key = nhlLogKey(team, opponent);
+  const cached = historyCache.get(`nhl:${key}`);
+  if (cached && Date.now() - cached.at < HISTORY_TTL) return cached.value;
+  const query = new URLSearchParams({view: 'nhl', resource: 'log', team});
+  if (opponent) query.set('opponent', opponent);
+  const payload = await request(`/api/board?${query}`, options);
+  // A log still being gathered is not kept, so the next look asks again.
+  if (payload?.complete !== false) historyCache.set(`nhl:${key}`, {at: Date.now(), value: payload});
+  if (historyCache.size > 500) historyCache.delete(historyCache.keys().next().value);
+  return payload;
+}
+
+export function applyNhlHistory(row, log) {
+  const games = nhlPlayerGames(log, row.playerId).filter(game => !game.dnp && number(nhlValue(game, row.valueKey)) != null);
+  if (!row.valueKey || !games.length) return {...row, historyStatus: 'unavailable'};
+  const values = games.map(game => nhlValue(game, row.valueKey));
+  const season = games.at(-1).season;
+  const windows = Object.fromEntries([5, 10, 15, 20].map(size => [`l${size}`, finderWindow(values.slice(-size), row.line, row.direction)]));
+  windows.h2h = finderWindow(games.filter(game => row.opponent && game.opponent === row.opponent).map(game => nhlValue(game, row.valueKey)), row.line, row.direction);
+  windows.season = finderWindow(games.filter(game => game.season === season).map(game => nhlValue(game, row.valueKey)), row.line, row.direction);
+  let streak = 0;
+  for (let index = values.length - 1; index >= 0; index -= 1) {
+    if (values[index] === row.line) break;
+    const sign = values[index] > row.line ? 1 : -1;
+    if (streak && Math.sign(streak) !== sign) break;
+    streak += sign;
+  }
+  return finish({...row, average: mean(values.slice(-10)), windows, streak, historyStatus: 'ready'});
+}
+
+/** Hydrate NHL hit rates after the lines are already on the board. */
+export async function enrichNhlRows(rows, {signal, onRows, concurrency = 4, ...options} = {}) {
+  const groups = new Map();
+  for (const row of rows) {
+    if (row.sport !== 'nhl' || row.historyStatus !== 'pending') continue;
+    const key = nhlLogKey(row.teamAbbr, row.opponent);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(row);
+  }
+  const queue = [...groups.values()];
+  const enriched = new Map();
+  let next = 0;
+  async function worker() {
+    while (next < queue.length) {
+      aborted(signal);
+      const batch = queue[next++];
+      let updates;
+      try {
+        const log = await loadNhlLog(batch[0].teamAbbr, batch[0].opponent, {signal, ...options});
+        aborted(signal);
+        updates = batch.map(row => applyNhlHistory(row, log));
       } catch (error) {
         if (signal?.aborted || error.name === 'AbortError') throw error;
         updates = batch.map(row => ({...row, historyStatus: 'unavailable'}));

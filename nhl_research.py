@@ -55,6 +55,8 @@ DIVISIONS = {
     "Pacific": ("ANA", "CGY", "EDM", "LAK", "SJS", "SEA", "VAN", "VGK"),
 }
 KIND = {1: "preseason", 2: "regular", 3: "postseason"}
+# The NHL's position codes as the Finder shows them.
+POSITION_NAMES = {"L": "LW", "R": "RW"}
 
 # PrizePicks' NHL Fantasy Score. Skaters: 8 a goal, 5 an assist, 1.5 a shot
 # on goal and a blocked shot, 2 more for a shorthanded point, 1.5 a shootout
@@ -917,8 +919,8 @@ def league(day=None):
             for key, _label in stats:
                 for name in windows:
                     table = {code: {"v": dvp[code][position][key][name][0]} for code in dvp if position in dvp[code]}
-                    # 1 = allows the most (weakest defense).
-                    ranks = _rank(table, "v", high_first=True)
+                    # 1 = allows the fewest (toughest), as the defense ranks.
+                    ranks = _rank(table, "v", high_first=False)
                     for code in table:
                         dvp[code][position][key][name][1] = ranks.get(code)
         return {"teams": teams, "dvp": dvp, "teamCount": len(teams), "stats": [list(item) for item in RANK_STATS],
