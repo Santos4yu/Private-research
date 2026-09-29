@@ -11,14 +11,14 @@ import './side-menu.css';
 const PRIMARY=topTabs.filter(item=>item.value&&item.value!=='saved');
 
 export function SideMenu(){
- const [tab,setTab]=useState('research');
+ const [tab,setTab]=useState('finder');
  // Which tabs a user may see is a site setting (site_controls
  // disabledTabs): a section switched off is left out for everyone but
  // admins. Admin itself is listed only for an admin session (unlocked from
  // the settings gear). Re-read whenever the policy changes or the panel opens.
  const [,setRevision]=useState(0);
  useEffect(()=>{
-  const sync=({detail})=>setTab(detail?.tab||'research');
+  const sync=({detail})=>setTab(detail?.tab||'finder');
   const refresh=()=>setRevision(n=>n+1);
   window.addEventListener('vortex:dock-sync',sync);
   window.addEventListener('vortex:site-policy',refresh);

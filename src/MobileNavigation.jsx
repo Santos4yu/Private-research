@@ -3,20 +3,20 @@ import { Layers2 as BarChart3, Ticket as ClipboardList, Grid2X2 as MoreHorizonta
 import { pickBuilder } from './pick-builder-client';
 
 const destinations = [
-  { key: 'research', label: 'Research', icon: Search },
   { key: 'finder', label: 'Finder', icon: SearchCheck },
+  { key: 'research', label: 'Research', icon: Search },
   { key: 'v2', label: 'Props', icon: BarChart3 },
   { key: 'saved', label: 'My Slip', icon: ClipboardList },
 ];
 
 export function MobileNavigation() {
-  const [tab, setTab] = useState('research');
+  const [tab, setTab] = useState('finder');
   const [saved, setSaved] = useState(0);
   const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
     const sync = ({ detail }) => {
-      setTab(detail?.tab || 'research');
+      setTab(detail?.tab || 'finder');
       setSaved(detail?.saved ?? 0);
     };
     const syncMore = ({ detail }) => setMoreOpen(Boolean(detail?.open));

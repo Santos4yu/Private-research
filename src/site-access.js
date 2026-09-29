@@ -250,7 +250,7 @@ function renderStatus(){
  // the canonical map, this is just the read side for the same paths.
  const slugToTab={props:'v2',tools:'slate','slip-analyzer':'slip'};
  const slug=location.pathname.slice(1)||location.hash.slice(1);
- const current=slugToTab[slug]||slug||'research';
+ const current=slugToTab[slug]||slug||'finder';
  const next=granted?availableTab(status,current):null;
  document.documentElement.dataset.allTabsLocked=String(granted&&!next);
  let empty=document.getElementById('site-all-locked');if(!empty){empty=element('section',null,'site-all-locked');empty.id='site-all-locked';empty.append(element('h2','In development'),element('p','Sections are temporarily locked. Your account and navigation are still available.'));document.body.append(empty);}empty.hidden=!(granted&&!next);
