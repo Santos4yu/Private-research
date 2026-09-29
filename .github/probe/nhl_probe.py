@@ -1,167 +1,107 @@
-"""One-off check of the NHL, ESPN and PrizePicks feeds the Finder reads,
-run on GitHub's machines (the build sandbox cannot reach them). Prints
-what each source actually returns and how the Finder's code handles it."""
+"""One-off check of the NHL, ESPN and PrizePicks feeds (second pass)."""
 import json
 import sys
 import time
-import traceback
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 
 import requests
 
 sys.path.insert(0, ".")
-NHL = "https://api-web.nhle.com/v1"
-ESPN = "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl"
+H = {"Accept": "application/json"}
 
 
-def cut(value, size=900):
+def cut(value, size=1200):
     text = json.dumps(value, default=str)
     return text if len(text) <= size else text[:size] + " ..."
 
 
-def get(url):
-    started = time.time()
-    try:
-        response = requests.get(url, headers={"Accept": "application/json"}, timeout=20)
-    except Exception as error:  # noqa: BLE001
-        print(f"   GET {url} -> {type(error).__name__}: {error}")
-        return None
-    print(f"   GET {url} -> {response.status_code} {len(response.content)}B {time.time() - started:.1f}s")
-    try:
-        return response.json() if response.ok else None
-    except ValueError:
-        print("   (not JSON)", response.text[:200])
-        return None
+def strip_links(value):
+    if isinstance(value, dict):
+        return {k: strip_links(v) for k, v in value.items() if k not in ("link", "links", "logos", "team")}
+    if isinstance(value, list):
+        return [strip_links(v) for v in value]
+    return value
 
 
-def step(label, run):
-    print(f"\n===== {label}")
-    started = time.time()
-    try:
-        value = run()
-        print(f"----- {label}: OK in {time.time() - started:.1f}s")
-        return value
-    except Exception as error:  # noqa: BLE001
-        print(f"----- {label}: FAILED in {time.time() - started:.1f}s: {type(error).__name__}: {error}")
-        traceback.print_exc(limit=6)
-        return None
+def section(name):
+    print(f"\n===== {name}", flush=True)
 
 
-def nhl_raw():
-    week = get(f"{NHL}/schedule/2026-09-29") or {}
-    for day in week.get("gameWeek") or []:
-        print("   day", day.get("date"), "games", len(day.get("games") or []))
-    first = ((week.get("gameWeek") or [{}])[0].get("games") or [{}])[0]
-    print("   schedule game:", cut(first, 700))
-    club = get(f"{NHL}/club-schedule-season/BOS/20252026") or {}
-    games = club.get("games") or []
-    print("   BOS 2025-26 games", len(games), "states", Counter(g.get("gameState") for g in games), "types", Counter(g.get("gameType") for g in games))
-    print("   last game:", cut(games[-1] if games else {}, 900))
-    club2 = get(f"{NHL}/club-schedule-season/BOS/20262027") or {}
-    print("   BOS 2026-27 games", len(club2.get("games") or []), Counter(g.get("gameState") for g in club2.get("games") or []))
-    final = [g for g in games if g.get("gameState") in ("OFF", "FINAL")]
-    game_id = final[-1]["id"] if final else None
-    box = get(f"{NHL}/gamecenter/{game_id}/boxscore") or {}
-    print("   box keys", sorted(box))
-    print("   box gameState", box.get("gameState"), "gameType", box.get("gameType"), "outcome", box.get("gameOutcome"))
-    stats = box.get("playerByGameStats") or {}
-    print("   playerByGameStats keys", sorted(stats), "home keys", sorted(stats.get("homeTeam") or {}))
-    home = stats.get("homeTeam") or {}
-    print("   forward:", cut((home.get("forwards") or [{}])[0], 700))
-    print("   goalie:", cut((home.get("goalies") or [{}])[0], 700))
-    pbp = get(f"{NHL}/gamecenter/{game_id}/play-by-play") or {}
-    plays = pbp.get("plays") or []
-    print("   pbp keys", sorted(pbp), "plays", len(plays), Counter(p.get("typeDescKey") for p in plays))
-    seen = set()
-    for play in plays:
-        kind = play.get("typeDescKey")
-        if kind in ("faceoff", "hit", "blocked-shot", "shot-on-goal", "goal", "missed-shot") and kind not in seen:
-            seen.add(kind)
-            print(f"   play {kind}:", cut(play, 700))
-    print("   rosterSpot:", cut((pbp.get("rosterSpots") or [{}])[0], 400))
-    print("   home/away in pbp:", cut(pbp.get("homeTeam"), 300))
-    roster = get(f"{NHL}/roster/BOS/current") or {}
-    print("   roster keys", sorted(roster), "first:", cut((roster.get("forwards") or [{}])[0], 500))
-    table = get(f"{NHL}/standings/now") or {}
-    print("   standings", len(table.get("standings") or []), "first:", cut((table.get("standings") or [{}])[0], 900))
-    return [g["id"] for g in final[-20:]]
-
-
-def burst(ids):
-    urls = [f"{NHL}/gamecenter/{i}/{part}" for i in ids for part in ("boxscore", "play-by-play")]
-
-    def fetch(url):
+section("NHL stats REST (bulk per team)")
+base = "https://api.nhle.com/stats/rest/en"
+for report, extra in (("skater/summary", ""), ("skater/realtime", ""), ("skater/faceoffwins", ""), ("goalie/summary", "")):
+    for limit in ("100", "-1"):
+        url = (f"{base}/{report}?isAggregate=false&isGame=true&start=0&limit={limit}"
+               f"&sort=%5B%7B%22property%22:%22gameDate%22,%22direction%22:%22DESC%22%7D%5D"
+               f"&cayenneExp=teamAbbrev=%22BOS%22%20and%20seasonId>=20252026")
         started = time.time()
         try:
-            response = requests.get(url, headers={"Accept": "application/json"}, timeout=20)
-            return response.status_code, round(time.time() - started, 1)
+            r = requests.get(url, headers=H, timeout=30)
+            data = r.json() if r.ok else {}
+            rows = data.get("data") or []
+            print(f"   {report} limit={limit} -> {r.status_code} {len(r.content)}B {time.time()-started:.1f}s total={data.get('total')} rows={len(rows)}")
+            if rows and limit == "100":
+                print("   keys", sorted(rows[0]))
+                print("   row", cut(rows[0], 900))
         except Exception as error:  # noqa: BLE001
-            return type(error).__name__, round(time.time() - started, 1)
-    with ThreadPoolExecutor(max_workers=12) as pool:
-        results = list(pool.map(fetch, urls))
-    print("   burst of", len(urls), "statuses", Counter(code for code, _ in results), "slowest", max(t for _, t in results))
+            print(f"   {report} limit={limit} -> {type(error).__name__}: {error}")
+
+section("api-web rate limit")
+club = requests.get("https://api-web.nhle.com/v1/club-schedule-season/TOR/20252026", headers=H, timeout=20).json()
+ids = [g["id"] for g in club.get("games", []) if g.get("gameState") in ("OFF", "FINAL")]
+club2 = requests.get("https://api-web.nhle.com/v1/club-schedule-season/MTL/20252026", headers=H, timeout=20).json()
+ids += [g["id"] for g in club2.get("games", []) if g.get("gameState") in ("OFF", "FINAL") and g["id"] not in ids]
+urls = [f"https://api-web.nhle.com/v1/gamecenter/{i}/boxscore" for i in ids[:160]]
+results = []
 
 
-def espn_raw():
-    injuries = get(f"{ESPN}/injuries") or {}
-    print("   injuries keys", sorted(injuries), "teams", len(injuries.get("injuries") or []))
-    club = (injuries.get("injuries") or [{}])[0]
-    print("   injury team:", cut({k: v for k, v in club.items() if k != "injuries"}, 300))
-    print("   injury:", cut((club.get("injuries") or [{}])[0], 1200))
-    for path in ("teams/bos/depthcharts", "teams/1/depthcharts", "teams/bos"):
-        payload = get(f"{ESPN}/{path}") or {}
-        print(f"   {path} keys", sorted(payload))
-        charts = payload.get("depthchart") or payload.get("depthCharts") or []
-        if charts:
-            print("   chart:", cut({k: v for k, v in charts[0].items() if k != "positions"}, 300))
-            positions = charts[0].get("positions") or {}
-            print("   positions", sorted(positions))
-            for key, value in list(positions.items())[:2]:
-                print(f"   position {key}:", cut(value, 600))
-        if path == "teams/bos":
-            print("   team:", cut({k: (payload.get("team") or {}).get(k) for k in ("id", "abbreviation", "displayName")}, 300))
-    board = get(f"{ESPN}/scoreboard?dates=20260929") or {}
-    events = board.get("events") or []
-    print("   scoreboard events", len(events))
-    if events:
-        competition = (events[0].get("competitions") or [{}])[0]
-        print("   competitors:", cut([(c.get("homeAway"), (c.get("team") or {}).get("abbreviation")) for c in competition.get("competitors") or []], 300))
-        print("   odds:", cut(competition.get("odds"), 1500))
+def fetch(url):
+    started = time.time()
+    r = requests.get(url, headers=H, timeout=20)
+    return (time.time(), r.status_code, r.headers.get("Retry-After"), dict((k, v) for k, v in r.headers.items() if "rate" in k.lower() or "limit" in k.lower()))
 
 
-def ours():
-    import nhl_research as nhl
-    nhl.store.get = lambda key: None
-    nhl.store.set = lambda *a, **k: None
-    log = step("team_log BOS vs WPG", lambda: nhl.team_log("BOS", "WPG"))
-    if log:
-        print("   games", len(log["games"]), "complete", log["complete"], "dates", [g["date"] for g in log["games"]][-8:])
-        mcavoy = [g["date"] for g in log["games"] if "8479325" in g["players"]]
-        print("   McAvoy games", len(mcavoy), mcavoy[-5:])
-    step("team_context BOS", lambda: print("   ", cut(nhl.team_context("BOS"), 1500)))
-    games = nhl.schedule_day("2026-09-29")
-    print("   schedule games", len(games), cut(games[:2], 500))
-    if games:
-        step("matchup", lambda: print("   ", cut(nhl.matchup(games[0]["id"]), 1500)))
-    step("similar WPG D points", lambda: print("   ", cut(nhl.similar("WPG", "D", "points"), 800)))
-    step("league", lambda: print("   teams", len(nhl.league()["teams"])))
+t0 = time.time()
+with ThreadPoolExecutor(max_workers=6) as pool:
+    for stamp, code, retry, limits in pool.map(fetch, urls):
+        results.append((round(stamp - t0, 1), code, retry, limits))
+first = next((i for i, row in enumerate(results) if row[1] == 429), None)
+print("   requests", len(results), "codes", Counter(r[1] for r in results), "first 429 at", first,
+      results[first] if first is not None else "", "elapsed", round(time.time() - t0, 1))
+print("   rate headers sample", results[0][3], results[-1][3])
+for wait in (5, 15, 30, 60):
+    time.sleep(wait)
+    r = requests.get(urls[0], headers=H, timeout=20)
+    print(f"   after +{wait}s -> {r.status_code} Retry-After={r.headers.get('Retry-After')}", flush=True)
 
+section("ESPN odds and NHL summary")
+espn = "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl"
+board = requests.get(f"{espn}/scoreboard?dates=20260929", headers=H, timeout=20).json()
+competition = (board.get("events") or [{}])[0].get("competitions", [{}])[0]
+odds = (competition.get("odds") or [{}])[0]
+print("   odds keys", sorted(odds))
+print("   odds", cut(strip_links(odds), 3000))
+done = requests.get(f"{espn}/scoreboard?dates=20260926", headers=H, timeout=20).json()
+event = next((e for e in done.get("events") or [] if ((e.get("status") or {}).get("type") or {}).get("completed")), None)
+if event:
+    summary = requests.get(f"{espn}/summary?event={event['id']}", headers=H, timeout=20).json()
+    print("   summary keys", sorted(summary))
+    for side in (summary.get("boxscore") or {}).get("players") or []:
+        for group in side.get("statistics") or []:
+            print("   group", group.get("name"), "labels", group.get("labels"), "keys", group.get("keys"))
+            print("   athlete", cut((group.get("athletes") or [{}])[0].get("stats"), 300))
+        break
 
-def prizepicks():
-    from prizepicks_export_core import _fetch_projection_rows
-    for league in ("NHL", "MLB", "WNBA", "NFL", "SOCCER"):
-        def run(league=league):
-            rows = _fetch_projection_rows(league=league, force=True)
-            stats = Counter(row["stat"] for row in rows if not row.get("combo"))
-            print(f"   {league}: {len(rows)} lines, {len(stats)} stats")
-            for stat, count in sorted(stats.items()):
-                print(f"     {stat!r}: {count}")
-        step(f"PrizePicks {league}", run)
-
-
-ids = step("NHL feed", nhl_raw) or []
-step("NHL burst", lambda: burst(ids))
-step("ESPN", espn_raw)
-step("Finder code", ours)
-step("PrizePicks", prizepicks)
+section("PrizePicks NFL and soccer stat names")
+from prizepicks_export_core import _fetch_projection_rows  # noqa: E402
+for league in ("NFL", "SOCCER"):
+    time.sleep(12)
+    try:
+        rows = _fetch_projection_rows(league=league, force=True)
+        stats = Counter(row["stat"] for row in rows if not row.get("combo"))
+        print(f"   {league}: {len(rows)} lines, {len(stats)} stats")
+        for stat, count in sorted(stats.items()):
+            print(f"     {stat!r}: {count}")
+    except Exception as error:  # noqa: BLE001
+        print(f"   {league}: {type(error).__name__}: {error}")
