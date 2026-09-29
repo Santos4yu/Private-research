@@ -130,7 +130,7 @@ def build(projections=None, now=None, games=None, rosters=None):
             "id": f"pp:{line.get('id')}", "player": line.get("player"), "playerId": player_id,
             "team": team or None, "teamName": nhl.TEAMS.get(team) or line.get("team_name") or None, "teamLogo": nhl.logo(team) if nhl.valid_team(team) else None,
             "opponent": opponent or None, "opponentName": nhl.TEAMS.get(opponent), "opponentLogo": nhl.logo(opponent) if nhl.valid_team(opponent) else None,
-            "position": info.get("pos") or line.get("position") or None, "number": info.get("number"),
+            "position": nhl.POSITION_NAMES.get(info.get("pos"), info.get("pos")) or line.get("position") or None, "number": info.get("number"),
             "headshot": info.get("headshot") or line.get("headshot") or None,
             "stat": line.get("stat"), "marketKey": market_key(line.get("stat")), "valueKey": value_key(line.get("stat")),
             "line": value, "modifier": tier,

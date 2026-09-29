@@ -3,6 +3,7 @@
 export const LEAGUE_LOGOS = {
   mlb: '/leagues/mlb.svg',
   nfl: '/leagues/nfl.svg',
+  nhl: 'https://a.espncdn.com/i/teamlogos/leagues/500/nhl.png',
   soccer: '/leagues/soccer.svg',
   wnba: 'https://a.espncdn.com/i/teamlogos/leagues/500/wnba.png',
 };
