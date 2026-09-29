@@ -170,6 +170,23 @@ class PreseasonTests(unittest.TestCase):
         self.assertEqual(result["average"], 25)
 
 
+class GameLogTests(unittest.TestCase):
+    def test_attempts_two_pointers_and_fouls(self):
+        from unittest.mock import patch
+        names = ["minutes", "fieldGoalsMade-fieldGoalsAttempted", "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+                 "freeThrowsMade-freeThrowsAttempted", "totalRebounds", "assists", "blocks", "steals", "fouls", "turnovers", "points"]
+        payload = {"names": names, "events": {"401": {"gameDate": "2026-08-01T23:00Z", "opponent": {"abbreviation": "LV"}, "atVs": "vs",
+                                                     "gameResult": "W", "score": "90-80"}},
+                   "seasonTypes": [{"displayName": "2026 Regular Season", "categories": [{"events": [
+                       {"eventId": "401", "stats": ["32", "9-17", "3-7", "4-5", "6", "5", "1", "2", "3", "2", "25"]}]}]}]}
+        with patch.object(wnba_api, "_espn_json", return_value=payload), patch.object(wnba_api.store, "get", return_value=None), \
+                patch.object(wnba_api.store, "set"):
+            values = wnba_api._game_logs("test-only-log", 2026)["rows"][0]["values"]
+        self.assertEqual((values["player_field_goals_attempts"], values["player_frees_attempts"], values["player_fouls"]), (17, 5, 3))
+        # Two-pointers: nine field goals, three of them threes.
+        self.assertEqual((values["player_twos"], values["player_twos_attempts"]), (6, 10))
+
+
 class ScoreTests(unittest.TestCase):
     def test_scores_read_team_first(self):
         for flip in (wnba_api._own_score_first, matchup._own_score_first):

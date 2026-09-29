@@ -112,7 +112,8 @@ class BoardTests(unittest.TestCase):
         for stat, key in (("Shots On Goal", "sog"), ("Blocked Shots", "blocked"), ("Time On Ice", "toi"),
                           ("Faceoffs Won", "fow"), ("Power Play Points", "ppp"), ("Goalie Saves", "saves"),
                           ("Goals Allowed", "ga"), ("Fantasy Score", "fantasy"), ("1st Period Points", "points_1p"),
-                          ("Goals Allowed in First 10 Minutes", "ga_first10")):
+                          ("Goals Allowed in First 10 Minutes", "ga_first10"), ("Shots Blocked", "blocked"),
+                          ("Goalie Fantasy Score", "fantasy")):
             self.assertEqual(nhl_board.value_key(stat), key, stat)
         self.assertIsNone(nhl_board.value_key("Something New"))
 

@@ -39,7 +39,7 @@ class MarketNameTests(unittest.TestCase):
         self.assertEqual(markets.market_for("Fantasy Score", "K"), "kicker_fantasy")
         self.assertEqual(markets.market_for("Fantasy Score", "RB"), "fantasy_score")
         self.assertEqual(markets.market_for("Sacks", "LB"), "sacks")
-        self.assertIsNone(markets.market_for("Sacks", "QB"))
+        self.assertEqual(markets.market_for("Sacks", "QB"), "sacks_taken")
         self.assertIsNone(markets.market_for("Pass Air Yards", "QB"))
 
 
