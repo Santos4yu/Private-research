@@ -63,9 +63,30 @@ function aborted(signal) {
 async function request(url, {signal, fetcher = fetch} = {}) {
   aborted(signal);
   const response = await fetcher(url, {signal, cache: 'no-store', credentials: 'same-origin'});
-  const data = await response.json();
-  if (!response.ok || data.error) throw new Error(data.error || 'Prop data is temporarily unavailable.');
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.error) {
+    const error = new Error(data.error || 'Prop data is temporarily unavailable.');
+    if (data.retryAfter > 0) error.retryAfter = data.retryAfter;
+    throw error;
+  }
   return data;
+}
+
+const pause = (ms, signal) => new Promise((resolve, reject) => {
+  const timer = setTimeout(resolve, ms);
+  signal?.addEventListener('abort', () => { clearTimeout(timer); reject(new DOMException('Aborted', 'AbortError')); }, {once: true});
+});
+// The NHL refuses for a minute when asked too often; the server says how
+// long, and the request waits that out a few times before giving up.
+export async function patientRequest(url, options = {}, tries = 5) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await request(url, options);
+    } catch (error) {
+      if (!error.retryAfter || attempt >= tries) throw error;
+      await pause(Math.min(error.retryAfter, 65) * 1000, options.signal);
+    }
+  }
 }
 
 // ---------------------------------------------------------------- matchup
@@ -657,7 +678,7 @@ export async function loadNhlLog(team, opponent, options = {}) {
   if (cached && Date.now() - cached.at < HISTORY_TTL) return cached.value;
   const query = new URLSearchParams({view: 'nhl', resource: 'log', team});
   if (opponent) query.set('opponent', opponent);
-  const payload = await request(`/api/board?${query}`, options);
+  const payload = await patientRequest(`/api/board?${query}`, options);
   // A log still being gathered is not kept, so the next look asks again.
   if (payload?.complete !== false) historyCache.set(`nhl:${key}`, {at: Date.now(), value: payload});
   if (historyCache.size > 500) historyCache.delete(historyCache.keys().next().value);

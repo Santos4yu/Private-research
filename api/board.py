@@ -244,6 +244,9 @@ class handler(BaseHTTPRequestHandler):
                         if position not in {"C", "LW", "RW", "D", "G", "L", "R"} or not (market.replace("_", "").isalnum() and market.islower() and len(market) <= 24):
                             return self._send(400, {"error": "Unknown position or stat."})
                         return self._send(200, nhl_research.similar(opponent, position, market))
+                except nhl_research.Busy:
+                    # The NHL is refusing for a moment; the page asks again then.
+                    return self._send(503, {"error": "NHL data is temporarily unavailable.", "retryAfter": nhl_research.retry_after()})
                 except Exception:
                     return self._send(502, {"error": "NHL data is temporarily unavailable."})
                 return self._send(400, {"error": "Unknown NHL resource."})

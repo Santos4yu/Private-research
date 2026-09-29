@@ -2,7 +2,7 @@
 // resources (nhl_research.py). One request per URL for the session; a
 // failure is forgotten so Retry really asks again.
 import {useEffect,useState} from 'react';
-import {loadNhlLog} from '../../unified-finder-data';
+import {loadNhlLog,patientRequest} from '../../unified-finder-data';
 
 const requests=new Map();
 export function nhlGet(resource,params={}){
@@ -11,11 +11,7 @@ export function nhlGet(resource,params={}){
  Object.entries(params).forEach(([key,value])=>{if(value!=null&&value!=='')query.set(key,String(value));});
  const url='/api/board?'+query;
  if(!requests.has(url)){
-  const promise=fetch(url,{credentials:'same-origin'}).then(async response=>{
-   const data=await response.json().catch(()=>({}));
-   if(!response.ok)throw new Error(data.error||'NHL research is temporarily unavailable.');
-   return data;
-  });
+  const promise=patientRequest(url);
   promise.then(data=>{if(data?.complete===false)requests.delete(url);},()=>requests.delete(url));
   requests.set(url,promise);
  }

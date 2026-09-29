@@ -57,3 +57,15 @@ test('NHL hit rates come from the player\'s own games, DNP left out',()=>{
  assert.equal(ready.streak,-1);
  assert.equal(applyNhlHistory({...row,valueKey:null},log).historyStatus,'unavailable');
 });
+
+test('a busy NHL answer is waited out, then asked again', async () => {
+  const {patientRequest} = await import('../src/unified-finder-data.js');
+  const answers = [{status: 503, body: {error: 'NHL data is temporarily unavailable.', retryAfter: 0.01}}, {status: 200, body: {games: [1]}}];
+  const asked = [];
+  const fetcher = async url => { asked.push(url); const next = answers.shift(); return {ok: next.status === 200, json: async () => next.body}; };
+  assert.deepEqual(await patientRequest('/api/board?view=nhl&resource=log&team=BOS', {fetcher}), {games: [1]});
+  assert.equal(asked.length, 2);
+  // Any other failure is not asked again.
+  const failing = async () => ({ok: false, json: async () => ({error: 'Unknown team or game.'})});
+  await assert.rejects(patientRequest('/x', {fetcher: failing}), /Unknown team/);
+});

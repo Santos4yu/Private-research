@@ -166,9 +166,19 @@ def fake_stats(rows=None):
     return run
 
 
-def club_schedule(*games):
-    """The game feed's club schedule: (id, type, date, state)."""
-    return {"games": [{"id": int(game_id), "gameType": kind, "gameDate": day, "gameState": state} for game_id, kind, day, state in games]}
+def schedule_games(*games):
+    """Games on the game feed's weekly schedule: (id, type, date, state),
+    CAR at home to FLA."""
+    return [{"id": int(game_id), "gameType": kind, "date": day, "startTimeUTC": f"{day}T23:00:00Z", "gameState": state,
+             "homeTeam": {"abbrev": "CAR"}, "awayTeam": {"abbrev": "FLA"}} for game_id, kind, day, state in games]
+
+
+def schedule_week(start, games):
+    """The game feed's /schedule/{date}: the seven days from `start`."""
+    from datetime import date, timedelta
+    first = date.fromisoformat(start)
+    days = [(first + timedelta(days=offset)).isoformat() for offset in range(7)]
+    return {"gameWeek": [{"date": day, "games": [game for game in games if game["date"] == day]} for day in days]}
 
 
 def roster_payload():
