@@ -101,7 +101,7 @@ class ModelTest(unittest.TestCase):
         self.assertGreater(pick["units"], 0)
         # The ratings tilt the chance, never by more than the cap.
         self.assertLessEqual(abs(read["model"]["tilt"]), ml.MAX_TILT)
-        self.assertIn("Our ratings have Kansas City Chiefs by", read["model"]["text"])
+        self.assertIn("Our ratings with the matchup have Kansas City Chiefs by", read["model"]["text"])
         self.assertTrue(read["reasons"][0].startswith("The market has Kansas City Chiefs at"))
         self.assertIn("ESPN BET pays -130", read["reasons"][1])
 
@@ -128,6 +128,7 @@ class BoardAndRecordTest(unittest.TestCase):
     def board(self, events, now=NOW):
         with mock.patch.object(ml, "fetch_odds", return_value=(events, 5000)), \
                 mock.patch.object(ml, "_espn", return_value=ESPN), \
+                mock.patch("moneyline_matchup.espn_context", return_value=None), \
                 mock.patch.object(ml, "ratings", return_value={"teams": {"Kansas City Chiefs": 4.0, "Buffalo Bills": 1.0}, "rest": {}}):
             return ml.board("nfl", force=True, now=now)
 

@@ -74,12 +74,86 @@ function SideRow({game,side,info}){
  </div>;
 }
 
+const UNIT={points:'pts',runs:'runs',goals:'goals'};
+const round1=value=>Math.abs(value)>=10?Math.round(Math.abs(value)):Math.abs(value).toFixed(Math.abs(value)<1?2:1);
+// A factor's pull, as the team it favors: "+5.5 pts KC".
+const pull=(margin,away,home,unit)=>`+${round1(margin)} ${UNIT[unit]||unit} ${margin>=0?home.abbr:away.abbr}`;
+const ordinal=n=>`${n}${n%100>=11&&n%100<=13?'th':['th','st','nd','rd'][n%10]||'th'}`;
+const figure=value=>value==null?'—':Math.abs(value)>=10?value.toFixed(1):value.toFixed(2);
+
+function Form({games}){
+ if(!games?.length)return <span className="ml2-dim">—</span>;
+ return <span className="ml2-form">{games.map((game,index)=><i key={index} className={`r-${game.result||'x'}`} title={`${game.home?'vs':'@'} ${game.opponent||''} ${game.score||''}`}>{game.result||'·'}</i>)}</span>;
+}
+
+// Each team side by side: what it has done, where it plays, who is out.
+function Compare({game,away,home}){
+ const teams=game.matchup?.teams||{};
+ const a=teams.away||{},h=teams.home||{};
+ const rows=[
+  ['Record',a.record||away.record||'—',h.record||home.record||'—'],
+  ['Road / home',a.venueRecord?`${a.venueRecord} on the road`:'—',h.venueRecord?`${h.venueRecord} at home`:'—'],
+  ['Last 5',<Form games={a.form}/>,<Form games={h.form}/>],
+  [`Scores / game`,a.stats?<>{figure(a.stats.for)} <small className="ml2-rank">{ordinal(a.stats.forRank)}</small></>:'—',h.stats?<>{figure(h.stats.for)} <small className="ml2-rank">{ordinal(h.stats.forRank)}</small></>:'—'],
+  [`Allows / game`,a.stats?<>{figure(a.stats.against)} <small className="ml2-rank">{ordinal(a.stats.againstRank)}</small></>:'—',h.stats?<>{figure(h.stats.against)} <small className="ml2-rank">{ordinal(h.stats.againstRank)}</small></>:'—'],
+ ];
+ const starter=pitcher=>pitcher?.name?<>{pitcher.name}{pitcher.hand?` (${pitcher.hand})`:''}<small>{[pitcher.era!=null&&`${pitcher.era.toFixed(2)} ERA`,pitcher.whip!=null&&`${pitcher.whip.toFixed(2)} WHIP`,pitcher.k9!=null&&`${pitcher.k9.toFixed(1)} K/9`].filter(Boolean).join(' · ')}</small></>:'TBD';
+ if(a.starter||h.starter)rows.push(['Starter',starter(a.starter),starter(h.starter)]);
+ if(a.bullpen!=null||h.bullpen!=null)rows.push(['Bullpen, last 3 days',a.bullpen!=null?`${a.bullpen} IP`:'—',h.bullpen!=null?`${h.bullpen} IP`:'—']);
+ if(a.goalie||h.goalie)rows.push(['Likely goalie',...[a.goalie,h.goalie].map(g=>g?<>{g.name}<small>{g.savePct!=null?`${g.savePct.toFixed(3).replace(/^0/,'')} save %`:''}{g.backup?' · backup':''}</small></>:'—')]);
+ const hurt=list=>list?.length?<ul className="ml2-hurt">{list.slice(0,3).map(player=><li key={player.name}><b>{player.name}</b> <small>{[player.position,player.status].filter(Boolean).join(' · ')}</small></li>)}</ul>:<span className="ml2-dim">None listed</span>;
+ rows.push(['Injuries',hurt(a.injuries),hurt(h.injuries)]);
+ return <table className="ml2-compare" aria-label="Team comparison">
+  <thead><tr><th/><th><Logo src={away.logo} label={away.abbr}/>{away.abbr}</th><th><Logo src={home.logo} label={home.abbr}/>{home.abbr}</th></tr></thead>
+  <tbody>{rows.map(([label,left,right])=><tr key={label}><th scope="row">{label}</th><td>{left}</td><td>{right}</td></tr>)}</tbody>
+ </table>;
+}
+
+function Matchup({game,away,home}){
+ const m=game.matchup;
+ if(!m)return <p className="ml2-dim">Matchup details show up when the game is on ESPN's schedule.</p>;
+ const model=game.model||{};
+ const fairHome=game.fair?.home;
+ const views=[
+  model.base!=null&&['Ratings',model.base,null],
+  model.margin!=null&&['With the matchup',model.margin,model.ratingHome],
+ ].filter(Boolean);
+ const moved=m.movement&&fairHome!=null&&m.movement.open!=null?fairHome-m.movement.open:null;
+ return <div className="ml2-matchup">
+  <section>
+   <h4>What moves our number</h4>
+   <div className="ml2-views">
+    {views.map(([label,margin,chance])=><div key={label}><span>{label}</span><b>{margin>=0?home.abbr:away.abbr} by {round1(margin)} {UNIT[m.unit]}</b>{chance!=null&&<small>{pct(Math.max(chance,1-chance))} to win</small>}</div>)}
+    {m.espn&&<div><span>ESPN's model</span><b>{m.espn.home>=0.5?home.abbr:away.abbr} {pct(Math.max(m.espn.home,m.espn.away))}</b><small>to win</small></div>}
+    <div><span>Market</span><b>{fairHome>=0.5?home.abbr:away.abbr} {pct(Math.max(fairHome,1-fairHome))}</b><small>no-vig consensus</small></div>
+    <div className="is-ours"><span>Our number</span><b>{model.home>=0.5?home.abbr:away.abbr} {pct(Math.max(model.home,model.away),1)}</b><small>{model.tilt?`${model.tilt>0?home.abbr:away.abbr} +${Math.abs(model.tilt*100).toFixed(1)}% vs the market`:'the market'}</small></div>
+   </div>
+   {m.factors.length>0?<ul className="ml2-factors">{m.factors.map(item=><li key={item.key}>
+    <span className={`ml2-pull ${item.margin>=0?'is-home':'is-away'}`}>{pull(item.margin,away,home,m.unit)}</span>
+    <div><b>{item.label}</b>{item.text&&<small>{item.text}</small>}</div></li>)}</ul>
+    :<p className="ml2-dim">No matchup factor moves this one: it comes down to the ratings and the price.</p>}
+  </section>
+  <section><h4>Side by side</h4><Compare game={game} away={away} home={home}/></section>
+  {(m.h2h?.meetings?.length>0||m.h2h?.summary)&&<section><h4>Head to head</h4>
+   {m.h2h.summary&&<p className="ml2-series">{m.h2h.summary}</p>}
+   <ul className="ml2-meetings">{m.h2h.meetings.map((meeting,index)=>{
+    const homeName=meeting.homeName?team({homeName:meeting.homeName,awayName:meeting.awayName},'home').short:meeting.home;
+    const awayName=meeting.awayName?team({homeName:meeting.homeName,awayName:meeting.awayName},'away').short:meeting.away;
+    return <li key={index}><span>{day(meeting.date)}</span><b>{awayName} {meeting.awayScore} @ {homeName} {meeting.homeScore}</b></li>;})}</ul></section>}
+  {moved!=null&&Math.abs(moved)>=0.005&&<section><h4>Line movement</h4>
+   <p className="ml2-series">Opened {home.abbr} {pct(m.movement.open)} ({signed(americanOf(m.movement.open))}), now {pct(fairHome)} ({signed(game.fair.homeOdds)}): the market moved toward <b>{moved>0?home.short:away.short}</b>.</p></section>}
+ </div>;
+}
+const americanOf=p=>p==null||p<=0||p>=1?null:p>=0.5?Math.round(-100*p/(1-p)):Math.round(100*(1-p)/p);
+
 function Game({game}){
  const [open,setOpen]=useState(false);
+ const [tab,setTab]=useState('matchup');
  const away=team(game,'away'),home=team(game,'home');
  const pick=game.pick;
  const tier=pick?.tier||'none';
  const live=game.espn?.state==='in';
+ const top=[...(game.matchup?.factors||[])].sort((a,b)=>Math.abs(b.margin)-Math.abs(a.margin)).slice(0,3);
  return <article className={`ml2-game tier-${tier}`}>
   <header className="ml2-game-head">
    <span className="ml2-when">{live?<i className="ml2-live">Live</i>:null}{live?game.espn.detail:when(game.startsAt)}</span>
@@ -88,22 +162,27 @@ function Game({game}){
   <SideRow game={game} side="away" info={away}/>
   <SideRow game={game} side="home" info={home}/>
   <ChanceBar game={game} away={away} home={home}/>
+  {top.length>0&&<ul className="ml2-chips" aria-label="Biggest matchup factors">{top.map(item=><li key={item.key}>
+   <span>{item.label}</span><b className={item.margin>=0?'is-home':'is-away'}>{pull(item.margin,away,home,game.matchup.unit)}</b></li>)}</ul>}
   {pick&&pick.tier!=='lean'&&<div className="ml2-pick">
    <div><span>Bet</span><b><span className="ml2-full">{pick.side==='home'?home.name:away.name}</span><span className="ml2-short">{pick.side==='home'?home.short:away.short}</span> {signed(pick.price)}</b><em>at {pick.bookName}</em></div>
    <dl><div><dt>Edge</dt><dd>{edge(pick.ev)}</dd></div><div><dt>Win chance</dt><dd>{pct(pick.probability)}</dd></div>
     <div><dt>Stake</dt><dd>{pick.units}u</dd></div><div><dt>Bet down to</dt><dd>{signed(pick.fairOdds)}</dd></div></dl>
   </div>}
   <button type="button" className="ml2-more" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>
-   {open?'Hide the numbers':'Why and every book'}<ChevronDown size={15}/></button>
+   {open?'Hide the matchup':'Matchup, reasons and every book'}<ChevronDown size={15}/></button>
   {open&&<div className="ml2-detail">
-   <ul className="ml2-reasons">{game.reasons.map(reason=><li key={reason}>{reason}</li>)}</ul>
-   <table className="ml2-books">
-    <thead><tr><th>Book</th><th>{away.abbr}</th><th>{home.abbr}</th></tr></thead>
-    <tbody>{game.books.map(book=><tr key={book.key} className={book.key==='pinnacle'||book.key==='betonlineag'?'is-sharp':''}>
-     <td>{book.name}{(book.key==='pinnacle'||book.key==='betonlineag')&&<small>sharp</small>}</td>
-     <td className={game.best?.away?.book===book.key?'is-best':''}>{signed(book.away)}</td>
-     <td className={game.best?.home?.book===book.key?'is-best':''}>{signed(book.home)}</td></tr>)}</tbody>
-   </table>
+   <div className="ml2-tabs" role="tablist">{[['matchup','Matchup'],['prices','Prices']].map(([key,label])=>
+    <button type="button" role="tab" key={key} aria-selected={tab===key} onClick={()=>setTab(key)}>{label}</button>)}</div>
+   {tab==='matchup'?<Matchup game={game} away={away} home={home}/>:<>
+    <ul className="ml2-reasons">{game.reasons.map(reason=><li key={reason}>{reason}</li>)}</ul>
+    <table className="ml2-books">
+     <thead><tr><th>Book</th><th>{away.abbr}</th><th>{home.abbr}</th></tr></thead>
+     <tbody>{game.books.map(book=><tr key={book.key} className={book.key==='pinnacle'||book.key==='betonlineag'?'is-sharp':''}>
+      <td>{book.name}{(book.key==='pinnacle'||book.key==='betonlineag')&&<small>sharp</small>}</td>
+      <td className={game.best?.away?.book===book.key?'is-best':''}>{signed(book.away)}</td>
+      <td className={game.best?.home?.book===book.key?'is-best':''}>{signed(book.home)}</td></tr>)}</tbody>
+    </table></>}
   </div>}
  </article>;
 }

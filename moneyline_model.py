@@ -59,10 +59,10 @@ BOOKS = {
     "hardrockbet": {"name": "Hard Rock", "weight": 1.0, "bettable": True},
 }
 
-# How far our ratings may move the market's chance, and how much of their
-# disagreement they get.
-MAX_TILT = 0.03
-TILT_WEIGHT = 0.25
+# How far our view (the ratings with the matchup, and ESPN's model) may move
+# the market's chance, and how much of its disagreement it gets.
+MAX_TILT = 0.035
+TILT_WEIGHT = 0.3
 # A play: the best price is worth at least this much at the model's chance,
 # and at least break-even at the market's own (our ratings sharpen a play,
 # they never make one against the market). Strong plays clear more on both
@@ -361,56 +361,96 @@ def srs(games, hfa, shrink, rounds=40):
     return rating
 
 
+def ranked(stats):
+    """Each team's points (runs, goals) for and against a game, with ranks:
+    1 scores the most, 1 allows the least."""
+    teams = [team for team, row in stats.items() if finite(row.get("for")) and finite(row.get("against"))]
+    by_for = sorted(teams, key=lambda team: -stats[team]["for"])
+    by_against = sorted(teams, key=lambda team: stats[team]["against"])
+    return {team: {**stats[team], "forRank": by_for.index(team) + 1, "againstRank": by_against.index(team) + 1, "teams": len(teams)}
+            for team in teams}
+
+
 def nfl_ratings(now):
-    """NFL: opponent-adjusted margins from this season and last (last season
-    counts a third as much; a blowout counts as 21 at most), with each
-    upcoming game's rest days."""
+    """NFL: opponent-adjusted margins from this season and last, recent games
+    counting more (a game four months back counts half; last season a third
+    as much again; a blowout counts as 21 at most), with each upcoming
+    game's rest days, five seasons of meetings, and points for and against."""
     from backend.sports.nfl import finder
     season = now.year if now.month >= 3 else now.year - 1
-    names = {**finder.team_names(season - 1), **finder.team_names(season)}
-    games, rest = [], {}
+    names = {}
+    for year in range(season - 4, season + 1):
+        names.update(finder.team_names(year))
+    games, rest, meetings, scoring = [], {}, {}, {}
     for row in finder.schedule_rows():
-        year = str(row.get("season") or "")
-        if year not in (str(season), str(season - 1)) or str(row.get("game_type") or "").upper() not in finder.SEASON_KIND:
+        try:
+            year = int(row.get("season") or 0)
+        except (TypeError, ValueError):
+            continue
+        if year < season - 4 or str(row.get("game_type") or "").upper() not in finder.SEASON_KIND:
             continue
         home, away = names.get(finder.canonical_team(row.get("home_team"))), names.get(finder.canonical_team(row.get("away_team")))
         if not home or not away:
             continue
         try:
-            margin = float(row["home_score"]) - float(row["away_score"])
+            home_score, away_score = float(row["home_score"]), float(row["away_score"])
         except (KeyError, TypeError, ValueError):
-            try:
-                rest[(name_key(home), name_key(away))] = (int(float(row.get("home_rest"))), int(float(row.get("away_rest"))))
-            except (TypeError, ValueError):
-                pass
+            if year == season:
+                try:
+                    rest[(name_key(home), name_key(away))] = (int(float(row.get("home_rest"))), int(float(row.get("away_rest"))))
+                except (TypeError, ValueError):
+                    pass
             continue
-        games.append((home, away, max(-21.0, min(21.0, margin)), 1.0 if year == str(season) else 0.33))
-    return {"teams": srs(games, SPORTS["nfl"]["hfa"], shrink=2.5), "rest": rest}
+        pair = tuple(sorted((name_key(home), name_key(away))))
+        meetings.setdefault(pair, []).append({"date": row.get("gameday"), "homeName": home, "awayName": away,
+                                              "homeScore": home_score, "awayScore": away_score})
+        if year >= season - 1:
+            kickoff = _time(f"{row.get('gameday')}T17:00:00+00:00")
+            age = (now - kickoff).days if kickoff else 365
+            weight = 0.5 ** (max(age, 0) / 120) * (1.0 if year == season else 0.33)
+            games.append((home, away, max(-21.0, min(21.0, home_score - away_score)), weight))
+        bucket = scoring.setdefault(year, {})
+        for team, scored, allowed in ((home, home_score, away_score), (away, away_score, home_score)):
+            entry = bucket.setdefault(team, [0.0, 0.0, 0])
+            entry[0] += scored
+            entry[1] += allowed
+            entry[2] += 1
+    current = scoring.get(season) or {}
+    base = current if current and min(entry[2] for entry in current.values()) >= 2 else {
+        team: [a + b for a, b in zip(current.get(team, [0.0, 0.0, 0]), scoring.get(season - 1, {}).get(team, [0.0, 0.0, 0]))]
+        for team in set(current) | set(scoring.get(season - 1) or {})}
+    stats = {team: {"for": entry[0] / entry[2], "against": entry[1] / entry[2]} for team, entry in base.items() if entry[2]}
+    for pair in meetings:
+        meetings[pair] = sorted(meetings[pair], key=lambda item: item.get("date") or "", reverse=True)[:5]
+    return {"teams": srs(games, SPORTS["nfl"]["hfa"], shrink=2.5), "rest": rest, "meetings": meetings, "stats": ranked(stats)}
 
 
 def mlb_ratings(now):
     """MLB: run differential per game (pulled toward average by 40 games),
-    plus tonight's probable starter against his own staff."""
+    each team's runs for and against, and tonight's starters, lineups and
+    staffs (mlb_context) for the matchup factors."""
     from live_props_core import mlb
     import mlb_context
     season = now.year
     payload = mlb("/standings", {"leagueId": "103,104", "season": season, "standingsTypes": "regularSeason", "hydrate": "team"})
-    teams, ids = {}, {}
+    teams, ids, stats = {}, {}, {}
     for record in payload.get("records") or []:
         for row in record.get("teamRecords") or []:
             team = row.get("team") or {}
             played = float(row.get("gamesPlayed") or 0)
             if not team.get("name") or not played:
                 continue
-            diff = (float(row.get("runsScored") or 0) - float(row.get("runsAllowed") or 0)) / played
-            teams[team["name"]] = diff * played / (played + 40)
+            scored, allowed = float(row.get("runsScored") or 0), float(row.get("runsAllowed") or 0)
+            teams[team["name"]] = (scored - allowed) / played * played / (played + 40)
             ids[team["name"]] = str(team.get("id"))
+            stats[team["name"]] = {"for": scored / played, "against": allowed / played}
     try:
         context = mlb_context.context()
     except Exception:  # noqa: BLE001 -- ratings still stand without starters
         context = {}
-    return {"teams": teams, "ids": ids, "probables": context.get("probables") or {}, "staffs": context.get("pitching") or {},
-            "league": context.get("league") or {}}
+    return {"teams": teams, "ids": ids, "stats": ranked(stats), "probables": context.get("probables") or {},
+            "staffs": context.get("pitching") or {}, "hitting": context.get("hitting") or {}, "league": context.get("league") or {},
+            "season": season}
 
 
 def starter_edge(ratings, team):
@@ -429,7 +469,8 @@ def starter_edge(ratings, team):
 
 def nhl_ratings(now):
     """NHL: goal differential per game, this season pulled toward last
-    season's (itself pulled a third of the way to average)."""
+    season's (itself pulled a third of the way to average), with goals for
+    and against a game."""
     import nhl_research
     season = nhl_research.season_id()
     tables = []
@@ -440,15 +481,19 @@ def nhl_ratings(now):
             name = row.get("teamFullName")
             played = float(row.get("gamesPlayed") or 0)
             if name and played:
-                table[name] = ((float(row.get("goalsForPerGame") or 0) - float(row.get("goalsAgainstPerGame") or 0)), played)
+                table[name] = (float(row.get("goalsForPerGame") or 0), float(row.get("goalsAgainstPerGame") or 0), played)
         tables.append(table)
     current, previous = tables
-    teams = {}
+    teams, stats = {}, {}
     for name in set(current) | set(previous):
-        prior = previous.get(name, (0.0, 0))[0] * 0.67
-        diff, played = current.get(name, (0.0, 0))
-        teams[name] = (diff * played + prior * 25) / (played + 25)
-    return {"teams": teams}
+        before = previous.get(name, (0.0, 0.0, 0))
+        prior = (before[0] - before[1]) * 0.67
+        scored, allowed, played = current.get(name, (0.0, 0.0, 0))
+        teams[name] = ((scored - allowed) * played + prior * 25) / (played + 25)
+        source = current[name] if played >= 5 else before
+        if source[2]:
+            stats[name] = {"for": source[0], "against": source[1]}
+    return {"teams": teams, "stats": ranked(stats)}
 
 
 def wnba_ratings(now):
@@ -458,16 +503,16 @@ def wnba_ratings(now):
     payload = league.stored(league.current_season())
     if not payload or not payload.get("games"):
         return {"teams": {}}
-    stats = context.team_stats(context.team_games(payload))
+    table = context.team_stats(context.team_games(payload))
     names = {abbr: team.get("name") for abbr, team in (payload.get("teams") or {}).items()}
-    teams = {}
-    for abbr, row in stats.items():
+    teams, stats = {}, {}
+    for abbr, row in table.items():
         played = row.get("games") or 0
         scored, allowed = (row.get("off") or {}).get("pts", [None])[0], (row.get("def") or {}).get("pts", [None])[0]
         if names.get(abbr) and played and finite(scored) and finite(allowed):
             teams[names[abbr]] = (scored - allowed) * played / (played + 8)
-    return {"teams": teams}
-
+            stats[names[abbr]] = {"for": scored, "against": allowed}
+    return {"teams": teams, "stats": ranked(stats)}
 
 RATINGS = {"nfl": nfl_ratings, "mlb": mlb_ratings, "nhl": nhl_ratings, "wnba": wnba_ratings}
 
@@ -498,10 +543,28 @@ def team_rating(table, name):
 
 # ---------------------------------------------------------------- the model
 
-def read_game(sport, game, rated, espn=None):
-    """One game, priced: the market's fair chance, our ratings' view, the
-    blended chance, the best price on each side, and the play (if any)."""
+def _team_view(rated, context, side, team, espn_side):
+    """One team's column in the matchup: record, home or road record, last
+    five, scoring and allowing (with ranks), and the injury report."""
+    stats = (rated.get("stats") or {}).get(team) if team else None
+    records = (((context or {}).get("sides") or {}).get(side) or {}).get("records") or {}
+    form = ((context or {}).get("form") or {}).get(side) or []
+    return {"record": records.get("total") or (espn_side or {}).get("record"),
+            "venueRecord": records.get("home" if side == "home" else "road"),
+            "form": [{"result": game.get("result"), "score": game.get("score"), "opponent": game.get("opponent"), "home": game.get("home")}
+                     for game in form],
+            "stats": stats, "injuries": [player for player in ((context or {}).get("injuries") or {}).get(side) or []
+                                         if str(player.get("status") or "").lower() in ("out", "doubtful", "questionable", "day-to-day",
+                                                                                        "injured reserve", "suspension")][:6]}
+
+
+def read_game(sport, game, rated, espn=None, context=None, extras=None, opening=None):
+    """One game, priced: the market's fair chance, our view (the ratings
+    plus every matchup factor, blended with ESPN's own model), the best price
+    on each side, the play (if any), and the matchup behind it."""
+    import moneyline_matchup as matchup
     config = SPORTS[sport]
+    extras = extras or {}
     fair, used = consensus(game["books"])
     out = {**game, "sport": sport, "fair": None, "model": None, "best": {}, "ev": {}, "pick": None, "reasons": [],
            "sharp": any(key in ("pinnacle", "betonlineag") for key in used), "booksUsed": len(used)}
@@ -511,36 +574,106 @@ def read_game(sport, game, rated, espn=None):
         return out
     out["fair"] = {"home": fair, "away": 1 - fair, "homeOdds": american(fair), "awayOdds": american(1 - fair)}
 
-    # Our ratings: the expected margin tonight, home edge included.
     home_rating, home_team = team_rating(rated.get("teams"), game["homeName"])
     away_rating, away_team = team_rating(rated.get("teams"), game["awayName"])
-    notes = []
-    chance = fair
+    names = {"home": ((espn or {}).get("home") or {}).get("short") or game["homeName"],
+             "away": ((espn or {}).get("away") or {}).get("short") or game["awayName"]}
+    context = context or {}
+    starts = _time(game.get("startsAt"))
+    factors = []
+
+    def add(item):
+        if item and finite(item.get("margin")) and abs(item["margin"]) >= 0.005:
+            factors.append(item)
+
+    # The matchup, factor by factor -- each a small change to the margin.
+    if sport == "mlb":
+        total, notes = 0.0, []
+        for side, team in (("home", home_team), ("away", away_team)):
+            edge, pitcher = starter_edge(rated, team) if team else (0.0, None)
+            if pitcher and pitcher.get("name") and abs(edge) >= 0.05:
+                total += edge if side == "home" else -edge
+                notes.append(f"{pitcher['name']} ({pitcher['era']:.2f} ERA) {'saves' if edge > 0 else 'costs'} {names[side]} "
+                             f"{abs(edge):.2f} runs against their usual starter")
+        if notes:
+            add(matchup.factor("starter", "Starting pitchers", total, "; ".join(notes)))
+        ids = rated.get("ids") or {}
+        home_id, away_id = ids.get(home_team), ids.get(away_team)
+        add(matchup.bullpen(extras.get("bullpens"), home_id, away_id, names))
+        add(matchup.platoon(extras.get("platoon") or {}, rated.get("hitting") or {}, rated.get("probables") or {}, home_id, away_id, names))
+    if sport == "nfl":
+        rest_days = (rated.get("rest") or {}).get((name_key(game["homeName"]), name_key(game["awayName"])))
+        if rest_days and rest_days[0] != rest_days[1]:
+            rested = "home" if rest_days[0] > rest_days[1] else "away"
+            add(matchup.factor("rest", "Rest", max(-2.0, min(2.0, 0.3 * (rest_days[0] - rest_days[1]))),
+                               f"{names[rested]} have {abs(rest_days[0] - rest_days[1])} more days of rest"))
+        elif context:
+            add(matchup.rest(sport, context, starts, names))
+    elif context:
+        add(matchup.rest(sport, context, starts, names))
+    if context:
+        ratings_by_side = {"home": home_rating, "away": away_rating}
+        add(matchup.form(sport, context, ratings_by_side))
+        add(matchup.splits(sport, context, config["sd"]))
+        add(matchup.injuries(sport, context, names))
+    if sport == "nhl" and extras.get("goalies"):
+        tired = {(item.get("detail") or {}).get("tired"): True for item in factors if item["key"] == "rest"}
+        add(matchup.goalie(extras["goalies"], home_team, away_team, tired, names))
+
+    # Head to head: nflverse's last five meetings, else this season's series.
+    meetings = []
+    if sport == "nfl":
+        for meeting in (rated.get("meetings") or {}).get(tuple(sorted((name_key(game["homeName"]), name_key(game["awayName"])))), []):
+            meetings.append({**meeting, "homeIsHome": name_key(meeting["homeName"]) == name_key(game["homeName"]),
+                             "home": meeting["homeName"], "away": meeting["awayName"]})
+    elif context.get("series"):
+        home_abbr = ((context.get("sides") or {}).get("home") or {}).get("abbr")
+        meetings = [{**meeting, "homeIsHome": meeting.get("home") == home_abbr} for meeting in context["series"].get("meetings") or []]
+
+    base = None
     if home_rating is not None and away_rating is not None:
-        margin = home_rating - away_rating + config["hfa"]
-        if sport == "mlb":
-            home_edge, home_pitcher = starter_edge(rated, home_team)
-            away_edge, away_pitcher = starter_edge(rated, away_team)
-            margin += home_edge - away_edge
-            for pitcher, edge, team in ((home_pitcher, home_edge, game["homeName"]), (away_pitcher, away_edge, game["awayName"])):
-                if pitcher and pitcher.get("name") and abs(edge) >= 0.15:
-                    notes.append(f"{pitcher['name']} ({pitcher['era']:.2f} ERA) {'lifts' if edge > 0 else 'costs'} {team} "
-                                 f"{abs(edge):.1f} runs against their usual starter")
-        if sport == "nfl":
-            rest = rated.get("rest", {}).get((name_key(game["homeName"]), name_key(game["awayName"])))
-            if rest and rest[0] != rest[1]:
-                bonus = max(-2.0, min(2.0, 0.3 * (rest[0] - rest[1])))
-                margin += bonus
-                rested = game["homeName"] if rest[0] > rest[1] else game["awayName"]
-                notes.append(f"{rested} have {abs(rest[0] - rest[1])} more days of rest")
-        rating_chance = normal_cdf(margin / config["sd"])
-        tilt = max(-MAX_TILT, min(MAX_TILT, TILT_WEIGHT * (rating_chance - fair)))
+        base = home_rating - away_rating + config["hfa"]
+        add(matchup.head_to_head(sport, meetings, game["homeName"], base))
+    margin = None if base is None else base + sum(item["margin"] for item in factors)
+
+    # Our view: the ratings with the matchup, and ESPN's own model.
+    rating_chance = normal_cdf(margin / config["sd"]) if margin is not None else None
+    outside = (context.get("predictor") or {}).get("home")
+    views = [value for value in (rating_chance, outside) if value is not None]
+    chance = fair
+    tilt = 0.0
+    if views:
+        opinion = sum(views) / len(views)
+        tilt = max(-MAX_TILT, min(MAX_TILT, TILT_WEIGHT * (opinion - fair)))
         chance = fair + tilt
+    text = None
+    if margin is not None:
         leader = game["homeName"] if margin >= 0 else game["awayName"]
-        out["model"] = {"home": chance, "away": 1 - chance, "ratingHome": rating_chance, "margin": margin, "tilt": tilt,
-                        "text": f"Our ratings have {leader} by {abs(margin):.1f} {config['unit']} ({round(max(rating_chance, 1 - rating_chance) * 100)}%)"}
-    else:
-        out["model"] = {"home": chance, "away": 1 - chance, "ratingHome": None, "margin": None, "tilt": 0.0, "text": None}
+        text = (f"Our ratings with the matchup have {leader} by {abs(margin):.1f} {config['unit']} "
+                f"({round(max(rating_chance, 1 - rating_chance) * 100)}%)")
+    out["model"] = {"home": chance, "away": 1 - chance, "ratingHome": rating_chance, "espnHome": outside, "margin": margin,
+                    "base": base, "tilt": tilt, "text": text}
+    out["matchup"] = {
+        "factors": factors, "unit": config["unit"],
+        "espn": context.get("predictor"),
+        "teams": {side: _team_view(rated, context, side, team, (espn or {}).get(side))
+                  for side, team in (("home", home_team), ("away", away_team))},
+        "h2h": {"summary": (context.get("series") or {}).get("summary") if sport != "nfl" else None, "meetings": meetings[:5]},
+        "movement": {"open": opening.get("home"), "openedAt": opening.get("at")} if opening else None,
+    }
+    if sport == "mlb":
+        ids = rated.get("ids") or {}
+        for side, team in (("home", home_team), ("away", away_team)):
+            team_id = ids.get(team)
+            view = out["matchup"]["teams"][side]
+            view["starter"] = (rated.get("probables") or {}).get(team_id)
+            usage = (extras.get("bullpens") or {}).get(team_id)
+            view["bullpen"] = round(usage["innings"], 1) if usage else None
+    if sport == "nhl":
+        goalie = next((item for item in factors if item["key"] == "goalies"), None)
+        for note in ((goalie or {}).get("detail") or {}).get("goalies") or []:
+            out["matchup"]["teams"][note["side"]]["goalie"] = note
+    notes = [item["text"] for item in factors if item.get("text")]
 
     best_side = None
     out["marketEv"] = {}
@@ -585,10 +718,15 @@ def read_game(sport, game, rated, espn=None):
         pick = out["pick"]
         reasons.append(f"{pick['bookName']} pays {_signed(pick['price'])}: worth {pick['ev'] * 100:+.1f}% at a "
                        f"{round(pick['probability'] * 100)}% chance.")
-    if out["model"].get("text"):
-        agree = out["model"]["tilt"] * (1 if (best_side or "home") == "home" else -1)
-        reasons.append(out["model"]["text"] + ("; they back this side." if agree >= 0.005
-                                               else "; they lean the other way." if agree <= -0.005 else ", close to the market."))
+    agree = out["model"]["tilt"] * (1 if (best_side or "home") == "home" else -1)
+    verdict = "; together they back this side." if agree >= 0.005 else "; together they lean the other way." if agree <= -0.005 \
+        else ", close to the market."
+    views = [out["model"]["text"]] if out["model"].get("text") else []
+    if out["model"].get("espnHome") is not None:
+        espn_side = out["model"]["espnHome"] if (best_side or "home") == "home" else 1 - out["model"]["espnHome"]
+        views.append(f"ESPN's model has {side_name} at {round(espn_side * 100)}%")
+    if views:
+        reasons.append(". ".join(views) + verdict)
     reasons.extend(notes)
     out["reasons"] = reasons
     return out
@@ -625,13 +763,54 @@ def board(sport, force=False, now=None):
     except Exception:  # noqa: BLE001 -- logos and records are extras
         pass
     rated = ratings(sport, now)
-    read = [read_game(sport, game, rated, match_espn(game, espn_games)) for game in games]
+    matched = {game["id"]: match_espn(game, espn_games) for game in games}
+    import moneyline_matchup
+    pages = moneyline_matchup.contexts(sport, SPORTS[sport]["espn"], [(item or {}).get("id") for item in matched.values()])
+    extras = league_extras(sport, rated, now)
+    openings = opening_prices(sport, games, now)
+    read = [read_game(sport, game, rated, matched[game["id"]], pages.get((matched[game["id"]] or {}).get("id")), extras,
+                      openings.get(game["id"])) for game in games]
     live = [game for game in read if (_time(game["startsAt"]) or now) > now]
     if fetched:
         remember(sport, read, now)
     live.sort(key=lambda game: (game["startsAt"] or "", -(game["pick"] or {}).get("ev", -1)))
     return {"sport": sport, "version": VERSION, "updatedAt": datetime.fromtimestamp(snapshot["at"], timezone.utc).isoformat(),
             "games": live, "plays": sum(1 for game in live if (game["pick"] or {}).get("tier") in ("play", "strong"))}
+
+
+def league_extras(sport, rated, now):
+    """What a league's matchups need beyond each game's page: MLB bullpens
+    and lineup splits, NHL goalies. Each is optional."""
+    import moneyline_matchup
+    out = {}
+    jobs = {"mlb": {"bullpens": lambda: moneyline_matchup.mlb_bullpens(now),
+                    "platoon": lambda: moneyline_matchup.mlb_platoon(rated.get("season") or now.year)},
+            "nhl": {"goalies": moneyline_matchup.nhl_goalies}}.get(sport, {})
+    for name, job in jobs.items():
+        try:
+            out[name] = job()
+        except Exception:  # noqa: BLE001 -- the game is still priced without it
+            out[name] = None
+    return out
+
+
+def opening_prices(sport, games, now):
+    """The first fair price seen for each game, kept so the page can show
+    how far the market has moved since."""
+    seen = _load(f"open:{sport}", {}) or {}
+    changed = False
+    for game in games:
+        if game["id"] in seen:
+            continue
+        fair, _ = consensus(game["books"])
+        if fair is not None:
+            seen[game["id"]] = {"home": fair, "at": now.isoformat()}
+            changed = True
+    cutoff = (now - timedelta(days=10)).isoformat()
+    kept = {key: value for key, value in seen.items() if value.get("at", "") >= cutoff}
+    if changed or len(kept) != len(seen):
+        _save(f"open:{sport}", kept)
+    return kept
 
 
 def leagues():
