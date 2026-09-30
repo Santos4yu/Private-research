@@ -2,7 +2,7 @@
 // Slip alike. Both read and write the same saved boards (finder-store.js),
 // so hit rates worked out on one page are there on the other.
 import {loadFinderSport, enrichMlbRows, enrichWnbaRows, enrichSoccerRows, enrichNhlRows, persistFinderCache, readFinderCache,
-  carryHistory, loadFinderDefense, withDefense} from './unified-finder-data';
+  carryHistory, loadFinderDefense, withDefense, loadMlbMatchups, withMlbMatchups} from './unified-finder-data';
 
 // How each league's lines get their hit rates after the board arrives.
 export const ENRICH = {wnba: enrichWnbaRows, mlb: enrichMlbRows, soccer: enrichSoccerRows, nhl: enrichNhlRows};
@@ -18,8 +18,8 @@ export const needsHistory = (sport, row) => row.historyStatus === 'pending'
   || ((sport === 'wnba' || sport === 'mlb') && row.historyStatus !== 'ready' && row.historyStatus !== 'none');
 
 /**
- * One league's current lines, hit rates filled in and (WNBA, NFL) defense
- * ranks added. `only` limits which lines get their hit rates worked out;
+ * One league's current lines, hit rates filled in, (WNBA, NFL) what each
+ * defense allows and (MLB) today's probable starters and lineups. `only` limits which lines get their hit rates worked out;
  * `onProgress` hears {sport, stage, done, total, rows} as it goes, `rows`
  * being the lines just filled in.
  */
@@ -47,8 +47,10 @@ export async function loadLines(sport, {signal, onProgress, only} = {}) {
   }
   let rows = result.rows;
   onProgress?.({sport, stage: 'done', done: pending.length, total: pending.length});
-  if (sport === 'wnba' || sport === 'nfl') {
-    try { rows = withDefense(rows, await loadFinderDefense(sport, {signal})); } catch (error) { if (error.name === 'AbortError') throw error; }
-  }
+  // Matchups add to a line; without them the line still stands.
+  try {
+    if (sport === 'wnba' || sport === 'nfl') rows = withDefense(rows, await loadFinderDefense(sport, {signal}));
+    if (sport === 'mlb') rows = withMlbMatchups(rows, await loadMlbMatchups({signal}));
+  } catch (error) { if (error.name === 'AbortError') throw error; }
   return rows;
 }

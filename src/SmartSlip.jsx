@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {ArrowUpRight,Check,Lock,LockOpen,RefreshCw,Repeat2,Search,Shield,ShieldCheck,Sparkles,Zap} from 'lucide-react';
+import {ArrowUpRight,Check,Lock,LockOpen,RefreshCw,Repeat2,Search,Shield,ShieldCheck,Sparkles,TriangleAlert,Zap} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import {siteFinderSportAllowed} from './site-access';
 import {finderSlipProp} from './unified-finder-data';
@@ -106,11 +106,14 @@ function Leg({leg,index,locked,onLock,onSwap,onResearch}){
   <div className="ss-leg-head">
    <div className="ss-leg-face"><Photo src={row.headshot} name={row.player}/><img className="ss-leg-league" src={LEAGUE_LOGOS[row.sport]} alt=""/></div>
    <div className="ss-leg-who"><b>{row.player}</b><span>{row.teamAbbr||SPORT_NAMES[row.sport]}{opponent}{row.startsAt?` · ${when(row.startsAt)}`:''}</span></div>
-   <div className="ss-leg-chance" style={{'--p':Math.round(leg.chance*100)}}><b>{percent(leg.chance)}</b><span>chance</span></div>
+   <div className="ss-leg-chance" style={{'--p':Math.round(leg.chance*100)}}><b>{percent(leg.chance)}</b><span>chance</span>
+    {leg.grade&&<i className="ss-grade" data-grade={leg.grade} aria-label={`Grade ${leg.grade}`}>{leg.grade}</i>}</div>
   </div>
   <div className="ss-leg-pick"><span className={'ss-side '+(leg.side==='UNDER'?'is-less':'is-more')}>{side}</span><b>{figure(row.line)}</b><span>{row.market}</span>
    {MODIFIER_ICON[leg.modifier]&&<img src={MODIFIER_ICON[leg.modifier]} alt={leg.modifier} width="18" height="18"/>}</div>
-  <ul className="ss-reasons">{reasons(leg).slice(0,5).map(item=><li key={item.key} data-kind={item.key}><b>{item.strong}</b><span>{item.label}</span>{item.detail&&<small>{item.detail}</small>}</li>)}</ul>
+  {leg.note&&<p className="ss-note">{leg.note}</p>}
+  <ul className="ss-reasons">{reasons(leg).slice(0,6).map(item=><li key={item.key} data-kind={item.key} data-tone={item.tone||undefined}><b>{item.strong}</b><span>{item.label}</span>{item.detail&&<small>{item.detail}</small>}</li>)}</ul>
+  {leg.read?.risks?.length>0&&<ul className="ss-watch">{leg.read.risks.map(risk=><li key={risk}><TriangleAlert size={12}/>{risk}</li>)}</ul>}
   <div className="ss-leg-actions">
    <button type="button" className="ss-lock" aria-pressed={locked} onClick={onLock}>{locked?<Lock size={14}/>:<LockOpen size={14}/>}{locked?'Locked':'Lock'}</button>
    <button type="button" className="ss-swap" onClick={onSwap} disabled={locked}><Repeat2 size={14}/>Swap</button>
@@ -129,6 +132,7 @@ function Ticket({slip,locked,onLock,onSwap,onResearch,onAdd,onExport,exporting})
     <div><dt>{slip.play==='flex'?'To profit':'All hit'}</dt><dd>{percent(slip.play==='flex'?slip.profit:slip.chance)}</dd></div>
     <div><dt>Edge</dt><dd className={slip.value>=1?'is-up':'is-down'}>{slip.value>=1?'+':'−'}{Math.abs(Math.round((slip.value-1)*100))}%</dd></div>
     <div><dt>Fair price</dt><dd>{times(slip.fair,false)}</dd></div>
+    {slip.legs.every(leg=>leg.grade)&&<div><dt>Grades</dt><dd className="ss-grades">{slip.legs.map(leg=><i key={leg.id} data-grade={leg.grade}>{leg.grade}</i>)}</dd></div>}
    </dl>
   </div>
   <div className="ss-legs">{slip.legs.map((leg,index)=><Leg key={leg.id} leg={leg} index={index} locked={locked.includes(leg.id)}
