@@ -1,5 +1,6 @@
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+from unittest import mock
 
 import moneyline_matchup as mm
 import moneyline_model as ml
@@ -104,6 +105,93 @@ class FactorsTest(unittest.TestCase):
         self.assertGreater(rested["margin"], 0)
         self.assertLess(tired["margin"], 0)
         self.assertIn("likely backup", tired["text"])
+
+
+def espn_event(event_id, home, away):
+    return {"id": event_id, "date": "2026-09-30T23:05Z", "competitions": [{"status": {"type": {"state": "pre"}}, "competitors": [
+        {"homeAway": "home", "team": {"displayName": home, "shortDisplayName": home.split()[-1], "abbreviation": home[:3].upper(), "logo": "h.png"},
+         "records": [{"summary": "90-72"}]},
+        {"homeAway": "away", "team": {"displayName": away, "shortDisplayName": away.split()[-1], "abbreviation": away[:3].upper(), "logo": "a.png"},
+         "records": [{"summary": "88-74"}]}]}]}
+
+
+class ScoreboardTest(unittest.TestCase):
+    def setUp(self):
+        ml._memory.clear()
+
+    def test_one_day_a_request_and_a_bad_day_is_skipped(self):
+        asked = []
+
+        def espn(path, params):
+            asked.append(params["dates"])
+            if params["dates"] == "20260930":
+                raise RuntimeError("timeout")
+            return {"events": [espn_event("1", "New York Yankees", "Boston Red Sox")]}
+        with mock.patch.object(ml, "_espn", side_effect=espn):
+            games = ml.scoreboard("mlb", date(2026, 9, 29), date(2026, 10, 1))
+        self.assertEqual(sorted(asked), ["20260929", "20260930", "20261001"])
+        self.assertEqual(len(games), 1)          # the same game on two days is kept once
+        with mock.patch.object(ml, "_espn", side_effect=RuntimeError("down")), self.assertRaises(RuntimeError):
+            ml.scoreboard("mlb", date(2026, 10, 5), date(2026, 10, 6))
+
+    def test_a_failed_read_is_not_kept(self):
+        calls = []
+        self.assertIsNone(mm.kept("probe", 600, lambda: calls.append(1)))
+        self.assertIsNone(ml._load("ctx:probe"))
+        mm._memory["probe"] = (0, None)
+        self.assertEqual(mm.kept("probe", 600, lambda: {"ok": True}), {"ok": True})
+
+
+class TeamFactsTest(unittest.TestCase):
+    def setUp(self):
+        ml._memory.clear()
+        mm._memory.clear()
+
+    def test_mlb_standings_and_last_five_from_the_schedule(self):
+        rated = {"records": {"New York Yankees": {"id": "147", "abbr": "NYY", "short": "Yankees", "total": "94-68", "home": "50-31", "road": "44-37"},
+                             "Boston Red Sox": {"id": "111", "abbr": "BOS", "short": "Red Sox", "total": "89-73", "home": "47-34", "road": "42-39"}}}
+        games = [{"gameDate": f"2026-09-2{day}T23:05:00Z", "status": {"abstractGameState": "Final"},
+                  "teams": {"home": {"team": {"id": 147}, "score": 5}, "away": {"team": {"id": 111}, "score": 3 + day % 4}}}
+                 for day in range(1, 8)]
+        with mock.patch("live_props_core.mlb", return_value={"dates": [{"games": games}]}):
+            facts = mm.team_facts("mlb", rated, datetime(2026, 9, 30, 16, tzinfo=timezone.utc))
+        yankees = facts["New York Yankees"]
+        self.assertEqual((yankees["abbr"], yankees["short"], yankees["records"]["home"]), ("NYY", "Yankees", "50-31"))
+        self.assertIn("/147.svg", yankees["logo"])
+        self.assertEqual(len(yankees["form"]), 5)
+        self.assertEqual(yankees["form"][-1]["date"], "2026-09-27T23:05:00Z")
+        self.assertEqual(facts["Boston Red Sox"]["form"][-1]["opponent"], "NYY")
+
+    def test_nfl_records_and_form_from_nflverse(self):
+        rows = [{"season": "2026", "game_type": "REG", "gameday": f"2026-09-{day:02d}", "home_team": "KC", "away_team": "BUF",
+                 "home_score": str(hs), "away_score": str(aws)} for day, hs, aws in ((7, 27, 20), (14, 17, 24), (21, 30, 10))]
+        rows.append({"season": "2026", "game_type": "REG", "gameday": "2026-10-04", "home_team": "KC", "away_team": "BUF", "home_score": "", "away_score": ""})
+        with mock.patch("backend.sports.nfl.finder.team_names", return_value={"KC": "Kansas City Chiefs", "BUF": "Buffalo Bills", "LA": "Los Angeles Rams"}), \
+                mock.patch("backend.sports.nfl.finder.schedule_rows", return_value=rows):
+            facts = mm.team_facts("nfl", {}, datetime(2026, 9, 30, tzinfo=timezone.utc))
+        chiefs = facts["Kansas City Chiefs"]
+        self.assertEqual((chiefs["records"]["total"], chiefs["records"]["home"]), ("2-1", "2-1"))
+        self.assertEqual(facts["Buffalo Bills"]["records"]["road"], "1-2")
+        self.assertEqual([game["result"] for game in chiefs["form"]], ["W", "L", "W"])
+        self.assertTrue(facts["Los Angeles Rams"]["logo"].endswith("/lar.png"))
+
+    def test_what_espn_leaves_out_is_filled_and_espn_wins_where_it_has_it(self):
+        facts = {"New York Yankees": mm._team("New York Yankees", "Yankees", "NYY", "nyy.svg", {"total": "94-68", "home": "50-31", "road": "44-37"},
+                                              [{"date": "2026-09-2%dT23:05:00Z" % day, "result": "W", "margin": 2} for day in range(3, 8)]),
+                 "Boston Red Sox": mm._team("Boston Red Sox", "Red Sox", "BOS", "bos.svg", {"total": "89-73", "home": "47-34", "road": "42-39"})}
+        game = {"homeName": "New York Yankees", "awayName": "Boston Red Sox"}
+        filled = mm.fill(game, None, None, facts)
+        self.assertEqual((filled["espn"]["away"]["short"], filled["espn"]["away"]["abbr"], filled["espn"]["away"]["record"]), ("Red Sox", "BOS", "89-73"))
+        self.assertEqual(filled["context"]["sides"]["away"]["records"]["road"], "42-39")
+        self.assertEqual(len(filled["context"]["form"]["home"]), 5)
+        self.assertIsNotNone(mm.splits("mlb", filled["context"], 4.3))     # the model reads the filled records
+        espn = {"home": {"name": "New York Yankees", "short": "Yankees", "abbr": "NY", "logo": "espn.png", "record": "94-68"}}
+        page = {"sides": {"home": {"records": {"total": "94-68", "home": "51-30"}}}, "form": {"home": [{"result": "L", "margin": -1}] * 5}}
+        filled = mm.fill(game, espn, page, facts)
+        self.assertEqual((filled["espn"]["home"]["logo"], filled["espn"]["home"]["abbr"]), ("espn.png", "NY"))
+        self.assertEqual(filled["context"]["sides"]["home"]["records"]["home"], "51-30")
+        self.assertEqual(filled["context"]["form"]["home"][0]["result"], "L")
+        self.assertEqual(mm.nickname("Toronto Maple Leafs"), "Maple Leafs")
 
 
 class ModelWithMatchupTest(unittest.TestCase):

@@ -287,7 +287,7 @@ def parse_odds(events):
 # ---------------------------------------------------------------- ESPN
 
 def _espn(path, params):
-    response = requests.get(f"{ESPN}/{path}", params=params, headers={"Accept": "application/json"}, timeout=12)
+    response = requests.get(f"{ESPN}/{path}", params=params, headers={"Accept": "application/json", "User-Agent": "Mozilla/5.0"}, timeout=10)
     response.raise_for_status()
     return response.json()
 
@@ -303,12 +303,37 @@ def _eastern(moment):
     return moment - timedelta(hours=4 if start <= moment < end else 5)
 
 
-def scoreboard(sport, first, last):
+def _scoreboard_day(sport, day, fresh=False):
+    """One day of ESPN's scoreboard, kept five minutes."""
+    key = f"scoreboard:{sport}:{day:%Y%m%d}"
+    cached = _memory.get(key)
+    if cached and not fresh and time.time() - cached[0] < 300:
+        return cached[1]
+    payload = _espn(f"{SPORTS[sport]['espn']}/scoreboard", {"dates": f"{day:%Y%m%d}", "limit": 100})
+    _memory[key] = (time.time(), payload)
+    return payload
+
+
+def scoreboard(sport, first, last, fresh=False):
     """ESPN's games between two Eastern dates: teams (logo, record, starter),
-    status and score."""
-    payload = _espn(f"{SPORTS[sport]['espn']}/scoreboard", {"dates": f"{first:%Y%m%d}-{last:%Y%m%d}", "limit": 300})
-    games = []
-    for event in payload.get("events") or []:
+    status and score. One request a day, side by side -- ESPN can answer a
+    date range with no games at all. Fails only when every day does."""
+    days = [first + timedelta(days=offset) for offset in range((last - first).days + 1)]
+
+    def read(day):
+        try:
+            return _scoreboard_day(sport, day, fresh)
+        except Exception:  # noqa: BLE001 -- the other days still count
+            return None
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        payloads = list(pool.map(read, days))
+    if days and all(payload is None for payload in payloads):
+        raise RuntimeError("ESPN's scoreboard is unavailable.")
+    games, seen = [], set()
+    for event in (event for payload in payloads for event in (payload or {}).get("events") or []):
+        if event.get("id") in seen:
+            continue
+        seen.add(event.get("id"))
         competition = (event.get("competitions") or [{}])[0]
         sides = {}
         for team in competition.get("competitors") or []:
@@ -447,13 +472,17 @@ def mlb_ratings(now):
     import mlb_context
     season = now.year
     payload = mlb("/standings", {"leagueId": "103,104", "season": season, "standingsTypes": "regularSeason", "hydrate": "team"})
-    teams, ids, stats = {}, {}, {}
+    teams, ids, stats, records = {}, {}, {}, {}
     for record in payload.get("records") or []:
         for row in record.get("teamRecords") or []:
             team = row.get("team") or {}
             played = float(row.get("gamesPlayed") or 0)
             if not team.get("name") or not played:
                 continue
+            splits = {item.get("type"): f"{item.get('wins')}-{item.get('losses')}"
+                      for item in (row.get("records") or {}).get("splitRecords") or [] if item.get("type") in ("home", "away")}
+            records[team["name"]] = {"id": str(team.get("id")), "abbr": team.get("abbreviation"), "short": team.get("teamName"),
+                                     "total": f"{row.get('wins')}-{row.get('losses')}", "home": splits.get("home"), "road": splits.get("away")}
             scored, allowed = float(row.get("runsScored") or 0), float(row.get("runsAllowed") or 0)
             teams[team["name"]] = (scored - allowed) / played * played / (played + 40)
             ids[team["name"]] = str(team.get("id"))
@@ -462,7 +491,7 @@ def mlb_ratings(now):
         context = mlb_context.context()
     except Exception:  # noqa: BLE001 -- ratings still stand without starters
         context = {}
-    return {"teams": teams, "ids": ids, "stats": ranked(stats), "probables": context.get("probables") or {},
+    return {"teams": teams, "ids": ids, "stats": ranked(stats), "records": records, "probables": context.get("probables") or {},
             "staffs": context.get("pitching") or {}, "hitting": context.get("hitting") or {}, "league": context.get("league") or {},
             "season": season}
 
@@ -487,7 +516,7 @@ def nhl_ratings(now):
     and against a game."""
     import nhl_research
     season = nhl_research.season_id()
-    tables = []
+    tables, records = [], {}
     for year in (season, nhl_research.previous_season(season)):
         rows = nhl_research._stats("team/summary", f"seasonId={year} and gameTypeId=2", game=False)
         table = {}
@@ -496,6 +525,8 @@ def nhl_ratings(now):
             played = float(row.get("gamesPlayed") or 0)
             if name and played:
                 table[name] = (float(row.get("goalsForPerGame") or 0), float(row.get("goalsAgainstPerGame") or 0), played)
+                if year == season:
+                    records[name] = {"total": f"{row.get('wins')}-{row.get('losses')}-{row.get('otLosses')}"}
         tables.append(table)
     current, previous = tables
     teams, stats = {}, {}
@@ -507,7 +538,7 @@ def nhl_ratings(now):
         source = current[name] if played >= 5 else before
         if source[2]:
             stats[name] = {"for": source[0], "against": source[1]}
-    return {"teams": teams, "stats": ranked(stats)}
+    return {"teams": teams, "stats": ranked(stats), "records": records}
 
 
 def wnba_ratings(now):
@@ -567,9 +598,11 @@ def _team_view(rated, context, side, team, espn_side):
             "venueRecord": records.get("home" if side == "home" else "road"),
             "form": [{"result": game.get("result"), "score": game.get("score"), "opponent": game.get("opponent"), "home": game.get("home")}
                      for game in form],
-            "stats": stats, "injuries": [player for player in ((context or {}).get("injuries") or {}).get(side) or []
-                                         if str(player.get("status") or "").lower() in ("out", "doubtful", "questionable", "day-to-day",
-                                                                                        "injured reserve", "suspension")][:6]}
+            # No report read (no ESPN game page) is unknown, not "none listed".
+            "stats": stats, "injuries": None if "injuries" not in (context or {}) else [
+                player for player in (context["injuries"] or {}).get(side) or []
+                if str(player.get("status") or "").lower() in ("out", "doubtful", "questionable", "day-to-day",
+                                                               "injured reserve", "suspension")][:6]}
 
 
 def read_game(sport, game, rated, espn=None, context=None, extras=None, opening=None):
@@ -799,8 +832,15 @@ def board(sport, force=False, now=None):
     pages = moneyline_matchup.contexts(sport, SPORTS[sport]["espn"], [(item or {}).get("id") for item in matched.values()])
     extras = league_extras(sport, rated, now)
     openings = opening_prices(sport, games, now)
-    read = [read_game(sport, game, rated, matched[game["id"]], pages.get((matched[game["id"]] or {}).get("id")), extras,
-                      openings.get(game["id"])) for game in games]
+    try:
+        facts = moneyline_matchup.team_facts(sport, rated, now)
+    except Exception:  # noqa: BLE001 -- ESPN's view stands alone
+        facts = {}
+    read = []
+    for game in games:
+        espn = matched[game["id"]]
+        filled = moneyline_matchup.fill(game, espn, pages.get((espn or {}).get("id")), facts)
+        read.append(read_game(sport, game, rated, filled["espn"], filled["context"], extras, openings.get(game["id"])))
     live = [game for game in read if (_time(game["startsAt"]) or now) > now]
     if fetched:
         remember(sport, read, now)
@@ -847,10 +887,11 @@ def opening_prices(sport, games, now):
 def leagues():
     """What each league has on the board, from the last prices (no request)."""
     out = {}
+    now = datetime.now(timezone.utc)
     for sport in SPORTS:
         snapshot = _load(f"odds:{sport}") or {}
-        now = datetime.now(timezone.utc)
-        upcoming = [event for event in snapshot.get("events") or [] if (_time(event.get("commence_time")) or now) > now]
+        horizon = now + timedelta(days=SPORTS[sport]["days"])
+        upcoming = [event for event in snapshot.get("events") or [] if now < (_time(event.get("commence_time")) or now) <= horizon]
         out[sport] = {"games": len(upcoming), "checkedAt": snapshot.get("at")}
     return out
 
@@ -912,7 +953,7 @@ def grade(now=None):
     finals = {}
     for sport, days in wanted.items():
         try:
-            finals[sport] = scoreboard(sport, min(days) - timedelta(days=1), max(days) + timedelta(days=1))
+            finals[sport] = scoreboard(sport, min(days) - timedelta(days=1), max(days) + timedelta(days=1), fresh=True)
         except Exception:  # noqa: BLE001 -- tried again on the next tick
             finals[sport] = []
     settled = 0

@@ -94,6 +94,10 @@ def kept(name, ttl, loader):
         _memory[name] = (stored["at"], stored.get("value"))
         return stored.get("value")
     value = loader()
+    if value is None:
+        # A failed read is asked again in two minutes, and never shared.
+        _memory[name] = (time.time() - ttl + 120, None)
+        return None
     _memory[name] = (time.time(), value)
     moneyline_model._save(f"ctx:{name}", {"at": time.time(), "value": value}, ex=int(ttl) + 60)
     return value
@@ -208,6 +212,141 @@ def contexts(sport, espn_path, event_ids):
     ids = [event_id for event_id in dict.fromkeys(event_ids) if event_id]
     with ThreadPoolExecutor(max_workers=8) as pool:
         return dict(zip(ids, pool.map(lambda event_id: espn_context(sport, espn_path, event_id), ids)))
+
+
+# ---------------------------------------------------------------- each team, from its league
+
+# Nicknames of two words; every other club goes by its last word.
+TWO_WORD = ("Red Sox", "White Sox", "Blue Jays", "Maple Leafs", "Red Wings", "Blue Jackets", "Golden Knights")
+# nflverse codes ESPN's logos spell differently.
+ESPN_NFL = {"LA": "lar", "WAS": "wsh"}
+
+
+def nickname(name):
+    name = str(name or "")
+    return next((tail for tail in TWO_WORD if name.endswith(tail)), name.split(" ")[-1] if name else "")
+
+
+def team_facts(sport, rated, now):
+    """Each team's short name, code, logo, records (overall, home, road) and
+    last five games from the league's own sources -- the same things ESPN's
+    scoreboard and game page give, for any game ESPN leaves out. Keyed by
+    the team's full name."""
+    loaders = {"mlb": lambda: _mlb_facts(rated, now), "nfl": lambda: _nfl_facts(now),
+               "nhl": lambda: _nhl_facts(rated), "wnba": _wnba_facts}
+    return kept(f"facts:{sport}", 30 * 60, loaders[sport]) or {}
+
+
+def _team(name, short, abbr, logo, records=None, form=None):
+    return {"name": name, "short": short or nickname(name), "abbr": abbr, "logo": logo,
+            "records": {key: value for key, value in (records or {}).items() if value}, "form": form or []}
+
+
+def _mlb_facts(rated, now):
+    """MLB: the standings (with each club's home and road records) and the
+    last five finished games of every club, from one schedule read."""
+    from live_props_core import mlb
+    facts, by_id = {}, {}
+    for name, row in (rated.get("records") or {}).items():
+        logo = f"https://www.mlbstatic.com/team-logos/team-cap-on-dark/{row['id']}.svg" if row.get("id") else None
+        facts[name] = _team(name, row.get("short"), row.get("abbr"), logo,
+                            {"total": row.get("total"), "home": row.get("home"), "road": row.get("road")})
+        by_id[row.get("id")] = name
+    end = now.date()
+    schedule = mlb("/schedule", {"sportId": 1, "startDate": (end - timedelta(days=14)).isoformat(), "endDate": end.isoformat()})
+    games = []
+    for date in schedule.get("dates") or []:
+        for game in date.get("games") or []:
+            if (game.get("status") or {}).get("abstractGameState") != "Final":
+                continue
+            home, away = (game.get("teams") or {}).get("home") or {}, (game.get("teams") or {}).get("away") or {}
+            home_runs, away_runs = _number(home.get("score")), _number(away.get("score"))
+            if home_runs is not None and away_runs is not None:
+                games.append((game.get("gameDate") or "", home, away, home_runs, away_runs))
+    for when, home, away, home_runs, away_runs in sorted(games, key=lambda game: game[0]):
+        for own, other, mine, theirs, at_home in ((home, away, home_runs, away_runs, True), (away, home, away_runs, home_runs, False)):
+            name = by_id.get(str((own.get("team") or {}).get("id")))
+            if not name:
+                continue
+            opponent = facts.get(by_id.get(str((other.get("team") or {}).get("id")))) or {}
+            facts[name]["form"].append({"date": when, "result": "W" if mine > theirs else "L", "score": f"{int(mine)}-{int(theirs)}",
+                                        "opponent": opponent.get("abbr"), "home": at_home, "margin": mine - theirs})
+    for item in facts.values():
+        item["form"] = item["form"][-5:]
+    return facts
+
+
+def _nfl_facts(now):
+    """NFL: this season's records (overall, home, road) and last five games
+    from nflverse's schedule."""
+    from backend.sports.nfl import finder
+    season = now.year if now.month >= 3 else now.year - 1
+    names = finder.team_names(season) or finder.team_names(season - 1)
+    facts, tally = {}, {}
+    for abbr, name in names.items():
+        facts[name] = _team(name, None, abbr, f"https://a.espncdn.com/i/teamlogos/nfl/500/{ESPN_NFL.get(abbr, abbr).lower()}.png")
+        tally[name] = {"total": [0, 0, 0], "home": [0, 0, 0], "road": [0, 0, 0]}
+    rows = [row for row in finder.schedule_rows() if str(row.get("season")) == str(season)
+            and str(row.get("game_type") or "").upper() in finder.SEASON_KIND]
+    for row in sorted(rows, key=lambda row: str(row.get("gameday") or "")):
+        home, away = names.get(finder.canonical_team(row.get("home_team"))), names.get(finder.canonical_team(row.get("away_team")))
+        home_score, away_score = _number(row.get("home_score")), _number(row.get("away_score"))
+        if not home or not away or home_score is None or away_score is None:
+            continue
+        for own, other, mine, theirs, at_home in ((home, away, home_score, away_score, True), (away, home, away_score, home_score, False)):
+            slot = 0 if mine > theirs else 1 if mine < theirs else 2
+            for key in ("total", "home" if at_home else "road"):
+                tally[own][key][slot] += 1
+            facts[own]["form"].append({"date": f"{row.get('gameday')}T17:00:00+00:00", "result": "WLT"[slot],
+                                       "score": f"{int(mine)}-{int(theirs)}", "opponent": facts[other]["abbr"], "home": at_home,
+                                       "margin": mine - theirs})
+    for name, item in facts.items():
+        item["form"] = item["form"][-5:]
+        item["records"] = {key: f"{w}-{l}" + (f"-{t}" if t else "") for key, (w, l, t) in tally[name].items() if w + l + t}
+    return facts
+
+
+def _nhl_facts(rated):
+    """NHL: each club's code and logo, and this season's record once it has one."""
+    import nhl_research
+    records = rated.get("records") or {}
+    return {name: _team(name, None, abbr, nhl_research.logo(abbr), {"total": (records.get(name) or {}).get("total")})
+            for abbr, name in nhl_research.TEAMS.items()}
+
+
+def _wnba_facts():
+    """WNBA: each club's name, code and logo from the stored season."""
+    from backend.sports.wnba import league
+    payload = league.stored(league.current_season()) or {}
+    return {team["name"]: _team(team["name"], team.get("short"), abbr, team.get("logo"))
+            for abbr, team in (payload.get("teams") or {}).items() if team.get("name")}
+
+
+def fill(game, espn, page, facts):
+    """The game as ESPN has it (scoreboard `espn`, game page `page`), with
+    whatever ESPN left out filled from the league's own sources (`facts`)."""
+    import moneyline_model
+    espn, context = dict(espn or {}), dict(page or {})
+    sides, form = dict(context.get("sides") or {}), dict(context.get("form") or {})
+    for side in ("home", "away"):
+        name = game[f"{side}Name"]
+        fact = next((item for full, item in facts.items() if moneyline_model.same_team(name, full, item.get("short"))), None)
+        if not fact:
+            continue
+        team = dict(espn.get(side) or {})
+        for key in ("name", "short", "abbr", "logo"):
+            team[key] = team.get(key) or fact.get(key)
+        team["record"] = team.get("record") or fact["records"].get("total")
+        espn[side] = team
+        own = dict(sides.get(side) or {})
+        own["abbr"] = own.get("abbr") or fact.get("abbr")
+        own["records"] = {**fact["records"], **{key: value for key, value in (own.get("records") or {}).items() if value}}
+        sides[side] = own
+        if not form.get(side) and fact["form"]:
+            form[side] = fact["form"]
+    if sides:
+        context["sides"], context["form"] = sides, form
+    return {"espn": espn or None, "context": context or None}
 
 
 # ---------------------------------------------------------------- MLB extras

@@ -34,10 +34,11 @@ function Logo({src,label}){
 }
 
 // A team from the game: ESPN's names and logo when matched, else the books'.
+const TWO_WORD=['Red Sox','White Sox','Blue Jays','Maple Leafs','Red Wings','Blue Jackets','Golden Knights'];
 function team(game,side){
  const espn=game.espn?.[side]||{};
  const name=game[`${side}Name`];
- return {name,short:espn.short||name.split(' ').slice(-1)[0],abbr:espn.abbr||name.split(' ').map(word=>word[0]).join('').slice(0,3),
+ return {name,short:espn.short||TWO_WORD.find(tail=>name.endsWith(tail))||name.split(' ').slice(-1)[0],abbr:espn.abbr||name.split(' ').map(word=>word[0]).join('').slice(0,3),
   logo:espn.logo,record:espn.record,probable:espn.probable,score:espn.score};
 }
 
@@ -102,7 +103,7 @@ function Compare({game,away,home}){
  if(a.starter||h.starter)rows.push(['Starter',starter(a.starter),starter(h.starter)]);
  if(a.bullpen!=null||h.bullpen!=null)rows.push(['Bullpen, last 3 days',a.bullpen!=null?`${a.bullpen} IP`:'—',h.bullpen!=null?`${h.bullpen} IP`:'—']);
  if(a.goalie||h.goalie)rows.push(['Likely goalie',...[a.goalie,h.goalie].map(g=>g?<>{g.name}<small>{g.savePct!=null?`${g.savePct.toFixed(3).replace(/^0/,'')} save %`:''}{g.backup?' · backup':''}</small></>:'—')]);
- const hurt=list=>list?.length?<ul className="ml2-hurt">{list.slice(0,3).map(player=><li key={player.name}><b>{player.name}</b> <small>{[player.position,player.status].filter(Boolean).join(' · ')}</small></li>)}</ul>:<span className="ml2-dim">None listed</span>;
+ const hurt=list=>list==null?'—':list.length?<ul className="ml2-hurt">{list.slice(0,3).map(player=><li key={player.name}><b>{player.name}</b> <small>{[player.position,player.status].filter(Boolean).join(' · ')}</small></li>)}</ul>:<span className="ml2-dim">None listed</span>;
  rows.push(['Injuries',hurt(a.injuries),hurt(h.injuries)]);
  return <table className="ml2-compare" aria-label="Team comparison">
   <thead><tr><th/><th><Logo src={away.logo} label={away.abbr}/>{away.abbr}</th><th><Logo src={home.logo} label={home.abbr}/>{home.abbr}</th></tr></thead>
