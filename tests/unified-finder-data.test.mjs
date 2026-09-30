@@ -151,6 +151,22 @@ test('soccer rows carry PrizePicks\' own stat and tier, and export as SOCCER pic
  assert.equal(loaded.fetchedAt,'2026-09-28T12:00:00Z');
 });
 
+test('tennis keeps every PrizePicks stat and becomes an exportable Finder pick',async()=>{
+ const payload={builtAt:'2026-09-30T12:00:00Z',rows:[
+  {id:'pp:t1',player:'Iga Swiatek',playerId:'44',opponent:'Aryna Sabalenka',stat:'Aces',marketKey:'aces',line:4.5,modifier:'standard',startsAt:'2099-09-30T19:00:00Z',apps:[{key:'prizepicks',name:'PrizePicks'}]},
+  {id:'pp:t2',player:'Iga Swiatek',playerId:'44',opponent:'Aryna Sabalenka',stat:'New PrizePicks Stat',marketKey:'newprizepicksstat',line:2.5,modifier:'goblin',startsAt:'2099-09-30T19:00:00Z',apps:[]},
+ ]};
+ const rows=normalizeFinderRows('tennis',payload);
+ assert.deepEqual(rows.map(item=>[item.market,item.line,item.modifier]),[['Aces',4.5,'standard'],['New PrizePicks Stat',2.5,'goblin']]);
+ assert.ok(rows.every(item=>item.historyStatus==='none'));
+ const pick=finderSlipProp(rows[0]);
+ assert.deepEqual([pick.sport,pick.exportStat,pick.player,pick.opponent],['TENNIS','Aces','Iga Swiatek','Aryna Sabalenka']);
+ const urls=[];
+ const loaded=await loadFinderSport('tennis',{fetcher:async url=>{urls.push(url);return {ok:true,json:async()=>payload};}});
+ assert.deepEqual(urls,['/api/board?view=tennis']);
+ assert.equal(loaded.rows.length,2);
+});
+
 test('soccer hit rates come from the player\'s own matches in his team\'s log',()=>{
  const game=(id,date,opponent,isHome,shots,name='Bukayo Saka')=>({id,date,isHome,opponent:{abbr:opponent},result:'W',score:'1-0',teamStats:{},oppStats:{},
   players:[{id:'2',name,pos:'F',min:90,starter:true,s:{shots,sot:1,goals:0,ast:0}},{id:'9',name:'Someone Else',pos:'M',min:90,starter:true,s:{shots:9}}]});

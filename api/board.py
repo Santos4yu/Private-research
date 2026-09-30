@@ -166,12 +166,22 @@ class handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         from site_controls import allowed
-        tab={'prop-history':'research','moneyline':'moneyline','nrfi':'nrfi','soccer':'finder','nhl':'finder','moves':'moves','mlb-context':'finder','moneylines':'moneyline'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
+        tab={'prop-history':'research','moneyline':'moneyline','nrfi':'nrfi','soccer':'finder','nhl':'finder','tennis':'finder','moves':'moves','mlb-context':'finder','moneylines':'moneyline'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
         if not allowed(self.headers,tab):return self._send(503,{'error':'This section is temporarily unavailable','featureDisabled':True})
         if not session_with_live_access(self.headers):
             return self._send(401, {"error": "Sign in with Discord to use live research.", "authRequired": True})
 
         view = (parse_qs(urlparse(self.path).query).get("view") or [""])[0]
+        if view == "tennis":
+            from site_controls import finder_sport_allowed
+            if not finder_sport_allowed(self.headers, "tennis"):
+                return self._send(503, {"error": "This section is temporarily unavailable", "featureDisabled": True})
+            try:
+                from tennis_board import board as tennis_board
+                force = (parse_qs(urlparse(self.path).query).get("refresh") or [""])[0] == "1"
+                return self._send(200, tennis_board(force=force))
+            except Exception:
+                return self._send(502, {"error": "Tennis lines are temporarily unavailable."})
         if view == "soccer":
             # The Finder's soccer lines (soccer_board.py); its admin switch
             # is the "Soccer in the Finder" league setting.

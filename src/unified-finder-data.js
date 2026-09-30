@@ -515,6 +515,15 @@ export function normalizeFinderRows(sport, payload, players = [], {now = Date.no
         apps: Array.isArray(raw.apps) && raw.apps.length ? raw.apps : [{key: 'prizepicks', name: 'PrizePicks', over: null, under: null}],
         average: null, windows: null, raw, historyStatus: ready ? 'pending' : 'none'});
     }
+    if (sport === 'tennis') {
+      return finish({id: `tennis:${raw.id}`, sport, player: raw.player, playerId: optional(raw.playerId),
+        headshot: optional(raw.headshot), position: optional(raw.position), teamAbbr: null, teamLogo: null,
+        opponent: optional(raw.opponent), startsAt: optional(raw.startsAt), market: raw.stat,
+        marketKey: raw.marketKey || String(raw.stat || '').toLowerCase().replace(/[^a-z0-9]/g, ''),
+        line: raw.line, direction: 'OVER', modifier: raw.modifier,
+        apps: Array.isArray(raw.apps) && raw.apps.length ? raw.apps : [{key: 'prizepicks', name: 'PrizePicks', over: null, under: null}],
+        average: null, windows: null, raw, historyStatus: 'none'});
+    }
     return null;
   });
   return rows.filter(row => row && row.player && row.line != null &&
@@ -559,6 +568,10 @@ export async function loadFinderSport(sport, options = {}) {
   }
   if (sport === 'nhl') {
     const payload = await request('/api/board?view=nhl', options);
+    return {...payload, rows: normalizeFinderRows(sport, payload), fetchedAt: payload.builtAt || null};
+  }
+  if (sport === 'tennis') {
+    const payload = await request('/api/board?view=tennis', options);
     return {...payload, rows: normalizeFinderRows(sport, payload), fetchedAt: payload.builtAt || null};
   }
   throw new Error('This sport is not supported by Finder.');

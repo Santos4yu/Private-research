@@ -11,6 +11,7 @@ test('all locked tabs have no false unlocked destination',()=>{assert.equal(avai
 test('clicking a locked tab retains a valid previous destination',()=>{const policy={...base,account:{id:'mock'},disabledTabs:['v2']};assert.equal(canUseTab(policy,'v2'),false);assert.equal(availableTab(policy,'research'),'research');});
 
  test('hidden NFL is unavailable to members but admins retain preview',async()=>{const {canUseSport}=await import('../src/site-access-core.js');const policy={requireLogin:false,disabledTabs:[],disabledSports:['nfl']};assert.equal(canUseSport(policy,'nfl'),false);assert.equal(canUseSport(policy,'mlb'),true);assert.equal(canUseSport({...policy,isAdmin:true},'nfl'),true);});
+test('the Tennis Finder switch hides tennis for members but keeps admin preview',async()=>{const {canUseFinderSport,FINDER_SPORTS}=await import('../src/site-access-core.js');const policy={requireLogin:false,disabledTabs:[],disabledFinderSports:['tennis']};assert.ok(FINDER_SPORTS.includes('tennis'));assert.equal(canUseFinderSport(policy,'tennis'),false);assert.equal(canUseFinderSport(policy,'mlb'),true);assert.equal(canUseFinderSport({...policy,isAdmin:true},'tennis'),true);});
 
 test('switched-off sections are hidden from members only, never from admins',async()=>{
  const {hiddenTabs}=await import('../src/site-access-core.js');
