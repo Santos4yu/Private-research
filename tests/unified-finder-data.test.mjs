@@ -201,3 +201,27 @@ test('a teammate\'s with / without split covers the player\'s own matches for hi
  assert.deepEqual(applySplits(games,filters).map(game=>game.gameId),['2']);
  assert.deepEqual(toggleSplit(filters,{id:'3',kind:'without',ids:[]}),[]);
 });
+
+test('NBA lines share the basketball row, history and defense ranks',async()=>{
+ const {BASKETBALL,basketballLogUrl,enrichWnbaRows,loadFinderSport}=await import('../src/unified-finder-data.js');
+ assert.ok(BASKETBALL.has('nba')&&BASKETBALL.has('wnba'));
+ const raw={id:'pp:1',player:'Stephen Curry',playerId:'3975',market:'Pts+Rebs+Asts',marketKey:'player_points_rebounds_assists',line:37.5,
+  modifier:'goblin',startsAt:'2099-11-04T03:00:00Z',teamAbbr:'GS',team:'Golden State Warriors',homeTeam:'Golden State Warriors',
+  homeTeamAbbr:'GS',awayTeamAbbr:'LAL',apps:[{key:'prizepicks',name:'PrizePicks',over:null,under:null,modifier:'goblin'}]};
+ const [row]=normalizeFinderRows('nba',{rows:[raw]});
+ assert.equal(row.id,'nba:pp:1');assert.equal(row.sport,'nba');assert.equal(row.opponent,'LAL');assert.equal(row.historyStatus,'pending');
+ // The NBA's two seasons come in one request; the WNBA's is one season.
+ assert.equal(basketballLogUrl(row),'/api/wnba?league=nba&resource=gamelog&playerId=3975');
+ assert.equal(basketballLogUrl({sport:'wnba',playerId:'9'},2026),'/api/wnba?resource=gamelog&playerId=9&season=2026');
+ const asked=[];
+ const logs=[10,40,35,41].map((pts,index)=>({gameId:String(index),date:`2026-0${index+1}-01T00:00Z`,opponent:index===3?'LAL':'BOS',
+  values:{player_points_rebounds_assists:pts},seasonKind:'regular'}));
+ const [ready]=await enrichWnbaRows([row],{fetcher:async url=>{asked.push(url);return {ok:true,json:async()=>({rows:logs})};}});
+ assert.deepEqual(asked,['/api/wnba?league=nba&resource=gamelog&playerId=3975']);
+ assert.equal(ready.historyStatus,'ready');
+ assert.equal(ready.windows.l5.hitRate,50);assert.equal(ready.windows.h2h.hitRate,100);assert.equal(ready.streak,1);
+ // Defense vs position reads the NBA's league table the same way.
+ assert.equal(defenseRank({...row,position:'G',opponent:'LAL'},{dvp:{LAL:{G:{stats:{pra:{szn:[41.2,27]}}}}}}),27);
+ const board=await loadFinderSport('nba',{fetcher:async url=>{asked.push(url);return {ok:true,json:async()=>({rows:[raw],fetchedAt:'x'})};}});
+ assert.equal(asked.at(-1),'/api/wnba?league=nba&fast=1');assert.equal(board.rows[0].id,'nba:pp:1');
+});

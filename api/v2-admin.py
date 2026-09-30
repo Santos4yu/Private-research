@@ -23,6 +23,7 @@ POST {"action": "scan", ...}         -- admin only
 import json
 import os
 import sys
+import time
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
@@ -172,10 +173,10 @@ class handler(BaseHTTPRequestHandler):
                 if not admin_auth.is_admin_request(self.headers):
                     return self._send(401, {"error": "Admin session required"})
                 return self._build_nfl_board(trigger="manual")
-            if action == "wnba-league-build":
+            if action in ("wnba-league-build", "nba-league-build"):
                 if not admin_auth.is_admin_request(self.headers):
                     return self._send(401, {"error": "Admin session required"})
-                return self._build_wnba_league(trigger="manual")
+                return self._build_wnba_league(trigger="manual", league="nba" if action.startswith("nba") else "wnba")
             if action == "site-background-upload":
                 if not admin_auth.is_admin_request(self.headers):return self._send(401, {"error":"Admin session required"})
                 from site_controls import same_origin
@@ -375,7 +376,24 @@ class handler(BaseHTTPRequestHandler):
             moneylines = moneyline_model.tick()
         except Exception:  # noqa: BLE001 -- never at the cost of the line checks
             pass
-        return self._send(200, {"ok": True, "checked": line_moves.checked(), "moneylines": moneylines})
+        # The NBA's season of box scores (backend/sports/wnba/league.py) fills
+        # in a few hundred games a tick until it is complete; after that the
+        # pages' own reads add each new final.
+        nba = None
+        try:
+            from backend.sports.wnba import league as seasons
+            season = seasons.current_season(league="nba")
+            stored = seasons.stored(season, "nba")
+            if (not stored or stored.get("partial")) and not seasons._locked("nba"):
+                seasons._set_lock(str(time.time()), "nba")
+                try:
+                    built = seasons.build(season, deadline_seconds=12, league="nba")
+                    nba = {"season": season, "games": len(built["games"]), "partial": built["partial"]}
+                finally:
+                    seasons._set_lock("0", "nba")
+        except Exception:  # noqa: BLE001 -- never at the cost of the line checks
+            pass
+        return self._send(200, {"ok": True, "checked": line_moves.checked(), "moneylines": moneylines, "nba": nba})
 
     def _handle_cron_scan(self):
         secret = os.getenv("CRON_SECRET", "")
@@ -403,7 +421,7 @@ class handler(BaseHTTPRequestHandler):
             return self._send(401, {"error": "Cron request required"})
         return self._build_nfl_board(trigger="cron")
 
-    def _build_wnba_league(self, trigger="manual"):
+    def _build_wnba_league(self, trigger="manual", league="wnba"):
         """Add every newly finished WNBA game to the stored season, on demand.
 
         Reads already top the season up every few hours (league.ensure), so
@@ -412,9 +430,9 @@ class handler(BaseHTTPRequestHandler):
         season, and finished games are only ever fetched once."""
         try:
             from backend.sports.wnba.league import build, current_season
-            payload = build(current_season())
+            payload = build(current_season(league=league), league=league)
         except Exception as exc:  # noqa: BLE001 -- report, don't hang the caller
-            return self._send(500, {"error": f"WNBA season build failed: {exc}"})
+            return self._send(500, {"error": f"{league.upper()} season build failed: {exc}"})
         return self._send(200, {"ok": True, "season": payload["season"], "trigger": trigger,
                                 "games": len(payload["games"]), "failed": payload["failed"],
                                 "partial": payload["partial"], "stored": payload.get("stored"),

@@ -12,6 +12,8 @@ export const BOOK_NAMES = {prizepicks: 'PrizePicks', underdog: 'Underdog', pick6
 const NFL_LABELS = {passing_yards: 'Passing Yards', passing_attempts: 'Passing Attempts', pass_completions: 'Pass Completions', passing_touchdowns: 'Passing TDs', interceptions: 'Interceptions', rushing_yards: 'Rushing Yards', rush_attempts: 'Rush Attempts', passing_rushing_yards: 'Passing + Rushing Yards', receiving_yards: 'Receiving Yards', receptions: 'Receptions', targets: 'Targets', longest_reception: 'Longest Reception', rushing_receiving_yards: 'Rushing + Receiving Yards', touchdowns: 'Touchdowns', fantasy_score: 'Fantasy Score'};
 const historyCache = new Map();
 const HISTORY_TTL = 10 * 60 * 1000;
+/** The two basketball leagues: one row shape, one history source (api/wnba.py). */
+export const BASKETBALL = new Set(['wnba', 'nba']);
 const FINDER_CACHE_PREFIX = 'vortex:finder:board:v6:';
 const FINDER_CACHE_TTL = 24 * 60 * 60 * 1000;
 
@@ -220,9 +222,9 @@ export function defenseRank(row, league) {
  */
 export function defenseCell(row, league) {
   if (!league?.dvp || !row?.opponent) return null;
-  const wnba = row.sport === 'wnba';
-  const position = wnba ? positionOf(row.position) : nflDvpPosition(row.position);
-  const stat = wnba ? WNBA_DVP_STAT[row.marketKey] : NFL_DVP_STAT[row.marketKey];
+  const hoops = BASKETBALL.has(row.sport);
+  const position = hoops ? positionOf(row.position) : nflDvpPosition(row.position);
+  const stat = hoops ? WNBA_DVP_STAT[row.marketKey] : NFL_DVP_STAT[row.marketKey];
   const cell = league.dvp[row.opponent]?.[position]?.stats?.[stat];
   const rank = cell?.szn?.[1];
   if (typeof rank !== 'number' || !Number.isFinite(rank)) return null;
@@ -263,9 +265,10 @@ export function withMlbMatchups(rows, context) {
   });
 }
 
-/** The league table the defense ranks come from (WNBA and NFL). */
+/** The league table the defense ranks come from (WNBA, NBA and NFL). */
 export function loadFinderDefense(sport, options = {}) {
   if (sport === 'wnba') return request('/api/wnba?resource=league-context', options);
+  if (sport === 'nba') return request('/api/wnba?league=nba&resource=league-context', options);
   if (sport === 'nfl') {
     const today = new Date();
     const season = options.season || today.getUTCFullYear() - (today.getUTCMonth() < 2 ? 1 : 0);
@@ -431,10 +434,12 @@ export function normalizeFinderRows(sport, payload, players = [], {now = Date.no
   }
   const source = sport === 'mlb' ? payload.props : payload.rows || payload.data;
   const rows = (Array.isArray(source) ? source : []).map(raw => {
-    if (sport === 'wnba') {
+    if (BASKETBALL.has(sport)) {
+      // WNBA (The Odds API and PrizePicks) and NBA (PrizePicks) rows share
+      // one shape (api/wnba.py) and the same ESPN game-log history.
       const opponent = raw.teamAbbr && raw.teamAbbr === raw.homeTeamAbbr ? raw.awayTeamAbbr
         : raw.teamAbbr && raw.teamAbbr === raw.awayTeamAbbr ? raw.homeTeamAbbr : null;
-      return finish({...raw, id: `wnba:${raw.id}`, sport, player: raw.player, playerId: optional(raw.playerId),
+      return finish({...raw, id: `${sport}:${raw.id}`, sport, player: raw.player, playerId: optional(raw.playerId),
         headshot: optional(raw.headshot), position: optional(raw.position), teamAbbr: optional(raw.teamAbbr),
         teamLogo: optional(raw.teamLogo), opponent, startsAt: optional(raw.startsAt), direction: 'OVER',
         modifier: raw.modifier || raw.odds_type || 'standard',
@@ -522,6 +527,11 @@ export async function loadFinderSport(sport, options = {}) {
     const payload = await request(options.fast ? '/api/wnba?fast=1' : '/api/wnba', options);
     return {...payload, rows: normalizeFinderRows(sport, payload), fetchedAt: payload.fetchedAt || null};
   }
+  if (sport === 'nba') {
+    // Every line PrizePicks posts; each player's history fills in afterwards.
+    const payload = await request('/api/wnba?league=nba&fast=1', options);
+    return {...payload, rows: normalizeFinderRows(sport, payload), fetchedAt: payload.fetchedAt || null};
+  }
   if (sport === 'mlb') {
     const [board, roster] = await Promise.allSettled([
       request('/api/board?view=props&apps=1', options), request('/api/players?catalog=1', options),
@@ -554,18 +564,23 @@ export async function loadFinderSport(sport, options = {}) {
   throw new Error('This sport is not supported by Finder.');
 }
 
-const wnbaHistoryKey = row => String(row.playerId || '');
+const wnbaHistoryKey = row => `${row.sport === 'nba' ? 'nba' : 'wnba'}:${row.playerId || ''}`;
+/** A player's ESPN game logs: the WNBA season, or the NBA's last two. */
+export function basketballLogUrl(row, season = new Date().getUTCFullYear()) {
+  const id = encodeURIComponent(String(row.playerId || ''));
+  return row.sport === 'nba' ? `/api/wnba?league=nba&resource=gamelog&playerId=${id}`
+    : `/api/wnba?resource=gamelog&playerId=${id}&season=${season}`;
+}
 
 export async function loadWnbaHistory(row, options = {}) {
   aborted(options.signal);
-  const playerId = wnbaHistoryKey(row);
-  if (!playerId) throw new Error('WNBA player identity unavailable.');
+  if (!row.playerId) throw new Error('Player identity unavailable.');
   const season = options.season || new Date().getUTCFullYear();
-  const key = `${playerId}:${season}`;
-  const cached = historyCache.get(`wnba:${key}`);
+  const key = `${wnbaHistoryKey(row)}:${row.sport === 'nba' ? 'recent' : season}`;
+  const cached = historyCache.get(key);
   if (cached && Date.now() - cached.at < HISTORY_TTL) return cached.value;
-  const payload = await request(`/api/wnba?resource=gamelog&playerId=${encodeURIComponent(playerId)}&season=${season}`, options);
-  historyCache.set(`wnba:${key}`, {at: Date.now(), value: payload});
+  const payload = await request(basketballLogUrl(row, season), options);
+  historyCache.set(key, {at: Date.now(), value: payload});
   if (historyCache.size > 500) historyCache.delete(historyCache.keys().next().value);
   return payload;
 }
@@ -596,7 +611,7 @@ export function applyWnbaHistory(row, payload) {
 export async function enrichWnbaRows(rows, {signal, onRows, concurrency = 6, ...options} = {}) {
   const groups = new Map();
   for (const row of rows) {
-    if (row.sport !== 'wnba' || row.historyStatus === 'ready' || !row.playerId) continue;
+    if (!BASKETBALL.has(row.sport) || row.historyStatus === 'ready' || !row.playerId) continue;
     const key = wnbaHistoryKey(row);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(row);

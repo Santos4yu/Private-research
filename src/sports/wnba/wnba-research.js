@@ -1,6 +1,7 @@
-// Data + formatting shared by the WNBA player page and its matchup panel.
-// Every number shown comes from /api/wnba (ESPN game summaries and the
-// stored season of box scores); nothing here estimates anything.
+// Data + formatting shared by the WNBA and NBA player page and its matchup
+// panel. Every number shown comes from /api/wnba (ESPN game summaries and the
+// stored season of box scores; `league=nba` for the NBA); nothing here
+// estimates anything.
 import {useEffect,useState} from 'react';
 
 const requests=new Map();
@@ -34,12 +35,14 @@ export function useWnba(resource,params,enabled=true){
 }
 
 // Prop-board market -> the stat key the matchup data uses.
-export const MARKET_STAT={player_points:'pts',player_rebounds:'reb',player_assists:'ast',player_threes:'tpm',player_blocks:'blk',player_steals:'stl',player_blocks_steals:'bs',player_turnovers:'to',player_points_rebounds:'pr',player_points_assists:'pa',player_rebounds_assists:'ra',player_points_rebounds_assists:'pra',player_fantasy_points:'fs',player_threes_attempts:'tpa',player_field_goals:'fgm',player_frees_made:'ftm',player_field_goals_attempts:'fga',player_frees_attempts:'fta',player_twos:'twos',player_twos_attempts:'twosa',player_fouls:'pf',player_offensive_rebounds:'oreb',player_defensive_rebounds:'dreb',player_double_double:'dd'};
+export const MARKET_STAT={player_points:'pts',player_rebounds:'reb',player_assists:'ast',player_threes:'tpm',player_blocks:'blk',player_steals:'stl',player_blocks_steals:'bs',player_turnovers:'to',player_points_rebounds:'pr',player_points_assists:'pa',player_rebounds_assists:'ra',player_points_rebounds_assists:'pra',player_fantasy_points:'fs',player_threes_attempts:'tpa',player_field_goals:'fgm',player_frees_made:'ftm',player_field_goals_attempts:'fga',player_frees_attempts:'fta',player_twos:'twos',player_twos_attempts:'twosa',player_fouls:'pf',player_offensive_rebounds:'oreb',player_defensive_rebounds:'dreb',player_double_double:'dd',player_triple_double:'td'};
 export const POSITIONS=[['G','Guards'],['F','Forwards'],['C','Centers']];
 export const opponentOf=row=>row.team===row.homeTeam?row.awayTeamAbbr:row.homeTeamAbbr;
+// The league a request is for: only the NBA says so (the WNBA is the default).
+export const leagueOf=row=>row?.sport==='nba'?'nba':undefined;
 // One definition, so every card asking for the player's context shares a
 // single request (wnbaGet keys on the URL, and the URL on this order).
-export const playerContextParams=row=>({playerId:row.playerId,team:row.teamAbbr,opponent:opponentOf(row),market:row.marketKey,line:row.line});
+export const playerContextParams=row=>({playerId:row.playerId,team:row.teamAbbr,opponent:opponentOf(row),market:row.marketKey,line:row.line,league:leagueOf(row)});
 export const hasPlayerContext=row=>Boolean(row.playerId&&row.teamAbbr&&opponentOf(row)&&MARKET_STAT[row.marketKey]);
 // With/without choices on the chart. Several can be on at once (two
 // teammates out, one in...); the chart keeps only the games matching all of

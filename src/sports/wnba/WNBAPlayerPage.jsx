@@ -3,7 +3,8 @@ import {ArrowLeft,CalendarDays,Database,ListOrdered,RefreshCw,Shield,UserCheck,U
 import {WNBA_STATS,wnbaChart,wnbaLines,wnbaOdds} from './trend-data';
 import WNBAFinderContext from './WNBAFinderContext';
 import {FinderPlayerBanner} from '../../FinderPlayerBanner';
-import {applySplits,finite,fmt,hasPlayerContext,hasSplit,logValue,opponentOf,playerContextParams,positionOf,realGames,shortDate,splitFilter,splitKey,splitLabel,toggleSplit,useWnba} from './wnba-research';
+import {basketballLogUrl} from '../../unified-finder-data';
+import {applySplits,finite,fmt,hasPlayerContext,hasSplit,leagueOf,logValue,opponentOf,playerContextParams,positionOf,realGames,shortDate,splitFilter,splitKey,splitLabel,toggleSplit,useWnba} from './wnba-research';
 import '../../mlb-finder-context.css';
 import './wnba-context.css';
 
@@ -24,7 +25,7 @@ function statTabs(playerRows,available){
 function TrendChart({row,playerRows,logs,loading,onStat,chips,chipsNote,onChipRemove,onChipsClear}){
  const host=useRef(null);
  const opponent=opponentOf(row),available=new Set(playerRows.map(item=>item.marketKey));
- const config=useMemo(()=>({sport:'WNBA',player:row.player,teamAbbr:row.teamAbbr||'',teamLogo:row.teamLogo||'',opponent:opponent||'',
+ const config=useMemo(()=>({sport:row.sport==='nba'?'NBA':'WNBA',player:row.player,teamAbbr:row.teamAbbr||'',teamLogo:row.teamLogo||'',opponent:opponent||'',
   opponentLogo:row.team===row.homeTeam?row.awayTeamLogo:row.homeTeamLogo,matchupLabel:`${row.awayTeam} @ ${row.homeTeam}`,
   kickoffLabel:new Date(row.startsAt).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'}),status:'Pre-game',headshot:row.headshot||null,
   stats:statTabs(playerRows,available),statKey:row.marketKey,stat:row.market,side:row.direction==='UNDER'?'Under':'Over',line:row.line,
@@ -96,7 +97,7 @@ const injuryCode=item=>item?INJURY_CODES[String(item.code||item.status||'').toUp
 const shortName=name=>{const parts=String(name||'').trim().split(/\s+/);return parts.length>1?`${parts[0][0]}. ${parts.slice(1).join(' ')}`:parts[0]||'';};
 const columnLabel=index=>index===0?'Starter':['2nd','3rd','4th','5th','6th'][index-1]||`${index+1}th`;
 function DepthChart({row,matchup,filters,onToggleFilter}){
- const league=useWnba('league-context',{});
+ const league=useWnba('league-context',{league:leagueOf(row)});
  const context=useWnba('player-context',playerContextParams(row),hasPlayerContext(row));
  const team=row.teamAbbr,opponent=opponentOf(row);
  const [side,setSide]=useState(team);
@@ -139,11 +140,11 @@ export function WNBAPlayerPage({row,playerRows,onBack}){
  const removeFilter=useCallback(key=>setFilters(old=>old.filter(filter=>splitKey(filter)!==key)),[]);
  const clearFilters=useCallback(()=>setFilters([]),[]);
  useEffect(()=>{if(!row.playerId)return undefined;const controller=new AbortController();setTrend(old=>({...old,state:'loading'}));
-  fetch('/api/wnba?resource=gamelog&playerId='+encodeURIComponent(row.playerId)+'&season='+new Date().getUTCFullYear(),{signal:controller.signal,credentials:'same-origin'})
+  fetch(basketballLogUrl(row),{signal:controller.signal,credentials:'same-origin'})
    .then(async response=>{const data=await response.json();if(!response.ok)throw new Error(data.error||'Game logs unavailable');setTrend({state:'ready',rows:data.rows||[]});})
    .catch(error=>{if(error.name!=='AbortError')setTrend({state:'error',rows:[],error:error.message});});
-  return()=>controller.abort();},[row.playerId,retry]);
- const matchup=useWnba('matchup',{home:selected.homeTeamAbbr,away:selected.awayTeamAbbr,startsAt:selected.startsAt},Boolean(selected.homeTeamAbbr&&selected.awayTeamAbbr&&selected.startsAt));
+  return()=>controller.abort();},[row.playerId,row.sport,retry]);
+ const matchup=useWnba('matchup',{home:selected.homeTeamAbbr,away:selected.awayTeamAbbr,startsAt:selected.startsAt,league:leagueOf(selected)},Boolean(selected.homeTeamAbbr&&selected.awayTeamAbbr&&selected.startsAt));
  const onStat=useMemo(()=>key=>{const next=playerRows.find(item=>item.marketKey===key);if(next)setSelected(next);},[playerRows]);
  const chartLogs=useMemo(()=>applySplits(trend.rows,filters),[trend.rows,filters]);
  const chips=useMemo(()=>filters.map(filter=>({key:splitKey(filter),kind:filter.kind,label:splitLabel(filter),title:`${filter.ids.length} of ${selected.player}'s games ${filter.kind} ${filter.name}`})),[filters,selected.player]);

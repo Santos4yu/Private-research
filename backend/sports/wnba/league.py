@@ -27,6 +27,14 @@ import requests
 ESPN = "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba"
 LEAGUE_KEY = "krazy_data:wnba:v1:league:{season}"
 BUILD_LOCK_KEY = "krazy_data:wnba:v1:league_building"
+# The leagues kept this way: ESPN's path and the store's keys. An NBA season
+# (about 1,300 games) is kept a month per record -- a whole one in a single
+# record would pass the store's per-record limit (about 1MB).
+LEAGUES = {
+    "wnba": {"espn": ESPN, "key": LEAGUE_KEY, "lock": BUILD_LOCK_KEY, "monthly": False},
+    "nba": {"espn": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba",
+            "key": "krazy_data:nba:v1:league:{season}", "lock": "krazy_data:nba:v1:league_building", "monthly": True},
+}
 BUILD_LOCK_SECONDS = 180
 # A stored season older than this is topped up on the next read. Only newly
 # finished games are fetched, so a top-up is a handful of requests.
@@ -54,16 +62,20 @@ def _store():
     return store
 
 
-def espn(path: str, params: dict | None = None, timeout: float = 15):
-    response = requests.get(ESPN + path, params=params, headers={"Accept": "application/json"}, timeout=timeout)
+def espn(path: str, params: dict | None = None, timeout: float = 15, league: str = "wnba"):
+    response = requests.get(LEAGUES[league]["espn"] + path, params=params, headers={"Accept": "application/json"}, timeout=timeout)
     response.raise_for_status()
     return response.json()
 
 
-def current_season(now: datetime | None = None) -> int:
-    """The season a page should show. Before tip-off in May, that is still
-    last season -- an empty new season has nothing to compare against."""
+def current_season(now: datetime | None = None, league: str = "wnba") -> int:
+    """The season a page should show. Before tip-off, that is still last
+    season -- an empty new season has nothing to compare against. WNBA
+    seasons tip off in May; an NBA season (ESPN names it by the year it
+    ends: 2026 is 2025-26) in late October."""
     now = now or datetime.now(timezone.utc)
+    if league == "nba":
+        return now.year + 1 if (now.month, now.day) >= (10, 21) else now.year
     return now.year if now.month >= 5 else now.year - 1
 
 
@@ -82,17 +94,17 @@ def setex(key: str, value: str, seconds: int) -> None:
 _teams_memory: dict = {}
 
 
-def team_directory() -> dict:
-    hit = _teams_memory.get("value")
+def team_directory(league: str = "wnba") -> dict:
+    hit = _teams_memory.get(league)
     if hit and time.time() - hit[0] < 6 * 3600:
         return hit[1]
-    teams = _fetch_team_directory()
-    _teams_memory["value"] = (time.time(), teams)
+    teams = _fetch_team_directory(league)
+    _teams_memory[league] = (time.time(), teams)
     return teams
 
 
-def _fetch_team_directory() -> dict:
-    listing = espn("/teams")
+def _fetch_team_directory(league: str = "wnba") -> dict:
+    listing = espn("/teams", league=league)
     teams = {}
     for item in listing.get("sports", [{}])[0].get("leagues", [{}])[0].get("teams", []):
         team = item.get("team") or {}
@@ -108,14 +120,40 @@ def _fetch_team_directory() -> dict:
     return teams
 
 
-def schedule(season: int, teams: dict) -> list[dict]:
+def schedule(season: int, teams: dict, league: str = "wnba") -> list[dict]:
     """Every regular-season and playoff game, finished or not. The All-Star
     game and preseason are left out -- neither says anything about how a
     team defends."""
+    if league == "nba":
+        return _team_schedules(season, teams)
     data = espn("/scoreboard", {"dates": str(season), "limit": 1000}, timeout=30)
+    return _listing(data.get("events", []), teams)
+
+
+def _team_schedules(season: int, teams: dict) -> list[dict]:
+    """An NBA season from every team's own schedule (regular season and
+    playoffs): a scoreboard asked for a year means the calendar year, and
+    an NBA season spans two."""
+    def load(job):
+        team_id, kind = job
+        try:
+            events = espn(f"/teams/{team_id}/schedule", {"season": season, "seasontype": kind}, 20, league="nba").get("events", [])
+        except Exception:  # noqa: BLE001 -- the next build asks again
+            return []
+        return [{**event, "season": {**(event.get("season") or {}), "type": kind}} for event in events]
+    jobs = [(team["id"], kind) for team in teams.values() for kind in (2, 3)]
+    events = {}
+    with ThreadPoolExecutor(max_workers=12) as pool:
+        for batch in pool.map(load, jobs):
+            for event in batch:
+                events.setdefault(str(event.get("id")), event)
+    return _listing(events.values(), teams)
+
+
+def _listing(events, teams: dict) -> list[dict]:
     known = {team["id"] for team in teams.values()}
     games = []
-    for event in data.get("events", []):
+    for event in events:
         season_type = (event.get("season") or {}).get("type")
         if season_type not in (2, 3):
             continue
@@ -248,35 +286,79 @@ def _decode(raw: str) -> dict:
     return json.loads(raw)
 
 
-def stored(season: int) -> dict | None:
-    """The stored season, from this instance's memory when it is recent."""
-    cached = _memory.get(season)
+def _memory_key(season: int, league: str):
+    # WNBA keeps its plain season key, which the tests and older callers use.
+    return season if league == "wnba" else (league, season)
+
+
+def _month_key(season: int, league: str, month: str) -> str:
+    return LEAGUES[league]["key"].format(season=season) + f":{month}"
+
+
+def stored(season: int, league: str = "wnba") -> dict | None:
+    """The stored season, from this instance's memory when it is recent.
+    Monthly leagues keep the schedule, teams and players in one record and
+    each month's games in its own; they are read side by side."""
+    cached = _memory.get(_memory_key(season, league))
     if cached and time.time() - cached[0] < 300:
         return cached[1]
     try:
-        raw = _store().get(LEAGUE_KEY.format(season=season))
+        raw = _store().get(LEAGUES[league]["key"].format(season=season))
         value = _decode(raw) if raw else None
+        if value and LEAGUES[league]["monthly"]:
+            def month(name):
+                blob = _store().get(_month_key(season, league, name))
+                return _decode(blob) if blob else {}
+            with ThreadPoolExecutor(max_workers=6) as pool:
+                games = {}
+                for part in pool.map(month, value.get("months") or []):
+                    games.update(part)
+            value = {**value, "games": games}
     except Exception:  # noqa: BLE001 -- an outage or unreadable record is "nothing stored"
         value = None
     if value:
-        _memory[season] = (time.time(), value)
+        _memory[_memory_key(season, league)] = (time.time(), value)
     return value
 
 
-def build(season: int, deadline_seconds: float | None = BUILD_DEADLINE_SECONDS, store: bool = True) -> dict:
+def _save(season: int, payload: dict, league: str, changed: set) -> tuple[bool, int]:
+    """Write the season: one record, or (monthly) the months with new games
+    and the record naming every month. Returns (stored, bytes written)."""
+    store = _store()
+    if not LEAGUES[league]["monthly"]:
+        blob = _encode(payload)
+        return bool(store.set(LEAGUES[league]["key"].format(season=season), blob)), len(blob)
+    months = {}
+    for game_id, game in (payload.get("games") or {}).items():
+        months.setdefault(str(game.get("date") or "")[:7] or "undated", {})[game_id] = game
+    ok, size = True, 0
+    for name in sorted(months):
+        if name not in changed:
+            continue
+        blob = _encode(months[name])
+        size += len(blob)
+        ok = bool(store.set(_month_key(season, league, name), blob)) and ok
+    meta = {key: value for key, value in payload.items() if key not in ("games", "stored", "storedBytes")}
+    meta["months"] = sorted(months)
+    blob = _encode(meta)
+    return bool(store.set(LEAGUES[league]["key"].format(season=season), blob)) and ok, size + len(blob)
+
+
+def build(season: int, deadline_seconds: float | None = BUILD_DEADLINE_SECONDS, store: bool = True,
+          league: str = "wnba") -> dict:
     """Top up (or create) the stored season with every newly finished game."""
     started = time.monotonic()
-    previous = stored(season) or {}
+    previous = stored(season, league) or {}
     games = dict(previous.get("games") or {})
     players = dict(previous.get("players") or {})
-    teams = team_directory()
-    listing = schedule(season, teams)
+    teams = team_directory(league)
+    listing = schedule(season, teams, league)
     missing = [game for game in listing if game["completed"] and game["id"] not in games]
     failed, partial = [], False
     if missing:
         executor = ThreadPoolExecutor(max_workers=12)
         try:
-            futures = [(game, executor.submit(espn, "/summary", {"event": game["id"]}, 20)) for game in missing]
+            futures = [(game, executor.submit(espn, "/summary", {"event": game["id"]}, 20, league)) for game in missing]
             for game, future in futures:
                 remaining = None
                 if deadline_seconds is not None:
@@ -294,18 +376,21 @@ def build(season: int, deadline_seconds: float | None = BUILD_DEADLINE_SECONDS, 
         finally:
             executor.shutdown(wait=False, cancel_futures=True)
     payload = {
-        "season": season, "builtAt": datetime.now(timezone.utc).isoformat(), "teams": teams,
+        "season": season, "league": league, "builtAt": datetime.now(timezone.utc).isoformat(), "teams": teams,
         "schedule": listing, "games": games, "players": players,
         "partial": partial or bool(failed), "failed": failed,
     }
     if store:
-        blob = _encode(payload)
-        payload["storedBytes"] = len(blob)
+        # Only months that gained games are rewritten (a new build writes them all).
+        changed = {str((games.get(game["id"]) or {}).get("date") or "")[:7] or "undated"
+                   for game in missing if game["id"] in games}
+        if not previous:
+            changed |= {str(game.get("date") or "")[:7] or "undated" for game in games.values()}
         try:
-            payload["stored"] = bool(_store().set(LEAGUE_KEY.format(season=season), blob))
+            payload["stored"], payload["storedBytes"] = _save(season, payload, league, changed)
         except Exception:  # noqa: BLE001 -- report it, keep serving what was built
             payload["stored"] = False
-        _memory[season] = (time.time(), payload)
+        _memory[_memory_key(season, league)] = (time.time(), payload)
     return payload
 
 
@@ -316,17 +401,17 @@ def _age_seconds(payload: dict) -> float:
         return float("inf")
 
 
-def _locked() -> bool:
+def _locked(league: str = "wnba") -> bool:
     try:
-        raw = _store().get(BUILD_LOCK_KEY)
+        raw = _store().get(LEAGUES[league]["lock"])
         return bool(raw) and time.time() - float(raw) < BUILD_LOCK_SECONDS
     except Exception:  # noqa: BLE001
         return False
 
 
-def _set_lock(value: str) -> None:
+def _set_lock(value: str, league: str = "wnba") -> None:
     try:
-        _store().set(BUILD_LOCK_KEY, value)
+        _store().set(LEAGUES[league]["lock"], value)
     except Exception:  # noqa: BLE001
         pass
 
@@ -348,25 +433,25 @@ def _game_due(payload: dict) -> bool:
     return False
 
 
-def ensure(season: int) -> dict | None:
+def ensure(season: int, league: str = "wnba") -> dict | None:
     """The stored season, topped up first when it is stale or unfinished.
 
     A reader only ever waits on a top-up (a few newly finished games); the
     full backfill is the cron's job. Another instance already building
     means serving what is stored now."""
-    payload = stored(season)
+    payload = stored(season, league)
     age = _age_seconds(payload) if payload else float("inf")
     stale = age >= REFRESH_SECONDS or (age >= RECHECK_SECONDS and _game_due(payload))
     if payload and not payload.get("partial") and not stale:
         return payload
     if payload and payload.get("partial") and _age_seconds(payload) < 60:
         return payload
-    if _locked():
+    if _locked(league):
         return payload
-    _set_lock(str(time.time()))
+    _set_lock(str(time.time()), league)
     try:
-        return build(season)
+        return build(season, league=league)
     except Exception:  # noqa: BLE001 -- ESPN down: keep serving the stored season
         return payload
     finally:
-        _set_lock("0")
+        _set_lock("0", league)

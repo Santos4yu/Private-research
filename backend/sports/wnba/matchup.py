@@ -45,12 +45,12 @@ def _remember(key, value):
     setex(key, json.dumps({"at": now, "value": value}, separators=(",", ":")), CACHE_SECONDS)
 
 
-def find_event(home: str, away: str, starts_at: str) -> str | None:
+def find_event(home: str, away: str, starts_at: str, league: str = "wnba") -> str | None:
     """ESPN's id for the game between these two teams (abbreviations).
 
     Remembered once found: a game's id never changes, and finding it can
     take up to three scoreboard requests."""
-    key = f"krazy_data:wnba:v1:event:{home}:{away}:{str(starts_at)[:10]}"
+    key = f"krazy_data:{league}:v1:event:{home}:{away}:{str(starts_at)[:10]}"
     hit = _memory.get(key)
     if hit:
         return hit[1]
@@ -61,14 +61,14 @@ def find_event(home: str, away: str, starts_at: str) -> str | None:
             return raw
     except Exception:  # noqa: BLE001
         pass
-    event_id = _find_event(home, away, starts_at)
+    event_id = _find_event(home, away, starts_at, league)
     if event_id:
         _memory[key] = (time.time(), event_id)
         setex(key, event_id, 14 * 24 * 3600)
     return event_id
 
 
-def _find_event(home: str, away: str, starts_at: str) -> str | None:
+def _find_event(home: str, away: str, starts_at: str, league: str = "wnba") -> str | None:
     try:
         start = datetime.fromisoformat(str(starts_at).replace("Z", "+00:00"))
     except ValueError:
@@ -78,7 +78,7 @@ def _find_event(home: str, away: str, starts_at: str) -> str | None:
     for offset in (0, -1, 1):
         day = (local + timedelta(days=offset)).strftime("%Y%m%d")
         try:
-            events = espn("/scoreboard", {"dates": day}).get("events", [])
+            events = espn("/scoreboard", {"dates": day}, league=league).get("events", [])
         except Exception:  # noqa: BLE001
             continue
         for event in events:
@@ -217,12 +217,12 @@ def _series(summary):
     return {"title": series.get("title"), "summary": series.get("summary"), "games": games}
 
 
-def matchup(event_id: str) -> dict:
-    key = f"krazy_data:wnba:v1:matchup:{event_id}"
+def matchup(event_id: str, league: str = "wnba") -> dict:
+    key = f"krazy_data:{league}:v1:matchup:{event_id}"
     cached = _cached(key)
     if cached is not None:
         return cached
-    summary = espn("/summary", {"event": event_id}, timeout=20)
+    summary = espn("/summary", {"event": event_id}, timeout=20, league=league)
     competition = (summary.get("header") or {}).get("competitions", [{}])[0]
     teams = [_team(c) for c in competition.get("competitors", [])]
     teams.sort(key=lambda team: 0 if team["side"] == "away" else 1)
@@ -232,7 +232,7 @@ def matchup(event_id: str) -> dict:
     venue = ((summary.get("gameInfo") or {}).get("venue") or {})
     status = (competition.get("status") or {}).get("type") or {}
     try:
-        teams_by_id = {team["id"]: team for team in team_directory().values()}
+        teams_by_id = {team["id"]: team for team in team_directory(league).values()}
     except Exception:  # noqa: BLE001
         teams_by_id = {}
     value = {

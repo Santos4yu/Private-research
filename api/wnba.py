@@ -1,7 +1,9 @@
-"""Verified WNBA player-prop board backed by The Odds API.
+"""Verified WNBA player-prop board backed by The Odds API, and the NBA's
+(`?league=nba`), built from PrizePicks' own lines.
 
 The response is deliberately market-only: historical hit rates and player
 profiles belong to a separate stats source and are never inferred from odds.
+Both leagues' history, matchups and season context come from ESPN.
 """
 from __future__ import annotations
 
@@ -11,7 +13,7 @@ import sys
 import time
 import unicodedata
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -84,10 +86,24 @@ PRIZEPICKS_LABELS = {**MARKETS, "player_threes_attempts": "3-PT Attempted", "pla
                      "player_twos_attempts": "Two Pointers Attempted", "player_fouls": "Personal Fouls",
                      "player_offensive_rebounds": "Offensive Rebounds", "player_defensive_rebounds": "Defensive Rebounds",
                      "player_double_double": "Double-Double"}
+PRIZEPICKS_MARKETS.update({"tripledouble": "player_triple_double", "tripledoubles": "player_triple_double"})
+PRIZEPICKS_LABELS["player_triple_double"] = "Triple-Double"
 _memory = {"at": 0.0, "value": None}
-_roster_memory = {"at": 0.0, "value": None}
-# The league context derived from the stored season, per (season, builtAt).
+_roster_memory = {}
+# The league context derived from the stored season, per (league, season, builtAt).
 _league_memory = {}
+
+# The NBA: every line PrizePicks posts, on ESPN's rosters and schedule. No
+# sportsbook comparison here -- player props from The Odds API are asked per
+# game and per market, which would cost about 26 credits a game each refresh.
+NBA_CACHE_SECONDS = 90
+LEAGUES = ("wnba", "nba")
+ROSTER_KEYS = {"wnba": ROSTER_CACHE_KEY, "nba": "krazy_data:nba:v1:roster_directory"}
+# PrizePicks' NBA team codes, where ESPN's differ.
+NBA_TEAM_CODES = {"GSW": "GS", "NYK": "NY", "SAS": "SA", "NOP": "NO", "NOR": "NO", "UTA": "UTAH", "WAS": "WSH",
+                  "PHO": "PHX", "BRK": "BKN"}
+_nba_memory = {"at": 0.0, "value": None}
+_nba_days = {}
 
 
 def _norm(value):
@@ -101,19 +117,20 @@ def _espn_json(url):
     return response.json()
 
 
-def _roster_directory():
+def _roster_directory(league="wnba"):
     now = time.time()
-    if _roster_memory["value"] is not None and now - _roster_memory["at"] < ROSTER_CACHE_SECONDS:
-        return _roster_memory["value"]
+    memory = _roster_memory.get(league)
+    if memory and now - memory[0] < ROSTER_CACHE_SECONDS:
+        return memory[1]
     try:
-        raw = store.get(ROSTER_CACHE_KEY)
+        raw = store.get(ROSTER_KEYS[league])
         envelope = json.loads(raw) if raw else None
         if envelope and now - float(envelope.get("at", 0)) < ROSTER_CACHE_SECONDS:
-            _roster_memory.update(at=float(envelope["at"]), value=envelope["value"])
+            _roster_memory[league] = (float(envelope["at"]), envelope["value"])
             return envelope["value"]
     except Exception:
         pass
-    listing = _espn_json("https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams")
+    listing = _espn_json(f"https://site.api.espn.com/apis/site/v2/sports/basketball/{league}/teams")
     teams = listing.get("sports", [{}])[0].get("leagues", [{}])[0].get("teams", [])
     team_meta = {}
     for item in teams:
@@ -124,7 +141,7 @@ def _roster_directory():
         }
 
     def load(team_id):
-        return team_id, _espn_json(f"https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/teams/{team_id}/roster")
+        return team_id, _espn_json(f"https://site.api.espn.com/apis/site/v2/sports/basketball/{league}/teams/{team_id}/roster")
 
     players = {}
     with ThreadPoolExecutor(max_workers=8) as pool:
@@ -142,9 +159,9 @@ def _roster_directory():
                     "height": str(athlete.get("displayHeight") or "").replace("' ", "'").rstrip('"') or None,
                 })
     value = {"players": players, "teams": {_norm(meta["name"]): meta for meta in team_meta.values()}}
-    _roster_memory.update(at=now, value=value)
+    _roster_memory[league] = (now, value)
     try:
-        store.set(ROSTER_CACHE_KEY, json.dumps({"at": now, "value": value}, separators=(",", ":")))
+        store.set(ROSTER_KEYS[league], json.dumps({"at": now, "value": value}, separators=(",", ":")))
     except Exception:
         pass
     return value
@@ -202,13 +219,13 @@ def _own_score_first(score, result):
     return f"{match[2]}-{match[1]}{match[3]}" if result == "L" and match else score
 
 
-def _rebound_split(player_id, season):
+def _rebound_split(player_id, season, league_name="wnba"):
     """event id -> (offensive, defensive) rebounds for one player, from the
     stored season of box scores (backend/sports/wnba/league.py) -- ESPN's
     player game log only has total rebounds."""
     try:
         from backend.sports.wnba import league
-        stored = league.stored(season) or {}
+        stored = league.stored(season, league_name) or {}
         at = (2 + league.FIELDS.index("oreb"), 2 + league.FIELDS.index("dreb"))
     except Exception:  # noqa: BLE001 -- no split, just the totals
         return {}
@@ -221,22 +238,24 @@ def _rebound_split(player_id, season):
     return split
 
 
-def _game_logs(player_id, season):
+def _game_logs(player_id, season, league="wnba"):
     # v4: rows carry the full box line (attempts, fouls) for the game log
     # and supporting-stats views, are tagged by season type, and give the
     # score with this player's team first.
-    cache_key = f"krazy_data:wnba:v6:gamelog:{player_id}:{season}"
+    cache_key = f"krazy_data:{league}:v6:gamelog:{player_id}:{season}"
     now = time.time()
+    # A season that is over never changes; the current one is re-read.
+    fresh = 12 * 3600 if league == "nba" and season < _nba_seasons()[-1] else 30 * 60
     try:
         raw = store.get(cache_key)
         envelope = json.loads(raw) if raw else None
-        if envelope and now - float(envelope.get("at", 0)) < 30 * 60:
+        if envelope and now - float(envelope.get("at", 0)) < fresh:
             return envelope["value"]
     except Exception:
         pass
-    data = _espn_json(f"https://site.web.api.espn.com/apis/common/v3/sports/basketball/wnba/athletes/{player_id}/gamelog?region=us&lang=en&contentorigin=espn&season={season}")
+    data = _espn_json(f"https://site.web.api.espn.com/apis/common/v3/sports/basketball/{league}/athletes/{player_id}/gamelog?region=us&lang=en&contentorigin=espn&season={season}")
     names, events = data.get("names", []), data.get("events", {})
-    boards = _rebound_split(player_id, season)
+    boards = _rebound_split(player_id, season, league)
     rows, seen = [], set()
     for season_type in data.get("seasonTypes", []):
         for category in season_type.get("categories", []):
@@ -264,18 +283,48 @@ def _game_logs(player_id, season):
                 # assists, steals and blocks (1 if so, 0 if not).
                 counting=[points,rebounds,assists,steals,blocks]
                 if all(v is not None for v in counting): values["player_double_double"]=1.0 if sum(v>=10 for v in counting)>=2 else 0.0
+                if all(v is not None for v in counting): values["player_triple_double"]=1.0 if sum(v>=10 for v in counting)>=3 else 0.0
                 split=boards.get(event_id)
                 if split: values["player_offensive_rebounds"],values["player_defensive_rebounds"]=split
                 box={"min":_number(stats.get("minutes")),"pts":points,"reb":rebounds,"ast":assists,"stl":steals,"blk":blocks,"to":turnovers,"pf":_number(stats.get("fouls")),
                      "fgm":_number(fg[0]) if len(fg)==2 else None,"fga":_number(fg[1]) if len(fg)==2 else None,"tpm":_number(tp[0]) if len(tp)==2 else None,"tpa":_number(tp[1]) if len(tp)==2 else None,"ftm":_number(ft[0]) if len(ft)==2 else None,"fta":_number(ft[1]) if len(ft)==2 else None}
                 display_type=str(season_type.get("displayName") or "")
-                kind="postseason" if "Postseason" in display_type else "preseason" if "Preseason" in display_type else "regular"
+                kind="postseason" if "Postseason" in display_type or "Play" in display_type else "preseason" if "Preseason" in display_type else "regular"
                 rows.append({"gameId":event_id,"date":event.get("gameDate"),"season":season,"seasonType":display_type,"seasonKind":kind,"opponent":(event.get("opponent") or {}).get("abbreviation"),"opponentLogo":(event.get("opponent") or {}).get("logo"),"isHome":event.get("atVs")=="vs","result":event.get("gameResult"),"score":_own_score_first(event.get("score"),event.get("gameResult")),"minutes":_number(stats.get("minutes")),"values":values,"box":box})
     rows.sort(key=lambda row: row.get("date") or "")
     result={"status":"AVAILABLE","source":"espn","playerId":player_id,"season":season,"rows":rows,"fetchedAt":datetime.now(timezone.utc).isoformat()}
     try: store.set(cache_key,json.dumps({"at":now,"value":result},separators=(",",":")))
     except Exception: pass
     return result
+
+
+def _nba_seasons(now=None):
+    """The NBA seasons a player's history covers: the one under way (or next,
+    from September) and the one before, so the first weeks of a season still
+    have ten and twenty games behind every line. ESPN names a season by the
+    year it ends."""
+    now = now or datetime.now(timezone.utc)
+    latest = now.year + 1 if now.month >= 9 else now.year
+    return [latest - 1, latest]
+
+
+def _history(player_id, league="wnba", season=None):
+    """A player's game logs, oldest first: the WNBA season asked for, or the
+    NBA's last two seasons together."""
+    if league != "nba":
+        return _game_logs(player_id, season or datetime.now(timezone.utc).year).get("rows", [])
+    rows, seen = [], set()
+    for year in _nba_seasons():
+        try:
+            logs = _game_logs(player_id, year, "nba").get("rows", [])
+        except Exception:  # noqa: BLE001 -- a season ESPN has nothing for yet
+            logs = []
+        for log in logs:
+            if log.get("gameId") not in seen:
+                seen.add(log.get("gameId"))
+                rows.append(log)
+    rows.sort(key=lambda row: row.get("date") or "")
+    return rows
 
 
 def _window(values, line):
@@ -285,11 +334,11 @@ def _window(values, line):
             "misses": len(decided) - hits, "pushes": len(values) - len(decided), "sample": len(values)}
 
 
-def _attach_history(rows, season):
+def _attach_history(rows, season, league="wnba"):
     player_ids = sorted({row.get("playerId") for row in rows if row.get("playerId")})
     histories = {}
     def load(player_id):
-        try: return player_id, _game_logs(player_id, season).get("rows", [])
+        try: return player_id, _history(player_id, league, season)
         except Exception: return player_id, []
     with ThreadPoolExecutor(max_workers=8) as pool:
         for player_id, logs in pool.map(load, player_ids): histories[player_id] = logs
@@ -555,36 +604,172 @@ def _board(include_history=True):
     return result
 
 
+def _nba_day(day):
+    """ESPN's NBA games on one US date, kept ten minutes."""
+    hit = _nba_days.get(day)
+    if hit and time.time() - hit[0] < 10 * 60:
+        return hit[1]
+    data = _espn_json(f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={day}")
+    games = []
+    for event in data.get("events") or []:
+        competition = (event.get("competitions") or [{}])[0]
+        sides = {}
+        for competitor in competition.get("competitors") or []:
+            team = competitor.get("team") or {}
+            sides[competitor.get("homeAway")] = {"abbr": team.get("abbreviation"), "name": team.get("displayName"),
+                                                 "logo": team.get("logo")}
+        start = timestamp(event.get("date"))
+        if start and sides.get("home", {}).get("abbr") and sides.get("away", {}).get("abbr"):
+            games.append({"id": str(event.get("id")), "start": start, "home": sides["home"], "away": sides["away"]})
+    _nba_days[day] = (time.time(), games)
+    return games
+
+
+def _nba_games(lines, now):
+    """Team code -> its games on the days the lines are for (ESPN's
+    scoreboard files a game under its US date, so a late tip is still the
+    day before in UTC)."""
+    days = sorted({(start - timedelta(hours=5)).strftime("%Y%m%d") for line in lines
+                   if (start := timestamp(line.get("start_time"))) and start > now})
+    by_team = {}
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        for games in pool.map(lambda day: _safe(_nba_day, day, []), days):
+            for game in games:
+                for side in ("home", "away"):
+                    by_team.setdefault(game[side]["abbr"], []).append(game)
+    return by_team
+
+
+def _safe(function, argument, fallback):
+    try:
+        return function(argument)
+    except Exception:  # noqa: BLE001 -- one day's scoreboard must not sink the board
+        return fallback
+
+
+def _nba_row(line, starts, directory, by_team):
+    """One PrizePicks NBA line as a board row, on ESPN's player and game."""
+    name = str(line.get("player") or "").strip()
+    stat = re.sub(r"[^a-z0-9]", "", str(line.get("stat") or "").lower())
+    market = PRIZEPICKS_MARKETS.get(stat) or f"pp:{stat}"
+    modifier = str(line.get("odds_type") or "standard").lower()
+    code = str(line.get("team") or "").upper()
+    code = NBA_TEAM_CODES.get(code, code)
+    identities = directory["players"].get(_norm(name), [])
+    identity = next((item for item in identities if item.get("teamAbbr") == code), identities[0] if len(identities) == 1 else None)
+    team_code = (identity or {}).get("teamAbbr") or code
+    # The team's game nearest the line's start (a team plays once a day).
+    games = by_team.get(team_code) or []
+    game = min(games, key=lambda item: abs((item["start"] - starts).total_seconds()), default=None)
+    if game and abs((game["start"] - starts).total_seconds()) > 12 * 3600:
+        game = None
+    teams = {meta.get("abbr"): meta for meta in directory["teams"].values()}
+    row = {"id": f"pp:{line.get('id')}", "sport": "nba", "eventId": game["id"] if game else None, "player": name,
+           # PrizePicks' own stat name, so the board reads like the app and Export matches it exactly.
+           "marketKey": market, "market": str(line.get("stat") or "").strip() or PRIZEPICKS_LABELS.get(market),
+           "line": float(line["line"]), "modifier": modifier, "startsAt": starts.isoformat(),
+           "apps": [{"key": "prizepicks", "name": "PrizePicks", "over": None, "under": None,
+                     "updatedAt": line.get("updated_at") or None, "modifier": modifier}],
+           "verified": True, "primaryBook": "prizepicks", "source": "prizepicks"}
+    if game:
+        for side in ("home", "away"):
+            row[f"{side}Team"], row[f"{side}TeamAbbr"] = game[side]["name"], game[side]["abbr"]
+            row[f"{side}TeamLogo"] = game[side]["logo"] or (teams.get(game[side]["abbr"]) or {}).get("logo")
+    if identity:
+        row.update({key: identity.get(key) for key in ("headshot", "position", "height", "team", "teamAbbr", "teamLogo")})
+        row["playerId"] = identity.get("id")
+    else:
+        team = teams.get(team_code) or {}
+        row.update({"headshot": line.get("headshot") or None, "position": line.get("position") or None,
+                    "team": team.get("name") or line.get("team_name") or None, "teamAbbr": team_code or None,
+                    "teamLogo": team.get("logo")})
+    return row
+
+
+def _nba_board(include_history=False):
+    """Every NBA line PrizePicks posts -- each stat, each tier -- on ESPN's
+    player (for his game logs) and game (for the matchup)."""
+    now_stamp = time.time()
+    if not include_history and _nba_memory["value"] is not None and now_stamp - _nba_memory["at"] < NBA_CACHE_SECONDS:
+        return _nba_memory["value"]
+    from prizepicks_export_core import _fetch_projection_rows
+    try:
+        lines = _fetch_projection_rows(league="NBA")
+    except RuntimeError as error:
+        # "no active projections" -- an empty slate, not an outage.
+        if "no active" not in str(error).lower():
+            raise
+        lines = []
+    now = datetime.now(timezone.utc)
+    try:
+        directory = _roster_directory("nba")
+    except Exception:  # noqa: BLE001 -- the lines still stand without ESPN's rosters
+        directory = {"players": {}, "teams": {}}
+    by_team = _nba_games(lines, now)
+    rows = []
+    for line in lines:
+        starts = timestamp(line.get("start_time"))
+        try:
+            float(line.get("line"))
+        except (TypeError, ValueError):
+            continue
+        # Two-player combo lines ("A + B") belong to no one player's page.
+        if line.get("combo") or not starts or starts <= now:
+            continue
+        rows.append(_nba_row(line, starts, directory, by_team))
+    rows.sort(key=lambda row: (row["startsAt"], row["player"], row["market"], row["line"]))
+    if include_history:
+        _attach_history(rows, None, "nba")
+    result = {"status": "AVAILABLE", "source": "prizepicks", "sport": "nba", "fetchedAt": now.isoformat(),
+              "seasons": _nba_seasons(now), "rows": rows}
+    if not include_history:
+        _nba_memory.update(at=now_stamp, value=result)
+    return result
+
+
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        if not session_with_live_access(self.headers):
-            return _send(self, 401, {"error": "Sign in to use WNBA data.", "authRequired": True})
-        # WNBA is only reachable through the Finder, so the Finder's admin
-        # switches are enforced here too -- hiding it in the UI alone would
-        # leave the data one URL away. Admins pass through.
-        from site_controls import finder_sport_allowed
-        if not finder_sport_allowed(self.headers, "wnba"):
-            return _send(self, 503, {"error": "This section is temporarily unavailable", "featureDisabled": True})
         query = parse_qs(urlparse(self.path).query)
+        league = "nba" if query.get("league", ["wnba"])[0].strip().lower() == "nba" else "wnba"
+        name = league.upper()
+        if not session_with_live_access(self.headers):
+            return _send(self, 401, {"error": f"Sign in to use {name} data.", "authRequired": True})
+        # Both leagues are only reachable through the Finder, so its admin
+        # switches ("WNBA in the Finder", "NBA in the Finder") are enforced
+        # here too -- hiding a league in the UI alone would leave the data one
+        # URL away. Admins pass through.
+        from site_controls import finder_sport_allowed
+        if not finder_sport_allowed(self.headers, league):
+            return _send(self, 503, {"error": "This section is temporarily unavailable", "featureDisabled": True})
         resource = query.get("resource", ["board"])[0]
         try:
             if resource == "gamelog":
                 player_id = query.get("playerId", [""])[0].strip()
+                if league == "nba":
+                    if not player_id.isdigit():
+                        return _send(self, 400, {"error": "A verified NBA player is required."})
+                    seasons = _nba_seasons()
+                    return _send(self, 200, {"status": "AVAILABLE", "source": "espn", "playerId": player_id, "season": seasons[-1],
+                                             "seasons": seasons, "rows": _history(player_id, "nba"),
+                                             "fetchedAt": datetime.now(timezone.utc).isoformat()})
                 try: season = int(query.get("season", [str(datetime.now(timezone.utc).year)])[0])
                 except ValueError: return _send(self, 400, {"error": "A valid WNBA season is required."})
                 if not player_id.isdigit() or not 2000 <= season <= 2100: return _send(self, 400, {"error": "A verified WNBA player and season are required."})
                 return _send(self, 200, _game_logs(player_id, season))
             if resource in ("matchup", "league-context", "player-context"):
-                return self._context(resource, query)
-            if resource != "board": return _send(self, 404, {"error": "Unknown WNBA resource."})
+                return self._context(resource, query, league)
+            if resource != "board": return _send(self, 404, {"error": f"Unknown {name} resource."})
             fast = query.get("fast", ["0"])[0].lower() in ("1", "true", "yes")
+            if league == "nba":
+                return _send(self, 200, _nba_board(include_history=not fast))
             return _send(self, 200, _board(include_history=not fast))
         except RuntimeError as exc:
-            return _send(self, 503, {"error": str(exc), "rows": [], "source": "the-odds-api"})
+            return _send(self, 503, {"error": str(exc), "rows": [], "source": "prizepicks" if league == "nba" else "the-odds-api"})
         except Exception:
-            return _send(self, 503, {"error": "WNBA lines are temporarily unavailable.", "rows": [], "source": "the-odds-api"})
+            return _send(self, 503, {"error": f"{name} lines are temporarily unavailable.", "rows": [],
+                                     "source": "prizepicks" if league == "nba" else "the-odds-api"})
 
-    def _context(self, resource, query):
+    def _context(self, resource, query, league_name="wnba"):
         """Matchup research for the player page. All of it comes from ESPN:
         the game summary for the matchup itself, and the stored season of
         box scores (backend/sports/wnba/league.py) for everything else."""
@@ -596,19 +781,21 @@ class handler(BaseHTTPRequestHandler):
                 home, away = team_code(arg("home")), team_code(arg("away"))
                 if not home or not away or not arg("startsAt"):
                     return _send(self, 400, {"error": "Both teams and the start time are required."})
-                event_id = matchup.find_event(home, away, arg("startsAt"))
+                event_id = matchup.find_event(home, away, arg("startsAt"), league_name)
                 if not event_id:
                     return _send(self, 404, {"error": "This game is not on ESPN's schedule yet."})
-                return _send(self, 200, matchup.matchup(event_id))
-            season = league.current_season()
-            payload = league.ensure(season)
+                return _send(self, 200, matchup.matchup(event_id, league_name))
+            season = league.current_season(league=league_name)
+            payload = league.ensure(season, league_name)
             if not payload or not payload.get("games"):
                 return _send(self, 503, {"error": "Season data is still being prepared. Try again shortly."})
             if resource == "league-context":
                 built = payload.get("builtAt")
-                if _league_memory.get("key") != (season, built):
-                    _league_memory.update(key=(season, built), value=context.league_context(payload))
-                return _send(self, 200, _league_memory["value"])
+                memory = _league_memory.get(league_name) or {}
+                if memory.get("key") != (season, built):
+                    memory = {"key": (season, built), "value": context.league_context(payload)}
+                    _league_memory[league_name] = memory
+                return _send(self, 200, memory["value"])
             player_id, team, opponent = arg("playerId"), team_code(arg("team")), team_code(arg("opponent"))
             if not player_id.isdigit() or not team or not opponent:
                 return _send(self, 400, {"error": "A verified player, team and opponent are required."})
