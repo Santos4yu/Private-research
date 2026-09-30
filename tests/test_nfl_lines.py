@@ -150,6 +150,13 @@ class BoardTests(unittest.TestCase):
         self.assertEqual(fields["windows"]["h2h"]["sample"], 3)
         self.assertEqual(fields["sample"], 6)
         self.assertEqual(prizepicks_board.history_fields(games, None, 4.5, "CLE")["windows"], {})
+        # The games ride along for the Smart Slip, preseason left out.
+        self.assertEqual([game["value"] for game in fields["gameLog"]], [2, 6, 5, 3, 7, 8])
+        self.assertEqual(fields["gameLog"][1]["opponent"], "CLE")
+        dated = [{"opponent": "BAL", "isHome": True, "date": "2025-09-07", "seasonKind": "regular", "values": {"receptions": 6}},
+                 {"opponent": "NYG", "isHome": False, "date": "2026-08-15", "seasonKind": "preseason", "values": {"receptions": 1}}]
+        self.assertEqual(prizepicks_board.history_fields(dated, "receptions", 4.5, "BAL")["gameLog"],
+                         [{"value": 6, "date": "2025-09-07", "home": True, "opponent": "BAL"}])
 
     def test_board_keeps_every_line_and_skips_combos_and_started_games(self):
         now = datetime(2026, 9, 20, 12, tzinfo=timezone.utc).timestamp()

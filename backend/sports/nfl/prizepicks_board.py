@@ -24,8 +24,10 @@ from . import finder, markets
 from .cache import NFLCacheDomain, cached_nfl
 from .services.nflverse import canonical_team
 
-VERSION = "nfl-pp-board-v5"
+VERSION = "nfl-pp-board-v6"
 WINDOWS = (5, 10, 15, 20)
+# Games each line carries for the Smart Slip's projection.
+GAME_LOG = 20
 CATEGORY = {"standard": "STANDARD", "goblin": "GOBLIN", "demon": "DEMON"}
 SUFFIXES = {"jr", "sr", "ii", "iii", "iv", "v"}
 # A PrizePicks start time and our schedule's kickoff for the same game.
@@ -159,7 +161,7 @@ def _support(hits, decisions):
 def history_fields(games, market, line, opponent):
     """Windows, streak and support for one line from the player's games."""
     if not market:
-        return {"windows": {}, "streak": None, "support": 0, "sample": 0}
+        return {"windows": {}, "streak": None, "support": 0, "sample": 0, "gameLog": []}
     played = [(game, game["values"].get(market)) for game in games]
     values = [value for _game_row, value in played if _finite(value)]
     recent = values[-20:]
@@ -171,8 +173,13 @@ def history_fields(games, market, line, opponent):
             break
         streak += 1
     l20 = windows["l20"]
+    # The games themselves, newest last, for the Smart Slip's projection
+    # (src/slip-analyst.js). Preseason games are left out: starters barely
+    # play them.
+    game_log = [{"value": value, "date": game.get("date") or None, "home": game.get("isHome"), "opponent": game.get("opponent")}
+                for game, value in played if _finite(value) and game.get("seasonKind") != "preseason"][-GAME_LOG:]
     return {"windows": windows, "streak": streak if values else None, "support": _support(l20["hits"], l20["decisions"]),
-            "sample": len(recent), "average": windows["l10"]["average"]}
+            "sample": len(recent), "average": windows["l10"]["average"], "gameLog": game_log}
 
 
 def _projections():

@@ -210,6 +210,19 @@
 .ss-leg-chance::before{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--s-card)}
 .ss-leg-chance b{position:relative;color:var(--s-up);font:800 15px/1 var(--s-mono)}
 .ss-leg-chance span{position:relative;margin-top:2px;color:var(--s-faint);font-size:7.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+/* The analyst's grade on the chance ring: A green, B blue, C amber. */
+.ss-grade{position:absolute;top:-4px;right:-6px;display:grid;place-items:center;width:22px;height:22px;border-radius:7px;background:var(--g);color:#06121b;
+ box-shadow:0 0 0 2px var(--s-card),0 4px 12px -3px var(--g);font:900 12px/1 'Sora',var(--s-sans);font-style:normal}
+:is(.ss-grade,.ss-grades i)[data-grade="A"]{--g:#5fe0a8}
+:is(.ss-grade,.ss-grades i)[data-grade="B"]{--g:#4cc9f0}
+:is(.ss-grade,.ss-grades i)[data-grade="C"]{--g:#f6c35b}
+.ss-grades{display:flex;gap:4px;justify-content:flex-end}
+.ss-grades i{display:grid;place-items:center;width:20px;height:20px;border-radius:6px;background:color-mix(in srgb,var(--g) 18%,transparent);color:var(--g);font:900 11px/1 'Sora',var(--s-sans);font-style:normal}
+.ss-note{position:relative;margin:0;padding:10px 12px 10px 14px;border-radius:11px;background:color-mix(in srgb,var(--theme-accent) 7%,#0e1318);
+ color:#c9d4df;font-size:13px;line-height:1.5}
+.ss-note::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:linear-gradient(var(--theme-accent),var(--s-accent-2))}
+.ss-watch{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.ss-watch li{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid rgba(246,195,91,.35);border-radius:999px;background:rgba(246,195,91,.08);color:#f3cf7e;font-size:11.5px;font-weight:700}
 .ss-leg-pick{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px}
 .ss-leg-pick>b{font:800 18px/1 var(--s-mono)}
 .ss-leg-pick>span:not(.ss-side){color:var(--s-text);font-weight:600}
@@ -221,6 +234,9 @@
 .ss-reasons b{color:var(--s-text);font:800 13px/1 var(--s-mono)}
 .ss-reasons small{color:var(--s-faint);font-size:11px}
 .ss-reasons li[data-kind="books"] b{color:color-mix(in srgb,var(--theme-accent) 70%,#fff)}
+.ss-reasons li[data-kind="projection"] b{color:#b9a4ff}
+.ss-reasons li[data-tone="up"] b{color:var(--s-up)}
+.ss-reasons li[data-tone="down"] b{color:var(--s-down)}
 
 .ss-leg-actions{display:flex;gap:8px}
 .ss-leg-actions button{display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:0 15px;border:1px solid rgba(255,255,255,.09)!important;border-radius:999px;

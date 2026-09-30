@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {applySoccerHistory,finderWindow,normalizeFinderRows,applyMlbHistory,enrichMlbRows,loadFinderSport,finderSlipProp,bookProbability,powerDevig,defenseRank,withDefense,trendPickRow} from '../src/unified-finder-data.js';
+import {applySoccerHistory,finderWindow,normalizeFinderRows,applyMlbHistory,enrichMlbRows,loadFinderSport,finderSlipProp,bookProbability,powerDevig,defenseRank,withDefense,trendPickRow,withMlbMatchups,gameLog} from '../src/unified-finder-data.js';
 
 test('book chance comes from the books\' prices with the margin removed, never a fixed 50/50',()=>{
  // PrizePicks' payouts and an app quoting the same price both ways say nothing.
@@ -38,6 +38,25 @@ test('defense rank reads the opponent\'s table for the player\'s position and st
  const [ranked,plain]=withDefense([{...wnbaRow,id:1},{sport:'wnba',opponent:'SEA',position:'F',marketKey:'player_points',id:2,defense:null}],wnbaLeague);
  assert.deepEqual([ranked.defense,ranked.defenseTeams],[4,13]);
  assert.equal(plain.defense,null);
+ // What it allows, recently and against the league, for the Smart Slip's matchup read.
+ const league={teamCount:2,dvp:{ATL:{G:{stats:{pts:{szn:[18,2],l10:[20,2]}}}},SEA:{G:{stats:{pts:{szn:[14,1]}}}}}};
+ const [cell]=withDefense([{...wnbaRow,id:1}],league);
+ assert.deepEqual([cell.defenseValue,cell.defenseRecent,cell.defenseAverage,cell.defensePosition],[18,20,16,'G']);
+});
+test('each line carries its games and, in MLB, what it faces today',()=>{
+ assert.deepEqual(gameLog([{value:'3',date:'2026-09-01T23:00Z',home:true,opponent:'NY',usage:31},{value:null},{value:1,home:'yes'}]),
+  [{value:3,date:'2026-09-01',home:true,opponent:'NY',usage:31},{value:1,date:null,home:null,opponent:null,usage:null}]);
+ const [row]=normalizeFinderRows('mlb',{props:[{id:'x',player:'Test Batter',stat:'Hits',line:0.5}]});
+ const payload={season:2026,player:{id:123},matchup:{opponent:{id:116,name:'Detroit Tigers'},isHome:false},
+  games:[{date:'2026-09-01',isHome:true,opponent:{id:116},stat:{hits:2,plateAppearances:4}},{date:'2026-09-02',isHome:false,opponent:{id:114},stat:{hits:0,plateAppearances:5}}]};
+ const batter=applyMlbHistory(row,payload);
+ assert.equal(batter.isHome,false);
+ assert.deepEqual(batter.gameLog,[{value:2,date:'2026-09-01',home:true,opponent:116,usage:4},{value:0,date:'2026-09-02',home:false,opponent:114,usage:5}]);
+ const context={probables:{116:{name:'Tarik Skubal',whip:0.95}},pitching:{116:{era:3.5}},hitting:{116:{kRate:0.21}},league:{whip:1.28}};
+ const [faced,pitcher,other]=withMlbMatchups([batter,{...batter,marketKey:'pitching:strikeouts'},{sport:'wnba'}],context);
+ assert.deepEqual([faced.matchup.kind,faced.matchup.pitcher.name,faced.matchup.staff.era],['pitcher','Tarik Skubal',3.5]);
+ assert.deepEqual([pitcher.matchup.kind,pitcher.matchup.lineup.kRate],['lineup',0.21]);
+ assert.equal(other.matchup,undefined);
 });
 test('NFL rows list every app posting the line',()=>{
  const raw={id:'odds:g:00-2:receptions:4.5',playerId:'00-2',playerName:'DK Metcalf',propType:'receptions',propLabel:'Receptions',teamId:'PIT',opponentId:'CLE',gameId:'g',startsAt:'2099-09-01T00:00:00Z',

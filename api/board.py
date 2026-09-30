@@ -166,7 +166,7 @@ class handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         from site_controls import allowed
-        tab={'prop-history':'research','moneyline':'moneyline','nrfi':'nrfi','soccer':'finder','nhl':'finder','moves':'moves'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
+        tab={'prop-history':'research','moneyline':'moneyline','nrfi':'nrfi','soccer':'finder','nhl':'finder','moves':'moves','mlb-context':'finder'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
         if not allowed(self.headers,tab):return self._send(503,{'error':'This section is temporarily unavailable','featureDisabled':True})
         if not session_with_live_access(self.headers):
             return self._send(401, {"error": "Sign in with Discord to use live research.", "authRequired": True})
@@ -267,6 +267,14 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(200, {**line_moves.recent(sports), "sports": sports})
             except Exception:
                 return self._send(502, {"error": "Line moves are temporarily unavailable."})
+        if view == "mlb-context":
+            # Today's probable starters and every team's season rates, for
+            # the Smart Slip's matchup read (mlb_context.py).
+            try:
+                import mlb_context
+                return self._send(200, mlb_context.context())
+            except Exception:
+                return self._send(502, {"error": "MLB matchups are temporarily unavailable."})
         if view == "prop-history":
             qs = parse_qs(urlparse(self.path).query)
             try:

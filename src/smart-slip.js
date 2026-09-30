@@ -1,11 +1,13 @@
 // Smart Slip: PrizePicks slips built from the Finder's lines, every sport.
 //
-// Each pick's chance comes from two things a member can check for
+// Each pick's chance comes from three things a member can check for
 // themselves: the player's own record at this line (last 5/10/15/20 games
-// and the season, pulled toward 50/50 when the sample is small) and, where
-// sportsbooks price the line, their odds with the margin taken out. The
-// head-to-head record and the opponent's defense rank nudge it a little.
-// A pick the numbers don't back is never offered.
+// and the season, pulled toward 50/50 when the sample is small), a
+// projection from the games themselves adjusted for today's matchup, venue,
+// head-to-head and playing time (slip-analyst.js), and, where sportsbooks
+// price the line, their odds with the margin taken out. A pick the numbers
+// don't back -- or where they argue with each other -- is never offered;
+// the rest are graded A, B or C with a note saying why.
 //
 // Payouts follow PrizePicks' tables. Goblins and Demons change them by how
 // likely they are (a Goblin pays less, a Demon more); PrizePicks sets those
@@ -16,6 +18,7 @@
 // lines mix: all regular, regular with a Goblin, regular with a Demon, or
 // anything.
 import {bookProbability} from './unified-finder-data.js';
+import {readPick, grade, conflicted, analystNote} from './slip-analyst.js';
 
 export const POWER = {2: 3, 3: 6, 4: 10, 5: 20, 6: 37.5};
 // Flex: hits -> multiplier.
@@ -102,20 +105,30 @@ export function judgeLeg(row, side, {now = Date.now()} = {}) {
   }
   if (!weight) return null;
   let history = total / weight;
-  if (records.h2h && records.h2h.games >= 3) history += clamp((records.h2h.rate - history) * 0.15, -0.03, 0.03);
-  // Defense rank 1 allows the least. A soft defense helps the More.
-  const teams = finite(row.defenseTeams) ? row.defenseTeams : null;
-  if (finite(row.defense) && teams && teams > 1) {
-    const soft = (row.defense - 1) / (teams - 1) - 0.5;
-    history += (side === 'UNDER' ? -soft : soft) * 0.06;
-  }
 
   const books = bookProbability(row.apps);
   const bookOver = books ? books.over / 100 : null;
   const book = bookOver == null ? null : side === 'UNDER' ? 1 - bookOver : bookOver;
   const twoSided = books?.books.some(item => item.twoSided);
-  const chance = clamp(book == null ? 0.5 + (history - 0.5) * 0.8
-    : (twoSided ? 0.6 : 0.4) * book + (twoSided ? 0.4 : 0.6) * history, 0.03, 0.95);
+  // The chance this kind of line needs to break even, without a book: a
+  // Goblin is usually priced around 70%, a Demon around 35%.
+  const baseline = modifier === 'standard' ? 0.5 : book ?? (modifier === 'goblin' ? 0.7 : 0.35);
+  const read = readPick(row, side, {records, book, baseline});
+  const projected = read.projected;
+  if (projected == null) {
+    // No projection to carry the matchup: head-to-head and the defense
+    // rank nudge the record a little instead.
+    if (records.h2h && records.h2h.games >= 3) history += clamp((records.h2h.rate - history) * 0.15, -0.03, 0.03);
+    const teams = finite(row.defenseTeams) ? row.defenseTeams : null;
+    if (finite(row.defense) && teams && teams > 1) {
+      const soft = (row.defense - 1) / (teams - 1) - 0.5;
+      history += (side === 'UNDER' ? -soft : soft) * 0.06;
+    }
+  }
+  const chance = clamp(projected == null
+    ? book == null ? 0.5 + (history - 0.5) * 0.8 : (twoSided ? 0.6 : 0.4) * book + (twoSided ? 0.4 : 0.6) * history
+    : book == null ? 0.5 + (0.55 * projected + 0.45 * history - 0.5) * 0.85
+      : twoSided ? 0.5 * book + 0.25 * projected + 0.25 * history : 0.35 * book + 0.35 * projected + 0.3 * history, 0.03, 0.95);
 
   // Only picks the numbers back: the recent record and the books (where
   // they price it) must not argue against it.
@@ -124,12 +137,14 @@ export function judgeLeg(row, side, {now = Date.now()} = {}) {
   if (modifier === 'standard' && !(chance >= 0.53 && (recentRate >= 0.55 || (book ?? 0) >= 0.55))) return null;
   if (modifier === 'goblin' && !(chance >= 0.62 && recentRate >= 0.65)) return null;
   if (modifier === 'demon' && !(chance >= 0.33 && recentRate >= 0.4)) return null;
+  if (conflicted(read)) return null;
 
   // A Goblin or Demon scales the payout by how its chance compares with a
   // standard line's even odds: the market's chance when books price it.
   const fair = modifier === 'standard' ? 0.5 : book ?? chance;
   const factor = modifier === 'goblin' ? clamp(0.5 / fair, 0.45, 0.92) : modifier === 'demon' ? clamp(0.5 / fair, 1.1, 3.2) : 1;
-  return {id: `${row.id}|${side}`, row, side, modifier, chance, history, book, factor, records,
+  return {id: `${row.id}|${side}`, row, side, modifier, chance, history, book, factor, records, read,
+    grade: grade(read, chance, modifier === 'standard' ? 0.5 : fair, modifier), note: analystNote(row, side, read, {records, book}),
     price: sidePrice(row.apps, side), game: gameKey(row), player: row.player};
 }
 
@@ -277,15 +292,23 @@ const figure = value => Number.isInteger(value) ? String(value) : value.toFixed(
 export function reasons(leg) {
   const {records, row, side} = leg;
   const out = [];
-  const add = (key, strong, label, detail) => out.push({key, strong, label, detail});
+  const add = (key, strong, label, detail, tone = null) => out.push({key, strong, label, detail, tone});
   if (records.l10) add('l10', `${records.l10.won}/${records.l10.games}`, 'last 10', `${round(records.l10.rate)}%`);
   else if (records.l5) add('l5', `${records.l5.won}/${records.l5.games}`, 'last 5', `${round(records.l5.rate)}%`);
   if (records.season && records.season.games > (records.l10?.games || 0)) add('season', `${records.season.won}/${records.season.games}`, 'this season', `${round(records.season.rate)}%`);
   if (leg.book != null) add('books', `${round(leg.book)}%`, 'sportsbooks', leg.price ? `${leg.price.book} ${formatPrice(leg.price.price)}` : null);
+  const projection = leg.read?.projection;
+  if (finite(projection)) add('projection', figure(Math.round(projection * 10) / 10), 'projection', `line ${figure(row.line)}`);
+  const matchup = leg.read?.factors.find(item => item.key === 'matchup');
+  if (matchup) add('matchup', matchup.short, matchup.label, null, (matchup.factor - 1) * (side === 'UNDER' ? -1 : 1) >= 0 ? 'up' : 'down');
   if (records.h2h && records.h2h.games >= 2 && row.opponent) add('h2h', `${records.h2h.won}/${records.h2h.games}`, `vs ${row.opponent}`, null);
+  const venue = leg.read?.factors.find(item => item.key === 'venue');
+  if (venue?.record) add('venue', `${venue.record.won}/${venue.record.games}`, venue.label, null);
+  const role = leg.read?.factors.find(item => item.key === 'role');
+  if (role) add('role', role.short, role.label, null);
   const average = row.windows?.l10?.average ?? row.average;
-  if (finite(average) && finite(row.line)) add('average', figure(Math.round(average * 10) / 10), 'avg last 10', `line ${figure(row.line)}`);
-  if (finite(row.defense) && finite(row.defenseTeams) && row.opponent) {
+  if (!finite(projection) && finite(average) && finite(row.line)) add('average', figure(Math.round(average * 10) / 10), 'avg last 10', `line ${figure(row.line)}`);
+  if (!matchup && finite(row.defense) && finite(row.defenseTeams) && row.opponent) {
     const mostAllowed = row.defenseTeams - row.defense + 1;
     const helps = side === 'UNDER' ? row.defense <= row.defenseTeams / 3 : mostAllowed <= row.defenseTeams / 3;
     if (helps) add('defense', side === 'UNDER' ? ordinal(row.defense) : ordinal(mostAllowed),

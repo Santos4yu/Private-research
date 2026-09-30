@@ -67,11 +67,11 @@ export function persistFinderCache(sport, value) {
 // that is still the same prop at the same number. Only new lines, and lines
 // that moved, load history again.
 const HISTORY_KEEP = 6 * 60 * 60 * 1000;
-const HISTORY_FIELDS = ['average', 'windows', 'streak', 'diff', 'averageDelta', 'historyStatus', 'enrichedAt'];
+const HISTORY_FIELDS = ['average', 'windows', 'streak', 'diff', 'averageDelta', 'historyStatus', 'enrichedAt', 'gameLog'];
 // What history fills in that a board can leave blank (an MLB player's id,
 // photo and opponent). Prices and odds are never carried: the new board's
 // are the current ones.
-const IDENTITY_FIELDS = ['playerId', 'headshot', 'teamLogo', 'position', 'opponent', 'opponentTeamId', 'startsAt'];
+const IDENTITY_FIELDS = ['playerId', 'headshot', 'teamLogo', 'position', 'opponent', 'opponentTeamId', 'startsAt', 'isHome'];
 export function carryHistory(rows, previous = [], now = Date.now()) {
   const before = new Map();
   for (const row of previous || []) {
@@ -210,19 +210,56 @@ function nflDvpPosition(value) {
  * the least (toughest); the last rank allows the most.
  */
 export function defenseRank(row, league) {
+  return defenseCell(row, league)?.rank ?? null;
+}
+
+/**
+ * What the opponent allows the player's position in this stat: its season
+ * number and rank, its recent number (last 10, else last 5) and the
+ * league's average, for the Smart Slip's matchup read.
+ */
+export function defenseCell(row, league) {
   if (!league?.dvp || !row?.opponent) return null;
   const wnba = row.sport === 'wnba';
   const position = wnba ? positionOf(row.position) : nflDvpPosition(row.position);
   const stat = wnba ? WNBA_DVP_STAT[row.marketKey] : NFL_DVP_STAT[row.marketKey];
-  const rank = league.dvp[row.opponent]?.[position]?.stats?.[stat]?.szn?.[1];
-  return typeof rank === 'number' && Number.isFinite(rank) ? rank : null;
+  const cell = league.dvp[row.opponent]?.[position]?.stats?.[stat];
+  const rank = cell?.szn?.[1];
+  if (typeof rank !== 'number' || !Number.isFinite(rank)) return null;
+  const everyone = Object.values(league.dvp).map(team => number(team?.[position]?.stats?.[stat]?.szn?.[0])).filter(value => value != null);
+  return {rank, value: number(cell.szn[0]), recent: number((cell.l10 || cell.l5)?.[0]), average: mean(everyone), position};
 }
 
 export function withDefense(rows, league) {
   if (!league?.dvp || !Array.isArray(rows)) return rows;
   return rows.map(row => {
-    const rank = defenseRank(row, league);
-    return rank === row.defense ? row : {...row, defense: rank, defenseTeams: league.teamCount || null};
+    const cell = defenseCell(row, league);
+    const rank = cell?.rank ?? null;
+    if (rank === row.defense && (cell?.value ?? null) === (row.defenseValue ?? null)) return row;
+    return {...row, defense: rank, defenseTeams: league.teamCount || null, defenseValue: cell?.value ?? null,
+      defenseRecent: cell?.recent ?? null, defenseAverage: cell?.average ?? null, defensePosition: cell?.position ?? null};
+  });
+}
+
+/** Today's MLB matchups: probable starters, every team's rates (mlb_context.py). */
+export function loadMlbMatchups(options = {}) {
+  return request('/api/board?view=mlb-context', options);
+}
+
+/**
+ * Each MLB line with what it faces: a hitter the opponent's probable
+ * starter (and its staff), a pitcher the opposing lineup, with the
+ * league's averages alongside.
+ */
+export function withMlbMatchups(rows, context) {
+  if (!context || !Array.isArray(rows)) return rows;
+  return rows.map(row => {
+    const opponent = row.opponentTeamId == null ? null : String(row.opponentTeamId);
+    if (row.sport !== 'mlb' || !opponent) return row;
+    const pitcher = String(row.marketKey || '').startsWith('pitching:');
+    const matchup = pitcher ? {kind: 'lineup', lineup: context.hitting?.[opponent] || null, league: context.league || null}
+      : {kind: 'pitcher', pitcher: context.probables?.[opponent] || null, staff: context.pitching?.[opponent] || null, league: context.league || null};
+    return {...row, matchup};
   });
 }
 
@@ -235,6 +272,16 @@ export function loadFinderDefense(sport, options = {}) {
     return request(`/api/nfl?resource=finder-league&season=${season}`, options);
   }
   return Promise.resolve(null);
+}
+
+// The games behind a line, newest last, for the Smart Slip's projection
+// (slip-analyst.js): each game's value, date, venue, opponent and the
+// player's playing time (minutes, plate appearances, pitches).
+const GAME_LOG = 25;
+export function gameLog(entries) {
+  return (entries || []).map(entry => ({value: number(entry.value), date: entry.date ? String(entry.date).slice(0, 10) : null,
+    home: typeof entry.home === 'boolean' ? entry.home : null, opponent: entry.opponent ?? null, usage: number(entry.usage)}))
+    .filter(entry => entry.value != null).slice(-GAME_LOG);
 }
 
 export function finderWindow(values, line, direction = 'OVER') {
@@ -416,7 +463,7 @@ export function normalizeFinderRows(sport, payload, players = [], {now = Date.no
         line: quote.value, direction, modifier: quote.category,
         apps,
         // The NFL row.average is L20; only the explicit L10 average belongs in Avg L10.
-        average: raw.windows?.l10?.average, windows: raw.windows, streak: raw.streak,
+        average: raw.windows?.l10?.average, windows: raw.windows, streak: raw.streak, gameLog: gameLog(raw.gameLog),
         defense: raw.matchupContext?.positionDefense?.rank, raw, playerObject: player || null});
     }
     if (sport === 'mlb') {
@@ -539,7 +586,9 @@ export function applyWnbaHistory(row, payload) {
     if (streak && Math.sign(streak) !== sign) break;
     streak += sign;
   }
+  const played = logs.filter(log => log.seasonKind !== 'preseason');
   return finish({...row, average: mean(values.slice(-10)), windows, streak: values.length ? streak : null,
+    gameLog: gameLog(played.map(log => ({value: log.values[row.marketKey], date: log.date, home: log.isHome, opponent: log.opponent, usage: log.minutes}))),
     historyStatus: 'ready', history: payload});
 }
 
@@ -645,7 +694,11 @@ export function applyMlbHistory(row, payload) {
     opponent: optional(payload.matchup?.opponent?.abbreviation || payload.matchup?.opponent?.name),
     opponentTeamId: payload.matchup?.opponent?.id || null,
     startsAt: row.startsAt || optional(payload.matchup?.startTime),
+    isHome: typeof payload.matchup?.isHome === 'boolean' ? payload.matchup.isHome : row.isHome ?? null,
     average: mean(values.slice(-10)), windows, streak: values.length ? streak : null,
+    gameLog: gameLog(validGames.map(game => ({value: strictMlbValue(game.stat || {}, definition), date: game.date, home: game.isHome,
+      opponent: game.opponent?.id ?? null,
+      usage: definition.pitcher ? game.stat?.numberOfPitches ?? game.stat?.pitchesThrown : game.stat?.plateAppearances}))),
     historyStatus: 'ready', history: payload, chart});
 }
 
@@ -716,7 +769,8 @@ export function applySoccerHistory(row, log) {
     if (streak && Math.sign(streak) !== sign) break;
     streak += sign;
   }
-  return finish({...row, average: mean(values.slice(-10)), windows, streak, historyStatus: 'ready'});
+  return finish({...row, average: mean(values.slice(-10)), windows, streak, historyStatus: 'ready',
+    gameLog: gameLog(games.map(game => ({value: valueOf(game, stat), date: game.date, home: game.isHome, opponent: game.opponent, usage: game.min})))});
 }
 
 /** Hydrate soccer hit rates after the lines are already on the board. */
@@ -786,7 +840,9 @@ export function applyNhlHistory(row, log) {
     if (streak && Math.sign(streak) !== sign) break;
     streak += sign;
   }
-  return finish({...row, average: mean(values.slice(-10)), windows, streak, historyStatus: 'ready'});
+  return finish({...row, average: mean(values.slice(-10)), windows, streak, historyStatus: 'ready',
+    gameLog: gameLog(games.map(game => ({value: nhlValue(game, row.valueKey), date: game.date, home: game.isHome, opponent: game.opponent,
+      usage: game.values?.toi})))});
 }
 
 /** Hydrate NHL hit rates after the lines are already on the board. */
