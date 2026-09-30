@@ -3,8 +3,8 @@ get the best price for it.
 
 The model starts from the market, not against it. Sharp sportsbooks set
 moneylines from far more information than any public stat line, so the fair
-chance of each side is their consensus with the margin taken out (Pinnacle
-counted most). Our own power ratings -- built only from results, so they are
+chance of each side is their price with the margin taken out (Pinnacle
+counted most; every book's when no sharp book has the game). Our own power ratings -- built only from results, so they are
 a second, independent opinion -- may tilt that chance a little, never more
 than MAX_TILT. A play is a price at a regular sportsbook that pays more than
 that fair chance is worth: a real, measurable edge, not a hunch.
@@ -46,6 +46,7 @@ SPORTS = {
 }
 # Ten books is one Odds API credit. Sharp books set the fair price; the rest
 # are where a member can actually bet.
+SHARP = ("pinnacle", "betonlineag")
 BOOKS = {
     "pinnacle": {"name": "Pinnacle", "weight": 3.0, "bettable": False},
     "betonlineag": {"name": "BetOnline", "weight": 1.5, "bettable": False},
@@ -67,8 +68,8 @@ TILT_WEIGHT = 0.3
 # and at least break-even at the market's own (our ratings sharpen a play,
 # they never make one against the market). Strong plays clear more on both
 # and have the ratings on their side.
-PLAY_EV = 0.025
-STRONG_EV = 0.05
+PLAY_EV = 0.02
+STRONG_EV = 0.04
 STRONG_MARKET_EV = 0.015
 LEAN_EV = 0.01
 # Long shots swing too much to call a play, however good the price.
@@ -158,9 +159,11 @@ def devig(home_price, away_price):
 
 
 def consensus(books):
-    """The market's fair chance for the home side: every two-sided book's
-    no-vig chance, weighted (sharp books most), with a book far from the
-    rest (a stale or broken price) left out."""
+    """The market's fair chance for the home side, with the margin taken
+    out. The sharp books set it when they have the game (Pinnacle counted
+    most): the rest of the market follows their prices, so a regular book
+    paying more than them is a real edge. Without them every book counts.
+    A book far from the rest (a stale or broken price) is left out."""
     fair = []
     for book in books:
         chance = devig(book.get("home"), book.get("away"))
@@ -172,8 +175,19 @@ def consensus(books):
         ordered = sorted(value for value, _, _ in fair)
         middle = ordered[len(ordered) // 2]
         fair = [item for item in fair if abs(item[0] - middle) <= 0.06] or fair
+    fair = [item for item in fair if item[2] in SHARP] or fair
     total = sum(weight for _, weight, _ in fair)
     return sum(value * weight for value, weight, _ in fair) / total, [key for _, _, key in fair]
+
+
+def american_at_least(payout):
+    """The shortest American price that pays at least this decimal payout."""
+    if not finite(payout) or payout <= 1:
+        return None
+    if payout >= 2:
+        return math.ceil(round((payout - 1) * 100, 6))
+    price = -math.floor(round(100 / (payout - 1), 6))
+    return price if price <= -100 else None
 
 
 def best_price(books, side):
@@ -567,7 +581,7 @@ def read_game(sport, game, rated, espn=None, context=None, extras=None, opening=
     extras = extras or {}
     fair, used = consensus(game["books"])
     out = {**game, "sport": sport, "fair": None, "model": None, "best": {}, "ev": {}, "pick": None, "reasons": [],
-           "sharp": any(key in ("pinnacle", "betonlineag") for key in used), "booksUsed": len(used)}
+           "sharp": any(key in SHARP for key in used), "booksUsed": len(used), "target": None}
     if espn:
         out["espn"] = espn
     if fair is None:
@@ -694,9 +708,9 @@ def read_game(sport, game, rated, espn=None, context=None, extras=None, opening=
         probability = chance if best_side == "home" else 1 - chance
         tilt = out["model"]["tilt"] * (1 if best_side == "home" else -1)
         tier = None
-        if ev >= STRONG_EV and market_ev >= STRONG_MARKET_EV and tilt >= -0.005 and out["sharp"] and out["booksUsed"] >= 3:
+        if ev >= STRONG_EV and market_ev >= STRONG_MARKET_EV and tilt >= -0.005 and out["sharp"] and len(game["books"]) >= 3:
             tier = "strong"
-        elif ev >= PLAY_EV and market_ev >= 0 and tilt >= -0.01 and out["booksUsed"] >= 3:
+        elif ev >= PLAY_EV and market_ev >= 0 and tilt >= -0.01 and len(game["books"]) >= 3:
             tier = "play"
         elif ev >= LEAN_EV and market_ev >= -0.01:
             tier = "lean"
@@ -708,12 +722,29 @@ def read_game(sport, game, rated, espn=None, context=None, extras=None, opening=
                            "bookName": offer["bookName"], "probability": probability, "fairOdds": american(probability),
                            "units": units(probability, offer["price"]) if tier != "lean" else 0}
 
+    # Not a play yet: the price that would make one, on the side closest to it.
+    if not out["pick"] or out["pick"]["tier"] == "lean":
+        targets = []
+        for side in ("home", "away"):
+            offer = out["best"].get(side)
+            sign = 1 if side == "home" else -1
+            if not offer or out["model"]["tilt"] * sign < -0.01:
+                continue
+            fair_side, chance_side = (fair, chance) if side == "home" else (1 - fair, 1 - chance)
+            price = american_at_least(max(1 / fair_side, (1 + PLAY_EV) / chance_side))
+            if price is None or price > LONGEST_PRICE:
+                continue
+            gap = 1 / decimal(offer["price"]) - 1 / decimal(price)
+            if gap > 0:
+                targets.append({"side": side, "price": price, "best": offer["price"], "bookName": offer["bookName"], "gap": gap})
+        out["target"] = min(targets, key=lambda item: item["gap"]) if targets else None
+
     # Why, in numbers.
     reasons = []
     fair_side = fair if (best_side or "home") == "home" else 1 - fair
     side_name = game["homeName"] if (best_side or "home") == "home" else game["awayName"]
-    reasons.append(f"The market has {side_name} at {round(fair_side * 100)}% (fair {_signed(american(fair_side))}), "
-                   f"from {out['booksUsed']} books{' including Pinnacle' if 'pinnacle' in used else ''}.")
+    source = " and ".join(BOOKS[key]["name"] for key in used) if out["sharp"] else f"{len(used)} books"
+    reasons.append(f"The market has {side_name} at {round(fair_side * 100)}% (fair {_signed(american(fair_side))}), from {source}.")
     if out.get("pick"):
         pick = out["pick"]
         reasons.append(f"{pick['bookName']} pays {_signed(pick['price'])}: worth {pick['ev'] * 100:+.1f}% at a "

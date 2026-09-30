@@ -62,7 +62,8 @@ function ChanceBar({game,away,home}){
 }
 
 function SideRow({game,side,info}){
- const best=game.best?.[side],fairOdds=game.fair?.[`${side}Odds`],ev=game.ev?.[side];
+ // Against the Fair price beside it: green is a book paying more than fair.
+ const best=game.best?.[side],fairOdds=game.fair?.[`${side}Odds`],ev=game.marketEv?.[side];
  const pick=game.pick?.side===side&&game.pick.tier!=='lean';
  return <div className={`ml2-side${pick?' is-pick':''}`}>
   <Logo src={info.logo} label={info.abbr}/>
@@ -70,7 +71,7 @@ function SideRow({game,side,info}){
    <span>{[info.record,info.probable].filter(Boolean).join(' · ')||(side==='home'?'Home':'Away')}</span></div>
   <div className="ml2-num"><small>Fair</small><b>{signed(fairOdds)}</b></div>
   <div className="ml2-num ml2-best"><small>{best?.bookName||'Best'}</small><b>{signed(best?.price)}</b></div>
-  <div className={`ml2-num ml2-edge ${ev>=0?'is-up':'is-down'}`}><small>Edge</small><b>{edge(ev)}</b></div>
+  <div className={`ml2-num ml2-edge ${ev>=0?'is-up':'is-down'}`}><small>vs fair</small><b>{edge(ev)}</b></div>
  </div>;
 }
 
@@ -164,6 +165,8 @@ function Game({game}){
   <ChanceBar game={game} away={away} home={home}/>
   {top.length>0&&<ul className="ml2-chips" aria-label="Biggest matchup factors">{top.map(item=><li key={item.key}>
    <span>{item.label}</span><b className={item.margin>=0?'is-home':'is-away'}>{pull(item.margin,away,home,game.matchup.unit)}</b></li>)}</ul>}
+  {game.target&&<p className="ml2-target"><span>Play at</span><b><span className="ml2-full">{game.target.side==='home'?home.name:away.name}</span><span className="ml2-short">{game.target.side==='home'?home.short:away.short}</span> {signed(game.target.price)}</b>
+   <em>best now {signed(game.target.best)} at {game.target.bookName}</em></p>}
   {pick&&pick.tier!=='lean'&&<div className="ml2-pick">
    <div><span>Bet</span><b><span className="ml2-full">{pick.side==='home'?home.name:away.name}</span><span className="ml2-short">{pick.side==='home'?home.short:away.short}</span> {signed(pick.price)}</b><em>at {pick.bookName}</em></div>
    <dl><div><dt>Edge</dt><dd>{edge(pick.ev)}</dd></div><div><dt>Win chance</dt><dd>{pct(pick.probability)}</dd></div>
@@ -283,6 +286,8 @@ export function Moneylines(){
 
  const games=board?.sport===sport?board.games:[];
  const plays=games.filter(game=>game.pick&&game.pick.tier!=='lean');
+ // Not plays yet, but within a few cents of one: the price to wait for.
+ const close=games.filter(game=>game.target&&game.target.gap<=0.04).sort((a,b)=>a.target.gap-b.target.gap).slice(0,6);
  const shown=all?games:plays;
  const counts=board?.leagues||{};
  const updated=board?.updatedAt?new Date(board.updatedAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):null;
@@ -309,10 +314,16 @@ export function Moneylines(){
 
   {status==='loading'&&<div className="ml2-list" aria-busy="true">{[0,1,2].map(n=><div key={n} className="ml2-game is-skeleton"/>)}</div>}
   {status==='error'&&<div className="ml2-empty"><TriangleAlert size={20}/><b>{error}</b><button type="button" onClick={()=>load(sport)}>Try again</button></div>}
-  {(status==='ready'||status==='refreshing')&&(shown.length
-   ?<div className="ml2-list">{shown.map(game=><Game key={game.id} game={game}/>)}</div>
-   :<div className="ml2-empty"><b>{games.length?'No plays right now':'No games on the board'}</b>
-    <span>{games.length?'Every price is at or below fair. Plays show up when a book is slow to move.':'Lines post a few days before each game.'}</span>
-    {games.length>0&&<button type="button" onClick={()=>setAll(true)}>See all {games.length} games</button>}</div>)}
+  {(status==='ready'||status==='refreshing')&&<>
+   {shown.length
+    ?<div className="ml2-list">{shown.map(game=><Game key={game.id} game={game}/>)}</div>
+    :<div className="ml2-empty"><b>{games.length?'No plays right now':'No games on the board'}</b>
+     <span>{games.length?'No book is paying more than the fair price yet.':'Lines post a few days before each game.'}</span>
+     {games.length>0&&!close.length&&<button type="button" onClick={()=>setAll(true)}>See all {games.length} games</button>}</div>}
+   {!all&&close.length>0&&<section className="ml2-close" aria-labelledby="ml2-close-title">
+    <h2 id="ml2-close-title">Close to a play</h2>
+    <div className="ml2-list">{close.map(game=><Game key={game.id} game={game}/>)}</div>
+   </section>}
+  </>}
  </section>;
 }

@@ -37,14 +37,31 @@ class PricesTest(unittest.TestCase):
         a, b = 1 / ml.decimal(-400), 1 / ml.decimal(300)
         self.assertGreater(ml.devig(-400, 300), a / (a + b))
 
-    def test_consensus_weights_sharp_books_and_drops_a_broken_one(self):
+    def test_consensus_drops_a_broken_book(self):
         books = [{"key": "pinnacle", "home": -150, "away": 135}, {"key": "draftkings", "home": -150, "away": 130},
                  {"key": "fanduel", "home": -148, "away": 128}, {"key": "betmgm", "home": 300, "away": -400}]
         fair, used = ml.consensus(books)
         self.assertNotIn("betmgm", used)
         self.assertTrue(0.57 < fair < 0.59, fair)
-        # Pinnacle counts three times: the consensus sits nearest its number.
-        self.assertLess(abs(fair - ml.devig(-150, 135)), abs(fair - ml.devig(-148, 128)))
+        # Pinnacle has the game, so its price is the fair one.
+        self.assertAlmostEqual(fair, ml.devig(-150, 135))
+
+    def test_the_sharp_books_set_the_fair_price_when_they_have_the_game(self):
+        books = [{"key": "pinnacle", "home": -150, "away": 136}, {"key": "draftkings", "home": -165, "away": 140},
+                 {"key": "fanduel", "home": -160, "away": 135}, {"key": "betmgm", "home": -170, "away": 145}]
+        fair, used = ml.consensus(books)
+        self.assertEqual(used, ["pinnacle"])
+        self.assertAlmostEqual(fair, ml.devig(-150, 136))
+        # No sharp book: every book counts.
+        fair, used = ml.consensus(books[1:])
+        self.assertEqual(sorted(used), ["betmgm", "draftkings", "fanduel"])
+
+    def test_the_shortest_price_that_pays_enough(self):
+        self.assertEqual(ml.american_at_least(2.5), 150)
+        self.assertEqual(ml.american_at_least(2.0), 100)
+        self.assertEqual(ml.american_at_least(1.6), -166)
+        self.assertGreaterEqual(ml.decimal(ml.american_at_least(1.6)), 1.6)
+        self.assertIsNone(ml.american_at_least(1.0))
 
     def test_best_price_is_somewhere_a_member_can_bet(self):
         books = [{"key": "pinnacle", "home": -120, "away": 110}, {"key": "draftkings", "home": -130, "away": 105},
@@ -111,6 +128,22 @@ class ModelTest(unittest.TestCase):
         read = ml.read_game("nfl", game, {"teams": {}})
         self.assertIsNone(read["pick"])
         self.assertIsNone(read["model"]["text"])
+
+    def test_a_game_without_a_play_shows_the_price_that_would_make_one(self):
+        event = {**EVENT, "bookmakers": [book("pinnacle", -150, 136), book("draftkings", -160, 132), book("fanduel", -158, 130),
+                                         book("betmgm", -165, 134)]}
+        [game] = ml.parse_odds([event])
+        read = ml.read_game("nfl", game, {"teams": {"Kansas City Chiefs": 1.0, "Buffalo Bills": 1.0}, "rest": {}})
+        self.assertIsNone(read["pick"])
+        target = read["target"]
+        side_fair = read["fair"][target["side"]]
+        side_chance = read["model"][target["side"]]
+        need = max(1 / side_fair, (1 + ml.PLAY_EV) / side_chance)
+        self.assertGreaterEqual(ml.decimal(target["price"]), need)
+        # One cent shorter would not be enough.
+        self.assertLess(ml.decimal(target["price"] - 1 if target["price"] != 100 else -101), need)
+        self.assertGreater(target["gap"], 0)
+        self.assertEqual((target["best"], target["bookName"]), (read["best"][target["side"]]["price"], read["best"][target["side"]]["bookName"]))
 
     def test_ratings_leaning_the_other_way_block_a_play(self):
         [game] = ml.parse_odds([EVENT])

@@ -143,6 +143,12 @@
 .ml2-pick dd{margin:3px 0 0;font:700 13px/1 var(--m-mono)}
 .ml2-pick dl div:first-child dd{color:var(--m-up)}
 
+.ml2-target{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;margin:10px 0 0;padding:9px 12px;border:1px dashed var(--m-line);border-radius:13px}
+.ml2-target>span{color:var(--m-faint);font:800 10px/1 var(--m-sans);letter-spacing:.1em;text-transform:uppercase}
+.ml2-target b{font-size:13.5px}
+.ml2-target em{color:var(--m-muted);font-size:12px;font-style:normal}
+.ml2-close{margin-top:22px}
+.ml2-close h2{margin:0 0 10px;color:var(--m-muted);font:700 13px/1.2 var(--m-sans);letter-spacing:.02em}
 .ml2-more{display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-top:8px;min-height:32px;color:var(--m-muted)!important;font-size:12px;font-weight:700}
 .ml2-more svg{transition:transform .25s}
 .ml2-more[aria-expanded="true"] svg{transform:rotate(180deg)}
