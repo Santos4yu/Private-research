@@ -161,6 +161,16 @@ class EnforcementTests(unittest.TestCase):
         self.assertTrue(allowed)
         identity.assert_not_called()
 
+    def test_admin_only_sections_stay_closed_to_everyone_else(self):
+        # Moneylines: not even a member's own early-access rule opens it.
+        rules = {'tester@example.com': {'access': {'tab:moneyline': True}}}
+        self.assertFalse(self.check({}, rules, MEMBER, lambda: controls.allowed({}, 'moneyline'))[0])
+        self.assertFalse(self.check({}, {}, OTHER, lambda: controls.allowed({}, 'moneyline'))[0])
+        self.assertNotIn('tab:moneyline', members.access_items())
+        with patch.object(controls, 'read', return_value=dict(controls.DEFAULT)), \
+                patch.object(controls.admin_auth, 'is_admin_request', return_value=True):
+            self.assertTrue(controls.allowed({}, 'moneyline'))
+
     def test_admins_bypass_member_rules(self):
         with patch.object(controls, 'read', return_value=dict(controls.DEFAULT)), \
                 patch.object(controls.admin_auth, 'is_admin_request', return_value=True), \

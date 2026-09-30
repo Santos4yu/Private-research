@@ -1,5 +1,5 @@
 import React,{useEffect,useState} from 'react';
-import {moreTabs,topTabs} from './navTabs';
+import {adminTabs,moreTabs,topTabs} from './navTabs';
 import {siteIsAdmin,siteTabAllowed} from './site-access';
 import './side-menu.css';
 
@@ -14,8 +14,9 @@ export function SideMenu(){
  const [tab,setTab]=useState('finder');
  // Which tabs a user may see is a site setting (site_controls
  // disabledTabs): a section switched off is left out for everyone but
- // admins. Admin itself is listed only for an admin session (unlocked from
- // the settings gear). Re-read whenever the policy changes or the panel opens.
+ // admins. The admin section (navTabs.js adminTabs) is listed only for an
+ // admin session (unlocked from the settings gear). Re-read whenever the
+ // policy changes or the panel opens.
  const [,setRevision]=useState(0);
  useEffect(()=>{
   const sync=({detail})=>setTab(detail?.tab||'finder');
@@ -36,9 +37,11 @@ export function SideMenu(){
   <item.icon size={20} strokeWidth={1.8} aria-hidden="true"/><span>{item.title}</span>
  </button>;
  const primary=PRIMARY.filter(item=>siteTabAllowed(item.value));
- const more=moreTabs.filter(item=>item.value==='admin'?siteIsAdmin():siteTabAllowed(item.value));
+ const more=moreTabs.filter(item=>siteTabAllowed(item.value));
+ const admin=siteIsAdmin()?adminTabs:[];
  return <nav className="side-menu" aria-label="Main menu">
   {primary.length>0&&<div className="side-menu-group">{primary.map(row)}</div>}
   {more.length>0&&<><p className="side-menu-label">More</p><div className="side-menu-group">{more.map(row)}</div></>}
+  {admin.length>0&&<><p className="side-menu-label">Admin</p><div className="side-menu-group">{admin.map(row)}</div></>}
  </nav>;
 }

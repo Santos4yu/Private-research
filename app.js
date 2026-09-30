@@ -1,5 +1,6 @@
 import {dockHiddenAt} from './src/mobile-nav-core.js';
 import {initSiteAccess,siteTabAllowed,loadSiteControls,showLockedTab,availableSiteTab,refreshSiteAccess,dismissBootLoader} from './src/site-access.js';
+import {ADMIN_TABS} from './src/site-access-core.js';
 /* =========================================================
    Vortex Prop Research — client-side renderer
    No backend, no database, no odds API. Reads a single JSON
@@ -1329,6 +1330,9 @@ function wireMainMenu() {
   requestAnimationFrame(() => els.mainMenu.querySelector("[data-launch-tab]")?.focus());
 }
 
+// Admin and the admin-only sections open only in an admin session.
+const adminOnly = (tab) => tab === "admin" || ADMIN_TABS.includes(tab);
+
 function switchTab(tab, options = {}) {
   options ??= {};
   if (!Object.hasOwn(SCREEN_TITLES, tab)) return;
@@ -1419,7 +1423,7 @@ function wireAppNavigation() {
   try { lastTab = localStorage.getItem(LAST_TAB_KEY) || ""; } catch { /* private mode */ }
   const requestedSlug = location.pathname.slice(1) || location.hash.slice(1) || (lastTab !== "admin" ? lastTab : "");
   const requested = Object.hasOwn(SLUG_TO_TAB, requestedSlug) ? SLUG_TO_TAB[requestedSlug] : requestedSlug;
-  const initialTab = Object.hasOwn(SCREEN_TITLES, requested) && (requested !== "admin" || state.adminUnlocked) ? requested : state.currentTab;
+  const initialTab = Object.hasOwn(SCREEN_TITLES, requested) && (!adminOnly(requested) || state.adminUnlocked) ? requested : state.currentTab;
   const url = new URL(location.href);
   url.hash = "";
   url.pathname = "/" + (SCREEN_SLUGS[initialTab] || initialTab);
@@ -1436,7 +1440,7 @@ function wireAppNavigation() {
     setManualBetSlipOpen(false);
     const slug = location.pathname.slice(1);
     const route = Object.hasOwn(SLUG_TO_TAB, slug) ? SLUG_TO_TAB[slug] : slug;
-    const tab = Object.hasOwn(SCREEN_TITLES, route) && (route !== "admin" || state.adminUnlocked) ? route : "finder";
+    const tab = Object.hasOwn(SCREEN_TITLES, route) && (!adminOnly(route) || state.adminUnlocked) ? route : "finder";
     switchTab(tab, { history: false });
   });
 

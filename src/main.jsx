@@ -103,16 +103,22 @@ const moneylinesRoot = document.getElementById('moneylines-root');
 let privateRoots=null;
 function mountPrivateResearch(granted){
  if(granted&&!privateRoots){
-  privateRoots={home:researchHomeRoot?createRoot(researchHomeRoot):null,sport:sportResearchRoot?createRoot(sportResearchRoot):null,finder:unifiedFinderRoot?createRoot(unifiedFinderRoot):null,moves:lineMovesRoot?createRoot(lineMovesRoot):null,slip:smartSlipRoot?createRoot(smartSlipRoot):null,moneylines:moneylinesRoot?createRoot(moneylinesRoot):null};
+  privateRoots={home:researchHomeRoot?createRoot(researchHomeRoot):null,sport:sportResearchRoot?createRoot(sportResearchRoot):null,finder:unifiedFinderRoot?createRoot(unifiedFinderRoot):null,moves:lineMovesRoot?createRoot(lineMovesRoot):null,slip:smartSlipRoot?createRoot(smartSlipRoot):null};
   privateRoots.home?.render(<ResearchHome/>);
   privateRoots.sport?.render(<Suspense fallback={<div role="status">Loading sport research…</div>}><SportResearch/></Suspense>);
   privateRoots.finder?.render(<UnifiedFinder/>);
   privateRoots.moves?.render(<LineMoves/>);
   privateRoots.slip?.render(<SmartSlip/>);
-  privateRoots.moneylines?.render(<Moneylines/>);
- }else if(!granted&&privateRoots){privateRoots.home?.unmount();privateRoots.sport?.unmount();privateRoots.finder?.unmount();privateRoots.moves?.unmount();privateRoots.slip?.unmount();privateRoots.moneylines?.unmount();privateRoots=null;}
+ }else if(!granted&&privateRoots){privateRoots.home?.unmount();privateRoots.sport?.unmount();privateRoots.finder?.unmount();privateRoots.moves?.unmount();privateRoots.slip?.unmount();privateRoots=null;}
 }
-window.addEventListener('vortex:site-policy',event=>mountPrivateResearch(event.detail.accessGranted));
+// Moneylines is an admin-only section (site-access-core.js ADMIN_TABS):
+// mounted, and so asking for data, only in an admin session.
+let moneylinesMount=null;
+function mountAdminSections(admin){
+ if(admin&&!moneylinesMount&&moneylinesRoot){moneylinesMount=createRoot(moneylinesRoot);moneylinesMount.render(<Moneylines/>);}
+ else if(!admin&&moneylinesMount){moneylinesMount.unmount();moneylinesMount=null;}
+}
+window.addEventListener('vortex:site-policy',event=>{mountPrivateResearch(event.detail.accessGranted);mountAdminSections(Boolean(event.detail.accessGranted&&event.detail.isAdmin));});
 mountPrivateResearch(document.documentElement.dataset.siteAccess==='granted');
 
 const filterIcons = { all: LayoutGrid, hrr: BarChart3, 'total-bases': Diamond, hits: CircleDot, strikeouts: Target, matchup: Crosshair };

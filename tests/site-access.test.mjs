@@ -22,6 +22,15 @@ test('switched-off sections are hidden from members only, never from admins',asy
  assert.deepEqual(hiddenTabs({...policy,account:null},tabs),[]);
  assert.deepEqual(hiddenTabs(null,tabs),[]);
 });
+test('admin-only sections are for an admin session alone, whatever the switches say',async()=>{
+ const {hiddenTabs,ADMIN_TABS}=await import('../src/site-access-core.js');
+ assert.ok(ADMIN_TABS.includes('moneyline'));
+ const member={...base,account:{id:'mock'}};
+ assert.equal(canUseTab(member,'moneyline'),false);
+ assert.equal(canUseTab({...member,isAdmin:true},'moneyline'),true);
+ assert.deepEqual(hiddenTabs(member,['finder','moneyline']),['moneyline']);
+ assert.equal(availableTab(member,'moneyline'),'finder');
+});
 test('a suspended member is signed in but let into nothing, admins never suspended',()=>{
  const policy={...base,account:{id:'mock'},suspended:true};
  assert.equal(accessGranted(policy),false);assert.equal(canUseTab(policy,'research'),false);

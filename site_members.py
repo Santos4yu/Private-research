@@ -40,8 +40,8 @@ TOUCH_EVERY_SECONDS = 10 * 60
 
 
 def access_items():
-    from site_controls import FINDER_SPORTS, TABS
-    return ([f'tab:{tab}' for tab in TABS] + [f'sport:{sport}' for sport in RESEARCH_SPORTS]
+    from site_controls import ADMIN_TABS, FINDER_SPORTS, TABS
+    return ([f'tab:{tab}' for tab in TABS if tab not in ADMIN_TABS] + [f'sport:{sport}' for sport in RESEARCH_SPORTS]
             + [f'finderSport:{sport}' for sport in FINDER_SPORTS])
 
 
