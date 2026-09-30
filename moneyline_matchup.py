@@ -237,9 +237,40 @@ def team_facts(sport, rated, now):
     return kept(f"facts:{sport}", 30 * 60, loaders[sport]) or {}
 
 
+# MLB's playoff game types: wild card, division series, league championship, World Series.
+PLAYOFF_TYPES = ("F", "D", "L", "W")
+
+
 def _team(name, short, abbr, logo, records=None, form=None):
+    # playoffs: the team's playoff games still to come (at home); won: its playoff results.
     return {"name": name, "short": short or nickname(name), "abbr": abbr, "logo": logo,
-            "records": {key: value for key, value in (records or {}).items() if value}, "form": form or []}
+            "records": {key: value for key, value in (records or {}).items() if value}, "form": form or [],
+            "playoffs": [], "won": []}
+
+
+def playoff_game(game, home, away):
+    """The playoff round and the series so far for this game, from MLB's
+    schedule (`home`/`away` are the teams' facts), or None."""
+    import moneyline_model
+    starts = moneyline_model._time(game.get("startsAt"))
+    listed = next((item for item in home.get("playoffs") or [] if item.get("opponent") == away["name"]
+                   and starts and moneyline_model._time(item.get("start"))
+                   and abs((moneyline_model._time(item["start"]) - starts).total_seconds()) <= 6 * 3600), None)
+    if not listed:
+        return None
+    # This series: their playoff meetings since the last time either met anyone else.
+    wins = {"home": 0, "away": 0}
+    for result in reversed(home.get("won") or []):
+        if result.get("opponent") != away["name"]:
+            break
+        wins["home" if result["won"] else "away"] += 1
+    note = " - ".join(part for part in (listed.get("round"), f"Game {listed['game']}" if listed.get("game") else None) if part)
+    if wins["home"] == wins["away"]:
+        series = f"Series tied {wins['home']}-{wins['away']}" if wins["home"] else None
+    else:
+        leader = home if wins["home"] > wins["away"] else away
+        series = f"{leader['abbr'] or leader['short']} leads series {max(wins.values())}-{min(wins.values())}"
+    return {"postseason": True, "note": note or None, "series": series}
 
 
 def _mlb_facts(rated, now):
@@ -253,24 +284,34 @@ def _mlb_facts(rated, now):
                             {"total": row.get("total"), "home": row.get("home"), "road": row.get("road")})
         by_id[row.get("id")] = name
     end = now.date()
-    schedule = mlb("/schedule", {"sportId": 1, "startDate": (end - timedelta(days=14)).isoformat(), "endDate": end.isoformat()})
+    schedule = mlb("/schedule", {"sportId": 1, "startDate": (end - timedelta(days=14)).isoformat(),
+                                 "endDate": (end + timedelta(days=2)).isoformat()})
     games = []
     for date in schedule.get("dates") or []:
         for game in date.get("games") or []:
-            if (game.get("status") or {}).get("abstractGameState") != "Final":
-                continue
             home, away = (game.get("teams") or {}).get("home") or {}, (game.get("teams") or {}).get("away") or {}
+            names = by_id.get(str((home.get("team") or {}).get("id"))), by_id.get(str((away.get("team") or {}).get("id")))
+            playoff = game.get("gameType") in PLAYOFF_TYPES
+            if (game.get("status") or {}).get("abstractGameState") != "Final":
+                # A playoff game still to come: its round and number.
+                if playoff and all(names):
+                    facts[names[0]]["playoffs"].append({"start": game.get("gameDate"), "opponent": names[1], "round": game.get("seriesDescription"),
+                                                        "game": game.get("seriesGameNumber"), "of": game.get("gamesInSeries")})
+                continue
             home_runs, away_runs = _number(home.get("score")), _number(away.get("score"))
             if home_runs is not None and away_runs is not None:
-                games.append((game.get("gameDate") or "", home, away, home_runs, away_runs))
-    for when, home, away, home_runs, away_runs in sorted(games, key=lambda game: game[0]):
+                games.append((game.get("gameDate") or "", home, away, home_runs, away_runs, playoff))
+    for when, home, away, home_runs, away_runs, playoff in sorted(games, key=lambda game: game[0]):
         for own, other, mine, theirs, at_home in ((home, away, home_runs, away_runs, True), (away, home, away_runs, home_runs, False)):
             name = by_id.get(str((own.get("team") or {}).get("id")))
             if not name:
                 continue
-            opponent = facts.get(by_id.get(str((other.get("team") or {}).get("id")))) or {}
+            rival = by_id.get(str((other.get("team") or {}).get("id")))
+            opponent = facts.get(rival) or {}
             facts[name]["form"].append({"date": when, "result": "W" if mine > theirs else "L", "score": f"{int(mine)}-{int(theirs)}",
                                         "opponent": opponent.get("abbr"), "home": at_home, "margin": mine - theirs})
+            if playoff:
+                facts[name]["won"].append({"date": when, "opponent": rival, "won": mine > theirs})
     for item in facts.values():
         item["form"] = item["form"][-5:]
     return facts
@@ -344,6 +385,12 @@ def fill(game, espn, page, facts):
         sides[side] = own
         if not form.get(side) and fact["form"]:
             form[side] = fact["form"]
+    home, away = (next((item for full, item in facts.items() if moneyline_model.same_team(game[f"{side}Name"], full, item.get("short"))), None)
+                  for side in ("home", "away"))
+    if home and away and not espn.get("note"):
+        playoff = playoff_game(game, home, away)
+        if playoff:
+            espn = {**espn, **{key: value for key, value in playoff.items() if value is not None}}
     if sides:
         context["sides"], context["form"] = sides, form
     return {"espn": espn or None, "context": context or None}
@@ -561,13 +608,15 @@ def head_to_head(sport, meetings, home_name, expected):
     return factor("h2h", "Head to head", margin, None) if abs(margin) >= 0.01 else None
 
 
-def bullpen(usage, home_id, away_id, names):
+def bullpen(usage, home_id, away_id, names, weight=1.0):
     """A bullpen that has thrown more than the league's usual over three days
-    gives up more late: 0.035 runs per extra inning, at most a quarter run."""
+    gives up more late: 0.035 runs per extra inning, at most a quarter run --
+    more (`weight`) when the bullpen pitches more of the game, as in the playoffs."""
     if not usage or home_id not in usage or away_id not in usage:
         return None
     league = sum(row["innings"] for row in usage.values()) / len(usage)
-    effects = {side: cap(-0.035 * (usage[team]["innings"] - league), 0.25) for side, team in (("home", home_id), ("away", away_id))}
+    effects = {side: cap(-0.035 * weight * (usage[team]["innings"] - league), 0.25 * weight)
+               for side, team in (("home", home_id), ("away", away_id))}
     margin = effects["home"] - effects["away"]
     if abs(margin) < 0.02:
         return None
@@ -577,9 +626,10 @@ def bullpen(usage, home_id, away_id, names):
     return factor("bullpen", "Bullpens", margin, f"{owner} bullpen threw {usage[team]['innings']:.1f} innings the last three days (league {league:.1f})")
 
 
-def platoon(splits_by_team, hitting, probables, home_id, away_id, names):
+def platoon(splits_by_team, hitting, probables, home_id, away_id, names, share=0.6):
     """Each lineup against the starter's hand: its OPS against that hand next
-    to its overall, over the starter's share of the game (about 60%)."""
+    to its overall, over the starter's share of the game (about 60%; less in
+    the playoffs)."""
     effects, notes = {}, []
     for side, team, opponent in (("home", home_id, away_id), ("away", away_id, home_id)):
         hand = (probables.get(opponent) or {}).get("hand")
@@ -588,7 +638,7 @@ def platoon(splits_by_team, hitting, probables, home_id, away_id, names):
         runs = (hitting.get(team) or {}).get("runsPerGame") or 4.4
         if not hand or not finite(vs) or not finite(overall) or not overall:
             continue
-        effects[side] = cap((vs / overall - 1) * runs * 0.6, 0.35)
+        effects[side] = cap((vs / overall - 1) * runs * share, 0.35)
         notes.append(f"{names[side]} hit {vs:.3f} OPS against {'lefties' if hand == 'L' else 'righties'} ({overall:.3f} overall)".replace("0.", "."))
     if len(effects) < 2:
         return None

@@ -143,6 +143,8 @@
 .ml2-pick dd{margin:3px 0 0;font:700 13px/1 var(--m-mono)}
 .ml2-pick dl div:first-child dd{color:var(--m-up)}
 
+.ml2-stage{display:flex;flex-wrap:wrap;gap:4px 10px;margin:0 0 8px;color:var(--m-gold);font:700 12px/1.3 var(--m-sans)}
+.ml2-stage span{color:var(--m-muted);font-weight:600}
 .ml2-target{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;margin:10px 0 0;padding:9px 12px;border:1px dashed var(--m-line);border-radius:13px}
 .ml2-target>span{color:var(--m-faint);font:800 10px/1 var(--m-sans);letter-spacing:.1em;text-transform:uppercase}
 .ml2-target b{font-size:13.5px}

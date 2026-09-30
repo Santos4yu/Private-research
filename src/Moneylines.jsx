@@ -161,6 +161,7 @@ function Game({game}){
    <span className="ml2-when">{live?<i className="ml2-live">Live</i>:null}{live?game.espn.detail:when(game.startsAt)}</span>
    <span className={`ml2-tier tier-${tier}`}>{pick?TIERS[pick.tier]:'No edge'}</span>
   </header>
+  {game.espn?.note&&<p className="ml2-stage">{game.espn.note}{game.espn.series&&<span>{game.espn.series}</span>}</p>}
   <SideRow game={game} side="away" info={away}/>
   <SideRow game={game} side="home" info={home}/>
   <ChanceBar game={game} away={away} home={home}/>

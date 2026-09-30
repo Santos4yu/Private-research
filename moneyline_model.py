@@ -72,6 +72,9 @@ PLAY_EV = 0.02
 STRONG_EV = 0.04
 STRONG_MARKET_EV = 0.015
 LEAN_EV = 0.01
+# An MLB starter's usual innings. In the playoffs starters go shorter and the
+# bullpen, pitching on consecutive days, decides more of the game.
+STARTER_INNINGS = {"regular": 5.5, "postseason": 4.8}
 # Long shots swing too much to call a play, however good the price.
 LONGEST_PRICE = 400
 # A quarter of the Kelly stake, in units of 1% of a bankroll.
@@ -348,7 +351,11 @@ def scoreboard(sport, first, last, fresh=False):
         if "home" in sides and "away" in sides:
             games.append({"id": event.get("id"), "date": event.get("date"), "home": sides["home"], "away": sides["away"],
                           "state": status.get("state"), "completed": bool(status.get("completed")),
-                          "detail": status.get("shortDetail") or status.get("detail")})
+                          "detail": status.get("shortDetail") or status.get("detail"),
+                          # Playoffs: the round and game ("AL Wild Card - Game 2") and the series ("NYY leads series 1-0").
+                          "postseason": (event.get("season") or {}).get("type") == 3,
+                          "note": ((competition.get("notes") or [{}])[0]).get("headline"),
+                          "series": (competition.get("series") or {}).get("summary")})
     return games
 
 
@@ -496,10 +503,10 @@ def mlb_ratings(now):
             "season": season}
 
 
-def starter_edge(ratings, team):
+def starter_edge(ratings, team, innings_share=STARTER_INNINGS["regular"]):
     """Runs a game the probable starter saves (or costs) against his own
     staff: ERA pulled toward the staff's by 40 innings, over his usual
-    five-plus innings."""
+    innings (five and a half; fewer in the playoffs)."""
     team_id = ratings.get("ids", {}).get(team)
     pitcher = ratings.get("probables", {}).get(team_id) if team_id else None
     staff = ratings.get("staffs", {}).get(team_id) if team_id else None
@@ -507,7 +514,7 @@ def starter_edge(ratings, team):
         return 0.0, pitcher
     innings = pitcher.get("ip") if finite(pitcher.get("ip")) else 0
     era = (pitcher["era"] * innings + staff["era"] * 40) / (innings + 40)
-    return max(-0.9, min(0.9, (staff["era"] - era) * 5.5 / 9)), pitcher
+    return max(-0.9, min(0.9, (staff["era"] - era) * innings_share / 9)), pitcher
 
 
 def nhl_ratings(now):
@@ -628,6 +635,8 @@ def read_game(sport, game, rated, espn=None, context=None, extras=None, opening=
     context = context or {}
     starts = _time(game.get("startsAt"))
     factors = []
+    postseason = bool((espn or {}).get("postseason"))
+    innings = STARTER_INNINGS["postseason" if postseason else "regular"]
 
     def add(item):
         if item and finite(item.get("margin")) and abs(item["margin"]) >= 0.005:
@@ -637,7 +646,7 @@ def read_game(sport, game, rated, espn=None, context=None, extras=None, opening=
     if sport == "mlb":
         total, notes = 0.0, []
         for side, team in (("home", home_team), ("away", away_team)):
-            edge, pitcher = starter_edge(rated, team) if team else (0.0, None)
+            edge, pitcher = starter_edge(rated, team, innings) if team else (0.0, None)
             if pitcher and pitcher.get("name") and abs(edge) >= 0.05:
                 total += edge if side == "home" else -edge
                 notes.append(f"{pitcher['name']} ({pitcher['era']:.2f} ERA) {'saves' if edge > 0 else 'costs'} {names[side]} "
@@ -646,8 +655,11 @@ def read_game(sport, game, rated, espn=None, context=None, extras=None, opening=
             add(matchup.factor("starter", "Starting pitchers", total, "; ".join(notes)))
         ids = rated.get("ids") or {}
         home_id, away_id = ids.get(home_team), ids.get(away_team)
-        add(matchup.bullpen(extras.get("bullpens"), home_id, away_id, names))
-        add(matchup.platoon(extras.get("platoon") or {}, rated.get("hitting") or {}, rated.get("probables") or {}, home_id, away_id, names))
+        # The bullpen's share of the game, and the starter's, against a regular-season game's.
+        add(matchup.bullpen(extras.get("bullpens"), home_id, away_id, names,
+                            weight=(9 - innings) / (9 - STARTER_INNINGS["regular"])))
+        add(matchup.platoon(extras.get("platoon") or {}, rated.get("hitting") or {}, rated.get("probables") or {}, home_id, away_id, names,
+                            share=0.6 * innings / STARTER_INNINGS["regular"]))
     if sport == "nfl":
         rest_days = (rated.get("rest") or {}).get((name_key(game["homeName"]), name_key(game["awayName"])))
         if rest_days and rest_days[0] != rest_days[1]:
@@ -660,7 +672,10 @@ def read_game(sport, game, rated, espn=None, context=None, extras=None, opening=
         add(matchup.rest(sport, context, starts, names))
     if context:
         ratings_by_side = {"home": home_rating, "away": away_rating}
-        add(matchup.form(sport, context, ratings_by_side))
+        # A playoff team's last five include the season's final days, when
+        # clinched teams rest their regulars: shown, but not counted.
+        if not (sport == "mlb" and postseason):
+            add(matchup.form(sport, context, ratings_by_side))
         add(matchup.splits(sport, context, config["sd"]))
         add(matchup.injuries(sport, context, names))
     if sport == "nhl" and extras.get("goalies"):

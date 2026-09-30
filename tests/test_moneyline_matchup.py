@@ -194,6 +194,59 @@ class TeamFactsTest(unittest.TestCase):
         self.assertEqual(mm.nickname("Toronto Maple Leafs"), "Maple Leafs")
 
 
+class PostseasonTest(unittest.TestCase):
+    def setUp(self):
+        ml._memory.clear()
+        mm._memory.clear()
+
+    def test_the_scoreboard_knows_a_playoff_game(self):
+        event = espn_event("9", "New York Yankees", "Boston Red Sox")
+        event["season"] = {"type": 3}
+        event["competitions"][0]["notes"] = [{"headline": "AL Wild Card - Game 2"}]
+        event["competitions"][0]["series"] = {"summary": "NYY leads series 1-0"}
+        with mock.patch.object(ml, "_espn", return_value={"events": [event]}):
+            [game] = ml.scoreboard("mlb", date(2026, 9, 30), date(2026, 9, 30))
+        self.assertEqual((game["postseason"], game["note"], game["series"]), (True, "AL Wild Card - Game 2", "NYY leads series 1-0"))
+
+    def test_starters_go_shorter_and_bullpens_count_more(self):
+        rated = {"ids": {"New York Yankees": "147"}, "probables": {"147": {"name": "Max Fried", "era": 2.8, "ip": 190}}, "staffs": {"147": {"era": 3.9}}}
+        regular, _ = ml.starter_edge(rated, "New York Yankees")
+        playoff, _ = ml.starter_edge(rated, "New York Yankees", ml.STARTER_INNINGS["postseason"])
+        self.assertLess(playoff, regular)
+        usage = {"147": {"innings": 12.0}, "111": {"innings": 6.0}, "143": {"innings": 9.0}}
+        names = {"home": "Yankees", "away": "Red Sox"}
+        self.assertGreater(abs(mm.bullpen(usage, "147", "111", names, weight=1.2)["margin"]), abs(mm.bullpen(usage, "147", "111", names)["margin"]))
+
+    def test_form_is_shown_but_not_counted_in_the_playoffs(self):
+        event = {"id": "g", "commence_time": "2026-09-30T23:05:00Z", "home_team": "New York Yankees", "away_team": "Boston Red Sox",
+                 "bookmakers": [{"key": key, "markets": [{"key": "h2h", "outcomes": [{"name": "New York Yankees", "price": -125}, {"name": "Boston Red Sox", "price": 110}]}]}
+                                for key in ("pinnacle", "draftkings", "fanduel")]}
+        [game] = ml.parse_odds([event])
+        rated = {"teams": {"New York Yankees": 0.6, "Boston Red Sox": 0.3}}
+        hot = [{"date": f"2026-09-2{day}T23:05:00Z", "result": "W", "margin": 5} for day in range(3, 8)]
+        context = {"form": {"home": hot, "away": [{**item, "result": "L", "margin": -5} for item in hot]}}
+        regular = ml.read_game("mlb", game, rated, {"postseason": False}, context)
+        playoff = ml.read_game("mlb", game, rated, {"postseason": True, "note": "AL Wild Card - Game 1"}, context)
+        self.assertIn("form", [item["key"] for item in regular["matchup"]["factors"]])
+        self.assertNotIn("form", [item["key"] for item in playoff["matchup"]["factors"]])
+        self.assertEqual(len(playoff["matchup"]["teams"]["home"]["form"]), 5)     # still on the page
+
+    def test_the_series_from_mlbs_schedule_when_espn_is_missing(self):
+        rated = {"records": {"New York Yankees": {"id": "147", "abbr": "NYY", "short": "Yankees", "total": "94-68"},
+                             "Boston Red Sox": {"id": "111", "abbr": "BOS", "short": "Red Sox", "total": "89-73"}}}
+
+        def game(day, kind, state, home_runs=None, away_runs=None, number=None):
+            return {"gameDate": f"2026-09-{day}T23:05:00Z", "gameType": kind, "status": {"abstractGameState": state},
+                    "seriesDescription": "Wild Card", "seriesGameNumber": number, "gamesInSeries": 3,
+                    "teams": {"home": {"team": {"id": 147}, "score": home_runs}, "away": {"team": {"id": 111}, "score": away_runs}}}
+        schedule = [game(27, "R", "Final", 2, 6), game(29, "F", "Final", 5, 3, 1), game(30, "F", "Preview", number=2)]
+        with mock.patch("live_props_core.mlb", return_value={"dates": [{"games": schedule}]}):
+            facts = mm.team_facts("mlb", rated, datetime(2026, 9, 30, 16, tzinfo=timezone.utc))
+        filled = mm.fill({"homeName": "New York Yankees", "awayName": "Boston Red Sox", "startsAt": "2026-09-30T23:05:00Z"}, None, None, facts)
+        self.assertEqual((filled["espn"]["postseason"], filled["espn"]["note"], filled["espn"]["series"]),
+                         (True, "Wild Card - Game 2", "NYY leads series 1-0"))
+
+
 class ModelWithMatchupTest(unittest.TestCase):
     def test_the_matchup_moves_our_view_and_is_shown(self):
         event = {"id": "e", "commence_time": START.isoformat(), "home_team": "Kansas City Chiefs", "away_team": "Buffalo Bills",
