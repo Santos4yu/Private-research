@@ -5,7 +5,12 @@ from datetime import datetime, timezone
 from v2.board import store, admin_auth
 SITE_BACKGROUND_PATH_RE=re.compile(r'^/api/v2-admin\?action=site-background&v=\d+$')
 KEY='krazy_data:site_controls:v1'
-TABS=('research','finder','v2','slate','saved','slip','builder','moneyline','nrfi','community')
+TABS=('research','finder','moves','v2','slate','saved','slip','builder','moneyline','nrfi','community')
+# The sections settings saved before tabsSeen existed knew of. A section
+# added later starts switched off until the admin turns it on, the same way
+# new Finder leagues do below -- so a page still being built never appears
+# for everyone the moment it deploys.
+LEGACY_TABS=('research','finder','v2','slate','saved','slip','builder','moneyline','nrfi','community')
 # Leagues offered inside the Finder. Kept separate from disabledSports, which
 # governs Research's own MLB/NFL switch -- hiding NFL from the Finder must not
 # take NFL research away from anyone.
@@ -22,6 +27,10 @@ def read():
  raw=store.get(KEY)
  value=json.loads(raw) if raw is not None else {}
  policy={**DEFAULT,**value}
+ seen_tabs=value.get('tabsSeen')
+ seen_tabs=set(seen_tabs) if isinstance(seen_tabs,list) else set(LEGACY_TABS)
+ new_tabs=[tab for tab in TABS if tab not in seen_tabs]
+ if new_tabs:policy['disabledTabs']=sorted(set(policy.get('disabledTabs') or [])|set(new_tabs))
  known=value.get('finderSportsSeen')
  known=set(known) if isinstance(known,list) else set(LEGACY_FINDER_SPORTS)
  unseen=[sport for sport in FINDER_SPORTS if sport not in known]
@@ -57,6 +66,7 @@ def validate(body):
  result['disabledFinderSports']=sorted(set(finder_sports))
  # Every league the admin saw a switch for is now a deliberate choice.
  result['finderSportsSeen']=list(FINDER_SPORTS)
+ result['tabsSeen']=list(TABS)
  # Site-wide background must be a real http(s) link or our own uploaded-
  # image endpoint (see site_background.py) -- never a raw data: URL, since
  # this whole object is embedded in every visitor's site-status poll
@@ -112,6 +122,13 @@ def finder_sport_allowed(headers,sport):
  policy=read()
  if policy['maintenance']:return False
  return _items_open(headers,policy,['tab:finder',f'finderSport:{sport}'])
+def finder_sports_allowed(headers):
+ """The Finder leagues this viewer may see, all at once (the league
+ switches only; the Line Moves page uses it apart from the Finder tab)."""
+ if admin_auth.is_admin_request(headers):return list(FINDER_SPORTS)
+ policy=read()
+ if policy['maintenance']:return []
+ return [sport for sport in FINDER_SPORTS if _items_open(headers,policy,[f'finderSport:{sport}'])]
 def same_origin(headers):
  from urllib.parse import urlparse
  origin=urlparse(headers.get('Origin',''))

@@ -37,6 +37,7 @@ const API_SLIP_ANALYZER = "/api/prediction?action=slip-analyzer";
 const researchClient = createResearchClient({ endpoint: API_SOURCE });
 
 const SAVED_KEY = "vortex_saved_prop_ids";
+const LAST_TAB_KEY = "krazy-last-tab";
 const AVATAR_HUES = [168, 262, 24, 200, 330, 48, 140, 300];
 
 // Just names, not data -- every lookup still goes through the live API.
@@ -172,7 +173,7 @@ const EXPERIENCE_KEY = "private_jarvis_interface";
 applyAccentTheme(loadAccentTheme(), { persist: false });
 applyExperience(localStorage.getItem(EXPERIENCE_KEY) === "true");
 
-const SCREEN_TITLES = Object.freeze({ research: "Research", finder: "Finder", v2: "Props", slate: "Tools", saved: "My Slip", builder: "Parlay Builder", slip: "Slip Analyzer", moneyline: "Moneylines", nrfi: "NRFI / YRFI", community: "Community", admin: "Admin Results" });
+const SCREEN_TITLES = Object.freeze({ research: "Research", finder: "Finder", moves: "Line Moves", v2: "Props", slate: "Tools", saved: "My Slip", builder: "Parlay Builder", slip: "Slip Analyzer", moneyline: "Moneylines", nrfi: "NRFI / YRFI", community: "Community", admin: "Admin Results" });
 // The URL path for each tab differs from its internal id in a few cases
 // (v2 -> /props, slate -> /tools, slip -> /slip-analyzer) so the address
 // bar reads naturally -- everything else just uses its id as-is.
@@ -338,6 +339,7 @@ function cacheEls() {
 
   els.panelV2 = document.getElementById("panel-v2");
   els.panelFinder = document.getElementById("panel-finder");
+  els.panelMoves = document.getElementById("panel-moves");
   els.panelBuilder = document.getElementById("panel-builder");
   els.panelSlip = document.getElementById("panel-slip");
   els.panelMoneyline = document.getElementById("panel-moneyline");
@@ -1361,6 +1363,9 @@ function switchTab(tab, options = {}) {
   const changed = state.currentTab !== tab;
   if (changed) screenScroll.set(state.currentTab, window.scrollY);
   state.currentTab = tab;
+  // The app opens here next time (wireAppNavigation), the way a native app
+  // comes back where it was left.
+  if (tab !== "admin") { try { localStorage.setItem(LAST_TAB_KEY, tab); } catch { /* private mode */ } }
   const screenTitle = document.getElementById("mobile-screen-title");
   if (screenTitle) screenTitle.textContent = SCREEN_TITLES[tab];
   document.title = `${SCREEN_TITLES[tab]} · Krazy Data`;
@@ -1393,6 +1398,7 @@ function switchTab(tab, options = {}) {
   els.panelSlate.hidden = tab !== "slate";
   els.panelV2.hidden = tab !== "v2" || nflProps;
   els.panelFinder.hidden = tab !== "finder";
+  if (els.panelMoves) els.panelMoves.hidden = tab !== "moves";
   if (tab === "research" || nflProps) window.dispatchEvent(new CustomEvent("vortex:nfl-view", {detail:{view:nflProps ? "board" : "research"}}));
   els.panelBuilder.hidden = tab !== "builder";
   els.panelSlip.hidden = tab !== "slip";
@@ -1425,7 +1431,11 @@ function wireAppNavigation() {
   // Back-compat: a link or bookmark carrying the old #tab hash (or a stray
   // hash left over from before this became path-based routing) still lands
   // on the right screen instead of always falling back to research.
-  const requestedSlug = location.pathname.slice(1) || location.hash.slice(1);
+  // Opened at the bare address (the home-screen icon's start page): the page
+  // that was open last time.
+  let lastTab = "";
+  try { lastTab = localStorage.getItem(LAST_TAB_KEY) || ""; } catch { /* private mode */ }
+  const requestedSlug = location.pathname.slice(1) || location.hash.slice(1) || (lastTab !== "admin" ? lastTab : "");
   const requested = Object.hasOwn(SLUG_TO_TAB, requestedSlug) ? SLUG_TO_TAB[requestedSlug] : requestedSlug;
   const initialTab = Object.hasOwn(SCREEN_TITLES, requested) && (requested !== "admin" || state.adminUnlocked) ? requested : state.currentTab;
   const url = new URL(location.href);

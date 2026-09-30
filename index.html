@@ -18,10 +18,24 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="KD" />
-<link rel="manifest" href="/manifest.json?v=4" />
+<link rel="manifest" href="/manifest.json?v=5" />
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png?v=4" />
 <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png?v=4" />
 <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=4" />
+<!-- Launch screens for the home-screen app, one per iPhone screen size
+     (public/splash): the KD mark on the app's background instead of a
+     blank flash while it opens. -->
+<link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1320x2868.png" />
+<link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1290x2796.png" />
+<link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1284x2778.png" />
+<link rel="apple-touch-startup-image" media="(device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1260x2736.png" />
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1242x2688.png" />
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/828x1792.png" />
+<link rel="apple-touch-startup-image" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1206x2622.png" />
+<link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1179x2556.png" />
+<link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1170x2532.png" />
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1125x2436.png" />
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/750x1334.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="styles.css" />
@@ -108,6 +122,24 @@
       <a class="user-badge-logout" id="user-badge-logout" href="/api/auth/logout">Log out</a>
     </div>
   </div>
+  <div class="settings-section alerts-setting" id="alerts-setting" hidden>
+    <div class="alerts-setting-row">
+      <div><span class="settings-label">Alerts</span><strong>Updates and your saved picks</strong></div>
+      <button type="button" class="alerts-switch" id="alerts-switch" role="switch" aria-checked="false" aria-label="Alerts"><span></span></button>
+    </div>
+    <p class="theme-picker-note alerts-note" id="alerts-note" hidden></p>
+  </div>
+  <!-- src/install-guide.js -->
+  <div class="settings-section app-links">
+    <button type="button" class="app-link-row" id="get-app-row" hidden>
+      <span class="app-link-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M12 7.5v6M9.5 11l2.5 2.5 2.5-2.5"/></svg></span>
+      <span><b>Get the app</b><small>Add Krazy Data to your Home Screen</small></span>
+    </button>
+    <button type="button" class="app-link-row" id="invite-row">
+      <span class="app-link-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg></span>
+      <span><b>Share Krazy Data</b><small>Send friends the link</small></span>
+    </button>
+  </div>
   <div class="settings-section">
     <div class="accent-studio-head"><div><span class="settings-label">Accent studio</span><strong>Make it yours.</strong></div><button type="button" id="accent-reset" aria-label="Reset accent colors">Reset</button></div>
     <p class="theme-picker-note site-appearance-notice" id="site-appearance-notice" hidden><span id="site-appearance-notice-text"></span> <button type="button" id="site-appearance-toggle"></button></p>
@@ -120,19 +152,27 @@
     <div class="accent-save-row"><label for="accent-preset-name">Preset name</label><div><input type="text" id="accent-preset-name" maxlength="24" placeholder="Game night" autocomplete="off" /><button type="button" id="accent-preset-save">Save</button></div></div>
     <div class="accent-presets" id="accent-presets" aria-label="Saved accent presets"></div>
     <p class="theme-picker-note" id="accent-status" aria-live="polite">Colors save automatically on this device.</p>
-    <div class="bg-image-control">
-      <span class="settings-label">Background image</span>
-      <button type="button" class="bg-image-upload-btn" id="bg-image-upload">Upload a photo from your device</button>
-      <input type="file" id="bg-image-file" accept="image/*" hidden />
-      <div class="bg-image-divider"><span>or paste a link</span></div>
-      <input type="url" id="bg-image-url" placeholder="https://example.com/photo.jpg" autocomplete="off" inputmode="url" />
-      <label class="accent-tint-control"><span>Opacity</span><input type="range" id="bg-image-opacity" min="5" max="100" step="1" value="35" aria-label="Background image opacity" /><output id="bg-image-opacity-value">35%</output></label>
-      <div class="bg-image-actions"><button type="button" id="bg-image-apply">Apply link</button><button type="button" id="bg-image-remove">Remove</button></div>
-      <p class="theme-picker-note" id="bg-image-status" aria-live="polite">Use a high-resolution image (1920×1080 or larger) for the sharpest result.</p>
-    </div>
+    <!-- Background image opens on tap: it's the least-used part of the
+         panel and the tallest. -->
+    <details class="bg-image-control bg-image-details">
+      <summary class="settings-label">Background image</summary>
+      <div class="bg-image-body">
+        <button type="button" class="bg-image-upload-btn" id="bg-image-upload">Upload a photo from your device</button>
+        <input type="file" id="bg-image-file" accept="image/*" hidden />
+        <div class="bg-image-divider"><span>or paste a link</span></div>
+        <input type="url" id="bg-image-url" placeholder="https://example.com/photo.jpg" autocomplete="off" inputmode="url" />
+        <label class="accent-tint-control"><span>Opacity</span><input type="range" id="bg-image-opacity" min="5" max="100" step="1" value="35" aria-label="Background image opacity" /><output id="bg-image-opacity-value">35%</output></label>
+        <div class="bg-image-actions"><button type="button" id="bg-image-apply">Apply link</button><button type="button" id="bg-image-remove">Remove</button></div>
+        <p class="theme-picker-note" id="bg-image-status" aria-live="polite">Use a high-resolution image (1920×1080 or larger) for the sharpest result.</p>
+      </div>
+    </details>
   </div>
 
 </div>
+
+<!-- Dims the page behind the settings sheet on phones (accent-studio.css);
+     a tap on it lands outside the panel, which closes it (app.js). -->
+<div class="settings-backdrop" aria-hidden="true"></div>
 
 <!-- Hidden admin unlock: 3 rapid clicks on the settings gear opens the
      "Administrator access" card (src/AdminPinCard.jsx) instead of the
@@ -518,6 +558,11 @@
 <!-- PROPS TAB — mirror of the Discord bot's board -->
 <section class="tab-panel" id="panel-finder">
   <div id="unified-finder-root"></div>
+</section>
+
+<!-- LINE MOVES TAB (src/LineMoves.jsx) -->
+<section class="tab-panel" id="panel-moves" hidden>
+  <div id="line-moves-root"></div>
 </section>
 
 <!-- PROPS TAB — mirror of the Discord bot's board -->

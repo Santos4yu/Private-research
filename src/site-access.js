@@ -1,9 +1,12 @@
 import './site-access.css';
 import {accessGranted,canUseTab,availableTab,canUseSport,canUseFinderSport,hiddenTabs,FINDER_SPORTS} from './site-access-core.js';
 import {mountMembersPanel,memberBadge} from './site-members.js';
+import {mountAnnouncePanel} from './site-announce.js';
 import {accountProfile,saveAccountProfile} from './account-sync.js';
+import './push-alerts.js';
+import './install-guide.js';
 const ACCOUNT_ICON='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M5 21v-2a7 7 0 0 1 14 0v2" stroke="currentColor" stroke-width="1.6"/></svg>';
-const names={research:'Research',finder:'Finder',v2:'Props',slate:'Tools',saved:'My Slip',slip:'Slip Analyzer',builder:'Builder',moneyline:'Moneyline',nrfi:'NRFI / YRFI',community:'Community'};
+const names={research:'Research',finder:'Finder',moves:'Line Moves',v2:'Props',slate:'Tools',saved:'My Slip',slip:'Slip Analyzer',builder:'Builder',moneyline:'Moneyline',nrfi:'NRFI / YRFI',community:'Community'};
 let status=null,initPromise=null,activeDialog=null,lockedDialog=null;
 export function siteTabAllowed(tab){return canUseTab(status,tab);}
 export function siteIsAdmin(){return Boolean(status?.isAdmin);}
@@ -413,6 +416,7 @@ export async function loadSiteControls(){
    +'<button type="button" class="site-tab" data-panel-tab="access" role="tab" aria-selected="false">Access</button>'
    +'<button type="button" class="site-tab" data-panel-tab="appearance" role="tab" aria-selected="false">Appearance</button>'
    +'<button type="button" class="site-tab" data-panel-tab="members" role="tab" aria-selected="false">Members</button>'
+   +'<button type="button" class="site-tab" data-panel-tab="announce" role="tab" aria-selected="false">Announce</button>'
   +'</div>'
   +'<form>'
    +'<div class="site-tab-panel" data-panel="general">'
@@ -450,14 +454,17 @@ export async function loadSiteControls(){
    +'<button type="submit">Save website settings</button>'
   +'</form>'
   // Members saves person by person, so it sits outside the settings form.
-  +'<div class="site-tab-panel site-members-panel" data-panel="members" hidden></div>';
+  +'<div class="site-tab-panel site-members-panel" data-panel="members" hidden></div>'
+  +'<div class="site-tab-panel site-announce-panel" data-panel="announce" hidden></div>';
  const tabs=[...host.querySelectorAll('.site-tab')],panels=[...host.querySelectorAll('.site-tab-panel')];
  tabs.forEach(tab=>tab.addEventListener('click',()=>{
   tabs.forEach(t=>t.setAttribute('aria-selected',String(t===tab)));
   panels.forEach(p=>{p.hidden=p.dataset.panel!==tab.dataset.panelTab;});
-  const members=tab.dataset.panelTab==='members';
-  host.querySelector('form').hidden=members;
-  if(members)mountMembersPanel(host.querySelector('.site-members-panel'),{request,names});
+  const panel=tab.dataset.panelTab;
+  // Members and Announce save on their own, outside the settings form.
+  host.querySelector('form').hidden=panel==='members'||panel==='announce';
+  if(panel==='members')mountMembersPanel(host.querySelector('.site-members-panel'),{request,names});
+  if(panel==='announce')mountAnnouncePanel(host.querySelector('.site-announce-panel'),{request});
  }));
  const form=host.querySelector('form');for(const [key,title] of Object.entries({maintenance:'Maintenance mode — members cannot use the website',requireLogin:'Require email account to access research',registrationOpen:'Allow new account registrations'})){const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.name=key;input.checked=policy[key];label.append(input,document.createTextNode(title));host.querySelector('.site-control-switches').append(label);}
  form.elements.message.value=policy.message;

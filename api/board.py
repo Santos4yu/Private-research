@@ -166,7 +166,7 @@ class handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         from site_controls import allowed
-        tab={'prop-history':'research','moneyline':'moneyline','nrfi':'nrfi','soccer':'finder','nhl':'finder'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
+        tab={'prop-history':'research','moneyline':'moneyline','nrfi':'nrfi','soccer':'finder','nhl':'finder','moves':'moves'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
         if not allowed(self.headers,tab):return self._send(503,{'error':'This section is temporarily unavailable','featureDisabled':True})
         if not session_with_live_access(self.headers):
             return self._send(401, {"error": "Sign in with Discord to use live research.", "authRequired": True})
@@ -255,6 +255,18 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(200, nhl_board())
             except Exception:
                 return self._send(502, {"error": "NHL lines are temporarily unavailable."})
+        if view == "moves":
+            # The Line Moves page (line_moves.py): its own admin switch, and
+            # only the leagues this viewer may see in the Finder. While it is
+            # open it also keeps PrizePicks' feeds checked.
+            import line_moves
+            from site_controls import finder_sports_allowed
+            sports = [sport for sport in finder_sports_allowed(self.headers) if sport in line_moves.SPORTS]
+            line_moves.safely(line_moves.keep_fresh, sports)
+            try:
+                return self._send(200, {**line_moves.recent(sports), "sports": sports})
+            except Exception:
+                return self._send(502, {"error": "Line moves are temporarily unavailable."})
         if view == "prop-history":
             qs = parse_qs(urlparse(self.path).query)
             try:
@@ -273,8 +285,12 @@ class handler(BaseHTTPRequestHandler):
                 # (mlb_book_lines.py). Without them the lines still stand.
                 if view == "props" and (parse_qs(urlparse(self.path).query).get("apps") or [""])[0] == "1":
                     try:
-                        from mlb_book_lines import attach
-                        rows = attach(rows)
+                        from mlb_book_lines import attach, lines as book_lines
+                        quotes = book_lines()
+                        rows = attach(rows, quotes)
+                        # Each book's main lines, for the Line Moves page.
+                        import line_moves
+                        line_moves.safely(line_moves.observe_books, "mlb", quotes)
                     except Exception:
                         pass
                 rows.sort(key=lambda row: (

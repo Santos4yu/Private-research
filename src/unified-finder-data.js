@@ -3,6 +3,7 @@ import {teamLogoUrl} from './sports/nfl/nfl-ui-core.js';
 import {MARKET_STAT as WNBA_DVP_STAT, positionOf} from './sports/wnba/wnba-research.js';
 import {playerGames, statKeyOf, valueOf} from './sports/soccer/soccer-stats.js';
 import {playerGames as nhlPlayerGames, statValue as nhlValue} from './sports/nhl/nhl-stats.js';
+import {storedBoard, storeBoard} from './finder-store.js';
 
 const WINDOW_KEYS = ['l5', 'l10', 'l15', 'l20', 'h2h', 'season'];
 export const BOOK_NAMES = {prizepicks: 'PrizePicks', underdog: 'Underdog', pick6: 'DK Pick6', betr_us_dfs: 'Betr Picks',
@@ -21,39 +22,71 @@ const mean = values => values.length ? values.reduce((sum, value) => sum + value
 const photo = id => id ? `https://img.mlbstatic.com/mlb-photos/image/upload/w_300,q_auto:best/v1/people/${encodeURIComponent(id)}/headshot/silo/current` : null;
 const mlbLogo = id => id ? `https://www.mlbstatic.com/team-logos/${encodeURIComponent(id)}.svg` : null;
 
-function cacheStore() {
-  return typeof window === 'undefined' ? null : window.localStorage;
+function legacyStore() {
+  try { return typeof window === 'undefined' ? null : window.localStorage; } catch { return null; }
 }
 
-/** Persist the compact board snapshot so returning users paint before a fetch. */
-export function readFinderCache(sport, now = Date.now()) {
+function usableBoard(value, now) {
+  if (!value || !Array.isArray(value.rows) || !value.rows.length || now - Number(value.ts || 0) > FINDER_CACHE_TTL) return null;
+  const rows = value.rows.filter(row => !row.startsAt || !Number.isFinite(Date.parse(row.startsAt)) || Date.parse(row.startsAt) > now);
+  return rows.length ? {...value, rows, persisted: true} : null;
+}
+
+/** The saved board for a sport (IndexedDB, finder-store.js), so a returning
+ * user sees props and hit rates before any request: null when there is none
+ * from the last day. Boards saved by older versions in localStorage are
+ * read once, then cleared. */
+export async function readFinderCache(sport, now = Date.now()) {
   try {
-    const store = cacheStore();
-    if (!store) return null;
-    const value = JSON.parse(store.getItem(FINDER_CACHE_PREFIX + sport) || 'null');
-    if (!value || !Array.isArray(value.rows) || !value.rows.length || now - Number(value.ts || 0) > FINDER_CACHE_TTL) return null;
-    const rows = value.rows.filter(row => !row.startsAt || !Number.isFinite(Date.parse(row.startsAt)) || Date.parse(row.startsAt) > now);
-    return rows.length ? {...value, rows, persisted: true} : null;
+    const saved = usableBoard(await storedBoard(sport), now);
+    if (saved) return saved;
+    const legacy = legacyStore();
+    const value = legacy ? JSON.parse(legacy.getItem(FINDER_CACHE_PREFIX + sport) || 'null') : null;
+    legacy?.removeItem(FINDER_CACHE_PREFIX + sport);
+    return usableBoard(value, now);
   } catch { return null; }
 }
 
 export function persistFinderCache(sport, value) {
-  try {
-    const store = cacheStore();
-    if (!store || !value?.rows?.length) return;
-    const rows = value.rows.map(row => {
-      const compact = {...row};
-      // History/chart payloads are shared by many lines and can be re-fetched
-      // from the in-memory cache. Keeping them out of storage avoids blocking
-      // the main thread and keeps mobile localStorage well below quota.
-      delete compact.history;
-      delete compact.chart;
-      return compact;
-    });
-    store.setItem(FINDER_CACHE_PREFIX + sport, JSON.stringify({
-      ts: Date.now(), fetchedAt: value.fetchedAt || null, rows,
-    }));
-  } catch { /* Storage is an optimization; live data remains authoritative. */ }
+  if (!value?.rows?.length) return Promise.resolve();
+  const rows = value.rows.map(row => {
+    const compact = {...row};
+    // History and chart payloads are shared by many lines and are fetched
+    // again when a player page needs them.
+    delete compact.history;
+    delete compact.chart;
+    return compact;
+  });
+  // ts is when the board was fetched (kept through later saves), so a board
+  // re-saved from the screen doesn't pass for a newer one.
+  return storeBoard(sport, {ts: Number(value.ts) || Date.now(), fetchedAt: value.fetchedAt || null, rows}).catch(() => {});
+}
+
+// A line's hit rates stay good until the player's next game, and a line is
+// for one upcoming game, so a refreshed board keeps them for every line
+// that is still the same prop at the same number. Only new lines, and lines
+// that moved, load history again.
+const HISTORY_KEEP = 6 * 60 * 60 * 1000;
+const HISTORY_FIELDS = ['average', 'windows', 'streak', 'diff', 'averageDelta', 'historyStatus', 'enrichedAt'];
+// What history fills in that a board can leave blank (an MLB player's id,
+// photo and opponent). Prices and odds are never carried: the new board's
+// are the current ones.
+const IDENTITY_FIELDS = ['playerId', 'headshot', 'teamLogo', 'position', 'opponent', 'opponentTeamId', 'startsAt'];
+export function carryHistory(rows, previous = [], now = Date.now()) {
+  const before = new Map();
+  for (const row of previous || []) {
+    if (row?.historyStatus === 'ready' && now - Number(row.enrichedAt || 0) < HISTORY_KEEP) before.set(row.id, row);
+  }
+  if (!before.size) return rows;
+  return rows.map(row => {
+    const old = before.get(row.id);
+    if (!old || row.historyStatus === 'ready' || old.line !== row.line || old.direction !== row.direction
+      || (old.valueKey || old.marketKey || old.stat) !== (row.valueKey || row.marketKey || row.stat)) return row;
+    const kept = {...row};
+    for (const key of IDENTITY_FIELDS) if (kept[key] == null && old[key] != null) kept[key] = old[key];
+    for (const key of HISTORY_FIELDS) kept[key] = old[key];
+    return kept;
+  });
 }
 
 function aborted(signal) {
@@ -228,6 +261,59 @@ function applications(apps) {
   return (Array.isArray(apps) ? apps : []).map(app => ({...app, key: app.key,
     name: app.name || BOOK_NAMES[app.key] || app.key, over: number(app.over), under: number(app.under)}))
     .sort((a, b) => (a.key === 'prizepicks' ? -1 : b.key === 'prizepicks' ? 1 : 0));
+}
+
+// A notification's link (pick_alerts.py) names a prop as sport, player and
+// PrizePicks' stat: /finder?sport=mlb&player=Aaron+Judge&stat=Total+Bases.
+// The Finder's labels sometimes spell a stat out where PrizePicks abbreviates
+// it ("Points + Rebounds + Assists" / "Pts+Rebs+Asts"); both read the same.
+const STAT_WORDS = {points: 'pts', point: 'pts', score: 'pts', rebounds: 'rebs', rebound: 'rebs', assists: 'asts',
+  assist: 'asts', blocks: 'blks', block: 'blks', steals: 'stls', steal: 'stls', pointers: 'pt', pointer: 'pt',
+  turnovers: 'to', yards: 'yds', yard: 'yds', receiving: 'rec', rushing: 'rush', passing: 'pass', strikeouts: 'ks',
+  strikeout: 'ks', and: ''};
+export const propStatKey = value => (String(value || '').toLowerCase().match(/[a-z0-9]+/g) || [])
+  .map(word => STAT_WORDS[word] ?? word).join('');
+const playerKey = value => String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+export function linkTarget(search) {
+  const params = new URLSearchParams(search || '');
+  const sport = (params.get('sport') || '').toLowerCase(), player = params.get('player') || '';
+  return sport && player ? {sport, player, stat: params.get('stat') || ''} : null;
+}
+
+/** The board line a link names: that player's line for that stat, the
+ * standard one first. Null when it's no longer posted. */
+export function findLinkedRow(rows, target) {
+  if (!target) return null;
+  const stat = propStatKey(target.stat);
+  const theirs = rows.filter(row => row.sport === target.sport && playerKey(row.player) === playerKey(target.player));
+  const same = theirs.filter(row => !stat || [row.market, row.raw?.stat, row.raw?.propLabel].some(value => value && propStatKey(value) === stat));
+  return same.find(row => (row.modifier || 'standard') === 'standard') || same[0] || null;
+}
+
+// Where the Finder was left: leagues, filters, sort and page size, brought
+// back when it opens again within a day. Game and date filters stay out --
+// those games are over by then.
+export const FINDER_VIEW_KEY = 'krazy-finder-view';
+const VIEW_KEEP = 24 * 60 * 60 * 1000;
+const VIEW_LISTS = ['picked', 'marketFilter', 'bookFilter', 'teamFilter', 'modifierFilter'];
+
+export function readFinderView(storage, now = Date.now()) {
+  try {
+    const view = JSON.parse(storage?.getItem(FINDER_VIEW_KEY) || 'null');
+    if (!view || typeof view !== 'object' || !(now - Number(view.at) < VIEW_KEEP)) return {};
+    const out = {};
+    for (const name of VIEW_LISTS) if (Array.isArray(view[name])) out[name] = view[name].filter(item => typeof item === 'string').slice(0, 40);
+    const hit = view.hitFilter;
+    if (hit && Array.isArray(hit.windows) && Number.isFinite(hit.min) && Number.isFinite(hit.max)) out.hitFilter = {windows: hit.windows.filter(item => typeof item === 'string'), min: hit.min, max: hit.max};
+    if (Array.isArray(view.sorts)) out.sorts = view.sorts.filter(item => item && typeof item.key === 'string' && ['asc', 'desc'].includes(item.direction)).slice(0, 6);
+    if ([10, 20, 50, 100].includes(view.pageSize)) out.pageSize = view.pageSize;
+    return out;
+  } catch { return {}; }
+}
+
+export function saveFinderView(storage, view, now = Date.now()) {
+  try { storage?.setItem(FINDER_VIEW_KEY, JSON.stringify({...view, at: now})); } catch { /* private mode */ }
 }
 
 // Every app's lines show. Choosing a line type (Regular / Goblins / Demons)

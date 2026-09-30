@@ -278,6 +278,15 @@ def build(season, projections=None, now=None, sportsbook_lines=None):
             sportsbook_lines = _sportsbook_lines(season, now)
         except Exception as error:  # noqa: BLE001 -- PrizePicks' lines still stand
             sportsbook_lines, sources["sportsbooksError"] = [], str(error)
+        else:
+            # Each book's main lines, for the Line Moves page (line_moves.py).
+            try:
+                import line_moves
+                line_moves.observe_books("nfl", [
+                    {**quote, "stat": markets.LABELS.get(quote["market"]) or quote["market"],
+                     "startsAt": quote["event"].get("startsAt")} for quote in sportsbook_lines])
+            except Exception:  # noqa: BLE001 -- never at the cost of the board
+                pass
     games = finder.games_index()
     roster = _roster(season)
     histories = {}

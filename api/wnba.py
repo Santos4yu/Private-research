@@ -414,6 +414,8 @@ def _board(include_history=True):
     # Books' alternate prices at numbers no main line is on -- held for the
     # PrizePicks lines added below.
     alternates = {}
+    # Each book's main lines, for the Line Moves page (line_moves.py).
+    main_quotes = {}
     for event in events:
         event_id = event.get("id") if isinstance(event, dict) else None
         starts_at = timestamp(event.get("commence_time")) if isinstance(event, dict) else None
@@ -466,6 +468,13 @@ def _board(include_history=True):
                     price = outcome.get("price")
                     if not player or side not in ("Over", "Under") or not finite(line):
                         continue
+                    if market_key in MARKETS and book_key != "prizepicks":
+                        main = main_quotes.setdefault((book_key, player, market_key, float(line)), {
+                            "book": book_key, "player": player, "stat": MARKETS[market_key], "line": float(line),
+                            "over": None, "under": None, "startsAt": starts_at.isoformat(),
+                            "updatedAt": updated.isoformat() if updated else None})
+                        if finite(price):
+                            main[side.lower()] = price
                     # Same player/market/threshold across main and alternate
                     # feeds is one line. Otherwise matching Under prices and
                     # comparison books can be stranded on a separate row.
@@ -520,6 +529,11 @@ def _board(include_history=True):
             if row["apps"]:
                 row["primaryBook"] = row["apps"][0]["key"]
                 rows.append(row)
+    try:
+        import line_moves
+        line_moves.observe_books("wnba", list(main_quotes.values()))
+    except Exception:  # noqa: BLE001 -- never at the cost of the board
+        pass
     _merge_prizepicks(rows, events, directory, now, alternates)
     if not rows and odds_error is not None:
         raise odds_error
