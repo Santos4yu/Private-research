@@ -41,6 +41,8 @@ STATS = (
     ("dreb", "Defensive Rebounds", ("dreb",)),
     # 1 when 10+ in two of points, rebounds, assists, steals and blocks.
     ("dd", "Double-Double", ("pts", "reb", "ast", "stl", "blk")),
+    # 1 when 10+ in three of them.
+    ("td", "Triple-Double", ("pts", "reb", "ast", "stl", "blk")),
     ("fs", "Fantasy Score", ("pts", "reb", "ast", "blk", "stl", "to")),
 )
 STAT_KEYS = tuple(key for key, _, _ in STATS)
@@ -55,7 +57,7 @@ MARKET_STAT = {
     "player_threes_attempts": "tpa", "player_field_goals": "fgm", "player_frees_made": "ftm",
     "player_field_goals_attempts": "fga", "player_frees_attempts": "fta", "player_twos": "twos",
     "player_twos_attempts": "twosa", "player_fouls": "pf", "player_offensive_rebounds": "oreb",
-    "player_defensive_rebounds": "dreb", "player_double_double": "dd",
+    "player_defensive_rebounds": "dreb", "player_double_double": "dd", "player_triple_double": "td",
 }
 # Same fantasy formula the game-log endpoint uses (api/wnba.py).
 _FANTASY = {"pts": 1, "reb": 1.2, "ast": 1.5, "blk": 3, "stl": 3, "to": -1}
@@ -77,15 +79,15 @@ def stat_value(row, key):
         return round(sum(_FANTASY[part] * value for part, value in zip(parts, values)), 1)
     if key in ("twos", "twosa"):
         return values[0] - values[1]
-    if key == "dd":
-        return 1 if sum(value >= 10 for value in values) >= 2 else 0
+    if key in ("dd", "td"):
+        return 1 if sum(value >= 10 for value in values) >= (2 if key == "dd" else 3) else 0
     return sum(values)
 
 
-def headshot(pid: str, player) -> str:
+def headshot(pid: str, player, league: str = "wnba") -> str:
     """ESPN leaves the headshot off some box scores; its CDN still has one
     for most players at this address (the page hides it if it 404s)."""
-    return (player or [None, None, None])[2] or f"https://a.espncdn.com/i/headshots/wnba/players/full/{pid}.png"
+    return (player or [None, None, None])[2] or f"https://a.espncdn.com/i/headshots/{league}/players/full/{pid}.png"
 
 
 def primary_position(player) -> str | None:
@@ -236,7 +238,7 @@ def zone_defense(by_team: dict) -> tuple[dict, dict]:
     return result, league_pct
 
 
-def rotation(by_team: dict, players: dict, size: int = 5) -> dict:
+def rotation(by_team: dict, players: dict, size: int = 5, league: str = "wnba") -> dict:
     """Who plays, from the last few games: last game's starters first, then
     everyone else by minutes. ESPN publishes no WNBA depth chart, so this is
     the rotation as actually used, not a coach's depth chart."""
@@ -260,7 +262,7 @@ def rotation(by_team: dict, players: dict, size: int = 5) -> dict:
             # Traded away since: no longer part of this rotation.
             if player[3] and player[3] != team:
                 continue
-            entries.append({"id": pid, "name": player[0], "pos": player[1], "headshot": headshot(pid, player),
+            entries.append({"id": pid, "name": player[0], "pos": player[1], "headshot": headshot(pid, player, league),
                             "min": _round(minutes[pid] / appearances[pid], 1), "games": appearances[pid],
                             "starts": starts[pid], "lastStart": pid in last_starters})
         entries.sort(key=lambda e: (not e["lastStart"], order.get(primary_position([None, e["pos"]]), 3) if e["lastStart"] else 0, -e["min"]))
@@ -282,7 +284,7 @@ def league_context(payload: dict) -> dict:
         "dvpMinMinutes": DVP_MIN_MINUTES,
         "teamStats": team_stats(by_team),
         "zoneDefense": zones, "leagueZones": league_zones,
-        "rotation": rotation(by_team, players),
+        "rotation": rotation(by_team, players, league=payload.get("league") or "wnba"),
         "games": {team: len(games) for team, games in by_team.items()},
     }
 
@@ -343,7 +345,7 @@ def player_context(payload: dict, player_id: str, team: str, opponent: str, mark
                 continue
             played = any(row[0] == pid for row in game["own"]["p"])
             (with_ids if played else without_ids).append(game["id"])
-        impact.append({"id": pid, "name": player[0], "pos": player[1], "headshot": headshot(pid, player),
+        impact.append({"id": pid, "name": player[0], "pos": player[1], "headshot": headshot(pid, player, payload.get("league") or "wnba"),
                        "min": _round(teammate_minutes[pid] / teammate_games[pid], 1) if teammate_games[pid] else 0,
                        "with": {**split([mine[g] for g in with_ids]), "gameIds": with_ids},
                        "without": {**split([mine[g] for g in without_ids]), "gameIds": without_ids}})
@@ -370,7 +372,7 @@ def player_context(payload: dict, player_id: str, team: str, opponent: str, mark
                     continue
                 baseline = sum(others) / len(others)
                 player = players.get(row[0]) or ["", "", None, None]
-                entries.append({"id": row[0], "name": player[0], "headshot": headshot(row[0], player), "team": game["opponent"],
+                entries.append({"id": row[0], "name": player[0], "headshot": headshot(row[0], player, payload.get("league") or "wnba"), "team": game["opponent"],
                                 "date": game["date"], "gameId": game["id"], "min": minutes,
                                 "value": value, "avg": _round(baseline), "diff": _round(value - baseline)})
             if len(entries) >= 10:

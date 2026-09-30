@@ -88,7 +88,7 @@ export function sideChance(mu, variance, line, side, {counts = true} = {}) {
 // ---------------------------------------------------------------- context
 
 const POSITION_NAMES = {G: 'guards', F: 'forwards', C: 'centers', QB: 'QBs', RB: 'RBs', WR: 'WRs', TE: 'TEs', K: 'kickers'};
-const USAGE_NAMES = {wnba: 'Minutes', soccer: 'Minutes', nhl: 'Ice time'};
+const USAGE_NAMES = {wnba: 'Minutes', nba: 'Minutes', soccer: 'Minutes', nhl: 'Ice time'};
 const statWord = row => String(row.market || 'this stat').toLowerCase();
 
 /** Is the player at home today? Null when the board doesn't say. */
@@ -112,7 +112,7 @@ const PITCHER_RATE = {strikeouts: ['kRate', 1], hits: ['avg', 1], 'earned-runs':
 
 /** What today's opponent does to the stat: a factor on the projection and its words. */
 export function matchupRead(row) {
-  if ((row.sport === 'wnba' || row.sport === 'nfl') && finite(row.defenseValue) && finite(row.defenseAverage) && row.defenseAverage > 0) {
+  if ((row.sport === 'wnba' || row.sport === 'nba' || row.sport === 'nfl') && finite(row.defenseValue) && finite(row.defenseAverage) && row.defenseAverage > 0) {
     const allowed = finite(row.defenseRecent) ? 0.65 * row.defenseValue + 0.35 * row.defenseRecent : row.defenseValue;
     const ratio = allowed / row.defenseAverage;
     const factor = shift(ratio, row.sport === 'nfl' ? 0.3 : 0.4, 0.9, 1.1);
@@ -234,7 +234,7 @@ export function readPick(row, side, {records = {}, book = null, baseline = 0.5} 
     }
 
     const last = log.at(-1)?.date, starts = Date.parse(row.startsAt || '');
-    if ((row.sport === 'wnba' || row.sport === 'nhl') && last && Number.isFinite(starts)) {
+    if ((row.sport === 'wnba' || row.sport === 'nba' || row.sport === 'nhl') && last && Number.isFinite(starts)) {
       const rest = (starts - Date.parse(`${last}T12:00:00Z`)) / 86400000;
       if (rest < 1.6) { move('rest', 0.98, {short: 'B2B', label: 'back-to-back', text: 'Second night of a back-to-back'}); out.risks.push('Back-to-back'); }
     }

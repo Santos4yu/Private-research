@@ -473,7 +473,7 @@ export async function loadSiteControls(){
  for(const [key,title] of Object.entries(names).filter(([key])=>!ADMIN_TABS.includes(key))){const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.name='tab';input.value=key;input.checked=!policy.disabledTabs.includes(key);label.append(input,document.createTextNode(title));host.querySelector('fieldset').append(label);}
  const sportLabel=element('label');const sportInput=document.createElement('input');sportInput.type='checkbox';sportInput.name='sport';sportInput.value='nfl';sportInput.checked=!(policy.disabledSports||[]).includes('nfl');sportLabel.append(sportInput,document.createTextNode('NFL — show sport and allow NFL data'));host.querySelector('.site-sport-controls').append(sportLabel);
  // Finder leagues, one switch each. Unchecked = hidden from regular users.
- const finderSportNames={wnba:'WNBA',mlb:'MLB',nfl:'NFL',soccer:'Soccer',nhl:'NHL'};
+ const finderSportNames={wnba:'WNBA',mlb:'MLB',nfl:'NFL',soccer:'Soccer',nhl:'NHL',nba:'NBA'};
  for(const sport of FINDER_SPORTS){const label=element('label');const input=document.createElement('input');input.type='checkbox';input.name='finderSport';input.value=sport;input.checked=!(policy.disabledFinderSports||[]).includes(sport);label.append(input,document.createTextNode(`${finderSportNames[sport]} in the Finder`));host.querySelector('.site-finder-sport-controls').append(label);}
  const bg=policy.backgroundImage||{url:'',opacity:35};
  form.elements.bgUrl.value=bg.url||'';form.elements.bgOpacity.value=String(bg.opacity??35);

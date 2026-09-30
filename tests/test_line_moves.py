@@ -144,7 +144,7 @@ class PrizePicksTests(Base):
         self.assertEqual(self.kv.calls, calls + 1)  # just "checked"
 
     def test_an_unknown_league_no_storage_or_a_local_run_does_nothing(self):
-        self.assertEqual(moves.observe_prizepicks('NBA', [pp('A', 'Points', 20.5)]), [])
+        self.assertEqual(moves.observe_prizepicks('CBB', [pp('A', 'Points', 20.5)]), [])
         with patch.object(moves.store, 'KV_URL', ''):
             self.assertEqual(moves.observe_prizepicks('MLB', [pp('A', 'Hits', 0.5)]), [])
         # Credentials on a developer's machine are not enough: only the
@@ -274,8 +274,8 @@ class SwitchTests(unittest.TestCase):
         self.assertEqual((status, body['sports']), (200, list(controls.FINDER_SPORTS)))
         on = {**off, 'disabledTabs': []}
         (status, body), fresh = call(False, on)
-        self.assertEqual((status, body['sports']), (200, ['wnba', 'mlb', 'nfl', 'nhl']))
-        self.assertEqual(fresh.call_args.args[0], ['wnba', 'mlb', 'nfl', 'nhl'])
+        self.assertEqual((status, body['sports']), (200, ['wnba', 'mlb', 'nfl', 'nhl', 'nba']))
+        self.assertEqual(fresh.call_args.args[0], ['wnba', 'mlb', 'nfl', 'nhl', 'nba'])
 
 
 if __name__ == '__main__':

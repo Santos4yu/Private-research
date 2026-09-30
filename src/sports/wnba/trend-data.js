@@ -9,6 +9,7 @@ export const WNBA_STATS=[
  ['player_frees_attempts','Free Throws Attempted','FTA'],['player_twos','Two Pointers Made','2PM'],
  ['player_twos_attempts','Two Pointers Attempted','2PA'],['player_fouls','Personal Fouls','PF'],
  ['player_offensive_rebounds','Offensive Rebounds','OREB'],['player_defensive_rebounds','Defensive Rebounds','DREB'],['player_double_double','Double-Double','DD'],
+ ['player_triple_double','Triple-Double','TD'],
 ].map(([key,label,code])=>({key,label,code}));
 
 // ESPN stamps games in UTC, so a 7pm tip on the 22nd is the 23rd there.

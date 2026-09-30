@@ -38,7 +38,7 @@ const FAIR = 0.95;
 // An estimated payout (Goblins, Demons) must clear the lowest band by this
 // much, so a slip PrizePicks prices a little lower still pays 2x.
 const ESTIMATE_CUSHION = 1.05;
-export const SPORT_NAMES = {mlb: 'MLB', wnba: 'WNBA', nfl: 'NFL', nhl: 'NHL', soccer: 'Soccer'};
+export const SPORT_NAMES = {mlb: 'MLB', nba: 'NBA', wnba: 'WNBA', nfl: 'NFL', nhl: 'NHL', soccer: 'Soccer'};
 // A game starting sooner than this is too close to pick.
 const LOCK_MINUTES = 10;
 // Games of 50/50 each record is pulled toward: 6 games at 50% weigh as much

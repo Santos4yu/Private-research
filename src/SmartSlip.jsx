@@ -12,7 +12,7 @@ import './smart-slip.css';
 // The Smart Slip page (the Parlay tab): the member picks a payout, how the
 // lines mix, the picks, Power or Flex and the sports; smart-slip.js finds
 // the slips.
-const KEYS=['mlb','wnba','nfl','nhl','soccer'];
+const KEYS=['mlb','nba','wnba','nfl','nhl','soccer'];
 const SIZES=['auto',2,3,4,5,6];
 const PREFS_KEY='krazy-smart-slip';
 const EXPORT_URL='/api/prediction?action=prizepicks-export&from=parlay';
