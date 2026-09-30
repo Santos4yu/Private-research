@@ -19,8 +19,12 @@ export const topTabs = [
 // reached from the side panel's menu (SideMenu.jsx) instead, below the
 // topTabs above.
 export const moreTabs = [
-  { title: 'Moneylines', icon: Trophy, value: 'moneyline' },
   { title: 'NRFI / YRFI', icon: CircleDot, value: 'nrfi' },
   { title: 'Community', icon: MessagesSquare, value: 'community' },
+];
+
+// Listed only for an admin session, under their own heading.
+export const adminTabs = [
+  { title: 'Moneylines', icon: Trophy, value: 'moneyline' },
   { title: 'Admin', icon: ShieldCheck, value: 'admin' },
 ];

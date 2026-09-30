@@ -11,6 +11,9 @@ TABS=('research','finder','moves','v2','slate','saved','slip','builder','moneyli
 # new Finder leagues do below -- so a page still being built never appears
 # for everyone the moment it deploys.
 LEGACY_TABS=('research','finder','v2','slate','saved','slip','builder','moneyline','nrfi','community')
+# Sections only an admin session may open. They have no site switch or
+# per-member rule (src/site-access-core.js ADMIN_TABS is the page's side).
+ADMIN_TABS=('moneyline',)
 # Leagues offered inside the Finder. Kept separate from disabledSports, which
 # governs Research's own MLB/NFL switch -- hiding NFL from the Finder must not
 # take NFL research away from anyone.
@@ -111,6 +114,7 @@ def _items_open(headers,policy,items):
  return all(site_members.item_open(policy,rule,item) for item in items)
 def allowed(headers,tab=None,sport=None):
  if admin_auth.is_admin_request(headers):return True
+ if tab in ADMIN_TABS:return False
  policy=read()
  if policy['maintenance']:return False
  return _items_open(headers,policy,[item for item in (tab and f'tab:{tab}',sport and f'sport:{sport}') if item])

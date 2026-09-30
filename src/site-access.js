@@ -1,5 +1,5 @@
 import './site-access.css';
-import {accessGranted,canUseTab,availableTab,canUseSport,canUseFinderSport,hiddenTabs,FINDER_SPORTS} from './site-access-core.js';
+import {accessGranted,canUseTab,availableTab,canUseSport,canUseFinderSport,hiddenTabs,ADMIN_TABS,FINDER_SPORTS} from './site-access-core.js';
 import {mountMembersPanel,memberBadge} from './site-members.js';
 import {mountAnnouncePanel} from './site-announce.js';
 import {accountProfile,saveAccountProfile} from './account-sync.js';
@@ -15,6 +15,8 @@ export function siteFinderSportAllowed(sport){return canUseFinderSport(status,sp
 export function availableSiteTab(current){return availableTab(status,current);}
 export function showLockedTab(tab){
  if(!accessGranted(status)){renderStatus();return;}
+ // An admin-only section isn't named to anyone else, not even as locked.
+ if(ADMIN_TABS.includes(tab))return;
  if(lockedDialog)lockedDialog.close();
  const trigger=document.activeElement;
  const dialog=element('dialog',null,'site-account-dialog site-locked-dialog');lockedDialog=dialog;
@@ -468,7 +470,7 @@ export async function loadSiteControls(){
  }));
  const form=host.querySelector('form');for(const [key,title] of Object.entries({maintenance:'Maintenance mode — members cannot use the website',requireLogin:'Require email account to access research',registrationOpen:'Allow new account registrations'})){const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.name=key;input.checked=policy[key];label.append(input,document.createTextNode(title));host.querySelector('.site-control-switches').append(label);}
  form.elements.message.value=policy.message;
- for(const [key,title] of Object.entries(names)){const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.name='tab';input.value=key;input.checked=!policy.disabledTabs.includes(key);label.append(input,document.createTextNode(title));host.querySelector('fieldset').append(label);}
+ for(const [key,title] of Object.entries(names).filter(([key])=>!ADMIN_TABS.includes(key))){const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.name='tab';input.value=key;input.checked=!policy.disabledTabs.includes(key);label.append(input,document.createTextNode(title));host.querySelector('fieldset').append(label);}
  const sportLabel=element('label');const sportInput=document.createElement('input');sportInput.type='checkbox';sportInput.name='sport';sportInput.value='nfl';sportInput.checked=!(policy.disabledSports||[]).includes('nfl');sportLabel.append(sportInput,document.createTextNode('NFL — show sport and allow NFL data'));host.querySelector('.site-sport-controls').append(sportLabel);
  // Finder leagues, one switch each. Unchecked = hidden from regular users.
  const finderSportNames={wnba:'WNBA',mlb:'MLB',nfl:'NFL',soccer:'Soccer',nhl:'NHL'};

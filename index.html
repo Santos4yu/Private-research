@@ -490,16 +490,7 @@
 </section>
 
 <!-- MONEYLINE TAB -->
-<section class="tab-panel" id="panel-moneyline" hidden>
-  <div class="moneyline-coming-soon">
-    <span class="coming-soon-pill">In development</span>
-    <h2>Moneylines</h2>
-    <p>A clear moneyline board is being prepared. It will combine projected runs, confirmed lineups, starting pitching, bullpen strength, and market price in one simple view.</p>
-  </div>
-  <button class="ghost-btn" id="moneyline-refresh" type="button" hidden>Refresh</button>
-  <div class="moneyline-research" id="moneyline-research" hidden><div class="ml-game-picker" id="moneyline-game-picker" aria-label="Available games"></div><div class="ml-report" id="moneyline-report"></div></div>
-  <p class="empty-state" id="moneyline-empty" hidden>No MLB matchups are available for research right now.</p>
-</section>
+<section class="tab-panel" id="panel-moneyline" hidden><!-- src/Moneylines.jsx --><div id="moneylines-root"></div></section>
 
 <!-- NRFI / YRFI TAB -->
 <section class="tab-panel" id="panel-nrfi" hidden>
@@ -527,9 +518,9 @@
 
 <!-- ADMIN TAB -->
 <section class="tab-panel" id="panel-admin" hidden>
-  <div class="market-page-head"><div><p class="eyebrow">KRAZY DATA OPERATIONS</p><h2>Admin Results</h2><p>Enter the admin passcode to view today’s settled props, moneylines, and first-inning results.</p></div><button class="primary-btn" id="admin-unlock">Unlock admin</button></div>
+  <div class="market-page-head"><div><p class="eyebrow">KRAZY DATA OPERATIONS</p><h2>Admin Results</h2><p>Enter the admin passcode to view today’s settled props and first-inning results.</p></div><button class="primary-btn" id="admin-unlock">Unlock admin</button></div>
   <section id="site-controls" hidden aria-label="Website controls"></section>
-  <div class="admin-result-tabs" id="admin-result-tabs" hidden><button class="active" data-record="props">Props</button><button data-record="moneyline">Moneyline</button><button data-record="nrfi">NRFI / YRFI</button></div>
+  <div class="admin-result-tabs" id="admin-result-tabs" hidden><button class="active" data-record="props">Props</button><button data-record="nrfi">NRFI / YRFI</button></div>
   <div class="admin-results-list" id="admin-results-list" hidden></div>
 </section>
 

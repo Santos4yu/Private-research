@@ -14,6 +14,7 @@ import { ResearchHome } from './ResearchHome';
 import { UnifiedFinder } from './UnifiedFinder';
 import { LineMoves } from './LineMoves';
 import { SmartSlip } from './SmartSlip';
+import { Moneylines } from './Moneylines';
 const SportResearch = lazy(() => import('./sports/nfl/SportResearch').then(module => ({ default: module.SportResearch })));
 import { ExpandableTabs } from '../components/ui/expandable-tabs';
 import { ResearchAILoader } from '../components/ui/research-ai-loader';
@@ -98,6 +99,7 @@ const sportResearchRoot = document.getElementById('sport-research-root');
 const unifiedFinderRoot = document.getElementById('unified-finder-root');
 const lineMovesRoot = document.getElementById('line-moves-root');
 const smartSlipRoot = document.getElementById('smart-slip-root');
+const moneylinesRoot = document.getElementById('moneylines-root');
 let privateRoots=null;
 function mountPrivateResearch(granted){
  if(granted&&!privateRoots){
@@ -109,7 +111,14 @@ function mountPrivateResearch(granted){
   privateRoots.slip?.render(<SmartSlip/>);
  }else if(!granted&&privateRoots){privateRoots.home?.unmount();privateRoots.sport?.unmount();privateRoots.finder?.unmount();privateRoots.moves?.unmount();privateRoots.slip?.unmount();privateRoots=null;}
 }
-window.addEventListener('vortex:site-policy',event=>mountPrivateResearch(event.detail.accessGranted));
+// Moneylines is an admin-only section (site-access-core.js ADMIN_TABS):
+// mounted, and so asking for data, only in an admin session.
+let moneylinesMount=null;
+function mountAdminSections(admin){
+ if(admin&&!moneylinesMount&&moneylinesRoot){moneylinesMount=createRoot(moneylinesRoot);moneylinesMount.render(<Moneylines/>);}
+ else if(!admin&&moneylinesMount){moneylinesMount.unmount();moneylinesMount=null;}
+}
+window.addEventListener('vortex:site-policy',event=>{mountPrivateResearch(event.detail.accessGranted);mountAdminSections(Boolean(event.detail.accessGranted&&event.detail.isAdmin));});
 mountPrivateResearch(document.documentElement.dataset.siteAccess==='granted');
 
 const filterIcons = { all: LayoutGrid, hrr: BarChart3, 'total-bases': Diamond, hits: CircleDot, strikeouts: Target, matchup: Crosshair };
