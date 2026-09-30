@@ -1,0 +1,806 @@
+"""Krazy Data moneylines: who should win, what that is worth, and where to
+get the best price for it.
+
+The model starts from the market, not against it. Sharp sportsbooks set
+moneylines from far more information than any public stat line, so the fair
+chance of each side is their consensus with the margin taken out (Pinnacle
+counted most). Our own power ratings -- built only from results, so they are
+a second, independent opinion -- may tilt that chance a little, never more
+than MAX_TILT. A play is a price at a regular sportsbook that pays more than
+that fair chance is worth: a real, measurable edge, not a hunch.
+
+Every play is kept with the price it was posted at, the closing price and the
+result (see the record functions below), so the model is judged the way a
+sharp bettor is: did it beat the closing line, and did it win money.
+
+Sources: The Odds API (one request per league covers every game and book),
+ESPN's scoreboards (logos, records, starters, scores), and for the ratings
+nflverse (NFL), MLB's stats service (MLB), the NHL's stats service (NHL) and
+the stored WNBA season (WNBA). Nothing here costs more than the Odds API
+credit per refresh.
+"""
+from __future__ import annotations
+
+import json
+import math
+import os
+import time
+import unicodedata
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
+
+import requests
+
+VERSION = "ml-v1"
+ODDS = "https://api.the-odds-api.com/v4"
+ESPN = "https://site.api.espn.com/apis/site/v2/sports"
+
+# Each league: its Odds API key, ESPN path, how many days ahead to show, and
+# the numbers that turn a rating gap into a win chance -- home advantage and
+# the spread of final margins, both in the league's own unit.
+SPORTS = {
+    "nfl": {"name": "NFL", "odds": "americanfootball_nfl", "espn": "football/nfl", "days": 7, "hfa": 1.5, "sd": 13.5, "unit": "points"},
+    "mlb": {"name": "MLB", "odds": "baseball_mlb", "espn": "baseball/mlb", "days": 2, "hfa": 0.2, "sd": 4.3, "unit": "runs"},
+    "nhl": {"name": "NHL", "odds": "icehockey_nhl", "espn": "hockey/nhl", "days": 2, "hfa": 0.15, "sd": 2.1, "unit": "goals"},
+    "wnba": {"name": "WNBA", "odds": "basketball_wnba", "espn": "basketball/wnba", "days": 3, "hfa": 2.5, "sd": 11.5, "unit": "points"},
+}
+# Ten books is one Odds API credit. Sharp books set the fair price; the rest
+# are where a member can actually bet.
+BOOKS = {
+    "pinnacle": {"name": "Pinnacle", "weight": 3.0, "bettable": False},
+    "betonlineag": {"name": "BetOnline", "weight": 1.5, "bettable": False},
+    "draftkings": {"name": "DraftKings", "weight": 1.0, "bettable": True},
+    "fanduel": {"name": "FanDuel", "weight": 1.0, "bettable": True},
+    "betmgm": {"name": "BetMGM", "weight": 1.0, "bettable": True},
+    "williamhill_us": {"name": "Caesars", "weight": 1.0, "bettable": True},
+    "espnbet": {"name": "ESPN BET", "weight": 1.0, "bettable": True},
+    "betrivers": {"name": "BetRivers", "weight": 1.0, "bettable": True},
+    "fanatics": {"name": "Fanatics", "weight": 1.0, "bettable": True},
+    "hardrockbet": {"name": "Hard Rock", "weight": 1.0, "bettable": True},
+}
+
+# How far our ratings may move the market's chance, and how much of their
+# disagreement they get.
+MAX_TILT = 0.03
+TILT_WEIGHT = 0.25
+# A play: the best price is worth at least this much at the model's chance,
+# and at least break-even at the market's own (our ratings sharpen a play,
+# they never make one against the market). Strong plays clear more on both
+# and have the ratings on their side.
+PLAY_EV = 0.025
+STRONG_EV = 0.05
+STRONG_MARKET_EV = 0.015
+LEAN_EV = 0.01
+# Long shots swing too much to call a play, however good the price.
+LONGEST_PRICE = 400
+# A quarter of the Kelly stake, in units of 1% of a bankroll.
+KELLY_SHARE = 0.25
+MIN_UNITS, MAX_UNITS = 0.5, 3.0
+
+# Refreshes: a page view reuses odds this fresh; the timer refreshes a league
+# this often when it has games coming, and closer to the start for closing
+# prices. Below CREDIT_FLOOR remaining the timer stops spending.
+ODDS_FRESH = 10 * 60
+TIMER_REFRESH = 60 * 60
+CLOSE_WINDOW = 45 * 60
+CLOSE_REFRESH = 8 * 60
+CREDIT_FLOOR = 300
+TIMER_DAILY_CAP = 120
+PLAYS_KEPT = 600
+
+KEY = "krazy:ml:v1"
+_memory: dict = {}
+
+
+# ---------------------------------------------------------------- storage
+
+def _store():
+    from v2.board import store
+    return store
+
+
+def _load(name, default=None):
+    try:
+        raw = _store().get(f"{KEY}:{name}")
+    except Exception:  # noqa: BLE001 -- no store (local runs): this instance's memory
+        raw = None
+    if raw:
+        return json.loads(raw)
+    return _memory.get(name, default)
+
+
+def _save(name, value, ex=None):
+    _memory[name] = value
+    try:
+        _store().set(f"{KEY}:{name}", json.dumps(value, separators=(",", ":")), ex=ex)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+# ---------------------------------------------------------------- prices
+
+def finite(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def decimal(american):
+    """American odds as the decimal payout per 1 staked (stake included)."""
+    if not finite(american) or american == 0 or -100 < american < 100:
+        return None
+    return 1 + (american / 100 if american > 0 else 100 / -american)
+
+
+def american(probability):
+    """The fair American price of a chance."""
+    if not finite(probability) or not 0 < probability < 1:
+        return None
+    return round(-100 * probability / (1 - probability)) if probability >= 0.5 else round(100 * (1 - probability) / probability)
+
+
+def devig(home_price, away_price):
+    """Both sides' chances with the book's margin taken out (the power
+    method: the k that makes p_home^k + p_away^k = 1), which keeps more of
+    a favorite's chance than simply scaling would."""
+    home, away = decimal(home_price), decimal(away_price)
+    if not home or not away:
+        return None
+    a, b = 1 / home, 1 / away
+    if a + b <= 1:
+        return a / (a + b)
+    low, high = 1.0, 20.0
+    for _ in range(60):
+        k = (low + high) / 2
+        if a ** k + b ** k > 1:
+            low = k
+        else:
+            high = k
+    return a ** ((low + high) / 2)
+
+
+def consensus(books):
+    """The market's fair chance for the home side: every two-sided book's
+    no-vig chance, weighted (sharp books most), with a book far from the
+    rest (a stale or broken price) left out."""
+    fair = []
+    for book in books:
+        chance = devig(book.get("home"), book.get("away"))
+        if chance is not None:
+            fair.append((chance, BOOKS.get(book["key"], {}).get("weight", 1.0), book["key"]))
+    if not fair:
+        return None, []
+    if len(fair) >= 4:
+        ordered = sorted(value for value, _, _ in fair)
+        middle = ordered[len(ordered) // 2]
+        fair = [item for item in fair if abs(item[0] - middle) <= 0.06] or fair
+    total = sum(weight for _, weight, _ in fair)
+    return sum(value * weight for value, weight, _ in fair) / total, [key for _, _, key in fair]
+
+
+def best_price(books, side):
+    """The best price a member can bet on this side, and where."""
+    offers = [(book[side], book["key"]) for book in books
+              if BOOKS.get(book["key"], {}).get("bettable") and decimal(book.get(side))]
+    if not offers:
+        return None
+    price, key = max(offers, key=lambda offer: decimal(offer[0]))
+    return {"price": price, "book": key, "bookName": BOOKS[key]["name"]}
+
+
+def units(probability, price):
+    """Quarter Kelly, in units of 1% of a bankroll, in half-unit steps."""
+    payout = decimal(price)
+    if not payout or payout <= 1:
+        return 0
+    edge = probability * payout - 1
+    if edge <= 0:
+        return 0
+    stake = edge / (payout - 1) * KELLY_SHARE * 100
+    return max(MIN_UNITS, min(MAX_UNITS, round(stake * 2) / 2))
+
+
+# ---------------------------------------------------------------- names
+
+def name_key(value):
+    text = unicodedata.normalize("NFKD", str(value or "")).lower()
+    return "".join(char for char in text if char.isalnum() and not unicodedata.combining(char))
+
+
+def same_team(odds_name, full, short=None):
+    """Does the Odds API's team name match ESPN's (or a ratings table's)?"""
+    a, b = name_key(odds_name), name_key(full)
+    if a and a == b:
+        return True
+    tail = name_key(short) if short else ""
+    return bool(tail and len(tail) >= 4 and a.endswith(tail))
+
+
+# ---------------------------------------------------------------- odds
+
+def _odds_keys():
+    keys = []
+    try:
+        from v2.board.store import get_odds_api_key_candidates
+        keys = get_odds_api_key_candidates()
+    except Exception:  # noqa: BLE001
+        pass
+    keys += [os.getenv("ODDS_API_KEY_V2", ""), os.getenv("ODDS_API_KEY", "")]
+    return [key for key in dict.fromkeys(keys) if key]
+
+
+def fetch_odds(sport):
+    """Every game's moneyline at every book, in one request (one credit)."""
+    config = SPORTS[sport]
+    last = None
+    for key in _odds_keys():
+        try:
+            response = requests.get(f"{ODDS}/sports/{config['odds']}/odds", timeout=15, params={
+                "apiKey": key, "markets": "h2h", "oddsFormat": "american", "dateFormat": "iso",
+                "bookmakers": ",".join(BOOKS)})
+        except requests.RequestException:
+            continue
+        last = response.status_code
+        if response.status_code in (401, 429):
+            continue
+        if not response.ok:
+            raise RuntimeError("Moneylines are temporarily unavailable.")
+        remaining = response.headers.get("x-requests-remaining")
+        return response.json(), int(remaining) if str(remaining).isdigit() else None
+    raise RuntimeError("The odds service is out of requests." if last == 429 else "Moneylines are temporarily unavailable.")
+
+
+def parse_odds(events):
+    """The Odds API's events as games: teams, start, and each book's two prices."""
+    games = []
+    for event in events or []:
+        if not isinstance(event, dict) or not event.get("home_team") or not event.get("away_team"):
+            continue
+        home, away = event["home_team"], event["away_team"]
+        books = []
+        for book in event.get("bookmakers") or []:
+            if book.get("key") not in BOOKS:
+                continue
+            market = next((item for item in book.get("markets") or [] if item.get("key") == "h2h"), None)
+            prices = {outcome.get("name"): outcome.get("price") for outcome in (market or {}).get("outcomes") or []}
+            if finite(prices.get(home)) and finite(prices.get(away)):
+                books.append({"key": book["key"], "name": BOOKS[book["key"]]["name"], "home": prices[home], "away": prices[away],
+                              "updated": book.get("last_update") or (market or {}).get("last_update")})
+        if books:
+            games.append({"id": event.get("id"), "startsAt": event.get("commence_time"), "homeName": home, "awayName": away,
+                          "books": sorted(books, key=lambda book: list(BOOKS).index(book["key"]))})
+    return games
+
+
+# ---------------------------------------------------------------- ESPN
+
+def _espn(path, params):
+    response = requests.get(f"{ESPN}/{path}", params=params, headers={"Accept": "application/json"}, timeout=12)
+    response.raise_for_status()
+    return response.json()
+
+
+def _eastern(moment):
+    # Eastern time without a timezone database: DST from the second Sunday
+    # of March to the first Sunday of November.
+    year = moment.year
+    march = datetime(year, 3, 8, 7, tzinfo=timezone.utc)
+    start = march + timedelta(days=(6 - march.weekday()) % 7)
+    november = datetime(year, 11, 1, 6, tzinfo=timezone.utc)
+    end = november + timedelta(days=(6 - november.weekday()) % 7)
+    return moment - timedelta(hours=4 if start <= moment < end else 5)
+
+
+def scoreboard(sport, first, last):
+    """ESPN's games between two Eastern dates: teams (logo, record, starter),
+    status and score."""
+    payload = _espn(f"{SPORTS[sport]['espn']}/scoreboard", {"dates": f"{first:%Y%m%d}-{last:%Y%m%d}", "limit": 300})
+    games = []
+    for event in payload.get("events") or []:
+        competition = (event.get("competitions") or [{}])[0]
+        sides = {}
+        for team in competition.get("competitors") or []:
+            info = team.get("team") or {}
+            probable = (team.get("probables") or [{}])[0].get("athlete") or {}
+            sides[team.get("homeAway")] = {
+                "name": info.get("displayName"), "short": info.get("shortDisplayName") or info.get("name"),
+                "abbr": info.get("abbreviation"), "logo": info.get("logo") or ((info.get("logos") or [{}])[0].get("href")),
+                "record": ((team.get("records") or [{}])[0]).get("summary"), "score": team.get("score"),
+                "winner": team.get("winner"), "probable": probable.get("displayName") or probable.get("fullName")}
+        status = (competition.get("status") or event.get("status") or {}).get("type") or {}
+        if "home" in sides and "away" in sides:
+            games.append({"id": event.get("id"), "date": event.get("date"), "home": sides["home"], "away": sides["away"],
+                          "state": status.get("state"), "completed": bool(status.get("completed")),
+                          "detail": status.get("shortDetail") or status.get("detail")})
+    return games
+
+
+def match_espn(game, espn_games):
+    starts = _time(game.get("startsAt"))
+    for item in espn_games:
+        if not (same_team(game["homeName"], item["home"]["name"], item["home"]["short"])
+                and same_team(game["awayName"], item["away"]["name"], item["away"]["short"])):
+            continue
+        when = _time(item.get("date"))
+        if starts and when and abs((starts - when).total_seconds()) > 18 * 3600:
+            continue
+        return item
+    return None
+
+
+def _time(value):
+    try:
+        moment = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return None
+
+
+# ---------------------------------------------------------------- ratings
+
+def normal_cdf(z):
+    return 0.5 * (1 + math.erf(z / math.sqrt(2)))
+
+
+def srs(games, hfa, shrink, rounds=40):
+    """Opponent-adjusted ratings (the simple rating system): a team's rating
+    is its average margin, home edge removed, plus the average rating of the
+    teams it played -- pulled toward zero by `shrink` games of an average
+    team. `games` are (home, away, home_margin, weight)."""
+    teams = {team for home, away, *_ in games for team in (home, away)}
+    rating = dict.fromkeys(teams, 0.0)
+    for _ in range(rounds):
+        total, weights = dict.fromkeys(teams, 0.0), dict.fromkeys(teams, 0.0)
+        for home, away, margin, weight in games:
+            adjusted = margin - hfa
+            total[home] += weight * (adjusted + rating[away])
+            total[away] += weight * (-adjusted + rating[home])
+            weights[home] += weight
+            weights[away] += weight
+        rating = {team: total[team] / (weights[team] + shrink) for team in teams}
+        mean = sum(rating.values()) / len(rating) if rating else 0
+        rating = {team: value - mean for team, value in rating.items()}
+    return rating
+
+
+def nfl_ratings(now):
+    """NFL: opponent-adjusted margins from this season and last (last season
+    counts a third as much; a blowout counts as 21 at most), with each
+    upcoming game's rest days."""
+    from backend.sports.nfl import finder
+    season = now.year if now.month >= 3 else now.year - 1
+    names = {**finder.team_names(season - 1), **finder.team_names(season)}
+    games, rest = [], {}
+    for row in finder.schedule_rows():
+        year = str(row.get("season") or "")
+        if year not in (str(season), str(season - 1)) or str(row.get("game_type") or "").upper() not in finder.SEASON_KIND:
+            continue
+        home, away = names.get(finder.canonical_team(row.get("home_team"))), names.get(finder.canonical_team(row.get("away_team")))
+        if not home or not away:
+            continue
+        try:
+            margin = float(row["home_score"]) - float(row["away_score"])
+        except (KeyError, TypeError, ValueError):
+            try:
+                rest[(name_key(home), name_key(away))] = (int(float(row.get("home_rest"))), int(float(row.get("away_rest"))))
+            except (TypeError, ValueError):
+                pass
+            continue
+        games.append((home, away, max(-21.0, min(21.0, margin)), 1.0 if year == str(season) else 0.33))
+    return {"teams": srs(games, SPORTS["nfl"]["hfa"], shrink=2.5), "rest": rest}
+
+
+def mlb_ratings(now):
+    """MLB: run differential per game (pulled toward average by 40 games),
+    plus tonight's probable starter against his own staff."""
+    from live_props_core import mlb
+    import mlb_context
+    season = now.year
+    payload = mlb("/standings", {"leagueId": "103,104", "season": season, "standingsTypes": "regularSeason", "hydrate": "team"})
+    teams, ids = {}, {}
+    for record in payload.get("records") or []:
+        for row in record.get("teamRecords") or []:
+            team = row.get("team") or {}
+            played = float(row.get("gamesPlayed") or 0)
+            if not team.get("name") or not played:
+                continue
+            diff = (float(row.get("runsScored") or 0) - float(row.get("runsAllowed") or 0)) / played
+            teams[team["name"]] = diff * played / (played + 40)
+            ids[team["name"]] = str(team.get("id"))
+    try:
+        context = mlb_context.context()
+    except Exception:  # noqa: BLE001 -- ratings still stand without starters
+        context = {}
+    return {"teams": teams, "ids": ids, "probables": context.get("probables") or {}, "staffs": context.get("pitching") or {},
+            "league": context.get("league") or {}}
+
+
+def starter_edge(ratings, team):
+    """Runs a game the probable starter saves (or costs) against his own
+    staff: ERA pulled toward the staff's by 40 innings, over his usual
+    five-plus innings."""
+    team_id = ratings.get("ids", {}).get(team)
+    pitcher = ratings.get("probables", {}).get(team_id) if team_id else None
+    staff = ratings.get("staffs", {}).get(team_id) if team_id else None
+    if not pitcher or not staff or not finite(pitcher.get("era")) or not finite(staff.get("era")):
+        return 0.0, pitcher
+    innings = pitcher.get("ip") if finite(pitcher.get("ip")) else 0
+    era = (pitcher["era"] * innings + staff["era"] * 40) / (innings + 40)
+    return max(-0.9, min(0.9, (staff["era"] - era) * 5.5 / 9)), pitcher
+
+
+def nhl_ratings(now):
+    """NHL: goal differential per game, this season pulled toward last
+    season's (itself pulled a third of the way to average)."""
+    import nhl_research
+    season = nhl_research.season_id()
+    tables = []
+    for year in (season, nhl_research.previous_season(season)):
+        rows = nhl_research._stats("team/summary", f"seasonId={year} and gameTypeId=2", game=False)
+        table = {}
+        for row in rows or []:
+            name = row.get("teamFullName")
+            played = float(row.get("gamesPlayed") or 0)
+            if name and played:
+                table[name] = ((float(row.get("goalsForPerGame") or 0) - float(row.get("goalsAgainstPerGame") or 0)), played)
+        tables.append(table)
+    current, previous = tables
+    teams = {}
+    for name in set(current) | set(previous):
+        prior = previous.get(name, (0.0, 0))[0] * 0.67
+        diff, played = current.get(name, (0.0, 0))
+        teams[name] = (diff * played + prior * 25) / (played + 25)
+    return {"teams": teams}
+
+
+def wnba_ratings(now):
+    """WNBA: points scored less allowed per game (pulled toward average by 8
+    games), from the stored season -- never built on a page view."""
+    from backend.sports.wnba import context, league
+    payload = league.stored(league.current_season())
+    if not payload or not payload.get("games"):
+        return {"teams": {}}
+    stats = context.team_stats(context.team_games(payload))
+    names = {abbr: team.get("name") for abbr, team in (payload.get("teams") or {}).items()}
+    teams = {}
+    for abbr, row in stats.items():
+        played = row.get("games") or 0
+        scored, allowed = (row.get("off") or {}).get("pts", [None])[0], (row.get("def") or {}).get("pts", [None])[0]
+        if names.get(abbr) and played and finite(scored) and finite(allowed):
+            teams[names[abbr]] = (scored - allowed) * played / (played + 8)
+    return {"teams": teams}
+
+
+RATINGS = {"nfl": nfl_ratings, "mlb": mlb_ratings, "nhl": nhl_ratings, "wnba": wnba_ratings}
+
+
+def ratings(sport, now):
+    cached = _memory.get(f"ratings:{sport}")
+    if cached and time.time() - cached[0] < 3 * 3600:
+        return cached[1]
+    try:
+        value = RATINGS[sport](now)
+    except Exception:  # noqa: BLE001 -- the market alone still prices the game
+        value = {"teams": {}}
+    _memory[f"ratings:{sport}"] = (time.time(), value)
+    return value
+
+
+def team_rating(table, name):
+    """A team's rating by name: the exact name first, else the one whose
+    nickname ends the other ("Athletics" / "Oakland Athletics")."""
+    table = table or {}
+    for team, value in table.items():
+        if name_key(team) == name_key(name):
+            return value, team
+    found = [(value, team) for team, value in table.items()
+             if same_team(name, team, team.split()[-1]) or same_team(team, name, name.split()[-1])]
+    return found[0] if len(found) == 1 else (None, None)
+
+
+# ---------------------------------------------------------------- the model
+
+def read_game(sport, game, rated, espn=None):
+    """One game, priced: the market's fair chance, our ratings' view, the
+    blended chance, the best price on each side, and the play (if any)."""
+    config = SPORTS[sport]
+    fair, used = consensus(game["books"])
+    out = {**game, "sport": sport, "fair": None, "model": None, "best": {}, "ev": {}, "pick": None, "reasons": [],
+           "sharp": any(key in ("pinnacle", "betonlineag") for key in used), "booksUsed": len(used)}
+    if espn:
+        out["espn"] = espn
+    if fair is None:
+        return out
+    out["fair"] = {"home": fair, "away": 1 - fair, "homeOdds": american(fair), "awayOdds": american(1 - fair)}
+
+    # Our ratings: the expected margin tonight, home edge included.
+    home_rating, home_team = team_rating(rated.get("teams"), game["homeName"])
+    away_rating, away_team = team_rating(rated.get("teams"), game["awayName"])
+    notes = []
+    chance = fair
+    if home_rating is not None and away_rating is not None:
+        margin = home_rating - away_rating + config["hfa"]
+        if sport == "mlb":
+            home_edge, home_pitcher = starter_edge(rated, home_team)
+            away_edge, away_pitcher = starter_edge(rated, away_team)
+            margin += home_edge - away_edge
+            for pitcher, edge, team in ((home_pitcher, home_edge, game["homeName"]), (away_pitcher, away_edge, game["awayName"])):
+                if pitcher and pitcher.get("name") and abs(edge) >= 0.15:
+                    notes.append(f"{pitcher['name']} ({pitcher['era']:.2f} ERA) {'lifts' if edge > 0 else 'costs'} {team} "
+                                 f"{abs(edge):.1f} runs against their usual starter")
+        if sport == "nfl":
+            rest = rated.get("rest", {}).get((name_key(game["homeName"]), name_key(game["awayName"])))
+            if rest and rest[0] != rest[1]:
+                bonus = max(-2.0, min(2.0, 0.3 * (rest[0] - rest[1])))
+                margin += bonus
+                rested = game["homeName"] if rest[0] > rest[1] else game["awayName"]
+                notes.append(f"{rested} have {abs(rest[0] - rest[1])} more days of rest")
+        rating_chance = normal_cdf(margin / config["sd"])
+        tilt = max(-MAX_TILT, min(MAX_TILT, TILT_WEIGHT * (rating_chance - fair)))
+        chance = fair + tilt
+        leader = game["homeName"] if margin >= 0 else game["awayName"]
+        out["model"] = {"home": chance, "away": 1 - chance, "ratingHome": rating_chance, "margin": margin, "tilt": tilt,
+                        "text": f"Our ratings have {leader} by {abs(margin):.1f} {config['unit']} ({round(max(rating_chance, 1 - rating_chance) * 100)}%)"}
+    else:
+        out["model"] = {"home": chance, "away": 1 - chance, "ratingHome": None, "margin": None, "tilt": 0.0, "text": None}
+
+    best_side = None
+    out["marketEv"] = {}
+    for side in ("home", "away"):
+        offer = best_price(game["books"], side)
+        probability = chance if side == "home" else 1 - chance
+        if not offer:
+            continue
+        out["best"][side] = offer
+        out["ev"][side] = probability * decimal(offer["price"]) - 1
+        out["marketEv"][side] = (fair if side == "home" else 1 - fair) * decimal(offer["price"]) - 1
+        if best_side is None or out["ev"][side] > out["ev"][best_side]:
+            best_side = side
+
+    if best_side:
+        ev, market_ev = out["ev"][best_side], out["marketEv"][best_side]
+        offer = out["best"][best_side]
+        probability = chance if best_side == "home" else 1 - chance
+        tilt = out["model"]["tilt"] * (1 if best_side == "home" else -1)
+        tier = None
+        if ev >= STRONG_EV and market_ev >= STRONG_MARKET_EV and tilt >= -0.005 and out["sharp"] and out["booksUsed"] >= 3:
+            tier = "strong"
+        elif ev >= PLAY_EV and market_ev >= 0 and tilt >= -0.01 and out["booksUsed"] >= 3:
+            tier = "play"
+        elif ev >= LEAN_EV and market_ev >= -0.01:
+            tier = "lean"
+        if tier in ("strong", "play") and offer["price"] > LONGEST_PRICE:
+            tier = "lean"
+        if tier:
+            team = game["homeName"] if best_side == "home" else game["awayName"]
+            out["pick"] = {"side": best_side, "team": team, "tier": tier, "ev": ev, "price": offer["price"], "book": offer["book"],
+                           "bookName": offer["bookName"], "probability": probability, "fairOdds": american(probability),
+                           "units": units(probability, offer["price"]) if tier != "lean" else 0}
+
+    # Why, in numbers.
+    reasons = []
+    fair_side = fair if (best_side or "home") == "home" else 1 - fair
+    side_name = game["homeName"] if (best_side or "home") == "home" else game["awayName"]
+    reasons.append(f"The market has {side_name} at {round(fair_side * 100)}% (fair {_signed(american(fair_side))}), "
+                   f"from {out['booksUsed']} books{' including Pinnacle' if 'pinnacle' in used else ''}.")
+    if out.get("pick"):
+        pick = out["pick"]
+        reasons.append(f"{pick['bookName']} pays {_signed(pick['price'])}: worth {pick['ev'] * 100:+.1f}% at a "
+                       f"{round(pick['probability'] * 100)}% chance.")
+    if out["model"].get("text"):
+        agree = out["model"]["tilt"] * (1 if (best_side or "home") == "home" else -1)
+        reasons.append(out["model"]["text"] + ("; they back this side." if agree >= 0.005
+                                               else "; they lean the other way." if agree <= -0.005 else ", close to the market."))
+    reasons.extend(notes)
+    out["reasons"] = reasons
+    return out
+
+
+def _signed(price):
+    return "—" if price is None else f"+{price}" if price > 0 else str(price)
+
+
+# ---------------------------------------------------------------- the board
+
+def board(sport, force=False, now=None):
+    """Every upcoming game of one league, priced, with plays recorded."""
+    if sport not in SPORTS:
+        raise ValueError("Unknown league.")
+    now = now or datetime.now(timezone.utc)
+    snapshot = _load(f"odds:{sport}")
+    fetched = False
+    if force or not snapshot or time.time() - snapshot.get("at", 0) > ODDS_FRESH:
+        events, remaining = fetch_odds(sport)
+        snapshot = {"at": time.time(), "events": events, "remaining": remaining}
+        _save(f"odds:{sport}", snapshot, ex=6 * 3600)
+        if remaining is not None:
+            _save("credits", {"remaining": remaining, "at": time.time()})
+        fetched = True
+    games = parse_odds(snapshot.get("events"))
+    horizon = now + timedelta(days=SPORTS[sport]["days"])
+    games = [game for game in games if (_time(game["startsAt"]) or now) <= horizon]
+
+    espn_games = []
+    try:
+        first = _eastern(now).date()
+        espn_games = scoreboard(sport, first - timedelta(days=1), _eastern(horizon).date())
+    except Exception:  # noqa: BLE001 -- logos and records are extras
+        pass
+    rated = ratings(sport, now)
+    read = [read_game(sport, game, rated, match_espn(game, espn_games)) for game in games]
+    live = [game for game in read if (_time(game["startsAt"]) or now) > now]
+    if fetched:
+        remember(sport, read, now)
+    live.sort(key=lambda game: (game["startsAt"] or "", -(game["pick"] or {}).get("ev", -1)))
+    return {"sport": sport, "version": VERSION, "updatedAt": datetime.fromtimestamp(snapshot["at"], timezone.utc).isoformat(),
+            "games": live, "plays": sum(1 for game in live if (game["pick"] or {}).get("tier") in ("play", "strong"))}
+
+
+def leagues():
+    """What each league has on the board, from the last prices (no request)."""
+    out = {}
+    for sport in SPORTS:
+        snapshot = _load(f"odds:{sport}") or {}
+        now = datetime.now(timezone.utc)
+        upcoming = [event for event in snapshot.get("events") or [] if (_time(event.get("commence_time")) or now) > now]
+        out[sport] = {"games": len(upcoming), "checkedAt": snapshot.get("at")}
+    return out
+
+
+# ---------------------------------------------------------------- the record
+
+def _play_id(sport, game, side):
+    return f"{sport}:{game['id']}:{side}"
+
+
+def remember(sport, games, now):
+    """Keep every new play, and each open play's latest price as its close
+    until the game starts."""
+    plays = _load("plays", []) or []
+    by_id = {play["id"]: play for play in plays}
+    changed = False
+    for game in games:
+        starts = _time(game["startsAt"])
+        if not starts or starts <= now or not game.get("fair"):
+            continue
+        pick = game.get("pick")
+        if pick and pick["tier"] in ("play", "strong"):
+            key = _play_id(sport, game, pick["side"])
+            if key not in by_id:
+                espn = game.get("espn") or {}
+                side, other = (pick["side"], "away" if pick["side"] == "home" else "home")
+                by_id[key] = {"id": key, "sport": sport, "gameId": game["id"], "startsAt": game["startsAt"], "side": side,
+                              "team": pick["team"], "opponent": game[f"{other}Name"],
+                              "logo": (espn.get(side) or {}).get("logo"), "abbr": (espn.get(side) or {}).get("abbr"),
+                              "opponentAbbr": (espn.get(other) or {}).get("abbr"), "home": side == "home",
+                              "price": pick["price"], "book": pick["book"], "bookName": pick["bookName"],
+                              "probability": pick["probability"], "fair": game["fair"][side], "ev": pick["ev"],
+                              "tier": pick["tier"], "units": pick["units"], "postedAt": now.isoformat(),
+                              "close": None, "result": None}
+                changed = True
+        for side in ("home", "away"):
+            play = by_id.get(_play_id(sport, game, side))
+            if play and play.get("result") is None:
+                offer = game["best"].get(side)
+                play["close"] = {"probability": game["fair"][side], "price": offer["price"] if offer else None, "at": now.isoformat()}
+                changed = True
+    if changed:
+        ordered = sorted(by_id.values(), key=lambda play: play.get("startsAt") or "", reverse=True)[:PLAYS_KEPT]
+        _save("plays", ordered)
+
+
+def grade(now=None):
+    """Settle every open play whose game should be over, from ESPN's finals."""
+    now = now or datetime.now(timezone.utc)
+    plays = _load("plays", []) or []
+    open_plays = [play for play in plays if play.get("result") is None
+                  and (_time(play.get("startsAt")) or now) < now - timedelta(hours=2, minutes=30)]
+    if not open_plays:
+        return 0
+    wanted = {}
+    for play in open_plays:
+        day = _eastern(_time(play["startsAt"])).date()
+        wanted.setdefault(play["sport"], set()).add(day)
+    finals = {}
+    for sport, days in wanted.items():
+        try:
+            finals[sport] = scoreboard(sport, min(days) - timedelta(days=1), max(days) + timedelta(days=1))
+        except Exception:  # noqa: BLE001 -- tried again on the next tick
+            finals[sport] = []
+    settled = 0
+    for play in open_plays:
+        home, away = (play["team"], play["opponent"]) if play["home"] else (play["opponent"], play["team"])
+        game = match_espn({"homeName": home, "awayName": away, "startsAt": play["startsAt"]}, finals.get(play["sport"], []))
+        if not game or not game.get("completed"):
+            if (_time(play["startsAt"]) or now) < now - timedelta(days=3):
+                play["result"] = "void"
+                settled += 1
+            continue
+        own, other = game["home" if play["home"] else "away"], game["away" if play["home"] else "home"]
+        try:
+            mine, theirs = float(own.get("score")), float(other.get("score"))
+        except (TypeError, ValueError):
+            continue
+        play["score"] = f"{int(mine)}-{int(theirs)}"
+        play["result"] = "W" if mine > theirs else "L" if mine < theirs else "P"
+        payout = decimal(play["price"]) or 1
+        play["profit"] = round(play["units"] * (payout - 1), 2) if play["result"] == "W" else -play["units"] if play["result"] == "L" else 0
+        play["gradedAt"] = now.isoformat()
+        settled += 1
+    if settled:
+        _save("plays", plays)
+    return settled
+
+
+def clv(play):
+    """What the price was worth at the close: positive means it beat the
+    closing line."""
+    close = (play.get("close") or {}).get("probability")
+    payout = decimal(play.get("price"))
+    return close * payout - 1 if finite(close) and payout else None
+
+
+def summary(plays, days=None, now=None):
+    """The record: wins, losses, units, return, and how often the price beat
+    the close."""
+    now = now or datetime.now(timezone.utc)
+    if days:
+        cutoff = now - timedelta(days=days)
+        plays = [play for play in plays if (_time(play.get("startsAt")) or now) >= cutoff]
+    graded = [play for play in plays if play.get("result") in ("W", "L", "P")]
+    staked = sum(play.get("units") or 0 for play in graded if play["result"] != "P")
+    profit = sum(play.get("profit") or 0 for play in graded)
+    values = [clv(play) for play in plays if clv(play) is not None and play.get("result") != "void"]
+    running, curve = 0.0, []
+    for play in sorted(graded, key=lambda play: play.get("startsAt") or ""):
+        running += play.get("profit") or 0
+        curve.append({"at": play.get("startsAt"), "units": round(running, 2)})
+    return {"plays": len(graded), "wins": sum(play["result"] == "W" for play in graded),
+            "losses": sum(play["result"] == "L" for play in graded), "pushes": sum(play["result"] == "P" for play in graded),
+            "units": round(profit, 2), "roi": profit / staked if staked else None,
+            "beatClose": sum(value > 0 for value in values) / len(values) if values else None,
+            "clv": sum(values) / len(values) if values else None, "pending": sum(play.get("result") is None for play in plays),
+            "curve": curve}
+
+
+def record(now=None):
+    now = now or datetime.now(timezone.utc)
+    plays = _load("plays", []) or []
+    shown = [{**play, "clv": clv(play)} for play in plays if play.get("result") != "void"][:120]
+    return {"summary": summary(plays, days=30, now=now), "allTime": summary(plays, now=now), "plays": shown}
+
+
+# ---------------------------------------------------------------- the timer
+
+def tick(now=None):
+    """Run from the line-check timer: refresh a league when it has games
+    coming (hourly) or a play about to start (for its closing price), then
+    settle finished plays. Stops spending below CREDIT_FLOOR requests left
+    or TIMER_DAILY_CAP refreshes a day."""
+    now = now or datetime.now(timezone.utc)
+    credits = (_load("credits") or {}).get("remaining")
+    spent = _load("spent", {}) or {}
+    today = _eastern(now).date().isoformat()
+    count = spent.get(today, 0)
+    refreshed = []
+    plays = _load("plays", []) or []
+    for sport in SPORTS:
+        if (credits is not None and credits < CREDIT_FLOOR) or count >= TIMER_DAILY_CAP:
+            break
+        snapshot = _load(f"odds:{sport}") or {}
+        age = time.time() - snapshot.get("at", 0)
+        closing = any(play["sport"] == sport and play.get("result") is None
+                      and timedelta(0) < (_time(play["startsAt"]) or now) - now <= timedelta(seconds=CLOSE_WINDOW) for play in plays)
+        upcoming = any(timedelta(0) < (_time(event.get("commence_time")) or now) - now <= timedelta(hours=12)
+                       for event in snapshot.get("events") or [])
+        # Closing prices near a play's start; hourly with games in the next
+        # 12 hours; otherwise every 6 hours to find newly posted games.
+        if (closing and age > CLOSE_REFRESH) or (upcoming and age > TIMER_REFRESH) or age > 6 * 3600:
+            try:
+                board(sport, force=True, now=now)
+                refreshed.append(sport)
+                count += 1
+            except Exception:  # noqa: BLE001 -- the next tick tries again
+                pass
+    if refreshed:
+        _save("spent", {today: count})
+    settled = grade(now)
+    return {"refreshed": refreshed, "settled": settled}

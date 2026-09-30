@@ -166,7 +166,7 @@ class handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         from site_controls import allowed
-        tab={'prop-history':'research','moneyline':'moneyline','nrfi':'nrfi','soccer':'finder','nhl':'finder','moves':'moves','mlb-context':'finder'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
+        tab={'prop-history':'research','moneyline':'moneyline','nrfi':'nrfi','soccer':'finder','nhl':'finder','moves':'moves','mlb-context':'finder','moneylines':'moneyline'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
         if not allowed(self.headers,tab):return self._send(503,{'error':'This section is temporarily unavailable','featureDisabled':True})
         if not session_with_live_access(self.headers):
             return self._send(401, {"error": "Sign in with Discord to use live research.", "authRequired": True})
@@ -267,6 +267,22 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(200, {**line_moves.recent(sports), "sports": sports})
             except Exception:
                 return self._send(502, {"error": "Line moves are temporarily unavailable."})
+        if view == "moneylines":
+            # The moneyline board (moneyline_model.py): one league's games
+            # priced, or the record of every play.
+            import moneyline_model
+            qs = parse_qs(urlparse(self.path).query)
+            try:
+                if (qs.get("resource") or [""])[0] == "record":
+                    return self._send(200, moneyline_model.record())
+                sport = (qs.get("sport") or ["nfl"])[0].lower()
+                if sport not in moneyline_model.SPORTS:
+                    return self._send(400, {"error": "Unknown league."})
+                return self._send(200, {**moneyline_model.board(sport), "leagues": moneyline_model.leagues()})
+            except RuntimeError as exc:
+                return self._send(503, {"error": str(exc)})
+            except Exception:
+                return self._send(502, {"error": "Moneylines are temporarily unavailable."})
         if view == "mlb-context":
             # Today's probable starters and every team's season rates, for
             # the Smart Slip's matchup read (mlb_context.py).
@@ -323,7 +339,7 @@ class handler(BaseHTTPRequestHandler):
             if view == "results":
                 result = {"generated_at": data.get("generated_at"), "records": data.get("records", {})}
                 return self._send(200, _attach_live_records(result))
-            return self._send(200, {"generated_at": data.get("generated_at"), "moneylines": data.get("moneylines", []), "moneyline_research": data.get("moneyline_research", []), "nrfi": data.get("nrfi", [])})
+            return self._send(200, {"generated_at": data.get("generated_at"), "nrfi": data.get("nrfi", [])})
 
         raw = store.get(BOT_BOARD_KEY)
         if not raw:

@@ -1,0 +1,239 @@
+import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import {ChevronDown,RefreshCw,Trophy,TriangleAlert} from 'lucide-react';
+import {LEAGUE_LOGOS} from './league-logos';
+import {PhoneAccountButtons} from './UnifiedFinder';
+import './moneylines.css';
+
+// The Moneylines page: every game's fair price (the sharp books' consensus,
+// our ratings' tilt), the best price to bet it at, and the plays -- with the
+// record of every play posted (moneyline_model.py).
+const LEAGUES=[['nfl','NFL'],['mlb','MLB'],['nhl','NHL'],['wnba','WNBA']];
+const PREF='krazy-moneylines';
+const TIERS={strong:'Strong play',play:'Play',lean:'Lean'};
+const signed=price=>price==null?'—':price>0?`+${price}`:`${price}`;
+const pct=(value,digits=0)=>value==null?'—':`${(value*100).toFixed(digits)}%`;
+const edge=value=>value==null?'—':`${value>=0?'+':'−'}${Math.abs(value*100).toFixed(1)}%`;
+const unitsText=value=>value==null?'—':`${value>0?'+':value<0?'−':''}${Math.abs(value).toFixed(1)}u`;
+const when=iso=>{const time=Date.parse(iso||'');if(!Number.isFinite(time))return '';const date=new Date(time),today=new Date();
+ const clock=date.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+ return date.toDateString()===today.toDateString()?`Today ${clock}`:`${date.toLocaleDateString([],{weekday:'short'})} ${clock}`;};
+const day=iso=>{const time=Date.parse(iso||'');return Number.isFinite(time)?new Date(time).toLocaleDateString([],{month:'short',day:'numeric'}):'';};
+function readPref(){try{return JSON.parse(localStorage.getItem(PREF)||'{}')||{};}catch{return {};}}
+
+async function getJson(url,signal){
+ const response=await fetch(url,{signal,cache:'no-store',credentials:'same-origin'});
+ const payload=await response.json().catch(()=>({}));
+ if(!response.ok||payload.error)throw new Error(payload.error||'Moneylines are temporarily unavailable.');
+ return payload;
+}
+
+function Logo({src,label}){
+ const [bad,setBad]=useState(false);
+ return src&&!bad?<img className="ml2-logo" src={src} alt="" onError={()=>setBad(true)}/>
+  :<span className="ml2-logo ml2-logo-empty">{String(label||'').slice(0,3)}</span>;
+}
+
+// A team from the game: ESPN's names and logo when matched, else the books'.
+function team(game,side){
+ const espn=game.espn?.[side]||{};
+ const name=game[`${side}Name`];
+ return {name,short:espn.short||name.split(' ').slice(-1)[0],abbr:espn.abbr||name.split(' ').map(word=>word[0]).join('').slice(0,3),
+  logo:espn.logo,record:espn.record,probable:espn.probable,score:espn.score};
+}
+
+// The win-chance bar: the model's chance for each side, two segments, the
+// pick's side in the accent.
+function ChanceBar({game,away,home}){
+ const [tip,setTip]=useState(null);
+ const homeChance=game.model?.home??game.fair?.home;
+ if(homeChance==null)return null;
+ const pick=game.pick?.side;
+ const rows=[['away',away,1-homeChance,game.fair?.away],['home',home,homeChance,game.fair?.home]];
+ return <div className="ml2-bar" onPointerLeave={()=>setTip(null)}>
+  <div className="ml2-bar-track">{rows.map(([side,info,chance,market])=>
+   <button type="button" key={side} className={pick===side?'is-pick':''} style={{flexGrow:Math.max(chance,0.02)}}
+    aria-label={`${info.short} ${pct(chance,1)} win chance, market ${pct(market,1)}`}
+    onPointerEnter={()=>setTip(side)} onFocus={()=>setTip(side)} onBlur={()=>setTip(null)}/>)}</div>
+  <div className="ml2-bar-labels"><span>{away.abbr} <b>{pct(1-homeChance)}</b></span><span><b>{pct(homeChance)}</b> {home.abbr}</span></div>
+  {tip&&<div className={`ml2-tip is-${tip}`} role="status">{rows.filter(([side])=>side===tip).map(([side,info,chance,market])=><React.Fragment key={side}>
+   <b>{pct(chance,1)}</b><span>{info.short} to win</span>
+   <small>Market {pct(market,1)}{game.model?.ratingHome!=null?` · ratings ${pct(side==='home'?game.model.ratingHome:1-game.model.ratingHome,1)}`:''}</small></React.Fragment>)}</div>}
+ </div>;
+}
+
+function SideRow({game,side,info}){
+ const best=game.best?.[side],fairOdds=game.fair?.[`${side}Odds`],ev=game.ev?.[side];
+ const pick=game.pick?.side===side&&game.pick.tier!=='lean';
+ return <div className={`ml2-side${pick?' is-pick':''}`}>
+  <Logo src={info.logo} label={info.abbr}/>
+  <div className="ml2-team"><b><span className="ml2-full">{info.name}</span><span className="ml2-short">{info.short}</span></b>
+   <span>{[info.record,info.probable].filter(Boolean).join(' · ')||(side==='home'?'Home':'Away')}</span></div>
+  <div className="ml2-num"><small>Fair</small><b>{signed(fairOdds)}</b></div>
+  <div className="ml2-num ml2-best"><small>{best?.bookName||'Best'}</small><b>{signed(best?.price)}</b></div>
+  <div className={`ml2-num ml2-edge ${ev>=0?'is-up':'is-down'}`}><small>Edge</small><b>{edge(ev)}</b></div>
+ </div>;
+}
+
+function Game({game}){
+ const [open,setOpen]=useState(false);
+ const away=team(game,'away'),home=team(game,'home');
+ const pick=game.pick;
+ const tier=pick?.tier||'none';
+ const live=game.espn?.state==='in';
+ return <article className={`ml2-game tier-${tier}`}>
+  <header className="ml2-game-head">
+   <span className="ml2-when">{live?<i className="ml2-live">Live</i>:null}{live?game.espn.detail:when(game.startsAt)}</span>
+   <span className={`ml2-tier tier-${tier}`}>{pick?TIERS[pick.tier]:'No edge'}</span>
+  </header>
+  <SideRow game={game} side="away" info={away}/>
+  <SideRow game={game} side="home" info={home}/>
+  <ChanceBar game={game} away={away} home={home}/>
+  {pick&&pick.tier!=='lean'&&<div className="ml2-pick">
+   <div><span>Bet</span><b><span className="ml2-full">{pick.side==='home'?home.name:away.name}</span><span className="ml2-short">{pick.side==='home'?home.short:away.short}</span> {signed(pick.price)}</b><em>at {pick.bookName}</em></div>
+   <dl><div><dt>Edge</dt><dd>{edge(pick.ev)}</dd></div><div><dt>Win chance</dt><dd>{pct(pick.probability)}</dd></div>
+    <div><dt>Stake</dt><dd>{pick.units}u</dd></div><div><dt>Bet down to</dt><dd>{signed(pick.fairOdds)}</dd></div></dl>
+  </div>}
+  <button type="button" className="ml2-more" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>
+   {open?'Hide the numbers':'Why and every book'}<ChevronDown size={15}/></button>
+  {open&&<div className="ml2-detail">
+   <ul className="ml2-reasons">{game.reasons.map(reason=><li key={reason}>{reason}</li>)}</ul>
+   <table className="ml2-books">
+    <thead><tr><th>Book</th><th>{away.abbr}</th><th>{home.abbr}</th></tr></thead>
+    <tbody>{game.books.map(book=><tr key={book.key} className={book.key==='pinnacle'||book.key==='betonlineag'?'is-sharp':''}>
+     <td>{book.name}{(book.key==='pinnacle'||book.key==='betonlineag')&&<small>sharp</small>}</td>
+     <td className={game.best?.away?.book===book.key?'is-best':''}>{signed(book.away)}</td>
+     <td className={game.best?.home?.book===book.key?'is-best':''}>{signed(book.home)}</td></tr>)}</tbody>
+   </table>
+  </div>}
+ </article>;
+}
+
+// The units curve: one series, running units over the graded plays, with a
+// crosshair that snaps to the nearest play.
+function UnitsChart({curve}){
+ const [hover,setHover]=useState(null);
+ const box=useRef(null);
+ if(!curve?.length)return <div className="ml2-chart-empty">The curve starts with the first settled play.</div>;
+ const points=[{units:0},...curve];
+ const width=600,height=140,pad={l:6,r:6,t:14,b:14};
+ const values=points.map(point=>point.units);
+ const low=Math.min(0,...values),high=Math.max(0,...values),span=high-low||1;
+ const x=index=>pad.l+index/(points.length-1||1)*(width-pad.l-pad.r);
+ const y=value=>pad.t+(high-value)/span*(height-pad.t-pad.b);
+ const line=points.map((point,index)=>`${index?'L':'M'}${x(index).toFixed(1)},${y(point.units).toFixed(1)}`).join('');
+ const area=`${line}L${x(points.length-1).toFixed(1)},${y(0).toFixed(1)}L${x(0).toFixed(1)},${y(0).toFixed(1)}Z`;
+ const last=points.at(-1);
+ const move=event=>{
+  const rect=box.current.getBoundingClientRect();
+  const at=(event.clientX-rect.left)/rect.width*width;
+  let index=Math.round((at-pad.l)/(width-pad.l-pad.r)*(points.length-1));
+  index=Math.max(1,Math.min(points.length-1,index));
+  setHover(index);
+ };
+ return <div className="ml2-chart" onPointerMove={move} onPointerLeave={()=>setHover(null)}>
+  <svg ref={box} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Units over the last 30 days, now ${unitsText(last.units)}`}>
+   <line className="ml2-zero" x1={pad.l} x2={width-pad.r} y1={y(0)} y2={y(0)}/>
+   <path className="ml2-area" d={area}/>
+   <path className="ml2-line" d={line}/>
+   {hover!=null&&<line className="ml2-cross" x1={x(hover)} x2={x(hover)} y1={pad.t} y2={height-pad.b}/>}
+   <circle className="ml2-dot" cx={x(points.length-1)} cy={y(last.units)} r="4.5"/>
+   {hover!=null&&<circle className="ml2-dot" cx={x(hover)} cy={y(points[hover].units)} r="4.5"/>}
+  </svg>
+  <span className="ml2-end" style={{top:`${y(last.units)/height*100}%`}}>{unitsText(last.units)}</span>
+  {hover!=null&&<div className="ml2-chart-tip" style={{left:`${Math.min(78,x(hover)/width*100)}%`}}>
+   <b>{unitsText(points[hover].units)}</b><span>after {day(points[hover].at)}</span></div>}
+ </div>;
+}
+
+function Record({record}){
+ const [open,setOpen]=useState(false);
+ if(!record)return <div className="ml2-record is-loading" aria-hidden="true"/>;
+ const month=record.summary;
+ const tiles=[
+  ['Record',month.plays?`${month.wins}–${month.losses}${month.pushes?`–${month.pushes}`:''}`:'—',month.pending?`${month.pending} pending`:'last 30 days'],
+  ['Units',unitsText(month.plays?month.units:null),month.roi==null?'no settled plays yet':`${month.roi>=0?'+':'−'}${Math.abs(month.roi*100).toFixed(1)}% return`],
+  ['Beat the close',pct(month.beatClose),month.clv==null?'closing prices so far':`avg ${edge(month.clv)} at the close`],
+ ];
+ return <section className="ml2-record" aria-label="Track record">
+  <div className="ml2-tiles">{tiles.map(([label,value,note],index)=><div key={label} className={index===1&&month.plays?(month.units>=0?'is-up':'is-down'):''}>
+   <span>{label}</span><b>{value}</b><small>{note}</small></div>)}</div>
+  <div className="ml2-chart-wrap"><span className="ml2-chart-title">Units, last 30 days</span><UnitsChart curve={month.curve}/></div>
+  <button type="button" className="ml2-more" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>
+   {open?'Hide every play':`Every play (${record.plays.length})`}<ChevronDown size={15}/></button>
+  {open&&<div className="ml2-history"><table>
+   <thead><tr><th>Date</th><th>Play</th><th>Price</th><th>Close</th><th>Result</th></tr></thead>
+   <tbody>{record.plays.map(play=><tr key={play.id}>
+    <td>{day(play.startsAt)}</td>
+    <td><b>{play.team}</b><small>{play.home?'vs':'@'} {play.opponentAbbr||play.opponent}</small></td>
+    <td>{signed(play.price)}<small>{play.bookName} · {play.units}u</small></td>
+    <td className={play.clv==null?'':play.clv>=0?'is-up':'is-down'}>{play.close?.price!=null?signed(play.close.price):'—'}<small>{play.clv==null?'':edge(play.clv)}</small></td>
+    <td className={`ml2-result r-${play.result||'open'}`}>{play.result||'Open'}<small>{play.score||(play.profit!=null?unitsText(play.profit):'')}</small></td>
+   </tr>)}</tbody></table></div>}
+ </section>;
+}
+
+export function Moneylines(){
+ const saved=useMemo(readPref,[]);
+ const [sport,setSport]=useState(LEAGUES.some(([key])=>key===saved.sport)?saved.sport:'nfl');
+ const [all,setAll]=useState(saved.all===true);
+ const [board,setBoard]=useState(null);
+ const [record,setRecord]=useState(null);
+ const [status,setStatus]=useState('loading');
+ const [error,setError]=useState('');
+ const control=useRef(null);
+ useEffect(()=>{try{localStorage.setItem(PREF,JSON.stringify({sport,all}));}catch{}},[sport,all]);
+
+ const load=useCallback(async(league=sport)=>{
+  control.current?.abort();
+  const signal=(control.current=new AbortController()).signal;
+  setStatus(old=>old==='ready'&&board?.sport===league?'refreshing':'loading');setError('');
+  try{
+   const payload=await getJson(`/api/board?view=moneylines&sport=${league}`,signal);
+   setBoard(payload);setStatus('ready');
+  }catch(problem){if(problem.name==='AbortError')return;setError(problem.message);setStatus('error');}
+ },[sport,board]);
+ useEffect(()=>{load(sport);},[sport]);// eslint-disable-line react-hooks/exhaustive-deps
+ useEffect(()=>{getJson('/api/board?view=moneylines&resource=record').then(setRecord).catch(()=>setRecord({summary:{plays:0,curve:[]},plays:[]}));},[]);
+ // Fresh prices when the page comes back into view after a while.
+ useEffect(()=>{
+  let last=Date.now();
+  const back=()=>{if(document.visibilityState==='visible'&&Date.now()-last>5*60000){last=Date.now();load(sport);}};
+  document.addEventListener('visibilitychange',back);
+  return()=>document.removeEventListener('visibilitychange',back);
+ },[sport,load]);
+
+ const games=board?.sport===sport?board.games:[];
+ const plays=games.filter(game=>game.pick&&game.pick.tier!=='lean');
+ const shown=all?games:plays;
+ const counts=board?.leagues||{};
+ const updated=board?.updatedAt?new Date(board.updatedAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):null;
+
+ return <section className="ml2" aria-labelledby="ml2-title">
+  <header className="ml2-head">
+   <div><span className="ml2-eyebrow"><Trophy size={13}/>Moneylines</span><h1 id="ml2-title">Beat the price.</h1>
+    <p>Fair odds from the sharpest books, our power ratings, and the best price to bet.</p></div>
+   <PhoneAccountButtons/>
+  </header>
+
+  <Record record={record}/>
+
+  <div className="ml2-controls">
+   <div className="ml2-leagues" role="tablist" aria-label="League">{LEAGUES.map(([key,label])=><button type="button" role="tab" key={key} aria-selected={sport===key} onClick={()=>setSport(key)}>
+    <img src={LEAGUE_LOGOS[key]} alt="" width="18" height="18"/>{label}{counts[key]?.games>0&&<small>{counts[key].games}</small>}</button>)}</div>
+   <div className="ml2-view" role="group" aria-label="Show">
+    <button type="button" aria-pressed={!all} onClick={()=>setAll(false)}>Plays{status==='ready'&&<small>{plays.length}</small>}</button>
+    <button type="button" aria-pressed={all} onClick={()=>setAll(true)}>All games{status==='ready'&&<small>{games.length}</small>}</button>
+   </div>
+   <button type="button" className="ml2-refresh" onClick={()=>load(sport)} disabled={status==='loading'||status==='refreshing'} aria-label="Refresh prices">
+    <RefreshCw size={15} className={status==='refreshing'||status==='loading'?'ml2-spin':''}/>{updated&&<span>{updated}</span>}</button>
+  </div>
+
+  {status==='loading'&&<div className="ml2-list" aria-busy="true">{[0,1,2].map(n=><div key={n} className="ml2-game is-skeleton"/>)}</div>}
+  {status==='error'&&<div className="ml2-empty"><TriangleAlert size={20}/><b>{error}</b><button type="button" onClick={()=>load(sport)}>Try again</button></div>}
+  {(status==='ready'||status==='refreshing')&&(shown.length
+   ?<div className="ml2-list">{shown.map(game=><Game key={game.id} game={game}/>)}</div>
+   :<div className="ml2-empty"><b>{games.length?'No plays right now':'No games on the board'}</b>
+    <span>{games.length?'Every price is at or below fair. Plays show up when a book is slow to move.':'Lines post a few days before each game.'}</span>
+    {games.length>0&&<button type="button" onClick={()=>setAll(true)}>See all {games.length} games</button>}</div>)}
+ </section>;
+}

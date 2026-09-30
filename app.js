@@ -142,8 +142,6 @@ const state = {
   pitcherFinderFilter: "all",
   specialsLoaded: false,
   specialsData: null,
-  moneylineGamePk: null,
-  moneylineSide: "home",
   adminRecords: null,
   adminRecordTab: "props",
   adminUnlocked: false,
@@ -353,11 +351,8 @@ function cacheEls() {
   els.communityFeedList = document.getElementById("community-feed-list");
   els.communityEmpty = document.getElementById("community-empty");
   els.communitySignedOut = document.getElementById("community-signed-out");
-  els.moneylineList = document.getElementById("moneyline-list");
-  els.moneylineEmpty = document.getElementById("moneyline-empty");
   els.nrfiList = document.getElementById("nrfi-list");
   els.nrfiEmpty = document.getElementById("nrfi-empty");
-  els.moneylineRefresh = document.getElementById("moneyline-refresh");
   els.nrfiRefresh = document.getElementById("nrfi-refresh");
   els.adminUnlock = document.getElementById("admin-unlock");
   els.adminResultTabs = document.getElementById("admin-result-tabs");
@@ -1515,7 +1510,6 @@ function wireSidePanel() {
 }
 
 function wireSpecialMarkets() {
-  els.moneylineRefresh.addEventListener("click", () => loadSpecialMarkets(true));
   els.nrfiRefresh.addEventListener("click", () => loadSpecialMarkets(true));
   els.adminUnlock.addEventListener("click", openV2PinPrompt);
   els.adminResultTabs.querySelectorAll("button").forEach((btn) => btn.addEventListener("click", () => {
@@ -1538,117 +1532,8 @@ async function loadSpecialMarkets(force = false) {
 function renderSpecialMarkets() {
   const data = state.specialsData || {};
   const nrfis = data.nrfi || [];
-  // Moneyline v5 is intentionally hidden until the production model feed is ready.
-  document.getElementById("moneyline-research").hidden = true;
-  els.moneylineEmpty.hidden = true;
   els.nrfiList.innerHTML = nrfis.map((p) => `<article class="market-card"><div class="market-card-top"><span class="market-badge ${p.confidence === "LEAN" ? "lean" : ""}">${escapeHtml(p.confidence || "READY")}</span><span class="market-sport">FIRST INNING</span></div><strong>${escapeHtml(p.recommendation || "—")} <em>${escapeHtml(p.away_abbr || "?")} @ ${escapeHtml(p.home_abbr || "?")}</em></strong><p class="market-matchup">${escapeHtml(p.home_pitcher || "TBD")} vs ${escapeHtml(p.away_pitcher || "TBD")}</p><div class="market-confirmed"><span>LINEUPS</span><b>Confirmed</b><span>MODEL</span><b>${escapeHtml(String(p.model_rating || p.confidence_pct || "—"))}/100</b></div></article>`).join("");
   els.nrfiEmpty.hidden = nrfis.length > 0;
-}
-
-function moneylineValue(value, fallback = "—") { return value === null || value === undefined || value === "" ? fallback : escapeHtml(String(value)); }
-function moneylineDecimal(value, digits = 2, fallback = "—") { const number = Number(value); return Number.isFinite(number) ? number.toFixed(digits) : fallback; }
-function moneylineGameTime(value) { const date = new Date(value); return Number.isNaN(date.getTime()) ? "Game time TBD" : date.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); }
-
-function renderMoneylineResearch(games) {
-  const shell = document.getElementById("moneyline-research"), picker = document.getElementById("moneyline-game-picker"), report = document.getElementById("moneyline-report");
-  if (!games.length) { shell.hidden = true; picker.innerHTML = ""; report.innerHTML = ""; els.moneylineEmpty.hidden = false; return; }
-  shell.hidden = false;
-  els.moneylineEmpty.hidden = true;
-  if (!games.some((game) => String(game.game_pk) === String(state.moneylineGamePk))) state.moneylineGamePk = games[0].game_pk;
-  const game = games.find((item) => String(item.game_pk) === String(state.moneylineGamePk)) || games[0];
-  const isV5 = String(game.model_version || "").startsWith("v5-") && Number.isFinite(Number(game.moneyline_score));
-  const selected = state.moneylineSide === "away" ? "away" : "home", other = selected === "home" ? "away" : "home";
-  const team = game[`${selected}_team`] || (selected === "home" ? game.rec_team : game.opponent), opponent = game[`${other}_team`] || (selected === "home" ? game.opponent : game.rec_team);
-  const model = isV5 ? Number(game[`${selected}_pct`]) : NaN, market = Number(game[`${selected}_market_prob`]), edge = Number.isFinite(model) && Number.isFinite(market) ? model - market : null;
-  const pitcher = game[`${selected}_pitcher`] || "TBD", oppPitcher = game[`${other}_pitcher`] || "TBD", offense = game[`${selected}_offense`] || {}, bullpen = game[`${selected}_bullpen`] || {};
-  const isModelSide = game.rec_is_home === (selected === "home"), readiness = !isV5 ? "V5 refresh required" : game.lineups_confirmed ? "Lineups confirmed" : "Pre-lineup read";
-  const factorScores = game.factor_scores || {}, factorDirection = isModelSide ? 1 : -1;
-  const signed = (key) => { if (!Object.prototype.hasOwnProperty.call(factorScores, key)) return "—"; const n = Number(factorScores[key]) * factorDirection; return `${n >= 0 ? "+" : ""}${n.toFixed(1)}%`; };
-  const weather = game.weather || {};
-  const tier = String(game.tier || "PASS").toUpperCase();
-  const actionable = isV5 && game.lineups_confirmed && (tier === "LEAN" || tier === "STRONG");
-  const noBetReason = !isV5
-    ? "The website is waiting for a fresh v5 expected-runs snapshot from the Krazy Data model. Older model data is not presented as a current pick."
-    : !game.lineups_confirmed
-    ? "Awaiting confirmed lineups and reliable starters. This is research, not a pick."
-    : game.volatility === "HIGH"
-      ? "No bet — game volatility is too high for a reliable moneyline call."
-      : "No bet — the model has not found a qualified, actionable edge.";
-  const weatherText = typeof weather === "string" ? weather : (weather.dome ? "Indoor / roof context" : [weather.temperature, weather.speed_mph ? `${weather.speed_mph} mph wind` : ""].filter(Boolean).join(" · ") || "Weather pending");
-  picker.innerHTML = games.map((item) => `<button class="ml-game-choice ${String(item.game_pk) === String(game.game_pk) ? "active" : ""}" data-ml-game="${escapeHtml(String(item.game_pk))}"><span>${escapeHtml(item.away_abbr || item.away_team || "AWY")} @ ${escapeHtml(item.home_abbr || item.home_team || "HME")}</span><small>${item.lineups_confirmed ? "confirmed" : "pre-game"}</small></button>`).join("");
-  report.innerHTML = `<div class="ml-matchup-head"><div><p class="eyebrow">${readiness.toUpperCase()}</p><h3>${escapeHtml(team)} <span>vs ${escapeHtml(opponent)}</span></h3><p>${escapeHtml(pitcher)} vs ${escapeHtml(oppPitcher)} · ${moneylineGameTime(game.commence_time)}</p></div><div class="ml-side-toggle" role="group" aria-label="Team to research"><button class="${selected === "away" ? "active" : ""}" data-ml-side="away">${escapeHtml(game.away_abbr || "Away")}</button><button class="${selected === "home" ? "active" : ""}" data-ml-side="home">${escapeHtml(game.home_abbr || "Home")}</button></div></div><div class="ml-score-row"><div class="ml-score"><span>MODEL WIN</span><strong>${Number.isFinite(model) ? `${model.toFixed(1)}%` : "—"}</strong><small>${isV5 ? (isModelSide ? "model-selected side" : "your selected side") : "awaiting v5 refresh"}</small></div><div class="ml-score"><span>MARKET</span><strong>${Number.isFinite(market) ? market.toFixed(1) : "—"}%</strong><small>${moneylineValue(game[`${selected}_odds`], "—")} odds</small></div><div class="ml-score ${edge !== null && edge >= 0 ? "positive" : ""}"><span>PRICING GAP</span><strong>${edge === null ? "—" : `${edge >= 0 ? "+" : ""}${edge.toFixed(1)}%`}</strong><small>${edge !== null && edge >= 0 ? "model above price" : "awaiting current model"}</small></div></div><div class="ml-evidence"><article><span>STARTER</span><strong>${escapeHtml(pitcher)}</strong><p>FIP ${moneylineDecimal(game[`${selected}_fip`])} · opponent: ${escapeHtml(oppPitcher)}</p></article><article><span>TEAM FORM</span><strong>${moneylineValue(game[`${selected}_record`])}</strong><p>${moneylineValue(offense.wrc_plus || offense.wrc)} wRC+ · ${moneylineValue(offense.iso)} ISO · ${moneylineValue(offense.bb_pct)}% BB</p></article><article><span>BULLPEN</span><strong>${moneylineDecimal(bullpen.era)} ERA</strong><p>${moneylineValue(bullpen.fatigued_count, "0")} fatigued arms · late-game context</p></article><article><span>CONTEXT</span><strong>${moneylineDecimal(game.park_factor)} park factor</strong><p>${escapeHtml(game.weather || "Weather not available")}</p></article></div><div class="ml-verdict"><span>${edge !== null && edge >= 0 ? "MODEL LEAN" : "CAUTION"}</span><p>${escapeHtml(game.insight || "The model is weighing starters, team quality, bullpen condition, market price, park and game context.")}</p></div>`;
-  const baseScore = isV5 ? Number(game.moneyline_score) : NaN;
-  const shownScore = Number.isFinite(baseScore) ? (isModelSide ? baseScore : 100 - baseScore) : null;
-  const scoreLabel = shownScore === null ? (isV5 ? "Pending" : "Refresh required") : shownScore >= 67 ? "Favorable" : shownScore <= 33 ? "Unfavorable" : "Neutral";
-  const factorRows = (game.moneyline_factors || []).map((factor) => {
-    const impact = Number(factor.impact || 0) * (isModelSide ? 1 : -1);
-    return `<div class="ml-weight-row"><div><b>${escapeHtml(factor.name || "Factor")}</b><small>${escapeHtml(factor.detail || "")}</small></div><strong>${impact > 0 ? "+" : ""}${impact} / ${moneylineValue(factor.weight, 0)}</strong></div>`;
-  }).join("");
-  const expectedRuns = Number(game[`${selected}_expected_runs`]);
-  const adjusted = isModelSide ? Number(game.adjusted_edge) : (edge === null ? NaN : edge - Number(game.uncertainty_buffer || 0));
-  report.insertAdjacentHTML("afterbegin", `<section class="ml-v5-score" data-tone="${scoreLabel.toLowerCase()}"><div class="ml-v5-head"><div><span>MONEYLINE MATCHUP SCORE</span><small>${scoreLabel} · ${Math.round(Number(game.moneyline_coverage || 0) * 100)}% reliable coverage</small></div><strong>${shownScore === null ? "—" : `${Math.round(shownScore)}/100`}</strong></div><div class="ml-v5-track"><i style="width:${shownScore === null ? 0 : shownScore}%"></i></div><div class="ml-v5-projection"><span>Projected runs <b>${Number.isFinite(expectedRuns) ? expectedRuns.toFixed(2) : "—"}</b></span><span>Raw edge <b>${edge === null ? "—" : `${edge >= 0 ? "+" : ""}${edge.toFixed(1)}%`}</b></span><span>Uncertainty-adjusted <b>${Number.isFinite(adjusted) ? `${adjusted >= 0 ? "+" : ""}${adjusted.toFixed(1)}%` : "—"}</b></span></div><div class="ml-weight-list">${factorRows}</div></section>`);
-  report.querySelector(".ml-evidence article:last-child p").textContent = weatherText;
-  if (!actionable) {
-    const verdict = report.querySelector(".ml-verdict");
-    verdict.querySelector("span").textContent = !isV5 ? "V5 REFRESH REQUIRED" : game.lineups_confirmed ? "NO BET" : "AWAITING LINEUPS";
-    verdict.querySelector("p").textContent = noBetReason;
-    verdict.classList.add("ml-no-bet");
-    report.querySelector(".ml-score.positive")?.classList.remove("positive");
-  }
-  report.insertAdjacentHTML("beforeend", `<section class="ml-model-card"><div class="ml-model-head"><div><span>MODEL BREAKDOWN</span><strong>${escapeHtml(game.game_archetype || "Awaiting current model data")}</strong></div><div><span>CONFIDENCE</span><strong>${game.confidence_score === undefined ? "Awaiting refresh" : `${moneylineValue(game.confidence_score)}/100 · ${escapeHtml(game.confidence_band || "—")}`}</strong></div><div><span>VOLATILITY</span><strong class="vol-${String(game.volatility || "low").toLowerCase()}">${game.volatility_score === undefined ? "Awaiting refresh" : `${escapeHtml(game.volatility || "—")} ${moneylineValue(game.volatility_score)}/100`}</strong></div></div><div class="ml-factor-grid">${[["Pitching", "pitching"], ["Offense", "offense"], ["Bullpen", "bullpen"], ["Team form", "team_form"], ["Venue / H2H", "venue"], ["Market value", "market_value"]].map(([label, key]) => { const exists = Object.prototype.hasOwnProperty.call(factorScores, key); const value = Number(factorScores[key]) * factorDirection; return `<div><span>${label}</span><strong class="${exists && value < 0 ? "minus" : exists ? "plus" : ""}">${signed(key)}</strong></div>`; }).join("")}</div><div class="ml-action-row"><div><span>FAIR ODDS</span><strong>${moneylineValue(game.fair_odds)}</strong></div><div><span>STATUS</span><strong>${escapeHtml(game.tier || "PASS")}</strong></div><p>${(game.volatility_reasons || []).length ? escapeHtml(game.volatility_reasons.join(" · ")) : "Run a bot refresh to calculate the current scorecard."}</p></div></section>`);
-  const evidence = report.querySelectorAll(".ml-evidence article");
-  if (evidence[1]) {
-    evidence[1].querySelector("span").textContent = "TEAM QUALITY";
-    evidence[1].querySelector("p").textContent = `OPS ${moneylineValue(offense.ops)} · ISO ${moneylineValue(offense.iso)} · season context only`;
-  }
-  if (evidence[2]) {
-    evidence[2].querySelector("p").textContent = bullpen.sample === "l7" && Number(bullpen.total_ip) >= 12
-      ? `${moneylineValue(bullpen.total_ip)} relief IP · sample-qualified context`
-      : "Short relief sample unavailable — not used to make a pick";
-  }
-  if (evidence[3]) evidence[3].querySelector("span").textContent = "CONTEXT (NOT SCORED)";
-
-  const modelHead = report.querySelectorAll(".ml-model-head div");
-  if (modelHead[1]) modelHead[1].querySelector("span").textContent = "MODEL QUALITY";
-
-  const factorCells = [...report.querySelectorAll(".ml-factor-grid > div")];
-  const modelFactors = [
-    ["Pitching", "pitching"], null, ["Bullpen", "bullpen"],
-    ["Team quality", "team_quality"], null, ["Market value", "market_value"],
-  ];
-  factorCells.forEach((cell, index) => {
-    const factor = modelFactors[index];
-    if (!factor) { cell.remove(); return; }
-    const [label, key] = factor;
-    const exists = Object.prototype.hasOwnProperty.call(factorScores, key);
-    const value = Number(factorScores[key]) * factorDirection;
-    cell.querySelector("span").textContent = label;
-    const score = cell.querySelector("strong");
-    score.textContent = signed(key);
-    score.className = exists && value < 0 ? "minus" : exists ? "plus" : "";
-  });
-
-  const homeStarter = game.home_starter_profile || {}, awayStarter = game.away_starter_profile || {};
-  const stat = (profile, key) => moneylineValue(profile[key]);
-  const arsenal = (profile) => (profile.arsenal || []).map((pitch) => `${escapeHtml(pitch.pitch_name || pitch.pitch_type || "Pitch")} ${moneylineValue(pitch.pct)}%`).join(" · ") || "Pitch mix pending";
-  const recent = (profile) => (profile.recent_starts || []).map((start) => `${escapeHtml(start.ip || "—")} IP · ${moneylineValue(start.k)} K · ${moneylineValue(start.er)} ER`).join("<br>") || "Recent-start log pending";
-  report.insertAdjacentHTML("beforeend", `<section class="ml-workbench"><div class="ml-workbench-title"><div><span>RESEARCH WORKBENCH</span><h4>Compare the matchup yourself</h4></div><p>Raw data is separate from the model recommendation.</p></div><div class="ml-research-section"><h5>Starting pitchers</h5><div class="ml-compare"><article><b>${escapeHtml(game.away_abbr || "Away")} · ${escapeHtml(awayStarter.name || game.away_pitcher || "TBD")}</b><div class="ml-stat-lines"><span>ERA <strong>${stat(awayStarter,"era")}</strong></span><span>FIP <strong>${stat(awayStarter,"fip")}</strong></span><span>WHIP <strong>${stat(awayStarter,"whip")}</strong></span><span>K/9 <strong>${stat(awayStarter,"k_per_9")}</strong></span><span>BB/9 <strong>${stat(awayStarter,"bb_per_9")}</strong></span><span>HR/9 <strong>${stat(awayStarter,"hr_per_9")}</strong></span></div><p><em>Arsenal</em> ${arsenal(awayStarter)}</p><p><em>Last starts</em><br>${recent(awayStarter)}</p></article><article><b>${escapeHtml(game.home_abbr || "Home")} · ${escapeHtml(homeStarter.name || game.home_pitcher || "TBD")}</b><div class="ml-stat-lines"><span>ERA <strong>${stat(homeStarter,"era")}</strong></span><span>FIP <strong>${stat(homeStarter,"fip")}</strong></span><span>WHIP <strong>${stat(homeStarter,"whip")}</strong></span><span>K/9 <strong>${stat(homeStarter,"k_per_9")}</strong></span><span>BB/9 <strong>${stat(homeStarter,"bb_per_9")}</strong></span><span>HR/9 <strong>${stat(homeStarter,"hr_per_9")}</strong></span></div><p><em>Arsenal</em> ${arsenal(homeStarter)}</p><p><em>Last starts</em><br>${recent(homeStarter)}</p></article></div></div><div class="ml-research-section"><h5>Offense and bullpen</h5><div class="ml-compare">${[[game.away_abbr || "Away", game.away_offense || {}, game.away_bullpen || {}], [game.home_abbr || "Home", game.home_offense || {}, game.home_bullpen || {}]].map(([abbr, off, pen]) => `<article><b>${escapeHtml(abbr)}</b><div class="ml-stat-lines"><span>wRC+ <strong>${moneylineValue(off.wrc_plus)}</strong></span><span>ISO <strong>${moneylineValue(off.iso)}</strong></span><span>BB% <strong>${moneylineValue(off.bb_pct)}</strong></span><span>K% <strong>${moneylineValue(off.k_pct)}</strong></span><span>Runs/G <strong>${moneylineValue(off.runs_pg)}</strong></span><span>BP ERA <strong>${moneylineValue(pen.era)}</strong></span></div><p><em>Bullpen</em> ${moneylineValue(pen.whip)} WHIP · ${moneylineValue(pen.hr9)} HR/9 · ${moneylineValue(pen.fatigued_count,"0")} fatigued arms</p></article>`).join("")}</div></div><div class="ml-research-section"><h5>Game context</h5><div class="ml-context-data"><span>Park factor <strong>${moneylineValue(game.park_factor)}</strong></span><span>Weather <strong>${escapeHtml(weatherText)}</strong></span><span>Lineups <strong>${game.lineups_confirmed ? "Confirmed" : "Projected"}</strong></span><span>Volatility <strong>${escapeHtml(game.volatility || "—")} ${moneylineValue(game.volatility_score)}/100</strong></span></div></div></section>`);
-  const offenseSection = [...report.querySelectorAll(".ml-research-section")].find((section) => section.querySelector("h5")?.textContent === "Offense and bullpen");
-  if (offenseSection) {
-    const cards = offenseSection.querySelectorAll(".ml-compare article");
-    [[game.away_offense || {}, game.away_bullpen || {}], [game.home_offense || {}, game.home_bullpen || {}]].forEach(([off, pen], index) => {
-      const card = cards[index];
-      if (!card) return;
-      const firstMetric = card.querySelector(".ml-stat-lines span");
-      if (firstMetric) firstMetric.innerHTML = `OPS <strong>${moneylineValue(off.ops)}</strong>`;
-      const bullpenNote = card.querySelector("p");
-      if (bullpenNote) bullpenNote.textContent = pen.sample === "l7" && Number(pen.total_ip) >= 12
-        ? `Recent relief sample: ${moneylineValue(pen.total_ip)} IP · ${moneylineValue(pen.era)} ERA`
-        : "Recent relief sample is not large enough to score.";
-    });
-  }
-  picker.querySelectorAll("[data-ml-game]").forEach((button) => button.addEventListener("click", () => { state.moneylineGamePk = button.dataset.mlGame; renderMoneylineResearch(games); }));
-  report.querySelectorAll("[data-ml-side]").forEach((button) => button.addEventListener("click", () => { state.moneylineSide = button.dataset.mlSide; renderMoneylineResearch(games); }));
 }
 
 async function loadAdminRecords() {
@@ -1677,7 +1562,7 @@ function renderAdminRecords() {
     return;
   }
   els.adminResultsList.innerHTML = rows.length ? summary + rows.map((r) => {
-    const hit = r.result === "hit"; const label = state.adminRecordTab === "props" ? `${r.player_name} · ${r.side} ${r.line} ${r.stat_type}` : state.adminRecordTab === "moneyline" ? `${r.rec_team} vs ${r.opponent} · ${r.odds}` : `${r.recommendation} · ${r.away_abbr} @ ${r.home_abbr}`;
+    const hit = r.result === "hit"; const label = state.adminRecordTab === "props" ? `${r.player_name} · ${r.side} ${r.line} ${r.stat_type}` : `${r.recommendation} · ${r.away_abbr} @ ${r.home_abbr}`;
     const outcome = state.adminRecordTab === "nrfi" && r.result ? `${hit ? "Hit" : "Miss"} · ${r.first_inning_away_runs ?? "?"}-${r.first_inning_home_runs ?? "?"} after 1` : hit ? "Hit" : r.result === "miss" ? "Miss" : "Pending";
     return `<div class="admin-result-row ${hit ? "hit" : r.result === "miss" ? "miss" : ""}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(outcome)}</strong></div>`;
   }).join("") : "<p class=\"empty-state\">No settled results in this tab yet.</p>";

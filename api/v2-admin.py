@@ -367,7 +367,15 @@ class handler(BaseHTTPRequestHandler):
                 or (secret and hmac.compare_digest(bearer, f"Bearer {secret}"))):
             return self._send(401, {"error": "Timer key required"})
         line_moves.safely(line_moves.keep_fresh, set(line_moves.SPORTS), budget=25)
-        return self._send(200, {"ok": True, "checked": line_moves.checked()})
+        # Moneylines ride the same timer: prices near the start (closing
+        # lines) and settling finished plays (moneyline_model.py).
+        moneylines = None
+        try:
+            import moneyline_model
+            moneylines = moneyline_model.tick()
+        except Exception:  # noqa: BLE001 -- never at the cost of the line checks
+            pass
+        return self._send(200, {"ok": True, "checked": line_moves.checked(), "moneylines": moneylines})
 
     def _handle_cron_scan(self):
         secret = os.getenv("CRON_SECRET", "")
