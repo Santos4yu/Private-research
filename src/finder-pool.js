@@ -20,7 +20,8 @@ export const needsHistory = (sport, row) => row.historyStatus === 'pending'
 /**
  * One league's current lines, hit rates filled in and (WNBA, NFL) defense
  * ranks added. `only` limits which lines get their hit rates worked out;
- * `onProgress` hears {sport, stage, done, total} as it goes.
+ * `onProgress` hears {sport, stage, done, total, rows} as it goes, `rows`
+ * being the lines just filled in.
  */
 export async function loadLines(sport, {signal, onProgress, only} = {}) {
   onProgress?.({sport, stage: 'lines', done: 0, total: 0});
@@ -38,13 +39,14 @@ export async function loadLines(sport, {signal, onProgress, only} = {}) {
     onProgress?.({sport, stage: 'history', done, total: pending.length});
     const enriched = await enrich(pending, {signal, concurrency: ENRICH_CONCURRENCY[sport], onRows: batch => {
       done = Math.min(pending.length, done + batch.length);
-      onProgress?.({sport, stage: 'history', done, total: pending.length});
+      onProgress?.({sport, stage: 'history', done, total: pending.length, rows: batch});
     }});
     const updates = new Map(stamped(enriched).map(row => [row.id, row]));
     result = {...result, rows: result.rows.map(row => updates.get(row.id) || row)};
     persistFinderCache(sport, result);
   }
   let rows = result.rows;
+  onProgress?.({sport, stage: 'done', done: pending.length, total: pending.length});
   if (sport === 'wnba' || sport === 'nfl') {
     try { rows = withDefense(rows, await loadFinderDefense(sport, {signal})); } catch (error) { if (error.name === 'AbortError') throw error; }
   }

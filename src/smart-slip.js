@@ -11,14 +11,30 @@
 // likely they are (a Goblin pays less, a Demon more); PrizePicks sets those
 // per line, so here they are estimated from the line's odds and shown with ≈.
 // Payouts come in bands (2x up to 3x, 3x up to 5x, ... 20x and up); the
-// search finds, in each band, the slip with the best expected return --
-// a ladder from safer to bigger, never under 2x.
+// search finds, in each band, the likeliest slip that is still a fair bet
+// -- a ladder from safer to bigger, never under 2x. The member picks how the
+// lines mix: all regular, regular with a Goblin, regular with a Demon, or
+// anything.
 import {bookProbability} from './unified-finder-data.js';
 
 export const POWER = {2: 3, 3: 6, 4: 10, 5: 20, 6: 37.5};
 // Flex: hits -> multiplier.
 export const FLEX = {3: {3: 3, 2: 1}, 4: {4: 6, 3: 1.5}, 5: {5: 10, 4: 2, 3: 0.4}, 6: {6: 25, 5: 2, 4: 0.4}};
 export const TARGETS = [2, 3, 5, 10, 20];
+// Which lines a slip may use, which it must have at least one of, and
+// whether its Goblins or Demons may outnumber its regular lines.
+export const MIXES = {
+  regular: {kinds: ['standard'], needs: [], balanced: false},
+  goblin: {kinds: ['standard', 'goblin'], needs: ['standard', 'goblin'], balanced: true},
+  demon: {kinds: ['standard', 'demon'], needs: ['standard', 'demon'], balanced: true},
+  any: {kinds: ['standard', 'goblin', 'demon'], needs: [], balanced: false},
+};
+// A slip this close to breaking even (or better) counts as a fair bet; in
+// each band the likeliest fair slip is the one shown.
+const FAIR = 0.95;
+// An estimated payout (Goblins, Demons) must clear the lowest band by this
+// much, so a slip PrizePicks prices a little lower still pays 2x.
+const ESTIMATE_CUSHION = 1.05;
 export const SPORT_NAMES = {mlb: 'MLB', wnba: 'WNBA', nfl: 'NFL', nhl: 'NHL', soccer: 'Soccer'};
 // A game starting sooner than this is too close to pick.
 const LOCK_MINUTES = 10;
@@ -178,35 +194,53 @@ export function band(payout, targets = TARGETS) {
   return found;
 }
 
+const odds = slip => slip.play === 'flex' ? slip.profit : slip.chance;
+// Is `slip` a better pick for its band than `current`? The likeliest to
+// cash among fair slips, the better value on a near tie; with no fair
+// slip in the band, the best value.
+function better(slip, current) {
+  const fair = slip.value >= FAIR, currentFair = current.value >= FAIR;
+  if (fair !== currentFair) return fair;
+  const [first, second] = fair ? [odds, s => s.value] : [s => s.value, odds];
+  const gap = first(slip) - first(current);
+  return gap > 0.005 || (Math.abs(gap) <= 0.005 && second(slip) > second(current));
+}
+
 /**
- * The best slip in each payout band (2x up to 3x, 3x up to 5x, ...): the
- * one with the best expected return, the likelier one on a near tie.
- * `size` is a number of picks, or 'auto' for any size. Locked picks stay
- * in; excluded ones never come in.
+ * The best slip in each payout band (2x up to 3x, 3x up to 5x, ...), by
+ * `better`. `size` is a number of picks, or 'auto' for any size; `mix` is
+ * one of MIXES. Locked picks stay in; excluded ones never come in. `only`
+ * limits which bands are filled.
  */
-export function buildLadder(pool, {play = 'power', size = 'auto', sameGame = false, locked = [], excluded = [], targets = TARGETS} = {}) {
+export function buildLadder(pool, {play = 'power', size = 'auto', mix = 'any', sameGame = false, locked = [], excluded = [], targets = TARGETS, only = null} = {}) {
   const perGame = sameGame ? 2 : 1;
+  const rule = MIXES[mix] || MIXES.any;
   const lockedLegs = pool.filter(leg => locked.includes(leg.id));
-  const open = pool.filter(leg => !locked.includes(leg.id) && !excluded.includes(leg.id));
+  const open = pool.filter(leg => !locked.includes(leg.id) && !excluded.includes(leg.id) && rule.kinds.includes(leg.modifier));
   const sizes = (size === 'auto' ? [2, 3, 4, 5, 6] : [Number(size)]).filter(n => (play === 'flex' ? FLEX[n] : POWER[n]) && n >= lockedLegs.length);
   const best = new Map();
+  const count = (slip, kind) => slip.legs.filter(leg => leg.modifier === kind).length;
   const consider = slip => {
     const target = slip && band(slip.payout, targets);
-    if (target == null) return;
+    if (target == null || (only && !only.includes(target))) return;
+    if (slip.estimated && slip.payout < targets[0] * ESTIMATE_CUSHION) return;
+    if (!rule.needs.every(kind => count(slip, kind) > 0)) return;
+    if (rule.balanced && count(slip, 'standard') < slip.legs.length - count(slip, 'standard')) return;
     const current = best.get(target);
-    if (!current || slip.value > current.value + 0.005 || (Math.abs(slip.value - current.value) <= 0.005 && slip.chance > current.chance)) best.set(target, slip);
+    if (!current || better(slip, current)) best.set(target, slip);
   };
+  // Of each shortlist, the share for each kind of line.
+  const shares = rule.kinds.length === 1 ? {standard: 1} : rule.kinds.length === 2 ? {standard: 0.7, goblin: 0.3, demon: 0.3}
+    : {standard: 0.7, goblin: 0.15, demon: 0.15};
   for (const n of sizes) {
     const slots = n - lockedLegs.length;
     if (lockedLegs.some((leg, i) => !fits(leg, lockedLegs.slice(0, i), perGame))) continue;
-    // The strongest standard picks, plus the best Goblins and Demons, so
-    // every payout level has something to reach for. Fewer candidates for
-    // bigger slips keeps the search quick.
+    // The strongest picks of each kind allowed, so every payout level has
+    // something to reach for. Fewer candidates for bigger slips keeps the
+    // search quick.
     const limit = {0: 0, 1: 60, 2: 60, 3: 44, 4: 32, 5: 26, 6: 22}[slots];
-    const by = kind => open.filter(leg => kind === 'standard' ? leg.modifier === 'standard' : leg.modifier === kind)
-      .sort((a, b) => b.chance * b.factor - a.chance * a.factor);
-    const shortlist = [...by('standard').slice(0, Math.ceil(limit * 0.7)), ...by('goblin').slice(0, Math.ceil(limit * 0.15)),
-      ...by('demon').slice(0, Math.ceil(limit * 0.15))];
+    const shortlist = rule.kinds.flatMap(kind => open.filter(leg => leg.modifier === kind)
+      .sort((a, b) => b.chance * b.factor - a.chance * a.factor).slice(0, Math.ceil(limit * shares[kind])));
     const chosen = [...lockedLegs];
     const walk = start => {
       if (chosen.length === n) { consider(scoreSlip([...chosen], play)); return; }
@@ -222,6 +256,12 @@ export function buildLadder(pool, {play = 'power', size = 'auto', sameGame = fal
   }
   return targets.filter(target => best.has(target))
     .map(target => ({...best.get(target), target, key: best.get(target).legs.map(leg => leg.id).sort().join(',')}));
+}
+
+/** The slip to point to: the likeliest to cash, the better value on a near tie. */
+export function safest(ladder) {
+  return (ladder || []).reduce((top, slip) => !top || odds(slip) > odds(top) + 0.01
+    || (Math.abs(odds(slip) - odds(top)) <= 0.01 && slip.value > top.value) ? slip : top, null);
 }
 
 // ---------------------------------------------------------------- reasons

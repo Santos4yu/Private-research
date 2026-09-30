@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {sideRecord, judgeLeg, candidates, scoreSlip, buildLadder, reasons, exportLeg, POWER} from '../src/smart-slip.js';
+import {sideRecord, judgeLeg, candidates, scoreSlip, buildLadder, safest, reasons, exportLeg, POWER} from '../src/smart-slip.js';
 
 const NOW = Date.parse('2026-09-30T18:00:00Z');
 const LATER = '2026-09-30T23:10:00Z';
@@ -95,7 +95,7 @@ test('a ladder of payout bands, never under 2x, one pick per player, one per gam
   const next = {2: 3, 3: 5, 5: 10, 10: 20, 20: Infinity};
   for (const slip of ladder) {
     assert.ok(slip.payout >= slip.target - 1e-9 && slip.payout < next[slip.target], `${slip.payout} in the ${slip.target}x band`);
-    assert.ok(slip.payout >= 2, 'never under 2x');
+    assert.ok(slip.payout >= (slip.estimated ? 2.1 : 2), 'never under 2x, with room when estimated');
     const players = slip.legs.map(leg => leg.player);
     assert.equal(new Set(players).size, players.length, 'one pick per player');
     assert.ok(slip.legs.filter(leg => leg.game === 'mlb:shared').length <= 1, 'one per game');
@@ -113,6 +113,56 @@ test('a ladder of payout bands, never under 2x, one pick per player, one per gam
     assert.ok(!slip.legs.some(leg => leg.id === excludedId));
   }
   assert.equal(POWER[3], 6);
+});
+
+test('the member picks how the lines mix, and the safest slip is the one pointed to', () => {
+  const rows = [
+    row({player: 'A', l10: [8, 10], books: [{key: 'draftkings', over: -150, under: 120}]}),
+    row({player: 'B', l10: [8, 10], season: [33, 50]}),
+    row({player: 'C', l10: [7, 10], season: [31, 50]}),
+    row({player: 'D', l10: [7, 10], season: [30, 50]}),
+    row({player: 'F', modifier: 'goblin', line: 0.5, l10: [9, 10], season: [40, 50], books: [{key: 'draftkings', over: -230}]}),
+    row({player: 'G', modifier: 'goblin', line: 0.5, l10: [9, 10], season: [39, 50], books: [{key: 'fanduel', over: -250}]}),
+    row({player: 'H', modifier: 'demon', line: 3.5, l10: [5, 10], season: [22, 50]}),
+    row({player: 'I', l10: [7, 10], season: [29, 50]}),
+  ];
+  const pool = candidates(rows, {now: NOW});
+  const kinds = slip => slip.legs.map(leg => leg.modifier);
+  const regular = buildLadder(pool, {mix: 'regular'});
+  assert.ok(regular.length && regular.every(slip => kinds(slip).every(kind => kind === 'standard')));
+  const goblin = buildLadder(pool, {mix: 'goblin'});
+  assert.ok(goblin.length);
+  for (const slip of goblin) {
+    assert.ok(kinds(slip).includes('goblin') && kinds(slip).includes('standard') && !kinds(slip).includes('demon'), kinds(slip).join());
+    // Never more Goblins than regular lines.
+    assert.ok(kinds(slip).filter(kind => kind === 'goblin').length <= kinds(slip).filter(kind => kind === 'standard').length, kinds(slip).join());
+    assert.ok(slip.payout >= 2);
+  }
+  // Two picks, a regular and a Goblin, still pay at least 2x -- by an
+  // estimate with room to spare.
+  assert.ok(buildLadder(pool, {mix: 'goblin', size: 2}).every(slip => slip.legs.length === 2 && slip.payout >= 2.1));
+  for (const slip of buildLadder(pool, {mix: 'demon'})) assert.ok(kinds(slip).includes('demon') && !kinds(slip).includes('goblin'));
+  // The safest slip is the likeliest to hit: the lowest payout band here.
+  const ladder = buildLadder(pool);
+  const pick = safest(ladder);
+  assert.equal(pick.chance, Math.max(...ladder.map(slip => slip.chance)));
+  assert.equal(pick.target, 2);
+  assert.equal(safest([]), null);
+});
+
+test('in each band the likeliest fair slip wins, not the richest', () => {
+  const leg = (id, chance, modifier = 'standard', factor = 1) => ({id, player: id, row: {id}, game: id, chance, modifier, factor});
+  const pool = [leg('A', 0.62), leg('B', 0.55), leg('G', 0.75, 'goblin', 0.72), leg('H', 0.8, 'goblin', 0.63)];
+  // A + G pays about 2.2x and hits 46.5%; A + G + H pays about 2.7x, a
+  // touch more value, but hits only 37%.
+  const [safe] = buildLadder(pool, {size: 'auto'});
+  assert.equal(safe.target, 2);
+  assert.deepEqual(safe.legs.map(item => item.id).sort(), ['A', 'G']);
+  // A slip well short of fair loses to a fair one however likely it is.
+  const [fair] = buildLadder([...pool, leg('Z', 0.97, 'goblin', 0.4)], {size: 2});
+  assert.ok(fair.value >= 0.95, fair.value);
+  // Only the bands asked for are filled.
+  assert.deepEqual(buildLadder(pool, {only: [3]}).map(slip => slip.target), [3]);
 });
 
 test('a slip goes to PrizePicks under PrizePicks\' own stat name', () => {
