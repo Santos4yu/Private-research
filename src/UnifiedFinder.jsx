@@ -1,6 +1,6 @@
 import React,{lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowDown,ArrowUp,ArrowUpDown,ArrowLeft,Bookmark,ChartNoAxesColumnIncreasing,ChevronDown,ChevronLeft,ChevronRight,Grid2X2,ListFilter,LoaderCircle,RefreshCw,Search,SlidersHorizontal,Star,Swords,Table2,Trash2,Users,CalendarDays,Settings,UserRound,X} from 'lucide-react';
-import {loadFinderSport,enrichMlbRows,enrichWnbaRows,enrichSoccerRows,enrichNhlRows,persistFinderCache,readFinderCache,carryHistory,matchesPrizePicksLine,finderSlipId,slipApps,bookProbability,loadFinderDefense,withDefense,trendPickRow,BOOK_NAMES,linkTarget,findLinkedRow,readFinderView,saveFinderView} from './unified-finder-data';
+import {loadFinderSport,persistFinderCache,readFinderCache,carryHistory,matchesPrizePicksLine,finderSlipId,slipApps,bookProbability,loadFinderDefense,withDefense,trendPickRow,BOOK_NAMES,linkTarget,findLinkedRow,readFinderView,saveFinderView} from './unified-finder-data';
 import {WNBAPlayerPage} from './sports/wnba/WNBAPlayerPage';
 import {siteFinderSportAllowed} from './site-access';
 import {accountProfile} from './account-sync';
@@ -10,17 +10,11 @@ import {FinderDropdown,FinderDropdownAssets} from './FinderDropdown';
 import {FinderHitRateFilter,FinderMultiSelect,FinderSportMenu} from './FinderMultiSelect';
 import {PickSideMenu} from './PickSideMenu';
 import {pickBuilder,usePickBuilder} from './pick-builder-client';
+import {ENRICH,ENRICH_CONCURRENCY,BOARD_FRESH,stamped} from './finder-pool';
 const FinderTrendView=lazy(()=>import('./FinderTrendView').then(m=>({default:m.FinderTrendView})));
 const SoccerPlayerPage=lazy(()=>import('./sports/soccer/SoccerPlayerPage').then(m=>({default:m.SoccerPlayerPage})));
 const NHLPlayerPage=lazy(()=>import('./sports/nhl/NHLPlayerPage').then(m=>({default:m.NHLPlayerPage})));
 const SPORTS=['all','wnba','mlb','nfl','nhl','soccer'],KEYS=SPORTS.slice(1),EMPTY={state:'idle',rows:[]};
-// How each league's lines get their hit rates after the board arrives.
-const ENRICH={wnba:enrichWnbaRows,mlb:enrichMlbRows,soccer:enrichSoccerRows,nhl:enrichNhlRows};
-const ENRICH_CONCURRENCY={wnba:6,mlb:3,soccer:4,nhl:4};
-// A saved board younger than this is shown without asking again.
-const BOARD_FRESH=2*60*1000;
-// When each line's hit rates were worked out, so a later board can keep them.
-const stamped=rows=>{const now=Date.now();return rows.map(row=>row.historyStatus==='ready'&&!row.enrichedAt?{...row,enrichedAt:now}:row);};
 const LOGOS={prizepicks:'/prizepicks/logo.png',draftkings:'/sportsbooks/draftkings.png',fanduel:'/sportsbooks/fanduel.png',betmgm:'/sportsbooks/betmgm.png',underdog:'/sportsbooks/underdog.png'};
 const WINDOWS=[['l5','L5'],['l10','L10'],['l15','L15'],['h2h','H2H'],['season','SZN']];
 // With no sort chosen the board runs L10 high to low.
@@ -233,6 +227,13 @@ export function UnifiedFinder(){
   if(updates.length)pickBuilder.refresh(updates);
  },[allRows,picks]);
  const open=useCallback(row=>{trigger.current='Open '+row.sport.toUpperCase()+' '+row.player+' '+row.line+' '+row.market+' trends';setSelected(row);},[]);
+ // Another page asking for a prop (the Smart Slip's Research button) is
+ // handled like a link.
+ const [linkTick,setLinkTick]=useState(0);
+ useEffect(()=>{
+  const onOpen=({detail})=>{if(!detail?.sport||!detail?.player)return;linked.current={sport:detail.sport,player:detail.player,stat:detail.stat||''};setSelected(null);setPicked([detail.sport]);setQuery(detail.player);setMobileSearch(true);setLinkTick(n=>n+1);};
+  window.addEventListener('vortex:open-prop',onOpen);return()=>window.removeEventListener('vortex:open-prop',onOpen);
+ },[]);
  // The linked prop opens once its league's board is in; a line no longer
  // posted leaves that player's other lines showing (the search holds the
  // name). The link is then taken off the address.
@@ -243,7 +244,7 @@ export function UnifiedFinder(){
   const row=board.state==='ready'?findLinkedRow(allRows,want):null;
   if(row)open(row);
   try{const url=new URL(location.href);['sport','player','stat'].forEach(name=>url.searchParams.delete(name));history.replaceState(history.state,'',url.pathname+url.search+url.hash);}catch{}
- },[boards,allRows,open]);
+ },[boards,allRows,open,linkTick]);
  const back=()=>{setSelected(null);requestAnimationFrame(()=>{const button=[...document.querySelectorAll('.finder-open')].find(el=>el.getAttribute('aria-label')===trigger.current);button?.focus({preventScroll:true});});};
  const changeSports=keys=>{setPicked(keys);setSelected(null);setMarketFilter([]);setBookFilter([]);setTeamFilter([]);setDayFilter([]);setGameFilter([]);setModifierFilter([]);setHitFilter({windows:[],min:0,max:100});};
  const clear=()=>{setQuery('');setMarketFilter([]);setBookFilter([]);setTeamFilter([]);setDayFilter([]);setGameFilter([]);setModifierFilter([]);setHitFilter({windows:[],min:0,max:100});setSavedOnly(false);};

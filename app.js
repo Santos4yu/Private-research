@@ -18,7 +18,6 @@ import {initSiteAccess,siteTabAllowed,loadSiteControls,showLockedTab,availableSi
 import { mountResearchTabs, focusResearchTab } from './src/report-tabs.js';
 import { finderMarket, finderRows, historyChart, nameKey } from './src/prop-finder-core.js';
 import { createTrendCache, trendContextKey, gradeTrendChart, mergeTrendCharts } from './src/trend-data.js';
-import { liveBuilderProp, historicalSides } from './src/builder-live-core.js';
 import { matchupNumber, boardResearchSide, matchupUpdatedText, canReuseResearch } from './src/matchup-rating.js';
 import { createResearchClient } from './src/research-client.js';
 
@@ -141,10 +140,6 @@ const state = {
   pitcherFinderLoaded: false,
   pitcherFinderProps: [],
   pitcherFinderFilter: "all",
-  builderLegs: 2,
-  builderMode: "safe",
-  builderResult: [],
-  builderLocked: new Set(),
   specialsLoaded: false,
   specialsData: null,
   moneylineGamePk: null,
@@ -254,7 +249,6 @@ async function init() {
   renderSavedGrid();
   wireSlate();
   wireV2Board();
-  wireParlayBuilder();
   wireSlipAnalyzer();
   wireAdminPanel();
   wireSidePanel();
@@ -395,12 +389,6 @@ function cacheEls() {
   els.autoPregameCadence = document.getElementById("auto-pregame-cadence");
   els.autoCreditBudget = document.getElementById("auto-credit-budget");
   els.autoMonthlyReserve = document.getElementById("auto-monthly-reserve");
-  els.builderLegButtons = document.getElementById("builder-leg-buttons");
-  els.builderModeButtons = document.getElementById("builder-mode-buttons");
-  els.builderSameGame = document.getElementById("builder-same-game");
-  els.builderGenerate = document.getElementById("builder-generate");
-  els.builderStatus = document.getElementById("builder-status");
-  els.builderResult = document.getElementById("builder-result");
   els.slipFileInput = document.getElementById("slip-file-input");
   els.slipUploadZone = document.getElementById("slip-upload-zone");
   els.slipFileStatus = document.getElementById("slip-file-status");
@@ -1419,7 +1407,6 @@ function switchTab(tab, options = {}) {
   if (tab === "saved") renderSavedGrid();
   if (tab === "slate" && !state.slateLoaded) loadSlate();
   if (tab === "v2" && !nflProps && !state.v2BoardLoaded) loadV2Board();
-  if (tab === "builder" && !state.v2BoardLoaded) loadV2Board();
   if (tab === "nrfi" && !state.specialsLoaded) loadSpecialMarkets();
   if (tab === "community") loadCommunityFeed();
   window.dispatchEvent(new CustomEvent("vortex:dock-sync", { detail: { tab, saved: state.savedProps.size } }));
@@ -6668,350 +6655,6 @@ function boardStatCategory(statType) {
   if (["strikeouts", "strikeout", "pitcher strikeouts", "pitcher strikeout", "ks", "k"].includes(stat)) return "strikeouts";
   if (stat.startsWith("pitcher ") || ["hits allowed", "earned runs", "outs", "pitching outs"].includes(stat)) return "strikeouts";
   return "other";
-}
-
-/* ---------- Automatic Parlay Builder ---------- */
-
-const BUILDER_MODES = {
-  safe: { label: "Safest", minMatchup: 65, minL10: 65, minL20: 55, minCoverage: .55, maxPerGame: 1 },
-  balanced: { label: "Balanced", minMatchup: 55, minL10: 60, minL20: 50, minCoverage: .45, maxPerGame: 1 },
-  payout: { label: "Higher risk", minMatchup: 50, minL10: 55, minL20: 48, minCoverage: .40, maxPerGame: 1 },
-};
-
-function builderKey(p) {
-  return [p.player_name, p.stat_type, p.line, p.stats?.side || "over"].join("|");
-}
-
-function builderEffectiveRate(stats, windowName) {
-  const directValue = stats[`eff_${windowName}`];
-  const direct = directValue == null || directValue === "" ? NaN : Number(directValue);
-  if (Number.isFinite(direct)) return direct;
-  const rawValue = stats.splits?.[windowName]?.rate;
-  const raw = rawValue == null || rawValue === "" ? NaN : Number(rawValue);
-  if (!Number.isFinite(raw)) return null;
-  return stats.side === "under" ? 100 - raw : raw;
-}
-
-function parlayCandidate(p, modeName) {
-  const mode = BUILDER_MODES[modeName];
-  const stats = p.stats || {};
-  const matchup = matchupNumber(stats.matchup_score);
-  const coverage = Number(stats.matchup_coverage);
-  const l10 = builderEffectiveRate(stats, "l10");
-  const l20 = builderEffectiveRate(stats, "l20");
-  const edge = Number(stats.proj_edge);
-  const stability = String(stats.stability_tier || "").toUpperCase();
-  const conflicts = stats.matchup_conflicts || [];
-  const pitcherMarket = stats.prop_type ? stats.prop_type.startsWith('pitcher_') : BOT_PITCHER_STATS.has(p.stat_type);
-  const pitcherName = String(stats.pitcher?.name || "").trim();
-  const opponent = String(stats.opponent || stats.matchup?.opponent || "").trim();
-  const bvp = stats.bvp || {};
-  const bvpAb = Number(bvp.ab || 0);
-  const bvpHits = Number(bvp.hits || 0);
-  const rawBvpAvg = String(bvp.avg ?? "").trim();
-  const bvpAvg = rawBvpAvg ? Number(rawBvpAvg.startsWith(".") ? `0${rawBvpAvg}` : rawBvpAvg) : (bvpAb ? bvpHits / bvpAb : NaN);
-  const isUnder = stats.side === "under";
-  const bvpConflict = !pitcherMarket && bvpAb >= 8 && Number.isFinite(bvpAvg)
-    && ((!isUnder && bvpAvg <= .150) || (isUnder && bvpAvg >= .350));
-  const confirmed = pitcherMarket
-    ? Boolean(stats.player_id && stats.pitcher?.validated_role)
-    : Number(stats.lineup_spot ?? stats.lineup_pos) >= 1 && Number(stats.lineup_spot ?? stats.lineup_pos) <= 9;
-  const reasons = [];
-  if (Number(stats.sample_l10 || 0) < 10) reasons.push('fewer than 10 games');
-  if (modeName === 'safe' && Number(stats.sample_l20 || 0) < 20) reasons.push('fewer than 20 games');
-  if (!["ELITE", "STRONG"].includes(String(p.tier || "").toUpperCase())) reasons.push("tier below Strong");
-  if (!Number.isFinite(matchup) || matchup < mode.minMatchup) reasons.push(`matchup below ${mode.minMatchup}`);
-  if (!opponent) reasons.push("opponent not resolved");
-  if (!pitcherMarket && (!pitcherName || pitcherName.toUpperCase() === "TBD")) reasons.push("starting pitcher not resolved");
-  if (!Number.isFinite(coverage) || coverage < mode.minCoverage) reasons.push("thin matchup coverage");
-  if (!Number.isFinite(l10) || l10 < mode.minL10) reasons.push(`L10 below ${mode.minL10}%`);
-  if (Number.isFinite(l20) && l20 < mode.minL20) reasons.push("L20 does not support the side");
-  if (modeName !== "payout" && (!Number.isFinite(edge) || edge <= 0)) reasons.push("no positive projection edge");
-  if (modeName === "safe" && ["LOW", "VOLATILE"].includes(stability)) reasons.push("unstable recent values");
-  if (!confirmed) reasons.push(pitcherMarket ? "starter role not confirmed" : "lineup spot not confirmed");
-  if (conflicts.length) reasons.push("matchup contradiction");
-  if (bvpConflict) reasons.push(`${bvpHits}-for-${bvpAb} BvP conflicts with the ${isUnder ? "Under" : "Over"}`);
-  if (Number(stats.matchup_adjustment) < 0) reasons.push("matchup grades against the pick");
-  if (stats.decision_quality && stats.decision_quality.eligible === false) reasons.push("decision-quality gate failed");
-  if (modeName === "safe" && !pitcherMarket && stats.lineup_confirmed !== true) reasons.push("lineup not confirmed");
-  if (reasons.length) return { valid: false, reasons };
-
-  const stabilityScore = stability === "HIGH" ? 92 : stability === "MEDIUM" ? 76 : stability === "LOW" ? 52 : 65;
-  const projectionScore = Number.isFinite(edge) ? Math.max(35, Math.min(100, 55 + edge * 22)) : 45;
-  const longRate = Number.isFinite(l20) ? l20 : l10;
-  const bvpBonus = bvpAb >= 8 && Number.isFinite(bvpAvg)
-    ? Math.max(-6, Math.min(6, (isUnder ? .250 - bvpAvg : bvpAvg - .250) * 30)) : 0;
-  const quality = .30 * l10 + .20 * matchup + .15 * coverage * 100 + .15 * projectionScore + .10 * stabilityScore + .10 * longRate + bvpBonus;
-  const reliability = Math.max(.45, Math.min(.95, coverage * (stabilityScore / 100) * (Number.isFinite(l20) ? 1 : .86)));
-  const adjustedProb = Math.max(.50, Math.min(.86, (50 + (l10 - 50) * reliability) / 100));
-  return {
-    valid: true, prop: p, key: builderKey(p), quality: Math.round(quality), adjustedProb,
-    matchup, coverage, l10, l20, edge, stability: stability || "UNKNOWN", pitcherMarket,
-    gameKey: String(stats.game_pk || `${stats.opponent || "unknown"}|${p.commence_time || "time-pending"}`),
-    teamKey: stats.is_home ? "home" : "away",
-    pitcherName, opponent,
-    bvpSummary: bvpAb >= 4 ? `${bvpHits}-for-${bvpAb} vs ${pitcherName}` : "No meaningful BvP sample",
-  };
-}
-
-function rankedParlayCandidates(modeName) {
-  const rows = builderLivePool.map((p) => parlayCandidate(p, modeName)).filter((c) => c.valid);
-  return rows.sort((a, b) => {
-    if (modeName === "payout") return (Number(b.prop.vortex_score) - Number(a.prop.vortex_score)) || b.quality - a.quality;
-    return b.quality - a.quality || b.matchup - a.matchup;
-  });
-}
-
-function builderCompatible(candidate, selected, allowSameGame, modeName) {
-  if (selected.some((leg) => leg.key === candidate.key || leg.prop.player_name === candidate.prop.player_name)) return false;
-  const sameGame = selected.filter((leg) => leg.gameKey === candidate.gameKey);
-  const maxPerGame = allowSameGame ? (modeName === "safe" ? 2 : 3) : BUILDER_MODES[modeName].maxPerGame;
-  if (sameGame.length >= maxPerGame) return false;
-  if (sameGame.some((leg) => leg.pitcherMarket !== candidate.pitcherMarket)) return false;
-  return true;
-}
-
-function selectParlayLegs(excludeKey = "") {
-  const candidates = rankedParlayCandidates(state.builderMode);
-  const locked = [];
-  candidates.filter((leg) => state.builderLocked.has(leg.key) && leg.key !== excludeKey).forEach(leg => {
-    if (locked.length < state.builderLegs && builderCompatible(leg,locked,els.builderSameGame.checked,state.builderMode)) locked.push(leg);
-  });
-  const pool = candidates.filter((candidate) => candidate.key !== excludeKey && !locked.some((leg) => leg.key === candidate.key)).slice(0, 24);
-  let best = locked.length <= state.builderLegs ? [...locked] : [];
-  let bestScore = -Infinity;
-  const scoreBuild = (legs) => legs.reduce((sum, leg) => sum + leg.quality + Math.log(leg.adjustedProb) * 8, 0);
-  const search = (start, selected) => {
-    if (selected.length > best.length) best = [...selected];
-    if (selected.length === state.builderLegs) {
-      const score = scoreBuild(selected);
-      if (score > bestScore) { bestScore = score; best = [...selected]; }
-      return;
-    }
-    if (selected.length + (pool.length - start) < state.builderLegs) return;
-    for (let i = start; i < pool.length; i += 1) {
-      const candidate = pool[i];
-      if (!builderCompatible(candidate, selected, els.builderSameGame.checked, state.builderMode)) continue;
-      selected.push(candidate);
-      search(i + 1, selected);
-      selected.pop();
-    }
-  };
-  search(0, [...locked]);
-  return { selected: best, qualified: candidates.length };
-}
-
-function builderCombinedProbability(legs) {
-  let probability = legs.reduce((total, leg) => total * leg.adjustedProb, 1);
-  const gameCounts = {};
-  legs.forEach((leg) => { gameCounts[leg.gameKey] = (gameCounts[leg.gameKey] || 0) + 1; });
-  const correlatedExtras = Object.values(gameCounts).reduce((n, count) => n + Math.max(0, count - 1), 0);
-  probability *= Math.pow(.92, correlatedExtras) * Math.pow(.98, Math.max(0, legs.length - 2));
-  return { probability: probability * 100, correlatedExtras };
-}
-
-function renderBuilderResult(qualified = 0) {
-  const legs = state.builderResult;
-  if (legs.length < state.builderLegs) {
-    const reasons = new Map();
-    builderLivePool.forEach(p => (parlayCandidate(p,state.builderMode).reasons || []).forEach(reason => reasons.set(reason,(reasons.get(reason)||0)+1)));
-    const blockers = [...reasons].sort((a,b) => b[1]-a[1]).slice(0,3).map(([reason]) => reason).join('; ');
-    els.builderResult.hidden = false;
-    els.builderResult.innerHTML = `<div class="builder-no-play"><span>NO QUALIFIED BUILD</span><h3>${legs.length} of ${state.builderLegs} compatible legs available</h3><p>${qualified} candidate${qualified === 1 ? "" : "s"} qualified individually. ${blockers ? `Common exclusions: ${escapeHtml(blockers)}.` : 'Duplicate-player and same-game limits also apply.'} Try fewer legs or check again when lineups are confirmed.</p></div>`;
-    els.builderStatus.textContent = "No strong combination is available yet.";
-    return;
-  }
-  const combined = builderCombinedProbability(legs);
-  const avgQuality = legs.reduce((sum, leg) => sum + leg.quality, 0) / legs.length;
-  const avgCoverage = legs.reduce((sum, leg) => sum + leg.coverage, 0) / legs.length * 100;
-  const risk = combined.correlatedExtras ? "Managed" : "Low";
-  els.builderResult.hidden = false;
-  els.builderResult.innerHTML = `
-    <div class="builder-summary">
-      <div><span>SLIP QUALITY</span><strong id="builder-probability">0.0%</strong><small>Average evidence score · not a win probability</small></div>
-      <div class="builder-summary-grid"><p><span>AVG LEG QUALITY</span><b>${avgQuality.toFixed(0)}/100</b></p><p><span>DATA COVERAGE</span><b>${avgCoverage.toFixed(0)}%</b></p><p><span>CORRELATION</span><b>${risk}</b></p><p><span>BUILD</span><b>${BUILDER_MODES[state.builderMode].label}</b></p></div>
-    </div>
-    <div class="builder-legs">${legs.map((leg, index) => builderLegHtml(leg, index)).join("")}</div>
-    <div class="builder-footer"><p>Every leg cleared the current matchup, sample, and lineup/starter checks. PrizePicks will open for final review—this site never submits an entry.</p><div class="builder-footer-actions"><button type="button" id="builder-rebuild">Rebuild unlocked legs</button><button type="button" class="builder-prizepicks" id="builder-prizepicks-export">Open in PrizePicks</button></div></div>`;
-  els.builderStatus.textContent = `${legs.length}-leg ${BUILDER_MODES[state.builderMode].label.toLowerCase()} build created from ${qualified} qualified props.`;
-  requestAnimationFrame(() => countUpEl("builder-probability", avgQuality, { decimals: 0, suffix: "/100", duration: 850 }));
-  els.builderResult.querySelectorAll("[data-builder-lock]").forEach((button) => button.addEventListener("click", () => {
-    const key = button.dataset.builderLock;
-    if (state.builderLocked.has(key)) state.builderLocked.delete(key); else state.builderLocked.add(key);
-    renderBuilderResult(qualified);
-  }));
-  els.builderResult.querySelectorAll("[data-builder-replace]").forEach((button) => button.addEventListener("click", () => {
-    const replacedKey = button.dataset.builderReplace;
-    const previousLocks = new Set(state.builderLocked);
-    state.builderResult.forEach((leg) => {
-      if (leg.key !== replacedKey) state.builderLocked.add(leg.key);
-    });
-    const result = selectParlayLegs(replacedKey);
-    state.builderResult = result.selected;
-    state.builderLocked = new Set([...previousLocks].filter((key) => state.builderResult.some((leg) => leg.key === key)));
-    renderBuilderResult(result.qualified);
-  }));
-  document.getElementById("builder-rebuild")?.addEventListener("click", () => runParlayBuilder());
-  document.getElementById("builder-prizepicks-export")?.addEventListener("click", exportBuilderToPrizePicks);
-}
-
-async function exportBuilderToPrizePicks(event) {
-  const button = event.currentTarget;
-  const originalLabel = button.textContent;
-  button.disabled = true;
-  button.textContent = "Matching live lines…";
-  els.builderStatus.textContent = "Verifying every leg against the live PrizePicks board…";
-  try {
-    // The Parlay page's export follows the Parlay section's switch.
-    const response = await fetch(`${API_PRIZEPICKS_EXPORT}&from=parlay`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      cache: "no-store",
-      body: JSON.stringify({
-        legs: state.builderResult.map((leg) => ({
-          player: leg.prop.player_name,
-          stat: leg.prop.source === 'Live analysis' ? leg.prop.stat_type : BOT_STAT_TO_RESEARCH_STAT[leg.prop.stat_type] || leg.prop.stat_type,
-          line: leg.prop.line,
-          side: leg.prop.stats?.side === "under" ? "under" : "over",
-        })),
-      }),
-    });
-    const payload = await response.json();
-    if (!response.ok || !payload.url) {
-      const detail = payload.unmatched?.map((leg) => `${leg.player} ${leg.line} ${leg.stat}`).join("; ");
-      throw new Error(detail ? `${payload.error} ${detail}` : (payload.error || "PrizePicks export failed."));
-    }
-    const moved = (payload.changed || []).length, skipped = (payload.skipped || []).length;
-    els.builderStatus.textContent = `${payload.matches.length} live PrizePicks legs matched${moved ? `, ${moved} on a new line` : ""}${skipped ? `, ${skipped} no longer listed` : ""}. Opening your lineup for review…`;
-    window.location.assign(payload.url);
-  } catch (error) {
-    els.builderStatus.textContent = error.message || "PrizePicks export is temporarily unavailable.";
-    button.disabled = false;
-    button.textContent = originalLabel;
-  }
-}
-
-function builderLegHtml(leg, index) {
-  const p = leg.prop, stats = p.stats || {}, locked = state.builderLocked.has(leg.key);
-  const side = stats.side === "under" ? "Under" : "Over";
-  const photo = `https://img.mlbstatic.com/mlb-photos/image/upload/w_120,q_auto:best/v1/people/${stats.player_id}/headshot/silo/current`;
-  return `<article class="builder-leg" style="--leg-delay:${index * 80}ms"><div class="builder-leg-rank">${index + 1}</div><img src="${photo}" alt="" loading="lazy" /><div class="builder-leg-main"><div><h3>${escapeHtml(p.player_name)}</h3><span class="builder-anchor">${leg.quality >= 80 ? "ANCHOR" : leg.quality >= 70 ? "CORE" : "SUPPORTING"}</span></div><strong>${side} ${escapeHtml(String(p.line))} ${escapeHtml(p.stat_type)}</strong><p><span>Matchup ${Math.round(leg.matchup)}</span><span>L10 ${Math.round(leg.l10)}%</span><span>L20 ${Number.isFinite(leg.l20) ? `${Math.round(leg.l20)}%` : "—"}</span><span>Edge ${Number.isFinite(leg.edge) ? `${leg.edge >= 0 ? "+" : ""}${leg.edge.toFixed(2)}` : "—"}</span></p><small>${escapeHtml(`${stats.is_home ? "vs" : "@"} ${leg.opponent} · ${leg.pitcherName || "starter verified"} · ${leg.bvpSummary}`)} · ${leg.stability.toLowerCase()} stability · ${Math.round(leg.coverage * 100)}% coverage</small></div><div class="builder-leg-score"><span>LEG SCORE</span><b>${leg.quality}</b><small>Evidence</small></div><div class="builder-leg-actions"><button type="button" class="${locked ? "locked" : ""}" data-builder-lock="${escapeHtml(leg.key)}">${locked ? "Locked" : "Lock"}</button><button type="button" data-builder-replace="${escapeHtml(leg.key)}">Replace</button></div></article>`;
-}
-
-let builderLivePool = [];
-const builderAnalysisCache = new Map();
-async function runParlayBuilder() {
-  if (els.builderGenerate.disabled) return;
-  els.builderGenerate.classList.add("building");
-  els.builderGenerate.disabled = true;
-  const controls = [...document.querySelectorAll('.builder-controls button,.builder-controls input,.builder-controls select')];
-  controls.forEach(control => {control.disabled = true;});
-  builderLivePool = [];
-  els.builderResult.hidden = true;
-  try {
-    els.builderStatus.textContent = 'Refreshing available lines…';
-    const feed = await requestFinderFeed(true);
-    const scope = document.getElementById('builder-scope').value;
-    const modifier = document.getElementById('builder-modifier').value;
-    const boardKeys = new Set((state.v2BoardData?.props || []).map(p => `${nameKey(p.player_name)}|${BOT_STAT_TO_RESEARCH_STAT[p.stat_type] || p.stat_type}|${Number(p.line)}`));
-    const rows = feed.filter(row => (modifier === 'all' || row.odds_type === modifier)
-      && (scope === 'live' || boardKeys.has(`${nameKey(row.player)}|${pitcherFinderStat(row.stat).label}|${Number(row.line)}`))
-      && (!row.start_time || Date.parse(row.start_time) > Date.now()));
-    const players = [...new Map(rows.map(row => [finderHistoryKey(row), row])).values()];
-    const queue = [...players];
-    let scanned = 0, unavailable = 0;
-    const shortlist = [];
-    await Promise.all(Array.from({length:4}, async () => {
-      while (queue.length) {
-        const player = queue.shift();
-        try {
-          const payload = await requestFinderHistory(player);
-          for (const row of rows.filter(r => finderHistoryKey(r) === finderHistoryKey(player))) {
-            shortlist.push(...historicalSides(row, historyChart(payload,row), BUILDER_MODES[state.builderMode].minL10));
-          }
-        } catch {unavailable++;}
-        scanned++;
-        els.builderStatus.textContent = `Checking recent form · ${scanned}/${players.length} players`;
-      }
-    }));
-    shortlist.sort((a,b) => b.rank-a.rank);
-    // Spread the full-analysis budget over players before trying a second market.
-    const unique = [...new Map([...shortlist].reverse().map(c => [nameKey(c.row.player),c])).values()].sort((a,b) => b.rank-a.rank);
-    const analysis = [...unique, ...shortlist.filter(c => !unique.includes(c))].slice(0,32);
-    const jobs = [...analysis];
-    let checked = 0;
-    await Promise.all(Array.from({length:3}, async () => {
-      while (jobs.length) {
-        const {row,side} = jobs.shift();
-        try {
-          const key = `${row.id}|${row.stat}|${row.line}|${side}`;
-          let cached = builderAnalysisCache.get(key);
-          if (!cached || Date.now()-cached.at > 180000) {
-            const params = new URLSearchParams({player:row.player,stat:pitcherFinderStat(row.stat).label,line:String(row.line),side});
-            const response = await fetch(`${API_SOURCE}?${params}`, {cache:'no-store'});
-            const live = await response.json();
-            if (!response.ok || live.error) throw new Error('Analysis unavailable');
-            cached = {at:Date.now(),live}; builderAnalysisCache.set(key,cached);
-          }
-          const candidate = liveBuilderProp(cached.live,row,side);
-          if (candidate) builderLivePool.push(candidate);
-        } catch {unavailable++;}
-        checked++;
-        els.builderStatus.textContent = `Checking matchup, starter and lineup · ${checked}/${analysis.length} shortlisted lines`;
-      }
-    }));
-    // Refresh availability once more after analysis; expired/removed lines cannot enter a slip.
-    const current = await requestFinderFeed(true);
-    const activeIds = new Set(current.filter(row => !row.start_time || Date.parse(row.start_time)>Date.now()).map(row => `${row.id}|${Number(row.line)}`));
-    builderLivePool = builderLivePool.filter(p => activeIds.has(`${p.projection_id}|${p.line}`));
-    const result = selectParlayLegs();
-    state.builderResult = result.selected;
-    renderBuilderResult(result.qualified);
-    els.builderStatus.textContent += ` Scanned ${players.length} players; fully analyzed ${checked} shortlisted lines.${unavailable ? ` ${unavailable} lookups unavailable.` : ''}`;
-  } catch (error) {
-    els.builderStatus.textContent = 'Live data could not be verified. Please retry the build.';
-  } finally {
-    els.builderGenerate.classList.remove("building");
-    controls.forEach(control => {control.disabled = false;});
-  }
-}
-
-function syncBuilderControls() {
-  els.builderLegButtons.querySelectorAll("button").forEach((button) => {
-    const selected = Number(button.dataset.legs) === state.builderLegs;
-    button.classList.toggle("active", selected);
-    button.setAttribute("aria-pressed", String(selected));
-    button.setAttribute("aria-label", `${button.dataset.legs} leg slip`);
-  });
-  els.builderModeButtons.querySelectorAll("button").forEach((button) => {
-    const selected = button.dataset.mode === state.builderMode;
-    button.classList.toggle("active", selected);
-    button.setAttribute("aria-pressed", String(selected));
-  });
-  const summary = document.getElementById("builder-selection-summary");
-  if (summary) {
-    const sameGame = els.builderSameGame.checked ? " · same-game allowed" : "";
-    summary.textContent = `${state.builderLegs}-leg ${BUILDER_MODES[state.builderMode].label.toLowerCase()} slip${sameGame}`;
-  }
-}
-
-function wireParlayBuilder() {
-  els.builderLegButtons.querySelectorAll("button").forEach((button) => button.addEventListener("click", () => {
-    state.builderLegs = Number(button.dataset.legs);
-    state.builderLocked.clear(); state.builderResult = [];
-    syncBuilderControls();
-  }));
-  els.builderModeButtons.querySelectorAll("button").forEach((button) => button.addEventListener("click", () => {
-    state.builderMode = button.dataset.mode;
-    state.builderLocked.clear(); state.builderResult = [];
-    syncBuilderControls();
-  }));
-  els.builderSameGame.addEventListener("change", syncBuilderControls);
-  els.builderGenerate.addEventListener("click", async () => {
-    if (!state.v2BoardLoaded) await loadV2Board();
-    runParlayBuilder();
-  });
-  syncBuilderControls();
 }
 
 /* ---------- Slip Analyzer ---------- */
