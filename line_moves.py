@@ -52,7 +52,7 @@ PULL_BEFORE_START = 10 * 60
 # A feed missing more than this share of its lines at once is taken as
 # incomplete (a page that failed to load), not as lines pulled.
 PULL_SHARE = 0.3
-LEAGUES = {'MLB': 'mlb', 'WNBA': 'wnba', 'NFL': 'nfl', 'NHL': 'nhl', 'SOCCER': 'soccer', 'NBA': 'nba'}
+LEAGUES = {'MLB': 'mlb', 'WNBA': 'wnba', 'NFL': 'nfl', 'NHL': 'nhl', 'SOCCER': 'soccer', 'NBA': 'nba', 'CS2': 'cs2'}
 SPORTS = tuple(LEAGUES.values())
 BOOK_NAMES = {'prizepicks': 'PrizePicks', 'underdog': 'Underdog', 'pick6': 'DK Pick6', 'betr_us_dfs': 'Betr Picks',
               'draftkings': 'DraftKings', 'fanduel': 'FanDuel', 'betmgm': 'BetMGM', 'williamhill_us': 'Caesars',
@@ -211,7 +211,7 @@ def _compare(sport, source, entries, fetched_at, find_moves, extra=None, width=N
         raise
 
 
-def observe_prizepicks(league, rows, fetched_at=None):
+def observe_prizepicks(league, rows, fetched_at=None, app='prizepicks'):
     """A fresh PrizePicks feed for `league` (prizepicks_export_core rows).
     Standard lines only: a Goblin's or Demon's number is set from the
     standard line, so it moves with it."""
@@ -243,11 +243,11 @@ def observe_prizepicks(league, rows, fetched_at=None):
             if key not in before or before[key][0] == line:
                 continue
             row, was = rows_by_key[key], before[key]
-            moves.append(_move(sport, 'line', 'prizepicks', row['player'], row['stat'], was[0], line,
+            moves.append(_move(sport, 'line', app, row['player'], row['stat'], was[0], line,
                                _when(updated, max(float(was[1] or 0), previous_at), fetched_at),
                                team=row.get('team'), opponent=row.get('description'), headshot=row.get('headshot'),
                                startsAt=row.get('start_time')))
-        return moves + _pulled(sport, before, now, fetched_at, state, old)
+        return moves + (_pulled(sport, before, now, fetched_at, state, old) if app=='prizepicks' else [])
 
     def extra(old, kept):
         # Names, teams and stat names for lines no longer in the feed, so a
@@ -258,7 +258,7 @@ def observe_prizepicks(league, rows, fetched_at=None):
                 'stats': {**(old.get('stats') or {}), **stats}}
     # Only the numbers decide whether anything moved; PrizePicks' update
     # times change far more often than its lines.
-    moves = _compare(sport, 'pp', entries, fetched_at, find_moves, extra, width=1)
+    moves = _compare(sport, 'pp' if app=='prizepicks' else app, entries, fetched_at, find_moves, extra, width=1)
     if moves:
         try:
             import pick_alerts
@@ -386,7 +386,12 @@ def keep_fresh(sports, fetch=None, budget=6.0):
     if not enabled():
         return
     if fetch is None:
-        from prizepicks_export_core import _fetch_projection_rows as fetch
+        from prizepicks_export_core import _fetch_projection_rows
+        def fetch(league):
+            if league == 'CS2':
+                from cs2_board import board
+                return board(force=True)
+            return _fetch_projection_rows(league=league)
     now = time.time()
     leagues = {sport: league for league, sport in LEAGUES.items()
                if sport in sports and now - _polled.get(sport, 0) >= POLL_SECONDS / 2}

@@ -18,6 +18,7 @@ export function finderPlayerRows(rows, selected) {
   if(!selected)return [];
   return rows.filter(row=>{
     if(row.sport!==selected.sport)return false;
+    if(row.sport==='cs2')return nameKey(row.player)===nameKey(selected.player)&&row.opponent===selected.opponent&&row.startsAt===selected.startsAt;
     if(row.sport!=='tennis')return selected.playerId?row.playerId===selected.playerId:row.player===selected.player;
     if(nameKey(row.player)!==nameKey(selected.player))return false;
     const opponent=value=>nameKey(String(value||'').replace(/\s+1st\s+set.*$/i,''));
@@ -527,14 +528,14 @@ export function normalizeFinderRows(sport, payload, players = [], {now = Date.no
         apps: Array.isArray(raw.apps) && raw.apps.length ? raw.apps : [{key: 'prizepicks', name: 'PrizePicks', over: null, under: null}],
         average: null, windows: null, raw, historyStatus: ready ? 'pending' : 'none'});
     }
-    if (sport === 'tennis') {
-      return finish({id: `tennis:${raw.id}`, sport, player: raw.player, playerId: optional(raw.playerId),
-        headshot: optional(raw.headshot), position: optional(raw.position), teamAbbr: null, teamLogo: null,
+    if (sport === 'tennis' || sport === 'cs2') {
+      return finish({id: `${sport}:${raw.id}`, sport, player: raw.player, playerId: optional(raw.playerId),
+        headshot: optional(raw.headshot), position: optional(raw.position), teamAbbr: optional(raw.teamAbbr), teamLogo: null,
         opponent: optional(raw.opponent), startsAt: optional(raw.startsAt), market: raw.stat,
         marketKey: raw.marketKey || String(raw.stat || '').toLowerCase().replace(/[^a-z0-9]/g, ''),
         line: raw.line, direction: 'OVER', modifier: raw.modifier,
         apps: Array.isArray(raw.apps) && raw.apps.length ? raw.apps : [{key: 'prizepicks', name: 'PrizePicks', over: null, under: null}],
-        average: null, windows: null, raw, historyStatus: 'pending'});
+        average: null, windows: null, raw, historyStatus: sport==='cs2'?'none':'pending'});
     }
     return null;
   });
@@ -582,8 +583,8 @@ async function loadFinderSportRaw(sport, options = {}) {
     const payload = await request('/api/board?view=nhl', options);
     return {...payload, rows: normalizeFinderRows(sport, payload), fetchedAt: payload.builtAt || null};
   }
-  if (sport === 'tennis') {
-    const payload = await request('/api/board?view=tennis', options);
+  if (sport === 'tennis' || sport === 'cs2') {
+    const payload = await request(`/api/board?view=${sport}`, options);
     return {...payload, rows: normalizeFinderRows(sport, payload), fetchedAt: payload.builtAt || null};
   }
   throw new Error('This sport is not supported by Finder.');
@@ -614,7 +615,7 @@ export function applyFinderSnapshot(rows, histories={}, now=Date.now()) {
 }
 
 export async function loadFinderSport(sport, options={}) {
-  if(sport==='nfl')return loadFinderSportRaw(sport,options); // Already server-graded.
+  if(sport==='nfl'||sport==='cs2')return loadFinderSportRaw(sport,options); // CS2 history remains unavailable, not fabricated.
   let timer;
   const saved=Promise.race([
     request(`/api/board?view=finder-history&sport=${encodeURIComponent(sport)}`,options).catch(error=>{if(error.name==='AbortError')throw error;return {};}),

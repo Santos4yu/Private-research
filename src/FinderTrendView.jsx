@@ -5,6 +5,7 @@ import MLBSupportingStats from './MLBSupportingStats';
 import MLBPlayerGameLog from './MLBPlayerGameLog';
 import { FinderPlayerBanner } from './FinderPlayerBanner';
 import { NFLPlayerPage } from './sports/nfl/NFLPlayerPage';
+import {CS2PlayerPage} from './sports/cs2/CS2PlayerPage';
 import {loadTennisHistory,loadTennisContext,loadTennisLines,tennisOpponentMatches} from './unified-finder-data';
 import {wnbaChart,wnbaLines,wnbaOdds} from './sports/wnba/trend-data';
 import TennisFinderContext from './sports/tennis/TennisFinderContext';
@@ -76,6 +77,7 @@ function MLBTrends({ row, playerRows, onBack }) {
 // it returns to the same sport, filters and page in the unified Finder.
 // NFL uses the WNBA/MLB player page layout (sports/nfl/NFLPlayerPage.jsx).
 export function FinderTrendView({ row, playerRows, onBack }) {
+  if(row.sport==='cs2')return <CS2PlayerPage row={row} playerRows={playerRows} onBack={onBack}/>;
   if (row.sport === 'tennis') return <TennisTrends row={row} playerRows={playerRows} onBack={onBack}/>;
   return String(row.sport).toLowerCase() === 'nfl'
     ? <NFLPlayerPage row={row} playerRows={playerRows} onBack={onBack} />

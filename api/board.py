@@ -167,6 +167,8 @@ class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         from site_controls import allowed
         tab={'finder-history':'finder','prop-history':'research','moneyline':'moneyline','nrfi':'nrfi','soccer':'finder','nhl':'finder','tennis':'finder','moves':'moves','mlb-context':'finder','moneylines':'moneyline'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
+        if (parse_qs(urlparse(self.path).query).get('view') or [''])[0] == 'cs2':
+            tab = 'finder'
         if not allowed(self.headers,tab):return self._send(503,{'error':'This section is temporarily unavailable','featureDisabled':True})
         if not session_with_live_access(self.headers):
             return self._send(401, {"error": "Sign in with Discord to use live research.", "authRequired": True})
@@ -181,6 +183,15 @@ class handler(BaseHTTPRequestHandler):
             if not finder_sport_allowed(self.headers, sport):
                 return self._send(503, {"error": "This section is temporarily unavailable", "featureDisabled": True})
             return self._send(200, snapshot(sport))
+        if view == "cs2":
+            from site_controls import finder_sport_allowed
+            if not finder_sport_allowed(self.headers, "cs2"):
+                return self._send(503, {"error": "This section is temporarily unavailable", "featureDisabled": True})
+            try:
+                from cs2_board import board
+                return self._send(200, board(force=(parse_qs(urlparse(self.path).query).get("refresh") or [""])[0] == "1"))
+            except Exception:
+                return self._send(502, {"error": "CS2 lines are temporarily unavailable."})
         if view == "tennis":
             qs = parse_qs(urlparse(self.path).query)
             from site_controls import finder_sport_allowed

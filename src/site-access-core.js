@@ -26,7 +26,7 @@ export function canUseSport(policy,sport){return accessGranted(policy)&&(policy.
 // Leagues inside the Finder, controlled separately from Research's sport
 // switch (canUseSport) so turning NFL off in the Finder leaves NFL research
 // alone. Requires the Finder tab itself to be open.
-export const FINDER_SPORTS=['wnba','mlb','nfl','soccer','nhl','nba','tennis'];
+export const FINDER_SPORTS=['wnba','mlb','nfl','soccer','nhl','nba','tennis','cs2'];
 export function canUseFinderSport(policy,sport){
  return canUseTab(policy,'finder')&&(policy.isAdmin||!(policy.disabledFinderSports||[]).includes(sport));
 }

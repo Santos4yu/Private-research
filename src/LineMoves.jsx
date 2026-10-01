@@ -8,9 +8,9 @@ import './line-moves.css';
 // (line_moves.py fills the list; /api/board?view=moves reads it). The page
 // checks for new moves while it is open and on screen.
 const POLL_MS=30000;
-const APP_LOGOS={prizepicks:'/prizepicks/logo.png'};
-const SPORT_NAMES={mlb:'MLB',nba:'NBA',wnba:'WNBA',nfl:'NFL',nhl:'NHL',soccer:'Soccer'};
-const SOURCES=[['all','All'],['prizepicks','PrizePicks'],['books','Sportsbooks']];
+const APP_LOGOS={prizepicks:'/prizepicks/logo.png',underdog:'/sportsbooks/underdog.png'};
+const SPORT_NAMES={mlb:'MLB',nba:'NBA',wnba:'WNBA',nfl:'NFL',nhl:'NHL',soccer:'Soccer',cs2:'CS2'};
+const SOURCES=[['all','All'],['prizepicks','PrizePicks'],['underdog','Underdog'],['books','Sportsbooks']];
 
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
 const signed=value=>(value>0?'+':value<0?'−':'')+Math.abs(value).toString();
@@ -145,7 +145,7 @@ export function LineMoves(){
  const shown=useMemo(()=>{
   const needle=query.trim().toLowerCase();
   return data.moves.filter(move=>(sport==='all'||move.sport===sport)
-   &&(source==='all'||(source==='prizepicks')===(move.app==='prizepicks'))
+   &&(source==='all'||(source==='books'?!['prizepicks','underdog'].includes(move.app):move.app===source))
    &&(!needle||move.player.toLowerCase().includes(needle)||String(move.stat).toLowerCase().includes(needle)));
  },[data.moves,sport,source,query]);
  const groups=useMemo(()=>{const out=[];for(const move of shown){const label=day(move.time,now);if(out.at(-1)?.label!==label)out.push({label,moves:[]});out.at(-1).moves.push(move);}return out;},[shown,now]);

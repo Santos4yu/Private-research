@@ -18,7 +18,7 @@ function harness(){
  vm.runInContext(block('const EXTERNAL_TREND_ADAPTER = ')+block('window.vortexTrendPanel = '),ctx);
  return {ctx,state,paints,opens,panel:ctx.window.vortexTrendPanel};
 }
-for(const sport of ['TENNIS','NBA','WNBA','NFL','SOCCER','NHL']){
+for(const sport of ['TENNIS','NBA','WNBA','NFL','SOCCER','NHL','CS2']){
  test(`${sport} stat changes update in place and preserve the selected window and filters`,()=>{
   const h=harness();
   const first={sport,player:'Example',statKey:'sets',stat:'Total Sets',line:2.5,chart:{all:[2,3]}};

@@ -14,7 +14,7 @@ import {ENRICH,ENRICH_CONCURRENCY,BOARD_FRESH,stamped} from './finder-pool';
 const FinderTrendView=lazy(()=>import('./FinderTrendView').then(m=>({default:m.FinderTrendView})));
 const SoccerPlayerPage=lazy(()=>import('./sports/soccer/SoccerPlayerPage').then(m=>({default:m.SoccerPlayerPage})));
 const NHLPlayerPage=lazy(()=>import('./sports/nhl/NHLPlayerPage').then(m=>({default:m.NHLPlayerPage})));
-const SPORTS=['all','nba','wnba','mlb','nfl','nhl','soccer','tennis'],KEYS=SPORTS.slice(1),EMPTY={state:'idle',rows:[]};
+const SPORTS=['all','nba','wnba','mlb','nfl','nhl','soccer','tennis','cs2'],KEYS=SPORTS.slice(1),EMPTY={state:'idle',rows:[]};
 const LOGOS={prizepicks:'/prizepicks/logo.png',draftkings:'/sportsbooks/draftkings.png',fanduel:'/sportsbooks/fanduel.png',betmgm:'/sportsbooks/betmgm.png',underdog:'/sportsbooks/underdog.png'};
 const WINDOWS=[['l5','L5'],['l10','L10'],['l15','L15'],['h2h','H2H'],['season','SZN']];
 // With no sort chosen the board runs L10 high to low.
