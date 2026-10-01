@@ -3536,8 +3536,8 @@ function trendSaveCurrent() {
 function renderTrendSave() {
   const button = els.gamelogSave;
   if (!button) return;
-  button.hidden = !trendSave;
-  if (!trendSave) return;
+  button.hidden = !trendSave || Boolean(externalTrendConfig?.researchOnly);
+  if (!trendSave || externalTrendConfig?.researchOnly) return;
   const side = trendSave.savedSide?.(trendSaveCurrent()) || null;
   button.setAttribute("aria-pressed", String(Boolean(side)));
   button.dataset.side = side ? String(side).toLowerCase() : "";

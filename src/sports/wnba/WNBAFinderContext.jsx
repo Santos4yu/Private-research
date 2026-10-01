@@ -1,10 +1,9 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {Activity,ArrowLeftRight,CalendarClock,ChartColumn,HeartPulse,ListOrdered,RefreshCw,Shield,Target,Trophy,UserRound,Users} from 'lucide-react';
 import {FinderDropdown,FinderDropdownAssets} from '../../FinderDropdown';
+import {FinderResearchTabs,FinderResearchCard as Card} from '../../FinderResearchSections';
 import {MARKET_STAT,POSITIONS,ago,average,finite,fmt,hasPlayerContext,hasSplit,leagueOf,opponentOf,ordinal,playerContextParams,positionOf,price,rankTone,realGames,shortDate,signed,splitFilter,teamColor,useWnba} from './wnba-research';
 
-const tabs=[['matchup','Matchup',Trophy],['defense','Defense',Shield],['shooting','Shooting',Target],['similar','Similar',Users],['injuries','Injuries',HeartPulse],['rankings','Rankings',ListOrdered]];
-function Card({title,note,children,icon:Icon=Activity,className=''}){return <section className={'mlb-context-card '+className}><header><h2><Icon size={16} aria-hidden="true"/>{title}</h2>{note&&<small>{note}</small>}</header>{children}</section>;}
 function Empty({children}){return <p className="mlb-context-note">{children}</p>;}
 function Skeleton(){return <div className="mlb-context-skeleton" role="status" aria-label="Loading research"><span/><span/><span/><span/></div>;}
 function Failed({state,label}){return <Empty>{state.error||`${label} is temporarily unavailable.`} <button type="button" onClick={state.retry}><RefreshCw size={13} aria-hidden="true"/> Retry</button></Empty>;}
@@ -243,7 +242,7 @@ export default function WNBAFinderContext({row,logs,matchup,filters,onToggleFilt
  const playerPosition=positionOf(player.data?.position||row.position);
  const statLabel=useMemo(()=>Object.fromEntries(league.data?.stats||[])[stat]||row.market,[league.data,stat,row.market]);
  return <aside className="mlb-finder-context wnba-finder-context" data-tab={tab} aria-label={`${row.sport==='nba'?'NBA':'WNBA'} matchup research`}>
-  <nav className="mlb-context-tabs" aria-label="Research sections">{tabs.map(([key,label,Icon])=><button key={key} data-section={key} type="button" aria-pressed={tab===key} onClick={()=>setTab(key)}><Icon size={18} aria-hidden="true"/>{label}</button>)}</nav>
+  <FinderResearchTabs tab={tab} onChange={setTab}/>
   {tab==='matchup'&&<><WinPredictor matchup={matchup}/><MatchupOdds matchup={matchup}/><LastFive matchup={matchup}/><Standings matchup={matchup} team={row.teamAbbr}/></>}
   {tab==='defense'&&<><DefenseVsPosition league={league} row={row} stat={stat} playerPosition={playerPosition}/><OffenseVsDefense league={league} row={row}/></>}
   {tab==='shooting'&&<ShotChart player={player} league={league} row={row}/>}

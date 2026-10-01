@@ -7,6 +7,8 @@ import { FinderPlayerBanner } from './FinderPlayerBanner';
 import { NFLPlayerPage } from './sports/nfl/NFLPlayerPage';
 import {loadTennisHistory,tennisOpponentMatches} from './unified-finder-data';
 import {wnbaChart,wnbaLines,wnbaOdds} from './sports/wnba/trend-data';
+import TennisFinderContext,{TENNIS_STATS} from './sports/tennis/TennisFinderContext';
+import './sports/wnba/wnba-context.css';
 
 function TennisTrends({row,playerRows,onBack}) {
   const host=useRef(null), [selected,setSelected]=useState(row), [data,setData]=useState(null), [loading,setLoading]=useState(true), [error,setError]=useState('');
@@ -19,18 +21,19 @@ function TennisTrends({row,playerRows,onBack}) {
   const config=useMemo(()=>({sport:'TENNIS',player:row.player,headshot:row.headshot,opponent,
     matchupLabel:`${row.player} vs ${opponent}`,statKey:selected.marketKey,stat:selected.market,line:selected.line,
     side:selected.direction==='UNDER'?'Under':'Over',status:'Pre-game',kickoffLabel:row.startsAt?new Date(row.startsAt).toLocaleString():'',
-    stats:[...new Map(playerRows.map(item=>[item.marketKey,{key:item.marketKey,label:item.market,code:item.market}])).values()],
+    stats:[...new Map([...TENNIS_STATS.filter(stat=>(data?.games||[]).some(game=>Number.isFinite(game.values?.[stat.key]))),...playerRows.map(item=>({key:item.marketKey,label:item.market,code:item.market}))].map(stat=>[stat.key,stat])).values()],
     chart:wnbaChart((data?.games||[]).map(game=>({...game,opponent:tennisOpponentMatches(game.opponent,opponent)?opponent:game.opponent})),selected.marketKey,opponent),lines:wnbaLines(playerRows,selected.marketKey),
-    odds:wnbaOdds(playerRows,selected.marketKey),linesStatus:'ready',loading,filters:['opponent'],
-    onStat:key=>{const next=playerRows.find(item=>item.marketKey===key);if(next)setSelected(next);}}),[row,selected,playerRows,data,loading,opponent]);
+    odds:wnbaOdds(playerRows,selected.marketKey),linesStatus:'ready',loading,filters:['opponent'],researchOnly:String(selected.id).startsWith('research:'),
+    onStat:key=>{const next=playerRows.find(item=>item.marketKey===key);if(next)setSelected(next);else{const stat=TENNIS_STATS.find(item=>item.key===key),values=(data?.games||[]).map(game=>game.values?.[key]).filter(Number.isFinite);if(stat)setSelected({...row,id:`research:${key}`,marketKey:key,market:stat.label,line:values.length?Math.round(values.reduce((a,b)=>a+b,0)/values.length*10)/10:0,apps:[],modifier:null});}}}),[row,selected,playerRows,data,loading,opponent]);
   const latest=useRef(config);latest.current=config;
   useEffect(()=>{const panel=window.vortexTrendPanel;panel?.mount(host.current,latest.current);return()=>panel?.unmount();},[]);
   useEffect(()=>{window.vortexTrendPanel?.update(config);},[config]);
-  return <section className="finder-trend-view wnba-trend-page">
+  return <section className="finder-trend-view wnba-trend-page wnba-player-page">
     <FinderPlayerBanner row={selected} playerRows={playerRows} onBack={onBack}/>
     <div className="mlb-finder-workspace"><div className="mlb-trend-main">
       <div className="wnba-trend-host finder-mlb-trend-host" ref={host}/>
       {error&&<p className="mlb-context-note" role="status">{error}</p>}
+      {String(selected.id).startsWith('research:')&&<p className="mlb-context-note">Research-only stat. The adjustable comparison starts at the historical average; it is not a posted PrizePicks line.</p>}
       <section className="mlb-context-card mlb-supporting"><header><h2>Supporting stats</h2><small>Last 10 matches</small></header>
         <div className="mlb-support-tabs">{[['totalgames','Total Games'],['setswon','Sets Won'],['aces','Aces'],['doublefaults','Double Faults']].map(([key,label])=>{const sample=games.slice(-10).map(g=>g.values[key]).filter(Number.isFinite);return <button type="button" key={key} aria-pressed={support===key} onClick={()=>setSupport(key)}>{label}<strong>{sample.length?(sample.reduce((a,b)=>a+b,0)/sample.length).toFixed(1):'—'} <small>avg.</small></strong></button>;})}</div>
         <div className="mlb-support-chart">{games.slice(-10).map(game=>{const value=game.values[support],max=Math.max(1,...games.slice(-10).map(g=>g.values[support]).filter(Number.isFinite));return <div key={game.gameId}><div className="mlb-support-track"><div style={{height:Number.isFinite(value)?`${value/max*100}%`:'0%'}}><span>{value??'—'}</span></div></div><small>{new Date(game.date).toLocaleDateString([],{month:'numeric',day:'numeric'})}<br/>{game.opponent}</small></div>;})}</div>
@@ -38,11 +41,7 @@ function TennisTrends({row,playerRows,onBack}) {
       <section className="mlb-context-card mlb-player-gamelog"><header><h2>Game log · Last 15 matches</h2><small>{data?.updatedAt?'Updated '+new Date(data.updatedAt).toLocaleDateString():row.player}</small></header>
         <div className="mlb-player-log-scroll" tabIndex={0} role="region" aria-label="Tennis match statistics; scroll for more columns"><table><thead><tr><th>Date</th><th>Opponent</th><th>Result</th><th>Score</th><th>Surface</th>{[['totalgameswon','GW'],['totalgames','Games'],['aces','Aces'],['doublefaults','DF'],['fantasyscore','FP']].map(([key,label])=><th key={key}>{label}</th>)}</tr></thead><tbody>{games.slice(-15).reverse().map(game=><tr key={game.gameId}><td>{new Date(game.date).toLocaleDateString()}</td><td>{game.opponent}</td><td>{game.result}</td><td>{game.score}</td><td>{game.surface||'—'}</td>{['totalgameswon','totalgames','aces','doublefaults','fantasyscore'].map(key=><td key={key}>{game.values[key]??'—'}</td>)}</tr>)}</tbody></table></div>
       </section>
-    </div><aside className="mlb-finder-context"><section className="mlb-context-card"><header><h2>Matchup</h2><small>Tennis</small></header><h3>{row.player} vs {opponent}</h3>
-      <p className="mlb-context-note">{row.startsAt?new Date(row.startsAt).toLocaleString():''}</p>
-      <div className="mlb-context-table-wrap"><table><thead><tr><th>Surface</th><th>Matches</th><th>{selected.market} avg.</th></tr></thead><tbody>{['hard','clay','grass'].map(surface=>{const sample=games.filter(g=>g.surface===surface&&Number.isFinite(g.values[selected.marketKey]));return <tr key={surface}><th>{surface}</th><td>{sample.length}</td><td>{sample.length?(sample.reduce((sum,g)=>sum+g.values[selected.marketKey],0)/sample.length).toFixed(1):'—'}</td></tr>;})}</tbody></table></div>
-      <div className="mlb-context-table-wrap"><table><thead><tr><th>Recent form</th><th>Wins</th><th>Losses</th></tr></thead><tbody>{[5,10,15].map(size=>{const sample=games.slice(-size);return <tr key={size}><th>L{size}</th><td>{sample.length?sample.filter(g=>g.result==='W').length:'—'}</td><td>{sample.length?sample.filter(g=>g.result==='L').length:'—'}</td></tr>;})}</tbody></table></div>
-    </section></aside></div>
+    </div><TennisFinderContext row={selected} games={games} playerRows={playerRows} loading={loading}/></div>
   </section>;
 }
 

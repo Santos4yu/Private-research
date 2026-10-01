@@ -1,6 +1,6 @@
 .mlb-finder-workspace{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(340px,1fr);gap:12px;align-items:start}
 .mlb-finder-workspace>.wnba-trend-host{min-width:0;min-height:0}
-.mlb-trend-main{min-width:0;display:grid;gap:8px}.mlb-trend-main>.wnba-trend-host{min-height:0}
+.mlb-trend-main{min-width:0;display:grid;gap:8px}.mlb-trend-main>.wnba-trend-host{min-height:0;min-width:0;width:100%;max-width:100%;overflow-x:auto}
 .mlb-support-tabs{display:flex;padding:6px;gap:4px}.mlb-support-tabs button{flex:1;min-width:0;min-height:48px;border:0;border-radius:6px;background:transparent;color:#b7bdc4;font-size:12px;cursor:pointer}.mlb-support-tabs button[aria-pressed=true]{background:#272b30;color:#fff}.mlb-support-tabs strong{display:block;margin-top:5px;color:#edf3fa}.mlb-support-tabs small{font-weight:400}
 .mlb-support-chart{display:flex;gap:6px;padding:24px 10px 10px}.mlb-support-chart>div{flex:1;min-width:0;text-align:center}.mlb-support-track{height:125px;display:flex;align-items:flex-end}.mlb-support-track>div{position:relative;width:100%;border-radius:5px 5px 0 0;background:linear-gradient(#989ea5,#5c6168)}.mlb-support-track span{position:absolute;top:-18px;left:0;right:0;color:#b4bac1;font-size:10px}.mlb-support-chart small{font-size:9px;color:#b7bdc4}
 .mlb-finder-context>.mlb-context-card{order:2}.mlb-finder-context>.mlb-win-predictor{order:1}

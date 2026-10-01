@@ -1,0 +1,38 @@
+import React,{useEffect,useState} from 'react';
+import {Activity,CalendarClock,ChartColumn,HeartPulse,ListOrdered,Shield,Target,Users} from 'lucide-react';
+import {FinderResearchTabs,FinderResearchCard as Card} from '../../FinderResearchSections';
+import {loadTennisHistory,tennisOpponentMatches} from '../../unified-finder-data';
+import {FinderDropdown} from '../../FinderDropdown';
+
+export const TENNIS_STATS=[['totalgames','Total Games','GAMES'],['totalgameswon','Games Won','GW'],['gameslost','Games Lost','GL'],['fantasyscore','Fantasy Score','FP'],['breakpointswon','Break Points Won','BP WON'],['breakpointchances','Break Point Chances','BP CH'],['breakpointswonpercentage','Break Points Won %','BP W%'],['aces','Aces','ACES'],['acesallowed','Aces Allowed','ACE ALL'],['doublefaults','Double Faults','DF'],['totalsets','Sets Played','SETS'],['setswon','Sets Won','SW'],['1stsettotalgames','1st Set Total Games','1ST G'],['1stsettotalgameswon','1st Set Games Won','1ST GW'],['totaltiebreaks','Tiebreaks','TB'],['firstservepercentage','First Serve %','1ST%'],['firstservewonpercentage','First Serve Points Won %','1ST W%'],['secondservewonpercentage','Second Serve Points Won %','2ND W%'],['servicepointswonpercentage','Service Points Won %','SPW%'],['returnpointswonpercentage','Return Points Won %','RPW%'],['breakpointsfaced','Break Points Faced','BP F'],['breakpointssaved','Break Points Saved','BP S'],['breakpointssavedpercentage','Break Points Saved %','BP S%']].map(([key,label,code])=>({key,label,code}));
+const mean=(games,key)=>{const values=games.map(g=>g.values?.[key]).filter(Number.isFinite);return values.length?values.reduce((a,b)=>a+b,0)/values.length:null;};
+const fmt=value=>Number.isFinite(value)?value.toFixed(1):'—';
+const note=text=><p className="mlb-context-note">{text}</p>;
+function Recent({name,games}){return <div><h3>{name}</h3>{games.slice(-5).reverse().map(g=><div className="wnba-last-five-row" key={g.gameId}><span>{new Date(g.date).toLocaleDateString([],{month:'numeric',day:'numeric'})}</span><span>vs {g.opponent}</span><b data-result={g.result}>{g.result}</b><span>{g.score}</span></div>)}{!games.length&&note('No match history available.')}</div>;}
+function Metrics({games,other,keys,names}){return <div className="mlb-context-table-wrap"><table><thead><tr><th>Stat</th><th>{names[0]}</th><th>{names[1]}</th></tr></thead><tbody>{keys.map(key=>{const stat=TENNIS_STATS.find(s=>s.key===key);return <tr key={key}><th>{stat?.label||key}</th><td>{fmt(mean(games,key))}{key.endsWith('percentage')&&Number.isFinite(mean(games,key))?'%':''}</td><td>{fmt(mean(other,key))}{key.endsWith('percentage')&&Number.isFinite(mean(other,key))?'%':''}</td></tr>;})}</tbody></table></div>;}
+
+export default function TennisFinderContext({row,games,playerRows,loading}){
+ const [tab,setTab]=useState('matchup'),[other,setOther]=useState([]),[surface,setSurface]=useState('all'),[size,setSize]=useState(15),[failure,setFailure]=useState('');
+ const opponent=String(row.opponent||'').replace(/\s+1st Set.*$/i,'');
+ useEffect(()=>{const controller=new AbortController();setOther([]);setFailure('');if(opponent)loadTennisHistory(opponent,{signal:controller.signal}).then(data=>setOther(data.games||[])).catch(error=>{if(error.name!=='AbortError')setFailure('Opponent history is temporarily unavailable.');});return()=>controller.abort();},[opponent]);
+ const names=[row.player,opponent||'Opponent'];
+ const filter=list=>(surface==='all'?list:list.filter(g=>String(g.surface).toLowerCase()===surface)).slice(-size);
+ const sample=filter(games),opponentGames=filter(other),h2h=games.filter(g=>tennisOpponentMatches(g.opponent,opponent));
+ const controls=<div className="wnba-dvp-controls"><label>Surface <FinderDropdown aria-label="Tennis surface" value={surface} onChange={e=>setSurface(e.target.value)}>{['all','hard','clay','grass'].map(key=><option key={key} value={key}>{key==='all'?'All':key}</option>)}</FinderDropdown></label><label>Matches <FinderDropdown aria-label="Tennis sample" value={size} onChange={e=>setSize(Number(e.target.value))}>{[5,10,15,20,10000].map(n=><option key={n} value={n}>{n===10000?'All':`Last ${n}`}</option>)}</FinderDropdown></label></div>;
+ return <aside className="mlb-finder-context wnba-finder-context" data-tab={tab} aria-label="Tennis matchup research">
+  <FinderResearchTabs tab={tab} onChange={setTab}/>
+  {loading&&note('Loading match history…')}{failure&&note(failure)}
+  {tab==='matchup'&&<>
+   <Card title="Win predictor" note={row.startsAt?new Date(row.startsAt).toLocaleString():'Pregame'} className="mlb-win-predictor">{note('A verified pregame win probability is not connected. Recent win rate is not a matchup prediction.')}</Card>
+   <Card title="Matchup odds" note="PrizePicks prop lines" icon={ChartColumn}><div className="mlb-context-table-wrap"><table><thead><tr><th>Player</th><th>Stat</th><th>Line</th><th>Type</th></tr></thead><tbody>{playerRows.filter(item=>item.marketKey===row.marketKey).map(item=><tr key={item.id}><th>{item.player}</th><td>{item.market}</td><td>{item.line}</td><td>{item.modifier||'Standard'}</td></tr>)}</tbody></table></div>{note('Match moneyline, spread and total are not connected; these are prop lines, not match odds.')}</Card>
+   <Card title="Last 5 games" icon={CalendarClock} className="wnba-last-five"><div className="wnba-last-five-grid"><Recent name={names[0]} games={games}/><Recent name={names[1]} games={other}/></div></Card>
+   <Card title="Head to head" icon={Users}>{h2h.length?<Recent name={`${h2h.length} recorded meetings`} games={h2h}/>:note('No recorded head-to-head matches in the available history.')}</Card>
+  </>}
+  {tab==='defense'&&<Card title="Return and break-point comparison" icon={Shield}>{controls}<Metrics games={sample} other={opponentGames} names={names} keys={['acesallowed','returnpointswonpercentage','breakpointswon','breakpointchances','breakpointswonpercentage','breakpointsfaced','breakpointssaved','breakpointssavedpercentage']}/></Card>}
+  {tab==='shooting'&&<Card title="Serve statistics" note="Tennis serve/return data" icon={Target}>{controls}<Metrics games={sample} other={opponentGames} names={names} keys={['aces','doublefaults','firstservepercentage','firstservewonpercentage','secondservewonpercentage','servicepointswonpercentage']}/>{note('Serve placement and shot-location charts are not supplied by the current feed.')}</Card>}
+  {tab==='similar'&&<Card title="Similar players" icon={Users}>{note('A verified similar-player dataset is not connected. No similarity scores are generated from incomplete data.')}</Card>}
+  {tab==='injuries'&&<Card title="Injuries" icon={HeartPulse}>{note('No verified tennis injury feed is connected. An empty injury feed does not mean a player is healthy.')}</Card>}
+  {tab==='rankings'&&<Card title="Rankings" icon={ListOrdered}><div className="mlb-context-table-wrap"><table><thead><tr><th>Player</th><th>Last recorded opponent rank</th></tr></thead><tbody>{[[names[0],games],[names[1],other]].map(([name,list])=><tr key={name}><th>{name}</th><td>{[...list].reverse().find(g=>g.opponentRank)?.opponentRank||'—'}</td></tr>)}</tbody></table></div>{note('These are historical opponent ranks, not the selected players’ current rankings. Current ATP/WTA rankings and UTR are not connected.')}</Card>}
+  <Card title="Advanced averages" note="Reported matches only" icon={Activity}>{controls}<Metrics games={sample} other={opponentGames} names={names} keys={TENNIS_STATS.filter(stat=>sample.some(g=>Number.isFinite(g.values?.[stat.key]))||opponentGames.some(g=>Number.isFinite(g.values?.[stat.key]))).map(stat=>stat.key)}/>{note('Missing statistics are excluded, not counted as zero. Samples can differ by stat.')}</Card>
+ </aside>;
+}
