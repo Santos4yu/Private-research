@@ -1,20 +1,29 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Database } from 'lucide-react';
 import MLBFinderContext from './MLBFinderContext';
 import MLBSupportingStats from './MLBSupportingStats';
 import MLBPlayerGameLog from './MLBPlayerGameLog';
 import { FinderPlayerBanner } from './FinderPlayerBanner';
 import { NFLPlayerPage } from './sports/nfl/NFLPlayerPage';
-import {loadTennisHistory,loadTennisContext,tennisOpponentMatches} from './unified-finder-data';
+import {loadTennisHistory,loadTennisContext,loadTennisLines,tennisOpponentMatches} from './unified-finder-data';
 import {wnbaChart,wnbaLines,wnbaOdds} from './sports/wnba/trend-data';
 import TennisFinderContext from './sports/tennis/TennisFinderContext';
-import {TENNIS_MARKET_TABS} from './sports/tennis/tennis-research';
+import {TENNIS_MARKET_TABS,tennisPostedSelection} from './sports/tennis/tennis-research';
 import './sports/wnba/wnba-context.css';
 
 function TennisTrends({row,playerRows,onBack}) {
   const host=useRef(null), [selected,setSelected]=useState(row), [data,setData]=useState(null), [loading,setLoading]=useState(true), [error,setError]=useState('');
   const [support,setSupport]=useState('totalgames');
   const [context,setContext]=useState(null);
+  const [freshLines,setFreshLines]=useState(null);
+  useEffect(()=>{const controller=new AbortController();setFreshLines(null);
+    loadTennisLines(row,{signal:controller.signal}).then(setFreshLines).catch(()=>{});
+    return()=>controller.abort();},[row.player,row.opponent,row.startsAt]);
+  const offers=freshLines??playerRows;
+  useLayoutEffect(()=>{setSelected(current=>{
+    const posted=tennisPostedSelection(offers,current.marketKey,current);
+    return posted&&(String(current.id).startsWith('research:')||posted.id===current.id)?posted:current;
+  });},[offers]);
   useEffect(()=>{const controller=new AbortController();setContext(null);loadTennisContext(row,{signal:controller.signal}).then(setContext).catch(e=>{if(e.name!=='AbortError')setContext({message:'Current matchup details could not load; historical data remains available.'});});return()=>controller.abort();},[row.player,row.opponent,row.startsAt]);
   useEffect(()=>{const controller=new AbortController();setLoading(true);setError('');setData(null);
     loadTennisHistory(row.player,{signal:controller.signal}).then(setData).catch(e=>{if(e.name!=='AbortError')setError('Match history could not load. Refresh to retry.');}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});
@@ -24,15 +33,15 @@ function TennisTrends({row,playerRows,onBack}) {
   const config=useMemo(()=>({sport:'TENNIS',player:row.player,headshot:row.headshot,opponent,
     matchupLabel:`${row.player} vs ${opponent}`,statKey:selected.marketKey,stat:selected.market,line:selected.line,
     side:selected.direction==='UNDER'?'Under':'Over',status:'Pre-game',kickoffLabel:row.startsAt?new Date(row.startsAt).toLocaleString():'',
-    stats:TENNIS_MARKET_TABS,
-    chart:wnbaChart(games.map(game=>({...game,opponent:tennisOpponentMatches(game.opponent,opponent)?opponent:game.opponent})),selected.marketKey,opponent),lines:wnbaLines(playerRows,selected.marketKey),
-    odds:wnbaOdds(playerRows,selected.marketKey),linesStatus:'ready',loading,filters:['opponent'],researchOnly:String(selected.id).startsWith('research:'),
-    onStat:key=>{const next=playerRows.find(item=>item.marketKey===key);if(next)setSelected(next);else{const stat=TENNIS_MARKET_TABS.find(item=>item.key===key),values=games.map(game=>game.values?.[key]).filter(Number.isFinite);if(stat)setSelected({...row,id:`research:${key}`,marketKey:key,market:stat.label,line:values.length?Math.round(values.reduce((a,b)=>a+b,0)/values.length*10)/10:0,apps:[],modifier:null});}}}),[row,selected,playerRows,data,context,loading,opponent]);
+    stats:TENNIS_MARKET_TABS,postedRows:offers,
+    chart:wnbaChart(games.map(game=>({...game,opponent:tennisOpponentMatches(game.opponent,opponent)?opponent:game.opponent})),selected.marketKey,opponent),lines:wnbaLines(offers,selected.marketKey),
+    odds:wnbaOdds(offers,selected.marketKey),linesStatus:'ready',loading,filters:['opponent'],researchOnly:String(selected.id).startsWith('research:'),
+    onStat:key=>{const next=tennisPostedSelection(offers,key);if(next)setSelected(next);else{const stat=TENNIS_MARKET_TABS.find(item=>item.key===key),values=games.map(game=>game.values?.[key]).filter(Number.isFinite);if(stat)setSelected({...row,id:`research:${key}`,marketKey:key,market:stat.label,line:values.length?Math.round(values.reduce((a,b)=>a+b,0)/values.length*10)/10:0,apps:[],modifier:null});}}}),[row,selected,offers,data,context,loading,opponent]);
   const latest=useRef(config);latest.current=config;
-  useEffect(()=>{const panel=window.vortexTrendPanel;panel?.mount(host.current,latest.current);return()=>panel?.unmount();},[]);
-  useEffect(()=>{window.vortexTrendPanel?.update(config);},[config]);
+  useLayoutEffect(()=>{const panel=window.vortexTrendPanel;panel?.mount(host.current,latest.current);return()=>panel?.unmount();},[]);
+  useLayoutEffect(()=>{window.vortexTrendPanel?.update(config);},[config]);
   return <section className="finder-trend-view wnba-trend-page wnba-player-page">
-    <FinderPlayerBanner row={selected} playerRows={playerRows} onBack={onBack}/>
+    <FinderPlayerBanner row={selected} playerRows={offers} onBack={onBack}/>
     <div className="mlb-finder-workspace"><div className="mlb-trend-main">
       <div className="wnba-trend-host finder-mlb-trend-host" ref={host}/>
       {error&&<p className="mlb-context-note" role="status">{error}</p>}

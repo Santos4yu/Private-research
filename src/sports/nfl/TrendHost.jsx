@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useLayoutEffect, useMemo, useRef } from 'react';
 import { teamLogoUrl } from './nfl-ui-core';
 import { nflStatTabs, nflTrendChart, nflLineLadder, nflOddsRows, nflDefaultLine } from './trend-bridge';
 
@@ -68,14 +68,14 @@ export function NFLTrendHost({
   const latest = useRef(config);
   latest.current = config;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const panel = window.vortexTrendPanel;
     if (!panel || !host.current) return undefined;
     panel.mount(host.current, latest.current);
     return () => panel.unmount();
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     window.vortexTrendPanel?.update(config);
   }, [config]);
 

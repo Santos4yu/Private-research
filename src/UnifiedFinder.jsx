@@ -267,7 +267,7 @@ export function UnifiedFinder(){
   const panel=window.vortexTrendPanel;
   if(!panel?.setSave)return undefined;
   if(!selected){panel.setSave(null);return undefined;}
-  const line=current=>trendPickRow(playerRows,current)||selected;
+  const line=current=>trendPickRow(current.postedRows||playerRows,current)||selected;
   panel.setSave({savedSide:current=>picks.get(line(current).id)||null,onClick:(anchor,current)=>onPick(line(current),anchor)});
   return()=>panel.setSave(null);
  },[selected,playerRows,picks,onPick]);

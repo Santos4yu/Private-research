@@ -1,4 +1,4 @@
-import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import React,{useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {CalendarDays,Database,ListOrdered,PieChart,RefreshCw,Shield,UserCheck,UserRound,Users,UserX} from 'lucide-react';
 import {FinderPlayerBanner} from '../../FinderPlayerBanner';
 import {nflLineLadder,nflOddsRows,nflStatCode} from './trend-bridge';
@@ -49,8 +49,8 @@ function TrendChart({row,playerRows,rows,loading,onStat,chips,chipsNote,onChipRe
   [row,rows,loading,onStat,opponent,offers,home,away,chips,chipsNote,onChipRemove,onChipsClear,playerRows]);
  const latest=useRef(config);latest.current=config;
  const [ready,setReady]=useState(true);
- useEffect(()=>{const panel=window.vortexTrendPanel;if(!panel||!host.current){setReady(false);return undefined;}setReady(Boolean(panel.mount(host.current,latest.current)));return()=>panel.unmount();},[]);
- useEffect(()=>{window.vortexTrendPanel?.update(config);},[config]);
+ useLayoutEffect(()=>{const panel=window.vortexTrendPanel;if(!panel||!host.current){setReady(false);return undefined;}setReady(Boolean(panel.mount(host.current,latest.current)));return()=>panel.unmount();},[]);
+ useLayoutEffect(()=>{window.vortexTrendPanel?.update(config);},[config]);
  return <>{!ready&&<div className="wnba-board-message" role="status"><Database size={22} aria-hidden="true"/><strong>Trends could not open</strong><span>Refresh the page to reload player research.</span></div>}<div className="wnba-trend-host finder-mlb-trend-host" ref={host}/></>;
 }
 

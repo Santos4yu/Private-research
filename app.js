@@ -2848,7 +2848,15 @@ function restoreGameLogViewport(saved) {
 }
 
 function populateGameLogStats() {
+  const stats = trendAdapter.statList();
+  const existing = [...els.gamelogStatTabs.querySelectorAll('button[data-stat]')];
+  if (existing.length === stats.length && existing.every((button,index) => button.dataset.stat === stats[index])) {
+    existing.forEach(button => {button.classList.toggle('active',button.dataset.stat===gameLogState.stat);button.setAttribute('aria-pressed',String(button.dataset.stat===gameLogState.stat));});
+    return;
+  }
+  const scrollLeft = els.gamelogStatTabs.scrollLeft;
   els.gamelogStatTabs.innerHTML = trendAdapter.statList().map((stat) => `<button type="button" data-stat="${escapeHtml(stat)}" title="${escapeHtml(stat)}" aria-label="${escapeHtml(stat)}" aria-pressed="${stat === gameLogState.stat}" class="${stat === gameLogState.stat ? "active" : ""}">${escapeHtml(gameLogStatCode(stat))}</button>`).join("");
+  els.gamelogStatTabs.scrollLeft = scrollLeft;
 }
 
 // The sport-neutral half of switching the panel to another stat: badge,
@@ -3531,7 +3539,7 @@ let trendSave = null;
 function trendSaveCurrent() {
   const stat = gameLogState.stat;
   const statKey = externalTrendConfig?.stats?.find((item) => item.label === stat)?.key || "";
-  return { stat, statKey, line: Number(gameLogState.line) };
+  return { stat, statKey, line: Number(gameLogState.line), postedRows: externalTrendConfig?.postedRows };
 }
 function renderTrendSave() {
   const button = els.gamelogSave;
@@ -3674,19 +3682,22 @@ const EXTERNAL_TREND_ADAPTER = {
   loadStat(stat) {
     const config = externalTrendConfig;
     if (!config) return;
+    const entry = config.stats?.find((item) => item.label === stat);
+    if (entry && entry.key !== config.statKey) {
+      // Keep the old frame until the host commits the new market atomically.
+      config.onStat?.(entry.key);
+      return;
+    }
     gameLogState.stat = stat;
     gameLogState.dragging = false;
     gameLogState.error = "";
     gameLogState.handDataLoaded = false;
     gameLogState.animationDirection = "none";
     if (els.gamelogHandField) els.gamelogHandField.hidden = true;
-    const entry = config.stats?.find((item) => item.label === stat);
-    const switching = Boolean(entry) && entry.key !== config.statKey;
-    gameLogState.loading = switching;
+    gameLogState.loading = Boolean(config.loading);
     syncTrendStatHeader(stat);
     renderGameLogTabs();
     renderGameLogChart();
-    if (switching) config.onStat?.(entry.key);
   },
 };
 
@@ -3784,12 +3795,15 @@ window.vortexTrendPanel = {
   update(config, remount = false) {
     if (!config) return;
     const previous = externalTrendConfig;
+    if (!remount && previous === config) return;
     const switched = remount || trendAdapter !== EXTERNAL_TREND_ADAPTER
-      || previous?.player !== config.player || previous?.statKey !== config.statKey;
+      || previous?.player !== config.player || previous?.sport !== config.sport;
+    const marketChanged = previous?.statKey !== config.statKey;
+    const viewport = !switched ? captureGameLogViewport() : null;
     externalTrendConfig = config;
     trendAdapter = EXTERNAL_TREND_ADAPTER;
     if (switched) {
-      // A different player or market starts the panel over: window back to
+      // A different player or sport starts the panel over: window back to
       // L10, filters cleared, line reset -- same reset MLB gets per prop.
       activeFinderProp = null;
       gameLogState.lineEdited = false;
@@ -3804,6 +3818,17 @@ window.vortexTrendPanel = {
         gameStatus: config.status || "Pre-game",
       }, EXTERNAL_TREND_ADAPTER);
     } else {
+      if (marketChanged) {
+        gameLogState.stat = config.stat;
+        gameLogState.line = Number(config.line);
+        gameLogState.lineEdited = false;
+        gameLogState.error = "";
+        gameLogState.dragging = false;
+        gameLogState.animationDirection = "none";
+        if (activeFinderProp) activeFinderProp = {...activeFinderProp,betType:config.stat,line:config.line,side:config.side||"Over"};
+        syncTrendStatHeader(config.stat);
+        populateGameLogStats();
+      }
       const verifiedLineArrived = Number.isFinite(config.line) && Number(config.line) !== Number(previous?.line);
       if (verifiedLineArrived && !gameLogState.lineEdited) {
         gameLogState.line = Number(config.line);
@@ -3817,6 +3842,7 @@ window.vortexTrendPanel = {
     }
     applyExternalTrendMarket(config);
     renderExternalTrendChips(config);
+    if (viewport) restoreGameLogViewport(viewport);
   },
   // Park the shared node back on <body> so a later MLB report can reclaim
   // it (getElementById only ever finds an ATTACHED node -- see

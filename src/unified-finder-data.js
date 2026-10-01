@@ -966,6 +966,12 @@ export async function loadTennisHistory(player, options = {}) {
   return payload;
 }
 
+// Lines refresh independently of history; a research fallback is not an offer.
+export async function loadTennisLines(row,options={}) {
+  const payload=await patientRequest('/api/board?view=tennis',options);
+  return finderPlayerRows(normalizeFinderRows('tennis',payload),row);
+}
+
 export async function loadTennisContext(row, options={}) {
   const key=`tennis-context:${row.player}:${row.opponent}:${row.startsAt}`;
   const cached=historyCache.get(key);

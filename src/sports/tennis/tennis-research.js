@@ -1,4 +1,8 @@
 export const courtKey=value=>String(value||'').toLowerCase().includes('hard')?'hard':String(value||'').toLowerCase().includes('clay')?'clay':String(value||'').toLowerCase().includes('grass')?'grass':'';
+export function tennisPostedSelection(rows,key,current){
+ const posted=rows.filter(r=>r.marketKey===key&&Number.isFinite(r.line));
+ return posted.find(r=>r.id===current?.id)||posted.find(r=>String(r.modifier||'standard').toLowerCase()==='standard')||posted[0]||null;
+}
 export function tennisSample(games,{surface='all',size=15,rank='all',format='all',hand='all'}={}){
  return games.filter(g=>(surface==='all'||courtKey(g.surface)===surface)&&(rank==='all'||(Number(g.opponentRank)>0&&Number(g.opponentRank)<=Number(rank)))&&(format==='all'||String(g.bestOf)===format)&&(hand==='all'||g.opponentHand===hand)).slice(-Number(size));
 }
