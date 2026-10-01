@@ -67,6 +67,11 @@ def build(projections=None, now=None):
                       "modifier": tier, "updatedAt": line.get("updated_at") or None}],
         })
     rows.sort(key=lambda row: (row["startsAt"] or "", row["player"], row["stat"], row["line"], row["modifier"]))
+    try:
+        from tennis_live import track_players
+        track_players(row['player'] for row in rows)
+    except Exception:
+        pass  # A history-store outage must never remove actual posted lines.
     return {"builtAt": datetime.now(timezone.utc).isoformat(), "source": "prizepicks", "rows": rows,
             "version": VERSION, "historyAvailable": True}
 

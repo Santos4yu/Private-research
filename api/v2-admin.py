@@ -94,6 +94,20 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(200, result)
             if action == "cron-scan":
                 return self._handle_cron_scan()
+            if action == "tennis-cron-scan":
+                import hmac
+                secret = os.getenv("CRON_SECRET", "")
+                authorized = hmac.compare_digest(self.headers.get("Authorization", ""), "Bearer "+secret) if secret else (
+                    "vercel-cron" in self.headers.get("User-Agent", "").lower() or self.headers.get("x-vercel-cron", "") == "1")
+                if not authorized:
+                    return self._send(401, {"error":"Cron auth required"})
+                import tennis_live
+                from tennis_board import board
+                try:
+                    board(force=True)  # Enroll current PrizePicks players before discovery.
+                except Exception:
+                    pass  # A lines outage must not stop tracked-player result ingestion.
+                return self._send(200, tennis_live.tick(budget=25))
             if action == "nfl-cron-scan":
                 return self._handle_nfl_cron_scan()
             if action == "site-background":
@@ -376,6 +390,12 @@ class handler(BaseHTTPRequestHandler):
             moneylines = moneyline_model.tick()
         except Exception:  # noqa: BLE001 -- never at the cost of the line checks
             pass
+        tennis = None
+        try:
+            import tennis_live
+            tennis = tennis_live.tick(budget=10)
+        except Exception:
+            tennis = {"status":"unavailable"}
         # The NBA's season of box scores (backend/sports/wnba/league.py) fills
         # in a few hundred games a tick until it is complete; after that the
         # pages' own reads add each new final.
@@ -393,7 +413,7 @@ class handler(BaseHTTPRequestHandler):
                     seasons._set_lock("0", "nba")
         except Exception:  # noqa: BLE001 -- never at the cost of the line checks
             pass
-        return self._send(200, {"ok": True, "checked": line_moves.checked(), "moneylines": moneylines, "nba": nba})
+        return self._send(200, {"ok": True, "checked": line_moves.checked(), "moneylines": moneylines, "nba": nba, "tennis": tennis})
 
     def _handle_cron_scan(self):
         secret = os.getenv("CRON_SECRET", "")

@@ -162,8 +162,34 @@ def history(player):
     if not name_key(player):
         raise ValueError('Player name required.')
     snapshot=snapshot_history(player)
-    if snapshot and snapshot['games']:
-        return snapshot
+    live={'games':[]}
+    try:
+        import tennis_live
+        live=tennis_live.player_history(player)
+        try:
+            tennis_live.tick(budget=10)
+            live=tennis_live.player_history(player)
+        except Exception:
+            pass  # Quota/outage never hides already-persisted matches.
+    except Exception:
+        pass
+    if snapshot and snapshot['games'] or live['games']:
+        games=list((snapshot or {}).get('games',[]))
+        for new in live['games']:
+            found=next((i for i,old in enumerate(games)
+                        if old['date'][:10]==new['date'][:10]
+                        and name_key(old['opponent']) in aliases(new['opponent'])),None)
+            if found is None:
+                games.append(new)
+            else:
+                # Keep older fields when the fresh source doesn't report them.
+                games[found]=dict(games[found], **new,
+                                 values=dict(games[found]['values'], **new['values']))
+        return {'player':player,'games':sorted(games,key=lambda g:g['date']),
+                'source':'TennisData.App historical snapshot + automatic Tennis API finals',
+                'availableStats':sorted({k for g in games for k in g['values']}),
+                'updatedAt':live.get('updatedAt',(snapshot or {}).get('updatedAt')),
+                'historyThrough':max(g['date'] for g in games)}
     saved_key = f'vortex:tennis:history:v1:{name_key(player)}'
     try:
         from v2.board import store
