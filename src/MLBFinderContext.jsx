@@ -35,6 +35,12 @@ function Lineup({data,team,loading,error,onRetry,split,setSplit}){
  </Card>;
 }
 function Arsenal({data}){
+ const [mix,setMix]=useState({}),[retry,setRetry]=useState(0);
+ const pitcherId=data.starterProfile?.id||data.teamInsightsParams?.pitcherId;
+ const hasMix=(data.pitchArsenal||[]).some(p=>Number(p.pct)>0);
+ useEffect(()=>{let active=true;setMix({});if(hasMix||!pitcherId)return()=>{active=false;};setMix({loading:true});request('/api/team-insights',{detail:'pitchmix',pitcherId}).then(value=>{if(active)setMix({data:value});}).catch(()=>{if(active)setMix({error:true});});return()=>{active=false;};},[pitcherId,hasMix,retry]);
+ if(!hasMix&&pitcherId&&!mix.data)return <Card title="Pitch arsenal" note={data.starterProfile?.name} icon={ChartPie}>{mix.error?<><Empty>Pitch mix could not load. This does not mean the starter has no pitch data.</Empty><button type="button" className="mlb-context-retry" onClick={()=>setRetry(n=>n+1)}>Retry pitch mix</button></>:<p className="mlb-context-note" role="status">Loading starter's pitch mix…</p>}</Card>;
+ if(mix.data&&!hasMix)data={...data,pitchArsenal:mix.data.pitchArsenal};
  if(data.isPitcherProp)return <MLBPitcherArsenal data={data}/>;
  const pitches=(data.pitchArsenal||[]).filter(p=>Number.isFinite(Number(p.pct))&&Number(p.pct)>0);
  let cursor=0;

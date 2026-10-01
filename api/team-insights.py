@@ -39,6 +39,21 @@ class handler(BaseHTTPRequestHandler):
         pitcher_name = (qs.get("pitcherName", [""])[0]).strip()
         pitcher_hand = (qs.get("pitcherHand", ["R"])[0]).strip() or "R"
         detail = (qs.get("detail", ["summary"])[0]).strip().lower()
+        if detail == "pitchmix":
+            from prediction_core import stats_mlb, _format_arsenal
+            try:
+                pitcher = int(pitcher_id)
+                if pitcher <= 0:
+                    raise ValueError()
+            except ValueError:
+                return self._send(400, {"error": "A confirmed starter is required."})
+            try:
+                pitches = stats_mlb.get_pitcher_arsenal(pitcher)
+                if not pitches:
+                    return self._send(502, {"error": "Pitch mix could not be retrieved. Please retry."})
+                return self._send(200, {"pitchArsenal": _format_arsenal(pitches)})
+            except Exception:
+                return self._send(502, {"error": "Pitch mix is temporarily unavailable. Please retry."})
         if detail == "pitcher-comparisons":
             from pitcher_comparisons import get_pitcher_comparisons
             try:
@@ -83,6 +98,6 @@ class handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.send_header("Cache-Control", "private, max-age=300, stale-while-revalidate=900")
+        self.send_header("Cache-Control", "private, no-store")
         self.end_headers()
         self.wfile.write(json.dumps(body).encode("utf-8"))

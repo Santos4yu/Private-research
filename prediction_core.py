@@ -1627,7 +1627,7 @@ def format_response(*, player_name, team_abbr, headshot, stat_label, prop_type, 
         "pitchArsenalSource": "Official MLB Stats API pitch mix / Baseball Savant Pitch Arsenal Stats",
         "pitchArsenalAsOf": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "starterProfile": {
-            "id": pitcher.get("pitcher_id") or pitcher.get("id"),
+            "id": pitcher.get("pitcher_id") or pitcher.get("id") or matchup.get("pitcher_id"),
             "name": pitcher.get("name") or matchup.get("pitcher") or "Tonight's starter",
             "hand": pitcher.get("hand") or "?",
             "era": pitcher.get("era"),
