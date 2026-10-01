@@ -30,6 +30,30 @@ LEAGUES = {"data": [{"id": "5", "type": "league", "attributes": {"name": "TENNIS
 
 
 class TennisBoardTests(unittest.TestCase):
+    def test_all_players_markets_and_tiers_survive_future_live_flags(self):
+        names = ["Alexander Zverev", "Cameron Norrie", "Andrey Rublev", "Iga Swiatek", "Anastasia Zakharova"]
+        stats = ["Total Games", "Total Games Won", "Fantasy Score", "Total Sets", "Aces",
+                 "Break Points Won", "Total Tie Breaks", "1st Set Total Games",
+                 "1st Set Total Games Won", "Double Faults", "A Future New Stat"]
+        projections = []
+        for pi, name in enumerate(names):
+            for si, stat in enumerate(stats):
+                for tier in ["standard", "goblin", "demon"]:
+                    row = tennis_projection(f"{pi}-{si}-{tier}", str(pi), stat, si + .5,
+                                            odds_type=tier, wagers="over,under" if tier == "standard" else "over")
+                    row["attributes"].update(is_live=True, in_game=True)
+                    projections.append(row)
+        fake = FakePrizePicks(leagues=LEAGUES, feeds={"5": {"data": projections,
+                             "included": [player(str(i), name, "TENNIS") for i, name in enumerate(names)]}})
+        with patch.object(export.requests, "get", side_effect=fake), patch.object(export.time, "time", return_value=NOW):
+            result = tennis_board.build(now=NOW)
+        self.assertEqual(len(result["rows"]), len(projections))
+        expected = {row["id"]: row["attributes"] for row in projections}
+        for row in result["rows"]:
+            attrs = expected[row["projectionId"]]
+            self.assertEqual((row["stat"], row["line"], row["modifier"]),
+                             (attrs["stat_type"], attrs["line_score"], attrs["odds_type"]))
+
     def test_future_pregame_sets_survive_conflicting_live_flag(self):
         upcoming = tennis_projection("zverev-sets", "z1", "Total Sets", 2.5,
                                      start="2026-10-01T03:40:00-04:00", odds_type="demon", wagers="over")

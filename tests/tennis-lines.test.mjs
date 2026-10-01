@@ -1,8 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {finderPlayerRows} from '../src/unified-finder-data.js';
+import {finderPlayerRows,normalizeFinderRows} from '../src/unified-finder-data.js';
 import {wnbaLines} from '../src/sports/wnba/trend-data.js';
-import {tennisPostedSelection} from '../src/sports/tennis/tennis-research.js';
+import {tennisPostedSelection,TENNIS_MARKET_TABS} from '../src/sports/tennis/tennis-research.js';
+
+test('every tennis tab matches exact posted lines for every player and tier through normalization',()=>{
+ const names=['Alexander Zverev','Cameron Norrie','Andrey Rublev','Iga Swiatek','Anastasia Zakharova'];
+ const raw=names.flatMap((player,pi)=>TENNIS_MARKET_TABS.flatMap((stat,si)=>['standard','goblin','demon'].map((modifier,ti)=>({
+  id:`${pi}-${si}-${ti}`,player,playerId:`${pi}-${ti}`,opponent:`Opponent ${pi}${stat.key.startsWith('1stset')?' 1st Set':''}`,
+  startsAt:'2099-10-01T02:00:00Z',stat:stat.label,marketKey:stat.key,line:si+ti+.5,modifier,
+ }))));
+ const rows=normalizeFinderRows('tennis',{rows:raw});
+ for(const player of names){
+  const selected=rows.find(r=>r.player===player);
+  const grouped=finderPlayerRows(rows,selected);
+  assert.equal(grouped.length,TENNIS_MARKET_TABS.length*3);
+  for(const stat of TENNIS_MARKET_TABS){
+   const ladder=wnbaLines(grouped,stat.key);
+   assert.equal(ladder.length,3,`${player}: ${stat.label}`);
+   const posted=tennisPostedSelection(grouped,stat.key,{id:`research:${stat.key}`});
+   assert.equal(posted.modifier,'standard');
+   assert.equal(posted.line,raw.find(r=>r.id===posted.raw.id).line);
+  }
+ }
+});
 
 test('fresh PrizePicks quote replaces a research-average fallback with its exact line',()=>{
  const current={id:'research:totalsets',marketKey:'totalsets',line:2.7};
