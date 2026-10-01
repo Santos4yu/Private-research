@@ -7,7 +7,8 @@ import { FinderPlayerBanner } from './FinderPlayerBanner';
 import { NFLPlayerPage } from './sports/nfl/NFLPlayerPage';
 import {loadTennisHistory,loadTennisContext,tennisOpponentMatches} from './unified-finder-data';
 import {wnbaChart,wnbaLines,wnbaOdds} from './sports/wnba/trend-data';
-import TennisFinderContext,{TENNIS_STATS} from './sports/tennis/TennisFinderContext';
+import TennisFinderContext from './sports/tennis/TennisFinderContext';
+import {TENNIS_MARKET_TABS} from './sports/tennis/tennis-research';
 import './sports/wnba/wnba-context.css';
 
 function TennisTrends({row,playerRows,onBack}) {
@@ -23,10 +24,10 @@ function TennisTrends({row,playerRows,onBack}) {
   const config=useMemo(()=>({sport:'TENNIS',player:row.player,headshot:row.headshot,opponent,
     matchupLabel:`${row.player} vs ${opponent}`,statKey:selected.marketKey,stat:selected.market,line:selected.line,
     side:selected.direction==='UNDER'?'Under':'Over',status:'Pre-game',kickoffLabel:row.startsAt?new Date(row.startsAt).toLocaleString():'',
-    stats:[...new Map([...TENNIS_STATS.filter(stat=>games.some(game=>Number.isFinite(game.values?.[stat.key]))),...playerRows.map(item=>({key:item.marketKey,label:item.market,code:item.market}))].map(stat=>[stat.key,stat])).values()],
+    stats:TENNIS_MARKET_TABS,
     chart:wnbaChart(games.map(game=>({...game,opponent:tennisOpponentMatches(game.opponent,opponent)?opponent:game.opponent})),selected.marketKey,opponent),lines:wnbaLines(playerRows,selected.marketKey),
     odds:wnbaOdds(playerRows,selected.marketKey),linesStatus:'ready',loading,filters:['opponent'],researchOnly:String(selected.id).startsWith('research:'),
-    onStat:key=>{const next=playerRows.find(item=>item.marketKey===key);if(next)setSelected(next);else{const stat=TENNIS_STATS.find(item=>item.key===key),values=games.map(game=>game.values?.[key]).filter(Number.isFinite);if(stat)setSelected({...row,id:`research:${key}`,marketKey:key,market:stat.label,line:values.length?Math.round(values.reduce((a,b)=>a+b,0)/values.length*10)/10:0,apps:[],modifier:null});}}}),[row,selected,playerRows,data,context,loading,opponent]);
+    onStat:key=>{const next=playerRows.find(item=>item.marketKey===key);if(next)setSelected(next);else{const stat=TENNIS_MARKET_TABS.find(item=>item.key===key),values=games.map(game=>game.values?.[key]).filter(Number.isFinite);if(stat)setSelected({...row,id:`research:${key}`,marketKey:key,market:stat.label,line:values.length?Math.round(values.reduce((a,b)=>a+b,0)/values.length*10)/10:0,apps:[],modifier:null});}}}),[row,selected,playerRows,data,context,loading,opponent]);
   const latest=useRef(config);latest.current=config;
   useEffect(()=>{const panel=window.vortexTrendPanel;panel?.mount(host.current,latest.current);return()=>panel?.unmount();},[]);
   useEffect(()=>{window.vortexTrendPanel?.update(config);},[config]);
@@ -37,7 +38,7 @@ function TennisTrends({row,playerRows,onBack}) {
       {error&&<p className="mlb-context-note" role="status">{error}</p>}
       {String(selected.id).startsWith('research:')&&<p className="mlb-context-note">Research-only stat. The adjustable comparison starts at the historical average; it is not a posted PrizePicks line.</p>}
       <section className="mlb-context-card mlb-supporting"><header><h2>Supporting stats</h2><small>Last 10 matches</small></header>
-        <div className="mlb-support-tabs">{[['totalgames','Total Games'],['setswon','Sets Won'],['aces','Aces'],['doublefaults','Double Faults']].map(([key,label])=>{const sample=games.slice(-10).map(g=>g.values[key]).filter(Number.isFinite);return <button type="button" key={key} aria-pressed={support===key} onClick={()=>setSupport(key)}>{label}<strong>{sample.length?(sample.reduce((a,b)=>a+b,0)/sample.length).toFixed(1):'—'} <small>avg.</small></strong></button>;})}</div>
+        <div className="mlb-support-tabs">{[['totalgames','Total Games'],['totalsets','Total Sets'],['aces','Aces'],['doublefaults','Double Faults']].map(([key,label])=>{const sample=games.slice(-10).map(g=>g.values[key]).filter(Number.isFinite);return <button type="button" key={key} aria-pressed={support===key} onClick={()=>setSupport(key)}>{label}<strong>{sample.length?(sample.reduce((a,b)=>a+b,0)/sample.length).toFixed(1):'—'} <small>avg.</small></strong></button>;})}</div>
         <div className="mlb-support-chart">{games.slice(-10).map(game=>{const value=game.values[support],max=Math.max(1,...games.slice(-10).map(g=>g.values[support]).filter(Number.isFinite));return <div key={game.gameId}><div className="mlb-support-track"><div style={{height:Number.isFinite(value)?`${value/max*100}%`:'0%'}}><span>{value??'—'}</span></div></div><small>{new Date(game.date).toLocaleDateString([],{month:'numeric',day:'numeric'})}<br/>{game.opponent}</small></div>;})}</div>
       </section>
       <section className="mlb-context-card mlb-player-gamelog"><header><h2>Game log · Last 15 matches</h2><small>{data?.updatedAt?'Updated '+new Date(data.updatedAt).toLocaleDateString():row.player}</small></header>

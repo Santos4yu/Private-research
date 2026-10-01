@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {tennisSample,tennisMean,tennisSummary,courtKey,decimalToAmerican,tennisOddsRecord} from '../src/sports/tennis/tennis-research.js';
+import {TENNIS_MARKET_TABS,tennisSample,tennisMean,tennisSummary,courtKey,decimalToAmerican,tennisOddsRecord} from '../src/sports/tennis/tennis-research.js';
+test('tennis market tabs are exactly the ten requested screenshot stats',()=>{
+ assert.deepEqual(TENNIS_MARKET_TABS.map(s=>s.label),['Total Games','Total Games Won','Fantasy Score','Total Sets','Aces','Break Points Won','Total Tie Breaks','1st Set Total Games','1st Set Total Games Won','Double Faults']);
+ assert.equal(new Set(TENNIS_MARKET_TABS.map(s=>s.key)).size,10);
+});
 test('court, ranking and match format filters use recorded facts',()=>{
  const games=[{surface:'I.hard',opponentRank:8,bestOf:3},{surface:'Clay',opponentRank:null,bestOf:5}];
  assert.equal(courtKey('I.hard'),'hard');assert.equal(tennisSample(games,{rank:'10',format:'3'}).length,1);
