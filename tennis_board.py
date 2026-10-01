@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 
 from prizepicks_export_core import _fetch_projection_rows
 
-VERSION = "tennis-board-v1"
+VERSION = "tennis-board-v2"
 CACHE_SECONDS = 2 * 60
 _cache = {"at": 0.0, "value": None}
 _lock = threading.Lock()
@@ -68,7 +68,7 @@ def build(projections=None, now=None):
         })
     rows.sort(key=lambda row: (row["startsAt"] or "", row["player"], row["stat"], row["line"], row["modifier"]))
     return {"builtAt": datetime.now(timezone.utc).isoformat(), "source": "prizepicks", "rows": rows,
-            "version": VERSION, "historyAvailable": False}
+            "version": VERSION, "historyAvailable": True}
 
 
 def board(force=False):

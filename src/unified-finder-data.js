@@ -41,7 +41,7 @@ function usableBoard(value, now) {
 export async function readFinderCache(sport, now = Date.now()) {
   try {
     const saved = usableBoard(await storedBoard(sport), now);
-    if (saved) return saved;
+    if (saved) return sport === 'tennis' ? {...saved,rows:saved.rows.map(row=>row.historyStatus==='none'?{...row,historyStatus:'pending'}:row)} : saved;
     const legacy = legacyStore();
     const value = legacy ? JSON.parse(legacy.getItem(FINDER_CACHE_PREFIX + sport) || 'null') : null;
     legacy?.removeItem(FINDER_CACHE_PREFIX + sport);
@@ -522,7 +522,7 @@ export function normalizeFinderRows(sport, payload, players = [], {now = Date.no
         marketKey: raw.marketKey || String(raw.stat || '').toLowerCase().replace(/[^a-z0-9]/g, ''),
         line: raw.line, direction: 'OVER', modifier: raw.modifier,
         apps: Array.isArray(raw.apps) && raw.apps.length ? raw.apps : [{key: 'prizepicks', name: 'PrizePicks', over: null, under: null}],
-        average: null, windows: null, raw, historyStatus: 'none'});
+        average: null, windows: null, raw, historyStatus: 'pending'});
     }
     return null;
   });
@@ -904,4 +904,71 @@ export async function enrichNhlRows(rows, {signal, onRows, concurrency = 4, ...o
   }
   await Promise.all(Array.from({length: Math.min(queue.length, Math.max(1, Math.min(6, concurrency)))}, worker));
   return rows.map(row => enriched.get(row.id) || row);
+}
+
+export async function loadTennisHistory(player, options = {}) {
+  const key = `tennis:${player}`;
+  const cached = historyCache.get(key);
+  if (cached && Date.now() - cached.at < HISTORY_TTL) return cached.value;
+  const payload = await patientRequest(`/api/board?view=tennis&resource=history&player=${encodeURIComponent(player)}`, options);
+  historyCache.set(key, {at: Date.now(), value: payload});
+  return payload;
+}
+
+export function tennisOpponentMatches(actual, expected) {
+  const clean = String(expected || '').replace(/\s+1st Set.*$/i, '').trim();
+  const parts = clean.split(/\s+/);
+  if (!clean) return false;
+  const names = [clean];
+  if (parts.length > 1) names.push(parts.slice(1).join(' ')+' '+parts[0][0],parts.at(-1)+' '+parts[0][0]);
+  return names.some(name => nameKey(name) === nameKey(actual));
+}
+
+export function applyTennisHistory(row, log) {
+  const key = row.marketKey;
+  const games = (log.games || []).filter(game => number(game.values?.[key]) != null);
+  if (!games.length) return {...row, historyStatus: 'unavailable'};
+  const values = games.map(game => game.values[key]);
+  const windows = Object.fromEntries([5,10,15,20].map(size => [`l${size}`, finderWindow(values.slice(-size), row.line, row.direction)]));
+  const opponent = String(row.opponent || '').replace(/\s+1st Set.*$/i, '');
+  windows.h2h = finderWindow(games.filter(game => tennisOpponentMatches(game.opponent, opponent)).map(game => game.values[key]), row.line, row.direction);
+  windows.season = finderWindow(games.filter(game => String(game.season) === String(new Date().getUTCFullYear())).map(game => game.values[key]), row.line, row.direction);
+  let streak = 0;
+  for (let i = values.length-1; i >= 0; i--) {
+    if (values[i] === row.line) break;
+    const sign = values[i] > row.line ? 1 : -1;
+    if (streak && Math.sign(streak) !== sign) break;
+    streak += sign;
+  }
+  return finish({...row, average: mean(values.slice(-10)), windows, streak, historyStatus: 'ready',
+    gameLog: gameLog(games.map(game => ({value: game.values[key], date: game.date, opponent: game.opponent}))), history: log});
+}
+
+export async function enrichTennisRows(rows, {signal, onRows, concurrency = 2, ...options} = {}) {
+  const groups = new Map();
+  for (const row of rows) {
+    if (row.sport !== 'tennis' || row.historyStatus !== 'pending') continue;
+    if (!groups.has(row.player)) groups.set(row.player, []);
+    groups.get(row.player).push(row);
+  }
+  const queue = [...groups.values()], result = new Map();
+  let next = 0;
+  async function worker() {
+    while (next < queue.length) {
+      aborted(signal);
+      const batch = queue[next++];
+      let updates;
+      try {
+        const log = await loadTennisHistory(batch[0].player, {signal, ...options});
+        updates = batch.map(row => applyTennisHistory(row, log));
+      } catch (error) {
+        if (signal?.aborted || error.name === 'AbortError') throw error;
+        updates = batch.map(row => ({...row, historyStatus: 'unavailable'}));
+      }
+      updates.forEach(row => result.set(row.id, row));
+      onRows?.(updates);
+    }
+  }
+  await Promise.all(Array.from({length: Math.min(queue.length, concurrency)}, worker));
+  return rows.map(row => result.get(row.id) || row);
 }

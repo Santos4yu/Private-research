@@ -1,12 +1,12 @@
 // Every league's lines with their hit rates, for the Finder and the Smart
 // Slip alike. Both read and write the same saved boards (finder-store.js),
 // so hit rates worked out on one page are there on the other.
-import {loadFinderSport, enrichMlbRows, enrichWnbaRows, enrichSoccerRows, enrichNhlRows, persistFinderCache, readFinderCache,
+import {loadFinderSport, enrichMlbRows, enrichWnbaRows, enrichSoccerRows, enrichNhlRows, enrichTennisRows, persistFinderCache, readFinderCache,
   carryHistory, loadFinderDefense, withDefense, loadMlbMatchups, withMlbMatchups} from './unified-finder-data';
 
 // How each league's lines get their hit rates after the board arrives.
-export const ENRICH = {wnba: enrichWnbaRows, nba: enrichWnbaRows, mlb: enrichMlbRows, soccer: enrichSoccerRows, nhl: enrichNhlRows};
-export const ENRICH_CONCURRENCY = {wnba: 6, nba: 6, mlb: 3, soccer: 4, nhl: 4};
+export const ENRICH = {wnba: enrichWnbaRows, nba: enrichWnbaRows, mlb: enrichMlbRows, soccer: enrichSoccerRows, nhl: enrichNhlRows, tennis: enrichTennisRows};
+export const ENRICH_CONCURRENCY = {wnba: 6, nba: 6, mlb: 3, soccer: 4, nhl: 4, tennis: 2};
 // A saved board younger than this is used without asking again.
 export const BOARD_FRESH = 2 * 60 * 1000;
 // When each line's hit rates were worked out, so a later board can keep them.

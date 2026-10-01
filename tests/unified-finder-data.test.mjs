@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {applySoccerHistory,finderWindow,normalizeFinderRows,applyMlbHistory,enrichMlbRows,loadFinderSport,finderSlipProp,bookProbability,powerDevig,defenseRank,withDefense,trendPickRow,withMlbMatchups,gameLog} from '../src/unified-finder-data.js';
+import {applyTennisHistory,applySoccerHistory,finderWindow,normalizeFinderRows,applyMlbHistory,enrichMlbRows,loadFinderSport,finderSlipProp,bookProbability,powerDevig,defenseRank,withDefense,trendPickRow,withMlbMatchups,gameLog} from '../src/unified-finder-data.js';
 
 test('book chance comes from the books\' prices with the margin removed, never a fixed 50/50',()=>{
  // PrizePicks' payouts and an app quoting the same price both ways say nothing.
@@ -158,13 +158,23 @@ test('tennis keeps every PrizePicks stat and becomes an exportable Finder pick',
  ]};
  const rows=normalizeFinderRows('tennis',payload);
  assert.deepEqual(rows.map(item=>[item.market,item.line,item.modifier]),[['Aces',4.5,'standard'],['New PrizePicks Stat',2.5,'goblin']]);
- assert.ok(rows.every(item=>item.historyStatus==='none'));
+ assert.ok(rows.every(item=>item.historyStatus==='pending'));
  const pick=finderSlipProp(rows[0]);
  assert.deepEqual([pick.sport,pick.exportStat,pick.player,pick.opponent],['TENNIS','Aces','Iga Swiatek','Aryna Sabalenka']);
  const urls=[];
  const loaded=await loadFinderSport('tennis',{fetcher:async url=>{urls.push(url);return {ok:true,json:async()=>payload};}});
  assert.deepEqual(urls,['/api/board?view=tennis']);
  assert.equal(loaded.rows.length,2);
+});
+
+test('tennis uses exact-line outcomes and excludes absent serving stats',()=>{
+ const row={sport:'tennis',marketKey:'totalgameswon',line:12,direction:'OVER',opponent:'Opponent 1st Set',apps:[]};
+ const games=[10,12,14].map((value,index)=>({date:`2026-09-${20+index}`,season:2026,opponent:'Opponent',values:{totalgameswon:value}}));
+ const result=applyTennisHistory(row,{games});
+ assert.equal(result.average,12);
+ assert.equal(result.windows.l5.hitRate,50);
+ assert.equal(result.windows.h2h.hitRate,50);
+ assert.equal(applyTennisHistory({...row,marketKey:'aces'},{games}).historyStatus,'unavailable');
 });
 
 test('soccer hit rates come from the player\'s own matches in his team\'s log',()=>{

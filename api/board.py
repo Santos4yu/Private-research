@@ -173,11 +173,15 @@ class handler(BaseHTTPRequestHandler):
 
         view = (parse_qs(urlparse(self.path).query).get("view") or [""])[0]
         if view == "tennis":
+            qs = parse_qs(urlparse(self.path).query)
             from site_controls import finder_sport_allowed
             if not finder_sport_allowed(self.headers, "tennis"):
                 return self._send(503, {"error": "This section is temporarily unavailable", "featureDisabled": True})
             try:
                 from tennis_board import board as tennis_board
+                if (qs.get('resource') or [''])[0] == 'history':
+                    from tennis_history import history as tennis_history
+                    return self._send(200, tennis_history((qs.get('player') or [''])[0]))
                 force = (parse_qs(urlparse(self.path).query).get("refresh") or [""])[0] == "1"
                 return self._send(200, tennis_board(force=force))
             except Exception:
