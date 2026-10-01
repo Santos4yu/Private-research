@@ -5,7 +5,7 @@ import MLBSupportingStats from './MLBSupportingStats';
 import MLBPlayerGameLog from './MLBPlayerGameLog';
 import { FinderPlayerBanner } from './FinderPlayerBanner';
 import { NFLPlayerPage } from './sports/nfl/NFLPlayerPage';
-import {loadTennisHistory,tennisOpponentMatches} from './unified-finder-data';
+import {loadTennisHistory,loadTennisContext,tennisOpponentMatches} from './unified-finder-data';
 import {wnbaChart,wnbaLines,wnbaOdds} from './sports/wnba/trend-data';
 import TennisFinderContext,{TENNIS_STATS} from './sports/tennis/TennisFinderContext';
 import './sports/wnba/wnba-context.css';
@@ -13,18 +13,20 @@ import './sports/wnba/wnba-context.css';
 function TennisTrends({row,playerRows,onBack}) {
   const host=useRef(null), [selected,setSelected]=useState(row), [data,setData]=useState(null), [loading,setLoading]=useState(true), [error,setError]=useState('');
   const [support,setSupport]=useState('totalgames');
+  const [context,setContext]=useState(null);
+  useEffect(()=>{const controller=new AbortController();setContext(null);loadTennisContext(row,{signal:controller.signal}).then(setContext).catch(e=>{if(e.name!=='AbortError')setContext({message:'Current matchup details could not load; historical data remains available.'});});return()=>controller.abort();},[row.player,row.opponent,row.startsAt]);
   useEffect(()=>{const controller=new AbortController();setLoading(true);setError('');setData(null);
     loadTennisHistory(row.player,{signal:controller.signal}).then(setData).catch(e=>{if(e.name!=='AbortError')setError('Match history could not load. Refresh to retry.');}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});
     return()=>controller.abort();},[row.player]);
-  const games=data?.games||[];
+  const games=context?.players?.[0]?.games||data?.games||[];
   const opponent=String(row.opponent||'').replace(/\s+1st Set.*$/i,'');
   const config=useMemo(()=>({sport:'TENNIS',player:row.player,headshot:row.headshot,opponent,
     matchupLabel:`${row.player} vs ${opponent}`,statKey:selected.marketKey,stat:selected.market,line:selected.line,
     side:selected.direction==='UNDER'?'Under':'Over',status:'Pre-game',kickoffLabel:row.startsAt?new Date(row.startsAt).toLocaleString():'',
-    stats:[...new Map([...TENNIS_STATS.filter(stat=>(data?.games||[]).some(game=>Number.isFinite(game.values?.[stat.key]))),...playerRows.map(item=>({key:item.marketKey,label:item.market,code:item.market}))].map(stat=>[stat.key,stat])).values()],
-    chart:wnbaChart((data?.games||[]).map(game=>({...game,opponent:tennisOpponentMatches(game.opponent,opponent)?opponent:game.opponent})),selected.marketKey,opponent),lines:wnbaLines(playerRows,selected.marketKey),
+    stats:[...new Map([...TENNIS_STATS.filter(stat=>games.some(game=>Number.isFinite(game.values?.[stat.key]))),...playerRows.map(item=>({key:item.marketKey,label:item.market,code:item.market}))].map(stat=>[stat.key,stat])).values()],
+    chart:wnbaChart(games.map(game=>({...game,opponent:tennisOpponentMatches(game.opponent,opponent)?opponent:game.opponent})),selected.marketKey,opponent),lines:wnbaLines(playerRows,selected.marketKey),
     odds:wnbaOdds(playerRows,selected.marketKey),linesStatus:'ready',loading,filters:['opponent'],researchOnly:String(selected.id).startsWith('research:'),
-    onStat:key=>{const next=playerRows.find(item=>item.marketKey===key);if(next)setSelected(next);else{const stat=TENNIS_STATS.find(item=>item.key===key),values=(data?.games||[]).map(game=>game.values?.[key]).filter(Number.isFinite);if(stat)setSelected({...row,id:`research:${key}`,marketKey:key,market:stat.label,line:values.length?Math.round(values.reduce((a,b)=>a+b,0)/values.length*10)/10:0,apps:[],modifier:null});}}}),[row,selected,playerRows,data,loading,opponent]);
+    onStat:key=>{const next=playerRows.find(item=>item.marketKey===key);if(next)setSelected(next);else{const stat=TENNIS_STATS.find(item=>item.key===key),values=games.map(game=>game.values?.[key]).filter(Number.isFinite);if(stat)setSelected({...row,id:`research:${key}`,marketKey:key,market:stat.label,line:values.length?Math.round(values.reduce((a,b)=>a+b,0)/values.length*10)/10:0,apps:[],modifier:null});}}}),[row,selected,playerRows,data,context,loading,opponent]);
   const latest=useRef(config);latest.current=config;
   useEffect(()=>{const panel=window.vortexTrendPanel;panel?.mount(host.current,latest.current);return()=>panel?.unmount();},[]);
   useEffect(()=>{window.vortexTrendPanel?.update(config);},[config]);
@@ -41,7 +43,7 @@ function TennisTrends({row,playerRows,onBack}) {
       <section className="mlb-context-card mlb-player-gamelog"><header><h2>Game log · Last 15 matches</h2><small>{data?.updatedAt?'Updated '+new Date(data.updatedAt).toLocaleDateString():row.player}</small></header>
         <div className="mlb-player-log-scroll" tabIndex={0} role="region" aria-label="Tennis match statistics; scroll for more columns"><table><thead><tr><th>Date</th><th>Opponent</th><th>Result</th><th>Score</th><th>Surface</th>{[['totalgameswon','GW'],['totalgames','Games'],['aces','Aces'],['doublefaults','DF'],['fantasyscore','FP']].map(([key,label])=><th key={key}>{label}</th>)}</tr></thead><tbody>{games.slice(-15).reverse().map(game=><tr key={game.gameId}><td>{new Date(game.date).toLocaleDateString()}</td><td>{game.opponent}</td><td>{game.result}</td><td>{game.score}</td><td>{game.surface||'—'}</td>{['totalgameswon','totalgames','aces','doublefaults','fantasyscore'].map(key=><td key={key}>{game.values[key]??'—'}</td>)}</tr>)}</tbody></table></div>
       </section>
-    </div><TennisFinderContext row={selected} games={games} playerRows={playerRows} loading={loading}/></div>
+    </div><TennisFinderContext row={selected} games={games} playerRows={playerRows} loading={loading} context={context}/></div>
   </section>;
 }
 

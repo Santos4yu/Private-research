@@ -915,6 +915,16 @@ export async function loadTennisHistory(player, options = {}) {
   return payload;
 }
 
+export async function loadTennisContext(row, options={}) {
+  const key=`tennis-context:${row.player}:${row.opponent}:${row.startsAt}`;
+  const cached=historyCache.get(key);
+  if(cached&&Date.now()-cached.at<HISTORY_TTL)return cached.value;
+  const query=new URLSearchParams({view:'tennis',resource:'context',player:row.player,opponent:row.opponent||'',startsAt:row.startsAt||''});
+  const payload=await patientRequest(`/api/board?${query}`,options);
+  historyCache.set(key,{at:Date.now(),value:payload});
+  return payload;
+}
+
 export function tennisOpponentMatches(actual, expected) {
   const clean = String(expected || '').replace(/\s+1st Set.*$/i, '').trim();
   const parts = clean.split(/\s+/);

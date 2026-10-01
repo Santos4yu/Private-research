@@ -72,6 +72,19 @@ def snapshot_history(player):
             with gzip.open(path,'rt',encoding='utf-8') as stream:
                 saved=json.load(stream)
             _cache['snapshot']=saved
+            paired={}
+            for row in saved['games']:
+                paired.setdefault(row['gameId'],[]).append(row)
+            for pair in paired.values():
+                if len(pair)!=2:continue
+                for index,row in enumerate(pair):
+                    other=pair[1-index]
+                    row['rank']=other.get('opponentRank')
+                    v=row['values'];ov=other['values']
+                    if 'aces' in ov:v['acesallowed']=ov['aces']
+                    if 'servicepointswonpercentage' in v and 'returnpointswonpercentage' in v and v['servicepointswonpercentage']<100:
+                        v['dominanceratio']=v['returnpointswonpercentage']/(100-v['servicepointswonpercentage'])
+                    row['bestOf']=5 if max(v['setswon'],v['totalsets']-v['setswon'])==3 else 3
             index={}
             for row in saved['games']:
                 index.setdefault(name_key(row['player']),[]).append(row)
@@ -122,6 +135,7 @@ def parse_match(event, match, league):
                   'totalsets': len(mine), 'setswon': sum(a>b for a,b in zip(mine,theirs)),
                   '1stsettotalgames': mine[0]+theirs[0], '1stsettotalgameswon': mine[0],
                   'totaltiebreaks': sum({a,b} == {6,7} for a,b in zip(mine,theirs))}
+        values['tiebreakswon']=sum(a==7 and b==6 for a,b in zip(mine,theirs))
         for stat in player.get('statistics', []):
             key = name_key(stat.get('name') or stat.get('label'))
             try:
@@ -183,8 +197,8 @@ def history(player):
                 games.append(new)
             else:
                 # Keep older fields when the fresh source doesn't report them.
-                games[found]=dict(games[found], **new,
-                                 values=dict(games[found]['values'], **new['values']))
+                games[found]={**games[found], **new,
+                              'values':{**games[found]['values'], **new['values']}}
         return {'player':player,'games':sorted(games,key=lambda g:g['date']),
                 'source':'TennisData.App historical snapshot + automatic Tennis API finals',
                 'availableStats':sorted({k for g in games for k in g['values']}),

@@ -179,6 +179,9 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(503, {"error": "This section is temporarily unavailable", "featureDisabled": True})
             try:
                 from tennis_board import board as tennis_board
+                if (qs.get('resource') or [''])[0] == 'context':
+                    from tennis_context import context
+                    return self._send(200, context((qs.get('player') or [''])[0],(qs.get('opponent') or [''])[0],(qs.get('startsAt') or [''])[0]))
                 if (qs.get('resource') or [''])[0] == 'history':
                     from tennis_history import history as tennis_history
                     return self._send(200, tennis_history((qs.get('player') or [''])[0]))

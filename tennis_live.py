@@ -100,6 +100,20 @@ def parse_result(match, league, stats):
                           ('breakPointFacedGm','breakpointsfaced'),('breakPointSavedGm','breakpointssaved')]:
             if isinstance(mine.get(field),(int,float)):
                 values[key]=mine[field]
+        row['rank']=match.get('player'+str(index),{}).get('currentRank')
+        if isinstance(match.get('round'),dict):
+            row['round']=match['round'].get('name')
+        row['bestOf']=match.get('best_of') or (5 if max(values['setswon'],values['totalsets']-values['setswon'])==3 else 3)
+        row['counts']={field:value for field,value in mine.items() if isinstance(value,(int,float))}
+        if isinstance(other.get('breakPointWonGm'),(int,float)):
+            values['breakpointsgivenup']=other['breakPointWonGm']
+        if 'breakpointswon' in values and 'breakpointsgivenup' in values:
+            held=values['gameswon']-values['breakpointswon']-values.get('tiebreakswon',0)
+            served=held+values['breakpointsgivenup']
+            if held>=0 and served>0:
+                values['servicegamesheld']=held
+                values['servicegamesplayed']=served
+                values['holdpercentage']=100*held/served
         if isinstance(other.get('aces'),(int,float)):
             values['acesallowed']=other['aces']
         for num,den,key in [('firstServe','firstServeOf','firstservepercentage'),
@@ -111,6 +125,17 @@ def parse_result(match, league, stats):
                 values[key]=100*mine[num]/mine[den]
         if 'aces' in values and 'doublefaults' in values:
             values['fantasyscore']=10+values['gameswon']-values['gameslost']+3*(2*values['setswon']-values['totalsets'])+.5*(values['aces']-values['doublefaults'])
+        won=mine.get('winningOnFirstServe');second=mine.get('winningOnSecondServe');total=mine.get('firstServeOf')
+        otherwon=other.get('winningOnFirstServe');othersecond=other.get('winningOnSecondServe');othertotal=other.get('firstServeOf')
+        if all(isinstance(v,(int,float)) for v in (won,second,total)) and total>0:
+            values['servicepointswonpercentage']=100*(won+second)/total
+            if isinstance(mine.get('doubleFaults'),(int,float)) and isinstance(mine.get('firstServe'),(int,float)) and total>mine['firstServe']:
+                values['doublefaultpercentage']=100*mine['doubleFaults']/(total-mine['firstServe'])
+                values['secondservepercentage']=100-values['doublefaultpercentage']
+        if all(isinstance(v,(int,float)) for v in (otherwon,othersecond,othertotal)) and othertotal>0:
+            values['returnpointswonpercentage']=100*(othertotal-otherwon-othersecond)/othertotal
+        if 'servicepointswonpercentage' in values and 'returnpointswonpercentage' in values and values['servicepointswonpercentage']<100:
+            values['dominanceratio']=values['returnpointswonpercentage']/(100-values['servicepointswonpercentage'])
     return rows
 
 
