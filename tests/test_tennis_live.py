@@ -31,6 +31,7 @@ class TennisLiveTests(unittest.TestCase):
     def test_identity_mismatch_cannot_attach_stats(self):
         rows=tennis_live.parse_result(self.match(),'atp',{'player1Stats':{'player1Id':99,'aces':30}})
         self.assertNotIn('aces',rows[0]['values'])
+        self.assertNotIn('acesallowed',rows[1]['values'])
 
     def test_daily_cap_prevents_http_call(self):
         with patch.object(tennis_live,'setting',return_value='private'), patch.object(tennis_live,'redis',side_effect=[41,1]), patch.object(tennis_live,'urlopen') as http:

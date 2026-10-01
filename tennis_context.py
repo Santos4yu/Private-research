@@ -45,7 +45,7 @@ def normalize_profile(raw):
 
 
 def inline_stats(match):
-    stats=match.get('stats') or {}
+    stats=match.get('stats') or match.get('stat') or {}
     result={}
     for index in (1,2):
         mine=dict(stats.get('player'+str(index)) or {})
@@ -61,24 +61,38 @@ def inline_stats(match):
     return result
 
 
+def archive_rows(matches,league):
+    rows=[]
+    for raw in matches:
+        match=dict(raw)
+        match['matchId']=match.get('matchId') or match.get('id')
+        if not match['matchId']:
+            continue
+        if not match.get('result_type') and match.get('result') and not any(c.isalpha() for c in match['result']):
+            match['result_type']='completed'
+        if 'laver cup' in (match.get('tournament') or {}).get('name','').lower():
+            continue
+        rows.extend(parse_result(match,league,inline_stats(match)))
+    return rows
+
+
 def refresh_player(player,league):
     identifier=str(player['id'])
     raw=cached(f'profile:{league}:{identifier}',f'/tennis/v2/{league}/player/profile/{identifier}?include=form,ranking,country',86400).get('data') or {}
     if str(raw.get('id'))!=identifier:
         raise ValueError('Player profile identity mismatch.')
     profile=normalize_profile(raw)
-    payload=cached(f'past:{league}:{identifier}',f'/tennis/v2/{league}/player/past-matches/{identifier}?pageSize=100&include=round,tournament,tournament.court,stat',21600)
+    payload=cached(f'past-full:{league}:{identifier}',f'/tennis/v2/{league}/player/past-matches/{identifier}?pageSize=500&include=round,tournament,tournament.court,stat',21600)
     rows=[]
-    for match in payload.get('data') or []:
-        # Match tiebreaks are not full games; do not grade them as long sets.
-        if 'laver cup' in (match.get('tournament') or {}).get('name','').lower():
-            continue
-        for row in parse_result(match,league,inline_stats(match)):
-            if str(row['playerId'])==identifier:
-                rows.append(row)
+    rows=[row for row in archive_rows(payload.get('data') or [],league) if str(row['playerId'])==identifier]
     saved=read('history:'+name_key(player['name']),{'games':[]})
     games={row['gameId']:row for row in saved['games']}
-    games.update({row['gameId']:row for row in rows})
+    for row in rows:
+        old=games.get(row['gameId'],{})
+        merged={**old,**{key:value for key,value in row.items() if value is not None}}
+        for field in ('values','opponentValues','counts','opponentCounts'):
+            merged[field]={**old.get(field,{}),**row.get(field,{})}
+        games[row['gameId']]=merged
     write('history:'+name_key(player['name']),{'games':sorted(games.values(),key=lambda g:g['date']),'updatedAt':int(time.time()*1000)})
     write('profile:'+name_key(player['name']),profile)
     return profile
@@ -125,7 +139,14 @@ def context(player,opponent,starts_at=''):
     from tennis_history import history
     for profile in players:
         profile['games']=history(profile['name'])['games']
+    h2h_games=[]
+    try:
+        first,second=(str(p['id']) for p in players)
+        payload=cached(f'h2h:{league}:{first}:{second}',f'/tennis/v2/{league}/h2h/matches/{quote(first)}/{quote(second)}?includeAll=true&pageSize=500&include=round,tournament,tournament.court,stat',86400)
+        h2h_games=[g for g in archive_rows(payload.get('data') or [],league) if str(g['playerId'])==first]
+    except Exception:
+        pass  # Existing player histories remain usable during quota/outages.
     return {'match':{'date':match.get('date'),'event':(match.get('tournament') or {}).get('name'),
                      'surface':match.get('court'),'roundId':match.get('roundId'),'round':ROUND_LABELS.get(match.get('roundId')),'bestOf':match.get('best_of'),
-                     'h2h':match.get('h2hSummary')},'players':players,'errors':list(set(errors)),
+                     'h2h':match.get('h2hSummary')},'players':players,'h2hGames':h2h_games,'errors':list(set(errors)),
             'source':'Tennis API · moneyline-implied probabilities','updatedAt':int(time.time()*1000)}

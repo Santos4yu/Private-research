@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch
-from tennis_context import normalize_profile,inline_stats,same
+from tennis_context import normalize_profile,inline_stats,same,archive_rows,refresh_player
 from tennis_live import parse_result
 from tennis_history import history
 
@@ -20,6 +20,29 @@ class ContextTests(unittest.TestCase):
         self.assertAlmostEqual(a['values']['dominanceratio'],40/35)
         self.assertEqual(a['values']['breakpointsgivenup'],3)
         self.assertEqual(a['values']['breakpointssaved'],6)
+        self.assertEqual(a['opponentValues']['aces'],2)
+        self.assertEqual(b['opponentValues']['aces'],12)
+
+    def test_archive_id_and_stat_alias(self):
+        match={'id':42,'date':'2026-09-29T20:00:00Z','result':'6-4 6-3','player1Id':1,'player2Id':2,'player1':{'id':1,'name':'One'},'player2':{'id':2,'name':'Two','currentRank':10,'plays':'Left-handed'},'tournament':{'id':3},'odd2':3,'stat':{'player1':{'aces':5},'player2':{'aces':2}}}
+        a,b=archive_rows([match],'atp')
+        self.assertEqual(a['values']['aces'],5)
+        self.assertEqual(a['opponentValues']['aces'],2)
+        self.assertEqual(a['opponentRank'],10)
+        self.assertEqual(a['opponentHand'],'Left')
+        self.assertEqual(a['opponentOdds'],3)
+        self.assertEqual(archive_rows([{**match,'result':'6-4 2-1 RET'}],'atp'),[])
+
+    def test_partial_refresh_keeps_previously_reported_stats(self):
+        old={'gameId':'one','date':'2026-09-01','opponentRank':10,'values':{'aces':5,'doublefaults':2},'opponentValues':{'aces':3}}
+        new={'gameId':'one','date':'2026-09-01','playerId':'1','opponentRank':None,'values':{'aces':6},'opponentValues':{}}
+        def cached(key,*args):return {'data':{'id':1,'name':'One'}} if key.startswith('profile:') else {'data':[]}
+        with patch('tennis_context.cached',side_effect=cached),patch('tennis_context.archive_rows',return_value=[new]),patch('tennis_context.read',return_value={'games':[old]}),patch('tennis_context.write') as write:
+            refresh_player({'id':1,'name':'One'},'atp')
+        saved=write.call_args_list[0].args[1]['games'][0]
+        self.assertEqual(saved['values'],{'aces':6,'doublefaults':2})
+        self.assertEqual(saved['opponentValues'],{'aces':3})
+        self.assertEqual(saved['opponentRank'],10)
 
     def test_same_day_history_merge_preserves_fields_without_crashing(self):
         old={'gameId':'old','date':'2026-09-29T12:00Z','opponent':'Ruud C.','values':{'aces':3,'doublefaults':2}}

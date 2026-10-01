@@ -90,6 +90,9 @@ def parse_result(match, league, stats):
         values=row['values']
         mine=stats.get('player'+str(index)+'Stats') or {}
         other=stats.get('player'+str(3-index)+'Stats') or {}
+        other_id=other.get('player'+str(3-index)+'Id')
+        if other_id is not None and str(other_id)!=str(match.get('player'+str(3-index)+'Id')):
+            other={}
         # Verify identity before assigning opponent or player statistics.
         expected=match.get('player'+str(index)+'Id')
         reported=mine.get('player'+str(index)+'Id')
@@ -136,6 +139,16 @@ def parse_result(match, league, stats):
             values['returnpointswonpercentage']=100*(othertotal-otherwon-othersecond)/othertotal
         if 'servicepointswonpercentage' in values and 'returnpointswonpercentage' in values and values['servicepointswonpercentage']<100:
             values['dominanceratio']=values['returnpointswonpercentage']/(100-values['servicepointswonpercentage'])
+    # Preserve the other side once, so opponent research needs no per-player calls.
+    for index,row in enumerate(rows):
+        other=rows[1-index]
+        raw=match.get('player'+str(2-index)) or {}
+        plays=str((raw.get('information') or {}).get('plays') or raw.get('plays') or '')
+        row['opponentRank']=raw.get('currentRank') or row.get('opponentRank')
+        row['opponentHand']='Left' if 'left' in plays.lower() else 'Right' if 'right' in plays.lower() else None
+        row['opponentOdds']=other.get('odds')
+        row['opponentValues']=dict(other['values'])
+        row['opponentCounts']=dict(other.get('counts') or {})
     return rows
 
 

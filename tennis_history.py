@@ -85,6 +85,8 @@ def snapshot_history(player):
                     if 'servicepointswonpercentage' in v and 'returnpointswonpercentage' in v and v['servicepointswonpercentage']<100:
                         v['dominanceratio']=v['returnpointswonpercentage']/(100-v['servicepointswonpercentage'])
                     row['bestOf']=5 if max(v['setswon'],v['totalsets']-v['setswon'])==3 else 3
+                    row['opponentOdds']=other.get('odds')
+                    row['opponentValues']=dict(ov)
             index={}
             for row in saved['games']:
                 index.setdefault(name_key(row['player']),[]).append(row)
@@ -198,7 +200,8 @@ def history(player):
             else:
                 # Keep older fields when the fresh source doesn't report them.
                 games[found]={**games[found], **new,
-                              'values':{**games[found]['values'], **new['values']}}
+                              'values':{**games[found]['values'], **new['values']},
+                              'opponentValues':{**games[found].get('opponentValues',{}), **new.get('opponentValues',{})}}
         return {'player':player,'games':sorted(games,key=lambda g:g['date']),
                 'source':'TennisData.App historical snapshot + automatic Tennis API finals',
                 'availableStats':sorted({k for g in games for k in g['values']}),
