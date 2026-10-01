@@ -73,7 +73,7 @@ export function FinderPlayerBanner({row,playerRows=[],onBack}){
    </div>
   </div>
   {(odds||pick||books.length>0)&&<div className="fpb-odds" role="list" aria-label={`Odds at ${line}`}>
-   {odds&&<div className="fpb-card fpb-chance" role="listitem" title={`${odds.book.name} odds at ${line}${odds.paired?", with the bookmaker's margin removed":''}. Not a prediction.`}>
+   {odds&&<div className="fpb-card fpb-chance" role="listitem" title="Market chance">
     <span className="fpb-chance-mark" aria-hidden="true"><Percent size={17}/></span>
     <span className="fpb-lines"><span><b>O</b><em data-side="over">{finite(odds.over)?odds.over.toFixed(1)+'%':'—'}</em></span><span><b>U</b><em data-side="under">{finite(odds.under)?odds.under.toFixed(1)+'%':'—'}</em></span></span>
     <Info size={16} className="fpb-info" aria-label={`Chance implied by ${odds.book.name} odds`}/>

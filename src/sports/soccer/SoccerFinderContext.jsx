@@ -72,7 +72,7 @@ function MatchOdds({match}){
  if(!m.odds||!home||!away)return <Card title="Match odds" icon={ChartPie}><Empty>No moneyline is posted for this match yet.</Empty></Card>;
  const rows=[[home.abbr,home.logo,m.odds.home,m.odds.noVig?.home],['Draw',null,m.odds.draw,m.odds.noVig?.draw],[away.abbr,away.logo,m.odds.away,m.odds.noVig?.away]];
  return <Card title="Match odds" note={m.odds.provider||'Moneyline'} icon={ChartPie} className="soccer-odds">
-  <div className="mlb-context-table-wrap"><table><thead><tr><th scope="col">Result</th><th scope="col">Moneyline</th><th scope="col">No-vig chance</th></tr></thead><tbody>
+  <div className="mlb-context-table-wrap"><table><thead><tr><th scope="col">Result</th><th scope="col">Moneyline</th><th scope="col">Market chance</th></tr></thead><tbody>
    {rows.map(([label,logo,line,chance])=><tr key={label}><th scope="row"><span className="wnba-team-cell"><Logo src={logo} size={18}/>{label==='Draw'?'Draw':`${label} win`}</span></th><td>{price(line)}</td><td>{finite(chance)?`${fmt(chance)}%`:'—'}</td></tr>)}
   </tbody></table></div>
  </Card>;

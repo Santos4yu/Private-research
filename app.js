@@ -4222,7 +4222,7 @@ function renderArmSlotView(data) {
   if (!slot || slot.angle == null) {
     els.armSlotProfile.innerHTML = "";
     els.armSlotEmpty.hidden = false;
-    els.armSlotEmpty.textContent = "Official Statcast arm-angle data is not available for this pitcher yet.";
+    els.armSlotEmpty.textContent = "Arm angle unavailable.";
     return;
   }
 
@@ -4420,14 +4420,14 @@ function fillResearchHealth(node, p) {
   block.querySelector(".research-health-rate").textContent = meta.exactLineRate != null ? `${meta.exactLineRate}%` : "—";
   const range = Array.isArray(meta.historicalRange) ? ` · uncertainty ${meta.historicalRange[0]}–${meta.historicalRange[1]}%` : "";
   block.querySelector(".research-health-label").textContent = `${meta.exactLineLabel || "Exact-line history"} · ${meta.sampleGames || 0} games${range}`;
-  block.querySelector(".research-health-note").textContent = meta.methodNote || "";
+  block.querySelector(".research-health-note").hidden = true;
 
   const sources = block.querySelector(".research-health-sources");
-  sources.innerHTML = (meta.sources || []).map((source) => `<span>${escapeHtml(source)}</span>`).join("");
+  sources.replaceChildren(); sources.hidden = true;
   const limits = block.querySelector(".research-health-limits");
   const limitations = meta.limitations || [];
-  limits.innerHTML = limitations.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
-  limits.hidden = limitations.length === 0;
+  limits.replaceChildren();
+  limits.hidden = true;
 }
 
 function fillPlayability(node, p) {
@@ -4449,10 +4449,10 @@ function fillDecisionPanel(node, p) {
   const meta = p.researchMeta || {};
   const rate = meta.exactLineRate ?? p.estHitRate;
   node.querySelector(".decision-probability").textContent = rate != null ? `${rate}% historical exact-line rate` : "Evidence still building";
-  node.querySelector(".decision-detail").textContent = meta.historicalRange ? `Observed range: ${meta.historicalRange[0]}–${meta.historicalRange[1]}% across ${meta.sampleGames} games.` : "Use the full evidence card before deciding.";
+  node.querySelector(".decision-detail").textContent = meta.historicalRange ? `${meta.sampleGames} games · ${meta.historicalRange[0]}–${meta.historicalRange[1]}%` : "";
   const marketValue = p.marketProb ?? p.trueProb;
   node.querySelector(".decision-market-value").textContent = marketValue != null ? `${Math.round(marketValue * 100)}% fair probability` : "Price not attached";
-  node.querySelector(".decision-market-note").textContent = marketValue != null ? "No-vig market context" : "Research-only card — not a priced recommendation.";
+  node.querySelector(".decision-market-note").textContent = marketValue != null ? "Market chance" : "No posted odds";
 }
 
 function fillFormLadder(node, p) {
@@ -4768,7 +4768,7 @@ function fillPitchArsenal(node, p) {
       </div>
       <div class="starter-bvp-head"><b>${bvpTitle}</b><span>${bvpSummary}</span></div>
       <div class="starter-bvp-grid">${lowerGrid}</div>
-      <div class="starter-source-note"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/></svg><p>Faced is the available plate-appearance sample. AVG, SLG, wOBA and K% are official season results against that pitch type across tracked MLB pitches. Samples below 10 are shown for context but are not used in matchup scoring.</p></div>
+
     </article>
     <article class="pitch-type-card">
       <div class="pitch-breakdown-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 13h4l2-8 4 14 3-10 2 4h5"/></svg><strong>Pitch Arsenal</strong></div>
@@ -5244,7 +5244,7 @@ function fillPitcherLineupProfile(node, p) {
       <div class="lineup-result"><strong>${escapeHtml(metric.display || "—")}</strong><span>${escapeHtml(metric.edge_label || "NEUTRAL")}</span></div>
     </div>`;
   }).join("");
-  block.querySelector(".lineup-profile-note").textContent = `Official full-team plate appearances vs ${handLabel}: ${number(totals.hits)} H / ${number(totals.at_bats)} AB, ${number(totals.strikeouts)} K and ${number(totals.walks)} BB / ${number(totals.plate_appearances)} PA${totals.split_games ? ` across ${number(totals.split_games)} games` : ""}. This always uses the overall team sample; R/G and HR/G remain official team-season rates.`;
+  block.querySelector(".lineup-profile-note").textContent = `vs ${handLabel} · ${number(totals.hits)} H / ${number(totals.at_bats)} AB · ${number(totals.strikeouts)} K · ${number(totals.walks)} BB · ${number(totals.plate_appearances)} PA`;
 }
 
 /* ---------- Manual PrizePicks prop builder ---------- */

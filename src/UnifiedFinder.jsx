@@ -1,6 +1,6 @@
 import React,{lazy,Suspense,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowDown,ArrowUp,ArrowUpDown,ArrowLeft,Bookmark,ChartNoAxesColumnIncreasing,ChevronDown,ChevronLeft,ChevronRight,Grid2X2,ListFilter,LoaderCircle,RefreshCw,Search,SlidersHorizontal,Star,Swords,Table2,Trash2,Users,CalendarDays,Settings,UserRound,X} from 'lucide-react';
-import {loadFinderSport,persistFinderCache,readFinderCache,carryHistory,matchesPrizePicksLine,finderSlipId,slipApps,bookProbability,loadFinderDefense,withDefense,trendPickRow,BOOK_NAMES,linkTarget,findLinkedRow,readFinderView,saveFinderView} from './unified-finder-data';
+import {finderPlayerRows,loadFinderSport,persistFinderCache,readFinderCache,carryHistory,matchesPrizePicksLine,finderSlipId,slipApps,bookProbability,loadFinderDefense,withDefense,trendPickRow,BOOK_NAMES,linkTarget,findLinkedRow,readFinderView,saveFinderView} from './unified-finder-data';
 import {WNBAPlayerPage} from './sports/wnba/WNBAPlayerPage';
 import {siteFinderSportAllowed} from './site-access';
 import {accountProfile} from './account-sync';
@@ -44,13 +44,13 @@ function Books({apps=[]}){return <div className="finder-books">{apps.slice(0,2).
 // The sportsbooks' no-vig chance for the line (unified-finder-data.js
 // bookProbability). Pick'em apps price both sides the same, so they are left
 // out; a line only they post shows a dash rather than a made-up 50/50.
-function Probability({apps=[]}){const chance=bookProbability(apps);if(!chance)return <div className="finder-probability is-empty" title="No sportsbook prices this line, so there is no market lean to show. Pick'em apps price both sides the same."><span aria-label="No sportsbook odds">—</span></div>;return <div className="finder-probability" style={{'--over':chance.over.toFixed(1)}} title={'Over chance from the books\u2019 prices, margin removed: '+chance.books.map(book=>book.name+' '+book.over.toFixed(1)+'%'+(book.twoSided?'':' (Over only)')).join(', ')+(chance.books.length>1?'. Weighted average.':'.')+' Not a model prediction.'}>{[['O',chance.over],['U',chance.under]].map(([label,value])=><span key={label}>{label} <b>{value.toFixed(1)+'%'}</b></span>)}</div>;}
+function Probability({apps=[]}){const chance=bookProbability(apps);if(!chance)return <div className="finder-probability is-empty" title="No posted odds"><span aria-label="No sportsbook odds">—</span></div>;return <div className="finder-probability" style={{'--over':chance.over.toFixed(1)}} title="Market chance">{[['O',chance.over],['U',chance.under]].map(([label,value])=><span key={label}>{label} <b>{value.toFixed(1)+'%'}</b></span>)}</div>;}
 // The opponent's rank against this position in this stat. Rank 1 allows the
 // least; for an Over, a high rank (a defense that gives up a lot) is good.
 function Defense({row}){if(!finite(row.defense))return null;const n=row.defenseTeams||0,third=Math.ceil(n/3),rank=row.defense;const toneName=!n?'none':rank>n-third?'good':rank<=third?'low':'mid';return <span className="finder-defense" data-tone={toneName} title={row.opponent+' ranks '+rank+(n?' of '+n:'')+' in what it allows to this position in this stat (1 allows the least).'}>DEF {rank}{n?'/'+n:''}</span>;}
 // The player's team's chance to win the match, from the moneyline with the
 // margin taken out (soccer_research.py three_way).
-function Moneyline({row}){if(!finite(row.winChance))return null;return <span className="finder-moneyline" data-tone={row.winChance>=50?'good':row.winChance>=33?'mid':'low'} title={`${row.teamName||row.teamAbbr} win chance from the moneyline, margin removed${finite(row.drawChance)?` · draw ${num(row.drawChance)}%`:''}`}>{row.teamLogo&&<img src={row.teamLogo} alt="" width="14" height="14" onError={event=>{event.currentTarget.hidden=true;}}/>}Moneyline <b>{Math.round(row.winChance)}%</b></span>;}
+function Moneyline({row}){if(!finite(row.winChance))return null;return <span className="finder-moneyline" data-tone={row.winChance>=50?'good':row.winChance>=33?'mid':'low'} title="Market chance">{row.teamLogo&&<img src={row.teamLogo} alt="" width="14" height="14" onError={event=>{event.currentTarget.hidden=true;}}/>}Moneyline <b>{Math.round(row.winChance)}%</b></span>;}
 const Row=React.memo(function Row({row,onOpen,pick,onPick}){
  const record=w=>w?String(w.hits??0)+'/'+((w.hits??0)+(w.misses??0))+(w.pushes?' · '+w.pushes+'P':''):'';
  const delta=finite(row.average)?row.average-row.line:null,edge=row.diff,loading=row.historyStatus==='pending';
@@ -259,7 +259,7 @@ export function UnifiedFinder(){
  const removeSort=key=>setSorts(old=>old.filter(item=>item.key!==key));
  const hasDefense=useMemo(()=>sportRows.some(row=>finite(row.defense)),[sportRows]);
  const changePage=n=>{setPage(n);tableRef.current?.scrollTo({top:0});};
- const playerRows=useMemo(()=>selected?allRows.filter(r=>r.sport===selected.sport&&(selected.playerId?r.playerId===selected.playerId:r.player===selected.player)):[],[allRows,selected]);
+ const playerRows=useMemo(()=>finderPlayerRows(allRows,selected),[allRows,selected]);
  // The trend panel's save star (app.js vortexTrendPanel.setSave): it saves
  // the line the panel is showing, through the same Over / Under chooser as
  // the board's stars.

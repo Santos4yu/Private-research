@@ -14,6 +14,18 @@ const historyCache = new Map();
 const HISTORY_TTL = 10 * 60 * 1000;
 /** The two basketball leagues: one row shape, one history source (api/wnba.py). */
 export const BASKETBALL = new Set(['wnba', 'nba']);
+export function finderPlayerRows(rows, selected) {
+  if(!selected)return [];
+  return rows.filter(row=>{
+    if(row.sport!==selected.sport)return false;
+    if(row.sport!=='tennis')return selected.playerId?row.playerId===selected.playerId:row.player===selected.player;
+    if(nameKey(row.player)!==nameKey(selected.player))return false;
+    const opponent=value=>nameKey(String(value||'').replace(/\s+1st\s+set.*$/i,''));
+    if(opponent(row.opponent)!==opponent(selected.opponent))return false;
+    const a=Date.parse(row.startsAt),b=Date.parse(selected.startsAt);
+    return !Number.isFinite(a)||!Number.isFinite(b)||Math.abs(a-b)<=12*60*60*1000;
+  });
+}
 const FINDER_CACHE_PREFIX = 'vortex:finder:board:v6:';
 const FINDER_CACHE_TTL = 24 * 60 * 60 * 1000;
 

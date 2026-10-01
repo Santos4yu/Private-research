@@ -36,7 +36,7 @@ function TennisTrends({row,playerRows,onBack}) {
     <div className="mlb-finder-workspace"><div className="mlb-trend-main">
       <div className="wnba-trend-host finder-mlb-trend-host" ref={host}/>
       {error&&<p className="mlb-context-note" role="status">{error}</p>}
-      {String(selected.id).startsWith('research:')&&<p className="mlb-context-note">Research-only stat. The adjustable comparison starts at the historical average; it is not a posted PrizePicks line.</p>}
+      {String(selected.id).startsWith('research:')&&<p className="mlb-context-note">No posted line.</p>}
       <section className="mlb-context-card mlb-supporting"><header><h2>Supporting stats</h2><small>Last 10 matches</small></header>
         <div className="mlb-support-tabs">{[['totalgames','Total Games'],['totalsets','Total Sets'],['aces','Aces'],['doublefaults','Double Faults']].map(([key,label])=>{const sample=games.slice(-10).map(g=>g.values[key]).filter(Number.isFinite);return <button type="button" key={key} aria-pressed={support===key} onClick={()=>setSupport(key)}>{label}<strong>{sample.length?(sample.reduce((a,b)=>a+b,0)/sample.length).toFixed(1):'—'} <small>avg.</small></strong></button>;})}</div>
         <div className="mlb-support-chart">{games.slice(-10).map(game=>{const value=game.values[support],max=Math.max(1,...games.slice(-10).map(g=>g.values[support]).filter(Number.isFinite));return <div key={game.gameId}><div className="mlb-support-track"><div style={{height:Number.isFinite(value)?`${value/max*100}%`:'0%'}}><span>{value??'—'}</span></div></div><small>{new Date(game.date).toLocaleDateString([],{month:'numeric',day:'numeric'})}<br/>{game.opponent}</small></div>;})}</div>
