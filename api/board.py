@@ -166,12 +166,21 @@ class handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         from site_controls import allowed
-        tab={'prop-history':'research','moneyline':'moneyline','nrfi':'nrfi','soccer':'finder','nhl':'finder','tennis':'finder','moves':'moves','mlb-context':'finder','moneylines':'moneyline'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
+        tab={'finder-history':'finder','prop-history':'research','moneyline':'moneyline','nrfi':'nrfi','soccer':'finder','nhl':'finder','tennis':'finder','moves':'moves','mlb-context':'finder','moneylines':'moneyline'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
         if not allowed(self.headers,tab):return self._send(503,{'error':'This section is temporarily unavailable','featureDisabled':True})
         if not session_with_live_access(self.headers):
             return self._send(401, {"error": "Sign in with Discord to use live research.", "authRequired": True})
 
         view = (parse_qs(urlparse(self.path).query).get("view") or [""])[0]
+        if view == "finder-history":
+            from finder_history_store import SPORTS, snapshot
+            from site_controls import finder_sport_allowed
+            sport = (parse_qs(urlparse(self.path).query).get("sport") or [""])[0]
+            if sport not in SPORTS:
+                return self._send(400, {"error": "Unknown Finder sport"})
+            if not finder_sport_allowed(self.headers, sport):
+                return self._send(503, {"error": "This section is temporarily unavailable", "featureDisabled": True})
+            return self._send(200, snapshot(sport))
         if view == "tennis":
             qs = parse_qs(urlparse(self.path).query)
             from site_controls import finder_sport_allowed
@@ -184,7 +193,9 @@ class handler(BaseHTTPRequestHandler):
                     return self._send(200, context((qs.get('player') or [''])[0],(qs.get('opponent') or [''])[0],(qs.get('startsAt') or [''])[0]))
                 if (qs.get('resource') or [''])[0] == 'history':
                     from tennis_history import history as tennis_history
-                    return self._send(200, tennis_history((qs.get('player') or [''])[0]))
+                    from finder_history_store import remember
+                    player = (qs.get('player') or [''])[0]
+                    return self._send(200, remember('tennis', 'tennis:'+player, tennis_history(player), {'player':player}))
                 force = (parse_qs(urlparse(self.path).query).get("refresh") or [""])[0] == "1"
                 return self._send(200, tennis_board(force=force))
             except Exception:
@@ -214,7 +225,8 @@ class handler(BaseHTTPRequestHandler):
                     if resource == "club":
                         return self._send(200, soccer_research.club_log(athlete, team))
                     if resource == "log":
-                        return self._send(200, soccer_research.team_log(team, event, league or None))
+                        from finder_history_store import remember
+                        return self._send(200, remember('soccer', f'soccer:{league}:{event}:{team}', soccer_research.team_log(team, event, league or None), {'team':team,'event':event,'league':league}))
                     return self._send(200, soccer_research.match(event, league or None))
                 except Exception:
                     return self._send(502, {"error": "Match data is temporarily unavailable."})
@@ -240,7 +252,8 @@ class handler(BaseHTTPRequestHandler):
                     return self._send(400, {"error": "Unknown team or game."})
                 try:
                     if resource == "log" and team:
-                        return self._send(200, nhl_research.team_log(team, opponent or None))
+                        from finder_history_store import remember
+                        return self._send(200, remember('nhl', f'nhl:{team}:{opponent}', nhl_research.team_log(team, opponent or None), {'team':team,'opponent':opponent}))
                     if resource == "team" and team:
                         return self._send(200, nhl_research.team_context(team))
                     if resource == "matchup" and game:
@@ -311,8 +324,12 @@ class handler(BaseHTTPRequestHandler):
         if view == "prop-history":
             qs = parse_qs(urlparse(self.path).query)
             try:
-                return self._send(200, player_history((qs.get("player") or [""])[0], (qs.get("group") or ["pitching"])[0],
-                                                      first_inning_stats=(qs.get("innings") or [""])[0] == "1"))
+                from finder_history_store import remember, name_key
+                player = (qs.get("player") or [""])[0]
+                group = (qs.get("group") or ["pitching"])[0]
+                innings = (qs.get("innings") or [""])[0] == "1"
+                key = f'{name_key(player)}|{group}'+('|innings' if innings else '')
+                return self._send(200, remember('mlb', key, player_history(player, group, first_inning_stats=innings), {'player':player,'group':group,'innings':innings}))
             except ValueError as exc:
                 return self._send(400, {"error": str(exc)})
             except Exception:

@@ -327,6 +327,14 @@ def _history(player_id, league="wnba", season=None):
     return rows
 
 
+def _saved_history(player_id, league, season=None):
+    from finder_history_store import remember
+    season = season or datetime.now(timezone.utc).year
+    payload = {"rows": _history(player_id, league, season)} if league == 'nba' else _game_logs(player_id, season)
+    return remember(league, f"{league}:{player_id}:{'recent' if league == 'nba' else season}",
+                    payload, {"playerId": player_id, "season": season})
+
+
 def _window(values, line):
     decided = [value for value in values if value != line]
     hits = sum(value > line for value in decided)
@@ -750,19 +758,20 @@ class handler(BaseHTTPRequestHandler):
                         return _send(self, 400, {"error": "A verified NBA player is required."})
                     seasons = _nba_seasons()
                     return _send(self, 200, {"status": "AVAILABLE", "source": "espn", "playerId": player_id, "season": seasons[-1],
-                                             "seasons": seasons, "rows": _history(player_id, "nba"),
+                                             "seasons": seasons, "rows": _saved_history(player_id, "nba")["rows"],
                                              "fetchedAt": datetime.now(timezone.utc).isoformat()})
                 try: season = int(query.get("season", [str(datetime.now(timezone.utc).year)])[0])
                 except ValueError: return _send(self, 400, {"error": "A valid WNBA season is required."})
                 if not player_id.isdigit() or not 2000 <= season <= 2100: return _send(self, 400, {"error": "A verified WNBA player and season are required."})
-                return _send(self, 200, _game_logs(player_id, season))
+                return _send(self, 200, _saved_history(player_id, "wnba", season))
             if resource in ("matchup", "league-context", "player-context"):
                 return self._context(resource, query, league)
             if resource != "board": return _send(self, 404, {"error": f"Unknown {name} resource."})
             fast = query.get("fast", ["0"])[0].lower() in ("1", "true", "yes")
+            from finder_history_store import enroll_basketball
             if league == "nba":
-                return _send(self, 200, _nba_board(include_history=not fast))
-            return _send(self, 200, _board(include_history=not fast))
+                return _send(self, 200, enroll_basketball('nba', _nba_board(include_history=not fast)))
+            return _send(self, 200, enroll_basketball('wnba', _board(include_history=not fast)))
         except RuntimeError as exc:
             return _send(self, 503, {"error": str(exc), "rows": [], "source": "prizepicks" if league == "nba" else "the-odds-api"})
         except Exception:

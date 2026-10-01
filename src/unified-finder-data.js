@@ -69,7 +69,7 @@ export function persistFinderCache(sport, value) {
 // that is still the same prop at the same number. Only new lines, and lines
 // that moved, load history again.
 const HISTORY_KEEP = 6 * 60 * 60 * 1000;
-const HISTORY_FIELDS = ['average', 'windows', 'streak', 'diff', 'averageDelta', 'historyStatus', 'enrichedAt', 'gameLog'];
+const HISTORY_FIELDS = ['average', 'windows', 'streak', 'diff', 'averageDelta', 'historyStatus', 'enrichedAt', 'gameLog', 'historyAsOf', 'historyRefresh'];
 // What history fills in that a board can leave blank (an MLB player's id,
 // photo and opponent). Prices and odds are never carried: the new board's
 // are the current ones.
@@ -82,7 +82,7 @@ export function carryHistory(rows, previous = [], now = Date.now()) {
   if (!before.size) return rows;
   return rows.map(row => {
     const old = before.get(row.id);
-    if (!old || row.historyStatus === 'ready' || old.line !== row.line || old.direction !== row.direction
+    if (!old || (row.historyStatus === 'ready' && Number(row.enrichedAt||0)>=Number(old.enrichedAt||0)) || old.line !== row.line || old.direction !== row.direction
       || (old.valueKey || old.marketKey || old.stat) !== (row.valueKey || row.marketKey || row.stat)) return row;
     const kept = {...row};
     for (const key of IDENTITY_FIELDS) if (kept[key] == null && old[key] != null) kept[key] = old[key];
@@ -531,7 +531,7 @@ export function normalizeFinderRows(sport, payload, players = [], {now = Date.no
 }
 
 /** Read existing sport feeds. NFL uses its saved board, never a browser-driven odds scan. */
-export async function loadFinderSport(sport, options = {}) {
+async function loadFinderSportRaw(sport, options = {}) {
   if (sport === 'wnba') {
     const payload = await request(options.fast ? '/api/wnba?fast=1' : '/api/wnba', options);
     return {...payload, rows: normalizeFinderRows(sport, payload), fetchedAt: payload.fetchedAt || null};
@@ -577,6 +577,41 @@ export async function loadFinderSport(sport, options = {}) {
   throw new Error('This sport is not supported by Finder.');
 }
 
+export function finderHistoryKey(row, season=new Date().getUTCFullYear()) {
+  if(BASKETBALL.has(row.sport))return `${wnbaHistoryKey(row)}:${row.sport==='nba'?'recent':season}`;
+  if(row.sport==='mlb')return mlbHistoryKey(row);
+  if(row.sport==='soccer')return `soccer:${soccerLogKey(row)}`;
+  if(row.sport==='nhl')return `nhl:${nhlLogKey(row.teamAbbr,row.opponent)}`;
+  if(row.sport==='tennis')return `tennis:${row.player}`;
+  return null;
+}
+
+// Current prices still come from the existing line source. One shared raw
+// history sample serves all that player's lines, including moved/new lines.
+export function applyFinderSnapshot(rows, histories={}, now=Date.now()) {
+  return rows.map(row=>{
+    const key=finderHistoryKey(row),entry=histories[key];
+    if(!entry?.payload||!Number.isFinite(entry.at)||now-entry.at<0||now-entry.at>24*60*60*1000)return row;
+    const apply=BASKETBALL.has(row.sport)?applyWnbaHistory:({mlb:applyMlbHistory,soccer:applySoccerHistory,nhl:applyNhlHistory,tennis:applyTennisHistory})[row.sport];
+    if(!apply)return row;
+    const result=apply(row,entry.payload);
+    if(result.historyStatus!=='ready')return row;
+    historyCache.set(key,{at:entry.at,value:entry.payload});
+    return {...result,enrichedAt:entry.at,historyAsOf:entry.at,historyRefresh:now-entry.at>=HISTORY_TTL};
+  });
+}
+
+export async function loadFinderSport(sport, options={}) {
+  if(sport==='nfl')return loadFinderSportRaw(sport,options); // Already server-graded.
+  let timer;
+  const saved=Promise.race([
+    request(`/api/board?view=finder-history&sport=${encodeURIComponent(sport)}`,options).catch(error=>{if(error.name==='AbortError')throw error;return {};}),
+    new Promise(resolve=>{timer=setTimeout(()=>resolve({}),1500);}),
+  ]).finally(()=>clearTimeout(timer));
+  const [board,snapshot]=await Promise.all([loadFinderSportRaw(sport,options),saved]);
+  return {...board,rows:applyFinderSnapshot(board.rows,snapshot.histories)};
+}
+
 const wnbaHistoryKey = row => `${row.sport === 'nba' ? 'nba' : 'wnba'}:${row.playerId || ''}`;
 /** A player's ESPN game logs: the WNBA season, or the NBA's last two. */
 export function basketballLogUrl(row, season = new Date().getUTCFullYear()) {
@@ -617,14 +652,14 @@ export function applyWnbaHistory(row, payload) {
   const played = logs.filter(log => log.seasonKind !== 'preseason');
   return finish({...row, average: mean(values.slice(-10)), windows, streak: values.length ? streak : null,
     gameLog: gameLog(played.map(log => ({value: log.values[row.marketKey], date: log.date, home: log.isHome, opponent: log.opponent, usage: log.minutes}))),
-    historyStatus: 'ready', history: payload});
+    historyStatus: 'ready', historyRefresh:false, historyAsOf:Date.now(), enrichedAt:Date.now(), history: payload});
 }
 
 /** Hydrate WNBA history after the market rows are already visible. */
 export async function enrichWnbaRows(rows, {signal, onRows, concurrency = 6, ...options} = {}) {
   const groups = new Map();
   for (const row of rows) {
-    if (!BASKETBALL.has(row.sport) || row.historyStatus === 'ready' || !row.playerId) continue;
+    if (!BASKETBALL.has(row.sport) || row.historyStatus === 'ready' && !row.historyRefresh || !row.playerId) continue;
     const key = wnbaHistoryKey(row);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(row);
@@ -645,6 +680,7 @@ export async function enrichWnbaRows(rows, {signal, onRows, concurrency = 6, ...
         if (signal?.aborted || error.name === 'AbortError') throw error;
         updates = batch.map(row => ({...row, historyStatus: 'unavailable'}));
       }
+      updates=updates.map((update,i)=>batch[i].historyStatus==='ready'&&update.historyStatus!=='ready'?{...batch[i],historyRefresh:true}:update);
       updates.forEach(row => enriched.set(row.id, row));
       onRows?.(updates);
     }
@@ -727,14 +763,14 @@ export function applyMlbHistory(row, payload) {
     gameLog: gameLog(validGames.map(game => ({value: strictMlbValue(game.stat || {}, definition), date: game.date, home: game.isHome,
       opponent: game.opponent?.id ?? null,
       usage: definition.pitcher ? game.stat?.numberOfPitches ?? game.stat?.pitchesThrown : game.stat?.plateAppearances}))),
-    historyStatus: 'ready', history: payload, chart});
+    historyStatus: 'ready', historyRefresh:false, historyAsOf:Date.now(), enrichedAt:Date.now(), history: payload, chart});
 }
 
 /** Emits one batch per player/group so rows become useful before the full slate finishes. */
 export async function enrichMlbRows(rows, {signal, onRows, concurrency = 4, ...options} = {}) {
   const groups = new Map();
   for (const row of rows) {
-    if (row.sport !== 'mlb' || row.historyStatus === 'ready') continue;
+    if (row.sport !== 'mlb' || row.historyStatus === 'ready' && !row.historyRefresh) continue;
     const key = mlbHistoryKey(row);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(row);
@@ -755,6 +791,7 @@ export async function enrichMlbRows(rows, {signal, onRows, concurrency = 4, ...o
         if (signal?.aborted || error.name === 'AbortError') throw error;
         updates = batch.map(row => ({...row, historyStatus: 'unavailable'}));
       }
+      updates=updates.map((update,i)=>batch[i].historyStatus==='ready'&&update.historyStatus!=='ready'?{...batch[i],historyRefresh:true}:update);
       updates.forEach(row => enriched.set(row.id, row));
       onRows?.(updates);
     }
@@ -797,7 +834,7 @@ export function applySoccerHistory(row, log) {
     if (streak && Math.sign(streak) !== sign) break;
     streak += sign;
   }
-  return finish({...row, average: mean(values.slice(-10)), windows, streak, historyStatus: 'ready',
+  return finish({...row, average: mean(values.slice(-10)), windows, streak, historyStatus: 'ready', historyRefresh:false, historyAsOf:Date.now(), enrichedAt:Date.now(),
     gameLog: gameLog(games.map(game => ({value: valueOf(game, stat), date: game.date, home: game.isHome, opponent: game.opponent, usage: game.min})))});
 }
 
@@ -805,7 +842,7 @@ export function applySoccerHistory(row, log) {
 export async function enrichSoccerRows(rows, {signal, onRows, concurrency = 4, ...options} = {}) {
   const groups = new Map();
   for (const row of rows) {
-    if (row.sport !== 'soccer' || row.historyStatus !== 'pending') continue;
+    if (row.sport !== 'soccer' || row.historyStatus !== 'pending' && !row.historyRefresh) continue;
     const key = soccerLogKey(row);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(row);
@@ -826,6 +863,7 @@ export async function enrichSoccerRows(rows, {signal, onRows, concurrency = 4, .
         if (signal?.aborted || error.name === 'AbortError') throw error;
         updates = batch.map(row => ({...row, historyStatus: 'unavailable'}));
       }
+      updates=updates.map((update,i)=>batch[i].historyStatus==='ready'&&update.historyStatus!=='ready'?{...batch[i],historyRefresh:true}:update);
       updates.forEach(row => enriched.set(row.id, row));
       onRows?.(updates);
     }
@@ -868,7 +906,7 @@ export function applyNhlHistory(row, log) {
     if (streak && Math.sign(streak) !== sign) break;
     streak += sign;
   }
-  return finish({...row, average: mean(values.slice(-10)), windows, streak, historyStatus: 'ready',
+  return finish({...row, average: mean(values.slice(-10)), windows, streak, historyStatus: 'ready', historyRefresh:false, historyAsOf:Date.now(), enrichedAt:Date.now(),
     gameLog: gameLog(games.map(game => ({value: nhlValue(game, row.valueKey), date: game.date, home: game.isHome, opponent: game.opponent,
       usage: game.values?.toi})))});
 }
@@ -877,7 +915,7 @@ export function applyNhlHistory(row, log) {
 export async function enrichNhlRows(rows, {signal, onRows, concurrency = 4, ...options} = {}) {
   const groups = new Map();
   for (const row of rows) {
-    if (row.sport !== 'nhl' || row.historyStatus !== 'pending') continue;
+    if (row.sport !== 'nhl' || row.historyStatus !== 'pending' && !row.historyRefresh) continue;
     const key = nhlLogKey(row.teamAbbr, row.opponent);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(row);
@@ -898,6 +936,7 @@ export async function enrichNhlRows(rows, {signal, onRows, concurrency = 4, ...o
         if (signal?.aborted || error.name === 'AbortError') throw error;
         updates = batch.map(row => ({...row, historyStatus: 'unavailable'}));
       }
+      updates=updates.map((update,i)=>batch[i].historyStatus==='ready'&&update.historyStatus!=='ready'?{...batch[i],historyRefresh:true}:update);
       updates.forEach(row => enriched.set(row.id, row));
       onRows?.(updates);
     }
@@ -950,14 +989,14 @@ export function applyTennisHistory(row, log) {
     if (streak && Math.sign(streak) !== sign) break;
     streak += sign;
   }
-  return finish({...row, average: mean(values.slice(-10)), windows, streak, historyStatus: 'ready',
+  return finish({...row, average: mean(values.slice(-10)), windows, streak, historyStatus: 'ready', historyRefresh:false, historyAsOf:Date.now(), enrichedAt:Date.now(),
     gameLog: gameLog(games.map(game => ({value: game.values[key], date: game.date, opponent: game.opponent}))), history: log});
 }
 
 export async function enrichTennisRows(rows, {signal, onRows, concurrency = 2, ...options} = {}) {
   const groups = new Map();
   for (const row of rows) {
-    if (row.sport !== 'tennis' || row.historyStatus !== 'pending') continue;
+    if (row.sport !== 'tennis' || row.historyStatus !== 'pending' && !row.historyRefresh) continue;
     if (!groups.has(row.player)) groups.set(row.player, []);
     groups.get(row.player).push(row);
   }
@@ -975,6 +1014,7 @@ export async function enrichTennisRows(rows, {signal, onRows, concurrency = 2, .
         if (signal?.aborted || error.name === 'AbortError') throw error;
         updates = batch.map(row => ({...row, historyStatus: 'unavailable'}));
       }
+      updates=updates.map((update,i)=>batch[i].historyStatus==='ready'&&update.historyStatus!=='ready'?{...batch[i],historyRefresh:true}:update);
       updates.forEach(row => result.set(row.id, row));
       onRows?.(updates);
     }

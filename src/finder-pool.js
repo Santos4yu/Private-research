@@ -15,6 +15,7 @@ export const stamped = rows => {
   return rows.map(row => row.historyStatus === 'ready' && !row.enrichedAt ? {...row, enrichedAt: now} : row);
 };
 export const needsHistory = (sport, row) => row.historyStatus === 'pending'
+  || row.historyRefresh
   || ((sport === 'wnba' || sport === 'nba' || sport === 'mlb') && row.historyStatus !== 'ready' && row.historyStatus !== 'none');
 
 /**

@@ -147,7 +147,7 @@ test('soccer rows carry PrizePicks\' own stat and tier, and export as SOCCER pic
  assert.deepEqual([pick.sport,pick.exportStat,pick.team,pick.opponent],['SOCCER','Shots On Target','ARS','CHE']);
  const urls=[];
  const loaded=await loadFinderSport('soccer',{fetcher:async url=>{urls.push(url);return {ok:true,json:async()=>payload};}});
- assert.deepEqual(urls,['/api/board?view=soccer']);
+ assert.deepEqual(urls,['/api/board?view=finder-history&sport=soccer','/api/board?view=soccer']);
  assert.equal(loaded.fetchedAt,'2026-09-28T12:00:00Z');
 });
 
@@ -163,7 +163,7 @@ test('tennis keeps every PrizePicks stat and becomes an exportable Finder pick',
  assert.deepEqual([pick.sport,pick.exportStat,pick.player,pick.opponent],['TENNIS','Aces','Iga Swiatek','Aryna Sabalenka']);
  const urls=[];
  const loaded=await loadFinderSport('tennis',{fetcher:async url=>{urls.push(url);return {ok:true,json:async()=>payload};}});
- assert.deepEqual(urls,['/api/board?view=tennis']);
+ assert.deepEqual(urls,['/api/board?view=finder-history&sport=tennis','/api/board?view=tennis']);
  assert.equal(loaded.rows.length,2);
 });
 

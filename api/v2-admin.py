@@ -94,6 +94,13 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(200, result)
             if action == "cron-scan":
                 return self._handle_cron_scan()
+            if action == "finder-history-cron":
+                import hmac
+                secret = os.getenv("CRON_SECRET", "")
+                if not secret or not hmac.compare_digest(self.headers.get("Authorization", ""), "Bearer "+secret):
+                    return self._send(401, {"error":"Cron auth required"})
+                from finder_history_store import warm
+                return self._send(200, warm(budget=40, limit=120))
             if action == "tennis-cron-scan":
                 import hmac
                 secret = os.getenv("CRON_SECRET", "")
@@ -370,6 +377,7 @@ class handler(BaseHTTPRequestHandler):
         records moves and sends saved-pick alerts. Called every few minutes
         by an outside timer with the link from announce-status."""
         import hmac
+        started = time.monotonic()
         import line_moves
         given = (qs.get("key") or [""])[0]
         secret = os.getenv("CRON_SECRET", "")
@@ -413,7 +421,14 @@ class handler(BaseHTTPRequestHandler):
                     seasons._set_lock("0", "nba")
         except Exception:  # noqa: BLE001 -- never at the cost of the line checks
             pass
-        return self._send(200, {"ok": True, "checked": line_moves.checked(), "moneylines": moneylines, "nba": nba, "tennis": tennis})
+        histories = None
+        try:
+            from finder_history_store import warm
+            if time.monotonic()-started < 40:
+                histories = warm(budget=5, limit=2)
+        except Exception:
+            pass
+        return self._send(200, {"ok": True, "checked": line_moves.checked(), "moneylines": moneylines, "nba": nba, "tennis": tennis, "histories":histories})
 
     def _handle_cron_scan(self):
         secret = os.getenv("CRON_SECRET", "")
