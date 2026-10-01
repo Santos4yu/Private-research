@@ -9,6 +9,7 @@ import re
 import threading
 import time
 import unicodedata
+from datetime import datetime
 from urllib.parse import urljoin, urlparse
 
 import requests
@@ -172,8 +173,18 @@ def _fetch_projection_rows(force=False, league="MLB"):
         player = players.get(player_id) or {}
         if row_league_id != league_id and str(player.get("league") or "").upper() != league:
             continue
-        if attrs.get("status") != "pre_game" or attrs.get("is_live"):
+        if attrs.get("status") != "pre_game":
             continue
+        if attrs.get("is_live"):
+            # Tennis pre-game offers can carry is_live/in_game before kickoff.
+            # Only retain that conflicting flag when the recorded start proves
+            # it is still upcoming; never admit a genuinely live projection.
+            try:
+                starts = datetime.fromisoformat(str(attrs.get("start_time") or "").replace("Z", "+00:00")).timestamp()
+            except (ValueError, TypeError):
+                starts = None
+            if league != "TENNIS" or starts is None or starts <= now:
+                continue
         odds_type = str(attrs.get("odds_type") or "standard").lower()
         # A line that names its sides must offer More. One that names none
         # is kept: a standard line plays both ways, a Goblin or Demon More only.

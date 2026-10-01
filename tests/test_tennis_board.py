@@ -30,6 +30,26 @@ LEAGUES = {"data": [{"id": "5", "type": "league", "attributes": {"name": "TENNIS
 
 
 class TennisBoardTests(unittest.TestCase):
+    def test_future_pregame_sets_survive_conflicting_live_flag(self):
+        upcoming = tennis_projection("zverev-sets", "z1", "Total Sets", 2.5,
+                                     start="2026-10-01T03:40:00-04:00", odds_type="demon", wagers="over")
+        upcoming["attributes"].update(is_live=True, in_game=True, description="Cameron Norrie")
+        started = tennis_projection("started", "z1", "Total Sets", 2.5, start="2026-09-30T10:00:00Z")
+        started["attributes"]["is_live"] = True
+        unknown = tennis_projection("unknown", "z1", "Total Sets", 2.5, start="")
+        unknown["attributes"]["is_live"] = True
+        actual_live = tennis_projection("actual-live", "z1", "Total Sets", 2.5, start="2099-01-01T00:00:00Z")
+        actual_live["attributes"].update(is_live=True, status="in_game")
+        feed = {"data": [upcoming, started, unknown, actual_live],
+                "included": [player("z1", "Alexander Zverev", "TENNIS")]}
+        fake = FakePrizePicks(leagues=LEAGUES, feeds={"5": feed})
+        with patch.object(export.requests, "get", side_effect=fake), patch.object(export.time, "time", return_value=NOW):
+            result = tennis_board.build(now=NOW)
+        self.assertEqual(len(result["rows"]), 1)
+        row = result["rows"][0]
+        self.assertEqual((row["player"], row["marketKey"], row["line"], row["modifier"]),
+                         ("Alexander Zverev", "totalsets", 2.5, "demon"))
+
     def setUp(self):
         export._PROJECTION_CACHE.clear()
         export._LEAGUE_CACHE.clear()
