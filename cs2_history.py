@@ -403,10 +403,12 @@ def warm(budget=20, limit=12, concurrency=3, max_maps=6, force=False, listing_on
         if remaining <= 1: raise TimeoutError('Collector budget exhausted')
         return fetch(path, timeout=min(15, remaining))
     jobs, saved = read_jobs(), read_entries(SAVED)
-    if not listing_only and saved and sum(bool(v.get('coverage', {}).get('listingComplete')) for v in saved.values()) >= len(jobs)*.7:
+    if not listing_only and saved and sum(bool(v.get('coverage', {}).get('listingComplete')) for v in saved.values()) >= len(jobs)*.95:
         warm_headshots(budget=max(5, budget*.75), limit=max(60, limit), publish=False)
     due = sorted(((key, job) for key, job in jobs.items() if time.time()-job.get('enrolledAt', 0) < 2*86400),
-                 key=lambda p: (bool(saved.get(p[0], {}).get('listingReady')), saved.get(p[0], {}).get('checkedAt', 0)))
+                 key=lambda p: (bool(saved.get(p[0], {}).get('listingReady')),
+                                bool(saved.get(p[0], {}).get('coverage', {}).get('listingComplete')),
+                                saved.get(p[0], {}).get('checkedAt', 0)))
     def collect(pair):
         key, job = pair
         if time.monotonic()-started >= budget-3: return (0, 0)

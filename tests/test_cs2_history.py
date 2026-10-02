@@ -121,6 +121,20 @@ class HistoryTests(unittest.TestCase):
         self.assertEqual(len(entry['games']),1)
         self.assertFalse(entry['coverage']['listingComplete'])
 
+    def test_unfinished_listings_are_prioritized_over_completed_players(self):
+        jobs={s:{'slug':s,'enrolledAt':h.time.time()} for s in ('alpha0','beta0')}
+        saved={s:{'listingReady':True,'checkedAt':0,'coverage':{'listingComplete':s=='alpha0'}} for s in jobs}
+        state={'listedAt':h.time.time(),'listParserVersion':2,'paginationVersion':1,'listingPages':2,
+               'nextListingPage':2,'paths':[{'path':'/matches/old/mirage','date':'2026-09-02'}]}
+        def command(*args):
+            if args[0]=='SET':return 'OK'
+            if args[:2]==('HGET',h.STATE):return json.dumps(state)
+        with patch.object(h,'read_entries',side_effect=[jobs,saved]),patch.object(h,'command',side_effect=command), \
+             patch.object(h,'player_maps',return_value=[{'path':'/matches/new/mirage','date':'2026-09-01'}]), \
+             patch.object(h,'listed_results',return_value=[]),patch.object(h,'fetch',return_value='verified page') as fetch:
+            h.warm(limit=1,listing_only=True)
+        self.assertEqual(fetch.call_args.args[0],'/players/beta0/maps?page=2')
+
     def test_existing_jobs_are_migrated_to_verified_slugs(self):
         jobs={'frozen':{'slug':'frozen','enrolledAt':h.time.time()},'unknown':{'slug':'unknown'}}
         with patch.object(h,'read_entries',return_value=jobs),patch.object(h,'command') as command:
