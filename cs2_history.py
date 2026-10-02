@@ -258,12 +258,17 @@ def headshot_results(html, scoreboard):
         slug = resolve(player[1]) if player else None
         game = field('game_id')
         kills, deaths, assists, hs = (field(k) for k in ('kills', 'death', 'assists', 'headshots'))
-        if type(game) is not int or not isinstance(slug, str) or not all(type(n) is int and n >= 0 for n in (kills, deaths, assists, hs)) or hs > kills:
+        if type(game) is not int or not isinstance(slug, str) or not all(type(n) is int and n >= 0 for n in (kills, deaths, assists)):
             continue
-        groups[game][slug] = {'kills': kills, 'deaths': deaths, 'assists': assists, 'headshots': hs}
+        row = {'kills': kills, 'deaths': deaths, 'assists': assists}
+        if type(hs) is int and 0 <= hs <= kills: row['headshots'] = hs
+        groups[game][slug] = row
     matches = [g for g in groups.values() if set(g) == set(scoreboard) and all(
         all(g[s][key] == row[key] for key in ('kills', 'deaths', 'assists')) for s, row in scoreboard.items())]
-    return {s: r['headshots'] for s, r in matches[0].items()} if len(matches) == 1 else {}
+    # Validate the entire map identity/KDA first, then retain each player's
+    # independently recorded headshots. One missing value must not erase the
+    # other nine players' real observations.
+    return {s: r['headshots'] for s, r in matches[0].items() if 'headshots' in r} if len(matches) == 1 else {}
 
 
 def map_result(html, path, date):
@@ -365,7 +370,7 @@ def read_jobs():
 
 def persist(key, entry):
     command('HSET', STATE, key, json.dumps(entry, separators=(',', ':')))
-    display = {k: entry[k] for k in ('games', 'updatedAt', 'source', 'sourceSlug', 'checkedAt') if k in entry}
+    display = {k: entry[k] for k in ('games', 'updatedAt', 'source', 'sourceSlug', 'checkedAt', 'listingStatus') if k in entry}
     display['listingReady'] = entry.get('listParserVersion') == 2
     display['coverage'] = coverage_for(display.get('games', []))
     display['coverage']['listingComplete'] = entry.get('paginationVersion') == 1 and entry.get('nextListingPage', 2) > entry.get('listingPages', 1)
@@ -403,9 +408,23 @@ def warm(budget=20, limit=12, concurrency=3, max_maps=6, force=False, listing_on
         if remaining <= 1: raise TimeoutError('Collector budget exhausted')
         return fetch(path, timeout=min(15, remaining))
     jobs, saved = read_jobs(), read_entries(SAVED)
-    if not listing_only and saved and sum(bool(v.get('coverage', {}).get('listingComplete')) for v in saved.values()) >= len(jobs)*.95:
-        warm_headshots(budget=max(5, budget*.75), limit=max(60, limit), publish=False)
-    due = sorted(((key, job) for key, job in jobs.items() if time.time()-job.get('enrolledAt', 0) < 2*86400),
+    active = {key:job for key, job in jobs.items() if time.time()-job.get('enrolledAt', 0) < 2*86400}
+    def listing_deferred(key, job):
+        previous = saved.get(key, {})
+        # A verified alias change must not inherit a different profile's failure.
+        return (not (key in ALIASES and previous.get('sourceSlug') is None) and
+                previous.get('sourceSlug') in (None, job['slug']) and
+                previous.get('listingStatus', {}).get('nextAttemptAt', 0) > time.time())
+    pending_listings = [key for key, job in active.items()
+                        if not saved.get(key, {}).get('coverage', {}).get('listingComplete') and not listing_deferred(key, job)]
+    headshots = None
+    if not listing_only and active and (
+            sum(bool(saved.get(key, {}).get('coverage', {}).get('listingComplete')) for key in active) >= len(active)*.95 or
+            not pending_listings):
+        # Empty/failed pagination stays flagged, but cannot indefinitely block
+        # every player's shared headshot queue while waiting for the source.
+        headshots = warm_headshots(budget=max(5, budget*.75), limit=max(60, limit), publish=False)
+    due = sorted(((key, job) for key, job in active.items() if not listing_deferred(key, job)),
                  key=lambda p: (bool(saved.get(p[0], {}).get('listingReady')),
                                 bool(saved.get(p[0], {}).get('coverage', {}).get('listingComplete')),
                                 saved.get(p[0], {}).get('checkedAt', 0)))
@@ -422,11 +441,14 @@ def warm(budget=20, limit=12, concurrency=3, max_maps=6, force=False, listing_on
         errors = 0
         source_changed = entry.get('sourceSlug') not in (None, job['slug']) or (key in ALIASES and entry.get('sourceSlug') is None)
         first_listing = entry.get('listParserVersion') != 2 or source_changed
+        listing_attempted = False
+        listing_success = False
         try:
             paths = entry.get('paths', [])
             maps = {m['path']: m for m in entry.get('maps', [])}
             listing_worked = False
             if time.time()-entry.get('listedAt', 0) > 6*3600 or first_listing or entry.get('paginationVersion') != 1:
+                listing_attempted = True
                 html = get('/players/'+job['slug']+'/maps')
                 paths = player_maps(html, job['slug'])
                 for m in listed_results(html, job['slug'], paths):
@@ -434,11 +456,15 @@ def warm(budget=20, limit=12, concurrency=3, max_maps=6, force=False, listing_on
                 pages = listing_pages(html, job['slug'])
                 entry.update(paths=paths, listedAt=time.time(), listParserVersion=2, sourceSlug=job['slug'],
                              paginationVersion=1, sourceMapCount=pages['count'], listingPages=pages['pages'], nextListingPage=2)
+                entry.pop('listingStatus', None)
                 entry.update(maps=list(maps.values())[-140:], source='bo3', updatedAt=time.time(), games=games_for(job['slug'], maps.values(), paths))
                 persist(key, entry)
                 listing_worked = True
+                listing_success = True
             page = entry.get('nextListingPage', 2)
             if page <= entry.get('listingPages', 1) and time.monotonic()-started < budget-5:
+                listing_attempted = True
+                listing_success = False
                 html = get('/players/'+job['slug']+'/maps?page='+str(page))
                 more = player_maps(html, job['slug'])
                 if not more or not any(p['path'] not in {x['path'] for x in paths} for p in more):
@@ -447,8 +473,10 @@ def warm(budget=20, limit=12, concurrency=3, max_maps=6, force=False, listing_on
                 paths = list({p['path']:p for p in paths+more}.values())[:MAX_LIST_PAGES*40]
                 entry.update(paths=paths, nextListingPage=page+1, maps=list(maps.values())[-140:],
                              games=games_for(job['slug'], maps.values(), paths), updatedAt=time.time())
+                entry.pop('listingStatus', None)
                 persist(key, entry)
                 listing_worked = True
+                listing_success = True
             if listing_only or first_listing or listing_worked: return (1, 0)
             # Newest first, but each successful map is permanent, not refetched.
             attempts = entry.setdefault('attempts', {})
@@ -494,7 +522,11 @@ def warm(budget=20, limit=12, concurrency=3, max_maps=6, force=False, listing_on
                              games=games_for(job['slug'], maps.values(), paths))
                 persist(key, entry)
             return (1, errors)
-        except Exception:
+        except Exception as error:
+            if listing_attempted and not listing_success:
+                entry['listingStatus'] = result_status(error=error, previous=entry.get('listingStatus'))
+                if isinstance(error, ValueError) and str(error) == 'Public pagination did not advance':
+                    entry['listingStatus']['result'] = 'pagination_missing'
             return (0, 1)
         finally:
             persist(key, entry)
@@ -508,8 +540,12 @@ def warm(budget=20, limit=12, concurrency=3, max_maps=6, force=False, listing_on
         publish_saved()
     except Exception:
         pass
-    return {'completed': sum(c for c, _ in outcomes), 'failed': sum(f for _, f in outcomes),
-            'players': len(due), 'covered': shared['covered'], 'games': shared['games']}
+    result = {'completed': sum(c for c, _ in outcomes), 'failed': sum(f for _, f in outcomes),
+              'players': len(active), 'covered': shared['covered'], 'games': shared['games'],
+              'listingsDeferred':len(active)-len(due)}
+    if headshots is not None:
+        result['headshots'] = {key:headshots[key] for key in ('mapsCompleted', 'pendingMaps', 'readyMaps', 'deferredMaps', 'outcomes')}
+    return result
 
 
 def fan_out(jobs=None):
@@ -582,10 +618,14 @@ def audit():
     failures = defaultdict(int)
     for item in status.values():
         if item.get('result') != 'complete': failures[item.get('result', 'unknown')] += 1
+    listing_failures = defaultdict(int)
+    for key in active:
+        item = saved.get(key, {}).get('listingStatus', {})
+        if item.get('result'): listing_failures[item['result']] += 1
     return {'players':len(active), 'covered':sum(bool(p['games']) for p in players),
             'completePlayers':sum(not p['partial'] for p in players),
             'listingsPending':sum(not p['listingComplete'] for p in players), 'scopes':totals,
-            'sourceFailures':dict(failures), 'details':players}
+            'sourceFailures':dict(failures), 'listingFailures':dict(listing_failures), 'details':players}
 
 
 def result_status(result=None, error=None, previous=None):

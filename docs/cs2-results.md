@@ -86,7 +86,9 @@ oldest reused quote rather than re-stamping it as current.
 - Kills, deaths and assists come from the visible ten-player scoreboard.
 - Headshots come from primitive fields in public serialized page data. No
   remote JavaScript is executed. Exactly one game-ID roster must match all
-  ten visible players' K/D/A, or headshots remain unavailable.
+  ten visible players' K/D/A, or headshots remain unavailable. After that
+  identity check, one player's missing headshots do not discard the other
+  players' individually recorded results. Invalid counts remain missing.
 - Identity mismatches, missing players, unfinished maps, incomplete source
   coverage and unsupported stat scopes remain unavailable, not zero.
 - Handle-to-slug differences may require a verified alias. No fuzzy identity
@@ -115,6 +117,12 @@ fields, a failed validation, a request failure, or a rate limit. Empty source
 pages are deferred for six hours; transient failures use bounded backoff and
 HTTP 429 respects Retry-After. Deferred pages do not consume the next tick's
 entire queue. The per-player collector respects the same source status.
+Public pagination failures have a separate saved backoff and audit count.
+An empty/repeated later page remains incomplete; it never truncates good history
+or gets mislabeled as a complete listing. While those pages are deferred, the
+shared headshot queue continues for everyone else. Accelerated backfill does not
+bypass source-failure backoff. Timer/collector output includes headshot queue
+progress separately from successful player-list requests.
 
 Profile aliases are explicit and verified against their public headings and
 posted teams. Existing queued jobs are migrated automatically, and a changed

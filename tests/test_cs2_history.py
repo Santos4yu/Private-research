@@ -45,6 +45,18 @@ class HistoryTests(unittest.TestCase):
         result=h.map_result(broken,'/matches/a/mirage','2026-10-01')
         self.assertTrue(all('headshots' not in p for p in result['players'].values()))
 
+    def test_missing_one_headshot_result_preserves_other_verified_players(self):
+        for missing in ('null', '-1', '11', 'true'):
+            html=fixture().replace('pAlpha0.headshots=a;',f'pAlpha0.headshots={missing};')
+            result=h.map_result(html,'/matches/a/mirage','2026-09-01')
+            self.assertNotIn('headshots',result['players']['alpha0'])
+            self.assertEqual(sum('headshots' in p for p in result['players'].values()),9)
+            self.assertEqual(result['players']['beta4']['headshots'],4)
+            self.assertEqual(h.result_status(result=result)['result'],'headshots_missing')
+        # Partial headshots still require a complete matching ten-player KDA.
+        broken=html.replace('pAlpha0.kills=10;','pAlpha0.kills=9;')
+        self.assertFalse(h.headshot_results(broken,h.map_result(html,'/matches/a/mirage','2026-09-01')['players']))
+
     def test_reject_live_incomplete_and_unknown_map_order(self):
         for html in (fixture(ended=False),fixture().replace('(M1)',''),fixture().replace('/players/alpha0','/not-player/alpha0')):
             with self.assertRaises(ValueError): h.map_result(html,'/matches/a/mirage','2026-10-01')
@@ -134,6 +146,49 @@ class HistoryTests(unittest.TestCase):
              patch.object(h,'listed_results',return_value=[]),patch.object(h,'fetch',return_value='verified page') as fetch:
             h.warm(limit=1,listing_only=True)
         self.assertEqual(fetch.call_args.args[0],'/players/beta0/maps?page=2')
+
+    def test_nonadvancing_pagination_is_deferred_without_claiming_complete_history(self):
+        jobs={'alpha0':{'slug':'alpha0','enrolledAt':h.time.time()}}
+        state={'listedAt':h.time.time(),'listParserVersion':2,'paginationVersion':1,'listingPages':2,
+               'nextListingPage':2,'paths':[{'path':'/matches/old/mirage','date':'2026-09-02'}],
+               'games':[{'values':{'map1kills':20}}]}
+        writes=[]
+        def command(*args):
+            if args[0]=='SET': return 'OK'
+            if args[:2]==('HGET',h.STATE): return json.dumps(state)
+            if args[0]=='HSET': writes.append(args)
+        with patch.object(h,'read_entries',side_effect=[jobs,{}]),patch.object(h,'command',side_effect=command), \
+             patch.object(h,'player_maps',return_value=[]),patch.object(h,'fetch',return_value='empty later page'):
+            result=h.warm(listing_only=True)
+        saved=json.loads(writes[-1][-1])
+        self.assertEqual(result['failed'],1)
+        self.assertEqual(saved['listingStatus']['result'],'pagination_missing')
+        self.assertGreater(saved['listingStatus']['nextAttemptAt'],h.time.time()+5*3600)
+        self.assertEqual(saved['games'],state['games'])
+        self.assertFalse(saved['coverage']['listingComplete'])
+
+    def test_deferred_listings_do_not_starve_shared_headshots(self):
+        jobs={s:{'slug':s,'enrolledAt':h.time.time()} for s in ('alpha0','beta0')}
+        saved={s:{'listingReady':True,'sourceSlug':s,'coverage':{'listingComplete':False},
+                  'listingStatus':{'nextAttemptAt':h.time.time()+3600}} for s in jobs}
+        heads={'mapsCompleted':2,'pendingMaps':10,'readyMaps':8,'deferredMaps':2,'outcomes':{'complete':2}}
+        with patch.object(h,'read_entries',side_effect=[jobs,saved]),patch.object(h,'command'), \
+             patch.object(h,'warm_headshots',return_value=heads) as backfill, \
+             patch.object(h,'fetch',side_effect=AssertionError('Deferred listing was requested')):
+            result=h.warm(force=True)
+        backfill.assert_called_once()
+        self.assertEqual(result['listingsDeferred'],2)
+        self.assertEqual(result['players'],2)
+        self.assertEqual(result['headshots'],heads)
+
+    def test_new_verified_identity_bypasses_prior_profile_backoff(self):
+        jobs={'frozen':{'slug':'frozen','enrolledAt':h.time.time()}}
+        saved={'frozen':{'sourceSlug':'frozen','listingStatus':{'nextAttemptAt':h.time.time()+3600}}}
+        def command(*args): return 'OK' if args[0]=='SET' else None
+        with patch.object(h,'read_entries',side_effect=[jobs,saved]),patch.object(h,'command',side_effect=command), \
+             patch.object(h,'fetch',side_effect=TimeoutError) as fetch:
+            h.warm(listing_only=True)
+        self.assertEqual(fetch.call_args.args[0],'/players/frozen-david-cernansky/maps')
 
     def test_existing_jobs_are_migrated_to_verified_slugs(self):
         jobs={'frozen':{'slug':'frozen','enrolledAt':h.time.time()},'unknown':{'slug':'unknown'}}
