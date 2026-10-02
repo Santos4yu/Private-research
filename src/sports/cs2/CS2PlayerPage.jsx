@@ -1,10 +1,25 @@
 import React,{useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
-import {Trophy,Activity} from 'lucide-react';
+import {Trophy} from 'lucide-react';
 import {FinderPlayerBanner} from '../../FinderPlayerBanner';
-import {FinderResearchTabs,FinderResearchCard as Card,RESEARCH_TABS} from '../../FinderResearchSections';
+import {FinderResearchTabs,FinderResearchCard as Card} from '../../FinderResearchSections';
 import {finderPlayerRows,normalizeFinderRows,patientRequest} from '../../unified-finder-data';
 import {wnbaChart,wnbaLines,wnbaOdds} from '../wnba/trend-data';
 import '../wnba/wnba-context.css';
+import {researchData,shortDate} from './research-data';
+
+function Results({games,statKey,label}){
+ return games.length?<div className="mlb-context-table-wrap" tabIndex={0} role="region" aria-label={label}><table><thead><tr><th>Date</th><th>Opponent</th><th>{label}</th></tr></thead><tbody>{games.map(g=><tr key={g.gameId}><td>{shortDate(g.date)}</td><td>{g.opponent}</td><td>{g.values[statKey]}</td></tr>)}</tbody></table></div>:<p className="mlb-context-note">No recorded matches.</p>;
+}
+export function CS2Research({tab,row,selected,games}){
+ const data=researchData(games,selected.marketKey,selected.line,row.opponent,row.startsAt);
+ const fmt=n=>Number.isFinite(n)?n.toFixed(1):'—';
+ if(tab==='defense')return <Card title="Opponent results" note={row.opponent}><Results games={data.results} statKey={selected.marketKey} label={selected.market}/></Card>;
+ if(tab==='shooting')return <><Card title="Player performance" note={`${data.maps.length} recorded maps`}><div className="mlb-support-tabs">{[['Kills / map',data.average('kills')],['Headshots / map',data.average('headshots')],['Deaths / map',data.average('deaths')],['Assists / map',data.average('assists')],['K/D',data.kd],['Headshot %',data.hs]].map(([label,value])=><div key={label}>{label}<strong>{fmt(value)}</strong></div>)}</div></Card><Card title="Map stats"><div className="mlb-context-table-wrap"><table><thead><tr><th>Map</th><th>Kills</th><th>Deaths</th><th>HS</th></tr></thead><tbody>{data.maps.map(m=><tr key={`${m.gameId}:${m.number}`}><td>{m.map} · M{m.number}</td><td>{m.kills??'—'}</td><td>{m.deaths??'—'}</td><td>{m.headshots??'—'}</td></tr>)}</tbody></table></div></Card></>;
+ if(tab==='similar')return <Card title="Head-to-head" note={row.opponent}><Results games={data.h2h} statKey={selected.marketKey} label={selected.market}/></Card>;
+ if(tab==='injuries')return <Card title="Roster status"><p className="mlb-context-note">No confirmed roster updates.</p></Card>;
+ if(tab==='rankings')return <Card title="Team rankings"><p className="mlb-context-note">Rankings unavailable.</p></Card>;
+ return <Card title="CS2 matchup" icon={Trophy} note={row.startsAt?new Date(row.startsAt).toLocaleString():''}><div className="mlb-win-body"><div className="mlb-win-team"><strong>{row.teamAbbr||row.player}</strong><small>{row.player}</small></div><div className="mlb-win-team"><strong>{row.opponent||'—'}</strong></div></div><Results games={data.h2h} statKey={selected.marketKey} label={selected.market}/></Card>;
+}
 
 export function cs2Stats(rows){
  return [...new Map(rows.map(row=>[row.marketKey,{key:row.marketKey,label:row.market,code:row.market}])).values()];
@@ -35,7 +50,6 @@ export function CS2PlayerPage({row,playerRows,onBack}){
  const latest=useRef(config);latest.current=config;
  useLayoutEffect(()=>{const panel=window.vortexTrendPanel;panel?.mount(host.current,latest.current);return()=>panel?.unmount();},[]);
  useLayoutEffect(()=>{window.vortexTrendPanel?.update(config);},[config]);
- const section=RESEARCH_TABS.find(([key])=>key===tab);
  return <section className="finder-trend-view wnba-trend-page wnba-player-page">
   <FinderPlayerBanner row={selected} playerRows={offers} onBack={onBack}/>
   <div className="mlb-finder-workspace"><div className="mlb-trend-main">
@@ -44,14 +58,12 @@ export function CS2PlayerPage({row,playerRows,onBack}){
     const sample=games.filter(g=>Number.isFinite(g.values?.[stat.key])).slice(-10);
     return <button type="button" key={stat.key} aria-pressed={selected.marketKey===stat.key} onClick={()=>config.onStat(stat.key)}>{stat.label}<strong>{sample.length?(sample.reduce((sum,g)=>sum+g.values[stat.key],0)/sample.length).toFixed(1):'—'} <small>avg.</small></strong></button>;
    })}</div></Card>
-   <Card title="Game log" className="mlb-player-gamelog">{games.some(g=>Number.isFinite(g.values?.[selected.marketKey]))?<div className="mlb-context-table-wrap" tabIndex={0} role="region" aria-label="CS2 game log"><table><thead><tr><th scope="col">Date</th><th scope="col">Opponent</th><th scope="col">{selected.market}</th></tr></thead><tbody>{[...games].reverse().filter(g=>Number.isFinite(g.values?.[selected.marketKey])).slice(0,20).map(g=><tr key={g.gameId}><td>{g.date}</td><td>{g.opponent}</td><td>{g.values[selected.marketKey]}</td></tr>)}</tbody></table></div>:<p className="mlb-context-note">No match history available.</p>}
+   <Card title="Game log" className="mlb-player-gamelog"><Results games={researchData(games,selected.marketKey,selected.line,row.opponent,row.startsAt).results} statKey={selected.marketKey} label={selected.market}/>
     {history?.source==='bo3'&&<a href="https://bo3.gg" target="_blank" rel="noreferrer" className="mlb-context-note">BO3</a>}
    </Card>
   </div><aside className="mlb-finder-context wnba-finder-context" data-tab={tab} aria-label="CS2 matchup research">
    <FinderResearchTabs tab={tab} onChange={setTab}/>
-   {tab==='matchup'?<Card title="CS2 matchup" icon={Trophy} note={row.startsAt?new Date(row.startsAt).toLocaleString():''}>
-    <div className="mlb-win-body"><div className="mlb-win-team"><strong>{row.teamAbbr||row.player}</strong><small>{row.player}</small></div><div className="mlb-win-team"><strong>{row.opponent||'—'}</strong></div></div>
-   </Card>:<Card title={section?.[1]||'Research'} icon={section?.[2]||Activity}><p className="mlb-context-note">No data available.</p></Card>}
+   <CS2Research tab={tab} row={row} selected={selected} games={games}/>
   </aside></div>
  </section>;
 }

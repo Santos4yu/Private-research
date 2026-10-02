@@ -293,7 +293,9 @@ def games_for(slug, maps, paths=()):
                     values['maps12headshots'] = player['headshots']+second['headshots']
         games.append({'gameId': match, 'date': first['date'], 'season': first['date'][:4],
                       'opponent': player['opponent'], 'team': player['team'], 'values': values,
-                      'sourceUrl': ROOT+match, 'maps': sorted(group)})
+                      'sourceUrl': ROOT+match, 'maps': sorted(group),
+                      'mapDetails': [{'number': n, 'map': m['map'], **m['players'][slug]}
+                                     for n, m in sorted(group.items())]})
     order = {}
     for i, p in enumerate(paths):
         order.setdefault(p['path'].rsplit('/', 1)[0], i)
@@ -431,7 +433,9 @@ def fan_out(jobs=None):
     for key, job in jobs.items():
         if time.time()-job.get('enrolledAt', 0) > 2*86400: continue
         paths = states.get(key, {}).get('paths', [])
-        games = games_for(job['slug'], maps.values(), paths)
+        combined = {m['path']: m for m in states.get(key, {}).get('maps', [])}
+        combined.update(maps)
+        games = games_for(job['slug'], combined.values(), paths)
         if not games: continue
         prior = saved.get(key, {})
         # Preserve histories already collected; merge scopes as map 2 arrives.
