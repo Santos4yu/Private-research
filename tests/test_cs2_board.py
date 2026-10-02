@@ -7,6 +7,31 @@ import prizepicks_export_core as export
 from tests.test_prizepicks_export import FakePrizePicks,player,projection
 
 class CS2Tests(unittest.TestCase):
+    def test_full_board_compression_is_lossless_and_smaller_than_host_limit(self):
+        import gzip,json
+        payload={'histories':{str(i):{'games':[{'values':{'map1kills':20,'map1headshots':12},'opponent':'Verified opponent','mapDetails':[{'kills':20,'headshots':12}]}]*40} for i in range(300)}}
+        raw,encoding=cs2_board.response_bytes(payload,'br, gzip, deflate')
+        self.assertEqual(encoding,'gzip')
+        self.assertEqual(json.loads(gzip.decompress(raw)),payload)
+        self.assertLess(len(raw),4_000_000)
+        plain,encoding=cs2_board.response_bytes(payload,'gzip;q=0, br')
+        self.assertIsNone(encoding)
+        self.assertEqual(json.loads(plain),payload)
+
+    def test_api_compression_headers_match_actual_transferred_bytes(self):
+        import io,gzip,json
+        from api.board import handler
+        request=object.__new__(handler);request.headers={'Accept-Encoding':'gzip'};request.wfile=io.BytesIO()
+        headers={}
+        request.send_response=lambda status:None
+        request.send_header=lambda key,value:headers.update({key:value})
+        request.end_headers=lambda:None
+        request._send(200,{'rows':[]},compress=True)
+        raw=request.wfile.getvalue()
+        self.assertEqual(headers['Content-Encoding'],'gzip')
+        self.assertEqual(int(headers['Content-Length']),len(raw))
+        self.assertEqual(json.loads(gzip.decompress(raw)),{'rows':[]})
+
     def test_books_join_only_when_both_teams_and_start_match(self):
         pp={'player':'Alxc','teamAbbr':'HAVU','opponent':'BBL','startsAt':'2099-01-01T15:00:00+00:00','apps':[{'key':'prizepicks'}]}
         ud={'player':'Alxc','teamAbbr':None,'opponent':'BBL Esports vs HAVU Gaming','startsAt':'2099-01-01T15:00:00Z','apps':[{'key':'underdog'}]}

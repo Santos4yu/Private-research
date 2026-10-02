@@ -47,6 +47,21 @@ def compact(value):
     return {**value, 'rows': rows, 'histories': histories, 'snapshotAt': time.time()}
 
 
+def response_bytes(value, accept_encoding=''):
+    """Transfer full histories without overflowing the function's response limit."""
+    import gzip
+    raw = json.dumps(value, separators=(',', ':')).encode('utf-8')
+    for item in accept_encoding.lower().split(','):
+        parts = item.strip().split(';')
+        if parts[0] != 'gzip': continue
+        try:
+            quality = next((float(p.strip()[2:]) for p in parts[1:] if p.strip().startswith('q=')), 1)
+        except ValueError:
+            continue
+        if quality > 0: return gzip.compress(raw, compresslevel=6), 'gzip'
+    return raw, None
+
+
 def publish_saved(value=None):
     from cs2_history import attach, command
     if value is None:

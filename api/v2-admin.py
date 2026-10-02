@@ -104,7 +104,7 @@ class handler(BaseHTTPRequestHandler):
                 from concurrent.futures import ThreadPoolExecutor
                 from cs2_history import warm as cs2_warm
                 pool = ThreadPoolExecutor(max_workers=1)
-                cs2_job = pool.submit(cs2_warm, budget=30, limit=12)
+                cs2_job = pool.submit(cs2_warm, budget=45, limit=24)
                 try:
                     result = warm(budget=40, limit=120)
                     try:
@@ -406,7 +406,7 @@ class handler(BaseHTTPRequestHandler):
         from concurrent.futures import ThreadPoolExecutor
         from cs2_history import warm as cs2_warm
         cs2_pool = ThreadPoolExecutor(max_workers=1)
-        cs2_job = cs2_pool.submit(cs2_warm, budget=25, limit=12)
+        cs2_job = cs2_pool.submit(cs2_warm, budget=45, limit=24)
         cs2_pool.shutdown(wait=False)
         line_moves.safely(line_moves.keep_fresh, set(line_moves.SPORTS), budget=25)
         # Moneylines ride the same timer: prices near the start (closing

@@ -189,7 +189,7 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(503, {"error": "This section is temporarily unavailable", "featureDisabled": True})
             try:
                 from cs2_board import board
-                return self._send(200, board(force=(parse_qs(urlparse(self.path).query).get("refresh") or [""])[0] == "1"))
+                return self._send(200, board(force=(parse_qs(urlparse(self.path).query).get("refresh") or [""])[0] == "1"), compress=True)
             except Exception:
                 return self._send(502, {"error": "CS2 lines are temporarily unavailable."})
         if view == "tennis":
@@ -396,12 +396,22 @@ class handler(BaseHTTPRequestHandler):
         except json.JSONDecodeError:
             return self._send(200, {"date": None, "generated_at": None, "props": []})
 
-    def _send(self, status, body):
+    def _send(self, status, body, compress=False):
+        if compress:
+            from cs2_board import response_bytes
+            raw, encoding = response_bytes(body, self.headers.get('Accept-Encoding', ''))
+        else:
+            raw, encoding = json.dumps(body).encode('utf-8'), None
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        if compress:
+            self.send_header('Vary', 'Accept-Encoding')
+        if encoding:
+            self.send_header('Content-Encoding', encoding)
+        self.send_header('Content-Length', str(len(raw)))
         self.end_headers()
-        self.wfile.write(json.dumps(body).encode("utf-8"))
+        self.wfile.write(raw)
