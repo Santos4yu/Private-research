@@ -262,6 +262,25 @@ class HistoryTests(unittest.TestCase):
         self.assertEqual(result['mapsCompleted'],1)
         self.assertEqual(result['pendingMaps'],1)
 
+    def test_shared_queue_prioritizes_players_without_any_saved_games(self):
+        jobs={s:{'slug':s,'enrolledAt':h.time.time()} for s in ('alpha0','beta0')}
+        states={'alpha0':{'games':[{'values':{'map1kills':10}}], 'paths':[{'path':'/matches/old/mirage','date':'2026-09-01'}]},
+                'beta0':{'games':[], 'paths':[{'path':'/matches/new/mirage','date':'2026-09-01'}]}}
+        def command(*args):return 'OK' if args[0]=='SET' else None
+        with patch.object(h,'read_entries',side_effect=[jobs,states,{},{},{}]),patch.object(h,'command',side_effect=command), \
+             patch.object(h,'fetch',return_value=fixture()) as fetch:
+            h.warm_headshots(limit=1,publish=False)
+        self.assertEqual(fetch.call_args.args[0],'/matches/new/mirage')
+
+    def test_empty_history_profile_discovery_precedes_shared_headshots(self):
+        jobs={'alpha0':{'slug':'alpha0','enrolledAt':h.time.time()}}
+        saved={'alpha0':{'games':[],'listingReady':True,'coverage':{'listingComplete':True}}}
+        def command(*args):return 'OK' if args[0]=='SET' else None
+        with patch.object(h,'read_entries',side_effect=[jobs,saved]),patch.object(h,'command',side_effect=command), \
+             patch.object(h,'fetch',return_value=listing_fixture(1,pages=1)),patch.object(h,'warm_headshots') as heads:
+            h.warm()
+        heads.assert_not_called()
+
     def test_empty_source_pages_are_deferred_without_blocking_other_maps(self):
         missing, valid = '/matches/missing/mirage', '/matches/valid/mirage'
         jobs={'alpha0':{'slug':'alpha0','enrolledAt':h.time.time()}}

@@ -435,10 +435,14 @@ def warm(budget=20, limit=12, concurrency=3, max_maps=6, force=False, listing_on
         return (not (key in ALIASES and previous.get('sourceSlug') is None) and
                 previous.get('sourceSlug') in (None, job['slug']) and
                 previous.get('listingStatus', {}).get('nextAttemptAt', 0) > time.time())
+    pending_profiles = [key for key, job in active.items() if not saved.get(key, {}).get('games') and
+                        saved.get(key, {}).get('profileParserVersion') != 1 and not listing_deferred(key, job)]
     pending_listings = [key for key, job in active.items()
-                        if not saved.get(key, {}).get('coverage', {}).get('listingComplete') and not listing_deferred(key, job)]
+                        if (not saved.get(key, {}).get('coverage', {}).get('listingComplete') or
+                            (not saved.get(key, {}).get('games') and saved.get(key, {}).get('profileParserVersion') != 1))
+                        and not listing_deferred(key, job)]
     headshots = None
-    if not listing_only and active and (
+    if not listing_only and active and not pending_profiles and (
             sum(bool(saved.get(key, {}).get('coverage', {}).get('listingComplete')) for key in active) >= len(active)*.95 or
             not pending_listings):
         # Empty/failed pagination stays flagged, but cannot indefinitely block
@@ -682,7 +686,7 @@ def warm_headshots(budget=45, limit=30, publish=True, players=None):
     attempts = read_entries(HS_ATTEMPTS)
     statuses = read_entries(HS_STATUS)
     queues = []
-    for key, job in jobs.items():
+    for key, job in sorted(jobs.items(), key=lambda pair:bool(states.get(pair[0], {}).get('games'))):
         if players is not None and key not in players: continue
         if time.time()-job.get('enrolledAt', 0) > 2*86400: continue
         paths = []
