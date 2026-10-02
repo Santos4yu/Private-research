@@ -111,6 +111,12 @@ headshots for the same actually played scope for every active player. It reports
 missing histories separately and never calls a two-game sample a complete L15.
 Coverage metadata is included with saved player histories. A positive zero
 headshot result counts as a real observation; missing values do not.
+The CS2 player page shows the selected stat's recorded/played count and explicitly
+labels gaps. Game-log rows remain visible for those played scopes, with
+`Unavailable` instead of an invented zero. Supporting-stat averages use recorded
+values within the latest ten actually played matches for that scope, not older
+games substituted to fill missing recent records. BO1 does not inflate Map 2/3
+coverage. The chart still plots only verified numerical observations.
 
 The shared queue records whether a page has an empty scoreboard, no headshot
 fields, a failed validation, a request failure, or a rate limit. Empty source

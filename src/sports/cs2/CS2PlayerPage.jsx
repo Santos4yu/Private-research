@@ -5,7 +5,7 @@ import {FinderResearchTabs,FinderResearchCard as Card} from '../../FinderResearc
 import {finderPlayerRows,normalizeFinderRows,patientRequest} from '../../unified-finder-data';
 import {wnbaChart,wnbaLines,wnbaOdds} from '../wnba/trend-data';
 import '../wnba/wnba-context.css';
-import {researchData,shortDate,CS2_STATS,cs2Selection} from './research-data';
+import {researchData,shortDate,CS2_STATS,cs2Selection,cs2Sample,cs2Coverage} from './research-data';
 import './cs2-context.css';
 export const CS2_TABS=[['matchup','Matchup',Trophy],['maps','Maps',MapIcon],['stats','Player Stats',User],['odds','Prop Odds',ChartPie],['form','Recent Form',ListOrdered]];
 
@@ -17,7 +17,7 @@ function MapSummary({maps}){
 }
 
 function Results({games,statKey,label}){
- return games.length?<div className="mlb-context-table-wrap" tabIndex={0} role="region" aria-label={label}><table><thead><tr><th>Date</th><th>Opponent</th><th>{label}</th></tr></thead><tbody>{games.map(g=><tr key={g.gameId}><td>{shortDate(g.date)}</td><td>{g.opponent}</td><td>{g.values[statKey]}</td></tr>)}</tbody></table></div>:<p className="mlb-context-note">No recorded matches.</p>;
+ return games.length?<div className="mlb-context-table-wrap" tabIndex={0} role="region" aria-label={label}><table><thead><tr><th>Date</th><th>Opponent</th><th>{label}</th></tr></thead><tbody>{games.map(g=><tr key={g.gameId}><td>{shortDate(g.date)}</td><td>{g.opponent}</td><td>{Number.isFinite(g.values?.[statKey])?g.values[statKey]:<span className="cs2-missing-value">Unavailable</span>}</td></tr>)}</tbody></table></div>:<p className="mlb-context-note">No recorded matches for this map scope.</p>;
 }
 export function CS2Research({tab,row,selected,games,offers=[]}){
  const data=researchData(games,selected.marketKey,selected.line,row.opponent,row.startsAt);
@@ -53,6 +53,7 @@ export function CS2PlayerPage({row,playerRows,onBack}){
  const offers=fresh??playerRows,stats=useMemo(()=>cs2Stats(offers),[offers]);
  const history=selected.raw?.history||selected.history;
  const games=history?.games||[];
+ const coverage=cs2Coverage(games,selected.marketKey);
  const config=useMemo(()=>({sport:'CS2',player:row.player,headshot:row.headshot,teamAbbr:row.teamAbbr,
   opponent:row.opponent,matchupLabel:`${row.teamAbbr||row.player} vs ${row.opponent||'—'}`,
   statKey:selected.marketKey,stat:selected.market,line:selected.line,side:'Over',status:'Pre-game',
@@ -66,11 +67,12 @@ export function CS2PlayerPage({row,playerRows,onBack}){
  return <section className="finder-trend-view wnba-trend-page wnba-player-page cs2-player-page">
   <FinderPlayerBanner row={selected} playerRows={offers} onBack={onBack}/>
   <div className="mlb-finder-workspace"><div className="mlb-trend-main">
+   <div className="cs2-coverage" role="status" aria-live="polite" aria-atomic="true"><strong>{coverage.recorded} / {coverage.played} recorded results</strong><span>{coverage.missing?`${coverage.missing} missing · Rates use recorded results only`:'In saved history · Only played maps count'}{history?.coverage?.listingComplete===false?' · Older history incomplete':''}</span></div>
    <div className="wnba-trend-host finder-mlb-trend-host" ref={host}/>
    {String(selected.id).startsWith('research:')&&<p className="mlb-context-note">Research only · No posted line · Comparison based on recent average.</p>}
    <Card title="Supporting stats" note="Last 10 matches" className="mlb-supporting"><div className="mlb-support-tabs">{stats.map(stat=>{
-    const sample=games.filter(g=>Number.isFinite(g.values?.[stat.key])).slice(-10);
-    return <button type="button" key={stat.key} aria-pressed={selected.marketKey===stat.key} onClick={()=>config.onStat(stat.key)}>{stat.label}<strong>{sample.length?(sample.reduce((sum,g)=>sum+g.values[stat.key],0)/sample.length).toFixed(1):'—'} <small>avg.</small></strong></button>;
+    const played=cs2Sample(games,stat.key,10),sample=played.filter(g=>Number.isFinite(g.values?.[stat.key]));
+    return <button type="button" key={stat.key} aria-pressed={selected.marketKey===stat.key} onClick={()=>config.onStat(stat.key)}>{stat.label}<strong>{sample.length?(sample.reduce((sum,g)=>sum+g.values[stat.key],0)/sample.length).toFixed(1):'—'} <small>avg.</small></strong><small>{sample.length} / {played.length} recorded</small></button>;
    })}</div></Card>
    <Card title="Game log" className="mlb-player-gamelog"><Results games={researchData(games,selected.marketKey,selected.line,row.opponent,row.startsAt).results} statKey={selected.marketKey} label={selected.market}/>
     {history?.source==='bo3'&&<a href="https://bo3.gg" target="_blank" rel="noreferrer" className="mlb-context-note">BO3</a>}

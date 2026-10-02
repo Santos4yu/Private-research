@@ -53,6 +53,14 @@ test('CS2 player page renders sport-specific tabs in the shared layout',async()=
   for(const label of ['Matchup','Maps','Player Stats','Prop Odds','Recent Form'])assert.ok(html.includes(label));
   for(const label of ['Defense','Shooting','Injuries','Rankings'])assert.ok(!html.includes(`>${label}</`));
   assert.ok(html.includes('finder-mlb-trend-host'));
+  const incomplete={...row,marketKey:'map1headshots',market:'MAP 1 Headshots',raw:{history:{coverage:{listingComplete:false},games:[
+   {gameId:'one',date:'2026-09-01',values:{map1kills:20,map1headshots:0}},
+   {gameId:'two',date:'2026-09-02',values:{map1kills:15}}]}}};
+  const partial=renderToStaticMarkup(React.createElement(CS2PlayerPage,{row:incomplete,playerRows:[incomplete],onBack:()=>{}}));
+  assert.ok(partial.includes('1 / 2 recorded results'));
+  assert.ok(partial.includes('1 missing'));
+  assert.ok(partial.includes('Older history incomplete'));
+  assert.ok(partial.includes('Unavailable'));
   const games=[{gameId:'a',date:'2026-09-22',team:'Alpha',opponent:'Beta',values:{map1kills:20},mapDetails:[{number:1,map:'Mirage',kills:20,deaths:10,headshots:8,assists:3}]}];
   for(const [tab,expected] of [['maps','Mirage'],['stats','Kills / map'],['odds','PrizePicks'],['form','Sep']]){
    const panel=renderToStaticMarkup(React.createElement(CS2Research,{tab,row,selected:row,games,offers:[{...row,id:'pp1',apps:[{key:'prizepicks',name:'PrizePicks'}]}]}));
