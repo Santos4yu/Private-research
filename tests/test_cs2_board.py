@@ -24,6 +24,7 @@ class CS2Tests(unittest.TestCase):
     def test_one_provider_failure_keeps_the_other_provider_board(self):
         cs2_board._cache.update(at=0,value=None)
         with patch.object(cs2_board,'_fetch_projection_rows',side_effect=RuntimeError('Unavailable')), \
+             patch('cs2_history.command',return_value=None), \
              patch('cs2_underdog.fetch',return_value=[{'id':'ud:1','player':'faveN'}]):
             result=cs2_board.board(force=True)
         self.assertEqual(result['sources'],['underdog'])

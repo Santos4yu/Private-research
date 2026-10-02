@@ -529,13 +529,14 @@ export function normalizeFinderRows(sport, payload, players = [], {now = Date.no
         average: null, windows: null, raw, historyStatus: ready ? 'pending' : 'none'});
     }
     if (sport === 'tennis' || sport === 'cs2') {
-      return finish({id: `${sport}:${raw.id}`, sport, player: raw.player, playerId: optional(raw.playerId),
+      const row = finish({id: `${sport}:${raw.id}`, sport, player: raw.player, playerId: optional(raw.playerId),
         headshot: optional(raw.headshot), position: optional(raw.position), teamAbbr: optional(raw.teamAbbr), teamLogo: null,
         opponent: optional(raw.opponent), startsAt: optional(raw.startsAt), market: raw.stat,
         marketKey: raw.marketKey || String(raw.stat || '').toLowerCase().replace(/[^a-z0-9]/g, ''),
         line: raw.line, direction: 'OVER', modifier: raw.modifier,
         apps: Array.isArray(raw.apps) && raw.apps.length ? raw.apps : [{key: 'prizepicks', name: 'PrizePicks', over: null, under: null}],
         average: null, windows: null, raw, historyStatus: sport==='cs2'?'none':'pending'});
+      return sport==='cs2'&&raw.history ? applyCs2History(row,raw.history) : row;
     }
     return null;
   });
@@ -1010,6 +1011,13 @@ export function applyTennisHistory(row, log) {
   }
   return finish({...row, average: mean(values.slice(-10)), windows, streak, historyStatus: 'ready', historyRefresh:false, historyAsOf:Date.now(), enrichedAt:Date.now(),
     gameLog: gameLog(games.map(game => ({value: game.values[key], date: game.date, opponent: game.opponent}))), history: log});
+}
+
+export function applyCs2History(row, log) {
+  const cutoff=Date.parse(row.startsAt)||Date.now();
+  const games=(log.games||[]).filter(game=>Date.parse(game.date)<cutoff&&Number.isFinite(game.values?.[row.marketKey]))
+    .sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  return applyTennisHistory(row,{...log,games});
 }
 
 export async function enrichTennisRows(rows, {signal, onRows, concurrency = 2, ...options} = {}) {

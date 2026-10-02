@@ -41,11 +41,13 @@ def build(projections=None, now=None):
             "source": "prizepicks", "version": "cs2-board-v1", "historyAvailable": False}
 
 def board(force=False):
+    from cs2_history import attach
     with _lock:
         if not force and _cache["value"] is not None and time.time()-_cache["at"] < 120:
-            return _cache["value"]
+            return attach(dict(_cache["value"], rows=[dict(r) for r in _cache["value"]['rows']]))
     with _refresh_lock:
-        return _refresh(force)
+        value = _refresh(force)
+        return attach(dict(value, rows=[dict(r) for r in value['rows']]))
 
 def _refresh(force=False):
     with _lock:

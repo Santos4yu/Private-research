@@ -100,7 +100,19 @@ class handler(BaseHTTPRequestHandler):
                 if not secret or not hmac.compare_digest(self.headers.get("Authorization", ""), "Bearer "+secret):
                     return self._send(401, {"error":"Cron auth required"})
                 from finder_history_store import warm
-                return self._send(200, warm(budget=40, limit=120))
+                from concurrent.futures import ThreadPoolExecutor
+                from cs2_history import warm as cs2_warm
+                pool = ThreadPoolExecutor(max_workers=1)
+                cs2_job = pool.submit(cs2_warm, budget=20, limit=2)
+                try:
+                    result = warm(budget=40, limit=120)
+                    try:
+                        result['cs2'] = cs2_job.result() if cs2_job.done() else {'status':'collecting'}
+                    except Exception:
+                        result['cs2'] = {'status':'retrying'}
+                finally:
+                    pool.shutdown(wait=False)
+                return self._send(200, result)
             if action == "tennis-cron-scan":
                 import hmac
                 secret = os.getenv("CRON_SECRET", "")
@@ -389,6 +401,12 @@ class handler(BaseHTTPRequestHandler):
         if not ((key and given and hmac.compare_digest(given, key))
                 or (secret and hmac.compare_digest(bearer, f"Bearer {secret}"))):
             return self._send(401, {"error": "Timer key required"})
+        # Run beside existing work, so other sports cannot starve CS2 backfill.
+        from concurrent.futures import ThreadPoolExecutor
+        from cs2_history import warm as cs2_warm
+        cs2_pool = ThreadPoolExecutor(max_workers=1)
+        cs2_job = cs2_pool.submit(cs2_warm, budget=20, limit=2)
+        cs2_pool.shutdown(wait=False)
         line_moves.safely(line_moves.keep_fresh, set(line_moves.SPORTS), budget=25)
         # Moneylines ride the same timer: prices near the start (closing
         # lines) and settling finished plays (moneyline_model.py).
@@ -428,7 +446,12 @@ class handler(BaseHTTPRequestHandler):
                 histories = warm(budget=5, limit=2)
         except Exception:
             pass
-        return self._send(200, {"ok": True, "checked": line_moves.checked(), "moneylines": moneylines, "nba": nba, "tennis": tennis, "histories":histories})
+        cs2 = None
+        try:
+            cs2 = cs2_job.result() if cs2_job.done() else {'status':'collecting'}
+        except Exception:
+            pass
+        return self._send(200, {"ok": True, "checked": line_moves.checked(), "moneylines": moneylines, "nba": nba, "tennis": tennis, "histories":histories, "cs2":cs2})
 
     def _handle_cron_scan(self):
         secret = os.getenv("CRON_SECRET", "")
