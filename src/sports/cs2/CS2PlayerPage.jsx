@@ -1,5 +1,5 @@
 import React,{useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
-import {Trophy} from 'lucide-react';
+import {Trophy,Map as MapIcon,User,ChartPie,ListOrdered} from 'lucide-react';
 import {FinderPlayerBanner} from '../../FinderPlayerBanner';
 import {FinderResearchTabs,FinderResearchCard as Card} from '../../FinderResearchSections';
 import {finderPlayerRows,normalizeFinderRows,patientRequest} from '../../unified-finder-data';
@@ -7,13 +7,25 @@ import {wnbaChart,wnbaLines,wnbaOdds} from '../wnba/trend-data';
 import '../wnba/wnba-context.css';
 import {researchData,shortDate} from './research-data';
 import './cs2-context.css';
+export const CS2_TABS=[['matchup','Matchup',Trophy],['maps','Maps',MapIcon],['stats','Player Stats',User],['odds','Prop Odds',ChartPie],['form','Recent Form',ListOrdered]];
+
+function MapSummary({maps}){
+ const grouped=new Map();
+ for(const m of maps){const key=m.map.toLowerCase();if(!grouped.has(key))grouped.set(key,[]);grouped.get(key).push(m);}
+ const avg=(rows,field)=>{const valid=rows.filter(r=>Number.isFinite(r[field]));return valid.length?(valid.reduce((n,r)=>n+r[field],0)/valid.length).toFixed(1):'—';};
+ return <Card title="Map performance" note={`${maps.length} recorded maps`}><div className="cs2-map-list">{[...grouped].sort((a,b)=>b[1].length-a[1].length).map(([name,rows])=><article className="cs2-map-card" key={name}><header><strong>{name.charAt(0).toUpperCase()+name.slice(1)}</strong><small>{rows.length} maps</small></header><dl><div><dt>Kills</dt><dd>{avg(rows,'kills')}</dd></div><div><dt>Headshots</dt><dd>{avg(rows,'headshots')}</dd></div><div><dt>Deaths</dt><dd>{avg(rows,'deaths')}</dd></div></dl></article>)}</div>{!maps.length&&<p className="mlb-context-note">Map records unavailable.</p>}</Card>;
+}
 
 function Results({games,statKey,label}){
  return games.length?<div className="mlb-context-table-wrap" tabIndex={0} role="region" aria-label={label}><table><thead><tr><th>Date</th><th>Opponent</th><th>{label}</th></tr></thead><tbody>{games.map(g=><tr key={g.gameId}><td>{shortDate(g.date)}</td><td>{g.opponent}</td><td>{g.values[statKey]}</td></tr>)}</tbody></table></div>:<p className="mlb-context-note">No recorded matches.</p>;
 }
-export function CS2Research({tab,row,selected,games}){
+export function CS2Research({tab,row,selected,games,offers=[]}){
  const data=researchData(games,selected.marketKey,selected.line,row.opponent,row.startsAt);
  const fmt=n=>Number.isFinite(n)?n.toFixed(1):'—';
+ if(tab==='maps')return <MapSummary maps={data.maps}/>;
+ if(tab==='form')return <Card title="Recent results" note="Last 15 series"><Results games={data.results} statKey={selected.marketKey} label={selected.market}/></Card>;
+ if(tab==='odds')return <Card title="Posted prop lines" note={selected.market}><div className="mlb-context-table-wrap"><table><thead><tr><th>App</th><th>Line</th><th>Over</th><th>Under</th></tr></thead><tbody>{offers.filter(o=>o.marketKey===selected.marketKey).flatMap(o=>(o.apps||[]).map(app=><tr key={`${o.id}:${app.key}`}><td>{app.name||app.key}{o.modifier&&o.modifier!=='standard'?` · ${o.modifier}`:''}</td><td>{o.line}</td><td>{app.over==null?'More':app.over>0?`+${app.over}`:app.over}</td><td>{app.under==null?'Less':app.under>0?`+${app.under}`:app.under}</td></tr>))}</tbody></table></div></Card>;
+ if(tab==='stats')return <><Card title="Player Stats" note={`${data.maps.length} recorded maps`}><div className="mlb-support-tabs">{[['Kills / map',data.average('kills')],['Headshots / map',data.average('headshots')],['Deaths / map',data.average('deaths')],['Assists / map',data.average('assists')],['K/D',data.kd],['Headshot %',data.hs]].map(([label,value])=><div key={label}>{label}<strong>{fmt(value)}</strong></div>)}</div></Card><MapSummary maps={data.maps}/></>;
  if(tab==='defense')return <Card title="Opponent results" note={row.opponent}><Results games={data.results} statKey={selected.marketKey} label={selected.market}/></Card>;
  if(tab==='shooting')return <><Card title="Player performance" note={`${data.maps.length} recorded maps`}><div className="mlb-support-tabs">{[['Kills / map',data.average('kills')],['Headshots / map',data.average('headshots')],['Deaths / map',data.average('deaths')],['Assists / map',data.average('assists')],['K/D',data.kd],['Headshot %',data.hs]].map(([label,value])=><div key={label}>{label}<strong>{fmt(value)}</strong></div>)}</div></Card><Card title="Map stats"><div className="mlb-context-table-wrap"><table><thead><tr><th>Map</th><th>Kills</th><th>Deaths</th><th>HS</th></tr></thead><tbody>{data.maps.map(m=><tr key={`${m.gameId}:${m.number}`}><td>{m.map} · M{m.number}</td><td>{m.kills??'—'}</td><td>{m.deaths??'—'}</td><td>{m.headshots??'—'}</td></tr>)}</tbody></table></div></Card></>;
  if(tab==='similar')return <Card title="Head-to-head" note={row.opponent}><Results games={data.h2h} statKey={selected.marketKey} label={selected.market}/></Card>;
@@ -63,8 +75,8 @@ export function CS2PlayerPage({row,playerRows,onBack}){
     {history?.source==='bo3'&&<a href="https://bo3.gg" target="_blank" rel="noreferrer" className="mlb-context-note">BO3</a>}
    </Card>
   </div><aside className="mlb-finder-context wnba-finder-context" data-tab={tab} aria-label="CS2 matchup research">
-   <FinderResearchTabs tab={tab} onChange={setTab}/>
-   <CS2Research tab={tab} row={row} selected={selected} games={games}/>
+   <FinderResearchTabs tab={tab} onChange={setTab} tabs={CS2_TABS}/>
+   <CS2Research tab={tab} row={row} selected={selected} games={games} offers={offers}/>
   </aside></div>
  </section>;
 }

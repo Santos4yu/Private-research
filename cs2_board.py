@@ -93,7 +93,7 @@ def board(force=False):
         try:
             raw = command('GET', SNAPSHOT)
             ready = json.loads(raw) if raw else None
-            if ready and time.time()-ready.get('snapshotAt', 0) < 180 and time.time()-ready.get('lineUpdatedAt', 0) < 180:
+            if ready and time.time()-ready.get('snapshotAt', 0) < 900 and time.time()-ready.get('lineUpdatedAt', 0) < 900:
                 # Expired events never survive a saved-board hit.
                 ready['rows'] = [r for r in ready['rows'] if datetime.fromisoformat(r['startsAt'].replace('Z', '+00:00')).timestamp() > time.time()]
                 return ready

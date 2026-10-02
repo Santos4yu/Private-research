@@ -41,16 +41,23 @@ test('CS2 uses the existing shared layout and tabs, not a separate design',()=>{
  assert.ok(source.includes('useLayoutEffect'));
 });
 
-test('CS2 player page renders all six shared research tabs',async()=>{
+test('CS2 player page renders sport-specific tabs in the shared layout',async()=>{
  const {createServer}=await import('vite');
  const server=await createServer({server:{middlewareMode:true},appType:'custom'});
  try{
-  const {CS2PlayerPage}=await server.ssrLoadModule('/src/sports/cs2/CS2PlayerPage.jsx');
+  const {CS2PlayerPage,CS2Research}=await server.ssrLoadModule('/src/sports/cs2/CS2PlayerPage.jsx');
   const React=(await import('react')).default;
   const {renderToStaticMarkup}=await import('react-dom/server');
   const row={sport:'cs2',player:'junior',market:'MAP 1 Kills',marketKey:'map1kills',line:17.5,apps:[]};
   const html=renderToStaticMarkup(React.createElement(CS2PlayerPage,{row,playerRows:[row],onBack:()=>{}}));
-  for(const label of ['Matchup','Defense','Shooting','Similar','Injuries','Rankings'])assert.ok(html.includes(label));
+  for(const label of ['Matchup','Maps','Player Stats','Prop Odds','Recent Form'])assert.ok(html.includes(label));
+  for(const label of ['Defense','Shooting','Injuries','Rankings'])assert.ok(!html.includes(`>${label}</`));
   assert.ok(html.includes('finder-mlb-trend-host'));
+  const games=[{gameId:'a',date:'2026-09-22',team:'Alpha',opponent:'Beta',values:{map1kills:20},mapDetails:[{number:1,map:'Mirage',kills:20,deaths:10,headshots:8,assists:3}]}];
+  for(const [tab,expected] of [['maps','Mirage'],['stats','Kills / map'],['odds','PrizePicks'],['form','Sep']]){
+   const panel=renderToStaticMarkup(React.createElement(CS2Research,{tab,row,selected:row,games,offers:[{...row,id:'pp1',apps:[{key:'prizepicks',name:'PrizePicks'}]}]}));
+   assert.ok(panel.includes(expected),`${tab} must render its real data`);
+   assert.ok(!panel.includes('No data available'));
+  }
  }finally{await server.close();}
 });

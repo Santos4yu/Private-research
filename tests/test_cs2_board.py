@@ -24,6 +24,13 @@ class CS2Tests(unittest.TestCase):
         self.assertEqual(result['histories'],snapshot['histories'])
         self.assertEqual(command.call_count,1)
 
+    def test_saved_board_older_than_three_minutes_still_serves_without_provider_wait(self):
+        import json,time
+        snapshot={'rows':[{'player':'alpha','startsAt':'2099-01-01T00:00:00Z'}],
+                  'histories':{},'snapshotAt':time.time()-240,'lineUpdatedAt':time.time()-240}
+        with patch('cs2_history.command',return_value=json.dumps(snapshot)),patch.object(cs2_board,'_refresh',side_effect=AssertionError('slow source')):
+            self.assertEqual(len(cs2_board.board()['rows']),1)
+
     def test_cs2_route_obeys_finder_and_cs2_switches(self):
         from api import board as api
         request=object.__new__(api.handler)
