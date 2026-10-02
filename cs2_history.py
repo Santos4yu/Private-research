@@ -185,8 +185,13 @@ def listed_results(html, slug, paths):
         info = indexed.get(path)
         actual = visible.get(path)
         if not info or not actual: continue
-        values = {k: resolve(fields.get('advanced_'+('deaths' if k=='deaths' else k), '')) for k in ('kills', 'deaths', 'assists')}
-        if any(type(v) is not int or v < 0 for v in values.values()) or values != actual: continue
+        values = None
+        for kind in ('advanced', 'basic'):
+            candidate = {k: resolve(fields.get(kind+'_'+k, '')) for k in ('kills', 'deaths', 'assists')}
+            if all(type(v) is int and v >= 0 for v in candidate.values()) and candidate == actual:
+                values = candidate
+                break
+        if values is None: continue
         try:
             if datetime.fromisoformat(start.replace('Z', '+00:00')).timestamp() > time.time(): continue
         except (ValueError, AttributeError): continue

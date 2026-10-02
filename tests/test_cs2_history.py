@@ -129,6 +129,8 @@ class FanOutTests(unittest.TestCase):
         self.assertEqual(len(maps),1)
         self.assertEqual(h.games_for('alpha0',maps)[0]['values'],{'map1kills':20})
         self.assertEqual(h.listed_results(html.replace('advanced_kills:20','advanced_kills:21'),'alpha0',paths),[])
+        basic=html.replace('advanced_kills:20','advanced_kills:null,basic_kills:20,basic_deaths:10,basic_assists:4')
+        self.assertEqual(h.listed_results(basic,'alpha0',paths)[0]['players']['alpha0']['kills'],20)
         self.assertEqual(h.listed_results(html.replace('winner_clan_score:13','winner_clan_score:10'),'alpha0',paths),[])
 
 
