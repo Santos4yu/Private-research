@@ -12,8 +12,23 @@ collection. Keep the existing external timer active: the hosting cron alone
 runs daily, which is not enough for fast initial backfill of a large board.
 No new timer secret is required. Timer responses include CS2 progress.
 
+Timers now process up to 12 queued players with at most three concurrent
+source requests. A failed map is retried later without blocking other maps.
+Every verified ten-player scoreboard is shared with all enrolled players
+whose source slugs match it. No fuzzy identity matches are made.
+
+The first pass reads complete kills histories from each public player page:
+explicit map numbers and K/D/A are checked against visible rows, completed
+round scores, and past start times. Exact headshots still come from full map
+scoreboards. A list that does not identify the player's historical team uses
+the two-team matchup label; it does not guess an opponent or manufacture H2H.
+Full scoreboards upgrade that label to the verified opponent as they arrive.
+Timers wait for result work within their hosting budget instead of abandoning
+it immediately when another sport finishes first.
+
 For a free always-on host, `python tools/collect_cs2_history.py --watch` collects
 every two minutes using the same storage. Without `--watch`, it runs one batch.
+`--backfill` runs up to 20 accelerated batches for initial population.
 Persistent storage must be configured; this is the same KV configuration used
 by the rest of the Finder, not a new data-provider subscription.
 
@@ -23,8 +38,15 @@ players and never refetched during backfill. Saved game logs contain at most
 40 series. Failed requests preserve completed results and are retried on later
 ticks. Cross-worker locks prevent duplicate collection for the same player.
 
-The Finder only reads compact saved histories. It never waits for BO3 scraping
-to serve the board. Frontend refresh picks up new saved results every two minutes.
+The collector prebuilds a shared board response with posted lines and histories
+together. Histories are deduplicated by player instead of repeated per prop.
+A current snapshot is served with one storage read and no external provider
+requests. Started events are removed on read. Quotes older than three minutes
+are refreshed rather than silently re-stamped as current. Browser-persisted
+boards still render immediately for returning users. Frontend refresh picks up
+new saved results every two minutes. Cold/missing snapshots and network outages
+cannot be guaranteed instant, and initial backfill is not the same as page-load
+latency.
 
 ## Accuracy and limitations
 

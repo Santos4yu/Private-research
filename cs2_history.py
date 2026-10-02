@@ -10,6 +10,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 import requests
+from concurrent.futures import ThreadPoolExecutor
 from finder_history_store import command, name_key
 
 ROOT = 'https://bo3.gg'
@@ -119,26 +120,100 @@ def split_arguments(value):
     yield value[start:]
 
 
+def serialized_literals(html):
+    script = re.search(r'window\.__NUXT__=\(function\(([^)]*)\)\{(.*)\}\((.*)\)\)</script>', html, re.S)
+    if not script: return '', {}
+    symbols = {}
+    for name, literal in zip(script[1].split(','), split_arguments(script[3])):
+        try: symbols[name] = json.loads(literal)
+        except ValueError: pass
+    return script[2], symbols
+
+
+def literal_array(body, start):
+    depth = 0
+    quote = None
+    escaped = False
+    for i in range(start, len(body)):
+        c = body[i]
+        if quote:
+            if escaped: escaped = False
+            elif c == '\\': escaped = True
+            elif c == quote: quote = None
+        elif c in ('"', "'"): quote = c
+        elif c == '[': depth += 1
+        elif c == ']':
+            depth -= 1
+            if depth == 0: return body[start+1:i]
+    return ''
+
+
+def listed_results(html, slug, paths):
+    """One player page already contains explicit map numbers and real K/D/A.
+
+    Validate every literal result against its visible row before accepting it.
+    This makes kills histories available in one source request per player;
+    exact headshots are added separately from completed full scoreboards.
+    """
+    body, symbols = serialized_literals(html)
+    marker = '"widget-player-maps-results-'+slug+'"'
+    at = body.find(marker)
+    if at < 0: return []
+    at = body.find('results:[', at)
+    if at < 0: return []
+    visible = {}
+    for row in Tree(html).root.find('table-row', 'a'):
+        visible[row.attrs.get('href')] = {k: integer(row, k) for k in ('kills', 'deaths', 'assists')}
+    indexed = {p['path']: p for p in paths}
+    def resolve(token):
+        if token in symbols: return symbols[token]
+        try: return json.loads(token)
+        except ValueError: return None
+    accepted = []
+    for obj in split_arguments(literal_array(body, at+8)):
+        if not obj.startswith('{slug:'): break
+        fields = {k: v for k, _, v in (pair.partition(':') for pair in split_arguments(obj[1:-1]))}
+        match = resolve(fields.get('slug', ''))
+        map_name = resolve(fields.get('map_name', ''))
+        number = resolve(fields.get('game_number', ''))
+        start = resolve(fields.get('start_date', ''))
+        winner, loser = (resolve(fields.get(k, '')) for k in ('winner_clan_score', 'loser_clan_score'))
+        if type(winner) is not int or type(loser) is not int or winner < 13 or winner-loser < 2: continue
+        if not isinstance(match, str) or not isinstance(map_name, str) or type(number) is not int or not 1 <= number <= 5: continue
+        map_slug = map_name.removeprefix('de_')
+        path = '/matches/'+match+'/'+map_slug
+        info = indexed.get(path)
+        actual = visible.get(path)
+        if not info or not actual: continue
+        values = {k: resolve(fields.get('advanced_'+('deaths' if k=='deaths' else k), '')) for k in ('kills', 'deaths', 'assists')}
+        if any(type(v) is not int or v < 0 for v in values.values()) or values != actual: continue
+        try:
+            if datetime.fromisoformat(start.replace('Z', '+00:00')).timestamp() > time.time(): continue
+        except (ValueError, AttributeError): continue
+        info['date'] = start
+        # The list does not identify which team this player represented in an
+        # old series. Keep a matchup label, never guess an opponent or H2H.
+        accepted.append({'path': path, 'date': start, 'mapNumber': number, 'map': map_slug,
+                         'players': {slug: {**values, 'team': None, 'opponent': ' / '.join(info['teams'])}},
+                         'listed': True})
+    return accepted
+
+
 def headshot_results(html, scoreboard):
     """Read only primitive serialized fields, validated against the visible map.
 
     The page may contain several maps. Accept exactly one game-ID group whose
     entire roster and K/D/A equal the visible scoreboard; ambiguous data is omitted.
     """
-    script = re.search(r'window\.__NUXT__=\(function\(([^)]*)\)\{(.*)\}\((.*)\)\)</script>', html, re.S)
-    if not script:
+    body, symbols = serialized_literals(html)
+    if not body:
         return {}
-    symbols = {}
-    for name, literal in zip(script[1].split(','), split_arguments(script[3])):
-        try: symbols[name] = json.loads(literal)
-        except ValueError: pass
     def resolve(token):
         token = token.strip()
         if token in symbols: return symbols[token]
         try: return json.loads(token)
         except ValueError: return None
     groups = defaultdict(dict)
-    body = script[2]
     for match in re.finditer(r'([\w$]+)\.kills=([^;]+);', body):
         var = match[1]
         # All assignments for this stats object precede the next object's id.
@@ -206,10 +281,11 @@ def games_for(slug, maps, paths=()):
         if 2 in group:
             second = group[2]['players'][slug]
             # Don't join mismatched rosters/opponents across maps.
-            if (player['team'], player['opponent']) != (second['team'], second['opponent']): continue
-            values['maps12kills'] = player['kills']+second['kills']
-            if 'headshots' in player and 'headshots' in second:
-                values['maps12headshots'] = player['headshots']+second['headshots']
+            compatible = (player['team'], player['opponent']) == (second['team'], second['opponent']) or first.get('listed') or group[2].get('listed')
+            if compatible:
+                values['maps12kills'] = player['kills']+second['kills']
+                if 'headshots' in player and 'headshots' in second:
+                    values['maps12headshots'] = player['headshots']+second['headshots']
         games.append({'gameId': match, 'date': first['date'], 'season': first['date'][:4],
                       'opponent': player['opponent'], 'team': player['team'], 'values': values,
                       'sourceUrl': ROOT+match, 'maps': sorted(group)})
@@ -233,6 +309,7 @@ def read_entries(key):
 def persist(key, entry):
     command('HSET', STATE, key, json.dumps(entry, separators=(',', ':')))
     display = {k: entry[k] for k in ('games', 'updatedAt', 'source', 'checkedAt') if k in entry}
+    display['listingReady'] = entry.get('listParserVersion') == 2
     command('HSET', SAVED, key, json.dumps(display, separators=(',', ':')))
     _memory[key] = display
 
@@ -257,7 +334,7 @@ def attach(board):
     return board
 
 
-def warm(budget=20, limit=2):
+def warm(budget=20, limit=12, concurrency=3, max_maps=6, force=False, listing_only=False):
     """Rotate active players; bounded backfill; failed reads retain old maps."""
     started = time.monotonic()
     def get(path):
@@ -266,38 +343,103 @@ def warm(budget=20, limit=2):
         return fetch(path, timeout=min(15, remaining))
     jobs, saved = read_entries(JOBS), read_entries(SAVED)
     due = sorted(((key, job) for key, job in jobs.items() if time.time()-job.get('enrolledAt', 0) < 2*86400),
-                 key=lambda p: saved.get(p[0], {}).get('checkedAt', 0))
-    completed = failed = 0
-    for key, job in due[:limit]:
-        if time.monotonic()-started >= budget-3: break
+                 key=lambda p: (bool(saved.get(p[0], {}).get('listingReady')), saved.get(p[0], {}).get('checkedAt', 0)))
+    def collect(pair):
+        key, job = pair
+        if time.monotonic()-started >= budget-3: return (0, 0)
         previous = saved.get(key, {})
-        if time.time()-previous.get('checkedAt', 0) < 300: continue
+        if not force and time.time()-previous.get('checkedAt', 0) < 60: return (0, 0)
         # Cross-worker lock prevents overlapping timers from duplicating requests.
-        if command('SET', 'finder:cs2:lock:'+key, '1', 'NX', 'EX', 90) != 'OK': continue
+        if command('SET', 'finder:cs2:lock:'+key, '1', 'NX', 'EX', max(90, int(budget)+30)) != 'OK': return (0, 0)
         state = command('HGET', STATE, key)
         entry = json.loads(state) if state else dict(previous)
         entry['checkedAt'] = time.time()
+        errors = 0
+        first_listing = entry.get('listParserVersion') != 2
         try:
             paths = entry.get('paths', [])
-            if time.time()-entry.get('listedAt', 0) > 6*3600:
-                paths = player_maps(get('/players/'+job['slug']+'/maps'), job['slug'])
-                entry.update(paths=paths, listedAt=time.time())
             maps = {m['path']: m for m in entry.get('maps', [])}
+            if time.time()-entry.get('listedAt', 0) > 6*3600 or entry.get('listParserVersion') != 2:
+                html = get('/players/'+job['slug']+'/maps')
+                paths = player_maps(html, job['slug'])
+                for m in listed_results(html, job['slug'], paths):
+                    maps.setdefault(m['path'], m)
+                entry.update(paths=paths, listedAt=time.time(), listParserVersion=2)
+                entry.update(maps=list(maps.values())[-100:], source='bo3', updatedAt=time.time(), games=games_for(job['slug'], maps.values(), paths))
+                persist(key, entry)
+            if listing_only or first_listing: return (1, 0)
             # Newest first, but each successful map is permanent, not refetched.
-            for item in [p for p in paths if p['path'] not in maps][:2]:
+            attempts = entry.setdefault('attempts', {})
+            pending = [p for p in paths if (p['path'] not in maps or 'headshots' not in maps[p['path']]['players'].get(job['slug'], {})) and
+                       (force or time.time()-attempts.get(p['path'], 0) >= 300)]
+            for item in pending[:max_maps]:
                 if time.monotonic()-started >= budget-3: break
-                cached = command('HGET', MAPS, item['path'])
-                result = json.loads(cached) if cached else map_result(get(item['path']), item['path'], item['date'])
-                if not cached: command('HSET', MAPS, item['path'], json.dumps(result, separators=(',', ':')))
+                try:
+                    cached = command('HGET', MAPS, item['path'])
+                    if cached:
+                        result = json.loads(cached)
+                    else:
+                        claim = command('SET', 'finder:cs2:maplock:'+item['path'], '1', 'NX', 'EX', 45)
+                        if claim != 'OK': continue
+                        try:
+                            result = map_result(get(item['path']), item['path'], item['date'])
+                            command('HSET', MAPS, item['path'], json.dumps(result, separators=(',', ':')))
+                        finally:
+                            command('DEL', 'finder:cs2:maplock:'+item['path'])
+                except Exception:
+                    attempts[item['path']] = time.time()
+                    errors += 1
+                    continue
                 maps[item['path']] = result
                 # Persist after every map so a later timeout can't erase progress.
                 entry.update(maps=list(maps.values())[-100:], source='bo3', updatedAt=time.time(),
                              games=games_for(job['slug'], maps.values(), paths))
                 persist(key, entry)
-            completed += 1
+            return (1, errors)
         except Exception:
-            failed += 1
+            return (0, 1)
         finally:
             persist(key, entry)
             command('DEL', 'finder:cs2:lock:'+key)
-    return {'completed': completed, 'failed': failed, 'players': len(due)}
+    # Small bounded concurrency; cached maps prevent repeated source requests.
+    with ThreadPoolExecutor(max_workers=max(1, min(3, concurrency))) as pool:
+        outcomes = list(pool.map(collect, due[:limit]))
+    shared = fan_out(jobs)
+    try:
+        from cs2_board import publish_saved
+        publish_saved()
+    except Exception:
+        pass
+    return {'completed': sum(c for c, _ in outcomes), 'failed': sum(f for _, f in outcomes),
+            'players': len(due), 'covered': shared['covered'], 'games': shared['games']}
+
+
+def fan_out(jobs=None):
+    """One verified ten-player scoreboard supplies all those players' logs.
+
+    Only results for positively matched source slugs are shared. This avoids
+    collecting the same series separately for five teammates and opponents.
+    """
+    jobs = read_entries(JOBS) if jobs is None else jobs
+    maps, saved, states = read_entries(MAPS), read_entries(SAVED), read_entries(STATE)
+    fields = {}
+    for key, job in jobs.items():
+        if time.time()-job.get('enrolledAt', 0) > 2*86400: continue
+        paths = states.get(key, {}).get('paths', [])
+        games = games_for(job['slug'], maps.values(), paths)
+        if not games: continue
+        prior = saved.get(key, {})
+        # Preserve histories already collected; merge scopes as map 2 arrives.
+        merged = {g['gameId']: g for g in prior.get('games', [])}
+        for game in games:
+            old = merged.get(game['gameId'], {})
+            merged[game['gameId']] = {**old, **game, 'values': {**old.get('values', {}), **game['values']}}
+        order = {}
+        for i, p in enumerate(paths): order.setdefault(p['path'].rsplit('/', 1)[0], i)
+        entry = {**prior, 'games': sorted(merged.values(), key=lambda g:(g['date'], -order.get(g['gameId'], 9999), g['gameId']))[-40:],
+                 'source': 'bo3', 'updatedAt': time.time()}
+        fields[key] = json.dumps(entry, separators=(',', ':'))
+        saved[key] = entry
+    if fields: command('HSET', SAVED, *[v for pair in fields.items() for v in pair])
+    return {'covered': sum(bool(v.get('games')) for k, v in saved.items() if k in jobs),
+            'games': sum(len(v.get('games', [])) for k, v in saved.items() if k in jobs)}

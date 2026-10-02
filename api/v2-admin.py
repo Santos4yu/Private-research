@@ -100,14 +100,15 @@ class handler(BaseHTTPRequestHandler):
                 if not secret or not hmac.compare_digest(self.headers.get("Authorization", ""), "Bearer "+secret):
                     return self._send(401, {"error":"Cron auth required"})
                 from finder_history_store import warm
+                started = time.monotonic()
                 from concurrent.futures import ThreadPoolExecutor
                 from cs2_history import warm as cs2_warm
                 pool = ThreadPoolExecutor(max_workers=1)
-                cs2_job = pool.submit(cs2_warm, budget=20, limit=2)
+                cs2_job = pool.submit(cs2_warm, budget=30, limit=12)
                 try:
                     result = warm(budget=40, limit=120)
                     try:
-                        result['cs2'] = cs2_job.result() if cs2_job.done() else {'status':'collecting'}
+                        result['cs2'] = cs2_job.result(timeout=max(0, 55-(time.monotonic()-started)))
                     except Exception:
                         result['cs2'] = {'status':'retrying'}
                 finally:
@@ -405,7 +406,7 @@ class handler(BaseHTTPRequestHandler):
         from concurrent.futures import ThreadPoolExecutor
         from cs2_history import warm as cs2_warm
         cs2_pool = ThreadPoolExecutor(max_workers=1)
-        cs2_job = cs2_pool.submit(cs2_warm, budget=20, limit=2)
+        cs2_job = cs2_pool.submit(cs2_warm, budget=25, limit=12)
         cs2_pool.shutdown(wait=False)
         line_moves.safely(line_moves.keep_fresh, set(line_moves.SPORTS), budget=25)
         # Moneylines ride the same timer: prices near the start (closing
@@ -448,7 +449,7 @@ class handler(BaseHTTPRequestHandler):
             pass
         cs2 = None
         try:
-            cs2 = cs2_job.result() if cs2_job.done() else {'status':'collecting'}
+            cs2 = cs2_job.result(timeout=max(0, 55-(time.monotonic()-started)))
         except Exception:
             pass
         return self._send(200, {"ok": True, "checked": line_moves.checked(), "moneylines": moneylines, "nba": nba, "tennis": tennis, "histories":histories, "cs2":cs2})

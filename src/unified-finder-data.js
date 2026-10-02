@@ -447,6 +447,7 @@ export function normalizeFinderRows(sport, payload, players = [], {now = Date.no
   }
   const source = sport === 'mlb' ? payload.props : payload.rows || payload.data;
   const rows = (Array.isArray(source) ? source : []).map(raw => {
+    if(sport==='cs2'&&payload.histories?.[nameKey(raw.player)])raw={...raw,history:payload.histories[nameKey(raw.player)]};
     if (BASKETBALL.has(sport)) {
       // WNBA (The Odds API and PrizePicks) and NBA (PrizePicks) rows share
       // one shape (api/wnba.py) and the same ESPN game-log history.
