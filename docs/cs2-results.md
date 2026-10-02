@@ -139,3 +139,5 @@ b1elany/bielany, MITHPUTTINI/mith, laser/chshekin, Hezz/hezz-cs-go,
 Joey/joey-cs-go, destiny/destiny-lucas-bullo and Astralis ryu/ryu_g.
 Punctuation-only differences (sirah-, adamS-) use their verified profile slugs.
 Unknown or mismatched profiles are not guessed.
+Underdog's Isurus handle `ataraXia` maps to the verified public profile
+`atarax1a`, whose Isurus–Procyon fixture matches the posted matchup.

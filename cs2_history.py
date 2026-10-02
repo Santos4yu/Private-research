@@ -30,7 +30,7 @@ ALIASES = {'osamas':'0samas', 'dev1ce':'device', 'frozen':'frozen-david-cernansk
            'shock':'shock-max-kvapil', 'phzy':'phzy-love-smidebrant', 'robo':'robo-nikita-dushin',
            'b1elany':'bielany', 'sirah':'sirah', 'adams':'adams', 'mithputtini':'mith',
            'laser':'chshekin', 'hezz':'hezz-cs-go', 'joey':'joey-cs-go',
-           'destiny':'destiny-lucas-bullo', 'ryu':'ryu_g'}
+           'destiny':'destiny-lucas-bullo', 'ryu':'ryu_g', 'ataraxia':'atarax1a'}
 _memory = {}
 
 

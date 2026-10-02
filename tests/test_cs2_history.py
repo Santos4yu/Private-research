@@ -94,7 +94,7 @@ class HistoryTests(unittest.TestCase):
         with self.assertRaises(ValueError):h.player_maps(html,'beta0')
 
     def test_verified_alias_heading_is_not_required_to_equal_url_slug(self):
-        for slug,nickname in [('device','dev1ce'),('frozen-david-cernansky','frozen'),('mith','MITHPUTTINI')]:
+        for slug,nickname in [('device','dev1ce'),('frozen-david-cernansky','frozen'),('mith','MITHPUTTINI'),('atarax1a','atarax1a')]:
             self.assertEqual(h.player_maps(f'<h1>{nickname}</h1>',slug),[])
             with self.assertRaises(ValueError): h.player_maps('<h1>Someone else</h1>',slug)
 
@@ -191,10 +191,11 @@ class HistoryTests(unittest.TestCase):
         self.assertEqual(fetch.call_args.args[0],'/players/frozen-david-cernansky/maps')
 
     def test_existing_jobs_are_migrated_to_verified_slugs(self):
-        jobs={'frozen':{'slug':'frozen','enrolledAt':h.time.time()},'unknown':{'slug':'unknown'}}
+        jobs={'frozen':{'slug':'frozen','enrolledAt':h.time.time()},'ataraxia':{'slug':'ataraxia'},'unknown':{'slug':'unknown'}}
         with patch.object(h,'read_entries',return_value=jobs),patch.object(h,'command') as command:
             result=h.read_jobs()
         self.assertEqual(result['frozen']['slug'],'frozen-david-cernansky')
+        self.assertEqual(result['ataraxia']['slug'],'atarax1a')
         self.assertEqual(result['unknown']['slug'],'unknown')
         self.assertEqual(command.call_args.args[:2],('HSET',h.JOBS))
 
