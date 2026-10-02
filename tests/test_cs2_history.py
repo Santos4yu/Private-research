@@ -93,6 +93,16 @@ class HistoryTests(unittest.TestCase):
         self.assertEqual(h.player_maps(html,'alpha0')[0]['date'],'2026-10-01')
         with self.assertRaises(ValueError):h.player_maps(html,'beta0')
 
+    def test_profile_fallback_only_enqueues_settled_player_widget_maps(self):
+        path='/matches/alpha-vs-beta-01-03-2026/mirage'
+        html=('<h1>alpha0</h1><div class="c-widget-matches">'
+              f'<a href="{path}">Ended Alpha Beta</a>'
+              '<a href="/matches/alpha-vs-beta-01-10-2026/nuke">Live Alpha Beta</a>'
+              '<a href="/matches/alpha-vs-beta-01-10-2026">Ended Alpha Beta</a></div>'
+              '<aside><a href="/matches/unrelated-01-03-2026/dust2">Ended unrelated</a></aside>')
+        self.assertEqual(h.profile_maps(html,'alpha0'),[{'path':path,'date':'2026-03-01'}])
+        with self.assertRaises(ValueError):h.profile_maps(html,'beta0')
+
     def test_verified_alias_heading_is_not_required_to_equal_url_slug(self):
         for slug,nickname in [('device','dev1ce'),('frozen-david-cernansky','frozen'),('mith','MITHPUTTINI'),('atarax1a','atarax1a')]:
             self.assertEqual(h.player_maps(f'<h1>{nickname}</h1>',slug),[])

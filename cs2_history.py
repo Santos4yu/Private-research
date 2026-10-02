@@ -73,7 +73,7 @@ class Tree(HTMLParser):
 
 
 def fetch(path, timeout=10):
-    if not re.fullmatch(r'/(?:players/[a-z0-9_-]+/maps(?:\?page=[1-3])?|matches/[a-z0-9_-]+/[a-z0-9_-]+)', path):
+    if not re.fullmatch(r'/(?:players/[a-z0-9_-]+(?:/maps(?:\?page=[1-3])?)?|matches/[a-z0-9_-]+/[a-z0-9_-]+)', path):
         raise ValueError('Invalid public result path')
     response = requests.get(ROOT+path, timeout=(min(3, timeout/3), timeout*2/3))
     response.raise_for_status()
@@ -111,6 +111,26 @@ def integer(node, cls):
     cell = next(node.find(cls), None)
     value = cell.text() if cell else ''
     return int(value) if re.fullmatch(r'\d+', value) else None
+
+
+def profile_maps(html, slug):
+    """Older players can have settled profile links but an empty rolling list.
+
+    Only use the verified player's match widget, not global/sidebar matches.
+    Links merely enqueue scoreboards; membership/KDA are still checked there.
+    """
+    player_maps(html, slug)  # Same explicit profile-heading identity check.
+    paths = {}
+    for widget in Tree(html).root.find('c-widget-matches'):
+        for link in widget.find(tag='a'):
+            path = link.attrs.get('href', '')
+            match = re.fullmatch(r'/matches/[a-z0-9_-]+-(\d{2})-(\d{2})-(\d{4})/[a-z0-9_-]+', path)
+            if not match or not re.search(r'\bEnded\b', link.text()): continue
+            day, month, year = map(int, match.groups())
+            try: date = datetime(year, month, day, tzinfo=timezone.utc).date().isoformat()
+            except ValueError: continue
+            paths[path] = {'path':path, 'date':date}
+    return list(paths.values())[:40]
 
 
 def split_arguments(value):
@@ -370,7 +390,7 @@ def read_jobs():
 
 def persist(key, entry):
     command('HSET', STATE, key, json.dumps(entry, separators=(',', ':')))
-    display = {k: entry[k] for k in ('games', 'updatedAt', 'source', 'sourceSlug', 'checkedAt', 'listingStatus') if k in entry}
+    display = {k: entry[k] for k in ('games', 'updatedAt', 'source', 'sourceSlug', 'checkedAt', 'listingStatus', 'profileParserVersion') if k in entry}
     display['listingReady'] = entry.get('listParserVersion') == 2
     display['coverage'] = coverage_for(display.get('games', []))
     display['coverage']['listingComplete'] = entry.get('paginationVersion') == 1 and entry.get('nextListingPage', 2) > entry.get('listingPages', 1)
@@ -425,7 +445,8 @@ def warm(budget=20, limit=12, concurrency=3, max_maps=6, force=False, listing_on
         # every player's shared headshot queue while waiting for the source.
         headshots = warm_headshots(budget=max(5, budget*.75), limit=max(60, limit), publish=False)
     due = sorted(((key, job) for key, job in active.items() if not listing_deferred(key, job)),
-                 key=lambda p: (bool(saved.get(p[0], {}).get('listingReady')),
+                 key=lambda p: (bool(saved.get(p[0], {}).get('games')),
+                                bool(saved.get(p[0], {}).get('listingReady')),
                                 bool(saved.get(p[0], {}).get('coverage', {}).get('listingComplete')),
                                 saved.get(p[0], {}).get('checkedAt', 0)))
     def collect(pair):
@@ -447,13 +468,17 @@ def warm(budget=20, limit=12, concurrency=3, max_maps=6, force=False, listing_on
             paths = entry.get('paths', [])
             maps = {m['path']: m for m in entry.get('maps', [])}
             listing_worked = False
-            if time.time()-entry.get('listedAt', 0) > 6*3600 or first_listing or entry.get('paginationVersion') != 1:
+            if (time.time()-entry.get('listedAt', 0) > 6*3600 or first_listing or entry.get('paginationVersion') != 1 or
+                    (not paths and entry.get('profileParserVersion') != 1)):
                 listing_attempted = True
                 html = get('/players/'+job['slug']+'/maps')
                 paths = player_maps(html, job['slug'])
                 for m in listed_results(html, job['slug'], paths):
                     maps.setdefault(m['path'], m)
                 pages = listing_pages(html, job['slug'])
+                if not paths:
+                    paths = profile_maps(get('/players/'+job['slug']), job['slug'])
+                    entry['profileParserVersion'] = 1
                 entry.update(paths=paths, listedAt=time.time(), listParserVersion=2, sourceSlug=job['slug'],
                              paginationVersion=1, sourceMapCount=pages['count'], listingPages=pages['pages'], nextListingPage=2)
                 entry.pop('listingStatus', None)

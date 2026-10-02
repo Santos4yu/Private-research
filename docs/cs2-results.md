@@ -139,5 +139,9 @@ b1elany/bielany, MITHPUTTINI/mith, laser/chshekin, Hezz/hezz-cs-go,
 Joey/joey-cs-go, destiny/destiny-lucas-bullo and Astralis ryu/ryu_g.
 Punctuation-only differences (sirah-, adamS-) use their verified profile slugs.
 Unknown or mismatched profiles are not guessed.
+If a rolling map listing is empty, the collector can enqueue completed map
+links from that verified player's public match widget. Global/sidebar links and
+live/scheduled matches are excluded. Every map still needs a completed scoreboard
+that positively includes the player before it becomes a game-log observation.
 Underdog's Isurus handle `ataraXia` maps to the verified public profile
 `atarax1a`, whose Isurus–Procyon fixture matches the posted matchup.
