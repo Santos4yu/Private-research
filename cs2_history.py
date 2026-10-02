@@ -278,12 +278,14 @@ def games_for(slug, maps, paths=()):
             series[m['path'].rsplit('/', 1)[0]][m['mapNumber']] = m
     games = []
     for match, group in series.items():
-        first = group.get(1)
-        if not first: continue
+        first = group.get(1) or group[min(group)]
         player = first['players'][slug]
-        values = {'map1kills': player['kills']}
-        if 'headshots' in player: values['map1headshots'] = player['headshots']
-        if 2 in group:
+        values = {}
+        for n, m in group.items():
+            detail = m['players'][slug]
+            values[f'map{n}kills'] = detail['kills']
+            if 'headshots' in detail: values[f'map{n}headshots'] = detail['headshots']
+        if 1 in group and 2 in group:
             second = group[2]['players'][slug]
             # Don't join mismatched rosters/opponents across maps.
             compatible = (player['team'], player['opponent']) == (second['team'], second['opponent']) or first.get('listed') or group[2].get('listed')
@@ -291,6 +293,11 @@ def games_for(slug, maps, paths=()):
                 values['maps12kills'] = player['kills']+second['kills']
                 if 'headshots' in player and 'headshots' in second:
                     values['maps12headshots'] = player['headshots']+second['headshots']
+        if all(n in group for n in (1, 2, 3)):
+            players = [group[n]['players'][slug] for n in (1, 2, 3)]
+            if len({(p['team'], p['opponent']) for p in players}) == 1:
+                values['maps123kills'] = sum(p['kills'] for p in players)
+                if all('headshots' in p for p in players): values['maps123headshots'] = sum(p['headshots'] for p in players)
         games.append({'gameId': match, 'date': first['date'], 'season': first['date'][:4],
                       'opponent': player['opponent'], 'team': player['team'], 'values': values,
                       'sourceUrl': ROOT+match, 'maps': sorted(group),
@@ -349,6 +356,8 @@ def warm(budget=20, limit=12, concurrency=3, max_maps=6, force=False, listing_on
         if remaining <= 1: raise TimeoutError('Collector budget exhausted')
         return fetch(path, timeout=min(15, remaining))
     jobs, saved = read_entries(JOBS), read_entries(SAVED)
+    if not listing_only and saved and sum(bool(v.get('listingReady')) for v in saved.values()) >= len(jobs)*.7:
+        warm_headshots(budget=max(5, budget*.55), limit=limit, publish=False)
     due = sorted(((key, job) for key, job in jobs.items() if time.time()-job.get('enrolledAt', 0) < 2*86400),
                  key=lambda p: (bool(saved.get(p[0], {}).get('listingReady')), saved.get(p[0], {}).get('checkedAt', 0)))
     def collect(pair):
@@ -460,3 +469,49 @@ def fan_out(jobs=None):
     if fields: command('HSET', SAVED, *[v for pair in fields.items() for v in pair])
     return {'covered': sum(bool(v.get('games')) for k, v in saved.items() if k in jobs),
             'games': sum(len(v.get('games', [])) for k, v in saved.items() if k in jobs)}
+
+
+def warm_headshots(budget=45, limit=30, publish=True, players=None):
+    """Fair, shared map queue: collect a map once for all ten players."""
+    started = time.monotonic()
+    jobs, states, maps = read_entries(JOBS), read_entries(STATE), read_entries(MAPS)
+    queues = []
+    for key, job in jobs.items():
+        if players is not None and key not in players: continue
+        if time.time()-job.get('enrolledAt', 0) > 2*86400: continue
+        paths = []
+        for item in states.get(key, {}).get('paths', []):
+            result = maps.get(item['path'])
+            if not result or 'headshots' not in result.get('players', {}).get(job['slug'], {}): paths.append(item)
+        if paths: queues.append(paths)
+    queue, seen = [], set()
+    # Round robin avoids spending an entire timer on one player's oldest maps.
+    for i in range(max((len(q) for q in queues), default=0)):
+        for q in queues:
+            if i < len(q) and q[i]['path'] not in seen:
+                seen.add(q[i]['path']); queue.append(q[i])
+    def collect(item):
+        if time.monotonic()-started > budget-2: return 0
+        path = item['path']
+        retry = 'finder:cs2:hsretry:'+path
+        if command('SET', retry, '1', 'NX', 'EX', 300) != 'OK': return 0
+        claim = 'finder:cs2:maplock:'+path
+        if command('SET', claim, '1', 'NX', 'EX', 45) != 'OK':
+            command('DEL', retry)
+            return 0
+        try:
+            result = map_result(fetch(path, timeout=min(15, max(2, budget-(time.monotonic()-started)))), path, item['date'])
+            old = maps.get(path, {})
+            for slug, player in result['players'].items():
+                player.update({k:v for k,v in old.get('players',{}).get(slug,{}).items() if k not in player})
+            command('HSET', MAPS, path, json.dumps(result, separators=(',', ':')))
+            return int(any('headshots' in p for p in result['players'].values()))
+        except Exception: return 0
+        finally: command('DEL', claim)
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        completed = sum(pool.map(collect, queue[:limit]))
+    coverage = fan_out(jobs)
+    if publish:
+        from cs2_board import publish_saved
+        publish_saved()
+    return {'mapsCompleted':completed, 'pendingMaps':len(queue), **coverage}

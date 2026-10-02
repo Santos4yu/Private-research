@@ -42,10 +42,17 @@ class HistoryTests(unittest.TestCase):
     def test_maps_12_require_both_maps_not_map_3(self):
         maps=[h.map_result(fixture(n),f'/matches/a/map{n}','2026-10-01') for n in (1,3)]
         game=h.games_for('alpha0',maps)[0]
-        self.assertEqual(game['values'],{'map1kills':10,'map1headshots':4})
+        self.assertNotIn('maps12kills',game['values'])
+        self.assertEqual(game['values']['map3headshots'],4)
         maps.append(h.map_result(fixture(2),'/matches/a/map2','2026-10-01'))
         self.assertEqual(h.games_for('alpha0',maps)[0]['values']['maps12kills'],20)
         self.assertEqual(h.games_for('alpha0',maps)[0]['values']['maps12headshots'],8)
+        self.assertEqual(h.games_for('alpha0',maps)[0]['values']['map2headshots'],4)
+        self.assertEqual(h.games_for('alpha0',maps)[0]['values']['maps123headshots'],12)
+        only_second=h.games_for('alpha0',[h.map_result(fixture(2),'/matches/a/map2','2026-10-01')])[0]
+        self.assertEqual(only_second['values']['map2headshots'],4)
+        self.assertNotIn('map1kills',only_second['values'])
+        self.assertNotIn('maps12headshots',only_second['values'])
 
     def test_player_identity_and_calendar_date(self):
         html='<h1>alpha0</h1><a class="table-row" href="/matches/alpha-vs-beta-01-10-2026/mirage"><div class="team-name">Alpha</div><div class="team-name">Beta</div></a>'
@@ -93,6 +100,17 @@ class HistoryTests(unittest.TestCase):
         maps=[h.map_result(fixture(),f'/matches/{m}/mirage','2026-10-01') for m in ('a','z')]
         paths=[{'path':'/matches/a/mirage'},{'path':'/matches/z/mirage'}]
         self.assertEqual([g['gameId'] for g in h.games_for('alpha0',maps,paths)],['/matches/z','/matches/a'])
+
+    def test_shared_headshot_queue_collects_one_map_for_multiple_players(self):
+        path='/matches/a/mirage'
+        jobs={s:{'slug':s,'enrolledAt':h.time.time()} for s in ('alpha0','alpha1')}
+        states={s:{'paths':[{'path':path,'date':'2026-09-01'}]} for s in jobs}
+        def command(*args):return 'OK' if args[0]=='SET' else None
+        with patch.object(h,'read_entries',side_effect=[jobs,states,{}]),patch.object(h,'command',side_effect=command),patch.object(h,'fetch',return_value=fixture()) as fetch:
+            result=h.warm_headshots(publish=False)
+        fetch.assert_called_once()
+        self.assertEqual(result['mapsCompleted'],1)
+        self.assertEqual(result['pendingMaps'],1)
 
     def test_cached_map_without_headshots_is_retried_for_every_player(self):
         path='/matches/a/mirage'

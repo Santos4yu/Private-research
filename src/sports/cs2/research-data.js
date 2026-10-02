@@ -1,3 +1,14 @@
+export const CS2_STATS=[...[1,2,3].flatMap(n=>[['kills','Kills'],['headshots','Headshots']].map(([suffix,label])=>({key:`map${n}${suffix}`,label:`MAP ${n} ${label}`,code:`M${n}${suffix==='kills'?'K':'HS'}`}))),
+ ...['12','123'].flatMap(scope=>[['kills','Kills'],['headshots','Headshots']].map(([suffix,label])=>({key:`maps${scope}${suffix}`,label:`MAPS 1-${scope.at(-1)} ${label}`,code:`M1-${scope.at(-1)}${suffix==='kills'?'K':'HS'}`})))];
+
+export function cs2Selection(rows,key,row,games){
+ const posted=rows.find(r=>r.marketKey===key&&r.modifier==='standard')||rows.find(r=>r.marketKey===key);
+ if(posted)return posted;
+ const stat=CS2_STATS.find(s=>s.key===key);
+ if(!stat)return null;
+ const values=games.map(g=>g.values?.[key]).filter(Number.isFinite);
+ return {...row,id:`research:${key}`,marketKey:key,market:stat.label,line:values.length?Math.round(values.slice(-10).reduce((n,v)=>n+v,0)/Math.min(10,values.length)*10)/10:0,apps:[],modifier:null};
+}
 export function shortDate(value){
  const date=new Date(value);
  return Number.isNaN(date.getTime())?'—':date.toLocaleDateString(undefined,{month:'short',day:'numeric',timeZone:'UTC'});

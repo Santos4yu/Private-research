@@ -5,7 +5,7 @@ import {FinderResearchTabs,FinderResearchCard as Card} from '../../FinderResearc
 import {finderPlayerRows,normalizeFinderRows,patientRequest} from '../../unified-finder-data';
 import {wnbaChart,wnbaLines,wnbaOdds} from '../wnba/trend-data';
 import '../wnba/wnba-context.css';
-import {researchData,shortDate} from './research-data';
+import {researchData,shortDate,CS2_STATS,cs2Selection} from './research-data';
 import './cs2-context.css';
 export const CS2_TABS=[['matchup','Matchup',Trophy],['maps','Maps',MapIcon],['stats','Player Stats',User],['odds','Prop Odds',ChartPie],['form','Recent Form',ListOrdered]];
 
@@ -35,7 +35,7 @@ export function CS2Research({tab,row,selected,games,offers=[]}){
 }
 
 export function cs2Stats(rows){
- return [...new Map(rows.map(row=>[row.marketKey,{key:row.marketKey,label:row.market,code:row.market}])).values()];
+ return [...new Map([...CS2_STATS,...rows.map(row=>({key:row.marketKey,label:row.market,code:row.market}))].map(stat=>[stat.key,stat])).values()];
 }
 
 export function CS2PlayerPage({row,playerRows,onBack}){
@@ -45,7 +45,7 @@ export function CS2PlayerPage({row,playerRows,onBack}){
   const refresh=()=>patientRequest('/api/board?view=cs2',{signal:controller.signal}).then(payload=>{
    if(cancelled)return;
    const offers=finderPlayerRows(normalizeFinderRows('cs2',payload),row);
-   setFresh(offers);setSelected(current=>offers.find(r=>r.id===current.id)||offers.find(r=>r.marketKey===current.marketKey)||current);
+   setFresh(offers);setSelected(current=>offers.find(r=>r.id===current.id)||offers.find(r=>r.marketKey===current.marketKey)||{...current,raw:offers[0]?.raw||current.raw});
   }).catch(()=>{});
   refresh();const timer=setInterval(refresh,120000);
   return()=>{cancelled=true;clearInterval(timer);controller.abort();};
@@ -57,8 +57,8 @@ export function CS2PlayerPage({row,playerRows,onBack}){
   opponent:row.opponent,matchupLabel:`${row.teamAbbr||row.player} vs ${row.opponent||'—'}`,
   statKey:selected.marketKey,stat:selected.market,line:selected.line,side:'Over',status:'Pre-game',
   stats,postedRows:offers,chart:wnbaChart(games,selected.marketKey,row.opponent),lines:wnbaLines(offers,selected.marketKey),odds:wnbaOdds(offers,selected.marketKey),
-  linesStatus:'ready',loading:false,filters:['opponent'],
-  onStat:key=>{const next=offers.find(r=>r.marketKey===key&&r.modifier==='standard')||offers.find(r=>r.marketKey===key);if(next)setSelected(next);}
+  linesStatus:'ready',loading:false,filters:['opponent'],researchOnly:String(selected.id).startsWith('research:'),
+  onStat:key=>{const next=cs2Selection(offers,key,row,games);if(next)setSelected(next);}
  }),[row,selected,offers,stats,history]);
  const latest=useRef(config);latest.current=config;
  useLayoutEffect(()=>{const panel=window.vortexTrendPanel;panel?.mount(host.current,latest.current);return()=>panel?.unmount();},[]);
@@ -67,6 +67,7 @@ export function CS2PlayerPage({row,playerRows,onBack}){
   <FinderPlayerBanner row={selected} playerRows={offers} onBack={onBack}/>
   <div className="mlb-finder-workspace"><div className="mlb-trend-main">
    <div className="wnba-trend-host finder-mlb-trend-host" ref={host}/>
+   {String(selected.id).startsWith('research:')&&<p className="mlb-context-note">Research only · No posted line · Comparison based on recent average.</p>}
    <Card title="Supporting stats" note="Last 10 matches" className="mlb-supporting"><div className="mlb-support-tabs">{stats.map(stat=>{
     const sample=games.filter(g=>Number.isFinite(g.values?.[stat.key])).slice(-10);
     return <button type="button" key={stat.key} aria-pressed={selected.marketKey===stat.key} onClick={()=>config.onStat(stat.key)}>{stat.label}<strong>{sample.length?(sample.reduce((sum,g)=>sum+g.values[stat.key],0)/sample.length).toFixed(1):'—'} <small>avg.</small></strong></button>;
