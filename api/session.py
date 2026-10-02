@@ -11,6 +11,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from v2.board.store import StorageUnavailable
 from auth_core import (  # noqa: E402
     FREE_BETA_MODE, PREMIUM_ROLE_ID, SESSION_COOKIE_NAME, SESSION_TTL_SEC,
     TESTER_ROLE_ID, _beta_payload, create_session_token, exchange_code,
@@ -26,6 +27,12 @@ PUSH_ACTIONS = ('push-subscribe', 'push-unsubscribe')
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
+        try:
+            return self._get()
+        except StorageUnavailable as exc:
+            return self._json(503, exc.payload())
+
+    def _get(self):
         query = parse_qs(urlparse(self.path).query)
         action = (query.get("action") or [""])[0].strip().lower()
         if action == "site-status":
@@ -37,8 +44,13 @@ class handler(BaseHTTPRequestHandler):
             # refreshes ahead of expiry and returns the cookies to set.
             # `refreshAvailable` now means "not confirmed yet, but still
             # recoverable" -- the client retries instead of signing out.
-            account,session_updates,pending=ensure_session(self.headers)
             policy=read()
+            if policy.get('temporaryPublicAccess'):
+                # Do not refresh or clear existing account cookies during the
+                # temporary guest mode. They are not needed for public research.
+                account,session_updates,pending=None,[],False
+            else:
+                account,session_updates,pending=ensure_session(self.headers)
             # A member sees the site's switches with their own rule applied
             # (site_members.py): early access, removed sections, suspension
             # and their badge. Admin notes stay server-side.
@@ -47,7 +59,7 @@ class handler(BaseHTTPRequestHandler):
                 import site_members
                 viewer=site_members.viewer_policy(policy,site_members.rule_for(site_members.read_rules(),account))
                 site_members.touch(account)
-            return self._json(200,{**policy,**viewer,'accountsConfigured':configured(),'account':account,'refreshAvailable':pending,'isAdmin':admin_auth.is_admin_request(self.headers)},session_updates)
+            return self._json(200,{**policy,**viewer,'accountsConfigured':configured() and not policy.get('temporaryPublicAccess',False),'account':account,'refreshAvailable':pending,'isAdmin':admin_auth.is_admin_request(self.headers)},session_updates)
         if action == "account":
             # The member's own profile and synced settings (account_profile.py).
             import account_profile
@@ -131,6 +143,7 @@ class handler(BaseHTTPRequestHandler):
                 return self._account_response({'ok':True},logout_cookies)
             else:return self._json(400,{'error':'Unknown account action'})
             return self._account_response({'ok':True},session_cookies(data,remember))
+        except StorageUnavailable as exc:return self._json(503,exc.payload())
         except ValueError as exc:return self._json(400,{'error':str(exc) if str(exc).startswith('Account') else 'Invalid account request'})
         except Exception:return self._json(503,{'error':'Account service temporarily unavailable or not configured'})
 
@@ -265,6 +278,8 @@ class handler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Cache-Control", "no-store")
+        if status == 503 and payload.get('retryAfter'):
+            self.send_header('Retry-After', str(payload['retryAfter']))
         for cookie in cookies or []:
             self.send_header("Set-Cookie", cookie)
         self.send_header("Content-Length", str(len(body)))

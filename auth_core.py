@@ -226,6 +226,9 @@ def session_from_request_headers(headers) -> dict | None:
     if admin_auth.is_admin_request(headers):return {'id':'admin','username':'Administrator'}
     policy=read()
     if policy['maintenance']:return None
+    if policy.get('temporaryPublicAccess'):
+        from temporary_access import visitor
+        return visitor()
     account=identity(headers)
     if account:
         from site_members import is_suspended
@@ -276,6 +279,9 @@ def session_with_live_access(headers) -> dict | None:
     if admin_auth.is_admin_request(headers):return {'id':'admin','username':'Administrator'}
     policy=read()
     if policy['maintenance']:return None
+    if policy.get('temporaryPublicAccess'):
+        from temporary_access import visitor
+        return visitor()
     account=identity(headers)
     if account:
         from site_members import is_suspended

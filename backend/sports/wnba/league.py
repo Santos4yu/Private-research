@@ -82,11 +82,10 @@ def current_season(now: datetime | None = None, league: str = "wnba") -> int:
 def setex(key: str, value: str, seconds: int) -> None:
     """SET with an expiry, so per-game caches clean themselves up."""
     store = _store()
-    if not store.KV_URL or not store.KV_TOKEN:
+    if not store.configured():
         return
     try:
-        requests.post(store.KV_URL.rstrip("/") + "/pipeline", json=[["SET", key, value, "EX", int(seconds)]],
-                      headers=store._headers(), timeout=5)
+        store.pipeline([["SET", key, value, "EX", int(seconds)]], timeout=5)
     except Exception:  # noqa: BLE001 -- a cache write is never worth failing a page
         pass
 

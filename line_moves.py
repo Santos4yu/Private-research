@@ -70,16 +70,13 @@ def enabled():
     """Only the deployed site keeps line moves (or a process that asks with
     LINE_MOVES=1): a test run feeding a board sample lines must never reach
     the real list, whatever credentials its machine has."""
-    return bool(store.KV_URL) and any(os.getenv(name) for name in ('VERCEL', 'AWS_LAMBDA_FUNCTION_NAME', 'LINE_MOVES'))
+    return store.configured() and any(os.getenv(name) for name in ('VERCEL', 'AWS_LAMBDA_FUNCTION_NAME', 'LINE_MOVES'))
 
 
 def _pipeline(commands, timeout=4):
-    if not store.KV_URL or not store.KV_TOKEN:
+    if not store.configured():
         return None
-    response = requests.post(store.KV_URL.rstrip('/') + '/pipeline', json=commands, headers=store._headers(),
-                             timeout=timeout)
-    response.raise_for_status()
-    return [entry.get('result') for entry in response.json()]
+    return [entry['result'] for entry in store.pipeline(commands, timeout=timeout)]
 
 
 def _pack(value):

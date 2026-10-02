@@ -22,6 +22,7 @@ dist/
 *.sqlite
 *.sqlite3
 backend/cache/
+.storage-backups/
 
 # Large generated training datasets
 v2/training/data/
@@ -32,3 +33,5 @@ docs/nfl-distribution-forecasts.jsonl
 Thumbs.db
 .vscode/
 .idea/
+
+.vercel

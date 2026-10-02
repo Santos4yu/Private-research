@@ -84,6 +84,7 @@ class Base(unittest.TestCase):
         moves._checked_at.clear()
         moves._polled.clear()
         for patcher in (patch.object(moves, '_pipeline', self.kv), patch.object(moves.store, 'KV_URL', 'https://kv.test'),
+                        patch.object(moves.store, 'KV_TOKEN', 'test-only'),
                         patch.dict(os.environ, {'LINE_MOVES': '1'})):
             patcher.start()
             self.addCleanup(patcher.stop)

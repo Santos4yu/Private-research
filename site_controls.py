@@ -1,6 +1,7 @@
 """Shared operational policy. No sports/model logic lives here."""
 import json
 import re
+import temporary_access
 from datetime import datetime, timezone
 from v2.board import store, admin_auth
 SITE_BACKGROUND_PATH_RE=re.compile(r'^/api/v2-admin\?action=site-background&v=\d+$')
@@ -27,7 +28,17 @@ LEGACY_FINDER_SPORTS=('wnba','mlb','nfl')
 HEX_COLOR_RE=re.compile(r'^#[0-9a-fA-F]{6}$')
 DEFAULT={'maintenance':False,'message':'We are updating Vortex. Please check back shortly.','requireLogin':True,'registrationOpen':True,'disabledTabs':[],'disabledSports':[],'disabledFinderSports':[],'backgroundImage':{'url':'','opacity':35},'theme':{'primary':'','secondary':'','tint':0},'updatedAt':None}
 def read():
- raw=store.get(KEY)
+ try:
+  policy=read_saved()
+ except store.StorageUnavailable:
+  if not temporary_access.enabled():raise
+  return temporary_access.outage_policy(DEFAULT,TABS,FINDER_SPORTS)
+ return temporary_access.apply(policy) if temporary_access.enabled() else policy
+
+def read_saved():
+ """Unmodified settings for the admin editor; never persist a guest override."""
+ raw=store.get(KEY,cache_seconds=10)
+ if raw is None and store.STORAGE_BACKEND=='supabase':raise store.StorageUnavailable('storage_migration_pending',60)
  value=json.loads(raw) if raw is not None else {}
  policy={**DEFAULT,**value}
  seen_tabs=value.get('tabsSeen')
@@ -105,6 +116,8 @@ def _items_open(headers,policy,items):
  switches, adjusted by that member's own rule (site_members.py). Who is
  asking is only looked up when some member's rule could change the answer."""
  import site_members
+ if policy.get('temporaryPublicAccess'):
+  return all(site_members.item_open(policy,None,item) for item in items)
  rules=site_members.read_rules()
  rule=None
  if rules and site_members.decides(rules,items):

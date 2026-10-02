@@ -118,7 +118,7 @@ def _kv():
         from v2.board import store
     except Exception:
         return None
-    return store if store.KV_URL and store.KV_TOKEN else None
+    return store if store.configured() else None
 
 
 def _kv_get(key):
@@ -136,7 +136,7 @@ def _kv_setex(key,value,seconds):
     store=_kv()
     if not store:return
     try:
-        requests.post(store.KV_URL.rstrip('/')+'/pipeline',json=[['SET',key,json.dumps(value),'EX',int(seconds)]],headers=store._headers(),timeout=2)
+        store.pipeline([['SET',key,json.dumps(value),'EX',int(seconds)]],timeout=2)
     except Exception:
         pass
 
@@ -272,12 +272,10 @@ def rate_allowed(headers,email=''):
     """Shared Redis counter; no emails, passwords or raw addresses in keys."""
     import hashlib
     from v2.board import store
-    if not store.KV_URL or not store.KV_TOKEN:raise RuntimeError('Account rate protection unavailable')
+    store.require_configured()
     address=headers.get('x-forwarded-for','unknown').split(',')[0].strip()
     digest=hashlib.sha256((address+'|'+str(email).strip().lower()).encode()).hexdigest()
     key='krazy_data:account_rate:'+digest
-    response=requests.post(store.KV_URL.rstrip('/')+'/pipeline',json=[['INCR',key],['EXPIRE',key,900,'NX']],headers=store._headers(),timeout=store.TIMEOUT)
-    response.raise_for_status()
-    result=response.json()
-    if not isinstance(result,list) or len(result)<2 or not isinstance(result[0].get('result'),int):raise RuntimeError('Account rate protection unavailable')
+    result=store.pipeline([['INCR',key],['EXPIRE',key,900,'NX']])
+    if type(result[0].get('result')) is not int or result[0]['result'] < 1 or type(result[1].get('result')) is not int or result[1]['result'] not in (0,1):raise store.StorageUnavailable()
     return result[0]['result']<=20

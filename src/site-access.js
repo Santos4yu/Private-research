@@ -1,5 +1,6 @@
 import './site-access.css';
-import {accessGranted,canUseTab,availableTab,canUseSport,canUseFinderSport,hiddenTabs,ADMIN_TABS,FINDER_SPORTS} from './site-access-core.js';
+import {serviceRequestError} from './storage-retry.js';
+import {accessGranted,accountControlsVisible,canUseTab,availableTab,canUseSport,canUseFinderSport,hiddenTabs,ADMIN_TABS,FINDER_SPORTS} from './site-access-core.js';
 import {mountMembersPanel,memberBadge} from './site-members.js';
 import {mountAnnouncePanel} from './site-announce.js';
 import {accountProfile,saveAccountProfile} from './account-sync.js';
@@ -30,7 +31,7 @@ export function showLockedTab(tab){
 async function request(url,body){
  const response=await fetch(url,{cache:'no-store',credentials:'same-origin',...(body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});
  let data;try{data=await response.json();}catch{throw new Error('Service temporarily unavailable. Please try again.');}
- if(!response.ok)throw new Error(data.error||'Request unavailable');return data;
+ if(!response.ok)throw serviceRequestError(data,response.headers.get('Retry-After'));return data;
 }
 function element(tag,text,className){const node=document.createElement(tag);if(text)node.textContent=text;if(className)node.className=className;return node;}
 function button(text,handler,className='site-text-button'){const node=element('button',text,className);node.type='button';node.onclick=handler;return node;}
@@ -241,7 +242,7 @@ function renderStatus(){
  // keeps document-top positioning independent of sticky app headers.
  let bar=document.getElementById('site-account-bar');if(!bar){bar=element('div',null,'site-account-bar');bar.id='site-account-bar';}
  if(bar.parentElement!==document.body)document.body.append(bar);
- bar.hidden=!granted;
+ bar.hidden=!accountControlsVisible(status);
  if(granted&&!bar.childElementCount){const account=button('',accountDialog,'site-account-trigger');account.setAttribute('aria-label','Your account');account.innerHTML=ACCOUNT_ICON;bar.append(account);}
  paintAccountTrigger();
  document.querySelectorAll('[data-tab],[data-launch-tab]').forEach(b=>{const tab=b.dataset.tab||b.dataset.launchTab;if(tab!=='admin'){b.disabled=!granted;b.dataset.featureLocked=String(!siteTabAllowed(tab));}});
@@ -311,11 +312,11 @@ function renderStatus(){
 // the server just has no definite answer yet (the server reports it as
 // refreshAvailable without an account).
 const unsettled=s=>Boolean(s?.refreshAvailable&&!s.account);
-let retryTimer=0,failures=0;
+let retryTimer=0,failures=0,retryNotBefore=0;
 function retrySoon(){
  clearTimeout(retryTimer);
  // 2s, 4s, 8s, 16s, then every 30s until an answer comes back.
- retryTimer=setTimeout(()=>{retryTimer=0;refreshSiteAccess();},Math.min(30000,2000*2**Math.min(failures-1,4)));
+ retryTimer=setTimeout(()=>{retryTimer=0;refreshSiteAccess();},Math.max(retryNotBefore-Date.now(),Math.min(30000,2000*2**Math.min(failures-1,4))));
 }
 async function readStatus(){
  let next=await request('/api/session?action=site-status');
@@ -323,20 +324,24 @@ async function readStatus(){
  return next;
 }
 async function checkSiteAccess(){
- let next=null;
+ if(status&&Date.now()<retryNotBefore)return status;
+ let next=null,lastError=null;
  // On first load the boot screen is still up, so a couple of quick retries
  // settle it before anything is shown. After that, one attempt per check.
  for(let attempt=0;attempt<(status&&!status.offline?1:3);attempt++){
   if(attempt)await new Promise(r=>setTimeout(r,700*attempt));
-  try{next=await readStatus();}catch{next=null;}
+  try{next=await readStatus();}catch(error){
+   next=null;lastError=error;
+   if(error.retryAfter){retryNotBefore=Date.now()+error.retryAfter*1000;break;}
+  }
   if(next&&!unsettled(next))break;
  }
- if(next&&!unsettled(next)){failures=0;clearTimeout(retryTimer);retryTimer=0;status=next;renderStatus();return status;}
+ if(next&&!unsettled(next)){failures=0;retryNotBefore=0;clearTimeout(retryTimer);retryTimer=0;status=next;renderStatus();return status;}
  // No definite answer. Whoever is already in stays in, on the status we
  // last knew, and we ask again shortly -- nobody is signed out for a blip.
  failures++;retrySoon();
  if(status&&!(status.offline&&next))return status;
- status=next||{offline:true,maintenance:true,message:'Website access is temporarily unavailable. Please retry shortly.',disabledTabs:[],requireLogin:true,registrationOpen:false,isAdmin:false};
+ status=next||{offline:true,maintenance:true,message:lastError?.retryAfter?lastError.message:'Website access is temporarily unavailable. Please retry shortly.',disabledTabs:[],requireLogin:true,registrationOpen:false,isAdmin:false};
  renderStatus();return status;
 }
 // One check at a time. A call made while one is running is not dropped --

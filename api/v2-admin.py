@@ -54,7 +54,7 @@ class handler(BaseHTTPRequestHandler):
         try:
             if action == "site-settings":
                 if not admin_auth.is_admin_request(self.headers):return self._send(401, {"error":"Admin session required"})
-                from site_controls import read
+                from site_controls import read_saved as read
                 return self._send(200, read())
             if action == "members":
                 if not admin_auth.is_admin_request(self.headers):return self._send(401, {"error":"Admin session required"})
@@ -158,8 +158,10 @@ class handler(BaseHTTPRequestHandler):
                 # poll, so it can be cached long-term.
                 return self._handle_community_image(qs)
             return self._send(400, {"error": "Unknown or missing action"})
-        except Exception as exc:  # noqa: BLE001 -- always return JSON, see do_POST
-            return self._send(500, {"error": f"Unhandled error: {exc}"})
+        except store.StorageUnavailable as exc:
+            return self._send(503, exc.payload())
+        except Exception:  # noqa: BLE001 -- never expose internal service details
+            return self._send(500, {"error": "Admin service temporarily unavailable. Please try again."})
 
     def do_POST(self):
         length = int(self.headers.get("Content-Length", 0) or 0)
@@ -266,7 +268,7 @@ class handler(BaseHTTPRequestHandler):
                     return self._send(403, {"error": "Same-origin request required"})
                 from auth_core import session_from_request_headers
                 session = session_from_request_headers(self.headers)
-                if not session:
+                if not session or session.get('public'):
                     return self._send(401, {"error": "Sign in required"})
                 import community_feed
                 try:
@@ -275,10 +277,12 @@ class handler(BaseHTTPRequestHandler):
                     return self._send(400, {"error": str(exc)})
                 return self._send(200, {"ok": True})
             return self._send(400, {"error": "Unknown action"})
-        except Exception as exc:  # noqa: BLE001 -- always return JSON, never let
+        except store.StorageUnavailable as exc:
+            return self._send(503, exc.payload())
+        except Exception:  # noqa: BLE001 -- always return JSON, never let
             # Vercel's own generic (non-JSON) crash page reach the frontend,
             # which would otherwise fail res.json() with a confusing parse error.
-            return self._send(500, {"error": f"Unhandled error: {exc}"})
+            return self._send(500, {"error": "Admin service temporarily unavailable. Please try again."})
 
     def _handle_auth(self, body):
         locked, seconds_left = store.is_pin_locked_out()
@@ -543,6 +547,9 @@ class handler(BaseHTTPRequestHandler):
     def _send(self, status, body):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        if status == 503 and body.get('retryAfter'):
+            self.send_header('Retry-After', str(body['retryAfter']))
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")

@@ -59,6 +59,8 @@ def _now():
 
 def _stored_rules():
     raw = store.get(RULES_KEY)
+    if raw is None and getattr(store, 'STORAGE_BACKEND', 'upstash') == 'supabase':
+        raise store.StorageUnavailable('storage_migration_pending', 60)
     rules = (json.loads(raw).get('rules') if raw else None) or {}
     return rules if isinstance(rules, dict) else {}
 
@@ -167,12 +169,9 @@ def is_suspended(account):
 
 
 def _pipeline(commands, timeout=None):
-    if not store.KV_URL or not store.KV_TOKEN:
+    if not store.configured():
         return None
-    response = requests.post(store.KV_URL.rstrip('/') + '/pipeline', json=commands,
-                             headers=store._headers(), timeout=timeout or store.TIMEOUT)
-    response.raise_for_status()
-    return response.json()
+    return store.pipeline(commands, timeout=timeout or store.TIMEOUT)
 
 
 _touched = {}

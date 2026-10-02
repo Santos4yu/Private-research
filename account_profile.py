@@ -45,12 +45,9 @@ def _now_iso():
 
 
 def _pipeline(commands):
-    if not store.KV_URL or not store.KV_TOKEN:
+    if not store.configured():
         return None
-    response = requests.post(store.KV_URL.rstrip('/') + '/pipeline', json=commands,
-                             headers=store._headers(), timeout=store.TIMEOUT)
-    response.raise_for_status()
-    return response.json()
+    return store.pipeline(commands)
 
 
 def _load(raw):

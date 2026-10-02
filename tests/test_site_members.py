@@ -6,16 +6,20 @@ import account_auth as accounts
 import auth_core
 import site_controls as controls
 import site_members as members
+import temporary_access
 
 # Same rule as test_site_access.py: nothing here may reach the real KV store.
 _kv_off = patch.object(accounts, '_kv', return_value=None)
+_public_off = patch.object(temporary_access, 'ENABLED', False)
 
 
 def setUpModule():
     _kv_off.start()
+    _public_off.start()
 
 
 def tearDownModule():
+    _public_off.stop()
     _kv_off.stop()
 
 

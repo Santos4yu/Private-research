@@ -4,14 +4,19 @@ from types import SimpleNamespace
 import site_controls as controls
 import account_auth as accounts
 import auth_core
+import temporary_access
 # account_auth caches verifications and refresh rotations in KV, and
 # v2/board/store.py loads the REAL Upstash credentials from Vortex/.env. An
 # earlier run of these tests wrote a fake verified identity into production
 # KV that way. Nothing in this module may reach that store again: every test
 # runs with it switched off, and the tests that need it get an in-memory one.
 _kv_off=patch.object(accounts,'_kv',return_value=None)
-def setUpModule():_kv_off.start()
-def tearDownModule():_kv_off.stop()
+_store_off=patch.object(controls.store,'KV_URL','')
+_public_off=patch.object(temporary_access,'ENABLED',False)
+def setUpModule():
+ _kv_off.start();_store_off.start();_public_off.start()
+def tearDownModule():
+ _public_off.stop();_store_off.stop();_kv_off.stop()
 class SiteControlsTests(unittest.TestCase):
  def test_default_requires_login(self):
   with patch.object(controls.store,'get',return_value=None):self.assertTrue(controls.read()['requireLogin'])
@@ -128,8 +133,8 @@ class SiteBackgroundImageTests(unittest.TestCase):
   accounts._identity_cache.clear()
   with patch.object(accounts,'call',return_value={'email':'test@example.invalid','email_confirmed_at':None}):self.assertIsNone(accounts.identity({'Cookie':accounts.ACCESS+'=mock'}))
  def test_shared_rate_counter(self):
-  response=SimpleNamespace(raise_for_status=lambda:None,json=lambda:[{'result':21},{'result':1}])
-  with patch.object(controls.store,'KV_URL','https://mock.invalid'),patch.object(controls.store,'KV_TOKEN','test-only'),patch.object(accounts.requests,'post',return_value=response):self.assertFalse(accounts.rate_allowed({},'test@example.invalid'))
+  response=SimpleNamespace(status_code=200,json=lambda:[{'result':21},{'result':1}])
+  with patch.object(controls.store,'KV_URL','https://mock.invalid'),patch.object(controls.store,'KV_TOKEN','test-only'),patch.object(controls.store,'_failure',None),patch.object(controls.store,'_blocked_until',0),patch.object(accounts.requests,'post',return_value=response):self.assertFalse(accounts.rate_allowed({},'test@example.invalid'))
 
 class AccountRouteTests(unittest.TestCase):
  def request(self,body,headers=None):

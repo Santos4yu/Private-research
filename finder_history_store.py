@@ -17,14 +17,9 @@ def name_key(value):
 
 def command(*args):
     from v2.board import store
-    if not store.KV_URL or not store.KV_TOKEN:
+    if not store.configured():
         return None
-    response = store.requests.post(store.KV_URL, json=list(args), headers=store._headers(), timeout=3)
-    response.raise_for_status()
-    body = response.json()
-    if body.get('error'):
-        raise RuntimeError('History cache unavailable')
-    return body.get('result')
+    return store.pipeline([list(args)], timeout=3)[0]['result']
 
 def remember(sport, key, payload, args):
     # An empty provider response can mean an outage/incomplete season. Keep

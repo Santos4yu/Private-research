@@ -2,6 +2,9 @@
 export function accessGranted(policy) {
   return Boolean(policy && (policy.isAdmin || (!policy.maintenance && !policy.suspended && (!policy.requireLogin || policy.account))));
 }
+export function accountControlsVisible(policy){
+  return accessGranted(policy)&&Boolean(policy.account||policy.isAdmin);
+}
 // Sections only an admin session ever sees. They have no switch in the
 // admin panel and no per-member rule: nobody else can be let in.
 export const ADMIN_TABS=['moneyline'];

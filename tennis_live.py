@@ -28,16 +28,9 @@ def setting(name):
 
 
 def redis(*command):
-    url, token = setting('KV_REST_API_URL'), setting('KV_REST_API_TOKEN')
-    if not url or not token:
-        raise RuntimeError('Tennis persistent storage is not configured.')
-    request = Request(url, data=json.dumps(command).encode(),
-                      headers={'Authorization':'Bearer '+token, 'Content-Type':'application/json'})
-    with urlopen(request, timeout=6) as response:
-        result = json.load(response)
-    if result.get('error'):
-        raise RuntimeError('Tennis storage request failed.')
-    return result.get('result')
+    from v2.board import store
+    store.require_configured()
+    return store.pipeline([list(command)], timeout=6)[0]['result']
 
 
 def read(key, default=None):
@@ -234,7 +227,7 @@ def tick(budget=18, force=False):
         write('status',dict(status,checkedAt=int(time.time()*1000),pending=len(queue)))
         return status
     finally:
-        redis('EVAL',"if redis.call('get',KEYS[1]) == ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end",1,PREFIX+'lock',token)
+        redis('COMPAREDEL',PREFIX+'lock',token)
 
 
 def player_history(player):

@@ -64,12 +64,8 @@ def _point(public_key):
 # ---------------------------------------------------------------- storage
 
 def _pipeline(commands):
-    if not store.KV_URL or not store.KV_TOKEN:
-        raise RuntimeError('Notification storage is not configured')
-    response = requests.post(store.KV_URL.rstrip('/') + '/pipeline', json=commands, headers=store._headers(),
-                             timeout=store.TIMEOUT)
-    response.raise_for_status()
-    return [entry.get('result') for entry in response.json()]
+    store.require_configured()
+    return [entry['result'] for entry in store.pipeline(commands)]
 
 
 def _pairs(flat):
