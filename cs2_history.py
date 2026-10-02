@@ -18,6 +18,7 @@ JOBS = 'finder:cs2:jobs:v1'
 SAVED = 'finder:cs2:results:v1'
 MAPS = 'finder:cs2:maps:v1'
 STATE = 'finder:cs2:backfill:v1'
+HS_ATTEMPTS = 'finder:cs2:headshot-attempts:v1'
 # This nickname's letter-O spelling is used by the posted-line feed.
 ALIASES = {'osamas': '0samas'}
 _memory = {}
@@ -475,6 +476,7 @@ def warm_headshots(budget=45, limit=30, publish=True, players=None):
     """Fair, shared map queue: collect a map once for all ten players."""
     started = time.monotonic()
     jobs, states, maps = read_entries(JOBS), read_entries(STATE), read_entries(MAPS)
+    attempts = read_entries(HS_ATTEMPTS)
     queues = []
     for key, job in jobs.items():
         if players is not None and key not in players: continue
@@ -490,6 +492,8 @@ def warm_headshots(budget=45, limit=30, publish=True, players=None):
         for q in queues:
             if i < len(q) and q[i]['path'] not in seen:
                 seen.add(q[i]['path']); queue.append(q[i])
+    # Failed/cooling-down pages must not occupy every slot on the next tick.
+    queue.sort(key=lambda item: attempts.get(item['path'], 0))
     def collect(item):
         if time.monotonic()-started > budget-2: return 0
         path = item['path']
@@ -500,6 +504,7 @@ def warm_headshots(budget=45, limit=30, publish=True, players=None):
             command('DEL', retry)
             return 0
         try:
+            command('HSET', HS_ATTEMPTS, path, json.dumps(time.time()))
             result = map_result(fetch(path, timeout=min(15, max(2, budget-(time.monotonic()-started)))), path, item['date'])
             old = maps.get(path, {})
             for slug, player in result['players'].items():

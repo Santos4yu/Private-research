@@ -106,7 +106,7 @@ class HistoryTests(unittest.TestCase):
         jobs={s:{'slug':s,'enrolledAt':h.time.time()} for s in ('alpha0','alpha1')}
         states={s:{'paths':[{'path':path,'date':'2026-09-01'}]} for s in jobs}
         def command(*args):return 'OK' if args[0]=='SET' else None
-        with patch.object(h,'read_entries',side_effect=[jobs,states,{}]),patch.object(h,'command',side_effect=command),patch.object(h,'fetch',return_value=fixture()) as fetch:
+        with patch.object(h,'read_entries',side_effect=[jobs,states,{},{}]),patch.object(h,'command',side_effect=command),patch.object(h,'fetch',return_value=fixture()) as fetch:
             result=h.warm_headshots(publish=False)
         fetch.assert_called_once()
         self.assertEqual(result['mapsCompleted'],1)

@@ -119,10 +119,27 @@ def _refresh(force=False):
         return build(_fetch_projection_rows(force=force, league="CS2"))
     with ThreadPoolExecutor(max_workers=2) as pool:
         futures={'prizepicks':pool.submit(prizepicks),'underdog':pool.submit(underdog)}
-        results,errors={},[]
+        results,errors,stale={},[],[]
+        from cs2_history import command
         for source,future in futures.items():
-            try: results[source]=future.result()
-            except Exception: errors.append(source)
+            key='finder:cs2:provider:'+source
+            try:
+                results[source]=future.result()
+                try: command('SET',key,json.dumps({'at':time.time(),'data':results[source]}),'EX',900)
+                except Exception: pass
+            except Exception:
+                errors.append(source)
+                try:
+                    raw=command('GET',key)
+                    saved=json.loads(raw) if raw else None
+                    if saved and 0<=time.time()-saved['at']<900:
+                        data=saved['data']
+                        rows=data['rows'] if isinstance(data,dict) else data
+                        active=[{**r,'quoteAsOf':saved['at'],'staleQuote':True} for r in rows if datetime.fromisoformat(r['startsAt'].replace('Z','+00:00')).timestamp()>time.time()]
+                        if active:
+                            results[source]={**data,'rows':active} if isinstance(data,dict) else active
+                            stale.append(source)
+                except Exception: pass
     if not results:
         raise RuntimeError('CS2 providers unavailable')
     value=results.get('prizepicks') or build([])
@@ -130,7 +147,8 @@ def _refresh(force=False):
     align_events(value['rows'])
     value['sources']=list(results)
     value['unavailableSources']=errors
-    value['lineUpdatedAt']=time.time()
+    value['staleSources']=stale
+    value['lineUpdatedAt']=min([time.time()]+[r['quoteAsOf'] for r in value['rows'] if r.get('staleQuote')])
     with _lock:
         _cache.update(at=time.time(), value=value)
     return value

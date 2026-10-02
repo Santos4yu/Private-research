@@ -34,19 +34,33 @@ by the rest of the Finder, not a new data-provider subscription.
 
 Each job verifies the player's page heading, records its public map links,
 and gradually fills up to 80 recent maps. Completed maps are shared across
-players and never refetched during backfill. Saved game logs contain at most
+players; incomplete headshot scoreboards are retried fairly rather than treated
+as permanently complete. Saved game logs contain at most
 40 series. Failed requests preserve completed results and are retried on later
 ticks. Cross-worker locks prevent duplicate collection for the same player.
 
 The collector prebuilds a shared board response with posted lines and histories
 together. Histories are deduplicated by player instead of repeated per prop.
 A current snapshot is served with one storage read and no external provider
-requests. Started events are removed on read. Quotes older than three minutes
+requests. Started events are removed on read. Quotes older than fifteen minutes
 are refreshed rather than silently re-stamped as current. Browser-persisted
 boards still render immediately for returning users. Frontend refresh picks up
 new saved results every two minutes. Cold/missing snapshots and network outages
 cannot be guaranteed instant, and initial backfill is not the same as page-load
 latency.
+
+The source lists kills in one player-page request; headshots require verified
+map scoreboards. Therefore a same-map headshot count below its kills count is
+incomplete coverage, not a shorter match history. Empty source scoreboards
+remain unavailable, never zero-filled or estimated. Map 2 does not exist in
+BO1 series; Map 3 is counted only when played. Combined scopes require every
+map in that scope. Research-only statistics have no bookmaker line unless a
+book posts that exact market for the selected match.
+
+Each bookmaker has a separate fifteen-minute last-successful cache. A provider
+failure can reuse that feed only while still recent and pre-game. Reused rows
+carry `staleQuote` and their original `quoteAsOf`; board freshness uses the
+oldest reused quote rather than re-stamping it as current.
 
 ## Accuracy and limitations
 
