@@ -216,6 +216,31 @@
 .ml2-empty span{max-width:420px}
 .ml2-empty button{min-height:40px;margin-top:4px;padding:0 16px;border:1px solid var(--m-line)!important;border-radius:11px;background:var(--m-raised)!important;font-weight:700}
 
+/* Matchup scores and probability are intentionally separate, with text labels. */
+.ml2-game.tier-elite{border-color:var(--m-gold)}
+.ml2-tier.tier-elite{color:var(--m-gold);background:color-mix(in srgb,var(--m-gold) 12%,transparent)}
+.ml2-verdict,.ml2-grade-totals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0;padding:12px;border:1px solid var(--m-line);border-radius:12px;background:var(--m-raised)}
+.ml2-verdict>div,.ml2-grade-totals>div{min-width:0}
+.ml2-verdict span,.ml2-grade-totals span{display:block;color:var(--m-muted);font-size:12px}
+.ml2-verdict b,.ml2-grade-totals b{display:block;margin-top:4px;font-size:15px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.ml2-verdict p{grid-column:1/-1;margin:0;color:var(--m-muted)}
+.ml2-verdict p b{display:inline;font-size:inherit;color:var(--m-text)}
+.ml2-grade-totals small,.ml2-grading td small{display:block;margin-top:5px;color:var(--m-muted);font-size:12px;line-height:1.5}
+.ml2-grading .ml2-compare{table-layout:fixed;width:100%}
+.ml2-grading td,.ml2-grading th{overflow-wrap:anywhere;white-space:normal}
+.ml2-grading th:first-child{width:28%}
+.ml2-stake-note{flex-basis:100%;color:var(--m-muted);font-size:12px;line-height:1.5}
+.ml2-validation{grid-column:1/-1;display:grid;gap:6px;padding-top:12px;border-top:1px solid var(--m-line);color:var(--m-muted)}
+.ml2-validation>b{color:var(--m-text)}
+.ml2-validation small{font-size:12px;line-height:1.5}
+.ml2-validation table{width:100%;border-collapse:collapse;text-align:left;font-variant-numeric:tabular-nums}
+.ml2-validation :is(th,td){padding:8px 4px;white-space:normal}
+.ml2 :is(.ml2-caveats,.ml2-validation) summary{min-height:44px;display:flex;align-items:center;cursor:pointer;color:var(--m-text);font-weight:600;list-style:none}
+.ml2 :is(.ml2-caveats,.ml2-validation) summary::before{content:'+';margin-right:8px}
+.ml2 :is(.ml2-caveats,.ml2-validation) details[open]>summary::before,.ml2-caveats[open]>summary::before{content:'−'}
+.ml2 :is(.ml2-caveats,.ml2-validation) summary:focus-visible{outline:2px solid var(--m-accent);outline-offset:2px}
+.ml2-caveats li{margin:6px 0;overflow-wrap:anywhere}
+
 @media (max-width:760px){
  :root[data-theme] body #app-shell #panel-moneyline{width:100%!important;max-width:none!important;margin:0!important;padding:0 0 calc(86px + env(safe-area-inset-bottom,0px))!important}
  :root[data-theme] body:has(#panel-moneyline:not([hidden])) :is(.site-account-bar,.site-account-trigger,#settings-btn){display:none!important}
@@ -250,6 +275,15 @@
  .ml2-pick dl{width:100%;justify-content:space-between}
  .ml2-views{grid-template-columns:1fr 1fr}
  .ml2-pull{min-width:74px}
+}
+@media (max-width:440px){
+ .ml2-side{grid-template-columns:30px repeat(3,minmax(0,1fr));row-gap:10px;padding-top:10px;padding-bottom:10px}
+ .ml2-team{grid-column:2/-1}
+ .ml2-team b,.ml2-team>span{white-space:normal;overflow:visible}
+ .ml2-side>.ml2-num:nth-child(3){grid-column:2}
+ .ml2-num{justify-items:start}
+ .ml2-num small{font-size:10.5px;white-space:normal;overflow:visible}
+ .ml2-tiles span{white-space:normal;line-height:1.5}
 }
 @media (prefers-reduced-motion:reduce){
  .ml2 *,.ml2 *::before,.ml2 *::after{animation:none!important;transition:none!important}

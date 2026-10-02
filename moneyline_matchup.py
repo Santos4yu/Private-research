@@ -130,7 +130,9 @@ def parse_summary(payload):
     def side_of(team):
         return ids.get(str((team or {}).get("id")))
 
-    out = {"sides": sides, "predictor": None, "form": {}, "series": None, "injuries": {}, "leaders": {}}
+    out = {"sides": sides, "predictor": None, "form": {}, "series": None,
+           "injuries": {side: [] for side in sides} if 'injuries' in payload else {}, "leaders": {},
+           'neutral': header.get('neutralSite') if isinstance(header.get('neutralSite'), bool) else None}
     predictor = payload.get("predictor") or {}
     home_chance = _number((predictor.get("homeTeam") or {}).get("gameProjection"))
     away_chance = _number((predictor.get("awayTeam") or {}).get("gameProjection"))

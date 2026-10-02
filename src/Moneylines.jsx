@@ -2,6 +2,7 @@ import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ChevronDown,RefreshCw,Trophy,TriangleAlert} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import {PhoneAccountButtons} from './UnifiedFinder';
+import {isMoneylinePlay,topMoneylines} from './moneyline-view';
 import './moneylines.css';
 
 // The Moneylines page: every game's fair price (the sharp books' consensus,
@@ -9,11 +10,11 @@ import './moneylines.css';
 // record of every play posted (moneyline_model.py).
 const LEAGUES=[['nfl','NFL'],['mlb','MLB'],['nhl','NHL'],['wnba','WNBA']];
 const PREF='krazy-moneylines';
-const TIERS={strong:'Strong play',play:'Play',lean:'Lean'};
+const TIERS={elite:'Elite setup',strong:'Strong play',play:'Play',lean:'Lean only'};
 const signed=price=>price==null?'—':price>0?`+${price}`:`${price}`;
 const pct=(value,digits=0)=>value==null?'—':`${(value*100).toFixed(digits)}%`;
 const edge=value=>value==null?'—':`${value>=0?'+':'−'}${Math.abs(value*100).toFixed(1)}%`;
-const unitsText=value=>value==null?'—':`${value>0?'+':value<0?'−':''}${Math.abs(value).toFixed(1)}u`;
+const unitsText=value=>value==null?'—':`${value>0?'+':value<0?'−':''}${Math.abs(value).toFixed(2).replace(/0$/,'')}u`;
 const when=iso=>{const time=Date.parse(iso||'');if(!Number.isFinite(time))return '';const date=new Date(time),today=new Date();
  const clock=date.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
  return date.toDateString()===today.toDateString()?`Today ${clock}`:`${date.toLocaleDateString([],{weekday:'short'})} ${clock}`;};
@@ -55,7 +56,7 @@ function ChanceBar({game,away,home}){
    <button type="button" key={side} className={pick===side?'is-pick':''} style={{flexGrow:Math.max(chance,0.02)}}
     aria-label={`${info.short} ${pct(chance,1)} win chance, market ${pct(market,1)}`}
     onPointerEnter={()=>setTip(side)} onFocus={()=>setTip(side)} onBlur={()=>setTip(null)}/>)}</div>
-  <div className="ml2-bar-labels"><span>{away.abbr} <b>{pct(1-homeChance)}</b></span><span><b>{pct(homeChance)}</b> {home.abbr}</span></div>
+  <div className="ml2-bar-labels"><span>{away.abbr} <b>{100-Math.round(homeChance*100)}%</b></span><span><b>{Math.round(homeChance*100)}%</b> {home.abbr}</span></div>
   {tip&&<div className={`ml2-tip is-${tip}`} role="status">{rows.filter(([side])=>side===tip).map(([side,info,chance,market])=><React.Fragment key={side}>
    <b>{pct(chance,1)}</b><span>{info.short} to win</span>
    <small>Market {pct(market,1)}{game.model?.ratingHome!=null?` · ratings ${pct(side==='home'?game.model.ratingHome:1-game.model.ratingHome,1)}`:''}</small></React.Fragment>)}</div>}
@@ -70,7 +71,7 @@ function SideRow({game,side,info}){
   <Logo src={info.logo} label={info.abbr}/>
   <div className="ml2-team"><b><span className="ml2-full">{info.name}</span><span className="ml2-short">{info.short}</span></b>
    <span>{[info.record,info.probable].filter(Boolean).join(' · ')||(side==='home'?'Home':'Away')}</span></div>
-  <div className="ml2-num"><small>Fair</small><b>{signed(fairOdds)}</b></div>
+  <div className="ml2-num"><small>Market fair</small><b>{signed(fairOdds)}</b></div>
   <div className="ml2-num ml2-best"><small>{best?.bookName||'Best'}</small><b>{signed(best?.price)}</b></div>
   <div className={`ml2-num ml2-edge ${ev>=0?'is-up':'is-down'}`}><small>vs fair</small><b>{edge(ev)}</b></div>
  </div>;
@@ -122,13 +123,14 @@ function Matchup({game,away,home}){
  ].filter(Boolean);
  const moved=m.movement&&fairHome!=null&&m.movement.open!=null?fairHome-m.movement.open:null;
  return <div className="ml2-matchup">
+  <MatchupGrades game={game} away={away} home={home}/>
   <section>
    <h4>What moves our number</h4>
    <div className="ml2-views">
     {views.map(([label,margin,chance])=><div key={label}><span>{label}</span><b>{margin>=0?home.abbr:away.abbr} by {round1(margin)} {UNIT[m.unit]}</b>{chance!=null&&<small>{pct(Math.max(chance,1-chance))} to win</small>}</div>)}
     {m.espn&&<div><span>ESPN's model</span><b>{m.espn.home>=0.5?home.abbr:away.abbr} {pct(Math.max(m.espn.home,m.espn.away))}</b><small>to win</small></div>}
     <div><span>Market</span><b>{fairHome>=0.5?home.abbr:away.abbr} {pct(Math.max(fairHome,1-fairHome))}</b><small>no-vig consensus</small></div>
-    <div className="is-ours"><span>Our number</span><b>{model.home>=0.5?home.abbr:away.abbr} {pct(Math.max(model.home,model.away),1)}</b><small>{model.tilt?`${model.tilt>0?home.abbr:away.abbr} +${Math.abs(model.tilt*100).toFixed(1)}% vs the market`:'the market'}</small></div>
+    <div className="is-ours"><span>Combined prediction</span><b>{model.home>=0.5?home.abbr:away.abbr} {pct(Math.max(model.home,model.away),1)}</b><small>{model.tilt?`${model.tilt>0?home.abbr:away.abbr} +${Math.abs(model.tilt*100).toFixed(1)} percentage points vs market`:'the market'}</small></div>
    </div>
    {m.factors.length>0?<ul className="ml2-factors">{m.factors.map(item=><li key={item.key}>
     <span className={`ml2-pull ${item.margin>=0?'is-home':'is-away'}`}>{pull(item.margin,away,home,m.unit)}</span>
@@ -148,7 +150,27 @@ function Matchup({game,away,home}){
 }
 const americanOf=p=>p==null||p<=0||p>=1?null:p>=0.5?Math.round(-100*p/(1-p)):Math.round(100*(1-p)/p);
 
-function Game({game}){
+export function MatchupGrades({game,away,home}){
+ const grade=game.grading;
+ if(!grade)return null;
+ const a=grade.teams?.away||{},h=grade.teams?.home||{};
+ return <section className="ml2-grading">
+  <h4>Both-team matchup grades</h4>
+  <div className="ml2-grade-totals">{[['away',away,a],['home',home,h]].map(([side,info,row])=><div key={side}>
+   <span>{info.abbr} matchup</span><b>{row.matchupScore==null?'Unavailable':`${Math.round(row.matchupScore)} / 100`}</b>
+   <small>{row.sample||0} current-season games</small></div>)}</div>
+  <p className="ml2-dim">Grades describe matchup strength—not win percentages. Offense and defense grades use scoring rates, not a complete play-by-play model.</p>
+  <table className="ml2-compare" aria-label="Offense, defense and personnel grades">
+   <thead><tr><th scope="col">Factor</th><th scope="col">{away.abbr}</th><th scope="col">{home.abbr}</th></tr></thead>
+   <tbody>{(h.components||[]).map((c,index)=><tr key={c.key}><th scope="row">{c.label}</th>{[a.components?.[index],c].map((item,i)=><td key={i}>
+    <b>{item?.score==null?'Unavailable':`${Math.round(item.score)} / 100`}</b><small>{item?.detail}</small></td>)}</tr>)}</tbody>
+  </table>
+  <p className="ml2-dim">Evidence coverage {pct(grade.coverage)} · {grade.neutral?'Neutral venue: no home advantage':'Home/road context included where verified'}</p>
+  {grade.missing?.length>0&&<details className="ml2-caveats"><summary>Missing inputs and cautions ({grade.missing.length})</summary><ul>{grade.missing.map(note=><li key={note}>{note.replace(/^home:/,`${home.abbr}:`).replace(/^away:/,`${away.abbr}:`)}</li>)}</ul></details>}
+ </section>;
+}
+
+export function Game({game}){
  const [open,setOpen]=useState(false);
  const [tab,setTab]=useState('matchup');
  const away=team(game,'away'),home=team(game,'home');
@@ -165,14 +187,20 @@ function Game({game}){
   <SideRow game={game} side="away" info={away}/>
   <SideRow game={game} side="home" info={home}/>
   <ChanceBar game={game} away={away} home={home}/>
+  {game.prediction&&<div className="ml2-verdict">
+   <div><span>Projected winner</span><b>{game.prediction.side==='home'?home.short:away.short} · {pct(game.prediction.probability,1)}</b></div>
+   <div><span>Matchup grade</span><b>{game.prediction.score==null?'Unavailable':`${Math.round(game.prediction.score)} / 100`}</b></div>
+   {!isMoneylinePlay(game)&&<p><b>Pass for now.</b> {game.passReason||'Lean only; no recommended stake.'}</p>}
+  </div>}
   {top.length>0&&<ul className="ml2-chips" aria-label="Biggest matchup factors">{top.map(item=><li key={item.key}>
    <span>{item.label}</span><b className={item.margin>=0?'is-home':'is-away'}>{pull(item.margin,away,home,game.matchup.unit)}</b></li>)}</ul>}
-  {game.target&&<p className="ml2-target"><span>Play at</span><b><span className="ml2-full">{game.target.side==='home'?home.name:away.name}</span><span className="ml2-short">{game.target.side==='home'?home.short:away.short}</span> {signed(game.target.price)}</b>
-   <em>best now {signed(game.target.best)} at {game.target.bookName}</em></p>}
+  {game.target&&<p className="ml2-target"><span>Watch price · not a play</span><b><span className="ml2-full">{game.target.side==='home'?home.name:away.name}</span><span className="ml2-short">{game.target.side==='home'?home.short:away.short}</span> {signed(game.target.price)}</b>
+   <em>Target unavailable. Best now {signed(game.target.best)} at {game.target.bookName}. Recheck matchup and price before betting.</em></p>}
   {pick&&pick.tier!=='lean'&&<div className="ml2-pick">
    <div><span>Bet</span><b><span className="ml2-full">{pick.side==='home'?home.name:away.name}</span><span className="ml2-short">{pick.side==='home'?home.short:away.short}</span> {signed(pick.price)}</b><em>at {pick.bookName}</em></div>
-   <dl><div><dt>Edge</dt><dd>{edge(pick.ev)}</dd></div><div><dt>Win chance</dt><dd>{pct(pick.probability)}</dd></div>
-    <div><dt>Stake</dt><dd>{pick.units}u</dd></div><div><dt>Bet down to</dt><dd>{signed(pick.fairOdds)}</dd></div></dl>
+   <dl><div><dt>Conservative EV</dt><dd>{edge(pick.conservativeEv??pick.ev)}</dd></div><div><dt>Win estimate</dt><dd>{pct(pick.probability)}</dd></div>
+    <div><dt>Suggested size</dt><dd>{pick.units}u</dd></div><div><dt>Minimum price</dt><dd>{signed(pick.minimumPrice)}</dd></div></dl>
+   <small className="ml2-stake-note">{pick.agreement} model/market views favor this side · {pct(pick.coverage)} evidence coverage · 1u = 1% bankroll. Size uses conservative EV, not a guaranteed confidence level.</small>
   </div>}
   <button type="button" className="ml2-more" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>
    {open?'Hide the matchup':'Matchup, reasons and every book'}<ChevronDown size={15}/></button>
@@ -229,14 +257,14 @@ function UnitsChart({curve}){
  </div>;
 }
 
-function Record({record}){
+export function Record({record}){
  const [open,setOpen]=useState(false);
  if(!record)return <div className="ml2-record is-loading" aria-hidden="true"/>;
  const month=record.summary;
  const tiles=[
   ['Record',month.plays?`${month.wins}–${month.losses}${month.pushes?`–${month.pushes}`:''}`:'—',month.pending?`${month.pending} pending`:'last 30 days'],
   ['Units',unitsText(month.plays?month.units:null),month.roi==null?'no settled plays yet':`${month.roi>=0?'+':'−'}${Math.abs(month.roi*100).toFixed(1)}% return`],
-  ['Beat the close',pct(month.beatClose),month.clv==null?'closing prices so far':`avg ${edge(month.clv)} at the close`],
+  ['Beat the close',pct(month.beatClose),month.clv==null?'no qualified closing samples':`${month.closeSamples} samples · avg ${edge(month.clv)}`],
  ];
  return <section className="ml2-record" aria-label="Track record">
   <div className="ml2-tiles">{tiles.map(([label,value,note],index)=><div key={label} className={index===1&&month.plays?(month.units>=0?'is-up':'is-down'):''}>
@@ -250,9 +278,17 @@ function Record({record}){
     <td>{day(play.startsAt)}</td>
     <td><b>{play.team}</b><small>{play.home?'vs':'@'} {play.opponentAbbr||play.opponent}</small></td>
     <td>{signed(play.price)}<small>{play.bookName} · {play.units}u</small></td>
-    <td className={play.clv==null?'':play.clv>=0?'is-up':'is-down'}>{play.close?.price!=null?signed(play.close.price):'—'}<small>{play.clv==null?'':edge(play.clv)}</small></td>
+    <td className={play.clv==null?'':play.clv>=0?'is-up':'is-down'}>{play.clv!=null?signed(play.close?.price):'—'}<small>{play.clv==null?(play.result?'No close sample':'Not closed'):edge(play.clv)}</small></td>
     <td className={`ml2-result r-${play.result||'open'}`}>{play.result||'Open'}<small>{play.score||(play.profit!=null?unitsText(play.profit):'')}</small></td>
    </tr>)}</tbody></table></div>}
+  {record.currentModel&&<div className="ml2-validation"><b>New matchup model</b><span>{record.currentModel.wins}–{record.currentModel.losses} · {unitsText(record.currentModel.units)} · {record.currentModel.pending} pending</span>
+   <small>Historical plays above stay unchanged. New grades are provisional; maximum suggested size is 1u.</small>
+   {record.validation&&<details><summary>Prediction tracking · {record.validation.games} settled forecasts</summary>
+    <p>First pregame predictions include all games—not just recommended bets. Not yet calibrated.</p>
+    <p>Brier score: {record.validation.brier?.toFixed(3)??'Awaiting results'} · Market baseline: {record.validation.marketBrier?.toFixed(3)??'Awaiting results'} (lower is better).</p>
+    <table><thead><tr><th>Win estimate</th><th>Games</th><th>Predicted</th><th>Actual wins</th></tr></thead><tbody>{record.validation.bins.map(bin=><tr key={bin.label}><td>{bin.label}</td><td>{bin.games}</td><td>{pct(bin.predicted)}</td><td>{pct(bin.actual)}</td></tr>)}</tbody></table>
+   </details>}
+  </div>}
  </section>;
 }
 
@@ -287,7 +323,7 @@ export function Moneylines(){
  },[sport,load]);
 
  const games=board?.sport===sport?board.games:[];
- const plays=games.filter(game=>game.pick&&game.pick.tier!=='lean');
+ const plays=topMoneylines(games);
  // Not plays yet, but within a few cents of one: the price to wait for.
  const close=games.filter(game=>game.target&&game.target.gap<=0.04).sort((a,b)=>a.target.gap-b.target.gap).slice(0,6);
  const shown=all?games:plays;
@@ -296,8 +332,8 @@ export function Moneylines(){
 
  return <section className="ml2" aria-labelledby="ml2-title">
   <header className="ml2-head">
-   <div><span className="ml2-eyebrow"><Trophy size={13}/>Moneylines</span><h1 id="ml2-title">Beat the price.</h1>
-    <p>Fair odds from the sharpest books, our power ratings, and the best price to bet.</p></div>
+   <div><span className="ml2-eyebrow"><Trophy size={13}/>Moneylines</span><h1 id="ml2-title">Grade the matchup.</h1>
+    <p>Both teams, offense, defense and available personnel context. Ranked plays require matchup support and a worthwhile price.</p></div>
    <PhoneAccountButtons/>
   </header>
 
@@ -307,8 +343,8 @@ export function Moneylines(){
    <div className="ml2-leagues" role="tablist" aria-label="League">{LEAGUES.map(([key,label])=><button type="button" role="tab" key={key} aria-selected={sport===key} onClick={()=>setSport(key)}>
     <img src={LEAGUE_LOGOS[key]} alt="" width="18" height="18"/>{label}{counts[key]?.games>0&&<small>{counts[key].games}</small>}</button>)}</div>
    <div className="ml2-view" role="group" aria-label="Show">
-    <button type="button" aria-pressed={!all} onClick={()=>setAll(false)}>Plays{status==='ready'&&<small>{plays.length}</small>}</button>
-    <button type="button" aria-pressed={all} onClick={()=>setAll(true)}>All games{status==='ready'&&<small>{games.length}</small>}</button>
+    <button type="button" aria-pressed={!all} onClick={()=>setAll(false)}>Top plays{status==='ready'&&<small>{plays.length}</small>}</button>
+    <button type="button" aria-pressed={all} onClick={()=>setAll(true)}>All predictions{status==='ready'&&<small>{games.length}</small>}</button>
    </div>
    <button type="button" className="ml2-refresh" onClick={()=>load(sport)} disabled={status==='loading'||status==='refreshing'} aria-label="Refresh prices">
     <RefreshCw size={15} className={status==='refreshing'||status==='loading'?'ml2-spin':''}/>{updated&&<span>{updated}</span>}</button>
@@ -320,10 +356,10 @@ export function Moneylines(){
    {shown.length
     ?<div className="ml2-list">{shown.map(game=><Game key={game.id} game={game}/>)}</div>
     :<div className="ml2-empty"><b>{games.length?'No plays right now':'No games on the board'}</b>
-     <span>{games.length?'No book is paying more than the fair price yet.':'Lines post a few days before each game.'}</span>
-     {games.length>0&&!close.length&&<button type="button" onClick={()=>setAll(true)}>See all {games.length} games</button>}</div>}
+     <span>{games.length?'No matchup currently clears the evidence and conservative price requirements. We do not force bets.':'Lines post a few days before each game.'}</span>
+     {games.length>0&&<button type="button" onClick={()=>setAll(true)}>See all {games.length} predictions</button>}</div>}
    {!all&&close.length>0&&<section className="ml2-close" aria-labelledby="ml2-close-title">
-    <h2 id="ml2-close-title">Close to a play</h2>
+    <h2 id="ml2-close-title">Watch prices · not current plays</h2>
     <div className="ml2-list">{close.map(game=><Game key={game.id} game={game}/>)}</div>
    </section>}
   </>}

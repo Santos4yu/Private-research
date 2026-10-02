@@ -102,7 +102,11 @@ def build(schedule, people, team_hitting, team_pitching):
             teams = game.get("teams") or {}
             home, away = (teams.get("home") or {}), (teams.get("away") or {})
             ids = (home.get("team") or {}).get("id"), (away.get("team") or {}).get("id")
-            games.append({"gameId": game.get("gamePk"), "home": ids[0], "away": ids[1], "startTime": game.get("gameDate")})
+            starters = {}
+            for key, side in (('home', home), ('away', away)):
+                probable = side.get('probablePitcher') or {}
+                starters[key] = lines.get(probable.get('id')) or ({'id': probable['id'], 'name': probable.get('fullName')} if probable.get('id') else None)
+            games.append({"gameId": game.get("gamePk"), "home": ids[0], "away": ids[1], "startTime": game.get("gameDate"), 'starters': starters})
             for side, team_id in ((home, ids[0]), (away, ids[1])):
                 pitcher = (side.get("probablePitcher") or {}).get("id")
                 if team_id and pitcher and team_id not in probables:

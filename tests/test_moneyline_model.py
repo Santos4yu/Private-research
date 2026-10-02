@@ -9,7 +9,7 @@ KICK = (NOW + timedelta(hours=2)).isoformat().replace("+00:00", "Z")
 
 
 def book(key, home, away):
-    return {"key": key, "title": key, "last_update": KICK, "markets": [{"key": "h2h", "outcomes": [
+    return {"key": key, "title": key, "last_update": NOW.isoformat(), "markets": [{"key": "h2h", "outcomes": [
         {"name": "Kansas City Chiefs", "price": home}, {"name": "Buffalo Bills", "price": away}]}]}
 
 
@@ -24,6 +24,15 @@ ESPN = {"events": [{"id": "401", "date": KICK, "competitions": [{
          "records": [{"summary": "3-0"}]},
         {"homeAway": "away", "score": "0", "team": {"displayName": "Buffalo Bills", "shortDisplayName": "Bills", "abbreviation": "BUF", "logo": "buf.png"},
          "records": [{"summary": "2-1"}]}]}]}]}
+
+RATED = {"teams": {"Kansas City Chiefs": 4.0, "Buffalo Bills": 1.0}, "rest": {},
+         "stats": ml.ranked({"Kansas City Chiefs": {"for": 30, "against": 18, "games": 16},
+                             "Buffalo Bills": {"for": 24, "against": 22, "games": 16},
+                             "Team C": {"for": 20, "against": 26, "games": 16},
+                             "Team D": {"for": 17, "against": 29, "games": 16}})}
+CONTEXT = {"injuries": {"home": [], "away": []},
+           "leaders": {"home": {"passingyards": {"name": "Patrick Mahomes"}}, "away": {"passingyards": {"name": "Josh Allen"}}},
+           "form": {side: [{"margin": 4, "date": "2026-09-27T17:00Z"}] * 3 for side in ('home', 'away')}}
 
 
 class PricesTest(unittest.TestCase):
@@ -108,7 +117,7 @@ class ModelTest(unittest.TestCase):
         self.assertEqual([item["key"] for item in game["books"]][:2], ["pinnacle", "betonlineag"])
         self.assertNotIn("unknownbook", [item["key"] for item in game["books"]])
         rated = {"teams": {"Kansas City Chiefs": 4.0, "Buffalo Bills": 1.0}, "rest": {}}
-        read = ml.read_game("nfl", game, rated)
+        read = ml.read_game("nfl", game, {**RATED, **rated}, context=CONTEXT)
         self.assertTrue(0.57 < read["fair"]["home"] < 0.6)
         # ESPN BET's -130 on the Chiefs beats a ~58% fair chance.
         pick = read["pick"]
@@ -133,12 +142,12 @@ class ModelTest(unittest.TestCase):
         event = {**EVENT, "bookmakers": [book("pinnacle", -150, 136), book("draftkings", -160, 132), book("fanduel", -158, 130),
                                          book("betmgm", -165, 134)]}
         [game] = ml.parse_odds([event])
-        read = ml.read_game("nfl", game, {"teams": {"Kansas City Chiefs": 1.0, "Buffalo Bills": 1.0}, "rest": {}})
+        read = ml.read_game("nfl", game, RATED, context=CONTEXT)
         self.assertIsNone(read["pick"])
         target = read["target"]
         side_fair = read["fair"][target["side"]]
         side_chance = read["model"][target["side"]]
-        need = max(1 / side_fair, (1 + ml.PLAY_EV) / side_chance)
+        need = (1 + ml.PLAY_EV) / read['decisions'][target['side']]['conservativeProbability']
         self.assertGreaterEqual(ml.decimal(target["price"]), need)
         # One cent shorter would not be enough.
         self.assertLess(ml.decimal(target["price"] - 1 if target["price"] != 100 else -101), need)
@@ -161,8 +170,8 @@ class BoardAndRecordTest(unittest.TestCase):
     def board(self, events, now=NOW):
         with mock.patch.object(ml, "fetch_odds", return_value=(events, 5000)), \
                 mock.patch.object(ml, "_espn", return_value=ESPN), \
-                mock.patch("moneyline_matchup.espn_context", return_value=None), \
-                mock.patch.object(ml, "ratings", return_value={"teams": {"Kansas City Chiefs": 4.0, "Buffalo Bills": 1.0}, "rest": {}}):
+                mock.patch("moneyline_matchup.espn_context", return_value=CONTEXT), \
+                mock.patch.object(ml, "ratings", return_value=RATED):
             return ml.board("nfl", force=True, now=now)
 
     def test_board_records_the_play_and_keeps_its_close(self):
@@ -173,13 +182,14 @@ class BoardAndRecordTest(unittest.TestCase):
         [play] = ml._memory["plays"]
         self.assertEqual((play["team"], play["price"], play["bookName"]), ("Kansas City Chiefs", -130, "ESPN BET"))
         # Later, ESPN BET moves to -150: the play keeps -130, its close moves.
-        later = {**EVENT, "bookmakers": [book(key, -150 if key == "espnbet" else home, away)
+        later = {**EVENT, "bookmakers": [{**book(key, -150 if key == "espnbet" else home, away), 'last_update': (NOW + timedelta(minutes=90)).isoformat()}
                                          for key, home, away in [("pinnacle", -165, 145), ("draftkings", -170, 145), ("espnbet", 0, 125)]]}
         self.board([later], now=NOW + timedelta(minutes=90))
         [play] = ml._memory["plays"]
         self.assertEqual(play["price"], -130)
         self.assertEqual(play["close"]["price"], -150)
-        self.assertGreater(ml.clv(play), 0)   # -130 beat a ~62% close
+        self.assertIsNone(ml.clv(play, NOW + timedelta(minutes=90)))  # not closed before kickoff
+        self.assertGreater(ml.clv(play, NOW + timedelta(hours=2)), 0)   # -130 beat a ~62% close
 
     def test_grading_and_the_record(self):
         self.board([EVENT])
