@@ -18,7 +18,7 @@ export function finderPlayerRows(rows, selected) {
   if(!selected)return [];
   return rows.filter(row=>{
     if(row.sport!==selected.sport)return false;
-    if(row.sport==='cs2')return nameKey(row.player)===nameKey(selected.player)&&row.opponent===selected.opponent&&row.startsAt===selected.startsAt;
+    if(row.sport==='cs2')return nameKey(row.player)===nameKey(selected.player)&&row.opponent===selected.opponent&&Number.isFinite(Date.parse(row.startsAt))&&Date.parse(row.startsAt)===Date.parse(selected.startsAt);
     if(row.sport!=='tennis')return selected.playerId?row.playerId===selected.playerId:row.player===selected.player;
     if(nameKey(row.player)!==nameKey(selected.player))return false;
     const opponent=value=>nameKey(String(value||'').replace(/\s+1st\s+set.*$/i,''));

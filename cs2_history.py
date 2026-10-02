@@ -379,17 +379,23 @@ def warm(budget=20, limit=12, concurrency=3, max_maps=6, force=False, listing_on
             attempts = entry.setdefault('attempts', {})
             pending = [p for p in paths if (p['path'] not in maps or 'headshots' not in maps[p['path']]['players'].get(job['slug'], {})) and
                        (force or time.time()-attempts.get(p['path'], 0) >= 300)]
+            # A source page with no advanced stats must not starve older maps.
+            pending.sort(key=lambda p: attempts.get(p['path'], 0))
             for item in pending[:max_maps]:
                 if time.monotonic()-started >= budget-3: break
                 try:
                     cached = command('HGET', MAPS, item['path'])
-                    if cached:
-                        result = json.loads(cached)
-                    else:
+                    result = json.loads(cached) if cached else None
+                    complete = result and 'headshots' in result.get('players', {}).get(job['slug'], {})
+                    if not complete:
                         claim = command('SET', 'finder:cs2:maplock:'+item['path'], '1', 'NX', 'EX', 45)
                         if claim != 'OK': continue
                         try:
-                            result = map_result(get(item['path']), item['path'], item['date'])
+                            fresh = map_result(get(item['path']), item['path'], item['date'])
+                            if result:
+                                for slug, player in fresh['players'].items():
+                                    player.update({k: v for k, v in result.get('players', {}).get(slug, {}).items() if k not in player})
+                            result = fresh
                             command('HSET', MAPS, item['path'], json.dumps(result, separators=(',', ':')))
                         finally:
                             command('DEL', 'finder:cs2:maplock:'+item['path'])
@@ -398,6 +404,8 @@ def warm(budget=20, limit=12, concurrency=3, max_maps=6, force=False, listing_on
                     errors += 1
                     continue
                 maps[item['path']] = result
+                if 'headshots' not in result['players'].get(job['slug'], {}):
+                    attempts[item['path']] = time.time()
                 # Persist after every map so a later timeout can't erase progress.
                 entry.update(maps=list(maps.values())[-100:], source='bo3', updatedAt=time.time(),
                              games=games_for(job['slug'], maps.values(), paths))

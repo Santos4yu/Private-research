@@ -21,6 +21,12 @@ test('CS2 compact prebuilt response includes lines and histories together',()=>{
  assert.equal(rows[0].windows.l10.hitRate,100);
 });
 
+test('CS2 same verified match exposes both books despite timestamp formatting',()=>{
+ const base={sport:'cs2',player:'Alxc',opponent:'BBL',startsAt:'2099-01-01T15:00:00Z'};
+ const pp={...base,startsAt:'2099-01-01T15:00:00+00:00'};
+ assert.equal(finderPlayerRows([base,pp,{...base,opponent:'Different team'}],base).length,2);
+});
+
 test('CS2 exact map markets retain lines and never fabricate hit rates',()=>{
  const rows=normalizeFinderRows('cs2',{rows:[{id:'pp:1',player:'junior',playerId:'a',opponent:'Team B',startsAt:'2099-01-01T00:00:00Z',stat:'MAP 1 Kills',line:17.5},
   {id:'pp:2',player:'junior',playerId:'b',opponent:'Team B',startsAt:'2099-01-01T00:00:00Z',stat:'MAPS 1-2 Kills',line:33.5},

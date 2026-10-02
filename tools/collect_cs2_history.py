@@ -24,8 +24,7 @@ def main():
     while True:
         try:
             current = board(force=True)
-            result = warm(budget=50, limit=24, max_maps=12, force=args.backfill,
-                          listing_only=args.backfill and batches<8)
+            result = warm(budget=50, limit=24, max_maps=12, force=args.backfill)
             print({'lines': len(current['rows']), **result}, flush=True)
         except Exception as error:
             print({'status': 'retrying', 'error': type(error).__name__}, flush=True)

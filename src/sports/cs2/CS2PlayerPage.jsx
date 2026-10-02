@@ -6,6 +6,7 @@ import {finderPlayerRows,normalizeFinderRows,patientRequest} from '../../unified
 import {wnbaChart,wnbaLines,wnbaOdds} from '../wnba/trend-data';
 import '../wnba/wnba-context.css';
 import {researchData,shortDate} from './research-data';
+import './cs2-context.css';
 
 function Results({games,statKey,label}){
  return games.length?<div className="mlb-context-table-wrap" tabIndex={0} role="region" aria-label={label}><table><thead><tr><th>Date</th><th>Opponent</th><th>{label}</th></tr></thead><tbody>{games.map(g=><tr key={g.gameId}><td>{shortDate(g.date)}</td><td>{g.opponent}</td><td>{g.values[statKey]}</td></tr>)}</tbody></table></div>:<p className="mlb-context-note">No recorded matches.</p>;
@@ -50,7 +51,7 @@ export function CS2PlayerPage({row,playerRows,onBack}){
  const latest=useRef(config);latest.current=config;
  useLayoutEffect(()=>{const panel=window.vortexTrendPanel;panel?.mount(host.current,latest.current);return()=>panel?.unmount();},[]);
  useLayoutEffect(()=>{window.vortexTrendPanel?.update(config);},[config]);
- return <section className="finder-trend-view wnba-trend-page wnba-player-page">
+ return <section className="finder-trend-view wnba-trend-page wnba-player-page cs2-player-page">
   <FinderPlayerBanner row={selected} playerRows={offers} onBack={onBack}/>
   <div className="mlb-finder-workspace"><div className="mlb-trend-main">
    <div className="wnba-trend-host finder-mlb-trend-host" ref={host}/>

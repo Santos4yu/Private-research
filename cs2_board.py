@@ -14,6 +14,28 @@ SNAPSHOT = 'finder:cs2:board:v2'
 LINES = 'finder:cs2:lines:v2'
 
 
+def align_events(rows):
+    """Join book labels only when handle, timestamp and both teams agree."""
+    def team(value):
+        return re.sub(r'[^a-z0-9]', '', re.sub(r'\b(?:esports|gaming|cs2)\b', '', str(value or '').lower()))
+    def stamp(row):
+        try: return datetime.fromisoformat(row['startsAt'].replace('Z', '+00:00')).timestamp()
+        except (ValueError, KeyError): return None
+    def book(row): return next(iter(row.get('apps') or [{}])).get('key')
+    pp = [r for r in rows if book(r) == 'prizepicks']
+    for row in rows:
+        if book(row) != 'underdog': continue
+        teams = {team(t) for t in re.split(r'\s+vs\.?\s+', row.get('opponent') or '', flags=re.I)}
+        matches = [p for p in pp if p['player'].casefold() == row['player'].casefold()
+                   and stamp(p) is not None and stamp(p) == stamp(row)
+                   and team(p.get('teamAbbr')) and team(p.get('opponent'))
+                   and {team(p['teamAbbr']), team(p['opponent'])} == teams]
+        identities = {(p['teamAbbr'], p['opponent']) for p in matches}
+        if len(identities) == 1:
+            row['teamAbbr'], row['opponent'] = identities.pop()
+    return rows
+
+
 def compact(value):
     from finder_history_store import name_key
     histories, rows = {}, []
@@ -105,6 +127,7 @@ def _refresh(force=False):
         raise RuntimeError('CS2 providers unavailable')
     value=results.get('prizepicks') or build([])
     value['rows']+=results.get('underdog',[])
+    align_events(value['rows'])
     value['sources']=list(results)
     value['unavailableSources']=errors
     value['lineUpdatedAt']=time.time()

@@ -1,0 +1,6 @@
+.cs2-player-page .mlb-support-tabs:has(>div){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:16px}
+.cs2-player-page .mlb-support-tabs>div{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--border,#30353d);border-radius:10px;background:var(--surface,#1c2128);font-size:12px}
+.cs2-player-page .mlb-support-tabs>div strong{font-size:23px;color:var(--text,#eef2f7);font-variant-numeric:tabular-nums}
+.cs2-player-page .mlb-context-table-wrap table{width:100%;min-width:0}
+.cs2-player-page .mlb-context-table-wrap th,.cs2-player-page .mlb-context-table-wrap td{padding:12px 10px!important;text-align:left;font-variant-numeric:tabular-nums}
+.cs2-player-page .mlb-context-table-wrap td:first-child{white-space:nowrap}

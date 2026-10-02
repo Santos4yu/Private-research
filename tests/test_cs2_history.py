@@ -94,6 +94,24 @@ class HistoryTests(unittest.TestCase):
         paths=[{'path':'/matches/a/mirage'},{'path':'/matches/z/mirage'}]
         self.assertEqual([g['gameId'] for g in h.games_for('alpha0',maps,paths)],['/matches/z','/matches/a'])
 
+    def test_cached_map_without_headshots_is_retried_for_every_player(self):
+        path='/matches/a/mirage'
+        cached=h.map_result(fixture(),path,'2026-09-01')
+        for player in cached['players'].values(): player.pop('headshots')
+        state={'listedAt':h.time.time(),'listParserVersion':2,'paths':[{'path':path,'date':'2026-09-01'}],'maps':[cached]}
+        writes=[]
+        def command(*args):
+            if args[0]=='SET':return 'OK'
+            if args[:2]==('HGET',h.STATE):return json.dumps(state)
+            if args[:2]==('HGET',h.MAPS):return json.dumps(cached)
+            if args[0]=='HSET':writes.append(args)
+        jobs={'alpha0':{'slug':'alpha0','enrolledAt':h.time.time()}}
+        with patch.object(h,'read_entries',side_effect=[jobs,{}]),patch.object(h,'command',side_effect=command),patch.object(h,'fetch',return_value=fixture()) as fetch:
+            h.warm()
+        fetch.assert_called_once()
+        saved_map=next(json.loads(w[-1]) for w in writes if w[1]==h.MAPS)
+        self.assertTrue(all(p['headshots']==4 for p in saved_map['players'].values()))
+
     def test_one_failed_map_does_not_block_remaining_maps(self):
         paths=[{'path':f'/matches/a/map{n}','date':'2026-10-01'} for n in (3,1,2)]
         state={'listedAt':h.time.time(),'listParserVersion':2,'paths':paths}

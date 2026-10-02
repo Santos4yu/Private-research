@@ -7,6 +7,13 @@ import prizepicks_export_core as export
 from tests.test_prizepicks_export import FakePrizePicks,player,projection
 
 class CS2Tests(unittest.TestCase):
+    def test_books_join_only_when_both_teams_and_start_match(self):
+        pp={'player':'Alxc','teamAbbr':'HAVU','opponent':'BBL','startsAt':'2099-01-01T15:00:00+00:00','apps':[{'key':'prizepicks'}]}
+        ud={'player':'Alxc','teamAbbr':None,'opponent':'BBL Esports vs HAVU Gaming','startsAt':'2099-01-01T15:00:00Z','apps':[{'key':'underdog'}]}
+        wrong={**ud,'opponent':'Sangal vs HAVU Gaming'}
+        cs2_board.align_events([pp,ud,wrong])
+        self.assertEqual((ud['teamAbbr'],ud['opponent']),('HAVU','BBL'))
+        self.assertEqual(wrong['opponent'],'Sangal vs HAVU Gaming')
     def test_prebuilt_board_never_fetches_external_sources(self):
         import json,time
         snapshot={'rows':[{'player':'alpha','startsAt':'2099-01-01T00:00:00Z'}],
