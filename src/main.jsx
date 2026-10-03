@@ -15,6 +15,7 @@ import { UnifiedFinder } from './UnifiedFinder';
 import { LineMoves } from './LineMoves';
 import { SmartSlip } from './SmartSlip';
 import { Moneylines } from './Moneylines';
+import { KrazyBot } from './KrazyBot';
 const SportResearch = lazy(() => import('./sports/nfl/SportResearch').then(module => ({ default: module.SportResearch })));
 import { ExpandableTabs } from '../components/ui/expandable-tabs';
 import { ResearchAILoader } from '../components/ui/research-ai-loader';
@@ -100,6 +101,7 @@ const unifiedFinderRoot = document.getElementById('unified-finder-root');
 const lineMovesRoot = document.getElementById('line-moves-root');
 const smartSlipRoot = document.getElementById('smart-slip-root');
 const moneylinesRoot = document.getElementById('moneylines-root');
+const krazyBotRoot = document.getElementById('krazy-bot-root');
 let privateRoots=null;
 function mountPrivateResearch(granted){
  if(granted&&!privateRoots){
@@ -111,12 +113,14 @@ function mountPrivateResearch(granted){
   privateRoots.slip?.render(<SmartSlip/>);
  }else if(!granted&&privateRoots){privateRoots.home?.unmount();privateRoots.sport?.unmount();privateRoots.finder?.unmount();privateRoots.moves?.unmount();privateRoots.slip?.unmount();privateRoots=null;}
 }
-// Moneylines is an admin-only section (site-access-core.js ADMIN_TABS):
-// mounted, and so asking for data, only in an admin session.
-let moneylinesMount=null;
+// Moneylines and Krazy Bot are admin-only sections (site-access-core.js
+// ADMIN_TABS): mounted, and so asking for data, only in an admin session.
+let moneylinesMount=null,krazyBotMount=null;
 function mountAdminSections(admin){
  if(admin&&!moneylinesMount&&moneylinesRoot){moneylinesMount=createRoot(moneylinesRoot);moneylinesMount.render(<Moneylines/>);}
  else if(!admin&&moneylinesMount){moneylinesMount.unmount();moneylinesMount=null;}
+ if(admin&&!krazyBotMount&&krazyBotRoot){krazyBotMount=createRoot(krazyBotRoot);krazyBotMount.render(<KrazyBot/>);}
+ else if(!admin&&krazyBotMount){krazyBotMount.unmount();krazyBotMount=null;}
 }
 window.addEventListener('vortex:site-policy',event=>{mountPrivateResearch(event.detail.accessGranted);mountAdminSections(Boolean(event.detail.accessGranted&&event.detail.isAdmin));});
 mountPrivateResearch(document.documentElement.dataset.siteAccess==='granted');

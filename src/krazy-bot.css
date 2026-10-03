@@ -1,0 +1,30 @@
+/* The Krazy Bot page: the orb component fills the screen between the site's
+   own fixed header, dock and sidebar (offsets set per layout below). */
+#panel-bot.tab-panel{max-width:none;padding:0;animation:none!important;transform:none!important}
+#panel-bot.tab-panel::before{display:none}
+.krazy-bot{position:fixed;top:var(--kb-top,0px);right:0;bottom:var(--kb-bottom,0px);left:var(--kb-left,0px);z-index:1;overflow:hidden;
+ /* The component rests its pill 96px above the window's bottom, measured
+    from the window; raising this layer's bottom edge by B moves the pill up
+    by .46B, so inside the layer it sits 96 - .54B from the bottom. */
+ --mo-pill-bottom:calc(96px - .54 * var(--kb-bottom,0px))}
+/* Phones: stop above the bottom nav (8px gap + 68px bar + border). Desktop: beside the 64px sidebar. */
+@media (max-width:760px){.krazy-bot{--kb-bottom:calc(78px + env(safe-area-inset-bottom,0px))}}
+@media (min-width:761px){.krazy-bot{--kb-left:64px}}
+/* The site footer would otherwise sit over the bot. */
+body:has(#panel-bot:not([hidden])) .site-footer{display:none}
+.krazy-bot-head{position:absolute;left:50%;top:calc(46% - 66px - 118px);z-index:3;width:min(520px,calc(100% - 32px));transform:translateX(-50%);text-align:center;pointer-events:none;opacity:0;transition:opacity .3s ease}
+.krazy-bot-head[data-idle]{opacity:1}
+.krazy-bot-head h1{margin:6px 0 4px;font-size:22px;font-weight:700;letter-spacing:-.01em;color:#f3f4f6}
+.krazy-bot-head p{margin:0;font-size:13px;line-height:1.45;color:rgba(236,236,241,.6)}
+.krazy-bot-badge{display:inline-block;padding:3px 9px;border-radius:999px;background:rgba(52,211,153,.14);color:#34d399;font-size:11px;font-weight:700;letter-spacing:.08em}
+/* Just above the resting pill (its centre is 96px above the bottom). */
+.krazy-bot-examples{position:absolute;left:0;right:0;bottom:calc(var(--mo-pill-bottom) + 46px);z-index:3;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:0 16px;opacity:0;visibility:hidden;transition:opacity .25s ease,visibility 0s linear .25s}
+.krazy-bot-examples[data-idle]{opacity:1;visibility:visible;transition:opacity .3s ease .15s,visibility 0s}
+.krazy-bot-examples button{min-height:36px;padding:0 14px;border:1px solid rgba(255,255,255,.12);border-radius:999px;background:rgba(20,22,28,.85);color:rgba(236,236,241,.85);font:inherit;font-size:13px;cursor:pointer;transition:border-color .2s,color .2s,background .2s}
+.krazy-bot-examples button:hover,.krazy-bot-examples button:focus-visible{border-color:rgba(52,211,153,.6);color:#fff;background:rgba(52,211,153,.1);outline:none}
+@media (max-width:640px){
+ .krazy-bot-examples{flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;scrollbar-width:none;-webkit-mask:linear-gradient(90deg,transparent,#000 16px,#000 calc(100% - 16px),transparent)}
+ .krazy-bot-examples::-webkit-scrollbar{display:none}
+ .krazy-bot-examples button{flex:none;min-height:40px}
+ .krazy-bot-head h1{font-size:20px}
+}
