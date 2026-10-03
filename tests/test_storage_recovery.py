@@ -44,6 +44,17 @@ class StorageRecoveryTests(unittest.TestCase):
         for secret in ('example.invalid', 'test-only-secret', 'private-key', 'internal detail'):
             self.assertNotIn(secret, json.dumps(payload))
 
+    def test_one_oversized_save_does_not_block_other_storage(self):
+        self.post.return_value = response({'error': 'ERR max request size exceeded. Limit: 10485760 bytes'}, 400)
+        with self.assertRaises(store.StorageUnavailable) as failure:
+            store.pipeline([['SET', 'big', 'x']])
+        self.assertEqual(failure.exception.code, store.TOO_LARGE)
+        self.post.return_value = response({'error': 'too large'}, 413)
+        with self.assertRaises(store.StorageUnavailable):
+            store.pipeline([['SET', 'big', 'x']])
+        self.get.return_value = response({'result': 'still here'})
+        self.assertEqual(store.get('a'), 'still here')
+
     def test_odds_lines_fall_back_to_the_deployment_key_during_an_outage(self):
         self.get.return_value = self.capacity()
         with patch.dict('os.environ', {'ODDS_API_KEY_V2': 'mock-deploy-key'}):

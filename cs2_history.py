@@ -26,6 +26,7 @@ HS_STATUS = 'finder:cs2:headshot-status:v1'
 SCOPES = ('map1', 'map2', 'map3', 'maps12', 'maps123')
 MAX_LIST_PAGES = 3
 RECHECK_SECONDS = 15 * 60
+SAVE_BATCH = 25
 # With the timer every ~90 seconds, the collector runs on every other tick.
 CADENCE_SECONDS = 150
 # Board players are re-enrolled at most this often per server (enrolledAt
@@ -684,7 +685,10 @@ def fan_out(jobs=None):
         entry['updatedAt'] = time.time()
         fields[key] = json.dumps(entry, separators=(',', ':'))
         saved[key] = entry
-    if fields: hset(SAVED, *[v for pair in fields.items() for v in pair])
+    # In batches: every player at once can pass storage's 10 MB limit per save.
+    pairs = list(fields.items())
+    for start in range(0, len(pairs), SAVE_BATCH):
+        hset(SAVED, *[v for pair in pairs[start:start+SAVE_BATCH] for v in pair])
     return {'covered': sum(bool(v.get('games')) for k, v in saved.items() if k in jobs),
             'games': sum(len(v.get('games', [])) for k, v in saved.items() if k in jobs)}
 

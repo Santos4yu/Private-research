@@ -9,7 +9,7 @@ from tests.test_prizepicks_export import FakePrizePicks,player,projection
 class CS2Tests(unittest.TestCase):
     def setUp(self):
         # Each test starts from a server that has not read or written the board yet.
-        cs2_board._snapshot.update(at=0.0,raw=None)
+        cs2_board._snapshot.update(at=0.0,value=None)
         cs2_board._published.update(at=0.0,digest=None)
         cs2_board._cache.update(at=0,value=None)
 
@@ -25,6 +25,31 @@ class CS2Tests(unittest.TestCase):
             cs2_board._published['at']-=cs2_board.REPUBLISH_SECONDS
             cs2_board.publish_saved({**value,'rows':[{'player':'alpha0','line':21.5}]})
             self.assertEqual(writes(),3)
+
+    def test_full_saved_board_fits_one_storage_save_and_reads_back(self):
+        import json,random,time
+        random.seed(7)
+        game=lambda i:{'gameId':f'g{i}','date':'2026-09-%02d'%(1+i%28),'opponent':f'Team {random.randint(1,400)}',
+                       'values':{f'{scope}{stat}':random.randint(0,60) for scope in ('map1','map2','map3','maps12','maps123') for stat in ('kills','headshots')},
+                       'mapDetails':[{'map':'de_mirage','kills':random.randint(0,30),'headshots':random.randint(0,20)} for _ in range(3)]}
+        histories={f'player{p}':{'games':[game(i) for i in range(40)],'updatedAt':time.time(),'source':'bo3'} for p in range(700)}
+        board={'rows':[{'player':f'player{p}','startsAt':'2099-01-01T00:00:00Z','line':20.5} for p in range(920)],
+               'histories':histories,'snapshotAt':time.time(),'lineUpdatedAt':time.time()}
+        self.assertGreater(len(json.dumps(board)),10_000_000)  # what used to be refused
+        packed=cs2_board.pack(board)
+        self.assertLess(len(packed),10_000_000)
+        with patch('cs2_history.command',return_value=packed),patch.object(cs2_board,'_refresh',side_effect=AssertionError('network')):
+            self.assertEqual(cs2_board.board()['histories'],histories)
+
+    def test_board_keeps_histories_when_the_save_is_refused(self):
+        from v2.board.store import StorageUnavailable
+        saved={'histories':{'alpha':{'games':[1]}}}
+        def command(*args):
+            if args[:2]==('SET',cs2_board.SNAPSHOT):raise StorageUnavailable('storage_request_too_large',1)
+        with patch('cs2_history.attach',side_effect=lambda board:dict(board,rows=[dict(r,history={'games':[1]}) for r in board['rows']])),\
+                patch('cs2_history.command',side_effect=command):
+            ready=cs2_board.publish_saved({'rows':[{'player':'alpha'}]})
+        self.assertEqual(ready['histories'],{'alpha':{'games':[1]}})
 
     def test_full_board_compression_is_lossless_and_smaller_than_host_limit(self):
         import gzip,json

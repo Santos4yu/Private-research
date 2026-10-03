@@ -453,6 +453,14 @@ class StorageUseTests(unittest.TestCase):
             h.fan_out(jobs)
             self.assertEqual(hset.call_count,2)
 
+    def test_many_changed_players_are_saved_in_batches(self):
+        jobs={f'alpha{i}':{'slug':f'alpha{i}','enrolledAt':h.time.time()} for i in range(60)}
+        games=[{'gameId':'g1','date':'2026-10-01','values':{'map1kills':10}}]
+        tables=lambda key:{h.MAPS:{},h.SAVED:{},h.STATE:{}}[key]
+        with patch.object(h,'read_entries',side_effect=tables),patch.object(h,'games_for',return_value=games),patch.object(h,'hset') as hset:
+            h.fan_out(jobs)
+        self.assertEqual([len(call.args[1:])//2 for call in hset.call_args_list],[25,25,10])
+
     def test_players_with_full_histories_are_rechecked_every_few_minutes(self):
         now=h.time.time()
         jobs={key:{'player':key,'slug':key,'enrolledAt':now} for key in ('alpha0','beta0')}

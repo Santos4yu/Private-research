@@ -82,6 +82,7 @@ class StorageUnavailable(RuntimeError):
         return {"error": str(self), "code": self.code, "retryAfter": self.retry_after}
 
 
+TOO_LARGE = "storage_request_too_large"
 _state_lock = threading.RLock()
 _blocked_until = 0
 _failure = None
@@ -105,10 +106,14 @@ def _request(method, path, *, timeout=TIMEOUT, _supabase=False, **kwargs):
         if _supabase and not SUPABASE_STORAGE_KEY.startswith('sb_secret_'):
             headers['Authorization'] = f'Bearer {SUPABASE_STORAGE_KEY}'
         response = getattr(requests, method)(url + path, headers=headers, timeout=timeout, **kwargs)
+        if response.status_code == 413:
+            raise StorageUnavailable(TOO_LARGE, 1)
         data = response.json()
         errors = [item.get('error') for item in data if isinstance(item, dict) and item.get('error')] if isinstance(data, list) else [data.get('error')] if isinstance(data, dict) and data.get('error') else []
         if errors or response.status_code >= 400:
             detail = (' '.join(str(item) for item in errors) + ' ' + str(data.get('message', '') if isinstance(data, dict) else '')).lower()
+            if 'request size' in detail:
+                raise StorageUnavailable(TOO_LARGE, 1)
             if 'website_storage_not_ready' in detail:
                 raise StorageUnavailable('storage_migration_pending', 60)
             if 'plan limits' in detail or 'quota' in detail:
@@ -124,9 +129,10 @@ def _request(method, path, *, timeout=TIMEOUT, _supabase=False, **kwargs):
         return data
     except (requests.RequestException, ValueError, StorageUnavailable) as exc:
         failure = exc if isinstance(exc, StorageUnavailable) else StorageUnavailable()
-        with _state_lock:
-            _failure = failure
-            _blocked_until = time.monotonic() + failure.retry_after
+        if failure.code != TOO_LARGE:  # One oversized save says nothing about storage being down.
+            with _state_lock:
+                _failure = failure
+                _blocked_until = time.monotonic() + failure.retry_after
         raise failure from None
 
 
