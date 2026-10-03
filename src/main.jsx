@@ -16,6 +16,7 @@ import { LineMoves } from './LineMoves';
 import { SmartSlip } from './SmartSlip';
 import { Moneylines } from './Moneylines';
 import { KrazyBot } from './KrazyBot';
+import { canUseTab } from './site-access-core';
 const SportResearch = lazy(() => import('./sports/nfl/SportResearch').then(module => ({ default: module.SportResearch })));
 import { ExpandableTabs } from '../components/ui/expandable-tabs';
 import { ResearchAILoader } from '../components/ui/research-ai-loader';
@@ -113,16 +114,20 @@ function mountPrivateResearch(granted){
   privateRoots.slip?.render(<SmartSlip/>);
  }else if(!granted&&privateRoots){privateRoots.home?.unmount();privateRoots.sport?.unmount();privateRoots.finder?.unmount();privateRoots.moves?.unmount();privateRoots.slip?.unmount();privateRoots=null;}
 }
-// Moneylines and Krazy Bot are admin-only sections (site-access-core.js
-// ADMIN_TABS): mounted, and so asking for data, only in an admin session.
+// Moneylines is an admin-only section (site-access-core.js ADMIN_TABS):
+// mounted, and so asking for data, only in an admin session.
 let moneylinesMount=null,krazyBotMount=null;
 function mountAdminSections(admin){
  if(admin&&!moneylinesMount&&moneylinesRoot){moneylinesMount=createRoot(moneylinesRoot);moneylinesMount.render(<Moneylines/>);}
  else if(!admin&&moneylinesMount){moneylinesMount.unmount();moneylinesMount=null;}
- if(admin&&!krazyBotMount&&krazyBotRoot){krazyBotMount=createRoot(krazyBotRoot);krazyBotMount.render(<KrazyBot/>);}
- else if(!admin&&krazyBotMount){krazyBotMount.unmount();krazyBotMount=null;}
 }
-window.addEventListener('vortex:site-policy',event=>{mountPrivateResearch(event.detail.accessGranted);mountAdminSections(Boolean(event.detail.accessGranted&&event.detail.isAdmin));});
+// Krazy Bot is a regular section the admin switches on for members (off
+// until then); it mounts only for someone allowed to open it.
+function mountKrazyBot(open){
+ if(open&&!krazyBotMount&&krazyBotRoot){krazyBotMount=createRoot(krazyBotRoot);krazyBotMount.render(<KrazyBot/>);}
+ else if(!open&&krazyBotMount){krazyBotMount.unmount();krazyBotMount=null;}
+}
+window.addEventListener('vortex:site-policy',event=>{mountPrivateResearch(event.detail.accessGranted);mountAdminSections(Boolean(event.detail.accessGranted&&event.detail.isAdmin));mountKrazyBot(canUseTab(event.detail,'bot'));});
 mountPrivateResearch(document.documentElement.dataset.siteAccess==='granted');
 
 const filterIcons = { all: LayoutGrid, hrr: BarChart3, 'total-bases': Diamond, hits: CircleDot, strikeouts: Target, matchup: Crosshair };

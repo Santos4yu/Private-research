@@ -85,7 +85,18 @@ function sidePrice(apps, side) {
  * it and (for Goblins and Demons) how it changes the payout. Null when it
  * isn't a pick the numbers back.
  */
-export function judgeLeg(row, side, {now = Date.now()} = {}) {
+export function judgeLeg(row, side, options = {}) {
+  const leg = assessLeg(row, side, options);
+  return leg?.backed ? leg : null;
+}
+
+/**
+ * The same read for any side of any line, whether or not the numbers back
+ * it (`backed`): what Krazy Bot needs to answer "should I take this?".
+ * Null only when there isn't enough to read (no history, too close to the
+ * start, or an Under on a Goblin or Demon).
+ */
+export function assessLeg(row, side, {now = Date.now()} = {}) {
   if (!isPrizePicksLine(row)) return null;
   const modifier = String(row.modifier || 'standard').toLowerCase();
   if (modifier !== 'standard' && side === 'UNDER') return null;  // Goblins and Demons are More only
@@ -133,17 +144,17 @@ export function judgeLeg(row, side, {now = Date.now()} = {}) {
   // Only picks the numbers back: the recent record and the books (where
   // they price it) must not argue against it.
   const recentRate = recent && recent.games >= 5 ? recent.rate : records.season.rate;
-  if (book != null && book < (modifier === 'demon' ? 0.25 : 0.47)) return null;
-  if (modifier === 'standard' && !(chance >= 0.53 && (recentRate >= 0.55 || (book ?? 0) >= 0.55))) return null;
-  if (modifier === 'goblin' && !(chance >= 0.62 && recentRate >= 0.65)) return null;
-  if (modifier === 'demon' && !(chance >= 0.33 && recentRate >= 0.4)) return null;
-  if (conflicted(read)) return null;
+  const backed = !(book != null && book < (modifier === 'demon' ? 0.25 : 0.47))
+    && !(modifier === 'standard' && !(chance >= 0.53 && (recentRate >= 0.55 || (book ?? 0) >= 0.55)))
+    && !(modifier === 'goblin' && !(chance >= 0.62 && recentRate >= 0.65))
+    && !(modifier === 'demon' && !(chance >= 0.33 && recentRate >= 0.4))
+    && !conflicted(read);
 
   // A Goblin or Demon scales the payout by how its chance compares with a
   // standard line's even odds: the market's chance when books price it.
   const fair = modifier === 'standard' ? 0.5 : book ?? chance;
   const factor = modifier === 'goblin' ? clamp(0.5 / fair, 0.45, 0.92) : modifier === 'demon' ? clamp(0.5 / fair, 1.1, 3.2) : 1;
-  return {id: `${row.id}|${side}`, row, side, modifier, chance, history, book, factor, records, read,
+  return {id: `${row.id}|${side}`, row, side, modifier, chance, history, book, factor, records, read, backed,
     grade: grade(read, chance, modifier === 'standard' ? 0.5 : fair, modifier), note: analystNote(row, side, read, {records, book}),
     price: sidePrice(row.apps, side), game: gameKey(row), player: row.player};
 }

@@ -16,6 +16,7 @@ export const SYNCED={
  background:'vortex_bg_image',
  recentResearch:'krazy-data-recent-research-v1',
  recentNfl:'krazy-data:recent-players:nfl:v1',
+ bot:'krazy-bot-memory-v1',
 };
 const NAMES=Object.fromEntries(Object.entries(SYNCED).map(([name,key])=>[key,name]));
 const META_KEY='krazy_data:account-sync:v1';

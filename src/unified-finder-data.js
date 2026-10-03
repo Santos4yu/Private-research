@@ -272,8 +272,14 @@ export function withMlbMatchups(rows, context) {
     const opponent = row.opponentTeamId == null ? null : String(row.opponentTeamId);
     if (row.sport !== 'mlb' || !opponent) return row;
     const pitcher = String(row.marketKey || '').startsWith('pitching:');
-    const matchup = pitcher ? {kind: 'lineup', lineup: context.hitting?.[opponent] || null, league: context.league || null}
-      : {kind: 'pitcher', pitcher: context.probables?.[opponent] || null, staff: context.pitching?.[opponent] || null, league: context.league || null};
+    const team = row.teamId == null ? null : String(row.teamId);
+    // A pitcher's own starter line (his hand, recent starts, projected
+    // innings) when he is his team's probable today.
+    const own = team ? context.probables?.[team] || null : null;
+    const self = own && (row.playerId == null || String(own.id) === String(row.playerId)) ? own : null;
+    const matchup = pitcher ? {kind: 'lineup', lineup: context.hitting?.[opponent] || null, self, league: context.league || null}
+      : {kind: 'pitcher', pitcher: context.probables?.[opponent] || null, staff: context.pitching?.[opponent] || null,
+        lineup: team ? context.hitting?.[team] || null : null, league: context.league || null};
     return {...row, matchup};
   });
 }

@@ -5,6 +5,7 @@ import { Layers2 as BarChart3, Ticket as ClipboardList, Radar as FlaskConical, S
 // so the two can never drift apart on where a tab actually goes.
 export const topTabs = [
   { title: 'Finder', icon: SearchCheck, value: 'finder' },
+  { title: 'Krazy Bot', icon: Bot, value: 'bot' },
   { title: 'Line Moves', icon: Activity, value: 'moves' },
   { title: 'Research', icon: Search, value: 'research' },
   { title: 'Tools', icon: FlaskConical, value: 'slate' },
@@ -26,6 +27,5 @@ export const moreTabs = [
 // Listed only for an admin session, under their own heading.
 export const adminTabs = [
   { title: 'Moneylines', icon: Trophy, value: 'moneyline' },
-  { title: 'Krazy Bot', icon: Bot, value: 'bot' },
   { title: 'Admin', icon: ShieldCheck, value: 'admin' },
 ];
