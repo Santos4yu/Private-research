@@ -123,29 +123,70 @@ function Spark({values}){
  return <svg className="cs-spark" viewBox={`0 0 ${width} ${height}`} width={width} height={height} aria-hidden="true"><polyline points={points}/></svg>;
 }
 
+// Phones get cards instead of a wide table: nothing slides sideways.
+const PHONE='(max-width: 640px)';
+function usePhone(){
+ const [phone,setPhone]=useState(()=>typeof window!=='undefined'&&window.matchMedia(PHONE).matches);
+ useEffect(()=>{const query=window.matchMedia(PHONE),sync=()=>setPhone(query.matches);sync();query.addEventListener('change',sync);return()=>query.removeEventListener('change',sync);},[]);
+ return phone;
+}
+const show=(column,row)=>column.render?column.render(row):column.format?column.format(column.value(row),row):column.value(row);
+
 // A sortable table: the first column stays put when the rest scroll sideways.
 function Table({rows,columns,initial,empty,rowKey=row=>row.id,expand}){
  const [sort,setSort]=useState(initial||{key:columns.at(-1).key,dir:-1});
  const [open,setOpen]=useState(null);
+ const phone=usePhone();
  const sorted=useMemo(()=>{
   const column=columns.find(item=>item.key===sort.key);
   if(!column?.value)return rows;
   return [...rows].sort((a,b)=>{const x=column.value(a),y=column.value(b);return (finite(x)?0:1)-(finite(y)?0:1)||((finite(x)&&finite(y))?(x-y)*sort.dir:0);});
  },[rows,sort,columns]);
  if(!rows.length)return <p className="cs-empty">{empty}</p>;
+ const toggle=key=>setOpen(current=>current===key?null:key);
+ if(phone)return <Cards rows={sorted} columns={columns} sort={sort} setSort={setSort} rowKey={rowKey} expand={expand} open={open} toggle={toggle}/>;
  return <div className="cs-table-wrap"><table className="cs-table">
   <thead><tr><th className="cs-rank">#</th>{columns.map(column=><th key={column.key} className={column.className} data-sorted={sort.key===column.key?(sort.dir>0?'up':'down'):undefined}>
    {column.value?<button type="button" onClick={()=>setSort(current=>({key:column.key,dir:current.key===column.key?-current.dir:-1}))}>{column.label}{sort.key===column.key&&(sort.dir>0?<ArrowUp aria-hidden="true"/>:<ArrowDown aria-hidden="true"/>)}</button>:column.label}
   </th>)}{expand&&<th aria-label="Details"/>}</tr></thead>
   <tbody>{sorted.map((row,index)=><React.Fragment key={rowKey(row)}>
-   <tr data-open={open===rowKey(row)?'':undefined} onClick={expand?()=>setOpen(current=>current===rowKey(row)?null:rowKey(row)):undefined} style={{'--i':Math.min(index,20)}}>
+   <tr data-open={open===rowKey(row)?'':undefined} onClick={expand?()=>toggle(rowKey(row)):undefined} style={{'--i':Math.min(index,20)}}>
     <td className="cs-rank">{index+1}</td>
-    {columns.map(column=><td key={column.key} className={column.className} data-tone={column.tone?.(row)||undefined}>{column.render?column.render(row):column.format?column.format(column.value(row),row):column.value(row)}</td>)}
+    {columns.map(column=><td key={column.key} className={column.className} data-tone={column.tone?.(row)||undefined}>{show(column,row)}</td>)}
     {expand&&<td className="cs-chevron"><ChevronDown aria-hidden="true"/></td>}
    </tr>
    {expand&&open===rowKey(row)&&<tr className="cs-expand"><td colSpan={columns.length+2}>{expand(row)}</td></tr>}
   </React.Fragment>)}</tbody>
  </table></div>;
+}
+
+// The same rows as cards: who on top with their score, every stat in a grid
+// under them, and a sort picker in place of the column headers.
+const PAGE=20;
+function Cards({rows,columns,sort,setSort,rowKey,expand,open,toggle}){
+ const [limit,setLimit]=useState(PAGE);
+ useEffect(()=>setLimit(PAGE),[rows]);
+ const [who,...rest]=columns;
+ const score=rest.at(-1)?.key==='score'?rest.at(-1):null;
+ const stats=score?rest.slice(0,-1):rest;
+ const sortable=columns.filter(column=>column.value);
+ return <div className="cs-cards">
+  {sortable.length>1&&<div className="cs-sortbar">
+   <label><span>Sort by</span><select value={sort.key} onChange={event=>setSort({key:event.target.value,dir:-1})}>{sortable.map(column=><option key={column.key} value={column.key}>{column.label}</option>)}</select><ChevronDown aria-hidden="true"/></label>
+   <button type="button" onClick={()=>setSort(current=>({...current,dir:-current.dir}))}>{sort.dir>0?<ArrowUp aria-hidden="true"/>:<ArrowDown aria-hidden="true"/>}{sort.dir>0?'Low to high':'High to low'}</button>
+  </div>}
+  {rows.slice(0,limit).map((row,index)=>{const key=rowKey(row),shown=open===key;return <article key={key} className="cs-mcard" data-open={shown?'':undefined} style={{'--i':Math.min(index,12)}}>
+   <header onClick={expand?()=>toggle(key):undefined}>
+    <span className="cs-mcard-rank">{index+1}</span>
+    <div className="cs-mcard-who">{show(who,row)}</div>
+    {score&&<div className="cs-mcard-score">{show(score,row)}</div>}
+   </header>
+   <dl className="cs-mstats">{stats.map(column=><div key={column.key} data-tone={column.tone?.(row)||undefined}><dt>{column.short||column.label}</dt><dd>{show(column,row)}</dd></div>)}</dl>
+   {expand&&<button type="button" className="cs-mcard-more" onClick={()=>toggle(key)} aria-expanded={shown}>{shown?'Less':'Last starts'}<ChevronDown aria-hidden="true"/></button>}
+   {expand&&shown&&<div className="cs-mcard-detail">{expand(row)}</div>}
+  </article>;})}
+  {rows.length>limit&&<button type="button" className="cs-show-more" onClick={()=>setLimit(count=>count+PAGE)}>Show more<small>{rows.length-limit} left</small></button>}
+ </div>;
 }
 
 // Good-for-the-pick colouring against the league's typical value.
@@ -159,12 +200,12 @@ function HrSheet({data,filter,prices}){
  return <Table rows={rows} empty="No hitters match." columns={[
   {key:'player',label:'Player',className:'cs-sticky',render:row=><Who row={row} tag={row.hot&&<Tag tone="hot" icon={Flame}>Hot</Tag>}/>},
   {key:'hr',label:'HR',value:row=>row.hr,format:value=>num(value,0)},
-  {key:'barrel',label:'Barrel %',value:row=>row.barrel,format:value=>fixed(value),tone:row=>better(row.barrel,6,12)},
-  {key:'hardHit',label:'Hard hit %',value:row=>row.hardHit,format:value=>fixed(value),tone:row=>better(row.hardHit,35,47)},
+  {key:'barrel',label:'Barrel %',short:'Brl %',value:row=>row.barrel,format:value=>fixed(value),tone:row=>better(row.barrel,6,12)},
+  {key:'hardHit',label:'Hard hit %',short:'HH %',value:row=>row.hardHit,format:value=>fixed(value),tone:row=>better(row.hardHit,35,47)},
   {key:'ev',label:'EV',value:row=>row.ev,format:value=>fixed(value)},
   {key:'la',label:'LA',value:row=>row.la,format:value=>num(value,0)},
   {key:'slg',label:'SLG',value:row=>row.slg,format:rate,tone:row=>better(row.slg,0.38,0.48)},
-  {key:'iso',label:'ISO vs hand',value:row=>row.vsHand?.iso??row.iso,format:rate,tone:row=>better(row.vsHand?.iso??row.iso,0.13,0.22)},
+  {key:'iso',label:'ISO vs hand',short:'ISO vH',value:row=>row.vsHand?.iso??row.iso,format:rate,tone:row=>better(row.vsHand?.iso??row.iso,0.13,0.22)},
   {key:'hrRate',label:'HR %',value:row=>row.hrRate,format:value=>pct(value),tone:row=>better(row.hrRate,0.025,0.05)},
   {key:'park',label:'Park',value:row=>row.park,format:value=>signed(value,item=>`${Math.round(item)}%`),tone:row=>better(row.park,-5,5)},
   {key:'odds',label:'Odds',value:row=>odds(row)?.over,render:row=>{const best=odds(row);return best?<span className="cs-odds">{price(best.over)}<small>{best.name}</small></span>:'—';}},
@@ -177,7 +218,7 @@ function HotSheet({data,filter}){
  const delta=(value,format)=><span className="cs-delta" data-up={value>0?'':undefined}>{value>0?<ArrowUp aria-hidden="true"/>:<ArrowDown aria-hidden="true"/>}{format(Math.abs(value))}</span>;
  return <Table rows={rows} empty="Nobody is running hot in this window." columns={[
   {key:'player',label:'Player',className:'cs-sticky',render:row=><Who row={row} tag={row.tag&&<Tag tone={row.tag} icon={row.tag==='hot'?Flame:null}>{row.tag==='hot'?'Hot':'Warm'}</Tag>}/>},
-  {key:'spark',label:'Last 10 TB',render:row=><Spark values={row.spark}/>},
+  {key:'spark',label:'Last 10 TB',short:'L10 TB',render:row=><Spark values={row.spark}/>},
   {key:'pa',label:'PA',value:row=>row.pa,format:value=>num(value,0)},
   {key:'avg',label:'AVG',value:row=>row.avg,render:row=><>{rate(row.avg)}{finite(row.delta?.avg)&&delta(row.delta.avg,rate)}</>},
   {key:'ops',label:'OPS',value:row=>row.ops,render:row=><>{rate(row.ops)}{finite(row.delta?.ops)&&delta(row.delta.ops,rate)}</>},
@@ -324,9 +365,9 @@ function StrikeoutSheet({data,prices}){
   {key:'kRate',label:'K %',value:row=>row.kRate,format:value=>pct(value),tone:row=>better(row.kRate,0.2,0.27)},
   {key:'avgK',label:'Avg K',value:row=>row.avgK,format:value=>num(value)},
   {key:'l5K',label:'L5 K',value:row=>row.l5K,format:value=>num(value)},
-  {key:'ip',label:'Proj. IP',value:row=>row.ip,format:value=>num(value)},
-  {key:'opp',label:'Opp K %',value:row=>row.opponentK,render:row=><span className="cs-ou"><b>{pct(row.opponentK)}</b>{finite(row.opponentKRank)&&<small>{row.opponentKRank} of {row.teams}</small>}</span>,tone:row=>finite(row.opponentK)&&finite(row.leagueK)?(row.opponentK>=row.leagueK*1.06?'good':row.opponentK<=row.leagueK*0.94?'bad':undefined):undefined},
-  {key:'projected',label:'Proj. K',value:row=>row.projected,render:row=>{const found=line(row);return <b className="cs-proj" data-tone={found&&finite(row.projected)?(row.projected>found.line?'good':'bad'):undefined}>{num(row.projected)}</b>;}},
+  {key:'ip',label:'Proj. IP',short:'Proj IP',value:row=>row.ip,format:value=>num(value)},
+  {key:'opp',label:'Opp K %',short:'Opp K%',value:row=>row.opponentK,render:row=><span className="cs-ou"><b>{pct(row.opponentK)}</b>{finite(row.opponentKRank)&&<small>{row.opponentKRank} of {row.teams}</small>}</span>,tone:row=>finite(row.opponentK)&&finite(row.leagueK)?(row.opponentK>=row.leagueK*1.06?'good':row.opponentK<=row.leagueK*0.94?'bad':undefined):undefined},
+  {key:'projected',label:'Proj. K',short:'Proj K',value:row=>row.projected,render:row=>{const found=line(row);return <b className="cs-proj" data-tone={found&&finite(row.projected)?(row.projected>found.line?'good':'bad'):undefined}>{num(row.projected)}</b>;}},
   {key:'score',label:'K score',value:row=>row.score,render:row=><Score value={row.score} label="K matchup score"/>},
  ]}/>;
 }

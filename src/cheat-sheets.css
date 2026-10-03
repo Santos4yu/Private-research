@@ -171,6 +171,40 @@
 .cs-spark{display:inline-block;vertical-align:middle}
 .cs-spark polyline{fill:none;stroke:var(--c-up);stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
 
+/* ── Phone cards (Cards in CheatSheets.jsx) ─────────────────────────── */
+.cs-cards{display:grid;gap:8px}
+.cs-sortbar{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+.cs-sortbar label{position:relative;display:flex;align-items:center;flex:1;min-width:0;height:38px;padding:0 34px 0 12px;border-radius:10px;background:var(--c-card);border:1px solid var(--c-line)}
+.cs-sortbar label span{flex:none;color:var(--c-faint);font-size:12px;margin-right:8px}
+.cs-sortbar select:is(#_,*){flex:1;min-width:0;height:100%;padding:0;border:0!important;background:transparent!important;box-shadow:none!important;color:var(--c-text);font:600 16px/1 var(--c-sans);-webkit-appearance:none;appearance:none;outline:none}
+.cs-sortbar label svg{position:absolute;right:11px;width:15px;height:15px;color:var(--c-faint);pointer-events:none}
+.cs-sortbar button{display:inline-flex;align-items:center;gap:5px;flex:none;height:38px;padding:0 12px;border-radius:10px;background:var(--c-card);border:1px solid var(--c-line);color:var(--c-muted);font-size:12.5px;font-weight:600}
+.cs-sortbar button svg{width:14px;height:14px;color:var(--c-up)}
+.cs-mcard{display:grid;gap:12px;padding:14px;border-radius:14px;background:var(--c-card);border:1px solid var(--c-line);animation:cs-rise .4s cubic-bezier(.22,1,.36,1) calc(var(--i,0) * 25ms) both}
+.cs-mcard>header{display:flex;align-items:center;gap:10px;min-width:0}
+.cs-mcard-rank{flex:none;width:16px;color:var(--c-faint);font-size:11.5px;text-align:center}
+.cs-mcard-who{flex:1;min-width:0}
+.cs-mcard-who .cs-who-name strong{max-width:none}
+.cs-mcard-who .cs-who-meta{flex-wrap:wrap;row-gap:2px;white-space:nowrap}
+.cs-mcard-score{flex:none}
+.cs-mcard-score .cs-score i{width:34px}
+.cs-mstats{display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));margin:0;border-radius:10px;overflow:hidden;background:var(--c-raised);font-variant-numeric:tabular-nums}
+/* Hairlines between cells, drawn by the cells, so an empty slot at the end of the grid stays plain. */
+.cs-mstats>div{display:grid;align-content:start;gap:3px;min-width:0;padding:8px 9px;box-shadow:1px 0 0 var(--c-line),0 1px 0 var(--c-line)}
+.cs-mstats dt{color:var(--c-faint);font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cs-mstats dd{margin:0;color:var(--c-body);font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cs-mstats>div[data-tone="good"] dd{color:var(--c-up)}
+.cs-mstats>div[data-tone="bad"] dd{color:var(--c-down)}
+.cs-mstats dd .cs-delta{display:flex;margin:1px 0 0}
+.cs-mstats dd :is(.cs-odds,.cs-ou){justify-items:start}
+.cs-mstats dd .cs-spark{width:100%;max-width:56px}
+.cs-mcard-more{display:inline-flex;align-items:center;justify-content:center;gap:5px;height:34px;border-radius:9px;background:var(--c-raised);color:var(--c-muted);font-size:12.5px;font-weight:600}
+.cs-mcard-more svg{width:14px;height:14px;transition:transform .2s}
+.cs-mcard[data-open] .cs-mcard-more svg{transform:rotate(180deg)}
+.cs-mcard-detail .cs-kdetail{padding-top:0}
+.cs-show-more{display:flex;align-items:center;justify-content:center;gap:8px;height:44px;border-radius:12px;border:1px dashed var(--c-line-strong);color:var(--c-text);font-size:13px;font-weight:600}
+.cs-show-more small{color:var(--c-faint);font-size:11.5px;font-weight:500}
+
 /* ── Pitcher vs lineup ──────────────────────────────────────────────── */
 .cs-games{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
 .cs-games::-webkit-scrollbar{display:none}
@@ -316,7 +350,10 @@
  .cs-nrfi-teams{grid-area:teams}.cs-nrfi-model{grid-area:model;justify-items:end}.cs-nrfi-off{grid-area:off}.cs-nrfi-odds{grid-area:odds}.cs-nrfi-park{grid-area:park}
 }
 @media (max-width:640px){
- :root[data-theme] #app-shell #panel-sheets{width:calc(100% - 32px)!important;padding-top:14px!important}
+ :root[data-theme] #app-shell #panel-sheets{width:calc(100% - 32px)!important;padding-top:14px!important;overflow-x:clip}
+ .cs-mini th,.cs-mini td,.cs-mini tbody th{padding:0 4px;font-size:11.5px}
+ .cs-mini th{font-size:9.5px;letter-spacing:.04em}
+ .cs-half .cs-table-wrap:has(.cs-mini){overflow-x:hidden}
  .cs-top-title{padding-right:112px}
  .cs-top-title h1{font-size:24px}
  .cs-top-title p{font-size:13px}
@@ -349,6 +386,8 @@
  .cs-game-card{padding:14px}
  .cs-weather{width:100%}
  .cs-weather>span{min-width:0;flex:1;padding:8px 4px}
+ .cs-weather b{font-size:13px;white-space:nowrap}
+ .cs-weather small{font-size:9px;letter-spacing:.02em}
  .cs-park{grid-template-columns:64px minmax(0,1fr);gap:12px}
  .cs-park-cells{grid-column:1/-1;justify-content:space-between;gap:8px}
  .cs-park-cells>span{justify-items:center;min-width:0;flex:1}

@@ -29,6 +29,10 @@ export interface MorphOrbProps {
   speed?: number;
   /** Status lines shown while thinking about this question (defaults to COPY.labels). */
   thinkingLabels?: (text: string) => string[];
+  /** When it returns a number: how far above the bottom of the component's
+      own box the pill's centre rests, in px. Otherwise (and by default) the
+      pill rests 96px above the window's bottom. */
+  pillBottom?: () => number | null;
 }
 
 /* ─────────────────────────── geometry ─────────────────────────── */
@@ -436,6 +440,7 @@ interface Env {
   canvas: HTMLCanvasElement; pulse: HTMLElement; status: HTMLElement;
   getBody: () => HTMLElement | null;
   ui: UI; getSpeed: () => number; isReduced: () => boolean;
+  getHome: () => number;
 }
 interface RunCfg { onSubmit: (text: string) => Promise<MorphAnswer> | MorphAnswer; minThink: number; labels: string[] }
 interface Runtime {
@@ -469,7 +474,7 @@ function sampleAt(h: Sample[], t: number, out: Sample) {
 function createRuntime(env: Env): Runtime {
   const { actor, mover, root, status, pulse, ghosts, form } = env;
   const life = new AbortController();
-  const geo: Geo = { pw: pillW(), cw: cardW(), H: homeDy(), dir: -1, ch: CARD_H };
+  const geo: Geo = { pw: pillW(), cw: cardW(), H: env.getHome(), dir: -1, ch: CARD_H };
   const orb = createOrb(env.canvas, env.getSpeed, env.isReduced);
   const vals: Record<string, number> = {};
   const dirty = new Set<string>();
@@ -750,7 +755,7 @@ function createRuntime(env: Env): Runtime {
     env.ui.clearInput();
     orb.reset();
     hist.length = 0;
-    geo.pw = pillW(); geo.cw = cardW(); geo.H = homeDy();
+    geo.pw = pillW(); geo.cw = cardW(); geo.H = env.getHome();
     resetChannels();
     const pillCh = ["oPill", "oInput", "oGlow", "oAur", "oRing"];
     pillCh.forEach((ch) => setNow(ch, 0));
@@ -775,7 +780,7 @@ function createRuntime(env: Env): Runtime {
     hist.length = 0;
     env.ui.setAnswer("");
     env.ui.resetLabel();
-    geo.pw = pillW(); geo.cw = cardW(); geo.H = homeDy();
+    geo.pw = pillW(); geo.cw = cardW(); geo.H = env.getHome();
     resetChannels();
     setNow("pulse", -1);
     busy = false; idling = false;
@@ -790,7 +795,7 @@ function createRuntime(env: Env): Runtime {
     start(text, cfg) {
       if (busy) return false;
       busy = true;
-      geo.pw = pillW(); geo.cw = cardW(); geo.H = homeDy(); // snapshot once, never read layout in frames
+      geo.pw = pillW(); geo.cw = cardW(); geo.H = env.getHome(); // snapshot once, never read layout in frames
       geo.dir = -geo.dir;
       orb.reset();
       setNow("u", 0);
@@ -812,7 +817,7 @@ function createRuntime(env: Env): Runtime {
     hard,
     home() {
       if (busy) return;
-      geo.pw = pillW(); geo.cw = cardW(); geo.H = homeDy();
+      geo.pw = pillW(); geo.cw = cardW(); geo.H = env.getHome();
       setNow("w", geo.pw);
       setNow("u", 0);
     },
@@ -873,6 +878,11 @@ export default function MorphOrb(props: MorphOrbProps) {
       root, mover, actor, form, ghosts, canvas, pulse, status,
       getBody: () => bodyRef.current,
       getSpeed: () => speedRef.current,
+      // The pill's offset from the stage centre (top:46% of the box).
+      getHome: () => {
+        const below = propsRef.current.pillBottom?.();
+        return typeof below === "number" ? root.clientHeight * 0.54 - below : homeDy();
+      },
       isReduced: () => reducedRef.current,
       ui: {
         setPhase: (p) => { phaseRef.current = p; setPhaseState(p); },
@@ -897,13 +907,20 @@ export default function MorphOrb(props: MorphOrbProps) {
     const onResize = () => {
       if (phaseRef.current === "idle" && !rt.busy()) rt.home();
     };
+    // A phone keyboard resizes the visual viewport, not the window; the page
+    // fits the box to it first, so re-home on the frame after.
+    let viewportFrame = 0;
+    const onViewport = () => { cancelAnimationFrame(viewportFrame); viewportFrame = requestAnimationFrame(onResize); };
     window.addEventListener("keydown", onKey);
     window.addEventListener("resize", onResize);
+    window.visualViewport?.addEventListener("resize", onViewport);
     inputRef.current?.focus({ preventScroll: true });
 
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("resize", onResize);
+      window.visualViewport?.removeEventListener("resize", onViewport);
+      cancelAnimationFrame(viewportFrame);
       mq.removeEventListener("change", onMq);
       window.clearTimeout(timers.current.typing);
       window.clearTimeout(timers.current.shake);

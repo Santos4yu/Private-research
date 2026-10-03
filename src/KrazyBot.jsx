@@ -79,6 +79,33 @@ export function KrazyBot(){
   window.addEventListener('resize',place);
   return()=>window.removeEventListener('resize',place);
  },[]);
+ // Typing on a phone: the keyboard shrinks the visual viewport (the window
+ // stays the same size), so the bot is fitted to what's left above it and
+ // the input rests just over the keys instead of the page sliding up.
+ useEffect(()=>{
+  const viewport=window.visualViewport,node=host.current;
+  if(!viewport||!node)return undefined;
+  const fit=()=>{
+   const field=document.activeElement;
+   const open=Boolean(field&&node.contains(field)&&field.matches('input,textarea'))&&viewport.height<window.innerHeight-120;
+   if(open){
+    node.style.setProperty('--kb-vv-top',`${Math.round(viewport.offsetTop)}px`);
+    node.style.setProperty('--kb-vv-h',`${Math.round(viewport.height)}px`);
+   }
+   if(open!==node.hasAttribute('data-keyboard'))node.toggleAttribute('data-keyboard',open);
+   measureRef.current();
+  };
+  const later=()=>setTimeout(fit,60);
+  viewport.addEventListener('resize',fit);
+  viewport.addEventListener('scroll',fit);
+  node.addEventListener('focusin',fit);
+  node.addEventListener('focusout',later);
+  return()=>{viewport.removeEventListener('resize',fit);viewport.removeEventListener('scroll',fit);node.removeEventListener('focusin',fit);node.removeEventListener('focusout',later);};
+ },[]);
+ // While typing on a phone the orb's input pill rests just above the keys
+ // (38px up from the bottom of the bot's box, as --mo-pill-bottom in
+ // krazy-bot.css); otherwise the orb keeps its own spot.
+ const pillBottom=()=>host.current?.hasAttribute('data-keyboard')?38:null;
  // Load the boards when the page is first opened (not on every page load).
  useEffect(()=>{
   const node=host.current;
@@ -102,8 +129,10 @@ export function KrazyBot(){
    const box=host.current.getBoundingClientRect();
    const follow=host.current.querySelector('.krazy-bot-follow');
    const floor=(follow?follow.getBoundingClientRect().top-box.top:box.height-130)-12;
-   // Phones keep it under the account and settings buttons up top.
-   const ceiling=window.innerWidth<=760?64:12;
+   // Phones keep it under the account and settings buttons up top (while
+   // typing, only as far as they still show above the keyboard).
+   const typing=host.current.hasAttribute('data-keyboard');
+   const ceiling=window.innerWidth>760?12:typing?Math.max(12,64-(window.visualViewport?.offsetTop||0)):64;
    const room=Math.max(160,floor-ceiling);
    const height=Math.min(answer.scrollHeight,room);
    const centre=box.height*.46;
@@ -146,7 +175,7 @@ export function KrazyBot(){
 
  const idle=phase==='idle',answered=phase==='answered';
  return <div className="krazy-bot" ref={host}>
-  <MorphOrb onSubmit={reply} thinkingLabels={text=>bot.thinking(text)} minThinkMs={3000}/>
+  <MorphOrb onSubmit={reply} thinkingLabels={text=>bot.thinking(text)} minThinkMs={3000} pillBottom={pillBottom}/>
   <header className="krazy-bot-head" data-idle={idle?'':undefined}>
    <span className="krazy-bot-badge">{sports.map(sport=>SPORTS[sport].name).join(' · ')}</span>
    <h1>Krazy Bot</h1>

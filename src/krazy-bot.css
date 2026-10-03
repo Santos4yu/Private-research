@@ -10,8 +10,15 @@
 /* Phones: stop above the bottom nav (8px gap + 68px bar + border). Desktop: beside the 64px sidebar. */
 @media (max-width:760px){.krazy-bot{--kb-bottom:calc(78px + env(safe-area-inset-bottom,0px))}}
 @media (min-width:761px){.krazy-bot{--kb-left:64px}}
-/* The site footer would otherwise sit over the bot. */
+/* The site footer would otherwise sit over the bot, and nothing behind the
+   bot scrolls. */
 body:has(#panel-bot:not([hidden])) .site-footer{display:none}
+html:has(#panel-bot:not([hidden])),body:has(#panel-bot:not([hidden])){overflow:hidden}
+/* Typing on a phone: the bot fits the space above the keyboard
+   (--kb-vv-top/--kb-vv-h from window.visualViewport, KrazyBot.jsx), with
+   the input resting just above it. */
+.krazy-bot[data-keyboard]{top:var(--kb-vv-top,0px);bottom:auto;height:var(--kb-vv-h,100%);--mo-pill-bottom:38px}
+.krazy-bot[data-keyboard] .krazy-bot-head{display:none}
 .krazy-bot-head{position:absolute;left:50%;top:calc(46% - 66px - 118px);z-index:3;width:min(520px,calc(100% - 32px));transform:translateX(-50%);text-align:center;pointer-events:none;opacity:0;transition:opacity .3s ease}
 .krazy-bot-head[data-idle]{opacity:1}
 .krazy-bot-head h1{margin:6px 0 4px;font-size:22px;font-weight:700;letter-spacing:-.01em;color:#f3f4f6}
