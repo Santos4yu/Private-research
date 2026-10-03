@@ -3,6 +3,7 @@ import {ArrowUp,ChevronDown,Mic,RotateCcw} from 'lucide-react';
 import MorphOrb from '@/components/ui/ai-thiking-orb-and-input';
 import {createBot,SPORTS} from './krazy-bot';
 import {BotCard} from './KrazyBotCard';
+import {KrazyBotHome,LOOK_QUESTIONS} from './KrazyBotHome';
 import {loadLines} from './finder-pool';
 import {loadHitterMatchups,withHitterMatchups} from './unified-finder-data';
 import {isPrizePicksLine} from './smart-slip';
@@ -13,8 +14,13 @@ import './krazy-bot.css';
 // What the bot remembers about this member (krazy-bot.js profile). It
 // follows their account to other devices (account-sync.js SYNCED.bot).
 const MEMORY_KEY='krazy-bot-memory-v1';
-// An answer with data behind it opens a wider card (the trends, the matchup).
+// An answer with data behind it opens a wider card (the trends, the matchup);
+// on a computer wider still, with the report laid out side by side
+// (krazy-bot.css), and plain answers get a little more room too.
 const CARD_WIDTH=440;
+const roomy=room=>room>860;
+const cardWidth=room=>roomy(room)?Math.min(760,room-96):CARD_WIDTH;
+const textWidth=room=>roomy(room)?520:null;
 const memory={
  read(){try{return JSON.parse(localStorage.getItem(MEMORY_KEY)||'null');}catch{return null;}},
  write(value){try{localStorage.setItem(MEMORY_KEY,JSON.stringify(value));}catch{/* private mode */}},
@@ -63,6 +69,10 @@ export function KrazyBot(){
  const measureRef=useRef(()=>{});
  const [phase,setPhase]=useState('idle');
  const [examples,setExamples]=useState(()=>bot.examples());
+ // Today's board for the home screen (top plays, quick looks).
+ const [today,setToday]=useState(null);
+ const [todayFailed,setTodayFailed]=useState(false);
+ const refreshToday=()=>bot.today().then(value=>{setToday(value);setTodayFailed(false);}).catch(()=>setTodayFailed(true));
  const [follow,setFollow]=useState([]);
  const [rich,setRich]=useState(false);
  const [draft,setDraft]=useState('');
@@ -142,7 +152,7 @@ export function KrazyBot(){
  // Load the boards when the page is first opened (not on every page load).
  useEffect(()=>{
   const node=host.current;
-  const warm=()=>bot.board().then(()=>setExamples(bot.examples())).catch(()=>{});
+  const warm=()=>bot.board().then(()=>{setExamples(bot.examples());return refreshToday();}).catch(()=>setTodayFailed(true));
   if(!node||typeof IntersectionObserver==='undefined'){warm();return undefined;}
   const seen=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)){warm();seen.disconnect();}});
   seen.observe(node);
@@ -193,6 +203,7 @@ export function KrazyBot(){
    if(next==='answered')setFollow(bot.suggestions());
    if(next==='idle'){
     setExamples(bot.examples());
+    refreshToday();
     if(queued.current){const text=queued.current;queued.current=null;send(text);}
    }
   });
@@ -210,20 +221,27 @@ export function KrazyBot(){
   const said=await bot.ask(text);
   const shown=bot.card();
   setRich(Boolean(shown?.card));
-  return shown?.card?{text:shown.lead||said,extra:<BotCard card={shown.card}/>,width:CARD_WIDTH}:said;
+  const room=host.current?.clientWidth||window.innerWidth;
+  if(shown?.card)return {text:shown.lead||said,extra:<BotCard card={shown.card}/>,width:cardWidth(room)};
+  return textWidth(room)?{text:said,width:textWidth(room)}:said;
  };
 
  const idle=phase==='idle',answered=phase==='answered';
  return <div className="krazy-bot" ref={host}>
   <MorphOrb onSubmit={reply} thinkingLabels={text=>bot.thinking(text)} minThinkMs={3000} pillBottom={pillBottom}
    inputAccessory={idle?<VoiceButton onWords={typeInto} onSaid={text=>text&&askNow(text)}/>:null}/>
-  <header className="krazy-bot-head" data-idle={idle?'':undefined}>
-   <span className="krazy-bot-badge">{sports.map(sport=>SPORTS[sport].name).join(' · ')}</span>
-   <h1>Krazy Bot</h1>
-   <p>Ask about today's props: the best plays, matchups, a player or a slip. I remember what you ask.</p>
-  </header>
+  <section className="krazy-bot-home" data-idle={idle?'':undefined} aria-hidden={idle?undefined:true}>
+   <div className="krazy-bot-home-inner">
+    <header className="krazy-bot-head">
+     <span className="krazy-bot-badge">{sports.map(sport=>SPORTS[sport].name).join(' · ')}</span>
+     <h1>Krazy Bot</h1>
+     <p>Ask about today's props: the best plays, matchups, a player or a slip. I remember what you ask.</p>
+    </header>
+    <KrazyBotHome today={today} failed={todayFailed} onAsk={askNow} idle={idle}/>
+   </div>
+  </section>
   <div className="krazy-bot-examples" data-idle={idle?'':undefined} aria-label="Example questions">
-   {examples.map(text=><button key={text} type="button" tabIndex={idle?0:-1} onClick={()=>askNow(text)}>{text}</button>)}
+   {examples.filter(text=>!LOOK_QUESTIONS.includes(text)).map(text=><button key={text} type="button" tabIndex={idle?0:-1} onClick={()=>askNow(text)}>{text}</button>)}
   </div>
   <div className="krazy-bot-more" data-show={answered?'':undefined} data-after-card={rich?'':undefined}>
    <button type="button" onClick={more} tabIndex={answered?0:-1}>More<ChevronDown aria-hidden="true"/></button>

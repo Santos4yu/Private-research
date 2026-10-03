@@ -18,11 +18,17 @@ html:has(#panel-bot:not([hidden])),body:has(#panel-bot:not([hidden])){overflow:h
    (--kb-vv-top/--kb-vv-h from window.visualViewport, KrazyBot.jsx), with
    the input resting just above it. */
 .krazy-bot[data-keyboard]{top:var(--kb-vv-top,0px);bottom:auto;height:var(--kb-vv-h,100%);--mo-pill-bottom:38px}
-.krazy-bot[data-keyboard] .krazy-bot-head{display:none}
-.krazy-bot-head{position:absolute;left:50%;top:calc(46% - 66px - 118px);z-index:3;width:min(520px,calc(100% - 32px));transform:translateX(-50%);text-align:center;pointer-events:none;opacity:0;transition:opacity .3s ease}
-.krazy-bot-head[data-idle]{opacity:1}
-.krazy-bot-head h1{margin:6px 0 4px;font-size:22px;font-weight:700;letter-spacing:-.01em;color:#f3f4f6}
-.krazy-bot-head p{margin:0;font-size:13px;line-height:1.45;color:rgba(236,236,241,.6)}
+.krazy-bot[data-keyboard] .krazy-bot-home{display:none}
+/* Before a question (KrazyBotHome.jsx): the header and today's board, in the
+   room between the top and the example questions, scrolling when it's short. */
+.krazy-bot-home{position:absolute;left:0;right:0;top:0;bottom:calc(var(--mo-pill-bottom) + 92px);z-index:3;display:flex;flex-direction:column;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding:28px 24px 10px;
+ opacity:0;visibility:hidden;transition:opacity .2s ease,visibility 0s linear .2s}
+.krazy-bot-home::-webkit-scrollbar{display:none}
+.krazy-bot-home[data-idle]{opacity:1;visibility:visible;transition:opacity .35s ease .1s,visibility 0s}
+.krazy-bot-home-inner{display:grid;gap:22px;width:min(1000px,100%);margin:auto}
+.krazy-bot-head{display:grid;justify-items:center;text-align:center}
+.krazy-bot-head h1{margin:8px 0 4px;font-size:26px;font-weight:700;letter-spacing:-.02em;color:#f3f4f6}
+.krazy-bot-head p{max-width:520px;margin:0;font-size:13px;line-height:1.45;color:rgba(236,236,241,.6)}
 .krazy-bot-badge{display:inline-block;padding:3px 9px;border-radius:999px;background:rgba(96,165,250,.14);color:#93c5fd;font-size:11px;font-weight:700;letter-spacing:.08em}
 /* Just above the resting pill (its centre is 96px above the bottom). */
 .krazy-bot-examples{position:absolute;left:0;right:0;bottom:calc(var(--mo-pill-bottom) + 46px);z-index:3;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:0 16px;opacity:0;visibility:hidden;transition:opacity .25s ease,visibility 0s linear .25s}
@@ -33,7 +39,7 @@ html:has(#panel-bot:not([hidden])),body:has(#panel-bot:not([hidden])){overflow:h
  .krazy-bot-examples{flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;scrollbar-width:none;-webkit-mask:linear-gradient(90deg,transparent,#000 16px,#000 calc(100% - 16px),transparent)}
  .krazy-bot-examples::-webkit-scrollbar{display:none}
  .krazy-bot-examples button{flex:none;min-height:40px}
- .krazy-bot-head h1{font-size:20px}
+ .krazy-bot-head h1{font-size:22px}
 }
 /* Under an answer the input stays: a bar where the pill rests, with the
    follow-ups just above it. It stands in for the "New question" button. */
@@ -475,6 +481,85 @@ html:has(#panel-bot:not([hidden])),body:has(#panel-bot:not([hidden])){overflow:h
  .kb-pitch{grid-template-columns:minmax(0,80px) 1fr 34px 70px;gap:6px}
  .kb-split{grid-template-columns:104px 1fr auto}
  .kb-actions button{font-size:12px;padding:8px 6px}
+}
+
+/* ── The home screen (KrazyBotHome.jsx) ─────────────────────────────── */
+.kb-home{--kb-up:96,165,250;--kb-navy:30,58,138;--kb-down:248,113,113;--kb-line:rgba(255,255,255,.08);display:grid;gap:22px;color:#ececf1}
+.kb-home-live{justify-self:center;display:inline-flex;align-items:center;gap:8px;margin:-8px 0 0;padding:6px 13px;border-radius:999px;border:1px solid var(--kb-line);background:rgba(255,255,255,.03);font-size:12px;color:rgba(236,236,241,.72);font-variant-numeric:tabular-nums}
+.kb-home-live em{font-style:normal;color:rgba(236,236,241,.3)}
+.kb-home-live i{width:7px;height:7px;border-radius:50%;background:rgba(236,236,241,.35)}
+.kb-home-live[data-ready] i{background:rgb(var(--kb-up));box-shadow:0 0 0 0 rgba(var(--kb-up),.6);animation:kb-live 2s ease-out infinite}
+.kb-home-section{display:grid;gap:10px;min-width:0}
+.kb-home-section h2{margin:0;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(236,236,241,.5)}
+.kb-home-plays{display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));gap:12px}
+.kb-play{position:relative;display:grid;align-content:start;gap:11px;min-width:0;padding:14px;border-radius:16px;border:1px solid var(--kb-line);
+ background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.02));color:#ececf1;font:inherit;text-align:left;cursor:pointer;transition:transform .2s,border-color .2s,box-shadow .2s}
+.kb-play:hover,.kb-play:focus-visible{transform:translateY(-2px);border-color:rgba(var(--kb-up),.45);box-shadow:0 14px 32px -14px rgba(37,99,235,.55);outline:none}
+.kb-play-head{display:flex;align-items:center;gap:10px;min-width:0}
+.kb-play-who{display:grid;gap:2px;flex:1;min-width:0}
+.kb-play-who strong{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kb-play-who small{font-size:11px;color:rgba(236,236,241,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kb-play-line{display:flex;align-items:center;gap:7px;min-width:0;font-size:12.5px;color:rgba(236,236,241,.75)}
+.kb-play-line strong{font-size:16px;font-weight:800;color:#fff}
+.kb-play-line>span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kb-play-foot{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.kb-play-foot .kb-trend{flex:1;min-width:0}
+.kb-play-ring{--c:rgb(var(--kb-up));--kb-p:var(--v);position:relative;flex:none;display:grid;place-items:center;width:46px;height:46px;border-radius:50%;background:conic-gradient(var(--c) calc(var(--kb-p) * 360deg),rgba(255,255,255,.08) 0)}
+.kb-play-ring::before{content:'';position:absolute;inset:4px;border-radius:50%;background:#14171d}
+.kb-play-ring b{position:relative;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
+.kb-play-ring small{font-size:9px;font-weight:700;color:rgba(236,236,241,.6)}
+.kb-play-tag{justify-self:start;max-width:100%;padding:3px 8px;border-radius:999px;font-size:10.5px;font-weight:700;background:rgba(var(--kb-up),.12);color:#93c5fd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kb-play-tag[data-tone="neutral"]{background:rgba(255,255,255,.06);color:rgba(236,236,241,.7)}
+.kb-play-ghost{min-height:178px;cursor:default;background:linear-gradient(100deg,rgba(255,255,255,.03) 25%,rgba(255,255,255,.08) 45%,rgba(255,255,255,.03) 65%) 130% 0/250% 100% no-repeat,rgba(255,255,255,.03);animation:kb-ghost 1.4s ease-in-out calc(var(--i,0) * 120ms) infinite}
+.kb-home-looks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.kb-look{display:flex;align-items:center;gap:11px;min-width:0;padding:12px 13px;border-radius:14px;border:1px solid var(--kb-line);background:rgba(255,255,255,.03);color:#ececf1;font:inherit;text-align:left;cursor:pointer;transition:border-color .2s,background .2s}
+.kb-look:hover,.kb-look:focus-visible{border-color:rgba(var(--kb-up),.45);background:rgba(var(--kb-up),.07);outline:none}
+.kb-look-icon{flex:none;display:grid;place-items:center;width:36px;height:36px;border-radius:10px;background:rgba(var(--kb-up),.12);color:rgb(var(--kb-up))}
+.kb-look-icon svg{width:17px;height:17px}
+.kb-look-text{display:grid;gap:2px;flex:1;min-width:0}
+.kb-look-text strong{font-size:13.5px;font-weight:700}
+.kb-look-text small{font-size:11.5px;color:rgba(236,236,241,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kb-look-go{flex:none;width:15px;height:15px;color:rgba(236,236,241,.3);transition:transform .2s,color .2s}
+.kb-look:hover .kb-look-go{color:rgb(var(--kb-up));transform:translate(2px,-2px)}
+.krazy-bot-home[data-idle] .kb-play:not(.kb-play-ghost),.krazy-bot-home[data-idle] .kb-look{animation:kb-home-in .5s cubic-bezier(.22,1,.36,1) calc(.08s + var(--i,0) * 70ms) backwards}
+.krazy-bot-home[data-idle] .kb-look{animation-delay:calc(.3s + var(--i,0) * 60ms)}
+.krazy-bot-home[data-idle] .kb-play-ring{animation:kb-dial 1s cubic-bezier(.16,1,.3,1) calc(.35s + var(--i,0) * 70ms) backwards}
+@keyframes kb-home-in{from{opacity:0;transform:translateY(10px)}}
+@keyframes kb-ghost{0%{background-position:130% 0,0 0}100%{background-position:-40% 0,0 0}}
+@keyframes kb-live{0%{box-shadow:0 0 0 0 rgba(var(--kb-up),.6)}80%,100%{box-shadow:0 0 0 7px rgba(var(--kb-up),0)}}
+@media (max-width:980px){.kb-home-plays,.kb-home-looks{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){
+ .krazy-bot-home{padding:64px 0 8px}
+ .krazy-bot-home-inner{gap:18px}
+ .krazy-bot-head{padding:0 20px}
+ .krazy-bot-head p{font-size:12.5px}
+ .kb-home{gap:18px}
+ .kb-home-section h2{padding:0 16px}
+ .kb-home-plays{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding:0 16px;padding:2px 16px 6px;scrollbar-width:none}
+ .kb-home-plays::-webkit-scrollbar{display:none}
+ .kb-play{flex:none;width:232px;scroll-snap-align:start}
+ .kb-play:hover{transform:none}
+ .kb-home-looks{gap:8px;padding:0 16px}
+ .kb-look{padding:10px 11px;gap:9px}
+ .kb-look-icon{width:32px;height:32px}
+ .kb-look-go{display:none}
+}
+@media (prefers-reduced-motion:reduce){.kb-home *,.kb-home-live i{animation:none!important}}
+
+/* ── A wide answer card (a computer): each report tab side by side ───── */
+.kb-card{container-type:inline-size}
+.kb-pane,.kb-col,.kb-span{display:grid;gap:12px;align-content:start;min-width:0}
+.kb-col:empty,.kb-span:empty{display:none}
+@container (min-width:620px){
+ .kb-pane{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:20px;row-gap:14px}
+ .kb-span{grid-column:1/-1}
+ .kb-pane:has(>.kb-col:empty)>.kb-col{grid-column:1/-1}
+ .kb-market{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:20px;align-items:start}
+ .kb-vs{grid-column:1/-1}
+ .kb-market>.kb-books:last-child{grid-column:1/-1}
+ .kb-line{padding:10px 14px}
+ .kb-line-text strong{font-size:17px}
+ .kb-chance strong{font-size:24px}
 }
 
 /* ── How an answer arrives ──────────────────────────────────────────────

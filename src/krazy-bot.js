@@ -1587,7 +1587,25 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     return `Here's a ${chosen.length}-pick slip I like: ${chosen.map(pickLine).join('; ')}. Every leg grades B or better and they're from different games. All ${chosen.length} hit about ${percent(together)} of the time${payout ? `, a ${payout}x Power Play` : ''}.`;
   }
 
-  return {ask, board: boardsLoaded, thinking, examples, suggestions: () => suggestions, card: () => answer, profile: () => me, returning: () => Boolean(returning)};
+  /**
+   * The bot's home screen: today's top plays, the safest one, the best
+   * matchup and what's on the board, from the same graded picks it answers from.
+   */
+  async function today({count = 4} = {}) {
+    await boardsLoaded();
+    const legs = allLegs(), rows = allRows();
+    const ask = intent => rank(legs, {intent});
+    const shown = leg => leg && {...pickCard(leg), question: `Should I take ${leg.player} ${sideWord(leg)} ${figure(leg.row.line)} ${statShort(leg)}?`};
+    const games = new Set(rows.map(row => `${row.sport}:${[row.teamAbbr, row.opponent].map(team => String(team || '')).sort().join('-')}:${String(row.startsAt || '').slice(0, 10)}`));
+    const starts = rows.map(row => Date.parse(row.startsAt || '')).filter(at => finite(at) && at > now()).sort((a, b) => a - b);
+    const leagues = allowed.map(sport => ({sport, name: SPORTS[sport].name, props: (boards[sport]?.rows || []).length})).filter(item => item.props);
+    const top = ask('best').slice(0, count);
+    const matchup = ask('matchup').find(leg => leg.matchup?.score != null);
+    return {props: rows.length, games: games.size, leagues, next: starts.length ? timeOf(starts[0]) : null,
+      top: top.map(shown), safest: shown(ask('safest')[0]), matchup: shown(matchup), mlb: leagues.some(item => item.sport === 'mlb')};
+  }
+
+  return {ask, board: boardsLoaded, today, thinking, examples, suggestions: () => suggestions, card: () => answer, profile: () => me, returning: () => Boolean(returning)};
 }
 
 const HELP = allowed => `I break down today's ${allowed.map(sport => SPORTS[sport].name).join(', ')} props using our models: record vs the line, projections, matchups and the books. Ask "what's the play today?", "best K prop", "should I take Skubal over 6.5 Ks?", "compare Judge and Soto", "top 3 total bases" or "build me a 3-pick slip". Follow up with "why?", "next" or "what about the under?". I remember what you ask about.`;

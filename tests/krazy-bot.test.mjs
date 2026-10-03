@@ -416,3 +416,22 @@ test('every pick card carries a scouting report: windows, games, splits, books a
   assert.deepEqual(ladder.map(item => [item.line, item.modifier, item.current, item.chance]), [[4.5, 'goblin', false, 0.81], [6.5, 'standard', true, 0.66]]);
   assert.equal(bot.card().card.pick.row.id, kelce.id);
 });
+
+test('the home screen shows today\'s top plays, the safest one and the board', async () => {
+  const bot = makeBot({time: START - 3600e3});
+  const today = await bot.today();
+  assert.equal(today.props, 10);
+  assert.equal(today.games, 8);
+  assert.deepEqual(today.leagues.map(item => [item.sport, item.props]), [['mlb', 7], ['nba', 1], ['nhl', 2]]);
+  assert.ok(today.next);
+  assert.equal(today.top.length, 4);
+  // One per player, best first, each with the question that opens its report.
+  assert.equal(new Set(today.top.map(play => play.player)).size, 4);
+  assert.ok(today.top.every(play => play.grade && play.question.startsWith(`Should I take ${play.player} `)));
+  assert.equal(today.safest.player, 'Tarik Skubal');
+  assert.equal(today.mlb, true);
+  // The question behind a play opens that pick's report.
+  await bot.ask(today.top[0].question);
+  assert.equal(bot.card().card.kind, 'pick');
+  assert.equal(bot.card().card.pick.player, today.top[0].player);
+});

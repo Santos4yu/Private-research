@@ -22,7 +22,7 @@ function Logo({src,alt='',fallback=null}){
 }
 
 // The player's photo (initials when there is none), with his team's logo pinned to it.
-function Face({src,name,logo,size='lg'}){
+export function Face({src,name,logo,size='lg'}){
  const [failed,setFailed]=useState(false);
  const [noLogo,setNoLogo]=useState(false);
  return <span className="kb-face" data-size={size}>
@@ -54,7 +54,7 @@ function Game({pick}){
 
 const Side=({pick})=><span className="kb-side" data-side={pick.side}>{pick.side==='UNDER'?<ArrowDown aria-hidden="true"/>:<ArrowUp aria-hidden="true"/>}{pick.side==='UNDER'?'Under':'Over'}</span>;
 
-function Bars({pick,compact=false}){
+export function Bars({pick,compact=false}){
  const {last,line}=pick;
  // Big lines (points, strikeouts) chart from a floor, so the game-to-game swings show.
  const values=last.map(game=>game.value);
@@ -343,29 +343,40 @@ function PickCard({pick,verdict,reasons}){
   {tabs.length>1&&<div className="kb-tabs kb-rise" role="tablist" aria-label="Report" style={delay(.18)}>
    {tabs.map(([key,label])=><button key={key} type="button" role="tab" aria-selected={tab===key} data-on={tab===key?'':undefined} onClick={()=>{setTab(key);setMoved(true);}}>{label}</button>)}
   </div>}
-  {tab==='overview'&&<>
-   {pick.projection!=null&&<div className="kb-rise" style={soon(.2)}><Gauge pick={pick}/></div>}
-   {pick.last.length>=3&&<div className="kb-rise" style={soon(.28)}><Bars pick={pick}/></div>}
-   {report?.rings?.length>1&&<div className="kb-rise" style={soon(.34)}><Rings rings={report.rings}/></div>}
-   {pick.tiles.length>0&&<div className="kb-tiles kb-rise" style={soon(.4)}>
-    {pick.tiles.map((tile,index)=><div key={tile.key} className="kb-tile" data-tone={tile.tone||undefined} style={{'--i':index}}><b><Roll text={tile.value}/></b><span>{tile.label}</span></div>)}
-   </div>}
-   {pick.matchup&&<div className="kb-rise" style={soon(.46)}><Matchup matchup={pick.matchup}/></div>}
-   {reasons?.length>0&&<ul className="kb-why kb-rise" style={soon(.54)}>{reasons.map((text,index)=><li key={text} style={{'--i':index}}><Check aria-hidden="true"/>{text}</li>)}</ul>}
-   {pick.risks.length>0&&<p className="kb-risk kb-rise" style={soon(.6)}><TriangleAlert aria-hidden="true"/>{pick.risks.join(' · ')}</p>}
-  </>}
-  {tab==='trends'&&<>
-   <div className="kb-rise" style={delay(.04)}><Distribution report={report}/></div>
-   <div className="kb-rise" style={delay(.12)}><TrendChart report={report}/></div>
-   <div className="kb-rise" style={delay(.2)}><Splits splits={report.splits} side={pick.side}/></div>
-  </>}
-  {tab==='matchup'&&<>
-   {pick.rating?<div className="kb-rise" style={delay(.04)}><Rating rating={pick.rating} mix={mixed}/></div>
-    :pick.matchup&&<div className="kb-rise" style={delay(.04)}><Matchup matchup={pick.matchup}/></div>}
-   {pick.rating&&<div className="kb-rise" style={delay(.12)}><PitchMix rating={pick.rating}/></div>}
-   {report?.defense&&<div className="kb-rise" style={delay(.16)}><DefenseTrack defense={report.defense} side={pick.side}/></div>}
-   {report?.role&&<p className="kb-note kb-rise" style={delay(.2)}><Timer aria-hidden="true"/>{report.role.text}</p>}
-  </>}
+  {/* Each tab in two columns (side by side when the card is wide, krazy-bot.css) and a full-width foot. */}
+  {tab==='overview'&&<div className="kb-pane">
+   <div className="kb-col">
+    {pick.projection!=null&&<div className="kb-rise" style={soon(.2)}><Gauge pick={pick}/></div>}
+    {pick.last.length>=3&&<div className="kb-rise" style={soon(.28)}><Bars pick={pick}/></div>}
+   </div>
+   <div className="kb-col">
+    {report?.rings?.length>1&&<div className="kb-rise" style={soon(.34)}><Rings rings={report.rings}/></div>}
+    {pick.tiles.length>0&&<div className="kb-tiles kb-rise" style={soon(.4)}>
+     {pick.tiles.map((tile,index)=><div key={tile.key} className="kb-tile" data-tone={tile.tone||undefined} style={{'--i':index}}><b><Roll text={tile.value}/></b><span>{tile.label}</span></div>)}
+    </div>}
+   </div>
+   <div className="kb-span">
+    {pick.matchup&&<div className="kb-rise" style={soon(.46)}><Matchup matchup={pick.matchup}/></div>}
+    {reasons?.length>0&&<ul className="kb-why kb-rise" style={soon(.54)}>{reasons.map((text,index)=><li key={text} style={{'--i':index}}><Check aria-hidden="true"/>{text}</li>)}</ul>}
+    {pick.risks.length>0&&<p className="kb-risk kb-rise" style={soon(.6)}><TriangleAlert aria-hidden="true"/>{pick.risks.join(' · ')}</p>}
+   </div>
+  </div>}
+  {tab==='trends'&&<div className="kb-pane">
+   <div className="kb-col"><div className="kb-rise" style={delay(.04)}><Distribution report={report}/></div></div>
+   <div className="kb-col"><div className="kb-rise" style={delay(.12)}><TrendChart report={report}/></div></div>
+   <div className="kb-span"><div className="kb-rise" style={delay(.2)}><Splits splits={report.splits} side={pick.side}/></div></div>
+  </div>}
+  {tab==='matchup'&&<div className="kb-pane">
+   <div className="kb-col">
+    {pick.rating?<div className="kb-rise" style={delay(.04)}><Rating rating={pick.rating} mix={mixed}/></div>
+     :pick.matchup&&<div className="kb-rise" style={delay(.04)}><Matchup matchup={pick.matchup}/></div>}
+   </div>
+   <div className="kb-col">
+    {mixed&&<div className="kb-rise" style={delay(.12)}><PitchMix rating={pick.rating}/></div>}
+    {report?.defense&&<div className="kb-rise" style={delay(.16)}><DefenseTrack defense={report.defense} side={pick.side}/></div>}
+    {report?.role&&<p className="kb-note kb-rise" style={delay(.2)}><Timer aria-hidden="true"/>{report.role.text}</p>}
+   </div>
+  </div>}
   {tab==='market'&&<div className="kb-rise" style={delay(.04)}><Market report={report}/></div>}
   <div className="kb-rise" style={delay(.62)}><Actions pick={pick}/></div>
  </div>;
