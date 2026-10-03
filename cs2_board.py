@@ -12,6 +12,14 @@ _lock = threading.Lock()
 _refresh_lock = threading.Lock()
 SNAPSHOT = 'finder:cs2:board:v2'
 LINES = 'finder:cs2:lines:v2'
+# The saved board (every line with its history) is large; each server reads
+# it at most once a minute instead of on every page view.
+SNAPSHOT_MEMORY_SECONDS = 60
+_snapshot = {"at": 0.0, "raw": None}
+# An unchanged board is only rewritten when it would otherwise go stale
+# (readers treat it as current for 15 minutes).
+REPUBLISH_SECONDS = 600
+_published = {"at": 0.0, "digest": None}
 
 
 def align_events(rows):
@@ -69,7 +77,18 @@ def publish_saved(value=None):
         if not raw: return None
         value = json.loads(raw)
     ready = compact(attach(dict(value, rows=[dict(r) for r in value['rows']])))
-    command('SET', SNAPSHOT, json.dumps(ready, separators=(',', ':')), 'EX', 900)
+    import hashlib
+    digest = hashlib.sha256(json.dumps({k: v for k, v in ready.items() if k != 'snapshotAt'},
+                                       sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()
+    with _lock:
+        unchanged = digest == _published["digest"] and time.time()-_published["at"] < REPUBLISH_SECONDS
+    if unchanged:
+        return ready
+    raw = json.dumps(ready, separators=(',', ':'))
+    command('SET', SNAPSHOT, raw, 'EX', 900)
+    with _lock:
+        _published.update(at=time.time(), digest=digest)
+        _snapshot.update(at=time.time(), raw=raw)
     return ready
 
 def build(projections=None, now=None):
@@ -106,7 +125,13 @@ def board(force=False):
     from cs2_history import command
     if not force:
         try:
-            raw = command('GET', SNAPSHOT)
+            with _lock:
+                raw = _snapshot["raw"] if time.time()-_snapshot["at"] < SNAPSHOT_MEMORY_SECONDS else None
+            if raw is None:
+                raw = command('GET', SNAPSHOT)
+                if raw:
+                    with _lock:
+                        _snapshot.update(at=time.time(), raw=raw)
             ready = json.loads(raw) if raw else None
             if ready and time.time()-ready.get('snapshotAt', 0) < 900 and time.time()-ready.get('lineUpdatedAt', 0) < 900:
                 # Expired events never survive a saved-board hit.

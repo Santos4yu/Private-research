@@ -55,6 +55,9 @@ FIELDS = ("min", "pts", "reb", "ast", "fgm", "fga", "tpm", "tpa", "ftm", "fta",
 ZONES = ("ra", "paint", "mid", "c3l", "c3r", "ab3")
 
 _memory: dict = {}
+_progress: dict = {}
+# A finished season's summary is re-read at most this often by the timer.
+PROGRESS_SECONDS = 30 * 60
 
 
 def _store():
@@ -318,6 +321,26 @@ def stored(season: int, league: str = "wnba") -> dict | None:
     if value:
         _memory[_memory_key(season, league)] = (time.time(), value)
     return value
+
+
+def progress(season: int, league: str = "wnba") -> dict | None:
+    """{"partial": bool} for the stored season, or None when nothing is
+    stored. Reads only the season's summary record (a monthly league's games
+    stay in their month records); a storage outage raises."""
+    key = (league, season)
+    cached = _progress.get(key)
+    if cached and time.time() - cached[0] < PROGRESS_SECONDS:
+        return cached[1]
+    full = _memory.get(_memory_key(season, league))
+    if full and time.time() - full[0] < 300:
+        value = full[1]
+    else:
+        raw = _store().get(LEAGUES[league]["key"].format(season=season))
+        value = _decode(raw) if raw else None
+    summary = {"partial": bool(value.get("partial"))} if value else None
+    if summary and not summary["partial"]:
+        _progress[key] = (time.time(), summary)
+    return summary
 
 
 def _save(season: int, payload: dict, league: str, changed: set) -> tuple[bool, int]:

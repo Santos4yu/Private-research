@@ -13,6 +13,7 @@ from html.parser import HTMLParser
 import requests
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
+import finder_history_store
 from finder_history_store import command, name_key
 
 ROOT = 'https://bo3.gg'
@@ -24,6 +25,12 @@ HS_ATTEMPTS = 'finder:cs2:headshot-attempts:v1'
 HS_STATUS = 'finder:cs2:headshot-status:v1'
 SCOPES = ('map1', 'map2', 'map3', 'maps12', 'maps123')
 MAX_LIST_PAGES = 3
+RECHECK_SECONDS = 15 * 60
+# With the timer every ~90 seconds, the collector runs on every other tick.
+CADENCE_SECONDS = 150
+# Board players are re-enrolled at most this often per server (enrolledAt
+# only has to be within two days to keep a player active).
+ENROLL_SECONDS = 3600
 # Explicit aliases verified against BO3 profile headings and posted teams.
 # A provider handle is not necessarily a URL slug; never fuzzy-match names.
 ALIASES = {'osamas':'0samas', 'dev1ce':'device', 'frozen':'frozen-david-cernansky',
@@ -32,6 +39,7 @@ ALIASES = {'osamas':'0samas', 'dev1ce':'device', 'frozen':'frozen-david-cernansk
            'laser':'chshekin', 'hezz':'hezz-cs-go', 'joey':'joey-cs-go',
            'destiny':'destiny-lucas-bullo', 'ryu':'ryu_g', 'ataraxia':'atarax1a'}
 _memory = {}
+_enrolled = {'at': 0.0, 'keys': frozenset()}
 
 
 class Node:
@@ -366,14 +374,66 @@ def games_for(slug, maps, paths=()):
     return sorted(games, key=lambda g: (g['date'], -order.get(g['gameId'], 9999), g['gameId']))[-40:]
 
 
+# The collector's big tables are read whole only when another server has
+# changed them: each write here bumps a small counter beside the table, and
+# this server's copy follows its own writes. Re-reading every map result on
+# every timer tick is what used up the storage's monthly bandwidth.
+MIRRORED = {JOBS, SAVED, MAPS, STATE, HS_ATTEMPTS, HS_STATUS}
+MIRROR_MAX_AGE = 30 * 60
+_mirror = {}
+_mirror_lock = Lock()
+
+
+def _counter(*args):
+    # The counters go straight to storage: they are bookkeeping, not table data.
+    try:
+        value = finder_history_store.command(*args)
+    except Exception:  # noqa: BLE001 -- without a counter the table is simply re-read
+        return None
+    return None if value is None else str(value)
+
+
 def read_entries(key):
-    raw = command('HGETALL', key) or []
-    pairs = raw.items() if isinstance(raw, dict) else zip(raw[::2], raw[1::2])
+    version = _counter('GET', key + ':ver') if key in MIRRORED else None
+    with _mirror_lock:
+        hit = _mirror.get(key)
+    if hit and version is not None and hit[0] == version and time.time()-hit[2] < MIRROR_MAX_AGE:
+        raw = hit[1]
+    else:
+        reply = command('HGETALL', key) or []
+        raw = dict(reply.items() if isinstance(reply, dict) else zip(reply[::2], reply[1::2]))
+        if key in MIRRORED:
+            with _mirror_lock:
+                _mirror[key] = (version, raw, time.time())
     result = {}
-    for k, v in pairs:
+    for k, v in raw.items():
         try: result[k] = json.loads(v)
         except (ValueError, TypeError): continue
     return result
+
+
+def hset(key, *flat):
+    """HSET, keeping this server's copy of a mirrored table current."""
+    result = command('HSET', key, *flat)
+    if key in MIRRORED:
+        version = _counter('INCR', key + ':ver')
+        with _mirror_lock:
+            hit = _mirror.get(key)
+            # Only when no other server wrote in between is the copy still whole.
+            if hit and hit[0] is not None and version is not None and int(hit[0]) + 1 == int(version):
+                # A new dict, never an in-place change: other threads may be reading the old one.
+                _mirror[key] = (version, {**hit[1], **dict(zip(flat[0::2], flat[1::2]))}, hit[2])
+            else:
+                _mirror.pop(key, None)
+    return result
+
+
+def due():
+    """The timer runs the collector every few minutes, not on every tick."""
+    try:
+        return command('SET', 'finder:cs2:cadence:v1', '1', 'NX', 'EX', CADENCE_SECONDS) == 'OK'
+    except Exception:
+        return False
 
 
 def read_jobs():
@@ -384,18 +444,18 @@ def read_jobs():
         if source and source != job.get('slug'):
             jobs[key] = {**job, 'slug':source}
             changed[key] = json.dumps(jobs[key])
-    if changed: command('HSET', JOBS, *[v for pair in changed.items() for v in pair])
+    if changed: hset(JOBS, *[v for pair in changed.items() for v in pair])
     return jobs
 
 
 def persist(key, entry):
-    command('HSET', STATE, key, json.dumps(entry, separators=(',', ':')))
+    hset(STATE, key, json.dumps(entry, separators=(',', ':')))
     display = {k: entry[k] for k in ('games', 'updatedAt', 'source', 'sourceSlug', 'checkedAt', 'listingStatus', 'profileParserVersion') if k in entry}
     display['listingReady'] = entry.get('listParserVersion') == 2
     display['coverage'] = coverage_for(display.get('games', []))
     display['coverage']['listingComplete'] = entry.get('paginationVersion') == 1 and entry.get('nextListingPage', 2) > entry.get('listingPages', 1)
     display['coverage']['partial'] |= not display['coverage']['listingComplete']
-    command('HSET', SAVED, key, json.dumps(display, separators=(',', ':')))
+    hset(SAVED, key, json.dumps(display, separators=(',', ':')))
     _memory[key] = display
 
 
@@ -413,8 +473,12 @@ def attach(board):
         if entry and entry.get('games'):
             row['history'] = {k: entry[k] for k in ('games', 'updatedAt', 'source')}
             row['history']['coverage'] = entry.get('coverage') or coverage_for(entry['games'])
-    if fields:
-        try: command('HSET', JOBS, *[v for pair in fields.items() for v in pair])
+    with _mirror_lock:
+        recent = set(fields) <= _enrolled['keys'] and time.time()-_enrolled['at'] < ENROLL_SECONDS
+    if fields and not recent:
+        try:
+            hset(JOBS, *[v for pair in fields.items() for v in pair])
+            with _mirror_lock: _enrolled.update(at=time.time(), keys=frozenset(fields))
         except Exception: pass
     board['historyAvailable'] = any(r.get('history') for r in board['rows'])
     return board
@@ -453,11 +517,17 @@ def warm(budget=20, limit=12, concurrency=3, max_maps=6, force=False, listing_on
                                 bool(saved.get(p[0], {}).get('listingReady')),
                                 bool(saved.get(p[0], {}).get('coverage', {}).get('listingComplete')),
                                 saved.get(p[0], {}).get('checkedAt', 0)))
+    def checkable(key):
+        # Players with a full history are rechecked every few minutes; new
+        # results only appear once a series ends.
+        previous = saved.get(key, {})
+        complete = previous.get('games') and previous.get('coverage', {}).get('listingComplete')
+        return time.time()-previous.get('checkedAt', 0) >= (RECHECK_SECONDS if complete else 60)
     def collect(pair):
         key, job = pair
         if time.monotonic()-started >= budget-3: return (0, 0)
         previous = saved.get(key, {})
-        if not force and time.time()-previous.get('checkedAt', 0) < 60: return (0, 0)
+        if not force and not checkable(key): return (0, 0)
         # Cross-worker lock prevents overlapping timers from duplicating requests.
         if command('SET', 'finder:cs2:lock:'+key, '1', 'NX', 'EX', max(90, int(budget)+30)) != 'OK': return (0, 0)
         state = command('HGET', STATE, key)
@@ -526,16 +596,16 @@ def warm(budget=20, limit=12, concurrency=3, max_maps=6, force=False, listing_on
                         claim = command('SET', 'finder:cs2:maplock:'+item['path'], '1', 'NX', 'EX', 45)
                         if claim != 'OK': continue
                         try:
-                            command('HSET', HS_ATTEMPTS, item['path'], json.dumps(time.time()))
+                            hset(HS_ATTEMPTS, item['path'], json.dumps(time.time()))
                             fresh = map_result(get(item['path']), item['path'], item['date'])
                             if result:
                                 for slug, player in fresh['players'].items():
                                     player.update({k: v for k, v in result.get('players', {}).get(slug, {}).items() if k not in player})
                             result = fresh
-                            command('HSET', MAPS, item['path'], json.dumps(result, separators=(',', ':')))
-                            command('HSET', HS_STATUS, item['path'], json.dumps(result_status(result=result, previous=status)))
+                            hset(MAPS, item['path'], json.dumps(result, separators=(',', ':')))
+                            hset(HS_STATUS, item['path'], json.dumps(result_status(result=result, previous=status)))
                         except Exception as error:
-                            command('HSET', HS_STATUS, item['path'], json.dumps(result_status(error=error, previous=status)))
+                            hset(HS_STATUS, item['path'], json.dumps(result_status(error=error, previous=status)))
                             raise
                         finally:
                             command('DEL', 'finder:cs2:maplock:'+item['path'])
@@ -562,7 +632,7 @@ def warm(budget=20, limit=12, concurrency=3, max_maps=6, force=False, listing_on
             command('DEL', 'finder:cs2:lock:'+key)
     # Small bounded concurrency; cached maps prevent repeated source requests.
     with ThreadPoolExecutor(max_workers=max(1, min(3, concurrency))) as pool:
-        outcomes = list(pool.map(collect, due[:limit]))
+        outcomes = list(pool.map(collect, [pair for pair in due if force or checkable(pair[0])][:limit]))
     shared = fan_out(jobs)
     try:
         from cs2_board import publish_saved
@@ -608,12 +678,20 @@ def fan_out(jobs=None):
         coverage['listingComplete'] = state.get('paginationVersion') == 1 and state.get('nextListingPage', 2) > state.get('listingPages', 1)
         coverage['partial'] |= not coverage['listingComplete']
         entry = {**prior, 'games': ordered, 'coverage': coverage,
-                 'source': 'bo3', 'sourceSlug':job['slug'], 'updatedAt': time.time()}
+                 'source': 'bo3', 'sourceSlug':job['slug'], 'updatedAt': prior.get('updatedAt')}
+        # Rewrite a player only when their history changed, not every pass.
+        if _same(prior, entry): continue
+        entry['updatedAt'] = time.time()
         fields[key] = json.dumps(entry, separators=(',', ':'))
         saved[key] = entry
-    if fields: command('HSET', SAVED, *[v for pair in fields.items() for v in pair])
+    if fields: hset(SAVED, *[v for pair in fields.items() for v in pair])
     return {'covered': sum(bool(v.get('games')) for k, v in saved.items() if k in jobs),
             'games': sum(len(v.get('games', [])) for k, v in saved.items() if k in jobs)}
+
+
+def _same(a, b):
+    try: return json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
+    except (TypeError, ValueError): return False
 
 
 def coverage_for(games):
@@ -716,20 +794,20 @@ def warm_headshots(budget=45, limit=30, publish=True, players=None):
             command('DEL', retry)
             return 0
         try:
-            command('HSET', HS_ATTEMPTS, path, json.dumps(time.time()))
+            hset(HS_ATTEMPTS, path, json.dumps(time.time()))
             result = map_result(fetch(path, timeout=min(15, max(2, budget-(time.monotonic()-started)))), path, item['date'])
             old = maps.get(path, {})
             for slug, player in result['players'].items():
                 player.update({k:v for k,v in old.get('players',{}).get(slug,{}).items() if k not in player})
-            command('HSET', MAPS, path, json.dumps(result, separators=(',', ':')))
+            hset(MAPS, path, json.dumps(result, separators=(',', ':')))
             status = result_status(result=result, previous=statuses.get(path))
-            command('HSET', HS_STATUS, path, json.dumps(status))
+            hset(HS_STATUS, path, json.dumps(status))
             with outcomes_lock: outcomes[status['result']] += 1
             return int(any('headshots' in p for p in result['players'].values()))
         except Exception as error:
             status = result_status(error=error, previous=statuses.get(path))
             with outcomes_lock: outcomes[status['result']] += 1
-            try: command('HSET', HS_STATUS, path, json.dumps(status))
+            try: hset(HS_STATUS, path, json.dumps(status))
             except Exception: pass
             return 0
         finally: command('DEL', claim)

@@ -44,6 +44,11 @@ class StorageRecoveryTests(unittest.TestCase):
         for secret in ('example.invalid', 'test-only-secret', 'private-key', 'internal detail'):
             self.assertNotIn(secret, json.dumps(payload))
 
+    def test_odds_lines_fall_back_to_the_deployment_key_during_an_outage(self):
+        self.get.return_value = self.capacity()
+        with patch.dict('os.environ', {'ODDS_API_KEY_V2': 'mock-deploy-key'}):
+            self.assertEqual(store.get_odds_api_key_candidates(), ['mock-deploy-key'])
+
     def test_breaker_stops_reads_writes_and_pipelines_then_recovers(self):
         self.get.return_value = self.capacity()
         for operation in (lambda: store.get('a'), lambda: store.get('b'),

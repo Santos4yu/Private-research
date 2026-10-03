@@ -33,6 +33,8 @@ def listing_fixture(day, pages=2):
 class HistoryTests(unittest.TestCase):
     def setUp(self):
         h._memory.clear()
+        h._mirror.clear()
+        h._enrolled.update(at=0.0,keys=frozenset())
         self.fan = patch.object(h,'fan_out',return_value={'covered':0,'games':0})
         self.fan.start()
         self.addCleanup(self.fan.stop)
@@ -405,6 +407,75 @@ class FanOutTests(unittest.TestCase):
         basic=html.replace('advanced_kills:20','advanced_kills:null,basic_kills:20,basic_deaths:10,basic_assists:4')
         self.assertEqual(h.listed_results(basic,'alpha0',paths)[0]['players']['alpha0']['kills'],20)
         self.assertEqual(h.listed_results(html.replace('winner_clan_score:13','winner_clan_score:10'),'alpha0',paths),[])
+
+
+class StorageUseTests(unittest.TestCase):
+    def setUp(self):
+        h._mirror.clear()
+        h._enrolled.update(at=0.0,keys=frozenset())
+        self.addCleanup(h._mirror.clear)
+
+    def test_saved_tables_are_read_again_only_after_they_change(self):
+        version={'n':5}
+        table={'alpha0':json.dumps({'games':[]})}
+        def counter(*args):
+            if args[0]=='INCR':version['n']+=1
+            return version['n']
+        def command(*args):
+            if args[0]=='HGETALL':return dict(table)
+            if args[0]=='HSET':table.update(zip(args[2::2],args[3::2]));return 1
+        with patch.object(h.finder_history_store,'command',side_effect=counter),patch.object(h,'command',side_effect=command) as store:
+            reads=lambda:sum(call.args[0]=='HGETALL' for call in store.call_args_list)
+            h.read_entries(h.SAVED);h.read_entries(h.SAVED)
+            self.assertEqual(reads(),1)
+            # This server's own write keeps its copy current without a re-read.
+            h.hset(h.SAVED,'beta0',json.dumps({'games':[1]}))
+            self.assertEqual(h.read_entries(h.SAVED)['beta0'],{'games':[1]})
+            self.assertEqual(reads(),1)
+            # Another server's write: the next read fetches the table again.
+            version['n']+=1;table['gamma0']=json.dumps({})
+            self.assertIn('gamma0',h.read_entries(h.SAVED))
+            self.assertEqual(reads(),2)
+
+    def test_unchanged_players_are_not_rewritten(self):
+        games=[{'gameId':'g1','date':'2026-10-01','values':{'map1kills':10}}]
+        jobs={'alpha0':{'slug':'alpha0','enrolledAt':h.time.time()}}
+        state={'alpha0':{'paginationVersion':1,'nextListingPage':3,'listingPages':2,'paths':[]}}
+        saved={}
+        tables=lambda key:json.loads(json.dumps({h.MAPS:{},h.SAVED:saved,h.STATE:state}[key]))
+        with patch.object(h,'read_entries',side_effect=tables),patch.object(h,'games_for',return_value=games),patch.object(h,'hset') as hset:
+            h.fan_out(jobs)
+            self.assertEqual(hset.call_count,1)
+            saved['alpha0']=json.loads(hset.call_args.args[2])
+            h.fan_out(jobs)
+            self.assertEqual(hset.call_count,1)
+            games.append({'gameId':'g2','date':'2026-10-02','values':{'map1kills':12}})
+            h.fan_out(jobs)
+            self.assertEqual(hset.call_count,2)
+
+    def test_players_with_full_histories_are_rechecked_every_few_minutes(self):
+        now=h.time.time()
+        jobs={key:{'player':key,'slug':key,'enrolledAt':now} for key in ('alpha0','beta0')}
+        saved={'alpha0':{'checkedAt':now-120,'listingReady':True,'games':[{'values':{'map1kills':10}}],'coverage':{'listingComplete':True}},
+               'beta0':{'checkedAt':now-120}}
+        def command(*args):
+            if args[0]=='SET':return 'OK'
+        with patch.object(h,'read_entries',side_effect=[jobs,saved]),patch.object(h,'command',side_effect=command) as store,\
+                patch.object(h,'fetch',side_effect=TimeoutError),patch.object(h,'fan_out',return_value={'covered':0,'games':0}):
+            h.warm()
+        locks=[call.args[1] for call in store.call_args_list if call.args[0]=='SET']
+        self.assertEqual(locks,['finder:cs2:lock:beta0'])
+
+    def test_same_board_players_are_enrolled_once_an_hour(self):
+        board=lambda:{'rows':[{'player':'alpha0'},{'player':'beta0'}]}
+        with patch.object(h,'read_entries',return_value={}),patch.object(h,'command') as store:
+            h.attach(board());h.attach(board())
+            self.assertEqual(sum(call.args[:2]==('HSET',h.JOBS) for call in store.call_args_list),1)
+
+    def test_timer_runs_the_collector_every_other_tick(self):
+        with patch.object(h,'command',side_effect=['OK',None]) as store:
+            self.assertEqual((h.due(),h.due()),(True,False))
+        self.assertEqual(store.call_args.args,('SET','finder:cs2:cadence:v1','1','NX','EX',h.CADENCE_SECONDS))
 
 
 if __name__=='__main__':unittest.main()

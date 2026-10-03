@@ -7,6 +7,25 @@ import prizepicks_export_core as export
 from tests.test_prizepicks_export import FakePrizePicks,player,projection
 
 class CS2Tests(unittest.TestCase):
+    def setUp(self):
+        # Each test starts from a server that has not read or written the board yet.
+        cs2_board._snapshot.update(at=0.0,raw=None)
+        cs2_board._published.update(at=0.0,digest=None)
+        cs2_board._cache.update(at=0,value=None)
+
+    def test_unchanged_board_is_not_rewritten_on_every_tick(self):
+        value={'rows':[{'player':'alpha0','line':20.5}],'lineUpdatedAt':1}
+        with patch('cs2_history.attach',side_effect=lambda board:board),patch('cs2_history.command') as command:
+            writes=lambda:sum(call.args[0]=='SET' for call in command.call_args_list)
+            cs2_board.publish_saved(value);cs2_board.publish_saved(value)
+            self.assertEqual(writes(),1)
+            cs2_board.publish_saved({**value,'rows':[{'player':'alpha0','line':21.5}]})
+            self.assertEqual(writes(),2)
+            # Rewritten before readers would treat it as stale.
+            cs2_board._published['at']-=cs2_board.REPUBLISH_SECONDS
+            cs2_board.publish_saved({**value,'rows':[{'player':'alpha0','line':21.5}]})
+            self.assertEqual(writes(),3)
+
     def test_full_board_compression_is_lossless_and_smaller_than_host_limit(self):
         import gzip,json
         payload={'histories':{str(i):{'games':[{'values':{'map1kills':20,'map1headshots':12},'opponent':'Verified opponent','mapDetails':[{'kills':20,'headshots':12}]}]*40} for i in range(300)}}

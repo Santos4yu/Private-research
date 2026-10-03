@@ -408,9 +408,9 @@ class handler(BaseHTTPRequestHandler):
             return self._send(401, {"error": "Timer key required"})
         # Run beside existing work, so other sports cannot starve CS2 backfill.
         from concurrent.futures import ThreadPoolExecutor
-        from cs2_history import warm as cs2_warm
+        from cs2_history import warm as cs2_warm, due as cs2_due
         cs2_pool = ThreadPoolExecutor(max_workers=1)
-        cs2_job = cs2_pool.submit(cs2_warm, budget=45, limit=24)
+        cs2_job = cs2_pool.submit(lambda: cs2_warm(budget=45, limit=24) if cs2_due() else {"waiting": True})
         cs2_pool.shutdown(wait=False)
         line_moves.safely(line_moves.keep_fresh, set(line_moves.SPORTS), budget=25)
         # Moneylines ride the same timer: prices near the start (closing
@@ -434,8 +434,8 @@ class handler(BaseHTTPRequestHandler):
         try:
             from backend.sports.wnba import league as seasons
             season = seasons.current_season(league="nba")
-            stored = seasons.stored(season, "nba")
-            if (not stored or stored.get("partial")) and not seasons._locked("nba"):
+            summary = seasons.progress(season, "nba")
+            if (not summary or summary["partial"]) and not seasons._locked("nba"):
                 seasons._set_lock(str(time.time()), "nba")
                 try:
                     built = seasons.build(season, deadline_seconds=12, league="nba")
