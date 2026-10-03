@@ -186,6 +186,26 @@ class MonthlySeasonTests(unittest.TestCase):
         # The WNBA keeps its one record.
         self.assertFalse(league.LEAGUES["wnba"]["monthly"])
 
+    def test_the_timer_checks_only_the_season_summary(self):
+        store = FakeStore()
+        store.data["krazy_data:nba:v1:league:2026"] = league._encode({"partial": True, "months": ["2025-10"]})
+        store.data["krazy_data:nba:v1:league:2026:2025-10"] = league._encode({"g1": {}})
+        read = []
+        get = store.get
+        store.get = lambda key: read.append(key) or get(key)
+        league._progress.clear()
+        with patch.object(league, "_store", return_value=store):
+            self.assertEqual(league.progress(2026, "nba"), {"partial": True})
+            store.data["krazy_data:nba:v1:league:2026"] = league._encode({"partial": False, "months": ["2025-10"]})
+            self.assertEqual(league.progress(2026, "nba"), {"partial": False})
+            # A finished season is not read again for half an hour.
+            self.assertEqual(league.progress(2026, "nba"), {"partial": False})
+            self.assertIsNone(league.progress(2027, "nba"))
+        self.assertEqual(read, ["krazy_data:nba:v1:league:2026"]*2 + ["krazy_data:nba:v1:league:2027"])
+        store.get = lambda key: (_ for _ in ()).throw(ConnectionError())
+        with patch.object(league, "_store", return_value=store), self.assertRaises(ConnectionError):
+            league.progress(2028, "nba")
+
     def test_team_schedules_make_the_nba_season(self):
         asked = []
 

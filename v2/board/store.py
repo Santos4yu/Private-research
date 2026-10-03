@@ -233,7 +233,10 @@ def get_odds_api_key_candidates() -> list[str]:
     key later expires or is revoked, callers can still retry the deployment
     key instead of leaving every live-line request permanently broken.
     """
-    stored_key = get(ODDS_KEY_STORAGE_KEY) or ""
+    try:
+        stored_key = get(ODDS_KEY_STORAGE_KEY, cache_seconds=10) or ""
+    except StorageUnavailable:
+        stored_key = ""  # Lines keep working on the deployment key while storage is down.
     env_key = os.getenv("ODDS_API_KEY_V2", "") or ""
     return list(dict.fromkeys(key.strip() for key in (stored_key, env_key) if key.strip()))
 
