@@ -264,7 +264,7 @@ const COLORS: string[] = (() => {
   const out: string[] = [];
   for (let gi = 0; gi <= G_STEPS; gi++) {
     const g = gi / G_STEPS;
-    const r = Math.round(lerp(235, 52, g)), gg = Math.round(lerp(235, 211, g)), b = Math.round(lerp(235, 153, g));
+    const r = Math.round(lerp(235, 96, g)), gg = Math.round(lerp(235, 165, g)), b = Math.round(lerp(235, 250, g));
     for (let ai = 0; ai <= A_STEPS; ai++) out.push(`rgba(${r},${gg},${b},${(ai / A_STEPS).toFixed(3)})`);
   }
   return out;
@@ -534,8 +534,8 @@ function createRuntime(env: Env): Runtime {
       el.style.opacity = fmt(p);
       el.style.transform = p >= 0.999 || reduced ? "none" : `translateY(${fmt((1 - p) * 4)}px)`;
       el.style.filter = p >= 0.999 || reduced ? "none" : `blur(${fmt((1 - p) * 4)}px)`;
-      // A word arrives green and glowing, then settles to the text colour
-      // over the next moment -- a short green wave behind the cursor.
+      // A word arrives lit and glowing, then settles to the text colour
+      // over the next moment -- a short blue wave behind the cursor.
       el.style.setProperty("--wg", reduced || t <= 0 ? "0" : fmt(clamp01(1 - (t - wDur * 0.35) / 300)));
     });
     // The cursor rides on the newest word while the answer streams in.
