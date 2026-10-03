@@ -346,7 +346,7 @@
   left: 50%;
   top: 0;
   z-index: 4;
-  width: min(320px, calc(100vw - 32px));
+  width: min(var(--mo-card-w, 320px), calc(100vw - 32px));
   max-height: var(--h);
   overflow: hidden;
   padding: 14px 16px 16px;
@@ -358,14 +358,21 @@
 .mo-root[data-phase="unfold"] .mo-answer,
 .mo-root[data-phase="answered"] .mo-answer,
 .mo-root[data-phase="reset"] .mo-answer { visibility: visible; }
-.mo-root[data-phase="answered"] .mo-answer { max-height: none; }
+.mo-root[data-phase="answered"] .mo-answer {
+  max-height: var(--ans-cap, none);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, .14) transparent;
+}
 /* A longer answer grows the card once it has unfolded (--ans-h is the
    answer's measured height, set by the page that hosts the component). */
 .mo-root[data-phase="answered"] .mo-actor {
   height: max(var(--h), var(--ans-h, 0px));
-  transition: height .38s cubic-bezier(.22, 1, .36, 1);
+  translate: 0 var(--ans-y, 0px);
+  transition: height .38s cubic-bezier(.22, 1, .36, 1), translate .38s cubic-bezier(.22, 1, .36, 1);
 }
-.mo-root[data-phase="reset"] .mo-actor { transition: height .22s ease-out; }
+.mo-root[data-phase="reset"] .mo-actor { transition: height .22s ease-out, translate .22s ease-out; }
 .mo-a-head {
   display: flex;
   align-items: center;

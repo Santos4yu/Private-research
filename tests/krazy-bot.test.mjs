@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createBot, understand, normalize, findPlayers, rank, distance} from '../src/krazy-bot.js';
+import {createBot, understand, normalize, findPlayers, rank, distance, pickCard} from '../src/krazy-bot.js';
 
 const START = Date.parse('2026-10-03T23:05:00Z');
 let id = 0;
@@ -156,6 +156,64 @@ test('line moves, thinking steps and honest fallbacks', async () => {
   assert.match(await bot.ask('best nfl prop'), /covering MLB, NBA, NHL right now/);
   assert.match(await createBot({load: async () => { throw new Error('offline'); }}).ask('best K prop'), /can't reach today's lines/);
   assert.match(await bot.ask('build me a 3-pick slip'), /3-pick slip I like: .*from different games/);
+});
+
+test('answers carry a card: the pick, its last 10, the numbers, the matchup', async () => {
+  const bot = makeBot();
+  await bot.ask('best k prop');
+  const {lead, card} = bot.card();
+  assert.equal(card.kind, 'pick');
+  assert.match(lead, /Tarik Skubal over 6\.5 K's vs KC\. I love this one\. Skubal has gone over in 8 of his last 10\./);
+  assert.doesNotMatch(lead, /grade A/);  // the card shows the grade and chance
+  assert.deepEqual([card.pick.player, card.pick.grade, card.pick.chance, card.pick.side, card.pick.line], ['Tarik Skubal', 'A', 0.66, 'OVER', 6.5]);
+  assert.deepEqual(card.pick.record, {won: 8, games: 10});
+  assert.deepEqual(card.pick.tiles.map(tile => [tile.key, tile.value, tile.label, tile.tone]), [['books', '61%', 'Books', 'up'], ['projection', '7.4', 'Projection', 'up']]);
+  assert.equal(card.pick.matchup.text, 'KC strikes out 26% of the time (league 22%)');
+  assert.equal(card.pick.matchup.tone, 'up');
+  assert.deepEqual(card.pick.risks, ['Only 7 games of history']);
+
+  await bot.ask('compare judge and soto');
+  assert.deepEqual(bot.card().card.picks.map(item => item.player), ['Aaron Judge', 'Juan Soto']);
+  await bot.ask('build me a 3-pick slip');
+  const slip = bot.card().card;
+  assert.equal(slip.kind, 'slip');
+  assert.equal(slip.picks.length, 3);
+  assert.equal(new Set(slip.picks.map(item => item.player)).size, 3);
+  assert.ok(slip.together > 0 && slip.together < 1);
+  await bot.ask("what's the play today");
+  assert.deepEqual(bot.card().card.rows.map(item => item.tag), ['Top play', 'Best matchup', 'Long shot']);
+  await bot.ask('should I take witt under 1.5 total bases');
+  assert.deepEqual([bot.card().card.verdict.tone, bot.card().card.pick.side], ['flip', 'OVER']);
+  await bot.ask('why');
+  assert.ok(bot.card().card.reasons.length >= 1);
+  await bot.ask('thanks');
+  assert.equal(bot.card(), null);  // small talk stays plain text
+});
+
+test('"why is he a good pick" about a player not on screen breaks down his best pick', async () => {
+  const bot = makeBot();
+  assert.match(await bot.ask('why is judge a good pick'), /^Why Aaron Judge over 1\.5 Hits\+Runs\+RBIs vs BOS: /);
+  const {card} = bot.card();
+  assert.equal(card.pick.player, 'Aaron Judge');
+  assert.ok(!card.reasons.some(text => /Brayan Bello/.test(text)));  // the matchup has its own row
+  assert.equal(card.pick.matchup.text, 'Faces Brayan Bello (1.41 WHIP, 7.2 K/9)');
+});
+
+test('a card reads the game log, venue and logos off the row', () => {
+  const row = {id: 'x', sport: 'nba', player: 'Jayson Tatum', market: 'Points', line: 26.5, modifier: 'standard', teamAbbr: 'BOS', opponent: 'NYK',
+    teamLogo: 'https://a.espncdn.com/i/teamlogos/nba/500/bos.png', isHome: false, startsAt: '2026-10-03T23:30:00Z', headshot: 'https://example.test/t.png',
+    gameLog: [{value: 31, date: '2026-04-01', opponent: 'MIA'}, {value: 26.5, date: '2026-04-03', opponent: 'ORL'}, {value: 22, date: '2026-04-05', opponent: 'CHI'}]};
+  const card = pickCard({row, side: 'OVER', player: row.player, grade: 'A', chance: 0.64, records: {}, read: {factors: [], risks: []}});
+  assert.deepEqual(card.last.map(game => [game.value, game.hit, game.label]), [[31, true, 'MIA'], [26.5, null, 'ORL'], [22, false, 'CHI']]);
+  assert.equal(card.opponentLogo, 'https://a.espncdn.com/i/teamlogos/nba/500/nyk.png');
+  assert.equal(card.home, false);
+  const mlb = pickCard({row: {...row, sport: 'mlb', opponentTeamId: 147, teamLogo: null, gameLog: [{value: 2, date: '2026-09-28', opponent: 147}],
+    matchup: {kind: 'pitcher', pitcher: {id: 605400, name: 'Aaron Nola', hand: 'R'}}}, side: 'UNDER', player: row.player, grade: 'B', chance: 0.6, records: {},
+    read: {factors: [{key: 'matchup', factor: 0.95, text: 'Faces Aaron Nola (1.10 WHIP, 9.1 K/9)', short: 'Nola', label: 'starter'}], risks: []}});
+  assert.equal(mlb.opponentLogo, 'https://www.mlbstatic.com/team-logos/147.svg');
+  assert.deepEqual([mlb.last[0].label, mlb.last[0].hit], ['9/28', true]);
+  assert.deepEqual([mlb.matchup.name, mlb.matchup.face, mlb.matchup.tone], ['Aaron Nola', true, 'up']);
+  assert.match(mlb.matchup.photo, /people\/605400\/headshot/);
 });
 
 test('ranking keeps one pick per player', () => {

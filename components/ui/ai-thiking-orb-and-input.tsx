@@ -15,8 +15,16 @@ const COPY = {
 
 type Phase = "idle" | "launch" | "assemble" | "think" | "resolve" | "condense" | "unfold" | "answered" | "reset";
 
+/** An answer: its text, or the text plus more to show under it in the card (and the card's width for it). */
+export type MorphAnswer = string | { text: string; extra?: React.ReactNode; width?: number };
+interface Reply { text: string; extra?: React.ReactNode; width?: number }
+const readReply = (b: MorphAnswer): Reply =>
+  typeof b === "string" ? { text: b.trim() ? b : COPY.answerBody }
+    : b && typeof b.text === "string" && b.text.trim() ? { text: b.text, extra: b.extra, width: b.width }
+      : { text: COPY.answerBody };
+
 export interface MorphOrbProps {
-  onSubmit?: (text: string) => Promise<string> | string;
+  onSubmit?: (text: string) => Promise<MorphAnswer> | MorphAnswer;
   minThinkMs?: number;
   speed?: number;
   /** Status lines shown while thinking about this question (defaults to COPY.labels). */
@@ -416,7 +424,7 @@ interface UI {
   setPhase(p: Phase): void;
   swapLabel(name: string): void;
   resetLabel(): void;
-  setAnswer(s: string): void;
+  setAnswer(s: string, extra?: React.ReactNode): void;
   clearInput(): void;
   live(s: string): void;
   lock(on: boolean): void;
@@ -429,7 +437,7 @@ interface Env {
   getBody: () => HTMLElement | null;
   ui: UI; getSpeed: () => number; isReduced: () => boolean;
 }
-interface RunCfg { onSubmit: (text: string) => Promise<string> | string; minThink: number; labels: string[] }
+interface RunCfg { onSubmit: (text: string) => Promise<MorphAnswer> | MorphAnswer; minThink: number; labels: string[] }
 interface Runtime {
   start(text: string, cfg: RunCfg): boolean;
   escape(): void;
@@ -638,10 +646,14 @@ function createRuntime(env: Env): Runtime {
       const t0 = performance.now();
       const pending = Promise.resolve()
         .then(() => cfg.onSubmit(text))
-        .then((b) => (typeof b === "string" && b.trim() ? b : COPY.answerBody), () => COPY.answerBody);
+        .then(readReply, (): Reply => ({ text: COPY.answerBody }));
       const got = await abortable(pending, sig);
       if (sig.aborted) throw ABORT;
-      const body = got ?? COPY.answerBody;
+      const reply = got ?? { text: COPY.answerBody };
+      const body = reply.text;
+      // A reply with more to show can ask for a wider card.
+      geo.cw = reply.width ? Math.min(reply.width, window.innerWidth - 32) : cardW();
+      root.style.setProperty("--mo-card-w", geo.cw + "px");
       await sleep(cfg.minThink / env.getSpeed() - (performance.now() - t0), sig);
       ctl.stop = true;
       if (sig.aborted) throw ABORT;
@@ -660,7 +672,7 @@ function createRuntime(env: Env): Runtime {
         env.ui.setPhase("unfold");
         wDur = 320;
         wStagger = n > 1 ? Math.min(45, 280 / (n - 1)) : 0;
-        env.ui.setAnswer(body);
+        env.ui.setAnswer(body, reply.extra);
         await go(unfoldTracks(geo, (n - 1) * wStagger + wDur));
       } else {
         env.ui.setPhase("resolve");
@@ -676,7 +688,7 @@ function createRuntime(env: Env): Runtime {
         env.ui.setPhase("unfold");
         wDur = 250;
         wStagger = 0;
-        env.ui.setAnswer(body);
+        env.ui.setAnswer(body, reply.extra);
         await go(R_GREEN_OUT);
         setNow("w", geo.cw); setNow("h", CARD_H); setNow("r", 20); setNow("dotS", 1);
         await go(rCardIn(wDur));
@@ -799,7 +811,7 @@ export default function MorphOrb(props: MorphOrbProps) {
   const [phase, setPhaseState] = useState<Phase>("idle");
   const [value, setValue] = useState("");
   const [lbl, setLbl] = useState<{ cur: string; prev: string | null; n: number }>({ cur: COPY.labels[0], prev: null, n: 0 });
-  const [answer, setAnswer] = useState("");
+  const [answer, setAnswer] = useState<Reply>({ text: "" });
   const [dbgSpeed, setDbgSpeed] = useState(1);
   const [debug] = useState(() => typeof window !== "undefined" && /[?&]debug(?:[=&]|$)/.test(window.location.search));
 
@@ -846,7 +858,7 @@ export default function MorphOrb(props: MorphOrbProps) {
         setPhase: (p) => { phaseRef.current = p; setPhaseState(p); },
         swapLabel: (name) => setLbl((l) => (l.cur === name ? l : { cur: name, prev: l.cur, n: l.n + 1 })),
         resetLabel: () => setLbl((l) => ({ cur: COPY.labels[0], prev: null, n: l.n + 1 })),
-        setAnswer: (s) => setAnswer(s),
+        setAnswer: (s, extra) => setAnswer({ text: s, extra }),
         clearInput: () => setValue(""),
         live: (s) => { if (liveRef.current) liveRef.current.textContent = s; },
         lock: (on) => { form.toggleAttribute("inert", on); },
@@ -882,7 +894,7 @@ export default function MorphOrb(props: MorphOrbProps) {
   }, []);
 
   const defaultSubmit = () =>
-    new Promise<string>((res) => {
+    new Promise<MorphAnswer>((res) => {
       window.setTimeout(() => res(COPY.answerBody), 4600 / speedRef.current);
     });
   const makeCfg = (text: string): RunCfg => {
@@ -949,7 +961,7 @@ export default function MorphOrb(props: MorphOrbProps) {
   };
 
   const ready = value.trim().length > 0;
-  const words = answer.split(/\s+/).filter(Boolean);
+  const words = answer.text.split(/\s+/).filter(Boolean);
 
   const labelInner = (name: string) =>
     name === COPY.done ? (
@@ -1022,6 +1034,7 @@ export default function MorphOrb(props: MorphOrbProps) {
                 </React.Fragment>
               ))}
             </p>
+            {answer.extra != null && <div className="mo-a-extra">{answer.extra}</div>}
           </div>
         </div>
       </div>

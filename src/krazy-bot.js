@@ -346,6 +346,7 @@ const statShort = leg => statOfRow(leg.row)?.short || String(leg.row.market || '
 const lower = text => /^(Faces|The|Only|Tough|Pitches|Plate|Playing|Second)\b/.test(text || '') ? text[0].toLowerCase() + text.slice(1) : text;
 const join = (parts, word = 'and') => parts.length <= 1 ? parts.join('') : `${parts.slice(0, -1).join(', ')} ${word} ${parts.at(-1)}`;
 const sentence = text => text ? text[0].toUpperCase() + text.slice(1).replace(/[.\s]*$/, '.') : '';
+const tidy = text => text.replace(/\s+/g, ' ').replace(/\s+([.,])/g, '$1').trim();
 const tag = leg => leg.modifier && leg.modifier !== 'standard' ? ` (${leg.modifier})` : '';
 
 /** "Tarik Skubal over 6.5 K's vs KC" */
@@ -373,6 +374,69 @@ export function evidence(leg) {
     if (item.key === 'defense') out.push(`${leg.row.opponent} are ${item.strong} in ${item.label.replace(/ \(.*\)$/, '')}`);
   }
   return out;
+}
+
+// ---------------------------------------------------------------- cards
+
+const MLB_PHOTO = id => `https://img.mlbstatic.com/mlb-photos/image/upload/w_120,q_auto:best/v1/people/${encodeURIComponent(id)}/headshot/silo/current`;
+const MLB_LOGO = id => `https://www.mlbstatic.com/team-logos/${encodeURIComponent(id)}.svg`;
+const shortDate = value => {
+  const match = /^\d{4}-(\d{2})-(\d{2})/.exec(value || '');
+  return match ? `${Number(match[1])}/${Number(match[2])}` : '';
+};
+// The opponent's logo: posted on the row (NHL, soccer), from the MLB team
+// id, or ESPN's logo for the team's own code (NBA, WNBA).
+function opponentLogo(row) {
+  if (row.opponentLogo) return row.opponentLogo;
+  if (row.sport === 'mlb' && row.opponentTeamId != null) return MLB_LOGO(row.opponentTeamId);
+  if (row.opponent && /^https:\/\/a\.espncdn\.com\/.+\/[a-z]+\.png$/i.test(row.teamLogo || '')) return row.teamLogo.replace(/[a-z]+\.png$/i, `${String(row.opponent).toLowerCase()}.png`);
+  return null;
+}
+
+// Card tiles carry short names; the rest say who (vs BOS) or what (pitches).
+const TILE_LABELS = {season: () => 'Season', books: () => 'Books', projection: () => 'Projection', average: () => 'L10 avg',
+  streak: () => 'Streak', defense: () => 'Defense', venue: label => label === 'at home' ? 'Home' : 'Road',
+  role: label => label[0].toUpperCase() + label.slice(1)};
+
+/**
+ * What the answer card shows for one pick: who and when, the line, the
+ * last 10 games against it, the numbers behind it, the matchup and what
+ * to watch. Plain data; src/KrazyBotCard.jsx draws it.
+ */
+export function pickCard(leg) {
+  const {row, side} = leg;
+  const line = row.line;
+  const sign = side === 'UNDER' ? -1 : 1;
+  const last = (row.gameLog || []).filter(game => finite(game.value)).slice(-10).map(game => ({
+    value: game.value,
+    hit: game.value === line ? null : (game.value - line) * sign > 0,
+    label: typeof game.opponent === 'string' && game.opponent ? game.opponent : shortDate(game.date),
+  }));
+  const records = leg.records || {};
+  const recent = records.l10 || records.l5;
+  const projection = leg.read?.projection;
+  const tiles = reasons(leg).filter(item => !['l10', 'l5', 'matchup'].includes(item.key)).slice(0, 4).map(item => ({
+    key: item.key, value: item.strong, label: TILE_LABELS[item.key]?.(item.label) || item.label,
+    tone: item.tone || (item.key === 'projection' ? ((projection - line) * sign > 0 ? 'up' : 'down')
+      : item.key === 'books' ? (leg.book >= 0.5 ? 'up' : 'down') : null),
+  }));
+  const matchup = matchupOf(leg);
+  const pitcher = row.sport === 'mlb' && row.matchup?.kind === 'pitcher' ? row.matchup.pitcher : null;
+  const lift = matchup ? matchupLift(leg) : 0;
+  return {
+    player: leg.player, headshot: row.headshot || null, position: row.position || null, sport: row.sport || 'mlb',
+    team: row.teamAbbr || null, teamLogo: row.teamLogo || null,
+    opponent: row.opponent || null, opponentLogo: opponentLogo(row), home: typeof row.isHome === 'boolean' ? row.isHome : null,
+    time: timeOf(row.startsAt), side, line, stat: row.market || statShort(leg), short: statShort(leg),
+    modifier: leg.modifier || 'standard', grade: leg.grade || null, chance: leg.chance, backed: leg.backed !== false,
+    record: recent ? {won: recent.won, games: recent.games} : null, last, tiles,
+    matchup: matchup?.text ? {
+      text: matchup.text, short: matchup.short || null, tone: lift >= 0.03 ? 'up' : lift <= -0.03 ? 'down' : null,
+      photo: pitcher?.id ? MLB_PHOTO(pitcher.id) : opponentLogo(row), face: Boolean(pitcher?.id),
+      name: pitcher?.name || row.opponent || null, hand: pitcher?.hand || null,
+    } : null,
+    risks: (leg.read?.risks || []).slice(0, 2),
+  };
 }
 
 const CONFIDENCE = {A: ['I love this one.', 'Strong play.', 'This is my kind of spot.'], B: ['Solid lean.', 'I like it.', 'Good spot.'],
@@ -425,6 +489,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
   let movesCache = {at: 0, list: []};
   let ctx = null;          // the conversation: the last question and what it showed
   let suggestions = [];
+  let answer = null;       // the card for the last answer ({lead, card}), when it has one
   let me = sanitize(profile?.read?.());
 
   const save = () => { try { profile?.write?.(me); } catch { /* storage full or blocked */ } };
@@ -527,7 +592,10 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     const risk = leg.read?.risks?.[0];
     const watch = risk ? ` ${pick(['One thing to watch:', 'Only knock:', 'Watch out:'], random)} ${lower(risk)}.` : '';
     suggestions = ['Why?', 'Next best', leg.side === 'OVER' ? 'What about the under?' : 'What about the over?', 'Build me a 3-pick slip'];
-    return `${opener} ${pickLine(leg)} (grade ${leg.grade}, ${percent(leg.chance)} to hit). ${pick(CONFIDENCE[leg.grade] || CONFIDENCE.C, random)} ${sentence(join(facts))}${watch}${await moveNote(leg)}`.replace(/\s+/g, ' ').trim();
+    const confidence = pick(CONFIDENCE[leg.grade] || CONFIDENCE.C, random);
+    const moved = await moveNote(leg);
+    answer = {lead: tidy(`${opener} ${pickLine(leg)}. ${confidence} ${sentence(facts[0] || '')}${moved}`), card: {kind: 'pick', pick: pickCard(leg)}};
+    return tidy(`${opener} ${pickLine(leg)} (grade ${leg.grade}, ${percent(leg.chance)} to hit). ${confidence} ${sentence(join(facts))}${watch}${moved}`);
   };
 
   /** A yes/no on one side of one line, whether or not it's a pick we'd make. */
@@ -550,7 +618,12 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     suggestions = ['Why?', side === 'UNDER' ? 'What about the over?' : 'What about the under?', `Best ${statOfRow(row)?.name || ''} prop today`.replace('  ', ' '), 'Next best'];
     const head = side || !other ? `${pickLine(chosen)}: ${percent(chosen.chance)} to hit${chosen.grade ? `, grade ${chosen.grade}` : ''}.`
       : `${pickLine(chosen)} is the better side at ${percent(chosen.chance)}.`;
-    return `${call} ${head} ${sentence(join(facts))}${lineNote}${await moveNote(chosen)}`.replace(/\s+/g, ' ').trim();
+    const moved = await moveNote(chosen);
+    const tone = chosen.backed ? 'yes' : chosen.chance >= 0.53 ? 'lean' : other?.backed ? 'flip' : 'pass';
+    const shown = tone === 'flip' ? other : chosen;
+    answer = {lead: tidy(`${call} ${tone === 'flip' ? '' : head}${lineNote}${moved}`),
+      card: {kind: 'pick', pick: pickCard(shown), verdict: {tone, label: {yes: 'Take it', lean: 'Lean', flip: 'Flip it', pass: 'Pass'}[tone]}}};
+    return tidy(`${call} ${head} ${sentence(join(facts))}${lineNote}${moved}`);
   }
 
   function contextual(ask, players) {
@@ -579,6 +652,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
 
   async function ask(text) {
     suggestions = [];
+    answer = null;
     const before = understand(text);
     if (before.intent === 'hello') { await boardsLoaded(); return hello(); }
     if (before.intent === 'help') { suggestions = examples(); return HELP(allowed); }
@@ -625,6 +699,14 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
       question.sport ||= question.stat?.sport || null;
     }
 
+    // "Why is Judge a good pick?" with nothing about him on screen: his best pick, broken down.
+    if (question.intent === 'why' && players.length && ctx?.player !== players[0] && question.index == null) {
+      const ranked = rank(legs, {...question, intent: 'best', players: [players[0]]});
+      remember(question, ranked);
+      if (!ranked.length) return `${players[0]} is on the board today, but none of his lines has a clear edge in our numbers. I'd pass on him.${listLines(players[0])}`;
+      ctx = {...ctx, ask: {...question, intent: 'best'}, ranked, index: 0, sport: ranked[0].row.sport, player: players[0], leg: ranked[0]};
+      return why(0);
+    }
     if (question.intent === 'why') return why(question.index);
     if (question.intent === 'another') return another();
     if (question.intent === 'flip') return flip(question.side);
@@ -685,6 +767,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
       ctx = {...ctx, ask: question, ranked, index: 0, sport: ranked[0].row.sport, player: ranked[0].player, leg: ranked[0]};
       suggestions = ['Why #1?', 'Build me a 3-pick slip', 'Safest pick'];
       const label = `Top ${Math.min(question.count, ranked.length)} ${question.stat ? question.stat.name + ' ' : ''}props today:`;
+      answer = {lead: `${label.replace(/:$/, '.')} Ask "why #1" for the breakdown.`, card: {kind: 'list', picks: ranked.slice(0, question.count).map(pickCard)}};
       return `${label} ${ranked.slice(0, question.count).map((leg, index) => `${index + 1}) ${pickLine(leg)}, ${leg.grade}, ${percent(leg.chance)}`).join('; ')}. Ask "why #1" for the breakdown.`;
     }
     return answerPick(question, ranked);
@@ -705,6 +788,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
       const leg = rank(allLegs(), {intent: 'best', players: [player]})[0];
       if (leg) {
         ctx = {ask: {intent: 'best', players: [player], raw: '', text: ''}, ranked: [leg], index: 0, sport: leg.row.sport, player, leg};
+        answer = {lead: `Welcome back! You were asking about ${lastName(player)} before, and he's got a good spot today. What else are we looking at?`, card: {kind: 'pick', pick: pickCard(leg)}};
         return `Welcome back! You were asking about ${lastName(player)} before, and he's got a good spot today: ${pickLine(leg)} (grade ${leg.grade}, ${percent(leg.chance)}). What else are we looking at?`;
       }
     }
@@ -727,6 +811,8 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     const facts = evidence(leg);
     const risks = leg.read?.risks || [];
     suggestions = ['Next best', leg.side === 'OVER' ? 'What about the under?' : 'What about the over?', 'Build me a 3-pick slip'];
+    const drawn = lower(matchupOf(leg)?.text || '');
+    answer = {lead: `Here's why I like ${pickLine(leg)}.`, card: {kind: 'pick', pick: pickCard(leg), reasons: facts.filter(fact => fact !== drawn).slice(0, 5).map(sentence)}};
     return `Why ${pickLine(leg)}: ${join(facts.slice(0, 5))}.${risks.length ? ` Risks: ${join(risks.map(lower))}.` : ' Nothing major argues against it.'} Grade ${leg.grade}, ${percent(leg.chance)} to hit.`;
   }
 
@@ -763,6 +849,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     suggestions = ['Why?', 'Next best', 'Build me a 3-pick slip'];
     const facts = evidence(win).slice(0, 2);
     const versus = lose ? ` vs ${pickLine(lose)} at ${percent(lose.chance)}${lose.backed ? '' : ', which I wouldn\'t play'}` : '';
+    answer = {lead: tidy(`I'd go ${lastName(win.player)}. ${sentence(facts[0] || '')}`), card: {kind: 'compare', picks: [win, lose].filter(Boolean).map(pickCard)}};
     return `I'd go ${lastName(win.player)}. ${pickLine(win)} is ${percent(win.chance)} to hit (grade ${win.grade})${versus}. ${sentence(join(facts))}`.replace(/\s+/g, ' ').trim();
   }
 
@@ -786,6 +873,9 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     if (others.length && !question.sport) parts.push(`${others.join(' and ')}.`);
     if (!topPlay) parts.push('Nothing I\'d back strongly yet.');
     if (topPlay) ctx = {...ctx, ask: {...question, intent: 'best', sport}, ranked: [topPlay, matchup, sleeper].filter(Boolean), index: 0, sport, player: topPlay.player, leg: topPlay};
+    answer = {lead: tidy(`${parts[0]} ${others.length && !question.sport ? `${others.join(' and ')}.` : ''}${topPlay ? '' : ' Nothing I\'d back strongly yet.'}`),
+      card: topPlay ? {kind: 'rundown', rows: [['Top play', topPlay], ['Best matchup', matchup], ['Long shot', sleeper]].filter(([, leg]) => leg).map(([tag, leg]) => ({tag, pick: pickCard(leg)}))} : null};
+    if (!answer.card) answer = null;
     suggestions = ['Why the top play?'.replace('the top play', topPlay ? lastName(topPlay.player) : 'that'), 'Best matchup today', 'Build me a 3-pick slip'];
     return parts.join(' ');
   }
@@ -803,11 +893,13 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     const together = chosen.reduce((product, leg) => product * leg.chance, 1);
     ctx = {...ctx, ask: question, ranked: chosen, index: 0, sport: chosen[0].row.sport, player: chosen[0].player, leg: chosen[0]};
     const payout = POWER[chosen.length];
+    answer = {lead: `Here's a ${chosen.length}-pick slip I like. Every leg grades B or better and they're from different games.`,
+      card: {kind: 'slip', picks: chosen.map(pickCard), together, payout: payout || null}};
     suggestions = ['Why the first leg?'.replace('the first leg', lastName(chosen[0].player)), question.count > 2 ? `Make it ${question.count - 1} picks` : 'Make it 3 picks', question.count < 6 ? `Make it ${question.count + 1} picks` : 'Safest pick'];
     return `Here's a ${chosen.length}-pick slip I like: ${chosen.map(pickLine).join('; ')}. Every leg grades B or better and they're from different games. All ${chosen.length} hit about ${percent(together)} of the time${payout ? `, a ${payout}x Power Play` : ''}.`;
   }
 
-  return {ask, board: boardsLoaded, thinking, examples, suggestions: () => suggestions, profile: () => me, returning: () => Boolean(returning)};
+  return {ask, board: boardsLoaded, thinking, examples, suggestions: () => suggestions, card: () => answer, profile: () => me, returning: () => Boolean(returning)};
 }
 
 const HELP = allowed => `I break down today's ${allowed.map(sport => SPORTS[sport].name).join(', ')} props using our models: record vs the line, projections, matchups and the books. Ask "what's the play today?", "best K prop", "should I take Skubal over 6.5 Ks?", "compare Judge and Soto", "top 3 total bases" or "build me a 3-pick slip". Follow up with "why?", "next" or "what about the under?". I remember what you ask about.`;

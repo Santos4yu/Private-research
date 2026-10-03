@@ -1,6 +1,7 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import MorphOrb from '@/components/ui/ai-thiking-orb-and-input';
 import {createBot,SPORTS} from './krazy-bot';
+import {BotCard} from './KrazyBotCard';
 import {loadLines} from './finder-pool';
 import {isPrizePicksLine} from './smart-slip';
 import {siteFinderSportAllowed} from './site-access';
@@ -9,6 +10,8 @@ import './krazy-bot.css';
 // What the bot remembers about this member (krazy-bot.js profile). It
 // follows their account to other devices (account-sync.js SYNCED.bot).
 const MEMORY_KEY='krazy-bot-memory-v1';
+// An answer with data behind it opens a wider card (the trends, the matchup).
+const CARD_WIDTH=440;
 const memory={
  read(){try{return JSON.parse(localStorage.getItem(MEMORY_KEY)||'null');}catch{return null;}},
  write(value){try{localStorage.setItem(MEMORY_KEY,JSON.stringify(value));}catch{/* private mode */}},
@@ -32,6 +35,7 @@ export function KrazyBot(){
  }),[sports]);
  const host=useRef(null);
  const queued=useRef(null);
+ const measureRef=useRef(()=>{});
  const [phase,setPhase]=useState('idle');
  const [examples,setExamples]=useState(()=>bot.examples());
  const [follow,setFollow]=useState([]);
@@ -68,7 +72,24 @@ export function KrazyBot(){
   const root=host.current?.querySelector('.mo-root');
   const actor=root?.querySelector('.mo-actor'),answer=root?.querySelector('.mo-answer');
   if(!root||!actor||!answer)return undefined;
-  const measure=()=>actor.style.setProperty('--ans-h',`${answer.scrollHeight}px`);
+  // The card grows to fit its answer, kept between the top of the page and
+  // the follow-ups under it: moved up when it would run into them, and
+  // scrolling inside when even that isn't room enough.
+  const measure=()=>{
+   const box=host.current.getBoundingClientRect();
+   const follow=host.current.querySelector('.krazy-bot-follow');
+   const floor=(follow?follow.getBoundingClientRect().top-box.top:box.height-130)-12;
+   // Phones keep it under the account and settings buttons up top.
+   const ceiling=window.innerWidth<=760?64:12;
+   const room=Math.max(160,floor-ceiling);
+   const height=Math.min(answer.scrollHeight,room);
+   const centre=box.height*.46;
+   const top=Math.min(Math.max(centre-height/2,ceiling),floor-height);
+   actor.style.setProperty('--ans-h',`${height}px`);
+   actor.style.setProperty('--ans-y',`${Math.round(top-(centre-height/2))}px`);
+   root.style.setProperty('--ans-cap',`${room}px`);
+  };
+  measureRef.current=measure;
   const watch=new MutationObserver(()=>{
    const next=root.dataset.phase;
    setPhase(next);measure();
@@ -84,10 +105,18 @@ export function KrazyBot(){
   window.addEventListener('resize',measure);
   return()=>{watch.disconnect();words.disconnect();window.removeEventListener('resize',measure);};
  },[bot]);
+ // The follow-ups can wrap to a second row; keep the card clear of them.
+ useEffect(()=>{measureRef.current();},[follow]);
+ // The answer's text, plus the card of data behind it when there is one.
+ const reply=async text=>{
+  const said=await bot.ask(text);
+  const rich=bot.card();
+  return rich?.card?{text:rich.lead||said,extra:<BotCard card={rich.card}/>,width:CARD_WIDTH}:said;
+ };
 
  const idle=phase==='idle',answered=phase==='answered';
  return <div className="krazy-bot" ref={host}>
-  <MorphOrb onSubmit={text=>bot.ask(text)} thinkingLabels={text=>bot.thinking(text)} minThinkMs={3000}/>
+  <MorphOrb onSubmit={reply} thinkingLabels={text=>bot.thinking(text)} minThinkMs={3000}/>
   <header className="krazy-bot-head" data-idle={idle?'':undefined}>
    <span className="krazy-bot-badge">{sports.map(sport=>SPORTS[sport].name).join(' · ')}</span>
    <h1>Krazy Bot</h1>
