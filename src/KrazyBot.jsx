@@ -1,5 +1,5 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import {ArrowUp,RotateCcw} from 'lucide-react';
+import {ArrowUp,ChevronDown,RotateCcw} from 'lucide-react';
 import MorphOrb from '@/components/ui/ai-thiking-orb-and-input';
 import {createBot,SPORTS} from './krazy-bot';
 import {BotCard} from './KrazyBotCard';
@@ -68,6 +68,8 @@ export function KrazyBot(){
   setDraft('');
   askNow(text);
  };
+ // A card taller than the screen: the next part of it, one tap at a time.
+ const more=()=>{const answer=host.current?.querySelector('.mo-answer');answer?.scrollBy({top:answer.clientHeight*.7,behavior:'smooth'});};
  const startOver=()=>{const root=host.current?.querySelector('.mo-root');if(root?.dataset.phase==='answered')root.querySelector('.mo-reset')?.click();};
  // Centered in what's visible: beside the desktop rail, whatever its width.
  useEffect(()=>{
@@ -92,9 +94,10 @@ export function KrazyBot(){
   const root=host.current?.querySelector('.mo-root');
   const actor=root?.querySelector('.mo-actor'),answer=root?.querySelector('.mo-answer');
   if(!root||!actor||!answer)return undefined;
-  // The card grows to fit its answer, kept between the top of the page and
-  // the follow-ups under it: moved up when it would run into them, and
-  // scrolling inside when even that isn't room enough.
+  // The card grows to fit its answer, centred in the open space between the
+  // top of the page and the follow-ups under it, and scrolling inside when
+  // that isn't room enough.
+  const atEnd=()=>answer.toggleAttribute('data-end',answer.scrollTop+answer.clientHeight>=answer.scrollHeight-4);
   const measure=()=>{
    const box=host.current.getBoundingClientRect();
    const follow=host.current.querySelector('.krazy-bot-follow');
@@ -104,15 +107,15 @@ export function KrazyBot(){
    const room=Math.max(160,floor-ceiling);
    const height=Math.min(answer.scrollHeight,room);
    const centre=box.height*.46;
-   // Grows down from where it opened, moving up only when it has to.
-   const opened=parseFloat(actor.style.getPropertyValue('--h'))||108;
-   const start=Math.max(centre-opened/2,ceiling);
-   const top=start+height<=floor?start:Math.max(ceiling,floor-height);
+   const top=ceiling+(room-height)/2;
    actor.style.setProperty('--ans-h',`${height}px`);
    // A card taller than the room scrolls; its foot fades until you reach it.
    answer.toggleAttribute('data-scrolls',answer.scrollHeight>room+1);
+   atEnd();
    actor.style.setProperty('--ans-y',`${Math.round(top-(centre-height/2))}px`);
    root.style.setProperty('--ans-cap',`${room}px`);
+   // Where the card ends, for the "More" button.
+   host.current.style.setProperty('--kb-card-foot',`${Math.round(top+height)}px`);
   };
   measureRef.current=measure;
   const watch=new MutationObserver(()=>{
@@ -128,9 +131,8 @@ export function KrazyBot(){
   const words=new MutationObserver(measure);
   words.observe(answer,{childList:true,subtree:true});
   window.addEventListener('resize',measure);
-  const scrolled=()=>answer.toggleAttribute('data-end',answer.scrollTop+answer.clientHeight>=answer.scrollHeight-4);
-  answer.addEventListener('scroll',scrolled,{passive:true});
-  return()=>{watch.disconnect();words.disconnect();window.removeEventListener('resize',measure);answer.removeEventListener('scroll',scrolled);};
+  answer.addEventListener('scroll',atEnd,{passive:true});
+  return()=>{watch.disconnect();words.disconnect();window.removeEventListener('resize',measure);answer.removeEventListener('scroll',atEnd);};
  },[bot]);
  // The follow-ups can wrap to a second row; keep the card clear of them.
  useEffect(()=>{measureRef.current();},[follow]);
@@ -152,6 +154,9 @@ export function KrazyBot(){
   </header>
   <div className="krazy-bot-examples" data-idle={idle?'':undefined} aria-label="Example questions">
    {examples.map(text=><button key={text} type="button" tabIndex={idle?0:-1} onClick={()=>askNow(text)}>{text}</button>)}
+  </div>
+  <div className="krazy-bot-more" data-show={answered?'':undefined} data-after-card={rich?'':undefined}>
+   <button type="button" onClick={more} tabIndex={answered?0:-1}>More<ChevronDown aria-hidden="true"/></button>
   </div>
   <form className="krazy-bot-ask" data-show={answered?'':undefined} data-after-card={rich?'':undefined} onSubmit={askFromBar} autoComplete="off">
    <button type="button" className="krazy-bot-new" onClick={startOver} tabIndex={answered?0:-1} aria-label="New question" title="New question"><RotateCcw aria-hidden="true"/></button>
