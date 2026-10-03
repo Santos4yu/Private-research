@@ -118,7 +118,9 @@ export function KrazyBot(){
   if(!viewport||!node)return undefined;
   const fit=()=>{
    const field=document.activeElement;
-   const open=Boolean(field&&node.contains(field)&&field.matches('input,textarea'))&&viewport.height<window.innerHeight-120;
+   // Touch screens only: zooming in on a computer shrinks the viewport too.
+   const touch=window.matchMedia('(pointer: coarse)').matches;
+   const open=touch&&Boolean(field&&node.contains(field)&&field.matches('input,textarea'))&&viewport.height<window.innerHeight-120;
    if(open){
     node.style.setProperty('--kb-vv-top',`${Math.round(viewport.offsetTop)}px`);
     node.style.setProperty('--kb-vv-h',`${Math.round(viewport.height)}px`);

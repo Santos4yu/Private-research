@@ -10,9 +10,13 @@
 @media (max-width: 760px) {
   html, body { touch-action: manipulation; }
 }
-/* The page stops at its edges: no pulling it down past the top (or up past
-   the bottom) to show the empty space behind it. */
-html, body { overscroll-behavior: none; }
+/* Phones and tablets: the page stops at its edges, with no pulling it down
+   past the top (or up past the bottom) to show the empty space behind it.
+   Computers keep normal scrolling (on some browsers this also stopped the
+   mouse wheel from scrolling the page). */
+@media (max-width: 760px), (pointer: coarse) {
+  html, body { overscroll-behavior: none; }
+}
 .mobile-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 @media (max-width: 760px) {
