@@ -99,3 +99,29 @@ test('the Smart Slip grades a pick, notes why, and drops one the evidence argues
     gameLog: games([12, 11, 14, 10, 13, 12, 11, 15, 12, 13]), defenseValue: 12, defense: 1});
   assert.equal(judgeLeg(cold, 'OVER', {now: NOW}), null);
 });
+
+test('MLB: a lineup read against the pitcher\'s hand and its last ten days, ranked', () => {
+  const league = {kRate: 0.22, ops: 0.71, avg: 0.245, whip: 1.28, teams: 30,
+    vs: {L: {kRate: 0.23, ops: 0.70}, R: {kRate: 0.215, ops: 0.72}}, recent: {kRate: 0.22, ops: 0.71}};
+  const lineup = {kRate: 0.22, ops: 0.70, games: 150, vs: {L: {kRate: 0.28, kRateRank: 2, ops: 0.64, opsRank: 27}, R: {kRate: 0.2}},
+    recent: {kRate: 0.25, ops: 0.62, opsRank: 29, games: 9}};
+  const row = {sport: 'mlb', marketKey: 'pitching:strikeouts', opponent: 'CLE', matchup: {kind: 'lineup', lineup, league, self: {hand: 'L', projectedIp: 6.2}}};
+  const read = matchupRead(row);
+  assert.equal(read.text, 'CLE strikes out 28% of the time vs lefties (2nd-most) (league 23%)');
+  assert.ok(read.factor > matchupRead({...row, matchup: {...row.matchup, self: {hand: 'R'}}}).factor);  // righties don't fan them
+  assert.equal(read.detail.lineup.form, 'cold');
+  assert.deepEqual([read.detail.lineup.split.kRateRank, read.detail.lineup.recent.opsRank], [2, 29]);
+  // Without the splits it reads the season line, as before.
+  assert.equal(matchupRead({...row, matchup: {kind: 'lineup', lineup: {kRate: 0.26, games: 160}, league}}).text, 'CLE strikes out 26% of the time (league 22%)');
+  // A hitter's own lineup against the starter's hand nudges his read.
+  const pitcher = {name: 'Tarik Skubal', hand: 'L', whip: 1.28, k9: 9, ip: 180};
+  const hot = matchupRead({sport: 'mlb', marketKey: 'hitting:hits', matchup: {kind: 'pitcher', pitcher, league,
+    lineup: {ops: 0.71, vs: {L: {ops: 0.80, opsRank: 2}}, recent: {ops: 0.82, opsRank: 1, games: 9}}}});
+  const plain = matchupRead({sport: 'mlb', marketKey: 'hitting:hits', matchup: {kind: 'pitcher', pitcher, league}});
+  assert.ok(hot.factor > plain.factor);
+  assert.equal(hot.detail.lineup.form, 'hot');
+  // A short leash is something to watch on a strikeout over.
+  const log = [5, 6, 7, 4, 6, 5, 6].map((value, index) => ({value, date: `2026-09-${10 + index}`}));
+  const short = readPick({...row, line: 5.5, gameLog: log, matchup: {...row.matchup, self: {hand: 'L', projectedIp: 4.6}}}, 'OVER');
+  assert.ok(short.risks.includes('Projects for only 4.6 innings'));
+});

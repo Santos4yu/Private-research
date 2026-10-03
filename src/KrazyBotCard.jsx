@@ -1,5 +1,5 @@
 import React,{useState} from 'react';
-import {ArrowDown,ArrowUp,ChartColumn,Check,Swords,TrendingDown,TrendingUp,TriangleAlert} from 'lucide-react';
+import {Activity,ArrowDown,ArrowUp,ChartColumn,Check,Flame,History,Snowflake,Swords,Target,Timer,TrendingDown,TrendingUp,TriangleAlert} from 'lucide-react';
 
 // The data under a Krazy Bot answer (krazy-bot.js pickCard), drawn inside the
 // answer card itself. Every section rises in once the card has opened (the
@@ -9,10 +9,12 @@ const pct=value=>Math.round(value*100);
 const figure=value=>Number.isInteger(value)?String(value):value.toFixed(1);
 const initials=name=>String(name||'').split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toUpperCase();
 const delay=seconds=>({'--kb-d':`${seconds}s`});
+// Innings the way a box score writes them: 5.2 is five and two thirds.
+const innings=value=>{const whole=Math.floor(value+1e-6);return `${whole}.${Math.round((value-whole)*3)}`;};
 
-function Logo({src,alt=''}){
+function Logo({src,alt='',fallback=null}){
  const [failed,setFailed]=useState(false);
- if(!src||failed)return null;
+ if(!src||failed)return fallback;
  return <img className="kb-logo" src={src} alt={alt} loading="lazy" onError={()=>setFailed(true)}/>;
 }
 
@@ -74,9 +76,26 @@ function Bars({pick,compact=false}){
 function Matchup({matchup,who=null}){
  const short=matchup.short&&/^[+−-]/.test(matchup.short)?matchup.short:null;
  return <div className="kb-matchup">
-  {matchup.face?<Face src={matchup.photo} name={matchup.name} size="sm"/>:<span className="kb-matchup-logo">{matchup.photo?<Logo src={matchup.photo}/>:<Swords aria-hidden="true"/>}</span>}
+  {matchup.face?<Face src={matchup.photo} name={matchup.name} size="sm"/>:<span className="kb-matchup-logo"><Logo src={matchup.photo} fallback={<Swords aria-hidden="true"/>}/></span>}
   <p><span>{who?`${who}'s matchup`:'Matchup'}{matchup.hand?` · ${matchup.hand}HP`:''}</span>{matchup.text}</p>
   {matchup.tone&&<em data-tone={matchup.tone}>{matchup.tone==='up'?<TrendingUp aria-hidden="true"/>:<TrendingDown aria-hidden="true"/>}{short||(matchup.tone==='up'?'Edge':'Tough')}</em>}
+ </div>;
+}
+
+// Where the projection lands against the line: the gap between them filled,
+// green when it's on the pick's side.
+function Gauge({pick}){
+ const {projection,line}=pick;
+ const low=line>=5?Math.min(projection,line)*.55:0,high=Math.max(projection,line)*1.35||1;
+ const at=value=>(value-low)/(high-low)*100;
+ const good=pick.side==='UNDER'?projection<line:projection>line;
+ return <div className="kb-gauge" data-good={good?'':undefined} role="img" aria-label={`Projects for ${figure(projection)} against a ${figure(line)} line`}>
+  <span className="kb-gauge-head"><Target aria-hidden="true"/>Projection<strong><Roll text={figure(projection)}/></strong></span>
+  <span className="kb-gauge-track">
+   <i className="kb-gauge-fill" style={{left:`${Math.min(at(projection),at(line))}%`,width:`${Math.abs(at(projection)-at(line))}%`,'--from':at(projection)<at(line)?'right':'left'}}/>
+   <b className="kb-gauge-line" style={{left:`${at(line)}%`}}><em>Line {figure(line)}</em></b>
+   <b className="kb-gauge-dot" style={{left:`${at(projection)}%`,'--from-left':`${at(line)}%`}}/>
+  </span>
  </div>;
 }
 
@@ -95,7 +114,8 @@ function PickCard({pick,verdict,reasons}){
    <span className="kb-chance"><strong><Roll text={`${chance}%`}/></strong><small>to hit</small></span>
   </div>
   <div className="kb-meter kb-rise" style={delay(.16)} aria-hidden="true"><i style={{'--v':pick.chance}}/></div>
-  {pick.last.length>=3&&<div className="kb-rise" style={delay(.24)}><Bars pick={pick}/></div>}
+  {pick.projection!=null&&<div className="kb-rise" style={delay(.2)}><Gauge pick={pick}/></div>}
+  {pick.last.length>=3&&<div className="kb-rise" style={delay(.28)}><Bars pick={pick}/></div>}
   {pick.tiles.length>0&&<div className="kb-tiles kb-rise" style={delay(.36)}>
    {pick.tiles.map((tile,index)=><div key={tile.key} className="kb-tile" data-tone={tile.tone||undefined} style={{'--i':index}}><b><Roll text={tile.value}/></b><span>{tile.label}</span></div>)}
   </div>}
@@ -136,8 +156,126 @@ function Row({pick,tag,rank,index}){
  </li>;
 }
 
+// A starter's last starts as bars of innings (pitch counts under them)
+// against the innings he projects for.
+function StartsChart({starts,projected}){
+ const top=Math.max(7.5,...starts.map(start=>start.ip),projected||0)+.6;
+ return <div className="kb-trend">
+  <header><span><Timer aria-hidden="true"/>Last {starts.length} starts</span><strong data-good="">{innings(starts.reduce((sum,start)=>sum+start.ip,0)/starts.length)} avg</strong></header>
+  <div className="kb-bars" role="img" aria-label={`Innings in his last ${starts.length} starts: ${starts.map(start=>innings(start.ip)).join(', ')}`}>
+   {projected!=null&&<span className="kb-mark" style={{bottom:`${projected/top*100}%`}}><em>{figure(projected)}</em></span>}
+   {starts.map((start,index)=><span key={index} className="kb-bar" data-hit={projected==null||start.ip>=projected?'hit':'push'} style={{'--i':index,'--bh':`${Math.max(start.ip/top*100,3)}%`}}>
+    <b>{innings(start.ip)}</b><i/><small>{start.pitches?`${start.pitches}p`:start.label}</small>
+   </span>)}
+  </div>
+ </div>;
+}
+
+function InningsCard({pitchers}){
+ return <div className="kb-card" data-kind="innings">{pitchers.map((arm,index)=><div className="kb-arm" key={arm.player}>
+  <div className="kb-head kb-rise" style={delay(.04+index*.2)}>
+   <Face src={arm.headshot} name={arm.player} logo={arm.teamLogo}/>
+   <div className="kb-who"><strong>{arm.player}</strong><Game pick={arm}/></div>
+   {arm.projected!=null&&<span className="kb-big"><strong><Roll text={figure(arm.projected)}/></strong><small>proj. innings</small></span>}
+  </div>
+  {arm.starts.length>0&&<div className="kb-rise" style={delay(.12+index*.2)}><StartsChart starts={arm.starts} projected={arm.projected}/></div>}
+  <div className="kb-tiles kb-rise" style={delay(.24+index*.2)}>
+   {[arm.recent!=null&&{key:'recent',value:innings(arm.recent),label:'Last 5 avg'},arm.season!=null&&{key:'season',value:figure(arm.season),label:'Season IP/start'},
+     arm.pitches!=null&&{key:'pitches',value:String(arm.pitches),label:'Pitches/start'},
+     arm.outsLine!=null&&arm.projected!=null&&{key:'outs',value:`${Math.round(arm.projected*3)}`,label:`Outs vs ${figure(arm.outsLine)}`,tone:arm.projected*3>arm.outsLine?'up':'down'}]
+    .filter(Boolean).map((tile,tileIndex)=><div key={tile.key} className="kb-tile" data-tone={tile.tone||undefined} style={{'--i':tileIndex}}><b><Roll text={tile.value}/></b><span>{tile.label}</span></div>)}
+  </div>
+ </div>)}</div>;
+}
+
+// Where a number sits among the league's teams (1st to 30th): a dot on a
+// track, green when that helps the pick and red when it hurts.
+function RankTrack({rank,of,tone}){
+ if(!rank||!of)return null;
+ return <span className="kb-rank-track" data-tone={tone||undefined} aria-label={`${rank} of ${of}`}>
+  <i style={{left:`${(rank-1)/Math.max(of-1,1)*100}%`}}/>
+ </span>;
+}
+const ordinal=n=>`${n}${n%100>=11&&n%100<=13?'th':['th','st','nd','rd'][n%10]||'th'}`;
+
+function MatchupCard({card}){
+ const {face,versus}=card;
+ return <div className="kb-card" data-kind="matchup">
+  <div className="kb-duel kb-rise" style={delay(.04)}>
+   <span className="kb-duel-side"><Face src={face.headshot} name={face.player} logo={face.teamLogo}/><strong>{face.player.split(' ').at(-1)}</strong></span>
+   <span className="kb-duel-vs"><Swords aria-hidden="true"/>{card.hand&&<em>{card.hand}HP</em>}</span>
+   <span className="kb-duel-side">{versus.headshot?<Face src={versus.headshot} name={versus.name} logo={versus.logo}/>
+    :<span className="kb-matchup-logo" data-size="lg"><Logo src={versus.logo} fallback={versus.abbr?<b>{versus.abbr}</b>:<Swords aria-hidden="true"/>}/></span>}
+    <strong>{versus.headshot?versus.name.split(' ').at(-1):versus.abbr||versus.name}</strong></span>
+  </div>
+  {card.metrics.length>0&&<ul className="kb-metrics kb-rise" style={delay(.16)}>{card.metrics.map((metric,index)=><li key={metric.key} style={{'--i':index}} data-tone={metric.tone||undefined}>
+   <span className="kb-metric-label">{metric.label}{metric.form==='hot'?<Flame aria-label="hot"/>:metric.form==='cold'?<Snowflake aria-label="cold"/>:null}</span>
+   <strong><Roll text={metric.value}/></strong>
+   {metric.rank?<span className="kb-metric-rank">{ordinal(metric.rank)}{metric.of?<small>/{metric.of}</small>:null}</span>:<span className="kb-metric-rank"/>}
+   <RankTrack rank={metric.rank} of={metric.of} tone={metric.tone}/>
+  </li>)}</ul>}
+  {(card.history||card.h2h||card.projected!=null)&&<div className="kb-tiles kb-rise" style={delay(.3)}>
+   {card.history&&<div className="kb-tile" style={{'--i':0}}><b><Roll text={`${card.history.k}`}/></b><span><History aria-hidden="true"/>K in {innings(card.history.ip)} IP</span></div>}
+   {card.history&&<div className="kb-tile" style={{'--i':1}}><b><Roll text={`${card.history.er}`}/></b><span>ER vs {versus.abbr||'them'}</span></div>}
+   {card.h2h&&<div className="kb-tile" data-tone={card.h2h.won/card.h2h.games>=.5?'up':'down'} style={{'--i':0}}><b><Roll text={`${card.h2h.won}/${card.h2h.games}`}/></b><span>{card.h2h.side} vs {card.h2h.opponent}</span></div>}
+   {card.projected!=null&&<div className="kb-tile" style={{'--i':2}}><b><Roll text={figure(card.projected)}/></b><span>Proj. innings</span></div>}
+  </div>}
+  {card.pick&&<ol className="kb-rows"><Row pick={card.pick} tag="His line" index={4}/></ol>}
+ </div>;
+}
+
+function TeamsCard({card}){
+ const top=Math.max(...card.rows.map(row=>row.share||0),.0001);
+ return <div className="kb-card" data-kind="teams">
+  <header className="kb-card-title kb-rise" style={delay(.02)}><Activity aria-hidden="true"/>{card.title}</header>
+  <ol className="kb-teams">{card.rows.map((team,index)=><li key={team.abbr||index} className="kb-team kb-rise" style={delay(.08+index*.08)} data-form={team.form||undefined}>
+   <span className="kb-rank">{index+1}</span>
+   <span className="kb-matchup-logo"><Logo src={team.logo} fallback={<b>{team.abbr}</b>}/></span>
+   <span className="kb-team-main"><strong>{team.name}</strong>{team.note&&<small>{team.note}</small>}</span>
+   <span className="kb-team-end"><strong><Roll text={team.value}/></strong>
+    {team.delta!=null?<small data-up={team.delta>=0?'':undefined}>{team.delta>=0?<ArrowUp aria-hidden="true"/>:<ArrowDown aria-hidden="true"/>}{Math.abs(team.delta).toFixed(3).replace(/^0/,'')}</small>
+     :team.form==='hot'?<Flame aria-label="hot"/>:team.form==='cold'?<Snowflake aria-label="cold"/>:null}</span>
+   <span className="kb-row-meter" aria-hidden="true"><i style={{'--v':Math.max((team.share||0)/top,.04)}}/></span>
+  </li>)}</ol>
+  {card.focus&&<div className="kb-tiles kb-rise" style={delay(.2)}>
+   <div className="kb-tile" style={{'--i':0}}><b><Roll text={card.focus.recent}/></b><span>OPS, last 10 days</span></div>
+   <div className="kb-tile" style={{'--i':1}}><b><Roll text={card.focus.season}/></b><span>OPS, season</span></div>
+   {card.focus.runs!=null&&<div className="kb-tile" style={{'--i':2}}><b><Roll text={figure(Math.round(card.focus.runs*10)/10)}/></b><span>Runs/game</span></div>}
+   {card.focus.kRate!=null&&<div className="kb-tile" style={{'--i':3}}><b><Roll text={`${pct(card.focus.kRate)}%`}/></b><span>K rate</span></div>}
+  </div>}
+ </div>;
+}
+
+function UsageCard({card}){
+ const {face,values}=card;
+ const average=Number(card.average);
+ const top=Math.max(...values.map(item=>item.value),average)*1.12;
+ const base=Math.floor(Math.min(...values.map(item=>item.value),average)*.6);
+ const height=value=>(value-base)/(top-base)*100;
+ return <div className="kb-card" data-kind="usage">
+  <div className="kb-head kb-rise" style={delay(.04)}>
+   <Face src={face.headshot} name={face.player} logo={face.teamLogo}/>
+   <div className="kb-who"><strong>{face.player}</strong><Game pick={face}/></div>
+   <span className="kb-big"><strong><Roll text={card.average}/></strong><small>{card.label} avg</small></span>
+  </div>
+  <div className="kb-rise" style={delay(.14)}><div className="kb-trend">
+   <header><span><Timer aria-hidden="true"/>Last {values.length} games</span><strong data-good="">{card.recent} last 5</strong></header>
+   <div className="kb-bars" role="img" aria-label={`${card.label} in his last ${values.length} games: ${values.map(item=>item.value).join(', ')}`}>
+    <span className="kb-mark" style={{bottom:`${height(average)}%`}}><em>{card.average}</em></span>
+    {values.map((item,index)=><span key={index} className="kb-bar" data-hit={item.value>=average?'hit':'push'} style={{'--i':index,'--bh':`${Math.max(height(item.value),3)}%`}}>
+     <b>{figure(item.value)}</b><i/><small>{item.label}</small>
+    </span>)}
+   </div>
+  </div></div>
+ </div>;
+}
+
 export function BotCard({card}){
  if(!card)return null;
+ if(card.kind==='innings')return <InningsCard pitchers={card.pitchers}/>;
+ if(card.kind==='matchup')return <MatchupCard card={card}/>;
+ if(card.kind==='teams')return <TeamsCard card={card}/>;
+ if(card.kind==='usage')return <UsageCard card={card}/>;
  if(card.kind==='pick')return <PickCard pick={card.pick} verdict={card.verdict} reasons={card.reasons}/>;
  if(card.kind==='compare')return <div className="kb-card" data-kind="compare">
   <div className="kb-versus">{card.picks.map((pick,index)=><ComparePick key={pick.player} pick={pick} best={index===0} index={index}/>)}</div>

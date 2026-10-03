@@ -110,6 +110,48 @@ const HITTER_RATE = {hits: 'whip', tb: 'whip', hrr: 'whip', singles: 'whip', dou
 const PITCHER_RATE = {strikeouts: ['kRate', 1], hits: ['avg', 1], 'earned-runs': ['runsPerGame', 1], 'runs-allowed': ['runsPerGame', 1],
   walks: ['bbRate', 1], 'hr-allowed': ['hrRate', 1], 'pitcher-fantasy': ['kRate', 0.6], outs: ['runsPerGame', -0.4], pitches: ['runsPerGame', 0.3]};
 
+/**
+ * A lineup's rate for one stat as the matchup sees it: against the
+ * pitcher's hand when MLB split it out, blended with how the lineup has
+ * hit over the last ten days, each held against the league's own figure.
+ * Also what a card shows of it: the ranks, hot or cold.
+ */
+function lineupForm(lineup, league, hand, rate) {
+  if (!lineup || !league) return null;
+  const split = hand ? lineup.vs?.[hand] : null, splitLeague = hand ? league.vs?.[hand] : null;
+  const useSplit = split && splitLeague && finite(split[rate]) && finite(splitLeague[rate]) && splitLeague[rate] > 0;
+  const base = useSplit ? split : lineup, baseLeague = useSplit ? splitLeague : league;
+  if (!finite(base[rate]) || !finite(baseLeague[rate]) || baseLeague[rate] <= 0) return null;
+  let ratio = base[rate] / baseLeague[rate];
+  const recent = lineup.recent, recentLeague = league.recent;
+  const lately = recent && recentLeague && finite(recent[rate]) && finite(recentLeague[rate]) && recentLeague[rate] > 0
+    ? recent[rate] / recentLeague[rate] : null;
+  // Ten days say less than a season: weighted by the games in them.
+  if (lately != null) {
+    const weight = 0.35 * (finite(recent.games) ? recent.games / (recent.games + 6) : 0.5);
+    ratio = (1 - weight) * ratio + weight * lately;
+  }
+  const hot = recent && recentLeague && finite(recent.ops) && finite(recentLeague.ops) && recentLeague.ops > 0
+    ? recent.ops / recentLeague.ops : null;
+  return {ratio, value: base[rate], league: baseLeague[rate], hand: useSplit ? hand : null, rank: base[rate + 'Rank'] || null,
+    teams: league.teams || null, split: useSplit ? {kRate: split.kRate ?? null, kRateRank: split.kRateRank ?? null, ops: split.ops ?? null,
+      opsRank: split.opsRank ?? null, avg: split.avg ?? null, league: splitLeague} : null,
+    recent: recent ? {ops: recent.ops ?? null, opsRank: recent.opsRank ?? null, kRate: recent.kRate ?? null, kRateRank: recent.kRateRank ?? null,
+      runsPerGame: recent.runsPerGame ?? null, runsPerGameRank: recent.runsPerGameRank ?? null, games: recent.games ?? null, league: recentLeague || null} : null,
+    form: hot == null ? null : hot >= 1.08 ? 'hot' : hot <= 0.92 ? 'cold' : 'steady'};
+}
+
+// A starter's projected innings (mlb_context.py) against the innings in
+// his own recent starts, for lines that ride on depth (pitching outs).
+function depthRatio(row) {
+  const self = row.matchup?.self;
+  if (!self || !finite(self.projectedIp)) return null;
+  const outs = (row.gameLog || []).map(game => game.value).filter(finite);
+  if (outs.length < MIN_GAMES) return null;
+  const average = mean(outs.slice(-10)) / 3;
+  return average > 0 ? self.projectedIp / average : null;
+}
+
 /** What today's opponent does to the stat: a factor on the projection and its words. */
 export function matchupRead(row) {
   if ((row.sport === 'wnba' || row.sport === 'nba' || row.sport === 'nfl') && finite(row.defenseValue) && finite(row.defenseAverage) && row.defenseAverage > 0) {
@@ -130,31 +172,46 @@ export function matchupRead(row) {
     if (row.matchup.kind === 'pitcher') {
       const rate = HITTER_RATE[key];
       const pitcher = row.matchup.pitcher;
+      // His own lineup against this starter's hand, and lately (when MLB gave them).
+      const form = lineupForm(row.matchup.lineup, league, pitcher?.hand, 'ops');
+      const team = form ? shift(form.ratio, 0.25, 0.94, 1.06) : 1;
       if (rate && pitcher && finite(pitcher[rate]) && finite(league[rate]) && league[rate] > 0) {
         const trust = finite(pitcher.ip) ? pitcher.ip / (pitcher.ip + 60) : 0.3;
-        const factor = shift(pitcher[rate] / league[rate], 0.5 * trust, 0.85, 1.15);
+        const factor = clamp(shift(pitcher[rate] / league[rate], 0.5 * trust, 0.85, 1.15) * team, 0.85, 1.15);
         const shown = [finite(pitcher.whip) && `${pitcher.whip.toFixed(2)} WHIP`, finite(pitcher.k9) && `${pitcher.k9.toFixed(1)} K/9`].filter(Boolean).join(', ');
         return {factor, short: pitcher.name ? pitcher.name.split(' ').at(-1) : 'SP', label: 'starter',
-          text: `Faces ${pitcher.name || "the opponent's starter"}${shown ? ` (${shown})` : ''}`};
+          text: `Faces ${pitcher.name || "the opponent's starter"}${shown ? ` (${shown})` : ''}`,
+          detail: {kind: 'hitter', pitcher, lineup: form, teams: league.teams || null}};
       }
       const staff = row.matchup.staff;
       if (rate && staff && finite(staff[rate]) && finite(league[rate]) && league[rate] > 0) {
-        const factor = shift(staff[rate] / league[rate], 0.25, 0.92, 1.08);
+        const factor = clamp(shift(staff[rate] / league[rate], 0.25, 0.92, 1.08) * team, 0.85, 1.15);
         return {factor, short: row.opponent || 'staff', label: 'pitching staff',
-          text: `${row.opponent || 'The opponent'}'s staff runs a ${finite(staff.era) ? staff.era.toFixed(2) : '—'} ERA`};
+          text: `${row.opponent || 'The opponent'}'s staff runs a ${finite(staff.era) ? staff.era.toFixed(2) : '—'} ERA`,
+          detail: {kind: 'hitter', pitcher: null, lineup: form, teams: league.teams || null}};
       }
     } else {
       const [rate, direction] = PITCHER_RATE[key] || [];
       const lineup = row.matchup.lineup;
-      if (rate && lineup && finite(lineup[rate]) && finite(league[rate]) && league[rate] > 0) {
+      const hand = row.matchup.self?.hand || null;
+      const form = rate ? lineupForm(lineup, league, hand, rate) : null;
+      if (form) {
         const trust = finite(lineup.games) ? lineup.games / (lineup.games + 20) : 0.5;
-        const ratio = lineup[rate] / league[rate];
-        const factor = shift(ratio, 0.6 * direction * trust, 0.85, 1.15);
+        let factor = shift(form.ratio, 0.6 * direction * trust, 0.85, 1.15);
+        // Pitching outs ride on how deep he goes: his projected innings
+        // against what his own games average.
+        const depth = key === 'outs' ? depthRatio(row) : null;
+        if (depth) factor = clamp(factor * shift(depth, 0.5, 0.92, 1.08), 0.85, 1.15);
         const words = {kRate: ['strikes out', value => percent(value)], avg: ['hits', value => value.toFixed(3).replace(/^0/, '')],
           runsPerGame: ['scores', value => `${value.toFixed(1)} runs a game`], bbRate: ['walks', value => percent(value)],
           hrRate: ['homers', value => percent(value)]}[rate];
-        return {factor, short: `${ratio >= 1 ? '+' : '−'}${Math.abs(Math.round((ratio - 1) * 100))}%`, label: 'lineup',
-          text: `${row.opponent || 'The opponent'} ${words[0]} ${words[1](lineup[rate])}${rate === 'kRate' || rate === 'bbRate' || rate === 'hrRate' ? ' of the time' : ''} (league ${words[1](league[rate])})`};
+        const often = rate === 'kRate' || rate === 'bbRate' || rate === 'hrRate' ? ' of the time' : '';
+        const against = form.hand ? ` vs ${form.hand === 'L' ? 'lefties' : 'righties'}` : '';
+        const place = form.rank && form.teams && (form.rank <= 8 || form.rank > form.teams - 8)
+          ? ` (${ordinal(form.rank <= 8 ? form.rank : form.teams - form.rank + 1)}-${form.rank <= 8 ? 'most' : 'fewest'})` : '';
+        return {factor, short: `${form.ratio >= 1 ? '+' : '−'}${Math.abs(Math.round((form.ratio - 1) * 100))}%`, label: 'lineup',
+          text: `${row.opponent || 'The opponent'} ${words[0]} ${words[1](form.value)}${often}${against}${place} (league ${words[1](form.league)})`,
+          detail: {kind: 'pitcher', rate, lineup: form, self: row.matchup.self || null, teams: league.teams || null}};
       }
     }
   }
@@ -281,6 +338,10 @@ export function readPick(row, side, {records = {}, book = null, baseline = 0.5} 
     if (item.key === 'role' && effect <= -0.03) out.risks.push(item.text);
     if (item.key === 'h2h' && item.record?.games >= 3 && item.record.rate <= 0.34) out.risks.push(`${item.record.won} of ${item.record.games} against ${row.opponent}`);
   }
+  // A starter not expected to go deep caps his strikeouts and outs.
+  const self = row.sport === 'mlb' && row.matchup?.kind === 'lineup' ? row.matchup.self : null;
+  if (self && finite(self.projectedIp) && self.projectedIp < 5 && side !== 'UNDER' && /^pitching:(strikeouts|outs|pitcher-fantasy)$/.test(row.marketKey || ''))
+    out.risks.push(`Projects for only ${figure(self.projectedIp)} innings`);
   const lastFive = records.l5;
   if (lastFive && lastFive.games >= 5 && lastFive.rate <= bar - 0.1) out.risks.push(`${lastFive.won} of the last 5`);
   out.risks = [...new Set(out.risks)].slice(0, 2);

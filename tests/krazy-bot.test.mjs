@@ -222,3 +222,73 @@ test('ranking keeps one pick per player', () => {
   legs.push(graded(rows[0], 'OVER', {grade: 'A', chance: 0.7}));
   assert.equal(rank(legs, {intent: 'best'}).filter(leg => leg.player === 'Tarik Skubal').length, 1);
 });
+
+// ---------------------------------------------------------------- the analyst
+
+function analystBot() {
+  const league = {teams: 30, kRate: 0.22, ops: 0.71, whip: 1.28, vs: {R: {kRate: 0.22, ops: 0.71}, L: {kRate: 0.23, ops: 0.7}}, recent: {kRate: 0.22, ops: 0.71}};
+  const reds = {name: 'Cincinnati Reds', kRate: 0.24, kRateRank: 5, ops: 0.7, opsRank: 20, games: 150,
+    vs: {R: {kRate: 0.26, kRateRank: 3, ops: 0.68, opsRank: 24}}, recent: {ops: 0.62, opsRank: 29, runsPerGame: 3.1, runsPerGameRank: 28, kRate: 0.27, games: 9}};
+  const sox = {name: 'Boston Red Sox', kRate: 0.21, kRateRank: 20, ops: 0.74, opsRank: 8, games: 150,
+    vs: {R: {kRate: 0.2, kRateRank: 24, ops: 0.75, opsRank: 6}}, recent: {ops: 0.82, opsRank: 1, runsPerGame: 6.1, runsPerGameRank: 2, kRate: 0.19, games: 9}};
+  const yanks = {name: 'New York Yankees', kRate: 0.23, ops: 0.76, games: 150, vs: {R: {kRate: 0.22, kRateRank: 12, ops: 0.79, opsRank: 2}},
+    recent: {ops: 0.85, opsRank: 1, runsPerGame: 6.2, games: 9}};
+  const starts = [5.2, 6, 5, 6.1, 6.2].map((ip, index) => ({date: `2026-09-${10 + index * 5}`, ip, k: 7, pitches: 90 + index}));
+  const mlbRow = (player, line, market, marketKey, extra) => ({...row(player, 'mlb', market, line, {marketKey, ...extra}), ...extra});
+  const miz = mlbRow('Jacob Misiorowski', 4.5, 'Pitcher Strikeouts', 'pitching:strikeouts', {team: 'MIL', opponent: 'CIN', game: 'mil-cin', teamAbbr: 'MIL',
+    teamId: 158, opponentTeamId: 113, isHome: true, matchup: {kind: 'lineup', lineup: reds, league,
+      self: {id: 694819, name: 'Jacob Misiorowski', hand: 'R', projectedIp: 5.6, recentIp: 5.87, ip: 60, starts: 12, recentPitches: 92, lastStarts: starts,
+        vsOpponent: {starts: 1, ip: 6, k: 9, er: 1}}}});
+  const drew = mlbRow('Drew Rasmussen', 17.5, 'Pitching Outs', 'pitching:outs', {team: 'TB', opponent: 'BOS', game: 'tb-bos', teamAbbr: 'TB',
+    teamId: 139, opponentTeamId: 111, matchup: {kind: 'lineup', lineup: sox, league, self: {id: 656876, name: 'Drew Rasmussen', hand: 'R', projectedIp: 5.9, recentIp: 6, ip: 150, starts: 27, recentPitches: 88, lastStarts: starts}}});
+  const judge = mlbRow('Aaron Judge', 1.5, 'Hits+Runs+RBIs', 'hitting:hrr', {team: 'NYY', opponent: 'TOR', game: 'nyy-tor', teamAbbr: 'NYY', teamId: 147, opponentTeamId: 141,
+    matchup: {kind: 'pitcher', pitcher: {id: 592332, name: 'Kevin Gausman', hand: 'R', whip: 1.2, era: 3.9, k9: 9.5, ip: 150}, lineup: yanks, league}});
+  const tatum = {...row('Jayson Tatum', 'nba', 'Points', 26.5, {team: 'BOS', opponent: 'NYK', game: 'bos-nyk'}),
+    gameLog: [34, 36, 38, 35, 37, 36, 39, 38, 40, 38].map((usage, index) => ({value: 25 + index, usage, opponent: 'MIA', date: `2026-04-0${index % 9 + 1}`}))};
+  const graded = (item, side, chance, projection, extra = {}) => ({id: `${item.id}|${side}`, row: item, side, modifier: 'standard', grade: 'A', chance, book: null, backed: true,
+    game: `${item.sport}:${item.gameId}`, player: item.player, price: null, records: {l10: {won: 8, games: 10, rate: 0.8}, ...extra}, read: {projection, factors: [], risks: []}});
+  const reads = new Map([[`${miz.id}|OVER`, graded(miz, 'OVER', 0.7, 6.3)], [`${drew.id}|OVER`, graded(drew, 'OVER', 0.6, 18.1)],
+    [`${judge.id}|OVER`, graded(judge, 'OVER', 0.63, 2.4, {h2h: {won: 4, games: 6, rate: 0.67}})], [`${tatum.id}|OVER`, graded(tatum, 'OVER', 0.6, 28.3)]]);
+  const rows = [miz, drew, judge, tatum];
+  return createBot({sports: ['mlb', 'nba'], load: async sport => rows.filter(item => item.sport === sport),
+    judge: list => list.flatMap(item => ['OVER', 'UNDER'].map(side => reads.get(`${item.id}|${side}`))).filter(Boolean),
+    assess: (item, side) => reads.get(`${item.id}|${side}`) || null, now: () => START, random: () => 0});
+}
+
+test('the analyst: innings for "they", first names on screen, the matchup against his hand', async () => {
+  const bot = analystBot();
+  await bot.ask('compare misiorowski and rasmussen');
+  const deep = await bot.ask('how many projected innings are they going');
+  assert.match(deep, /^Misiorowski projects for about 5\.6 innings \(17 outs\): 5\.9 a start over his last 5, 5 on the season and 92 pitches a start lately\. /);
+  assert.match(deep, /Rasmussen projects for about 5\.9 innings \(18 outs\).*His outs line is 17\.5, so that leans over\./);
+  const card = bot.card().card;
+  assert.equal(card.kind, 'innings');
+  assert.deepEqual(card.pitchers.map(item => [item.player, item.projected, item.starts.length]), [['Jacob Misiorowski', 5.6, 5], ['Drew Rasmussen', 5.9, 5]]);
+  assert.match(await bot.ask('why jacob'), /^Why Jacob Misiorowski over 4\.5 K's vs CIN/);
+  const matchup = await bot.ask('how does the lineup do vs righties');
+  assert.equal(matchup, "Misiorowski (RHP) gets CIN, who strike out 26% against righties (3rd of 30). They've been cold lately: .620 OPS over the last 10 days (29th). "
+    + "He's faced them once this year: 6 innings, 9 strikeouts, 1 earned run. Overall it's a neutral spot for his K's over.");
+  const {card: detail} = bot.card();
+  assert.equal(detail.kind, 'matchup');
+  assert.deepEqual(detail.metrics.map(item => [item.key, item.value, item.rank, item.tone]),
+    [['k', '26%', 3, 'good'], ['ops', '.680', 24, 'good'], ['recent', '.620', 29, 'good'], ['runs', '3.1', 28, 'good']]);
+  assert.match(await bot.ask("are the other team's bats hot"), /^The Reds are cold: \.620 OPS over the last 10 days \(29th of 30\), down from \.700 on the season\./);
+});
+
+test('the analyst: hot lineups, strikeout rankings, a hitter\'s matchup, minutes and projections', async () => {
+  const bot = analystBot();
+  assert.match(await bot.ask('hottest lineups today'), /^Hottest lineups playing today, by OPS over the last 10 days: NYY \(\.850\), BOS \(\.820\) and CIN \(\.620\)\./);
+  assert.equal(bot.card().card.rows[0].abbr, 'NYY');
+  assert.match(await bot.ask('which lineups strike out the most'), /^Lineups that strike out the most today, against the hand they face: CIN 26% vs Misiorowski/);
+  assert.equal(await bot.ask('how does judge match up'), 'Judge faces Kevin Gausman (RHP), 1.20 WHIP, 3.90 ERA. NYY hits .790 against righties (2nd of 30). '
+    + 'The bats are hot: .850 OPS over the last 10 days. He\'s over 4 of 6 against TOR.');
+  assert.equal(bot.card().card.versus.name, 'Kevin Gausman');
+  assert.match(await bot.ask('how many minutes is tatum playing'), /^Tatum is averaging 37\.1 minutes over his last 10 and 38\.2 over his last 5, holding steady\./);
+  assert.equal(bot.card().card.values.length, 10);
+  assert.equal(await bot.ask("what's judge projected for"), 'Judge projects for 2.4 Hits+Runs+RBIs against the 1.5 line, 63% to go over.');
+  assert.equal(bot.card().card.pick.projection, 2.4);
+  // A first name that's an everyday word names nobody off screen.
+  assert.notEqual(bot.card(), null);
+  assert.deepEqual(findPlayers('will he go deep', ['Will Smith', 'Aaron Judge']).players, []);
+  assert.deepEqual(findPlayers('why will', ['Will Smith', 'Aaron Judge'], {preferred: ['Will Smith']}).players, ['Will Smith']);
+});

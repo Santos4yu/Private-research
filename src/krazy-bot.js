@@ -11,10 +11,13 @@
 // member (what they ask about) lets it pick up where they left off.
 
 import {candidates, reasons, POWER, assessLeg, gameKey} from './smart-slip.js';
+import {matchupRead} from './slip-analyst.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const percent = value => `${Math.round(value * 100)}%`;
 const figure = value => Number.isInteger(value) ? String(value) : value.toFixed(1);
+const mean = values => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+const ordinal = n => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th'}`;
 const nameKey = value => String(value || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const clean = value => String(value || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '')
   .replace(/[’`]/g, "'").replace(/&/g, ' and ').replace(/\s+/g, ' ').trim();
@@ -257,11 +260,22 @@ export function understand(text, {keepWords} = {}) {
     if (ask.sport && ask.sport !== key) continue;
     for (const team of sport.teams) if (team.pattern.test(q)) ask.teamOptions.push({sport: key, codes: team.codes, name: q.match(team.pattern)[1]});
   }
-  if (/\b(slip|parlay|entry|lineup|power play|flex( play)?|combo)\b|\b(\d|two|three|four|five|six)[ -]?(picks?|legs?|man)\b/.test(q)) {
+  // "Lineup" is a slip only when building one; otherwise it's a team's hitters.
+  if (/\b(slip|parlay|entry|power play|flex( play)?|combo)\b|\b(build|make|give me|create|put together)\b.*\blineup\b|\b(\d|two|three|four|five|six)[ -]?(picks?|legs?|man)\b/.test(q)) {
     const legs = q.match(/\b(\d|two|three|four|five|six)[ -]?(pick|leg|man|player)/);
     return {...ask, intent: 'slip', count: Math.max(2, Math.min(6, Number(legs?.[1]) || NUMBER_WORDS[legs?.[1]] || 3))};
   }
   if (['another', 'flip', 'usual', 'mine', 'value'].includes(ask.intent)) return ask;
+  // An analyst's questions about one player or team, ahead of "vs"/"or"
+  // reading as a comparison.
+  const asking = !/\b(best|top|safest|props? today|slip|parlay)\b/.test(q);
+  if (asking && /\b(innings?|how (deep|long|far)|go(ing|es)? deep|pitch(es)? count|how many pitches|leash|workload|stamina)\b/.test(q)) return {...ask, intent: 'innings'};
+  if (asking && /\b(lefties|righties|left[- ]?handed|right[- ]?handed|lefty|righty|lhp|rhp|handed(ness)?|platoon|who (is|'?s) (he|she) facing|who (does|do) (he|they) face|who'?s pitching (against|vs))\b/.test(q)) return {...ask, intent: 'detail'};
+  if (/\b(hot|hottest|hotter|cold|coldest|colder|on fire|slumping|struggling|swinging (it|well)|bats|been hitting|hitting lately|lately|recent form|streaking|trending|ice cold)\b/.test(q) && !/\bhot (take|pick|play)s?\b/.test(q)) return {...ask, intent: 'form'};
+  if (/\b(rank(ed|ing|ings|s)?|strike ?outs? the most|most strikeouts|whiff the most|k%|k rate|worst lineups?|weakest lineups?|best lineups?|toughest lineups?|which (teams?|lineups?))\b/.test(q)) return {...ask, intent: 'rankings'};
+  if (asking && /\b(minutes|mins|playing time|ice time|toi|usage)\b/.test(q)) return {...ask, intent: 'usage'};
+  if (asking && /\b(project(ed|ion|ions|s)?|expect(ed|ing)?|how many \w+ (will|does|should|can|is)|what('?s| is| does) (his|her|their) (projection|number|line))\b/.test(q)) return {...ask, intent: 'projection'};
+  if (asking && /\b(against|vs\.?|versus) (the )?\w+/.test(q) && /\b(how (does|do|did|has|have)|history|career|numbers|done)\b/.test(q)) return {...ask, intent: 'detail'};
   if (/\b(compare|versus|vs\.?|better (play|pick|option)|who should i (take|play|pick)|which (one|is better))\b|\bor\b/.test(q)) ask.intent = 'compare';
   if (/^(should i|would you|do you like|you like|is (it|this|that)?|thoughts on|how do you feel|tail|lock in|take|is \w+ (a )?(good|safe|worth))|\b(good (play|bet|pick)|worth (it|a play)|safe (play|bet)|smash or pass|yes or no)\b|\?$/.test(q)
       && (ask.line != null || /^(should|would|do you|you like|is|thoughts|how do you feel|tail|lock|take)\b/.test(q))) ask.verdict = true;
@@ -271,8 +285,17 @@ export function understand(text, {keepWords} = {}) {
   return ask;
 }
 
-/** Board players a question names: full names, distinct last names, then near-misses of a last name. */
-export function findPlayers(text, names) {
+// First names that are everyday words too ("will he go deep", "drew a
+// walk"): they only name a player already on screen.
+const WORD_NAMES = new Set(['will', 'drew', 'max', 'chase', 'mark', 'grant', 'hunter', 'jack', 'august', 'rich', 'bo', 'cash', 'gray',
+  'young', 'hope', 'early', 'case', 'miles', 'king', 'chance', 'christian', 'major', 'royce', 'ty', 'cal', 'win', 'ben', 'dean', 'art']);
+
+/**
+ * Board players a question names: full names, distinct last names,
+ * near-misses of a last name, then first names ("why jacob") -- read
+ * first against `preferred`, the players on screen.
+ */
+export function findPlayers(text, names, {preferred = []} = {}) {
   const q = ` ${clean(text).replace(/[^a-z0-9' ]/g, ' ')} `;
   const people = [...new Set(names)].filter(Boolean);
   const plain = name => clean(name).replace(/[^a-z0-9' ]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -286,13 +309,25 @@ export function findPlayers(text, names) {
     if (last.length < 4 || stop.has(last)) continue;
     (lasts.get(last) || lasts.set(last, []).get(last)).push(name);
   }
+  const firsts = new Map();
+  for (const name of people) {
+    const first = plain(name).split(' ')[0];
+    if (first.length < 2 || stop.has(first)) continue;
+    (firsts.get(first) || firsts.set(first, []).get(first)).push(name);
+  }
+  const onScreen = new Set(preferred);
   const groups = [];
   for (const word of words) {
-    if (covered.has(word) || stop.has(word) || word.length < 4) continue;
-    let match = lasts.get(word);
+    if (covered.has(word) || stop.has(word)) continue;
+    let match = word.length >= 4 ? lasts.get(word) : null;
     if (!match && word.length >= 5) {
       const near = [...lasts.keys()].filter(last => Math.abs(last.length - word.length) <= 1 && distance(word, last) <= 1);
       if (near.length === 1) match = lasts.get(near[0]);
+    }
+    if (!match && firsts.has(word)) {
+      const named = firsts.get(word), shown = named.filter(name => onScreen.has(name));
+      if (shown.length) match = shown;
+      else if (!WORD_NAMES.has(word) && word.length >= 3) match = named;
     }
     if (match && !match.some(name => found.includes(name))) groups.push(match);
   }
@@ -429,6 +464,7 @@ export function pickCard(leg) {
     opponent: row.opponent || null, opponentLogo: opponentLogo(row), home: typeof row.isHome === 'boolean' ? row.isHome : null,
     time: timeOf(row.startsAt), side, line, stat: row.market || statShort(leg), short: statShort(leg),
     modifier: leg.modifier || 'standard', grade: leg.grade || null, chance: leg.chance, backed: leg.backed !== false,
+    projection: finite(projection) ? Math.round(projection * 10) / 10 : null,
     record: recent ? {won: recent.won, games: recent.games} : null, last, tiles,
     matchup: matchup?.text ? {
       text: matchup.text, short: matchup.short || null, tone: lift >= 0.03 ? 'up' : lift <= -0.03 ? 'down' : null,
@@ -567,18 +603,26 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
   function thinking(text) {
     const known = new Set(allRows().flatMap(row => nameKey(row.player) ? clean(row.player).split(' ') : []));
     const ask = understand(text, {keepWords: known});
-    const {players} = findPlayers(text, allRows().map(row => row.player));
+    const {players} = findPlayers(text, allRows().map(row => row.player), {preferred: onScreen()});
     const sport = ask.sport || players.map(name => allRows().find(row => row.player === name)?.sport)[0] || ctx?.sport || allowed[0];
     const count = (boards[sport]?.rows || []).length;
     const steps = ['Reading your question'];
     if (count) steps.push(`Scanning ${count} ${SPORTS[sport]?.name || ''} props`.replace(/\s+/g, ' '));
     else steps.push(`Loading today's ${SPORTS[sport]?.name || ''} lines`.replace(/\s+/g, ' '));
-    if (players[0]) steps.push(`Checking ${lastName(players[0])}'s last 10`);
-    if (players[1]) steps.push(`Checking ${lastName(players[1])}'s last 10`);
+    if (players[0] && !['innings', 'form', 'rankings'].includes(ask.intent)) steps.push(`Checking ${lastName(players[0])}'s last 10`);
+    if (players[1] && !['innings', 'form', 'rankings'].includes(ask.intent)) steps.push(`Checking ${lastName(players[1])}'s last 10`);
     if (ask.intent === 'matchup' || ask.intent === 'rundown') steps.push('Reading today\'s matchups');
+    const named = players.length ? players : /\b(they|them|both)\b/.test(ask.text) ? onScreen() : ctx?.player ? [ctx.player] : [];
+    if (ask.intent === 'innings') steps.push(...named.slice(0, 2).map(name => `Pulling ${lastName(name)}'s recent starts`), 'Projecting innings');
+    if (ask.intent === 'detail') steps.push('Checking the lineup vs his hand', 'Reading the last 10 days of hitting');
+    if (ask.intent === 'form') steps.push('Reading the last 10 days of hitting', 'Ranking today\'s lineups');
+    if (ask.intent === 'rankings') steps.push('Ranking today\'s lineups', 'Matching each to the starter\'s hand');
+    if (ask.intent === 'usage') steps.push('Checking playing time');
+    if (ask.intent === 'projection') steps.push('Running the projection');
     if (ask.stat) steps.push(`Ranking ${ask.stat.name} props`);
     if (ask.intent === 'slip') steps.push('Spreading legs across games');
-    steps.push('Checking what the books say', 'Writing it up');
+    if (!['innings', 'form', 'rankings', 'usage'].includes(ask.intent)) steps.push('Checking what the books say');
+    steps.push('Writing it up');
     return [...new Set(steps)].slice(0, 6);
   }
 
@@ -629,7 +673,13 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
   function contextual(ask, players) {
     // A follow-up borrows what it leaves unsaid from the last answer.
     const last = ctx?.ask;
-    const pronoun = /\b(he|him|his|he's|hes|that guy|this guy|that one|this one|it|that pick|this pick|them)\b/.test(ask.text);
+    // "They", "both", "those two": everyone in the last answer.
+    const plural = /\b(they|them|their|both|those (two|guys)|these (two|guys)|the two|each of them|both of them)\b/.test(ask.text);
+    if (!players.length && plural && onScreen().length > 1 && !/\b(other team|opponent)\b/.test(ask.text)) {
+      players = onScreen().slice(0, 3);
+      ask.plural = true;
+    }
+    const pronoun = /\b(he|him|his|he's|hes|that guy|this guy|that one|this one|it|that pick|this pick)\b/.test(ask.text);
     if (!players.length && pronoun && ctx?.player) {
       players = [ctx.player];
       // "Is he safe?" is about the same pick.
@@ -665,7 +715,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     const rows = allRows(), legs = allLegs();
     const known = new Set(rows.flatMap(row => clean(row.player).split(' ')));
     const question = understand(text, {keepWords: known});
-    const found = findPlayers(text, rows.map(row => row.player));
+    const found = findPlayers(text, rows.map(row => row.player), {preferred: onScreen()});
     if (found.ambiguous.length && !found.players.length) {
       const options = found.ambiguous[0].map(name => `${name}${rows.find(row => row.player === name)?.teamAbbr ? ` (${rows.find(row => row.player === name).teamAbbr})` : ''}`);
       suggestions = found.ambiguous[0].map(name => `What about ${name}?`);
@@ -700,6 +750,10 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     }
 
     // "Why is Judge a good pick?" with nothing about him on screen: his best pick, broken down.
+    if (question.intent === 'why' && players.length && question.index == null) {
+      const shown = (ctx?.ranked || []).findIndex(leg => leg?.player === players[0]);
+      if (shown >= 0) return why(shown);
+    }
     if (question.intent === 'why' && players.length && ctx?.player !== players[0] && question.index == null) {
       const ranked = rank(legs, {...question, intent: 'best', players: [players[0]]});
       remember(question, ranked);
@@ -708,6 +762,13 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
       return why(0);
     }
     if (question.intent === 'why') return why(question.index);
+    if (question.intent === 'matchup' && players.length) question.intent = 'detail';
+    if (question.intent === 'innings') return innings(question, players);
+    if (question.intent === 'detail') return detail(question, players);
+    if (question.intent === 'form') return form(question, players);
+    if (question.intent === 'rankings') return rankings(question);
+    if (question.intent === 'usage') return usage(question, players);
+    if (question.intent === 'projection') return projection(question, players);
     if (question.intent === 'another') return another();
     if (question.intent === 'flip') return flip(question.side);
     if (question.intent === 'usual') {
@@ -771,6 +832,280 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
       return `${label} ${ranked.slice(0, question.count).map((leg, index) => `${index + 1}) ${pickLine(leg)}, ${leg.grade}, ${percent(leg.chance)}`).join('; ')}. Ask "why #1" for the breakdown.`;
     }
     return answerPick(question, ranked);
+  }
+
+  // ---------------------------------------------------------------- the analyst
+  // Questions about one player or team -- how deep a starter goes, his
+  // matchup, whose bats are hot, where lineups rank, playing time, the
+  // projection -- answered from the same rows and MLB context the picks use.
+
+  const isPitching = row => String(row?.marketKey || '').startsWith('pitching:');
+  const standard = row => String(row.modifier || 'standard').toLowerCase() === 'standard';
+  const onScreen = () => [...new Set((ctx?.ranked || []).filter(Boolean).map(leg => leg.player))];
+
+  /** The line to talk about for a player: the one on screen, his best graded one, else his first. */
+  function lineOf(player, stat = null) {
+    const fits = leg => leg?.player === player && (!stat || statMatches(stat, leg.row));
+    if (fits(ctx?.leg)) return ctx.leg;
+    const shown = (ctx?.ranked || []).find(fits);
+    if (shown) return shown;
+    const graded = rank(allLegs(), {intent: 'best', players: [player], stat});
+    if (graded[0]) return graded[0];
+    const rows = allRows().filter(row => row.player === player && (!stat || statMatches(stat, row)));
+    const row = rows.find(standard) || rows[0];
+    if (!row) return null;
+    return assess(row, 'OVER', {now: now()}) || assess(row, 'UNDER', {now: now()})
+      || {row, player, side: 'OVER', modifier: 'standard', records: {}, read: null, chance: null, grade: null, backed: false};
+  }
+
+  /** Today's MLB teams from the board: each lineup, its starter, who it plays. */
+  function mlbTeams() {
+    const teams = new Map();
+    let league = null;
+    const team = (id, abbr) => {
+      if (id == null) return null;
+      const key = String(id);
+      if (!teams.has(key)) teams.set(key, {id: key, abbr: null, logo: MLB_LOGO(key), lineup: null, starter: null, opponent: null});
+      const entry = teams.get(key);
+      entry.abbr ||= abbr || null;
+      return entry;
+    };
+    for (const row of boards.mlb?.rows || []) {
+      const matchup = row.matchup;
+      if (!matchup) continue;
+      league ||= matchup.league || null;
+      const own = team(row.teamId, row.teamAbbr), them = team(row.opponentTeamId, row.opponent);
+      if (own && them) { own.opponent = them.id; them.opponent = own.id; }
+      if (matchup.kind === 'lineup') {
+        if (them && matchup.lineup) them.lineup = matchup.lineup;
+        if (own && matchup.self) own.starter = {...matchup.self, headshot: row.headshot || null};
+      } else {
+        if (own && matchup.lineup) own.lineup = matchup.lineup;
+        if (them && matchup.pitcher) them.starter ||= matchup.pitcher;
+      }
+    }
+    return {teams, league, of: league?.teams || 30};
+  }
+  const teamName = team => team?.lineup?.name || team?.abbr || 'them';
+  const nick = team => team?.lineup?.name ? team.lineup.name.split(' ').at(-1) : team?.abbr || 'them';
+  const ops = value => finite(value) ? value.toFixed(3).replace(/^0/, '') : '—';
+  const handWord = hand => hand === 'L' ? 'lefties' : hand === 'R' ? 'righties' : 'that hand';
+  const place = (rank, of) => finite(rank) ? `${ordinal(rank)} of ${of}` : null;
+  const toneOf = (rank, of, high) => !finite(rank) ? null : rank <= of / 3 ? (high ? 'good' : 'bad') : rank > of * 2 / 3 ? (high ? 'bad' : 'good') : null;
+
+  async function innings(question, players) {
+    const named = players.length ? players : onScreen();
+    const pitchers = named.filter(name => allRows().some(row => row.player === name && row.sport === 'mlb' && isPitching(row)));
+    if (!pitchers.length) {
+      suggestions = ['Best K prop today', 'Best matchup today'];
+      return named.length ? `${join(named.map(lastName))} ${named.length > 1 ? "aren't" : "isn't"} pitching today, so there are no innings to project.`
+        : 'Which pitcher? Ask like "how deep will Skubal go?"';
+    }
+    const entries = pitchers.slice(0, 3).map(name => {
+      const rows = allRows().filter(row => row.player === name && isPitching(row));
+      const row = rows.find(item => item.matchup?.self) || rows[0];
+      const self = row.matchup?.self || null;
+      const outs = rows.find(item => item.marketKey === 'pitching:outs' && standard(item));
+      const fromLog = outs ? mean((outs.gameLog || []).map(game => game.value).filter(finite).slice(-5)) : null;
+      const projected = finite(self?.projectedIp) ? self.projectedIp : finite(fromLog) ? Math.round(fromLog / 3 * 10) / 10 : null;
+      return {player: name, headshot: row.headshot || null, teamLogo: row.teamLogo || null, team: row.teamAbbr || null, opponent: row.opponent || null,
+        opponentLogo: opponentLogo(row), home: typeof row.isHome === 'boolean' ? row.isHome : null, time: timeOf(row.startsAt), hand: self?.hand || null,
+        projected, recent: self?.recentIp ?? null, season: finite(self?.ip) && self?.starts ? Math.round(self.ip / self.starts * 10) / 10 : null,
+        pitches: finite(self?.recentPitches) ? Math.round(self.recentPitches) : null, outsLine: outs?.line ?? null,
+        starts: (self?.lastStarts || []).map(start => ({ip: start.ip, k: start.k, pitches: start.pitches, label: shortDate(start.date)}))};
+    });
+    remember(question, []);
+    ctx = {...ctx, ask: question, sport: 'mlb', player: pitchers.length === 1 ? pitchers[0] : ctx?.player};
+    const said = entries.map(entry => {
+      if (!finite(entry.projected)) return `I don't have ${lastName(entry.player)}'s recent starts yet.`;
+      const parts = [`${lastName(entry.player)} projects for about ${figure(entry.projected)} innings (${Math.round(entry.projected * 3)} outs)`];
+      const behind = [finite(entry.recent) && `${figure(Math.round(entry.recent * 10) / 10)} a start over his last ${entry.starts.length || 5}`,
+        finite(entry.season) && `${figure(entry.season)} on the season`, finite(entry.pitches) && `${entry.pitches} pitches a start lately`].filter(Boolean);
+      let line = `${parts[0]}${behind.length ? `: ${join(behind)}` : ''}.`;
+      if (finite(entry.outsLine)) line += ` His outs line is ${figure(entry.outsLine)}, so that leans ${entry.projected * 3 > entry.outsLine ? 'over' : 'under'}.`;
+      return line;
+    });
+    answer = {lead: said.join(' '), card: {kind: 'innings', pitchers: entries}};
+    suggestions = [`How does ${lastName(pitchers[0])} match up?`, `Are the ${entries[0].opponent || 'other'} bats hot?`, 'Best K prop today'];
+    return said.join(' ');
+  }
+
+  function detail(question, players) {
+    const name = players[0] || ctx?.player;
+    if (!name) { suggestions = ['Best matchup today']; return 'Whose matchup? Ask like "how does Skubal match up?"'; }
+    const leg = lineOf(name, question.stat);
+    if (!leg) return `${name} isn't on today's board.`;
+    const row = leg.row;
+    const read = matchupRead(row);
+    remember(question, [leg]);
+    ctx = {...ctx, ask: question, sport: row.sport, player: name, leg: ctx?.ranked?.includes(leg) ? leg : ctx?.leg};
+    const records = leg.records || {};
+    const h2h = records.h2h && records.h2h.games >= 1 ? records.h2h : null;
+    const face = {player: name, headshot: row.headshot || null, teamLogo: row.teamLogo || null, team: row.teamAbbr || null,
+      opponent: row.opponent || null, opponentLogo: opponentLogo(row), home: typeof row.isHome === 'boolean' ? row.isHome : null, time: timeOf(row.startsAt)};
+    if (row.sport !== 'mlb' || !read?.detail) {
+      // Other leagues: the defense read and his record against them.
+      const said = [read?.text ? sentence(read.text) : `I don't have a matchup read for ${lastName(name)} today.`,
+        h2h && row.opponent ? `He's ${sideWord(leg)} ${h2h.won} of ${h2h.games} against ${row.opponent}.` : ''].join(' ').trim();
+      answer = {lead: said, card: {kind: 'pick', pick: pickCard(leg)}};
+      suggestions = [`Why ${lastName(name)}?`, `${lastName(name)}'s minutes`.replace(/'s minutes$/, row.sport === 'nhl' ? "'s ice time" : "'s minutes"), 'Best matchup today'];
+      return said;
+    }
+    const {of} = mlbTeams();
+    const info = read.detail, form = info.lineup;
+    const metrics = [];
+    let said;
+    if (info.kind === 'pitcher') {
+      const hand = info.self?.hand || form?.hand || null, split = form?.split, recent = form?.recent;
+      const kRate = split?.kRate ?? row.matchup.lineup?.kRate, kRank = split?.kRateRank ?? row.matchup.lineup?.kRateRank;
+      const fullOps = split?.ops ?? row.matchup.lineup?.ops, opsRank = split?.opsRank ?? row.matchup.lineup?.opsRank;
+      const vs = split ? ` vs ${hand}HP` : '';
+      if (finite(kRate)) metrics.push({key: 'k', label: `K rate${vs}`, value: percent(kRate), rank: kRank, of, tone: toneOf(kRank, of, true)});
+      if (finite(fullOps)) metrics.push({key: 'ops', label: `OPS${vs}`, value: ops(fullOps), rank: opsRank, of, tone: toneOf(opsRank, of, false)});
+      if (finite(recent?.ops)) metrics.push({key: 'recent', label: 'OPS, last 10 days', value: ops(recent.ops), rank: recent.opsRank, of, tone: toneOf(recent.opsRank, of, false), form: form.form});
+      if (finite(recent?.runsPerGame)) metrics.push({key: 'runs', label: 'Runs a game, last 10 days', value: figure(Math.round(recent.runsPerGame * 10) / 10), rank: recent.runsPerGameRank, of, tone: toneOf(recent.runsPerGameRank, of, false)});
+      const history = info.self?.vsOpponent || null;
+      said = `${lastName(name)}${hand ? ` (${hand}HP)` : ''} gets ${row.opponent || 'a lineup'}`;
+      if (finite(kRate)) said += `, who strike out ${percent(kRate)}${split ? ` against ${handWord(hand)}` : ''}${finite(kRank) ? ` (${ordinal(kRank)} of ${of})` : ''}`;
+      said += '.';
+      if (form?.form === 'hot' || form?.form === 'cold') said += ` They've been ${form.form} lately: ${ops(recent.ops)} OPS over the last 10 days${finite(recent.opsRank) ? ` (${ordinal(recent.opsRank)})` : ''}.`;
+      if (history) said += ` He's faced them ${history.starts === 1 ? 'once' : history.starts === 2 ? 'twice' : `${history.starts} times`} this year: ${figure(Math.round(history.ip * 10) / 10)} innings, ${history.k} strikeout${history.k === 1 ? '' : 's'}, ${history.er} earned run${history.er === 1 ? '' : 's'}.`;
+      const lift = matchupLift(leg);
+      said += ` Overall it's a ${lift >= 0.03 ? 'good' : lift <= -0.03 ? 'tough' : 'neutral'} spot for his ${statShort(leg)} ${sideWord(leg)}.`;
+      answer = {lead: said, card: {kind: 'matchup', role: 'pitcher', face, hand, versus: {abbr: row.opponent, logo: opponentLogo(row), name: row.matchup.lineup?.name || row.opponent},
+        metrics, history, form: form?.form || null, projected: info.self?.projectedIp ?? null, pick: leg.chance != null ? pickCard(leg) : null}};
+      suggestions = [`How deep will ${lastName(name)} go?`, `Why ${lastName(name)}?`, 'Hottest lineups today'];
+    } else {
+      const pitcher = info.pitcher, hand = pitcher?.hand || null, split = form?.split, recent = form?.recent;
+      const starters = [...mlbTeams().teams.values()].map(team => team.starter).filter(item => finite(item?.whip));
+      const whipRank = pitcher && finite(pitcher.whip) && starters.length > 3 ? starters.filter(item => item.whip > pitcher.whip).length + 1 : null;
+      if (pitcher && finite(pitcher.era)) metrics.push({key: 'era', label: `${lastName(pitcher.name || 'Starter')}'s ERA`, value: pitcher.era.toFixed(2), tone: pitcher.era >= 4.5 ? 'good' : pitcher.era <= 3.3 ? 'bad' : null});
+      if (pitcher && finite(pitcher.whip)) metrics.push({key: 'whip', label: 'WHIP', value: pitcher.whip.toFixed(2), rank: whipRank, of: starters.length || null,
+        tone: pitcher.whip >= 1.35 ? 'good' : pitcher.whip <= 1.1 ? 'bad' : null, note: whipRank ? 'among today\'s starters, worst first' : null});
+      if (pitcher && finite(pitcher.k9)) metrics.push({key: 'k9', label: 'K/9', value: pitcher.k9.toFixed(1), tone: pitcher.k9 <= 7.5 ? 'good' : pitcher.k9 >= 10 ? 'bad' : null});
+      if (finite(split?.ops)) metrics.push({key: 'ops', label: `${row.teamAbbr || 'His team'} OPS vs ${hand}HP`, value: ops(split.ops), rank: split.opsRank, of, tone: toneOf(split.opsRank, of, true)});
+      if (finite(recent?.ops)) metrics.push({key: 'recent', label: `${row.teamAbbr || 'Team'} OPS, last 10 days`, value: ops(recent.ops), rank: recent.opsRank, of, tone: toneOf(recent.opsRank, of, true), form: form.form});
+      said = pitcher?.name ? `${lastName(name)} faces ${pitcher.name}${hand ? ` (${hand}HP)` : ''}${finite(pitcher.whip) ? `, ${pitcher.whip.toFixed(2)} WHIP` : ''}${finite(pitcher.era) ? `, ${pitcher.era.toFixed(2)} ERA` : ''}.`
+        : `${lastName(name)}'s opponent hasn't named a starter yet.`;
+      if (finite(split?.ops)) said += ` ${row.teamAbbr || 'His team'} hits ${ops(split.ops)} against ${handWord(hand)}${finite(split.opsRank) ? ` (${ordinal(split.opsRank)} of ${of})` : ''}.`;
+      if (form?.form === 'hot' || form?.form === 'cold') said += ` The bats are ${form.form}: ${ops(recent.ops)} OPS over the last 10 days.`;
+      if (h2h && row.opponent) said += ` He's ${sideWord(leg)} ${h2h.won} of ${h2h.games} against ${row.opponent}.`;
+      answer = {lead: said, card: {kind: 'matchup', role: 'hitter', face, hand, versus: pitcher?.name ? {name: pitcher.name, headshot: pitcher.id ? MLB_PHOTO(pitcher.id) : null, abbr: row.opponent, logo: opponentLogo(row)} : {abbr: row.opponent, logo: opponentLogo(row), name: row.opponent},
+        metrics, history: null, h2h: h2h ? {won: h2h.won, games: h2h.games, side: sideWord(leg), opponent: row.opponent} : null, form: form?.form || null, pick: leg.chance != null ? pickCard(leg) : null}};
+      suggestions = [`Why ${lastName(name)}?`, `Are the ${row.teamAbbr || ''} bats hot?`.replace('  ', ' '), 'Best matchup today'];
+    }
+    return said;
+  }
+
+  function teamRows(list, metric) {
+    return list.map(team => {
+      const recent = team.lineup?.recent || {}, season = team.lineup || {};
+      const value = metric === 'k' ? team.kRate : recent.ops;
+      return {abbr: team.abbr, logo: team.logo, name: teamName(team), starter: team.vsStarter || null,
+        value: metric === 'k' ? percent(value) : ops(value), share: metric === 'k' ? value : value,
+        delta: metric === 'k' ? null : finite(recent.ops) && finite(season.ops) ? recent.ops - season.ops : null,
+        note: [finite(recent.opsRank) && `${ordinal(recent.opsRank)} of ${team.of || 30}`, finite(recent.runsPerGame) && `${figure(Math.round(recent.runsPerGame * 10) / 10)} runs a game`].filter(Boolean).join(' · ') || null,
+        form: metric === 'k' ? null : finite(recent.ops) && finite(team.leagueOps) ? (recent.ops / team.leagueOps >= 1.08 ? 'hot' : recent.ops / team.leagueOps <= 0.92 ? 'cold' : null) : null};
+    });
+  }
+
+  function form(question, players) {
+    const {teams, league, of} = mlbTeams();
+    const leagueOps = league?.recent?.ops;
+    const playing = [...teams.values()].filter(team => finite(team.lineup?.recent?.ops)).map(team => ({...team, leagueOps, of}));
+    if (!playing.length) { suggestions = ['Best matchup today']; return 'I don\'t have the last 10 days of team hitting yet. Ask me again in a bit.'; }
+    // Which team: named, a named player's (a pitcher's opponent), or the one on screen.
+    let pickTeam = null;
+    if (question.teamOptions.length) pickTeam = playing.find(team => question.teamOptions.some(option => option.sport === 'mlb' && option.codes.includes(String(team.abbr || '').toUpperCase())));
+    const who = players[0] || (/\b(other team|opponent|they|their|them)\b/.test(question.text) ? ctx?.player : null);
+    if (!pickTeam && who) {
+      const row = allRows().find(item => item.player === who && item.sport === 'mlb');
+      if (row) pickTeam = playing.find(team => team.id === String(isPitching(row) || /\b(other team|opponent)\b/.test(question.text) ? row.opponentTeamId : row.teamId));
+    }
+    remember(question, []);
+    if (pickTeam) {
+      const recent = pickTeam.lineup.recent, season = pickTeam.lineup;
+      const ratio = leagueOps ? recent.ops / leagueOps : 1;
+      const word = ratio >= 1.08 ? 'hot' : ratio <= 0.92 ? 'cold' : 'about average';
+      const said = `The ${nick(pickTeam)} are ${word}: ${ops(recent.ops)} OPS over the last 10 days${finite(recent.opsRank) ? ` (${ordinal(recent.opsRank)} of ${of})` : ''}${finite(season.ops) ? `, ${recent.ops >= season.ops ? 'up' : 'down'} from ${ops(season.ops)} on the season` : ''}.${finite(recent.runsPerGame) ? ` ${figure(Math.round(recent.runsPerGame * 10) / 10)} runs a game in that stretch.` : ''}${finite(recent.kRate) ? ` They've struck out ${percent(recent.kRate)} of the time.` : ''}`;
+      answer = {lead: said, card: {kind: 'teams', title: 'Last 10 days', metric: 'ops', rows: teamRows([pickTeam], 'ops'), focus: {season: ops(season.ops), recent: ops(recent.ops), runs: recent.runsPerGame, kRate: recent.kRate}}};
+      suggestions = ['Hottest lineups today', 'Which lineups strike out the most?', 'Best matchup today'];
+      return said;
+    }
+    const sorted = [...playing].sort((a, b) => b.lineup.recent.ops - a.lineup.recent.ops);
+    const cold = /\b(cold|coldest|colder|slumping|struggling|ice cold)\b/.test(question.text);
+    const list = (cold ? sorted.reverse() : sorted).slice(0, 5);
+    const said = `${cold ? 'Coldest' : 'Hottest'} lineups playing today, by OPS over the last 10 days: ${join(list.slice(0, 3).map(team => `${team.abbr} (${ops(team.lineup.recent.ops)})`))}.`;
+    answer = {lead: said, card: {kind: 'teams', title: `${cold ? 'Coldest' : 'Hottest'} bats · last 10 days`, metric: 'ops', rows: teamRows(list, 'ops')}};
+    suggestions = [cold ? 'Hottest lineups today' : 'Coldest lineups today', 'Which lineups strike out the most?', 'Best K prop today'];
+    return said;
+  }
+
+  function rankings(question) {
+    const {teams, of} = mlbTeams();
+    // Strikeouts against the hand of the starter each lineup faces today.
+    const list = [...teams.values()].filter(team => team.lineup).map(team => {
+      const facing = team.opponent ? teams.get(team.opponent)?.starter : null;
+      const hand = facing?.hand || null, split = hand ? team.lineup.vs?.[hand] : null;
+      return {...team, kRate: split?.kRate ?? team.lineup.kRate, kRank: split ? split.kRateRank : team.lineup.kRateRank, kHand: split ? hand : null,
+        vsStarter: facing?.name || null, ops: split?.ops ?? team.lineup.ops};
+    }).filter(team => finite(team.kRate));
+    if (!list.length) { suggestions = ['Best matchup today']; return 'I don\'t have today\'s lineup numbers yet.'; }
+    remember(question, []);
+    const best = /\b(best|toughest)\b/.test(question.text) && !/strike|whiff|k%|k rate/.test(question.text);
+    if (best || /\b(worst|weakest)\b/.test(question.text)) {
+      const sorted = list.filter(team => finite(team.ops)).sort((a, b) => best ? b.ops - a.ops : a.ops - b.ops).slice(0, 5);
+      const said = `${best ? 'Toughest' : 'Weakest'} lineups today, by OPS against the hand they face: ${join(sorted.slice(0, 3).map(team => `${team.abbr} (${ops(team.ops)})`))}.`;
+      answer = {lead: said, card: {kind: 'teams', title: `${best ? 'Toughest' : 'Weakest'} lineups today`, metric: 'ops-hand',
+        rows: sorted.map(team => ({abbr: team.abbr, logo: team.logo, name: teamName(team), value: ops(team.ops), share: team.ops, rank: null, note: team.kHand ? `vs ${team.kHand}HP${team.vsStarter ? ` · ${lastName(team.vsStarter)}` : ''}` : 'season'}))}};
+      suggestions = ['Which lineups strike out the most?', 'Best matchup today', 'Hottest lineups today'];
+      return said;
+    }
+    const sorted = list.sort((a, b) => b.kRate - a.kRate).slice(0, 6);
+    const said = `Lineups that strike out the most today, against the hand they face: ${join(sorted.slice(0, 3).map(team => `${team.abbr} ${percent(team.kRate)}${team.vsStarter ? ` vs ${lastName(team.vsStarter)}` : ''}`))}. That's where I look for strikeout overs.`;
+    answer = {lead: said, card: {kind: 'teams', title: 'Strikeout rate vs today\'s starter hand', metric: 'k', of,
+      rows: sorted.map(team => ({abbr: team.abbr, logo: team.logo, name: teamName(team), value: percent(team.kRate), share: team.kRate,
+        note: [team.kHand ? `vs ${team.kHand}HP` : 'season', team.vsStarter && lastName(team.vsStarter), finite(team.kRank) && `${ordinal(team.kRank)} of ${of}`].filter(Boolean).join(' · ')}))}};
+    suggestions = ['Best K prop today', 'Hottest lineups today', 'Weakest lineups today'];
+    return said;
+  }
+
+  function usage(question, players) {
+    const name = players[0] || ctx?.player;
+    if (!name) { suggestions = examples().slice(0, 3); return 'Whose playing time? Ask like "how many minutes is Tatum playing?"'; }
+    const leg = lineOf(name, question.stat);
+    const row = leg?.row;
+    const log = (row?.gameLog || []).filter(game => finite(game.usage)).slice(-10);
+    if (!log.length) return `I don't have ${lastName(name)}'s playing time logged.`;
+    const label = row.sport === 'nhl' ? 'ice time' : row.sport === 'mlb' ? (isPitching(row) ? 'pitches' : 'plate appearances') : 'minutes';
+    const values = log.map(game => game.usage), all = mean(values), last5 = mean(values.slice(-5));
+    const show = value => row.sport === 'nhl' && value > 100 ? figure(Math.round(value / 60 * 10) / 10) : figure(Math.round(value * 10) / 10);
+    const said = `${lastName(name)} is averaging ${show(all)} ${label} over his last ${values.length}${values.length > 5 ? ` and ${show(last5)} over his last 5` : ''}, ${last5 > all * 1.05 ? 'trending up' : last5 < all * 0.95 ? 'trending down' : 'holding steady'}.`;
+    remember(question, [leg]);
+    ctx = {...ctx, ask: question, sport: row.sport, player: name};
+    answer = {lead: said, card: {kind: 'usage', face: {player: name, headshot: row.headshot || null, teamLogo: row.teamLogo || null, team: row.teamAbbr || null,
+      opponent: row.opponent || null, opponentLogo: opponentLogo(row), home: typeof row.isHome === 'boolean' ? row.isHome : null, time: timeOf(row.startsAt)},
+      label, average: show(all), recent: show(last5), values: log.map(game => ({value: Number(show(game.usage)), label: typeof game.opponent === 'string' ? game.opponent : shortDate(game.date)}))}};
+    suggestions = [`Why ${lastName(name)}?`, `How does ${lastName(name)} match up?`, 'Next best'];
+    return said;
+  }
+
+  async function projection(question, players) {
+    const name = players[0] || ctx?.player;
+    if (!name) { suggestions = examples().slice(0, 3); return 'Whose projection? Ask like "what\'s Skubal projected for?"'; }
+    const leg = lineOf(name, question.stat);
+    if (!leg) return `${name} isn't on today's board.`;
+    const projected = leg.read?.projection;
+    remember(question, [leg]);
+    ctx = {...ctx, ask: {...question, intent: 'best'}, ranked: ctx?.ranked?.includes(leg) ? ctx.ranked : [leg], index: 0, sport: leg.row.sport, player: name, leg};
+    suggestions = [`Why ${lastName(name)}?`, leg.side === 'OVER' ? 'What about the under?' : 'What about the over?', `How does ${lastName(name)} match up?`];
+    if (!finite(projected)) {
+      answer = {lead: `I don't have enough games to project ${lastName(name)}'s ${statShort(leg)}, but here's how his line looks.`, card: {kind: 'pick', pick: pickCard(leg)}};
+      return answer.lead;
+    }
+    const said = `${lastName(name)} projects for ${figure(Math.round(projected * 10) / 10)} ${statShort(leg)} against the ${figure(leg.row.line)} line${finite(leg.chance) ? `, ${percent(leg.chance)} to go ${sideWord(leg)}` : ''}.`;
+    answer = {lead: said, card: {kind: 'pick', pick: pickCard(leg)}};
+    return said;
   }
 
   function listLines(player) {

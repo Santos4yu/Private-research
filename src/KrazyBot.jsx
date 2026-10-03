@@ -1,4 +1,5 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
+import {ArrowUp,RotateCcw} from 'lucide-react';
 import MorphOrb from '@/components/ui/ai-thiking-orb-and-input';
 import {createBot,SPORTS} from './krazy-bot';
 import {BotCard} from './KrazyBotCard';
@@ -40,6 +41,7 @@ export function KrazyBot(){
  const [examples,setExamples]=useState(()=>bot.examples());
  const [follow,setFollow]=useState([]);
  const [rich,setRich]=useState(false);
+ const [draft,setDraft]=useState('');
 
  // Type a question into the component's own field and send it.
  const send=text=>{
@@ -58,6 +60,23 @@ export function KrazyBot(){
   else if(root.dataset.phase==='answered'){queued.current=text;root.querySelector('.mo-reset')?.click();}
  };
 
+ // The bar under an answer: ask the next question without starting over.
+ const askFromBar=event=>{
+  event.preventDefault();
+  const text=draft.trim();
+  if(!text)return;
+  setDraft('');
+  askNow(text);
+ };
+ const startOver=()=>{const root=host.current?.querySelector('.mo-root');if(root?.dataset.phase==='answered')root.querySelector('.mo-reset')?.click();};
+ // Centered in what's visible: beside the desktop rail, whatever its width.
+ useEffect(()=>{
+  const shell=document.getElementById('app-shell');
+  const place=()=>{const left=shell?parseFloat(getComputedStyle(shell).paddingLeft)||0:0;host.current?.style.setProperty('--kb-left',`${left}px`);};
+  place();
+  window.addEventListener('resize',place);
+  return()=>window.removeEventListener('resize',place);
+ },[]);
  // Load the boards when the page is first opened (not on every page load).
  useEffect(()=>{
   const node=host.current;
@@ -90,6 +109,8 @@ export function KrazyBot(){
    const start=Math.max(centre-opened/2,ceiling);
    const top=start+height<=floor?start:Math.max(ceiling,floor-height);
    actor.style.setProperty('--ans-h',`${height}px`);
+   // A card taller than the room scrolls; its foot fades until you reach it.
+   answer.toggleAttribute('data-scrolls',answer.scrollHeight>room+1);
    actor.style.setProperty('--ans-y',`${Math.round(top-(centre-height/2))}px`);
    root.style.setProperty('--ans-cap',`${room}px`);
   };
@@ -107,7 +128,9 @@ export function KrazyBot(){
   const words=new MutationObserver(measure);
   words.observe(answer,{childList:true,subtree:true});
   window.addEventListener('resize',measure);
-  return()=>{watch.disconnect();words.disconnect();window.removeEventListener('resize',measure);};
+  const scrolled=()=>answer.toggleAttribute('data-end',answer.scrollTop+answer.clientHeight>=answer.scrollHeight-4);
+  answer.addEventListener('scroll',scrolled,{passive:true});
+  return()=>{watch.disconnect();words.disconnect();window.removeEventListener('resize',measure);answer.removeEventListener('scroll',scrolled);};
  },[bot]);
  // The follow-ups can wrap to a second row; keep the card clear of them.
  useEffect(()=>{measureRef.current();},[follow]);
@@ -130,6 +153,11 @@ export function KrazyBot(){
   <div className="krazy-bot-examples" data-idle={idle?'':undefined} aria-label="Example questions">
    {examples.map(text=><button key={text} type="button" tabIndex={idle?0:-1} onClick={()=>askNow(text)}>{text}</button>)}
   </div>
+  <form className="krazy-bot-ask" data-show={answered?'':undefined} data-after-card={rich?'':undefined} onSubmit={askFromBar} autoComplete="off">
+   <button type="button" className="krazy-bot-new" onClick={startOver} tabIndex={answered?0:-1} aria-label="New question" title="New question"><RotateCcw aria-hidden="true"/></button>
+   <input value={draft} onChange={event=>setDraft(event.target.value)} maxLength={200} placeholder="Ask a follow-up…" aria-label="Ask a follow-up" enterKeyHint="send" spellCheck={false} tabIndex={answered?0:-1}/>
+   <button type="submit" className="krazy-bot-send" data-ready={draft.trim()?'':undefined} tabIndex={answered?0:-1} aria-label="Send"><ArrowUp aria-hidden="true"/></button>
+  </form>
   <div className="krazy-bot-follow" data-show={answered&&follow.length?'':undefined} data-after-card={rich?'':undefined} aria-label="Follow-up questions">
    {follow.map((text,index)=><button key={text} type="button" style={{'--i':index}} tabIndex={answered?0:-1} onClick={()=>askNow(text)}>{text}</button>)}
   </div>
