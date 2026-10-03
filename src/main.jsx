@@ -16,6 +16,7 @@ import { LineMoves } from './LineMoves';
 import { SmartSlip } from './SmartSlip';
 import { Moneylines } from './Moneylines';
 import { KrazyBot } from './KrazyBot';
+import { CheatSheets } from './CheatSheets';
 import { canUseTab } from './site-access-core';
 const SportResearch = lazy(() => import('./sports/nfl/SportResearch').then(module => ({ default: module.SportResearch })));
 import { ExpandableTabs } from '../components/ui/expandable-tabs';
@@ -103,6 +104,7 @@ const lineMovesRoot = document.getElementById('line-moves-root');
 const smartSlipRoot = document.getElementById('smart-slip-root');
 const moneylinesRoot = document.getElementById('moneylines-root');
 const krazyBotRoot = document.getElementById('krazy-bot-root');
+const cheatSheetsRoot = document.getElementById('cheat-sheets-root');
 let privateRoots=null;
 function mountPrivateResearch(granted){
  if(granted&&!privateRoots){
@@ -127,7 +129,13 @@ function mountKrazyBot(open){
  if(open&&!krazyBotMount&&krazyBotRoot){krazyBotMount=createRoot(krazyBotRoot);krazyBotMount.render(<KrazyBot/>);}
  else if(!open&&krazyBotMount){krazyBotMount.unmount();krazyBotMount=null;}
 }
-window.addEventListener('vortex:site-policy',event=>{mountPrivateResearch(event.detail.accessGranted);mountAdminSections(Boolean(event.detail.accessGranted&&event.detail.isAdmin));mountKrazyBot(canUseTab(event.detail,'bot'));});
+// Cheat Sheets: mounted only for someone allowed to open them.
+let cheatSheetsMount=null;
+function mountCheatSheets(open){
+ if(open&&!cheatSheetsMount&&cheatSheetsRoot){cheatSheetsMount=createRoot(cheatSheetsRoot);cheatSheetsMount.render(<CheatSheets/>);}
+ else if(!open&&cheatSheetsMount){cheatSheetsMount.unmount();cheatSheetsMount=null;}
+}
+window.addEventListener('vortex:site-policy',event=>{mountPrivateResearch(event.detail.accessGranted);mountAdminSections(Boolean(event.detail.accessGranted&&event.detail.isAdmin));mountKrazyBot(canUseTab(event.detail,'bot'));mountCheatSheets(canUseTab(event.detail,'sheets'));});
 mountPrivateResearch(document.documentElement.dataset.siteAccess==='granted');
 
 const filterIcons = { all: LayoutGrid, hrr: BarChart3, 'total-bases': Diamond, hits: CircleDot, strikeouts: Target, matchup: Crosshair };

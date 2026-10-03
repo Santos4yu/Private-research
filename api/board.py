@@ -166,7 +166,7 @@ class handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         from site_controls import allowed
-        tab={'finder-history':'finder','prop-history':'research','moneyline':'moneyline','nrfi':'nrfi','soccer':'finder','nhl':'finder','tennis':'finder','moves':'moves','mlb-context':'finder','moneylines':'moneyline'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
+        tab={'finder-history':'finder','prop-history':'research','moneyline':'moneyline','nrfi':'nrfi','soccer':'finder','nhl':'finder','tennis':'finder','moves':'moves','mlb-context':'finder','moneylines':'moneyline','mlb-sheet':'sheets'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
         if (parse_qs(urlparse(self.path).query).get('view') or [''])[0] == 'cs2':
             tab = 'finder'
         if not allowed(self.headers,tab):return self._send(503,{'error':'This section is temporarily unavailable','featureDisabled':True})
@@ -324,6 +324,16 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(503, {"error": str(exc)})
             except Exception:
                 return self._send(502, {"error": "Moneylines are temporarily unavailable."})
+        if view == "mlb-sheet":
+            # A Cheat Sheet for a day (mlb_sheets.py): built once, kept a while.
+            qs = parse_qs(urlparse(self.path).query)
+            try:
+                import mlb_sheets
+                return self._send(200, mlb_sheets.sheet((qs.get("sheet") or [""])[0], (qs.get("day") or ["today"])[0]), compress=True)
+            except ValueError as exc:
+                return self._send(400, {"error": str(exc)})
+            except Exception:
+                return self._send(502, {"error": "This sheet is temporarily unavailable."})
         if view == "mlb-context":
             # Today's probable starters and every team's season rates, for
             # the Smart Slip's matchup read (mlb_context.py).

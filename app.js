@@ -167,11 +167,11 @@ const EXPERIENCE_KEY = "private_jarvis_interface";
 applyAccentTheme(loadAccentTheme(), { persist: false });
 applyExperience(localStorage.getItem(EXPERIENCE_KEY) === "true");
 
-const SCREEN_TITLES = Object.freeze({ research: "Research", finder: "Finder", moves: "Line Moves", v2: "Props", slate: "Tools", saved: "My Slip", builder: "Parlay Builder", slip: "Slip Analyzer", moneyline: "Moneylines", bot: "Krazy Bot", nrfi: "NRFI / YRFI", community: "Community", admin: "Admin Results" });
+const SCREEN_TITLES = Object.freeze({ research: "Research", finder: "Finder", moves: "Line Moves", v2: "Props", slate: "Tools", saved: "My Slip", builder: "Parlay Builder", slip: "Slip Analyzer", moneyline: "Moneylines", bot: "Krazy Bot", sheets: "Cheat Sheets", nrfi: "NRFI / YRFI", community: "Community", admin: "Admin Results" });
 // The URL path for each tab differs from its internal id in a few cases
 // (v2 -> /props, slate -> /tools, slip -> /slip-analyzer) so the address
 // bar reads naturally -- everything else just uses its id as-is.
-const SCREEN_SLUGS = Object.freeze({ v2: "props", slate: "tools", slip: "slip-analyzer" });
+const SCREEN_SLUGS = Object.freeze({ v2: "props", slate: "tools", slip: "slip-analyzer", sheets: "cheat-sheets" });
 const SLUG_TO_TAB = Object.freeze(Object.fromEntries(Object.keys(SCREEN_TITLES).map((tab) => [SCREEN_SLUGS[tab] || tab, tab])));
 const screenScroll = new Map();
 let screenHistoryReady = false;
@@ -337,6 +337,7 @@ function cacheEls() {
   els.panelSlip = document.getElementById("panel-slip");
   els.panelMoneyline = document.getElementById("panel-moneyline");
   els.panelBot = document.getElementById("panel-bot");
+  els.panelSheets = document.getElementById("panel-sheets");
   els.panelNrfi = document.getElementById("panel-nrfi");
   els.panelAdmin = document.getElementById("panel-admin");
   els.panelCommunity = document.getElementById("panel-community");
@@ -1392,6 +1393,7 @@ function switchTab(tab, options = {}) {
   els.panelSlip.hidden = tab !== "slip";
   els.panelMoneyline.hidden = tab !== "moneyline";
   if (els.panelBot) els.panelBot.hidden = tab !== "bot";
+  if (els.panelSheets) els.panelSheets.hidden = tab !== "sheets";
   els.panelNrfi.hidden = tab !== "nrfi";
   els.panelCommunity.hidden = tab !== "community";
   els.panelAdmin.hidden = tab !== "admin";
@@ -1427,7 +1429,8 @@ function wireAppNavigation() {
   const requested = Object.hasOwn(SLUG_TO_TAB, requestedSlug) ? SLUG_TO_TAB[requestedSlug] : requestedSlug;
   const initialTab = Object.hasOwn(SCREEN_TITLES, requested) && (!adminOnly(requested) || state.adminUnlocked) ? requested : state.currentTab;
   const url = new URL(location.href);
-  url.hash = "";
+  // An old #tab address loses its hash; a page's own hash (/cheat-sheets#hr) keeps it.
+  if (!location.pathname.slice(1) || initialTab !== requested) url.hash = "";
   url.pathname = "/" + (SCREEN_SLUGS[initialTab] || initialTab);
   history.replaceState({ ...history.state, vortexTab: initialTab }, "", url);
   history.scrollRestoration = "manual";

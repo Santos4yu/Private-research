@@ -241,7 +241,7 @@ class SwitchTests(unittest.TestCase):
     def test_line_moves_starts_off_until_the_admin_turns_it_on(self):
         old = {**controls.DEFAULT, 'disabledTabs': ['nrfi'], 'finderSportsSeen': list(controls.FINDER_SPORTS)}
         with patch.object(controls.store, 'get', return_value=json.dumps(old)):
-            self.assertEqual(controls.read()['disabledTabs'], ['moves', 'nrfi'])
+            self.assertEqual(controls.read()['disabledTabs'], ['bot', 'moves', 'nrfi', 'sheets'])
         with patch.object(controls.store, 'get', return_value=None):
             self.assertIn('moves', controls.read()['disabledTabs'])
         saved = controls.validate({**controls.DEFAULT, 'disabledTabs': []})
