@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {TENNIS_MARKET_TABS,tennisSample,tennisMean,tennisSummary,courtKey,decimalToAmerican,tennisOddsRecord} from '../src/sports/tennis/tennis-research.js';
+import {TENNIS_MARKET_TABS,tennisSample,tennisMean,tennisSummary,courtKey,courtDetail,courtLabel,decimalToAmerican,tennisOddsRecord} from '../src/sports/tennis/tennis-research.js';
 test('tennis market tabs are exactly the ten requested screenshot stats',()=>{
  assert.deepEqual(TENNIS_MARKET_TABS.map(s=>s.label),['Total Games','Total Games Won','Fantasy Score','Total Sets','Aces','Break Points Won','Total Tie Breaks','1st Set Total Games','1st Set Total Games Won','Double Faults']);
  assert.equal(new Set(TENNIS_MARKET_TABS.map(s=>s.key)).size,10);
@@ -17,4 +17,12 @@ test('missing statistics are excluded while zero remains real',()=>{
 test('form totals, moneylines and similar-odds samples are exact',()=>{
  const games=[{result:'W',odds:2,values:{setswon:2,totalsets:3,totalgameswon:18,gameslost:13}}];
  assert.equal(tennisSummary(games).setsLost,1);assert.equal(decimalToAmerican(2),'+100');assert.equal(decimalToAmerican(1.5),'-200');assert.equal(tennisOddsRecord(games,2).wins,1);assert.equal(tennisOddsRecord(games,1.1),null);
+});
+test('hard courts split into indoor and outdoor',()=>{
+ assert.deepEqual(['I.hard','Hard','Indoor Hard','Clay','Grass',''].map(courtDetail),['hard-indoor','hard-outdoor','hard-indoor','clay','grass','']);
+ assert.equal(courtLabel('I.hard'),'Indoor hard');assert.equal(courtLabel('Hard'),'Outdoor hard');
+ const games=[{surface:'I.hard'},{surface:'Hard'},{surface:'Clay'}];
+ assert.equal(tennisSample(games,{surface:'hard'}).length,2);
+ assert.deepEqual(tennisSample(games,{surface:'hard-indoor'}).map(g=>g.surface),['I.hard']);
+ assert.deepEqual(tennisSample(games,{surface:'hard-outdoor'}).map(g=>g.surface),['Hard']);
 });

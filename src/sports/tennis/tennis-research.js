@@ -1,10 +1,16 @@
 export const courtKey=value=>String(value||'').toLowerCase().includes('hard')?'hard':String(value||'').toLowerCase().includes('clay')?'clay':String(value||'').toLowerCase().includes('grass')?'grass':'';
+// Hard courts split by roof: the data marks indoor courts ("I.hard", "Indoor hard").
+export const isIndoor=value=>/(^|[^a-z])i\.|indoor/i.test(String(value||''));
+export const courtDetail=value=>courtKey(value)==='hard'?(isIndoor(value)?'hard-indoor':'hard-outdoor'):courtKey(value);
+export const COURT_LABELS={hard:'Hard','hard-outdoor':'Outdoor hard','hard-indoor':'Indoor hard',clay:'Clay',grass:'Grass'};
+export const courtLabel=value=>COURT_LABELS[courtDetail(value)]||String(value||'')||null;
+export const onCourt=(game,court)=>court==='all'||courtKey(game.surface)===court||courtDetail(game.surface)===court;
 export function tennisPostedSelection(rows,key,current){
  const posted=rows.filter(r=>r.marketKey===key&&Number.isFinite(r.line));
  return posted.find(r=>r.id===current?.id)||posted.find(r=>String(r.modifier||'standard').toLowerCase()==='standard')||posted[0]||null;
 }
 export function tennisSample(games,{surface='all',size=15,rank='all',format='all',hand='all'}={}){
- return games.filter(g=>(surface==='all'||courtKey(g.surface)===surface)&&(rank==='all'||(Number(g.opponentRank)>0&&Number(g.opponentRank)<=Number(rank)))&&(format==='all'||String(g.bestOf)===format)&&(hand==='all'||g.opponentHand===hand)).slice(-Number(size));
+ return games.filter(g=>onCourt(g,surface)&&(rank==='all'||(Number(g.opponentRank)>0&&Number(g.opponentRank)<=Number(rank)))&&(format==='all'||String(g.bestOf)===format)&&(hand==='all'||g.opponentHand===hand)).slice(-Number(size));
 }
 export const tennisMean=(games,key)=>{const v=games.map(g=>g.values?.[key]).filter(Number.isFinite);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;};
 export function tennisRatio(games,numerator,denominator){const pairs=games.filter(g=>Number.isFinite(g.values?.[numerator])&&Number.isFinite(g.values?.[denominator])&&g.values[denominator]>0);if(!pairs.length)return null;const won=pairs.reduce((n,g)=>n+g.values[numerator],0),total=pairs.reduce((n,g)=>n+g.values[denominator],0);return {won,total,percentage:100*won/total};}

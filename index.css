@@ -1,0 +1,476 @@
+/* Styles for components/ui/ai-thiking-orb-and-input.tsx (imported there as
+   "../../index.css"). The keyframes below are the component's own, as
+   supplied. Its `@import "tailwindcss"` and `@import "tw-animate-css"` lines
+   are left out on purpose: this site loads Tailwind without the global reset
+   (src/tailwind.css), and the component uses neither. */
+
+@keyframes mo-spin {
+  to {
+    --angle: 360deg;
+  }
+}
+
+@keyframes mo-drift {
+  from {
+    transform: translateX(-14%);
+  }
+  to {
+    transform: translateX(14%);
+  }
+}
+
+@keyframes mo-shimmer {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@keyframes mo-dot {
+  0%, 80%, 100% {
+    opacity: .25;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+@keyframes mo-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mo-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes mo-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes mo-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes mo-shake {
+  0%, 100% {
+    transform: translate(-50%, -50%);
+  }
+  25% {
+    transform: translate(calc(-50% - 4px), -50%);
+  }
+  75% {
+    transform: translate(calc(-50% + 4px), -50%);
+  }
+}
+
+/* ── The component's layout and look. The supplied CSS carried only the
+   keyframes, so these rules are written against the component's markup and
+   the custom properties its timeline drives (--w, --h, --r, --oPill, …). ── */
+
+@property --angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.mo-root {
+  --mo-green: 52, 211, 153;
+  --oCenter: 0;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  isolation: isolate;
+  color: #ececf1;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+.mo-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(90% 60% at 50% 46%, rgba(255, 255, 255, .035), transparent 70%),
+    radial-gradient(120% 70% at 50% 115%, rgba(var(--mo-green), .07), transparent 60%),
+    #07080b;
+}
+.mo-halo {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 560px;
+  height: 560px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, .09), rgba(var(--mo-green), .04) 38%, transparent 66%);
+  opacity: var(--oCenter);
+  pointer-events: none;
+}
+
+/* The stage centre is 46% down; the timeline moves the mover from the pill's
+   resting place (bottom) to here and back. */
+.mo-mover {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 0;
+  height: 0;
+  z-index: 2;
+  will-change: transform;
+}
+.mo-trail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 34%, rgba(255, 255, 255, .7), rgba(255, 255, 255, .12) 55%, transparent 72%);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.mo-actor {
+  --w: 560px;
+  --h: 60px;
+  --r: 999px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--w);
+  height: var(--h);
+  border-radius: var(--r);
+  transform: translate(-50%, -50%);
+}
+.mo-actor[data-shake] { animation: mo-shake .26s ease-in-out; }
+
+.mo-underglow {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  bottom: -22px;
+  height: 44px;
+  border-radius: 50%;
+  background: radial-gradient(50% 50% at 50% 50%, rgba(var(--mo-green), .42), transparent 72%);
+  filter: blur(16px);
+  opacity: calc(var(--oGlow, 1) * .7);
+  transition: opacity .3s;
+  pointer-events: none;
+}
+.mo-actor[data-typing] .mo-underglow { opacity: var(--oGlow, 1); }
+.mo-halo-green {
+  position: absolute;
+  inset: -45%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(var(--mo-green), .6), transparent 62%);
+  filter: blur(12px);
+  opacity: var(--oHalo, 0);
+  pointer-events: none;
+}
+.mo-surface {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  background: rgba(20, 22, 28, .9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), 0 18px 50px rgba(0, 0, 0, .5);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  opacity: var(--oPill, 1);
+}
+.mo-aurora {
+  position: absolute;
+  inset: 0;
+  opacity: var(--oAur, 1);
+  filter: blur(20px);
+}
+.mo-aurora i {
+  position: absolute;
+  top: -40%;
+  width: 42%;
+  height: 180%;
+  border-radius: 50%;
+  opacity: .2;
+  animation: mo-drift 7s ease-in-out infinite alternate;
+}
+.mo-aurora i:nth-child(1) { left: -6%; background: rgb(var(--mo-green)); }
+.mo-aurora i:nth-child(2) { left: 22%; background: #60a5fa; animation-duration: 9s; animation-delay: -3s; }
+.mo-aurora i:nth-child(3) { left: 46%; background: #a78bfa; animation-duration: 11s; animation-delay: -6s; }
+.mo-aurora i:nth-child(4) { left: 68%; background: rgb(var(--mo-green)); animation-duration: 8s; animation-delay: -2s; }
+
+.mo-ball {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 36% 30%, #ffffff, #dfe3ea 28%, #8d95a5 66%, #343944);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .55), 0 0 26px rgba(255, 255, 255, .2);
+  opacity: var(--oBall, 0);
+}
+.mo-green {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, #c6f7e2, rgb(var(--mo-green)) 46%, #059669 82%);
+  box-shadow: 0 0 44px rgba(var(--mo-green), .6);
+  opacity: var(--oGreen, 0);
+  transform: scale(var(--gs, .55));
+}
+.mo-card {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(28, 31, 38, .97), rgba(17, 19, 24, .97));
+  border: 1px solid rgba(255, 255, 255, .08);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .05);
+  opacity: var(--oCard, 0);
+  transform: scale(var(--cs, 1));
+}
+.mo-ring {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(from var(--angle), rgba(255, 255, 255, .1), rgba(var(--mo-green), .75) 12%, rgba(96, 165, 250, .55) 24%, rgba(255, 255, 255, .1) 38%, rgba(255, 255, 255, .1));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: mo-spin 6s linear infinite;
+  opacity: var(--oRing, 1);
+  pointer-events: none;
+}
+.mo-actor[data-flash] .mo-ring { filter: brightness(1.8) saturate(1.4); }
+
+.mo-input {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px 0 18px;
+  opacity: var(--oInput, 1);
+  transform: scale(var(--inScale, 1));
+}
+.mo-input[inert] { pointer-events: none; }
+.mo-spark { flex: none; width: 20px; height: 20px; color: rgb(var(--mo-green)); }
+.mo-field {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #f3f4f6;
+  font: inherit;
+  font-size: 16px;
+}
+.mo-field::placeholder { color: rgba(236, 236, 241, .42); }
+/* Host pages may style every input; the pill is the field's only frame. */
+.mo-root .mo-field, .mo-root .mo-field:focus, .mo-root .mo-field:focus-visible,
+:root[data-theme] .mo-root input.mo-field:not([type="range"]):not([type="checkbox"]):not([type="color"]),
+:root[data-theme] .mo-root input.mo-field:not([type="range"]):not([type="checkbox"]):not([type="color"]):focus,
+:root[data-theme] .mo-root input.mo-field:not([type="range"]):not([type="checkbox"]):not([type="color"]):focus-visible {
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+.mo-send {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .08);
+  color: rgba(255, 255, 255, .45);
+  cursor: pointer;
+  transition: background .2s, color .2s, transform .15s;
+}
+.mo-send svg { width: 20px; height: 20px; }
+.mo-send[data-ready] { background: rgb(var(--mo-green)); color: #052e20; }
+.mo-send:active { transform: scale(.92); }
+.mo-send:focus-visible, .mo-reset:focus-visible { outline: 2px solid rgba(var(--mo-green), .9); outline-offset: 2px; }
+
+.mo-orb {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 3;
+  width: 220px;
+  height: 220px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.mo-pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(var(--mo-green), .85);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* The answer card's text. It is laid out at the card's final width from the
+   start, so its height is known while the card is still unfolding. */
+.mo-answer {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  z-index: 4;
+  width: min(320px, calc(100vw - 32px));
+  max-height: var(--h);
+  overflow: hidden;
+  padding: 14px 16px 16px;
+  transform: translateX(-50%);
+  opacity: var(--oCard, 0);
+  outline: none;
+  visibility: hidden;
+}
+.mo-root[data-phase="unfold"] .mo-answer,
+.mo-root[data-phase="answered"] .mo-answer,
+.mo-root[data-phase="reset"] .mo-answer { visibility: visible; }
+.mo-root[data-phase="answered"] .mo-answer { max-height: none; }
+/* A longer answer grows the card once it has unfolded (--ans-h is the
+   answer's measured height, set by the page that hosts the component). */
+.mo-root[data-phase="answered"] .mo-actor {
+  height: max(var(--h), var(--ans-h, 0px));
+  transition: height .38s cubic-bezier(.22, 1, .36, 1);
+}
+.mo-root[data-phase="reset"] .mo-actor { transition: height .22s ease-out; }
+.mo-a-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: rgba(236, 236, 241, .55);
+  opacity: var(--hOp, 0);
+}
+.mo-a-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgb(var(--mo-green));
+  box-shadow: 0 0 calc(var(--bloom, 1) * 16px) rgba(var(--mo-green), .95);
+  transform: scale(var(--dotS, 0));
+}
+.mo-a-body {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #ececf1;
+  overflow-wrap: anywhere;
+}
+.mo-w { display: inline-block; opacity: 0; }
+
+/* "Thinking…" under the orb. */
+.mo-status {
+  position: absolute;
+  left: 50%;
+  top: calc(46% + 92px);
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  height: 22px;
+  font-size: 13px;
+  color: rgba(236, 236, 241, .7);
+  opacity: var(--sOp, 0);
+  transform: translate(-50%, calc(var(--sTy, 6) * 1px));
+  pointer-events: none;
+}
+.mo-lab { grid-area: 1 / 1; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.mo-lab.mo-in { animation: mo-in .32s cubic-bezier(.22, 1, .36, 1) both; }
+.mo-lab.mo-out { animation: mo-out .26s ease both; }
+.mo-lab-t {
+  background: linear-gradient(90deg, rgba(236, 236, 241, .45) 0%, #ffffff 50%, rgba(236, 236, 241, .45) 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: mo-shimmer 1.8s linear infinite;
+}
+.mo-dots { display: inline-flex; gap: 3px; }
+.mo-dots i { width: 3px; height: 3px; border-radius: 50%; background: currentColor; animation: mo-dot 1.2s infinite; }
+.mo-dots i:nth-child(2) { animation-delay: .15s; }
+.mo-dots i:nth-child(3) { animation-delay: .3s; }
+.mo-lab-done { color: rgb(var(--mo-green)); font-weight: 600; }
+
+/* Where the pill rests (96px above the bottom), once an answer is up. */
+.mo-reset {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--mo-pill-bottom, 96px) - 22px);
+  z-index: 5;
+  height: 44px;
+  padding: 0 20px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 999px;
+  background: rgba(20, 22, 28, .9);
+  color: #ececf1;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transform: translateX(-50%);
+  opacity: 0;
+  visibility: hidden;
+}
+.mo-root[data-phase="answered"] .mo-reset { visibility: visible; animation: mo-fade-in .35s .1s both; }
+.mo-reset:active { transform: translateX(-50%) scale(.97); }
+
+.mo-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.mo-debug {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, .65);
+  font-size: 12px;
+}
+.mo-chip { padding: 2px 8px; border-radius: 999px; background: rgba(var(--mo-green), .15); color: rgb(var(--mo-green)); }
+
+@media (prefers-reduced-motion: reduce) {
+  .mo-aurora i, .mo-ring, .mo-lab-t, .mo-dots i { animation: none; }
+}

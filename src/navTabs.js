@@ -1,4 +1,4 @@
-import { Layers2 as BarChart3, Ticket as ClipboardList, Radar as FlaskConical, ScanLine, Compass as Search, Sparkles, SearchCheck, Trophy, CircleDot, MessagesSquare, ShieldCheck, Activity } from 'lucide-react';
+import { Layers2 as BarChart3, Ticket as ClipboardList, Radar as FlaskConical, ScanLine, Compass as Search, Sparkles, SearchCheck, Trophy, CircleDot, MessagesSquare, ShieldCheck, Activity, Bot } from 'lucide-react';
 
 // Single source of truth for the site's primary navigation destinations,
 // shared by the top pill bar (VortexTopTabs) and the sidebar (VortexSidebar)
@@ -26,5 +26,6 @@ export const moreTabs = [
 // Listed only for an admin session, under their own heading.
 export const adminTabs = [
   { title: 'Moneylines', icon: Trophy, value: 'moneyline' },
+  { title: 'Krazy Bot', icon: Bot, value: 'bot' },
   { title: 'Admin', icon: ShieldCheck, value: 'admin' },
 ];

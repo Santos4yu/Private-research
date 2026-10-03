@@ -14,7 +14,7 @@ TABS=('research','finder','moves','v2','slate','saved','slip','builder','moneyli
 LEGACY_TABS=('research','finder','v2','slate','saved','slip','builder','moneyline','nrfi','community')
 # Sections only an admin session may open. They have no site switch or
 # per-member rule (src/site-access-core.js ADMIN_TABS is the page's side).
-ADMIN_TABS=('moneyline',)
+ADMIN_TABS=('moneyline','bot')
 # Leagues offered inside the Finder. Kept separate from disabledSports, which
 # governs Research's own MLB/NFL switch -- hiding NFL from the Finder must not
 # take NFL research away from anyone.

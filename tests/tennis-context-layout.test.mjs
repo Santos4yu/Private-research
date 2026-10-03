@@ -18,3 +18,9 @@ test('unposted historical stats cannot be saved as PrizePicks props',()=>{
  assert.match(read('app.js'),/button.hidden = !trendSave \|\| Boolean\(externalTrendConfig\?\.researchOnly\)/);
  assert.match(read('src/FinderTrendView.jsx'),/researchOnly:String\(selected.id\)/);
 });
+test('tennis research tabs use tennis names and show match weather',()=>{
+ const source=read('src/sports/tennis/TennisFinderContext.jsx');
+ assert.match(source,/\['defense','Return',Shield\]/);assert.match(source,/\['shooting','Serve',Target\]/);
+ assert.match(source,/tabs=\{TENNIS_TABS\}/);assert.match(source,/<Weather weather=\{context\?\.weather\}\/>/);
+ assert.match(source,/H2H \(Past 2 Years\)" icon=\{Users\}><details open>/);
+});

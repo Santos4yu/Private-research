@@ -48,3 +48,15 @@
 .tennis-form-match footer small{font-size:10px}
 .tennis-finder-context .wnba-last-five-grid>div{min-width:0}
 .tennis-finder-context .mlb-context-table-wrap th:first-child{position:sticky;left:0;background:var(--card-bg,#141a22);z-index:1}
+
+.tennis-surface-strip{padding-top:10px}
+.tennis-weather-flags{display:flex;flex-wrap:wrap;gap:6px;padding:12px 12px 0}
+.tennis-weather-flags span{font-size:12px;font-weight:600;padding:5px 9px;border-radius:999px;background:rgba(255,196,87,.14);color:#ffd27a}
+.tennis-weather-flags span[data-level="high"]{background:rgba(255,127,149,.16);color:#ff9aac}
+.tennis-weather-flags span[data-level="low"]{background:rgba(128,144,172,.14);color:var(--text-muted,#9ba3b0)}
+.tennis-weather-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:0;padding:12px}
+.tennis-weather-grid>div{background:rgba(128,144,172,.1);border-radius:8px;padding:8px 10px;min-width:0}
+.tennis-weather-grid dt{font-size:11px;color:var(--text-muted,#9ba3b0)}
+.tennis-weather-grid dd{margin:4px 0 0;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.tennis-weather-grid dd small{font-size:11px;font-weight:400;color:var(--text-muted,#9ba3b0)}
+.tennis-weather-credit{display:block;padding:0 12px 12px;font-size:10px;color:var(--text-muted,#9ba3b0)}

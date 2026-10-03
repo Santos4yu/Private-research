@@ -146,7 +146,11 @@ def context(player,opponent,starts_at=''):
         h2h_games=[g for g in archive_rows(payload.get('data') or [],league) if str(g['playerId'])==first]
     except Exception:
         pass  # Existing player histories remain usable during quota/outages.
+    tournament=match.get('tournament') or {}
+    from tennis_weather import match_weather
+    weather=match_weather(tournament.get('name'),match.get('court') or tournament.get('court'),
+                          tournament.get('countryAcr') or match.get('countryAcr'),match.get('date') or starts_at)
     return {'match':{'date':match.get('date'),'event':(match.get('tournament') or {}).get('name'),
                      'surface':match.get('court'),'roundId':match.get('roundId'),'round':ROUND_LABELS.get(match.get('roundId')),'bestOf':match.get('best_of'),
                      'h2h':match.get('h2hSummary')},'players':players,'h2hGames':h2h_games,'errors':list(set(errors)),
-            'source':'Tennis API · moneyline-implied probabilities','updatedAt':int(time.time()*1000)}
+            'weather':weather,'source':'Tennis API · moneyline-implied probabilities','updatedAt':int(time.time()*1000)}
