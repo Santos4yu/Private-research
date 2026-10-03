@@ -156,6 +156,12 @@ export function KrazyBot(){
   // top of the page and the follow-ups under it, and scrolling inside when
   // that isn't room enough.
   const atEnd=()=>answer.toggleAttribute('data-end',answer.scrollTop+answer.clientHeight>=answer.scrollHeight-4);
+  // The answer's own height (the box itself is stretched to the card, so its
+  // scrollHeight never drops when the card's report switches to a shorter tab).
+  const content=()=>{
+   const last=answer.lastElementChild;
+   return last?last.offsetTop+last.offsetHeight+(parseFloat(getComputedStyle(answer).paddingBottom)||0):answer.scrollHeight;
+  };
   const measure=()=>{
    const box=host.current.getBoundingClientRect();
    const follow=host.current.querySelector('.krazy-bot-follow');
@@ -165,12 +171,13 @@ export function KrazyBot(){
    const typing=host.current.hasAttribute('data-keyboard');
    const ceiling=window.innerWidth>760?12:typing?Math.max(12,64-(window.visualViewport?.offsetTop||0)):64;
    const room=Math.max(160,floor-ceiling);
-   const height=Math.min(answer.scrollHeight,room);
+   const full=content();
+   const height=Math.min(full,room);
    const centre=box.height*.46;
    const top=ceiling+(room-height)/2;
    actor.style.setProperty('--ans-h',`${height}px`);
    // A card taller than the room scrolls; its foot fades until you reach it.
-   answer.toggleAttribute('data-scrolls',answer.scrollHeight>room+1);
+   answer.toggleAttribute('data-scrolls',full>room+1);
    atEnd();
    actor.style.setProperty('--ans-y',`${Math.round(top-(centre-height/2))}px`);
    root.style.setProperty('--ans-cap',`${room}px`);

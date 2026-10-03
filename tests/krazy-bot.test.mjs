@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createBot, understand, normalize, findPlayers, rank, distance, pickCard} from '../src/krazy-bot.js';
+import {createBot, understand, normalize, findPlayers, rank, distance, pickCard, pickReport} from '../src/krazy-bot.js';
 
 const START = Date.parse('2026-10-03T23:05:00Z');
 let id = 0;
@@ -385,4 +385,34 @@ test('career numbers against today\'s starter, by name', async () => {
   assert.match(await bot.ask('how does judge hit bello'), /^Aaron Judge vs Brayan Bello: 8-for-20 \(\.400\), 2 HR, 3 K in 22 plate appearances\. That's a strong sample\./);
   assert.match(await bot.ask('judge career numbers vs cole'), /\(He faces Brayan Bello today, not Cole\.\)$/);
   assert.doesNotMatch(await bot.ask('judge history vs bello'), /He faces/);
+});
+
+test('every pick card carries a scouting report: windows, games, splits, books and the ladder', async () => {
+  const day = index => `2026-09-${String(10 + index).padStart(2, '0')}`;
+  const values = [5, 8, 7, 9, 4, 8, 6, 10, 7, 9, 8, 5];
+  const kelce = {...row('Travis Kelce', 'nfl', 'Receptions', 6.5, {marketKey: 'receptions', team: 'KC', opponent: 'LV', game: 'kc-lv'}), isHome: true,
+    gameLog: values.map((value, index) => ({value, date: day(index), home: index % 2 === 0, opponent: index % 4 === 0 ? 'LV' : 'DEN'})),
+    apps: [{key: 'prizepicks', name: 'PrizePicks', over: null, under: null}, {key: 'draftkings', name: 'DraftKings', over: -140, under: 110}, {key: 'fanduel', name: 'FanDuel', over: -120, under: -110}]};
+  const leg = {...graded(kelce, 'OVER', {grade: 'A', chance: 0.66, recent: [7, 10], book: 0.58, projection: 7.6}),
+    records: {l5: {won: 4, games: 5, rate: 0.8}, l10: {won: 7, games: 10, rate: 0.7}, season: {won: 8, games: 12, rate: 8 / 12}, h2h: {won: 2, games: 3, rate: 2 / 3}}};
+  const report = pickReport(leg);
+  assert.deepEqual(report.rings.map(item => [item.label, item.won, item.games]), [['L5', 4, 5], ['L10', 7, 10], ['Season', 8, 12], ['vs LV', 2, 3]]);
+  assert.equal(report.games.length, 12);
+  assert.deepEqual(report.games.slice(0, 3).map(game => [game.value, game.hit, game.opponent, game.home]), [[5, false, 'LV', true], [8, true, 'DEN', false], [7, true, 'DEN', true]]);
+  assert.deepEqual([report.stats.median, report.stats.high, report.stats.low, report.stats.projection], [7.5, 10, 4, 7.6]);
+  assert.deepEqual([report.splits.today, report.splits.home.games, report.splits.home.won, report.splits.away.won], ['home', 6, 3, 5]);
+  assert.deepEqual(report.splits.versus.games.map(game => game.value), [5, 4, 7]);
+  // Best price first, PrizePicks left out, each with the chance it implies.
+  assert.deepEqual(report.books.map(book => [book.name, book.price, Math.round(book.chance * 1000) / 1000]), [['FanDuel', -120, 0.545], ['DraftKings', -140, 0.583]]);
+  assert.equal(Math.round(report.market.edge * 100), 8);
+  // In the bot, the ladder lists his other lines on the stat.
+  const goblin = {...kelce, id: 'kelce-goblin', line: 4.5, modifier: 'goblin'};
+  const reads = new Map([[`${kelce.id}|OVER`, leg], [`goblin|OVER`, {...graded(goblin, 'OVER', {grade: 'A', chance: 0.81, recent: [9, 10]})}]]);
+  const bot = createBot({sports: ['nfl'], load: async () => [kelce, goblin],
+    judge: list => list.map(item => item.id === goblin.id ? reads.get('goblin|OVER') : reads.get(`${item.id}|OVER`)).filter(Boolean),
+    assess: (item, side) => item.id === goblin.id ? reads.get('goblin|OVER') : reads.get(`${item.id}|${side}`) || null, now: () => START, random: () => 0});
+  await bot.ask('should I take kelce over 6.5 receptions');
+  const ladder = bot.card().card.pick.report.ladder;
+  assert.deepEqual(ladder.map(item => [item.line, item.modifier, item.current, item.chance]), [[4.5, 'goblin', false, 0.81], [6.5, 'standard', true, 0.66]]);
+  assert.equal(bot.card().card.pick.row.id, kelce.id);
 });
