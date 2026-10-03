@@ -28,3 +28,13 @@ body:has(#panel-bot:not([hidden])) .site-footer{display:none}
  .krazy-bot-examples button{flex:none;min-height:40px}
  .krazy-bot-head h1{font-size:20px}
 }
+/* Follow-ups under an answer, just above the "New question" button. */
+.krazy-bot-follow{position:absolute;left:0;right:0;bottom:calc(var(--mo-pill-bottom) + 34px);z-index:6;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:0 16px;opacity:0;visibility:hidden;transition:opacity .2s ease,visibility 0s linear .2s}
+.krazy-bot-follow[data-show]{opacity:1;visibility:visible;transition:opacity .35s ease .25s,visibility 0s}
+.krazy-bot-follow button{min-height:36px;padding:0 14px;border:1px solid rgba(52,211,153,.35);border-radius:999px;background:rgba(52,211,153,.08);color:#d1fae5;font:inherit;font-size:13px;cursor:pointer;transition:background .2s,border-color .2s}
+.krazy-bot-follow button:hover,.krazy-bot-follow button:focus-visible{background:rgba(52,211,153,.18);border-color:rgba(52,211,153,.7);outline:none}
+@media (max-width:640px){
+ .krazy-bot-follow{flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;scrollbar-width:none;-webkit-mask:linear-gradient(90deg,transparent,#000 16px,#000 calc(100% - 16px),transparent)}
+ .krazy-bot-follow::-webkit-scrollbar{display:none}
+ .krazy-bot-follow button{flex:none;min-height:40px}
+}

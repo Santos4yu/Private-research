@@ -19,6 +19,8 @@ export interface MorphOrbProps {
   onSubmit?: (text: string) => Promise<string> | string;
   minThinkMs?: number;
   speed?: number;
+  /** Status lines shown while thinking about this question (defaults to COPY.labels). */
+  thinkingLabels?: (text: string) => string[];
 }
 
 /* ─────────────────────────── geometry ─────────────────────────── */
@@ -427,7 +429,7 @@ interface Env {
   getBody: () => HTMLElement | null;
   ui: UI; getSpeed: () => number; isReduced: () => boolean;
 }
-interface RunCfg { onSubmit: (text: string) => Promise<string> | string; minThink: number }
+interface RunCfg { onSubmit: (text: string) => Promise<string> | string; minThink: number; labels: string[] }
 interface Runtime {
   start(text: string, cfg: RunCfg): boolean;
   escape(): void;
@@ -592,14 +594,15 @@ function createRuntime(env: Env): Runtime {
     });
 
   /* ── thinking labels ── */
-  const labelLoop = async (sig: AbortSignal, ctl: { stop: boolean }) => {
+  const labelLoop = async (sig: AbortSignal, ctl: { stop: boolean }, labels: string[]) => {
     let i = 0;
     for (;;) {
       await sleep(1150 / env.getSpeed(), sig);
       if (sig.aborted || ctl.stop) return;
-      i = (i + 1) % COPY.labels.length;
+      // The default labels cycle; question-specific steps stop on the last one.
+      i = labels === COPY.labels ? (i + 1) % labels.length : Math.min(i + 1, labels.length - 1);
       orb.P.prog = i % 4;
-      env.ui.swapLabel(COPY.labels[i]);
+      env.ui.swapLabel(labels[i]);
     }
   };
 
@@ -612,6 +615,7 @@ function createRuntime(env: Env): Runtime {
     };
     try {
       env.ui.setPhase("launch");
+      if (cfg.labels[0] !== COPY.labels[0]) env.ui.swapLabel(cfg.labels[0]);
       hist.length = 0;
       if (!reduced) {
         await go(launchTracks(geo));
@@ -628,9 +632,9 @@ function createRuntime(env: Env): Runtime {
 
       /* think — until the answer settled AND the minimum time elapsed */
       env.ui.setPhase("think");
-      env.ui.live(COPY.labels[0]);
+      env.ui.live(cfg.labels[0]);
       const ctl = { stop: false };
-      void labelLoop(sig, ctl);
+      void labelLoop(sig, ctl, cfg.labels);
       const t0 = performance.now();
       const pending = Promise.resolve()
         .then(() => cfg.onSubmit(text))
@@ -881,10 +885,18 @@ export default function MorphOrb(props: MorphOrbProps) {
     new Promise<string>((res) => {
       window.setTimeout(() => res(COPY.answerBody), 4600 / speedRef.current);
     });
-  const makeCfg = (): RunCfg => ({
-    onSubmit: propsRef.current.onSubmit ?? defaultSubmit,
-    minThink: propsRef.current.minThinkMs ?? 3450,
-  });
+  const makeCfg = (text: string): RunCfg => {
+    let labels: string[] = COPY.labels;
+    try {
+      const custom = propsRef.current.thinkingLabels?.(text);
+      if (Array.isArray(custom) && custom.length && custom.every((item) => typeof item === "string" && item)) labels = custom;
+    } catch { /* fall back to the default labels */ }
+    return {
+      onSubmit: propsRef.current.onSubmit ?? defaultSubmit,
+      minThink: propsRef.current.minThinkMs ?? 3450,
+      labels,
+    };
+  };
 
   const shake = () => {
     const a = actorRef.current;
@@ -919,7 +931,7 @@ export default function MorphOrb(props: MorphOrbProps) {
     const text = value.trim();
     if (!text) { shake(); return; }
     lastTextRef.current = text;
-    rt.start(text, makeCfg());
+    rt.start(text, makeCfg(text));
   };
 
   const onReset = () => {
@@ -933,7 +945,7 @@ export default function MorphOrb(props: MorphOrbProps) {
     lastTextRef.current = text;
     rt.hard();
     setValue(text);
-    window.requestAnimationFrame(() => { rt.start(text, makeCfg()); });
+    window.requestAnimationFrame(() => { rt.start(text, makeCfg(text)); });
   };
 
   const ready = value.trim().length > 0;
