@@ -1382,13 +1382,11 @@ function switchTab(tab, options = {}) {
     });
   }
 
-  const nflProps = tab === "v2" && (document.documentElement.dataset.researchSport === "nfl" || (!document.documentElement.dataset.researchSport && new URLSearchParams(location.search).get("sport") === "nfl"));
-  els.panelResearch.hidden = tab !== "research" && !nflProps;
+  els.panelResearch.hidden = tab !== "research";
   els.panelSlate.hidden = tab !== "slate";
-  els.panelV2.hidden = tab !== "v2" || nflProps;
+  els.panelV2.hidden = tab !== "v2";
   els.panelFinder.hidden = tab !== "finder";
   if (els.panelMoves) els.panelMoves.hidden = tab !== "moves";
-  if (tab === "research" || nflProps) window.dispatchEvent(new CustomEvent("vortex:nfl-view", {detail:{view:nflProps ? "board" : "research"}}));
   els.panelBuilder.hidden = tab !== "builder";
   els.panelSlip.hidden = tab !== "slip";
   els.panelMoneyline.hidden = tab !== "moneyline";
@@ -1409,7 +1407,7 @@ function switchTab(tab, options = {}) {
   if (tab === "admin" && state.adminUnlocked && !state.adminRecords) loadAdminRecords().catch(() => showToast("Admin reporting unavailable", "warn"));
   if (tab === "saved") renderSavedGrid();
   if (tab === "slate" && !state.slateLoaded) loadSlate();
-  if (tab === "v2" && !nflProps && !state.v2BoardLoaded) loadV2Board();
+  if (tab === "v2" && !state.v2BoardLoaded) loadV2Board();
   if (tab === "nrfi" && !state.specialsLoaded) loadSpecialMarkets();
   if (tab === "community") loadCommunityFeed();
   window.dispatchEvent(new CustomEvent("vortex:dock-sync", { detail: { tab, saved: state.savedProps.size } }));

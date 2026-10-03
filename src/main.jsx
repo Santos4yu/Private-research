@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Layers2 as BarChart3, CircleDot, LayoutGrid, Diamond, Crosshair, Target, ChartNoAxesCombined } from 'lucide-react';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '../components/ui/select';
@@ -18,7 +18,6 @@ import { Moneylines } from './Moneylines';
 import { KrazyBot } from './KrazyBot';
 import { CheatSheets } from './CheatSheets';
 import { canUseTab } from './site-access-core';
-const SportResearch = lazy(() => import('./sports/nfl/SportResearch').then(module => ({ default: module.SportResearch })));
 import { ExpandableTabs } from '../components/ui/expandable-tabs';
 import { ResearchAILoader } from '../components/ui/research-ai-loader';
 import { ActivityDropdown } from '../components/ui/activity-dropdown';
@@ -38,6 +37,8 @@ import './gamelog-fix.css';
 import './research-polish.css';
 import './prop-finder.css';
 import './sports/nfl/nfl-research.css';
+// The NFL sheets (alternate lines, filters) on the Finder's NFL player page.
+import './sports/nfl/mobile-research.css';
 import './community-feed.css';
 import './vortex-sidebar.css';
 import './gamelog-inline.css';
@@ -98,7 +99,6 @@ const pickBuilderRoot = document.getElementById('pick-builder-root');
 if (pickBuilderRoot) createRoot(pickBuilderRoot).render(<PickBuilder />);
 const researchHomeRoot = document.getElementById('research-home-root');
 
-const sportResearchRoot = document.getElementById('sport-research-root');
 const unifiedFinderRoot = document.getElementById('unified-finder-root');
 const lineMovesRoot = document.getElementById('line-moves-root');
 const smartSlipRoot = document.getElementById('smart-slip-root');
@@ -108,13 +108,12 @@ const cheatSheetsRoot = document.getElementById('cheat-sheets-root');
 let privateRoots=null;
 function mountPrivateResearch(granted){
  if(granted&&!privateRoots){
-  privateRoots={home:researchHomeRoot?createRoot(researchHomeRoot):null,sport:sportResearchRoot?createRoot(sportResearchRoot):null,finder:unifiedFinderRoot?createRoot(unifiedFinderRoot):null,moves:lineMovesRoot?createRoot(lineMovesRoot):null,slip:smartSlipRoot?createRoot(smartSlipRoot):null};
+  privateRoots={home:researchHomeRoot?createRoot(researchHomeRoot):null,finder:unifiedFinderRoot?createRoot(unifiedFinderRoot):null,moves:lineMovesRoot?createRoot(lineMovesRoot):null,slip:smartSlipRoot?createRoot(smartSlipRoot):null};
   privateRoots.home?.render(<ResearchHome/>);
-  privateRoots.sport?.render(<Suspense fallback={<div role="status">Loading sport research…</div>}><SportResearch/></Suspense>);
   privateRoots.finder?.render(<UnifiedFinder/>);
   privateRoots.moves?.render(<LineMoves/>);
   privateRoots.slip?.render(<SmartSlip/>);
- }else if(!granted&&privateRoots){privateRoots.home?.unmount();privateRoots.sport?.unmount();privateRoots.finder?.unmount();privateRoots.moves?.unmount();privateRoots.slip?.unmount();privateRoots=null;}
+ }else if(!granted&&privateRoots){privateRoots.home?.unmount();privateRoots.finder?.unmount();privateRoots.moves?.unmount();privateRoots.slip?.unmount();privateRoots=null;}
 }
 // Moneylines is an admin-only section (site-access-core.js ADMIN_TABS):
 // mounted, and so asking for data, only in an admin session.
