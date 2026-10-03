@@ -30,7 +30,11 @@ body:has(#panel-bot:not([hidden])) .site-footer{display:none}
 }
 /* Follow-ups under an answer, just above the "New question" button. */
 .krazy-bot-follow{position:absolute;left:0;right:0;bottom:calc(var(--mo-pill-bottom) + 34px);z-index:6;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:0 16px;opacity:0;visibility:hidden;transition:opacity .2s ease,visibility 0s linear .2s}
-.krazy-bot-follow[data-show]{opacity:1;visibility:visible;transition:opacity .35s ease .25s,visibility 0s}
+.krazy-bot-follow[data-show]{opacity:1;visibility:visible;transition:opacity 0s,visibility 0s}
+.krazy-bot-follow[data-show] button{animation:kb-chip .45s cubic-bezier(.22,1,.36,1) calc(var(--follow-after,.3s) + var(--i,0) * 80ms) both}
+.krazy-bot-follow[data-after-card]{--follow-after:1.5s}
+@keyframes kb-chip{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.krazy-bot-follow[data-show] button{animation:none}}
 .krazy-bot-follow button{min-height:36px;padding:0 14px;border:1px solid rgba(52,211,153,.35);border-radius:999px;background:rgba(52,211,153,.08);color:#d1fae5;font:inherit;font-size:13px;cursor:pointer;transition:background .2s,border-color .2s}
 .krazy-bot-follow button:hover,.krazy-bot-follow button:focus-visible{background:rgba(52,211,153,.18);border-color:rgba(52,211,153,.7);outline:none}
 @media (max-width:640px){
@@ -43,7 +47,6 @@ body:has(#panel-bot:not([hidden])) .site-footer{display:none}
    Drawn inside the component's answer card, under the text. Sections stay
    hidden while the card unfolds and rise in, one after another, once it
    has opened; bars grow, numbers count up and the meters fill. */
-@property --kb-n{syntax:'<integer>';inherits:false;initial-value:0}
 .mo-a-extra{margin-top:12px}
 .kb-card{--kb-up:52,211,153;--kb-down:248,113,113;--kb-line:rgba(255,255,255,.08);display:grid;gap:12px;font-size:13px;line-height:1.35;color:#ececf1}
 .kb-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
@@ -83,17 +86,20 @@ body:has(#panel-bot:not([hidden])) .site-footer{display:none}
 .kb-mod{margin-left:6px;padding:1px 6px;border-radius:5px;font-size:10px;font-weight:700;text-transform:uppercase;background:rgba(167,139,250,.16);color:#c4b5fd}
 .kb-mod[data-mod="goblin"]{background:rgba(var(--kb-up),.14);color:rgb(var(--kb-up))}
 .kb-chance{display:grid;justify-items:end;flex:none}
-.kb-chance .kb-count{font-size:20px;font-weight:800;letter-spacing:-.02em;color:#fff;font-variant-numeric:tabular-nums}
+.kb-chance strong{font-size:20px;font-weight:800;letter-spacing:-.02em;color:#fff;font-variant-numeric:tabular-nums}
 .kb-chance small{font-size:10px;color:rgba(236,236,241,.5);text-transform:uppercase;letter-spacing:.06em}
 .kb-meter,.kb-row-meter{height:4px;border-radius:999px;background:rgba(255,255,255,.06);overflow:hidden}
 .kb-meter{margin-top:-6px}
 .kb-meter i,.kb-row-meter i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,rgba(var(--kb-up),.55),rgb(var(--kb-up)));transform-origin:left;transform:scaleX(var(--v))}
 
-.kb-count{counter-reset:kb var(--kb-n);--kb-n:var(--to)}
-.kb-count::after{content:counter(kb) attr(data-suffix)}
+.kb-roll-face{display:inline-flex;align-items:flex-start;font-variant-numeric:tabular-nums}
+.kb-digit,.kb-char{display:inline-block;height:1.15em;line-height:1.15;vertical-align:bottom}
+.kb-digit{overflow:hidden}
+.kb-digit>span{display:flex;flex-direction:column;transform:translateY(calc((var(--v) + 10) * -1.15em))}
+.kb-digit i{display:block;height:1.15em;font-style:normal}
 
 .kb-trend header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:rgba(236,236,241,.55)}
-.kb-trend header span{display:inline-flex;align-items:center;gap:6px}
+.kb-trend header>span{display:inline-flex;align-items:center;gap:6px}
 .kb-trend header svg{width:13px;height:13px}
 .kb-trend header strong{font-size:12px;letter-spacing:0;text-transform:none;color:#fca5a5}
 .kb-trend header strong[data-good]{color:rgb(var(--kb-up))}
@@ -114,14 +120,14 @@ body:has(#panel-bot:not([hidden])) .site-footer{display:none}
 .kb-tile b{font-size:15px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums}
 .kb-tile[data-tone="up"] b{color:rgb(var(--kb-up))}
 .kb-tile[data-tone="down"] b{color:#fca5a5}
-.kb-tile span{font-size:10.5px;color:rgba(236,236,241,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kb-tile>span{font-size:10.5px;color:rgba(236,236,241,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 .kb-matchup{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid var(--kb-line)}
 .kb-matchup-logo{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:#14161c;border:1px solid rgba(255,255,255,.1);color:rgba(236,236,241,.6)}
 .kb-matchup-logo .kb-logo{width:22px;height:22px}
 .kb-matchup-logo svg{width:16px;height:16px}
 .kb-matchup p{flex:1;min-width:0;margin:0;display:grid;gap:1px;font-size:12.5px;color:rgba(236,236,241,.85)}
-.kb-matchup p span{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:rgba(236,236,241,.45)}
+.kb-matchup p>span{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:rgba(236,236,241,.45)}
 .kb-matchup em{flex:none;display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:999px;font-size:11px;font-style:normal;font-weight:700;background:rgba(var(--kb-up),.12);color:rgb(var(--kb-up))}
 .kb-matchup em[data-tone="down"]{background:rgba(var(--kb-down),.12);color:#fca5a5}
 .kb-matchup em svg{width:13px;height:13px}
@@ -156,34 +162,66 @@ body:has(#panel-bot:not([hidden])) .site-footer{display:none}
 .kb-row-line .kb-side svg{width:10px;height:10px}
 .kb-row-note{font-size:11px;color:rgba(236,236,241,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kb-row-end{display:grid;justify-items:end;gap:4px}
-.kb-row-pct .kb-count{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums}
+.kb-row-pct{font-size:15px;font-weight:800}
 .kb-row-meter{grid-column:1/-1}
 .kb-slip-foot{display:flex;gap:8px}
 .kb-slip-foot>span{flex:1;display:grid;gap:2px;padding:9px 12px;border-radius:12px;background:rgba(var(--kb-up),.08);border:1px solid rgba(var(--kb-up),.25)}
 .kb-slip-foot small{font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:rgba(236,236,241,.55)}
 .kb-slip-foot strong{font-size:18px;font-weight:800;color:#fff}
 
-/* The build-up: hidden while the card unfolds, then in order. */
+/* ── How an answer arrives ──────────────────────────────────────────────
+   Nothing shows while the card unfolds and the text streams in. Then each
+   section loads in turn (its --kb-d): a placeholder with a shimmer passing
+   over it, then the content rising in as the shimmer clears. Inside them
+   the digits roll into place, the line draws across and the bars spring
+   up grey before settling green or red; the grade lands with a ring and
+   the photo loads inside a spinning one. */
+.kb-rise{position:relative}
+.kb-rise::after{content:'';position:absolute;inset:0;z-index:2;border-radius:12px;pointer-events:none;opacity:0;
+ background:linear-gradient(100deg,rgba(255,255,255,.035) 25%,rgba(255,255,255,.11) 45%,rgba(255,255,255,.035) 65%) 130% 0/250% 100% no-repeat,rgba(255,255,255,.035)}
 .mo-root[data-phase="unfold"] .kb-rise{opacity:0}
-.mo-root[data-phase="answered"] .kb-rise{animation:kb-rise .5s cubic-bezier(.22,1,.36,1) var(--kb-d,0s) both}
-.mo-root[data-phase="answered"] .kb-bar i{animation:kb-grow .6s cubic-bezier(.22,1,.36,1) calc(var(--kb-d,0s) + .12s + var(--i,0) * 45ms) both}
-.mo-root[data-phase="answered"] .kb-bar b{animation:kb-fade .3s ease calc(var(--kb-d,0s) + .4s + var(--i,0) * 45ms) both}
-.mo-root[data-phase="answered"] .kb-mark{animation:kb-draw .7s cubic-bezier(.22,1,.36,1) calc(var(--kb-d,0s) + .05s) both}
-.mo-root[data-phase="answered"] .kb-count{animation:kb-count 1s cubic-bezier(.22,1,.36,1) calc(var(--kb-d,0s) + .1s) both}
-.mo-root[data-phase="answered"] :is(.kb-meter,.kb-row-meter) i{animation:kb-fill 1s cubic-bezier(.22,1,.36,1) calc(var(--kb-d,0s) + .1s) both}
-.mo-root[data-phase="answered"] :is(.kb-grade,.kb-verdict,.kb-ribbon){animation:kb-pop .45s cubic-bezier(.34,1.56,.64,1) calc(var(--kb-d,0s) + .25s) both}
-.mo-root[data-phase="answered"] .kb-face>img{animation:kb-fade .5s ease var(--kb-d,0s) both}
-@keyframes kb-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.mo-root[data-phase="answered"] .kb-rise{animation:kb-box .35s cubic-bezier(.22,1,.36,1) var(--kb-d,0s) both}
+.mo-root[data-phase="answered"] .kb-rise::after{animation:kb-skeleton .85s ease-in-out var(--kb-d,0s) both}
+.mo-root[data-phase="answered"] .kb-rise>*{animation:kb-rise .55s cubic-bezier(.22,1,.36,1) calc(var(--kb-d,0s) + .34s) both}
+.mo-root[data-phase="answered"] :is(.kb-tiles,.kb-why)>*{animation-delay:calc(var(--kb-d,0s) + .34s + var(--i,0) * 70ms)}
+.mo-root[data-phase="answered"] .kb-digit>span{animation:kb-roll .9s cubic-bezier(.16,1,.3,1) calc(var(--kb-d,0s) + .4s + var(--n,0) * 60ms + var(--i,0) * 60ms) both}
+.mo-root[data-phase="answered"] .kb-mark{animation:kb-draw .7s cubic-bezier(.22,1,.36,1) calc(var(--kb-d,0s) + .4s) both}
+.mo-root[data-phase="answered"] .kb-bar i{animation:kb-grow .7s cubic-bezier(.34,1.45,.64,1) calc(var(--kb-d,0s) + .5s + var(--i,0) * 55ms) both,kb-judge .45s ease calc(var(--kb-d,0s) + .95s + var(--i,0) * 55ms) both}
+.mo-root[data-phase="answered"] .kb-bar[data-hit="hit"] i{animation:kb-grow .7s cubic-bezier(.34,1.45,.64,1) calc(var(--kb-d,0s) + .5s + var(--i,0) * 55ms) both,kb-judge .45s ease calc(var(--kb-d,0s) + .95s + var(--i,0) * 55ms) both,kb-glow 1s ease calc(var(--kb-d,0s) + .95s + var(--i,0) * 55ms) both}
+.mo-root[data-phase="answered"] .kb-bar b{animation:kb-pop .35s cubic-bezier(.34,1.56,.64,1) calc(var(--kb-d,0s) + .9s + var(--i,0) * 55ms) both}
+.mo-root[data-phase="answered"] :is(.kb-meter,.kb-row-meter) i{animation:kb-fill 1.1s cubic-bezier(.16,1,.3,1) calc(var(--kb-d,0s) + .4s) both}
+.mo-root[data-phase="answered"] :is(.kb-meter,.kb-row-meter) i::after{animation:kb-shine .9s ease calc(var(--kb-d,0s) + 1.2s) both}
+.mo-root[data-phase="answered"] :is(.kb-grade,.kb-verdict){animation:kb-pop .5s cubic-bezier(.34,1.56,.64,1) calc(var(--kb-d,0s) + .55s) both}
+.mo-root[data-phase="answered"] :is(.kb-grade,.kb-verdict)::after{animation:kb-ring .9s ease-out calc(var(--kb-d,0s) + .75s) both}
+.mo-root[data-phase="answered"] .kb-ribbon{animation:kb-pop-ribbon .5s cubic-bezier(.34,1.56,.64,1) calc(var(--kb-d,0s) + .7s) both}
+.mo-root[data-phase="answered"] .kb-face::before{animation:kb-loading 1s linear calc(var(--kb-d,0s) + .3s) both}
+.mo-root[data-phase="answered"] .kb-face>:is(img,b){animation:kb-face .5s cubic-bezier(.22,1,.36,1) calc(var(--kb-d,0s) + .75s) both}
+.mo-root[data-phase="answered"] .kb-face-team{animation:kb-pop .4s cubic-bezier(.34,1.56,.64,1) calc(var(--kb-d,0s) + 1s) both}
+.mo-root[data-phase="answered"] .kb-matchup em{animation:kb-pop .45s cubic-bezier(.34,1.56,.64,1) calc(var(--kb-d,0s) + .8s) both}
+.mo-root[data-phase="answered"] .kb-risk svg{animation:kb-nudge .6s ease calc(var(--kb-d,0s) + .8s) both}
+.kb-meter i,.kb-row-meter i{position:relative;overflow:hidden}
+.kb-meter i::after,.kb-row-meter i::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);transform:translateX(-100%)}
+.kb-grade,.kb-verdict{position:relative}
+.kb-grade::after,.kb-verdict::after{content:'';position:absolute;inset:-1px;border-radius:inherit;border:2px solid currentColor;opacity:0;pointer-events:none}
+.kb-face::before{content:'';position:absolute;inset:-3px;border-radius:50%;opacity:0;pointer-events:none;
+ background:conic-gradient(from 0deg,transparent 0 55%,rgba(var(--kb-up),.9));-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 2px),#000 calc(100% - 2px));mask:radial-gradient(farthest-side,transparent calc(100% - 2px),#000 calc(100% - 2px))}
+@keyframes kb-box{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes kb-skeleton{0%{opacity:0;background-position:130% 0,0 0}15%{opacity:1}70%{opacity:1}100%{opacity:0;background-position:-40% 0,0 0}}
+@keyframes kb-rise{from{opacity:0;transform:translateY(6px);filter:blur(3px)}to{opacity:1;transform:none;filter:none}}
+@keyframes kb-roll{from{transform:translateY(0)}}
 @keyframes kb-grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
-@keyframes kb-fade{from{opacity:0}to{opacity:1}}
+@keyframes kb-judge{from{filter:grayscale(1) brightness(1.5)}to{filter:none}}
+@keyframes kb-glow{0%{box-shadow:0 0 0 rgba(var(--kb-up),0)}35%{box-shadow:0 0 14px rgba(var(--kb-up),.75)}100%{box-shadow:0 0 0 rgba(var(--kb-up),0)}}
 @keyframes kb-draw{from{transform:scaleX(0);opacity:0}to{transform:scaleX(1);opacity:1}}
-@keyframes kb-count{from{--kb-n:0}to{--kb-n:var(--to)}}
 @keyframes kb-fill{from{transform:scaleX(0)}}
+@keyframes kb-shine{from{transform:translateX(-100%)}to{transform:translateX(220%)}}
 @keyframes kb-pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
-.kb-ribbon{transform-origin:center}
-.mo-root[data-phase="answered"] .kb-ribbon{animation-name:kb-pop-ribbon}
 @keyframes kb-pop-ribbon{from{opacity:0;transform:translateX(-50%) scale(.6)}to{opacity:1;transform:translateX(-50%)}}
-@media (prefers-reduced-motion:reduce){.mo-root .kb-card,.mo-root .kb-card *{animation:none!important}}
+@keyframes kb-ring{0%{opacity:.7;transform:scale(1)}100%{opacity:0;transform:scale(1.75)}}
+@keyframes kb-loading{0%{opacity:0;transform:rotate(0)}15%{opacity:1}70%{opacity:1}100%{opacity:0;transform:rotate(600deg)}}
+@keyframes kb-face{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:none}}
+@keyframes kb-nudge{0%,100%{transform:none}25%{transform:rotate(-12deg)}50%{transform:rotate(10deg)}75%{transform:rotate(-5deg)}}
+@media (prefers-reduced-motion:reduce){.mo-root .kb-card,.mo-root .kb-card *,.mo-root .kb-card *::before,.mo-root .kb-card *::after{animation:none!important}}
 @media (max-width:420px){
  .kb-card{gap:10px}
  .kb-face{width:42px;height:42px}

@@ -26,8 +26,17 @@ function Face({src,name,logo,size='lg'}){
  </span>;
 }
 
-// A number that counts up as the card opens (CSS --kb-n), read out whole.
-const Count=({value,suffix='%'})=><><span className="kb-count" style={{'--to':value}} data-suffix={suffix} aria-hidden="true"/><span className="kb-sr">{value}{suffix}</span></>;
+// A number whose digits roll into place as the card opens, like a counter:
+// each digit is a strip of 0-9 twice over, spun to its value. Read out whole.
+const STRIP=[...'01234567890123456789'];
+function Roll({text}){
+ let digit=0;
+ return <span className="kb-roll"><span className="kb-sr">{text}</span><span className="kb-roll-face" aria-hidden="true">
+  {[...String(text)].map((char,index)=>/\d/.test(char)
+   ?<span key={index} className="kb-digit" style={{'--v':Number(char),'--n':digit++}}><span>{STRIP.map((item,j)=><i key={j}>{item}</i>)}</span></span>
+   :<span key={index} className="kb-char">{char}</span>)}
+ </span></span>;
+}
 
 function Game({pick}){
  if(!pick.team&&!pick.opponent)return pick.time?<span className="kb-game">{pick.time}</span>:null;
@@ -50,7 +59,7 @@ function Bars({pick,compact=false}){
  const decided=last.filter(game=>game.hit!==null);
  const hits=decided.filter(game=>game.hit).length;
  return <div className="kb-trend" data-compact={compact?'':undefined}>
-  {!compact&&<header><span><ChartColumn aria-hidden="true"/>Last {last.length}</span><strong data-good={hits/(decided.length||1)>=.5?'':undefined}>{hits}/{decided.length} {pick.side==='UNDER'?'under':'over'}</strong></header>}
+  {!compact&&<header><span><ChartColumn aria-hidden="true"/>Last {last.length}</span><strong data-good={hits/(decided.length||1)>=.5?'':undefined}><Roll text={`${hits}/${decided.length}`}/> {pick.side==='UNDER'?'under':'over'}</strong></header>}
   <div className="kb-bars" role="img" aria-label={`Last ${last.length} games: ${last.map(game=>figure(game.value)).join(', ')} against a ${figure(line)} line`}>
    <span className="kb-mark" style={{bottom:`${height(line)}%`}}>{!compact&&<em>{figure(line)}</em>}</span>
    {last.map((game,index)=><span key={index} className="kb-bar" data-hit={game.hit===null?'push':game.hit?'hit':'miss'} style={{'--i':index,'--bh':`${Math.max(height(game.value),3)}%`}}>
@@ -83,15 +92,15 @@ function PickCard({pick,verdict,reasons}){
   <div className="kb-line kb-rise" style={delay(.12)}>
    <Side pick={pick}/>
    <span className="kb-line-text"><strong>{figure(pick.line)}</strong> {pick.stat}{pick.modifier!=='standard'&&<span className="kb-mod" data-mod={pick.modifier}>{pick.modifier}</span>}</span>
-   <span className="kb-chance"><Count value={chance}/><small>to hit</small></span>
+   <span className="kb-chance"><strong><Roll text={`${chance}%`}/></strong><small>to hit</small></span>
   </div>
   <div className="kb-meter kb-rise" style={delay(.16)} aria-hidden="true"><i style={{'--v':pick.chance}}/></div>
   {pick.last.length>=3&&<div className="kb-rise" style={delay(.24)}><Bars pick={pick}/></div>}
   {pick.tiles.length>0&&<div className="kb-tiles kb-rise" style={delay(.36)}>
-   {pick.tiles.map(tile=><div key={tile.key} className="kb-tile" data-tone={tile.tone||undefined}><b>{tile.value}</b><span>{tile.label}</span></div>)}
+   {pick.tiles.map((tile,index)=><div key={tile.key} className="kb-tile" data-tone={tile.tone||undefined} style={{'--i':index}}><b><Roll text={tile.value}/></b><span>{tile.label}</span></div>)}
   </div>}
   {pick.matchup&&<div className="kb-rise" style={delay(.46)}><Matchup matchup={pick.matchup}/></div>}
-  {reasons?.length>0&&<ul className="kb-why kb-rise" style={delay(.54)}>{reasons.map(text=><li key={text}><Check aria-hidden="true"/>{text}</li>)}</ul>}
+  {reasons?.length>0&&<ul className="kb-why kb-rise" style={delay(.54)}>{reasons.map((text,index)=><li key={text} style={{'--i':index}}><Check aria-hidden="true"/>{text}</li>)}</ul>}
   {pick.risks.length>0&&<p className="kb-risk kb-rise" style={delay(.6)}><TriangleAlert aria-hidden="true"/>{pick.risks.join(' · ')}</p>}
  </div>;
 }
@@ -102,7 +111,7 @@ function ComparePick({pick,best,index}){
   <Face src={pick.headshot} name={pick.player} logo={pick.teamLogo}/>
   <strong>{pick.player}</strong>
   <span className="kb-versus-line"><Side pick={pick}/><span>{figure(pick.line)} {pick.short}</span></span>
-  <span className="kb-chance"><Count value={pct(pick.chance)}/><small>{pick.grade?`grade ${pick.grade}`:'to hit'}</small></span>
+  <span className="kb-chance"><strong><Roll text={`${pct(pick.chance)}%`}/></strong><small>{pick.grade?`grade ${pick.grade}`:'to hit'}</small></span>
   {pick.last.length>=3?<Bars pick={pick} compact/>:<span className="kb-versus-none">No recent games</span>}
   {pick.record&&<span className="kb-versus-rec">{pick.record.won}/{pick.record.games} last {pick.record.games}</span>}
  </div>;
@@ -121,7 +130,7 @@ function Row({pick,tag,rank,index}){
   </span>
   <span className="kb-row-end">
    {pick.grade&&<span className="kb-grade" data-grade={pick.grade} data-size="sm">{pick.grade}</span>}
-   <span className="kb-row-pct"><Count value={pct(pick.chance)}/></span>
+   <span className="kb-row-pct"><Roll text={`${pct(pick.chance)}%`}/></span>
   </span>
   <span className="kb-row-meter" aria-hidden="true"><i style={{'--v':pick.chance}}/></span>
  </li>;
@@ -141,8 +150,8 @@ export function BotCard({card}){
   return <div className="kb-card" data-kind="slip">
    <ol className="kb-rows">{card.picks.map((pick,index)=><Row key={pick.player} pick={pick} rank={index+1} index={index}/>)}</ol>
    <div className="kb-slip-foot kb-rise" style={delay(.1+card.picks.length*.09)}>
-    <span><small>All {card.picks.length} hit</small><strong><Count value={together}/></strong></span>
-    {card.payout&&<span><small>Power Play</small><strong>{card.payout}x</strong></span>}
+    <span><small>All {card.picks.length} hit</small><strong><Roll text={`${together}%`}/></strong></span>
+    {card.payout&&<span><small>Power Play</small><strong><Roll text={`${card.payout}x`}/></strong></span>}
    </div>
   </div>;
  }

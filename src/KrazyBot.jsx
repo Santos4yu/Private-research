@@ -39,6 +39,7 @@ export function KrazyBot(){
  const [phase,setPhase]=useState('idle');
  const [examples,setExamples]=useState(()=>bot.examples());
  const [follow,setFollow]=useState([]);
+ const [rich,setRich]=useState(false);
 
  // Type a question into the component's own field and send it.
  const send=text=>{
@@ -84,7 +85,10 @@ export function KrazyBot(){
    const room=Math.max(160,floor-ceiling);
    const height=Math.min(answer.scrollHeight,room);
    const centre=box.height*.46;
-   const top=Math.min(Math.max(centre-height/2,ceiling),floor-height);
+   // Grows down from where it opened, moving up only when it has to.
+   const opened=parseFloat(actor.style.getPropertyValue('--h'))||108;
+   const start=Math.max(centre-opened/2,ceiling);
+   const top=start+height<=floor?start:Math.max(ceiling,floor-height);
    actor.style.setProperty('--ans-h',`${height}px`);
    actor.style.setProperty('--ans-y',`${Math.round(top-(centre-height/2))}px`);
    root.style.setProperty('--ans-cap',`${room}px`);
@@ -110,8 +114,9 @@ export function KrazyBot(){
  // The answer's text, plus the card of data behind it when there is one.
  const reply=async text=>{
   const said=await bot.ask(text);
-  const rich=bot.card();
-  return rich?.card?{text:rich.lead||said,extra:<BotCard card={rich.card}/>,width:CARD_WIDTH}:said;
+  const shown=bot.card();
+  setRich(Boolean(shown?.card));
+  return shown?.card?{text:shown.lead||said,extra:<BotCard card={shown.card}/>,width:CARD_WIDTH}:said;
  };
 
  const idle=phase==='idle',answered=phase==='answered';
@@ -125,8 +130,8 @@ export function KrazyBot(){
   <div className="krazy-bot-examples" data-idle={idle?'':undefined} aria-label="Example questions">
    {examples.map(text=><button key={text} type="button" tabIndex={idle?0:-1} onClick={()=>askNow(text)}>{text}</button>)}
   </div>
-  <div className="krazy-bot-follow" data-show={answered&&follow.length?'':undefined} aria-label="Follow-up questions">
-   {follow.map(text=><button key={text} type="button" tabIndex={answered?0:-1} onClick={()=>askNow(text)}>{text}</button>)}
+  <div className="krazy-bot-follow" data-show={answered&&follow.length?'':undefined} data-after-card={rich?'':undefined} aria-label="Follow-up questions">
+   {follow.map((text,index)=><button key={text} type="button" style={{'--i':index}} tabIndex={answered?0:-1} onClick={()=>askNow(text)}>{text}</button>)}
   </div>
  </div>;
 }

@@ -102,7 +102,7 @@ const bez = (t: number, p0: number, c: number, p2: number) => (1 - t) * (1 - t) 
 interface Track { ch: string; from: number; to: number; t0: number; t1: number; ease?: Ease }
 const T = (ch: string, from: number, to: number, t0: number, t1: number, ease: Ease = E.io): Track => ({ ch, from, to, t0, t1, ease });
 
-interface Geo { pw: number; cw: number; H: number; dir: number }
+interface Geo { pw: number; cw: number; H: number; dir: number; ch: number }
 
 const launchTracks = (g: Geo): Track[] => [
   T("w", g.pw, g.pw - 12, 0, 100, E.out),
@@ -164,7 +164,7 @@ const unfoldTracks = (g: Geo, tw: number): Track[] => [
   T("w", ORB_D, 124, 0, 90, E.in),
   T("h", ORB_D, 124, 0, 90, E.in),
   T("w", 124, g.cw, 90, 700, E.card),
-  T("h", 124, CARD_H, 90, 700, E.out),
+  T("h", 124, g.ch, 90, 700, E.out),
   T("r", ORB_D / 2, 20, 90, 700, E.io),
   T("oGreen", 1, 0, 200, 560, E.out),
   T("oCard", 0, 1, 200, 560, E.out),
@@ -469,7 +469,7 @@ function sampleAt(h: Sample[], t: number, out: Sample) {
 function createRuntime(env: Env): Runtime {
   const { actor, mover, root, status, pulse, ghosts, form } = env;
   const life = new AbortController();
-  const geo: Geo = { pw: pillW(), cw: cardW(), H: homeDy(), dir: -1 };
+  const geo: Geo = { pw: pillW(), cw: cardW(), H: homeDy(), dir: -1, ch: CARD_H };
   const orb = createOrb(env.canvas, env.getSpeed, env.isReduced);
   const vals: Record<string, number> = {};
   const dirty = new Set<string>();
@@ -526,12 +526,20 @@ function createRuntime(env: Env): Runtime {
     const total = (nodes.length - 1) * wStagger + wDur;
     const time = v * total;
     const reduced = env.isReduced();
+    let head = -1;
     nodes.forEach((el, i) => {
-      const p = E.out(clamp01((time - i * wStagger) / wDur));
+      const t = time - i * wStagger;
+      const p = E.out(clamp01(t / wDur));
+      if (p > 0) head = i;
       el.style.opacity = fmt(p);
       el.style.transform = p >= 0.999 || reduced ? "none" : `translateY(${fmt((1 - p) * 4)}px)`;
       el.style.filter = p >= 0.999 || reduced ? "none" : `blur(${fmt((1 - p) * 4)}px)`;
+      // A word arrives green and glowing, then settles to the text colour
+      // over the next moment -- a short green wave behind the cursor.
+      el.style.setProperty("--wg", reduced || t <= 0 ? "0" : fmt(clamp01(1 - (t - wDur * 0.35) / 300)));
     });
+    // The cursor rides on the newest word while the answer streams in.
+    nodes.forEach((el, i) => el.toggleAttribute("data-head", i === head));
   };
 
   /* ── channels ── */
@@ -614,6 +622,15 @@ function createRuntime(env: Env): Runtime {
     }
   };
 
+  /* The card opens tall enough for the whole answer text (measured once,
+     after it renders), so none of it streams in out of sight. */
+  const fitText = async (sig: AbortSignal) => {
+    await new Promise<void>((res) => requestAnimationFrame(() => res()));
+    if (sig.aborted) throw ABORT;
+    const body = env.getBody();
+    geo.ch = body ? Math.min(Math.max(CARD_H, body.offsetTop + body.offsetHeight + 16), 300) : CARD_H;
+  };
+
   /* ── orchestrator ── */
   const run = async (text: string, sig: AbortSignal, cfg: RunCfg) => {
     const reduced = env.isReduced();
@@ -670,9 +687,11 @@ function createRuntime(env: Env): Runtime {
         await go(CONDENSE);
 
         env.ui.setPhase("unfold");
-        wDur = 320;
-        wStagger = n > 1 ? Math.min(45, 280 / (n - 1)) : 0;
+        // Streamed at a reading pace, the whole of it inside 1.6s.
+        wDur = 380;
+        wStagger = n > 1 ? Math.min(34, 1600 / (n - 1)) : 0;
         env.ui.setAnswer(body, reply.extra);
+        await fitText(sig);
         await go(unfoldTracks(geo, (n - 1) * wStagger + wDur));
       } else {
         env.ui.setPhase("resolve");
@@ -689,8 +708,9 @@ function createRuntime(env: Env): Runtime {
         wDur = 250;
         wStagger = 0;
         env.ui.setAnswer(body, reply.extra);
+        await fitText(sig);
         await go(R_GREEN_OUT);
-        setNow("w", geo.cw); setNow("h", CARD_H); setNow("r", 20); setNow("dotS", 1);
+        setNow("w", geo.cw); setNow("h", geo.ch); setNow("r", 20); setNow("dotS", 1);
         await go(rCardIn(wDur));
       }
 
