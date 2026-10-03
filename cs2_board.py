@@ -3,6 +3,8 @@ import re
 import time
 import threading
 import json
+import base64
+import gzip
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
 from prizepicks_export_core import _fetch_projection_rows
@@ -15,7 +17,7 @@ LINES = 'finder:cs2:lines:v2'
 # The saved board (every line with its history) is large; each server reads
 # it at most once a minute instead of on every page view.
 SNAPSHOT_MEMORY_SECONDS = 60
-_snapshot = {"at": 0.0, "raw": None}
+_snapshot = {"at": 0.0, "value": None}
 # An unchanged board is only rewritten when it would otherwise go stale
 # (readers treat it as current for 15 minutes).
 REPUBLISH_SECONDS = 600
@@ -55,6 +57,22 @@ def compact(value):
     return {**value, 'rows': rows, 'histories': histories, 'snapshotAt': time.time()}
 
 
+_PACKED = 'gz:'
+
+
+def pack(value):
+    """As plain JSON the board with every history is past storage's 10 MB
+    limit per save; compressed it is a fraction of that."""
+    raw = json.dumps(value, separators=(',', ':')).encode('utf-8')
+    return _PACKED + base64.b64encode(gzip.compress(raw, 3)).decode('ascii')
+
+
+def unpack(raw):
+    if raw.startswith(_PACKED):
+        return json.loads(gzip.decompress(base64.b64decode(raw[len(_PACKED):])))
+    return json.loads(raw)
+
+
 def response_bytes(value, accept_encoding=''):
     """Transfer full histories without overflowing the function's response limit."""
     import gzip
@@ -84,11 +102,13 @@ def publish_saved(value=None):
         unchanged = digest == _published["digest"] and time.time()-_published["at"] < REPUBLISH_SECONDS
     if unchanged:
         return ready
-    raw = json.dumps(ready, separators=(',', ':'))
-    command('SET', SNAPSHOT, raw, 'EX', 900)
+    try:
+        command('SET', SNAPSHOT, pack(ready), 'EX', 900)
+    except Exception:
+        return ready  # Not saved, but this board already carries every history.
     with _lock:
         _published.update(at=time.time(), digest=digest)
-        _snapshot.update(at=time.time(), raw=raw)
+        _snapshot.update(at=time.time(), value=ready)
     return ready
 
 def build(projections=None, now=None):
@@ -126,17 +146,16 @@ def board(force=False):
     if not force:
         try:
             with _lock:
-                raw = _snapshot["raw"] if time.time()-_snapshot["at"] < SNAPSHOT_MEMORY_SECONDS else None
-            if raw is None:
+                ready = _snapshot["value"] if time.time()-_snapshot["at"] < SNAPSHOT_MEMORY_SECONDS else None
+            if ready is None:
                 raw = command('GET', SNAPSHOT)
-                if raw:
+                ready = unpack(raw) if raw else None
+                if ready:
                     with _lock:
-                        _snapshot.update(at=time.time(), raw=raw)
-            ready = json.loads(raw) if raw else None
+                        _snapshot.update(at=time.time(), value=ready)
             if ready and time.time()-ready.get('snapshotAt', 0) < 900 and time.time()-ready.get('lineUpdatedAt', 0) < 900:
-                # Expired events never survive a saved-board hit.
-                ready['rows'] = [r for r in ready['rows'] if datetime.fromisoformat(r['startsAt'].replace('Z', '+00:00')).timestamp() > time.time()]
-                return ready
+                # Expired events never survive a saved-board hit. The kept copy is never changed.
+                return {**ready, 'rows': [r for r in ready['rows'] if datetime.fromisoformat(r['startsAt'].replace('Z', '+00:00')).timestamp() > time.time()]}
         except Exception:
             pass
     with _lock:
