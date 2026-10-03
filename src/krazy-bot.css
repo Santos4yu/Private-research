@@ -54,6 +54,19 @@ html:has(#panel-bot:not([hidden])),body:has(#panel-bot:not([hidden])){overflow:h
 .krazy-bot-send{background:rgba(255,255,255,.08);color:rgba(236,236,241,.45)}
 .krazy-bot-send[data-ready]{background:#2563eb;color:#fff}
 .krazy-bot-send[data-ready]:hover{transform:scale(1.05)}
+/* The mic: in the resting pill and the follow-up bar. Listening, it fills
+   blue and its bars move with you. */
+.kb-mic{flex:none;display:grid;place-items:center;width:40px;height:40px;border:0;border-radius:50%;background:transparent;color:rgba(236,236,241,.55);cursor:pointer;transition:background .2s,color .2s}
+.kb-mic svg{width:18px;height:18px}
+.kb-mic:hover,.kb-mic:focus-visible{background:rgba(255,255,255,.08);color:#fff;outline:none}
+.kb-mic[data-listening]{background:#2563eb;color:#fff;box-shadow:0 0 0 0 rgba(37,99,235,.55);animation:kb-listen 1.4s ease-out infinite}
+.kb-mic-wave{display:flex;align-items:center;gap:2px;height:16px}
+.kb-mic-wave i{display:block;width:3px;height:100%;border-radius:2px;background:currentColor;animation:kb-wave .9s ease-in-out infinite;animation-delay:calc(var(--n,0) * .12s)}
+.kb-mic-wave i:nth-child(2){--n:1}.kb-mic-wave i:nth-child(3){--n:2}.kb-mic-wave i:nth-child(4){--n:3}
+@keyframes kb-listen{to{box-shadow:0 0 0 12px rgba(37,99,235,0)}}
+@keyframes kb-wave{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+.krazy-bot .mo-input .kb-mic{margin-right:4px}
+@media (prefers-reduced-motion:reduce){.kb-mic[data-listening],.kb-mic-wave i{animation:none}}
 @keyframes kb-bar{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translateX(-50%)}}
 @media (prefers-reduced-motion:reduce){.krazy-bot-ask[data-show]{animation:none}}
 /* A card taller than the screen scrolls inside: "More" sits on its foot
@@ -176,6 +189,33 @@ html:has(#panel-bot:not([hidden])),body:has(#panel-bot:not([hidden])){overflow:h
 .kb-why{margin:0;padding:0;list-style:none;display:grid;gap:6px}
 .kb-why li{display:flex;gap:8px;font-size:12.5px;color:rgba(236,236,241,.85)}
 .kb-why svg{flex:none;width:14px;height:14px;margin-top:1px;color:rgb(var(--kb-up));stroke-width:2.5}
+/* The matchup grade: a ring with the score and the factors behind it. */
+.kb-rating{display:grid;gap:10px;padding:12px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid var(--kb-line)}
+.kb-rating-head{display:flex;align-items:center;gap:12px}
+.kb-rating-ring{--c:rgb(var(--kb-up));position:relative;flex:none;display:grid;place-items:center;width:46px;height:46px;border-radius:50%;
+ background:conic-gradient(var(--c) calc(var(--v) * 360deg),rgba(255,255,255,.08) 0)}
+.kb-rating-ring::before{content:'';position:absolute;inset:4px;border-radius:50%;background:#15171d}
+.kb-rating-ring b{position:relative;font-size:15px;font-weight:800;font-variant-numeric:tabular-nums}
+.kb-rating[data-tone="tough"] .kb-rating-ring{--c:rgb(var(--kb-down))}
+.kb-rating[data-tone="neutral"] .kb-rating-ring{--c:rgba(236,236,241,.55)}
+.kb-rating-title{display:grid;gap:1px;min-width:0}
+.kb-rating-title strong{font-size:13.5px}
+.kb-rating-title small{font-size:11px;color:rgba(236,236,241,.5)}
+.kb-rating-factors{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.kb-rating-factors li{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding-top:6px;border-top:1px solid var(--kb-line)}
+.kb-rating-factors li span{display:grid;gap:1px;min-width:0}
+.kb-rating-factors strong{font-size:12px;font-weight:600}
+.kb-rating-factors small{font-size:11px;color:rgba(236,236,241,.5);overflow-wrap:anywhere}
+.kb-rating-factors b{flex:none;font-size:13px;font-variant-numeric:tabular-nums;color:rgba(236,236,241,.6)}
+.kb-rating-factors li[data-tone="up"] b{color:rgb(var(--kb-up))}
+.kb-rating-factors li[data-tone="down"] b{color:#fca5a5}
+.kb-rating-pitches{display:flex;flex-wrap:wrap;gap:6px}
+.kb-rating-pitches span{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;font-size:11px;background:rgba(255,255,255,.05);color:rgba(236,236,241,.7)}
+.kb-rating-pitches b{color:#ececf1}
+.kb-flag{display:flex;gap:9px;align-items:flex-start;margin:0;padding:9px 11px;border-radius:10px;background:rgba(var(--kb-down),.1);border:1px solid rgba(var(--kb-down),.3);color:#fecaca;font-size:12.5px}
+.kb-flag svg{flex:none;width:16px;height:16px;margin-top:1px;color:rgb(var(--kb-down))}
+.kb-flag span{display:grid;gap:1px}
+.kb-flag strong{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:rgb(var(--kb-down))}
 .kb-risk{display:flex;gap:8px;align-items:flex-start;margin:0;padding:8px 10px;border-radius:10px;font-size:12px;background:rgba(251,191,36,.07);color:#fcd34d}
 .kb-risk svg{flex:none;width:14px;height:14px;margin-top:1px}
 
@@ -205,6 +245,13 @@ html:has(#panel-bot:not([hidden])),body:has(#panel-bot:not([hidden])){overflow:h
 .kb-row-end{display:grid;justify-items:end;gap:4px}
 .kb-row-pct{font-size:15px;font-weight:800}
 .kb-row-meter{grid-column:1/-1}
+/* A cheat-sheet answer's rows. */
+.kb-board-title{margin:0;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(236,236,241,.5)}
+.kb-board-logos{display:flex}
+.kb-board-logos .kb-matchup-logo+.kb-matchup-logo{margin-left:-8px}
+.kb-board-end small{font-size:10px;color:rgba(236,236,241,.5);white-space:nowrap}
+.kb-board-end[data-tone="up"] .kb-row-pct{color:rgb(var(--kb-up))}
+.kb-board-end[data-tone="down"] .kb-row-pct{color:#fca5a5}
 .kb-slip-foot{display:flex;gap:8px}
 .kb-slip-foot>span{flex:1;display:grid;gap:2px;padding:9px 12px;border-radius:12px;background:rgba(var(--kb-up),.08);border:1px solid rgba(var(--kb-up),.25)}
 .kb-slip-foot small{font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:rgba(236,236,241,.55)}

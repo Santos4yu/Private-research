@@ -284,6 +284,22 @@ export function withMlbMatchups(rows, context) {
   });
 }
 
+/** Every hitter's matchup today, graded the way Research grades one (mlb_prop_matchups.py). */
+export function loadHitterMatchups(options = {}) {
+  return request('/api/board?view=mlb-matchups', options);
+}
+
+/** Each MLB hitter line with its matchup grades (pitchers keep their lineup read). */
+export function withHitterMatchups(rows, data) {
+  const players = data?.players;
+  if (!players || !Array.isArray(rows)) return rows;
+  return rows.map(row => {
+    if (row.sport !== 'mlb' || String(row.marketKey || '').startsWith('pitching:') || row.playerId == null) return row;
+    const found = players[String(row.playerId)];
+    return found ? {...row, hitterMatchup: found} : row;
+  });
+}
+
 /** The league table the defense ranks come from (WNBA, NBA and NFL). */
 export function loadFinderDefense(sport, options = {}) {
   if (sport === 'wnba') return request('/api/wnba?resource=league-context', options);

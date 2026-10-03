@@ -10,7 +10,10 @@ const row = (player, sport, market, line, {team = 'DET', opponent = 'KC', game =
 const graded = (row, side, {grade = 'B', chance = 0.58, recent = [7, 10], book = null, projection = null, matchup = null, lift = 1.06, risks = [], backed = true} = {}) => ({
   id: `${row.id}|${side}`, row, side, modifier: row.modifier, grade, chance, book, backed, game: `${row.sport}:${row.gameId}`, player: row.player, price: null,
   records: {l10: {won: recent[0], games: recent[1], rate: recent[0] / recent[1]}},
-  read: {projection, factors: matchup ? [{key: 'matchup', factor: lift, text: matchup, short: '', label: 'lineup'}] : [], risks},
+  // MLB has matchup reads today, so every MLB leg carries one (a good one
+  // for its side unless a test says otherwise); NBA and NHL have none here.
+  read: {projection, factors: matchup ? [{key: 'matchup', factor: lift, text: matchup, short: '', label: 'lineup'}]
+    : row.sport === 'mlb' ? [{key: 'matchup', factor: side === 'UNDER' ? 0.95 : 1.05, text: null, short: '', label: 'lineup'}] : [], risks},
 });
 
 function board() {
@@ -64,7 +67,7 @@ test('questions are read through slang and typos', () => {
   assert.equal(understand('skubal over or under 6.5').side, null);
   assert.equal(understand('make it 2 picks').intent, 'slip');
   assert.equal(understand("what's the play today").intent, 'rundown');
-  assert.deepEqual(understand('best points prop').statOptions.map(stat => stat.sport), ['nba', 'nhl']);
+  assert.deepEqual(understand('best points prop').statOptions.map(stat => stat.sport), ['nba', 'nhl', 'wnba']);
   assert.equal(understand('best shots on goal prop').stat.sport, 'nhl');
 });
 
@@ -291,4 +294,95 @@ test('the analyst: hot lineups, strikeout rankings, a hitter\'s matchup, minutes
   assert.notEqual(bot.card(), null);
   assert.deepEqual(findPlayers('will he go deep', ['Will Smith', 'Aaron Judge']).players, []);
   assert.deepEqual(findPlayers('why will', ['Will Smith', 'Aaron Judge'], {preferred: ['Will Smith']}).players, ['Will Smith']);
+});
+
+test('every pick needs a good matchup: a hot last 10 into a tough one is a red flag', async () => {
+  const {rows, reads} = board();
+  const hot = row('Hunter Greene', 'mlb', 'Pitcher Strikeouts', 7.5, {marketKey: 'pitching:strikeouts', team: 'CIN', opponent: 'NYY', game: 'cin-nyy'});
+  const neutral = row('Joe Ryan', 'mlb', 'Pitcher Strikeouts', 5.5, {marketKey: 'pitching:strikeouts', team: 'MIN', opponent: 'CHW', game: 'min-chw'});
+  // The best record and chance on the board, into a lineup that rarely strikes out.
+  reads.set(`${hot.id}|OVER`, graded(hot, 'OVER', {grade: 'A', chance: 0.72, recent: [9, 10], matchup: 'NYY strike out 18% of the time (league 22%)', lift: 0.94}));
+  reads.set(`${neutral.id}|OVER`, graded(neutral, 'OVER', {grade: 'A', chance: 0.7, recent: [8, 10], matchup: 'CHW strike out about the league rate', lift: 1.005}));
+  const all = [...rows, hot, neutral];
+  const bot = createBot({sports: ['mlb'], load: async () => all,
+    judge: list => list.flatMap(item => ['OVER', 'UNDER'].map(side => reads.get(`${item.id}|${side}`))).filter(leg => leg?.backed),
+    assess: (item, side) => reads.get(`${item.id}|${side}`) || null, now: () => START, random: () => 0});
+  // Neither is a pick: one has a tough matchup, the other only a neutral one.
+  assert.match(await bot.ask('best k prop'), /Tarik Skubal over 6\.5 K's/);
+  const verdict = await bot.ask('should I take Greene over 7.5 Ks?');
+  assert.match(verdict, /^Red flag\. He's 9 of his last 10, but the matchup is (caution|unfavorable) \(\d+\)\./);
+  assert.equal(bot.card().card.verdict.label, 'Red flag');
+  assert.equal(bot.card().card.pick.redFlag.startsWith("He's 9 of his last 10"), true);
+  assert.equal(bot.card().card.pick.rating.tone, 'tough');
+  assert.match(await bot.ask('why'), /Red flag: He's 9 of his last 10, but the matchup is unfavorable \(30\) \(NYY strike out 18% of the time \(league 22%\)\)\. Grade C, 72% to hit\.$/);
+  assert.match(await bot.ask('should I take Ryan over 5.5 Ks?'), /^Lean yes\. The numbers are there, but the matchup is only neutral\./);
+});
+
+test('NFL and WNBA: stats, teams and leagues', async () => {
+  assert.equal(understand('best receiving yards prop').stat.key, 'receiving_yards');
+  assert.equal(understand('mahomes passing yards').stat.key, 'passing_yards');
+  assert.equal(understand('best rush + rec yards').stat.key, 'rushing_receiving_yards');
+  assert.equal(understand('who scores an anytime td').stat.key, 'touchdowns');
+  assert.deepEqual(understand('best chiefs prop').teamOptions.map(team => [team.sport, team.codes[0]]), [['nfl', 'KC']]);
+  assert.equal(understand('best wnba points prop').sport, 'wnba');
+  assert.deepEqual(understand('best aces prop').teamOptions.map(team => team.sport), ['wnba']);
+  const kelce = row('Travis Kelce', 'nfl', 'Receiving Yards', 52.5, {marketKey: 'receiving_yards', team: 'KC', opponent: 'LV', game: 'kc-lv'});
+  const henry = row('Derrick Henry', 'nfl', 'Rush Yards', 88.5, {marketKey: 'rushing_yards', team: 'BAL', opponent: 'CIN', game: 'bal-cin'});
+  const wilson = row("A'ja Wilson", 'wnba', 'Points', 24.5, {team: 'LV', opponent: 'NY', game: 'lv-ny'});
+  const reads = new Map([[`${kelce.id}|OVER`, graded(kelce, 'OVER', {grade: 'A', chance: 0.64})], [`${henry.id}|OVER`, graded(henry, 'OVER', {grade: 'B', chance: 0.6})],
+    [`${wilson.id}|OVER`, graded(wilson, 'OVER', {grade: 'A', chance: 0.66})]]);
+  const rows = [kelce, henry, wilson];
+  const bot = createBot({sports: ['nfl', 'wnba'], load: async sport => rows.filter(item => item.sport === sport),
+    judge: list => list.flatMap(item => ['OVER', 'UNDER'].map(side => reads.get(`${item.id}|${side}`))).filter(Boolean),
+    assess: (item, side) => reads.get(`${item.id}|${side}`) || null, now: () => START, random: () => 0});
+  assert.match(await bot.ask('best receiving yards prop'), /Travis Kelce over 52\.5 rec yards vs LV/);
+  assert.match(await bot.ask('best rushing yards prop'), /Derrick Henry over 88\.5 rush yards vs CIN/);
+  assert.match(await bot.ask('best wnba points prop'), /A'ja Wilson over 24\.5 points vs NY/);
+  assert.match(await bot.ask('best nhl prop'), /covering NFL, WNBA right now/);
+  assert.ok(bot.examples().includes('Best receiving yards prop'));
+});
+
+test('the cheat sheets answer NRFIs, weather, streaks, career numbers, hot bats and home run bats', async () => {
+  const face = (id, name, team, extra = {}) => ({id, name, team, teamId: 100 + id, opponent: 'BOS', home: true, pitcher: {id: 9, name: 'Brayan Bello', throws: 'R'}, ...extra});
+  const SHEETS = {
+    nrfi: {rows: [
+      {away: {team: 'NYY', teamId: 147, pitcher: {name: 'Gerrit Cole', season: 0.78}}, home: {team: 'TB', teamId: 139, pitcher: {name: 'Drew Rasmussen', season: 0.8}}, chance: 0.6, nrfi: -150, yrfi: 150, lean: 'nrfi'},
+      {away: {team: 'ATL', teamId: 144, pitcher: {name: 'JR Ritchie', season: 0.6}}, home: {team: 'LAD', teamId: 119, pitcher: {name: 'Tarik Skubal', season: 0.6}}, chance: 0.42, nrfi: 138, yrfi: -138, lean: 'yrfi'}]},
+    park: {rows: [
+      {venue: 'Dodger Stadium', away: 'ATL', home: 'LAD', homeId: 119, runs: 14, hr: 34, temp: 97, wind: 6, windEffect: 'out', dome: false, precip: 0},
+      {venue: 'American Family Field', away: 'SD', home: 'MIL', homeId: 158, runs: -5, hr: -17, temp: 55, wind: 9, windEffect: 'in', dome: false, precip: 40}]},
+    streaks: {streaks: {hits: {label: '1+ Hits', rows: [face(1, 'Andy Pages', 'LAD', {streak: 14}), face(2, 'Michael Harris', 'ATL', {streak: 13})]},
+      onbase: {label: 'On base', rows: [face(3, 'Juan Soto', 'NYM', {streak: 21})]}}},
+    bvp: {rows: [face(4, 'Aaron Judge', 'NYY', {pa: 22, ab: 20, hits: 8, hr: 2, so: 3, avg: 0.4, ops: 1.2, sample: 'strong', score: 80})]},
+    hot: {days: 14, rows: [face(5, 'Giancarlo Stanton', 'NYY', {ops: 1.114, hr: 4, delta: {ops: 0.475}, tag: 'hot'})]},
+    hr: {rows: [face(6, 'Cal Raleigh', 'SEA', {score: 82, barrel: 19.6, vsHand: {iso: 0.31}, park: 12, hot: true}), face(7, 'Kyle Schwarber', 'PHI', {score: 75, barrel: 18})]},
+  };
+  const asked = [];
+  const bot = createBot({sports: ['mlb'], load: async () => [], sheets: async name => { asked.push(name); return SHEETS[name]; }, now: () => START, random: () => 0});
+  assert.match(await bot.ask('nrfi today?'), /^Best NRFI today: NYY @ TB at 60% scoreless \(fair -150\)\. Best YRFI: ATL @ LAD, 58% to see a run \(fair -138\)\./);
+  assert.equal(bot.card().card.kind, 'board');
+  assert.deepEqual(bot.card().card.rows.map(row => [row.value, row.label]), [['60%', 'Lean NRFI'], ['42%', 'Lean YRFI']]);
+  assert.match(await bot.ask('yankees nrfi?'), /^NYY @ TB: 60% chance of a scoreless first, so lean nrfi\. Fair NRFI -150, YRFI \+150\. Gerrit Cole has kept 78% of his first innings scoreless/);
+  assert.match(await bot.ask("what's the weather today"), /^Best hitting conditions: Dodger Stadium \(\+14% runs, 97°, 6 mph out\)\. Toughest: American Family Field \(−5% runs/);
+  assert.match(await bot.ask('where is the wind blowing out'), /^Blowing out: Dodger Stadium \(6 mph\)\. Blowing in: American Family Field \(9 mph\)\./);
+  assert.match(await bot.ask('any rain today'), /^Rain risk: American Family Field \(40%\)\./);
+  assert.match(await bot.ask('who is on a hit streak'), /^Longest active 1\+ hits streaks today: Andy Pages \(14 straight\) and Michael Harris \(13 straight\)\./);
+  assert.match(await bot.ask('on base streaks'), /Juan Soto \(21 straight\)/);
+  assert.match(await bot.ask('who are the hottest hitters'), /^Hottest bats over the last 14 days: Giancarlo Stanton \(1\.114 OPS, \+\.475 over his season, 4 HR\)\./);
+  assert.match(await bot.ask('who is going to homer today'), /^Top home run bats today: Cal Raleigh \(82\) and Kyle Schwarber \(75\)\. Raleigh: 19\.6% barrels, \.310 ISO vs RHP, \+12% HR park and hot lately\./);
+  assert.deepEqual(bot.card().card.rows.map(row => [row.name, row.value, row.tag]), [['Cal Raleigh', '82', 'Hot'], ['Kyle Schwarber', '75', null]]);
+  assert.deepEqual([...new Set(asked)], ['nrfi', 'park', 'streaks', 'hot', 'hr']);  // each sheet fetched once, then kept
+  assert.ok(bot.thinking('nrfi today?').includes('Reading first innings'));
+  // Without MLB, the sheets say so.
+  const nba = createBot({sports: ['nba'], load: async () => [], sheets: async () => ({rows: []}), now: () => START});
+  assert.match(await nba.ask('nrfi today?'), /cover MLB/);
+});
+
+test('career numbers against today\'s starter, by name', async () => {
+  const judge = row('Aaron Judge', 'mlb', 'Hits+Runs+RBIs', 1.5, {marketKey: 'hitting:hrr', team: 'NYY', opponent: 'BOS'});
+  const bvp = {rows: [{id: 4, name: 'Aaron Judge', team: 'NYY', teamId: 147, pitcher: {name: 'Brayan Bello', throws: 'R'}, pa: 22, ab: 20, hits: 8, hr: 2, so: 3, avg: 0.4, ops: 1.2, sample: 'strong'}]};
+  const bot = createBot({sports: ['mlb'], load: async () => [judge], sheets: async () => bvp, now: () => START, random: () => 0});
+  assert.match(await bot.ask('how does judge hit bello'), /^Aaron Judge vs Brayan Bello: 8-for-20 \(\.400\), 2 HR, 3 K in 22 plate appearances\. That's a strong sample\./);
+  assert.match(await bot.ask('judge career numbers vs cole'), /\(He faces Brayan Bello today, not Cole\.\)$/);
+  assert.doesNotMatch(await bot.ask('judge history vs bello'), /He faces/);
 });

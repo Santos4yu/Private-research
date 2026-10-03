@@ -82,6 +82,22 @@ function Matchup({matchup,who=null}){
  </div>;
 }
 
+// The matchup grade for the pick's side (0-100, 50 neutral) and what moved
+// it most -- the Research model's factors for MLB hitters.
+function Rating({rating}){
+ return <div className="kb-rating" data-tone={rating.tone}>
+  <div className="kb-rating-head">
+   <span className="kb-rating-ring" style={{'--v':rating.score/100}} aria-hidden="true"><b><Roll text={String(rating.score)}/></b></span>
+   <span className="kb-rating-title"><strong>{rating.label} matchup{rating.versus?` vs ${rating.versus}`:''}</strong><small>{rating.tone==='good'?'Supports the pick':rating.tone==='tough'?'Works against the pick':'Neither helps nor hurts'}</small></span>
+  </div>
+  {rating.factors?.length>0&&<ul className="kb-rating-factors">{rating.factors.map((factor,index)=><li key={factor.name} style={{'--i':index}} data-tone={factor.impact>0?'up':factor.impact<0?'down':undefined}>
+   <span><strong>{factor.name}</strong><small>{factor.detail}</small></span>
+   <b>{factor.impact>0?'+':factor.impact<0?'−':''}{Math.abs(Math.round(factor.impact))}</b>
+  </li>)}</ul>}
+  {rating.pitches?.length>0&&<div className="kb-rating-pitches">{rating.pitches.map(pitch=><span key={pitch.name}>{pitch.name}<b>{Math.round(pitch.pct)}%</b></span>)}</div>}
+ </div>;
+}
+
 // Where the projection lands against the line: the gap between them filled,
 // green when it's on the pick's side.
 function Gauge({pick}){
@@ -114,12 +130,14 @@ function PickCard({pick,verdict,reasons}){
    <span className="kb-chance"><strong><Roll text={`${chance}%`}/></strong><small>to hit</small></span>
   </div>
   <div className="kb-meter kb-rise" style={delay(.16)} aria-hidden="true"><i style={{'--v':pick.chance}}/></div>
+  {pick.redFlag&&<p className="kb-flag kb-rise" style={delay(.18)}><TriangleAlert aria-hidden="true"/><span><strong>Red flag</strong>{pick.redFlag}</span></p>}
   {pick.projection!=null&&<div className="kb-rise" style={delay(.2)}><Gauge pick={pick}/></div>}
   {pick.last.length>=3&&<div className="kb-rise" style={delay(.28)}><Bars pick={pick}/></div>}
   {pick.tiles.length>0&&<div className="kb-tiles kb-rise" style={delay(.36)}>
    {pick.tiles.map((tile,index)=><div key={tile.key} className="kb-tile" data-tone={tile.tone||undefined} style={{'--i':index}}><b><Roll text={tile.value}/></b><span>{tile.label}</span></div>)}
   </div>}
-  {pick.matchup&&<div className="kb-rise" style={delay(.46)}><Matchup matchup={pick.matchup}/></div>}
+  {pick.matchup&&!pick.rating?.factors?.length&&<div className="kb-rise" style={delay(.46)}><Matchup matchup={pick.matchup}/></div>}
+  {pick.rating&&<div className="kb-rise" style={delay(.5)}><Rating rating={pick.rating}/></div>}
   {reasons?.length>0&&<ul className="kb-why kb-rise" style={delay(.54)}>{reasons.map((text,index)=><li key={text} style={{'--i':index}}><Check aria-hidden="true"/>{text}</li>)}</ul>}
   {pick.risks.length>0&&<p className="kb-risk kb-rise" style={delay(.6)}><TriangleAlert aria-hidden="true"/>{pick.risks.join(' · ')}</p>}
  </div>;
@@ -270,6 +288,25 @@ function UsageCard({card}){
  </div>;
 }
 
+// One row of a cheat-sheet answer: who (a player's photo or the teams'
+// logos), a line under it, and the number that matters on the right.
+function BoardRow({item,index}){
+ return <li className="kb-row kb-board-row kb-rise" style={delay(.06+index*.08)}>
+  {item.photo!==undefined&&item.name&&!item.logos?<Face src={item.photo} name={item.name} logo={item.logo} size="md"/>
+   :<span className="kb-board-logos">{(item.logos||[]).map((logo,place)=><span key={place} className="kb-matchup-logo"><Logo src={logo} fallback={<Swords aria-hidden="true"/>}/></span>)}</span>}
+  <span className="kb-row-main">
+   {item.tag&&<span className="kb-tag">{item.tag}</span>}
+   <strong>{item.name}</strong>
+   {item.sub&&<span className="kb-row-note">{item.sub}</span>}
+  </span>
+  <span className="kb-row-end kb-board-end" data-tone={item.tone||undefined}>
+   <span className="kb-row-pct"><Roll text={String(item.value)}/></span>
+   {item.label&&<small>{item.label}</small>}
+  </span>
+  {item.meter!=null&&<span className="kb-row-meter" aria-hidden="true"><i style={{'--v':item.meter}}/></span>}
+ </li>;
+}
+
 export function BotCard({card}){
  if(!card)return null;
  if(card.kind==='innings')return <InningsCard pitchers={card.pitchers}/>;
@@ -280,6 +317,10 @@ export function BotCard({card}){
  if(card.kind==='compare')return <div className="kb-card" data-kind="compare">
   <div className="kb-versus">{card.picks.map((pick,index)=><ComparePick key={pick.player} pick={pick} best={index===0} index={index}/>)}</div>
   {card.picks[0].matchup&&<div className="kb-rise" style={delay(.32)}><Matchup matchup={card.picks[0].matchup} who={card.picks[0].player.split(' ').at(-1)}/></div>}
+ </div>;
+ if(card.kind==='board')return <div className="kb-card" data-kind="board">
+  {card.title&&<p className="kb-board-title kb-rise" style={delay(.02)}>{card.title}</p>}
+  <ol className="kb-rows">{card.rows.map((item,index)=><BoardRow key={`${item.name}-${index}`} item={item} index={index}/>)}</ol>
  </div>;
  if(card.kind==='list')return <div className="kb-card" data-kind="list"><ol className="kb-rows">{card.picks.map((pick,index)=><Row key={pick.player} pick={pick} rank={index+1} index={index}/>)}</ol></div>;
  if(card.kind==='rundown')return <div className="kb-card" data-kind="rundown"><ol className="kb-rows">{card.rows.map((item,index)=><Row key={item.tag} pick={item.pick} tag={item.tag} index={index}/>)}</ol></div>;

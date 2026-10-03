@@ -33,6 +33,8 @@ export interface MorphOrbProps {
       own box the pill's centre rests, in px. Otherwise (and by default) the
       pill rests 96px above the window's bottom. */
   pillBottom?: () => number | null;
+  /** Extra controls inside the input pill, before the send button (a mic). */
+  inputAccessory?: React.ReactNode;
 }
 
 /* ─────────────────────────── geometry ─────────────────────────── */
@@ -1048,6 +1050,7 @@ export default function MorphOrb(props: MorphOrbProps) {
               onChange={onChange}
               onKeyDown={onKeyDown}
             />
+            {props.inputAccessory}
             <button type="submit" className="mo-send" aria-label={COPY.send} data-ready={ready ? "" : undefined}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M12 19V5" />

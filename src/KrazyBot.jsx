@@ -1,11 +1,13 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import {ArrowUp,ChevronDown,RotateCcw} from 'lucide-react';
+import {ArrowUp,ChevronDown,Mic,RotateCcw} from 'lucide-react';
 import MorphOrb from '@/components/ui/ai-thiking-orb-and-input';
 import {createBot,SPORTS} from './krazy-bot';
 import {BotCard} from './KrazyBotCard';
 import {loadLines} from './finder-pool';
+import {loadHitterMatchups,withHitterMatchups} from './unified-finder-data';
 import {isPrizePicksLine} from './smart-slip';
 import {siteFinderSportAllowed} from './site-access';
+import {useVoice} from './voice-input';
 import './krazy-bot.css';
 
 // What the bot remembers about this member (krazy-bot.js profile). It
@@ -25,6 +27,17 @@ async function recentMoves(){
  return Array.isArray(body.moves)?body.moves:[];
 }
 
+// Ask out loud: the words fill the field as they're heard and the question
+// goes when the speaker stops. Hidden where the browser can't listen.
+function VoiceButton({onWords,onSaid,tabIndex}){
+ const voice=useVoice({onWords,onSaid});
+ if(!voice.supported)return null;
+ return <button type="button" className="kb-mic" data-listening={voice.listening?'':undefined} onClick={voice.listening?voice.stop:voice.start}
+  tabIndex={tabIndex} aria-pressed={voice.listening} aria-label={voice.listening?'Stop listening':'Ask out loud'} title={voice.listening?'Listening…':'Ask out loud'}>
+  {voice.listening?<span className="kb-mic-wave" aria-hidden="true"><i/><i/><i/><i/></span>:<Mic aria-hidden="true"/>}
+ </button>;
+}
+
 // Krazy Bot: the orb chat component, answering from today's graded picks
 // (krazy-bot.js). Everything runs in the browser on the lines the Finder
 // already loads -- no extra server work.
@@ -32,7 +45,18 @@ export function KrazyBot(){
  const sports=useMemo(()=>{const open=Object.keys(SPORTS).filter(sport=>siteFinderSportAllowed(sport));return open.length?open:['mlb'];},[]);
  const bot=useMemo(()=>createBot({
   sports,profile:memory,moves:recentMoves,
-  load:sport=>{const now=Date.now();return loadLines(sport,{only:row=>isPrizePicksLine(row)&&Date.parse(row.startsAt||'')>now+10*60000});},
+  load:async sport=>{
+   const now=Date.now();
+   const rows=await loadLines(sport,{only:row=>isPrizePicksLine(row)&&Date.parse(row.startsAt||'')>now+10*60000});
+   // MLB hitters carry the Research matchup grade (pitch mix and all).
+   return sport==='mlb'?withHitterMatchups(rows,await loadHitterMatchups().catch(()=>null)):rows;
+  },
+  // Today's MLB cheat sheets (mlb_sheets.py) for questions about NRFIs, weather, streaks and more.
+  sheets:async name=>{
+   const response=await fetch(`/api/board?view=mlb-sheet&sheet=${encodeURIComponent(name)}&day=today`,{credentials:'same-origin',cache:'no-store'});
+   if(!response.ok)throw new Error('This sheet is unavailable right now.');
+   return response.json();
+  },
  }),[sports]);
  const host=useRef(null);
  const queued=useRef(null);
@@ -51,6 +75,13 @@ export function KrazyBot(){
   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,text);
   input.dispatchEvent(new Event('input',{bubbles:true}));
   requestAnimationFrame(()=>form.requestSubmit());
+ };
+ // Words heard so far, shown in the component's own field without asking yet.
+ const typeInto=text=>{
+  const input=host.current?.querySelector('.mo-root .mo-field');
+  if(!input)return;
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,text);
+  input.dispatchEvent(new Event('input',{bubbles:true}));
  };
  // From an answer, a tapped follow-up clears it first, then asks.
  const askNow=text=>{
@@ -175,7 +206,8 @@ export function KrazyBot(){
 
  const idle=phase==='idle',answered=phase==='answered';
  return <div className="krazy-bot" ref={host}>
-  <MorphOrb onSubmit={reply} thinkingLabels={text=>bot.thinking(text)} minThinkMs={3000} pillBottom={pillBottom}/>
+  <MorphOrb onSubmit={reply} thinkingLabels={text=>bot.thinking(text)} minThinkMs={3000} pillBottom={pillBottom}
+   inputAccessory={idle?<VoiceButton onWords={typeInto} onSaid={text=>text&&askNow(text)}/>:null}/>
   <header className="krazy-bot-head" data-idle={idle?'':undefined}>
    <span className="krazy-bot-badge">{sports.map(sport=>SPORTS[sport].name).join(' · ')}</span>
    <h1>Krazy Bot</h1>
@@ -190,6 +222,7 @@ export function KrazyBot(){
   <form className="krazy-bot-ask" data-show={answered?'':undefined} data-after-card={rich?'':undefined} onSubmit={askFromBar} autoComplete="off">
    <button type="button" className="krazy-bot-new" onClick={startOver} tabIndex={answered?0:-1} aria-label="New question" title="New question"><RotateCcw aria-hidden="true"/></button>
    <input value={draft} onChange={event=>setDraft(event.target.value)} maxLength={200} placeholder="Ask a follow-up…" aria-label="Ask a follow-up" enterKeyHint="send" spellCheck={false} tabIndex={answered?0:-1}/>
+   <VoiceButton onWords={setDraft} onSaid={text=>{if(text){setDraft('');askNow(text);}}} tabIndex={answered?0:-1}/>
    <button type="submit" className="krazy-bot-send" data-ready={draft.trim()?'':undefined} tabIndex={answered?0:-1} aria-label="Send"><ArrowUp aria-hidden="true"/></button>
   </form>
   <div className="krazy-bot-follow" data-show={answered&&follow.length?'':undefined} data-after-card={rich?'':undefined} aria-label="Follow-up questions">
