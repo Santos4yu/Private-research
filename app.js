@@ -1,4 +1,4 @@
-import {dockHiddenAt} from './src/mobile-nav-core.js';
+import {dockState} from './src/mobile-nav-core.js';
 import {initSiteAccess,siteTabAllowed,loadSiteControls,showLockedTab,availableSiteTab,refreshSiteAccess,dismissBootLoader} from './src/site-access.js';
 import {ADMIN_TABS} from './src/site-access-core.js';
 /* =========================================================
@@ -1298,12 +1298,12 @@ function freezeStatusInset() {
 
 
 function wireMobileNavAutoHide() {
-  let hidden = false;
+  let dock = null;
   let ticking = false;
   const update = () => {
-    const y = Math.max(0, window.scrollY || 0);
-    hidden = dockHiddenAt(y,hidden);
-    document.body.classList.toggle('mobile-dock-hidden',hidden);
+    const bottom = document.documentElement.scrollHeight - window.innerHeight;
+    dock = dockState(dock, window.scrollY || 0, bottom);
+    document.body.classList.toggle('mobile-dock-hidden', dock.hidden);
     ticking = false;
   };
   update();

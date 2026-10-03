@@ -7,8 +7,8 @@
     from the window; raising this layer's bottom edge by B moves the pill up
     by .46B, so inside the layer it sits 96 - .54B from the bottom. */
  --mo-pill-bottom:calc(96px - .54 * var(--kb-bottom,0px))}
-/* Phones: stop above the bottom nav (8px gap + 68px bar + border). Desktop: beside the 64px sidebar. */
-@media (max-width:760px){.krazy-bot{--kb-bottom:calc(78px + env(safe-area-inset-bottom,0px))}}
+/* Phones: stop above the bottom nav (8px gap + 58px bar + border). Desktop: beside the 64px sidebar. */
+@media (max-width:760px){.krazy-bot{--kb-bottom:calc(68px + env(safe-area-inset-bottom,0px))}}
 @media (min-width:761px){.krazy-bot{--kb-left:64px}}
 /* The site footer would otherwise sit over the bot, and nothing behind the
    bot scrolls. */
