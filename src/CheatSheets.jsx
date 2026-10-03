@@ -1,5 +1,5 @@
 import React,{useEffect,useMemo,useState} from 'react';
-import {ArrowDown,ArrowLeft,ArrowUp,ChevronDown,ChevronRight,CloudRain,Crosshair,Flame,Gauge,Home,Layers,Moon,NotebookTabs,RefreshCw,Search,Sun,Swords,Target,TrendingUp,Wind,Zap} from 'lucide-react';
+import {ArrowDown,ArrowLeft,ArrowUp,ArrowUpRight,ChevronDown,CloudRain,Crosshair,Flame,Home,Info,Layers,Moon,RefreshCw,Search,Sun,Swords,Target,TrendingUp,Zap} from 'lucide-react';
 import {loadLines} from './finder-pool';
 import './cheat-sheets.css';
 
@@ -8,14 +8,14 @@ import './cheat-sheets.css';
 // prices come from the lines the Finder already loads.
 
 const SHEETS=[
- {key:'hr',title:'HR Props',kicker:'Home run props',icon:Flame,about:'Power hitters ranked for home run props: barrel rate, hard-hit rate and exit velocity, slugging and ISO against today\'s pitcher hand, and the park and weather.'},
- {key:'hot',title:'Hot Bats',kicker:'Last 14 days',icon:TrendingUp,about:'Hitters running well above their season over the last two weeks: OPS, ISO and average gains, home runs, and a sparkline of their recent total bases.'},
- {key:'matchups',title:'Pitcher vs Lineup',kicker:'Game by game',icon:Swords,about:'Every starter against the lineup he faces: his splits against lefties and righties, his pitch mix, and each hitter\'s numbers against his hand.'},
- {key:'bvp',title:'Batter vs Pitcher',kicker:'Career matchups',icon:Crosshair,about:'Career numbers for today\'s hitters against today\'s starter, with the sample size flagged so a 2-for-3 never passes for a trend.'},
- {key:'nrfi',title:'NRFI / YRFI',kicker:'First inning',icon:Target,about:'Each starter\'s scoreless-first-inning rate, each offense\'s first-inning scoring, and our model\'s chance of a scoreless first with fair odds.'},
- {key:'park',title:'Ballpark & Weather',kicker:'Parks & weather',icon:Sun,about:'How every park and the forecast move runs and home runs today: park factor, temperature, wind blowing in or out, and roofs.'},
- {key:'strikeouts',title:'Strikeouts',kicker:'K props',icon:Zap,about:'Starters\' strikeout profiles against the lineup they face: K rate, recent strikeouts, expected innings, the lineup\'s K rate against his hand, and a projection.'},
- {key:'streaks',title:'Streaks',kicker:'Parlay legs',icon:Layers,about:'Active streaks for today\'s hitters: hits, on base, total bases, home runs, walks, steals and strikeouts, longest first.'},
+ {key:'hr',blurb:"Power, matchup and park for every bat on the slate.",title:'HR Props',kicker:'Home run props',icon:Flame,about:'Power hitters ranked for home run props: barrel rate, hard-hit rate and exit velocity, slugging and ISO against today\'s pitcher hand, and the park and weather.'},
+ {key:'hot',blurb:"Who's hitting well above their season right now.",title:'Hot Bats',kicker:'Last 14 days',icon:TrendingUp,about:'Hitters running well above their season over the last two weeks: OPS, ISO and average gains, home runs, and a sparkline of their recent total bases.'},
+ {key:'matchups',blurb:"Each starter against the lineup he faces.",title:'Pitcher vs Lineup',kicker:'Game by game',icon:Swords,about:'Every starter against the lineup he faces: his splits against lefties and righties, his pitch mix, and each hitter\'s numbers against his hand.'},
+ {key:'bvp',blurb:"Career numbers against today's starter.",title:'Batter vs Pitcher',kicker:'Career matchups',icon:Crosshair,about:'Career numbers for today\'s hitters against today\'s starter, with the sample size flagged so a 2-for-3 never passes for a trend.'},
+ {key:'nrfi',blurb:"Our first-inning chance and fair odds for every game.",title:'NRFI / YRFI',kicker:'First inning',icon:Target,about:'Each starter\'s scoreless-first-inning rate, each offense\'s first-inning scoring, and our model\'s chance of a scoreless first with fair odds.'},
+ {key:'park',blurb:"How each park and today's weather move scoring.",title:'Ballpark & Weather',kicker:'Parks & weather',icon:Sun,about:'How every park and the forecast move runs and home runs today: park factor, temperature, wind blowing in or out, and roofs.'},
+ {key:'strikeouts',blurb:"Strikeout projections against today's lineups.",title:'Strikeouts',kicker:'K props',icon:Zap,about:'Starters\' strikeout profiles against the lineup they face: K rate, recent strikeouts, expected innings, the lineup\'s K rate against his hand, and a projection.'},
+ {key:'streaks',blurb:"Active hit, on-base and home run streaks.",title:'Streaks',kicker:'Parlay legs',icon:Layers,about:'Active streaks for today\'s hitters: hits, on base, total bases, home runs, walks, steals and strikeouts, longest first.'},
 ];
 const SPORTS=[{key:'mlb',label:'MLB',live:true},{key:'nfl',label:'NFL'},{key:'nba',label:'NBA'},{key:'nhl',label:'NHL'}];
 const FAQ={
@@ -31,7 +31,7 @@ const FAQ={
   ['What are the fair odds?','The price that chance is worth with no margin. A book price better than fair is value on that side.'],
   ['What do the leans mean?','LEAN NRFI at 56% or better, LEAN YRFI at 46% or worse, TOSS-UP in between.']],
  park:[['What is the run environment?','The park\'s run factor combined with the forecast: warm air carries the ball and wind blowing out helps hitters, blowing in hurts them. Domes and closed roofs take the weather out.'],
-  ['How should I use it?','Lean toward hitter overs and game overs in the green parks and toward pitcher props and unders in the red ones, alongside the matchups.']],
+  ['How should I use it?','Lean toward hitter overs and game overs where runs are up, and toward pitcher props and unders where they are down, alongside the matchups.']],
  strikeouts:[['How is the projection made?','His strikeouts per batter faced, times the batters he should face over his expected innings, scaled by how often today\'s lineup strikes out against his hand compared with the league.'],
   ['What is the K score?','A 0-100 ranking of today\'s starters from his K rate, the lineup\'s K rate against his hand, his last five starts and how deep he goes.']],
  streaks:[['How are streaks counted?','Consecutive games, most recent first, that meet the mark. Games without a plate appearance are skipped.'],
@@ -103,15 +103,16 @@ function Face({id,name,teamId,size}){
   {teamId&&!noLogo&&<span className="cs-face-team"><img src={logo(teamId)} alt="" loading="lazy" onError={()=>setNoLogo(true)}/></span>}
  </span>;
 }
-const Score=({value,label})=><span className="cs-score" data-tone={tone(value)} title={label}>{finite(value)?value:'—'}</span>;
+const Score=({value,label})=><span className="cs-score" data-tone={tone(value)} title={label}><b>{finite(value)?value:'—'}</b><i style={{'--v':finite(value)?Math.max(0,Math.min(value,100))/100:0}}/></span>;
+const Tag=({tone:kind,icon:Icon,children})=><span className="cs-tag" data-tone={kind}>{Icon&&<Icon aria-hidden="true"/>}{children}</span>;
 const Hand=({value})=>value?<span className="cs-hand">{value}</span>:null;
-function Who({row,extra}){
+function Who({row,tag}){
+ const versus=row.pitcher?<>vs {row.pitcher.name?.split(' ').at(-1)}<Hand value={row.pitcher.throws}/></>:row.opponent?<>{row.home?'vs':'@'} {row.opponent}</>:null;
  return <span className="cs-who">
   <Face id={row.id} name={row.name} teamId={row.teamId}/>
   <span className="cs-who-main">
-   <strong>{row.name}</strong>
-   <span className="cs-who-meta">{row.team}<Hand value={row.bats||row.throws}/>{row.pitcher&&<>vs {row.pitcher.name?.split(' ').at(-1)} <Hand value={row.pitcher.throws}/></>}{!row.pitcher&&row.opponent&&<>{row.home?'vs':'@'} {row.opponent}</>}<i>{time(row.startsAt)}</i></span>
-   {extra}
+   <span className="cs-who-name"><strong>{row.name}</strong>{tag}</span>
+   <span className="cs-who-meta">{row.team}<Hand value={row.bats||row.throws}/>{versus&&<><i>·</i>{versus}</>}{row.startsAt&&<><i>·</i>{time(row.startsAt)}</>}</span>
   </span>
  </span>;
 }
@@ -156,8 +157,7 @@ function HrSheet({data,filter,prices}){
  const rows=useMemo(()=>(data.rows||[]).filter(filter),[data,filter]);
  const odds=row=>prices?.hr.get(nameKey(row.name))?.over||null;
  return <Table rows={rows} empty="No hitters match." columns={[
-  {key:'player',label:'Player',className:'cs-sticky',render:row=><Who row={row} extra={<span className="cs-tags">{row.hot&&<span className="cs-tag" data-tone="hot"><Flame aria-hidden="true"/>HOT</span>}
-   {finite(row.park)&&Math.abs(row.park)>=5&&<span className="cs-tag" data-tone={row.park>0?'up':'down'}>Park{row.park>0?'+':'−'}</span>}</span>}/>},
+  {key:'player',label:'Player',className:'cs-sticky',render:row=><Who row={row} tag={row.hot&&<Tag tone="hot" icon={Flame}>Hot</Tag>}/>},
   {key:'hr',label:'HR',value:row=>row.hr,format:value=>num(value,0)},
   {key:'barrel',label:'Barrel %',value:row=>row.barrel,format:value=>fixed(value),tone:row=>better(row.barrel,6,12)},
   {key:'hardHit',label:'Hard hit %',value:row=>row.hardHit,format:value=>fixed(value),tone:row=>better(row.hardHit,35,47)},
@@ -166,6 +166,7 @@ function HrSheet({data,filter,prices}){
   {key:'slg',label:'SLG',value:row=>row.slg,format:rate,tone:row=>better(row.slg,0.38,0.48)},
   {key:'iso',label:'ISO vs hand',value:row=>row.vsHand?.iso??row.iso,format:rate,tone:row=>better(row.vsHand?.iso??row.iso,0.13,0.22)},
   {key:'hrRate',label:'HR %',value:row=>row.hrRate,format:value=>pct(value),tone:row=>better(row.hrRate,0.025,0.05)},
+  {key:'park',label:'Park',value:row=>row.park,format:value=>signed(value,item=>`${Math.round(item)}%`),tone:row=>better(row.park,-5,5)},
   {key:'odds',label:'Odds',value:row=>odds(row)?.over,render:row=>{const best=odds(row);return best?<span className="cs-odds">{price(best.over)}<small>{best.name}</small></span>:'—';}},
   {key:'score',label:'Power',value:row=>row.score,render:row=><Score value={row.score} label="Power score"/>},
  ]}/>;
@@ -175,7 +176,8 @@ function HotSheet({data,filter}){
  const rows=useMemo(()=>(data.rows||[]).filter(filter),[data,filter]);
  const delta=(value,format)=><span className="cs-delta" data-up={value>0?'':undefined}>{value>0?<ArrowUp aria-hidden="true"/>:<ArrowDown aria-hidden="true"/>}{format(Math.abs(value))}</span>;
  return <Table rows={rows} empty="Nobody is running hot in this window." columns={[
-  {key:'player',label:'Player',className:'cs-sticky',render:row=><Who row={row} extra={<span className="cs-tags"><span className="cs-tag" data-tone={row.tag}>{row.tag==='hot'?<Flame aria-hidden="true"/>:null}{row.tag.toUpperCase()}</span><Spark values={row.spark}/></span>}/>},
+  {key:'player',label:'Player',className:'cs-sticky',render:row=><Who row={row} tag={row.tag&&<Tag tone={row.tag} icon={row.tag==='hot'?Flame:null}>{row.tag==='hot'?'Hot':'Warm'}</Tag>}/>},
+  {key:'spark',label:'Last 10 TB',render:row=><Spark values={row.spark}/>},
   {key:'pa',label:'PA',value:row=>row.pa,format:value=>num(value,0)},
   {key:'avg',label:'AVG',value:row=>row.avg,render:row=><>{rate(row.avg)}{finite(row.delta?.avg)&&delta(row.delta.avg,rate)}</>},
   {key:'ops',label:'OPS',value:row=>row.ops,render:row=><>{rate(row.ops)}{finite(row.delta?.ops)&&delta(row.delta.ops,rate)}</>},
@@ -248,7 +250,7 @@ function Half({half}){
 function BvpSheet({data,filter}){
  const rows=useMemo(()=>(data.rows||[]).filter(filter),[data,filter]);
  return <Table rows={rows} rowKey={row=>`${row.id}-${row.pitcher?.id}`} empty="No career matchups with four or more plate appearances." columns={[
-  {key:'player',label:'Player',className:'cs-sticky',render:row=><Who row={row} extra={<span className="cs-tags"><span className="cs-tag" data-tone={row.sample}>{row.sample.toUpperCase()}</span></span>}/>},
+  {key:'player',label:'Player',className:'cs-sticky',render:row=><Who row={row} tag={<Tag tone={row.sample}>{row.sample}</Tag>}/>},
   {key:'pa',label:'PA',value:row=>row.pa,format:value=>num(value,0)},
   {key:'avg',label:'AVG',value:row=>row.avg,format:rate,tone:row=>better(row.avg,0.2,0.3)},
   {key:'obp',label:'OBP',value:row=>row.obp,format:rate,tone:row=>better(row.obp,0.27,0.36)},
@@ -308,7 +310,7 @@ function ParkSheet({data}){
     <span><b><WindArrow effect={row.dome?null:row.windEffect}/>{!row.dome&&finite(row.wind)?`${Math.round(row.wind)}`:'—'}</b><small>{row.dome?'wind':`mph ${row.windEffect||''}`.trim()}</small></span>
    </div>
   </article>)}
-  <p className="cs-legend"><b data-tone="good">Green</b> helps hitters · <b data-tone="bad">Red</b> helps pitchers · percent against an average park</p>
+  <p className="cs-legend"><b data-tone="good">Plus</b> helps hitters · <b data-tone="bad">minus</b> helps pitchers · percent against an average park</p>
  </div>;
 }
 
@@ -368,13 +370,12 @@ function Faq({items}){
 }
 
 function Hub({onOpen}){
- return <div className="cs-hub">
-  <div className="cs-grid">{SHEETS.map((sheet,index)=>{const Icon=sheet.icon;return <button key={sheet.key} type="button" className="cs-card" onClick={()=>onOpen(sheet.key)} style={{'--i':index}}>
-   <span className="cs-card-icon"><Icon aria-hidden="true"/></span>
-   <span className="cs-card-main"><strong>{sheet.title}</strong><small>{sheet.kicker}</small><span>{sheet.about}</span></span>
-   <ChevronRight className="cs-card-go" aria-hidden="true"/>
-  </button>;})}</div>
- </div>;
+ return <div className="cs-grid">{SHEETS.map((sheet,index)=>{const Icon=sheet.icon;return <button key={sheet.key} type="button" className="cs-tile" onClick={()=>onOpen(sheet.key)} style={{'--i':index}}>
+  <span className="cs-tile-top"><span className="cs-icon"><Icon aria-hidden="true"/></span><ArrowUpRight className="cs-tile-go" aria-hidden="true"/></span>
+  <strong>{sheet.title}</strong>
+  <span>{sheet.blurb}</span>
+  <small>{sheet.kicker}</small>
+ </button>;})}</div>;
 }
 
 function SheetView({sheetKey,onOpen}){
@@ -392,32 +393,28 @@ function SheetView({sheetKey,onOpen}){
  // Only this sheet's data: while the next one loads, the last one's never feeds it.
  const data=state.data?.sheet===sheet.key?state.data:null;
  const filter=useMemo(()=>{const wanted=nameKey(query);return row=>(game==='all'||String(row.gamePk)===game)&&(!wanted||nameKey(row.name).includes(wanted));},[game,query]);
- const Icon=sheet.icon;
  const listed=['hr','hot','bvp','streaks'].includes(sheet.key);
  const projected=data&&data.games?.length&&data.games.some(item=>!item.confirmed);
- return <div className="cs-layout">
-  <nav className="cs-nav" aria-label="Sheets">
-   <header><strong>MLB sheets</strong><small>{SHEETS.length}</small></header>
-   {SHEETS.map(item=>{const ItemIcon=item.icon;return <button key={item.key} type="button" data-active={item.key===sheet.key?'':undefined} onClick={()=>onOpen(item.key)}>
-    <span className="cs-card-icon"><ItemIcon aria-hidden="true"/></span><span><strong>{item.title}</strong><small>{item.kicker}</small></span>
-   </button>;})}
-  </nav>
+ const games=data?.games?.length||0;
+ return <div className="cs-view">
+  <nav className="cs-tabs" aria-label="Sheets">{SHEETS.map(item=>{const ItemIcon=item.icon;return <button key={item.key} type="button" aria-current={item.key===sheet.key?'page':undefined} data-active={item.key===sheet.key?'':undefined} onClick={()=>onOpen(item.key)}>
+   <ItemIcon aria-hidden="true"/>{item.title}
+  </button>;})}</nav>
   <section className="cs-sheet">
    <header className="cs-sheet-head">
-    <div className="cs-sheet-title"><span className="cs-card-icon"><Icon aria-hidden="true"/></span><div><h2>{sheet.title}</h2>
-     <p>{data?`${dayLabel(data.day)} · ${data.games.length} game${data.games.length===1?'':'s'}`:'Loading…'}{data&&<> · updated {time(data.updatedAt)}</>}</p></div></div>
+    <div className="cs-sheet-title"><h2>{sheet.title}</h2><p>{sheet.blurb}</p>
+     <small>{data?<>{dayLabel(data.day)}<i>·</i>{games} game{games===1?'':'s'}<i>·</i>updated {time(data.updatedAt)}</>:'Loading…'}</small></div>
     <div className="cs-sheet-actions">
      <div className="cs-seg" role="tablist" aria-label="Day">{[['today','Today',Sun],['tomorrow','Tomorrow',Moon]].map(([key,label,DayIcon])=><button key={key} type="button" role="tab" aria-selected={day===key} data-active={day===key?'':undefined} onClick={()=>setDay(key)}><DayIcon aria-hidden="true"/>{label}</button>)}</div>
      <button type="button" className="cs-icon-btn" onClick={()=>load(true)} aria-label="Refresh" disabled={state.loading}><RefreshCw data-spin={state.loading?'':undefined} aria-hidden="true"/></button>
     </div>
    </header>
-   <p className="cs-about">{sheet.about}</p>
    {listed&&data&&<div className="cs-filters">
-    <div className="cs-seg cs-scroll" role="tablist" aria-label="Game"><button type="button" data-active={game==='all'?'':undefined} onClick={()=>setGame('all')}>All games</button>
-     {data.games.map(item=><button key={item.gamePk} type="button" data-active={game===String(item.gamePk)?'':undefined} onClick={()=>setGame(String(item.gamePk))}>{item.away} @ {item.home}</button>)}</div>
+    <div className="cs-chips-row cs-scroll" role="tablist" aria-label="Game"><button type="button" data-active={game==='all'?'':undefined} onClick={()=>setGame('all')}>All games</button>
+     {data.games.map(item=><button key={item.gamePk} type="button" data-active={game===String(item.gamePk)?'':undefined} onClick={()=>setGame(String(item.gamePk))}><Img className="cs-logo" src={logo(item.awayId)}/>{item.away}<i>@</i><Img className="cs-logo" src={logo(item.homeId)}/>{item.home}</button>)}</div>
     <label className="cs-search"><Search aria-hidden="true"/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Find a player" aria-label="Find a player"/></label>
    </div>}
-   {projected&&['hr','matchups','bvp'].includes(sheet.key)&&<p className="cs-note"><Gauge aria-hidden="true"/>Some lineups aren't posted yet; those teams show their active hitters until they are.</p>}
+   {projected&&['hr','matchups','bvp'].includes(sheet.key)&&<p className="cs-note"><Info aria-hidden="true"/>Some lineups aren't posted yet, so those teams show their active hitters.</p>}
    <div className="cs-body" data-loading={state.loading?'':undefined}>
     {state.error?<div className="cs-error"><p>{state.error}</p><button type="button" onClick={()=>load(true)}>Try again</button></div>
      :!data?<Skeleton/>
@@ -430,7 +427,7 @@ function SheetView({sheetKey,onOpen}){
      :sheet.key==='strikeouts'?<StrikeoutSheet data={data} prices={prices}/>
      :<StreaksSheet data={data} filter={filter}/>}
    </div>
-   <Faq items={FAQ[sheet.key]}/>
+   <Faq items={[['What\'s on this sheet?',sheet.about],...(FAQ[sheet.key]||[])]}/>
   </section>
  </div>;
 }
@@ -455,12 +452,9 @@ export function CheatSheets(){
   document.getElementById('panel-sheets')?.scrollIntoView({block:'start'});
  };
  return <div className="cheat-sheets">
-  <header className="cs-top">
-   <div className="cs-top-title">
-    {sheet&&<button type="button" className="cs-back" onClick={()=>open(null)}><ArrowLeft aria-hidden="true"/>All sheets</button>}
-    <span className="cs-mark"><NotebookTabs aria-hidden="true"/></span>
-    <div><h1>Cheat Sheets</h1><p>Today's slate, sorted the way you'd research it. Updated through the day.</p></div>
-   </div>
+  <header className="cs-top" data-sheet={sheet?'':undefined}>
+   {sheet?<button type="button" className="cs-back" onClick={()=>open(null)}><ArrowLeft aria-hidden="true"/>Cheat Sheets</button>
+    :<div className="cs-top-title"><h1>Cheat Sheets</h1><p>Today's MLB slate, read eight ways. Updated through the day.</p></div>}
    <div className="cs-sports" role="tablist" aria-label="Sport">{SPORTS.map(sport=><button key={sport.key} type="button" role="tab" aria-selected={sport.live} data-active={sport.live?'':undefined} disabled={!sport.live}>
     {sport.label}{!sport.live&&<small>Soon</small>}
    </button>)}</div>
