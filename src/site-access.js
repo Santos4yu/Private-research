@@ -318,6 +318,20 @@ function retrySoon(){
  // 2s, 4s, 8s, 16s, then every 30s until an answer comes back.
  retryTimer=setTimeout(()=>{retryTimer=0;refreshSiteAccess();},Math.max(retryNotBefore-Date.now(),Math.min(30000,2000*2**Math.min(failures-1,4))));
 }
+// The loading screen, kept up while a member's session is being confirmed.
+// After a few seconds it says so, and offers the sign-in page as a way out
+// in case the answer never comes.
+let holding=false;
+function holdBoot(pending){
+ if(holding)return;holding=true;
+ const loader=document.getElementById('boot-loading');if(!loader)return;
+ setTimeout(()=>{
+  if(!holding||status||!loader.isConnected||loader.querySelector('.private-loader-note'))return;
+  const note=element('div',null,'private-loader-note');note.append(element('p','Signing you back in…'));
+  setTimeout(()=>{if(holding&&!status&&note.isConnected)note.append(button('Go to sign in',()=>{holding=false;status=pending;renderStatus();},'private-loader-link'));},15000);
+  loader.append(note);
+ },2500);
+}
 async function readStatus(){
  let next=await request('/api/session?action=site-status');
  if(unsettled(next)){try{await request('/api/session',{action:'refresh'});next=await request('/api/session?action=site-status');}catch{}}
@@ -336,11 +350,16 @@ async function checkSiteAccess(){
   }
   if(next&&!unsettled(next))break;
  }
- if(next&&!unsettled(next)){failures=0;retryNotBefore=0;clearTimeout(retryTimer);retryTimer=0;status=next;renderStatus();return status;}
+ if(next&&!unsettled(next)){failures=0;retryNotBefore=0;clearTimeout(retryTimer);retryTimer=0;holding=false;status=next;renderStatus();return status;}
  // No definite answer. Whoever is already in stays in, on the status we
  // last knew, and we ask again shortly -- nobody is signed out for a blip.
  failures++;retrySoon();
- if(status&&!(status.offline&&next))return status;
+ // A session the server couldn't confirm yet (Supabase slow or busy, most
+ // often when someone comes back after the hour their sign-in token lasts)
+ // is never drawn as signed out. Opening the site, the loading screen stays
+ // up while we keep asking; this used to show the sign-in page instead.
+ if(unsettled(next)){if(!status)holdBoot(next);return status;}
+ if(status)return status;
  status=next||{offline:true,maintenance:true,message:lastError?.retryAfter?lastError.message:'Website access is temporarily unavailable. Please retry shortly.',disabledTabs:[],requireLogin:true,registrationOpen:false,isAdmin:false};
  renderStatus();return status;
 }

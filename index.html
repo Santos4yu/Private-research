@@ -73,6 +73,17 @@
     animation: boot-mark-in .6s ease .3s forwards;
   }
   @keyframes boot-mark-in { to { opacity: .8; } }
+  #boot-loading .private-loader-note {
+    position: absolute; left: 16px; right: 16px; top: calc(50% + 40px);
+    display: grid; justify-items: center; gap: 10px; text-align: center;
+    color: rgba(226, 234, 245, .72); font: 500 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+    animation: boot-mark-in .4s ease forwards; opacity: 0;
+  }
+  #boot-loading .private-loader-note p { margin: 0; }
+  #boot-loading .private-loader-link {
+    min-height: 44px; padding: 0 16px; border: 1px solid rgba(255, 255, 255, .16); border-radius: 10px;
+    background: transparent; color: #e6eef8; font: inherit; cursor: pointer;
+  }
   @media (prefers-reduced-motion: reduce) {
     #boot-loading.private-loader { transition: none; }
     #boot-loading .private-loader-mark { animation: none; opacity: .8; }

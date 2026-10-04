@@ -136,7 +136,10 @@ class handler(BaseHTTPRequestHandler):
                 from account_auth import ACCESS
                 token=cookies(self.headers).get(ACCESS)
                 if token:
-                    try:call('logout',{},token=token)
+                    # This device only. Supabase's default ends the member's
+                    # sessions everywhere, so signing out on a phone used to
+                    # sign them out on their computer too.
+                    try:call('logout?scope=local',{},token=token)
                     except Exception:pass
                 from v2.board import admin_auth
                 logout_cookies=clear_cookies()+[f'{admin_auth.ADMIN_COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict',f'{SESSION_COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax']
