@@ -241,3 +241,37 @@ class MatchupTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GamelogBatchTests(unittest.TestCase):
+    def ask(self, path):
+        request = object.__new__(api.handler)
+        request.path, request.headers = path, {}
+        sent = []
+        with patch.object(api, "_send", side_effect=lambda _, status, payload: sent.append((status, payload))), \
+             patch.object(api, "session_with_live_access", return_value=True), \
+             patch("site_controls.finder_sport_allowed", return_value=True):
+            request.do_GET()
+        return sent[0]
+
+    def test_several_players_logs_come_in_one_answer(self):
+        def log(player_id):
+            if player_id == "2":
+                raise RuntimeError("ESPN is down")
+            return {"playerId": player_id, "rows": []}
+        with patch.object(api, "_nba_gamelog", side_effect=log):
+            status, payload = self.ask("/api/wnba?league=nba&resource=gamelogs&playerIds=1,2,3,1&season=2026")
+        self.assertEqual(status, 200)
+        # One player's failure leaves the others' logs in the answer.
+        self.assertEqual(sorted(payload["histories"]), ["1", "2", "3"])
+        self.assertEqual(payload["histories"]["1"]["playerId"], "1")
+        self.assertIn("error", payload["histories"]["2"])
+        with patch.object(api, "_saved_history", side_effect=lambda player_id, league, season: {"rows": [], "season": season, "league": league}):
+            status, payload = self.ask("/api/wnba?resource=gamelogs&playerIds=9&season=2026")
+        self.assertEqual((status, payload["histories"]["9"]["league"], payload["histories"]["9"]["season"]), (200, "wnba", 2026))
+
+    def test_a_batch_is_capped_and_needs_real_ids(self):
+        many = ",".join(str(index) for index in range(api.MAX_GAMELOG_BATCH + 1))
+        self.assertEqual(self.ask(f"/api/wnba?league=nba&resource=gamelogs&playerIds={many}")[0], 400)
+        self.assertEqual(self.ask("/api/wnba?league=nba&resource=gamelogs&playerIds=1,abc")[0], 400)
+        self.assertEqual(self.ask("/api/wnba?resource=gamelogs&playerIds=")[0], 400)

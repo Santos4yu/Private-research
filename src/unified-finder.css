@@ -544,7 +544,9 @@
   position:absolute!important;top:auto!important;left:auto!important;right:-6px!important;bottom:-6px!important;
   width:22px!important;height:22px!important;min-height:0!important;padding:0!important;
   display:grid!important;place-items:center!important;border:1px solid rgba(255,255,255,.34)!important;border-radius:50%!important;
-  background:rgba(255,255,255,.13)!important;-webkit-backdrop-filter:blur(8px) saturate(1.5);backdrop-filter:blur(8px) saturate(1.5);
+  /* A solid frosted tone rather than a live blur: twenty blurred buttons
+     on screen made scrolling the list stutter on phones. */
+  background:rgba(44,50,64,.92)!important;
   box-shadow:0 2px 8px rgba(0,0,0,.4),inset 0 1px rgba(255,255,255,.3)!important;color:#f1f7ff!important;z-index:4!important
  }
  /* 44px to tap, 22px to see. */

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Layers2 as BarChart3, CircleDot, LayoutGrid, Diamond, Crosshair, Target, ChartNoAxesCombined } from 'lucide-react';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '../components/ui/select';
@@ -12,11 +12,8 @@ import { PickBuilder } from './PickBuilder';
 import { SideMenu } from './SideMenu';
 import { ResearchHome } from './ResearchHome';
 import { UnifiedFinder } from './UnifiedFinder';
-import { LineMoves } from './LineMoves';
-import { SmartSlip } from './SmartSlip';
-import { Moneylines } from './Moneylines';
-import { KrazyBot } from './KrazyBot';
-import { CheatSheets } from './CheatSheets';
+import { finderStartKeys, startFinder } from './finder-early';
+import { siteFinderSportAllowed } from './site-access';
 import { canUseTab } from './site-access-core';
 import { ExpandableTabs } from '../components/ui/expandable-tabs';
 import { ResearchAILoader } from '../components/ui/research-ai-loader';
@@ -46,6 +43,23 @@ import './trend-workspace.css';
 
 import { topTabs } from './navTabs';
 import { VortexSidebar } from './VortexSidebar';
+
+// Sections other than the Finder load their code the first time they're
+// opened (and in idle time once the Finder is up), so signing in only waits
+// for what's on screen.
+const sections = {
+  moves: () => import('./LineMoves').then(m => ({ default: m.LineMoves })),
+  slip: () => import('./SmartSlip').then(m => ({ default: m.SmartSlip })),
+  moneylines: () => import('./Moneylines').then(m => ({ default: m.Moneylines })),
+  bot: () => import('./KrazyBot').then(m => ({ default: m.KrazyBot })),
+  sheets: () => import('./CheatSheets').then(m => ({ default: m.CheatSheets })),
+};
+const LineMoves = lazy(sections.moves);
+const SmartSlip = lazy(sections.slip);
+const Moneylines = lazy(sections.moneylines);
+const KrazyBot = lazy(sections.bot);
+const CheatSheets = lazy(sections.sheets);
+const later = element => <Suspense fallback={null}>{element}</Suspense>;
 
 function VortexTopTabs() {
   const [tab, setTab] = useState('finder');
@@ -105,33 +119,58 @@ const smartSlipRoot = document.getElementById('smart-slip-root');
 const moneylinesRoot = document.getElementById('moneylines-root');
 const krazyBotRoot = document.getElementById('krazy-bot-root');
 const cheatSheetsRoot = document.getElementById('cheat-sheets-root');
+// A section starts (mounts, and so fetches its data) the first time its tab
+// is shown rather than at sign-in. Returns a function that stops waiting.
+function whenShown(host, start) {
+ const panel = host?.closest('.tab-panel');
+ if (!host) return () => {};
+ if (!panel || !panel.hidden) { start(); return () => {}; }
+ const watch = new MutationObserver(() => { if (!panel.hidden) { watch.disconnect(); start(); } });
+ watch.observe(panel, { attributes: true, attributeFilter: ['hidden'] });
+ return () => watch.disconnect();
+}
+// A root that renders when its tab is first shown; unmount() undoes either.
+function shownRoot(host, element) {
+ let root = null;
+ const stop = whenShown(host, () => { root = createRoot(host); root.render(element); });
+ return { unmount() { stop(); root?.unmount(); root = null; } };
+}
+// Once the Finder has its lines up, the other sections' code downloads in
+// idle time, so opening one is instant.
+let warmed = false;
+function warmSections() {
+ if (warmed) return; warmed = true;
+ const go = () => Object.values(sections).forEach(load => load().catch(() => {}));
+ setTimeout(() => (window.requestIdleCallback ? window.requestIdleCallback(go, { timeout: 8000 }) : go()), 2500);
+}
 let privateRoots=null;
 function mountPrivateResearch(granted){
  if(granted&&!privateRoots){
-  privateRoots={home:researchHomeRoot?createRoot(researchHomeRoot):null,finder:unifiedFinderRoot?createRoot(unifiedFinderRoot):null,moves:lineMovesRoot?createRoot(lineMovesRoot):null,slip:smartSlipRoot?createRoot(smartSlipRoot):null};
-  privateRoots.home?.render(<ResearchHome/>);
+  // The Finder's lines start loading now, while the page draws.
+  try{startFinder(finderStartKeys(siteFinderSportAllowed,{search:location.search,storage:window.localStorage}));}catch{/* the Finder loads them itself */}
+  privateRoots={home:researchHomeRoot?shownRoot(researchHomeRoot,<ResearchHome/>):null,finder:unifiedFinderRoot?createRoot(unifiedFinderRoot):null,
+   moves:lineMovesRoot?shownRoot(lineMovesRoot,later(<LineMoves/>)):null,slip:smartSlipRoot?shownRoot(smartSlipRoot,later(<SmartSlip/>)):null};
   privateRoots.finder?.render(<UnifiedFinder/>);
-  privateRoots.moves?.render(<LineMoves/>);
-  privateRoots.slip?.render(<SmartSlip/>);
+  warmSections();
  }else if(!granted&&privateRoots){privateRoots.home?.unmount();privateRoots.finder?.unmount();privateRoots.moves?.unmount();privateRoots.slip?.unmount();privateRoots=null;}
 }
 // Moneylines is an admin-only section (site-access-core.js ADMIN_TABS):
 // mounted, and so asking for data, only in an admin session.
 let moneylinesMount=null,krazyBotMount=null;
 function mountAdminSections(admin){
- if(admin&&!moneylinesMount&&moneylinesRoot){moneylinesMount=createRoot(moneylinesRoot);moneylinesMount.render(<Moneylines/>);}
+ if(admin&&!moneylinesMount&&moneylinesRoot){moneylinesMount=shownRoot(moneylinesRoot,later(<Moneylines/>));}
  else if(!admin&&moneylinesMount){moneylinesMount.unmount();moneylinesMount=null;}
 }
 // Krazy Bot is a regular section the admin switches on for members (off
 // until then); it mounts only for someone allowed to open it.
 function mountKrazyBot(open){
- if(open&&!krazyBotMount&&krazyBotRoot){krazyBotMount=createRoot(krazyBotRoot);krazyBotMount.render(<KrazyBot/>);}
+ if(open&&!krazyBotMount&&krazyBotRoot){krazyBotMount=shownRoot(krazyBotRoot,later(<KrazyBot/>));}
  else if(!open&&krazyBotMount){krazyBotMount.unmount();krazyBotMount=null;}
 }
 // Cheat Sheets: mounted only for someone allowed to open them.
 let cheatSheetsMount=null;
 function mountCheatSheets(open){
- if(open&&!cheatSheetsMount&&cheatSheetsRoot){cheatSheetsMount=createRoot(cheatSheetsRoot);cheatSheetsMount.render(<CheatSheets/>);}
+ if(open&&!cheatSheetsMount&&cheatSheetsRoot){cheatSheetsMount=shownRoot(cheatSheetsRoot,later(<CheatSheets/>));}
  else if(!open&&cheatSheetsMount){cheatSheetsMount.unmount();cheatSheetsMount=null;}
 }
 window.addEventListener('vortex:site-policy',event=>{mountPrivateResearch(event.detail.accessGranted);mountAdminSections(Boolean(event.detail.accessGranted&&event.detail.isAdmin));mountKrazyBot(canUseTab(event.detail,'bot'));mountCheatSheets(canUseTab(event.detail,'sheets'));});

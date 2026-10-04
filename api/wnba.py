@@ -327,6 +327,18 @@ def _history(player_id, league="wnba", season=None):
     return rows
 
 
+# The most game logs one request may ask for (resource=gamelogs).
+MAX_GAMELOG_BATCH = 8
+
+
+def _nba_gamelog(player_id):
+    """An NBA player's last two seasons of games, as the Finder reads them."""
+    seasons = _nba_seasons()
+    return {"status": "AVAILABLE", "source": "espn", "playerId": player_id, "season": seasons[-1],
+            "seasons": seasons, "rows": _saved_history(player_id, "nba")["rows"],
+            "fetchedAt": datetime.now(timezone.utc).isoformat()}
+
+
 def _saved_history(player_id, league, season=None):
     from finder_history_store import remember
     season = season or datetime.now(timezone.utc).year
@@ -756,14 +768,30 @@ class handler(BaseHTTPRequestHandler):
                 if league == "nba":
                     if not player_id.isdigit():
                         return _send(self, 400, {"error": "A verified NBA player is required."})
-                    seasons = _nba_seasons()
-                    return _send(self, 200, {"status": "AVAILABLE", "source": "espn", "playerId": player_id, "season": seasons[-1],
-                                             "seasons": seasons, "rows": _saved_history(player_id, "nba")["rows"],
-                                             "fetchedAt": datetime.now(timezone.utc).isoformat()})
+                    return _send(self, 200, _nba_gamelog(player_id))
                 try: season = int(query.get("season", [str(datetime.now(timezone.utc).year)])[0])
                 except ValueError: return _send(self, 400, {"error": "A valid WNBA season is required."})
                 if not player_id.isdigit() or not 2000 <= season <= 2100: return _send(self, 400, {"error": "A verified WNBA player and season are required."})
                 return _send(self, 200, _saved_history(player_id, "wnba", season))
+            if resource == "gamelogs":
+                # Several players' game logs in one request: the Finder asks
+                # in batches instead of once per player. A player whose log
+                # can't be had comes back as an error; the rest still arrive.
+                ids = [value.strip() for value in query.get("playerIds", [""])[0].split(",") if value.strip()]
+                if not ids or len(ids) > MAX_GAMELOG_BATCH or not all(value.isdigit() for value in ids):
+                    return _send(self, 400, {"error": f"Up to {MAX_GAMELOG_BATCH} verified {name} players are required."})
+                try: season = int(query.get("season", [str(datetime.now(timezone.utc).year)])[0])
+                except ValueError: return _send(self, 400, {"error": f"A valid {name} season is required."})
+                if not 2000 <= season <= 2100: return _send(self, 400, {"error": f"A valid {name} season is required."})
+
+                def one(player_id):
+                    try:
+                        return player_id, _nba_gamelog(player_id) if league == "nba" else _saved_history(player_id, "wnba", season)
+                    except Exception:  # noqa: BLE001 -- one player's log never fails the batch
+                        return player_id, {"error": f"{name} game log unavailable."}
+
+                with ThreadPoolExecutor(max_workers=len(ids)) as pool:
+                    return _send(self, 200, {"histories": dict(pool.map(one, dict.fromkeys(ids)))})
             if resource in ("matchup", "league-context", "player-context"):
                 return self._context(resource, query, league)
             if resource != "board": return _send(self, 404, {"error": f"Unknown {name} resource."})
