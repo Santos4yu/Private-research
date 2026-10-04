@@ -383,7 +383,14 @@ function wake(){
 }
 export function initSiteAccess(){
  if(initPromise)return initPromise;
- initPromise=(async()=>{await refreshSiteAccess();setInterval(()=>{if(!document.hidden)refreshSiteAccess();},30000);
+ initPromise=(async()=>{
+  // Google sign-in returns to /api/session. If Supabase's list of allowed
+  // return addresses doesn't have it, Supabase sends the browser to the home
+  // page with the code instead, so it is passed along from here.
+  const back=new URLSearchParams(location.search);
+  if(/^[0-9a-f-]{36}$/i.test(back.get('code')||'')){location.replace('/api/session?action=oauth-callback&code='+encodeURIComponent(back.get('code')));return new Promise(()=>{});}
+  if(back.get('error')&&back.get('error_description'))history.replaceState({},'','/sign-in?auth='+(back.get('error')==='access_denied'?'google-cancelled':'google-failed'));
+  await refreshSiteAccess();setInterval(()=>{if(!document.hidden)refreshSiteAccess();},30000);
   document.addEventListener('visibilitychange',wake);window.addEventListener('focus',wake);window.addEventListener('online',wake);window.addEventListener('pageshow',e=>{if(e.persisted)wake();});
   if(accessGranted(status))return status;return new Promise(resolve=>{const listener=e=>{if(e.detail.accessGranted){window.removeEventListener('vortex:site-policy',listener);resolve(e.detail);}};window.addEventListener('vortex:site-policy',listener);});})();return initPromise;
 }

@@ -4,6 +4,7 @@ The public URLs remain /api/auth/login, /callback, /me and /logout. Vercel
 rewrites them here so the complete OAuth flow consumes one Serverless Function.
 """
 import json
+import re
 import secrets
 import sys
 from http.server import BaseHTTPRequestHandler
@@ -75,6 +76,14 @@ class handler(BaseHTTPRequestHandler):
             import push_notices
             try:return self._json(200,{'key':push_notices.public_key()})
             except Exception:return self._json(503,{'error':'Alerts are unavailable right now'})
+        if action == "providers":
+            # Which sign-in buttons to show (Google once it's on in Supabase).
+            from account_auth import configured,enabled_providers
+            return self._json(200,{'providers':enabled_providers() if configured() else []})
+        if action == "oauth":
+            return self._oauth_start(query)
+        if action == "oauth-callback":
+            return self._oauth_callback(query)
         if action == "login":
             return self._login()
         if action == "callback":
@@ -216,6 +225,52 @@ class handler(BaseHTTPRequestHandler):
         self.send_header('X-Content-Type-Options','nosniff')
         self.send_header('Content-Length',str(len(raw)))
         self.end_headers();self.wfile.write(raw)
+
+    def _site_origin(self):
+        host=str(self.headers.get('Host') or '').strip().lower()
+        if not re.fullmatch(r'[a-z0-9.-]+(:[0-9]{1,5})?',host):return None
+        return ('http://' if host.split(':')[0] in ('localhost','127.0.0.1') else 'https://')+host
+
+    def _go(self,location,cookies=None):
+        self.send_response(302)
+        self.send_header('Location',location)
+        self.send_header('Cache-Control','no-store')
+        for cookie in cookies or []:self.send_header('Set-Cookie',cookie)
+        self.end_headers()
+
+    def _oauth_start(self,query):
+        """Continue with Google: off to Supabase, which sends the browser to
+        Google and back to _oauth_callback()."""
+        from account_auth import oauth_start
+        origin=self._site_origin()
+        if not origin:return self._json(400,{'error':'Invalid request'})
+        remember=(query.get('remember') or ['1'])[0]!='0'
+        try:url,cookie=oauth_start((query.get('provider') or [''])[0],origin+'/api/session?action=oauth-callback',remember)
+        except Exception:return self._go('/sign-in?auth=google-failed')
+        return self._go(url,[cookie])
+
+    def _oauth_callback(self,query):
+        from account_auth import oauth_pending,oauth_finish,oauth_clear,session_cookies,is_new_account,refuse_account,was_refused,call
+        from site_controls import read
+        clear=[oauth_clear()]
+        code=(query.get('code') or [''])[0];error=(query.get('error') or [''])[0]
+        verifier,remember=oauth_pending(self.headers)
+        if error or not code:return self._go('/sign-in?auth='+('google-cancelled' if error=='access_denied' else 'google-failed'),clear)
+        if not verifier:return self._go('/sign-in?auth=google-expired',clear)
+        try:data=oauth_finish(code,verifier)
+        except Exception:return self._go('/sign-in?auth=google-failed',clear)
+        user=data.get('user') or {}
+        # With sign-ups closed, Google still signs existing members in, but
+        # an account it has just made is removed again. If the setting
+        # can't be read, new accounts wait.
+        try:registration_open=bool(read().get('registrationOpen'))
+        except Exception:registration_open=False
+        if not registration_open and (is_new_account(user) or was_refused(user.get('id'))):
+            try:call('logout?scope=local',{},token=data['access_token'])
+            except Exception:pass
+            refuse_account(user.get('id'))
+            return self._go('/sign-in?auth=google-closed',clear)
+        return self._go('/',session_cookies(data,remember)+clear)
 
     def _account_response(self,body,cookies):
         self.send_response(200)
