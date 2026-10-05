@@ -251,3 +251,30 @@ test('NBA lines share the basketball row, history and defense ranks',async()=>{
  const board=await loadFinderSport('nba',{fetcher:async url=>{asked.push(url);return {ok:true,json:async()=>({rows:[raw],fetchedAt:'x'})};}});
  assert.equal(asked.at(-1),'/api/wnba?league=nba&fast=1');assert.equal(board.rows[0].id,'nba:pp:1');
 });
+
+test('Basketball histories come a few players per request',async()=>{
+ const {enrichWnbaRows,basketballLogsUrl}=await import('../src/unified-finder-data.js');
+ const rows=['101','102','103','104','105'].flatMap(id=>[{id:`nba:${id}:a`,sport:'nba',playerId:id,marketKey:'player_points',line:20.5,direction:'over',historyStatus:'pending'},
+  {id:`nba:${id}:b`,sport:'nba',playerId:id,marketKey:'player_points',line:25.5,direction:'over',historyStatus:'pending'}]);
+ assert.equal(basketballLogsUrl(rows.slice(0,2),2026),'/api/wnba?league=nba&resource=gamelogs&playerIds=101,101&season=2026');
+ const logs=[18,22,30].map((pts,index)=>({gameId:String(index),date:`2026-0${index+1}-01`,values:{player_points:pts},seasonKind:'regular'}));
+ const asked=[];
+ const fetcher=async url=>{
+  asked.push(url);
+  const ids=new URL(url,'https://x').searchParams.get('playerIds').split(',');
+  // One player's log is missing; the rest still arrive.
+  return {ok:true,json:async()=>({histories:Object.fromEntries(ids.map(id=>[id,id==='104'?{error:'unavailable'}:{rows:logs}]))})};
+ };
+ const ready=await enrichWnbaRows(rows,{fetcher,concurrency:2});
+ assert.equal(asked.length,2);
+ assert.ok(asked.every(url=>url.includes('resource=gamelogs')));
+ assert.deepEqual(asked.map(url=>new URL(url,'https://x').searchParams.get('playerIds')),['101,102,103','104,105']);
+ assert.equal(ready.filter(row=>row.historyStatus==='ready').length,8);
+ assert.deepEqual(ready.filter(row=>row.historyStatus==='unavailable').map(row=>row.id),['nba:104:a','nba:104:b']);
+ // A server without the batch answer: each player is asked for alone.
+ const single=[];
+ const fallback=await enrichWnbaRows(['201','202'].map(id=>({id:`wnba:${id}`,sport:'wnba',playerId:id,marketKey:'player_points',line:10.5,direction:'over',historyStatus:'pending'})),
+  {season:2026,concurrency:1,fetcher:async url=>{single.push(url);if(url.includes('gamelogs'))return {ok:false,status:404,json:async()=>({error:'Unknown'})};return {ok:true,json:async()=>({rows:logs})};}});
+ assert.deepEqual(single,['/api/wnba?resource=gamelogs&playerIds=201,202&season=2026','/api/wnba?resource=gamelog&playerId=201&season=2026','/api/wnba?resource=gamelog&playerId=202&season=2026']);
+ assert.ok(fallback.every(row=>row.historyStatus==='ready'));
+});

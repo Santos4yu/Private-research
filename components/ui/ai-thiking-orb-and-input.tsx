@@ -29,6 +29,12 @@ export interface MorphOrbProps {
   speed?: number;
   /** Status lines shown while thinking about this question (defaults to COPY.labels). */
   thinkingLabels?: (text: string) => string[];
+  /** When it returns a number: how far above the bottom of the component's
+      own box the pill's centre rests, in px. Otherwise (and by default) the
+      pill rests 96px above the window's bottom. */
+  pillBottom?: () => number | null;
+  /** Extra controls inside the input pill, before the send button (a mic). */
+  inputAccessory?: React.ReactNode;
 }
 
 /* ─────────────────────────── geometry ─────────────────────────── */
@@ -264,7 +270,7 @@ const COLORS: string[] = (() => {
   const out: string[] = [];
   for (let gi = 0; gi <= G_STEPS; gi++) {
     const g = gi / G_STEPS;
-    const r = Math.round(lerp(235, 52, g)), gg = Math.round(lerp(235, 211, g)), b = Math.round(lerp(235, 153, g));
+    const r = Math.round(lerp(235, 96, g)), gg = Math.round(lerp(235, 165, g)), b = Math.round(lerp(235, 250, g));
     for (let ai = 0; ai <= A_STEPS; ai++) out.push(`rgba(${r},${gg},${b},${(ai / A_STEPS).toFixed(3)})`);
   }
   return out;
@@ -436,6 +442,7 @@ interface Env {
   canvas: HTMLCanvasElement; pulse: HTMLElement; status: HTMLElement;
   getBody: () => HTMLElement | null;
   ui: UI; getSpeed: () => number; isReduced: () => boolean;
+  getHome: () => number;
 }
 interface RunCfg { onSubmit: (text: string) => Promise<MorphAnswer> | MorphAnswer; minThink: number; labels: string[] }
 interface Runtime {
@@ -469,7 +476,7 @@ function sampleAt(h: Sample[], t: number, out: Sample) {
 function createRuntime(env: Env): Runtime {
   const { actor, mover, root, status, pulse, ghosts, form } = env;
   const life = new AbortController();
-  const geo: Geo = { pw: pillW(), cw: cardW(), H: homeDy(), dir: -1, ch: CARD_H };
+  const geo: Geo = { pw: pillW(), cw: cardW(), H: env.getHome(), dir: -1, ch: CARD_H };
   const orb = createOrb(env.canvas, env.getSpeed, env.isReduced);
   const vals: Record<string, number> = {};
   const dirty = new Set<string>();
@@ -534,8 +541,8 @@ function createRuntime(env: Env): Runtime {
       el.style.opacity = fmt(p);
       el.style.transform = p >= 0.999 || reduced ? "none" : `translateY(${fmt((1 - p) * 4)}px)`;
       el.style.filter = p >= 0.999 || reduced ? "none" : `blur(${fmt((1 - p) * 4)}px)`;
-      // A word arrives green and glowing, then settles to the text colour
-      // over the next moment -- a short green wave behind the cursor.
+      // A word arrives lit and glowing, then settles to the text colour
+      // over the next moment -- a short blue wave behind the cursor.
       el.style.setProperty("--wg", reduced || t <= 0 ? "0" : fmt(clamp01(1 - (t - wDur * 0.35) / 300)));
     });
     // The cursor rides on the newest word while the answer streams in.
@@ -750,7 +757,7 @@ function createRuntime(env: Env): Runtime {
     env.ui.clearInput();
     orb.reset();
     hist.length = 0;
-    geo.pw = pillW(); geo.cw = cardW(); geo.H = homeDy();
+    geo.pw = pillW(); geo.cw = cardW(); geo.H = env.getHome();
     resetChannels();
     const pillCh = ["oPill", "oInput", "oGlow", "oAur", "oRing"];
     pillCh.forEach((ch) => setNow(ch, 0));
@@ -775,7 +782,7 @@ function createRuntime(env: Env): Runtime {
     hist.length = 0;
     env.ui.setAnswer("");
     env.ui.resetLabel();
-    geo.pw = pillW(); geo.cw = cardW(); geo.H = homeDy();
+    geo.pw = pillW(); geo.cw = cardW(); geo.H = env.getHome();
     resetChannels();
     setNow("pulse", -1);
     busy = false; idling = false;
@@ -790,7 +797,7 @@ function createRuntime(env: Env): Runtime {
     start(text, cfg) {
       if (busy) return false;
       busy = true;
-      geo.pw = pillW(); geo.cw = cardW(); geo.H = homeDy(); // snapshot once, never read layout in frames
+      geo.pw = pillW(); geo.cw = cardW(); geo.H = env.getHome(); // snapshot once, never read layout in frames
       geo.dir = -geo.dir;
       orb.reset();
       setNow("u", 0);
@@ -812,7 +819,7 @@ function createRuntime(env: Env): Runtime {
     hard,
     home() {
       if (busy) return;
-      geo.pw = pillW(); geo.cw = cardW(); geo.H = homeDy();
+      geo.pw = pillW(); geo.cw = cardW(); geo.H = env.getHome();
       setNow("w", geo.pw);
       setNow("u", 0);
     },
@@ -873,6 +880,11 @@ export default function MorphOrb(props: MorphOrbProps) {
       root, mover, actor, form, ghosts, canvas, pulse, status,
       getBody: () => bodyRef.current,
       getSpeed: () => speedRef.current,
+      // The pill's offset from the stage centre (top:46% of the box).
+      getHome: () => {
+        const below = propsRef.current.pillBottom?.();
+        return typeof below === "number" ? root.clientHeight * 0.54 - below : homeDy();
+      },
       isReduced: () => reducedRef.current,
       ui: {
         setPhase: (p) => { phaseRef.current = p; setPhaseState(p); },
@@ -897,13 +909,20 @@ export default function MorphOrb(props: MorphOrbProps) {
     const onResize = () => {
       if (phaseRef.current === "idle" && !rt.busy()) rt.home();
     };
+    // A phone keyboard resizes the visual viewport, not the window; the page
+    // fits the box to it first, so re-home on the frame after.
+    let viewportFrame = 0;
+    const onViewport = () => { cancelAnimationFrame(viewportFrame); viewportFrame = requestAnimationFrame(onResize); };
     window.addEventListener("keydown", onKey);
     window.addEventListener("resize", onResize);
+    window.visualViewport?.addEventListener("resize", onViewport);
     inputRef.current?.focus({ preventScroll: true });
 
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("resize", onResize);
+      window.visualViewport?.removeEventListener("resize", onViewport);
+      cancelAnimationFrame(viewportFrame);
       mq.removeEventListener("change", onMq);
       window.clearTimeout(timers.current.typing);
       window.clearTimeout(timers.current.shake);
@@ -1031,6 +1050,7 @@ export default function MorphOrb(props: MorphOrbProps) {
               onChange={onChange}
               onKeyDown={onKeyDown}
             />
+            {props.inputAccessory}
             <button type="submit" className="mo-send" aria-label={COPY.send} data-ready={ready ? "" : undefined}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M12 19V5" />

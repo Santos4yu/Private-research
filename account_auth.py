@@ -30,7 +30,10 @@ import base64
 import hashlib
 import json
 import os
+import secrets
 import time
+from datetime import datetime, timezone
+from urllib.parse import urlencode
 import requests
 from http.cookies import SimpleCookie
 from pathlib import Path
@@ -266,6 +269,97 @@ def ensure_session(headers):
             pass
     current=identity_for_token(access)
     return current,[],bool(refresh) and not current
+
+
+# --- Google sign-in -------------------------------------------------------
+# Supabase runs the Google side (Authentication -> Providers -> Google); this
+# server starts it and finishes it, so the session lands in the same HttpOnly
+# cookies as an email sign-in and nothing reaches client storage. The PKCE
+# verifier waits in a short-lived cookie scoped to /api/session. It is
+# SameSite=Lax because the return from Google is a cross-site navigation,
+# which a Strict cookie would not come back on.
+OAUTH_PROVIDERS=('google',)
+OAUTH_COOKIE='krazy_oauth'
+OAUTH_SECONDS=10*60
+_OAUTH_FLAGS='; Path=/api/session; HttpOnly; Secure; SameSite=Lax'
+# An account made this recently was made by this sign-in.
+NEW_ACCOUNT_SECONDS=10*60
+PROVIDERS_FRESH_SECONDS=5*60
+_providers={'at':0,'value':None}
+
+
+def oauth_start(provider,callback,remember=True):
+    """(Supabase URL to send the browser to, cookie holding the verifier)."""
+    if provider not in OAUTH_PROVIDERS:raise AccountRejected('Account provider unavailable')
+    if not configured():raise RuntimeError('Email accounts are not configured yet')
+    verifier=secrets.token_urlsafe(48)
+    challenge=base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b'=').decode()
+    query=urlencode({'provider':provider,'redirect_to':callback,'code_challenge':challenge,'code_challenge_method':'s256'})
+    url=os.environ['SUPABASE_URL'].rstrip('/')+'/auth/v1/authorize?'+query
+    return url,f'{OAUTH_COOKIE}={verifier}.{1 if remember else 0}{_OAUTH_FLAGS}; Max-Age={OAUTH_SECONDS}'
+
+
+def oauth_pending(headers):
+    """(verifier, remember) from the cookie oauth_start() set, or (None, True)."""
+    verifier,_,remember=cookies(headers).get(OAUTH_COOKIE,'').partition('.')
+    return (verifier or None),remember!='0'
+
+
+def oauth_clear():return f'{OAUTH_COOKIE}={_OAUTH_FLAGS}; Max-Age=0'
+
+
+def oauth_finish(code,verifier):
+    """The session for the code Google's sign-in came back with."""
+    if not code or not verifier:raise AccountRejected('Account session unavailable')
+    data=call('token?grant_type=pkce',{'auth_code':code,'code_verifier':verifier})
+    if not data.get('access_token') or not data.get('refresh_token'):raise AccountRejected('Account session unavailable')
+    identity=_identity_from_user(data.get('user') or {})
+    if identity:_remember_identity(data['access_token'],identity,token_expiry(data['access_token']))
+    return data
+
+
+def is_new_account(user,now=None):
+    try:created=datetime.fromisoformat(str(user.get('created_at')).replace('Z','+00:00'))
+    except (TypeError,ValueError):return False
+    if created.tzinfo is None:created=created.replace(tzinfo=timezone.utc)
+    return (now or time.time())-created.timestamp()<NEW_ACCOUNT_SECONDS
+
+
+def remove_account(user_id):
+    """Deletes an account Google sign-in just made while sign-ups are closed,
+    with the server key (never the anonymous one). False when it can't."""
+    key=os.getenv('SUPABASE_SECRET_KEY') or os.getenv('SUPABASE_SERVICE_ROLE_KEY','')
+    url=os.getenv('SUPABASE_URL','').rstrip('/')
+    if not key or not url.startswith('https://') or not user_id:return False
+    headers={'apikey':key}
+    if not key.startswith('sb_secret_'):headers['Authorization']='Bearer '+key
+    try:return requests.delete(f'{url}/auth/v1/admin/users/{user_id}',headers=headers,timeout=12).ok
+    except requests.RequestException:return False
+
+
+def refuse_account(user_id):
+    """An account Google sign-in made while sign-ups are closed: removed, or
+    when that can't be done, remembered so it stays refused."""
+    if not user_id or remove_account(user_id):return
+    _kv_setex('krazy_data:refused_account:'+_digest(str(user_id)),{'at':time.time()},400*24*3600)
+
+
+def was_refused(user_id):
+    return bool(user_id) and bool(_kv_get('krazy_data:refused_account:'+_digest(str(user_id))))
+
+
+def enabled_providers():
+    """The sign-in providers switched on in Supabase, so the sign-in screen
+    only offers what works. Asked at most every five minutes."""
+    now=time.time()
+    if _providers['value'] is not None and now-_providers['at']<PROVIDERS_FRESH_SECONDS:return _providers['value']
+    try:
+        external=(call('settings') or {}).get('external') or {}
+        value=[name for name in OAUTH_PROVIDERS if external.get(name) is True]
+    except Exception:
+        return _providers['value'] or []
+    _providers.update(at=now,value=value)
+    return value
 
 
 def rate_allowed(headers,email=''):

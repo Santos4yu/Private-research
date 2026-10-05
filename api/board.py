@@ -166,10 +166,12 @@ class handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         from site_controls import allowed
-        tab={'finder-history':'finder','prop-history':'research','moneyline':'moneyline','nrfi':'nrfi','soccer':'finder','nhl':'finder','tennis':'finder','moves':'moves','mlb-context':'finder','moneylines':'moneyline'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
+        tab={'finder-history':'finder','prop-history':'research','moneyline':'moneyline','nrfi':'nrfi','soccer':'finder','nhl':'finder','tennis':'finder','moves':'moves','mlb-context':'finder','moneylines':'moneyline','mlb-sheet':'sheets','mlb-matchups':'bot'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
         if (parse_qs(urlparse(self.path).query).get('view') or [''])[0] == 'cs2':
             tab = 'finder'
-        if not allowed(self.headers,tab):return self._send(503,{'error':'This section is temporarily unavailable','featureDisabled':True})
+        # Krazy Bot reads the MLB sheets and slate matchups too, so either tab opens them.
+        reads_for_bot=(parse_qs(urlparse(self.path).query).get('view') or [''])[0] in ('mlb-sheet','mlb-matchups')
+        if not (allowed(self.headers,tab) or (reads_for_bot and allowed(self.headers,'bot'))):return self._send(503,{'error':'This section is temporarily unavailable','featureDisabled':True})
         if not session_with_live_access(self.headers):
             return self._send(401, {"error": "Sign in with Discord to use live research.", "authRequired": True})
 
@@ -324,6 +326,24 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(503, {"error": str(exc)})
             except Exception:
                 return self._send(502, {"error": "Moneylines are temporarily unavailable."})
+        if view == "mlb-matchups":
+            try:
+                import mlb_prop_matchups
+                return self._send(200, mlb_prop_matchups.slate_matchups((parse_qs(urlparse(self.path).query).get("day") or ["today"])[0]), compress=True)
+            except ValueError as exc:
+                return self._send(400, {"error": str(exc)})
+            except Exception:
+                return self._send(502, {"error": "Matchups are temporarily unavailable."})
+        if view == "mlb-sheet":
+            # A Cheat Sheet for a day (mlb_sheets.py): built once, kept a while.
+            qs = parse_qs(urlparse(self.path).query)
+            try:
+                import mlb_sheets
+                return self._send(200, mlb_sheets.sheet((qs.get("sheet") or [""])[0], (qs.get("day") or ["today"])[0]), compress=True)
+            except ValueError as exc:
+                return self._send(400, {"error": str(exc)})
+            except Exception:
+                return self._send(502, {"error": "This sheet is temporarily unavailable."})
         if view == "mlb-context":
             # Today's probable starters and every team's season rates, for
             # the Smart Slip's matchup read (mlb_context.py).

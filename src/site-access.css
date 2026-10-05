@@ -186,7 +186,8 @@ html[data-hidden-tabs~="builder"] [data-requires-tab~="builder"]:is(#_,*),
 html[data-hidden-tabs~="moneyline"] [data-requires-tab~="moneyline"]:is(#_,*),
 html[data-hidden-tabs~="nrfi"] [data-requires-tab~="nrfi"]:is(#_,*),
 html[data-hidden-tabs~="community"] [data-requires-tab~="community"]:is(#_,*),
-html[data-hidden-tabs~="bot"] :is([data-requires-tab~="bot"],[data-tab="bot"]):is(#_,*){display:none!important}
+html[data-hidden-tabs~="bot"] :is([data-requires-tab~="bot"],[data-tab="bot"]):is(#_,*),
+html[data-hidden-tabs~="sheets"] :is([data-requires-tab~="sheets"],[data-tab="sheets"]):is(#_,*){display:none!important}
 /* Research home's toolkit: one card left takes the full row; none left
    takes its heading with it. */
 html[data-hidden-tabs~="slate"] .lab-tools,html[data-hidden-tabs~="slip"] .lab-tools{grid-template-columns:minmax(0,1fr)!important}

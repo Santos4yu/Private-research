@@ -73,6 +73,17 @@
     animation: boot-mark-in .6s ease .3s forwards;
   }
   @keyframes boot-mark-in { to { opacity: .8; } }
+  #boot-loading .private-loader-note {
+    position: absolute; left: 16px; right: 16px; top: calc(50% + 40px);
+    display: grid; justify-items: center; gap: 10px; text-align: center;
+    color: rgba(226, 234, 245, .72); font: 500 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+    animation: boot-mark-in .4s ease forwards; opacity: 0;
+  }
+  #boot-loading .private-loader-note p { margin: 0; }
+  #boot-loading .private-loader-link {
+    min-height: 44px; padding: 0 16px; border: 1px solid rgba(255, 255, 255, .16); border-radius: 10px;
+    background: transparent; color: #e6eef8; font: inherit; cursor: pointer;
+  }
   @media (prefers-reduced-motion: reduce) {
     #boot-loading.private-loader { transition: none; }
     #boot-loading .private-loader-mark { animation: none; opacity: .8; }
@@ -431,7 +442,6 @@
 <!-- RESEARCH TAB -->
 <section class="tab-panel" id="panel-research" hidden>
   <button type="button" class="v2-back-btn" id="v2-back-btn" data-requires-tab="v2" hidden>← Back to Props</button>
-  <div id="sport-research-root"></div>
   <div class="search-wrap intro-anim">
     <div class="search-beam">
       <div class="search-box">
@@ -492,6 +502,7 @@
 <!-- MONEYLINE TAB -->
 <section class="tab-panel" id="panel-moneyline" hidden><!-- src/Moneylines.jsx --><div id="moneylines-root"></div></section>
 <section class="tab-panel" id="panel-bot" hidden><!-- src/KrazyBot.jsx --><div id="krazy-bot-root"></div></section>
+<section class="tab-panel" id="panel-sheets" hidden><!-- src/CheatSheets.jsx --><div id="cheat-sheets-root"></div></section>
 
 <!-- NRFI / YRFI TAB -->
 <section class="tab-panel" id="panel-nrfi" hidden>

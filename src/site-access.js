@@ -7,7 +7,7 @@ import {accountProfile,saveAccountProfile} from './account-sync.js';
 import './push-alerts.js';
 import './install-guide.js';
 const ACCOUNT_ICON='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M5 21v-2a7 7 0 0 1 14 0v2" stroke="currentColor" stroke-width="1.6"/></svg>';
-const names={research:'Research',finder:'Finder',moves:'Line Moves',v2:'Props',slate:'Tools',saved:'My Slip',slip:'Slip Analyzer',builder:'Builder',moneyline:'Moneyline',nrfi:'NRFI / YRFI',community:'Community',bot:'Krazy Bot'};
+const names={research:'Research',finder:'Finder',moves:'Line Moves',v2:'Props',slate:'Tools',saved:'My Slip',slip:'Slip Analyzer',builder:'Builder',moneyline:'Moneyline',nrfi:'NRFI / YRFI',community:'Community',bot:'Krazy Bot',sheets:'Cheat Sheets'};
 let status=null,initPromise=null,activeDialog=null,lockedDialog=null;
 export function siteTabAllowed(tab){return canUseTab(status,tab);}
 export function siteIsAdmin(){return Boolean(status?.isAdmin);}
@@ -318,6 +318,20 @@ function retrySoon(){
  // 2s, 4s, 8s, 16s, then every 30s until an answer comes back.
  retryTimer=setTimeout(()=>{retryTimer=0;refreshSiteAccess();},Math.max(retryNotBefore-Date.now(),Math.min(30000,2000*2**Math.min(failures-1,4))));
 }
+// The loading screen, kept up while a member's session is being confirmed.
+// After a few seconds it says so, and offers the sign-in page as a way out
+// in case the answer never comes.
+let holding=false;
+function holdBoot(pending){
+ if(holding)return;holding=true;
+ const loader=document.getElementById('boot-loading');if(!loader)return;
+ setTimeout(()=>{
+  if(!holding||status||!loader.isConnected||loader.querySelector('.private-loader-note'))return;
+  const note=element('div',null,'private-loader-note');note.append(element('p','Signing you back in…'));
+  setTimeout(()=>{if(holding&&!status&&note.isConnected)note.append(button('Go to sign in',()=>{holding=false;status=pending;renderStatus();},'private-loader-link'));},15000);
+  loader.append(note);
+ },2500);
+}
 async function readStatus(){
  let next=await request('/api/session?action=site-status');
  if(unsettled(next)){try{await request('/api/session',{action:'refresh'});next=await request('/api/session?action=site-status');}catch{}}
@@ -336,11 +350,16 @@ async function checkSiteAccess(){
   }
   if(next&&!unsettled(next))break;
  }
- if(next&&!unsettled(next)){failures=0;retryNotBefore=0;clearTimeout(retryTimer);retryTimer=0;status=next;renderStatus();return status;}
+ if(next&&!unsettled(next)){failures=0;retryNotBefore=0;clearTimeout(retryTimer);retryTimer=0;holding=false;status=next;renderStatus();return status;}
  // No definite answer. Whoever is already in stays in, on the status we
  // last knew, and we ask again shortly -- nobody is signed out for a blip.
  failures++;retrySoon();
- if(status&&!(status.offline&&next))return status;
+ // A session the server couldn't confirm yet (Supabase slow or busy, most
+ // often when someone comes back after the hour their sign-in token lasts)
+ // is never drawn as signed out. Opening the site, the loading screen stays
+ // up while we keep asking; this used to show the sign-in page instead.
+ if(unsettled(next)){if(!status)holdBoot(next);return status;}
+ if(status)return status;
  status=next||{offline:true,maintenance:true,message:lastError?.retryAfter?lastError.message:'Website access is temporarily unavailable. Please retry shortly.',disabledTabs:[],requireLogin:true,registrationOpen:false,isAdmin:false};
  renderStatus();return status;
 }
@@ -364,7 +383,14 @@ function wake(){
 }
 export function initSiteAccess(){
  if(initPromise)return initPromise;
- initPromise=(async()=>{await refreshSiteAccess();setInterval(()=>{if(!document.hidden)refreshSiteAccess();},30000);
+ initPromise=(async()=>{
+  // Google sign-in returns to /api/session. If Supabase's list of allowed
+  // return addresses doesn't have it, Supabase sends the browser to the home
+  // page with the code instead, so it is passed along from here.
+  const back=new URLSearchParams(location.search);
+  if(/^[0-9a-f-]{36}$/i.test(back.get('code')||'')){location.replace('/api/session?action=oauth-callback&code='+encodeURIComponent(back.get('code')));return new Promise(()=>{});}
+  if(back.get('error')&&back.get('error_description'))history.replaceState({},'','/sign-in?auth='+(back.get('error')==='access_denied'?'google-cancelled':'google-failed'));
+  await refreshSiteAccess();setInterval(()=>{if(!document.hidden)refreshSiteAccess();},30000);
   document.addEventListener('visibilitychange',wake);window.addEventListener('focus',wake);window.addEventListener('online',wake);window.addEventListener('pageshow',e=>{if(e.persisted)wake();});
   if(accessGranted(status))return status;return new Promise(resolve=>{const listener=e=>{if(e.detail.accessGranted){window.removeEventListener('vortex:site-policy',listener);resolve(e.detail);}};window.addEventListener('vortex:site-policy',listener);});})();return initPromise;
 }

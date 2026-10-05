@@ -11,7 +11,7 @@
 // member (what they ask about) lets it pick up where they left off.
 
 import {candidates, reasons, POWER, assessLeg, gameKey} from './smart-slip.js';
-import {matchupRead} from './slip-analyst.js';
+import {matchupRead, matchupGrade, withPoolDefense} from './slip-analyst.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const percent = value => `${Math.round(value * 100)}%`;
@@ -106,6 +106,34 @@ export const NHL_STATS = [
   byLabel('nhl', 'fantasy', 'fantasy', 'fantasy points', ['fantasyscore', 'goaliefantasyscore'], [/fantasy/], {shared: true}),
 ];
 
+// NFL rows carry the market's key (backend/sports/nfl/markets.py); matched on it.
+const nfl = (key, name, short, words, extra = {}) => ({sport: 'nfl', key, name, short, keys: [key], words, ...extra});
+export const NFL_STATS = [
+  nfl('passing_rushing_yards', 'pass + rush yards', 'Pass+Rush Yds', [/pass(ing)? ?(\+|and|plus) ?rush(ing)? ?(yards?|yds)/]),
+  nfl('rushing_receiving_yards', 'rush + rec yards', 'Rush+Rec Yds', [/rush(ing)? ?(\+|and|plus) ?rec(eiving)? ?(yards?|yds)|scrimmage yards/]),
+  nfl('passing_touchdowns', 'passing TD', 'pass TDs', [/pass(ing)? (tds?|touchdowns?)|td passes|touchdown passes/]),
+  nfl('passing_attempts', 'pass attempts', 'pass attempts', [/pass(ing)? attempts?/]),
+  nfl('pass_completions', 'completions', 'completions', [/completions?/]),
+  nfl('longest_completion', 'longest completion', 'longest completion', [/longest (pass|completion)/]),
+  nfl('passing_yards', 'passing yards', 'pass yards', [/pass(ing)? ?(yards?|yds)|throwing yards|through the air/]),
+  nfl('interceptions', 'interceptions thrown', 'INTs thrown', [/interceptions? thrown|picks thrown|\bints?\b/]),
+  nfl('rush_attempts', 'rush attempts', 'rush attempts', [/rush(ing)? attempts?|carries/]),
+  nfl('longest_rush', 'longest rush', 'longest rush', [/longest rush/]),
+  nfl('rushing_yards', 'rushing yards', 'rush yards', [/rush(ing)? ?(yards?|yds)|ground yards/]),
+  nfl('longest_reception', 'longest reception', 'longest reception', [/longest (reception|catch)/]),
+  nfl('receiving_yards', 'receiving yards', 'rec yards', [/rec(eiving)? ?(yards?|yds)/]),
+  nfl('receptions', 'receptions', 'receptions', [/receptions?|catches|\brecs?\b/]),
+  nfl('targets', 'targets', 'targets', [/targets?/]),
+  nfl('touchdowns', 'touchdown', 'rush+rec TDs', [/anytime (td|touchdown)|\btds?\b|touchdowns?|score a td/]),
+  nfl('fg_made', 'field goals made', 'FG made', [/field goals?( made)?|\bfgs?\b/], {shared: true}),
+  nfl('kicking_points', 'kicking points', 'kicking points', [/kick(ing|er) points/]),
+  nfl('tackles', 'tackles', 'tackles', [/tackles?/]),
+  nfl('sacks', 'sacks', 'sacks', [/\bsacks?\b/]),
+  nfl('fantasy_score', 'fantasy', 'fantasy points', [/fantasy/], {shared: true}),
+];
+// WNBA lines use PrizePicks' basketball stat names, the same as the NBA's.
+export const WNBA_STATS = NBA_STATS.map(stat => ({...stat, sport: 'wnba'}));
+
 const teamMap = entries => Object.entries(entries).map(([names, codes]) => ({pattern: new RegExp(`\\b(${names})\\b`), codes}));
 const MLB_TEAMS = teamMap({
   'diamondbacks|d-?backs|arizona': ['ARI', 'AZ'], 'braves|atlanta': ['ATL'], 'orioles|baltimore': ['BAL'],
@@ -137,18 +165,35 @@ const NHL_TEAMS = teamMap({
   'canucks|vancouver': ['VAN'], 'golden knights|vegas': ['VGK', 'VEG'], 'capitals|caps': ['WSH', 'WAS'], 'jets|winnipeg': ['WPG'],
 });
 
+const NFL_TEAMS = teamMap({
+  'cardinals|arizona': ['ARI'], 'falcons|atlanta': ['ATL'], 'ravens|baltimore': ['BAL'], 'bills|buffalo': ['BUF'], 'panthers|carolina': ['CAR'],
+  'bears|chicago': ['CHI'], 'bengals|cincinnati': ['CIN'], 'browns|cleveland': ['CLE'], 'cowboys|dallas': ['DAL'], 'broncos|denver': ['DEN'],
+  'lions|detroit': ['DET'], 'packers|green bay': ['GB'], 'texans|houston': ['HOU'], 'colts|indianapolis': ['IND'], 'jaguars|jags|jacksonville': ['JAX'],
+  'chiefs|kansas city': ['KC'], 'raiders|las vegas': ['LV'], 'chargers': ['LAC'], 'rams': ['LA', 'LAR'], 'dolphins|miami': ['MIA'],
+  'vikings|minnesota': ['MIN'], 'patriots|pats|new england': ['NE'], 'saints|new orleans': ['NO'], 'giants': ['NYG'], 'jets': ['NYJ'],
+  'eagles|philadelphia|philly': ['PHI'], 'steelers|pittsburgh': ['PIT'], '49ers|niners|san francisco': ['SF'], 'seahawks|seattle': ['SEA'],
+  'buccaneers|bucs|tampa': ['TB'], 'titans|tennessee': ['TEN'], 'commanders|washington': ['WAS', 'WSH'],
+});
+const WNBA_TEAMS = teamMap({
+  'dream': ['ATL'], 'sky': ['CHI'], 'sun|connecticut': ['CON', 'CONN'], 'wings': ['DAL'], 'valkyries': ['GS', 'GSV'], 'fever': ['IND'],
+  'aces': ['LV', 'LVA'], 'sparks': ['LA', 'LAS'], 'lynx': ['MIN'], 'liberty': ['NY', 'NYL'], 'mercury': ['PHX', 'PHO'], 'storm': ['SEA'],
+  'mystics': ['WAS', 'WSH'], 'tempo': ['TOR'], 'fire': ['POR'],
+});
+
 export const SPORTS = {
   mlb: {name: 'MLB', game: 'games', start: 'first pitch', words: /\b(mlb|baseball)\b/, stats: MLB_STATS, teams: MLB_TEAMS},
   nba: {name: 'NBA', game: 'games', start: 'tip-off', words: /\b(nba|basketball|hoops)\b/, stats: NBA_STATS, teams: NBA_TEAMS},
   nhl: {name: 'NHL', game: 'games', start: 'puck drop', words: /\b(nhl|hockey)\b/, stats: NHL_STATS, teams: NHL_TEAMS},
+  nfl: {name: 'NFL', game: 'games', start: 'kickoff', words: /\b(nfl|football)\b/, stats: NFL_STATS, teams: NFL_TEAMS},
+  wnba: {name: 'WNBA', game: 'games', start: 'tip-off', words: /\bwnba\b|\bwomen'?s basketball\b/, stats: WNBA_STATS, teams: WNBA_TEAMS},
 };
-const SPORT_ORDER = ['mlb', 'nhl', 'nba'];
-const OTHER_SPORTS = /\b(wnba|nfl|ncaa|college|football|tennis|soccer|cs2|csgo|counter[ -]?strike|golf|ufc|mma)\b/;
+const OTHER_SPORTS = /\b(ncaa|college|tennis|soccer|cs2|csgo|counter[ -]?strike|golf|ufc|mma)\b/;
 
 /** Whether a row is the stat a question asks for. */
 export function statMatches(stat, row) {
   if (!stat || String(row.sport || 'mlb') !== stat.sport) return false;
   if (stat.sport === 'mlb') return row.marketKey === stat.key;
+  if (stat.keys) return stat.keys.includes(row.marketKey);
   return stat.labels.includes(nameKey(row.market));
 }
 const statOfRow = row => (SPORTS[row.sport || 'mlb']?.stats || []).find(stat => !stat.first && statMatches(stat, row))
@@ -266,6 +311,8 @@ export function understand(text, {keepWords} = {}) {
     return {...ask, intent: 'slip', count: Math.max(2, Math.min(6, Number(legs?.[1]) || NUMBER_WORDS[legs?.[1]] || 3))};
   }
   if (['another', 'flip', 'usual', 'mine', 'value'].includes(ask.intent)) return ask;
+  const sheet = sheetAsked(q);
+  if (sheet) return {...ask, intent: 'sheet', ...sheet};
   // An analyst's questions about one player or team, ahead of "vs"/"or"
   // reading as a comparison.
   const asking = !/\b(best|top|safest|props? today|slip|parlay)\b/.test(q);
@@ -283,6 +330,24 @@ export function understand(text, {keepWords} = {}) {
   else if (/\b(safe(st)?|lock|locks|sure|surest|most likely|highest (chance|percent|probability)|confident|banker)\b/.test(q)) ask.intent = ask.intent === 'compare' ? 'compare' : 'safest';
   else if (/\bmatch ?ups?\b|\bmismatch\b|\bexploit\b|\bweak(est)? (pitcher|lineup|opponent|defense)\b/.test(q)) ask.intent = ask.intent === 'compare' ? 'compare' : 'matchup';
   return ask;
+}
+
+// The day's MLB cheat sheets (mlb_sheets.py), asked about in plain words:
+// first-inning runs, ballparks and weather, active streaks, career numbers
+// against today's starter, the best home run bats and who's hot.
+const STREAK_WORDS = [[/\bon ?base\b|\bobp\b|reach(ed|ing)? base/, 'onbase'], [/\b(home ?runs?|hrs?|homers?)\b/, 'hr'],
+  [/total bases|\btbs?\b/, 'tb2'], [/\bwalks?\b|\bbbs?\b/, 'bb'], [/\bsteals?\b|stolen|\bsbs?\b/, 'sb'], [/strike ?outs?|\bks?\b/, 'k']];
+function sheetAsked(q) {
+  if (/\b(nrfi|yrfi)\b|\b(first|1st) inning (runs?|scor(e|es|ing))\b|\bruns? in the (first|1st)( inning)?\b/.test(q)
+      && !/\b(strike ?outs?|hits? allowed|walks?|pitch(es)?)\b/.test(q)) return {sheet: 'nrfi'};
+  if (/\b(weather|windy?|rain(out|y)?|forecast|temperature|ball ?parks?|park factors?|stadiums?|blowing (in|out)|roof)\b/.test(q)) return {sheet: 'park', wind: /\b(windy?|blowing)\b/.test(q), rain: /\brain/.test(q)};
+  if (/\b(streaks?|streaking|in a row|straight games)\b/.test(q)) return {sheet: 'streaks', streak: (STREAK_WORDS.find(([pattern]) => pattern.test(q)) || [null, 'hits'])[1]};
+  if (!/\b(lefties|righties|lefty|righty|lhp|rhp|left[- ]?handed|right[- ]?handed)\b/.test(q)
+      && (/\bbvp\b|\bcareer (numbers|stats|history|line|vs|against)\b|\bhistory (vs|against|with|off)\b|\b(owns?|owned)\b|\bfaced (him|before)\b/.test(q)
+        || /\bhow (does|do|has|have|did) \w+( \w+)? (hit|do|done|fare|fared|hits) (vs\.? |against |off )?\w+/.test(q) && /\bhit(s)? (vs\.? |against |off )?\w+/.test(q))) return {sheet: 'bvp'};
+  if (/\bwho('?s| is| will)?( \w+)? (going to |gonna )?(homer|home ?run|hit (a )?(home ?run|hr|homer|dinger)|go yard|go deep)\b|\b(home ?run|hr|homer|dinger|power) (sheet|candidates?|bets?|plays|bats|threats?)\b|\bmost likely to (homer|home ?run|go deep|hit a home ?run)\b|\bbest (hr|home ?run) (bets?|plays|picks|candidates?)\b/.test(q)) return {sheet: 'hr'};
+  if (/\b(hot|hottest|on fire|heating up|swinging (it|well)|raking)\b/.test(q) && /\b(hitters?|batters?|players?|guys)\b/.test(q) && !/\b(lineups?|teams?)\b/.test(q)) return {sheet: 'hot'};
+  return null;
 }
 
 // First names that are everyday words too ("will he go deep", "drew a
@@ -356,6 +421,41 @@ const matchupLift = leg => {
 };
 const byGrade = (a, b) => (GRADE_ORDER[a.grade] ?? 3) - (GRADE_ORDER[b.grade] ?? 3) || b.chance - a.chance;
 
+/**
+ * Every pick needs a good matchup. A leg gets its matchup grade (0-100
+ * for its side, slip-analyst.js matchupGrade); a tough one is a red flag
+ * however good the last 10 looks: it can't be backed and grades no better
+ * than C. `required` is whether the league has matchup reads at all today.
+ */
+export function withMatchup(leg, required) {
+  if (!leg) return leg;
+  const matchup = matchupGrade(leg.read, leg.side);
+  const out = {...leg, matchup, matchupRequired: Boolean(required)};
+  if (matchup?.tone === 'tough') {
+    const recent = leg.records?.l10 || leg.records?.l5;
+    out.redFlag = recent && recent.rate >= 0.6
+      ? `He's ${recent.won} of his last ${recent.games}, but the matchup is ${matchup.label.toLowerCase()} (${matchup.score})`
+      : `The matchup is ${matchup.label.toLowerCase()} (${matchup.score})`;
+    out.backed = false;
+    if (out.grade === 'A' || out.grade === 'B') out.grade = 'C';
+  }
+  return out;
+}
+export function gradeMatchups(legs) {
+  const scored = new Set(legs.filter(leg => finite(matchupGrade(leg.read, leg.side)?.score)).map(leg => String(leg.row?.sport || 'mlb')));
+  return legs.map(leg => withMatchup(leg, scored.has(String(leg.row?.sport || 'mlb'))));
+}
+// The red flag in words, with what's behind it: the model's factors run on
+// from its score ("... unfavorable (30) vs Chris Sale: a tough starter"),
+// any other read follows as its own sentence.
+function redFlagWords(leg) {
+  const text = leg.matchup?.text || '';
+  const behind = text.match(/^[A-Z][a-z ]+ matchup \(\d+\)( vs .*)$/);
+  return behind ? sentence(`${leg.redFlag}${behind[1]}`) : `${sentence(leg.redFlag)}${text ? ` ${sentence(text)}` : ''}`;
+}
+// A pick we'd recommend: a good matchup, or no matchup read in a league that has none today.
+const passesMatchup = leg => leg.matchup?.tone === 'good' || (!leg.matchupRequired && !leg.matchup);
+
 /** Today's picks for a question, best first, one per player. */
 export function rank(legs, ask) {
   let pool = legs.filter(leg => !ask.sport || String(leg.row?.sport || 'mlb') === ask.sport);
@@ -365,9 +465,12 @@ export function rank(legs, ask) {
   if (ask.side) pool = pool.filter(leg => leg.side === ask.side);
   if (ask.team) pool = pool.filter(leg => ask.team.includes(String(leg.row.teamAbbr || '').toUpperCase()));
   if (ask.players?.length) pool = pool.filter(leg => ask.players.includes(leg.player));
+  // Asked about a player, every line of his is fair game (with its red flags);
+  // otherwise only picks with a good matchup.
+  else pool = pool.filter(passesMatchup);
   const order = ask.intent === 'safest' || ask.intent === 'value' ? (a, b) => b.chance - a.chance
-    : ask.intent === 'matchup' ? (a, b) => (matchupLift(b) >= 0.03) - (matchupLift(a) >= 0.03) || matchupLift(b) - matchupLift(a) || byGrade(a, b)
-      : byGrade;
+    : ask.intent === 'matchup' ? (a, b) => (b.matchup?.score ?? 0) - (a.matchup?.score ?? 0) || byGrade(a, b)
+      : (a, b) => byGrade(a, b) || (b.matchup?.score ?? 50) - (a.matchup?.score ?? 50);
   const seen = new Set();
   return [...pool].sort(order).filter(leg => !seen.has(leg.player) && seen.add(leg.player));
 }
@@ -438,7 +541,58 @@ const TILE_LABELS = {season: () => 'Season', books: () => 'Books', projection: (
  * last 10 games against it, the numbers behind it, the matchup and what
  * to watch. Plain data; src/KrazyBotCard.jsx draws it.
  */
-export function pickCard(leg) {
+// American odds as the chance they imply (with the book's margin still in).
+const implied = price => !finite(price) || price === 0 ? null : price < 0 ? -price / (-price + 100) : 100 / (price + 100);
+const median = values => {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b), middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+};
+
+/**
+ * The scouting report under a pick: its record over each window, the last
+ * 20 games against the line, home and road, what the books charge for it
+ * against our chance, and the player's other lines on this stat (the
+ * ladder). Plain numbers; src/KrazyBotCard.jsx draws them.
+ */
+export function pickReport(leg, {ladder = []} = {}) {
+  const {row, side} = leg;
+  const line = row.line, sign = side === 'UNDER' ? -1 : 1;
+  const won = value => value === line ? null : (value - line) * sign > 0;
+  const log = (row.gameLog || []).filter(game => finite(game.value));
+  const games = log.slice(-20).map(game => ({value: game.value, date: shortDate(game.date),
+    opponent: typeof game.opponent === 'string' && game.opponent ? game.opponent : null,
+    home: typeof game.home === 'boolean' ? game.home : null, hit: won(game.value)}));
+  const records = leg.records || {};
+  const ring = (key, label) => records[key]?.games ? {key, label, won: records[key].won, games: records[key].games, rate: records[key].rate} : null;
+  const rings = [ring('l5', 'L5'), ring('l10', 'L10'), ring('l20', 'L20'), ring('season', 'Season'), ring('h2h', row.opponent ? `vs ${row.opponent}` : 'H2H')].filter(Boolean);
+  const split = list => {
+    const decided = list.filter(game => game.value !== line);
+    return list.length ? {games: list.length, avg: mean(list.map(game => game.value)), won: decided.filter(game => won(game.value)).length, decided: decided.length} : null;
+  };
+  const values = log.slice(-20).map(game => game.value);
+  const opponent = row.sport === 'mlb' ? row.opponentTeamId : row.opponent;
+  const versus = opponent == null ? [] : log.filter(game => game.opponent != null && String(game.opponent) === String(opponent));
+  const books = (row.apps || []).filter(app => app && app.key !== 'prizepicks')
+    .map(app => ({name: app.name || app.key, price: side === 'UNDER' ? app.under : app.over}))
+    .filter(book => finite(book.price)).map(book => ({...book, chance: implied(book.price)}))
+    .sort((a, b) => b.price - a.price).slice(0, 6);
+  const role = leg.read?.factors?.find(item => item.key === 'role');
+  return {
+    line, side, games, rings,
+    stats: values.length ? {avg: mean(values), median: median(values), high: Math.max(...values), low: Math.min(...values), projection: finite(leg.read?.projection) ? leg.read.projection : null} : null,
+    splits: {home: split(log.filter(game => game.home === true)), away: split(log.filter(game => game.home === false)),
+      today: typeof row.isHome === 'boolean' ? (row.isHome ? 'home' : 'away') : null,
+      versus: versus.length ? {opponent: row.opponent || null, ...split(versus), games: versus.slice(-6).map(game => ({value: game.value, date: shortDate(game.date), hit: won(game.value)}))} : null},
+    market: {model: finite(leg.chance) ? leg.chance : null, books: finite(leg.book) ? leg.book : null,
+      edge: finite(leg.chance) && finite(leg.book) ? leg.chance - leg.book : null},
+    books, ladder,
+    defense: finite(row.defense) && finite(row.defenseTeams) ? {rank: row.defense, teams: row.defenseTeams, position: row.defensePosition || null} : null,
+    role: role?.text ? {text: role.text, short: role.short || null} : null,
+  };
+}
+
+export function pickCard(leg, {ladder = []} = {}) {
   const {row, side} = leg;
   const line = row.line;
   const sign = side === 'UNDER' ? -1 : 1;
@@ -472,6 +626,15 @@ export function pickCard(leg) {
       name: pitcher?.name || row.opponent || null, hand: pitcher?.hand || null,
     } : null,
     risks: (leg.read?.risks || []).slice(0, 2),
+    rating: leg.matchup ? {score: leg.matchup.score, label: leg.matchup.label, tone: leg.matchup.tone, versus: row.hitterMatchup?.pitcher?.name || null,
+      factors: (leg.matchup.factors || []).filter(item => item.available && finite(item.impact))
+        .map(item => ({name: item.name, impact: (leg.side === 'UNDER' ? -1 : 1) * item.impact, detail: item.detail}))
+        .sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact)).slice(0, 5),
+      pitches: (leg.matchup.pitches || []).slice(0, 4)} : null,
+    redFlag: leg.redFlag || null,
+    report: pickReport(leg, {ladder}),
+    // The line itself, for the card's buttons (add to My Slip, open in the Finder).
+    row,
   };
 }
 
@@ -519,7 +682,7 @@ const top = counts => Object.entries(counts || {}).sort((a, b) => b[1] - a[1]).m
  * moves (optional).
  */
 export function createBot({load, sports = ['mlb'], judge = rows => candidates(rows), assess = assessLeg, profile = null,
-  moves = null, now = () => Date.now(), random = Math.random} = {}) {
+  moves = null, sheets = null, now = () => Date.now(), random = Math.random} = {}) {
   const allowed = sports.filter(sport => SPORTS[sport]);
   const boards = {};
   let movesCache = {at: 0, list: []};
@@ -541,8 +704,9 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     entry.pending ||= (async () => {
       try {
         const rows = await load(sport);
-        Object.assign(entry, {rows: (rows || []).map(row => ({...row, sport: row.sport || sport})), at: now(), failed: false});
-        entry.legs = judge(entry.rows);
+        Object.assign(entry, {rows: withPoolDefense((rows || []).map(row => ({...row, sport: row.sport || sport}))), at: now(), failed: false});
+        entry.legs = gradeMatchups(judge(entry.rows));
+        entry.matchups = entry.legs.some(leg => leg.matchupRequired);
       } catch {
         entry.failed = !entry.rows.length;
       } finally { entry.pending = null; }
@@ -595,6 +759,8 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     const base = ["What's the play today?", 'Best K prop today', 'Best matchup today', 'Safest pick', 'Build me a 3-pick slip'];
     if (allowed.includes('nba')) base.push('Best NBA points prop');
     if (allowed.includes('nhl')) base.push('Best shots on goal prop');
+    if (allowed.includes('nfl')) base.push('Best receiving yards prop');
+    if (allowed.includes('wnba')) base.push('Best WNBA points prop');
     const personal = [stat && `Best ${stat.name} prop`, player && `How's ${lastName(player)} looking?`].filter(Boolean);
     return [...new Set([...personal, ...base])].slice(0, 6);
   }
@@ -619,9 +785,11 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     if (ask.intent === 'rankings') steps.push('Ranking today\'s lineups', 'Matching each to the starter\'s hand');
     if (ask.intent === 'usage') steps.push('Checking playing time');
     if (ask.intent === 'projection') steps.push('Running the projection');
+    if (ask.intent === 'sheet') steps.push({nrfi: 'Reading first innings', park: 'Checking parks and the forecast', streaks: 'Counting active streaks',
+      bvp: 'Pulling career matchups', hot: 'Reading the last 14 days', hr: 'Ranking power bats'}[ask.sheet] || 'Reading today\'s cheat sheets');
     if (ask.stat) steps.push(`Ranking ${ask.stat.name} props`);
     if (ask.intent === 'slip') steps.push('Spreading legs across games');
-    if (!['innings', 'form', 'rankings', 'usage'].includes(ask.intent)) steps.push('Checking what the books say');
+    if (!['innings', 'form', 'rankings', 'usage', 'sheet'].includes(ask.intent)) steps.push('Checking what the books say');
     steps.push('Writing it up');
     return [...new Set(steps)].slice(0, 6);
   }
@@ -636,16 +804,190 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     const risk = leg.read?.risks?.[0];
     const watch = risk ? ` ${pick(['One thing to watch:', 'Only knock:', 'Watch out:'], random)} ${lower(risk)}.` : '';
     suggestions = ['Why?', 'Next best', leg.side === 'OVER' ? 'What about the under?' : 'What about the over?', 'Build me a 3-pick slip'];
-    const confidence = pick(CONFIDENCE[leg.grade] || CONFIDENCE.C, random);
+    const confidence = leg.redFlag ? `Red flag: ${lower(leg.redFlag)}, so I wouldn't back it.` : pick(CONFIDENCE[leg.grade] || CONFIDENCE.C, random);
     const moved = await moveNote(leg);
-    answer = {lead: tidy(`${opener} ${pickLine(leg)}. ${confidence} ${sentence(facts[0] || '')}${moved}`), card: {kind: 'pick', pick: pickCard(leg)}};
+    answer = {lead: tidy(`${opener} ${pickLine(leg)}. ${confidence} ${sentence(facts[0] || '')}${moved}`), card: {kind: 'pick', pick: fullCard(leg)}};
     return tidy(`${opener} ${pickLine(leg)} (grade ${leg.grade}, ${percent(leg.chance)} to hit). ${confidence} ${sentence(join(facts))}${watch}${moved}`);
   };
+
+  // ---------------------------------------------------------------- the cheat sheets
+
+  const sheetCache = new Map();
+  async function sheetData(name) {
+    const kept = sheetCache.get(name);
+    if (kept && now() - kept.at < FRESH_MS) return kept.data;
+    const data = await sheets(name);
+    sheetCache.set(name, {at: now(), data});
+    return data;
+  }
+  const signedPct = value => finite(value) ? `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(Math.round(value))}%` : '—';
+  const rate3 = value => finite(value) ? value.toFixed(3).replace(/^0/, '') : '—';
+  const priceOf = value => finite(value) ? (value > 0 ? `+${value}` : String(value)) : '—';
+  const onTeam = (team, ...codes) => !team || codes.some(code => team.includes(String(code || '').toUpperCase()));
+  const hitterRow = (row, fields) => ({photo: row.id ? MLB_PHOTO(row.id) : null, logo: row.teamId ? MLB_LOGO(row.teamId) : null, name: row.name, ...fields});
+  const named = (rows, name) => rows.find(row => nameKey(row.name) === nameKey(name)) || null;
+
+  async function sheetAnswer(ask, players) {
+    if (!allowed.includes('mlb') || !sheets) { suggestions = examples(); return 'The cheat sheets cover MLB, and MLB isn\'t on the board for you right now.'; }
+    let data;
+    try { data = await sheetData(ask.sheet); } catch { suggestions = examples(); return 'I can\'t reach today\'s cheat sheets right now. Give it a minute and ask again.'; }
+    remember(ask);
+    ctx = {...ctx, ask, sport: 'mlb'};
+    const team = ask.team || null;
+    if (ask.sheet === 'nrfi') return nrfiAnswer(data, team);
+    if (ask.sheet === 'park') return parkAnswer(data, team, ask);
+    if (ask.sheet === 'streaks') return streakAnswer(data, team, ask.streak);
+    if (ask.sheet === 'bvp') return bvpAnswer(data, players, ask);
+    if (ask.sheet === 'hot') return hotAnswer(data, team, players);
+    return powerAnswer(data, team, players);
+  }
+
+  function nrfiAnswer(data, team) {
+    const games = (data.rows || []).filter(row => onTeam(team, row.away?.team, row.home?.team));
+    suggestions = ['Weather today', 'Best HR bats today', 'Who is on a hit streak?'];
+    if (!games.length) return team ? 'That team isn\'t on today\'s MLB slate.' : 'There are no MLB games on today\'s slate.';
+    const pctOf = row => Math.round(row.chance * 100);
+    const arm = side => side.pitcher ? lastName(side.pitcher.name) : 'TBD';
+    const lean = row => row.lean === 'nrfi' ? 'Lean NRFI' : row.lean === 'yrfi' ? 'Lean YRFI' : 'Toss-up';
+    const card = {kind: 'board', title: team ? 'First inning' : 'NRFI / YRFI today', rows: games.slice(0, 6).map(row => ({
+      logos: [row.away?.teamId ? MLB_LOGO(row.away.teamId) : null, row.home?.teamId ? MLB_LOGO(row.home.teamId) : null],
+      name: `${row.away.team} @ ${row.home.team}`, sub: `${arm(row.away)} vs ${arm(row.home)} · fair NRFI ${priceOf(row.nrfi)}`,
+      value: `${pctOf(row)}%`, label: lean(row), tone: row.lean === 'nrfi' ? 'up' : row.lean === 'yrfi' ? 'down' : null, meter: row.chance}))};
+    if (team) {
+      const row = games[0];
+      const clean = side => side.pitcher && finite(side.pitcher.season) ? `${side.pitcher.name} has kept ${Math.round(side.pitcher.season * 100)}% of his first innings scoreless` : null;
+      answer = {lead: `${row.away.team} @ ${row.home.team}: ${pctOf(row)}% chance of a scoreless first (${lean(row).toLowerCase()}).`, card};
+      return tidy(`${row.away.team} @ ${row.home.team}: ${pctOf(row)}% chance of a scoreless first, so ${lean(row).toLowerCase()}. Fair NRFI ${priceOf(row.nrfi)}, YRFI ${priceOf(row.yrfi)}. ${sentence(join([clean(row.away), clean(row.home)].filter(Boolean)))}`);
+    }
+    const best = games[0], worst = games.at(-1);
+    const said = `Best NRFI today: ${best.away.team} @ ${best.home.team} at ${pctOf(best)}% scoreless (fair ${priceOf(best.nrfi)}).`
+      + (worst !== best && worst.lean === 'yrfi' ? ` Best YRFI: ${worst.away.team} @ ${worst.home.team}, ${100 - pctOf(worst)}% to see a run (fair ${priceOf(worst.yrfi)}).` : '');
+    answer = {lead: said, card};
+    return said;
+  }
+
+  function parkAnswer(data, team, ask) {
+    let games = (data.rows || []).filter(row => onTeam(team, row.away, row.home));
+    suggestions = ['NRFI today?', 'Best HR bats today', "What's the play today?"];
+    if (!games.length) return team ? 'That team isn\'t on today\'s MLB slate.' : 'There are no MLB games on today\'s slate.';
+    const weather = row => row.dome ? 'roof closed' : [finite(row.temp) && `${Math.round(row.temp)}°`, finite(row.wind) && `${Math.round(row.wind)} mph ${row.windEffect || ''}`.trim()].filter(Boolean).join(', ');
+    const describe = row => `${row.venue} (${signedPct(row.runs)} runs${weather(row) ? `, ${weather(row)}` : ''})`;
+    let said;
+    if (team) said = `${games[0].away} @ ${games[0].home} is at ${describe(games[0])}: ${signedPct(games[0].hr)} for home runs against an average park.`;
+    else if (ask.wind) {
+      const out = games.filter(row => !row.dome && row.windEffect === 'out' && (row.wind || 0) >= 5), blowingIn = games.filter(row => !row.dome && row.windEffect === 'in' && (row.wind || 0) >= 5);
+      games = [...out, ...blowingIn, ...games.filter(row => !out.includes(row) && !blowingIn.includes(row))];
+      said = out.length || blowingIn.length ? `${out.length ? `Blowing out: ${join(out.map(row => `${row.venue} (${Math.round(row.wind)} mph)`))}.` : ''} ${blowingIn.length ? `Blowing in: ${join(blowingIn.map(row => `${row.venue} (${Math.round(row.wind)} mph)`))}.` : ''}`
+        : 'No real wind today: nothing over 5 mph blowing in or out.';
+    } else if (ask.rain) {
+      const wet = games.filter(row => !row.dome && finite(row.precip) && row.precip >= 30);
+      said = wet.length ? `Rain risk: ${join(wet.map(row => `${row.venue} (${Math.round(row.precip)}%)`))}.` : 'No rain worth worrying about on today\'s slate.';
+    } else {
+      const best = games[0], worst = games.at(-1);
+      said = `Best hitting conditions: ${describe(best)}.${worst !== best ? ` Toughest: ${describe(worst)}.` : ''}`;
+    }
+    answer = {lead: tidy(said), card: {kind: 'board', title: 'Ballparks & weather', rows: games.slice(0, 6).map(row => ({
+      logos: [row.homeId ? MLB_LOGO(row.homeId) : null], name: row.venue, sub: `${row.away} @ ${row.home}${weather(row) ? ` · ${weather(row)}` : ''}`,
+      value: signedPct(row.runs), label: 'runs', tone: (row.runs || 0) >= 3 ? 'up' : (row.runs || 0) <= -3 ? 'down' : null}))}};
+    return tidy(said);
+  }
+
+  function streakAnswer(data, team, kind) {
+    const group = data.streaks?.[kind] || data.streaks?.hits || {label: 'hit', rows: []};
+    const rows = (group.rows || []).filter(row => onTeam(team, row.team));
+    suggestions = ['Who is on an on-base streak?', 'Best HR bats today', 'Who are the hottest hitters?'];
+    const label = String(group.label || 'hit').toLowerCase();
+    if (!rows.length) return `Nobody${team ? ' on that team' : ''} is on an active ${label} streak today.`;
+    const top = rows[0].streak || 1;
+    answer = {lead: `Longest active ${label} streaks: ${join(rows.slice(0, 3).map(row => `${lastName(row.name)} (${row.streak})`))}.`,
+      card: {kind: 'board', title: `Active ${label} streaks`, rows: rows.slice(0, 6).map(row => hitterRow(row, {
+        sub: `${row.team} ${row.home ? 'vs' : '@'} ${row.opponent}`, value: String(row.streak), label: 'games', meter: row.streak / top}))}};
+    return `Longest active ${label} streaks today: ${join(rows.slice(0, 4).map(row => `${row.name} (${row.streak} straight)`))}.`;
+  }
+
+  function bvpAnswer(data, players, ask) {
+    const rows = data.rows || [];
+    suggestions = ['Best HR bats today', 'NRFI today?', "What's the play today?"];
+    if (players.length) {
+      const hitter = players.map(name => named(rows, name)).find(Boolean);
+      if (!hitter) return `${players[0]} doesn't have 4 or more career plate appearances against today's starter, so there's no history worth reading.`;
+      const pitcher = hitter.pitcher?.name || "today's starter";
+      // The pitcher asked about, named or not on today's board ("judge vs cole").
+      const word = (ask.text.match(/\b(?:vs\.?|versus|against|off|hit|hits)\s+([a-z][a-z'.-]+)/) || [])[1];
+      const asked = players.find(name => nameKey(name) !== nameKey(hitter.name))
+        || (word && !['the', 'him', 'his', 'today', 'tonight', 'lefties', 'righties'].includes(word) && nameKey(word) !== nameKey(lastName(hitter.name)) ? word[0].toUpperCase() + word.slice(1) : null);
+      const other = asked && nameKey(lastName(asked)) !== nameKey(lastName(pitcher)) ? ` (He faces ${pitcher} today, not ${asked}.)` : '';
+      const said = `${hitter.name} vs ${pitcher}: ${hitter.hits}-for-${hitter.ab} (${rate3(hitter.avg)}), ${hitter.hr} HR, ${hitter.so} K in ${hitter.pa} plate appearances. That's a ${hitter.sample} sample${hitter.sample === 'limited' ? ', so don\'t lean on it' : ''}.${other}`;
+      answer = {lead: said, card: {kind: 'board', title: 'Career vs today\'s starter', rows: [hitterRow(hitter, {
+        sub: `vs ${pitcher} · ${hitter.hits}-for-${hitter.ab}, ${hitter.hr} HR`, value: rate3(hitter.ops), label: 'OPS', tag: hitter.sample})]}};
+      return said;
+    }
+    const best = rows.filter(row => row.sample !== 'limited').slice(0, 5);
+    if (!best.length) return 'No hitter has a real sample against today\'s starter yet.';
+    answer = {lead: `Best career matchups today: ${join(best.slice(0, 3).map(row => `${lastName(row.name)} vs ${lastName(row.pitcher?.name || '')} (${row.hits}-for-${row.ab})`))}.`,
+      card: {kind: 'board', title: 'Career vs today\'s starter', rows: best.map(row => hitterRow(row, {
+        sub: `vs ${row.pitcher?.name || 'starter'} · ${row.hits}-for-${row.ab}, ${row.hr} HR`, value: rate3(row.ops), label: 'OPS', tag: row.sample}))}};
+    return answer.lead;
+  }
+
+  function hotAnswer(data, team, players) {
+    let rows = (data.rows || []).filter(row => onTeam(team, row.team));
+    if (players.length) rows = rows.filter(row => players.some(name => nameKey(name) === nameKey(row.name)));
+    suggestions = ['Who is on a hit streak?', 'Best HR bats today', "What's the play today?"];
+    if (!rows.length) return players.length ? `${players[0]} isn't running hot over the last ${data.days || 14} days.` : 'Nobody is running well above their season right now.';
+    const line = row => `${row.name} (${rate3(row.ops)} OPS, ${signedOps(row.delta?.ops)} over his season, ${row.hr} HR)`;
+    answer = {lead: `Hottest bats over the last ${data.days || 14} days: ${join(rows.slice(0, 3).map(row => lastName(row.name)))}.`,
+      card: {kind: 'board', title: `Hot bats · last ${data.days || 14} days`, rows: rows.slice(0, 6).map(row => hitterRow(row, {
+        sub: `${row.team} · ${row.hr} HR · ${signedOps(row.delta?.ops)} OPS vs season`, value: rate3(row.ops), label: 'OPS', tag: row.tag === 'hot' ? 'Hot' : 'Warm', tone: 'up'}))}};
+    return `Hottest bats over the last ${data.days || 14} days: ${join(rows.slice(0, 3).map(line))}.`;
+  }
+  const signedOps = value => finite(value) ? `${value >= 0 ? '+' : '−'}${Math.abs(value).toFixed(3).replace(/^0/, '')}` : '—';
+
+  function powerAnswer(data, team, players) {
+    let rows = (data.rows || []).filter(row => onTeam(team, row.team));
+    suggestions = ['Best HR prop', 'Weather today', 'Who is on a HR streak?'];
+    const facts = row => [finite(row.barrel) && `${row.barrel.toFixed(1)}% barrels`,
+      finite(row.vsHand?.iso ?? row.iso) && `${rate3(row.vsHand?.iso ?? row.iso)} ISO${row.pitcher?.throws ? ` vs ${row.pitcher.throws}HP` : ''}`,
+      finite(row.park) && Math.abs(row.park) >= 3 && `${signedPct(row.park)} HR park`, row.hot && 'hot lately'].filter(Boolean);
+    if (players.length) {
+      const found = players.map(name => named(data.rows || [], name)).find(Boolean);
+      if (!found) return `${players[0]} isn't on today's home run sheet.`;
+      const place = (data.rows || []).indexOf(found) + 1;
+      answer = {lead: `${found.name}'s power score today: ${found.score} (#${place} of ${(data.rows || []).length}).`, card: {kind: 'board', title: 'Home run sheet', rows: [powerRow(found)]}};
+      return `${found.name}'s power score today is ${found.score}, #${place} on the slate: ${join(facts(found))}.`;
+    }
+    if (!rows.length) return team ? 'That team isn\'t on today\'s MLB slate.' : 'There are no MLB games on today\'s slate.';
+    const top = rows.slice(0, 5);
+    answer = {lead: `Top home run bats today: ${join(top.slice(0, 3).map(row => `${lastName(row.name)} (${row.score})`))}.`,
+      card: {kind: 'board', title: 'Home run sheet', rows: top.map(powerRow)}};
+    return `Top home run bats today: ${join(top.slice(0, 3).map(row => `${row.name} (${row.score})`))}. ${lastName(top[0].name)}: ${join(facts(top[0]))}.`;
+  }
+  const powerRow = row => hitterRow(row, {sub: `${row.team} vs ${row.pitcher ? `${lastName(row.pitcher.name)} (${row.pitcher.throws || '?'}HP)` : row.opponent}${finite(row.barrel) ? ` · ${row.barrel.toFixed(1)}% brl` : ''}`,
+    value: String(row.score ?? '—'), label: 'power', meter: finite(row.score) ? row.score / 100 : null, tag: row.hot ? 'Hot' : null, tone: (row.score || 0) >= 65 ? 'up' : null});
+
+  /**
+   * The player's other lines on the same stat today (Goblin, standard,
+   * Demon), each read on the pick's side, lowest line first.
+   */
+  function ladderFor(leg) {
+    const stat = statOfRow(leg.row);
+    const rows = (boards[leg.row.sport || 'mlb']?.rows || []).filter(item => item.player === leg.player
+      && (stat ? statMatches(stat, item) : nameKey(item.market) === nameKey(leg.row.market)));
+    if (rows.length < 2) return [];
+    return rows.map(item => {
+      const read = item.id === leg.row.id ? leg : assess(item, leg.side, {now: now()});
+      const recent = read?.records?.l10 || read?.records?.l5 || null;
+      return {line: item.line, modifier: String(item.modifier || 'standard').toLowerCase(), current: item.id === leg.row.id,
+        chance: finite(read?.chance) ? read.chance : null, recent: recent ? {won: recent.won, games: recent.games} : null};
+    }).sort((a, b) => a.line - b.line);
+  }
+  const fullCard = leg => pickCard(leg, {ladder: ladderFor(leg)});
 
   /** A yes/no on one side of one line, whether or not it's a pick we'd make. */
   async function verdict(row, side, ask) {
     const sides = side ? [side, side === 'OVER' ? 'UNDER' : 'OVER'] : ['OVER', 'UNDER'];
-    const reads = sides.map(item => assess(row, item, {now: now()}));
+    const required = Boolean(boards[row.sport || 'mlb']?.matchups);
+    const reads = sides.map(item => withMatchup(assess(row, item, {now: now()}), required));
     if (!reads[0] && !reads[1]) return `I don't have enough history on ${row.player} to call that one (or it starts too soon).`;
     let [chosen, other] = reads;
     if (!side && other && (!chosen || other.chance > chosen.chance)) [chosen, other] = [other, chosen];
@@ -654,7 +996,9 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     const lineNote = ask.line != null && Math.abs(ask.line - row.line) > 0.01 ? ` (Today's line is ${figure(row.line)}, not ${figure(ask.line)}.)` : '';
     const facts = evidence(chosen).slice(0, 2);
     let call;
-    if (chosen.backed && chosen.grade === 'A') call = pick(['Yes. I love it.', 'Yes, that\'s one of my favorite spots today.'], random);
+    if (chosen.redFlag) call = `Red flag. ${redFlagWords(chosen)}`;
+    else if (chosen.backed && chosen.matchup?.tone === 'neutral') call = 'Lean yes. The numbers are there, but the matchup is only neutral.';
+    else if (chosen.backed && chosen.grade === 'A') call = pick(['Yes. I love it.', 'Yes, that\'s one of my favorite spots today.'], random);
     else if (chosen.backed) call = pick(['Yes, I like it.', 'I\'d take it.'], random);
     else if (chosen.chance >= 0.53) call = 'Lean yes, but it\'s thin.';
     else if (other?.backed) call = `I'd flip it. The ${sideWord(other)} is the better side at ${percent(other.chance)}.`;
@@ -663,10 +1007,13 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     const head = side || !other ? `${pickLine(chosen)}: ${percent(chosen.chance)} to hit${chosen.grade ? `, grade ${chosen.grade}` : ''}.`
       : `${pickLine(chosen)} is the better side at ${percent(chosen.chance)}.`;
     const moved = await moveNote(chosen);
-    const tone = chosen.backed ? 'yes' : chosen.chance >= 0.53 ? 'lean' : other?.backed ? 'flip' : 'pass';
+    const tone = chosen.redFlag ? (other?.backed && !other.redFlag ? 'flip' : 'pass')
+      : chosen.backed ? (chosen.matchup?.tone === 'neutral' ? 'lean' : 'yes') : chosen.chance >= 0.53 ? 'lean' : other?.backed ? 'flip' : 'pass';
+    if (chosen.redFlag && tone === 'flip') call += ` The ${sideWord(other)} is the better side at ${percent(other.chance)}.`;
     const shown = tone === 'flip' ? other : chosen;
+    const label = chosen.redFlag && tone === 'pass' ? 'Red flag' : {yes: 'Take it', lean: 'Lean', flip: 'Flip it', pass: 'Pass'}[tone];
     answer = {lead: tidy(`${call} ${tone === 'flip' ? '' : head}${lineNote}${moved}`),
-      card: {kind: 'pick', pick: pickCard(shown), verdict: {tone, label: {yes: 'Take it', lean: 'Lean', flip: 'Flip it', pass: 'Pass'}[tone]}}};
+      card: {kind: 'pick', pick: fullCard(shown), verdict: {tone, label}}};
     return tidy(`${call} ${head} ${sentence(join(facts))}${lineNote}${moved}`);
   }
 
@@ -707,7 +1054,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     if (before.intent === 'hello') { await boardsLoaded(); return hello(); }
     if (before.intent === 'help') { suggestions = examples(); return HELP(allowed); }
     if (before.intent === 'thanks') { suggestions = ['Next best', 'Build me a 3-pick slip', "What's the play today?"]; return pick(['Anytime. Want another one?', 'Good luck on it. Ask me for another anytime.', 'Bet. Need a slip to go with it?'], random); }
-    if (before.intent === 'other-sport') return `I'm covering ${allowed.map(sport => SPORTS[sport].name).join(', ')} right now, more sports are coming soon.`;
+    if (before.intent === 'other-sport' || (before.explicitSport && !allowed.includes(before.sport))) return `I'm covering ${allowed.map(sport => SPORTS[sport].name).join(', ')} right now, more sports are coming soon.`;
     if (before.intent === 'recall') return recall();
 
     await boardsLoaded();
@@ -762,6 +1109,9 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
       return why(0);
     }
     if (question.intent === 'why') return why(question.index);
+    // Career numbers against a team (not a pitcher) are the hitter's history vs that team.
+    if (question.intent === 'sheet' && question.sheet === 'bvp' && question.team && players.length < 2 && !/\b(bvp|career)\b/.test(question.text)) question.intent = 'detail';
+    if (question.intent === 'sheet') return sheetAnswer(question, players);
     if (question.intent === 'matchup' && players.length) question.intent = 'detail';
     if (question.intent === 'innings') return innings(question, players);
     if (question.intent === 'detail') return detail(question, players);
@@ -947,7 +1297,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
       // Other leagues: the defense read and his record against them.
       const said = [read?.text ? sentence(read.text) : `I don't have a matchup read for ${lastName(name)} today.`,
         h2h && row.opponent ? `He's ${sideWord(leg)} ${h2h.won} of ${h2h.games} against ${row.opponent}.` : ''].join(' ').trim();
-      answer = {lead: said, card: {kind: 'pick', pick: pickCard(leg)}};
+      answer = {lead: said, card: {kind: 'pick', pick: fullCard(leg)}};
       suggestions = [`Why ${lastName(name)}?`, `${lastName(name)}'s minutes`.replace(/'s minutes$/, row.sport === 'nhl' ? "'s ice time" : "'s minutes"), 'Best matchup today'];
       return said;
     }
@@ -1100,11 +1450,11 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     ctx = {...ctx, ask: {...question, intent: 'best'}, ranked: ctx?.ranked?.includes(leg) ? ctx.ranked : [leg], index: 0, sport: leg.row.sport, player: name, leg};
     suggestions = [`Why ${lastName(name)}?`, leg.side === 'OVER' ? 'What about the under?' : 'What about the over?', `How does ${lastName(name)} match up?`];
     if (!finite(projected)) {
-      answer = {lead: `I don't have enough games to project ${lastName(name)}'s ${statShort(leg)}, but here's how his line looks.`, card: {kind: 'pick', pick: pickCard(leg)}};
+      answer = {lead: `I don't have enough games to project ${lastName(name)}'s ${statShort(leg)}, but here's how his line looks.`, card: {kind: 'pick', pick: fullCard(leg)}};
       return answer.lead;
     }
     const said = `${lastName(name)} projects for ${figure(Math.round(projected * 10) / 10)} ${statShort(leg)} against the ${figure(leg.row.line)} line${finite(leg.chance) ? `, ${percent(leg.chance)} to go ${sideWord(leg)}` : ''}.`;
-    answer = {lead: said, card: {kind: 'pick', pick: pickCard(leg)}};
+    answer = {lead: said, card: {kind: 'pick', pick: fullCard(leg)}};
     return said;
   }
 
@@ -1123,7 +1473,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
       const leg = rank(allLegs(), {intent: 'best', players: [player]})[0];
       if (leg) {
         ctx = {ask: {intent: 'best', players: [player], raw: '', text: ''}, ranked: [leg], index: 0, sport: leg.row.sport, player, leg};
-        answer = {lead: `Welcome back! You were asking about ${lastName(player)} before, and he's got a good spot today. What else are we looking at?`, card: {kind: 'pick', pick: pickCard(leg)}};
+        answer = {lead: `Welcome back! You were asking about ${lastName(player)} before, and he's got a good spot today. What else are we looking at?`, card: {kind: 'pick', pick: fullCard(leg)}};
         return `Welcome back! You were asking about ${lastName(player)} before, and he's got a good spot today: ${pickLine(leg)} (grade ${leg.grade}, ${percent(leg.chance)}). What else are we looking at?`;
       }
     }
@@ -1147,8 +1497,11 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     const risks = leg.read?.risks || [];
     suggestions = ['Next best', leg.side === 'OVER' ? 'What about the under?' : 'What about the over?', 'Build me a 3-pick slip'];
     const drawn = lower(matchupOf(leg)?.text || '');
-    answer = {lead: `Here's why I like ${pickLine(leg)}.`, card: {kind: 'pick', pick: pickCard(leg), reasons: facts.filter(fact => fact !== drawn).slice(0, 5).map(sentence)}};
-    return `Why ${pickLine(leg)}: ${join(facts.slice(0, 5))}.${risks.length ? ` Risks: ${join(risks.map(lower))}.` : ' Nothing major argues against it.'} Grade ${leg.grade}, ${percent(leg.chance)} to hit.`;
+    answer = {lead: leg.redFlag ? `Careful with ${pickLine(leg)}. ${sentence(leg.redFlag)}` : `Here's why I like ${pickLine(leg)}.`,
+      card: {kind: 'pick', pick: fullCard(leg), reasons: facts.filter(fact => fact !== drawn).slice(0, 5).map(sentence)}};
+    const against = leg.redFlag ? ` Red flag: ${lower(leg.redFlag)}${leg.matchup?.text ? ` (${lower(leg.matchup.text)})` : ''}.${risks.length ? ` Also: ${join(risks.map(lower))}.` : ''}`
+      : risks.length ? ` Risks: ${join(risks.map(lower))}.` : ' Nothing major argues against it.';
+    return `Why ${pickLine(leg)}: ${join(facts.slice(0, 5))}.${against} Grade ${leg.grade}, ${percent(leg.chance)} to hit.`;
   }
 
   async function another() {
@@ -1234,7 +1587,25 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     return `Here's a ${chosen.length}-pick slip I like: ${chosen.map(pickLine).join('; ')}. Every leg grades B or better and they're from different games. All ${chosen.length} hit about ${percent(together)} of the time${payout ? `, a ${payout}x Power Play` : ''}.`;
   }
 
-  return {ask, board: boardsLoaded, thinking, examples, suggestions: () => suggestions, card: () => answer, profile: () => me, returning: () => Boolean(returning)};
+  /**
+   * The bot's home screen: today's top plays, the safest one, the best
+   * matchup and what's on the board, from the same graded picks it answers from.
+   */
+  async function today({count = 4} = {}) {
+    await boardsLoaded();
+    const legs = allLegs(), rows = allRows();
+    const ask = intent => rank(legs, {intent});
+    const shown = leg => leg && {...pickCard(leg), question: `Should I take ${leg.player} ${sideWord(leg)} ${figure(leg.row.line)} ${statShort(leg)}?`};
+    const games = new Set(rows.map(row => `${row.sport}:${[row.teamAbbr, row.opponent].map(team => String(team || '')).sort().join('-')}:${String(row.startsAt || '').slice(0, 10)}`));
+    const starts = rows.map(row => Date.parse(row.startsAt || '')).filter(at => finite(at) && at > now()).sort((a, b) => a - b);
+    const leagues = allowed.map(sport => ({sport, name: SPORTS[sport].name, props: (boards[sport]?.rows || []).length})).filter(item => item.props);
+    const top = ask('best').slice(0, count);
+    const matchup = ask('matchup').find(leg => leg.matchup?.score != null);
+    return {props: rows.length, games: games.size, leagues, next: starts.length ? timeOf(starts[0]) : null,
+      top: top.map(shown), safest: shown(ask('safest')[0]), matchup: shown(matchup), mlb: leagues.some(item => item.sport === 'mlb')};
+  }
+
+  return {ask, board: boardsLoaded, today, thinking, examples, suggestions: () => suggestions, card: () => answer, profile: () => me, returning: () => Boolean(returning)};
 }
 
 const HELP = allowed => `I break down today's ${allowed.map(sport => SPORTS[sport].name).join(', ')} props using our models: record vs the line, projections, matchups and the books. Ask "what's the play today?", "best K prop", "should I take Skubal over 6.5 Ks?", "compare Judge and Soto", "top 3 total bases" or "build me a 3-pick slip". Follow up with "why?", "next" or "what about the under?". I remember what you ask about.`;

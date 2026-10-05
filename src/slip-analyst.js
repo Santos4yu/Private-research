@@ -87,7 +87,8 @@ export function sideChance(mu, variance, line, side, {counts = true} = {}) {
 
 // ---------------------------------------------------------------- context
 
-const POSITION_NAMES = {G: 'guards', F: 'forwards', C: 'centers', QB: 'QBs', RB: 'RBs', WR: 'WRs', TE: 'TEs', K: 'kickers'};
+const POSITION_NAMES = {G: 'guards', F: 'forwards', C: 'centers', QB: 'QBs', RB: 'RBs', WR: 'WRs', TE: 'TEs', K: 'kickers',
+  FWD: 'forwards', D: 'defensemen', GK: 'goalies'};
 const USAGE_NAMES = {wnba: 'Minutes', nba: 'Minutes', soccer: 'Minutes', nhl: 'Ice time'};
 const statWord = row => String(row.market || 'this stat').toLowerCase();
 
@@ -152,6 +153,108 @@ function depthRatio(row) {
   return average > 0 ? self.projectedIp / average : null;
 }
 
+// MLB hitter props by what the pitch-mix fit reads (mlb_prop_matchups.py):
+// contact props his average against each pitch, power props his slugging,
+// the rest his wOBA.
+const HITTER_FAMILY = {hits: 'hits', singles: 'hits', tb: 'power', hr: 'power', doubles: 'power', triples: 'power', xbh: 'power'};
+const FACTOR_WORDS = {
+  arsenal_fit: ['hits his pitch mix well', 'struggles with his pitch mix'],
+  handedness: [hand => `better vs ${hand}HP`, hand => `worse vs ${hand}HP`],
+  pitcher_quality: ['a hittable starter', 'a tough starter'],
+  bvp: ['good history against him', 'poor history against him'],
+  recent_form: ['hot lately', 'cold lately'],
+  park: ['a hitter-friendly park', 'a pitcher-friendly park'],
+  weather: ['weather that helps hitters', 'weather that helps pitchers'],
+};
+const BANDS = [[85, 'Elite'], [75, 'Strong'], [65, 'Favorable'], [55, 'Slight edge'], [45, 'Neutral'], [35, 'Caution'], [0, 'Unfavorable']];
+const band = score => BANDS.find(([floor]) => score >= floor)[1];
+
+/**
+ * An MLB hitter's matchup from the Research model, read for this prop: the
+ * grade (for the over; a hitter's strikeouts read the other way), the
+ * factors behind it with the pitch-mix fit for this kind of prop, and the
+ * two that move it most in words.
+ */
+function hitterModelRead(row) {
+  const model = row.hitterMatchup;
+  const key = String(row.marketKey || '').split(':')[1];
+  const graded = model?.grades?.[HITTER_FAMILY[key] || 'other'];
+  if (!graded || !finite(graded.score)) return null;
+  const inverted = key === 'strikeouts';
+  const score = inverted ? 100 - graded.score : graded.score;
+  const hand = model.pitcher?.hand || '';
+  const factors = (model.factors || []).map(item => item.key === 'arsenal_fit' && graded.arsenal
+    ? {...item, impact: graded.arsenal.impact ?? item.impact, detail: graded.arsenal.detail || item.detail} : item);
+  const strongest = factors.filter(item => item.available && finite(item.impact) && Math.abs(item.impact) >= 2)
+    .sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact)).slice(0, 2)
+    .map(item => {
+      const words = FACTOR_WORDS[item.key]?.[item.impact > 0 ? 0 : 1];
+      return words ? `${typeof words === 'function' ? words(hand) : words} (${item.impact > 0 ? '+' : '−'}${Math.abs(item.impact)})` : null;
+    }).filter(Boolean);
+  const pitcher = model.pitcher?.name || "today's starter";
+  return {factor: clamp(1 + (score - 50) / 50 * 0.1, 0.9, 1.1), score, scoreLabel: band(score), coverage: graded.coverage ?? null,
+    short: String(score), label: 'matchup', factors, pitches: model.pitches || [],
+    text: `${band(score)} matchup (${score}) vs ${pitcher}${strongest.length ? `: ${strongest.join(', ')}` : ''}`};
+}
+
+/**
+ * What today's opponent has given up to players like this one, from the
+ * game logs on today's board: every other player at his position with a
+ * line in this stat, his games against the opponent held against his own
+ * average. For leagues without a defense table (NHL), or when it's missing.
+ */
+const poolPosition = row => {
+  const position = String(row.position || '').toUpperCase();
+  if (row.sport === 'nhl') return position === 'G' ? 'GK' : position === 'D' ? 'D' : position ? 'FWD' : null;
+  if (row.sport === 'nfl') return ['QB', 'RB', 'WR', 'TE'].includes(position) ? position : null;
+  if (row.sport === 'nba' || row.sport === 'wnba') return /C/.test(position) ? 'C' : /F/.test(position) ? 'F' : /G/.test(position) ? 'G' : null;
+  return null;
+};
+export function withPoolDefense(rows) {
+  if (!Array.isArray(rows)) return rows;
+  const groups = new Map();
+  for (const row of rows) {
+    const position = poolPosition(row);
+    const log = (row.gameLog || []).filter(game => finite(game.value) && game.opponent != null);
+    if (!position || log.length < 5) continue;
+    const average = mean(log.map(game => game.value));
+    if (!(average > 0)) continue;
+    const key = `${row.sport}|${row.market}|${position}`;
+    if (!groups.has(key)) groups.set(key, new Map());
+    const players = groups.get(key);
+    if (!players.has(row.player)) players.set(row.player, {average, log});
+  }
+  return rows.map(row => {
+    if (finite(row.defenseValue) || row.opponent == null) return row;
+    const position = poolPosition(row);
+    const players = position && groups.get(`${row.sport}|${row.market}|${position}`);
+    if (!players) return row;
+    let total = 0, games = 0;
+    for (const [player, {average, log}] of players) {
+      if (player === row.player) continue;
+      for (const game of log) if (String(game.opponent) === String(row.opponent)) { total += game.value / average; games += 1; }
+    }
+    if (games < 4) return row;
+    // A handful of games says little: pulled toward an average defense.
+    const ratio = 1 + (total / games - 1) * games / (games + 12);
+    return {...row, poolDefense: {ratio, games, position}};
+  });
+}
+
+/**
+ * How good a leg's matchup is, 0-100 for its side (50 is neutral): the
+ * Research model's grade for MLB hitters, else what the matchup does to the
+ * projection. Good at 55 and up, tough under 45.
+ */
+export function matchupGrade(read, side) {
+  const item = read?.factors?.find(factor => factor.key === 'matchup');
+  if (!item || !finite(item.factor)) return null;
+  const over = finite(item.score) ? item.score : clamp(50 + (item.factor - 1) * 333, 3, 97);
+  const score = Math.round(side === 'UNDER' ? 100 - over : over);
+  return {score, tone: score >= 55 ? 'good' : score < 45 ? 'tough' : 'neutral', label: band(score), text: item.text || null,
+    factors: item.factors || null, pitches: item.pitches || null};
+}
+
 /** What today's opponent does to the stat: a factor on the projection and its words. */
 export function matchupRead(row) {
   if ((row.sport === 'wnba' || row.sport === 'nba' || row.sport === 'nfl') && finite(row.defenseValue) && finite(row.defenseAverage) && row.defenseAverage > 0) {
@@ -165,6 +268,16 @@ export function matchupRead(row) {
     const who = POSITION_NAMES[row.defensePosition] || 'the position';
     return {factor, short: `${gap >= 0 ? '+' : '−'}${Math.abs(gap)}%`, label: `vs ${who}`,
       text: `${row.opponent} allows ${figure(Math.round(row.defenseValue * 10) / 10)} ${statWord(row)} to ${who}, ${Math.abs(gap)}% ${gap >= 0 ? 'more' : 'less'} than average${place}`};
+  }
+  if (row.sport === 'mlb' && row.hitterMatchup && !String(row.marketKey || '').startsWith('pitching:')) {
+    const modeled = hitterModelRead(row);
+    if (modeled) return modeled;
+  }
+  if (row.poolDefense && finite(row.poolDefense.ratio)) {
+    const {ratio, games, position} = row.poolDefense;
+    const gap = Math.round((ratio - 1) * 100);
+    return {factor: shift(ratio, 0.5, 0.9, 1.1), short: `${gap >= 0 ? '+' : '−'}${Math.abs(gap)}%`, label: `vs ${POSITION_NAMES[position] || 'the position'}`,
+      text: `${row.opponent} has given ${POSITION_NAMES[position] || 'players like him'} ${Math.abs(gap)}% ${gap >= 0 ? 'more' : 'less'} ${statWord(row)} than they usually get (${games} games)`};
   }
   if (row.sport === 'mlb' && row.matchup?.league) {
     const key = String(row.marketKey || '').split(':')[1];

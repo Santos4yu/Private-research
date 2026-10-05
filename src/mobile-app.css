@@ -10,12 +10,19 @@
 @media (max-width: 760px) {
   html, body { touch-action: manipulation; }
 }
+/* Phones and tablets: the page stops at its edges, with no pulling it down
+   past the top (or up past the bottom) to show the empty space behind it.
+   Computers keep normal scrolling (on some browsers this also stopped the
+   mouse wheel from scrolling the page). */
+@media (max-width: 760px), (pointer: coarse) {
+  html, body { overscroll-behavior: none; }
+}
 .mobile-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 @media (max-width: 760px) {
   :root {
     --app-top: calc(72px + env(safe-area-inset-top, 0px));
-    --app-bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+    --app-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
     scroll-padding-top: calc(var(--app-top) + 12px);
     scroll-padding-bottom: calc(var(--app-bottom) + 16px);
   }
@@ -55,7 +62,7 @@
     position: fixed; z-index: 75; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0;
     left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px));
     top: auto; bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-    max-width: 440px; margin-inline: auto; min-height: 68px; padding: 6px 8px;
+    max-width: 400px; margin-inline: auto; min-height: 58px; padding: 4px 6px;
     border: 1px solid rgba(255, 255, 255, .1); border-radius: 999px;
     background: linear-gradient(180deg, rgba(30, 35, 56, .58), rgba(12, 16, 30, .7));
     -webkit-backdrop-filter: blur(22px) saturate(170%); backdrop-filter: blur(22px) saturate(170%);
@@ -65,13 +72,13 @@
   }
   .mobile-app-tab {
     appearance: none; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    min-width: 0; min-height: 56px; gap: 5px; padding: 4px 2px; border: 0; border-radius: 999px;
+    min-width: 0; min-height: 50px; gap: 3px; padding: 3px 2px; border: 0; border-radius: 999px;
     background: transparent; color: #8a94ab; cursor: pointer;
-    font: 500 11.5px/1.15 var(--font-sans); letter-spacing: .01em;
+    font: 500 10.5px/1.15 var(--font-sans); letter-spacing: .01em;
     -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: color 180ms ease;
   }
-  .mobile-app-tab-icon { position: relative; display: grid; place-items: center; width: 30px; height: 26px; transition: transform 160ms cubic-bezier(.3, .7, .4, 1); }
-  .mobile-app-tab svg { width: 24px; height: 24px; stroke-width: 1.7; fill: none; transition: filter 180ms ease; }
+  .mobile-app-tab-icon { position: relative; display: grid; place-items: center; width: 28px; height: 24px; transition: transform 160ms cubic-bezier(.3, .7, .4, 1); }
+  .mobile-app-tab svg { width: 22px; height: 22px; stroke-width: 1.7; fill: none; transition: filter 180ms ease; }
   .mobile-app-tab[aria-current="page"] { color: #fff; font-weight: 650; }
   .mobile-app-tab[aria-current="page"] svg { stroke-width: 2; filter: drop-shadow(0 0 10px rgba(170, 188, 255, .35)); }
   .mobile-app-tab:active .mobile-app-tab-icon { transform: scale(.86); }
@@ -160,7 +167,9 @@
   }
   :root[data-theme] .bet-slip-footer { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important; }
   :root[data-theme] .bet-slip-leg { grid-template-columns: 24px 36px minmax(0, 1fr) 44px !important; gap: 8px !important; }
-  :root[data-theme] :is(button, a, input, select, summary):focus-visible { outline: 2px solid var(--theme-accent) !important; outline-offset: 3px !important; }
+  /* Text fields show their caret (and their own box's focus style), not a
+     square ring drawn around them. */
+  :root[data-theme] :is(button, a, select, summary, input:is([type="checkbox"], [type="radio"], [type="range"])):focus-visible { outline: 2px solid var(--theme-accent) !important; outline-offset: 3px !important; }
   @keyframes mobile-sheet-in { from { transform: translateY(24px); opacity: .4; } to { transform: translateY(0); opacity: 1; } }
   @keyframes mobile-drawer-in { from { transform: translateX(-28px); opacity: .5; } to { transform: translateX(0); opacity: 1; } }
   @media (prefers-reduced-motion: reduce) {
@@ -169,9 +178,10 @@
 }
 
 @media (max-width: 760px) {
-  /* Scrolling down tucks the dock away (app.js toggles the class). */
+  /* Scrolling down tucks the dock away below the screen; scrolling up
+     brings it back (app.js toggles the class, src/mobile-nav-core.js). */
   body.mobile-dock-hidden .mobile-app-nav {
-    opacity: 0; transform: translate3d(0, calc(16px + env(safe-area-inset-bottom, 0px)), 0) scale(.98);
+    opacity: 0; transform: translate3d(0, calc(100% + 12px + env(safe-area-inset-bottom, 0px)), 0);
     visibility: hidden; pointer-events: none;
     transition: opacity 220ms ease, transform 280ms cubic-bezier(.22, 1, .36, 1), visibility 0s linear 280ms;
   }

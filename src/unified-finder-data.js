@@ -70,6 +70,9 @@ export function persistFinderCache(sport, value) {
     // again when a player page needs them.
     delete compact.history;
     delete compact.chart;
+    // A basketball line already carries everything in its board row, so the
+    // copy of that row is left out (a fifth of what's saved).
+    if (BASKETBALL.has(compact.sport)) delete compact.raw;
     return compact;
   });
   // ts is when the board was fetched (kept through later saves), so a board
@@ -281,6 +284,22 @@ export function withMlbMatchups(rows, context) {
       : {kind: 'pitcher', pitcher: context.probables?.[opponent] || null, staff: context.pitching?.[opponent] || null,
         lineup: team ? context.hitting?.[team] || null : null, league: context.league || null};
     return {...row, matchup};
+  });
+}
+
+/** Every hitter's matchup today, graded the way Research grades one (mlb_prop_matchups.py). */
+export function loadHitterMatchups(options = {}) {
+  return request('/api/board?view=mlb-matchups', options);
+}
+
+/** Each MLB hitter line with its matchup grades (pitchers keep their lineup read). */
+export function withHitterMatchups(rows, data) {
+  const players = data?.players;
+  if (!players || !Array.isArray(rows)) return rows;
+  return rows.map(row => {
+    if (row.sport !== 'mlb' || String(row.marketKey || '').startsWith('pitching:') || row.playerId == null) return row;
+    const found = players[String(row.playerId)];
+    return found ? {...row, hitterMatchup: found} : row;
   });
 }
 
@@ -552,7 +571,7 @@ export function normalizeFinderRows(sport, payload, players = [], {now = Date.no
 }
 
 /** Read existing sport feeds. NFL uses its saved board, never a browser-driven odds scan. */
-async function loadFinderSportRaw(sport, options = {}) {
+export async function loadFinderSportRaw(sport, options = {}) {
   if (sport === 'wnba') {
     const payload = await request(options.fast ? '/api/wnba?fast=1' : '/api/wnba', options);
     return {...payload, rows: normalizeFinderRows(sport, payload), fetchedAt: payload.fetchedAt || null};
@@ -622,15 +641,28 @@ export function applyFinderSnapshot(rows, histories={}, now=Date.now()) {
   });
 }
 
-export async function loadFinderSport(sport, options={}) {
-  if(sport==='nfl'||sport==='cs2')return loadFinderSportRaw(sport,options); // CS2 history remains unavailable, not fabricated.
+// Leagues whose hit rates the server keeps (finder_history_store.py). NFL
+// boards come with theirs; CS2 history remains unavailable, not fabricated.
+export const hasFinderSnapshot = sport => sport !== 'nfl' && sport !== 'cs2';
+
+/** Every player's saved history for a league ({key: {at, payload}}), or {} when there is none to be had. */
+export function loadFinderSnapshot(sport, options = {}) {
+  return request(`/api/board?view=finder-history&sport=${encodeURIComponent(sport)}`, options)
+    .then(snapshot => snapshot?.histories || {})
+    .catch(error => { if (error.name === 'AbortError') throw error; return {}; });
+}
+
+/** A promise's value if it settles within `ms`, else `fallback`. */
+export function within(promise, ms, fallback = null) {
   let timer;
-  const saved=Promise.race([
-    request(`/api/board?view=finder-history&sport=${encodeURIComponent(sport)}`,options).catch(error=>{if(error.name==='AbortError')throw error;return {};}),
-    new Promise(resolve=>{timer=setTimeout(()=>resolve({}),1500);}),
-  ]).finally(()=>clearTimeout(timer));
-  const [board,snapshot]=await Promise.all([loadFinderSportRaw(sport,options),saved]);
-  return {...board,rows:applyFinderSnapshot(board.rows,snapshot.histories)};
+  return Promise.race([promise, new Promise(resolve => { timer = setTimeout(() => resolve(fallback), ms); })]).finally(() => clearTimeout(timer));
+}
+
+export async function loadFinderSport(sport, options={}) {
+  if(!hasFinderSnapshot(sport))return loadFinderSportRaw(sport,options);
+  const saved=within(loadFinderSnapshot(sport,options),1500,{});
+  const [board,histories]=await Promise.all([loadFinderSportRaw(sport,options),saved]);
+  return {...board,rows:applyFinderSnapshot(board.rows,histories)};
 }
 
 const wnbaHistoryKey = row => `${row.sport === 'nba' ? 'nba' : 'wnba'}:${row.playerId || ''}`;
@@ -641,23 +673,92 @@ export function basketballLogUrl(row, season = new Date().getUTCFullYear()) {
     : `/api/wnba?resource=gamelog&playerId=${id}&season=${season}`;
 }
 
+const basketballCacheKey = (row, season) => `${wnbaHistoryKey(row)}:${row.sport === 'nba' ? 'recent' : season}`;
+function keepHistory(key, payload) {
+  historyCache.set(key, {at: Date.now(), value: payload});
+  if (historyCache.size > 500) historyCache.delete(historyCache.keys().next().value);
+}
+function savedHistory(key) {
+  const cached = historyCache.get(key);
+  return cached && Date.now() - cached.at < HISTORY_TTL ? cached.value : null;
+}
+
 export async function loadWnbaHistory(row, options = {}) {
   aborted(options.signal);
   if (!row.playerId) throw new Error('Player identity unavailable.');
   const season = options.season || new Date().getUTCFullYear();
-  const key = `${wnbaHistoryKey(row)}:${row.sport === 'nba' ? 'recent' : season}`;
-  const cached = historyCache.get(key);
-  if (cached && Date.now() - cached.at < HISTORY_TTL) return cached.value;
+  const key = basketballCacheKey(row, season);
+  const cached = savedHistory(key);
+  if (cached) return cached;
   const payload = await request(basketballLogUrl(row, season), options);
-  historyCache.set(key, {at: Date.now(), value: payload});
-  if (historyCache.size > 500) historyCache.delete(historyCache.keys().next().value);
+  keepHistory(key, payload);
   return payload;
 }
 
+// Up to this many players' logs come back from one request (api/wnba.py
+// resource=gamelogs), so a league's histories take a few dozen round trips
+// instead of one per player.
+export const GAMELOG_BATCH = 8;
+export function basketballLogsUrl(rows, season = new Date().getUTCFullYear()) {
+  const ids = rows.map(row => encodeURIComponent(String(row.playerId))).join(',');
+  return `/api/wnba?${rows[0]?.sport === 'nba' ? 'league=nba&' : ''}resource=gamelogs&playerIds=${ids}&season=${season}`;
+}
+
+/** Several players' logs at once, each a payload or an Error; one player alone uses the single request. */
+async function loadWnbaHistories(rows, options = {}) {
+  aborted(options.signal);
+  const season = options.season || new Date().getUTCFullYear();
+  const result = new Map(), asking = [];
+  for (const row of rows) {
+    const cached = savedHistory(basketballCacheKey(row, season));
+    if (cached) result.set(row.playerId, cached); else asking.push(row);
+  }
+  const one = row => loadWnbaHistory(row, options).then(payload => result.set(row.playerId, payload),
+    error => { if (options.signal?.aborted || error.name === 'AbortError') throw error; result.set(row.playerId, error); });
+  if (asking.length === 1) await one(asking[0]);
+  else if (asking.length) {
+    let histories;
+    try { histories = (await request(basketballLogsUrl(asking, season), options))?.histories; }
+    catch (error) { if (options.signal?.aborted || error.name === 'AbortError') throw error; }
+    // Without the batch answer, each player is asked for on their own.
+    if (!histories || typeof histories !== 'object') await Promise.all(asking.map(one));
+    else for (const row of asking) {
+      const payload = histories[row.playerId];
+      if (!payload || payload.error) result.set(row.playerId, new Error(payload?.error || 'Game log unavailable.'));
+      else { keepHistory(basketballCacheKey(row, season), payload); result.set(row.playerId, payload); }
+    }
+  }
+  return result;
+}
+
+// A player's games in date order, sorted once per history and shared by all
+// his lines (ISO dates sort as plain strings).
+const byDate = (a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0) || (String(a.gameId ?? '') < String(b.gameId ?? '') ? -1 : String(a.gameId ?? '') > String(b.gameId ?? '') ? 1 : 0);
+const datedLogs = new WeakMap();
+function inDateOrder(payload, list) {
+  if (!payload || typeof payload !== 'object') return [];
+  let sorted = datedLogs.get(payload);
+  if (!sorted) { sorted = (list || []).filter(item => item?.date).map(item => ({...item, date: String(item.date)})).sort(byDate); datedLogs.set(payload, sorted); }
+  return sorted;
+}
+
+// Each stat's games and values, worked out once per history and shared by
+// that player's lines on the stat (goblin, standard, demon).
+const statSeries = new WeakMap();
+function seriesFor(payload, marketKey) {
+  let byStat = statSeries.get(payload);
+  if (!byStat) { byStat = new Map(); statSeries.set(payload, byStat); }
+  let series = byStat.get(marketKey);
+  if (!series) {
+    const logs = inDateOrder(payload, payload?.rows).filter(log => number(log?.values?.[marketKey]) != null);
+    series = {logs, values: logs.map(log => number(log.values[marketKey]))};
+    byStat.set(marketKey, series);
+  }
+  return series;
+}
+
 export function applyWnbaHistory(row, payload) {
-  const logs = (payload?.rows || []).filter(log => log?.date && number(log?.values?.[row.marketKey]) != null)
-    .sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.gameId || '').localeCompare(String(b.gameId || '')));
-  const values = logs.map(log => number(log.values[row.marketKey])).filter(value => value != null);
+  const {logs, values} = payload && typeof payload === 'object' ? seriesFor(payload, row.marketKey) : {logs: [], values: []};
   const h2hValues = logs.filter(log => !row.opponent || log.opponent === row.opponent)
     .map(log => number(log.values[row.marketKey])).filter(value => value != null);
   const windows = Object.fromEntries([5, 10, 15, 20].map(size => [`l${size}`, finderWindow(values.slice(-size), row.line, row.direction)]));
@@ -685,28 +786,37 @@ export async function enrichWnbaRows(rows, {signal, onRows, concurrency = 6, ...
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(row);
   }
-  const queue = [...groups.values()];
+  // Players in the order given (the caller puts what's on screen first),
+  // asked for a few at a time; each request is one league's.
+  const players = [...groups.values()];
+  const workers = Math.max(1, Math.min(8, concurrency));
+  const size = Math.max(1, Math.min(GAMELOG_BATCH, Math.ceil(players.length / workers)));
+  const queue = [];
+  for (const sport of new Set(players.map(group => group[0].sport))) {
+    const mine = players.filter(group => group[0].sport === sport);
+    for (let index = 0; index < mine.length; index += size) queue.push(mine.slice(index, index + size));
+  }
   const enriched = new Map();
   let next = 0;
   async function worker() {
     while (next < queue.length) {
       aborted(signal);
-      const batch = queue[next++];
-      let updates;
-      try {
-        const payload = await loadWnbaHistory(batch[0], {signal, ...options});
-        aborted(signal);
-        updates = batch.map(row => applyWnbaHistory(row, payload));
-      } catch (error) {
-        if (signal?.aborted || error.name === 'AbortError') throw error;
-        updates = batch.map(row => ({...row, historyStatus: 'unavailable'}));
+      const chunk = queue[next++];
+      const histories = await loadWnbaHistories(chunk.map(group => group[0]), {signal, ...options});
+      aborted(signal);
+      const updates = [];
+      for (const group of chunk) {
+        const payload = histories.get(group[0].playerId);
+        for (const row of group) {
+          const update = payload && !(payload instanceof Error) ? applyWnbaHistory(row, payload) : {...row, historyStatus: 'unavailable'};
+          updates.push(row.historyStatus === 'ready' && update.historyStatus !== 'ready' ? {...row, historyRefresh: true} : update);
+        }
       }
-      updates=updates.map((update,i)=>batch[i].historyStatus==='ready'&&update.historyStatus!=='ready'?{...batch[i],historyRefresh:true}:update);
       updates.forEach(row => enriched.set(row.id, row));
       onRows?.(updates);
     }
   }
-  await Promise.all(Array.from({length: Math.min(queue.length, Math.max(1, Math.min(8, concurrency)))}, worker));
+  await Promise.all(Array.from({length: Math.min(queue.length, workers)}, worker));
   return rows.map(row => enriched.get(row.id) || row);
 }
 
@@ -757,8 +867,7 @@ function strictMlbValue(stat, definition) {
 export function applyMlbHistory(row, payload) {
   const definition = finderMarket(row.raw?.stat || row.stat);
   if (!definition) return row;
-  const validGames = (payload.games || []).filter(game => game.date && strictMlbValue(game.stat || {}, definition) != null)
-    .sort((a, b) => a.date.localeCompare(b.date) || String(a.gameId || '').localeCompare(String(b.gameId || '')));
+  const validGames = inDateOrder(payload, payload.games).filter(game => strictMlbValue(game.stat || {}, definition) != null);
   const chart = historyChart({...payload, games: validGames}, {...row.raw, stat: row.raw?.stat || row.stat,
     line: row.line, teamId: payload.matchup?.opponent?.id});
   const values = chart.all.map(game => game.value);

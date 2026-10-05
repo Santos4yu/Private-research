@@ -54,13 +54,6 @@
 .sport-league-mark.mlb { background: #132b4f; }
 .sport-league-mark.nfl { border-radius: 0; background: transparent; box-shadow: none; }
 
-:root[data-research-sport="nfl"] #panel-research > .search-wrap,
-:root[data-research-sport="nfl"] #panel-research > #browse-row,
-:root[data-research-sport="nfl"] #panel-research > #player-profile,
-:root[data-research-sport="nfl"] #panel-research > #report-wrap,
-:root[data-research-sport="nfl"] #v2-back-btn,
-:root[data-research-sport="nfl"] .site-footer { display: none !important; }
-
 .nfl-app-shell { width: min(100%, 1420px); margin: 0 auto; color: var(--theme-text, #f5f7fa); }
 .nfl-home, .nfl-research-page { display: grid; gap: 24px; }
 .nfl-home-head { max-width: 720px; padding: 18px 0 4px; }

@@ -177,3 +177,22 @@ class RouteTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class SignOutTests(unittest.TestCase):
+    def test_signing_out_ends_only_this_devices_session(self):
+        from api.session import handler
+        request = object.__new__(handler)
+        raw = json.dumps({'action': 'sign-out'}).encode()
+        request.path = '/api/session'
+        request.headers = {'Content-Length': str(len(raw)), 'Origin': 'https://example.com', 'Host': 'example.com',
+                           'Cookie': f'{accounts.ACCESS}=token-1; {accounts.REFRESH}=refresh-1'}
+        request.rfile = io.BytesIO(raw)
+        with patch.object(accounts, 'call', return_value={}) as call, patch.object(request, '_account_response') as send:
+            request.do_POST()
+        # Supabase's default would end the member's sessions on every device.
+        self.assertEqual(call.call_args.args[0], 'logout?scope=local')
+        self.assertEqual(call.call_args.kwargs['token'], 'token-1')
+        body, cookies = send.call_args.args
+        self.assertTrue(body['ok'])
+        self.assertTrue(any(cookie.startswith(f'{accounts.REFRESH}=;') and 'Max-Age=0' in cookie for cookie in cookies))

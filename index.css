@@ -100,7 +100,7 @@
 }
 
 .mo-root {
-  --mo-green: 52, 211, 153;
+  --mo-accent: 96, 165, 250;
   --oCenter: 0;
   position: absolute;
   inset: 0;
@@ -115,7 +115,7 @@
   inset: 0;
   background:
     radial-gradient(90% 60% at 50% 46%, rgba(255, 255, 255, .035), transparent 70%),
-    radial-gradient(120% 70% at 50% 115%, rgba(var(--mo-green), .07), transparent 60%),
+    radial-gradient(120% 70% at 50% 115%, rgba(var(--mo-accent), .07), transparent 60%),
     #07080b;
 }
 .mo-halo {
@@ -126,7 +126,7 @@
   height: 560px;
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, .09), rgba(var(--mo-green), .04) 38%, transparent 66%);
+  background: radial-gradient(circle, rgba(255, 255, 255, .09), rgba(var(--mo-accent), .04) 38%, transparent 66%);
   opacity: var(--oCenter);
   pointer-events: none;
 }
@@ -176,7 +176,7 @@
   bottom: -22px;
   height: 44px;
   border-radius: 50%;
-  background: radial-gradient(50% 50% at 50% 50%, rgba(var(--mo-green), .42), transparent 72%);
+  background: radial-gradient(50% 50% at 50% 50%, rgba(var(--mo-accent), .42), transparent 72%);
   filter: blur(16px);
   opacity: calc(var(--oGlow, 1) * .7);
   transition: opacity .3s;
@@ -187,7 +187,7 @@
   position: absolute;
   inset: -45%;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(var(--mo-green), .6), transparent 62%);
+  background: radial-gradient(circle, rgba(var(--mo-accent), .6), transparent 62%);
   filter: blur(12px);
   opacity: var(--oHalo, 0);
   pointer-events: none;
@@ -218,10 +218,10 @@
   opacity: .2;
   animation: mo-drift 7s ease-in-out infinite alternate;
 }
-.mo-aurora i:nth-child(1) { left: -6%; background: rgb(var(--mo-green)); }
+.mo-aurora i:nth-child(1) { left: -6%; background: rgb(var(--mo-accent)); }
 .mo-aurora i:nth-child(2) { left: 22%; background: #60a5fa; animation-duration: 9s; animation-delay: -3s; }
 .mo-aurora i:nth-child(3) { left: 46%; background: #a78bfa; animation-duration: 11s; animation-delay: -6s; }
-.mo-aurora i:nth-child(4) { left: 68%; background: rgb(var(--mo-green)); animation-duration: 8s; animation-delay: -2s; }
+.mo-aurora i:nth-child(4) { left: 68%; background: rgb(var(--mo-accent)); animation-duration: 8s; animation-delay: -2s; }
 
 .mo-ball {
   position: absolute;
@@ -235,8 +235,8 @@
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: radial-gradient(circle at 38% 32%, #c6f7e2, rgb(var(--mo-green)) 46%, #059669 82%);
-  box-shadow: 0 0 44px rgba(var(--mo-green), .6);
+  background: radial-gradient(circle at 38% 32%, #dbeafe, rgb(var(--mo-accent)) 46%, #1e3a8a 82%);
+  box-shadow: 0 0 44px rgba(var(--mo-accent), .6);
   opacity: var(--oGreen, 0);
   transform: scale(var(--gs, .55));
 }
@@ -255,7 +255,7 @@
   inset: -1px;
   border-radius: inherit;
   padding: 1px;
-  background: conic-gradient(from var(--angle), rgba(255, 255, 255, .1), rgba(var(--mo-green), .75) 12%, rgba(96, 165, 250, .55) 24%, rgba(255, 255, 255, .1) 38%, rgba(255, 255, 255, .1));
+  background: conic-gradient(from var(--angle), rgba(255, 255, 255, .1), rgba(var(--mo-accent), .75) 12%, rgba(37, 99, 235, .6) 24%, rgba(255, 255, 255, .1) 38%, rgba(255, 255, 255, .1));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
@@ -277,7 +277,7 @@
   transform: scale(var(--inScale, 1));
 }
 .mo-input[inert] { pointer-events: none; }
-.mo-spark { flex: none; width: 20px; height: 20px; color: rgb(var(--mo-green)); }
+.mo-spark { flex: none; width: 20px; height: 20px; color: rgb(var(--mo-accent)); }
 .mo-field {
   flex: 1;
   min-width: 0;
@@ -316,9 +316,9 @@
   transition: background .2s, color .2s, transform .15s;
 }
 .mo-send svg { width: 20px; height: 20px; }
-.mo-send[data-ready] { background: rgb(var(--mo-green)); color: #052e20; }
+.mo-send[data-ready] { background: #2563eb; color: #fff; }
 .mo-send:active { transform: scale(.92); }
-.mo-send:focus-visible, .mo-reset:focus-visible { outline: 2px solid rgba(var(--mo-green), .9); outline-offset: 2px; }
+.mo-send:focus-visible, .mo-reset:focus-visible { outline: 2px solid rgba(var(--mo-accent), .9); outline-offset: 2px; }
 
 .mo-orb {
   position: absolute;
@@ -334,7 +334,7 @@
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 2px solid rgba(var(--mo-green), .85);
+  border: 2px solid rgba(var(--mo-accent), .85);
   opacity: 0;
   pointer-events: none;
 }
@@ -390,8 +390,8 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: rgb(var(--mo-green));
-  box-shadow: 0 0 calc(var(--bloom, 1) * 16px) rgba(var(--mo-green), .95);
+  background: rgb(var(--mo-accent));
+  box-shadow: 0 0 calc(var(--bloom, 1) * 16px) rgba(var(--mo-accent), .95);
   transform: scale(var(--dotS, 0));
 }
 .mo-a-body {
@@ -405,9 +405,9 @@
   position: relative;
   display: inline-block;
   opacity: 0;
-  /* --wg: 1 as a word arrives (green, glowing), 0 once it has settled. */
-  color: color-mix(in srgb, rgb(110, 231, 183) calc(var(--wg, 0) * 100%), #ececf1);
-  text-shadow: 0 0 calc(var(--wg, 0) * 14px) rgba(var(--mo-green), calc(var(--wg, 0) * .85));
+  /* --wg: 1 as a word arrives (blue, glowing), 0 once it has settled. */
+  color: color-mix(in srgb, rgb(147, 197, 253) calc(var(--wg, 0) * 100%), #ececf1);
+  text-shadow: 0 0 calc(var(--wg, 0) * 14px) rgba(var(--mo-accent), calc(var(--wg, 0) * .85));
 }
 /* The cursor at the end of the answer as it streams in. */
 .mo-w[data-head]::after {
@@ -418,8 +418,8 @@
   width: 2px;
   height: 1.1em;
   border-radius: 1px;
-  background: rgb(var(--mo-green));
-  box-shadow: 0 0 8px rgba(var(--mo-green), .9);
+  background: rgb(var(--mo-accent));
+  box-shadow: 0 0 8px rgba(var(--mo-accent), .9);
   animation: mo-caret 1s steps(1, end) infinite;
 }
 /* What's still glowing when the answer lands fades out. */
@@ -460,7 +460,7 @@
 .mo-dots i { width: 3px; height: 3px; border-radius: 50%; background: currentColor; animation: mo-dot 1.2s infinite; }
 .mo-dots i:nth-child(2) { animation-delay: .15s; }
 .mo-dots i:nth-child(3) { animation-delay: .3s; }
-.mo-lab-done { color: rgb(var(--mo-green)); font-weight: 600; }
+.mo-lab-done { color: rgb(var(--mo-accent)); font-weight: 600; }
 
 /* Where the pill rests (96px above the bottom), once an answer is up. */
 .mo-reset {
@@ -505,7 +505,7 @@
   background: rgba(0, 0, 0, .65);
   font-size: 12px;
 }
-.mo-chip { padding: 2px 8px; border-radius: 999px; background: rgba(var(--mo-green), .15); color: rgb(var(--mo-green)); }
+.mo-chip { padding: 2px 8px; border-radius: 999px; background: rgba(var(--mo-accent), .15); color: rgb(var(--mo-accent)); }
 
 @media (prefers-reduced-motion: reduce) {
   .mo-aurora i, .mo-ring, .mo-lab-t, .mo-dots i { animation: none; }
