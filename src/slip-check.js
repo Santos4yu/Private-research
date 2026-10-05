@@ -11,6 +11,7 @@
 import {finderMarket} from './prop-finder-core.js';
 import {finderWindow} from './unified-finder-data.js';
 import {assessLeg, POWER, FLEX, SPORT_NAMES} from './smart-slip.js';
+import {matchupCase, withMatchups} from './slip-matchup.js';
 
 export const SLIP_SPORTS = ['mlb', 'nba', 'wnba', 'nfl', 'nhl', 'soccer'];
 export {SPORT_NAMES};
@@ -273,33 +274,55 @@ const decimal = odds => !finite(odds) ? null : odds < 0 ? 1 + 100 / -odds : 1 + 
 
 // What a pick is worth, in one word, from the best to the one to stay off.
 export const TIERS = {
-  elite: {label: 'Elite', rank: 5, text: 'The numbers back it strongly'},
-  strong: {label: 'Strong', rank: 4, text: 'The numbers back it'},
-  lean: {label: 'Lean', rank: 3, text: 'A small edge, not much behind it'},
-  risky: {label: 'Risky', rank: 2, text: 'About a coin flip or worse'},
-  fade: {label: 'Fade', rank: 1, text: 'The numbers point the other way'},
+  elite: {label: 'Elite', rank: 5, text: 'A great matchup and the numbers behind it'},
+  strong: {label: 'Strong', rank: 4, text: 'A good matchup and the numbers back it'},
+  lean: {label: 'Lean', rank: 3, text: 'A small edge, nothing special in the matchup'},
+  risky: {label: 'Risky', rank: 2, text: 'A tough matchup or about a coin flip'},
+  fade: {label: 'Fade', rank: 1, text: 'The matchup and the numbers point the other way'},
 };
 
-/** A graded pick's tier: Elite and Strong are picks the model backs; Fade is one it would take the other side of. */
+// The chance a line needs to be worth taking: 50% for a regular line, the
+// books' (or a usual) price for a Goblin or Demon.
+const baselineOf = read => (read.modifier || 'standard') === 'standard' ? 0.5 : read.book ?? (read.modifier === 'goblin' ? 0.7 : 0.35);
+
+/**
+ * A pick's tier, matchup first: Elite needs a great matchup with something
+ * known about the opponent, Strong a good one, and a tough matchup is
+ * Risky at best however good his last ten look.
+ */
 export function tierOf(read) {
   if (!read) return null;
-  const modifier = read.modifier || 'standard';
-  // A Goblin needs more than 50% to be worth it, a Demon less.
-  const baseline = modifier === 'standard' ? 0.5 : read.book ?? (modifier === 'goblin' ? 0.7 : 0.35);
-  const edge = read.chance - baseline;
-  if (read.backed && read.grade === 'A') return 'elite';
-  if (read.backed) return 'strong';
-  if (edge >= 0.015) return 'lean';
-  if (edge >= -0.05) return 'risky';
-  return 'fade';
+  const edge = read.chance - baselineOf(read);
+  const score = read.matchup?.score ?? 50;
+  if (read.matchup?.primary && score >= 68 && edge >= 0.08) return 'elite';
+  if (score >= 56 && edge >= 0.04) return 'strong';
+  if (score < 35 || edge < -0.04) return 'fade';
+  if (score < 45 || edge < 0.01) return 'risky';
+  return 'lean';
 }
 
-/** A located leg graded: the Smart Slip read plus what the slip itself said. */
-export function gradeLeg(leg, row) {
+/**
+ * A read judged on its matchup: the case for it (slip-matchup.js), its
+ * chance with the matchup counting most and the recent games after
+ * (`trendChance` keeps the games-only read), and its tier.
+ */
+export function judge(read, tables = {}) {
+  if (!read) return null;
+  const matchup = matchupCase({row: read.row, side: read.side, grade: read}, tables);
+  const base = baselineOf(read);
+  const trend = matchup?.primary ? 0.45 : 0.7;
+  const chance = matchup ? Math.min(0.95, Math.max(0.05, base + trend * (read.chance - base) + 0.18 * (matchup.score - 50) / 50)) : read.chance;
+  const judged = {...read, trendChance: read.chance, chance, matchup};
+  return {...judged, tier: tierOf(judged)};
+}
+
+/** A located leg graded: the matchup and the Smart Slip read, plus what the slip itself said. */
+export function gradeLeg(leg, row, tables = {}) {
   if (!row || !leg.side) return null;
   const read = assessLeg(row, leg.side, {any: true, started: true});
   if (!read) return null;
-  return {...read, tier: tierOf(read), implied: implied(leg.odds), edge: leg.odds != null ? read.chance - implied(leg.odds) : null};
+  const judged = judge(read, tables);
+  return {...judged, implied: implied(leg.odds), edge: leg.odds != null ? judged.chance - implied(leg.odds) : null};
 }
 
 // The parlay's letter, from what it returns per $1 over time.
@@ -356,8 +379,11 @@ export function scoreEntry(legs, {app, entry} = {}) {
     if (key && !/:$|:-?:/.test(key)) games.set(key, (games.get(key) || 0) + 1);
   }
   const shared = [...games.values()].filter(count => count > 1).reduce((sum, count) => sum + count, 0);
+  const matchups = {good: graded.filter(leg => leg.grade.matchup?.score >= 60).length,
+    tough: graded.filter(leg => leg.grade.matchup && leg.grade.matchup.score < 45).length,
+    known: graded.filter(leg => leg.grade.matchup?.primary).length};
   return {chance, multiplier, estimated, assumed, value, breakEven: multiplier ? 1 / multiplier : null, weakest, best, average,
-    letter: letterFor(worth), score: Math.max(4, Math.min(100, Math.round(worth * 70))), tiers, shared, partial: !complete,
+    letter: letterFor(worth), score: Math.max(4, Math.min(100, Math.round(worth * 70))), tiers, shared, matchups, partial: !complete,
     graded: graded.length, total: n, type};
 }
 
@@ -384,7 +410,9 @@ export function swaps(legs, pool, {limit = 3} = {}) {
   const weakest = legs.filter(leg => leg.grade).sort((a, b) => a.grade.chance - b.grade.chance)[0];
   if (!weakest || weakest.grade.chance >= 0.58) return [];
   const sports = new Set(legs.map(leg => leg.sport).filter(Boolean));
-  return pool.filter(read => read.backed && read.chance > weakest.grade.chance + 0.05 && !taken.has(personKey(read.player))
+  // Judged on their matchups (judge()), only Strong and Elite picks are offered.
+  return pool.filter(read => (read.tier ? read.tier === 'elite' || read.tier === 'strong' : read.backed)
+      && read.chance > weakest.grade.chance + 0.05 && !taken.has(personKey(read.player))
       && (!sports.size || sports.has(read.row.sport)) && read.modifier === 'standard')
     .sort((a, b) => b.chance - a.chance).slice(0, limit).map(read => ({...read, replaces: weakest}));
 }
@@ -404,7 +432,7 @@ export const sideWord = (side, app) => {
  * `lookup(leg, sports)` (slip-lookup.js) and graded from his own games:
  * state 'history'.
  */
-export async function checkLeg(read, boards, {enrichFor = () => null, lookup = null, sports = SLIP_SPORTS, signal} = {}) {
+export async function checkLeg(read, boards, {enrichFor = () => null, lookup = null, sports = SLIP_SPORTS, tables = {}, signal} = {}) {
   // A side that couldn't be read is taken as More (the usual pick, and the
   // only one on a Goblin or Demon) and flagged, so the parlay still grades.
   const assumedSide = !read.side && read.line != null;
@@ -422,10 +450,10 @@ export async function checkLeg(read, boards, {enrichFor = () => null, lookup = n
       return {...base, lookupError: error.message || 'Player data is unavailable right now.'};
     }
     if (!found) return base;
-    const row = known ? {...found, headshot: found.headshot || known.headshot, teamLogo: found.teamLogo || known.teamLogo,
-      opponent: found.opponent || known.opponent, startsAt: found.startsAt || known.startsAt} : found;
+    const row = withMatchups(known ? {...found, headshot: found.headshot || known.headshot, teamLogo: found.teamLogo || known.teamLogo,
+      opponent: found.opponent || known.opponent, startsAt: found.startsAt || known.startsAt} : found, tables);
     if (leg.line == null || !leg.side) return {...base, sport: row.sport, row, state: 'needs'};
-    const grade = gradeLeg(leg, row);
+    const grade = gradeLeg(leg, row, tables);
     return {...base, sport: row.sport, row, grade, state: grade ? 'history' : 'thin'};
   }
   if (spot.state !== 'ready' && spot.state !== 'relined') return base;
@@ -438,7 +466,8 @@ export async function checkLeg(read, boards, {enrichFor = () => null, lookup = n
     } catch (error) { if (error.name === 'AbortError') throw error; }
   }
   if (spot.state === 'relined') row = await relined(spot.board, leg.line, {enrich, signal});
-  const grade = gradeLeg(leg, row);
+  row = withMatchups(row, tables);
+  const grade = gradeLeg(leg, row, tables);
   return {...base, row, grade, state: grade ? spot.state : 'thin'};
 }
 

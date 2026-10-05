@@ -1,11 +1,12 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {ArrowRight,ArrowUpRight,Check,ChevronDown,ClipboardPaste,Crown,Flame,ImageUp,Link2,Pencil,Plus,Repeat2,RotateCcw,Search,Trash2,TrendingDown,TrendingUp,TriangleAlert,X} from 'lucide-react';
+import {Activity,ArrowLeftRight,ArrowRight,ArrowUpRight,Check,ChevronDown,ClipboardPaste,Crosshair,Crown,Flame,History,ImageUp,Link2,MapPin,Pencil,Plus,Repeat2,RotateCcw,Search,Trash2,TrendingDown,TrendingUp,TriangleAlert,Users,X} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import {siteFinderSportAllowed,siteIsAdmin} from './site-access';
 import {finderSlipProp} from './unified-finder-data';
 import {loadLines,ENRICH} from './finder-pool';
 import {candidates} from './smart-slip';
-import {SLIP_SPORTS,SPORT_NAMES,TIERS,checkLeg,scoreEntry,verdict,swaps,sideWord,offeredStats,tierOf} from './slip-check';
+import {SLIP_SPORTS,SPORT_NAMES,TIERS,checkLeg,scoreEntry,verdict,swaps,sideWord,offeredStats,judge} from './slip-check';
+import {loadMatchups,withMatchups} from './slip-matchup';
 import {lookupRow} from './slip-lookup';
 import {teamLogoUrl} from './sports/nfl/nfl-ui-core';
 import {pickBuilder} from './pick-builder-client';
@@ -17,7 +18,7 @@ import './slip-analyzer.css';
 // Finder's lines and graded here (slip-check.js), and any leg can be fixed
 // by hand if it was misread.
 const READ_URL='/api/prediction?action=slip-analyzer';
-const STEPS=['Reading your slip','Finding the players','Checking their games','Grading the parlay'];
+const STEPS=['Reading your slip','Finding the players','Checking the matchups','Grading the parlay'];
 const MODIFIER_ICON={goblin:'/prizepicks/goblin.png',demon:'/prizepicks/demon.png'};
 const TYPE_NAMES={power:'Power Play',flex:'Flex Play',parlay:'Parlay'};
 
@@ -188,6 +189,17 @@ const MISSING={
  thin:()=>'Not enough games yet to grade this pick.',
 };
 
+// The case for a pick: the matchup first, then his history, splits and form.
+const FACT_ICON={opponent:Crosshair,history:History,split:ArrowLeftRight,venue:MapPin,usage:Users,form:Activity};
+function Case({matchup}){
+ if(!matchup?.facts?.length)return null;
+ return <section className="sa-case" data-tone={matchup.tone}>
+  <header><b>{matchup.label}</b><span className="sa-case-score" style={{'--w':`${matchup.score}%`}}><i/><em>{matchup.score}</em></span></header>
+  <ul>{matchup.facts.map(item=>{const Icon=FACT_ICON[item.kind]||Activity;
+   return <li key={item.key} data-kind={item.kind} data-tone={item.tone}><Icon size={14}/><span>{item.text}</span></li>;})}</ul>
+ </section>;
+}
+
 function Prop({leg,index,app,boards,need,editing,onEdit,onSave,onCancel,onRemove,saved,onKeep}){
  const row=leg.row;
  const grade=leg.grade;
@@ -195,7 +207,6 @@ function Prop({leg,index,app,boards,need,editing,onEdit,onSave,onCancel,onRemove
  const opponent=row?.opponent;
  const stats=leg.state==='stat'&&!grade?offeredStats(leg.spot):[];
  const average=row?.windows?.l10?.average??row?.average;
- const projection=grade?.read?.projection;
  const sport=row?.sport||leg.sport;
  return <article className="sa-prop" data-tier={tier||'none'} style={{'--i':index}}>
   <Img className="sa-prop-mark" src={teamLogo(row)}/>
@@ -218,15 +229,15 @@ function Prop({leg,index,app,boards,need,editing,onEdit,onSave,onCancel,onRemove
   {leg.assumedSide&&<p className="sa-aside">The side couldn't be read, so {sideWord('OVER',app)} was assumed. Tap Fix if it was {sideWord('UNDER',app)}.</p>}
   {grade?<>
    <Meter chance={grade.chance} need={need}/>
-   <div className="sa-prop-figures">
-    {finite(average)&&<span><small>Avg L10</small><b>{figure(Math.round(average*10)/10)}</b></span>}
-    {finite(projection)&&<span><small>Projection</small><b>{figure(Math.round(projection*10)/10)}</b></span>}
-    {grade.book!=null&&<span><small>Books</small><b>{percent(grade.book)}</b></span>}
-    {leg.odds!=null&&<span><small>Your price</small><b>{price(leg.odds)}</b></span>}
-   </div>
+   <Case matchup={grade.matchup}/>
+   <div className="sa-form-head"><span>Recent form</span>
+    <div className="sa-prop-figures">
+     {finite(average)&&<span><small>Avg L10</small><b>{figure(Math.round(average*10)/10)}</b></span>}
+     {grade.book!=null&&<span><small>Books</small><b>{percent(grade.book)}</b></span>}
+     {leg.odds!=null&&<span><small>Your price</small><b>{price(leg.odds)}</b></span>}
+    </div></div>
    <Records grade={grade} row={row}/>
    <Games row={row} line={leg.line} side={leg.side}/>
-   {grade.note&&<p className="sa-note">{grade.note}</p>}
    {leg.state==='relined'&&<p className="sa-aside">Today's line is {figure(row.relinedFrom)}; this was graded at your {figure(leg.line)}.</p>}
    {grade.read?.risks?.length>0&&<ul className="sa-risks">{grade.read.risks.slice(0,2).map(risk=><li key={risk}><TriangleAlert size={12}/>{risk}</li>)}</ul>}
   </>:<div className="sa-missing"><p>{(MISSING[leg.state]||MISSING.thin)(leg)}</p>
@@ -290,17 +301,19 @@ function Parlay({score,slip,legs,pool,onSwap,onSaveAll,onNew,shot}){
     {n>graded.length&&<li data-tier="none"><i/>{n-graded.length} not graded</li>}</ul>
   </div>}
 
+  {score&&score.matchups&&<p className="sa-matchup-line"><Crosshair size={14}/>
+   {score.matchups.good} of {score.total} pick{score.total===1?' has':'s have'} a good matchup{score.matchups.tough?`, ${score.matchups.tough} ${score.matchups.tough===1?'has':'have'} a tough one`:''}.</p>}
   {score&&<div className="sa-callouts">
    {score.best&&n>1&&<div className="sa-callout" data-kind="best"><Crown size={16}/><span><small>Best pick</small>
-    <b>{score.best.row?.player||score.best.player}</b> {sideWord(score.best.side,slip.app)} {figure(score.best.line)} {score.best.stat} · {percent(score.best.grade.chance)}</span></div>}
+    <b>{score.best.row?.player||score.best.player}</b> {sideWord(score.best.side,slip.app)} {figure(score.best.line)} {score.best.stat} · {percent(score.best.grade.chance)}{score.best.grade.matchup?` · ${score.best.grade.matchup.label.toLowerCase()}`:''}</span></div>}
    {score.weakest&&n>1&&score.weakest!==score.best&&<div className="sa-callout" data-kind="weak"><TriangleAlert size={16}/><span><small>Weakest link</small>
-    <b>{score.weakest.row?.player||score.weakest.player}</b> {sideWord(score.weakest.side,slip.app)} {figure(score.weakest.line)} {score.weakest.stat} · {percent(score.weakest.grade.chance)}</span></div>}
+    <b>{score.weakest.row?.player||score.weakest.player}</b> {sideWord(score.weakest.side,slip.app)} {figure(score.weakest.line)} {score.weakest.stat} · {percent(score.weakest.grade.chance)}{score.weakest.grade.matchup?` · ${score.weakest.grade.matchup.label.toLowerCase()}`:''}</span></div>}
    {score.shared>1&&<div className="sa-callout" data-kind="info"><Link2 size={16}/><span><small>Same game</small>{score.shared} picks share a game, so they tend to hit or miss together.</span></div>}
   </div>}
 
   {options.length>0&&<div className="sa-swaps"><h3>Stronger picks to swap in</h3>
    <ul>{options.map(read=><li key={read.id}>
-    <Face row={read.row} leg={read.row} tier={tierOf(read)}/>
+    <Face row={read.row} leg={read.row} tier={read.tier}/>
     <span className="sa-swap-copy"><b>{read.row.player}</b><small>{sideWord(read.side,slip.app)} {figure(read.row.line)} {read.row.market}</small></span>
     <span className="sa-swap-chance">{percent(read.chance)}</span>
     <button type="button" onClick={()=>onSwap(read)} aria-label={`Swap in ${read.row.player}`}><Repeat2 size={14}/>Swap</button>
@@ -332,9 +345,11 @@ export function SlipAnalyzer(){
  const host=useRef(null);
  const input=useRef(null);
  const enrichFor=sport=>ENRICH[sport];
+ // Each league's matchup tables for the sports on the slip (slip-matchup.js).
+ const tables=useRef({});
  // A player who isn't on today's board (his game has started) is looked
  // up in his league and graded from his own games (slip-lookup.js).
- const options=signal=>({enrichFor,signal,sports:SLIP_SPORTS.filter(siteFinderSportAllowed),
+ const options=signal=>({enrichFor,signal,tables:tables.current,sports:SLIP_SPORTS.filter(siteFinderSportAllowed),
   lookup:(leg,where)=>lookupRow(leg,{sports:where,enrich:enrichFor,signal})});
 
  const run=useCallback(async file=>{
@@ -353,8 +368,13 @@ export function SlipAnalyzer(){
    const read=await readSlip(body,signal);
    if(Date.now()-started<900)await pause(900-(Date.now()-started),signal);
    setStep(1);
-   const rows=Object.fromEntries(await Promise.all(sports.map(async sport=>[sport,await loading[sport]])));
-   boards.current=rows;
+   // The matchups for the sports on the slip load alongside today's lines.
+   const onSlip=[...new Set(read.legs.map(leg=>leg.sport).filter(sport=>sports.includes(sport)))];
+   const [rows,found]=await Promise.all([
+    Promise.all(sports.map(async sport=>[sport,await loading[sport]])).then(Object.fromEntries),
+    loadMatchups(onSlip.length?onSlip:sports.filter(sport=>sport!=='soccer'),{signal}).catch(error=>{if(error.name==='AbortError')throw error;return {};}),
+   ]);
+   boards.current=rows;tables.current=found;
    await pause(calm()?0:350,signal);
    setStep(2);
    const checked=await Promise.all(read.legs.map((leg,index)=>checkLeg({...leg,key:`${index}:${leg.player}`},rows,options(signal))));
@@ -364,7 +384,8 @@ export function SlipAnalyzer(){
    setSlip(read);setLegs(checked);setPhase('done');
    // Picks to swap in, from the lines whose hit rates are already in.
    const used=new Set(checked.map(leg=>leg.sport).filter(Boolean));
-   setPool(candidates([...used].flatMap(sport=>(rows[sport]||[]).filter(row=>row.historyStatus==='ready'))));
+   setPool(candidates([...used].flatMap(sport=>(rows[sport]||[]).filter(row=>row.historyStatus==='ready').map(row=>withMatchups(row,found))))
+    .map(read=>judge(read,found)));
   }catch(failure){
    if(signal.aborted||failure.name==='AbortError')return;
    setError(failure.message||'That screenshot couldn\'t be read. Try again.');setDetail(failure.detail||'');setPhase('error');

@@ -39,7 +39,8 @@ RECENT = {"stats": [{"splits": [
 ]}]}
 START = lambda day, opp, ip, k, pitches, er=1: {"date": day, "isHome": True, "opponent": {"id": opp},
                                                 "stat": {"gamesStarted": 1, "inningsPitched": ip, "strikeOuts": k,
-                                                         "numberOfPitches": pitches, "earnedRuns": er}}
+                                                         "numberOfPitches": pitches, "earnedRuns": er, "hits": er + 4,
+                                                         "baseOnBalls": 2, "homeRuns": 0}}
 PEOPLE_WITH_LOG = {"people": [{"id": 669373, "fullName": "Tarik Skubal", "pitchHand": {"code": "L"}, "stats": [
     {"type": {"displayName": "gameLog"}, "splits": [
         START("2026-09-24", 145, "7.0", 9, 101), START("2026-08-01", 114, "6.0", 8, 95), START("2026-09-02", 120, "6.0", 7, 99),
@@ -127,6 +128,8 @@ class MlbContextTest(unittest.TestCase):
         self.assertEqual(skubal["opponent"], 114)
         self.assertEqual([start["ip"] for start in skubal["lastStarts"]], [6.0, 7.0, round(5 + 2 / 3, 2), 6.0, 7.0])
         self.assertEqual(skubal["lastStarts"][-1]["date"], "2026-09-24")
+        # What each start gave up, for "allowed 5 hits his last time out".
+        self.assertEqual({key: skubal["lastStarts"][-1][key] for key in ("h", "bb", "hr", "er")}, {"h": 5.0, "bb": 2.0, "hr": 0.0, "er": 1.0})
         self.assertAlmostEqual(skubal["recentIp"], round((6 + 7 + 5 + 2 / 3 + 6 + 7) / 5, 2))
         self.assertEqual(skubal["recentPitches"], 98.0)
         self.assertEqual(skubal["vsOpponent"], {"starts": 2, "ip": 13.0, "k": 17.0, "er": 3.0})

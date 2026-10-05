@@ -118,7 +118,7 @@ def _blocks(person):
 
 def recent_starts(log, opponent=None):
     """A starter's workload from his game log: his last starts (innings,
-    pitches, strikeouts), how deep he has gone on average, and his starts
+    pitches, strikeouts, hits, walks and homers allowed), how deep he has gone on average, and his starts
     against `opponent` this season."""
     starts = []
     for split in log:
@@ -131,7 +131,8 @@ def recent_starts(log, opponent=None):
                        "home": split.get("isHome") if isinstance(split.get("isHome"), bool) else None,
                        "ip": round(pitched, 2), "k": _number(stat.get("strikeOuts")),
                        "pitches": _number(stat.get("numberOfPitches") or stat.get("pitchesThrown")),
-                       "er": _number(stat.get("earnedRuns"))})
+                       "er": _number(stat.get("earnedRuns")), "h": _number(stat.get("hits")),
+                       "bb": _number(stat.get("baseOnBalls")), "hr": _number(stat.get("homeRuns"))})
     starts.sort(key=lambda start: start["date"] or "")
     last = starts[-RECENT_STARTS:]
     out = {"starts": last,
