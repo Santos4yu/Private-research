@@ -1,13 +1,15 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {Activity,ArrowLeftRight,ArrowRight,ArrowUpRight,Check,ChevronDown,ClipboardPaste,Crosshair,Crown,Flame,History,ImageUp,Link2,MapPin,Pencil,Plus,Repeat2,RotateCcw,Search,Trash2,TrendingDown,TrendingUp,TriangleAlert,Users,X} from 'lucide-react';
+import {ArrowRight,ArrowUpRight,Check,ChevronDown,ClipboardPaste,Crosshair,Crown,Flame,ImageUp,Link2,Pencil,Plus,Radio,Repeat2,RotateCcw,Search,Trash2,TrendingDown,TrendingUp,TriangleAlert,Unlink,X} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import {siteFinderSportAllowed,siteIsAdmin} from './site-access';
 import {finderSlipProp} from './unified-finder-data';
 import {loadLines,ENRICH} from './finder-pool';
 import {candidates} from './smart-slip';
-import {SLIP_SPORTS,SPORT_NAMES,TIERS,checkLeg,scoreEntry,verdict,swaps,sideWord,offeredStats,judge} from './slip-check';
+import {SLIP_SPORTS,SPORT_NAMES,TIERS,checkLeg,scoreEntry,verdict,swaps,sideWord,offeredStats,judge,regrade} from './slip-check';
 import {loadMatchups,withMatchups} from './slip-matchup';
 import {lookupRow} from './slip-lookup';
+import {loadGames,loadTeammates,withGame,newsOf,liveRead,anyLive} from './slip-games';
+import {MatchupCase} from './MatchupCase';
 import {teamLogoUrl} from './sports/nfl/nfl-ui-core';
 import {pickBuilder} from './pick-builder-client';
 import {PhoneAccountButtons} from './UnifiedFinder';
@@ -190,14 +192,18 @@ const MISSING={
 };
 
 // The case for a pick: the matchup first, then his history, splits and form.
-const FACT_ICON={opponent:Crosshair,history:History,split:ArrowLeftRight,venue:MapPin,usage:Users,form:Activity};
-function Case({matchup}){
- if(!matchup?.facts?.length)return null;
- return <section className="sa-case" data-tone={matchup.tone}>
-  <header><b>{matchup.label}</b><span className="sa-case-score" style={{'--w':`${matchup.score}%`}}><i/><em>{matchup.score}</em></span></header>
-  <ul>{matchup.facts.map(item=>{const Icon=FACT_ICON[item.kind]||Activity;
-   return <li key={item.key} data-kind={item.kind} data-tone={item.tone}><Icon size={14}/><span>{item.text}</span></li>;})}</ul>
- </section>;
+const RESULT_WORDS={hit:'Hit',miss:'Missed',push:'Push',dnp:'Didn\'t play'};
+// A pick whose game has started: how far along it is ("Downs 42 of 71.5
+// receiving yards"), where the game is, and once it's decided, how it went.
+function Live({live}){
+ if(!live)return null;
+ const word=RESULT_WORDS[live.result]||(live.state==='post'?'Final':'Live');
+ return <div className="sa-live" data-result={live.result||'open'} data-state={live.state}>
+  <div className="sa-live-top"><span className="sa-live-tag">{live.state==='in'&&!live.result&&<i aria-hidden="true"/>}{word}</span>{live.clock&&<span>{live.clock}</span>}</div>
+  <p>{live.text}</p>
+  {live.result!=='dnp'&&<div className="sa-live-bar" role="progressbar" aria-label={live.text} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(live.progress*100)}
+   style={{'--p':live.progress}}><i/></div>}
+ </div>;
 }
 
 function Prop({leg,index,app,boards,need,editing,onEdit,onSave,onCancel,onRemove,saved,onKeep}){
@@ -208,11 +214,15 @@ function Prop({leg,index,app,boards,need,editing,onEdit,onSave,onCancel,onRemove
  const stats=leg.state==='stat'&&!grade?offeredStats(leg.spot):[];
  const average=row?.windows?.l10?.average??row?.average;
  const sport=row?.sport||leg.sport;
- return <article className="sa-prop" data-tier={tier||'none'} style={{'--i':index}}>
+ const live=row?liveRead(row,leg.side,leg.line??row.line):null;
+ // His own line on the injury report, shown by his name.
+ const status=newsOf(row)?.self;
+ return <article className="sa-prop" data-tier={tier||'none'} data-live={live?.result||live?.state||undefined} style={{'--i':index}}>
   <Img className="sa-prop-mark" src={teamLogo(row)}/>
   <header className="sa-prop-head">
    <Face row={row} leg={leg} tier={tier}/>
    <div className="sa-who"><b>{row?.player||leg.player}</b>
+    {status?.level&&<span className="sa-status" data-level={status.level}>{status.status}</span>}
     <span className="sa-who-game">
      {sport&&<Img className="sa-who-league" src={LEAGUE_LOGOS[sport]}/>}
      {[row?.teamAbbr,row?.position].filter(Boolean).join(' · ')||SPORT_NAMES[sport]||'Player prop'}
@@ -227,9 +237,10 @@ function Prop({leg,index,app,boards,need,editing,onEdit,onSave,onCancel,onRemove
    {MODIFIER_ICON[leg.modifier]&&<img src={MODIFIER_ICON[leg.modifier]} alt={leg.modifier} width="20" height="20"/>}
   </div>
   {leg.assumedSide&&<p className="sa-aside">The side couldn't be read, so {sideWord('OVER',app)} was assumed. Tap Fix if it was {sideWord('UNDER',app)}.</p>}
+  <Live live={live}/>
   {grade?<>
    <Meter chance={grade.chance} need={need}/>
-   <Case matchup={grade.matchup}/>
+   <MatchupCase matchup={grade.matchup}/>
    <div className="sa-form-head"><span>Recent form</span>
     <div className="sa-prop-figures">
      {finite(average)&&<span><small>Avg L10</small><b>{figure(Math.round(average*10)/10)}</b></span>}
@@ -273,6 +284,8 @@ function Parlay({score,slip,legs,pool,onSwap,onSaveAll,onNew,shot}){
  const dial=useCount(score?.score??0,1100);
  const odds=score?Math.max(1,Math.round(1/score.chance)):null;
  const graded=legs.filter(leg=>leg.grade);
+ // The picks whose games have started, and how each is going.
+ const live=legs.map(leg=>leg.row?liveRead(leg.row,leg.side,leg.line??leg.row.line):null).filter(Boolean);
  return <section className="sa-parlay" data-tone={score?tone(letter):'none'}>
   <div className="sa-parlay-top">
    <div className="sa-dial" style={{'--p':dial}} aria-label={`Parlay grade ${letter||'not available'}`}>
@@ -303,12 +316,18 @@ function Parlay({score,slip,legs,pool,onSwap,onSaveAll,onNew,shot}){
 
   {score&&score.matchups&&<p className="sa-matchup-line"><Crosshair size={14}/>
    {score.matchups.good} of {score.total} pick{score.total===1?' has':'s have'} a good matchup{score.matchups.tough?`, ${score.matchups.tough} ${score.matchups.tough===1?'has':'have'} a tough one`:''}.</p>}
+  {live.length>0&&<p className="sa-live-line" data-busted={live.some(read=>read.result==='miss')||undefined}><Radio size={14}/>
+   {[['hit','hit'],['open','still going'],['miss','missed'],['dnp','didn\'t play']].map(([key,word])=>[key,word,live.filter(read=>(read.result||'open')===key).length])
+    .filter(([,,count])=>count).map(([key,word,count])=>`${count} ${word}`).join(' · ')}
+   {live.length<n?` · ${n-live.length} not started`:''}</p>}
   {score&&<div className="sa-callouts">
    {score.best&&n>1&&<div className="sa-callout" data-kind="best"><Crown size={16}/><span><small>Best pick</small>
     <b>{score.best.row?.player||score.best.player}</b> {sideWord(score.best.side,slip.app)} {figure(score.best.line)} {score.best.stat} · {percent(score.best.grade.chance)}{score.best.grade.matchup?` · ${score.best.grade.matchup.label.toLowerCase()}`:''}</span></div>}
    {score.weakest&&n>1&&score.weakest!==score.best&&<div className="sa-callout" data-kind="weak"><TriangleAlert size={16}/><span><small>Weakest link</small>
     <b>{score.weakest.row?.player||score.weakest.player}</b> {sideWord(score.weakest.side,slip.app)} {figure(score.weakest.line)} {score.weakest.stat} · {percent(score.weakest.grade.chance)}{score.weakest.grade.matchup?` · ${score.weakest.grade.matchup.label.toLowerCase()}`:''}</span></div>}
-   {score.shared>1&&<div className="sa-callout" data-kind="info"><Link2 size={16}/><span><small>Same game</small>{score.shared} picks share a game, so they tend to hit or miss together.</span></div>}
+   {(score.links||[]).slice(0,3).map(pair=><div key={`${pair.a}-${pair.b}`} className="sa-callout" data-kind={pair.tone==='together'?'best':'weak'}>
+    {pair.tone==='together'?<Link2 size={16}/>:<Unlink size={16}/>}<span><small>{pair.tone==='together'?'Work together':'Work against each other'}</small>
+    {pair.text[0].toUpperCase()+pair.text.slice(1)}, so the parlay's chance is {pair.tone==='together'?'a little higher':'lower'} than the picks alone suggest.</span></div>)}
   </div>}
 
   {options.length>0&&<div className="sa-swaps"><h3>Stronger picks to swap in</h3>
@@ -352,6 +371,40 @@ export function SlipAnalyzer(){
  const options=signal=>({enrichFor,signal,tables:tables.current,sports:SLIP_SPORTS.filter(siteFinderSportAllowed),
   lookup:(leg,where)=>lookupRow(leg,{sports:where,enrich:enrichFor,signal})});
 
+ // Each pick's game (slip-games.js): the injury report, lineups and, once
+ // it starts, his line so far. The news re-grades the pick; the page keeps
+ // checking while a game is on.
+ const games=useRef({});
+ const mates=useRef({});
+ const latest=useRef(legs);latest.current=legs;
+ const withNews=useCallback(list=>list.map(leg=>{
+  const game=games.current[leg.key];
+  if(!leg.row||!game)return leg;
+  const row=withGame(leg.row,{...game,teammates:mates.current[leg.key]||[]});
+  return {...leg,row,grade:regrade(leg.grade,row,tables.current)};
+ }),[]);
+ const signature=legs.map(leg=>`${leg.key}:${leg.row?.id||leg.row?.player||''}`).join('|');
+ useEffect(()=>{
+  if(phase!=='done'||!latest.current.length)return undefined;
+  const job=new AbortController();let timer=null;
+  const check=async()=>{
+   try{
+    const list=latest.current;
+    const found=await loadGames(list,{signal:job.signal});
+    Object.assign(games.current,found);
+    // What a teammate's absence has meant, asked once per pick.
+    const asking=list.filter(leg=>leg.row&&found[leg.key]&&!mates.current[leg.key]);
+    const splits=await loadTeammates(asking.map(leg=>({key:leg.key,row:withGame(leg.row,found[leg.key])})),{signal:job.signal});
+    for(const leg of asking)mates.current[leg.key]=splits[leg.key]||[];
+    if(!job.signal.aborted)setLegs(current=>withNews(current));
+   }catch(error){if(error.name==='AbortError')return;}
+   const rows=Object.values(games.current).map(game=>({game,startsAt:game.startsAt}));
+   if(anyLive(rows))timer=setTimeout(check,document.hidden?120000:45000);
+  };
+  check();
+  return()=>{job.abort();clearTimeout(timer);};
+ },[phase,signature,withNews]);
+
  const run=useCallback(async file=>{
   if(!file)return;
   if(!/^image\//.test(file.type||'image/')){setError('Use a screenshot (PNG, JPG or WEBP).');setPhase('error');return;}
@@ -359,6 +412,7 @@ export function SlipAnalyzer(){
   const job=new AbortController();control.current=job;const {signal}=job;
   setShot(old=>{if(old?.url)URL.revokeObjectURL(old.url);return {url:URL.createObjectURL(file)};});
   setPhase('reading');setStep(0);setError('');setDetail('');setLegs([]);setSlip(null);setEditing(null);setPool([]);setSaved(new Set());
+  games.current={};mates.current={};
   const sports=SLIP_SPORTS.filter(siteFinderSportAllowed);
   // Today's lines load while the screenshot is read.
   const loading=Object.fromEntries(sports.map(sport=>[sport,loadLines(sport,{signal,only:()=>false}).catch(()=>[])]));
@@ -419,7 +473,7 @@ export function SlipAnalyzer(){
   setEditing(null);
   const checked=await checkLeg({key,player:next.player,team:next.team,opponent:next.opponent,sport:next.sport,stat:next.stat,statName:next.statName,
    line:next.line,plus:next.plus,side:current.assumedSide&&!changes.side?null:next.side,modifier:next.modifier,odds:next.odds,confidence:next.confidence,needs:[]},boards.current,options());
-  setLegs(list=>list.map(leg=>leg.key===key?checked:leg));
+  setLegs(list=>withNews(list.map(leg=>leg.key===key?checked:leg)));
   // Still missing its line or side: open the form for it.
   if(checked.state==='needs')setEditing(key);
  };
@@ -436,7 +490,7 @@ export function SlipAnalyzer(){
   setSaved(old=>new Set(old).add(leg.key));
  };
  const saveAll=()=>{legs.filter(leg=>leg.grade).forEach(save);pickBuilder.open();};
- const reset=()=>{control.current?.abort();setPhase('pick');setLegs([]);setSlip(null);setError('');};
+ const reset=()=>{control.current?.abort();games.current={};mates.current={};setPhase('pick');setLegs([]);setSlip(null);setError('');};
  const score=useMemo(()=>slip?scoreEntry(legs,slip):null,[legs,slip]);
  // What each pick needs to hit for the parlay to break even.
  const need=score?.breakEven&&legs.length?score.breakEven**(1/legs.length):null;

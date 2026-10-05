@@ -12,6 +12,8 @@ import {finderMarket} from './prop-finder-core.js';
 import {finderWindow} from './unified-finder-data.js';
 import {assessLeg, POWER, FLEX, SPORT_NAMES} from './smart-slip.js';
 import {matchupCase, withMatchups} from './slip-matchup.js';
+import {links, jointChance} from './slip-correlation.js';
+import {newsCap} from './slip-games.js';
 
 export const SLIP_SPORTS = ['mlb', 'nba', 'wnba', 'nfl', 'nhl', 'soccer'];
 export {SPORT_NAMES};
@@ -313,7 +315,11 @@ export function judge(read, tables = {}) {
   const trend = matchup?.primary ? 0.45 : 0.7;
   const chance = matchup ? Math.min(0.95, Math.max(0.05, base + trend * (read.chance - base) + 0.18 * (matchup.score - 50) / 50)) : read.chance;
   const judged = {...read, trendChance: read.chance, chance, matchup};
-  return {...judged, tier: tierOf(judged)};
+  // The news caps it: out is a Fade, Doubtful or out of the lineup Risky at
+  // best, Questionable never Elite (slip-games.js).
+  const cap = newsCap(matchup?.facts);
+  const tier = tierOf(judged);
+  return {...judged, tier: cap && TIERS[cap].rank < TIERS[tier].rank ? cap : tier, capped: cap && TIERS[cap].rank < TIERS[tier].rank ? cap : null};
 }
 
 /** A located leg graded: the matchup and the Smart Slip read, plus what the slip itself said. */
@@ -323,6 +329,16 @@ export function gradeLeg(leg, row, tables = {}) {
   if (!read) return null;
   const judged = judge(read, tables);
   return {...judged, implied: implied(leg.odds), edge: leg.odds != null ? judged.chance - implied(leg.odds) : null};
+}
+
+/**
+ * A grade judged again on a changed row (its game's news, say): the same
+ * read of his recent games, the matchup case and the caps redone.
+ */
+export function regrade(grade, row, tables = {}) {
+  if (!grade || !row) return grade;
+  const judged = judge({...grade, chance: grade.trendChance ?? grade.chance, row}, tables);
+  return {...judged, implied: grade.implied, edge: grade.implied != null ? judged.chance - grade.implied : null};
 }
 
 // The parlay's letter, from what it returns per $1 over time.
@@ -340,7 +356,10 @@ export function scoreEntry(legs, {app, entry} = {}) {
   if (!graded.length) return null;
   const complete = graded.length === n;
   const chances = legs.map(leg => leg.grade?.chance ?? 0.5);
-  const chance = chances.reduce((product, value) => product * value, 1);
+  const independent = chances.reduce((product, value) => product * value, 1);
+  // Picks from one game rise and fall together (slip-correlation.js).
+  const pairs = links(legs.map(leg => leg.grade && leg.row ? {row: leg.row, side: leg.side, player: leg.row.player || leg.player} : null));
+  const chance = jointChance(chances, pairs);
   let multiplier = entry?.multiplier ?? null, estimated = false;
   const type = entry?.type || (app?.key === 'prizepicks' ? 'power' : null);
   if (multiplier == null && app?.key === 'prizepicks' && type === 'power' && POWER[n]) {
@@ -360,6 +379,10 @@ export function scoreEntry(legs, {app, entry} = {}) {
       dist.forEach((q, k) => { next[k] += q * (1 - p); next[k + 1] += q * p; });
       dist = next;
     }
+    // Correlated picks shift chance between all hitting and missing one.
+    const extra = dist[n] * (chance / independent - 1);
+    dist[n] += extra;
+    dist[n - 1] = Math.max(0, dist[n - 1] - extra);
     const scale = entry?.multiplier ? entry.multiplier / FLEX[n][n] : 1;
     value = Object.entries(FLEX[n]).reduce((sum, [k, pay]) => sum + dist[Number(k)] * pay * scale, 0);
     multiplier = FLEX[n][n] * scale;
@@ -382,7 +405,9 @@ export function scoreEntry(legs, {app, entry} = {}) {
   const matchups = {good: graded.filter(leg => leg.grade.matchup?.score >= 60).length,
     tough: graded.filter(leg => leg.grade.matchup && leg.grade.matchup.score < 45).length,
     known: graded.filter(leg => leg.grade.matchup?.primary).length};
-  return {chance, multiplier, estimated, assumed, value, breakEven: multiplier ? 1 / multiplier : null, weakest, best, average,
+  const linked = pairs.filter(pair => Math.abs(pair.rho) >= 0.08)
+    .map(pair => ({...pair, players: [legs[pair.a].row?.player || legs[pair.a].player, legs[pair.b].row?.player || legs[pair.b].player]}));
+  return {chance, independent, links: linked, multiplier, estimated, assumed, value, breakEven: multiplier ? 1 / multiplier : null, weakest, best, average,
     letter: letterFor(worth), score: Math.max(4, Math.min(100, Math.round(worth * 70))), tiers, shared, matchups, partial: !complete,
     graded: graded.length, total: n, type};
 }

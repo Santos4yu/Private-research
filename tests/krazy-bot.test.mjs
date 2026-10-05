@@ -27,6 +27,20 @@ function board() {
   const tatum = row('Jayson Tatum', 'nba', 'Points', 26.5, {team: 'BOS', opponent: 'NYK', game: 'bos-nyk'});
   const matthews = row('Auston Matthews', 'nhl', 'Points', 1.5, {team: 'TOR', opponent: 'MTL', game: 'tor-mtl'});
   const pasta = row('David Pastrnak', 'nhl', 'Shots On Goal', 4.5, {team: 'BOS', opponent: 'FLA', game: 'bos-fla'});
+  // Each line's matchup, in the shapes the Slip Analyzer's engine reads
+  // (slip-matchup.js): the lineup a starter faces, a hitter's grade from the
+  // Research model, the defense against a scorer's position. NHL has none.
+  const league = {teams: 30, kRate: 0.22, vs: {L: {kRate: 0.22}, R: {kRate: 0.22}}};
+  skubal.matchup = {kind: 'lineup', league, lineup: {name: 'Kansas City Royals', kRate: 0.26, games: 150, vs: {L: {kRate: 0.29, kRateRank: 2}}},
+    self: {hand: 'L', projectedIp: 6.2, recentPitches: 98, lastStarts: [{k: 8}, {k: 6}, {k: 9}]}};
+  webb.matchup = {kind: 'lineup', league, lineup: {name: 'Los Angeles Dodgers', kRate: 0.235, games: 150, vs: {R: {kRate: 0.24, kRateRank: 8}}},
+    self: {hand: 'R', projectedIp: 6.4}};
+  judge.matchup = {kind: 'pitcher', pitcher: {name: 'Brayan Bello', hand: 'R', era: 4.6, whip: 1.41, k9: 7.2}};
+  judge.hitterMatchup = {pitcher: {name: 'Brayan Bello', hand: 'R'}, grades: {other: {score: 74}}, factors: []};
+  soto.hitterMatchup = {grades: {other: {score: 36}}, factors: []};
+  witt.hitterMatchup = {grades: {power: {score: 64}}, factors: []};
+  raleighDemon.hitterMatchup = {grades: {power: {score: 60}}, factors: []};
+  Object.assign(tatum, {position: 'F', defense: 28, defenseTeams: 30, defenseValue: 27.4, defenseAverage: 24, defensePosition: 'F'});
   const reads = new Map([
     [`${skubal.id}|OVER`, graded(skubal, 'OVER', {grade: 'A', chance: 0.66, recent: [8, 10], book: 0.61, projection: 7.4, matchup: 'KC strikes out 26% of the time (league 22%)', risks: ['Only 7 games of history']})],
     [`${skubal.id}|UNDER`, graded(skubal, 'UNDER', {grade: 'C', chance: 0.34, recent: [2, 10], backed: false})],
@@ -83,7 +97,8 @@ test('players are found by full name, last name and a near-miss, and look-alikes
 test('a pick reads like an analyst: confidence from the grade and the numbers behind it', async () => {
   const bot = makeBot();
   const answer = await bot.ask('whats the best strikeout prop');
-  assert.match(answer, /Tarik Skubal over 6\.5 K's vs KC \(grade A, 66% to hit\)\. I love this one\./);
+  // Judged the Slip Analyzer's way: KC's strikeouts against lefties make it Elite, and the chance counts the matchup.
+  assert.match(answer, /Tarik Skubal over 6\.5 K's vs KC \(Elite, 68% to hit\)\. I love this one\./);
   assert.match(answer, /Skubal has gone over in 8 of his last 10, projects for 7\.4 against the 6\.5 line and KC strikes out 26%/);
   assert.match(answer, /only 7 games of history/);
   assert.deepEqual(bot.suggestions(), ['Why?', 'Next best', 'What about the under?', 'Build me a 3-pick slip']);
@@ -92,8 +107,8 @@ test('a pick reads like an analyst: confidence from the grade and the numbers be
 test('it remembers the conversation: he, the under, why, next, what about another player', async () => {
   const bot = makeBot();
   await bot.ask('best K prop');
-  assert.match(await bot.ask('is he safe?'), /^Yes\. I love it\. Tarik Skubal over 6\.5 K's vs KC: 66% to hit, grade A\./);
-  assert.match(await bot.ask('what about the under?'), /^I'd flip it\. The over is the better side at 66%\. Tarik Skubal under 6\.5 K's vs KC: 34% to hit/);
+  assert.match(await bot.ask('is he safe?'), /^Yes\. I love it\. Tarik Skubal over 6\.5 K's vs KC: 68% to hit, Elite\./);
+  assert.match(await bot.ask('what about the under?'), /^Red flag\. The matchup is (tough|bad) \(\d+\)\..* The over is the better side at 68%\./);
   await bot.ask('best K prop');
   assert.match(await bot.ask('why?'), /^Why Tarik Skubal over 6\.5 K's vs KC:.*the books have it at 61%.*Risks: only 7 games of history/);
   assert.match(await bot.ask('next'), /Logan Webb over 5\.5 K's vs LAD/);
@@ -104,22 +119,22 @@ test('it remembers the conversation: he, the under, why, next, what about anothe
 test('should I take answers yes, flips a weak side, and corrects a stale line', async () => {
   const bot = makeBot();
   assert.match(await bot.ask('should I take Skubal over 6.5 Ks?'), /^Yes\. I love it\./);
-  assert.match(await bot.ask('should i take witt under 1.5 total bases'), /^I'd flip it\. The over is the better side at 61%/);
+  assert.match(await bot.ask('should i take witt under 1.5 total bases'), /^Red flag\. .*The over is the better side at 64%/);
   assert.match(await bot.ask('skubal over 7.5 ks?'), /\(Today's line is 6\.5, not 7\.5\.\)/);
-  assert.match(await bot.ask('skubal over or under 6.5'), /Tarik Skubal over 6\.5 K's vs KC is the better side at 66%/);
+  assert.match(await bot.ask('skubal over or under 6.5'), /Tarik Skubal over 6\.5 K's vs KC is the better side at 68%/);
 });
 
 test('compare picks the better spot of two players', async () => {
   const answer = await makeBot().ask('compare judge and soto');
-  assert.match(answer, /^I'd go Judge\. Aaron Judge over 1\.5 Hits\+Runs\+RBIs vs BOS is 63% to hit \(grade A\) vs Juan Soto under 1\.5 Hits\+Runs\+RBIs vs ATL at 57%/);
+  assert.match(answer, /^I'd go Judge\. Aaron Judge over 1\.5 Hits\+Runs\+RBIs vs BOS is 66% to hit \(Elite\) vs Juan Soto under 1\.5 Hits\+Runs\+RBIs vs ATL at 61%/);
 });
 
 test("the day's rundown: games, first pitch, top play, matchup and a long shot", async () => {
   const answer = await makeBot({sports: ['mlb']}).ask("what's the play today?");
   assert.match(answer, /^Today's MLB slate: 5 games, first pitch at /);
-  assert.match(answer, /Top play: Tarik Skubal over 6\.5 K's vs KC \(A, 66%\)\./);
+  assert.match(answer, /Top play: Tarik Skubal over 6\.5 K's vs KC \(Elite, 68%\)\./);
   assert.match(answer, /Best matchup: Aaron Judge over 1\.5 Hits\+Runs\+RBIs vs BOS, faces Brayan Bello/);
-  assert.match(answer, /Long shot: Cal Raleigh over 2\.5 total bases \(demon\) vs HOU at 38%\./);
+  assert.match(answer, /Long shot: Cal Raleigh over 2\.5 total bases \(demon\) vs HOU at 42%\./);
 });
 
 test('NBA and NHL: a shared stat asks which league, a team or the conversation decides it', async () => {
@@ -158,7 +173,7 @@ test('line moves, thinking steps and honest fallbacks', async () => {
   assert.match(await bot.ask('purple monkey dishwasher'), /^I didn't catch that one\./);
   assert.match(await bot.ask('best nfl prop'), /covering MLB, NBA, NHL right now/);
   assert.match(await createBot({load: async () => { throw new Error('offline'); }}).ask('best K prop'), /can't reach today's lines/);
-  assert.match(await bot.ask('build me a 3-pick slip'), /3-pick slip I like: .*from different games/);
+  assert.match(await bot.ask('build me a 3-pick slip'), /3-pick slip from my Elite and Strong picks: .*Parlay grade [A-F]/);
 });
 
 test('answers carry a card: the pick, its last 10, the numbers, the matchup', async () => {
@@ -167,8 +182,11 @@ test('answers carry a card: the pick, its last 10, the numbers, the matchup', as
   const {lead, card} = bot.card();
   assert.equal(card.kind, 'pick');
   assert.match(lead, /Tarik Skubal over 6\.5 K's vs KC\. I love this one\. Skubal has gone over in 8 of his last 10\./);
-  assert.doesNotMatch(lead, /grade A/);  // the card shows the grade and chance
-  assert.deepEqual([card.pick.player, card.pick.grade, card.pick.chance, card.pick.side, card.pick.line], ['Tarik Skubal', 'A', 0.66, 'OVER', 6.5]);
+  assert.doesNotMatch(lead, /Elite/);  // the card shows the tier and chance
+  assert.deepEqual([card.pick.player, card.pick.tier, Math.round(card.pick.chance * 100), card.pick.side, card.pick.line], ['Tarik Skubal', 'elite', 68, 'OVER', 6.5]);
+  // The same matchup panel as the Slip Analyzer: KC's strikeouts against lefties first.
+  assert.equal(card.pick.case.facts[0].key, 'lineup');
+  assert.equal(card.pick.case.label, 'Excellent matchup');
   assert.deepEqual(card.pick.record, {won: 8, games: 10});
   assert.deepEqual(card.pick.tiles.map(tile => [tile.key, tile.value, tile.label, tile.tone]), [['books', '61%', 'Books', 'up'], ['projection', '7.4', 'Projection', 'up']]);
   assert.equal(card.pick.matchup.text, 'KC strikes out 26% of the time (league 22%)');
@@ -217,6 +235,45 @@ test('a card reads the game log, venue and logos off the row', () => {
   assert.deepEqual([mlb.last[0].label, mlb.last[0].hit], ['9/28', true]);
   assert.deepEqual([mlb.matchup.name, mlb.matchup.face, mlb.matchup.tone], ['Aaron Nola', true, 'up']);
   assert.match(mlb.matchup.photo, /people\/605400\/headshot/);
+});
+
+test('build me a slip: Elite and Strong picks, none working against each other, graded as one', async () => {
+  const bot = makeBot({sports: ['mlb']});
+  const answer = await bot.ask('build me a 3-pick slip');
+  const card = bot.card().card;
+  assert.equal(card.kind, 'slip');
+  assert.ok(card.picks.every(pick => pick.tier === 'elite' || pick.tier === 'strong'));
+  // Witt bats against Skubal, whose strikeouts are already on it: left out, and said why.
+  assert.ok(card.picks.some(pick => pick.player === 'Tarik Skubal'));
+  assert.ok(!card.picks.some(pick => pick.player === 'Bobby Witt Jr.'));
+  assert.match(answer, /I left out Bobby Witt Jr\. over 1\.5 total bases vs DET: Skubal and Witt are on opposite sides of the same at-bats\./);
+  // Graded the Slip Analyzer's way: a letter, the chance all hit, the Power Play.
+  assert.match(card.letter, /^[A-F][+-]?$/);
+  assert.equal(card.payout, 6);
+  assert.ok(card.together > 0 && card.together < 1);
+  assert.match(bot.card().lead, /^Here's a 3-pick slip from my Elite and Strong picks \(\d Elite(, \d Strong)?\)\. Parlay grade /);
+  // Too few picks to trust: it says so instead of padding the slip.
+  assert.match(await bot.ask('build me a 6-pick slip'), /^I only see \d Elite or Strong picks? that don't work against each other right now/);
+});
+
+test('game news counts in the bot as it does in the Slip Analyzer: a player listed Out is a Fade', async () => {
+  const {rows, reads} = board();
+  const asked = [];
+  const bot = createBot({sports: ['mlb'], load: async () => rows,
+    judge: list => list.flatMap(item => ['OVER', 'UNDER'].map(side => reads.get(`${item.id}|${side}`))).filter(leg => leg?.backed),
+    assess: (item, side) => reads.get(`${item.id}|${side}`) || null, now: () => START, random: () => 0,
+    // His game's news (slip-games.js loadGames): the injury report has Skubal out.
+    games: async legs => { asked.push(...legs.map(leg => leg.row.player));
+      return Object.fromEntries(legs.map(leg => [leg.key, {state: 'pre', team: leg.row.teamAbbr, opponent: leg.row.opponent,
+        injuries: {DET: [{name: 'Tarik Skubal', status: 'Out', position: 'SP'}]}, player: null}])); }});
+  // Asked for the best K prop, the next one steps up.
+  assert.match(await bot.ask('best k prop'), /Logan Webb over 5\.5 K's vs LAD/);
+  assert.ok(asked.includes('Tarik Skubal'));
+  // Asked about him, the news is the red flag.
+  const verdict = await bot.ask('should I take Skubal over 6.5 Ks?');
+  assert.match(verdict, /^Red flag\. Skubal is listed Out\. Picks on a player who doesn't play are usually voided\./);
+  assert.equal(bot.card().card.pick.tier, 'fade');
+  assert.equal(bot.card().card.pick.case.facts[0].kind, 'news');
 });
 
 test('ranking keeps one pick per player', () => {
@@ -288,7 +345,7 @@ test('the analyst: hot lineups, strikeout rankings, a hitter\'s matchup, minutes
   assert.equal(bot.card().card.versus.name, 'Kevin Gausman');
   assert.match(await bot.ask('how many minutes is tatum playing'), /^Tatum is averaging 37\.1 minutes over his last 10 and 38\.2 over his last 5, holding steady\./);
   assert.equal(bot.card().card.values.length, 10);
-  assert.equal(await bot.ask("what's judge projected for"), 'Judge projects for 2.4 Hits+Runs+RBIs against the 1.5 line, 63% to go over.');
+  assert.equal(await bot.ask("what's judge projected for"), 'Judge projects for 2.4 Hits+Runs+RBIs against the 1.5 line, 59% to go over.');
   assert.equal(bot.card().card.pick.projection, 2.4);
   // A first name that's an everyday word names nobody off screen.
   assert.notEqual(bot.card(), null);
@@ -303,6 +360,10 @@ test('every pick needs a good matchup: a hot last 10 into a tough one is a red f
   // The best record and chance on the board, into a lineup that rarely strikes out.
   reads.set(`${hot.id}|OVER`, graded(hot, 'OVER', {grade: 'A', chance: 0.72, recent: [9, 10], matchup: 'NYY strike out 18% of the time (league 22%)', lift: 0.94}));
   reads.set(`${neutral.id}|OVER`, graded(neutral, 'OVER', {grade: 'A', chance: 0.7, recent: [8, 10], matchup: 'CHW strike out about the league rate', lift: 1.005}));
+  // What the analyzer's engine reads: NYY rarely strike out against righties, CHW about the league rate.
+  const league = {teams: 30, kRate: 0.22, vs: {R: {kRate: 0.22}}};
+  hot.matchup = {kind: 'lineup', league, lineup: {name: 'New York Yankees', kRate: 0.18, games: 150, vs: {R: {kRate: 0.18, kRateRank: 29}}}, self: {hand: 'R'}};
+  neutral.matchup = {kind: 'lineup', league, lineup: {name: 'Chicago White Sox', kRate: 0.22, games: 150, vs: {R: {kRate: 0.221, kRateRank: 15}}}, self: {hand: 'R'}};
   const all = [...rows, hot, neutral];
   const bot = createBot({sports: ['mlb'], load: async () => all,
     judge: list => list.flatMap(item => ['OVER', 'UNDER'].map(side => reads.get(`${item.id}|${side}`))).filter(leg => leg?.backed),
@@ -310,11 +371,13 @@ test('every pick needs a good matchup: a hot last 10 into a tough one is a red f
   // Neither is a pick: one has a tough matchup, the other only a neutral one.
   assert.match(await bot.ask('best k prop'), /Tarik Skubal over 6\.5 K's/);
   const verdict = await bot.ask('should I take Greene over 7.5 Ks?');
-  assert.match(verdict, /^Red flag\. He's 9 of his last 10, but the matchup is (caution|unfavorable) \(\d+\)\./);
+  assert.match(verdict, /^Red flag\. He's 9 of his last 10, but the matchup is (tough|bad) \(\d+\)\. NYY strikes out 18% of the time vs righties/);
   assert.equal(bot.card().card.verdict.label, 'Red flag');
   assert.equal(bot.card().card.pick.redFlag.startsWith("He's 9 of his last 10"), true);
-  assert.equal(bot.card().card.pick.rating.tone, 'tough');
-  assert.match(await bot.ask('why'), /Red flag: He's 9 of his last 10, but the matchup is unfavorable \(30\) \(NYY strike out 18% of the time \(league 22%\)\)\. Grade C, 72% to hit\.$/);
+  // The card shows the analyzer's matchup panel.
+  assert.ok(['tough', 'bad'].includes(bot.card().card.pick.case.tone));
+  assert.equal(bot.card().card.pick.case.facts[0].key, 'lineup');
+  assert.match(await bot.ask('why'), /Red flag: He's 9 of his last 10, but the matchup is (tough|bad) \(\d+\) \(NYY strikes out 18%.*\)\. (Risky|Fade), \d+% to hit\.$/);
   assert.match(await bot.ask('should I take Ryan over 5.5 Ks?'), /^Lean yes\. The numbers are there, but the matchup is only neutral\./);
 });
 
@@ -413,7 +476,8 @@ test('every pick card carries a scouting report: windows, games, splits, books a
     assess: (item, side) => item.id === goblin.id ? reads.get('goblin|OVER') : reads.get(`${item.id}|${side}`) || null, now: () => START, random: () => 0});
   await bot.ask('should I take kelce over 6.5 receptions');
   const ladder = bot.card().card.pick.report.ladder;
-  assert.deepEqual(ladder.map(item => [item.line, item.modifier, item.current, item.chance]), [[4.5, 'goblin', false, 0.81], [6.5, 'standard', true, 0.66]]);
+  // Each rung judged the same way as the pick itself.
+  assert.deepEqual(ladder.map(item => [item.line, item.modifier, item.current, Math.round(item.chance * 100)]), [[4.5, 'goblin', false, 77], [6.5, 'standard', true, 60]]);
   assert.equal(bot.card().card.pick.row.id, kelce.id);
 });
 

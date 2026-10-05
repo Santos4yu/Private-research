@@ -4,14 +4,21 @@
 // asks (a stat, a side, a line, players, a team, a sport, how many), with
 // typos and slang straightened out first and the conversation so far
 // filling in what a follow-up leaves unsaid ("what about the under?",
-// "is he safe?"). Today's picks are ranked with the same graded reads the
-// Smart Slip uses (smart-slip.js: record vs the line, projection,
-// matchup, books), and the reply is written from the numbers behind the
-// pick -- every one checkable on the player's page. A small profile per
-// member (what they ask about) lets it pick up where they left off.
+// "is he safe?"). Today's picks are read the way the Smart Slip reads them
+// (smart-slip.js: record vs the line, projection, books) and then judged
+// the way the Slip Analyzer judges them (slip-check.js judge: the matchup
+// case from slip-matchup.js first, the tiers Elite to Fade), so the bot
+// and the analyzer always agree on a pick. The reply is written from the
+// numbers behind the pick -- every one checkable on the player's page. A
+// small profile per member (what they ask about) lets it pick up where
+// they left off.
 
 import {candidates, reasons, POWER, assessLeg, gameKey} from './smart-slip.js';
 import {matchupRead, matchupGrade, withPoolDefense} from './slip-analyst.js';
+import {judge as judgeLeg, scoreEntry, TIERS} from './slip-check.js';
+import {link} from './slip-correlation.js';
+import {withGame} from './slip-games.js';
+import {withMatchups} from './slip-matchup.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const percent = value => `${Math.round(value * 100)}%`;
@@ -22,7 +29,11 @@ const nameKey = value => String(value || '').normalize('NFKD').replace(/[̀-ͯ]/
 const clean = value => String(value || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '')
   .replace(/[’`]/g, "'").replace(/&/g, ' and ').replace(/\s+/g, ' ').trim();
 const lastName = name => String(name || '').trim().split(/\s+/).filter(part => !/^(jr\.?|sr\.?|ii|iii|iv)$/i.test(part)).at(-1) || name;
-const GRADE_ORDER = {A: 0, B: 1, C: 2};
+const GRADE_ORDER = {A: 0, B: 1, C: 2, D: 3, F: 4};
+// The analyzer's tiers as the bot's letters (for ordering and its tone of voice).
+const TIER_GRADE = {elite: 'A', strong: 'B', lean: 'C', risky: 'D', fade: 'F'};
+/** "Strong", the analyzer's word for a pick; a letter when it has no tier. */
+export const gradeWord = leg => (leg?.tier ? TIERS[leg.tier].label : leg?.grade ? `grade ${leg.grade}` : '');
 const NUMBER_WORDS = {one: 1, two: 2, three: 3, four: 4, five: 5, six: 6};
 const FRESH_MS = 5 * 60 * 1000;
 const DAY_MS = 86400000;
@@ -422,39 +433,51 @@ const matchupLift = leg => {
 const byGrade = (a, b) => (GRADE_ORDER[a.grade] ?? 3) - (GRADE_ORDER[b.grade] ?? 3) || b.chance - a.chance;
 
 /**
- * Every pick needs a good matchup. A leg gets its matchup grade (0-100
- * for its side, slip-analyst.js matchupGrade); a tough one is a red flag
- * however good the last 10 looks: it can't be backed and grades no better
- * than C. `required` is whether the league has matchup reads at all today.
+ * Every pick is judged the Slip Analyzer's way (slip-check.js judge): the
+ * matchup case for his side (slip-matchup.js), his chance with the matchup
+ * counting most, and the tier. A tough matchup is a red flag however good
+ * the last 10 looks, and so is news that caps the pick (he's out, or out of
+ * the lineup). `required` is whether the league has opponent reads today.
  */
-export function withMatchup(leg, required) {
+export function withMatchup(leg, required, tables = {}) {
   if (!leg) return leg;
-  const matchup = matchupGrade(leg.read, leg.side);
-  const out = {...leg, matchup, matchupRequired: Boolean(required)};
-  if (matchup?.tone === 'tough') {
-    const recent = leg.records?.l10 || leg.records?.l5;
-    out.redFlag = recent && recent.rate >= 0.6
-      ? `He's ${recent.won} of his last ${recent.games}, but the matchup is ${matchup.label.toLowerCase()} (${matchup.score})`
-      : `The matchup is ${matchup.label.toLowerCase()} (${matchup.score})`;
+  const judged = judgeLeg(leg, tables);
+  const found = judged.matchup;
+  // The matchup's lean, on the tiers' own lines: 56+ can back a Strong pick, under 45 caps it at Risky.
+  const tone = !found ? null : found.score >= 56 ? 'good' : found.score < 45 ? 'tough' : 'neutral';
+  const lead = found?.facts.find(item => item.kind !== 'form') || found?.facts[0];
+  const out = {...judged, grade: TIER_GRADE[judged.tier] || leg.grade, matchupRequired: Boolean(required),
+    matchup: found ? {...found, band: found.tone, tone, text: lead?.text || ''} : null};
+  const news = found?.facts.find(item => item.kind === 'news' && item.level);
+  const recent = leg.records?.l10 || leg.records?.l5;
+  if (judged.capped && news) {
+    out.redFlag = news.text;
     out.backed = false;
-    if (out.grade === 'A' || out.grade === 'B') out.grade = 'C';
-  }
+  } else if (tone === 'tough') {
+    // "Tough matchup" -> "the matchup is tough (39)".
+    const band = found.label.replace(/\s*matchup$/i, '').toLowerCase();
+    out.redFlag = recent && recent.rate >= 0.6
+      ? `He's ${recent.won} of his last ${recent.games}, but the matchup is ${band} (${found.score})`
+      : `The matchup is ${band} (${found.score})`;
+    out.flagWhy = found.facts.find(item => item.tone === 'down')?.text || null;
+    out.backed = false;
+  } else if (judged.tier === 'risky' || judged.tier === 'fade') out.backed = false;
   return out;
 }
-export function gradeMatchups(legs) {
-  const scored = new Set(legs.filter(leg => finite(matchupGrade(leg.read, leg.side)?.score)).map(leg => String(leg.row?.sport || 'mlb')));
-  return legs.map(leg => withMatchup(leg, scored.has(String(leg.row?.sport || 'mlb'))));
+/** A day's legs judged; a league "requires" matchups when any of its picks has an opponent read. */
+export function gradeMatchups(legs, tables = {}) {
+  const judged = legs.map(leg => withMatchup(leg, false, tables));
+  const read = new Set(judged.filter(leg => leg?.matchup?.primary).map(leg => String(leg.row?.sport || 'mlb')));
+  return judged.map(leg => leg && {...leg, matchupRequired: read.has(String(leg.row?.sport || 'mlb'))});
 }
-// The red flag in words, with what's behind it: the model's factors run on
-// from its score ("... unfavorable (30) vs Chris Sale: a tough starter"),
-// any other read follows as its own sentence.
+// The red flag in words, with what's behind it.
 function redFlagWords(leg) {
-  const text = leg.matchup?.text || '';
-  const behind = text.match(/^[A-Z][a-z ]+ matchup \(\d+\)( vs .*)$/);
-  return behind ? sentence(`${leg.redFlag}${behind[1]}`) : `${sentence(leg.redFlag)}${text ? ` ${sentence(text)}` : ''}`;
+  return `${sentence(leg.redFlag)}${leg.flagWhy ? ` ${sentence(leg.flagWhy)}` : ''}`;
 }
-// A pick we'd recommend: a good matchup, or no matchup read in a league that has none today.
-const passesMatchup = leg => leg.matchup?.tone === 'good' || (!leg.matchupRequired && !leg.matchup);
+// A pick we'd recommend: Elite or Strong (a good matchup and the numbers
+// behind it), or a Lean in a league with no opponent reads today.
+const passesMatchup = leg => (leg.tier ? leg.tier === 'elite' || leg.tier === 'strong' || (!leg.matchupRequired && leg.tier === 'lean')
+  : !leg.matchupRequired);
 
 /** Today's picks for a question, best first, one per player. */
 export function rank(legs, ask) {
@@ -612,12 +635,13 @@ export function pickCard(leg, {ladder = []} = {}) {
   const matchup = matchupOf(leg);
   const pitcher = row.sport === 'mlb' && row.matchup?.kind === 'pitcher' ? row.matchup.pitcher : null;
   const lift = matchup ? matchupLift(leg) : 0;
+  const model = matchupGrade(leg.read, side);
   return {
     player: leg.player, headshot: row.headshot || null, position: row.position || null, sport: row.sport || 'mlb',
     team: row.teamAbbr || null, teamLogo: row.teamLogo || null,
     opponent: row.opponent || null, opponentLogo: opponentLogo(row), home: typeof row.isHome === 'boolean' ? row.isHome : null,
     time: timeOf(row.startsAt), side, line, stat: row.market || statShort(leg), short: statShort(leg),
-    modifier: leg.modifier || 'standard', grade: leg.grade || null, chance: leg.chance, backed: leg.backed !== false,
+    modifier: leg.modifier || 'standard', grade: leg.grade || null, tier: leg.tier || null, chance: leg.chance, backed: leg.backed !== false,
     projection: finite(projection) ? Math.round(projection * 10) / 10 : null,
     record: recent ? {won: recent.won, games: recent.games} : null, last, tiles,
     matchup: matchup?.text ? {
@@ -626,11 +650,15 @@ export function pickCard(leg, {ladder = []} = {}) {
       name: pitcher?.name || row.opponent || null, hand: pitcher?.hand || null,
     } : null,
     risks: (leg.read?.risks || []).slice(0, 2),
-    rating: leg.matchup ? {score: leg.matchup.score, label: leg.matchup.label, tone: leg.matchup.tone, versus: row.hitterMatchup?.pitcher?.name || null,
-      factors: (leg.matchup.factors || []).filter(item => item.available && finite(item.impact))
+    // The Slip Analyzer's matchup panel (slip-matchup.js), as it reads there.
+    case: leg.matchup?.facts?.length ? {score: leg.matchup.score, label: leg.matchup.label, tone: leg.matchup.band || leg.matchup.tone,
+      primary: Boolean(leg.matchup.primary), facts: leg.matchup.facts} : null,
+    // The Research model's factors and the starter's pitches (MLB hitters), for the pitch-mix chart.
+    rating: model ? {score: model.score, label: model.label, tone: model.tone, versus: row.hitterMatchup?.pitcher?.name || null,
+      factors: (model.factors || []).filter(item => item.available && finite(item.impact))
         .map(item => ({name: item.name, impact: (leg.side === 'UNDER' ? -1 : 1) * item.impact, detail: item.detail}))
         .sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact)).slice(0, 5),
-      pitches: (leg.matchup.pitches || []).slice(0, 4)} : null,
+      pitches: (model.pitches || []).slice(0, 4)} : null,
     redFlag: leg.redFlag || null,
     report: pickReport(leg, {ladder}),
     // The line itself, for the card's buttons (add to My Slip, open in the Finder).
@@ -682,7 +710,7 @@ const top = counts => Object.entries(counts || {}).sort((a, b) => b[1] - a[1]).m
  * moves (optional).
  */
 export function createBot({load, sports = ['mlb'], judge = rows => candidates(rows), assess = assessLeg, profile = null,
-  moves = null, sheets = null, now = () => Date.now(), random = Math.random} = {}) {
+  moves = null, sheets = null, matchups = null, games = null, now = () => Date.now(), random = Math.random} = {}) {
   const allowed = sports.filter(sport => SPORTS[sport]);
   const boards = {};
   let movesCache = {at: 0, list: []};
@@ -703,9 +731,12 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     if (entry.at && now() - entry.at < FRESH_MS) return entry;
     entry.pending ||= (async () => {
       try {
-        const rows = await load(sport);
-        Object.assign(entry, {rows: withPoolDefense((rows || []).map(row => ({...row, sport: row.sport || sport}))), at: now(), failed: false});
-        entry.legs = gradeMatchups(judge(entry.rows));
+        // The lines and the league's matchup tables (slip-matchup.js loadMatchups), side by side.
+        const [rows, tables] = await Promise.all([load(sport), matchups ? matchups(sport).catch(() => ({})) : {}]);
+        entry.tables = tables || {};
+        const listed = (rows || []).map(row => withMatchups({...row, sport: row.sport || sport}, entry.tables));
+        Object.assign(entry, {rows: withPoolDefense(listed), at: now(), failed: false});
+        entry.legs = gradeMatchups(judge(entry.rows), entry.tables);
         entry.matchups = entry.legs.some(leg => leg.matchupRequired);
       } catch {
         entry.failed = !entry.rows.length;
@@ -719,6 +750,27 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     return allowed.map(sport => ({sport, ...boards[sport]}));
   };
   const allRows = () => allowed.flatMap(sport => boards[sport]?.rows || []);
+  // A pick's game news (slip-games.js, via `games`: the injury report, the
+  // lineups), judged again with it -- as the Slip Analyzer does -- for the
+  // picks the bot talks about. Kept a few minutes per line.
+  const news = new Map();
+  async function withNews(leg) {
+    if (!games || !leg?.row) return leg;
+    const key = String(leg.row.id ?? `${leg.player}:${leg.row.market}`);
+    let held = news.get(key);
+    if (!held || now() - held.at > 3 * 60000) {
+      try { held = {at: now(), game: (await games([{key, row: leg.row}]))?.[key] || null}; } catch { held = {at: now(), game: null}; }
+      news.set(key, held);
+    }
+    if (!held.game) return leg;
+    const entry = boards[leg.row.sport || 'mlb'];
+    return withMatchup({...leg, chance: leg.trendChance ?? leg.chance, row: withGame(leg.row, held.game)}, leg.matchupRequired, entry?.tables || {});
+  }
+  // One side of one line, read and judged the way the board's picks are.
+  const readSide = (row, side) => {
+    const entry = boards[row.sport || 'mlb'];
+    return withMatchup(assess(row, side, {now: now()}), Boolean(entry?.matchups), entry?.tables || {});
+  };
   const allLegs = () => allowed.flatMap(sport => boards[sport]?.legs || []);
 
   async function recentMoves() {
@@ -795,6 +847,14 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
   }
 
   const answerPick = async (ask, ranked, index = 0) => {
+    // The news can knock a pick out (he's out, or out of the lineup): asked
+    // for the best, the next one steps up; asked about him, he's shown with it.
+    ranked = ranked.slice();
+    for (let tries = 0; tries < 3 && index < ranked.length; tries++) {
+      ranked[index] = await withNews(ranked[index]);
+      if (ask.players?.length || passesMatchup(ranked[index]) || index === ranked.length - 1) break;
+      ranked.splice(index, 1);
+    }
     ctx = {...ctx, ask, ranked, index, sport: ranked[index].row.sport, player: ranked[index].player, leg: ranked[index]};
     const leg = ranked[index];
     const name = lastName(leg.player);
@@ -807,7 +867,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     const confidence = leg.redFlag ? `Red flag: ${lower(leg.redFlag)}, so I wouldn't back it.` : pick(CONFIDENCE[leg.grade] || CONFIDENCE.C, random);
     const moved = await moveNote(leg);
     answer = {lead: tidy(`${opener} ${pickLine(leg)}. ${confidence} ${sentence(facts[0] || '')}${moved}`), card: {kind: 'pick', pick: fullCard(leg)}};
-    return tidy(`${opener} ${pickLine(leg)} (grade ${leg.grade}, ${percent(leg.chance)} to hit). ${confidence} ${sentence(join(facts))}${watch}${moved}`);
+    return tidy(`${opener} ${pickLine(leg)} (${gradeWord(leg)}, ${percent(leg.chance)} to hit). ${confidence} ${sentence(join(facts))}${watch}${moved}`);
   };
 
   // ---------------------------------------------------------------- the cheat sheets
@@ -975,7 +1035,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
       && (stat ? statMatches(stat, item) : nameKey(item.market) === nameKey(leg.row.market)));
     if (rows.length < 2) return [];
     return rows.map(item => {
-      const read = item.id === leg.row.id ? leg : assess(item, leg.side, {now: now()});
+      const read = item.id === leg.row.id ? leg : readSide(item, leg.side);
       const recent = read?.records?.l10 || read?.records?.l5 || null;
       return {line: item.line, modifier: String(item.modifier || 'standard').toLowerCase(), current: item.id === leg.row.id,
         chance: finite(read?.chance) ? read.chance : null, recent: recent ? {won: recent.won, games: recent.games} : null};
@@ -986,8 +1046,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
   /** A yes/no on one side of one line, whether or not it's a pick we'd make. */
   async function verdict(row, side, ask) {
     const sides = side ? [side, side === 'OVER' ? 'UNDER' : 'OVER'] : ['OVER', 'UNDER'];
-    const required = Boolean(boards[row.sport || 'mlb']?.matchups);
-    const reads = sides.map(item => withMatchup(assess(row, item, {now: now()}), required));
+    const reads = await Promise.all(sides.map(item => withNews(readSide(row, item))));
     if (!reads[0] && !reads[1]) return `I don't have enough history on ${row.player} to call that one (or it starts too soon).`;
     let [chosen, other] = reads;
     if (!side && other && (!chosen || other.chance > chosen.chance)) [chosen, other] = [other, chosen];
@@ -998,13 +1057,13 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     let call;
     if (chosen.redFlag) call = `Red flag. ${redFlagWords(chosen)}`;
     else if (chosen.backed && chosen.matchup?.tone === 'neutral') call = 'Lean yes. The numbers are there, but the matchup is only neutral.';
-    else if (chosen.backed && chosen.grade === 'A') call = pick(['Yes. I love it.', 'Yes, that\'s one of my favorite spots today.'], random);
+    else if (chosen.backed && chosen.tier === 'elite') call = pick(['Yes. I love it.', 'Yes, that\'s one of my favorite spots today.'], random);
     else if (chosen.backed) call = pick(['Yes, I like it.', 'I\'d take it.'], random);
     else if (chosen.chance >= 0.53) call = 'Lean yes, but it\'s thin.';
     else if (other?.backed) call = `I'd flip it. The ${sideWord(other)} is the better side at ${percent(other.chance)}.`;
     else call = `I'd pass. That's close to a coin flip.`;
     suggestions = ['Why?', side === 'UNDER' ? 'What about the over?' : 'What about the under?', `Best ${statOfRow(row)?.name || ''} prop today`.replace('  ', ' '), 'Next best'];
-    const head = side || !other ? `${pickLine(chosen)}: ${percent(chosen.chance)} to hit${chosen.grade ? `, grade ${chosen.grade}` : ''}.`
+    const head = side || !other ? `${pickLine(chosen)}: ${percent(chosen.chance)} to hit${gradeWord(chosen) ? `, ${gradeWord(chosen)}` : ''}.`
       : `${pickLine(chosen)} is the better side at ${percent(chosen.chance)}.`;
     const moved = await moveNote(chosen);
     const tone = chosen.redFlag ? (other?.backed && !other.redFlag ? 'flip' : 'pass')
@@ -1179,7 +1238,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
       suggestions = ['Why #1?', 'Build me a 3-pick slip', 'Safest pick'];
       const label = `Top ${Math.min(question.count, ranked.length)} ${question.stat ? question.stat.name + ' ' : ''}props today:`;
       answer = {lead: `${label.replace(/:$/, '.')} Ask "why #1" for the breakdown.`, card: {kind: 'list', picks: ranked.slice(0, question.count).map(pickCard)}};
-      return `${label} ${ranked.slice(0, question.count).map((leg, index) => `${index + 1}) ${pickLine(leg)}, ${leg.grade}, ${percent(leg.chance)}`).join('; ')}. Ask "why #1" for the breakdown.`;
+      return `${label} ${ranked.slice(0, question.count).map((leg, index) => `${index + 1}) ${pickLine(leg)}, ${gradeWord(leg)}, ${percent(leg.chance)}`).join('; ')}. Ask "why #1" for the breakdown.`;
     }
     return answerPick(question, ranked);
   }
@@ -1204,7 +1263,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     const rows = allRows().filter(row => row.player === player && (!stat || statMatches(stat, row)));
     const row = rows.find(standard) || rows[0];
     if (!row) return null;
-    return assess(row, 'OVER', {now: now()}) || assess(row, 'UNDER', {now: now()})
+    return readSide(row, 'OVER') || readSide(row, 'UNDER')
       || {row, player, side: 'OVER', modifier: 'standard', records: {}, read: null, chance: null, grade: null, backed: false};
   }
 
@@ -1474,7 +1533,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
       if (leg) {
         ctx = {ask: {intent: 'best', players: [player], raw: '', text: ''}, ranked: [leg], index: 0, sport: leg.row.sport, player, leg};
         answer = {lead: `Welcome back! You were asking about ${lastName(player)} before, and he's got a good spot today. What else are we looking at?`, card: {kind: 'pick', pick: fullCard(leg)}};
-        return `Welcome back! You were asking about ${lastName(player)} before, and he's got a good spot today: ${pickLine(leg)} (grade ${leg.grade}, ${percent(leg.chance)}). What else are we looking at?`;
+        return `Welcome back! You were asking about ${lastName(player)} before, and he's got a good spot today: ${pickLine(leg)} (${gradeWord(leg)}, ${percent(leg.chance)}). What else are we looking at?`;
       }
     }
     if (back && stat) return `Welcome back! Want your usual, the best ${stat.name} prop? Or ask me anything about today's board.`;
@@ -1499,9 +1558,9 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     const drawn = lower(matchupOf(leg)?.text || '');
     answer = {lead: leg.redFlag ? `Careful with ${pickLine(leg)}. ${sentence(leg.redFlag)}` : `Here's why I like ${pickLine(leg)}.`,
       card: {kind: 'pick', pick: fullCard(leg), reasons: facts.filter(fact => fact !== drawn).slice(0, 5).map(sentence)}};
-    const against = leg.redFlag ? ` Red flag: ${lower(leg.redFlag)}${leg.matchup?.text ? ` (${lower(leg.matchup.text)})` : ''}.${risks.length ? ` Also: ${join(risks.map(lower))}.` : ''}`
+    const against = leg.redFlag ? ` Red flag: ${lower(leg.redFlag)}${leg.flagWhy ? ` (${lower(leg.flagWhy)})` : ''}.${risks.length ? ` Also: ${join(risks.map(lower))}.` : ''}`
       : risks.length ? ` Risks: ${join(risks.map(lower))}.` : ' Nothing major argues against it.';
-    return `Why ${pickLine(leg)}: ${join(facts.slice(0, 5))}.${against} Grade ${leg.grade}, ${percent(leg.chance)} to hit.`;
+    return `Why ${pickLine(leg)}: ${join(facts.slice(0, 5))}.${against} ${sentence(gradeWord(leg)).replace(/\.$/, ',')} ${percent(leg.chance)} to hit.`;
   }
 
   async function another() {
@@ -1526,7 +1585,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     const best = player => {
       const lines = allRows().filter(row => row.player === player && String(row.modifier || 'standard').toLowerCase() === 'standard'
         && (!question.stat || statMatches(question.stat, row)));
-      return lines.flatMap(row => ['OVER', 'UNDER'].map(side => assess(row, side, {now: now()}))).filter(Boolean)
+      return lines.flatMap(row => ['OVER', 'UNDER'].map(side => readSide(row, side))).filter(Boolean)
         .sort((a, b) => (b.backed - a.backed) || b.chance - a.chance)[0] || null;
     };
     const [a, b] = [best(first), best(second)];
@@ -1538,7 +1597,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     const facts = evidence(win).slice(0, 2);
     const versus = lose ? ` vs ${pickLine(lose)} at ${percent(lose.chance)}${lose.backed ? '' : ', which I wouldn\'t play'}` : '';
     answer = {lead: tidy(`I'd go ${lastName(win.player)}. ${sentence(facts[0] || '')}`), card: {kind: 'compare', picks: [win, lose].filter(Boolean).map(pickCard)}};
-    return `I'd go ${lastName(win.player)}. ${pickLine(win)} is ${percent(win.chance)} to hit (grade ${win.grade})${versus}. ${sentence(join(facts))}`.replace(/\s+/g, ' ').trim();
+    return `I'd go ${lastName(win.player)}. ${pickLine(win)} is ${percent(win.chance)} to hit (${gradeWord(win)})${versus}. ${sentence(join(facts))}`.replace(/\s+/g, ' ').trim();
   }
 
   async function rundown(question) {
@@ -1550,12 +1609,12 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     const first = rows.map(row => Date.parse(row.startsAt || '')).filter(Number.isFinite).sort((a, b) => a - b)[0];
     const legs = boards[sport].legs;
     const topPlay = rank(legs, {intent: 'best', sport})[0];
-    const matchup = rank(legs, {intent: 'matchup', sport}).find(leg => leg !== topPlay && matchupLift(leg) >= 0.03);
+    const matchup = rank(legs, {intent: 'matchup', sport}).find(leg => leg !== topPlay && leg.matchup?.tone === 'good');
     const sleeper = rank(legs, {intent: 'value', sport})[0];
     remember({...question, sport}, topPlay ? [topPlay] : []);
     const parts = [`Today's ${SPORTS[sport].name} slate: ${games} ${SPORTS[sport].game}${first ? `, ${SPORTS[sport].start} at ${timeOf(first)}` : ''}.`];
-    if (topPlay) parts.push(`Top play: ${pickLine(topPlay)} (${topPlay.grade}, ${percent(topPlay.chance)}).`);
-    if (matchup) parts.push(`Best matchup: ${pickLine(matchup)}, ${lower(matchupOf(matchup)?.text || '')}.`.replace(', .', '.'));
+    if (topPlay) parts.push(`Top play: ${pickLine(topPlay)} (${gradeWord(topPlay)}, ${percent(topPlay.chance)}).`);
+    if (matchup) parts.push(`Best matchup: ${pickLine(matchup)}, ${lower(matchup.matchup?.text || matchupOf(matchup)?.text || '')}.`.replace(', .', '.'));
     if (sleeper) parts.push(`Long shot: ${pickLine(sleeper)} at ${percent(sleeper.chance)}.`);
     const others = sports.slice(1).map(item => `${SPORTS[item].name} has ${new Set(boards[item].rows.map(gameKey)).size} games too`);
     if (others.length && !question.sport) parts.push(`${others.join(' and ')}.`);
@@ -1568,23 +1627,48 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     return parts.join(' ');
   }
 
+  /**
+   * A slip built from today's Elite and Strong picks, best first. A pick
+   * that works against one already on it (a pitcher's strikeouts and a
+   * hitter he faces) is left out, no more than two come from one game, and
+   * the whole slip is graded the Slip Analyzer's way (slip-check.js
+   * scoreEntry: the linked chance, the payout, the letter).
+   */
   async function slip(question) {
-    const chosen = [];
-    const games = new Set();
-    for (const leg of rank(allLegs(), {...question, intent: 'safest', count: 6})) {
-      if (leg.grade === 'C' || games.has(leg.game)) continue;
-      chosen.push(leg); games.add(leg.game);
+    const pool = rank(allLegs(), {...question, intent: 'best'}).filter(leg => leg.tier === 'elite' || leg.tier === 'strong');
+    const asPick = leg => ({row: leg.row, side: leg.side, player: leg.player});
+    const chosen = [], perGame = new Map();
+    let avoided = null;
+    for (const leg of pool) {
+      const against = chosen.map(other => link(asPick(other), asPick(leg))).find(found => found && found.rho <= -0.03);
+      if (against) { avoided ||= {leg, text: against.text}; continue; }
+      if ((perGame.get(leg.game) || 0) >= 2) continue;
+      chosen.push(leg);
+      perGame.set(leg.game, (perGame.get(leg.game) || 0) + 1);
       if (chosen.length === question.count) break;
     }
     remember(question, chosen);
-    if (chosen.length < question.count) return `I only see ${chosen.length || 'no'} pick${chosen.length === 1 ? '' : 's'} I'd trust from different games right now, not enough for a ${question.count}-pick slip. Try a smaller one.`;
-    const together = chosen.reduce((product, leg) => product * leg.chance, 1);
+    if (chosen.length < question.count) {
+      return `I only see ${chosen.length || 'no'} Elite or Strong pick${chosen.length === 1 ? '' : 's'} that don't work against each other right now, not enough for a ${question.count}-pick slip. Try a smaller one.`;
+    }
+    const score = scoreEntry(chosen.map((leg, index) => ({key: String(index), player: leg.player, side: leg.side, row: leg.row, line: leg.row.line, grade: leg})),
+      {app: {key: 'prizepicks'}, entry: {type: 'power'}});
     ctx = {...ctx, ask: question, ranked: chosen, index: 0, sport: chosen[0].row.sport, player: chosen[0].player, leg: chosen[0]};
     const payout = POWER[chosen.length];
-    answer = {lead: `Here's a ${chosen.length}-pick slip I like. Every leg grades B or better and they're from different games.`,
-      card: {kind: 'slip', picks: chosen.map(pickCard), together, payout: payout || null}};
-    suggestions = ['Why the first leg?'.replace('the first leg', lastName(chosen[0].player)), question.count > 2 ? `Make it ${question.count - 1} picks` : 'Make it 3 picks', question.count < 6 ? `Make it ${question.count + 1} picks` : 'Safest pick'];
-    return `Here's a ${chosen.length}-pick slip I like: ${chosen.map(pickLine).join('; ')}. Every leg grades B or better and they're from different games. All ${chosen.length} hit about ${percent(together)} of the time${payout ? `, a ${payout}x Power Play` : ''}.`;
+    const together = score?.links?.filter(pair => pair.tone === 'together') || [];
+    const notes = [
+      together[0] && `${sentence(together[0].text)} That helps the slip.`,
+      avoided && `I left out ${pickLine(avoided.leg)}: ${avoided.text}.`,
+    ].filter(Boolean).join(' ');
+    const mix = Object.entries(score?.tiers || {}).filter(([, count]) => count).map(([key, count]) => `${count} ${TIERS[key].label}`).join(', ');
+    answer = {lead: tidy(`Here's a ${chosen.length}-pick slip from my Elite and Strong picks (${mix}). Parlay grade ${score?.letter || '–'}. ${notes}`),
+      card: {kind: 'slip', picks: chosen.map(pickCard), together: score?.chance ?? chosen.reduce((product, leg) => product * leg.chance, 1),
+        payout: payout || null, letter: score?.letter || null, value: score?.value ?? null,
+        links: (score?.links || []).map(pair => ({text: pair.text, tone: pair.tone}))}};
+    suggestions = [...new Set([`Why ${lastName(chosen[0].player)}?`, question.count > 2 ? `Make it ${question.count - 1} picks` : 'Safest pick',
+      question.count < 6 ? `Make it ${question.count + 1} picks` : 'Safest pick'])];
+    return tidy(`Here's a ${chosen.length}-pick slip from my Elite and Strong picks: ${chosen.map(leg => `${pickLine(leg)} (${gradeWord(leg)})`).join('; ')}. `
+      + `Parlay grade ${score?.letter || '–'}: all ${chosen.length} hit about ${percent(score?.chance ?? 0)} of the time${payout ? `, a ${payout}x Power Play` : ''}. ${notes}`);
   }
 
   /**

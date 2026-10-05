@@ -114,7 +114,7 @@ export async function drawPick(pick) {
   set(84, 800); ctx.fillStyle = '#fff';
   ctx.fillText(`${Math.round(pick.chance * 100)}%`, W - PAD - 36, boxY + 110);
   set(22, 700); ctx.fillStyle = MUTED;
-  ctx.fillText(pick.grade ? `TO HIT · GRADE ${pick.grade}` : 'TO HIT', W - PAD - 36, boxY + 146);
+  ctx.fillText(pick.tier ? `TO HIT · ${pick.tier.toUpperCase()}` : pick.grade ? `TO HIT · GRADE ${pick.grade}` : 'TO HIT', W - PAD - 36, boxY + 146);
 
   // His last ten games against the line.
   const last = pick.last || [];
@@ -168,10 +168,11 @@ export async function drawPick(pick) {
     ctx.fillText(`${ring.won}/${ring.games}`, x, ringY + 120);
   });
 
-  // The matchup, when there's a grade for it.
-  const rating = pick.rating;
+  // The matchup, when there's a grade for it: the Slip Analyzer's case first.
+  const rating = pick.case || pick.rating;
   set(22, 600); ctx.textAlign = 'center'; ctx.fillStyle = MUTED;
-  if (rating) ctx.fillText(fit(ctx, `${rating.label} matchup (${rating.score})${rating.versus ? ` vs ${rating.versus}` : ''}`, W - PAD * 2), cx, H - 34);
+  if (pick.case) ctx.fillText(fit(ctx, `${pick.case.label} (${pick.case.score})${pick.case.facts[0] ? ` · ${pick.case.facts[0].text}` : ''}`, W - PAD * 2), cx, H - 34);
+  else if (rating) ctx.fillText(fit(ctx, `${rating.label} matchup (${rating.score})${rating.versus ? ` vs ${rating.versus}` : ''}`, W - PAD * 2), cx, H - 34);
   else if (pick.matchup?.text) ctx.fillText(fit(ctx, pick.matchup.text, W - PAD * 2), cx, H - 34);
 
   return canvas;

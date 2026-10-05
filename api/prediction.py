@@ -316,6 +316,19 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(status, body)
             except Exception:
                 return self._send(422, {"error": "That screenshot couldn't be read. Try again, or use a clearer one."})
+        if action == "slip-games":
+            # Each pick's game: status, score, injuries, lineups and the
+            # players' lines so far (slip_games.py). Free league sources only.
+            try:
+                content_length = int(self.headers.get("Content-Length") or 0)
+                if content_length < 1 or content_length > 16_384:
+                    return self._send(413, {"error": "Invalid request size."})
+                import slip_games
+                return self._send(200, slip_games.read(json.loads(self.rfile.read(content_length) or b"{}")))
+            except (TypeError, ValueError, json.JSONDecodeError):
+                return self._send(400, {"error": "Invalid request."})
+            except Exception:
+                return self._send(503, {"error": "Game updates are unavailable right now."})
         if action != "prizepicks-export":
             return self._send(404, {"error": "Unknown action."})
         try:

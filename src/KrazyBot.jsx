@@ -6,6 +6,8 @@ import {BotCard} from './KrazyBotCard';
 import {KrazyBotHome,LOOK_QUESTIONS} from './KrazyBotHome';
 import {loadLines} from './finder-pool';
 import {loadHitterMatchups,withHitterMatchups} from './unified-finder-data';
+import {loadMatchups} from './slip-matchup';
+import {loadGames,loadTeammates,withGame} from './slip-games';
 import {isPrizePicksLine} from './smart-slip';
 import {siteFinderSportAllowed} from './site-access';
 import {useVoice} from './voice-input';
@@ -56,6 +58,16 @@ export function KrazyBot(){
    const rows=await loadLines(sport,{only:row=>isPrizePicksLine(row)&&Date.parse(row.startsAt||'')>now+10*60000});
    // MLB hitters carry the Research matchup grade (pitch mix and all).
    return sport==='mlb'?withHitterMatchups(rows,await loadHitterMatchups().catch(()=>null)):rows;
+  },
+  // Each league's matchup tables (slip-matchup.js), so every pick is judged
+  // exactly as the Slip Analyzer judges it.
+  matchups:sport=>loadMatchups([sport]),
+  // A pick's game news (injury report, lineups, what a teammate's absence
+  // has meant), the same the Slip Analyzer reads (slip-games.js).
+  games:async legs=>{
+   const found=await loadGames(legs);
+   const mates=await loadTeammates(legs.filter(leg=>found[leg.key]).map(leg=>({key:leg.key,row:withGame(leg.row,found[leg.key])}))).catch(()=>({}));
+   return Object.fromEntries(Object.entries(found).map(([key,game])=>[key,{...game,teammates:mates[key]||[]}]));
   },
   // Today's MLB cheat sheets (mlb_sheets.py) for questions about NRFIs, weather, streaks and more.
   sheets:async name=>{

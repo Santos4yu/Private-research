@@ -135,6 +135,12 @@ html:has(#panel-bot:not([hidden])),body:has(#panel-bot:not([hidden])){overflow:h
 .kb-grade[data-grade="B"]{background:rgba(96,165,250,.14);color:#93c5fd;border-color:rgba(96,165,250,.35)}
 .kb-grade[data-grade="C"]{background:rgba(251,191,36,.12);color:#fcd34d;border-color:rgba(251,191,36,.32)}
 .kb-grade[data-size="sm"]{width:24px;height:24px;border-radius:7px;font-size:12px}
+/* The Slip Analyzer's tiers (slip-analyzer.css), the same colors. */
+.kb-tier{--tier:#6aa8ff;flex:none;align-self:center;padding:6px 10px;border:1px solid color-mix(in srgb,var(--tier) 40%,transparent);border-radius:999px;
+ background:color-mix(in srgb,var(--tier) 15%,transparent);color:var(--tier);font-size:11px;font-weight:800;letter-spacing:.08em;line-height:1;text-transform:uppercase;white-space:nowrap}
+.kb-tier[data-tier=elite]{--tier:#46e39a}.kb-tier[data-tier=strong]{--tier:#3cc9b9}.kb-tier[data-tier=lean]{--tier:#6aa8ff}
+.kb-tier[data-tier=risky]{--tier:#f6b955}.kb-tier[data-tier=fade]{--tier:#ff7b8a}
+.kb-tier[data-size="sm"]{padding:4px 7px;font-size:9.5px}
 .kb-verdict{flex:none;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:700;background:rgba(var(--kb-up),.14);color:rgb(var(--kb-up));border:1px solid rgba(var(--kb-up),.35)}
 .kb-verdict[data-tone="lean"]{background:rgba(96,165,250,.14);color:#93c5fd;border-color:rgba(96,165,250,.35)}
 .kb-verdict[data-tone="flip"]{background:rgba(251,191,36,.12);color:#fcd34d;border-color:rgba(251,191,36,.32)}
@@ -265,6 +271,13 @@ html:has(#panel-bot:not([hidden])),body:has(#panel-bot:not([hidden])){overflow:h
 .kb-slip-foot>span{flex:1;display:grid;gap:2px;padding:9px 12px;border-radius:12px;background:rgba(var(--kb-up),.08);border:1px solid rgba(var(--kb-up),.25)}
 .kb-slip-foot small{font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:rgba(236,236,241,.55)}
 .kb-slip-foot strong{font-size:18px;font-weight:800;color:#fff}
+.kb-slip-letter[data-letter=A]{color:#46e39a}.kb-slip-letter[data-letter=B]{color:#93c5fd}.kb-slip-letter[data-letter=C]{color:#fcd34d}
+.kb-slip-letter[data-letter=D],.kb-slip-letter[data-letter=F]{color:#fca5a5}
+/* Picks that help (or hurt) each other on the slip. */
+.kb-slip-links{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.kb-slip-links li{display:grid;grid-template-columns:16px minmax(0,1fr);gap:8px;align-items:start;color:rgba(236,236,241,.82);font-size:12.5px;line-height:1.4}
+.kb-slip-links svg{width:15px;height:15px;margin-top:1px;color:#46e39a}
+.kb-slip-links li[data-tone=against] svg{color:#f6b955}
 
 /* Projection against the line. */
 .kb-gauge{display:grid;gap:8px}
@@ -470,6 +483,9 @@ html:has(#panel-bot:not([hidden])),body:has(#panel-bot:not([hidden])){overflow:h
 .kb-actions{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:6px}
 .kb-actions button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:38px;padding:8px 10px;border-radius:11px;border:1px solid var(--kb-line);background:rgba(255,255,255,.05);color:#ececf1;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;transition:background .2s,border-color .2s,transform .15s}
 .kb-actions button:first-child{background:linear-gradient(180deg,#3b82f6,#1d4ed8);border-color:rgba(147,197,253,.4);color:#fff}
+/* The slip card's one action, the full width. */
+.kb-card[data-kind=slip] .kb-actions{grid-template-columns:1fr}
+.kb-card[data-kind=slip] .kb-actions button{white-space:nowrap}
 .kb-actions button[data-done]{background:rgba(var(--kb-up),.14);border-color:rgba(var(--kb-up),.4);color:rgb(var(--kb-up))}
 .kb-actions button:hover{background:rgba(255,255,255,.09)}
 .kb-actions button:first-child:not([data-done]):hover{background:linear-gradient(180deg,#60a5fa,#2563eb)}
@@ -590,7 +606,7 @@ html:has(#panel-bot:not([hidden])),body:has(#panel-bot:not([hidden])){overflow:h
 .mo-root[data-phase="answered"] .kb-bar b{animation:kb-pop .35s cubic-bezier(.34,1.56,.64,1) calc(var(--kb-d,0s) + .9s + var(--i,0) * 55ms) both}
 .mo-root[data-phase="answered"] :is(.kb-meter,.kb-row-meter) i{animation:kb-fill 1.1s cubic-bezier(.16,1,.3,1) calc(var(--kb-d,0s) + .4s) both}
 .mo-root[data-phase="answered"] :is(.kb-meter,.kb-row-meter) i::after{animation:kb-shine .9s ease calc(var(--kb-d,0s) + 1.2s) both}
-.mo-root[data-phase="answered"] :is(.kb-grade,.kb-verdict){animation:kb-pop .5s cubic-bezier(.34,1.56,.64,1) calc(var(--kb-d,0s) + .55s) both}
+.mo-root[data-phase="answered"] :is(.kb-grade,.kb-tier,.kb-verdict){animation:kb-pop .5s cubic-bezier(.34,1.56,.64,1) calc(var(--kb-d,0s) + .55s) both}
 .mo-root[data-phase="answered"] :is(.kb-grade,.kb-verdict)::after{animation:kb-ring .9s ease-out calc(var(--kb-d,0s) + .75s) both}
 .mo-root[data-phase="answered"] .kb-ribbon{animation:kb-pop-ribbon .5s cubic-bezier(.34,1.56,.64,1) calc(var(--kb-d,0s) + .7s) both}
 .mo-root[data-phase="answered"] .kb-face::before{animation:kb-loading 1s linear calc(var(--kb-d,0s) + .3s) both}

@@ -1,14 +1,21 @@
 import React,{useState} from 'react';
-import {Activity,ArrowDown,ArrowUp,ArrowUpRight,ChartColumn,Check,Flame,History,Plus,Share2,Snowflake,Swords,Target,Timer,TrendingDown,TrendingUp,TriangleAlert} from 'lucide-react';
+import {Activity,ArrowDown,ArrowUp,ArrowUpRight,ChartColumn,Check,Flame,History,Link2,Plus,Share2,Snowflake,Swords,Target,Timer,TrendingDown,TrendingUp,TriangleAlert,Unlink} from 'lucide-react';
 import {finderSlipProp} from './unified-finder-data';
 import {pickBuilder} from './pick-builder-client';
 import {sharePick} from './pick-share';
+import {MatchupCase} from './MatchupCase';
 
 // The data under a Krazy Bot answer (krazy-bot.js pickCard), drawn inside the
 // answer card itself. Every section rises in once the card has opened (the
 // `kb-rise` rules in krazy-bot.css key off the component's data-phase).
 
 const pct=value=>Math.round(value*100);
+// The Slip Analyzer's tiers, so a pick reads the same in both places.
+const TIER_LABELS={elite:'Elite',strong:'Strong',lean:'Lean',risky:'Risky',fade:'Fade'};
+function Tier({pick,size}){
+ if(pick.tier)return <span className="kb-tier" data-tier={pick.tier} data-size={size}>{TIER_LABELS[pick.tier]}</span>;
+ return pick.grade?<span className="kb-grade" data-grade={pick.grade} data-size={size} aria-label={`Grade ${pick.grade}`}>{pick.grade}</span>:null;
+}
 const figure=value=>Number.isInteger(value)?String(value):value.toFixed(1);
 const initials=name=>String(name||'').split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toUpperCase();
 const delay=seconds=>({'--kb-d':`${seconds}s`});
@@ -318,7 +325,7 @@ function PickCard({pick,verdict,reasons}){
  const report=pick.report;
  const tabs=[['overview','Overview'],
   report?.games?.length>=5&&['trends','Trends'],
-  (pick.rating||pick.matchup||report?.defense)&&['matchup','Matchup'],
+  (pick.case||pick.rating||pick.matchup||report?.defense)&&['matchup','Matchup'],
   report&&(report.books.length||report.ladder.length>1||report.market.model!=null)&&['market','Market']].filter(Boolean);
  const [tab,setTab]=useState('overview');
  const mixed=Boolean(pick.rating)&&pitchResults(pick.rating).rows.some(row=>row.value!=null);
@@ -330,8 +337,7 @@ function PickCard({pick,verdict,reasons}){
   <div className="kb-head kb-rise" style={delay(.04)}>
    <Face src={pick.headshot} name={pick.player} logo={pick.teamLogo}/>
    <div className="kb-who"><strong>{pick.player}</strong><Game pick={pick}/></div>
-   {verdict?<span className="kb-verdict" data-tone={verdict.tone}>{verdict.label}</span>
-    :pick.grade&&<span className="kb-grade" data-grade={pick.grade} aria-label={`Grade ${pick.grade}`}>{pick.grade}</span>}
+   {verdict?<span className="kb-verdict" data-tone={verdict.tone}>{verdict.label}</span>:<Tier pick={pick}/>}
   </div>
   <div className="kb-line kb-rise" style={delay(.12)}>
    <Side pick={pick}/>
@@ -356,7 +362,8 @@ function PickCard({pick,verdict,reasons}){
     </div>}
    </div>
    <div className="kb-span">
-    {pick.matchup&&<div className="kb-rise" style={soon(.46)}><Matchup matchup={pick.matchup}/></div>}
+    {pick.case?<div className="kb-rise" style={soon(.46)}><MatchupCase matchup={pick.case} limit={3}/></div>
+     :pick.matchup&&<div className="kb-rise" style={soon(.46)}><Matchup matchup={pick.matchup}/></div>}
     {reasons?.length>0&&<ul className="kb-why kb-rise" style={soon(.54)}>{reasons.map((text,index)=><li key={text} style={{'--i':index}}><Check aria-hidden="true"/>{text}</li>)}</ul>}
     {pick.risks.length>0&&<p className="kb-risk kb-rise" style={soon(.6)}><TriangleAlert aria-hidden="true"/>{pick.risks.join(' · ')}</p>}
    </div>
@@ -368,7 +375,8 @@ function PickCard({pick,verdict,reasons}){
   </div>}
   {tab==='matchup'&&<div className="kb-pane">
    <div className="kb-col">
-    {pick.rating?<div className="kb-rise" style={delay(.04)}><Rating rating={pick.rating} mix={mixed}/></div>
+    {pick.case?<div className="kb-rise" style={delay(.04)}><MatchupCase matchup={pick.case}/></div>
+     :pick.rating?<div className="kb-rise" style={delay(.04)}><Rating rating={pick.rating} mix={mixed}/></div>
      :pick.matchup&&<div className="kb-rise" style={delay(.04)}><Matchup matchup={pick.matchup}/></div>}
    </div>
    <div className="kb-col">
@@ -388,7 +396,7 @@ function ComparePick({pick,best,index}){
   <Face src={pick.headshot} name={pick.player} logo={pick.teamLogo}/>
   <strong>{pick.player}</strong>
   <span className="kb-versus-line"><Side pick={pick}/><span>{figure(pick.line)} {pick.short}</span></span>
-  <span className="kb-chance"><strong><Roll text={`${pct(pick.chance)}%`}/></strong><small>{pick.grade?`grade ${pick.grade}`:'to hit'}</small></span>
+  <span className="kb-chance"><strong><Roll text={`${pct(pick.chance)}%`}/></strong><small>{pick.tier?TIER_LABELS[pick.tier]:pick.grade?`grade ${pick.grade}`:'to hit'}</small></span>
   {pick.last.length>=3?<Bars pick={pick} compact/>:<span className="kb-versus-none">No recent games</span>}
   {pick.record&&<span className="kb-versus-rec">{pick.record.won}/{pick.record.games} last {pick.record.games}</span>}
  </div>;
@@ -406,7 +414,7 @@ function Row({pick,tag,rank,index}){
     :pick.record?<span className="kb-row-note">{pick.record.won}/{pick.record.games} {pick.side==='UNDER'?'under':'over'} last {pick.record.games}</span>:null}
   </span>
   <span className="kb-row-end">
-   {pick.grade&&<span className="kb-grade" data-grade={pick.grade} data-size="sm">{pick.grade}</span>}
+   <Tier pick={pick} size="sm"/>
    <span className="kb-row-pct"><Roll text={`${pct(pick.chance)}%`}/></span>
   </span>
   <span className="kb-row-meter" aria-hidden="true"><i style={{'--v':pick.chance}}/></span>
@@ -546,6 +554,32 @@ function BoardRow({item,index}){
  </li>;
 }
 
+// A slip from the bot's Elite and Strong picks: each leg, the parlay graded
+// as one (the Slip Analyzer's letter), the picks that help each other, and
+// one tap to put them all on My Slip.
+function SlipCard({card}){
+ const [added,setAdded]=useState(false);
+ const together=pct(card.together);
+ const add=()=>{
+  if(!added)card.picks.forEach(pick=>pickBuilder.set(finderSlipProp(pick.row),pick.side==='UNDER'?'Under':'Over'));
+  setAdded(true);pickBuilder.open();
+ };
+ const after=.1+card.picks.length*.09;
+ return <div className="kb-card" data-kind="slip">
+  <ol className="kb-rows">{card.picks.map((pick,index)=><Row key={pick.player} pick={pick} rank={index+1} index={index}/>)}</ol>
+  <div className="kb-slip-foot kb-rise" style={delay(after)}>
+   {card.letter&&<span><small>Parlay grade</small><strong className="kb-slip-letter" data-letter={card.letter[0]}><Roll text={card.letter}/></strong></span>}
+   <span><small>All {card.picks.length} hit</small><strong><Roll text={`${together}%`}/></strong></span>
+   {card.payout&&<span><small>Power Play</small><strong><Roll text={`${card.payout}x`}/></strong></span>}
+  </div>
+  {card.links?.length>0&&<ul className="kb-slip-links kb-rise" style={delay(after+.06)}>{card.links.map(pair=><li key={pair.text} data-tone={pair.tone}>
+   {pair.tone==='together'?<Link2 aria-hidden="true"/>:<Unlink aria-hidden="true"/>}{pair.text[0].toUpperCase()+pair.text.slice(1)}</li>)}</ul>}
+  <div className="kb-actions kb-rise" style={delay(after+.12)}>
+   <button type="button" onClick={add} data-done={added?'':undefined}>{added?<Check aria-hidden="true"/>:<Plus aria-hidden="true"/>}{added?'Open My Slip':'Add all to My Slip'}</button>
+  </div>
+ </div>;
+}
+
 export function BotCard({card}){
  if(!card)return null;
  if(card.kind==='innings')return <InningsCard pitchers={card.pitchers}/>;
@@ -563,15 +597,6 @@ export function BotCard({card}){
  </div>;
  if(card.kind==='list')return <div className="kb-card" data-kind="list"><ol className="kb-rows">{card.picks.map((pick,index)=><Row key={pick.player} pick={pick} rank={index+1} index={index}/>)}</ol></div>;
  if(card.kind==='rundown')return <div className="kb-card" data-kind="rundown"><ol className="kb-rows">{card.rows.map((item,index)=><Row key={item.tag} pick={item.pick} tag={item.tag} index={index}/>)}</ol></div>;
- if(card.kind==='slip'){
-  const together=pct(card.together);
-  return <div className="kb-card" data-kind="slip">
-   <ol className="kb-rows">{card.picks.map((pick,index)=><Row key={pick.player} pick={pick} rank={index+1} index={index}/>)}</ol>
-   <div className="kb-slip-foot kb-rise" style={delay(.1+card.picks.length*.09)}>
-    <span><small>All {card.picks.length} hit</small><strong><Roll text={`${together}%`}/></strong></span>
-    {card.payout&&<span><small>Power Play</small><strong><Roll text={`${card.payout}x`}/></strong></span>}
-   </div>
-  </div>;
- }
+ if(card.kind==='slip')return <SlipCard card={card}/>;
  return null;
 }
