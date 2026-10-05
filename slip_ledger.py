@@ -153,15 +153,33 @@ def save(uid, payload, now=None):
         writes.append(["HSET", PREFIX + "ledger:" + day, key, json.dumps(pick, separators=(",", ":"))])
         writes.append(["EXPIRE", PREFIX + "ledger:" + day, LEDGER_DAYS * 86400])
     _pipeline(writes)
-    # The member's slips, newest first.
+    # The member's slips, newest first. The same parlay graded again (the same
+    # picks on the same app and play type, in any order) is the slip already
+    # kept, not a new one: it keeps its place, its time and, once a game has
+    # started, the grade it had then.
     user_key = PREFIX + "user:" + str(uid)
-    slips = [slip for slip in (_load(store.get(user_key)) or []) if isinstance(slip, dict) and slip.get("id") != slip_id]
     slip = {"id": slip_id, "at": now.isoformat(), "app": _short(payload.get("app"), 20), "appName": _short(payload.get("appName"), 30),
             "type": _short(payload.get("type"), 12), "letter": _short(payload.get("letter"), 3),
             "chance": _number(payload.get("chance")), "multiplier": _number(payload.get("multiplier")), "value": _number(payload.get("value")),
             "picks": [{"day": day, "key": key} for day, key, _ in entries]}
-    store.set(user_key, json.dumps([slip, *slips][:USER_SLIPS], separators=(",", ":")), ex=120 * 86400)
-    return {"id": slip_id, "picks": len(entries)}
+    kept = [item for item in (_load(store.get(user_key)) or []) if isinstance(item, dict)]
+    same = next((item for item in kept if item.get("id") != slip_id and _parlay(item) == _parlay(slip)), None)
+    mine = same or next((item for item in kept if item.get("id") == slip_id), None)
+    if mine:
+        started = any(pick["late"] for _, _, pick in entries)
+        slip = {**slip, "id": mine["id"], "at": mine.get("at") or slip["at"],
+                **({name: mine.get(name) for name in ("letter", "chance", "multiplier", "value")} if same and started else {})}
+        kept = [slip if item is mine else item for item in kept if item is mine or item.get("id") != slip_id]
+    else:
+        kept = [slip, *kept]
+    store.set(user_key, json.dumps(kept[:USER_SLIPS], separators=(",", ":")), ex=120 * 86400)
+    return {"id": slip["id"], "picks": len(entries), "again": bool(same)}
+
+
+def _parlay(slip):
+    """What makes two kept slips the same parlay: its picks, app and play type."""
+    return (slip.get("app") or "", slip.get("type") or "",
+            tuple(sorted(ref.get("key") or "" for ref in slip.get("picks") or [] if isinstance(ref, dict))))
 
 
 def _load(raw):

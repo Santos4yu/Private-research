@@ -585,7 +585,9 @@ export function SlipAnalyzer(){
   if(!payload.picks.length)return undefined;
   const sig=JSON.stringify(payload.picks.map(pick=>[pick.player,pick.stat,pick.line,pick.side,pick.tier]));
   if(sig===savedSig.current)return undefined;
-  const timer=setTimeout(()=>{savedSig.current=sig;saveSlip(payload).then(()=>setHistoryTick(tick=>tick+1)).catch(()=>{});},1500);
+  // The same parlay graded before comes back as that slip: later fixes update it.
+  const timer=setTimeout(()=>{savedSig.current=sig;saveSlip(payload).then(result=>{
+   if(result?.id&&slipId.current===payload.id)slipId.current=result.id;setHistoryTick(tick=>tick+1);}).catch(()=>{});},1500);
   return()=>clearTimeout(timer);
  },[phase,score,slip,legs]);
  useEffect(()=>{

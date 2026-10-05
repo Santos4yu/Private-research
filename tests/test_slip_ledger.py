@@ -93,6 +93,29 @@ class LedgerTests(unittest.TestCase):
         mine = json.loads(self.store.data[slip_ledger.PREFIX + "user:member-a"])
         self.assertEqual([len(item["picks"]) for item in mine], [2])
 
+    def test_the_same_parlay_graded_again_is_not_a_new_slip(self):
+        dak = pick(player="Dak Prescott", stat="Pass Yards", line=245.5, settle={"kind": "key", "key": "passing_yards"})
+        mine = lambda: json.loads(self.store.data[slip_ledger.PREFIX + "user:member-a"])  # noqa: E731
+        first = slip_ledger.save("member-a", slip("slip-0001", picks=[pick(), dak]), now=NOW)
+        self.assertFalse(first["again"])
+        # Uploaded again later, picks in another order: the slip already kept, in its place and with its time.
+        again = slip_ledger.save("member-a", slip("slip-0002", picks=[dak, pick()], letter="A-"), now=NOW + timedelta(minutes=20))
+        self.assertEqual((again["id"], again["again"]), ("slip-0001", True))
+        self.assertEqual([(item["id"], item["at"], item["letter"]) for item in mine()], [("slip-0001", NOW.isoformat(), "A-")])
+        # A different prop is a different parlay; so is the same picks as a Flex Play.
+        slip_ledger.save("member-a", slip("slip-0003", picks=[pick(), dak, pick(player="Brandin Cooks", stat="Receptions", line=3.5,
+                                                                              settle={"kind": "key", "key": "receptions"})]), now=NOW)
+        slip_ledger.save("member-a", slip("slip-0004", picks=[pick(), dak], type="flex"), now=NOW)
+        self.assertEqual([item["id"] for item in mine()], ["slip-0004", "slip-0003", "slip-0001"])
+        # A slip fixed into a copy of one already kept folds into it.
+        slip_ledger.save("member-a", slip("slip-0003", picks=[dak, pick()]), now=NOW)
+        self.assertEqual([item["id"] for item in mine()], ["slip-0004", "slip-0001"])
+        # Once a game has started, grading the same parlay again doesn't change the grade it had.
+        slip_ledger.save("member-a", slip("slip-0005", picks=[pick(), dak], letter="C"), now=NOW + timedelta(hours=3))
+        self.assertEqual([(item["id"], item["letter"]) for item in mine()], [("slip-0004", "B+"), ("slip-0001", "B+")])
+        # The record still counts each pick once.
+        self.assertEqual(len(self.ledger()), 3)
+
     def test_a_pick_graded_after_kickoff_is_kept_but_not_counted(self):
         slip_ledger.save("member-a", slip(picks=[pick(startsAt=(NOW - timedelta(hours=1)).isoformat())]), now=NOW)
         self.assertTrue(self.ledger()[0]["late"])
