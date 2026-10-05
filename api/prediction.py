@@ -103,8 +103,9 @@ def _analyze_slip(image_bytes, admin=False):
             body["detail"] = slip["detail"]
         # Not set up or not reachable is the server's problem, not the screenshot's.
         return (503 if slip.get("reason") else 422), body
-    if not admin:
-        slip.pop("detail", None)
+    # Which readers were skipped on the way to a good read stays in the
+    # server log (slip_reader.py); the page shows only the slip.
+    slip.pop("detail", None)
     return 200, slip
 
 

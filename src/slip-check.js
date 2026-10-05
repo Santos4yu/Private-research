@@ -312,7 +312,10 @@ export function judge(read, tables = {}) {
   if (!read) return null;
   const matchup = matchupCase({row: read.row, side: read.side, grade: read}, tables);
   const base = baselineOf(read);
-  const trend = matchup?.primary ? 0.45 : 0.7;
+  // A bigger role than his recent games (a backup starting) leaves those
+  // games little to say (slip-games.js).
+  const role = matchup?.facts?.some(item => item.level === 'role');
+  const trend = role ? 0.15 : matchup?.primary ? 0.45 : 0.7;
   const chance = matchup ? Math.min(0.95, Math.max(0.05, base + trend * (read.chance - base) + 0.18 * (matchup.score - 50) / 50)) : read.chance;
   const judged = {...read, trendChance: read.chance, chance, matchup};
   // The news caps it: out is a Fade, Doubtful or out of the lineup Risky at

@@ -535,7 +535,6 @@ export function SlipAnalyzer(){
   {phase==='done'&&slip&&<div className="sa-results">
    <Parlay score={score} slip={slip} legs={legs} shot={shot} pool={pool} onSwap={swapIn} onSaveAll={saveAll} onNew={reset}/>
    {slip.source==='text'&&<p className="sa-heads-up"><TriangleAlert size={14}/>This slip was read from its text, so double-check each {sideWord('OVER',slip.app)} and {sideWord('UNDER',slip.app)}.</p>}
-   {slip.detail&&<p className="sa-detail">{slip.detail}</p>}
    <div className="sa-props-head"><h2>The picks</h2><span>{legs.length} pick{legs.length===1?'':'s'}</span></div>
    <div className="sa-props">
     {legs.map((leg,index)=><Prop key={leg.key} leg={leg} index={index} app={slip.app} boards={boards.current} need={need} editing={editing===leg.key}

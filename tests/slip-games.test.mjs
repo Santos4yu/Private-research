@@ -69,7 +69,7 @@ test('a questionable player is flagged and kept out of Elite; out is a Fade', ()
 });
 
 test('a teammate out, with what it has meant for him', async () => {
-  const row = withGame(nflRow('Josh Downs', 'Receiving Yards', 'receiving_yards', 59.5),
+  const row = withGame(nflRow('Josh Downs', 'Receiving Yards', 'receiving_yards', 59.5, {position: 'WR'}),
     game({state: 'pre', injuries: {IND: [{name: 'Michael Pittman Jr.', status: 'Out', position: 'WR'}, {name: 'Someone Else', status: 'Questionable', position: 'TE'}]}}));
   assert.deepEqual(newsOf(row).out.map(person => person.name), ['Michael Pittman Jr.']);
   let asked;
@@ -85,6 +85,46 @@ test('a teammate out, with what it has meant for him', async () => {
   assert.ok(newsFacts(withGame(row, {...row.game, teammates: mates.a}), 'UNDER').find(item => item.key.startsWith('mate:')).impact < 0);
   // No split to show: just who is out.
   assert.equal(newsFacts(row, 'OVER').find(item => item.key.startsWith('mate:')).text, 'Teammate Pittman (WR) is out');
+});
+
+test('a backup who starts today: his recent games say little, and the under on them is Risky at best', () => {
+  // A backup quarterback's last games (14.8 attempts) against a starter's line, with the starter out.
+  const daniels = withGame(nflRow('Jalon Daniels', 'Pass Attempts', 'passing_attempts', 28.5,
+    {position: 'QB', teamAbbr: 'TB', opponent: 'DAL', windows: {l10: {average: 14.8, hits: 0, misses: 5, decisions: 5, sample: 5, hitRate: 0}}}),
+  game({state: 'pre', team: 'TB', opponent: 'DAL', injuries: {TB: [{name: 'Baker Mayfield', status: 'Out', position: 'QB'},
+    {name: 'Luke Schrauth', status: 'Out', position: 'G'}, {name: 'Devin Culp Kieft', status: 'Out', position: 'TE'}], DAL: []}}));
+  const facts = newsFacts(daniels, 'UNDER');
+  assert.equal(facts[0].text, 'Mayfield (QB) is out, so Daniels likely starts. Daniels\'s recent games came in a smaller role (14.8 a game against a 28.5 line) and say little about today');
+  assert.equal(facts[0].tone, 'down');
+  // A guard, and a tight end with nothing to show, say nothing about his attempts.
+  assert.ok(!facts.some(item => /Schrauth|Kieft/.test(item.text)));
+  assert.equal(newsCap(facts), 'risky');
+  // Graded: no longer Elite on the strength of backup games.
+  const judged = judge({row: daniels, side: 'UNDER', chance: 0.8, modifier: 'standard', records: {}});
+  assert.equal(judged.tier, 'risky');
+  assert.ok(judged.chance < 0.62, String(judged.chance));
+  // A starter at his usual workload is not a role change.
+  const starter = withGame({...daniels, windows: {l10: {average: 31}}}, daniels.game);
+  assert.ok(!newsFacts(starter, 'UNDER').some(item => item.key === 'role'));
+});
+
+test('only teammates who bear on the pick: no linemen or defenders for a back\'s catches', () => {
+  const bijan = withGame(nflRow('Bijan Robinson', 'Receptions', 'receptions', 2.5, {position: 'RB', teamAbbr: 'ATL', opponent: 'NO', windows: {l10: {average: 4.5}}}),
+    game({state: 'pre', team: 'ATL', opponent: 'NO', injuries: {ATL: [{name: 'A.J. Terrell', status: 'Out', position: 'CB'},
+      {name: 'Brandon Hand', status: 'Out', position: 'DT'}, {name: 'Drake London', status: 'Injured Reserve', position: 'WR'}], NO: []},
+    teammates: [{name: 'A.J. Terrell', with: {games: 9, avg: 4.8}, without: {games: 3, avg: 3.7}}]}));
+  assert.deepEqual(newsOf(bijan).out.map(person => person.name), ['Drake London']);
+  // London has been out for weeks with no split to show: already in his recent games.
+  assert.deepEqual(newsFacts(bijan, 'OVER'), []);
+  // A goalie hears about goalies, a skater about skaters; an MLB pick about no one.
+  const goalie = {sport: 'nhl', player: 'Joey Daccord', position: 'G', market: 'Goalie Saves', valueKey: 'saves', line: 27.5, teamAbbr: 'SEA',
+    windows: {l10: {average: 12}}, game: {state: 'pre', team: 'SEA', injuries: {SEA: [{name: 'Philipp Grubauer', status: 'Out', position: 'G'},
+      {name: 'Jared McCann', status: 'Out', position: 'C'}]}}};
+  assert.deepEqual(newsOf(goalie).out.map(person => person.name), ['Philipp Grubauer']);
+  assert.match(newsFacts(goalie, 'OVER')[0].text, /^Grubauer \(G\) is out, so Daccord likely starts\./);
+  const hitter = {sport: 'mlb', player: 'Shohei Ohtani', teamAbbr: 'LAD', marketKey: 'hitting:hrr', market: 'Hits+Runs+RBIs', line: 1.5,
+    game: {state: 'pre', team: 'LAD', injuries: {LAD: [{name: 'Max Muncy', status: '10-Day IL', position: '3B'}]}}};
+  assert.deepEqual(newsOf(hitter).out, []);
 });
 
 test('MLB: the batting spot, a hitter left out, a pitcher who isn\'t starting', () => {
