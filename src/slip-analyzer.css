@@ -88,7 +88,7 @@
 @keyframes sa-rise{from{opacity:0;transform:translateY(14px)}}
 @keyframes sa-grow{from{transform:scaleY(0)}}
 @keyframes sa-wipe{from{transform:scaleX(0)}}
-.sa-results{display:grid;gap:14px;margin-top:14px}
+.sa-results{display:grid;gap:14px;margin-top:14px;container:sa-results/inline-size}
 /* Each tier and grade has one color everywhere it shows. */
 .slip-analyzer [data-tier=elite]{--tier:#46e39a}
 .slip-analyzer [data-tier=strong]{--tier:#3cc9b9}
@@ -209,12 +209,27 @@
 .sa-props-head{display:flex;align-items:baseline;justify-content:space-between;margin:6px 2px -2px}
 .sa-props-head h2{margin:0;font:800 19px/1.2 var(--a-display);letter-spacing:-.3px}
 .sa-props-head span{color:var(--a-faint);font-weight:700;font-size:12px}
-.sa-props{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,420px),1fr));gap:14px;align-items:start}
+.sa-props{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
+/* Laid out by how many picks there are, so no row is left with a hole:
+   2 a row (an odd last one centered), 3 a row once there's room, and the
+   cards in a row the same height with their buttons along the bottom. */
+@container sa-results (min-width:700px){
+ .sa-props{grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch}
+ .sa-prop{grid-column:span 2}
+ .sa-prop:last-child:nth-child(odd){grid-column:2/span 2}
+}
+@container sa-results (min-width:1000px){
+ .sa-props{grid-template-columns:repeat(6,minmax(0,1fr))}
+ .sa-prop,.sa-prop:last-child:nth-child(odd){grid-column:span 2}
+ .sa-props:is([data-count="2"],[data-count="4"]) .sa-prop{grid-column:span 3}
+ .sa-props[data-count="5"] .sa-prop:nth-child(4){grid-column:2/span 2}
+ .sa-props[data-count="1"] .sa-prop{grid-column:3/span 2}
+}
 .sa-another{display:inline-flex;align-items:center;justify-self:center;gap:6px;min-height:44px;padding:0 14px;color:var(--a-muted);font-weight:700}
 .sa-another:hover{color:var(--a-text)}
 
 /* ---------------------------------------------------------------- a pick */
-.sa-prop{position:relative;isolation:isolate;display:grid;gap:14px;padding:18px;overflow:hidden;border:1px solid color-mix(in srgb,var(--tier) 26%,var(--a-line));
+.sa-prop{position:relative;isolation:isolate;display:flex;flex-direction:column;gap:14px;padding:18px;overflow:hidden;border:1px solid color-mix(in srgb,var(--tier) 26%,var(--a-line));
  border-radius:22px;background:radial-gradient(120% 70% at 0% 0%,color-mix(in srgb,var(--tier) 11%,transparent),transparent 65%),linear-gradient(180deg,#131920,#0f1318);
  animation:sa-rise .5s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 90ms + 200ms)}
 .sa-prop-mark{position:absolute;z-index:-1;top:-30px;right:-30px;width:170px;height:170px;object-fit:contain;opacity:.07;pointer-events:none;filter:saturate(1.2)}
@@ -326,12 +341,21 @@
 .sa-chips button{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 11px;border:1px solid var(--a-line)!important;border-radius:9px;background:var(--a-raised)!important;font-weight:600;font-size:12px}
 .sa-chips button:hover{border-color:var(--a-accent)!important}
 
-.sa-prop-actions{display:flex;flex-wrap:wrap;gap:6px}
+.sa-prop>*{min-width:0}
+.sa-prop-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
 .sa-prop-actions button{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border:1px solid var(--a-line)!important;border-radius:10px;
  background:var(--a-raised)!important;color:var(--a-muted)!important;font-weight:700;font-size:12px;transition:color .2s,border-color .2s}
 .sa-prop-actions button:hover{color:var(--a-text)!important;border-color:#36404c!important}
 .sa-prop-actions button[aria-pressed=true]{color:#46e39a!important;border-color:color-mix(in srgb,#46e39a 40%,var(--a-line))!important}
 .sa-prop-actions .sa-remove{margin-left:auto;padding:0 11px}
+/* A narrow card (three across on a smaller screen, small phones): the
+   buttons a little tighter so they stay on one line. */
+.sa-prop{container:sa-prop/inline-size}
+@container sa-prop (max-width:350px){
+ .sa-prop-actions{gap:4px}
+ .sa-prop-actions button{gap:4px;padding:0 8px}
+ .sa-prop-actions .sa-remove{padding:0 9px}
+}
 
 .sa-editor{display:grid;grid-template-columns:minmax(0,1fr) 110px;gap:10px;padding:14px;border:1px solid var(--a-line);border-radius:14px;background:#0d1217;
  animation:sa-rise .3s ease both}
@@ -423,8 +447,9 @@
 .slip-analyzer .sa-safer button{min-height:36px;padding:0 13px;border-radius:10px;background:color-mix(in srgb,var(--tier) 22%,#1d2530);color:#fff;font-weight:800;font-size:12px;white-space:nowrap}
 
 /* ---------------------------------------------------------------- the record and graded slips */
-.sh-wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:14px;margin-top:14px;align-items:start}
-.sh-record,.sh-history{display:grid;gap:12px;padding:18px;border:1px solid var(--a-line);border-radius:20px;
+.sh-wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:14px;margin-top:14px;align-items:stretch}
+.sh-wrap[data-single]{grid-template-columns:minmax(0,1fr)}
+.sh-record,.sh-history{display:grid;align-content:start;gap:12px;padding:18px;border:1px solid var(--a-line);border-radius:20px;
  background:linear-gradient(180deg,#121820,#0d1217);animation:sa-rise .5s cubic-bezier(.2,.8,.2,1) both}
 .sh-record{background:radial-gradient(90% 120% at 0% 0%,color-mix(in srgb,#46e39a 10%,transparent),transparent 60%),linear-gradient(180deg,#121820,#0d1217)}
 .sh-record header,.sh-history header{display:grid;gap:4px}

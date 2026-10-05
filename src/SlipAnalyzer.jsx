@@ -642,7 +642,7 @@ export function SlipAnalyzer(){
     onShare={shareIt} sharing={sharing}/>
    {slip.source==='text'&&<p className="sa-heads-up"><TriangleAlert size={14}/>This slip was read from its text, so double-check each {sideWord('OVER',slip.app)} and {sideWord('UNDER',slip.app)}.</p>}
    <div className="sa-props-head"><h2>The picks</h2><span>{legs.length} pick{legs.length===1?'':'s'}</span></div>
-   <div className="sa-props">
+   <div className="sa-props" data-count={legs.length}>
     {legs.map((leg,index)=><Prop key={leg.key} leg={leg} index={index} app={slip.app} boards={boards.current} need={need} editing={editing===leg.key}
      onEdit={()=>setEditing(leg.key)} onCancel={()=>setEditing(null)} onSave={changes=>recheck(leg.key,changes)}
      onRemove={()=>setLegs(list=>list.filter(item=>item.key!==leg.key))} saved={saved.has(leg.key)} onKeep={()=>save(leg)} safer={safer[leg.key]}/>)}
@@ -650,8 +650,9 @@ export function SlipAnalyzer(){
    {slip.skipped>0&&<p className="sa-heads-up">{slip.skipped} game line{slip.skipped>1?'s were':' was'} left out (moneylines, spreads and totals aren't graded).</p>}
    <button type="button" className="sa-another" onClick={reset}>Grade another parlay<ArrowRight size={15}/></button>
   </div>}
-  {(phase==='pick'||phase==='done')&&(history?.record?.picks>0||history?.slips?.length>0)&&<div className="sh-wrap" data-phase={phase}>
-   <Record record={history.record}/><History slips={history.slips}/></div>}
+  {(phase==='pick'||phase==='done')&&(history?.record?.picks>0||history?.slips?.length>0)&&<div className="sh-wrap" data-phase={phase}
+   data-single={!(history.record?.picks>0&&history.slips?.length>0)||undefined}>
+   {history.record?.picks>0&&<Record record={history.record}/>}<History slips={history.slips}/></div>}
  </div>;
 }
 

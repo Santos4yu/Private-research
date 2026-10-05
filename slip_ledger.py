@@ -154,22 +154,23 @@ def save(uid, payload, now=None):
         writes.append(["EXPIRE", PREFIX + "ledger:" + day, LEDGER_DAYS * 86400])
     _pipeline(writes)
     # The member's slips, newest first. The same parlay graded again (the same
-    # picks on the same app and play type, in any order) is the slip already
-    # kept, not a new one: it keeps its place, its time and, once a game has
-    # started, the grade it had then.
+    # props, in any order) is the slip already kept, not a new one: it keeps
+    # its place, its time and, once a game has started, the grade it had then.
     user_key = PREFIX + "user:" + str(uid)
     slip = {"id": slip_id, "at": now.isoformat(), "app": _short(payload.get("app"), 20), "appName": _short(payload.get("appName"), 30),
             "type": _short(payload.get("type"), 12), "letter": _short(payload.get("letter"), 3),
             "chance": _number(payload.get("chance")), "multiplier": _number(payload.get("multiplier")), "value": _number(payload.get("value")),
             "picks": [{"day": day, "key": key} for day, key, _ in entries]}
     kept = [item for item in (_load(store.get(user_key)) or []) if isinstance(item, dict)]
-    same = next((item for item in kept if item.get("id") != slip_id and _parlay(item) == _parlay(slip)), None)
+    twins = [item for item in kept if item.get("id") != slip_id and _parlay(item) == _parlay(slip)]
+    same = twins[-1] if twins else None  # the first time it was kept
     mine = same or next((item for item in kept if item.get("id") == slip_id), None)
     if mine:
         started = any(pick["late"] for _, _, pick in entries)
         slip = {**slip, "id": mine["id"], "at": mine.get("at") or slip["at"],
-                **({name: mine.get(name) for name in ("letter", "chance", "multiplier", "value")} if same and started else {})}
-        kept = [slip if item is mine else item for item in kept if item is mine or item.get("id") != slip_id]
+                **({name: mine.get(name) for name in ("type", "letter", "chance", "multiplier", "value")} if same and started else {})}
+        kept = [slip if item is mine else item for item in kept
+                if item is mine or (item.get("id") != slip_id and not any(item is twin for twin in twins))]
     else:
         kept = [slip, *kept]
     store.set(user_key, json.dumps(kept[:USER_SLIPS], separators=(",", ":")), ex=120 * 86400)
@@ -177,9 +178,19 @@ def save(uid, payload, now=None):
 
 
 def _parlay(slip):
-    """What makes two kept slips the same parlay: its picks, app and play type."""
-    return (slip.get("app") or "", slip.get("type") or "",
-            tuple(sorted(ref.get("key") or "" for ref in slip.get("picks") or [] if isinstance(ref, dict))))
+    """What makes two kept slips the same parlay: the same props (player,
+    stat, line, side and kind of line, on the game's day), in any order."""
+    return tuple(sorted(ref.get("key") or "" for ref in slip.get("picks") or [] if isinstance(ref, dict)))
+
+
+def _once(slips):
+    """Each parlay once, where it was first kept (newest first)."""
+    seen, kept = set(), []
+    for slip in reversed(slips):
+        if _parlay(slip) not in seen:
+            seen.add(_parlay(slip))
+            kept.append(slip)
+    return kept[::-1]
 
 
 def _load(raw):
@@ -383,7 +394,7 @@ def history(uid, now=None, settle_limit=4):
     """The member's graded slips with each pick's result (settling what's
     due on the way), and the site's record."""
     now = now or datetime.now(timezone.utc)
-    slips = [slip for slip in (_load(_store().get(PREFIX + "user:" + str(uid))) or []) if isinstance(slip, dict)]
+    slips = _once([slip for slip in (_load(_store().get(PREFIX + "user:" + str(uid))) or []) if isinstance(slip, dict)])
     wanted = sorted({ref["day"] for slip in slips for ref in slip.get("picks") or [] if isinstance(ref, dict) and ref.get("day")})
     ledger = {(day, key): pick for day, key, pick in _ledger(wanted)} if wanted else {}
     mine = [(day, key, pick) for (day, key), pick in ledger.items()

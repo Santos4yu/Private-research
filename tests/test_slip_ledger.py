@@ -102,10 +102,12 @@ class LedgerTests(unittest.TestCase):
         again = slip_ledger.save("member-a", slip("slip-0002", picks=[dak, pick()], letter="A-"), now=NOW + timedelta(minutes=20))
         self.assertEqual((again["id"], again["again"]), ("slip-0001", True))
         self.assertEqual([(item["id"], item["at"], item["letter"]) for item in mine()], [("slip-0001", NOW.isoformat(), "A-")])
-        # A different prop is a different parlay; so is the same picks as a Flex Play.
-        slip_ledger.save("member-a", slip("slip-0003", picks=[pick(), dak, pick(player="Brandin Cooks", stat="Receptions", line=3.5,
-                                                                              settle={"kind": "key", "key": "receptions"})]), now=NOW)
-        slip_ledger.save("member-a", slip("slip-0004", picks=[pick(), dak], type="flex"), now=NOW)
+        # Read as a Flex Play the second time: the props are what make it the same slip.
+        self.assertEqual(slip_ledger.save("member-a", slip("slip-0009", picks=[pick(), dak], type="flex"), now=NOW)["id"], "slip-0001")
+        # A different prop is a different parlay.
+        cooks = pick(player="Brandin Cooks", stat="Receptions", line=3.5, settle={"kind": "key", "key": "receptions"})
+        slip_ledger.save("member-a", slip("slip-0003", picks=[pick(), dak, cooks]), now=NOW)
+        slip_ledger.save("member-a", slip("slip-0004", picks=[pick(), cooks]), now=NOW)
         self.assertEqual([item["id"] for item in mine()], ["slip-0004", "slip-0003", "slip-0001"])
         # A slip fixed into a copy of one already kept folds into it.
         slip_ledger.save("member-a", slip("slip-0003", picks=[dak, pick()]), now=NOW)
@@ -115,6 +117,19 @@ class LedgerTests(unittest.TestCase):
         self.assertEqual([(item["id"], item["letter"]) for item in mine()], [("slip-0004", "B+"), ("slip-0001", "B+")])
         # The record still counts each pick once.
         self.assertEqual(len(self.ledger()), 3)
+
+    def test_copies_kept_before_are_shown_once(self):
+        key = slip_ledger.PREFIX + "user:member-a"
+        slip_ledger.save("member-a", slip("slip-0001"), now=NOW)
+        first = json.loads(self.store.data[key])[0]
+        # Two copies of one parlay already in the list (kept before copies were matched).
+        self.store.data[key] = json.dumps([{**first, "id": "slip-0002", "at": (NOW + timedelta(minutes=13)).isoformat()}, first])
+        with patch("slip_games.read", side_effect=final({}, state="pre")):
+            shown = slip_ledger.history("member-a", now=NOW)
+        self.assertEqual([item["id"] for item in shown["slips"]], ["slip-0001"])
+        # Graded again: one slip, the first one, and the copy is gone from the list.
+        slip_ledger.save("member-a", slip("slip-0003"), now=NOW)
+        self.assertEqual([item["id"] for item in json.loads(self.store.data[key])], ["slip-0001"])
 
     def test_a_pick_graded_after_kickoff_is_kept_but_not_counted(self):
         slip_ledger.save("member-a", slip(picks=[pick(startsAt=(NOW - timedelta(hours=1)).isoformat())]), now=NOW)
