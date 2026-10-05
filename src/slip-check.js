@@ -404,23 +404,29 @@ export const sideWord = (side, app) => {
  * `lookup(leg, sports)` (slip-lookup.js) and graded from his own games:
  * state 'history'.
  */
-export async function checkLeg(leg, boards, {enrichFor = () => null, lookup = null, sports = SLIP_SPORTS, signal} = {}) {
+export async function checkLeg(read, boards, {enrichFor = () => null, lookup = null, sports = SLIP_SPORTS, signal} = {}) {
+  // A side that couldn't be read is taken as More (the usual pick, and the
+  // only one on a Goblin or Demon) and flagged, so the parlay still grades.
+  const assumedSide = !read.side && read.line != null;
+  const leg = assumedSide ? {...read, side: 'OVER', assumedSide} : read;
   const spot = locate(leg, boards);
   const base = {...leg, spot, state: spot.state, sport: spot.sport || leg.sport, row: spot.board || spot.player || null, grade: null};
-  if ((spot.state === 'player' || spot.state === 'stat') && lookup && leg.line != null && leg.side && (leg.stat || leg.statName)) {
+  if ((spot.state === 'player' || spot.state === 'stat') && lookup && (leg.stat || leg.statName || spot.state === 'player')) {
     const known = spot.player;
     const where = known ? [known.sport] : leg.sport ? [leg.sport] : sports;
     let found = null;
     try {
       found = await lookup(known ? {...leg, player: known.player, team: known.teamAbbr || leg.team, sport: known.sport} : leg, where);
-    } catch (error) { if (error.name === 'AbortError') throw error; }
-    if (found) {
-      const row = known ? {...found, headshot: found.headshot || known.headshot, teamLogo: found.teamLogo || known.teamLogo,
-        opponent: found.opponent || known.opponent, startsAt: found.startsAt || known.startsAt} : found;
-      const grade = gradeLeg(leg, row);
-      return {...base, sport: row.sport, row, grade, state: grade ? 'history' : 'thin'};
+    } catch (error) {
+      if (error.name === 'AbortError') throw error;
+      return {...base, lookupError: error.message || 'Player data is unavailable right now.'};
     }
-    return base;
+    if (!found) return base;
+    const row = known ? {...found, headshot: found.headshot || known.headshot, teamLogo: found.teamLogo || known.teamLogo,
+      opponent: found.opponent || known.opponent, startsAt: found.startsAt || known.startsAt} : found;
+    if (leg.line == null || !leg.side) return {...base, sport: row.sport, row, state: 'needs'};
+    const grade = gradeLeg(leg, row);
+    return {...base, sport: row.sport, row, grade, state: grade ? 'history' : 'thin'};
   }
   if (spot.state !== 'ready' && spot.state !== 'relined') return base;
   const enrich = enrichFor(spot.sport);

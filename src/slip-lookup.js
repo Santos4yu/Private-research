@@ -86,18 +86,27 @@ async function nhl(leg, options) {
  * the league's history loader (finder-pool.js ENRICH).
  */
 export async function lookupRow(leg, {sports = [], enrich, signal, fetcher} = {}) {
-  if (!leg.player || leg.line == null) return null;
+  if (!leg.player) return null;
   const options = {signal, fetcher, enrich: sport => enrich?.(sport) || (async rows => rows)};
+  // No line read: the player is still found (his photo, team and game), at
+  // a stand-in line whose hit rates are then dropped.
+  const unread = leg.line == null;
+  const asked = unread ? {...leg, line: 0} : leg;
+  let failure = null, answered = false;
   for (const sport of sports) {
     try {
-      const row = sport === 'nfl' ? await nfl(leg, options)
-        : sport === 'nba' || sport === 'wnba' ? await basketball(leg, sport, options)
-          : sport === 'mlb' ? await mlb(leg, options)
-            : sport === 'nhl' ? await nhl(leg, options) : null;
-      if (row) return row;
+      const row = sport === 'nfl' ? await nfl(asked, options)
+        : sport === 'nba' || sport === 'wnba' ? await basketball(asked, sport, options)
+          : sport === 'mlb' ? await mlb(asked, options)
+            : sport === 'nhl' ? await nhl(asked, options) : null;
+      answered = true;
+      if (row) return unread ? {...row, line: null, windows: null, average: null, streak: null} : row;
     } catch (error) {
       if (error.name === 'AbortError') throw error;
+      failure ||= error;
     }
   }
+  // Not one league answered: the data is out of reach, not the player unknown.
+  if (failure && !answered) throw Object.assign(new Error(failure.message || 'Player data is unavailable right now.'), {lookup: true});
   return null;
 }

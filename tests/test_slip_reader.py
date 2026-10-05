@@ -124,6 +124,13 @@ class ModelTests(unittest.TestCase):
         slip_reader._available.update(at=0, ids=None)
         self.assertEqual(slip_reader.models_for(client, slip_reader.VISION_MODELS, True), ["meta-llama/llama-4-scout-2026-instruct"])
         self.assertEqual(slip_reader.models_for(client, slip_reader.TEXT_MODELS, False)[0], "llama-3.3-70b-versatile")
+        # Groq's Qwen vision models, this one or a newer one, are found; its text-only Qwen is not.
+        listing.data = [SimpleNamespace(id=name) for name in ("qwen/qwen3-32b", "qwen/qwen3.9-30b", "openai/gpt-oss-120b")]
+        slip_reader._available.update(at=0, ids=None)
+        try:
+            self.assertEqual(slip_reader.models_for(client, slip_reader.VISION_MODELS, True), ["qwen/qwen3.9-30b"])
+        finally:
+            slip_reader._available.update(at=0, ids=None)
         # Without a listing, the named ones are tried.
         slip_reader._available.update(at=0, ids=None)
         broken = SimpleNamespace(models=SimpleNamespace(list=lambda: (_ for _ in ()).throw(RuntimeError("no"))))
@@ -146,17 +153,29 @@ class ReadTests(unittest.TestCase):
         self.assertTrue(image["image_url"]["url"].startswith("data:image/png;base64,"))
 
     def test_a_failing_model_falls_back_to_the_next_then_to_the_text(self):
-        fake = FakeGroq(RuntimeError("down"), RuntimeError("down"), RuntimeError("gone"), "not json",
+        gone = "Error code: 404 - {'error': {'message': 'The model `x` does not exist or you do not have access to it.', 'type': 'invalid_request_error'}}"
+        fake = FakeGroq(RuntimeError("down"), RuntimeError("down"), RuntimeError("down"), *[RuntimeError(gone)] * 2, "not json",
                         json.dumps({"legs": [{"player": "Aaron Judge", "stat": "Hits", "line": 0.5, "side": "over"}]}))
 
         async def ocr(data, mime):
             return "Aaron Judge Hits More 0.5"
 
-        with patch.object(slip_reader, "_groq", return_value=fake), patch("analyze._ocr_image", ocr):
+        with patch.object(slip_reader, "_groq", return_value=fake), patch("analyze._ocr_image", ocr), patch.dict("os.environ", {"GEMINI_API_KEY": ""}):
             slip = slip_reader.read_slip(PNG)
         self.assertEqual(slip["source"], "text")
         self.assertEqual(slip["legs"][0]["player"], "Aaron Judge")
         self.assertIn("Aaron Judge Hits More 0.5", fake.calls[-1]["messages"][0]["content"])
+        # Qwen is asked to keep its reasoning to itself; a retired model is asked once, not once per mode.
+        self.assertEqual(fake.calls[0]["model"], "qwen/qwen3.8-27b")
+        self.assertEqual(fake.calls[0]["reasoning_format"], "hidden")
+        self.assertEqual([call["model"] for call in fake.calls[3:5]], ["qwen/qwen3.6-27b", "meta-llama/llama-4-scout-17b-16e-instruct"])
+        # Each reason is short, and a missing Gemini key is named.
+        self.assertIn("Groq qwen/qwen3.6-27b: RuntimeError: 404 The model `x` does not exist", slip["detail"])
+        self.assertNotIn("invalid_request_error", slip["detail"])
+        self.assertIn("Gemini: GEMINI_API_KEY is not set", slip["detail"])
+
+    def test_reasoning_before_the_json_is_ignored(self):
+        self.assertEqual(slip_reader.parse_json('<think>the slip has {three} legs</think>{"legs": [1, 2, 3]}'), {"legs": [1, 2, 3]})
 
     def test_clear_errors(self):
         self.assertIn("PNG", slip_reader.read_slip(b"GIF89a....")["error"])

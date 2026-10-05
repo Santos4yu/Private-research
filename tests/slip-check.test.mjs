@@ -157,6 +157,19 @@ test('a player off the board (his game started) is looked up and graded from his
   assert.equal(checked.state, 'history');
   assert.ok(checked.grade.chance > 0.5);
   assert.ok(TIERS[checked.grade.tier]);
+  // No side read: graded as More, and flagged.
+  const unread = await checkLeg(leg({player: 'Josh Downs', sport: 'nfl', stat: 'Rec Yards', line: 71.5, side: null}), {nfl: []}, {lookup});
+  assert.equal(unread.state, 'history');
+  assert.equal(unread.side, 'OVER');
+  assert.equal(unread.assumedSide, true);
+  // No line read: the player is found, the pick waits for its line.
+  const noLine = await checkLeg(leg({player: 'Josh Downs', sport: 'nfl', stat: 'Rec Yards', line: null, side: 'OVER'}), {nfl: []}, {lookup});
+  assert.equal(noLine.state, 'needs');
+  assert.equal(noLine.row.player, 'Josh Downs');
+  // League data out of reach: said so, not "not found".
+  const down = await checkLeg(leg({player: 'Josh Downs', sport: 'nfl', stat: 'Rec Yards', line: 71.5, side: 'OVER'}), {nfl: []},
+    {lookup: async () => { throw new Error('NFL research is temporarily unavailable.'); }});
+  assert.equal(down.lookupError, 'NFL research is temporarily unavailable.');
   // Nobody by that name: left ungraded.
   const missing = await checkLeg(leg({player: 'Nobody Here', sport: 'nfl', stat: 'Rec Yards', line: 10.5, side: 'OVER'}), {nfl: []}, {lookup: async () => null});
   assert.equal(missing.state, 'player');

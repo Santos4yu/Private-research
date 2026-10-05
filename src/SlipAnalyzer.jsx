@@ -1,7 +1,7 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowRight,ArrowUpRight,Check,ChevronDown,ClipboardPaste,Crown,Flame,ImageUp,Link2,Pencil,Plus,Repeat2,RotateCcw,Search,Trash2,TrendingDown,TrendingUp,TriangleAlert,X} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
-import {siteFinderSportAllowed} from './site-access';
+import {siteFinderSportAllowed,siteIsAdmin} from './site-access';
 import {finderSlipProp} from './unified-finder-data';
 import {loadLines,ENRICH} from './finder-pool';
 import {candidates} from './smart-slip';
@@ -181,7 +181,8 @@ function Editor({leg,app,boards,onSave,onCancel}){
 }
 
 const MISSING={
- player:leg=>`${leg.player} couldn't be found${leg.sport?` in the ${SPORT_NAMES[leg.sport]||leg.sport.toUpperCase()}`:''}. Check the name with Fix.`,
+ player:leg=>leg.lookupError?`${leg.player}'s games couldn't be loaded right now. Try again in a minute.`
+  :`${leg.player} couldn't be found${leg.sport?` in the ${SPORT_NAMES[leg.sport]||leg.sport.toUpperCase()}`:''}. Check the name with Fix.`,
  stat:leg=>leg.stat?`There are no ${leg.stat} numbers for ${leg.player}. Pick the stat below.`:'The stat on this pick couldn\'t be read. Pick it below.',
  needs:leg=>leg.line==null&&!leg.side?'The line and side on this pick couldn\'t be read.':`The ${leg.line==null?'line':'side'} on this pick couldn't be read.`,
  thin:()=>'Not enough games yet to grade this pick.',
@@ -210,10 +211,11 @@ function Prop({leg,index,app,boards,need,editing,onEdit,onSave,onCancel,onRemove
    {tier?<TierBadge tier={tier}/>:<span className="sa-flag"><TriangleAlert size={13}/>{leg.state==='needs'?'Check':'No grade'}</span>}
   </header>
   <div className="sa-prop-pick">
-   {leg.side?<span className="sa-side" data-side={leg.side}>{sideWord(leg.side,app)}</span>:<span className="sa-side" data-side="none">?</span>}
+   {leg.side?<span className="sa-side" data-side={leg.side} data-assumed={leg.assumedSide||undefined}>{sideWord(leg.side,app)}{leg.assumedSide&&'?'}</span>:<span className="sa-side" data-side="none">?</span>}
    <b>{figure(leg.line)}</b>{leg.stat?<span>{leg.stat}</span>:<span className="sa-unread">Stat?</span>}
    {MODIFIER_ICON[leg.modifier]&&<img src={MODIFIER_ICON[leg.modifier]} alt={leg.modifier} width="20" height="20"/>}
   </div>
+  {leg.assumedSide&&<p className="sa-aside">The side couldn't be read, so {sideWord('OVER',app)} was assumed. Tap Fix if it was {sideWord('UNDER',app)}.</p>}
   {grade?<>
    <Meter chance={grade.chance} need={need}/>
    <div className="sa-prop-figures">
@@ -228,6 +230,8 @@ function Prop({leg,index,app,boards,need,editing,onEdit,onSave,onCancel,onRemove
    {leg.state==='relined'&&<p className="sa-aside">Today's line is {figure(row.relinedFrom)}; this was graded at your {figure(leg.line)}.</p>}
    {grade.read?.risks?.length>0&&<ul className="sa-risks">{grade.read.risks.slice(0,2).map(risk=><li key={risk}><TriangleAlert size={12}/>{risk}</li>)}</ul>}
   </>:<div className="sa-missing"><p>{(MISSING[leg.state]||MISSING.thin)(leg)}</p>
+   {leg.lookupError&&siteIsAdmin()&&<p className="sa-detail">{leg.lookupError}</p>}
+   {leg.lookupError&&<div className="sa-chips"><button type="button" onClick={()=>onSave({})}><RotateCcw size={13}/>Try again</button></div>}
    {stats.length>0&&<div className="sa-chips">{stats.slice(0,8).map(name=><button type="button" key={name} onClick={()=>onSave({stat:name,statName:''})}>{name}</button>)}</div>}
   </div>}
   {editing?<Editor leg={leg} app={app} boards={boards} onSave={onSave} onCancel={onCancel}/>
@@ -393,7 +397,7 @@ export function SlipAnalyzer(){
   const next={...current,...changes};
   setEditing(null);
   const checked=await checkLeg({key,player:next.player,team:next.team,opponent:next.opponent,sport:next.sport,stat:next.stat,statName:next.statName,
-   line:next.line,plus:next.plus,side:next.side,modifier:next.modifier,odds:next.odds,confidence:next.confidence,needs:[]},boards.current,options());
+   line:next.line,plus:next.plus,side:current.assumedSide&&!changes.side?null:next.side,modifier:next.modifier,odds:next.odds,confidence:next.confidence,needs:[]},boards.current,options());
   setLegs(list=>list.map(leg=>leg.key===key?checked:leg));
   // Still missing its line or side: open the form for it.
   if(checked.state==='needs')setEditing(key);

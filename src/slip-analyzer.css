@@ -205,6 +205,7 @@
 .sa-side{padding:6px 10px;border-radius:8px;font:800 11px/1 var(--a-sans);letter-spacing:.07em;text-transform:uppercase}
 .sa-side[data-side=OVER]{background:color-mix(in srgb,#46e39a 16%,transparent);color:#46e39a}
 .sa-side[data-side=UNDER]{background:color-mix(in srgb,#ff7b8a 16%,transparent);color:#ff7b8a}
+.sa-side[data-assumed]{outline:1px dashed currentColor;outline-offset:-1px}
 .sa-side[data-side=none]{background:color-mix(in srgb,#f6b955 16%,transparent);color:#f6b955}
 
 /* The pick's chance, against what each pick needs for the parlay to break even. */
@@ -255,8 +256,9 @@
 .sa-risks li{display:flex;align-items:flex-start;gap:6px}
 .sa-risks svg{flex:0 0 auto;margin-top:2px}
 .sa-missing p{margin:0;color:var(--a-muted)}
+.sa-missing .sa-detail{margin-top:8px}
 .sa-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-.sa-chips button{min-height:34px;padding:0 11px;border:1px solid var(--a-line)!important;border-radius:9px;background:var(--a-raised)!important;font-weight:600;font-size:12px}
+.sa-chips button{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 11px;border:1px solid var(--a-line)!important;border-radius:9px;background:var(--a-raised)!important;font-weight:600;font-size:12px}
 .sa-chips button:hover{border-color:var(--a-accent)!important}
 
 .sa-prop-actions{display:flex;flex-wrap:wrap;gap:6px}
