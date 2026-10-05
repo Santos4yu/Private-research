@@ -69,7 +69,7 @@ ODDS_ALTERNATES = {f"{key}_alternate": ODDS_MARKETS[key] for key in (
 # games in the next few days are priced, each at most every half hour
 # (cache.py SPORTSBOOK_LINES), and never once the account runs low -- the
 # MLB and WNBA boards share the same credits.
-ODDS_DAYS = 6
+ODDS_DAYS = 1.5
 ODDS_CREDIT_FLOOR = 1500
 
 
@@ -245,11 +245,11 @@ def _sportsbook_lines(season, now):
         def load():
             def fetch(books, markets):
                 return odds._get(f"/sports/{odds.SPORT}/events/{event['eventId']}/odds", {
-                    "markets": ",".join(markets), "bookmakers": ",".join(books), "oddsFormat": "american"})
+                    "markets": ",".join(markets), "bookmakers": ",".join(books), "oddsFormat": "american"}, cache_only=True)
             try:
-                response = fetch(ODDS_BOOKS, [*ODDS_MARKETS, *ODDS_ALTERNATES])
+                response = fetch(ODDS_BOOKS, list(odds.MARKETS))
             except RuntimeError:
-                response = fetch(CORE_BOOKS, list(odds.ALL_MARKETS))
+                response = fetch(CORE_BOOKS, list(odds.MARKETS))
             return _parse_event_odds(response.json(), event)
         try:
             return cached_nfl(NFLCacheDomain.SPORTSBOOK_LINES, (VERSION, event["eventId"], key_id), load)

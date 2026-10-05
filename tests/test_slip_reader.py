@@ -292,3 +292,27 @@ class GeminiTests(unittest.TestCase):
         with patch.object(slip_reader, "read_slip", side_effect=lambda data: dict(read)):
             self.assertNotIn("detail", api._analyze_slip(PNG)[1])
             self.assertEqual(api._analyze_slip(PNG, admin=True)[1]["detail"], "Groq vision: 400")
+
+
+class ReaderRegressionTests(unittest.TestCase):
+    def test_known_catalog_without_vision_does_not_retry_missing_models(self):
+        client = SimpleNamespace(models=SimpleNamespace(list=lambda: SimpleNamespace(data=[SimpleNamespace(id="llama-3.3-70b-versatile")])))
+        with patch.dict(slip_reader._available, {"at":0,"ids":None}):
+            self.assertEqual(slip_reader.models_for(client, slip_reader.VISION_MODELS, True), [])
+
+    def test_current_qwen_vision_model_discovered(self):
+        client = SimpleNamespace(models=SimpleNamespace(list=lambda: SimpleNamespace(data=[SimpleNamespace(id="qwen/qwen3.8-27b")])))
+        with patch.dict(slip_reader._available, {"at":0,"ids":None}):
+            self.assertEqual(slip_reader.models_for(client, slip_reader.VISION_MODELS, True), ["qwen/qwen3.8-27b"])
+
+    def test_ocr_two_buttons_requires_side_confirmation(self):
+        async def ocr(*args): return "Austin Hooper 1.5 Rec Targets More Less Chris Sale 4.5 Ks More Less"
+        parsed = {"legs":[{"player":"Chris Sale","stat":"Ks","line":4.5,"side":"under","modifier":"goblin"}]}
+        def run(coro):
+            coro.close()
+            return "Austin Hooper 1.5 Rec Targets More Less Chris Sale 4.5 Ks More Less"
+        with patch.dict(sys.modules, {"analyze":SimpleNamespace(_ocr_image=ocr)}), patch("asyncio.run",side_effect=run), patch.object(slip_reader,"_ask",return_value=parsed):
+            result = slip_reader.normalize(slip_reader._read_text(PNG))
+        self.assertIsNone(result["legs"][0]["side"])
+        self.assertIn("side", result["legs"][0]["needs"])
+        self.assertEqual(result["legs"][0]["line"],4.5)

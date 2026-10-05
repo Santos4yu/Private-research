@@ -250,7 +250,8 @@ def fetch_odds(sport):
     last = None
     for key in _odds_keys():
         try:
-            response = requests.get(f"{ODDS}/sports/{config['odds']}/odds", timeout=15, params={
+            from odds_budget import guarded_get
+            response = guarded_get(requests, f"/sports/{config['odds']}/odds", key=key, timeout=15, params={
                 "apiKey": key, "markets": "h2h", "oddsFormat": "american", "dateFormat": "iso",
                 "bookmakers": ",".join(BOOKS)})
         except requests.RequestException:

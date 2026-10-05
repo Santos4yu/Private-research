@@ -73,7 +73,8 @@ class FetchTests(unittest.TestCase):
         later = {"id": "b", "commence_time": "2026-10-10T13:00:00Z"}
         calls = []
 
-        def get(path, params):
+        def get(path, params, *, cache_only=False):
+            if path.endswith("/odds"): self.assertTrue(cache_only)
             calls.append((path, params))
             if path.endswith("/events"):
                 return Mock(headers={"x-requests-remaining": "90000"}, json=lambda: [soon, later])

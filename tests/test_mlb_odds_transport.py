@@ -12,7 +12,7 @@ def response(status, remaining='100'):
 
 class MLBTransportTests(unittest.TestCase):
     def request(self, replies, path='/sports/baseball_mlb/events/fixture/odds'):
-        with patch.object(odds_client, 'get_odds_api_key_candidates', return_value=['mock-expired', 'mock-funded']), patch.object(odds_client._SESSION, 'get', side_effect=replies) as fetch:
+        with patch('odds_budget.guarded_get', side_effect=lambda session, path, params, key, timeout: session.get('mock', params=params, timeout=timeout)), patch.object(odds_client, 'get_odds_api_key_candidates', return_value=['mock-expired', 'mock-funded']), patch.object(odds_client._SESSION, 'get', side_effect=replies) as fetch:
             result = odds_client._get(path, {})
             return result, fetch.call_count
 

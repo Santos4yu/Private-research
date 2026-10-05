@@ -51,7 +51,7 @@ TARGET_BOOKS = PREFERRED_BOOKS + ["fanduel", "betmgm", "espnbet", "betrivers", S
 _SESSION = requests.Session()
 
 
-def _get(path: str, params: dict) -> requests.Response:
+def _get(path: str, params: dict, *, cache_only=False) -> requests.Response:
     """GET Odds API data with credential fallback and secret-safe errors."""
     candidates = get_odds_api_key_candidates()
     if not candidates:
@@ -62,9 +62,12 @@ def _get(path: str, params: dict) -> requests.Response:
     exhausted_events = None
     for key in candidates:
         try:
-            response = _SESSION.get(
-                f"{BASE_URL}{path}", params={**params, "apiKey": key}, timeout=TIMEOUT
-            )
+            from odds_budget import guarded_get
+            if cache_only:
+                from odds_budget import cached_get
+                response = cached_get(path, params, key)
+            else:
+                response = guarded_get(_SESSION, path, params, key, timeout=TIMEOUT)
         except requests.RequestException:
             # Prepared request URLs can contain apiKey; never send them to UI.
             continue

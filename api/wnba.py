@@ -423,7 +423,7 @@ def _events_by_team(events, now):
     return index
 
 
-def _merge_prizepicks(rows, events, directory, now, alternates=None):
+def _merge_prizepicks(rows, events, directory, now, alternates=None, lines=None):
     """Add every line PrizePicks posts that the board does not have yet.
     A line both feeds carry keeps its comparison-book prices and takes
     PrizePicks' own tier (standard / goblin / demon). A new line picks up
@@ -432,7 +432,8 @@ def _merge_prizepicks(rows, events, directory, now, alternates=None):
     alternates = alternates or {}
     try:
         from prizepicks_export_core import _fetch_projection_rows
-        lines = _fetch_projection_rows(league="WNBA")
+        if lines is None:
+            lines = _fetch_projection_rows(league="WNBA")
     except Exception:  # noqa: BLE001 -- the Odds API rows still stand alone
         return rows
     by_key = {(row["player"].casefold(), row["marketKey"], row["line"]): row for row in rows}
@@ -483,6 +484,14 @@ def _board(include_history=True):
     cached = _cached()
     if cached is not None:
         return cached
+    from prizepicks_export_core import _fetch_projection_rows
+    pp_error = None
+    try:
+        pp_lines = _fetch_projection_rows(league="WNBA")
+    except Exception as exc:
+        pp_lines = []
+        pp_error = exc
+        print(f"[wnba-board] PrizePicks feed failed: {type(exc).__name__}")
     # PrizePicks' feed can carry the board on its own, so an Odds API outage
     # (or spent credits) no longer blanks it.
     try:
@@ -507,14 +516,14 @@ def _board(include_history=True):
     for event in events:
         event_id = event.get("id") if isinstance(event, dict) else None
         starts_at = timestamp(event.get("commence_time")) if isinstance(event, dict) else None
-        if not event_id or not starts_at or starts_at <= now:
+        if not event_id or not starts_at or starts_at <= now or (starts_at - now).total_seconds() > 36 * 3600:
             continue
         payload = None
-        for books in (BOOKS, CORE_BOOKS):
+        for books in ((BOOKS, CORE_BOOKS) if pp_lines else ("prizepicks",)):
             try:
                 response = _get(f"/sports/{SPORT}/events/{event_id}/odds", {
-                    "markets": ",".join(ALL_MARKETS), "bookmakers": books, "oddsFormat": "american"
-                })
+                    "markets": ",".join(MARKETS if pp_lines else ALL_MARKETS), "bookmakers": books, "oddsFormat": "american"
+                }, cache_only=bool(pp_lines))
                 payload = response.json()
                 break
             except Exception:  # noqa: BLE001 -- one game must not sink the board
@@ -622,9 +631,9 @@ def _board(include_history=True):
         line_moves.observe_books("wnba", list(main_quotes.values()))
     except Exception:  # noqa: BLE001 -- never at the cost of the board
         pass
-    _merge_prizepicks(rows, events, directory, now, alternates)
-    if not rows and odds_error is not None:
-        raise odds_error
+    _merge_prizepicks(rows, events, directory, now, alternates, lines=pp_lines)
+    if not rows and (odds_error is not None or pp_error is not None):
+        raise RuntimeError("PrizePicks lines are temporarily unavailable from both sources. Please retry shortly.")
     rows.sort(key=lambda row: (row["startsAt"], row["player"], row["market"], row["line"]))
     # The prop board itself is useful before the comparatively expensive
     # ESPN game-log fan-out finishes.  The Finder asks for this fast shape

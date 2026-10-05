@@ -299,7 +299,8 @@ class BoardTests(unittest.TestCase):
         payload = {"id": "a", "bookmakers": []}
         calls = []
 
-        def get(path, params):
+        def get(path, params, *, cache_only=False):
+            self.assertTrue(cache_only)
             calls.append((path, params))
             return type("R", (), {"json": lambda self: payload})()
         passthrough = lambda _domain, _parts, loader, **_: loader()

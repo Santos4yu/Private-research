@@ -40,12 +40,18 @@ def credentials():
     values = [os.getenv('NFL_ODDS_API_KEY',''),*(stored[:1]),os.getenv('ODDS_API_KEY_V2',''),os.getenv('ODDS_API_KEY',''),*stored[1:]]
     return list(dict.fromkeys(value for value in values if value))
 
-def _get(path, params):
+def _get(path, params, *, cache_only=False):
     keys=credentials()
     if not keys:raise RuntimeError('NFL Odds API key not configured')
     exhausted=None
     for key in keys:
-        try: response=_session.get('https://api.the-odds-api.com/v4'+path,params={**params,'apiKey':key},timeout=15)
+        try:
+            from odds_budget import guarded_get
+            if cache_only:
+                from odds_budget import cached_get
+                response=cached_get(path,params,key)
+            else:
+                response=guarded_get(_session,path,params,key,timeout=15)
         except requests.RequestException:continue
         if response.status_code in (401,429):continue
         if not response.ok:raise RuntimeError('NFL line provider returned an error')
@@ -157,7 +163,7 @@ def lines(season, player_id=None, week=None, event_id=None):
     event=candidates[0]
     def load():
         if listing['creditsRemaining'] is not None and listing['creditsRemaining']<len(ALL_MARKETS):return {'status':'NOT_AVAILABLE','data':[],'reason':'Live lines are temporarily unavailable. You can still adjust a custom line in Trends.','source':'the-odds-api'}
-        response=_get(f"/sports/{SPORT}/events/{event['eventId']}/odds",{'markets':','.join(ALL_MARKETS),'bookmakers':BOOKS,'oddsFormat':'american'})
+        response=_get(f"/sports/{SPORT}/events/{event['eventId']}/odds",{'markets':','.join(MARKETS),'bookmakers':BOOKS,'oddsFormat':'american'})
         return normalize(response.json(),event,nflverse.players(season).data or [])
     key_id=hashlib.sha256('|'.join(credentials()).encode()).hexdigest()[:16]
     result=cached_nfl(NFLCacheDomain.PROPS,(VERSION,season,event['eventId'],key_id),load)

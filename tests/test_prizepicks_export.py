@@ -303,3 +303,17 @@ class ExportRouteTests(unittest.TestCase):
         sent, gate = self.post("/api/prediction?action=prizepicks-export&from=parlay")
         self.assertEqual(gate.call_args.args[1], "builder")
         self.assertEqual((sent["status"], sent["body"].get("featureDisabled")), (503, True))
+
+
+class SharedFeedTests(unittest.TestCase):
+    def test_new_instance_reuses_fresh_shared_feed_without_provider_call(self):
+        entry={"loaded_at":1000,"rows":[{"player":"Angel Reese","line":15.5}]}
+        with patch.dict(export._PROJECTION_CACHE,{},clear=True), patch.object(export.time,"time",return_value=1050), patch.object(export,"_shared_projection_cache",return_value=entry), patch.object(export.requests,"get") as request:
+            self.assertEqual(export._fetch_projection_rows(league="WNBA"),entry["rows"])
+        request.assert_not_called()
+
+    def test_shared_last_good_feed_survives_provider_rate_limit(self):
+        import requests
+        entry={"loaded_at":1000,"rows":[{"player":"Angel Reese","line":15.5}]}
+        with patch.dict(export._PROJECTION_CACHE,{},clear=True), patch.object(export.time,"time",return_value=1200), patch.object(export,"_shared_projection_cache",return_value=entry), patch.object(export,"_league_id",return_value="3"), patch.object(export.requests,"get",side_effect=requests.HTTPError("429")):
+            self.assertEqual(export._fetch_projection_rows(league="WNBA"),entry["rows"])
