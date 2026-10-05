@@ -97,7 +97,8 @@ def _analyze_slip(image_bytes):
     import slip_reader
     slip = slip_reader.read_slip(image_bytes)
     if slip.get("error"):
-        return 422, {"error": slip["error"]}
+        # Not set up or not reachable is the server's problem, not the screenshot's.
+        return (503 if slip.get("reason") else 422), {"error": slip["error"]}
     return 200, slip
 
 

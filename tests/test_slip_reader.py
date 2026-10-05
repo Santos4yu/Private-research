@@ -102,6 +102,35 @@ class NormalizeTests(unittest.TestCase):
         self.assertIsNone(slip_reader.parse_json("no json here"))
 
 
+class CutOffTests(unittest.TestCase):
+    def test_a_pick_cut_off_at_the_stat_is_kept_to_fill_in(self):
+        slip = slip_reader.normalize({"app": "PrizePicks", "legs": [
+            {"player": "Bijan Robinson", "sport": "nfl", "stat": "Rush Yards", "line": 87.5, "side": "More"},
+            {"player": "Miguel Vargas", "sport": "mlb", "stat": "", "line": None, "side": "More"},
+            {"player": "Breanna Stewart", "sport": "wnba", "stat": "PRA", "line": 34.5, "side": "More"},
+            {"player": "", "stat": "Hits", "line": 0.5, "side": "More"},
+        ]})
+        self.assertEqual([leg["player"] for leg in slip["legs"]], ["Bijan Robinson", "Miguel Vargas", "Breanna Stewart"])
+        self.assertEqual(slip["legs"][1]["needs"], ["stat", "line"])
+        self.assertEqual(slip["legs"][1]["side"], "OVER")
+        self.assertEqual(slip["legs"][2]["needs"], [])
+
+
+class ModelTests(unittest.TestCase):
+    def test_vision_models_this_key_has_are_found_even_when_renamed(self):
+        listing = SimpleNamespace(data=[SimpleNamespace(id=name) for name in (
+            "llama-3.3-70b-versatile", "meta-llama/llama-4-scout-2026-instruct", "whisper-large-v3", "meta-llama/llama-guard-4-12b")])
+        client = SimpleNamespace(models=SimpleNamespace(list=lambda: listing))
+        slip_reader._available.update(at=0, ids=None)
+        self.assertEqual(slip_reader.models_for(client, slip_reader.VISION_MODELS, True), ["meta-llama/llama-4-scout-2026-instruct"])
+        self.assertEqual(slip_reader.models_for(client, slip_reader.TEXT_MODELS, False)[0], "llama-3.3-70b-versatile")
+        # Without a listing, the named ones are tried.
+        slip_reader._available.update(at=0, ids=None)
+        broken = SimpleNamespace(models=SimpleNamespace(list=lambda: (_ for _ in ()).throw(RuntimeError("no"))))
+        self.assertEqual(slip_reader.models_for(broken, slip_reader.VISION_MODELS, True), list(slip_reader.VISION_MODELS))
+        slip_reader._available.update(at=0, ids=None)
+
+
 class ReadTests(unittest.TestCase):
     def test_the_vision_model_sees_the_image_and_answers_in_json(self):
         fake = FakeGroq(json.dumps(PRIZEPICKS))
@@ -132,7 +161,7 @@ class ReadTests(unittest.TestCase):
     def test_clear_errors(self):
         self.assertIn("PNG", slip_reader.read_slip(b"GIF89a....")["error"])
         with patch.object(slip_reader, "_groq", return_value=None):
-            self.assertIn("unavailable", slip_reader.read_slip(PNG)["error"])
+            self.assertEqual(slip_reader.read_slip(PNG)["reason"], "no-key")
         with patch.object(slip_reader, "_groq", return_value=FakeGroq(json.dumps({"legs": [], "skipped": 2}))):
             self.assertIn("No player props", slip_reader.read_slip(PNG)["error"])
 

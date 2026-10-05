@@ -154,6 +154,7 @@
 .sa-side[data-side=UNDER]{background:color-mix(in srgb,var(--a-down) 16%,transparent);color:var(--a-down)}
 .sa-side[data-side=none]{background:color-mix(in srgb,var(--a-gold) 16%,transparent);color:var(--a-gold)}
 .sa-relined,.sa-price{margin:0;color:var(--a-muted);font-size:12px}
+.sa-pick .sa-unread{color:var(--a-gold)!important}
 .sa-note{position:relative;margin:0;padding:10px 12px 10px 14px;border-radius:11px;background:color-mix(in srgb,var(--a-accent) 7%,#0e1318);color:#dbe4ee}
 .sa-note::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:2px;background:var(--a-accent)}
 .sa-reasons{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}

@@ -138,12 +138,44 @@ def parse_json(text):
     return None
 
 
+# Model names Groq may use for ones that read images, so a renamed or newer
+# vision model is still found.
+_VISION_NAMES = re.compile(r"llama-4|scout|maverick|vision|[-_]vl\b|pixtral|gemma-3", re.I)
+_SKIP_NAMES = re.compile(r"guard|whisper|tts|playai|distil|prompt", re.I)
+_available = {"at": 0.0, "ids": None}
+
+
+def _model_ids(client):
+    """The models this Groq key can use right now (asked at most every 10 minutes)."""
+    import time
+    if _available["ids"] is not None and time.time() - _available["at"] < 600:
+        return _available["ids"]
+    try:
+        ids = [model.id for model in client.models.list().data]
+    except Exception:  # noqa: BLE001 -- the named models are tried anyway
+        ids = []
+    _available.update(at=time.time(), ids=ids)
+    return ids
+
+
+def models_for(client, named, vision):
+    """The named models this key has, then any other it has that fits."""
+    env = os.getenv("GROQ_VISION_MODELS" if vision else "GROQ_TEXT_MODELS", "")
+    named = [name.strip() for name in env.split(",") if name.strip()] or list(named)
+    ids = _model_ids(client)
+    if not ids:
+        return named
+    fits = [model for model in ids if not _SKIP_NAMES.search(model)
+            and (bool(_VISION_NAMES.search(model)) if vision else bool(re.search(r"llama|gpt-oss|qwen|kimi|gemma", model, re.I)))]
+    found = [model for model in named if model in ids] + [model for model in fits if model not in named]
+    return found or named
+
+
 def _ask(models, content):
     client = _groq()
     if client is None:
         return None
-    env = os.getenv("GROQ_VISION_MODELS" if isinstance(content, list) else "GROQ_TEXT_MODELS", "")
-    for model in [name.strip() for name in env.split(",") if name.strip()] or models:
+    for model in models_for(client, models, isinstance(content, list)):
         for json_mode in (True, False):
             try:
                 kwargs = {"model": model, "messages": [{"role": "user", "content": content}],
@@ -235,9 +267,13 @@ def normalize_leg(raw):
     if not isinstance(raw, dict):
         return None
     player = _text(raw.get("player") or raw.get("player_name") or raw.get("name"), 60)
-    stat = _text(raw.get("stat") or raw.get("market") or raw.get("market_raw"), 60)
-    if not player or not stat:
+    stat = _text(raw.get("stat") or raw.get("market") or raw.get("market_raw") or raw.get("stat_name"), 60)
+    # A cut-off pick (a player with no stat showing) is kept for the member
+    # to fill in; a stat with no player is nothing to grade.
+    if not player or len(player) < 3 or not re.search(r"[A-Za-z]", player):
         return None
+    if not stat and (len(player.split()) < 2 or (number(raw.get("line")) or 0) < 0):
+        return None  # a team or a spread, not a cut-off player pick
     plus = bool(raw.get("plus")) or bool(re.search(r"\d\s*\+\s*$|^\s*\d+\s*\+", stat))
     line = number(raw.get("line"))
     if line is None and plus:
@@ -260,7 +296,7 @@ def normalize_leg(raw):
         "odds": int(odds) if odds is not None and abs(odds) >= 100 else None,
         "confidence": max(0.0, min(1.0, confidence)) if confidence is not None else None,
     }
-    leg["needs"] = [field for field in ("line", "side") if leg[field] is None]
+    leg["needs"] = [field for field in ("stat", "line", "side") if not leg[field] and leg[field] != 0]
     return leg
 
 
@@ -276,6 +312,8 @@ def normalize(raw):
         if not leg:
             continue
         key = (_squash(leg["player"]), _squash(leg["stat"]), leg["line"], leg["side"])
+        if not leg["stat"] and leg["line"] is None and not leg["side"] and any(_squash(other["player"]) == key[0] for other in legs):
+            continue
         if key in seen:
             continue
         seen.add(key)
@@ -299,12 +337,13 @@ def read_slip(data):
     if not mime_of(data):
         return {"error": "Use a PNG, JPG or WEBP screenshot."}
     if _groq() is None:
-        return {"error": "Reading slips is unavailable right now. Try again in a minute."}
+        print("[slip-reader] GROQ_API_KEY is not set for this deployment")
+        return {"error": "Slip reading isn't set up on this server yet.", "reason": "no-key"}
     source, raw = "vision", _read_vision(data)
     if raw is None:
         source, raw = "text", _read_text(data)
     if raw is None:
-        return {"error": "Reading slips is unavailable right now. Try again in a minute."}
+        return {"error": "Reading slips is unavailable right now. Try again in a minute.", "reason": "models"}
     slip = normalize(raw)
     if not slip["legs"]:
         return {"error": "No player props were found in that screenshot. Use one that shows each pick's player, stat and line."}

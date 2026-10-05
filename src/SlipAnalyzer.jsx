@@ -94,7 +94,8 @@ function Editor({leg,app,boards,onSave,onCancel}){
  const sport=leg.sport||leg.spot?.sport||'';
  const [player,setPlayer]=useState(leg.player);
  const [stat,setStat]=useState(leg.stat);
- const [line,setLine]=useState(leg.line??'');
+ // An unread line starts at today's board line for the stat.
+ const [line,setLine]=useState(leg.line??leg.spot?.lines?.find(row=>(row.modifier||'standard')==='standard')?.line??leg.spot?.lines?.[0]?.line??'');
  const [side,setSide]=useState(leg.side||'OVER');
  const people=useMemo(()=>{
   const names=new Set();
@@ -122,8 +123,8 @@ function Editor({leg,app,boards,onSave,onCancel}){
 
 const MISSING={
  player:leg=>`${leg.player} isn't on today's board. The game may have started, or the name may be misread.`,
- stat:leg=>`${leg.player} has no ${leg.stat} line on today's board.`,
- needs:leg=>`The ${leg.needs?.includes('side')||!leg.side?'side':'line'} on this pick couldn't be read.`,
+ stat:leg=>leg.stat?`${leg.player} has no ${leg.stat} line on today's board.`:'The stat on this pick couldn\'t be read. Pick it below.',
+ needs:leg=>leg.line==null&&!leg.side?'The line and side on this pick couldn\'t be read.':`The ${leg.line==null?'line':'side'} on this pick couldn't be read.`,
  thin:()=>'Not enough games yet to grade this pick.',
 };
 
@@ -141,7 +142,7 @@ function Leg({leg,index,app,boards,editing,onEdit,onSave,onCancel,onRemove,saved
   </header>
   <div className="sa-pick">
    {leg.side?<span className="sa-side" data-side={leg.side}>{sideWord(leg.side,app)}</span>:<span className="sa-side" data-side="none">?</span>}
-   <b>{figure(leg.line)}</b><span>{leg.stat}</span>
+   <b>{figure(leg.line)}</b>{leg.stat?<span>{leg.stat}</span>:<span className="sa-unread">Stat?</span>}
    {MODIFIER_ICON[leg.modifier]&&<img src={MODIFIER_ICON[leg.modifier]} alt={leg.modifier} width="18" height="18"/>}
   </div>
   {leg.state==='relined'&&grade&&<p className="sa-relined">The board has {figure(row.relinedFrom)} today; this was graded at your {figure(leg.line)}.</p>}
@@ -274,6 +275,8 @@ export function SlipAnalyzer(){
   const checked=await checkLeg({key,player:next.player,team:next.team,opponent:next.opponent,sport:next.sport,stat:next.stat,statName:next.statName,
    line:next.line,plus:next.plus,side:next.side,modifier:next.modifier,odds:next.odds,confidence:next.confidence,needs:[]},boards.current,{enrichFor});
   setLegs(list=>list.map(leg=>leg.key===key?checked:leg));
+  // Still missing its line or side: open the form for it.
+  if(checked.state==='needs')setEditing(key);
  };
  const swapIn=async read=>{
   const weakest=scoreEntry(legs,slip)?.weakest;if(!weakest)return;
