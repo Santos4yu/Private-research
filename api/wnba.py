@@ -507,14 +507,14 @@ def _board(include_history=True):
     for event in events:
         event_id = event.get("id") if isinstance(event, dict) else None
         starts_at = timestamp(event.get("commence_time")) if isinstance(event, dict) else None
-        if not event_id or not starts_at or starts_at <= now:
+        if not event_id or not starts_at or starts_at <= now or (starts_at - now).total_seconds() > 36 * 3600:
             continue
         payload = None
         for books in (BOOKS, CORE_BOOKS):
             try:
                 response = _get(f"/sports/{SPORT}/events/{event_id}/odds", {
-                    "markets": ",".join(ALL_MARKETS), "bookmakers": books, "oddsFormat": "american"
-                })
+                    "markets": ",".join(MARKETS), "bookmakers": books, "oddsFormat": "american"
+                }, cache_only=True)
                 payload = response.json()
                 break
             except Exception:  # noqa: BLE001 -- one game must not sink the board

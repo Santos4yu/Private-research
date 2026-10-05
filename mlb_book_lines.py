@@ -42,8 +42,8 @@ ALTERNATES = {f"{key}_alternate": MARKETS[key] for key in (
 KNOWN = ("pitcher_strikeouts", "pitcher_hits_allowed", "pitcher_earned_runs", "pitcher_outs", "batter_hits",
          "batter_total_bases", "batter_rbis", "batter_runs_scored", "batter_hits_runs_rbis")
 ATTEMPTS = (
-    (BOOKS, (*MARKETS, *ALTERNATES)),
-    (BOOKS, (*KNOWN, *(f"{key}_alternate" for key in KNOWN if f"{key}_alternate" in ALTERNATES))),
+    (BOOKS, tuple(MARKETS)),
+    (BOOKS, KNOWN),
     (("underdog", "draftkings", "fanduel", "betmgm", "espnbet", "betrivers", "pinnacle"), KNOWN),
 )
 CACHE_SECONDS = 30 * 60
@@ -138,7 +138,7 @@ def lines(now=None):
             for books, markets in ATTEMPTS:
                 try:
                     reply = odds_client._get(f"/sports/{SPORT}/events/{event['id']}/odds", {
-                        "bookmakers": ",".join(books), "markets": ",".join(markets), "oddsFormat": "american"})
+                        "bookmakers": ",".join(books), "markets": ",".join(markets), "oddsFormat": "american"}, cache_only=True)
                     return parse_event(reply.json(), event["id"])
                 except RuntimeError:
                     continue
