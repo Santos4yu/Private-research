@@ -1,15 +1,18 @@
-import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {ArrowRight,ArrowUpRight,Check,ChevronDown,ClipboardPaste,Crosshair,Crown,Flame,ImageUp,Link2,Pencil,Plus,Radio,Repeat2,RotateCcw,Search,Trash2,TrendingDown,TrendingUp,TriangleAlert,Unlink,X} from 'lucide-react';
+import React,{useCallback,useEffect,useId,useMemo,useRef,useState} from 'react';
+import {ArrowRight,ArrowUpRight,Check,ChevronDown,ClipboardPaste,Crosshair,Crown,Flame,ImageUp,Link2,Pencil,Plus,Radio,Repeat2,RotateCcw,Search,Share2,ShieldCheck,Trash2,TrendingDown,TrendingUp,TriangleAlert,Unlink,X} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import {siteFinderSportAllowed,siteIsAdmin} from './site-access';
 import {finderSlipProp} from './unified-finder-data';
 import {loadLines,ENRICH} from './finder-pool';
 import {candidates} from './smart-slip';
-import {SLIP_SPORTS,SPORT_NAMES,TIERS,checkLeg,scoreEntry,verdict,swaps,sideWord,offeredStats,judge,regrade} from './slip-check';
+import {SLIP_SPORTS,SPORT_NAMES,TIERS,LETTERS,checkLeg,scoreEntry,verdict,swaps,sideWord,offeredStats,judge,regrade,saferPick} from './slip-check';
 import {loadMatchups,withMatchups} from './slip-matchup';
 import {lookupRow} from './slip-lookup';
 import {loadGames,loadTeammates,withGame,newsOf,liveRead,anyLive} from './slip-games';
 import {MatchupCase} from './MatchupCase';
+import {shareSlip} from './slip-share';
+import {Record,History} from './SlipHistory';
+import {newSlipId,slipPayload,saveSlip,loadHistory} from './slip-history';
 import {teamLogoUrl} from './sports/nfl/nfl-ui-core';
 import {pickBuilder} from './pick-builder-client';
 import {PhoneAccountButtons} from './UnifiedFinder';
@@ -115,10 +118,12 @@ function TierBadge({tier}){
 const rateTone=rate=>rate>=0.6?'up':rate>=0.5?'blue':rate>=0.4?'gold':'down';
 const RECORDS=[['l5','L5'],['l10','L10'],['l20','L20'],['season','Season'],['h2h','H2H']];
 function Records({grade,row}){
+ // A backup starting today: these came in his smaller role.
+ const smaller=grade.matchup?.facts?.some(item=>item.level==='role');
  const items=RECORDS.map(([key,label])=>[key,key==='h2h'&&row?.opponent?`vs ${row.opponent}`:label,grade.records?.[key]])
   .filter(([key,,record])=>record&&record.games>0&&!(key==='l20'&&record.games<=(grade.records.l10?.games||0))&&!(key==='season'&&record.games<=(grade.records.l20?.games||grade.records.l10?.games||0)));
  if(!items.length)return null;
- return <ul className="sa-records">{items.map(([key,label,record])=><li key={key} data-tone={rateTone(record.rate)}>
+ return <ul className="sa-records">{items.map(([key,label,record])=><li key={key} data-tone={smaller?'muted':rateTone(record.rate)}>
   <span>{label}</span><b>{record.won}/{record.games}</b><i style={{'--w':`${Math.round(record.rate*100)}%`}}/>
  </li>)}</ul>;
 }
@@ -206,7 +211,8 @@ function Live({live}){
  </div>;
 }
 
-function Prop({leg,index,app,boards,need,editing,onEdit,onSave,onCancel,onRemove,saved,onKeep}){
+const lastWord=name=>String(name||'').split(' ').filter(part=>!/^(jr|sr|ii|iii|iv)\.?$/i.test(part)).at(-1)||name;
+function Prop({leg,index,app,boards,need,editing,onEdit,onSave,onCancel,onRemove,saved,onKeep,safer}){
  const row=leg.row;
  const grade=leg.grade;
  const tier=grade?.tier;
@@ -217,7 +223,7 @@ function Prop({leg,index,app,boards,need,editing,onEdit,onSave,onCancel,onRemove
  const live=row?liveRead(row,leg.side,leg.line??row.line):null;
  // His own line on the injury report, shown by his name.
  const status=newsOf(row)?.self;
- return <article className="sa-prop" data-tier={tier||'none'} data-live={live?.result||live?.state||undefined} style={{'--i':index}}>
+ return <article className="sa-prop" id={`sa-prop-${index}`} data-tier={tier||'none'} data-live={live?.result||live?.state||undefined} style={{'--i':index}}>
   <Img className="sa-prop-mark" src={teamLogo(row)}/>
   <header className="sa-prop-head">
    <Face row={row} leg={leg} tier={tier}/>
@@ -240,8 +246,14 @@ function Prop({leg,index,app,boards,need,editing,onEdit,onSave,onCancel,onRemove
   <Live live={live}/>
   {grade?<>
    <Meter chance={grade.chance} need={need}/>
-   <MatchupCase matchup={grade.matchup}/>
-   <div className="sa-form-head"><span>Recent form</span>
+   <MatchupCase matchup={grade.matchup} limit={3}/>
+   {safer&&<div className="sa-safer" data-tier={safer.tier}><ShieldCheck size={16}/>
+    <span><small>A safer way to play {lastWord(row?.player||leg.player)}</small>
+     <b>{sideWord(safer.side,app)} {figure(safer.row.line)} {String(safer.row.market).split(' ').slice(0,-1).join(' ')} <span className="sa-safer-end">{String(safer.row.market).split(' ').pop()}{MODIFIER_ICON[safer.row.modifier]&&<img src={MODIFIER_ICON[safer.row.modifier]} alt={safer.row.modifier} width="16" height="16"/>}</span></b>
+     <em>{percent(safer.chance)} · {TIERS[safer.tier].label}</em></span>
+    <button type="button" onClick={()=>onSave({line:safer.row.line,side:safer.side,modifier:safer.row.modifier||'standard',stat:safer.row.market,statName:''})}>Use this</button>
+   </div>}
+   <div className="sa-form-head"><span>Recent form{grade.matchup?.facts?.some(item=>item.level==='role')?' · from a smaller role':''}</span>
     <div className="sa-prop-figures">
      {finite(average)&&<span><small>Avg L10</small><b>{figure(Math.round(average*10)/10)}</b></span>}
      {grade.book!=null&&<span><small>Books</small><b>{percent(grade.book)}</b></span>}
@@ -275,44 +287,103 @@ function Figure({label,value,format,sub}){
  return <div><dt>{label}</dt><dd>{value==null?'—':format(shown)}</dd>{sub&&<small>{sub}</small>}</div>;
 }
 
-function Parlay({score,slip,legs,pool,onSwap,onSaveAll,onNew,shot}){
+// The parlay's grade on a dial: an arc that fills to its score, the letter
+// in the middle. Tapping it shows how the grade is worked out.
+function Dial({score,letter,open,onToggle}){
+ const fill=useCount(score??0,1100);
+ const id=`sa-dial-${useId().replace(/[^a-z0-9]/gi,'')}`;
+ return <button type="button" className="sa-dial" onClick={onToggle} aria-expanded={open}
+  aria-label={`Parlay grade ${letter||'not available'}. Show how it's graded`}>
+  <svg viewBox="0 0 120 120" aria-hidden="true">
+   <defs><linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" style={{stopColor:'var(--tone-hi)'}}/><stop offset="1" style={{stopColor:'var(--tone)'}}/></linearGradient></defs>
+   <circle className="sa-dial-track" cx="60" cy="60" r="52"/>
+   <circle className="sa-dial-fill" cx="60" cy="60" r="52" pathLength="100" strokeDasharray="100" strokeDashoffset={100-fill} style={{stroke:`url(#${id})`}}/>
+  </svg>
+  <span className="sa-dial-face"><b>{letter||'–'}</b><small>Grade</small></span>
+ </button>;
+}
+
+const pct=value=>`${value<10?value.toFixed(1):Math.round(value)}%`;
+// The chance they all hit, against the chance the payout needs to break
+// even: the clearer the gap, the better the bet.
+function Edge({score}){
+ const shown=useCount(score.chance*100);
+ const need=score.breakEven;
+ const top=Math.min(1,Math.max(0.25,Math.max(score.chance,need||0)*1.45));
+ const gap=need!=null?Math.round((score.chance-need)*100):null;
+ const odds=Math.max(1,Math.round(1/score.chance));
+ return <div className="sa-edge" data-clear={gap==null?undefined:gap>=0?'yes':'no'}>
+  <div className="sa-edge-top"><b>{pct(shown)}</b><span>chance all {score.total} hit</span>{need!=null&&<em>needs {pct(need*100)}</em>}</div>
+  <div className="sa-edge-bar"><i style={{'--w':`${Math.min(100,score.chance/top*100)}%`}}/>
+   {need!=null&&<u style={{'--at':`${Math.min(100,need/top*100)}%`}}/>}</div>
+  <small>{gap==null?`About 1 in ${odds}`:gap>=0?`About 1 in ${odds}, ${gap} point${gap===1?'':'s'} above break-even`
+   :`About 1 in ${odds}, ${-gap} point${gap===-1?'':'s'} short of break-even`}</small>
+ </div>;
+}
+
+// How the letter comes about, with the whole scale and this slip on it.
+const SCALE=[...LETTERS.map(([floor,letter])=>[letter,floor]),['F',0]];
+const money=value=>value>=1?`$${value.toFixed(2)}`:`${Math.round(value*100)}¢`;
+function Explain({score}){
+ const priced=score.value!=null&&score.multiplier;
+ const average=score.average;
+ // One decimal, so the sum on screen adds up.
+ const exact=`${(score.chance*100).toFixed(1)}%`;
+ return <div className="sa-explain" role="note">
+  <p>{priced?<>All {score.total} hit {exact} of the time and the slip pays {times(score.multiplier,score.estimated)}.
+   That's <b>{exact} × {times(score.multiplier,score.estimated).replace('≈','')} = {money(score.value)}</b> back for every $1 played, over time.</>
+   :<>This slip has no payout to read, so the grade goes by the picks: <b>{pct(average*100)}</b> each on average, where about 55% a pick is what a
+   pick'em slip needs to break even.</>}
+   {score.links?.length>0&&' Picks from the same game are counted together.'}</p>
+  <ol className="sa-scale" aria-label="Grade scale">{SCALE.map(([letter,floor],index)=><li key={letter} data-on={letter===score.letter||undefined} data-band={letter[0]}>
+   <b>{letter}</b><small>{priced?(floor?`${money(floor)}+`:`under ${money(SCALE[index-1][1])}`):(floor?`${floor.toFixed(2)}×`:'less')}</small></li>)}</ol>
+ </div>;
+}
+
+function Parlay({score,slip,legs,pool,onSwap,onSaveAll,onNew,onShare,sharing,shot}){
  const options=useMemo(()=>swaps(legs,pool),[legs,pool]);
+ const [open,setOpen]=useState(false);
  const n=legs.length;
  const kind=`${n}-Pick ${TYPE_NAMES[score?.type]||'Parlay'}`;
  const logo=appLogo(slip.app?.key);
  const letter=score?.letter;
- const dial=useCount(score?.score??0,1100);
- const odds=score?Math.max(1,Math.round(1/score.chance)):null;
  const graded=legs.filter(leg=>leg.grade);
  // The picks whose games have started, and how each is going.
  const live=legs.map(leg=>leg.row?liveRead(leg.row,leg.side,leg.line??leg.row.line):null).filter(Boolean);
+ const jump=index=>document.getElementById(`sa-prop-${index}`)?.scrollIntoView({behavior:calm()?'auto':'smooth',block:'start'});
  return <section className="sa-parlay" data-tone={score?tone(letter):'none'}>
   <div className="sa-parlay-top">
-   <div className="sa-dial" style={{'--p':dial}} aria-label={`Parlay grade ${letter||'not available'}`}>
-    <svg viewBox="0 0 120 120" aria-hidden="true"><circle className="sa-dial-track" cx="60" cy="60" r="52"/>
-     <circle className="sa-dial-fill" cx="60" cy="60" r="52" pathLength="100" strokeDasharray="100" strokeDashoffset={100-dial}/></svg>
-    <b>{letter||'–'}</b><span>Parlay grade</span>
-   </div>
+   <Dial score={score?.score} letter={letter} open={open} onToggle={()=>score&&setOpen(value=>!value)}/>
    <div className="sa-parlay-main">
     <span className="sa-kind">{logo&&<Img src={logo}/>}{[slip.app?.name,kind].filter(Boolean).join(' · ')}</span>
     <h2>{score?HEADLINES[letter]:'Not graded yet'}</h2>
     <p>{score?verdict(score):'None of the picks could be graded. Fix a pick below to grade the parlay.'}</p>
-    <ul className="sa-stack" aria-label="Picks">{legs.map(leg=><li key={leg.key} title={`${leg.row?.player||leg.player}${leg.grade?` · ${TIERS[leg.grade.tier].label}`:''}`}>
-     <Face row={leg.row} leg={leg} tier={leg.grade?.tier}/></li>)}</ul>
+    {score&&<button type="button" className="sa-why" onClick={()=>setOpen(value=>!value)} aria-expanded={open}>
+     {open?'Hide':'How this grade works'}<ChevronDown size={13}/></button>}
    </div>
-   {score&&<dl className="sa-parlay-figures">
-    <Figure label="Hit chance" value={score.chance*100} format={value=>`${value<10?value.toFixed(1):Math.round(value)}%`} sub={`about 1 in ${odds}`}/>
-    <Figure label="Pays" value={score.multiplier} format={value=>times(value,score.estimated)} sub={score.assumed?'usual Power Play':score.estimated?'estimated':'your slip'}/>
-    <Figure label="Return per $1" value={score.value} format={value=>`$${value.toFixed(2)}`} sub="over time"/>
-    <Figure label="Break-even" value={score.breakEven!=null?score.breakEven*100:null} format={value=>`${value<10?value.toFixed(1):Math.round(value)}%`} sub="all must hit"/>
-   </dl>}
   </div>
+  {open&&score&&<Explain score={score}/>}
 
-  {graded.length>0&&<div className="sa-mix">
-   <div className="sa-mix-bar" aria-hidden="true">{legs.map((leg,index)=><i key={leg.key} data-tier={leg.grade?.tier||'none'} style={{'--i':index}}/>)}</div>
-   <ul className="sa-mix-legend">{Object.keys(TIERS).filter(key=>score.tiers[key]).map(key=><li key={key} data-tier={key}><i/>{score.tiers[key]} {TIERS[key].label}</li>)}
-    {n>graded.length&&<li data-tier="none"><i/>{n-graded.length} not graded</li>}</ul>
-  </div>}
+  <div className="sa-parlay-body">
+   {score&&<div className="sa-parlay-numbers">
+    <Edge score={score}/>
+    {score.multiplier!=null&&<dl className="sa-parlay-figures">
+     <Figure label="Pays" value={score.multiplier} format={value=>times(value,score.estimated)} sub={score.assumed?'usual Power Play':score.estimated?'estimated':'your slip'}/>
+     {score.value!=null&&<Figure label="Return per $1" value={score.value} format={value=>`$${value.toFixed(2)}`} sub="over time"/>}
+    </dl>}
+   </div>}
+   <ol className="sa-legs" aria-label="Picks">{legs.map((leg,index)=>{
+    const tier=leg.grade?.tier;
+    return <li key={leg.key} data-tier={tier||'none'} style={{'--i':index}}>
+     <button type="button" onClick={()=>jump(index)}>
+      <Face row={leg.row} leg={leg} tier={tier}/>
+      <span className="sa-leg-who"><b>{leg.row?.player||leg.player}</b>
+       <small>{leg.side?sideWord(leg.side,slip.app):''} {figure(leg.line)} {leg.stat}</small></span>
+      <span className="sa-leg-tier">{tier?TIERS[tier].label:'No grade'}</span>
+      <span className="sa-leg-chance">{leg.grade?percent(leg.grade.chance):'–'}</span>
+     </button></li>;})}</ol>
+  </div>
 
   {score&&score.matchups&&<p className="sa-matchup-line"><Crosshair size={14}/>
    {score.matchups.good} of {score.total} pick{score.total===1?' has':'s have'} a good matchup{score.matchups.tough?`, ${score.matchups.tough} ${score.matchups.tough===1?'has':'have'} a tough one`:''}.</p>}
@@ -340,6 +411,7 @@ function Parlay({score,slip,legs,pool,onSwap,onSaveAll,onNew,shot}){
 
   <div className="sa-parlay-actions">
    <button type="button" className="sa-btn sa-btn-primary" onClick={onSaveAll} disabled={!graded.length}><Plus size={15}/>Add all to My Slip</button>
+   {score&&onShare&&<button type="button" className="sa-btn" onClick={onShare} disabled={sharing}><Share2 size={15}/>{sharing?'Making…':'Share'}</button>}
    <button type="button" className="sa-btn" onClick={onNew}><RotateCcw size={15}/>New slip</button>
    {shot&&<details className="sa-shot-peek"><summary><ImageUp size={14}/>Your screenshot<ChevronDown size={14}/></summary><img src={shot.url} alt="Your screenshot"/></details>}
   </div>
@@ -359,6 +431,12 @@ export function SlipAnalyzer(){
  const [pool,setPool]=useState([]);
  const [saved,setSaved]=useState(()=>new Set());
  const [over,setOver]=useState(false);
+ const [sharing,setSharing]=useState(false);
+ // Graded slips kept for the member and the site's record (slip-history.js).
+ const [history,setHistory]=useState(null);
+ const [historyTick,setHistoryTick]=useState(0);
+ const slipId=useRef(null);
+ const savedSig=useRef('');
  const boards=useRef({});
  const control=useRef(null);
  const host=useRef(null);
@@ -412,7 +490,7 @@ export function SlipAnalyzer(){
   const job=new AbortController();control.current=job;const {signal}=job;
   setShot(old=>{if(old?.url)URL.revokeObjectURL(old.url);return {url:URL.createObjectURL(file)};});
   setPhase('reading');setStep(0);setError('');setDetail('');setLegs([]);setSlip(null);setEditing(null);setPool([]);setSaved(new Set());
-  games.current={};mates.current={};
+  games.current={};mates.current={};slipId.current=newSlipId();savedSig.current='';
   const sports=SLIP_SPORTS.filter(siteFinderSportAllowed);
   // Today's lines load while the screenshot is read.
   const loading=Object.fromEntries(sports.map(sport=>[sport,loadLines(sport,{signal,only:()=>false}).catch(()=>[])]));
@@ -490,8 +568,33 @@ export function SlipAnalyzer(){
   setSaved(old=>new Set(old).add(leg.key));
  };
  const saveAll=()=>{legs.filter(leg=>leg.grade).forEach(save);pickBuilder.open();};
+ // The graded slip as a picture (slip-share.js).
+ const shareIt=async()=>{
+  if(!score)return;
+  setSharing(true);
+  try{await shareSlip({score,legs,headline:HEADLINES[score.letter],kind:[slip.app?.name,`${legs.length}-Pick ${TYPE_NAMES[score.type]||'Parlay'}`].filter(Boolean).join(' · '),
+   side:leg=>sideWord(leg.side,slip.app)});}
+  finally{setSharing(false);}
+ };
  const reset=()=>{control.current?.abort();games.current={};mates.current={};setPhase('pick');setLegs([]);setSlip(null);setError('');};
  const score=useMemo(()=>slip?scoreEntry(legs,slip):null,[legs,slip]);
+ // Keep the graded slip: once it's graded, and again when a pick or its tier changes.
+ useEffect(()=>{
+  if(phase!=='done'||!score||!slip||!slipId.current)return undefined;
+  const payload=slipPayload(slipId.current,slip,legs,score);
+  if(!payload.picks.length)return undefined;
+  const sig=JSON.stringify(payload.picks.map(pick=>[pick.player,pick.stat,pick.line,pick.side,pick.tier]));
+  if(sig===savedSig.current)return undefined;
+  const timer=setTimeout(()=>{savedSig.current=sig;saveSlip(payload).then(()=>setHistoryTick(tick=>tick+1)).catch(()=>{});},1500);
+  return()=>clearTimeout(timer);
+ },[phase,score,slip,legs]);
+ useEffect(()=>{
+  const job=new AbortController();
+  loadHistory({signal:job.signal}).then(setHistory).catch(()=>{});
+  return()=>job.abort();
+ },[historyTick]);
+ // A safer line on the same player for each Risky or Fade pick (slip-check.js saferPick).
+ const safer=useMemo(()=>Object.fromEntries(legs.map(leg=>[leg.key,leg.row?saferPick(leg,boards.current[leg.row.sport],tables.current):null]).filter(([,pick])=>pick)),[legs]);
  // What each pick needs to hit for the parlay to break even.
  const need=score?.breakEven&&legs.length?score.breakEven**(1/legs.length):null;
  const sports=SLIP_SPORTS.filter(siteFinderSportAllowed);
@@ -533,17 +636,20 @@ export function SlipAnalyzer(){
   </div>}
 
   {phase==='done'&&slip&&<div className="sa-results">
-   <Parlay score={score} slip={slip} legs={legs} shot={shot} pool={pool} onSwap={swapIn} onSaveAll={saveAll} onNew={reset}/>
+   <Parlay score={score} slip={slip} legs={legs} shot={shot} pool={pool} onSwap={swapIn} onSaveAll={saveAll} onNew={reset}
+    onShare={shareIt} sharing={sharing}/>
    {slip.source==='text'&&<p className="sa-heads-up"><TriangleAlert size={14}/>This slip was read from its text, so double-check each {sideWord('OVER',slip.app)} and {sideWord('UNDER',slip.app)}.</p>}
    <div className="sa-props-head"><h2>The picks</h2><span>{legs.length} pick{legs.length===1?'':'s'}</span></div>
    <div className="sa-props">
     {legs.map((leg,index)=><Prop key={leg.key} leg={leg} index={index} app={slip.app} boards={boards.current} need={need} editing={editing===leg.key}
      onEdit={()=>setEditing(leg.key)} onCancel={()=>setEditing(null)} onSave={changes=>recheck(leg.key,changes)}
-     onRemove={()=>setLegs(list=>list.filter(item=>item.key!==leg.key))} saved={saved.has(leg.key)} onKeep={()=>save(leg)}/>)}
+     onRemove={()=>setLegs(list=>list.filter(item=>item.key!==leg.key))} saved={saved.has(leg.key)} onKeep={()=>save(leg)} safer={safer[leg.key]}/>)}
    </div>
    {slip.skipped>0&&<p className="sa-heads-up">{slip.skipped} game line{slip.skipped>1?'s were':' was'} left out (moneylines, spreads and totals aren't graded).</p>}
    <button type="button" className="sa-another" onClick={reset}>Grade another parlay<ArrowRight size={15}/></button>
   </div>}
+  {(phase==='pick'||phase==='done')&&(history?.record?.picks>0||history?.slips?.length>0)&&<div className="sh-wrap" data-phase={phase}>
+   <Record record={history.record}/><History slips={history.slips}/></div>}
  </div>;
 }
 

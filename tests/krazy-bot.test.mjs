@@ -173,7 +173,7 @@ test('line moves, thinking steps and honest fallbacks', async () => {
   assert.match(await bot.ask('purple monkey dishwasher'), /^I didn't catch that one\./);
   assert.match(await bot.ask('best nfl prop'), /covering MLB, NBA, NHL right now/);
   assert.match(await createBot({load: async () => { throw new Error('offline'); }}).ask('best K prop'), /can't reach today's lines/);
-  assert.match(await bot.ask('build me a 3-pick slip'), /3-pick slip from my Elite and Strong picks: .*Parlay grade [A-F]/);
+  assert.match(await bot.ask('build me a 3-pick slip'), /3-pick (MLB )?slip from my Elite and Strong picks: .*Parlay grade [A-F]/);
 });
 
 test('answers carry a card: the pick, its last 10, the numbers, the matchup', async () => {
@@ -253,7 +253,28 @@ test('build me a slip: Elite and Strong picks, none working against each other, 
   assert.ok(card.together > 0 && card.together < 1);
   assert.match(bot.card().lead, /^Here's a 3-pick slip from my Elite and Strong picks \(\d Elite(, \d Strong)?\)\. Parlay grade /);
   // Too few picks to trust: it says so instead of padding the slip.
-  assert.match(await bot.ask('build me a 6-pick slip'), /^I only see \d Elite or Strong picks? that don't work against each other right now/);
+  assert.match(await bot.ask('build me a 6-pick slip'), /^I only see \d Elite or Strong (MLB )?picks? that don't work against each other right now/);
+});
+
+test('slip options: a safe slip takes the likeliest picks, a value slip weighs the payout, and a sport keeps it to one league', async () => {
+  assert.equal(understand('build me a safe 2 pick slip').style, 'safe');
+  assert.equal(understand('give me a value parlay').style, 'value');
+  assert.equal(understand('build me a slip with demons').style, 'value');
+  assert.equal(understand('build me a slip').style, 'best');
+  assert.equal(understand('build me an nhl slip').sport, 'nhl');
+  const bot = makeBot();
+  const safe = await bot.ask('build me a safe 2-pick slip');
+  assert.match(safe, /^Here's a safe 2-pick slip from my Elite and Strong picks, the likeliest of them: /);
+  const chances = bot.card().card.picks.map(pick => pick.chance);
+  assert.deepEqual(chances, [...chances].sort((a, b) => b - a));
+  assert.ok(bot.suggestions().includes('Build me a value slip'));
+  assert.match(await bot.ask('build me a value 2-pick slip'), /^Here's a value 2-pick slip from my Elite and Strong picks, the most payout for their chance: /);
+  assert.ok(bot.suggestions().includes('Build me a safe slip'));
+  await bot.ask('build me a 2-pick mlb slip');
+  assert.match(bot.card().lead, /^Here's a 2-pick MLB slip /);
+  assert.ok(bot.card().card.picks.every(pick => pick.sport === 'mlb'));
+  // No good NHL matchups on this board: it says so instead of padding.
+  assert.equal(await bot.ask('build me an nhl slip'), "I don't see any Elite or Strong NHL picks right now, so I'd hold off on a slip. Check back closer to game time.");
 });
 
 test('game news counts in the bot as it does in the Slip Analyzer: a player listed Out is a Fade', async () => {

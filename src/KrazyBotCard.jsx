@@ -362,7 +362,7 @@ function PickCard({pick,verdict,reasons}){
     </div>}
    </div>
    <div className="kb-span">
-    {pick.case?<div className="kb-rise" style={soon(.46)}><MatchupCase matchup={pick.case} limit={3}/></div>
+    {pick.case?<div className="kb-rise" style={soon(.46)}><MatchupCase matchup={pick.case} limit={3} expandable={false}/></div>
      :pick.matchup&&<div className="kb-rise" style={soon(.46)}><Matchup matchup={pick.matchup}/></div>}
     {reasons?.length>0&&<ul className="kb-why kb-rise" style={soon(.54)}>{reasons.map((text,index)=><li key={text} style={{'--i':index}}><Check aria-hidden="true"/>{text}</li>)}</ul>}
     {pick.risks.length>0&&<p className="kb-risk kb-rise" style={soon(.6)}><TriangleAlert aria-hidden="true"/>{pick.risks.join(' · ')}</p>}

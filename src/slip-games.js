@@ -160,7 +160,7 @@ const sameJob = (row, mate) => Boolean(group(row.position)) && group(row.positio
 // Out for weeks (injured reserve, PUP, a suspension): already missing from his recent games.
 const longTerm = status => /injured reserve|\bir\b|physically unable|\bpup\b|non-football|suspen|\d+-day/i.test(String(status || ''));
 // His average in his recent games, on this line's stat.
-function recentAverage(row) {
+export function recentAverage(row) {
   const kept = row.windows?.l10?.average ?? row.average;
   if (finite(kept)) return kept;
   const values = (row.gameLog || []).map(game => game.value).filter(finite).slice(-10);
@@ -355,4 +355,24 @@ export function liveRead(row, side, line = row?.line) {
 export function anyLive(rows, now = Date.now()) {
   return rows.some(row => row?.game?.state === 'in'
     || (row?.game?.state === 'pre' && Number.isFinite(Date.parse(row.startsAt)) && Date.parse(row.startsAt) - now < 60 * 60 * 1000));
+}
+
+/**
+ * How a pick is settled from the final box score (slip_ledger.py): the
+ * same number liveValue reads, named for the server. Null when the stat
+ * can't be read from a box score (first-inning lines).
+ */
+export function settleKey(row) {
+  if (!row) return null;
+  if (row.sport === 'nfl' || row.sport === 'nba' || row.sport === 'wnba') return row.marketKey ? {kind: 'key', key: row.marketKey} : null;
+  if (row.sport === 'nhl') return row.valueKey ? {kind: 'key', key: row.valueKey} : null;
+  if (row.sport === 'mlb') {
+    const market = finderMarket(row.raw?.stat || row.market);
+    return market && !market.firstInning ? {kind: 'mlb', field: market.field, pitcher: Boolean(market.pitcher)} : null;
+  }
+  if (row.sport === 'soccer') {
+    const key = statKeyOf(row.marketKey);
+    return key ? {kind: 'soccer', key} : null;
+  }
+  return null;
 }

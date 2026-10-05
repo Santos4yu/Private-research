@@ -15,7 +15,7 @@
 
 import {candidates, reasons, POWER, assessLeg, gameKey} from './smart-slip.js';
 import {matchupRead, matchupGrade, withPoolDefense} from './slip-analyst.js';
-import {judge as judgeLeg, scoreEntry, TIERS} from './slip-check.js';
+import {judge as judgeLeg, scoreEntry, TIERS, baselineOf} from './slip-check.js';
 import {link} from './slip-correlation.js';
 import {withGame} from './slip-games.js';
 import {withMatchups} from './slip-matchup.js';
@@ -319,7 +319,10 @@ export function understand(text, {keepWords} = {}) {
   // "Lineup" is a slip only when building one; otherwise it's a team's hitters.
   if (/\b(slip|parlay|entry|power play|flex( play)?|combo)\b|\b(build|make|give me|create|put together)\b.*\blineup\b|\b(\d|two|three|four|five|six)[ -]?(picks?|legs?|man)\b/.test(q)) {
     const legs = q.match(/\b(\d|two|three|four|five|six)[ -]?(pick|leg|man|player)/);
-    return {...ask, intent: 'slip', count: Math.max(2, Math.min(6, Number(legs?.[1]) || NUMBER_WORDS[legs?.[1]] || 3))};
+    // A safe slip (the likeliest picks) or a value one (the most payout for the chance).
+    const style = /\b(safe(st|r)?|lock|locks|sure|surest|banker)\b/.test(q) ? 'safe'
+      : /\b(value|long ?shots?|big(ger)? (payout|pay|win)|demons?|upside|lottery)\b/.test(q) ? 'value' : 'best';
+    return {...ask, intent: 'slip', style, count: Math.max(2, Math.min(6, Number(legs?.[1]) || NUMBER_WORDS[legs?.[1]] || 3))};
   }
   if (['another', 'flip', 'usual', 'mine', 'value'].includes(ask.intent)) return ask;
   const sheet = sheetAsked(q);
@@ -1635,7 +1638,15 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
    * scoreEntry: the linked chance, the payout, the letter).
    */
   async function slip(question) {
-    const pool = rank(allLegs(), {...question, intent: 'best'}).filter(leg => leg.tier === 'elite' || leg.tier === 'strong');
+    const good = leg => leg.tier === 'elite' || leg.tier === 'strong';
+    let pool;
+    if (question.style === 'value') {
+      // Any line, Goblins and Demons included, by how far its chance clears
+      // what the line needs (a Demon pays more, so it needs less).
+      const seen = new Set(), edge = leg => leg.chance / baselineOf(leg);
+      pool = ['standard', 'goblin', 'demon'].flatMap(modifier => rank(allLegs(), {...question, intent: 'best', modifier})).filter(good)
+        .sort((a, b) => edge(b) - edge(a)).filter(leg => !seen.has(leg.player) && seen.add(leg.player));
+    } else pool = rank(allLegs(), {...question, intent: question.style === 'safe' ? 'safest' : 'best'}).filter(good);
     const asPick = leg => ({row: leg.row, side: leg.side, player: leg.player});
     const chosen = [], perGame = new Map();
     let avoided = null;
@@ -1648,26 +1659,33 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
       if (chosen.length === question.count) break;
     }
     remember(question, chosen);
+    const league = question.sport ? `${SPORTS[question.sport].name} ` : '';
+    if (!chosen.length) return `I don't see any Elite or Strong ${league}picks right now, so I'd hold off on a slip. Check back closer to game time.`;
     if (chosen.length < question.count) {
-      return `I only see ${chosen.length || 'no'} Elite or Strong pick${chosen.length === 1 ? '' : 's'} that don't work against each other right now, not enough for a ${question.count}-pick slip. Try a smaller one.`;
+      return `I only see ${chosen.length} Elite or Strong ${league}pick${chosen.length === 1 ? '' : 's'} that don't work against each other right now, not enough for a ${question.count}-pick slip. Try a smaller one.`;
     }
     const score = scoreEntry(chosen.map((leg, index) => ({key: String(index), player: leg.player, side: leg.side, row: leg.row, line: leg.row.line, grade: leg})),
       {app: {key: 'prizepicks'}, entry: {type: 'power'}});
-    ctx = {...ctx, ask: question, ranked: chosen, index: 0, sport: chosen[0].row.sport, player: chosen[0].player, leg: chosen[0]};
-    const payout = POWER[chosen.length];
+    // A slip across leagues leaves the next question open to all of them.
+    const sports = new Set(chosen.map(leg => leg.row.sport));
+    ctx = {...ctx, ask: question, ranked: chosen, index: 0, sport: question.sport || (sports.size === 1 ? chosen[0].row.sport : null), player: chosen[0].player, leg: chosen[0]};
+    // What it pays: a Power Play, scaled for any Goblin or Demon on it.
+    const payout = score?.multiplier ? Number(score.multiplier.toFixed(2)) : POWER[chosen.length];
     const together = score?.links?.filter(pair => pair.tone === 'together') || [];
     const notes = [
       together[0] && `${sentence(together[0].text)} That helps the slip.`,
       avoided && `I left out ${pickLine(avoided.leg)}: ${avoided.text}.`,
     ].filter(Boolean).join(' ');
     const mix = Object.entries(score?.tiers || {}).filter(([, count]) => count).map(([key, count]) => `${count} ${TIERS[key].label}`).join(', ');
-    answer = {lead: tidy(`Here's a ${chosen.length}-pick slip from my Elite and Strong picks (${mix}). Parlay grade ${score?.letter || '–'}. ${notes}`),
+    const kind = `${{safe: 'safe ', value: 'value '}[question.style] || ''}${chosen.length}-pick ${league}slip`;
+    const how = {safe: ', the likeliest of them', value: ', the most payout for their chance'}[question.style] || '';
+    answer = {lead: tidy(`Here's a ${kind} from my Elite and Strong picks${how} (${mix}). Parlay grade ${score?.letter || '–'}. ${notes}`),
       card: {kind: 'slip', picks: chosen.map(pickCard), together: score?.chance ?? chosen.reduce((product, leg) => product * leg.chance, 1),
         payout: payout || null, letter: score?.letter || null, value: score?.value ?? null,
         links: (score?.links || []).map(pair => ({text: pair.text, tone: pair.tone}))}};
-    suggestions = [...new Set([`Why ${lastName(chosen[0].player)}?`, question.count > 2 ? `Make it ${question.count - 1} picks` : 'Safest pick',
-      question.count < 6 ? `Make it ${question.count + 1} picks` : 'Safest pick'])];
-    return tidy(`Here's a ${chosen.length}-pick slip from my Elite and Strong picks: ${chosen.map(leg => `${pickLine(leg)} (${gradeWord(leg)})`).join('; ')}. `
+    suggestions = [...new Set([`Why ${lastName(chosen[0].player)}?`, question.count < 6 ? `Make it ${question.count + 1} picks` : `Make it ${question.count - 1} picks`,
+      question.style === 'safe' ? 'Build me a value slip' : 'Build me a safe slip'])];
+    return tidy(`Here's a ${kind} from my Elite and Strong picks${how}: ${chosen.map(leg => `${pickLine(leg)} (${gradeWord(leg)})`).join('; ')}. `
       + `Parlay grade ${score?.letter || '–'}: all ${chosen.length} hit about ${percent(score?.chance ?? 0)} of the time${payout ? `, a ${payout}x Power Play` : ''}. ${notes}`);
   }
 

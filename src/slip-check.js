@@ -226,14 +226,48 @@ export async function relined(row, line, {enrich, signal} = {}) {
       if (scored?.historyStatus === 'ready') return {...scored, id: clone.id, apps: clone.apps, modifier: 'standard', relinedFrom: row.line};
     } catch (error) { if (error.name === 'AbortError') throw error; }
   }
-  const games = row.gameLog || [];
+  return rewindow(clone, row.gameLog || []);
+}
+
+/** A line's hit rates scored from a game log: the player's games against this row's number. */
+export function rewindow(row, games = row.gameLog || []) {
+  const line = row.line;
   const values = games.map(game => game.value);
   const since = SEASON_START(row.sport);
   const windows = Object.fromEntries([5, 10, 15, 20].map(size => [`l${size}`, finderWindow(values.slice(-size), line, 'OVER')]));
   windows.season = finderWindow(games.filter(game => !game.date || game.date >= since).map(game => game.value), line, 'OVER');
   windows.h2h = finderWindow(games.filter(game => row.opponent && game.opponent === row.opponent).map(game => game.value), line, 'OVER');
   const average = windows.l10.average;
-  return {...clone, windows, average, diff: average == null ? null : average - line, historyStatus: games.length ? 'ready' : 'none'};
+  return {...row, gameLog: games, windows, average, diff: average == null ? null : average - line, historyStatus: games.length ? 'ready' : 'none'};
+}
+
+/**
+ * A safer pick on the same player and stat, for a Risky or Fade one: his
+ * other lines on the board (a Goblin, the other side) judged the same way,
+ * with the same game news. The best that grades better and at least Lean,
+ * or null.
+ */
+export function saferPick(leg, rows, tables = {}) {
+  const tier = leg?.grade?.tier;
+  if (!leg?.row || (tier !== 'risky' && tier !== 'fade')) return null;
+  const who = personKey(leg.row.player), key = rowStatKey(leg.row);
+  const modifier = row => row.modifier || 'standard';
+  let best = null;
+  for (const row of rows || []) {
+    if (row.sport !== leg.row.sport || personKey(row.player) !== who || rowStatKey(row) !== key) continue;
+    // Not scored yet: his games are the same games, against this number.
+    let scored = row.historyStatus === 'ready' ? row : rewindow({...row}, leg.row.gameLog || []);
+    if (leg.row.game) scored = {...scored, game: leg.row.game};
+    for (const side of ['OVER', 'UNDER']) {
+      if (side === 'UNDER' && modifier(row) !== 'standard') continue;
+      if (row.line === (leg.line ?? leg.row.line) && modifier(row) === modifier(leg.row) && side === leg.side) continue;
+      const read = assessLeg(scored, side, {any: true, started: true});
+      const judged = read ? judge(read, tables) : null;
+      if (!judged?.tier || TIERS[judged.tier].rank < TIERS.lean.rank || TIERS[judged.tier].rank <= TIERS[tier].rank) continue;
+      if (!best || TIERS[judged.tier].rank > TIERS[best.tier].rank || (judged.tier === best.tier && judged.chance > best.chance)) best = judged;
+    }
+  }
+  return best;
 }
 
 /**
@@ -285,7 +319,7 @@ export const TIERS = {
 
 // The chance a line needs to be worth taking: 50% for a regular line, the
 // books' (or a usual) price for a Goblin or Demon.
-const baselineOf = read => (read.modifier || 'standard') === 'standard' ? 0.5 : read.book ?? (read.modifier === 'goblin' ? 0.7 : 0.35);
+export const baselineOf = read => (read.modifier || 'standard') === 'standard' ? 0.5 : read.book ?? (read.modifier === 'goblin' ? 0.7 : 0.35);
 
 /**
  * A pick's tier, matchup first: Elite needs a great matchup with something
@@ -345,7 +379,7 @@ export function regrade(grade, row, tables = {}) {
 }
 
 // The parlay's letter, from what it returns per $1 over time.
-const LETTERS = [[1.35, 'A+'], [1.2, 'A'], [1.1, 'A-'], [1.02, 'B+'], [0.95, 'B'], [0.88, 'B-'], [0.8, 'C+'], [0.7, 'C'], [0.55, 'D']];
+export const LETTERS = [[1.35, 'A+'], [1.2, 'A'], [1.1, 'A-'], [1.02, 'B+'], [0.95, 'B'], [0.88, 'B-'], [0.8, 'C+'], [0.7, 'C'], [0.55, 'D']];
 const letterFor = value => (LETTERS.find(([floor]) => value >= floor) || [0, 'F'])[1];
 
 /**
@@ -418,18 +452,17 @@ export function scoreEntry(legs, {app, entry} = {}) {
 /** Plain words for the parlay's grade. */
 export function verdict(score) {
   if (!score) return '';
-  const {letter, chance, multiplier, value, total, partial, assumed} = score;
+  const {chance, multiplier, value, total, partial, assumed} = score;
   const odds = Math.max(1, Math.round(1 / chance));
   const often = odds <= 1 ? 'most of the time' : `about 1 in ${odds} times`;
-  const head = letter.startsWith('A') ? 'A strong parlay.' : letter.startsWith('B') ? 'A playable parlay.'
-    : letter.startsWith('C') ? 'A long shot for the price.' : 'The payout doesn\'t cover the risk.';
+  // The headline already names the grade ("Elite parlay"); this says what's behind it.
   const tail = partial ? ' Picks that couldn\'t be graded count as coin flips.' : '';
   if (value != null && multiplier) {
     const pays = `${assumed ? 'a usual ' : ''}${Number(multiplier.toFixed(2))}x`;
-    const worth = value >= 1 ? `it returns about $${value.toFixed(2)} per $1 over time` : `it returns about ${Math.round(value * 100)}¢ per $1 over time`;
-    return `${head} All ${total} hit ${often}, and at ${pays} ${worth}.${tail}`;
+    const worth = value >= 1 ? `about $${value.toFixed(2)} back per $1` : `about ${Math.round(value * 100)}¢ back per $1`;
+    return `All ${total} hit ${often}. At ${pays}, that's ${worth} over time.${tail}`;
   }
-  return `${head} All ${total} hit ${often}.${tail}`;
+  return `All ${total} hit ${often}.${tail}`;
 }
 
 /** Better picks to swap in for a weak leg: backed reads from the boards, other players. */

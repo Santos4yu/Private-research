@@ -27,3 +27,6 @@
 /* On Krazy Bot's cards: the card's own frame, a little tighter. */
 .kb-card .sa-case{padding:12px;border-radius:12px;background:linear-gradient(180deg,color-mix(in srgb,var(--c) 8%,rgba(255,255,255,.03)),rgba(255,255,255,.02))}
 .kb-card .sa-case li{color:#dcdce4}
+.sa-case-more{justify-self:start;display:inline-flex;align-items:center;gap:4px;padding:0;border:0;background:none;color:var(--c);font:700 12px/1.2 var(--a-sans,var(--font-sans,Inter,Arial,sans-serif));cursor:pointer}
+.sa-case-more svg{transition:transform .2s}
+.sa-case-more[aria-expanded=true] svg{transform:rotate(180deg)}
