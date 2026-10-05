@@ -336,3 +336,15 @@
  .slip-analyzer *,.slip-analyzer *::before,.slip-analyzer *::after{animation:none!important;transition:none!important}
  .sa-scan{display:none}
 }
+
+/* The side-aware matchup read belongs above the recent-form numbers. */
+.sa-matchup{--matchup-accent:#a8b5c4;margin:12px 0;padding:12px;border:1px solid color-mix(in srgb,var(--matchup-accent) 35%,transparent);border-radius:14px;background:color-mix(in srgb,var(--matchup-accent) 6%,transparent)}
+.sa-matchup[data-tone="good"]{--matchup-accent:#42d9a1}
+.sa-matchup[data-tone="tough"]{--matchup-accent:#ff788b}
+.sa-matchup header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.sa-matchup h4{margin:0;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--matchup-accent)}
+.sa-matchup-score{display:flex;align-items:center;gap:8px;font-size:12px}
+.sa-matchup meter{width:72px;height:8px;accent-color:var(--matchup-accent)}
+.sa-matchup ul{margin:10px 0 0;padding-left:16px;display:grid;gap:7px;font-size:12px;line-height:1.5;color:#c6ced8;overflow-wrap:anywhere}
+.sa-matchup li::marker{color:var(--matchup-accent)}
+.sa-matchup-empty{font-size:12px;color:#9ba7b5;margin:12px 0}

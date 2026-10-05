@@ -2,7 +2,8 @@ import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowRight,ArrowUpRight,Check,ChevronDown,ClipboardPaste,Crown,Flame,ImageUp,Link2,Pencil,Plus,Repeat2,RotateCcw,Search,Trash2,TrendingDown,TrendingUp,TriangleAlert,X} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import {siteFinderSportAllowed} from './site-access';
-import {finderSlipProp} from './unified-finder-data';
+import {finderSlipProp,loadHitterMatchups,withHitterMatchups} from './unified-finder-data';
+import {matchupGrade} from './slip-analyst';
 import {loadLines,ENRICH} from './finder-pool';
 import {candidates} from './smart-slip';
 import {SLIP_SPORTS,SPORT_NAMES,TIERS,checkLeg,scoreEntry,verdict,swaps,sideWord,offeredStats,tierOf} from './slip-check';
@@ -180,6 +181,20 @@ function Editor({leg,app,boards,onSave,onCancel}){
  </form>;
 }
 
+export function SlipMatchup({read,side}){
+ const rating=matchupGrade(read,side);
+ const factors=read?.factors||[];
+ const matchup=factors.find(item=>item.key==='matchup');
+ if(!matchup)return <p className="sa-matchup-empty">Matchup details unavailable for this pick.</p>;
+ const details=[matchup.text,...(matchup.factors||[]).filter(item=>item.available).map(item=>item.detail),
+  ...factors.filter(item=>item.key!=='matchup').map(item=>item.text)].filter(text=>typeof text==='string'&&text.trim());
+ const unique=[...new Set(details)];
+ return <section className="sa-matchup" data-tone={rating?.tone||'neutral'} aria-label="Matchup analysis">
+  <header><h4>{rating?`${rating.label} matchup`:'Matchup'}</h4>{rating&&<span className="sa-matchup-score"><meter min="0" max="100" value={rating.score} aria-label="Matchup score"/><b>{rating.score}</b></span>}</header>
+  <ul>{unique.map(text=><li key={text}>{text}</li>)}</ul>
+ </section>;
+}
+
 const MISSING={
  player:leg=>`${leg.player} couldn't be found${leg.sport?` in the ${SPORT_NAMES[leg.sport]||leg.sport.toUpperCase()}`:''}. Check the name with Fix.`,
  stat:leg=>leg.stat?`There are no ${leg.stat} numbers for ${leg.player}. Pick the stat below.`:'The stat on this pick couldn\'t be read. Pick it below.',
@@ -216,6 +231,7 @@ function Prop({leg,index,app,boards,need,editing,onEdit,onSave,onCancel,onRemove
   </div>
   {grade?<>
    <Meter chance={grade.chance} need={need}/>
+   <SlipMatchup read={grade.read} side={leg.side}/>
    <div className="sa-prop-figures">
     {finite(average)&&<span><small>Avg L10</small><b>{figure(Math.round(average*10)/10)}</b></span>}
     {finite(projection)&&<span><small>Projection</small><b>{figure(Math.round(projection*10)/10)}</b></span>}
@@ -350,6 +366,10 @@ export function SlipAnalyzer(){
    if(Date.now()-started<900)await pause(900-(Date.now()-started),signal);
    setStep(1);
    const rows=Object.fromEntries(await Promise.all(sports.map(async sport=>[sport,await loading[sport]])));
+   if(rows.mlb?.length&&read.legs.some(leg=>!leg.sport||leg.sport==='mlb')){
+    try{rows.mlb=withHitterMatchups(rows.mlb,await loadHitterMatchups({signal}));}
+    catch(failure){if(failure.name==='AbortError')throw failure;}
+   }
    boards.current=rows;
    await pause(calm()?0:350,signal);
    setStep(2);
