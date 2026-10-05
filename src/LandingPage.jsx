@@ -106,6 +106,13 @@ export function LandingPage({ onSignUp, onSignIn }) {
         </section>
         <FinderPreview />
       </main>
+      <footer className="kd-landing-foot">
+        <span>© 2026 Krazy Data</span>
+        <nav aria-label="Legal">
+          <a href="/privacy">Privacy</a>
+          <a href="/terms">Terms</a>
+        </nav>
+      </footer>
     </div>
   );
 }
