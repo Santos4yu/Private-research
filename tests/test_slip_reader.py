@@ -228,6 +228,7 @@ class GeminiTests(unittest.TestCase):
             slip = slip_reader.read_slip(PNG)
         self.assertEqual(slip["source"], "vision")
         self.assertEqual(len(slip["legs"]), 3)
+        self.assertIn("model_not_found", slip["detail"])
         # The newest Flash first; the key goes in a header, never the address.
         self.assertIn("gemini-3.0-flash", calls[0][0])
         self.assertIn("gemini-2.0-flash:generateContent", calls[1][0])
@@ -267,3 +268,8 @@ class GeminiTests(unittest.TestCase):
         with patch.object(slip_reader, "read_slip", return_value=failed):
             self.assertEqual(api._analyze_slip(PNG), (503, {"error": failed["error"]}))
             self.assertEqual(api._analyze_slip(PNG, admin=True)[1]["detail"], "Groq x: 404")
+        # Read by a backup reader: why the first ones were passed over, for admins only.
+        read = {"legs": [{"player": "A"}], "source": "text", "detail": "Groq vision: 400"}
+        with patch.object(slip_reader, "read_slip", side_effect=lambda data: dict(read)):
+            self.assertNotIn("detail", api._analyze_slip(PNG)[1])
+            self.assertEqual(api._analyze_slip(PNG, admin=True)[1]["detail"], "Groq vision: 400")

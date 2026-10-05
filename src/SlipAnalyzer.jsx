@@ -1,11 +1,13 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {ArrowRight,Check,ClipboardPaste,ImageUp,Pencil,Plus,Repeat2,RotateCcw,Search,Trash2,TriangleAlert,X} from 'lucide-react';
+import {ArrowRight,ArrowUpRight,Check,ChevronDown,ClipboardPaste,Crown,Flame,ImageUp,Link2,Pencil,Plus,Repeat2,RotateCcw,Search,Trash2,TrendingDown,TrendingUp,TriangleAlert,X} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import {siteFinderSportAllowed} from './site-access';
 import {finderSlipProp} from './unified-finder-data';
 import {loadLines,ENRICH} from './finder-pool';
-import {candidates,reasons} from './smart-slip';
-import {SLIP_SPORTS,SPORT_NAMES,checkLeg,scoreEntry,verdict,swaps,sideWord,offeredStats} from './slip-check';
+import {candidates} from './smart-slip';
+import {SLIP_SPORTS,SPORT_NAMES,TIERS,checkLeg,scoreEntry,verdict,swaps,sideWord,offeredStats,tierOf} from './slip-check';
+import {lookupRow} from './slip-lookup';
+import {teamLogoUrl} from './sports/nfl/nfl-ui-core';
 import {pickBuilder} from './pick-builder-client';
 import {PhoneAccountButtons} from './UnifiedFinder';
 import './slip-analyzer.css';
@@ -15,10 +17,11 @@ import './slip-analyzer.css';
 // Finder's lines and graded here (slip-check.js), and any leg can be fixed
 // by hand if it was misread.
 const READ_URL='/api/prediction?action=slip-analyzer';
-const STEPS=['Reading your slip','Finding the players','Checking their games','Grading each pick'];
+const STEPS=['Reading your slip','Finding the players','Checking their games','Grading the parlay'];
 const MODIFIER_ICON={goblin:'/prizepicks/goblin.png',demon:'/prizepicks/demon.png'};
 const TYPE_NAMES={power:'Power Play',flex:'Flex Play',parlay:'Parlay'};
 
+const finite=value=>typeof value==='number'&&Number.isFinite(value);
 const percent=value=>`${Math.round(value*100)}%`;
 const figure=value=>value==null?'—':String(Number(value));
 const times=(value,estimated)=>`${estimated?'≈':''}${value>=10?Math.round(value):Number(value.toFixed(2))}x`;
@@ -53,23 +56,78 @@ async function readSlip(blob,signal){
  return data;
 }
 
-function Face({row,leg}){
+const LOGOS={prizepicks:'/prizepicks/logo.png'};
+const appLogo=key=>key?LOGOS[key]||`/sportsbooks/${key}.png`:null;
+const MLB_LOGO=id=>id?`https://www.mlbstatic.com/team-logos/${encodeURIComponent(id)}.svg`:null;
+// The other team's mark, from whatever the league's line carries.
+function opponentLogo(row){
+ if(!row?.opponent)return null;
+ if(row.opponentLogo)return row.opponentLogo;
+ if(row.sport==='nfl')return teamLogoUrl(row.opponent);
+ if(row.sport==='mlb')return MLB_LOGO(row.opponentTeamId);
+ if(row.homeTeamAbbr===row.opponent)return row.homeTeamLogo||row.raw?.homeTeamLogo||null;
+ if(row.awayTeamAbbr===row.opponent)return row.awayTeamLogo||row.raw?.awayTeamLogo||null;
+ return null;
+}
+const teamLogo=row=>row?.teamLogo||(row?.sport==='nfl'&&row.teamAbbr?teamLogoUrl(row.teamAbbr):null);
+
+// A number that counts up to its value as it appears.
+function useCount(target,ms=900){
+ const [value,setValue]=useState(()=>calm()?target:0);
+ useEffect(()=>{
+  if(target==null||calm()){setValue(target);return undefined;}
+  let frame,start;
+  const step=time=>{start??=time;const k=Math.min(1,(time-start)/ms);setValue(target*(1-(1-k)**3));if(k<1)frame=requestAnimationFrame(step);};
+  frame=requestAnimationFrame(step);return()=>cancelAnimationFrame(frame);
+ },[target,ms]);
+ return value;
+}
+
+function Img({src,className,alt=''}){
+ const [bad,setBad]=useState(false);
+ useEffect(()=>setBad(false),[src]);
+ return src&&!bad?<img className={className} src={src} alt={alt} loading="lazy" onError={()=>setBad(true)}/>:null;
+}
+
+function Face({row,leg,tier}){
  const [bad,setBad]=useState(false);
  const src=row?.headshot;
  useEffect(()=>setBad(false),[src]);
- const name=row?.player||leg.player;
- const sport=row?.sport||leg.sport;
- return <span className="sa-face">
-  {src&&!bad?<img src={src} alt="" loading="lazy" onError={()=>setBad(true)}/>:<i>{String(name||'').split(' ').map(part=>part[0]).slice(0,2).join('')}</i>}
-  {sport&&LEAGUE_LOGOS[sport]&&<img className="sa-face-league" src={LEAGUE_LOGOS[sport]} alt=""/>}
+ const name=row?.player||leg?.player;
+ const sport=row?.sport||leg?.sport;
+ const badge=teamLogo(row)||LEAGUE_LOGOS[sport];
+ return <span className="sa-face" data-tier={tier||undefined}>
+  <span className="sa-face-photo">{src&&!bad?<img src={src} alt="" loading="lazy" onError={()=>setBad(true)}/>
+   :<i>{String(name||'').split(' ').map(part=>part[0]).slice(0,2).join('')}</i>}</span>
+  {badge&&<Img className="sa-face-badge" src={badge}/>}
  </span>;
 }
 
-const tone=chance=>chance>=0.6?'up':chance>=0.5?'blue':chance>=0.4?'gold':'down';
-function Ring({chance,grade}){
- return <span className="sa-ring" data-tone={tone(chance)} style={{'--p':Math.round(chance*100)}} aria-label={`${percent(chance)} chance${grade?`, grade ${grade}`:''}`}>
-  <b>{Math.round(chance*100)}<small>%</small></b>{grade&&<i data-grade={grade}>{grade}</i>}
- </span>;
+const TIER_ICON={elite:Flame,strong:TrendingUp,lean:ArrowUpRight,risky:TriangleAlert,fade:TrendingDown};
+function TierBadge({tier}){
+ const Icon=TIER_ICON[tier];
+ return <span className="sa-tier" data-tier={tier} title={TIERS[tier].text}><Icon size={13} strokeWidth={2.6}/>{TIERS[tier].label}</span>;
+}
+
+const rateTone=rate=>rate>=0.6?'up':rate>=0.5?'blue':rate>=0.4?'gold':'down';
+const RECORDS=[['l5','L5'],['l10','L10'],['l20','L20'],['season','Season'],['h2h','H2H']];
+function Records({grade,row}){
+ const items=RECORDS.map(([key,label])=>[key,key==='h2h'&&row?.opponent?`vs ${row.opponent}`:label,grade.records?.[key]])
+  .filter(([key,,record])=>record&&record.games>0&&!(key==='l20'&&record.games<=(grade.records.l10?.games||0))&&!(key==='season'&&record.games<=(grade.records.l20?.games||grade.records.l10?.games||0)));
+ if(!items.length)return null;
+ return <ul className="sa-records">{items.map(([key,label,record])=><li key={key} data-tone={rateTone(record.rate)}>
+  <span>{label}</span><b>{record.won}/{record.games}</b><i style={{'--w':`${Math.round(record.rate*100)}%`}}/>
+ </li>)}</ul>;
+}
+
+// The chance a pick hits, against what each pick needs for the parlay to pay its way.
+function Meter({chance,need}){
+ const shown=useCount(chance*100);
+ return <div className="sa-meter" data-tone={rateTone(chance)}>
+  <div className="sa-meter-top"><b>{Math.round(shown)}<small>%</small></b><span>to hit</span>
+   {need!=null&&<em>needs {percent(need)}</em>}</div>
+  <div className="sa-meter-bar"><i style={{'--w':`${Math.round(chance*100)}%`}}/>{need!=null&&<u style={{left:`${Math.round(need*100)}%`}}/>}</div>
+ </div>;
 }
 
 // The last ten games against the slip's number.
@@ -81,12 +139,13 @@ function Games({row,line,side}){
  const won=value=>side==='UNDER'?value<line:value>line;
  const hits=values.filter(won).length;
  return <div className="sa-games" role="img" aria-label={`Last ${games.length} games: ${hits} of ${games.length} on the ${side==='UNDER'?'under':'over'} side of ${line}`}>
+  <div className="sa-games-head"><span>Last {games.length} games</span><b>{hits}/{games.length}</b></div>
   <div className="sa-games-plot">
-   <i className="sa-games-line" style={{bottom:`${line/top*100}%`}}><span>{figure(line)}</span></i>
+   <i className="sa-games-line" style={{'--y':line/top}}><span>{figure(line)}</span></i>
    {games.map((game,index)=><span key={`${game.date}-${index}`} className="sa-games-bar" style={{'--h':`${Math.max(3,game.value/top*100)}%`,'--i':index}}
-    data-result={game.value===line?'push':won(game.value)?'hit':'miss'}><b>{figure(game.value)}</b></span>)}
+    data-result={game.value===line?'push':won(game.value)?'hit':'miss'}><b>{figure(game.value)}</b>
+    {game.opponent&&typeof game.opponent==='string'&&<small>{game.opponent}</small>}</span>)}
   </div>
-  <span className="sa-games-caption">Last {games.length}: <b>{hits}/{games.length}</b></span>
  </div>;
 }
 
@@ -122,41 +181,57 @@ function Editor({leg,app,boards,onSave,onCancel}){
 }
 
 const MISSING={
- player:leg=>`${leg.player} isn't on today's board. The game may have started, or the name may be misread.`,
- stat:leg=>leg.stat?`${leg.player} has no ${leg.stat} line on today's board.`:'The stat on this pick couldn\'t be read. Pick it below.',
+ player:leg=>`${leg.player} couldn't be found${leg.sport?` in the ${SPORT_NAMES[leg.sport]||leg.sport.toUpperCase()}`:''}. Check the name with Fix.`,
+ stat:leg=>leg.stat?`There are no ${leg.stat} numbers for ${leg.player}. Pick the stat below.`:'The stat on this pick couldn\'t be read. Pick it below.',
  needs:leg=>leg.line==null&&!leg.side?'The line and side on this pick couldn\'t be read.':`The ${leg.line==null?'line':'side'} on this pick couldn't be read.`,
  thin:()=>'Not enough games yet to grade this pick.',
 };
 
-function Leg({leg,index,app,boards,editing,onEdit,onSave,onCancel,onRemove,saved,onKeep}){
+function Prop({leg,index,app,boards,need,editing,onEdit,onSave,onCancel,onRemove,saved,onKeep}){
  const row=leg.row;
  const grade=leg.grade;
- const opponent=row?.opponent?` ${row.isHome===false?'@':'vs'} ${row.opponent}`:'';
- const stats=leg.state==='stat'?offeredStats(leg.spot):[];
- return <article className="sa-leg" data-state={grade?'graded':leg.state} style={{'--i':index}}>
-  <header className="sa-leg-head">
-   <Face row={row} leg={leg}/>
+ const tier=grade?.tier;
+ const opponent=row?.opponent;
+ const stats=leg.state==='stat'&&!grade?offeredStats(leg.spot):[];
+ const average=row?.windows?.l10?.average??row?.average;
+ const projection=grade?.read?.projection;
+ const sport=row?.sport||leg.sport;
+ return <article className="sa-prop" data-tier={tier||'none'} style={{'--i':index}}>
+  <Img className="sa-prop-mark" src={teamLogo(row)}/>
+  <header className="sa-prop-head">
+   <Face row={row} leg={leg} tier={tier}/>
    <div className="sa-who"><b>{row?.player||leg.player}</b>
-    <span>{row?[row.teamAbbr||SPORT_NAMES[row.sport],opponent].join('')+(row.startsAt?` · ${when(row.startsAt)}`:''):SPORT_NAMES[leg.sport]||'Player prop'}</span></div>
-   {grade?<Ring chance={grade.chance} grade={grade.grade}/>:<span className="sa-flag"><TriangleAlert size={14}/>{leg.state==='needs'?'Check':'Not graded'}</span>}
+    <span className="sa-who-game">
+     {sport&&<Img className="sa-who-league" src={LEAGUE_LOGOS[sport]}/>}
+     {[row?.teamAbbr,row?.position].filter(Boolean).join(' · ')||SPORT_NAMES[sport]||'Player prop'}
+     {opponent&&<span className="sa-who-vs"><span>{row.isHome===false?'@':'vs'}</span><Img src={opponentLogo(row)}/><span>{opponent}</span></span>}
+    </span>
+    {row?.startsAt&&<small>{when(row.startsAt)}</small>}</div>
+   {tier?<TierBadge tier={tier}/>:<span className="sa-flag"><TriangleAlert size={13}/>{leg.state==='needs'?'Check':'No grade'}</span>}
   </header>
-  <div className="sa-pick">
+  <div className="sa-prop-pick">
    {leg.side?<span className="sa-side" data-side={leg.side}>{sideWord(leg.side,app)}</span>:<span className="sa-side" data-side="none">?</span>}
    <b>{figure(leg.line)}</b>{leg.stat?<span>{leg.stat}</span>:<span className="sa-unread">Stat?</span>}
-   {MODIFIER_ICON[leg.modifier]&&<img src={MODIFIER_ICON[leg.modifier]} alt={leg.modifier} width="18" height="18"/>}
+   {MODIFIER_ICON[leg.modifier]&&<img src={MODIFIER_ICON[leg.modifier]} alt={leg.modifier} width="20" height="20"/>}
   </div>
-  {leg.state==='relined'&&grade&&<p className="sa-relined">The board has {figure(row.relinedFrom)} today; this was graded at your {figure(leg.line)}.</p>}
   {grade?<>
+   <Meter chance={grade.chance} need={need}/>
+   <div className="sa-prop-figures">
+    {finite(average)&&<span><small>Avg L10</small><b>{figure(Math.round(average*10)/10)}</b></span>}
+    {finite(projection)&&<span><small>Projection</small><b>{figure(Math.round(projection*10)/10)}</b></span>}
+    {grade.book!=null&&<span><small>Books</small><b>{percent(grade.book)}</b></span>}
+    {leg.odds!=null&&<span><small>Your price</small><b>{price(leg.odds)}</b></span>}
+   </div>
+   <Records grade={grade} row={row}/>
    <Games row={row} line={leg.line} side={leg.side}/>
    {grade.note&&<p className="sa-note">{grade.note}</p>}
-   <ul className="sa-reasons">{reasons(grade).slice(0,5).map(item=><li key={item.key} data-tone={item.tone||undefined}><b>{item.strong}</b><span>{item.label}</span></li>)}</ul>
-   {leg.odds!=null&&grade.implied!=null&&<p className="sa-price">Your price {price(leg.odds)} needs {percent(grade.implied)}; this pick hits about {percent(grade.chance)}.</p>}
+   {leg.state==='relined'&&<p className="sa-aside">Today's line is {figure(row.relinedFrom)}; this was graded at your {figure(leg.line)}.</p>}
    {grade.read?.risks?.length>0&&<ul className="sa-risks">{grade.read.risks.slice(0,2).map(risk=><li key={risk}><TriangleAlert size={12}/>{risk}</li>)}</ul>}
   </>:<div className="sa-missing"><p>{(MISSING[leg.state]||MISSING.thin)(leg)}</p>
    {stats.length>0&&<div className="sa-chips">{stats.slice(0,8).map(name=><button type="button" key={name} onClick={()=>onSave({stat:name,statName:''})}>{name}</button>)}</div>}
   </div>}
   {editing?<Editor leg={leg} app={app} boards={boards} onSave={onSave} onCancel={onCancel}/>
-   :<footer className="sa-leg-actions">
+   :<footer className="sa-prop-actions">
     <button type="button" onClick={onEdit}><Pencil size={14}/>Fix</button>
     {row&&<button type="button" onClick={()=>window.dispatchEvent(new CustomEvent('vortex:open-prop',{detail:{sport:row.sport,player:row.player,stat:row.raw?.stat||row.market}}))}><Search size={14}/>Research</button>}
     {grade&&<button type="button" aria-pressed={saved} onClick={onKeep}>{saved?<Check size={14}/>:<Plus size={14}/>}{saved?'Saved':'My Slip'}</button>}
@@ -165,34 +240,73 @@ function Leg({leg,index,app,boards,editing,onEdit,onSave,onCancel,onRemove,saved
  </article>;
 }
 
-function Summary({score,slip,legs,shot,pool,onSwap,onSaveAll,onNew}){
+const HEADLINES={'A+':'Elite parlay','A':'Strong parlay','A-':'Strong parlay','B+':'Good parlay','B':'Playable parlay','B-':'Playable parlay',
+ 'C+':'Long shot','C':'Long shot','D':'Risky parlay','F':'Fade this parlay'};
+const tone=letter=>({A:'up',B:'blue',C:'gold'})[letter?.[0]]||'down';
+
+function Figure({label,value,format,sub}){
+ const shown=useCount(value);
+ return <div><dt>{label}</dt><dd>{value==null?'—':format(shown)}</dd>{sub&&<small>{sub}</small>}</div>;
+}
+
+function Parlay({score,slip,legs,pool,onSwap,onSaveAll,onNew,shot}){
  const options=useMemo(()=>swaps(legs,pool),[legs,pool]);
- const weakest=score?.weakest;
- const kind=[slip.app?.name,`${legs.length}-pick ${TYPE_NAMES[score?.type]||'slip'}`].filter(Boolean).join(' · ');
- return <section className="sa-summary" data-grade={score?.letter||'none'}>
-  <div className="sa-summary-top">
-   <span className="sa-letter" aria-label={`Slip grade ${score?.letter||'not available'}`}>{score?.letter||'–'}</span>
-   <div><span className="sa-kind">{kind}</span><p className="sa-verdict">{verdict(score)||'Fix the picks below to grade this slip.'}</p></div>
+ const n=legs.length;
+ const kind=`${n}-Pick ${TYPE_NAMES[score?.type]||'Parlay'}`;
+ const logo=appLogo(slip.app?.key);
+ const letter=score?.letter;
+ const dial=useCount(score?.score??0,1100);
+ const odds=score?Math.max(1,Math.round(1/score.chance)):null;
+ const graded=legs.filter(leg=>leg.grade);
+ return <section className="sa-parlay" data-tone={score?tone(letter):'none'}>
+  <div className="sa-parlay-top">
+   <div className="sa-dial" style={{'--p':dial}} aria-label={`Parlay grade ${letter||'not available'}`}>
+    <svg viewBox="0 0 120 120" aria-hidden="true"><circle className="sa-dial-track" cx="60" cy="60" r="52"/>
+     <circle className="sa-dial-fill" cx="60" cy="60" r="52" pathLength="100" strokeDasharray="100" strokeDashoffset={100-dial}/></svg>
+    <b>{letter||'–'}</b><span>Parlay grade</span>
+   </div>
+   <div className="sa-parlay-main">
+    <span className="sa-kind">{logo&&<Img src={logo}/>}{[slip.app?.name,kind].filter(Boolean).join(' · ')}</span>
+    <h2>{score?HEADLINES[letter]:'Not graded yet'}</h2>
+    <p>{score?verdict(score):'None of the picks could be graded. Fix a pick below to grade the parlay.'}</p>
+    <ul className="sa-stack" aria-label="Picks">{legs.map(leg=><li key={leg.key} title={`${leg.row?.player||leg.player}${leg.grade?` · ${TIERS[leg.grade.tier].label}`:''}`}>
+     <Face row={leg.row} leg={leg} tier={leg.grade?.tier}/></li>)}</ul>
+   </div>
+   {score&&<dl className="sa-parlay-figures">
+    <Figure label="Hit chance" value={score.chance*100} format={value=>`${value<10?value.toFixed(1):Math.round(value)}%`} sub={`about 1 in ${odds}`}/>
+    <Figure label="Pays" value={score.multiplier} format={value=>times(value,score.estimated)} sub={score.assumed?'usual Power Play':score.estimated?'estimated':'your slip'}/>
+    <Figure label="Return per $1" value={score.value} format={value=>`$${value.toFixed(2)}`} sub="over time"/>
+    <Figure label="Break-even" value={score.breakEven!=null?score.breakEven*100:null} format={value=>`${value<10?value.toFixed(1):Math.round(value)}%`} sub="all must hit"/>
+   </dl>}
   </div>
-  {score&&<dl className="sa-figures">
-   <div><dt>All hit</dt><dd>{score.chance!=null?percent(score.chance):'—'}</dd></div>
-   <div><dt>Pays</dt><dd>{score.multiplier?times(score.multiplier,score.estimated):'—'}</dd></div>
-   <div><dt>Break-even</dt><dd>{score.breakEven?percent(score.breakEven):'—'}</dd></div>
-   <div><dt>Avg pick</dt><dd>{percent(score.average)}</dd></div>
-  </dl>}
-  {weakest&&legs.length>1&&<p className="sa-weakest"><span>Weakest pick</span><b>{weakest.player}</b> {sideWord(weakest.side,slip.app)} {figure(weakest.line)} {weakest.stat} · {percent(weakest.grade.chance)}</p>}
+
+  {graded.length>0&&<div className="sa-mix">
+   <div className="sa-mix-bar" aria-hidden="true">{legs.map((leg,index)=><i key={leg.key} data-tier={leg.grade?.tier||'none'} style={{'--i':index}}/>)}</div>
+   <ul className="sa-mix-legend">{Object.keys(TIERS).filter(key=>score.tiers[key]).map(key=><li key={key} data-tier={key}><i/>{score.tiers[key]} {TIERS[key].label}</li>)}
+    {n>graded.length&&<li data-tier="none"><i/>{n-graded.length} not graded</li>}</ul>
+  </div>}
+
+  {score&&<div className="sa-callouts">
+   {score.best&&n>1&&<div className="sa-callout" data-kind="best"><Crown size={16}/><span><small>Best pick</small>
+    <b>{score.best.row?.player||score.best.player}</b> {sideWord(score.best.side,slip.app)} {figure(score.best.line)} {score.best.stat} · {percent(score.best.grade.chance)}</span></div>}
+   {score.weakest&&n>1&&score.weakest!==score.best&&<div className="sa-callout" data-kind="weak"><TriangleAlert size={16}/><span><small>Weakest link</small>
+    <b>{score.weakest.row?.player||score.weakest.player}</b> {sideWord(score.weakest.side,slip.app)} {figure(score.weakest.line)} {score.weakest.stat} · {percent(score.weakest.grade.chance)}</span></div>}
+   {score.shared>1&&<div className="sa-callout" data-kind="info"><Link2 size={16}/><span><small>Same game</small>{score.shared} picks share a game, so they tend to hit or miss together.</span></div>}
+  </div>}
+
   {options.length>0&&<div className="sa-swaps"><h3>Stronger picks to swap in</h3>
    <ul>{options.map(read=><li key={read.id}>
-    <Face row={read.row} leg={read.row}/>
+    <Face row={read.row} leg={read.row} tier={tierOf(read)}/>
     <span className="sa-swap-copy"><b>{read.row.player}</b><small>{sideWord(read.side,slip.app)} {figure(read.row.line)} {read.row.market}</small></span>
     <span className="sa-swap-chance">{percent(read.chance)}</span>
     <button type="button" onClick={()=>onSwap(read)} aria-label={`Swap in ${read.row.player}`}><Repeat2 size={14}/>Swap</button>
    </li>)}</ul></div>}
-  <div className="sa-summary-actions">
-   <button type="button" className="sa-btn sa-btn-primary" onClick={onSaveAll} disabled={!legs.some(leg=>leg.grade)}><Plus size={15}/>Add all to My Slip</button>
+
+  <div className="sa-parlay-actions">
+   <button type="button" className="sa-btn sa-btn-primary" onClick={onSaveAll} disabled={!graded.length}><Plus size={15}/>Add all to My Slip</button>
    <button type="button" className="sa-btn" onClick={onNew}><RotateCcw size={15}/>New slip</button>
+   {shot&&<details className="sa-shot-peek"><summary><ImageUp size={14}/>Your screenshot<ChevronDown size={14}/></summary><img src={shot.url} alt="Your screenshot"/></details>}
   </div>
-  {shot&&<figure className="sa-thumb"><img src={shot.url} alt="Your screenshot"/></figure>}
  </section>;
 }
 
@@ -214,6 +328,10 @@ export function SlipAnalyzer(){
  const host=useRef(null);
  const input=useRef(null);
  const enrichFor=sport=>ENRICH[sport];
+ // A player who isn't on today's board (his game has started) is looked
+ // up in his league and graded from his own games (slip-lookup.js).
+ const options=signal=>({enrichFor,signal,sports:SLIP_SPORTS.filter(siteFinderSportAllowed),
+  lookup:(leg,where)=>lookupRow(leg,{sports:where,enrich:enrichFor,signal})});
 
  const run=useCallback(async file=>{
   if(!file)return;
@@ -235,7 +353,7 @@ export function SlipAnalyzer(){
    boards.current=rows;
    await pause(calm()?0:350,signal);
    setStep(2);
-   const checked=await Promise.all(read.legs.map((leg,index)=>checkLeg({...leg,key:`${index}:${leg.player}`},rows,{enrichFor,signal})));
+   const checked=await Promise.all(read.legs.map((leg,index)=>checkLeg({...leg,key:`${index}:${leg.player}`},rows,options(signal))));
    setStep(3);
    await pause(calm()?0:450,signal);
    if(signal.aborted)return;
@@ -275,7 +393,7 @@ export function SlipAnalyzer(){
   const next={...current,...changes};
   setEditing(null);
   const checked=await checkLeg({key,player:next.player,team:next.team,opponent:next.opponent,sport:next.sport,stat:next.stat,statName:next.statName,
-   line:next.line,plus:next.plus,side:next.side,modifier:next.modifier,odds:next.odds,confidence:next.confidence,needs:[]},boards.current,{enrichFor});
+   line:next.line,plus:next.plus,side:next.side,modifier:next.modifier,odds:next.odds,confidence:next.confidence,needs:[]},boards.current,options());
   setLegs(list=>list.map(leg=>leg.key===key?checked:leg));
   // Still missing its line or side: open the form for it.
   if(checked.state==='needs')setEditing(key);
@@ -284,7 +402,7 @@ export function SlipAnalyzer(){
   const weakest=scoreEntry(legs,slip)?.weakest;if(!weakest)return;
   const row=read.row;
   const checked=await checkLeg({key:`swap:${row.id}`,player:row.player,team:row.teamAbbr,sport:row.sport,stat:row.market,statName:'',line:row.line,
-   side:read.side,modifier:read.modifier,odds:null,needs:[]},boards.current,{enrichFor});
+   side:read.side,modifier:read.modifier,odds:null,needs:[]},boards.current,options());
   setLegs(list=>list.map(leg=>leg.key===weakest.key?checked:leg));
  };
  const save=leg=>{
@@ -295,12 +413,14 @@ export function SlipAnalyzer(){
  const saveAll=()=>{legs.filter(leg=>leg.grade).forEach(save);pickBuilder.open();};
  const reset=()=>{control.current?.abort();setPhase('pick');setLegs([]);setSlip(null);setError('');};
  const score=useMemo(()=>slip?scoreEntry(legs,slip):null,[legs,slip]);
+ // What each pick needs to hit for the parlay to break even.
+ const need=score?.breakEven&&legs.length?score.breakEven**(1/legs.length):null;
  const sports=SLIP_SPORTS.filter(siteFinderSportAllowed);
 
  return <div className="slip-analyzer" ref={host}>
   <header className="sa-head">
-   <div><span className="sa-eyebrow">Slip Analyzer</span><h1>Check your slip.</h1>
-    <p>Upload a screenshot of your picks. Every leg is read and checked against the player's recent games, the matchup and sportsbook odds.</p></div>
+   <div><span className="sa-eyebrow">Slip Analyzer</span><h1>Grade your parlay.</h1>
+    <p>Upload a screenshot of your picks. The parlay gets one grade, and every pick is checked against the player's recent games, the matchup and sportsbook odds.</p></div>
    <PhoneAccountButtons/>
   </header>
 
@@ -334,15 +454,17 @@ export function SlipAnalyzer(){
   </div>}
 
   {phase==='done'&&slip&&<div className="sa-results">
-   <Summary score={score} slip={slip} legs={legs} shot={shot} pool={pool} onSwap={swapIn} onSaveAll={saveAll} onNew={reset}/>
-   <div className="sa-legs">
-    {slip.source==='text'&&<p className="sa-heads-up">This slip was read from its text, so double-check each More or Less.</p>}
-    {legs.map((leg,index)=><Leg key={leg.key} leg={leg} index={index} app={slip.app} boards={boards.current} editing={editing===leg.key}
+   <Parlay score={score} slip={slip} legs={legs} shot={shot} pool={pool} onSwap={swapIn} onSaveAll={saveAll} onNew={reset}/>
+   {slip.source==='text'&&<p className="sa-heads-up"><TriangleAlert size={14}/>This slip was read from its text, so double-check each {sideWord('OVER',slip.app)} and {sideWord('UNDER',slip.app)}.</p>}
+   {slip.detail&&<p className="sa-detail">{slip.detail}</p>}
+   <div className="sa-props-head"><h2>The picks</h2><span>{legs.length} pick{legs.length===1?'':'s'}</span></div>
+   <div className="sa-props">
+    {legs.map((leg,index)=><Prop key={leg.key} leg={leg} index={index} app={slip.app} boards={boards.current} need={need} editing={editing===leg.key}
      onEdit={()=>setEditing(leg.key)} onCancel={()=>setEditing(null)} onSave={changes=>recheck(leg.key,changes)}
      onRemove={()=>setLegs(list=>list.filter(item=>item.key!==leg.key))} saved={saved.has(leg.key)} onKeep={()=>save(leg)}/>)}
-    {slip.skipped>0&&<p className="sa-heads-up">{slip.skipped} game line{slip.skipped>1?'s were':' was'} left out (moneylines, spreads and totals aren't graded).</p>}
-    <button type="button" className="sa-another" onClick={reset}>Check another slip<ArrowRight size={15}/></button>
    </div>
+   {slip.skipped>0&&<p className="sa-heads-up">{slip.skipped} game line{slip.skipped>1?'s were':' was'} left out (moneylines, spreads and totals aren't graded).</p>}
+   <button type="button" className="sa-another" onClick={reset}>Grade another parlay<ArrowRight size={15}/></button>
   </div>}
  </div>;
 }

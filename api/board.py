@@ -264,6 +264,13 @@ class handler(BaseHTTPRequestHandler):
                         or (game and not nhl_research.valid_id(game)):
                     return self._send(400, {"error": "Unknown team or game."})
                 try:
+                    if resource == "find":
+                        # A slip's pick whose game has started (so it's off
+                        # the board): the player's NHL id, team and photo.
+                        who = arg("name")
+                        if not who or len(who) > 60:
+                            return self._send(400, {"error": "A player name is required."})
+                        return self._send(200, {"rows": nhl_research.find(who, team or None)})
                     if resource == "log" and team:
                         from finder_history_store import remember
                         return self._send(200, remember('nhl', f'nhl:{team}:{opponent}', nhl_research.team_log(team, opponent or None), {'team':team,'opponent':opponent}))

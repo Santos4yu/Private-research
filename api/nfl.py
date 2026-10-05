@@ -99,7 +99,7 @@ def _source_payload(resource, season, week, season_type, team, player_id, season
 
 
 # The Finder's NFL player page (backend/sports/nfl/finder.py).
-FINDER_RESOURCES = ('finder-board', 'finder-log', 'finder-pbp', 'finder-league', 'finder-team', 'finder-matchup', 'finder-player')
+FINDER_RESOURCES = ('finder-board', 'finder-find', 'finder-log', 'finder-pbp', 'finder-league', 'finder-team', 'finder-matchup', 'finder-player')
 PLAYER_ID = re.compile(r'^\d{2}-\d{7}$')
 TEAM = re.compile(r'^[A-Z]{2,3}$')
 GAME_ID = re.compile(r'^\d{4}_\d{2}_[A-Z]{2,3}_[A-Z]{2,3}$')
@@ -121,6 +121,15 @@ class handler(BaseHTTPRequestHandler):
                 from backend.sports.nfl.prizepicks_board import board
                 payload = board(season)
                 return send_json(self, 200, {**payload, 'data': payload['rows']})
+            if resource == 'finder-find':
+                # A slip's pick whose player isn't on the board (his game
+                # has started): who he is and his games at the slip's line.
+                from backend.sports.nfl.prizepicks_board import lookup
+                name = arg('name')
+                if not name or len(name) > 60 or (team and not TEAM.match(team)):
+                    return send_json(self, 400, {'error': 'A player name is required.'})
+                row = lookup(season, name, team or None, arg('stat')[:60] or None, arg('line') or None)
+                return send_json(self, 200, {'rows': [row] if row else [], 'events': [row['event']] if row and row.get('event') else []})
             if resource == 'finder-log':
                 return send_json(self, 200, finder.player_log(season, player_id))
             if resource == 'finder-pbp':

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {statKeys, rowStatKey, nameFit, playerRows, locate, relined, gradeLeg, scoreEntry, verdict, swaps, sideWord} from '../src/slip-check.js';
+import {statKeys, rowStatKey, nameFit, playerRows, locate, relined, gradeLeg, scoreEntry, verdict, swaps, sideWord, checkLeg, tierOf, TIERS} from '../src/slip-check.js';
 
 const LATER = '2099-09-30T23:10:00Z';
 const w = (hits, games) => ({hits, misses: games - hits, pushes: 0, decisions: games, sample: games, hitRate: hits / games * 100});
@@ -113,11 +113,54 @@ test('legs are graded, and the slip scored on its own payout', () => {
   // Flex counts the near misses too.
   const flex = scoreEntry(legs, {app: {key: 'prizepicks'}, entry: {type: 'flex'}});
   assert.ok(flex.value > flex.chance * flex.multiplier);
-  // An ungraded leg leaves the full slip unscored.
+  // The parlay gets one letter; every pick gets a tier instead.
+  assert.match(priced.letter, /^[A-DF][+-]?$/);
+  assert.equal(priced.best.player, 'A');
+  assert.ok(legs.every(item => TIERS[item.grade.tier]));
+  assert.ok(TIERS[legs[0].grade.tier].rank > TIERS[legs[2].grade.tier].rank);
+  assert.equal(Object.values(priced.tiers).reduce((sum, count) => sum + count, 0), 3);
+  // An ungraded leg counts as a coin flip, so the parlay is still graded.
   const partial = scoreEntry([...legs, leg({player: 'D'})], {app: {key: 'prizepicks'}});
-  assert.equal(partial.chance, null);
+  assert.ok(Math.abs(partial.chance - priced.chance * 0.5) < 1e-9);
+  assert.equal(partial.partial, true);
   assert.equal(partial.graded, 3);
+  assert.equal(partial.multiplier, 10);
   assert.match(verdict(partial), /couldn't be graded/);
+  // No app or payout read: a usual Power Play of that size is assumed.
+  const plain = scoreEntry(legs, {});
+  assert.equal(plain.multiplier, 6);
+  assert.equal(plain.assumed, true);
+  assert.match(verdict(plain), /a usual 6x/);
+});
+
+test('each tier reads the pick: backed picks are Strong or Elite, the rest Lean, Risky or Fade', () => {
+  assert.equal(tierOf({chance: 0.66, backed: true, grade: 'A', modifier: 'standard'}), 'elite');
+  assert.equal(tierOf({chance: 0.57, backed: true, grade: 'B', modifier: 'standard'}), 'strong');
+  assert.equal(tierOf({chance: 0.53, backed: false, grade: 'C', modifier: 'standard'}), 'lean');
+  assert.equal(tierOf({chance: 0.48, backed: false, grade: 'C', modifier: 'standard'}), 'risky');
+  assert.equal(tierOf({chance: 0.38, backed: false, grade: 'C', modifier: 'standard'}), 'fade');
+  // A Goblin is measured against the 70% it's priced at.
+  assert.equal(tierOf({chance: 0.6, backed: false, grade: 'C', modifier: 'goblin', book: null}), 'fade');
+});
+
+test('"Rec Targets" and "Targets" are the same NFL stat', () => {
+  assert.deepEqual(statKeys('nfl', 'Rec Targets'), statKeys('nfl', 'Targets'));
+  assert.deepEqual(statKeys('nfl', 'Receiving Yards'), statKeys('nfl', 'Rec Yards'));
+});
+
+test('a player off the board (his game started) is looked up and graded from his games', async () => {
+  const found = row({player: 'Josh Downs', l10: [7, 10], season: [30, 50]});
+  const asked = [];
+  const lookup = async (item, sports) => { asked.push([item.player, sports]); return {...found, sport: 'nfl'}; };
+  const checked = await checkLeg(leg({player: 'Josh Downs', sport: 'nfl', stat: 'Rec Yards', line: 71.5, side: 'OVER'}), {nfl: []}, {lookup});
+  assert.deepEqual(asked, [['Josh Downs', ['nfl']]]);
+  assert.equal(checked.state, 'history');
+  assert.ok(checked.grade.chance > 0.5);
+  assert.ok(TIERS[checked.grade.tier]);
+  // Nobody by that name: left ungraded.
+  const missing = await checkLeg(leg({player: 'Nobody Here', sport: 'nfl', stat: 'Rec Yards', line: 10.5, side: 'OVER'}), {nfl: []}, {lookup: async () => null});
+  assert.equal(missing.state, 'player');
+  assert.equal(missing.grade, null);
 });
 
 test('a sportsbook price shows the edge over its implied chance', () => {

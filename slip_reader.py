@@ -435,4 +435,9 @@ def read_slip(data):
     if not slip["legs"]:
         return {"error": "No player props were found in that screenshot. Use one that shows each pick's player, stat and line."}
     slip["source"] = source
+    if problems:
+        # Why the vision readers were passed over, for admins only (api/prediction.py).
+        detail = "; ".join(problems)[:900]
+        print(f"[slip-reader] read from {source} after: {detail}")
+        slip["detail"] = detail
     return slip

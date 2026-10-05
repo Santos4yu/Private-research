@@ -94,12 +94,25 @@ function mlbKeys(text) {
   return other ? [own, `p:${other.key}`] : [own];
 }
 
+/** The MLB markets a stat can be, best first ("Strikeouts": a hitter's, then a pitcher's). */
+export function mlbMarkets(text) {
+  const clean = bare(text);
+  const key = squash(clean);
+  const found = finderMarket(clean) || finderMarket(MLB_EXTRA[key] || '');
+  if (!found) return [];
+  const other = !found.pitcher && !/pitch|allow|hitter|batter/.test(key) ? finderMarket(MLB_PITCHER[squash(found.label)] || MLB_PITCHER[key] || '') : null;
+  return other ? [found, other] : [found];
+}
+
 function nflKey(text) {
   const key = squash(bare(text));
   if (WHOLE.nfl[key]) return WHOLE.nfl[key].split('+').sort().join('+');
   const words = String(bare(text)).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ')
     .flatMap(word => (NFL_WORDS[word] ?? word).split(' ')).filter(Boolean);
-  return [...new Set(words)].sort().join('+');
+  const set = new Set(words);
+  // Only receivers are targeted: "Rec Targets" is "Targets".
+  if (set.has('targets')) set.delete('rec');
+  return [...set].sort().join('+');
 }
 
 /** The keys a stat can match on, best first (more than one where a word is ambiguous). */
@@ -258,21 +271,53 @@ export function locate(leg, boards) {
 const implied = odds => !finite(odds) ? null : odds < 0 ? -odds / (-odds + 100) : 100 / (odds + 100);
 const decimal = odds => !finite(odds) ? null : odds < 0 ? 1 + 100 / -odds : 1 + odds / 100;
 
+// What a pick is worth, in one word, from the best to the one to stay off.
+export const TIERS = {
+  elite: {label: 'Elite', rank: 5, text: 'The numbers back it strongly'},
+  strong: {label: 'Strong', rank: 4, text: 'The numbers back it'},
+  lean: {label: 'Lean', rank: 3, text: 'A small edge, not much behind it'},
+  risky: {label: 'Risky', rank: 2, text: 'About a coin flip or worse'},
+  fade: {label: 'Fade', rank: 1, text: 'The numbers point the other way'},
+};
+
+/** A graded pick's tier: Elite and Strong are picks the model backs; Fade is one it would take the other side of. */
+export function tierOf(read) {
+  if (!read) return null;
+  const modifier = read.modifier || 'standard';
+  // A Goblin needs more than 50% to be worth it, a Demon less.
+  const baseline = modifier === 'standard' ? 0.5 : read.book ?? (modifier === 'goblin' ? 0.7 : 0.35);
+  const edge = read.chance - baseline;
+  if (read.backed && read.grade === 'A') return 'elite';
+  if (read.backed) return 'strong';
+  if (edge >= 0.015) return 'lean';
+  if (edge >= -0.05) return 'risky';
+  return 'fade';
+}
+
 /** A located leg graded: the Smart Slip read plus what the slip itself said. */
 export function gradeLeg(leg, row) {
   if (!row || !leg.side) return null;
   const read = assessLeg(row, leg.side, {any: true, started: true});
   if (!read) return null;
-  return {...read, implied: implied(leg.odds), edge: leg.odds != null ? read.chance - implied(leg.odds) : null};
+  return {...read, tier: tierOf(read), implied: implied(leg.odds), edge: leg.odds != null ? read.chance - implied(leg.odds) : null};
 }
 
-/** The whole slip: its chance, payout, worth and the leg that holds it back. */
+// The parlay's letter, from what it returns per $1 over time.
+const LETTERS = [[1.35, 'A+'], [1.2, 'A'], [1.1, 'A-'], [1.02, 'B+'], [0.95, 'B'], [0.88, 'B-'], [0.8, 'C+'], [0.7, 'C'], [0.55, 'D']];
+const letterFor = value => (LETTERS.find(([floor]) => value >= floor) || [0, 'F'])[1];
+
+/**
+ * The parlay as one: its chance, payout, worth and letter, the picks that
+ * carry it and the one that holds it back. A pick that couldn't be graded
+ * counts as a coin flip until it is (`partial`).
+ */
 export function scoreEntry(legs, {app, entry} = {}) {
   const graded = legs.filter(leg => leg.grade);
   const n = legs.length;
   if (!graded.length) return null;
   const complete = graded.length === n;
-  const chance = complete ? graded.reduce((product, leg) => product * leg.grade.chance, 1) : null;
+  const chances = legs.map(leg => leg.grade?.chance ?? 0.5);
+  const chance = chances.reduce((product, value) => product * value, 1);
   let multiplier = entry?.multiplier ?? null, estimated = false;
   const type = entry?.type || (app?.key === 'prizepicks' ? 'power' : null);
   if (multiplier == null && app?.key === 'prizepicks' && type === 'power' && POWER[n]) {
@@ -280,41 +325,57 @@ export function scoreEntry(legs, {app, entry} = {}) {
     estimated = graded.some(leg => leg.grade.modifier !== 'standard');
   }
   if (multiplier == null && legs.every(leg => finite(leg.odds))) multiplier = legs.reduce((product, leg) => product * decimal(leg.odds), 1);
-  let value = chance != null && multiplier ? chance * multiplier : null;
-  if (complete && type === 'flex' && FLEX[n]) {
+  // No payout on the slip: a pick'em Power Play of this size is assumed.
+  let assumed = false;
+  if (multiplier == null && type !== 'flex' && POWER[n]) { multiplier = POWER[n]; assumed = true; }
+  let value = multiplier ? chance * multiplier : null;
+  if (type === 'flex' && FLEX[n]) {
     // Flex pays on all but one or two, so its worth counts those too.
     let dist = [1];
-    for (const leg of graded) {
+    for (const p of chances) {
       const next = new Array(dist.length + 1).fill(0);
-      dist.forEach((p, k) => { next[k] += p * (1 - leg.grade.chance); next[k + 1] += p * leg.grade.chance; });
+      dist.forEach((q, k) => { next[k] += q * (1 - p); next[k + 1] += q * p; });
       dist = next;
     }
     const scale = entry?.multiplier ? entry.multiplier / FLEX[n][n] : 1;
     value = Object.entries(FLEX[n]).reduce((sum, [k, pay]) => sum + dist[Number(k)] * pay * scale, 0);
     multiplier = FLEX[n][n] * scale;
   }
-  const weakest = graded.slice().sort((a, b) => a.grade.chance - b.grade.chance)[0];
+  const byChance = graded.slice().sort((a, b) => a.grade.chance - b.grade.chance);
+  const weakest = byChance[0];
+  const best = byChance.at(-1);
   const average = graded.reduce((sum, leg) => sum + leg.grade.chance, 0) / graded.length;
-  // No grade for the slip until every pick has one.
-  const letter = !complete ? null : value != null
-    ? value >= 1.12 ? 'A' : value >= 0.97 ? 'B' : value >= 0.8 ? 'C' : 'D'
-    : average >= 0.6 ? 'A' : average >= 0.54 ? 'B' : average >= 0.48 ? 'C' : 'D';
-  return {chance, multiplier, estimated, value, breakEven: multiplier ? 1 / multiplier : null, weakest, average, letter,
+  // Without a payout, the letter reads the picks themselves (55% a pick is
+  // about what a pick'em slip needs to break even).
+  const worth = value ?? (average / 0.55) ** Math.min(n, 4);
+  const tiers = Object.fromEntries(Object.keys(TIERS).map(key => [key, graded.filter(leg => leg.grade.tier === key).length]));
+  // Picks from one game rise and fall together.
+  const games = new Map();
+  for (const leg of graded) {
+    const key = leg.grade.game;
+    if (key && !/:$|:-?:/.test(key)) games.set(key, (games.get(key) || 0) + 1);
+  }
+  const shared = [...games.values()].filter(count => count > 1).reduce((sum, count) => sum + count, 0);
+  return {chance, multiplier, estimated, assumed, value, breakEven: multiplier ? 1 / multiplier : null, weakest, best, average,
+    letter: letterFor(worth), score: Math.max(4, Math.min(100, Math.round(worth * 70))), tiers, shared, partial: !complete,
     graded: graded.length, total: n, type};
 }
 
-/** Plain words for the slip's grade. */
+/** Plain words for the parlay's grade. */
 export function verdict(score) {
   if (!score) return '';
-  const {letter, chance, multiplier, value, total} = score;
-  const odds = chance ? Math.max(1, Math.round(1 / chance)) : null;
-  const often = odds ? (odds <= 1 ? 'most of the time' : `about 1 in ${odds} times`) : null;
-  if (value != null && often) {
-    const worth = value >= 1 ? `it's worth about ${value.toFixed(2)}x your entry over time` : `you'd get back about ${Math.round(value * 100)}¢ per $1 over time`;
-    return `${letter === 'A' ? 'A strong slip.' : letter === 'B' ? 'A fair slip.' : letter === 'C' ? 'A long shot for the price.' : 'The price doesn\'t make up for the risk.'} All ${total} hit ${often}, and at ${Number(multiplier.toFixed(2))}x ${worth}.`;
+  const {letter, chance, multiplier, value, total, partial, assumed} = score;
+  const odds = Math.max(1, Math.round(1 / chance));
+  const often = odds <= 1 ? 'most of the time' : `about 1 in ${odds} times`;
+  const head = letter.startsWith('A') ? 'A strong parlay.' : letter.startsWith('B') ? 'A playable parlay.'
+    : letter.startsWith('C') ? 'A long shot for the price.' : 'The payout doesn\'t cover the risk.';
+  const tail = partial ? ' Picks that couldn\'t be graded count as coin flips.' : '';
+  if (value != null && multiplier) {
+    const pays = `${assumed ? 'a usual ' : ''}${Number(multiplier.toFixed(2))}x`;
+    const worth = value >= 1 ? `it returns about $${value.toFixed(2)} per $1 over time` : `it returns about ${Math.round(value * 100)}¢ per $1 over time`;
+    return `${head} All ${total} hit ${often}, and at ${pays} ${worth}.${tail}`;
   }
-  if (often) return `All ${total} picks hit ${often}.`;
-  return 'Some picks couldn\'t be graded, so the full slip isn\'t scored.';
+  return `${head} All ${total} hit ${often}.${tail}`;
 }
 
 /** Better picks to swap in for a weak leg: backed reads from the boards, other players. */
@@ -338,11 +399,29 @@ export const sideWord = (side, app) => {
  * A leg from the screenshot, checked: located on the boards, its hit rates
  * filled in if the board didn't have them yet, re-scored at the slip's own
  * number when that differs, and graded. `enrichFor(sport)` is the sport's
- * history loader (finder-pool.js ENRICH).
+ * history loader (finder-pool.js ENRICH). A player who isn't on the board
+ * (his game has started, or his stat isn't posted) is found through
+ * `lookup(leg, sports)` (slip-lookup.js) and graded from his own games:
+ * state 'history'.
  */
-export async function checkLeg(leg, boards, {enrichFor = () => null, signal} = {}) {
+export async function checkLeg(leg, boards, {enrichFor = () => null, lookup = null, sports = SLIP_SPORTS, signal} = {}) {
   const spot = locate(leg, boards);
   const base = {...leg, spot, state: spot.state, sport: spot.sport || leg.sport, row: spot.board || spot.player || null, grade: null};
+  if ((spot.state === 'player' || spot.state === 'stat') && lookup && leg.line != null && leg.side && (leg.stat || leg.statName)) {
+    const known = spot.player;
+    const where = known ? [known.sport] : leg.sport ? [leg.sport] : sports;
+    let found = null;
+    try {
+      found = await lookup(known ? {...leg, player: known.player, team: known.teamAbbr || leg.team, sport: known.sport} : leg, where);
+    } catch (error) { if (error.name === 'AbortError') throw error; }
+    if (found) {
+      const row = known ? {...found, headshot: found.headshot || known.headshot, teamLogo: found.teamLogo || known.teamLogo,
+        opponent: found.opponent || known.opponent, startsAt: found.startsAt || known.startsAt} : found;
+      const grade = gradeLeg(leg, row);
+      return {...base, sport: row.sport, row, grade, state: grade ? 'history' : 'thin'};
+    }
+    return base;
+  }
   if (spot.state !== 'ready' && spot.state !== 'relined') return base;
   const enrich = enrichFor(spot.sport);
   let row = spot.board;

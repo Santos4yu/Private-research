@@ -397,3 +397,83 @@ def build(season, projections=None, now=None, sportsbook_lines=None):
 
 def board(season):
     return cached_nfl(NFLCacheDomain.PROPS, (VERSION, "board", season), lambda: build(season))
+
+
+# ------------------------------------------------------------------ slip lookup
+
+def _close_match(roster, name, team):
+    """The one player with this last name and first initial (a slip's
+    "J. Downs" or "Joshua Downs"), his team breaking ties."""
+    parts = re.findall(r"[a-z0-9]+", str(name or "").lower().replace("'", ""))
+    if parts and parts[-1] in SUFFIXES:
+        parts = parts[:-1]
+    if len(parts) < 2:
+        return None
+    first, last = parts[0], parts[-1]
+    found = []
+    for entries in roster.values():
+        for entry in entries:
+            words = re.findall(r"[a-z0-9]+", entry["name"].lower().replace("'", ""))
+            if words and words[-1] in SUFFIXES:
+                words = words[:-1]
+            if len(words) >= 2 and words[-1] == last and words[0][0] == first[0] and entry not in found:
+                found.append(entry)
+    same_team = [entry for entry in found if team and entry["team"] == team]
+    if len(same_team) == 1:
+        return same_team[0]
+    return found[0] if len(found) == 1 else None
+
+
+def _latest_game(games, team, now):
+    """The team's game nearest now: one being played, about to be, or just
+    finished (a slip is checked around kickoff)."""
+    best, best_gap = None, None
+    for game in games.values():
+        if team not in (game["home"], game["away"]) or not game["kickoff"]:
+            continue
+        gap = abs(game["kickoff"] - now)
+        if gap > 4 * 86400:
+            continue
+        if best is None or gap < best_gap:
+            best, best_gap = game, gap
+    return best
+
+
+def lookup(season, name, team=None, stat=None, line=None, now=None):
+    """A board row for a player who isn't on the board -- his game has
+    started, or no app posts this line -- so a slip's pick can still be
+    graded from his games. None when no one by that name plays."""
+    now = now or datetime.now(timezone.utc).timestamp()
+    roster = _roster(season)
+    team = canonical_team(team) if team else None
+    player = _match(roster, name, team) or _close_match(roster, name, team)
+    if not player:
+        return None
+    team = player["team"] or team
+    market = markets.market_for(stat, player["position"]) if stat else None
+    game = _latest_game(finder.games_index(), team, now) if team else None
+    opponent = (game["away"] if game["home"] == team else game["home"]) if game else None
+    try:
+        value = float(line)
+    except (TypeError, ValueError):
+        value = None
+    history = {"windows": {}, "streak": None, "support": 0, "sample": 0, "gameLog": []}
+    if market and value is not None:
+        try:
+            history = history_fields(finder.game_values(season, player["id"]), market, value, opponent)
+        except Exception:  # noqa: BLE001 -- the player still shows, ungraded
+            pass
+    game_id = game["game_id"] if game else None
+    starts = datetime.fromtimestamp(game["kickoff"], timezone.utc).isoformat() if game else None
+    prop_type = market or f"pp:{markets.normalize(stat)}"
+    return {
+        "id": f"slip:{player['id']}:{prop_type}:{value}", "playerId": player["id"], "playerName": player["name"] or name,
+        "position": player["position"], "headshot": player["headshot"] or None,
+        "propType": prop_type, "propLabel": markets.LABELS.get(market) or stat,
+        "teamId": team, "opponentId": opponent, "gameId": game_id, "startsAt": starts,
+        "line": {"verified": True, "bookmaker": None, "platform": None, "category": "STANDARD", "value": value,
+                 "direction": "OVER", "price": None, "updatedAt": None, "playerId": player["id"], "propType": prop_type,
+                 "gameId": game_id},
+        "apps": [], "event": {"gameId": game_id, "awayTeamId": game["away"], "homeTeamId": game["home"], "startsAt": starts} if game else None,
+        **history,
+    }
