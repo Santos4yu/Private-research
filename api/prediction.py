@@ -10,7 +10,6 @@ All actual logic lives in predictions-site/prediction_core.py so both
 platform wrappers share one implementation.
 """
 
-import asyncio
 import json
 import re
 import sys
@@ -19,7 +18,7 @@ import unicodedata
 import threading
 import math
 from copy import deepcopy
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import Future
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
@@ -50,16 +49,6 @@ _MARKET_FOR_PROP = {
     "pitcher_walks": "pitcher_walks",
     "pitcher_earned_runs": "pitcher_earned_runs",
     "pitcher_fantasy_score": "pitcher_fantasy_score",
-}
-
-_SLIP_PROP_LABELS = {
-    "hits": "Hits", "total_bases": "Total Bases", "home_runs": "Home Runs",
-    "rbis": "RBIs", "runs_scored": "Runs Scored", "walks": "Walks",
-    "hits_runs_rbis": "Hits+Runs+RBIs", "fantasy_score": "Fantasy Score",
-    "strikeouts": "Strikeouts (Pitcher)", "pitcher_strikeouts": "Strikeouts (Pitcher)",
-    "pitcher_outs": "Pitching Outs", "pitcher_earned_runs": "Earned Runs Allowed",
-    "pitcher_hits_allowed": "Hits Allowed", "pitcher_walks": "Walks Allowed",
-    "pitcher_fantasy_score": "Fantasy Score (Pitcher)",
 }
 
 
@@ -102,58 +91,21 @@ def _cached_prediction(cache_key, compute):
             _PREDICTION_INFLIGHT.pop(cache_key, None)
 
 
-def _grade_slip_prop(prop):
-    prop_type = prop.get("prop_type") or analyze.normalize_market(prop.get("market_raw") or "")
-    stat_label = _SLIP_PROP_LABELS.get(prop_type)
-    if not stat_label:
-        return {"error": f"{prop.get('player_name', 'This leg')}: unsupported market {prop.get('market_raw') or prop_type}."}
-    try:
-        result = compute_prediction(
-            prop["player_name"], prop_type if prop_type != "strikeouts" else "pitcher_strikeouts",
-            stat_label, float(prop["line"]), prop["side"],
-        )
-        result["detectedMarket"] = prop.get("market_raw") or stat_label
-        return result
-    except Exception as exc:
-        return {"error": f"{prop.get('player_name', 'This leg')}: {exc}"}
-
-
-def _analyze_slip(image_bytes):
-    slip = asyncio.run(analyze.extract_slip_data(image_bytes))
+def _analyze_slip(image_bytes, admin=False):
+    """The slip's legs as read from the screenshot (slip_reader.py); the
+    browser grades them against the Finder's lines (src/slip-check.js).
+    An admin also sees why reading failed."""
+    import slip_reader
+    slip = slip_reader.read_slip(image_bytes)
     if slip.get("error"):
-        return 422, {"error": slip["error"]}
-    props = slip.get("all_props") or [slip]
-    if not 2 <= len(props) <= 6:
-        return 422, {"error": f"Detected {len(props)} complete leg{'s' if len(props) != 1 else ''}. Show 2 to 6 selected props in one screenshot."}
-    incomplete = [p for p in props if not p.get("player_name") or not p.get("line") or p.get("side") not in {"over", "under"}]
-    if incomplete:
-        names = ", ".join(p.get("player_name") or "unknown player" for p in incomplete)
-        return 422, {"error": f"Could not confirm the line or selected side for {names}. Make every selection visible."}
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        legs = list(pool.map(_grade_slip_prop, props))
-    graded = [leg for leg in legs if not leg.get("error")]
-    if not graded:
-        return 422, {"error": "The legs were detected, but none could be graded against the current MLB slate.", "legs": legs}
-    probabilities = []
-    for leg in graded:
-        probability = max(.05, min(.95, float(leg.get("estHitRate") or 0) / 100))
-        leg["legProbability"] = round(probability * 100, 1)
-        probabilities.append(probability)
-    combined = 1.0
-    for probability in probabilities:
-        combined *= probability
-    if len(graded) > 2:
-        combined *= .95 ** (len(graded) - 2)
-    combined_pct = combined * 100
-    tier = "ELITE" if combined >= .35 else "STRONG" if combined >= .22 else "GOOD" if combined >= .12 else "LEAN" if combined >= .06 else "RISKY"
-    weakest = min(graded, key=lambda leg: leg.get("legProbability", 0))
-    return 200, {
-        "detectedCount": len(props), "gradedCount": len(graded), "legs": legs,
-        "parlayScore": round(combined_pct), "combinedProbability": round(combined_pct, 1),
-        "averageLegScore": round(sum(float(leg.get("score") or 0) for leg in graded) / len(graded), 1),
-        "averageL10": round(sum(probabilities) / len(probabilities) * 100, 1),
-        "tier": tier, "weakestLeg": weakest.get("player"),
-    }
+        body = {"error": slip["error"]}
+        if admin and slip.get("detail"):
+            body["detail"] = slip["detail"]
+        # Not set up or not reachable is the server's problem, not the screenshot's.
+        return (503 if slip.get("reason") else 422), body
+    if not admin:
+        slip.pop("detail", None)
+    return 200, slip
 
 
 def _norm(value):
@@ -359,10 +311,11 @@ class handler(BaseHTTPRequestHandler):
             if content_length < 1 or content_length > 4 * 1024 * 1024:
                 return self._send(413, {"error": "The screenshot must be smaller than 4 MB."})
             try:
-                status, body = _analyze_slip(self.rfile.read(content_length))
+                from v2.board import admin_auth
+                status, body = _analyze_slip(self.rfile.read(content_length), admin_auth.is_admin_request(self.headers))
                 return self._send(status, body)
-            except Exception as exc:
-                return self._send(422, {"error": f"Could not read that screenshot: {exc}"})
+            except Exception:
+                return self._send(422, {"error": "That screenshot couldn't be read. Try again, or use a clearer one."})
         if action != "prizepicks-export":
             return self._send(404, {"error": "Unknown action."})
         try:

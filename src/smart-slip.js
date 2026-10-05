@@ -94,14 +94,15 @@ export function judgeLeg(row, side, options = {}) {
  * The same read for any side of any line, whether or not the numbers back
  * it (`backed`): what Krazy Bot needs to answer "should I take this?".
  * Null only when there isn't enough to read (no history, too close to the
- * start, or an Under on a Goblin or Demon).
+ * start, or an Under on a Goblin or Demon). The Slip Analyzer reads lines
+ * from any app (`any`) and slips whose games have started (`started`).
  */
-export function assessLeg(row, side, {now = Date.now()} = {}) {
-  if (!isPrizePicksLine(row)) return null;
+export function assessLeg(row, side, {now = Date.now(), any = false, started = false} = {}) {
+  if (!any && !isPrizePicksLine(row)) return null;
   const modifier = String(row.modifier || 'standard').toLowerCase();
   if (modifier !== 'standard' && side === 'UNDER') return null;  // Goblins and Demons are More only
   const starts = Date.parse(row.startsAt || '');
-  if (!Number.isFinite(starts) || starts - now < LOCK_MINUTES * 60000) return null;
+  if (!started && (!Number.isFinite(starts) || starts - now < LOCK_MINUTES * 60000)) return null;
   const records = Object.fromEntries(['l5', 'l10', 'l15', 'l20', 'season', 'h2h'].map(key => [key, sideRecord(row, key, side)]));
   const recent = records.l10 || records.l5;
   if (!(recent && recent.games >= 5) && !(records.season && records.season.games >= 8)) return null;

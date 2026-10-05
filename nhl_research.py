@@ -726,6 +726,28 @@ def match_player(name, team, rosters):
     return anywhere[0] if len(anywhere) == 1 else None
 
 
+def find(name, team=None):
+    """The player a slip names, as a board row without a line ([] when no
+    one fits): his NHL id, latest team, position and photo."""
+    players = directory()
+    rosters = {}
+    for pid, info in players.items():
+        rosters.setdefault(info["team"], {})[pid] = info
+    found = match_player(name, team or "", rosters)
+    if not found and not team:
+        # No team on the slip: the one player anywhere with his last name and first initial.
+        _full, last, initial = _name_parts(name)
+        close = [(pid, info["team"]) for pid, info in players.items() if _name_parts(info["name"])[1:] == (last, initial)]
+        found = close[0] if len(close) == 1 else None
+    if not found:
+        return []
+    pid, code = found
+    info = players.get(pid) or {}
+    return [{"player": info.get("name") or name, "playerId": pid, "team": code, "teamName": TEAMS.get(code),
+             "teamLogo": logo(code), "position": POSITION_NAMES.get(info.get("pos"), info.get("pos")) or None,
+             "headshot": mug(info.get("season"), code, pid) or None}]
+
+
 # ---------------------------------------------------------------- schedule
 
 def schedule_day(day, seconds=10 * 60):

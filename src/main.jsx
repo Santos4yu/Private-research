@@ -53,12 +53,14 @@ const sections = {
   moneylines: () => import('./Moneylines').then(m => ({ default: m.Moneylines })),
   bot: () => import('./KrazyBot').then(m => ({ default: m.KrazyBot })),
   sheets: () => import('./CheatSheets').then(m => ({ default: m.CheatSheets })),
+  analyzer: () => import('./SlipAnalyzer').then(m => ({ default: m.SlipAnalyzer })),
 };
 const LineMoves = lazy(sections.moves);
 const SmartSlip = lazy(sections.slip);
 const Moneylines = lazy(sections.moneylines);
 const KrazyBot = lazy(sections.bot);
 const CheatSheets = lazy(sections.sheets);
+const SlipAnalyzer = lazy(sections.analyzer);
 const later = element => <Suspense fallback={null}>{element}</Suspense>;
 
 function VortexTopTabs() {
@@ -116,6 +118,7 @@ const researchHomeRoot = document.getElementById('research-home-root');
 const unifiedFinderRoot = document.getElementById('unified-finder-root');
 const lineMovesRoot = document.getElementById('line-moves-root');
 const smartSlipRoot = document.getElementById('smart-slip-root');
+const slipAnalyzerRoot = document.getElementById('slip-analyzer-root');
 const moneylinesRoot = document.getElementById('moneylines-root');
 const krazyBotRoot = document.getElementById('krazy-bot-root');
 const cheatSheetsRoot = document.getElementById('cheat-sheets-root');
@@ -149,10 +152,11 @@ function mountPrivateResearch(granted){
   // The Finder's lines start loading now, while the page draws.
   try{startFinder(finderStartKeys(siteFinderSportAllowed,{search:location.search,storage:window.localStorage}));}catch{/* the Finder loads them itself */}
   privateRoots={home:researchHomeRoot?shownRoot(researchHomeRoot,<ResearchHome/>):null,finder:unifiedFinderRoot?createRoot(unifiedFinderRoot):null,
-   moves:lineMovesRoot?shownRoot(lineMovesRoot,later(<LineMoves/>)):null,slip:smartSlipRoot?shownRoot(smartSlipRoot,later(<SmartSlip/>)):null};
+   moves:lineMovesRoot?shownRoot(lineMovesRoot,later(<LineMoves/>)):null,slip:smartSlipRoot?shownRoot(smartSlipRoot,later(<SmartSlip/>)):null,
+   analyzer:slipAnalyzerRoot?shownRoot(slipAnalyzerRoot,later(<SlipAnalyzer/>)):null};
   privateRoots.finder?.render(<UnifiedFinder/>);
   warmSections();
- }else if(!granted&&privateRoots){privateRoots.home?.unmount();privateRoots.finder?.unmount();privateRoots.moves?.unmount();privateRoots.slip?.unmount();privateRoots=null;}
+ }else if(!granted&&privateRoots){privateRoots.home?.unmount();privateRoots.finder?.unmount();privateRoots.moves?.unmount();privateRoots.slip?.unmount();privateRoots.analyzer?.unmount();privateRoots=null;}
 }
 // Moneylines is an admin-only section (site-access-core.js ADMIN_TABS):
 // mounted, and so asking for data, only in an admin session.

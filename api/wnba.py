@@ -167,6 +167,25 @@ def _roster_directory(league="wnba"):
     return value
 
 
+def _find(name, team="", league="wnba"):
+    """The ESPN player a slip names, for a pick whose game has started (so
+    it's off the board): the full name, else the one player with that last
+    name and first initial, the team breaking ties. None when there's none."""
+    players = _roster_directory(league)["players"]
+    team = NBA_TEAM_CODES.get(team, team) if league == "nba" else team
+    found = players.get(_norm(name), [])
+    if not found:
+        words = _norm(name).replace("'", "").split()
+        if len(words) >= 2:
+            found = [item for entries in players.values() for item in entries
+                     if (other := _norm(item["name"]).replace("'", "").split()) and len(other) >= 2
+                     and other[-1] == words[-1] and other[0][0] == words[0][0]]
+    same_team = [item for item in found if team and item.get("teamAbbr") == team]
+    if len(same_team) == 1:
+        return same_team[0]
+    return found[0] if len(found) == 1 else None
+
+
 def _send(handler, status, payload):
     body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
     handler.send_response(status)
@@ -792,6 +811,16 @@ class handler(BaseHTTPRequestHandler):
 
                 with ThreadPoolExecutor(max_workers=len(ids)) as pool:
                     return _send(self, 200, {"histories": dict(pool.map(one, dict.fromkeys(ids)))})
+            if resource == "find":
+                who = query.get("name", [""])[0].strip()
+                team = query.get("team", [""])[0].strip().upper()
+                if not who or len(who) > 60 or len(team) > 4:
+                    return _send(self, 400, {"error": "A player name is required."})
+                identity = _find(who, team, league)
+                if not identity:
+                    return _send(self, 200, {"rows": []})
+                return _send(self, 200, {"rows": [{key: identity.get(key) for key in (
+                    "name", "headshot", "position", "height", "team", "teamAbbr", "teamLogo")} | {"playerId": identity.get("id")}]})
             if resource in ("matchup", "league-context", "player-context"):
                 return self._context(resource, query, league)
             if resource != "board": return _send(self, 404, {"error": f"Unknown {name} resource."})
