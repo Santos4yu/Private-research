@@ -23,8 +23,9 @@ import time
 
 SPORTS = ("mlb", "nba", "wnba", "nfl", "nhl", "soccer")
 MAX_LEGS = 8
-VISION_MODELS = ("qwen/qwen3.8-27b",)
-TEXT_MODELS = ("llama-3.3-70b-versatile", "llama-3.1-8b-instant")
+# Groq retired Llama 4 Scout and Maverick in 2026; Qwen is its vision model now.
+VISION_MODELS = ("qwen/qwen3.8-27b", "qwen/qwen3.6-27b", "meta-llama/llama-4-scout-17b-16e-instruct")
+TEXT_MODELS = ("llama-3.3-70b-versatile", "openai/gpt-oss-120b", "llama-3.1-8b-instant")
 GEMINI_MODELS = ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest")
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta"
 # Groq takes images up to 4 MB as base64; anything bigger is shrunk first.
@@ -128,7 +129,7 @@ def fit_image(data):
 
 def parse_json(text):
     """The JSON object in a model's answer, tolerating code fences and prose."""
-    text = str(text or "").strip()
+    text = re.sub(r"<think>.*?(?:</think>|$)", "", str(text or ""), flags=re.S).strip()
     text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text)
     try:
         return json.loads(text)
@@ -145,7 +146,7 @@ def parse_json(text):
 
 # Model names Groq may use for ones that read images, so a renamed or newer
 # vision model is still found.
-_VISION_NAMES = re.compile(r"qwen3\.(?:6|8)-27b|llama-4|scout|maverick|vision|[-_]vl\b|pixtral|gemma-3", re.I)
+_VISION_NAMES = re.compile(r"qwen3\.[5-9]|qwen[^/]*-vl|llama-4|scout|maverick|vision|[-_]vl\b|pixtral|gemma-3", re.I)
 _SKIP_NAMES = re.compile(r"guard|whisper|tts|playai|distil|prompt", re.I)
 _available = {"at": 0.0, "ids": None}
 
@@ -172,12 +173,18 @@ def models_for(client, named, vision):
     fits = [model for model in ids if not _SKIP_NAMES.search(model)
             and (bool(_VISION_NAMES.search(model)) if vision else bool(re.search(r"llama|gpt-oss|qwen|kimi|gemma", model, re.I)))]
     found = [model for model in named if model in ids] + [model for model in fits if model not in named]
-    return found
+    # Only models this key has: a retired name is never asked for.
+    return found[:4]
 
 
 def _scrub(text):
-    """An error message safe to show: no keys, one line, short."""
+    """An error message safe to show: no keys, one line, short. A provider's
+    JSON error comes down to its status and message."""
     text = re.sub(r"(gsk_|AIza|sk-ant-|sk-)[A-Za-z0-9_\-]{8,}", "[key]", str(text or ""))
+    message = re.search(r"""['"]message['"]:\s*['"](.+?)['"](?:,|\})""", text)
+    if message:
+        code = re.search(r"Error code: (\d+)", text)
+        text = f"{code.group(1) + ' ' if code else ''}{message.group(1)}"
     return re.sub(r"\s+", " ", text).strip()[:160]
 
 
@@ -187,18 +194,24 @@ def _ask(models, content, problems=None):
         return None
     for model in models_for(client, models, isinstance(content, list)):
         last = "no readable answer"
-        for json_mode in (True, False):
+        # Qwen thinks out loud unless told not to; JSON mode first, then plain.
+        tries = ([{"json": True, "reasoning_format": "hidden"}] if "qwen" in model.lower() else []) + [{"json": True}, {"json": False}]
+        for extra in tries:
             try:
                 kwargs = {"model": model, "messages": [{"role": "user", "content": content}],
                           "temperature": 0, "max_completion_tokens": 1800}
-                if json_mode:
+                if extra.get("json"):
                     kwargs["response_format"] = {"type": "json_object"}
+                if extra.get("reasoning_format"):
+                    kwargs["reasoning_format"] = extra["reasoning_format"]
                 answer = parse_json(client.chat.completions.create(**kwargs).choices[0].message.content)
                 if isinstance(answer, (dict, list)):
                     return answer
             except Exception as exc:  # noqa: BLE001 -- the next model or mode may work
                 last = f"{type(exc).__name__}: {_scrub(exc)}"
-                print(f"[slip-reader] {model} json={json_mode}: {last}")
+                print(f"[slip-reader] {model} {extra}: {last}")
+                if re.search(r"\b(404|401|403)\b|does not exist|not found|decommissioned", last, re.I):
+                    break  # gone or not allowed: no other mode will help
         if problems is not None:
             problems.append(f"Groq {model}: {last}")
     return None
@@ -430,6 +443,8 @@ def read_slip(data):
         print("[slip-reader] neither GROQ_API_KEY nor GEMINI_API_KEY is set for this deployment")
         return {"error": "Slip reading isn't set up on this server yet.", "reason": "no-key"}
     problems = [] if _groq() is not None else ["Groq: GROQ_API_KEY is not set"]
+    if not gemini:
+        problems.append("Gemini: GEMINI_API_KEY is not set on this deployment")
     source, raw = "vision", _read_vision(data, problems) if _groq() is not None else None
     if raw is None and gemini:
         source, raw = "vision", _read_gemini(data, problems)

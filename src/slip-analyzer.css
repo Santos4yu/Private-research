@@ -205,6 +205,7 @@
 .sa-side{padding:6px 10px;border-radius:8px;font:800 11px/1 var(--a-sans);letter-spacing:.07em;text-transform:uppercase}
 .sa-side[data-side=OVER]{background:color-mix(in srgb,#46e39a 16%,transparent);color:#46e39a}
 .sa-side[data-side=UNDER]{background:color-mix(in srgb,#ff7b8a 16%,transparent);color:#ff7b8a}
+.sa-side[data-assumed]{outline:1px dashed currentColor;outline-offset:-1px}
 .sa-side[data-side=none]{background:color-mix(in srgb,#f6b955 16%,transparent);color:#f6b955}
 
 /* The pick's chance, against what each pick needs for the parlay to break even. */
@@ -220,6 +221,31 @@
  animation:sa-wipe .8s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 90ms + 350ms)}
 .sa-meter-bar u{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;border-radius:1px;background:rgba(255,255,255,.75)}
 
+/* The case for the pick: matchup first. */
+.sa-case{--c:#6aa8ff;display:grid;gap:10px;padding:13px 14px;border:1px solid color-mix(in srgb,var(--c) 28%,var(--a-line));border-radius:14px;
+ background:linear-gradient(180deg,color-mix(in srgb,var(--c) 9%,#0f141a),#0d1217)}
+.sa-case[data-tone=excellent]{--c:#46e39a}
+.sa-case[data-tone=good]{--c:#3cc9b9}
+.sa-case[data-tone=neutral]{--c:#8b97a6}
+.sa-case[data-tone=tough]{--c:#f6b955}
+.sa-case[data-tone=bad]{--c:#ff7b8a}
+.sa-case>header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.sa-case>header b{color:var(--c);font:800 13px/1.2 var(--a-sans);letter-spacing:.06em;text-transform:uppercase}
+.sa-case-score{display:inline-flex;align-items:center;gap:8px;min-width:120px}
+.sa-case-score i{position:relative;flex:1;height:6px;overflow:hidden;border-radius:3px;background:#222a33}
+.sa-case-score i::after{content:"";position:absolute;inset:0 auto 0 0;width:var(--w);border-radius:3px;background:var(--c);transform-origin:left;
+ animation:sa-wipe .8s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 90ms + 400ms)}
+.sa-case-score em{color:var(--a-text);font:800 13px/1 var(--a-display);font-style:normal;font-variant-numeric:tabular-nums}
+.sa-case ul{display:grid;gap:7px;margin:0;padding:0;list-style:none}
+.sa-case li{display:grid;grid-template-columns:16px minmax(0,1fr);align-items:start;gap:9px;color:#d6dee8;font-size:13px;line-height:1.45}
+.sa-case li svg{margin-top:2px;color:var(--a-faint)}
+.sa-case li[data-tone=up] svg{color:#46e39a}
+.sa-case li[data-tone=down] svg{color:#ff7b8a}
+.sa-case li[data-kind=form]{color:var(--a-muted)}
+.sa-form-head{display:grid;gap:8px;padding-top:2px}
+.sa-form-head>span{color:var(--a-faint);font:800 9.5px/1.2 var(--a-sans);letter-spacing:.12em;text-transform:uppercase}
+.sa-matchup-line{display:flex;align-items:center;gap:8px;margin:0;color:#c9d3de;font-size:13px;font-weight:600}
+.sa-matchup-line svg{color:#6aa8ff}
 .sa-prop-figures{display:flex;flex-wrap:wrap;gap:6px}
 .sa-prop-figures:empty{display:none}
 .sa-prop-figures span{display:inline-flex;align-items:baseline;gap:6px;padding:7px 10px;border:1px solid var(--a-line);border-radius:10px;background:var(--a-raised)}
@@ -255,8 +281,9 @@
 .sa-risks li{display:flex;align-items:flex-start;gap:6px}
 .sa-risks svg{flex:0 0 auto;margin-top:2px}
 .sa-missing p{margin:0;color:var(--a-muted)}
+.sa-missing .sa-detail{margin-top:8px}
 .sa-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-.sa-chips button{min-height:34px;padding:0 11px;border:1px solid var(--a-line)!important;border-radius:9px;background:var(--a-raised)!important;font-weight:600;font-size:12px}
+.sa-chips button{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 11px;border:1px solid var(--a-line)!important;border-radius:9px;background:var(--a-raised)!important;font-weight:600;font-size:12px}
 .sa-chips button:hover{border-color:var(--a-accent)!important}
 
 .sa-prop-actions{display:flex;flex-wrap:wrap;gap:6px}
@@ -336,15 +363,3 @@
  .slip-analyzer *,.slip-analyzer *::before,.slip-analyzer *::after{animation:none!important;transition:none!important}
  .sa-scan{display:none}
 }
-
-/* The side-aware matchup read belongs above the recent-form numbers. */
-.sa-matchup{--matchup-accent:#a8b5c4;margin:12px 0;padding:12px;border:1px solid color-mix(in srgb,var(--matchup-accent) 35%,transparent);border-radius:14px;background:color-mix(in srgb,var(--matchup-accent) 6%,transparent)}
-.sa-matchup[data-tone="good"]{--matchup-accent:#42d9a1}
-.sa-matchup[data-tone="tough"]{--matchup-accent:#ff788b}
-.sa-matchup header{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.sa-matchup h4{margin:0;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--matchup-accent)}
-.sa-matchup-score{display:flex;align-items:center;gap:8px;font-size:12px}
-.sa-matchup meter{width:72px;height:8px;accent-color:var(--matchup-accent)}
-.sa-matchup ul{margin:10px 0 0;padding-left:16px;display:grid;gap:7px;font-size:12px;line-height:1.5;color:#c6ced8;overflow-wrap:anywhere}
-.sa-matchup li::marker{color:var(--matchup-accent)}
-.sa-matchup-empty{font-size:12px;color:#9ba7b5;margin:12px 0}

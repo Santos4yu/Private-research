@@ -133,14 +133,32 @@ test('legs are graded, and the slip scored on its own payout', () => {
   assert.match(verdict(plain), /a usual 6x/);
 });
 
-test('each tier reads the pick: backed picks are Strong or Elite, the rest Lean, Risky or Fade', () => {
-  assert.equal(tierOf({chance: 0.66, backed: true, grade: 'A', modifier: 'standard'}), 'elite');
-  assert.equal(tierOf({chance: 0.57, backed: true, grade: 'B', modifier: 'standard'}), 'strong');
-  assert.equal(tierOf({chance: 0.53, backed: false, grade: 'C', modifier: 'standard'}), 'lean');
-  assert.equal(tierOf({chance: 0.48, backed: false, grade: 'C', modifier: 'standard'}), 'risky');
-  assert.equal(tierOf({chance: 0.38, backed: false, grade: 'C', modifier: 'standard'}), 'fade');
+test('tiers are matchup first: a tough matchup is Risky at best, Elite needs a great one', () => {
+  const m = (score, primary = true) => ({score, primary});
+  assert.equal(tierOf({chance: 0.64, modifier: 'standard', matchup: m(74)}), 'elite');
+  // The same numbers without anything known about the opponent: no Elite.
+  assert.equal(tierOf({chance: 0.64, modifier: 'standard', matchup: m(74, false)}), 'strong');
+  assert.equal(tierOf({chance: 0.56, modifier: 'standard', matchup: m(60)}), 'strong');
+  assert.equal(tierOf({chance: 0.56, modifier: 'standard', matchup: m(50)}), 'lean');
+  // Hot form, tough matchup.
+  assert.equal(tierOf({chance: 0.6, modifier: 'standard', matchup: m(40)}), 'risky');
+  assert.equal(tierOf({chance: 0.6, modifier: 'standard', matchup: m(30)}), 'fade');
+  assert.equal(tierOf({chance: 0.44, modifier: 'standard', matchup: m(55)}), 'fade');
   // A Goblin is measured against the 70% it's priced at.
-  assert.equal(tierOf({chance: 0.6, backed: false, grade: 'C', modifier: 'goblin', book: null}), 'fade');
+  assert.equal(tierOf({chance: 0.6, modifier: 'goblin', book: null, matchup: m(60)}), 'fade');
+});
+
+test('the matchup moves a pick more than its last ten games', () => {
+  const hot = row({player: 'Hot', sport: 'nba', market: 'Points', line: 24.5, l10: [8, 10], season: [34, 50], position: 'G',
+    opponent: 'BOS', defense: 2, defenseTeams: 30, defenseValue: 20, defenseAverage: 25, defensePosition: 'G'});
+  const cold = row({player: 'Cold', sport: 'nba', market: 'Points', line: 24.5, l10: [5, 10], season: [25, 50], position: 'G',
+    opponent: 'WAS', defense: 29, defenseTeams: 30, defenseValue: 30, defenseAverage: 25, defensePosition: 'G'});
+  const a = gradeLeg({side: 'OVER'}, hot), b = gradeLeg({side: 'OVER'}, cold);
+  assert.ok(a.trendChance > b.trendChance);
+  assert.ok(a.matchup.score < 45 && b.matchup.score > 60);
+  assert.ok(['risky', 'fade'].includes(a.tier), a.tier);
+  assert.ok(TIERS[b.tier].rank > TIERS[a.tier].rank);
+  assert.match(a.matchup.facts[0].text, /BOS allows 20 points to guards, 20% less than average/);
 });
 
 test('"Rec Targets" and "Targets" are the same NFL stat', () => {
@@ -157,6 +175,19 @@ test('a player off the board (his game started) is looked up and graded from his
   assert.equal(checked.state, 'history');
   assert.ok(checked.grade.chance > 0.5);
   assert.ok(TIERS[checked.grade.tier]);
+  // No side read: graded as More, and flagged.
+  const unread = await checkLeg(leg({player: 'Josh Downs', sport: 'nfl', stat: 'Rec Yards', line: 71.5, side: null}), {nfl: []}, {lookup});
+  assert.equal(unread.state, 'history');
+  assert.equal(unread.side, 'OVER');
+  assert.equal(unread.assumedSide, true);
+  // No line read: the player is found, the pick waits for its line.
+  const noLine = await checkLeg(leg({player: 'Josh Downs', sport: 'nfl', stat: 'Rec Yards', line: null, side: 'OVER'}), {nfl: []}, {lookup});
+  assert.equal(noLine.state, 'needs');
+  assert.equal(noLine.row.player, 'Josh Downs');
+  // League data out of reach: said so, not "not found".
+  const down = await checkLeg(leg({player: 'Josh Downs', sport: 'nfl', stat: 'Rec Yards', line: 71.5, side: 'OVER'}), {nfl: []},
+    {lookup: async () => { throw new Error('NFL research is temporarily unavailable.'); }});
+  assert.equal(down.lookupError, 'NFL research is temporarily unavailable.');
   // Nobody by that name: left ungraded.
   const missing = await checkLeg(leg({player: 'Nobody Here', sport: 'nfl', stat: 'Rec Yards', line: 10.5, side: 'OVER'}), {nfl: []}, {lookup: async () => null});
   assert.equal(missing.state, 'player');

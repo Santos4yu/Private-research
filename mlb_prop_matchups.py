@@ -153,7 +153,9 @@ def slate_matchups(day=None):
                             "pitcher": {"id": starter["id"], "name": starter["name"], "hand": starter.get("throws")},
                             "pitches": [{"name": pitch.get("pitch_name") or pitch.get("pitch_type"), "pct": pitch.get("pct")}
                                         for pitch in arsenals.get(str(starter["id"]), [])[:4]],
-                            "grades": grades, "factors": factors}
+                            "grades": grades, "factors": factors,
+                            # His career line against today's starter, as numbers (the factor's detail is words).
+                            "bvp": {key: bvp.get(key) for key in ("ab", "hits", "hr", "avg", "ops")} if bvp.get("ab") else None}
         return {"day": data["day"], "players": players, "updatedAt": int(time.time() * 1000)}
 
     return cached(("mlb-prop-matchups", data["day"]), TTL, load)

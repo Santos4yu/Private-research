@@ -27,7 +27,7 @@ class MlbPropMatchupsTest(unittest.TestCase):
                    mock.patch.object(mlb_prop_matchups, "cached", side_effect=lambda key, ttl, loader: loader()),
                    mock.patch.object(stats, "get_pitcher_arsenal", return_value=ARSENAL),
                    mock.patch.object(stats, "_load_batter_arsenal_table", return_value=PITCH_TABLE),
-                   mock.patch.object(stats, "get_career_bvp_batch", side_effect=lambda ids, pitcher: {ids[0]: {"ab": 12, "hits": 5}})]
+                   mock.patch.object(stats, "get_career_bvp_batch", side_effect=lambda ids, pitcher: {ids[0]: {"ab": 12, "hits": 5, "hr": 2, "avg": ".417", "ops": "1.250"}})]
         for patch in patches:
             patch.start()
             self.addCleanup(patch.stop)
@@ -51,6 +51,8 @@ class MlbPropMatchupsTest(unittest.TestCase):
         self.assertTrue(form["detail"].startswith("Last 10 OPS"))
         bvp = next(factor for factor in strong["factors"] if factor["key"] == "bvp")
         self.assertIn("5-for-12", bvp["detail"])
+        # The career line as numbers, home runs included.
+        self.assertEqual(strong["bvp"], {"ab": 12, "hits": 5, "hr": 2, "avg": ".417", "ops": "1.250"})
         self.assertEqual(strong["pitches"][0], {"name": "Four-seam FB", "pct": 55.0})
 
     def test_fip_and_last_ten(self):

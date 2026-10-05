@@ -43,9 +43,21 @@ test('MLB looks the player up by name, trying a pitcher\'s strikeouts when a hit
   assert.match(row.marketKey, /^pitching:/);
 });
 
-test('nobody found, or no line read: nothing', async () => {
+test('nobody found is nothing; data out of reach is an error, not "not found"', async () => {
   assert.equal(await lookupRow({player: 'Nobody', sport: 'nba', stat: 'Points', line: 10.5}, {sports: ['nba'], fetcher: answer({rows: []})}), null);
-  assert.equal(await lookupRow({player: 'Josh Downs', sport: 'nfl', stat: 'Rec Yards', line: null}, {sports: ['nfl']}), null);
+  const down = async () => ({ok: false, json: async () => ({error: 'NFL research is temporarily unavailable. Try again shortly.'})});
+  await assert.rejects(lookupRow({player: 'Josh Downs', sport: 'nfl', stat: 'Rec Yards', line: 71.5}, {sports: ['nfl'], fetcher: down}),
+    error => error.lookup && /temporarily unavailable/.test(error.message));
+});
+
+test('a pick whose line wasn\'t read still finds its player', async () => {
+  const fetcher = async url => answer({rows: [{id: 'slip:00-1', playerId: '00-1', playerName: 'Josh Downs', headshot: 'downs.png', propType: 'receiving_yards',
+    propLabel: 'Receiving Yards', teamId: 'IND', startsAt: PAST, line: {verified: true, value: Number(new URL(url, 'http://x').searchParams.get('line')), direction: 'OVER'},
+    apps: [], windows: {l10: w(10, 10)}, gameLog: [{value: 80}]}], events: []})();
+  const row = await lookupRow({player: 'Josh Downs', sport: 'nfl', stat: 'Rec Yards', line: null}, {sports: ['nfl'], fetcher});
+  assert.equal(row.headshot, 'downs.png');
+  assert.equal(row.line, null);
+  assert.equal(row.windows, null);
 });
 
 test('with no sport on the pick, a league without the player doesn\'t stop the search', async () => {
