@@ -24,3 +24,9 @@ No changes were made to `prizepicks_export_core.py`, its feed TTL, refresh contr
 MLB, NFL and WNBA Finder sportsbook enrichment now uses `cache_only=True`. It reads saved provider responses with a one-second storage timeout and does not buy odds or run the quota probe. Missing comparisons are optional: existing PrizePicks feed loading and error fallbacks continue. Cached odds expire on their original schedule. Paid research and moneyline calls remain governed. Finder no longer replenishes sportsbook odds itself, so comparison coverage can be sparse or absent until another authorized caller populates a matching cache.
 
 Validation is mocked and does not measure live feed latency. Deployment and live speed verification are still required.
+
+## WNBA feed outage correction
+
+The direct PrizePicks feed can return HTTP 429. A separate feed is not a guarantee of availability. All leagues now reuse a shared successful feed snapshot with the existing 120-second freshness and 15-minute outage fallback limits, without resetting its original timestamp. Started-game filtering remains in the board loaders.
+
+WNBA reads the direct feed first. If it fails or is empty, the board may request PrizePicks-only standard and alternate markets from Odds API through the same daily governor. Healthy direct feeds still use cached-only sportsbook comparisons. This fallback consumes credits and cannot guarantee coverage if both providers are unavailable or the allowance is exhausted. Provider failures are logged by exception type, without credentials.

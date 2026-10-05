@@ -5,6 +5,7 @@ line for the same pick (the response says which), and a pick PrizePicks has
 taken down is left out -- the rest of the lineup still opens.
 """
 
+import json
 import re
 import threading
 import time
@@ -115,6 +116,28 @@ def _league_id(league):
     return league_id
 
 
+def _shared_projection_cache(league, now):
+    try:
+        from v2.board import store
+        raw = store.get("krazy_data:prizepicks:feed:v1:" + league, timeout=1)
+        entry = json.loads(raw) if raw else None
+        if (isinstance(entry, dict) and isinstance(entry.get("rows"), list)
+                and 0 <= now - float(entry.get("loaded_at", 0)) < _STALE_SECONDS):
+            return entry
+    except Exception:
+        pass
+    return None
+
+
+def _save_shared_projection_cache(league, entry):
+    try:
+        from v2.board import store
+        store.pipeline([["SET", "krazy_data:prizepicks:feed:v1:" + league,
+                         json.dumps(entry), "EX", _STALE_SECONDS]], timeout=1)
+    except Exception:
+        pass
+
+
 def _fetch_projection_rows(force=False, league="MLB"):
     league = str(league or "MLB").upper()
     if league not in LEAGUE_IDS:
@@ -125,6 +148,13 @@ def _fetch_projection_rows(force=False, league="MLB"):
         if not force and cached and cached["rows"] and now - cached["loaded_at"] < _CACHE_SECONDS:
             return cached["rows"]
 
+    shared = _shared_projection_cache(league, now)
+    if shared and (not cached or shared["loaded_at"] > cached["loaded_at"]):
+        cached = shared
+        with _CACHE_LOCK:
+            _PROJECTION_CACHE[league] = shared
+    if not force and cached and cached["rows"] and now - cached["loaded_at"] < _CACHE_SECONDS:
+        return cached["rows"]
     league_id = _league_id(league)
     try:
         response = requests.get(
@@ -225,6 +255,7 @@ def _fetch_projection_rows(force=False, league="MLB"):
         raise RuntimeError(f"PrizePicks returned no active {league} projections.")
     with _CACHE_LOCK:
         _PROJECTION_CACHE[league] = {"loaded_at": now, "rows": rows}
+    _save_shared_projection_cache(league, {"loaded_at": now, "rows": rows})
     # Every fresh feed, whichever board asked for it, is where the Line
     # Moves page learns a line changed (line_moves.py).
     try:

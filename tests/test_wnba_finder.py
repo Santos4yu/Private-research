@@ -109,8 +109,9 @@ class QuotePairingTests(unittest.TestCase):
             result = _board(include_history=False)
         self.assertEqual([(row["line"], [app["key"] for app in row["apps"]]) for row in result["rows"]],
                          [(8.5, ["fanduel", "espnbet"])])
-        # Ten books, still one bookmakers group.
-        self.assertEqual(len(get.call_args.args[1]["bookmakers"].split(",")), 10)
+        # Missing direct feed: spend only on the PrizePicks fallback.
+        self.assertEqual(get.call_args.args[1]["bookmakers"], "prizepicks")
+        self.assertFalse(get.call_args.kwargs["cache_only"])
 
 if __name__ == "__main__":
     unittest.main()
@@ -176,3 +177,20 @@ class WNBAPrizePicksLineTests(unittest.TestCase):
         rows = [{"player": "A", "marketKey": "player_points", "line": 1.5, "apps": []}]
         with patch("prizepicks_export_core._fetch_projection_rows", side_effect=RuntimeError("down")):
             self.assertEqual(_merge_prizepicks(list(rows), [], {"players": {}, "teams": {}}, datetime.now(timezone.utc)), rows)
+
+
+class FeedOutageTests(unittest.TestCase):
+    def test_failed_direct_feed_fetches_prizepicks_alternates_under_budget(self):
+        from api import wnba
+        from unittest.mock import Mock
+        starts = (datetime.now(timezone.utc) + timedelta(hours=12)).isoformat()
+        event = {"id":"fixture", "commence_time":starts, "home_team":"Home", "away_team":"Away"}
+        def market(key, point, price):
+            return {"key":key,"outcomes":[{"description":"Angel Reese","name":"Over","point":point,"price":price}]}
+        payload = {"bookmakers":[{"key":"prizepicks","markets":[market("player_points",15.5,-119),market("player_points_alternate",10.5,-119),market("player_points_alternate",20.5,100)]}]}
+        with patch.object(wnba,"_cached",return_value=None), patch.object(wnba,"_roster_directory",return_value={"players":{},"teams":{}}), patch.object(wnba,"_get",side_effect=[Mock(json=lambda:[event],headers={}),Mock(json=lambda:payload)]) as fetch, patch("prizepicks_export_core._fetch_projection_rows",side_effect=RuntimeError("429")), patch("line_moves.observe_books"):
+            result=wnba._board(include_history=False)
+        self.assertEqual({r["modifier"] for r in result["rows"]},{"standard","goblin","demon"})
+        self.assertFalse(fetch.call_args.kwargs["cache_only"])
+        self.assertEqual(fetch.call_args.args[1]["bookmakers"],"prizepicks")
+        self.assertIn("player_points_alternate",fetch.call_args.args[1]["markets"])
