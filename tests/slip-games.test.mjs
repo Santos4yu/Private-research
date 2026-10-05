@@ -100,8 +100,12 @@ test('a backup who starts today: his recent games say little, and the under on t
   assert.ok(!facts.some(item => /Schrauth|Kieft/.test(item.text)));
   assert.equal(newsCap(facts), 'risky');
   // Graded: no longer Elite on the strength of backup games.
-  const judged = judge({row: daniels, side: 'UNDER', chance: 0.8, modifier: 'standard', records: {}});
+  const judged = judge({row: daniels, side: 'UNDER', chance: 0.8, modifier: 'standard', records: {l10: {won: 5, games: 5, rate: 1}}});
   assert.equal(judged.tier, 'risky');
+  // His 5-for-5 under came as a backup: said so, and not counted for the under.
+  const form = judged.matchup.facts.find(item => item.kind === 'form');
+  assert.equal(form.text, '5 of his last 5 under, averaging 14.8 against the 28.5 line (in a smaller role)');
+  assert.deepEqual([form.tone, form.impact], ['flat', 0]);
   assert.ok(judged.chance < 0.62, String(judged.chance));
   // A starter at his usual workload is not a role change.
   const starter = withGame({...daniels, windows: {l10: {average: 31}}}, daniels.game);

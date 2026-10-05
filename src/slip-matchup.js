@@ -244,7 +244,7 @@ function football(row, sign, league) {
     const normal = average('sacks');
     if (sacks && finite(sacks[0]) && normal > 0) {
       const ratio = sacks[0] / normal;
-      out.push(fact('opponent', 'pass-rush', `${row.opponent}'s pass rush gets ${one(sacks[0])} sacks a game${place(sacks[1], teams, {low: 'most', high: 'fewest'})}`,
+      out.push(fact('opponent', 'pass-rush', `${row.opponent}'s pass rush gets ${one(sacks[0])} sack${Number(one(sacks[0])) === 1 ? '' : 's'} a game${place(sacks[1], teams, {low: 'most', high: 'fewest'})}`,
         clamp(-(ratio - 1) * (market === 'interceptions' ? -25 : 25), -8, 8) * sign));
     }
     const completion = their.def?.completion_pct;
@@ -357,6 +357,15 @@ export function matchupCase(leg, tables = {}) {
   for (const extra of [venueSplit(row, sign), headToHead(row, records), recentForm(row, records, leg.side)]) if (extra) facts.push(extra);
   // Is he playing, who's out around him, where he bats (slip-games.js).
   facts.push(...newsFacts(row, leg.side));
+  // In a bigger role today (a backup starting), his own games came in the
+  // smaller one: shown for what they are, and not counted.
+  if (facts.some(item => item.level === 'role')) {
+    for (const item of facts) {
+      if (item.kind === 'form' || item.kind === 'history' || (item.kind === 'split' && item.key === 'venue')) {
+        Object.assign(item, {impact: 0, tone: 'flat', text: `${item.text} (in a smaller role)`});
+      }
+    }
+  }
   const primary = facts.some(item => item.primary);
   // A hitter's model grade already weighs the starter, his history, the
   // pitch mix, the split, the park and the weather: it is the backbone.
