@@ -121,10 +121,3 @@
  .kd-landing .kd-landing-bar nav{gap:2px}
  .kd-landing .kd-landing-bar .kd-button{padding:0 10px}
 }
-
-/* Footer: the Privacy and Terms pages (public/privacy.html, terms.html). */
-.kd-landing .kd-landing-foot{position:relative;z-index:2;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 12px;width:100%;max-width:1180px;margin:40px auto 0;padding-top:12px;border-top:1px solid rgba(255,255,255,.08);color:rgba(234,240,247,.55);font-size:13px}
-.kd-landing .kd-landing-foot nav{display:flex;gap:4px}
-.kd-landing .kd-landing-foot a{display:inline-flex;align-items:center;min-height:44px;padding:0 10px;color:rgba(234,240,247,.7);text-decoration:none}
-.kd-landing .kd-landing-foot a:hover{color:#fff}
-.kd-landing .kd-landing-foot a:focus-visible{outline:2px solid #5cc2ff;outline-offset:2px;border-radius:6px}

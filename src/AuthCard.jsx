@@ -293,10 +293,6 @@ export function AuthCard({ initialMode = 'sign-in', registrationOpen = true, acc
             >
               Administrator
             </button>
-            <nav aria-label="Legal" className="flex gap-3 text-[11px]">
-              <a href="/privacy" className="text-zinc-500 no-underline hover:text-zinc-300">Privacy</a>
-              <a href="/terms" className="text-zinc-500 no-underline hover:text-zinc-300">Terms</a>
-            </nav>
           </CardFooter>
         </Card>
         </div>
