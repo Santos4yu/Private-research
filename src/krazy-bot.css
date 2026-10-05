@@ -19,6 +19,9 @@ html:has(#panel-bot:not([hidden])),body:has(#panel-bot:not([hidden])){overflow:h
    the input resting just above it. */
 .krazy-bot[data-keyboard]{top:var(--kb-vv-top,0px);bottom:auto;height:var(--kb-vv-h,100%);--mo-pill-bottom:38px}
 .krazy-bot[data-keyboard] .krazy-bot-home{display:none}
+/* The site's bottom menu would ride up over the keyboard: out of the way
+   while typing (KrazyBot.jsx sets data-bot-typing). */
+html[data-bot-typing] body .mobile-app-nav{opacity:0!important;visibility:hidden!important;pointer-events:none!important;transition:none!important}
 /* Before a question (KrazyBotHome.jsx): the header and today's board, in the
    room between the top and the example questions, scrolling when it's short. */
 .krazy-bot-home{position:absolute;left:0;right:0;top:0;bottom:calc(var(--mo-pill-bottom) + 92px);z-index:3;display:flex;flex-direction:column;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding:28px 24px 10px;

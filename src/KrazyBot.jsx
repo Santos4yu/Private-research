@@ -132,30 +132,54 @@ export function KrazyBot(){
   window.addEventListener('resize',place);
   return()=>window.removeEventListener('resize',place);
  },[]);
- // Typing on a phone: the keyboard shrinks the visual viewport (the window
- // stays the same size), so the bot is fitted to what's left above it and
- // the input rests just over the keys instead of the page sliding up.
+ // Typing on a phone: the bot is fitted to what's left above the keyboard,
+ // with the input resting just over the keys and the site's bottom menu out
+ // of the way. Some phones shrink only the visible part of the page for the
+ // keyboard and some the whole window, so it's measured against the
+ // tallest the screen has been at this width rather than the window.
  useEffect(()=>{
   const viewport=window.visualViewport,node=host.current;
-  if(!viewport||!node)return undefined;
+  if(!node)return undefined;
+  const page=document.documentElement;
+  let full=0,width=0;
   const fit=()=>{
+   const height=viewport?viewport.height:window.innerHeight;
+   if(window.innerWidth!==width){width=window.innerWidth;full=0;}
    const field=document.activeElement;
+   const typing=Boolean(field&&node.contains(field)&&field.matches('input,textarea'));
+   if(!typing||height>full)full=Math.max(full,height);
    // Touch screens only: zooming in on a computer shrinks the viewport too.
    const touch=window.matchMedia('(pointer: coarse)').matches;
-   const open=touch&&Boolean(field&&node.contains(field)&&field.matches('input,textarea'))&&viewport.height<window.innerHeight-120;
+   const open=touch&&typing&&height<full-120;
    if(open){
-    node.style.setProperty('--kb-vv-top',`${Math.round(viewport.offsetTop)}px`);
-    node.style.setProperty('--kb-vv-h',`${Math.round(viewport.height)}px`);
+    node.style.setProperty('--kb-vv-top',`${Math.round(viewport?viewport.offsetTop:0)}px`);
+    node.style.setProperty('--kb-vv-h',`${Math.round(height)}px`);
    }
    if(open!==node.hasAttribute('data-keyboard'))node.toggleAttribute('data-keyboard',open);
+   page.toggleAttribute('data-bot-typing',open);
    measureRef.current();
   };
   const later=()=>setTimeout(fit,60);
-  viewport.addEventListener('resize',fit);
-  viewport.addEventListener('scroll',fit);
-  node.addEventListener('focusin',fit);
+  // The keyboard slides in after the field takes focus: look again once it has.
+  const settle=()=>{fit();setTimeout(fit,320);};
+  fit();
+  viewport?.addEventListener('resize',fit);
+  viewport?.addEventListener('scroll',fit);
+  window.addEventListener('resize',fit);
+  node.addEventListener('focusin',settle);
   node.addEventListener('focusout',later);
-  return()=>{viewport.removeEventListener('resize',fit);viewport.removeEventListener('scroll',fit);node.removeEventListener('focusin',fit);node.removeEventListener('focusout',later);};
+  // Sent from a phone: the keyboard goes down so the answer has the screen.
+  const sent=event=>{
+   if(!window.matchMedia('(pointer: coarse)').matches)return;
+   const field=event.target.querySelector?.('input');
+   if(field&&document.activeElement===field)field.blur();
+  };
+  node.addEventListener('submit',sent,true);
+  return()=>{
+   viewport?.removeEventListener('resize',fit);viewport?.removeEventListener('scroll',fit);window.removeEventListener('resize',fit);
+   node.removeEventListener('focusin',settle);node.removeEventListener('focusout',later);node.removeEventListener('submit',sent,true);
+   page.removeAttribute('data-bot-typing');
+  };
  },[]);
  // While typing on a phone the orb's input pill rests just above the keys
  // (38px up from the bottom of the bot's box, as --mo-pill-bottom in
@@ -260,7 +284,7 @@ export function KrazyBot(){
   </div>
   <form className="krazy-bot-ask" data-show={answered?'':undefined} data-after-card={rich?'':undefined} onSubmit={askFromBar} autoComplete="off">
    <button type="button" className="krazy-bot-new" onClick={startOver} tabIndex={answered?0:-1} aria-label="New question" title="New question"><RotateCcw aria-hidden="true"/></button>
-   <input value={draft} onChange={event=>setDraft(event.target.value)} maxLength={200} placeholder="Ask a follow-up…" aria-label="Ask a follow-up" enterKeyHint="send" spellCheck={false} tabIndex={answered?0:-1}/>
+   <input value={draft} onChange={event=>setDraft(event.target.value)} maxLength={200} placeholder="Ask a follow-up…" aria-label="Ask a follow-up" enterKeyHint="send" spellCheck={false} autoCorrect="off" tabIndex={answered?0:-1}/>
    <VoiceButton onWords={setDraft} onSaid={text=>{if(text){setDraft('');askNow(text);}}} tabIndex={answered?0:-1}/>
    <button type="submit" className="krazy-bot-send" data-ready={draft.trim()?'':undefined} tabIndex={answered?0:-1} aria-label="Send"><ArrowUp aria-hidden="true"/></button>
   </form>

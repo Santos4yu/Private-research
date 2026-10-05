@@ -1047,6 +1047,8 @@ export default function MorphOrb(props: MorphOrbProps) {
               placeholder={COPY.placeholder}
               aria-label="Ask anything"
               spellCheck={false}
+              autoCorrect="off"
+              enterKeyHint="send"
               onChange={onChange}
               onKeyDown={onKeyDown}
             />
