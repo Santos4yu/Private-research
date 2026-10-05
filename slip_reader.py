@@ -23,7 +23,7 @@ import time
 
 SPORTS = ("mlb", "nba", "wnba", "nfl", "nhl", "soccer")
 MAX_LEGS = 8
-VISION_MODELS = ("meta-llama/llama-4-scout-17b-16e-instruct", "meta-llama/llama-4-maverick-17b-128e-instruct")
+VISION_MODELS = ("qwen/qwen3.8-27b",)
 TEXT_MODELS = ("llama-3.3-70b-versatile", "llama-3.1-8b-instant")
 GEMINI_MODELS = ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest")
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta"
@@ -59,7 +59,8 @@ RULES = f"""Read every player prop leg on the slip, top to bottom. For each leg 
 - plus: true only for "N+" style legs ("1+ Hits", "2+ Strikeouts", "Anytime Touchdown" = 1+). Put N in line.
 - side: "over" or "under" for THIS leg. More, Higher, Over, O, up arrow, Yes = over. Less, Lower, Under, U, down arrow, No = under.
   On PrizePicks each pick shows More or Less (or an up or down arrow); on Underdog, Higher or Lower; when both buttons
-  are visible, the filled or highlighted one is the pick. Legs can differ. If you can't tell, use "".
+  are visible, the filled or highlighted one is the pick. A bright green More button means over even if Less text is also visible.
+  Goblin/demon icons never determine side. Never use an unselected Less button as the side. Legs can differ. If you can't tell, use "".
 - modifier: "goblin" or "demon" if that PrizePicks icon is on the leg, else "standard".
 - odds: this leg's American odds if shown (e.g. -115), else null.
 - confidence: 0 to 1, how sure you are of this leg's player, stat, line and side.
@@ -144,7 +145,7 @@ def parse_json(text):
 
 # Model names Groq may use for ones that read images, so a renamed or newer
 # vision model is still found.
-_VISION_NAMES = re.compile(r"llama-4|scout|maverick|vision|[-_]vl\b|pixtral|gemma-3", re.I)
+_VISION_NAMES = re.compile(r"qwen3\.(?:6|8)-27b|llama-4|scout|maverick|vision|[-_]vl\b|pixtral|gemma-3", re.I)
 _SKIP_NAMES = re.compile(r"guard|whisper|tts|playai|distil|prompt", re.I)
 _available = {"at": 0.0, "ids": None}
 
@@ -171,7 +172,7 @@ def models_for(client, named, vision):
     fits = [model for model in ids if not _SKIP_NAMES.search(model)
             and (bool(_VISION_NAMES.search(model)) if vision else bool(re.search(r"llama|gpt-oss|qwen|kimi|gemma", model, re.I)))]
     found = [model for model in named if model in ids] + [model for model in fits if model not in named]
-    return found or named
+    return found
 
 
 def _scrub(text):
@@ -286,7 +287,14 @@ def _read_text(data, problems=None):
         if problems is not None:
             problems.append(f"OCR: {_scrub(text.get('error') if isinstance(text, dict) else 'no text')}")
         return None
-    return _ask(TEXT_MODELS, TEXT_PROMPT + text[:6000], problems)
+    raw = _ask(TEXT_MODELS, TEXT_PROMPT + text[:6000], problems)
+    # OCR cannot preserve which of two visible buttons is highlighted.
+    # Keep the picks, but require side confirmation rather than grading a guess.
+    if re.search(r"\b(more|higher|over)\b", text, re.I) and re.search(r"\b(less|lower|under)\b", text, re.I):
+        items = raw if isinstance(raw, list) else (raw.get("legs") or raw.get("props") or []) if isinstance(raw, dict) else []
+        for leg in items:
+            if isinstance(leg, dict): leg["side"] = ""
+    return raw
 
 
 # ---------------------------------------------------------------- normalizing
