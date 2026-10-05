@@ -77,6 +77,7 @@
 @keyframes sa-pop{0%{transform:scale(.6)}100%{transform:scale(1)}}
 .sa-problem h2{margin:0 0 6px;font:800 19px/1.25 var(--a-display)}
 .sa-problem p{margin:0;color:var(--a-muted)}
+.sa-problem .sa-detail{margin-top:10px;padding:10px 12px;border:1px solid var(--a-line);border-radius:10px;background:#0d1217;color:var(--a-faint);font:500 11px/1.5 var(--font-mono,'JetBrains Mono',monospace);overflow-wrap:anywhere}
 .sa-problem .sa-drop-actions{justify-content:flex-start}
 .sa-problem:not(:has(.sa-shot)){grid-template-columns:1fr}
 

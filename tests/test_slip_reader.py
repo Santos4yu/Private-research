@@ -193,3 +193,77 @@ class RouteTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GeminiTests(unittest.TestCase):
+    def setUp(self):
+        slip_reader._gemini_available.update(at=0, names=None)
+
+    def test_gemini_reads_the_slip_when_groq_cannot(self):
+        calls = []
+
+        class Response:
+            def __init__(self, status, payload):
+                self.status_code, self.payload, self.ok, self.text = status, payload, status < 400, json.dumps(payload)
+
+            def json(self):
+                return self.payload
+
+        def get(url, headers=None, params=None, timeout=None):
+            return Response(200, {"models": [
+                {"name": "models/gemini-3.0-flash", "supportedGenerationMethods": ["generateContent"]},
+                {"name": "models/gemini-2.0-flash", "supportedGenerationMethods": ["generateContent"]},
+                {"name": "models/gemini-2.0-flash-preview-image-generation", "supportedGenerationMethods": ["generateContent"]},
+                {"name": "models/text-embedding-004", "supportedGenerationMethods": ["embedContent"]}]})
+
+        def post(url, json=None, headers=None, timeout=None):
+            calls.append((url, headers, json))
+            if "3.0" in url:
+                return Response(429, {"error": {"message": "Quota exceeded for key AIzaSyFAKEKEY1234567890"}})
+            return Response(200, {"candidates": [{"content": {"parts": [{"text": __import__("json").dumps(PRIZEPICKS)}]}}]})
+
+        groq = FakeGroq(*[RuntimeError("model_not_found")] * 8)
+        with patch.object(slip_reader, "_groq", return_value=groq), patch.dict("os.environ", {"GEMINI_API_KEY": "g-key"}), \
+             patch("requests.get", get), patch("requests.post", post):
+            slip = slip_reader.read_slip(PNG)
+        self.assertEqual(slip["source"], "vision")
+        self.assertEqual(len(slip["legs"]), 3)
+        # The newest Flash first; the key goes in a header, never the address.
+        self.assertIn("gemini-3.0-flash", calls[0][0])
+        self.assertIn("gemini-2.0-flash:generateContent", calls[1][0])
+        self.assertEqual(calls[1][1]["x-goog-api-key"], "g-key")
+        self.assertNotIn("key=", calls[1][0])
+        part = calls[1][2]["contents"][0]["parts"][1]["inline_data"]
+        self.assertEqual(part["mime_type"], "image/png")
+
+    def test_when_every_reader_fails_the_reasons_are_kept_without_keys(self):
+        class Response:
+            ok, status_code = False, 403
+
+            def json(self):
+                return {"error": {"message": "API key AIzaSyFAKEKEY1234567890 not valid"}}
+
+        async def ocr(data, mime):
+            return {"error": "OCR API returned 403"}
+
+        groq = FakeGroq(*[RuntimeError("Invalid API Key gsk_abcdefghijklmnop")] * 12)
+        with patch.object(slip_reader, "_groq", return_value=groq), patch.dict("os.environ", {"GEMINI_API_KEY": "g-key"}), \
+             patch("requests.get", lambda *a, **k: Response()), patch("requests.post", lambda *a, **k: Response()), \
+             patch("analyze._ocr_image", ocr):
+            slip = slip_reader.read_slip(PNG)
+        self.assertEqual(slip["reason"], "models")
+        self.assertIn("Groq", slip["detail"])
+        self.assertIn("Gemini gemini-2.5-flash: HTTP 403", slip["detail"])
+        self.assertIn("OCR", slip["detail"])
+        self.assertNotIn("gsk_abc", slip["detail"])
+        self.assertNotIn("AIzaSy", slip["detail"])
+
+    def test_only_an_admin_sees_why(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("prediction_api2", Path(__file__).resolve().parents[1] / "api" / "prediction.py")
+        api = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(api)
+        failed = {"error": "Reading slips is unavailable right now.", "reason": "models", "detail": "Groq x: 404"}
+        with patch.object(slip_reader, "read_slip", return_value=failed):
+            self.assertEqual(api._analyze_slip(PNG), (503, {"error": failed["error"]}))
+            self.assertEqual(api._analyze_slip(PNG, admin=True)[1]["detail"], "Groq x: 404")

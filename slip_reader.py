@@ -4,8 +4,9 @@
 Groq's vision model looks at the image itself, so it sees which side of
 each pick is chosen (More/Less, Higher/Lower, Over/Under, arrows, the
 highlighted button) the way a person does -- reading the screenshot as flat
-text first loses exactly that. When the vision model can't be reached, the
-screenshot's text (OCR.space) goes to Groq's text model instead.
+text first loses exactly that. When Groq can't read it, Google's Gemini
+(GEMINI_API_KEY, its free tier) looks at the image instead, and last of all
+the screenshot's text (OCR.space) goes to Groq's text model.
 
 Nothing is guessed here. A leg whose line or side can't be read comes back
 with `needs` naming what's missing, so the member fills it in; legs that
@@ -18,11 +19,14 @@ import io
 import json
 import os
 import re
+import time
 
 SPORTS = ("mlb", "nba", "wnba", "nfl", "nhl", "soccer")
 MAX_LEGS = 8
 VISION_MODELS = ("meta-llama/llama-4-scout-17b-16e-instruct", "meta-llama/llama-4-maverick-17b-128e-instruct")
 TEXT_MODELS = ("llama-3.3-70b-versatile", "llama-3.1-8b-instant")
+GEMINI_MODELS = ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest")
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta"
 # Groq takes images up to 4 MB as base64; anything bigger is shrunk first.
 MAX_IMAGE_BYTES = 2_800_000
 MAX_SIDE = 2000
@@ -147,7 +151,6 @@ _available = {"at": 0.0, "ids": None}
 
 def _model_ids(client):
     """The models this Groq key can use right now (asked at most every 10 minutes)."""
-    import time
     if _available["ids"] is not None and time.time() - _available["at"] < 600:
         return _available["ids"]
     try:
@@ -171,11 +174,18 @@ def models_for(client, named, vision):
     return found or named
 
 
-def _ask(models, content):
+def _scrub(text):
+    """An error message safe to show: no keys, one line, short."""
+    text = re.sub(r"(gsk_|AIza|sk-ant-|sk-)[A-Za-z0-9_\-]{8,}", "[key]", str(text or ""))
+    return re.sub(r"\s+", " ", text).strip()[:160]
+
+
+def _ask(models, content, problems=None):
     client = _groq()
     if client is None:
         return None
     for model in models_for(client, models, isinstance(content, list)):
+        last = "no readable answer"
         for json_mode in (True, False):
             try:
                 kwargs = {"model": model, "messages": [{"role": "user", "content": content}],
@@ -186,17 +196,86 @@ def _ask(models, content):
                 if isinstance(answer, (dict, list)):
                     return answer
             except Exception as exc:  # noqa: BLE001 -- the next model or mode may work
-                print(f"[slip-reader] {model} json={json_mode}: {type(exc).__name__}: {str(exc)[:160]}")
+                last = f"{type(exc).__name__}: {_scrub(exc)}"
+                print(f"[slip-reader] {model} json={json_mode}: {last}")
+        if problems is not None:
+            problems.append(f"Groq {model}: {last}")
     return None
 
 
-def _read_vision(data):
+_gemini_available = {"at": 0.0, "names": None}
+
+
+def _version(name):
+    match = re.search(r"(\d+(?:\.\d+)?)", name)
+    return float(match.group(1)) if match else 0.0
+
+
+def gemini_models(key):
+    """Gemini models this key can use that read images, newest Flash first."""
+    env = os.getenv("GEMINI_MODELS", "")
+    named = [name.strip() for name in env.split(",") if name.strip()] or list(GEMINI_MODELS)
+    if _gemini_available["names"] is None or time.time() - _gemini_available["at"] > 600:
+        names = []
+        try:
+            import requests
+            response = requests.get(f"{GEMINI_URL}/models", headers={"x-goog-api-key": key}, params={"pageSize": 200}, timeout=10)
+            if response.ok:
+                names = [item.get("name", "").split("/", 1)[-1] for item in response.json().get("models", [])
+                         if "generateContent" in (item.get("supportedGenerationMethods") or [])]
+        except Exception:  # noqa: BLE001 -- the named models are tried anyway
+            names = []
+        _gemini_available.update(at=time.time(), names=names)
+    names = _gemini_available["names"]
+    if not names:
+        return named
+    if env:
+        return [name for name in named if name in names] or named
+    # Newest stable Flash first, previews after, so a newer Gemini is used
+    # without a code change and a retired one is skipped.
+    fits = sorted((name for name in names if "flash" in name and not re.search(r"image|tts|audio|live|embed|thinking|exp", name)),
+                  key=lambda name: ("preview" in name, -_version(name), "lite" in name, len(name)))
+    return fits or named
+
+
+def _read_gemini(data, problems):
+    key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not key:
+        return None
+    import requests
+    data, mime = fit_image(data)
+    body = {"contents": [{"role": "user", "parts": [{"text": VISION_PROMPT},
+                                                   {"inline_data": {"mime_type": mime, "data": base64.b64encode(data).decode()}}]}],
+            "generationConfig": {"temperature": 0, "responseMimeType": "application/json", "maxOutputTokens": 8192}}
+    for model in gemini_models(key)[:4]:
+        try:
+            response = requests.post(f"{GEMINI_URL}/models/{model}:generateContent", json=body, timeout=40,
+                                     headers={"x-goog-api-key": key, "Content-Type": "application/json"})
+            if not response.ok:
+                message = ""
+                try:
+                    message = response.json().get("error", {}).get("message", "")
+                except ValueError:
+                    message = response.text
+                problems.append(f"Gemini {model}: HTTP {response.status_code} {_scrub(message)}")
+                continue
+            parts = ((response.json().get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
+            answer = parse_json("".join(part.get("text", "") for part in parts))
+            if isinstance(answer, (dict, list)):
+                return answer
+            problems.append(f"Gemini {model}: no readable answer")
+        except Exception as exc:  # noqa: BLE001 -- the next model may work
+            problems.append(f"Gemini {model}: {type(exc).__name__}: {_scrub(exc)}")
+    return None
+
+
+def _read_vision(data, problems=None):
     data, mime = fit_image(data)
     url = f"data:{mime};base64,{base64.b64encode(data).decode()}"
-    return _ask(VISION_MODELS, [{"type": "text", "text": VISION_PROMPT}, {"type": "image_url", "image_url": {"url": url}}])
+    return _ask(VISION_MODELS, [{"type": "text", "text": VISION_PROMPT}, {"type": "image_url", "image_url": {"url": url}}], problems)
 
 
-def _read_text(data):
+def _read_text(data, problems=None):
     import asyncio
     try:
         from analyze import _ocr_image
@@ -204,8 +283,10 @@ def _read_text(data):
         return None
     text = asyncio.run(_ocr_image(data, mime_of(data) or "image/png"))
     if not isinstance(text, str) or not text.strip():
+        if problems is not None:
+            problems.append(f"OCR: {_scrub(text.get('error') if isinstance(text, dict) else 'no text')}")
         return None
-    return _ask(TEXT_MODELS, TEXT_PROMPT + text[:6000])
+    return _ask(TEXT_MODELS, TEXT_PROMPT + text[:6000], problems)
 
 
 # ---------------------------------------------------------------- normalizing
@@ -336,14 +417,20 @@ def read_slip(data):
     """The slip in this screenshot, or {"error": ...}."""
     if not mime_of(data):
         return {"error": "Use a PNG, JPG or WEBP screenshot."}
-    if _groq() is None:
-        print("[slip-reader] GROQ_API_KEY is not set for this deployment")
+    gemini = bool(os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
+    if _groq() is None and not gemini:
+        print("[slip-reader] neither GROQ_API_KEY nor GEMINI_API_KEY is set for this deployment")
         return {"error": "Slip reading isn't set up on this server yet.", "reason": "no-key"}
-    source, raw = "vision", _read_vision(data)
+    problems = [] if _groq() is not None else ["Groq: GROQ_API_KEY is not set"]
+    source, raw = "vision", _read_vision(data, problems) if _groq() is not None else None
+    if raw is None and gemini:
+        source, raw = "vision", _read_gemini(data, problems)
+    if raw is None and _groq() is not None:
+        source, raw = "text", _read_text(data, problems)
     if raw is None:
-        source, raw = "text", _read_text(data)
-    if raw is None:
-        return {"error": "Reading slips is unavailable right now. Try again in a minute.", "reason": "models"}
+        detail = "; ".join(problems)[:900]
+        print(f"[slip-reader] every reader failed: {detail}")
+        return {"error": "Reading slips is unavailable right now. Try again in a minute.", "reason": "models", "detail": detail}
     slip = normalize(raw)
     if not slip["legs"]:
         return {"error": "No player props were found in that screenshot. Use one that shows each pick's player, stat and line."}

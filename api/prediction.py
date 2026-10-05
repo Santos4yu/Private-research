@@ -91,14 +91,18 @@ def _cached_prediction(cache_key, compute):
             _PREDICTION_INFLIGHT.pop(cache_key, None)
 
 
-def _analyze_slip(image_bytes):
+def _analyze_slip(image_bytes, admin=False):
     """The slip's legs as read from the screenshot (slip_reader.py); the
-    browser grades them against the Finder's lines (src/slip-check.js)."""
+    browser grades them against the Finder's lines (src/slip-check.js).
+    An admin also sees why reading failed."""
     import slip_reader
     slip = slip_reader.read_slip(image_bytes)
     if slip.get("error"):
+        body = {"error": slip["error"]}
+        if admin and slip.get("detail"):
+            body["detail"] = slip["detail"]
         # Not set up or not reachable is the server's problem, not the screenshot's.
-        return (503 if slip.get("reason") else 422), {"error": slip["error"]}
+        return (503 if slip.get("reason") else 422), body
     return 200, slip
 
 
@@ -305,7 +309,8 @@ class handler(BaseHTTPRequestHandler):
             if content_length < 1 or content_length > 4 * 1024 * 1024:
                 return self._send(413, {"error": "The screenshot must be smaller than 4 MB."})
             try:
-                status, body = _analyze_slip(self.rfile.read(content_length))
+                from v2.board import admin_auth
+                status, body = _analyze_slip(self.rfile.read(content_length), admin_auth.is_admin_request(self.headers))
                 return self._send(status, body)
             except Exception:
                 return self._send(422, {"error": "That screenshot couldn't be read. Try again, or use a clearer one."})

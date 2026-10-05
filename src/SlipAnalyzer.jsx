@@ -48,7 +48,7 @@ async function readSlip(blob,signal){
  let data={};try{data=await response.json();}catch{/* handled below */}
  if(response.status===401)throw new Error('Sign in again to read slips.');
  if(data.featureDisabled)throw new Error('The Slip Analyzer is turned off right now.');
- if(!response.ok)throw new Error(data.error||'That screenshot couldn\'t be read. Try again.');
+ if(!response.ok)throw Object.assign(new Error(data.error||'That screenshot couldn\'t be read. Try again.'),{detail:data.detail||''});
  if(!Array.isArray(data.legs)||!data.legs.length)throw new Error('No player props were found in that screenshot.');
  return data;
 }
@@ -201,6 +201,8 @@ export function SlipAnalyzer(){
  const [shot,setShot]=useState(null);
  const [step,setStep]=useState(0);
  const [error,setError]=useState('');
+ // Why reading failed, sent to admins only.
+ const [detail,setDetail]=useState('');
  const [slip,setSlip]=useState(null);
  const [legs,setLegs]=useState([]);
  const [editing,setEditing]=useState(null);
@@ -219,7 +221,7 @@ export function SlipAnalyzer(){
   control.current?.abort();
   const job=new AbortController();control.current=job;const {signal}=job;
   setShot(old=>{if(old?.url)URL.revokeObjectURL(old.url);return {url:URL.createObjectURL(file)};});
-  setPhase('reading');setStep(0);setError('');setLegs([]);setSlip(null);setEditing(null);setPool([]);setSaved(new Set());
+  setPhase('reading');setStep(0);setError('');setDetail('');setLegs([]);setSlip(null);setEditing(null);setPool([]);setSaved(new Set());
   const sports=SLIP_SPORTS.filter(siteFinderSportAllowed);
   // Today's lines load while the screenshot is read.
   const loading=Object.fromEntries(sports.map(sport=>[sport,loadLines(sport,{signal,only:()=>false}).catch(()=>[])]));
@@ -243,7 +245,7 @@ export function SlipAnalyzer(){
    setPool(candidates([...used].flatMap(sport=>(rows[sport]||[]).filter(row=>row.historyStatus==='ready'))));
   }catch(failure){
    if(signal.aborted||failure.name==='AbortError')return;
-   setError(failure.message||'That screenshot couldn\'t be read. Try again.');setPhase('error');
+   setError(failure.message||'That screenshot couldn\'t be read. Try again.');setDetail(failure.detail||'');setPhase('error');
   }
  },[]);
 
@@ -325,7 +327,7 @@ export function SlipAnalyzer(){
 
   {phase==='error'&&<div className="sa-problem" role="alert">
    {shot&&<figure className="sa-shot is-small"><img src={shot.url} alt="Your screenshot"/></figure>}
-   <div><h2>That slip couldn't be checked</h2><p>{error}</p>
+   <div><h2>That slip couldn't be checked</h2><p>{error}</p>{detail&&<p className="sa-detail">{detail}</p>}
     <div className="sa-drop-actions"><button type="button" className="sa-btn sa-btn-primary" onClick={()=>input.current?.click()}><ImageUp size={16}/>Choose another</button>
      <button type="button" className="sa-btn" onClick={reset}><X size={16}/>Start over</button>
      <input ref={input} type="file" accept="image/*" hidden onChange={event=>{run(event.target.files?.[0]);event.target.value='';}}/></div></div>
