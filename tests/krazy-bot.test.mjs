@@ -253,7 +253,7 @@ test('build me a slip: Elite and Strong picks, none working against each other, 
   assert.ok(card.together > 0 && card.together < 1);
   assert.match(bot.card().lead, /^Here's a 3-pick slip from my Elite and Strong picks \(\d Elite(, \d Strong)?\)\. Parlay grade /);
   // Too few picks to trust: it says so instead of padding the slip.
-  assert.match(await bot.ask('build me a 6-pick slip'), /^I only see \d Elite or Strong (MLB )?picks? that don't work against each other right now/);
+  assert.match(await bot.ask('build me a 6-pick slip'), /^I only see \d Elite or Strong (MLB )?picks?( that go together \(.*\))? right now, not enough for a 6-pick slip/);
 });
 
 test('slip options: a safe slip takes the likeliest picks, a value slip weighs the payout, and a sport keeps it to one league', async () => {
@@ -321,6 +321,25 @@ test('slips as asked: the league, overs or unders, how many picks, and a payout 
   // Every pick a Goblin when that's what's asked.
   await bot.ask('all goblins 3 man nfl');
   assert.deepEqual(bot.card().card.picks.map(pick => pick.modifier), ['goblin', 'goblin', 'goblin']);
+});
+
+test('slips for one game, one team or one day', async () => {
+  assert.deepEqual(['give me a parlay for the bills vs dolphins game', 'give me a bills parlay', 'give me a parlay for the chiefs game', 'sunday nfl parlay', 'give me a mnf parlay', 'build me a 3-pick slip']
+    .map(q => { const a = understand(q); return [a.scope, a.day?.words || null]; }),
+  [['game', null], ['team', null], ['game', null], [null, 'Sunday'], [null, 'Monday night'], [null, null]]);
+  const bot = nflBoard();
+  // One game: both picks from it (more than two from a game when that's what's asked).
+  assert.match(await bot.ask('give me a 2 man parlay for the bills vs dolphins game'), /^Here's a 2-pick NFL slip for the Bills vs Dolphins game from my Elite and Strong picks: /);
+  assert.ok(bot.card().card.picks.every(pick => pick.player === 'Josh Allen' || pick.player === 'James Cook'));
+  // One team.
+  assert.match(await bot.ask('2 man bills parlay'), /^Here's a 2-pick NFL slip for the Bills from my Elite and Strong picks: /);
+  // Not enough there: said so, for that game.
+  assert.match(await bot.ask('give me a 3 leg bills parlay'), /^I only see 2 Elite or Strong NFL picks for the Bills right now, not enough for a 3-pick slip/);
+  // No lines up for it at all.
+  assert.equal(await bot.ask('give me a parlay for the chiefs game'), "I don't see a Chiefs game on the board right now. Lines usually go up a day or two before the game.");
+  assert.equal(await bot.ask('sunday nfl parlay'), "I don't see any lines for Sunday on the board right now. Lines usually go up a day or two before the game.");
+  // The day of the board's games (Saturday night, on the test's clock).
+  assert.match(await bot.ask('3 leg parlay for tonight'), /^Here's a 3-pick NFL slip for tonight from my Elite and Strong picks: /);
 });
 
 test('game news counts in the bot as it does in the Slip Analyzer: a player listed Out is a Fade', async () => {

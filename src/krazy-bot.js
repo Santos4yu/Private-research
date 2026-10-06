@@ -245,6 +245,62 @@ export function distance(a, b) {
 }
 
 /** The question with slang rewritten and misspelt keywords fixed (never a player's name). */
+// A day asked for ("Sunday", "tonight", "this weekend", "MNF"), for a slip:
+// {offset} days from today, a {weekday}, or the {weekend}; {night}: 5 PM on.
+const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+const WEEKDAY_SHORT = {sun: 0, mon: 1, tue: 2, tues: 2, wed: 3, thu: 4, thur: 4, thurs: 4, fri: 5, sat: 6};
+export function dayAsked(q) {
+  const night = {tnf: 4, snf: 0, mnf: 1};
+  const prime = q.match(/\b(tnf|snf|mnf)\b/);
+  if (prime) return {weekday: night[prime[1]], night: true, words: `${title(WEEKDAYS[night[prime[1]]])} night`};
+  if (/\btonight\b/.test(q)) return {offset: 0, night: true, words: 'tonight'};
+  if (/\btoday\b/.test(q)) return {offset: 0, words: 'today'};
+  if (/\btomorrow\b/.test(q)) return {offset: 1, words: 'tomorrow'};
+  if (/\bweekend\b/.test(q)) return {weekend: true, words: 'this weekend'};
+  const named = q.match(/\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday|sun|mon|tues?|wed|thu(?:rs?)?|fri|sat)\b/);
+  if (!named) return null;
+  const weekday = WEEKDAYS.includes(named[1]) ? WEEKDAYS.indexOf(named[1]) : WEEKDAY_SHORT[named[1]];
+  const late = new RegExp(`\\b${named[1]} night\\b`).test(q);
+  return {weekday, night: late, words: `${title(WEEKDAYS[weekday])}${late ? ' night' : ''}`};
+}
+const title = word => word.charAt(0).toUpperCase() + word.slice(1);
+const titled = words => String(words || '').replace(/\b\w/g, letter => letter.toUpperCase());
+// A team as it reads in a sentence: "the Bills", "Buffalo".
+const teamWords = name => (/s$/i.test(name) ? `the ${name}` : name);
+// What a slip was asked for, in words: "for the Bills vs Dolphins game on Sunday", "for the Bills tonight".
+function scopeWords(question) {
+  const day = question.day;
+  const when = !day ? '' : day.weekday != null ? `on ${day.words}` : day.words;
+  const game = question.game && (question.game.both ? `the ${question.game.names.join(' vs ')} game` : `the ${question.game.names[0]} game`);
+  if (game) return `for ${game}${when ? ` ${when}` : ''}`;
+  if (question.teamName) return `for ${teamWords(question.teamName)}${when ? ` ${when}` : ''}`;
+  return day ? `for ${day.words}` : '';
+}
+// What the board would need to have for it, when it has none of it.
+function missingWords(question) {
+  const day = question.day;
+  const when = !day ? '' : day.weekday != null ? ` on ${day.words}` : ` ${day.words}`;
+  if (question.game) return `${question.game.both ? `the ${question.game.names.join(' vs ')} game` : `a ${question.game.names[0]} game`}${when} on the board`;
+  if (question.teamName) return `${question.teamName} lines${when} on the board`;
+  return `any lines for ${day.words} on the board`;
+}
+/** Whether a line's game is on the day asked for (the viewer's own clock). */
+export function onDay(row, day, nowMs) {
+  const at = Date.parse(row?.startsAt || '');
+  if (!day || !Number.isFinite(at)) return !day;
+  const start = new Date(at), today = new Date(nowMs);
+  const midnight = date => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const ahead = Math.round((midnight(start) - midnight(today)) / 86400000);
+  if (ahead < 0 || (day.night && start.getHours() < 17)) return false;
+  if (day.offset != null) return ahead === day.offset;
+  if (day.weekend) {
+    if (today.getDay() === 0) return ahead === 0;
+    const saturday = (6 - today.getDay() + 7) % 7;
+    return ahead === saturday || ahead === saturday + 1;
+  }
+  return ahead === (day.weekday - today.getDay() + 7) % 7;
+}
+
 export function normalize(text, keepWords = new Set()) {
   let q = clean(text);
   for (const [pattern, replacement] of SLANG) q = q.replace(pattern, replacement);
@@ -328,7 +384,11 @@ export function understand(text, {keepWords} = {}) {
     const payout = aim && Number(aim[1]) >= 1.2 ? Math.min(1000, Number(aim[1])) : null;
     const only = Boolean(ask.modifier) && /\b(all|only|just|every)\b[^.?!]*\b(goblins?|demons?)\b|\b(goblins?|demons?)\s+only\b/.test(q);
     const count = Math.max(2, Math.min(6, Number(legs?.[1]) || NUMBER_WORDS[legs?.[1]] || 3));
-    return {...ask, intent: 'slip', style, count, counted: Boolean(legs), payout, only, play: /\bflex\b/.test(q) && count >= 3 ? 'flex' : 'power'};
+    // One game ("Bills vs Dolphins", "the Bills game"), else a team's players, and a day.
+    const sameSport = ask.teamOptions.filter(option => ask.teamOptions.filter(other => other.sport === option.sport).length >= 2);
+    const scope = !ask.teamOptions.length ? null : sameSport.length >= 2 || /\b(game|matchup|vs|versus|v)\b|@/.test(q) ? 'game' : 'team';
+    return {...ask, intent: 'slip', style, count, counted: Boolean(legs), payout, only, play: /\bflex\b/.test(q) && count >= 3 ? 'flex' : 'power',
+      scope, day: dayAsked(q)};
   }
   if (['another', 'flip', 'usual', 'mine', 'value'].includes(ask.intent)) return ask;
   const sheet = sheetAsked(q);
@@ -488,6 +548,12 @@ function redFlagWords(leg) {
 export const passesMatchup = leg => (leg.tier ? leg.tier === 'elite' || leg.tier === 'strong' || (!leg.matchupRequired && leg.tier === 'lean')
   : !leg.matchupRequired);
 
+/** A line in the game asked for: both teams named, or the one team's game. */
+export function inGame(row, game) {
+  const team = String(row?.teamAbbr || '').toUpperCase(), opponent = String(row?.opponent || '').toUpperCase();
+  return game.both ? game.codes.includes(team) && game.codes.includes(opponent) : game.codes.includes(team) || game.codes.includes(opponent);
+}
+
 /** Today's picks for a question, best first, one per player. */
 export function rank(legs, ask) {
   let pool = legs.filter(leg => !ask.sport || String(leg.row?.sport || 'mlb') === ask.sport);
@@ -496,6 +562,8 @@ export function rank(legs, ask) {
   if (ask.group) pool = pool.filter(leg => String(leg.row.marketKey || '').startsWith(`${ask.group}:`));
   if (ask.side) pool = pool.filter(leg => leg.side === ask.side);
   if (ask.team) pool = pool.filter(leg => ask.team.includes(String(leg.row.teamAbbr || '').toUpperCase()));
+  if (ask.game) pool = pool.filter(leg => inGame(leg.row, ask.game));
+  if (ask.day) pool = pool.filter(leg => onDay(leg.row, ask.day, ask.at ?? Date.now()));
   if (ask.players?.length) pool = pool.filter(leg => ask.players.includes(leg.player));
   // Asked about a player, every line of his is fair game (with its red flags);
   // otherwise only picks with a good matchup.
@@ -1161,6 +1229,15 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
       // A team names its league unless the question named one itself.
       if (!question.explicitSport && !(question.stat && !question.inherited && question.stat.sport !== team.sport)) question.sport = team.sport;
       if (question.inherited && question.stat?.sport !== question.sport) { question.stat = null; question.inherited = false; }
+      // A slip for one game: both teams' players ("Bills vs Dolphins": the league with two teams named).
+      if (question.intent === 'slip' && question.scope === 'game') {
+        const paired = question.teamOptions.find(option => question.teamOptions.filter(other => other.sport === option.sport).length >= 2);
+        const sport = paired && !question.explicitSport ? paired.sport : question.sport;
+        const teams = question.teamOptions.filter(option => option.sport === sport);
+        question.sport = sport;
+        question.game = {codes: teams.flatMap(option => option.codes), both: teams.length >= 2, names: teams.map(option => titled(option.name))};
+        question.team = null;
+      } else if (question.intent === 'slip') question.teamName = titled(team.name);
     }
     if (!question.stat && question.statOptions.length) {
       question.stat = question.statOptions.find(stat => stat.sport === (question.sport || ctx?.sport)) || null;
@@ -1658,6 +1735,17 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
   async function slip(question) {
     const good = leg => leg.tier === 'elite' || leg.tier === 'strong';
     const asPick = leg => ({row: leg.row, side: leg.side, player: leg.player});
+    question = {...question, at: now()};
+    // A game, team or day with no lines up at all: said plainly.
+    if (question.game || question.teamName || question.day) {
+      const listed = allRows().filter(row => (!question.sport || String(row.sport || 'mlb') === question.sport)
+        && (!question.game || inGame(row, question.game)) && (!question.team || question.team.includes(String(row.teamAbbr || '').toUpperCase()))
+        && onDay(row, question.day, question.at));
+      if (!listed.length) {
+        remember(question, []);
+        return `I don't see ${missingWords(question)} right now. Lines usually go up a day or two before the game.`;
+      }
+    }
     // A payout asked for (or Goblins and Demons on it): the picks are chosen
     // together, for the best chance at about that payout.
     if (question.payout || question.modifier) return aimed(question, good, asPick);
@@ -1678,23 +1766,31 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     pool = (await withNewsAll(pool.slice(0, 18))).filter(good);
     if (order) pool.sort(order);
     const chosen = [], perGame = new Map();
+    // Two a game at most, unless there aren't games enough (one game asked for: all of it).
+    const cap = perGameCap(pool, question.count);
     let avoided = null;
     for (const leg of pool) {
       const against = chosen.map(other => link(asPick(other), asPick(leg))).find(found => found && found.rho <= -0.03);
       if (against) { avoided ||= {leg, text: against.text}; continue; }
-      if ((perGame.get(leg.game) || 0) >= 2) continue;
+      if ((perGame.get(leg.game) || 0) >= cap) continue;
       chosen.push(leg);
       perGame.set(leg.game, (perGame.get(leg.game) || 0) + 1);
       if (chosen.length === question.count) break;
     }
     remember(question, chosen);
     const league = question.sport ? `${SPORTS[question.sport].name} ` : '';
-    if (!chosen.length) return `I don't see any Elite or Strong ${league}picks right now, so I'd hold off on a slip. Check back closer to game time.`;
+    const scope = scopeWords(question) ? ` ${scopeWords(question)}` : '';
+    if (!chosen.length) return `I don't see any Elite or Strong ${league}picks${scope} right now, so I'd hold off on a slip. Check back closer to game time.`;
     if (chosen.length < question.count) {
-      return `I only see ${chosen.length} Elite or Strong ${league}pick${chosen.length === 1 ? '' : 's'} that don't work against each other right now, not enough for a ${question.count}-pick slip. Try a smaller one.`;
+      const clash = avoided ? ` that go together (${pickLine(avoided.leg)} works against ${chosen.length === 1 ? 'it' : 'them'}: ${avoided.text})` : '';
+      return `I only see ${chosen.length} Elite or Strong ${league}pick${chosen.length === 1 ? '' : 's'}${scope}${clash} right now, not enough for a ${question.count}-pick slip. `
+        + `Try a smaller one${question.game ? ' or another game' : ''}.`;
     }
     return writeSlip(question, chosen, {avoided});
   }
+
+  // Picks a slip may take from one game: two, or more when the pool spans fewer games than that needs.
+  const perGameCap = (pool, count) => Math.max(2, Math.ceil(count / Math.max(1, new Set(pool.map(leg => leg.game)).size)));
 
   // What a Goblin or Demon pays next to a regular line (smart-slip.js
   // assessLeg works it out from the books; a usual one when it can't).
@@ -1722,6 +1818,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
       .sort((a, b) => b.chance - a.chance).slice(0, modifier === 'standard' ? 8 : 6));
     // With their game news, judged again (as in slip()).
     const pool = (await withNewsAll(ranked)).filter(good).slice(0, 16);
+    const cap = perGameCap(pool, count);
     const clash = pool.map(a => pool.map(b => a === b || a.player === b.player || Boolean((link(asPick(a), asPick(b))?.rho ?? 0) <= -0.03)));
     const fit = pays => (want ? Math.abs(Math.log(pays / want)) : 0);
     let best = null;
@@ -1730,7 +1827,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
         const legs = chosen.map(index => pool[index]);
         if (question.modifier && !legs.some(leg => leg.modifier === question.modifier)) return;
         const games = new Map();
-        for (const leg of legs) { games.set(leg.game, (games.get(leg.game) || 0) + 1); if (games.get(leg.game) > 2) return; }
+        for (const leg of legs) { games.set(leg.game, (games.get(leg.game) || 0) + 1); if (games.get(leg.game) > cap) return; }
         const pays = base * legs.reduce((product, leg) => product * payFactor(leg), 1);
         const chance = legs.reduce((product, leg) => product * leg.chance, 1);
         // Close enough to the payout: the likeliest. Otherwise: the closest. No payout asked: the most back per $1.
@@ -1751,7 +1848,8 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     const league = question.sport ? `${SPORTS[question.sport].name} ` : '';
     const what = question.only ? `${question.modifier} ` : '';
     if (chosen.length < count) {
-      return `I don't see ${count} Elite or Strong ${league}${what}picks that work together right now${question.modifier && !question.only ? ` with a ${question.modifier} on it` : ''}. Try a smaller slip or check back closer to game time.`;
+      const scope = scopeWords(question) ? ` ${scopeWords(question)}` : '';
+      return `I don't see ${count} Elite or Strong ${league}${what}picks${scope} that work together right now${question.modifier && !question.only ? ` with a ${question.modifier} on it` : ''}. Try a smaller slip or check back closer to game time.`;
     }
     return writeSlip({...question, count}, chosen, {aimed: want ? {want, near: best.near, pays: best.pays} : null});
   }
@@ -1778,7 +1876,8 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
       scaled && 'Goblin and Demon payouts vary by line, so check the exact number on the app.',
     ].filter(Boolean).join(' ');
     const mix = Object.entries(score?.tiers || {}).filter(([, count]) => count).map(([key, count]) => `${count} ${TIERS[key].label}`).join(', ');
-    const kind = `${{safe: 'safe ', value: 'value '}[question.style] || ''}${chosen.length}-pick ${league}${flex ? 'Flex ' : ''}slip${target ? ` that pays about ${payout}x` : ''}`;
+    const scope = scopeWords(question);
+    const kind = `${{safe: 'safe ', value: 'value '}[question.style] || ''}${chosen.length}-pick ${league}${flex ? 'Flex ' : ''}slip${scope ? ` ${scope}` : ''}${target ? ` that pays about ${payout}x` : ''}`;
     const how = target ? '' : {safe: ', the likeliest of them', value: ', the most payout for their chance'}[question.style] || '';
     answer = {lead: tidy(`Here's a ${kind} from my Elite and Strong picks${how} (${mix}). Parlay grade ${score?.letter || '–'}. ${notes}`),
       card: {kind: 'slip', picks: chosen.map(pickCard), together: score?.chance ?? chosen.reduce((product, leg) => product * leg.chance, 1),
@@ -1818,4 +1917,4 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
   return {ask, board: boardsLoaded, today, thinking, examples, suggestions: () => suggestions, card: () => answer, profile: () => me, returning: () => Boolean(returning)};
 }
 
-const HELP = allowed => `I break down today's ${allowed.map(sport => SPORTS[sport].name).join(', ')} props using our models: record vs the line, projections, matchups and the books. Ask "what's the play today?", "best K prop", "should I take Skubal over 6.5 Ks?", "compare Judge and Soto", "top 3 total bases" or "build me a 3-pick slip". Follow up with "why?", "next" or "what about the under?". I remember what you ask about.`;
+const HELP = allowed => `I break down today's ${allowed.map(sport => SPORTS[sport].name).join(', ')} props using our models: record vs the line, projections, matchups and the books. Ask "what's the play today?", "best K prop", "should I take Skubal over 6.5 Ks?", "compare Judge and Soto", "top 3 total bases", "build me a 3-pick slip" or "a 2-man parlay for the Bills game on Sunday". Follow up with "why?", "next" or "what about the under?". I remember what you ask about.`;
