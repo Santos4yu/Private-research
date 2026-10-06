@@ -12,7 +12,9 @@ export const pickBuilder={
  side:(id,side)=>send('vortex:prop-builder-side',{id,side}),
  remove:id=>send('vortex:prop-builder-remove',{id}),
  clear:()=>send('vortex:prop-builder-clear'),
+ // PrizePicks in a new tab, or its link copied (app.js).
  export:()=>send('vortex:prop-builder-export'),
+ copy:()=>send('vortex:prop-builder-copy'),
  // Current prices and start times for saved Finder picks.
  refresh:updates=>send('vortex:prop-builder-refresh',{updates}),
  // On desktop the Pick Builder opens inside the sidebar rail
@@ -25,7 +27,7 @@ export const pickBuilder={
  },
 };
 
-export const EMPTY_PICKS={legs:[],status:'Add at least 2 props to export.',canExport:false,busy:false};
+export const EMPTY_PICKS={legs:[],status:'Add at least 2 props to export.',canExport:false,busy:false,link:''};
 
 export function usePickBuilder(){
  const [state,setState]=useState(EMPTY_PICKS);
