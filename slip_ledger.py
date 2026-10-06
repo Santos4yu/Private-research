@@ -492,7 +492,9 @@ def news_alerts(pick, view):
                 if level == "out" else f"{pick['player']} is listed Doubtful and may not play. Recheck your {line}.")
         out.append((f"status:{level}", "Slip update", body))
     average = pick.get("average")
-    if pick.get("position") and average is not None and (average <= 0 or pick["line"] >= 1.4 * average):
+    # Hockey skaters share the ice four lines deep: one out doesn't hand another his job (slip-games.js newsFacts).
+    one_job = not (pick.get("sport") == "nhl" and _group(pick.get("position")) != "G")
+    if one_job and pick.get("position") and average is not None and (average <= 0 or pick["line"] >= 1.4 * average):
         for mate in report:
             if mate is own or _group(mate.get("position")) != _group(pick["position"]) or LONG_TERM.search(str(mate.get("status") or "")):
                 continue

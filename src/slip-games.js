@@ -159,6 +159,13 @@ const group = value => { const pos = position(value); return GROUP[pos] || pos; 
 const sameJob = (row, mate) => Boolean(group(row.position)) && group(row.position) === group(mate.position);
 // Out for weeks (injured reserve, PUP, a suspension): already missing from his recent games.
 const longTerm = status => /injured reserve|\bir\b|physically unable|\bpup\b|non-football|suspen|\d+-day/i.test(String(status || ''));
+// His average over the longer run (the season, else his last 20), on this line's stat.
+function longerAverage(row) {
+  const kept = row.windows?.season?.average ?? row.windows?.l20?.average;
+  if (finite(kept)) return kept;
+  const values = (row.gameLog || []).map(game => game.value).filter(finite).slice(-20);
+  return values.length > 10 ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+}
 // His average in his recent games, on this line's stat.
 export function recentAverage(row) {
   const kept = row.windows?.l10?.average ?? row.average;
@@ -219,17 +226,23 @@ export function newsFacts(row, side, teammates = row?.game?.teammates || []) {
   else if (self?.level === 'doubtful') facts.push(news('status', `${last} is listed Doubtful and may not play, or play less`, -6 * sign, 'down', {level: 'doubtful'}));
   else if (self?.level === 'questionable') facts.push(news('status', `${last} is listed ${self.status}. Check before the game`, -2 * sign, 'warn', {level: 'questionable'}));
   // A starter at his position out, and a line well above what he's been
-  // doing: he steps into a bigger job (a backup quarterback or goalie
-  // starting), so his recent games say little about today.
+  // doing, lately and over the longer run (one or the other alone is a
+  // slump): he steps into a bigger job (a backup quarterback or goalie
+  // starting), so his recent games say little about today. Hockey skaters
+  // share the ice four lines deep, so one out doesn't hand another his job.
   const average = recentAverage(row);
+  const longer = longerAverage(row);
   const line = finite(row.line) ? row.line : null;
-  const bigger = line != null && line > 0 && finite(average) && (average <= 0 || line >= 1.4 * average);
+  const oneJob = !(row.sport === 'nhl' && group(row.position) !== 'G');
+  const bigger = oneJob && line != null && line > 0 && finite(average) && (average <= 0 || line >= 1.4 * average)
+    && !(finite(longer) && longer > 0 && line < 1.25 * longer);
   const replaced = bigger ? found.out.find(mate => sameJob(row, mate) && !longTerm(mate.status)) : null;
   if (replaced) {
     const starts = ['QB', 'G'].includes(group(row.position)) && ['nfl', 'nhl'].includes(row.sport);
     const was = finite(average) ? ` (${fmt(average)} a game against a ${fmt(line)} line)` : '';
     facts.push(news('role', `${lastName(replaced.name)} (${replaced.position}) is ${replaced.level === 'out' ? 'out' : 'doubtful'}, so ${last} likely `
-      + `${starts ? 'starts' : 'steps into a bigger role'}. ${last}'s recent games came in a smaller role${was} and say little about today`,
+      + `${starts ? 'starts' : 'steps into a bigger role'}. ${last}'s recent games came in a smaller role${was} and say little about today`
+      + `${starts ? `; the ${fmt(line)} line is already set for him starting` : ''}`,
     6 * sign, sign > 0 ? 'warn' : 'down', {level: 'role'}));
   }
   // The rest of who's out: those with a with/without split first (what
@@ -246,9 +259,12 @@ export function newsFacts(row, side, teammates = row?.game?.teammates || []) {
     if (split) {
       const scale = Math.max(Math.abs(row.line || 0), 1);
       const impact = clamp(((split.without.avg - split.with.avg) / scale) * 30, -8, 8) * sign;
+      // Without him, on the other side of the line from the pick: no Elite (newsCap).
+      const crosses = finite(row.line) && (side === 'UNDER' ? split.without.avg > row.line : split.without.avg < row.line);
+      const where = finite(row.line) && split.without.avg !== row.line ? `, ${split.without.avg > row.line ? 'above' : 'below'} the ${fmt(row.line)} line,` : '';
       facts.push(news(`mate:${mate.name}`, `${who} is ${word}: ${last} averages ${fmt(split.without.avg)} ${statWord(row)} without ${lastName(mate.name)} `
-        + `(${split.without.games} games) and ${fmt(split.with.avg)} with ${lastName(mate.name)} playing`, impact,
-        impact >= 1.5 ? 'up' : impact <= -1.5 ? 'down' : 'flat'));
+        + `(${split.without.games} games)${where} and ${fmt(split.with.avg)} with ${lastName(mate.name)} playing`, impact,
+        impact >= 1.5 ? 'up' : impact <= -1.5 ? 'down' : 'flat', impact <= -1.5 && crosses ? {level: 'split'} : {}));
     } else {
       facts.push(news(`mate:${mate.name}`, `Teammate ${who} is ${word}`, 0, 'flat'));
     }
@@ -274,14 +290,15 @@ export function newsFacts(row, side, teammates = row?.game?.teammates || []) {
 /**
  * The best tier the news allows, or null: a player who is out (or a
  * pitcher who isn't starting) is a Fade; Doubtful, out of the lineup or
- * in a bigger role than his recent games is Risky at best; Questionable
+ * in a bigger role than his recent games is Risky at best; Questionable,
+ * or a teammate out whose absence puts him on the other side of the line,
  * keeps him out of Elite.
  */
 export function newsCap(facts = []) {
   const levels = new Set(facts.map(item => item.level).filter(Boolean));
   if (levels.has('out')) return 'fade';
   if (levels.has('doubtful') || levels.has('benched') || levels.has('role')) return 'risky';
-  if (levels.has('questionable')) return 'strong';
+  if (levels.has('questionable') || levels.has('split')) return 'strong';
   return null;
 }
 

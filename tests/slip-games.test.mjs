@@ -79,10 +79,16 @@ test('a teammate out, with what it has meant for him', async () => {
   assert.match(asked, /market=receiving_yards/);
   const facts = newsFacts(withGame(row, {...row.game, teammates: mates.a}), 'OVER');
   const boost = facts.find(item => item.key.startsWith('mate:'));
-  assert.equal(boost.text, 'Pittman (WR) is out: Downs averages 71.3 receiving yards without Pittman (3 games) and 48.2 with Pittman playing');
+  assert.equal(boost.text, 'Pittman (WR) is out: Downs averages 71.3 receiving yards without Pittman (3 games), above the 59.5 line, and 48.2 with Pittman playing');
   assert.equal(boost.tone, 'up');
-  // The same split counts against his under.
-  assert.ok(newsFacts(withGame(row, {...row.game, teammates: mates.a}), 'UNDER').find(item => item.key.startsWith('mate:')).impact < 0);
+  assert.equal(newsCap(facts), null);
+  // The same split counts against his under, and, landing over the line, keeps the under out of Elite.
+  const under = newsFacts(withGame(row, {...row.game, teammates: mates.a}), 'UNDER');
+  assert.ok(under.find(item => item.key.startsWith('mate:')).impact < 0);
+  assert.equal(newsCap(under), 'strong');
+  // A split that grows his numbers but still leaves him under the line doesn't.
+  const short = newsFacts(withGame({...row, line: 80.5}, {...row.game, teammates: mates.a}), 'UNDER');
+  assert.equal(newsCap(short), null);
   // No split to show: just who is out.
   assert.equal(newsFacts(row, 'OVER').find(item => item.key.startsWith('mate:')).text, 'Teammate Pittman (WR) is out');
 });
@@ -94,7 +100,8 @@ test('a backup who starts today: his recent games say little, and the under on t
   game({state: 'pre', team: 'TB', opponent: 'DAL', injuries: {TB: [{name: 'Baker Mayfield', status: 'Out', position: 'QB'},
     {name: 'Luke Schrauth', status: 'Out', position: 'G'}, {name: 'Devin Culp Kieft', status: 'Out', position: 'TE'}], DAL: []}}));
   const facts = newsFacts(daniels, 'UNDER');
-  assert.equal(facts[0].text, 'Mayfield (QB) is out, so Daniels likely starts. Daniels\'s recent games came in a smaller role (14.8 a game against a 28.5 line) and say little about today');
+  assert.equal(facts[0].text, 'Mayfield (QB) is out, so Daniels likely starts. Daniels\'s recent games came in a smaller role (14.8 a game against a 28.5 line) '
+    + 'and say little about today; the 28.5 line is already set for him starting');
   assert.equal(facts[0].tone, 'down');
   // A guard, and a tight end with nothing to show, say nothing about his attempts.
   assert.ok(!facts.some(item => /Schrauth|Kieft/.test(item.text)));
@@ -110,6 +117,14 @@ test('a backup who starts today: his recent games say little, and the under on t
   // A starter at his usual workload is not a role change.
   const starter = withGame({...daniels, windows: {l10: {average: 31}}}, daniels.game);
   assert.ok(!newsFacts(starter, 'UNDER').some(item => item.key === 'role'));
+  // Nor is a cold stretch from a player who has been at this line over the season.
+  const slump = withGame({...daniels, windows: {l10: {average: 14.8}, season: {average: 27.1}}}, daniels.game);
+  assert.ok(!newsFacts(slump, 'UNDER').some(item => item.key === 'role'));
+  // Hockey skaters share the ice: one center out doesn't make another a bigger role.
+  const center = {sport: 'nhl', player: 'Mika Zibanejad', position: 'C', market: 'Shots On Goal', valueKey: 'shots', line: 2.5, teamAbbr: 'NYR',
+    windows: {l10: {average: 1.6}}, game: {state: 'pre', team: 'NYR', injuries: {NYR: [{name: 'Joe Veleno', status: 'Out', position: 'C'}]}}};
+  assert.ok(!newsFacts(center, 'UNDER').some(item => item.key === 'role'));
+  assert.equal(newsCap(newsFacts(center, 'UNDER')), null);
 });
 
 test('only teammates who bear on the pick: no linemen or defenders for a back\'s catches', () => {
