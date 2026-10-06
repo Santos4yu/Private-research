@@ -197,6 +197,8 @@
 .sa-swap-chance{color:#46e39a;font:800 15px/1 var(--a-display)}
 .sa-swaps button{display:inline-flex;align-items:center;gap:5px;min-height:36px;padding:0 11px;border-radius:10px;background:#1d2530!important;font-weight:700;font-size:12px}
 .sa-parlay-actions{display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px}
+/* Tracking: the slip is on Your tracked slips (results, alerts). */
+.slip-analyzer .sa-track[aria-pressed=true]{color:#46e39a!important;border-color:color-mix(in srgb,#46e39a 45%,var(--a-line))!important;background:color-mix(in srgb,#46e39a 10%,var(--a-raised))!important}
 .sa-shot-peek{margin-left:auto}
 .sa-shot-peek summary{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border-radius:12px;color:var(--a-muted);font-weight:700;cursor:pointer;list-style:none}
 .sa-shot-peek summary::-webkit-details-marker{display:none}
@@ -500,6 +502,10 @@
 .sh-pick b{overflow:hidden;font-size:13px;white-space:nowrap;text-overflow:ellipsis}
 .sh-pick small{overflow:hidden;color:var(--a-muted);font-size:11.5px;white-space:nowrap;text-overflow:ellipsis}
 .sh-picks em{font:800 14px/1 var(--a-display);font-style:normal;font-variant-numeric:tabular-nums}
+.sh-picks li.sh-remove{display:flex;justify-content:flex-end;padding:4px 2px 2px}
+.slip-analyzer .sh-history li.sh-remove>button{display:inline-flex;align-items:center;gap:6px;width:auto;min-height:32px;padding:0 11px;border:1px solid var(--a-line);border-radius:9px;
+ background:none;color:var(--a-muted);font-size:12px;font-weight:700;transition:color .2s,border-color .2s}
+.slip-analyzer .sh-history li.sh-remove>button:hover{color:#ff9aa5;border-color:color-mix(in srgb,#ff7b8a 45%,var(--a-line))}
 .sh-pill{padding:3px 7px;border-radius:999px;background:color-mix(in srgb,var(--tier) 14%,transparent);color:var(--tier);font:800 9px/1 var(--a-sans);
  letter-spacing:.08em;text-transform:uppercase}
 @media (max-width:860px){.sh-wrap{grid-template-columns:1fr}}

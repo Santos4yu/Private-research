@@ -3,6 +3,7 @@
 import {recentAverage, settleKey} from './slip-games.js';
 
 const SAVE_URL = '/api/prediction?action=slip-save';
+const REMOVE_URL = '/api/prediction?action=slip-remove';
 const HISTORY_URL = '/api/prediction?action=slip-history';
 
 export const newSlipId = () => `s-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -27,6 +28,15 @@ export async function saveSlip(payload, {fetcher = fetch} = {}) {
     body: JSON.stringify(payload)});
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || 'The slip couldn\'t be saved.');
+  return data;
+}
+
+/** Stop tracking a slip: off the member's list (its picks stay in the site's record). */
+export async function removeSlip(id, {fetcher = fetch} = {}) {
+  const response = await fetcher(REMOVE_URL, {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({id})});
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || 'The slip couldn\'t be removed.');
   return data;
 }
 

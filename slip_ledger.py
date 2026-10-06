@@ -116,8 +116,10 @@ def clean_pick(raw, now):
 # ---------------------------------------------------------------- saving
 
 def save(uid, payload, now=None):
-    """Keep a graded slip for `uid` (a new id, or the same id again after a
-    pick is fixed or swapped) and each of its picks in the ledger."""
+    """Each pick of a graded slip in the ledger (the site's record), and the
+    slip in `uid`'s list when they track it (payload["track"]): a new id, or
+    the same id again after a pick is fixed or swapped. A slip only graded,
+    not tracked, adds no owner (no alerts) and nothing to their list."""
     now = now or datetime.now(timezone.utc)
     if not uid or not isinstance(payload, dict):
         raise ValueError("A graded slip is required.")
@@ -128,6 +130,7 @@ def save(uid, payload, now=None):
     if not picks:
         raise ValueError("No graded picks to keep.")
     store = _store()
+    track = payload.get("track", True) is not False
     entries = []
     for pick in picks:
         starts = _time(pick["startsAt"]) or now
@@ -135,13 +138,14 @@ def save(uid, payload, now=None):
         key = pick_key(pick, day)
         entries.append((day, key, pick))
     # The ledger: one hash a day; a pick already in it keeps its owners and,
-    # once its game has started, the tier it had then.
+    # once its game has started, the tier it had then. Its owners are those
+    # tracking a slip with it (they get its alerts).
     reads = _pipeline([["HGET", PREFIX + "ledger:" + day, key] for day, key, _ in entries])
     writes = []
     for (day, key, pick), raw in zip(entries, reads):
         held = _load(raw)
         if held:
-            owners = sorted(set(held.get("owners") or []) | {str(uid)})[:50]
+            owners = sorted(set(held.get("owners") or []) | ({str(uid)} if track else set()))[:50]
             if pick["late"] or held.get("result"):
                 held["owners"] = owners
                 pick = held
@@ -149,7 +153,7 @@ def save(uid, payload, now=None):
                 pick = {**held, **{name: value for name, value in pick.items() if name != "late"}, "late": held.get("late", False) and pick["late"],
                         "owners": owners}
         else:
-            pick = {**pick, "owners": [str(uid)], "result": None, "value": None, "alerted": [], "at": now.isoformat()}
+            pick = {**pick, "owners": [str(uid)] if track else [], "result": None, "value": None, "alerted": [], "at": now.isoformat()}
         writes.append(["HSET", PREFIX + "ledger:" + day, key, json.dumps(pick, separators=(",", ":"))])
         writes.append(["EXPIRE", PREFIX + "ledger:" + day, LEDGER_DAYS * 86400])
     _pipeline(writes)
@@ -165,6 +169,9 @@ def save(uid, payload, now=None):
     twins = [item for item in kept if item.get("id") != slip_id and _parlay(item) == _parlay(slip)]
     same = twins[-1] if twins else None  # the first time it was kept
     mine = same or next((item for item in kept if item.get("id") == slip_id), None)
+    if not track:
+        # Only graded: their list as it was (saying so when it's a slip they already track).
+        return {"id": mine["id"] if mine else slip_id, "picks": len(entries), "tracked": bool(mine), "again": bool(same)}
     if mine:
         started = any(pick["late"] for _, _, pick in entries)
         slip = {**slip, "id": mine["id"], "at": mine.get("at") or slip["at"],
@@ -174,7 +181,37 @@ def save(uid, payload, now=None):
     else:
         kept = [slip, *kept]
     store.set(user_key, json.dumps(kept[:USER_SLIPS], separators=(",", ":")), ex=120 * 86400)
-    return {"id": slip["id"], "picks": len(entries), "again": bool(same)}
+    return {"id": slip["id"], "picks": len(entries), "tracked": True, "again": bool(same)}
+
+
+def remove(uid, slip_id):
+    """Stop tracking a slip: off `uid`'s list (with any copy of the same
+    parlay), and off its picks' owners where no other slip of theirs has them.
+    The picks stay in the site's record."""
+    if not uid or not re.fullmatch(r"[a-z0-9-]{8,40}", str(slip_id or "")):
+        raise ValueError("A slip id is required.")
+    store = _store()
+    user_key = PREFIX + "user:" + str(uid)
+    kept = [item for item in (_load(store.get(user_key)) or []) if isinstance(item, dict)]
+    gone = next((item for item in kept if item.get("id") == slip_id), None)
+    if not gone:
+        return {"removed": 0}
+    left = [item for item in kept if item.get("id") != slip_id and _parlay(item) != _parlay(gone)]
+    store.set(user_key, json.dumps(left, separators=(",", ":")), ex=120 * 86400)
+    still = {ref.get("key") for item in left for ref in item.get("picks") or [] if isinstance(ref, dict)}
+    refs = [(ref.get("day"), ref.get("key")) for ref in gone.get("picks") or []
+            if isinstance(ref, dict) and ref.get("day") and ref.get("key") and ref.get("key") not in still]
+    if refs:
+        reads = _pipeline([["HGET", PREFIX + "ledger:" + day, key] for day, key in refs])
+        writes = []
+        for (day, key), raw in zip(refs, reads):
+            held = _load(raw)
+            if held and str(uid) in (held.get("owners") or []):
+                held["owners"] = [owner for owner in held["owners"] if owner != str(uid)]
+                writes.append(["HSET", PREFIX + "ledger:" + day, key, json.dumps(held, separators=(",", ":"))])
+        if writes:
+            _pipeline(writes)
+    return {"removed": len(kept) - len(left)}
 
 
 def _parlay(slip):

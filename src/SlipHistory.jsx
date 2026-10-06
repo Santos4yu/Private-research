@@ -1,9 +1,9 @@
 import React,{useState} from 'react';
-import {Check,ChevronDown,Clock,Minus,Trophy,X} from 'lucide-react';
+import {Check,ChevronDown,Clock,Minus,Trash2,Trophy,X} from 'lucide-react';
 import {TIERS,sideWord} from './slip-check';
 
-// How the grades have done (the site's record over 30 days) and the
-// member's own graded slips with each pick's result (slip_ledger.py).
+// How the grades have done (the site's record over 30 days) and the slips
+// the member tracks, with each pick's result (slip_ledger.py).
 
 const nice=value=>Number.isInteger(value)?String(value):Number(value).toFixed(1);
 function when(value){
@@ -37,12 +37,18 @@ export function Record({record}){
 const STATUS={won:'Won',lost:'Lost',pending:'Pending',void:'Void'};
 const RESULT_ICON={hit:Check,miss:X,push:Minus,void:Minus,unknown:Minus};
 
-/** The member's graded slips, newest first; tap one for its picks. */
-export function History({slips}){
+/** The slips the member tracks, newest first; tap one for its picks (and to remove it). */
+export function History({slips,onRemove}){
  const [open,setOpen]=useState(null);
+ const [removing,setRemoving]=useState(null);
  if(!slips?.length)return null;
- return <section className="sh-history" aria-label="Your graded slips">
-  <header><h2>Your graded slips</h2><span>{slips.length} kept</span></header>
+ const remove=async id=>{
+  setRemoving(id);
+  try{await onRemove?.(id);setOpen(null);}catch{/* stays listed */}
+  finally{setRemoving(null);}
+ };
+ return <section className="sh-history" aria-label="Your tracked slips">
+  <header><h2>Your tracked slips</h2><span>{slips.length} tracked</span></header>
   <ul>{slips.slice(0,12).map(slip=>{
    const counted=slip.picks.filter(pick=>pick.result==='hit'||pick.result==='miss').length;
    const app={key:slip.app};
@@ -62,7 +68,9 @@ export function History({slips}){
       <span className="sh-pick"><b>{pick.player}</b><small>{sideWord(pick.side,app)} {nice(pick.line)} {pick.stat}</small></span>
       {pick.value!=null&&<em>{nice(pick.value)}</em>}
       {pick.tier&&<span className="sh-pill" data-tier={pick.tier}>{TIERS[pick.tier]?.label}</span>}
-     </li>;})}</ul>}
+     </li>;})}
+     {onRemove&&<li className="sh-remove"><button type="button" onClick={()=>remove(slip.id)} disabled={removing===slip.id}>
+      <Trash2 size={13}/>{removing===slip.id?'Removing…':'Remove from my slips'}</button></li>}</ul>}
    </li>;})}</ul>
  </section>;
 }

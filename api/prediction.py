@@ -344,7 +344,7 @@ class handler(BaseHTTPRequestHandler):
             except Exception:
                 return self._send(422, {"error": "That screenshot couldn't be read. Try again, or use a clearer one."})
         if action == "slip-save":
-            # A graded slip kept for its member and the site's record (slip_ledger.py).
+            # A graded slip's picks for the site's record, and the slip for its member when they track it (slip_ledger.py).
             try:
                 content_length = int(self.headers.get("Content-Length") or 0)
                 if content_length < 1 or content_length > 32_768:
@@ -358,6 +358,22 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(400, {"error": str(exc) or "Invalid request."})
             except Exception:
                 return self._send(503, {"error": "The slip couldn't be saved right now."})
+        if action == "slip-remove":
+            # Stop tracking a slip (slip_ledger.remove); its picks stay in the record.
+            try:
+                content_length = int(self.headers.get("Content-Length") or 0)
+                if content_length < 1 or content_length > 1_024:
+                    return self._send(413, {"error": "Invalid request size."})
+                import slip_ledger
+                member = _member_id(self.headers, session)
+                if not member:
+                    return self._send(200, {"removed": 0})
+                body = json.loads(self.rfile.read(content_length) or b"{}")
+                return self._send(200, slip_ledger.remove(member, body.get("id") if isinstance(body, dict) else None))
+            except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                return self._send(400, {"error": str(exc) or "Invalid request."})
+            except Exception:
+                return self._send(503, {"error": "The slip couldn't be removed right now."})
         if action == "slip-games":
             # Each pick's game: status, score, injuries, lineups and the
             # players' lines so far (slip_games.py). Free league sources only.

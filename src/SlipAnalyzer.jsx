@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useId,useMemo,useRef,useState} from 'react';
-import {ArrowRight,ArrowUpRight,Check,ChevronDown,ClipboardPaste,Crosshair,Crown,Flame,ImageUp,Link2,Pencil,Plus,Radio,Repeat2,RotateCcw,Search,Share2,ShieldCheck,Trash2,TrendingDown,TrendingUp,TriangleAlert,Unlink,X} from 'lucide-react';
+import {ArrowRight,ArrowUpRight,BookmarkPlus,Check,ChevronDown,ClipboardPaste,Crosshair,Crown,Flame,ImageUp,Link2,Pencil,Plus,Radio,Repeat2,RotateCcw,Search,Share2,ShieldCheck,Trash2,TrendingDown,TrendingUp,TriangleAlert,Unlink,X} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import {siteFinderSportAllowed,siteIsAdmin} from './site-access';
 import {finderSlipProp} from './unified-finder-data';
@@ -12,7 +12,7 @@ import {loadGames,loadTeammates,withGame,newsOf,liveRead,anyLive} from './slip-g
 import {MatchupCase} from './MatchupCase';
 import {shareSlip} from './slip-share';
 import {Record,History} from './SlipHistory';
-import {newSlipId,slipPayload,saveSlip,loadHistory} from './slip-history';
+import {newSlipId,slipPayload,saveSlip,removeSlip,loadHistory} from './slip-history';
 import {teamLogoUrl} from './sports/nfl/nfl-ui-core';
 import {pickBuilder} from './pick-builder-client';
 import {PhoneAccountButtons} from './UnifiedFinder';
@@ -341,7 +341,7 @@ function Explain({score}){
  </div>;
 }
 
-function Parlay({score,slip,legs,pool,onSwap,onSaveAll,onNew,onShare,sharing,shot}){
+function Parlay({score,slip,legs,pool,onSwap,onSaveAll,onNew,onShare,sharing,shot,tracked,onTrack,tracking}){
  const options=useMemo(()=>swaps(legs,pool),[legs,pool]);
  const [open,setOpen]=useState(false);
  const n=legs.length;
@@ -411,6 +411,9 @@ function Parlay({score,slip,legs,pool,onSwap,onSaveAll,onNew,onShare,sharing,sho
 
   <div className="sa-parlay-actions">
    <button type="button" className="sa-btn sa-btn-primary" onClick={onSaveAll} disabled={!graded.length}><Plus size={15}/>Add all to My Slip</button>
+   {onTrack&&<button type="button" className="sa-btn sa-track" onClick={onTrack} disabled={tracking} aria-pressed={tracked}
+    title={tracked?'Tracking this slip in Your tracked slips. Tap to stop.':'Played it? Track it to see how it finishes.'}>
+    {tracked?<Check size={15}/>:<BookmarkPlus size={15}/>}{tracked?'Tracking':'Track slip'}</button>}
    {score&&onShare&&<button type="button" className="sa-btn" onClick={onShare} disabled={sharing}><Share2 size={15}/>{sharing?'Making…':'Share'}</button>}
    <button type="button" className="sa-btn" onClick={onNew}><RotateCcw size={15}/>New slip</button>
    {shot&&<details className="sa-shot-peek"><summary><ImageUp size={14}/>Your screenshot<ChevronDown size={14}/></summary><img src={shot.url} alt="Your screenshot"/></details>}
@@ -437,6 +440,13 @@ export function SlipAnalyzer(){
  const [historyTick,setHistoryTick]=useState(0);
  const slipId=useRef(null);
  const savedSig=useRef('');
+ // Graded slips aren't kept for the member until they track one ("Track
+ // slip"): only graded, its picks still count for the site's record.
+ const [tracked,setTracked]=useState(false);
+ const trackedRef=useRef(false);
+ const [tracking,setTracking]=useState(false);
+ const [canTrack,setCanTrack]=useState(false);
+ const markTracked=value=>{trackedRef.current=value;setTracked(value);};
  const boards=useRef({});
  const control=useRef(null);
  const host=useRef(null);
@@ -490,7 +500,7 @@ export function SlipAnalyzer(){
   const job=new AbortController();control.current=job;const {signal}=job;
   setShot(old=>{if(old?.url)URL.revokeObjectURL(old.url);return {url:URL.createObjectURL(file)};});
   setPhase('reading');setStep(0);setError('');setDetail('');setLegs([]);setSlip(null);setEditing(null);setPool([]);setSaved(new Set());
-  games.current={};mates.current={};slipId.current=newSlipId();savedSig.current='';
+  games.current={};mates.current={};slipId.current=newSlipId();savedSig.current='';markTracked(false);
   const sports=SLIP_SPORTS.filter(siteFinderSportAllowed);
   // Today's lines load while the screenshot is read.
   const loading=Object.fromEntries(sports.map(sport=>[sport,loadLines(sport,{signal,only:()=>false}).catch(()=>[])]));
@@ -578,16 +588,42 @@ export function SlipAnalyzer(){
  };
  const reset=()=>{control.current?.abort();games.current={};mates.current={};setPhase('pick');setLegs([]);setSlip(null);setError('');};
  const score=useMemo(()=>slip?scoreEntry(legs,slip):null,[legs,slip]);
+ // Track this slip (onto Your tracked slips, with its results and alerts), or stop.
+ const trackIt=async()=>{
+  if(!score||!slip||!slipId.current||tracking)return;
+  setTracking(true);
+  try{
+   if(trackedRef.current){await removeSlip(slipId.current);markTracked(false);}
+   else{
+    const result=await saveSlip({...slipPayload(slipId.current,slip,legs,score),track:true});
+    if(result?.id)slipId.current=result.id;
+    markTracked(result?.saved!==false);
+   }
+   setHistoryTick(tick=>tick+1);
+  }catch{/* the button stays as it was */}
+  finally{setTracking(false);}
+ };
+ // Off the list from Your tracked slips (the one on screen too, when it's this one).
+ const untrack=async id=>{
+  await removeSlip(id);
+  if(id===slipId.current)markTracked(false);
+  setHistoryTick(tick=>tick+1);
+ };
  // Keep the graded slip: once it's graded, and again when a pick or its tier changes.
  useEffect(()=>{
   if(phase!=='done'||!score||!slip||!slipId.current)return undefined;
-  const payload=slipPayload(slipId.current,slip,legs,score);
+  const payload={...slipPayload(slipId.current,slip,legs,score),track:trackedRef.current};
   if(!payload.picks.length)return undefined;
   const sig=JSON.stringify(payload.picks.map(pick=>[pick.player,pick.stat,pick.line,pick.side,pick.tier]));
   if(sig===savedSig.current)return undefined;
   // The same parlay graded before comes back as that slip: later fixes update it.
   const timer=setTimeout(()=>{savedSig.current=sig;saveSlip(payload).then(result=>{
-   if(result?.id&&slipId.current===payload.id)slipId.current=result.id;setHistoryTick(tick=>tick+1);}).catch(()=>{});},1500);
+   setCanTrack(result?.saved!==false);
+   if(slipId.current!==payload.id)return;
+   if(result?.id)slipId.current=result.id;
+   // A slip they already track, graded again: shown as tracked.
+   if(result?.tracked&&!trackedRef.current)markTracked(true);
+   if(result?.tracked)setHistoryTick(tick=>tick+1);}).catch(()=>{});},1500);
   return()=>clearTimeout(timer);
  },[phase,score,slip,legs]);
  useEffect(()=>{
@@ -639,7 +675,7 @@ export function SlipAnalyzer(){
 
   {phase==='done'&&slip&&<div className="sa-results">
    <Parlay score={score} slip={slip} legs={legs} shot={shot} pool={pool} onSwap={swapIn} onSaveAll={saveAll} onNew={reset}
-    onShare={shareIt} sharing={sharing}/>
+    onShare={shareIt} sharing={sharing} tracked={tracked} tracking={tracking} onTrack={canTrack?trackIt:null}/>
    {slip.source==='text'&&<p className="sa-heads-up"><TriangleAlert size={14}/>This slip was read from its text, so double-check each {sideWord('OVER',slip.app)} and {sideWord('UNDER',slip.app)}.</p>}
    <div className="sa-props-head"><h2>The picks</h2><span>{legs.length} pick{legs.length===1?'':'s'}</span></div>
    <div className="sa-props" data-count={legs.length}>
@@ -652,7 +688,7 @@ export function SlipAnalyzer(){
   </div>}
   {(phase==='pick'||phase==='done')&&(history?.record?.picks>0||history?.slips?.length>0)&&<div className="sh-wrap" data-phase={phase}
    data-single={!(history.record?.picks>0&&history.slips?.length>0)||undefined}>
-   {history.record?.picks>0&&<Record record={history.record}/>}<History slips={history.slips}/></div>}
+   {history.record?.picks>0&&<Record record={history.record}/>}<History slips={history.slips} onRemove={untrack}/></div>}
  </div>;
 }
 

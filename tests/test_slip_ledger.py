@@ -118,6 +118,35 @@ class LedgerTests(unittest.TestCase):
         # The record still counts each pick once.
         self.assertEqual(len(self.ledger()), 3)
 
+    def test_only_graded_counts_for_the_record_but_is_not_tracked(self):
+        key = slip_ledger.PREFIX + "user:member-a"
+        shown = slip_ledger.save("member-a", slip(track=False), now=NOW)
+        self.assertEqual((shown["tracked"], shown["id"]), (False, "slip-0001"))
+        self.assertNotIn(key, self.store.data)
+        self.assertEqual(self.ledger()[0]["owners"], [])  # in the record, nobody's alerts
+        # Tracked: on their list, theirs for alerts.
+        self.assertTrue(slip_ledger.save("member-a", slip(), now=NOW)["tracked"])
+        self.assertEqual(self.ledger()[0]["owners"], ["member-a"])
+        # Graded again later without tracking: already theirs, said so, list as it was.
+        again = slip_ledger.save("member-a", slip("slip-0002", track=False), now=NOW)
+        self.assertEqual((again["tracked"], again["id"]), (True, "slip-0001"))
+        self.assertEqual([item["id"] for item in json.loads(self.store.data[key])], ["slip-0001"])
+
+    def test_a_tracked_slip_can_be_removed(self):
+        key = slip_ledger.PREFIX + "user:member-a"
+        dak = pick(player="Dak Prescott", stat="Pass Yards", line=245.5, settle={"kind": "key", "key": "passing_yards"})
+        slip_ledger.save("member-a", slip("slip-0001", picks=[pick(), dak]), now=NOW)
+        slip_ledger.save("member-a", slip("slip-0002", picks=[dak]), now=NOW)
+        slip_ledger.save("member-b", slip("slip-0003", picks=[pick()]), now=NOW)
+        self.assertEqual(slip_ledger.remove("member-a", "slip-0001"), {"removed": 1})
+        self.assertEqual([item["id"] for item in json.loads(self.store.data[key])], ["slip-0002"])
+        owners = {entry["player"]: entry["owners"] for entry in self.ledger()}
+        # Lamb's pick is no longer theirs; Dak's still is (their other slip); member-b keeps Lamb.
+        self.assertEqual(owners, {"CeeDee Lamb": ["member-b"], "Dak Prescott": ["member-a"]})
+        self.assertEqual(slip_ledger.remove("member-a", "slip-0009"), {"removed": 0})
+        with self.assertRaises(ValueError):
+            slip_ledger.remove("member-a", "x")
+
     def test_copies_kept_before_are_shown_once(self):
         key = slip_ledger.PREFIX + "user:member-a"
         slip_ledger.save("member-a", slip("slip-0001"), now=NOW)
