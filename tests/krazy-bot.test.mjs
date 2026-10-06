@@ -333,6 +333,13 @@ test('game news counts in the bot as it does in the Slip Analyzer: a player list
     games: async legs => { asked.push(...legs.map(leg => leg.row.player));
       return Object.fromEntries(legs.map(leg => [leg.key, {state: 'pre', team: leg.row.teamAbbr, opponent: leg.row.opponent,
         injuries: {DET: [{name: 'Tarik Skubal', status: 'Out', position: 'SP'}]}, player: null}])); }});
+  // A slip is built from the picks with their news: Skubal (out) isn't on it.
+  await bot.ask('build me a 3-pick slip');
+  assert.ok(asked.includes('Tarik Skubal'));
+  assert.ok(!bot.card().card.picks.some(pick => pick.player === 'Tarik Skubal'));
+  // Nor on the home screen's picks.
+  const home = await bot.today();
+  assert.ok(![...home.top, home.safest, home.matchup].filter(Boolean).some(item => item.player === 'Tarik Skubal'));
   // Asked for the best K prop, the next one steps up.
   assert.match(await bot.ask('best k prop'), /Logan Webb over 5\.5 K's vs LAD/);
   assert.ok(asked.includes('Tarik Skubal'));

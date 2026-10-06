@@ -760,21 +760,33 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
   };
   const allRows = () => allowed.flatMap(sport => boards[sport]?.rows || []);
   // A pick's game news (slip-games.js, via `games`: the injury report, the
-  // lineups), judged again with it -- as the Slip Analyzer does -- for the
-  // picks the bot talks about. Kept a few minutes per line.
+  // lineups, who starts and what a teammate's absence has meant), judged
+  // again with it -- as the Slip Analyzer does -- for every pick the bot
+  // talks about or puts on a slip. Kept a few minutes per line.
   const news = new Map();
-  async function withNews(leg) {
-    if (!games || !leg?.row) return leg;
-    const key = String(leg.row.id ?? `${leg.player}:${leg.row.market}`);
-    let held = news.get(key);
-    if (!held || now() - held.at > 3 * 60000) {
-      try { held = {at: now(), game: (await games([{key, row: leg.row}]))?.[key] || null}; } catch { held = {at: now(), game: null}; }
-      news.set(key, held);
-    }
-    if (!held.game) return leg;
+  const newsKey = leg => String(leg.row.id ?? `${leg.player}:${leg.row.market}`);
+  const rejudged = (leg, held) => {
+    if (!held?.game) return leg;
     const entry = boards[leg.row.sport || 'mlb'];
     return withMatchup({...leg, chance: leg.trendChance ?? leg.chance, row: withGame(leg.row, held.game)}, leg.matchupRequired, entry?.tables || {});
+  };
+  /** Several picks' news in one go (one request per game), each judged again with it. */
+  async function withNewsAll(legs) {
+    if (!games) return legs;
+    const due = new Map();
+    for (const leg of legs) {
+      if (!leg?.row) continue;
+      const key = newsKey(leg), held = news.get(key);
+      if (!held || now() - held.at > 3 * 60000) due.set(key, leg.row);
+    }
+    if (due.size) {
+      let found = null;
+      try { found = await games([...due].map(([key, row]) => ({key, row}))); } catch { found = null; }
+      for (const key of due.keys()) news.set(key, {at: now(), game: found?.[key] || null});
+    }
+    return legs.map(leg => (leg?.row ? rejudged(leg, news.get(newsKey(leg))) : leg));
   }
+  const withNews = async leg => (await withNewsAll([leg]))[0];
   // One side of one line, read and judged the way the board's picks are.
   const readSide = (row, side) => {
     const entry = boards[row.sport || 'mlb'];
@@ -1649,14 +1661,22 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     // A payout asked for (or Goblins and Demons on it): the picks are chosen
     // together, for the best chance at about that payout.
     if (question.payout || question.modifier) return aimed(question, good, asPick);
-    let pool;
+    let pool, order = null;
     if (question.style === 'value') {
       // Any line, Goblins and Demons included, by how far its chance clears
       // what the line needs (a Demon pays more, so it needs less).
       const seen = new Set(), edge = leg => leg.chance / baselineOf(leg);
+      order = (a, b) => edge(b) - edge(a);
       pool = ['standard', 'goblin', 'demon'].flatMap(modifier => rank(allLegs(), {...question, intent: 'best', modifier})).filter(good)
-        .sort((a, b) => edge(b) - edge(a)).filter(leg => !seen.has(leg.player) && seen.add(leg.player));
-    } else pool = rank(allLegs(), {...question, intent: question.style === 'safe' ? 'safest' : 'best'}).filter(good);
+        .sort(order).filter(leg => !seen.has(leg.player) && seen.add(leg.player));
+    } else {
+      pool = rank(allLegs(), {...question, intent: question.style === 'safe' ? 'safest' : 'best'}).filter(good);
+      if (question.style === 'safe') order = (a, b) => b.chance - a.chance;
+    }
+    // The best of them with their game news (who's out, who starts, a
+    // teammate's absence), judged again as the Slip Analyzer will judge them.
+    pool = (await withNewsAll(pool.slice(0, 18))).filter(good);
+    if (order) pool.sort(order);
     const chosen = [], perGame = new Map();
     let avoided = null;
     for (const leg of pool) {
@@ -1689,7 +1709,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
    * paying about what was asked wins (not much under it, not far over: from
    * 92% to 130% of it; else the closest).
    */
-  function aimed(question, good, asPick) {
+  async function aimed(question, good, asPick) {
     const want = question.payout;
     const kinds = question.only ? [question.modifier] : ['standard', 'goblin', 'demon'];
     // How many picks: as asked, else the count whose regular payout is nearest.
@@ -1700,7 +1720,8 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     const base = basePay(question.play, count);
     const ranked = kinds.flatMap(modifier => rank(allLegs(), {...question, intent: 'best', modifier}).filter(good)
       .sort((a, b) => b.chance - a.chance).slice(0, modifier === 'standard' ? 8 : 6));
-    const pool = ranked.slice(0, 16);
+    // With their game news, judged again (as in slip()).
+    const pool = (await withNewsAll(ranked)).filter(good).slice(0, 16);
     const clash = pool.map(a => pool.map(b => a === b || a.player === b.player || Boolean((link(asPick(a), asPick(b))?.rho ?? 0) <= -0.03)));
     const fit = pays => (want ? Math.abs(Math.log(pays / want)) : 0);
     let best = null;
@@ -1781,10 +1802,17 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     const games = new Set(rows.map(row => `${row.sport}:${[row.teamAbbr, row.opponent].map(team => String(team || '')).sort().join('-')}:${String(row.startsAt || '').slice(0, 10)}`));
     const starts = rows.map(row => Date.parse(row.startsAt || '')).filter(at => finite(at) && at > now()).sort((a, b) => a - b);
     const leagues = allowed.map(sport => ({sport, name: SPORTS[sport].name, props: (boards[sport]?.rows || []).length})).filter(item => item.props);
-    const top = ask('best').slice(0, count);
-    const matchup = ask('matchup').find(leg => leg.matchup?.score != null);
+    // The candidates with their game news, judged again: one ruled out, or
+    // capped by a role change, gives way to the next.
+    const best = ask('best').slice(0, count + 4), safe = ask('safest').slice(0, 4), matched = ask('matchup').slice(0, 4);
+    const candidates = [...new Set([...best, ...safe, ...matched])];
+    const checked = new Map((await withNewsAll(candidates)).map((leg, index) => [candidates[index], leg]));
+    const after = list => list.map(leg => checked.get(leg) || leg).filter(passesMatchup);
+    const top = after(best).slice(0, count);
+    const safest = after(safe).sort((a, b) => b.chance - a.chance)[0];
+    const matchup = after(matched).find(leg => leg.matchup?.score != null);
     return {props: rows.length, games: games.size, leagues, next: starts.length ? timeOf(starts[0]) : null,
-      top: top.map(shown), safest: shown(ask('safest')[0]), matchup: shown(matchup), mlb: leagues.some(item => item.sport === 'mlb')};
+      top: top.map(shown), safest: shown(safest), matchup: shown(matchup), mlb: leagues.some(item => item.sport === 'mlb')};
   }
 
   return {ask, board: boardsLoaded, today, thinking, examples, suggestions: () => suggestions, card: () => answer, profile: () => me, returning: () => Boolean(returning)};
