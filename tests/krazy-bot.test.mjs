@@ -277,6 +277,52 @@ test('slip options: a safe slip takes the likeliest picks, a value slip weighs t
   assert.equal(await bot.ask('build me an nhl slip'), "I don't see any Elite or Strong NHL picks right now, so I'd hold off on a slip. Check back closer to game time.");
 });
 
+// An NFL board: half the players face a soft defense (good for overs), half a
+// tough one (good for unders), and each has a Goblin that pays less.
+function nflBoard() {
+  const rows = [], reads = new Map();
+  const players = [['Josh Allen', 'Pass Yards', 249.5, 'BUF', 'MIA', 'buf-mia'], ['James Cook', 'Rush Yards', 64.5, 'BUF', 'MIA', 'buf-mia'],
+    ['CeeDee Lamb', 'Receiving Yards', 72.5, 'DAL', 'PHI', 'dal-phi'], ['Jalen Hurts', 'Pass Yards', 219.5, 'PHI', 'DAL', 'dal-phi'],
+    ['Bijan Robinson', 'Rush Yards', 79.5, 'ATL', 'TB', 'atl-tb'], ['Puka Nacua', 'Receiving Yards', 81.5, 'LA', 'SF', 'la-sf'], ['Brock Purdy', 'Pass Yards', 241.5, 'SF', 'LA', 'la-sf']];
+  players.forEach(([name, stat, line, team, opponent, game], i) => {
+    const position = /Pass/.test(stat) ? 'QB' : /Rush/.test(stat) ? 'RB' : 'WR', soft = i % 2 === 0;
+    const defense = {position, defense: soft ? 29 : 3, defenseTeams: 32, defenseValue: soft ? line * 1.2 : line * 0.8, defenseAverage: line, defensePosition: position};
+    const standard = {...row(name, 'nfl', stat, line, {team, opponent, game}), ...defense};
+    const goblin = {...row(name, 'nfl', stat, line - 15.5, {team, opponent, game, modifier: 'goblin'}), ...defense};
+    rows.push(standard, goblin);
+    reads.set(`${standard.id}|OVER`, {...graded(standard, 'OVER', {grade: 'A', chance: 0.64 - i * 0.01}), factor: 1});
+    reads.set(`${standard.id}|UNDER`, {...graded(standard, 'UNDER', {grade: 'A', chance: 0.66 - i * 0.01}), factor: 1});
+    reads.set(`${goblin.id}|OVER`, {...graded(goblin, 'OVER', {grade: 'A', chance: 0.78 - i * 0.01}), factor: 0.62 + i * 0.03});
+  });
+  return createBot({sports: ['nfl'], load: async sport => (sport === 'nfl' ? rows : []),
+    judge: list => list.flatMap(item => ['OVER', 'UNDER'].map(side => reads.get(`${item.id}|${side}`))).filter(Boolean),
+    assess: (item, side) => reads.get(`${item.id}|${side}`) || null, now: () => START, random: () => 0});
+}
+
+test('slips as asked: the league, overs or unders, how many picks, and a payout to build to', async () => {
+  assert.deepEqual(['give me a 3 leg parlay with nfl over props', 'give me a 2 man 2x parlay', 'give me 3 overs that pay 6 times', 'all goblins 3 man', '6 man flex']
+    .map(q => { const a = understand(q); return [a.intent, a.count, a.sport, a.side, a.payout, a.modifier, a.only, a.play]; }),
+  [['slip', 3, 'nfl', 'OVER', null, null, false, 'power'], ['slip', 2, null, null, 2, null, false, 'power'], ['slip', 3, null, 'OVER', 6, null, false, 'power'],
+    ['slip', 3, null, null, null, 'goblin', true, 'power'], ['slip', 6, null, null, null, null, false, 'flex']]);
+  const bot = nflBoard();
+  // Overs asked for: overs only, though the unders grade higher.
+  await bot.ask('give me a 3 leg parlay with nfl over props');
+  assert.deepEqual(bot.card().card.picks.map(pick => pick.side), ['OVER', 'OVER', 'OVER']);
+  // A 2-man 2x: a Goblin with a regular line, paying about 2x.
+  const two = await bot.ask('give me a 2 man 2x parlay');
+  const card = bot.card().card;
+  assert.equal(card.picks.length, 2);
+  assert.deepEqual(card.picks.map(pick => pick.modifier).sort(), ['goblin', 'standard']);
+  assert.ok(card.payout >= 1.84 && card.payout <= 2.6, String(card.payout));
+  assert.match(two, /^Here's a 2-pick slip that pays about [\d.]+x from my Elite and Strong picks: .*\(goblin\).*Goblin and Demon payouts vary by line/);
+  // No count asked: as many picks as that payout takes.
+  await bot.ask('give me a 10x nfl parlay');
+  assert.equal(bot.card().card.picks.length, 4);
+  // Every pick a Goblin when that's what's asked.
+  await bot.ask('all goblins 3 man nfl');
+  assert.deepEqual(bot.card().card.picks.map(pick => pick.modifier), ['goblin', 'goblin', 'goblin']);
+});
+
 test('game news counts in the bot as it does in the Slip Analyzer: a player listed Out is a Fade', async () => {
   const {rows, reads} = board();
   const asked = [];

@@ -13,7 +13,7 @@
 // small profile per member (what they ask about) lets it pick up where
 // they left off.
 
-import {candidates, reasons, POWER, assessLeg, gameKey} from './smart-slip.js';
+import {candidates, reasons, POWER, FLEX, assessLeg, gameKey} from './smart-slip.js';
 import {matchupRead, matchupGrade, withPoolDefense} from './slip-analyst.js';
 import {judge as judgeLeg, scoreEntry, TIERS, baselineOf} from './slip-check.js';
 import {link} from './slip-correlation.js';
@@ -317,12 +317,18 @@ export function understand(text, {keepWords} = {}) {
     for (const team of sport.teams) if (team.pattern.test(q)) ask.teamOptions.push({sport: key, codes: team.codes, name: q.match(team.pattern)[1]});
   }
   // "Lineup" is a slip only when building one; otherwise it's a team's hitters.
-  if (/\b(slip|parlay|entry|power play|flex( play)?|combo)\b|\b(build|make|give me|create|put together)\b.*\blineup\b|\b(\d|two|three|four|five|six)[ -]?(picks?|legs?|man)\b/.test(q)) {
+  if (/\b(slip|parlay|entry|power play|flex( play)?|combo)\b|\b(build|make|give me|create|put together)\b.*\blineup\b|\b(\d|two|three|four|five|six)[ -]?(picks?|legs?|man)\b|\bpays?\b.*\b\d{1,3}(\.\d{1,2})?\s*(x|times)\b/.test(q)) {
     const legs = q.match(/\b(\d|two|three|four|five|six)[ -]?(pick|leg|man|player)/);
     // A safe slip (the likeliest picks) or a value one (the most payout for the chance).
     const style = /\b(safe(st|r)?|lock|locks|sure|surest|banker)\b/.test(q) ? 'safe'
       : /\b(value|long ?shots?|big(ger)? (payout|pay|win)|demons?|upside|lottery)\b/.test(q) ? 'value' : 'best';
-    return {...ask, intent: 'slip', style, count: Math.max(2, Math.min(6, Number(legs?.[1]) || NUMBER_WORDS[legs?.[1]] || 3))};
+    // A payout to aim for ("a 2x", "pays 5x", "10 times"), Goblins or Demons
+    // on it ("with a goblin": at least one; "all goblins": every pick), and Flex.
+    const aim = q.match(/\b(\d{1,3}(?:\.\d{1,2})?)\s*x\b/) || q.match(/\bpays?\s+(?:about\s+|around\s+)?(\d{1,3}(?:\.\d{1,2})?)\b/) || q.match(/\b(\d{1,3}(?:\.\d)?)\s+times\b/);
+    const payout = aim && Number(aim[1]) >= 1.2 ? Math.min(1000, Number(aim[1])) : null;
+    const only = Boolean(ask.modifier) && /\b(all|only|just|every)\b[^.?!]*\b(goblins?|demons?)\b|\b(goblins?|demons?)\s+only\b/.test(q);
+    const count = Math.max(2, Math.min(6, Number(legs?.[1]) || NUMBER_WORDS[legs?.[1]] || 3));
+    return {...ask, intent: 'slip', style, count, counted: Boolean(legs), payout, only, play: /\bflex\b/.test(q) && count >= 3 ? 'flex' : 'power'};
   }
   if (['another', 'flip', 'usual', 'mine', 'value'].includes(ask.intent)) return ask;
   const sheet = sheetAsked(q);
@@ -1639,6 +1645,10 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
    */
   async function slip(question) {
     const good = leg => leg.tier === 'elite' || leg.tier === 'strong';
+    const asPick = leg => ({row: leg.row, side: leg.side, player: leg.player});
+    // A payout asked for (or Goblins and Demons on it): the picks are chosen
+    // together, for the best chance at about that payout.
+    if (question.payout || question.modifier) return aimed(question, good, asPick);
     let pool;
     if (question.style === 'value') {
       // Any line, Goblins and Demons included, by how far its chance clears
@@ -1647,7 +1657,6 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
       pool = ['standard', 'goblin', 'demon'].flatMap(modifier => rank(allLegs(), {...question, intent: 'best', modifier})).filter(good)
         .sort((a, b) => edge(b) - edge(a)).filter(leg => !seen.has(leg.player) && seen.add(leg.player));
     } else pool = rank(allLegs(), {...question, intent: question.style === 'safe' ? 'safest' : 'best'}).filter(good);
-    const asPick = leg => ({row: leg.row, side: leg.side, player: leg.player});
     const chosen = [], perGame = new Map();
     let avoided = null;
     for (const leg of pool) {
@@ -1664,21 +1673,92 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     if (chosen.length < question.count) {
       return `I only see ${chosen.length} Elite or Strong ${league}pick${chosen.length === 1 ? '' : 's'} that don't work against each other right now, not enough for a ${question.count}-pick slip. Try a smaller one.`;
     }
-    const score = scoreEntry(chosen.map((leg, index) => ({key: String(index), player: leg.player, side: leg.side, row: leg.row, line: leg.row.line, grade: leg})),
-      {app: {key: 'prizepicks'}, entry: {type: 'power'}});
+    return writeSlip(question, chosen, {avoided});
+  }
+
+  // What a Goblin or Demon pays next to a regular line (smart-slip.js
+  // assessLeg works it out from the books; a usual one when it can't).
+  const payFactor = leg => (finite(leg.factor) && leg.factor > 0 ? leg.factor : leg.modifier === 'goblin' ? 0.7 : leg.modifier === 'demon' ? 1.5 : 1);
+  const basePay = (play, count) => (play === 'flex' ? FLEX[count]?.[count] : POWER[count]) || null;
+
+  /**
+   * A slip built to a payout ("a 2-man 2x": a Goblin with a regular line) or
+   * with Goblins or Demons asked for: every way of putting the best Elite and
+   * Strong lines together (no two from one player, none working against each
+   * other, no more than two from a game) is weighed, and the likeliest one
+   * paying about what was asked wins (not much under it, not far over: from
+   * 92% to 130% of it; else the closest).
+   */
+  function aimed(question, good, asPick) {
+    const want = question.payout;
+    const kinds = question.only ? [question.modifier] : ['standard', 'goblin', 'demon'];
+    // How many picks: as asked, else the count whose regular payout is nearest.
+    let count = question.count;
+    if (want && !question.counted) {
+      count = [2, 3, 4, 5, 6].filter(n => basePay(question.play, n)).sort((a, b) => Math.abs(Math.log(basePay(question.play, a) / want)) - Math.abs(Math.log(basePay(question.play, b) / want)))[0];
+    }
+    const base = basePay(question.play, count);
+    const ranked = kinds.flatMap(modifier => rank(allLegs(), {...question, intent: 'best', modifier}).filter(good)
+      .sort((a, b) => b.chance - a.chance).slice(0, modifier === 'standard' ? 8 : 6));
+    const pool = ranked.slice(0, 16);
+    const clash = pool.map(a => pool.map(b => a === b || a.player === b.player || Boolean((link(asPick(a), asPick(b))?.rho ?? 0) <= -0.03)));
+    const fit = pays => (want ? Math.abs(Math.log(pays / want)) : 0);
+    let best = null;
+    const pick = (start, chosen) => {
+      if (chosen.length === count) {
+        const legs = chosen.map(index => pool[index]);
+        if (question.modifier && !legs.some(leg => leg.modifier === question.modifier)) return;
+        const games = new Map();
+        for (const leg of legs) { games.set(leg.game, (games.get(leg.game) || 0) + 1); if (games.get(leg.game) > 2) return; }
+        const pays = base * legs.reduce((product, leg) => product * payFactor(leg), 1);
+        const chance = legs.reduce((product, leg) => product * leg.chance, 1);
+        // Close enough to the payout: the likeliest. Otherwise: the closest. No payout asked: the most back per $1.
+        const near = Boolean(want) && pays >= want * 0.92 && pays <= want * 1.3;
+        const better = !best ? true : want ? (near !== best.near ? near : near ? chance > best.chance : fit(pays) < fit(best.pays) - 1e-9 || (Math.abs(fit(pays) - fit(best.pays)) < 1e-9 && chance > best.chance))
+          : chance * pays > best.chance * best.pays;
+        if (better) best = {legs, pays, chance, near};
+        return;
+      }
+      for (let index = start; index < pool.length; index++) {
+        if (chosen.some(other => clash[other][index])) continue;
+        pick(index + 1, [...chosen, index]);
+      }
+    };
+    pick(0, []);
+    const chosen = best?.legs || [];
+    remember(question, chosen);
+    const league = question.sport ? `${SPORTS[question.sport].name} ` : '';
+    const what = question.only ? `${question.modifier} ` : '';
+    if (chosen.length < count) {
+      return `I don't see ${count} Elite or Strong ${league}${what}picks that work together right now${question.modifier && !question.only ? ` with a ${question.modifier} on it` : ''}. Try a smaller slip or check back closer to game time.`;
+    }
+    return writeSlip({...question, count}, chosen, {aimed: want ? {want, near: best.near, pays: best.pays} : null});
+  }
+
+  // A built slip, graded the Slip Analyzer's way (slip-check.js scoreEntry)
+  // and written up: its picks, its grade, what it pays and why.
+  function writeSlip(question, chosen, {avoided = null, aimed: target = null} = {}) {
+    const league = question.sport ? `${SPORTS[question.sport].name} ` : '';
+    const flex = question.play === 'flex';
+    const score = scoreEntry(chosen.map((leg, index) => ({key: String(index), player: leg.player, side: leg.side, row: leg.row, line: leg.row.line,
+      grade: {...leg, factor: payFactor(leg)}})), {app: {key: 'prizepicks'}, entry: {type: flex ? 'flex' : 'power'}});
     // A slip across leagues leaves the next question open to all of them.
     const sports = new Set(chosen.map(leg => leg.row.sport));
     ctx = {...ctx, ask: question, ranked: chosen, index: 0, sport: question.sport || (sports.size === 1 ? chosen[0].row.sport : null), player: chosen[0].player, leg: chosen[0]};
-    // What it pays: a Power Play, scaled for any Goblin or Demon on it.
-    const payout = score?.multiplier ? Number(score.multiplier.toFixed(2)) : POWER[chosen.length];
+    // What it pays: a Power (or Flex) Play, scaled for any Goblin or Demon on it.
+    const payout = score?.multiplier ? Number(score.multiplier.toFixed(2)) : basePay(question.play, chosen.length);
+    const scaled = chosen.some(leg => leg.modifier && leg.modifier !== 'standard');
+    const play = flex ? 'Flex Play' : 'Power Play';
     const together = score?.links?.filter(pair => pair.tone === 'together') || [];
     const notes = [
       together[0] && `${sentence(together[0].text)} That helps the slip.`,
       avoided && `I left out ${pickLine(avoided.leg)}: ${avoided.text}.`,
+      target && !target.near && `That's as close to ${target.want}x as my Elite and Strong picks get today.`,
+      scaled && 'Goblin and Demon payouts vary by line, so check the exact number on the app.',
     ].filter(Boolean).join(' ');
     const mix = Object.entries(score?.tiers || {}).filter(([, count]) => count).map(([key, count]) => `${count} ${TIERS[key].label}`).join(', ');
-    const kind = `${{safe: 'safe ', value: 'value '}[question.style] || ''}${chosen.length}-pick ${league}slip`;
-    const how = {safe: ', the likeliest of them', value: ', the most payout for their chance'}[question.style] || '';
+    const kind = `${{safe: 'safe ', value: 'value '}[question.style] || ''}${chosen.length}-pick ${league}${flex ? 'Flex ' : ''}slip${target ? ` that pays about ${payout}x` : ''}`;
+    const how = target ? '' : {safe: ', the likeliest of them', value: ', the most payout for their chance'}[question.style] || '';
     answer = {lead: tidy(`Here's a ${kind} from my Elite and Strong picks${how} (${mix}). Parlay grade ${score?.letter || '–'}. ${notes}`),
       card: {kind: 'slip', picks: chosen.map(pickCard), together: score?.chance ?? chosen.reduce((product, leg) => product * leg.chance, 1),
         payout: payout || null, letter: score?.letter || null, value: score?.value ?? null,
@@ -1686,7 +1766,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     suggestions = [...new Set([`Why ${lastName(chosen[0].player)}?`, question.count < 6 ? `Make it ${question.count + 1} picks` : `Make it ${question.count - 1} picks`,
       question.style === 'safe' ? 'Build me a value slip' : 'Build me a safe slip'])];
     return tidy(`Here's a ${kind} from my Elite and Strong picks${how}: ${chosen.map(leg => `${pickLine(leg)} (${gradeWord(leg)})`).join('; ')}. `
-      + `Parlay grade ${score?.letter || '–'}: all ${chosen.length} hit about ${percent(score?.chance ?? 0)} of the time${payout ? `, a ${payout}x Power Play` : ''}. ${notes}`);
+      + `Parlay grade ${score?.letter || '–'}: all ${chosen.length} hit about ${percent(score?.chance ?? 0)} of the time${payout ? `, ${scaled ? 'about ' : ''}a ${payout}x ${play}` : ''}. ${notes}`);
   }
 
   /**
