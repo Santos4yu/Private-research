@@ -23,6 +23,10 @@ const CARD_WIDTH=440;
 const roomy=room=>room>860;
 const cardWidth=room=>roomy(room)?Math.min(760,room-96):CARD_WIDTH;
 const textWidth=room=>roomy(room)?520:null;
+// Typing on a phone the input moves up under the account buttons (its centre
+// this far from the top), where no keyboard can cover it, whatever the phone
+// does with the page when the keyboard opens.
+const TYPING_TOP=92;
 const memory={
  read(){try{return JSON.parse(localStorage.getItem(MEMORY_KEY)||'null');}catch{return null;}},
  write(value){try{localStorage.setItem(MEMORY_KEY,JSON.stringify(value));}catch{/* private mode */}},
@@ -132,11 +136,12 @@ export function KrazyBot(){
   window.addEventListener('resize',place);
   return()=>window.removeEventListener('resize',place);
  },[]);
- // Typing on a phone: the bot is fitted to what's left above the keyboard,
- // with the input resting just over the keys and the site's bottom menu out
- // of the way. Some phones shrink only the visible part of the page for the
- // keyboard and some the whole window, so it's measured against the
- // tallest the screen has been at this width rather than the window.
+ // Typing on a phone: the input moves to the top of the screen with the
+ // suggestions under it, and the board and the site's bottom menu step out of
+ // the way, so nothing depends on where the keyboard ends. On a tablet the bot
+ // is fitted to what's left above the keyboard instead, with the input resting
+ // just over the keys (measured against the tallest the screen has been at
+ // this width, since some shrink the whole window for the keyboard).
  useEffect(()=>{
   const viewport=window.visualViewport,node=host.current;
   if(!node)return undefined;
@@ -150,14 +155,20 @@ export function KrazyBot(){
    if(!typing||height>full)full=Math.max(full,height);
    // Touch screens only: zooming in on a computer shrinks the viewport too.
    const touch=window.matchMedia('(pointer: coarse)').matches;
-   const open=touch&&typing&&height<full-120;
+   const phone=touch&&window.matchMedia('(max-width: 760px)').matches;
+   const up=phone&&typing;
+   const open=!phone&&touch&&typing&&height<full-120;
    if(open){
     node.style.setProperty('--kb-vv-top',`${Math.round(viewport?viewport.offsetTop:0)}px`);
     node.style.setProperty('--kb-vv-h',`${Math.round(height)}px`);
    }
-   if(open!==node.hasAttribute('data-keyboard'))node.toggleAttribute('data-keyboard',open);
-   page.toggleAttribute('data-bot-typing',open);
+   const moved=open!==node.hasAttribute('data-keyboard')||up!==node.hasAttribute('data-typing');
+   node.toggleAttribute('data-keyboard',open);
+   node.toggleAttribute('data-typing',up);
+   page.toggleAttribute('data-bot-typing',open||up);
    measureRef.current();
+   // The orb places its input when the window resizes: tell it to look again.
+   if(moved)window.dispatchEvent(new Event('resize'));
   };
   const later=()=>setTimeout(fit,60);
   // The keyboard slides in after the field takes focus: look again once it has.
@@ -181,10 +192,15 @@ export function KrazyBot(){
    page.removeAttribute('data-bot-typing');
   };
  },[]);
- // While typing on a phone the orb's input pill rests just above the keys
- // (38px up from the bottom of the bot's box, as --mo-pill-bottom in
- // krazy-bot.css); otherwise the orb keeps its own spot.
- const pillBottom=()=>host.current?.hasAttribute('data-keyboard')?38:null;
+ // Where the orb's input pill rests, as its distance up from the bottom of
+ // the bot's box: typing on a phone, near the top (TYPING_TOP); typing on a
+ // tablet, just above the keys (38px, as --mo-pill-bottom in krazy-bot.css);
+ // otherwise the orb keeps its own spot.
+ const pillBottom=()=>{
+  const node=host.current;
+  if(node?.hasAttribute('data-typing'))return (node.querySelector('.mo-root')?.clientHeight||node.clientHeight)-TYPING_TOP;
+  return node?.hasAttribute('data-keyboard')?38:null;
+ };
  // Load the boards when the page is first opened (not on every page load).
  useEffect(()=>{
   const node=host.current;

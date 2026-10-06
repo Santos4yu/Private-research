@@ -19,6 +19,15 @@ html:has(#panel-bot:not([hidden])),body:has(#panel-bot:not([hidden])){overflow:h
    the input resting just above it. */
 .krazy-bot[data-keyboard]{top:var(--kb-vv-top,0px);bottom:auto;height:var(--kb-vv-h,100%);--mo-pill-bottom:38px}
 .krazy-bot[data-keyboard] .krazy-bot-home{display:none}
+/* Typing on a phone (data-typing): the input sits near the top (its centre
+   at TYPING_TOP in KrazyBot.jsx) with the suggestions under it; the board,
+   an answer card and its "More" step aside until the question goes. */
+.krazy-bot[data-typing]{--kb-type-top:92px}
+.krazy-bot[data-typing] .krazy-bot-home,.krazy-bot[data-typing] .krazy-bot-more{display:none}
+.krazy-bot[data-typing] .mo-answer,.krazy-bot[data-typing] .mo-root[data-phase="answered"] .mo-actor{visibility:hidden}
+.krazy-bot[data-typing] .krazy-bot-examples{top:calc(var(--kb-type-top) + 42px);bottom:auto}
+.krazy-bot[data-typing] .krazy-bot-ask{top:calc(var(--kb-type-top) - 26px);bottom:auto}
+.krazy-bot[data-typing] .krazy-bot-follow{top:calc(var(--kb-type-top) + 38px);bottom:auto}
 /* The site's bottom menu would ride up over the keyboard: out of the way
    while typing (KrazyBot.jsx sets data-bot-typing). */
 html[data-bot-typing] body .mobile-app-nav{opacity:0!important;visibility:hidden!important;pointer-events:none!important;transition:none!important}
