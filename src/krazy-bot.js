@@ -485,7 +485,7 @@ function redFlagWords(leg) {
 }
 // A pick we'd recommend: Elite or Strong (a good matchup and the numbers
 // behind it), or a Lean in a league with no opponent reads today.
-const passesMatchup = leg => (leg.tier ? leg.tier === 'elite' || leg.tier === 'strong' || (!leg.matchupRequired && leg.tier === 'lean')
+export const passesMatchup = leg => (leg.tier ? leg.tier === 'elite' || leg.tier === 'strong' || (!leg.matchupRequired && leg.tier === 'lean')
   : !leg.matchupRequired);
 
 /** Today's picks for a question, best first, one per player. */
