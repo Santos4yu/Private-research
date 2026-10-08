@@ -1,0 +1,112 @@
+/* KrazyData Finder. All changes stay inside this Finder; research pages
+   retain their existing layouts and the data pipeline remains shared. */
+.finder-krazy:not(.finder-detail-active){--f-bg:#0a101b;--f-row:#0d1522;--f-control:#121e2e;--f-border:#223044;--f-text:#edf3fc;--f-muted:#9baac0;--f-good:#80baff;--f-mid:#e6c17e;--f-low:#ec9baa;border-radius:16px;background:var(--f-bg)}
+.kd-finder-masthead{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:25px 28px;background:linear-gradient(115deg,#152e53 0%,#101e33 45%,#0c1420 100%);border-bottom:1px solid #2b405d;position:relative}
+.kd-finder-masthead:after{content:'';position:absolute;left:28px;bottom:-1px;width:64px;height:3px;background:#579bff}
+.kd-finder-identity{display:flex;align-items:center;gap:17px}
+.kd-finder-identity>img{object-fit:contain;width:46px;height:46px}
+.kd-finder-wordmark{display:block;font-size:10px;letter-spacing:.22em;font-weight:850;color:#eaf1ff}
+.kd-finder-wordmark>span{color:#7db5ff}
+.kd-finder-masthead h1{margin:5px 0 0;font-family:Sora,Inter,Arial,sans-serif;font-size:29px;font-weight:650;letter-spacing:-1.1px;line-height:1.2;color:#f3f7ff}
+.kd-finder-masthead h1>span{color:#70aaff}
+.kd-finder-summary{display:flex;align-items:center;gap:27px}
+.kd-finder-summary>span{display:flex;flex-direction:column;gap:3px;font-size:10px;letter-spacing:.04em;color:#9cacc3}
+.kd-finder-summary>span>b{font-size:24px;line-height:1.15;font-weight:600;color:#edf3ff;font-variant-numeric:tabular-nums;letter-spacing:-.6px}
+.finder-krazy .kd-finder-summary>button{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 15px;border:1px solid #496485;border-radius:8px;background:#213957;color:#f1f6ff;font-size:12px;font-weight:650}
+.kd-finder-summary>button>b{padding:3px 6px;border-radius:4px;background:#102039;color:#a4caff}
+.finder-krazy:not(.finder-detail-active) .finder-topbar{background:#0c1523;box-shadow:none;border-bottom:1px solid #223044;min-height:60px;padding:0 24px;gap:16px}
+.finder-krazy:not(.finder-detail-active) .finder-title{display:none}
+.finder-krazy .finder-title h2{font-size:17px;margin:0}
+.finder-krazy:not(.finder-detail-active) .finder-sports{gap:9px;min-height:59px}
+.finder-krazy:not(.finder-detail-active) .finder-sports>button{border-radius:0;border:0;border-bottom:2px solid transparent;min-height:59px;padding:0 12px;color:#96a8c0;font-size:11px;letter-spacing:.03em;background:none}
+.finder-krazy:not(.finder-detail-active) .finder-sports>button[aria-pressed=true]{color:#eaf2ff;border-bottom-color:#6ba8ff;background:linear-gradient(0deg,#27477555,transparent)}
+.finder-krazy:not(.finder-detail-active) .finder-brand{color:#8295af;font-size:9px;letter-spacing:.15em}
+.finder-krazy:not(.finder-detail-active) .finder-top-save{display:none}
+.kd-finder-workspace{display:grid;grid-template-columns:204px minmax(0,1fr)}
+.finder-krazy .kd-finder-workspace>.finder-controls{display:flex;flex-direction:column;gap:18px;padding:23px 16px;background:#0d1725;border-right:1px solid #223044;margin:0;min-width:0}
+.kd-filter-heading{display:flex;align-items:center;gap:8px;color:#adbed4;font-size:11px;font-weight:650}
+.finder-krazy .finder-search-row{display:flex;flex-wrap:wrap;gap:9px}
+.finder-krazy label.finder-search{width:100%;height:44px;padding:0 10px;border-radius:7px;background:#09121f;border-color:#30435e}
+.finder-krazy .finder-search input{font-size:11px;min-width:0;color:#edf3ff}
+.finder-krazy .finder-search input::placeholder{color:#94a5bd}
+.finder-krazy .finder-app-filter{min-width:0;flex:1}
+.finder-krazy .finder-search-row>.finder-icon{width:36px;height:44px;background:#142238;border-color:#2a3c56!important}
+.finder-krazy .finder-filters{display:flex;flex-direction:column;gap:10px;overflow:visible}
+.finder-krazy .finder-filter{width:100%;min-height:44px;flex:none;border:1px solid #2a3b52;background:#142135;border-radius:7px;padding-inline:10px;color:#c8d5e6}
+.finder-krazy .finder-filter:hover{background:#1b2b42}
+.finder-krazy .finder-filter .finder-select-trigger{font-size:11px}
+.finder-krazy .finder-saved{display:flex;min-height:44px;align-items:center;justify-content:flex-start;gap:9px;padding:0 11px;background:#10243e;color:#a7caff;border:1px solid #2d4e74;border-radius:7px}
+.finder-krazy .finder-saved.is-active{background:#254b78;color:#fff}
+.finder-krazy .finder-reset{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:40px;background:transparent;color:#9daec4;border:0!important;font-size:11px}
+.kd-reset-label{display:inline}
+.finder-krazy .finder-filters>.finder-reset{width:100%;flex:none;height:40px}
+.finder-krazy .kd-sport-picker .finder-mobile-sport{display:flex;position:static;align-items:center;gap:7px;padding:0 10px;width:100%;max-width:none;min-height:44px;background:#142135;border:1px solid #2a3b52;border-radius:7px;color:#c8d5e6}
+.kd-filter-note{margin-top:auto;padding-top:45px;color:#627a98}
+.kd-filter-note>span{font-size:9px;letter-spacing:.19em;font-weight:700}
+.kd-filter-note>p{font-size:13px;line-height:1.6;color:#95a7c1;margin:9px 0 0}
+.kd-finder-results{min-width:0;padding:22px 22px 0}
+.kd-results-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.kd-eyebrow{color:#8097b5;font-size:9px;font-weight:700;letter-spacing:.18em}
+.kd-results-heading h2{margin:4px 0 0;font-family:Sora,Inter,Arial,sans-serif;font-weight:600;font-size:23px;letter-spacing:-.6px;color:#edf3ff;display:flex;align-items:center;gap:10px}
+.kd-results-heading h2>span{font-family:Inter,Arial,sans-serif;font-size:11px;font-weight:600;letter-spacing:0;background:#1a2c44;border:1px solid #2a425f;border-radius:5px;color:#96bce9;padding:4px 7px}
+.kd-results-hint{color:#91a3bb;font-size:11px}
+.finder-krazy .finder-meta{padding:0 0 13px;gap:10px;color:#95a7be}
+.finder-krazy .finder-board{margin:0;border:0;border-radius:0;background:transparent}
+.finder-krazy .finder-scroll{max-height:calc(100dvh - 325px);min-height:350px;scrollbar-color:#344c6d #0a101b}
+.finder-krazy .finder-table{min-width:1010px}
+.finder-krazy .finder-table th{background:#101c2c;height:40px;border-bottom:1px solid #2b405a;color:#91a9c8;font-size:10px}
+.finder-krazy .finder-table th:first-child{width:27%;border-radius:7px 0 0 0}
+.finder-krazy .finder-table th:nth-child(2){width:12%}
+.finder-krazy .finder-table th>button.is-sorted{background:#284265;color:#c4dfff;border-radius:5px}
+.finder-krazy .finder-table td{height:76px;background:#0d1522;border-bottom:1px solid #223044;font-size:11px}
+.finder-krazy .finder-table tbody tr:nth-child(even)>td{background:#0b1320}
+.finder-krazy .finder-table tbody tr:hover>td{background:#15263b}
+.finder-krazy .finder-table .finder-player-cell{padding-left:12px;border-left:2px solid transparent}
+.finder-krazy .finder-table tr:hover .finder-player-cell{border-left-color:#6baaff}
+.finder-krazy .finder-portrait{border-radius:10px;background:#1a2a40;border:1px solid #354a67;width:40px;height:44px}
+.finder-krazy .finder-star{background:#14243a;border-color:#415c80!important}
+.finder-krazy .finder-name{font-size:12px;font-weight:700;line-height:1.6}
+.finder-krazy .finder-name em{font-size:10px;color:#9cb0c9}
+.finder-krazy .finder-market{color:#b7c7dc;font-size:11px;gap:5px}
+.finder-krazy .finder-market>b{font-size:14px;color:#f3f7ff;font-weight:750}
+.finder-krazy .finder-game{font-size:9px;color:#91a6c2;margin-top:4px}
+.finder-krazy .finder-books{gap:5px}
+.finder-krazy .finder-books{flex-wrap:wrap;row-gap:6px}
+.finder-krazy .finder-app-icons{display:none!important}
+.finder-krazy .finder-app-filter .finder-multi-trigger{padding-right:10px!important}
+.finder-krazy .finder-multi-select{min-width:0;width:100%}
+.finder-krazy .finder-multi-trigger{background:#142135;border-color:#2a3b52;color:#c8d5e6;border-radius:7px;min-height:44px;font-size:11px}
+.finder-krazy .finder-reset{white-space:nowrap;min-width:0;padding:0 8px!important}
+.finder-krazy .kd-reset-label{width:auto;flex:none;font-size:11px}
+.finder-krazy .finder-book>img{width:20px;height:20px}
+.finder-krazy .finder-probability{background:#132135;border-color:#2b3b52;border-radius:5px}
+.finder-krazy .finder-probability.is-empty{background:none;border-color:transparent}
+.finder-krazy .finder-table .finder-heat{position:relative;height:56px;background:none;border:0;gap:5px;padding-bottom:8px}
+.finder-krazy .finder-heat strong{font-size:13px;font-weight:650;letter-spacing:-.25px}
+.finder-krazy .finder-heat small{color:#91a5bf;font-size:9px}
+.finder-krazy .finder-heat[style]:after{content:'';position:absolute;bottom:2px;width:70%;height:3px;border-radius:2px;background:linear-gradient(to right,currentColor var(--hit-rate),#23334a var(--hit-rate))}
+.finder-krazy .finder-pagination{padding:15px 0;border-top:0;background:transparent;min-height:65px}
+.finder-krazy .finder-pagination button{min-height:36px;min-width:36px;background:#152238;border-color:#2d405c}
+.finder-krazy .finder-pagination>div>span,.finder-krazy .finder-pagination label{height:36px;background:#152238;border-color:#2d405c}
+.finder-krazy .finder-pagination label{margin-left:8px}
+.finder-krazy .finder-detail-active .kd-finder-workspace{display:none}
+@media(max-width:1200px) and (min-width:761px){.kd-finder-workspace{grid-template-columns:180px minmax(0,1fr)}.finder-krazy .kd-finder-workspace>.finder-controls{padding-inline:12px}.kd-finder-results{padding-inline:15px}.kd-results-hint{display:none}.finder-krazy:not(.finder-detail-active) .finder-sports>button{padding-inline:9px}.finder-krazy .finder-table{min-width:960px}}
+@media(max-width:760px){
+ .finder-krazy:not(.finder-detail-active){border-radius:12px;border:1px solid #263a55}
+ .kd-finder-masthead{padding:19px 15px;gap:12px}.kd-finder-identity{gap:10px}.kd-finder-identity>img{width:32px;height:32px}.kd-finder-wordmark{font-size:8px}.kd-finder-masthead h1{font-size:21px;letter-spacing:-.7px}.kd-finder-masthead:after{left:15px;width:40px}
+ .kd-finder-summary{gap:0}.kd-finder-summary>span{display:none}.finder-krazy .kd-finder-summary>button{padding:0 10px;gap:6px}.kd-finder-summary>button>span{display:none}
+ .finder-krazy:not(.finder-detail-active) .finder-topbar{padding:0 10px;min-height:48px;gap:5px;flex-wrap:nowrap}.finder-krazy:not(.finder-detail-active) .finder-sports{display:flex;min-height:48px;flex:1}.finder-krazy:not(.finder-detail-active) .finder-sports>button{min-height:48px;font-size:10px;padding:0 9px;gap:5px}.finder-krazy .finder-brand{display:none}
+ .kd-finder-workspace{display:block}.finder-krazy .kd-finder-workspace>.finder-controls{padding:12px;gap:9px;border-right:0;border-bottom:1px solid #223044}.kd-filter-heading,.kd-filter-note{display:none}
+ .finder-krazy .finder-search-row{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:8px}.finder-krazy label.finder-search{display:flex!important;grid-column:1;grid-row:1;position:static;width:100%;height:44px}.finder-krazy .finder-search input{font-size:16px}.finder-krazy .finder-search-row>.finder-icon{width:44px;grid-column:2;grid-row:1}.finder-krazy .finder-search-row>.finder-mobile-search-toggle{display:none}.finder-krazy .finder-app-filter{grid-column:1/-1;grid-row:2;background:none}
+ .finder-krazy .finder-filters{flex-direction:row;overflow-x:auto;flex-wrap:nowrap;gap:7px;padding-bottom:3px}.finder-krazy .finder-filters .finder-filter{flex:0 0 128px;width:128px;min-height:44px;height:44px}.finder-krazy .finder-saved{display:flex;flex:0 0 auto;padding:0 12px}.finder-krazy .finder-reset{flex:0 0 44px;width:44px;height:44px}.kd-reset-label{display:none}
+ .kd-finder-results{padding:15px 10px 0}.kd-results-heading{margin-bottom:12px}.kd-results-heading h2{font-size:20px}.kd-results-hint{display:none}.finder-krazy .finder-mobile-sort{padding:0 0 10px}.finder-krazy .finder-sort-chip{background:#111f32;border-color:#2a3e59}.finder-krazy .finder-meta{padding:4px 0 12px;line-height:1.5}
+ .finder-krazy .finder-scroll{max-height:none;min-height:0;overflow:visible}.finder-krazy .finder-table{min-width:0}.finder-krazy .finder-table tbody{gap:12px}.finder-krazy .finder-table tbody tr{border:1px solid #2a3f5a;background:#0d1828;border-radius:10px;overflow:hidden}.finder-krazy .finder-table tbody tr>td,.finder-krazy .finder-table tbody tr:nth-child(even)>td,.finder-krazy .finder-table tbody tr:hover>td{height:auto;background:transparent;border-bottom:0}
+ .finder-krazy .finder-table .finder-player-cell{border-left:0;padding-left:12px;padding-top:8px}.finder-krazy .finder-table .finder-portrait{width:40px;height:44px;border-radius:9px}.finder-krazy .finder-table .finder-name{font-size:14px}.finder-krazy .finder-market{font-size:12px}.finder-krazy .finder-market>b{font-size:17px}.finder-krazy .finder-game{font-size:10px;line-height:1.5}
+ .finder-krazy .finder-table .finder-heat{height:54px;background:none!important;border:0!important;padding-bottom:8px}.finder-krazy .finder-heat strong{font-size:14px}.finder-krazy .finder-heat small{font-size:10px}.finder-krazy .finder-pagination{flex-wrap:wrap;justify-content:center;gap:9px;padding:14px 0}.finder-krazy .finder-pagination button{min-width:44px;min-height:44px}
+ .finder-krazy .finder-table .finder-stat:before{background:#13233a;color:#a5bbd7}
+ .finder-krazy:not(.finder-detail-active) .finder-topbar{background:#0c1523!important}
+ .finder-krazy .finder-filters .finder-multi-select{flex:0 0 128px;width:128px}
+ .finder-krazy .finder-filters .finder-hit-filter{flex:0 0 128px}
+ .finder-krazy .finder-filters .kd-sport-picker{flex:0 0 128px}
+ .finder-krazy .finder-filters>.finder-reset{flex:0 0 44px;width:44px;height:44px}
+}
