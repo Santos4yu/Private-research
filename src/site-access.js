@@ -1,6 +1,6 @@
 import './site-access.css';
 import {serviceRequestError} from './storage-retry.js';
-import {accessGranted,accountControlsVisible,canUseTab,availableTab,canUseSport,canUseFinderSport,hiddenTabs,ADMIN_TABS,FINDER_SPORTS} from './site-access-core.js';
+import {accessGranted,accountControlsVisible,canUseTab,availableTab,canUseSport,canUseFinderSport,canUseSheet,hiddenTabs,ADMIN_TABS,FINDER_SPORTS,CHEAT_SHEETS} from './site-access-core.js';
 import {mountMembersPanel,memberBadge} from './site-members.js';
 import {mountAnnouncePanel} from './site-announce.js';
 import {accountProfile,saveAccountProfile} from './account-sync.js';
@@ -13,6 +13,7 @@ export function siteTabAllowed(tab){return canUseTab(status,tab);}
 export function siteIsAdmin(){return Boolean(status?.isAdmin);}
 export function siteSportAllowed(sport){return canUseSport(status,sport);}
 export function siteFinderSportAllowed(sport){return canUseFinderSport(status,sport);}
+export function siteSheetAllowed(key){return canUseSheet(status,key);}
 export function availableSiteTab(current){return availableTab(status,current);}
 export function showLockedTab(tab){
  if(!accessGranted(status)){renderStatus();return;}
@@ -459,6 +460,7 @@ export async function loadSiteControls(){
    +'<div class="site-tab-panel" data-panel="access" hidden>'
     +'<fieldset><legend>Available tabs</legend></fieldset>'
     +'<fieldset class="site-sport-controls"><legend>Visible sports</legend></fieldset><fieldset class="site-finder-sport-controls"><legend>Finder sports</legend><p class="site-controls-hint">Leagues offered inside the Finder. Separate from the Research sports above. Admins always see every league.</p></fieldset>'
+    +'<fieldset class="site-sheet-controls"><legend>Cheat sheets</legend><p class="site-controls-hint">Each sheet inside Cheat Sheets. New sheets start off. Admins always see every sheet.</p></fieldset>'
    +'</div>'
    +'<div class="site-tab-panel" data-panel="appearance" hidden>'
     +'<div class="bg-image-control">'
@@ -506,6 +508,13 @@ export async function loadSiteControls(){
  // Finder leagues, one switch each. Unchecked = hidden from regular users.
  const finderSportNames={wnba:'WNBA',mlb:'MLB',nfl:'NFL',soccer:'Soccer',nhl:'NHL',nba:'NBA',tennis:'Tennis',cs2:'CS2'};
  for(const sport of FINDER_SPORTS){const label=element('label');const input=document.createElement('input');input.type='checkbox';input.name='finderSport';input.value=sport;input.checked=!(policy.disabledFinderSports||[]).includes(sport);label.append(input,document.createTextNode(`${finderSportNames[sport]} in the Finder`));host.querySelector('.site-finder-sport-controls').append(label);}
+ // Cheat sheets, one switch each, grouped by league. Unchecked = hidden from regular users.
+ for(const league of ['mlb','nfl']){
+  const group=element('div');group.className='site-sheet-group';
+  const title=element('strong');title.textContent=league.toUpperCase();group.append(title);
+  for(const [key,name] of CHEAT_SHEETS.filter(([key])=>key.startsWith(league+':'))){const label=element('label');const input=document.createElement('input');input.type='checkbox';input.name='sheet';input.value=key;input.checked=!(policy.disabledSheets||[]).includes(key);label.append(input,document.createTextNode(name));group.append(label);}
+  host.querySelector('.site-sheet-controls').append(group);
+ }
  const bg=policy.backgroundImage||{url:'',opacity:35};
  form.elements.bgUrl.value=bg.url||'';form.elements.bgOpacity.value=String(bg.opacity??35);
  const bgOpacityOutput=host.querySelector('.bg-image-control output');bgOpacityOutput.textContent=`${form.elements.bgOpacity.value}%`;
@@ -585,7 +594,7 @@ export async function loadSiteControls(){
  form.onsubmit=async e=>{e.preventDefault();const message=statusEl();const button=host.querySelector('[type=submit]');button.disabled=true;const bgUrl=form.elements.bgUrl.value.trim();
   const themePrimary=form.elements.themePrimary.value,themeSecondary=form.elements.themeSecondary.value,themeTint=Number(form.elements.themeTint.value);
   const themeIsDefault=themePrimary.toLowerCase()===DEFAULT_THEME.primary&&themeSecondary.toLowerCase()===DEFAULT_THEME.secondary&&themeTint===DEFAULT_THEME.tint;
-  try{await request('/api/v2-admin',{action:'site-settings',settings:{maintenance:form.elements.maintenance.checked,requireLogin:form.elements.requireLogin.checked,registrationOpen:form.elements.registrationOpen.checked,message:form.elements.message.value,disabledSports:[...form.querySelectorAll('[name=sport]')].filter(c=>!c.checked).map(c=>c.value),disabledFinderSports:[...form.querySelectorAll('[name=finderSport]')].filter(c=>!c.checked).map(c=>c.value),disabledTabs:[...form.querySelectorAll('[name=tab]')].filter(c=>!c.checked).map(c=>c.value),backgroundImage:{url:bgUrl,opacity:Number(form.elements.bgOpacity.value)},theme:themeIsDefault?{primary:'',secondary:'',tint:0}:{primary:themePrimary,secondary:themeSecondary,tint:themeTint}}});
+  try{await request('/api/v2-admin',{action:'site-settings',settings:{maintenance:form.elements.maintenance.checked,requireLogin:form.elements.requireLogin.checked,registrationOpen:form.elements.registrationOpen.checked,message:form.elements.message.value,disabledSports:[...form.querySelectorAll('[name=sport]')].filter(c=>!c.checked).map(c=>c.value),disabledFinderSports:[...form.querySelectorAll('[name=finderSport]')].filter(c=>!c.checked).map(c=>c.value),disabledSheets:[...form.querySelectorAll('[name=sheet]')].filter(c=>!c.checked).map(c=>c.value),disabledTabs:[...form.querySelectorAll('[name=tab]')].filter(c=>!c.checked).map(c=>c.value),backgroundImage:{url:bgUrl,opacity:Number(form.elements.bgOpacity.value)},theme:themeIsDefault?{primary:'',secondary:'',tint:0}:{primary:themePrimary,secondary:themeSecondary,tint:themeTint}}});
   if(bgUrl){
    message.textContent='Saved. Checking that the image loads…';
    const loads=await probeImageLoads(bgUrl);

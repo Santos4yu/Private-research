@@ -157,6 +157,13 @@ class BoardTests(unittest.TestCase):
                  {"opponent": "NYG", "isHome": False, "date": "2026-08-15", "seasonKind": "preseason", "values": {"receptions": 1}}]
         self.assertEqual(prizepicks_board.history_fields(dated, "receptions", 4.5, "BAL")["gameLog"],
                          [{"value": 6, "date": "2025-09-07", "home": True, "opponent": "BAL"}])
+        # Preseason games never count in the hit rates, the streak or head-to-head:
+        # starters play a series or two, which would make every Under look safe.
+        mixed = [{"opponent": "BAL", "seasonKind": "regular", "values": {"receptions": value}} for value in (6, 5, 7)] + [
+            {"opponent": "BAL", "seasonKind": "preseason", "values": {"receptions": value}} for value in (0, 1)]
+        fields = prizepicks_board.history_fields(mixed, "receptions", 4.5, "BAL")
+        self.assertEqual((fields["windows"]["l5"]["hits"], fields["windows"]["l5"]["decisions"]), (3, 3))
+        self.assertEqual((fields["streak"], fields["windows"]["h2h"]["sample"], fields["sample"]), (3, 3, 3))
 
     def test_board_keeps_every_line_and_skips_combos_and_started_games(self):
         now = datetime(2026, 9, 20, 12, tzinfo=timezone.utc).timestamp()

@@ -166,7 +166,7 @@ class handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         from site_controls import allowed
-        tab={'finder-history':'finder','prop-history':'research','moneyline':'moneyline','nrfi':'nrfi','soccer':'finder','nhl':'finder','tennis':'finder','moves':'moves','mlb-context':'finder','moneylines':'moneyline','mlb-sheet':'sheets','mlb-matchups':'bot'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
+        tab={'finder-history':'finder','prop-history':'research','moneyline':'moneyline','nrfi':'nrfi','soccer':'finder','nhl':'finder','tennis':'finder','moves':'moves','mlb-context':'finder','moneylines':'moneyline','mlb-sheet':'sheets','nfl-sheet':'sheets','mlb-matchups':'bot'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
         if (parse_qs(urlparse(self.path).query).get('view') or [''])[0] == 'cs2':
             tab = 'finder'
         # Krazy Bot reads the MLB sheets and slate matchups too, so either tab opens them.
@@ -341,6 +341,21 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(400, {"error": str(exc)})
             except Exception:
                 return self._send(502, {"error": "Matchups are temporarily unavailable."})
+        if view == "nfl-sheet":
+            # An NFL Cheat Sheet for this week (nfl_sheets.py). Each sheet has
+            # its own admin switch.
+            qs = parse_qs(urlparse(self.path).query)
+            name = (qs.get("sheet") or [""])[0]
+            from site_controls import sheet_allowed
+            if not sheet_allowed(self.headers, f"nfl:{name}"):
+                return self._send(503, {"error": "This sheet is switched off right now.", "featureDisabled": True})
+            try:
+                import nfl_sheets
+                return self._send(200, nfl_sheets.sheet(name), compress=True)
+            except ValueError as exc:
+                return self._send(400, {"error": str(exc)})
+            except Exception:
+                return self._send(502, {"error": "This sheet is unavailable right now."})
         if view == "mlb-sheet":
             # A Cheat Sheet for a day (mlb_sheets.py): built once, kept a while.
             qs = parse_qs(urlparse(self.path).query)

@@ -116,17 +116,27 @@ class LeagueTests(unittest.TestCase):
         ranked = finder._ranked({"A": {"off": {"x": 10}, "def": {"x": 5}}, "B": {"off": {"x": 20}, "def": {"x": 9}}}, ["x"])
         self.assertEqual((ranked["B"]["off"]["x"], ranked["A"]["def"]["x"]), ([20, 1], [5, 1]))
 
-    def test_defense_vs_position_counts_players_with_an_opportunity(self):
-        schedule = [game("2026_01_PIT_CLE", 2026, 1, "2026-09-13", "PIT", "CLE", 20, 13)]
+    def test_defense_vs_position_is_what_the_group_gets_a_game(self):
+        schedule = [game("2026_01_PIT_CLE", 2026, 1, "2026-09-13", "PIT", "CLE", 20, 13),
+                    game("2026_02_CLE_BAL", 2026, 2, "2026-09-20", "BAL", "CLE", 17, 10)]
         games = indexed(schedule)
         rows = [stat("w1", "2026_01_PIT_CLE", "PIT", "CLE", targets=8, receiving_yards=90, receptions=6),
                 stat("w2", "2026_01_PIT_CLE", "PIT", "CLE", targets=2, receiving_yards=10, receptions=1),
-                # A receiver who only returned punts is not counted.
-                stat("w3", "2026_01_PIT_CLE", "PIT", "CLE", punt_returns=3)]
+                # A receiver who only returned punts adds nothing.
+                stat("w3", "2026_01_PIT_CLE", "PIT", "CLE", punt_returns=3),
+                stat("w4", "2026_02_CLE_BAL", "BAL", "CLE", targets=5, receiving_yards=40, receptions=4),
+                # Baltimore's tight end isn't a receiver here.
+                stat("t1", "2026_02_CLE_BAL", "BAL", "CLE", position="TE", group="TE", targets=4, receiving_yards=30, receptions=3)]
         dvp = finder._dvp(rows, games)
         wr = dvp["CLE"]["WR"]
-        self.assertEqual(wr["players"], 2)
-        self.assertEqual(wr["stats"]["receiving_yards"]["szn"][0], 50.0)
+        # The receivers' yards added up each game (100, then 40), averaged.
+        self.assertEqual(wr["stats"]["receiving_yards"]["szn"], [70.0, 1])
+        self.assertEqual(wr["stats"]["receptions"]["szn"][0], 5.5)
+        self.assertEqual((wr["games"], wr["players"]), (2, 4))
+        # Cleveland faced no tight end in week 1: a zero that game.
+        self.assertEqual(dvp["CLE"]["TE"]["stats"]["receiving_yards"]["szn"][0], 15.0)
+        # The last five is the same two games here.
+        self.assertEqual(wr["stats"]["receiving_yards"]["l5"][0], 70.0)
 
     def test_standings_record_streak_and_games_back(self):
         schedule = [game("2026_01_PIT_CLE", 2026, 1, "2026-09-13", "PIT", "CLE", 20, 13),

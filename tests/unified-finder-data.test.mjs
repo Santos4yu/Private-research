@@ -278,3 +278,13 @@ test('Basketball histories come a few players per request',async()=>{
  assert.deepEqual(single,['/api/wnba?resource=gamelogs&playerIds=201,202&season=2026','/api/wnba?resource=gamelog&playerId=201&season=2026','/api/wnba?resource=gamelog&playerId=202&season=2026']);
  assert.ok(fallback.every(row=>row.historyStatus==='ready'));
 });
+
+test('Basketball hit rates leave preseason games out (they stay on the chart)',async()=>{
+ const {applyWnbaHistory}=await import('../src/unified-finder-data.js');
+ const log=(pts,date,seasonKind)=>({gameId:date,date,values:{player_points:pts},seasonKind,opponent:'LAL'});
+ const payload={rows:[log(24,'2026-04-01','regular'),log(26,'2026-04-03','regular'),log(8,'2026-10-05','preseason'),log(10,'2026-10-08','preseason')]};
+ const row=applyWnbaHistory({id:'x',sport:'nba',playerId:'1',marketKey:'player_points',line:20.5,direction:'over',opponent:'LAL'},payload);
+ assert.deepEqual([row.windows.l5.hits,row.windows.l5.decisions],[2,2]);
+ assert.equal(row.average,25);
+ assert.equal(row.streak,2);
+});

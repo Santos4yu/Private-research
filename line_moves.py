@@ -40,6 +40,10 @@ TIMER_KEY = f'{PREFIX}:timer'
 KEEP_MOVES = 1500
 # How many of the newest the page reads.
 READ_MOVES = 500
+# Each line's first number in these sports is kept until its game (the NFL
+# Steam Moves sheet compares it with the number now).
+OPENING_SPORTS = ('nfl',)
+OPENING_SECONDS = 9 * 86400
 # A line not in the feeds for this long is forgotten; until then a line that
 # drops out and comes back on another number still counts as a move.
 FORGET_SECONDS = 8 * 3600
@@ -159,6 +163,7 @@ def _checked(sport, fetched_at):
 
 
 _checked_at = {}
+_opening_seeded = set()
 
 
 def _compare(sport, source, entries, fetched_at, find_moves, extra=None, width=None):
@@ -193,6 +198,17 @@ def _compare(sport, source, entries, fetched_at, find_moves, extra=None, width=N
         snapshot = {'at': fetched_at, 'lines': kept, 'state': state, **(extra(old or {}, kept) if extra else {})}
         _checked_at[sport] = fetched_at
         commands = [['SET', snap_key, _pack(snapshot)], ['HSET', CHECKED_KEY, sport, int(fetched_at)]]
+        if sport in OPENING_SPORTS:
+            # The first number each line was seen at, never overwritten.
+            opening_key = f'{PREFIX}:open:{sport}:{source}'
+            # Every line once per server (lines already being watched when
+            # this started), then only lines new since the last report.
+            seeded = (sport, source) in _opening_seeded
+            _opening_seeded.add((sport, source))
+            fresh = [key for key in entries if key not in before or not seeded]
+            commands += [['HSETNX', opening_key, key, json.dumps([*entries[key], fetched_at])] for key in fresh]
+            if fresh:
+                commands.append(['EXPIRE', opening_key, OPENING_SECONDS])
         if moves:
             moves.sort(key=lambda move: move['at'])  # LPUSH puts the last one first
             commands += [['LPUSH', LIST_KEY, *(json.dumps(move, separators=(',', ':')) for move in moves)],
@@ -422,6 +438,45 @@ def checked():
     """sport -> when its lines were last compared."""
     flat = (_pipeline([['HGETALL', CHECKED_KEY]]) or [[]])[0] or []
     return {sport: _iso(float(seconds)) for sport, seconds in zip(flat[0::2], flat[1::2]) if _number(seconds)}
+
+
+def openings(sport):
+    """Opening and current numbers for `sport`'s lines (OPENING_SPORTS):
+    {source: {'open': {key: values}, 'now': {key: values}, 'at': seconds,
+    'people': {...}, 'stats': {...}}} for PrizePicks ('pp') and the books
+    ('books'). Lines whose game started a while ago are dropped, from the
+    reply and from storage."""
+    if sport not in OPENING_SPORTS or not enabled():
+        return {}
+    sources = ('pp', 'books')
+    reply = _pipeline([command for source in sources for command in (
+        ['HGETALL', f'{PREFIX}:open:{sport}:{source}'], ['GET', f'{PREFIX}:snap:{sport}:{source}'])]) or []
+    now_hour = int(time.time() // 3600)
+    output, stale = {}, []
+    for index, source in enumerate(sources):
+        flat = (reply[2 * index] if len(reply) > 2 * index else None) or []
+        snapshot = _unpack(reply[2 * index + 1]) if len(reply) > 2 * index + 1 and reply[2 * index + 1] else {}
+        opened = {}
+        for key, raw in zip(flat[0::2], flat[1::2]):
+            hour = key.rsplit('|', 1)[-1]
+            if hour.isdigit() and int(hour) < now_hour - 6:
+                stale.append([source, key])
+                continue
+            try:
+                opened[key] = json.loads(raw)
+            except (TypeError, ValueError):
+                continue
+        output[source] = {'open': opened, 'now': (snapshot or {}).get('lines') or {}, 'at': (snapshot or {}).get('at'),
+                          'people': (snapshot or {}).get('people') or {}, 'stats': (snapshot or {}).get('stats') or {}}
+    if stale:
+        try:
+            for source in sources:
+                keys = [key for kind, key in stale if kind == source]
+                if keys:
+                    _pipeline([['HDEL', f'{PREFIX}:open:{sport}:{source}', *keys[:500]]])
+        except Exception:  # noqa: BLE001 -- tidied next time
+            pass
+    return output
 
 
 def recent(sports, limit=500):

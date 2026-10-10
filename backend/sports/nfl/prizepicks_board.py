@@ -162,7 +162,9 @@ def history_fields(games, market, line, opponent):
     """Windows, streak and support for one line from the player's games."""
     if not market:
         return {"windows": {}, "streak": None, "support": 0, "sample": 0, "gameLog": []}
-    played = [(game, game["values"].get(market)) for game in games]
+    # Preseason games stay on the chart but never in the hit rates: starters
+    # play a series or two, so those games would make every Under look safe.
+    played = [(game, game["values"].get(market)) for game in games if game.get("seasonKind") != "preseason"]
     values = [value for _game_row, value in played if _finite(value)]
     recent = values[-20:]
     windows = {f"l{n}": window(recent[-n:], line) for n in WINDOWS}
@@ -177,7 +179,7 @@ def history_fields(games, market, line, opponent):
     # (src/slip-analyst.js). Preseason games are left out: starters barely
     # play them.
     game_log = [{"value": value, "date": game.get("date") or None, "home": game.get("isHome"), "opponent": game.get("opponent")}
-                for game, value in played if _finite(value) and game.get("seasonKind") != "preseason"][-GAME_LOG:]
+                for game, value in played if _finite(value)][-GAME_LOG:]
     return {"windows": windows, "streak": streak if values else None, "support": _support(l20["hits"], l20["decisions"]),
             "sample": len(recent), "average": windows["l10"]["average"], "gameLog": game_log}
 

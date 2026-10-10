@@ -1,14 +1,15 @@
 /* The Slip Analyzer (SlipAnalyzer.jsx): the Finder's palette, a drop zone,
    the read in four steps, then the slip's grade beside each pick. */
 @property --sa-p{syntax:'<number>';inherits:false;initial-value:0}
-.slip-analyzer{--a-card:#10151b;--a-raised:#161c24;--a-line:#242b34;--a-text:#ecf2f9;--a-muted:#98a3af;--a-faint:#687380;
+.slip-analyzer,.sa-scope{--a-card:#10151b;--a-raised:#161c24;--a-line:#242b34;--a-text:#ecf2f9;--a-muted:#98a3af;--a-faint:#687380;
  --a-up:#5fe0a8;--a-down:#ff8b98;--a-gold:#f6c35b;--a-blue:#4cc9f0;--a-accent:var(--theme-accent,#2b8cff);
  --a-sans:var(--font-sans,Inter,Arial,sans-serif);--a-display:'Sora',var(--font-sans,Inter,Arial,sans-serif);
- max-width:1100px;margin:0 auto;color:var(--a-text);font:400 13px/1.45 var(--a-sans);color-scheme:dark}
-.slip-analyzer *{box-sizing:border-box}
-.slip-analyzer button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0;letter-spacing:normal;box-shadow:none;-webkit-tap-highlight-color:transparent}
-.slip-analyzer :is(button,input,select,a):focus-visible{outline:2px solid color-mix(in srgb,var(--a-accent) 80%,#fff);outline-offset:2px}
-.slip-analyzer button:disabled{cursor:default;opacity:.5}
+ color:var(--a-text);font:400 13px/1.45 var(--a-sans);color-scheme:dark}
+.slip-analyzer{max-width:1100px;margin:0 auto}
+:is(.slip-analyzer,.sa-scope) *{box-sizing:border-box}
+:is(.slip-analyzer,.sa-scope) button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0;letter-spacing:normal;box-shadow:none;-webkit-tap-highlight-color:transparent}
+:is(.slip-analyzer,.sa-scope) :is(button,input,select,a):focus-visible{outline:2px solid color-mix(in srgb,var(--a-accent) 80%,#fff);outline-offset:2px}
+:is(.slip-analyzer,.sa-scope) button:disabled{cursor:default;opacity:.5}
 
 /* The page is the page: no site banner above it. */
 :root[data-theme] #app-shell #panel-slip{width:calc(100% - 28px)!important;max-width:1100px!important;padding:14px 0 90px!important;margin:0 auto!important}
@@ -90,12 +91,12 @@
 @keyframes sa-wipe{from{transform:scaleX(0)}}
 .sa-results{display:grid;gap:14px;margin-top:14px;container:sa-results/inline-size}
 /* Each tier and grade has one color everywhere it shows. */
-.slip-analyzer [data-tier=elite]{--tier:#46e39a}
-.slip-analyzer [data-tier=strong]{--tier:#3cc9b9}
-.slip-analyzer [data-tier=lean]{--tier:#6aa8ff}
-.slip-analyzer [data-tier=risky]{--tier:#f6b955}
-.slip-analyzer [data-tier=fade]{--tier:#ff7b8a}
-.slip-analyzer [data-tier=none]{--tier:#5b6673}
+:is(.slip-analyzer,.sa-scope) [data-tier=elite]{--tier:#46e39a}
+:is(.slip-analyzer,.sa-scope) [data-tier=strong]{--tier:#3cc9b9}
+:is(.slip-analyzer,.sa-scope) [data-tier=lean]{--tier:#6aa8ff}
+:is(.slip-analyzer,.sa-scope) [data-tier=risky]{--tier:#f6b955}
+:is(.slip-analyzer,.sa-scope) [data-tier=fade]{--tier:#ff7b8a}
+:is(.slip-analyzer,.sa-scope) [data-tier=none]{--tier:#5b6673}
 .sa-parlay[data-tone=up]{--tone:#46e39a}
 .sa-parlay[data-tone=blue]{--tone:#6aa8ff}
 .sa-parlay[data-tone=gold]{--tone:#f6b955}

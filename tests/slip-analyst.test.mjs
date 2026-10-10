@@ -23,7 +23,7 @@ test('the matchup: what a defense allows against the league, and MLB starters an
   const wnba = matchupRead({sport: 'wnba', opponent: 'LV', market: 'Points', defenseValue: 18, defenseRecent: 20, defenseAverage: 15,
     defense: 12, defenseTeams: 13, defensePosition: 'G'});
   assert.ok(wnba.factor > 1.05 && wnba.factor <= 1.1, wnba.factor);
-  assert.equal(wnba.text, 'LV allows 18 points to guards, 20% more than average (2nd-most)');
+  assert.equal(wnba.text, 'LV allows 18 points a game to guards, 20% more than average (2nd-most)');
   const tough = matchupRead({sport: 'nfl', opponent: 'BAL', market: 'Receiving Yards', defenseValue: 120, defenseAverage: 150,
     defense: 1, defenseTeams: 32, defensePosition: 'WR'});
   assert.ok(tough.factor < 1 && tough.factor >= 0.9);
@@ -66,7 +66,7 @@ test('a read: projection, venue, head-to-head, playing time, and what to watch',
   assert.equal(grade(read, 0.52), 'C');
   assert.equal(conflicted(read), false);
   assert.equal(analystNote(guard(), 'OVER', read, {records, book: 0.6}),
-    'Projects for ' + (Math.round(read.projection * 10) / 10) + ' against the 17.5 line, over in 7 of the last 10. LV allows 18 points to guards, 20% more than average (2nd-most); the books have it at 60%.');
+    'Projects for ' + (Math.round(read.projection * 10) / 10) + ' against the 17.5 line, over in 7 of the last 10. LV allows 18 points a game to guards, 20% more than average (2nd-most); the books have it at 60%.');
   // The Under of the same line: everything above argues against it.
   const under = readPick(guard(), 'UNDER', {records: {l10: {won: 3, games: 10, rate: 0.3}}, book: 0.4});
   assert.ok(conflicted(under));

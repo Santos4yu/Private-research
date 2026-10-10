@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useId,useMemo,useRef,useState} from 'react';
-import {ArrowRight,ArrowUpRight,BookmarkPlus,Check,ChevronDown,ClipboardPaste,Crosshair,Crown,Flame,ImageUp,Link2,Pencil,Plus,Radio,Repeat2,RotateCcw,Search,Share2,ShieldCheck,Trash2,TrendingDown,TrendingUp,TriangleAlert,Unlink,X} from 'lucide-react';
+import {ArrowRight,BookmarkPlus,Check,ChevronDown,ClipboardPaste,Crosshair,Crown,ImageUp,Link2,Pencil,Plus,Radio,Repeat2,RotateCcw,Search,Share2,ShieldCheck,Trash2,TriangleAlert,Unlink,X} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import {siteFinderSportAllowed,siteIsAdmin} from './site-access';
 import {finderSlipProp} from './unified-finder-data';
@@ -10,10 +10,10 @@ import {loadMatchups,withMatchups} from './slip-matchup';
 import {lookupRow} from './slip-lookup';
 import {loadGames,loadTeammates,withGame,newsOf,liveRead,anyLive} from './slip-games';
 import {MatchupCase} from './MatchupCase';
+import {opponentLogo,teamLogo,useCount,Img,Face,TierBadge,Records,Meter,Games} from './PickParts';
 import {shareSlip} from './slip-share';
 import {Record,History} from './SlipHistory';
 import {newSlipId,slipPayload,saveSlip,removeSlip,loadHistory} from './slip-history';
-import {teamLogoUrl} from './sports/nfl/nfl-ui-core';
 import {pickBuilder} from './pick-builder-client';
 import {PhoneAccountButtons} from './UnifiedFinder';
 import './slip-analyzer.css';
@@ -64,99 +64,6 @@ async function readSlip(blob,signal){
 
 const LOGOS={prizepicks:'/prizepicks/logo.png'};
 const appLogo=key=>key?LOGOS[key]||`/sportsbooks/${key}.png`:null;
-const MLB_LOGO=id=>id?`https://www.mlbstatic.com/team-logos/${encodeURIComponent(id)}.svg`:null;
-// The other team's mark, from whatever the league's line carries.
-function opponentLogo(row){
- if(!row?.opponent)return null;
- if(row.opponentLogo)return row.opponentLogo;
- if(row.sport==='nfl')return teamLogoUrl(row.opponent);
- if(row.sport==='mlb')return MLB_LOGO(row.opponentTeamId);
- if(row.homeTeamAbbr===row.opponent)return row.homeTeamLogo||row.raw?.homeTeamLogo||null;
- if(row.awayTeamAbbr===row.opponent)return row.awayTeamLogo||row.raw?.awayTeamLogo||null;
- return null;
-}
-const teamLogo=row=>row?.teamLogo||(row?.sport==='nfl'&&row.teamAbbr?teamLogoUrl(row.teamAbbr):null);
-
-// A number that counts up to its value as it appears.
-function useCount(target,ms=900){
- const [value,setValue]=useState(()=>calm()?target:0);
- useEffect(()=>{
-  if(target==null||calm()){setValue(target);return undefined;}
-  let frame,start;
-  const step=time=>{start??=time;const k=Math.min(1,(time-start)/ms);setValue(target*(1-(1-k)**3));if(k<1)frame=requestAnimationFrame(step);};
-  frame=requestAnimationFrame(step);return()=>cancelAnimationFrame(frame);
- },[target,ms]);
- return value;
-}
-
-function Img({src,className,alt=''}){
- const [bad,setBad]=useState(false);
- useEffect(()=>setBad(false),[src]);
- return src&&!bad?<img className={className} src={src} alt={alt} loading="lazy" onError={()=>setBad(true)}/>:null;
-}
-
-function Face({row,leg,tier}){
- const [bad,setBad]=useState(false);
- const src=row?.headshot;
- useEffect(()=>setBad(false),[src]);
- const name=row?.player||leg?.player;
- const sport=row?.sport||leg?.sport;
- const badge=teamLogo(row)||LEAGUE_LOGOS[sport];
- return <span className="sa-face" data-tier={tier||undefined}>
-  <span className="sa-face-photo">{src&&!bad?<img src={src} alt="" loading="lazy" onError={()=>setBad(true)}/>
-   :<i>{String(name||'').split(' ').map(part=>part[0]).slice(0,2).join('')}</i>}</span>
-  {badge&&<Img className="sa-face-badge" src={badge}/>}
- </span>;
-}
-
-const TIER_ICON={elite:Flame,strong:TrendingUp,lean:ArrowUpRight,risky:TriangleAlert,fade:TrendingDown};
-function TierBadge({tier}){
- const Icon=TIER_ICON[tier];
- return <span className="sa-tier" data-tier={tier} title={TIERS[tier].text}><Icon size={13} strokeWidth={2.6}/>{TIERS[tier].label}</span>;
-}
-
-const rateTone=rate=>rate>=0.6?'up':rate>=0.5?'blue':rate>=0.4?'gold':'down';
-const RECORDS=[['l5','L5'],['l10','L10'],['l20','L20'],['season','Season'],['h2h','H2H']];
-function Records({grade,row}){
- // A backup starting today: these came in his smaller role.
- const smaller=grade.matchup?.facts?.some(item=>item.level==='role');
- const items=RECORDS.map(([key,label])=>[key,key==='h2h'&&row?.opponent?`vs ${row.opponent}`:label,grade.records?.[key]])
-  .filter(([key,,record])=>record&&record.games>0&&!(key==='l20'&&record.games<=(grade.records.l10?.games||0))&&!(key==='season'&&record.games<=(grade.records.l20?.games||grade.records.l10?.games||0)));
- if(!items.length)return null;
- return <ul className="sa-records">{items.map(([key,label,record])=><li key={key} data-tone={smaller?'muted':rateTone(record.rate)}>
-  <span>{label}</span><b>{record.won}/{record.games}</b><i style={{'--w':`${Math.round(record.rate*100)}%`}}/>
- </li>)}</ul>;
-}
-
-// The chance a pick hits, against what each pick needs for the parlay to pay its way.
-function Meter({chance,need}){
- const shown=useCount(chance*100);
- return <div className="sa-meter" data-tone={rateTone(chance)}>
-  <div className="sa-meter-top"><b>{Math.round(shown)}<small>%</small></b><span>to hit</span>
-   {need!=null&&<em>needs {percent(need)}</em>}</div>
-  <div className="sa-meter-bar"><i style={{'--w':`${Math.round(chance*100)}%`}}/>{need!=null&&<u style={{left:`${Math.round(need*100)}%`}}/>}</div>
- </div>;
-}
-
-// The last ten games against the slip's number.
-function Games({row,line,side}){
- const games=(row?.gameLog||[]).slice(-10);
- if(games.length<3||line==null)return null;
- const values=games.map(game=>game.value);
- const top=Math.max(line*1.5,...values,1);
- const won=value=>side==='UNDER'?value<line:value>line;
- const hits=values.filter(won).length;
- return <div className="sa-games" role="img" aria-label={`Last ${games.length} games: ${hits} of ${games.length} on the ${side==='UNDER'?'under':'over'} side of ${line}`}>
-  <div className="sa-games-head"><span>Last {games.length} games</span><b>{hits}/{games.length}</b></div>
-  <div className="sa-games-plot">
-   <i className="sa-games-line" style={{'--y':line/top}}><span>{figure(line)}</span></i>
-   {games.map((game,index)=><span key={`${game.date}-${index}`} className="sa-games-bar" style={{'--h':`${Math.max(3,game.value/top*100)}%`,'--i':index}}
-    data-result={game.value===line?'push':won(game.value)?'hit':'miss'}><b>{figure(game.value)}</b>
-    {game.opponent&&typeof game.opponent==='string'&&<small>{game.opponent}</small>}</span>)}
-  </div>
- </div>;
-}
-
 function Editor({leg,app,boards,onSave,onCancel}){
  const sport=leg.sport||leg.spot?.sport||'';
  const [player,setPlayer]=useState(leg.player);

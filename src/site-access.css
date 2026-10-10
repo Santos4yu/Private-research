@@ -86,6 +86,9 @@ html:not([data-site-access="granted"]) #dock-root{display:none!important}
 #site-controls fieldset label:has(input:checked)::before{background:var(--theme-accent,#0082fe);border-color:var(--theme-accent,#0082fe)}
 #site-controls fieldset label:has(input:checked)::after{opacity:1}
 #site-controls fieldset label:has(input:focus-visible){outline:2px solid var(--theme-accent,#0082fe);outline-offset:2px}
+#site-controls .site-sheet-controls{grid-template-columns:1fr}
+#site-controls .site-sheet-group{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#site-controls .site-sheet-group strong{grid-column:1/-1;margin-top:4px;color:#8a97a8;font-size:12px;letter-spacing:.04em}
 
 #site-controls [role=status]{margin:0;font-size:12px;color:#9fb0c8;min-height:16px}
 /* Announce tab (site-announce.js). */
