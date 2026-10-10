@@ -263,7 +263,7 @@ export function saferPick(leg, rows, tables = {}) {
       if (row.line === (leg.line ?? leg.row.line) && modifier(row) === modifier(leg.row) && side === leg.side) continue;
       const read = assessLeg(scored, side, {any: true, started: true});
       const judged = read ? judge(read, tables) : null;
-      if (!judged?.tier || TIERS[judged.tier].rank < TIERS.lean.rank || TIERS[judged.tier].rank <= TIERS[tier].rank) continue;
+      if (!judged?.tier || TIERS[judged.tier].rank < TIERS.lean.rank || TIERS[judged.tier].rank <= TIERS[tier].rank || !confidentUnder(judged)) continue;
       if (!best || TIERS[judged.tier].rank > TIERS[best.tier].rank || (judged.tier === best.tier && judged.chance > best.chance)) best = judged;
     }
   }
@@ -320,6 +320,27 @@ export const TIERS = {
 // The chance a line needs to be worth taking: 50% for a regular line, the
 // books' (or a usual) price for a Goblin or Demon.
 export const baselineOf = read => (read.modifier || 'standard') === 'standard' ? 0.5 : read.book ?? (read.modifier === 'goblin' ? 0.7 : 0.35);
+
+/**
+ * Overs first. An Under is recommended (put on a slip, offered as the
+ * safer side or a swap, shown as a top play) only when every read agrees:
+ * Elite on its matchup, nothing in the game news, at least 8 of his last
+ * 10 and 4 of his last 5 under the line, the season with it, a 68%+
+ * chance and the books with it where they price it. Unders that miss tend
+ * to miss by a lot (one big game is enough), so their bar is far higher
+ * than an Over's. Anything other than an Under passes.
+ */
+export function confidentUnder(read) {
+  if (!read || read.side !== 'UNDER') return true;
+  if (read.tier !== 'elite' || read.capped || read.redFlag) return false;
+  if (read.matchup?.facts?.some(item => item.kind === 'news' && item.level)) return false;
+  const {l5, l10, season} = read.records || {};
+  if (!(l10 && l10.games >= 8 && l10.rate >= 0.8)) return false;
+  if (l5 && l5.games >= 5 && l5.rate < 0.8) return false;
+  if (season && season.games >= 8 && season.rate < 0.65) return false;
+  if (!(read.chance >= 0.68)) return false;
+  return !(read.book != null && read.book < 0.55);
+}
 
 /**
  * A pick's tier, matchup first: Elite needs a great matchup with something
@@ -473,7 +494,7 @@ export function swaps(legs, pool, {limit = 3} = {}) {
   const sports = new Set(legs.map(leg => leg.sport).filter(Boolean));
   // Judged on their matchups (judge()), only Strong and Elite picks are offered.
   return pool.filter(read => (read.tier ? read.tier === 'elite' || read.tier === 'strong' : read.backed)
-      && read.chance > weakest.grade.chance + 0.05 && !taken.has(personKey(read.player))
+      && confidentUnder(read) && read.chance > weakest.grade.chance + 0.05 && !taken.has(personKey(read.player))
       && (!sports.size || sports.has(read.row.sport)) && read.modifier === 'standard')
     .sort((a, b) => b.chance - a.chance).slice(0, limit).map(read => ({...read, replaces: weakest}));
 }

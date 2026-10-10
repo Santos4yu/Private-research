@@ -15,7 +15,7 @@
 
 import {candidates, reasons, POWER, FLEX, assessLeg, gameKey} from './smart-slip.js';
 import {matchupRead, matchupGrade, withPoolDefense} from './slip-analyst.js';
-import {judge as judgeLeg, scoreEntry, TIERS, baselineOf} from './slip-check.js';
+import {judge as judgeLeg, scoreEntry, TIERS, baselineOf, confidentUnder} from './slip-check.js';
 import {link} from './slip-correlation.js';
 import {withGame} from './slip-games.js';
 import {withMatchups} from './slip-matchup.js';
@@ -545,6 +545,7 @@ function redFlagWords(leg) {
 }
 // A pick we'd recommend: Elite or Strong (a good matchup and the numbers
 // behind it), or a Lean in a league with no opponent reads today.
+export {confidentUnder};
 export const passesMatchup = leg => (leg.tier ? leg.tier === 'elite' || leg.tier === 'strong' || (!leg.matchupRequired && leg.tier === 'lean')
   : !leg.matchupRequired);
 
@@ -566,11 +567,14 @@ export function rank(legs, ask) {
   if (ask.day) pool = pool.filter(leg => onDay(leg.row, ask.day, ask.at ?? Date.now()));
   if (ask.players?.length) pool = pool.filter(leg => ask.players.includes(leg.player));
   // Asked about a player, every line of his is fair game (with its red flags);
-  // otherwise only picks with a good matchup.
-  else pool = pool.filter(passesMatchup);
+  // otherwise only picks with a good matchup, and an Under only when it's a
+  // sure thing (confidentUnder), unless Unders were asked for.
+  else pool = pool.filter(leg => passesMatchup(leg) && (ask.side === 'UNDER' || confidentUnder(leg)));
+  // Overs first: at the same grade an Over goes ahead of an Under.
+  const overFirst = (a, b) => (a.side === 'UNDER') - (b.side === 'UNDER');
   const order = ask.intent === 'safest' || ask.intent === 'value' ? (a, b) => b.chance - a.chance
     : ask.intent === 'matchup' ? (a, b) => (b.matchup?.score ?? 0) - (a.matchup?.score ?? 0) || byGrade(a, b)
-      : (a, b) => byGrade(a, b) || (b.matchup?.score ?? 50) - (a.matchup?.score ?? 50);
+      : (a, b) => byGrade(a, b) || overFirst(a, b) || (b.matchup?.score ?? 50) - (a.matchup?.score ?? 50);
   const seen = new Set();
   return [...pool].sort(order).filter(leg => !seen.has(leg.player) && seen.add(leg.player));
 }
@@ -1138,7 +1142,8 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     const reads = await Promise.all(sides.map(item => withNews(readSide(row, item))));
     if (!reads[0] && !reads[1]) return `I don't have enough history on ${row.player} to call that one (or it starts too soon).`;
     let [chosen, other] = reads;
-    if (!side && other && (!chosen || other.chance > chosen.chance)) [chosen, other] = [other, chosen];
+    // No side asked: the Over, unless the Under is a sure thing and likelier (overs first).
+    if (!side && other && (!chosen || (other.chance > chosen.chance && confidentUnder(other)))) [chosen, other] = [other, chosen];
     if (!chosen) return `${row.player}'s ${figure(row.line)} ${statShort({row})} only takes the over on that kind of line, and I don't have a read on it.`;
     ctx = {...ctx, ask, ranked: [chosen], index: 0, sport: row.sport, player: row.player, leg: chosen};
     const lineNote = ask.line != null && Math.abs(ask.line - row.line) > 0.01 ? ` (Today's line is ${figure(row.line)}, not ${figure(ask.line)}.)` : '';
@@ -1149,15 +1154,20 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     else if (chosen.backed && chosen.tier === 'elite') call = pick(['Yes. I love it.', 'Yes, that\'s one of my favorite spots today.'], random);
     else if (chosen.backed) call = pick(['Yes, I like it.', 'I\'d take it.'], random);
     else if (chosen.chance >= 0.53) call = 'Lean yes, but it\'s thin.';
-    else if (other?.backed) call = `I'd flip it. The ${sideWord(other)} is the better side at ${percent(other.chance)}.`;
+    else if (other?.backed && !other.redFlag && confidentUnder(other)) call = `I'd flip it. The ${sideWord(other)} is the better side at ${percent(other.chance)}.`;
     else call = `I'd pass. That's close to a coin flip.`;
     suggestions = ['Why?', side === 'UNDER' ? 'What about the over?' : 'What about the under?', `Best ${statOfRow(row)?.name || ''} prop today`.replace('  ', ' '), 'Next best'];
-    const head = side || !other ? `${pickLine(chosen)}: ${percent(chosen.chance)} to hit${gradeWord(chosen) ? `, ${gradeWord(chosen)}` : ''}.`
+    const head = side || !other || other.chance > chosen.chance ? `${pickLine(chosen)}: ${percent(chosen.chance)} to hit${gradeWord(chosen) ? `, ${gradeWord(chosen)}` : ''}.`
       : `${pickLine(chosen)} is the better side at ${percent(chosen.chance)}.`;
     const moved = await moveNote(chosen);
-    const tone = chosen.redFlag ? (other?.backed && !other.redFlag ? 'flip' : 'pass')
-      : chosen.backed ? (chosen.matchup?.tone === 'neutral' ? 'lean' : 'yes') : chosen.chance >= 0.53 ? 'lean' : other?.backed ? 'flip' : 'pass';
+    // Flipping to the other side means an Under only when it's a sure thing (overs first).
+    const flips = Boolean(other?.backed && !other.redFlag && confidentUnder(other));
+    const tone = chosen.redFlag ? (flips ? 'flip' : 'pass')
+      : chosen.backed ? (chosen.matchup?.tone === 'neutral' ? 'lean' : 'yes') : chosen.chance >= 0.53 ? 'lean' : flips ? 'flip' : 'pass';
     if (chosen.redFlag && tone === 'flip') call += ` The ${sideWord(other)} is the better side at ${percent(other.chance)}.`;
+    else if (tone !== 'yes' && other?.side === 'UNDER' && other.chance > chosen.chance && !confidentUnder(other)) {
+      call += ` The under is likelier at ${percent(other.chance)}, but I only back an under when everything points to it.`;
+    }
     const shown = tone === 'flip' ? other : chosen;
     const label = chosen.redFlag && tone === 'pass' ? 'Red flag' : {yes: 'Take it', lean: 'Lean', flip: 'Flip it', pass: 'Pass'}[tone];
     answer = {lead: tidy(`${call} ${tone === 'flip' ? '' : head}${lineNote}${moved}`),
@@ -1733,7 +1743,8 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
    * scoreEntry: the linked chance, the payout, the letter).
    */
   async function slip(question) {
-    const good = leg => leg.tier === 'elite' || leg.tier === 'strong';
+    // Elite or Strong, and an Under only when it's a sure thing (unless Unders were asked for).
+    const good = leg => (leg.tier === 'elite' || leg.tier === 'strong') && (question.side === 'UNDER' || confidentUnder(leg));
     const asPick = leg => ({row: leg.row, side: leg.side, player: leg.player});
     question = {...question, at: now()};
     // A game, team or day with no lines up at all: said plainly.
@@ -1906,7 +1917,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     const best = ask('best').slice(0, count + 4), safe = ask('safest').slice(0, 4), matched = ask('matchup').slice(0, 4);
     const candidates = [...new Set([...best, ...safe, ...matched])];
     const checked = new Map((await withNewsAll(candidates)).map((leg, index) => [candidates[index], leg]));
-    const after = list => list.map(leg => checked.get(leg) || leg).filter(passesMatchup);
+    const after = list => list.map(leg => checked.get(leg) || leg).filter(leg => passesMatchup(leg) && confidentUnder(leg));
     const top = after(best).slice(0, count);
     const safest = after(safe).sort((a, b) => b.chance - a.chance)[0];
     const matchup = after(matched).find(leg => leg.matchup?.score != null);

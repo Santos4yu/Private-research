@@ -8,7 +8,7 @@ import {TARGETS,MIXES,SPORT_NAMES,candidates,buildLadder,safest,reasons,exportLe
 import {pickBuilder,usePickBuilder} from './pick-builder-client';
 import {loadMatchups,withMatchups} from './slip-matchup';
 import {withPoolDefense} from './slip-analyst';
-import {gradeMatchups,withMatchup,passesMatchup} from './krazy-bot';
+import {gradeMatchups,withMatchup,passesMatchup,confidentUnder} from './krazy-bot';
 import {loadGames,loadTeammates,withGame} from './slip-games';
 import {PhoneAccountButtons} from './UnifiedFinder';
 import './smart-slip.css';
@@ -35,7 +35,9 @@ const NEWS_FOR=40;
 async function judged(rows,sports,{signal,now}){
  const tables=await loadMatchups(sports,{signal}).catch(()=>({}));
  const listed=withPoolDefense(rows.map(row=>withMatchups(row,tables)));
- const graded=gradeMatchups(candidates(listed,{now}),tables).filter(passesMatchup);
+ // Overs first: an Under makes a slip only when it's a sure thing (confidentUnder).
+ const usable=leg=>passesMatchup(leg)&&confidentUnder(leg);
+ const graded=gradeMatchups(candidates(listed,{now}),tables).filter(usable);
  const top=graded.slice().sort((a,b)=>b.chance*b.factor-a.chance*a.factor).slice(0,NEWS_FOR);
  const asks=top.map(leg=>({key:leg.id,row:leg.row}));
  let found={},mates={};
@@ -46,7 +48,7 @@ async function judged(rows,sports,{signal,now}){
  return graded.map(leg=>{
   const game=found[leg.id];
   return game?withMatchup({...leg,chance:leg.trendChance??leg.chance,row:withGame(leg.row,{...game,teammates:mates[leg.id]||[]})},leg.matchupRequired,tables):leg;
- }).filter(passesMatchup);
+ }).filter(usable);
 }
 // Where the lines light up on the sweep, from its centre.
 const BLIPS=[[-34,-30],[26,-44],[44,6],[10,38],[-40,22],[-6,-12]];
@@ -240,7 +242,7 @@ export function SmartSlip(){
   const failed=chosen.filter((_,index)=>results[index].status==='rejected');
   let found=[];
   try{found=await judged(rows,chosen,{signal:control.signal,now:Date.now()});}
-  catch{if(control.signal.aborted)return;found=candidates(rows,{now:Date.now()});}
+  catch{if(control.signal.aborted)return;found=candidates(rows,{now:Date.now()}).filter(leg=>leg.side!=='UNDER');}
   if(control.signal.aborted)return;
   // Every step shows, even when every line was already saved.
   const lines=rows.filter(only);

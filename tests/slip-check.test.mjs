@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {statKeys, rowStatKey, nameFit, playerRows, locate, relined, rewindow, saferPick, gradeLeg, scoreEntry, verdict, swaps, sideWord, checkLeg, tierOf, TIERS} from '../src/slip-check.js';
+import {statKeys, rowStatKey, nameFit, playerRows, locate, relined, rewindow, saferPick, gradeLeg, scoreEntry, verdict, swaps, sideWord, checkLeg, tierOf, TIERS, confidentUnder} from '../src/slip-check.js';
 
 const LATER = '2099-09-30T23:10:00Z';
 const w = (hits, games) => ({hits, misses: games - hits, pushes: 0, decisions: games, sample: games, hitRate: hits / games * 100});
@@ -252,4 +252,22 @@ test('a Risky or Fade pick gets a safer way to play the same player, when the bo
   assert.ok(TIERS[safer.tier].rank > TIERS[pick.grade.tier].rank && TIERS[safer.tier].rank >= TIERS.lean.rank);
   // A pick that's already Lean or better gets none.
   assert.equal(saferPick({...pick, grade: {...pick.grade, tier: 'strong'}}, [base, goblin]), null);
+});
+
+test('overs first: an Under is recommended only when every read agrees', () => {
+  const rec = (won, games) => ({won, games, rate: won / games});
+  const sure = {side: 'UNDER', tier: 'elite', chance: 0.72, book: 0.6, records: {l5: rec(5, 5), l10: rec(9, 10), season: rec(14, 20)},
+    matchup: {facts: [{kind: 'matchup', text: 'Allows the 3rd-fewest'}]}};
+  assert.equal(confidentUnder(sure), true);
+  // Any Over passes; so does nothing at all.
+  assert.equal(confidentUnder({...sure, side: 'OVER', tier: 'lean', chance: 0.55}), true);
+  assert.equal(confidentUnder(null), true);
+  // Short of Elite, a thin last 10, a cold last 5, a season against it, a lower chance, the books against it, or any news: no.
+  for (const weaker of [{tier: 'strong'}, {records: {...sure.records, l10: rec(7, 10)}}, {records: {...sure.records, l5: rec(3, 5)}},
+    {records: {...sure.records, season: rec(10, 20)}}, {chance: 0.64}, {book: 0.5}, {capped: 'risky'},
+    {matchup: {facts: [{kind: 'news', level: 'questionable', text: 'Questionable (ankle)'}]}}]) {
+    assert.equal(confidentUnder({...sure, ...weaker}), false, JSON.stringify(weaker));
+  }
+  // News that changes nothing (no level) doesn't block it.
+  assert.equal(confidentUnder({...sure, matchup: {facts: [{kind: 'news', text: 'Probable'}]}}), true);
 });

@@ -283,13 +283,16 @@ function nflBoard() {
   const rows = [], reads = new Map();
   const players = [['Josh Allen', 'Pass Yards', 249.5, 'BUF', 'MIA', 'buf-mia'], ['James Cook', 'Rush Yards', 64.5, 'BUF', 'MIA', 'buf-mia'],
     ['CeeDee Lamb', 'Receiving Yards', 72.5, 'DAL', 'PHI', 'dal-phi'], ['Jalen Hurts', 'Pass Yards', 219.5, 'PHI', 'DAL', 'dal-phi'],
-    ['Bijan Robinson', 'Rush Yards', 79.5, 'ATL', 'TB', 'atl-tb'], ['Puka Nacua', 'Receiving Yards', 81.5, 'LA', 'SF', 'la-sf'], ['Brock Purdy', 'Pass Yards', 241.5, 'SF', 'LA', 'la-sf']];
+    ['Bijan Robinson', 'Rush Yards', 79.5, 'ATL', 'TB', 'atl-tb'], ['Puka Nacua', 'Receiving Yards', 81.5, 'LA', 'SF', 'la-sf'], ['Brock Purdy', 'Pass Yards', 241.5, 'SF', 'LA', 'la-sf'],
+    ['Khalil Shakir', 'Receiving Yards', 49.5, 'BUF', 'MIA', 'buf-mia']];
   players.forEach(([name, stat, line, team, opponent, game], i) => {
-    const position = /Pass/.test(stat) ? 'QB' : /Rush/.test(stat) ? 'RB' : 'WR', soft = i % 2 === 0;
+    // A soft defense for most, a tough one for Lamb and Nacua (whose good side is the under).
+    const position = /Pass/.test(stat) ? 'QB' : /Rush/.test(stat) ? 'RB' : 'WR', soft = i !== 2 && i !== 5;
     const defense = {position, defense: soft ? 29 : 3, defenseTeams: 32, defenseValue: soft ? line * 1.2 : line * 0.8, defenseAverage: line, defensePosition: position};
     const standard = {...row(name, 'nfl', stat, line, {team, opponent, game}), ...defense};
     const goblin = {...row(name, 'nfl', stat, line - 15.5, {team, opponent, game, modifier: 'goblin'}), ...defense};
-    rows.push(standard, goblin);
+    rows.push(standard);
+    if (name !== 'Khalil Shakir') rows.push(goblin);  // no Goblin on Shakir's line
     reads.set(`${standard.id}|OVER`, {...graded(standard, 'OVER', {grade: 'A', chance: 0.64 - i * 0.01}), factor: 1});
     reads.set(`${standard.id}|UNDER`, {...graded(standard, 'UNDER', {grade: 'A', chance: 0.66 - i * 0.01}), factor: 1});
     reads.set(`${goblin.id}|OVER`, {...graded(goblin, 'OVER', {grade: 'A', chance: 0.78 - i * 0.01}), factor: 0.62 + i * 0.03});
@@ -323,18 +326,38 @@ test('slips as asked: the league, overs or unders, how many picks, and a payout 
   assert.deepEqual(bot.card().card.picks.map(pick => pick.modifier), ['goblin', 'goblin', 'goblin']);
 });
 
+test('overs first: unders make a slip or the top plays only when they are sure things', async () => {
+  const bot = nflBoard();
+  // Lamb's and Nacua's good sides are unders, but not sure ones (7 of 10): left out.
+  await bot.ask('build me a 5-pick nfl slip');
+  const picks = bot.card().card.picks;
+  assert.equal(picks.length, 5);
+  assert.ok(picks.every(pick => pick.side === 'OVER'), JSON.stringify(picks.map(pick => [pick.player, pick.side])));
+  // Asked for unders: unders.
+  await bot.ask('give me a 2 leg parlay with nfl under props');
+  assert.deepEqual(bot.card().card.picks.map(pick => pick.side), ['UNDER', 'UNDER']);
+  // No side asked about a player: the over, unless the under is a sure thing.
+  // Lamb's over has a tough matchup and his under is likelier but no sure thing: a pass, said plainly.
+  const answer = await bot.ask('should I take CeeDee Lamb 72.5?');
+  assert.match(answer, /^Red flag\./);
+  assert.match(answer, /The under is likelier at \d+%, but I only back an under when everything points to it\./);
+  assert.match(answer, /CeeDee Lamb over 72\.5 receiving yards vs PHI: \d+% to hit/);
+  assert.equal(bot.card().card.verdict.tone, 'pass');
+});
+
 test('slips for one game, one team or one day', async () => {
   assert.deepEqual(['give me a parlay for the bills vs dolphins game', 'give me a bills parlay', 'give me a parlay for the chiefs game', 'sunday nfl parlay', 'give me a mnf parlay', 'build me a 3-pick slip']
     .map(q => { const a = understand(q); return [a.scope, a.day?.words || null]; }),
   [['game', null], ['team', null], ['game', null], [null, 'Sunday'], [null, 'Monday night'], [null, null]]);
   const bot = nflBoard();
-  // One game: both picks from it (more than two from a game when that's what's asked).
+  // One game: both picks from it (more than two from a game when that's what's asked). Allen's and
+  // Cook's overs pull against each other (one game script or the other), so Shakir goes with Allen.
   assert.match(await bot.ask('give me a 2 man parlay for the bills vs dolphins game'), /^Here's a 2-pick NFL slip for the Bills vs Dolphins game from my Elite and Strong picks: /);
-  assert.ok(bot.card().card.picks.every(pick => pick.player === 'Josh Allen' || pick.player === 'James Cook'));
+  assert.deepEqual(bot.card().card.picks.map(pick => pick.player).sort(), ['Josh Allen', 'Khalil Shakir']);
   // One team.
   assert.match(await bot.ask('2 man bills parlay'), /^Here's a 2-pick NFL slip for the Bills from my Elite and Strong picks: /);
   // Not enough there: said so, for that game.
-  assert.match(await bot.ask('give me a 3 leg bills parlay'), /^I only see 2 Elite or Strong NFL picks for the Bills right now, not enough for a 3-pick slip/);
+  assert.match(await bot.ask('give me a 3 leg bills parlay'), /^I only see 2 Elite or Strong NFL picks for the Bills that go together \(James Cook over 64\.5 rush yards vs MIA works against them: .*\) right now, not enough for a 3-pick slip/);
   // No lines up for it at all.
   assert.equal(await bot.ask('give me a parlay for the chiefs game'), "I don't see a Chiefs game on the board right now. Lines usually go up a day or two before the game.");
   assert.equal(await bot.ask('sunday nfl parlay'), "I don't see any lines for Sunday on the board right now. Lines usually go up a day or two before the game.");
