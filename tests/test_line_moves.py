@@ -43,6 +43,14 @@ class FakeKV:
         if name == 'HSET':
             self.data.setdefault(key, {})[args[0]] = str(args[1])
             return 1
+        if name == 'HSETNX':
+            table = self.data.setdefault(key, {})
+            if args[0] in table:
+                return 0
+            table[args[0]] = args[1]
+            return 1
+        if name == 'EXPIRE':
+            return 1
         if name == 'HGETALL':
             return [item for pair in self.data.get(key, {}).items() for item in pair]
         if name == 'HDEL':
@@ -82,6 +90,7 @@ class Base(unittest.TestCase):
         self.kv = FakeKV()
         moves._last.clear()
         moves._checked_at.clear()
+        moves._opening_seeded.clear()
         moves._polled.clear()
         for patcher in (patch.object(moves, '_pipeline', self.kv), patch.object(moves.store, 'KV_URL', 'https://kv.test'),
                         patch.object(moves.store, 'KV_TOKEN', 'test-only'),
@@ -215,6 +224,24 @@ class BookTests(Base):
         found = moves.observe_books('nfl', [quote('prizepicks', 'A', 'Rush Yds', 55.5), quote('underdog', 'A', 'Rush Yds', 52.5),
                                             quote('underdog', 'A', 'Rush Yds', 62.5)], fetched_at=T0 + 600)
         self.assertEqual(found, [])
+
+
+class OpeningTests(Base):
+    def test_the_first_number_is_kept_and_never_overwritten(self):
+        start = '2099-10-11T17:00:00Z'
+        moves.observe_books('nfl', [quote('draftkings', 'Josh Allen', 'Pass Yards', 245.5, startsAt=start)], fetched_at=T0)
+        moves.observe_books('nfl', [quote('draftkings', 'Josh Allen', 'Pass Yards', 250.5, -115, -105, startsAt=start)],
+                            fetched_at=T0 + 600)
+        found = moves.openings('nfl')['books']
+        key = next(iter(found['open']))
+        self.assertTrue(key.startswith('draftkings|joshallen|passyards|'))
+        self.assertEqual(found['open'][key][:3], [245.5, -110, -110])
+        self.assertEqual(found['now'][key][:3], [250.5, -115, -105])
+
+    def test_other_sports_record_no_openings(self):
+        moves.observe_books('mlb', [quote('draftkings', 'Aaron Judge', 'Total Bases', 1.5)], fetched_at=T0)
+        self.assertFalse(any(':open:' in key for key in self.kv.data))
+        self.assertEqual(moves.openings('mlb'), {})
 
 
 class PageTests(Base):

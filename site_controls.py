@@ -25,8 +25,14 @@ FINDER_SPORTS=('wnba','mlb','nfl','soccer','nhl','nba','tennis','cs2')
 # (finderSportsSeen replaced finderSportsKnown, which put soccer back to off
 # once while it is still in preview.)
 LEGACY_FINDER_SPORTS=('wnba','mlb','nfl')
+# Cheat Sheets, one switch each, as "league:sheet" (mlb_sheets.py,
+# nfl_sheets.py). MLB's eight came before sheetsSeen, so they stay as they
+# were; a sheet added later starts switched off until the admin turns it on.
+SHEETS=('mlb:hr','mlb:hot','mlb:matchups','mlb:bvp','mlb:nrfi','mlb:park','mlb:strikeouts','mlb:streaks',
+ 'nfl:td','nfl:firsttd','nfl:streaks','nfl:zones','nfl:redzone','nfl:speed','nfl:steam','nfl:shop','nfl:dvp','nfl:soft','nfl:goblins')
+LEGACY_SHEETS=tuple(key for key in SHEETS if key.startswith('mlb:'))
 HEX_COLOR_RE=re.compile(r'^#[0-9a-fA-F]{6}$')
-DEFAULT={'maintenance':False,'message':'We are updating Vortex. Please check back shortly.','requireLogin':True,'registrationOpen':True,'disabledTabs':[],'disabledSports':[],'disabledFinderSports':[],'backgroundImage':{'url':'','opacity':35},'theme':{'primary':'','secondary':'','tint':0},'updatedAt':None}
+DEFAULT={'maintenance':False,'message':'We are updating Vortex. Please check back shortly.','requireLogin':True,'registrationOpen':True,'disabledTabs':[],'disabledSports':[],'disabledFinderSports':[],'disabledSheets':[],'backgroundImage':{'url':'','opacity':35},'theme':{'primary':'','secondary':'','tint':0},'updatedAt':None}
 def read():
  try:
   policy=read_saved()
@@ -49,6 +55,10 @@ def read_saved():
  known=set(known) if isinstance(known,list) else set(LEGACY_FINDER_SPORTS)
  unseen=[sport for sport in FINDER_SPORTS if sport not in known]
  if unseen:policy['disabledFinderSports']=sorted(set(policy.get('disabledFinderSports') or [])|set(unseen))
+ seen_sheets=value.get('sheetsSeen')
+ seen_sheets=set(seen_sheets) if isinstance(seen_sheets,list) else set(LEGACY_SHEETS)
+ new_sheets=[key for key in SHEETS if key not in seen_sheets]
+ if new_sheets:policy['disabledSheets']=sorted(set(policy.get('disabledSheets') or [])|set(new_sheets))
  return policy
 def _valid_background_url(url):
  if not isinstance(url,str):return False
@@ -78,8 +88,12 @@ def validate(body):
  finder_sports=body.get('disabledFinderSports',[])
  if not isinstance(finder_sports,list) or any(t not in FINDER_SPORTS for t in finder_sports):raise ValueError('Invalid Finder sport')
  result['disabledFinderSports']=sorted(set(finder_sports))
- # Every league the admin saw a switch for is now a deliberate choice.
+ sheets=body.get('disabledSheets',[])
+ if not isinstance(sheets,list) or any(t not in SHEETS for t in sheets):raise ValueError('Invalid cheat sheet')
+ result['disabledSheets']=sorted(set(sheets))
+ # Every league and sheet the admin saw a switch for is now a deliberate choice.
  result['finderSportsSeen']=list(FINDER_SPORTS)
+ result['sheetsSeen']=list(SHEETS)
  result['tabsSeen']=list(TABS)
  # Site-wide background must be a real http(s) link or our own uploaded-
  # image endpoint (see site_background.py) -- never a raw data: URL, since
@@ -139,6 +153,14 @@ def finder_sport_allowed(headers,sport):
  policy=read()
  if policy['maintenance']:return False
  return _items_open(headers,policy,['tab:finder',f'finderSport:{sport}'])
+def sheet_allowed(headers,key):
+ """Whether a regular user may open the cheat sheet `key` ("nfl:dvp").
+ Admins always may; everyone else needs the Cheat Sheets tab and that sheet
+ switched on."""
+ if admin_auth.is_admin_request(headers):return True
+ policy=read()
+ if policy['maintenance'] or key in (policy.get('disabledSheets') or []):return False
+ return _items_open(headers,policy,['tab:sheets'])
 def finder_sports_allowed(headers):
  """The Finder leagues this viewer may see, all at once (the league
  switches only; the Line Moves page uses it apart from the Finder tab)."""

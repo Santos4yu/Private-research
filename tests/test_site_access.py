@@ -61,6 +61,28 @@ class SiteControlsTests(unittest.TestCase):
    self.assertIn('soccer',controls.read()['disabledFinderSports'])
    self.assertIn('nhl',controls.read()['disabledFinderSports'])
    self.assertIn('tennis',controls.read()['disabledFinderSports'])
+ def test_new_cheat_sheets_start_off_and_each_has_its_own_switch(self):
+  import json
+  # Settings saved before the NFL sheets existed: MLB's stay as they were,
+  # every NFL sheet starts off.
+  old={**controls.DEFAULT,'disabledSheets':['mlb:hr']}
+  with patch.object(controls.store,'get',return_value=json.dumps(old)):
+   off=controls.read()['disabledSheets']
+  self.assertIn('mlb:hr',off);self.assertNotIn('mlb:hot',off)
+  self.assertTrue(all(key in off for key in controls.SHEETS if key.startswith('nfl:')))
+  # The admin turns some on: they stay on, and the rest stay off.
+  saved=controls.validate({**controls.DEFAULT,'disabledSheets':['nfl:steam','nfl:speed']})
+  self.assertEqual(saved['sheetsSeen'],list(controls.SHEETS))
+  with patch.object(controls.store,'get',return_value=json.dumps(saved)):
+   self.assertEqual(controls.read()['disabledSheets'],['nfl:speed','nfl:steam'])
+  with self.assertRaises(ValueError):controls.validate({**controls.DEFAULT,'disabledSheets':['nfl:made-up']})
+  # A switched-off sheet is closed to members, open to the admin.
+  with patch.object(controls,'read',return_value=saved),patch.object(controls.admin_auth,'is_admin_request',return_value=False):
+   self.assertFalse(controls.sheet_allowed({},'nfl:steam'));self.assertTrue(controls.sheet_allowed({},'nfl:dvp'))
+  with patch.object(controls,'read',return_value={**saved,'disabledTabs':['sheets']}),patch.object(controls.admin_auth,'is_admin_request',return_value=False):
+   self.assertFalse(controls.sheet_allowed({},'nfl:dvp'))
+  with patch.object(controls,'read',return_value=saved),patch.object(controls.admin_auth,'is_admin_request',return_value=True):
+   self.assertTrue(controls.sheet_allowed({},'nfl:steam'))
  def test_background_image_defaults_when_omitted(self):
   body={k:v for k,v in controls.DEFAULT.items() if k!='backgroundImage'}
   self.assertEqual(controls.validate(body)['backgroundImage'],{'url':'','opacity':35})

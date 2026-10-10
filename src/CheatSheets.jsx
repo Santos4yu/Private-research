@@ -1,6 +1,9 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {ArrowDown,ArrowLeft,ArrowUp,ArrowUpRight,ChevronDown,CloudRain,Crosshair,Flame,Home,Info,Layers,Moon,RefreshCw,Search,Sun,Swords,Target,TrendingUp,Zap} from 'lucide-react';
 import {loadLines} from './finder-pool';
+import {finite,nameKey,pct,num,fixed,signed,price,time,dayLabel,tone,initials,Img,Score,Tag,Table,better,Faq,Skeleton} from './cheat-sheet-parts';
+import {NFL_SHEETS,NflSheetView} from './NflSheets';
+import {siteSheetAllowed} from './site-access';
 import './cheat-sheets.css';
 
 // Cheat Sheets: today's MLB slate read eight ways (mlb_sheets.py). Each
@@ -17,7 +20,7 @@ const SHEETS=[
  {key:'strikeouts',blurb:"Strikeout projections against today's lineups.",title:'Strikeouts',kicker:'K props',icon:Zap,about:'Starters\' strikeout profiles against the lineup they face: K rate, recent strikeouts, expected innings, the lineup\'s K rate against his hand, and a projection.'},
  {key:'streaks',blurb:"Active hit, on-base and home run streaks.",title:'Streaks',kicker:'Parlay legs',icon:Layers,about:'Active streaks for today\'s hitters: hits, on base, total bases, home runs, walks, steals and strikeouts, longest first.'},
 ];
-const SPORTS=[{key:'mlb',label:'MLB',live:true},{key:'nfl',label:'NFL'},{key:'nba',label:'NBA'},{key:'nhl',label:'NHL'}];
+const SPORTS=[{key:'mlb',label:'MLB'},{key:'nfl',label:'NFL'},{key:'nba',label:'NBA'},{key:'nhl',label:'NHL'}];
 const FAQ={
  hr:[['What goes into the power score?','Barrel rate carries the most weight, then ISO against today\'s pitcher hand, home run rate, hard-hit rate, the starter\'s home runs allowed and the park and weather. It ranks today\'s hitters against each other from 0 to 100.'],
   ['What do HOT and the park tags mean?','HOT means three or more homers, or a big jump in ISO, over the last 14 days. The park figure is the game\'s home run environment from the park and the weather, against an average park.']],
@@ -38,20 +41,9 @@ const FAQ={
   ['Should I chase streaks?','Use them as one input. A streak says what has happened; check the matchup and the park before building a leg on it.']],
 };
 
-const finite=value=>typeof value==='number'&&Number.isFinite(value);
-const nameKey=value=>String(value||'').normalize('NFKD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
+const rate=value=>finite(value)?value.toFixed(3).replace(/^0/,''):'—';
 const photo=id=>id?`https://img.mlbstatic.com/mlb-photos/image/upload/w_120,q_auto:best/v1/people/${id}/headshot/silo/current`:null;
 const logo=id=>id?`https://www.mlbstatic.com/team-logos/${id}.svg`:null;
-const rate=value=>finite(value)?value.toFixed(3).replace(/^0/,''):'—';
-const pct=(value,digits=1)=>finite(value)?(value*100).toFixed(digits):'—';
-const num=(value,digits=1)=>finite(value)?(Number.isInteger(value)?String(value):value.toFixed(digits)):'—';
-const fixed=(value,digits=1)=>finite(value)?value.toFixed(digits):'—';
-const signed=(value,format)=>finite(value)?`${value>0?'+':value<0?'−':''}${format(Math.abs(value))}`:'—';
-const price=value=>finite(value)?(value>0?`+${value}`:String(value)):'—';
-const time=value=>{const date=new Date(value);return Number.isFinite(date.getTime())?date.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'';};
-const dayLabel=value=>{const date=new Date(`${value}T12:00:00`);return Number.isFinite(date.getTime())?date.toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'}):'';};
-const tone=score=>!finite(score)?'none':score>=65?'high':score>=50?'mid':'low';
-const initials=name=>String(name||'').split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toUpperCase();
 
 // ---------------------------------------------------------------- data
 
@@ -90,11 +82,6 @@ function usePrices(active){
 
 // ---------------------------------------------------------------- pieces
 
-function Img({src,className,alt=''}){
- const [failed,setFailed]=useState(false);
- if(!src||failed)return null;
- return <img className={className} src={src} alt={alt} loading="lazy" onError={()=>setFailed(true)}/>;
-}
 function Face({id,name,teamId,size}){
  const [failed,setFailed]=useState(false);
  const [noLogo,setNoLogo]=useState(false);
@@ -103,8 +90,6 @@ function Face({id,name,teamId,size}){
   {teamId&&!noLogo&&<span className="cs-face-team"><img src={logo(teamId)} alt="" loading="lazy" onError={()=>setNoLogo(true)}/></span>}
  </span>;
 }
-const Score=({value,label})=><span className="cs-score" data-tone={tone(value)} title={label}><b>{finite(value)?value:'—'}</b><i style={{'--v':finite(value)?Math.max(0,Math.min(value,100))/100:0}}/></span>;
-const Tag=({tone:kind,icon:Icon,children})=><span className="cs-tag" data-tone={kind}>{Icon&&<Icon aria-hidden="true"/>}{children}</span>;
 const Hand=({value})=>value?<span className="cs-hand">{value}</span>:null;
 function Who({row,tag}){
  const versus=row.pitcher?<>vs {row.pitcher.name?.split(' ').at(-1)}<Hand value={row.pitcher.throws}/></>:row.opponent?<>{row.home?'vs':'@'} {row.opponent}</>:null;
@@ -123,74 +108,6 @@ function Spark({values}){
  return <svg className="cs-spark" viewBox={`0 0 ${width} ${height}`} width={width} height={height} aria-hidden="true"><polyline points={points}/></svg>;
 }
 
-// Phones get cards instead of a wide table: nothing slides sideways.
-const PHONE='(max-width: 640px)';
-function usePhone(){
- const [phone,setPhone]=useState(()=>typeof window!=='undefined'&&window.matchMedia(PHONE).matches);
- useEffect(()=>{const query=window.matchMedia(PHONE),sync=()=>setPhone(query.matches);sync();query.addEventListener('change',sync);return()=>query.removeEventListener('change',sync);},[]);
- return phone;
-}
-const show=(column,row)=>column.render?column.render(row):column.format?column.format(column.value(row),row):column.value(row);
-
-// A sortable table: the first column stays put when the rest scroll sideways.
-function Table({rows,columns,initial,empty,rowKey=row=>row.id,expand}){
- const [sort,setSort]=useState(initial||{key:columns.at(-1).key,dir:-1});
- const [open,setOpen]=useState(null);
- const phone=usePhone();
- const sorted=useMemo(()=>{
-  const column=columns.find(item=>item.key===sort.key);
-  if(!column?.value)return rows;
-  return [...rows].sort((a,b)=>{const x=column.value(a),y=column.value(b);return (finite(x)?0:1)-(finite(y)?0:1)||((finite(x)&&finite(y))?(x-y)*sort.dir:0);});
- },[rows,sort,columns]);
- if(!rows.length)return <p className="cs-empty">{empty}</p>;
- const toggle=key=>setOpen(current=>current===key?null:key);
- if(phone)return <Cards rows={sorted} columns={columns} sort={sort} setSort={setSort} rowKey={rowKey} expand={expand} open={open} toggle={toggle}/>;
- return <div className="cs-table-wrap"><table className="cs-table">
-  <thead><tr><th className="cs-rank">#</th>{columns.map(column=><th key={column.key} className={column.className} data-sorted={sort.key===column.key?(sort.dir>0?'up':'down'):undefined}>
-   {column.value?<button type="button" onClick={()=>setSort(current=>({key:column.key,dir:current.key===column.key?-current.dir:-1}))}>{column.label}{sort.key===column.key&&(sort.dir>0?<ArrowUp aria-hidden="true"/>:<ArrowDown aria-hidden="true"/>)}</button>:column.label}
-  </th>)}{expand&&<th aria-label="Details"/>}</tr></thead>
-  <tbody>{sorted.map((row,index)=><React.Fragment key={rowKey(row)}>
-   <tr data-open={open===rowKey(row)?'':undefined} onClick={expand?()=>toggle(rowKey(row)):undefined} style={{'--i':Math.min(index,20)}}>
-    <td className="cs-rank">{index+1}</td>
-    {columns.map(column=><td key={column.key} className={column.className} data-tone={column.tone?.(row)||undefined}>{show(column,row)}</td>)}
-    {expand&&<td className="cs-chevron"><ChevronDown aria-hidden="true"/></td>}
-   </tr>
-   {expand&&open===rowKey(row)&&<tr className="cs-expand"><td colSpan={columns.length+2}>{expand(row)}</td></tr>}
-  </React.Fragment>)}</tbody>
- </table></div>;
-}
-
-// The same rows as cards: who on top with their score, every stat in a grid
-// under them, and a sort picker in place of the column headers.
-const PAGE=20;
-function Cards({rows,columns,sort,setSort,rowKey,expand,open,toggle}){
- const [limit,setLimit]=useState(PAGE);
- useEffect(()=>setLimit(PAGE),[rows]);
- const [who,...rest]=columns;
- const score=rest.at(-1)?.key==='score'?rest.at(-1):null;
- const stats=score?rest.slice(0,-1):rest;
- const sortable=columns.filter(column=>column.value);
- return <div className="cs-cards">
-  {sortable.length>1&&<div className="cs-sortbar">
-   <label><span>Sort by</span><select value={sort.key} onChange={event=>setSort({key:event.target.value,dir:-1})}>{sortable.map(column=><option key={column.key} value={column.key}>{column.label}</option>)}</select><ChevronDown aria-hidden="true"/></label>
-   <button type="button" onClick={()=>setSort(current=>({...current,dir:-current.dir}))}>{sort.dir>0?<ArrowUp aria-hidden="true"/>:<ArrowDown aria-hidden="true"/>}{sort.dir>0?'Low to high':'High to low'}</button>
-  </div>}
-  {rows.slice(0,limit).map((row,index)=>{const key=rowKey(row),shown=open===key;return <article key={key} className="cs-mcard" data-open={shown?'':undefined} style={{'--i':Math.min(index,12)}}>
-   <header onClick={expand?()=>toggle(key):undefined}>
-    <span className="cs-mcard-rank">{index+1}</span>
-    <div className="cs-mcard-who">{show(who,row)}</div>
-    {score&&<div className="cs-mcard-score">{show(score,row)}</div>}
-   </header>
-   <dl className="cs-mstats">{stats.map(column=><div key={column.key} data-tone={column.tone?.(row)||undefined}><dt>{column.short||column.label}</dt><dd>{show(column,row)}</dd></div>)}</dl>
-   {expand&&<button type="button" className="cs-mcard-more" onClick={()=>toggle(key)} aria-expanded={shown}>{shown?'Less':'Last starts'}<ChevronDown aria-hidden="true"/></button>}
-   {expand&&shown&&<div className="cs-mcard-detail">{expand(row)}</div>}
-  </article>;})}
-  {rows.length>limit&&<button type="button" className="cs-show-more" onClick={()=>setLimit(count=>count+PAGE)}>Show more<small>{rows.length-limit} left</small></button>}
- </div>;
-}
-
-// Good-for-the-pick colouring against the league's typical value.
-const better=(value,low,high)=>!finite(value)?undefined:value>=high?'good':value<=low?'bad':undefined;
 
 // ---------------------------------------------------------------- sheets
 
@@ -358,7 +275,7 @@ function ParkSheet({data}){
 function StrikeoutSheet({data,prices}){
  const rows=data.rows||[];
  const line=row=>prices?.k.get(nameKey(row.name))||null;
- return <Table rows={rows} empty="No starters named yet." expand={row=><KDetail row={row}/>} columns={[
+ return <Table rows={rows} empty="No starters named yet." moreLabel="Last starts" expand={row=><KDetail row={row}/>} columns={[
   {key:'player',label:'Pitcher',className:'cs-sticky',render:row=><Who row={{...row,pitcher:null,bats:null}}/>},
   {key:'line',label:'O/U',value:row=>line(row)?.line,render:row=>{const found=line(row);return found?<span className="cs-ou"><b>{num(found.line)}</b><small>{found.over?`o ${price(found.over.over)}`:''}{found.under?` · u ${price(found.under.under)}`:''}</small></span>:'—';}},
   {key:'k9',label:'K/9',value:row=>row.k9,format:value=>num(value),tone:row=>better(row.k9,7.5,10)},
@@ -401,17 +318,9 @@ function StreaksSheet({data,filter}){
 
 // ---------------------------------------------------------------- page
 
-function Faq({items}){
- const [open,setOpen]=useState(null);
- if(!items?.length)return null;
- return <section className="cs-faq"><h3>Questions</h3>{items.map(([question,answer],index)=><div key={question} className="cs-faq-item" data-open={open===index?'':undefined}>
-  <button type="button" onClick={()=>setOpen(current=>current===index?null:index)} aria-expanded={open===index}>{question}<ChevronDown aria-hidden="true"/></button>
-  {open===index&&<p>{answer}</p>}
- </div>)}</section>;
-}
-
-function Hub({onOpen}){
- return <div className="cs-grid">{SHEETS.map((sheet,index)=>{const Icon=sheet.icon;return <button key={sheet.key} type="button" className="cs-tile" onClick={()=>onOpen(sheet.key)} style={{'--i':index}}>
+function Hub({sheets,onOpen}){
+ if(!sheets.length)return <p className="cs-empty">No sheets are open for this league right now.</p>;
+ return <div className="cs-grid">{sheets.map((sheet,index)=>{const Icon=sheet.icon;return <button key={sheet.key} type="button" className="cs-tile" onClick={()=>onOpen(sheet.key)} style={{'--i':index}}>
   <span className="cs-tile-top"><span className="cs-icon"><Icon aria-hidden="true"/></span><ArrowUpRight className="cs-tile-go" aria-hidden="true"/></span>
   <strong>{sheet.title}</strong>
   <span>{sheet.blurb}</span>
@@ -419,8 +328,8 @@ function Hub({onOpen}){
  </button>;})}</div>;
 }
 
-function SheetView({sheetKey,onOpen}){
- const sheet=SHEETS.find(item=>item.key===sheetKey)||SHEETS[0];
+function SheetView({sheetKey,sheets,onOpen}){
+ const sheet=sheets.find(item=>item.key===sheetKey)||sheets[0];
  const [day,setDay]=useState('today');
  const [state,setState]=useState({loading:true,data:null,error:null});
  const [game,setGame]=useState('all');
@@ -438,7 +347,7 @@ function SheetView({sheetKey,onOpen}){
  const projected=data&&data.games?.length&&data.games.some(item=>!item.confirmed);
  const games=data?.games?.length||0;
  return <div className="cs-view">
-  <nav className="cs-tabs" aria-label="Sheets">{SHEETS.map(item=>{const ItemIcon=item.icon;return <button key={item.key} type="button" aria-current={item.key===sheet.key?'page':undefined} data-active={item.key===sheet.key?'':undefined} onClick={()=>onOpen(item.key)}>
+  <nav className="cs-tabs" aria-label="Sheets">{sheets.map(item=>{const ItemIcon=item.icon;return <button key={item.key} type="button" aria-current={item.key===sheet.key?'page':undefined} data-active={item.key===sheet.key?'':undefined} onClick={()=>onOpen(item.key)}>
    <ItemIcon aria-hidden="true"/>{item.title}
   </button>;})}</nav>
   <section className="cs-sheet">
@@ -472,34 +381,54 @@ function SheetView({sheetKey,onOpen}){
   </section>
  </div>;
 }
-const Skeleton=()=><div className="cs-skeleton" aria-label="Loading">{Array.from({length:8},(_,index)=><i key={index} style={{'--i':index}}/>)}</div>;
 
-// The sheet in the address (/cheat-sheets#hr), so a sheet can be shared and Back works.
-const readSheet=()=>{const key=location.hash.slice(1);return SHEETS.some(sheet=>sheet.key===key)?key:null;};
+
+// The league and sheet in the address, so a sheet can be shared and Back
+// works: #hr (an MLB sheet, as before), #nfl for the NFL sheets, #nfl/dvp.
+const LEAGUES={mlb:SHEETS,nfl:NFL_SHEETS};
+const LEAGUE_NOTE={mlb:count=>`Today's MLB slate, read ${count} ways. Updated through the day.`,
+ nfl:count=>`This week's NFL games, read ${count} ways. Updated through the week.`};
+function readRoute(){
+ const [first,second]=location.hash.slice(1).split('/');
+ if(first==='nfl')return {league:'nfl',sheet:NFL_SHEETS.some(item=>item.key===second)?second:null};
+ if(first==='mlb')return {league:'mlb',sheet:SHEETS.some(item=>item.key===second)?second:null};
+ return {league:null,sheet:SHEETS.some(item=>item.key===first)?first:null};
+}
+const hashFor=(league,sheet)=>league==='mlb'?(sheet||'mlb'):sheet?`${league}/${sheet}`:league;
 
 export function CheatSheets(){
- const [sheet,setSheet]=useState(readSheet);
+ const [route,setRoute]=useState(readRoute);
+ // Which sheets a member sees is an admin switch per sheet; re-read whenever
+ // the site's settings change.
+ const [revision,setRevision]=useState(0);
  useEffect(()=>{
-  const sync=()=>setSheet(readSheet());
+  const sync=()=>setRoute(readRoute());
+  const bump=()=>setRevision(value=>value+1);
   window.addEventListener('hashchange',sync);
   window.addEventListener('popstate',sync);
-  return()=>{window.removeEventListener('hashchange',sync);window.removeEventListener('popstate',sync);};
+  window.addEventListener('vortex:site-policy',bump);
+  return()=>{window.removeEventListener('hashchange',sync);window.removeEventListener('popstate',sync);window.removeEventListener('vortex:site-policy',bump);};
  },[]);
- const open=key=>{
-  if(key===sheet)return;
-  const url=new URL(location.href);url.hash=key||'';
+ const open=useMemo(()=>Object.fromEntries(Object.entries(LEAGUES).map(([league,list])=>[league,list.filter(item=>siteSheetAllowed(`${league}:${item.key}`))])),[revision]);
+ const league=route.league&&open[route.league]?.length?route.league:route.sheet?'mlb':Object.keys(LEAGUES).find(key=>open[key].length)||'mlb';
+ const sheets=open[league];
+ const sheet=route.sheet&&sheets.some(item=>item.key===route.sheet)?route.sheet:null;
+ const go=(nextLeague,key)=>{
+  if(nextLeague===league&&key===sheet)return;
+  const url=new URL(location.href);url.hash=hashFor(nextLeague,key);
   history.pushState(history.state,'',url);
-  setSheet(key);
+  setRoute({league:nextLeague,sheet:key});
   document.getElementById('panel-sheets')?.scrollIntoView({block:'start'});
  };
  return <div className="cheat-sheets">
   <header className="cs-top" data-sheet={sheet?'':undefined}>
-   {sheet?<button type="button" className="cs-back" onClick={()=>open(null)}><ArrowLeft aria-hidden="true"/>Cheat Sheets</button>
-    :<div className="cs-top-title"><h1>Cheat Sheets</h1><p>Today's MLB slate, read eight ways. Updated through the day.</p></div>}
-   <div className="cs-sports" role="tablist" aria-label="Sport">{SPORTS.map(sport=><button key={sport.key} type="button" role="tab" aria-selected={sport.live} data-active={sport.live?'':undefined} disabled={!sport.live}>
-    {sport.label}{!sport.live&&<small>Soon</small>}
-   </button>)}</div>
+   {sheet?<button type="button" className="cs-back" onClick={()=>go(league,null)}><ArrowLeft aria-hidden="true"/>Cheat Sheets</button>
+    :<div className="cs-top-title"><h1>Cheat Sheets</h1><p>{LEAGUE_NOTE[league](sheets.length)}</p></div>}
+   <div className="cs-sports" role="tablist" aria-label="Sport">{SPORTS.map(sport=>{const live=Boolean(open[sport.key]?.length);return <button key={sport.key} type="button" role="tab" aria-selected={sport.key===league} data-active={sport.key===league?'':undefined} disabled={!live} onClick={()=>go(sport.key,null)}>
+    {sport.label}{!live&&<small>Soon</small>}
+   </button>;})}</div>
   </header>
-  {sheet?<SheetView sheetKey={sheet} onOpen={open}/>:<Hub onOpen={open}/>}
+  {sheet?(league==='nfl'?<NflSheetView sheetKey={sheet} sheets={sheets} onOpen={key=>go('nfl',key)}/>:<SheetView sheetKey={sheet} sheets={sheets} onOpen={key=>go('mlb',key)}/>)
+   :<Hub sheets={sheets} onOpen={key=>go(league,key)}/>}
  </div>;
 }

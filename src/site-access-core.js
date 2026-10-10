@@ -33,3 +33,16 @@ export const FINDER_SPORTS=['wnba','mlb','nfl','soccer','nhl','nba','tennis','cs
 export function canUseFinderSport(policy,sport){
  return canUseTab(policy,'finder')&&(policy.isAdmin||!(policy.disabledFinderSports||[]).includes(sport));
 }
+
+// Cheat Sheets, one admin switch each (site_controls SHEETS, same keys and
+// order). A sheet switched off is hidden from everyone but admins.
+export const CHEAT_SHEETS=[
+ ['mlb:hr','HR Props'],['mlb:hot','Hot Bats'],['mlb:matchups','Pitcher vs Lineup'],['mlb:bvp','Batter vs Pitcher'],
+ ['mlb:nrfi','NRFI / YRFI'],['mlb:park','Ballpark & Weather'],['mlb:strikeouts','Strikeouts'],['mlb:streaks','Streaks'],
+ ['nfl:td','TD Scorers'],['nfl:firsttd','First TD'],['nfl:streaks','Prop Streaks'],['nfl:zones','Target Zones'],
+ ['nfl:redzone','Red Zone'],['nfl:speed','Speed Edges'],['nfl:steam','Steam Moves'],['nfl:shop','Line Shopping'],
+ ['nfl:dvp','Defense vs Position'],['nfl:soft','Soft Spots'],['nfl:goblins','Goblins & Demons'],
+];
+export function canUseSheet(policy,key){
+ return canUseTab(policy,'sheets')&&(policy.isAdmin||!(policy.disabledSheets||[]).includes(key));
+}
