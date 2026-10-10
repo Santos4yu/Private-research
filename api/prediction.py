@@ -91,6 +91,20 @@ def _cached_prediction(cache_key, compute):
             _PREDICTION_INFLIGHT.pop(cache_key, None)
 
 
+def _member_id(headers, session):
+    """Whose graded slips these are: the signed-in account, else the
+    session's own id; nobody for a shared visitor or beta session."""
+    try:
+        from account_auth import identity
+        account = identity(headers)
+        if account and account.get("id"):
+            return str(account["id"])
+    except Exception:  # noqa: BLE001
+        pass
+    member = str((session or {}).get("id") or "")
+    return member if member and member not in ("public-visitor", "beta") else None
+
+
 def _analyze_slip(image_bytes, admin=False):
     """The slip's legs as read from the screenshot (slip_reader.py); the
     browser grades them against the Finder's lines (src/slip-check.js).
@@ -103,8 +117,9 @@ def _analyze_slip(image_bytes, admin=False):
             body["detail"] = slip["detail"]
         # Not set up or not reachable is the server's problem, not the screenshot's.
         return (503 if slip.get("reason") else 422), body
-    if not admin:
-        slip.pop("detail", None)
+    # Which readers were skipped on the way to a good read stays in the
+    # server log (slip_reader.py); the page shows only the slip.
+    slip.pop("detail", None)
     return 200, slip
 
 
@@ -226,10 +241,21 @@ class handler(BaseHTTPRequestHandler):
         # Live (uncached) Discord role check -- this is the "real data"
         # endpoint, so access revocation needs to be instant here, not
         # whenever a cached session cookie happens to expire.
-        if not session_with_live_access(self.headers):
+        session = session_with_live_access(self.headers)
+        if not session:
             return self._send(401, {"error": "Sign in with Discord to use live research.", "authRequired": True})
 
         qs = parse_qs(urlparse(self.path).query)
+        if (qs.get("action", [""])[0]).strip().lower() == "slip-history":
+            # The member's graded slips and how they finished, with the site's record (slip_ledger.py).
+            import slip_ledger
+            member = _member_id(self.headers, session)
+            try:
+                if not member:
+                    return self._send(200, {"slips": [], "record": slip_ledger.record()})
+                return self._send(200, slip_ledger.history(member))
+            except Exception:
+                return self._send(503, {"error": "Graded slips are unavailable right now."})
         if (qs.get("action", [""])[0]).strip().lower() == "prizepicks-lines":
             player_name = (qs.get("player", [""])[0]).strip()
             stat_label = (qs.get("stat", [""])[0]).strip()
@@ -294,7 +320,8 @@ class handler(BaseHTTPRequestHandler):
         source=(parse_qs(urlparse(self.path).query).get('from') or [''])[0]
         tab='slip' if 'slip-analyzer' in self.path else 'builder' if source=='parlay' else None
         if not allowed(self.headers,tab):return self._send(503,{'error':'This section is temporarily unavailable','featureDisabled':True})
-        if not session_with_live_access(self.headers):
+        session = session_with_live_access(self.headers)
+        if not session:
             return self._send(401, {
                 "error": "Sign in with Discord to export PrizePicks lineups.",
                 "authRequired": True,
@@ -316,6 +343,50 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(status, body)
             except Exception:
                 return self._send(422, {"error": "That screenshot couldn't be read. Try again, or use a clearer one."})
+        if action == "slip-save":
+            # A graded slip's picks for the site's record, and the slip for its member when they track it (slip_ledger.py).
+            try:
+                content_length = int(self.headers.get("Content-Length") or 0)
+                if content_length < 1 or content_length > 32_768:
+                    return self._send(413, {"error": "Invalid request size."})
+                import slip_ledger
+                member = _member_id(self.headers, session)
+                if not member:
+                    return self._send(200, {"saved": False})
+                return self._send(200, {"saved": True, **slip_ledger.save(member, json.loads(self.rfile.read(content_length) or b"{}"))})
+            except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                return self._send(400, {"error": str(exc) or "Invalid request."})
+            except Exception:
+                return self._send(503, {"error": "The slip couldn't be saved right now."})
+        if action == "slip-remove":
+            # Stop tracking a slip (slip_ledger.remove); its picks stay in the record.
+            try:
+                content_length = int(self.headers.get("Content-Length") or 0)
+                if content_length < 1 or content_length > 1_024:
+                    return self._send(413, {"error": "Invalid request size."})
+                import slip_ledger
+                member = _member_id(self.headers, session)
+                if not member:
+                    return self._send(200, {"removed": 0})
+                body = json.loads(self.rfile.read(content_length) or b"{}")
+                return self._send(200, slip_ledger.remove(member, body.get("id") if isinstance(body, dict) else None))
+            except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                return self._send(400, {"error": str(exc) or "Invalid request."})
+            except Exception:
+                return self._send(503, {"error": "The slip couldn't be removed right now."})
+        if action == "slip-games":
+            # Each pick's game: status, score, injuries, lineups and the
+            # players' lines so far (slip_games.py). Free league sources only.
+            try:
+                content_length = int(self.headers.get("Content-Length") or 0)
+                if content_length < 1 or content_length > 16_384:
+                    return self._send(413, {"error": "Invalid request size."})
+                import slip_games
+                return self._send(200, slip_games.read(json.loads(self.rfile.read(content_length) or b"{}")))
+            except (TypeError, ValueError, json.JSONDecodeError):
+                return self._send(400, {"error": "Invalid request."})
+            except Exception:
+                return self._send(503, {"error": "Game updates are unavailable right now."})
         if action != "prizepicks-export":
             return self._send(404, {"error": "Unknown action."})
         try:

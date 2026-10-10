@@ -6,6 +6,8 @@ import {BotCard} from './KrazyBotCard';
 import {KrazyBotHome,LOOK_QUESTIONS} from './KrazyBotHome';
 import {loadLines} from './finder-pool';
 import {loadHitterMatchups,withHitterMatchups} from './unified-finder-data';
+import {loadMatchups} from './slip-matchup';
+import {loadGames,loadTeammates,withGame} from './slip-games';
 import {isPrizePicksLine} from './smart-slip';
 import {siteFinderSportAllowed} from './site-access';
 import {useVoice} from './voice-input';
@@ -21,6 +23,10 @@ const CARD_WIDTH=440;
 const roomy=room=>room>860;
 const cardWidth=room=>roomy(room)?Math.min(760,room-96):CARD_WIDTH;
 const textWidth=room=>roomy(room)?520:null;
+// Typing on a phone the input moves up under the account buttons (its centre
+// this far from the top), where no keyboard can cover it, whatever the phone
+// does with the page when the keyboard opens.
+const TYPING_TOP=92;
 const memory={
  read(){try{return JSON.parse(localStorage.getItem(MEMORY_KEY)||'null');}catch{return null;}},
  write(value){try{localStorage.setItem(MEMORY_KEY,JSON.stringify(value));}catch{/* private mode */}},
@@ -56,6 +62,16 @@ export function KrazyBot(){
    const rows=await loadLines(sport,{only:row=>isPrizePicksLine(row)&&Date.parse(row.startsAt||'')>now+10*60000});
    // MLB hitters carry the Research matchup grade (pitch mix and all).
    return sport==='mlb'?withHitterMatchups(rows,await loadHitterMatchups().catch(()=>null)):rows;
+  },
+  // Each league's matchup tables (slip-matchup.js), so every pick is judged
+  // exactly as the Slip Analyzer judges it.
+  matchups:sport=>loadMatchups([sport]),
+  // A pick's game news (injury report, lineups, what a teammate's absence
+  // has meant), the same the Slip Analyzer reads (slip-games.js).
+  games:async legs=>{
+   const found=await loadGames(legs);
+   const mates=await loadTeammates(legs.filter(leg=>found[leg.key]).map(leg=>({key:leg.key,row:withGame(leg.row,found[leg.key])}))).catch(()=>({}));
+   return Object.fromEntries(Object.entries(found).map(([key,game])=>[key,{...game,teammates:mates[key]||[]}]));
   },
   // Today's MLB cheat sheets (mlb_sheets.py) for questions about NRFIs, weather, streaks and more.
   sheets:async name=>{
@@ -120,35 +136,71 @@ export function KrazyBot(){
   window.addEventListener('resize',place);
   return()=>window.removeEventListener('resize',place);
  },[]);
- // Typing on a phone: the keyboard shrinks the visual viewport (the window
- // stays the same size), so the bot is fitted to what's left above it and
- // the input rests just over the keys instead of the page sliding up.
+ // Typing on a phone: the input moves to the top of the screen with the
+ // suggestions under it, and the board and the site's bottom menu step out of
+ // the way, so nothing depends on where the keyboard ends. On a tablet the bot
+ // is fitted to what's left above the keyboard instead, with the input resting
+ // just over the keys (measured against the tallest the screen has been at
+ // this width, since some shrink the whole window for the keyboard).
  useEffect(()=>{
   const viewport=window.visualViewport,node=host.current;
-  if(!viewport||!node)return undefined;
+  if(!node)return undefined;
+  const page=document.documentElement;
+  let full=0,width=0;
   const fit=()=>{
+   const height=viewport?viewport.height:window.innerHeight;
+   if(window.innerWidth!==width){width=window.innerWidth;full=0;}
    const field=document.activeElement;
+   const typing=Boolean(field&&node.contains(field)&&field.matches('input,textarea'));
+   if(!typing||height>full)full=Math.max(full,height);
    // Touch screens only: zooming in on a computer shrinks the viewport too.
    const touch=window.matchMedia('(pointer: coarse)').matches;
-   const open=touch&&Boolean(field&&node.contains(field)&&field.matches('input,textarea'))&&viewport.height<window.innerHeight-120;
+   const phone=touch&&window.matchMedia('(max-width: 760px)').matches;
+   const up=phone&&typing;
+   const open=!phone&&touch&&typing&&height<full-120;
    if(open){
-    node.style.setProperty('--kb-vv-top',`${Math.round(viewport.offsetTop)}px`);
-    node.style.setProperty('--kb-vv-h',`${Math.round(viewport.height)}px`);
+    node.style.setProperty('--kb-vv-top',`${Math.round(viewport?viewport.offsetTop:0)}px`);
+    node.style.setProperty('--kb-vv-h',`${Math.round(height)}px`);
    }
-   if(open!==node.hasAttribute('data-keyboard'))node.toggleAttribute('data-keyboard',open);
+   const moved=open!==node.hasAttribute('data-keyboard')||up!==node.hasAttribute('data-typing');
+   node.toggleAttribute('data-keyboard',open);
+   node.toggleAttribute('data-typing',up);
+   page.toggleAttribute('data-bot-typing',open||up);
    measureRef.current();
+   // The orb places its input when the window resizes: tell it to look again.
+   if(moved)window.dispatchEvent(new Event('resize'));
   };
   const later=()=>setTimeout(fit,60);
-  viewport.addEventListener('resize',fit);
-  viewport.addEventListener('scroll',fit);
-  node.addEventListener('focusin',fit);
+  // The keyboard slides in after the field takes focus: look again once it has.
+  const settle=()=>{fit();setTimeout(fit,320);};
+  fit();
+  viewport?.addEventListener('resize',fit);
+  viewport?.addEventListener('scroll',fit);
+  window.addEventListener('resize',fit);
+  node.addEventListener('focusin',settle);
   node.addEventListener('focusout',later);
-  return()=>{viewport.removeEventListener('resize',fit);viewport.removeEventListener('scroll',fit);node.removeEventListener('focusin',fit);node.removeEventListener('focusout',later);};
+  // Sent from a phone: the keyboard goes down so the answer has the screen.
+  const sent=event=>{
+   if(!window.matchMedia('(pointer: coarse)').matches)return;
+   const field=event.target.querySelector?.('input');
+   if(field&&document.activeElement===field)field.blur();
+  };
+  node.addEventListener('submit',sent,true);
+  return()=>{
+   viewport?.removeEventListener('resize',fit);viewport?.removeEventListener('scroll',fit);window.removeEventListener('resize',fit);
+   node.removeEventListener('focusin',settle);node.removeEventListener('focusout',later);node.removeEventListener('submit',sent,true);
+   page.removeAttribute('data-bot-typing');
+  };
  },[]);
- // While typing on a phone the orb's input pill rests just above the keys
- // (38px up from the bottom of the bot's box, as --mo-pill-bottom in
- // krazy-bot.css); otherwise the orb keeps its own spot.
- const pillBottom=()=>host.current?.hasAttribute('data-keyboard')?38:null;
+ // Where the orb's input pill rests, as its distance up from the bottom of
+ // the bot's box: typing on a phone, near the top (TYPING_TOP); typing on a
+ // tablet, just above the keys (38px, as --mo-pill-bottom in krazy-bot.css);
+ // otherwise the orb keeps its own spot.
+ const pillBottom=()=>{
+  const node=host.current;
+  if(node?.hasAttribute('data-typing'))return (node.querySelector('.mo-root')?.clientHeight||node.clientHeight)-TYPING_TOP;
+  return node?.hasAttribute('data-keyboard')?38:null;
+ };
  // Load the boards when the page is first opened (not on every page load).
  useEffect(()=>{
   const node=host.current;
@@ -248,7 +300,7 @@ export function KrazyBot(){
   </div>
   <form className="krazy-bot-ask" data-show={answered?'':undefined} data-after-card={rich?'':undefined} onSubmit={askFromBar} autoComplete="off">
    <button type="button" className="krazy-bot-new" onClick={startOver} tabIndex={answered?0:-1} aria-label="New question" title="New question"><RotateCcw aria-hidden="true"/></button>
-   <input value={draft} onChange={event=>setDraft(event.target.value)} maxLength={200} placeholder="Ask a follow-up…" aria-label="Ask a follow-up" enterKeyHint="send" spellCheck={false} tabIndex={answered?0:-1}/>
+   <input value={draft} onChange={event=>setDraft(event.target.value)} maxLength={200} placeholder="Ask a follow-up…" aria-label="Ask a follow-up" enterKeyHint="send" spellCheck={false} autoCorrect="off" tabIndex={answered?0:-1}/>
    <VoiceButton onWords={setDraft} onSaid={text=>{if(text){setDraft('');askNow(text);}}} tabIndex={answered?0:-1}/>
    <button type="submit" className="krazy-bot-send" data-ready={draft.trim()?'':undefined} tabIndex={answered?0:-1} aria-label="Send"><ArrowUp aria-hidden="true"/></button>
   </form>

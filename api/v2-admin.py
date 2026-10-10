@@ -451,12 +451,22 @@ class handler(BaseHTTPRequestHandler):
                 histories = warm(budget=5, limit=2)
         except Exception:
             pass
+        # Graded slips: settle the picks whose games are over, and tell members
+        # when a pending pick's news changes (slip_ledger.py).
+        slips = None
+        try:
+            import slip_ledger
+            if time.monotonic()-started < 38:
+                slips = slip_ledger.tick(limit=6)
+        except Exception:  # noqa: BLE001 -- never at the cost of the line checks
+            pass
         cs2 = None
         try:
             cs2 = cs2_job.result(timeout=max(0, 55-(time.monotonic()-started)))
         except Exception:
             pass
-        return self._send(200, {"ok": True, "checked": line_moves.checked(), "moneylines": moneylines, "nba": nba, "tennis": tennis, "histories":histories, "cs2":cs2})
+        return self._send(200, {"ok": True, "checked": line_moves.checked(), "moneylines": moneylines, "nba": nba, "tennis": tennis, "histories":histories, "cs2":cs2,
+                                "slips": slips})
 
     def _handle_cron_scan(self):
         secret = os.getenv("CRON_SECRET", "")

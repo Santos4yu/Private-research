@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {statKeys, rowStatKey, nameFit, playerRows, locate, relined, gradeLeg, scoreEntry, verdict, swaps, sideWord, checkLeg, tierOf, TIERS} from '../src/slip-check.js';
+import {statKeys, rowStatKey, nameFit, playerRows, locate, relined, rewindow, saferPick, gradeLeg, scoreEntry, verdict, swaps, sideWord, checkLeg, tierOf, TIERS} from '../src/slip-check.js';
 
 const LATER = '2099-09-30T23:10:00Z';
 const w = (hits, games) => ({hits, misses: games - hits, pushes: 0, decisions: games, sample: games, hitRate: hits / games * 100});
@@ -106,7 +106,7 @@ test('legs are graded, and the slip scored on its own payout', () => {
   assert.equal(priced.weakest.player, 'C');
   assert.ok(Math.abs(priced.chance - legs.reduce((p, item) => p * item.grade.chance, 1)) < 1e-9);
   assert.ok(Math.abs(priced.value - priced.chance * 6) < 1e-9);
-  assert.match(verdict(priced), /All 3 hit about 1 in \d+ times, and at 6x/);
+  assert.match(verdict(priced), /^All 3 hit about 1 in \d+ times\. At 6x, that's about (\$\d\.\d\d|\d+¢) back per \$1 over time\.$/);
   // A sportsbook parlay: the legs' own odds make the payout.
   const book = scoreEntry(legs.map(item => ({...item, odds: -110})), {app: {key: 'fanduel'}});
   assert.ok(Math.abs(book.multiplier - (1 + 100 / 110) ** 3) < 1e-9);
@@ -235,4 +235,21 @@ test('a leg is checked end to end: located, filled in, re-scored and graded', as
   const missing = await checkLeg(leg({player: 'Caitlin Clark', sport: 'wnba', stat: 'Steals', line: 1.5, side: 'OVER'}), boards);
   assert.equal(missing.state, 'stat');
   assert.deepEqual(offeredStats(missing.spot), ['Assists', 'Points']);
+});
+
+test('a Risky or Fade pick gets a safer way to play the same player, when the board has one', () => {
+  // Mostly one or two total bases: the over on 2.5 is a fade.
+  const values = [1, 2, 1, 0, 2, 1, 3, 1, 2, 1, 2, 1, 0, 1, 2, 1, 1, 2, 1, 1];
+  const base = rewindow(row({player: 'Bobby Witt Jr.', line: 2.5, log: values}));
+  const pick = {key: '1', player: base.player, side: 'OVER', line: 2.5, row: base, grade: gradeLeg({side: 'OVER', odds: null}, base)};
+  assert.ok(['risky', 'fade'].includes(pick.grade.tier), pick.grade.tier);
+  // His Goblin at 0.5 isn't scored on the board yet: it's scored from the same games.
+  const goblin = {...row({player: 'Bobby Witt Jr.', line: 0.5, modifier: 'goblin'}), historyStatus: 'pending', windows: null, gameLog: []};
+  const other = row({player: 'Someone Else', line: 0.5, log: values});
+  const safer = saferPick(pick, [base, goblin, other]);
+  assert.ok(safer, 'a safer line');
+  assert.equal(safer.row.player, 'Bobby Witt Jr.');
+  assert.ok(TIERS[safer.tier].rank > TIERS[pick.grade.tier].rank && TIERS[safer.tier].rank >= TIERS.lean.rank);
+  // A pick that's already Lean or better gets none.
+  assert.equal(saferPick({...pick, grade: {...pick.grade, tier: 'strong'}}, [base, goblin]), null);
 });

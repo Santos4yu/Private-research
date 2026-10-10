@@ -1,5 +1,5 @@
 import React from 'react';
-import {ClipboardList,ExternalLink,Trash2,X} from 'lucide-react';
+import {ClipboardList,ExternalLink,Link2,Trash2,X} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import {pickBuilder,usePickBuilder} from './pick-builder-client';
 import './pick-builder.css';
@@ -73,8 +73,11 @@ export function PickBuilder({onClose,titleId='pick-builder-title'}){
   <footer className="pick-builder-footer">
    <p role="status">{builder.status}</p>
    <div>
+    {/* PrizePicks opens in a new tab: a link once one is made for these picks, else Export makes it. */}
+    {builder.link&&!builder.busy?<a className="pick-builder-export" href={builder.link} target="_blank" rel="noopener noreferrer"><span>Open in PrizePicks</span><ExternalLink size={15} aria-hidden="true"/></a>
+     :<button type="button" className="pick-builder-export" disabled={!builder.canExport||builder.busy} onClick={pickBuilder.export}><span>{builder.busy?'Checking lines…':'Export to PrizePicks'}</span><ExternalLink size={15} aria-hidden="true"/></button>}
     <button type="button" className="pick-builder-clear" disabled={!count||builder.busy} onClick={pickBuilder.clear}><Trash2 size={15} aria-hidden="true"/>Clear</button>
-    <button type="button" className="pick-builder-export" disabled={!builder.canExport||builder.busy} onClick={pickBuilder.export}><span>{builder.busy?'Checking lines…':'Export to PrizePicks'}</span><ExternalLink size={15} aria-hidden="true"/></button>
+    <button type="button" className="pick-builder-link" disabled={!builder.canExport||builder.busy} onClick={pickBuilder.copy}><Link2 size={15} aria-hidden="true"/>Copy link</button>
    </div>
   </footer>
  </section>;

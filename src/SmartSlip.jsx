@@ -6,6 +6,10 @@ import {finderSlipProp} from './unified-finder-data';
 import {loadLines} from './finder-pool';
 import {TARGETS,MIXES,SPORT_NAMES,candidates,buildLadder,safest,reasons,exportLeg,isPrizePicksLine} from './smart-slip';
 import {pickBuilder,usePickBuilder} from './pick-builder-client';
+import {loadMatchups,withMatchups} from './slip-matchup';
+import {withPoolDefense} from './slip-analyst';
+import {gradeMatchups,withMatchup,passesMatchup} from './krazy-bot';
+import {loadGames,loadTeammates,withGame} from './slip-games';
 import {PhoneAccountButtons} from './UnifiedFinder';
 import './smart-slip.css';
 
@@ -21,7 +25,29 @@ const MODIFIER_ICON={goblin:'/prizepicks/goblin.png',demon:'/prizepicks/demon.pn
 const LEVELS={2:{name:'Safest',tone:'#5fe0a8'},3:{name:'Solid',tone:'#4cc9f0'},5:{name:'Boost',tone:'#f6c35b'},10:{name:'Big',tone:'#ff9f5a'},20:{name:'Long shot',tone:'#ff6b8b'}};
 const MIX_OPTIONS=[['regular','Regular + Regular',['standard','standard']],['goblin','Regular + Goblin',['standard','goblin']],
  ['demon','Regular + Demon',['standard','demon']],['any','Mix it up',['standard','goblin','demon']]];
-const STEPS=['Pulling lines','Checking hit rates','Reading sportsbook odds','Building your slips'];
+const STEPS=['Pulling lines','Checking hit rates','Matchups, injuries and odds','Building your slips'];
+// The picks a slip is built from, judged as the Slip Analyzer and Krazy Bot
+// judge them (krazy-bot.js withMatchup): the matchup first, then each one's
+// game news (who's out, who starts, a teammate's absence) for the strongest
+// of them. Only picks that pass (Elite or Strong; Lean where a league has no
+// matchup reads) go on a slip, so nothing Risky or ruled out gets built in.
+const NEWS_FOR=40;
+async function judged(rows,sports,{signal,now}){
+ const tables=await loadMatchups(sports,{signal}).catch(()=>({}));
+ const listed=withPoolDefense(rows.map(row=>withMatchups(row,tables)));
+ const graded=gradeMatchups(candidates(listed,{now}),tables).filter(passesMatchup);
+ const top=graded.slice().sort((a,b)=>b.chance*b.factor-a.chance*a.factor).slice(0,NEWS_FOR);
+ const asks=top.map(leg=>({key:leg.id,row:leg.row}));
+ let found={},mates={};
+ try{
+  found=await loadGames(asks,{signal})||{};
+  mates=await loadTeammates(asks.filter(item=>found[item.key]).map(item=>({key:item.key,row:withGame(item.row,found[item.key])})),{signal}).catch(()=>({}));
+ }catch{/* built on the matchups alone */}
+ return graded.map(leg=>{
+  const game=found[leg.id];
+  return game?withMatchup({...leg,chance:leg.trendChance??leg.chance,row:withGame(leg.row,{...game,teammates:mates[leg.id]||[]})},leg.matchupRequired,tables):leg;
+ }).filter(passesMatchup);
+}
 // Where the lines light up on the sweep, from its centre.
 const BLIPS=[[-34,-30],[26,-44],[44,6],[10,38],[-40,22],[-6,-12]];
 
@@ -212,7 +238,10 @@ export function SmartSlip(){
   if(control.signal.aborted)return;
   const rows=results.flatMap(result=>result.status==='fulfilled'?result.value:[]);
   const failed=chosen.filter((_,index)=>results[index].status==='rejected');
-  const found=candidates(rows,{now:Date.now()});
+  let found=[];
+  try{found=await judged(rows,chosen,{signal:control.signal,now:Date.now()});}
+  catch{if(control.signal.aborted)return;found=candidates(rows,{now:Date.now()});}
+  if(control.signal.aborted)return;
   // Every step shows, even when every line was already saved.
   const lines=rows.filter(only);
   if(lines.length)scan.current=Array.from({length:Math.min(60,lines.length)},()=>scanLabel(lines[Math.floor(Math.random()*lines.length)]));

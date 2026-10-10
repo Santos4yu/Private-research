@@ -5347,6 +5347,8 @@ function syncManualBetSlipUi({ status = "" } = {}) {
     status: status || els.betSlipStatus?.textContent || manualBetSlipStatus(legs),
     canExport: manualBetSlipCanExport(legs),
     busy: manualSlipExporting,
+    // The PrizePicks link for these exact picks, once one has been made.
+    link: freshManualSlipLink(legs),
   };
   window.dispatchEvent(new CustomEvent("vortex:prop-builder-sync", { detail }));
 }
@@ -5469,9 +5471,14 @@ function applyExportedLines(legs, matches) {
   return changed;
 }
 
-async function exportManualBetSlip() {
-  const legs = getSavedProps();
-  if (manualSlipExporting || !manualBetSlipCanExport(legs)) return;
+// The last PrizePicks link for these exact picks (any change to them makes a new one).
+let manualSlipLink = null;
+const manualSlipSig = (legs) => legs.map((prop) => `${prop.id}:${prop.side}:${prop.line}:${slipModifier(prop)}`).join("|");
+const freshManualSlipLink = (legs) => (manualSlipLink && manualSlipLink.sig === manualSlipSig(legs) ? manualSlipLink.url : "");
+
+// Matches every pick to the live PrizePicks board and gets the link that
+// opens them there: {url, count, notes} or {error}.
+async function requestManualSlipLink(legs) {
   manualSlipExporting = true;
   const originalLabel = els.betSlipExport.textContent;
   els.betSlipExport.disabled = true;
@@ -5481,8 +5488,7 @@ async function exportManualBetSlip() {
   // Never leave the button on "Checking lines…" if the check stalls.
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), MANUAL_SLIP_EXPORT_TIMEOUT_MS);
-  let url = "";
-  let status;
+  let result;
   try {
     const response = await fetch(API_PRIZEPICKS_EXPORT, {
       method: "POST",
@@ -5496,20 +5502,20 @@ async function exportManualBetSlip() {
       const detail = payload.unmatched?.map((leg) => `${leg.player} ${leg.line} ${leg.stat}`).join("; ");
       throw new Error(detail ? `${payload.error} ${detail}` : (payload.error || "PrizePicks export failed."));
     }
-    url = payload.url;
     const changed = applyExportedLines(legs, payload.matches);
     const skipped = (payload.skipped || []).map((leg) => `${leg.player} ${leg.line} ${leg.stat}`);
-    status = [
-      `${payload.matches.length} live leg${payload.matches.length === 1 ? "" : "s"} sent to PrizePicks.`,
+    result = { url: payload.url, count: payload.matches.length, notes: [
       changed.length ? `Moved to PrizePicks' current line: ${changed.join("; ")}.` : "",
       skipped.length ? `Left out (no longer on PrizePicks): ${skipped.join("; ")}.` : "",
-    ].filter(Boolean).join(" ");
+    ].filter(Boolean).join(" ") };
+    // The link is for the picks as they are now (a line moved to PrizePicks' is part of them).
+    manualSlipLink = { url: payload.url, sig: manualSlipSig(getSavedProps()) };
   } catch (error) {
     // No connection (TypeError) or a non-JSON reply (SyntaxError) get a
     // plain message rather than the browser's own wording.
-    status = error.name === "AbortError" ? "PrizePicks took too long to answer. Try exporting again."
+    result = { error: error.name === "AbortError" ? "PrizePicks took too long to answer. Try again."
       : error instanceof TypeError || error instanceof SyntaxError ? "Couldn't reach PrizePicks. Check your connection and try again."
-      : error.message || "PrizePicks export is temporarily unavailable.";
+      : error.message || "PrizePicks export is temporarily unavailable." };
   } finally {
     clearTimeout(timeout);
   }
@@ -5519,9 +5525,87 @@ async function exportManualBetSlip() {
   manualSlipExporting = false;
   els.betSlipExport.textContent = originalLabel;
   els.betSlipExport.disabled = !manualBetSlipCanExport(getSavedProps());
+  return result;
+}
+
+function showManualSlipStatus(status) {
   els.betSlipStatus.textContent = status;
   syncManualBetSlipUi({ status });
-  if (url) window.location.assign(url);
+}
+const legsWord = (count) => `${count} live leg${count === 1 ? "" : "s"}`;
+
+// Export: PrizePicks opens in a new tab (or its app), never in place of
+// this page. The tab is opened right away, while the tap still counts (a
+// browser blocks one opened after the line check), and pointed at
+// PrizePicks once the lines are matched.
+async function exportManualBetSlip() {
+  const legs = getSavedProps();
+  if (manualSlipExporting || !manualBetSlipCanExport(legs)) return;
+  const ready = freshManualSlipLink(legs);
+  let tab = null;
+  try { tab = window.open(ready || "", "_blank"); } catch { tab = null; }
+  try { if (tab) tab.opener = null; } catch { /* already PrizePicks' page */ }
+  if (ready) {
+    if (!tab) showManualSlipStatus("Your browser blocked the new tab. Use Open in PrizePicks or Copy link.");
+    return;
+  }
+  try { tab?.document.write('<title>PrizePicks</title><p style="font:16px system-ui,sans-serif;padding:24px;color:#555">Matching your picks to PrizePicks…</p>'); } catch { /* not ours to write */ }
+  const result = await requestManualSlipLink(legs);
+  if (result.error) {
+    try { tab?.close(); } catch { /* gone already */ }
+    showManualSlipStatus(result.error);
+    return;
+  }
+  if (tab && !tab.closed) tab.location.replace(result.url);
+  showManualSlipStatus([
+    tab ? `${legsWord(result.count)} sent to PrizePicks in a new tab.` : `${legsWord(result.count)} matched. Your browser blocked the new tab: use Open in PrizePicks or Copy link.`,
+    result.notes,
+  ].filter(Boolean).join(" "));
+}
+
+// Copy link: the same check, then the PrizePicks link on the clipboard to
+// open anywhere. Safari only lets a page copy during the tap, so the copy
+// starts now and is filled in when the link comes back.
+function copyManualBetSlipLink() {
+  const legs = getSavedProps();
+  if (manualSlipExporting || !manualBetSlipCanExport(legs)) return;
+  const ready = freshManualSlipLink(legs);
+  let notes = "", count = legs.length;
+  const link = ready ? Promise.resolve(ready) : requestManualSlipLink(legs).then((result) => {
+    if (result.error) throw new Error(result.error);
+    notes = result.notes;
+    count = result.count;
+    return result.url;
+  });
+  writeClipboardText(link).then(
+    () => showManualSlipStatus([`Link copied (${legsWord(count)}). Paste it in your browser or the PrizePicks app.`, notes].filter(Boolean).join(" ")),
+    (error) => link.then(
+      (url) => showManualSlipStatus(`Couldn't copy here. Your PrizePicks link: ${url}`),
+      () => showManualSlipStatus(error?.message || "PrizePicks export is temporarily unavailable."),
+    ),
+  );
+}
+
+function writeClipboardText(text) {
+  if (window.ClipboardItem && navigator.clipboard?.write) {
+    try {
+      return navigator.clipboard.write([new ClipboardItem({ "text/plain": text.then((value) => new Blob([value], { type: "text/plain" })) })])
+        .catch(() => text.then((value) => copyTextNow(value)));
+    } catch { /* this browser takes text only */ }
+  }
+  return text.then((value) => copyTextNow(value));
+}
+async function copyTextNow(value) {
+  if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(value);
+  const field = document.createElement("textarea");
+  field.value = value;
+  field.setAttribute("readonly", "");
+  field.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+  document.body.append(field);
+  field.select();
+  const copied = document.execCommand("copy");
+  field.remove();
+  if (!copied) throw new Error("Couldn't copy here.");
 }
 
 function clearManualBetSlip() {
@@ -5549,6 +5633,7 @@ function wireManualBetSlip() {
   window.addEventListener("vortex:prop-builder-remove", (event) => removeManualBetSlipLeg(event.detail?.id));
   window.addEventListener("vortex:prop-builder-clear", clearManualBetSlip);
   window.addEventListener("vortex:prop-builder-export", exportManualBetSlip);
+  window.addEventListener("vortex:prop-builder-copy", copyManualBetSlipLink);
   window.addEventListener("vortex:prop-builder-set", (event) => setManualBetSlipPick(event.detail?.prop, event.detail?.side));
   window.addEventListener("vortex:prop-builder-side", (event) => {
     const storedKey = savedPropKey(event.detail?.id);

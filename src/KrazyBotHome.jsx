@@ -26,6 +26,9 @@ function looks(today){
  ];
 }
 
+// The Slip Analyzer's tiers, as on the answer cards.
+const TIER_LABELS={elite:'Elite',strong:'Strong',lean:'Lean',risky:'Risky',fade:'Fade'};
+
 function Play({play,index,onAsk,tabIndex}){
  const chance=pct(play.chance);
  return <button type="button" className="kb-play" style={{'--i':index}} onClick={()=>onAsk(play.question)} tabIndex={tabIndex}
@@ -33,7 +36,8 @@ function Play({play,index,onAsk,tabIndex}){
   <span className="kb-play-head">
    <Face src={play.headshot} name={play.player} logo={play.teamLogo} size="md"/>
    <span className="kb-play-who"><strong>{play.player}</strong><small>{[play.team&&play.opponent?`${play.team} ${play.home===false?'@':'vs'} ${play.opponent}`:play.team,play.time].filter(Boolean).join(' · ')}</small></span>
-   {play.grade&&<span className="kb-grade" data-grade={play.grade} data-size="sm">{play.grade}</span>}
+   {play.tier?<span className="kb-tier" data-tier={play.tier} data-size="sm">{TIER_LABELS[play.tier]}</span>
+    :play.grade&&<span className="kb-grade" data-grade={play.grade} data-size="sm">{play.grade}</span>}
   </span>
   <span className="kb-play-line">
    <span className="kb-side" data-side={play.side}>{play.side==='UNDER'?<ArrowDown aria-hidden="true"/>:<ArrowUp aria-hidden="true"/>}{play.side==='UNDER'?'Under':'Over'}</span>

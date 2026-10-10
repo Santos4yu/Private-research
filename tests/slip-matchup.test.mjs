@@ -70,6 +70,10 @@ test('NFL: a quarterback against a pass rush, a receiver with the target share',
   const rush = pass.facts.find(item => item.key === 'pass-rush');
   assert.match(rush.text, /PIT's pass rush gets 3\.6 sacks a game/);
   assert.equal(rush.tone, 'down');
+  // One sack a game reads as one.
+  const quiet = {...league, teamStats: {...league.teamStats, NYG: team(1, 64)}};
+  assert.match(matchupCase({row: {...qb, opponent: 'NYG'}, side: 'OVER', grade: {records: {}}}, {nfl: quiet}).facts.find(item => item.key === 'pass-rush').text,
+    /NYG's pass rush gets 1 sack a game/);
   const wr = {sport: 'nfl', player: 'Josh Downs', playerId: '00-1', teamAbbr: 'IND', opponent: 'LV', marketKey: 'receiving_yards', market: 'Receiving Yards', line: 59.5, gameLog: []};
   const share = matchupCase({row: wr, side: 'OVER', grade: {records: {}}}, {nfl: league}).facts.find(item => item.key === 'share');
   assert.equal(share.text, "Gets 26% of IND's targets (most on the team)");

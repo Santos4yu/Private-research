@@ -22,6 +22,7 @@
 import {defenseCell, loadFinderDefense, loadMlbMatchups, loadHitterMatchups, withMlbMatchups, withHitterMatchups,
   withDefense} from './unified-finder-data.js';
 import {homeToday, matchupRead} from './slip-analyst.js';
+import {newsFacts} from './slip-games.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
@@ -243,7 +244,7 @@ function football(row, sign, league) {
     const normal = average('sacks');
     if (sacks && finite(sacks[0]) && normal > 0) {
       const ratio = sacks[0] / normal;
-      out.push(fact('opponent', 'pass-rush', `${row.opponent}'s pass rush gets ${one(sacks[0])} sacks a game${place(sacks[1], teams, {low: 'most', high: 'fewest'})}`,
+      out.push(fact('opponent', 'pass-rush', `${row.opponent}'s pass rush gets ${one(sacks[0])} sack${Number(one(sacks[0])) === 1 ? '' : 's'} a game${place(sacks[1], teams, {low: 'most', high: 'fewest'})}`,
         clamp(-(ratio - 1) * (market === 'interceptions' ? -25 : 25), -8, 8) * sign));
     }
     const completion = their.def?.completion_pct;
@@ -354,6 +355,17 @@ export function matchupCase(leg, tables = {}) {
   else if (row.sport === 'nhl') facts.push(...hockey(row, sign, league));
   const records = leg.grade?.records;
   for (const extra of [venueSplit(row, sign), headToHead(row, records), recentForm(row, records, leg.side)]) if (extra) facts.push(extra);
+  // Is he playing, who's out around him, where he bats (slip-games.js).
+  facts.push(...newsFacts(row, leg.side));
+  // In a bigger role today (a backup starting), his own games came in the
+  // smaller one: shown for what they are, and not counted.
+  if (facts.some(item => item.level === 'role')) {
+    for (const item of facts) {
+      if (item.kind === 'form' || item.kind === 'history' || (item.kind === 'split' && item.key === 'venue')) {
+        Object.assign(item, {impact: 0, tone: 'flat', text: `${item.text} (in a smaller role)`});
+      }
+    }
+  }
   const primary = facts.some(item => item.primary);
   // A hitter's model grade already weighs the starter, his history, the
   // pitch mix, the split, the park and the weather: it is the backbone.
@@ -362,13 +374,14 @@ export function matchupCase(leg, tables = {}) {
   if (model && finite(model.score)) {
     const over = String(row.marketKey || '').endsWith(':strikeouts') ? 100 - model.score : model.score;
     const sided = sign > 0 ? over : 100 - over;
-    const outside = facts.filter(item => item.kind === 'split' && item.key === 'venue' || item.kind === 'form').reduce((sum, item) => sum + item.impact, 0);
+    const outside = facts.filter(item => item.kind === 'split' && item.key === 'venue' || item.kind === 'form' || item.kind === 'news')
+      .reduce((sum, item) => sum + item.impact, 0);
     score = sided + outside;
   } else score = 50 + facts.reduce((sum, item) => sum + item.impact, 0);
   score = Math.round(clamp(score, 3, 97));
   const [, label, tone] = BANDS.find(([floor]) => score >= floor);
-  // Opponent first, then history and splits, then form.
-  const order = {opponent: 0, history: 1, split: 2, venue: 3, usage: 4, form: 5};
-  facts.sort((a, b) => order[a.kind] - order[b.kind] || Math.abs(b.impact) - Math.abs(a.impact));
+  // The news first (is he playing), then the opponent, history and splits, then form.
+  const order = {news: -1, opponent: 0, history: 1, split: 2, venue: 3, usage: 4, form: 5};
+  facts.sort((a, b) => order[a.kind] - order[b.kind] || (a.rank ?? 0) - (b.rank ?? 0) || Math.abs(b.impact) - Math.abs(a.impact));
   return {score, label, tone, primary, facts};
 }
