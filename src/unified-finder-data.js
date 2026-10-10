@@ -750,7 +750,9 @@ function seriesFor(payload, marketKey) {
   if (!byStat) { byStat = new Map(); statSeries.set(payload, byStat); }
   let series = byStat.get(marketKey);
   if (!series) {
-    const logs = inDateOrder(payload, payload?.rows).filter(log => number(log?.values?.[marketKey]) != null);
+    // Preseason games stay on the chart but never in the hit rates: starters
+    // play short minutes, so those games would make every Under look safe.
+    const logs = inDateOrder(payload, payload?.rows).filter(log => log?.seasonKind !== 'preseason' && number(log?.values?.[marketKey]) != null);
     series = {logs, values: logs.map(log => number(log.values[marketKey]))};
     byStat.set(marketKey, series);
   }
@@ -771,9 +773,8 @@ export function applyWnbaHistory(row, payload) {
     if (streak && Math.sign(streak) !== sign) break;
     streak += sign;
   }
-  const played = logs.filter(log => log.seasonKind !== 'preseason');
   return finish({...row, average: mean(values.slice(-10)), windows, streak: values.length ? streak : null,
-    gameLog: gameLog(played.map(log => ({value: log.values[row.marketKey], date: log.date, home: log.isHome, opponent: log.opponent, usage: log.minutes}))),
+    gameLog: gameLog(logs.map(log => ({value: log.values[row.marketKey], date: log.date, home: log.isHome, opponent: log.opponent, usage: log.minutes}))),
     historyStatus: 'ready', historyRefresh:false, historyAsOf:Date.now(), enrichedAt:Date.now(), history: payload});
 }
 

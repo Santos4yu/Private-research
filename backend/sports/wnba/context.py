@@ -63,9 +63,6 @@ MARKET_STAT = {
 _FANTASY = {"pts": 1, "reb": 1.2, "ast": 1.5, "blk": 3, "stl": 3, "to": -1}
 POSITIONS = ("G", "F", "C")
 WINDOWS = (("szn", None), ("l10", 10), ("l5", 5))
-# Defense vs position counts opposing players who played real minutes, so a
-# two-minute cameo at the end of a blowout doesn't drag a team's number down.
-DVP_MIN_MINUTES = 10
 # "Similar players" are starters-level minutes only, for the same reason.
 SIMILAR_MIN_MINUTES = 20
 
@@ -113,11 +110,10 @@ def team_games(payload: dict) -> dict:
 
 
 def _rank(values: dict, ascending: bool) -> dict:
-    """team -> rank (1-based) for the teams that have a value."""
-    ordered = sorted((value, team) for team, value in values.items() if value is not None)
-    if not ascending:
-        ordered.reverse()
-    return {team: index + 1 for index, (_, team) in enumerate(ordered)}
+    """team -> rank (1-based) for the teams that have a value. Teams with the
+    same value share a rank, and the next rank skips (1, 2, 2, 4)."""
+    ordered = sorted((value for value in values.values() if value is not None), reverse=not ascending)
+    return {team: ordered.index(value) + 1 for team, value in values.items() if value is not None}
 
 
 def _round(value, digits=2):
@@ -125,30 +121,29 @@ def _round(value, digits=2):
 
 
 def defense_vs_position(by_team: dict, players: dict) -> dict:
-    """What each team allows, per opposing player at each position.
-
-    Rank 1 allows the least (toughest); the highest rank allows the most."""
+    """What each team allows a position a game: everything the opposing
+    guards (forwards, centers) put up in a game added together, averaged
+    over the team's games -- the usual way it's counted, so the ranks match
+    other research sites. Rank 1 allows the least (toughest); the highest
+    rank allows the most. `n` is how many opposing players at the position
+    played in those games."""
     averages = {}
     samples = {}
     for team, games in by_team.items():
         for window, size in WINDOWS:
             chosen = games[-size:] if size else games
             for position in POSITIONS:
-                sums, counts, seen = defaultdict(float), defaultdict(int), 0
+                totals, seen = defaultdict(list), 0
                 for game in chosen:
-                    for row in game["opp"]["p"]:
-                        minutes = row[_I["min"]]
-                        if minutes is None or minutes < DVP_MIN_MINUTES:
-                            continue
-                        if primary_position(players.get(row[0])) != position:
-                            continue
-                        seen += 1
-                        for key in STAT_KEYS:
-                            value = stat_value(row, key)
-                            if value is not None:
-                                sums[key] += value
-                                counts[key] += 1
-                averages[(team, position, window)] = {key: sums[key] / counts[key] for key in STAT_KEYS if counts[key]}
+                    at_spot = [row for row in game["opp"]["p"]
+                               if row[_I["min"]] and primary_position(players.get(row[0])) == position]
+                    seen += len(at_spot)
+                    for key in STAT_KEYS:
+                        values = [value for row in at_spot if (value := stat_value(row, key)) is not None]
+                        # Nobody at the position played: nothing allowed to it that game.
+                        if values or not at_spot:
+                            totals[key].append(sum(values))
+                averages[(team, position, window)] = {key: sum(values) / len(values) for key, values in totals.items() if values}
                 samples[(team, position, window)] = seen
     result = {team: {position: {"n": {}, "stats": {}} for position in POSITIONS} for team in by_team}
     for position in POSITIONS:
@@ -281,7 +276,6 @@ def league_context(payload: dict) -> dict:
         "teamCount": len(by_team),
         "stats": [[key, label] for key, label, _ in STATS],
         "dvp": defense_vs_position(by_team, players),
-        "dvpMinMinutes": DVP_MIN_MINUTES,
         "teamStats": team_stats(by_team),
         "zoneDefense": zones, "leagueZones": league_zones,
         "rotation": rotation(by_team, players, league=payload.get("league") or "wnba"),

@@ -158,7 +158,7 @@ test('the matchup moves a pick more than its last ten games', () => {
   assert.ok(a.matchup.score < 45 && b.matchup.score > 60);
   assert.ok(['risky', 'fade'].includes(a.tier), a.tier);
   assert.ok(TIERS[b.tier].rank > TIERS[a.tier].rank);
-  assert.match(a.matchup.facts[0].text, /BOS allows 20 points to guards, 20% less than average/);
+  assert.match(a.matchup.facts[0].text, /BOS allows 20 points a game to guards, 20% less than average/);
 });
 
 test('"Rec Targets" and "Targets" are the same NFL stat', () => {

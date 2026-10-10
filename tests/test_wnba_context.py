@@ -99,16 +99,28 @@ class ContextTests(unittest.TestCase):
     def test_defense_vs_position_ranks_least_allowed_first(self):
         ctx = context.league_context(self.payload)
         guards = {team: ctx["dvp"][team]["G"]["stats"]["pts"]["szn"] for team in ("AAA", "BBB", "CCC")}
-        # Per qualifying guard: AAA allowed 5 and 25 (15.0), BBB 20 and 15
+        # Guards' points a game: AAA allowed 5 and 25 (15.0), BBB 20 and 15
         # (17.5), CCC 30 and 9 (19.5). The least allowed ranks first.
         self.assertEqual(guards["AAA"], [15.0, 1])
         self.assertEqual(guards["BBB"], [17.5, 2])
         self.assertEqual(guards["CCC"][1], 3)
 
-    def test_short_stints_do_not_count_toward_position_defense(self):
+    def test_position_defense_counts_the_whole_game(self):
         ctx = context.league_context(self.payload)
-        # BBB's center played 5 minutes against CCC: CCC faced no qualifying center there.
-        self.assertEqual(ctx["dvp"]["CCC"]["C"]["n"]["szn"], 0)
+        # BBB's center scored 2 in 5 minutes against CCC: they count, since CCC
+        # allowed them. AAA brought no center against CCC: a zero that game.
+        self.assertEqual(ctx["dvp"]["CCC"]["C"]["stats"]["pts"]["szn"][0], 1.0)
+        self.assertEqual(ctx["dvp"]["CCC"]["C"]["n"]["szn"], 1)
+
+    def test_position_defense_adds_up_every_player_at_the_spot(self):
+        # A fourth game: AAA plays two guards against CCC, 8 and 12 points -- 20 to guards that game.
+        payload = {**self.payload, "players": {**self.payload["players"], "a_g2": ["A Guard 2", "G", None, "AAA"]},
+                   "games": {**self.payload["games"],
+                             "4": game("4", "2026-06-07", "AAA", "CCC", [row("star", 20, 8), row("a_g2", 30, 12)], [row("c_g", 30, 10)])}}
+        ctx = context.league_context(payload)
+        self.assertEqual(ctx["dvp"]["CCC"]["G"]["stats"]["pts"]["szn"][0], round((30 + 9 + 20) / 3, 2))
+        # Tied teams share a rank.
+        self.assertEqual(context._rank({"A": 1.0, "B": 2.0, "C": 2.0, "D": 3.0}, ascending=True), {"A": 1, "B": 2, "C": 2, "D": 4})
 
     def test_team_offense_and_defense_ranks(self):
         stats = context.league_context(self.payload)["teamStats"]
@@ -156,18 +168,20 @@ class TopUpTests(unittest.TestCase):
 
 
 class PreseasonTests(unittest.TestCase):
-    def test_preseason_games_count_toward_hit_rates(self):
+    def test_preseason_games_stay_out_of_hit_rates(self):
         from unittest.mock import patch
-        logs = [{"opponent": "OPP", "seasonKind": "preseason", "values": {"player_points": 40}},
-                {"opponent": "OPP", "seasonKind": "regular", "values": {"player_points": 10}}]
+        logs = [{"opponent": "OPP", "seasonKind": "preseason", "values": {"player_points": 4}},
+                {"opponent": "OPP", "seasonKind": "regular", "values": {"player_points": 20}}]
         rows = [{"playerId": "test-only", "marketKey": "player_points", "line": 15,
                  "teamAbbr": "TEAM", "homeTeamAbbr": "OPP", "awayTeamAbbr": "TEAM"}]
         with patch.object(wnba_api, "_game_logs", return_value={"rows": logs}):
             result = wnba_api._attach_history(rows, 2026)[0]
-        # The default is every game, as on the player page's chart.
-        self.assertEqual(result["windows"]["season"]["sample"], 2)
-        self.assertEqual(result["windows"]["season"]["hitRate"], 50)
-        self.assertEqual(result["average"], 25)
+        # Starters' short preseason minutes would make every Under look safe:
+        # only the regular-season game counts (the chart still shows both).
+        self.assertEqual(result["windows"]["season"]["sample"], 1)
+        self.assertEqual(result["windows"]["season"]["hitRate"], 100)
+        self.assertEqual(result["windows"]["h2h"]["sample"], 1)
+        self.assertEqual(result["average"], 20)
 
 
 class GameLogTests(unittest.TestCase):

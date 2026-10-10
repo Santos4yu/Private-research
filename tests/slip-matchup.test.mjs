@@ -56,7 +56,7 @@ test('NBA: the defense against his position and the pace of the game', () => {
   const row = {sport: 'nba', player: 'Stephen Curry', teamAbbr: 'GS', opponent: 'LAL', marketKey: 'player_points', market: 'Points', line: 26.5,
     position: 'G', defense: 28, defenseTeams: 30, defenseValue: 27.4, defenseAverage: 24, defensePosition: 'G', gameLog: []};
   const read = matchupCase({row, side: 'OVER', grade: {records: {}}}, {nba: league});
-  assert.match(read.facts[0].text, /^LAL allows 27\.4 points to guards, 14% more than average \(3rd-most\)$/);
+  assert.match(read.facts[0].text, /^LAL allows 27\.4 points a game to guards, 14% more than average \(3rd-most\)$/);
   assert.match(read.facts.find(item => item.key === 'pace').text, /fast, high-scoring matchup/);
   assert.ok(read.score > 60);
 });

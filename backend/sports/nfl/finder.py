@@ -630,8 +630,10 @@ def _ranked(stats, keys):
     return output
 
 
-# Defense vs position: what opposing players at a position produce, per
-# player who recorded something, against each defense.
+# Defense vs position: what a defense allows a position group a game -- the
+# whole group's total in each game (every receiver's yards added up, say),
+# averaged over the defense's games. The usual way it's counted, so a
+# defense's rank here matches what other research sites show.
 DVP_POSITIONS = ("QB", "RB", "WR", "TE", "FB", "K", "DL", "LB", "DB")
 DVP_STATS = {
     "QB": ("passing_yards", "passing_tds", "attempts", "completions", "interceptions", "rushing_yards", "fantasy"),
@@ -650,8 +652,10 @@ PLAYER_STAT_FIELDS = {
     "carries": ("carries",), "rushing_tds": ("rushing_tds",), "receptions": ("receptions",),
     "receiving_yards": ("receiving_yards",), "targets": ("targets",), "receiving_tds": ("receiving_tds",),
     "rush_rec_yards": ("rushing_yards", "receiving_yards"), "fg_made": ("fg_made",), "pat_made": ("pat_made",),
-    "tackles": ("def_tackles_solo",), "assists": ("def_tackle_assists",),
-    "tackles_assists": ("def_tackles_solo", "def_tackle_assists"), "sacks": ("def_sacks",),
+    # Combined tackles count every assisted tackle he was in on, the way the
+    # tackles props settle (_defense): his own assisted tackles and his assists.
+    "tackles": ("def_tackles_solo",), "assists": ("def_tackles_with_assist", "def_tackle_assists"),
+    "tackles_assists": ("def_tackles_solo", "def_tackles_with_assist", "def_tackle_assists"), "sacks": ("def_sacks",),
     "interceptions_def": ("def_interceptions",), "pass_defended": ("def_pass_defended",),
 }
 STAT_LABELS = {key: label for key, label, _ in TEAM_STATS} | {
@@ -676,49 +680,51 @@ def _player_stat(row, key):
     return _sum(row, *PLAYER_STAT_FIELDS[key])
 
 
-OPPORTUNITY = {"QB": ("attempts", "carries"), "RB": ("carries", "targets"), "FB": ("carries", "targets"),
-               "WR": ("targets", "carries"), "TE": ("targets", "carries"), "K": ("fg_att", "pat_att"),
-               "DL": ("def_tackles_solo", "def_tackle_assists", "def_sacks"),
-               "LB": ("def_tackles_solo", "def_tackle_assists", "def_sacks"),
-               "DB": ("def_tackles_solo", "def_tackle_assists", "def_pass_defended", "def_interceptions")}
-
-
 def _dvp(players, games):
     """{defense: {position: {games, players, stats: {key: {szn: [v, r], l5: [v, r]}}}}}
 
-    Per opposing player who had a real chance at the spot -- a target, carry
-    or pass for skill players, a kick for kickers, a tackle for defenders --
-    so a receiver who only returned punts doesn't drag the receiver number
-    down."""
-    # defense -> position -> game_id -> [rows, one per player]
+    Each defense's games this regular season (and its last five), and in
+    each what the opposing players at a position added up to; the value is
+    the average a game, rank 1 allowing the least. A game in which nobody at
+    the position did anything counts as zero, as it does on the field."""
+    # defense -> game_id -> position -> [rows]
     faced = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
     for row in players:
         if str(row.get("season_type")).upper() != "REG":
             continue
-        position, defense, game = dvp_position(row), canonical_team(row.get("opponent_team")), games.get(row.get("game_id"))
-        if not position or not defense or not game or not any((_n(row, key) or 0) > 0 for key in OPPORTUNITY[position]):
+        defense, game = canonical_team(row.get("opponent_team")), games.get(row.get("game_id"))
+        if not defense or not game:
             continue
-        faced[defense][position][row["game_id"]].append(row)
+        position = dvp_position(row)
+        bucket = faced[defense][row["game_id"]]
+        if position:
+            bucket[position].append(row)
+    played = {defense: sorted(by_game, key=lambda game_id: games[game_id]["kickoff"] or 0) for defense, by_game in faced.items()}
     output = {}
     for position in DVP_POSITIONS:
         for window in ("szn", "l5"):
             for key in DVP_STATS[position]:
                 column = {}
                 for defense in TEAM_CODES:
-                    by_game = faced[defense][position]
-                    game_ids = sorted(by_game, key=lambda game_id: games[game_id]["kickoff"] or 0)
+                    game_ids = played.get(defense, [])
                     if window == "l5":
                         game_ids = game_ids[-5:]
-                    values = [value for game_id in game_ids for row in by_game[game_id]
-                              if (value := _player_stat(row, key)) is not None]
-                    column[defense] = sum(values) / len(values) if values else None
+                    totals = []
+                    for game_id in game_ids:
+                        values = [_player_stat(row, key) for row in faced[defense][game_id][position]]
+                        known = [value for value in values if value is not None]
+                        # A stat missing for everyone at the spot in a game isn't a zero.
+                        if known or not values:
+                            totals.append(sum(known))
+                    column[defense] = sum(totals) / len(totals) if totals else None
                 ranks = _rank(column, reverse=False)
                 for defense, value in column.items():
                     if value is None:
                         continue
+                    game_ids = played.get(defense, [])
                     entry = output.setdefault(defense, {}).setdefault(position, {
-                        "games": len(faced[defense][position]),
-                        "players": sum(len(rows) for rows in faced[defense][position].values()), "stats": {}})
+                        "games": len(game_ids),
+                        "players": sum(len(faced[defense][game_id][position]) for game_id in game_ids), "stats": {}})
                     entry["stats"].setdefault(key, {})[window] = [round(value, 2), ranks[defense]]
     return output
 
@@ -843,7 +849,8 @@ def league(season):
             "dvpStats": {position: [[key, STAT_LABELS[key]] for key in keys] for position, keys in DVP_STATS.items()},
             "standings": standings, "passRun": pass_run, "share": shares, "version": VERSION,
         }
-    return cached_nfl(NFLCacheDomain.STATS, (VERSION, "league", season), load)
+    # "dvp-totals": the defense-vs-position table counted a game at a time (_dvp).
+    return cached_nfl(NFLCacheDomain.STATS, (VERSION, "league-dvp-totals", season), load)
 
 
 # ------------------------------------------------------------------ depth charts, injuries

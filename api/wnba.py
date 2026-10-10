@@ -382,9 +382,10 @@ def _attach_history(rows, season, league="wnba"):
     with ThreadPoolExecutor(max_workers=8) as pool:
         for player_id, logs in pool.map(load, player_ids): histories[player_id] = logs
     for row in rows:
-        # Every game counts, preseason included -- the same games the
-        # player page's chart shows before its Season menu narrows them.
-        logs = histories.get(row.get("playerId"), [])
+        # Preseason games stay on the player page's chart but never in the
+        # hit rates: starters play short minutes, so they'd make every Under
+        # look safe.
+        logs = [log for log in histories.get(row.get("playerId"), []) if log.get("seasonKind") != "preseason"]
         values = [(log.get("values") or {}).get(row["marketKey"]) for log in logs]
         values = [value for value in values if value is not None]
         recent = values[-10:]

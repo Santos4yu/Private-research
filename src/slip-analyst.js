@@ -267,7 +267,7 @@ export function matchupRead(row) {
     const place = most && most <= teams / 3 ? ` (${ordinal(most)}-most)` : teams && row.defense <= teams / 3 ? ` (${ordinal(row.defense)}-fewest)` : '';
     const who = POSITION_NAMES[row.defensePosition] || 'the position';
     return {factor, short: `${gap >= 0 ? '+' : '−'}${Math.abs(gap)}%`, label: `vs ${who}`,
-      text: `${row.opponent} allows ${figure(Math.round(row.defenseValue * 10) / 10)} ${statWord(row)} to ${who}, ${Math.abs(gap)}% ${gap >= 0 ? 'more' : 'less'} than average${place}`};
+      text: `${row.opponent} allows ${figure(Math.round(row.defenseValue * 10) / 10)} ${statWord(row)} a game to ${who}, ${Math.abs(gap)}% ${gap >= 0 ? 'more' : 'less'} than average${place}`};
   }
   if (row.sport === 'mlb' && row.hitterMatchup && !String(row.marketKey || '').startsWith('pitching:')) {
     const modeled = hitterModelRead(row);

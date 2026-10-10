@@ -110,7 +110,7 @@ function positionDefense(row, sign) {
   const ratio = allowed / row.defenseAverage;
   const gap = Math.round((row.defenseValue / row.defenseAverage - 1) * 100);
   const who = POSITION_WORDS[row.defensePosition] || 'his position';
-  const text = `${row.opponent} allows ${one(row.defenseValue)} ${statWord(row)} to ${who}, ${Math.abs(gap)}% ${gap >= 0 ? 'more' : 'less'} than average${place(row.defense, row.defenseTeams)}`;
+  const text = `${row.opponent} allows ${one(row.defenseValue)} ${statWord(row)} a game to ${who}, ${Math.abs(gap)}% ${gap >= 0 ? 'more' : 'less'} than average${place(row.defense, row.defenseTeams)}`;
   return fact('opponent', 'defense', text, clamp((ratio - 1) * 110, -22, 22) * sign, {primary: true});
 }
 
