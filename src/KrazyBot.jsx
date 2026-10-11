@@ -194,12 +194,18 @@ export function KrazyBot(){
  },[]);
  // Where the orb's input pill rests, as its distance up from the bottom of
  // the bot's box: typing on a phone, near the top (TYPING_TOP); typing on a
- // tablet, just above the keys (38px, as --mo-pill-bottom in krazy-bot.css);
- // otherwise the orb keeps its own spot.
+ // tablet, just above the keys (38px); otherwise --mo-pill-bottom in
+ // krazy-bot.css, 96px less 54% of the room kept for the site's bottom menu.
+ // Measured from the box, not the window: on a phone the box starts below
+ // the status bar, and the orb's own window-based spot then sank the pill
+ // behind the bottom menu.
  const pillBottom=()=>{
   const node=host.current;
-  if(node?.hasAttribute('data-typing'))return (node.querySelector('.mo-root')?.clientHeight||node.clientHeight)-TYPING_TOP;
-  return node?.hasAttribute('data-keyboard')?38:null;
+  if(!node)return null;
+  if(node.hasAttribute('data-typing'))return (node.querySelector('.mo-root')?.clientHeight||node.clientHeight)-TYPING_TOP;
+  if(node.hasAttribute('data-keyboard'))return 38;
+  const below=Math.max(0,window.innerHeight-node.getBoundingClientRect().bottom);
+  return 96-.54*below;
  };
  // Load the boards when the page is first opened (not on every page load).
  useEffect(()=>{
