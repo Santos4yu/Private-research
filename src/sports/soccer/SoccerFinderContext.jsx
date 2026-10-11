@@ -50,8 +50,8 @@ function WinPredictor({row,match}){
  const m=match.data,chance=m?.odds?.noVig;
  const [home,away]=m?.teams?.length===2?m.teams:[null,null];
  if(!m)return <section className="mlb-context-card mlb-win-predictor"><header><h2>Win predictor</h2><small>Pregame</small></header>{match.loading?<Skeleton/>:<Failed state={match} label="The match preview"/>}</section>;
- const colors=[colorOf(home,'#28cb98'),'#59606b',colorOf(away,'#7b8cff')];
- if(colors[0]===colors[2])colors[2]='#7b8cff';
+ const colors=[colorOf(home,'#28cb98'),'#5c6468',colorOf(away,'#5cf8b2')];
+ if(colors[0]===colors[2])colors[2]='#5cf8b2';
  return <section className="mlb-context-card mlb-win-predictor soccer-win"><header><h2>Win predictor</h2><small>{m.odds?.provider?`${m.odds.provider} · no vig`:'Pregame'}</small></header>
   {chance&&home&&away?<div className="mlb-win-body">
    <div className="mlb-win-team"><Logo src={home.logo} size={32}/><strong>{home.abbr}</strong><small>Home</small><b style={{color:colors[0]}}>{fmt(chance.home)}%</b></div>

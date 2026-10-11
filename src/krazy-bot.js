@@ -1646,7 +1646,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     }
     if (back && stat) return `Welcome back! Want your usual, the best ${stat.name} prop? Or ask me anything about today's board.`;
     if (back) return pick(['Welcome back! What are we looking at today?', 'Good to see you again. What do you need?'], random);
-    return `Hey, I'm Krazy Bot. Ask me about today's ${allowed.map(sport => SPORTS[sport].name).join(', ')} props: best plays, matchups, a player, or a slip.`;
+    return `Hi, I'm the Ace Assistant. Ask me about today's ${allowed.map(sport => SPORTS[sport].name).join(', ')} props: best plays, matchups, a player, or a slip.`;
   }
 
   function recall() {

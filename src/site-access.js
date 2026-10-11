@@ -7,7 +7,7 @@ import {accountProfile,saveAccountProfile} from './account-sync.js';
 import './push-alerts.js';
 import './install-guide.js';
 const ACCOUNT_ICON='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M5 21v-2a7 7 0 0 1 14 0v2" stroke="currentColor" stroke-width="1.6"/></svg>';
-const names={research:'Research',finder:'Finder',moves:'Line Moves',v2:'Props',slate:'Tools',saved:'My Slip',slip:'Slip Analyzer',builder:'Builder',moneyline:'Moneyline',nrfi:'NRFI / YRFI',community:'Community',bot:'Krazy Bot',sheets:'Cheat Sheets'};
+const names={research:'Research',finder:'Finder',moves:'Line Moves',v2:'Props',slate:'Tools',saved:'My Slip',slip:'Slip Analyzer',builder:'Builder',moneyline:'Moneyline',nrfi:'NRFI / YRFI',community:'Community',bot:'Ace Assistant',sheets:'Cheat Sheets'};
 let status=null,initPromise=null,activeDialog=null,lockedDialog=null;
 export function siteTabAllowed(tab){return canUseTab(status,tab);}
 export function siteIsAdmin(){return Boolean(status?.isAdmin);}
@@ -36,7 +36,7 @@ async function request(url,body){
 }
 function element(tag,text,className){const node=document.createElement(tag);if(text)node.textContent=text;if(className)node.className=className;return node;}
 function button(text,handler,className='site-text-button'){const node=element('button',text,className);node.type='button';node.onclick=handler;return node;}
-function brand(){const node=element('div',null,'site-auth-brand');const mark=document.createElement('img');mark.className='site-auth-wordmark';mark.src='/icons/krazy-data-wordmark.png';mark.alt='Krazy Data';mark.width=158;mark.height=28;node.append(mark);return node;}
+function brand(){const node=element('div',null,'site-auth-brand');const mark=document.createElement('img');mark.className='site-auth-wordmark';mark.src='/brand/ace-props-wordmark.png';mark.alt='Ace Props';mark.width=126;mark.height=48;node.append(mark);return node;}
 
 // The one-time "welcome" overlay this used to be has been replaced by the
 // always-shown landing page (src/LandingPage.jsx, mounted from
@@ -436,7 +436,7 @@ function escapeHtml(str){return String(str).replace(/[&<>"']/g,c=>({'&':'&amp;',
 // Site theme presets are a convenience local to the admin's own browser --
 // only whichever one gets picked and saved actually goes out to visitors.
 const THEME_PRESETS_KEY='krazy_data_site_theme_presets';
-const DEFAULT_THEME=Object.freeze({primary:'#0082fe',secondary:'#d6e1ea',tint:0});
+const DEFAULT_THEME=Object.freeze({primary:'#00f58a',secondary:'#dce3e0',tint:0});
 function loadThemePresets(){
  try{const saved=JSON.parse(localStorage.getItem(THEME_PRESETS_KEY)||'[]');return Array.isArray(saved)?saved.filter(p=>p&&p.name).slice(0,12):[];}catch{return [];}
 }
@@ -475,8 +475,8 @@ export async function loadSiteControls(){
     +'<div class="site-theme-control">'
      +'<span class="settings-label">Website color theme — everyone sees this</span>'
      +'<div class="accent-controls">'
-      +'<label class="accent-control"><span>Primary</span><div><input type="color" name="themePrimary" value="#0082fe" /><output>#0082FE</output></div></label>'
-      +'<label class="accent-control"><span>Secondary</span><div><input type="color" name="themeSecondary" value="#d6e1ea" /><output>#D6E1EA</output></div></label>'
+      +'<label class="accent-control"><span>Primary</span><div><input type="color" name="themePrimary" value="#00f58a" /><output>#00F58A</output></div></label>'
+      +'<label class="accent-control"><span>Secondary</span><div><input type="color" name="themeSecondary" value="#dce3e0" /><output>#DCE3E0</output></div></label>'
      +'</div>'
      +'<label class="accent-tint-control"><span>Background tint</span><input type="range" name="themeTint" min="0" max="35" step="1" value="0" /><output>0%</output></label>'
      +'<div class="bg-image-actions"><button type="button" id="site-theme-reset">Use default colors</button><button type="button" id="site-theme-apply-preview">Preview here</button></div>'

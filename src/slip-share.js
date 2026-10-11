@@ -4,9 +4,9 @@
 // Phones hand it to the share sheet; elsewhere it downloads.
 
 const W = 1080, H = 1350, PAD = 72;
-const INK = '#ecf2f9', MUTED = 'rgba(236,242,249,.58)', FAINT = 'rgba(236,242,249,.34)', HAIR = 'rgba(255,255,255,.1)';
-const TIER = {elite: ['#46e39a', 'ELITE'], strong: ['#3cc9b9', 'STRONG'], lean: ['#6aa8ff', 'LEAN'], risky: ['#f6b955', 'RISKY'], fade: ['#ff7b8a', 'FADE']};
-const TONE = {A: '#46e39a', B: '#6aa8ff', C: '#f6b955'};
+const INK = '#f4f7f6', MUTED = 'rgba(244,247,246,.58)', FAINT = 'rgba(244,247,246,.34)', HAIR = 'rgba(255,255,255,.1)';
+const TIER = {elite: ['#46e39a', 'ELITE'], strong: ['#3cc9b9', 'STRONG'], lean: ['#aeb5b8', 'LEAN'], risky: ['#f6b955', 'RISKY'], fade: ['#ff7b8a', 'FADE']};
+const TONE = {A: '#46e39a', B: '#aeb5b8', C: '#f6b955'};
 
 const initials = name => String(name || '').split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase();
 const nice = value => (Number.isInteger(value) ? String(value) : Number(value).toFixed(1));
@@ -45,18 +45,18 @@ export async function drawSlip({score, legs, headline, kind, side = leg => (leg.
   const font = (typeof document !== 'undefined' && getComputedStyle(document.body).fontFamily) || 'system-ui, sans-serif';
   const set = (size, weight = 600) => { ctx.font = `${weight} ${size}px ${font}`; };
   const tone = TONE[score.letter?.[0]] || '#ff7b8a';
-  const [mark, ...photos] = await Promise.all([image('/icons/krazy-data-wordmark.png'), ...legs.map(leg => image(leg.row?.headshot))]);
+  const [mark, ...photos] = await Promise.all([image('/brand/ace-props-wordmark.png'), ...legs.map(leg => image(leg.row?.headshot))]);
 
   // Background: deep navy, the grade's color glowing behind the dial.
   const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, '#0d1527'); bg.addColorStop(1, '#070a12');
+  bg.addColorStop(0, '#161b1e'); bg.addColorStop(1, '#0b0d0e');
   ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
   const glow = ctx.createRadialGradient(W / 2, 300, 30, W / 2, 300, 560);
   glow.addColorStop(0, `${tone}55`); glow.addColorStop(1, `${tone}00`);
   ctx.fillStyle = glow; ctx.fillRect(0, 0, W, 860);
 
   // Header: the wordmark and what this is.
-  if (mark) ctx.drawImage(mark, PAD, 64, 203, 36);
+  if (mark) ctx.drawImage(mark, PAD, 44, 168, 64);
   set(24, 800); ctx.fillStyle = MUTED; ctx.textAlign = 'right';
   ctx.fillText('SLIP ANALYZER', W - PAD, 90);
 
@@ -102,12 +102,12 @@ export async function drawSlip({score, legs, headline, kind, side = leg => (leg.
   const rowGap = 12, rowH = Math.min(104, (bottom - top - rowGap * (legs.length - 1)) / legs.length);
   legs.forEach((leg, index) => {
     const y = top + index * (rowH + rowGap);
-    const [color, word] = TIER[leg.grade?.tier] || ['#5b6673', 'NO GRADE'];
+    const [color, word] = TIER[leg.grade?.tier] || ['#61696d', 'NO GRADE'];
     ctx.beginPath(); ctx.roundRect(PAD, y, W - PAD * 2, rowH, 20);
     ctx.fillStyle = 'rgba(255,255,255,.04)'; ctx.fill();
     const pr = Math.min(34, rowH / 2 - 10), px = PAD + 30 + pr, py = y + rowH / 2;
     ctx.save();
-    ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2); ctx.fillStyle = '#1b2230'; ctx.fill(); ctx.clip();
+    ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2); ctx.fillStyle = '#20262c'; ctx.fill(); ctx.clip();
     const photo = photos[index];
     if (photo) {
       const scale = Math.max((pr * 2) / photo.width, (pr * 2) / photo.height);

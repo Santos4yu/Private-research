@@ -85,12 +85,13 @@ export function VortexSidebar() {
   return (
     <Sidebar open={open || builderOpen} setOpen={setOpen} width={builderOpen ? '380px' : undefined} pinned={builderOpen}>
       <SidebarBody className={`vortex-sidebar-body${builderOpen ? ' has-builder' : ''}`}>
-        {/* Wordmark only exists in the DOM while expanded -- previously it
-            was always rendered and just clipped by overflow:hidden, which
-            let a sliver of "Ki" show through in the collapsed rail. */}
+        {/* The full wordmark while the rail is open, the spade A while it
+            is compact (the wordmark is never just clipped by the narrow
+            rail). */}
         <div className={`vortex-sidebar-top${!open && !builderOpen ? ' collapsed' : ''}`}>
-          <img src="/icons/krazy-data-mark.png" alt="" className="vortex-sidebar-mark" width={28} height={28} />
-          {(open || builderOpen) && <img src="/icons/krazy-data-name.png" alt="Krazy Data" className="vortex-sidebar-wordmark" width={112} height={16} />}
+          {open || builderOpen
+            ? <img src="/brand/ace-props-wordmark.png" alt="Ace Props" className="vortex-sidebar-wordmark" width={92} height={35} />
+            : <img src="/brand/ace-props-mark.png" alt="Ace Props" className="vortex-sidebar-mark" width={32} height={32} />}
         </div>
         <nav className="vortex-sidebar-links">
           {topTabs.map((item, index) => item.type === 'separator'

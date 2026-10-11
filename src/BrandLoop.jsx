@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-const BRAND_LOOP_WORDS = ["Data", "Props", "Edge", "Signal"];
+const BRAND_LOOP_WORDS = ["Props", "Edge", "Data"];
 
-// The exact same animated wordmark as the main app header ("Krazy" static +
+// The exact same animated wordmark as the main app header ("Ace" static +
 // a highlighted word that cycles through a few brand terms with a blinking
 // cursor) -- app.js's wireBrandLoop() ported to React so the landing page
 // (which is a React component, unlike the vanilla header) gets the same
@@ -30,7 +30,7 @@ export function BrandLoop({ className = '' }) {
 
   return (
     <span className={`brand-loop ${className}`}>
-      <span className="brand-loop-static">Krazy</span>
+      <span className="brand-loop-static">Ace</span>
       <span className={`brand-loop-rotor${isIn ? ' is-in' : ''}`}>
         <span className="brand-loop-box" aria-hidden="true" />
         <span className="brand-loop-word">{BRAND_LOOP_WORDS[index]}</span>

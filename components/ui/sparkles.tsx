@@ -71,7 +71,7 @@ export const SparklesCore = memo((props: ParticlesProps) => {
   const options = useMemo(() => ({
             background: {
               color: {
-                value: background || "#0d47a1",
+                value: background || "#00a860",
               },
             },
             fullScreen: {

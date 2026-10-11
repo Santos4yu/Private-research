@@ -2,8 +2,8 @@
 :root[data-theme] #app-shell #panel-finder{width:calc(100% - 28px)!important;max-width:1700px!important;padding:14px 0 90px!important;margin:0 auto!important}
 #panel-finder::before{display:none!important}
 #app-shell:has(#panel-finder:not([hidden]))>.hero{display:none!important}
-#app-shell:has(#panel-finder:not([hidden])){min-height:100dvh;background:#080c1a}
-.unified-finder{--f-bg:#0b0f14;--f-row:#101419;--f-control:#1f2328;--f-border:#2a2f34;--f-text:#ebf1f9;--f-muted:#a8adb4;--f-good:#6ce4bb;--f-mid:#f6d260;--f-low:#ff929e;color:var(--f-text);background:var(--f-bg);border:1px solid var(--f-border);border-radius:15px;overflow:hidden;width:100%;margin:0 auto;font:400 12px/1.35 var(--font-sans,Inter,Arial,sans-serif);color-scheme:dark;isolation:isolate}
+#app-shell:has(#panel-finder:not([hidden])){min-height:100dvh;background:#0e1114}
+.unified-finder{--f-bg:#0d1012;--f-row:#111518;--f-control:#1f2428;--f-border:#2a3034;--f-text:#f4f7f6;--f-muted:#a8adb4;--f-good:#6ce4bb;--f-mid:#f6d260;--f-low:#ff929e;color:var(--f-text);background:var(--f-bg);border:1px solid var(--f-border);border-radius:15px;overflow:hidden;width:100%;margin:0 auto;font:400 12px/1.35 var(--font-sans,Inter,Arial,sans-serif);color-scheme:dark;isolation:isolate}
 .unified-finder *{box-sizing:border-box}
 .unified-finder button,.unified-finder input,.unified-finder select{font:inherit;color:inherit;letter-spacing:normal}
 .unified-finder button{cursor:pointer;transition:background-color .15s,color .15s;border:0;box-shadow:none}
@@ -12,18 +12,17 @@
 .finder-sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
 /* Krazy Data's header: charcoal lit from the left by the brand accent, with an
    accent rule underneath. Follows each member's own accent color. */
-.finder-topbar{display:flex;align-items:center;gap:16px;min-height:53px;padding:7px 14px;background:radial-gradient(120% 220% at 0% 0%,color-mix(in srgb,var(--theme-accent) 30%,transparent),transparent 58%),linear-gradient(180deg,#171b21,#111419);box-shadow:inset 0 -1px 0 color-mix(in srgb,var(--theme-accent) 55%,transparent)}
+.finder-topbar{display:flex;align-items:center;gap:16px;min-height:53px;padding:7px 14px;background:linear-gradient(180deg,#181d20,#121618);box-shadow:inset 0 -1px 0 color-mix(in srgb,var(--theme-accent) 55%,transparent)}
 .finder-title{display:flex;align-items:center;gap:9px;flex-shrink:0}
 .finder-title h1{font-family:'Sora',var(--font-sans,Arial,sans-serif);font-size:17px;font-weight:700;letter-spacing:-.4px;margin:0;line-height:1.2}
 .finder-title>span{margin-left:12px;opacity:.55;font-size:18px}
 .finder-sports{display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none}
-.finder-sports>button{display:flex;align-items:center;justify-content:center;gap:8px;min-height:35px;padding:5px 12px;border:1px solid transparent;border-radius:8px;background:transparent;color:#d6dbe3;font-weight:700;font-size:12px;white-space:nowrap}
+.finder-sports>button{display:flex;align-items:center;justify-content:center;gap:8px;min-height:35px;padding:5px 12px;border:1px solid transparent;border-radius:8px;background:transparent;color:#dce3e0;font-weight:700;font-size:12px;white-space:nowrap}
 .finder-sports>button:hover{background:#ffffff14;color:#fff}
 .finder-sports>button[aria-pressed=true]{border-color:color-mix(in srgb,var(--theme-accent-soft,var(--theme-accent)) 53%,transparent);background:#ffffff20;color:#fff}
 .finder-league{width:17px;height:19px;object-fit:contain;flex-shrink:0}
-.finder-brand{font-size:10px;letter-spacing:.11em;font-weight:800;margin-left:auto;white-space:nowrap;opacity:.95}
-.finder-brand span{color:var(--theme-accent-soft,var(--theme-accent));margin-left:3px}
-.finder-icon{display:grid;place-items:center;width:40px;height:40px;flex-shrink:0;border:1px solid var(--f-border)!important;border-radius:8px;background:var(--f-control);color:#bdc2ca}
+.finder-brand{display:block;width:auto;height:24px;margin-left:auto;object-fit:contain}
+.finder-icon{display:grid;place-items:center;width:40px;height:40px;flex-shrink:0;border:1px solid var(--f-border)!important;border-radius:8px;background:var(--f-control);color:#c0c5c7}
 .finder-icon:hover{background:#32363c;color:#fff}
 .finder-top-save{background:#ffffff15;border-color:#ffffff30!important;width:34px;height:34px}
 .unified-finder .finder-controls{padding:9px 10px 0;display:grid;grid-template-columns:minmax(0,1fr);gap:7px;margin:0}
@@ -48,7 +47,7 @@
   position:absolute!important;left:auto!important;right:70px!important;top:16px!important;bottom:auto!important;
   width:24px!important;height:24px!important;min-height:0!important;padding:0!important;
   display:grid!important;place-items:center!important;border:0!important;border-radius:0!important;
-  background:transparent!important;box-shadow:none!important;z-index:4!important;color:#b2b7be
+  background:transparent!important;box-shadow:none!important;z-index:4!important;color:#b4b9bc
  }
  .unified-finder .finder-table .finder-star svg{
   width:19px!important;height:19px!important;padding:0!important;background:transparent!important;
@@ -64,7 +63,7 @@
  }
  /* The ring splits by the books' Over / Under chance: Over's share runs
     clockwise from the top. */
- .unified-finder .finder-table .finder-probability.is-empty{border-color:#3a3f46!important}
+ .unified-finder .finder-table .finder-probability.is-empty{border-color:#3c4144!important}
  .unified-finder .finder-table .finder-probability[style*="--over"]{position:relative;border-color:transparent!important}
  .unified-finder .finder-table .finder-probability[style*="--over"]::before{
   content:"";position:absolute;inset:-2px;border-radius:50%;pointer-events:none;
@@ -88,11 +87,11 @@
 .unified-finder .finder-app-filter .finder-filter select{padding-right:155px}
 .finder-filter option{background:var(--f-control);color:var(--f-text)}
 .finder-filter:focus-within{border-color:var(--theme-accent-soft,var(--theme-accent))}
-.finder-filter.is-active{background:var(--theme-accent);border-color:var(--theme-accent);color:#fff}
+.finder-filter.is-active{background:var(--theme-accent);border-color:var(--theme-accent);color:var(--theme-on-accent,#03140B)}
 .finder-saved{display:flex;align-items:center;justify-content:center;gap:7px;padding:0 12px;border:1px solid var(--f-border)!important;border-radius:8px;background:var(--f-control);color:var(--f-muted);min-height:39px}
-.finder-saved.is-active{background:var(--theme-accent);color:white}
+.finder-saved.is-active{background:var(--theme-accent);color:var(--theme-on-accent,#03140B)}
 .finder-saved b{font-size:10px;border-radius:4px;padding:1px 4px;background:#ffffff18}
-.finder-reset{height:39px;background:var(--theme-accent);color:#fff}
+.finder-reset{height:39px;background:var(--theme-accent);color:var(--theme-on-accent,#03140B)}
 .finder-meta{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 13px;color:var(--f-muted);font-size:10px;min-height:31px}
 .finder-meta>span{display:flex;align-items:center;gap:5px}
 .finder-meta small{font-size:10px}
@@ -103,67 +102,67 @@
 .finder-error{padding:8px 13px;background:#3e2033;color:#ffd6de;display:flex;justify-content:space-between;gap:10px}
 .finder-error button{color:#fff;background:#ffffff15;border-radius:5px;padding:3px 9px}
 .finder-board{margin:0 10px 10px;border:1px solid var(--f-border);border-radius:9px;overflow:hidden;background:var(--f-bg)}
-.finder-scroll{overflow:auto;max-height:calc(100dvh - 252px);min-height:350px;scrollbar-width:thin;scrollbar-color:#393d43 var(--f-bg);overscroll-behavior:contain}
+.finder-scroll{overflow:auto;max-height:calc(100dvh - 252px);min-height:350px;scrollbar-width:thin;scrollbar-color:#3a3f42 var(--f-bg);overscroll-behavior:contain}
 .finder-table{width:100%;min-width:1050px;border-collapse:separate;border-spacing:0;table-layout:fixed}
 .finder-table thead{position:sticky;top:0;z-index:4}
-.finder-table th{height:39px;padding:0 6px;color:var(--f-muted);background:#090d11;border-bottom:1px solid #2a2f34;font-size:11px;font-weight:600;text-align:center;white-space:nowrap}
+.finder-table th{height:39px;padding:0 6px;color:var(--f-muted);background:#0b0d0f;border-bottom:1px solid #2a3034;font-size:11px;font-weight:600;text-align:center;white-space:nowrap}
 .finder-table th:first-child{width:27%;text-align:left;padding-left:14px}
 .finder-table th:nth-child(2){width:18%;text-align:left;padding-left:8px}
 .finder-table th:nth-child(3){width:7%}
 .finder-table th>button{display:inline-flex;align-items:center;gap:4px;height:32px;background:none;padding:0 4px;color:inherit;border-radius:5px;font-size:11px;white-space:nowrap}
-.finder-table th>button:hover{background:#282c32;color:#fff}
-.finder-table th>button.is-sorted{color:var(--theme-accent-soft,var(--theme-accent));background:#24282e}
+.finder-table th>button:hover{background:#282e32;color:#fff}
+.finder-table th>button.is-sorted{color:var(--theme-accent-soft,var(--theme-accent));background:#242a2e}
 .finder-table th>button svg{opacity:.6}
-.finder-table td{height:61px;border-bottom:1px solid #1b1f24;padding:0 6px;background:var(--f-row);font-size:11px;vertical-align:middle}
-.finder-table tbody tr:nth-child(even)>td{background:#0b0f14}
-.finder-table tbody tr:hover>td{background:#1b1f25}
+.finder-table td{height:61px;border-bottom:1px solid #1b2024;padding:0 6px;background:var(--f-row);font-size:11px;vertical-align:middle}
+.finder-table tbody tr:nth-child(even)>td{background:#0d1012}
+.finder-table tbody tr:hover>td{background:#1b2125}
 .finder-table tbody tr{cursor:pointer}
 .finder-table .finder-player-cell{padding-left:14px}
 .finder-player{display:flex;align-items:center;gap:10px;min-width:0}
 .finder-portrait-wrap{position:relative;flex-shrink:0}
-.finder-portrait{display:block;width:38px;height:38px;object-fit:cover;object-position:top;border-radius:50%;border:1px solid #3d4248;background:#23272d}
-.finder-initials{display:grid;place-items:center;color:#c4cad1;font-weight:700;font-size:11px}
-.finder-star{position:absolute;bottom:-3px;right:-4px;display:grid;place-items:center;background:#181c21;color:#a4aab1;border:1px solid #3f4349!important;border-radius:50%;width:24px;height:24px}
+.finder-portrait{display:block;width:38px;height:38px;object-fit:cover;object-position:top;border-radius:50%;border:1px solid #3f4446;background:#23292d}
+.finder-initials{display:grid;place-items:center;color:#c7ccce;font-weight:700;font-size:11px}
+.finder-star{position:absolute;bottom:-3px;right:-4px;display:grid;place-items:center;background:#181d21;color:#a4aab1;border:1px solid #3f4349!important;border-radius:50%;width:24px;height:24px}
 .finder-star[aria-pressed=true]{color:#ffda67}
 .finder-open{display:block;text-align:left;padding:8px 0;min-height:57px;min-width:0;background:none;width:100%}
 .finder-name{display:block;color:var(--f-text);font-weight:750;font-size:12px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.finder-name em{font-style:normal;font-weight:500;color:#c5cbd2;font-size:10px}
-.finder-market{display:flex;align-items:center;gap:4px;color:#c2c8cf;line-height:1.3;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.finder-market>b{color:#f1f7ff;font-weight:750}
+.finder-name em{font-style:normal;font-weight:500;color:#c8cdcf;font-size:10px}
+.finder-market{display:flex;align-items:center;gap:4px;color:#c5cacc;line-height:1.3;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.finder-market>b{color:#f4f7f6;font-weight:750}
 .finder-market .finder-league{width:12px;height:13px}
 .finder-game{display:block;margin-top:1px;color:#a0a6ad;font-size:9px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .finder-books{display:flex;align-items:center;gap:7px;min-width:0}
 .finder-book{display:flex;align-items:center;gap:4px;flex-shrink:0}
 .finder-book>img{width:25px;height:25px;object-fit:contain}
-.finder-book>span>span{display:block;white-space:nowrap;line-height:1.2;font-size:10px;color:#d6dce3;font-variant-numeric:tabular-nums}
+.finder-book>span>span{display:block;white-space:nowrap;line-height:1.2;font-size:10px;color:#dce3e0;font-variant-numeric:tabular-nums}
 .finder-book small{color:var(--f-muted);font-size:9px;white-space:nowrap}
 .finder-book b{font-weight:600}
 .finder-over{color:var(--f-good)}.finder-under{color:var(--f-low)}
 .finder-book-fallback{display:grid;place-items:center;width:25px;height:25px;border-radius:6px;background:#454a50;color:#fff;font-weight:700;font-size:9px}
-.finder-extra{display:grid;place-items:center;min-width:24px;height:20px;padding:0 4px;border:1px solid #353a3f;border-radius:12px;color:var(--f-muted);font-size:10px}
-.finder-probability{display:grid;gap:1px;padding:5px 6px;border:1px solid #30343a;border-radius:7px;background:#1d2127;font-variant-numeric:tabular-nums}
-.finder-probability span{display:flex;justify-content:space-between;gap:4px;color:#c3c9d0;font-size:10px;font-weight:600}
+.finder-extra{display:grid;place-items:center;min-width:24px;height:20px;padding:0 4px;border:1px solid #373b3d;border-radius:12px;color:var(--f-muted);font-size:10px}
+.finder-probability{display:grid;gap:1px;padding:5px 6px;border:1px solid #30343a;border-radius:7px;background:#1d2327;font-variant-numeric:tabular-nums}
+.finder-probability span{display:flex;justify-content:space-between;gap:4px;color:#c6cbcd;font-size:10px;font-weight:600}
 .finder-probability span:first-child b{color:var(--f-good)}.finder-probability span:last-child b{color:var(--f-low)}
 .finder-prob-cell{text-align:center}
 .finder-probability.is-empty span{justify-content:center;color:#7d838b;font-size:12px}
 /* Opponent's defense rank against the position in this stat. */
-.finder-defense{display:inline-block;margin-left:6px;padding:0 5px;border-radius:4px;background:#252a31;color:#c3c9d0;font-size:9px;font-weight:700;line-height:15px;letter-spacing:.02em;white-space:nowrap;vertical-align:1px}
+.finder-defense{display:inline-block;margin-left:6px;padding:0 5px;border-radius:4px;background:#252c31;color:#c6cbcd;font-size:9px;font-weight:700;line-height:15px;letter-spacing:.02em;white-space:nowrap;vertical-align:1px}
 .finder-defense[data-tone=good]{color:var(--f-good);background:color-mix(in srgb,var(--f-good) 15%,transparent)}
 .finder-defense[data-tone=mid]{color:var(--f-mid);background:color-mix(in srgb,var(--f-mid) 15%,transparent)}
 .finder-defense[data-tone=low]{color:var(--f-low);background:color-mix(in srgb,var(--f-low) 15%,transparent)}
 .finder-table .finder-stat{padding:4px 1px}
-.finder-heat{height:53px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:#c6ccd3;font-variant-numeric:tabular-nums}
+.finder-heat{height:53px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:#c9ced0;font-variant-numeric:tabular-nums}
 .finder-heat strong{font-size:11px;font-weight:700}
 .finder-heat small{font-size:9px;font-weight:500;line-height:1.1;opacity:.87}
 .finder-heat[data-tone=good]{color:var(--f-good);background:linear-gradient(180deg,#09303800 0%,#0745418a 48%,#05604e 100%);border-bottom:1px solid #16816b}
 .finder-heat[data-tone=mid]{color:var(--f-mid);background:linear-gradient(180deg,#45381b00 0%,#55441485 48%,#725317 100%);border-bottom:1px solid #93732b}
 .finder-heat[data-tone=low]{color:var(--f-low);background:linear-gradient(180deg,#471b2c00 0%,#5b1b3180 48%,#78263b 100%);border-bottom:1px solid #ad4256}
 .finder-no-data{color:#7f858b;font-size:12px}
-.finder-pagination{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:7px 10px;border-top:1px solid var(--f-border);background:#0e1217;color:var(--f-muted);font-size:10px}
+.finder-pagination{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:7px 10px;border-top:1px solid var(--f-border);background:#101315;color:var(--f-muted);font-size:10px}
 .finder-pagination>div{display:flex;align-items:center;gap:5px}
 .finder-pagination>div>span{display:flex;gap:4px;align-items:center;height:30px;padding:0 11px;border:1px solid var(--f-border);border-radius:6px;background:var(--f-control)}
-.finder-pagination b{color:#dde3eb}
-.finder-pagination button{display:grid;place-items:center;width:30px;height:30px;border:1px solid var(--f-border);border-radius:6px;background:var(--f-control);color:#bec4cb}
+.finder-pagination b{color:#dce3e0}
+.finder-pagination button{display:grid;place-items:center;width:30px;height:30px;border:1px solid var(--f-border);border-radius:6px;background:var(--f-control);color:#c1c6c8}
 .finder-pagination label{display:flex;align-items:center;gap:6px;height:30px;border:1px solid var(--f-border);border-radius:6px;padding:0 9px;margin-left:6px;background:var(--f-control)}
 .finder-pagination select{appearance:none;background:none;border:0;outline:none;font-size:10px;cursor:pointer}
 .finder-pagination option{background:var(--f-control)}
@@ -176,7 +175,7 @@
 .wnba-trend-host{min-height:500px}.wnba-trend-host #gamelog-overlay{margin:0!important}
 @media(min-width:1600px){.finder-table th:first-child{width:26%}.finder-table td{height:64px}.finder-heat{height:56px}.finder-name{font-size:13px}.finder-heat strong{font-size:12px}}
 @media(max-width:1100px){.finder-brand{display:none}.finder-top-save{margin-left:auto}.finder-page-hint{display:none}.finder-filters{grid-template-columns:1fr 1.4fr 1fr 1fr 1.1fr 40px}.finder-saved{display:none}.finder-legend{font-size:9px}}
-@media(max-width:760px){:root[data-theme] #app-shell #panel-finder{width:calc(100% - 16px)!important;padding:64px 0 90px!important}.unified-finder{border-radius:11px}.finder-topbar{padding:7px 9px;gap:8px;flex-wrap:wrap}.finder-title{gap:6px}.finder-title h1{font-size:15px}.finder-title>span{margin-left:1px}.finder-sports{gap:3px;flex:1}.finder-sports>button{padding:4px 7px;gap:5px;font-size:11px;min-height:36px}.finder-top-save{display:none}.finder-controls{padding:7px 7px 0}.finder-search-row{grid-template-columns:minmax(0,1fr) 40px}.finder-search{height:44px}.finder-search input{font-size:16px}.finder-search-row>.finder-icon{height:44px}.finder-app-filter{grid-column:1/-1;grid-row:2}.finder-app-filter .finder-filter{height:38px}.finder-filters{display:flex;flex-wrap:wrap;gap:5px}.finder-filters .finder-filter{flex:1 1 28%;height:40px;padding-inline:8px}.finder-filters .finder-filter select{font-size:11px}.finder-reset{width:40px;height:40px}.finder-saved{display:none}.finder-meta{padding:8px 10px;align-items:flex-start}.finder-meta>span{flex-wrap:wrap}.finder-legend{display:none!important}.finder-board{margin:0 7px 7px}.finder-scroll{min-height:300px;max-height:calc(100dvh - 360px)}.finder-table{min-width:980px}.finder-table th:first-child{width:225px}.finder-table th:nth-child(2){width:160px}.finder-table th:first-child,.finder-table td:first-child{position:sticky;left:0;z-index:2;border-right:1px solid #2e3339}.finder-table th:first-child{z-index:5}.finder-table .finder-player-cell{padding-left:8px}.finder-player{gap:7px}.finder-name{font-size:11px}.finder-market{font-size:10px}.finder-game{font-size:9px}.finder-portrait{width:32px;height:32px}.finder-pagination{padding:7px 6px;gap:5px}.finder-pagination>span{font-size:9px}.finder-pagination>div{gap:3px}.finder-pagination>div>span{padding:0 6px}.finder-pagination label{padding:0 6px;margin-left:2px}.finder-pagination button{width:28px}.finder-detail,.finder-trend-view{padding:8px}}
+@media(max-width:760px){:root[data-theme] #app-shell #panel-finder{width:calc(100% - 16px)!important;padding:64px 0 90px!important}.unified-finder{border-radius:11px}.finder-topbar{padding:7px 9px;gap:8px;flex-wrap:wrap}.finder-title{gap:6px}.finder-title h1{font-size:15px}.finder-title>span{margin-left:1px}.finder-sports{gap:3px;flex:1}.finder-sports>button{padding:4px 7px;gap:5px;font-size:11px;min-height:36px}.finder-top-save{display:none}.finder-controls{padding:7px 7px 0}.finder-search-row{grid-template-columns:minmax(0,1fr) 40px}.finder-search{height:44px}.finder-search input{font-size:16px}.finder-search-row>.finder-icon{height:44px}.finder-app-filter{grid-column:1/-1;grid-row:2}.finder-app-filter .finder-filter{height:38px}.finder-filters{display:flex;flex-wrap:wrap;gap:5px}.finder-filters .finder-filter{flex:1 1 28%;height:40px;padding-inline:8px}.finder-filters .finder-filter select{font-size:11px}.finder-reset{width:40px;height:40px}.finder-saved{display:none}.finder-meta{padding:8px 10px;align-items:flex-start}.finder-meta>span{flex-wrap:wrap}.finder-legend{display:none!important}.finder-board{margin:0 7px 7px}.finder-scroll{min-height:300px;max-height:calc(100dvh - 360px)}.finder-table{min-width:980px}.finder-table th:first-child{width:225px}.finder-table th:nth-child(2){width:160px}.finder-table th:first-child,.finder-table td:first-child{position:sticky;left:0;z-index:2;border-right:1px solid #2e3439}.finder-table th:first-child{z-index:5}.finder-table .finder-player-cell{padding-left:8px}.finder-player{gap:7px}.finder-name{font-size:11px}.finder-market{font-size:10px}.finder-game{font-size:9px}.finder-portrait{width:32px;height:32px}.finder-pagination{padding:7px 6px;gap:5px}.finder-pagination>span{font-size:9px}.finder-pagination>div{gap:3px}.finder-pagination>div>span{padding:0 6px}.finder-pagination label{padding:0 6px;margin-left:2px}.finder-pagination button{width:28px}.finder-detail,.finder-trend-view{padding:8px}}
 @media(max-width:420px){.finder-title{width:100%}.finder-title>span{display:none}.finder-sports{flex-basis:100%;justify-content:space-between}.finder-sports>button{flex:1;justify-content:center}}
 @media(prefers-reduced-motion:reduce){.finder-spin{animation:none}.unified-finder button{transition:none}}
 
@@ -188,7 +187,7 @@
  :root[data-theme] body:has(#panel-finder:not([hidden])) .site-account-bar,
  :root[data-theme] body:has(#panel-finder:not([hidden])) #settings-btn{top:calc(10px + env(safe-area-inset-top,0px))!important}
  :root[data-theme] body:has(#panel-finder:not([hidden])) .site-account-trigger,
- :root[data-theme] body:has(#panel-finder:not([hidden])) #settings-btn{width:44px!important;height:44px!important;border-radius:13px!important;background:#14181e!important;border-color:#30353b!important}
+ :root[data-theme] body:has(#panel-finder:not([hidden])) #settings-btn{width:44px!important;height:44px!important;border-radius:13px!important;background:#151a1d!important;border-color:#30363b!important}
  .unified-finder .finder-table .finder-portrait-wrap{position:static;flex-basis:32px}
  .unified-finder .finder-table .finder-portrait{width:32px;height:32px;object-fit:cover}
  .unified-finder .finder-table .finder-star{position:absolute;left:auto;top:auto;right:3px;bottom:2px;width:44px;height:44px;display:grid;place-items:center;padding:0;border:0;background:transparent;color:#a1a6ad;z-index:3}
@@ -199,27 +198,27 @@
 }
 .finder-custom-select{flex:1;min-width:0;width:100%}
 .finder-custom-select>div{min-width:0;width:100%}
-.unified-finder .finder-custom-select .finder-select-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;height:38px;min-height:0;padding:0;border:0;border-radius:6px;background:transparent;color:#eaf0f7;font-family:Inter,Arial,sans-serif;font-size:13px;font-weight:600;line-height:1.4;letter-spacing:0;text-transform:none;box-shadow:none}
+.unified-finder .finder-custom-select .finder-select-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;height:38px;min-height:0;padding:0;border:0;border-radius:6px;background:transparent;color:#f4f7f6;font-family:Inter,Arial,sans-serif;font-size:13px;font-weight:600;line-height:1.4;letter-spacing:0;text-transform:none;box-shadow:none}
 .unified-finder .finder-filter>.finder-custom-select+svg,.unified-finder .finder-mobile-sport>.finder-custom-select+svg,.unified-finder .finder-pagination label>.finder-custom-select+svg{display:none}
 .finder-option-label{display:flex;align-items:center;gap:9px;min-width:0;text-align:left}
 .finder-option-label>img{flex:0 0 22px;width:22px;height:22px;object-fit:contain}
 .finder-option-label>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.finder-select-menu{background:#161a1f!important;border:1px solid #3e4248!important;border-radius:12px!important;padding:5px!important;color:#ebf1f8!important;box-shadow:0 16px 40px #0008!important;font:500 13px/1.45 Inter,Arial,sans-serif!important;scrollbar-width:thin;scrollbar-color:#4e5359 #161a1f}
-.finder-select-menu .finder-select-option{min-height:42px;padding:9px 11px;border-radius:7px;color:#cdd2da;cursor:pointer;font:500 13px/1.45 Inter,Arial,sans-serif;letter-spacing:0}
+.finder-select-menu{background:#161b1f!important;border:1px solid #3e4248!important;border-radius:12px!important;padding:5px!important;color:#f4f7f6!important;box-shadow:0 16px 40px #0008!important;font:500 13px/1.45 Inter,Arial,sans-serif!important;scrollbar-width:thin;scrollbar-color:#4e5359 #161b1f}
+.finder-select-menu .finder-select-option{min-height:42px;padding:9px 11px;border-radius:7px;color:#d1d4d6;cursor:pointer;font:500 13px/1.45 Inter,Arial,sans-serif;letter-spacing:0}
 .finder-select-menu .finder-select-option:hover,.finder-select-menu .finder-select-option:focus{background:#2f3439;color:#fff;outline:2px solid var(--theme-accent);outline-offset:-2px}
-.finder-select-menu .finder-select-option[aria-selected=true]{background:#3c4147;color:#f4f9ff;font-weight:650}
+.finder-select-menu .finder-select-option[aria-selected=true]{background:#3e4345;color:#f4f7f6;font-weight:650}
 .unified-finder .finder-app-icons{display:none}
 .unified-finder .finder-pagination .finder-custom-select{width:100px}.unified-finder .finder-pagination .finder-select-trigger{height:28px;font-size:12px}
 @media(max-width:760px){.unified-finder .finder-custom-select .finder-select-trigger{height:42px;font-size:13px}.finder-select-menu .finder-select-option{min-height:44px}.unified-finder .finder-mobile-sport .finder-custom-select{width:100px}.unified-finder .finder-pagination .finder-custom-select{width:90px}}
 @media(max-width:760px){
- .unified-finder{border:0;background:#090d12;padding-bottom:env(safe-area-inset-bottom)}
- .finder-topbar{border-radius:0;background:linear-gradient(110deg,color-mix(in srgb,var(--theme-accent) 62%,#0e1116),color-mix(in srgb,var(--theme-accent) 19%,#0e1116));padding:8px 10px}
+ .unified-finder{border:0;background:#0b0e10;padding-bottom:env(safe-area-inset-bottom)}
+ .finder-topbar{border-radius:0;background:linear-gradient(110deg,color-mix(in srgb,var(--theme-accent) 62%,#0f1215),color-mix(in srgb,var(--theme-accent) 19%,#0f1215));padding:8px 10px}
  .finder-title{width:auto}.finder-title>span{display:inline}
  .finder-sports{flex-basis:auto;justify-content:flex-start;overflow-x:auto;min-width:0}
  .finder-sports>button{flex:0 0 auto;min-height:44px;padding:5px 8px}
  .finder-topbar .finder-title h1{font-size:14px}
  .finder-controls{padding:6px 6px 0}
- .finder-search-row{gap:6px}.finder-app-filter{background:#171e36;border-radius:10px}
+ .finder-search-row{gap:6px}.finder-app-filter{background:#20282d;border-radius:10px}
  .finder-filters{flex-wrap:nowrap;overflow-x:auto;padding-bottom:5px;scrollbar-width:thin}
  .finder-filters .finder-filter{flex:0 0 120px;height:44px}
  .finder-filters .finder-filter select{font-size:12px}
@@ -227,33 +226,33 @@
  .unified-finder .finder-mobile-sort{display:flex;gap:5px;padding:3px 6px;margin:0;overflow-x:auto}
  .unified-finder .finder-mobile-sort{scrollbar-width:none;overscroll-behavior-x:contain}
  .unified-finder .finder-mobile-sort::-webkit-scrollbar{display:none}
- .finder-sort-chip{display:flex;align-items:stretch;flex:0 0 auto;border:1px solid #383d43;border-radius:7px;background:#15191e}
- .finder-sort-chip[data-active]{border-color:var(--theme-accent);background:color-mix(in srgb,var(--theme-accent) 31%,#0e1116)}
- .finder-mobile-sort .finder-sort-chip button{display:flex;align-items:center;justify-content:center;gap:4px;min-width:50px;min-height:44px;padding:6px 10px;border:0;border-radius:7px;background:none;color:#b3b8c0;font-size:11px;white-space:nowrap}
- .finder-mobile-sort .finder-sort-chip button[aria-pressed=true]{color:#e4eaf1;padding-right:4px}
- .finder-sort-chip b{display:grid;place-items:center;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--theme-accent);color:#fff;font-size:10px;font-weight:700;line-height:1}
- .finder-mobile-sort .finder-sort-chip .finder-sort-remove{min-width:30px;padding:6px 9px 6px 3px;color:#c8ced6}
+ .finder-sort-chip{display:flex;align-items:stretch;flex:0 0 auto;border:1px solid #3a3f41;border-radius:7px;background:#151a1e}
+ .finder-sort-chip[data-active]{border-color:var(--theme-accent);background:color-mix(in srgb,var(--theme-accent) 31%,#0f1215)}
+ .finder-mobile-sort .finder-sort-chip button{display:flex;align-items:center;justify-content:center;gap:4px;min-width:50px;min-height:44px;padding:6px 10px;border:0;border-radius:7px;background:none;color:#b5bbbe;font-size:11px;white-space:nowrap}
+ .finder-mobile-sort .finder-sort-chip button[aria-pressed=true]{color:#dce3e0;padding-right:4px}
+ .finder-sort-chip b{display:grid;place-items:center;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--theme-accent);color:var(--theme-on-accent,#03140B);font-size:10px;font-weight:700;line-height:1}
+ .finder-mobile-sort .finder-sort-chip .finder-sort-remove{min-width:30px;padding:6px 9px 6px 3px;color:#ccd0d2}
  .finder-meta{padding:5px 9px;font-size:10px}.finder-meta small{font-size:9px}
  .finder-board{border:0;background:none;margin:0 6px 8px;overflow:visible}
  .finder-scroll{max-height:none;min-height:0;overflow:visible}
  .finder-table{display:block;min-width:0;width:100%;table-layout:auto}
  .finder-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
  .finder-table tbody{display:grid;gap:8px}
- .finder-table tbody tr{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));position:relative;isolation:isolate;overflow:hidden;border:1px solid #3e4248;border-radius:12px;background:linear-gradient(170deg,#24292e 0%,#0e1217 36%,#090d11 70%);padding:0;box-shadow:0 3px 10px #0002}
+ .finder-table tbody tr{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));position:relative;isolation:isolate;overflow:hidden;border:1px solid #3e4248;border-radius:12px;background:linear-gradient(170deg,#242a2e 0%,#101315 36%,#0b0d0f 70%);padding:0;box-shadow:0 3px 10px #0002}
  .finder-table tbody tr:active{border-color:var(--theme-accent)}
  .finder-table td{height:auto;border:0;min-width:0;padding:0}
  .finder-table .finder-player-cell{grid-column:1/-1;grid-row:1;padding:10px 72px 10px 8px;position:static;border:0;background:none!important}
  .finder-player{gap:8px;align-items:center}.finder-portrait{width:38px;height:38px}.finder-portrait-wrap{flex:0 0 38px}
  .finder-open{min-height:52px}.finder-name{font-size:12px;white-space:normal;line-height:1.4}.finder-market{font-size:11px;white-space:normal;line-height:1.35}.finder-game{font-size:10px;white-space:normal;line-height:1.35;margin-top:3px}
  .finder-star{width:44px;height:44px;left:-3px;bottom:-17px;background:transparent;border:0;box-shadow:none}
- .finder-star svg{background:#21252a;border-radius:50%;padding:3px;width:20px;height:20px}
+ .finder-star svg{background:#21262a;border-radius:50%;padding:3px;width:20px;height:20px}
  .finder-table td:nth-child(2){grid-column:1/-1;grid-row:3;padding:8px 10px;border-top:1px solid #2e3338}
  .finder-books{gap:12px;flex-wrap:wrap}.finder-book>img{width:27px;height:27px}.finder-book>span>span{font-size:11px}
  .finder-table .finder-prob-cell{position:absolute;right:8px;top:9px;width:56px}
- .finder-probability{border:3px solid #19b894;border-radius:50%;width:56px;height:56px;padding:0;display:flex;flex-direction:column;justify-content:center;gap:2px;background:#171b20}
+ .finder-probability{border:3px solid #19b894;border-radius:50%;width:56px;height:56px;padding:0;display:flex;flex-direction:column;justify-content:center;gap:2px;background:#171c20}
  .finder-probability span{justify-content:center;gap:2px;font-size:8px}
- .finder-table .finder-stat{grid-row:2;padding:0;border-right:1px solid #171b20}
- .finder-table .finder-stat:before{display:block;text-align:center;padding-top:5px;color:#c0c5cd;font-size:9px;background:#0c2930;line-height:12px}
+ .finder-table .finder-stat{grid-row:2;padding:0;border-right:1px solid #171c20}
+ .finder-table .finder-stat:before{display:block;text-align:center;padding-top:5px;color:#c3c8ca;font-size:9px;background:#191f23;line-height:12px}
  .finder-table td:nth-child(4){grid-column:6}.finder-table td:nth-child(4):before{content:'AVG L10'}
  .finder-table td:nth-child(5){grid-column:7}.finder-table td:nth-child(5):before{content:'DIFF'}
  .finder-table td:nth-child(6){grid-column:1}.finder-table td:nth-child(6):before{content:'L5'}
@@ -269,14 +268,14 @@
  .finder-detail-active>.finder-topbar{display:none}
  .finder-detail,.finder-trend-view{padding:6px;min-width:0}
  .finder-back,.wnba-trend-back{min-height:44px;margin-bottom:6px;border:0!important;background:transparent}
- .finder-nfl-trend-view .nfl-player-header{display:grid;grid-template-columns:44px minmax(0,1fr);gap:8px;padding:12px;background:linear-gradient(110deg,color-mix(in srgb,var(--theme-accent) 60%,#0e1116),#161a1f);border-radius:10px}
+ .finder-nfl-trend-view .nfl-player-header{display:grid;grid-template-columns:44px minmax(0,1fr);gap:8px;padding:12px;background:linear-gradient(110deg,color-mix(in srgb,var(--theme-accent) 60%,#0f1215),#161b1f);border-radius:10px}
  .finder-nfl-trend-view .nfl-headshot-wrap .nfl-player-photo{width:44px;height:44px;border-radius:50%;object-fit:cover}
  .finder-nfl-trend-view .nfl-player-identity h2{font-size:18px;margin:0}.finder-nfl-trend-view .nfl-player-identity>span,.finder-nfl-trend-view .nfl-player-chips{display:none}
  .finder-nfl-trend-view .nfl-player-identity p{font-size:11px;margin:4px 0}
  .finder-nfl-trend-view .nfl-player-summary{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px}.finder-nfl-trend-view .nfl-player-summary article{padding:4px;background:transparent;border:0;min-width:0}
  .finder-nfl-trend-view .nfl-player-summary article:last-child{display:none}
  .finder-nfl-trend-view .nfl-player-summary strong{font-size:11px}
- .finder-nfl-trend-view .nfl-chart-card{padding:8px;border-radius:10px;background:#11151a}
+ .finder-nfl-trend-view .nfl-chart-card{padding:8px;border-radius:10px;background:#121619}
  .finder-detail .gamelog-modal,.finder-trend-view .gamelog-modal{width:100%;max-width:100%;min-width:0;margin:0;border-radius:10px}
 }
 
@@ -286,8 +285,8 @@
  .unified-finder .finder-topbar{height:58px;min-height:58px;flex-wrap:nowrap}
  .unified-finder .finder-sports{display:none}
  .unified-finder .finder-top-save{display:grid;margin-left:auto;width:44px;height:44px}
- .unified-finder .finder-mobile-sport{display:flex;position:absolute;z-index:2;top:7px;left:112px;align-items:center;gap:6px;height:44px;max-width:150px;border:1px solid #858a91;border-radius:10px;padding:0 9px;background:#3d4248;color:#eff5fc}
- :root[data-theme] .unified-finder .finder-mobile-sport select{appearance:none;background:transparent!important;color:#eff5fc!important;border:0!important;min-width:0;width:82px;height:42px;padding:0;font-size:13px}
+ .unified-finder .finder-mobile-sport{display:flex;position:absolute;z-index:2;top:7px;left:112px;align-items:center;gap:6px;height:44px;max-width:150px;border:1px solid #858a91;border-radius:10px;padding:0 9px;background:#3f4446;color:#f4f7f6}
+ :root[data-theme] .unified-finder .finder-mobile-sport select{appearance:none;background:transparent!important;color:#f4f7f6!important;border:0!important;min-width:0;width:82px;height:42px;padding:0;font-size:13px}
  .unified-finder .finder-mobile-search-toggle{display:grid;position:absolute;top:64px;right:52px;z-index:3;width:44px;height:44px}
  .unified-finder .finder-controls{padding:6px 6px 0;gap:6px}
  .unified-finder .finder-search-row{grid-template-columns:minmax(0,1fr) 44px 44px;gap:6px}
@@ -315,18 +314,18 @@
 .finder-multi-trigger{display:flex;align-items:center;gap:8px;width:100%;height:39px;min-width:0;padding:0 10px;border:0;border-radius:8px;background:transparent;color:var(--f-muted);font-size:12px;font-weight:650;text-align:left}
 .finder-multi-trigger>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .finder-multi-trigger>svg:last-child{margin-left:auto;flex:0 0 auto;color:#9fa4ab}
-.finder-multi-trigger>b{display:grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--theme-accent);color:#fff;font-size:10px}
-.finder-multi-select.is-active{background:var(--theme-accent);border-color:var(--theme-accent);color:#fff}
-.finder-multi-select.is-active .finder-multi-trigger{color:#fff}
+.finder-multi-trigger>b{display:grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--theme-accent);color:var(--theme-on-accent,#03140B);font-size:10px}
+.finder-multi-select.is-active{background:var(--theme-accent);border-color:var(--theme-accent);color:var(--theme-on-accent,#03140B)}
+.finder-multi-select.is-active .finder-multi-trigger{color:var(--theme-on-accent,#03140B)}
 .unified-finder .finder-app-filter .finder-multi-trigger{padding-right:108px}
 .unified-finder .finder-app-filter .finder-app-icons{display:flex}
-.finder-multi-popover,.finder-hit-popover{position:fixed;z-index:1000;overflow:hidden;border:1px solid #3f444a;border-radius:16px;background:linear-gradient(180deg,#15191e 0%,#0e1217 100%);box-shadow:0 22px 70px #000b,0 0 0 1px #ffffff08 inset;color:#edf3fa;max-height:calc(100dvh - 24px)}
+.finder-multi-popover,.finder-hit-popover{position:fixed;z-index:1000;overflow:hidden;border:1px solid #404649;border-radius:16px;background:linear-gradient(180deg,#151a1e 0%,#101315 100%);box-shadow:0 22px 70px #000b,0 0 0 1px #ffffff08 inset;color:#f4f7f6;max-height:calc(100dvh - 24px)}
 /* Portals sit outside .unified-finder, so reset native control chrome here. */
 :root .finder-multi-popover button,:root .finder-hit-popover button{appearance:none;border:0;outline:none;box-shadow:none;font-family:var(--font-sans,Arial,sans-serif);cursor:pointer}
 :root .finder-multi-popover button:focus-visible,:root .finder-hit-popover button:focus-visible{outline:2px solid var(--theme-accent)!important;outline-offset:-3px!important}
 :root .finder-multi-search input{appearance:none;background:transparent!important;border:0!important;box-shadow:none!important;outline:none!important;font-family:var(--font-sans,Arial,sans-serif)}
-.finder-multi-search{display:flex;align-items:center;gap:10px;height:56px;padding:0 16px;border-bottom:1px solid #2f343a;color:#969ca3}
-.finder-multi-search input{width:100%;height:100%;min-width:0;border:0;outline:0;background:transparent;color:#f1f7ff;font-size:16px}
+.finder-multi-search{display:flex;align-items:center;gap:10px;height:56px;padding:0 16px;border-bottom:1px solid #2f353a;color:#969ca3}
+.finder-multi-search input{width:100%;height:100%;min-width:0;border:0;outline:0;background:transparent;color:#f4f7f6;font-size:16px}
 .finder-multi-search input::placeholder{color:#a3a8af}
 /* The site's themed inputs (a filled panel and a 2px focus outline) outrank
    the rule above; the ID in :is() lifts this one past them. The search row
@@ -334,26 +333,26 @@
 :root .finder-multi-search input:is(*,#_){height:100%!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;outline:none!important}
 .finder-multi-search{transition:color .15s,box-shadow .15s}
 .finder-multi-search:focus-within{color:var(--theme-accent-soft,var(--theme-accent));box-shadow:inset 0 -2px 0 var(--theme-accent)}
-.finder-multi-select-all,.finder-multi-option{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:8px 16px;background:transparent;color:#ebf1f8;text-align:left;font-size:15px}
-.finder-multi-select-all:hover,.finder-multi-option:hover{background:#22272c}
-.finder-multi-select-all{border-bottom:1px solid #292d33}
-.finder-multi-check{display:grid;place-items:center;flex:0 0 32px;width:32px;height:32px;border:1px solid #31353b;border-radius:50%;background:#191d22;color:#fff}
+.finder-multi-select-all,.finder-multi-option{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:8px 16px;background:transparent;color:#f4f7f6;text-align:left;font-size:15px}
+.finder-multi-select-all:hover,.finder-multi-option:hover{background:#22282c}
+.finder-multi-select-all{border-bottom:1px solid #292f33}
+.finder-multi-check{display:grid;place-items:center;flex:0 0 32px;width:32px;height:32px;border:1px solid #31353b;border-radius:50%;background:#191e22;color:#fff}
 .finder-multi-check.is-checked{border-color:var(--theme-accent);background:var(--theme-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--theme-accent) 15%,transparent)}
 .finder-multi-option.is-selected .finder-multi-option-text{color:#fff}
 .finder-multi-option-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .finder-multi-option small{margin-left:auto;color:#868c92;font-weight:750;font-size:10px;letter-spacing:.12em}
 .finder-multi-option:disabled{opacity:.4;cursor:default}
 .finder-multi-option-logo{flex:0 0 25px;width:25px;height:25px;object-fit:contain}
-.finder-multi-options{max-height:min(46vh,360px);overflow:auto;overscroll-behavior:contain;padding:4px 0;scrollbar-width:thin;scrollbar-color:#464b51 #13161c}
+.finder-multi-options{max-height:min(46vh,360px);overflow:auto;overscroll-behavior:contain;padding:4px 0;scrollbar-width:thin;scrollbar-color:#464b51 #14181b}
 .finder-multi-empty{display:block;padding:24px 16px;color:#91979e;text-align:center}
-.finder-multi-close{display:block;width:calc(100% - 24px);height:46px;margin:8px 12px 12px;border-radius:10px;background:#25292e;color:#f1f7ff;font-size:15px;font-weight:700}
-.finder-multi-close:hover{background:#33383e}
+.finder-multi-close{display:block;width:calc(100% - 24px);height:46px;margin:8px 12px 12px;border-radius:10px;background:#252a2e;color:#f4f7f6;font-size:15px;font-weight:700}
+.finder-multi-close:hover{background:#353a3c}
 /* League picker (FinderSportMenu): logo tiles, "Only", Clear + Close. */
 .finder-sport-row{display:flex;align-items:center}
 .finder-sport-row .finder-multi-option{flex:1;min-width:0}
-.finder-sport-tile{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border:1px solid #2f343a;border-radius:10px;background:#1c2126}
+.finder-sport-tile{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border:1px solid #2f353a;border-radius:10px;background:#1c2226}
 .finder-sport-tile img{width:24px;height:24px;object-fit:contain}
-.finder-sport-row.is-selected .finder-sport-tile{border-color:color-mix(in srgb,var(--theme-accent) 55%,#2f343a);background:color-mix(in srgb,var(--theme-accent) 12%,#1c2126)}
+.finder-sport-row.is-selected .finder-sport-tile{border-color:color-mix(in srgb,var(--theme-accent) 55%,#2f353a);background:color-mix(in srgb,var(--theme-accent) 12%,#1c2226)}
 .finder-sport-row .finder-multi-option-text{font-weight:650;letter-spacing:.01em}
 :root .finder-multi-popover .finder-sport-only{flex:0 0 auto;min-height:44px;padding:0 16px;background:transparent;color:#80868d;font-size:11px;font-weight:750;letter-spacing:.14em;text-transform:uppercase}
 :root .finder-multi-popover .finder-sport-only:hover{color:var(--theme-accent-soft,var(--theme-accent))}
@@ -368,12 +367,12 @@
 .finder-hit-popover header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
 .finder-hit-popover header strong{display:block;font-size:16px;line-height:1.3}.finder-hit-popover header small{display:block;margin-top:4px;color:#91979e;font-size:12px}
 .finder-hit-popover header button{padding:4px 0;background:none;color:var(--theme-accent-soft,var(--theme-accent));font-size:12px}
-.finder-hit-windows{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;padding:4px;border:1px solid #31353b;border-radius:12px;background:#1b1f24}
-.finder-hit-windows button{height:40px;border-radius:8px;background:transparent;color:#a9afb6;font-size:12px;font-weight:750}.finder-hit-windows button.is-selected{background:#3a3f45;color:#f1f7ff;box-shadow:0 0 0 1px var(--theme-accent) inset}
-.finder-hit-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}.finder-hit-fields label{display:grid;gap:6px;color:#a4aab1;font-size:12px}.finder-hit-fields input{width:100%;height:52px;padding:0 14px;border:1px solid #31353b;border-radius:10px;background:#1d2126;color:#f0f6fe;font-size:17px;outline:0}.finder-hit-fields input:focus{border-color:var(--theme-accent)}
+.finder-hit-windows{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;padding:4px;border:1px solid #31353b;border-radius:12px;background:#1b2024}
+.finder-hit-windows button{height:40px;border-radius:8px;background:transparent;color:#abb1b4;font-size:12px;font-weight:750}.finder-hit-windows button.is-selected{background:#3c4143;color:#f4f7f6;box-shadow:0 0 0 1px var(--theme-accent) inset}
+.finder-hit-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}.finder-hit-fields label{display:grid;gap:6px;color:#a4aab1;font-size:12px}.finder-hit-fields input{width:100%;height:52px;padding:0 14px;border:1px solid #31353b;border-radius:10px;background:#1d2226;color:#f4f7f6;font-size:17px;outline:0}.finder-hit-fields input:focus{border-color:var(--theme-accent)}
 .finder-hit-slider{position:relative;padding:8px 3px 0}.finder-hit-track{height:8px;border-radius:4px;background:linear-gradient(90deg,var(--theme-accent),var(--theme-accent));opacity:.28}.finder-hit-slider input{position:absolute;left:0;top:1px;width:100%;height:22px;margin:0;appearance:none;background:transparent;pointer-events:none}.finder-hit-slider input::-webkit-slider-thumb{width:27px;height:27px;border:0;border-radius:50%;background:var(--theme-accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--theme-accent-soft,var(--theme-accent)) 20%,transparent);appearance:none;pointer-events:auto}.finder-hit-slider input::-moz-range-thumb{width:27px;height:27px;border:0;border-radius:50%;background:var(--theme-accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--theme-accent-soft,var(--theme-accent)) 20%,transparent);pointer-events:auto}.finder-hit-slider>div:last-child{display:flex;justify-content:space-between;margin-top:8px;color:#a6abb2;font-size:11px}
-.finder-hit-presets{display:flex;gap:6px;margin-top:14px}.finder-hit-presets button{height:30px;padding:0 10px;border:1px solid #363a40;border-radius:8px;background:#191d23;color:#c1c7ce;font-size:11px}.finder-hit-presets button:hover{border-color:var(--theme-accent);color:#fff}
-.finder-hit-popover>p{margin:14px 0 0;padding:12px;border:1px solid #35393f;border-radius:10px;background:color-mix(in srgb,var(--theme-accent) 17%,#0e1116);color:#afb4bb;font-size:12px;line-height:1.5}
+.finder-hit-presets{display:flex;gap:6px;margin-top:14px}.finder-hit-presets button{height:30px;padding:0 10px;border:1px solid #373c3f;border-radius:8px;background:#191f23;color:#c4c9cb;font-size:11px}.finder-hit-presets button:hover{border-color:var(--theme-accent);color:#fff}
+.finder-hit-popover>p{margin:14px 0 0;padding:12px;border:1px solid #373b3d;border-radius:10px;background:color-mix(in srgb,var(--theme-accent) 17%,#0f1215);color:#b1b6b9;font-size:12px;line-height:1.5}
 @media(max-width:760px){
  .finder-multi-trigger{height:44px;font-size:14px;padding:0 12px}.finder-multi-popover,.finder-hit-popover{max-width:calc(100vw - 24px);border-radius:16px}.finder-multi-option,.finder-multi-select-all{min-height:56px;font-size:16px}.finder-multi-options{max-height:48vh}.finder-multi-close{height:48px;font-size:16px}.finder-hit-popover{padding:16px}.finder-filters .finder-multi-select{flex:0 0 128px;height:44px;border:1px solid var(--f-border);border-radius:8px;background:var(--f-control)}.finder-filters .finder-hit-filter{flex:0 0 128px}.finder-app-filter .finder-multi-select{height:44px}.finder-app-filter{border:1px solid var(--f-border)}
 }
@@ -394,7 +393,7 @@
 
 /* A restrained glass/highlight layer gives the surface the finished product
    depth seen in native sportsbook apps without blurring the data grid. */
-.unified-finder{background-image:radial-gradient(900px 300px at 50% -120px,color-mix(in srgb,var(--theme-accent) 14%,transparent),transparent 68%),linear-gradient(180deg,#11151a,#090d12);box-shadow:0 18px 55px #0008,0 0 0 1px #ffffff06 inset}
+.unified-finder{background-image:linear-gradient(180deg,#121619,#0b0e10);box-shadow:0 18px 55px #0008,0 0 0 1px #ffffff06 inset}
 .finder-topbar{box-shadow:inset 0 1px #ffffff2b,0 10px 24px #080b1066}
 .finder-controls{background:linear-gradient(180deg,#12161b80,#0b0f1400)}
 .finder-app-filter,.unified-finder label.finder-filter,.finder-search-row>.finder-icon{box-shadow:inset 0 1px #ffffff08,0 5px 14px #0002}
@@ -497,12 +496,12 @@
 @media(prefers-reduced-motion:reduce){
  .unified-finder.finder-detail-active .finder-detail{scroll-behavior:auto!important}
 }
-.finder-availability { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 14px; color:#b0b5bd; background:#181d22; font-size:12px; }
-.finder-availability button { min-height:36px; padding:6px 12px; border:1px solid #3d4248; border-radius:7px; background:#262a30; color:#e5ebf2; }
+.finder-availability { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 14px; color:#b2b8bb; background:#181e22; font-size:12px; }
+.finder-availability button { min-height:36px; padding:6px 12px; border:1px solid #3f4446; border-radius:7px; background:#262c30; color:#dce3e0; }
 .finder-scroll:has(.finder-empty-board) { position:relative; min-height:480px; }
 .finder-empty-board { position:relative; min-height:440px; isolation:isolate; }
-.finder-empty-board::before { content:""; position:absolute; inset:12px; z-index:-1; pointer-events:none; background:repeating-linear-gradient(to bottom,#1f2429 0 10px,transparent 10px 36px); border-radius:8px; opacity:.65; mask-image:radial-gradient(ellipse 210px 100px at center,transparent 50%,#000 100%); }
-.finder-empty-board>svg { box-sizing:content-box; padding:10px; border:1px solid #3d4147; border-radius:11px; background:linear-gradient(145deg,#30353a,#1a1e24); color:#bfc4cc; }
+.finder-empty-board::before { content:""; position:absolute; inset:12px; z-index:-1; pointer-events:none; background:repeating-linear-gradient(to bottom,#1f2529 0 10px,transparent 10px 36px); border-radius:8px; opacity:.65; mask-image:radial-gradient(ellipse 210px 100px at center,transparent 50%,#000 100%); }
+.finder-empty-board>svg { box-sizing:content-box; padding:10px; border:1px solid #3d4147; border-radius:11px; background:linear-gradient(145deg,#30353a,#1a2024); color:#c2c7c9; }
 .finder-empty-board>span { max-width:290px; line-height:1.6; font-size:12px; }
 .finder-empty-board>strong { font-size:14px; }
 @media(max-width:760px) { .finder-scroll:has(.finder-empty-board) { min-height:360px; } .finder-empty-board { min-height:320px; } }
@@ -529,13 +528,13 @@
    Pick Builder (src/PickBuilder.jsx); the badge counts saved picks. */
 .unified-finder .finder-picks-trigger{position:relative;display:grid;place-items:center;flex:0 0 auto;width:34px;height:34px;margin:-4px 0;padding:0;border:1px solid #ffffff30!important;border-radius:9px;background:#ffffff15;color:#fff}
 .unified-finder .finder-picks-trigger:hover{background:#ffffff28}
-.unified-finder .finder-picks-trigger>b{position:absolute;top:-6px;right:-7px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--theme-accent);color:#fff;font-size:10px;font-weight:800;line-height:18px;text-align:center;box-shadow:0 0 0 2px var(--theme-accent)}
+.unified-finder .finder-picks-trigger>b{position:absolute;top:-6px;right:-7px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--theme-accent);color:var(--theme-on-accent,#03140B);font-size:10px;font-weight:800;line-height:18px;text-align:center;box-shadow:0 0 0 2px var(--theme-accent)}
 /* Saved stars carry the pick's side: green ring for Over, red for Under. */
 .unified-finder .finder-star[data-side=over]{border-color:#6ce4bb!important}
 .unified-finder .finder-star[data-side=under]{border-color:#ff929e!important}
 @media(max-width:760px){
  .unified-finder .finder-picks-trigger{width:44px;height:44px;margin:0;border-radius:11px}
- .unified-finder .finder-picks-trigger>b{box-shadow:0 0 0 2px color-mix(in srgb,var(--theme-accent) 53%,#0e1116)}
+ .unified-finder .finder-picks-trigger>b{box-shadow:0 0 0 2px color-mix(in srgb,var(--theme-accent) 53%,#0f1215)}
  /* Phones: the star is a small glass circle on the corner of the player's
     photo instead of floating beside the odds ring. */
  .unified-finder .finder-table .finder-portrait-wrap{position:relative!important;flex:0 0 42px!important;width:42px;height:42px}
@@ -546,8 +545,8 @@
   display:grid!important;place-items:center!important;border:1px solid rgba(255,255,255,.34)!important;border-radius:50%!important;
   /* A solid frosted tone rather than a live blur: twenty blurred buttons
      on screen made scrolling the list stutter on phones. */
-  background:rgba(44,50,64,.92)!important;
-  box-shadow:0 2px 8px rgba(0,0,0,.4),inset 0 1px rgba(255,255,255,.3)!important;color:#f1f7ff!important;z-index:4!important
+  background:rgba(45,55,63,.92)!important;
+  box-shadow:0 2px 8px rgba(0,0,0,.4),inset 0 1px rgba(255,255,255,.3)!important;color:#f4f7f6!important;z-index:4!important
  }
  /* 44px to tap, 22px to see. */
  .unified-finder .finder-table .finder-portrait-wrap .finder-star::after{content:'';position:absolute;inset:-11px;border-radius:50%}
@@ -561,24 +560,24 @@
    shortcut, and the Games menu's match rows. */
 .finder-multi-row{display:flex;align-items:center;min-width:0}
 .finder-multi-row>.finder-multi-option{flex:1;min-width:0}
-.finder-multi-group{display:block;padding:12px 16px 4px;color:#9aa1a9;font-size:12px;font-weight:700;letter-spacing:.02em}
+.finder-multi-group{display:block;padding:12px 16px 4px;color:#9ca3a7;font-size:12px;font-weight:700;letter-spacing:.02em}
 .finder-multi-option-text{display:grid;gap:1px}
-.finder-multi-option .finder-multi-option-sub{margin:0;color:#9aa1a9;font-size:12px;font-weight:500;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.finder-multi-option .finder-multi-option-sub{margin:0;color:#9ca3a7;font-size:12px;font-weight:500;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .finder-multi-popover.is-wide .finder-multi-option{padding-right:8px}
 .finder-game-option{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto;align-items:center;gap:8px;flex:1;min-width:0}
 .finder-game-side{display:flex;align-items:center;gap:8px;min-width:0}
 .finder-game-side.is-home{justify-content:flex-end;text-align:right}
 .finder-game-side>span{display:grid;gap:2px;min-width:0}
-.finder-game-side b{font-size:14px;font-weight:700;color:#edf3fa}
+.finder-game-side b{font-size:14px;font-weight:700;color:#f4f7f6}
 .finder-game-side em{justify-self:start;padding:1px 6px;border-radius:6px;font-style:normal;font-size:11px;font-weight:700;color:#65dfb1;background:#13342d;border:1px solid #1f5445}
 .finder-game-side.is-home em{justify-self:end}
 .finder-game-side em[data-tone=low]{color:#ff8290;background:#3b2430;border-color:#5a2f39}
 .finder-game-logo{width:26px;height:26px;border-radius:50%;object-fit:contain;flex-shrink:0}
 .finder-game-at{color:#8d949c;font-size:13px}
-.finder-game-time{padding:4px 8px;border-radius:7px;background:#1f242a;color:#c9ced6;font-size:11px;font-weight:600;white-space:nowrap}
+.finder-game-time{padding:4px 8px;border-radius:7px;background:#1f252a;color:#cdd0d2;font-size:11px;font-weight:600;white-space:nowrap}
 
 /* The player's team's chance to win, on soccer rows. */
-.finder-moneyline{display:inline-flex;align-items:center;gap:5px;margin-top:4px;padding:2px 7px;border-radius:6px;border:1px solid #30353c;background:#161a1f;color:#c9ced6;font-size:9px;font-weight:600;white-space:nowrap}
+.finder-moneyline{display:inline-flex;align-items:center;gap:5px;margin-top:4px;padding:2px 7px;border-radius:6px;border:1px solid #30373c;background:#161b1f;color:#cdd0d2;font-size:9px;font-weight:600;white-space:nowrap}
 .finder-moneyline img{width:14px;height:14px;object-fit:contain}
 .finder-moneyline b{padding:1px 5px;border-radius:4px;background:#13342d;color:#65dfb1}
 .finder-moneyline[data-tone=mid] b{background:#3a2f12;color:#f4c53f}
@@ -602,10 +601,10 @@
    light round buttons on the right; the Pick Builder is the dock's My Slip. */
 @media(max-width:760px){
  :root[data-theme] body #app-shell #panel-finder{width:100%!important;max-width:none!important;margin:0!important;padding-top:0!important}
- .unified-finder{border:0!important;border-radius:0!important;background:#090d12;overflow:visible}
+ .unified-finder{border:0!important;border-radius:0!important;background:#0b0e10;overflow:visible}
  .unified-finder::before{content:"";position:absolute;z-index:-1;inset:0 0 auto;height:calc(var(--site-status-inset,0px) + 200px);pointer-events:none;
-  background:radial-gradient(110% 80% at 12% 0%,color-mix(in srgb,var(--theme-accent) 48%,transparent),transparent 72%),
-   linear-gradient(180deg,color-mix(in srgb,var(--theme-accent) 40%,#0a0f1a) 0%,color-mix(in srgb,var(--theme-accent) 15%,#090d12) 58%,#090d12 100%)}
+  background:
+   linear-gradient(180deg,color-mix(in srgb,var(--theme-accent) 12%,#0f1215) 0%,color-mix(in srgb,var(--theme-accent) 4%,#0b0e10) 58%,#0b0e10 100%)}
  .unified-finder.finder-detail-active::before{display:none}
  .unified-finder .finder-topbar{height:auto;min-height:0;gap:2px;padding:calc(var(--site-status-inset,0px) + 12px) 16px 6px;border:0;background:none!important;box-shadow:none!important}
  .unified-finder .finder-title{display:flex;flex:1 1 auto;align-items:center;gap:9px;min-width:0;width:auto}
@@ -616,10 +615,10 @@
   border:1px solid rgba(255,255,255,.3);border-radius:999px;background:rgba(255,255,255,.13);color:#fff;box-shadow:inset 0 1px rgba(255,255,255,.2),0 4px 14px rgba(0,0,0,.18)}
  .unified-finder .finder-topbar .finder-mobile-sport .finder-sport-label{font-size:13px;font-weight:700;letter-spacing:.01em;text-transform:uppercase}
  .unified-finder .finder-topbar .finder-mobile-sport>svg:last-child{flex:none;opacity:.8}
- .unified-finder .finder-topbar :is(.finder-top-save,.finder-top-settings,.finder-top-account){display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;padding:0;border:0!important;border-radius:50%;background:transparent;color:#eef4fb}
+ .unified-finder .finder-topbar :is(.finder-top-save,.finder-top-settings,.finder-top-account){display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;padding:0;border:0!important;border-radius:50%;background:transparent;color:#f4f7f6}
  .unified-finder .finder-topbar .finder-top-save{margin-left:auto}
  .unified-finder .finder-topbar .finder-top-save[aria-pressed=true]{background:rgba(255,255,255,.16);color:#fff}
- .unified-finder .finder-topbar .finder-top-account{flex-basis:34px;width:34px;height:34px;margin-left:4px;overflow:hidden;border:1.5px solid rgba(255,255,255,.4)!important;background:linear-gradient(145deg,color-mix(in srgb,var(--theme-accent) 70%,#fff 0%),color-mix(in srgb,var(--theme-accent) 35%,#0b1020))}
+ .unified-finder .finder-topbar .finder-top-account{flex-basis:34px;width:34px;height:34px;margin-left:4px;overflow:hidden;border:1.5px solid rgba(255,255,255,.4)!important;background:linear-gradient(145deg,color-mix(in srgb,var(--theme-accent) 70%,#fff 0%),color-mix(in srgb,var(--theme-accent) 35%,#121619))}
  .unified-finder .finder-topbar .finder-top-account img{width:100%;height:100%;object-fit:cover}
  .unified-finder .finder-topbar .finder-top-account b{font-size:15px;font-weight:700;line-height:1}
  .unified-finder .finder-controls{padding:4px 12px 0;background:none}
@@ -647,7 +646,7 @@
    no search box or footer (FinderSportMenu), still 44px tall to tap. */
 :root .finder-multi-popover.finder-sport-popover{padding:4px 0;border-radius:14px}
 :root .finder-multi-popover.finder-sport-popover :is(.finder-multi-select-all,.finder-multi-option){min-height:44px;padding:4px 12px;gap:10px;font-size:14px}
-:root .finder-multi-popover.finder-sport-popover .finder-multi-select-all{border-bottom:1px solid #262a30}
+:root .finder-multi-popover.finder-sport-popover .finder-multi-select-all{border-bottom:1px solid #262c30}
 :root .finder-multi-popover.finder-sport-popover .finder-multi-check{flex:0 0 20px;width:20px;height:20px}
 :root .finder-multi-popover.finder-sport-popover .finder-sport-tile{flex:0 0 26px;width:26px;height:26px;border-radius:7px}
 :root .finder-multi-popover.finder-sport-popover .finder-sport-tile img{width:17px;height:17px}

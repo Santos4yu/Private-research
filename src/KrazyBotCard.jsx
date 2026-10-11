@@ -276,7 +276,7 @@ function Market({report}){
  const {market,books,ladder}=report;
  return <div className="kb-market">
   {market.model!=null&&<div className="kb-vs">
-   {[['Krazy model',market.model,'model'],['Books',market.books,'books']].filter(([, value])=>value!=null).map(([label,value,key],index)=><div key={key} className="kb-vs-row" data-key={key} style={{'--i':index}}>
+   {[['Our model',market.model,'model'],['Books',market.books,'books']].filter(([, value])=>value!=null).map(([label,value,key],index)=><div key={key} className="kb-vs-row" data-key={key} style={{'--i':index}}>
     <span>{label}</span><span className="kb-vs-track"><i style={{'--v':value}}/></span><strong>{pctText(value)}</strong>
    </div>)}
    {market.edge!=null&&<p className="kb-edge" data-tone={market.edge>=.02?'up':market.edge<=-.02?'down':undefined}>{market.edge>=0?'+':'−'}{Math.abs(Math.round(market.edge*100))}% {market.edge>=0?'edge over':'behind'} the books</p>}

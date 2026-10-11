@@ -2,7 +2,7 @@ import {dockState} from './src/mobile-nav-core.js';
 import {initSiteAccess,siteTabAllowed,loadSiteControls,showLockedTab,availableSiteTab,refreshSiteAccess,dismissBootLoader} from './src/site-access.js';
 import {ADMIN_TABS} from './src/site-access-core.js';
 /* =========================================================
-   Vortex Prop Research — client-side renderer
+   Ace Props research — client-side renderer
    No backend, no database, no odds API. Reads a single JSON
    file and lets you search + render one full prop breakdown
    at a time (mirrors the /prediction command output).
@@ -157,7 +157,17 @@ const THEME_KEY = "vortex_theme_mode";
 const ACCENT_THEME_KEY = "vortex_custom_accents";
 const ACCENT_PRESETS_KEY = "vortex_accent_presets";
 const BG_IMAGE_KEY = "vortex_bg_image";
-const DEFAULT_ACCENTS = Object.freeze({ primary: "#0082fe", secondary: "#d6e1ea", tint: 0 });
+const DEFAULT_ACCENTS = Object.freeze({ primary: "#00f58a", secondary: "#dce3e0", tint: 0 });
+// The colours the site shipped with before Ace Props. A device or site
+// theme still on them was never really a choice, so it follows the new
+// default instead.
+const LEGACY_DEFAULT_ACCENTS = new Set(["#0082fe", "#67a8ff"]);
+const isLegacyAccent = (theme) => LEGACY_DEFAULT_ACCENTS.has(String(theme?.primary || "").toLowerCase());
+try {
+  const savedAccent = JSON.parse(localStorage.getItem(ACCENT_THEME_KEY) || "null");
+  if (isLegacyAccent(savedAccent)) localStorage.removeItem(ACCENT_THEME_KEY);
+} catch (_) { /* private mode or a bad value: nothing to move */ }
+
 const EXPERIENCE_KEY = "private_jarvis_interface";
 // User accents are applied before the first paint and remain independent of
 // the fixed charcoal surface system. The site's own theme (if any) arrives
@@ -166,7 +176,7 @@ const EXPERIENCE_KEY = "private_jarvis_interface";
 applyAccentTheme(loadAccentTheme(), { persist: false });
 applyExperience(localStorage.getItem(EXPERIENCE_KEY) === "true");
 
-const SCREEN_TITLES = Object.freeze({ research: "Research", finder: "Finder", moves: "Line Moves", v2: "Props", slate: "Tools", saved: "My Slip", builder: "Parlay Builder", slip: "Slip Analyzer", moneyline: "Moneylines", bot: "Krazy Bot", sheets: "Cheat Sheets", nrfi: "NRFI / YRFI", community: "Community", admin: "Admin Results" });
+const SCREEN_TITLES = Object.freeze({ research: "Research", finder: "Finder", moves: "Line Moves", v2: "Props", slate: "Tools", saved: "My Slip", builder: "Parlay Builder", slip: "Slip Analyzer", moneyline: "Moneylines", bot: "Ace Assistant", sheets: "Cheat Sheets", nrfi: "NRFI / YRFI", community: "Community", admin: "Admin Results" });
 // The URL path for each tab differs from its internal id in a few cases
 // (v2 -> /props, slate -> /tools, slip -> /slip-analyzer) so the address
 // bar reads naturally -- everything else just uses its id as-is.
@@ -628,7 +638,7 @@ window.addEventListener("vortex:site-policy", (event) => {
   const bg = detail.backgroundImage;
   siteBackgroundImage = bg?.url ? { url: bg.url, opacity: normalizeBgOpacity(bg.opacity) } : null;
   const theme = detail.theme;
-  siteTheme = theme?.primary ? { primary: theme.primary, secondary: theme.secondary, tint: normalizeTint(theme.tint) } : null;
+  siteTheme = theme?.primary && !isLegacyAccent(theme) ? { primary: theme.primary, secondary: theme.secondary, tint: normalizeTint(theme.tint) } : null;
   applyEffectiveAccentTheme();
   applyEffectiveBackground();
   renderAppearanceNotice();
@@ -1349,7 +1359,7 @@ function switchTab(tab, options = {}) {
   if (tab !== "admin") { try { localStorage.setItem(LAST_TAB_KEY, tab); } catch { /* private mode */ } }
   const screenTitle = document.getElementById("mobile-screen-title");
   if (screenTitle) screenTitle.textContent = SCREEN_TITLES[tab];
-  document.title = `${SCREEN_TITLES[tab]} · Krazy Data`;
+  document.title = `${SCREEN_TITLES[tab]} · Ace Props`;
   if (changed && screenHistoryReady && options.history !== false) {
     const url = new URL(location.href);
     url.hash = "";
@@ -4650,7 +4660,7 @@ function fillPitchArsenal(node, p) {
   const starter = p.starterProfile || {};
   const bvp = p.bvpCard || {};
   const splitFallback = bvp.splitFallback || {};
-  const colors = ["#2f7bff", "#ffad18", "#9b4dff", "#ff2768", "#35d980", "#ff681f", "#49cfee"];
+  const colors = ["#00f58a", "#ffad18", "#9b4dff", "#ff2768", "#35d980", "#ff681f", "#00f58a"];
   const val = (value, fallback = "—") => value === null || value === undefined || value === "" ? fallback : escapeHtml(String(value));
   const rate = (value) => Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)}%` : "—";
   const avg = (value) => value === null || value === undefined || value === "" ? "—" : formatBattingAverage(value);
@@ -6763,36 +6773,36 @@ async function buildResearchShareImage(prop,mode) {
   const starterUrl=prop.starterProfile?.id?`https://img.mlbstatic.com/mlb-photos/image/upload/w_500,q_auto:best/v1/people/${encodeURIComponent(prop.starterProfile.id)}/headshot/silo/current`:'';
   const [player,team,opponent,pp,starterPhoto]=await Promise.all([shareImage(playerUrl),shareImage(teamUrl),shareImage(opponentUrl),shareImage('/prizepicks/logo.png'),shareImage(starterUrl)]);
   const gameLogos=await Promise.all(games.map(game=>{const id=game.opponentTeamId||MLB_TEAM_IDS[String(game.opponent||'').toUpperCase()];return shareImage(id?`/api/mlb-logo?teamId=${id}`:'');}));
-  const bg=c.createLinearGradient(0,0,2160,2700);bg.addColorStop(0,'#0c1b31');bg.addColorStop(.45,'#07111f');bg.addColorStop(1,'#050912');c.fillStyle=bg;c.fillRect(0,0,2160,2700);
-  const glow=(x,y,r,color)=>{const g=c.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,color);g.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=g;c.fillRect(x-r,y-r,r*2,r*2);};glow(1760,260,780,'rgba(91,75,255,.24)');glow(180,540,680,'rgba(0,137,255,.18)');glow(420,2480,760,'rgba(0,208,170,.10)');
-  c.save();c.globalAlpha=.16;c.strokeStyle='#6caeff';c.lineWidth=3;for(let i=0;i<4;i++){c.beginPath();c.moveTo(-100,1880+i*80);c.bezierCurveTo(520,1580+i*70,1260,2260-i*55,2260,1840+i*45);c.stroke();}c.restore();
-  round(92,92,1976,2516,68,'rgba(8,16,29,.78)','rgba(142,175,224,.20)');
-  round(160,160,1840,116,32,'rgba(255,255,255,.055)');if(pp)c.drawImage(pp,196,188,58,58);text('KRAZY DATA',280,232,39,'#fff',800);text('MLB PLAYER RESEARCH',1960,230,26,'#8e9aaa',700,'right');
+  const bg=c.createLinearGradient(0,0,2160,2700);bg.addColorStop(0,'#1a1f23');bg.addColorStop(.45,'#101416');bg.addColorStop(1,'#0a0c0d');c.fillStyle=bg;c.fillRect(0,0,2160,2700);
+  const glow=(x,y,r,color)=>{const g=c.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,color);g.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=g;c.fillRect(x-r,y-r,r*2,r*2);};glow(1760,260,780,'rgba(92,248,178,.24)');glow(180,540,680,'rgba(0,245,138,.18)');glow(420,2480,760,'rgba(0,208,170,.10)');
+  c.save();c.globalAlpha=.16;c.strokeStyle='#5cf8b2';c.lineWidth=3;for(let i=0;i<4;i++){c.beginPath();c.moveTo(-100,1880+i*80);c.bezierCurveTo(520,1580+i*70,1260,2260-i*55,2260,1840+i*45);c.stroke();}c.restore();
+  round(92,92,1976,2516,68,'rgba(16,19,21,.78)','rgba(92,248,178,.20)');
+  round(160,160,1840,116,32,'rgba(255,255,255,.055)');if(pp)c.drawImage(pp,196,188,58,58);text('ACE PROPS',280,232,39,'#fff',800);text('MLB PLAYER RESEARCH',1960,230,26,'#969ea2',700,'right');
   if(player){c.save();c.shadowColor='rgba(0,0,0,.38)';c.shadowBlur=26;c.shadowOffsetY=18;drawContain(player,120,302,490,458);c.restore();}else{round(150,330,430,430,60,'rgba(255,255,255,.035)','rgba(255,255,255,.08)');text(prop.player?.split(' ').map(v=>v[0]).join('').slice(0,2)||'MLB',365,585,100,'#fff',800,'center');}
   if(team){round(480,615,132,132,38,'rgba(255,255,255,.05)','rgba(255,255,255,.1)');drawContain(team,494,629,104,104);}if(opponent){round(625,625,112,112,34,'rgba(255,255,255,.04)','rgba(255,255,255,.09)');drawContain(opponent,639,639,84,84);}
   text(prop.player,650,455,82,'#fff',850);text(`${gameLogState.window==='h2h'?'H2H':`LAST ${games.length}`} · ${gameLogState.stat}`,650,530,30,'#95a2b3',750);round(650,558,72,72,22,'rgba(255,255,255,.06)','rgba(255,255,255,.12)');c.strokeStyle=accent;c.lineWidth=7;c.lineCap='round';[[672,604,672,589],[686,604,686,575],[700,604,700,566]].forEach(v=>{c.beginPath();c.moveTo(v[0],v[1]);c.lineTo(v[2],v[3]);c.stroke();});text(`MORE ${line.toFixed(1)}`,744,618,62,accent,850);if(pp)c.drawImage(pp,650,660,54,54);text(prop.oddsType==='goblin'?'GOBLIN · MORE ONLY':prop.oddsType==='demon'?'DEMON · MORE ONLY':'PRIZEPICKS · STANDARD',724,703,25,'#b8c1cd',750);if(prop.matchup?.opponent){round(650,742,760,62,22,'rgba(22,140,255,.10)','rgba(22,140,255,.28)');text(`${prop.isHome===false?'AT':'VS'} ${String(prop.matchup.opponent).toUpperCase()}`,684,783,22,'#b9d9ff',800);}
-  round(160,850,1840,260,34,'rgba(255,255,255,.018)','rgba(255,255,255,.105)');const metrics=[['HIT RATE',games.length?`${Math.round(hits/games.length*100)}%`:'—'],['RECORD',`${hits}–${games.length-hits}`],['AVERAGE',games.length?avg.toFixed(2):'—']];metrics.forEach(([label,value],i)=>{const x=160+i*613;if(i){c.strokeStyle='rgba(255,255,255,.09)';c.lineWidth=2;c.beginPath();c.moveTo(x,890);c.lineTo(x,1070);c.stroke();}c.fillStyle=i===0?accent:'rgba(255,255,255,.18)';c.fillRect(x+42,884,54,5);text(label,x+42,932,25,'#aab5c5',780);text(value,x+42,1030,76,i===0?accent:'#fff',850);});
+  round(160,850,1840,260,34,'rgba(255,255,255,.018)','rgba(255,255,255,.105)');const metrics=[['HIT RATE',games.length?`${Math.round(hits/games.length*100)}%`:'—'],['RECORD',`${hits}–${games.length-hits}`],['AVERAGE',games.length?avg.toFixed(2):'—']];metrics.forEach(([label,value],i)=>{const x=160+i*613;if(i){c.strokeStyle='rgba(255,255,255,.09)';c.lineWidth=2;c.beginPath();c.moveTo(x,890);c.lineTo(x,1070);c.stroke();}c.fillStyle=i===0?accent:'rgba(255,255,255,.18)';c.fillRect(x+42,884,54,5);text(label,x+42,932,25,'#b3b9bc',780);text(value,x+42,1030,76,i===0?accent:'#fff',850);});
   text(mode==='performance'?'GAME PERFORMANCE':mode==='trends'?'RECENT TRENDS':mode==='arsenal'?'BATTER VS PITCH ARSENAL':'MATCHUP SNAPSHOT',160,1245,30,accent,800);
   if(mode==='arsenal'){
-    const starter=prop.starterProfile||{},pitches=(prop.pitchArsenal||[]).slice(0,5),pitchColors=['#2f7bff','#ffb000','#9b4dff','#ff2768','#35d980'];
-    round(160,1300,1840,270,38,'rgba(18,30,52,.74)','rgba(47,123,255,.38)');if(starterPhoto)drawContain(starterPhoto,1570,1315,250,238);text('VS',1475,1428,34,accent,850,'center');text(starter.name||'Probable starter',200,1390,48,'#fff',850);text(`${starter.hand||'?'}HP · ${starter.era??'—'} ERA · ${starter.whip??'—'} WHIP`,200,1450,27,'#aab9cf',700);text(`${starter.kPer9??'—'} K/9 · ${starter.bbPer9??'—'} BB/9`,200,1500,24,'#7f94ad',650);
-    text('PITCH',200,1640,21,'#8798b0',800);text('USAGE',880,1640,21,'#8798b0',800,'right');text('AVG',1115,1640,21,'#8798b0',800,'right');text('SLG',1360,1640,21,'#8798b0',800,'right');text('wOBA',1595,1640,21,'#8798b0',800,'right');text('K%',1900,1640,21,'#8798b0',800,'right');
-    pitches.forEach((pitch,i)=>{const y=1680+i*142,bv=pitch.batterVs||{},color=pitchColors[i%pitchColors.length];round(160,y,1840,116,24,'rgba(255,255,255,.025)','rgba(255,255,255,.075)');c.fillStyle=color;c.fillRect(160,y,9,116);round(194,y+28,58,58,29,`${color}20`,color);text(String(pitch.code||'P').slice(0,2),223,y+67,18,color,850,'center');text(pitch.name||pitch.code||'Pitch',280,y+70,28,'#fff',800);text(`${Number(pitch.pct||0).toFixed(1)}%`,880,y+70,27,'#dce7f5',750,'right');text(bv.avg??'—',1115,y+70,27,'#fff',750,'right');text(bv.slg??'—',1360,y+70,27,'#fff',750,'right');text(bv.woba??'—',1595,y+70,27,'#fff',750,'right');text(bv.kPct!=null?`${bv.kPct}%`:'—',1900,y+70,27,Number(bv.kPct)>=30?'#ff6475':'#fff',750,'right');});
-    if(!pitches.length){round(160,1680,1840,300,32,'rgba(255,255,255,.025)','rgba(255,255,255,.075)');text('Pitch arsenal data is loading',1080,1845,36,'#9caabd',750,'center');}
-    text('Current-season batter results against each pitch type',160,2440,23,'#8da0b8',650);
+    const starter=prop.starterProfile||{},pitches=(prop.pitchArsenal||[]).slice(0,5),pitchColors=['#00f58a','#ffb000','#9b4dff','#ff2768','#35d980'];
+    round(160,1300,1840,270,38,'rgba(29,36,41,.74)','rgba(0,245,138,.38)');if(starterPhoto)drawContain(starterPhoto,1570,1315,250,238);text('VS',1475,1428,34,accent,850,'center');text(starter.name||'Probable starter',200,1390,48,'#fff',850);text(`${starter.hand||'?'}HP · ${starter.era??'—'} ERA · ${starter.whip??'—'} WHIP`,200,1450,27,'#b9bec0',700);text(`${starter.kPer9??'—'} K/9 · ${starter.bbPer9??'—'} BB/9`,200,1500,24,'#90989c',650);
+    text('PITCH',200,1640,21,'#969da1',800);text('USAGE',880,1640,21,'#969da1',800,'right');text('AVG',1115,1640,21,'#969da1',800,'right');text('SLG',1360,1640,21,'#969da1',800,'right');text('wOBA',1595,1640,21,'#969da1',800,'right');text('K%',1900,1640,21,'#969da1',800,'right');
+    pitches.forEach((pitch,i)=>{const y=1680+i*142,bv=pitch.batterVs||{},color=pitchColors[i%pitchColors.length];round(160,y,1840,116,24,'rgba(255,255,255,.025)','rgba(255,255,255,.075)');c.fillStyle=color;c.fillRect(160,y,9,116);round(194,y+28,58,58,29,`${color}20`,color);text(String(pitch.code||'P').slice(0,2),223,y+67,18,color,850,'center');text(pitch.name||pitch.code||'Pitch',280,y+70,28,'#fff',800);text(`${Number(pitch.pct||0).toFixed(1)}%`,880,y+70,27,'#dce3e0',750,'right');text(bv.avg??'—',1115,y+70,27,'#fff',750,'right');text(bv.slg??'—',1360,y+70,27,'#fff',750,'right');text(bv.woba??'—',1595,y+70,27,'#fff',750,'right');text(bv.kPct!=null?`${bv.kPct}%`:'—',1900,y+70,27,Number(bv.kPct)>=30?'#ff6475':'#fff',750,'right');});
+    if(!pitches.length){round(160,1680,1840,300,32,'rgba(255,255,255,.025)','rgba(255,255,255,.075)');text('Pitch arsenal data is loading',1080,1845,36,'#a8aeb1',750,'center');}
+    text('Current-season batter results against each pitch type',160,2440,23,'#9da4a8',650);
   }else if(mode==='matchup'){
     const matchup=prop.matchup||{},score=matchupNumber(prop.matchupScore??prop.stats?.matchup_score),scoreValue=Number.isFinite(score)?Math.round(score):null;
-    const scoreTone=scoreValue==null?'#94a3b8':scoreValue>=65?'#35e6a7':scoreValue>=45?'#ffd166':'#ff6475';
+    const scoreTone=scoreValue==null?'#a1a8ab':scoreValue>=65?'#35e6a7':scoreValue>=45?'#ffd166':'#ff6475';
     const scoreLabel=prop.matchupLabel||(scoreValue==null?'DATA PENDING':scoreValue>=65?'FAVORABLE':scoreValue>=45?'NEUTRAL':'TOUGH');
-    round(160,1300,1840,280,38,'rgba(21,31,43,.96)','rgba(255,255,255,.11)');
+    round(160,1300,1840,280,38,'rgba(27,33,37,.96)','rgba(255,255,255,.11)');
     const gauge=c.createLinearGradient(200,0,760,0);gauge.addColorStop(0,'#ff5267');gauge.addColorStop(.5,'#ffd166');gauge.addColorStop(1,'#35e6a7');round(200,1500,560,16,8,'rgba(255,255,255,.08)');if(scoreValue!=null)round(200,1500,Math.max(16,560*scoreValue/100),16,8,gauge);
-    text('MATCHUP SCORE',200,1360,23,'#9caabd',800);text(scoreValue==null?'—':`${scoreValue}`,200,1460,92,scoreTone,850);text('/100',365,1455,32,'#8996a7',700);text(scoreLabel,760,1395,39,'#fff',850);text(`${Math.round(Number(prop.matchupCoverage||0)*100)}% DATA COVERAGE`,760,1442,22,'#9caabd',750);
+    text('MATCHUP SCORE',200,1360,23,'#a8aeb1',800);text(scoreValue==null?'—':`${scoreValue}`,200,1460,92,scoreTone,850);text('/100',365,1455,32,'#929a9e',700);text(scoreLabel,760,1395,39,'#fff',850);text(`${Math.round(Number(prop.matchupCoverage||0)*100)}% DATA COVERAGE`,760,1442,22,'#a8aeb1',750);
     wrap(matchup.pitcher||prop.starterProfile?.name||prop.stats?.pitcher_name||'Probable starter pending',1290,1387,650,35,'#fff',780,44,2);text(matchup.opponent?`VS ${String(matchup.opponent).toUpperCase()}`:'LIVE MATCHUP',1290,1490,22,accent,800);
 
-    const factors=(prop.matchupFactors||prop.stats?.matchup_factors||[]).slice(0,6);text('WHAT DRIVES THE MATCHUP',160,1640,24,'#aab5c5',800);
+    const factors=(prop.matchupFactors||prop.stats?.matchup_factors||[]).slice(0,6);text('WHAT DRIVES THE MATCHUP',160,1640,24,'#b3b9bc',800);
     const factorFallback=[['Platoon split',matchup.handedness||'Season handedness split'],['Pitch mix',prop.pitchArsenal?.length?`${prop.pitchArsenal.length} pitch types tracked`:'Arsenal fit pending'],['Recent form','Current-season performance'],['Park factor',matchup.park||'Game environment']];
     const factorRows=(factors.length?factors.map(f=>[f.name,formatMatchupDetail(f.detail),Number(f.impact||0)]):factorFallback.map(f=>[f[0],f[1],null])).slice(0,6);
-    factorRows.forEach(([name,detail,impact],i)=>{const col=i%2,row=Math.floor(i/2),x=160+col*925,y=1680+row*170,tone=impact==null?'#99a6b6':impact>0?'#35e6a7':impact<0?'#ff6475':'#cbd5e1';round(x,y,895,144,28,'rgba(255,255,255,.045)','rgba(255,255,255,.09)');round(x+24,y+28,58,58,18,`${tone}22`,`${tone}66`);text(impact==null?'•':impact>0?'↑':impact<0?'↓':'=',x+53,y+70,31,tone,850,'center');text(name||'Matchup factor',x+104,y+53,28,'#fff',800);wrap(detail||'Live model input',x+104,y+91,650,20,'#9caabd',600,25,2);if(impact!=null)text(`${impact>0?'+':''}${impact}`,x+855,y+82,31,tone,850,'right');});
+    factorRows.forEach(([name,detail,impact],i)=>{const col=i%2,row=Math.floor(i/2),x=160+col*925,y=1680+row*170,tone=impact==null?'#a2a9ad':impact>0?'#35e6a7':impact<0?'#ff6475':'#d4d7d8';round(x,y,895,144,28,'rgba(255,255,255,.045)','rgba(255,255,255,.09)');round(x+24,y+28,58,58,18,`${tone}22`,`${tone}66`);text(impact==null?'•':impact>0?'↑':impact<0?'↓':'=',x+53,y+70,31,tone,850,'center');text(name||'Matchup factor',x+104,y+53,28,'#fff',800);wrap(detail||'Live model input',x+104,y+91,650,20,'#a8aeb1',600,25,2);if(impact!=null)text(`${impact>0?'+':''}${impact}`,x+855,y+82,31,tone,850,'right');});
 
     const split=prop.split||{},arsenal=prop.pitchArsenal||[],bvp=prop.bvpCard||{};const topPitches=arsenal.slice(0,3).map(p=>p.name||p.pitchName||p.type||p.code).filter(Boolean).join(' · ');
     const venueHome=prop.isHome===true,venueRoad=prop.isHome===false,homeText=`${split.homeAvg??'—'} AVG · ${split.homeOverRate??'—'}% over`,roadText=`${split.roadAvg??'—'} AVG · ${split.roadOverRate??'—'}% over`;
@@ -6802,13 +6812,13 @@ async function buildResearchShareImage(prop,mode) {
       [venueHome?'HOME · TONIGHT':venueRoad?'AWAY · TONIGHT':'HOME / AWAY',`Home ${homeText}  |  Away ${roadText}`],
       ['BULLPEN',matchup.bullpen||matchup.leash||'Relief context pending']
     ];
-    insights.forEach(([label,value],i)=>{const col=i%2,row=Math.floor(i/2),x=160+col*925,y=2210+row*154;round(x,y,895,128,26,'rgba(32,44,60,.76)','rgba(255,255,255,.08)');text(label,x+28,y+43,20,accent,820);wrap(value,x+28,y+82,830,22,'#eef4fb',650,28,2);});
+    insights.forEach(([label,value],i)=>{const col=i%2,row=Math.floor(i/2),x=160+col*925,y=2210+row*154;round(x,y,895,128,26,'rgba(39,47,53,.76)','rgba(255,255,255,.08)');text(label,x+28,y+43,20,accent,820);wrap(value,x+28,y+82,830,22,'#f4f7f6',650,28,2);});
   }else{
-    const max=Math.max(line+1,...games.map(game=>Number(game.value)||0),1),baseY=2270,chartH=760,gap=18,barW=Math.max(42,(1690-gap*Math.max(0,games.length-1))/Math.max(1,games.length));round(160,1300,1840,1100,38,'rgba(7,13,21,.48)','rgba(255,255,255,.085)');
-    [0,.5,1].forEach(step=>{const y=baseY-chartH*step;c.strokeStyle='rgba(255,255,255,.055)';c.lineWidth=2;c.beginPath();c.moveTo(220,y);c.lineTo(1940,y);c.stroke();text((max*step).toFixed(max<4?1:0),190,y+8,18,'#657286',650,'right');});
-    games.forEach((game,i)=>{const value=Number(game.value)||0,x=235+i*(barW+gap),h=Math.max(12,value/max*chartH),hit=value>line,bar=c.createLinearGradient(0,baseY-h,0,baseY);bar.addColorStop(0,hit?'#35e89b':'#ff6170');bar.addColorStop(1,hit?'#0da75b':'#d92843');round(x,baseY-h,barW,h,Math.min(18,barW/3),bar);round(x+Math.max(0,(barW-56)/2),baseY-h-58,Math.min(56,barW),36,18,hit?'rgba(53,232,155,.14)':'rgba(255,97,112,.14)');text(value,x+barW/2,baseY-h-32,20,'#fff',850,'center');if(gameLogos[i]){round(x+barW/2-25,baseY+18,50,50,25,'rgba(255,255,255,.055)','rgba(255,255,255,.10)');drawContain(gameLogos[i],x+barW/2-19,baseY+24,38,38);}else{text(String(game.opponent||'').slice(0,3).toUpperCase(),x+barW/2,baseY+50,18,'#9aa7b8',800,'center');}});c.strokeStyle=accent;c.lineWidth=4;c.setLineDash([16,12]);const lineY=baseY-line/max*chartH;c.beginPath();c.moveTo(210,lineY);c.lineTo(1950,lineY);c.stroke();c.setLineDash([]);round(1760,lineY-48,180,38,19,'rgba(7,12,18,.9)',accent);text(`${line.toFixed(1)} LINE`,1850,lineY-22,18,accent,850,'center');text(`${hits} CLEARED · ${games.length-hits} MISSED`,1940,2370,20,'#8f9cac',750,'right');
+    const max=Math.max(line+1,...games.map(game=>Number(game.value)||0),1),baseY=2270,chartH=760,gap=18,barW=Math.max(42,(1690-gap*Math.max(0,games.length-1))/Math.max(1,games.length));round(160,1300,1840,1100,38,'rgba(12,14,16,.48)','rgba(255,255,255,.085)');
+    [0,.5,1].forEach(step=>{const y=baseY-chartH*step;c.strokeStyle='rgba(255,255,255,.055)';c.lineWidth=2;c.beginPath();c.moveTo(220,y);c.lineTo(1940,y);c.stroke();text((max*step).toFixed(max<4?1:0),190,y+8,18,'#6e787d',650,'right');});
+    games.forEach((game,i)=>{const value=Number(game.value)||0,x=235+i*(barW+gap),h=Math.max(12,value/max*chartH),hit=value>line,bar=c.createLinearGradient(0,baseY-h,0,baseY);bar.addColorStop(0,hit?'#35e89b':'#ff6170');bar.addColorStop(1,hit?'#0da75b':'#d92843');round(x,baseY-h,barW,h,Math.min(18,barW/3),bar);round(x+Math.max(0,(barW-56)/2),baseY-h-58,Math.min(56,barW),36,18,hit?'rgba(53,232,155,.14)':'rgba(255,97,112,.14)');text(value,x+barW/2,baseY-h-32,20,'#fff',850,'center');if(gameLogos[i]){round(x+barW/2-25,baseY+18,50,50,25,'rgba(255,255,255,.055)','rgba(255,255,255,.10)');drawContain(gameLogos[i],x+barW/2-19,baseY+24,38,38);}else{text(String(game.opponent||'').slice(0,3).toUpperCase(),x+barW/2,baseY+50,18,'#a4abae',800,'center');}});c.strokeStyle=accent;c.lineWidth=4;c.setLineDash([16,12]);const lineY=baseY-line/max*chartH;c.beginPath();c.moveTo(210,lineY);c.lineTo(1950,lineY);c.stroke();c.setLineDash([]);round(1760,lineY-48,180,38,19,'rgba(11,13,14,.9)',accent);text(`${line.toFixed(1)} LINE`,1850,lineY-22,18,accent,850,'center');text(`${hits} CLEARED · ${games.length-hits} MISSED`,1940,2370,20,'#989fa3',750,'right');
   }
-  text('KRAZY DATA',160,2510,27,'#fff',800);text(`${new Date().toLocaleDateString()} · Research only`,2000,2510,23,'#7f8a99',600,'right');return await new Promise(resolve=>canvas.toBlob(resolve,'image/png',1));
+  text('ACE PROPS',160,2510,27,'#fff',800);text(`${new Date().toLocaleDateString()} · Research only`,2000,2510,23,'#858e93',600,'right');return await new Promise(resolve=>canvas.toBlob(resolve,'image/png',1));
 }
 
 /* ---------- Slip share card ---------- */
@@ -6825,8 +6835,8 @@ async function buildSlipShareImage(legs) {
   const c = canvas.getContext("2d");
   c.scale(scale, scale);
   const styles = getComputedStyle(document.documentElement);
-  const accent = styles.getPropertyValue("--theme-accent").trim() || "#0082fe";
-  const secondary = styles.getPropertyValue("--theme-secondary").trim() || "#d6e1ea";
+  const accent = styles.getPropertyValue("--theme-accent").trim() || "#00f58a";
+  const secondary = styles.getPropertyValue("--theme-secondary").trim() || "#dce3e0";
   const round = (x, y, w, h, r, fill, stroke, strokeWidth = 3) => { c.beginPath(); c.roundRect(x, y, w, h, r); if (fill) { c.fillStyle = fill; c.fill(); } if (stroke) { c.strokeStyle = stroke; c.lineWidth = strokeWidth; c.stroke(); } };
   const circle = (x, y, r, fill, stroke, strokeWidth = 3) => { c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); if (fill) { c.fillStyle = fill; c.fill(); } if (stroke) { c.strokeStyle = stroke; c.lineWidth = strokeWidth; c.stroke(); } };
   const text = (value, x, y, size, color = "#fff", weight = 700, align = "left") => { c.fillStyle = color; c.font = `${weight} ${size}px Inter,system-ui,sans-serif`; c.textAlign = align; c.fillText(String(value), x, y); };
@@ -6842,7 +6852,7 @@ async function buildSlipShareImage(legs) {
   // the single-player research card, so the two share styles feel like one
   // family instead of two different products.
   const bg = c.createLinearGradient(0, 0, 2160, logicalH);
-  bg.addColorStop(0, "#0c1b31"); bg.addColorStop(.5, "#07111f"); bg.addColorStop(1, "#050912");
+  bg.addColorStop(0, "#1a1f23"); bg.addColorStop(.5, "#101416"); bg.addColorStop(1, "#0a0c0d");
   c.fillStyle = bg; c.fillRect(0, 0, 2160, logicalH);
   glow(1820, 140, 720, `${accent}30`);
   glow(160, logicalH - 200, 640, "rgba(155,77,255,.16)");
@@ -6850,22 +6860,22 @@ async function buildSlipShareImage(legs) {
   for (let i = 0; i < 4; i++) { c.beginPath(); c.moveTo(-100, 260 + i * 90); c.bezierCurveTo(700, 40 + i * 70, 1500, 420 - i * 55, 2260, 120 + i * 45); c.stroke(); }
   c.restore();
 
-  round(80, 80, 2000, logicalH - 160, 64, "rgba(8,16,29,.80)", "rgba(142,175,224,.22)");
+  round(80, 80, 2000, logicalH - 160, 64, "rgba(16,19,21,.80)", "rgba(92,248,178,.22)");
 
   // Header
   round(140, 140, 900, 96, 26, "rgba(255,255,255,.055)");
   const brandDot = c.createLinearGradient(164, 164, 212, 212); brandDot.addColorStop(0, accent); brandDot.addColorStop(1, `color-mix(in srgb, ${accent} 60%, #9b4dff)`);
   circle(188, 188, 24, brandDot); text("K", 188, 198, 24, "#fff", 900, "center");
-  text("KRAZY DATA", 236, 197, 32, "#fff", 800);
+  text("ACE PROPS", 236, 197, 32, "#fff", 800);
   round(1400, 152, 620, 72, 22, "rgba(255,255,255,.045)", "rgba(255,255,255,.10)");
-  text(new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }), 2000, 197, 26, "#c3ccd9", 700, "right");
+  text(new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }), 2000, 197, 26, "#cbcfd1", 700, "right");
 
   text(`${legs.length}-LEG PARLAY`, 140, 400, 96, "#fff", 850);
   c.fillStyle = accent; c.fillRect(140, 424, 210, 10);
   const sportBadges = [...new Set(legs.map((leg) => leg.sport).filter(Boolean))];
   let badgeX = 140;
   sportBadges.forEach((sport) => { const w = 26 + sport.length * 17; round(badgeX, 460, w, 56, 16, `${accent}22`, `${accent}55`); text(sport.toUpperCase(), badgeX + w / 2, 496, 22, accent, 800, "center"); badgeX += w + 14; });
-  text("Research only · not betting advice", 2020, 496, 24, "#8996a7", 650, "right");
+  text("Research only · not betting advice", 2020, 496, 24, "#929a9e", 650, "right");
   c.strokeStyle = "rgba(255,255,255,.10)"; c.lineWidth = 2; c.beginPath(); c.moveTo(140, headerH - 30); c.lineTo(2020, headerH - 30); c.stroke();
 
   legs.forEach((leg, i) => {
@@ -6880,11 +6890,11 @@ async function buildSlipShareImage(legs) {
     circle(cx, cy, r + 6, null, `${sideColor}80`, 5);
     if (headshots[i]) { circle(cx, cy, r, "rgba(255,255,255,.05)"); clipCircleDraw(headshots[i], cx, cy, r); }
     else { circle(cx, cy, r, "rgba(255,255,255,.055)"); text((leg.player || "?").split(" ").map((v) => v[0]).join("").slice(0, 2).toUpperCase(), cx, cy + 16, 46, "#fff", 800, "center"); }
-    if (teamLogos[i]) { circle(cx + r - 14, cy + r - 14, 38, "#0e1826", "rgba(255,255,255,.25)", 4); drawContain(teamLogos[i], cx + r - 14 - 26, cy + r - 14 - 26, 52, 52); }
+    if (teamLogos[i]) { circle(cx + r - 14, cy + r - 14, 38, "#161b1e", "rgba(255,255,255,.25)", 4); drawContain(teamLogos[i], cx + r - 14 - 26, cy + r - 14 - 26, 52, 52); }
     const textX = 380;
     text(leg.player || "Player", textX, y + 88, 48, "#fff", 800);
     const meta = [leg.team, leg.sport].filter(Boolean).join(" · ").toUpperCase();
-    if (meta) { const mw = c.measureText(meta).width + 32; round(textX, y + 110, mw, 44, 14, "rgba(255,255,255,.06)"); text(meta, textX + 16, y + 140, 21, "#aab5c5", 750); }
+    if (meta) { const mw = c.measureText(meta).width + 32; round(textX, y + 110, mw, 44, 14, "rgba(255,255,255,.06)"); text(meta, textX + 16, y + 140, 21, "#b3b9bc", 750); }
     if (leg.tierIcon || leg.score != null) { const label = `${leg.tierIcon || "⭐"} ${leg.score ?? ""}`.trim(); const tw = c.measureText(label).width + 36; round(textX, y + h - 60, tw, 44, 14, `${accent}1c`, `${accent}45`); text(label, textX + 18, y + h - 30, 22, accent, 800); }
 
     const pillW = 560, pillX = 1460, pillY = y + h / 2 - 66;
@@ -6893,13 +6903,13 @@ async function buildSlipShareImage(legs) {
     round(pillX, pillY, pillW, 132, 26, pillFill, `${sideColor}70`, 4);
     triangle(pillX + 66, pillY + 66, 22, sideUp, sideColor);
     text(`${sideUp ? "OVER" : "UNDER"} ${leg.line}`, pillX + 116, pillY + 62, 42, sideColor, 850);
-    text(String(leg.betType || "").toUpperCase(), pillX + 116, pillY + 100, 22, "#dfe6ee", 700);
+    text(String(leg.betType || "").toUpperCase(), pillX + 116, pillY + 100, 22, "#dce3e0", 700);
   });
 
   c.strokeStyle = "rgba(255,255,255,.10)"; c.lineWidth = 2; c.beginPath(); c.moveTo(140, logicalH - footerH + 20); c.lineTo(2020, logicalH - footerH + 20); c.stroke();
   circle(164, logicalH - 96, 20, brandDot); text("K", 164, logicalH - 88, 20, "#fff", 900, "center");
-  text("KRAZY DATA", 200, logicalH - 84, 27, "#fff", 800);
-  text("Share your own picks — krazydata.site", 2020, logicalH - 84, 23, secondary || "#8fa2c2", 650, "right");
+  text("ACE PROPS", 200, logicalH - 84, 27, "#fff", 800);
+  text("Share your own picks — Ace Props", 2020, logicalH - 84, 23, secondary || "#a3aaae", 650, "right");
   return await new Promise((resolve) => canvas.toBlob(resolve, "image/png", 1));
 }
 
@@ -7433,7 +7443,7 @@ function evaluatePdChallenge(p, key) {
   const stats = p.stats || {}, drivers = pdDecisionDrivers(p);
   const terms = { recent:/recent|form|l5|l10|l20/i, hand:/hand|platoon/i, pitcher:/pitch|matchup|opposing/i, bullpen:/bullpen/i, opportunity:/lineup|opportunity|plate appearance/i, workload:/workload|pitch count|leash|innings/i, environment:/weather|park|wind/i, price:/market|price|odds|line/i, bvp:/batter vs|bvp/i };
   const matches = drivers.filter(d => terms[key]?.test(`${d.name} ${d.detail}`));
-  let status = "NEEDS VERIFICATION", strength = "Unknown", shift = 0, explanation = "Krazy Data does not currently have a verified input for this concern. Treat it as a wait condition, not an automatic fade.";
+  let status = "NEEDS VERIFICATION", strength = "Unknown", shift = 0, explanation = "Ace Props does not currently have a verified input for this concern. Treat it as a wait condition, not an automatic fade.";
   if (key === "gut") {
     status = "NOT QUANTIFIABLE"; strength = "Unverified";
     explanation = "A gut concern is worth noticing, but it cannot overturn the model until you can name the underlying baseball or pricing assumption.";

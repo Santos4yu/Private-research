@@ -24,7 +24,7 @@ const PREFS_KEY='krazy-smart-slip';
 const EXPORT_URL='/api/prediction?action=prizepicks-export&from=parlay';
 const MODIFIER_ICON={goblin:'/prizepicks/goblin.png',demon:'/prizepicks/demon.png'};
 // Each payout band's name and colour, safest to boldest.
-const LEVELS={2:{name:'Safest',tone:'#5fe0a8',Icon:ShieldCheck},3:{name:'Solid',tone:'#4cc9f0',Icon:CircleCheck},5:{name:'Boost',tone:'#f6c35b',Icon:Zap},
+const LEVELS={2:{name:'Safest',tone:'#5fe0a8',Icon:ShieldCheck},3:{name:'Solid',tone:'#00f58a',Icon:CircleCheck},5:{name:'Boost',tone:'#f6c35b',Icon:Zap},
  10:{name:'Big',tone:'#ff9f5a',Icon:Rocket},20:{name:'Long shot',tone:'#ff6b8b',Icon:Crown}};
 const MIX_OPTIONS=[['regular','Regular + Regular',['standard','standard']],['goblin','Regular + Goblin',['standard','goblin']],
  ['demon','Regular + Demon',['standard','demon']],['any','Mix it up',['standard','goblin','demon']]];

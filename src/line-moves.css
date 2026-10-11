@@ -1,5 +1,5 @@
 /* Line Moves (LineMoves.jsx): the Finder's palette, one clean feed. */
-.line-moves{--m-bg:#0b0f14;--m-row:#101419;--m-row-hover:#141920;--m-control:#1a1f25;--m-border:#242a31;--m-text:#ebf1f9;--m-muted:#9aa3ad;--m-faint:#6b737d;--m-up:#5fe0a8;--m-down:#ff8b98;
+.line-moves{--m-bg:#0d1012;--m-row:#111518;--m-row-hover:#161b1e;--m-control:#1a2025;--m-border:#242c31;--m-text:#f4f7f6;--m-muted:#9ea5a9;--m-faint:#6b737d;--m-up:#5fe0a8;--m-down:#ff8b98;
  max-width:1080px;margin:0 auto;color:var(--m-text);font:400 13px/1.4 var(--font-sans,Inter,Arial,sans-serif);color-scheme:dark}
 .line-moves *{box-sizing:border-box}
 .line-moves button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0;letter-spacing:normal;box-shadow:none}
@@ -9,13 +9,13 @@
 :root[data-theme] #app-shell #panel-moves{width:calc(100% - 28px)!important;max-width:1080px!important;padding:14px 0 90px!important;margin:0 auto!important}
 #panel-moves::before{display:none!important}
 #app-shell:has(#panel-moves:not([hidden]))>.hero{display:none!important}
-#app-shell:has(#panel-moves:not([hidden])){min-height:100dvh;background:#080c1a}
+#app-shell:has(#panel-moves:not([hidden])){min-height:100dvh;background:#0e1114}
 
 /* Header */
 .moves-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border:1px solid var(--m-border);border-radius:16px 16px 0 0;
- background:radial-gradient(120% 220% at 0% 0%,color-mix(in srgb,var(--theme-accent) 28%,transparent),transparent 60%),linear-gradient(180deg,#161a20,#101318);box-shadow:inset 0 -1px 0 color-mix(in srgb,var(--theme-accent) 50%,transparent)}
+ background:linear-gradient(180deg,#171c1f,#111517);box-shadow:inset 0 -1px 0 color-mix(in srgb,var(--theme-accent) 50%,transparent)}
 .moves-title{display:flex;align-items:center;gap:10px;min-width:0}
-.moves-mark{display:grid;place-items:center;width:32px;height:32px;border-radius:10px;background:color-mix(in srgb,var(--theme-accent) 22%,#0e1116);color:color-mix(in srgb,var(--theme-accent) 70%,#fff)}
+.moves-mark{display:grid;place-items:center;width:32px;height:32px;border-radius:10px;background:color-mix(in srgb,var(--theme-accent) 22%,#0f1215);color:color-mix(in srgb,var(--theme-accent) 70%,#fff)}
 .moves-title h1{margin:0;font:700 19px/1.2 'Sora',var(--font-sans,Arial,sans-serif);letter-spacing:-.4px;white-space:nowrap}
 .moves-live{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;background:color-mix(in srgb,var(--m-up) 12%,transparent);color:var(--m-up);font:700 10px/1 var(--font-sans,Arial,sans-serif);letter-spacing:.08em;text-transform:uppercase}
 .moves-live i{width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 0 0 currentColor;animation:moves-pulse 2s infinite}
@@ -57,7 +57,7 @@
 /* The feed */
 .moves-group{border:1px solid var(--m-border);border-top:0;background:var(--m-bg)}
 .moves-group:last-child{border-radius:0 0 16px 16px;overflow:hidden}
-.moves-group h2{position:sticky;top:0;z-index:1;margin:0;padding:8px 16px;background:#0e1217;border-bottom:1px solid var(--m-border);color:var(--m-muted);font:700 10px/1.3 var(--font-sans,Arial,sans-serif);letter-spacing:.1em;text-transform:uppercase}
+.moves-group h2{position:sticky;top:0;z-index:1;margin:0;padding:8px 16px;background:#101315;border-bottom:1px solid var(--m-border);color:var(--m-muted);font:700 10px/1.3 var(--font-sans,Arial,sans-serif);letter-spacing:.1em;text-transform:uppercase}
 .moves-list{list-style:none;margin:0;padding:0}
 .moves-row{border-bottom:1px solid var(--m-border)}
 .moves-row:last-child{border-bottom:0}
@@ -69,8 +69,8 @@
 .moves-time b{font:600 12px/1.2 var(--font-mono,monospace)}
 .moves-time span{color:var(--m-faint);font-size:10px}
 .moves-face{position:relative;display:block;width:40px;height:40px}
-.moves-face>img:first-child,.moves-face>b{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;object-fit:cover;background:#1d232a;border:1px solid var(--m-border);color:var(--m-muted);font-size:12px}
-.moves-face-league{position:absolute;right:-3px;bottom:-3px;width:18px!important;height:18px!important;padding:2px;border-radius:50%;background:#0b0f14;object-fit:contain}
+.moves-face>img:first-child,.moves-face>b{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;object-fit:cover;background:#1e2429;border:1px solid var(--m-border);color:var(--m-muted);font-size:12px}
+.moves-face-league{position:absolute;right:-3px;bottom:-3px;width:18px!important;height:18px!important;padding:2px;border-radius:50%;background:#0d1012;object-fit:contain}
 .moves-who{display:grid;gap:2px;min-width:0}
 .moves-who b{overflow:hidden;font-size:14px;font-weight:700;white-space:nowrap;text-overflow:ellipsis}
 .moves-who span{overflow:hidden;color:var(--m-muted);font-size:12px;white-space:nowrap;text-overflow:ellipsis}
@@ -110,7 +110,7 @@
 .moves-empty b{color:var(--m-text);font-size:14px}
 .moves-empty button{min-height:38px;padding:0 16px;border-radius:10px;background:var(--m-control)!important;border:1px solid var(--m-border)!important;font-weight:700}
 .moves-skeleton{border:1px solid var(--m-border);border-top:0;border-radius:0 0 16px 16px;overflow:hidden;background:var(--m-bg)}
-.moves-skeleton li{height:62px;border-bottom:1px solid var(--m-border);background:linear-gradient(90deg,var(--m-row) 30%,#161b21 50%,var(--m-row) 70%) 0 0/300% 100%;animation:moves-shimmer 1.4s linear infinite}
+.moves-skeleton li{height:62px;border-bottom:1px solid var(--m-border);background:linear-gradient(90deg,var(--m-row) 30%,#171c20 50%,var(--m-row) 70%) 0 0/300% 100%;animation:moves-shimmer 1.4s linear infinite}
 @keyframes moves-shimmer{to{background-position:-150% 0}}
 
 /* Tablets: the app name gives way first */
@@ -128,21 +128,21 @@
  :root[data-theme] body:has(#panel-moves:not([hidden])) :is(.site-account-bar,.site-account-trigger,#settings-btn){display:none!important}
  .line-moves{position:relative;isolation:isolate;font-size:12px}
  .line-moves::before{content:"";position:absolute;z-index:-1;inset:0 0 auto;height:calc(var(--site-status-inset,0px) + 200px);pointer-events:none;
-  background:radial-gradient(110% 80% at 12% 0%,color-mix(in srgb,var(--theme-accent) 48%,transparent),transparent 72%),
-   linear-gradient(180deg,color-mix(in srgb,var(--theme-accent) 40%,#0a0f1a) 0%,color-mix(in srgb,var(--theme-accent) 15%,#090d12) 58%,#090d12 100%)}
+  background:
+   linear-gradient(180deg,color-mix(in srgb,var(--theme-accent) 12%,#0f1215) 0%,color-mix(in srgb,var(--theme-accent) 4%,#0b0e10) 58%,#0b0e10 100%)}
  .moves-head{gap:8px;padding:calc(var(--site-status-inset,0px) + 12px) 14px 8px;border:0;border-radius:0;background:none;box-shadow:none}
  .moves-mark{display:none}
  .moves-title{gap:9px}
  .moves-title h1{color:#fff;font-size:21px;letter-spacing:-.035em}
  .moves-updated{display:none}
  .moves-head-side{gap:4px}
- .moves-icon{width:36px;height:36px;border:0!important;border-radius:50%;background:transparent!important;color:#eef4fb!important}
- .line-moves :is(.finder-top-settings,.finder-top-account){display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;padding:0;border:0!important;border-radius:50%;background:transparent;color:#eef4fb}
- .line-moves .finder-top-account{flex-basis:34px;width:34px;height:34px;margin-left:4px;overflow:hidden;border:1.5px solid rgba(255,255,255,.4)!important;background:color-mix(in srgb,var(--theme-accent) 45%,#0e1116)}
+ .moves-icon{width:36px;height:36px;border:0!important;border-radius:50%;background:transparent!important;color:#f4f7f6!important}
+ .line-moves :is(.finder-top-settings,.finder-top-account){display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;padding:0;border:0!important;border-radius:50%;background:transparent;color:#f4f7f6}
+ .line-moves .finder-top-account{flex-basis:34px;width:34px;height:34px;margin-left:4px;overflow:hidden;border:1.5px solid rgba(255,255,255,.4)!important;background:color-mix(in srgb,var(--theme-accent) 45%,#0f1215)}
  .line-moves .finder-top-account img{width:100%;height:100%;object-fit:cover}
  .line-moves .finder-top-account b{font-size:15px;font-weight:700;line-height:1}
  .moves-controls{padding:6px 12px 12px;border:0;background:none}
- .moves-sports button{background:rgba(255,255,255,.1)!important;border-color:rgba(255,255,255,.18)!important;color:#dfe7f1!important}
+ .moves-sports button{background:rgba(255,255,255,.1)!important;border-color:rgba(255,255,255,.18)!important;color:#dce3e0!important}
  .moves-sports button{min-height:34px;padding:0 11px}
  .moves-filter-row{grid-template-columns:minmax(0,1fr)}
  .moves-segment button{flex:1}

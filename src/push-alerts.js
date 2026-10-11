@@ -100,8 +100,8 @@ async function render(note = '') {
   toggle.setAttribute('aria-checked', String(on));
   toggle.disabled = busy || needsHomeScreen || blocked;
   const message = note
-    || (needsHomeScreen ? 'Add Krazy Data to your Home Screen to turn on alerts.' : '')
-    || (blocked ? 'Notifications are off for Krazy Data in your device settings.' : '');
+    || (needsHomeScreen ? 'Add Ace Props to your Home Screen to turn on alerts.' : '')
+    || (blocked ? 'Notifications are off for Ace Props in your device settings.' : '');
   noteEl.textContent = message;
   noteEl.hidden = !message;
   // On an iPhone's browser the note opens the Home Screen steps.

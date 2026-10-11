@@ -6,7 +6,7 @@ self.addEventListener('activate', event => event.waitUntil(self.clients.claim())
 self.addEventListener('push', event => {
   let message = {};
   try { message = event.data ? event.data.json() : {}; } catch { message = {body: event.data?.text() || ''}; }
-  event.waitUntil(self.registration.showNotification(message.title || 'Krazy Data', {
+  event.waitUntil(self.registration.showNotification(message.title || 'Ace Props', {
     body: message.body || '',
     icon: '/icons/icon-192.png?v=4',
     badge: '/icons/icon-192.png?v=4',

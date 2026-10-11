@@ -209,7 +209,7 @@ def status():
 # ---------------------------------------------------------------- sending
 
 def valid_announcement(title, body, url='/'):
-    title = ' '.join(str(title or '').split())[:TITLE_MAX] or 'Krazy Data'
+    title = ' '.join(str(title or '').split())[:TITLE_MAX] or 'Ace Props'
     body = str(body or '').strip()
     if not body:
         raise ValueError('Write a message first')

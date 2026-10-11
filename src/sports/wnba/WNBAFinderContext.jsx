@@ -115,7 +115,7 @@ function ShotChart({player,league,row}){
  const zones=p.zones||{},defense=data.zoneDefense[opponent]||{},n=data.teamCount;
  const makes=Object.values(zones).reduce((sum,[made])=>sum+made,0);
  const share=zone=>makes?(zones[zone]?.[0]||0)/makes*100:0;
- const fill=zone=>{const band=bandOf(defense[zone]?.[1],n);return band==null?'#2a3350':BAND_COLORS[band];};
+ const fill=zone=>{const band=bandOf(defense[zone]?.[1],n);return band==null?'#393e41':BAND_COLORS[band];};
  const label=(zone,x,y)=><g className="wnba-zone-label" transform={`translate(${x} ${y})`}><rect x="-21" y="-15" width="42" height="30" rx="7"/><text y="-2">{fmt(share(zone),0)}%</text><text y="10" className="wnba-zone-rank">#{defense[zone]?.[1]??'—'}</text></g>;
  const inside=['ra','paint','mid'],three=['c3l','c3r','ab3'];
  const groupShare=group=>group.reduce((sum,zone)=>sum+share(zone),0);

@@ -1,7 +1,7 @@
 /* The Moneylines page (Moneylines.jsx): the Finder's palette. The accent
    marks the side to bet; green and red only ever mean up and down. */
-.ml2{--m-bg:#0b0f14;--m-card:#10151b;--m-raised:#161c24;--m-line:#242b34;--m-grid:#1c232b;--m-text:#ecf2f9;--m-muted:#98a3af;--m-faint:#687380;
- --m-up:#5fe0a8;--m-down:#ff8b98;--m-gold:#f6c35b;--m-accent:var(--theme-accent,#3b82f6);--m-accent-2:color-mix(in srgb,var(--m-accent) 55%,#8b5cf6);
+.ml2{--m-bg:#0d1012;--m-card:#121619;--m-raised:#181e22;--m-line:#252d33;--m-grid:#1e2429;--m-text:#f4f7f6;--m-muted:#9ea5a9;--m-faint:#6d767b;
+ --m-up:#5fe0a8;--m-down:#ff8b98;--m-gold:#f6c35b;--m-accent:var(--theme-accent,#00f58a);--m-accent-2:color-mix(in srgb,var(--m-accent) 55%,#5cf8b2);
  --m-mono:var(--font-mono,'JetBrains Mono',monospace);--m-sans:var(--font-sans,Inter,Arial,sans-serif);
  max-width:1000px;margin:0 auto;color:var(--m-text);font:400 13px/1.45 var(--m-sans);color-scheme:dark}
 .ml2 *{box-sizing:border-box}
@@ -12,18 +12,18 @@
 :root[data-theme] #app-shell #panel-moneyline{width:calc(100% - 28px)!important;max-width:1000px!important;padding:14px 0 90px!important;margin:0 auto!important}
 #panel-moneyline::before{display:none!important}
 #app-shell:has(#panel-moneyline:not([hidden]))>.hero{display:none!important}
-#app-shell:has(#panel-moneyline:not([hidden])){min-height:100dvh;background:#080c1a}
+#app-shell:has(#panel-moneyline:not([hidden])){min-height:100dvh;background:#0e1114}
 .ml2 .finder-top-account,.ml2 .finder-top-settings{display:none}
 
 .ml2-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:22px 22px 20px;border:1px solid var(--m-line);border-radius:20px;
- background:radial-gradient(120% 200% at 0% 0%,color-mix(in srgb,var(--m-accent) 28%,transparent),transparent 60%),linear-gradient(180deg,#161b22,#0f1318)}
+ background:linear-gradient(180deg,#181d20,#101417)}
 .ml2-eyebrow{display:inline-flex;align-items:center;gap:6px;color:color-mix(in srgb,var(--m-accent) 70%,#fff);font:800 10px/1 var(--m-sans);letter-spacing:.14em;text-transform:uppercase}
 .ml2-head h1{margin:8px 0 4px;font:800 30px/1.1 'Sora',var(--m-sans);letter-spacing:-.8px}
 .ml2-head p{margin:0;max-width:480px;color:var(--m-muted)}
 
 /* ---------------------------------------------------------------- record */
 .ml2-record{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:14px 18px;margin-top:12px;padding:16px 18px;border:1px solid var(--m-line);border-radius:18px;background:var(--m-card)}
-.ml2-record.is-loading{min-height:150px;background:linear-gradient(100deg,var(--m-card) 40%,#141a21 50%,var(--m-card) 60%) 0 0/200% 100%;animation:ml2-shine 1.4s linear infinite}
+.ml2-record.is-loading{min-height:150px;background:linear-gradient(100deg,var(--m-card) 40%,#161b1f 50%,var(--m-card) 60%) 0 0/200% 100%;animation:ml2-shine 1.4s linear infinite}
 .ml2-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-content:start}
 .ml2-tiles div{padding:12px;border:1px solid var(--m-line);border-radius:14px;background:var(--m-raised)}
 .ml2-tiles span{display:block;color:var(--m-faint);font:800 10px/1 var(--m-sans);letter-spacing:.1em;text-transform:uppercase}
@@ -42,14 +42,14 @@
 .ml2-cross{stroke:var(--m-muted);stroke-width:1;vector-effect:non-scaling-stroke}
 .ml2-dot{fill:var(--m-accent);stroke:var(--m-card);stroke-width:2;vector-effect:non-scaling-stroke}
 .ml2-end{position:absolute;right:0;transform:translateY(-50%);color:var(--m-text);font:700 12px/1 var(--m-mono);pointer-events:none}
-.ml2-chart-tip{position:absolute;top:-4px;display:grid;gap:2px;padding:7px 10px;border:1px solid var(--m-line);border-radius:10px;background:#0c1116;box-shadow:0 10px 24px rgba(0,0,0,.4);pointer-events:none;white-space:nowrap}
+.ml2-chart-tip{position:absolute;top:-4px;display:grid;gap:2px;padding:7px 10px;border:1px solid var(--m-line);border-radius:10px;background:#0e1114;box-shadow:0 10px 24px rgba(0,0,0,.4);pointer-events:none;white-space:nowrap}
 .ml2-chart-tip b{font:700 13px/1 var(--m-mono)}
 .ml2-chart-tip span{color:var(--m-muted);font-size:11px}
 .ml2-chart-empty{display:grid;place-items:center;min-height:110px;border:1px dashed var(--m-line);border-radius:12px;color:var(--m-faint);font-size:12px;text-align:center;padding:0 12px}
 .ml2-record>.ml2-more{grid-column:1/-1}
 .ml2-history{grid-column:1/-1;max-height:420px;overflow:auto;border:1px solid var(--m-line);border-radius:12px}
 .ml2-history table,.ml2-books{width:100%;border-collapse:collapse;font-size:12px}
-.ml2-history th,.ml2-books th{position:sticky;top:0;padding:9px 12px;background:#131920;color:var(--m-faint);font:800 10px/1 var(--m-sans);letter-spacing:.08em;text-align:left;text-transform:uppercase}
+.ml2-history th,.ml2-books th{position:sticky;top:0;padding:9px 12px;background:#151a1e;color:var(--m-faint);font:800 10px/1 var(--m-sans);letter-spacing:.08em;text-align:left;text-transform:uppercase}
 .ml2-history td{padding:9px 12px;border-top:1px solid var(--m-line);vertical-align:top;font-variant-numeric:tabular-nums}
 .ml2-history td small{display:block;margin-top:2px;color:var(--m-faint);font-size:11px}
 .ml2-history td.is-up{color:var(--m-up)}
@@ -63,18 +63,18 @@
 .ml2-controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:14px 0 12px}
 .ml2-leagues{display:flex;gap:6px;flex-wrap:wrap}
 .ml2-leagues button{display:inline-flex;align-items:center;gap:8px;min-height:42px;padding:0 14px 0 11px;border:1px solid var(--m-line)!important;border-radius:13px;
- background:linear-gradient(180deg,#171d25,#12171e)!important;color:var(--m-muted)!important;font-weight:800;transition:border-color .2s,color .2s,transform .2s cubic-bezier(.2,.9,.3,1.35)}
+ background:linear-gradient(180deg,#191f23,#14191c)!important;color:var(--m-muted)!important;font-weight:800;transition:border-color .2s,color .2s,transform .2s cubic-bezier(.2,.9,.3,1.35)}
 .ml2-leagues img{width:18px;height:18px;object-fit:contain;filter:grayscale(1) opacity(.55);transition:filter .2s}
-.ml2-leagues small{min-width:18px;padding:2px 6px;border-radius:999px;background:#232b35;color:var(--m-text);font:700 10px/1.3 var(--m-mono);text-align:center}
+.ml2-leagues small{min-width:18px;padding:2px 6px;border-radius:999px;background:#252d33;color:var(--m-text);font:700 10px/1.3 var(--m-mono);text-align:center}
 .ml2-leagues button:active{transform:scale(.95)}
 .ml2-leagues button[aria-selected="true"]{border-color:color-mix(in srgb,var(--m-accent) 70%,transparent)!important;color:var(--m-text)!important;
- background:linear-gradient(170deg,color-mix(in srgb,var(--m-accent) 20%,#141a21),#11161c)!important;box-shadow:0 10px 24px -14px color-mix(in srgb,var(--m-accent) 90%,transparent)!important}
+ background:linear-gradient(170deg,color-mix(in srgb,var(--m-accent) 20%,#161b1f),#13171a)!important;box-shadow:none!important}
 .ml2-leagues button[aria-selected="true"] img{filter:none}
-.ml2-leagues button[aria-selected="true"] small{background:var(--m-accent);color:#fff}
-.ml2-view{display:flex;padding:3px;margin-left:auto;border:1px solid var(--m-line);border-radius:13px;background:#0c1116}
+.ml2-leagues button[aria-selected="true"] small{background:var(--m-accent);color:var(--theme-on-accent,#03140B)}
+.ml2-view{display:flex;padding:3px;margin-left:auto;border:1px solid var(--m-line);border-radius:13px;background:#0e1114}
 .ml2-view button{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 13px;border-radius:10px;color:var(--m-muted)!important;font-weight:800;transition:background .2s,color .2s}
 .ml2-view button small{color:inherit;opacity:.7;font:700 11px/1 var(--m-mono)}
-.ml2-view button[aria-pressed="true"]{background:linear-gradient(135deg,var(--m-accent),var(--m-accent-2))!important;color:#fff!important}
+.ml2-view button[aria-pressed="true"]{background:var(--m-accent)!important;color:var(--theme-on-accent,#03140B)!important}
 .ml2-refresh{display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:0 12px;border:1px solid var(--m-line)!important;border-radius:12px;color:var(--m-muted)!important;font-size:12px}
 .ml2-refresh:disabled{opacity:.6;cursor:default}
 .ml2-spin{animation:ml2-spin 1s linear infinite}
@@ -88,11 +88,11 @@
 @keyframes ml2-in{from{opacity:0;transform:translateY(8px)}}
 .ml2-game.tier-strong{border-color:color-mix(in srgb,var(--m-up) 45%,var(--m-line));box-shadow:0 18px 40px -26px color-mix(in srgb,var(--m-up) 90%,transparent)}
 .ml2-game.tier-play{border-color:color-mix(in srgb,var(--m-accent) 45%,var(--m-line))}
-.ml2-game.is-skeleton{min-height:220px;background:linear-gradient(100deg,var(--m-card) 40%,#141a21 50%,var(--m-card) 60%) 0 0/200% 100%;animation:ml2-shine 1.4s linear infinite}
+.ml2-game.is-skeleton{min-height:220px;background:linear-gradient(100deg,var(--m-card) 40%,#161b1f 50%,var(--m-card) 60%) 0 0/200% 100%;animation:ml2-shine 1.4s linear infinite}
 .ml2-game-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
 .ml2-when{display:inline-flex;align-items:center;gap:7px;color:var(--m-muted);font-size:12px;font-weight:600}
 .ml2-live{padding:2px 7px;border-radius:999px;background:rgba(255,139,152,.14);color:var(--m-down);font:800 10px/1.3 var(--m-sans);font-style:normal;letter-spacing:.06em;text-transform:uppercase}
-.ml2-tier{padding:4px 9px;border-radius:999px;background:#1d242d;color:var(--m-faint);font:800 10px/1.2 var(--m-sans);letter-spacing:.07em;text-transform:uppercase}
+.ml2-tier{padding:4px 9px;border-radius:999px;background:#1f262b;color:var(--m-faint);font:800 10px/1.2 var(--m-sans);letter-spacing:.07em;text-transform:uppercase}
 .ml2-tier.tier-strong{background:color-mix(in srgb,var(--m-up) 18%,transparent);color:var(--m-up)}
 .ml2-tier.tier-play{background:color-mix(in srgb,var(--m-accent) 20%,transparent);color:color-mix(in srgb,var(--m-accent) 55%,#fff)}
 .ml2-tier.tier-lean{background:rgba(246,195,91,.12);color:var(--m-gold)}
@@ -100,7 +100,7 @@
 .ml2-side{display:grid;grid-template-columns:34px minmax(0,1fr) 52px 70px 58px;align-items:center;gap:10px;padding:7px 8px;margin:0 -8px;border-radius:12px}
 .ml2-side.is-pick{background:color-mix(in srgb,var(--m-accent) 10%,transparent)}
 .ml2-logo{width:34px;height:34px;object-fit:contain}
-.ml2-logo-empty{display:grid;place-items:center;border-radius:50%;background:#1d242c;color:var(--m-muted);font:800 11px/1 var(--m-sans)}
+.ml2-logo-empty{display:grid;place-items:center;border-radius:50%;background:#1f252a;color:var(--m-muted);font:800 11px/1 var(--m-sans)}
 .ml2-team{min-width:0}
 .ml2-team b{display:block;overflow:hidden;font-size:14px;font-weight:700;white-space:nowrap;text-overflow:ellipsis}
 .ml2-short{display:none}
@@ -116,15 +116,15 @@
 /* The win-chance bar: two segments, a 2px gap, rounded outer ends. */
 .ml2-bar{position:relative;margin:8px 0 2px}
 .ml2-bar-track{display:flex;gap:2px;height:8px}
-.ml2-bar-track button{min-width:4px;height:100%;background:#2a323c!important;transition:flex-grow .5s ease,background .2s}
+.ml2-bar-track button{min-width:4px;height:100%;background:#2b343b!important;transition:flex-grow .5s ease,background .2s}
 .ml2-bar-track button:first-child{border-radius:4px 0 0 4px}
 .ml2-bar-track button:last-child{border-radius:0 4px 4px 0}
 .ml2-bar-track button.is-pick{background:var(--m-accent)!important}
-.ml2-game.tier-lean .ml2-bar-track button.is-pick{background:color-mix(in srgb,var(--m-gold) 55%,#2a323c)!important}
+.ml2-game.tier-lean .ml2-bar-track button.is-pick{background:color-mix(in srgb,var(--m-gold) 55%,#2b343b)!important}
 .ml2-bar-track button:hover{filter:brightness(1.25)}
 .ml2-bar-labels{display:flex;justify-content:space-between;margin-top:5px;color:var(--m-muted);font-size:11px}
 .ml2-bar-labels b{color:var(--m-text);font-family:var(--m-mono)}
-.ml2-tip{position:absolute;bottom:calc(100% + 8px);z-index:3;display:grid;gap:2px;padding:8px 11px;border:1px solid var(--m-line);border-radius:10px;background:#0c1116;box-shadow:0 10px 24px rgba(0,0,0,.45);pointer-events:none;white-space:nowrap}
+.ml2-tip{position:absolute;bottom:calc(100% + 8px);z-index:3;display:grid;gap:2px;padding:8px 11px;border:1px solid var(--m-line);border-radius:10px;background:#0e1114;box-shadow:0 10px 24px rgba(0,0,0,.45);pointer-events:none;white-space:nowrap}
 .ml2-tip.is-away{left:0}
 .ml2-tip.is-home{right:0;text-align:right}
 .ml2-tip b{font:700 14px/1 var(--m-mono)}
@@ -132,8 +132,8 @@
 .ml2-tip small{color:var(--m-muted);font-size:11px}
 
 .ml2-pick{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding:11px 12px;border-radius:13px;
- background:linear-gradient(135deg,color-mix(in srgb,var(--m-accent) 18%,#10151b),#10151b 80%);border:1px solid color-mix(in srgb,var(--m-accent) 35%,transparent)}
-.ml2-game.tier-strong .ml2-pick{background:linear-gradient(135deg,color-mix(in srgb,var(--m-up) 14%,#10151b),#10151b 80%);border-color:color-mix(in srgb,var(--m-up) 35%,transparent)}
+ background:linear-gradient(135deg,color-mix(in srgb,var(--m-accent) 18%,#121619),#121619 80%);border:1px solid color-mix(in srgb,var(--m-accent) 35%,transparent)}
+.ml2-game.tier-strong .ml2-pick{background:linear-gradient(135deg,color-mix(in srgb,var(--m-up) 14%,#121619),#121619 80%);border-color:color-mix(in srgb,var(--m-up) 35%,transparent)}
 .ml2-pick>div{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px}
 .ml2-pick>div>span{color:var(--m-faint);font:800 10px/1 var(--m-sans);letter-spacing:.1em;text-transform:uppercase}
 .ml2-pick>div b{font-size:14.5px}
@@ -156,14 +156,14 @@
 .ml2-more[aria-expanded="true"] svg{transform:rotate(180deg)}
 .ml2-more:hover{color:var(--m-text)!important}
 .ml2-detail{display:grid;gap:10px;margin-top:4px;animation:ml2-in .25s ease-out}
-.ml2-reasons{display:grid;gap:6px;margin:0;padding:10px 12px 10px 14px;border-radius:11px;background:color-mix(in srgb,var(--m-accent) 7%,#0e1318);list-style:none;position:relative}
+.ml2-reasons{display:grid;gap:6px;margin:0;padding:10px 12px 10px 14px;border-radius:11px;background:color-mix(in srgb,var(--m-accent) 7%,#101416);list-style:none;position:relative}
 .ml2-reasons::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:linear-gradient(var(--m-accent),var(--m-accent-2))}
-.ml2-reasons li{color:#c9d4df;font-size:12.5px;line-height:1.5}
+.ml2-reasons li{color:#d1d5d7;font-size:12.5px;line-height:1.5}
 .ml2-books{border:1px solid var(--m-line);border-radius:11px;overflow:hidden}
 .ml2-books th:not(:first-child),.ml2-books td:not(:first-child){text-align:right}
 .ml2-books td{padding:7px 12px;border-top:1px solid var(--m-line);font:600 12px/1.2 var(--m-mono);font-variant-numeric:tabular-nums}
 .ml2-books td:first-child{font-family:var(--m-sans);font-weight:600}
-.ml2-books td small{margin-left:6px;padding:1px 6px;border-radius:999px;background:#232b35;color:var(--m-muted);font:700 9px/1.4 var(--m-sans);letter-spacing:.05em;text-transform:uppercase}
+.ml2-books td small{margin-left:6px;padding:1px 6px;border-radius:999px;background:#252d33;color:var(--m-muted);font:700 9px/1.4 var(--m-sans);letter-spacing:.05em;text-transform:uppercase}
 .ml2-books tr.is-sharp td{color:var(--m-muted)}
 .ml2-books td.is-best{color:var(--m-up);font-weight:800}
 
@@ -172,7 +172,7 @@
 .ml2-chips li{display:inline-flex;align-items:baseline;gap:6px;padding:5px 9px;border:1px solid var(--m-line);border-radius:999px;background:var(--m-raised);font-size:11.5px}
 .ml2-chips span{color:var(--m-muted)}
 .ml2-chips b{font:700 11.5px/1 var(--m-mono);color:var(--m-text)}
-.ml2-tabs{display:flex;gap:4px;padding:3px;border:1px solid var(--m-line);border-radius:11px;background:#0c1116}
+.ml2-tabs{display:flex;gap:4px;padding:3px;border:1px solid var(--m-line);border-radius:11px;background:#0e1114}
 .ml2-tabs button{flex:1;min-height:32px;border-radius:8px;color:var(--m-muted)!important;font-weight:800;font-size:12px}
 .ml2-tabs button[aria-selected="true"]{background:var(--m-raised)!important;color:var(--m-text)!important;box-shadow:inset 0 0 0 1px var(--m-line)!important}
 .ml2-matchup{display:grid;gap:14px}
@@ -185,7 +185,7 @@
 .ml2-views small{color:var(--m-muted);font-size:11px}
 .ml2-views .is-ours{border-color:color-mix(in srgb,var(--m-accent) 55%,var(--m-line));background:linear-gradient(160deg,color-mix(in srgb,var(--m-accent) 16%,var(--m-raised)),var(--m-raised))}
 .ml2-factors{display:grid;gap:6px;margin:0;padding:0;list-style:none}
-.ml2-factors li{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:10px;padding:9px 10px;border-radius:11px;background:#0e1318}
+.ml2-factors li{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:10px;padding:9px 10px;border-radius:11px;background:#101416}
 .ml2-factors b{display:block;font-size:12.5px}
 .ml2-factors small{display:block;margin-top:2px;color:var(--m-muted);font-size:12px;line-height:1.45}
 .ml2-pull{min-width:82px;padding:4px 8px;border-radius:8px;background:color-mix(in srgb,var(--m-accent) 16%,transparent);color:color-mix(in srgb,var(--m-accent) 45%,#fff);font:700 11.5px/1.2 var(--m-mono);text-align:center;white-space:nowrap}
@@ -199,15 +199,15 @@
 .ml2-compare td small{display:block;margin-top:2px;color:var(--m-faint);font-size:11px}
 .ml2-compare td small.ml2-rank{display:inline;margin-left:3px}
 .ml2-form{display:inline-flex;gap:3px}
-.ml2-form i{display:grid;place-items:center;width:18px;height:18px;border-radius:5px;background:#232b35;color:var(--m-muted);font:800 10px/1 var(--m-sans);font-style:normal}
+.ml2-form i{display:grid;place-items:center;width:18px;height:18px;border-radius:5px;background:#252d33;color:var(--m-muted);font:800 10px/1 var(--m-sans);font-style:normal}
 .ml2-form i.r-W{background:color-mix(in srgb,var(--m-up) 22%,transparent);color:var(--m-up)}
 .ml2-form i.r-L{background:color-mix(in srgb,var(--m-down) 18%,transparent);color:var(--m-down)}
 .ml2-hurt{display:grid;gap:3px;margin:0;padding:0;list-style:none}
 .ml2-hurt b{font-weight:600}
 .ml2-hurt small{display:inline!important;color:var(--m-faint)}
-.ml2-series{margin:0 0 6px;color:#c9d4df;font-size:12.5px}
+.ml2-series{margin:0 0 6px;color:#d1d5d7;font-size:12.5px}
 .ml2-meetings{display:grid;gap:4px;margin:0;padding:0;list-style:none}
-.ml2-meetings li{display:flex;justify-content:space-between;gap:10px;padding:7px 10px;border-radius:9px;background:#0e1318;font-size:12px}
+.ml2-meetings li{display:flex;justify-content:space-between;gap:10px;padding:7px 10px;border-radius:9px;background:#101416;font-size:12px}
 .ml2-meetings span{color:var(--m-faint)}
 .ml2-meetings b{font-weight:600;font-variant-numeric:tabular-nums}
 
@@ -246,14 +246,14 @@
  :root[data-theme] body:has(#panel-moneyline:not([hidden])) :is(.site-account-bar,.site-account-trigger,#settings-btn){display:none!important}
  .ml2{position:relative;isolation:isolate}
  .ml2::before{content:"";position:absolute;z-index:-1;inset:0 0 auto;height:calc(var(--site-status-inset,0px) + 240px);pointer-events:none;
-  background:radial-gradient(110% 80% at 12% 0%,color-mix(in srgb,var(--m-accent) 48%,transparent),transparent 72%),
-   linear-gradient(180deg,color-mix(in srgb,var(--m-accent) 40%,#0a0f1a) 0%,color-mix(in srgb,var(--m-accent) 15%,#090d12) 58%,#090d12 100%)}
+  background:
+   linear-gradient(180deg,color-mix(in srgb,var(--m-accent) 12%,#0f1215) 0%,color-mix(in srgb,var(--m-accent) 4%,#0b0e10) 58%,#0b0e10 100%)}
  .ml2-head{padding:calc(var(--site-status-inset,0px) + 14px) 16px 12px;border:0;border-radius:0;background:none}
  .ml2-head>div{flex:1}
  .ml2-head h1{font-size:26px;color:#fff}
- .ml2-head p{color:#c3cfdb}
- .ml2 :is(.finder-top-settings,.finder-top-account){display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;padding:0;border:0!important;border-radius:50%;background:transparent;color:#eef4fb}
- .ml2 .finder-top-account{flex-basis:34px;width:34px;height:34px;margin-left:4px;overflow:hidden;border:1.5px solid rgba(255,255,255,.4)!important;background:color-mix(in srgb,var(--m-accent) 45%,#0e1116)}
+ .ml2-head p{color:#ccd0d2}
+ .ml2 :is(.finder-top-settings,.finder-top-account){display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;padding:0;border:0!important;border-radius:50%;background:transparent;color:#f4f7f6}
+ .ml2 .finder-top-account{flex-basis:34px;width:34px;height:34px;margin-left:4px;overflow:hidden;border:1.5px solid rgba(255,255,255,.4)!important;background:color-mix(in srgb,var(--m-accent) 45%,#0f1215)}
  .ml2 .finder-top-account img{width:100%;height:100%;object-fit:cover}
  .ml2 .finder-top-account b{font-size:15px;font-weight:700;line-height:1}
  .ml2-record,.ml2-controls,.ml2-list,.ml2-empty{margin-left:10px;margin-right:10px}

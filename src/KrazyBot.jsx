@@ -286,7 +286,7 @@ export function KrazyBot(){
    <div className="krazy-bot-home-inner">
     <header className="krazy-bot-head">
      <span className="krazy-bot-badge">{sports.map(sport=>SPORTS[sport].name).join(' · ')}</span>
-     <h1>Krazy Bot</h1>
+     <h1>Ace Assistant</h1>
      <p>Ask about today's props: the best plays, matchups, a player or a slip. I remember what you ask.</p>
     </header>
     <KrazyBotHome today={today} failed={todayFailed} onAsk={askNow} idle={idle}/>

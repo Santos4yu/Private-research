@@ -111,8 +111,8 @@ in vec2 v_responsiveBoxGivenSize;
 
 out vec4 fragColor;
 
-#define TWO_PI 6.28318530718
-#define PI 3.14159265358979323846
+#f4f7f6ine TWO_PI 6.28318530718
+#f4f7f6ine PI 3.14159265358979323846
 
 vec2 rotate(vec2 uv, float th) {
   return mat2(cos(th), sin(th), -sin(th), cos(th)) * uv;

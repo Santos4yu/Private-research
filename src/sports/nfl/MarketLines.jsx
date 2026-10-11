@@ -19,7 +19,7 @@ const BOOK_BADGE={
   betmgm:{label:'MGM',color:'#b8860b',icon:'/sportsbooks/betmgm.png'},
 };
 function BookIcon({bookmaker,size=18}){
-  const badge=BOOK_BADGE[bookmaker]||{label:(bookmaker||'?').slice(0,3).toUpperCase(),color:'#5b6b7c'};
+  const badge=BOOK_BADGE[bookmaker]||{label:(bookmaker||'?').slice(0,3).toUpperCase(),color:'#656e72'};
   const [failed,setFailed]=useState(false);
   if(badge.icon && !failed)return <img className="nfl-book-icon" src={badge.icon} alt="" width={size} height={size} onError={()=>setFailed(true)}/>;
   return <i className="nfl-book-icon nfl-book-icon-fallback" style={{background:badge.color,width:size,height:size}}>{badge.label}</i>;

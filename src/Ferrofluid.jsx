@@ -13,7 +13,7 @@ const hexToRGB = hex => {
 };
 
 const prepColors = input => {
-  const base = (input && input.length ? input : ['#4F46E5', '#06B6D4', '#E0F2FE']).slice(0, MAX_COLORS);
+  const base = (input && input.length ? input : ['#00F58A', '#00F58A', '#F4F7F6']).slice(0, MAX_COLORS);
   const count = base.length;
   const arr = [];
   for (let i = 0; i < MAX_COLORS; i++) arr.push(hexToRGB(base[Math.min(i, base.length - 1)]));
@@ -88,7 +88,7 @@ uniform float uMouseRadius;
 
 varying vec2 vUv;
 
-#define PI 3.14159265
+#f4f7f6ine PI 3.14159265
 
 vec3 palette(float h) {
   int count = uColorCount;

@@ -4,7 +4,7 @@
 // elsewhere it downloads.
 
 const W = 1080, H = 1350, PAD = 72;
-const UP = '#60a5fa', DOWN = '#f87171', INK = '#ececf1', MUTED = 'rgba(236,236,241,.55)', FAINT = 'rgba(236,236,241,.32)';
+const UP = '#00d68f', DOWN = '#f87171', INK = '#f4f7f6', MUTED = 'rgba(244,247,246,.55)', FAINT = 'rgba(244,247,246,.32)';
 const HAIR = 'rgba(255,255,255,.1)';
 
 const nice = value => Number.isInteger(value) ? String(value) : value.toFixed(1);
@@ -45,18 +45,18 @@ export async function drawPick(pick) {
   const report = pick.report || {};
   const under = pick.side === 'UNDER';
 
-  const [photo, logo, opponentLogo, mark] = await Promise.all([image(pick.headshot), image(pick.teamLogo), image(pick.opponentLogo), image('/icons/krazy-data-wordmark.png')]);
+  const [photo, logo, opponentLogo, mark] = await Promise.all([image(pick.headshot), image(pick.teamLogo), image(pick.opponentLogo), image('/brand/ace-props-wordmark.png')]);
 
   // Background: deep navy with a soft glow behind the player.
   const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, '#0d1527'); bg.addColorStop(1, '#070a12');
+  bg.addColorStop(0, '#161b1e'); bg.addColorStop(1, '#0b0d0e');
   ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
   const glow = ctx.createRadialGradient(W / 2, 250, 20, W / 2, 250, 520);
-  glow.addColorStop(0, 'rgba(37,99,235,.38)'); glow.addColorStop(1, 'rgba(37,99,235,0)');
+  glow.addColorStop(0, 'rgba(0,245,138,.18)'); glow.addColorStop(1, 'rgba(0,245,138,0)');
   ctx.fillStyle = glow; ctx.fillRect(0, 0, W, 800);
 
   // Header: the wordmark and the game time.
-  if (mark) ctx.drawImage(mark, PAD, 64, 203, 36);
+  if (mark) ctx.drawImage(mark, PAD, 44, 168, 64);
   set(26, 600); ctx.fillStyle = MUTED; ctx.textAlign = 'right';
   ctx.fillText([String(pick.sport || '').toUpperCase(), pick.time].filter(Boolean).join(' · '), W - PAD, 92);
 
@@ -65,19 +65,19 @@ export async function drawPick(pick) {
   ctx.save();
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
   const face = ctx.createLinearGradient(0, cy - r, 0, cy + r);
-  face.addColorStop(0, '#2a2f3a'); face.addColorStop(1, '#151820');
+  face.addColorStop(0, '#2a333a'); face.addColorStop(1, '#161b1f');
   ctx.fillStyle = face; ctx.fill(); ctx.clip();
   if (photo) {
     const scale = Math.max((r * 2) / photo.width, (r * 2) / photo.height);
     ctx.drawImage(photo, cx - photo.width * scale / 2, cy - r, photo.width * scale, photo.height * scale);
   } else {
-    set(76, 700); ctx.fillStyle = 'rgba(236,236,241,.7)'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    set(76, 700); ctx.fillStyle = 'rgba(244,247,246,.7)'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(initials(pick.player), cx, cy + 4); ctx.textBaseline = 'alphabetic';
   }
   ctx.restore();
   ctx.lineWidth = 4; ctx.strokeStyle = UP; ctx.beginPath(); ctx.arc(cx, cy, r + 6, 0, Math.PI * 2); ctx.stroke();
   if (logo) {
-    ctx.fillStyle = '#14161c'; ctx.beginPath(); ctx.arc(cx + r * .72, cy + r * .72, 40, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#14191c'; ctx.beginPath(); ctx.arc(cx + r * .72, cy + r * .72, 40, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = HAIR; ctx.lineWidth = 2; ctx.stroke();
     ctx.drawImage(logo, cx + r * .72 - 26, cy + r * .72 - 26, 52, 52);
   }
@@ -103,7 +103,7 @@ export async function drawPick(pick) {
   const sideText = under ? 'UNDER' : 'OVER';
   const sideW = ctx.measureText(sideText).width + 40;
   round(ctx, PAD + 36, boxY + 38, sideW, 48, 12);
-  ctx.fillStyle = under ? 'rgba(248,113,113,.16)' : 'rgba(96,165,250,.16)'; ctx.fill();
+  ctx.fillStyle = under ? 'rgba(248,113,113,.16)' : 'rgba(0,214,143,.16)'; ctx.fill();
   ctx.fillStyle = tone; ctx.textAlign = 'left'; ctx.fillText(sideText, PAD + 56, boxY + 73);
   set(64, 800); ctx.fillStyle = '#fff';
   ctx.fillText(nice(pick.line), PAD + 36, boxY + 144);
@@ -141,7 +141,7 @@ export async function drawPick(pick) {
       ctx.fillStyle = item.hit == null ? 'rgba(255,255,255,.3)' : item.hit ? UP : 'rgba(248,113,113,.75)';
       ctx.fill();
       set(22, 700); ctx.textAlign = 'center';
-      ctx.lineWidth = 8; ctx.lineJoin = 'round'; ctx.strokeStyle = '#0a0f1c';
+      ctx.lineWidth = 8; ctx.lineJoin = 'round'; ctx.strokeStyle = '#101416';
       ctx.strokeText(nice(item.value), x + barW / 2, barTop - 10);
       ctx.fillStyle = INK; ctx.fillText(nice(item.value), x + barW / 2, barTop - 10);
       set(18, 500); ctx.fillStyle = FAINT;
@@ -156,7 +156,7 @@ export async function drawPick(pick) {
     const slot = (W - PAD * 2) / rings.length, x = PAD + slot * index + slot / 2;
     ctx.lineWidth = 10; ctx.strokeStyle = 'rgba(255,255,255,.08)';
     ctx.beginPath(); ctx.arc(x, ringY, 54, 0, Math.PI * 2); ctx.stroke();
-    ctx.strokeStyle = ring.rate >= .6 ? UP : ring.rate < .45 ? DOWN : 'rgba(236,236,241,.6)';
+    ctx.strokeStyle = ring.rate >= .6 ? UP : ring.rate < .45 ? DOWN : 'rgba(244,247,246,.6)';
     ctx.lineCap = 'round';
     ctx.beginPath(); ctx.arc(x, ringY, 54, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(ring.rate, .001)); ctx.stroke();
     ctx.lineCap = 'butt';

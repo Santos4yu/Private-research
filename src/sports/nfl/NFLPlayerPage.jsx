@@ -105,14 +105,14 @@ function DepthChart({row,season,context,filters,onToggleFilter}){
 }
 
 // Team usage: how often the team throws, and who gets the ball.
-const SHARE_COLORS=['#e5484d','#35c77e','#8b5cf6','#f4c53f','#22b8cf','#ec4899','#84cc16','#3b5bdb','#f97316','#14b8a6','#a3a3a3','#eab308'];
+const SHARE_COLORS=['#e5484d','#35c77e','#5cf8b2','#f4c53f','#00f58a','#ec4899','#84cc16','#00f58a','#f97316','#14b8a6','#a3a3a3','#eab308'];
 function TeamUsage({row,league}){
  const team=row.teamAbbr,[field,setField]=useState('targets');
  const passRun=league.data?.passRun?.[team],share=league.data?.share?.[team]?.[field]||[];
  const total=passRun?passRun.passes+passRun.runs:0;
  let start=0;
  const top=share.slice(0,11),rest=share.slice(11).reduce((sum,item)=>sum+item.share,0);
- const segments=[...top.map((item,index)=>({...item,color:SHARE_COLORS[index%SHARE_COLORS.length]})),...(rest>0?[{id:'rest',name:'Others',share:rest,color:'#4b5570'}]:[])];
+ const segments=[...top.map((item,index)=>({...item,color:SHARE_COLORS[index%SHARE_COLORS.length]})),...(rest>0?[{id:'rest',name:'Others',share:rest,color:'#585f63'}]:[])];
  const gradient=segments.map(item=>{const from=start;start+=item.share;return `${item.color} ${from}% ${start}%`;}).join(',');
  return <>
   <section className="mlb-context-card nfl-pass-run"><header><h2>{team} Pass vs Run Rate</h2><small>{league.data?.season} Season</small></header>

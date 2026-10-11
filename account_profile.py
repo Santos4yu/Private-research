@@ -27,7 +27,7 @@ UID_RE = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 DATA_URL_RE = re.compile(r'^data:(image/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$')
 NAME_MAX = 32
 # Names only the site itself may use on community posts.
-RESERVED_NAMES = {'admin', 'administrator', 'krazydata', 'moderator', 'mod', 'staff', 'support', 'official'}
+RESERVED_NAMES = {'admin', 'administrator', 'krazydata', 'aceprops', 'moderator', 'mod', 'staff', 'support', 'official'}
 # Decoded bytes. The client shrinks photos well below these before upload.
 IMAGE_SLOTS = {'avatar': 300 * 1024, 'background': 1536 * 1024}
 # What follows the account, and the JSON shape each one must have.

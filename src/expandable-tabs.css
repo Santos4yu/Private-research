@@ -74,7 +74,7 @@
   padding-inline: 13px;
   color: var(--theme-on-accent) !important;
   background: var(--theme-accent) !important;
-  box-shadow: 0 3px 12px color-mix(in srgb, var(--theme-accent) 12%, transparent) !important;
+  box-shadow: none !important;
 }
 
 .vortex-expandable-tabs .expandable-tab:focus-visible {

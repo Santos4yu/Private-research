@@ -19,11 +19,10 @@
   display: none;
   flex-direction: column;
   height: 100vh;
-  padding: 16px 10px;
+  padding: 18px 10px 14px;
   overflow: hidden;
-  border-right: 1px solid var(--theme-border, #263b58);
-  background: var(--theme-panel, #0d192b);
-  box-shadow: 0 0 0 1px transparent;
+  border-right: 1px solid var(--ace-border-soft, #20272B);
+  background: var(--ace-sidebar, #111418);
 }
 
 @media (min-width: 761px) {
@@ -43,40 +42,48 @@
   #settings-panel { top: auto; right: auto; bottom: 16px; left: 76px; }
 }
 
-.vortex-sidebar-body { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 22px; }
+.vortex-sidebar-body { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 20px; }
 
-.vortex-sidebar-top { display: flex; align-items: center; gap: 10px; min-height: 28px; padding: 0 2px; }
+.vortex-sidebar-top { display: flex; align-items: center; gap: 10px; min-height: 32px; padding: 0 8px; }
 .vortex-sidebar-top.collapsed { justify-content: center; padding: 0; }
-.vortex-sidebar-mark { flex: 0 0 auto; border-radius: 8px; object-fit: contain; }
+.vortex-sidebar-mark { flex: 0 0 auto; width: 32px; height: 32px; object-fit: contain; }
 /* The "KRAZY DATA" lettering from the brand wordmark, beside the mark. */
-.vortex-sidebar-wordmark { flex: 0 0 auto; display: block; width: auto; height: 16px; object-fit: contain; }
+.vortex-sidebar-wordmark { flex: 0 0 auto; display: block; width: auto; height: 35px; object-fit: contain; }
 
 /* The links give way (scroll) on a short window, so the footer below is
    never pushed out of the rail. */
-.vortex-sidebar-links { display: flex; flex-direction: column; gap: 3px; flex: 0 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+.vortex-sidebar-links { display: flex; flex-direction: column; gap: 2px; flex: 0 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: none; }
 .vortex-sidebar-links::-webkit-scrollbar { display: none; }
-.vortex-sidebar-footer { display: flex; flex-direction: column; gap: 3px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--theme-border, #263b58); }
-.vortex-sidebar-link.is-open { color: var(--theme-text, #edf4ff); background: var(--theme-panel-2, #122239); }
-.vortex-sidebar-sep { height: 1px; margin: 8px 4px; background: var(--theme-border, #263b58); }
+.vortex-sidebar-footer { display: flex; flex-direction: column; gap: 2px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--ace-border-soft, #20272B); }
+.vortex-sidebar-link.is-open { color: var(--ace-text, #F4F7F6); background: var(--ace-card, #181D21); }
+.vortex-sidebar-sep { height: 1px; margin: 8px 6px; background: var(--ace-border-soft, #20272B); }
 
 .vortex-sidebar-link {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
   min-height: 42px;
-  padding: 0 11px;
+  padding: 0 12px;
   border: 0;
-  border-radius: 11px;
-  color: var(--theme-dim, #9fb0c8);
+  border-radius: 10px;
+  color: var(--ace-muted, #9CA5AA);
   background: transparent;
-  font: 600 13px/1 var(--font-sans, sans-serif);
+  font: 500 13.5px/1 var(--font-sans);
+  letter-spacing: -.005em;
+  text-align: left;
   cursor: pointer;
   white-space: nowrap;
+  transition: color .16s var(--ace-ease), background-color .16s var(--ace-ease);
 }
-.vortex-sidebar-link:hover { color: var(--theme-text, #edf4ff); background: var(--theme-panel-2, #122239); }
-.vortex-sidebar-link.active { color: var(--theme-on-accent, #06101f); background: var(--theme-accent, #67a8ff); box-shadow: 0 3px 12px color-mix(in srgb, var(--theme-accent, #67a8ff) 30%, transparent); }
-.vortex-sidebar-link-icon { display: grid; flex: 0 0 auto; place-items: center; }
-.vortex-sidebar-link-label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.vortex-sidebar-link:hover { color: var(--ace-text, #F4F7F6); background: var(--ace-card, #181D21); }
+/* The page you're on: white text, a green icon and a slim green bar, on a
+   faint green wash. No glow. */
+.vortex-sidebar-link.active { color: var(--ace-text, #F4F7F6); background: color-mix(in srgb, var(--theme-accent, #00F58A) 11%, var(--ace-sidebar, #111418)); }
+.vortex-sidebar-link.active::before { content: ''; position: absolute; left: -10px; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--theme-accent, #00F58A); }
+.vortex-sidebar-link.active .vortex-sidebar-link-icon { color: var(--theme-accent, #00F58A); }
+.vortex-sidebar-link-icon { display: grid; flex: 0 0 auto; place-items: center; width: 20px; }
+.vortex-sidebar-link-label { flex: 1; overflow: hidden; text-overflow: ellipsis; text-align: left; }
 
 /* The icon's own positioning context, so the notification dot below can
    pin to its corner regardless of whether the rail is collapsed or the
@@ -92,12 +99,12 @@
   place-items: center;
   padding: 0 3px;
   border-radius: 999px;
-  border: 2px solid var(--theme-panel, #0d192b);
-  background: var(--theme-accent, #67a8ff);
-  color: var(--theme-on-accent, #06101f);
+  border: 2px solid var(--ace-sidebar, #111418);
+  background: var(--theme-accent, #00F58A);
+  color: var(--theme-on-accent, #03140B);
   font: 800 9px/1 var(--font-mono, monospace);
 }
-.vortex-sidebar-link.active .vortex-sidebar-notif { border-color: var(--theme-accent, #67a8ff); background: var(--theme-on-accent, #06101f); color: var(--theme-accent, #67a8ff); }
+.vortex-sidebar-link.active .vortex-sidebar-notif { border-color: color-mix(in srgb, var(--theme-accent, #00F58A) 11%, var(--ace-sidebar, #111418)); }
 
 /* Mobile: the bottom dock (MobileNavigation) already covers this same
    navigation, so the rail and its own toggle both stay off below the

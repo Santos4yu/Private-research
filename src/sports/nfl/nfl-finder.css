@@ -16,21 +16,21 @@
 
 /* Pass vs run */
 .nfl-pass-run-body{display:grid;gap:8px;padding:14px 16px 16px}
-.nfl-pass-run-labels{display:flex;justify-content:space-between;gap:8px;font-size:12px;font-weight:600;color:#dee4eb;font-variant-numeric:tabular-nums}
+.nfl-pass-run-labels{display:flex;justify-content:space-between;gap:8px;font-size:12px;font-weight:600;color:#dce3e0;font-variant-numeric:tabular-nums}
 .nfl-pass-run-bar{display:block;height:8px;border-radius:8px;background:var(--theme-accent);overflow:hidden}
-.nfl-pass-run-bar i{display:block;height:100%;border-right:3px solid #0f1318;background:#2fbfae}
+.nfl-pass-run-bar i{display:block;height:100%;border-right:3px solid #101417;background:#2fbfae}
 
 /* Rush / target share */
 .nfl-share-switch{justify-content:flex-end;margin:0;padding:10px 14px 0}
 .nfl-donut{position:relative;display:grid;place-items:center;width:150px;height:150px;margin:14px auto 6px;border-radius:50%}
-.nfl-donut::before{content:"";position:absolute;inset:26px;border-radius:50%;background:#0f1318}
-.nfl-donut span{position:relative;font-size:13px;font-weight:700;color:#edf3fa}
+.nfl-donut::before{content:"";position:absolute;inset:26px;border-radius:50%;background:#101417}
+.nfl-donut span{position:relative;font-size:13px;font-weight:700;color:#f4f7f6}
 .nfl-share-table td{text-align:right;font-variant-numeric:tabular-nums}
 .nfl-share-table th:not(:first-child){text-align:right}
 .nfl-share-player{display:flex;align-items:center;gap:9px;min-width:0}
 .nfl-share-player .wnba-avatar{overflow:visible}
 .nfl-share-player .wnba-avatar img{border-radius:50%}
-.nfl-share-player .wnba-avatar i{position:absolute;right:-2px;bottom:-2px;width:10px;height:10px;border-radius:50%;border:2px solid #0f1318}
+.nfl-share-player .wnba-avatar i{position:absolute;right:-2px;bottom:-2px;width:10px;height:10px;border-radius:50%;border:2px solid #101417}
 .nfl-share-player strong{overflow:hidden;font-size:12px;text-overflow:ellipsis;white-space:nowrap}
 .nfl-share-player small{color:#969ba2;font-size:10px}
 .nfl-share-table tr[data-current=true] strong{color:#f4d25b}
@@ -50,29 +50,29 @@
 .nfl-season-switch{margin:0}
 .nfl-ovd-labels{display:grid;grid-template-columns:62px minmax(0,1fr) 62px;gap:10px;padding:0 14px 4px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#969ba2}
 .nfl-ovd-labels span:nth-child(2){text-align:center}.nfl-ovd-labels span:last-child{text-align:right}
-.nfl-ovd-rows{max-height:560px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#4c5057 #14181d}
+.nfl-ovd-rows{max-height:560px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#4c5057 #15191c}
 
 /* Injuries */
-.nfl-injury-legend{display:grid;gap:6px;padding:10px 14px 0;font-size:11px;color:#afb5bc}
+.nfl-injury-legend{display:grid;gap:6px;padding:10px 14px 0;font-size:11px;color:#b1b7ba}
 .nfl-injury-legend span{display:flex;align-items:center;gap:10px}
 .nfl-injury-legend b{display:inline-flex;align-items:center;gap:5px;min-width:86px;padding:5px 8px;border-radius:7px;font-size:11px}
 .nfl-injury-legend b[data-kind=without]{background:#34202b;color:#ff7b8a}.nfl-injury-legend b[data-kind=with]{background:#12302a;color:#5fe0a7}
 .nfl-injuries .wnba-filter-buttons{margin-top:10px}
-.nfl-injury-search{display:flex;align-items:center;gap:8px;margin:10px 12px 0;padding:0 12px;min-height:44px;border:1px solid #32373d;border-radius:10px;background:#14181d;color:#969ba2}
-.nfl-injury-search input{flex:1;min-width:0;border:0;background:transparent;color:#edf3fa;font-size:14px;outline:none}
+.nfl-injury-search{display:flex;align-items:center;gap:8px;margin:10px 12px 0;padding:0 12px;min-height:44px;border:1px solid #32373d;border-radius:10px;background:#15191c;color:#969ba2}
+.nfl-injury-search input{flex:1;min-width:0;border:0;background:transparent;color:#f4f7f6;font-size:14px;outline:none}
 .nfl-injury-search:focus-within{border-color:var(--theme-accent-soft,var(--theme-accent))}
 
 /* Averages */
-.nfl-average-section{border-top:1px solid #1e2228}
-.nfl-average-toggle{display:flex;align-items:center;gap:8px;width:100%;min-height:46px;padding:0 14px;border:0;background:transparent;color:#dee4eb;text-align:left;cursor:pointer}
+.nfl-average-section{border-top:1px solid #1e2428}
+.nfl-average-toggle{display:flex;align-items:center;gap:8px;width:100%;min-height:46px;padding:0 14px;border:0;background:transparent;color:#dce3e0;text-align:left;cursor:pointer}
 .nfl-average-toggle strong{font-size:13px}.nfl-average-toggle small{color:#969ba2;font-size:10px;letter-spacing:.04em;text-transform:uppercase}
 .nfl-average-toggle>svg:last-child{margin-left:auto;transition:transform .15s}
 .nfl-average-toggle[aria-expanded=true]>svg:last-child{transform:rotate(180deg)}
 .nfl-average-toggle:disabled{cursor:default;color:#83888f}
 .nfl-average-cards{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;padding:2px 12px 12px;scrollbar-width:thin}
-.nfl-average-card{display:grid;gap:5px;flex:0 0 118px;padding:10px;border:1px solid #2a2e34;border-radius:10px;background:#171b21}
+.nfl-average-card{display:grid;gap:5px;flex:0 0 118px;padding:10px;border:1px solid #2a3034;border-radius:10px;background:#181d20}
 .nfl-average-card[data-current=true]{border-color:var(--research-accent,#76edbc);background:#12261f}
-.nfl-average-card span{font-size:11px;color:#afb5bc}.nfl-average-card strong{font-size:17px;font-variant-numeric:tabular-nums;color:#f0f6fe}
+.nfl-average-card span{font-size:11px;color:#b1b7ba}.nfl-average-card strong{font-size:17px;font-variant-numeric:tabular-nums;color:#f4f7f6}
 .nfl-average-card small{display:flex;align-items:center;gap:4px;min-height:16px;font-size:10px;color:#83888f}
 .nfl-average-card small img{border-radius:4px;object-fit:contain}
 

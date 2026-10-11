@@ -10,7 +10,7 @@ import {HeartPulse} from 'lucide-react';
 
 const request=createMLBContextClient();
 const tabs=[['matchup','Matchup',Trophy],['lineups','Lineups',Users],['arsenal','Pitch arsenal',ChartPie],['injuries','Injuries',HeartPulse],['rankings','Rankings',ListOrdered],['weather','Weather',CloudSun]];
-const palette=['#28cb98','#ff5869','#9170ff','#f4b847','#51aaff','#55d8df'];
+const palette=['#28cb98','#ff5869','#5cf8b2','#f4b847','#5cf8b2','#55d8df'];
 function Card({title,note,children,icon:Icon=Activity}){return <section className="mlb-context-card"><header><h2><Icon size={16} aria-hidden="true"/>{title}</h2>{note&&<small>{note}</small>}</header>{children}</section>;}
 function Empty({children}){return <p className="mlb-context-note">{children}</p>;}
 function Skeleton(){return <div className="mlb-context-skeleton" role="status" aria-label="Loading research"><span/><span/><span/><span/></div>;}
@@ -45,7 +45,7 @@ function Arsenal({data}){
  const pitches=(data.pitchArsenal||[]).filter(p=>Number.isFinite(Number(p.pct))&&Number(p.pct)>0);
  let cursor=0;
  const segments=pitches.map((p,i)=>{const start=cursor;cursor+=Number(p.pct);return `${palette[i%palette.length]} ${start}% ${cursor}%`;});
- if(cursor<100)segments.push(`#263049 ${cursor}% 100%`);
+ if(cursor<100)segments.push(`#2f3940 ${cursor}% 100%`);
  return <Card title="Pitch arsenal" note={data.starterProfile?.name} icon={ChartPie}>{pitches.length?<><div className="mlb-arsenal-summary"><div className="mlb-arsenal-ring" role="img" aria-label={pitches.map(p=>`${p.name} ${p.pct}%`).join(', ')} style={{background:`conic-gradient(${segments.join(',')})`}}><span>{data.researchSeason||'Mix'}</span></div><ul>{pitches.map((p,i)=><li key={p.code||p.name}><i style={{background:palette[i%palette.length]}}/><span>{p.name}<span className="mlb-pitch-track"><i style={{width:`${Math.min(100,Number(p.pct))}%`,background:palette[i%palette.length]}}/></span></span><b>{statText(p.pct,1)}%</b></li>)}</ul></div><div className="mlb-context-table-wrap"><table><thead><tr><th>Pitch</th><th>MPH</th><th>Batter AVG</th><th>wOBA</th><th>PA</th></tr></thead><tbody>{pitches.map(p=><tr key={p.code||p.name}><th scope="row">{p.name}</th><td>{statText(p.speed,1)}</td><td>{statText(p.batterVs?.avg,3)}</td><td>{statText(p.batterVs?.woba,3)}</td><td>{statText(p.batterVs?.pa)}</td></tr>)}</tbody></table></div></>:<Empty>Pitch-mix data is not available for this starter.</Empty>}</Card>;
 }
 function Rankings({data}){const p=data.opponentOffense||{};return <Card title="Opponent batting rankings" note={p.team_name||data.matchup?.opponent} icon={ListOrdered}>{p.metrics?.length?<><div className="mlb-ranking-list">{p.metrics.map(m=><div key={m.key}><div><strong>{m.label}</strong><b>{m.display??statText(m.value)}</b><span className="mlb-context-edge" data-edge={m.edge}>{m.edge_label||'Neutral'}</span></div><div className="mlb-rank-track" aria-hidden="true"><i style={{width:m.rank!=null?`${Math.max(0,Math.min(100,(31-Number(m.rank))/30*100))}%`:'0%'}}/></div><small>{m.rank!=null?`Rank ${m.rank} of 30`:'Rank unavailable'}</small></div>)}</div></>:<Empty>Opponent batting rankings are not available for this selection.</Empty>}</Card>;}

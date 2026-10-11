@@ -40,6 +40,8 @@ import './community-feed.css';
 import './vortex-sidebar.css';
 import './gamelog-inline.css';
 import './trend-workspace.css';
+import './ace-theme.css';
+import './ace-shell.css';
 
 import { topTabs } from './navTabs';
 import { VortexSidebar } from './VortexSidebar';

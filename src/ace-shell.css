@@ -1,0 +1,154 @@
+/* Ace Props: the Research home and the page header around it.
+   Loaded right after ace-theme.css. The legacy shell stacks many layers of
+   !important rules on these elements (styles.css), so the selectors here
+   carry the same #app-shell / #panel-research prefixes to settle them in
+   one place: charcoal cards, one green accent per block, no glow. */
+
+/* Header: wordmark and tagline in place of the old animated title. */
+:root[data-theme] .kp-brand-copy .ace-hero-title {
+  display: flex !important; flex-direction: column; align-items: flex-start; gap: 10px;
+  margin: 0; font: inherit !important; letter-spacing: 0 !important; line-height: 1 !important;
+}
+:root[data-theme] .kp-brand-copy .ace-hero-wordmark { display: block; width: auto; height: 56px; }
+:root[data-theme] .kp-brand-copy .ace-hero-tagline {
+  display: block; color: var(--ace-muted) !important;
+  font: 500 13px/1.3 var(--font-sans) !important; letter-spacing: .01em !important; text-transform: none !important;
+}
+
+/* The Discord sign-in gate: the wordmark is the heading. */
+.auth-gate-brand { display: flex; justify-content: center; margin: 0 0 12px; }
+.auth-gate-brand .ace-wordmark { height: 48px; }
+
+/* Research / Prop Builder switch under the header. */
+:root[data-theme] .home-mode-switch {
+  padding: 4px !important; border: 1px solid var(--ace-border) !important; border-radius: 12px !important;
+  background: var(--ace-sidebar) !important; box-shadow: none !important;
+}
+:root[data-theme] .home-mode-switch button[data-home-tab] {
+  min-height: 40px; border-radius: 9px !important; color: var(--ace-muted) !important;
+  font: 600 12.5px/1 var(--font-sans) !important; letter-spacing: 0 !important; text-transform: none !important;
+}
+:root[data-theme] .home-mode-switch button[data-home-tab].active {
+  color: var(--theme-on-accent, var(--ace-on-accent)) !important;
+  background: var(--theme-accent, var(--ace-accent)) !important; box-shadow: none !important;
+}
+
+/* Player search: a plain field, green only on focus. */
+:root[data-theme] #app-shell #panel-research .search-beam::before,
+:root[data-theme] #app-shell #panel-research .search-beam::after { display: none !important; animation: none !important; }
+:root[data-theme] #app-shell #panel-research .search-beam { border-radius: 14px !important; }
+:root[data-theme] #app-shell #panel-research .search-beam > .search-box {
+  height: 58px !important; padding: 6px 6px 6px 18px !important; border-radius: 14px !important;
+  background: var(--ace-card) !important;
+  box-shadow: inset 0 0 0 1px var(--ace-border), 0 1px 2px rgba(0, 0, 0, .3) !important;
+  transition: box-shadow 160ms var(--ace-ease) !important;
+}
+:root[data-theme] #app-shell #panel-research .search-beam > .search-box:hover { box-shadow: inset 0 0 0 1px #3A4448, 0 1px 2px rgba(0, 0, 0, .3) !important; }
+:root[data-theme] #app-shell #panel-research .search-beam > .search-box:focus-within {
+  box-shadow: inset 0 0 0 1px var(--theme-accent, var(--ace-accent)), 0 0 0 3px rgba(0, 245, 138, .14) !important;
+}
+:root[data-theme] #app-shell #panel-research .search-beam > .search-box input { font: 400 16px/1.4 var(--font-sans) !important; }
+:root[data-theme] #app-shell #panel-research .search-beam > .search-box input::placeholder { color: var(--ace-faint) !important; }
+:root[data-theme] #app-shell #panel-research .search-beam > .search-box .lab-search-submit {
+  width: 46px; height: 46px; border-radius: 10px !important; color: var(--ace-muted) !important;
+}
+:root[data-theme] #app-shell #panel-research .search-beam > .search-box:focus-within .lab-search-submit { color: var(--theme-accent, var(--ace-accent)) !important; }
+
+/* Section headings. */
+:root[data-theme] .lab-eyebrow { color: var(--theme-accent, var(--ace-accent)); font: 600 11px/1.4 var(--font-sans); letter-spacing: .12em; }
+:root[data-theme] .lab-section-heading h2 { font: 600 26px/1.2 var(--font-display); letter-spacing: -.03em; color: var(--ace-text); }
+:root[data-theme] .lab-section-heading--tools h2 { font-size: 19px; }
+:root[data-theme] .lab-section-heading--tools > span { color: var(--ace-faint); font-size: 12px; }
+:root[data-theme] .lab-league { border-color: var(--ace-border); border-radius: 8px; color: var(--ace-muted); background: var(--ace-card); }
+
+/* Featured matchups and the fallback player cards: charcoal cards, the
+   photo does the work. Rank 0 keeps a short green tick on its top edge
+   so the two still read as ranked. */
+:root[data-theme] .lab-matchup-card,
+:root[data-theme] .lab-player {
+  border: 1px solid var(--ace-border) !important; border-radius: var(--ace-radius-lg) !important;
+  background: linear-gradient(165deg, #1E2429 0%, #161B1F 55%, #121619 100%) !important;
+  box-shadow: var(--ace-shadow) !important;
+  transition: transform 180ms var(--ace-ease), border-color 180ms ease !important;
+}
+:root[data-theme] .lab-matchup-card--accent-0::before {
+  content: ""; position: absolute; z-index: 2; top: 0; left: 16px; width: 40px; height: 3px;
+  border-radius: 0 0 3px 3px; background: var(--theme-accent, var(--ace-accent)); pointer-events: none;
+}
+:root[data-theme] .lab-matchup-card--skeleton { background: var(--ace-card) !important; box-shadow: none !important; }
+:root[data-theme] .lab-matchup-card--skeleton::before { display: none; }
+@media (hover: hover) {
+  :root[data-theme] .lab-matchup-card:not(.lab-matchup-card--skeleton):hover,
+  :root[data-theme] .lab-player:hover { transform: translateY(-2px); border-color: #3A4448 !important; }
+}
+:root[data-theme] .lab-player::after { background: linear-gradient(0deg, rgba(9, 11, 13, .82), transparent 70%) !important; }
+:root[data-theme] .lab-player-grid { opacity: .16 !important; }
+:root[data-theme] .lab-player-watermark { color: rgba(244, 247, 246, .035) !important; font-family: var(--font-display) !important; }
+:root[data-theme] .lab-player-tag {
+  border-color: var(--ace-border) !important; border-radius: 6px !important;
+  background: rgba(9, 11, 13, .55) !important; color: var(--ace-muted) !important; letter-spacing: .1em !important;
+}
+:root[data-theme] .lab-player-name, :root[data-theme] .lab-matchup-name { font-family: var(--font-display); text-shadow: none !important; }
+:root[data-theme] .lab-matchup-context { color: var(--ace-muted); }
+:root[data-theme] .lab-matchup-context b { color: var(--ace-text); }
+:root[data-theme] .lab-matchup-prop { color: var(--ace-muted); }
+:root[data-theme] .lab-matchup-meter-label { color: var(--ace-faint); }
+:root[data-theme] .lab-matchup-meter-track { background: rgba(244, 247, 246, .08); }
+/* Matchup bands keep their meaning: green good, yellow middling, red poor. */
+:root[data-theme] .lab-matchup-meter-fill:is([data-band="strong"], [data-band="favorable"]) { background: var(--ace-positive); }
+:root[data-theme] .lab-matchup-meter-fill:is([data-band="slight"], [data-band="neutral"]) { background: var(--ace-warning); }
+:root[data-theme] .lab-matchup-meter-fill:is([data-band="caution"], [data-band="unfavorable"]) { background: var(--ace-negative); }
+:root[data-theme] .lab-player-tag:is([data-band="strong"], [data-band="favorable"]) b { color: var(--ace-positive); }
+:root[data-theme] .lab-player-tag:is([data-band="slight"], [data-band="neutral"]) b { color: var(--ace-warning); }
+:root[data-theme] .lab-player-tag:is([data-band="caution"], [data-band="unfavorable"]) b { color: var(--ace-negative); }
+:root[data-theme] .lab-matchup-icon { border-color: #181D21; background: var(--ace-raised); }
+:root[data-theme] .lab-matchup-open,
+:root[data-theme] .lab-player-open {
+  border: 1px solid transparent !important; background: var(--ace-text) !important; color: #0B0E10 !important;
+  border-radius: 9px !important; font-family: var(--font-sans);
+}
+
+/* Toolkit: neutral cards with a green icon tile. */
+:root[data-theme] .lab-tool {
+  border: 1px solid var(--ace-border) !important; border-radius: var(--ace-radius-lg) !important;
+  background: var(--ace-card) !important; box-shadow: none !important;
+}
+:root[data-theme] .lab-tool--green, :root[data-theme] .lab-tool--purple { color: var(--theme-accent, var(--ace-accent)) !important; }
+:root[data-theme] .lab-tool > svg:not(.lab-tool-art), :root[data-theme] .lab-tool-top > svg { color: var(--ace-faint); }
+:root[data-theme] .lab-icon-box { border-color: var(--ace-accent-line) !important; background: var(--ace-accent-tint) !important; border-radius: 10px !important; }
+:root[data-theme] .lab-tool-art { opacity: .9; }
+:root[data-theme] .lab-tool > strong { font-family: var(--font-display); color: var(--ace-text) !important; }
+:root[data-theme] .lab-tool > span:last-child { color: var(--ace-muted) !important; }
+@media (hover: hover) {
+  :root[data-theme] .lab-tool:hover { transform: translateY(-2px); border-color: #3A4448 !important; }
+  :root[data-theme] .lab-tool:hover .lab-tool-top > svg { color: var(--theme-accent, var(--ace-accent)); }
+}
+
+/* Prop board: a card with one green action, not a full green slab. */
+:root[data-theme] .lab-board-button {
+  gap: 16px !important; padding: 18px !important; border: 1px solid var(--ace-border) !important; border-radius: var(--ace-radius-lg) !important;
+  background: var(--ace-card) !important; color: var(--ace-text) !important; box-shadow: none !important;
+  transition: border-color 160ms ease, transform 160ms var(--ace-ease) !important;
+}
+:root[data-theme] .lab-board-icon {
+  width: 46px !important; height: 46px !important; border-radius: 12px !important;
+  border: 1px solid var(--ace-accent-line) !important; background: var(--ace-accent-tint) !important; color: var(--theme-accent, var(--ace-accent));
+}
+:root[data-theme] .lab-board-button strong { font: 600 16px/1.25 var(--font-display) !important; letter-spacing: -.02em; }
+:root[data-theme] .lab-board-button small { color: var(--ace-muted); opacity: 1 !important; font-size: 12.5px !important; }
+:root[data-theme] .lab-board-arrow {
+  width: 40px; height: 40px; border-radius: 10px;
+  background: var(--theme-accent, var(--ace-accent)); color: var(--theme-on-accent, var(--ace-on-accent));
+}
+@media (hover: hover) { :root[data-theme] .lab-board-button:hover { border-color: var(--ace-accent-line) !important; } }
+:root[data-theme] .lab-board-button:active { transform: translateY(1px) !important; box-shadow: none !important; }
+:root[data-theme] .lab-home-note { color: var(--ace-faint); }
+
+@media (max-width: 760px) {
+  :root[data-theme] .kp-brand-copy .ace-hero-title { gap: 0; }
+  :root[data-theme] .kp-brand-copy .ace-hero-wordmark { height: 26px; margin-bottom: 4px; }
+  :root[data-theme] .kp-brand-copy .ace-hero-tagline { display: none !important; }
+  :root[data-theme] #app-shell #panel-research .search-beam > .search-box { height: 54px !important; }
+  :root[data-theme] .lab-section-heading h2 { font-size: 22px; }
+  :root[data-theme] .lab-board-button { padding: 14px !important; }
+}
