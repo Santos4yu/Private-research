@@ -23,7 +23,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from . import preseason
-from .cache import NFLCacheDomain, cached_nfl
+from .cache import NFLCacheDomain, cached_nfl, remember_nfl
 from .services.nflverse import RELEASE, SCHEDULE_URL, TEAM_URL, ProviderError, _source_rows, canonical_team
 from .services.research_stats import numeric, prizepicks_fantasy
 
@@ -536,7 +536,13 @@ def pbp_values(season, player_id, log=None):
 def game_values(season, player_id, cached=True):
     """The player's played games, oldest first, each with every market's
     value: weekly stats plus play-by-play."""
-    log = player_log(season, player_id) if cached else _player_log_rows(season, player_id)
+    if cached:
+        log = player_log(season, player_id)
+    else:
+        log = _player_log_rows(season, player_id)
+        # The board builds every listed player's log; the player page asks
+        # for the same one when it opens.
+        remember_nfl(NFLCacheDomain.GAME_LOGS, (VERSION, "log", season, player_id), log)
     extra = pbp_values(season, player_id, log)
     return [{**row, "values": {**row["values"], **extra.get(row["gameId"], {})}}
             for row in log["rows"] if not row["dnp"]]
@@ -550,7 +556,13 @@ PBP_TEAM_STATS = (("longest_reception", "Longest Reception", "longestReception")
 
 def pbp_resource(season, player_id):
     """The player's per-game extras for this season and last, plus this
-    season's play-by-play team ranks for the Offense vs Defense card."""
+    season's play-by-play team ranks for the Offense vs Defense card. Kept
+    per player: building it needs both seasons' play-by-play files."""
+    return cached_nfl(NFLCacheDomain.GAME_LOGS, (VERSION, "pbp-player", season, player_id),
+                      lambda: _pbp_resource(season, player_id))
+
+
+def _pbp_resource(season, player_id):
     games = {}
     for year in (season - 1, season):
         games.update(pbp_extras(year)["players"].get(player_id, {}))

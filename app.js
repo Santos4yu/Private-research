@@ -23,11 +23,9 @@ import { createTrendCache, trendContextKey, gradeTrendChart, mergeTrendCharts } 
 import { matchupNumber, boardResearchSide, matchupUpdatedText, canReuseResearch } from './src/matchup-rating.js';
 import { createResearchClient } from './src/research-client.js';
 
-const DATA_SOURCE = "/predictions.json";
-
 /**
- * Live-compute endpoint — used whenever a searched player/stat/line/side
- * isn't already in the static DATA_SOURCE. Same one-line-swap contract:
+ * Live-compute endpoint — used for every searched player/stat/line/side
+ * (there is no static seed of props any more). One-line-swap contract:
  * change this and nothing else needs to change, as long as the response
  * matches a single prop object (same shape as one entry in props[]).
  */
@@ -233,17 +231,11 @@ async function init() {
     console.error("wireSlipShare failed:", err);
   }
 
-  try {
-    const res = await fetch(DATA_SOURCE, { cache: "no-store" });
-    if (!res.ok) throw new Error(`Failed to load ${DATA_SOURCE}: ${res.status}`);
-    const data = await res.json();
-    state.props = data.props || [];
-  } catch (err) {
-    console.error(err);
-    // The optional static seed is independent of live player research.
-    // Keep the React home mounted when this file is absent in production.
-    state.props = [];
-  }
+  // There is no static seed of props: the old predictions.json was never
+  // deployed, so asking for it only held up the start of every page load
+  // for a round trip and logged an error. Every prop comes from live
+  // research.
+  state.props = [];
 
   clearIntroAnimations();
   wireSearch();
@@ -3657,6 +3649,18 @@ function wireGameLogModal() {
  */
 let externalTrendConfig = null;
 let externalTrendHost = null;
+// What the chart last drew from. The pages rebuild their config whenever
+// anything around them changes (a board refresh hands them new row objects
+// with the same numbers), and redrawing an unchanged chart costs a full
+// style and layout pass on a phone.
+let externalTrendDrawn = "";
+const externalTrendSignature = config => {
+  try {
+    return JSON.stringify([config.chart, config.lines, config.odds, config.line, config.side, Boolean(config.loading), config.statKey, config.filters]);
+  } catch {
+    return String(Math.random());
+  }
+};
 
 const EXTERNAL_TREND_ADAPTER = {
   get sport() { return externalTrendConfig?.sport || "NFL"; },
@@ -3823,8 +3827,11 @@ window.vortexTrendPanel = {
     const switched = remount || trendAdapter !== EXTERNAL_TREND_ADAPTER
       || previous?.player !== config.player || previous?.sport !== config.sport;
     const marketChanged = previous?.statKey !== config.statKey;
-    const viewport = !switched ? captureGameLogViewport() : null;
+    const signature = externalTrendSignature(config);
+    const unchanged = !switched && !marketChanged && signature === externalTrendDrawn;
+    const viewport = !switched && !unchanged ? captureGameLogViewport() : null;
     externalTrendConfig = config;
+    externalTrendDrawn = signature;
     trendAdapter = EXTERNAL_TREND_ADAPTER;
     if (switched) {
       // A different player or sport starts the panel over: window back to
@@ -3841,7 +3848,7 @@ window.vortexTrendPanel = {
         teamAbbr: config.teamAbbr || "",
         gameStatus: config.status || "Pre-game",
       }, EXTERNAL_TREND_ADAPTER);
-    } else {
+    } else if (!unchanged) {
       if (marketChanged) {
         gameLogState.stat = config.stat;
         gameLogState.line = Number(config.line);

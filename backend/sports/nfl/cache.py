@@ -204,6 +204,19 @@ def cached_nfl(domain: NFLCacheDomain, parts: tuple[object, ...], loader: Callab
                 del _pending[key]
 
 
+def remember_nfl(domain: NFLCacheDomain, parts: tuple[object, ...], value: object) -> None:
+    """Put a value this instance has just computed anyway into the memory
+    layer, so the next cached_nfl() for it here is free. Memory only: the
+    board computes hundreds of these at once, far too many to write to the
+    durable cache on every build."""
+    key = nfl_cache_key(domain, *parts)
+    with _lock:
+        if key not in _memory:
+            _memory[key] = (time.time(), value)
+            if len(_memory) > 1024:
+                _memory.pop(next(iter(_memory)))
+
+
 def clear_nfl_cache() -> None:
     global _generation
     with _lock:
