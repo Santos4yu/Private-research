@@ -123,7 +123,7 @@ html[data-bot-typing] body .mobile-app-nav{opacity:0!important;visibility:hidden
    hidden while the card unfolds and rise in, one after another, once it
    has opened; bars grow, numbers count up and the meters fill. */
 .mo-a-extra{margin-top:12px}
-.kb-card{--kb-up:0,214,143;--kb-navy:30,58,138;--kb-down:248,113,113;--kb-line:rgba(255,255,255,.08);display:grid;gap:12px;font-size:13px;line-height:1.35;color:#f4f7f6}
+.kb-card{--kb-up:0,214,143;--kb-navy:0,110,72;--kb-down:241,107,117;--kb-line:rgba(255,255,255,.08);display:grid;gap:12px;font-size:13px;line-height:1.35;color:#f4f7f6}
 .kb-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .kb-logo{width:16px;height:16px;object-fit:contain;flex:none}
 
@@ -512,7 +512,7 @@ html[data-bot-typing] body .mobile-app-nav{opacity:0!important;visibility:hidden
 }
 
 /* ── The home screen (KrazyBotHome.jsx) ─────────────────────────────── */
-.kb-home{--kb-up:0,214,143;--kb-navy:30,58,138;--kb-down:248,113,113;--kb-line:rgba(255,255,255,.08);display:grid;gap:22px;color:#f4f7f6}
+.kb-home{--kb-up:0,214,143;--kb-navy:0,110,72;--kb-down:241,107,117;--kb-line:rgba(255,255,255,.08);display:grid;gap:22px;color:#f4f7f6}
 .kb-home-live{justify-self:center;display:inline-flex;align-items:center;gap:8px;margin:-8px 0 0;padding:6px 13px;border-radius:999px;border:1px solid var(--kb-line);background:rgba(255,255,255,.03);font-size:12px;color:rgba(244,247,246,.72);font-variant-numeric:tabular-nums}
 .kb-home-live em{font-style:normal;color:rgba(244,247,246,.3)}
 .kb-home-live i{width:7px;height:7px;border-radius:50%;background:rgba(244,247,246,.35)}

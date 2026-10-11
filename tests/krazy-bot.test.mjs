@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createBot, understand, normalize, findPlayers, rank, distance, pickCard, pickReport} from '../src/krazy-bot.js';
+import {createBot, understand, normalize, findPlayers, rank, distance, pickCard, pickReport, overOnly} from '../src/krazy-bot.js';
 
 const START = Date.parse('2026-10-03T23:05:00Z');
 let id = 0;
@@ -101,14 +101,17 @@ test('a pick reads like an analyst: confidence from the grade and the numbers be
   assert.match(answer, /Tarik Skubal over 6\.5 K's vs KC \(Elite, 68% to hit\)\. I love this one\./);
   assert.match(answer, /Skubal has gone over in 8 of his last 10, projects for 7\.4 against the 6\.5 line and KC strikes out 26%/);
   assert.match(answer, /only 7 games of history/);
-  assert.deepEqual(bot.suggestions(), ['Why?', 'Next best', 'What about the under?', 'Build me a 3-pick slip']);
+  assert.deepEqual(bot.suggestions(), ['Why?', 'Next best', 'Build me a 3-pick slip']);
 });
 
 test('it remembers the conversation: he, the under, why, next, what about another player', async () => {
   const bot = makeBot();
   await bot.ask('best K prop');
   assert.match(await bot.ask('is he safe?'), /^Yes\. I love it\. Tarik Skubal over 6\.5 K's vs KC: 68% to hit, Elite\./);
-  assert.match(await bot.ask('what about the under?'), /^Red flag\. The matchup is (tough|bad) \(\d+\)\..* The over is the better side at 68%\./);
+  // Overs only: the under gets a read, never the nod, and the over is pointed to.
+  assert.match(await bot.ask('what about the under?'), /^I don't back unders\. I'd flip it: the over is 68% to hit\./);
+  assert.equal(bot.card().card.verdict.tone, 'flip');
+  assert.equal(bot.card().card.pick.side, 'OVER');
   await bot.ask('best K prop');
   assert.match(await bot.ask('why?'), /^Why Tarik Skubal over 6\.5 K's vs KC:.*the books have it at 61%.*Risks: only 7 games of history/);
   assert.match(await bot.ask('next'), /Logan Webb over 5\.5 K's vs LAD/);
@@ -119,14 +122,16 @@ test('it remembers the conversation: he, the under, why, next, what about anothe
 test('should I take answers yes, flips a weak side, and corrects a stale line', async () => {
   const bot = makeBot();
   assert.match(await bot.ask('should I take Skubal over 6.5 Ks?'), /^Yes\. I love it\./);
-  assert.match(await bot.ask('should i take witt under 1.5 total bases'), /^Red flag\. .*The over is the better side at 64%/);
+  assert.match(await bot.ask('should i take witt under 1.5 total bases'), /^I don't back unders\. I'd flip it: the over is 64% to hit\./);
   assert.match(await bot.ask('skubal over 7.5 ks?'), /\(Today's line is 6\.5, not 7\.5\.\)/);
   assert.match(await bot.ask('skubal over or under 6.5'), /Tarik Skubal over 6\.5 K's vs KC is the better side at 68%/);
 });
 
-test('compare picks the better spot of two players', async () => {
+test('compare picks the better spot of two players, overs only', async () => {
   const answer = await makeBot().ask('compare judge and soto');
-  assert.match(answer, /^I'd go Judge\. Aaron Judge over 1\.5 Hits\+Runs\+RBIs vs BOS is 66% to hit \(Elite\) vs Juan Soto under 1\.5 Hits\+Runs\+RBIs vs ATL at 61%/);
+  // Soto's only read today is an under, so it isn't in the running.
+  assert.match(answer, /^I'd go Judge\. Aaron Judge over 1\.5 Hits\+Runs\+RBIs vs BOS is 66% to hit \(Elite\)\./);
+  assert.doesNotMatch(answer, /under/);
 });
 
 test("the day's rundown: games, first pitch, top play, matchup and a long shot", async () => {
@@ -194,7 +199,7 @@ test('answers carry a card: the pick, its last 10, the numbers, the matchup', as
   assert.deepEqual(card.pick.risks, ['Only 7 games of history']);
 
   await bot.ask('compare judge and soto');
-  assert.deepEqual(bot.card().card.picks.map(item => item.player), ['Aaron Judge', 'Juan Soto']);
+  assert.deepEqual(bot.card().card.picks.map(item => item.player), ['Aaron Judge']);
   await bot.ask('build me a 3-pick slip');
   const slip = bot.card().card;
   assert.equal(slip.kind, 'slip');
@@ -326,23 +331,31 @@ test('slips as asked: the league, overs or unders, how many picks, and a payout 
   assert.deepEqual(bot.card().card.picks.map(pick => pick.modifier), ['goblin', 'goblin', 'goblin']);
 });
 
-test('overs first: unders make a slip or the top plays only when they are sure things', async () => {
+test('overs only: no under makes a slip, the picks or the top plays', async () => {
+  // The rule the Parlay Builder shares (SmartSlip.jsx): an Under never makes it.
+  assert.equal(overOnly({side: 'UNDER'}), false);
+  assert.equal(overOnly({side: 'OVER'}), true);
   const bot = nflBoard();
-  // Lamb's and Nacua's good sides are unders, but not sure ones (7 of 10): left out.
+  // Every under here grades higher than its over: none of them is used.
   await bot.ask('build me a 5-pick nfl slip');
   const picks = bot.card().card.picks;
   assert.equal(picks.length, 5);
   assert.ok(picks.every(pick => pick.side === 'OVER'), JSON.stringify(picks.map(pick => [pick.player, pick.side])));
-  // Asked for unders: unders.
-  await bot.ask('give me a 2 leg parlay with nfl under props');
-  assert.deepEqual(bot.card().card.picks.map(pick => pick.side), ['UNDER', 'UNDER']);
-  // No side asked about a player: the over, unless the under is a sure thing.
-  // Lamb's over has a tough matchup and his under is likelier but no sure thing: a pass, said plainly.
+  // Asked for unders: overs only, said plainly, and no slip.
+  assert.equal(await bot.ask('give me a 2 leg parlay with nfl under props'), "I only build slips from overs. Ask for a slip and I'll build it from today's best overs.");
+  assert.equal(await nflBoard().ask('best nfl unders today'), "I only back overs. Ask for the play today and I'll give you my best over.");
+  // The best picks and the safest picks are overs, though the unders grade higher.
+  await bot.ask('best nfl props');
+  assert.ok([bot.card().card.pick, ...(bot.card().card.picks || [])].filter(Boolean).every(pick => pick.side === 'OVER'));
+  // No side asked about a player: the over, never swapped for the under.
   const answer = await bot.ask('should I take CeeDee Lamb 72.5?');
   assert.match(answer, /^Red flag\./);
-  assert.match(answer, /The under is likelier at \d+%, but I only back an under when everything points to it\./);
+  assert.match(answer, /The under is likelier at \d+%, but I don't back unders\./);
   assert.match(answer, /CeeDee Lamb over 72\.5 receiving yards vs PHI: \d+% to hit/);
   assert.equal(bot.card().card.verdict.tone, 'pass');
+  // Asked about his under: a read, not backed.
+  assert.match(await bot.ask('should I take CeeDee Lamb under 72.5?'), /^I don't back unders/);
+  assert.notEqual(bot.card().card.verdict.tone, 'yes');
 });
 
 test('slips for one game, one team or one day', async () => {

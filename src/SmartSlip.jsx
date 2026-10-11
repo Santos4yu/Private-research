@@ -8,7 +8,7 @@ import {TARGETS,MIXES,SPORT_NAMES,candidates,buildLadder,safest,exportLeg,isPriz
 import {pickBuilder,usePickBuilder} from './pick-builder-client';
 import {loadMatchups,withMatchups} from './slip-matchup';
 import {withPoolDefense} from './slip-analyst';
-import {gradeMatchups,withMatchup,passesMatchup,confidentUnder} from './krazy-bot';
+import {gradeMatchups,withMatchup,passesMatchup,overOnly} from './krazy-bot';
 import {loadGames,loadTeammates,withGame} from './slip-games';
 import {PhoneAccountButtons} from './UnifiedFinder';
 import {MatchupCase} from './MatchupCase';
@@ -39,8 +39,8 @@ const NEWS_FOR=40;
 async function judged(rows,sports,{signal,now}){
  const tables=await loadMatchups(sports,{signal}).catch(()=>({}));
  const listed=withPoolDefense(rows.map(row=>withMatchups(row,tables)));
- // Overs first: an Under makes a slip only when it's a sure thing (confidentUnder).
- const usable=leg=>passesMatchup(leg)&&confidentUnder(leg);
+ // Overs only: an Under never makes a slip.
+ const usable=leg=>passesMatchup(leg)&&overOnly(leg);
  const graded=gradeMatchups(candidates(listed,{now}),tables).filter(usable);
  const top=graded.slice().sort((a,b)=>b.chance*b.factor-a.chance*a.factor).slice(0,NEWS_FOR);
  const asks=top.map(leg=>({key:leg.id,row:leg.row}));
@@ -335,7 +335,7 @@ export function SmartSlip(){
   <header className="ss-head">
    <div className="ss-title"><span className="ss-mark" aria-hidden="true"><TicketIcon size={22}/></span>
     <div><h1 id="smart-slip-title">Parlay Builder</h1>
-     <p>Pick a payout and your sports. Slips are built from Elite and Strong picks, overs first.</p></div></div>
+     <p>Pick a payout and your sports. Slips are built from Elite and Strong picks, overs only.</p></div></div>
    <PhoneAccountButtons/>
   </header>
 
