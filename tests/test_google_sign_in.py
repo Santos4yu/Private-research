@@ -32,7 +32,7 @@ def ask(query, cookie=''):
     from api.session import handler
     request = object.__new__(handler)
     request.path = '/api/session' + query
-    request.headers = {'Host': 'www.krazydata.site', 'Cookie': cookie}
+    request.headers = {'Host': 'aceprops.xyz', 'Cookie': cookie}
     request.rfile = io.BytesIO()
     sent = {'status': None, 'headers': []}
     request.send_response = lambda status, *_: sent.update(status=status)
@@ -58,7 +58,7 @@ class GoogleSignInTests(unittest.TestCase):
         query = {key: values[0] for key, values in parse_qs(url.query).items()}
         self.assertEqual(f'{url.scheme}://{url.netloc}{url.path}', 'https://project.supabase.co/auth/v1/authorize')
         self.assertEqual(query['provider'], 'google')
-        self.assertEqual(query['redirect_to'], 'https://www.krazydata.site/api/session?action=oauth-callback')
+        self.assertEqual(query['redirect_to'], 'https://aceprops.xyz/api/session?action=oauth-callback')
         self.assertEqual(query['code_challenge_method'], 's256')
         [cookie] = cookies
         value = cookie.split(';')[0].split('=', 1)[1]

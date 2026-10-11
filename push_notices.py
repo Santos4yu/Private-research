@@ -178,7 +178,7 @@ def site_subject():
     except Exception:  # noqa: BLE001
         site = None
     production = os.getenv('VERCEL_PROJECT_PRODUCTION_URL', '').strip()
-    return site or (f'https://{production}' if production else 'mailto:alerts@krazydata.app')
+    return site or (f'https://{production}' if production else 'https://aceprops.xyz')
 
 
 def unsubscribe(endpoint):
