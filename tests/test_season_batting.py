@@ -18,7 +18,9 @@ def load_functions(names, **environment):
 
 
 class SeasonBattingTests(unittest.TestCase):
-    def test_bvp_excludes_previous_season_and_wrong_player(self):
+    def test_bvp_is_career_head_to_head_and_excludes_the_wrong_player(self):
+        # Batter vs pitcher is the one split that spans every season (a
+        # single season is too few at-bats to mean anything).
         calls = []
         def get(path, params, cache_key):
             calls.append((params, cache_key))
@@ -28,13 +30,13 @@ class SeasonBattingTests(unittest.TestCase):
                 {'season': '2026', 'player': {'id': 1}, 'stat': {'atBats': 4, 'hits': 1, 'totalBases': 1}},
             ]}]}
         result = load_function('get_bvp_history', SEASON=2026, _get=get)(1, 10)
-        self.assertEqual(result['ab'], 4)
-        self.assertEqual(result['avg'], '.250')
-        self.assertEqual(calls[0][0]['season'], 2026)
-        self.assertIn('2026', calls[0][1])
+        self.assertEqual(result['ab'], 104)
+        self.assertEqual(result['hits'], 51)
+        self.assertNotIn('season', calls[0][0])
+        self.assertEqual(calls[0][0]['opposingPlayerId'], 10)
 
-    def test_no_current_season_sample_is_not_career_or_zero_average(self):
-        get = lambda *args, **kwargs: {'stats': [{'splits': [{'season': '2025', 'stat': {'atBats': 10, 'hits': 5}}]}]}
+    def test_no_head_to_head_sample_is_not_a_zero_average(self):
+        get = lambda *args, **kwargs: {'stats': [{'splits': []}]}
         result = load_function('get_bvp_history', SEASON=2026, _get=get)(1, 10)
         self.assertEqual(result['ab'], 0)
         self.assertEqual(result['avg'], '.---')

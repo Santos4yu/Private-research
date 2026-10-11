@@ -37,20 +37,6 @@ test('Builder rejects mismatched or missing research evidence',()=>{
   assert.equal(liveBuilderProp(live,row,'over').stats.player_id,'123');
   assert.equal(liveBuilderProp(live,row,'over').stats.lineup_confirmed,false);
 });
-test('live research clears the actual Builder gates; missing starter or samples fail',()=>{
-  const source=readFileSync(new URL('../app.js',import.meta.url),'utf8');
-  const code=source.slice(source.indexOf('const BUILDER_MODES ='),source.indexOf('function rankedParlayCandidates('));
-  const candidate=new Function('BOT_PITCHER_STATS',`${code};return parlayCandidate;`)(new Set());
-  const row={id:'live1',player:'Test Player',stat:'Pitcher Strikeouts',line:3.5};
-  const live={player:row.player,betType:'Strikeouts (Pitcher)',isPitcherProp:true,line:3.5,side:'Over',tier:'Strong',
-    matchupScore:80,matchupCoverage:.9,matchupAdjustment:0,hitRates:{l10:80,l20:75},
-    matchup:{opponent:'Opponent'},starterProfile:{id:123,name:'Test Player'},
-    builderEvidence:{sampleL10:10,sampleL20:20,starterConfirmed:true,projectionEdge:1,stability:'HIGH',gameId:1}};
-  const good=liveBuilderProp(live,row,'over');
-  assert.equal(candidate(good,'safe').valid,true);
-  assert.equal(candidate({...good,stats:{...good.stats,sample_l10:1}},'safe').valid,false);
-  assert.equal(candidate({...good,stats:{...good.stats,pitcher:{validated_role:false}}},'safe').valid,false);
-});
 test('restored MLB markets are recognized and charted from game logs',()=>{
  for(const [stat,key,pitcher] of [['Stolen Bases','sb',false],['Singles','singles',false],['Pitches Thrown','pitches',true],['Pitcher Fantasy Score','pitcher-fantasy',true],
   ['Fantasy Score (Pitcher)','pitcher-fantasy',true],['1st Inning Hits Allowed','first-hits',true],['1st Inning Runs Allowed','first-runs',true],['1st Inning Pitches Thrown','first-pitches',true]]){

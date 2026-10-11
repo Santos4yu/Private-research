@@ -20,9 +20,11 @@ test('early-season history uses previous-season real adapter rows in chronologic
   assert.deepEqual(calls,[2026,2025]);assert.deepEqual(output.data.map(r=>r.week),[17,18,1]);
   assert.equal(output.history.label,'2025 + 2026');assert.equal(output.history.currentGames,1);
 });
-test('adequate current history does not request or contaminate with a prior season',async()=>{
-  let calls=0; const output=await loadNFLHistory(async()=>{calls++;return {data:Array.from({length:20},(_,i)=>row(2026,i+1)),status:'AVAILABLE'};},'game-logs',{},2026);
-  assert.equal(calls,1);assert.equal(output.data.length,20);assert.equal(output.history.includedPrevious,false);
+test('adequate current history is never contaminated with a prior season',async()=>{
+  // Both seasons are asked for side by side (one round trip instead of two
+  // in a row); the previous one is only used when the current is short.
+  const output=await loadNFLHistory(async(_,{season})=>({data:season===2026?Array.from({length:20},(_,i)=>row(2026,i+1)):[row(2025,18)],status:'AVAILABLE'}),'game-logs',{},2026);
+  assert.equal(output.data.length,20);assert.ok(output.data.every(r=>r.season===2026));assert.equal(output.history.includedPrevious,false);
 });
 test('explicit season selection never falls back silently',async()=>{
   const calls=[];const load=async(_,params)=>{calls.push(params.season);return {status:'AVAILABLE',data:[]};};

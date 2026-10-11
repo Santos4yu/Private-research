@@ -13,7 +13,8 @@ test('NFL requests coalesce, expire and explicitly invalidate', async () => {
   let calls = 0, time = 0;
   const client = createNFLClient({ now: () => time, fetcher: async () => { calls++; return { ok: true, json: async () => ({ data: [] }) }; } });
   await Promise.all([client.get('players',{season:2026}),client.get('players',{season:2026})]);
-  assert.equal(calls,1); time = 300001; await client.get('players',{season:2026}); assert.equal(calls,2);
+  assert.equal(calls,1); time = 1799999; await client.get('players',{season:2026}); assert.equal(calls,1);
+  time = 1800001; await client.get('players',{season:2026}); assert.equal(calls,2);
   client.clear(); await client.get('players',{season:2026}); assert.equal(calls,3);
 });
 test('NFL cache separates season/player/prop and never caches provider failures', async () => {

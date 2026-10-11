@@ -3649,18 +3649,6 @@ function wireGameLogModal() {
  */
 let externalTrendConfig = null;
 let externalTrendHost = null;
-// What the chart last drew from. The pages rebuild their config whenever
-// anything around them changes (a board refresh hands them new row objects
-// with the same numbers), and redrawing an unchanged chart costs a full
-// style and layout pass on a phone.
-let externalTrendDrawn = "";
-const externalTrendSignature = config => {
-  try {
-    return JSON.stringify([config.chart, config.lines, config.odds, config.line, config.side, Boolean(config.loading), config.statKey, config.filters]);
-  } catch {
-    return String(Math.random());
-  }
-};
 
 const EXTERNAL_TREND_ADAPTER = {
   get sport() { return externalTrendConfig?.sport || "NFL"; },
@@ -3820,6 +3808,18 @@ window.vortexTrendPanel = {
     this.update(config, true);
     return true;
   },
+  // What the chart last drew from. The pages rebuild their config whenever
+  // anything around them changes (a board refresh hands them new row
+  // objects with the same numbers), and redrawing an unchanged chart costs
+  // a full style and layout pass on a phone.
+  drawn: "",
+  signature(config) {
+    try {
+      return JSON.stringify([config.chart, config.lines, config.odds, config.line, config.side, Boolean(config.loading), config.statKey, config.filters]);
+    } catch {
+      return String(Math.random());
+    }
+  },
   update(config, remount = false) {
     if (!config) return;
     const previous = externalTrendConfig;
@@ -3827,11 +3827,11 @@ window.vortexTrendPanel = {
     const switched = remount || trendAdapter !== EXTERNAL_TREND_ADAPTER
       || previous?.player !== config.player || previous?.sport !== config.sport;
     const marketChanged = previous?.statKey !== config.statKey;
-    const signature = externalTrendSignature(config);
-    const unchanged = !switched && !marketChanged && signature === externalTrendDrawn;
+    const signature = this.signature(config);
+    const unchanged = !switched && !marketChanged && signature === this.drawn;
     const viewport = !switched && !unchanged ? captureGameLogViewport() : null;
     externalTrendConfig = config;
-    externalTrendDrawn = signature;
+    this.drawn = signature;
     trendAdapter = EXTERNAL_TREND_ADAPTER;
     if (switched) {
       // A different player or sport starts the panel over: window back to
