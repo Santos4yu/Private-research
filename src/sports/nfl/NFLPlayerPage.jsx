@@ -2,7 +2,7 @@ import React,{useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} fro
 import {CalendarDays,Database,ListOrdered,PieChart,RefreshCw,Shield,UserCheck,UserRound,Users,UserX} from 'lucide-react';
 import {FinderPlayerBanner} from '../../FinderPlayerBanner';
 import {nflLineLadder,nflOddsRows,nflStatCode} from './trend-bridge';
-import {INJURY_LEGEND,MARKET_ORDER,STATS,family,gameIdOf,injuryCode,mergePlayByPlay,nflFinderChart,nflSeason,opponentOf,playedGames,positionOf,teamColor,useNfl} from './nfl-finder';
+import {INJURY_LEGEND,MARKET_ORDER,PBP_MARKETS,STATS,family,gameIdOf,injuryCode,mergePlayByPlay,nflFinderChart,nflSeason,opponentOf,playedGames,positionOf,seedGames,teamColor,useNfl} from './nfl-finder';
 import {applySplits,finite,fmt,splitKey,toggleSplit} from '../wnba/wnba-research';
 import NFLFinderContext from './NFLFinderContext';
 import '../../mlb-finder-context.css';
@@ -164,16 +164,23 @@ export function NFLPlayerPage({row,playerRows,onBack}){
  const position=positionOf(log.data?.player?.position||selected.position);
  // Switching stat keeps the book/tier this row came from where possible.
  const onStat=useMemo(()=>key=>{const options=playerRows.filter(item=>item.marketKey===key);const next=options.find(item=>item.apps?.some(app=>app.key==='prizepicks'))||options[0];if(next)setSelected(next);},[playerRows]);
- const chartRows=useMemo(()=>applySplits(playedGames(rows),filters),[rows,filters]);
+ // Until the full log (and, for a play-by-play stat, the play-by-play) is
+ // in, the chart draws from the games the Finder already has.
+ const seed=useMemo(()=>seedGames(playerRows),[playerRows]);
+ const needsPbp=PBP_MARKETS.has(selected.marketKey);
+ const complete=Boolean(log.data)&&(!needsPbp||Boolean(pbp.data||pbp.error));
+ const seeded=!complete&&!filters.length&&seed.some(game=>finite(game.values[selected.marketKey]));
+ const chartRows=useMemo(()=>seeded?playedGames(seed):applySplits(playedGames(rows),filters),[seeded,seed,rows,filters]);
  const chips=useMemo(()=>filters.map(filter=>({key:splitKey(filter),kind:filter.kind,label:`${filter.kind==='without'?'W/O':'W/'} ${filter.name}${filter.pos?` (${filter.pos})`:''}`,title:`${filter.ids.length} of ${selected.player}'s games ${filter.kind} ${filter.name}`})),[filters,selected.player]);
  const shown=chartRows.length,chipsNote=filters.length?`${shown} ${shown===1?'game':'games'}`:'';
  const loading=log.loading;
+ const chartLoading=!seeded&&(log.loading||(needsPbp&&pbp.loading));
  return <section className="finder-trend-view wnba-trend-page wnba-player-page nfl-player-page" style={{'--nfl-team':teamColor(selected.teamAbbr)}}>
   <FinderPlayerBanner row={selected} playerRows={playerRows} onBack={onBack}/>
   {!row.playerId?<div className="wnba-board-message" role="status"><Database size={22} aria-hidden="true"/><strong>Player history unavailable</strong><span>This player could not be matched to nflverse's roster yet, so trends and matchup research are not available.</span></div>:<>
   {log.error&&<div className="wnba-board-message" role="alert"><span>{log.error}</span><button type="button" className="wnba-trend-back" onClick={log.retry}><RefreshCw size={16} aria-hidden="true"/>Retry</button></div>}
   <div className="mlb-finder-workspace"><div className="mlb-trend-main">
-   <TrendChart row={selected} playerRows={playerRows} rows={chartRows} loading={loading} onStat={onStat} chips={chips} chipsNote={chipsNote} onChipRemove={removeFilter} onChipsClear={clearFilters}/>
+   <TrendChart row={selected} playerRows={playerRows} rows={chartRows} loading={chartLoading} onStat={onStat} chips={chips} chipsNote={chipsNote} onChipRemove={removeFilter} onChipsClear={clearFilters}/>
    {filters.length>0&&!shown&&!loading&&<p className="wnba-filter-empty" role="status">No games match all of these together. Remove a filter to see more.</p>}
    <SupportingStats rows={rows} position={position} loading={loading}/>
    <DepthChart row={selected} season={season} context={context} filters={filters} onToggleFilter={toggleFilter}/>

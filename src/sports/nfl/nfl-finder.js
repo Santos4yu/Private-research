@@ -3,27 +3,59 @@
 // nflverse); nothing here estimates anything. The formatters are the WNBA
 // page's, so both pages read the same.
 import {useEffect,useState} from 'react';
-import {finite} from '../wnba/wnba-research';
+import {finite} from '../wnba/wnba-research.js';
 
 export const nflSeason=(now=new Date())=>now.getMonth()<2?now.getFullYear()-1:now.getFullYear();
 
 const requests=new Map();
 // One request per URL for the session; a failure is forgotten so Retry
-// really asks again.
+// really asks again. A cold server can take a while to build a player's
+// history, but a request is never left hanging: it gives up after
+// REQUEST_TIMEOUT and asks once more, and one in flight when the phone
+// put the app to sleep (iOS drops those without ever settling) starts over
+// when the app comes back.
+const REQUEST_TIMEOUT=30000;
+const TOO_SLOW='NFL research is taking longer than usual. Try again.';
+function load(url){
+ const entry={started:0,controller:null,resumed:false};
+ let retried=false;
+ const attempt=()=>{
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),REQUEST_TIMEOUT);
+  Object.assign(entry,{controller,started:Date.now(),resumed:false});
+  return fetch(url,{credentials:'same-origin',signal:controller.signal}).then(async response=>{
+   const data=await response.json().catch(()=>({}));
+   if(!response.ok)throw Object.assign(new Error(data.error||'NFL research is temporarily unavailable.'),{status:response.status});
+   return data;
+  }).catch(error=>{
+   // Woken from sleep: start over. A dropped connection, a timeout or a
+   // gateway timeout: once more. A real answer (signed out, switched off,
+   // a bad player) is final.
+   if(entry.resumed)return attempt();
+   const transient=!error.status||error.status===502||error.status===504;
+   if(transient&&!retried){retried=true;return attempt();}
+   if(controller.signal.aborted)throw new Error(TOO_SLOW);
+   throw error.status?error:new Error('NFL research could not load. Check your connection and try again.');
+  }).finally(()=>clearTimeout(timer));
+ };
+ entry.promise=attempt();
+ entry.promise.then(()=>{entry.controller=null;},()=>{entry.controller=null;requests.delete(url);});
+ return entry;
+}
+function wake(){
+ if(typeof document!=='undefined'&&document.visibilityState==='hidden')return;
+ const now=Date.now();
+ for(const entry of requests.values())if(entry.controller&&now-entry.started>4000){entry.resumed=true;entry.controller.abort();}
+}
+if(typeof window!=='undefined'){
+ window.addEventListener('pageshow',wake);window.addEventListener('online',wake);
+ document.addEventListener('visibilitychange',wake);
+}
 export function nflGet(resource,params={}){
  const query=new URLSearchParams({resource:`finder-${resource}`});
  Object.entries(params).forEach(([key,value])=>{if(value!=null&&value!=='')query.set(key,String(value));});
  const url='/api/nfl?'+query;
- if(!requests.has(url)){
-  const promise=fetch(url,{credentials:'same-origin'}).then(async response=>{
-   const data=await response.json().catch(()=>({}));
-   if(!response.ok)throw new Error(data.error||'NFL research is temporarily unavailable.');
-   return data;
-  });
-  promise.catch(()=>requests.delete(url));
-  requests.set(url,promise);
- }
- return requests.get(url);
+ if(!requests.has(url))requests.set(url,load(url));
+ return requests.get(url).promise;
 }
 export function useNfl(resource,params,enabled=true){
  const key=JSON.stringify(params);
@@ -131,6 +163,26 @@ export function mergePlayByPlay(rows,pbp){
    values:{...row.values,...(more||{}),...(!more&&finite(extra?.longestReception)?{longest_reception:extra.longestReception}:{})}};});
 }
 export const playedGames=rows=>(rows||[]).filter(row=>!row.dnp);
+// The markets whose values only the play-by-play resource carries
+// (backend/sports/nfl/finder.py PBP_MARKETS).
+export const PBP_MARKETS=new Set(['longest_reception','longest_rush','longest_completion','rush_yards_first_5','rec_yards_first_2','punts',
+ 'punts_inside_20','first_rush_yards','quarters_1_rec','quarters_5_rec_yds','quarters_5_rush_yds','quarters_25_pass_yds','halves_25_rec_yds',
+ 'halves_25_rush_yds','gross_punt_yards','punts_50_plus']);
+// The games the Finder's rows already carry for each of the player's lines
+// (the board's gameLog: up to 20 regular and postseason games per market),
+// as game-log rows, so the chart draws the moment the page opens instead
+// of waiting on the full log.
+export function seedGames(playerRows){
+ const games=new Map();
+ for(const item of playerRows||[])for(const entry of item.gameLog||[]){
+  if(!item.marketKey||!entry.date||!finite(entry.value))continue;
+  const key=`${entry.date}|${entry.opponent||''}`;
+  if(!games.has(key))games.set(key,{gameId:`seed-${key}`,date:entry.date,season:nflSeason(new Date(`${entry.date}T12:00:00`)),
+   opponent:entry.opponent||'',isHome:typeof entry.home==='boolean'?entry.home:undefined,seasonKind:'regular',dnp:false,box:{},values:{}});
+  games.get(key).values[item.marketKey]=entry.value;
+ }
+ return [...games.values()].sort((a,b)=>a.date.localeCompare(b.date));
+}
 
 // The shared trend panel's shape (app.js EXTERNAL_TREND_ADAPTER): oldest
 // first, one entry per game with a value for the stat.
