@@ -512,7 +512,7 @@
 
 <!-- NRFI / YRFI TAB -->
 <section class="tab-panel" id="panel-nrfi" hidden>
-  <div class="market-page-head"><div><p class="eyebrow">LINEUP-CONFIRMED FIRST-INNING READS</p><h2>NRFI / YRFI Board</h2><p>Posted automatically once both starters and the top of each lineup are available.</p></div><button class="ghost-btn" id="nrfi-refresh">Refresh</button></div>
+  <header class="ace-page-head"><span class="ace-page-icon"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8.5 4.5c1.6 2 1.6 13 0 15M15.5 4.5c-1.6 2-1.6 13 0 15"/></svg></span><div class="ace-page-copy"><span class="ace-page-eyebrow">Lineup-confirmed first-inning reads</span><h2>NRFI / YRFI board</h2><p>Posted automatically once both starters and the top of each lineup are available.</p></div><div class="ace-page-actions"><button class="ghost-btn" id="nrfi-refresh">Refresh</button></div></header>
   <div class="market-grid" id="nrfi-list"></div><p class="empty-state" id="nrfi-empty" hidden>No decision-ready NRFI/YRFI plays right now.</p>
 </section>
 
@@ -544,7 +544,7 @@
 
 <!-- TOOLS TAB -->
 <section class="tab-panel" id="panel-slate" hidden>
-  <div class="tools-head"><div><h2>Game-day advantages</h2><p>Live matchup, park, weather, and MLB data.</p></div></div>
+  <header class="ace-page-head"><span class="ace-page-icon"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg></span><div class="ace-page-copy"><span class="ace-page-eyebrow">Game-day tools</span><h2>Game-day advantages</h2><p>Live matchup, park, weather and MLB data.</p></div><div class="ace-page-actions"></div></header>
   <div class="tools-tabs" id="tools-tabs" aria-label="Research tools">
     <button class="tool-tab active" data-tool="attack">Attack Board</button>
     <button class="tool-tab" data-tool="parks">Best Ballparks <span>Live</span></button>
@@ -576,10 +576,7 @@
 
 <!-- PROPS TAB — mirror of the Discord bot's board -->
 <section class="tab-panel" id="panel-v2" hidden>
-  <div class="slate-toolbar">
-    <p class="slate-hint" id="v2-board-date">Active board</p>
-    <button class="ghost-btn" id="v2-refresh-btn" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6.1 7a7 7 0 0 1 11.5-1L20 9M4 15l2.4 3A7 7 0 0 0 18 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Refresh</button>
-  </div>
+  <header class="ace-page-head"><span class="ace-page-icon"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 3 7.5 12 12l9-4.5L12 3Z"/><path d="m3 12 9 4.5 9-4.5"/><path d="m3 16.5 9 4.5 9-4.5"/></svg></span><div class="ace-page-copy"><span class="ace-page-eyebrow">Prop board</span><h2>Today’s graded props</h2><p class="slate-hint" id="v2-board-date">Active board</p></div><div class="ace-page-actions"><button class="ghost-btn" id="v2-refresh-btn" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6.1 7a7 7 0 0 1 11.5-1L20 9M4 15l2.4 3A7 7 0 0 0 18 17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Refresh</button></div></header>
 
   <div class="board-filter-row" id="board-filter-row" aria-label="Filter props">
     <button type="button" class="active" data-board-filter="all">All</button>
@@ -638,11 +635,7 @@
 
 <!-- SAVED TAB -->
 <section class="tab-panel" id="panel-saved" hidden>
-  <div class="saved-toolbar">
-    <p class="saved-hint">Review your saved props, pair selections, or export your slip to PrizePicks.</p>
-    <button class="ghost-btn" id="share-slip-btn">Share slip</button>
-    <button class="ghost-btn" id="clear-saved-btn">Clear all</button>
-  </div>
+  <header class="ace-page-head"><span class="ace-page-icon"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4Z"/><path d="M14 5v2m0 4v2m0 4v2"/></svg></span><div class="ace-page-copy"><span class="ace-page-eyebrow">My slip</span><h2>Your saved picks</h2><p class="saved-hint">Review your saved props, pair selections, or export your slip to PrizePicks.</p></div><div class="ace-page-actions"><button class="ghost-btn" id="share-slip-btn">Share slip</button><button class="ghost-btn" id="clear-saved-btn">Clear all</button></div></header>
 
   <div class="saved-grid" id="saved-grid"></div>
   <p class="empty-state" id="saved-empty" hidden>No builder legs yet — add a prop from Research and it will show up here.</p>

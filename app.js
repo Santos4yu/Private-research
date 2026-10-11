@@ -1544,7 +1544,23 @@ async function loadSpecialMarkets(force = false) {
 function renderSpecialMarkets() {
   const data = state.specialsData || {};
   const nrfis = data.nrfi || [];
-  els.nrfiList.innerHTML = nrfis.map((p) => `<article class="market-card"><div class="market-card-top"><span class="market-badge ${p.confidence === "LEAN" ? "lean" : ""}">${escapeHtml(p.confidence || "READY")}</span><span class="market-sport">FIRST INNING</span></div><strong>${escapeHtml(p.recommendation || "—")} <em>${escapeHtml(p.away_abbr || "?")} @ ${escapeHtml(p.home_abbr || "?")}</em></strong><p class="market-matchup">${escapeHtml(p.home_pitcher || "TBD")} vs ${escapeHtml(p.away_pitcher || "TBD")}</p><div class="market-confirmed"><span>LINEUPS</span><b>Confirmed</b><span>MODEL</span><b>${escapeHtml(String(p.model_rating || p.confidence_pct || "—"))}/100</b></div></article>`).join("");
+  const nrfiTeam = (abbr) => {
+    const id = MLB_TEAM_IDS[String(abbr || "").toUpperCase()];
+    const logo = id ? `<img src="https://www.mlbstatic.com/team-logos/${id}.svg" alt="" loading="lazy" onerror="this.remove()">` : "";
+    return `<span class="ace-nrfi-team">${logo}<b>${escapeHtml(abbr || "?")}</b></span>`;
+  };
+  els.nrfiList.innerHTML = nrfis.map((p) => {
+    const call = String(p.recommendation || "—").toUpperCase();
+    const confidence = String(p.confidence || "READY");
+    const rating = Number(p.model_rating || p.confidence_pct);
+    return `<article class="ace-nrfi" data-call="${escapeHtml(call.toLowerCase())}" data-confidence="${escapeHtml(confidence.toLowerCase())}">
+      <header><span class="ace-nrfi-call">${escapeHtml(call)}</span><span class="ace-nrfi-confidence">${escapeHtml(confidence.charAt(0) + confidence.slice(1).toLowerCase())}</span></header>
+      <div class="ace-nrfi-game">${nrfiTeam(p.away_abbr)}<i>@</i>${nrfiTeam(p.home_abbr)}</div>
+      <p class="ace-nrfi-pitchers"><span>${escapeHtml(p.away_pitcher || "TBD")}</span><i>vs</i><span>${escapeHtml(p.home_pitcher || "TBD")}</span></p>
+      <div class="ace-nrfi-model"><span>Model</span><span class="ace-nrfi-meter" aria-hidden="true"><i style="width:${Number.isFinite(rating) ? Math.max(4, Math.min(100, rating)) : 0}%"></i></span><b>${escapeHtml(Number.isFinite(rating) ? String(rating) : "—")}<small>/100</small></b></div>
+      <footer><span class="ace-nrfi-dot" aria-hidden="true"></span>Lineups confirmed · First inning</footer>
+    </article>`;
+  }).join("");
   els.nrfiEmpty.hidden = nrfis.length > 0;
 }
 
@@ -5683,7 +5699,8 @@ function renderSavedGrid() {
     const correlation = node.querySelector(".saved-correlation");
     correlation.textContent = related.length ? `↗ ${related.length} related saved leg${related.length === 1 ? "" : "s"}` : "";
     correlation.hidden = related.length === 0;
-    node.querySelector(".saved-score").textContent = `${p.tierIcon || ""} ${slipScore(p)}`;
+    const tierWord = String(p.tierIcon || "").replace(/[^\p{L}\s]/gu, "").trim();
+    node.querySelector(".saved-score").innerHTML = `${tierWord ? `<small>${escapeHtml(tierWord.charAt(0) + tierWord.slice(1).toLowerCase())}</small>` : ""}<b>${escapeHtml(slipScore(p))}</b>`;
     node.querySelector(".saved-sport-tag").textContent = p.sport || "";
 
     const checkbox = node.querySelector(".saved-checkbox");
@@ -5908,9 +5925,9 @@ function renderSlate(data) {
         </span>
         <span class="slate-pitcher">${escapeHtml(e.pitcher)} <span class="slate-hand">· ${escapeHtml(e.hand)}HP</span></span>
         <span class="slate-stats">
-          <span><small>Starter ERA</small><b>${e.era.toFixed(2)}</b></span>
-          <span><small>HR allowed / 9</small><b>${e.hr9.toFixed(2)}</b></span>
-          <span><small>Strikeouts / 9</small><b>${e.k9.toFixed(2)}</b></span>
+          <span><small>ERA</small><b>${e.era.toFixed(2)}</b></span>
+          <span><small>HR / 9</small><b>${e.hr9.toFixed(2)}</b></span>
+          <span><small>K / 9</small><b>${e.k9.toFixed(2)}</b></span>
           <span><small>Bullpen</small><b>${escapeHtml(bpText)}</b></span>
         </span>
       </span>
@@ -6355,6 +6372,9 @@ const BOT_TIER = {
   RESEARCH: { badge: "👁️ MATCHUP", cls: "tier-research" },
 };
 
+// The same tiers as words, for the board's cards.
+const BOARD_TIER_LABEL = { ELITE: "Elite", STRONG: "Strong", GOOD: "Good", LEAN: "Lean", RISKY: "Risky", FADE: "Fade", RESEARCH: "Matchup" };
+
 // Rows with no stats-tier (no pitcher match / stats card unavailable) never
 // show as bare "UNRATED" on the bot — it falls back to a score-based emoji
 // (see _score_emoji in vortex.py). Mirror that exact scale here instead of
@@ -6570,8 +6590,7 @@ function renderBotBoard(data) {
 
   props.forEach((p, i) => {
     const row = document.createElement("div");
-    row.className = "slate-row v2-row v2-card";
-    row.style.animationDelay = `${i * 35}ms`;
+    row.style.animationDelay = `${Math.min(i, 12) * 35}ms`;
     row.setAttribute("role", "button");
     row.setAttribute("tabindex", "0");
 
@@ -6580,14 +6599,23 @@ function renderBotBoard(data) {
     const matchupCoverage = Number(stats.matchup_coverage);
     // Preserve the f4042bf threshold for labeling limited matchup coverage.
     const lowCoverage = Number.isFinite(matchupCoverage) && matchupCoverage < 0.45;
-    const matchupBadge = Number.isFinite(matchupScore)
-      ? lowCoverage
-        ? `<span class="v2-card-matchup-score" data-band="limited">MATCHUP ${Math.round(matchupScore)} · LIMITED DATA (${Math.round(matchupCoverage * 100)}% cov.)</span>`
-        : `<span class="v2-card-matchup-score" data-band="${matchupScore >= 75 ? "strong" : matchupScore >= 65 ? "favorable" : matchupScore >= 55 ? "slight" : matchupScore >= 45 ? "neutral" : matchupScore >= 35 ? "caution" : "unfavorable"}">MATCHUP ${Math.round(matchupScore)} · ${boardMatchupLabel(matchupScore)}</span>`
-      : `<span class="v2-card-matchup-score" data-band="neutral">MATCHUP NOT GRADED</span>`;
-    const sidePfx = stats.side === "under" ? "U" : "O";
+    const band = !Number.isFinite(matchupScore) ? "none"
+      : lowCoverage ? "limited"
+      : matchupScore >= 75 ? "strong" : matchupScore >= 65 ? "favorable" : matchupScore >= 55 ? "slight" : matchupScore >= 45 ? "neutral" : matchupScore >= 35 ? "caution" : "unfavorable";
+    const matchupText = !Number.isFinite(matchupScore) ? "Matchup not graded"
+      : lowCoverage ? `Limited data · ${Math.round(matchupCoverage * 100)}% coverage`
+      : boardMatchupLabel(matchupScore).toLowerCase().replace(/^./, (c) => c.toUpperCase());
+    const matchupHtml = `<span class="ace-prop-matchup" data-band="${band}">
+        <span class="ace-prop-matchup-label">Matchup</span>
+        <span class="ace-prop-meter" aria-hidden="true"><i style="width:${Number.isFinite(matchupScore) ? Math.max(4, Math.min(100, matchupScore)) : 0}%"></i></span>
+        <span class="ace-prop-matchup-score">${Number.isFinite(matchupScore) ? `<b>${Math.round(matchupScore)}</b>` : ""}<small>${escapeHtml(matchupText)}</small></span>
+      </span>`;
+    const side = stats.side === "under" ? "Under" : "Over";
     const tier = BOT_TIER[p.tier] || botScoreBadge(p.vortex_score);
-    const sportTag = `${SPORT_EMOJI[p.sport] || "🎯"} ${p.sport || ""}`;
+    const tierKey = tier.cls.replace("tier-", "");
+    const tierText = BOARD_TIER_LABEL[p.tier] || (Number.isFinite(Number(p.vortex_score)) ? `Score ${p.vortex_score}` : "Unrated");
+    row.className = "ace-prop v2-row";
+    row.dataset.tier = tierKey;
 
     const playerId = stats.player_id || "";
     let headshotUrl = "";
@@ -6598,35 +6626,38 @@ function renderBotBoard(data) {
         headshotUrl = `https://img.mlbstatic.com/mlb-photos/image/upload/w_120,q_auto:best/v1/people/${playerId}/headshot/silo/current`;
       }
     }
-    const sportEmoji = p.sport === "NBA" ? "🏀" : "⚾";
     const headshotHtml = headshotUrl
-      ? `<img class="v2-card-headshot" src="${headshotUrl}" alt="" loading="lazy" onerror="this.src='https://img.mlbstatic.com/mlb-photos/image/upload/w_120,q_auto:best/v1/people/${playerId}/headshot/67/current'; this.onerror=null;" />`
-      : `<div class="v2-card-headshot v2-card-headshot-fallback">${sportEmoji}</div>`;
+      ? `<img src="${headshotUrl}" alt="" loading="lazy" onerror="this.src='https://img.mlbstatic.com/mlb-photos/image/upload/w_120,q_auto:best/v1/people/${playerId}/headshot/67/current'; this.onerror=null;" />`
+      : `<span class="ace-prop-initials">${escapeHtml(initialsFor(p.player_name || ""))}</span>`;
 
     const opponent = stats.opponent || stats.matchup?.opponent || "";
+    const team = stats.team_abbr || "";
     const gameTime = p.commence_time ? new Date(p.commence_time) : null;
     const timeStr = gameTime ? gameTime.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
     const isHome = stats.is_home;
-    const matchupLine = opponent ? (isHome ? `vs ${opponent}` : `@ ${opponent}`) : "";
+    const matchupLine = opponent ? `${team ? `${escapeHtml(team)} ` : ""}${isHome ? "vs" : "@"} ${escapeHtml(opponent)}` : escapeHtml(team);
 
-    const evText = fmtBotEv(p);
+    const evText = fmtBotEv(p).replace(/^EV /, "");
+    const evNumber = Number(p.ev_percentage);
+    const evTone = evText === "n/a" || !Number.isFinite(evNumber) || evNumber === 0 ? "" : evNumber > 0 ? "pos" : "neg";
+    const l10 = stats.splits?.l10?.rate != null ? `${stats.side === "under" ? 100 - stats.splits.l10.rate : stats.splits.l10.rate}%` : "—";
 
     row.innerHTML = `
-      ${headshotHtml}
-      <span class="v2-card-body">
-        <span class="v2-card-top">
-          <span class="v2-card-name">${escapeHtml(p.player_name)}</span>
-          <span class="v2-card-score">${escapeHtml(tier.badge)}</span>
+      <span class="ace-prop-top">
+        <span class="ace-prop-photo">${headshotHtml}</span>
+        <span class="ace-prop-who">
+          <span class="ace-prop-name">${escapeHtml(p.player_name)}</span>
+          <span class="ace-prop-game">${matchupLine}${timeStr ? `<i aria-hidden="true">·</i>${escapeHtml(timeStr)}` : ""}</span>
         </span>
-        <span class="v2-card-bottom">
-          <span class="v2-card-matchup">${matchupLine}${timeStr ? ` · ${timeStr}` : ""}</span>
-          <span class="v2-card-prop">${sidePfx} ${p.line} ${escapeHtml(p.stat_type)}</span>
-          <span class="v2-card-ev">${escapeHtml(evText)}</span>
-          <span class="v2-card-confidence">KP SCORE ${escapeHtml(String(p.vortex_score ?? "—"))} · ${escapeHtml(stats.splits?.l10?.rate != null ? `${stats.side === "under" ? 100 - stats.splits.l10.rate : stats.splits.l10.rate}% L10` : "sample pending")}</span>
-          ${matchupBadge}
-        </span>
+        <span class="ace-prop-tier">${escapeHtml(tierText)}</span>
       </span>
-      <span class="v2-chevron" aria-hidden="true">›</span>
+      <span class="ace-prop-line" data-side="${side.toLowerCase()}"><b>${side}</b><strong>${escapeHtml(String(p.line))}</strong><span>${escapeHtml(p.stat_type)}</span></span>
+      <span class="ace-prop-stats">
+        <span><small>Score</small><b>${escapeHtml(String(p.vortex_score ?? "—"))}</b></span>
+        <span><small>Last 10</small><b>${escapeHtml(l10)}</b></span>
+        <span><small>EV</small><b class="${evTone}">${escapeHtml(evText)}</b></span>
+      </span>
+      ${matchupHtml}
     `;
     const openResearch = () => {
       if (p.sport === "MLB" && BOT_STAT_TO_RESEARCH_STAT[p.stat_type]) {
