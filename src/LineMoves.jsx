@@ -1,7 +1,6 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {Activity,ArrowDown,ArrowUp,ChevronDown,Grid2X2,RefreshCw,Search,X} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
-import {PhoneAccountButtons} from './UnifiedFinder';
 import './line-moves.css';
 
 // Line Moves: every change to a line the site sees, newest first
@@ -161,7 +160,7 @@ export function LineMoves(){
    <div className="moves-title"><span className="moves-mark"><Activity size={18} aria-hidden="true"/></span><h1 id="line-moves-title">Line Moves</h1>
     <span className="moves-live" data-state={status}><i aria-hidden="true"/>{status==='error'?'Offline':'Live'}</span></div>
    <div className="moves-head-side">{checkedAt>0&&<span className="moves-updated">Updated {ago(checkedAt,now)==='now'?'just now':ago(checkedAt,now)+' ago'}</span>}
-    <button type="button" className="moves-icon" aria-label="Check for new moves" onClick={load}><RefreshCw size={16}/></button><PhoneAccountButtons/></div>
+    <button type="button" className="moves-icon" aria-label="Check for new moves" onClick={load}><RefreshCw size={16}/></button></div>
   </header>
 
   <div className="moves-controls">

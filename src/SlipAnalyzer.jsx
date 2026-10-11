@@ -15,7 +15,6 @@ import {shareSlip} from './slip-share';
 import {Record,History} from './SlipHistory';
 import {newSlipId,slipPayload,saveSlip,removeSlip,loadHistory} from './slip-history';
 import {pickBuilder} from './pick-builder-client';
-import {PhoneAccountButtons} from './UnifiedFinder';
 import './slip-analyzer.css';
 
 // The Slip Analyzer (the Slip Analyzer tab): a screenshot of a slip goes
@@ -548,7 +547,6 @@ export function SlipAnalyzer(){
   <header className="sa-head">
    <div><span className="sa-eyebrow">Slip Analyzer</span><h1>Grade your parlay.</h1>
     <p>Upload a screenshot of your picks. The parlay gets one grade, and every pick is checked against the player's recent games, the matchup and sportsbook odds.</p></div>
-   <PhoneAccountButtons/>
   </header>
 
   {phase==='pick'&&<div className="sa-drop" data-over={over||undefined}

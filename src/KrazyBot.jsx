@@ -158,10 +158,10 @@ export function KrazyBot(){
    const phone=touch&&window.matchMedia('(max-width: 760px)').matches;
    const up=phone&&typing;
    const open=!phone&&touch&&typing&&height<full-120;
-   if(open){
-    node.style.setProperty('--kb-vv-top',`${Math.round(viewport?viewport.offsetTop:0)}px`);
-    node.style.setProperty('--kb-vv-h',`${Math.round(height)}px`);
-   }
+   // Typing, iOS scrolls the page under the keyboard: the bot follows the
+   // visible part of the screen so the input never rides up under the clock.
+   if(open||up)node.style.setProperty('--kb-vv-top',`${Math.round(viewport?viewport.offsetTop:0)}px`);
+   if(open)node.style.setProperty('--kb-vv-h',`${Math.round(height)}px`);
    const moved=open!==node.hasAttribute('data-keyboard')||up!==node.hasAttribute('data-typing');
    node.toggleAttribute('data-keyboard',open);
    node.toggleAttribute('data-typing',up);

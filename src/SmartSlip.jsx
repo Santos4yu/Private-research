@@ -10,7 +10,6 @@ import {loadMatchups,withMatchups} from './slip-matchup';
 import {withPoolDefense} from './slip-analyst';
 import {gradeMatchups,withMatchup,passesMatchup,overOnly} from './krazy-bot';
 import {loadGames,loadTeammates,withGame} from './slip-games';
-import {PhoneAccountButtons} from './UnifiedFinder';
 import {MatchupCase} from './MatchupCase';
 import {opponentLogo,teamLogo,Img,Face,TierBadge,Records,Meter,Games} from './PickParts';
 import './smart-slip.css';
@@ -336,7 +335,6 @@ export function SmartSlip(){
    <div className="ss-title"><span className="ss-mark" aria-hidden="true"><TicketIcon size={22}/></span>
     <div><h1 id="smart-slip-title">Parlay Builder</h1>
      <p>Pick a payout and your sports. Slips are built from Elite and Strong picks, overs only.</p></div></div>
-   <PhoneAccountButtons/>
   </header>
 
   <div className="ss-controls">

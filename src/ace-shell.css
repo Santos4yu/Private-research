@@ -169,3 +169,17 @@
   :root[data-theme] .lab-section-heading h2 { font-size: 22px; }
   :root[data-theme] .lab-board-button { padding: 14px !important; }
 }
+
+/* Phones: profile and settings live on Finder and Research only (Finder
+   draws its own pair in its header; Research uses the shared ones). */
+@media (max-width: 760px) {
+  :root[data-theme] body:not(:has(#panel-research:not([hidden]), #panel-finder:not([hidden]))) :is(.site-account-bar, #settings-btn) { display: none !important; }
+
+  /* Pages without the site header start below the status bar and iOS's
+     blur band (--site-status-inset, site-access.css / app.js), the way
+     Line Moves, Moneylines, Slip Analyzer and the Parlay Builder do. */
+  :root[data-theme] #app-shell#app-shell #panel-sheets { padding-top: calc(14px + var(--site-status-inset, 0px)) !important; }
+  .krazy-bot { --kb-top: var(--site-status-inset, 0px); }
+  /* Typing: iOS scrolls the page under the keyboard (--kb-vv-top, KrazyBot.jsx). */
+  .krazy-bot[data-typing] { top: calc(var(--kb-vv-top, 0px) + var(--site-status-inset, 0px)); }
+}

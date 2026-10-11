@@ -1,7 +1,6 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ChevronDown,RefreshCw,Trophy,TriangleAlert} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
-import {PhoneAccountButtons} from './UnifiedFinder';
 import {isMoneylinePlay,topMoneylines} from './moneyline-view';
 import './moneylines.css';
 
@@ -334,7 +333,6 @@ export function Moneylines(){
   <header className="ml2-head">
    <div><span className="ml2-eyebrow"><Trophy size={13}/>Moneylines</span><h1 id="ml2-title">Grade the matchup.</h1>
     <p>Both teams, offense, defense and available personnel context. Ranked plays require matchup support and a worthwhile price.</p></div>
-   <PhoneAccountButtons/>
   </header>
 
   <Record record={record}/>
