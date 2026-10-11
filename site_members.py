@@ -10,6 +10,8 @@ ever signed in:
   An item that isn't listed follows the site switch.
 - suspended: locked out of the whole site until the admin lifts it.
 - badge: a role shown next to their name (account menu, community posts).
+- comped: free access while the site requires a paid subscription
+  (whop_billing.py) -- staff, testers, giveaways.
 - note: a private admin note. Never sent to the member.
 
 Maintenance mode still closes the site to everyone but admins.
@@ -106,10 +108,13 @@ def validate_rule(body):
     note = body.get('note') or ''
     if not isinstance(note, str) or len(note.strip()) > NOTE_MAX:
         raise ValueError(f'Notes can be up to {NOTE_MAX} characters')
-    if not (access or suspended or badge or note.strip()):
+    comped = body.get('comped', False)
+    if not isinstance(comped, bool):
+        raise ValueError('Free access must be true or false')
+    if not (access or suspended or badge or note.strip() or comped):
         return None
     return {'access': dict(sorted(access.items())), 'suspended': suspended, 'badge': badge,
-            'note': note.strip(), 'updatedAt': _now()}
+            'note': note.strip(), 'comped': comped, 'updatedAt': _now()}
 
 
 def save_rule(email, rule):
@@ -153,6 +158,7 @@ def viewer_policy(policy, rule):
         'disabledFinderSports': [sport for sport in FINDER_SPORTS if not item_open(policy, rule, f'finderSport:{sport}')],
         'suspended': bool(rule and rule.get('suspended')),
         'badge': badge_of(rule),
+        'comped': bool(rule and rule.get('comped')),
     }
 
 

@@ -1,6 +1,11 @@
 // A suspended member (site_members.py) is signed in but let into nothing.
+// While the site requires a paid subscription (whop_billing.py), a signed-in
+// member also needs an active one, or free access from the admin.
 export function accessGranted(policy) {
-  return Boolean(policy && (policy.isAdmin || (!policy.maintenance && !policy.suspended && (!policy.requireLogin || policy.account))));
+  return Boolean(policy && (policy.isAdmin || (!policy.maintenance && !policy.suspended && (!policy.requireLogin || policy.account) && !needsSubscription(policy))));
+}
+export function needsSubscription(policy){
+  return Boolean(policy&&policy.paidAccess&&policy.account&&!policy.isAdmin&&!policy.comped&&!policy.subscription?.active&&!policy.temporaryPublicAccess);
 }
 export function accountControlsVisible(policy){
   return accessGranted(policy)&&Boolean(policy.account||policy.isAdmin);

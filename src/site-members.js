@@ -71,11 +71,13 @@ export function mountMembersPanel(host,{request,names}){
 
  function editor(member){
   const rule=member.rule||{};
-  const draft={access:{...(rule.access||{})},badge:rule.badge||'',suspended:Boolean(rule.suspended),note:rule.note||''};
+  const draft={access:{...(rule.access||{})},badge:rule.badge||'',suspended:Boolean(rule.suspended),comped:Boolean(rule.comped),note:rule.note||''};
   const note=h('textarea',{maxlength:'200',rows:'2',placeholder:'Only admins see this'});note.value=draft.note;
   note.addEventListener('input',()=>{draft.note=note.value;});
   const suspend=h('input',{type:'checkbox',name:'memberSuspended'});suspend.checked=draft.suspended;
   suspend.addEventListener('change',()=>{draft.suspended=suspend.checked;});
+  const comp=h('input',{type:'checkbox',name:'memberComped'});comp.checked=draft.comped;
+  comp.addEventListener('change',()=>{draft.comped=comp.checked;});
   const badges=h('div',{className:'site-member-choices',role:'group','aria-label':'Badge'});
   const badgeOptions=[{key:'',label:'None'},...data.badges];
   const paintBadges=()=>badges.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.value===draft.badge)));
@@ -98,7 +100,7 @@ export function mountMembersPanel(host,{request,names}){
   save.addEventListener('click',async()=>{
    save.disabled=true;saveStatus.textContent='Saving…';
    try{
-    const result=await request('/api/v2-admin',{action:'member-rule',email:member.email,rule:{access:draft.access,badge:draft.badge,suspended:draft.suspended,note:draft.note}});
+    const result=await request('/api/v2-admin',{action:'member-rule',email:member.email,rule:{access:draft.access,badge:draft.badge,suspended:draft.suspended,comped:draft.comped,note:draft.note}});
     const index=data.members.findIndex(entry=>entry.email===member.email);
     if(index>=0)data.members[index]=result.member;else data.members.unshift(result.member);
     open=member.email;render();
@@ -106,15 +108,15 @@ export function mountMembersPanel(host,{request,names}){
    }catch(error){saveStatus.textContent=error.message;save.disabled=false;}
   });
   const reset=h('button',{type:'button',className:'site-member-reset',onClick:()=>{
-   draft.access={};draft.badge='';draft.suspended=false;draft.note='';
-   note.value='';suspend.checked=false;paintBadges();
+   draft.access={};draft.badge='';draft.suspended=false;draft.comped=false;draft.note='';
+   note.value='';suspend.checked=false;comp.checked=false;paintBadges();
    groups.forEach(group=>group.querySelectorAll('.site-member-seg').forEach(seg=>seg.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.value==='default')))));
    saveStatus.textContent='Cleared here. Save to put them back on the website defaults.';
   }},'Clear rules');
   return h('div',{className:'site-member-editor'},
    h('div',{className:'site-member-section'},h('span',{className:'site-member-label',text:'Badge'}),badges),
    h('div',{className:'site-member-section'},h('span',{className:'site-member-label',text:'Access'}),groups),
-   h('div',{className:'site-control-switches'},h('label',{},suspend,h('span',{},'Suspend this account',h('small',{text:'They stay signed in but can’t use any part of the site until you lift it.'})))),
+   h('div',{className:'site-control-switches'},h('label',{},comp,h('span',{},'Free Pro access',h('small',{text:'Gets in without a subscription while the website requires one.'}))),h('label',{},suspend,h('span',{},'Suspend this account',h('small',{text:'They stay signed in but can’t use any part of the site until you lift it.'})))),
    h('label',{className:'site-member-note'},'Private note',note),
    h('div',{className:'site-member-actions'},save,reset),saveStatus);
  }
@@ -126,6 +128,7 @@ export function mountMembersPanel(host,{request,names}){
    isNew&&h('span',{className:'site-member-chip',text:'New'}),
    rule?.badge&&memberBadge(data.badges.find(badge=>badge.key===rule.badge)||{key:rule.badge,label:rule.badge}),
    rule?.suspended&&h('span',{className:'site-member-chip','data-tone':'danger',text:'Suspended'}),
+   rule?.comped&&h('span',{className:'site-member-chip','data-tone':'on',text:'Free Pro'}),
    on>0&&h('span',{className:'site-member-chip','data-tone':'on',text:`+${on} access`}),
    off>0&&h('span',{className:'site-member-chip','data-tone':'off',text:`${off} removed`}));
   const head=h('button',{type:'button',className:'site-member-head','aria-expanded':String(expanded),onClick:()=>{open=expanded?null:member.email;render();}},

@@ -24,6 +24,8 @@ from auth_core import (  # noqa: E402
 ACCOUNT_DATA_ACTIONS = ('profile-save', 'prefs-save', 'account-image-save')
 ACCOUNT_BODY_MAX = 2200 * 1024
 PUSH_ACTIONS = ('push-subscribe', 'push-unsubscribe')
+BILLING_ACTIONS = ('checkout-start', 'billing-confirm', 'billing-refresh')
+WEBHOOK_BODY_MAX = 512 * 1024
 
 
 class handler(BaseHTTPRequestHandler):
@@ -60,6 +62,7 @@ class handler(BaseHTTPRequestHandler):
                 import site_members
                 viewer=site_members.viewer_policy(policy,site_members.rule_for(site_members.read_rules(),account))
                 site_members.touch(account)
+                if policy.get('paidAccess'):viewer['subscription']=self._subscription(account)
             return self._json(200,{**policy,**viewer,'accountsConfigured':configured() and not policy.get('temporaryPublicAccess',False),'account':account,'refreshAvailable':pending,'isAdmin':admin_auth.is_admin_request(self.headers)},session_updates)
         if action == "account":
             # The member's own profile and synced settings (account_profile.py).
@@ -71,6 +74,8 @@ class handler(BaseHTTPRequestHandler):
             return self._json(200,{'profile':account_profile.public_profile(uid,account_profile.read_profile(uid)),'prefs':account_profile.read_prefs(uid)})
         if action == "account-image":
             return self._account_image(query)
+        if action == "pricing":
+            return self._pricing()
         if action == "push-key":
             # The site's public key, which a browser needs to turn alerts on.
             import push_notices
@@ -95,6 +100,10 @@ class handler(BaseHTTPRequestHandler):
         return self._json(404, {"error": "Unknown session action"})
 
     def do_POST(self):
+        # Whop's webhook comes from Whop's servers, so it is checked by its
+        # signature instead of the same-origin rule below.
+        if (parse_qs(urlparse(getattr(self,'path','')).query).get('action') or [''])[0]=='whop-webhook':
+            return self._whop_webhook()
         from site_controls import same_origin,read
         from account_auth import call,cookies,REFRESH,session_cookies,clear_cookies,identity,refresh_session,remembered
         if not same_origin(self.headers):return self._json(403,{'error':'Same-origin request required'})
@@ -108,6 +117,7 @@ class handler(BaseHTTPRequestHandler):
             if action in ACCOUNT_DATA_ACTIONS:return self._account_data(action,body)
             if length>8192:return self._json(400,{'error':'Invalid request size'})
             if action in PUSH_ACTIONS:return self._push(action,body)
+            if action in BILLING_ACTIONS:return self._billing(action,body)
             email=body.get('email','');password=body.get('password','')
             # Remember me: persistent cookies that survive closing the browser,
             # or session cookies that don't. Defaults to remembering, which is
@@ -175,6 +185,60 @@ class handler(BaseHTTPRequestHandler):
             else:push_notices.unsubscribe(subscription.get('endpoint') if isinstance(subscription,dict) else None)
         except ValueError as exc:return self._json(400,{'error':str(exc)})
         except Exception:return self._json(503,{'error':'Alerts are unavailable right now'})
+        return self._json(200,{'ok':True})
+
+    def _subscription(self,account):
+        """The member's own subscription, for their page. A Whop or storage
+        hiccup reads as unknown rather than failing the whole status poll."""
+        import whop_billing
+        try:return whop_billing.public_subscription(whop_billing.subscription(account))
+        except Exception:return None
+
+    def _pricing(self):
+        """The plans on the pricing page: to signed-in members, and to the
+        admin previewing it."""
+        import whop_billing
+        from account_auth import identity
+        from v2.board import admin_auth
+        if not identity(self.headers) and not admin_auth.is_admin_request(self.headers):
+            return self._json(401,{'error':'Sign in to see plans'})
+        if not whop_billing.configured():return self._json(200,{'configured':False,'plans':[]})
+        try:return self._json(200,{'configured':True,'plans':whop_billing.plans()})
+        except whop_billing.BillingUnavailable as exc:return self._json(503,{'error':str(exc)})
+
+    def _billing(self,action,body):
+        """Subscribing through Whop, for the signed-in member only."""
+        import whop_billing
+        from account_auth import identity
+        account=identity(self.headers)
+        if not account:return self._json(401,{'error':'Sign in to subscribe'})
+        try:
+            if action=='checkout-start':
+                origin=self._site_origin()
+                session=whop_billing.start_checkout(account,body.get('plan'),origin+'/?checkout=done' if origin else None)
+                return self._json(200,{'session':session})
+            if action=='billing-confirm':
+                record=whop_billing.confirm_payment(account,body.get('payment'))
+            else:
+                record=whop_billing.subscription(account)
+                if record and record.get('membershipId'):record=whop_billing.sync_membership(record['membershipId']) or record
+            return self._json(200,{'subscription':whop_billing.public_subscription(record)})
+        except ValueError as exc:return self._json(400,{'error':str(exc)})
+        except whop_billing.BillingUnavailable as exc:return self._json(503,{'error':str(exc)})
+
+    def _whop_webhook(self):
+        """Whop telling us a membership started, renewed or ended. Answered
+        with an error only when Whop should send it again."""
+        import whop_billing
+        try:length=int(self.headers.get('Content-Length','0'))
+        except ValueError:length=0
+        if not 0<length<=WEBHOOK_BODY_MAX:return self._json(400,{'error':'Invalid request size'})
+        raw=self.rfile.read(length)
+        headers={name.lower():value for name,value in self.headers.items()}
+        try:event=whop_billing.verify_webhook(headers,raw)
+        except ValueError:return self._json(401,{'error':'Invalid signature'})
+        try:whop_billing.handle_event(event)
+        except (whop_billing.BillingUnavailable,StorageUnavailable):return self._json(503,{'error':'Try again'})
         return self._json(200,{'ok':True})
 
     def _watch_picks(self,uid,prefs=None):

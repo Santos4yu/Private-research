@@ -181,6 +181,10 @@ class handler(BaseHTTPRequestHandler):
                 if settings['requireLogin']:
                     from account_auth import configured
                     if not configured():return self._send(409,{"error":"Configure email accounts before requiring login"})
+                if settings['paidAccess']:
+                    import whop_billing
+                    if not settings['requireLogin']:return self._send(409,{"error":"Paid access needs “Require email account” on, so every subscription belongs to an account"})
+                    if not whop_billing.configured() or not whop_billing.webhook_configured():return self._send(409,{"error":"Set WHOP_API_KEY, WHOP_WEBHOOK_SECRET and WHOP_PLAN_IDS before requiring a paid subscription"})
                 if not store.set(KEY,json.dumps(settings)):return self._send(503,{"error":"Settings storage unavailable"})
                 return self._send(200,settings)
             if action == "member-rule":

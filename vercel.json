@@ -5,6 +5,7 @@
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/api/auth/:action", "destination": "/api/session?action=:action" },
+    { "source": "/api/whop/webhook", "destination": "/api/session?action=whop-webhook" },
     { "source": "/api/nfl/:resource", "destination": "/api/nfl?resource=:resource" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],

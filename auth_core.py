@@ -213,6 +213,20 @@ def parse_cookie_header(cookie_header: str, name: str) -> str:
     return ""
 
 
+def _member_session(policy, account) -> dict | None:
+    """A signed-in member's session, or None when they're suspended -- or
+    when the site requires a paid subscription (whop_billing.py) and they
+    have neither an active one nor free access from the admin."""
+    from site_members import is_suspended
+    if is_suspended(account):
+        return None
+    if policy.get('paidAccess'):
+        from whop_billing import has_paid_access
+        if not has_paid_access(account):
+            return None
+    return account
+
+
 def session_from_request_headers(headers) -> dict | None:
     """Convenience for API handlers: pass BaseHTTPRequestHandler.headers,
     get back the verified session payload or None. Cheap -- just checks the
@@ -231,8 +245,7 @@ def session_from_request_headers(headers) -> dict | None:
         return visitor()
     account=identity(headers)
     if account:
-        from site_members import is_suspended
-        return None if is_suspended(account) else account
+        return _member_session(policy,account)
     if policy['requireLogin']:return None
     if FREE_BETA_MODE:
         return _beta_payload()
@@ -284,8 +297,7 @@ def session_with_live_access(headers) -> dict | None:
         return visitor()
     account=identity(headers)
     if account:
-        from site_members import is_suspended
-        return None if is_suspended(account) else account
+        return _member_session(policy,account)
     if policy['requireLogin']:return None
     if FREE_BETA_MODE:
         return _beta_payload()

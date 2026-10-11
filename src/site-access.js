@@ -1,8 +1,9 @@
 import './site-access.css';
 import {serviceRequestError} from './storage-retry.js';
-import {accessGranted,accountControlsVisible,canUseTab,availableTab,canUseSport,canUseFinderSport,canUseSheet,hiddenTabs,ADMIN_TABS,FINDER_SPORTS,CHEAT_SHEETS} from './site-access-core.js';
+import {accessGranted,needsSubscription,accountControlsVisible,canUseTab,availableTab,canUseSport,canUseFinderSport,canUseSheet,hiddenTabs,ADMIN_TABS,FINDER_SPORTS,CHEAT_SHEETS} from './site-access-core.js';
 import {mountMembersPanel,memberBadge} from './site-members.js';
 import {mountAnnouncePanel} from './site-announce.js';
+import {renderPricing} from './billing.js';
 import {accountProfile,saveAccountProfile} from './account-sync.js';
 import {isOldBrandTheme} from './brand-colors.js';
 import './push-alerts.js';
@@ -158,6 +159,7 @@ function accountDialog(){
  const photoButton=button('',()=>file.click(),'site-profile-photo');photoButton.setAttribute('aria-label','Change profile photo');
  photoButton.append(avatar,element('span','Edit','site-profile-photo-edit'));
  const removePhoto=button('Remove photo',()=>{photo=null;paint();},'site-text-button site-profile-remove');
+ const plan=subscriptionSummary();
  const nameInput=document.createElement('input');nameInput.name='displayName';nameInput.maxLength=32;nameInput.autocomplete='nickname';nameInput.placeholder='How you appear in Community';
  const nameLabel=element('label',null,'site-profile-name');nameLabel.append(element('span','Display name'),nameInput);
  const who=element('p',account.email||'','site-account-email site-profile-email');if(badge)who.append(' ',memberBadge(badge));
@@ -198,8 +200,39 @@ function accountDialog(){
  const fields=element('div',null,'site-profile-fields');fields.append(nameLabel,who);
  row.append(photoButton,fields);
  form.append(row,file,removePhoto,message,save);
- dialog.append(form,element('p','Your slip, colors, presets and background follow this account to every device you sign in on.','site-profile-note'),signOut);
+ dialog.append(form,...(plan?[plan]:[]),element('p','Your slip, colors, presets and background follow this account to every device you sign in on.','site-profile-note'),signOut);
  fill();
+ document.body.append(dialog);dialog.showModal();
+}
+// The member's subscription, in their account menu, while paid access is on.
+function subscriptionSummary(){
+ if(!status?.paidAccess||!status.account)return null;
+ const box=element('div',null,'site-subscription');
+ if(status.comped){box.append(element('strong','Ace Props Pro'),element('span','Free access, courtesy of Ace Props.'));return box;}
+ const sub=status.subscription;if(!sub)return null;
+ const date=Date.parse(sub.renewsAt||'');const when=Number.isFinite(date)?new Date(date).toLocaleDateString([],{month:'short',day:'numeric',year:'numeric'}):'';
+ const line=sub.cancelAtPeriodEnd||sub.status==='canceling'?(when?`Cancelled · access until ${when}`:'Cancelled · access until the period ends'):sub.status==='past_due'?'Payment failed · update your card to keep access':sub.status==='trialing'?(when?`Free trial · ends ${when}`:'Free trial'):when?`Active · renews ${when}`:'Active';
+ box.append(element('strong','Ace Props Pro'),element('span',line));
+ if(sub.manageUrl){const link=element('a','Manage subscription');link.href=sub.manageUrl;link.target='_blank';link.rel='noopener';box.append(link);}
+ return box;
+}
+// The pricing page: members without a subscription while paid access is on,
+// or the admin previewing it from the admin panel.
+function renderPaywall(gate){
+ gate.dataset.view='pricing';gate.replaceChildren();
+ const wrap=element('div',null,'ace-pricing-wrap');gate.append(wrap);
+ renderPricing(wrap,{request,email:status?.account?.email||'',
+  onSignOut:async()=>{try{await request('/api/session',{action:'sign-out'});}catch{}location.reload();},
+  onRefresh:async()=>{await refreshSiteAccess();return accessGranted(status);}});
+}
+export function previewPricing(){
+ const dialog=element('dialog',null,'ace-pricing-dialog');
+ const wrap=element('div',null,'ace-pricing-wrap');dialog.append(wrap);
+ // Signed in with a member account as well: the checkout is live, so the
+ // admin can make a test purchase before turning paid access on for everyone.
+ renderPricing(wrap,{request,preview:true,live:Boolean(status?.account),email:status?.account?.email||'',onClose:()=>dialog.close(),
+  onRefresh:async()=>{try{return Boolean((await request('/api/session',{action:'billing-refresh'})).subscription?.active);}catch{return false;}}});
+ dialog.onclose=()=>dialog.remove();dialog.onclick=e=>{if(e.target===dialog||e.target===wrap)dialog.close();};
  document.body.append(dialog);dialog.showModal();
 }
 // The account button shows the member's photo once they have one.
@@ -262,7 +295,7 @@ function renderStatus(){
  const next=granted?availableTab(status,current):null;
  document.documentElement.dataset.allTabsLocked=String(granted&&!next);
  let empty=document.getElementById('site-all-locked');if(!empty){empty=element('section',null,'site-all-locked');empty.id='site-all-locked';empty.append(element('h2','In development'),element('p','Sections are temporarily locked. Your account and navigation are still available.'));document.body.append(empty);}empty.hidden=!(granted&&!next);
- const kind=granted?'none':status.maintenance?'maintenance':status.suspended&&status.account?'suspended':'login';gate.hidden=kind==='none';
+ const kind=granted?'none':status.maintenance?'maintenance':status.suspended&&status.account?'suspended':needsSubscription(status)?'paywall':'login';gate.hidden=kind==='none';
  document.documentElement.dataset.siteMaintenance=String(kind==='maintenance');
  const viewport=document.querySelector('meta[name=viewport]');if(viewport){viewport.dataset.originalContent??=viewport.content;viewport.content=kind==='maintenance'?'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover':viewport.dataset.originalContent;}
 
@@ -286,6 +319,8 @@ function renderStatus(){
    card.append(element('h1','Sign-in is being configured'),element('p','Please check back shortly.','site-auth-subtitle'));
    const form=authForm(card,'admin');form.querySelector('.site-auth-back').hidden=true;
    gate.append(card);
+  }else if(kind==='paywall'){
+   renderPaywall(gate);
   }else if(kind==='suspended'){
    delete gate.dataset.view;
    const card=element('section',null,'site-auth-card');card.append(brand());
@@ -502,7 +537,9 @@ export async function loadSiteControls(){
   if(panel==='members')mountMembersPanel(host.querySelector('.site-members-panel'),{request,names});
   if(panel==='announce')mountAnnouncePanel(host.querySelector('.site-announce-panel'),{request});
  }));
- const form=host.querySelector('form');for(const [key,title] of Object.entries({maintenance:'Maintenance mode — members cannot use the website',requireLogin:'Require email account to access research',registrationOpen:'Allow new account registrations'})){const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.name=key;input.checked=policy[key];label.append(input,document.createTextNode(title));host.querySelector('.site-control-switches').append(label);}
+ const form=host.querySelector('form');for(const [key,title] of Object.entries({maintenance:'Maintenance mode — members cannot use the website',requireLogin:'Require email account to access research',registrationOpen:'Allow new account registrations',paidAccess:'Require a paid subscription (Whop) — members subscribe before using the website'})){const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.name=key;input.checked=policy[key];label.append(input,document.createTextNode(title));host.querySelector('.site-control-switches').append(label);}
+ form.elements.paidAccess.checked=Boolean(policy.paidAccess);
+ host.querySelector('.site-control-switches').append(button('Preview the pricing page',previewPricing,'site-secondary-button site-pricing-preview'));
  form.elements.message.value=policy.message;
  for(const [key,title] of Object.entries(names).filter(([key])=>!ADMIN_TABS.includes(key))){const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.name='tab';input.value=key;input.checked=!policy.disabledTabs.includes(key);label.append(input,document.createTextNode(title));host.querySelector('fieldset').append(label);}
  const sportLabel=element('label');const sportInput=document.createElement('input');sportInput.type='checkbox';sportInput.name='sport';sportInput.value='nfl';sportInput.checked=!(policy.disabledSports||[]).includes('nfl');sportLabel.append(sportInput,document.createTextNode('NFL — show sport and allow NFL data'));host.querySelector('.site-sport-controls').append(sportLabel);
@@ -597,7 +634,7 @@ export async function loadSiteControls(){
  form.onsubmit=async e=>{e.preventDefault();const message=statusEl();const button=host.querySelector('[type=submit]');button.disabled=true;const bgUrl=form.elements.bgUrl.value.trim();
   const themePrimary=form.elements.themePrimary.value,themeSecondary=form.elements.themeSecondary.value,themeTint=Number(form.elements.themeTint.value);
   const themeIsDefault=themePrimary.toLowerCase()===DEFAULT_THEME.primary&&themeSecondary.toLowerCase()===DEFAULT_THEME.secondary&&themeTint===DEFAULT_THEME.tint;
-  try{await request('/api/v2-admin',{action:'site-settings',settings:{maintenance:form.elements.maintenance.checked,requireLogin:form.elements.requireLogin.checked,registrationOpen:form.elements.registrationOpen.checked,message:form.elements.message.value,disabledSports:[...form.querySelectorAll('[name=sport]')].filter(c=>!c.checked).map(c=>c.value),disabledFinderSports:[...form.querySelectorAll('[name=finderSport]')].filter(c=>!c.checked).map(c=>c.value),disabledSheets:[...form.querySelectorAll('[name=sheet]')].filter(c=>!c.checked).map(c=>c.value),disabledTabs:[...form.querySelectorAll('[name=tab]')].filter(c=>!c.checked).map(c=>c.value),backgroundImage:{url:bgUrl,opacity:Number(form.elements.bgOpacity.value)},theme:themeIsDefault?{primary:'',secondary:'',tint:0}:{primary:themePrimary,secondary:themeSecondary,tint:themeTint,ace:true}}});
+  try{await request('/api/v2-admin',{action:'site-settings',settings:{maintenance:form.elements.maintenance.checked,requireLogin:form.elements.requireLogin.checked,registrationOpen:form.elements.registrationOpen.checked,paidAccess:form.elements.paidAccess.checked,message:form.elements.message.value,disabledSports:[...form.querySelectorAll('[name=sport]')].filter(c=>!c.checked).map(c=>c.value),disabledFinderSports:[...form.querySelectorAll('[name=finderSport]')].filter(c=>!c.checked).map(c=>c.value),disabledSheets:[...form.querySelectorAll('[name=sheet]')].filter(c=>!c.checked).map(c=>c.value),disabledTabs:[...form.querySelectorAll('[name=tab]')].filter(c=>!c.checked).map(c=>c.value),backgroundImage:{url:bgUrl,opacity:Number(form.elements.bgOpacity.value)},theme:themeIsDefault?{primary:'',secondary:'',tint:0}:{primary:themePrimary,secondary:themeSecondary,tint:themeTint,ace:true}}});
   if(bgUrl){
    message.textContent='Saved. Checking that the image loads…';
    const loads=await probeImageLoads(bgUrl);

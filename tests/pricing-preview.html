@@ -1,0 +1,22 @@
+<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pricing layout fixture</title>
+<link rel="stylesheet" href="/src/site-access.css"></head>
+<body style="margin:0;background:#090b0d"><main id="site-policy-gate" class="site-policy-gate" data-view="pricing"><div class="ace-pricing-wrap" id="root"></div></main>
+<script type="module">
+// Layout fixture: the pricing page with made-up plans and no Whop calls.
+// ?state=unset shows the not-configured state, ?state=paid the after-payment one,
+// ?state=single a lone $7.99 monthly plan.
+import {renderPricing} from '/src/billing.js';
+const state=new URLSearchParams(location.search).get('state');
+const plans=[
+ {id:'plan_month',label:'Monthly',price:24.99,currency:'USD',period:'month',monthly:24.99,trialDays:0,savePercent:0},
+ {id:'plan_quarter',label:'Quarterly',price:59.99,currency:'USD',period:'3 months',monthly:19.96,trialDays:0,savePercent:20},
+ {id:'plan_year',label:'Annual',price:179.99,currency:'USD',period:'year',monthly:14.78,trialDays:0,savePercent:40},
+];
+async function request(url,body){
+ if(url.includes('pricing'))return state==='unset'?{configured:false,plans:[]}:{configured:true,plans:state==='single'?[{...plans[0],price:7.99,monthly:7.99}]:plans};
+ if(body?.action==='checkout-start')throw new Error('Fixture: Whop checkout is not loaded here.');
+ return {};
+}
+renderPricing(document.getElementById('root'),{request,email:'member@example.com',preview:state==='preview',onSignOut(){},onClose(){},onRefresh:async()=>false});
+if(state==='paid')setTimeout(()=>window.acePropsCheckoutComplete('plan_month',null),50);
+</script></body></html>

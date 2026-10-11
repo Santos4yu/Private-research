@@ -48,3 +48,16 @@ test('a suspended member is signed in but let into nothing, admins never suspend
  assert.equal(accessGranted(policy),false);assert.equal(canUseTab(policy,'research'),false);
  assert.equal(accessGranted({...policy,isAdmin:true}),true);
 });
+test('paid access: a member without a subscription waits at the pricing page',async()=>{
+ const {needsSubscription}=await import('../src/site-access-core.js');
+ const member={...base,account:{id:'mock'},paidAccess:true};
+ assert.equal(needsSubscription(member),true);assert.equal(accessGranted(member),false);
+ assert.equal(accessGranted({...member,subscription:{active:true}}),true);
+ assert.equal(accessGranted({...member,subscription:{active:false,status:'expired'}}),false);
+ assert.equal(accessGranted({...member,comped:true}),true);
+ assert.equal(accessGranted({...member,isAdmin:true}),true);
+ // Switch off: accounts get in exactly as before.
+ assert.equal(accessGranted({...member,paidAccess:false}),true);
+ // Signed out is still the sign-in page, never the pricing page.
+ assert.equal(needsSubscription({...member,account:null}),false);
+});

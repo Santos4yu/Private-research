@@ -32,7 +32,7 @@ SHEETS=('mlb:hr','mlb:hot','mlb:matchups','mlb:bvp','mlb:nrfi','mlb:park','mlb:s
  'nfl:td','nfl:firsttd','nfl:streaks','nfl:zones','nfl:redzone','nfl:speed','nfl:steam','nfl:shop','nfl:dvp','nfl:soft','nfl:goblins')
 LEGACY_SHEETS=tuple(key for key in SHEETS if key.startswith('mlb:'))
 HEX_COLOR_RE=re.compile(r'^#[0-9a-fA-F]{6}$')
-DEFAULT={'maintenance':False,'message':'We are updating Ace Props. Please check back shortly.','requireLogin':True,'registrationOpen':True,'disabledTabs':[],'disabledSports':[],'disabledFinderSports':[],'disabledSheets':[],'backgroundImage':{'url':'','opacity':35},'theme':{'primary':'','secondary':'','tint':0},'updatedAt':None}
+DEFAULT={'maintenance':False,'message':'We are updating Ace Props. Please check back shortly.','requireLogin':True,'registrationOpen':True,'paidAccess':False,'disabledTabs':[],'disabledSports':[],'disabledFinderSports':[],'disabledSheets':[],'backgroundImage':{'url':'','opacity':35},'theme':{'primary':'','secondary':'','tint':0},'updatedAt':None}
 def read():
  try:
   policy=read_saved()
@@ -76,6 +76,11 @@ def validate(body):
  for key in ('maintenance','requireLogin','registrationOpen'):
   if not isinstance(body.get(key),bool):raise ValueError('Switches must be true or false')
   result[key]=body[key]
+ # Paid access (whop_billing.py) came later, so settings saved before it
+ # existed leave it off.
+ paid=body.get('paidAccess',False)
+ if not isinstance(paid,bool):raise ValueError('Switches must be true or false')
+ result['paidAccess']=paid
  message=body.get('message','')
  if not isinstance(message,str) or not 1<=len(message.strip())<=240:raise ValueError('Maintenance message must contain 1–240 characters')
  result['message']=message.strip()
