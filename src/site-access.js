@@ -4,6 +4,7 @@ import {accessGranted,accountControlsVisible,canUseTab,availableTab,canUseSport,
 import {mountMembersPanel,memberBadge} from './site-members.js';
 import {mountAnnouncePanel} from './site-announce.js';
 import {accountProfile,saveAccountProfile} from './account-sync.js';
+import {isOldBrandTheme} from './brand-colors.js';
 import './push-alerts.js';
 import './install-guide.js';
 const ACCOUNT_ICON='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M5 21v-2a7 7 0 0 1 14 0v2" stroke="currentColor" stroke-width="1.6"/></svg>';
@@ -535,7 +536,9 @@ export async function loadSiteControls(){
  });
 
  // ---- Website color theme ----
- const theme=policy.theme&&policy.theme.primary?policy.theme:DEFAULT_THEME;
+ // An old blue site colour from before Ace Props shows (and saves) as the
+ // new default, so saving any other setting clears it (src/brand-colors.js).
+ const theme=policy.theme&&policy.theme.primary&&!isOldBrandTheme(policy.theme)?policy.theme:DEFAULT_THEME;
  form.elements.themePrimary.value=theme.primary;form.elements.themeSecondary.value=theme.secondary;form.elements.themeTint.value=String(theme.tint??0);
  const themeOutputs=host.querySelector('.site-theme-control').querySelectorAll('output');
  const syncThemeOutputs=()=>{themeOutputs[0].textContent=form.elements.themePrimary.value.toUpperCase();themeOutputs[1].textContent=form.elements.themeSecondary.value.toUpperCase();themeOutputs[2].textContent=`${form.elements.themeTint.value}%`;};
@@ -594,7 +597,7 @@ export async function loadSiteControls(){
  form.onsubmit=async e=>{e.preventDefault();const message=statusEl();const button=host.querySelector('[type=submit]');button.disabled=true;const bgUrl=form.elements.bgUrl.value.trim();
   const themePrimary=form.elements.themePrimary.value,themeSecondary=form.elements.themeSecondary.value,themeTint=Number(form.elements.themeTint.value);
   const themeIsDefault=themePrimary.toLowerCase()===DEFAULT_THEME.primary&&themeSecondary.toLowerCase()===DEFAULT_THEME.secondary&&themeTint===DEFAULT_THEME.tint;
-  try{await request('/api/v2-admin',{action:'site-settings',settings:{maintenance:form.elements.maintenance.checked,requireLogin:form.elements.requireLogin.checked,registrationOpen:form.elements.registrationOpen.checked,message:form.elements.message.value,disabledSports:[...form.querySelectorAll('[name=sport]')].filter(c=>!c.checked).map(c=>c.value),disabledFinderSports:[...form.querySelectorAll('[name=finderSport]')].filter(c=>!c.checked).map(c=>c.value),disabledSheets:[...form.querySelectorAll('[name=sheet]')].filter(c=>!c.checked).map(c=>c.value),disabledTabs:[...form.querySelectorAll('[name=tab]')].filter(c=>!c.checked).map(c=>c.value),backgroundImage:{url:bgUrl,opacity:Number(form.elements.bgOpacity.value)},theme:themeIsDefault?{primary:'',secondary:'',tint:0}:{primary:themePrimary,secondary:themeSecondary,tint:themeTint}}});
+  try{await request('/api/v2-admin',{action:'site-settings',settings:{maintenance:form.elements.maintenance.checked,requireLogin:form.elements.requireLogin.checked,registrationOpen:form.elements.registrationOpen.checked,message:form.elements.message.value,disabledSports:[...form.querySelectorAll('[name=sport]')].filter(c=>!c.checked).map(c=>c.value),disabledFinderSports:[...form.querySelectorAll('[name=finderSport]')].filter(c=>!c.checked).map(c=>c.value),disabledSheets:[...form.querySelectorAll('[name=sheet]')].filter(c=>!c.checked).map(c=>c.value),disabledTabs:[...form.querySelectorAll('[name=tab]')].filter(c=>!c.checked).map(c=>c.value),backgroundImage:{url:bgUrl,opacity:Number(form.elements.bgOpacity.value)},theme:themeIsDefault?{primary:'',secondary:'',tint:0}:{primary:themePrimary,secondary:themeSecondary,tint:themeTint,ace:true}}});
   if(bgUrl){
    message.textContent='Saved. Checking that the image loads…';
    const loads=await probeImageLoads(bgUrl);

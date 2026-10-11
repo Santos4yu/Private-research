@@ -1,6 +1,7 @@
 import {dockState} from './src/mobile-nav-core.js';
 import {initSiteAccess,siteTabAllowed,loadSiteControls,showLockedTab,availableSiteTab,refreshSiteAccess,dismissBootLoader} from './src/site-access.js';
 import {ADMIN_TABS} from './src/site-access-core.js';
+import {isOldBrandTheme} from './src/brand-colors.js';
 /* =========================================================
    Ace Props research — client-side renderer
    No backend, no database, no odds API. Reads a single JSON
@@ -158,11 +159,8 @@ const ACCENT_THEME_KEY = "vortex_custom_accents";
 const ACCENT_PRESETS_KEY = "vortex_accent_presets";
 const BG_IMAGE_KEY = "vortex_bg_image";
 const DEFAULT_ACCENTS = Object.freeze({ primary: "#00f58a", secondary: "#dce3e0", tint: 0 });
-// The colours the site shipped with before Ace Props. A device or site
-// theme still on them was never really a choice, so it follows the new
-// default instead.
-const LEGACY_DEFAULT_ACCENTS = new Set(["#0082fe", "#67a8ff"]);
-const isLegacyAccent = (theme) => LEGACY_DEFAULT_ACCENTS.has(String(theme?.primary || "").toLowerCase());
+// The old blue brand colours give way to the new default (src/brand-colors.js).
+const isLegacyAccent = isOldBrandTheme;
 try {
   const savedAccent = JSON.parse(localStorage.getItem(ACCENT_THEME_KEY) || "null");
   if (isLegacyAccent(savedAccent)) localStorage.removeItem(ACCENT_THEME_KEY);
@@ -570,7 +568,7 @@ function applyAccentTheme(theme, { persist = true, syncControls = true } = {}) {
   root.style.setProperty("--theme-accent-dim", `color-mix(in srgb, ${primary} 14%, transparent)`);
   root.style.setProperty("--theme-on-accent", accentTextColor(primary));
   localStorage.removeItem(THEME_KEY);
-  if (persist) localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify({ primary, secondary, tint }));
+  if (persist) localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify({ primary, secondary, tint, ace: true }));
   if (syncControls && els.primaryAccent) {
     els.primaryAccent.value = primary;
     els.secondaryAccent.value = secondary;
@@ -597,7 +595,12 @@ const APPEARANCE_REVERT_KEY = "vortex_appearance_reverted_version";
 let siteTheme = null;
 let siteUpdatedAt = null;
 function hasPersonalAccentTheme() {
-  return localStorage.getItem(ACCENT_THEME_KEY) !== null;
+  // Checked on every use, not only at start-up: signing in can bring an
+  // old blue back from the account's synced settings.
+  try {
+    const saved = JSON.parse(localStorage.getItem(ACCENT_THEME_KEY) || "null");
+    return !!saved && !isLegacyAccent(saved);
+  } catch (_) { return false; }
 }
 // True unless this exact site update has already been explicitly opted out
 // of on this device (see the Settings-panel "Use my own instead" toggle).
@@ -1205,7 +1208,7 @@ function wireSettingsPanel() {
       if (els.accentTintValue) els.accentTintValue.textContent = `${theme.tint}%`;
     });
     const save = () => {
-      localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify(theme));
+      localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify({ ...theme, ace: true }));
       els.accentStatus.textContent = "Colors saved automatically on this device.";
     };
     if (saveNow) save();

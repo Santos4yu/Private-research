@@ -122,6 +122,9 @@ def validate(body):
  if isinstance(theme_tint,bool) or not isinstance(theme_tint,(int,float)) or not 0<=theme_tint<=35:
   raise ValueError('Theme tint must be between 0 and 35')
  result['theme']={'primary':theme_primary.lower(),'secondary':theme_secondary.lower(),'tint':int(round(theme_tint))}
+ # Colours chosen since the Ace Props rebrand are marked, so visitors keep
+ # them even when they are blue (src/brand-colors.js).
+ if theme_primary and theme.get('ace') is True:result['theme']['ace']=True
  result['updatedAt']=datetime.now(timezone.utc).isoformat()
  return result
 RESOURCE_TABS={'players':'research','prediction':'research','game-log-filters':'research','team-insights':'slate','slate':'slate','v2-board':'v2','board':'v2'}
