@@ -19,7 +19,7 @@
 // anything.
 import {bookProbability} from './unified-finder-data.js';
 import {readPick, grade, conflicted, analystNote} from './slip-analyst.js';
-import {link} from './slip-correlation.js';
+import {link, against, together} from './slip-correlation.js';
 import {scoreParlay} from './slip-score.js';
 
 export const POWER = {2: 3, 3: 6, 4: 10, 5: 20, 6: 37.5};
@@ -159,7 +159,10 @@ export function assessLeg(row, side, {now = Date.now(), any = false, started = f
   let history = total / weight;
 
   const books = bookProbability(row.apps);
-  const bookOver = books ? books.over / 100 : null;
+  // No book prices PrizePicks' number: the books' nearest line for this
+  // stat, moved to it (line-value.js), weighed like a one-sided price.
+  const moved = !books && modifier === 'standard' && finite(row.bookLine?.over) ? row.bookLine : null;
+  const bookOver = books ? books.over / 100 : moved ? moved.over : null;
   const book = bookOver == null ? null : side === 'UNDER' ? 1 - bookOver : bookOver;
   const twoSided = books?.books.some(item => item.twoSided);
   // The chance this kind of line needs to break even, without a book: a
@@ -197,7 +200,7 @@ export function assessLeg(row, side, {now = Date.now(), any = false, started = f
   const factor = modifier === 'goblin' ? clamp(0.5 / fair, 0.45, 0.92) : modifier === 'demon' ? clamp(0.5 / fair, 1.1, 3.2) : 1;
   return {id: `${row.id}|${side}`, row, side, modifier, chance, history, book, factor, records, read, backed,
     grade: grade(read, chance, modifier === 'standard' ? 0.5 : fair, modifier), note: analystNote(row, side, read, {records, book}),
-    price: sidePrice(row.apps, side), game: gameKey(row), player: row.player};
+    price: sidePrice(row.apps, side), bookLine: moved?.line ?? null, game: gameKey(row), player: row.player};
 }
 
 /** Every pick worth considering from these rows. */
@@ -248,11 +251,13 @@ export function scoreSlip(legs, play = 'power', linkOf = pairLink) {
   return {legs, play, payout, ...scored, estimated, fair: 1 / scored.chance, links: pairs};
 }
 
-function fits(leg, chosen, perGame) {
+// Can `leg` join the picks chosen so far: not the same player or line,
+// no more than `perGame` from its game, nothing on it working against it.
+function fits(leg, chosen, perGame, linkOf = pairLink) {
   let sameGame = 0;
   for (const other of chosen) {
     if (other.player === leg.player || other.row.id === leg.row.id) return false;
-    if (other.game === leg.game && ++sameGame >= perGame) return false;
+    if (other.game === leg.game && (++sameGame >= perGame || against(linkOf(other, leg)))) return false;
   }
   return true;
 }
@@ -297,6 +302,23 @@ export function buildLadder(pool, {play = 'power', size = 'auto', mix = 'any', s
   const rule = MIXES[mix] || MIXES.any;
   const lockedLegs = pool.filter(leg => locked.includes(leg.id));
   const open = pool.filter(leg => !locked.includes(leg.id) && !excluded.includes(leg.id) && rule.kinds.includes(leg.modifier));
+  const byGame = new Map();
+  for (const leg of open) {
+    if (!byGame.has(leg.game)) byGame.set(leg.game, []);
+    byGame.get(leg.game).push(leg);
+  }
+  // Up to `most` picks not yet listed that go with one of `leads`, strongest first.
+  const partners = (listed, leads, most) => {
+    if (!most) return [];
+    const seen = new Set(listed.map(leg => leg.id));
+    const found = [];
+    for (const lead of leads) for (const other of byGame.get(lead.game) || []) {
+      if (seen.has(other.id) || other.player === lead.player || !together(linkOf(lead, other))) continue;
+      seen.add(other.id);
+      found.push(other);
+    }
+    return found.sort((a, b) => b.chance * b.factor - a.chance * a.factor).slice(0, most);
+  };
   const sizes = (size === 'auto' ? [2, 3, 4, 5, 6] : [Number(size)]).filter(n => (play === 'flex' ? FLEX[n] : POWER[n]) && n >= lockedLegs.length);
   const best = new Map();
   const count = (slip, kind) => slip.legs.filter(leg => leg.modifier === kind).length;
@@ -316,19 +338,23 @@ export function buildLadder(pool, {play = 'power', size = 'auto', mix = 'any', s
     : {standard: 0.7, goblin: 0.15, demon: 0.15};
   for (const n of sizes) {
     const slots = n - lockedLegs.length;
-    if (lockedLegs.some((leg, i) => !fits(leg, lockedLegs.slice(0, i), perGame))) continue;
+    if (lockedLegs.some((leg, i) => !fits(leg, lockedLegs.slice(0, i), perGame, linkOf))) continue;
     // The strongest picks of each kind allowed, so every payout level has
     // something to reach for. Fewer candidates for bigger slips keeps the
     // search quick.
     const limit = {0: 0, 1: 60, 2: 60, 3: 44, 4: 32, 5: 26, 6: 22}[slots];
     const shortlist = rule.kinds.flatMap(kind => open.filter(leg => leg.modifier === kind)
       .sort((a, b) => b.chance * b.factor - a.chance * a.factor).slice(0, Math.ceil(limit * shares[kind])));
+    // A slip that may take two from a game also looks at the picks that go
+    // with its strongest ones (a quarterback's yards and his top
+    // receiver's), though they'd miss the cut on their own.
+    if (perGame > 1) shortlist.push(...partners(shortlist, [...lockedLegs, ...shortlist.slice(0, 20)], {2: 10, 3: 6, 4: 4, 5: 3, 6: 2}[slots] || 0));
     const chosen = [...lockedLegs];
     const walk = start => {
       if (chosen.length === n) { consider(scoreSlip([...chosen], play, linkOf)); return; }
       for (let i = start; i <= shortlist.length - (n - chosen.length); i++) {
         const leg = shortlist[i];
-        if (!fits(leg, chosen, perGame)) continue;
+        if (!fits(leg, chosen, perGame, linkOf)) continue;
         chosen.push(leg);
         walk(i + 1);
         chosen.pop();
@@ -363,7 +389,8 @@ export function reasons(leg) {
   if (records.l10) add('l10', `${records.l10.won}/${records.l10.games}`, 'last 10', `${round(records.l10.rate)}%`);
   else if (records.l5) add('l5', `${records.l5.won}/${records.l5.games}`, 'last 5', `${round(records.l5.rate)}%`);
   if (records.season && records.season.games > (records.l10?.games || 0)) add('season', `${records.season.won}/${records.season.games}`, 'this season', `${round(records.season.rate)}%`);
-  if (leg.book != null) add('books', `${round(leg.book)}%`, 'sportsbooks', leg.price ? `${leg.price.book} ${formatPrice(leg.price.price)}` : null);
+  if (leg.book != null) add('books', `${round(leg.book)}%`, 'sportsbooks', leg.bookLine != null ? `their line ${figure(leg.bookLine)}`
+    : leg.price ? `${leg.price.book} ${formatPrice(leg.price.price)}` : null);
   const projection = leg.read?.projection;
   if (finite(projection)) add('projection', figure(Math.round(projection * 10) / 10), 'projection', `line ${figure(row.line)}`);
   const matchup = leg.read?.factors.find(item => item.key === 'matchup');

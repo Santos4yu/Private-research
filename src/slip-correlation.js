@@ -142,6 +142,14 @@ export function link(a, b) {
   return {rho, kind, text: words(kind, ...ordered)};
 }
 
+// Two picks that work against each other (a hitter and the pitcher
+// striking him out, two receivers splitting one team's targets) never go on
+// a slip the site builds; ones that help each other are sought out.
+export const AGAINST = -0.03;
+export const TOGETHER = 0.08;
+export const against = found => Boolean(found) && found.rho <= AGAINST;
+export const together = found => Boolean(found) && found.rho >= TOGETHER;
+
 /** Every linked pair among the picks: [{a, b, rho, kind, text, tone}], a and b being indexes. */
 export function links(picks) {
   const out = [];

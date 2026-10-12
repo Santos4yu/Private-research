@@ -16,7 +16,7 @@
 import {candidates, reasons, POWER, FLEX, assessLeg, gameKey} from './smart-slip.js';
 import {matchupRead, matchupGrade, withPoolDefense} from './slip-analyst.js';
 import {judge as judgeLeg, scoreEntry, TIERS, baselineOf, confidentUnder} from './slip-check.js';
-import {link} from './slip-correlation.js';
+import {link, links, jointChance, against, together} from './slip-correlation.js';
 import {withGame} from './slip-games.js';
 import {withMatchups} from './slip-matchup.js';
 
@@ -1790,13 +1790,22 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     // Two a game at most, unless there aren't games enough (one game asked for: all of it).
     const cap = perGameCap(pool, question.count);
     let avoided = null;
+    const clash = leg => chosen.map(other => link(asPick(other), asPick(leg))).find(against);
+    const open = leg => !chosen.includes(leg) && !chosen.some(other => other.player === leg.player) && (perGame.get(leg.game) || 0) < cap && !clash(leg);
+    const take = leg => { chosen.push(leg); perGame.set(leg.game, (perGame.get(leg.game) || 0) + 1); };
     for (const leg of pool) {
-      const against = chosen.map(other => link(asPick(other), asPick(leg))).find(found => found && found.rho <= -0.03);
-      if (against) { avoided ||= {leg, text: against.text}; continue; }
-      if ((perGame.get(leg.game) || 0) >= cap) continue;
-      chosen.push(leg);
-      perGame.set(leg.game, (perGame.get(leg.game) || 0) + 1);
       if (chosen.length === question.count) break;
+      if (chosen.includes(leg)) continue;
+      const found = clash(leg);
+      if (found) { avoided ||= {leg, text: found.text}; continue; }
+      if ((perGame.get(leg.game) || 0) >= cap) continue;
+      take(leg);
+      // A pick further down that goes with this one (his quarterback, the
+      // pitcher's opponent's...) and is nearly as strong comes next.
+      if (chosen.length < question.count) {
+        const partner = pool.find(other => open(other) && other.chance >= leg.chance - 0.03 && together(link(asPick(leg), asPick(other))));
+        if (partner) take(partner);
+      }
     }
     remember(question, chosen);
     const league = question.sport ? `${SPORTS[question.sport].name} ` : '';
@@ -1840,7 +1849,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     // With their game news, judged again (as in slip()).
     const pool = (await withNewsAll(ranked)).filter(good).slice(0, 16);
     const cap = perGameCap(pool, count);
-    const clash = pool.map(a => pool.map(b => a === b || a.player === b.player || Boolean((link(asPick(a), asPick(b))?.rho ?? 0) <= -0.03)));
+    const clash = pool.map(a => pool.map(b => a === b || a.player === b.player || against(link(asPick(a), asPick(b)))));
     const fit = pays => (want ? Math.abs(Math.log(pays / want)) : 0);
     let best = null;
     const pick = (start, chosen) => {
@@ -1850,7 +1859,8 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
         const games = new Map();
         for (const leg of legs) { games.set(leg.game, (games.get(leg.game) || 0) + 1); if (games.get(leg.game) > cap) return; }
         const pays = base * legs.reduce((product, leg) => product * payFactor(leg), 1);
-        const chance = legs.reduce((product, leg) => product * leg.chance, 1);
+        // Picks from one game that go together count as going together.
+        const chance = jointChance(legs.map(leg => leg.chance), links(legs.map(asPick)));
         // Close enough to the payout: the likeliest. Otherwise: the closest. No payout asked: the most back per $1.
         const near = Boolean(want) && pays >= want * 0.92 && pays <= want * 1.3;
         const better = !best ? true : want ? (near !== best.near ? near : near ? chance > best.chance : fit(pays) < fit(best.pays) - 1e-9 || (Math.abs(fit(pays) - fit(best.pays)) < 1e-9 && chance > best.chance))
