@@ -40,6 +40,20 @@ class FakeStore:
             elif op == "HGETALL":
                 flat = [item for pair in self.data.get(key, {}).items() for item in pair]
                 out.append({"result": flat})
+            elif op == "HSETNX":
+                bucket = self.data.setdefault(key, {})
+                fresh = command[2] not in bucket
+                if fresh:
+                    bucket[command[2]] = command[3]
+                out.append({"result": 1 if fresh else 0})
+            elif op == "INCRBY":
+                self.data[key] = str(int(self.data.get(key) or 0) + int(command[2]))
+                out.append({"result": int(self.data[key])})
+            elif op == "SET":
+                taken = "NX" in command[3:] and key in self.data
+                if not taken:
+                    self.data[key] = command[2]
+                out.append({"result": None if taken else "OK"})
             elif op == "EXPIRE":
                 out.append({"result": 1})
             else:

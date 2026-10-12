@@ -39,6 +39,12 @@ TIERS = ("elite", "strong", "lean", "risky", "fade")
 SPORTS = ("nfl", "nba", "wnba", "nhl", "mlb", "soccer")
 SIDES = ("OVER", "UNDER")
 SETTLE_KINDS = ("key", "mlb", "soccer")
+# Where a graded pick came from: a member's slip in the Slip Analyzer, the
+# Parlay Builder, the Ace Assistant, or the day's top picks the site logs
+# for itself so it learns from results every day (learning.py).
+SOURCES = ("analyzer", "builder", "assistant", "board")
+# The site's own top picks it logs a day, at most.
+LEARN_PER_DAY = 600
 _memory: dict = {}
 
 
@@ -109,6 +115,10 @@ def clean_pick(raw, now):
             "opponentId": _short(raw.get("opponentId"), 12), "competition": _short(raw.get("competition"), 30),
             "side": raw["side"], "line": line, "stat": stat, "modifier": _short(raw.get("modifier") or "standard", 12).lower(),
             "tier": raw["tier"], "chance": round(min(1, max(0, chance)), 4), "headshot": _short(raw.get("headshot"), 300),
+            # The model's own chance, before the corrections learning.py makes:
+            # what the next day's corrections are measured against.
+            "raw": round(min(1, max(0, _number(raw.get("raw")))), 4) if _number(raw.get("raw")) is not None else round(min(1, max(0, chance)), 4),
+            "source": raw.get("source") if raw.get("source") in SOURCES else "analyzer",
             "position": _short(raw.get("position"), 6), "average": round(average, 2) if average is not None else None,
             "settle": settle, "late": bool(starts and starts <= now)}
 
@@ -156,6 +166,18 @@ def save(uid, payload, now=None):
             pick = {**pick, "owners": [str(uid)] if track else [], "result": None, "value": None, "alerted": [], "at": now.isoformat()}
         writes.append(["HSET", PREFIX + "ledger:" + day, key, json.dumps(pick, separators=(",", ":"))])
         writes.append(["EXPIRE", PREFIX + "ledger:" + day, LEDGER_DAYS * 86400])
+    # The site's parlays, for the record by grade: each parlay once a day,
+    # graded as it was the first time (learning.py parlay_record).
+    letter = _short(payload.get("letter"), 3)
+    if letter:
+        first = entries[0][0]
+        parlay = {"letter": letter, "type": _short(payload.get("type"), 12),
+                  "source": payload.get("source") if payload.get("source") in SOURCES else "analyzer",
+                  "late": any(pick["late"] for _, _, pick in entries), "at": now.isoformat(),
+                  "picks": [{"day": day, "key": key} for day, key, _ in entries]}
+        signature = "|".join(sorted(key for _, key, _ in entries))
+        writes.append(["HSETNX", PREFIX + "parlays:" + first, signature, json.dumps(parlay, separators=(",", ":"))])
+        writes.append(["EXPIRE", PREFIX + "parlays:" + first, LEDGER_DAYS * 86400])
     _pipeline(writes)
     # The member's slips, newest first. The same parlay graded again (the same
     # props, in any order) is the slip already kept, not a new one: it keeps
@@ -182,6 +204,45 @@ def save(uid, payload, now=None):
         kept = [slip, *kept]
     store.set(user_key, json.dumps(kept[:USER_SLIPS], separators=(",", ":")), ex=120 * 86400)
     return {"id": slip["id"], "picks": len(entries), "tracked": True, "again": bool(same)}
+
+
+def learn(payload, now=None):
+    """The day's top picks as the site graded them (the Parlay Builder and Ace
+    Assistant send them as they grade the boards), into the ledger to be
+    settled and learned from. A pick already there is left as it is, and no
+    more than LEARN_PER_DAY are taken a day."""
+    now = now or datetime.now(timezone.utc)
+    raws = (payload or {}).get("picks") if isinstance(payload, dict) else None
+    picks = [pick for pick in (clean_pick({**raw, "source": raw.get("source") or "board"}, now) for raw in (raws or [])[:150]
+                               if isinstance(raw, dict)) if pick and not pick["late"]]
+    if not picks:
+        return {"kept": 0}
+    budget = PREFIX + "learned:" + _eastern_day(now)
+    used = _pipeline([["INCRBY", budget, len(picks)], ["EXPIRE", budget, 2 * 86400]])[0] or 0
+    room = LEARN_PER_DAY - (int(used) - len(picks))
+    if room <= 0:
+        return {"kept": 0}
+    writes = []
+    for pick in picks[:room]:
+        day = _eastern_day(_time(pick["startsAt"]) or now)
+        held = {**pick, "owners": [], "result": None, "value": None, "alerted": [], "at": now.isoformat()}
+        writes.append(["HSETNX", PREFIX + "ledger:" + day, pick_key(pick, day), json.dumps(held, separators=(",", ":"))])
+        writes.append(["EXPIRE", PREFIX + "ledger:" + day, LEDGER_DAYS * 86400])
+    added = _pipeline(writes)[0::2]
+    return {"kept": sum(1 for value in added if value)}
+
+
+def parlays(days):
+    """The site's graded parlays on these days: [(day, signature, parlay)]."""
+    reads = _pipeline([["HGETALL", PREFIX + "parlays:" + day] for day in days])
+    out = []
+    for day, flat in zip(days, reads):
+        flat = flat or []
+        for key, raw in zip(flat[0::2], flat[1::2]):
+            parlay = _load(raw)
+            if isinstance(parlay, dict):
+                out.append((day, key, parlay))
+    return out
 
 
 def remove(uid, slip_id):
@@ -453,7 +514,14 @@ def history(uid, now=None, settle_limit=4):
             hits = sum(pick["result"] == "hit" for pick in picks)
             shown.append({**{name: slip.get(name) for name in ("id", "at", "app", "appName", "type", "letter", "chance", "multiplier", "value")},
                           "picks": picks, "hits": hits, "status": _status(picks)})
-    return {"slips": shown, "record": record(now)}
+    # The site's parlays by their grade, as the daily learning step counted them.
+    try:
+        import learning
+        learned = learning.model(now) or {}
+    except Exception:  # noqa: BLE001 -- shown once there's a count
+        learned = {}
+    return {"slips": shown, "record": {**record(now), "parlays": learned.get("parlays") or {},
+                                       "parlayDays": learned.get("parlayDays") or RECORD_DAYS}}
 
 
 # ---------------------------------------------------------------- the news, before the games
@@ -539,11 +607,28 @@ def alerts(entries, now, limit=8):
     return {"sent": sent, "picks": len(changed)}
 
 
+TICK_EVERY = 10 * 60
+
+
 def tick(now=None, limit=8):
-    """The timer's turn: settle what's due and send what's changed."""
+    """The timer's turn (at most every TICK_EVERY): settle what's due, send
+    what's changed, and once a day learn from the results (learning.py)."""
     now = now or datetime.now(timezone.utc)
+    stamp = PREFIX + "tick"
+    if not _pipeline([["SET", stamp, now.isoformat(), "NX", "EX", TICK_EVERY]])[0]:
+        last = _time(_store().get(stamp))
+        if last and 0 <= (now - last).total_seconds() < TICK_EVERY:
+            return {"skipped": True}
+        _store().set(stamp, now.isoformat(), ex=TICK_EVERY)
     entries = _ledger(_days(now + timedelta(days=1), 4))
     settled = settle(entries, now, limit=limit)
     entries = [(day, key, settled.get((day, key), pick)) for day, key, pick in entries]
     news = alerts(entries, now, limit=limit)
-    return {"settled": len(settled), **news}
+    learned = None
+    try:
+        import learning
+        fitted = learning.daily(now)
+        learned = {"picks": fitted["picks"], "at": fitted["at"]} if fitted else None
+    except Exception:  # noqa: BLE001 -- never at the cost of settling
+        learned = None
+    return {"settled": len(settled), **news, "learned": learned}

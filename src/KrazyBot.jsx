@@ -1,3 +1,5 @@
+import {loadLearning} from './learning';
+import {logTopPicks} from './slip-history';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowUp,ChevronDown,Mic,RotateCcw} from 'lucide-react';
 import MorphOrb from '@/components/ui/ai-thiking-orb-and-input';
@@ -58,6 +60,8 @@ export function KrazyBot(){
  const bot=useMemo(()=>createBot({
   sports,profile:memory,moves:recentMoves,
   load:async sport=>{
+   // What the results have taught the model, before anything is graded.
+   await loadLearning();
    const now=Date.now();
    const rows=await loadLines(sport,{only:row=>isPrizePicksLine(row)&&Date.parse(row.startsAt||'')>now+10*60000});
    // MLB hitters carry the Research matchup grade (pitch mix and all).
@@ -88,7 +92,11 @@ export function KrazyBot(){
  // Today's board for the home screen (top plays, quick looks).
  const [today,setToday]=useState(null);
  const [todayFailed,setTodayFailed]=useState(false);
- const refreshToday=()=>bot.today().then(value=>{setToday(value);setTodayFailed(false);}).catch(()=>setTodayFailed(true));
+ const refreshToday=()=>bot.today().then(value=>{
+  setToday(value);setTodayFailed(false);
+  // Its top plays go back to be settled and learned from (learning.py).
+  logTopPicks((value.graded||[]).map(leg=>({row:leg.row,side:leg.side,grade:leg})),{source:'assistant',limit:30});
+ }).catch(()=>setTodayFailed(true));
  const [follow,setFollow]=useState([]);
  const [rich,setRich]=useState(false);
  const [draft,setDraft]=useState('');

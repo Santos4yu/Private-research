@@ -10,12 +10,13 @@ import {loadMatchups,withMatchups} from './slip-matchup';
 import {HEADLINES,gradeTone} from './slip-score';
 import {withPoolDefense} from './slip-analyst';
 import {takeHandoff,onHandoff,changesSince} from './slip-handoff';
+import {loadLearning} from './learning';
 import {lookupRow} from './slip-lookup';
 import {loadGames,loadTeammates,withGame,newsOf,liveRead,anyLive} from './slip-games';
 import {MatchupCase} from './MatchupCase';
 import {opponentLogo,teamLogo,useCount,Img,Face,TierBadge,Records,Meter,Games} from './PickParts';
 import {shareSlip} from './slip-share';
-import {Record,History} from './SlipHistory';
+import {Record,History,hasRecord} from './SlipHistory';
 import {newSlipId,slipPayload,saveSlip,removeSlip,loadHistory} from './slip-history';
 import {pickBuilder} from './pick-builder-client';
 import './slip-analyzer.css';
@@ -425,8 +426,10 @@ export function SlipAnalyzer(){
    setStep(1);
    // The matchups for the sports on the slip load alongside today's lines.
    const onSlip=[...new Set(read.legs.map(leg=>leg.sport).filter(sport=>sports.includes(sport)))];
-   const [rows,found]=await Promise.all([
+   const [rows,,found]=await Promise.all([
     Promise.all(sports.map(async sport=>[sport,await loading[sport]])).then(Object.fromEntries),
+    // What the results have taught the model, before anything is graded.
+    loadLearning(),
     loadMatchups(onSlip.length?onSlip:sports.filter(sport=>sport!=='soccer'),{signal}).catch(error=>{if(error.name==='AbortError')throw error;return {};}),
    ]);
    // The lines read as the Parlay Builder reads them: the matchup tables,
@@ -618,9 +621,9 @@ export function SlipAnalyzer(){
    {slip.skipped>0&&<p className="sa-heads-up">{slip.skipped} game line{slip.skipped>1?'s were':' was'} left out (moneylines, spreads and totals aren't graded).</p>}
    <button type="button" className="sa-another" onClick={reset}>Grade another parlay<ArrowRight size={15}/></button>
   </div>}
-  {(phase==='pick'||phase==='done')&&(history?.record?.picks>0||history?.slips?.length>0)&&<div className="sh-wrap" data-phase={phase}
-   data-single={!(history.record?.picks>0&&history.slips?.length>0)||undefined}>
-   {history.record?.picks>0&&<Record record={history.record}/>}<History slips={history.slips} onRemove={untrack}/></div>}
+  {(phase==='pick'||phase==='done')&&(hasRecord(history?.record)||history?.slips?.length>0)&&<div className="sh-wrap" data-phase={phase}
+   data-single={!(hasRecord(history.record)&&history.slips?.length>0)||undefined}>
+   {hasRecord(history.record)&&<Record record={history.record}/>}<History slips={history.slips} onRemove={untrack}/></div>}
  </div>;
 }
 

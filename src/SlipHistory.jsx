@@ -15,14 +15,21 @@ function when(value){
  return same?`Today ${time}`:`${date.toLocaleDateString([],{month:'short',day:'numeric'})}, ${time}`;
 }
 
-/** Each tier's hit rate over the last 30 days, best tier first. */
+// A parlay's grade group, in the colours its letter has on every page.
+const GRADES={A:{label:'A',tone:'#46e39a'},B:{label:'B',tone:'#aeb5b8'},C:{label:'C',tone:'#f6b955'},D:{label:'D / F',tone:'#ff7b8a'}};
+const gradeRows=record=>Object.keys(GRADES).map(letter=>[letter,record?.parlays?.[letter]]).filter(([,counts])=>counts?.slips>0);
+/** Whether there's any record to show yet. */
+export const hasRecord=record=>Boolean(record&&(record.picks>0||gradeRows(record).length));
+
+/** Each tier's hit rate over the last 30 days, best tier first, then the parlays by grade. */
 export function Record({record}){
  if(!record)return null;
  const rows=Object.keys(TIERS).map(tier=>[tier,record.tiers?.[tier]]).filter(([,counts])=>counts?.picks>0);
+ const grades=gradeRows(record);
  return <section className="sh-record" aria-label="How our grades have done">
   <header><span className="sh-eyebrow"><Trophy size={13}/>Our record</span>
    <h2>How our grades have done</h2>
-   <p>Every pick graded here, settled from the final box score. Last {record.days} days.</p></header>
+   <p>Every pick we grade, settled from the final box score. Last {record.days} days.</p></header>
   {rows.length?<ul>{rows.map(([tier,counts],index)=><li key={tier} data-tier={tier} style={{'--i':index}}>
    <span className="sh-tier">{TIERS[tier].label}</span>
    <span className="sh-bar" aria-hidden="true"><i style={{'--w':`${Math.round(counts.rate*100)}%`}}/></span>
@@ -30,6 +37,14 @@ export function Record({record}){
    <small>{counts.hits}–{counts.misses}</small>
   </li>)}</ul>
    :<p className="sh-empty">Results show up here as graded picks finish.</p>}
+  {grades.length>0&&<div className="sh-grades">
+   <h3>Parlays by grade <span>every pick hit · last {record.parlayDays||record.days} days</span></h3>
+   <ul>{grades.map(([letter,counts],index)=><li key={letter} style={{'--i':rows.length+index,'--tier':GRADES[letter].tone}}>
+    <span className="sh-tier">{GRADES[letter].label}</span>
+    <span className="sh-bar" aria-hidden="true"><i style={{'--w':`${Math.round(counts.rate*100)}%`}}/></span>
+    <b>{Math.round(counts.rate*100)}%</b>
+    <small>{counts.hits} of {counts.slips}</small>
+   </li>)}</ul></div>}
   {record.picks>0&&record.picks<30&&<p className="sh-note">Early days: {record.picks} pick{record.picks===1?'':'s'} settled so far, so these will move.</p>}
  </section>;
 }

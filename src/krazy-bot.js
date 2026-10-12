@@ -1932,7 +1932,9 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     const safest = after(safe).sort((a, b) => b.chance - a.chance)[0];
     const matchup = after(matched).find(leg => leg.matchup?.score != null);
     return {props: rows.length, games: games.size, leagues, next: starts.length ? timeOf(starts[0]) : null,
-      top: top.map(shown), safest: shown(safest), matchup: shown(matchup), mlb: leagues.some(item => item.sport === 'mlb')};
+      top: top.map(shown), safest: shown(safest), matchup: shown(matchup), mlb: leagues.some(item => item.sport === 'mlb'),
+      // Every pick it judged with its game news, for learning from results.
+      graded: [...checked.values()].filter(leg => leg && passesMatchup(leg) && overOnly(leg))};
   }
 
   return {ask, board: boardsLoaded, today, thinking, examples, suggestions: () => suggestions, card: () => answer, profile: () => me, returning: () => Boolean(returning)};

@@ -14,6 +14,7 @@ import {assessLeg, POWER, FLEX, SPORT_NAMES} from './smart-slip.js';
 import {matchupCase, withMatchups} from './slip-matchup.js';
 import {links} from './slip-correlation.js';
 import {LETTERS, letterFor, scoreParlay} from './slip-score.js';
+import {calibrate} from './learning.js';
 import {newsCap} from './slip-games.js';
 
 export const SLIP_SPORTS = ['mlb', 'nba', 'wnba', 'nfl', 'nhl', 'soccer'];
@@ -381,8 +382,11 @@ export function judge(read, tables = {}) {
   // games little to say (slip-games.js).
   const role = matchup?.facts?.some(item => item.level === 'role');
   const trend = role ? 0.15 : matchup?.primary ? 0.45 : 0.7;
-  const chance = matchup ? Math.min(0.95, Math.max(0.05, base + trend * (read.chance - base) + 0.18 * (matchup.score - 50) / 50)) : read.chance;
-  const judged = {...read, trendChance: read.chance, chance, matchup};
+  const raw = matchup ? Math.min(0.95, Math.max(0.05, base + trend * (read.chance - base) + 0.18 * (matchup.score - 50) / 50)) : read.chance;
+  // What the results have taught the model (learning.js): the same
+  // correction on every page. `rawChance` is the model's own, learned from.
+  const chance = calibrate(raw, read.row?.sport);
+  const judged = {...read, trendChance: read.chance, chance, rawChance: raw, matchup};
   // The news caps it: out is a Fade, Doubtful or out of the lineup Risky at
   // best, Questionable never Elite (slip-games.js).
   const cap = newsCap(matchup?.facts);

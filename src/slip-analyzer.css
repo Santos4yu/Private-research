@@ -461,7 +461,7 @@
 .sh-history header{grid-template-columns:1fr auto;align-items:baseline}
 .sh-history header span{color:var(--a-faint);font-size:12px;font-weight:700}
 .sh-record ul{display:grid;gap:9px;margin:0;padding:0;list-style:none}
-.sh-record li{display:grid;grid-template-columns:72px minmax(0,1fr) 46px 52px;align-items:center;gap:10px;animation:sa-rise .45s cubic-bezier(.2,.8,.2,1) both;
+.sh-record li{display:grid;grid-template-columns:72px minmax(0,1fr) 46px 60px;align-items:center;gap:10px;animation:sa-rise .45s cubic-bezier(.2,.8,.2,1) both;
  animation-delay:calc(var(--i,0) * 70ms + 120ms)}
 .sh-tier{justify-self:start;padding:5px 9px;border-radius:999px;background:color-mix(in srgb,var(--tier) 15%,transparent);color:var(--tier);
  font:800 9.5px/1 var(--a-sans);letter-spacing:.08em;text-transform:uppercase}
@@ -469,7 +469,10 @@
 .sh-bar i{position:absolute;inset:0 auto 0 0;width:var(--w);border-radius:5px;background:linear-gradient(90deg,color-mix(in srgb,var(--tier) 55%,#101315),var(--tier));
  transform-origin:left;animation:sa-wipe .8s cubic-bezier(.2,.8,.2,1) .3s both}
 .sh-record b{text-align:right;font:800 17px/1 var(--a-display);font-variant-numeric:tabular-nums}
-.sh-record small{color:var(--a-faint);font-size:11.5px;font-weight:700;font-variant-numeric:tabular-nums}
+.sh-record small{color:var(--a-faint);font-size:11.5px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sh-grades{display:grid;gap:9px;padding-top:12px;border-top:1px solid var(--a-line)}
+.sh-grades h3{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;margin:0;font:800 14px/1.2 var(--a-display)}
+.sh-grades h3 span{color:var(--a-faint);font:700 11.5px/1.2 var(--a-sans)}
 .sh-empty,.sh-note{margin:0;color:var(--a-muted);font-size:12.5px}
 .sh-note{color:var(--a-faint)}
 .sh-history>ul{display:grid;gap:7px;margin:0;padding:0;list-style:none}
@@ -512,7 +515,7 @@
 @media (max-width:760px){
  .sh-wrap{margin-left:10px;margin-right:10px}
  .sh-record,.sh-history{padding:16px 14px;border-radius:18px}
- .sh-record li{grid-template-columns:64px minmax(0,1fr) 40px 46px;gap:8px}
+ .sh-record li{grid-template-columns:64px minmax(0,1fr) 40px 56px;gap:8px}
  .slip-analyzer .sh-history li>button{grid-template-columns:auto minmax(0,1fr) auto auto;gap:9px}
  .sh-dots{display:none}
 }

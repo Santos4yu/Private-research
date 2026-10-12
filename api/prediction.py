@@ -256,6 +256,17 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(200, slip_ledger.history(member))
             except Exception:
                 return self._send(503, {"error": "Graded slips are unavailable right now."})
+        if (qs.get("action", [""])[0]).strip().lower() == "learning":
+            # What the results have taught the model (learning.py): the
+            # corrections every page applies, the tiers and the record by grade.
+            import learning
+            try:
+                found = learning.model() or {}
+            except Exception:
+                found = {}
+            return self._send(200, {"version": found.get("version"), "at": found.get("at"), "picks": found.get("picks", 0),
+                                    "groups": {name: {"points": group.get("points") or []} for name, group in (found.get("groups") or {}).items()},
+                                    "tiers": found.get("tiers") or {}, "parlays": found.get("parlays") or {}, "parlayDays": found.get("parlayDays")})
         if (qs.get("action", [""])[0]).strip().lower() == "prizepicks-lines":
             player_name = (qs.get("player", [""])[0]).strip()
             stat_label = (qs.get("stat", [""])[0]).strip()
@@ -358,6 +369,19 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(400, {"error": str(exc) or "Invalid request."})
             except Exception:
                 return self._send(503, {"error": "The slip couldn't be saved right now."})
+        if action == "slip-learn":
+            # The day's top picks as the site graded them, to learn from once
+            # they're settled (slip_ledger.learn). Kept once each, capped a day.
+            try:
+                content_length = int(self.headers.get("Content-Length") or 0)
+                if content_length < 1 or content_length > 98_304:
+                    return self._send(413, {"error": "Invalid request size."})
+                import slip_ledger
+                return self._send(200, slip_ledger.learn(json.loads(self.rfile.read(content_length) or b"{}")))
+            except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                return self._send(400, {"error": str(exc) or "Invalid request."})
+            except Exception:
+                return self._send(503, {"error": "Not kept right now."})
         if action == "slip-remove":
             # Stop tracking a slip (slip_ledger.remove); its picks stay in the record.
             try:

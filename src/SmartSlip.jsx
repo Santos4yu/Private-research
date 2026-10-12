@@ -13,6 +13,8 @@ import {gradeMatchups,withMatchup,passesMatchup,overOnly} from './krazy-bot';
 import {loadGames,loadTeammates,withGame} from './slip-games';
 import {HEADLINES,gradeTone} from './slip-score';
 import {builderSlip,handOff} from './slip-handoff';
+import {loadLearning} from './learning';
+import {logTopPicks,newSlipId,saveSlip,slipPayload} from './slip-history';
 import {MatchupCase} from './MatchupCase';
 import {opponentLogo,teamLogo,Img,Face,TierBadge,Records,Meter,Games} from './PickParts';
 import './smart-slip.css';
@@ -354,6 +356,8 @@ export function SmartSlip(){
   setStatus('loading');setStep(0);setNotice('');setLocked([]);setSwap(null);setExcluded([]);setSelected(null);setProgress({});setPool([]);setLineCount(0);
   scan.current=[];
   requestAnimationFrame(()=>stageRef.current?.scrollIntoView({behavior:calm()?'auto':'smooth',block:'nearest'}));
+  // What the results have taught the model, before anything is graded.
+  await loadLearning();
   const now=Date.now();
   // The games picked, else every game; only their sports are loaded.
   const keys=picked,sportsFor=keys.length?[...new Set(games.filter(game=>keys.includes(game.key)).map(game=>game.sport))]:chosen;
@@ -373,6 +377,8 @@ export function SmartSlip(){
   try{found=await judged(rows,sportsFor,{signal:control.signal,now:Date.now()});}
   catch{if(control.signal.aborted)return;found=candidates(rows,{now:Date.now()}).filter(leg=>leg.side!=='UNDER');}
   if(control.signal.aborted)return;
+  // The day's best picks go back to be settled and learned from (learning.py).
+  logTopPicks(found.map(leg=>({row:leg.row,side:leg.side,line:leg.line,modifier:leg.modifier,grade:leg})),{source:'board',limit:80});
   // Every step shows, even when every line was already saved.
   const lines=rows.filter(only);
   // The feed favours lines with a photo; every line still counts as checked.
@@ -418,9 +424,19 @@ export function SmartSlip(){
   window.dispatchEvent(new CustomEvent('vortex:open-prop',{detail:{sport:leg.row.sport,player:leg.row.player,stat:leg.row.raw?.stat||leg.row.market}}));
   window.dispatchEvent(new CustomEvent('vortex:switch-tab',{detail:{tab:'finder'}}));
  };
+ // A slip the member takes (adds, opens in PrizePicks or checks) goes on the
+ // site's record by grade, the way a slip graded in the Slip Analyzer does.
+ const recorded=useRef(new Set());
+ const recordSlip=item=>{
+  if(!item||recorded.current.has(slipKey(item)))return;
+  recorded.current.add(slipKey(item));
+  saveSlip({...slipPayload(newSlipId(),{app:{key:'prizepicks',name:'PrizePicks'}},item.legs.map(leg=>({row:leg.row,side:leg.side,line:leg.line,modifier:leg.modifier,grade:leg})),
+   {type:item.play,letter:item.letter,chance:item.chance,multiplier:item.payout,value:item.value},'builder'),track:false}).catch(()=>{});
+ };
  const addToSlip=()=>{
   if(!slip)return;
   if(builder.legs.length&&!confirm(`Replace the ${builder.legs.length} pick${builder.legs.length===1?'':'s'} in your slip?`))return;
+  recordSlip(slip);
   pickBuilder.clear();
   slip.legs.forEach(leg=>pickBuilder.set(finderSlipProp(leg.row),leg.side==='UNDER'?'Under':'Over'));
   pickBuilder.open();
@@ -449,6 +465,7 @@ export function SmartSlip(){
     throw new Error(detail?`${payload.error||'Some picks are gone'}: ${detail}`:payload.error||'PrizePicks is unavailable right now.');
    }
    setExported({key,url:payload.url});
+   recordSlip(slip);
    if(tab&&!tab.closed){tab.location.replace(payload.url);setNotice('Your slip opened in PrizePicks in a new tab.');}
    else setNotice(phone?'Every pick checked. Tap Open in PrizePicks.':'Your browser blocked the new tab. Tap Open in PrizePicks.');
   }catch(error){
@@ -555,7 +572,7 @@ export function SmartSlip(){
 
    {slip&&<Ticket key={slip.target} slip={slip} locked={locked} onLock={lockLeg} onSwap={swapLeg} onResearch={research}
     onAdd={addToSlip} onExport={openPrizePicks} exporting={exporting} link={link}
-    onCheck={()=>{handOff(builderSlip(slip));window.dispatchEvent(new CustomEvent('vortex:switch-tab',{detail:{tab:'slip'}}));}}/>}
+    onCheck={()=>{recordSlip(slip);handOff(builderSlip(slip));window.dispatchEvent(new CustomEvent('vortex:switch-tab',{detail:{tab:'slip'}}));}}/>}
    <p className="ss-meta">{pool.length} picks qualified · lines as of {new Date(builtAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</p>
   </>}
   {toast&&<p className="ss-toast" role="status" key={toast}>{toast}</p>}

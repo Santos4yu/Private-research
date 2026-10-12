@@ -1571,7 +1571,52 @@ async function loadAdminRecords() {
   }
 }
 
+// What the results have taught the model (learning.py): how sure it was
+// against how its picks finished, by sport, and the corrections it now makes.
+async function loadAdminLearning() {
+  const res = await fetch("/api/prediction?action=learning", { cache: "no-store", credentials: "same-origin" });
+  if (!res.ok) throw new Error("Learning is unavailable right now.");
+  state.adminLearning = await res.json();
+  if (state.adminRecordTab === "learning") renderAdminRecords();
+}
+
+function renderAdminLearning() {
+  const data = state.adminLearning;
+  if (!data) {
+    els.adminResultsList.innerHTML = "<p class=\"empty-state\">Loading what the model has learned…</p>";
+    loadAdminLearning().catch((error) => { els.adminResultsList.innerHTML = `<p class="empty-state">${escapeHtml(error.message)}</p>`; });
+    return;
+  }
+  const pct = (value) => (typeof value === "number" ? `${Math.round(value * 100)}%` : "—");
+  const points = (value) => `${value > 0 ? "+" : value < 0 ? "−" : ""}${Math.abs(value * 100).toFixed(1)}`;
+  const updated = data.at ? new Date(data.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "Not yet";
+  const groups = Object.entries(data.groups || {}).sort(([a], [b]) => (a === "all" ? -1 : b === "all" ? 1 : a.localeCompare(b)));
+  const summary = `<div class="record-summary"><span><b>${Number(data.picks || 0).toLocaleString()}</b>settled picks</span><span><b>${groups.filter(([name]) => name !== "all").length}</b>sports</span><span><b>${escapeHtml(updated)}</b>last refit</span></div>`;
+  if (!groups.length) {
+    els.adminResultsList.innerHTML = summary + "<p class=\"empty-state\">Nothing settled yet. The Parlay Builder and Ace Assistant send their top picks each day; once those games are final, the model refits every morning.</p>";
+    return;
+  }
+  const table = ([name, group]) => {
+    const rows = (group.points || []).map(([predicted, offset, n, actual]) => {
+      const tone = Math.abs(offset) < 0.0005 ? "" : offset > 0 ? "up" : "down";
+      return `<tr><td>${pct(predicted)}</td><td>${pct(actual)}</td><td>${Number(n).toLocaleString()}</td><td class="${tone}">${points(offset)}</td></tr>`;
+    }).join("");
+    return `<article class="learning-group"><h3>${escapeHtml(name === "all" ? "All sports" : name.toUpperCase())}</h3>
+      <table><thead><tr><th>Model said</th><th>Hit</th><th>Picks</th><th>Adjust</th></tr></thead><tbody>${rows}</tbody></table></article>`;
+  };
+  const tiers = Object.entries(data.tiers || {}).filter(([, cell]) => cell.picks).sort((a, b) => b[1].predicted - a[1].predicted)
+    .map(([tier, cell]) => `<div class="admin-result-row"><span>${escapeHtml(tier.charAt(0).toUpperCase() + tier.slice(1))} picks · model said ${pct(cell.predicted)}</span><strong>${pct(cell.actual)} of ${Number(cell.picks).toLocaleString()}</strong></div>`).join("");
+  const letters = Object.entries(data.parlays || {}).filter(([, cell]) => cell.slips)
+    .map(([letter, cell]) => `<div class="admin-result-row"><span>${escapeHtml(letter === "D" ? "D and F" : letter)} parlays · last ${escapeHtml(String(data.parlayDays || 30))} days</span><strong>${cell.hits} of ${cell.slips} hit</strong></div>`).join("");
+  els.adminResultsList.innerHTML = summary
+    + `<p class="learning-note">Adjust is in percentage points, applied to every pick the site grades. It moves at most 3 a day and never past 15.</p>`
+    + `<div class="learning-groups">${groups.map(table).join("")}</div>`
+    + (tiers ? `<h3 class="learning-head">By tier</h3>${tiers}` : "")
+    + (letters ? `<h3 class="learning-head">Parlays by grade</h3>${letters}` : "");
+}
+
 function renderAdminRecords() {
+  if (state.adminRecordTab === "learning") return renderAdminLearning();
   const rows = (state.adminRecords || {})[state.adminRecordTab] || [];
   const settled = rows.filter((r) => r.result === "hit" || r.result === "miss");
   const wins = settled.filter((r) => r.result === "hit").length;
