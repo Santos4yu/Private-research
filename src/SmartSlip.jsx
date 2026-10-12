@@ -12,6 +12,7 @@ import {withPoolDefense} from './slip-analyst';
 import {gradeMatchups,withMatchup,passesMatchup,overOnly} from './krazy-bot';
 import {loadGames,loadTeammates,withGame} from './slip-games';
 import {HEADLINES,gradeTone} from './slip-score';
+import {builderSlip,handOff} from './slip-handoff';
 import {MatchupCase} from './MatchupCase';
 import {opponentLogo,teamLogo,Img,Face,TierBadge,Records,Meter,Games} from './PickParts';
 import './smart-slip.css';
@@ -229,7 +230,7 @@ function Pick({leg,index,need,locked,onLock,onSwap,onResearch}){
  </article>;
 }
 
-function Ticket({slip,locked,onLock,onSwap,onResearch,onAdd,onExport,exporting,link}){
+function Ticket({slip,locked,onLock,onSwap,onResearch,onAdd,onExport,exporting,link,onCheck}){
  const level=LEVELS[slip.target]||LEVELS[2];
  const pays=useCountUp(slip.payout);
  // What each pick has to hit for the slip to pay its way.
@@ -253,6 +254,7 @@ function Ticket({slip,locked,onLock,onSwap,onResearch,onAdd,onExport,exporting,l
    {link&&!exporting?<a className="ss-primary" href={link} target="_blank" rel="noopener noreferrer"><img src={PRIZEPICKS_LOGO} alt=""/>Open in PrizePicks<ArrowUpRight size={16}/></a>
     :<button type="button" className="ss-primary" onClick={onExport} disabled={exporting}>{exporting?<RefreshCw size={16} className="ss-spin"/>:<img src={PRIZEPICKS_LOGO} alt=""/>}{exporting?'Checking picks…':'Open in PrizePicks'}<ArrowUpRight size={16}/></button>}
   </div>
+  <button type="button" className="ss-check-slip" onClick={onCheck}><ShieldCheck size={16}/>Check in Slip Analyzer<ArrowUpRight size={15}/></button>
   {slip.estimated&&<p className="ss-fine">Payouts with Goblins or Demons are estimates. PrizePicks shows the exact payout before you submit.</p>}
  </div>;
 }
@@ -552,7 +554,8 @@ export function SmartSlip(){
     </button>;})}</div>
 
    {slip&&<Ticket key={slip.target} slip={slip} locked={locked} onLock={lockLeg} onSwap={swapLeg} onResearch={research}
-    onAdd={addToSlip} onExport={openPrizePicks} exporting={exporting} link={link}/>}
+    onAdd={addToSlip} onExport={openPrizePicks} exporting={exporting} link={link}
+    onCheck={()=>{handOff(builderSlip(slip));window.dispatchEvent(new CustomEvent('vortex:switch-tab',{detail:{tab:'slip'}}));}}/>}
    <p className="ss-meta">{pool.length} picks qualified · lines as of {new Date(builtAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</p>
   </>}
   {toast&&<p className="ss-toast" role="status" key={toast}>{toast}</p>}

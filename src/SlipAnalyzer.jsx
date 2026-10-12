@@ -9,6 +9,7 @@ import {SLIP_SPORTS,SPORT_NAMES,TIERS,LETTERS,checkLeg,scoreEntry,verdict,swaps,
 import {loadMatchups,withMatchups} from './slip-matchup';
 import {HEADLINES,gradeTone} from './slip-score';
 import {withPoolDefense} from './slip-analyst';
+import {takeHandoff,onHandoff,changesSince} from './slip-handoff';
 import {lookupRow} from './slip-lookup';
 import {loadGames,loadTeammates,withGame,newsOf,liveRead,anyLive} from './slip-games';
 import {MatchupCase} from './MatchupCase';
@@ -400,22 +401,27 @@ export function SlipAnalyzer(){
   return()=>{job.abort();clearTimeout(timer);};
  },[phase,signature,withNews]);
 
- const run=useCallback(async file=>{
-  if(!file)return;
-  if(!/^image\//.test(file.type||'image/')){setError('Use a screenshot (PNG, JPG or WEBP).');setPhase('error');return;}
+ // A screenshot to read, or (`handed`) a slip handed over from the Parlay
+ // Builder with its exact picks (slip-handoff.js), graded the same way.
+ const run=useCallback(async(file,handed=null)=>{
+  if(!file&&!handed?.legs?.length)return;
+  if(file&&!/^image\//.test(file.type||'image/')){setError('Use a screenshot (PNG, JPG or WEBP).');setPhase('error');return;}
   control.current?.abort();
   const job=new AbortController();control.current=job;const {signal}=job;
-  setShot(old=>{if(old?.url)URL.revokeObjectURL(old.url);return {url:URL.createObjectURL(file)};});
+  setShot(old=>{if(old?.url)URL.revokeObjectURL(old.url);return file?{url:URL.createObjectURL(file)}:null;});
   setPhase('reading');setStep(0);setError('');setDetail('');setLegs([]);setSlip(null);setEditing(null);setPool([]);setSaved(new Set());
   games.current={};mates.current={};slipId.current=newSlipId();savedSig.current='';markTracked(false);
   const sports=SLIP_SPORTS.filter(siteFinderSportAllowed);
   // Today's lines load while the screenshot is read.
   const loading=Object.fromEntries(sports.map(sport=>[sport,loadLines(sport,{signal,only:()=>false}).catch(()=>[])]));
   try{
-   const body=await shrink(file);
-   const started=Date.now();
-   const read=await readSlip(body,signal);
-   if(Date.now()-started<900)await pause(900-(Date.now()-started),signal);
+   let read=handed;
+   if(!read){
+    const body=await shrink(file);
+    const started=Date.now();
+    read=await readSlip(body,signal);
+    if(Date.now()-started<900)await pause(900-(Date.now()-started),signal);
+   }
    setStep(1);
    // The matchups for the sports on the slip load alongside today's lines.
    const onSlip=[...new Set(read.legs.map(leg=>leg.sport).filter(sport=>sports.includes(sport)))];
@@ -441,9 +447,16 @@ export function SlipAnalyzer(){
     .map(read=>judge(read,found)));
   }catch(failure){
    if(signal.aborted||failure.name==='AbortError')return;
-   setError(failure.message||'That screenshot couldn\'t be read. Try again.');setDetail(failure.detail||'');setPhase('error');
+   setError(failure.message||(handed?'That slip couldn\'t be checked. Try again.':'That screenshot couldn\'t be read. Try again.'));setDetail(failure.detail||'');setPhase('error');
   }
  },[]);
+ // A slip from the Parlay Builder: waiting when this page opens, or sent
+ // while it's open.
+ useEffect(()=>{
+  const waiting=takeHandoff();
+  if(waiting)run(null,waiting);
+  return onHandoff(read=>run(null,read));
+ },[run]);
 
  useEffect(()=>()=>control.current?.abort(),[]);
  // Paste a screenshot anywhere on the page while it's open.
@@ -499,6 +512,8 @@ export function SlipAnalyzer(){
  };
  const reset=()=>{control.current?.abort();games.current={};mates.current={};setPhase('pick');setLegs([]);setSlip(null);setError('');};
  const score=useMemo(()=>slip?scoreEntry(legs,slip):null,[legs,slip]);
+ // A Builder slip: whether the grade still matches, and what changed if not.
+ const changes=useMemo(()=>slip?.builder&&legs.every(leg=>leg.state!=='checking')?changesSince(slip.builder,legs,score):null,[slip,legs,score]);
  // Track this slip (onto Your tracked slips, with its results and alerts), or stop.
  const trackIt=async()=>{
   if(!score||!slip||!slipId.current||tracking)return;
@@ -584,6 +599,13 @@ export function SlipAnalyzer(){
   </div>}
 
   {phase==='done'&&slip&&<div className="sa-results">
+   {changes&&<div className="sa-builder-check" data-same={changes.same?'true':undefined} role="status">
+    <span className="sa-builder-mark">{changes.same?<Check size={16} strokeWidth={3}/>:<TriangleAlert size={16}/>}</span>
+    <div><b>{changes.same?`Same grade as the Parlay Builder: ${changes.letter}`
+     :changes.now&&changes.now!==changes.letter?`Changed since the Parlay Builder made it: ${changes.letter} → ${changes.now}`:'Something changed since the Parlay Builder made it'}</b>
+     {changes.items.length>0&&<ul>{changes.items.map(item=><li key={`${item.kind}-${item.player}`}>{item.text}</li>)}</ul>}
+     {!changes.same&&!changes.items.length&&<small>The lines and news are the same, so the grade moved with the latest numbers.</small>}</div>
+   </div>}
    <Parlay score={score} slip={slip} legs={legs} shot={shot} pool={pool} onSwap={swapIn} onSaveAll={saveAll} onNew={reset}
     onShare={shareIt} sharing={sharing} tracked={tracked} tracking={tracking} onTrack={canTrack?trackIt:null}/>
    {slip.source==='text'&&<p className="sa-heads-up"><TriangleAlert size={14}/>This slip was read from its text, so double-check each {sideWord('OVER',slip.app)} and {sideWord('UNDER',slip.app)}.</p>}

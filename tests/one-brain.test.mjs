@@ -53,3 +53,24 @@ test('picks from one game that rise together lift the slip in both, the same amo
     assert.ok(Math.abs(analyzed(slip).chance - slip.chance) < 1e-12);
   }
 });
+
+test('a Builder slip handed to the Analyzer names its exact lines, and changes are spelled out', async () => {
+  const {builderSlip, changesSince} = await import('../src/slip-handoff.js');
+  const {locate} = await import('../src/slip-check.js');
+  const pool = candidates(rows, {now: NOW}).filter(leg => leg.side === 'OVER');
+  const [slip] = buildLadder(pool, {perGame: 6});
+  const read = builderSlip(slip, NOW);
+  assert.equal(read.app.key, 'prizepicks');
+  assert.deepEqual(read.legs.map(leg => leg.rowId), slip.legs.map(leg => leg.row.id));
+  // The exact line is found, even with another of his lines on the board.
+  const boards = {mlb: [...rows, {...rows[0], id: 'other', line: 2.5}]};
+  for (const leg of read.legs) assert.equal(locate(leg, boards).board.id, leg.rowId);
+  // Graded the same: the grade matches and nothing is listed.
+  const graded = slip.legs.map(leg => ({rowId: leg.row.id, player: leg.row.player, row: leg.row, grade: leg}));
+  assert.deepEqual(changesSince(read.builder, graded, {letter: slip.letter}), {same: true, letter: slip.letter, now: slip.letter, items: []});
+  // A moved line is named.
+  const moved = graded.map((leg, index) => index ? leg : {...leg, spot: {board: {line: leg.row.line + 1}}});
+  const changed = changesSince(read.builder, moved, {letter: slip.letter});
+  assert.equal(changed.same, false);
+  assert.match(changed.items[0].text, /line moved/);
+});

@@ -278,6 +278,15 @@ export function saferPick(leg, rows, tables = {}) {
  * 'stat' (player found, stat not offered), 'needs' (line or side unread).
  */
 export function locate(leg, boards) {
+  // A slip handed over from the Parlay Builder names each line exactly.
+  if (leg.rowId) {
+    for (const sport of SLIP_SPORTS) {
+      const board = (boards[sport] || []).find(row => row.id === leg.rowId);
+      if (!board) continue;
+      const people = (boards[sport] || []).filter(row => personKey(row.player) === personKey(board.player));
+      return {sport, people, player: people[0] || board, lines: people.filter(row => rowStatKey(row) === rowStatKey(board)), board, state: 'ready'};
+    }
+  }
   const sports = leg.sport ? (leg.sport === 'nba' || leg.sport === 'wnba' ? [leg.sport, leg.sport === 'nba' ? 'wnba' : 'nba'] : [leg.sport]) : SLIP_SPORTS;
   let people = [];
   for (const sport of sports) {

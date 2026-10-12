@@ -296,6 +296,11 @@
 .ss-primary img{width:20px;height:20px;border-radius:5px;background:#fff;padding:1px}
 .ss-primary:hover:not(:disabled){filter:brightness(1.1)}
 .ss-primary:disabled{opacity:.75}
+/* Hand the slip to the Slip Analyzer: it grades the same picks the same way. */
+.smart-slip .ss-check-slip{display:flex;align-items:center;justify-content:center;gap:8px;width:calc(100% - 40px);min-height:46px;margin:-4px 20px 16px;
+ border:1px dashed color-mix(in srgb,var(--theme-accent) 45%,var(--s-line))!important;border-radius:14px;color:color-mix(in srgb,var(--theme-accent) 80%,#fff)!important;
+ font-size:13.5px!important;font-weight:800!important}
+.smart-slip .ss-check-slip:hover{background:color-mix(in srgb,var(--theme-accent) 8%,transparent)!important}
 .ss-fine{margin:-6px 20px 16px;color:var(--s-faint);font-size:11px}
 .ss-toast{position:fixed;z-index:60;left:50%;bottom:calc(28px + env(safe-area-inset-bottom,0px));margin:0;padding:11px 18px;border:1px solid #2d373f;border-radius:999px;
  background:rgba(20,25,28,.94);color:var(--s-text);font-size:13px;font-weight:700;white-space:nowrap;box-shadow:0 14px 34px rgba(0,0,0,.45);backdrop-filter:blur(10px);
