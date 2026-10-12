@@ -11,6 +11,7 @@ import {loadMatchups,withMatchups} from './slip-matchup';
 import {withPoolDefense} from './slip-analyst';
 import {gradeMatchups,withMatchup,passesMatchup,overOnly} from './krazy-bot';
 import {loadGames,loadTeammates,withGame} from './slip-games';
+import {HEADLINES,gradeTone} from './slip-score';
 import {MatchupCase} from './MatchupCase';
 import {opponentLogo,teamLogo,Img,Face,TierBadge,Records,Meter,Games} from './PickParts';
 import './smart-slip.css';
@@ -43,14 +44,17 @@ const PRIZEPICKS_LOGO='/prizepicks/logo.png';
 // game news (who's out, who starts, a teammate's absence) for the strongest
 // of them. Only picks that pass (Elite or Strong; Lean where a league has no
 // matchup reads) go on a slip, so nothing Risky or ruled out gets built in.
-const NEWS_FOR=40;
+// Every pick a slip can be built from: the slip search takes at most this
+// many of each kind of line (smart-slip.js buildLadder), and each one's
+// game news is read, as the Slip Analyzer reads it for every pick.
+const NEWS_FOR=60;
 async function judged(rows,sports,{signal,now}){
  const tables=await loadMatchups(sports,{signal}).catch(()=>({}));
  const listed=withPoolDefense(rows.map(row=>withMatchups(row,tables)));
  // Overs only: an Under never makes a slip.
  const usable=leg=>passesMatchup(leg)&&overOnly(leg);
  const graded=gradeMatchups(candidates(listed,{now}),tables).filter(usable);
- const top=graded.slice().sort((a,b)=>b.chance*b.factor-a.chance*a.factor).slice(0,NEWS_FOR);
+ const top=['standard','goblin','demon'].flatMap(kind=>graded.filter(leg=>leg.modifier===kind).sort((a,b)=>b.chance*b.factor-a.chance*a.factor).slice(0,NEWS_FOR));
  const asks=top.map(leg=>({key:leg.id,row:leg.row}));
  let found={},mates={};
  try{
@@ -232,8 +236,10 @@ function Ticket({slip,locked,onLock,onSwap,onResearch,onAdd,onExport,exporting,l
  const need=Math.pow(1/slip.payout,1/slip.legs.length);
  return <div className="ss-ticket" style={{'--tone':level.tone}}>
   <div className="ss-ticket-head">
-   <div><span className="ss-ticket-kind"><i><level.Icon size={12} strokeWidth={2.6}/>{level.name}</i><img src={PRIZEPICKS_LOGO} alt=""/>{slip.legs.length}-pick {slip.play==='flex'?'Flex':'Power'} Play</span>
-    <strong>Pays {times(pays,slip.estimated)}</strong></div>
+   <div className="ss-ticket-title">
+    {slip.letter&&<span className="ss-grade" data-tone={gradeTone(slip.letter)} title="The grade the Slip Analyzer gives this slip"><b>{slip.letter}</b><small>Grade</small></span>}
+    <div><span className="ss-ticket-kind"><i><level.Icon size={12} strokeWidth={2.6}/>{level.name}</i><img src={PRIZEPICKS_LOGO} alt=""/>{slip.legs.length}-pick {slip.play==='flex'?'Flex':'Power'} Play</span>
+     <strong>Pays {times(pays,slip.estimated)}</strong>{slip.letter&&<span className="ss-grade-words">{HEADLINES[slip.letter]}</span>}</div></div>
    <dl>
     <div><dt>{slip.play==='flex'?'To profit':'All hit'}</dt><dd>{percent(slip.play==='flex'?slip.profit:slip.chance)}</dd></div>
     <div><dt>Edge</dt><dd className={slip.value>=1?'is-up':'is-down'}>{slip.value>=1?'+':'−'}{Math.abs(Math.round((slip.value-1)*100))}%</dd></div>
@@ -536,7 +542,8 @@ export function SmartSlip(){
     return <button type="button" role="option" aria-selected={active} key={item.target} className={active?'is-active':''}
      style={{'--tone':(LEVELS[item.target]||LEVELS[2]).tone,'--i':index}} onClick={()=>choose(item.target)}>
      {item===recommended&&<em><ShieldCheck size={11} strokeWidth={2.6}/>Recommended</em>}
-     <b>{React.createElement((LEVELS[item.target]||LEVELS[2]).Icon,{size:15,className:'ss-level-icon','aria-hidden':true})}{times(item.payout,item.estimated)}</b>
+     <b>{React.createElement((LEVELS[item.target]||LEVELS[2]).Icon,{size:15,className:'ss-level-icon','aria-hidden':true})}{times(item.payout,item.estimated)}
+      {item.letter&&<i className="ss-chip-grade" data-tone={gradeTone(item.letter)}>{item.letter}</i>}</b>
      <span>{percent(odds)} {item.play==='flex'?'to profit':'to hit'}</span>
      <i className="ss-odds" aria-hidden="true"><i style={{width:percent(odds)}}/></i>
      <Faces players={item.legs.map(leg=>({name:leg.row.player,headshot:leg.row.headshot}))} max={6}/>

@@ -12,7 +12,8 @@ import {finderMarket} from './prop-finder-core.js';
 import {finderWindow} from './unified-finder-data.js';
 import {assessLeg, POWER, FLEX, SPORT_NAMES} from './smart-slip.js';
 import {matchupCase, withMatchups} from './slip-matchup.js';
-import {links, jointChance} from './slip-correlation.js';
+import {links} from './slip-correlation.js';
+import {LETTERS, letterFor, scoreParlay} from './slip-score.js';
 import {newsCap} from './slip-games.js';
 
 export const SLIP_SPORTS = ['mlb', 'nba', 'wnba', 'nfl', 'nhl', 'soccer'];
@@ -399,9 +400,9 @@ export function regrade(grade, row, tables = {}) {
   return {...judged, implied: grade.implied, edge: grade.implied != null ? judged.chance - grade.implied : null};
 }
 
-// The parlay's letter, from what it returns per $1 over time.
-export const LETTERS = [[1.35, 'A+'], [1.2, 'A'], [1.1, 'A-'], [1.02, 'B+'], [0.95, 'B'], [0.88, 'B-'], [0.8, 'C+'], [0.7, 'C'], [0.55, 'D']];
-const letterFor = value => (LETTERS.find(([floor]) => value >= floor) || [0, 'F'])[1];
+// The parlay's letter, from what it returns per $1 over time (slip-score.js,
+// shared with the Parlay Builder).
+export {LETTERS};
 
 /**
  * The parlay as one: its chance, payout, worth and letter, the picks that
@@ -414,10 +415,8 @@ export function scoreEntry(legs, {app, entry} = {}) {
   if (!graded.length) return null;
   const complete = graded.length === n;
   const chances = legs.map(leg => leg.grade?.chance ?? 0.5);
-  const independent = chances.reduce((product, value) => product * value, 1);
   // Picks from one game rise and fall together (slip-correlation.js).
   const pairs = links(legs.map(leg => leg.grade && leg.row ? {row: leg.row, side: leg.side, player: leg.row.player || leg.player} : null));
-  const chance = jointChance(chances, pairs);
   let multiplier = entry?.multiplier ?? null, estimated = false;
   const type = entry?.type || (app?.key === 'prizepicks' ? 'power' : null);
   if (multiplier == null && app?.key === 'prizepicks' && type === 'power' && POWER[n]) {
@@ -428,23 +427,16 @@ export function scoreEntry(legs, {app, entry} = {}) {
   // No payout on the slip: a pick'em Power Play of this size is assumed.
   let assumed = false;
   if (multiplier == null && type !== 'flex' && POWER[n]) { multiplier = POWER[n]; assumed = true; }
-  let value = multiplier ? chance * multiplier : null;
+  // The parlay scored as the Parlay Builder scores it (slip-score.js).
+  // Flex pays on all but one or two, so its worth counts those too.
+  let scored;
   if (type === 'flex' && FLEX[n]) {
-    // Flex pays on all but one or two, so its worth counts those too.
-    let dist = [1];
-    for (const p of chances) {
-      const next = new Array(dist.length + 1).fill(0);
-      dist.forEach((q, k) => { next[k] += q * (1 - p); next[k + 1] += q * p; });
-      dist = next;
-    }
-    // Correlated picks shift chance between all hitting and missing one.
-    const extra = dist[n] * (chance / independent - 1);
-    dist[n] += extra;
-    dist[n - 1] = Math.max(0, dist[n - 1] - extra);
-    const scale = entry?.multiplier ? entry.multiplier / FLEX[n][n] : 1;
-    value = Object.entries(FLEX[n]).reduce((sum, [k, pay]) => sum + dist[Number(k)] * pay * scale, 0);
+    const scale = entry?.multiplier ? entry.multiplier / FLEX[n][n]
+      : app?.key === 'prizepicks' ? graded.reduce((product, leg) => product * (leg.grade.factor || 1), 1) : 1;
+    scored = scoreParlay(chances, pairs, {flex: Object.fromEntries(Object.entries(FLEX[n]).map(([k, pay]) => [k, pay * scale]))});
     multiplier = FLEX[n][n] * scale;
-  }
+  } else scored = scoreParlay(chances, pairs, {pays: multiplier});
+  const {chance, independent, value} = scored;
   const byChance = graded.slice().sort((a, b) => a.grade.chance - b.grade.chance);
   const weakest = byChance[0];
   const best = byChance.at(-1);

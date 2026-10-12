@@ -7,6 +7,8 @@ import {loadLines,ENRICH} from './finder-pool';
 import {candidates} from './smart-slip';
 import {SLIP_SPORTS,SPORT_NAMES,TIERS,LETTERS,checkLeg,scoreEntry,verdict,swaps,sideWord,offeredStats,judge,regrade,saferPick} from './slip-check';
 import {loadMatchups,withMatchups} from './slip-matchup';
+import {HEADLINES,gradeTone} from './slip-score';
+import {withPoolDefense} from './slip-analyst';
 import {lookupRow} from './slip-lookup';
 import {loadGames,loadTeammates,withGame,newsOf,liveRead,anyLive} from './slip-games';
 import {MatchupCase} from './MatchupCase';
@@ -184,9 +186,8 @@ function Prop({leg,index,app,boards,need,editing,onEdit,onSave,onCancel,onRemove
  </article>;
 }
 
-const HEADLINES={'A+':'Elite parlay','A':'Strong parlay','A-':'Strong parlay','B+':'Good parlay','B':'Playable parlay','B-':'Playable parlay',
- 'C+':'Long shot','C':'Long shot','D':'Risky parlay','F':'Fade this parlay'};
-const tone=letter=>({A:'up',B:'blue',C:'gold'})[letter?.[0]]||'down';
+// The same words and colours as the Parlay Builder (slip-score.js).
+const tone=gradeTone;
 
 function Figure({label,value,format,sub}){
  const shown=useCount(value);
@@ -422,6 +423,10 @@ export function SlipAnalyzer(){
     Promise.all(sports.map(async sport=>[sport,await loading[sport]])).then(Object.fromEntries),
     loadMatchups(onSlip.length?onSlip:sports.filter(sport=>sport!=='soccer'),{signal}).catch(error=>{if(error.name==='AbortError')throw error;return {};}),
    ]);
+   // The lines read as the Parlay Builder reads them: the matchup tables,
+   // then what each opponent gave up to players like him where a league
+   // has no table (slip-analyst.js), so both grade a pick the same.
+   for(const sport of Object.keys(rows))rows[sport]=withPoolDefense((rows[sport]||[]).map(row=>withMatchups(row,found)));
    boards.current=rows;tables.current=found;
    await pause(calm()?0:350,signal);
    setStep(2);

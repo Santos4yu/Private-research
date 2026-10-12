@@ -19,6 +19,8 @@
 // anything.
 import {bookProbability} from './unified-finder-data.js';
 import {readPick, grade, conflicted, analystNote} from './slip-analyst.js';
+import {link} from './slip-correlation.js';
+import {scoreParlay} from './slip-score.js';
 
 export const POWER = {2: 3, 3: 6, 4: 10, 5: 20, 6: 37.5};
 // Flex: hits -> multiplier.
@@ -213,34 +215,37 @@ export function candidates(rows, {now = Date.now(), alternates = true} = {}) {
 
 // ---------------------------------------------------------------- slips
 
-/** Chance of exactly k hits, for k = 0..n. */
-function hitsDistribution(chances) {
-  let dist = [1];
-  for (const p of chances) {
-    const next = new Array(dist.length + 1).fill(0);
-    dist.forEach((value, k) => { next[k] += value * (1 - p); next[k + 1] += value * p; });
-    dist = next;
-  }
-  return dist;
-}
+// Two picks from one game and how they move together (slip-correlation.js),
+// or null: picks from different games don't.
+const pairLink = (a, b) => !a.row || !b.row || !a.game || a.game !== b.game ? null
+  : link({row: a.row, side: a.side, player: a.row?.player || a.player}, {row: b.row, side: b.side, player: b.row?.player || b.player});
 
-/** Payout, chance and expected return of a slip. */
-export function scoreSlip(legs, play = 'power') {
+/**
+ * Payout, chance and worth of a slip, scored as the Slip Analyzer scores
+ * one (slip-score.js): picks from one game counted as moving together, and
+ * the same letter. `linkOf` is how two picks are linked (remembered across
+ * a search).
+ */
+export function scoreSlip(legs, play = 'power', linkOf = pairLink) {
   const n = legs.length;
   const scale = legs.reduce((product, leg) => product * leg.factor, 1);
   const estimated = legs.some(leg => leg.modifier !== 'standard');
-  if (play === 'flex') {
-    const table = FLEX[n];
-    if (!table) return null;
-    const dist = hitsDistribution(legs.map(leg => leg.chance));
-    const value = Object.entries(table).reduce((sum, [k, pay]) => sum + dist[Number(k)] * pay * scale, 0);
-    const profit = Object.entries(table).filter(([, pay]) => pay * scale > 1).reduce((sum, [k]) => sum + dist[Number(k)], 0);
-    return {legs, play, payout: table[n] * scale, chance: dist[n], profit, value, estimated, fair: 1 / dist[n]};
+  const table = play === 'flex' ? FLEX[n] : POWER[n];
+  if (!table) return null;
+  const pairs = [];
+  for (let a = 0; a < n; a++) for (let b = a + 1; b < n; b++) {
+    const found = legs[a].game && legs[a].game === legs[b].game ? linkOf(legs[a], legs[b]) : null;
+    if (found && Math.abs(found.rho) >= 0.03) pairs.push({...found, a, b});
   }
-  if (!POWER[n]) return null;
-  const chance = legs.reduce((product, leg) => product * leg.chance, 1);
-  const payout = POWER[n] * scale;
-  return {legs, play, payout, chance, profit: chance, value: payout * chance, estimated, fair: 1 / chance};
+  const chances = legs.map(leg => leg.chance);
+  if (play === 'flex') {
+    const flex = Object.fromEntries(Object.entries(table).map(([k, pay]) => [k, pay * scale]));
+    const scored = scoreParlay(chances, pairs, {flex});
+    return {legs, play, payout: table[n] * scale, ...scored, estimated, fair: 1 / scored.chance, links: pairs};
+  }
+  const payout = table * scale;
+  const scored = scoreParlay(chances, pairs, {pays: payout});
+  return {legs, play, payout, ...scored, estimated, fair: 1 / scored.chance, links: pairs};
 }
 
 function fits(leg, chosen, perGame) {
@@ -282,6 +287,13 @@ export function buildLadder(pool, {play = 'power', size = 'auto', mix = 'any', s
   // games (a one-game parlay takes them all from it), else one, or two
   // with same-game picks on.
   const perGame = Number(most) > 0 ? Number(most) : sameGame ? 2 : 1;
+  // How each pair of picks moves together, worked out once for the search.
+  const known = new Map();
+  const linkOf = (a, b) => {
+    const key = a.id < b.id ? `${a.id}|${b.id}` : `${b.id}|${a.id}`;
+    if (!known.has(key)) known.set(key, pairLink(a, b));
+    return known.get(key);
+  };
   const rule = MIXES[mix] || MIXES.any;
   const lockedLegs = pool.filter(leg => locked.includes(leg.id));
   const open = pool.filter(leg => !locked.includes(leg.id) && !excluded.includes(leg.id) && rule.kinds.includes(leg.modifier));
@@ -313,7 +325,7 @@ export function buildLadder(pool, {play = 'power', size = 'auto', mix = 'any', s
       .sort((a, b) => b.chance * b.factor - a.chance * a.factor).slice(0, Math.ceil(limit * shares[kind])));
     const chosen = [...lockedLegs];
     const walk = start => {
-      if (chosen.length === n) { consider(scoreSlip([...chosen], play)); return; }
+      if (chosen.length === n) { consider(scoreSlip([...chosen], play, linkOf)); return; }
       for (let i = start; i <= shortlist.length - (n - chosen.length); i++) {
         const leg = shortlist[i];
         if (!fits(leg, chosen, perGame)) continue;
