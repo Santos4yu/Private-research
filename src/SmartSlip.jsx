@@ -1,6 +1,5 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {createPortal} from 'react-dom';
-import {ArrowUpRight,BarChart3,CalendarClock,Check,ChevronDown,CircleCheck,Crown,Layers,Lock,LockOpen,RefreshCw,Repeat2,Rocket,Search,Shield,ShieldCheck,Stethoscope,Ticket as TicketIcon,TriangleAlert,X,Zap} from 'lucide-react';
+import {ArrowLeft,ArrowUpRight,BarChart3,CalendarClock,Check,ChevronLeft,ChevronRight,CircleCheck,Crown,Layers,Lock,LockOpen,Pencil,RefreshCw,Repeat2,Rocket,Search,Shield,ShieldCheck,Stethoscope,Ticket as TicketIcon,TriangleAlert,UserRound,X,Zap} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import {siteFinderSportAllowed} from './site-access';
 import {finderSlipProp} from './unified-finder-data';
@@ -19,9 +18,11 @@ import {MatchupCase} from './MatchupCase';
 import {opponentLogo,teamLogo,Img,Face,TierBadge,Records,Meter,Games} from './PickParts';
 import './smart-slip.css';
 
-// The Smart Slip page (the Parlay tab): the member picks a payout, how the
-// lines mix, the picks, Power or Flex and the sports; smart-slip.js finds
-// the slips.
+// The Smart Slip page (the Parlay tab), one question at a time: a start
+// screen, then the payout, the slip (how many picks, Power or Flex, which
+// lines), the sports, a game or a player to build around, and a last look
+// before building. The build plays out in the same card, then the slips
+// show. smart-slip.js finds them.
 const KEYS=['mlb','nba','wnba','nfl','nhl','soccer'];
 const SIZES=['auto',2,3,4,5,6];
 const PREFS_KEY='krazy-smart-slip';
@@ -37,9 +38,17 @@ const LEVELS={2:{name:'Safest',tone:'#5fe0a8',Icon:ShieldCheck},3:{name:'Solid',
  10:{name:'Big',tone:'#ff9f5a',Icon:Rocket},20:{name:'Long shot',tone:'#ff6b8b',Icon:Crown}};
 const MIX_OPTIONS=[['regular','Regular only',['standard','standard'],'Standard PrizePicks lines'],['goblin','Regular + Goblin',['standard','goblin'],'Easier lines, lower payout'],
  ['demon','Regular + Demon',['standard','demon'],'Harder lines, higher payout'],['any','Mix it up',['standard','goblin','demon'],'Whatever builds the best slip']];
-const PLAY_HINT={power:'Every pick has to hit',flex:'Still pays with a miss'};
-// Games shown before "Show all".
-const GAMES_SHOWN=6;
+const PLAYS=[['power','Power',Zap,'Every pick has to hit. Pays the most.'],['flex','Flex',Shield,'Still pays if one pick misses.']];
+const PAYOUT_HINT={2:'Likeliest to hit',3:'A steady win',5:'A bigger swing',10:'Big win, longer odds',20:'Swing for the fences'};
+// The questions, in order (0 is the start screen).
+const FLOW=[['payout','Payout','What are you going for?','Bigger payouts mean longer odds.'],
+ ['slip','Slip','Set up your slip','How many picks, how it pays and which lines.'],
+ ['sports','Sports','Which sports?','Leave them all on for the most picks to choose from.'],
+ ['games','Games','Pick a game or a player','Or skip this and build from every game.'],
+ ['build','Build','Ready to build','Tap anything to change it.']];
+const LAST=FLOW.length;
+// Players a slip can be built around.
+const MOST_PLAYERS=3;
 const STEPS=[['Pulling the lines',Layers],['Checking hit rates',BarChart3],['Matchups, injuries and odds',Stethoscope],['Building your slip',TicketIcon]];
 const PRIZEPICKS_LOGO='/prizepicks/logo.png';
 // The picks a slip is built from, judged as the Slip Analyzer and Krazy Bot
@@ -71,6 +80,8 @@ async function judged(rows,sports,{signal,now}){
 }
 
 const percent=value=>`${Math.round(value*100)}%`;
+// A player's last name, without Jr. or III.
+const shortName=name=>String(name||'').split(/\s+/).filter(word=>!/^(jr|sr|ii|iii|iv)\.?$/i.test(word)).at(-1)||name;
 const times=(value,estimated)=>`${estimated?'≈':''}${value>=10?Math.round(value):Number(value.toFixed(value<3?2:1))}x`;
 const figure=value=>String(value);
 const when=iso=>{const time=Date.parse(iso||'');if(!Number.isFinite(time))return '';const date=new Date(time),today=new Date();
@@ -112,32 +123,38 @@ function Faces({players,max=3}){
   {more>0&&<span className="ss-face-mini is-more"><i>+{more}</i></span>}</span>;
 }
 
-// One step of the form: its number, name and what it's for.
-function Step({n,title,hint,aside,children}){
- return <section className="ss-step" aria-label={title}>
-  <header className="ss-step-head"><span className="ss-step-n">{n}</span><span className="ss-step-title"><b>{title}</b>{hint&&<small>{hint}</small>}</span>{aside}</header>
-  {children}
- </section>;
+// The steps across the top: done ones ticked, the one showing lit, any of
+// them a tap away.
+function Progress({at,onGo}){
+ return <nav className="ss-tabs" aria-label="Steps" style={{'--fill':(at-1)/(LAST-1)}}>
+  <i className="ss-tabs-track" aria-hidden="true"><i/></i>
+  {FLOW.map(([key,label],n)=>{const state=n+1<at?'done':n+1===at?'active':'next';
+   return <button type="button" key={key} data-state={state} aria-current={state==='active'?'step':undefined} onClick={()=>onGo(n+1)}>
+    <span>{state==='done'?<Check size={12} strokeWidth={3.4}/>:n+1}</span><small>{label}</small></button>;})}
+ </nav>;
+}
+
+// A search box for the long lists.
+function Find({value,onChange,label}){
+ return <label className="ss-game-search"><Search size={15} aria-hidden="true"/>
+  <input type="search" value={value} onChange={event=>onChange(event.target.value)} placeholder={label} aria-label={label}/>
+  {value&&<button type="button" onClick={()=>onChange('')} aria-label="Clear search"><X size={14}/></button>}</label>;
 }
 
 // The games to build from: every game on the chosen sports' boards, its
 // teams' logos, start and some of the players with lines in it. None
 // picked means every game.
-function GamePicker({games,picked,onToggle,onClear,loading}){
- const [open,setOpen]=useState(false),[query,setQuery]=useState('');
+function GamePicker({games,picked,onToggle,loading}){
+ const [query,setQuery]=useState('');
  const needle=query.trim().toLowerCase();
  const found=needle?games.filter(game=>[game.away.abbr,game.home.abbr,SPORT_NAMES[game.sport],...game.players.map(player=>player.name)].some(text=>String(text||'').toLowerCase().includes(needle))):games;
- // Picked games stay in view even when the list is folded.
- const listed=open||needle?found:[...found.filter(game=>picked.includes(game.key)),...found.filter(game=>!picked.includes(game.key))].slice(0,Math.max(GAMES_SHOWN,picked.length));
  if(loading&&!games.length)return <div className="ss-games is-loading" aria-label="Loading games">{[0,1,2].map(n=><span key={n} className="ss-game-skel"/>)}</div>;
  if(!games.length)return <p className="ss-games-none">No games with PrizePicks lines left today for these sports.</p>;
  return <>
-  {games.length>GAMES_SHOWN&&<label className="ss-game-search"><Search size={15} aria-hidden="true"/>
-   <input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search a team or player" aria-label="Search games"/>
-   {query&&<button type="button" onClick={()=>setQuery('')} aria-label="Clear search"><X size={14}/></button>}</label>}
-  <div className="ss-games">{listed.map(game=>{
+  {games.length>5&&<Find value={query} onChange={setQuery} label="Search a team or player"/>}
+  <div className="ss-games">{found.map((game,index)=>{
    const on=picked.includes(game.key);
-   return <button type="button" key={game.key} className="ss-game" aria-pressed={on} onClick={()=>onToggle(game.key)}>
+   return <button type="button" key={game.key} className="ss-game" aria-pressed={on} onClick={()=>onToggle(game.key)} style={{'--i':Math.min(index,10)}}>
     <span className="ss-game-logos"><Img src={game.away.logo||LEAGUE_LOGOS[game.sport]}/><Img src={game.home.logo||LEAGUE_LOGOS[game.sport]}/></span>
     <span className="ss-game-text"><b>{game.away.abbr} <i>@</i> {game.home.abbr}</b>
      <small><Img className="ss-game-league" src={LEAGUE_LOGOS[game.sport]}/>{when(game.startsAt)} · {game.players.length} player{game.players.length===1?'':'s'}</small></span>
@@ -146,10 +163,32 @@ function GamePicker({games,picked,onToggle,onClear,loading}){
    </button>;})}
    {needle&&!found.length&&<p className="ss-games-none">No game matches “{query}”.</p>}
   </div>
-  <div className="ss-games-foot">
-   {!needle&&found.length>listed.length&&<button type="button" className="ss-more" onClick={()=>setOpen(true)}>Show all {found.length} games<ChevronDown size={15}/></button>}
-   {open&&!needle&&found.length>GAMES_SHOWN&&<button type="button" className="ss-more" onClick={()=>setOpen(false)}>Show fewer<ChevronDown size={15} className="is-up"/></button>}
-   {picked.length>0&&<button type="button" className="ss-more is-clear" onClick={onClear}><X size={14}/>Clear games</button>}
+ </>;
+}
+
+// The players to build around: each one's photo, team and game. A player
+// picked is on the slip with their best pick, if they have one.
+function PlayerPicker({players,picked,onToggle,loading}){
+ const [query,setQuery]=useState('');
+ const needle=query.trim().toLowerCase();
+ const found=needle?players.filter(player=>[player.name,player.team,player.opp].some(text=>String(text||'').toLowerCase().includes(needle))):players;
+ const listed=[...found.filter(player=>picked.includes(player.key)),...found.filter(player=>!picked.includes(player.key))].slice(0,needle?80:40);
+ if(loading&&!players.length)return <div className="ss-games is-loading" aria-label="Loading players">{[0,1,2].map(n=><span key={n} className="ss-game-skel"/>)}</div>;
+ if(!players.length)return <p className="ss-games-none">No players with PrizePicks lines left today for these sports.</p>;
+ return <>
+  <Find value={query} onChange={setQuery} label="Search a player or team"/>
+  <div className="ss-games">{listed.map((player,index)=>{
+   const on=picked.includes(player.key);
+   return <button type="button" key={player.key} className="ss-game ss-player" aria-pressed={on} onClick={()=>onToggle(player.key)} style={{'--i':Math.min(index,10)}}>
+    <span className="ss-player-face"><i>{String(player.name||'').split(/\s+/).map(part=>part[0]).join('').slice(0,2)}</i>
+     {player.headshot&&<img src={player.headshot} alt="" loading="lazy" onError={event=>{event.currentTarget.hidden=true;}}/>}
+     <Img className="ss-player-team" src={player.logo||LEAGUE_LOGOS[player.game.sport]}/></span>
+    <span className="ss-game-text"><b>{player.name}</b>
+     <small><Img className="ss-game-league" src={LEAGUE_LOGOS[player.game.sport]}/>{player.team} vs {player.opp} · {when(player.game.startsAt)}</small></span>
+    <span className="ss-game-tick" aria-hidden="true"><Check size={12} strokeWidth={3.4}/></span>
+   </button>;})}
+   {needle&&!found.length&&<p className="ss-games-none">No player matches “{query}”.</p>}
+   {!needle&&found.length>listed.length&&<p className="ss-games-more">Search to find any of {found.length} players.</p>}
   </div>
  </>;
 }
@@ -293,10 +332,25 @@ export function SmartSlip(){
  const games=useMemo(()=>slate.games.filter(game=>chosen.includes(game.sport)),[slate,chosen]);
  const picked=useMemo(()=>gamesPicked.filter(key=>games.some(game=>game.key===key)),[gamesPicked,games]);
  const gameCount=useMemo(()=>slate.games.reduce((counts,game)=>({...counts,[game.sport]:(counts[game.sport]||0)+1}),{}),[slate]);
- // A few games picked: enough picks may come from each to fill a slip (all
- // six from one, in a one-game parlay).
- const perGame=picked.length&&picked.length<=3?Math.max(sameGame?2:1,Math.ceil(6/picked.length)):null;
  const toggleGame=key=>setGamesPicked(old=>old.includes(key)?old.filter(item=>item!==key):[...old.filter(item=>games.some(game=>game.key===item)),key]);
+ // Every player with a line in those games, soonest game first.
+ const players=useMemo(()=>games.flatMap(game=>game.players.map(player=>{
+  const away=player.team===game.away.abbr;
+  return {...player,game,key:`${game.key}|${player.name}`,logo:(away?game.away:game.home).logo,opp:away?game.home.abbr:game.away.abbr};
+ })),[games]);
+ // The players the slip is built around.
+ const [anchors,setAnchors]=useState([]);
+ const anchored=useMemo(()=>players.filter(player=>anchors.includes(player.key)),[players,anchors]);
+ // A few games picked: enough picks may come from each to fill a slip (all
+ // six from one, in a one-game parlay). Players picked from one game may all
+ // go on it.
+ const perGame=useMemo(()=>{
+  const counts=new Map();
+  for(const player of anchored)counts.set(player.game.key,(counts.get(player.game.key)||0)+1);
+  const most=Math.max(0,...counts.values());
+  if(picked.length&&picked.length<=3)return Math.max(sameGame?2:1,Math.ceil(6/picked.length),most);
+  return most>1?Math.max(most,sameGame?2:1):null;
+ },[picked,anchored,sameGame]);
 
  const [status,setStatus]=useState('idle');
  const [step,setStep]=useState(0);
@@ -304,6 +358,8 @@ export function SmartSlip(){
  const [lineCount,setLineCount]=useState(0);
  const [pool,setPool]=useState([]);
  const [builtAt,setBuiltAt]=useState(0);
+ // What the slips on hand were built from: change any of it and they need building again.
+ const [builtFor,setBuiltFor]=useState('');
  // Locked by the member; swapped out; the slip a swap is working on (its
  // band, its size and the picks it keeps).
  const [locked,setLocked]=useState([]);
@@ -316,23 +372,33 @@ export function SmartSlip(){
  const [exported,setExported]=useState({key:'',url:''});
  const [toast,setToast]=useState('');
  useEffect(()=>{if(!toast)return;const id=setTimeout(()=>setToast(''),2600);return()=>clearTimeout(id);},[toast]);
- const controller=useRef(null),ladderRef=useRef(null),stageRef=useRef(null),scrollAfterBuild=useRef(false),scan=useRef([]);
- // On a phone the steps run longer than the screen: while they're in view
- // and the build button isn't, a copy of it floats above the bottom menu.
- const barRef=useRef(null),controlsRef=useRef(null);
- const [floatBar,setFloatBar]=useState(false);
- useEffect(()=>{
-  const bar=barRef.current,controls=controlsRef.current;
-  if(!bar||!controls||typeof IntersectionObserver!=='function')return undefined;
-  let barSeen=true,controlsSeen=true;
-  const watch=new IntersectionObserver(entries=>{
-   for(const entry of entries){if(entry.target===bar)barSeen=entry.isIntersecting;else controlsSeen=entry.isIntersecting;}
-   setFloatBar(!barSeen&&controlsSeen&&window.matchMedia('(max-width: 760px)').matches);
-  },{rootMargin:'0px 0px -96px 0px'});
-  watch.observe(bar);watch.observe(controls);
-  return()=>watch.disconnect();
- },[]);
+ const controller=useRef(null),scan=useRef([]),pageRef=useRef(null);
  const builder=usePickBuilder();
+
+ // Which question shows (0 the start screen), which way the last move went,
+ // and whether the member came from the last look (so a change goes back there).
+ const [at,setAt]=useState(0);
+ const [dir,setDir]=useState(1);
+ const [fromReview,setFromReview]=useState(false);
+ const [editing,setEditing]=useState(true);
+ const [findBy,setFindBy]=useState('games');
+ const view=status==='loading'?'building':editing||status==='idle'?'setup':'result';
+ // Every change of view or question starts at the top of the page.
+ useEffect(()=>{
+  const top=pageRef.current?.getBoundingClientRect().top??0;
+  if(top<0)window.scrollTo({top:Math.max(0,window.scrollY+top-8),behavior:calm()?'auto':'smooth'});
+ },[view,at]);
+ const go=next=>{
+  const to=Math.max(0,Math.min(LAST,next));
+  setDir(to>=at?1:-1);setAt(to);
+  if(to===LAST)setFromReview(false);
+ };
+ const edit=n=>{setFromReview(true);go(n);};
+ const onward=()=>go(fromReview?LAST:at+1);
+ // A single choice moves on by itself once its tick has shown.
+ const advance=useRef(0);
+ useEffect(()=>()=>clearTimeout(advance.current),[]);
+ const chooseThenGo=()=>{clearTimeout(advance.current);advance.current=setTimeout(onward,calm()?0:320);};
 
  const base=useMemo(()=>pool.length?buildLadder(pool,{play,size,mix,sameGame,perGame,locked,excluded}):[],[pool,play,size,mix,sameGame,perGame,locked,excluded]);
  // A swap changes one pick of one slip: same band, same size, the rest kept.
@@ -349,18 +415,21 @@ export function SmartSlip(){
  // The band asked for, else the nearest bigger one, else the biggest there is.
  const slip=useMemo(()=>ladder.find(item=>item.target===selected)||ladder.find(item=>item.target>=target)||ladder.at(-1)||null,[ladder,selected,target]);
 
+ const source=JSON.stringify([chosen,picked,anchored.map(player=>player.key)]);
  const build=useCallback(async()=>{
   controller.current?.abort();
   const control=new AbortController();controller.current=control;
   const started=Date.now();
+  setEditing(false);
   setStatus('loading');setStep(0);setNotice('');setLocked([]);setSwap(null);setExcluded([]);setSelected(null);setProgress({});setPool([]);setLineCount(0);
   scan.current=[];
-  requestAnimationFrame(()=>stageRef.current?.scrollIntoView({behavior:calm()?'auto':'smooth',block:'nearest'}));
   // What the results have taught the model, before anything is graded.
   await loadLearning();
   const now=Date.now();
-  // The games picked, else every game; only their sports are loaded.
-  const keys=picked,sportsFor=keys.length?[...new Set(games.filter(game=>keys.includes(game.key)).map(game=>game.sport))]:chosen;
+  // The games picked (and those of the players picked), else every game;
+  // only their sports are loaded.
+  const keys=picked.length?[...new Set([...picked,...anchored.map(player=>player.game.key)])]:[];
+  const sportsFor=keys.length?[...new Set(slate.games.filter(game=>keys.includes(game.key)).map(game=>game.sport))]:chosen;
   const inGames=row=>!keys.length||keys.includes(gameKey(row));
   // Every kind of line, so a different mix needs no second build.
   const only=row=>isPrizePicksLine(row)&&Date.parse(row.startsAt||'')>now+10*60000&&inGames(row);
@@ -379,6 +448,12 @@ export function SmartSlip(){
   if(control.signal.aborted)return;
   // The day's best picks go back to be settled and learned from (learning.py).
   logTopPicks(found.map(leg=>({row:leg.row,side:leg.side,line:leg.line,modifier:leg.modifier,grade:leg})),{source:'board',limit:80});
+  // Each player picked goes on with their best pick of the lines allowed.
+  const kinds=(MIXES[mix]||MIXES.any).kinds,missing=[],around=[];
+  for(const player of anchored){
+   const best=found.filter(leg=>leg.row.player===player.name&&gameKey(leg.row)===player.game.key&&kinds.includes(leg.modifier)).sort((a,b)=>b.chance-a.chance)[0];
+   if(best)around.push(best.id);else missing.push(player.name);
+  }
   // Every step shows, even when every line was already saved.
   const lines=rows.filter(only);
   // The feed favours lines with a photo; every line still counts as checked.
@@ -392,23 +467,26 @@ export function SmartSlip(){
   if(!await hold(1,checked?200:500))return;
   if(!await hold(2,550))return;
   // The picks drop into the slip on the last step, then the options show.
-  setPool(found);
+  setPool(found);setLocked(around);
   if(!await hold(3,1300))return;
-  setBuiltAt(Date.now());
+  setBuiltAt(Date.now());setBuiltFor(source);
   setStatus(rows.length?'ready':'error');
-  scrollAfterBuild.current=true;
-  if(failed.length)setNotice(`${failed.map(key=>SPORT_NAMES[key]).join(', ')} lines couldn’t load right now.`);
- },[chosen,picked,games]);
+  const notes=[];
+  if(missing.length)notes.push(`No Elite or Strong pick for ${missing.join(' or ')} right now, so the slip is built without ${missing.length===1?'that player':'those players'}.`);
+  if(failed.length)notes.push(`${failed.map(key=>SPORT_NAMES[key]).join(', ')} lines couldn’t load right now.`);
+  setNotice(notes.join(' '));
+ },[chosen,picked,anchored,slate,mix,source]);
  useEffect(()=>()=>controller.current?.abort(),[]);
- // A finished build brings its options into view (below the controls on a phone).
- useEffect(()=>{
-  if(!scrollAfterBuild.current||status!=='ready')return;
-  scrollAfterBuild.current=false;
-  requestAnimationFrame(()=>ladderRef.current?.scrollIntoView({behavior:calm()?'auto':'smooth',block:'start'}));
- },[status,ladder]);
+ const cancel=()=>{controller.current?.abort();setStatus('idle');setEditing(true);setPool([]);go(LAST);};
 
  const toggleSport=key=>setSports(old=>{const base=old.filter(item=>allowed.includes(item));const current=base.length?base:allowed;
   const next=current.includes(key)?current.filter(item=>item!==key):[...current,key];return next.length===allowed.length?[]:next.length?next:[key];});
+ const toggleAnchor=key=>setAnchors(old=>{
+  if(old.includes(key))return old.filter(item=>item!==key);
+  const kept=old.filter(item=>players.some(player=>player.key===item));
+  if(kept.length>=MOST_PLAYERS){setToast(`Up to ${MOST_PLAYERS} players`);return kept;}
+  return [...kept,key];
+ });
  const lockLeg=id=>setLocked(old=>old.includes(id)?old.filter(item=>item!==id):[...old,id]);
  const swapLeg=leg=>{
   if(!slip)return;
@@ -474,17 +552,93 @@ export function SmartSlip(){
   }finally{setExporting(false);}
  };
 
- const loading=status==='loading';
  const totals=Object.values(progress).reduce((sum,item)=>({done:sum.done+(item.done||0),total:sum.total+(item.total||0)}),{done:0,total:0});
  const sizes=SIZES.filter(value=>play!=='flex'||value==='auto'||value>=3);
-
- const buildButton=<button type="button" className="ss-build" onClick={build} disabled={loading||!allowed.length}>
-  {loading?<RefreshCw size={18} className="ss-spin"/>:<TicketIcon size={18}/>}<span>{loading?'Building…':status==='ready'?'Build again':'Build my slip'}</span></button>;
+ const level=LEVELS[target]||LEVELS[2];
  const mixText=(MIX_OPTIONS.find(([key])=>key===mix)||MIX_OPTIONS[3])[1];
- const summary=[`${target}x+`,mixText,size==='auto'?'Any size':`${size} picks`,play==='flex'?'Flex':'Power',
-  picked.length?`${picked.length} game${picked.length===1?'':'s'}`:`${chosen.length===allowed.length?'All sports':chosen.map(key=>SPORT_NAMES[key]).join(', ')}`];
+ const sizeText=size==='auto'?'Best size':`${size} picks`;
+ const sportsText=chosen.length===allowed.length?'All sports':chosen.map(key=>SPORT_NAMES[key]).join(', ');
+ const pickedGames=games.filter(game=>picked.includes(game.key));
+ const whereText=[pickedGames.length?pickedGames.length===1?`${pickedGames[0].away.abbr} @ ${pickedGames[0].home.abbr}`:`${pickedGames.length} games`:'Every game',
+  anchored.length?`around ${anchored.map(player=>shortName(player.name)).join(', ')}`:''].filter(Boolean).join(' · ');
+ const summary=[`${target}x+`,sizeText,play==='flex'?'Flex':'Power',mixText,sportsText,whereText];
+ const hasSaved=typeof saved.target==='number';
+ // The start screen's slip: a few of today's players, soonest games first.
+ const faces=useMemo(()=>{
+  const seen=new Set(),out=[];
+  for(let round=0;round<3&&out.length<3;round++)for(const game of slate.games){
+   const player=game.players.filter(item=>item.headshot).concat(game.players.filter(item=>!item.headshot))[round];
+   if(player&&!seen.has(player.name)&&out.length<3){seen.add(player.name);out.push({...player,game});}
+  }
+  return out;
+ },[slate]);
+ const buildButton=<button type="button" className="ss-build" onClick={build} disabled={view==='building'||!allowed.length}>
+  <TicketIcon size={18}/><span>Build my slip</span></button>;
 
- return <section className="smart-slip" aria-labelledby="smart-slip-title">
+ let body=null;
+ if(at===1)body=<div className="ss-payouts">{TARGETS.map((value,index)=>{const item=LEVELS[value];
+  return <button type="button" key={value} aria-pressed={target===value} style={{'--tone':item.tone,'--i':index}}
+   onClick={()=>{setSwap(null);setTarget(value);setSelected(null);chooseThenGo();}}>
+   <span className="ss-payout-icon">{React.createElement(item.Icon,{size:17,'aria-hidden':true})}</span>
+   <span className="ss-payout-text"><b>{value}x<small>+</small></b><span className="ss-payout-name">{item.name}</span></span>
+   <small className="ss-payout-hint">{PAYOUT_HINT[value]}</small>
+   <i className="ss-meter" aria-hidden="true">{TARGETS.map((_,n)=><em key={n} className={n<=index?'is-on':''}/>)}</i>
+   <i className="ss-picked" aria-hidden="true"><Check size={10} strokeWidth={3.5}/></i>
+  </button>;})}</div>;
+ if(at===2)body=<>
+  <div className="ss-q" style={{'--i':0}}><span className="ss-label">How many picks</span>
+   <Segment label="Picks" value={size} onChange={setSize} options={sizes.map(value=>[value,value==='auto'?'Best':String(value)])}/></div>
+  <div className="ss-q" style={{'--i':1}}><span className="ss-label">How it pays</span>
+   <div className="ss-plays">{PLAYS.map(([value,text,Icon,hint])=><button type="button" key={value} aria-pressed={play===value}
+    onClick={()=>{setPlay(value);if(value==='flex'&&size===2)setSize('auto');}}>
+    <span className="ss-play-icon"><Icon size={17}/></span><b>{text}</b><small>{hint}</small>
+    <i className="ss-picked" aria-hidden="true"><Check size={10} strokeWidth={3.5}/></i></button>)}</div></div>
+  <div className="ss-q" style={{'--i':2}}><span className="ss-label">Which lines</span>
+   <div className="ss-mixes">{MIX_OPTIONS.map(([value,text,tokens,hint])=><button type="button" key={value} aria-pressed={mix===value} onClick={()=>setMix(value)}>
+    <span className="ss-tokens">{tokens.map((kind,n)=><Token key={n} kind={kind}/>)}</span>
+    <span className="ss-mix-text"><b>{text}</b><small>{hint}</small></span>
+    <i className="ss-picked" aria-hidden="true"><Check size={10} strokeWidth={3.5}/></i>
+   </button>)}</div></div>
+  <label className="ss-switch" style={{'--i':3}}><input type="checkbox" checked={sameGame} onChange={event=>setSameGame(event.target.checked)}/>
+   <span><b>Same-game picks</b><small>Up to 2 picks from one game</small></span></label>
+ </>;
+ if(at===3)body=<>
+  <button type="button" className="ss-all ss-all-sports" aria-pressed={chosen.length===allowed.length} onClick={()=>setSports([])}><Check size={14}/>All sports</button>
+  <div className="ss-sports">{allowed.map((key,index)=>{const count=gameCount[key]||0;
+   return <button type="button" key={key} aria-pressed={chosen.includes(key)} onClick={()=>toggleSport(key)}
+    data-empty={!slate.loading&&!count?'true':undefined} style={{'--i':index}}>
+    <Img src={LEAGUE_LOGOS[key]}/>
+    <span><b>{SPORT_NAMES[key]}</b><small>{slate.loading&&!count?'…':count?`${count} game${count===1?'':'s'}`:'No games'}</small></span>
+    <i className="ss-picked" aria-hidden="true"><Check size={10} strokeWidth={3.5}/></i></button>;})}</div>
+ </>;
+ if(at===4)body=<>
+  <Segment label="Pick by" value={findBy} onChange={setFindBy} options={[['games',`Games${picked.length?` · ${picked.length}`:''}`,CalendarClock],['players',`Players${anchored.length?` · ${anchored.length}`:''}`,UserRound]]}/>
+  {findBy==='games'
+   ?<GamePicker games={games} picked={picked} onToggle={toggleGame} loading={slate.loading}/>
+   :<PlayerPicker players={players} picked={anchors} onToggle={toggleAnchor} loading={slate.loading}/>}
+ </>;
+ if(at===LAST)body=<>
+  <ul className="ss-review">
+   <li style={{'--i':0}}><button type="button" onClick={()=>edit(1)}>
+    <span className="ss-review-icon" style={{'--tone':level.tone}}>{React.createElement(level.Icon,{size:17})}</span>
+    <span className="ss-review-text"><small>Payout</small><b>{target}x+ · {level.name}</b></span><Pencil size={15} className="ss-review-edit"/></button></li>
+   <li style={{'--i':1}}><button type="button" onClick={()=>edit(2)}>
+    <span className="ss-tokens">{(MIX_OPTIONS.find(([key])=>key===mix)||MIX_OPTIONS[3])[2].map((kind,n)=><Token key={n} kind={kind}/>)}</span>
+    <span className="ss-review-text"><small>Slip</small><b>{sizeText} · {play==='flex'?'Flex':'Power'}</b><span>{mixText}{sameGame?' · same-game picks':''}</span></span><Pencil size={15} className="ss-review-edit"/></button></li>
+   <li style={{'--i':2}}><button type="button" onClick={()=>edit(3)}>
+    <span className="ss-review-logos">{chosen.slice(0,4).map(key=><Img key={key} src={LEAGUE_LOGOS[key]}/>)}</span>
+    <span className="ss-review-text"><small>Sports</small><b>{sportsText}</b></span><Pencil size={15} className="ss-review-edit"/></button></li>
+   <li style={{'--i':3}}><button type="button" onClick={()=>edit(4)}>
+    {anchored.length?<Faces players={anchored} max={3}/>:<span className="ss-review-icon"><CalendarClock size={17}/></span>}
+    <span className="ss-review-text"><small>{anchored.length?'Games and players':'Games'}</small><b>{whereText}</b></span><Pencil size={15} className="ss-review-edit"/></button></li>
+  </ul>
+  <p className="ss-review-note" style={{'--i':4}}><ShieldCheck size={15}/>Only Elite and Strong picks, overs only, graded the way the Slip Analyzer grades them.</p>
+ </>;
+
+ const nextText=fromReview?'Done':at===4&&!picked.length&&!anchored.length?'Use every game':'Next';
+ const flow=FLOW[at-1];
+
+ return <section className="smart-slip" aria-labelledby="smart-slip-title" ref={pageRef} data-view={view}>
   <header className="ss-head">
    <div className="ss-title"><span className="ss-mark" aria-hidden="true"><TicketIcon size={22}/></span>
     <div><h1 id="smart-slip-title">Parlay Builder</h1>
@@ -492,88 +646,82 @@ export function SmartSlip(){
    <span className="ss-head-pp"><img src={PRIZEPICKS_LOGO} alt=""/>PrizePicks ready</span>
   </header>
 
-  <div className="ss-controls" ref={controlsRef}>
-   <Step n={1} title="Payout" hint="How big a win you're after">
-    <div className="ss-payouts">{TARGETS.map((value,index)=>{const level=LEVELS[value];
-     return <button type="button" key={value} aria-pressed={target===value} style={{'--tone':level.tone}} onClick={()=>{setSwap(null);setTarget(value);setSelected(null);}}>
-      <span className="ss-payout-icon">{React.createElement(level.Icon,{size:16,'aria-hidden':true})}</span>
-      <b>{value}x<small>+</small></b><span className="ss-payout-name">{level.name}</span>
-      <i className="ss-meter" aria-hidden="true">{TARGETS.map((_,n)=><em key={n} className={n<=index?'is-on':''}/>)}</i>
-      <i className="ss-picked" aria-hidden="true"><Check size={10} strokeWidth={3.5}/></i>
-     </button>;})}</div>
-   </Step>
-
-   <Step n={2} title="Lines" hint="Which PrizePicks lines go on the slip">
-    <div className="ss-mixes">{MIX_OPTIONS.map(([value,text,tokens,hint])=><button type="button" key={value} aria-pressed={mix===value} onClick={()=>setMix(value)}>
-     <span className="ss-tokens">{tokens.map((kind,n)=><Token key={n} kind={kind}/>)}</span>
-     <span className="ss-mix-text"><b>{text}</b><small>{hint}</small></span>
-     <i className="ss-picked" aria-hidden="true"><Check size={10} strokeWidth={3.5}/></i>
-    </button>)}</div>
-   </Step>
-
-   <Step n={3} title="Slip" hint="How many picks, and how it pays">
-    <div className="ss-row">
-     <div className="ss-field"><span className="ss-label">Picks</span>
-      <Segment label="Picks" value={size} onChange={setSize} options={sizes.map(value=>[value,value==='auto'?'Auto':String(value)])}/></div>
-     <div className="ss-field"><span className="ss-label">Play</span>
-      <Segment label="Play" value={play} onChange={value=>{setPlay(value);if(value==='flex'&&size===2)setSize('auto');}}
-       options={[['power','Power',Zap],['flex','Flex',Shield]]}/>
-      <small className="ss-field-hint">{PLAY_HINT[play]}</small></div>
+  {view==='setup'&&<div className="ss-wiz" data-at={at}>
+   {at===0?<div className="ss-intro">
+    <div className="ss-intro-art" aria-hidden="true">
+     <div className="ss-mini">
+      <header><img src={PRIZEPICKS_LOGO} alt=""/><b>Your slip</b><span>Graded A+ to F</span></header>
+      <ol>{[0,1,2].map(n=>{const player=faces[n];
+       return <li key={n} style={{'--i':n}}>{player?<><span className="ss-face-mini"><i>{player.name.split(' ').map(part=>part[0]).join('').slice(0,2)}</i><img src={player.headshot} alt="" onError={event=>{event.currentTarget.hidden=true;}}/></span>
+        <span className="ss-mini-who"><b>{player.name}</b><small>{player.team} · {SPORT_NAMES[player.game.sport]}</small></span><em>More</em></>
+        :<><i className="ss-slot-face"/><span className="ss-slot-text"><i/><i/></span></>}</li>;})}</ol>
+      <footer><span>3-pick Power</span><b>Pays 6x</b></footer>
+     </div>
     </div>
-   </Step>
-
-   <Step n={4} title="Sports" hint="Leave them all on for the widest pick of lines">
-    <div className="ss-sports">{allowed.map(key=>{const count=gameCount[key]||0;
-     return <button type="button" key={key} aria-pressed={chosen.includes(key)} onClick={()=>toggleSport(key)} data-empty={!slate.loading&&!count?'true':undefined}>
-      <Img src={LEAGUE_LOGOS[key]}/>
-      <span><b>{SPORT_NAMES[key]}</b><small>{slate.loading&&!count?'…':count?`${count} game${count===1?'':'s'}`:'No games'}</small></span>
-      <i className="ss-picked" aria-hidden="true"><Check size={10} strokeWidth={3.5}/></i></button>;})}</div>
-   </Step>
-
-   <Step n={5} title="Games" hint={picked.length===1?'1 game picked: slips use only this game':picked.length?`${picked.length} games picked: slips use only these`:'All games, or tap the ones you want'}
-    aside={<button type="button" className="ss-all" aria-pressed={!picked.length} onClick={()=>setGamesPicked([])}><CalendarClock size={14}/>All games</button>}>
-    <GamePicker games={games} picked={picked} onToggle={toggleGame} onClear={()=>setGamesPicked([])} loading={slate.loading}/>
-    <label className="ss-switch"><input type="checkbox" checked={sameGame||picked.length===1} disabled={picked.length===1} onChange={event=>setSameGame(event.target.checked)}/>
-     <span><b>Same-game picks</b><small>{picked.length===1?'On: every pick comes from your game':picked.length>1&&picked.length<=3?`Up to ${perGame} from each of your games`:'Up to 2 from one game'}</small></span></label>
-   </Step>
-
-   <div className="ss-build-bar" ref={barRef}>
-    <p className="ss-summary" aria-label="Your choices">{summary.map(item=><span key={item}>{item}</span>)}</p>
-    {buildButton}
+    <div className="ss-intro-text">
+     <h2>Build your parlay</h2>
+     <p>Four quick questions and your slip is ready for PrizePicks. Only Elite and Strong picks, overs only.</p>
+    </div>
+    <div className="ss-intro-sports">{allowed.map(key=><span key={key}><Img src={LEAGUE_LOGOS[key]}/><b>{SPORT_NAMES[key]}</b>
+     <small>{slate.loading&&!gameCount[key]?'…':gameCount[key]?`${gameCount[key]} game${gameCount[key]===1?'':'s'}`:'Off today'}</small></span>)}</div>
+    <div className="ss-intro-go">
+     <button type="button" className="ss-next" onClick={()=>go(1)}>Let’s go<ChevronRight size={18}/></button>
+     {hasSaved&&<button type="button" className="ss-quick" onClick={build}><Zap size={16}/><span><b>Quick build</b><small>{summary.slice(0,3).join(' · ')}</small></span></button>}
+    </div>
    </div>
-  </div>
-  {/* On the page's top level: the tab panel's entrance animation would
-      otherwise pin it to the panel instead of the screen. */}
-  {typeof document!=='undefined'&&createPortal(<div className="ss-build-float" data-show={floatBar?'true':undefined} aria-hidden={!floatBar} inert={!floatBar||undefined}>
-   <p>{summary.slice(0,2).join(' · ')}{picked.length?` · ${summary[4]}`:''}</p>{buildButton}</div>,document.body)}
+   :<>
+    <Progress at={at} onGo={go}/>
+    <div className="ss-wiz-body" key={at} data-dir={dir}>
+     {status==='ready'&&builtFor===source&&<button type="button" className="ss-to-result" onClick={()=>setEditing(false)}><ArrowLeft size={14}/>Back to your slip</button>}
+     <header className="ss-q-head"><h2>{flow[2]}</h2><p>{flow[3]}</p></header>
+     {body}
+    </div>
+    <footer className="ss-wiz-foot">
+     <button type="button" className="ss-back" onClick={()=>go(at-1)}><ChevronLeft size={18}/>Back</button>
+     {at<LAST?<button type="button" className="ss-next" onClick={onward}>{nextText}<ChevronRight size={18}/></button>:buildButton}
+    </footer>
+   </>}
+  </div>}
 
-  <div ref={stageRef} className="ss-stage-anchor">{loading&&<BuildStage step={step} share={totals.total?totals.done/totals.total:1} sports={picked.length?[...new Set(games.filter(game=>picked.includes(game.key)).map(game=>game.sport))]:chosen} scan={scan}
-   legs={step>=3?slip?.legs:null} checked={totals.total?totals.done:lineCount} total={totals.total||lineCount}/>}</div>
-  {notice&&<p className="ss-notice" role="status">{notice}</p>}
+  {view==='building'&&<div className="ss-wiz is-building">
+   <header className="ss-building-head"><span><RefreshCw size={15} className="ss-spin"/>{STEPS[step][0]}…</span>
+    <button type="button" onClick={cancel}><X size={15}/>Cancel</button></header>
+   <BuildStage step={step} share={totals.total?totals.done/totals.total:1} sports={picked.length?[...new Set(pickedGames.map(game=>game.sport))]:chosen} scan={scan}
+    legs={step>=3?slip?.legs:null} checked={totals.total?totals.done:lineCount} total={totals.total||lineCount}/>
+  </div>}
 
-  {status==='ready'&&!ladder.length&&<div className="ss-empty" ref={ladderRef}><b>No slip clears the bar right now</b><span>{picked.length?'Add another game, try another line mix, or a different payout.':'Try more sports, another line mix, or a different payout.'}</span></div>}
-  {status==='error'&&<div className="ss-empty"><b>Lines couldn’t load</b><button type="button" onClick={build}>Try again</button></div>}
+  {view==='result'&&<>
+   <div className="ss-result-bar">
+    <button type="button" className="ss-edit" onClick={()=>{setEditing(true);go(LAST);}}><ChevronLeft size={16}/>Edit</button>
+    <p className="ss-summary" aria-label="Your choices">{summary.map(item=><span key={item}>{item}</span>)}</p>
+    <button type="button" className="ss-again" onClick={build} aria-label="Build again"><RefreshCw size={16}/></button>
+   </div>
+   {notice&&<p className="ss-notice" role="status">{notice}</p>}
+   {status==='ready'&&!ladder.length&&<div className="ss-empty"><b>No slip clears the bar right now</b>
+    <span>{anchored.length?'Try another payout, or build around another player.':picked.length?'Add another game, try another line mix, or a different payout.':'Try more sports, another line mix, or a different payout.'}</span>
+    <button type="button" onClick={()=>{setEditing(true);go(LAST);}}>Change my choices</button></div>}
+   {status==='error'&&<div className="ss-empty"><b>Lines couldn’t load</b><button type="button" onClick={build}>Try again</button></div>}
+   {status==='ready'&&ladder.length>0&&<>
+    <div className="ss-ladder" role="listbox" aria-label="Payout options">{ladder.map((item,index)=>{
+     const active=item===slip;
+     const odds=item.play==='flex'?item.profit:item.chance;
+     return <button type="button" role="option" aria-selected={active} key={item.target} className={active?'is-active':''}
+      style={{'--tone':(LEVELS[item.target]||LEVELS[2]).tone,'--i':index}} onClick={()=>choose(item.target)}>
+      {item===recommended&&<em><ShieldCheck size={11} strokeWidth={2.6}/>Recommended</em>}
+      <b>{React.createElement((LEVELS[item.target]||LEVELS[2]).Icon,{size:15,className:'ss-level-icon','aria-hidden':true})}{times(item.payout,item.estimated)}
+       {item.letter&&<i className="ss-chip-grade" data-tone={gradeTone(item.letter)}>{item.letter}</i>}</b>
+      <span>{percent(odds)} {item.play==='flex'?'to profit':'to hit'}</span>
+      <i className="ss-odds" aria-hidden="true"><i style={{width:percent(odds)}}/></i>
+      <Faces players={item.legs.map(leg=>({name:leg.row.player,headshot:leg.row.headshot}))} max={6}/>
+      <small>{item.legs.length}-pick {item.play==='flex'?'Flex':'Power'}
+       {item.legs.filter(leg=>MODIFIER_ICON[leg.modifier]).map(leg=><img key={leg.id} src={MODIFIER_ICON[leg.modifier]} alt={leg.modifier} width="13" height="13"/>)}</small>
+     </button>;})}</div>
 
-  {status==='ready'&&ladder.length>0&&<>
-   <div className="ss-ladder" role="listbox" aria-label="Payout options" ref={ladderRef}>{ladder.map((item,index)=>{
-    const active=item===slip;
-    const odds=item.play==='flex'?item.profit:item.chance;
-    return <button type="button" role="option" aria-selected={active} key={item.target} className={active?'is-active':''}
-     style={{'--tone':(LEVELS[item.target]||LEVELS[2]).tone,'--i':index}} onClick={()=>choose(item.target)}>
-     {item===recommended&&<em><ShieldCheck size={11} strokeWidth={2.6}/>Recommended</em>}
-     <b>{React.createElement((LEVELS[item.target]||LEVELS[2]).Icon,{size:15,className:'ss-level-icon','aria-hidden':true})}{times(item.payout,item.estimated)}
-      {item.letter&&<i className="ss-chip-grade" data-tone={gradeTone(item.letter)}>{item.letter}</i>}</b>
-     <span>{percent(odds)} {item.play==='flex'?'to profit':'to hit'}</span>
-     <i className="ss-odds" aria-hidden="true"><i style={{width:percent(odds)}}/></i>
-     <Faces players={item.legs.map(leg=>({name:leg.row.player,headshot:leg.row.headshot}))} max={6}/>
-     <small>{item.legs.length}-pick {item.play==='flex'?'Flex':'Power'}
-      {item.legs.filter(leg=>MODIFIER_ICON[leg.modifier]).map(leg=><img key={leg.id} src={MODIFIER_ICON[leg.modifier]} alt={leg.modifier} width="13" height="13"/>)}</small>
-    </button>;})}</div>
-
-   {slip&&<Ticket key={slip.target} slip={slip} locked={locked} onLock={lockLeg} onSwap={swapLeg} onResearch={research}
-    onAdd={addToSlip} onExport={openPrizePicks} exporting={exporting} link={link}
-    onCheck={()=>{recordSlip(slip);handOff(builderSlip(slip));window.dispatchEvent(new CustomEvent('vortex:switch-tab',{detail:{tab:'slip'}}));}}/>}
-   <p className="ss-meta">{pool.length} picks qualified · lines as of {new Date(builtAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</p>
+    {slip&&<Ticket key={slip.target} slip={slip} locked={locked} onLock={lockLeg} onSwap={swapLeg} onResearch={research}
+     onAdd={addToSlip} onExport={openPrizePicks} exporting={exporting} link={link}
+     onCheck={()=>{recordSlip(slip);handOff(builderSlip(slip));window.dispatchEvent(new CustomEvent('vortex:switch-tab',{detail:{tab:'slip'}}));}}/>}
+    <p className="ss-meta">{pool.length} picks qualified · lines as of {new Date(builtAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</p>
+   </>}
   </>}
   {toast&&<p className="ss-toast" role="status" key={toast}>{toast}</p>}
  </section>;

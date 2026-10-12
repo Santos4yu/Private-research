@@ -14,7 +14,7 @@
 #app-shell:has(#panel-builder:not([hidden]))>.hero{display:none!important}
 #app-shell:has(#panel-builder:not([hidden])){min-height:100dvh;background:#0e1114}
 
-.ss-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 22px 18px;border:1px solid var(--s-line);border-radius:20px 20px 0 0;
+.ss-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;padding:18px 22px;border:1px solid var(--s-line);border-radius:20px;
  background:linear-gradient(180deg,#181d20,#121619)}
 .ss-title{display:flex;align-items:center;gap:14px;min-width:0}
 .ss-mark{display:grid;place-items:center;flex:0 0 48px;width:48px;height:48px;border-radius:14px;background:var(--theme-accent);color:var(--theme-on-accent,#fff);
@@ -26,35 +26,69 @@
 .ss-head-pp{display:inline-flex;align-items:center;gap:7px;flex:none;padding:7px 12px 7px 7px;border:1px solid var(--s-line);border-radius:999px;background:#101417;color:var(--s-muted);font-size:12px;font-weight:700;white-space:nowrap}
 .ss-head-pp img{width:22px;height:22px;border-radius:7px;background:#fff;padding:1px}
 
-/* ---------------------------------------------------------------- controls */
-/* The form, one numbered step at a time. */
-.ss-controls{display:grid;gap:12px;padding:16px;border:1px solid var(--s-line);border-top:0;border-radius:0 0 20px 20px;background:var(--s-card)}
-.ss-step{display:grid;gap:12px;padding:16px;border:1px solid #20282d;border-radius:18px;background:linear-gradient(180deg,#151a1d,#121619)}
-.ss-step-head{display:flex;align-items:center;gap:11px;min-width:0}
-.ss-step-n{display:grid;place-items:center;flex:0 0 26px;width:26px;height:26px;border-radius:9px;background:color-mix(in srgb,var(--theme-accent) 16%,#1a2024);
- color:color-mix(in srgb,var(--theme-accent) 75%,#fff);font:800 12px/1 var(--s-mono)}
-.ss-step-title{display:grid;flex:1;min-width:0;gap:2px}
-.ss-step-title b{font:800 15px/1.15 'Sora',var(--s-sans);letter-spacing:-.2px}
-.ss-step-title small{overflow:hidden;color:var(--s-faint);font-size:12px;white-space:nowrap;text-overflow:ellipsis}
+/* ---------------------------------------------------------------- the questions */
+/* One card, one question at a time: the steps across the top, the
+   question, Back and Next at the bottom. On a phone it fills the screen
+   between the header and the menu, so moving on never needs a scroll. */
+.ss-wiz{position:relative;display:flex;flex-direction:column;min-height:620px;border:1px solid var(--s-line);border-radius:22px;overflow:hidden;
+ background:radial-gradient(110% 50% at 50% -8%,color-mix(in srgb,var(--theme-accent) 8%,transparent),transparent 62%),var(--s-card);animation:ss-in .35s ease-out}
+.ss-wiz-body{flex:1;display:flex;flex-direction:column;gap:14px;width:100%;max-width:680px;min-height:0;margin:0 auto;padding:6px 22px 20px}
+.ss-wiz-body[data-dir="1"]{animation:ss-from-right .38s cubic-bezier(.2,.8,.2,1)}
+.ss-wiz-body[data-dir="-1"]{animation:ss-from-left .38s cubic-bezier(.2,.8,.2,1)}
+@keyframes ss-from-right{from{opacity:0;transform:translateX(28px)}}
+@keyframes ss-from-left{from{opacity:0;transform:translateX(-28px)}}
+/* Each option rises in just after the one before it. */
+.ss-wiz-body :is(.ss-payouts>button,.ss-q,.ss-switch,.ss-sports>button,.ss-review li,.ss-review-note,.ss-games>button){animation:ss-rise .42s cubic-bezier(.2,.8,.2,1) backwards;
+ animation-delay:calc(var(--i,0) * 45ms + 60ms)}
+@keyframes ss-rise{from{opacity:0;transform:translateY(10px)}}
+.ss-q-head h2{margin:0 0 4px;font:800 24px/1.15 'Sora',var(--s-sans);letter-spacing:-.5px}
+.ss-q-head p{margin:0;color:var(--s-muted);font-size:13.5px}
 .ss-label{display:block;margin-bottom:8px;color:var(--s-faint);font:800 10px/1 var(--s-sans);letter-spacing:.12em;text-transform:uppercase}
-.ss-row{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px}
-.ss-field-hint{display:block;margin-top:7px;color:var(--s-faint);font-size:11.5px}
+
+/* The steps: a numbered dot each on one line that fills as they're done. */
+.ss-tabs{position:relative;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));width:100%;max-width:680px;margin:0 auto;padding:18px 22px 12px}
+.ss-tabs-track{position:absolute;top:31px;left:calc(22px + (100% - 44px) / 10);right:calc(22px + (100% - 44px) / 10);height:3px;border-radius:2px;background:#232b30}
+.ss-tabs-track i{display:block;width:calc(var(--fill) * 100%);height:100%;border-radius:2px;background:var(--theme-accent);transition:width .45s cubic-bezier(.3,.8,.3,1)}
+.smart-slip .ss-tabs button{position:relative;display:grid;justify-items:center;gap:6px;color:var(--s-faint);font-size:11px;font-weight:800}
+.ss-tabs button span{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#1a2024;box-shadow:0 0 0 4px var(--s-card);color:var(--s-faint);
+ font:800 12px/1 var(--s-mono);transition:background .3s,color .3s,transform .3s cubic-bezier(.3,1.5,.5,1)}
+.ss-tabs button[data-state="done"]{color:var(--s-muted)}
+.ss-tabs button[data-state="done"] span{background:color-mix(in srgb,var(--theme-accent) 22%,#1a2024);color:color-mix(in srgb,var(--theme-accent) 75%,#fff)}
+.ss-tabs button[data-state="active"]{color:var(--s-text)}
+.ss-tabs button[data-state="active"] span{background:var(--theme-accent);color:var(--theme-on-accent,#03140B);transform:scale(1.12)}
+
+/* Back and Next, always at the bottom of the card. */
+.ss-wiz-foot{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:10px;width:100%;max-width:680px;margin:0 auto;padding:14px 22px 20px;border-top:1px solid #1d2428}
+.smart-slip .ss-back{display:flex;align-items:center;justify-content:center;gap:4px;min-height:54px;border:1px solid var(--s-line);border-radius:16px;background:#14191c;color:var(--s-muted);
+ font:800 15px/1 var(--s-sans);transition:color .2s,background .2s}
+.smart-slip .ss-back:hover{color:var(--s-text);background:#181e22}
+.smart-slip .ss-next{display:flex;align-items:center;justify-content:center;gap:6px;min-height:54px;border-radius:16px;background:var(--theme-accent);color:var(--theme-on-accent,#03140B);
+ font:800 16px/1 'Sora',var(--s-sans);box-shadow:inset 0 -3px 0 rgba(0,0,0,.2);transition:transform .15s,filter .2s}
+.smart-slip .ss-next:hover{filter:brightness(1.08)}
+.smart-slip .ss-next:active{transform:translateY(1px) scale(.985)}
+.ss-next svg{transition:transform .25s}
+.ss-next:hover svg{transform:translateX(3px)}
+.smart-slip .ss-to-result{display:inline-flex;align-self:flex-start;align-items:center;gap:6px;min-height:32px;padding:0 12px;border:1px solid color-mix(in srgb,var(--theme-accent) 40%,var(--s-line));
+ border-radius:999px;color:color-mix(in srgb,var(--theme-accent) 80%,#fff);font-size:12.5px;font-weight:800}
 
 /* Every choice card: lifts on press, ticks when picked. */
-:is(.ss-payouts,.ss-mixes,.ss-sports) button,.ss-game{position:relative;border:1px solid var(--s-line)!important;background:var(--s-tile)!important;color:var(--s-muted)!important;
+:is(.ss-payouts,.ss-mixes,.ss-sports,.ss-plays) button,.ss-game{position:relative;border:1px solid var(--s-line)!important;background:var(--s-tile)!important;color:var(--s-muted)!important;
  transition:transform .22s cubic-bezier(.2,.9,.3,1.35),border-color .2s,background .2s,color .2s}
-:is(.ss-payouts,.ss-mixes,.ss-sports) button:active,.ss-game:active{transform:scale(.96)}
+:is(.ss-payouts,.ss-mixes,.ss-sports,.ss-plays) button:active,.ss-game:active{transform:scale(.97)}
 .ss-picked,.ss-game-tick{position:absolute;top:-7px;right:-7px;z-index:2;display:grid;place-items:center;width:20px;height:20px;border-radius:50%;
  background:var(--pick,var(--theme-accent));color:var(--theme-on-accent,#03140B);box-shadow:0 0 0 3px var(--s-card);transform:scale(0);transition:transform .3s cubic-bezier(.3,1.6,.5,1)}
-:is(.ss-payouts,.ss-mixes,.ss-sports) button[aria-pressed="true"] .ss-picked,.ss-game[aria-pressed="true"] .ss-game-tick{transform:scale(1)}
+:is(.ss-payouts,.ss-mixes,.ss-sports,.ss-plays) button[aria-pressed="true"] .ss-picked,.ss-game[aria-pressed="true"] .ss-game-tick{transform:scale(1)}
 
-/* Payout: a card per level in its own colour, its risk shown as a meter. */
-.ss-payouts{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
-.ss-payouts button{--pick:var(--tone);display:grid;justify-items:start;gap:6px;padding:12px 12px 11px;border-radius:16px;text-align:left}
-.ss-payout-icon{display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:color-mix(in srgb,var(--tone) 14%,#1b2125);color:var(--tone)}
+/* Payout: a row per level in its own colour, its risk shown as a meter. */
+.ss-payouts{display:grid;gap:8px}
+.ss-payouts button{--pick:var(--tone);display:grid;grid-template-columns:42px minmax(0,1fr) auto;align-items:center;column-gap:12px;row-gap:7px;padding:12px 14px;border-radius:16px;text-align:left}
+.ss-payout-icon{grid-row:1/3;display:grid;place-items:center;width:42px;height:42px;border-radius:13px;background:color-mix(in srgb,var(--tone) 14%,#1b2125);color:var(--tone)}
+.ss-payout-text{display:flex;align-items:baseline;gap:9px;min-width:0}
 .ss-payouts b{color:var(--s-text);font:800 22px/1 var(--s-mono);letter-spacing:-.5px}
 .ss-payouts b small{margin-left:1px;font-size:13px;opacity:.5}
-.ss-payout-name{font-size:12px;font-weight:700;white-space:nowrap}
+.ss-payout-name{font-size:14px;font-weight:800;white-space:nowrap}
+.ss-payout-hint{grid-column:3;grid-row:1;justify-self:end;color:var(--s-faint);font-size:12px;font-weight:600;white-space:nowrap}
+.ss-payouts .ss-meter{grid-column:2/4;grid-row:2}
 .ss-meter{display:flex;gap:3px;width:100%}
 .ss-meter em{flex:1;height:4px;border-radius:2px;background:#273037;transition:background .25s}
 .ss-meter em.is-on{background:color-mix(in srgb,var(--tone) 45%,#273037)}
@@ -64,15 +98,15 @@
 .ss-payouts button[aria-pressed="true"] .ss-meter em.is-on{background:var(--tone)}
 
 /* Lines: the PrizePicks mark for a regular line, the Goblin and Demon icons. */
-.ss-mixes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
-.ss-mixes button{display:flex;align-items:center;gap:12px;min-height:64px;padding:11px 13px;border-radius:16px;text-align:left}
+.ss-mixes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.ss-mixes button{display:flex;flex-direction:column;align-items:flex-start;gap:9px;padding:12px 13px;border-radius:16px;text-align:left}
 .ss-mix-text{display:grid;min-width:0;gap:2px}
 .ss-mix-text b{color:var(--s-text);font-size:13.5px;font-weight:800;line-height:1.2}
 .ss-mix-text small{color:var(--s-faint);font-size:11.5px;line-height:1.3}
 .ss-mixes button:hover{border-color:#3e4346!important}
 .ss-mixes button[aria-pressed="true"]{border-color:var(--theme-accent)!important;background:linear-gradient(170deg,color-mix(in srgb,var(--theme-accent) 13%,#161b1f),#131719 70%)!important}
 .ss-tokens{display:flex;align-items:center;flex:0 0 auto}
-.ss-token{display:grid;place-items:center;width:32px;height:32px;margin-left:-10px;overflow:hidden;border-radius:50%;background:#20272c;box-shadow:0 0 0 2.5px #14191c;transition:transform .25s cubic-bezier(.3,1.5,.5,1)}
+.ss-token{display:grid;place-items:center;width:30px;height:30px;margin-left:-10px;overflow:hidden;border-radius:50%;background:#20272c;box-shadow:0 0 0 2.5px #14191c;transition:transform .25s cubic-bezier(.3,1.5,.5,1)}
 .ss-token:first-child{margin-left:0}
 .ss-token img{width:22px;height:22px;object-fit:contain}
 .ss-token.is-standard{background:#fff}
@@ -92,8 +126,19 @@
 .ss-seg button:hover{color:var(--s-text)!important}
 .ss-seg button[aria-pressed="true"]{color:var(--theme-on-accent,#03140B)!important}
 
+/* Power or Flex: a card each, what it means under its name. */
+.ss-plays{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.ss-plays button{display:grid;justify-items:start;align-content:start;gap:4px;padding:12px 13px;border-radius:16px;text-align:left}
+.ss-play-icon{display:grid;place-items:center;width:32px;height:32px;margin-bottom:3px;border-radius:10px;background:#1d2428;color:var(--s-muted);transition:background .2s,color .2s}
+.ss-plays b{color:var(--s-text);font-size:15px;font-weight:800}
+.ss-plays small{color:var(--s-faint);font-size:11.5px;line-height:1.3}
+.ss-plays button:hover{border-color:#3e4346!important}
+.ss-plays button[aria-pressed="true"]{border-color:var(--theme-accent)!important;background:linear-gradient(170deg,color-mix(in srgb,var(--theme-accent) 14%,#161b1f),#131719 70%)!important}
+.ss-plays button[aria-pressed="true"] .ss-play-icon{background:var(--theme-accent);color:var(--theme-on-accent,#03140B)}
+
 /* Sports: logo tiles with today's game count, ticked when in. */
-.ss-sports{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.ss-sports{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.smart-slip .ss-all-sports{align-self:flex-start}
 .ss-sports button{display:flex;align-items:center;gap:11px;min-height:56px;padding:8px 14px 8px 12px;border-radius:15px;text-align:left}
 .ss-sports img{flex:none;width:24px;height:24px;object-fit:contain;filter:grayscale(1) opacity(.55);transition:filter .2s}
 .ss-sports span{display:grid;min-width:0;gap:1px}
@@ -110,7 +155,7 @@
 .ss-all[aria-pressed="true"]{border-color:color-mix(in srgb,var(--theme-accent) 60%,transparent)!important;background:color-mix(in srgb,var(--theme-accent) 14%,#121619)!important;color:color-mix(in srgb,var(--theme-accent) 80%,#fff)!important}
 .ss-game-search{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;border:1px solid var(--s-line);border-radius:13px;background:#0e1114;color:var(--s-faint)}
 .ss-game-search:focus-within{border-color:color-mix(in srgb,var(--theme-accent) 55%,var(--s-line))}
-.ss-game-search input{flex:1;min-width:0;height:42px;border:0;outline:0;background:none;color:var(--s-text);font:600 14px var(--s-sans)}
+.smart-slip .ss-game-search input{flex:1;min-width:0;height:42px;margin:0;padding:0!important;border:0!important;outline:0;border-radius:0;background:transparent!important;box-shadow:none!important;color:var(--s-text);font:600 15px var(--s-sans)}
 .ss-game-search input::-webkit-search-cancel-button{display:none}
 .smart-slip .ss-game-search button{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#1d2428!important}
 .ss-games{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:8px}
@@ -128,12 +173,12 @@
 .ss-games.is-loading{grid-template-columns:repeat(auto-fill,minmax(290px,1fr))}
 .ss-game-skel{height:64px;border-radius:16px;background:linear-gradient(90deg,#171c20 0%,#20272c 50%,#171c20 100%);background-size:200% 100%;animation:ss-shimmer 1.4s linear infinite}
 .ss-games-none{margin:0;padding:14px;border:1px dashed var(--s-line);border-radius:14px;color:var(--s-faint);font-size:12.5px;text-align:center}
-.ss-games-foot{display:flex;flex-wrap:wrap;gap:8px}
-.ss-games-foot:empty{display:none}
-.smart-slip .ss-more{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 13px;border:1px solid var(--s-line)!important;border-radius:999px;background:#101417!important;color:var(--s-muted)!important;font-size:12.5px!important;font-weight:800!important}
-.ss-more:hover{color:var(--s-text)!important}
-.ss-more .is-up{transform:rotate(180deg)}
-.ss-more.is-clear{color:var(--s-down)!important}
+.ss-games-more{grid-column:1/-1;margin:2px 0 0;color:var(--s-faint);font-size:12px;text-align:center}
+/* A player: photo with his team's mark on it. */
+.ss-player-face{position:relative;display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;border-radius:50%;background:#232b30}
+.ss-player-face>i{color:var(--s-muted);font:800 12px/1 var(--s-sans);font-style:normal}
+.ss-player-face>img:first-of-type:not(.ss-player-team){position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:top}
+.ss-player-team{position:absolute;right:-4px;bottom:-3px;width:20px;height:20px;padding:2px;border-radius:50%;background:#0e1114;object-fit:contain;box-shadow:0 0 0 2px #171d21}
 
 /* Player photos, overlapping; initials until a photo loads. */
 .smart-slip .ss-faces{display:flex;flex:none;align-items:center;padding-left:6px}
@@ -155,13 +200,76 @@
 .ss-switch b{display:block;font-size:13px}
 .ss-switch small{display:block;color:var(--s-faint);font-size:11px}
 
-/* What the slip will be, and the button that builds it. */
-.ss-build-bar{display:grid;gap:10px;padding-top:4px}
+/* The choices, as chips. */
 .ss-summary{display:flex;flex-wrap:wrap;gap:6px;margin:0}
-.ss-summary span{padding:5px 10px;border-radius:999px;background:#1a2024;color:var(--s-muted);font-size:11.5px;font-weight:700}
-/* Only phones float the build button. */
-.ss-build-float{display:none}
+.ss-summary span{padding:5px 10px;border-radius:999px;background:#1a2024;color:var(--s-muted);font-size:11.5px;font-weight:700;white-space:nowrap}
 .ss-summary span:first-child{background:color-mix(in srgb,var(--theme-accent) 16%,#1a2024);color:color-mix(in srgb,var(--theme-accent) 80%,#fff)}
+
+/* The last look: each choice on a row, a tap away from changing it. */
+.ss-review{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.smart-slip .ss-review button{display:flex;align-items:center;gap:12px;width:100%;min-height:66px;padding:11px 14px;border:1px solid var(--s-line);border-radius:16px;background:var(--s-tile);
+ text-align:left;transition:border-color .2s,transform .2s}
+.smart-slip .ss-review button:hover{border-color:#3e4346}
+.smart-slip .ss-review button:active{transform:scale(.98)}
+.ss-review-icon{display:grid;place-items:center;flex:0 0 40px;width:40px;height:40px;border-radius:12px;background:color-mix(in srgb,var(--tone,var(--theme-accent)) 15%,#1b2125);color:var(--tone,var(--theme-accent))}
+.ss-review-text{display:grid;flex:1;min-width:0;gap:3px}
+.ss-review-text small{color:var(--s-faint);font:800 10px/1 var(--s-sans);letter-spacing:.1em;text-transform:uppercase}
+.ss-review-text b{overflow:hidden;color:var(--s-text);font-size:15px;font-weight:800;white-space:nowrap;text-overflow:ellipsis}
+.ss-review-text span{overflow:hidden;color:var(--s-muted);font-size:12px;white-space:nowrap;text-overflow:ellipsis}
+.ss-review-edit{flex:none;color:var(--s-faint)}
+.ss-review-logos{display:flex;flex:none;padding-left:8px}
+.ss-review-logos img{width:32px;height:32px;margin-left:-8px;padding:5px;border-radius:50%;background:#0e1114;object-fit:contain;box-shadow:0 0 0 2px #171d21}
+.ss-review .ss-faces{padding-left:7px}
+.ss-review-note{display:flex;align-items:center;gap:8px;margin:2px 2px 0;color:var(--s-muted);font-size:12.5px}
+.ss-review-note svg{flex:none;color:var(--s-up)}
+
+/* The start: a slip coming together, today's sports, and off you go. */
+.ss-intro{flex:1;display:flex;flex-direction:column;align-items:center;gap:18px;width:100%;max-width:560px;margin:0 auto;padding:28px 22px 22px;text-align:center}
+.ss-intro-art{width:100%;max-width:320px;margin-top:auto;padding:6px 6px 2px}
+.ss-mini{display:grid;gap:9px;padding:13px;border:1px solid #2d363d;border-radius:18px;background:#0e1114;text-align:left;transform:rotate(-2deg);animation:ss-float 5s ease-in-out infinite}
+.ss-mini header{display:flex;align-items:center;gap:8px;padding-bottom:9px;border-bottom:1px dashed #2d363d}
+.ss-mini header img{width:20px;height:20px;border-radius:5px}
+.ss-mini header b{font:800 13.5px/1 'Sora',var(--s-sans)}
+.ss-mini header span{margin-left:auto;padding:4px 8px;border-radius:999px;background:color-mix(in srgb,var(--s-up) 15%,#151a1d);color:var(--s-up);font-size:10.5px;font-weight:800}
+.ss-mini ol{display:grid;gap:7px;margin:0;padding:0;list-style:none}
+.ss-mini li{display:flex;align-items:center;gap:10px;min-height:48px;padding:7px 10px;border:1px solid #232b30;border-radius:12px;background:#151a1d;
+ animation:ss-drop .5s cubic-bezier(.2,.9,.3,1.25) backwards;animation-delay:calc(var(--i) * 140ms + 150ms)}
+.smart-slip .ss-mini .ss-face-mini{flex:0 0 34px;width:34px;height:34px;margin:0}
+.ss-mini-who{display:grid;flex:1;min-width:0}
+.ss-mini-who b{overflow:hidden;font-size:13px;font-weight:800;white-space:nowrap;text-overflow:ellipsis}
+.ss-mini-who small{color:var(--s-faint);font-size:11px}
+.ss-mini li em{padding:4px 9px;border-radius:999px;background:color-mix(in srgb,var(--theme-accent) 18%,#151a1d);color:color-mix(in srgb,var(--theme-accent) 85%,#fff);font-size:11px;font-style:normal;font-weight:800}
+.ss-mini footer{display:flex;align-items:center;justify-content:space-between;padding-top:9px;border-top:1px dashed #2d363d;color:var(--s-faint);font-size:12px;font-weight:700}
+.ss-mini footer b{color:var(--s-text);font:800 15px/1 var(--s-mono)}
+@keyframes ss-float{50%{transform:rotate(-2deg) translateY(-5px)}}
+.ss-intro-text h2{margin:0 0 6px;font:800 28px/1.1 'Sora',var(--s-sans);letter-spacing:-.6px}
+.ss-intro-text p{max-width:380px;margin:0 auto;color:var(--s-muted);font-size:14px}
+.ss-intro-sports{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+.ss-intro-sports span{display:inline-flex;align-items:center;gap:6px;padding:6px 11px 6px 7px;border:1px solid var(--s-line);border-radius:999px;background:#121619;font-size:12px}
+.ss-intro-sports img{width:18px;height:18px;object-fit:contain}
+.ss-intro-sports b{color:var(--s-text);font-weight:800}
+.ss-intro-sports small{color:var(--s-faint);font-weight:700}
+.ss-intro-go{display:grid;gap:10px;width:100%;max-width:400px;margin-top:auto}
+.smart-slip .ss-quick{display:flex;align-items:center;justify-content:center;gap:10px;min-height:54px;padding:8px 14px;border:1px solid var(--s-line);border-radius:16px;background:#14191c;text-align:left}
+.ss-quick svg{flex:none;color:var(--s-gold)}
+.ss-quick span{display:grid;gap:2px;min-width:0}
+.ss-quick b{font-size:14px;font-weight:800}
+.ss-quick small{overflow:hidden;color:var(--s-faint);font-size:11.5px;white-space:nowrap;text-overflow:ellipsis}
+
+/* The build, in the same card, with a way out. */
+.ss-building-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px 22px 4px}
+.ss-building-head span{display:inline-flex;align-items:center;gap:8px;font:800 15px/1.2 'Sora',var(--s-sans)}
+.ss-building-head span svg{color:var(--theme-accent)}
+.smart-slip .ss-building-head button{display:inline-flex;align-items:center;gap:5px;min-height:34px;padding:0 12px;border:1px solid var(--s-line);border-radius:999px;background:#14191c;color:var(--s-muted);font-size:12.5px;font-weight:800}
+.ss-wiz .ss-stage{flex:1;margin:0;border:0;border-radius:0;background:none;padding:12px 22px 22px;animation:none}
+
+/* The slips: change the choices or build again without leaving them. */
+.ss-result-bar{display:flex;align-items:center;gap:8px}
+.smart-slip .ss-edit{display:inline-flex;align-items:center;gap:3px;flex:none;min-height:40px;padding:0 14px 0 9px;border:1px solid var(--s-line);border-radius:999px;background:#14191c;font-size:13px;font-weight:800}
+.ss-result-bar .ss-summary{flex:1;min-width:0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);mask-image:linear-gradient(90deg,#000 88%,transparent)}
+.ss-result-bar .ss-summary::-webkit-scrollbar{display:none}
+.smart-slip .ss-again{display:grid;place-items:center;flex:none;width:40px;height:40px;border:1px solid var(--s-line);border-radius:50%;background:#14191c;color:var(--s-muted);transition:color .2s,transform .4s}
+.smart-slip .ss-again:hover{color:var(--s-text);transform:rotate(90deg)}
 
 /* The build button: the brand colour, pressed like a real button. */
 .ss-build{display:flex;align-items:center;justify-content:center;gap:10px;min-height:56px;border-radius:16px;background:var(--theme-accent)!important;
@@ -178,7 +286,6 @@
 /* ---------------------------------------------------------------- the build */
 /* The slip fills on the left (empty slots until the picks drop in), the
    steps tick off on the right and the lines being checked roll past. */
-.ss-stage-anchor{scroll-margin:calc(var(--site-status-inset,0px) + 12px)}
 .ss-stage{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:26px;margin-top:14px;padding:22px;border:1px solid var(--s-line);border-radius:20px;
  background:var(--s-card);animation:ss-in .35s ease-out}
 .ss-fill{align-self:start;display:flex;flex-direction:column;gap:10px;padding:14px;border:1px solid #2d363d;border-radius:18px;background:#0e1114;position:relative}
@@ -237,7 +344,7 @@
 .ss-empty button{min-height:40px;padding:0 16px;border:1px solid var(--s-line)!important;border-radius:10px;background:var(--s-raised)!important;font-weight:700}
 
 /* ---------------------------------------------------------------- payout options */
-.ss-ladder{scroll-margin-top:calc(var(--site-status-inset,0px) + 12px);display:grid;grid-auto-flow:column;grid-auto-columns:minmax(150px,1fr);gap:10px;margin-top:10px;overflow-x:auto;padding:14px 2px 8px;scrollbar-width:none}
+.ss-ladder{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(150px,1fr);gap:10px;margin-top:10px;overflow-x:auto;padding:14px 2px 8px;scrollbar-width:none}
 .ss-ladder::-webkit-scrollbar{display:none}
 .ss-ladder button{position:relative;display:grid;gap:6px;padding:17px 14px 13px;border:1px solid var(--s-line)!important;border-radius:17px;background:linear-gradient(180deg,#171c20,#121619)!important;text-align:left;
  transition:transform .22s cubic-bezier(.2,.9,.3,1.35),border-color .2s,box-shadow .2s;animation:ss-pop .55s cubic-bezier(.2,.9,.3,1.25) backwards;animation-delay:calc(var(--i) * 75ms)}
@@ -310,47 +417,44 @@
 
 @media (max-width:760px){
  :root[data-theme] body #app-shell #panel-builder{width:100%!important;max-width:none!important;margin:0!important;padding:0 0 calc(86px + env(safe-area-inset-bottom,0px))!important}
+ /* The page keeps its own room for the menu (above), so the shell's goes. */
+ :root[data-theme] body #app-shell:has(#panel-builder:not([hidden])){padding-bottom:0!important}
  :root[data-theme] body:has(#panel-builder:not([hidden])) :is(.site-account-bar,.site-account-trigger,#settings-btn){display:none!important}
  .smart-slip{position:relative;isolation:isolate}
- .ss-head{padding:calc(var(--site-status-inset,0px) + 14px) 16px 14px;border:0;border-radius:0;background:none}
- .ss-head h1{font-size:26px;color:#fff}
- .ss-head p{color:#ccd0d2}
- .smart-slip :is(.finder-top-settings,.finder-top-account){display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;padding:0;border:0!important;border-radius:50%;background:transparent;color:#f4f7f6}
- .smart-slip .finder-top-account{flex-basis:34px;width:34px;height:34px;margin-left:4px;overflow:hidden;border:1.5px solid rgba(255,255,255,.4)!important;background:color-mix(in srgb,var(--theme-accent) 45%,#0f1215)}
- .smart-slip .finder-top-account img{width:100%;height:100%;object-fit:cover}
- .smart-slip .finder-top-account b{font-size:15px;font-weight:700;line-height:1}
- .ss-head>div{flex:1}
- .ss-head{flex-wrap:nowrap}
- .ss-head-pp{display:none}
- .ss-controls{gap:10px;margin:0 10px;padding:0;border:0;border-radius:0;background:none}
- .ss-step{gap:11px;padding:14px 12px;border-radius:18px;border-color:var(--s-line);background:var(--s-card)}
- .ss-step-title small{white-space:normal}
- .ss-row{grid-template-columns:1fr;gap:14px}
- /* Payout: one swipeable row of cards. */
- .ss-payouts{display:flex;gap:8px;margin:0 -12px;padding:8px 12px 2px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
- .ss-payouts::-webkit-scrollbar{display:none}
- .ss-payouts button{flex:0 0 96px;scroll-snap-align:start;padding:11px 11px 10px}
+ /* A slim header, so the questions get the screen. */
+ .ss-head{height:calc(var(--site-status-inset,0px) + 58px);margin:0;padding:calc(var(--site-status-inset,0px) + 10px) 16px 10px;border:0;border-radius:0;background:none}
+ .ss-title{gap:11px}
+ .ss-mark{flex-basis:38px;width:38px;height:38px;border-radius:12px}
+ .ss-mark svg{width:19px;height:19px}
+ .ss-head h1{margin:0;font-size:24px;color:#fff}
+ .ss-head p,.ss-head-pp{display:none}
+ /* The card fills what's left above the menu; only its middle scrolls. */
+ .ss-wiz{min-height:440px;height:calc(100vh - var(--site-status-inset,0px) - 58px - 86px - env(safe-area-inset-bottom,0px));
+  height:calc(100dvh - var(--site-status-inset,0px) - 58px - 86px - env(safe-area-inset-bottom,0px));margin:0 10px;border-radius:22px}
+ .ss-wiz-body{overflow-y:auto;overscroll-behavior:contain;padding:2px 14px 14px;scrollbar-width:none}
+ .ss-wiz-body::-webkit-scrollbar{display:none}
+ .ss-tabs{padding:14px 12px 10px}
+ .ss-tabs-track{top:27px;left:calc(12px + (100% - 24px) / 10);right:calc(12px + (100% - 24px) / 10)}
+ .ss-wiz-foot{padding:10px 14px 14px}
+ .ss-q-head h2{font-size:22px}
+ .ss-q-head p{font-size:13px}
+ .ss-payouts button{padding:11px 12px;column-gap:11px}
+ .ss-payout-icon{width:40px;height:40px}
  .ss-payouts b{font-size:20px}
- .ss-mixes{grid-template-columns:1fr;gap:8px}
- .ss-mixes button{min-height:60px;padding:10px 12px}
+ .ss-payout-name{font-size:13px}
+ .ss-payout-hint{font-size:11px}
+ .ss-mix-text small{font-size:11px}
  .ss-sports{grid-template-columns:1fr 1fr}
  .ss-sports button{min-height:54px;padding:8px 10px}
- .ss-games{grid-template-columns:1fr}
  .ss-game{min-height:62px;padding:9px 10px;gap:10px}
  .ss-game-logos img{width:32px;height:32px}
  .ss-game .ss-face-mini:nth-child(n+3){display:none}
- .ss-build-bar{padding-top:2px}
- /* The build button stays in reach while the steps scroll past. */
- .ss-build-float{--s-line:#252d33;--s-muted:#9ea5a9;--s-sans:var(--font-sans,Inter,Arial,sans-serif);position:fixed;z-index:70;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom,0px));display:grid;gap:7px;padding:10px;
-  border:1px solid var(--s-line);border-radius:20px;background:rgba(17,21,24,.94);box-shadow:0 14px 34px rgba(0,0,0,.5);
-  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);opacity:0;visibility:hidden;transform:translateY(14px);
-  transition:opacity .22s ease,transform .3s cubic-bezier(.22,1,.36,1),visibility 0s linear .3s}
- .ss-build-float[data-show]{opacity:1;visibility:visible;transform:none;transition:opacity .22s ease,transform .3s cubic-bezier(.22,1,.36,1),visibility 0s}
- .ss-build-float p{margin:0 4px;overflow:hidden;color:var(--s-muted);font-size:12px;font-weight:700;white-space:nowrap;text-overflow:ellipsis}
- .ss-build-float .ss-build{width:100%;min-height:50px;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
- body.mobile-dock-hidden .ss-build-float{bottom:calc(14px + env(safe-area-inset-bottom,0px))}
- /* Only while the builder is the page showing. */
- body:not(:has(#panel-builder:not([hidden]))) .ss-build-float{display:none}
+ .ss-intro{padding:14px 16px 16px;gap:14px}
+ .ss-intro-text h2{font-size:25px}
+ .ss-intro-text p{font-size:13.5px}
+ .ss-building-head{padding:14px 14px 2px}
+ .ss-wiz .ss-stage{overflow-y:auto;padding:10px 14px 16px;gap:16px}
+ .ss-result-bar{padding:4px 10px 0}
  .ss-stage,.ss-notice,.ss-empty,.ss-ticket,.ss-meta{margin-left:10px;margin-right:10px}
  .ss-stage{grid-template-columns:1fr;gap:18px;padding:16px}
  .ss-picks{padding:10px;gap:10px}
@@ -361,6 +465,12 @@
  .ss-ticket-actions{grid-template-columns:1fr;padding:14px 16px}
  .ss-fine{margin-inline:16px}
  .ss-toast{bottom:calc(100px + env(safe-area-inset-bottom,0px))}
+}
+/* Short phones: a little less air around each question. */
+@media (max-width:760px) and (max-height:700px){
+ .ss-intro-art{display:none}
+ .ss-q-head p{display:none}
+ .ss-payouts button{row-gap:5px;padding-block:9px}
 }
 @media (prefers-reduced-motion:reduce){
  .smart-slip *,.smart-slip *::before,.smart-slip *::after,.sa-scope *{animation:none!important;transition:none!important}
