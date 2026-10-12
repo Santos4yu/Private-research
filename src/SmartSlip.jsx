@@ -21,6 +21,11 @@ const KEYS=['mlb','nba','wnba','nfl','nhl','soccer'];
 const SIZES=['auto',2,3,4,5,6];
 const PREFS_KEY='krazy-smart-slip';
 const EXPORT_URL='/api/prediction?action=prizepicks-export&from=parlay';
+// Phones and the home-screen app: PrizePicks comes up over this page and
+// pauses it, so nothing may be left waiting here when it opens (app.js
+// handheldExport, for the Pick Builder).
+const handheld=()=>window.navigator.standalone===true||Boolean(window.matchMedia?.('(display-mode: standalone)').matches||window.matchMedia?.('(pointer: coarse)').matches);
+const slipKey=slip=>slip?slip.legs.map(leg=>`${leg.id}:${leg.side}:${leg.line}`).join('|'):'';
 const MODIFIER_ICON={goblin:'/prizepicks/goblin.png',demon:'/prizepicks/demon.png'};
 // Each payout band's name and colour, safest to boldest.
 const LEVELS={2:{name:'Safest',tone:'#5fe0a8',Icon:ShieldCheck},3:{name:'Solid',tone:'#00f58a',Icon:CircleCheck},5:{name:'Boost',tone:'#f6c35b',Icon:Zap},
@@ -163,7 +168,7 @@ function Pick({leg,index,need,locked,onLock,onSwap,onResearch}){
  </article>;
 }
 
-function Ticket({slip,locked,onLock,onSwap,onResearch,onAdd,onExport,exporting}){
+function Ticket({slip,locked,onLock,onSwap,onResearch,onAdd,onExport,exporting,link}){
  const level=LEVELS[slip.target]||LEVELS[2];
  const pays=useCountUp(slip.payout);
  // What each pick has to hit for the slip to pay its way.
@@ -182,7 +187,8 @@ function Ticket({slip,locked,onLock,onSwap,onResearch,onAdd,onExport,exporting})
    onLock={()=>onLock(leg.id)} onSwap={()=>onSwap(leg)} onResearch={()=>onResearch(leg)}/>)}</div>
   <div className="ss-ticket-actions">
    <button type="button" className="ss-add" onClick={onAdd}><Check size={16}/>Add to My Slip</button>
-   <button type="button" className="ss-primary" onClick={onExport} disabled={exporting}>{exporting?<RefreshCw size={16} className="ss-spin"/>:<img src={PRIZEPICKS_LOGO} alt=""/>}Open in PrizePicks<ArrowUpRight size={16}/></button>
+   {link&&!exporting?<a className="ss-primary" href={link} target="_blank" rel="noopener noreferrer"><img src={PRIZEPICKS_LOGO} alt=""/>Open in PrizePicks<ArrowUpRight size={16}/></a>
+    :<button type="button" className="ss-primary" onClick={onExport} disabled={exporting}>{exporting?<RefreshCw size={16} className="ss-spin"/>:<img src={PRIZEPICKS_LOGO} alt=""/>}{exporting?'Checking picks…':'Open in PrizePicks'}<ArrowUpRight size={16}/></button>}
   </div>
   {slip.estimated&&<p className="ss-fine">Payouts with Goblins or Demons are estimates. PrizePicks shows the exact payout before you submit.</p>}
  </div>;
@@ -217,6 +223,8 @@ export function SmartSlip(){
  const [selected,setSelected]=useState(null);
  const [notice,setNotice]=useState('');
  const [exporting,setExporting]=useState(false);
+ // The PrizePicks link for the slip on screen, once its picks are checked.
+ const [exported,setExported]=useState({key:'',url:''});
  const [toast,setToast]=useState('');
  useEffect(()=>{if(!toast)return;const id=setTimeout(()=>setToast(''),2600);return()=>clearTimeout(id);},[toast]);
  const controller=useRef(null),ladderRef=useRef(null),stageRef=useRef(null),scrollAfterBuild=useRef(false),scan=useRef([]);
@@ -312,8 +320,21 @@ export function SmartSlip(){
   slip.legs.forEach(leg=>pickBuilder.set(finderSlipProp(leg.row),leg.side==='UNDER'?'Under':'Over'));
   pickBuilder.open();
  };
+ // PrizePicks opens in a new tab or its app, never in place of this page
+ // (that took the whole app away on a phone). On a computer the tab opens
+ // with the tap, while the browser still allows it, and is pointed at
+ // PrizePicks once every pick is checked. On a phone the picks are checked
+ // here first and the button becomes a plain Open in PrizePicks link.
+ const link=exported.key&&exported.key===slipKey(slip)?exported.url:'';
  const openPrizePicks=async()=>{
   if(!slip||exporting)return;
+  const key=slipKey(slip),phone=handheld();
+  let tab=null;
+  if(!phone){
+   try{tab=window.open('','_blank');}catch{tab=null;}
+   try{if(tab)tab.opener=null;}catch{/* already elsewhere */}
+   try{tab?.document.write('<title>PrizePicks</title><p style="font:16px system-ui,sans-serif;padding:24px;color:#555">Checking your picks on PrizePicks…</p>');}catch{/* not ours to write */}
+  }
   setExporting(true);setNotice('Checking every pick on PrizePicks…');
   try{
    const response=await fetch(EXPORT_URL,{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify({legs:slip.legs.map(exportLeg)})});
@@ -322,8 +343,13 @@ export function SmartSlip(){
     const detail=(payload.unmatched||[]).map(leg=>`${leg.player} ${leg.line} ${leg.stat}`).join('; ');
     throw new Error(detail?`${payload.error||'Some picks are gone'}: ${detail}`:payload.error||'PrizePicks is unavailable right now.');
    }
-   window.location.assign(payload.url);
-  }catch(error){setNotice(error.message||'PrizePicks is unavailable right now.');setExporting(false);}
+   setExported({key,url:payload.url});
+   if(tab&&!tab.closed){tab.location.replace(payload.url);setNotice('Your slip opened in PrizePicks in a new tab.');}
+   else setNotice(phone?'Every pick checked. Tap Open in PrizePicks.':'Your browser blocked the new tab. Tap Open in PrizePicks.');
+  }catch(error){
+   try{tab?.close();}catch{/* gone already */}
+   setNotice(error.name==='TimeoutError'||error.name==='AbortError'?'PrizePicks took too long to answer. Try again.':error.message||'PrizePicks is unavailable right now.');
+  }finally{setExporting(false);}
  };
 
  const loading=status==='loading';
@@ -388,7 +414,7 @@ export function SmartSlip(){
     </button>;})}</div>
 
    {slip&&<Ticket key={slip.target} slip={slip} locked={locked} onLock={lockLeg} onSwap={swapLeg} onResearch={research}
-    onAdd={addToSlip} onExport={openPrizePicks} exporting={exporting}/>}
+    onAdd={addToSlip} onExport={openPrizePicks} exporting={exporting} link={link}/>}
    <p className="ss-meta">{pool.length} picks qualified · lines as of {new Date(builtAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</p>
   </>}
   {toast&&<p className="ss-toast" role="status" key={toast}>{toast}</p>}

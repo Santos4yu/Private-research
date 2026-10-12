@@ -5470,7 +5470,10 @@ function renderManualBetSlip() {
   els.betSlipLegs.hidden = count === 0;
   els.betSlipClear.disabled = count === 0;
   els.betSlipExport.disabled = manualSlipExporting || !manualBetSlipCanExport(legs);
-  if (!manualSlipExporting) els.betSlipStatus.textContent = manualBetSlipStatus(legs);
+  if (!manualSlipExporting) {
+    els.betSlipStatus.textContent = manualBetSlipStatus(legs);
+    els.betSlipExport.textContent = freshManualSlipLink(legs) ? "Open in PrizePicks" : "Export to PrizePicks";
+  }
   els.betSlipLegs.innerHTML = legs.map((prop, index) => `
     <article class="bet-slip-leg" style="--slip-delay:${index * 45}ms">
       <span class="bet-slip-rank">${index + 1}</span>
@@ -5516,7 +5519,6 @@ const freshManualSlipLink = (legs) => (manualSlipLink && manualSlipLink.sig === 
 // opens them there: {url, count, notes} or {error}.
 async function requestManualSlipLink(legs) {
   manualSlipExporting = true;
-  const originalLabel = els.betSlipExport.textContent;
   els.betSlipExport.disabled = true;
   els.betSlipExport.textContent = "Matching live lines…";
   els.betSlipStatus.textContent = "Checking every leg on the live PrizePicks board…";
@@ -5559,7 +5561,7 @@ async function requestManualSlipLink(legs) {
   // usually opens in its own app and this page stays open behind it, so
   // it must not be left saying "Checking lines…" with Export disabled.
   manualSlipExporting = false;
-  els.betSlipExport.textContent = originalLabel;
+  els.betSlipExport.textContent = freshManualSlipLink(getSavedProps()) ? "Open in PrizePicks" : "Export to PrizePicks";
   els.betSlipExport.disabled = !manualBetSlipCanExport(getSavedProps());
   return result;
 }
@@ -5570,14 +5572,28 @@ function showManualSlipStatus(status) {
 }
 const legsWord = (count) => `${count} live leg${count === 1 ? "" : "s"}`;
 
+// Phones and the home-screen app. There PrizePicks (its app, or Safari)
+// comes up over this page and pauses it, so a tab opened before the link is
+// ready is never pointed anywhere: it sits blank on "Matching your picks"
+// and the app has to be reopened.
+const handheldExport = () => window.navigator.standalone === true
+  || Boolean(window.matchMedia?.("(display-mode: standalone)").matches || window.matchMedia?.("(pointer: coarse)").matches);
+
 // Export: PrizePicks opens in a new tab (or its app), never in place of
-// this page. The tab is opened right away, while the tap still counts (a
-// browser blocks one opened after the line check), and pointed at
-// PrizePicks once the lines are matched.
+// this page. On a computer the tab is opened right away, while the tap
+// still counts (a browser blocks one opened after the line check), and
+// pointed at PrizePicks once the lines are matched. On a phone the lines
+// are matched here first; Export then becomes Open in PrizePicks, a plain
+// link the next tap opens with nothing left waiting on this page.
 async function exportManualBetSlip() {
   const legs = getSavedProps();
   if (manualSlipExporting || !manualBetSlipCanExport(legs)) return;
   const ready = freshManualSlipLink(legs);
+  if (!ready && handheldExport()) {
+    const result = await requestManualSlipLink(legs);
+    showManualSlipStatus(result.error || [`${legsWord(result.count)} matched. Tap Open in PrizePicks.`, result.notes].filter(Boolean).join(" "));
+    return;
+  }
   let tab = null;
   try { tab = window.open(ready || "", "_blank"); } catch { tab = null; }
   try { if (tab) tab.opener = null; } catch { /* already PrizePicks' page */ }
