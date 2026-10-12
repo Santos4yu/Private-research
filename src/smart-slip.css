@@ -23,48 +23,63 @@
 .ss-head p{margin:0;max-width:620px;color:var(--s-muted);font-size:13px}
 .smart-slip .finder-top-account,.smart-slip .finder-top-settings{display:none}
 
-/* ---------------------------------------------------------------- controls */
-.ss-controls{display:grid;gap:18px;padding:18px 22px 22px;border:1px solid var(--s-line);border-top:0;border-radius:0 0 20px 20px;background:var(--s-card)}
-.ss-label{display:block;margin-bottom:9px;color:var(--s-faint);font:800 10px/1 var(--s-sans);letter-spacing:.12em;text-transform:uppercase}
-.ss-row{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:18px}
-.ss-payouts button,.ss-mixes button,.ss-sports button{border:1px solid var(--s-line)!important;background:var(--s-tile)!important;color:var(--s-muted)!important;
- transition:transform .22s cubic-bezier(.2,.9,.3,1.35),border-color .2s,box-shadow .2s,color .2s}
-.ss-payouts button:active,.ss-mixes button:active,.ss-sports button:active{transform:scale(.95)}
+.ss-head-pp{display:inline-flex;align-items:center;gap:7px;flex:none;padding:7px 12px 7px 7px;border:1px solid var(--s-line);border-radius:999px;background:#101417;color:var(--s-muted);font-size:12px;font-weight:700;white-space:nowrap}
+.ss-head-pp img{width:22px;height:22px;border-radius:7px;background:#fff;padding:1px}
 
-/* Payout: a card per level, its risk shown as a meter. */
+/* ---------------------------------------------------------------- controls */
+/* The form, one numbered step at a time. */
+.ss-controls{display:grid;gap:12px;padding:16px;border:1px solid var(--s-line);border-top:0;border-radius:0 0 20px 20px;background:var(--s-card)}
+.ss-step{display:grid;gap:12px;padding:16px;border:1px solid #20282d;border-radius:18px;background:linear-gradient(180deg,#151a1d,#121619)}
+.ss-step-head{display:flex;align-items:center;gap:11px;min-width:0}
+.ss-step-n{display:grid;place-items:center;flex:0 0 26px;width:26px;height:26px;border-radius:9px;background:color-mix(in srgb,var(--theme-accent) 16%,#1a2024);
+ color:color-mix(in srgb,var(--theme-accent) 75%,#fff);font:800 12px/1 var(--s-mono)}
+.ss-step-title{display:grid;flex:1;min-width:0;gap:2px}
+.ss-step-title b{font:800 15px/1.15 'Sora',var(--s-sans);letter-spacing:-.2px}
+.ss-step-title small{overflow:hidden;color:var(--s-faint);font-size:12px;white-space:nowrap;text-overflow:ellipsis}
+.ss-label{display:block;margin-bottom:8px;color:var(--s-faint);font:800 10px/1 var(--s-sans);letter-spacing:.12em;text-transform:uppercase}
+.ss-row{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px}
+.ss-field-hint{display:block;margin-top:7px;color:var(--s-faint);font-size:11.5px}
+
+/* Every choice card: lifts on press, ticks when picked. */
+:is(.ss-payouts,.ss-mixes,.ss-sports) button,.ss-game{position:relative;border:1px solid var(--s-line)!important;background:var(--s-tile)!important;color:var(--s-muted)!important;
+ transition:transform .22s cubic-bezier(.2,.9,.3,1.35),border-color .2s,background .2s,color .2s}
+:is(.ss-payouts,.ss-mixes,.ss-sports) button:active,.ss-game:active{transform:scale(.96)}
+.ss-picked,.ss-game-tick{position:absolute;top:-7px;right:-7px;z-index:2;display:grid;place-items:center;width:20px;height:20px;border-radius:50%;
+ background:var(--pick,var(--theme-accent));color:var(--theme-on-accent,#03140B);box-shadow:0 0 0 3px var(--s-card);transform:scale(0);transition:transform .3s cubic-bezier(.3,1.6,.5,1)}
+:is(.ss-payouts,.ss-mixes,.ss-sports) button[aria-pressed="true"] .ss-picked,.ss-game[aria-pressed="true"] .ss-game-tick{transform:scale(1)}
+
+/* Payout: a card per level in its own colour, its risk shown as a meter. */
 .ss-payouts{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
-.ss-payouts button{position:relative;display:grid;justify-items:start;gap:7px;padding:14px 13px 12px;border-radius:15px;overflow:hidden;text-align:left}
-.ss-payouts button::before{content:"";position:absolute;inset:0 0 auto;height:3px;background:var(--tone);opacity:.3;transition:opacity .2s}
-.ss-level-icon{color:var(--tone);flex:none}
+.ss-payouts button{--pick:var(--tone);display:grid;justify-items:start;gap:6px;padding:12px 12px 11px;border-radius:16px;text-align:left}
+.ss-payout-icon{display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:color-mix(in srgb,var(--tone) 14%,#1b2125);color:var(--tone)}
 .ss-payouts b{color:var(--s-text);font:800 22px/1 var(--s-mono);letter-spacing:-.5px}
 .ss-payouts b small{margin-left:1px;font-size:13px;opacity:.5}
-.ss-payouts span{font-size:11.5px;font-weight:700;white-space:nowrap}
+.ss-payout-name{font-size:12px;font-weight:700;white-space:nowrap}
 .ss-meter{display:flex;gap:3px;width:100%}
 .ss-meter em{flex:1;height:4px;border-radius:2px;background:#273037;transition:background .25s}
 .ss-meter em.is-on{background:color-mix(in srgb,var(--tone) 45%,#273037)}
 .ss-payouts button:hover{border-color:color-mix(in srgb,var(--tone) 45%,var(--s-line))!important}
-.ss-payouts button[aria-pressed="true"]{border-color:var(--tone)!important;color:var(--tone)!important;
- background:color-mix(in srgb,var(--tone) 12%,#151a1d)!important;box-shadow:none!important}
-.ss-payouts button[aria-pressed="true"]::before{opacity:1}
+.ss-payouts button[aria-pressed="true"]{border-color:var(--tone)!important;color:var(--tone)!important;background:linear-gradient(170deg,color-mix(in srgb,var(--tone) 17%,#161b1f),#131719 70%)!important}
+.ss-payouts button[aria-pressed="true"] .ss-payout-icon{background:var(--tone);color:#101417}
 .ss-payouts button[aria-pressed="true"] .ss-meter em.is-on{background:var(--tone)}
 
-/* Lines: how the slip mixes, drawn as the lines themselves. */
+/* Lines: the PrizePicks mark for a regular line, the Goblin and Demon icons. */
 .ss-mixes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
-.ss-mixes button{display:flex;align-items:center;gap:11px;min-height:58px;padding:10px 13px;border-radius:15px;text-align:left}
-.ss-mixes b{font-size:13px;font-weight:700;line-height:1.2}
+.ss-mixes button{display:flex;align-items:center;gap:12px;min-height:64px;padding:11px 13px;border-radius:16px;text-align:left}
+.ss-mix-text{display:grid;min-width:0;gap:2px}
+.ss-mix-text b{color:var(--s-text);font-size:13.5px;font-weight:800;line-height:1.2}
+.ss-mix-text small{color:var(--s-faint);font-size:11.5px;line-height:1.3}
 .ss-mixes button:hover{border-color:#3e4346!important}
-.ss-mixes button[aria-pressed="true"]{border-color:var(--theme-accent)!important;color:var(--s-text)!important;
- background:color-mix(in srgb,var(--theme-accent) 12%,#151a1d)!important;box-shadow:none!important}
+.ss-mixes button[aria-pressed="true"]{border-color:var(--theme-accent)!important;background:linear-gradient(170deg,color-mix(in srgb,var(--theme-accent) 13%,#161b1f),#131719 70%)!important}
 .ss-tokens{display:flex;align-items:center;flex:0 0 auto}
-.ss-token{display:grid;place-items:center;width:28px;height:28px;margin-left:-9px;border-radius:50%;background:#20272c;box-shadow:0 0 0 2px #14191c;transition:transform .25s cubic-bezier(.3,1.5,.5,1)}
+.ss-token{display:grid;place-items:center;width:32px;height:32px;margin-left:-10px;overflow:hidden;border-radius:50%;background:#20272c;box-shadow:0 0 0 2.5px #14191c;transition:transform .25s cubic-bezier(.3,1.5,.5,1)}
 .ss-token:first-child{margin-left:0}
-.ss-token img{width:19px;height:19px;object-fit:contain}
-.ss-token.is-standard{background:radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--theme-accent) 65%,#fff),var(--theme-accent) 65%)}
-/* A regular line: even, "=". */
-.ss-token.is-standard::after{content:"";width:11px;height:2.5px;border-radius:2px;background:#fff;box-shadow:0 5px 0 #fff;transform:translateY(-2.5px)}
+.ss-token img{width:22px;height:22px;object-fit:contain}
+.ss-token.is-standard{background:#fff}
+.ss-token.is-standard img{width:24px;height:24px;border-radius:6px}
 .ss-token.is-goblin{background:#173024}
 .ss-token.is-demon{background:#361821}
-.ss-mixes button[aria-pressed="true"] .ss-token{box-shadow:0 0 0 2px color-mix(in srgb,var(--theme-accent) 30%,#161b1f)}
+.ss-mixes button[aria-pressed="true"] .ss-token{box-shadow:0 0 0 2.5px color-mix(in srgb,var(--theme-accent) 22%,#161b1f)}
 .ss-mixes button[aria-pressed="true"] .ss-token:nth-child(2){transform:translateX(3px)}
 .ss-mixes button[aria-pressed="true"] .ss-token:nth-child(3){transform:translateX(6px)}
 
@@ -73,31 +88,80 @@
 .ss-seg-thumb{position:absolute;top:4px;bottom:4px;left:4px;width:calc((100% - 8px) / var(--n));border-radius:11px;
  background:var(--theme-accent);box-shadow:inset 0 -2px 0 rgba(0,0,0,.18);
  transform:translateX(calc(var(--at) * 100%));transition:transform .38s cubic-bezier(.3,1.35,.5,1)}
-.ss-seg button{position:relative;z-index:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:0;min-height:40px;border-radius:11px;color:var(--s-muted)!important;font-weight:800;font-size:13px;transition:color .2s}
+.ss-seg button{position:relative;z-index:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:0;min-height:42px;border-radius:11px;color:var(--s-muted)!important;font-weight:800;font-size:13.5px;transition:color .2s}
 .ss-seg button:hover{color:var(--s-text)!important}
-.ss-seg button[aria-pressed="true"]{color:#fff!important}
+.ss-seg button[aria-pressed="true"]{color:var(--theme-on-accent,#03140B)!important}
 
-/* Sports: logo tiles, ticked when in. */
-.ss-sports{display:flex;flex-wrap:wrap;gap:8px}
-.ss-sports button{position:relative;display:inline-flex;align-items:center;gap:9px;min-height:46px;padding:0 17px 0 13px;border-radius:14px;font-weight:800;font-size:13px}
-.ss-sports img{width:20px;height:20px;object-fit:contain;filter:grayscale(1) opacity(.55);transition:filter .2s}
-.ss-check{position:absolute;top:-6px;right:-6px;display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--theme-accent);color:var(--theme-on-accent,#03140B);box-shadow:0 0 0 2px var(--s-card);transform:scale(0);transition:transform .28s cubic-bezier(.3,1.6,.5,1)}
+/* Sports: logo tiles with today's game count, ticked when in. */
+.ss-sports{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.ss-sports button{display:flex;align-items:center;gap:11px;min-height:56px;padding:8px 14px 8px 12px;border-radius:15px;text-align:left}
+.ss-sports img{flex:none;width:24px;height:24px;object-fit:contain;filter:grayscale(1) opacity(.55);transition:filter .2s}
+.ss-sports span{display:grid;min-width:0;gap:1px}
+.ss-sports b{color:var(--s-text);font-size:13.5px;font-weight:800}
+.ss-sports small{color:var(--s-faint);font-size:11px;font-weight:600;white-space:nowrap}
+.ss-sports button[data-empty]{opacity:.55}
 .ss-sports button:hover{border-color:#3e4346!important}
-.ss-sports button[aria-pressed="true"]{border-color:color-mix(in srgb,var(--theme-accent) 70%,transparent)!important;color:var(--s-text)!important;
- background:linear-gradient(170deg,color-mix(in srgb,var(--theme-accent) 18%,#161b1f),#13171a)!important}
+.ss-sports button[aria-pressed="true"]{border-color:color-mix(in srgb,var(--theme-accent) 70%,transparent)!important;background:linear-gradient(170deg,color-mix(in srgb,var(--theme-accent) 15%,#161b1f),#13171a)!important}
 .ss-sports button[aria-pressed="true"] img{filter:none}
-.ss-sports button[aria-pressed="true"] .ss-check{transform:scale(1)}
+.ss-sports button[aria-pressed="true"] small{color:color-mix(in srgb,var(--theme-accent) 70%,#fff)}
 
-.ss-switch{position:relative;display:flex;align-items:center;min-height:46px;margin:0;padding:8px 12px 8px 62px;border:1px solid var(--s-line);border-radius:14px;background:var(--s-tile);cursor:pointer}
+/* Games: each one's teams, start and some of its players. */
+.smart-slip .ss-all{display:inline-flex;white-space:nowrap;align-items:center;gap:6px;flex:none;min-height:34px;padding:0 12px;border:1px solid var(--s-line)!important;border-radius:999px;background:#101417!important;color:var(--s-muted)!important;font-size:12px!important;font-weight:800!important;transition:background .2s,color .2s,border-color .2s}
+.ss-all[aria-pressed="true"]{border-color:color-mix(in srgb,var(--theme-accent) 60%,transparent)!important;background:color-mix(in srgb,var(--theme-accent) 14%,#121619)!important;color:color-mix(in srgb,var(--theme-accent) 80%,#fff)!important}
+.ss-game-search{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;border:1px solid var(--s-line);border-radius:13px;background:#0e1114;color:var(--s-faint)}
+.ss-game-search:focus-within{border-color:color-mix(in srgb,var(--theme-accent) 55%,var(--s-line))}
+.ss-game-search input{flex:1;min-width:0;height:42px;border:0;outline:0;background:none;color:var(--s-text);font:600 14px var(--s-sans)}
+.ss-game-search input::-webkit-search-cancel-button{display:none}
+.smart-slip .ss-game-search button{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#1d2428!important}
+.ss-games{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:8px}
+.smart-slip .ss-game{--pick:var(--theme-accent);display:flex;align-items:center;gap:12px;min-height:64px;padding:9px 12px;border-radius:16px;text-align:left}
+.ss-game-logos{display:flex;flex:none}
+.ss-game-logos img{width:34px;height:34px;padding:4px;border-radius:50%;background:#0e1114;object-fit:contain;box-shadow:0 0 0 2px #171d21}
+.ss-game-logos img+img{margin-left:-8px}
+.ss-game-text{display:grid;flex:1;min-width:0;gap:3px}
+.ss-game-text b{overflow:hidden;color:var(--s-text);font-size:14.5px;font-weight:800;letter-spacing:-.1px;white-space:nowrap;text-overflow:ellipsis}
+.ss-game-text b i{color:var(--s-faint);font-style:normal;font-weight:600}
+.ss-game-text small{display:flex;align-items:center;gap:5px;overflow:hidden;color:var(--s-faint);font-size:11.5px;font-weight:600;white-space:nowrap}
+.ss-game-league{width:14px;height:14px;object-fit:contain}
+.ss-game:hover{border-color:#3e4346!important}
+.ss-game[aria-pressed="true"]{border-color:var(--theme-accent)!important;background:linear-gradient(170deg,color-mix(in srgb,var(--theme-accent) 13%,#161b1f),#131719 70%)!important}
+.ss-games.is-loading{grid-template-columns:repeat(auto-fill,minmax(290px,1fr))}
+.ss-game-skel{height:64px;border-radius:16px;background:linear-gradient(90deg,#171c20 0%,#20272c 50%,#171c20 100%);background-size:200% 100%;animation:ss-shimmer 1.4s linear infinite}
+.ss-games-none{margin:0;padding:14px;border:1px dashed var(--s-line);border-radius:14px;color:var(--s-faint);font-size:12.5px;text-align:center}
+.ss-games-foot{display:flex;flex-wrap:wrap;gap:8px}
+.ss-games-foot:empty{display:none}
+.smart-slip .ss-more{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 13px;border:1px solid var(--s-line)!important;border-radius:999px;background:#101417!important;color:var(--s-muted)!important;font-size:12.5px!important;font-weight:800!important}
+.ss-more:hover{color:var(--s-text)!important}
+.ss-more .is-up{transform:rotate(180deg)}
+.ss-more.is-clear{color:var(--s-down)!important}
+
+/* Player photos, overlapping; initials until a photo loads. */
+.smart-slip .ss-faces{display:flex;flex:none;align-items:center;padding-left:6px}
+.smart-slip .ss-face-mini{position:relative;display:grid;place-items:center;width:28px;height:28px;margin-left:-7px;overflow:hidden;border-radius:50%;background:#232b30;box-shadow:0 0 0 2px #151a1d}
+.smart-slip .ss-face-mini i{color:var(--s-muted);font:800 9px/1 var(--s-sans);font-style:normal;letter-spacing:-.2px}
+.smart-slip .ss-face-mini img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top}
+.smart-slip .ss-face-mini.is-more{background:#1b2226}
+.ss-ladder .ss-faces{min-height:28px;padding-left:7px}
+
+.ss-switch{position:relative;display:flex;align-items:center;min-height:50px;margin:0;padding:8px 12px 8px 62px;border:1px solid var(--s-line);border-radius:14px;background:var(--s-tile);cursor:pointer}
 .ss-switch input{position:absolute;opacity:0;width:0;height:0}
 .ss-switch::before{content:"";position:absolute;left:12px;top:50%;width:38px;height:22px;border-radius:11px;background:#2c353c;transform:translateY(-50%);transition:background .2s,box-shadow .2s}
 .ss-switch::after{content:"";position:absolute;left:15px;top:50%;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.35);transform:translateY(-50%);transition:transform .3s cubic-bezier(.3,1.5,.5,1)}
 .ss-switch:has(input:checked){border-color:color-mix(in srgb,var(--theme-accent) 55%,transparent)}
 .ss-switch:has(input:checked)::before{background:var(--theme-accent)}
 .ss-switch:has(input:checked)::after{transform:translate(16px,-50%)}
+.ss-switch:has(input:disabled){cursor:default}
 .ss-switch:has(input:focus-visible){outline:2px solid var(--theme-accent);outline-offset:2px}
 .ss-switch b{display:block;font-size:13px}
 .ss-switch small{display:block;color:var(--s-faint);font-size:11px}
+
+/* What the slip will be, and the button that builds it. */
+.ss-build-bar{display:grid;gap:10px;padding-top:4px}
+.ss-summary{display:flex;flex-wrap:wrap;gap:6px;margin:0}
+.ss-summary span{padding:5px 10px;border-radius:999px;background:#1a2024;color:var(--s-muted);font-size:11.5px;font-weight:700}
+/* Only phones float the build button. */
+.ss-build-float{display:none}
+.ss-summary span:first-child{background:color-mix(in srgb,var(--theme-accent) 16%,#1a2024);color:color-mix(in srgb,var(--theme-accent) 80%,#fff)}
 
 /* The build button: the brand colour, pressed like a real button. */
 .ss-build{display:flex;align-items:center;justify-content:center;gap:10px;min-height:56px;border-radius:16px;background:var(--theme-accent)!important;
@@ -240,20 +304,36 @@
  .smart-slip .finder-top-account b{font-size:15px;font-weight:700;line-height:1}
  .ss-head>div{flex:1}
  .ss-head{flex-wrap:nowrap}
- .ss-controls{gap:16px;margin:0 10px;padding:16px 14px;border-top:1px solid var(--s-line);border-radius:20px}
- .ss-row{grid-template-columns:1fr;gap:16px}
- .ss-payouts{gap:6px}
- .ss-payouts button{gap:6px;padding:12px 8px 10px;border-radius:13px}
- .ss-payouts b{font-size:17px}
- .ss-payouts b small{font-size:11px}
- .ss-payouts span{font-size:9.5px}
- .ss-meter{gap:2px}
- .ss-mixes{grid-template-columns:1fr 1fr}
- .ss-mixes button{gap:9px;min-height:54px;padding:9px 10px}
- .ss-mixes b{font-size:12px}
- .ss-token{width:25px;height:25px;margin-left:-8px}
- .ss-token img{width:17px;height:17px}
- .ss-sports button{flex:1 0 auto;justify-content:center}
+ .ss-head-pp{display:none}
+ .ss-controls{gap:10px;margin:0 10px;padding:0;border:0;border-radius:0;background:none}
+ .ss-step{gap:11px;padding:14px 12px;border-radius:18px;border-color:var(--s-line);background:var(--s-card)}
+ .ss-step-title small{white-space:normal}
+ .ss-row{grid-template-columns:1fr;gap:14px}
+ /* Payout: one swipeable row of cards. */
+ .ss-payouts{display:flex;gap:8px;margin:0 -12px;padding:8px 12px 2px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+ .ss-payouts::-webkit-scrollbar{display:none}
+ .ss-payouts button{flex:0 0 96px;scroll-snap-align:start;padding:11px 11px 10px}
+ .ss-payouts b{font-size:20px}
+ .ss-mixes{grid-template-columns:1fr;gap:8px}
+ .ss-mixes button{min-height:60px;padding:10px 12px}
+ .ss-sports{grid-template-columns:1fr 1fr}
+ .ss-sports button{min-height:54px;padding:8px 10px}
+ .ss-games{grid-template-columns:1fr}
+ .ss-game{min-height:62px;padding:9px 10px;gap:10px}
+ .ss-game-logos img{width:32px;height:32px}
+ .ss-game .ss-face-mini:nth-child(n+3){display:none}
+ .ss-build-bar{padding-top:2px}
+ /* The build button stays in reach while the steps scroll past. */
+ .ss-build-float{--s-line:#252d33;--s-muted:#9ea5a9;--s-sans:var(--font-sans,Inter,Arial,sans-serif);position:fixed;z-index:70;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom,0px));display:grid;gap:7px;padding:10px;
+  border:1px solid var(--s-line);border-radius:20px;background:rgba(17,21,24,.94);box-shadow:0 14px 34px rgba(0,0,0,.5);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);opacity:0;visibility:hidden;transform:translateY(14px);
+  transition:opacity .22s ease,transform .3s cubic-bezier(.22,1,.36,1),visibility 0s linear .3s}
+ .ss-build-float[data-show]{opacity:1;visibility:visible;transform:none;transition:opacity .22s ease,transform .3s cubic-bezier(.22,1,.36,1),visibility 0s}
+ .ss-build-float p{margin:0 4px;overflow:hidden;color:var(--s-muted);font-size:12px;font-weight:700;white-space:nowrap;text-overflow:ellipsis}
+ .ss-build-float .ss-build{width:100%;min-height:50px;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+ body.mobile-dock-hidden .ss-build-float{bottom:calc(14px + env(safe-area-inset-bottom,0px))}
+ /* Only while the builder is the page showing. */
+ body:not(:has(#panel-builder:not([hidden]))) .ss-build-float{display:none}
  .ss-stage,.ss-notice,.ss-empty,.ss-ticket,.ss-meta{margin-left:10px;margin-right:10px}
  .ss-stage{grid-template-columns:1fr;gap:18px;padding:16px}
  .ss-picks{padding:10px;gap:10px}

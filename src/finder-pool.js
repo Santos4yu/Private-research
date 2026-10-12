@@ -19,6 +19,20 @@ export const needsHistory = (sport, row) => row.historyStatus === 'pending'
   || ((sport === 'wnba' || sport === 'nba' || sport === 'mlb') && row.historyStatus !== 'ready' && row.historyStatus !== 'none');
 
 /**
+ * One league's board as it stands, without working out any hit rates: the
+ * saved one while it is fresh (or, with `saved`, any from the last day),
+ * else a new one, saved for next time.
+ */
+export async function loadBoard(sport, {signal, saved = false} = {}) {
+  const cached = await readFinderCache(sport);
+  if (cached && (saved || Date.now() - Number(cached.ts || 0) < BOARD_FRESH)) return cached;
+  const fresh = await loadFinderSport(sport, {signal, fast: sport === 'wnba' || sport === 'nba'});
+  const result = {...fresh, ts: Date.now(), rows: carryHistory(fresh.rows, cached?.rows || [])};
+  persistFinderCache(sport, result);
+  return result;
+}
+
+/**
  * One league's current lines, hit rates filled in, (WNBA, NBA, NFL) what each
  * defense allows and (MLB) today's probable starters and lineups. `only` limits which lines get their hit rates worked out;
  * `onProgress` hears {sport, stage, done, total, rows} as it goes, `rows`
@@ -26,13 +40,7 @@ export const needsHistory = (sport, row) => row.historyStatus === 'pending'
  */
 export async function loadLines(sport, {signal, onProgress, only} = {}) {
   onProgress?.({sport, stage: 'lines', done: 0, total: 0});
-  const cached = await readFinderCache(sport);
-  let result = cached;
-  if (!cached || Date.now() - Number(cached.ts || 0) >= BOARD_FRESH) {
-    const fresh = await loadFinderSport(sport, {signal, fast: sport === 'wnba' || sport === 'nba'});
-    result = {...fresh, ts: Date.now(), rows: carryHistory(fresh.rows, cached?.rows || [])};
-    persistFinderCache(sport, result);
-  }
+  let result = await loadBoard(sport, {signal});
   const enrich = ENRICH[sport];
   const pending = result.rows.filter(row => (!only || only(row)) && needsHistory(sport, row));
   if (enrich && pending.length) {

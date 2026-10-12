@@ -1,10 +1,11 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {ArrowUpRight,BarChart3,Check,CircleCheck,Crown,Layers,Lock,LockOpen,RefreshCw,Repeat2,Rocket,Search,Shield,ShieldCheck,Stethoscope,Ticket as TicketIcon,TriangleAlert,Zap} from 'lucide-react';
+import {createPortal} from 'react-dom';
+import {ArrowUpRight,BarChart3,CalendarClock,Check,ChevronDown,CircleCheck,Crown,Layers,Lock,LockOpen,RefreshCw,Repeat2,Rocket,Search,Shield,ShieldCheck,Stethoscope,Ticket as TicketIcon,TriangleAlert,X,Zap} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import {siteFinderSportAllowed} from './site-access';
 import {finderSlipProp} from './unified-finder-data';
-import {loadLines} from './finder-pool';
-import {TARGETS,MIXES,SPORT_NAMES,candidates,buildLadder,safest,exportLeg,isPrizePicksLine} from './smart-slip';
+import {loadBoard,loadLines} from './finder-pool';
+import {TARGETS,MIXES,SPORT_NAMES,candidates,buildLadder,safest,exportLeg,isPrizePicksLine,gameKey,slateGames} from './smart-slip';
 import {pickBuilder,usePickBuilder} from './pick-builder-client';
 import {loadMatchups,withMatchups} from './slip-matchup';
 import {withPoolDefense} from './slip-analyst';
@@ -30,8 +31,11 @@ const MODIFIER_ICON={goblin:'/prizepicks/goblin.png',demon:'/prizepicks/demon.pn
 // Each payout band's name and colour, safest to boldest.
 const LEVELS={2:{name:'Safest',tone:'#5fe0a8',Icon:ShieldCheck},3:{name:'Solid',tone:'#00f58a',Icon:CircleCheck},5:{name:'Boost',tone:'#f6c35b',Icon:Zap},
  10:{name:'Big',tone:'#ff9f5a',Icon:Rocket},20:{name:'Long shot',tone:'#ff6b8b',Icon:Crown}};
-const MIX_OPTIONS=[['regular','Regular + Regular',['standard','standard']],['goblin','Regular + Goblin',['standard','goblin']],
- ['demon','Regular + Demon',['standard','demon']],['any','Mix it up',['standard','goblin','demon']]];
+const MIX_OPTIONS=[['regular','Regular only',['standard','standard'],'Standard PrizePicks lines'],['goblin','Regular + Goblin',['standard','goblin'],'Easier lines, lower payout'],
+ ['demon','Regular + Demon',['standard','demon'],'Harder lines, higher payout'],['any','Mix it up',['standard','goblin','demon'],'Whatever builds the best slip']];
+const PLAY_HINT={power:'Every pick has to hit',flex:'Still pays with a miss'};
+// Games shown before "Show all".
+const GAMES_SHOWN=6;
 const STEPS=[['Pulling the lines',Layers],['Checking hit rates',BarChart3],['Matchups, injuries and odds',Stethoscope],['Building your slip',TicketIcon]];
 const PRIZEPICKS_LOGO='/prizepicks/logo.png';
 // The picks a slip is built from, judged as the Slip Analyzer and Krazy Bot
@@ -86,8 +90,61 @@ function useCountUp(value){
  return shown;
 }
 
+// A line on PrizePicks: a regular one is PrizePicks' own mark, Goblins and
+// Demons their icons.
 function Token({kind}){
- return MODIFIER_ICON[kind]?<i className={`ss-token is-${kind}`}><img src={MODIFIER_ICON[kind]} alt=""/></i>:<i className="ss-token is-standard"/>;
+ return <i className={`ss-token is-${MODIFIER_ICON[kind]?kind:'standard'}`}><img src={MODIFIER_ICON[kind]||PRIZEPICKS_LOGO} alt=""/></i>;
+}
+
+// A row of player photos, overlapping (initials when there's no photo).
+function Faces({players,max=3}){
+ const shown=(players||[]).slice(0,max),more=(players||[]).length-shown.length;
+ return <span className="ss-faces" aria-hidden="true">{shown.map(player=><span key={player.name} className="ss-face-mini">
+  <i>{String(player.name||'').split(/\s+/).map(part=>part[0]).join('').slice(0,2)}</i>
+  {player.headshot&&<img src={player.headshot} alt="" loading="lazy" onError={event=>{event.currentTarget.hidden=true;}}/>}</span>)}
+  {more>0&&<span className="ss-face-mini is-more"><i>+{more}</i></span>}</span>;
+}
+
+// One step of the form: its number, name and what it's for.
+function Step({n,title,hint,aside,children}){
+ return <section className="ss-step" aria-label={title}>
+  <header className="ss-step-head"><span className="ss-step-n">{n}</span><span className="ss-step-title"><b>{title}</b>{hint&&<small>{hint}</small>}</span>{aside}</header>
+  {children}
+ </section>;
+}
+
+// The games to build from: every game on the chosen sports' boards, its
+// teams' logos, start and some of the players with lines in it. None
+// picked means every game.
+function GamePicker({games,picked,onToggle,onClear,loading}){
+ const [open,setOpen]=useState(false),[query,setQuery]=useState('');
+ const needle=query.trim().toLowerCase();
+ const found=needle?games.filter(game=>[game.away.abbr,game.home.abbr,SPORT_NAMES[game.sport],...game.players.map(player=>player.name)].some(text=>String(text||'').toLowerCase().includes(needle))):games;
+ // Picked games stay in view even when the list is folded.
+ const listed=open||needle?found:[...found.filter(game=>picked.includes(game.key)),...found.filter(game=>!picked.includes(game.key))].slice(0,Math.max(GAMES_SHOWN,picked.length));
+ if(loading&&!games.length)return <div className="ss-games is-loading" aria-label="Loading games">{[0,1,2].map(n=><span key={n} className="ss-game-skel"/>)}</div>;
+ if(!games.length)return <p className="ss-games-none">No games with PrizePicks lines left today for these sports.</p>;
+ return <>
+  {games.length>GAMES_SHOWN&&<label className="ss-game-search"><Search size={15} aria-hidden="true"/>
+   <input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search a team or player" aria-label="Search games"/>
+   {query&&<button type="button" onClick={()=>setQuery('')} aria-label="Clear search"><X size={14}/></button>}</label>}
+  <div className="ss-games">{listed.map(game=>{
+   const on=picked.includes(game.key);
+   return <button type="button" key={game.key} className="ss-game" aria-pressed={on} onClick={()=>onToggle(game.key)}>
+    <span className="ss-game-logos"><Img src={game.away.logo||LEAGUE_LOGOS[game.sport]}/><Img src={game.home.logo||LEAGUE_LOGOS[game.sport]}/></span>
+    <span className="ss-game-text"><b>{game.away.abbr} <i>@</i> {game.home.abbr}</b>
+     <small><Img className="ss-game-league" src={LEAGUE_LOGOS[game.sport]}/>{when(game.startsAt)} · {game.players.length} player{game.players.length===1?'':'s'}</small></span>
+    <Faces players={game.players.filter(player=>player.headshot).concat(game.players.filter(player=>!player.headshot))}/>
+    <span className="ss-game-tick" aria-hidden="true"><Check size={12} strokeWidth={3.4}/></span>
+   </button>;})}
+   {needle&&!found.length&&<p className="ss-games-none">No game matches “{query}”.</p>}
+  </div>
+  <div className="ss-games-foot">
+   {!needle&&found.length>listed.length&&<button type="button" className="ss-more" onClick={()=>setOpen(true)}>Show all {found.length} games<ChevronDown size={15}/></button>}
+   {open&&!needle&&found.length>GAMES_SHOWN&&<button type="button" className="ss-more" onClick={()=>setOpen(false)}>Show fewer<ChevronDown size={15} className="is-up"/></button>}
+   {picked.length>0&&<button type="button" className="ss-more is-clear" onClick={onClear}><X size={14}/>Clear games</button>}
+  </div>
+ </>;
 }
 
 function Segment({options,value,onChange,label}){
@@ -208,6 +265,28 @@ export function SmartSlip(){
  useEffect(()=>{try{localStorage.setItem(PREFS_KEY,JSON.stringify({target,mix,size,play,sports,sameGame}));}catch{}},[target,mix,size,play,sports,sameGame]);
  // No sport picked means every sport the site allows.
  const chosen=useMemo(()=>{const picked=sports.filter(key=>allowed.includes(key));return picked.length?picked:allowed;},[sports,allowed]);
+ // Today's games on every allowed sport's board (the saved boards the
+ // Finder keeps, else fresh ones): what the Games step lists, and how many
+ // each sport has.
+ const [slate,setSlate]=useState({loading:true,games:[]});
+ useEffect(()=>{
+  const control=new AbortController();
+  setSlate(old=>({...old,loading:true}));
+  Promise.allSettled(allowed.map(sport=>loadBoard(sport,{signal:control.signal,saved:true}))).then(results=>{
+   if(control.signal.aborted)return;
+   const rows=results.flatMap(result=>result.status==='fulfilled'?result.value.rows||[]:[]);
+   setSlate({loading:false,games:slateGames(rows,{logo:teamLogo,opponentLogo})});
+  });
+  return()=>control.abort();
+ },[allowed]);
+ const [gamesPicked,setGamesPicked]=useState([]);
+ const games=useMemo(()=>slate.games.filter(game=>chosen.includes(game.sport)),[slate,chosen]);
+ const picked=useMemo(()=>gamesPicked.filter(key=>games.some(game=>game.key===key)),[gamesPicked,games]);
+ const gameCount=useMemo(()=>slate.games.reduce((counts,game)=>({...counts,[game.sport]:(counts[game.sport]||0)+1}),{}),[slate]);
+ // A few games picked: enough picks may come from each to fill a slip (all
+ // six from one, in a one-game parlay).
+ const perGame=picked.length&&picked.length<=3?Math.max(sameGame?2:1,Math.ceil(6/picked.length)):null;
+ const toggleGame=key=>setGamesPicked(old=>old.includes(key)?old.filter(item=>item!==key):[...old.filter(item=>games.some(game=>game.key===item)),key]);
 
  const [status,setStatus]=useState('idle');
  const [step,setStep]=useState(0);
@@ -228,18 +307,33 @@ export function SmartSlip(){
  const [toast,setToast]=useState('');
  useEffect(()=>{if(!toast)return;const id=setTimeout(()=>setToast(''),2600);return()=>clearTimeout(id);},[toast]);
  const controller=useRef(null),ladderRef=useRef(null),stageRef=useRef(null),scrollAfterBuild=useRef(false),scan=useRef([]);
+ // On a phone the steps run longer than the screen: while they're in view
+ // and the build button isn't, a copy of it floats above the bottom menu.
+ const barRef=useRef(null),controlsRef=useRef(null);
+ const [floatBar,setFloatBar]=useState(false);
+ useEffect(()=>{
+  const bar=barRef.current,controls=controlsRef.current;
+  if(!bar||!controls||typeof IntersectionObserver!=='function')return undefined;
+  let barSeen=true,controlsSeen=true;
+  const watch=new IntersectionObserver(entries=>{
+   for(const entry of entries){if(entry.target===bar)barSeen=entry.isIntersecting;else controlsSeen=entry.isIntersecting;}
+   setFloatBar(!barSeen&&controlsSeen&&window.matchMedia('(max-width: 760px)').matches);
+  },{rootMargin:'0px 0px -96px 0px'});
+  watch.observe(bar);watch.observe(controls);
+  return()=>watch.disconnect();
+ },[]);
  const builder=usePickBuilder();
 
- const base=useMemo(()=>pool.length?buildLadder(pool,{play,size,mix,sameGame,locked,excluded}):[],[pool,play,size,mix,sameGame,locked,excluded]);
+ const base=useMemo(()=>pool.length?buildLadder(pool,{play,size,mix,sameGame,perGame,locked,excluded}):[],[pool,play,size,mix,sameGame,perGame,locked,excluded]);
  // A swap changes one pick of one slip: same band, same size, the rest kept.
- const swapped=useMemo(()=>swap&&pool.length?buildLadder(pool,{play,size:swap.size,mix,sameGame,locked:[...new Set([...locked,...swap.kept])],excluded,only:[swap.target]})[0]||null:null,
-  [swap,pool,play,mix,sameGame,locked,excluded]);
+ const swapped=useMemo(()=>swap&&pool.length?buildLadder(pool,{play,size:swap.size,mix,sameGame,perGame,locked:[...new Set([...locked,...swap.kept])],excluded,only:[swap.target]})[0]||null:null,
+  [swap,pool,play,mix,sameGame,perGame,locked,excluded]);
  const ladder=useMemo(()=>{
   const bands=new Map(base.map(item=>[item.target,item]));
   if(swapped)bands.set(swapped.target,swapped);
   return TARGETS.filter(value=>bands.has(value)).map(value=>bands.get(value));
  },[base,swapped]);
- useEffect(()=>setSwap(null),[play,size,mix,sameGame]);
+ useEffect(()=>setSwap(null),[play,size,mix,sameGame,perGame]);
  // The one to point to: the likeliest to cash.
  const recommended=useMemo(()=>safest(ladder),[ladder]);
  // The band asked for, else the nearest bigger one, else the biggest there is.
@@ -253,19 +347,22 @@ export function SmartSlip(){
   scan.current=[];
   requestAnimationFrame(()=>stageRef.current?.scrollIntoView({behavior:calm()?'auto':'smooth',block:'nearest'}));
   const now=Date.now();
+  // The games picked, else every game; only their sports are loaded.
+  const keys=picked,sportsFor=keys.length?[...new Set(games.filter(game=>keys.includes(game.key)).map(game=>game.sport))]:chosen;
+  const inGames=row=>!keys.length||keys.includes(gameKey(row));
   // Every kind of line, so a different mix needs no second build.
-  const only=row=>isPrizePicksLine(row)&&Date.parse(row.startsAt||'')>now+10*60000;
+  const only=row=>isPrizePicksLine(row)&&Date.parse(row.startsAt||'')>now+10*60000&&inGames(row);
   let checked=false;
-  const results=await Promise.allSettled(chosen.map(sport=>loadLines(sport,{signal:control.signal,only,onProgress:update=>{
+  const results=await Promise.allSettled(sportsFor.map(sport=>loadLines(sport,{signal:control.signal,only,onProgress:update=>{
    setProgress(old=>({...old,[sport]:update}));
    if(update.stage==='history'){checked=true;setStep(old=>Math.max(old,1));}
    if(update.rows?.length)scan.current=[...scan.current,...update.rows.map(scanItem)].slice(-60);
   }})));
   if(control.signal.aborted)return;
-  const rows=results.flatMap(result=>result.status==='fulfilled'?result.value:[]);
-  const failed=chosen.filter((_,index)=>results[index].status==='rejected');
+  const rows=results.flatMap(result=>result.status==='fulfilled'?result.value:[]).filter(inGames);
+  const failed=sportsFor.filter((_,index)=>results[index].status==='rejected');
   let found=[];
-  try{found=await judged(rows,chosen,{signal:control.signal,now:Date.now()});}
+  try{found=await judged(rows,sportsFor,{signal:control.signal,now:Date.now()});}
   catch{if(control.signal.aborted)return;found=candidates(rows,{now:Date.now()}).filter(leg=>leg.side!=='UNDER');}
   if(control.signal.aborted)return;
   // Every step shows, even when every line was already saved.
@@ -287,7 +384,7 @@ export function SmartSlip(){
   setStatus(rows.length?'ready':'error');
   scrollAfterBuild.current=true;
   if(failed.length)setNotice(`${failed.map(key=>SPORT_NAMES[key]).join(', ')} lines couldn’t load right now.`);
- },[chosen]);
+ },[chosen,picked,games]);
  useEffect(()=>()=>controller.current?.abort(),[]);
  // A finished build brings its options into view (below the controls on a phone).
  useEffect(()=>{
@@ -303,7 +400,7 @@ export function SmartSlip(){
   if(!slip)return;
   const kept=slip.legs.filter(other=>other.id!==leg.id).map(other=>other.id);
   // Nothing else fits: the slip stays as it is.
-  const next=buildLadder(pool,{play,size:slip.legs.length,mix,sameGame,locked:[...new Set([...locked,...kept])],excluded:[...excluded,leg.id],only:[slip.target]})[0];
+  const next=buildLadder(pool,{play,size:slip.legs.length,mix,sameGame,perGame,locked:[...new Set([...locked,...kept])],excluded:[...excluded,leg.id],only:[slip.target]})[0];
   if(!next){setToast('No other pick fits this slip right now');return;}
   setSwap({target:slip.target,size:slip.legs.length,kept});
   setExcluded(old=>[...old,leg.id]);setSelected(slip.target);
@@ -356,47 +453,80 @@ export function SmartSlip(){
  const totals=Object.values(progress).reduce((sum,item)=>({done:sum.done+(item.done||0),total:sum.total+(item.total||0)}),{done:0,total:0});
  const sizes=SIZES.filter(value=>play!=='flex'||value==='auto'||value>=3);
 
+ const buildButton=<button type="button" className="ss-build" onClick={build} disabled={loading||!allowed.length}>
+  {loading?<RefreshCw size={18} className="ss-spin"/>:<TicketIcon size={18}/>}<span>{loading?'Building…':status==='ready'?'Build again':'Build my slip'}</span></button>;
+ const mixText=(MIX_OPTIONS.find(([key])=>key===mix)||MIX_OPTIONS[3])[1];
+ const summary=[`${target}x+`,mixText,size==='auto'?'Any size':`${size} picks`,play==='flex'?'Flex':'Power',
+  picked.length?`${picked.length} game${picked.length===1?'':'s'}`:`${chosen.length===allowed.length?'All sports':chosen.map(key=>SPORT_NAMES[key]).join(', ')}`];
+
  return <section className="smart-slip" aria-labelledby="smart-slip-title">
   <header className="ss-head">
    <div className="ss-title"><span className="ss-mark" aria-hidden="true"><TicketIcon size={22}/></span>
     <div><h1 id="smart-slip-title">Parlay Builder</h1>
-     <p>Pick a payout and your sports. Slips are built from Elite and Strong picks, overs only.</p></div></div>
+     <p>Pick a payout, your lines and your games. Every slip is built from Elite and Strong picks, overs only.</p></div></div>
+   <span className="ss-head-pp"><img src={PRIZEPICKS_LOGO} alt=""/>PrizePicks ready</span>
   </header>
 
-  <div className="ss-controls">
-   <div className="ss-field"><span className="ss-label">Payout</span>
-    <div className="ss-payouts">{TARGETS.map((value,index)=><button type="button" key={value} aria-pressed={target===value} style={{'--tone':LEVELS[value].tone}}
-     onClick={()=>{setSwap(null);setTarget(value);setSelected(null);}}>
-     {React.createElement(LEVELS[value].Icon,{size:16,className:'ss-level-icon','aria-hidden':true})}<b>{value}x<small>+</small></b><span>{LEVELS[value].name}</span>
-     <i className="ss-meter" aria-hidden="true">{TARGETS.map((_,n)=><em key={n} className={n<=index?'is-on':''}/>)}</i>
-    </button>)}</div></div>
-   <div className="ss-field"><span className="ss-label">Lines</span>
-    <div className="ss-mixes">{MIX_OPTIONS.map(([value,text,tokens])=><button type="button" key={value} aria-pressed={mix===value} onClick={()=>setMix(value)}>
-     <span className="ss-tokens">{tokens.map((kind,n)=><Token key={n} kind={kind}/>)}</span><b>{text}</b>
-    </button>)}</div></div>
-   <div className="ss-row">
-    <div className="ss-field"><span className="ss-label">Picks</span>
-     <Segment label="Picks" value={size} onChange={setSize} options={sizes.map(value=>[value,value==='auto'?'Auto':String(value)])}/></div>
-    <div className="ss-field"><span className="ss-label">Play</span>
-     <Segment label="Play" value={play} onChange={value=>{setPlay(value);if(value==='flex'&&size===2)setSize('auto');}}
-      options={[['power','Power',Zap],['flex','Flex',Shield]]}/></div>
-   </div>
-   <div className="ss-row">
-    <div className="ss-field"><span className="ss-label">Sports</span>
-     <div className="ss-sports">{allowed.map(key=><button type="button" key={key} aria-pressed={chosen.includes(key)} onClick={()=>toggleSport(key)}>
-      <img src={LEAGUE_LOGOS[key]} alt="" width="20" height="20"/>{SPORT_NAMES[key]}<i className="ss-check" aria-hidden="true"><Check size={10} strokeWidth={3.5}/></i></button>)}</div></div>
-    <div className="ss-field"><span className="ss-label">Games</span>
-     <label className="ss-switch"><input type="checkbox" checked={sameGame} onChange={event=>setSameGame(event.target.checked)}/><span><b>Same-game picks</b><small>Up to 2 from one game</small></span></label></div>
-   </div>
-   <button type="button" className="ss-build" onClick={build} disabled={loading||!allowed.length}>
-    {loading?<RefreshCw size={18} className="ss-spin"/>:<TicketIcon size={18}/>}<span>{loading?'Building…':status==='ready'?'Build again':'Build my slip'}</span></button>
-  </div>
+  <div className="ss-controls" ref={controlsRef}>
+   <Step n={1} title="Payout" hint="How big a win you're after">
+    <div className="ss-payouts">{TARGETS.map((value,index)=>{const level=LEVELS[value];
+     return <button type="button" key={value} aria-pressed={target===value} style={{'--tone':level.tone}} onClick={()=>{setSwap(null);setTarget(value);setSelected(null);}}>
+      <span className="ss-payout-icon">{React.createElement(level.Icon,{size:16,'aria-hidden':true})}</span>
+      <b>{value}x<small>+</small></b><span className="ss-payout-name">{level.name}</span>
+      <i className="ss-meter" aria-hidden="true">{TARGETS.map((_,n)=><em key={n} className={n<=index?'is-on':''}/>)}</i>
+      <i className="ss-picked" aria-hidden="true"><Check size={10} strokeWidth={3.5}/></i>
+     </button>;})}</div>
+   </Step>
 
-  <div ref={stageRef} className="ss-stage-anchor">{loading&&<BuildStage step={step} share={totals.total?totals.done/totals.total:1} sports={chosen} scan={scan}
+   <Step n={2} title="Lines" hint="Which PrizePicks lines go on the slip">
+    <div className="ss-mixes">{MIX_OPTIONS.map(([value,text,tokens,hint])=><button type="button" key={value} aria-pressed={mix===value} onClick={()=>setMix(value)}>
+     <span className="ss-tokens">{tokens.map((kind,n)=><Token key={n} kind={kind}/>)}</span>
+     <span className="ss-mix-text"><b>{text}</b><small>{hint}</small></span>
+     <i className="ss-picked" aria-hidden="true"><Check size={10} strokeWidth={3.5}/></i>
+    </button>)}</div>
+   </Step>
+
+   <Step n={3} title="Slip" hint="How many picks, and how it pays">
+    <div className="ss-row">
+     <div className="ss-field"><span className="ss-label">Picks</span>
+      <Segment label="Picks" value={size} onChange={setSize} options={sizes.map(value=>[value,value==='auto'?'Auto':String(value)])}/></div>
+     <div className="ss-field"><span className="ss-label">Play</span>
+      <Segment label="Play" value={play} onChange={value=>{setPlay(value);if(value==='flex'&&size===2)setSize('auto');}}
+       options={[['power','Power',Zap],['flex','Flex',Shield]]}/>
+      <small className="ss-field-hint">{PLAY_HINT[play]}</small></div>
+    </div>
+   </Step>
+
+   <Step n={4} title="Sports" hint="Leave them all on for the widest pick of lines">
+    <div className="ss-sports">{allowed.map(key=>{const count=gameCount[key]||0;
+     return <button type="button" key={key} aria-pressed={chosen.includes(key)} onClick={()=>toggleSport(key)} data-empty={!slate.loading&&!count?'true':undefined}>
+      <Img src={LEAGUE_LOGOS[key]}/>
+      <span><b>{SPORT_NAMES[key]}</b><small>{slate.loading&&!count?'…':count?`${count} game${count===1?'':'s'}`:'No games'}</small></span>
+      <i className="ss-picked" aria-hidden="true"><Check size={10} strokeWidth={3.5}/></i></button>;})}</div>
+   </Step>
+
+   <Step n={5} title="Games" hint={picked.length===1?'1 game picked: slips use only this game':picked.length?`${picked.length} games picked: slips use only these`:'All games, or tap the ones you want'}
+    aside={<button type="button" className="ss-all" aria-pressed={!picked.length} onClick={()=>setGamesPicked([])}><CalendarClock size={14}/>All games</button>}>
+    <GamePicker games={games} picked={picked} onToggle={toggleGame} onClear={()=>setGamesPicked([])} loading={slate.loading}/>
+    <label className="ss-switch"><input type="checkbox" checked={sameGame||picked.length===1} disabled={picked.length===1} onChange={event=>setSameGame(event.target.checked)}/>
+     <span><b>Same-game picks</b><small>{picked.length===1?'On: every pick comes from your game':picked.length>1&&picked.length<=3?`Up to ${perGame} from each of your games`:'Up to 2 from one game'}</small></span></label>
+   </Step>
+
+   <div className="ss-build-bar" ref={barRef}>
+    <p className="ss-summary" aria-label="Your choices">{summary.map(item=><span key={item}>{item}</span>)}</p>
+    {buildButton}
+   </div>
+  </div>
+  {/* On the page's top level: the tab panel's entrance animation would
+      otherwise pin it to the panel instead of the screen. */}
+  {typeof document!=='undefined'&&createPortal(<div className="ss-build-float" data-show={floatBar?'true':undefined} aria-hidden={!floatBar} inert={!floatBar||undefined}>
+   <p>{summary.slice(0,2).join(' · ')}{picked.length?` · ${summary[4]}`:''}</p>{buildButton}</div>,document.body)}
+
+  <div ref={stageRef} className="ss-stage-anchor">{loading&&<BuildStage step={step} share={totals.total?totals.done/totals.total:1} sports={picked.length?[...new Set(games.filter(game=>picked.includes(game.key)).map(game=>game.sport))]:chosen} scan={scan}
    legs={step>=3?slip?.legs:null} checked={totals.total?totals.done:lineCount} total={totals.total||lineCount}/>}</div>
   {notice&&<p className="ss-notice" role="status">{notice}</p>}
 
-  {status==='ready'&&!ladder.length&&<div className="ss-empty" ref={ladderRef}><b>No slip clears the bar right now</b><span>Try more sports, another line mix, or a different payout.</span></div>}
+  {status==='ready'&&!ladder.length&&<div className="ss-empty" ref={ladderRef}><b>No slip clears the bar right now</b><span>{picked.length?'Add another game, try another line mix, or a different payout.':'Try more sports, another line mix, or a different payout.'}</span></div>}
   {status==='error'&&<div className="ss-empty"><b>Lines couldn’t load</b><button type="button" onClick={build}>Try again</button></div>}
 
   {status==='ready'&&ladder.length>0&&<>
@@ -409,6 +539,7 @@ export function SmartSlip(){
      <b>{React.createElement((LEVELS[item.target]||LEVELS[2]).Icon,{size:15,className:'ss-level-icon','aria-hidden':true})}{times(item.payout,item.estimated)}</b>
      <span>{percent(odds)} {item.play==='flex'?'to profit':'to hit'}</span>
      <i className="ss-odds" aria-hidden="true"><i style={{width:percent(odds)}}/></i>
+     <Faces players={item.legs.map(leg=>({name:leg.row.player,headshot:leg.row.headshot}))} max={6}/>
      <small>{item.legs.length}-pick {item.play==='flex'?'Flex':'Power'}
       {item.legs.filter(leg=>MODIFIER_ICON[leg.modifier]).map(leg=><img key={leg.id} src={MODIFIER_ICON[leg.modifier]} alt={leg.modifier} width="13" height="13"/>)}</small>
     </button>;})}</div>

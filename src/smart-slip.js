@@ -73,6 +73,44 @@ export const isPrizePicksLine = row => Array.isArray(row?.apps) && row.apps.some
 export const gameKey = row => `${row.sport}:${row.gameId || row.eventId
   || [row.teamAbbr, row.opponent].filter(Boolean).sort().join('-') + ':' + String(row.startsAt || '').slice(0, 10)}`;
 
+// Which side of a game each team is: home and away when the board says,
+// else from the row's own team and opponent.
+function sides(row) {
+  if (row.homeTeamAbbr && row.awayTeamAbbr) return [row.awayTeamAbbr, row.homeTeamAbbr];
+  if (row.isHome === true) return [row.opponent, row.teamAbbr];
+  if (row.isHome === false) return [row.teamAbbr, row.opponent];
+  return [row.teamAbbr, row.opponent];
+}
+
+/**
+ * The games on the boards that a slip can still be built from: each one's
+ * teams (away first) and logos, start, and the players with a PrizePicks
+ * line in it, soonest first. `logo(row)` and `opponentLogo(row)` give the
+ * row's team and opponent marks.
+ */
+export function slateGames(rows, {now = Date.now(), logo = () => null, opponentLogo = () => null} = {}) {
+  const games = new Map();
+  for (const row of rows || []) {
+    const starts = Date.parse(row.startsAt || '');
+    if (!isPrizePicksLine(row) || !(starts > now + 10 * 60000) || !row.teamAbbr) continue;
+    const key = gameKey(row);
+    let game = games.get(key);
+    if (!game) {
+      const [away, home] = sides(row);
+      game = {key, sport: row.sport, startsAt: row.startsAt, away: {abbr: away || '', logo: null}, home: {abbr: home || '', logo: null}, players: new Map()};
+      games.set(key, game);
+    }
+    for (const team of [game.away, game.home]) {
+      if (!team.logo && team.abbr === row.teamAbbr) team.logo = logo(row) || null;
+      if (!team.logo && team.abbr === row.opponent) team.logo = opponentLogo(row) || null;
+    }
+    const known = game.players.get(row.player);
+    if (!known || (!known.headshot && row.headshot)) game.players.set(row.player, {name: row.player, headshot: row.headshot || known?.headshot || '', team: row.teamAbbr});
+  }
+  return [...games.values()].map(game => ({...game, players: [...game.players.values()]}))
+    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt) || a.key.localeCompare(b.key));
+}
+
 function sidePrice(apps, side) {
   const field = side === 'UNDER' ? 'under' : 'over';
   const priced = (apps || []).filter(app => app.key !== 'prizepicks' && finite(app[field]) && Math.abs(app[field]) >= 100);
@@ -239,8 +277,11 @@ function better(slip, current) {
  * one of MIXES. Locked picks stay in; excluded ones never come in. `only`
  * limits which bands are filled.
  */
-export function buildLadder(pool, {play = 'power', size = 'auto', mix = 'any', sameGame = false, locked = [], excluded = [], targets = TARGETS, only = null} = {}) {
-  const perGame = sameGame ? 2 : 1;
+export function buildLadder(pool, {play = 'power', size = 'auto', mix = 'any', sameGame = false, perGame: most = null, locked = [], excluded = [], targets = TARGETS, only = null} = {}) {
+  // Picks one game may give a slip: `perGame` when the member chose a few
+  // games (a one-game parlay takes them all from it), else one, or two
+  // with same-game picks on.
+  const perGame = Number(most) > 0 ? Number(most) : sameGame ? 2 : 1;
   const rule = MIXES[mix] || MIXES.any;
   const lockedLegs = pool.filter(leg => locked.includes(leg.id));
   const open = pool.filter(leg => !locked.includes(leg.id) && !excluded.includes(leg.id) && rule.kinds.includes(leg.modifier));
@@ -253,6 +294,8 @@ export function buildLadder(pool, {play = 'power', size = 'auto', mix = 'any', s
     if (slip.estimated && slip.payout < targets[0] * ESTIMATE_CUSHION) return;
     if (!rule.needs.every(kind => count(slip, kind) > 0)) return;
     if (rule.balanced && count(slip, 'standard') < slip.legs.length - count(slip, 'standard')) return;
+    // PrizePicks takes no slip whose players all play for one team.
+    if (new Set(slip.legs.map(leg => `${leg.game}|${leg.row?.teamAbbr || leg.player}`)).size < 2) return;
     const current = best.get(target);
     if (!current || better(slip, current)) best.set(target, slip);
   };

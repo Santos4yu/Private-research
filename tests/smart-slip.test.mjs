@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {sideRecord, judgeLeg, candidates, scoreSlip, buildLadder, safest, reasons, exportLeg, POWER} from '../src/smart-slip.js';
+import {sideRecord, judgeLeg, candidates, scoreSlip, buildLadder, safest, reasons, exportLeg, slateGames, POWER} from '../src/smart-slip.js';
 
 const NOW = Date.parse('2026-09-30T18:00:00Z');
 const LATER = '2026-09-30T23:10:00Z';
@@ -168,4 +168,38 @@ test('in each band the likeliest fair slip wins, not the richest', () => {
 test('a slip goes to PrizePicks under PrizePicks\' own stat name', () => {
   const leg = judgeLeg(row({player: 'Aaron Judge', l10: [8, 10], raw: {stat: 'Total Bases'}}), 'OVER', {now: NOW});
   assert.deepEqual(exportLeg(leg), {league: 'MLB', player: 'Aaron Judge', stat: 'Total Bases', line: 1.5, side: 'over', modifier: 'standard'});
+});
+
+test('the games on the board: teams away first, logos, players, soonest first, started ones left out', () => {
+  const soon = new Date(NOW + 2 * 3600e3).toISOString(), later = new Date(NOW + 5 * 3600e3).toISOString();
+  const rows = [
+    row({player: 'Judge', team: 'NYY', opponent: 'BOS', isHome: false, startsAt: later, game: 'g2', headshot: 'judge.png'}),
+    row({player: 'Devers', team: 'BOS', opponent: 'NYY', isHome: true, startsAt: later, game: 'g2'}),
+    row({player: 'Judge', market: 'Hits', team: 'NYY', opponent: 'BOS', isHome: false, startsAt: later, game: 'g2'}),
+    row({player: 'Soto', team: 'NYM', opponent: 'ATL', isHome: true, startsAt: soon, game: 'g1'}),
+    row({player: 'Gone', team: 'LAD', opponent: 'SD', startsAt: new Date(NOW + 60000).toISOString(), game: 'g0'}),
+  ];
+  const games = slateGames(rows, {now: NOW, logo: r => `logo-${r.teamAbbr}`, opponentLogo: r => `logo-${r.opponent}`});
+  assert.deepEqual(games.map(game => game.key), ['mlb:g1', 'mlb:g2']);
+  const [first, second] = games;
+  assert.deepEqual([first.away.abbr, first.home.abbr], ['ATL', 'NYM']);
+  assert.deepEqual([second.away, second.home], [{abbr: 'NYY', logo: 'logo-NYY'}, {abbr: 'BOS', logo: 'logo-BOS'}]);
+  assert.deepEqual(second.players.map(player => player.name), ['Judge', 'Devers']);
+  assert.equal(second.players[0].headshot, 'judge.png');
+});
+
+test('a one-game parlay takes its picks from that game, never all from one team', () => {
+  const rows = ['A', 'B', 'C'].map(player => row({player, team: 'NYY', opponent: 'BOS', game: 'one', l10: [8, 10], season: [35, 50]}))
+    .concat(['D', 'E'].map(player => row({player, team: 'BOS', opponent: 'NYY', game: 'one', l10: [7, 10], season: [31, 50]})));
+  const pool = candidates(rows, {now: NOW});
+  // One pick per game by default: no slip at all from a single game.
+  assert.equal(buildLadder(pool).length, 0);
+  const ladder = buildLadder(pool, {perGame: 6});
+  assert.ok(ladder.length);
+  for (const slip of ladder) {
+    assert.ok(slip.legs.every(leg => leg.game === 'mlb:one'));
+    assert.ok(new Set(slip.legs.map(leg => leg.row.teamAbbr)).size === 2, 'both teams on the slip');
+  }
+  // Only one team's players: nothing PrizePicks would take.
+  assert.equal(buildLadder(candidates(rows.slice(0, 3), {now: NOW}), {perGame: 6}).length, 0);
 });
