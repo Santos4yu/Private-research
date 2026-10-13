@@ -1,12 +1,12 @@
-// The public record at /results (results.html): Ace Props' Elite and Strong
-// picks over the last 30 days, settled from the final box score
+// The public record at /results (results.html): the picks the admin posts
+// (Admin › Record) over the last 30 days, settled from the final box score
 // (slip_ledger.public_results). Anyone can open it -- it's the link for a bio
 // or a post -- so it loads on its own, without the app.
 import './results-page.css';
 import {LEAGUE_LOGOS} from './league-logos.js';
 
 const SPORT_NAMES = {nfl: 'NFL', nba: 'NBA', wnba: 'WNBA', mlb: 'MLB', nhl: 'NHL', soccer: 'Soccer'};
-const TIER_NAMES = {elite: 'Elite', strong: 'Strong'};
+const TIER_NAMES = {elite: 'Elite', strong: 'Strong', lean: 'Lean', risky: 'Risky', fade: 'Fade'};
 // Fewer settled picks than this and the page says the sample is still small.
 const SMALL = 30;
 
@@ -38,6 +38,12 @@ function tierCard(tier, counts) {
   h('strong', {className: 'rp-tier-rate', text: pct(counts.rate)}),
   h('span', {className: 'rp-tier-record', text: counts.picks ? `${record(counts)} · ${counts.picks} pick${counts.picks === 1 ? '' : 's'}` : 'No settled picks yet'}),
   h('i', {className: 'rp-bar', 'aria-hidden': 'true'}, h('i', {style: `width:${Math.round((counts.rate || 0) * 100)}%`})));
+}
+
+// The tiers with settled picks, best first; Elite and Strong before there are any.
+function shownTiers(tiers) {
+ const used = Object.keys(TIER_NAMES).filter(tier => tiers[tier]?.picks);
+ return used.length ? used : ['elite', 'strong'];
 }
 
 function sportsRow(sports) {
@@ -90,12 +96,12 @@ function render(root, data) {
   h('section', {className: 'rp-hero'},
    h('p', {className: 'rp-eyebrow', text: `Last ${data.days} days`}),
    h('h1', {}, 'Our record'),
-   h('p', {className: 'rp-lede', text: 'Every Elite and Strong pick, graded before the game and settled from the final box score. Wins and losses, nothing hidden.'}),
+   h('p', {className: 'rp-lede', text: 'Every pick we post, made before the game and settled from the final box score. Wins and losses, nothing hidden.'}),
    h('div', {className: 'rp-overall'},
     h('strong', {text: pct(all.rate)}),
-    h('span', {text: all.picks ? `${record(all)} on ${all.picks} Elite and Strong pick${all.picks === 1 ? '' : 's'}` : 'The first results are being settled'})),
+    h('span', {text: all.picks ? `${record(all)} on ${all.picks} pick${all.picks === 1 ? '' : 's'}` : 'The first results are being settled'})),
    small && all.picks ? h('p', {className: 'rp-note', text: `Still a small sample (${all.picks} picks), so expect this to move as more games settle.`}) : null),
-  h('div', {className: 'rp-tiers'}, ['elite', 'strong'].map(tier => tierCard(tier, data.tiers?.[tier] || {hits: 0, misses: 0, picks: 0, rate: null}))),
+  h('div', {className: 'rp-tiers'}, shownTiers(data.tiers || {}).map(tier => tierCard(tier, data.tiers?.[tier] || {hits: 0, misses: 0, picks: 0, rate: null}))),
   sportsRow(data.sports || {}),
   dailyChart(data.daily || []),
   recentList(data.recent || []),

@@ -337,3 +337,29 @@ html[data-hidden-tabs~="slate"][data-hidden-tabs~="slip"] :is(.lab-tools,.lab-se
 .site-health-alerts li small{color:#8e989d}
 .site-health-alerts li span{grid-column:1/-1;color:#b6bbbe;line-height:1.5}
 .site-health-alerts li.site-health-empty{display:block;color:#8e989d}
+
+/* Admin panel: Record (src/site-record.js). */
+.site-record-panel{gap:12px}
+.site-record-panel[aria-busy=true]{opacity:.7;pointer-events:none}
+.record-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.record-totals div{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border:1px solid #2e3840;border-radius:12px;background:#14181b}
+.record-totals b{font:700 22px/1 'Sora',sans-serif;color:#f4f7f6}
+.record-totals span{color:#7a848a;font-size:11px}
+.record-list{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.record-pick{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 12px;padding:12px 14px;border:1px solid #2e3840;border-radius:12px;background:#1e252a}
+.record-pick-main{display:grid;gap:2px;min-width:0}
+.record-pick-main b{color:#f4f7f6;font-size:14px}
+.record-pick-main span{color:#d1d5d7;font-size:13px}
+.record-pick-main small,.record-pick-side small{color:#7a848a;font-size:11px}
+.record-pick-side{display:grid;justify-items:end;align-content:start;gap:4px}
+.record-chip{padding:4px 10px;border-radius:999px;background:#252b30;color:#afb5b8;font-size:11px;font-weight:700;white-space:nowrap}
+.record-pick[data-result=hit] .record-chip{background:#12301f;color:#46e39a}
+.record-pick[data-result=miss] .record-chip{background:#33181c;color:#ff7b8a}
+.record-pick-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px}
+.record-pick-actions button{min-height:34px;padding:0 12px;border:1px solid #50575a;border-radius:9px;background:#252d33;color:#f4f7f6;font:600 12px/1 inherit;cursor:pointer}
+.record-pick-actions .record-remove{margin-left:auto;border-color:#5a2a30;color:#ff7b8a}
+.record-empty{padding:18px 14px;border:1px dashed #2e3840;border-radius:12px;color:#90989c;font-size:13px;text-align:center}
+.record-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:12px;border-top:1px solid #2e3840}
+.record-erase{min-height:44px;padding:0 16px;border:1px solid #5a2a30;border-radius:10px;background:#2a1518;color:#ff7b8a;font:700 13px/1 inherit;cursor:pointer}
+.record-erase:disabled{opacity:.45;cursor:default}
+.record-open{color:var(--theme-accent,#00f58a);font-size:13px;font-weight:600}

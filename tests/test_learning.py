@@ -122,15 +122,16 @@ class LedgerTests(unittest.TestCase):
             learning._memory.clear()
             self.assertIsNotNone(learning.daily(NOW + timedelta(hours=21)))
 
-    def test_members_see_the_parlays_by_grade_with_their_slips(self):
+    def test_members_parlays_stay_off_the_record(self):
+        # The record is only what the admin posts (slip_ledger.RECORD): the
+        # members' parlays are counted for the model, not shown as the record.
         slip_ledger.save("member-a", slip(letter="A", source="builder"), now=NOW)
         with patch.object(learning, "_store", return_value=self.store), patch.dict(learning._memory, clear=True), \
                 patch.object(slip_ledger, "settle", return_value={}):
             learning.daily(NOW)
             shown = slip_ledger.history("member-a", now=NOW)
-        self.assertEqual(shown["record"]["parlayDays"], learning.RECORD_DAYS)
-        # Not settled yet: on the record once its picks are.
-        self.assertEqual(shown["record"]["parlays"]["A"]["slips"], 0)
+        self.assertNotIn("parlays", shown["record"])
+        self.assertEqual(shown["record"]["picks"], 0)
 
 
 if __name__ == "__main__":

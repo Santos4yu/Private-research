@@ -254,7 +254,7 @@ function Explain({score}){
  </div>;
 }
 
-function Parlay({score,slip,legs,pool,onSwap,onSaveAll,onNew,onShare,sharing,shot,tracked,onTrack,tracking}){
+function Parlay({score,slip,legs,pool,onSwap,onSaveAll,onNew,onShare,sharing,shot,tracked,onTrack,tracking,onPost,posting,posted}){
  const options=useMemo(()=>swaps(legs,pool),[legs,pool]);
  const [open,setOpen]=useState(false);
  const n=legs.length;
@@ -327,8 +327,12 @@ function Parlay({score,slip,legs,pool,onSwap,onSaveAll,onNew,onShare,sharing,sho
    {onTrack&&<button type="button" className="sa-btn sa-track" onClick={onTrack} disabled={tracking} aria-pressed={tracked}
     title={tracked?'Tracking this slip in Your tracked slips. Tap to stop.':'Played it? Track it to see how it finishes.'}>
     {tracked?<Check size={15}/>:<BookmarkPlus size={15}/>}{tracked?'Tracking':'Track slip'}</button>}
+   {onPost&&<button type="button" className="sa-btn sa-track sa-post" onClick={onPost} disabled={posting||Boolean(posted?.added)} aria-pressed={Boolean(posted?.added)}
+    title="Admin: put these picks on the site's record (Admin › Record)">
+    {posted?.added?<Check size={15}/>:<Crown size={15}/>}{posting?'Posting…':posted?.added?'On the record':'Post to record'}</button>}
    {score&&onShare&&<button type="button" className="sa-btn" onClick={onShare} disabled={sharing}><Share2 size={15}/>{sharing?'Making…':'Share'}</button>}
    <button type="button" className="sa-btn" onClick={onNew}><RotateCcw size={15}/>New slip</button>
+   {posted?.message&&<p className="sa-post-note" role="status">{posted.message}</p>}
    {shot&&<details className="sa-shot-peek"><summary><ImageUp size={14}/>Your screenshot<ChevronDown size={14}/></summary><img src={shot.url} alt="Your screenshot"/></details>}
   </div>
  </section>;
@@ -360,6 +364,9 @@ export function SlipAnalyzer(){
  const [tracking,setTracking]=useState(false);
  const [canTrack,setCanTrack]=useState(false);
  const markTracked=value=>{trackedRef.current=value;setTracked(value);};
+ // The admin's own slips go on the site's record (slip_ledger.record_add); nobody else's do.
+ const [posting,setPosting]=useState(false);
+ const [posted,setPosted]=useState(null);
  const boards=useRef({});
  const control=useRef(null);
  const host=useRef(null);
@@ -415,7 +422,7 @@ export function SlipAnalyzer(){
   const job=new AbortController();control.current=job;const {signal}=job;
   setShot(old=>{if(old?.url)URL.revokeObjectURL(old.url);return file?{url:URL.createObjectURL(file)}:null;});
   setPhase('reading');setStep(0);setError('');setDetail('');setLegs([]);setSlip(null);setEditing(null);setPool([]);setSaved(new Set());
-  games.current={};mates.current={};slipId.current=newSlipId();savedSig.current='';markTracked(false);
+  games.current={};mates.current={};slipId.current=newSlipId();savedSig.current='';markTracked(false);setPosted(null);
   const sports=SLIP_SPORTS.filter(siteFinderSportAllowed);
   // Today's lines load while the screenshot is read.
   const loading=Object.fromEntries(sports.map(sport=>[sport,loadLines(sport,{signal,only:()=>false}).catch(()=>[])]));
@@ -536,6 +543,24 @@ export function SlipAnalyzer(){
   }catch{/* the button stays as it was */}
   finally{setTracking(false);}
  };
+ // A pick changed after posting (fixed, swapped, regraded): it can be posted again.
+ const postSig=JSON.stringify(legs.map(leg=>[leg.row?.player,leg.side,leg.line,leg.grade?.tier]));
+ useEffect(()=>{setPosted(null);},[postSig]);
+ const postIt=async()=>{
+  if(!score||!slip||posting)return;
+  const picks=slipPayload(slipId.current,slip,legs,score).picks;
+  if(!picks.length){setPosted({message:'Nothing graded to post yet.'});return;}
+  setPosting(true);
+  try{
+   const response=await fetch('/api/v2-admin',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'record-add',picks})});
+   const data=await response.json().catch(()=>({}));
+   if(!response.ok)throw new Error(data.error||'The record couldn\'t be updated.');
+   const started=data.started?` ${data.started} already started, so not posted.`:'';
+   setPosted({added:data.added,message:data.added?`Posted ${data.added} pick${data.added===1?'':'s'} to the record.${started}`:`Nothing posted.${started}`});
+  }catch(err){setPosted({message:err.message});}
+  finally{setPosting(false);}
+ };
  // Off the list from Your tracked slips (the one on screen too, when it's this one).
  const untrack=async id=>{
   await removeSlip(id);
@@ -614,7 +639,8 @@ export function SlipAnalyzer(){
      {!changes.same&&!changes.items.length&&<small>The lines and news are the same, so the grade moved with the latest numbers.</small>}</div>
    </div>}
    <Parlay score={score} slip={slip} legs={legs} shot={shot} pool={pool} onSwap={swapIn} onSaveAll={saveAll} onNew={reset}
-    onShare={shareIt} sharing={sharing} tracked={tracked} tracking={tracking} onTrack={canTrack?trackIt:null}/>
+    onShare={shareIt} sharing={sharing} tracked={tracked} tracking={tracking} onTrack={canTrack?trackIt:null}
+    onPost={siteIsAdmin()?postIt:null} posting={posting} posted={posted}/>
    {slip.source==='text'&&<p className="sa-heads-up"><TriangleAlert size={14}/>This slip was read from its text, so double-check each {sideWord('OVER',slip.app)} and {sideWord('UNDER',slip.app)}.</p>}
    <div className="sa-props-head"><h2>The picks</h2><span>{legs.length} pick{legs.length===1?'':'s'}</span></div>
    <div className="sa-props" data-count={legs.length}>

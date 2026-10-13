@@ -355,7 +355,7 @@ class handler(BaseHTTPRequestHandler):
             except Exception:
                 return self._send(422, {"error": "That screenshot couldn't be read. Try again, or use a clearer one."})
         if action == "slip-save":
-            # A graded slip's picks for the site's record, and the slip for its member when they track it (slip_ledger.py).
+            # A graded slip's picks for the ledger (not the site's record), and the slip for its member when they track it (slip_ledger.py).
             try:
                 content_length = int(self.headers.get("Content-Length") or 0)
                 if content_length < 1 or content_length > 32_768:

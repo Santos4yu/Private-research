@@ -56,6 +56,11 @@ class FakeStore:
                 out.append({"result": None if taken else "OK"})
             elif op == "EXPIRE":
                 out.append({"result": 1})
+            elif op == "HDEL":
+                bucket = self.data.get(key, {})
+                out.append({"result": sum(1 for field in command[2:] if bucket.pop(field, None) is not None)})
+            elif op == "DEL":
+                out.append({"result": sum(1 for name in command[1:] if self.data.pop(name, None) is not None)})
             else:
                 raise AssertionError(op)
         return out
@@ -129,15 +134,15 @@ class LedgerTests(unittest.TestCase):
         # Once a game has started, grading the same parlay again doesn't change the grade it had.
         slip_ledger.save("member-a", slip("slip-0005", picks=[pick(), dak], letter="C"), now=NOW + timedelta(hours=3))
         self.assertEqual([(item["id"], item["letter"]) for item in mine()], [("slip-0004", "B+"), ("slip-0001", "B+")])
-        # The record still counts each pick once.
+        # The ledger still holds each pick once.
         self.assertEqual(len(self.ledger()), 3)
 
-    def test_only_graded_counts_for_the_record_but_is_not_tracked(self):
+    def test_only_graded_goes_in_the_ledger_but_is_not_tracked(self):
         key = slip_ledger.PREFIX + "user:member-a"
         shown = slip_ledger.save("member-a", slip(track=False), now=NOW)
         self.assertEqual((shown["tracked"], shown["id"]), (False, "slip-0001"))
         self.assertNotIn(key, self.store.data)
-        self.assertEqual(self.ledger()[0]["owners"], [])  # in the record, nobody's alerts
+        self.assertEqual(self.ledger()[0]["owners"], [])  # in the ledger, nobody's alerts
         # Tracked: on their list, theirs for alerts.
         self.assertTrue(slip_ledger.save("member-a", slip(), now=NOW)["tracked"])
         self.assertEqual(self.ledger()[0]["owners"], ["member-a"])
@@ -241,12 +246,117 @@ class LedgerTests(unittest.TestCase):
         self.assertEqual(body, "Mayfield (QB) is out, so Daniels likely steps in. Recheck your Jalon Daniels Under 28.5 Pass Attempts.")
 
 
-if __name__ == "__main__":
-    unittest.main()
+
+class AdminRecordTests(unittest.TestCase):
+    """The site's record: only what the admin posts, never the members' grading."""
+    def setUp(self):
+        self.store = FakeStore()
+        patcher = patch.object(slip_ledger, "_store", return_value=self.store)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        slip_ledger._memory.clear()
+
+    def posted(self):
+        return [json.loads(raw) for key, value in self.store.data.items() if ":record:" in key for raw in value.values()]
+
+    def test_members_grading_never_reaches_the_record(self):
+        slip_ledger.save("member-a", slip(picks=[pick(tier="elite")]), now=NOW)
+        slip_ledger.save("member-b", slip("slip-0002", track=False), now=NOW)
+        self.assertEqual(self.posted(), [])
+        players = {"CeeDee Lamb": {"name": "CeeDee Lamb", "line": {"receiving_yards": 88}}}
+        with patch("slip_games.read", side_effect=final(players)):
+            shown = slip_ledger.history("member-a", now=NOW + timedelta(hours=6))
+        self.assertEqual(shown["slips"][0]["picks"][0]["result"], "hit")  # their own slip still settles
+        self.assertEqual(shown["record"]["picks"], 0)
+        self.assertEqual(slip_ledger.public_results(NOW + timedelta(hours=6))["all"]["picks"], 0)
+
+    def test_the_admins_posted_picks_settle_and_make_the_record(self):
+        dak = pick(player="Dak Prescott", stat="Pass Yards", line=245.5, tier="elite", settle={"kind": "key", "key": "passing_yards"})
+        started = pick(player="Brandin Cooks", stat="Receptions", line=3.5, startsAt=(NOW - timedelta(hours=1)).isoformat())
+        self.assertEqual(slip_ledger.record_add({"picks": [pick(), dak, started]}, now=NOW), {"added": 2, "started": 1})
+        self.assertEqual(sorted(entry["player"] for entry in self.posted()), ["CeeDee Lamb", "Dak Prescott"])
+        later = NOW + timedelta(hours=6)
+        players = {"CeeDee Lamb": {"name": "CeeDee Lamb", "line": {"receiving_yards": 88}},
+                   "Dak Prescott": {"name": "Dak Prescott", "line": {"passing_yards": 201}}}
+        with patch("slip_games.read", side_effect=final(players)):
+            picks = slip_ledger.record_picks(now=later)
+        self.assertEqual({row["player"]: row["result"] for row in picks}, {"CeeDee Lamb": "hit", "Dak Prescott": "miss"})
+        self.assertNotIn("owners", picks[0])
+        out = slip_ledger.public_results(later)
+        self.assertEqual((out["all"]["hits"], out["all"]["misses"]), (1, 1))
+        self.assertEqual(out["tiers"]["elite"]["misses"], 1)
+        self.assertEqual(slip_ledger.record(later)["picks"], 2)
+        # Posted again after it settled: left as it finished.
+        self.assertEqual(slip_ledger.record_add({"picks": [pick(tier="elite")]}, now=NOW)["added"], 0)
+
+    def test_the_admin_can_call_remove_and_erase(self):
+        slip_ledger.record_add({"picks": [pick(), pick(player="Dak Prescott", stat="Pass Yards", line=245.5,
+                                                      settle={"kind": "key", "key": "passing_yards"})]}, now=NOW)
+        with patch("slip_games.read", side_effect=final({}, state="pre")):
+            rows = slip_ledger.record_picks(now=NOW)
+        lamb = next(row for row in rows if row["player"] == "CeeDee Lamb")
+        slip_ledger.record_set_result(lamb["day"], lamb["key"], "hit", 91)
+        self.assertEqual(next(entry for entry in self.posted() if entry["player"] == "CeeDee Lamb")["result"], "hit")
+        with self.assertRaises(ValueError):
+            slip_ledger.record_set_result(lamb["day"], lamb["key"], "won")
+        dak = next(row for row in rows if row["player"] == "Dak Prescott")
+        self.assertEqual(slip_ledger.record_remove(dak["day"], dak["key"]), {"removed": 1})
+        self.assertEqual([entry["player"] for entry in self.posted()], ["CeeDee Lamb"])
+        with self.assertRaises(ValueError):
+            slip_ledger.record_remove("today", "x")
+        # Members' ledger is untouched by erasing the record.
+        slip_ledger.save("member-a", slip(), now=NOW)
+        self.assertEqual(slip_ledger.record_clear(now=NOW)["cleared"], 1)
+        self.assertEqual(self.posted(), [])
+        self.assertTrue(any(":ledger:" in key for key in self.store.data))
+
+    def test_nothing_to_post_is_refused(self):
+        with self.assertRaises(ValueError):
+            slip_ledger.record_add({"picks": [{"player": "No Sport"}]}, now=NOW)
+
+
+class RecordRouteTests(unittest.TestCase):
+    """/api/v2-admin's record actions: the admin's only."""
+    def setUp(self):
+        import importlib.util
+        import io
+        self.io = io
+        spec = importlib.util.spec_from_file_location("v2_admin_record", Path(__file__).resolve().parents[1] / "api" / "v2-admin.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        self.handler, self.admin_auth = module.handler, module.admin_auth
+        self.store = FakeStore()
+        patcher = patch.object(slip_ledger, "_store", return_value=self.store)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        slip_ledger._memory.clear()
+
+    def call(self, method, body=None, query="", admin=True, same_origin=True):
+        request = object.__new__(self.handler)
+        raw = json.dumps(body or {}).encode()
+        request.path = query
+        request.headers = {"Content-Length": str(len(raw)), "Origin": "https://example.com",
+                           "Host": "example.com" if same_origin else "evil.com"}
+        request.rfile = self.io.BytesIO(raw)
+        with patch.object(self.admin_auth, "is_admin_request", return_value=admin), patch.object(request, "_send") as send:
+            getattr(request, method)()
+        return send.call_args.args[:2]
+
+    def test_only_the_admin_posts_and_erases(self):
+        later = pick(startsAt=(datetime.now(timezone.utc) + timedelta(hours=2)).isoformat())
+        self.assertEqual(self.call("do_POST", {"action": "record-add", "picks": [later]}, admin=False)[0], 401)
+        self.assertEqual(self.call("do_GET", query="/api/v2-admin?action=record", admin=False)[0], 401)
+        self.assertEqual(self.call("do_POST", {"action": "record-add", "picks": [later]}, same_origin=False)[0], 403)
+        self.assertEqual(self.call("do_POST", {"action": "record-add", "picks": [later]}), (200, {"added": 1, "started": 0}))
+        status, body = self.call("do_GET", query="/api/v2-admin?action=record")
+        self.assertEqual((status, [row["player"] for row in body["picks"]]), (200, ["CeeDee Lamb"]))
+        self.assertEqual(self.call("do_POST", {"action": "record-clear"})[0], 400)  # not confirmed
+        self.assertEqual(self.call("do_POST", {"action": "record-clear", "confirm": True}), (200, {"cleared": 1}))
+        self.assertEqual(self.call("do_GET", query="/api/v2-admin?action=record")[1]["picks"], [])
 
 
 class PublicResultsTests(unittest.TestCase):
-    def test_the_public_record_shows_finished_elite_and_strong_picks_and_nothing_private(self):
+    def test_the_public_record_shows_every_finished_posted_pick_and_nothing_private(self):
         from datetime import datetime, timezone
         import slip_ledger as ledger
         now = datetime(2026, 10, 13, 16, 0, tzinfo=timezone.utc)
@@ -255,12 +365,17 @@ class PublicResultsTests(unittest.TestCase):
                                               'settle': {'kind': 'key'}, **extra}
         entries = [('2026-10-12', 'a', pick('elite', 'hit')), ('2026-10-12', 'b', pick('elite', 'miss')),
                    ('2026-10-12', 'c', pick('strong', 'hit')), ('2026-10-12', 'd', pick('lean', 'hit')),
-                   ('2026-10-13', 'e', pick('elite', None)),            # still to play: not shown
-                   ('2026-10-12', 'f', pick('elite', 'hit', late=True))]  # graded after kickoff: not counted
+                   ('2026-10-13', 'e', pick('elite', None)),     # still to play: not shown
+                   ('2026-10-12', 'f', pick('elite', 'push'))]   # a push: neither
         out = ledger.public_results(now, entries)
         self.assertEqual(out['tiers']['elite'], {'hits': 1, 'misses': 1, 'picks': 2, 'rate': 0.5})
-        self.assertEqual(out['all']['picks'], 3)
-        self.assertEqual(len(out['recent']), 3)
+        self.assertEqual(out['tiers']['lean']['picks'], 1)
+        self.assertEqual(out['all']['picks'], 4)
+        self.assertEqual(len(out['recent']), 4)
         self.assertNotIn('owners', out['recent'][0])
         self.assertNotIn('settle', out['recent'][0])
-        self.assertEqual([day['picks'] for day in out['daily'] if day['day'] == '2026-10-12'], [3])
+        self.assertEqual([day['picks'] for day in out['daily'] if day['day'] == '2026-10-12'], [4])
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -12,6 +12,8 @@ an `action` field keeps this at one function instead of upgrading plans.
 GET  ?action=members                 -- admin only (site_members.py)
 POST {"action": "member-rule", ...}  -- admin only
 GET  ?action=announce-status         -- admin only (push_notices.py)
+GET  ?action=record                  -- admin only: the site's record (slip_ledger.py)
+POST {"action": "record-add" | "record-remove" | "record-result" | "record-clear", ...} -- admin only
 GET  ?action=moves-tick&key=...      -- the line-check timer (line_moves.py)
 POST {"action": "announce", ...}     -- admin only
 GET  ?action=key-status              -- admin only
@@ -88,6 +90,12 @@ class handler(BaseHTTPRequestHandler):
                     return self._send(200, {"configured": True, **whop_billing.subscribers(sync=(qs.get("sync") or [""])[0] == "1")})
                 except whop_billing.BillingUnavailable as exc:
                     return self._send(503, {"error": str(exc)})
+            if action == "record":
+                # The site's record: only what the admin posts (slip_ledger.record_add).
+                if not admin_auth.is_admin_request(self.headers):return self._send(401, {"error":"Admin session required"})
+                import slip_ledger
+                picks = slip_ledger.record_picks()
+                return self._send(200, {"picks": picks, "summary": slip_ledger.public_results(entries=[(p["day"], p["key"], p) for p in picks])})
             if action == "announce-status":
                 if not admin_auth.is_admin_request(self.headers):return self._send(401, {"error":"Admin session required"})
                 import line_moves
@@ -252,6 +260,8 @@ class handler(BaseHTTPRequestHandler):
                 except ValueError as exc:
                     return self._send(400, {"error": str(exc)})
                 return self._send(200, {"url": f"/api/v2-admin?action=site-background&v={version}"})
+            if action in ("record-add", "record-remove", "record-result", "record-clear"):
+                return self._handle_record(action, body)
             if action == "community-post":
                 from site_controls import allowed, same_origin
                 if not allowed(self.headers, "community"):
@@ -335,6 +345,28 @@ class handler(BaseHTTPRequestHandler):
         )
         self.end_headers()
         self.wfile.write(json.dumps({"ok": True}).encode("utf-8"))
+
+    def _handle_record(self, action, body):
+        """The admin's record (slip_ledger.py): post a graded slip's picks,
+        take one off, call one's result, or erase it all."""
+        if not admin_auth.is_admin_request(self.headers):
+            return self._send(401, {"error": "Admin session required"})
+        from site_controls import same_origin
+        if not same_origin(self.headers):
+            return self._send(403, {"error": "Same-origin request required"})
+        import slip_ledger
+        try:
+            if action == "record-add":
+                return self._send(200, slip_ledger.record_add(body))
+            if action == "record-remove":
+                return self._send(200, slip_ledger.record_remove(body.get("day"), body.get("key")))
+            if action == "record-result":
+                return self._send(200, slip_ledger.record_set_result(body.get("day"), body.get("key"), body.get("result"), body.get("value")))
+            if body.get("confirm") is not True:
+                return self._send(400, {"error": "Confirm erasing the record."})
+            return self._send(200, slip_ledger.record_clear())
+        except ValueError as exc:
+            return self._send(400, {"error": str(exc)})
 
     def _handle_announce(self, body):
         """A notification to every device with alerts on -- or, with
