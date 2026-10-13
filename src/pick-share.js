@@ -1,3 +1,4 @@
+import {SITE} from './slip-share.js';
 // A Krazy Bot pick as a picture to share (1080x1350, the size feeds show
 // whole): the player, the line, our chance, his last ten games against the
 // line, his hit rates and the matchup. Phones hand it to the share sheet;
@@ -174,6 +175,10 @@ export async function drawPick(pick) {
   if (pick.case) ctx.fillText(fit(ctx, `${pick.case.label} (${pick.case.score})${pick.case.facts[0] ? ` · ${pick.case.facts[0].text}` : ''}`, W - PAD * 2), cx, H - 34);
   else if (rating) ctx.fillText(fit(ctx, `${rating.label} matchup (${rating.score})${rating.versus ? ` vs ${rating.versus}` : ''}`, W - PAD * 2), cx, H - 34);
   else if (pick.matchup?.text) ctx.fillText(fit(ctx, pick.matchup.text, W - PAD * 2), cx, H - 34);
+  // Where it came from, so anyone who sees it can find the site: the top
+  // right, beside the wordmark (the foot carries the matchup).
+  ctx.save(); ctx.font = `800 26px ${(typeof document !== 'undefined' && getComputedStyle(document.body).fontFamily) || 'system-ui, sans-serif'}`;
+  ctx.fillStyle = '#00f58a'; ctx.textAlign = 'right'; ctx.fillText(SITE, W - PAD, 132); ctx.restore();
 
   return canvas;
 }
@@ -186,7 +191,7 @@ export async function sharePick(pick) {
   const file = new File([blob], name, {type: 'image/png'});
   const text = `${pick.player} ${pick.side === 'UNDER' ? 'Under' : 'Over'} ${nice(pick.line)} ${pick.stat || ''}`.trim();
   if (navigator.canShare?.({files: [file]})) {
-    try { await navigator.share({files: [file], title: text}); return; }
+    try { await navigator.share({files: [file], title: text, text: `${text} · ${SITE}`}); return; }
     catch (error) { if (error?.name === 'AbortError') return; }
   }
   const url = URL.createObjectURL(blob);

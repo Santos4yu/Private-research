@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {ArrowLeft,ArrowUpRight,BarChart3,CalendarClock,Check,ChevronLeft,ChevronRight,CircleCheck,Crown,Layers,Lock,LockOpen,Pencil,RefreshCw,Repeat2,Rocket,Search,Shield,ShieldCheck,Stethoscope,Ticket as TicketIcon,TriangleAlert,UserRound,X,Zap} from 'lucide-react';
+import {ArrowLeft,ArrowUpRight,BarChart3,CalendarClock,Check,ChevronLeft,ChevronRight,CircleCheck,Crown,Layers,Lock,LockOpen,Pencil,RefreshCw,Repeat2,Rocket,Search,Share2,Shield,ShieldCheck,Stethoscope,Ticket as TicketIcon,TriangleAlert,UserRound,X,Zap} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import {siteFinderSportAllowed} from './site-access';
 import {finderSlipProp} from './unified-finder-data';
@@ -11,6 +11,7 @@ import {withPoolDefense} from './slip-analyst';
 import {gradeMatchups,withMatchup,passesMatchup,overOnly} from './krazy-bot';
 import {loadGames,loadTeammates,withGame} from './slip-games';
 import {HEADLINES,gradeTone} from './slip-score';
+import {shareSlip} from './slip-share';
 import {builderSlip,handOff} from './slip-handoff';
 import {loadLearning} from './learning';
 import {logTopPicks,newSlipId,saveSlip,slipPayload} from './slip-history';
@@ -271,7 +272,16 @@ function Pick({leg,index,need,locked,onLock,onSwap,onResearch}){
  </article>;
 }
 
+// The built slip as a picture to post (slip-share.js, the Slip Analyzer's own).
+async function shareBuilt(slip){
+ await shareSlip({score:{letter:slip.letter,chance:slip.play==='flex'?slip.profit:slip.chance,multiplier:slip.payout,value:slip.value},
+  legs:slip.legs.map(leg=>({row:leg.row,player:leg.row.player,side:leg.side,line:leg.row.line,stat:leg.row.market,grade:{tier:leg.tier,chance:leg.chance}})),
+  headline:HEADLINES[slip.letter]||'My parlay',kind:`PrizePicks · ${slip.legs.length}-Pick ${slip.play==='flex'?'Flex':'Power'} Play`});
+}
+
 function Ticket({slip,locked,onLock,onSwap,onResearch,onAdd,onExport,exporting,link,onCheck}){
+ const [sharing,setSharing]=useState(false);
+ const share=async()=>{if(sharing)return;setSharing(true);try{await shareBuilt(slip);}finally{setSharing(false);}};
  const level=LEVELS[slip.target]||LEVELS[2];
  const pays=useCountUp(slip.payout);
  // What each pick has to hit for the slip to pay its way.
@@ -295,7 +305,10 @@ function Ticket({slip,locked,onLock,onSwap,onResearch,onAdd,onExport,exporting,l
    {link&&!exporting?<a className="ss-primary" href={link} target="_blank" rel="noopener noreferrer"><img src={PRIZEPICKS_LOGO} alt=""/>Open in PrizePicks<ArrowUpRight size={16}/></a>
     :<button type="button" className="ss-primary" onClick={onExport} disabled={exporting}>{exporting?<RefreshCw size={16} className="ss-spin"/>:<img src={PRIZEPICKS_LOGO} alt=""/>}{exporting?'Checking picks…':'Open in PrizePicks'}<ArrowUpRight size={16}/></button>}
   </div>
-  <button type="button" className="ss-check-slip" onClick={onCheck}><ShieldCheck size={16}/>Check in Slip Analyzer<ArrowUpRight size={15}/></button>
+  <div className="ss-ticket-more">
+   <button type="button" className="ss-check-slip" onClick={onCheck}><ShieldCheck size={16}/>Check in Slip Analyzer<ArrowUpRight size={15}/></button>
+   <button type="button" className="ss-share" onClick={share} disabled={sharing}><Share2 size={16}/>{sharing?'Making…':'Share'}</button>
+  </div>
   {slip.estimated&&<p className="ss-fine">Payouts with Goblins or Demons are estimates. PrizePicks shows the exact payout before you submit.</p>}
  </div>;
 }

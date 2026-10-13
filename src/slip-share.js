@@ -4,6 +4,7 @@
 // Phones hand it to the share sheet; elsewhere it downloads.
 
 const W = 1080, H = 1350, PAD = 72;
+export const SITE = 'aceprops.xyz';
 const INK = '#f4f7f6', MUTED = 'rgba(244,247,246,.58)', FAINT = 'rgba(244,247,246,.34)', HAIR = 'rgba(255,255,255,.1)';
 const TIER = {elite: ['#46e39a', 'ELITE'], strong: ['#3cc9b9', 'STRONG'], lean: ['#aeb5b8', 'LEAN'], risky: ['#f6b955', 'RISKY'], fade: ['#ff7b8a', 'FADE']};
 const TONE = {A: '#46e39a', B: '#aeb5b8', C: '#f6b955'};
@@ -138,7 +139,10 @@ export async function drawSlip({score, legs, headline, kind, side = leg => (leg.
 
   // Footer.
   set(22, 600); ctx.fillStyle = FAINT; ctx.textAlign = 'center';
-  ctx.fillText('Every pick graded on its matchup, recent games and the news', cx, H - 44);
+  ctx.fillText('Every pick graded on its matchup, recent games and the news', cx, H - 64);
+  // Where it came from, so anyone who sees it can find the site.
+  set(26, 800); ctx.fillStyle = '#00f58a';
+  ctx.fillText(SITE, cx, H - 26);
   return canvas;
 }
 
@@ -150,7 +154,7 @@ export async function shareSlip(options) {
   const name = `parlay-${String(options.score.letter || 'grade').replace('+', '-plus').toLowerCase()}.png`;
   const file = new File([blob], name, {type: 'image/png'});
   if (navigator.canShare?.({files: [file]})) {
-    try { await navigator.share({files: [file], title: options.headline || 'My parlay'}); return; }
+    try { await navigator.share({files: [file], title: options.headline || 'My parlay', text: `Graded on ${SITE}`}); return; }
     catch (error) { if (error?.name === 'AbortError') return; }
   }
   const link = document.createElement('a');
