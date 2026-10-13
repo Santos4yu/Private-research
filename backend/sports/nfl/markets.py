@@ -164,8 +164,17 @@ def bare_stat(stat):
 
 def market_for(stat, position=""):
     """Our market key for a PrizePicks stat_type, or None when we have no
-    history for it (the line still shows, just without a chart)."""
-    name = normalize(bare_stat(stat))
+    history for it (the line still shows, just without a chart). The stat as
+    written comes first ("50+ Yard Punts" is a stat of its own); only then
+    without a threshold, side or line printed with it ("25+ Rush Yards")."""
+    found = _market_for(stat, position)
+    if found is None and bare_stat(stat) != str(stat or ""):
+        found = _market_for(bare_stat(stat), position)
+    return found
+
+
+def _market_for(stat, position=""):
+    name = normalize(stat)
     position = str(position or "").upper()
     if name in ("int", "ints", "interceptions"):
         return "interceptions" if position == "QB" else "def_interceptions"

@@ -5,6 +5,7 @@ replace visibility rules, authentication limits or admin settings. Supabase
 requires the private SQL migration plus a verified original-data import.
 """
 import os
+import sys
 import base64
 import zlib
 import threading
@@ -23,6 +24,16 @@ TIMEOUT = 10
 STORAGE_BACKEND = os.getenv('WEBSITE_STORAGE_BACKEND', 'upstash').strip().lower()
 SUPABASE_URL = os.getenv('SUPABASE_URL', '').rstrip('/')
 SUPABASE_STORAGE_KEY = os.getenv('SUPABASE_SECRET_KEY') or os.getenv('SUPABASE_SERVICE_ROLE_KEY', '')
+
+# A test run never reaches the live site's storage. Earlier runs wrote fake
+# players into it through the NFL cache and read them back, so tests failed
+# by the order they ran in -- and live data held test rows. Tests that need
+# storage patch in their own (KV_URL, SUPABASE_URL, requests).
+# ("python -m unittest" names itself "...python.exe -m unittest" on Windows
+# and ".../unittest/__main__.py" elsewhere.)
+UNDER_TEST = 'unittest' in str(sys.argv[0] if sys.argv else '') or 'pytest' in sys.modules or os.getenv('ACE_TESTS') == '1'
+if UNDER_TEST:
+    KV_URL = KV_TOKEN = SUPABASE_URL = SUPABASE_STORAGE_KEY = ''
 _CODEC = '~kd-storage-v1:'
 _MAX_VALUE_BYTES = 8 * 1024 * 1024
 

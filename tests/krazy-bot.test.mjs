@@ -284,7 +284,9 @@ test('slip options: a safe slip takes the likeliest picks, a value slip weighs t
 
 // An NFL board: half the players face a soft defense (good for overs), half a
 // tough one (good for unders), and each has a Goblin that pays less.
-function nflBoard() {
+// `at`: the board's clock and every game's start (START unless a test needs
+// another, e.g. an evening on the machine's own clock for "tonight").
+function nflBoard(at = START) {
   const rows = [], reads = new Map();
   const players = [['Josh Allen', 'Pass Yards', 249.5, 'BUF', 'MIA', 'buf-mia'], ['James Cook', 'Rush Yards', 64.5, 'BUF', 'MIA', 'buf-mia'],
     ['CeeDee Lamb', 'Receiving Yards', 72.5, 'DAL', 'PHI', 'dal-phi'], ['Jalen Hurts', 'Pass Yards', 219.5, 'PHI', 'DAL', 'dal-phi'],
@@ -296,6 +298,7 @@ function nflBoard() {
     const defense = {position, defense: soft ? 29 : 3, defenseTeams: 32, defenseValue: soft ? line * 1.2 : line * 0.8, defenseAverage: line, defensePosition: position};
     const standard = {...row(name, 'nfl', stat, line, {team, opponent, game}), ...defense};
     const goblin = {...row(name, 'nfl', stat, line - 15.5, {team, opponent, game, modifier: 'goblin'}), ...defense};
+    standard.startsAt = goblin.startsAt = new Date(at).toISOString();
     rows.push(standard);
     if (name !== 'Khalil Shakir') rows.push(goblin);  // no Goblin on Shakir's line
     reads.set(`${standard.id}|OVER`, {...graded(standard, 'OVER', {grade: 'A', chance: 0.64 - i * 0.01}), factor: 1});
@@ -304,7 +307,7 @@ function nflBoard() {
   });
   return createBot({sports: ['nfl'], load: async sport => (sport === 'nfl' ? rows : []),
     judge: list => list.flatMap(item => ['OVER', 'UNDER'].map(side => reads.get(`${item.id}|${side}`))).filter(Boolean),
-    assess: (item, side) => reads.get(`${item.id}|${side}`) || null, now: () => START, random: () => 0});
+    assess: (item, side) => reads.get(`${item.id}|${side}`) || null, now: () => at, random: () => 0});
 }
 
 test('slips as asked: the league, overs or unders, how many picks, and a payout to build to', async () => {
@@ -374,8 +377,10 @@ test('slips for one game, one team or one day', async () => {
   // No lines up for it at all.
   assert.equal(await bot.ask('give me a parlay for the chiefs game'), "I don't see a Chiefs game on the board right now. Lines usually go up a day or two before the game.");
   assert.equal(await bot.ask('sunday nfl parlay'), "I don't see any lines for Sunday on the board right now. Lines usually go up a day or two before the game.");
-  // The day of the board's games (Saturday night, on the test's clock).
-  assert.match(await bot.ask('3 leg parlay for tonight'), /^Here's a 3-pick NFL slip for tonight from my Elite and Strong picks: /);
+  // The day of the board's games: "tonight" is an evening on the member's own
+  // clock, so the board here is set to 8:05 PM wherever the test runs.
+  const evening = new Date(START); evening.setHours(20, 5, 0, 0);
+  assert.match(await nflBoard(evening.getTime()).ask('3 leg parlay for tonight'), /^Here's a 3-pick (NFL )?slip for tonight from my Elite and Strong picks: /);
 });
 
 test('game news counts in the bot as it does in the Slip Analyzer: a player listed Out is a Fade', async () => {
