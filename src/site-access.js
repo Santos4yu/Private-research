@@ -4,6 +4,7 @@ import {accessGranted,needsSubscription,accountControlsVisible,canUseTab,availab
 import {mountMembersPanel,memberBadge} from './site-members.js';
 import {mountAnnouncePanel} from './site-announce.js';
 import {renderPricing} from './billing.js';
+import {mountSubscribersPanel} from './site-subscribers.js';
 import {accountProfile,saveAccountProfile} from './account-sync.js';
 import {isOldBrandTheme} from './brand-colors.js';
 import './push-alerts.js';
@@ -486,6 +487,7 @@ export async function loadSiteControls(){
    +'<button type="button" class="site-tab" data-panel-tab="access" role="tab" aria-selected="false">Access</button>'
    +'<button type="button" class="site-tab" data-panel-tab="appearance" role="tab" aria-selected="false">Appearance</button>'
    +'<button type="button" class="site-tab" data-panel-tab="members" role="tab" aria-selected="false">Members</button>'
+   +'<button type="button" class="site-tab" data-panel-tab="subscribers" role="tab" aria-selected="false">Subscribers</button>'
    +'<button type="button" class="site-tab" data-panel-tab="announce" role="tab" aria-selected="false">Announce</button>'
   +'</div>'
   +'<form>'
@@ -526,6 +528,7 @@ export async function loadSiteControls(){
   +'</form>'
   // Members saves person by person, so it sits outside the settings form.
   +'<div class="site-tab-panel site-members-panel" data-panel="members" hidden></div>'
+  +'<div class="site-tab-panel site-subscribers-panel" data-panel="subscribers" hidden></div>'
   +'<div class="site-tab-panel site-announce-panel" data-panel="announce" hidden></div>';
  const tabs=[...host.querySelectorAll('.site-tab')],panels=[...host.querySelectorAll('.site-tab-panel')];
  tabs.forEach(tab=>tab.addEventListener('click',()=>{
@@ -533,9 +536,10 @@ export async function loadSiteControls(){
   panels.forEach(p=>{p.hidden=p.dataset.panel!==tab.dataset.panelTab;});
   const panel=tab.dataset.panelTab;
   // Members and Announce save on their own, outside the settings form.
-  host.querySelector('form').hidden=panel==='members'||panel==='announce';
+  host.querySelector('form').hidden=panel==='members'||panel==='announce'||panel==='subscribers';
   if(panel==='members')mountMembersPanel(host.querySelector('.site-members-panel'),{request,names});
   if(panel==='announce')mountAnnouncePanel(host.querySelector('.site-announce-panel'),{request});
+  if(panel==='subscribers')mountSubscribersPanel(host.querySelector('.site-subscribers-panel'),{request});
  }));
  const form=host.querySelector('form');for(const [key,title] of Object.entries({maintenance:'Maintenance mode — members cannot use the website',requireLogin:'Require email account to access research',registrationOpen:'Allow new account registrations',paidAccess:'Require a paid subscription (Whop) — members subscribe before using the website'})){const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.name=key;input.checked=policy[key];label.append(input,document.createTextNode(title));host.querySelector('.site-control-switches').append(label);}
  form.elements.paidAccess.checked=Boolean(policy.paidAccess);

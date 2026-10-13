@@ -212,12 +212,15 @@ def handle_event(event):
 # --- Access records --------------------------------------------------------
 
 def _record(membership):
+    # Whop's live API sends plan_id, current_period_end and user_id; its
+    # reference shows plan{}, renewal_period_end and user{}. Either is read.
     user = membership.get('user') if isinstance(membership.get('user'), dict) else {}
     plan = membership.get('plan') if isinstance(membership.get('plan'), dict) else {}
     metadata = membership.get('metadata') if isinstance(membership.get('metadata'), dict) else {}
     status = str(membership.get('status') or '')
     return {'membershipId': membership.get('id'), 'status': status, 'active': status in ACTIVE_STATUSES,
-            'planId': plan.get('id'), 'renewsAt': membership.get('renewal_period_end'),
+            'planId': plan.get('id') or membership.get('plan_id'),
+            'renewsAt': membership.get('renewal_period_end') or membership.get('current_period_end'),
             'cancelAtPeriodEnd': bool(membership.get('cancel_at_period_end')),
             'manageUrl': membership.get('manage_url') if str(membership.get('manage_url') or '').startswith('https://') else None,
             'accountId': str(metadata.get('ace_account_id') or '') or None,
@@ -330,3 +333,56 @@ def has_paid_access(account):
     if rule and rule.get('comped'):return True
     record = subscription(account)
     return bool(record and record.get('active'))
+
+
+# --- The admin's subscriber list -------------------------------------------
+
+LIST_PAGE = 100
+LIST_MOST = 2000
+
+
+def _promo_id(membership):
+    promo = membership.get('promo_code')
+    return promo.get('id') if isinstance(promo, dict) else None
+
+
+def _all_memberships():
+    """Every membership on the company, newest first, page by page."""
+    out, after = [], None
+    while len(out) < LIST_MOST:
+        query = f'/memberships?first={LIST_PAGE}' + (f'&after={after}' if after else '')
+        page = _call('GET', query) or {}
+        out += [item for item in page.get('data') or [] if isinstance(item, dict) and item.get('id')]
+        info = page.get('page_info') or {}
+        after = info.get('end_cursor')
+        if not info.get('has_next_page') or not after:
+            break
+    return out
+
+
+def subscribers(sync=False):
+    """Everyone with a Whop membership, for the admin panel: plan, status,
+    when it renews or ends, and which Ace Props account it unlocks. `sync`
+    also records each one, which mends any webhook that never arrived."""
+    labels = {}
+    try:
+        labels = {plan['id']: plan for plan in plans()}
+    except BillingUnavailable:
+        pass
+    rows, saved = [], 0
+    for membership in _all_memberships():
+        record = _record(membership)
+        if sync and (record.get('accountId') or record.get('email')):
+            _save(record)
+            saved += 1
+        plan = labels.get(record['planId']) or {}
+        rows.append({**{key: record.get(key) for key in ('membershipId', 'status', 'active', 'planId', 'renewsAt', 'cancelAtPeriodEnd', 'accountId', 'email')},
+                     'plan': plan.get('label'), 'price': plan.get('price'), 'period': plan.get('period'), 'monthly': plan.get('monthly'),
+                     'createdAt': membership.get('created_at'), 'canceledAt': membership.get('canceled_at'),
+                     'promo': bool(membership.get('promo_code_id') or _promo_id(membership))})
+    counts = {status: sum(1 for row in rows if row['status'] == status) for status in ('active', 'trialing', 'canceling', 'past_due')}
+    # What the paying members bring in a month, at full price (promo codes
+    # and trials aside), for a rough sense of it.
+    paying = [row for row in rows if row['status'] in ('active', 'canceling', 'past_due') and row.get('monthly')]
+    return {'members': rows, 'counts': {**counts, 'total': len(rows), 'live': sum(1 for row in rows if row['active'])},
+            'monthly': round(sum(row['monthly'] for row in paying), 2), 'synced': saved if sync else None}

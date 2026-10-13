@@ -213,3 +213,34 @@ class WebhookEndpointTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+@patch.dict(os.environ, ENV)
+class SubscriberListTests(unittest.TestCase):
+    def setUp(self):
+        self.store = FakeStore()
+        patch.object(billing, '_store', return_value=self.store).start()
+        billing._access_cache.clear(); billing._plans_cache.update(at=0.0, value=None)
+        self.addCleanup(patch.stopall)
+
+    def test_live_fields_are_read_and_the_list_counts_who_pays(self):
+        # Whop's live shape: plan_id and current_period_end, no user object.
+        live = lambda mid, status, plan, email: {'id': mid, 'status': status, 'plan_id': plan, 'current_period_end': '2099-01-01T00:00:00Z',
+                                                  'cancel_at_period_end': False, 'metadata': {'ace_account_id': 'u-' + mid, 'ace_email': email},
+                                                  'created_at': '2026-10-11T00:00:00Z', 'promo_code_id': None}
+        page = {'data': [live('mem_aaaa1111', 'active', 'plan_month123', 'a@example.com'),
+                         live('mem_bbbb2222', 'trialing', 'plan_month123', 'b@example.com'),
+                         live('mem_cccc3333', 'expired', 'plan_year1234', 'c@example.com')],
+                'page_info': {'has_next_page': False}}
+        plans = {'/plans/plan_month123': {'id': 'plan_month123', 'plan_type': 'renewal', 'billing_period': 30, 'renewal_price': 7.99, 'currency': 'usd'},
+                 '/plans/plan_year1234': {'id': 'plan_year1234', 'plan_type': 'renewal', 'billing_period': 365, 'renewal_price': 59.99, 'currency': 'usd'}}
+        with patch.object(billing, '_call', side_effect=lambda method, path, body=None: page if path.startswith('/memberships') else plans[path]):
+            out = billing.subscribers(sync=True)
+        self.assertEqual(out['counts']['active'], 1)
+        self.assertEqual(out['counts']['trialing'], 1)
+        self.assertEqual(out['monthly'], 7.99)  # trials and ended memberships don't count
+        first = out['members'][0]
+        self.assertEqual((first['plan'], first['renewsAt']), ('Monthly', '2099-01-01T00:00:00Z'))
+        # Sync recorded each one, with its plan and renewal date.
+        saved = json.loads(self.store.data[billing.ACCOUNT_KEY + 'u-mem_aaaa1111'])
+        self.assertEqual((saved['planId'], saved['renewsAt'], saved['active']), ('plan_month123', '2099-01-01T00:00:00Z', True))

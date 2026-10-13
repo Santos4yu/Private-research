@@ -298,3 +298,28 @@ html[data-hidden-tabs~="slate"][data-hidden-tabs~="slip"] :is(.lab-tools,.lab-se
 .site-profile .site-primary-button{margin:0}
 .site-profile-note{margin:16px 0 12px;font-size:12px;line-height:1.5;color:#90989c}
 .site-profile-signout{margin-bottom:0}
+
+/* Admin panel: Subscribers (src/site-subscribers.js). */
+.site-subscribers-panel{gap:12px}
+.site-member-chip[data-tone=trial]{background:#16233a;color:#8ab4ff}
+.site-member-chip[data-tone=warn]{background:#33240f;color:#ffbf6b}
+.site-member-chip[data-tone=ended]{background:#252b30;color:#9aa3a8}
+.site-subs-totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.site-subs-total{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border:1px solid #2e3840;border-radius:12px;background:#14181b}
+.site-subs-total b{font:700 22px/1 'Sora',sans-serif;color:#f4f7f6}
+.site-subs-total small{color:#9aa3a8;font-size:11px}
+.site-subs-total[data-tone=money] b{color:var(--theme-accent,#00f58a)}
+.site-subs-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.site-subs-filters{display:flex;gap:4px;padding:3px;border:1px solid #2e3840;border-radius:10px;background:#14181b}
+.site-subs-filters button{min-height:34px;padding:0 12px;border:0;border-radius:8px;background:transparent;color:#afb5b8;font:700 12px 'Sora',sans-serif;cursor:pointer}
+.site-subs-filters button[aria-pressed=true]{background:#2f3940;color:#f4f7f6}
+.site-subs-sync{min-height:36px;padding:0 14px;border:1px solid #2e3840;border-radius:10px;background:#1e252a;color:#f4f7f6;font:700 12px 'Sora',sans-serif;cursor:pointer}
+.site-subs-sync:disabled{opacity:.6;cursor:wait}
+.site-subs-list{display:flex;flex-direction:column;gap:8px}
+.site-subs-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid #2e3840;border-radius:12px;background:#1a2024}
+.site-subs-who{display:flex;flex-direction:column;gap:3px;min-width:0}
+.site-subs-who strong{overflow-wrap:anywhere;font-size:13px;color:#f4f7f6}
+.site-subs-who small,.site-subs-state small{color:#9aa3a8;font-size:11px}
+.site-subs-state{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none;text-align:right}
+.site-subs-state .site-subs-unlinked{color:#ffbf6b}
+@media (max-width:520px){.site-subs-row{flex-direction:column;align-items:flex-start}.site-subs-state{align-items:flex-start;text-align:left}}

@@ -63,6 +63,16 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(200, {"members": site_members.list_members(), "items": site_members.access_items(),
                                         "badges": [{"key": key, "label": label} for key, label in site_members.BADGES.items()],
                                         "policy": read()})
+            if action == "subscribers":
+                # Everyone with a Whop membership (whop_billing.py); ?sync=1
+                # also records each one, mending any webhook that was missed.
+                if not admin_auth.is_admin_request(self.headers):return self._send(401, {"error":"Admin session required"})
+                import whop_billing
+                if not whop_billing.configured():return self._send(200, {"configured": False, "members": [], "counts": {}, "monthly": 0})
+                try:
+                    return self._send(200, {"configured": True, **whop_billing.subscribers(sync=(qs.get("sync") or [""])[0] == "1")})
+                except whop_billing.BillingUnavailable as exc:
+                    return self._send(503, {"error": str(exc)})
             if action == "announce-status":
                 if not admin_auth.is_admin_request(self.headers):return self._send(401, {"error":"Admin session required"})
                 import line_moves
