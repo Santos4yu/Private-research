@@ -19,13 +19,13 @@ import {shareSlip} from './slip-share';
 import {Record,History,hasRecord} from './SlipHistory';
 import {newSlipId,slipPayload,saveSlip,removeSlip,loadHistory} from './slip-history';
 import {pickBuilder} from './pick-builder-client';
+import {READ_URL,shrink} from './slip-image';
 import './slip-analyzer.css';
 
 // The Slip Analyzer (the Slip Analyzer tab): a screenshot of a slip goes
 // to the server to be read (slip_reader.py); its legs are matched to the
 // Finder's lines and graded here (slip-check.js), and any leg can be fixed
 // by hand if it was misread.
-const READ_URL='/api/prediction?action=slip-analyzer';
 const STEPS=['Reading your slip','Finding the players','Checking the matchups','Grading the parlay'];
 const MODIFIER_ICON={goblin:'/prizepicks/goblin.png',demon:'/prizepicks/demon.png'};
 const TYPE_NAMES={power:'Power Play',flex:'Flex Play',parlay:'Parlay'};
@@ -40,20 +40,6 @@ const when=iso=>{const time=Date.parse(iso||'');if(!Number.isFinite(time))return
 const price=odds=>odds==null?'':odds>0?`+${odds}`:`−${Math.abs(odds)}`;
 const pause=(ms,signal)=>new Promise(resolve=>{const id=setTimeout(resolve,ms);signal?.addEventListener('abort',()=>{clearTimeout(id);resolve();},{once:true});});
 const calm=()=>typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-// Large screenshots are scaled and saved as a JPEG before they're sent:
-// quicker to upload, still sharp enough to read.
-async function shrink(file){
- try{
-  const bitmap=await createImageBitmap(file);
-  const scale=Math.min(1,1280/bitmap.width,2800/bitmap.height);
-  const canvas=document.createElement('canvas');
-  canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
-  canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close?.();
-  const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',0.88));
-  return blob||file;
- }catch{return file;}
-}
 
 async function readSlip(blob,signal){
  const response=await fetch(READ_URL,{method:'POST',headers:{'Content-Type':blob.type||'image/jpeg'},body:blob,credentials:'same-origin',signal});

@@ -1,8 +1,10 @@
 // The admin panel's Record tab: the site's record (slip_ledger.py RECORD),
 // which is only what the admin posts -- a slip graded in the Slip Analyzer,
-// "Post to record" -- and the plays that already finished, typed in here with
-// their result. Posted picks settle from the final box score; here the admin
+// "Post to record" -- and the plays that already finished, read off slip
+// screenshots or typed in here, each with the result the admin gives it. Posted picks settle from the final box score; here the admin
 // can call one by hand, take one off, or erase the whole record.
+import {READ_URL,shrink} from './slip-image.js';
+
 const SPORT_NAMES={nfl:'NFL',nba:'NBA',wnba:'WNBA',mlb:'MLB',nhl:'NHL',soccer:'Soccer'};
 const TIER_NAMES={elite:'Elite',strong:'Strong',lean:'Lean',risky:'Risky',fade:'Fade'};
 const RESULT_NAMES={hit:'Hit',miss:'Miss',push:'Push',void:'Void',unknown:'Unsettled'};
@@ -28,6 +30,117 @@ function select(name,options,value){
  return h('select',{name},Object.entries(options).map(([key,label])=>h('option',{value:key,selected:key===value},label)));
 }
 function field(label,control,className){return h('label',{className:`record-field${className?` ${className}`:''}`},h('span',{text:label}),control);}
+
+const RESULT_BUTTONS=[['hit','Hit'],['miss','Miss'],['push','Push'],['void','Void']];
+
+async function readShot(file){
+ const blob=await shrink(file);
+ const response=await fetch(READ_URL,{method:'POST',headers:{'Content-Type':blob.type||'image/jpeg'},body:blob,credentials:'same-origin',cache:'no-store'});
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok)throw new Error(data.error||'That screenshot couldn\'t be read.');
+ if(!Array.isArray(data.legs)||!data.legs.length)throw new Error('No player props were found in it.');
+ return data;
+}
+
+// Finished slips from their screenshots: every pick is read off them
+// (slip_reader.py), the admin sets each slip's date and tier and taps Hit or
+// Miss on each pick, and they all go on the record together
+// (slip_ledger.record_enter_many).
+function screenshotBox(onAdd){
+ let slips=[],next=1;
+ const files=h('input',{type:'file',accept:'image/png,image/jpeg,image/webp',multiple:true,className:'record-shot-input',id:'record-shot-files'});
+ const pickLabel=h('label',{for:'record-shot-files',className:'record-shot-pick',text:'Choose screenshots'});
+ const status=h('p',{className:'record-entry-status',role:'status'});
+ const addStatus=h('p',{className:'record-entry-status record-shot-add-status',role:'status'});
+ const list=h('div',{className:'record-shots'});
+ const submit=h('button',{type:'button',className:'record-entry-add',hidden:true,onClick:addAll});
+ files.addEventListener('change',()=>{const chosen=[...files.files];files.value='';if(chosen.length)read(chosen);});
+
+ async function read(chosen){
+  pickLabel.setAttribute('aria-disabled','true');
+  const failed=[];
+  for(const [index,file] of chosen.entries()){
+   status.textContent=`Reading screenshot ${index+1} of ${chosen.length}…`;addStatus.textContent='';
+   try{
+    const slip=await readShot(file);
+    slips.push({id:next++,app:slip.app?.name||'',day:isoDay(1),tier:'elite',
+     legs:slip.legs.map(leg=>({player:leg.player||'',sport:leg.sport||'',side:leg.side||'',line:leg.line??'',stat:leg.statName||leg.stat||'',
+      team:leg.team||'',opponent:leg.opponent||'',modifier:leg.modifier||'standard',result:''}))});
+    paint();
+   }catch(error){failed.push(`${file.name||`Screenshot ${index+1}`}: ${error.message}`);}
+  }
+  pickLabel.removeAttribute('aria-disabled');
+  status.textContent=failed.length?failed.join(' '):`Read ${chosen.length} screenshot${chosen.length===1?'':'s'}. Tap Hit or Miss on each pick.`;
+ }
+
+ function legCard(slip,leg){
+  const edit=(name,cast=value=>value)=>event=>{leg[name]=cast(event.target.value);};
+  const card=h('li',{className:'record-shot-leg','data-missing':leg.missing?'true':null},
+   h('div',{className:'record-shot-leg-head'},
+    h('input',{type:'text',value:leg.player,maxlength:60,'aria-label':'Player',onInput:edit('player')}),
+    h('button',{type:'button',className:'record-shot-drop','aria-label':`Leave ${leg.player||'this pick'} out`,text:'×',onClick:()=>{
+     slip.legs=slip.legs.filter(item=>item!==leg);if(!slip.legs.length)slips=slips.filter(item=>item!==slip);paint();}})),
+   h('div',{className:'record-shot-leg-line'},
+    select('side',{'':'Over or Under?',OVER:'Over',UNDER:'Under'},leg.side),
+    h('input',{type:'number',step:'0.5',inputmode:'decimal',value:leg.line,'aria-label':'Line',onInput:edit('line')}),
+    h('input',{type:'text',value:leg.stat,maxlength:60,'aria-label':'Stat',onInput:edit('stat')}),
+    select('sport',{'':'Sport',...SPORT_NAMES},leg.sport)),
+   h('div',{className:'record-shot-results',role:'group','aria-label':`Result for ${leg.player}`},
+    RESULT_BUTTONS.map(([result,label])=>h('button',{type:'button','data-result':result,'aria-pressed':String(leg.result===result),text:label,
+     onClick:()=>{leg.result=leg.result===result?'':result;leg.missing=false;paint();}}))));
+  card.querySelector('[name=side]').addEventListener('change',edit('side'));
+  card.querySelector('[name=sport]').addEventListener('change',edit('sport'));
+  return card;
+ }
+
+ function slipGroup(slip,index){
+  const day=h('input',{type:'date',value:slip.day,max:isoDay(0),min:isoDay(RECORD_DAYS-1),'aria-label':'Game date'});
+  day.addEventListener('change',()=>{slip.day=day.value;});
+  const tier=select('tier',TIER_NAMES,slip.tier);tier.addEventListener('change',()=>{slip.tier=tier.value;});
+  const all=result=>()=>{slip.legs.forEach(leg=>{leg.result=result;leg.missing=false;});paint();};
+  return h('section',{className:'record-shot'},
+   h('header',{},h('b',{text:`Slip ${index+1}${slip.app?` · ${slip.app}`:''} · ${slip.legs.length} pick${slip.legs.length===1?'':'s'}`}),
+    h('button',{type:'button',className:'record-shot-drop',text:'Remove',onClick:()=>{slips=slips.filter(item=>item!==slip);paint();}})),
+   h('div',{className:'record-entry-grid'},field('Game date',day),field('Tier',tier)),
+   h('div',{className:'record-shot-all'},h('span',{text:'All picks:'}),
+    h('button',{type:'button',text:'All hit',onClick:all('hit')}),h('button',{type:'button',text:'All miss',onClick:all('miss')})),
+   h('ol',{className:'record-shot-legs'},slip.legs.map(leg=>legCard(slip,leg))));
+ }
+
+ function paint(){
+  list.replaceChildren(...slips.map(slipGroup));
+  const count=slips.reduce((sum,slip)=>sum+slip.legs.length,0);
+  submit.hidden=!count;
+  submit.textContent=`Add ${count} play${count===1?'':'s'} to record`;
+ }
+
+ async function addAll(){
+  const legs=slips.flatMap(slip=>slip.legs);
+  const unset=legs.filter(leg=>!leg.result);
+  const unread=legs.filter(leg=>!leg.sport||!leg.side||leg.line===''||!String(leg.stat).trim()||!String(leg.player).trim());
+  if(unset.length||unread.length){
+   legs.forEach(leg=>{leg.missing=unset.includes(leg)||unread.includes(leg);});paint();
+   addStatus.textContent=unset.length?`Tap Hit or Miss on ${unset.length} more pick${unset.length===1?'':'s'}.`
+    :`Fill in the sport, Over/Under, line and stat on ${unread.length} pick${unread.length===1?'':'s'}.`;
+   list.querySelector('[data-missing=true]')?.scrollIntoView({behavior:'smooth',block:'center'});
+   return;
+  }
+  addStatus.textContent='';
+  const plays=slips.flatMap(slip=>slip.legs.map(leg=>({day:slip.day,tier:slip.tier,player:leg.player.trim(),sport:leg.sport,side:leg.side,
+   line:leg.line===''?null:Number(leg.line),stat:leg.stat.trim(),team:leg.team,opponent:leg.opponent,modifier:leg.modifier,result:leg.result})));
+  submit.disabled=true;
+  try{
+   const done=await onAdd({action:'record-enter-many',plays});
+   slips=[];paint();
+   status.textContent=`Added ${done.added} play${done.added===1?'':'s'} to the record (${done.hits} hit, ${done.misses} miss).`;
+  }catch(error){addStatus.textContent=error.message;}
+  finally{submit.disabled=false;}
+ }
+
+ return h('details',{className:'record-entry-box',open:true},h('summary',{text:'Add finished slips from screenshots'}),
+  h('p',{className:'site-controls-hint',text:`Pick one or more slip screenshots. Every pick is read off them; check each slip's date and tier, tap Hit or Miss on each pick, then add them all. Dates must be in the last ${RECORD_DAYS} days.`}),
+  files,pickLabel,status,list,submit,addStatus);
+}
 
 // A play that already finished, with its result (slip_ledger.record_enter).
 function entryForm(onAdd){
@@ -64,7 +177,7 @@ function entryForm(onAdd){
   }catch(error){status.textContent=error.message;}
   finally{submit.disabled=false;}
  });
- return h('details',{className:'record-entry-box',open:true},h('summary',{text:'Add a play that already happened'}),
+ return h('details',{className:'record-entry-box'},h('summary',{text:'Type in a finished play'}),
   h('p',{className:'site-controls-hint',text:`For plays you made before posting here. Enter it with how it finished; it goes straight on the record. The record shows the last ${RECORD_DAYS} days.`}),form);
 }
 
@@ -76,7 +189,9 @@ export function mountRecordPanel(host,{request}){
  const erase=h('button',{type:'button',className:'record-erase',text:'Erase record',onClick:eraseAll});
  host.append(
   h('p',{className:'site-controls-hint',text:'Only picks you post count. Grade a slip in the Slip Analyzer, then tap Post to record. Picks settle on their own from the final box score; you can call one yourself here.'}),
-  totals,entryForm(async body=>{await request('/api/v2-admin',body);await refresh();}),status,list,
+  totals,
+  screenshotBox(async body=>{const done=await request('/api/v2-admin',body);await refresh();return done;}),
+  entryForm(async body=>{await request('/api/v2-admin',body);await refresh();}),status,list,
   h('div',{className:'record-foot'},erase,h('a',{href:'/results',target:'_blank',rel:'noopener',className:'record-open',text:'Open /results'})));
 
  function summary(data){

@@ -331,6 +331,23 @@ class AdminRecordTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 slip_ledger.record_enter(bad, now=NOW)
 
+    def test_finished_slips_go_on_the_record_together_or_not_at_all(self):
+        base = {"day": "2026-10-02", "sport": "nfl", "side": "OVER", "tier": "strong", "team": "DAL", "opponent": "TB"}
+        plays = [{**base, "player": "Dak Prescott", "line": 33.5, "stat": "Pass Attempts", "result": "hit"},
+                 {**base, "player": "Brandon Aubrey", "line": 8.5, "stat": "Kicking Points", "result": "miss", "modifier": "demon"},
+                 {**base, "player": "CeeDee Lamb", "line": 59.5, "stat": "Receiving Yards", "result": "hit", "day": "2026-10-03"}]
+        # One without a result: nothing is added, and it's named.
+        with self.assertRaisesRegex(ValueError, "^CeeDee Lamb: Pick hit"):
+            slip_ledger.record_enter_many([*plays[:2], {**plays[2], "result": ""}], now=NOW)
+        self.assertEqual(self.posted(), [])
+        self.assertEqual(slip_ledger.record_enter_many(plays, now=NOW), {"added": 3, "hits": 2, "misses": 1})
+        out = slip_ledger.public_results(NOW)
+        self.assertEqual((out["all"]["hits"], out["all"]["misses"], out["tiers"]["strong"]["picks"]), (2, 1, 3))
+        self.assertEqual({entry["player"]: entry["modifier"] for entry in self.posted()}["Brandon Aubrey"], "demon")
+        for bad in ([], None, [plays[0]] * (slip_ledger.RECORD_BATCH + 1)):
+            with self.assertRaises(ValueError):
+                slip_ledger.record_enter_many(bad, now=NOW)
+
     def test_nothing_to_post_is_refused(self):
         with self.assertRaises(ValueError):
             slip_ledger.record_add({"picks": [{"player": "No Sport"}]}, now=NOW)
@@ -373,6 +390,7 @@ class RecordRouteTests(unittest.TestCase):
         self.assertEqual((status, [row["player"] for row in body["picks"]]), (200, ["CeeDee Lamb"]))
         self.assertEqual(self.call("do_POST", {"action": "record-enter", "day": "1999-01-01"})[0], 400)
         self.assertEqual(self.call("do_POST", {"action": "record-enter", "day": "1999-01-01"}, admin=False)[0], 401)
+        self.assertEqual(self.call("do_POST", {"action": "record-enter-many", "plays": []})[0], 400)
         self.assertEqual(self.call("do_POST", {"action": "record-clear"})[0], 400)  # not confirmed
         self.assertEqual(self.call("do_POST", {"action": "record-clear", "confirm": True}), (200, {"cleared": 1}))
         self.assertEqual(self.call("do_GET", query="/api/v2-admin?action=record")[1]["picks"], [])

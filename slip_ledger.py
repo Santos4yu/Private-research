@@ -15,7 +15,8 @@ void when he didn't play or the game was called off. The timer does it
 
 The record (the /results page and the record in the app) is only the slips
 the admin posts from the Slip Analyzer (record_add) and the finished plays
-the admin types in (record_enter), kept apart from the ledger and settled
+the admin types in or reads off screenshots (record_enter, record_enter_many),
+kept apart from the ledger and settled
 the same way: each tier's hits and misses over the last
 30 days. Members grading slips never touch it.
 
@@ -707,14 +708,14 @@ def _record_ref(day, key):
     return PREFIX + RECORD + day, key
 
 
-def record_enter(payload, now=None):
-    """A play that already finished, typed in by the admin with its result:
-    onto the record as it stands (nothing to settle). Its day is the game's
-    date, within the RECORD_DAYS the record shows."""
-    now = now or datetime.now(timezone.utc)
-    raw = payload if isinstance(payload, dict) else {}
+RECORD_BATCH = 40
+
+
+def _entered(raw, now, days):
+    """(day, key, pick) for a finished play the admin typed in or read off a
+    screenshot, or ValueError saying what's missing."""
+    raw = raw if isinstance(raw, dict) else {}
     day = str(raw.get("day") or "")
-    days = _days(now, RECORD_DAYS)
     if day not in days:
         raise ValueError(f"Pick a date in the last {RECORD_DAYS} days.")
     sport, side, tier, result = raw.get("sport"), str(raw.get("side") or "").upper(), raw.get("tier"), raw.get("result")
@@ -729,17 +730,51 @@ def record_enter(payload, now=None):
     player, stat, line = _short(raw.get("player")), _short(raw.get("stat")), _number(raw.get("line"))
     if not player or not stat or line is None:
         raise ValueError("Player, stat and line are required.")
-    value = _number(raw.get("value"))
+    modifier = _short(raw.get("modifier") or "standard", 12).lower()
     pick = {"sport": sport, "player": player, "playerId": "", "team": _short(raw.get("team"), 8).upper(),
             "opponent": _short(raw.get("opponent"), 8).upper(), "startsAt": f"{day}T23:00:00+00:00", "side": side, "line": line,
-            "stat": stat, "modifier": "standard", "tier": tier, "chance": None, "headshot": "", "settle": None,
-            "owners": [], "alerted": [], "result": result, "value": value, "manual": True, "entered": True,
-            "at": now.isoformat(), "settledAt": now.isoformat()}
-    key = pick_key(pick, day)
+            "stat": stat, "modifier": modifier if modifier in ("goblin", "demon") else "standard", "tier": tier, "chance": None,
+            "headshot": "", "settle": None, "owners": [], "alerted": [], "result": result, "value": _number(raw.get("value")),
+            "manual": True, "entered": True, "at": now.isoformat(), "settledAt": now.isoformat()}
+    return day, pick_key(pick, day), pick
+
+
+def record_enter(payload, now=None):
+    """A play that already finished, typed in by the admin with its result:
+    onto the record as it stands (nothing to settle). Its day is the game's
+    date, within the RECORD_DAYS the record shows."""
+    now = now or datetime.now(timezone.utc)
+    day, key, pick = _entered(payload, now, _days(now, RECORD_DAYS))
     _pipeline([["HSET", PREFIX + RECORD + day, key, json.dumps(pick, separators=(",", ":"))],
                ["EXPIRE", PREFIX + RECORD + day, RECORD_KEEP_DAYS * 86400]])
     _forget()
-    return {"day": day, "key": key, "result": result}
+    return {"day": day, "key": key, "result": pick["result"]}
+
+
+def record_enter_many(plays, now=None):
+    """Finished plays read off the admin's screenshots, each with the result
+    the admin gave it, onto the record together: all of them or, when one
+    is missing something, none (saying which)."""
+    now = now or datetime.now(timezone.utc)
+    if not isinstance(plays, list) or not plays:
+        raise ValueError("No plays to add.")
+    if len(plays) > RECORD_BATCH:
+        raise ValueError(f"Add at most {RECORD_BATCH} plays at a time.")
+    days, entries = _days(now, RECORD_DAYS), []
+    for number, raw in enumerate(plays, 1):
+        try:
+            entries.append(_entered(raw, now, days))
+        except ValueError as exc:
+            name = _short((raw or {}).get("player") if isinstance(raw, dict) else "") or f"Play {number}"
+            raise ValueError(f"{name}: {exc}") from None
+    writes = []
+    for day, key, pick in entries:
+        writes.append(["HSET", PREFIX + RECORD + day, key, json.dumps(pick, separators=(",", ":"))])
+        writes.append(["EXPIRE", PREFIX + RECORD + day, RECORD_KEEP_DAYS * 86400])
+    _pipeline(writes)
+    _forget()
+    return {"added": len(entries), "hits": sum(pick["result"] == "hit" for _, _, pick in entries),
+            "misses": sum(pick["result"] == "miss" for _, _, pick in entries)}
 
 
 def record_remove(day, key):
