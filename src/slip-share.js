@@ -1,19 +1,16 @@
-// A slip as a picture to share (1080x1350, the size feeds show whole).
-// The Slip Analyzer's (drawSlip): the grade on its dial, the headline, the
-// chance they all hit, the payout and what it returns, and each pick with its
-// tier and chance. The Parlay Builder's (drawCard): the slip card, each pick
-// with its line the way the app shows it. Phones hand it to the share sheet;
-// elsewhere it downloads.
+// A slip as a picture to share (1080x1350, the size feeds show whole): the
+// slip card, each pick with its line the way the app shows it -- the Parlay
+// Builder's and the Slip Analyzer's alike. Phones hand it to the share
+// sheet; elsewhere it downloads.
 
 const W = 1080, H = 1350, PAD = 72;
 export const SITE = 'aceprops.xyz';
-const INK = '#f4f7f6', MUTED = 'rgba(244,247,246,.58)', FAINT = 'rgba(244,247,246,.34)', HAIR = 'rgba(255,255,255,.1)';
-const TIER = {elite: ['#46e39a', 'ELITE'], strong: ['#3cc9b9', 'STRONG'], lean: ['#aeb5b8', 'LEAN'], risky: ['#f6b955', 'RISKY'], fade: ['#ff7b8a', 'FADE']};
-const TONE = {A: '#46e39a', B: '#aeb5b8', C: '#f6b955'};
+const INK = '#f4f7f6', MUTED = 'rgba(244,247,246,.58)', FAINT = 'rgba(244,247,246,.34)';
+// A grade's colour, as on every page: A green, B grey, C amber, D and F red.
+const GRADE_TONE = {A: '#46e39a', B: '#aeb5b8', C: '#f6b955'};
 
 const initials = name => String(name || '').split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase();
 const nice = value => (Number.isInteger(value) ? String(value) : Number(value).toFixed(1));
-const percent = value => `${value < 0.1 ? (value * 100).toFixed(1) : Math.round(value * 100)}%`;
 
 // Images from other sites load only when they allow it, so the canvas can
 // still be saved; anything that fails is drawn without.
@@ -34,118 +31,6 @@ function fit(ctx, text, max) {
   let cut = text;
   while (cut.length > 1 && ctx.measureText(`${cut}…`).width > max) cut = cut.slice(0, -1);
   return `${cut}…`;
-}
-
-/**
- * The picture. `score` is slip-check.js scoreEntry's, `legs` the graded
- * legs, `headline` and `kind` the card's own words ("Elite parlay",
- * "PrizePicks · 3-Pick Power Play"), `side` names a side in the app's words.
- */
-export async function drawSlip({score, legs, headline, kind, side = leg => (leg.side === 'UNDER' ? 'Less' : 'More')}) {
-  const canvas = document.createElement('canvas');
-  canvas.width = W; canvas.height = H;
-  const ctx = canvas.getContext('2d');
-  const font = (typeof document !== 'undefined' && getComputedStyle(document.body).fontFamily) || 'system-ui, sans-serif';
-  const set = (size, weight = 600) => { ctx.font = `${weight} ${size}px ${font}`; };
-  const tone = TONE[score.letter?.[0]] || '#ff7b8a';
-  const [mark, ...photos] = await Promise.all([image('/brand/ace-props-wordmark.png'), ...legs.map(leg => image(leg.row?.headshot))]);
-
-  // Background: deep navy, the grade's color glowing behind the dial.
-  const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, '#161b1e'); bg.addColorStop(1, '#0b0d0e');
-  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
-  const glow = ctx.createRadialGradient(W / 2, 300, 30, W / 2, 300, 560);
-  glow.addColorStop(0, `${tone}55`); glow.addColorStop(1, `${tone}00`);
-  ctx.fillStyle = glow; ctx.fillRect(0, 0, W, 860);
-
-  // Header: the wordmark and what this is.
-  if (mark) ctx.drawImage(mark, PAD, 44, 168, 64);
-  set(24, 800); ctx.fillStyle = MUTED; ctx.textAlign = 'right';
-  ctx.fillText('SLIP ANALYZER', W - PAD, 90);
-
-  // The dial: a faint track, an arc to the score, the letter inside.
-  const cx = W / 2, cy = 300, r = 138;
-  ctx.lineWidth = 22; ctx.lineCap = 'round';
-  ctx.strokeStyle = 'rgba(255,255,255,.07)';
-  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
-  const arc = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
-  arc.addColorStop(0, '#ffffff'); arc.addColorStop(0.35, tone); arc.addColorStop(1, tone);
-  ctx.strokeStyle = arc;
-  const fill = Math.max(0.02, Math.min(1, (score.score || 0) / 100));
-  ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + fill * Math.PI * 2 * 0.9999); ctx.stroke();
-  ctx.textAlign = 'center';
-  set(132, 800); ctx.fillStyle = tone;
-  ctx.fillText(score.letter || '–', cx, cy + 40);
-  set(20, 800); ctx.fillStyle = FAINT;
-  ctx.fillText('PARLAY GRADE', cx, cy + 84);
-
-  // The headline and the kind of slip.
-  set(66, 800); ctx.fillStyle = '#fff';
-  ctx.fillText(fit(ctx, headline || 'Graded parlay', W - PAD * 2), cx, 540);
-  set(26, 700); ctx.fillStyle = MUTED;
-  ctx.fillText(fit(ctx, String(kind || '').toUpperCase(), W - PAD * 2), cx, 586);
-
-  // Three numbers: the chance they all hit, the payout, what it returns.
-  const figures = [[percent(score.chance), 'TO HIT'], score.multiplier ? [`${nice(score.multiplier)}x`, 'PAYS'] : null,
-    score.value != null ? [`$${score.value.toFixed(2)}`, 'PER $1'] : null].filter(Boolean);
-  const gap = 18, boxW = (W - PAD * 2 - gap * (figures.length - 1)) / figures.length, boxY = 622, boxH = 126;
-  figures.forEach(([value, label], index) => {
-    const x = PAD + index * (boxW + gap);
-    ctx.beginPath(); ctx.roundRect(x, boxY, boxW, boxH, 24);
-    ctx.fillStyle = 'rgba(255,255,255,.045)'; ctx.fill();
-    ctx.strokeStyle = HAIR; ctx.lineWidth = 2; ctx.stroke();
-    set(50, 800); ctx.fillStyle = index === 0 ? tone : '#fff'; ctx.textAlign = 'center';
-    ctx.fillText(value, x + boxW / 2, boxY + 66);
-    set(19, 800); ctx.fillStyle = FAINT;
-    ctx.fillText(label, x + boxW / 2, boxY + 102);
-  });
-
-  // Each pick: photo in its tier's ring, the line, the tier and the chance.
-  const top = 786, bottom = H - 96;
-  const rowGap = 12, rowH = Math.min(104, (bottom - top - rowGap * (legs.length - 1)) / legs.length);
-  legs.forEach((leg, index) => {
-    const y = top + index * (rowH + rowGap);
-    const [color, word] = TIER[leg.grade?.tier] || ['#61696d', 'NO GRADE'];
-    ctx.beginPath(); ctx.roundRect(PAD, y, W - PAD * 2, rowH, 20);
-    ctx.fillStyle = 'rgba(255,255,255,.04)'; ctx.fill();
-    const pr = Math.min(34, rowH / 2 - 10), px = PAD + 30 + pr, py = y + rowH / 2;
-    ctx.save();
-    ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2); ctx.fillStyle = '#20262c'; ctx.fill(); ctx.clip();
-    const photo = photos[index];
-    if (photo) {
-      const scale = Math.max((pr * 2) / photo.width, (pr * 2) / photo.height);
-      ctx.drawImage(photo, px - photo.width * scale / 2, py - pr, photo.width * scale, photo.height * scale);
-    } else {
-      set(Math.round(pr * 0.8), 800); ctx.fillStyle = MUTED; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(initials(leg.row?.player || leg.player), px, py + 2); ctx.textBaseline = 'alphabetic';
-    }
-    ctx.restore();
-    ctx.lineWidth = 4; ctx.strokeStyle = color; ctx.beginPath(); ctx.arc(px, py, pr + 3, 0, Math.PI * 2); ctx.stroke();
-    // Right side first, so the name knows how much room it has.
-    set(38, 800); ctx.fillStyle = INK; ctx.textAlign = 'right';
-    const chance = leg.grade ? percent(leg.grade.chance) : '–';
-    ctx.fillText(chance, W - PAD - 26, py + 14);
-    const chanceW = ctx.measureText(chance).width;
-    set(18, 800);
-    const chipW = ctx.measureText(word).width + 26, chipX = W - PAD - 26 - chanceW - 22 - chipW;
-    ctx.beginPath(); ctx.roundRect(chipX, py - 18, chipW, 36, 18);
-    ctx.fillStyle = `${color}26`; ctx.fill();
-    ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.fillText(word, chipX + chipW / 2, py + 6);
-    const textX = px + pr + 24, room = chipX - textX - 18;
-    ctx.textAlign = 'left';
-    set(rowH < 84 ? 28 : 32, 800); ctx.fillStyle = '#fff';
-    ctx.fillText(fit(ctx, leg.row?.player || leg.player || '', room), textX, py - 4);
-    set(rowH < 84 ? 21 : 23, 600); ctx.fillStyle = MUTED;
-    ctx.fillText(fit(ctx, `${side(leg)} ${nice(leg.line)} ${leg.stat || ''}`.trim(), room), textX, py + 28);
-  });
-
-  // Footer.
-  set(22, 600); ctx.fillStyle = FAINT; ctx.textAlign = 'center';
-  ctx.fillText('Every pick graded on its matchup, recent games and the news', cx, H - 64);
-  // Where it came from, so anyone who sees it can find the site.
-  set(26, 800); ctx.fillStyle = '#00f58a';
-  ctx.fillText(SITE, cx, H - 26);
-  return canvas;
 }
 
 // ---------------------------------------------------------------- the slip card
@@ -185,9 +70,11 @@ function arrow(ctx, x, y, size, up) {
  * the way the app shows it -- an arrow, the number and the stat, a goblin
  * or demon when it has one -- and the kind of play and what it pays at the
  * foot. `legs` are {player, team, position, sport, headshot, teamLogo, side,
- * line, stat, modifier}.
+ * line, stat, modifier}; `kind` is the foot's words ("3-pick Power"),
+ * `source` the page it came from, `tagline` the line beneath the card.
  */
-export async function drawCard({legs, letter, play = 'power', payout, app = 'PrizePicks', appLogo = '/prizepicks/logo.png'}) {
+export async function drawCard({legs, letter, kind, payout, app = 'PrizePicks', appLogo = '/prizepicks/logo.png', source = 'PARLAY BUILDER',
+  tagline = 'Built from Elite and Strong picks, graded on matchup, form and news'}) {
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
@@ -207,7 +94,7 @@ export async function drawCard({legs, letter, play = 'power', payout, app = 'Pri
   ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
   if (mark) ctx.drawImage(mark, PAD, 44, 168, 64);
   set(24, 800); ctx.fillStyle = MUTED; ctx.textAlign = 'right';
-  ctx.fillText('PARLAY BUILDER', W - PAD, 90);
+  ctx.fillText(source, W - PAD, 90);
 
   // The card's size: rows as tall as fit, the whole card centered.
   const x0 = PAD - 8, cardW = W - x0 * 2, inset = 30, headH = 118, footH = 104, gap = 14;
@@ -224,9 +111,10 @@ export async function drawCard({legs, letter, play = 'power', payout, app = 'Pri
   ctx.fillText('Your slip', left + (logo ? 76 : 0), y0 + 76);
   set(26, 800);
   const chip = letter ? `Grade ${letter}` : 'Graded A+ to F', chipW = ctx.measureText(chip).width + 40;
+  const tone = letter ? GRADE_TONE[letter[0]] || '#ff7b8a' : GREEN;
   ctx.beginPath(); ctx.roundRect(right - chipW, y0 + 36, chipW, 50, 25);
-  ctx.fillStyle = 'rgba(70,227,154,.16)'; ctx.fill();
-  ctx.fillStyle = GREEN; ctx.textAlign = 'center'; ctx.fillText(chip, right - chipW / 2, y0 + 70);
+  ctx.fillStyle = `${tone}29`; ctx.fill();
+  ctx.fillStyle = tone; ctx.textAlign = 'center'; ctx.fillText(chip, right - chipW / 2, y0 + 70);
   const dashed = y => { ctx.save(); ctx.setLineDash([10, 9]); ctx.lineWidth = 2; ctx.strokeStyle = LINE;
     ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(right, y); ctx.stroke(); ctx.restore(); };
   dashed(y0 + headH - 8);
@@ -288,12 +176,12 @@ export async function drawCard({legs, letter, play = 'power', payout, app = 'Pri
   const footY = y0 + headH + n * rowH + gap * (n - 1) + inset;
   dashed(footY);
   set(32, 700); ctx.fillStyle = FAINT; ctx.textAlign = 'left';
-  ctx.fillText(`${n}-pick ${play === 'flex' ? 'Flex' : 'Power'}`, left + 4, footY + 66);
+  ctx.fillText(fit(ctx, kind || `${n}-pick slip`, (right - left) / 2), left + 4, footY + 66);
   set(46, 800); ctx.fillStyle = INK; ctx.textAlign = 'right';
   ctx.fillText(payout ? `Pays ${nice(payout)}x` : app, right - 4, footY + 70);
 
   set(22, 600); ctx.fillStyle = FAINT; ctx.textAlign = 'center';
-  ctx.fillText('Built from Elite and Strong picks, graded on matchup, form and news', W / 2, H - 64);
+  ctx.fillText(tagline, W / 2, H - 64);
   set(26, 800); ctx.fillStyle = '#00f58a';
   ctx.fillText(SITE, W / 2, H - 26);
   return canvas;
@@ -303,12 +191,6 @@ export async function drawCard({legs, letter, play = 'power', payout, app = 'Pri
 export async function shareCard(options) {
   const canvas = await drawCard(options);
   await sharePicture(canvas, `parlay-${String(options.letter || 'slip').replace('+', '-plus').toLowerCase()}.png`, 'My parlay');
-}
-
-/** The picture to the share sheet on a phone, a download elsewhere. */
-export async function shareSlip(options) {
-  const canvas = await drawSlip(options);
-  await sharePicture(canvas, `parlay-${String(options.score.letter || 'grade').replace('+', '-plus').toLowerCase()}.png`, options.headline || 'My parlay');
 }
 
 async function sharePicture(canvas, name, title) {

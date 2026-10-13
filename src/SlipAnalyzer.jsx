@@ -15,7 +15,7 @@ import {lookupRow} from './slip-lookup';
 import {loadGames,loadTeammates,withGame,newsOf,liveRead,anyLive} from './slip-games';
 import {MatchupCase} from './MatchupCase';
 import {opponentLogo,teamLogo,useCount,Img,Face,TierBadge,Records,Meter,Games} from './PickParts';
-import {shareSlip} from './slip-share';
+import {shareCard} from './slip-share';
 import {Record,History,hasRecord} from './SlipHistory';
 import {newSlipId,slipPayload,saveSlip,removeSlip,loadHistory} from './slip-history';
 import {pickBuilder} from './pick-builder-client';
@@ -506,8 +506,12 @@ export function SlipAnalyzer(){
  const shareIt=async()=>{
   if(!score)return;
   setSharing(true);
-  try{await shareSlip({score,legs,headline:HEADLINES[score.letter],kind:[slip.app?.name,`${legs.length}-Pick ${TYPE_NAMES[score.type]||'Parlay'}`].filter(Boolean).join(' · '),
-   side:leg=>sideWord(leg.side,slip.app)});}
+  // The slip card (slip-share.js), each pick's line as the app shows it; a pick the board didn't have keeps what was read.
+  try{await shareCard({letter:score.letter,payout:score.multiplier,app:slip.app?.name||'',appLogo:appLogo(slip.app?.key),source:'SLIP ANALYZER',
+   kind:`${legs.length}-pick ${(TYPE_NAMES[score.type]||'Parlay').replace(' Play','')}`,tagline:'Every pick graded on its matchup, recent games and the news',
+   legs:legs.map(leg=>({player:leg.row?.player||leg.player,team:leg.row?.teamAbbr||leg.team,position:leg.row?.position,sport:leg.row?.sport||leg.sport,
+    headshot:leg.row?.headshot,teamLogo:teamLogo(leg.row),side:leg.side,line:leg.line??leg.row?.line,stat:leg.stat||leg.row?.market,
+    modifier:leg.modifier||leg.row?.modifier}))});}
   finally{setSharing(false);}
  };
  const reset=()=>{control.current?.abort();games.current={};mates.current={};setPhase('pick');setLegs([]);setSlip(null);setError('');};
