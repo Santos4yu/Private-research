@@ -84,8 +84,10 @@ const MLB_PITCHER = {strikeouts: 'pitcherstrikeouts', walks: 'walksallowed', hit
   homeruns: 'homerunsallowed', hitterfantasyscore: 'pitcherfantasyscore', fantasyscore: 'pitcherfantasyscore', fantasy: 'pitcherfantasyscore'};
 
 const family = sport => sport === 'nba' || sport === 'wnba' ? 'basketball' : sport;
-// "1+ Hits" and "Hits 1+" read as "Hits".
-const bare = text => String(text || '').replace(/^\s*\d+(?:\.\d+)?\s*\+\s*/, '').replace(/\s*\d+(?:\.\d+)?\s*\+\s*$/, '')
+// "1+ Hits", "Hits 1+" and "Higher 3.5 Hits" (a side and line read into
+// the stat) all read as "Hits".
+const SAID = /^\s*(?:more|less|higher|lower|over|under)\s+(?:[-+]?\d+(?:\.\d+)?\s+)?(?=[a-z])|\s+(?:more|less|higher|lower|over|under)\s*$/gi;
+const bare = text => String(text || '').replace(SAID, '').replace(/^\s*\d+(?:\.\d+)?\s*\+\s*/, '').replace(/\s*\d+(?:\.\d+)?\s*\+\s*$/, '')
   .replace(/\((?:combo|pitcher|batter|hitter)\)/gi, match => /pitcher/i.test(match) ? ' pitcher' : '').trim();
 
 function mlbKeys(text) {

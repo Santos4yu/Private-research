@@ -317,3 +317,23 @@ class ReaderRegressionTests(unittest.TestCase):
         self.assertIsNone(result["legs"][0]["side"])
         self.assertIn("side", result["legs"][0]["needs"])
         self.assertEqual(result["legs"][0]["line"],4.5)
+
+
+class StatTextTests(unittest.TestCase):
+    def test_a_side_and_line_read_into_the_stat_move_to_their_own_fields(self):
+        from slip_reader import normalize_leg
+        leg = normalize_leg({"player": "Tre Tucker", "stat": "Higher 3.5 Receptions"})
+        self.assertEqual((leg["stat"], leg["line"], leg["side"]), ("Receptions", 3.5, "OVER"))
+        leg = normalize_leg({"player": "Jayson Tatum", "stat": "Points Less", "line": 26.5})
+        self.assertEqual((leg["stat"], leg["line"], leg["side"]), ("Points", 26.5, "UNDER"))
+        # A side already read wins; stats that only start with a number stay whole.
+        leg = normalize_leg({"player": "Steph Curry", "stat": "3 Pointers Made", "line": 4.5, "side": "under"})
+        self.assertEqual((leg["stat"], leg["side"]), ("3 Pointers Made", "UNDER"))
+        leg = normalize_leg({"player": "Mike Washington Jr.", "stat": "25+ Rush Yards"})
+        self.assertEqual((leg["stat"], leg["line"], leg["side"]), ("25+ Rush Yards", 24.5, "OVER"))
+
+    def test_nfl_stats_printed_with_a_threshold_or_side_find_their_market(self):
+        from backend.sports.nfl import markets
+        for stat, market in (("25+ Rush Yards", "rushing_yards"), ("4+ Receptions", "receptions"),
+                             ("Higher 3.5 Receptions", "receptions"), ("Receiving Yards 60+", "receiving_yards")):
+            self.assertEqual(markets.market_for(stat, "WR"), market, stat)

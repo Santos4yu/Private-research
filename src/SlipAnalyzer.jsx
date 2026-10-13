@@ -103,7 +103,10 @@ const MISSING={
   :`${leg.player} couldn't be found${leg.sport?` in the ${SPORT_NAMES[leg.sport]||leg.sport.toUpperCase()}`:''}. Check the name with Fix.`,
  stat:leg=>leg.stat?`There are no ${leg.stat} numbers for ${leg.player}. Pick the stat below.`:'The stat on this pick couldn\'t be read. Pick it below.',
  needs:leg=>leg.line==null&&!leg.side?'The line and side on this pick couldn\'t be read.':`The ${leg.line==null?'line':'side'} on this pick couldn't be read.`,
- thin:()=>'Not enough games yet to grade this pick.',
+ // Too few games to grade (a rookie, a new role): how many there are, and
+ // below it, how they went.
+ thin:leg=>{const games=leg.row?.gameLog?.length||0;
+  return games?`Only ${games} game${games===1?'':'s'} so far, not enough to grade this pick yet. Here's how ${games===1?'it':'they'} went.`:'Not enough games yet to grade this pick.';},
 };
 
 // The case for a pick: the matchup first, then his history, splits and form.
@@ -177,6 +180,7 @@ function Prop({leg,index,app,boards,need,editing,onEdit,onSave,onCancel,onRemove
    {leg.lookupError&&siteIsAdmin()&&<p className="sa-detail">{leg.lookupError}</p>}
    {leg.lookupError&&<div className="sa-chips"><button type="button" onClick={()=>onSave({})}><RotateCcw size={13}/>Try again</button></div>}
    {stats.length>0&&<div className="sa-chips">{stats.slice(0,8).map(name=><button type="button" key={name} onClick={()=>onSave({stat:name,statName:''})}>{name}</button>)}</div>}
+   {(leg.state==='thin'||!MISSING[leg.state])&&<Games row={row} line={leg.line} side={leg.side}/>}
   </div>}
   {editing?<Editor leg={leg} app={app} boards={boards} onSave={onSave} onCancel={onCancel}/>
    :<footer className="sa-prop-actions">

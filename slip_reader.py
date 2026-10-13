@@ -364,6 +364,11 @@ def _text(value, limit):
     return re.sub(r"\s+", " ", str(value or "")).strip()[:limit]
 
 
+_SIDES = r"more|less|higher|lower|over|under"
+_SAID_BEFORE = re.compile(rf"^\s*(?P<side>{_SIDES})\s+(?P<line>[-+]?\d+(?:\.\d+)?)?\s*(?P<stat>[A-Za-z].*)$", re.I)
+_SAID_AFTER = re.compile(rf"^(?P<stat>.*?[A-Za-z].*?)\s+(?P<side>{_SIDES})(?:\s+(?P<line>[-+]?\d+(?:\.\d+)?))?\s*$", re.I)
+
+
 def normalize_leg(raw):
     """A leg as the browser grades it, or None for one that isn't a player prop."""
     if not isinstance(raw, dict):
@@ -376,12 +381,19 @@ def normalize_leg(raw):
         return None
     if not stat and (len(player.split()) < 2 or (number(raw.get("line")) or 0) < 0):
         return None  # a team or a spread, not a cut-off player pick
-    plus = bool(raw.get("plus")) or bool(re.search(r"\d\s*\+\s*$|^\s*\d+\s*\+", stat))
     line = number(raw.get("line"))
+    side = side_of(raw.get("side"))
+    # The pick's side and line read into the stat ("Higher 3.5 Receptions",
+    # "Receptions More"): moved to their own fields, so the stat is its name.
+    said = _SAID_BEFORE.match(stat) or _SAID_AFTER.match(stat)
+    if said and said.group("stat").strip():
+        side = side or side_of(said.group("side"))
+        line = line if line is not None else number(said.group("line"))
+        stat = said.group("stat").strip()
+    plus = bool(raw.get("plus")) or bool(re.search(r"\d\s*\+\s*$|^\s*\d+\s*\+", stat))
     if line is None and plus:
         match = re.search(r"(\d+)\s*\+", stat)
         line = float(match.group(1)) if match else 1.0
-    side = side_of(raw.get("side"))
     if plus:
         # "N+" is the Over on N - 0.5.
         side = side or "OVER"

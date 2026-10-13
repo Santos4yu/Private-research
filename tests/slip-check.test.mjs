@@ -271,3 +271,11 @@ test('overs first: an Under is recommended only when every read agrees', () => {
   // News that changes nothing (no level) doesn't block it.
   assert.equal(confidentUnder({...sure, matchup: {facts: [{kind: 'news', text: 'Probable'}]}}), true);
 });
+
+test('a side and line read into the stat still match the stat', async () => {
+  const {statKeys} = await import('../src/slip-check.js');
+  assert.deepEqual(statKeys('nfl', 'Higher 3.5 Receptions'), statKeys('nfl', 'Receptions'));
+  assert.deepEqual(statKeys('nfl', '25+ Rush Yards'), statKeys('nfl', 'Rush Yards'));
+  assert.deepEqual(statKeys('nba', 'Points More'), statKeys('nba', 'Points'));
+  assert.deepEqual(statKeys('nba', '3 Pointers Made'), ['3pm']);
+});

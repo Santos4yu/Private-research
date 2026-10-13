@@ -146,10 +146,26 @@ ALIASES = {
 }
 
 
+# What a slip may print around the stat itself: Underdog's "25+ Rush Yards"
+# (the Over on 24.5), and the pick's side and line read into the stat
+# ("Higher 3.5 Receptions").
+_SIDE = r"(?:more|less|higher|lower|over|under|o|u)"
+_AROUND = (re.compile(rf"^\s*(?:{_SIDE}\s*)?[-+]?\d+(?:\.\d+)?\s*\+?\s+", re.I), re.compile(r"\s+\d+(?:\.\d+)?\s*\+\s*$"),
+           re.compile(rf"^\s*{_SIDE}\s+", re.I), re.compile(rf"\s+{_SIDE}\s*$", re.I))
+
+
+def bare_stat(stat):
+    """The stat's own name, without a threshold, side or line printed with it."""
+    text = str(stat or "")
+    for pattern in _AROUND:
+        text = pattern.sub(" ", text)
+    return text.strip() or str(stat or "")
+
+
 def market_for(stat, position=""):
     """Our market key for a PrizePicks stat_type, or None when we have no
     history for it (the line still shows, just without a chart)."""
-    name = normalize(stat)
+    name = normalize(bare_stat(stat))
     position = str(position or "").upper()
     if name in ("int", "ints", "interceptions"):
         return "interceptions" if position == "QB" else "def_interceptions"
