@@ -101,6 +101,10 @@ PERIOD_NAMES = ((range(6, 9), 'week', 'Weekly'), (range(28, 32), 'month', 'Month
                 (range(180, 185), '6 months', '6 Months'), (range(364, 367), 'year', 'Annual'))
 
 
+# A named billing period's length in months, for the per-month price.
+MONTHS = {'month': 1, '3 months': 3, '6 months': 6, 'year': 12}
+
+
 def _period(days):
     for span, unit, label in PERIOD_NAMES:
         if days in span:return unit, label
@@ -117,7 +121,7 @@ def _plan_view(plan):
     # empty or auto-generated, and the pricing page needs short, even names.
     return {'id': plan['id'], 'label': label, 'price': price,
             'currency': str(plan.get('currency') or 'usd').upper(), 'period': unit,
-            'monthly': round(price / (int(days) / 30.4375), 2) if days else None,
+            'monthly': round(price / MONTHS[unit], 2) if days and unit in MONTHS else round(price / (int(days) / 30.4375), 2) if days else None,
             'trialDays': plan.get('trial_period_days') or 0}
 
 
@@ -136,7 +140,7 @@ def plans():
     dearest = max((view['monthly'] for view in views if view['monthly']), default=None)
     for view in views:
         saving = 1 - view['monthly'] / dearest if dearest and view['monthly'] else 0
-        view['savePercent'] = int(saving * 100) if saving >= 0.05 else 0
+        view['savePercent'] = round(saving * 100) if saving >= 0.05 else 0
     _plans_cache.update(at=now, value=views)
     return views
 
