@@ -478,6 +478,29 @@ function loadThemePresets(){
  try{const saved=JSON.parse(localStorage.getItem(THEME_PRESETS_KEY)||'[]');return Array.isArray(saved)?saved.filter(p=>p&&p.name).slice(0,12):[];}catch{return [];}
 }
 
+// The General tab's Site health box (site_health.py): whether the line
+// checks are running, whether Discord alerts are on, and recent problems.
+async function loadSiteHealth(box){
+ if(!box)return;
+ const ago=seconds=>seconds==null?'unknown':seconds<90?'just now':seconds<5400?`${Math.round(seconds/60)} min ago`:`${Math.round(seconds/3600)} h ago`;
+ try{
+  const data=await request('/api/v2-admin?action=site-health');
+  const stale=data.linesAge!=null&&data.linesAge>45*60;
+  const rows=[
+   element('p',`Line checks: last ran ${ago(data.linesAge)}${stale?' — stopped, see alerts':''}`,stale?'site-health-line is-bad':'site-health-line'),
+   element('p',data.discord?'Discord alerts: on':'Discord alerts: off — add ALERT_WEBHOOK_URL in Vercel to get problems in Discord','site-health-line'+(data.discord?'':' is-warn')),
+  ];
+  const list=element('ul',null,'site-health-alerts');
+  for(const item of (data.alerts||[]).slice(0,8)){
+   const li=element('li');const when=Date.parse(item.at);
+   li.append(element('b',item.title),element('small',Number.isFinite(when)?new Date(when).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):''),element('span',item.detail));
+   list.append(li);
+  }
+  if(!list.childElementCount)list.append(element('li','No problems reported.','site-health-empty'));
+  box.replaceChildren(element('h4','Site health'),...rows,list);
+ }catch(error){box.replaceChildren(element('h4','Site health'),element('p',error.message,'site-controls-hint'));}
+}
+
 export async function loadSiteControls(){
  const policy=await request('/api/v2-admin?action=site-settings');let host=document.getElementById('site-controls');if(!host)return;
  host.hidden=false;
@@ -494,6 +517,7 @@ export async function loadSiteControls(){
    +'<div class="site-tab-panel" data-panel="general">'
     +'<div class="site-control-switches"></div>'
     +'<label>Maintenance message<textarea name="message" maxlength="240" required></textarea></label>'
+    +'<section class="site-health" aria-live="polite"><h4>Site health</h4><p class="site-controls-hint">Checking…</p></section>'
    +'</div>'
    +'<div class="site-tab-panel" data-panel="access" hidden>'
     +'<fieldset><legend>Available tabs</legend></fieldset>'
@@ -543,6 +567,7 @@ export async function loadSiteControls(){
  }));
  const form=host.querySelector('form');for(const [key,title] of Object.entries({maintenance:'Maintenance mode — members cannot use the website',requireLogin:'Require email account to access research',registrationOpen:'Allow new account registrations',paidAccess:'Require a paid subscription (Whop) — members subscribe before using the website'})){const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.name=key;input.checked=policy[key];label.append(input,document.createTextNode(title));host.querySelector('.site-control-switches').append(label);}
  form.elements.paidAccess.checked=Boolean(policy.paidAccess);
+ loadSiteHealth(host.querySelector('.site-health'));
  host.querySelector('.site-control-switches').append(button('Preview the pricing page',previewPricing,'site-secondary-button site-pricing-preview'));
  form.elements.message.value=policy.message;
  for(const [key,title] of Object.entries(names).filter(([key])=>!ADMIN_TABS.includes(key))){const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.name='tab';input.value=key;input.checked=!policy.disabledTabs.includes(key);label.append(input,document.createTextNode(title));host.querySelector('fieldset').append(label);}

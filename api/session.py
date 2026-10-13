@@ -63,6 +63,10 @@ class handler(BaseHTTPRequestHandler):
                 viewer=site_members.viewer_policy(policy,site_members.rule_for(site_members.read_rules(),account))
                 site_members.touch(account)
                 if policy.get('paidAccess'):viewer['subscription']=self._subscription(account)
+            # Something stopped (the line-check timer)? The admin hears about
+            # it from here, at most every few minutes (site_health.py).
+            import site_health
+            site_health.light_check()
             return self._json(200,{**policy,**viewer,'accountsConfigured':configured() and not policy.get('temporaryPublicAccess',False),'account':account,'refreshAvailable':pending,'isAdmin':admin_auth.is_admin_request(self.headers)},session_updates)
         if action == "account":
             # The member's own profile and synced settings (account_profile.py).

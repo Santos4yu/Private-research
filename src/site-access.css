@@ -323,3 +323,16 @@ html[data-hidden-tabs~="slate"][data-hidden-tabs~="slip"] :is(.lab-tools,.lab-se
 .site-subs-state{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none;text-align:right}
 .site-subs-state .site-subs-unlinked{color:#ffbf6b}
 @media (max-width:520px){.site-subs-row{flex-direction:column;align-items:flex-start}.site-subs-state{align-items:flex-start;text-align:left}}
+
+/* Admin panel: Site health (site_health.py). */
+.site-health{display:flex;flex-direction:column;gap:8px;padding:14px 16px;border:1px solid #2e3840;border-radius:14px;background:#14181b}
+.site-health h4{margin:0;font-size:13px;color:#f4f7f6}
+.site-health-line{margin:0;font-size:12.5px;color:#cfd5d7}
+.site-health-line.is-bad{color:#ff8ea3}
+.site-health-line.is-warn{color:#ffbf6b}
+.site-health-alerts{display:flex;flex-direction:column;gap:6px;margin:4px 0 0;padding:0;list-style:none}
+.site-health-alerts li{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:9px 11px;border:1px solid #2a3236;border-radius:10px;background:#1a2024;font-size:12px}
+.site-health-alerts li b{color:#ffbf6b}
+.site-health-alerts li small{color:#8e989d}
+.site-health-alerts li span{grid-column:1/-1;color:#b6bbbe;line-height:1.5}
+.site-health-alerts li.site-health-empty{display:block;color:#8e989d}

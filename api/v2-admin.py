@@ -63,6 +63,21 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(200, {"members": site_members.list_members(), "items": site_members.access_items(),
                                         "badges": [{"key": key, "label": label} for key, label in site_members.BADGES.items()],
                                         "policy": read()})
+            if action == "health-cron":
+                # The daily check (site_health.py): a Vercel cron, which the
+                # firewall never challenges.
+                import hmac
+                secret = os.getenv("CRON_SECRET", "")
+                authorized = hmac.compare_digest(self.headers.get("Authorization", ""), "Bearer "+secret) if secret else (
+                    "vercel-cron" in self.headers.get("User-Agent", "").lower() or self.headers.get("x-vercel-cron", "") == "1")
+                if not authorized:
+                    return self._send(401, {"error":"Cron auth required"})
+                import site_health
+                return self._send(200, site_health.daily())
+            if action == "site-health":
+                if not admin_auth.is_admin_request(self.headers):return self._send(401, {"error":"Admin session required"})
+                import site_health
+                return self._send(200, site_health.status())
             if action == "subscribers":
                 # Everyone with a Whop membership (whop_billing.py); ?sync=1
                 # also records each one, mending any webhook that was missed.

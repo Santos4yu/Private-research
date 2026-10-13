@@ -373,10 +373,15 @@ def subscribers(sync=False):
         labels = {plan['id']: plan for plan in plans()}
     except BillingUnavailable:
         pass
-    rows, saved = [], 0
+    rows, saved, repaired = [], 0, 0
     for membership in _all_memberships():
         record = _record(membership)
         if sync and (record.get('accountId') or record.get('email')):
+            # On the site already, with the same standing? If not, a webhook
+            # about it never arrived.
+            held = _load(_keys(record)[0])
+            if not held or held.get('membershipId') == record['membershipId'] and (held.get('status'), held.get('active')) != (record['status'], record['active']):
+                repaired += 1
             _save(record)
             saved += 1
         plan = labels.get(record['planId']) or {}
@@ -389,4 +394,5 @@ def subscribers(sync=False):
     # and trials aside), for a rough sense of it.
     paying = [row for row in rows if row['status'] in ('active', 'canceling', 'past_due') and row.get('monthly')]
     return {'members': rows, 'counts': {**counts, 'total': len(rows), 'live': sum(1 for row in rows if row['active'])},
-            'monthly': round(sum(row['monthly'] for row in paying), 2), 'synced': saved if sync else None}
+            'monthly': round(sum(row['monthly'] for row in paying), 2), 'synced': saved if sync else None,
+            'repaired': repaired if sync else None}
