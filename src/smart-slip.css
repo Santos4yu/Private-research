@@ -434,6 +434,16 @@
  .ss-wiz{min-height:440px;height:calc(100vh - var(--site-status-inset,0px) - 58px - 86px - env(safe-area-inset-bottom,0px));
   height:calc(100dvh - var(--site-status-inset,0px) - 58px - 86px - env(safe-area-inset-bottom,0px));margin:0 10px;border-radius:22px}
  .ss-wiz-body{overflow-y:auto;overscroll-behavior:contain;padding:2px 14px 14px;scrollbar-width:none}
+ /* The questions and the build are pinned to the screen: the title under
+    the status bar, the card down to the menu. The page itself never scrolls
+    there, so nothing can slide the title up under the status bar (a phone
+    whose sizes add up a little taller than its screen did exactly that). */
+ /* The tab's entrance animation leaves a transform behind, which would pin
+    the card to the panel instead of the screen. */
+ :root[data-theme] body #app-shell #panel-builder:has(.smart-slip:is([data-view="setup"],[data-view="building"])){transform:none!important;animation:none!important}
+ .smart-slip:is([data-view="setup"],[data-view="building"]){position:fixed;z-index:1;inset:0 0 calc(86px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column}
+ .smart-slip:is([data-view="setup"],[data-view="building"]) .ss-head{flex:none}
+ .smart-slip:is([data-view="setup"],[data-view="building"]) .ss-wiz{flex:1;min-height:0;height:auto;margin-bottom:0}
  .ss-wiz-body::-webkit-scrollbar{display:none}
  .ss-tabs{padding:14px 12px 10px}
  .ss-tabs-track{top:27px;left:calc(12px + (100% - 24px) / 10);right:calc(12px + (100% - 24px) / 10)}
@@ -455,9 +465,22 @@
  .ss-intro::-webkit-scrollbar{display:none}
  /* Let's go and Quick build stay whole at the foot of the card; the art and
     text above them scroll when a short phone has no room for everything. */
- .ss-intro-go{position:sticky;bottom:0;z-index:1;padding:12px 0 16px;background:linear-gradient(to bottom,transparent,var(--s-card) 18px)}
+ .ss-intro-go{position:sticky;bottom:0;z-index:1;gap:8px;padding:10px 0 12px;background:linear-gradient(to bottom,transparent,var(--s-card) 18px)}
  .ss-intro-text h2{font-size:25px}
  .ss-intro-text p{font-size:13.5px}
+ /* A tighter sample slip, so the whole start screen fits a notched iPhone. */
+ .ss-intro{gap:10px}
+ .ss-intro-art{max-width:300px;padding:2px 4px 0}
+ .ss-mini{gap:6px;padding:10px 11px}
+ .ss-mini header{padding-bottom:7px}
+ .ss-mini ol{gap:5px}
+ .ss-mini li{min-height:40px;padding:5px 9px}
+ .smart-slip .ss-mini .ss-face-mini{flex-basis:28px;width:28px;height:28px}
+ .ss-mini footer{padding-top:7px}
+ .ss-mini{zoom:.88}
+ .ss-intro-sports{gap:5px}
+ .ss-intro-sports span{gap:5px;padding:4px 8px 4px 6px;font-size:11px}
+ .ss-intro-sports img{width:16px;height:16px}
  .ss-building-head{padding:14px 14px 2px}
  .ss-wiz .ss-stage{overflow-y:auto;padding:10px 14px 16px;gap:16px}
  .ss-result-bar{padding:4px 10px 0}
