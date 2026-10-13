@@ -11,7 +11,7 @@ import {withPoolDefense} from './slip-analyst';
 import {gradeMatchups,withMatchup,passesMatchup,overOnly} from './krazy-bot';
 import {loadGames,loadTeammates,withGame} from './slip-games';
 import {HEADLINES,gradeTone} from './slip-score';
-import {shareSlip} from './slip-share';
+import {shareCard} from './slip-share';
 import {builderSlip,handOff} from './slip-handoff';
 import {loadLearning} from './learning';
 import {logTopPicks,newSlipId,saveSlip,slipPayload} from './slip-history';
@@ -115,12 +115,14 @@ function Token({kind}){
  return <i className={`ss-token is-${MODIFIER_ICON[kind]?kind:'standard'}`}><img src={MODIFIER_ICON[kind]||PRIZEPICKS_LOGO} alt=""/></i>;
 }
 
+// A headshot is see-through around the player, so the initials beneath step aside once it's in.
+const photoIn=event=>event.currentTarget.parentElement.classList.add('has-photo');
 // A row of player photos, overlapping (initials when there's no photo).
 function Faces({players,max=3}){
  const shown=(players||[]).slice(0,max),more=(players||[]).length-shown.length;
  return <span className="ss-faces" aria-hidden="true">{shown.map(player=><span key={player.name} className="ss-face-mini">
   <i>{String(player.name||'').split(/\s+/).map(part=>part[0]).join('').slice(0,2)}</i>
-  {player.headshot&&<img src={player.headshot} alt="" loading="lazy" onError={event=>{event.currentTarget.hidden=true;}}/>}</span>)}
+  {player.headshot&&<img src={player.headshot} alt="" loading="lazy" onLoad={photoIn} onError={event=>{event.currentTarget.hidden=true;}}/>}</span>)}
   {more>0&&<span className="ss-face-mini is-more"><i>+{more}</i></span>}</span>;
 }
 
@@ -272,11 +274,11 @@ function Pick({leg,index,need,locked,onLock,onSwap,onResearch}){
  </article>;
 }
 
-// The built slip as a picture to post (slip-share.js, the Slip Analyzer's own).
+// The built slip as a picture to post: the slip card, each pick's line as PrizePicks shows it (slip-share.js drawCard).
 async function shareBuilt(slip){
- await shareSlip({score:{letter:slip.letter,chance:slip.play==='flex'?slip.profit:slip.chance,multiplier:slip.payout,value:slip.value},
-  legs:slip.legs.map(leg=>({row:leg.row,player:leg.row.player,side:leg.side,line:leg.row.line,stat:leg.row.market,grade:{tier:leg.tier,chance:leg.chance}})),
-  headline:HEADLINES[slip.letter]||'My parlay',kind:`PrizePicks · ${slip.legs.length}-Pick ${slip.play==='flex'?'Flex':'Power'} Play`});
+ await shareCard({letter:slip.letter,play:slip.play,payout:slip.payout,
+  legs:slip.legs.map(leg=>({player:leg.row.player,team:leg.row.teamAbbr,position:leg.row.position,sport:leg.row.sport,headshot:leg.row.headshot,
+   teamLogo:teamLogo(leg.row),side:leg.side,line:leg.row.line,stat:leg.row.market,modifier:leg.row.modifier}))});
 }
 
 function Ticket({slip,locked,onLock,onSwap,onResearch,onAdd,onExport,exporting,link,onCheck}){
@@ -665,7 +667,7 @@ export function SmartSlip(){
      <div className="ss-mini">
       <header><img src={PRIZEPICKS_LOGO} alt=""/><b>Your slip</b><span>Graded A+ to F</span></header>
       <ol>{[0,1,2].map(n=>{const player=faces[n];
-       return <li key={n} style={{'--i':n}}>{player?<><span className="ss-face-mini"><i>{player.name.split(' ').map(part=>part[0]).join('').slice(0,2)}</i><img src={player.headshot} alt="" onError={event=>{event.currentTarget.hidden=true;}}/></span>
+       return <li key={n} style={{'--i':n}}>{player?<><span className="ss-face-mini"><i>{player.name.split(' ').map(part=>part[0]).join('').slice(0,2)}</i><img src={player.headshot} alt="" onLoad={photoIn} onError={event=>{event.currentTarget.hidden=true;}}/></span>
         <span className="ss-mini-who"><b>{player.name}</b><small>{player.team} · {SPORT_NAMES[player.game.sport]}</small></span><em>More</em></>
         :<><i className="ss-slot-face"/><span className="ss-slot-text"><i/><i/></span></>}</li>;})}</ol>
       <footer><span>3-pick Power</span><b>Pays 6x</b></footer>

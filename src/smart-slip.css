@@ -185,6 +185,7 @@
 .smart-slip .ss-face-mini{position:relative;display:grid;place-items:center;width:28px;height:28px;margin-left:-7px;overflow:hidden;border-radius:50%;background:#232b30;box-shadow:0 0 0 2px #151a1d}
 .smart-slip .ss-face-mini i{color:var(--s-muted);font:800 9px/1 var(--s-sans);font-style:normal;letter-spacing:-.2px}
 .smart-slip .ss-face-mini img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top}
+.smart-slip .ss-face-mini.has-photo i{visibility:hidden}
 .smart-slip .ss-face-mini.is-more{background:#1b2226}
 .ss-ladder .ss-faces{min-height:28px;padding-left:7px}
 
