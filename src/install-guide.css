@@ -16,7 +16,7 @@
 .install-steps li{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid #242c32;border-radius:14px;background:#161b1f}
 .install-step-icon{display:grid;place-items:center;flex:none;width:40px;height:40px;border-radius:11px;background:color-mix(in srgb,var(--theme-accent,#00f58a) 16%,#191e22);color:color-mix(in srgb,var(--theme-accent,#00f58a) 75%,#fff)}
 .install-step-icon svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.install-step-icon[data-icon="menu"] svg{fill:currentColor;stroke:none}
+.install-step-icon:is([data-icon="menu"],[data-icon="more"]) svg{fill:currentColor;stroke:none}
 .install-step-icon img{width:30px;height:30px;border-radius:7px}
 .install-steps b{display:block;font-size:14px;font-weight:600}
 .install-steps small{display:block;margin-top:2px;color:#91999d;font-size:12px}

@@ -28,15 +28,17 @@ const ICONS = {
   add: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4" /><path d="M12 8v8M8 12h8" /></svg>',
   safari: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="m15.5 8.5-2 5-5 2 2-5z" /></svg>',
   menu: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.4" /><circle cx="12" cy="12" r="1.4" /><circle cx="12" cy="19" r="1.4" /></svg>',
+  more: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.4" /><circle cx="12" cy="12" r="1.4" /><circle cx="19" cy="12" r="1.4" /></svg>',
 };
 
 function steps() {
   if (iOS) {
     return [
       ...(inApp ? [['safari', 'Open this page in Safari', 'Tap ⋯ or the compass, then Open in Safari']] : []),
-      ['share', 'Tap Share', 'In the toolbar, or tap ⋯ first'],
-      ['add', 'Tap Add to Home Screen', 'Scroll down the list if you don’t see it'],
-      ['icon', 'Tap Add', 'Then open Ace Props from your Home Screen'],
+      // The way iPhone's browsers show it now: the ⋯ menu, Share, then Add to Home Screen.
+      ['more', 'Tap the 3 dots ⋯', 'In your browser’s toolbar'],
+      ['share', 'Tap Share', 'Near the top of the menu'],
+      ['add', 'Tap Add to Home Screen', 'Scroll down if you don’t see it, then tap Add'],
     ];
   }
   return [
