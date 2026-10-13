@@ -69,6 +69,13 @@ export function sideRecord(row, key, side) {
   return {won, games, rate: won / games};
 }
 
+// PrizePicks takes one promo line per entry (prizepicks_export_core.py
+// _mark_promos says which lines are promos).
+export const MAX_PROMOS = 1;
+export const isPromo = row => Boolean(row?.promo);
+/** Whether a pick on `row` can join picks already on these rows without passing the promo limit. */
+export const promoRoom = (row, rows) => !isPromo(row) || rows.filter(isPromo).length < MAX_PROMOS;
+
 export const isPrizePicksLine = row => Array.isArray(row?.apps) && row.apps.some(app => app?.key === 'prizepicks')
   && ['standard', 'goblin', 'demon'].includes(String(row.modifier || 'standard').toLowerCase());
 
@@ -252,8 +259,10 @@ export function scoreSlip(legs, play = 'power', linkOf = pairLink) {
 }
 
 // Can `leg` join the picks chosen so far: not the same player or line,
-// no more than `perGame` from its game, nothing on it working against it.
+// no more than `perGame` from its game, nothing on it working against it,
+// and one PrizePicks promo line at most.
 function fits(leg, chosen, perGame, linkOf = pairLink) {
+  if (!promoRoom(leg.row, chosen.map(other => other.row))) return false;
   let sameGame = 0;
   for (const other of chosen) {
     if (other.player === leg.player || other.row.id === leg.row.id) return false;

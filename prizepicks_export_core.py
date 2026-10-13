@@ -138,7 +138,35 @@ def _save_shared_projection_cache(league, entry):
         pass
 
 
+# A promo is a line PrizePicks posts far below the player's real number --
+# Anthony Edwards at 0.5 points on a 27.5 night. PrizePicks only lets one
+# into an entry. It marks some (flash sales); the rest give themselves away
+# by sitting at least this many times under the player's next line on the
+# same stat. Nine keeps ordinary low lines out: a 0.5 hits or anytime TD
+# under a 1.5 Demon is a regular line, not a promo.
+PROMO_GAP = 9
+
+
+def _mark_promos(rows):
+    """Sets row["promo"] on every row: True for a promo line (see PROMO_GAP)."""
+    lines = {}
+    for row in rows:
+        key = (row.get("player_id") or row.get("player"), _norm_stat(row.get("stat")), str(row.get("start_time") or "")[:13])
+        lines.setdefault(key, []).append(row)
+    for group in lines.values():
+        for row in group:
+            higher = [other["line"] for other in group if other is not row and other["line"] > row["line"]]
+            row["promo"] = bool(row.get("flash")) or (
+                row.get("odds_type") == "standard" and row["line"] > 0 and bool(higher) and min(higher) >= PROMO_GAP * row["line"])
+    return rows
+
+
 def _fetch_projection_rows(force=False, league="MLB"):
+    """Every active line in ``league``, each marked whether it is a promo."""
+    return _mark_promos(_load_projection_rows(force=force, league=league))
+
+
+def _load_projection_rows(force=False, league="MLB"):
     league = str(league or "MLB").upper()
     if league not in LEAGUE_IDS:
         raise ValueError(f"PrizePicks export does not support {league}.")

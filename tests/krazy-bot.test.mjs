@@ -628,3 +628,24 @@ test('the home screen shows today\'s top plays, the safest one and the board', a
   assert.equal(bot.card().card.kind, 'pick');
   assert.equal(bot.card().card.pick.player, today.top[0].player);
 });
+
+test('a slip from the assistant carries one PrizePicks promo line at most', async () => {
+  const {rows, reads} = board();
+  // The board's strongest picks are all promos.
+  for (const name of ['Tarik Skubal', 'David Pastrnak', 'Aaron Judge', 'Jayson Tatum']) rows.find(item => item.player === name).promo = true;
+  const bot = createBot({
+    sports: ['mlb', 'nba', 'nhl'], load: async sport => rows.filter(item => item.sport === sport),
+    judge: list => list.flatMap(item => ['OVER', 'UNDER'].map(side => reads.get(`${item.id}|${side}`))).filter(leg => leg?.backed),
+    assess: (item, side) => reads.get(`${item.id}|${side}`) || null, now: () => START, random: () => 0,
+  });
+  let slips = 0;
+  for (const question of ['build me a 3-pick slip', 'build me a 3-pick slip with a demon', 'give me a 2 pick 3x']) {
+    await bot.ask(question);
+    const card = bot.card()?.card;
+    if (card?.kind !== 'slip') continue;
+    slips++;
+    const promos = card.picks.filter(pick => rows.find(item => item.player === pick.player && item.promo));
+    assert.ok(promos.length <= 1, `${question}: ${card.picks.map(pick => pick.player).join(', ')}`);
+  }
+  assert.ok(slips >= 2, 'slips were built');
+});

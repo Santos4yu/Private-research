@@ -129,7 +129,7 @@ def build(projections=None, now=None, fixture_list=None):
             "opponent": (info and info["opponent"]["abbr"]) or line.get("description") or None,
             "position": _position(line.get("position")),
             "headshot": line.get("headshot") or None, "stat": line.get("stat"), "marketKey": market_key(line.get("stat")),
-            "line": value, "modifier": tier,
+            "line": value, "modifier": tier, "promo": bool(line.get("promo")),
             "startsAt": datetime.fromtimestamp(starts, timezone.utc).isoformat() if starts is not None else None,
             "apps": [{"key": "prizepicks", "name": "PrizePicks", "over": None, "under": None, "modifier": tier,
                       "updatedAt": line.get("updated_at") or None}],

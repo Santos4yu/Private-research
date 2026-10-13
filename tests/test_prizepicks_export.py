@@ -317,3 +317,22 @@ class SharedFeedTests(unittest.TestCase):
         entry={"loaded_at":1000,"rows":[{"player":"Angel Reese","line":15.5}]}
         with patch.dict(export._PROJECTION_CACHE,{},clear=True), patch.object(export.time,"time",return_value=1200), patch.object(export,"_shared_projection_cache",return_value=entry), patch.object(export,"_league_id",return_value="3"), patch.object(export.requests,"get",side_effect=requests.HTTPError("429")):
             self.assertEqual(export._fetch_projection_rows(league="WNBA"),entry["rows"])
+
+
+class PromoLineTests(unittest.TestCase):
+    def test_flash_sales_and_lines_far_under_the_players_next_line_are_promos(self):
+        from prizepicks_export_core import _mark_promos
+        start = "2026-10-11T23:00:00Z"
+        line = lambda player, stat, value, kind="standard", flash=False: {
+            "player": player, "player_id": player, "stat": stat, "line": value, "odds_type": kind, "flash": flash, "start_time": start}
+        rows = [
+            line("Anthony Edwards", "Points", 0.5, flash=True), line("Anthony Edwards", "Points", 27.5),
+            line("Theo Johnson", "Receiving Yards", 0.5), line("Theo Johnson", "Receiving Yards", 19.5, "demon"),
+            # Ordinary low lines under a Demon: not promos.
+            line("Alex Ovechkin", "Points", 0.5), line("Alex Ovechkin", "Points", 1.5, "demon"),
+            line("Aaron Judge", "Hits", 0.5), line("Aaron Judge", "Hits", 1.5, "demon"),
+            line("Solo Player", "Rush Yards", 0.5),
+        ]
+        promos = {(row["player"], row["line"]) for row in _mark_promos(rows) if row["promo"]}
+        self.assertEqual(promos, {("Anthony Edwards", 0.5), ("Theo Johnson", 0.5)})
+        self.assertTrue(all("promo" in row for row in rows))

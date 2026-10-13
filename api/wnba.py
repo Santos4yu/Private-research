@@ -456,13 +456,14 @@ def _merge_prizepicks(rows, events, directory, now, alternates=None, lines=None)
             for app in existing["apps"]:
                 if app.get("key") == "prizepicks":
                     app["modifier"] = existing["modifier"] = modifier
+            existing["promo"] = bool(line.get("promo"))
             continue
         identities = directory["players"].get(_norm(name), [])
         identity = next((item for item in identities if item.get("team") in by_team), identities[0] if len(identities) == 1 else None)
         event = by_team[identity["team"]][0] if identity and identity.get("team") in by_team else None
         row = {"id": f"pp:{line.get('id')}", "sport": "wnba", "eventId": event.get("id") if event else None,
                "player": name, "marketKey": market, "market": PRIZEPICKS_LABELS.get(market) or line.get("stat"),
-               "line": value, "modifier": modifier, "homeTeam": event.get("home_team") if event else None,
+               "line": value, "modifier": modifier, "promo": bool(line.get("promo")), "homeTeam": event.get("home_team") if event else None,
                "awayTeam": event.get("away_team") if event else None, "startsAt": starts.isoformat(),
                "apps": [{"key": "prizepicks", "name": "PrizePicks", "over": None, "under": None,
                          "updatedAt": line.get("updated_at") or None, "modifier": modifier}]
@@ -716,7 +717,7 @@ def _nba_row(line, starts, directory, by_team):
     row = {"id": f"pp:{line.get('id')}", "sport": "nba", "eventId": game["id"] if game else None, "player": name,
            # PrizePicks' own stat name, so the board reads like the app and Export matches it exactly.
            "marketKey": market, "market": str(line.get("stat") or "").strip() or PRIZEPICKS_LABELS.get(market),
-           "line": float(line["line"]), "modifier": modifier, "startsAt": starts.isoformat(),
+           "line": float(line["line"]), "modifier": modifier, "promo": bool(line.get("promo")), "startsAt": starts.isoformat(),
            "apps": [{"key": "prizepicks", "name": "PrizePicks", "over": None, "under": None,
                      "updatedAt": line.get("updated_at") or None, "modifier": modifier}],
            "verified": True, "primaryBook": "prizepicks", "source": "prizepicks"}

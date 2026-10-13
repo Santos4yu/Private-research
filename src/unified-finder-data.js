@@ -457,6 +457,8 @@ function finish(row) {
     diff: average == null || line == null ? null : (average - line) * (direction === 'UNDER' ? -1 : 1),
     averageDelta: average == null || line == null ? null : average - line,
     modifier: String(row.modifier || 'standard').toLowerCase(),
+    // A PrizePicks promo line (prizepicks_export_core.py _mark_promos): one per entry at most.
+    promo: Boolean(row.promo ?? row.raw?.promo),
     streak: number(row.streak), moneyline: number(row.moneyline), defense: number(row.defense),
     apps: applications(row.apps)};
 }

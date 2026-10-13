@@ -334,6 +334,7 @@ def build(season, projections=None, now=None, sportsbook_lines=None):
             "position": position, "headshot": (player or {}).get("headshot") or line.get("headshot") or None,
             "propType": prop_type, "propLabel": line.get("stat"), "teamId": team, "opponentId": opponent,
             "gameId": game_id, "startsAt": datetime.fromtimestamp(starts, timezone.utc).isoformat() if starts else None,
+            "promo": bool(line.get("promo")),
             "line": {"verified": True, "bookmaker": "prizepicks", "platform": "PrizePicks", "category": category,
                      "value": value, "direction": "OVER", "price": None, "updatedAt": line.get("updated_at") or None,
                      "playerId": (player or {}).get("id"), "propType": prop_type, "gameId": game_id},

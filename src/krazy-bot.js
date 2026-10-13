@@ -13,7 +13,7 @@
 // small profile per member (what they ask about) lets it pick up where
 // they left off.
 
-import {candidates, reasons, POWER, FLEX, assessLeg, gameKey} from './smart-slip.js';
+import {candidates, reasons, POWER, FLEX, assessLeg, gameKey, isPromo, promoRoom} from './smart-slip.js';
 import {matchupRead, matchupGrade, withPoolDefense} from './slip-analyst.js';
 import {judge as judgeLeg, scoreEntry, TIERS, baselineOf, confidentUnder} from './slip-check.js';
 import {link, links, jointChance, against, together} from './slip-correlation.js';
@@ -1787,18 +1787,19 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     pool = (await withNewsAll(pool.slice(0, 18))).filter(good);
     if (order) pool.sort(order);
     const chosen = [], perGame = new Map();
-    // Two a game at most, unless there aren't games enough (one game asked for: all of it).
+    // Two a game at most, unless there aren't games enough (one game asked for: all of it), and one promo line.
     const cap = perGameCap(pool, question.count);
     let avoided = null;
     const clash = leg => chosen.map(other => link(asPick(other), asPick(leg))).find(against);
-    const open = leg => !chosen.includes(leg) && !chosen.some(other => other.player === leg.player) && (perGame.get(leg.game) || 0) < cap && !clash(leg);
+    const promoOk = leg => promoRoom(leg.row, chosen.map(other => other.row));
+    const open = leg => !chosen.includes(leg) && !chosen.some(other => other.player === leg.player) && (perGame.get(leg.game) || 0) < cap && promoOk(leg) && !clash(leg);
     const take = leg => { chosen.push(leg); perGame.set(leg.game, (perGame.get(leg.game) || 0) + 1); };
     for (const leg of pool) {
       if (chosen.length === question.count) break;
       if (chosen.includes(leg)) continue;
       const found = clash(leg);
       if (found) { avoided ||= {leg, text: found.text}; continue; }
-      if ((perGame.get(leg.game) || 0) >= cap) continue;
+      if ((perGame.get(leg.game) || 0) >= cap || !promoOk(leg)) continue;
       take(leg);
       // A pick further down that goes with this one (his quarterback, the
       // pitcher's opponent's...) and is nearly as strong comes next.
@@ -1830,7 +1831,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
   /**
    * A slip built to a payout ("a 2-man 2x": a Goblin with a regular line) or
    * with Goblins or Demons asked for: every way of putting the best Elite and
-   * Strong lines together (no two from one player, none working against each
+   * Strong lines together (no two from one player, one promo at most, none working against each
    * other, no more than two from a game) is weighed, and the likeliest one
    * paying about what was asked wins (not much under it, not far over: from
    * 92% to 130% of it; else the closest).
@@ -1849,7 +1850,9 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     // With their game news, judged again (as in slip()).
     const pool = (await withNewsAll(ranked)).filter(good).slice(0, 16);
     const cap = perGameCap(pool, count);
-    const clash = pool.map(a => pool.map(b => a === b || a.player === b.player || against(link(asPick(a), asPick(b)))));
+    // Two promo lines clash too: PrizePicks takes one per entry.
+    const clash = pool.map(a => pool.map(b => a === b || a.player === b.player || (isPromo(a.row) && isPromo(b.row))
+      || against(link(asPick(a), asPick(b)))));
     const fit = pays => (want ? Math.abs(Math.log(pays / want)) : 0);
     let best = null;
     const pick = (start, chosen) => {

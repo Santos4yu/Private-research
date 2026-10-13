@@ -203,3 +203,20 @@ test('a one-game parlay takes its picks from that game, never all from one team'
   // Only one team's players: nothing PrizePicks would take.
   assert.equal(buildLadder(candidates(rows.slice(0, 3), {now: NOW}), {perGame: 6}).length, 0);
 });
+
+test('a slip carries one PrizePicks promo line at most', () => {
+  // The strongest picks on the board are all promos; every slip still takes one at most.
+  const rows = [
+    row({player: 'P1', line: 0.5, l10: [10, 10], season: [49, 50], promo: true}),
+    row({player: 'P2', line: 0.5, l10: [10, 10], season: [48, 50], promo: true}),
+    row({player: 'P3', line: 0.5, l10: [10, 10], season: [48, 50], promo: true}),
+    row({player: 'A', l10: [8, 10], season: [34, 50]}),
+    row({player: 'B', l10: [8, 10], season: [33, 50]}),
+    row({player: 'C', l10: [7, 10], season: [31, 50]}),
+    row({player: 'D', l10: [7, 10], season: [30, 50]}),
+  ];
+  const ladder = buildLadder(candidates(rows, {now: NOW}), {sameGame: true});
+  assert.ok(ladder.length);
+  for (const slip of ladder) assert.ok(slip.legs.filter(leg => leg.row.promo).length <= 1, slip.legs.map(leg => leg.player).join(', '));
+  assert.ok(ladder.some(slip => slip.legs.some(leg => leg.row.promo)), 'one promo is still welcome');
+});

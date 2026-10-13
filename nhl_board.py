@@ -140,7 +140,7 @@ def build(projections=None, now=None, games=None, rosters=None):
             "position": nhl.POSITION_NAMES.get(info.get("pos"), info.get("pos")) or line.get("position") or None, "number": info.get("number"),
             "headshot": info.get("headshot") or nhl.mug(info.get("season"), player_team, player_id) or line.get("headshot") or None,
             "stat": line.get("stat"), "marketKey": market_key(line.get("stat")), "valueKey": value_key(line.get("stat")),
-            "line": value, "modifier": tier,
+            "line": value, "modifier": tier, "promo": bool(line.get("promo")),
             "startsAt": datetime.fromtimestamp(starts, timezone.utc).isoformat() if starts is not None else None,
             "apps": [{"key": "prizepicks", "name": "PrizePicks", "over": None, "under": None, "modifier": tier,
                       "updatedAt": line.get("updated_at") or None}],
