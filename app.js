@@ -172,7 +172,7 @@ const EXPERIENCE_KEY = "private_jarvis_interface";
 applyAccentTheme(loadAccentTheme(), { persist: false });
 applyExperience(localStorage.getItem(EXPERIENCE_KEY) === "true");
 
-const SCREEN_TITLES = Object.freeze({ research: "Research", finder: "Finder", moves: "Line Moves", v2: "Props", slate: "Tools", saved: "My Slip", builder: "Parlay Builder", slip: "Slip Analyzer", moneyline: "Moneylines", bot: "Ace Assistant", sheets: "Cheat Sheets", nrfi: "NRFI / YRFI", community: "Community", admin: "Admin Results" });
+const SCREEN_TITLES = Object.freeze({ research: "Research", finder: "Finder", moves: "Line Moves", v2: "Props", slate: "Tools", saved: "My Slip", builder: "Parlay Builder", slip: "Slip Analyzer", moneyline: "Moneylines", bot: "Ace Assistant", sheets: "Cheat Sheets", promos: "Promo Board", nrfi: "NRFI / YRFI", community: "Community", admin: "Admin Results" });
 // The URL path for each tab differs from its internal id in a few cases
 // (v2 -> /props, slate -> /tools, slip -> /slip-analyzer) so the address
 // bar reads naturally -- everything else just uses its id as-is.
@@ -336,6 +336,7 @@ function cacheEls() {
   els.panelMoneyline = document.getElementById("panel-moneyline");
   els.panelBot = document.getElementById("panel-bot");
   els.panelSheets = document.getElementById("panel-sheets");
+  els.panelPromos = document.getElementById("panel-promos");
   els.panelNrfi = document.getElementById("panel-nrfi");
   els.panelAdmin = document.getElementById("panel-admin");
   els.panelCommunity = document.getElementById("panel-community");
@@ -1389,6 +1390,7 @@ function switchTab(tab, options = {}) {
   els.panelMoneyline.hidden = tab !== "moneyline";
   if (els.panelBot) els.panelBot.hidden = tab !== "bot";
   if (els.panelSheets) els.panelSheets.hidden = tab !== "sheets";
+  if (els.panelPromos) els.panelPromos.hidden = tab !== "promos";
   els.panelNrfi.hidden = tab !== "nrfi";
   els.panelCommunity.hidden = tab !== "community";
   els.panelAdmin.hidden = tab !== "admin";

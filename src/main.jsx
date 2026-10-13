@@ -53,6 +53,7 @@ const sections = {
   moneylines: () => import('./Moneylines').then(m => ({ default: m.Moneylines })),
   bot: () => import('./KrazyBot').then(m => ({ default: m.KrazyBot })),
   sheets: () => import('./CheatSheets').then(m => ({ default: m.CheatSheets })),
+  promos: () => import('./PromoBoard').then(m => ({ default: m.PromoBoard })),
   analyzer: () => import('./SlipAnalyzer').then(m => ({ default: m.SlipAnalyzer })),
 };
 // The signed-out screens and the admin PIN load only when they're shown, so
@@ -66,6 +67,7 @@ const SmartSlip = lazy(sections.slip);
 const Moneylines = lazy(sections.moneylines);
 const KrazyBot = lazy(sections.bot);
 const CheatSheets = lazy(sections.sheets);
+const PromoBoard = lazy(sections.promos);
 const SlipAnalyzer = lazy(sections.analyzer);
 const later = element => <Suspense fallback={null}>{element}</Suspense>;
 
@@ -128,6 +130,7 @@ const slipAnalyzerRoot = document.getElementById('slip-analyzer-root');
 const moneylinesRoot = document.getElementById('moneylines-root');
 const krazyBotRoot = document.getElementById('krazy-bot-root');
 const cheatSheetsRoot = document.getElementById('cheat-sheets-root');
+const promoBoardRoot = document.getElementById('promo-board-root');
 // A section starts (mounts, and so fetches its data) the first time its tab
 // is shown rather than at sign-in. Returns a function that stops waiting.
 function whenShown(host, start) {
@@ -178,12 +181,18 @@ function mountKrazyBot(open){
  else if(!open&&krazyBotMount){krazyBotMount.unmount();krazyBotMount=null;}
 }
 // Cheat Sheets: mounted only for someone allowed to open them.
+// The Promo Board: like Cheat Sheets, a section the admin switches on.
+let promoBoardMount=null;
+function mountPromoBoard(open){
+ if(open&&!promoBoardMount&&promoBoardRoot){promoBoardMount=shownRoot(promoBoardRoot,later(<PromoBoard/>));}
+ else if(!open&&promoBoardMount){promoBoardMount.unmount();promoBoardMount=null;}
+}
 let cheatSheetsMount=null;
 function mountCheatSheets(open){
  if(open&&!cheatSheetsMount&&cheatSheetsRoot){cheatSheetsMount=shownRoot(cheatSheetsRoot,later(<CheatSheets/>));}
  else if(!open&&cheatSheetsMount){cheatSheetsMount.unmount();cheatSheetsMount=null;}
 }
-window.addEventListener('vortex:site-policy',event=>{mountPrivateResearch(event.detail.accessGranted);mountAdminSections(Boolean(event.detail.accessGranted&&event.detail.isAdmin));mountKrazyBot(canUseTab(event.detail,'bot'));mountCheatSheets(canUseTab(event.detail,'sheets'));});
+window.addEventListener('vortex:site-policy',event=>{mountPrivateResearch(event.detail.accessGranted);mountAdminSections(Boolean(event.detail.accessGranted&&event.detail.isAdmin));mountKrazyBot(canUseTab(event.detail,'bot'));mountCheatSheets(canUseTab(event.detail,'sheets'));mountPromoBoard(canUseTab(event.detail,'promos'));});
 mountPrivateResearch(document.documentElement.dataset.siteAccess==='granted');
 
 const filterIcons = { all: LayoutGrid, hrr: BarChart3, 'total-bases': Diamond, hits: CircleDot, strikeouts: Target, matchup: Crosshair };
