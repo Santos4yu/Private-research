@@ -276,7 +276,7 @@ function Pick({leg,index,need,locked,onLock,onSwap,onResearch}){
 
 // The built slip as a picture to post: the slip card, each pick's line as PrizePicks shows it (slip-share.js drawCard).
 async function shareBuilt(slip){
- await shareCard({letter:slip.letter,kind:`${slip.legs.length}-pick ${slip.play==='flex'?'Flex':'Power'}`,payout:slip.payout,
+ await shareCard({letter:slip.letter,kind:`${slip.legs.length}-pick ${slip.play==='flex'?'Flex':'Power'}`,
   legs:slip.legs.map(leg=>({player:leg.row.player,team:leg.row.teamAbbr,position:leg.row.position,sport:leg.row.sport,headshot:leg.row.headshot,
    teamLogo:teamLogo(leg.row),side:leg.side,line:leg.row.line,stat:leg.row.market,modifier:leg.row.modifier}))});
 }

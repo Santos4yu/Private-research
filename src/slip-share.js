@@ -12,8 +12,15 @@ const GRADE_TONE = {A: '#46e39a', B: '#aeb5b8', C: '#f6b955'};
 const initials = name => String(name || '').split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase();
 const nice = value => (Number.isInteger(value) ? String(value) : Number(value).toFixed(1));
 
-// Images from other sites load only when they allow it, so the canvas can
-// still be saved; anything that fails is drawn without.
+// A canvas can only be saved when what's drawn on it is this site's own, and
+// the leagues' image hosts don't allow it otherwise -- so their headshots and
+// logos come through api/mlb-logo.py (?src=). Anything that fails is drawn without.
+const viaSite = src => {
+  try {
+    const url = new URL(src, location.href);
+    return url.origin === location.origin || url.protocol === 'data:' ? src : `/api/mlb-logo?src=${encodeURIComponent(url.href)}`;
+  } catch { return src; }
+};
 function image(src) {
   return new Promise(resolve => {
     if (!src) return resolve(null);
@@ -21,8 +28,8 @@ function image(src) {
     img.crossOrigin = 'anonymous';
     img.onload = () => resolve(img);
     img.onerror = () => resolve(null);
-    img.src = src;
-    setTimeout(() => resolve(null), 4000);
+    img.src = viaSite(src);
+    setTimeout(() => resolve(null), 8000);
   });
 }
 
@@ -65,15 +72,15 @@ function arrow(ctx, x, y, size, up) {
 }
 
 /**
- * A built slip as the card it was built on: the app and the grade at the
- * top, each pick a row (photo, name, team · position · league) with its line
- * the way the app shows it -- an arrow, the number and the stat, a goblin
- * or demon when it has one -- and the kind of play and what it pays at the
- * foot. `legs` are {player, team, position, sport, headshot, teamLogo, side,
- * line, stat, modifier}; `kind` is the foot's words ("3-pick Power"),
- * `source` the page it came from, `tagline` the line beneath the card.
+ * A slip as a card: the app's logo, the kind of entry and the grade at the
+ * top, then each pick a row (photo, name, team · position · league) with its
+ * line the way the app shows it -- an arrow, the number and the stat, a
+ * goblin or demon when it has one. `legs` are {player, team, position,
+ * sport, headshot, teamLogo, side, line, stat, modifier}; `kind` is the
+ * header's words ("3-pick Power"), `source` the page it came from, `tagline`
+ * the line beneath the card.
  */
-export async function drawCard({legs, letter, kind, payout, app = 'PrizePicks', appLogo = '/prizepicks/logo.png', source = 'PARLAY BUILDER',
+export async function drawCard({legs, letter, kind, appLogo = '/prizepicks/logo.png', source = 'PARLAY BUILDER',
   tagline = 'Built from Elite and Strong picks, graded on matchup, form and news'}) {
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
@@ -97,20 +104,22 @@ export async function drawCard({legs, letter, kind, payout, app = 'PrizePicks', 
   ctx.fillText(source, W - PAD, 90);
 
   // The card's size: rows as tall as fit, the whole card centered.
-  const x0 = PAD - 8, cardW = W - x0 * 2, inset = 30, headH = 118, footH = 104, gap = 14;
-  const rowH = Math.max(104, Math.min(168, (H - 300 - headH - footH - inset * 2 - gap * (n - 1)) / n));
-  const cardH = headH + n * rowH + gap * (n - 1) + inset + footH;
+  const x0 = PAD - 8, cardW = W - x0 * 2, inset = 30, headH = 118, gap = 14;
+  const rowH = Math.max(104, Math.min(168, (H - 300 - headH - inset * 2 - gap * (n - 1)) / n));
+  const cardH = headH + n * rowH + gap * (n - 1) + inset;
   const y0 = Math.max(140, (H - cardH) / 2 - 10);
   ctx.beginPath(); ctx.roundRect(x0, y0, cardW, cardH, 44);
   ctx.fillStyle = CARD; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = LINE; ctx.stroke();
   const left = x0 + inset, right = x0 + cardW - inset;
 
-  // Header: the app, "Your slip", the grade.
+  // Header: the app's logo, the kind of entry ("3-pick Power"), the grade.
   if (logo) { ctx.save(); ctx.beginPath(); ctx.roundRect(left, y0 + 32, 56, 56, 14); ctx.clip(); ctx.drawImage(logo, left, y0 + 32, 56, 56); ctx.restore(); }
-  set(46, 800); ctx.fillStyle = INK; ctx.textAlign = 'left';
-  ctx.fillText('Your slip', left + (logo ? 76 : 0), y0 + 76);
   set(26, 800);
   const chip = letter ? `Grade ${letter}` : 'Graded A+ to F', chipW = ctx.measureText(chip).width + 40;
+  set(40, 800); ctx.fillStyle = INK; ctx.textAlign = 'left';
+  const titleX = left + (logo ? 76 : 0);
+  ctx.fillText(fit(ctx, kind || `${n}-pick slip`, right - chipW - 24 - titleX), titleX, y0 + 74);
+  set(26, 800);
   const tone = letter ? GRADE_TONE[letter[0]] || '#ff7b8a' : GREEN;
   ctx.beginPath(); ctx.roundRect(right - chipW, y0 + 36, chipW, 50, 25);
   ctx.fillStyle = `${tone}29`; ctx.fill();
@@ -172,13 +181,6 @@ export async function drawCard({legs, letter, kind, payout, app = 'PrizePicks', 
     ctx.fillText(fit(ctx, [leg.team, leg.position, SPORT[leg.sport]].filter(Boolean).join(' · '), room), textX, mid + rowH * 0.24);
   });
 
-  // Foot: the kind of play and what it pays.
-  const footY = y0 + headH + n * rowH + gap * (n - 1) + inset;
-  dashed(footY);
-  set(32, 700); ctx.fillStyle = FAINT; ctx.textAlign = 'left';
-  ctx.fillText(fit(ctx, kind || `${n}-pick slip`, (right - left) / 2), left + 4, footY + 66);
-  set(46, 800); ctx.fillStyle = INK; ctx.textAlign = 'right';
-  ctx.fillText(payout ? `Pays ${nice(payout)}x` : app, right - 4, footY + 70);
 
   set(22, 600); ctx.fillStyle = FAINT; ctx.textAlign = 'center';
   ctx.fillText(tagline, W / 2, H - 64);
@@ -190,15 +192,16 @@ export async function drawCard({legs, letter, kind, payout, app = 'PrizePicks', 
 /** The slip card to the share sheet on a phone, a download elsewhere. */
 export async function shareCard(options) {
   const canvas = await drawCard(options);
-  await sharePicture(canvas, `parlay-${String(options.letter || 'slip').replace('+', '-plus').toLowerCase()}.png`, 'My parlay');
+  await sharePicture(canvas, `parlay-${String(options.letter || 'slip').replace('+', '-plus').toLowerCase()}.png`);
 }
 
-async function sharePicture(canvas, name, title) {
+async function sharePicture(canvas, name) {
   const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
   if (!blob) return;
   const file = new File([blob], name, {type: 'image/png'});
   if (navigator.canShare?.({files: [file]})) {
-    try { await navigator.share({files: [file], title, text: `Graded on ${SITE}`}); return; }
+    // The picture alone: with words alongside it, the share sheet's Copy copies the words instead.
+    try { await navigator.share({files: [file]}); return; }
     catch (error) { if (error?.name === 'AbortError') return; }
   }
   const link = document.createElement('a');
