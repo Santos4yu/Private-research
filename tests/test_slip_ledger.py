@@ -243,3 +243,24 @@ class LedgerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PublicResultsTests(unittest.TestCase):
+    def test_the_public_record_shows_finished_elite_and_strong_picks_and_nothing_private(self):
+        from datetime import datetime, timezone
+        import slip_ledger as ledger
+        now = datetime(2026, 10, 13, 16, 0, tzinfo=timezone.utc)
+        pick = lambda tier, result, **extra: {'player': 'P', 'sport': 'nba', 'stat': 'Points', 'line': 20.5, 'side': 'OVER', 'tier': tier,
+                                              'result': result, 'value': 25, 'startsAt': '2026-10-12T23:00:00+00:00', 'owners': ['member-1'],
+                                              'settle': {'kind': 'key'}, **extra}
+        entries = [('2026-10-12', 'a', pick('elite', 'hit')), ('2026-10-12', 'b', pick('elite', 'miss')),
+                   ('2026-10-12', 'c', pick('strong', 'hit')), ('2026-10-12', 'd', pick('lean', 'hit')),
+                   ('2026-10-13', 'e', pick('elite', None)),            # still to play: not shown
+                   ('2026-10-12', 'f', pick('elite', 'hit', late=True))]  # graded after kickoff: not counted
+        out = ledger.public_results(now, entries)
+        self.assertEqual(out['tiers']['elite'], {'hits': 1, 'misses': 1, 'picks': 2, 'rate': 0.5})
+        self.assertEqual(out['all']['picks'], 3)
+        self.assertEqual(len(out['recent']), 3)
+        self.assertNotIn('owners', out['recent'][0])
+        self.assertNotIn('settle', out['recent'][0])
+        self.assertEqual([day['picks'] for day in out['daily'] if day['day'] == '2026-10-12'], [3])

@@ -78,6 +78,11 @@ class handler(BaseHTTPRequestHandler):
             return self._json(200,{'profile':account_profile.public_profile(uid,account_profile.read_profile(uid)),'prefs':account_profile.read_prefs(uid)})
         if action == "account-image":
             return self._account_image(query)
+        if action == "results":
+            # The public record (slip_ledger.public_results): no sign-in, and
+            # cached at the edge, since anyone with the /results link sees it.
+            import slip_ledger
+            return self._json(200, slip_ledger.public_results(), cache='public, max-age=120, s-maxage=300')
         if action == "pricing":
             return self._pricing()
         if action == "push-key":
@@ -399,11 +404,11 @@ class handler(BaseHTTPRequestHandler):
             self.send_header(name, value)
         self.end_headers()
 
-    def _json(self, status, payload, cookies=None):
+    def _json(self, status, payload, cookies=None, cache="no-store"):
         body = json.dumps(payload).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Cache-Control", cache)
         if status == 503 and payload.get('retryAfter'):
             self.send_header('Retry-After', str(payload['retryAfter']))
         for cookie in cookies or []:

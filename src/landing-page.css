@@ -121,3 +121,8 @@
  .kd-landing .kd-landing-bar nav{gap:2px}
  .kd-landing .kd-landing-bar .kd-button{padding:0 10px}
 }
+
+/* "See our record" under the landing page's buttons (results.html). */
+.kd-landing-record{display:inline-flex;align-items:center;gap:6px;margin-top:16px;color:#9ca5aa;font:600 14px var(--font-sans,'Inter',sans-serif);text-decoration:none}
+.kd-landing-record:hover{color:#00f58a}
+.kd-landing-record:focus-visible{outline:2px solid #00f58a;outline-offset:3px;border-radius:6px}

@@ -1,0 +1,79 @@
+/* The public record (src/results-page.js). Ace Props green on near-black. */
+:root{--rp-bg:#090b0d;--rp-card:#121619;--rp-raised:#181e22;--rp-line:#232b30;--rp-text:#f4f7f6;--rp-muted:#9ca5aa;--rp-faint:#737d82;
+ --rp-accent:#00f58a;--rp-on-accent:#03140b;--rp-hit:#2fdc8d;--rp-miss:#f16b75;--rp-gold:#f5c66a;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--rp-bg);color:var(--rp-text);font:400 15px/1.5 'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{background:radial-gradient(ellipse at 50% -10%,rgba(0,245,138,.12),transparent 55%),var(--rp-bg);min-height:100dvh}
+.rp{width:min(100%,880px);margin:0 auto;padding:max(16px,env(safe-area-inset-top,0px)) 16px max(28px,env(safe-area-inset-bottom,0px))}
+.rp-loading{color:var(--rp-muted);text-align:center;padding:40vh 0 0}
+.rp a{color:inherit}
+
+.rp-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0 20px}
+.rp-brand img{display:block;height:40px;width:auto}
+.rp-cta-small{padding:9px 14px;border-radius:999px;background:var(--rp-accent);color:var(--rp-on-accent)!important;font:700 13px 'Inter',sans-serif;text-decoration:none}
+
+.rp-hero{padding:18px 0 22px;text-align:center}
+.rp-eyebrow{margin:0 0 6px;color:var(--rp-accent);font:700 12px 'JetBrains Mono',monospace;letter-spacing:.12em;text-transform:uppercase}
+.rp-hero h1{margin:0;font:800 clamp(34px,7vw,52px)/1.05 'Sora',sans-serif;letter-spacing:-.04em}
+.rp-lede{max-width:520px;margin:12px auto 0;color:var(--rp-muted);font-size:15px}
+.rp-overall{display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:22px}
+.rp-overall strong{font:800 clamp(56px,14vw,84px)/1 'Sora',sans-serif;letter-spacing:-.05em;color:var(--rp-accent)}
+.rp-overall span{color:var(--rp-text);font-weight:600}
+.rp-note{display:inline-block;margin:14px auto 0;padding:6px 12px;border:1px solid rgba(245,198,106,.3);border-radius:999px;background:rgba(245,198,106,.08);color:var(--rp-gold);font-size:12.5px}
+
+.rp-tiers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.rp-tier{display:flex;flex-direction:column;gap:4px;padding:16px;border:1px solid var(--rp-line);border-radius:16px;background:var(--rp-card)}
+.rp-tier[data-tier=elite]{border-color:rgba(0,245,138,.35);background:linear-gradient(180deg,rgba(0,245,138,.08),var(--rp-card) 70%)}
+.rp-tier-name{color:var(--rp-muted);font:700 12px 'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase}
+.rp-tier-rate{font:800 34px/1.05 'Sora',sans-serif}
+.rp-tier-record{color:var(--rp-muted);font-size:13px}
+.rp-bar{display:block;height:6px;margin-top:6px;border-radius:999px;background:#232b30;overflow:hidden}
+.rp-bar>i{display:block;height:100%;border-radius:inherit;background:var(--rp-accent)}
+
+.rp-section{margin-top:26px}
+.rp-section h2,.rp-join h2{margin:0 0 12px;font:700 18px 'Sora',sans-serif;letter-spacing:-.01em}
+.rp-sports{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.rp-sport{display:grid;grid-template-columns:22px 1fr auto;align-items:center;gap:4px 8px;padding:12px;border:1px solid var(--rp-line);border-radius:14px;background:var(--rp-card)}
+.rp-sport img{width:22px;height:22px;object-fit:contain;grid-row:span 2}
+.rp-sport-name{font-weight:700;font-size:13px}
+.rp-sport b{font:800 16px 'Sora',sans-serif;grid-row:span 2}
+.rp-sport small{color:var(--rp-faint);font-size:11.5px}
+
+.rp-daily{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px;padding:14px 12px 10px;border:1px solid var(--rp-line);border-radius:16px;background:var(--rp-card)}
+.rp-day{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0}
+.rp-day-bars{display:flex;align-items:flex-end;gap:2px;width:100%;height:110px}
+.rp-day-bars i{flex:1;min-height:0;border-radius:4px 4px 0 0}
+.rp-day small{color:var(--rp-faint);font-size:10.5px;white-space:nowrap}
+i.rp-hit{background:var(--rp-hit)}
+i.rp-miss{background:var(--rp-miss)}
+.rp-legend{display:flex;align-items:center;gap:6px;margin:8px 0 0;color:var(--rp-muted);font-size:12px}
+.rp-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-left:8px}
+.rp-legend i:first-child{margin-left:0}
+
+.rp-picks{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+.rp-pick{display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--rp-line);border-radius:14px;background:var(--rp-card)}
+.rp-face{position:relative;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--rp-raised);overflow:hidden;color:var(--rp-muted);font:700 12px 'Sora',sans-serif}
+.rp-face img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.rp-pick-main{display:flex;flex-direction:column;min-width:0}
+.rp-pick-main b{font-size:14px}
+.rp-pick-main span{color:var(--rp-text);font-size:13px}
+.rp-pick-main small{overflow:hidden;color:var(--rp-faint);font-size:11.5px;white-space:nowrap;text-overflow:ellipsis}
+.rp-pick-result{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.rp-chip{padding:4px 10px;border-radius:999px;font:700 12px 'Inter',sans-serif}
+.rp-pick[data-result=hit] .rp-chip{background:rgba(47,220,141,.14);color:var(--rp-hit)}
+.rp-pick[data-result=miss] .rp-chip{background:rgba(241,107,117,.14);color:var(--rp-miss)}
+.rp-pick-result small{color:var(--rp-faint);font-size:11px;white-space:nowrap}
+
+.rp-join{margin-top:32px;padding:24px 18px;border:1px solid rgba(0,245,138,.3);border-radius:20px;background:linear-gradient(180deg,rgba(0,245,138,.08),var(--rp-card));text-align:center}
+.rp-join p{max-width:460px;margin:0 auto 16px;color:var(--rp-muted)}
+.rp-cta{display:inline-flex;align-items:center;justify-content:center;min-height:50px;padding:0 26px;border:0;border-radius:14px;background:var(--rp-accent);color:var(--rp-on-accent)!important;font:800 15px 'Inter',sans-serif;text-decoration:none;cursor:pointer}
+.rp-link{display:block;margin-top:12px;color:var(--rp-muted)!important;font-size:13px}
+.rp a:focus-visible,.rp button:focus-visible{outline:2px solid var(--rp-accent);outline-offset:3px}
+.rp-foot{margin-top:26px;text-align:center;color:var(--rp-faint);font-size:12px}
+.rp-foot p{max-width:520px;margin:0 auto 6px}
+
+@media (max-width:420px){
+ .rp-tier-rate{font-size:28px}
+ .rp-daily{gap:3px;padding:12px 8px 8px}
+ .rp-day small{font-size:9.5px}
+}

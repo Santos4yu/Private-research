@@ -632,3 +632,47 @@ def tick(now=None, limit=8):
     except Exception:  # noqa: BLE001 -- never at the cost of settling
         learned = None
     return {"settled": len(settled), **news, "learned": learned}
+
+
+# ---------------------------------------------------------------- public record
+
+PUBLIC_TIERS = ("elite", "strong")
+PUBLIC_RECENT = 24
+PUBLIC_DAYS = 14
+# A pick's public face: what was picked and how it finished -- never who
+# graded it (owners), nor how it was settled.
+PUBLIC_FIELDS = ("player", "sport", "stat", "line", "side", "tier", "result", "value", "modifier", "team", "opponent", "headshot")
+
+
+def public_results(now=None, entries=None):
+    """The site's record for anyone to see (the /results page): Elite and
+    Strong picks graded before their games and settled from the final box
+    score over the last RECORD_DAYS -- by tier, by sport, by day -- and the
+    latest finished ones. Only finished games: today's open picks stay
+    members-only."""
+    now = now or datetime.now(timezone.utc)
+    held = _memory.get("public")
+    if entries is None and held and time.time() - held[0] < RECORD_FRESH:
+        return held[1]
+    rows = entries if entries is not None else _ledger(_days(now, RECORD_DAYS))
+    done = [(day, pick) for day, _, pick in rows
+            if not pick.get("late") and pick.get("tier") in PUBLIC_TIERS and pick.get("result") in ("hit", "miss")]
+
+    def tally(picks):
+        hits = sum(1 for pick in picks if pick["result"] == "hit")
+        decided = len(picks)
+        return {"hits": hits, "misses": decided - hits, "picks": decided, "rate": round(hits / decided, 4) if decided else None}
+
+    tiers = {tier: tally([pick for _, pick in done if pick["tier"] == tier]) for tier in PUBLIC_TIERS}
+    sports = {sport: tally([pick for _, pick in done if pick.get("sport") == sport]) for sport in SPORTS}
+    recent_days = _days(now, PUBLIC_DAYS)
+    days = [{"day": day, **tally([pick for d, pick in done if d == day])} for day in reversed(recent_days)]
+    latest = sorted(done, key=lambda item: (_time(item[1].get("startsAt")) or now).timestamp(), reverse=True)[:PUBLIC_RECENT]
+    out = {"days": RECORD_DAYS, "tiers": tiers, "all": tally([pick for _, pick in done]),
+           "sports": {sport: counts for sport, counts in sports.items() if counts["picks"]},
+           "daily": days,
+           "recent": [{**{field: pick.get(field) for field in PUBLIC_FIELDS}, "day": day} for day, pick in latest],
+           "at": now.isoformat()}
+    if entries is None:
+        _memory["public"] = (time.time(), out)
+    return out

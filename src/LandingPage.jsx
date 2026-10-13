@@ -103,6 +103,8 @@ export function LandingPage({ onSignUp, onSignIn }) {
             </button>
             <button type="button" className="kd-button kd-button-outline kd-button-large" onClick={onSignIn}>Sign in</button>
           </div>
+          {/* The public record (results.html): every Elite and Strong pick, wins and losses. */}
+          <a className="kd-landing-record" href="/results">See our record <ArrowRight size={14} aria-hidden="true" /></a>
         </section>
         <FinderPreview />
       </main>
