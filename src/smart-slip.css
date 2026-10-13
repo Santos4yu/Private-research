@@ -270,6 +270,8 @@
 .ss-result-bar .ss-summary::-webkit-scrollbar{display:none}
 .smart-slip .ss-again{display:grid;place-items:center;flex:none;width:40px;height:40px;border:1px solid var(--s-line);border-radius:50%;background:#14191c;color:var(--s-muted);transition:color .2s,transform .4s}
 .smart-slip .ss-again:hover{color:var(--s-text);transform:rotate(90deg)}
+.smart-slip .ss-done{display:inline-flex;align-items:center;gap:5px;flex:none;min-height:40px;padding:0 15px 0 12px;border:0;border-radius:999px;background:var(--theme-accent,#00f58a);color:var(--theme-on-accent,#03140b);font-size:13px;font-weight:800;cursor:pointer}
+.smart-slip .ss-done:focus-visible{outline:2px solid var(--theme-accent,#00f58a);outline-offset:2px}
 
 /* The build button: the brand colour, pressed like a real button. */
 .ss-build{display:flex;align-items:center;justify-content:center;gap:10px;min-height:56px;border-radius:16px;background:var(--theme-accent)!important;

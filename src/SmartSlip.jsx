@@ -695,6 +695,8 @@ export function SmartSlip(){
     <button type="button" className="ss-edit" onClick={()=>{setEditing(true);go(LAST);}}><ChevronLeft size={16}/>Edit</button>
     <p className="ss-summary" aria-label="Your choices">{summary.map(item=><span key={item}>{item}</span>)}</p>
     <button type="button" className="ss-again" onClick={build} aria-label="Build again"><RefreshCw size={16}/></button>
+    {/* Finished with this slip: straight back to the Builder's start, not back through every question. */}
+    <button type="button" className="ss-done" onClick={()=>{setEditing(true);setSwap(null);go(0);}}><Check size={15} strokeWidth={3}/>Done</button>
    </div>
    {notice&&<p className="ss-notice" role="status">{notice}</p>}
    {status==='ready'&&!ladder.length&&<div className="ss-empty"><b>No slip clears the bar right now</b>
