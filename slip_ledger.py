@@ -877,7 +877,6 @@ def record_clear(now=None):
 # ---------------------------------------------------------------- public record
 
 PUBLIC_RECENT = 24
-PUBLIC_DAYS = 14
 # A pick's public face: what was picked and how it finished -- never how it
 # was settled.
 PUBLIC_FIELDS = ("player", "sport", "stat", "line", "side", "tier", "result", "value", "modifier", "team", "opponent", "headshot")
@@ -899,7 +898,7 @@ def _slips(rows):
 def public_results(now=None, entries=None):
     """The site's record for anyone to see (the /results page): every pick
     the admin posted (RECORD) and settled hit or miss over the last
-    RECORD_DAYS -- by tier, by sport, by day, each slip won or lost -- and
+    RECORD_DAYS -- by tier, by sport, as it built up day by day, each slip won or lost -- and
     the latest finished slips and picks. Only finished games: today's open
     picks stay members-only."""
     now = now or datetime.now(timezone.utc)
@@ -916,8 +915,6 @@ def public_results(now=None, entries=None):
 
     tiers = {tier: tally([pick for _, pick in done if pick["tier"] == tier]) for tier in TIERS}
     sports = {sport: tally([pick for _, pick in done if pick.get("sport") == sport]) for sport in SPORTS}
-    recent_days = _days(now, PUBLIC_DAYS)
-    days = [{"day": day, **tally([pick for d, pick in done if d == day])} for day in reversed(recent_days)]
     # Slips: won when nothing missed and something hit, lost on a miss; shown
     # once every pick in it has finished.
     finished, won, lost = [], 0, 0
@@ -956,7 +953,6 @@ def public_results(now=None, entries=None):
     out = {"days": RECORD_DAYS, "tiers": tiers, "all": tally([pick for _, pick in done]),
            "slips": {"won": won, "lost": lost, "slips": decided, "rate": round(won / decided, 4) if decided else None},
            "sports": {sport: counts for sport, counts in sports.items() if counts["picks"]},
-           "daily": days,
            "running": running,
            "latest": latest,
            "at": now.isoformat()}

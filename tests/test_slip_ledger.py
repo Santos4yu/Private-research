@@ -479,7 +479,7 @@ class PublicResultsTests(unittest.TestCase):
         self.assertEqual(sum(len(item['picks']) for item in out['latest']), 4)  # each on its own; the push neither hit nor missed
         self.assertNotIn('owners', out['latest'][0]['picks'][0])
         self.assertNotIn('settle', out['latest'][0]['picks'][0])
-        self.assertEqual([day['picks'] for day in out['daily'] if day['day'] == '2026-10-12'], [4])
+        self.assertEqual([day for day in out['running'] if day['day'] == '2026-10-12'], [{'day': '2026-10-12', 'hits': 3, 'misses': 1}])
 
 
 if __name__ == "__main__":

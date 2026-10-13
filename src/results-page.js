@@ -220,45 +220,17 @@ function runningChart(points) {
   h('div', {className: 'rp-card'}, box), table);
 }
 
-function dailyChart(days) {
- const shown = days.filter(day => day.picks);
- if (!shown.length) return null;
- const most = Math.max(...days.map(day => day.picks), 1);
- const chart = h('div', {className: 'rp-daily', 'data-wait': calm() ? null : ''},
-  days.map((day, index) => {
-   const label = day.picks ? `${dayLabel(day.day)}: ${record(day)}` : `${dayLabel(day.day)}: no picks`;
-   const node = h('div', {className: 'rp-day', tabindex: day.picks ? '0' : null, 'aria-label': label, style: `--d:${index * 45}ms`},
-    h('div', {className: 'rp-day-bars'},
-     h('i', {className: 'rp-hit', style: `height:${day.hits / most * 100}%`}),
-     h('i', {className: 'rp-miss', style: `height:${day.misses / most * 100}%`})),
-    h('small', {text: dayLabel(day.day).replace(/^\w+ /, '')}));
-   if (day.picks) {
-    const show = () => { const frame = node.querySelector('.rp-day-bars').getBoundingClientRect();
-     showTip([[record(day), true], [`${dayLabel(day.day)} · ${plural(day.picks, 'pick')}`]], frame.left + frame.width / 2, frame.top + frame.height - Math.max(day.hits, day.misses) / most * frame.height); };
-    node.addEventListener('pointerenter', show); node.addEventListener('focus', show);
-    node.addEventListener('pointerleave', hideTip); node.addEventListener('blur', hideTip);
-   }
-   return node;
-  }));
- onSeen(chart, () => chart.removeAttribute('data-wait'));
- return h('section', {className: 'rp-section', 'aria-labelledby': 'rp-daily'},
-  h('div', {className: 'rp-section-head'}, h('h2', {id: 'rp-daily', text: 'Day by day'}), h('p', {text: 'The last two weeks'})),
-  h('div', {className: 'rp-card'}, chart,
-   h('p', {className: 'rp-legend'}, h('i', {className: 'rp-hit'}), 'Hit', h('i', {className: 'rp-miss'}), 'Miss')),
-  h('details', {className: 'rp-table'}, h('summary', {text: 'See the numbers'}),
-   h('table', {}, h('thead', {}, h('tr', {}, h('th', {text: 'Day'}), h('th', {text: 'Hits'}), h('th', {text: 'Misses'}))),
-    h('tbody', {}, shown.slice().reverse().map(day => h('tr', {}, h('td', {text: dayLabel(day.day)}), h('td', {text: String(day.hits)}), h('td', {text: String(day.misses)})))))));
-}
-
 const RESULT_NAMES = {hit: 'Hit', miss: 'Miss', push: 'Push', void: 'Void'};
 const dropImage = event => event.currentTarget.remove();
+// A headshot is see-through around the player, so his initials step aside once it's in.
+const photoIn = event => event.currentTarget.parentElement.classList.add('rp-has-photo');
 const logo = (src, label) => src ? h('img', {className: 'rp-logo', src, alt: label || '', width: '16', height: '16', loading: 'lazy', onError: dropImage}) : null;
 
 // The player's photo (his initials until it loads, or when there isn't one) with his team's logo on its corner.
 function face(pick) {
  return h('span', {className: 'rp-face-wrap'},
   h('span', {className: 'rp-face'}, h('i', {text: initials(pick.player)}),
-   pick.headshot ? h('img', {src: pick.headshot, alt: '', loading: 'lazy', onError: dropImage}) : null),
+   pick.headshot ? h('img', {src: pick.headshot, alt: '', loading: 'lazy', onLoad: photoIn, onError: dropImage}) : null),
   pick.teamLogo ? h('img', {className: 'rp-face-team', src: pick.teamLogo, alt: '', width: '20', height: '20', loading: 'lazy', onError: dropImage}) : null);
 }
 
@@ -297,7 +269,7 @@ function slipCard(item) {
  return reveal(h('li', {className: 'rp-slip', 'data-status': item.status},
   h('header', {className: 'rp-slip-head'},
    h('span', {className: 'rp-stack', 'aria-hidden': 'true'}, item.picks.slice(0, 4).map(pick => h('span', {className: 'rp-face rp-face-mini'},
-    h('i', {text: initials(pick.player)}), pick.headshot ? h('img', {src: pick.headshot, alt: '', loading: 'lazy', onError: dropImage}) : null))),
+    h('i', {text: initials(pick.player)}), pick.headshot ? h('img', {src: pick.headshot, alt: '', loading: 'lazy', onLoad: photoIn, onError: dropImage}) : null))),
    h('div', {}, h('b', {text: `${n}-pick ${item.app ? `${item.app} ` : ''}slip`}), h('small', {text: dayLabel(item.day)})),
    h('span', {className: 'rp-chip', text: item.status === 'won' ? 'Won' : item.status === 'lost' ? 'Lost' : 'Void'})),
   h('ol', {className: 'rp-picks'}, item.picks.map(pick => pickRow(pick, true)))));
@@ -325,7 +297,6 @@ function render(root, data) {
    small && all.picks ? h('p', {className: 'rp-note', text: `Still a small sample (${all.picks} picks), so expect this to move as more games settle.`}) : null),
   h('div', {className: 'rp-tiers'}, shownTiers(data.tiers || {}).map(tier => tierCard(tier, data.tiers?.[tier] || {hits: 0, misses: 0, picks: 0, rate: null}))),
   runningChart(data.running || []),
-  dailyChart(data.daily || []),
   sportsRow(data.sports || {}),
   recentList(data.latest || []),
   h('section', {className: 'rp-join'},

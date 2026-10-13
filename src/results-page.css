@@ -1,9 +1,9 @@
 /* The public record (src/results-page.js). Ace Props green on near-black. */
 :root{--rp-bg:#090b0d;--rp-card:#121619;--rp-raised:#181e22;--rp-line:#232b30;--rp-text:#f4f7f6;--rp-muted:#9ca5aa;--rp-faint:#737d82;
  --rp-accent:#00f58a;--rp-on-accent:#03140b;--rp-hit:#2fdc8d;--rp-miss:#f16b75;--rp-gold:#f5c66a;color-scheme:dark;
- /* Chart marks (bars, the running line): a pair checked for colour-blind
-    separation on the card (OKLab dE 11.2 deutan); --rp-hit/--rp-miss stay the label colours. */
- --rp-hit-mark:#1fae84;--rp-miss-mark:#c4384a;--rp-grid:#1d2428;--rp-ease:cubic-bezier(.2,.8,.2,1)}
+ /* The running line's green: a step deeper than --rp-hit so the chart sits in
+    the dark lightness band (checked with its miss partner #c4384a, OKLab dE 11.2 deutan). */
+ --rp-hit-mark:#1fae84;--rp-grid:#1d2428;--rp-ease:cubic-bezier(.2,.8,.2,1)}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--rp-bg);color:var(--rp-text);font:400 15px/1.5 'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 body{background:radial-gradient(ellipse at 50% -10%,rgba(0,245,138,.12),transparent 55%),var(--rp-bg);min-height:100dvh}
@@ -55,20 +55,6 @@ body{background:radial-gradient(ellipse at 50% -10%,rgba(0,245,138,.12),transpar
 .rp-section-head h2{margin:0}
 .rp-section-head p{margin:0;color:var(--rp-faint);font-size:12.5px}
 .rp-card{padding:14px 12px 10px;border:1px solid var(--rp-line);border-radius:16px;background:var(--rp-card)}
-/* Day by day: each day's hits and misses, growing up from the baseline in turn. */
-.rp-daily{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px;border-bottom:1px solid var(--rp-grid);padding-bottom:0}
-.rp-day{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;padding-top:4px;border-radius:8px;outline:none;cursor:default}
-.rp-day:focus-visible{box-shadow:0 0 0 2px var(--rp-accent)}
-.rp-day-bars{display:flex;align-items:flex-end;justify-content:center;gap:2px;width:100%;max-width:28px;height:120px}
-.rp-day-bars i{flex:1;min-height:0;max-width:12px;border-radius:4px 4px 0 0;transform-origin:50% 100%;transition:transform .7s var(--rp-ease) var(--d,0ms),filter .15s}
-.rp-daily[data-wait] .rp-day-bars i{transform:scaleY(0)}
-.rp-day:hover .rp-day-bars i,.rp-day:focus-visible .rp-day-bars i{filter:brightness(1.25)}
-.rp-day small{color:var(--rp-faint);font-size:10.5px;white-space:nowrap;padding-bottom:6px}
-i.rp-hit{background:var(--rp-hit-mark)}
-i.rp-miss{background:var(--rp-miss-mark)}
-.rp-legend{display:flex;align-items:center;gap:6px;margin:8px 0 0;color:var(--rp-muted);font-size:12px}
-.rp-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-left:8px}
-.rp-legend i:first-child{margin-left:0}
 
 .rp-picks{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
 .rp-pick{display:grid;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--rp-line);border-radius:14px;background:var(--rp-card)}
@@ -76,6 +62,7 @@ i.rp-miss{background:var(--rp-miss-mark)}
 .rp-face-wrap{position:relative;width:48px;height:48px}
 .rp-face{position:relative;display:grid;place-items:center;width:48px;height:48px;border-radius:50%;background:radial-gradient(circle at 50% 28%,#26313a,#141a1e 70%);overflow:hidden;color:var(--rp-muted);font:700 13px 'Sora',sans-serif}
 .rp-face img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 15%}
+.rp-has-photo>i{visibility:hidden}
 .rp-face-team{position:absolute;right:-4px;bottom:-4px;width:22px;height:22px;padding:2px;border:1px solid var(--rp-line);border-radius:50%;background:var(--rp-bg);object-fit:contain}
 .rp-matchup{display:flex!important;align-items:center;flex-wrap:wrap;gap:3px 5px;white-space:normal!important;margin-top:2px}
 .rp-team{display:inline-flex;align-items:center;gap:4px;color:var(--rp-muted);font-weight:600}
@@ -102,9 +89,7 @@ i.rp-miss{background:var(--rp-miss-mark)}
 
 @media (max-width:420px){
  .rp-tier-rate{font-size:28px}
- .rp-daily{gap:3px}
  .rp-card{padding:12px 8px 8px}
- .rp-day small{font-size:9.5px}
 }
 /* A slip: its picks together, won or lost. */
 .rp-slip{display:flex;flex-direction:column;gap:8px;padding:10px;border:1px solid var(--rp-line);border-radius:16px;background:var(--rp-raised)}
@@ -146,7 +131,9 @@ i.rp-miss{background:var(--rp-miss-mark)}
 
 /* Every chart's numbers, for anyone who'd rather read them. */
 .rp-table{margin-top:8px;font-size:13px}
-.rp-table summary{width:max-content;color:var(--rp-muted);cursor:pointer;font-size:12.5px}
+.rp-table summary{width:max-content;color:var(--rp-muted);cursor:pointer;font-size:12.5px;list-style:none;text-decoration:underline;text-decoration-color:var(--rp-line);text-underline-offset:3px}
+.rp-table summary::-webkit-details-marker{display:none}
+.rp-table summary:hover{color:var(--rp-text)}
 .rp-table table{width:100%;margin-top:8px;border-collapse:collapse;font-variant-numeric:tabular-nums}
 .rp-table th{color:var(--rp-faint);font-weight:600;text-align:left}
 .rp-table th,.rp-table td{padding:6px 8px;border-bottom:1px solid var(--rp-grid)}

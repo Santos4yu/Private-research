@@ -268,7 +268,8 @@ export function mountRecordPanel(host,{request}){
  const initials=name=>String(name||'?').split(' ').map(part=>part[0]).join('').slice(0,2);
  const lastName=name=>String(name||'').split(' ').filter(part=>!/^(jr|sr|ii|iii|iv|v)\.?$/i.test(part)).pop()||name;
  const face=pick=>h('span',{className:'record-face','aria-hidden':'true'},h('i',{text:initials(pick.player)}),
-  pick.headshot?h('img',{src:pick.headshot,alt:'',loading:'lazy',onError:event=>event.currentTarget.remove()}):null);
+  pick.headshot?h('img',{src:pick.headshot,alt:'',loading:'lazy',onLoad:event=>event.currentTarget.parentElement.classList.add('record-has-photo'),
+   onError:event=>event.currentTarget.remove()}):null);
 
  function row(pick,loose){
   const ref=`${pick.day}|${pick.key}`;
@@ -312,8 +313,7 @@ export function mountRecordPanel(host,{request}){
     h('span',{className:'record-row-main'},
      h('b',{text:`${picks.length}-pick${app?` ${app}`:''}`}),
      h('small',{text:open?`${day} · ${hits} of ${picks.length} hit`:`${day} · ${picks.map(pick=>lastName(pick.player)).join(', ')}`})),
-    h('span',{className:'record-pill',text:label}),
-    h('span',{className:'record-chevron','aria-hidden':'true'})),
+    h('span',{className:'record-pill',text:label})),
    open?h('ol',{className:'record-rows'},picks.map(pick=>row(pick))):null,
    open?h('div',{className:'record-row-actions record-slip-actions'},
     h('button',{type:'button',className:'record-remove',text:'Remove slip',onClick:async()=>{
