@@ -72,20 +72,37 @@ function dailyChart(days) {
   h('p', {className: 'rp-legend'}, h('i', {className: 'rp-hit'}), 'Hit', h('i', {className: 'rp-miss'}), 'Miss'));
 }
 
-function recentList(recent) {
- if (!recent.length) return null;
+const RESULT_NAMES = {hit: 'Hit', miss: 'Miss', push: 'Push', void: 'Void'};
+
+function pickRow(pick, inSlip) {
+ return h('li', {className: 'rp-pick', 'data-result': pick.result},
+  h('span', {className: 'rp-face'}, h('i', {text: String(pick.player || '?').split(' ').map(part => part[0]).join('').slice(0, 2)}),
+   pick.headshot ? h('img', {src: pick.headshot, alt: '', loading: 'lazy', onError: event => event.currentTarget.remove()}) : null),
+  h('div', {className: 'rp-pick-main'},
+   h('b', {text: pick.player}),
+   h('span', {text: `${pick.side === 'UNDER' ? 'Under' : 'Over'} ${figure(pick.line)} ${pick.stat}`}),
+   h('small', {text: [SPORT_NAMES[pick.sport], pick.team && pick.opponent ? `${pick.team} vs ${pick.opponent}` : pick.team,
+    inSlip ? null : dayLabel(pick.day), TIER_NAMES[pick.tier]].filter(Boolean).join(' · ')})),
+  h('div', {className: 'rp-pick-result'},
+   h('span', {className: 'rp-chip', text: RESULT_NAMES[pick.result] || pick.result}),
+   pick.value != null ? h('small', {text: `Finished ${figure(pick.value)}`}) : null));
+}
+
+// A slip's picks stay together under the slip, won or lost; a pick posted on its own stands alone.
+function slipCard(item) {
+ const n = item.picks.length;
+ return h('li', {className: 'rp-slip', 'data-status': item.status},
+  h('header', {className: 'rp-slip-head'},
+   h('div', {}, h('b', {text: `${n}-pick ${item.app ? `${item.app} ` : ''}slip`}), h('small', {text: dayLabel(item.day)})),
+   h('span', {className: 'rp-chip', text: item.status === 'won' ? 'Won' : item.status === 'lost' ? 'Lost' : 'Void'})),
+  h('ol', {className: 'rp-picks'}, item.picks.map(pick => pickRow(pick, true))));
+}
+
+function recentList(latest) {
+ if (!latest.length) return null;
  return h('section', {className: 'rp-section', 'aria-labelledby': 'rp-recent'},
   h('h2', {id: 'rp-recent', text: 'Latest results'}),
-  h('ol', {className: 'rp-picks'}, recent.map(pick => h('li', {className: 'rp-pick', 'data-result': pick.result},
-   h('span', {className: 'rp-face'}, h('i', {text: String(pick.player || '?').split(' ').map(part => part[0]).join('').slice(0, 2)}),
-    pick.headshot ? h('img', {src: pick.headshot, alt: '', loading: 'lazy', onError: event => event.currentTarget.remove()}) : null),
-   h('div', {className: 'rp-pick-main'},
-    h('b', {text: pick.player}),
-    h('span', {text: `${pick.side === 'UNDER' ? 'Under' : 'Over'} ${figure(pick.line)} ${pick.stat}`}),
-    h('small', {text: [SPORT_NAMES[pick.sport], pick.team && pick.opponent ? `${pick.team} vs ${pick.opponent}` : pick.team, dayLabel(pick.day), TIER_NAMES[pick.tier]].filter(Boolean).join(' · ')})),
-   h('div', {className: 'rp-pick-result'},
-    h('span', {className: 'rp-chip', text: pick.result === 'hit' ? 'Hit' : 'Miss'}),
-    pick.value != null ? h('small', {text: `Finished ${figure(pick.value)}`}) : null)))));
+  h('ol', {className: 'rp-picks'}, latest.map(item => item.slip ? slipCard(item) : pickRow(item.picks[0]))));
 }
 
 function render(root, data) {
@@ -100,11 +117,13 @@ function render(root, data) {
    h('div', {className: 'rp-overall'},
     h('strong', {text: pct(all.rate)}),
     h('span', {text: all.picks ? `${record(all)} on ${all.picks} pick${all.picks === 1 ? '' : 's'}` : 'The first results are being settled'})),
+   data.slips?.slips ? h('p', {className: 'rp-slips'}, h('b', {text: `${data.slips.won}–${data.slips.lost}`}),
+    ` in slips · ${pct(data.slips.rate)} cashed`) : null,
    small && all.picks ? h('p', {className: 'rp-note', text: `Still a small sample (${all.picks} picks), so expect this to move as more games settle.`}) : null),
   h('div', {className: 'rp-tiers'}, shownTiers(data.tiers || {}).map(tier => tierCard(tier, data.tiers?.[tier] || {hits: 0, misses: 0, picks: 0, rate: null}))),
   sportsRow(data.sports || {}),
   dailyChart(data.daily || []),
-  recentList(data.recent || []),
+  recentList(data.latest || []),
   h('section', {className: 'rp-join'},
    h('h2', {text: 'Get every pick before the game'}),
    h('p', {text: 'The Finder, research on every line, the Parlay Builder and the Slip Analyzer, for NBA, WNBA, MLB, NFL, NHL and soccer.'}),

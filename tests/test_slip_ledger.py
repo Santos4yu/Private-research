@@ -320,7 +320,9 @@ class AdminRecordTests(unittest.TestCase):
         self.assertEqual([(row["player"], row["side"], row["line"], row["team"], row["value"]) for row in rows],
                          [("Dak Prescott", "OVER", 33.5, "DAL", 42)])
         out = slip_ledger.public_results(NOW)
-        self.assertEqual((out["all"]["hits"], out["sports"]["nfl"]["picks"], out["recent"][0]["player"]), (1, 1, "Dak Prescott"))
+        self.assertEqual((out["all"]["hits"], out["sports"]["nfl"]["picks"]), (1, 1))
+        self.assertEqual([(item["slip"], item["status"], item["picks"][0]["player"]) for item in out["latest"]], [(False, "won", "Dak Prescott")])
+        self.assertEqual(out["slips"]["slips"], 0)  # a play on its own isn't a slip
         # Its result can be changed, but there's no box score to go back to.
         slip_ledger.record_set_result(entered["day"], entered["key"], "miss")
         with self.assertRaises(ValueError):
@@ -347,6 +349,37 @@ class AdminRecordTests(unittest.TestCase):
         for bad in ([], None, [plays[0]] * (slip_ledger.RECORD_BATCH + 1)):
             with self.assertRaises(ValueError):
                 slip_ledger.record_enter_many(bad, now=NOW)
+
+    def test_a_slip_stays_together_and_counts_won_or_lost(self):
+        base = {"sport": "nfl", "side": "OVER", "tier": "elite", "team": "LA", "opponent": "BUF", "slipApp": "PrizePicks"}
+        slip_ledger.record_enter_many([
+            {**base, "day": "2026-10-03", "slip": "s-one", "player": "Puka Nacua", "line": 7, "stat": "Receptions", "result": "hit"},
+            {**base, "day": "2026-10-03", "slip": "s-one", "player": "C.J. Gardner-Johnson", "line": 3.5, "stat": "Total Tackles", "result": "hit"},
+            {**base, "day": "2026-10-02", "slip": "s-two", "player": "Dak Prescott", "line": 33.5, "stat": "Pass Attempts", "result": "hit"},
+            {**base, "day": "2026-10-02", "slip": "s-two", "player": "Brandon Aubrey", "line": 8.5, "stat": "Kicking Points", "result": "miss"},
+        ], now=NOW)
+        # One posted from the Slip Analyzer, still to play: not shown, not counted.
+        slip_ledger.record_add({"id": "s-three", "appName": "Underdog", "picks": [pick()]}, now=NOW)
+        out = slip_ledger.public_results(NOW)
+        self.assertEqual((out["all"]["hits"], out["all"]["misses"]), (3, 1))
+        self.assertEqual(out["slips"], {"won": 1, "lost": 1, "slips": 2, "rate": 0.5})
+        self.assertEqual([(item["slip"], item["app"], item["status"], [p["player"] for p in item["picks"]]) for item in out["latest"]],
+                         [(True, "PrizePicks", "won", ["Puka Nacua", "C.J. Gardner-Johnson"]),
+                          (True, "PrizePicks", "lost", ["Dak Prescott", "Brandon Aubrey"])])
+        self.assertEqual({entry["player"]: entry.get("slip") for entry in self.posted()}["CeeDee Lamb"], "s-three")
+
+    def test_plays_added_one_by_one_can_be_joined_into_a_slip(self):
+        base = {"day": "2026-10-03", "sport": "nfl", "side": "OVER", "tier": "elite", "result": "hit"}
+        one = slip_ledger.record_enter({**base, "player": "Puka Nacua", "line": 7, "stat": "Receptions"}, now=NOW)
+        two = slip_ledger.record_enter({**base, "player": "C.J. Gardner-Johnson", "line": 3.5, "stat": "Total Tackles"}, now=NOW)
+        self.assertEqual(slip_ledger.public_results(NOW)["slips"]["slips"], 0)
+        with self.assertRaises(ValueError):
+            slip_ledger.record_group([{"day": one["day"], "key": one["key"]}])
+        joined = slip_ledger.record_group([{"day": one["day"], "key": one["key"]}, {"day": two["day"], "key": two["key"]}], "PrizePicks")
+        self.assertEqual(joined["picks"], 2)
+        out = slip_ledger.public_results(NOW)
+        self.assertEqual(out["slips"], {"won": 1, "lost": 0, "slips": 1, "rate": 1.0})
+        self.assertEqual([(item["slip"], item["app"], len(item["picks"])) for item in out["latest"]], [(True, "PrizePicks", 2)])
 
     def test_nothing_to_post_is_refused(self):
         with self.assertRaises(ValueError):
@@ -412,9 +445,9 @@ class PublicResultsTests(unittest.TestCase):
         self.assertEqual(out['tiers']['elite'], {'hits': 1, 'misses': 1, 'picks': 2, 'rate': 0.5})
         self.assertEqual(out['tiers']['lean']['picks'], 1)
         self.assertEqual(out['all']['picks'], 4)
-        self.assertEqual(len(out['recent']), 4)
-        self.assertNotIn('owners', out['recent'][0])
-        self.assertNotIn('settle', out['recent'][0])
+        self.assertEqual(sum(len(item['picks']) for item in out['latest']), 4)  # each on its own; the push neither hit nor missed
+        self.assertNotIn('owners', out['latest'][0]['picks'][0])
+        self.assertNotIn('settle', out['latest'][0]['picks'][0])
         self.assertEqual([day['picks'] for day in out['daily'] if day['day'] == '2026-10-12'], [4])
 
 

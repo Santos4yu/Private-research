@@ -655,6 +655,17 @@ def _forget():
     _memory.pop("public", None)
 
 
+def _slip_of(raw):
+    """The slip a pick was posted with: {"slip", "slipApp"} -- its picks are
+    shown together and the slip counted won or lost -- or {} for a pick on
+    its own."""
+    raw = raw if isinstance(raw, dict) else {}
+    slip = str(raw.get("slip") or raw.get("id") or "").strip().lower()
+    if not re.fullmatch(r"[a-z0-9-]{4,40}", slip):
+        return {}
+    return {"slip": slip, "slipApp": _short(raw.get("slipApp") or raw.get("appName"), 30)}
+
+
 def record_add(payload, now=None):
     """The picks of a slip the admin graded, onto the record: {added, started}.
     A pick whose game has started isn't taken (the record is picks made before
@@ -665,6 +676,7 @@ def record_add(payload, now=None):
     if not picks:
         raise ValueError("No graded picks to post.")
     fresh = [pick for pick in picks if not pick["late"]]
+    slip = _slip_of(payload)
     entries = []
     for pick in fresh:
         day = _eastern_day(_time(pick["startsAt"]) or now)
@@ -675,7 +687,7 @@ def record_add(payload, now=None):
         kept = _load(raw)
         if kept and kept.get("result"):
             continue
-        pick = {**{name: value for name, value in pick.items() if name != "late"}, "owners": [], "result": None, "value": None,
+        pick = {**{name: value for name, value in pick.items() if name != "late"}, **slip, "owners": [], "result": None, "value": None,
                 "alerted": [], "at": (kept or {}).get("at") or now.isoformat()}
         writes.append(["HSET", PREFIX + RECORD + day, key, json.dumps(pick, separators=(",", ":"))])
         writes.append(["EXPIRE", PREFIX + RECORD + day, RECORD_KEEP_DAYS * 86400])
@@ -735,7 +747,7 @@ def _entered(raw, now, days):
             "opponent": _short(raw.get("opponent"), 8).upper(), "startsAt": f"{day}T23:00:00+00:00", "side": side, "line": line,
             "stat": stat, "modifier": modifier if modifier in ("goblin", "demon") else "standard", "tier": tier, "chance": None,
             "headshot": "", "settle": None, "owners": [], "alerted": [], "result": result, "value": _number(raw.get("value")),
-            "manual": True, "entered": True, "at": now.isoformat(), "settledAt": now.isoformat()}
+            "manual": True, "entered": True, "at": now.isoformat(), "settledAt": now.isoformat(), **_slip_of(raw)}
     return day, pick_key(pick, day), pick
 
 
@@ -775,6 +787,22 @@ def record_enter_many(plays, now=None):
     _forget()
     return {"added": len(entries), "hits": sum(pick["result"] == "hit" for _, _, pick in entries),
             "misses": sum(pick["result"] == "miss" for _, _, pick in entries)}
+
+
+def record_group(refs, app=""):
+    """Picks already on the record, joined into one slip (added one by one,
+    or before slips were kept together): [{day, key}] -> {slip, picks}."""
+    refs = [_record_ref(ref.get("day"), ref.get("key")) for ref in (refs or []) if isinstance(ref, dict)][:RECORD_BATCH]
+    if len(refs) < 2:
+        raise ValueError("Pick at least two plays to make a slip.")
+    held = _pipeline([["HGET", name, key] for name, key in refs])
+    if not all(isinstance(_load(raw), dict) for raw in held):
+        raise ValueError("One of those plays isn't on the record anymore.")
+    slip = "g-" + hashlib.sha1("|".join(key for _, key in refs).encode()).hexdigest()[:12]
+    _pipeline([["HSET", name, key, json.dumps({**_load(raw), "slip": slip, "slipApp": _short(app, 30)}, separators=(",", ":"))]
+               for (name, key), raw in zip(refs, held)])
+    _forget()
+    return {"slip": slip, "picks": len(refs)}
 
 
 def record_remove(day, key):
@@ -821,11 +849,25 @@ PUBLIC_DAYS = 14
 PUBLIC_FIELDS = ("player", "sport", "stat", "line", "side", "tier", "result", "value", "modifier", "team", "opponent", "headshot")
 
 
+def _slips(rows):
+    """The record's picks as they were posted: each slip's picks together,
+    and a pick posted on its own alone, newest first. [(slip, app, [(day, pick)])]."""
+    groups = {}
+    for day, key, pick in rows:
+        group = pick.get("slip") or f"pick:{day}:{key}"
+        groups.setdefault(group, []).append((day, pick))
+    start = lambda item: (_time(item[1].get("startsAt")) or datetime.min.replace(tzinfo=timezone.utc)).timestamp()  # noqa: E731
+    out = [(group if not group.startswith("pick:") else None, next((pick.get("slipApp") for _, pick in picks if pick.get("slipApp")), ""),
+            sorted(picks, key=start)) for group, picks in groups.items()]
+    return sorted(out, key=lambda item: max(start(entry) for entry in item[2]), reverse=True)
+
+
 def public_results(now=None, entries=None):
     """The site's record for anyone to see (the /results page): every pick
     the admin posted (RECORD) and settled hit or miss over the last
-    RECORD_DAYS -- by tier, by sport, by day -- and the latest finished ones.
-    Only finished games: today's open picks stay members-only."""
+    RECORD_DAYS -- by tier, by sport, by day, each slip won or lost -- and
+    the latest finished slips and picks. Only finished games: today's open
+    picks stay members-only."""
     now = now or datetime.now(timezone.utc)
     held = _memory.get("public")
     if entries is None and held and time.time() - held[0] < RECORD_FRESH:
@@ -842,11 +884,29 @@ def public_results(now=None, entries=None):
     sports = {sport: tally([pick for _, pick in done if pick.get("sport") == sport]) for sport in SPORTS}
     recent_days = _days(now, PUBLIC_DAYS)
     days = [{"day": day, **tally([pick for d, pick in done if d == day])} for day in reversed(recent_days)]
-    latest = sorted(done, key=lambda item: (_time(item[1].get("startsAt")) or now).timestamp(), reverse=True)[:PUBLIC_RECENT]
+    # Slips: won when nothing missed and something hit, lost on a miss; shown
+    # once every pick in it has finished.
+    finished, won, lost = [], 0, 0
+    for slip, app, picks in _slips([row for row in rows if row[2].get("tier") in TIERS]):
+        status = _status([pick for _, pick in picks])
+        if status == "pending" or not any(pick.get("result") in ("hit", "miss") for _, pick in picks):
+            continue
+        if slip:
+            won, lost = won + (status == "won"), lost + (status == "lost")
+        finished.append((slip, app, status, picks))
+    latest, shown = [], 0
+    for slip, app, status, picks in finished:
+        if shown >= PUBLIC_RECENT:
+            break
+        shown += len(picks)
+        latest.append({"slip": bool(slip), "app": app, "status": status, "day": max(day for day, _ in picks),
+                       "picks": [{**{field: pick.get(field) for field in PUBLIC_FIELDS}, "day": day} for day, pick in picks]})
+    decided = won + lost
     out = {"days": RECORD_DAYS, "tiers": tiers, "all": tally([pick for _, pick in done]),
+           "slips": {"won": won, "lost": lost, "slips": decided, "rate": round(won / decided, 4) if decided else None},
            "sports": {sport: counts for sport, counts in sports.items() if counts["picks"]},
            "daily": days,
-           "recent": [{**{field: pick.get(field) for field in PUBLIC_FIELDS}, "day": day} for day, pick in latest],
+           "latest": latest,
            "at": now.isoformat()}
     if entries is None:
         _memory["public"] = (time.time(), out)

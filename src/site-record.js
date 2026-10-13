@@ -50,26 +50,50 @@ function screenshotBox(onAdd){
  let slips=[],next=1;
  const files=h('input',{type:'file',accept:'image/png,image/jpeg,image/webp',multiple:true,className:'record-shot-input',id:'record-shot-files'});
  const pickLabel=h('label',{for:'record-shot-files',className:'record-shot-pick',text:'Choose screenshots'});
+ const pasteButton=h('button',{type:'button',className:'record-shot-pick record-shot-paste',text:'Paste screenshot',onClick:pasteClipboard});
  const status=h('p',{className:'record-entry-status',role:'status'});
  const addStatus=h('p',{className:'record-entry-status record-shot-add-status',role:'status'});
  const list=h('div',{className:'record-shots'});
  const submit=h('button',{type:'button',className:'record-entry-add',hidden:true,onClick:addAll});
  files.addEventListener('change',()=>{const chosen=[...files.files];files.value='';if(chosen.length)read(chosen);});
 
+ // Paste: the button reads the clipboard (phones), and a screenshot pasted
+ // anywhere on the open Record tab is read too (computers).
+ async function pasteClipboard(){
+  try{
+   const found=[];
+   for(const item of await navigator.clipboard.read()){
+    const type=item.types.find(name=>name.startsWith('image/'));
+    if(type)found.push(new File([await item.getType(type)],'Pasted screenshot',{type}));
+   }
+   if(found.length)read(found);else status.textContent='There\'s no image on your clipboard. Copy the screenshot first.';
+  }catch{status.textContent='Pasting was blocked by your browser. Choose the screenshot instead.';}
+ }
+ document.addEventListener('paste',event=>{
+  if(!box.isConnected||!box.offsetParent||reading)return;
+  if(event.target instanceof HTMLElement&&event.target.closest('input,textarea,select,[contenteditable]'))return;
+  const found=[...(event.clipboardData?.items||[])].filter(item=>item.type.startsWith('image/')).map(item=>item.getAsFile()).filter(Boolean);
+  if(!found.length)return;
+  event.preventDefault();box.open=true;read(found);
+ });
+
+ let reading=false;
  async function read(chosen){
-  pickLabel.setAttribute('aria-disabled','true');
+  reading=true;
+  pickLabel.setAttribute('aria-disabled','true');pasteButton.disabled=true;
   const failed=[];
   for(const [index,file] of chosen.entries()){
    status.textContent=`Reading screenshot ${index+1} of ${chosen.length}…`;addStatus.textContent='';
    try{
     const slip=await readShot(file);
-    slips.push({id:next++,app:slip.app?.name||'',day:isoDay(1),tier:'elite',
+    // One id for the slip's picks: they're kept, shown and counted together.
+    slips.push({id:next++,slipId:`r-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`,app:slip.app?.name||'',day:isoDay(1),tier:'elite',
      legs:slip.legs.map(leg=>({player:leg.player||'',sport:leg.sport||'',side:leg.side||'',line:leg.line??'',stat:leg.statName||leg.stat||'',
       team:leg.team||'',opponent:leg.opponent||'',modifier:leg.modifier||'standard',result:''}))});
     paint();
    }catch(error){failed.push(`${file.name||`Screenshot ${index+1}`}: ${error.message}`);}
   }
-  pickLabel.removeAttribute('aria-disabled');
+  pickLabel.removeAttribute('aria-disabled');pasteButton.disabled=false;reading=false;
   status.textContent=failed.length?failed.join(' '):`Read ${chosen.length} screenshot${chosen.length===1?'':'s'}. Tap Hit or Miss on each pick.`;
  }
 
@@ -126,7 +150,7 @@ function screenshotBox(onAdd){
    return;
   }
   addStatus.textContent='';
-  const plays=slips.flatMap(slip=>slip.legs.map(leg=>({day:slip.day,tier:slip.tier,player:leg.player.trim(),sport:leg.sport,side:leg.side,
+  const plays=slips.flatMap(slip=>slip.legs.map(leg=>({day:slip.day,tier:slip.tier,slip:slip.slipId,slipApp:slip.app,player:leg.player.trim(),sport:leg.sport,side:leg.side,
    line:leg.line===''?null:Number(leg.line),stat:leg.stat.trim(),team:leg.team,opponent:leg.opponent,modifier:leg.modifier,result:leg.result})));
   submit.disabled=true;
   try{
@@ -137,9 +161,10 @@ function screenshotBox(onAdd){
   finally{submit.disabled=false;}
  }
 
- return h('details',{className:'record-entry-box',open:true},h('summary',{text:'Add finished slips from screenshots'}),
-  h('p',{className:'site-controls-hint',text:`Pick one or more slip screenshots. Every pick is read off them; check each slip's date and tier, tap Hit or Miss on each pick, then add them all. Dates must be in the last ${RECORD_DAYS} days.`}),
-  files,pickLabel,status,list,submit,addStatus);
+ const box=h('details',{className:'record-entry-box',open:true},h('summary',{text:'Add finished slips from screenshots'}),
+  h('p',{className:'site-controls-hint',text:`Choose or paste one or more slip screenshots. Every pick is read off them and each slip stays together; check its date and tier, tap Hit or Miss on each pick, then add them all. Dates must be in the last ${RECORD_DAYS} days.`}),
+  files,h('div',{className:'record-shot-sources'},pickLabel,pasteButton),status,list,submit,addStatus);
+ return box;
 }
 
 // A play that already finished, with its result (slip_ledger.record_enter).
@@ -187,11 +212,18 @@ export function mountRecordPanel(host,{request}){
  const status=h('p',{role:'status'});
  const list=h('ol',{className:'record-list'});
  const erase=h('button',{type:'button',className:'record-erase',text:'Erase record',onClick:eraseAll});
+ // Loose picks (added one by one) the admin has ticked, to join into a slip.
+ const chosen=new Set();
+ const join=h('button',{type:'button',className:'record-join',hidden:true,onClick:()=>{
+  const refs=[...chosen].map(ref=>{const [day,key]=ref.split('|');return {day,key};});
+  chosen.clear();act({action:'record-group',picks:refs},`Joined ${refs.length} picks into one slip.`);
+ }});
+ function paintJoin(){join.hidden=chosen.size<2;join.textContent=`Group ${chosen.size} picks as one slip`;}
  host.append(
   h('p',{className:'site-controls-hint',text:'Only picks you post count. Grade a slip in the Slip Analyzer, then tap Post to record. Picks settle on their own from the final box score; you can call one yourself here.'}),
   totals,
   screenshotBox(async body=>{const done=await request('/api/v2-admin',body);await refresh();return done;}),
-  entryForm(async body=>{await request('/api/v2-admin',body);await refresh();}),status,list,
+  entryForm(async body=>{await request('/api/v2-admin',body);await refresh();}),status,join,list,
   h('div',{className:'record-foot'},erase,h('a',{href:'/results',target:'_blank',rel:'noopener',className:'record-open',text:'Open /results'})));
 
  function summary(data){
@@ -203,12 +235,15 @@ export function mountRecordPanel(host,{request}){
    h('div',{},h('b',{text:String((data.picks||[]).length)}),h('span',{text:'on the record'})));
  }
 
- function row(pick){
+ function row(pick,loose){
   const call=result=>()=>act({action:'record-result',day:pick.day,key:pick.key,result},result?`${pick.player}: ${RESULT_NAMES[result]}.`:`${pick.player} will settle from the box score.`);
   const chip=pick.result?RESULT_NAMES[pick.result]||pick.result:'To play';
+  const ref=`${pick.day}|${pick.key}`;
+  const tick=loose?h('input',{type:'checkbox',className:'record-pick-tick','aria-label':`Select ${pick.player} to group into a slip`,checked:chosen.has(ref)}):null;
+  tick?.addEventListener('change',()=>{tick.checked?chosen.add(ref):chosen.delete(ref);paintJoin();});
   return h('li',{className:'record-pick','data-result':pick.result||'open'},
    h('div',{className:'record-pick-main'},
-    h('b',{text:pick.player}),
+    h('b',{},tick,pick.player),
     h('span',{text:`${pick.side==='UNDER'?'Under':'Over'} ${figure(pick.line)} ${pick.stat}`}),
     h('small',{text:[SPORT_NAMES[pick.sport]||pick.sport,pick.team&&pick.opponent?`${pick.team} vs ${pick.opponent}`:pick.team,dayLabel(pick.day),TIER_NAMES[pick.tier]].filter(Boolean).join(' · ')})),
    h('div',{className:'record-pick-side'},
@@ -225,10 +260,43 @@ export function mountRecordPanel(host,{request}){
     }})));
  }
 
+
+ function slipStatus(picks){
+  const results=picks.map(pick=>pick.result);
+  if(results.includes('miss'))return ['lost','Lost'];
+  if(results.some(result=>!result))return ['open','To play'];
+  return results.includes('hit')?['won','Won']:['void','Void'];
+ }
+ function slipCard(picks){
+  const [tone,label]=slipStatus(picks);
+  const app=picks.find(pick=>pick.slipApp)?.slipApp||'';
+  return h('li',{className:'record-slip','data-status':tone},
+   h('header',{},
+    h('div',{},h('b',{text:`${picks.length}-pick ${app?`${app} `:''}slip`}),h('small',{text:dayLabel(picks.map(pick=>pick.day).sort().pop())})),
+    h('span',{className:'record-chip',text:label})),
+   h('ol',{className:'record-list'},picks.map(pick=>row(pick))),
+   h('button',{type:'button',className:'record-remove record-slip-remove',text:'Remove slip',onClick:async()=>{
+    if(!confirm(`Take this whole ${picks.length}-pick slip off the record?`))return;
+    host.setAttribute('aria-busy','true');
+    try{for(const pick of picks)await request('/api/v2-admin',{action:'record-remove',day:pick.day,key:pick.key});status.textContent='Slip removed.';}
+    catch(error){status.textContent=error.message;}
+    finally{host.removeAttribute('aria-busy');await refresh();}
+   }}));
+ }
+
  function show(data){
   summary(data);
   const picks=data.picks||[];
-  list.replaceChildren(...(picks.length?picks.map(row):[h('li',{className:'record-empty',text:'The record is empty. Post a slip from the Slip Analyzer to start it.'})]));
+  const groups=[];const bySlip=new Map();
+  for(const pick of picks){
+   if(!pick.slip){groups.push([pick]);continue;}
+   if(!bySlip.has(pick.slip)){bySlip.set(pick.slip,[]);groups.push(bySlip.get(pick.slip));}
+   bySlip.get(pick.slip).push(pick);
+  }
+  for(const ref of [...chosen])if(!picks.some(pick=>!pick.slip&&`${pick.day}|${pick.key}`===ref))chosen.delete(ref);
+  paintJoin();
+  list.replaceChildren(...(picks.length?groups.map(group=>group[0].slip?slipCard(group):row(group[0],true))
+   :[h('li',{className:'record-empty',text:'The record is empty. Add finished slips above, or post one from the Slip Analyzer.'})]));
   erase.disabled=!picks.length;
  }
  async function refresh(){

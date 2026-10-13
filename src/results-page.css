@@ -77,3 +77,16 @@ i.rp-miss{background:var(--rp-miss)}
  .rp-daily{gap:3px;padding:12px 8px 8px}
  .rp-day small{font-size:9.5px}
 }
+/* A slip: its picks together, won or lost. */
+.rp-slip{display:flex;flex-direction:column;gap:8px;padding:10px;border:1px solid var(--rp-line);border-radius:16px;background:var(--rp-raised)}
+.rp-slip-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:2px 4px}
+.rp-slip-head div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.rp-slip-head b{font-size:14px}
+.rp-slip-head small{color:var(--rp-faint);font-size:11.5px}
+.rp-slip[data-status=won]{border-color:rgba(47,220,141,.35)}
+.rp-slip[data-status=won]>.rp-slip-head .rp-chip{background:rgba(47,220,141,.14);color:var(--rp-hit)}
+.rp-slip[data-status=lost]>.rp-slip-head .rp-chip{background:rgba(241,107,117,.14);color:var(--rp-miss)}
+.rp-slip .rp-pick{background:var(--rp-card)}
+.rp-pick:not([data-result=hit]):not([data-result=miss]) .rp-chip{background:var(--rp-raised);color:var(--rp-muted)}
+.rp-slips{margin:10px 0 0;color:var(--rp-muted);font-size:14px;text-align:center}
+.rp-slips b{color:var(--rp-text)}

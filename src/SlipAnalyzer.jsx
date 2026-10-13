@@ -539,7 +539,7 @@ export function SlipAnalyzer(){
   setPosting(true);
   try{
    const response=await fetch('/api/v2-admin',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({action:'record-add',picks})});
+    body:JSON.stringify({action:'record-add',id:slipId.current,appName:slip.app?.name||'',picks})});
    const data=await response.json().catch(()=>({}));
    if(!response.ok)throw new Error(data.error||'The record couldn\'t be updated.');
    const started=data.started?` ${data.started} already started, so not posted: add finished plays in Admin › Record.`:'';

@@ -13,7 +13,7 @@ GET  ?action=members                 -- admin only (site_members.py)
 POST {"action": "member-rule", ...}  -- admin only
 GET  ?action=announce-status         -- admin only (push_notices.py)
 GET  ?action=record                  -- admin only: the site's record (slip_ledger.py)
-POST {"action": "record-add" | "record-enter" | "record-enter-many" | "record-remove" | "record-result" | "record-clear", ...} -- admin only
+POST {"action": "record-add" | "record-enter" | "record-enter-many" | "record-group" | "record-remove" | "record-result" | "record-clear", ...} -- admin only
 GET  ?action=moves-tick&key=...      -- the line-check timer (line_moves.py)
 POST {"action": "announce", ...}     -- admin only
 GET  ?action=key-status              -- admin only
@@ -260,7 +260,7 @@ class handler(BaseHTTPRequestHandler):
                 except ValueError as exc:
                     return self._send(400, {"error": str(exc)})
                 return self._send(200, {"url": f"/api/v2-admin?action=site-background&v={version}"})
-            if action in ("record-add", "record-enter", "record-enter-many", "record-remove", "record-result", "record-clear"):
+            if action in ("record-add", "record-enter", "record-enter-many", "record-group", "record-remove", "record-result", "record-clear"):
                 return self._handle_record(action, body)
             if action == "community-post":
                 from site_controls import allowed, same_origin
@@ -362,6 +362,8 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(200, slip_ledger.record_enter(body))
             if action == "record-enter-many":
                 return self._send(200, slip_ledger.record_enter_many(body.get("plays")))
+            if action == "record-group":
+                return self._send(200, slip_ledger.record_group(body.get("picks"), body.get("app") or ""))
             if action == "record-remove":
                 return self._send(200, slip_ledger.record_remove(body.get("day"), body.get("key")))
             if action == "record-result":
