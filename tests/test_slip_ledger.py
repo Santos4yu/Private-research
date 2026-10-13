@@ -315,8 +315,12 @@ class AdminRecordTests(unittest.TestCase):
                 "stat": "Pass Attempts", "tier": "elite", "result": "hit", "value": 42, "team": "dal", "opponent": "tb"}
         entered = slip_ledger.record_enter(play, now=NOW)
         self.assertEqual(entered["result"], "hit")
-        with patch("slip_games.read", side_effect=AssertionError("nothing to settle")):
+        # Nothing to settle; its box score is read only for the player's photo.
+        photo = "https://a.espncdn.com/i/headshots/nfl/players/full/2577417.png"
+        with patch("slip_games.read", side_effect=final({"Dak Prescott": {"name": "Dak Prescott", "line": {}, "headshot": photo}})) as read:
             rows = slip_ledger.record_picks(now=NOW)
+        self.assertEqual(read.call_args.args[0]["games"][0]["team"], "DAL")
+        self.assertEqual(rows[0]["headshot"], photo)
         self.assertEqual([(row["player"], row["side"], row["line"], row["team"], row["value"]) for row in rows],
                          [("Dak Prescott", "OVER", 33.5, "DAL", 42)])
         out = slip_ledger.public_results(NOW)
@@ -380,6 +384,33 @@ class AdminRecordTests(unittest.TestCase):
         out = slip_ledger.public_results(NOW)
         self.assertEqual(out["slips"], {"won": 1, "lost": 0, "slips": 1, "rate": 1.0})
         self.assertEqual([(item["slip"], item["app"], len(item["picks"])) for item in out["latest"]], [(True, "PrizePicks", 2)])
+
+    def test_a_photo_that_cant_be_found_is_tried_twice_then_left(self):
+        play = {"day": "2026-10-03", "sport": "nba", "player": "Nobody Known", "side": "OVER", "line": 20.5, "stat": "Points",
+                "tier": "elite", "result": "hit", "team": "LAL"}
+        slip_ledger.record_enter(play, now=NOW)
+        slip_ledger.record_enter({**play, "player": "No Team", "team": ""}, now=NOW)  # no team: no game to look in
+        with patch("slip_games.read", side_effect=final({})) as read:
+            for _ in range(4):
+                slip_ledger.record_picks(now=NOW)
+        self.assertEqual(read.call_count, 2)
+        self.assertEqual({entry["player"]: entry.get("photoTries") for entry in self.posted()}, {"Nobody Known": 2, "No Team": None})
+
+    def test_the_public_record_carries_logos_and_how_it_built_up(self):
+        base = {"sport": "nfl", "side": "OVER", "tier": "elite", "team": "LAR", "opponent": "BUF"}
+        slip_ledger.record_enter_many([
+            {**base, "day": "2026-10-01", "player": "Puka Nacua", "line": 7, "stat": "Receptions", "result": "hit"},
+            {**base, "day": "2026-10-03", "player": "Davante Adams", "line": 60.5, "stat": "Receiving Yards", "result": "miss"},
+            {**base, "day": "2026-10-03", "player": "Kyren Williams", "line": 70.5, "stat": "Rush Yards", "result": "hit"},
+        ], now=NOW)
+        out = slip_ledger.public_results(NOW)
+        pick = out["latest"][0]["picks"][0]
+        self.assertEqual((pick["teamLogo"], pick["opponentLogo"]),
+                         ("https://static.www.nfl.com/t_q-best/league/api/clubs/logos/LA.svg",
+                          "https://static.www.nfl.com/t_q-best/league/api/clubs/logos/BUF.svg"))
+        # From the first day with a result to today: hits and misses so far.
+        self.assertEqual(out["running"], [{"day": "2026-10-01", "hits": 1, "misses": 0}, {"day": "2026-10-02", "hits": 1, "misses": 0},
+                                          {"day": "2026-10-03", "hits": 2, "misses": 1}, {"day": "2026-10-04", "hits": 2, "misses": 1}])
 
     def test_nothing_to_post_is_refused(self):
         with self.assertRaises(ValueError):

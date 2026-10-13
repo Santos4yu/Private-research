@@ -697,6 +697,35 @@ def record_add(payload, now=None):
     return {"added": len(writes) // 2, "started": len(picks) - len(fresh)}
 
 
+PHOTO_SPORTS = ("nfl", "nba", "wnba", "mlb", "nhl")
+PHOTO_TRIES = 2
+
+
+def _dress(entries, now, limit=3):
+    """Headshots for the record's picks that came without one (read off a
+    screenshot or typed in): the player's, from his game's box score, found by
+    his team and the day once the game has started. A game that can't be
+    found is tried PHOTO_TRIES times. {(day, key): pick} for the changed ones."""
+    wanting = [(day, key, pick) for day, key, pick in entries
+               if not pick.get("headshot") and pick.get("team") and pick.get("sport") in PHOTO_SPORTS
+               and int(pick.get("photoTries") or 0) < PHOTO_TRIES
+               and (starts := _time(pick.get("startsAt"))) and starts <= now]
+    if not wanting:
+        return {}
+    by_key = {key: (day, pick) for day, key, pick in wanting}
+    items = _game_items([(key, pick) for _, key, pick in wanting])[:limit]
+    changed = {}
+    for item, view in zip(items, _read_games(items)):
+        for person in item["players"]:
+            day, pick = by_key[person["key"]]
+            found = (view.get("players") or {}).get(person["key"]) if view.get("found") else None
+            photo = (found or {}).get("headshot") or ""
+            changed[(day, person["key"])] = {**pick, "headshot": photo, "photoTries": int(pick.get("photoTries") or 0) + (0 if photo else 1)}
+    if changed:
+        _pipeline([["HSET", PREFIX + RECORD + day, key, json.dumps(pick, separators=(",", ":"))] for (day, key), pick in changed.items()])
+    return changed
+
+
 def record_picks(now=None, settle_limit=4):
     """Everything on the record, newest game first, for the admin to look
     over (settling what's due on the way): [{day, key, ...pick}]."""
@@ -706,9 +735,14 @@ def record_picks(now=None, settle_limit=4):
         changed = settle(entries, now, limit=settle_limit, space=RECORD)
     except Exception:  # noqa: BLE001 -- settled on the next look
         changed = {}
-    if changed:
+    entries = [(day, key, changed.get((day, key), pick)) for day, key, pick in entries]
+    try:
+        dressed = _dress(entries, now)
+    except Exception:  # noqa: BLE001 -- photos come on the next look
+        dressed = {}
+    if changed or dressed:
         _forget()
-    rows = [{"day": day, "key": key, **{name: value for name, value in changed.get((day, key), pick).items()
+    rows = [{"day": day, "key": key, **{name: value for name, value in dressed.get((day, key), pick).items()
                                          if name not in ("owners", "alerted", "settle")}}
             for day, key, pick in entries]
     return sorted(rows, key=lambda row: (row.get("startsAt") or row["day"], row["key"]), reverse=True)
@@ -894,18 +928,36 @@ def public_results(now=None, entries=None):
         if slip:
             won, lost = won + (status == "won"), lost + (status == "lost")
         finished.append((slip, app, status, picks))
+    import slip_games
+
+    def face(day, pick):
+        return {**{field: pick.get(field) for field in PUBLIC_FIELDS}, "day": day,
+                "teamLogo": slip_games.team_logo(pick.get("sport"), pick.get("team")),
+                "opponentLogo": slip_games.team_logo(pick.get("sport"), pick.get("opponent"))}
+
     latest, shown = [], 0
     for slip, app, status, picks in finished:
         if shown >= PUBLIC_RECENT:
             break
         shown += len(picks)
         latest.append({"slip": bool(slip), "app": app, "status": status, "day": max(day for day, _ in picks),
-                       "picks": [{**{field: pick.get(field) for field in PUBLIC_FIELDS}, "day": day} for day, pick in picks]})
+                       "picks": [face(day, pick) for day, pick in picks]})
+    # The record as it built up, day by day: hits and misses so far, from the
+    # first day with a finished pick.
+    running, hits, misses = [], 0, 0
+    for day in reversed(_days(now, RECORD_DAYS)):
+        today = [pick for d, pick in done if d == day]
+        if not today and not running:
+            continue
+        hits += sum(pick["result"] == "hit" for pick in today)
+        misses += sum(pick["result"] == "miss" for pick in today)
+        running.append({"day": day, "hits": hits, "misses": misses})
     decided = won + lost
     out = {"days": RECORD_DAYS, "tiers": tiers, "all": tally([pick for _, pick in done]),
            "slips": {"won": won, "lost": lost, "slips": decided, "rate": round(won / decided, 4) if decided else None},
            "sports": {sport: counts for sport, counts in sports.items() if counts["picks"]},
            "daily": days,
+           "running": running,
            "latest": latest,
            "at": now.isoformat()}
     if entries is None:

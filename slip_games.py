@@ -47,6 +47,40 @@ def code(sport, value):
     return ALIASES.get(sport, {}).get(value, value)
 
 
+def photo(sport, ident, team="", starts_at=None):
+    """A player's headshot from his id in the game's box score -- ESPN's for
+    football, basketball and soccer, MLB's and the NHL's own -- or ""."""
+    ident = str(ident or "").strip()
+    if not ident.isdigit():
+        return ""
+    if sport in ("nfl", "nba", "wnba", "soccer"):
+        return f"https://a.espncdn.com/i/headshots/{sport}/players/full/{ident}.png"
+    if sport == "mlb":
+        return f"https://img.mlbstatic.com/mlb-photos/image/upload/w_180,q_auto:best/v1/people/{ident}/headshot/67/current"
+    if sport == "nhl" and team:
+        import nhl_research
+        moment = _time(starts_at)
+        return nhl_research.mug(nhl_research.season_id(moment.date() if moment else None), team, ident)
+    return ""
+
+
+def team_logo(sport, team):
+    """A club's logo from its code, where the league's code is enough: the
+    NFL's own, ESPN's for basketball and baseball, the NHL's own; "" for
+    soccer (its clubs go by ESPN id)."""
+    team = code(sport, team)
+    if not team or not re.fullmatch(r"[A-Z]{2,5}", team):
+        return ""
+    if sport == "nfl":
+        return f"https://static.www.nfl.com/t_q-best/league/api/clubs/logos/{team}.svg"
+    if sport in ("nba", "wnba", "mlb"):
+        return f"https://a.espncdn.com/i/teamlogos/{sport}/500/{team.lower()}.png"
+    if sport == "nhl":
+        import nhl_research
+        return nhl_research.logo(team)
+    return ""
+
+
 def _number(value):
     try:
         number = float(str(value).replace(",", ""))
@@ -426,7 +460,8 @@ def _players(item, lines):
     out = {}
     for person in item.get("players") or []:
         found = find_person(lines, person.get("name"), person.get("id"))
-        out[str(person.get("key"))] = {k: v for k, v in (found or {}).items() if k != "id"} if found else None
+        out[str(person.get("key"))] = {**{k: v for k, v in found.items() if k != "id"},
+                                       "headshot": photo(item.get("sport"), found.get("id"), found.get("team"), item.get("startsAt"))} if found else None
     return out
 
 

@@ -66,6 +66,25 @@ class MatchingTests(unittest.TestCase):
             slip_games.clean({"games": "nope"})
 
 
+class FaceTests(unittest.TestCase):
+    def test_a_players_photo_comes_from_his_box_score_id(self):
+        self.assertEqual(slip_games.photo("nfl", "4426515"), "https://a.espncdn.com/i/headshots/nfl/players/full/4426515.png")
+        self.assertIn("/people/660271/headshot/", slip_games.photo("mlb", 660271))
+        self.assertEqual(slip_games.photo("nhl", "8479318", "TB", "2026-01-05T00:00:00+00:00"),
+                         "https://assets.nhle.com/mugs/nhl/20252026/TBL/8479318.png")
+        self.assertEqual(slip_games._players({"sport": "wnba", "players": [{"key": "k", "name": "A'ja Wilson"}]},
+                                             [{"id": "3149391", "name": "A'ja Wilson", "team": "LV", "line": {}}])["k"]["headshot"],
+                         "https://a.espncdn.com/i/headshots/wnba/players/full/3149391.png")
+        self.assertEqual(slip_games.photo("nba", "not-an-id"), "")
+
+    def test_a_clubs_logo_comes_from_its_code(self):
+        self.assertTrue(slip_games.team_logo("nfl", "LAR").endswith("/logos/LA.svg"))
+        self.assertTrue(slip_games.team_logo("nba", "GSW").endswith("/nba/500/gs.png"))
+        self.assertTrue(slip_games.team_logo("mlb", "CWS").endswith("/mlb/500/chw.png"))
+        self.assertEqual(slip_games.team_logo("soccer", "359"), "")
+        self.assertEqual(slip_games.team_logo("nfl", "<b>"), "")
+
+
 class EspnTests(unittest.TestCase):
     def test_nfl_live_line_injuries_and_clock(self):
         item = {"sport": "nfl", "team": "DAL", "opponent": "LA", "players": [{"key": "a", "name": "CeeDee Lamb"}, {"key": "b", "name": "Dak Prescott"},
