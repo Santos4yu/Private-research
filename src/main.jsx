@@ -3,10 +3,6 @@ import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Layers2 as BarChart3, CircleDot, LayoutGrid, Diamond, Crosshair, Target, ChartNoAxesCombined } from 'lucide-react';
 import { Select, SelectTrigger, SelectContent, SelectItem } from '../components/ui/select';
-import { LandingPage } from './LandingPage';
-import { SparklesBackground } from './SparklesBackground';
-import { AuthCard } from './AuthCard';
-import { AdminPinCard } from './AdminPinCard';
 import { MobileNavigation } from './MobileNavigation';
 import { MobileSlipActions } from './MobileSlipActions';
 import { PickBuilder } from './PickBuilder';
@@ -59,6 +55,12 @@ const sections = {
   sheets: () => import('./CheatSheets').then(m => ({ default: m.CheatSheets })),
   analyzer: () => import('./SlipAnalyzer').then(m => ({ default: m.SlipAnalyzer })),
 };
+// The signed-out screens and the admin PIN load only when they're shown, so
+// a signed-in member's first load doesn't carry them (or the sparkles).
+const LandingPage = lazy(() => import('./LandingPage').then(m => ({ default: m.LandingPage })));
+const SparklesBackground = lazy(() => import('./SparklesBackground').then(m => ({ default: m.SparklesBackground })));
+const AuthCard = lazy(() => import('./AuthCard').then(m => ({ default: m.AuthCard })));
+const AdminPinCard = lazy(() => import('./AdminPinCard').then(m => ({ default: m.AdminPinCard })));
 const LineMoves = lazy(sections.moves);
 const SmartSlip = lazy(sections.slip);
 const Moneylines = lazy(sections.moneylines);
@@ -208,7 +210,7 @@ window.vortexMountResearchLoader = (host, props) => {
 // vortexMountResearchLoader since the host is built at runtime.
 window.vortexMountLandingPage = (host, props) => {
   const root = createRoot(host);
-  root.render(<LandingPage {...props} />);
+  root.render(<Suspense fallback={null}><LandingPage {...props} /></Suspense>);
   return () => root.unmount();
 };
 
@@ -217,7 +219,7 @@ window.vortexMountLandingPage = (host, props) => {
 // two screens visually match.
 window.vortexMountSparklesBackground = (host, props) => {
   const root = createRoot(host);
-  root.render(<SparklesBackground {...props} />);
+  root.render(<Suspense fallback={null}><SparklesBackground {...props} /></Suspense>);
   return () => root.unmount();
 };
 
@@ -225,7 +227,7 @@ window.vortexMountSparklesBackground = (host, props) => {
 // the old vanilla authForm() markup with the pasted "login-signup" design.
 window.vortexMountAuthCard = (host, props) => {
   const root = createRoot(host);
-  root.render(<AuthCard {...props} />);
+  root.render(<Suspense fallback={null}><AuthCard {...props} /></Suspense>);
   return () => root.unmount();
 };
 
@@ -233,7 +235,7 @@ window.vortexMountAuthCard = (host, props) => {
 // app.js's openV2PinPrompt()), styled the same as AuthCard's admin mode.
 window.vortexMountAdminPin = (host, props) => {
   const root = createRoot(host);
-  root.render(<AdminPinCard {...props} />);
+  root.render(<Suspense fallback={null}><AdminPinCard {...props} /></Suspense>);
   return () => root.unmount();
 };
 
