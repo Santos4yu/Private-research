@@ -363,3 +363,16 @@ html[data-hidden-tabs~="slate"][data-hidden-tabs~="slip"] :is(.lab-tools,.lab-se
 .record-erase{min-height:44px;padding:0 16px;border:1px solid #5a2a30;border-radius:10px;background:#2a1518;color:#ff7b8a;font:700 13px/1 inherit;cursor:pointer}
 .record-erase:disabled{opacity:.45;cursor:default}
 .record-open{color:var(--theme-accent,#00f58a);font-size:13px;font-weight:600}
+.record-entry-box{padding:12px 14px;border:1px solid #2e3840;border-radius:12px;background:#14181b}
+.record-entry-box summary{cursor:pointer;color:#f4f7f6;font-size:14px;font-weight:700}
+.record-entry-box .site-controls-hint{margin:8px 0 0}
+#site-controls .record-entry{gap:12px;margin-top:12px}
+.record-entry-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.record-field{display:grid;gap:6px;min-width:0;color:#afb5b8;font-size:12px}
+.record-field.record-wide{grid-column:1/-1}
+#site-controls .record-field input,#site-controls .record-field select{box-sizing:border-box;width:100%;min-width:0;height:44px;margin:0;padding:0 12px;border:1px solid #50575a;border-radius:10px;background:#252d33;color:#f4f7f6;font-family:inherit;font-size:14px;color-scheme:dark}
+#site-controls .record-field input:focus-visible,#site-controls .record-field select:focus-visible{outline:2px solid var(--theme-accent,#00f58a);outline-offset:2px;border-color:var(--theme-accent,#00f58a)}
+#site-controls .record-entry-add{min-height:46px;border:1px solid var(--theme-accent,#00f58a);border-radius:12px;background:var(--theme-accent,#00f58a);color:var(--theme-on-accent,#03140B);font:700 13px/1 inherit;cursor:pointer}
+#site-controls .record-entry-add:disabled{opacity:.55;cursor:wait}
+.record-entry-status{margin:0;color:#afb5b8;font-size:12px}
+.record-entry-status:empty{display:none}

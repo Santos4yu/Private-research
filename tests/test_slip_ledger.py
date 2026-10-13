@@ -310,6 +310,27 @@ class AdminRecordTests(unittest.TestCase):
         self.assertEqual(self.posted(), [])
         self.assertTrue(any(":ledger:" in key for key in self.store.data))
 
+    def test_a_finished_play_typed_in_goes_straight_on_the_record(self):
+        play = {"day": "2026-10-03", "sport": "nfl", "player": "Dak Prescott", "side": "over", "line": "33.5",
+                "stat": "Pass Attempts", "tier": "elite", "result": "hit", "value": 42, "team": "dal", "opponent": "tb"}
+        entered = slip_ledger.record_enter(play, now=NOW)
+        self.assertEqual(entered["result"], "hit")
+        with patch("slip_games.read", side_effect=AssertionError("nothing to settle")):
+            rows = slip_ledger.record_picks(now=NOW)
+        self.assertEqual([(row["player"], row["side"], row["line"], row["team"], row["value"]) for row in rows],
+                         [("Dak Prescott", "OVER", 33.5, "DAL", 42)])
+        out = slip_ledger.public_results(NOW)
+        self.assertEqual((out["all"]["hits"], out["sports"]["nfl"]["picks"], out["recent"][0]["player"]), (1, 1, "Dak Prescott"))
+        # Its result can be changed, but there's no box score to go back to.
+        slip_ledger.record_set_result(entered["day"], entered["key"], "miss")
+        with self.assertRaises(ValueError):
+            slip_ledger.record_set_result(entered["day"], entered["key"], None)
+        # Outside the days the record shows, or missing what makes a play: refused.
+        for bad in ({**play, "day": "2026-08-01"}, {**play, "day": "2026-10-05"}, {**play, "result": None},
+                    {**play, "player": ""}, {**play, "line": "x"}, {**play, "sport": "golf"}, {**play, "tier": "lock"}):
+            with self.assertRaises(ValueError):
+                slip_ledger.record_enter(bad, now=NOW)
+
     def test_nothing_to_post_is_refused(self):
         with self.assertRaises(ValueError):
             slip_ledger.record_add({"picks": [{"player": "No Sport"}]}, now=NOW)
@@ -350,6 +371,8 @@ class RecordRouteTests(unittest.TestCase):
         self.assertEqual(self.call("do_POST", {"action": "record-add", "picks": [later]}), (200, {"added": 1, "started": 0}))
         status, body = self.call("do_GET", query="/api/v2-admin?action=record")
         self.assertEqual((status, [row["player"] for row in body["picks"]]), (200, ["CeeDee Lamb"]))
+        self.assertEqual(self.call("do_POST", {"action": "record-enter", "day": "1999-01-01"})[0], 400)
+        self.assertEqual(self.call("do_POST", {"action": "record-enter", "day": "1999-01-01"}, admin=False)[0], 401)
         self.assertEqual(self.call("do_POST", {"action": "record-clear"})[0], 400)  # not confirmed
         self.assertEqual(self.call("do_POST", {"action": "record-clear", "confirm": True}), (200, {"cleared": 1}))
         self.assertEqual(self.call("do_GET", query="/api/v2-admin?action=record")[1]["picks"], [])

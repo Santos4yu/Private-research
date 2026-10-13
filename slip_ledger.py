@@ -14,8 +14,9 @@ void when he didn't play or the game was called off. The timer does it
 (tick), and so does a member opening their slips (history).
 
 The record (the /results page and the record in the app) is only the slips
-the admin posts from the Slip Analyzer (record_add), kept apart from the
-ledger and settled the same way: each tier's hits and misses over the last
+the admin posts from the Slip Analyzer (record_add) and the finished plays
+the admin types in (record_enter), kept apart from the ledger and settled
+the same way: each tier's hits and misses over the last
 30 days. Members grading slips never touch it.
 
 Before the games the timer also re-reads each pending pick's game news and
@@ -706,6 +707,41 @@ def _record_ref(day, key):
     return PREFIX + RECORD + day, key
 
 
+def record_enter(payload, now=None):
+    """A play that already finished, typed in by the admin with its result:
+    onto the record as it stands (nothing to settle). Its day is the game's
+    date, within the RECORD_DAYS the record shows."""
+    now = now or datetime.now(timezone.utc)
+    raw = payload if isinstance(payload, dict) else {}
+    day = str(raw.get("day") or "")
+    days = _days(now, RECORD_DAYS)
+    if day not in days:
+        raise ValueError(f"Pick a date in the last {RECORD_DAYS} days.")
+    sport, side, tier, result = raw.get("sport"), str(raw.get("side") or "").upper(), raw.get("tier"), raw.get("result")
+    if sport not in SPORTS:
+        raise ValueError("Pick a sport.")
+    if side not in SIDES:
+        raise ValueError("Pick Over or Under.")
+    if tier not in TIERS:
+        raise ValueError("Pick a tier.")
+    if result not in RESULTS:
+        raise ValueError("Pick hit, miss, push or void.")
+    player, stat, line = _short(raw.get("player")), _short(raw.get("stat")), _number(raw.get("line"))
+    if not player or not stat or line is None:
+        raise ValueError("Player, stat and line are required.")
+    value = _number(raw.get("value"))
+    pick = {"sport": sport, "player": player, "playerId": "", "team": _short(raw.get("team"), 8).upper(),
+            "opponent": _short(raw.get("opponent"), 8).upper(), "startsAt": f"{day}T23:00:00+00:00", "side": side, "line": line,
+            "stat": stat, "modifier": "standard", "tier": tier, "chance": None, "headshot": "", "settle": None,
+            "owners": [], "alerted": [], "result": result, "value": value, "manual": True, "entered": True,
+            "at": now.isoformat(), "settledAt": now.isoformat()}
+    key = pick_key(pick, day)
+    _pipeline([["HSET", PREFIX + RECORD + day, key, json.dumps(pick, separators=(",", ":"))],
+               ["EXPIRE", PREFIX + RECORD + day, RECORD_KEEP_DAYS * 86400]])
+    _forget()
+    return {"day": day, "key": key, "result": result}
+
+
 def record_remove(day, key):
     """Take one pick off the record."""
     name, key = _record_ref(day, key)
@@ -723,6 +759,8 @@ def record_set_result(day, key, result, value=None):
     pick = _load(_pipeline([["HGET", name, key]])[0])
     if not isinstance(pick, dict):
         raise ValueError("That pick isn't on the record.")
+    if result is None and pick.get("entered"):
+        raise ValueError("A play you typed in has no box score to settle from: pick its result.")
     pick = {**pick, "result": result, "value": _number(value) if result else None, "manual": bool(result),
             "settledAt": datetime.now(timezone.utc).isoformat() if result else None}
     _pipeline([["HSET", name, key, json.dumps(pick, separators=(",", ":"))]])

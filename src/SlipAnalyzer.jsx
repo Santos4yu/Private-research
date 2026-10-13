@@ -556,7 +556,7 @@ export function SlipAnalyzer(){
     body:JSON.stringify({action:'record-add',picks})});
    const data=await response.json().catch(()=>({}));
    if(!response.ok)throw new Error(data.error||'The record couldn\'t be updated.');
-   const started=data.started?` ${data.started} already started, so not posted.`:'';
+   const started=data.started?` ${data.started} already started, so not posted: add finished plays in Admin › Record.`:'';
    setPosted({added:data.added,message:data.added?`Posted ${data.added} pick${data.added===1?'':'s'} to the record.${started}`:`Nothing posted.${started}`});
   }catch(err){setPosted({message:err.message});}
   finally{setPosting(false);}

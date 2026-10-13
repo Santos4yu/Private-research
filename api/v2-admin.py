@@ -13,7 +13,7 @@ GET  ?action=members                 -- admin only (site_members.py)
 POST {"action": "member-rule", ...}  -- admin only
 GET  ?action=announce-status         -- admin only (push_notices.py)
 GET  ?action=record                  -- admin only: the site's record (slip_ledger.py)
-POST {"action": "record-add" | "record-remove" | "record-result" | "record-clear", ...} -- admin only
+POST {"action": "record-add" | "record-enter" | "record-remove" | "record-result" | "record-clear", ...} -- admin only
 GET  ?action=moves-tick&key=...      -- the line-check timer (line_moves.py)
 POST {"action": "announce", ...}     -- admin only
 GET  ?action=key-status              -- admin only
@@ -260,7 +260,7 @@ class handler(BaseHTTPRequestHandler):
                 except ValueError as exc:
                     return self._send(400, {"error": str(exc)})
                 return self._send(200, {"url": f"/api/v2-admin?action=site-background&v={version}"})
-            if action in ("record-add", "record-remove", "record-result", "record-clear"):
+            if action in ("record-add", "record-enter", "record-remove", "record-result", "record-clear"):
                 return self._handle_record(action, body)
             if action == "community-post":
                 from site_controls import allowed, same_origin
@@ -348,7 +348,7 @@ class handler(BaseHTTPRequestHandler):
 
     def _handle_record(self, action, body):
         """The admin's record (slip_ledger.py): post a graded slip's picks,
-        take one off, call one's result, or erase it all."""
+        type in a finished play, take one off, call one's result, or erase it all."""
         if not admin_auth.is_admin_request(self.headers):
             return self._send(401, {"error": "Admin session required"})
         from site_controls import same_origin
@@ -358,6 +358,8 @@ class handler(BaseHTTPRequestHandler):
         try:
             if action == "record-add":
                 return self._send(200, slip_ledger.record_add(body))
+            if action == "record-enter":
+                return self._send(200, slip_ledger.record_enter(body))
             if action == "record-remove":
                 return self._send(200, slip_ledger.record_remove(body.get("day"), body.get("key")))
             if action == "record-result":
