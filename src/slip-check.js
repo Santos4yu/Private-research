@@ -9,7 +9,8 @@
 // re-scored at the slip's number, so a 2.5 on Underdog is graded as a 2.5,
 // not as PrizePicks' 1.5.
 import {finderMarket} from './prop-finder-core.js';
-import {finderWindow} from './unified-finder-data.js';
+import {finderWindow, cachedSoccerLog, loadSoccerOpponents, within} from './unified-finder-data.js';
+import {withSoccerMatchups} from './soccer-matchup.js';
 import {assessLeg, POWER, FLEX, SPORT_NAMES} from './smart-slip.js';
 import {matchupCase, withMatchups} from './slip-matchup.js';
 import {links} from './slip-correlation.js';
@@ -537,6 +538,14 @@ export const sideWord = (side, app) => {
  * `lookup(leg, sports)` (slip-lookup.js) and graded from his own games:
  * state 'history'.
  */
+// A soccer line read against its opponent once its own matches are in
+// (soccer-matchup.js), loading the opponent's when the board hasn't.
+async function soccerRead(row, signal) {
+  if (row?.sport !== 'soccer' || !row.eventId) return row;
+  await within(loadSoccerOpponents([row], {signal}), 6000).catch(error => { if (error.name === 'AbortError') throw error; });
+  return withSoccerMatchups([row], cachedSoccerLog)[0];
+}
+
 export async function checkLeg(read, boards, {enrichFor = () => null, lookup = null, sports = SLIP_SPORTS, tables = {}, signal} = {}) {
   // A side that couldn't be read is taken as More (the usual pick, and the
   // only one on a Goblin or Demon) and flagged, so the parlay still grades.
@@ -555,8 +564,8 @@ export async function checkLeg(read, boards, {enrichFor = () => null, lookup = n
       return {...base, lookupError: error.message || 'Player data is unavailable right now.'};
     }
     if (!found) return base;
-    const row = withMatchups(known ? {...found, headshot: found.headshot || known.headshot, teamLogo: found.teamLogo || known.teamLogo,
-      opponent: found.opponent || known.opponent, startsAt: found.startsAt || known.startsAt} : found, tables);
+    const row = await soccerRead(withMatchups(known ? {...found, headshot: found.headshot || known.headshot, teamLogo: found.teamLogo || known.teamLogo,
+      opponent: found.opponent || known.opponent, startsAt: found.startsAt || known.startsAt} : found, tables), signal);
     if (leg.line == null || !leg.side) return {...base, sport: row.sport, row, state: 'needs'};
     const grade = gradeLeg(leg, row, tables);
     return {...base, sport: row.sport, row, grade, state: grade ? 'history' : 'thin'};
@@ -571,7 +580,7 @@ export async function checkLeg(read, boards, {enrichFor = () => null, lookup = n
     } catch (error) { if (error.name === 'AbortError') throw error; }
   }
   if (spot.state === 'relined') row = await relined(spot.board, leg.line, {enrich, signal});
-  row = withMatchups(row, tables);
+  row = await soccerRead(withMatchups(row, tables), signal);
   const grade = gradeLeg(leg, row, tables);
   return {...base, row, grade, state: grade ? spot.state : 'thin'};
 }

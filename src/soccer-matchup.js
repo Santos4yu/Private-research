@@ -129,7 +129,8 @@ export function oddsTilt(row, read) {
 /**
  * Soccer lines with their matchup read (`soccerMatchup`), from the teams'
  * recent matches `logFor(row, teamId)` has (null when it doesn't). The
- * normal team is the board's, with six teams or more.
+ * normal team is the board's, with six teams or more; each line keeps it
+ * (`soccerNorms`) so it can be read again on its own later.
  */
 export function withSoccerMatchups(rows, logFor) {
   if (!Array.isArray(rows) || typeof logFor !== 'function') return rows;
@@ -147,9 +148,10 @@ export function withSoccerMatchups(rows, logFor) {
   const board = distinct.size >= 6 ? norms([...distinct.values()]) : null;
   return rows.map(row => {
     if (row?.sport !== 'soccer' || !row.eventId) return row;
+    const kept = board ? {...row, soccerNorms: board} : row;
     const team = profileOf(row, row.teamId), opponent = profileOf(row, row.opponentId);
-    if (!opponent) return row;
-    const read = soccerRead(row, team, opponent, board || norms([team, opponent].filter(Boolean)));
-    return read ? {...row, soccerMatchup: read} : row;
+    if (!opponent) return kept;
+    const read = soccerRead(row, team, opponent, board || row.soccerNorms || norms([team, opponent].filter(Boolean)));
+    return read ? {...kept, soccerMatchup: read} : kept;
   });
 }

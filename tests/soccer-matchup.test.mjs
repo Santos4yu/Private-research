@@ -100,3 +100,31 @@ test('the prop model reads soccer per minute, and a posted lineup says whether h
   assert.equal(read.model.key, 'soccer:shots');
   assert.ok(read.factors.some(item => item.key === 'matchup' && item.factor > 1));
 });
+
+test('the Slip Analyzer reads a soccer pick against its opponent', async () => {
+  const {applyFinderSnapshot} = await import('../src/unified-finder-data.js');
+  const {checkLeg} = await import('../src/slip-check.js');
+  const starts = new Date(Date.now() + 6 * 3600000).toISOString();
+  // Each team's log with its players' lines, as the history snapshot keeps it.
+  const withPlayers = (item, name, pos, stat) => ({...item, games: item.games.map((game, index) => ({...game, isHome: index % 2 === 0,
+    opponent: {id: '5', abbr: 'OPP'}, players: [{id: '9', name, pos, starter: true, min: 90, s: {[stat]: 2 + (index % 4)}}]}))});
+  const histories = {
+    'soccer:usa.1:700:1': {at: Date.now(), payload: withPlayers(LOGS.DAL, 'Jonathan Sirois', 'G', 'saves')},
+    'soccer:usa.1:700:2': {at: Date.now(), payload: withPlayers(LOGS.SEA, 'Jordan Morris', 'F', 'shots')},
+  };
+  const base = {sport: 'soccer', eventId: '700', competition: 'usa.1', startsAt: starts, modifier: 'standard', direction: 'OVER',
+    apps: [{key: 'prizepicks', name: 'PrizePicks'}], historyStatus: 'pending'};
+  const rows = applyFinderSnapshot([
+    {...base, id: 'k', player: 'Jonathan Sirois', market: 'Goalie Saves', marketKey: 'goaliesaves', line: 3, position: 'GK',
+      teamId: '1', opponentId: '2', teamAbbr: 'DAL', opponent: 'SEA'},
+    {...base, id: 'f', player: 'Jordan Morris', market: 'Shots', marketKey: 'shots', line: 1.5, position: 'F',
+      teamId: '2', opponentId: '1', teamAbbr: 'SEA', opponent: 'DAL'},
+  ], histories);
+  assert.ok(rows.every(row => row.historyStatus === 'ready'));
+  const checked = await checkLeg({player: 'Jonathan Sirois', sport: 'soccer', stat: 'Goalie Saves', line: 3, side: 'OVER', team: 'DAL'}, {soccer: rows});
+  assert.equal(checked.row.soccerMatchup.key, 'shotsOnTarget');
+  const lead = checked.grade.matchup.facts.find(item => item.key === 'defense');
+  assert.match(lead.text, /^SEA take 6\.5 shots on target a game/);
+  assert.ok(checked.grade.matchup.primary);
+  assert.equal(checked.grade.read.model.key, 'soccer:saves');
+});
