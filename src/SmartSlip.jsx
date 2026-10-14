@@ -77,10 +77,15 @@ async function judged(rows,sports,{signal,now}){
   found=await loadGames(asks,{signal})||{};
   mates=await loadTeammates(asks.filter(item=>found[item.key]).map(item=>({key:item.key,row:withGame(item.row,found[item.key])})),{signal}).catch(()=>({}));
  }catch{/* built on the matchups alone */}
- return graded.map(leg=>{
+ const read=graded.map(leg=>{
   const game=found[leg.id];
   return game?withMatchup({...leg,chance:leg.trendChance??leg.chance,row:withGame(leg.row,{...game,teammates:mates[leg.id]||[]})},leg.matchupRequired,tables):leg;
- }).filter(usable);
+ });
+ const out=read.filter(usable);
+ // A tier short (Lean) but still over the bar: what a slip falls back on
+ // when no slip can be built from Elite and Strong picks alone.
+ out.leans=read.filter(leg=>leg&&leg.tier==='lean'&&overOnly(leg)&&leg.backed!==false);
+ return out;
 }
 
 const percent=value=>`${Math.round(value*100)}%`;
@@ -375,6 +380,7 @@ export function SmartSlip(){
  const [progress,setProgress]=useState({});
  const [lineCount,setLineCount]=useState(0);
  const [pool,setPool]=useState([]);
+ const [leans,setLeans]=useState([]);
  const [builtAt,setBuiltAt]=useState(0);
  // What the slips on hand were built from: change any of it and they need building again.
  const [builtFor,setBuiltFor]=useState('');
@@ -418,10 +424,15 @@ export function SmartSlip(){
  useEffect(()=>()=>clearTimeout(advance.current),[]);
  const chooseThenGo=()=>{clearTimeout(advance.current);advance.current=setTimeout(onward,calm()?0:320);};
 
- const base=useMemo(()=>pool.length?buildLadder(pool,{play,size,mix,sameGame,perGame,locked,excluded}):[],[pool,play,size,mix,sameGame,perGame,locked,excluded]);
+ const strict=useMemo(()=>pool.length?buildLadder(pool,{play,size,mix,sameGame,perGame,locked,excluded}):[],[pool,play,size,mix,sameGame,perGame,locked,excluded]);
+ // Nothing from Elite and Strong picks alone: built with the Lean picks too, and said so.
+ const leaning=!strict.length&&leans.length>0;
+ const usable=useMemo(()=>leaning?[...pool,...leans]:pool,[leaning,pool,leans]);
+ const base=useMemo(()=>leaning?buildLadder(usable,{play,size,mix,sameGame,perGame,locked,excluded}):strict,
+  [leaning,usable,strict,play,size,mix,sameGame,perGame,locked,excluded]);
  // A swap changes one pick of one slip: same band, same size, the rest kept.
- const swapped=useMemo(()=>swap&&pool.length?buildLadder(pool,{play,size:swap.size,mix,sameGame,perGame,locked:[...new Set([...locked,...swap.kept])],excluded,only:[swap.target]})[0]||null:null,
-  [swap,pool,play,mix,sameGame,perGame,locked,excluded]);
+ const swapped=useMemo(()=>swap&&usable.length?buildLadder(usable,{play,size:swap.size,mix,sameGame,perGame,locked:[...new Set([...locked,...swap.kept])],excluded,only:[swap.target]})[0]||null:null,
+  [swap,usable,play,mix,sameGame,perGame,locked,excluded]);
  const ladder=useMemo(()=>{
   const bands=new Map(base.map(item=>[item.target,item]));
   if(swapped)bands.set(swapped.target,swapped);
@@ -439,7 +450,7 @@ export function SmartSlip(){
   const control=new AbortController();controller.current=control;
   const started=Date.now();
   setEditing(false);
-  setStatus('loading');setStep(0);setNotice('');setLocked([]);setSwap(null);setExcluded([]);setSelected(null);setProgress({});setPool([]);setLineCount(0);
+  setStatus('loading');setStep(0);setNotice('');setLocked([]);setSwap(null);setExcluded([]);setSelected(null);setProgress({});setPool([]);setLeans([]);setLineCount(0);
   scan.current=[];
   // What the results have taught the model, before anything is graded.
   await loadLearning();
@@ -485,7 +496,7 @@ export function SmartSlip(){
   if(!await hold(1,checked?200:500))return;
   if(!await hold(2,550))return;
   // The picks drop into the slip on the last step, then the options show.
-  setPool(found);setLocked(around);
+  setPool(found);setLeans(found.leans||[]);setLocked(around);
   if(!await hold(3,1300))return;
   setBuiltAt(Date.now());setBuiltFor(source);
   setStatus(rows.length?'ready':'error');
@@ -495,7 +506,7 @@ export function SmartSlip(){
   setNotice(notes.join(' '));
  },[chosen,picked,anchored,slate,mix,source]);
  useEffect(()=>()=>controller.current?.abort(),[]);
- const cancel=()=>{controller.current?.abort();setStatus('idle');setEditing(true);setPool([]);go(LAST);};
+ const cancel=()=>{controller.current?.abort();setStatus('idle');setEditing(true);setPool([]);setLeans([]);go(LAST);};
 
  const toggleSport=key=>setSports(old=>{const base=old.filter(item=>allowed.includes(item));const current=base.length?base:allowed;
   const next=current.includes(key)?current.filter(item=>item!==key):[...current,key];return next.length===allowed.length?[]:next.length?next:[key];});
@@ -510,7 +521,7 @@ export function SmartSlip(){
   if(!slip)return;
   const kept=slip.legs.filter(other=>other.id!==leg.id).map(other=>other.id);
   // Nothing else fits: the slip stays as it is.
-  const next=buildLadder(pool,{play,size:slip.legs.length,mix,sameGame,perGame,locked:[...new Set([...locked,...kept])],excluded:[...excluded,leg.id],only:[slip.target]})[0];
+  const next=buildLadder(usable,{play,size:slip.legs.length,mix,sameGame,perGame,locked:[...new Set([...locked,...kept])],excluded:[...excluded,leg.id],only:[slip.target]})[0];
   if(!next){setToast('No other pick fits this slip right now');return;}
   setSwap({target:slip.target,size:slip.legs.length,kept});
   setExcluded(old=>[...old,leg.id]);setSelected(slip.target);
@@ -721,6 +732,7 @@ export function SmartSlip(){
     <span>{anchored.length?'Try another payout, or build around another player.':picked.length?'Add another game, try another line mix, or a different payout.':'Try more sports, another line mix, or a different payout.'}</span>
     <button type="button" onClick={()=>{setEditing(true);go(LAST);}}>Change my choices</button></div>}
    {status==='error'&&<div className="ss-empty"><b>Lines couldn’t load</b><button type="button" onClick={build}>Try again</button></div>}
+   {status==='ready'&&ladder.length>0&&leaning&&<p className="ss-notice ss-leaning" role="status">Nothing Elite or Strong makes a slip with these choices, so this one uses Lean picks too: each still clears the bar, with a smaller edge.</p>}
    {status==='ready'&&ladder.length>0&&<>
     <div className="ss-ladder" role="listbox" aria-label="Payout options">{ladder.map((item,index)=>{
      const active=item===slip;

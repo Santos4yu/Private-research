@@ -228,31 +228,32 @@ const PROFILES = {
   'basketball:stl': stat('count', 100, 0.06, 0.1, {unit: 'min', spread: 1.1}),
   'basketball:pf': stat('count', 100, 0.05, 0.1, {unit: 'min', spread: 1.1}),
   // Soccer, per minute played. One number for most players (0.5 shots on
-  // target, 1.5 shots, 2.5 saves) sits further from even than basketball's.
-  'soccer:saves': stat('count', 300, 0.07, 0.08, {unit: 'min', spread: 1.1}),
-  'soccer:sotf': stat('count', 300, 0.07, 0.08, {unit: 'min', spread: 1.1}),
-  'soccer:gc': stat('count', 600, 0.06, 0.12, {unit: 'min', spread: 1.1}),
-  'soccer:shots': stat('count', 270, 0.07, 0.07, {unit: 'min', spread: 1.3}),
-  'soccer:sot': stat('count', 450, 0.07, 0.08, {unit: 'min', spread: 1.2}),
-  'soccer:sa': stat('count', 450, 0.06, 0.1, {unit: 'min', spread: 1.3}),
-  'soccer:goals': stat('count', 900, 0.06, 0.12, {unit: 'min', spread: 1.05}),
-  'soccer:ast': stat('count', 900, 0.06, 0.12, {unit: 'min', spread: 1.05}),
-  'soccer:ga': stat('count', 900, 0.06, 0.12, {unit: 'min', spread: 1.05}),
-  'soccer:passAtt': stat('count', 180, 0.06, 0.06, {unit: 'min', spread: 1.3}),
-  'soccer:passes': stat('count', 180, 0.06, 0.06, {unit: 'min', spread: 1.3}),
-  'soccer:touch': stat('count', 180, 0.06, 0.06, {unit: 'min', spread: 1.3}),
-  'soccer:cross': stat('count', 270, 0.06, 0.08, {unit: 'min', spread: 1.4}),
-  'soccer:crossAcc': stat('count', 450, 0.06, 0.1, {unit: 'min', spread: 1.3}),
-  'soccer:clear': stat('count', 270, 0.07, 0.08, {unit: 'min', spread: 1.4}),
-  'soccer:tackles': stat('count', 270, 0.07, 0.08, {unit: 'min', spread: 1.3}),
-  'soccer:tacklesWon': stat('count', 450, 0.06, 0.1, {unit: 'min', spread: 1.3}),
-  'soccer:int': stat('count', 450, 0.06, 0.1, {unit: 'min', spread: 1.3}),
-  'soccer:blk': stat('count', 450, 0.06, 0.1, {unit: 'min', spread: 1.3}),
-  'soccer:fouls': stat('count', 450, 0.06, 0.1, {unit: 'min', spread: 1.2}),
-  'soccer:fd': stat('count', 450, 0.06, 0.1, {unit: 'min', spread: 1.3}),
-  'soccer:drib': stat('count', 270, 0.06, 0.08, {unit: 'min', spread: 1.4}),
-  'soccer:off': stat('count', 600, 0.05, 0.12, {unit: 'min', spread: 1.2}),
-  'soccer:yc': stat('count', 900, 0.05, 0.15, {unit: 'min', spread: 1.05}),
+  // target, 1.5 shots, 2.5 saves) and thinner markets than basketball's sit
+  // further from even, about as far as baseball's 0.5 hits.
+  'soccer:saves': stat('count', 300, 0.09, 0.08, {unit: 'min', spread: 1.1}),
+  'soccer:sotf': stat('count', 300, 0.09, 0.08, {unit: 'min', spread: 1.1}),
+  'soccer:gc': stat('count', 600, 0.09, 0.12, {unit: 'min', spread: 1.1}),
+  'soccer:shots': stat('count', 270, 0.09, 0.07, {unit: 'min', spread: 1.3}),
+  'soccer:sot': stat('count', 450, 0.09, 0.08, {unit: 'min', spread: 1.2}),
+  'soccer:sa': stat('count', 450, 0.09, 0.1, {unit: 'min', spread: 1.3}),
+  'soccer:goals': stat('count', 900, 0.09, 0.12, {unit: 'min', spread: 1.05}),
+  'soccer:ast': stat('count', 900, 0.09, 0.12, {unit: 'min', spread: 1.05}),
+  'soccer:ga': stat('count', 900, 0.09, 0.12, {unit: 'min', spread: 1.05}),
+  'soccer:passAtt': stat('count', 180, 0.08, 0.06, {unit: 'min', spread: 1.3}),
+  'soccer:passes': stat('count', 180, 0.08, 0.06, {unit: 'min', spread: 1.3}),
+  'soccer:touch': stat('count', 180, 0.08, 0.06, {unit: 'min', spread: 1.3}),
+  'soccer:cross': stat('count', 270, 0.09, 0.08, {unit: 'min', spread: 1.4}),
+  'soccer:crossAcc': stat('count', 450, 0.09, 0.1, {unit: 'min', spread: 1.3}),
+  'soccer:clear': stat('count', 270, 0.09, 0.08, {unit: 'min', spread: 1.4}),
+  'soccer:tackles': stat('count', 270, 0.09, 0.08, {unit: 'min', spread: 1.3}),
+  'soccer:tacklesWon': stat('count', 450, 0.09, 0.1, {unit: 'min', spread: 1.3}),
+  'soccer:int': stat('count', 450, 0.09, 0.1, {unit: 'min', spread: 1.3}),
+  'soccer:blk': stat('count', 450, 0.09, 0.1, {unit: 'min', spread: 1.3}),
+  'soccer:fouls': stat('count', 450, 0.09, 0.1, {unit: 'min', spread: 1.2}),
+  'soccer:fd': stat('count', 450, 0.09, 0.1, {unit: 'min', spread: 1.3}),
+  'soccer:drib': stat('count', 270, 0.09, 0.08, {unit: 'min', spread: 1.4}),
+  'soccer:off': stat('count', 600, 0.09, 0.12, {unit: 'min', spread: 1.2}),
+  'soccer:yc': stat('count', 900, 0.09, 0.15, {unit: 'min', spread: 1.05}),
   'basketball:dd': stat(null, 0, 0.05, 0.15),
   'basketball:td': stat(null, 0, 0.04, 0.2),
 };
@@ -567,7 +568,10 @@ function uncertainty(model) {
     else if (model.shape === 'count') rate = Math.sqrt(model.spread / (model.rate * evidence));
     else if (model.shape === 'curve') rate = model.plain > 0 ? Math.sqrt(model.variance / model.plain ** 2 / Math.max(1, evidence / model.meanUsage)) : 0.3;
   } else if (model.shape !== 'self') rate = 0.5;
-  const usage = model.context?.spot || model.context?.role === 'starter' ? 0.03 : model.usage > 0 ? model.usageSd / model.usage / Math.sqrt(5) : 0;
+  // (A soccer player's minutes swing with rotation, which his own matches
+  // already show; what's unsure is their average.)
+  const soccer = String(model.key || '').startsWith('soccer:');
+  const usage = model.context?.spot || model.context?.role === 'starter' ? 0.03 : model.usage > 0 ? model.usageSd / model.usage / Math.sqrt(soccer ? 8 : 5) : 0;
   return Math.min(0.6, Math.sqrt(rate ** 2 + usage ** 2 + model.error ** 2));
 }
 
