@@ -287,13 +287,49 @@ export function allowReader(row) {
         lookup = team => { const value = hitting[String(team)]?.[rate]; return finite(value) ? keep((value / league[rate]) ** direction) : null; };
     } else {
       const rate = HITTER_RATE[key];
-      if (rate && pitching && finite(league[rate]) && league[rate] > 0)
+      if (rate && pitching && finite(league[rate]) && league[rate] > 0) {
         lookup = team => { const value = pitching[String(team)]?.[rate]; return finite(value) ? keep(value / league[rate]) : null; };
+        // Tonight he faces a starter, not a staff: the starter's own rate
+        // counts for the innings he's likely to pitch, by how much of a
+        // season stands behind it; the staff's for the rest.
+        const starter = row.matchup?.kind === 'pitcher' ? row.matchup.pitcher : null;
+        if (starter && finite(starter[rate]) && row.opponentTeamId != null) {
+          const staff = lookup(row.opponentTeamId) ?? 1;
+          const trust = finite(starter.ip) ? starter.ip / (starter.ip + 40) : 0.4;
+          const today = keep(staff + (starter[rate] / league[rate] - staff) * 0.65 * trust);
+          return {of: game => (game?.opponent == null ? null : lookup(game.opponent)), today, starter: starter.name || null};
+        }
+      }
     }
   }
   if (!lookup) return null;
   const opponent = row.sport === 'mlb' ? row.opponentTeamId : row.opponent;
   return {of: game => (game?.opponent == null ? null : lookup(game.opponent)), today: opponent == null ? null : lookup(opponent)};
+}
+
+/**
+ * The words for what a player faces, by sport and stat. "Soft" always
+ * means it gives up more of the stat -- good for the Over -- so on an MLB
+ * hitter's line it's weaker pitching, but on his strikeouts it's pitching
+ * that strikes hitters out; on a pitcher's it's the lineup he faces.
+ * {noun, soft, tough} for the schedule ("pitching 8% weaker than average"),
+ * {softKind, toughKind} for a kind ("strikeout-heavy pitching"), and short
+ * names for the chart's key.
+ */
+export function defenseWords(row) {
+  const generic = {noun: 'defenses', soft: 'softer', tough: 'tougher', softKind: 'soft defenses', toughKind: 'tough defenses', softKey: 'Soft D', toughKey: 'Tough D'};
+  if (row?.sport !== 'mlb') return generic;
+  const key = String(row.marketKey || '').split(':')[1];
+  if (String(row.marketKey || '').startsWith('pitching:')) {
+    const [rate, direction = 1] = PITCHER_RATE[key] || [];
+    if (rate === 'kRate') return {noun: 'lineups', soft: 'more strikeout-prone', tough: 'less strikeout-prone', softKind: 'high-strikeout lineups',
+      toughKind: 'low-strikeout lineups', softKey: 'High-K lineup', toughKey: 'Low-K lineup'};
+    const strong = {noun: 'lineups', soft: 'stronger', tough: 'weaker', softKind: 'stronger lineups', toughKind: 'weaker lineups', softKey: 'Strong lineup', toughKey: 'Weak lineup'};
+    return direction > 0 ? strong : {...strong, soft: 'weaker', tough: 'stronger', softKind: 'weaker lineups', toughKind: 'stronger lineups', softKey: 'Weak lineup', toughKey: 'Strong lineup'};
+  }
+  if (HITTER_RATE[key] === 'k9') return {noun: 'pitching', soft: 'more strikeout-heavy', tough: 'less strikeout-heavy', softKind: 'strikeout-heavy pitching',
+    toughKind: 'low-strikeout pitching', softKey: 'High-K pitching', toughKey: 'Low-K pitching'};
+  return {noun: 'pitching', soft: 'weaker', tough: 'stronger', softKind: 'weaker pitching', toughKind: 'stronger pitching', softKey: 'Weak pitching', toughKey: 'Strong pitching'};
 }
 
 /** A defense's kind for this line: soft, tough or about average. */
@@ -438,9 +474,10 @@ export function readPick(row, side, {records = {}, book = null, baseline = 0.5, 
       const softer = schedule >= 1;
       const pct = Math.abs(Math.round((schedule - 1) * 100));
       // Already in the projection (its base): shown, not applied again.
+      const words = defenseWords(row);
       out.factors.push({key: 'schedule', factor: base / raw, applied: true, short: `${base >= raw ? '+' : '−'}${Math.abs(Math.round((base / raw - 1) * 100))}%`,
-        label: 'schedule', text: `His last ${recentFaced.length} came against defenses ${pct}% ${softer ? 'softer' : 'tougher'} than average: `
-          + `against an average one that's ${figure(Math.round(base * 10) / 10)}, not ${figure(Math.round(raw * 10) / 10)}`});
+        label: 'schedule', text: `His last ${recentFaced.length} came against ${words.noun} ${pct}% ${softer ? words.soft : words.tough} than average: `
+          + `against average ${words.noun} that's ${figure(Math.round(base * 10) / 10)}, not ${figure(Math.round(raw * 10) / 10)}`});
     }
     // How he's done against defenses like tonight's, and against the tough
     // and soft ones, at tonight's line.
@@ -450,8 +487,12 @@ export function readPick(row, side, {records = {}, book = null, baseline = 0.5, 
     const tonight = defenseKind(allow?.today);
     if (tonight && tonight !== 'average') {
       const record = onKind(tonight);
-      if (record && record.games >= 3) out.similar = {kind: tonight, record, opponent: row.opponent || null,
-        text: `Against ${tonight} defenses like ${row.opponent || "tonight's"}: ${record.won} of ${record.games} ${side === 'UNDER' ? 'under' : 'over'} ${figure(line)}`};
+      const words = defenseWords(row);
+      const what = tonight === 'soft' ? words.softKind : words.toughKind;
+      // Tonight's MLB starter is who sets the kind: named, not his team.
+      const who = allow.starter || row.opponent || "tonight's";
+      if (record && record.games >= 3) out.similar = {kind: tonight, words: what, record, opponent: row.opponent || null,
+        text: `Against ${what} like ${who}: ${record.won} of ${record.games} ${side === 'UNDER' ? 'under' : 'over'} ${figure(line)}`};
     }
     const variance = n > 1 ? values.reduce((sum, value) => sum + (value - plain) ** 2, 0) / (n - 1) : plain;
     let factor = 1;
@@ -552,7 +593,7 @@ export function readPick(row, side, {records = {}, book = null, baseline = 0.5, 
     if (item.key === 'h2h' && item.record?.games >= 3 && item.record.rate <= 0.34) out.risks.push(`${item.record.won} of ${item.record.games} against ${row.opponent}`);
     if (item.key === 'schedule' && effect <= -0.05) out.risks.push(`Recent numbers came against soft defenses`);
   }
-  if (out.similar?.record.games >= 4 && out.similar.record.rate <= 0.34) out.risks.push(`Only ${out.similar.record.won} of ${out.similar.record.games} against ${out.similar.kind} defenses`);
+  if (out.similar?.record.games >= 4 && out.similar.record.rate <= 0.34) out.risks.push(`Only ${out.similar.record.won} of ${out.similar.record.games} against ${out.similar.words}`);
   // A starter not expected to go deep caps his strikeouts and outs.
   const self = row.sport === 'mlb' && row.matchup?.kind === 'lineup' ? row.matchup.self : null;
   if (self && finite(self.projectedIp) && self.projectedIp < 5 && side !== 'UNDER' && /^pitching:(strikeouts|outs|pitcher-fantasy)$/.test(row.marketKey || ''))

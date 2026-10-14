@@ -2,7 +2,7 @@ import React,{useEffect,useState} from 'react';
 import {ArrowUpRight,Flame,TrendingDown,TrendingUp,TriangleAlert} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import {TIERS} from './slip-check';
-import {allowReader,defenseKind} from './slip-analyst';
+import {allowReader,defenseKind,defenseWords} from './slip-analyst';
 import {teamLogoUrl} from './sports/nfl/nfl-ui-core';
 import './slip-analyzer.css';
 
@@ -67,10 +67,13 @@ export function TierBadge({tier}){
 
 export const rateTone=rate=>rate>=0.6?'up':rate>=0.5?'blue':rate>=0.4?'gold':'down';
 const RECORDS=[['l5','L5'],['l10','L10'],['l20','L20'],['season','Season'],['h2h','H2H']];
+// A team by its nickname on the small record chips: "Los Angeles Dodgers" is "Dodgers".
+const TWO_WORD=/(red sox|white sox|blue jays|golden knights|maple leafs|blue jackets|red wings|trail blazers)$/i;
+const teamShort=name=>{const text=String(name||'').trim();const two=text.match(TWO_WORD);return two?two[1]:text.split(/\s+/).length>1?text.split(/\s+/).pop():text;};
 export function Records({grade,row}){
  // A backup starting today: these came in his smaller role.
  const smaller=grade.matchup?.facts?.some(item=>item.level==='role');
- const items=RECORDS.map(([key,label])=>[key,key==='h2h'&&row?.opponent?`vs ${row.opponent}`:label,grade.records?.[key]])
+ const items=RECORDS.map(([key,label])=>[key,key==='h2h'&&row?.opponent?`vs ${teamShort(row.opponent)}`:label,grade.records?.[key]])
   .filter(([key,,record])=>record&&record.games>0&&!(key==='l20'&&record.games<=(grade.records.l10?.games||0))&&!(key==='season'&&record.games<=(grade.records.l20?.games||grade.records.l10?.games||0)));
  if(!items.length)return null;
  return <ul className="sa-records">{items.map(([key,label,record])=><li key={key} data-tone={smaller?'muted':rateTone(record.rate)}>
@@ -100,10 +103,11 @@ export function Games({row,line,side}){
  const allow=allowReader(row);
  const kinds=games.map(game=>defenseKind(allow?.of(game)));
  const marked=kinds.some(kind=>kind==='soft'||kind==='tough');
+ const words=defenseWords(row);
  return <div className="sa-games" role="img" data-marked={marked||undefined}
   aria-label={`Last ${games.length} games: ${hits} of ${games.length} on the ${side==='UNDER'?'under':'over'} side of ${line}`}>
   <div className="sa-games-head"><span>Last {games.length} games</span>
-   {marked&&<span className="sa-games-key"><i data-kind="tough"/>Tough D<i data-kind="soft"/>Soft D</span>}<b>{hits}/{games.length}</b></div>
+   {marked&&<span className="sa-games-key"><i data-kind="tough"/>{words.toughKey}<i data-kind="soft"/>{words.softKey}</span>}<b>{hits}/{games.length}</b></div>
   <div className="sa-games-plot">
    <i className="sa-games-line" style={{'--y':line/top}}><span>{figure(line)}</span></i>
    {games.map((game,index)=><span key={`${game.date}-${index}`} className="sa-games-bar" style={{'--h':`${Math.max(3,game.value/top*100)}%`,'--i':index}}
@@ -121,11 +125,12 @@ const tenth=value=>String(Math.round(value*10)/10);
  * numbers come against soft or tough defenses, and how has he done against
  * defenses like tonight's (slip-analyst.js readPick).
  */
-export function AnalystRead({read,side,line}){
+export function AnalystRead({read,side,line,row}){
  const check=read?.lineCheck,schedule=read?.factors?.find(item=>item.key==='schedule'),similar=read?.similar,split=read?.split;
  const over=side!=='UNDER',word=over?'Over':'Under';
  const both=split?.tough?.games>=2&&split?.soft?.games>=2;
- const splitText=!similar&&both&&line!=null?`${word} ${figure(line)} in ${split.tough.won} of ${split.tough.games} against tough defenses, ${split.soft.won} of ${split.soft.games} against soft ones`:null;
+ const words=defenseWords(row);
+ const splitText=!similar&&both&&line!=null?`${word} ${figure(line)} in ${split.tough.won} of ${split.tough.games} against ${words.toughKind}, ${split.soft.won} of ${split.soft.games} against ${words.softKind}`:null;
  if(!check&&!schedule&&!similar&&!splitText)return null;
  const helps=check&&check.verdict!=='fair'&&(check.verdict==='low')===over;
  const z=check?Math.max(-2,Math.min(2,check.z)):0;

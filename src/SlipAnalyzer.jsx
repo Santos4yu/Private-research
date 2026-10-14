@@ -160,7 +160,7 @@ function Prop({leg,index,app,boards,need,editing,onEdit,onSave,onCancel,onRemove
   {grade?<>
    <Meter chance={grade.chance} need={need}/>
    <MatchupCase matchup={grade.matchup} limit={3}/>
-   <AnalystRead read={grade.read} side={leg.side} line={leg.line}/>
+   <AnalystRead read={grade.read} side={leg.side} line={leg.line} row={row}/>
    {safer&&<div className="sa-safer" data-tier={safer.tier}><ShieldCheck size={16}/>
     <span><small>A safer way to play {lastWord(row?.player||leg.player)}</small>
      <b>{sideWord(safer.side,app)} {figure(safer.row.line)} {String(safer.row.market).split(' ').slice(0,-1).join(' ')} <span className="sa-safer-end">{String(safer.row.market).split(' ').pop()}{MODIFIER_ICON[safer.row.modifier]&&<img src={MODIFIER_ICON[safer.row.modifier]} alt={safer.row.modifier} width="16" height="16"/>}</span></b>

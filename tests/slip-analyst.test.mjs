@@ -144,7 +144,7 @@ test('recent games are judged by who they came against, then set against tonight
   assert.ok(read.projection < plain.projection, `${read.projection} vs ${plain.projection}`);
   const schedule = read.factors.find(item => item.key === 'schedule');
   assert.ok(schedule && schedule.applied && schedule.factor < 1);
-  assert.match(schedule.text, /^His last 10 came against defenses \d+% softer than average: against an average one that's [\d.]+, not [\d.]+$/);
+  assert.match(schedule.text, /^His last 10 came against defenses \d+% softer than average: against average defenses that's [\d.]+, not [\d.]+$/);
   assert.ok(read.signals.some(item => item.key === 'schedule' && item.weight < 0));
   // Tough and soft, at tonight's line.
   assert.deepEqual([read.split.tough.won, read.split.tough.games], [0, 5]);
@@ -179,4 +179,20 @@ test('MLB: a hitter\'s past games judged by the staffs he faced', () => {
     gameLog: Array.from({length: 10}, (_, index) => ({value: index % 2, date: `2026-06-${String(index + 1).padStart(2, '0')}`, opponent: 111}))};
   const read = readPick(row, 'OVER');
   assert.ok(read.factors.some(item => item.key === 'schedule' && item.factor < 1), 'his hits came off a soft staff');
+});
+
+// A hitter facing an ace on a team whose staff is only average overall.
+const facingAce = (market, marketKey) => ({sport: 'mlb', player: 'H', market, marketKey, line: 0.5, opponent: 'Los Angeles Dodgers', opponentTeamId: 119,
+  matchup: {kind: 'pitcher', pitcher: {name: 'Blake Snell', whip: 1.1, k9: 11.8, ip: 120}, league: {whip: 1.3, k9: 8.6}},
+  mlbTeams: {pitching: {119: {whip: 1.32, k9: 9.9}, 111: {whip: 1.0, k9: 7}, 147: {whip: 1.6, k9: 10.5}}, hitting: {}, league: {whip: 1.3, k9: 8.6}},
+  gameLog: Array.from({length: 12}, (_, index) => ({value: index % 3 ? 1 : 0, date: `2026-06-${String(index + 1).padStart(2, '0')}`, opponent: index % 2 ? 111 : 147}))});
+
+test('MLB: tonight\'s starter, not the staff, says how tough the pitching is, in words for the stat', () => {
+  // Hits against Snell: stronger pitching, named for him, though the staff is average.
+  const hits = readPick(facingAce('Hits', 'hitting:hits'), 'OVER');
+  assert.match(hits.similar.text, /^Against stronger pitching like Blake Snell: \d+ of \d+ over 0\.5$/);
+  // His strikeouts against Snell: strikeout-heavy pitching, good for the Over -- and said so, not "soft".
+  const ks = readPick(facingAce('Strikeouts', 'hitting:strikeouts'), 'OVER');
+  assert.match(ks.similar.text, /^Against strikeout-heavy pitching like Blake Snell: /);
+  assert.ok(!/soft|tough/.test(ks.similar.text + hits.similar.text));
 });
