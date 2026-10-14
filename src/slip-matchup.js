@@ -77,8 +77,31 @@ export function withMatchups(row, tables = {}) {
     if (table.hitters) out = withHitterMatchups([out], table.hitters)[0];
     return out;
   }
-  if (row.sport === 'nba' || row.sport === 'wnba' || row.sport === 'nfl') return finite(row.defenseValue) ? row : withDefense([row], table)[0];
+  if (row.sport === 'nba' || row.sport === 'wnba') {
+    const out = finite(row.defenseValue) ? row : withDefense([row], table)[0];
+    const scoring = scoringOf(row, table.teamStats, team => team?.off?.pts?.[0], team => team?.def?.pts?.[0]);
+    return scoring ? {...out, scoring} : out;
+  }
+  if (row.sport === 'nfl') return finite(row.defenseValue) ? row : withDefense([row], table)[0];
+  if (row.sport === 'nhl') {
+    const scoring = scoringOf(row, table.teams, team => team?.off?.goals?.l20?.[0], team => team?.def?.goals?.l20?.[0]);
+    return scoring ? {...row, scoring} : row;
+  }
   return row;
+}
+
+/**
+ * His team's expected scoring today from both teams' scoring for and
+ * against (`expected`), and a normal team's (`normal`): what the prop
+ * model scales scoring stats by when the game's odds aren't in.
+ */
+function scoringOf(row, teams, scored, allowed) {
+  const own = teams?.[row.teamAbbr], their = teams?.[row.opponent];
+  const all = Object.values(teams || {}).map(scored).filter(finite);
+  if (!own || !their || all.length < 5) return null;
+  const normal = mean(all);
+  const expected = [scored(own), allowed(their)].every(finite) ? (scored(own) + allowed(their)) / 2 : null;
+  return normal > 0 && finite(expected) ? {normal, expected} : null;
 }
 
 // ---------------------------------------------------------------- facts
@@ -357,6 +380,11 @@ export function matchupCase(leg, tables = {}) {
   for (const extra of [venueSplit(row, sign), headToHead(row, records), recentForm(row, records, leg.side)]) if (extra) facts.push(extra);
   // Is he playing, who's out around him, where he bats (slip-games.js).
   facts.push(...newsFacts(row, leg.side));
+  // What the prop model has already counted (his lineup spot, a teammate's
+  // absence, the game's scoring) is shown but not counted again.
+  const counted = new Set(leg.grade?.read?.model?.used || []);
+  for (const item of facts) if (counted.has(item.key)) item.modelled = true;
+  const impact = item => item.modelled ? 0 : item.impact;
   // In a bigger role today (a backup starting), his own games came in the
   // smaller one: shown for what they are, and not counted.
   if (facts.some(item => item.level === 'role')) {
@@ -375,9 +403,9 @@ export function matchupCase(leg, tables = {}) {
     const over = String(row.marketKey || '').endsWith(':strikeouts') ? 100 - model.score : model.score;
     const sided = sign > 0 ? over : 100 - over;
     const outside = facts.filter(item => item.kind === 'split' && item.key === 'venue' || item.kind === 'form' || item.kind === 'news')
-      .reduce((sum, item) => sum + item.impact, 0);
+      .reduce((sum, item) => sum + impact(item), 0);
     score = sided + outside;
-  } else score = 50 + facts.reduce((sum, item) => sum + item.impact, 0);
+  } else score = 50 + facts.reduce((sum, item) => sum + impact(item), 0);
   score = Math.round(clamp(score, 3, 97));
   const [, label, tone] = BANDS.find(([floor]) => score >= floor);
   // The news first (is he playing), then the opponent, history and splits, then form.

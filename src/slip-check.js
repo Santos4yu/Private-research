@@ -371,6 +371,11 @@ export function tierOf(read) {
   return 'lean';
 }
 
+// For a prop-model read: how much of its chance stands, and how far a
+// matchup grade 50 points from neutral moves it on top. Baseball and
+// hockey matchup grades say less about one game than basketball's.
+const MODEL_BLEND = {mlb: [0.9, 0.05], nhl: [0.9, 0.05], nba: [0.9, 0.07], wnba: [0.9, 0.07]};
+
 /**
  * A read judged on its matchup: the case for it (slip-matchup.js), its
  * chance with the matchup counting most and the recent games after
@@ -378,13 +383,24 @@ export function tierOf(read) {
  */
 export function judge(read, tables = {}) {
   if (!read) return null;
+  // With his game's news in (the lineup, who's out, the odds), the prop
+  // model reads the pick again with it (prop-model.js gameContext).
+  if (read.row?.game && read.read?.model && read.side) {
+    const again = assessLeg(read.row, read.side, {any: true, started: true});
+    if (again?.read?.model) read = {...read, chance: again.chance, history: again.history, read: again.read, grade: again.grade,
+      note: again.note, backed: read.backed !== false && again.backed};
+  }
   const matchup = matchupCase({row: read.row, side: read.side, grade: read}, tables);
   const base = baselineOf(read);
   // A bigger role than his recent games (a backup starting) leaves those
   // games little to say (slip-games.js).
   const role = matchup?.facts?.some(item => item.level === 'role');
-  const trend = role ? 0.15 : matchup?.primary ? 0.45 : 0.7;
-  const raw = matchup ? Math.min(0.95, Math.max(0.05, base + trend * (read.chance - base) + 0.18 * (matchup.score - 50) / 50)) : read.chance;
+  // The prop model already carries the matchup in its projection: its
+  // read leads and the matchup grade adds a little on top.
+  const blend = read.read?.model ? MODEL_BLEND[read.row?.sport] : null;
+  const trend = role ? 0.15 : blend ? blend[0] : matchup?.primary ? 0.45 : 0.7;
+  const lift = blend ? blend[1] : 0.18;
+  const raw = matchup ? Math.min(0.95, Math.max(0.05, base + trend * (read.chance - base) + lift * (matchup.score - 50) / 50)) : read.chance;
   // What the results have taught the model (learning.js): the same
   // correction on every page. `rawChance` is the model's own, learned from.
   const chance = calibrate(raw, read.row?.sport);

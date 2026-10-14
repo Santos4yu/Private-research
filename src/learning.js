@@ -11,6 +11,11 @@ const MODEL_URL = '/api/prediction?action=learning';
 const CACHE_KEY = 'ace-learning';
 const FRESH = 6 * 3600 * 1000;
 const finite = value => typeof value === 'number' && Number.isFinite(value);
+// Which model grades picks (learning.py BASIS): the prop model
+// (prop-model.js) for these leagues. Corrections fit on another model's
+// picks don't apply to them.
+export const MODEL_BASIS = 2;
+const PROP_SPORTS = new Set(['mlb', 'nba', 'wnba', 'nhl']);
 
 let model = null;
 let loading = null;
@@ -62,6 +67,7 @@ function offsetAt(group, p) {
 /** A pick's chance with what the results have taught: its sport's correction, else all sports'. */
 export function calibrate(p, sport, using = model) {
   if (!using || !finite(p)) return p;
+  if (PROP_SPORTS.has(sport) && using.basis !== MODEL_BASIS) return p;
   const offset = offsetAt(using.groups?.[sport], p) ?? offsetAt(using.groups?.all, p) ?? 0;
   return Math.min(0.97, Math.max(0.03, p + offset));
 }

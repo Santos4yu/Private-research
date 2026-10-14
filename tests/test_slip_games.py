@@ -121,6 +121,23 @@ class EspnTests(unittest.TestCase):
         self.assertFalse(view["players"]["i"]["played"])
         self.assertEqual(view["players"]["m"]["line"]["player_assists"], 6)
 
+    def test_basketball_pregame_line(self):
+        summary = {"header": espn_header("NY", "IND", 0, 0, state="pre", period=0, clock="0:00", detail="7:30 PM", name="STATUS_SCHEDULED"),
+                   "boxscore": {"players": []},
+                   "pickcenter": [{"overUnder": 166.5, "spread": -7.5,
+                                   "homeTeamOdds": {"moneyLine": -300}, "awayTeamOdds": {"moneyLine": 240}}]}
+        view = slip_games.espn_view("wnba", summary, {"sport": "wnba", "players": []})
+        odds = view["odds"]
+        self.assertEqual(odds["total"], 166.5)
+        self.assertEqual(odds["spread"], {"NY": -7.5, "IND": 7.5})
+        self.assertAlmostEqual(odds["win"]["NY"] + odds["win"]["IND"], 1, places=3)
+        self.assertGreater(odds["win"]["NY"], 0.7)
+        # No line posted: nothing made up.
+        summary["pickcenter"] = [{"provider": {"name": "ESPN BET"}}]
+        self.assertIsNone(slip_games.espn_view("wnba", summary, {"sport": "wnba", "players": []})["odds"])
+        # Under way, the pregame line no longer says anything.
+        self.assertNotIn("odds", slip_games.espn_view("wnba", {**summary, "header": espn_header("NY", "IND", 40, 38)}, {"sport": "wnba", "players": []}))
+
     def test_game_carries_the_picks_codes(self):
         item = {"sport": "nfl", "team": "DAL", "opponent": "LAR", "players": [{"key": "a", "name": "CeeDee Lamb"}]}
         with patch.object(slip_games, "_espn_event", return_value={"id": "401"}), patch.object(slip_games, "_summary", return_value=nfl_summary()):
@@ -144,6 +161,24 @@ class NhlTests(unittest.TestCase):
         self.assertEqual(view["players"]["b"]["line"]["sog"], 4)
         self.assertEqual(view["players"]["g"]["line"]["saves"], 23)
         self.assertEqual(view["injuries"]["CAR"][0]["status"], "Day-To-Day")
+        self.assertIsNone(view["odds"])
+
+    def test_pregame_line(self):
+        import nhl_research
+        box = nhl_samples.box(state="FUT", home_score=0, away_score=0)
+        box["startTimeUTC"] = "2026-10-14T23:00:00Z"
+        line = {"home": {"moneyline": -150, "spread": -1.5}, "away": {"moneyline": 130, "spread": 1.5}, "total": 6.5}
+        with patch.object(nhl_research, "_odds", return_value=line) as asked:
+            odds = slip_games.nhl_odds(box)
+        home, away = (slip_games.code("nhl", nhl_research.canonical(box[side]["abbrev"])) for side in ("homeTeam", "awayTeam"))
+        self.assertEqual(asked.call_args[0][0]["start"], "2026-10-14T23:00:00Z")
+        self.assertEqual(odds["total"], 6.5)
+        self.assertEqual(odds["spread"], {home: -1.5, away: 1.5})
+        self.assertGreater(odds["win"][home], 0.55)
+        with patch.object(nhl_research, "_odds", return_value=None):
+            self.assertIsNone(slip_games.nhl_odds(box))
+        view = slip_games.nhl_view(box, {"sport": "nhl", "players": []}, {}, odds)
+        self.assertEqual(view["odds"], odds)
 
 
 class MlbTests(unittest.TestCase):

@@ -14,7 +14,7 @@ globalThis.localStorage = {
 const {calibrate, setLearning, learned, loadLearning} = await import('../src/learning.js');
 const {logTopPicks} = await import('../src/slip-history.js');
 
-const MODEL = {version: 1, at: '2026-10-11T12:00:00Z', picks: 400, groups: {
+const MODEL = {version: 1, basis: 2, at: '2026-10-11T12:00:00Z', picks: 400, groups: {
   all: {points: [[0.58, -0.02, 120, 0.56], [0.72, -0.06, 80, 0.66]]},
   mlb: {points: [[0.6, 0.03, 90, 0.63]]},
 }};
@@ -37,10 +37,19 @@ test('a sport with its own results uses them; others borrow all sports', () => {
   setLearning(null);
 });
 
+test('corrections fit on another model\'s picks leave the prop model\'s leagues alone', () => {
+  setLearning({...MODEL, basis: undefined});
+  assert.equal(calibrate(0.6, 'mlb'), 0.6);
+  assert.equal(calibrate(0.6, 'nba'), 0.6);
+  // Leagues it doesn't read still take them.
+  assert.ok(calibrate(0.65, 'nfl') < 0.65);
+  setLearning(null);
+});
+
 test('a corrected chance stays a chance', () => {
-  setLearning({version: 1, groups: {all: {points: [[0.5, -0.15, 50, 0.35]]}}});
+  setLearning({version: 1, basis: 2, groups: {all: {points: [[0.5, -0.15, 50, 0.35]]}}});
   assert.equal(calibrate(0.1, 'nba'), 0.03);
-  setLearning({version: 1, groups: {all: {points: [[0.5, 0.15, 50, 0.65]]}}});
+  setLearning({version: 1, basis: 2, groups: {all: {points: [[0.5, 0.15, 50, 0.65]]}}});
   assert.equal(calibrate(0.95, 'nba'), 0.97);
   assert.equal(calibrate(Number.NaN, 'nba'), Number.NaN);
   setLearning(null);
@@ -77,6 +86,7 @@ test('the strongest picks before their games are sent once a day', async () => {
   assert.deepEqual(sent[0].picks.map(pick => pick.player), ['Player b', 'Player c']);
   assert.equal(sent[0].picks[0].source, 'board');
   assert.ok(Math.abs(sent[0].picks[0].raw - 0.70) < 1e-9, 'learned from the chance before any correction');
+  assert.equal(sent[0].picks[0].model, 2, 'and which model gave it');
 
   // The same picks again that day: only the one not sent yet goes.
   await logTopPicks(legs, {source: 'assistant', limit: 5, now: NOW + 60000, fetcher});

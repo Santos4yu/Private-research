@@ -30,6 +30,12 @@ import time
 from datetime import datetime, timezone
 
 VERSION = 1
+# Which model graded a pick. The prop model (src/prop-model.js) has read
+# MLB, NBA, WNBA and NHL picks since BASIS 2; their picks graded before it
+# came from another model, so they aren't learned from, and corrections fit
+# on them don't carry over.
+BASIS = 2
+PROP_SPORTS = ("mlb", "nba", "wnba", "nhl")
 LEARN_DAYS = 60
 RECORD_DAYS = 30
 # Edges of the chance bands, as the model gave them.
@@ -74,6 +80,11 @@ def _counted(pick):
     return float(raw), pick["result"] == "hit"
 
 
+def _current(pick):
+    """Whether a pick was graded by today's model."""
+    return pick.get("sport") not in PROP_SPORTS or pick.get("model") == BASIS
+
+
 def _bands(picks):
     """Each chance band's picks: {band: [n, hits, sum of predicted]}."""
     out = {}
@@ -104,7 +115,7 @@ def fit(entries, previous=None, now=None):
     tiers = {}
     for _, _, pick in entries:
         counted = _counted(pick)
-        if not counted:
+        if not counted or not _current(pick):
             continue
         by_sport.setdefault(pick.get("sport") or "other", []).append(counted)
         by_sport.setdefault("all", []).append(counted)
@@ -118,7 +129,7 @@ def fit(entries, previous=None, now=None):
         cell["predicted"] = round(cell["predicted"] / cell["picks"], 4)
         cell["actual"] = round(cell["hits"] / cell["picks"], 4)
 
-    old = (previous or {}).get("groups") or {}
+    old = ((previous or {}).get("groups") or {}) if (previous or {}).get("basis") == BASIS else {}
 
     def held(group, band):
         for predicted, offset, *_ in (old.get(group) or {}).get("points") or []:
@@ -146,7 +157,7 @@ def fit(entries, previous=None, now=None):
             offset = _clamp(before + _clamp(target - before, -STEP, STEP), -CAP, CAP)
             points.append([round(predicted / n, 4), round(offset, 4), n, round(hits / n, 4)])
         groups[group] = {"points": points, "picks": len(picks), "hits": sum(hit for _, hit in picks)}
-    return {"version": VERSION, "at": now.isoformat(), "days": LEARN_DAYS, "picks": len(by_sport.get("all", [])),
+    return {"version": VERSION, "basis": BASIS, "at": now.isoformat(), "days": LEARN_DAYS, "picks": len(by_sport.get("all", [])),
             "groups": groups, "tiers": tiers}
 
 

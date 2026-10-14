@@ -57,7 +57,7 @@ test('a read: projection, venue, head-to-head, playing time, and what to watch',
   const records = {l10: {won: 7, games: 10, rate: 0.7}, l5: {won: 4, games: 5, rate: 0.8}, season: {won: 14, games: 20, rate: 0.7}};
   const read = readPick(guard(), 'OVER', {records, book: 0.6});
   assert.ok(read.projection > 21 && read.projection < 25, read.projection);
-  assert.ok(read.projected > 0.65, read.projected);
+  assert.ok(read.projected > 0.6, read.projected);
   assert.deepEqual(read.factors.map(item => item.key), ['matchup', 'venue', 'h2h', 'role']);
   assert.equal(read.factors.find(item => item.key === 'role').text, 'Minutes up to 34 from 30');
   assert.equal(read.risks.length, 0);

@@ -1,6 +1,7 @@
 // Graded slips kept for the member, how they finished, and the site's
 // record (slip_ledger.py through /api/prediction).
 import {recentAverage, settleKey} from './slip-games.js';
+import {MODEL_BASIS} from './learning.js';
 
 const SAVE_URL = '/api/prediction?action=slip-save';
 const REMOVE_URL = '/api/prediction?action=slip-remove';
@@ -12,7 +13,7 @@ export const newSlipId = () => `s-${Date.now().toString(36)}-${Math.random().toS
  * A graded pick ({row, side, grade}) as the server keeps it, with what it
  * needs to be settled: its chance as shown, and (`raw`) the model's own
  * before what results have taught it (learning.js), which learning.py
- * measures against.
+ * measures against, and which model graded it (`model`).
  */
 export function pickPayload(leg) {
   const row = leg.row;
@@ -21,7 +22,7 @@ export function pickPayload(leg) {
     teamId: row.teamId ?? '', opponentId: row.opponentId ?? '', competition: row.competition || '',
     side: leg.side, line: leg.line ?? row.line, stat: leg.stat || row.market, modifier: leg.modifier || row.modifier || 'standard',
     tier: leg.grade.tier, chance: leg.grade.chance, raw: leg.grade.rawChance ?? leg.grade.chance, headshot: row.headshot || '', position: row.position || '',
-    average: recentAverage(row), settle: settleKey(row)};
+    average: recentAverage(row), settle: settleKey(row), model: MODEL_BASIS};
 }
 
 /** What the server keeps of a graded slip: each graded pick, with what it needs to be settled. */

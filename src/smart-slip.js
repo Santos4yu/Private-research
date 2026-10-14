@@ -19,6 +19,7 @@
 // anything.
 import {bookProbability} from './unified-finder-data.js';
 import {readPick, grade, conflicted, analystNote} from './slip-analyst.js';
+import {onSlips} from './prop-model.js';
 import {link, against, together} from './slip-correlation.js';
 import {scoreParlay} from './slip-score.js';
 
@@ -47,6 +48,15 @@ const LOCK_MINUTES = 10;
 // as six real ones, so 3 for 3 reads as 67%, not 100%.
 const PRIOR = 6;
 const WINDOW_WEIGHTS = {l5: 0.10, l10: 0.30, l15: 0.10, l20: 0.15, season: 0.35};
+// A baseball or hockey stat swings so much from game to game that a hot
+// ten games is mostly luck: the season counts most and every window is
+// pulled harder toward 50/50.
+const SWINGY = {prior: 10, weights: {l5: 0.05, l10: 0.15, l15: 0.10, l20: 0.20, season: 0.50}};
+const HISTORY = {mlb: SWINGY, nhl: SWINGY};
+// The chance a regular line needs before it's backed. A PrizePicks Power
+// Play breaks even at about 55% a pick (58% on two), so in the leagues the
+// prop model reads the bar sits there; elsewhere it stays where it was.
+const BACK_AT = {mlb: 0.55, nhl: 0.55, nba: 0.54, wnba: 0.54};
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
@@ -155,12 +165,13 @@ export function assessLeg(row, side, {now = Date.now(), any = false, started = f
   if (!(recent && recent.games >= 5) && !(records.season && records.season.games >= 8)) return null;
 
   // The player's record, each window pulled toward 50/50 by its size.
+  const {prior, weights} = HISTORY[row.sport] || {prior: PRIOR, weights: WINDOW_WEIGHTS};
   let weight = 0, total = 0;
-  for (const [key, share] of Object.entries(WINDOW_WEIGHTS)) {
+  for (const [key, share] of Object.entries(weights)) {
     const record = records[key];
     if (!record) continue;
     weight += share;
-    total += share * (record.won + PRIOR * 0.5) / (record.games + PRIOR);
+    total += share * (record.won + prior * 0.5) / (record.games + prior);
   }
   if (!weight) return null;
   let history = total / weight;
@@ -187,16 +198,34 @@ export function assessLeg(row, side, {now = Date.now(), any = false, started = f
       history += (side === 'UNDER' ? -soft : soft) * 0.06;
     }
   }
+  // The prop model (prop-model.js) already reads every game, by what each
+  // one gave him to work with, and holds itself toward the line by how
+  // much the stat's games say: it leads, and the hit rates (the same games,
+  // counted over or under) back it up.
+  // The hit rates are held toward the line as the model's read is, by the
+  // share of its edge the model keeps.
+  const modelled = Boolean(read.model);
+  const held = modelled ? baseline + (history - baseline) * read.model.weight : history;
   const chance = clamp(projected == null
     ? book == null ? 0.5 + (history - 0.5) * 0.8 : (twoSided ? 0.6 : 0.4) * book + (twoSided ? 0.4 : 0.6) * history
-    : book == null ? 0.5 + (0.55 * projected + 0.45 * history - 0.5) * 0.85
-      : twoSided ? 0.5 * book + 0.25 * projected + 0.25 * history : 0.35 * book + 0.35 * projected + 0.3 * history, 0.03, 0.95);
+    : modelled
+      ? book == null ? 0.8 * projected + 0.2 * held
+        : twoSided ? 0.5 * book + 0.4 * projected + 0.1 * held : 0.35 * book + 0.5 * projected + 0.15 * held
+      : book == null ? 0.5 + (0.55 * projected + 0.45 * history - 0.5) * 0.85
+        : twoSided ? 0.5 * book + 0.25 * projected + 0.25 * history : 0.35 * book + 0.35 * projected + 0.3 * history, 0.03, 0.95);
 
   // Only picks the numbers back: the recent record and the books (where
-  // they price it) must not argue against it.
+  // they price it) must not argue against it. In baseball and hockey a
+  // hot streak isn't enough: the season has to be with it too.
   const recentRate = recent && recent.games >= 5 ? recent.rate : records.season.rate;
-  const backed = !(book != null && book < (modifier === 'demon' ? 0.25 : 0.47))
-    && !(modifier === 'standard' && !(chance >= 0.53 && (recentRate >= 0.55 || (book ?? 0) >= 0.55)))
+  const longer = records.season && records.season.games >= 10 ? records.season : records.l20 && records.l20.games >= 10 ? records.l20 : null;
+  const bar = BACK_AT[row.sport] ?? 0.53;
+  const steady = HISTORY[row.sport]
+    ? (recentRate >= 0.5 && (!longer || longer.rate >= 0.52)) || (book ?? 0) >= 0.55
+    : recentRate >= 0.55 || (book ?? 0) >= 0.55;
+  const backed = onSlips(row)
+    && !(book != null && book < (modifier === 'demon' ? 0.25 : 0.47))
+    && !(modifier === 'standard' && !(chance >= bar && steady))
     && !(modifier === 'goblin' && !(chance >= 0.62 && recentRate >= 0.65))
     && !(modifier === 'demon' && !(chance >= 0.33 && recentRate >= 0.4))
     && !conflicted(read);
