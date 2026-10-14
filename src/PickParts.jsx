@@ -118,34 +118,22 @@ export function Games({row,line,side}){
  </div>;
 }
 
-const tenth=value=>String(Math.round(value*10)/10);
 /**
- * The analyst's read of a pick, as someone checking it by hand would: is
- * the line too high or too low against the projection, did his recent
- * numbers come against soft or tough defenses, and how has he done against
- * defenses like tonight's (slip-analyst.js readPick).
+ * The analyst's read of a pick, as someone checking it by hand would: did
+ * his recent numbers come against soft or tough defenses, and how has he
+ * done against defenses like tonight's (slip-analyst.js readPick).
  */
 export function AnalystRead({read,side,line,row}){
- const check=read?.lineCheck,schedule=read?.factors?.find(item=>item.key==='schedule'),similar=read?.similar,split=read?.split;
+ const schedule=read?.factors?.find(item=>item.key==='schedule'),similar=read?.similar,split=read?.split;
  const over=side!=='UNDER',word=over?'Over':'Under';
  const both=split?.tough?.games>=2&&split?.soft?.games>=2;
  const words=defenseWords(row);
  const splitText=!similar&&both&&line!=null?`${word} ${figure(line)} in ${split.tough.won} of ${split.tough.games} against ${words.toughKind}, ${split.soft.won} of ${split.soft.games} against ${words.softKind}`:null;
- if(!check&&!schedule&&!similar&&!splitText)return null;
- const helps=check&&check.verdict!=='fair'&&(check.verdict==='low')===over;
- const z=check?Math.max(-2,Math.min(2,check.z)):0;
- return <section className="sa-analyst" aria-label="Analyst read">
-  {check&&<div className="sa-lc" data-tone={check.verdict==='fair'?'even':helps?'good':'bad'}>
-   <div className="sa-lc-top"><span>Line check</span><b>{check.verdict==='fair'?'Line looks fair':`Line looks ${tenth(Math.abs(check.gap))} ${check.verdict}`}</b></div>
-   <div className="sa-lc-scale" aria-hidden="true"><i className="sa-lc-mid"/><i className="sa-lc-dot" style={{'--x':`${50+z*22}%`}}/></div>
-   <div className="sa-lc-foot"><span>Line <b>{figure(check.line)}</b></span><span>Projects <b>{tenth(check.projection)}</b></span>
-    {check.average!=null&&<span>Avg <b>{tenth(check.average)}</b></span>}</div>
-  </div>}
-  {(schedule||similar||splitText)&&<ul className="sa-analyst-points">
-   {schedule&&<li data-tone={(schedule.factor>1)===over?'good':'bad'}>{schedule.text}.</li>}
-   {similar&&<li data-tone={similar.record.rate>=0.6?'good':similar.record.rate<=0.4?'bad':'even'}>{similar.text}.</li>}
-   {splitText&&<li data-tone="even">{splitText}.</li>}
-  </ul>}
- </section>;
+ if(!schedule&&!similar&&!splitText)return null;
+ return <ul className="sa-analyst-points" aria-label="Analyst read">
+  {schedule&&<li data-tone={(schedule.factor>1)===over?'good':'bad'}>{schedule.text}.</li>}
+  {similar&&<li data-tone={similar.record.rate>=0.6?'good':similar.record.rate<=0.4?'bad':'even'}>{similar.text}.</li>}
+  {splitText&&<li data-tone="even">{splitText}.</li>}
+ </ul>;
 }
 

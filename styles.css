@@ -4676,7 +4676,7 @@ body::before,body::after { display:none !important; animation:none !important; }
 .bottom-nav-btn:hover { color:#dce3e0; background:#151a1d; }
 .bottom-nav-btn.active { color:#e89a38 !important; background:#171c1f !important; }
 .bottom-nav-btn.active::after { display:none !important; }
-.panel-enter { animation:desk-panel-in 160ms ease-out both; }
+.panel-enter { animation:desk-panel-in 160ms ease-out backwards; }
 
 @keyframes desk-panel-in { from{opacity:0;transform:translateY(3px)} to{opacity:1;transform:none} }
 @keyframes desk-load { to{transform:translateY(18px)} }
@@ -4842,7 +4842,10 @@ button:focus-visible,[role="button"]:focus-visible { outline:2px solid #5cf8b2; 
 .bottom-nav-btn { position:relative; border-radius:10px !important; transition:transform var(--kp-fast) var(--kp-ease),color var(--kp-fast) ease,background var(--kp-fast) ease !important; }
 .bottom-nav-btn:hover { color:#f4f7f6; background:rgba(255,255,255,.035); }.bottom-nav-btn.active { color:#5cf8b2 !important; background:rgba(0,245,138,.095); }.bottom-nav-btn.active::after { content:""; position:absolute; right:27%; bottom:2px; left:27%; height:2px; border-radius:9px; background:#5cf8b2; box-shadow:none; }
 
-.panel-enter { animation:kp-panel-in .24s var(--kp-ease) both; }
+/* A page fades in, then lets go of its transform: held, it keeps the whole
+   page one layer, which an iPhone stops drawing past the part first shown
+   while the page is still filling in. */
+.panel-enter { animation:kp-panel-in .24s var(--kp-ease) backwards; }
 @keyframes kp-panel-in { from{opacity:0;transform:translateY(7px)} to{opacity:1;transform:none} }
 @keyframes kp-spin { to{transform:rotate(360deg)} }
 @keyframes kp-pulse { 50%{transform:scale(1.35);opacity:.7} }
@@ -5390,7 +5393,7 @@ body{background:#0a0c0d!important}body::before,body::after,.grid-bg,.glow-orb{di
 .ghost-btn,.state-refresh,.v2-deepdive-btn{min-height:36px!important;border:1px solid #353a3c!important;border-radius:6px!important;color:#b3b9bc!important;background:#121618!important;box-shadow:none!important}.ghost-btn::before,.state-refresh::before,.v2-deepdive-btn::before{display:none!important}.ghost-btn:hover,.state-refresh:hover,.v2-deepdive-btn:hover{transform:none!important;border-color:#5e676b!important;color:#f4f7f6!important;box-shadow:none!important}
 .v2-card,.slate-row,.saved-card{overflow:visible!important;border-color:#222a30!important;border-radius:7px!important;background:#0f1214!important;box-shadow:none!important}.v2-card::after,.slate-row::after,.saved-card::after{display:none!important}.v2-card:hover,.slate-row:hover,.saved-card:hover{transform:none!important;border-color:#41474a!important;background:#13181b!important;box-shadow:none!important}
 .empty-state,.slate-error,.premium-loading{max-width:720px!important;min-height:74px!important;margin:42px auto!important;padding:16px 18px!important;border:1px solid #222a30!important;border-radius:7px!important;background:#0e1113!important;box-shadow:none!important;backdrop-filter:none!important;text-align:left!important}#v2-board-empty,.slate-error,.premium-loading{display:grid;grid-template-columns:8px 1fr auto;align-items:center;gap:14px}#v2-board-empty[hidden],.slate-error[hidden],.premium-loading[hidden]{display:none!important}.state-orbit,.loading-scan,.state-live{display:none!important}.status-mark{display:block;width:7px;height:7px;border-radius:50%;background:#d98d2d}.status-mark-error{background:#b85c5c}.state-copy{display:grid;gap:3px}.state-copy strong,.premium-loading strong{color:#dce3e0;font-size:12px;letter-spacing:0}.state-copy small,.premium-loading small{color:#6f787d;font:500 9px/1.45 var(--font-mono)}
-.bottom-nav{border:1px solid #273037!important;border-radius:9px!important;background:#0e1113!important;backdrop-filter:none!important;box-shadow:0 8px 24px rgba(0,0,0,.28)!important}.bottom-nav-btn{border-radius:6px!important}.bottom-nav-btn.active{color:#e89a38!important;background:#171c1f!important}.bottom-nav-btn.active::after{display:none!important}.panel-enter{animation:desk-panel-in 160ms ease-out both!important}
+.bottom-nav{border:1px solid #273037!important;border-radius:9px!important;background:#0e1113!important;backdrop-filter:none!important;box-shadow:0 8px 24px rgba(0,0,0,.28)!important}.bottom-nav-btn{border-radius:6px!important}.bottom-nav-btn.active{color:#e89a38!important;background:#171c1f!important}.bottom-nav-btn.active::after{display:none!important}.panel-enter{animation:desk-panel-in 160ms ease-out backwards!important}
 @media(max-width:760px){.hero{padding-top:86px!important}.slate-toolbar{margin-inline:14px!important}.board-filter-row{width:calc(100% - 28px)!important;margin-inline:14px!important}#v2-board-empty,.slate-error,.premium-loading{grid-template-columns:8px 1fr;margin:28px 14px!important;padding:15px!important}.state-refresh{grid-column:1/-1;width:100%}}
 
 /* Prop analysis: compact scouting report */

@@ -633,9 +633,7 @@ export function analystNote(row, side, read, {records = {}, book = null} = {}) {
   const parts = [];
   const recent = records.l10 || records.l5;
   if (finite(read.projection)) {
-    const check = read.lineCheck;
-    const looks = check && check.verdict !== 'fair' && Math.abs(check.gap) >= 0.5 ? ` (the line looks ${figure(Math.round(Math.abs(check.gap) * 10) / 10)} ${check.verdict})` : '';
-    const lead = `Projects for ${figure(Math.round(read.projection * 10) / 10)} against the ${figure(row.line)} line${looks}`;
+    const lead = `Projects for ${figure(Math.round(read.projection * 10) / 10)} against the ${figure(row.line)} line`;
     parts.push(recent ? `${lead}, ${word} in ${recent.won} of the last ${recent.games}.` : `${lead}.`);
   } else if (recent) parts.push(`${recent.won} of the last ${recent.games} ${word} ${figure(row.line)}.`);
   if (read.similar?.record.games >= 3) parts.push(`${read.similar.text}.`);

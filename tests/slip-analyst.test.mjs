@@ -66,8 +66,7 @@ test('a read: projection, venue, head-to-head, playing time, and what to watch',
   assert.equal(grade(read, 0.52), 'C');
   assert.equal(conflicted(read), false);
   assert.equal(analystNote(guard(), 'OVER', read, {records, book: 0.6}),
-    'Projects for ' + (Math.round(read.projection * 10) / 10) + ' against the 17.5 line (the line looks '
-      + (Math.round((read.projection - 17.5) * 10) / 10) + ' low), over in 7 of the last 10. LV allows 18 points a game to guards, 20% more than average (2nd-most); the books have it at 60%.');
+    'Projects for ' + (Math.round(read.projection * 10) / 10) + ' against the 17.5 line, over in 7 of the last 10. LV allows 18 points a game to guards, 20% more than average (2nd-most); the books have it at 60%.');
   assert.equal(read.lineCheck.verdict, 'low', 'projecting well past the line: the line looks low');
   // The Under of the same line: everything above argues against it.
   const under = readPick(guard(), 'UNDER', {records: {l10: {won: 3, games: 10, rate: 0.3}}, book: 0.4});
@@ -94,7 +93,7 @@ test('the Smart Slip grades a pick, notes why, and drops one the evidence argues
   const leg = judgeLeg(row, 'OVER', {now: NOW});
   assert.ok(leg, 'offered');
   assert.equal(leg.grade, 'A');
-  assert.match(leg.note, /^Projects for \d+\.\d against the 17\.5 line \(the line looks \d+\.\d low\), over in 7 of the last 10\. /);
+  assert.match(leg.note, /^Projects for \d+\.\d against the 17\.5 line, over in 7 of the last 10\. /);
   assert.deepEqual(reasons(leg).slice(0, 5).map(item => item.key), ['l10', 'season', 'books', 'projection', 'matchup']);
   // The same record, but the games themselves and a stingy defense say otherwise.
   const cold = guard({id: 'w2', modifier: 'standard', raw: {}, windows: row.windows, apps: [{key: 'prizepicks'}],
