@@ -343,6 +343,7 @@
 
 .ss-notice{margin:12px 2px 0;color:var(--s-muted);font-size:12px}
 /* A slip built with Lean picks too: said plainly, in the gold the tiers use for a smaller edge. */
+.ss-empty-count{display:block;color:var(--s-faint);font-size:12px}
 .ss-notice.ss-leaning{padding:10px 12px;border:1px solid color-mix(in srgb,var(--s-gold) 35%,transparent);border-radius:10px;
  background:color-mix(in srgb,var(--s-gold) 8%,transparent);color:var(--s-gold);font-size:13px;line-height:1.4}
 .ss-empty{display:grid;justify-items:center;gap:8px;margin-top:14px;padding:36px 16px;border:1px solid var(--s-line);border-radius:18px;background:var(--s-card);color:var(--s-muted);text-align:center;animation:ss-in .35s ease-out}

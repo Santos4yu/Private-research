@@ -52,6 +52,7 @@ const LAST=FLOW.length;
 const MOST_PLAYERS=3;
 const STEPS=[['Pulling the lines',Layers],['Checking hit rates',BarChart3],['Matchups, injuries and odds',Stethoscope],['Building your slip',TicketIcon]];
 const PRIZEPICKS_LOGO='/prizepicks/logo.png';
+const KIND_NAME={standard:'regular',goblin:'Goblin',demon:'Demon'};
 // The picks a slip is built from, judged as the Slip Analyzer and Krazy Bot
 // judge them (krazy-bot.js withMatchup): the matchup first, then each one's
 // game news (who's out, who starts, a teammate's absence) for the strongest
@@ -424,15 +425,29 @@ export function SmartSlip(){
  useEffect(()=>()=>clearTimeout(advance.current),[]);
  const chooseThenGo=()=>{clearTimeout(advance.current);advance.current=setTimeout(onward,calm()?0:320);};
 
+ // What cleared the bar, by kind of line (said when nothing builds).
+ const qualified=useMemo(()=>{
+  const all=[...pool,...leans];
+  const counts=['standard','goblin','demon'].map(kind=>[kind,all.filter(leg=>leg.modifier===kind).length]).filter(([,n])=>n);
+  const games=new Set(all.map(leg=>leg.game)).size;
+  return all.length?`${all.length} pick${all.length===1?'':'s'} cleared the bar (${counts.map(([kind,n])=>`${n} ${KIND_NAME[kind]}`).join(', ')}) across ${games} game${games===1?'':'s'}${lineCount?`, of ${lineCount} lines checked`:''}.`
+   :`None of the ${lineCount||''} lines checked cleared the bar.`.replace('  ',' ');
+ },[pool,leans,lineCount]);
  const strict=useMemo(()=>pool.length?buildLadder(pool,{play,size,mix,sameGame,perGame,locked,excluded}):[],[pool,play,size,mix,sameGame,perGame,locked,excluded]);
  // Nothing from Elite and Strong picks alone: built with the Lean picks too, and said so.
  const leaning=!strict.length&&leans.length>0;
  const usable=useMemo(()=>leaning?[...pool,...leans]:pool,[leaning,pool,leans]);
- const base=useMemo(()=>leaning?buildLadder(usable,{play,size,mix,sameGame,perGame,locked,excluded}):strict,
+ const leaned=useMemo(()=>leaning?buildLadder(usable,{play,size,mix,sameGame,perGame,locked,excluded}):strict,
   [leaning,usable,strict,play,size,mix,sameGame,perGame,locked,excluded]);
+ // The mix needs a kind of line none of which cleared the bar (no Goblin today): regular lines, and said so.
+ const missingKinds=useMemo(()=>(MIXES[mix]?.needs||[]).filter(kind=>!usable.some(leg=>leg.modifier===kind)),[mix,usable]);
+ const fallback=!leaned.length&&missingKinds.length>0&&usable.some(leg=>leg.modifier==='standard');
+ const built=fallback?'regular':mix;
+ const base=useMemo(()=>fallback?buildLadder(usable,{play,size,mix:'regular',sameGame,perGame,locked,excluded}):leaned,
+  [fallback,usable,leaned,play,size,sameGame,perGame,locked,excluded]);
  // A swap changes one pick of one slip: same band, same size, the rest kept.
- const swapped=useMemo(()=>swap&&usable.length?buildLadder(usable,{play,size:swap.size,mix,sameGame,perGame,locked:[...new Set([...locked,...swap.kept])],excluded,only:[swap.target]})[0]||null:null,
-  [swap,usable,play,mix,sameGame,perGame,locked,excluded]);
+ const swapped=useMemo(()=>swap&&usable.length?buildLadder(usable,{play,size:swap.size,mix:built,sameGame,perGame,locked:[...new Set([...locked,...swap.kept])],excluded,only:[swap.target]})[0]||null:null,
+  [swap,usable,play,built,sameGame,perGame,locked,excluded]);
  const ladder=useMemo(()=>{
   const bands=new Map(base.map(item=>[item.target,item]));
   if(swapped)bands.set(swapped.target,swapped);
@@ -521,7 +536,7 @@ export function SmartSlip(){
   if(!slip)return;
   const kept=slip.legs.filter(other=>other.id!==leg.id).map(other=>other.id);
   // Nothing else fits: the slip stays as it is.
-  const next=buildLadder(usable,{play,size:slip.legs.length,mix,sameGame,perGame,locked:[...new Set([...locked,...kept])],excluded:[...excluded,leg.id],only:[slip.target]})[0];
+  const next=buildLadder(usable,{play,size:slip.legs.length,mix:built,sameGame,perGame,locked:[...new Set([...locked,...kept])],excluded:[...excluded,leg.id],only:[slip.target]})[0];
   if(!next){setToast('No other pick fits this slip right now');return;}
   setSwap({target:slip.target,size:slip.legs.length,kept});
   setExcluded(old=>[...old,leg.id]);setSelected(slip.target);
@@ -729,9 +744,11 @@ export function SmartSlip(){
    </div>
    {notice&&<p className="ss-notice" role="status">{notice}</p>}
    {status==='ready'&&!ladder.length&&<div className="ss-empty"><b>No slip clears the bar right now</b>
+    <small className="ss-empty-count">{qualified}</small>
     <span>{anchored.length?'Try another payout, or build around another player.':picked.length?'Add another game, try another line mix, or a different payout.':'Try more sports, another line mix, or a different payout.'}</span>
     <button type="button" onClick={()=>{setEditing(true);go(LAST);}}>Change my choices</button></div>}
    {status==='error'&&<div className="ss-empty"><b>Lines couldn’t load</b><button type="button" onClick={build}>Try again</button></div>}
+   {status==='ready'&&ladder.length>0&&fallback&&<p className="ss-notice ss-leaning" role="status">No {missingKinds.map(kind=>KIND_NAME[kind]).join(' or ')} line cleared the bar today, so this slip uses regular lines.</p>}
    {status==='ready'&&ladder.length>0&&leaning&&<p className="ss-notice ss-leaning" role="status">Nothing Elite or Strong makes a slip with these choices, so this one uses Lean picks too: each still clears the bar, with a smaller edge.</p>}
    {status==='ready'&&ladder.length>0&&<>
     <div className="ss-ladder" role="listbox" aria-label="Payout options">{ladder.map((item,index)=>{
