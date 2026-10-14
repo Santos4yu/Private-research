@@ -15,7 +15,7 @@ const finite = value => typeof value === 'number' && Number.isFinite(value);
 // (prop-model.js) for these leagues. Corrections fit on another model's
 // picks don't apply to them.
 export const MODEL_BASIS = 2;
-const PROP_SPORTS = new Set(['mlb', 'nba', 'wnba', 'nhl']);
+const PROP_SPORTS = new Set(['mlb', 'nba', 'wnba', 'nhl', 'soccer']);
 
 let model = null;
 let loading = null;

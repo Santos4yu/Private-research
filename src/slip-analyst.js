@@ -16,6 +16,8 @@
 // today's opportunities, its chance read off the way the stat falls and
 // held toward the line's break-even by how sure the model can be.
 import {sideChance, projectStat, modelRead, modelMean, withModelPriors} from './prop-model.js';
+import {withSoccerMatchups, soccerText, oddsTilt} from './soccer-matchup.js';
+import {cachedSoccerLog} from './unified-finder-data.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
@@ -191,8 +193,9 @@ export function withPoolDefense(rows) {
     const ratio = 1 + (total / games - 1) * games / (games + 12);
     return {...row, poolDefense: {ratio, games, position}};
   });
-  // And what the rest of the board does per opportunity (prop-model.js).
-  return withModelPriors(defended);
+  // Soccer's opponent reads (soccer-matchup.js), and what the rest of the
+  // board does per opportunity (prop-model.js).
+  return withModelPriors(withSoccerMatchups(defended, cachedSoccerLog));
 }
 
 /**
@@ -211,6 +214,14 @@ export function matchupGrade(read, side) {
 
 /** What today's opponent does to the stat: a factor on the projection and its words. */
 export function matchupRead(row) {
+  if (row.sport === 'soccer' && row.soccerMatchup) {
+    // Soccer: what the opponent's recent matches say about the stat, and
+    // the match odds' small tilt (soccer-matchup.js).
+    const read = row.soccerMatchup;
+    const factor = clamp(shift(read.ratio, read.weight, 0.85, 1.18) * oddsTilt(row, read), 0.82, 1.2);
+    const gap = Math.round((factor - 1) * 100);
+    return {factor, short: `${gap >= 0 ? '+' : '−'}${Math.abs(gap)}%`, label: `vs ${read.opponent}`, text: soccerText(read)};
+  }
   if ((row.sport === 'wnba' || row.sport === 'nba' || row.sport === 'nfl') && finite(row.defenseValue) && finite(row.defenseAverage) && row.defenseAverage > 0) {
     const allowed = finite(row.defenseRecent) ? 0.65 * row.defenseValue + 0.35 * row.defenseRecent : row.defenseValue;
     const ratio = allowed / row.defenseAverage;
@@ -293,7 +304,7 @@ export function matchupRead(row) {
 // time is already in the model's opportunities.
 function modelWeights(row) {
   const pitcher = String(row.marketKey || '').startsWith('pitching:');
-  const matchup = row.sport === 'mlb' ? (pitcher ? 1 : 0.6) : row.sport === 'nhl' ? 0.7 : 0.8;
+  const matchup = row.sport === 'mlb' ? (pitcher ? 1 : 0.6) : row.sport === 'nhl' ? 0.7 : row.sport === 'soccer' ? 0.9 : 0.8;
   return {matchup, venue: 0.5, h2h: 0.3, role: 0, rest: 1};
 }
 

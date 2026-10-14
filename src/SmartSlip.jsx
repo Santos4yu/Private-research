@@ -2,7 +2,7 @@ import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowLeft,ArrowUpRight,BarChart3,CalendarClock,Check,ChevronLeft,ChevronRight,CircleCheck,Crown,Layers,Lock,LockOpen,Pencil,RefreshCw,Repeat2,Rocket,Search,Share2,Shield,ShieldCheck,Stethoscope,Ticket as TicketIcon,TriangleAlert,UserRound,X,Zap} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import {siteFinderSportAllowed} from './site-access';
-import {finderSlipProp} from './unified-finder-data';
+import {finderSlipProp,loadSoccerOpponents,within} from './unified-finder-data';
 import {loadBoard,loadLines} from './finder-pool';
 import {TARGETS,MIXES,SPORT_NAMES,candidates,buildLadder,safest,exportLeg,isPrizePicksLine,gameKey,slateGames} from './smart-slip';
 import {pickBuilder,usePickBuilder} from './pick-builder-client';
@@ -62,7 +62,9 @@ const PRIZEPICKS_LOGO='/prizepicks/logo.png';
 // game news is read, as the Slip Analyzer reads it for every pick.
 const NEWS_FOR=60;
 async function judged(rows,sports,{signal,now}){
- const tables=await loadMatchups(sports,{signal}).catch(()=>({}));
+ // Soccer's opponent reads need each opponent's recent matches (soccer-matchup.js).
+ const [tables]=await Promise.all([loadMatchups(sports,{signal}).catch(()=>({})),
+  within(loadSoccerOpponents(rows,{signal}),8000).catch(error=>{if(error.name==='AbortError')throw error;})]);
  const listed=withPoolDefense(rows.map(row=>withMatchups(row,tables)));
  // Overs only: an Under never makes a slip. Read again with its game's
  // news, a pick has to still clear the bar (`backed`), not just its tier.

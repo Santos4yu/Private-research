@@ -31,11 +31,11 @@ from datetime import datetime, timezone
 
 VERSION = 1
 # Which model graded a pick. The prop model (src/prop-model.js) has read
-# MLB, NBA, WNBA and NHL picks since BASIS 2; their picks graded before it
+# MLB, NBA, WNBA, NHL and soccer picks since BASIS 2; their picks graded before it
 # came from another model, so they aren't learned from, and corrections fit
 # on them don't carry over.
 BASIS = 2
-PROP_SPORTS = ("mlb", "nba", "wnba", "nhl")
+PROP_SPORTS = ("mlb", "nba", "wnba", "nhl", "soccer")
 LEARN_DAYS = 60
 RECORD_DAYS = 30
 # Edges of the chance bands, as the model gave them.

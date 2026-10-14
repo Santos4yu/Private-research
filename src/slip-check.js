@@ -374,7 +374,7 @@ export function tierOf(read) {
 // For a prop-model read: how much of its chance stands, and how far a
 // matchup grade 50 points from neutral moves it on top. Baseball and
 // hockey matchup grades say less about one game than basketball's.
-const MODEL_BLEND = {mlb: [0.9, 0.05], nhl: [0.9, 0.05], nba: [0.9, 0.07], wnba: [0.9, 0.07]};
+const MODEL_BLEND = {mlb: [0.9, 0.05], nhl: [0.9, 0.05], soccer: [0.9, 0.06], nba: [0.9, 0.07], wnba: [0.9, 0.07]};
 
 /**
  * A read judged on its matchup: the case for it (slip-matchup.js), its

@@ -2,8 +2,8 @@
 // opportunity times today's opportunities -- instead of an average of past
 // games. The opportunities are what the game logs count beside the stat
 // (gameLog `usage`): an MLB hitter's plate appearances, a pitcher's
-// pitches, an NHL player's minutes on the ice, a basketball player's
-// minutes. Splitting the two reads a hitter moved to leadoff, a starter on
+// pitches, an NHL player's minutes on the ice, a basketball or soccer
+// player's minutes. Splitting the two reads a hitter moved to leadoff, a starter on
 // a short leash, a forward with more ice time or a guard in for more
 // minutes for what they are, and turns the projection into a chance the
 // way the stat actually falls: one hit or none in each trip to the plate
@@ -30,6 +30,7 @@
 // swingy ones (RBIs, runs, goals), which make a slip only when the case
 // for them is strong.
 import {newsOf, samePerson} from './slip-games.js';
+import {statKeyOf} from './sports/soccer/soccer-stats.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
@@ -226,6 +227,32 @@ const PROFILES = {
   'basketball:blk': stat('count', 100, 0.06, 0.1, {unit: 'min', spread: 1.2}),
   'basketball:stl': stat('count', 100, 0.06, 0.1, {unit: 'min', spread: 1.1}),
   'basketball:pf': stat('count', 100, 0.05, 0.1, {unit: 'min', spread: 1.1}),
+  // Soccer, per minute played. One number for most players (0.5 shots on
+  // target, 1.5 shots, 2.5 saves) sits further from even than basketball's.
+  'soccer:saves': stat('count', 300, 0.07, 0.08, {unit: 'min', spread: 1.1}),
+  'soccer:sotf': stat('count', 300, 0.07, 0.08, {unit: 'min', spread: 1.1}),
+  'soccer:gc': stat('count', 600, 0.06, 0.12, {unit: 'min', spread: 1.1}),
+  'soccer:shots': stat('count', 270, 0.07, 0.07, {unit: 'min', spread: 1.3}),
+  'soccer:sot': stat('count', 450, 0.07, 0.08, {unit: 'min', spread: 1.2}),
+  'soccer:sa': stat('count', 450, 0.06, 0.1, {unit: 'min', spread: 1.3}),
+  'soccer:goals': stat('count', 900, 0.06, 0.12, {unit: 'min', spread: 1.05}),
+  'soccer:ast': stat('count', 900, 0.06, 0.12, {unit: 'min', spread: 1.05}),
+  'soccer:ga': stat('count', 900, 0.06, 0.12, {unit: 'min', spread: 1.05}),
+  'soccer:passAtt': stat('count', 180, 0.06, 0.06, {unit: 'min', spread: 1.3}),
+  'soccer:passes': stat('count', 180, 0.06, 0.06, {unit: 'min', spread: 1.3}),
+  'soccer:touch': stat('count', 180, 0.06, 0.06, {unit: 'min', spread: 1.3}),
+  'soccer:cross': stat('count', 270, 0.06, 0.08, {unit: 'min', spread: 1.4}),
+  'soccer:crossAcc': stat('count', 450, 0.06, 0.1, {unit: 'min', spread: 1.3}),
+  'soccer:clear': stat('count', 270, 0.07, 0.08, {unit: 'min', spread: 1.4}),
+  'soccer:tackles': stat('count', 270, 0.07, 0.08, {unit: 'min', spread: 1.3}),
+  'soccer:tacklesWon': stat('count', 450, 0.06, 0.1, {unit: 'min', spread: 1.3}),
+  'soccer:int': stat('count', 450, 0.06, 0.1, {unit: 'min', spread: 1.3}),
+  'soccer:blk': stat('count', 450, 0.06, 0.1, {unit: 'min', spread: 1.3}),
+  'soccer:fouls': stat('count', 450, 0.06, 0.1, {unit: 'min', spread: 1.2}),
+  'soccer:fd': stat('count', 450, 0.06, 0.1, {unit: 'min', spread: 1.3}),
+  'soccer:drib': stat('count', 270, 0.06, 0.08, {unit: 'min', spread: 1.4}),
+  'soccer:off': stat('count', 600, 0.05, 0.12, {unit: 'min', spread: 1.2}),
+  'soccer:yc': stat('count', 900, 0.05, 0.15, {unit: 'min', spread: 1.05}),
   'basketball:dd': stat(null, 0, 0.05, 0.15),
   'basketball:td': stat(null, 0, 0.04, 0.2),
 };
@@ -247,6 +274,10 @@ export function modelKey(row) {
     const key = BASKETBALL_STATS[row.marketKey];
     return key ? `basketball:${key}` : null;
   }
+  if (row.sport === 'soccer') {
+    const key = statKeyOf(row.marketKey);
+    return key ? `soccer:${key}` : null;
+  }
   return null;
 }
 
@@ -261,6 +292,7 @@ function peerGroup(row) {
   const position = String(row.position || '').toUpperCase();
   if (row.sport === 'nhl') return isGoalie(row) ? 'G' : position === 'D' ? 'D' : 'F';
   if (row.sport === 'nba' || row.sport === 'wnba') return /C/.test(position) ? 'C' : /F/.test(position) ? 'F' : 'G';
+  if (row.sport === 'soccer') return ['G', 'D', 'M', 'F'].find(letter => position.startsWith(letter)) || '';
   return '';
 }
 
@@ -342,14 +374,14 @@ function scoringRatio(row) {
 
 /**
  * What today's game changes before a ball is thrown or a puck dropped:
- * his lineup spot (MLB), who's out around him and what that has meant
+ * his lineup spot (MLB), whether he starts (soccer), who's out around him and what that has meant
  * (basketball), the chance of a blowout and the scoring the game is
  * expected to have. `rate` and `usage` scale the model's rate and
  * opportunities; `used` names the game-news facts it has counted
  * (slip-matchup.js leaves them out of the matchup score); `notes` say it.
  */
 export function gameContext(row, profile = profileOf(row), expectedUsage = null) {
-  const out = {rate: 1, usage: 1, spot: null, used: [], notes: [], risks: []};
+  const out = {rate: 1, usage: 1, spot: null, role: null, used: [], notes: [], risks: []};
   if (!row?.game || !profile) return out;
   const key = modelKey(row).split(':')[1];
   const news = newsOf(row);
@@ -357,6 +389,8 @@ export function gameContext(row, profile = profileOf(row), expectedUsage = null)
     out.spot = news.lineup.spot;
     out.used.push('lineup');
   }
+  // Soccer: a posted lineup says whether he starts or comes off the bench.
+  if (row.sport === 'soccer' && news?.lineup?.confirmed) out.role = news.lineup.listed ? 'starter' : 'bench';
   if (row.sport === 'nba' || row.sport === 'wnba') {
     // Who's out: what his numbers have been without them, by how many games say so.
     let scale = 1;
@@ -379,7 +413,7 @@ export function gameContext(row, profile = profileOf(row), expectedUsage = null)
     }
   }
   const weight = SCORING_WEIGHT[key];
-  if (weight && (row.sport !== 'nhl' || !isGoalie(row))) {
+  if (weight && ['nba', 'wnba', 'nhl'].includes(row.sport) && (row.sport !== 'nhl' || !isGoalie(row))) {
     const scoring = scoringRatio(row);
     if (scoring) {
       const cap = row.sport === 'nhl' ? 0.15 : 0.08;
@@ -412,10 +446,11 @@ function weighted(games, halfLife, value) {
 
 // His opportunities today, before the game's news: his recent ones,
 // recent games counting most. A basketball game he left early (under 40%
-// of his usual minutes) is left out.
-function expectedUsage(games, unit) {
+// of his usual minutes) is left out; a soccer match off the bench isn't,
+// since rotation is part of what a soccer line risks.
+function expectedUsage(games, unit, early = true) {
   let recent = games.slice(-USAGE_GAMES[unit]);
-  if (unit === 'min' && recent.length >= 4) {
+  if (unit === 'min' && early && recent.length >= 4) {
     const sorted = recent.map(game => game.usage).sort((a, b) => a - b);
     const median = sorted[Math.floor(sorted.length / 2)];
     const kept = recent.filter(game => game.usage >= 0.4 * median);
@@ -440,10 +475,15 @@ export function projectStat(row) {
   const values = games.map(game => game.value);
   const plain = mean(values);
   const variance = n > 1 ? values.reduce((sum, value) => sum + (value - plain) ** 2, 0) / (n - 1) : plain;
-  const usage = expectedUsage(games, profile.unit);
+  const usage = expectedUsage(games, profile.unit, row.sport !== 'soccer');
   const context = gameContext(row, profile, usage.average);
   let opportunities = usage.average;
   if (context.spot) opportunities = PA_BY_SPOT[context.spot] - (row.isHome === true ? 0.1 : 0);
+  if (context.role) {
+    // Starting: his minutes in the matches he started (60+); on the bench: in the ones he didn't.
+    const matches = games.slice(-15).filter(game => (game.usage >= 60) === (context.role === 'starter'));
+    opportunities = matches.length >= 2 ? weighted(matches, 4, game => game.usage).average : context.role === 'starter' ? 85 : 20;
+  }
   opportunities *= context.usage;
 
   let rate = 1, volume = 0, prior = null;
@@ -527,7 +567,7 @@ function uncertainty(model) {
     else if (model.shape === 'count') rate = Math.sqrt(model.spread / (model.rate * evidence));
     else if (model.shape === 'curve') rate = model.plain > 0 ? Math.sqrt(model.variance / model.plain ** 2 / Math.max(1, evidence / model.meanUsage)) : 0.3;
   } else if (model.shape !== 'self') rate = 0.5;
-  const usage = model.context?.spot ? 0.02 : model.usage > 0 ? model.usageSd / model.usage / Math.sqrt(5) : 0;
+  const usage = model.context?.spot || model.context?.role === 'starter' ? 0.03 : model.usage > 0 ? model.usageSd / model.usage / Math.sqrt(5) : 0;
   return Math.min(0.6, Math.sqrt(rate ** 2 + usage ** 2 + model.error ** 2));
 }
 

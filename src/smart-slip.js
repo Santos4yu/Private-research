@@ -47,15 +47,15 @@ const LOCK_MINUTES = 10;
 // as six real ones, so 3 for 3 reads as 67%, not 100%.
 const PRIOR = 6;
 const WINDOW_WEIGHTS = {l5: 0.10, l10: 0.30, l15: 0.10, l20: 0.15, season: 0.35};
-// A baseball or hockey stat swings so much from game to game that a hot
+// A baseball, hockey or soccer stat swings so much from game to game that a hot
 // ten games is mostly luck: the season counts most and every window is
 // pulled harder toward 50/50.
 const SWINGY = {prior: 10, weights: {l5: 0.05, l10: 0.15, l15: 0.10, l20: 0.20, season: 0.50}};
-const HISTORY = {mlb: SWINGY, nhl: SWINGY};
+const HISTORY = {mlb: SWINGY, nhl: SWINGY, soccer: SWINGY};
 // The chance a regular line needs before it's backed. A PrizePicks Power
 // Play breaks even at about 55% a pick (58% on two), so in the leagues the
 // prop model reads the bar sits there; elsewhere it stays where it was.
-const BACK_AT = {mlb: 0.55, nhl: 0.55, nba: 0.54, wnba: 0.54};
+const BACK_AT = {mlb: 0.55, nhl: 0.55, soccer: 0.55, nba: 0.54, wnba: 0.54};
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));

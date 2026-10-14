@@ -2,7 +2,7 @@ import React,{useCallback,useEffect,useId,useMemo,useRef,useState} from 'react';
 import {ArrowRight,BookmarkPlus,Check,ChevronDown,ClipboardPaste,Crosshair,Crown,ImageUp,Link2,Pencil,Plus,Radio,Repeat2,RotateCcw,Search,Share2,ShieldCheck,Trash2,TriangleAlert,Unlink,X} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import {siteFinderSportAllowed,siteIsAdmin} from './site-access';
-import {finderSlipProp} from './unified-finder-data';
+import {finderSlipProp,loadSoccerOpponents,within} from './unified-finder-data';
 import {loadLines,ENRICH} from './finder-pool';
 import {candidates} from './smart-slip';
 import {SLIP_SPORTS,SPORT_NAMES,TIERS,LETTERS,checkLeg,scoreEntry,verdict,swaps,sideWord,offeredStats,judge,regrade,saferPick} from './slip-check';
@@ -432,6 +432,8 @@ export function SlipAnalyzer(){
    // The lines read as the Parlay Builder reads them: the matchup tables,
    // then what each opponent gave up to players like him where a league
    // has no table (slip-analyst.js), so both grade a pick the same.
+   // Soccer's opponent reads need each opponent's recent matches (soccer-matchup.js).
+   if(rows.soccer?.length)await within(loadSoccerOpponents(rows.soccer,{signal}),8000).catch(error=>{if(error.name==='AbortError')throw error;});
    for(const sport of Object.keys(rows))rows[sport]=withPoolDefense((rows[sport]||[]).map(row=>withMatchups(row,found)));
    boards.current=rows;tables.current=found;
    await pause(calm()?0:350,signal);

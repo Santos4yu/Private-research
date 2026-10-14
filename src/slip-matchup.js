@@ -15,6 +15,9 @@
 //                or carries
 //   NHL          what the defense allows his position, the shots a team
 //                takes for a goalie
+//   Soccer       what the opponent's recent matches say about the stat
+//                (the shots on target it takes for a keeper, the shots it
+//                gives up for a forward), the ball, the match odds
 //
 // Every fact carries an impact on a 0-100 scale for the pick's side (50 is
 // neutral); the matchup score is 50 plus their sum. src/slip-check.js
@@ -23,6 +26,7 @@ import {defenseCell, loadFinderDefense, loadMlbMatchups, loadHitterMatchups, wit
   withDefense} from './unified-finder-data.js';
 import {homeToday, matchupRead} from './slip-analyst.js';
 import {newsFacts} from './slip-games.js';
+import {soccerText, oddsTilt} from './soccer-matchup.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
@@ -327,6 +331,30 @@ function hockey(row, sign, league) {
   return out;
 }
 
+// Soccer -----------------------------------------------------------------
+
+// What the opponent's recent matches say about the stat (soccer-matchup.js),
+// how much of the ball his team should have, and the match odds.
+function soccer(row, sign) {
+  const read = row.soccerMatchup;
+  if (!read) return [];
+  const out = [fact('opponent', 'defense', soccerText(read), clamp((read.ratio - 1) * 90 * read.weight, -22, 22) * sign, {primary: true})];
+  const ball = read.possession;
+  if (ball && read.ball) {
+    // Passes and touches rise with the ball; tackles and clearances with the other side having it.
+    const lean = read.direction >= 0 ? 1 : -1;
+    out.push(fact('opponent', 'possession', `${read.team || 'His team'} should have about ${Math.round(ball.expected)}% of the ball `
+      + `(${Math.round(ball.own)}% on average; ${read.opponent} let teams have ${Math.round(ball.allowed)}%)`,
+    clamp((ball.expected / ball.own - 1) * 60 * lean, -6, 6) * sign));
+  }
+  if (finite(row.winChance) && read.direction) {
+    const tilt = oddsTilt(row, read);
+    const draw = finite(row.drawChance) ? `, ${Math.round(row.drawChance)}% draw` : '';
+    out.push(fact('opponent', 'odds', `${read.team || 'His team'} ${Math.round(row.winChance)}% to win${draw}`, clamp((tilt - 1) * 90, -5, 5) * sign));
+  }
+  return out;
+}
+
 // Every sport ------------------------------------------------------------
 
 /** His home and road averages, and which one today is. */
@@ -376,6 +404,7 @@ export function matchupCase(leg, tables = {}) {
   else if (row.sport === 'nba' || row.sport === 'wnba') facts.push(...basketball(row, sign, league));
   else if (row.sport === 'nfl') facts.push(...football(row, sign, league));
   else if (row.sport === 'nhl') facts.push(...hockey(row, sign, league));
+  else if (row.sport === 'soccer') facts.push(...soccer(row, sign));
   const records = leg.grade?.records;
   for (const extra of [venueSplit(row, sign), headToHead(row, records), recentForm(row, records, leg.side)]) if (extra) facts.push(extra);
   // Is he playing, who's out around him, where he bats (slip-games.js).
