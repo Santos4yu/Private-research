@@ -173,6 +173,10 @@
 .ss-games.is-loading{grid-template-columns:repeat(auto-fill,minmax(290px,1fr))}
 .ss-game-skel{height:64px;border-radius:16px;background:linear-gradient(90deg,#171c20 0%,#20272c 50%,#171c20 100%);background-size:200% 100%;animation:ss-shimmer 1.4s linear infinite}
 .ss-games-none{margin:0;padding:14px;border:1px dashed var(--s-line);border-radius:14px;color:var(--s-faint);font-size:12.5px;text-align:center}
+.ss-games-day{grid-column:1/-1;margin:6px 2px 0;color:var(--s-faint);font:800 10.5px/1.2 var(--s-sans);letter-spacing:.1em;text-transform:uppercase}
+.ss-games-day:first-child{margin-top:0}
+.ss-refreshing{display:flex;align-items:center;gap:7px;margin:0;color:var(--s-faint);font-size:12px;font-weight:700}
+.ss-refreshing svg{color:var(--theme-accent)}
 .ss-games-more{grid-column:1/-1;margin:2px 0 0;color:var(--s-faint);font-size:12px;text-align:center}
 /* A player: photo with his team's mark on it. */
 .ss-player-face{position:relative;display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;border-radius:50%;background:#232b30}

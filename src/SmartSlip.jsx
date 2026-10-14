@@ -3,7 +3,7 @@ import {ArrowLeft,ArrowUpRight,BarChart3,CalendarClock,Check,ChevronLeft,Chevron
 import {LEAGUE_LOGOS} from './league-logos';
 import {siteFinderSportAllowed} from './site-access';
 import {finderSlipProp} from './unified-finder-data';
-import {loadBoard,loadLines} from './finder-pool';
+import {BOARD_FRESH,loadBoard,loadLines} from './finder-pool';
 import {TARGETS,MIXES,SPORT_NAMES,candidates,buildLadder,safest,exportLeg,isPrizePicksLine,gameKey,slateGames} from './smart-slip';
 import {pickBuilder,usePickBuilder} from './pick-builder-client';
 import {loadMatchups,withMatchups} from './slip-matchup';
@@ -85,9 +85,14 @@ const percent=value=>`${Math.round(value*100)}%`;
 const shortName=name=>String(name||'').split(/\s+/).filter(word=>!/^(jr|sr|ii|iii|iv)\.?$/i.test(word)).at(-1)||name;
 const times=(value,estimated)=>`${estimated?'≈':''}${value>=10?Math.round(value):Number(value.toFixed(value<3?2:1))}x`;
 const figure=value=>String(value);
-const when=iso=>{const time=Date.parse(iso||'');if(!Number.isFinite(time))return '';const date=new Date(time),today=new Date();
- const clock=date.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
- return date.toDateString()===today.toDateString()?clock:`${date.toLocaleDateString([],{weekday:'short'})} ${clock}`;};
+// A game's day as a member reads it: today, tomorrow, else its weekday and date.
+const dayOf=iso=>{const time=Date.parse(iso||'');if(!Number.isFinite(time))return '';const date=new Date(time),today=new Date();
+ const tomorrow=new Date(today);tomorrow.setDate(today.getDate()+1);
+ return date.toDateString()===today.toDateString()?'Today':date.toDateString()===tomorrow.toDateString()?'Tomorrow'
+  :date.toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'});};
+const when=iso=>{const time=Date.parse(iso||'');if(!Number.isFinite(time))return '';
+ const clock=new Date(time).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});const day=dayOf(iso);
+ return day==='Today'?clock:`${day} ${clock}`;};
 // A line being checked, for the build's feed: who, what and his team's mark.
 const scanItem=row=>({key:row.id,player:row.player,market:row.market,line:row.line,row});
 const pause=(ms,signal)=>new Promise(resolve=>{const id=setTimeout(resolve,ms);signal?.addEventListener('abort',()=>{clearTimeout(id);resolve();},{once:true});});
@@ -145,23 +150,28 @@ function Find({value,onChange,label}){
 // The games to build from: every game on the chosen sports' boards, its
 // teams' logos, start and some of the players with lines in it. None
 // picked means every game.
-function GamePicker({games,picked,onToggle,loading}){
+function GamePicker({games,picked,onToggle,loading,refreshing}){
  const [query,setQuery]=useState('');
  const needle=query.trim().toLowerCase();
  const found=needle?games.filter(game=>[game.away.abbr,game.home.abbr,SPORT_NAMES[game.sport],...game.players.map(player=>player.name)].some(text=>String(text||'').toLowerCase().includes(needle))):games;
  if(loading&&!games.length)return <div className="ss-games is-loading" aria-label="Loading games">{[0,1,2].map(n=><span key={n} className="ss-game-skel"/>)}</div>;
  if(!games.length)return <p className="ss-games-none">No games with PrizePicks lines left today for these sports.</p>;
  return <>
+  {refreshing&&<p className="ss-refreshing"><RefreshCw size={13} className="ss-spin"/>Checking for today's games…</p>}
   {games.length>5&&<Find value={query} onChange={setQuery} label="Search a team or player"/>}
   <div className="ss-games">{found.map((game,index)=>{
    const on=picked.includes(game.key);
-   return <button type="button" key={game.key} className="ss-game" aria-pressed={on} onClick={()=>onToggle(game.key)} style={{'--i':Math.min(index,10)}}>
+   // Games on more than one day come under their day's name.
+   const day=dayOf(game.startsAt),split=new Set(found.map(item=>dayOf(item.startsAt))).size>1;
+   return <React.Fragment key={game.key}>
+    {split&&(index===0||dayOf(found[index-1].startsAt)!==day)&&<p className="ss-games-day">{day}</p>}
+    <button type="button" className="ss-game" aria-pressed={on} onClick={()=>onToggle(game.key)} style={{'--i':Math.min(index,10)}}>
     <span className="ss-game-logos"><Img src={game.away.logo||LEAGUE_LOGOS[game.sport]}/><Img src={game.home.logo||LEAGUE_LOGOS[game.sport]}/></span>
     <span className="ss-game-text"><b>{game.away.abbr} <i>@</i> {game.home.abbr}</b>
      <small><Img className="ss-game-league" src={LEAGUE_LOGOS[game.sport]}/>{when(game.startsAt)} · {game.players.length} player{game.players.length===1?'':'s'}</small></span>
     <Faces players={game.players.filter(player=>player.headshot).concat(game.players.filter(player=>!player.headshot))}/>
     <span className="ss-game-tick" aria-hidden="true"><Check size={12} strokeWidth={3.4}/></span>
-   </button>;})}
+   </button></React.Fragment>;})}
    {needle&&!found.length&&<p className="ss-games-none">No game matches “{query}”.</p>}
   </div>
  </>;
@@ -331,15 +341,27 @@ export function SmartSlip(){
  // Today's games on every allowed sport's board (the saved boards the
  // Finder keeps, else fresh ones): what the Games step lists, and how many
  // each sport has.
- const [slate,setSlate]=useState({loading:true,games:[]});
+ const [slate,setSlate]=useState({loading:true,refreshing:false,games:[]});
  useEffect(()=>{
   const control=new AbortController();
-  setSlate(old=>({...old,loading:true}));
-  Promise.allSettled(allowed.map(sport=>loadBoard(sport,{signal:control.signal,saved:true}))).then(results=>{
+  const boards={};let left=allowed.length;
+  const publish=()=>{
    if(control.signal.aborted)return;
-   const rows=results.flatMap(result=>result.status==='fulfilled'?result.value.rows||[]:[]);
-   setSlate({loading:false,games:slateGames(rows,{logo:teamLogo,opponentLogo})});
-  });
+   setSlate({loading:left>0&&!Object.keys(boards).length,refreshing:left>0,games:slateGames(Object.values(boards).flat(),{logo:teamLogo,opponentLogo})});
+  };
+  setSlate(old=>({...old,loading:!old.games.length,refreshing:allowed.length>0}));
+  for(const sport of allowed){
+   (async()=>{
+    // The board this phone saved shows at once; today's comes in behind it,
+    // so a board saved days ago (when the sport was last opened in the
+    // Finder) never stands for today's games.
+    const saved=await loadBoard(sport,{signal:control.signal,saved:true}).catch(()=>null);
+    if(saved?.rows){boards[sport]=saved.rows;publish();}
+    if(saved&&Date.now()-Number(saved.ts||0)<BOARD_FRESH)return;
+    const fresh=await loadBoard(sport,{signal:control.signal}).catch(()=>null);
+    if(fresh?.rows)boards[sport]=fresh.rows;
+   })().finally(()=>{left-=1;publish();});
+  }
   return()=>control.abort();
  },[allowed]);
  const [gamesPicked,setGamesPicked]=useState([]);
@@ -628,7 +650,7 @@ export function SmartSlip(){
  if(at===4)body=<>
   <Segment label="Pick by" value={findBy} onChange={setFindBy} options={[['games',`Games${picked.length?` · ${picked.length}`:''}`,CalendarClock],['players',`Players${anchored.length?` · ${anchored.length}`:''}`,UserRound]]}/>
   {findBy==='games'
-   ?<GamePicker games={games} picked={picked} onToggle={toggleGame} loading={slate.loading}/>
+   ?<GamePicker games={games} picked={picked} onToggle={toggleGame} loading={slate.loading} refreshing={slate.refreshing}/>
    :<PlayerPicker players={players} picked={anchors} onToggle={toggleAnchor} loading={slate.loading}/>}
  </>;
  if(at===LAST)body=<>

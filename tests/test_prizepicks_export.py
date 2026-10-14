@@ -254,6 +254,25 @@ class PrizePicksExportTests(unittest.TestCase):
             rows = export._fetch_projection_rows(force=True)
         self.assertEqual(len(urls), 1)
 
+    def test_a_big_slate_is_read_past_a_dozen_pages(self):
+        # A full slate: 30 pages, each with one game's line. Every game comes through.
+        def page(number):
+            return {"data": [projection(f"9{number:03d}", "2", f"p{number}", "Hits", 0.5)], "included": [player(f"p{number}", f"Player {number}", "MLB")],
+                    "links": {"next": f"/projections?single_stat=true&league_id=2&page={number + 1}" if number < 30 else None}}
+
+        def get(url, **_kwargs):
+            number = int(url.split("page=")[1]) if "page=" in url else 1
+            return response(page(number))
+        with patch.object(export.requests, "get", side_effect=get):
+            rows = export._fetch_projection_rows(force=True)
+        self.assertEqual(len(rows), 30)
+        # Out of time: what was read so far stands.
+        clock = iter([0, 0] + [100] * 100)
+        with patch.object(export.requests, "get", side_effect=get), patch.object(export.time, "time", side_effect=lambda: next(clock)):
+            rows = export._fetch_projection_rows(force=True)
+        self.assertLess(len(rows), 30)
+        self.assertGreaterEqual(len(rows), 1)
+
     def test_a_line_that_names_no_sides_is_kept(self):
         standard = projection("9001", "2", "p1", "Total Bases", 1.5)
         goblin = projection("9002", "2", "p1", "Total Bases", 0.5, odds_type="goblin")

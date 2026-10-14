@@ -35,7 +35,13 @@ _STALE_SECONDS = 15 * 60
 _TIER_ORDER = {"standard": 0, "goblin": 1, "demon": 2}
 # The feed can arrive in pages (JSON:API links.next); a full NFL week is
 # well over one page's worth of lines.
-_MAX_PAGES = 12
+# Every page of a league's feed is read -- a full NBA or NFL slate runs to
+# thousands of lines across every stat and tier, and stopping early dropped
+# whole games -- up to this many, and for no longer than _PAGES_BUDGET
+# seconds after the first, so a slate too big to read in time still shows
+# everything read so far.
+_MAX_PAGES = 80
+_PAGES_BUDGET = 30
 _LEAGUE_CACHE_SECONDS = 6 * 60 * 60
 _CACHE_LOCK = threading.Lock()
 _PROJECTION_CACHE = {}  # league -> {"loaded_at": float, "rows": list}
@@ -202,7 +208,8 @@ def _load_projection_rows(force=False, league="MLB"):
         raise
     data, included = list(payload["data"]), list(payload.get("included") or [])
     next_url, pages = (payload.get("links") or {}).get("next"), 1
-    while next_url and pages < _MAX_PAGES:
+    started = time.time()
+    while next_url and pages < _MAX_PAGES and time.time() - started < _PAGES_BUDGET:
         url = urljoin(PRIZEPICKS_PROJECTIONS_URL, str(next_url))
         if urlparse(url).netloc != urlparse(PRIZEPICKS_PROJECTIONS_URL).netloc:
             break
