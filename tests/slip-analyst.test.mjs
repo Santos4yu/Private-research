@@ -66,7 +66,9 @@ test('a read: projection, venue, head-to-head, playing time, and what to watch',
   assert.equal(grade(read, 0.52), 'C');
   assert.equal(conflicted(read), false);
   assert.equal(analystNote(guard(), 'OVER', read, {records, book: 0.6}),
-    'Projects for ' + (Math.round(read.projection * 10) / 10) + ' against the 17.5 line, over in 7 of the last 10. LV allows 18 points a game to guards, 20% more than average (2nd-most); the books have it at 60%.');
+    'Projects for ' + (Math.round(read.projection * 10) / 10) + ' against the 17.5 line (the line looks '
+      + (Math.round((read.projection - 17.5) * 10) / 10) + ' low), over in 7 of the last 10. LV allows 18 points a game to guards, 20% more than average (2nd-most); the books have it at 60%.');
+  assert.equal(read.lineCheck.verdict, 'low', 'projecting well past the line: the line looks low');
   // The Under of the same line: everything above argues against it.
   const under = readPick(guard(), 'UNDER', {records: {l10: {won: 3, games: 10, rate: 0.3}}, book: 0.4});
   assert.ok(conflicted(under));
@@ -92,7 +94,7 @@ test('the Smart Slip grades a pick, notes why, and drops one the evidence argues
   const leg = judgeLeg(row, 'OVER', {now: NOW});
   assert.ok(leg, 'offered');
   assert.equal(leg.grade, 'A');
-  assert.match(leg.note, /^Projects for \d+\.\d against the 17\.5 line, over in 7 of the last 10\. /);
+  assert.match(leg.note, /^Projects for \d+\.\d against the 17\.5 line \(the line looks \d+\.\d low\), over in 7 of the last 10\. /);
   assert.deepEqual(reasons(leg).slice(0, 5).map(item => item.key), ['l10', 'season', 'books', 'projection', 'matchup']);
   // The same record, but the games themselves and a stingy defense say otherwise.
   const cold = guard({id: 'w2', modifier: 'standard', raw: {}, windows: row.windows, apps: [{key: 'prizepicks'}],
@@ -124,4 +126,57 @@ test('MLB: a lineup read against the pitcher\'s hand and its last ten days, rank
   const log = [5, 6, 7, 4, 6, 5, 6].map((value, index) => ({value, date: `2026-09-${10 + index}`}));
   const short = readPick({...row, line: 5.5, gameLog: log, matchup: {...row.matchup, self: {hand: 'L', projectedIp: 4.6}}}, 'OVER');
   assert.ok(short.risks.includes('Projects for only 4.6 innings'));
+});
+
+// A scorer whose games depend on who he faced: 28 against soft defenses,
+// 18 against tough ones, his last ten mostly against soft ones.
+const scorer = (tonight, schedule) => ({sport: 'nba', player: 'Scorer', market: 'Points', marketKey: 'player_points', line: 22.5, direction: 'OVER',
+  teamAbbr: 'LAL', opponent: tonight, startsAt: '2026-10-14T23:00:00Z',
+  allowTable: {SOFT1: 1.2, SOFT2: 1.15, TOUGH1: 0.82, TOUGH2: 0.86, MID: 1},
+  gameLog: schedule.map((opponent, index) => ({value: opponent.startsWith('SOFT') ? 28 : opponent.startsWith('TOUGH') ? 18 : 23,
+    date: `2026-03-${String(index + 1).padStart(2, '0')}`, opponent}))});
+const softRun = ['TOUGH1', 'MID', 'TOUGH2', 'MID', 'TOUGH1', 'MID', 'TOUGH2', 'SOFT1', 'SOFT2', 'SOFT1', 'SOFT2', 'SOFT1', 'SOFT2', 'TOUGH1', 'SOFT1', 'SOFT2'];
+
+test('recent games are judged by who they came against, then set against tonight', () => {
+  const plain = readPick({...scorer('MID', softRun), allowTable: null}, 'OVER');
+  const read = readPick(scorer('MID', softRun), 'OVER');
+  // Most of his recent games came against soft defenses: against an average one he's worth less.
+  assert.ok(read.projection < plain.projection, `${read.projection} vs ${plain.projection}`);
+  const schedule = read.factors.find(item => item.key === 'schedule');
+  assert.ok(schedule && schedule.applied && schedule.factor < 1);
+  assert.match(schedule.text, /^His last 10 came against defenses \d+% softer than average: against an average one that's [\d.]+, not [\d.]+$/);
+  assert.ok(read.signals.some(item => item.key === 'schedule' && item.weight < 0));
+  // Tough and soft, at tonight's line.
+  assert.deepEqual([read.split.tough.won, read.split.tough.games], [0, 5]);
+  assert.deepEqual([read.split.soft.won, read.split.soft.games], [8, 8]);
+
+  // Tonight against a tough defense: how he's done against those.
+  const tough = readPick(scorer('TOUGH2', softRun), 'OVER');
+  assert.equal(tough.similar.kind, 'tough');
+  assert.equal(tough.similar.text, 'Against tough defenses like TOUGH2: 0 of 5 over 22.5');
+  assert.ok(tough.risks.includes('Only 0 of 5 against tough defenses'));
+  assert.ok(tough.signals.some(item => item.key === 'similar' && item.weight < 0));
+  // A soft one: the same history argues for it.
+  const soft = readPick(scorer('SOFT1', softRun), 'OVER');
+  assert.equal(soft.similar.text, 'Against soft defenses like SOFT1: 8 of 8 over 22.5');
+  assert.ok(soft.signals.some(item => item.key === 'similar' && item.weight > 0));
+});
+
+test('the line check: projection against the line, in the stat\'s usual swing', () => {
+  // About 23 a night, swinging 17 to 29.
+  const steady = line => readPick({...scorer('MID', []), allowTable: null, line,
+    gameLog: [17, 29, 20, 26, 23, 18, 28, 22, 24, 25, 21, 27, 19, 23, 24, 22].map((value, index) => ({value, date: `2026-03-${String(index + 1).padStart(2, '0')}`, opponent: 'MID'}))}, 'OVER');
+  assert.equal(steady(22.5).lineCheck.verdict, 'fair', 'a 22.5 line for a 23-a-night scorer');
+  assert.equal(steady(17.5).lineCheck.verdict, 'low');
+  assert.equal(steady(28.5).lineCheck.verdict, 'high');
+  assert.ok(Math.abs(steady(22.5).lineCheck.average - 23) < 0.01);
+});
+
+test('MLB: a hitter\'s past games judged by the staffs he faced', () => {
+  const league = {whip: 1.3, k9: 8.6};
+  const row = {sport: 'mlb', player: 'H', market: 'Hits', marketKey: 'hitting:hits', line: 0.5, opponentTeamId: 147,
+    mlbTeams: {pitching: {111: {whip: 1.6}, 147: {whip: 1.0}}, hitting: {}, league},
+    gameLog: Array.from({length: 10}, (_, index) => ({value: index % 2, date: `2026-06-${String(index + 1).padStart(2, '0')}`, opponent: 111}))};
+  const read = readPick(row, 'OVER');
+  assert.ok(read.factors.some(item => item.key === 'schedule' && item.factor < 1), 'his hits came off a soft staff');
 });

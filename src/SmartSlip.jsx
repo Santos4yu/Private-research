@@ -16,7 +16,7 @@ import {builderSlip,handOff} from './slip-handoff';
 import {loadLearning} from './learning';
 import {logTopPicks,newSlipId,saveSlip,slipPayload} from './slip-history';
 import {MatchupCase} from './MatchupCase';
-import {opponentLogo,teamLogo,Img,Face,TierBadge,Records,Meter,Games} from './PickParts';
+import {opponentLogo,teamLogo,Img,Face,TierBadge,Records,Meter,Games,AnalystRead} from './PickParts';
 import './smart-slip.css';
 
 // The Smart Slip page (the Parlay tab), one question at a time: a start
@@ -256,6 +256,7 @@ function Pick({leg,index,need,locked,onLock,onSwap,onResearch}){
    {MODIFIER_ICON[leg.modifier]&&<img src={MODIFIER_ICON[leg.modifier]} alt={leg.modifier} width="20" height="20"/>}</div>
   <Meter chance={leg.chance} need={need}/>
   <MatchupCase matchup={leg.matchup} limit={3}/>
+  <AnalystRead read={leg.read} side={leg.side} line={row.line}/>
   <div className="sa-form-head"><span>Recent form</span>
    <div className="sa-prop-figures">
     {typeof average==='number'&&Number.isFinite(average)&&<span><small>Avg L10</small><b>{figure(Math.round(average*10)/10)}</b></span>}

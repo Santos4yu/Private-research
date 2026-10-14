@@ -26,6 +26,11 @@ const HALF_LIFE = 8;
 // the season counts about as much as the last few games.
 const SWING_HALF_LIFE = 40;
 const MAX_SHIFT = 0.15;
+// How much of a defense's softness a player's game is held to: a team's
+// defense explains part of a night, not all of it.
+const SCHEDULE_TRUST = 0.6;
+// A defense this far from average is a soft or a tough one.
+const SOFT = 1.05, TOUGH = 0.95;
 
 // ---------------------------------------------------------------- distributions
 
@@ -227,11 +232,28 @@ export function withPoolDefense(rows) {
     const players = groups.get(key);
     if (!players.has(row.player)) players.set(row.player, {average, log});
   }
+  // What each opponent has given the position in this stat, every game of
+  // every player on the board held against his own average: a table for
+  // judging a player's past games by who they came against.
+  const tables = new Map();
+  for (const [key, players] of groups) {
+    const teams = new Map();
+    for (const {average, log} of players.values()) for (const game of log) {
+      const cell = teams.get(String(game.opponent)) || {total: 0, games: 0};
+      cell.total += game.value / average; cell.games += 1;
+      teams.set(String(game.opponent), cell);
+    }
+    const table = {};
+    for (const [team, {total, games}] of teams) if (games >= 6) table[team] = 1 + (total / games - 1) * games / (games + 12);
+    if (Object.keys(table).length >= 4) tables.set(key, table);
+  }
   return rows.map(row => {
     if (finite(row.defenseValue) || row.opponent == null) return row;
     const position = poolPosition(row);
     const players = position && groups.get(`${row.sport}|${row.market}|${position}`);
     if (!players) return row;
+    const poolTable = tables.get(`${row.sport}|${row.market}|${position}`) || null;
+    row = poolTable && !row.allowTable ? {...row, poolTable} : row;
     let total = 0, games = 0;
     for (const [player, {average, log}] of players) {
       if (player === row.player) continue;
@@ -243,6 +265,39 @@ export function withPoolDefense(rows) {
     return {...row, poolDefense: {ratio, games, position}};
   });
 }
+
+/**
+ * How generous each defense a player faces is for this line (1 is average,
+ * above 1 gives up more): `of(game)` for a game he played, `today` for
+ * tonight's opponent. From the league's defense-vs-position table (WNBA,
+ * NBA, NFL), every team's staff or lineup (MLB), else the board's own game
+ * logs (withPoolDefense). Null when there's nothing to say it from.
+ */
+export function allowReader(row) {
+  const keep = value => finite(value) && value > 0 ? clamp(value, 0.7, 1.4) : null;
+  let lookup = null;
+  const table = row?.allowTable || row?.poolTable;
+  if (table) lookup = team => keep(table[String(team)]);
+  else if (row?.sport === 'mlb' && row.mlbTeams?.league) {
+    const key = String(row.marketKey || '').split(':')[1];
+    const {pitching, hitting, league} = row.mlbTeams;
+    if (String(row.marketKey || '').startsWith('pitching:')) {
+      const [rate, direction] = PITCHER_RATE[key] || [];
+      if (rate && hitting && finite(league[rate]) && league[rate] > 0)
+        lookup = team => { const value = hitting[String(team)]?.[rate]; return finite(value) ? keep((value / league[rate]) ** direction) : null; };
+    } else {
+      const rate = HITTER_RATE[key];
+      if (rate && pitching && finite(league[rate]) && league[rate] > 0)
+        lookup = team => { const value = pitching[String(team)]?.[rate]; return finite(value) ? keep(value / league[rate]) : null; };
+    }
+  }
+  if (!lookup) return null;
+  const opponent = row.sport === 'mlb' ? row.opponentTeamId : row.opponent;
+  return {of: game => (game?.opponent == null ? null : lookup(game.opponent)), today: opponent == null ? null : lookup(opponent)};
+}
+
+/** A defense's kind for this line: soft, tough or about average. */
+export const defenseKind = allow => (!finite(allow) ? null : allow >= SOFT ? 'soft' : allow <= TOUGH ? 'tough' : 'average');
 
 /**
  * How good a leg's matchup is, 0-100 for its side (50 is neutral): the
@@ -358,14 +413,46 @@ export function readPick(row, side, {records = {}, book = null, baseline = 0.5, 
   const out = {projection: null, projected: null, factors: [], risks: []};
   const matchup = matchupRead(row);
 
+  const allow = allowReader(row);
   if (log.length >= MIN_GAMES && finite(line)) {
     const values = log.map(game => game.value);
     const n = values.length;
-    let weights = 0, total = 0;
+    // Each game judged by who it came against: what he'd have done against
+    // an average defense. A run against soft defenses counts for less, a
+    // good game against a tough one for more.
+    const faced = log.map(game => (allow ? allow.of(game) : null));
+    const judged = allow && faced.filter(finite).length >= Math.max(MIN_GAMES, 0.6 * n);
+    const adjusted = judged ? values.map((value, index) => finite(faced[index]) ? value / (1 + (faced[index] - 1) * SCHEDULE_TRUST) : value) : values;
     const halfLife = swing ? SWING_HALF_LIFE : HALF_LIFE;
-    values.forEach((value, index) => { const weight = 0.5 ** ((n - 1 - index) / halfLife); weights += weight; total += weight * value; });
-    const base = total / weights;
+    const weighted = list => {
+      let weights = 0, total = 0;
+      list.forEach((value, index) => { const weight = 0.5 ** ((n - 1 - index) / halfLife); weights += weight; total += weight * value; });
+      return total / weights;
+    };
+    const raw = weighted(values);
+    const base = judged && raw > 0 ? clamp(weighted(adjusted), raw * (1 - MAX_SHIFT), raw * (1 + MAX_SHIFT)) : raw;
     const plain = mean(values);
+    if (judged && raw > 0 && Math.abs(base / raw - 1) >= 0.03) {
+      const recentFaced = faced.slice(-10).filter(finite);
+      const schedule = mean(recentFaced);
+      const softer = schedule >= 1;
+      const pct = Math.abs(Math.round((schedule - 1) * 100));
+      // Already in the projection (its base): shown, not applied again.
+      out.factors.push({key: 'schedule', factor: base / raw, applied: true, short: `${base >= raw ? '+' : '−'}${Math.abs(Math.round((base / raw - 1) * 100))}%`,
+        label: 'schedule', text: `His last ${recentFaced.length} came against defenses ${pct}% ${softer ? 'softer' : 'tougher'} than average: `
+          + `against an average one that's ${figure(Math.round(base * 10) / 10)}, not ${figure(Math.round(raw * 10) / 10)}`});
+    }
+    // How he's done against defenses like tonight's, and against the tough
+    // and soft ones, at tonight's line.
+    const kinds = faced.map(defenseKind);
+    const onKind = kind => rateOn(log.filter((_, index) => kinds[index] === kind), line, side);
+    out.split = {tough: onKind('tough'), soft: onKind('soft')};
+    const tonight = defenseKind(allow?.today);
+    if (tonight && tonight !== 'average') {
+      const record = onKind(tonight);
+      if (record && record.games >= 3) out.similar = {kind: tonight, record, opponent: row.opponent || null,
+        text: `Against ${tonight} defenses like ${row.opponent || "tonight's"}: ${record.won} of ${record.games} ${side === 'UNDER' ? 'under' : 'over'} ${figure(line)}`};
+    }
     const variance = n > 1 ? values.reduce((sum, value) => sum + (value - plain) ** 2, 0) / (n - 1) : plain;
     let factor = 1;
     const move = (key, value, detail) => { factor *= value; out.factors.push({key, factor: value, ...detail}); };
@@ -422,6 +509,12 @@ export function readPick(row, side, {records = {}, book = null, baseline = 0.5, 
     out.projection = projected;
     out.projected = chance;
     out.games = n;
+    // Is the line too high or too low: the projection against it, in the
+    // stat's usual game-to-game swing, beside his season and recent averages.
+    const spread = Math.sqrt(Math.max(variance * (plain > 0 ? projected / plain : 1), 0.25));
+    const z = (projected - line) / spread;
+    out.lineCheck = {projection: projected, line, gap: projected - line, z, verdict: z >= 0.25 ? 'low' : z <= -0.25 ? 'high' : 'fair',
+      average: plain, recent: mean(values.slice(-10))};
     if (n < 8) out.risks.push(`Only ${n} games of history`);
   } else if (matchup) {
     out.factors.push({key: 'matchup', ...matchup});
@@ -444,7 +537,9 @@ export function readPick(row, side, {records = {}, book = null, baseline = 0.5, 
     if (item.key === 'role') signal('role', effect > 0 ? 0.5 : 0.75, effect >= 0.03, effect <= -0.03);
     if (item.key === 'h2h' && item.record?.games >= 3) signal('h2h', 0.75, item.record.rate >= 0.6, item.record.rate <= 0.34);
     if (item.key === 'venue' && item.record) signal('venue', 0.5, item.record.rate >= 0.6, item.record.rate <= 0.4);
+    if (item.key === 'schedule') signal('schedule', 0.75, effect >= 0.04, effect <= -0.04);
   }
+  if (out.similar?.record.games >= 4) signal('similar', 0.75, out.similar.record.rate >= 0.67, out.similar.record.rate <= 0.34);
   out.signals = signals;
   out.support = signals.filter(item => item.weight > 0).reduce((sum, item) => sum + item.weight, 0);
   out.against = signals.filter(item => item.weight < 0).reduce((sum, item) => sum - item.weight, 0);
@@ -455,7 +550,9 @@ export function readPick(row, side, {records = {}, book = null, baseline = 0.5, 
     if (item.key === 'matchup' && effect <= -0.03) out.risks.push(`Tough matchup: ${item.text}`);
     if (item.key === 'role' && effect <= -0.03) out.risks.push(item.text);
     if (item.key === 'h2h' && item.record?.games >= 3 && item.record.rate <= 0.34) out.risks.push(`${item.record.won} of ${item.record.games} against ${row.opponent}`);
+    if (item.key === 'schedule' && effect <= -0.05) out.risks.push(`Recent numbers came against soft defenses`);
   }
+  if (out.similar?.record.games >= 4 && out.similar.record.rate <= 0.34) out.risks.push(`Only ${out.similar.record.won} of ${out.similar.record.games} against ${out.similar.kind} defenses`);
   // A starter not expected to go deep caps his strikeouts and outs.
   const self = row.sport === 'mlb' && row.matchup?.kind === 'lineup' ? row.matchup.self : null;
   if (self && finite(self.projectedIp) && self.projectedIp < 5 && side !== 'UNDER' && /^pitching:(strikeouts|outs|pitcher-fantasy)$/.test(row.marketKey || ''))
@@ -495,11 +592,14 @@ export function analystNote(row, side, read, {records = {}, book = null} = {}) {
   const parts = [];
   const recent = records.l10 || records.l5;
   if (finite(read.projection)) {
-    const lead = `Projects for ${figure(Math.round(read.projection * 10) / 10)} against the ${figure(row.line)} line`;
+    const check = read.lineCheck;
+    const looks = check && check.verdict !== 'fair' && Math.abs(check.gap) >= 0.5 ? ` (the line looks ${figure(Math.round(Math.abs(check.gap) * 10) / 10)} ${check.verdict})` : '';
+    const lead = `Projects for ${figure(Math.round(read.projection * 10) / 10)} against the ${figure(row.line)} line${looks}`;
     parts.push(recent ? `${lead}, ${word} in ${recent.won} of the last ${recent.games}.` : `${lead}.`);
   } else if (recent) parts.push(`${recent.won} of the last ${recent.games} ${word} ${figure(row.line)}.`);
+  if (read.similar?.record.games >= 3) parts.push(`${read.similar.text}.`);
   const sign = side === 'UNDER' ? -1 : 1;
-  const context = read.factors.filter(item => item.text && item.key !== 'rest')
+  const context = read.factors.filter(item => item.text && item.key !== 'rest' && item.key !== 'schedule')
     .map(item => ({item, strength: Math.abs(item.factor - 1) + (item.key === 'matchup' ? 0.02 : 0), helps: (item.factor - 1) * sign >= 0}))
     .filter(entry => entry.helps).sort((a, b) => b.strength - a.strength)[0]?.item;
   const books = finite(book) ? `the books have it at ${percent(book)}` : null;

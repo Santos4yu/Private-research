@@ -248,14 +248,37 @@ export function defenseCell(row, league) {
   return {rank, value: number(cell.szn[0]), recent: number((cell.l10 || cell.l5)?.[0]), average: mean(everyone), position};
 }
 
+// What every team allows a position in a stat, against the league's
+// average (1 is average; above 1 gives up more): for judging the games a
+// player has already played by who they came against (slip-analyst.js).
+// One table per league, position and stat, shared by every line on it.
+const allowTables = new WeakMap();
+export function defenseAllowTable(row, league) {
+  if (!league?.dvp || !row) return null;
+  const hoops = BASKETBALL.has(row.sport);
+  const position = hoops ? positionOf(row.position) : nflDvpPosition(row.position);
+  const stat = hoops ? WNBA_DVP_STAT[row.marketKey] : NFL_DVP_STAT[row.marketKey];
+  if (!position || !stat) return null;
+  let tables = allowTables.get(league);
+  if (!tables) allowTables.set(league, tables = new Map());
+  const key = `${position}|${stat}`;
+  if (!tables.has(key)) {
+    const values = Object.entries(league.dvp).map(([team, cell]) => [team, number(cell?.[position]?.stats?.[stat]?.szn?.[0])]).filter(([, value]) => value != null);
+    const average = mean(values.map(([, value]) => value));
+    tables.set(key, values.length >= 4 && average > 0 ? Object.fromEntries(values.map(([team, value]) => [team, value / average])) : null);
+  }
+  return tables.get(key);
+}
+
 export function withDefense(rows, league) {
   if (!league?.dvp || !Array.isArray(rows)) return rows;
   return rows.map(row => {
     const cell = defenseCell(row, league);
     const rank = cell?.rank ?? null;
-    if (rank === row.defense && (cell?.value ?? null) === (row.defenseValue ?? null)) return row;
+    const allowTable = defenseAllowTable(row, league);
+    if (rank === row.defense && (cell?.value ?? null) === (row.defenseValue ?? null) && allowTable === (row.allowTable ?? null)) return row;
     return {...row, defense: rank, defenseTeams: league.teamCount || null, defenseValue: cell?.value ?? null,
-      defenseRecent: cell?.recent ?? null, defenseAverage: cell?.average ?? null, defensePosition: cell?.position ?? null};
+      defenseRecent: cell?.recent ?? null, defenseAverage: cell?.average ?? null, defensePosition: cell?.position ?? null, allowTable};
   });
 }
 
@@ -271,6 +294,9 @@ export function loadMlbMatchups(options = {}) {
  */
 export function withMlbMatchups(rows, context) {
   if (!context || !Array.isArray(rows)) return rows;
+  // Every team's staff and lineup, for judging a player's past games by
+  // who they came against (slip-analyst.js), shared by every line.
+  const teams = {pitching: context.pitching || null, hitting: context.hitting || null, league: context.league || null};
   return rows.map(row => {
     const opponent = row.opponentTeamId == null ? null : String(row.opponentTeamId);
     if (row.sport !== 'mlb' || !opponent) return row;
@@ -283,7 +309,7 @@ export function withMlbMatchups(rows, context) {
     const matchup = pitcher ? {kind: 'lineup', lineup: context.hitting?.[opponent] || null, self, league: context.league || null}
       : {kind: 'pitcher', pitcher: context.probables?.[opponent] || null, staff: context.pitching?.[opponent] || null,
         lineup: team ? context.hitting?.[team] || null : null, league: context.league || null};
-    return {...row, matchup};
+    return {...row, matchup, mlbTeams: teams};
   });
 }
 

@@ -319,6 +319,34 @@
 
 /* The last ten games, the slip's number drawn across. */
 .sa-games{display:grid;gap:8px;padding:12px 12px 8px;border:1px solid var(--a-line);border-radius:14px;background:rgba(12,15,17,.6)}
+/* Each game's defense: red for a tough one, green for a soft one. */
+.sa-games[data-marked] .sa-games-plot{padding-bottom:26px}
+.sa-games-key{display:inline-flex;align-items:center;gap:4px;margin-left:auto;margin-right:10px;color:var(--a-faint);font-size:9px;letter-spacing:.06em}
+.sa-games-key i,.sa-games-def{display:inline-block;width:6px;height:6px;border-radius:50%;background:#ff7b8a}
+.sa-games-key i[data-kind=soft],.sa-games-def[data-kind=soft]{background:#46e39a}
+.sa-games-key i+i{margin-left:6px}
+.sa-games-def{position:absolute;left:50%;top:calc(100% + 17px);transform:translateX(-50%)}
+/* The analyst's read: the line against the projection, and how the
+   schedule and tonight's kind of defense bear on it. */
+.sa-analyst{display:grid;gap:8px}
+.sa-lc{--tone:#aeb5b8;display:grid;gap:8px;padding:11px 12px;border:1px solid color-mix(in srgb,var(--tone) 28%,var(--a-line));border-radius:14px;
+ background:linear-gradient(170deg,color-mix(in srgb,var(--tone) 9%,#151a1d),rgba(12,15,17,.6) 70%)}
+.sa-lc[data-tone=good]{--tone:#46e39a}
+.sa-lc[data-tone=bad]{--tone:#ff7b8a}
+.sa-lc-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.sa-lc-top span{color:var(--a-faint);font:800 9.5px/1.2 var(--a-sans);letter-spacing:.1em;text-transform:uppercase}
+.sa-lc-top b{color:var(--tone);font:800 14px/1.2 var(--a-sans)}
+.sa-lc-scale{position:relative;height:6px;border-radius:3px;background:linear-gradient(90deg,color-mix(in srgb,#ff7b8a 35%,#1d2429),#232b30 50%,color-mix(in srgb,#46e39a 35%,#1d2429))}
+.sa-lc-mid{position:absolute;left:50%;top:-4px;bottom:-4px;width:2px;margin-left:-1px;border-radius:1px;background:rgba(255,255,255,.55)}
+.sa-lc-dot{position:absolute;left:var(--x);top:50%;width:13px;height:13px;margin:-6.5px 0 0 -6.5px;border-radius:50%;background:var(--tone);box-shadow:0 0 0 3px #101417;
+ transition:left .6s cubic-bezier(.2,.8,.2,1)}
+.sa-lc-foot{display:flex;justify-content:space-between;gap:8px;color:var(--a-faint);font-size:11px;font-weight:700}
+.sa-lc-foot b{color:var(--a-text);font-variant-numeric:tabular-nums}
+.sa-analyst-points{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.sa-analyst-points li{position:relative;padding:0 0 0 14px;color:var(--a-muted);font-size:12px;line-height:1.4}
+.sa-analyst-points li::before{content:"";position:absolute;left:2px;top:6px;width:6px;height:6px;border-radius:50%;background:#7f878b}
+.sa-analyst-points li[data-tone=good]::before{background:#46e39a}
+.sa-analyst-points li[data-tone=bad]::before{background:#ff7b8a}
 .sa-games-head{display:flex;justify-content:space-between;color:var(--a-faint);font:800 9.5px/1.2 var(--a-sans);letter-spacing:.1em;text-transform:uppercase}
 .sa-games-head b{color:var(--a-text);font-size:11px;letter-spacing:0}
 .sa-games-plot{position:relative;display:flex;align-items:flex-end;gap:5px;height:96px;padding:14px 40px 16px 0}

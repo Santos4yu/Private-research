@@ -2,6 +2,7 @@ import React,{useEffect,useState} from 'react';
 import {ArrowUpRight,Flame,TrendingDown,TrendingUp,TriangleAlert} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import {TIERS} from './slip-check';
+import {allowReader,defenseKind} from './slip-analyst';
 import {teamLogoUrl} from './sports/nfl/nfl-ui-core';
 import './slip-analyzer.css';
 
@@ -87,7 +88,8 @@ export function Meter({chance,need}){
  </div>;
 }
 
-// The last ten games against the slip's number.
+// The last ten games against the slip's number, each marked by the defense
+// it came against (soft or tough for this stat, slip-analyst.js).
 export function Games({row,line,side}){
  const games=(row?.gameLog||[]).slice(-10);
  if(games.length<3||line==null)return null;
@@ -95,14 +97,50 @@ export function Games({row,line,side}){
  const top=Math.max(line*1.5,...values,1);
  const won=value=>side==='UNDER'?value<line:value>line;
  const hits=values.filter(won).length;
- return <div className="sa-games" role="img" aria-label={`Last ${games.length} games: ${hits} of ${games.length} on the ${side==='UNDER'?'under':'over'} side of ${line}`}>
-  <div className="sa-games-head"><span>Last {games.length} games</span><b>{hits}/{games.length}</b></div>
+ const allow=allowReader(row);
+ const kinds=games.map(game=>defenseKind(allow?.of(game)));
+ const marked=kinds.some(kind=>kind==='soft'||kind==='tough');
+ return <div className="sa-games" role="img" data-marked={marked||undefined}
+  aria-label={`Last ${games.length} games: ${hits} of ${games.length} on the ${side==='UNDER'?'under':'over'} side of ${line}`}>
+  <div className="sa-games-head"><span>Last {games.length} games</span>
+   {marked&&<span className="sa-games-key"><i data-kind="tough"/>Tough D<i data-kind="soft"/>Soft D</span>}<b>{hits}/{games.length}</b></div>
   <div className="sa-games-plot">
    <i className="sa-games-line" style={{'--y':line/top}}><span>{figure(line)}</span></i>
    {games.map((game,index)=><span key={`${game.date}-${index}`} className="sa-games-bar" style={{'--h':`${Math.max(3,game.value/top*100)}%`,'--i':index}}
     data-result={game.value===line?'push':won(game.value)?'hit':'miss'}><b>{figure(game.value)}</b>
-    {game.opponent&&typeof game.opponent==='string'&&<small>{game.opponent}</small>}</span>)}
+    {game.opponent&&typeof game.opponent==='string'&&<small>{game.opponent}</small>}
+    {marked&&(kinds[index]==='soft'||kinds[index]==='tough')&&<i className="sa-games-def" data-kind={kinds[index]}/>}</span>)}
   </div>
  </div>;
+}
+
+const tenth=value=>String(Math.round(value*10)/10);
+/**
+ * The analyst's read of a pick, as someone checking it by hand would: is
+ * the line too high or too low against the projection, did his recent
+ * numbers come against soft or tough defenses, and how has he done against
+ * defenses like tonight's (slip-analyst.js readPick).
+ */
+export function AnalystRead({read,side,line}){
+ const check=read?.lineCheck,schedule=read?.factors?.find(item=>item.key==='schedule'),similar=read?.similar,split=read?.split;
+ const over=side!=='UNDER',word=over?'Over':'Under';
+ const both=split?.tough?.games>=2&&split?.soft?.games>=2;
+ const splitText=!similar&&both&&line!=null?`${word} ${figure(line)} in ${split.tough.won} of ${split.tough.games} against tough defenses, ${split.soft.won} of ${split.soft.games} against soft ones`:null;
+ if(!check&&!schedule&&!similar&&!splitText)return null;
+ const helps=check&&check.verdict!=='fair'&&(check.verdict==='low')===over;
+ const z=check?Math.max(-2,Math.min(2,check.z)):0;
+ return <section className="sa-analyst" aria-label="Analyst read">
+  {check&&<div className="sa-lc" data-tone={check.verdict==='fair'?'even':helps?'good':'bad'}>
+   <div className="sa-lc-top"><span>Line check</span><b>{check.verdict==='fair'?'Line looks fair':`Line looks ${tenth(Math.abs(check.gap))} ${check.verdict}`}</b></div>
+   <div className="sa-lc-scale" aria-hidden="true"><i className="sa-lc-mid"/><i className="sa-lc-dot" style={{'--x':`${50+z*22}%`}}/></div>
+   <div className="sa-lc-foot"><span>Line <b>{figure(check.line)}</b></span><span>Projects <b>{tenth(check.projection)}</b></span>
+    {check.average!=null&&<span>Avg <b>{tenth(check.average)}</b></span>}</div>
+  </div>}
+  {(schedule||similar||splitText)&&<ul className="sa-analyst-points">
+   {schedule&&<li data-tone={(schedule.factor>1)===over?'good':'bad'}>{schedule.text}.</li>}
+   {similar&&<li data-tone={similar.record.rate>=0.6?'good':similar.record.rate<=0.4?'bad':'even'}>{similar.text}.</li>}
+   {splitText&&<li data-tone="even">{splitText}.</li>}
+  </ul>}
+ </section>;
 }
 
