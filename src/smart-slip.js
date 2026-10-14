@@ -19,7 +19,6 @@
 // anything.
 import {bookProbability} from './unified-finder-data.js';
 import {readPick, grade, conflicted, analystNote} from './slip-analyst.js';
-import {onSlips} from './prop-model.js';
 import {link, against, together} from './slip-correlation.js';
 import {scoreParlay} from './slip-score.js';
 
@@ -223,8 +222,7 @@ export function assessLeg(row, side, {now = Date.now(), any = false, started = f
   const steady = HISTORY[row.sport]
     ? (recentRate >= 0.5 && (!longer || longer.rate >= 0.52)) || (book ?? 0) >= 0.55
     : recentRate >= 0.55 || (book ?? 0) >= 0.55;
-  const backed = onSlips(row)
-    && !(book != null && book < (modifier === 'demon' ? 0.25 : 0.47))
+  const backed = !(book != null && book < (modifier === 'demon' ? 0.25 : 0.47))
     && !(modifier === 'standard' && !(chance >= bar && steady))
     && !(modifier === 'goblin' && !(chance >= 0.62 && recentRate >= 0.65))
     && !(modifier === 'demon' && !(chance >= 0.33 && recentRate >= 0.4))

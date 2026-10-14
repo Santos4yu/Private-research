@@ -64,8 +64,9 @@ const NEWS_FOR=60;
 async function judged(rows,sports,{signal,now}){
  const tables=await loadMatchups(sports,{signal}).catch(()=>({}));
  const listed=withPoolDefense(rows.map(row=>withMatchups(row,tables)));
- // Overs only: an Under never makes a slip.
- const usable=leg=>passesMatchup(leg)&&overOnly(leg);
+ // Overs only: an Under never makes a slip. Read again with its game's
+ // news, a pick has to still clear the bar (`backed`), not just its tier.
+ const usable=leg=>passesMatchup(leg)&&overOnly(leg)&&leg.backed!==false;
  const graded=gradeMatchups(candidates(listed,{now}),tables).filter(usable);
  const top=['standard','goblin','demon'].flatMap(kind=>graded.filter(leg=>leg.modifier===kind).sort((a,b)=>b.chance*b.factor-a.chance*a.factor).slice(0,NEWS_FOR));
  const asks=top.map(leg=>({key:leg.id,row:leg.row}));

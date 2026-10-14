@@ -27,8 +27,8 @@
 // uncertainty (how many games are behind his rate, how settled his
 // playing time is, how far the model runs off in the stat) and keeps only
 // the part of its edge that survives it. Steady stats keep more than
-// swingy ones (RBIs, runs, goals), and those never go on a Parlay Builder
-// slip (`slips: false`).
+// swingy ones (RBIs, runs, goals), which make a slip only when the case
+// for them is strong.
 import {newsOf, samePerson} from './slip-games.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
@@ -146,8 +146,7 @@ function basesPerTrip(hit, perHit = LEAGUE_BASES_PER_HIT) {
 // points in hockey), narrow where each player gets his own (basketball).
 // error: how far off the model itself runs, as a share of the projection,
 // beyond what his games leave unknown (runs and RBIs ride on teammates).
-const stat = (shape, k, market, error, extra = {}) => ({shape, k, market, error, slips: true, ...extra});
-const noisy = (shape, k, market, error, extra = {}) => stat(shape, k, market, error, {slips: false, ...extra});
+const stat = (shape, k, market, error, extra = {}) => ({shape, k, market, error, ...extra});
 const PROFILES = {
   // MLB hitters, per plate appearance.
   'hitting:hits': stat('binary', 450, 0.09, 0.06, {unit: 'pa'}),
@@ -156,16 +155,16 @@ const PROFILES = {
   'hitting:hits-walks': stat('count', 300, 0.08, 0.06, {unit: 'pa', spread: 0.9}),
   'hitting:hrr': stat('count', 250, 0.07, 0.1, {unit: 'pa', spread: 1.6}),
   'hitting:strikeouts': stat('binary', 60, 0.08, 0.06, {unit: 'pa'}),
-  'hitting:walks': noisy('binary', 120, 0.07, 0.1, {unit: 'pa'}),
-  'hitting:hr': noisy('binary', 170, 0.05, 0.15, {unit: 'pa'}),
-  'hitting:doubles': noisy('binary', 300, 0.05, 0.15, {unit: 'pa'}),
-  'hitting:triples': noisy('binary', 300, 0.04, 0.2, {unit: 'pa'}),
-  'hitting:xbh': noisy('binary', 250, 0.06, 0.12, {unit: 'pa'}),
-  'hitting:rbi': noisy('count', 400, 0.06, 0.15, {unit: 'pa', spread: 1.6}),
-  'hitting:runs': noisy('count', 400, 0.06, 0.15, {unit: 'pa', spread: 1.5}),
-  'hitting:runs-rbis': noisy('count', 400, 0.06, 0.15, {unit: 'pa', spread: 1.6}),
-  'hitting:sb': noisy('count', 300, 0.05, 0.2, {unit: 'pa', spread: 1.3}),
-  'hitting:fantasy': noisy('curve', 300, 0.05, 0.12, {unit: 'pa'}),
+  'hitting:walks': stat('binary', 120, 0.07, 0.1, {unit: 'pa'}),
+  'hitting:hr': stat('binary', 170, 0.05, 0.15, {unit: 'pa'}),
+  'hitting:doubles': stat('binary', 300, 0.05, 0.15, {unit: 'pa'}),
+  'hitting:triples': stat('binary', 300, 0.04, 0.2, {unit: 'pa'}),
+  'hitting:xbh': stat('binary', 250, 0.06, 0.12, {unit: 'pa'}),
+  'hitting:rbi': stat('count', 400, 0.06, 0.15, {unit: 'pa', spread: 1.6}),
+  'hitting:runs': stat('count', 400, 0.06, 0.15, {unit: 'pa', spread: 1.5}),
+  'hitting:runs-rbis': stat('count', 400, 0.06, 0.15, {unit: 'pa', spread: 1.6}),
+  'hitting:sb': stat('count', 300, 0.05, 0.2, {unit: 'pa', spread: 1.3}),
+  'hitting:fantasy': stat('curve', 300, 0.05, 0.12, {unit: 'pa'}),
   // MLB pitchers, per pitch.
   'pitching:strikeouts': stat('count', 400, 0.06, 0.07, {unit: 'pitches', spread: 1.1}),
   'pitching:outs': stat('curve', 1000, 0.05, 0.08, {unit: 'pitches'}),
@@ -174,15 +173,15 @@ const PROFILES = {
   'pitching:pitcher-fantasy': stat('curve', 800, 0.05, 0.08, {unit: 'pitches'}),
   'pitching:hits': stat('count', 2000, 0.06, 0.1, {unit: 'pitches', spread: 1.25}),
   'pitching:walks': stat('count', 900, 0.06, 0.1, {unit: 'pitches', spread: 1.2}),
-  'pitching:earned-runs': noisy('count', 2500, 0.06, 0.15, {unit: 'pitches', spread: 1.7}),
-  'pitching:runs-allowed': noisy('count', 2500, 0.06, 0.15, {unit: 'pitches', spread: 1.7}),
-  'pitching:hr-allowed': noisy('count', 3000, 0.05, 0.2, {unit: 'pitches', spread: 1.2}),
+  'pitching:earned-runs': stat('count', 2500, 0.06, 0.15, {unit: 'pitches', spread: 1.7}),
+  'pitching:runs-allowed': stat('count', 2500, 0.06, 0.15, {unit: 'pitches', spread: 1.7}),
+  'pitching:hr-allowed': stat('count', 3000, 0.05, 0.2, {unit: 'pitches', spread: 1.2}),
   // One inning says next to nothing.
-  'pitching:first-hits': noisy(null, 0, 0.04, 0.2),
-  'pitching:first-runs': noisy(null, 0, 0.04, 0.2),
-  'pitching:first-walks': noisy(null, 0, 0.04, 0.2),
-  'pitching:first-pitches': noisy(null, 0, 0.04, 0.2),
-  'pitching:first-ks': noisy(null, 0, 0.04, 0.2),
+  'pitching:first-hits': stat(null, 0, 0.04, 0.2),
+  'pitching:first-runs': stat(null, 0, 0.04, 0.2),
+  'pitching:first-walks': stat(null, 0, 0.04, 0.2),
+  'pitching:first-pitches': stat(null, 0, 0.04, 0.2),
+  'pitching:first-ks': stat(null, 0, 0.04, 0.2),
   // NHL skaters, per minute on the ice.
   'skater:sog': stat('count', 100, 0.07, 0.06, {unit: 'toi', spread: 1.15}),
   'skater:attempts': stat('count', 100, 0.06, 0.06, {unit: 'toi', spread: 1.2}),
@@ -194,15 +193,15 @@ const PROFILES = {
   'skater:toi': stat('self', 0, 0.04, 0.04, {unit: 'toi'}),
   'skater:points': stat('count', 300, 0.09, 0.08, {unit: 'toi', spread: 1.05}),
   'skater:fantasy': stat('curve', 250, 0.05, 0.1, {unit: 'toi'}),
-  'skater:goals': noisy('count', 600, 0.08, 0.12, {unit: 'toi', spread: 1}),
-  'skater:assists': noisy('count', 450, 0.08, 0.12, {unit: 'toi', spread: 1}),
-  'skater:ppp': noisy('count', 600, 0.08, 0.15, {unit: 'toi', spread: 1}),
-  'skater:pim': noisy(null, 0, 0.05, 0.2),
-  'skater:plus_minus': noisy(null, 0, 0.05, 0.2),
+  'skater:goals': stat('count', 600, 0.08, 0.12, {unit: 'toi', spread: 1}),
+  'skater:assists': stat('count', 450, 0.08, 0.12, {unit: 'toi', spread: 1}),
+  'skater:ppp': stat('count', 600, 0.08, 0.15, {unit: 'toi', spread: 1}),
+  'skater:pim': stat(null, 0, 0.05, 0.2),
+  'skater:plus_minus': stat(null, 0, 0.05, 0.2),
   // NHL goalies: saves follow the shots, and whether he starts.
   'goalie:saves': stat('count', 300, 0.045, 0.08, {unit: 'toi', spread: 1.1}),
-  'goalie:ga': noisy('count', 900, 0.06, 0.12, {unit: 'toi', spread: 1.1}),
-  'goalie:fantasy': noisy('curve', 600, 0.05, 0.12, {unit: 'toi'}),
+  'goalie:ga': stat('count', 900, 0.06, 0.12, {unit: 'toi', spread: 1.1}),
+  'goalie:fantasy': stat('curve', 600, 0.05, 0.12, {unit: 'toi'}),
   // Basketball, per minute.
   'basketball:pts': stat('count', 50, 0.055, 0.05, {unit: 'min', spread: 1.8}),
   'basketball:reb': stat('count', 40, 0.055, 0.05, {unit: 'min', spread: 1.3}),
@@ -224,11 +223,11 @@ const PROFILES = {
   'basketball:dreb': stat('count', 50, 0.05, 0.07, {unit: 'min', spread: 1.3}),
   'basketball:to': stat('count', 100, 0.05, 0.08, {unit: 'min', spread: 1.2}),
   'basketball:bs': stat('count', 100, 0.05, 0.08, {unit: 'min', spread: 1.2}),
-  'basketball:blk': noisy('count', 100, 0.06, 0.1, {unit: 'min', spread: 1.2}),
-  'basketball:stl': noisy('count', 100, 0.06, 0.1, {unit: 'min', spread: 1.1}),
-  'basketball:pf': noisy('count', 100, 0.05, 0.1, {unit: 'min', spread: 1.1}),
-  'basketball:dd': noisy(null, 0, 0.05, 0.15),
-  'basketball:td': noisy(null, 0, 0.04, 0.2),
+  'basketball:blk': stat('count', 100, 0.06, 0.1, {unit: 'min', spread: 1.2}),
+  'basketball:stl': stat('count', 100, 0.06, 0.1, {unit: 'min', spread: 1.1}),
+  'basketball:pf': stat('count', 100, 0.05, 0.1, {unit: 'min', spread: 1.1}),
+  'basketball:dd': stat(null, 0, 0.05, 0.15),
+  'basketball:td': stat(null, 0, 0.04, 0.2),
 };
 const BASKETBALL_STATS = {player_points: 'pts', player_rebounds: 'reb', player_assists: 'ast', player_threes: 'tpm',
   player_blocks: 'blk', player_steals: 'stl', player_blocks_steals: 'bs', player_turnovers: 'to', player_points_rebounds: 'pr',
@@ -253,9 +252,6 @@ export function modelKey(row) {
 
 /** What the model knows about a line's stat, or null. */
 export const profileOf = row => PROFILES[modelKey(row)] || null;
-
-/** Whether a line may go on a Parlay Builder slip: not a stat its games say too little about. */
-export const onSlips = row => profileOf(row)?.slips !== false;
 
 
 // ---------------------------------------------------------------- the board's rates

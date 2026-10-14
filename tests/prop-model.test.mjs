@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {modelKey, onSlips, profileOf, withModelPriors, projectStat, modelChance, modelMean, modelRead} from '../src/prop-model.js';
+import {modelKey, profileOf, withModelPriors, projectStat, modelChance, modelMean, modelRead} from '../src/prop-model.js';
 import {readPick} from '../src/slip-analyst.js';
 import {assessLeg} from '../src/smart-slip.js';
 import {judge} from '../src/slip-check.js';
@@ -20,22 +20,12 @@ const hitter = (player, values, extra = {}) => ({id: `mlb:${player}:${extra.mark
   startsAt: LATER, isHome: false, raw: {stat: 'Hits'}, apps: [{key: 'prizepicks', name: 'PrizePicks'}],
   gameLog: games(values, 4.4), windows: {l5: w(4, 5), l10: w(8, 10), l20: w(15, 20), season: w(40, 55)}, ...extra});
 
-test('which stats the model reads, and which never go on a slip', () => {
+test('which stats the model reads, and how far it runs off in each', () => {
   const mlb = key => ({sport: 'mlb', marketKey: key});
   assert.equal(modelKey(mlb('hitting:hits')), 'hitting:hits');
-  assert.equal(onSlips(mlb('hitting:hits')), true);
-  assert.equal(onSlips(mlb('pitching:strikeouts')), true);
-  for (const key of ['hitting:rbi', 'hitting:runs', 'hitting:hr', 'hitting:sb', 'hitting:fantasy', 'pitching:earned-runs', 'pitching:first-runs']) {
-    assert.equal(onSlips(mlb(key)), false, key);
-  }
   assert.equal(modelKey({sport: 'nhl', valueKey: 'saves', position: 'G'}), 'goalie:saves');
-  assert.equal(onSlips({sport: 'nhl', valueKey: 'goals', position: 'C'}), false);
-  assert.equal(onSlips({sport: 'nhl', valueKey: 'sog', position: 'C'}), true);
-  assert.equal(onSlips({sport: 'nba', marketKey: 'player_steals'}), false);
-  assert.equal(onSlips({sport: 'wnba', marketKey: 'player_points_rebounds_assists'}), true);
   // A league or stat the model doesn't read keeps its old path.
   assert.equal(modelKey({sport: 'nfl', marketKey: 'receiving_yards'}), null);
-  assert.equal(onSlips({sport: 'nfl', marketKey: 'receiving_yards'}), true);
   // The model runs further off in swingy stats than steady ones.
   const error = row => profileOf(row).error;
   assert.ok(error(mlb('hitting:hits')) < error(mlb('hitting:hrr')));
@@ -144,7 +134,7 @@ test('hockey: a skater\'s shots are a rate per minute on the ice times his minut
   assert.ok(favored.context.rate > 1.05 && dog.context.rate < 0.95, `${favored.context.rate} ${dog.context.rate}`);
 });
 
-test('a swingy stat keeps little of its edge and never makes a slip; a steady one does', () => {
+test('a swingy stat keeps less of its edge than a steady one', () => {
   const hits = hitter('Steady Eddie', some(28, 25).map((value, index) => value + (index % 4 === 0 ? 1 : 0)));
   const read = readPick(hits, 'OVER', {});
   assert.ok(read.model && read.model.key === 'hitting:hits');
@@ -155,7 +145,8 @@ test('a swingy stat keeps little of its edge and never makes a slip; a steady on
   assert.ok(leg.backed, `chance ${leg.chance}`);
   const rbi = hitter('Steady Eddie', some(20, 25), {id: 'rbi', market: 'RBIs', marketKey: 'hitting:rbi'});
   const swingy = assessLeg(rbi, 'OVER', {now: NOW});
-  assert.equal(swingy.backed, false);
+  // Still allowed on a slip, but only when its held-back chance clears the bar.
+  assert.ok(swingy.chance < leg.chance);
   assert.ok(Math.abs(swingy.read.projected - 0.5) < Math.abs(swingy.read.model.raw - 0.5) * 0.4);
 });
 
