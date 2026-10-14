@@ -97,17 +97,25 @@ def _clamp(value, low, high):
 
 def fit(entries, previous=None, now=None):
     """The corrections from settled ledger entries ([(day, key, pick)]):
-    {version, at, picks, groups: {sport|'all': {points: [[predicted, offset, n, actual]]}},
-    tiers, sports}. `previous` (yesterday's) limits how far each moves."""
+    {version, at, picks, groups: {'all' | sport | 'sport|stat': {points: [[predicted, offset, n, actual]]}},
+    tiers}. `previous` (yesterday's) limits how far each moves.
+
+    Each level borrows from the one above until it has results of its own:
+    a sport from all sports, a stat ("nba|steals") from its sport. A stat is
+    kept only once one of its bands has MIN_PICKS picks; until then its
+    picks use their sport's correction."""
     now = now or datetime.now(timezone.utc)
-    by_sport = {}
+    by_group = {}
     tiers = {}
     for _, _, pick in entries:
         counted = _counted(pick)
         if not counted:
             continue
-        by_sport.setdefault(pick.get("sport") or "other", []).append(counted)
-        by_sport.setdefault("all", []).append(counted)
+        sport = pick.get("sport") or "other"
+        by_group.setdefault("all", []).append(counted)
+        by_group.setdefault(sport, []).append(counted)
+        if pick.get("group"):
+            by_group.setdefault(f"{sport}|{pick['group']}", []).append(counted)
         tier = pick.get("tier")
         if tier:
             cell = tiers.setdefault(tier, {"picks": 0, "hits": 0, "predicted": 0.0})
@@ -120,33 +128,49 @@ def fit(entries, previous=None, now=None):
 
     old = (previous or {}).get("groups") or {}
 
-    def held(group, band):
+    def held(group, band, default=0.0):
         for predicted, offset, *_ in (old.get(group) or {}).get("points") or []:
             if _band(predicted) == band:
                 return offset
-        return 0.0
+        return default
 
-    shared = _bands(by_sport.get("all", []))
-    groups = {}
-    for group, picks in by_sport.items():
+    # Each group's target for each band: where its results point.
+    targets = {}
+
+    def settle(group, picks, parent):
         cells = _bands(picks)
         points = []
         for band in sorted(cells):
             n, hits, predicted = cells[band]
-            everyone = shared.get(band)
-            base = _offset(*everyone) if everyone and everyone[0] >= MIN_PICKS else 0.0
-            if group == "all":
-                target = base
-            elif n >= MIN_PICKS:
-                weight = n / (n + SPORT_WEIGHT)
-                target = weight * _offset(n, hits, predicted) + (1 - weight) * base
+            above = targets.get((parent, band), 0.0) if parent else 0.0
+            if n >= MIN_PICKS:
+                own = _offset(n, hits, predicted)
+                target = own if not parent else (n / (n + SPORT_WEIGHT)) * own + (1 - n / (n + SPORT_WEIGHT)) * above
             else:
-                target = base
-            before = held(group, band)
+                target = above
+            # A new stat starts where its sport's correction was: no jump
+            # from what its picks were given yesterday.
+            before = held(group, band, held(parent, band) if parent and "|" in group else 0.0)
             offset = _clamp(before + _clamp(target - before, -STEP, STEP), -CAP, CAP)
+            targets[(group, band)] = target
+            # A stat keeps only the bands it has results for; the browser
+            # carries its nearest one past them (src/learning.js), so its
+            # surest picks aren't left on the sport's correction.
+            if "|" in group and n < MIN_PICKS:
+                continue
             points.append([round(predicted / n, 4), round(offset, 4), n, round(hits / n, 4)])
-        groups[group] = {"points": points, "picks": len(picks), "hits": sum(hit for _, hit in picks)}
-    return {"version": VERSION, "at": now.isoformat(), "days": LEARN_DAYS, "picks": len(by_sport.get("all", [])),
+        return {"points": points, "picks": len(picks), "hits": sum(hit for _, hit in picks)}
+
+    groups = {}
+    if "all" in by_group:
+        groups["all"] = settle("all", by_group["all"], None)
+    for group in sorted(name for name in by_group if name != "all" and "|" not in name):
+        groups[group] = settle(group, by_group[group], "all")
+    for group in sorted(name for name in by_group if "|" in name):
+        picks = by_group[group]
+        if max(cell[0] for cell in _bands(picks).values()) >= MIN_PICKS:
+            groups[group] = settle(group, picks, group.split("|", 1)[0])
+    return {"version": VERSION, "at": now.isoformat(), "days": LEARN_DAYS, "picks": len(by_group.get("all", [])),
             "groups": groups, "tiers": tiers}
 
 

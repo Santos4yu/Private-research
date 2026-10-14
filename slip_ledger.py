@@ -119,6 +119,8 @@ def clean_pick(raw, now):
             # what the next day's corrections are measured against.
             "raw": round(min(1, max(0, _number(raw.get("raw")))), 4) if _number(raw.get("raw")) is not None else round(min(1, max(0, chance)), 4),
             "source": raw.get("source") if raw.get("source") in SOURCES else "analyzer",
+            # The stat it's on, as learning.py keeps its corrections ("rbis").
+            "group": re.sub(r"[^a-z0-9+ ]+", " ", _short(raw.get("group"), 40).lower()).strip(),
             "position": _short(raw.get("position"), 6), "average": round(average, 2) if average is not None else None,
             "settle": settle, "late": bool(starts and starts <= now)}
 

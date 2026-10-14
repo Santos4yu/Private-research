@@ -1603,7 +1603,7 @@ function renderAdminLearning() {
       const tone = Math.abs(offset) < 0.0005 ? "" : offset > 0 ? "up" : "down";
       return `<tr><td>${pct(predicted)}</td><td>${pct(actual)}</td><td>${Number(n).toLocaleString()}</td><td class="${tone}">${points(offset)}</td></tr>`;
     }).join("");
-    return `<article class="learning-group"><h3>${escapeHtml(name === "all" ? "All sports" : name.toUpperCase())}</h3>
+    return `<article class="learning-group"><h3>${escapeHtml(name === "all" ? "All sports" : name.split("|").map((part, index) => index ? part : part.toUpperCase()).join(" · "))}</h3>
       <table><thead><tr><th>Model said</th><th>Hit</th><th>Picks</th><th>Adjust</th></tr></thead><tbody>${rows}</tbody></table></article>`;
   };
   const tiers = Object.entries(data.tiers || {}).filter(([, cell]) => cell.picks).sort((a, b) => b[1].predicted - a[1].predicted)

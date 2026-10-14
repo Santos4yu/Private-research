@@ -96,3 +96,15 @@ test('picks that work against each other never share a slip', () => {
     assert.ok(!(names.includes('Garrett Crochet') && names.some(name => name === 'Aaron Judge' || name === 'Juan Soto')), names.join(', '));
   }
 });
+
+// A one-event line (an RBI): a hot ten games over a poor season is luck.
+const hitter = (l10, season) => ({id: `mlb:h:${l10}:${season}`, sport: 'mlb', player: 'Hitter', market: 'RBIs', line: 0.5, modifier: 'standard', direction: 'OVER',
+  startsAt: KICK, teamAbbr: 'NYY', opponent: 'BOS', gameId: 'm9', raw: {stat: 'RBIs'}, apps: [pp],
+  windows: {l5: w(Math.min(5, Math.round(l10[0] / 2)), 5), l10: w(...l10), l15: w(Math.round(l10[0] * 1.2), 15), l20: w(Math.round(season[0] / season[1] * 20), 20), season: w(...season)}});
+
+test('a one-event line is judged on the season, not a hot week', () => {
+  assert.equal(judgeLeg(hitter([7, 10], [30, 100]), 'OVER', {now: NOW}), null, '7 of his last 10, but 30% on the season');
+  const steady = judgeLeg(hitter([6, 10], [58, 100]), 'OVER', {now: NOW});
+  assert.ok(steady, 'a season of driving runs in still makes it');
+  assert.ok(steady.chance < 0.6 && steady.chance > 0.5, steady.chance);
+});

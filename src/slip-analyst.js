@@ -22,6 +22,9 @@ const ordinal = n => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st',
 const MIN_GAMES = 5;
 // Recent games count more: a game this many games back counts half.
 const HALF_LIFE = 8;
+// A one-event line (smart-slip.js assessLeg): a hot week is mostly luck, so
+// the season counts about as much as the last few games.
+const SWING_HALF_LIFE = 40;
 const MAX_SHIFT = 0.15;
 
 // ---------------------------------------------------------------- distributions
@@ -348,7 +351,7 @@ const rateOn = (games, line, side) => {
  * needs to break even -- 0.5 for a regular line, lower for a Demon,
  * higher for a Goblin -- which the records are held against.
  */
-export function readPick(row, side, {records = {}, book = null, baseline = 0.5} = {}) {
+export function readPick(row, side, {records = {}, book = null, baseline = 0.5, anchor = 0.5, swing = false} = {}) {
   const log = (row.gameLog || []).filter(game => finite(game.value));
   const line = row.line;
   const sign = side === 'UNDER' ? -1 : 1;
@@ -359,7 +362,8 @@ export function readPick(row, side, {records = {}, book = null, baseline = 0.5} 
     const values = log.map(game => game.value);
     const n = values.length;
     let weights = 0, total = 0;
-    values.forEach((value, index) => { const weight = 0.5 ** ((n - 1 - index) / HALF_LIFE); weights += weight; total += weight * value; });
+    const halfLife = swing ? SWING_HALF_LIFE : HALF_LIFE;
+    values.forEach((value, index) => { const weight = 0.5 ** ((n - 1 - index) / halfLife); weights += weight; total += weight * value; });
     const base = total / weights;
     const plain = mean(values);
     const variance = n > 1 ? values.reduce((sum, value) => sum + (value - plain) ** 2, 0) / (n - 1) : plain;
@@ -412,8 +416,9 @@ export function readPick(row, side, {records = {}, book = null, baseline = 0.5} 
     const projected = base * clamp(factor, 1 - MAX_SHIFT, 1 + MAX_SHIFT);
     const counts = values.every(value => Number.isInteger(value) && value >= 0);
     let chance = sideChance(projected, variance * (plain > 0 ? projected / plain : 1), line, side, {counts});
-    // A short history says less: pulled toward even.
-    if (chance != null) chance = 0.5 + (chance - 0.5) * n / (n + 4);
+    // A short history says less: pulled toward even (a one-event line:
+    // toward the player's season rate, smart-slip.js assessLeg).
+    if (chance != null) chance = anchor + (chance - anchor) * n / (n + 4);
     out.projection = projected;
     out.projected = chance;
     out.games = n;

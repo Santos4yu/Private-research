@@ -86,6 +86,32 @@ class ParlayRecordTests(unittest.TestCase):
         self.assertEqual(record["D"]["misses"], 1)
 
 
+class StatTests(unittest.TestCase):
+    def test_a_stat_learns_its_own_correction_once_it_has_results(self):
+        # MLB hits called 58% hit 58%; RBIs called 57% hit 45%.
+        entries = settled(400, 232, 0.58, sport="mlb", group="hits") + settled(200, 90, 0.57, sport="mlb", group="rbis")
+        model = None
+        for day in range(10):
+            model = learning.fit(entries, model, NOW + timedelta(days=day))
+        rbis, hits, mlb = offset(model, "mlb|rbis", 0.57), offset(model, "mlb|hits", 0.58), offset(model, "mlb", 0.57)
+        self.assertLess(rbis, mlb - 0.02, "RBIs come down further than MLB as a whole")
+        self.assertLess(abs(hits), 0.02, "hits were about right and stay so")
+        # Only the bands it has results for: its surest picks carry its nearest one.
+        self.assertEqual([learning._band(point[0]) for point in model["groups"]["mlb|rbis"]["points"]], [0.55])
+
+    def test_a_stat_starts_from_its_sports_correction(self):
+        entries = settled(400, 200, 0.62, sport="nba", group="points")
+        model = learning.fit(entries, None, NOW)
+        # A new stat's first day: no jump from where its picks already were.
+        self.assertEqual(offset(model, "nba|points", 0.62), offset(model, "nba", 0.62))
+
+    def test_a_stat_with_few_results_uses_its_sport(self):
+        entries = settled(400, 232, 0.58, sport="nhl", group="shots") + settled(20, 2, 0.58, sport="nhl", group="goals")
+        model = learning.fit(entries, None, NOW)
+        self.assertIn("nhl|shots", model["groups"])
+        self.assertNotIn("nhl|goals", model["groups"])
+
+
 class LedgerTests(unittest.TestCase):
     def setUp(self):
         self.store = FakeStore()
@@ -105,6 +131,12 @@ class LedgerTests(unittest.TestCase):
         with patch.object(slip_ledger, "LEARN_PER_DAY", 4):  # 3 asked for so far
             capped = slip_ledger.learn({"picks": [pick(player=f"P{i}") for i in range(5)]}, now=NOW)
         self.assertEqual(capped["kept"], 1)
+
+    def test_each_pick_keeps_the_stat_it_is_on(self):
+        slip_ledger.learn({"picks": [pick(player="Shohei Ohtani", stat="RBIs", line=0.5, group="RBIs!!")]}, now=NOW)
+        day = slip_ledger._eastern_day(NOW + timedelta(hours=2))
+        kept = [json.loads(raw) for raw in self.store.data[slip_ledger.PREFIX + "ledger:" + day].values()]
+        self.assertEqual([item["group"] for item in kept], ["rbis"])
 
     def test_a_graded_slip_is_kept_for_the_record_by_grade(self):
         slip_ledger.save("member-a", slip(letter="A", source="builder"), now=NOW)

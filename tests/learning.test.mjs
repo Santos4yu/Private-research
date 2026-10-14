@@ -11,7 +11,7 @@ globalThis.localStorage = {
   removeItem: key => memory.delete(key),
 };
 
-const {calibrate, setLearning, learned, loadLearning} = await import('../src/learning.js');
+const {calibrate, setLearning, learned, loadLearning, statGroup} = await import('../src/learning.js');
 const {logTopPicks} = await import('../src/slip-history.js');
 
 const MODEL = {version: 1, at: '2026-10-11T12:00:00Z', picks: 400, groups: {
@@ -34,6 +34,16 @@ test('a sport with its own results uses them; others borrow all sports', () => {
   // Between two bands: a straight line.
   assert.ok(Math.abs(calibrate(0.65, 'nfl') - (0.65 - 0.04)) < 1e-9);
   assert.ok(Math.abs(calibrate(0.5, 'nfl') - 0.48) < 1e-9);
+  setLearning(null);
+});
+
+test('a stat with its own results uses them, else its sport, else all sports', () => {
+  setLearning({...MODEL, groups: {...MODEL.groups, 'mlb|rbis': {points: [[0.57, -0.09, 200, 0.45]]}}});
+  assert.ok(Math.abs(calibrate(0.57, 'mlb', 'rbis') - 0.48) < 1e-9);
+  assert.ok(Math.abs(calibrate(0.7, 'mlb', 'rbis') - 0.61) < 1e-9, 'its nearest correction carries past its last one');
+  assert.ok(Math.abs(calibrate(0.6, 'mlb', 'hits') - 0.63) < 1e-9, 'no results of its own: the sport\'s');
+  assert.equal(statGroup({market: 'Hits+Runs+RBIs'}), 'hits+runs+rbis');
+  assert.equal(statGroup({stat: '3-PT Made'}), '3 pt made');
   setLearning(null);
 });
 
@@ -76,6 +86,7 @@ test('the strongest picks before their games are sent once a day', async () => {
   assert.equal(sent.length, 1);
   assert.deepEqual(sent[0].picks.map(pick => pick.player), ['Player b', 'Player c']);
   assert.equal(sent[0].picks[0].source, 'board');
+  assert.equal(sent[0].picks[0].group, 'receiving yards', 'kept by its stat, to be learned from');
   assert.ok(Math.abs(sent[0].picks[0].raw - 0.70) < 1e-9, 'learned from the chance before any correction');
 
   // The same picks again that day: only the one not sent yet goes.

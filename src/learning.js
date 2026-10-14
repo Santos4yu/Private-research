@@ -59,9 +59,17 @@ function offsetAt(group, p) {
   return points.at(-1)[1];
 }
 
-/** A pick's chance with what the results have taught: its sport's correction, else all sports'. */
-export function calibrate(p, sport, using = model) {
+/** The stat a line is on, as the corrections are kept by it ("rbis", "steals"). */
+export const statGroup = row => String(row?.market || row?.stat || '').toLowerCase().replace(/[^a-z0-9+]+/g, ' ').trim().slice(0, 40);
+
+/**
+ * A pick's chance with what the results have taught: the correction for its
+ * sport and stat (picks on RBIs or goals can be off in their own way), else
+ * its sport's, else all sports'.
+ */
+export function calibrate(p, sport, group = '', using = model) {
   if (!using || !finite(p)) return p;
-  const offset = offsetAt(using.groups?.[sport], p) ?? offsetAt(using.groups?.all, p) ?? 0;
+  const groups = using.groups || {};
+  const offset = (group ? offsetAt(groups[`${sport}|${group}`], p) : null) ?? offsetAt(groups[sport], p) ?? offsetAt(groups.all, p) ?? 0;
   return Math.min(0.97, Math.max(0.03, p + offset));
 }

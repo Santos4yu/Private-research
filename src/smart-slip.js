@@ -47,6 +47,13 @@ const LOCK_MINUTES = 10;
 // as six real ones, so 3 for 3 reads as 67%, not 100%.
 const PRIOR = 6;
 const WINDOW_WEIGHTS = {l5: 0.10, l10: 0.30, l15: 0.10, l20: 0.15, season: 0.35};
+// A one-event line (0.5 or 1.5: an RBI, a goal, a steal or two) is mostly
+// luck game to game: a hot ten games says little, the season says most, and
+// the record is pulled toward the player's own season rate, not 50/50. Every
+// such line is still offered; it just has to be good over the long run.
+const SWING_WEIGHTS = {l5: 0.02, l10: 0.08, l15: 0.10, l20: 0.15, season: 0.65};
+const SWING_PRIOR = 12;
+const SWING_LINE = 1.5;
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
@@ -154,13 +161,17 @@ export function assessLeg(row, side, {now = Date.now(), any = false, started = f
   const recent = records.l10 || records.l5;
   if (!(recent && recent.games >= 5) && !(records.season && records.season.games >= 8)) return null;
 
-  // The player's record, each window pulled toward 50/50 by its size.
+  // The player's record, each window pulled toward 50/50 by its size; on a
+  // one-event line, toward his season rate and with the season counting most.
+  const swing = modifier === 'standard' && finite(row.line) && row.line <= SWING_LINE && records.season?.games >= 15;
+  const anchor = swing ? records.season.rate : 0.5;
+  const [weights, prior] = swing ? [SWING_WEIGHTS, SWING_PRIOR] : [WINDOW_WEIGHTS, PRIOR];
   let weight = 0, total = 0;
-  for (const [key, share] of Object.entries(WINDOW_WEIGHTS)) {
+  for (const [key, share] of Object.entries(weights)) {
     const record = records[key];
     if (!record) continue;
     weight += share;
-    total += share * (record.won + PRIOR * 0.5) / (record.games + PRIOR);
+    total += share * (record.won + prior * anchor) / (record.games + prior);
   }
   if (!weight) return null;
   let history = total / weight;
@@ -175,7 +186,7 @@ export function assessLeg(row, side, {now = Date.now(), any = false, started = f
   // The chance this kind of line needs to break even, without a book: a
   // Goblin is usually priced around 70%, a Demon around 35%.
   const baseline = modifier === 'standard' ? 0.5 : book ?? (modifier === 'goblin' ? 0.7 : 0.35);
-  const read = readPick(row, side, {records, book, baseline});
+  const read = readPick(row, side, {records, book, baseline, anchor, swing});
   const projected = read.projected;
   if (projected == null) {
     // No projection to carry the matchup: head-to-head and the defense
@@ -187,16 +198,20 @@ export function assessLeg(row, side, {now = Date.now(), any = false, started = f
       history += (side === 'UNDER' ? -soft : soft) * 0.06;
     }
   }
+  // Without a book, the read is held a little short of itself: toward even,
+  // or (a one-event line) toward the player's season rate.
   const chance = clamp(projected == null
-    ? book == null ? 0.5 + (history - 0.5) * 0.8 : (twoSided ? 0.6 : 0.4) * book + (twoSided ? 0.4 : 0.6) * history
-    : book == null ? 0.5 + (0.55 * projected + 0.45 * history - 0.5) * 0.85
+    ? book == null ? anchor + (history - anchor) * 0.8 : (twoSided ? 0.6 : 0.4) * book + (twoSided ? 0.4 : 0.6) * history
+    : book == null ? anchor + (0.55 * projected + 0.45 * history - anchor) * 0.85
       : twoSided ? 0.5 * book + 0.25 * projected + 0.25 * history : 0.35 * book + 0.35 * projected + 0.3 * history, 0.03, 0.95);
 
   // Only picks the numbers back: the recent record and the books (where
-  // they price it) must not argue against it.
+  // they price it) must not argue against it -- and, on a one-event line,
+  // the season too, since a hot week of them is mostly luck.
   const recentRate = recent && recent.games >= 5 ? recent.rate : records.season.rate;
   const backed = !(book != null && book < (modifier === 'demon' ? 0.25 : 0.47))
     && !(modifier === 'standard' && !(chance >= 0.53 && (recentRate >= 0.55 || (book ?? 0) >= 0.55)))
+    && !(swing && book == null && records.season.rate < 0.5)
     && !(modifier === 'goblin' && !(chance >= 0.62 && recentRate >= 0.65))
     && !(modifier === 'demon' && !(chance >= 0.33 && recentRate >= 0.4))
     && !conflicted(read);

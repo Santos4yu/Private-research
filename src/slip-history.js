@@ -1,6 +1,7 @@
 // Graded slips kept for the member, how they finished, and the site's
 // record (slip_ledger.py through /api/prediction).
 import {recentAverage, settleKey} from './slip-games.js';
+import {statGroup} from './learning.js';
 
 const SAVE_URL = '/api/prediction?action=slip-save';
 const REMOVE_URL = '/api/prediction?action=slip-remove';
@@ -21,7 +22,7 @@ export function pickPayload(leg) {
     teamId: row.teamId ?? '', opponentId: row.opponentId ?? '', competition: row.competition || '',
     side: leg.side, line: leg.line ?? row.line, stat: leg.stat || row.market, modifier: leg.modifier || row.modifier || 'standard',
     tier: leg.grade.tier, chance: leg.grade.chance, raw: leg.grade.rawChance ?? leg.grade.chance, headshot: row.headshot || '', position: row.position || '',
-    average: recentAverage(row), settle: settleKey(row)};
+    average: recentAverage(row), settle: settleKey(row), group: statGroup(row)};
 }
 
 /** What the server keeps of a graded slip: each graded pick, with what it needs to be settled. */
