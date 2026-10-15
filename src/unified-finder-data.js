@@ -223,6 +223,20 @@ function nflDvpPosition(value) {
   return null;
 }
 
+// College football's defense-vs-position groups (cfb_research.DVP_POSITIONS);
+// its table ranks the lines' own value keys.
+function cfbDvpPosition(value) {
+  const position = String(value || '').toUpperCase();
+  if (['QB', 'RB', 'WR', 'TE', 'K'].includes(position)) return position;
+  return position === 'FB' ? 'RB' : position === 'PK' ? 'K' : null;
+}
+/** The (position, stat) a line is judged on in its league's defense table. */
+function dvpKey(row) {
+  if (BASKETBALL.has(row.sport)) return [positionOf(row.position), WNBA_DVP_STAT[row.marketKey]];
+  if (row.sport === 'cfb') return [cfbDvpPosition(row.position), row.valueKey];
+  return [nflDvpPosition(row.position), NFL_DVP_STAT[row.marketKey]];
+}
+
 /**
  * The opponent's season rank for what it allows the player's position in
  * this stat -- the player page's Defense vs position numbers. Rank 1 allows
@@ -239,9 +253,7 @@ export function defenseRank(row, league) {
  */
 export function defenseCell(row, league) {
   if (!league?.dvp || !row?.opponent) return null;
-  const hoops = BASKETBALL.has(row.sport);
-  const position = hoops ? positionOf(row.position) : nflDvpPosition(row.position);
-  const stat = hoops ? WNBA_DVP_STAT[row.marketKey] : NFL_DVP_STAT[row.marketKey];
+  const [position, stat] = dvpKey(row);
   const cell = league.dvp[row.opponent]?.[position]?.stats?.[stat];
   const rank = cell?.szn?.[1];
   if (typeof rank !== 'number' || !Number.isFinite(rank)) return null;
@@ -256,9 +268,7 @@ export function defenseCell(row, league) {
 const allowTables = new WeakMap();
 export function defenseAllowTable(row, league) {
   if (!league?.dvp || !row) return null;
-  const hoops = BASKETBALL.has(row.sport);
-  const position = hoops ? positionOf(row.position) : nflDvpPosition(row.position);
-  const stat = hoops ? WNBA_DVP_STAT[row.marketKey] : NFL_DVP_STAT[row.marketKey];
+  const [position, stat] = dvpKey(row);
   if (!position || !stat) return null;
   let tables = allowTables.get(league);
   if (!tables) allowTables.set(league, tables = new Map());

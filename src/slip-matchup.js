@@ -58,6 +58,7 @@ export async function loadMatchups(sports, {signal, fetcher} = {}) {
   const pairs = await Promise.all(wanted.map(async sport => {
     if (sport === 'nba' || sport === 'wnba' || sport === 'nfl') return [sport, await quietly(loadFinderDefense(sport, options))];
     if (sport === 'nhl') return [sport, await quietly(request('/api/board?view=nhl&resource=league', options))];
+    if (sport === 'cfb') return [sport, await quietly(request('/api/board?view=cfb&resource=league', options))];
     if (sport === 'mlb') {
       const [context, hitters] = await Promise.all([quietly(loadMlbMatchups(options)), quietly(loadHitterMatchups(options))]);
       return [sport, context || hitters ? {context, hitters} : null];
@@ -77,7 +78,7 @@ export function withMatchups(row, tables = {}) {
     if (table.hitters) out = withHitterMatchups([out], table.hitters)[0];
     return out;
   }
-  if (row.sport === 'nba' || row.sport === 'wnba' || row.sport === 'nfl') return finite(row.defenseValue) ? row : withDefense([row], table)[0];
+  if (row.sport === 'nba' || row.sport === 'wnba' || row.sport === 'nfl' || row.sport === 'cfb') return finite(row.defenseValue) ? row : withDefense([row], table)[0];
   return row;
 }
 
@@ -237,7 +238,8 @@ function football(row, sign, league) {
   const their = stats?.[row.opponent];
   const teams = league?.teamCount || Object.keys(stats || {}).length;
   const average = key => mean(Object.values(stats || {}).map(team => team.off?.[key]?.[0]).filter(finite));
-  const market = row.marketKey || row.raw?.propType;
+  // College lines carry the NFL's market key as their value key.
+  const market = row.sport === 'cfb' ? row.valueKey : row.marketKey || row.raw?.propType;
   if (their && (PASSING.has(market) || market === 'interceptions')) {
     // His pass rush: the sacks their defense makes (off: rank 1 the most).
     const sacks = their.off?.sacks;
@@ -256,13 +258,15 @@ function football(row, sign, league) {
       out.push(fact('opponent', 'picks', `${row.opponent} picks off ${one(picks[0])} passes a game${place(picks[1], teams, {low: 'fewest', high: 'most'})}`, 0));
     }
   }
-  // His share of the team's targets or carries.
-  const field = /receiv|reception|target/.test(market || '') ? 'targets' : /rush/.test(market || '') && !PASSING.has(market) ? 'carries' : null;
+  // His share of the team's targets or carries (college box scores have no
+  // targets: his share of its catches).
+  const receiving = /receiv|reception|target/.test(market || '');
+  const field = receiving ? (row.sport === 'cfb' ? 'receptions' : 'targets') : /rush/.test(market || '') && !PASSING.has(market) ? 'carries' : null;
   const share = field ? (league?.share?.[row.teamAbbr]?.[field] || []) : [];
   const index = share.findIndex(item => String(item.id) === String(row.playerId));
   if (index >= 0 && finite(share[index].share)) {
     const pct = share[index].share;
-    out.push(fact('usage', 'share', `Gets ${Math.round(pct)}% of ${row.teamAbbr}'s ${field}${index === 0 ? ' (most on the team)' : index === 1 ? ' (2nd on the team)' : ''}`,
+    out.push(fact('usage', 'share', `Gets ${Math.round(pct)}% of ${row.teamAbbr}'s ${field === 'receptions' ? 'catches' : field}${index === 0 ? ' (most on the team)' : index === 1 ? ' (2nd on the team)' : ''}`,
       clamp((pct - 15) / 3, -3, 5) * sign));
   }
   return out;
@@ -351,7 +355,7 @@ export function matchupCase(leg, tables = {}) {
   const facts = [];
   if (row.sport === 'mlb') facts.push(...(String(row.marketKey || '').startsWith('pitching:') ? mlbPitcher(row, sign) : mlbHitter(row, sign)));
   else if (row.sport === 'nba' || row.sport === 'wnba') facts.push(...basketball(row, sign, league));
-  else if (row.sport === 'nfl') facts.push(...football(row, sign, league));
+  else if (row.sport === 'nfl' || row.sport === 'cfb') facts.push(...football(row, sign, league));
   else if (row.sport === 'nhl') facts.push(...hockey(row, sign, league));
   const records = leg.grade?.records;
   for (const extra of [venueSplit(row, sign), headToHead(row, records), recentForm(row, records, leg.side)]) if (extra) facts.push(extra);

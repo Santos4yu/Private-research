@@ -163,3 +163,127 @@ class FindTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def box(home_id, away_id, home_lines, away_lines):
+    """A summary whose box score has each side's players: {pid: (name, {category: [stats...]})}."""
+    specs = {"passing": (["completions/passingAttempts", "passingYards", "yardsPerPassAttempt", "passingTouchdowns", "interceptions"],
+                         ["C/ATT", "YDS", "AVG", "TD", "INT"]),
+             "rushing": (["rushingAttempts", "rushingYards", "yardsPerRushAttempt", "rushingTouchdowns", "longRushing"], ["CAR", "YDS", "AVG", "TD", "LONG"]),
+             "receiving": (["receptions", "receivingYards", "yardsPerReception", "receivingTouchdowns", "longReception"], ["REC", "YDS", "AVG", "TD", "LONG"]),
+             "defensive": (["totalTackles", "soloTackles", "sacks", "tacklesForLoss"], ["TOT", "SOLO", "SACKS", "TFL"])}
+
+    def side(tid, players):
+        groups = {}
+        for pid, (name, categories) in players.items():
+            for category, stats in categories.items():
+                groups.setdefault(category, []).append({"athlete": {"id": pid, "displayName": name}, "stats": stats})
+        return {"team": {"id": tid}, "statistics": [{"name": name, "keys": specs[name][0], "labels": specs[name][1], "athletes": rows}
+                                                    for name, rows in groups.items()]}
+
+    def totals(tid, players):
+        passing = [stats for _name, categories in players.values() for name, stats in categories.items() if name == "passing"]
+        rushing = [stats for _name, categories in players.values() for name, stats in categories.items() if name == "rushing"]
+        pass_yards = sum(int(stats[1]) for stats in passing)
+        rush_yards = sum(int(stats[1]) for stats in rushing)
+        cmp, att = (sum(int(stats[0].split("/")[i]) for stats in passing) for i in (0, 1))
+        return {"team": {"id": tid}, "statistics": [{"name": "netPassingYards", "displayValue": str(pass_yards)},
+                                                    {"name": "rushingYards", "displayValue": str(rush_yards)},
+                                                    {"name": "totalYards", "displayValue": str(pass_yards + rush_yards)},
+                                                    {"name": "completionAttempts", "displayValue": f"{cmp}-{att}"},
+                                                    {"name": "rushingAttempts", "displayValue": str(sum(int(stats[0]) for stats in rushing))}]}
+    return {"boxscore": {"teams": [totals(home_id, home_lines), totals(away_id, away_lines)],
+                         "players": [side(home_id, home_lines), side(away_id, away_lines)]}}
+
+
+QB = lambda cmp, yds, td="1": {"passing": [cmp, yds, "7.0", td, "0"]}
+RUSH = lambda car, yds: {"rushing": [car, yds, "4.0", "0", "10"]}
+CATCH = lambda rec, yds: {"receiving": [rec, yds, "10.0", "0", "20"]}
+
+
+class LeagueTests(unittest.TestCase):
+    def setUp(self):
+        cfb._memory.clear()
+
+    def build(self):
+        texas, ou, bama, uga = s.TEXAS, s.OKLAHOMA, s.ALABAMA, s.GEORGIA
+        days = {"20260905": [s.event("e1", "2026-09-05T19:30Z", texas, ou, 31, 17, True)],
+                "20260912": [s.event("e2", "2026-09-12T19:30Z", bama, texas, 24, 21, True), s.event("e3", "2026-09-12T23:30Z", uga, ou, 35, 10, True)],
+                "20260919": [s.event("e4", "2026-09-19T19:30Z", bama, uga, 20, 27, True)]}
+        boxes = {
+            "e1": box("251", "201", {"t-qb": ("Arch Manning", {**QB("20/30", "300"), **RUSH("5", "20")}), "t-wr": ("Ryan Wingo", CATCH("8", "150"))},
+                      {"o-qb": ("John Mateer", QB("15/25", "180")), "o-rb": ("OU Back", RUSH("20", "90"))}),
+            "e2": box("333", "251", {"b-qb": ("Ty Simpson", QB("18/28", "250")), "b-rb": ("Bama Back", RUSH("15", "60"))},
+                      {"t-qb": ("Arch Manning", QB("22/35", "200")), "t-wr": ("Ryan Wingo", CATCH("4", "60"))}),
+            "e3": box("61", "201", {"g-qb": ("Gunner Stockton", QB("25/32", "320", "3")), "g-te": ("UGA Tight End", CATCH("6", "70"))},
+                      {"o-qb": ("John Mateer", QB("12/30", "140", "0"))}),
+            "e4": box("333", "61", {"b-qb": ("Ty Simpson", QB("20/30", "210"))}, {"g-qb": ("Gunner Stockton", QB("19/26", "230"))}),
+        }
+        rosters = {"251": {"athletes": [{"items": [{"id": "t-qb", "fullName": "Arch Manning", "position": {"abbreviation": "QB"}},
+                                                    {"id": "t-wr", "fullName": "Ryan Wingo", "position": {"abbreviation": "WR"}}]}]},
+                   "61": {"athletes": [{"items": [{"id": "g-te", "fullName": "UGA Tight End", "position": {"abbreviation": "TE"}}]}]}}
+
+        def get(url, timeout=15, attempts=2):
+            if "scoreboard?dates=" in url:
+                return {"events": days.get(url.split("dates=")[1][:8], [])}
+            if "summary?event=" in url:
+                return boxes[url.split("event=")[1]]
+            if "/roster" in url:
+                return rosters.get(url.split("/teams/")[1].split("/")[0], {"athletes": []})
+            if "/teams?groups=80" in url:
+                return {"sports": [{"leagues": [{"teams": [{"team": team} for team in (texas, ou, bama, uga)]}]}]}
+            if "standings" in url:
+                return {"children": [{"abbreviation": "SEC", "standings": {"entries": [
+                    {"team": texas, "stats": [{"type": "total", "summary": "1-1"}, {"type": "vsconf", "summary": "0-1"}, {"name": "streak", "displayValue": "L1"}]}]}}]}
+            raise AssertionError(url)
+        with no_kv(), patch.object(cfb, "_get", side_effect=get):
+            built = cfb.league(2026, day=date(2026, 9, 22))
+            similar = cfb.similar("OU", "QB", "passing_yards", 2026)
+        return built, similar
+
+    def test_every_defense_is_ranked_by_what_it_allows_each_position(self):
+        built, _ = self.build()
+        self.assertTrue(built["complete"])
+        self.assertEqual(built["teamCount"], 4)
+        # Oklahoma faced Texas (300 pass yards) and Georgia (320): 310 a game, the most.
+        self.assertEqual(built["dvp"]["OU"]["QB"]["stats"]["passing_yards"]["szn"], [310, 4])
+        self.assertEqual(built["dvp"]["UGA"]["QB"]["stats"]["passing_yards"]["szn"], [175, 1], "Mateer 140 and Simpson 210 against Georgia")
+        self.assertEqual(built["dvp"]["OU"]["WR"]["stats"]["receiving_yards"]["szn"][0], 75, "150 by Texas's receiver, none by Georgia's")
+        self.assertEqual(built["dvp"]["OU"]["TE"]["stats"]["receiving_yards"]["szn"][0], 35, "Georgia's tight end, by his roster spot")
+        self.assertEqual(built["teamStats"]["UGA"]["off"]["passing_yards"], [275, 1])
+        self.assertEqual(built["teams"]["TEX"]["record"], "1-1")
+        self.assertEqual(built["passRun"]["TEX"], {"passes": 65, "runs": 5})
+        self.assertEqual(built["share"]["TEX"]["receptions"][0]["name"], "Ryan Wingo")
+        self.assertEqual(built["standings"][0]["entries"][0]["record"], "1-1")
+
+    def test_similar_players_against_a_defense_beside_their_own_averages(self):
+        _, similar = self.build()
+        rows = {entry["name"]: entry for entry in similar["similar"]}
+        self.assertEqual(set(rows), {"Arch Manning", "Gunner Stockton"})
+        self.assertEqual((rows["Arch Manning"]["value"], rows["Arch Manning"]["avg"], rows["Arch Manning"]["diff"]), (300, 200, 100))
+        self.assertEqual(rows["Gunner Stockton"]["usage"], 32)
+
+
+class MatchupTests(unittest.TestCase):
+    def setUp(self):
+        cfb._memory.clear()
+
+    def test_a_games_page_gives_odds_win_chance_and_injuries(self):
+        summary = {"header": {"competitions": [{"date": "2026-10-17T19:30Z", "neutralSite": True, "conferenceCompetition": True, "competitors": [
+            {"homeAway": "home", "team": s.OKLAHOMA, "record": [{"type": "total", "summary": "5-1"}], "rank": 18},
+            {"homeAway": "away", "team": s.TEXAS, "record": [{"type": "total", "summary": "4-2"}], "rank": 99}]}]},
+            "pickcenter": [{"provider": {"name": "ESPN BET"}, "spread": -3.5, "overUnder": 51.5,
+                            "homeTeamOdds": {"moneyLine": -160, "spreadOdds": -110}, "awayTeamOdds": {"moneyLine": 135, "spreadOdds": -110}}],
+            "gameInfo": {"venue": {"fullName": "Cotton Bowl", "address": {"city": "Dallas", "state": "TX"}, "grass": True}},
+            "injuries": [{"team": {"abbreviation": "TEX"}, "injuries": [{"athlete": {"id": "9", "displayName": "Some Receiver", "position": {"abbreviation": "WR"}},
+                                                                        "status": "Out", "details": {"type": "Ankle"}}]}]}
+        with no_kv(), patch.object(cfb, "_get", return_value=summary), patch.object(cfb, "_last_five", return_value=[]):
+            game = cfb.matchup("401700001")
+        self.assertEqual([team["abbr"] for team in game["teams"]], ["TEX", "OU"], "away first")
+        self.assertEqual((game["teams"][1]["rank"], game["teams"][0]["rank"]), (18, None))
+        self.assertEqual(game["odds"]["away"]["spread"], 3.5)
+        self.assertEqual(game["chanceSource"], "odds")
+        self.assertAlmostEqual(game["chance"]["home"] + game["chance"]["away"], 100, places=0)
+        self.assertGreater(game["chance"]["home"], 55)
+        self.assertEqual(game["injuries"]["TEX"][0]["injury"], "Ankle")
+        self.assertEqual(game["venue"]["city"], "Dallas, TX")

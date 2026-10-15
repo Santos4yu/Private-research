@@ -9,6 +9,7 @@
 // around him, where he bats) and how it's going (liveRead).
 import {finderMarket, gameValue} from './prop-finder-core.js';
 import {statKeyOf, valueOf} from './sports/soccer/soccer-stats.js';
+import {withWithout as cfbWithWithout} from './sports/cfb/cfb-stats.js';
 
 const URL = '/api/prediction?action=slip-games';
 const SPORTS = new Set(['nfl', 'cfb', 'nba', 'wnba', 'nhl', 'mlb', 'soccer']);
@@ -86,6 +87,11 @@ function splitsUrl(row) {
     set('opponent', row.opponent); set('market', row.marketKey); set('line', row.line);
     return row.playerId && row.teamAbbr && row.opponent && row.marketKey ? `/api/nfl?${query}` : null;
   }
+  if (row.sport === 'cfb') {
+    // The team's games: his splits are worked out here (loadTeammates).
+    set('view', 'cfb'); set('resource', 'log'); set('team', row.teamId);
+    return row.playerId && row.teamId && row.valueKey ? `/api/board?${query}` : null;
+  }
   if (row.sport === 'nba' || row.sport === 'wnba') {
     set('resource', 'player-context'); if (row.sport === 'nba') set('league', 'nba'); set('playerId', row.playerId);
     set('team', row.teamAbbr); set('opponent', row.opponent); set('market', row.marketKey); set('line', row.line);
@@ -108,7 +114,8 @@ export async function loadTeammates(legs, {signal, fetcher = fetch} = {}) {
     try {
       const response = await fetcher(url, {credentials: 'same-origin', signal});
       if (!response.ok) return;
-      const payload = await response.json();
+      let payload = await response.json();
+      if (leg.row.sport === 'cfb') payload = {withWithout: Object.values(cfbWithWithout(payload, leg.row.playerId, leg.row.valueKey))};
       const found = missing.map(person => {
         const split = (payload.withWithout || []).find(item => samePerson(item.name, person.name));
         return split ? {...person, with: split.with, without: split.without} : null;

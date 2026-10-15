@@ -111,3 +111,18 @@ export function allowTable(allowed,valueKey){
  if(!(average>0))return null;
  return Object.fromEntries(teams.map(([team,item])=>[team,1+(item[key]/average-1)*item.games/(item.games+3)]));
 }
+
+/** How the player did with and without each teammate: {id: {with, without}}
+ * with the games and his average in each, for the depth chart's buttons. */
+export function withWithout(log,playerId,valueKey){
+ const mine=playedGames(playerGames(log,playerId));
+ const out={};
+ for(const [pid,info] of Object.entries(log?.players||{})){
+  if(pid===String(playerId))continue;
+  const split={with:[],without:[]};
+  for(const game of mine){const source=(log.games||[]).find(item=>item.gameId===game.gameId);split[source?.players?.[pid]?'with':'without'].push(game);}
+  const summary=games=>{const values=games.map(game=>statValue(game,valueKey)).filter(finite);return {games:games.length,gameIds:games.map(game=>game.gameId),avg:values.length?values.reduce((a,b)=>a+b,0)/values.length:null};};
+  out[pid]={id:pid,name:info.name,with:summary(split.with),without:summary(split.without)};
+ }
+ return out;
+}

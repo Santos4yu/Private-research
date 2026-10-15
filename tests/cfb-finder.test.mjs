@@ -76,3 +76,41 @@ test('the board fills in one request per team, then every line gets its defense 
   assert.deepEqual([out[1].windows.l10.hits, out[1].windows.l10.decisions], [2, 3]);
   assert.equal(updates.length, 2, 'the rows as they fill, then once more with the defense tables');
 });
+
+// The league table as cfb_research.league serves it, for the slip's matchup read.
+const league = {season: 2026, teamCount: 4, teams: {OU: {}, UGA: {}, ALA: {}, TEX: {}},
+  dvp: Object.fromEntries([['OU', 310], ['UGA', 175], ['ALA', 220], ['TEX', 215]].map(([team, yards], index) =>
+    [team, {QB: {stats: {passing_yards: {szn: [yards, [4, 1, 3, 2][index]], l5: [yards, [4, 1, 3, 2][index]]}}}}])),
+  teamStats: {OU: {off: {sacks: [1.5, 4]}, def: {completion_pct: [68, 4], interceptions: [0.5, 1]}}, TEX: {off: {sacks: [3, 1]}, def: {}}},
+  share: {TEX: {receptions: [{id: '5000002', name: 'Ryan Wingo', share: 31}], carries: []}}};
+
+test('a CFB pick is read against every FBS defense, as NFL picks are', async () => {
+  const {withMatchups, matchupCase} = await import('../src/slip-matchup.js');
+  const [row] = normalizeFinderRows('cfb', {rows: [line]});
+  const read = withMatchups(row, {cfb: league});
+  assert.equal(read.defense, 4, 'Oklahoma allows the most passing yards to quarterbacks');
+  assert.equal(read.defenseValue, 310);
+  assert.ok(read.allowTable.OU > 1.2 && read.allowTable.UGA < 0.9, JSON.stringify(read.allowTable));
+  const {facts} = matchupCase({row: read, side: 'OVER'}, {cfb: league});
+  assert.ok(facts.some(item => item.key === 'defense' && /310/.test(item.text) && item.impact > 0), JSON.stringify(facts.map(item => item.text)));
+  assert.ok(facts.some(item => item.key === 'coverage'), 'what the defense allows through the air');
+});
+
+test('a receiver\'s share is of his team\'s catches, college box scores having no targets', async () => {
+  const {withMatchups, matchupCase} = await import('../src/slip-matchup.js');
+  const [row] = normalizeFinderRows('cfb', {rows: [{...line, id: 'pp:9', player: 'Ryan Wingo', playerId: '5000002', position: 'WR',
+    valueKey: 'receiving_yards', marketKey: 'receivingyards', stat: 'Receiving Yards', line: 60.5}]});
+  const {facts} = matchupCase({row: withMatchups(row, {cfb: league}), side: 'OVER'}, {cfb: league});
+  assert.ok(facts.some(item => item.key === 'share' && /31% of TEX's catches/.test(item.text)), JSON.stringify(facts.map(item => item.text)));
+});
+
+test('a teammate out is weighed from the team\'s own games', async () => {
+  const {loadTeammates} = await import('../src/slip-games.js');
+  const [row] = normalizeFinderRows('cfb', {rows: [line]});
+  const fetcher = async url => { assert.match(url, /view=cfb&resource=log&team=251/); return {ok: true, json: async () => texas}; };
+  const out = await loadTeammates([{key: 'a', row: {...row, game: {injuries: {TEX: [{name: 'Ryan Wingo', status: 'Out', position: 'WR'}]}, team: 'TEX'}}}], {fetcher});
+  // Manning with Wingo: 301 and 260; without him (the game before Wingo's first): 210, then 180.
+  const split = out.a?.[0];
+  assert.ok(split, JSON.stringify(out));
+  assert.equal(split.with.games, 2);
+});

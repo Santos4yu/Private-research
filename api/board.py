@@ -326,6 +326,29 @@ class handler(BaseHTTPRequestHandler):
                         if not who or len(who) > 60 or len(team) > 40:
                             return self._send(400, {"error": "A player name is required."})
                         return self._send(200, {"rows": cfb_research.find(who, team or None)})
+                    if resource == "league":
+                        # Every FBS team's defense vs position, rankings and
+                        # standings (the player page's tabs, the slip's matchup).
+                        season = arg("season")
+                        if season and not (season.isdigit() and 2015 <= int(season) <= 2100):
+                            return self._send(400, {"error": "Unknown season."})
+                        return self._send(200, cfb_research.league(int(season) if season else None))
+                    if resource == "matchup":
+                        event = arg("event")
+                        if not cfb_research.valid_id(event):
+                            return self._send(400, {"error": "Unknown game."})
+                        return self._send(200, cfb_research.matchup(event))
+                    if resource == "similar":
+                        position, market, season = arg("position").upper(), arg("market"), arg("season")
+                        if position not in cfb_research.DVP_POSITIONS or not (market.replace("_", "").isalnum() and market.islower() and len(market) <= 32) \
+                                or not (opponent and len(opponent) <= 10 and opponent.replace("&", "").isalnum()) or (season and not season.isdigit()):
+                            return self._send(400, {"error": "Unknown position, stat or team."})
+                        return self._send(200, cfb_research.similar(opponent.upper(), position, market, int(season) if season else None))
+                    if resource == "team":
+                        event = arg("event")
+                        if not cfb_research.valid_id(team) or (event and not cfb_research.valid_id(event)):
+                            return self._send(400, {"error": "Unknown team."})
+                        return self._send(200, cfb_research.team_context(team, event or None))
                     if resource == "log":
                         if not cfb_research.valid_id(team) or (opponent and not cfb_research.valid_id(opponent)):
                             return self._send(400, {"error": "Unknown team."})

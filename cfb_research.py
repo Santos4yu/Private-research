@@ -9,6 +9,15 @@ football feed (site.api.espn.com -- no key, no cost).
 * team_log(team, opponent) -- the team's games this season and last, each
   of its players' lines in each: the board's hit rates, the player page.
 * find(name, team) -- the player a slip names, as a board row without a line.
+* league(season) -- every FBS game of the season read the same way: what each
+  defense allows each position (QB, RB, WR, TE, K) per game, season and last
+  five, ranked; each team's offense and defense per game, ranked; the
+  conference standings; each team's pass/run split and who gets the ball.
+* similar(opponent, position, market) -- other players at a position in their
+  games against a defense, beside their own season averages.
+* matchup(event) -- an upcoming game: both teams' records and rankings, the
+  odds and ESPN's win chance, the venue, the last five games, the injuries.
+* team_context(team) -- the injury report and a depth chart by recent usage.
 
 A box score lists a player in a category only when he did something in it,
 so a player missing from a game's box score may have played without a
@@ -76,6 +85,13 @@ def _stored(key):
         return (float(envelope.get("at", 0)), envelope["value"]) if "value" in envelope else None
     except Exception:
         return None
+
+
+def _held(key):
+    """A kept value whatever its age, from memory or KV: (stored at, value) or None."""
+    with _lock:
+        hit = _memory.get(key)
+    return hit or _stored(key)
 
 
 def _put(key, value, seconds, durable=True):
@@ -209,6 +225,8 @@ def _event(item):
     for competitor in competition.get("competitors") or []:
         team = _team(competitor.get("team"))
         team["score"] = _num(competitor.get("score"))
+        rank = _num((competitor.get("curatedRank") or {}).get("current"))
+        team["rank"] = rank if isinstance(rank, int) and 0 < rank <= 25 else None
         team["winner"] = competitor.get("winner")
         sides[competitor.get("homeAway")] = team
     if "home" not in sides or "away" not in sides:
@@ -549,7 +567,7 @@ def remember_players(rows):
     if not entries:
         return
     try:
-        old = _stored(DIRECTORY_KEY)
+        old = _held(DIRECTORY_KEY)
         merged = {**(old[1] if old else {}), **entries}
         _put(DIRECTORY_KEY, merged, 10 * 86400)
     except Exception:
@@ -562,7 +580,7 @@ def find(name, team=None):
     full, last, initial = _name_parts(name)
     if not full:
         return []
-    found = _stored(DIRECTORY_KEY)
+    found = _held(DIRECTORY_KEY)
     known = found[1] if found else {}
     if full in known:
         return [known[full]]
@@ -585,3 +603,423 @@ def find(name, team=None):
     return [{"player": player["name"] or name, "playerId": pid, "team": info["abbr"], "teamId": info["id"], "teamName": info["name"],
              "teamLogo": info["logo"] or logo(info["id"]), "position": player.get("pos") or None,
              "headshot": player.get("headshot") or headshot(pid)}]
+
+
+# ---------------------------------------------------------------- league
+
+# The season's first games are in late August; bowls run into January.
+SEASON_OPENS = (8, 20)
+LEAGUE_BUDGET = 40
+DVP_POSITIONS = ("QB", "RB", "WR", "TE", "K")
+# What each position's line is judged on, per game allowed.
+DVP_STATS = {
+    "QB": [("passing_yards", "Pass Yards"), ("passing_touchdowns", "Pass TDs"), ("pass_completions", "Completions"),
+           ("passing_attempts", "Pass Attempts"), ("interceptions", "Interceptions"), ("rushing_yards", "Rush Yards"),
+           ("passing_rushing_yards", "Pass + Rush Yds"), ("fantasy_score", "Fantasy Score")],
+    "RB": [("rushing_yards", "Rush Yards"), ("rush_attempts", "Rush Attempts"), ("rushing_tds", "Rush TDs"),
+           ("receptions", "Receptions"), ("receiving_yards", "Receiving Yards"), ("rushing_receiving_yards", "Rush + Rec Yds"),
+           ("touchdowns", "Rush + Rec TDs"), ("fantasy_score", "Fantasy Score")],
+    "WR": [("receptions", "Receptions"), ("receiving_yards", "Receiving Yards"), ("receiving_tds", "Rec TDs"),
+           ("longest_reception", "Longest Reception"), ("fantasy_score", "Fantasy Score")],
+    "TE": [("receptions", "Receptions"), ("receiving_yards", "Receiving Yards"), ("receiving_tds", "Rec TDs"),
+           ("fantasy_score", "Fantasy Score")],
+    "K": [("fg_made", "FG Made"), ("fg_attempts", "FG Attempts"), ("kicking_points", "Kicking Points")],
+}
+# Each team per game: what its offense gained (off) and its defense allowed
+# (def). Ranks: 1 is the most for an offense (the fewest where less is
+# better), the least allowed for a defense.
+TEAM_STATS = [("points", "Points"), ("total_yards", "Total Yards"), ("passing_yards", "Pass Yards"), ("rushing_yards", "Rush Yards"),
+              ("passing_tds", "Pass TDs"), ("rushing_tds", "Rush TDs"), ("completions", "Completions"), ("attempts", "Pass Attempts"),
+              ("carries", "Rush Attempts"), ("completion_pct", "Completion %"), ("interceptions", "Interceptions"),
+              ("sacks", "Sacks"), ("sacks_taken", "Sacks Taken")]
+FEWER_IS_BETTER = {"interceptions", "sacks_taken"}
+# Kept for similar(): each skill player's numbers in every game.
+LINE_KEYS = {key for stats in DVP_STATS.values() for key, _label in stats} | {"rush_attempts", "receptions", "passing_attempts"}
+
+
+def _position(pid, line, positions):
+    """A player's position group: his roster's, else what he did."""
+    pos = positions.get(pid) or line.get("pos") or ""
+    return {"FB": "RB", "ATH": "WR", "PK": "K"}.get(pos, pos)
+
+
+def _mean(values):
+    values = [value for value in values if isinstance(value, (int, float))]
+    return round(sum(values) / len(values), 2) if values else None
+
+
+def _rank(values, ascending):
+    """{team: rank}, 1 the smallest when `ascending`, else the largest."""
+    ordered = sorted((value, team) for team, value in values.items() if value is not None)
+    if not ascending:
+        ordered.reverse()
+    return {team: index + 1 for index, (_value, team) in enumerate(ordered)}
+
+
+def season_games(season, day=None, budget=None):
+    """Every finished FBS game of a season so far, oldest first, from each
+    day's scoreboard. A day more than three days gone is kept for good."""
+    today = day or datetime.now(EASTERN).date()
+    start = date(season, *SEASON_OPENS)
+    end = min(today, date(season + 1, 1, 25))
+    days = [start + timedelta(days=offset) for offset in range(max(0, (end - start).days + 1))]
+    found, complete = {}, True
+
+    def read(when):
+        return schedule_day(when, seconds=FOREVER if (today - when).days > 3 else 10 * 60)
+    pool = ThreadPoolExecutor(max_workers=12)
+    futures = {pool.submit(read, when): when for when in days}
+    done, _ = wait(futures, timeout=budget or LEAGUE_BUDGET)
+    pool.shutdown(wait=False, cancel_futures=True)
+    for future in futures:
+        try:
+            items = future.result() if future in done else None
+        except Exception:  # noqa: BLE001 -- one day missing leaves the rest
+            items = None
+        if items is None:
+            complete = False
+            continue
+        for item in items:
+            if item["completed"]:
+                found[item["id"]] = item
+    return sorted(found.values(), key=lambda item: item["start"]), complete
+
+
+def _standings(season):
+    """The conference standings from ESPN, or [] when they can't be read."""
+    def build():
+        payload = _get(f"https://site.api.espn.com/apis/v2/sports/football/college-football/standings?season={season}&group={FBS}")
+        groups = []
+
+        def walk(node):
+            entries = ((node.get("standings") or {}).get("entries")) or []
+            if entries:
+                rows = []
+                for entry in entries:
+                    team = _team(entry.get("team"))
+                    stats = {}
+                    for stat in entry.get("stats") or []:
+                        for name in (stat.get("type"), stat.get("name")):
+                            if name:
+                                stats[str(name).lower()] = stat
+                    overall = stats.get("total") or stats.get("overall") or {}
+                    conference = stats.get("vsconf") or stats.get("vsconference") or {}
+                    wins, losses = _num((stats.get("wins") or {}).get("value")), _num((stats.get("losses") or {}).get("value"))
+                    record = overall.get("summary") or overall.get("displayValue") or (f"{wins}-{losses}" if wins is not None and losses is not None else "")
+                    rows.append({"abbr": team["abbr"], "id": team["id"], "name": team["short"] or team["name"], "logo": team["logo"],
+                                 "record": record, "conf": conference.get("summary") or conference.get("displayValue") or "",
+                                 "streak": (stats.get("streak") or {}).get("displayValue") or ""})
+                groups.append({"name": node.get("abbreviation") or node.get("shortName") or node.get("name") or "", "entries": rows})
+            for child in node.get("children") or []:
+                walk(child)
+        walk(payload)
+        return [group for group in groups if group["name"] and group["entries"]]
+    try:
+        return _cached(f"cfb:standings:{VERSION}:{season}", 6 * 3600, build, keep=bool, stale=7 * 86400)
+    except Exception:  # noqa: BLE001 -- the rest of the league still stands
+        return []
+
+
+def _build_league(season, day=None):
+    started = time.time()
+    games, complete = season_games(season, day, budget=LEAGUE_BUDGET / 3)
+    fbs = teams()
+    pool = ThreadPoolExecutor(max_workers=16)
+    futures = {pool.submit(game, item["id"]): item["id"] for item in games}
+    roster_futures = {pool.submit(roster, tid): tid for tid in fbs}
+    done, _ = wait([*futures, *roster_futures], timeout=max(5.0, LEAGUE_BUDGET - (time.time() - started)))
+    pool.shutdown(wait=False, cancel_futures=True)
+    records = {}
+    for future, event in futures.items():
+        try:
+            records[event] = future.result() if future in done else None
+        except Exception:  # noqa: BLE001
+            records[event] = None
+        complete = complete and records[event] is not None
+    positions = {}
+    for future, tid in roster_futures.items():
+        try:
+            players = future.result() if future in done else {}
+        except Exception:  # noqa: BLE001 -- what they did stands in
+            players = {}
+        positions.update({pid: info.get("pos") or "" for pid, info in players.items()})
+    by_id = {info["id"]: info for info in fbs.values()}
+    offense, defense, dvp, usage, wins, lines = {}, {}, {}, {}, {}, []
+    for item in games:
+        record = records.get(item["id"])
+        if not record:
+            continue
+        sides = {item["home"]["id"]: item["home"], item["away"]["id"]: item["away"]}
+        when = _eastern_day(item["start"])
+        kept = {}
+        for pid, line in record["lines"].items():
+            pos = _position(pid, line, positions)
+            line_pos = pos if pos in DVP_POSITIONS else ""
+            if line_pos:
+                kept[pid] = [line["team"], line_pos, line["name"], {key: value for key, value in line["values"].items() if key in LINE_KEYS}]
+        lines.append({"id": item["id"], "date": when, "teams": {tid: team["abbr"] for tid, team in sides.items()}, "lines": kept})
+        for tid, team in sides.items():
+            if tid not in by_id:
+                continue  # an FCS side: an opponent only
+            other_id = next(other for other in sides if other != tid)
+            other = sides[other_id]
+            own_players = [line for line in record["lines"].values() if line["team"] == tid]
+            their_players = [(pid, line) for pid, line in record["lines"].items() if line["team"] == other_id]
+            gained, allowed = record["gained"].get(tid) or {}, record["gained"].get(other_id) or {}
+            sacks_made = sum(line["values"].get("sacks") or 0 for line in own_players)
+            picks_made = sum(line["values"].get("def_interceptions") or 0 for line in own_players)
+            sacked = sum(line["values"].get("sacks_taken") or 0 for line in own_players)
+
+            def team_line(side, points, picks, sacks, taken):
+                pct = round(100 * side["completions"] / side["passAttempts"], 1) if side.get("completions") is not None and side.get("passAttempts") else None
+                return {"points": points, "total_yards": side.get("totalYards"), "passing_yards": side.get("passYards"),
+                        "rushing_yards": side.get("rushYards"), "passing_tds": side.get("passTds"), "rushing_tds": side.get("rushTds"),
+                        "completions": side.get("completions"), "attempts": side.get("passAttempts"), "carries": side.get("rushAttempts"),
+                        "completion_pct": pct, "interceptions": picks, "sacks": sacks, "sacks_taken": taken}
+            thrown = sum(line["values"].get("interceptions") or 0 for line in own_players)
+            offense.setdefault(team["abbr"], []).append(team_line(gained, team.get("score"), thrown, sacks_made, sacked))
+            defense.setdefault(team["abbr"], []).append(team_line(allowed, other.get("score"), picks_made, None, None))
+            if team.get("score") is not None and other.get("score") is not None:
+                wins.setdefault(team["abbr"], [0, 0])[0 if team["score"] > other["score"] else 1] += 1
+            # What this defense allowed each position: their players at it, summed.
+            for pos in DVP_POSITIONS:
+                at = [line["values"] for pid, line in their_players if _position(pid, line, positions) == pos]
+                dvp.setdefault(team["abbr"], {}).setdefault(pos, []).append(
+                    {key: sum(values.get(key) or 0 for values in at) for key, _label in DVP_STATS[pos]})
+            # Who got the ball.
+            share = usage.setdefault(team["abbr"], {"passes": 0, "runs": 0, "carries": {}, "receptions": {}})
+            share["passes"] += (gained.get("passAttempts") or 0) + sacked
+            share["runs"] += gained.get("rushAttempts") or 0
+            for pid, line in record["lines"].items():
+                if line["team"] != tid:
+                    continue
+                for field, key in (("carries", "rush_attempts"), ("receptions", "receptions")):
+                    count = line["values"].get(key) or 0
+                    if count:
+                        entry = share[field].setdefault(pid, {"id": pid, "name": line["name"], "pos": _position(pid, line, positions),
+                                                              "headshot": line["headshot"] or headshot(pid), "value": 0})
+                        entry["value"] += count
+    # Per game, season and last five, ranked across every FBS team.
+    team_stats = {abbr: {"off": {}, "def": {}} for abbr in offense}
+    for group, source in (("off", offense), ("def", defense)):
+        for key, _label in TEAM_STATS:
+            values = {abbr: _mean([line.get(key) for line in rows]) for abbr, rows in source.items()}
+            ranks = _rank(values, ascending=(group == "def") or key in FEWER_IS_BETTER)
+            for abbr, value in values.items():
+                if value is not None:
+                    team_stats[abbr][group][key] = [value, ranks.get(abbr)]
+    dvp_table = {}
+    for pos in DVP_POSITIONS:
+        for key, _label in DVP_STATS[pos]:
+            for window, take in (("szn", None), ("l5", 5)):
+                values = {abbr: _mean([game_line.get(key) for game_line in (rows.get(pos) or [])[-take if take else 0:]])
+                          for abbr, rows in dvp.items()}
+                ranks = _rank(values, ascending=True)
+                for abbr, value in values.items():
+                    if value is not None:
+                        cell = dvp_table.setdefault(abbr, {}).setdefault(pos, {"stats": {}})["stats"].setdefault(key, {})
+                        cell[window] = [value, ranks.get(abbr)]
+    share_out = {}
+    for abbr, share in usage.items():
+        out = {}
+        for field in ("carries", "receptions"):
+            total = sum(item["value"] for item in share[field].values())
+            ranked = sorted(share[field].values(), key=lambda item: -item["value"])
+            out[field] = [{**item, "share": round(100 * item["value"] / total, 1)} for item in ranked if total][:14]
+        share_out[abbr] = out
+    team_info = {}
+    for info in fbs.values():
+        if info["abbr"] not in offense:
+            continue
+        won, lost = wins.get(info["abbr"], [0, 0])
+        team_info[info["abbr"]] = {"id": info["id"], "name": info["name"], "short": info["short"], "logo": info["logo"],
+                                   "record": f"{won}-{lost}", "games": len(offense[info["abbr"]])}
+    for item in games[::-1]:
+        for side in ("home", "away"):
+            info = team_info.get(item[side]["abbr"])
+            if info is not None and "rank" not in info:
+                info["rank"] = item[side].get("rank")
+    _put(f"cfb:lines:{VERSION}:{season}", lines, 7 * 86400 if complete else 3600)
+    return {"season": season, "teams": team_info, "teamCount": len(team_info), "teamStats": team_stats, "stats": TEAM_STATS,
+            "dvp": dvp_table, "dvpPositions": list(DVP_POSITIONS), "dvpStats": DVP_STATS,
+            "passRun": {abbr: {"passes": share["passes"], "runs": share["runs"]} for abbr, share in usage.items()},
+            "share": share_out, "standings": _standings(season), "games": len(games),
+            "complete": complete and time.time() - started < LEAGUE_BUDGET + 5, "builtAt": time.time(), "version": VERSION}
+
+
+def league(season=None, day=None):
+    """The season's league tables (see the module's docstring), kept for a
+    few hours once every game is in."""
+    season = int(season or season_of(day))
+    return _cached(f"cfb:league:{VERSION}:{season}", 3 * 3600, lambda: _build_league(season, day),
+                   keep=lambda value: bool(value.get("complete")), stale=2 * 86400)
+
+
+def similar(opponent, position, market, season=None):
+    """Other players at `position` in their games against `opponent` this
+    season: what they did in `market` beside their own season average."""
+    season = int(season or season_of())
+    found = _held(f"cfb:lines:{VERSION}:{season}")
+    if found is None:
+        league(season)
+        found = _held(f"cfb:lines:{VERSION}:{season}")
+    games = found[1] if found else []
+    seasons = {}
+    for item in games:
+        for pid, (_tid, pos, _name, values) in item["lines"].items():
+            if pos == position and values.get(market) is not None:
+                seasons.setdefault(pid, []).append((item["id"], values[market]))
+    usage_key = {"QB": "passing_attempts", "RB": "rush_attempts"}.get(position, "receptions")
+    usage_label = {"QB": "att", "RB": "car"}.get(position, "rec")
+    out = []
+    for item in games:
+        if opponent not in item["teams"].values():
+            continue
+        for pid, (tid, pos, name, values) in item["lines"].items():
+            if pos != position or item["teams"].get(tid) == opponent or values.get(market) is None:
+                continue
+            others = [value for game_id, value in seasons.get(pid, []) if game_id != item["id"]]
+            avg = _mean(others)
+            out.append({"gameId": item["id"], "id": pid, "name": name, "headshot": headshot(pid), "date": item["date"],
+                         "team": item["teams"].get(tid), "value": values[market], "avg": avg,
+                         "diff": round(values[market] - avg, 2) if avg is not None else None,
+                         "usage": values.get(usage_key), "usageLabel": usage_label})
+    out.sort(key=lambda entry: entry["date"], reverse=True)
+    return {"opponent": opponent, "position": position, "market": market, "season": season, "similar": out[:24]}
+
+
+# ---------------------------------------------------------------- one game
+
+def _summary(event, seconds=10 * 60):
+    return _cached(f"cfb:summary:{VERSION}:{event}", seconds, lambda: _get(f"{SITE}/summary?event={event}", timeout=20),
+                   durable=False, stale=3600)
+
+
+def _injuries(summary):
+    """ESPN's injury report on a game page: {team abbr: [...]}."""
+    out = {}
+    for block in summary.get("injuries") or []:
+        abbr = str((block.get("team") or {}).get("abbreviation") or "").upper()
+        listed = []
+        for item in block.get("injuries") or []:
+            athlete = item.get("athlete") or {}
+            name = athlete.get("displayName") or athlete.get("fullName")
+            details = item.get("details") or {}
+            status = item.get("status") or (details.get("fantasyStatus") or {}).get("description") or ""
+            if name and status:
+                listed.append({"id": str(athlete.get("id") or ""), "name": name, "status": str(status),
+                               "position": (athlete.get("position") or {}).get("abbreviation") or "",
+                               "injury": details.get("type") or details.get("detail") or "",
+                               "headshot": (athlete.get("headshot") or {}).get("href") or headshot(athlete.get("id"))})
+        if abbr:
+            out[abbr] = listed
+    return out
+
+
+def _moneyline_chance(home, away):
+    """Each side's chance from the two moneylines, the bookmaker's margin taken out."""
+    def implied(price):
+        price = _num(price)
+        if not price:
+            return None
+        return 100 / (price + 100) if price > 0 else -price / (-price + 100)
+    a, b = implied(home), implied(away)
+    if a is None or b is None or a + b <= 0:
+        return None
+    return {"home": round(100 * a / (a + b), 1), "away": round(100 * b / (a + b), 1)}
+
+
+def _last_five(team_id, before):
+    season = season_of()
+    out = []
+    for year in (season, season - 1):
+        try:
+            out = [item for item in team_schedule(team_id, year) if item["completed"] and item["start"] < before] + out
+        except Exception:  # noqa: BLE001
+            continue
+        if len(out) >= 5:
+            break
+    rows = []
+    for item in sorted(out, key=lambda item: item["start"])[-5:]:
+        home = item["home"]["id"] == str(team_id)
+        own, other = (item["home"], item["away"]) if home else (item["away"], item["home"])
+        scored = own.get("score") is not None and other.get("score") is not None
+        rows.append({"id": item["id"], "date": _eastern_day(item["start"]), "atVs": "vs" if home or item["neutral"] else "@",
+                     "opponent": other["abbr"], "opponentLogo": other["logo"],
+                     "result": ("W" if own["score"] > other["score"] else "L") if scored else "",
+                     "score": f"{own['score']}-{other['score']}" if scored else ""})
+    return rows
+
+
+def matchup(event):
+    """An upcoming game: both teams, the odds and win chance, venue, last
+    five games and injuries."""
+    summary = _summary(event)
+    competition = ((summary.get("header") or {}).get("competitions") or [{}])[0]
+    teams_out = []
+    for competitor in competition.get("competitors") or []:
+        team = _team(competitor.get("team"))
+        records = competitor.get("record") or []
+        overall = next((item for item in records if str(item.get("type")).lower() in ("total", "overall")), records[0] if records else {})
+        rank = _num(competitor.get("rank") or (competitor.get("curatedRank") or {}).get("current"))
+        teams_out.append({"abbr": team["abbr"], "id": team["id"], "name": team["name"], "short": team["short"], "logo": team["logo"],
+                          "record": overall.get("summary") or overall.get("displayValue") or "", "side": competitor.get("homeAway") or "",
+                          "rank": rank if isinstance(rank, int) and 0 < rank <= 25 else None})
+    teams_out.sort(key=lambda team: 0 if team["side"] == "away" else 1)
+    odds = None
+    for pick in summary.get("pickcenter") or []:
+        home, away = pick.get("homeTeamOdds") or {}, pick.get("awayTeamOdds") or {}
+        spread = _num(pick.get("spread"))
+        odds = {"provider": (pick.get("provider") or {}).get("name") or "",
+                "home": {"moneyline": _num(home.get("moneyLine")), "spread": spread, "spreadOdds": _num(home.get("spreadOdds"))},
+                "away": {"moneyline": _num(away.get("moneyLine")), "spread": -spread if spread is not None else None,
+                         "spreadOdds": _num(away.get("spreadOdds"))},
+                "total": _num(pick.get("overUnder")), "overOdds": _num(pick.get("overOdds")), "underOdds": _num(pick.get("underOdds"))}
+        odds["noVig"] = _moneyline_chance(odds["home"]["moneyline"], odds["away"]["moneyline"])
+        break
+    predictor = summary.get("predictor") or {}
+    projected = {side: _num((predictor.get(f"{side}Team") or {}).get("gameProjection")) for side in ("home", "away")}
+    chance = (odds or {}).get("noVig") or ({"home": projected["home"], "away": projected["away"]}
+                                           if projected["home"] is not None and projected["away"] is not None else None)
+    venue = ((summary.get("gameInfo") or {}).get("venue")) or {}
+    address = venue.get("address") or {}
+    start = competition.get("date") or ""
+    return {"event": str(event), "teams": teams_out, "odds": odds, "chance": chance,
+            "chanceSource": "odds" if (odds or {}).get("noVig") else "espn" if chance else None,
+            "venue": {"name": venue.get("fullName") or "", "city": ", ".join(part for part in (address.get("city"), address.get("state")) if part),
+                      "surface": "Grass" if venue.get("grass") else "Turf" if venue.get("grass") is False else "",
+                      "indoor": bool(venue.get("indoor"))},
+            "neutral": bool(competition.get("neutralSite")), "conference": bool(competition.get("conferenceCompetition")),
+            "lastFive": {team["abbr"]: _last_five(team["id"], start or "9999") for team in teams_out},
+            "injuries": _injuries(summary), "startsAt": start}
+
+
+def team_context(team, event=None):
+    """A team's injury report (from its next game's page) and a depth chart
+    by who got the ball over its last three games."""
+    team = str(team)
+    injuries = []
+    if event and valid_id(event):
+        try:
+            report = _injuries(_summary(event))
+            info = teams().get(team) or {}
+            injuries = report.get(info.get("abbr") or "", [])
+        except Exception:  # noqa: BLE001 -- the depth chart still stands
+            injuries = []
+    log = team_log(team)
+    recent = [game for game in log["games"]][-3:]
+    groups = [("QB", "passing_attempts", 2), ("RB", "rush_attempts", 3), ("WR", "receptions", 5), ("TE", "receptions", 2)]
+    depth = []
+    for slot, key, size in groups:
+        totals = {}
+        for game in recent:
+            for pid, values in game["players"].items():
+                pos = (log["players"].get(pid) or {}).get("pos")
+                if pos == slot and values.get(key):
+                    totals[pid] = totals.get(pid, 0) + values[key]
+        ranked = sorted(totals, key=lambda pid: -totals[pid])[:size]
+        depth.append({"slot": slot, "label": slot, "players": [{"id": pid, "name": log["players"][pid]["name"],
+                                                                "headshot": log["players"][pid].get("headshot") or headshot(pid),
+                                                                "value": totals[pid]} for pid in ranked]})
+    return {"team": log["team"], "injuries": injuries, "depth": {"offense": [group for group in depth if group["players"]]},
+            "games": len(recent)}

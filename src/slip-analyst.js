@@ -351,10 +351,10 @@ export function matchupGrade(read, side) {
 
 /** What today's opponent does to the stat: a factor on the projection and its words. */
 export function matchupRead(row) {
-  if ((row.sport === 'wnba' || row.sport === 'nba' || row.sport === 'nfl') && finite(row.defenseValue) && finite(row.defenseAverage) && row.defenseAverage > 0) {
+  if ((row.sport === 'wnba' || row.sport === 'nba' || row.sport === 'nfl' || row.sport === 'cfb') && finite(row.defenseValue) && finite(row.defenseAverage) && row.defenseAverage > 0) {
     const allowed = finite(row.defenseRecent) ? 0.65 * row.defenseValue + 0.35 * row.defenseRecent : row.defenseValue;
     const ratio = allowed / row.defenseAverage;
-    const factor = shift(ratio, row.sport === 'nfl' ? 0.3 : 0.4, 0.9, 1.1);
+    const factor = shift(ratio, row.sport === 'nfl' || row.sport === 'cfb' ? 0.3 : 0.4, 0.9, 1.1);
     const gap = Math.round((row.defenseValue / row.defenseAverage - 1) * 100);
     const teams = finite(row.defenseTeams) ? row.defenseTeams : null;
     const most = teams && finite(row.defense) ? teams - row.defense + 1 : null;
