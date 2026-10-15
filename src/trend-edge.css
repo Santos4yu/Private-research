@@ -14,8 +14,10 @@
 
 html:root #gamelog-overlay#gamelog-overlay.trend-edge {
   --te-mint: #3FE39E;
+  --te-mint-low: #1F8F62;
   --te-mint-ink: #062B19;
   --te-miss: #EF5361;
+  --te-miss-low: #A8323E;
   --te-miss-ink: #3A0A10;
   --te-bg: #0E1215;
   --te-card: #14191D;
@@ -48,7 +50,7 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-stat-tabs {
   display: flex !important;
   gap: 8px !important;
   overflow-x: auto !important;
-  padding: 2px 0 12px !important;
+  padding: 2px 0 10px !important;
   margin: 0 !important;
   border: 0 !important;
   scrollbar-width: none;
@@ -60,15 +62,15 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-stat-tabs button 
   align-content: center;
   justify-items: center;
   gap: 3px;
-  min-width: 84px;
-  min-height: 56px;
-  padding: 8px 16px !important;
+  min-width: 74px;
+  min-height: 46px;
+  padding: 6px 13px !important;
   border: 1px solid var(--te-line) !important;
   border-radius: 12px !important;
   background: var(--te-bg) !important;
   color: var(--te-muted) !important;
   box-shadow: none !important;
-  font: 600 15px/1.1 var(--font-sans) !important;
+  font: 600 13.5px/1.1 var(--font-sans) !important;
   letter-spacing: 0 !important;
   text-transform: none !important;
   transition: border-color .2s var(--te-ease), background .2s var(--te-ease), color .2s var(--te-ease), transform .12s ease;
@@ -76,7 +78,7 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-stat-tabs button 
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-stat-tabs button::after,
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-stat-tabs button::before { display: none !important; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-stat-tabs button b { font-weight: 600; white-space: nowrap; }
-html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-stat-tabs button small { color: var(--te-faint); font: 600 13px/1.1 var(--font-display); }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-stat-tabs button small { color: var(--te-faint); font: 600 12px/1.1 var(--font-display); }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-stat-tabs button small:empty { display: none; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-stat-tabs button:active { transform: scale(.97); }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-stat-tabs button.active {
@@ -102,9 +104,9 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-stage {
   box-shadow: none !important;
 }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart {
-  --gl-track-height: 250px;
+  --gl-track-height: 196px;
   position: relative;
-  padding: 34px 0 6px !important;
+  padding: 12px 2px 4px !important;
   border: 0 !important;
   border-radius: 0 !important;
   /* A soft green rising behind the bars, dark under them. */
@@ -113,13 +115,14 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart {
   overflow: hidden;
 }
 @media (min-width: 681px) {
-  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart { --gl-track-height: 300px; }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart { --gl-track-height: 250px; }
 }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-y-axis { display: none !important; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart-track {
   display: flex !important;
   align-items: flex-start !important;
-  gap: 6px !important;
+  justify-content: center !important;
+  gap: 7px !important;
   width: 100% !important;
   margin: 0 !important;
   padding: 0 !important;
@@ -127,6 +130,7 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart-track {
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-col {
   flex: 1 1 0 !important;
   min-width: 0 !important;
+  max-width: 64px !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
@@ -145,24 +149,30 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar-shell {
   align-items: flex-end !important;
   justify-content: center !important;
   width: 100% !important;
-  max-width: 72px !important;
+  max-width: 50px !important;
   height: 100% !important;
   outline: none;
 }
-/* A flat bar with a fine dot grain. */
+/* Two tones split where the line crosses the bar (--cut, from app.js):
+   muted under the line, bright above it, so the margin reads at a glance.
+   A miss is coral throughout. A fine grain and a lit top edge on both. */
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar {
   position: relative !important;
   width: 100% !important;
-  min-height: 7px;
-  border-radius: 9px 9px 5px 5px !important;
-  background-color: var(--te-mint) !important;
-  background-image: radial-gradient(rgba(255, 255, 255, .28) 1px, transparent 1.4px) !important;
-  background-size: 7px 7px !important;
-  box-shadow: none !important;
+  min-height: 6px;
+  border-radius: 8px 8px 4px 4px !important;
+  background:
+    radial-gradient(rgba(255, 255, 255, .16) .8px, transparent 1.2px) 0 0 / 6px 6px,
+    linear-gradient(to top, var(--te-mint-low) 0 var(--cut, 0px), var(--te-mint) var(--cut, 0px)) !important;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, .28) !important;
   transform-origin: 50% 100%;
   transition: transform .22s var(--te-ease), filter .22s var(--te-ease);
 }
-html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar.gl-bar-under { background-color: var(--te-miss) !important; }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar.gl-bar-under {
+  background:
+    radial-gradient(rgba(255, 255, 255, .14) .8px, transparent 1.2px) 0 0 / 6px 6px,
+    linear-gradient(to top, var(--te-miss-low), var(--te-miss)) !important;
+}
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar-shell:hover .gl-bar,
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar-shell:focus-visible .gl-bar { transform: translateY(-3px); filter: brightness(1.07); }
 /* The result on top of its bar, in a dark pill. */
@@ -172,20 +182,20 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-val {
   bottom: calc(100% + 5px) !important;
   top: auto !important;
   transform: translateX(-50%) !important;
-  min-width: 26px;
-  padding: 3px 7px !important;
+  min-width: 24px;
+  padding: 2px 6px !important;
   border: 1px solid rgba(255, 255, 255, .1) !important;
   border-radius: 999px !important;
   background: #1B2125 !important;
   color: var(--te-text) !important;
-  font: 700 12px/1.2 var(--font-display) !important;
+  font: 700 11px/1.2 var(--font-display) !important;
   text-align: center;
   white-space: nowrap;
 }
 /* Inside a tall bar: the result again, and the stat. */
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-inside {
   position: absolute;
-  top: 26%;
+  top: 9px;
   left: 0;
   right: 0;
   display: grid;
@@ -194,18 +204,24 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-inside {
   color: var(--te-mint-ink);
   pointer-events: none;
 }
-html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-inside b { font: 800 15px/1 var(--font-display); }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-inside b { font: 800 13px/1 var(--font-display); }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-inside small { font: 700 8px/1 var(--font-sans); letter-spacing: .06em; opacity: .7; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar-under .gl-inside { color: var(--te-miss-ink); }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-margin { display: none !important; }
+/* Phone bars are narrow: the margin runs up the bar instead, without the stat. */
+@media (max-width: 560px) {
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-inside { top: 8px; left: 50%; right: auto; writing-mode: vertical-rl; transform: translateX(-50%) rotate(180deg); }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-inside b { font-size: 11.5px; letter-spacing: .02em; }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-inside small { display: none; }
+}
 
 /* Under each bar: the opponent's logo, then the day. */
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-logo {
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
-  margin-top: 6px;
+  width: 22px;
+  height: 22px;
+  margin-top: 4px;
   border: 0;
   background: none;
 }
@@ -221,10 +237,10 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-date {
   display: grid !important;
   align-content: start;
   justify-items: center;
-  min-height: 32px;
+  min-height: 28px;
   margin: 0 !important;
-  color: #D5DBDE !important;
-  font: 500 13px/1.2 var(--font-sans) !important;
+  color: #C9D0D4 !important;
+  font: 500 11.5px/1.2 var(--font-sans) !important;
   white-space: nowrap;
 }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-date i { color: inherit; font: inherit; font-style: normal; }
@@ -240,8 +256,8 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-next-bar {
   display: grid;
   place-items: center;
   width: 100%;
-  max-width: 72px;
-  height: 78%;
+  max-width: 50px;
+  height: 70%;
   border: 2px dashed rgba(244, 247, 246, .3);
   border-radius: 10px 10px 5px 5px;
   color: var(--te-muted);
@@ -250,7 +266,7 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-next-bar {
 
 /* The line: dashed across, its number in a white pill on the right. The
    marker is the panel's own 24px band centred on the line (styles.css). */
-html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart > .gl-line-marker { --chart-top: 34px; left: 0 !important; right: 0 !important; }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart > .gl-line-marker { --chart-top: 12px; left: 0 !important; right: 0 !important; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-line-marker::before {
   border-top: 2px dashed rgba(255, 255, 255, .78) !important;
   border-color: rgba(255, 255, 255, .78) !important;
@@ -261,14 +277,14 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-line-marker .gl-line-t
   right: 0 !important;
   top: 50% !important;
   transform: translateY(-50%) !important;
-  min-width: 48px;
-  padding: 6px 10px !important;
+  min-width: 42px;
+  padding: 5px 8px !important;
   border: 0 !important;
   border-radius: 9px !important;
   background: #fff !important;
   color: #0B0F12 !important;
   box-shadow: 0 4px 14px rgba(0, 0, 0, .45) !important;
-  font: 800 15px/1.1 var(--font-display) !important;
+  font: 800 13px/1.1 var(--font-display) !important;
   letter-spacing: 0 !important;
   text-align: center;
 }
@@ -280,7 +296,7 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar {
   display: grid !important;
   grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
   gap: 6px !important;
-  margin: 14px 0 0 !important;
+  margin: 10px 0 0 !important;
   padding: 0 !important;
   border: 0 !important;
   background: none !important;
@@ -292,7 +308,7 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button 
   justify-items: center;
   gap: 3px !important;
   min-width: 0;
-  padding: 0 0 10px !important;
+  padding: 0 0 8px !important;
   border: 1px solid var(--te-line) !important;
   border-radius: 12px !important;
   background: var(--te-card) !important;
@@ -307,14 +323,14 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button 
   align-items: center;
   justify-content: center;
   gap: 4px;
-  padding: 9px 2px 8px;
+  padding: 7px 2px 6px;
   background: #0A0D10;
   color: var(--te-text);
-  font: 600 14px/1 var(--font-sans);
+  font: 600 12.5px/1 var(--font-sans);
 }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-window-chev { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar .gl-window-rec { margin-top: 7px; font: 700 17px/1.1 var(--font-display); }
-html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar .gl-window-pct { font: 600 13px/1.1 var(--font-display); white-space: nowrap; }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar .gl-window-rec { margin-top: 5px; font: 700 15px/1.1 var(--font-display); }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar .gl-window-pct { font: 600 11.5px/1.1 var(--font-display); white-space: nowrap; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button[data-tone="up"] .gl-window-rec,
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button[data-tone="up"] .gl-window-pct { color: var(--te-mint); }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button[data-tone="down"] .gl-window-rec,
@@ -376,8 +392,8 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-summary {
   align-items: baseline;
   gap: 12px;
   max-width: none !important;
-  margin: 12px 0 8px !important;
-  padding: 14px 4px !important;
+  margin: 10px 0 8px !important;
+  padding: 10px 4px !important;
   border: 0 !important;
   border-top: 1px solid var(--te-line) !important;
   border-bottom: 1px solid var(--te-line) !important;
@@ -397,12 +413,12 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-summary > div {
 }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-summary > div span {
   color: var(--te-muted) !important;
-  font: 500 16px/1 var(--font-sans) !important;
+  font: 500 14px/1 var(--font-sans) !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
 }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-summary > div span::after { content: ":"; }
-html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-summary > div strong { color: var(--te-text) !important; font: 700 17px/1 var(--font-display) !important; }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-summary > div strong { color: var(--te-text) !important; font: 700 15px/1 var(--font-display) !important; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-market-title { display: none !important; }
 
 /* ---------------------------------------------------------------- motion */
@@ -438,3 +454,93 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar.gl-rise
   html:root #gamelog-overlay#gamelog-overlay.trend-edge *::before,
   html:root #gamelog-overlay#gamelog-overlay.trend-edge *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------------------------------------------------------------- the bet bar and filters */
+
+/* The line, its alternates and the save star in one bar; the filters as a row of small selects. */
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-workbench {
+  display: grid !important;
+  gap: 8px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: none !important;
+}
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-toolbar { margin: 0 !important; padding: 0 !important; border: 0 !important; background: none !important; }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-toolbar-row,
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-toolbar-head {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-toolbar-head {
+  width: 100%;
+  padding: 6px !important;
+  border: 1px solid var(--te-line) !important;
+  border-radius: 14px !important;
+  background: var(--te-card) !important;
+}
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-line-control {
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 40px !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  background: var(--te-bg) !important;
+  overflow: hidden;
+}
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-line-control button {
+  width: 38px !important;
+  height: 40px !important;
+  border: 0 !important;
+  background: none !important;
+  color: var(--te-mint) !important;
+  font: 700 18px/1 var(--font-sans) !important;
+}
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-line-control strong {
+  min-width: 56px;
+  color: var(--te-text) !important;
+  font: 800 16px/1 var(--font-display) !important;
+  text-align: center;
+  border: 0 !important;
+}
+html:root #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-lines-select-root { flex: 1 1 auto; min-width: 0; }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-lines-select-root button { height: 40px !important; border-radius: 10px !important; border-color: transparent !important; background: var(--te-bg) !important; }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-save { width: 40px !important; height: 40px !important; border-radius: 10px !important; border: 0 !important; background: var(--te-bg) !important; }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-panel {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 6px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: none !important;
+}
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 6px !important;
+  flex: 0 1 auto !important;
+  min-width: 0 !important;
+  padding: 0 0 0 10px !important;
+  border: 1px solid var(--te-line) !important;
+  border-radius: 999px !important;
+  background: var(--te-card) !important;
+}
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field[hidden] { display: none !important; }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field > span { color: var(--te-faint) !important; font: 600 11px/1 var(--font-sans) !important; text-transform: uppercase; letter-spacing: .05em; }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field button {
+  min-height: 32px !important;
+  height: 32px !important;
+  padding: 0 10px !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: none !important;
+  color: var(--te-text) !important;
+  font: 600 12.5px/1 var(--font-sans) !important;
+}
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-quotes-slot .fpb-card { height: 48px; min-width: 0; padding: 0 12px; border-radius: 12px; border-color: var(--te-line); background: var(--te-card); }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-quotes-slot .fpb-card > img { width: 24px; height: 24px; }

@@ -1,6 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {ArrowLeft,Info,Percent,UserRound} from 'lucide-react';
+import {ArrowLeft,Info,Layers,Percent,Swords,TrendingUp,UserRound} from 'lucide-react';
 import {useTeamTint} from './team-tint';
 import './finder-player-banner.css';
 
@@ -57,7 +57,7 @@ function usePanelSlots(ref){
   const look=()=>{
    const hero=scope.querySelector('#gamelog-hero-slot');
    if(!hero)return false;
-   setSlots({hero,quotes:scope.querySelector('#gamelog-quotes-slot')});
+   setSlots({hero,quotes:scope.querySelector('#gamelog-quotes-slot'),tabs:scope.querySelector('#gamelog-switch-slot'),section:scope});
    return true;
   };
   if(look())return undefined;
@@ -66,6 +66,54 @@ function usePanelSlots(ref){
   return()=>watch.disconnect();
  },[ref]);
  return slots;
+}
+
+// The page's three views: the trend (the chart and his own numbers), the
+// matchup (the page's matchup panel) and the depth chart and usage. The
+// switch marks the page (data-trend-tab) and trend-page.css shows the
+// sections that belong to it; a view the sport doesn't have isn't offered.
+const VIEWS=[['trends','Trends',TrendingUp],['matchup','Matchup',Swords],['depth','Depth',Layers]];
+const VIEW_PARTS={matchup:'.mlb-finder-context',depth:'.wnba-depth,.nfl-pass-run,.nfl-share'};
+function TrendSwitch({section}){
+ const [view,setView]=useState('trends');
+ const [have,setHave]=useState({matchup:false,depth:false});
+ useEffect(()=>{
+  const check=()=>setHave(old=>{
+   const next={matchup:Boolean(section.querySelector(VIEW_PARTS.matchup)),depth:Boolean(section.querySelector(VIEW_PARTS.depth))};
+   return old.matchup===next.matchup&&old.depth===next.depth?old:next;
+  });
+  check();
+  const watch=new MutationObserver(check);
+  watch.observe(section,{childList:true,subtree:true});
+  return()=>{watch.disconnect();delete section.dataset.trendTab;};
+ },[section]);
+ const views=VIEWS.filter(([key])=>key==='trends'||have[key]);
+ const current=views.some(([key])=>key===view)?view:'trends';
+ useEffect(()=>{section.dataset.trendTab=current;},[section,current]);
+ if(views.length<2)return null;
+ const index=views.findIndex(([key])=>key===current);
+ return <div className="fpb-switch" role="tablist" aria-label="Player research" style={{'--count':views.length,'--at':index}}>
+  <span className="fpb-switch-pill" aria-hidden="true"/>
+  {views.map(([key,label,Icon])=><button type="button" role="tab" key={key} aria-selected={key===current} className={key===current?'is-on':''}
+   onClick={()=>setView(key)}><Icon size={16} aria-hidden="true"/>{label}</button>)}
+ </div>;
+}
+
+// His hit rate over the last 10 at this line, for the card's ring.
+function lastTen(row){
+ const window=row.windows?.l10;
+ const games=finite(window?.decisions)?window.decisions:finite(window?.sample)?window.sample:null;
+ if(!games||!finite(window?.hits))return null;
+ const over=String(row.direction||'OVER').toUpperCase()==='UNDER'?games-window.hits:window.hits;
+ return {won:over,games,rate:over/games};
+}
+function HitRing({record}){
+ const r=22,c=2*Math.PI*r;
+ const tone=record.rate>=0.6?'up':record.rate>=0.5?'mid':'down';
+ return <span className="fpb-ring" data-tone={tone} title={`${record.won} of his last ${record.games}`} style={{'--fill':c*(1-record.rate),'--full':c}}>
+  <svg viewBox="0 0 54 54" aria-hidden="true"><circle cx="27" cy="27" r={r} className="fpb-ring-track"/><circle cx="27" cy="27" r={r} className="fpb-ring-fill" strokeDasharray={c}/></svg>
+  <b>{Math.round(record.rate*100)}<small>%</small></b><em>L{record.games}</em>
+ </span>;
 }
 
 export function FinderPlayerBanner({row,playerRows=[],onBack}){
@@ -94,6 +142,7 @@ export function FinderPlayerBanner({row,playerRows=[],onBack}){
  // The price for the side at the line: the first book quoting it.
  const sideKey=side==='Less'?'under':'over';
  const priced=books.find(book=>finite(book[sideKey])&&Math.abs(book[sideKey])>=100);
+ const record=lastTen(row);
  const hero=<div className="fpb-hero" style={tint?{'--fpb-team':tint}:undefined} data-tinted={tint?'true':'false'}>
   {row.teamLogo&&<img className="fpb-watermark" src={row.teamLogo} alt="" aria-hidden="true" onError={e=>{e.currentTarget.hidden=true;}}/>}
   <span className="fpb-avatar"><span className="fpb-initials" aria-hidden="true">{initials}</span>
@@ -104,9 +153,12 @@ export function FinderPlayerBanner({row,playerRows=[],onBack}){
     {time&&<><i className="fpb-chev" aria-hidden="true">›</i><span>{time}</span></>}</p>
    {row.market&&shownLine&&<p className="fpb-prop"><b>{side} {shownLine}</b><i aria-hidden="true">›</i><span>{row.market}</span></p>}
   </div>
-  {priced&&<span className="fpb-price" title={`${priced.name} ${american(priced[sideKey])}`}>
-   <img src={priced.logo} alt={priced.name} width="22" height="22" onError={e=>{e.currentTarget.hidden=true;}}/>
-   <b data-side={priced[sideKey]<0?'fav':'dog'}>{american(priced[sideKey])}</b></span>}
+  {(record||priced)&&<div className="fpb-side">
+   {record&&<HitRing record={record}/>}
+   {priced&&<span className="fpb-price" title={`${priced.name} ${american(priced[sideKey])}`}>
+    <img src={priced.logo} alt={priced.name} width="18" height="18" onError={e=>{e.currentTarget.hidden=true;}}/>
+    <b data-side={priced[sideKey]<0?'fav':'dog'}>{american(priced[sideKey])}</b></span>}
+  </div>}
  </div>;
  const oddsRow=(odds||pick||books.length>0)?<div className="fpb-odds" role="list" aria-label={`Odds at ${line}`}>
   {odds&&<div className="fpb-card fpb-chance" role="listitem" title="Market chance">
@@ -128,6 +180,7 @@ export function FinderPlayerBanner({row,playerRows=[],onBack}){
    <span className="fpb-brand"><img src="/brand/ace-props-wordmark.png" alt="Ace Props" width="84" height="32"/></span>
    <button type="button" className="fpb-account" aria-label="Your account" aria-haspopup="dialog" onClick={pressAccount}><UserRound size={18} aria-hidden="true"/></button>
   </div>
+  {slots?.tabs&&createPortal(<TrendSwitch section={slots.section}/>,slots.tabs)}
   {slots?createPortal(hero,slots.hero):hero}
   {oddsRow&&(slots?.quotes?createPortal(oddsRow,slots.quotes):oddsRow)}
  </header>;

@@ -1,0 +1,264 @@
+/* The player page around the trend panel: the Trends / Matchup / Depth
+   switch (FinderPlayerBanner.jsx sets data-trend-tab on the page) shows one
+   view at a time, and every card under the chart (supporting stats, game
+   log, depth chart, usage, the matchup tabs) wears the panel's look: one
+   dark card, a plain header with its note in a pill, mint for what's on,
+   bars like the chart's. Cards rise in turn when a view opens; bars grow.
+
+   Only pages that carry the switch (data-trend-tab) are touched, and the
+   rules carry html:root so the sports' own sheets, loaded later, don't win. */
+
+html:root .finder-trend-view[data-trend-tab] {
+  --te-mint: #3FE39E;
+  --te-mint-low: #1F8F62;
+  --te-bg: #0E1215;
+  --te-card: #14191D;
+  --te-raise: #192026;
+  --te-line: #232B30;
+  --te-text: #F4F7F6;
+  --te-muted: #A3ACB1;
+  --te-faint: #6F797E;
+  --te-on: rgba(63, 227, 158, .12);
+  --te-on-line: rgba(63, 227, 158, .5);
+  --te-spring: cubic-bezier(.34, 1.42, .6, 1);
+  --te-ease: var(--ace-ease, cubic-bezier(.2, .8, .2, 1));
+}
+
+/* ---------------------------------------------------------------- one view at a time */
+
+html:root .finder-trend-view[data-trend-tab] #gamelog-overlay#gamelog-overlay .gamelog-switch-slot:empty { display: none; }
+html:root .finder-trend-view[data-trend-tab][data-trend-tab=trends] :is(.mlb-finder-context, .wnba-depth, .nfl-pass-run, .nfl-share) { display: none !important; }
+html:root .finder-trend-view[data-trend-tab]:not([data-trend-tab=trends]) :is(.mlb-supporting, .mlb-player-gamelog, .wnba-filter-empty) { display: none !important; }
+html:root .finder-trend-view[data-trend-tab]:not([data-trend-tab=trends]) #gamelog-overlay#gamelog-overlay.trend-edge :is(.gamelog-stat-tabs, .gamelog-studio, .gamelog-windowbar, .gamelog-window-menu, .gamelog-summary, .gamelog-quotes-slot, .gamelog-workbench) { display: none !important; }
+html:root .finder-trend-view[data-trend-tab][data-trend-tab=matchup] :is(.wnba-depth, .nfl-pass-run, .nfl-share) { display: none !important; }
+html:root .finder-trend-view[data-trend-tab][data-trend-tab=depth] .mlb-finder-context { display: none !important; }
+
+/* One column: the switch makes the page's sides into views. */
+html:root .finder-trend-view[data-trend-tab] .mlb-finder-workspace { grid-template-columns: minmax(0, 1fr) !important; gap: 12px !important; }
+html:root .finder-trend-view[data-trend-tab] .mlb-trend-main { gap: 12px !important; }
+html:root .finder-trend-view[data-trend-tab] .mlb-finder-context { gap: 12px !important; }
+@media (min-width: 1051px) {
+  /* Wide screens lay the matchup cards out two across. */
+  html:root .finder-trend-view[data-trend-tab][data-trend-tab=matchup] .mlb-finder-context { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  html:root .finder-trend-view[data-trend-tab][data-trend-tab=matchup] .mlb-finder-context > :is(.mlb-context-tabs, .nfl-averages) { grid-column: 1 / -1; }
+  html:root .finder-trend-view[data-trend-tab][data-trend-tab=depth] .mlb-trend-main { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  html:root .finder-trend-view[data-trend-tab][data-trend-tab=depth] .mlb-trend-main > :is(.wnba-trend-host, .wnba-depth, .wnba-board-message, .mlb-context-note) { grid-column: 1 / -1; }
+}
+
+/* ---------------------------------------------------------------- the cards */
+
+html:root .finder-trend-view[data-trend-tab] .mlb-context-card {
+  border: 1px solid var(--te-line) !important;
+  border-radius: 18px !important;
+  background: var(--te-card) !important;
+  box-shadow: none !important;
+  overflow: hidden;
+  animation: tp-rise .45s var(--te-ease) both;
+}
+html:root .finder-trend-view[data-trend-tab] :is(.mlb-trend-main, .mlb-finder-context, .mlb-finder-workspace) > .mlb-context-card:nth-of-type(2) { animation-delay: 0.05s; }
+html:root .finder-trend-view[data-trend-tab] :is(.mlb-trend-main, .mlb-finder-context, .mlb-finder-workspace) > .mlb-context-card:nth-of-type(3) { animation-delay: 0.10s; }
+html:root .finder-trend-view[data-trend-tab] :is(.mlb-trend-main, .mlb-finder-context, .mlb-finder-workspace) > .mlb-context-card:nth-of-type(4) { animation-delay: 0.15s; }
+html:root .finder-trend-view[data-trend-tab] :is(.mlb-trend-main, .mlb-finder-context, .mlb-finder-workspace) > .mlb-context-card:nth-of-type(5) { animation-delay: 0.20s; }
+html:root .finder-trend-view[data-trend-tab] :is(.mlb-trend-main, .mlb-finder-context, .mlb-finder-workspace) > .mlb-context-card:nth-of-type(6) { animation-delay: 0.25s; }
+html:root .finder-trend-view[data-trend-tab] :is(.mlb-trend-main, .mlb-finder-context, .mlb-finder-workspace) > .mlb-context-card:nth-of-type(7) { animation-delay: 0.30s; }
+html:root .finder-trend-view[data-trend-tab] .mlb-context-card > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  padding: 14px 16px 10px !important;
+  border: 0 !important;
+  background: none !important;
+}
+html:root .finder-trend-view[data-trend-tab] .mlb-context-card > header h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--te-text) !important;
+  font: 700 15px/1.2 var(--font-sans) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+html:root .finder-trend-view[data-trend-tab] .mlb-context-card > header h2 svg { color: var(--te-mint) !important; }
+html:root .finder-trend-view[data-trend-tab] .mlb-context-card > header > small {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: var(--te-bg);
+  color: var(--te-muted) !important;
+  font: 600 11px/1 var(--font-sans) !important;
+  white-space: nowrap;
+}
+html:root .finder-trend-view[data-trend-tab] .mlb-context-note { padding: 4px 16px 14px !important; color: var(--te-muted) !important; font-size: 12.5px !important; }
+
+/* Tables: no stripes or header band, faint small caps over hairlines. */
+html:root .finder-trend-view[data-trend-tab] :is(.mlb-context-table-wrap, .mlb-player-log-scroll) table { font-size: 12.5px !important; }
+html:root .finder-trend-view[data-trend-tab] :is(.mlb-context-table-wrap, .mlb-player-log-scroll) thead { background: none !important; }
+html:root .finder-trend-view[data-trend-tab] :is(.mlb-context-table-wrap, .mlb-player-log-scroll) thead th {
+  padding: 8px 10px !important;
+  border-bottom: 1px solid var(--te-line) !important;
+  background: var(--te-card) !important;
+  color: var(--te-faint) !important;
+  font: 600 10.5px/1.2 var(--font-sans) !important;
+  letter-spacing: .06em !important;
+  text-transform: uppercase !important;
+}
+html:root .finder-trend-view[data-trend-tab] :is(.mlb-context-table-wrap, .mlb-player-log-scroll) tbody :is(th, td) {
+  height: auto !important;
+  padding: 10px !important;
+  border-bottom: 1px solid var(--te-line) !important;
+  color: #D5DBDE !important;
+}
+html:root .finder-trend-view[data-trend-tab] :is(.mlb-context-table-wrap, .mlb-player-log-scroll) tbody tr { background: none !important; }
+html:root .finder-trend-view[data-trend-tab] :is(.mlb-context-table-wrap, .mlb-player-log-scroll) tbody tr:last-child > * { border-bottom: 0 !important; }
+html:root .finder-trend-view[data-trend-tab] :is(.mlb-context-table-wrap, .mlb-player-log-scroll) tbody tr:hover { background: var(--te-raise) !important; }
+html:root .finder-trend-view[data-trend-tab] .mlb-player-log-scroll { scrollbar-color: #2C353B transparent; }
+
+/* Switches inside cards: small pills, mint when on. */
+html:root .finder-trend-view[data-trend-tab] :is(.mlb-context-switch, .wnba-depth-teams) { display: flex; flex-wrap: wrap; gap: 6px !important; padding: 0 16px 12px !important; }
+html:root .finder-trend-view[data-trend-tab] .mlb-context-card > header .wnba-depth-teams { padding: 0 !important; }
+html:root .finder-trend-view[data-trend-tab] :is(.mlb-context-switch, .wnba-depth-teams) button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px !important;
+  padding: 0 13px !important;
+  border: 1px solid var(--te-line) !important;
+  border-radius: 999px !important;
+  background: var(--te-bg) !important;
+  color: var(--te-muted) !important;
+  font: 600 12.5px/1 var(--font-sans) !important;
+  transition: background .2s var(--te-ease), border-color .2s var(--te-ease), color .2s var(--te-ease), transform .12s ease;
+}
+html:root .finder-trend-view[data-trend-tab] :is(.mlb-context-switch, .wnba-depth-teams) button[aria-pressed=true] { border-color: var(--te-on-line) !important; background: var(--te-on) !important; color: #fff !important; }
+html:root .finder-trend-view[data-trend-tab] :is(.mlb-context-switch, .wnba-depth-teams, .mlb-context-tabs, .mlb-support-tabs) button:active { transform: scale(.96); }
+
+/* The matchup view's own sections: a scrolling row of pills, like the stat chips. */
+html:root .finder-trend-view[data-trend-tab] .mlb-context-tabs {
+  display: flex !important;
+  gap: 8px !important;
+  margin: 0 !important;
+  padding: 0 0 2px !important;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+html:root .finder-trend-view[data-trend-tab] .mlb-context-tabs::-webkit-scrollbar { display: none; }
+html:root .finder-trend-view[data-trend-tab] .mlb-context-tabs > button {
+  flex: 0 0 auto !important;
+  flex-direction: row !important;
+  gap: 7px !important;
+  min-height: 40px !important;
+  padding: 0 15px !important;
+  border: 1px solid var(--te-line) !important;
+  border-radius: 999px !important;
+  background: var(--te-card) !important;
+  color: var(--te-muted) !important;
+  font: 600 13px/1 var(--font-sans) !important;
+  transition: background .2s var(--te-ease), border-color .2s var(--te-ease), color .2s var(--te-ease), transform .12s ease;
+}
+html:root .finder-trend-view[data-trend-tab] .mlb-context-tabs > button svg { width: 15px; height: 15px; color: currentColor !important; }
+html:root .finder-trend-view[data-trend-tab] .mlb-context-tabs > button[aria-pressed=true] { border-color: var(--te-on-line) !important; background: var(--te-on) !important; color: #fff !important; }
+html:root .finder-trend-view[data-trend-tab] .mlb-context-tabs > button[aria-pressed=true] svg { color: var(--te-mint) !important; }
+
+/* ---------------------------------------------------------------- supporting stats */
+
+html:root .finder-trend-view[data-trend-tab] .mlb-support-tabs {
+  display: flex !important;
+  gap: 8px !important;
+  padding: 0 16px 4px !important;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+html:root .finder-trend-view[data-trend-tab] .mlb-support-tabs::-webkit-scrollbar { display: none; }
+html:root .finder-trend-view[data-trend-tab] .mlb-support-tabs > button {
+  flex: 0 0 auto !important;
+  min-width: 82px;
+  min-height: 46px !important;
+  padding: 6px 13px !important;
+  border: 1px solid var(--te-line) !important;
+  border-radius: 12px !important;
+  background: var(--te-bg) !important;
+  color: var(--te-muted) !important;
+  font: 600 12px/1.15 var(--font-sans) !important;
+  transition: background .2s var(--te-ease), border-color .2s var(--te-ease), color .2s var(--te-ease), transform .12s ease;
+}
+html:root .finder-trend-view[data-trend-tab] .mlb-support-tabs > button strong { margin-top: 4px !important; color: var(--te-text) !important; font: 700 14px/1 var(--font-display) !important; }
+html:root .finder-trend-view[data-trend-tab] .mlb-support-tabs > button strong small { color: var(--te-faint) !important; font: 600 10.5px/1 var(--font-sans) !important; }
+html:root .finder-trend-view[data-trend-tab] .mlb-support-tabs > button[aria-pressed=true] { border-color: var(--te-on-line) !important; background: var(--te-on) !important; color: #fff !important; }
+html:root .finder-trend-view[data-trend-tab] .mlb-support-chart { gap: 7px !important; padding: 28px 16px 14px !important; }
+html:root .finder-trend-view[data-trend-tab] .mlb-support-chart > div { max-width: 56px; margin: 0 auto; }
+html:root .finder-trend-view[data-trend-tab] .mlb-support-track { height: 118px !important; }
+html:root .finder-trend-view[data-trend-tab] .mlb-support-track > div {
+  min-height: 4px;
+  border-radius: 7px 7px 3px 3px !important;
+  background:
+    radial-gradient(rgba(255, 255, 255, .13) .8px, transparent 1.2px) 0 0 / 6px 6px,
+    linear-gradient(to top, #24453A, #3E8C6C) !important;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, .22);
+  transform-origin: 50% 100%;
+  transition: height .35s var(--te-ease);
+  animation: tp-grow .6s var(--te-spring) both;
+}
+html:root .finder-trend-view[data-trend-tab] .mlb-support-chart > div:nth-child(2) .mlb-support-track > div { animation-delay: 0.03s; }
+html:root .finder-trend-view[data-trend-tab] .mlb-support-chart > div:nth-child(3) .mlb-support-track > div { animation-delay: 0.06s; }
+html:root .finder-trend-view[data-trend-tab] .mlb-support-chart > div:nth-child(4) .mlb-support-track > div { animation-delay: 0.09s; }
+html:root .finder-trend-view[data-trend-tab] .mlb-support-chart > div:nth-child(5) .mlb-support-track > div { animation-delay: 0.12s; }
+html:root .finder-trend-view[data-trend-tab] .mlb-support-chart > div:nth-child(6) .mlb-support-track > div { animation-delay: 0.15s; }
+html:root .finder-trend-view[data-trend-tab] .mlb-support-chart > div:nth-child(7) .mlb-support-track > div { animation-delay: 0.18s; }
+html:root .finder-trend-view[data-trend-tab] .mlb-support-chart > div:nth-child(8) .mlb-support-track > div { animation-delay: 0.21s; }
+html:root .finder-trend-view[data-trend-tab] .mlb-support-chart > div:nth-child(9) .mlb-support-track > div { animation-delay: 0.24s; }
+html:root .finder-trend-view[data-trend-tab] .mlb-support-chart > div:nth-child(10) .mlb-support-track > div { animation-delay: 0.27s; }
+html:root .finder-trend-view[data-trend-tab] .mlb-support-chart > div:nth-child(11) .mlb-support-track > div { animation-delay: 0.30s; }
+html:root .finder-trend-view[data-trend-tab] .mlb-support-chart > div:nth-child(12) .mlb-support-track > div { animation-delay: 0.33s; }
+html:root .finder-trend-view[data-trend-tab] .mlb-support-chart > div:nth-child(13) .mlb-support-track > div { animation-delay: 0.36s; }
+html:root .finder-trend-view[data-trend-tab] .mlb-support-chart > div:nth-child(14) .mlb-support-track > div { animation-delay: 0.39s; }
+html:root .finder-trend-view[data-trend-tab] .mlb-support-chart > div:nth-child(15) .mlb-support-track > div { animation-delay: 0.42s; }
+html:root .finder-trend-view[data-trend-tab] .mlb-support-track span { top: -20px !important; color: var(--te-text) !important; font: 700 11px/1 var(--font-display) !important; }
+html:root .finder-trend-view[data-trend-tab] .mlb-support-chart small { display: block; margin-top: 6px; color: var(--te-faint) !important; font: 500 10px/1.3 var(--font-sans) !important; }
+
+/* ---------------------------------------------------------------- depth and usage */
+
+html:root .finder-trend-view[data-trend-tab] .wnba-depth-legend { padding: 0 16px 10px !important; color: var(--te-faint); font-size: 11px; }
+html:root .finder-trend-view[data-trend-tab] .wnba-depth-table thead th { padding: 8px 10px !important; color: var(--te-faint) !important; font: 600 10.5px/1.2 var(--font-sans) !important; letter-spacing: .06em; text-transform: uppercase; }
+html:root .finder-trend-view[data-trend-tab] .wnba-depth-table tbody tr,
+html:root .finder-trend-view[data-trend-tab] .wnba-depth-table tbody tr:nth-child(odd) { border-top: 1px solid var(--te-line) !important; background: var(--te-card) !important; }
+html:root .finder-trend-view[data-trend-tab] .wnba-depth-table tbody th { color: var(--te-muted) !important; font: 700 12px/1 var(--font-display) !important; }
+html:root .finder-trend-view[data-trend-tab] .wnba-depth-table td { min-width: 196px !important; padding: 8px 10px !important; }
+html:root .finder-trend-view[data-trend-tab] .wnba-depth-cell .wnba-avatar { border-radius: 12px !important; background: var(--te-raise) !important; }
+html:root .finder-trend-view[data-trend-tab] .wnba-depth-name .is-self { color: var(--te-mint) !important; }
+
+html:root .finder-trend-view[data-trend-tab] .nfl-pass-run-body { gap: 10px !important; padding: 4px 16px 16px !important; }
+html:root .finder-trend-view[data-trend-tab] .nfl-pass-run-labels span { display: inline-flex; align-items: center; gap: 6px; color: var(--te-text) !important; font: 600 12.5px/1 var(--font-sans) !important; }
+html:root .finder-trend-view[data-trend-tab] .nfl-pass-run-labels span::before { content: ""; width: 8px; height: 8px; border-radius: 3px; background: var(--te-mint); }
+html:root .finder-trend-view[data-trend-tab] .nfl-pass-run-labels span + span::before { background: #7FA7FF; }
+html:root .finder-trend-view[data-trend-tab] .nfl-pass-run-bar { height: 12px !important; border-radius: 999px !important; background: #7FA7FF !important; }
+html:root .finder-trend-view[data-trend-tab] .nfl-pass-run-bar i {
+  border-right: 3px solid var(--te-card) !important;
+  background: var(--te-mint) !important;
+  transform-origin: 0 50%;
+  animation: tp-fill .8s var(--te-ease) both .1s;
+}
+html:root .finder-trend-view[data-trend-tab] .nfl-donut { width: 140px !important; height: 140px !important; animation: tp-turn .7s var(--te-ease) both; }
+html:root .finder-trend-view[data-trend-tab] .nfl-donut::before { inset: 22px !important; background: var(--te-card) !important; }
+html:root .finder-trend-view[data-trend-tab] .nfl-share-table tr[data-current=true] > * { background: var(--te-on) !important; }
+
+/* ---------------------------------------------------------------- matchup bits */
+
+html:root .finder-trend-view[data-trend-tab] .mlb-win-body { padding: 8px 16px 18px !important; }
+html:root .finder-trend-view[data-trend-tab] .mlb-win-ring { animation: tp-turn .7s var(--te-ease) both; }
+html:root .finder-trend-view[data-trend-tab] .mlb-win-ring > span { background: var(--te-card) !important; color: var(--te-faint) !important; font: 700 9.5px/1.4 var(--font-sans) !important; }
+html:root .finder-trend-view[data-trend-tab] .mlb-win-team b { background: var(--te-bg) !important; border-radius: 999px !important; padding: 5px 9px !important; font-family: var(--font-display); }
+html:root .finder-trend-view[data-trend-tab] .nfl-average-section { border-top: 1px solid var(--te-line) !important; }
+html:root .finder-trend-view[data-trend-tab] .nfl-average-card { border-color: var(--te-line) !important; border-radius: 12px !important; background: var(--te-bg) !important; }
+html:root .finder-trend-view[data-trend-tab] .nfl-average-card[data-current=true] { border-color: var(--te-on-line) !important; background: var(--te-on) !important; }
+
+/* ---------------------------------------------------------------- motion */
+
+@keyframes tp-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes tp-grow { from { transform: scaleY(0); } to { transform: none; } }
+@keyframes tp-fill { from { transform: scaleX(0); } to { transform: none; } }
+@keyframes tp-turn { from { opacity: 0; transform: rotate(-40deg) scale(.92); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  html:root .finder-trend-view[data-trend-tab] :is(.mlb-context-card, .mlb-support-track > div, .nfl-pass-run-bar i, .nfl-donut, .mlb-win-ring) { animation: none !important; transition: none !important; }
+}
