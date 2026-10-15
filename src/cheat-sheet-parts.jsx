@@ -21,7 +21,12 @@ export function Img({src,className,alt=''}){
  if(!src||failed)return null;
  return <img className={className} src={src} alt={alt} loading="lazy" onError={()=>setFailed(true)}/>;
 }
-export const Score=({value,label})=><span className="cs-score" data-tone={tone(value)} title={label}><b>{finite(value)?value:'—'}</b><i style={{'--v':finite(value)?Math.max(0,Math.min(value,100))/100:0}}/></span>;
+// A score: the number inside a ring filled to it, out of 100.
+export const Score=({value,label})=><span className="cs-score" data-tone={tone(value)} title={label} style={{'--v':finite(value)?Math.max(0,Math.min(value,100))/100:0}}><b>{finite(value)?value:'—'}</b></span>;
+// How many stats a card's strip puts on a row: rows of the same length
+// where the count allows, and a short last row stretched to fill. Five
+// go three and two: five across leaves no room for a word like "Receptions".
+export const stripColumns=count=>count<=4?Math.max(count,1):count===5?3:count%4===0?4:count%3===0?3:count%5===0?5:4;
 export const Tag=({tone:kind,icon:Icon,children})=><span className="cs-tag" data-tone={kind}>{Icon&&<Icon aria-hidden="true"/>}{children}</span>;
 // Phones get cards instead of a wide table: nothing slides sideways.
 export const PHONE='(max-width: 640px)';
@@ -84,7 +89,7 @@ export function Cards({rows,columns,sort,setSort,rowKey,expand,open,toggle,moreL
     <div className="cs-mcard-who">{show(who,row)}</div>
     {score&&<div className="cs-mcard-score">{show(score,row)}</div>}
    </header>
-   <dl className="cs-mstats">{stats.map(column=><div key={column.key} data-tone={column.tone?.(row)||undefined}><dt>{column.short||column.label}</dt><dd>{show(column,row)}</dd></div>)}</dl>
+   <dl className="cs-mstats" style={{'--cols':stripColumns(stats.length)}}>{stats.map(column=><div key={column.key} data-tone={column.tone?.(row)||undefined}><dt>{column.short||column.label}</dt><dd>{show(column,row)}</dd></div>)}</dl>
    {expand&&<button type="button" className="cs-mcard-more" onClick={()=>toggle(key)} aria-expanded={shown}>{shown?'Less':moreLabel}<ChevronDown aria-hidden="true"/></button>}
    {expand&&shown&&<div className="cs-mcard-detail">{expand(row)}</div>}
   </article>;})}

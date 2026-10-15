@@ -10,27 +10,27 @@ import './nfl-sheets.css';
 // that are on.
 
 export const NFL_SHEETS=[
- {key:'td',title:'TD Scorers',kicker:'Anytime TD',icon:Trophy,blurb:"Every player's touchdown chance this week, next to the best price.",
+ {key:'td',tint:'#3FE39E',title:'TD Scorers',kicker:'Anytime TD',icon:Trophy,blurb:"Every player's touchdown chance this week, next to the best price.",
   about:"Each team's expected rushing and receiving touchdowns come from its implied points (the spread and total) and the league's touchdowns per point. They're split among the team's healthy players by their share of its touchdowns, red-zone looks and touches this season, nudged toward the positions the defense gives up touchdowns to."},
- {key:'firsttd',title:'First TD',kicker:'Opening drives',icon:Timer,blurb:'Who scores early: first-two-drive touchdowns and the game’s first score.',
+ {key:'firsttd',tint:'#6EA8FF',title:'First TD',kicker:'Opening drives',icon:Timer,blurb:'Who scores early: first-two-drive touchdowns and the game’s first score.',
   about:"How often each team scores a touchdown on its first two drives, how often its defense allows one, who scored each game's first touchdown, and who gets the ball on those early drives. The chance a team scores first leans on its expected points and both early rates; a player's part follows his share of the team's touchdowns."},
- {key:'streaks',title:'Prop Streaks',kicker:'Hit-rate runs',icon:Flame,blurb:'Lines a player keeps clearing game after game.',
+ {key:'streaks',tint:'#FF8A4C',title:'Prop Streaks',kicker:'Hit-rate runs',icon:Flame,blurb:'Lines a player keeps clearing game after game.',
   about:"Every posted line checked against the player's games: how many in a row he has cleared (or missed), and his hit rate over the last 10, last 20 and this season. Preseason games are left out."},
- {key:'zones',title:'Target Zones',kicker:'Where the ball goes',icon:Grid3x3,blurb:"Where a receiver's targets go, against where the defense gives up yards.",
+ {key:'zones',tint:'#4FD1C5',title:'Target Zones',kicker:'Where the ball goes',icon:Grid3x3,blurb:"Where a receiver's targets go, against where the defense gives up yards.",
   about:"Every target this season split six ways: short or deep, and left, middle or right of the field (from the play-by-play). Each receiver's share in each zone is set against the yards per target the defense allows there, compared with the league."},
- {key:'redzone',title:'Red Zone',kicker:'Inside the 20',icon:Target,blurb:'Red-zone trips, who gets the ball there, and the touchdown chance.',
+ {key:'redzone',tint:'#F06A77',title:'Red Zone',kicker:'Inside the 20',icon:Target,blurb:'Red-zone trips, who gets the ball there, and the touchdown chance.',
   about:"Red-zone trips are drives that reached the opponent's 20. Each player's red-zone looks are his carries and targets from there; inside-10 looks are the ones from the 10 in. The touchdown chance is the same one TD Scorers shows."},
- {key:'speed',title:'Speed Edges',kicker:'40-yard speed',icon:Gauge,blurb:"A player's 40-yard speed against the defenders across from him.",
+ {key:'speed',tint:'#FFD452',title:'Speed Edges',kicker:'40-yard speed',icon:Gauge,blurb:"A player's 40-yard speed against the defenders across from him.",
   about:"Speed is from each player's 40-yard dash at the NFL Combine, turned into miles per hour over the 40. Receivers are set against the other team's starting corners and nickel, tight ends against its safeties and a linebacker, backs against its starting linebackers, from this week's depth chart. Players who didn't run at the Combine aren't listed."},
- {key:'steam',title:'Steam Moves',kicker:'Line movement',icon:Activity,blurb:'Lines that moved since they opened, and how many books moved together.',
+ {key:'steam',tint:'#B48CFF',title:'Steam Moves',kicker:'Line movement',icon:Activity,blurb:'Lines that moved since they opened, and how many books moved together.',
   about:"Each line's first number is recorded when a book posts it; the sheet compares it with the number now. A move is steam when two or more books moved the same way. Juice is the shift in the Over's implied chance at an unchanged line."},
- {key:'shop',title:'Line Shopping',kicker:'Best prices',icon:Tags,blurb:"Prices that beat the other books, and numbers off the market's line.",
+ {key:'shop',tint:'#F2C26B',title:'Line Shopping',kicker:'Best prices',icon:Tags,blurb:"Prices that beat the other books, and numbers off the market's line.",
   about:"A better price compares each book's price with the fair chance the other books imply (their margin taken out) and shows the expected return. An off-market line is an app or book posting a number well away from the one most books share."},
- {key:'dvp',title:'Defense vs Position',kicker:'Matchup ranks',icon:Shield,blurb:'What every defense gives up to each position, game by game.',
+ {key:'dvp',tint:'#5CC8FF',title:'Defense vs Position',kicker:'Matchup ranks',icon:Shield,blurb:'What every defense gives up to each position, game by game.',
   about:"For each defense, the whole position group's total in each game (every receiver's yards added up, say), averaged over its last 3, 5 or 10 games or the season. Rank 1 allows the least; the last rank allows the most."},
- {key:'soft',title:'Soft Spots',kicker:'Matchup props',icon:Crosshair,blurb:'Props lined up against the defenses that allow the most for that stat.',
+ {key:'soft',tint:'#FF6FA3',title:'Soft Spots',kicker:'Matchup props',icon:Crosshair,blurb:'Props lined up against the defenses that allow the most for that stat.',
   about:"Every posted line whose player faces one of the eight defenses that allow the most of that stat to his position over their last five games, with how far above the league average that is, his hit rates and the best price."},
- {key:'goblins',title:'Goblins & Demons',kicker:'PrizePicks lines',icon:Ghost,blurb:'Goblins and demons the sportsbooks price at the same number.',
+ {key:'goblins',tint:'#A3E635',title:'Goblins & Demons',kicker:'PrizePicks lines',icon:Ghost,blurb:'Goblins and demons the sportsbooks price at the same number.',
   about:"PrizePicks' goblin and demon lines next to the sportsbooks' prices at the same number (their alternate lines). The chance is the books' price with their margin taken out, averaged across books."},
 ];
 const FAQ={
@@ -491,13 +491,13 @@ export function NflSheetView({sheetKey,sheets,onOpen}){
  const counts=mainRows?countBy(mainRows):sheet.key==='firsttd'?Object.fromEntries((data?.cards||[]).map(card=>[card.gameId,card.sides.reduce((sum,side)=>sum+side.players.length,0)])):null;
  const side=data?rails(sheet.key,data):[];
  const Icon=sheet.icon;
- return <div className="cs-view">
-  <nav className="cs-tabs" aria-label="Sheets">{sheets.map(item=>{const ItemIcon=item.icon;return <button key={item.key} type="button" aria-current={item.key===sheet.key?'page':undefined} data-active={item.key===sheet.key?'':undefined} onClick={()=>onOpen(item.key)}>
+ return <div className="cs-view" style={{'--sheet':sheet.tint}}>
+  <nav className="cs-tabs" aria-label="Sheets">{sheets.map(item=>{const ItemIcon=item.icon;return <button key={item.key} type="button" style={{'--tab':item.tint}} aria-current={item.key===sheet.key?'page':undefined} data-active={item.key===sheet.key?'':undefined} onClick={()=>onOpen(item.key)}>
    <ItemIcon aria-hidden="true"/>{item.title}
   </button>;})}</nav>
   <section className="cs-sheet">
    <header className="cs-sheet-head nfl-sheet-head">
-    <div className="cs-sheet-title"><h2><span className="nfl-title-icon"><Icon aria-hidden="true"/></span>{sheet.title}</h2><p>{sheet.blurb}</p>
+    <div className="cs-sheet-title"><span className="cs-sheet-kicker"><span className="cs-icon"><Icon aria-hidden="true"/></span>{sheet.kicker}</span><h2>{sheet.title}</h2><p>{sheet.blurb}</p>
      <small>{data?<>{data.week?`Week ${data.week}`:'This week'}<i>·</i>{upcoming.length} game{upcoming.length===1?'':'s'} to come<i>·</i>updated {time(data.updatedAt)}</>:'Loading…'}</small></div>
     <div className="cs-sheet-actions">
      <button type="button" className="cs-icon-btn" onClick={()=>load(true)} aria-label="Refresh" disabled={state.loading}><RefreshCw data-spin={state.loading?'':undefined} aria-hidden="true"/></button>

@@ -11,14 +11,14 @@ import './cheat-sheets.css';
 // prices come from the lines the Finder already loads.
 
 const SHEETS=[
- {key:'hr',blurb:"Power, matchup and park for every bat on the slate.",title:'HR Props',kicker:'Home run props',icon:Flame,about:'Power hitters ranked for home run props: barrel rate, hard-hit rate and exit velocity, slugging and ISO against today\'s pitcher hand, and the park and weather.'},
- {key:'hot',blurb:"Who's hitting well above their season right now.",title:'Hot Bats',kicker:'Last 14 days',icon:TrendingUp,about:'Hitters running well above their season over the last two weeks: OPS, ISO and average gains, home runs, and a sparkline of their recent total bases.'},
- {key:'matchups',blurb:"Each starter against the lineup he faces.",title:'Pitcher vs Lineup',kicker:'Game by game',icon:Swords,about:'Every starter against the lineup he faces: his splits against lefties and righties, his pitch mix, and each hitter\'s numbers against his hand.'},
- {key:'bvp',blurb:"Career numbers against today's starter.",title:'Batter vs Pitcher',kicker:'Career matchups',icon:Crosshair,about:'Career numbers for today\'s hitters against today\'s starter, with the sample size flagged so a 2-for-3 never passes for a trend.'},
- {key:'nrfi',blurb:"Our first-inning chance and fair odds for every game.",title:'NRFI / YRFI',kicker:'First inning',icon:Target,about:'Each starter\'s scoreless-first-inning rate, each offense\'s first-inning scoring, and our model\'s chance of a scoreless first with fair odds.'},
- {key:'park',blurb:"How each park and today's weather move scoring.",title:'Ballpark & Weather',kicker:'Parks & weather',icon:Sun,about:'How every park and the forecast move runs and home runs today: park factor, temperature, wind blowing in or out, and roofs.'},
- {key:'strikeouts',blurb:"Strikeout projections against today's lineups.",title:'Strikeouts',kicker:'K props',icon:Zap,about:'Starters\' strikeout profiles against the lineup they face: K rate, recent strikeouts, expected innings, the lineup\'s K rate against his hand, and a projection.'},
- {key:'streaks',blurb:"Active hit, on-base and home run streaks.",title:'Streaks',kicker:'Parlay legs',icon:Layers,about:'Active streaks for today\'s hitters: hits, on base, total bases, home runs, walks, steals and strikeouts, longest first.'},
+ {key:'hr',tint:'#FF8A4C',blurb:"Power, matchup and park for every bat on the slate.",title:'HR Props',kicker:'Home run props',icon:Flame,about:'Power hitters ranked for home run props: barrel rate, hard-hit rate and exit velocity, slugging and ISO against today\'s pitcher hand, and the park and weather.'},
+ {key:'hot',tint:'#F2C26B',blurb:"Who's hitting well above their season right now.",title:'Hot Bats',kicker:'Last 14 days',icon:TrendingUp,about:'Hitters running well above their season over the last two weeks: OPS, ISO and average gains, home runs, and a sparkline of their recent total bases.'},
+ {key:'matchups',tint:'#6EA8FF',blurb:"Each starter against the lineup he faces.",title:'Pitcher vs Lineup',kicker:'Game by game',icon:Swords,about:'Every starter against the lineup he faces: his splits against lefties and righties, his pitch mix, and each hitter\'s numbers against his hand.'},
+ {key:'bvp',tint:'#B48CFF',blurb:"Career numbers against today's starter.",title:'Batter vs Pitcher',kicker:'Career matchups',icon:Crosshair,about:'Career numbers for today\'s hitters against today\'s starter, with the sample size flagged so a 2-for-3 never passes for a trend.'},
+ {key:'nrfi',tint:'#3FE39E',blurb:"Our first-inning chance and fair odds for every game.",title:'NRFI / YRFI',kicker:'First inning',icon:Target,about:'Each starter\'s scoreless-first-inning rate, each offense\'s first-inning scoring, and our model\'s chance of a scoreless first with fair odds.'},
+ {key:'park',tint:'#4FD1C5',blurb:"How each park and today's weather move scoring.",title:'Ballpark & Weather',kicker:'Parks & weather',icon:Sun,about:'How every park and the forecast move runs and home runs today: park factor, temperature, wind blowing in or out, and roofs.'},
+ {key:'strikeouts',tint:'#FFD452',blurb:"Strikeout projections against today's lineups.",title:'Strikeouts',kicker:'K props',icon:Zap,about:'Starters\' strikeout profiles against the lineup they face: K rate, recent strikeouts, expected innings, the lineup\'s K rate against his hand, and a projection.'},
+ {key:'streaks',tint:'#FF6FA3',blurb:"Active hit, on-base and home run streaks.",title:'Streaks',kicker:'Parlay legs',icon:Layers,about:'Active streaks for today\'s hitters: hits, on base, total bases, home runs, walks, steals and strikeouts, longest first.'},
 ];
 const SPORTS=[{key:'mlb',label:'MLB'},{key:'nfl',label:'NFL'},{key:'nba',label:'NBA'},{key:'nhl',label:'NHL'}];
 const FAQ={
@@ -318,13 +318,14 @@ function StreaksSheet({data,filter}){
 
 // ---------------------------------------------------------------- page
 
+// Each sheet a card in its own colour: what it is, what it's for, open it.
 function Hub({sheets,onOpen}){
  if(!sheets.length)return <p className="cs-empty">No sheets are open for this league right now.</p>;
- return <div className="cs-grid">{sheets.map((sheet,index)=>{const Icon=sheet.icon;return <button key={sheet.key} type="button" className="cs-tile" onClick={()=>onOpen(sheet.key)} style={{'--i':index}}>
-  <span className="cs-tile-top"><span className="cs-icon"><Icon aria-hidden="true"/></span><ArrowUpRight className="cs-tile-go" aria-hidden="true"/></span>
+ return <div className="cs-grid">{sheets.map((sheet,index)=>{const Icon=sheet.icon;return <button key={sheet.key} type="button" className="cs-tile" onClick={()=>onOpen(sheet.key)} style={{'--i':index,'--sheet':sheet.tint}}>
+  <span className="cs-tile-top"><span className="cs-icon"><Icon aria-hidden="true"/></span><small>{sheet.kicker}</small></span>
   <strong>{sheet.title}</strong>
-  <span>{sheet.blurb}</span>
-  <small>{sheet.kicker}</small>
+  <span className="cs-tile-text">{sheet.blurb}</span>
+  <span className="cs-tile-open">Open<ArrowUpRight aria-hidden="true"/></span>
  </button>;})}</div>;
 }
 
@@ -346,13 +347,14 @@ function SheetView({sheetKey,sheets,onOpen}){
  const listed=['hr','hot','bvp','streaks'].includes(sheet.key);
  const projected=data&&data.games?.length&&data.games.some(item=>!item.confirmed);
  const games=data?.games?.length||0;
- return <div className="cs-view">
-  <nav className="cs-tabs" aria-label="Sheets">{sheets.map(item=>{const ItemIcon=item.icon;return <button key={item.key} type="button" aria-current={item.key===sheet.key?'page':undefined} data-active={item.key===sheet.key?'':undefined} onClick={()=>onOpen(item.key)}>
+ const Icon=sheet.icon;
+ return <div className="cs-view" style={{'--sheet':sheet.tint}}>
+  <nav className="cs-tabs" aria-label="Sheets">{sheets.map(item=>{const ItemIcon=item.icon;return <button key={item.key} type="button" style={{'--tab':item.tint}} aria-current={item.key===sheet.key?'page':undefined} data-active={item.key===sheet.key?'':undefined} onClick={()=>onOpen(item.key)}>
    <ItemIcon aria-hidden="true"/>{item.title}
   </button>;})}</nav>
   <section className="cs-sheet">
    <header className="cs-sheet-head">
-    <div className="cs-sheet-title"><h2>{sheet.title}</h2><p>{sheet.blurb}</p>
+    <div className="cs-sheet-title"><span className="cs-sheet-kicker"><span className="cs-icon"><Icon aria-hidden="true"/></span>{sheet.kicker}</span><h2>{sheet.title}</h2><p>{sheet.blurb}</p>
      <small>{data?<>{dayLabel(data.day)}<i>·</i>{games} game{games===1?'':'s'}<i>·</i>updated {time(data.updatedAt)}</>:'Loading…'}</small></div>
     <div className="cs-sheet-actions">
      <div className="cs-seg" role="tablist" aria-label="Day">{[['today','Today',Sun],['tomorrow','Tomorrow',Moon]].map(([key,label,DayIcon])=><button key={key} type="button" role="tab" aria-selected={day===key} data-active={day===key?'':undefined} onClick={()=>setDay(key)}><DayIcon aria-hidden="true"/>{label}</button>)}</div>
@@ -425,7 +427,7 @@ export function CheatSheets(){
    {sheet?<button type="button" className="cs-back" onClick={()=>go(league,null)}><ArrowLeft aria-hidden="true"/>Cheat Sheets</button>
     :<div className="cs-top-title"><h1>Cheat Sheets</h1><p>{LEAGUE_NOTE[league](sheets.length)}</p></div>}
    <div className="cs-sports" role="tablist" aria-label="Sport">{SPORTS.map(sport=>{const live=Boolean(open[sport.key]?.length);return <button key={sport.key} type="button" role="tab" aria-selected={sport.key===league} data-active={sport.key===league?'':undefined} disabled={!live} onClick={()=>go(sport.key,null)}>
-    {sport.label}{!live&&<small>Soon</small>}
+    <Img className="cs-sport-logo" src={`/leagues/${sport.key}.svg`}/>{sport.label}{!live&&<small>Soon</small>}
    </button>;})}</div>
   </header>
   {sheet?(league==='nfl'?<NflSheetView sheetKey={sheet} sheets={sheets} onOpen={key=>go('nfl',key)}/>:<SheetView sheetKey={sheet} sheets={sheets} onOpen={key=>go('mlb',key)}/>)

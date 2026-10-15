@@ -3,8 +3,6 @@
    these sheets have. Accent for what helps the pick, rose for what hurts. */
 .nfl-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:start}
 .nfl-layout[data-rail]{grid-template-columns:minmax(0,1fr) 296px}
-.nfl-title-icon{display:inline-grid;place-items:center;width:30px;height:30px;margin-right:10px;border-radius:9px;vertical-align:-5px;background:color-mix(in srgb,var(--c-accent) 14%,#121619);color:var(--c-up);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c-accent) 22%,transparent)}
-.nfl-title-icon svg{width:16px;height:16px}
 .nfl-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
 .nfl-controls .cs-chips-row{flex:1 1 320px}
 .nfl-dvp-controls{display:grid;gap:10px}
@@ -195,7 +193,6 @@
  .nfl-rail{position:static;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
 }
 @media (max-width:640px){
- .nfl-title-icon{width:26px;height:26px;margin-right:8px}
  .nfl-controls{flex-direction:column;flex-wrap:nowrap;align-items:stretch}
  .nfl-controls .cs-seg{min-width:0}
  .nfl-control-row{flex-direction:column}
@@ -217,14 +214,14 @@
  .nfl-defenders li{grid-template-columns:auto 1fr auto;row-gap:2px}
  .nfl-defenders li span{grid-column:2;justify-self:start}
  .nfl-mstats-fix{display:none}
- .cs-mstats dd .nfl-two,.cs-mstats dd .nfl-rate,.cs-mstats dd .nfl-rank,.cs-mstats dd .nfl-chance,.cs-mstats dd .nfl-book,.cs-mstats dd .nfl-zone,.cs-mstats dd .nfl-across,.cs-mstats dd .nfl-across>span{justify-items:start;justify-content:start}
- .cs-mstats dd .nfl-book small{justify-self:start}
+ .cs-mstats dd .nfl-two,.cs-mstats dd .nfl-rate,.cs-mstats dd .nfl-rank,.cs-mstats dd .nfl-chance,.cs-mstats dd .nfl-book,.cs-mstats dd .nfl-zone,.cs-mstats dd .nfl-across,.cs-mstats dd .nfl-across>span{justify-items:center;justify-content:center;text-align:center}
+ .cs-mstats dd .nfl-book small{justify-self:center}
  .cs-mstats dd .nfl-book-logo{display:none}
  .cs-mstats dd .nfl-book{grid-template-columns:auto}
  .nfl-sheet-head{position:relative}
- .nfl-sheet-head .cs-sheet-actions{position:absolute;top:0;right:0;width:auto}
+ .nfl-sheet-head .cs-sheet-actions{position:absolute;top:12px;right:12px;width:auto}
  .nfl-sheet-head .cs-sheet-title{padding-right:48px}
- .cs-mstats dd .nfl-bar{justify-content:flex-start}
- .cs-mstats>div:has(.nfl-across),.cs-mstats>div:has(.nfl-pick),.cs-mstats>div:has(.nfl-zone),.cs-mstats>div:has(.nfl-dots),.cs-mstats>div:has(.nfl-pp){grid-column:span 2}
+ .cs-mstats dd .nfl-bar{justify-content:center}
+ .cs-mstats>div:has(.nfl-across),.cs-mstats>div:has(.nfl-pick),.cs-mstats>div:has(.nfl-zone),.cs-mstats>div:has(.nfl-dots),.cs-mstats>div:has(.nfl-pp){flex-basis:calc(200% / var(--cols) - 1px)}
  .cs-mstats dd .nfl-pick{white-space:normal;flex-wrap:wrap}
 }
