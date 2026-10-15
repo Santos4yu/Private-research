@@ -203,7 +203,8 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar::before {
   pointer-events: none;
   transition: height .34s var(--te-ease);
 }
-html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart.is-dragging .gl-bar::before { transition-duration: .07s; }
+/* While the line is dragged the shadows are set every frame with it, never lagging behind. */
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart.is-dragging .gl-bar::before { transition: none !important; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar.gl-bar-under::before { display: none; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar.gl-bar-under {
   background:

@@ -3714,8 +3714,16 @@ function renderGameLogChart() {
           });
         }
       };
-      marker.onpointermove = (ev) => update(ev, false);
+      // One paint per frame: the line and every shadow move together from
+      // the latest pointer position, however fast the finger goes.
+      let pending = null, frame = 0;
+      const stopFrame = () => { if (frame) cancelAnimationFrame(frame); frame = 0; pending = null; };
+      marker.onpointermove = (ev) => {
+        pending = ev;
+        if (!frame) frame = requestAnimationFrame(() => { frame = 0; if (pending) update(pending, false); pending = null; });
+      };
       marker.onpointerup = (ev) => {
+        stopFrame();
         marker.onpointermove = null;
         marker.onpointerup = null;
         gameLogState.dragging = false;
@@ -3723,6 +3731,7 @@ function renderGameLogChart() {
         update(ev, true);
       };
       marker.onpointercancel = marker.onlostpointercapture = () => {
+        stopFrame();
         if (!gameLogState.dragging) return;
         gameLogState.dragging = false;
         holder.classList.remove("is-dragging");
