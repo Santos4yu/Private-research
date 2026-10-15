@@ -195,3 +195,15 @@ test('MLB: tonight\'s starter, not the staff, says how tough the pitching is, in
   assert.match(ks.similar.text, /^Against strikeout-heavy pitching like Blake Snell: /);
   assert.ok(!/soft|tough/.test(ks.similar.text + hits.similar.text));
 });
+
+test('the projection weighs hockey and soccer defenses, worded for goalies and keepers', () => {
+  const skater = matchupRead({sport: 'nhl', opponent: 'EDM', market: 'Shots On Goal', defenseValue: 3.4, defenseRecent: 3.6, defenseAverage: 2.7,
+    defense: 32, defenseTeams: 32, defensePosition: 'C'});
+  assert.ok(skater.factor > 1);
+  assert.equal(skater.text, 'EDM allows 3.4 shots on goal a game to centers, 26% more than average (1st-most)');
+  const goalie = matchupRead({sport: 'nhl', opponent: 'EDM', market: 'Goalie Saves', defenseValue: 31, defenseAverage: 27, defense: 30, defenseTeams: 32, defensePosition: 'G'});
+  assert.equal(goalie.text, 'Goalies average 31 saves a game against EDM, 15% more than average (3rd-most)');
+  const keeper = matchupRead({sport: 'soccer', opponent: 'ARS', market: 'Goalie Saves', defenseValue: 2.1, defenseAverage: 3.3, defense: 1, defenseTeams: 20, defensePosition: 'GK'});
+  assert.ok(keeper.factor < 1);
+  assert.equal(keeper.text, 'Goalkeepers average 2.1 saves a match against ARS, 36% fewer than average (1st-fewest)');
+});

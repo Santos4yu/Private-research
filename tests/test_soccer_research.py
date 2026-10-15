@@ -215,3 +215,43 @@ class MatchTests(Offline):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LeagueTableTest(unittest.TestCase):
+    """What every club on the board gives up a match, by position group."""
+
+    def _log(self, team, conceded_shots, keeper_saves, fwd_shots):
+        game = {
+            "teamStats": {"totalShots": 14, "shotsOnTarget": 5, "possessionPct": 55, "foulsCommitted": 10},
+            "oppStats": {"totalShots": conceded_shots, "shotsOnTarget": 4, "possessionPct": 45, "foulsCommitted": 12},
+            "goals": 2, "against": 1,
+            "players": [{"id": "9", "name": "Star Striker", "pos": "F", "min": 90, "starter": True, "s": {"shots": 5, "sot": 2, "goals": 1}},
+                        {"id": "1", "name": "Home Keeper", "pos": "G", "min": 90, "starter": True, "s": {"saves": 3}}],
+            "oppPlayers": [{"id": "50", "name": "Their Keeper", "pos": "G", "min": 90, "starter": True, "s": {"saves": keeper_saves, "gc": 2}},
+                           {"id": "51", "name": "Their Forward", "pos": "CF-L", "min": 90, "starter": True, "s": {"shots": fwd_shots, "sot": 1}}],
+        }
+        return {"team": {"id": team, "abbr": f"T{team}", "name": f"Team {team}"}, "games": [game, game]}
+
+    def test_league_table_groups_and_ranks(self):
+        logs = {"1": self._log("1", 8, 3, 2), "2": self._log("2", 16, 5, 6)}
+        with patch.object(research, "team_log", side_effect=lambda team, event, league: logs[team]):
+            table = research.league_table([("1", "e1", "eng.1"), ("2", "e1", "eng.1")], budget=5)
+        self.assertTrue(table["complete"])
+        self.assertEqual(table["teamCount"], 2)
+        one, two = table["teams"]["1"], table["teams"]["2"]
+        self.assertEqual(one["abbr"], "T1")
+        self.assertEqual(one["allowed"]["shots"], 8)
+        self.assertEqual(one["allowedRank"]["shots"], 1)
+        self.assertEqual(two["allowedRank"]["shots"], 2)
+        # Keepers facing team 1 made 3 saves a match; its forwards' rivals took 2 shots.
+        self.assertEqual(one["toGroup"]["GK"]["saves"], 3)
+        self.assertEqual(one["toGroup"]["FWD"]["shots"], 2)
+        # Every keeper in every match: their own (3 each time) and the ones facing them (3, 3, 5, 5).
+        self.assertEqual(table["baseline"]["toGroup"]["GK"]["saves"], 3.5)
+        striker = one["players"]["9"]
+        self.assertEqual((striker["apps"], striker["starts"]), (2, 2))
+        self.assertAlmostEqual(striker["shotShare"], 5 / 14 * 100, places=1)
+
+    def test_position_groups(self):
+        self.assertEqual([research.position_group(p) for p in ("G", "CD-L", "DM", "AM-R", "F", "LWB", "SUB")],
+                         ["GK", "DEF", "MID", "MID", "FWD", "DEF", None])

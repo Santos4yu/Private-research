@@ -96,7 +96,10 @@ export function sideChance(mu, variance, line, side, {counts = true} = {}) {
 // ---------------------------------------------------------------- context
 
 const POSITION_NAMES = {G: 'guards', F: 'forwards', C: 'centers', QB: 'QBs', RB: 'RBs', WR: 'WRs', TE: 'TEs', K: 'kickers',
-  FWD: 'forwards', D: 'defensemen', GK: 'goalies'};
+  FWD: 'forwards', MID: 'midfielders', DEF: 'defenders', D: 'defensemen', GK: 'goalkeepers', LW: 'left wings', RW: 'right wings'};
+// A hockey G is a goalie, not a guard.
+const positionName = row => (row.sport === 'nhl' && row.defensePosition === 'G' ? 'goalies' : POSITION_NAMES[row.defensePosition]) || 'the position';
+const DEFENSE_SPORTS = new Set(['wnba', 'nba', 'nfl', 'cfb', 'nhl', 'soccer']);
 const USAGE_NAMES = {wnba: 'Minutes', nba: 'Minutes', soccer: 'Minutes', nhl: 'Ice time'};
 const statWord = row => String(row.market || 'this stat').toLowerCase();
 
@@ -351,17 +354,22 @@ export function matchupGrade(read, side) {
 
 /** What today's opponent does to the stat: a factor on the projection and its words. */
 export function matchupRead(row) {
-  if ((row.sport === 'wnba' || row.sport === 'nba' || row.sport === 'nfl' || row.sport === 'cfb') && finite(row.defenseValue) && finite(row.defenseAverage) && row.defenseAverage > 0) {
+  if (DEFENSE_SPORTS.has(row.sport) && finite(row.defenseValue) && finite(row.defenseAverage) && row.defenseAverage > 0) {
     const allowed = finite(row.defenseRecent) ? 0.65 * row.defenseValue + 0.35 * row.defenseRecent : row.defenseValue;
     const ratio = allowed / row.defenseAverage;
-    const factor = shift(ratio, row.sport === 'nfl' || row.sport === 'cfb' ? 0.3 : 0.4, 0.9, 1.1);
+    // Football and soccer games are few and noisy, hockey's low-scoring: less weight than basketball's.
+    const factor = shift(ratio, row.sport === 'wnba' || row.sport === 'nba' ? 0.4 : 0.3, 0.9, 1.1);
     const gap = Math.round((row.defenseValue / row.defenseAverage - 1) * 100);
     const teams = finite(row.defenseTeams) ? row.defenseTeams : null;
     const most = teams && finite(row.defense) ? teams - row.defense + 1 : null;
     const place = most && most <= teams / 3 ? ` (${ordinal(most)}-most)` : teams && row.defense <= teams / 3 ? ` (${ordinal(row.defense)}-fewest)` : '';
-    const who = POSITION_NAMES[row.defensePosition] || 'the position';
-    return {factor, short: `${gap >= 0 ? '+' : '−'}${Math.abs(gap)}%`, label: `vs ${who}`,
-      text: `${row.opponent} allows ${figure(Math.round(row.defenseValue * 10) / 10)} ${statWord(row)} a game to ${who}, ${Math.abs(gap)}% ${gap >= 0 ? 'more' : 'less'} than average${place}`};
+    const who = positionName(row);
+    const keeper = row.defensePosition === 'GK' || (row.sport === 'nhl' && row.defensePosition === 'G');
+    const value = figure(Math.round(row.defenseValue * 10) / 10), than = `${Math.abs(gap)}% ${gap >= 0 ? 'more' : keeper ? 'fewer' : 'less'} than average${place}`;
+    const unit = row.sport === 'soccer' ? 'a match' : 'a game';
+    const text = keeper ? `${who[0].toUpperCase()}${who.slice(1)} average ${value} ${statWord(row).replace(/^(goalie|goalkeeper)\s+/, '')} ${unit} against ${row.opponent}, ${than}`
+      : `${row.opponent} allows ${value} ${statWord(row)} ${unit} to ${who}, ${than}`;
+    return {factor, short: `${gap >= 0 ? '+' : '−'}${Math.abs(gap)}%`, label: `vs ${who}`, text};
   }
   if (row.sport === 'mlb' && row.hitterMatchup && !String(row.marketKey || '').startsWith('pitching:')) {
     const modeled = hitterModelRead(row);

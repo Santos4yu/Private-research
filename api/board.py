@@ -243,6 +243,15 @@ class handler(BaseHTTPRequestHandler):
                     return self._send(200, soccer_research.match(event, league or None))
                 except Exception:
                     return self._send(502, {"error": "Match data is temporarily unavailable."})
+            if resource == "league":
+                # What every team on today's board does and gives up a match
+                # (soccer_research.league), for the slip's matchup read.
+                try:
+                    import soccer_research
+                    from soccer_board import board as soccer_board
+                    return self._send(200, soccer_research.league(soccer_board().get("rows") or []))
+                except Exception:
+                    return self._send(502, {"error": "Soccer matchup data is temporarily unavailable."})
             try:
                 from soccer_board import board as soccer_board
                 return self._send(200, soccer_board())

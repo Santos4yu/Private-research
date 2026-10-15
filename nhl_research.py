@@ -1115,7 +1115,8 @@ RANK_STATS = (("goals", "Goals"), ("assists", "Assists"), ("points", "Points"), 
               ("fantasy", "Fantasy Score"), ("saves", "Goalie Saves"), ("ga", "Goals Allowed"), ("shots_faced", "Shots Faced"))
 # What a defense allows to each position, by stat.
 DVP_STATS = (("goals", "Goals"), ("assists", "Assists"), ("points", "Points"), ("sog", "Shots on Goal"),
-             ("hits", "Hits"), ("blocked", "Blocked Shots"), ("ppp", "Power Play Points"), ("fow", "Faceoffs Won"),
+             ("attempts", "Shot Attempts"), ("hits", "Hits"), ("blocked", "Blocked Shots"), ("hits_blocks", "Hits + Blocks"),
+             ("ppp", "Power Play Points"), ("pim", "Penalty Minutes"), ("fow", "Faceoffs Won"), ("faceoffs", "Faceoffs Taken"),
              ("fantasy", "Fantasy Score"))
 GOALIE_DVP = (("saves", "Saves"), ("ga", "Goals Allowed"), ("shots_against", "Shots Faced"), ("fantasy", "Fantasy Score"))
 DVP_POSITIONS = ("C", "LW", "RW", "D", "G")
@@ -1248,7 +1249,7 @@ def league(day=None):
                 "dvpStats": {position: [list(item) for item in (GOALIE_DVP if position == "G" else DVP_STATS)] for position in DVP_POSITIONS},
                 "dvpPositions": list(DVP_POSITIONS), "windows": [name for name, _size in WINDOWS],
                 "logos": {code: logo(code) for code in TEAMS}, "complete": True, "builtAt": time.time(), "version": VERSION}
-    return _cached(f"nhl:league:{VERSION}:{season_id(day)}", 3 * 3600, build, keep=lambda value: value["teamCount"] > 0,
+    return _cached(f"nhl:league:{VERSION}.2:{season_id(day)}", 3 * 3600, build, keep=lambda value: value["teamCount"] > 0,
                    stale=3 * 24 * 3600)
 
 

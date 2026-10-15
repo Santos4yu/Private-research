@@ -18,7 +18,7 @@ import re
 import threading
 import time
 import unicodedata
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import datetime, timedelta, timezone
 
 import requests
@@ -685,3 +685,151 @@ def match(event_id, slug=None):
                 "injuries": _injuries(summary),
                 "venue": {"name": venue.get("fullName"), "city": (venue.get("address") or {}).get("city")}}
     return _cached(f"soccer:match:v2:{event_id}", 15 * 60, build)
+
+
+# ---------------------------------------------------------------- league table
+
+# What each team on today's board does and gives up per match, over its last
+# LEAGUE_GAMES matches (soccer_board.py's teams and their opponents): its
+# team numbers for and against, what opposing players at each position put
+# up against it, and its own players' share of its shots. Held against every
+# team-match in those logs (the baseline), for the slip's matchup read.
+LEAGUE_GAMES = 10
+LEAGUE_BUDGET = 40
+TEAM_KEYS = {"shots": "totalShots", "sot": "shotsOnTarget", "corners": "wonCorners", "crosses": "totalCrosses",
+             "fouls": "foulsCommitted", "possession": "possessionPct", "passes": "totalPasses", "offsides": "offsides",
+             "tackles": "totalTackles", "saves": "saves"}
+GROUP_KEYS = ("goals", "ast", "shots", "sot", "saves", "gc", "sotf", "fouls", "fd", "off", "passAtt", "passes", "tackles",
+              "tacklesWon", "clear", "cross", "crossAcc", "touch", "sa", "drib", "int", "blk")
+GROUPS = ("GK", "DEF", "MID", "FWD")
+
+
+def position_group(pos):
+    """A match line's position as GK, DEF, MID or FWD (None when unknown)."""
+    # ESPN writes a side after a dash (CD-L, AM-R); a holding midfielder (DM,
+    # CDM) is a midfielder, not a defender.
+    p = str(pos or "").upper().split("-")[0].strip()
+    for group, names in _POSITION_GROUPS:
+        if p in names:
+            return group
+    return None
+
+
+_POSITION_GROUPS = (
+    ("GK", {"G", "GK", "GOALKEEPER"}),
+    ("DEF", {"D", "DF", "CD", "CB", "LB", "RB", "LWB", "RWB", "SW", "DEFENDER"}),
+    ("MID", {"M", "MF", "CM", "DM", "AM", "LM", "RM", "CDM", "CAM", "MIDFIELDER"}),
+    ("FWD", {"F", "FW", "A", "ST", "CF", "LW", "RW", "LF", "RF", "W", "S", "FORWARD", "ATTACKER", "STRIKER"}),
+)
+
+
+def _group_sums(players):
+    """{group: {stat: total}} for one side's players in one match. A stat no
+    player on the side has a number for (ESPN didn't publish it for that
+    match) is left out rather than counted as zero."""
+    published = {key for player in players or [] for key, value in (player.get("s") or {}).items() if isinstance(value, (int, float))}
+    out = {}
+    for group in GROUPS:
+        at = [player for player in players or [] if position_group(player.get("pos")) == group and (player.get("min") or 0) > 0]
+        out[group] = {key: sum((player.get("s") or {}).get(key) or 0 for player in at) for key in GROUP_KEYS if key in published}
+    return out
+
+
+def _mean_of(values):
+    values = [value for value in values if isinstance(value, (int, float))]
+    return round(sum(values) / len(values), 3) if values else None
+
+
+def league_table(pairs, budget=LEAGUE_BUDGET):
+    """The table for [(team id, event id, league slug)] -- see above."""
+    started = time.time()
+    pool = ThreadPoolExecutor(max_workers=8)
+    futures = {pool.submit(team_log, team, event, league): (team, event, league) for team, event, league in pairs}
+    done, _ = wait(futures, timeout=budget)
+    pool.shutdown(wait=False, cancel_futures=True)
+    teams, complete = {}, True
+    base_team, base_group = {}, {group: {} for group in GROUPS}
+    for future, (team_id, _event, _league) in futures.items():
+        try:
+            log = future.result() if future in done else None
+        except Exception:  # noqa: BLE001 -- one team missing leaves the rest
+            log = None
+        if not log:
+            complete = False
+            continue
+        if team_id in teams:
+            continue
+        games = (log.get("games") or [])[-LEAGUE_GAMES:]
+        if not games:
+            continue
+        allowed, made = {}, {}
+        to_group = {group: {} for group in GROUPS}
+        players = {}
+        for game in games:
+            for key, name in TEAM_KEYS.items():
+                for target, stats in ((allowed, game.get("oppStats") or {}), (made, game.get("teamStats") or {})):
+                    value = _number(stats.get(name))
+                    if value is not None:
+                        target.setdefault(key, []).append(value)
+                        base_team.setdefault(key, []).append(value)
+            for target, value in ((allowed, game.get("against")), (made, game.get("goals"))):
+                if isinstance(value, (int, float)):
+                    target.setdefault("goals", []).append(value)
+                    base_team.setdefault("goals", []).append(value)
+            for side, mine in ((game.get("oppPlayers"), True), (game.get("players"), False)):
+                for group, sums in _group_sums(side).items():
+                    for key, value in sums.items():
+                        if mine:
+                            to_group[group].setdefault(key, []).append(value)
+                        base_group[group].setdefault(key, []).append(value)
+            team_shots = _number((game.get("teamStats") or {}).get("totalShots"))
+            team_sot = _number((game.get("teamStats") or {}).get("shotsOnTarget"))
+            for player in game.get("players") or []:
+                if not (player.get("min") or 0):
+                    continue
+                entry = players.setdefault(player.get("id") or player.get("name"), {"name": player.get("name"), "apps": 0, "starts": 0,
+                                                                                      "min": 0, "shots": 0, "sot": 0, "teamShots": 0, "teamSot": 0})
+                stats = player.get("s") or {}
+                entry["apps"] += 1
+                entry["starts"] += 1 if player.get("starter") else 0
+                entry["min"] += player.get("min") or 0
+                entry["shots"] += stats.get("shots") or 0
+                entry["sot"] += stats.get("sot") or 0
+                entry["teamShots"] += team_shots or 0
+                entry["teamSot"] += team_sot or 0
+        info = log.get("team") or {}
+        teams[team_id] = {
+            "abbr": info.get("abbr"), "name": info.get("name"), "games": len(games),
+            "allowed": {key: _mean_of(values) for key, values in allowed.items()},
+            "made": {key: _mean_of(values) for key, values in made.items()},
+            "toGroup": {group: {key: _mean_of(values) for key, values in sums.items()} for group, sums in to_group.items()},
+            "players": {pid: {"name": entry["name"], "apps": entry["apps"], "starts": entry["starts"],
+                              "min": round(entry["min"] / entry["apps"], 1) if entry["apps"] else None,
+                              "shotShare": round(100 * entry["shots"] / entry["teamShots"], 1) if entry["teamShots"] else None,
+                              "sotShare": round(100 * entry["sot"] / entry["teamSot"], 1) if entry["teamSot"] else None}
+                        for pid, entry in players.items()},
+        }
+    # Rank what each team allows: 1 allows the least.
+    ranks = {}
+    for key in set(base_team) | {"goals"}:
+        values = sorted((team["allowed"].get(key), team_id) for team_id, team in teams.items() if team["allowed"].get(key) is not None)
+        ranks[key] = {team_id: index + 1 for index, (_value, team_id) in enumerate(values)}
+    for team_id, team in teams.items():
+        team["allowedRank"] = {key: table.get(team_id) for key, table in ranks.items() if table.get(team_id)}
+    return {"teams": teams, "teamCount": len(teams),
+            "baseline": {"team": {key: _mean_of(values) for key, values in base_team.items()},
+                         "toGroup": {group: {key: _mean_of(values) for key, values in sums.items()} for group, sums in base_group.items()}},
+            "complete": complete and time.time() - started < budget + 5, "builtAt": time.time()}
+
+
+def league(rows):
+    """The table for today's soccer board rows (soccer_board.py), kept for
+    half an hour once every team's matches are in."""
+    pairs = {}
+    for row in rows or []:
+        event, league_slug = str(row.get("eventId") or ""), row.get("competition") or None
+        for team in (row.get("teamId"), row.get("opponentId")):
+            if valid_id(team) and valid_id(event):
+                pairs.setdefault(str(team), (str(team), event, league_slug))
+    key = "soccer:league:v1:" + datetime.now(timezone.utc).strftime("%Y%m%d%H")
+    return _cached(key, 30 * 60, lambda: league_table(list(pairs.values())), keep=lambda value: bool(value.get("complete")))
