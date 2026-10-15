@@ -192,28 +192,7 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-val {
   text-align: center;
   white-space: nowrap;
 }
-/* Inside a tall bar: the result again, and the stat. */
-html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-inside {
-  position: absolute;
-  top: 9px;
-  left: 0;
-  right: 0;
-  display: grid;
-  justify-items: center;
-  gap: 2px;
-  color: var(--te-mint-ink);
-  pointer-events: none;
-}
-html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-inside b { font: 800 13px/1 var(--font-display); }
-html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-inside small { font: 700 8px/1 var(--font-sans); letter-spacing: .06em; opacity: .7; }
-html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar-under .gl-inside { color: var(--te-miss-ink); }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-margin { display: none !important; }
-/* Phone bars are narrow: the margin runs up the bar instead, without the stat. */
-@media (max-width: 560px) {
-  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-inside { top: 8px; left: 50%; right: auto; writing-mode: vertical-rl; transform: translateX(-50%) rotate(180deg); }
-  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-inside b { font-size: 11.5px; letter-spacing: .02em; }
-  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-inside small { display: none; }
-}
 
 /* Under each bar: the opponent's logo, then the day. */
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-logo {
@@ -247,8 +226,7 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-date i { color: inheri
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-opp { display: none !important; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart-track[data-compact="true"] .gl-logo { width: 18px; height: 18px; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart-track[data-compact="true"] .gl-date,
-html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart-track[data-compact="true"] .gl-val,
-html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart-track[data-compact="true"] .gl-inside { display: none !important; }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart-track[data-compact="true"] .gl-val { display: none !important; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart-track[data-dense="true"] .gl-logo { display: none; }
 
 /* The next game: an open, dashed bar. */
@@ -438,7 +416,6 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart.gl-grow .gl
   animation: te-pop .32s ease-out both;
   animation-delay: calc(var(--i, 0) * 45ms + .42s);
 }
-html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart.gl-grow .gl-inside { animation: te-fade .3s ease-out both; animation-delay: calc(var(--i, 0) * 45ms + .5s); }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart.gl-grow .gl-logo,
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart.gl-grow .gl-date {
   animation: te-rise .4s var(--te-ease) both;

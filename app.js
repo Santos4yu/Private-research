@@ -3603,8 +3603,6 @@ function renderGameLogChart() {
   // Where the line crosses each bar: below it the bar is muted, above it
   // bright, so how far a game cleared it shows at a glance.
   const linePx = Number.isFinite(Number(line)) ? (Number(line) / max) * trackPx : 0;
-  // The stat's short code inside a tall bar ("RUS" for rushing yards).
-  const barCode = String(trendChipName(gameLogState.stat) || "").split(/\s+/)[0].slice(0, 3).toUpperCase();
   games.forEach((g, index) => {
     const col = document.createElement("div");
     col.className = "gl-col";
@@ -3629,7 +3627,6 @@ function renderGameLogChart() {
           ${context == null ? "" : `<div class="gl-bar-context${contextPx - heightPx < 44 ? " is-tight" : ""}" style="height:${contextPx}px" aria-hidden="true"><span>${context}</span></div>`}
           <div class="gl-bar${g.over ? "" : " gl-bar-under"}" style="height:${heightPx}px;--cut:${Math.max(0, Math.min(heightPx, linePx))}px">
             <span class="gl-val">${g.value}</span>
-            ${heightPx - linePx >= 48 && Number.isFinite(Number(line)) ? `<span class="gl-inside" aria-hidden="true"><b>${Number(g.value) - Number(line) >= 0 ? "+" : "−"}${trendNumber(Math.abs(Math.round((Number(g.value) - Number(line)) * 10) / 10))}</b><small>${escapeHtml(barCode)}</small></span>` : ""}
           </div>
           ${details ? `<div class="gl-detail-card" role="tooltip"><header><strong>${escapeHtml(fullDate)}</strong><span>${escapeHtml(g.opponent || "")}</span></header><div class="gl-detail-result">${g.over ? "Cleared" : "Under"} by ${Math.abs(Number(g.value) - Number(gameLogState.line)).toFixed(1)}</div>${tooltipRows}</div>` : ""}
         </div>
