@@ -8,6 +8,7 @@ import {LEAGUE_LOGOS} from './league-logos';
 import {useTeamTint} from './team-tint';
 import './unified-finder.css';
 import './finder-cards.css';
+import './finder-desk.css';
 import {FinderDropdown,FinderDropdownAssets} from './FinderDropdown';
 import {FinderHitRateFilter,FinderMultiSelect,FinderSportMenu} from './FinderMultiSelect';
 import {PickSideMenu} from './PickSideMenu';
