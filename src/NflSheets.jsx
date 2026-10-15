@@ -74,7 +74,8 @@ const rateTone=value=>!finite(value)?undefined:value>=0.6?'good':value<=0.4?'bad
 // ---------------------------------------------------------------- data
 
 const store=new Map();
-async function fetchSheet(sheet,force=false){
+// Kept a few minutes: the hub reads each sheet's #1 from the same request.
+export async function fetchSheet(sheet,force=false){
  const kept=store.get(sheet);
  if(!force&&kept&&Date.now()-kept.at<4*60000)return kept.data;
  const response=await fetch(`/api/board?view=nfl-sheet&sheet=${sheet}`,{credentials:'same-origin',cache:'no-store'});

@@ -219,7 +219,7 @@
  .cs-mstats dd .nfl-book-logo{display:none}
  .cs-mstats dd .nfl-book{grid-template-columns:auto}
  .nfl-sheet-head{position:relative}
- .nfl-sheet-head .cs-sheet-actions{position:absolute;top:12px;right:12px;width:auto}
+ .nfl-sheet-head .cs-sheet-actions{position:absolute;top:0;right:0;width:auto}
  .nfl-sheet-head .cs-sheet-title{padding-right:48px}
  .cs-mstats dd .nfl-bar{justify-content:center}
  .cs-mstats>div:has(.nfl-across),.cs-mstats>div:has(.nfl-pick),.cs-mstats>div:has(.nfl-zone),.cs-mstats>div:has(.nfl-dots),.cs-mstats>div:has(.nfl-pp){flex-basis:calc(200% / var(--cols) - 1px)}

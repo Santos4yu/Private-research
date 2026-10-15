@@ -1,8 +1,9 @@
 import React,{useEffect,useMemo,useState} from 'react';
-import {ArrowDown,ArrowLeft,ArrowUp,ArrowUpRight,ChevronDown,CloudRain,Crosshair,Flame,Home,Info,Layers,Moon,RefreshCw,Search,Sun,Swords,Target,TrendingUp,Zap} from 'lucide-react';
+import {ArrowDown,ArrowLeft,ArrowUp,ChevronDown,ChevronRight,CloudRain,Crosshair,Flame,Home,Info,Layers,Moon,RefreshCw,Search,Sun,Swords,Target,TrendingUp,Zap} from 'lucide-react';
 import {loadLines} from './finder-pool';
 import {finite,nameKey,pct,num,fixed,signed,price,time,dayLabel,tone,initials,Img,Score,Tag,Table,better,Faq,Skeleton} from './cheat-sheet-parts';
-import {NFL_SHEETS,NflSheetView} from './NflSheets';
+import {NFL_SHEETS,NflSheetView,fetchSheet as fetchNflSheet} from './NflSheets';
+import {teaser,teaserValue} from './sheet-teasers';
 import {siteSheetAllowed} from './site-access';
 import './cheat-sheets.css';
 
@@ -318,15 +319,44 @@ function StreaksSheet({data,filter}){
 
 // ---------------------------------------------------------------- page
 
-// Each sheet a card in its own colour: what it is, what it's for, open it.
-function Hub({sheets,onOpen}){
+// Each sheet's #1 right now (sheet-teasers.js), three sheets at a time. The
+// sheets keep what was fetched, so opening one after is instant.
+function useTeasers(league,sheets){
+ const [picks,setPicks]=useState({});
+ useEffect(()=>{
+  let live=true;
+  setPicks({});
+  const load=league==='nfl'?key=>fetchNflSheet(key):key=>fetchSheet(key,'today');
+  const queue=[...sheets];
+  const worker=async()=>{
+   while(live&&queue.length){
+    const sheet=queue.shift();
+    let pick=null;
+    try{pick=teaser(league,sheet.key,await load(sheet.key));}catch{pick=null;}
+    if(live)setPicks(current=>({...current,[sheet.key]:pick}));
+   }
+  };
+  Promise.all(Array.from({length:Math.min(3,queue.length)},worker));
+  return()=>{live=false;};
+ },[league,sheets]);
+ return picks;
+}
+function PickFace({pick}){
+ const src=pick.photo||(pick.id?photo(pick.id):null);
+ const [failed,setFailed]=useState(false);
+ return <span className="lb-hub-face">{src&&!failed?<img src={src} alt="" loading="lazy" onError={()=>setFailed(true)}/>:<b>{initials(pick.name)}</b>}</span>;
+}
+// Every sheet with its #1 today: the best play shows before it's opened.
+function Hub({league,sheets,onOpen}){
+ const picks=useTeasers(league,sheets);
  if(!sheets.length)return <p className="cs-empty">No sheets are open for this league right now.</p>;
- return <div className="cs-grid">{sheets.map((sheet,index)=>{const Icon=sheet.icon;return <button key={sheet.key} type="button" className="cs-tile" onClick={()=>onOpen(sheet.key)} style={{'--i':index,'--sheet':sheet.tint}}>
-  <span className="cs-tile-top"><span className="cs-icon"><Icon aria-hidden="true"/></span><small>{sheet.kicker}</small></span>
-  <strong>{sheet.title}</strong>
-  <span className="cs-tile-text">{sheet.blurb}</span>
-  <span className="cs-tile-open">Open<ArrowUpRight aria-hidden="true"/></span>
- </button>;})}</div>;
+ return <div className="lb-hub">{sheets.map((sheet,index)=>{const Icon=sheet.icon,pick=picks[sheet.key];
+  return <button key={sheet.key} type="button" className="lb-hub-card" style={{'--sheet':sheet.tint,'--i':index}} onClick={()=>onOpen(sheet.key)}>
+   <span className="lb-hub-head"><span className="cs-icon"><Icon aria-hidden="true"/></span><span className="lb-hub-title"><strong>{sheet.title}</strong><small>{sheet.kicker}</small></span><ChevronRight className="lb-hub-go" aria-hidden="true"/></span>
+   {pick===undefined?<span className="lb-hub-pick" data-loading="" aria-label="Loading"><i/><i/></span>
+    :pick?<span className="lb-hub-pick"><span className="lb-hub-one">#1</span><PickFace pick={pick}/><span className="lb-hub-who"><b>{pick.name}</b><small>{pick.detail}</small></span><span className="lb-hub-value">{teaserValue(pick)}</span></span>
+    :<span className="lb-hub-blurb">{sheet.blurb}</span>}
+  </button>;})}</div>;
 }
 
 function SheetView({sheetKey,sheets,onOpen}){
@@ -431,6 +461,6 @@ export function CheatSheets(){
    </button>;})}</div>
   </header>
   {sheet?(league==='nfl'?<NflSheetView sheetKey={sheet} sheets={sheets} onOpen={key=>go('nfl',key)}/>:<SheetView sheetKey={sheet} sheets={sheets} onOpen={key=>go('mlb',key)}/>)
-   :<Hub sheets={sheets} onOpen={key=>go(league,key)}/>}
+   :<Hub league={league} sheets={sheets} onOpen={key=>go(league,key)}/>}
  </div>;
 }
