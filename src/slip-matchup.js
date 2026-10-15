@@ -68,7 +68,11 @@ export async function loadMatchups(sports, {signal, fetcher} = {}) {
   const options = {signal, fetcher};
   const wanted = [...new Set(sports)];
   const pairs = await Promise.all(wanted.map(async sport => {
-    if (sport === 'nba' || sport === 'wnba' || sport === 'nfl') return [sport, await quietly(loadFinderDefense(sport, options))];
+    if (sport === 'nfl') {
+      const [league, scout] = await Promise.all([quietly(loadFinderDefense(sport, options)), quietly(loadNflScout(options))]);
+      return [sport, league || scout ? {...(league || {}), scout} : null];
+    }
+    if (sport === 'nba' || sport === 'wnba') return [sport, await quietly(loadFinderDefense(sport, options))];
     if (sport === 'nhl') return [sport, await quietly(request('/api/board?view=nhl&resource=league', options))];
     if (sport === 'soccer') return [sport, await quietly(request('/api/board?view=soccer&resource=league', options))];
     if (sport === 'cfb') return [sport, await quietly(request('/api/board?view=cfb&resource=league', options))];
@@ -79,6 +83,14 @@ export async function loadMatchups(sports, {signal, fetcher} = {}) {
     return [sport, null];
   }));
   return Object.fromEntries(pairs.filter(([, value]) => value));
+}
+
+// This week's NFL scouting notes (nfl_scouting.py): blitz, pressure, boxes,
+// run defense, each player's splits and usage, read against his opponent.
+function loadNflScout(options) {
+  const today = new Date();
+  const season = today.getUTCFullYear() - (today.getUTCMonth() < 2 ? 1 : 0);
+  return request(`/api/nfl?resource=finder-scout&season=${season}`, options);
 }
 
 /** A line with its league's matchup tables attached (what the analyst reads). */
@@ -316,6 +328,29 @@ const PASSING = new Set(['passing_yards', 'pass_completions', 'passing_attempts'
 const TEAM_ALLOWED = {passing_rushing_yards: ['pass_rush_yards', 'pass + rush yards'], pass_rush_yards: ['pass_rush_yards', 'pass + rush yards'],
   touchdowns: ['rush_rec_tds', 'rushing + receiving TDs'], rush_rec_tds: ['rush_rec_tds', 'rushing + receiving TDs'],
   rushing_tds: ['rushing_tds', 'rushing TDs'], receiving_tds: ['receiving_tds', 'receiving TDs'], longest_reception: ['receiving_yards', 'receiving yards']};
+// The scouting notes a prop reads (nfl_scouting.py FAMILIES and YARDS):
+// yards-only notes (yards a carry, a pass) stay off count props.
+const SCOUT_FAMILIES = {passing_yards: ['passing'], pass_completions: ['passing'], passing_attempts: ['passing'], passing_touchdowns: ['passing'],
+  receptions: ['receiving'], receiving_yards: ['receiving'], targets: ['receiving'], longest_reception: ['receiving'],
+  rushing_yards: ['rushing'], rush_attempts: ['rushing'], rushing_receiving_yards: ['rushing', 'receiving']};
+const SCOUT_YARDS = new Set(['passing_yards', 'receiving_yards', 'rushing_yards', 'rushing_receiving_yards', 'longest_reception']);
+/** His scouting notes against this opponent, as facts: each leans the Over by its weight, up to 12 in all. */
+function scoutFacts(row, sign, scout, market) {
+  const me = scout?.players?.[String(row.playerId)];
+  if (!me || (row.opponent && me.opponent !== row.opponent)) return [];
+  const seen = new Set(), notes = [];
+  for (const family of SCOUT_FAMILIES[market] || []) {
+    for (const note of me.notes?.[family] || []) {
+      if (seen.has(note.key) || (note.yards && !SCOUT_YARDS.has(market))) continue;
+      seen.add(note.key);
+      notes.push(note);
+    }
+  }
+  const net = notes.reduce((sum, note) => sum + note.lean * note.weight * 2.5, 0);
+  const scale = Math.abs(net) > 12 ? 12 / Math.abs(net) : 1;
+  return notes.map(note => fact(note.kind || 'opponent', `scout-${note.key}`, note.text, note.lean * note.weight * 2.5 * scale * sign));
+}
+
 function football(row, sign, league) {
   const out = [];
   const defense = positionDefense(row, sign);
@@ -336,9 +371,11 @@ function football(row, sign, league) {
     out.push(fact('opponent', 'team-defense', `${row.opponent} allows ${one(Math.round(given[0] * 10) / 10)} ${allowed[1]} a game, ${Math.abs(gap)}% ${gap >= 0 ? 'more' : 'less'} than average${place(given[1], teams)}`,
       clamp((ratio - 1) * 80, -18, 18) * sign, {primary: true}));
   }
+  const scouted = row.sport === 'nfl' ? scoutFacts(row, sign, league?.scout, market) : [];
   if (their && (PASSING.has(market) || market === 'interceptions')) {
-    // His pass rush: the sacks their defense makes (off: rank 1 the most).
-    const sacks = their.off?.sacks;
+    // His pass rush: the sacks their defense makes (off: rank 1 the most),
+    // unless the scouting notes have its pressure rate.
+    const sacks = scouted.some(item => item.key === 'scout-pressure') ? null : their.off?.sacks;
     const normal = average('sacks');
     if (sacks && finite(sacks[0]) && normal > 0) {
       const ratio = sacks[0] / normal;
@@ -365,6 +402,7 @@ function football(row, sign, league) {
     out.push(fact('usage', 'share', `Gets ${Math.round(pct)}% of ${row.teamAbbr}'s ${field === 'receptions' ? 'catches' : field}${index === 0 ? ' (most on the team)' : index === 1 ? ' (2nd on the team)' : ''}`,
       clamp((pct - 15) / 3, -3, 5) * sign));
   }
+  out.push(...scouted);
   return out;
 }
 

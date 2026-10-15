@@ -711,9 +711,14 @@ def sheet_best(ctx):
       form      how often he has cleared the line, last 10 and season
       market    the books' chance of the Over, their margin out
 
-    Only defenses that give up more than the league average count. One row
-    per player (his best line), and each game's top row is marked."""
+    The scouting notes (nfl_scouting.py: blitz, pressure, boxes, run
+    defense, his splits and usage) move the score up to 12 either way, and
+    come with the row. Only defenses that give up more than the league
+    average count. One row per player (his best line), and each game's top
+    row is marked."""
+    import nfl_scouting
     season, opponents = ctx["season"], _opponents(ctx["games"])
+    scout = ctx.get("scout")
     league_points = ctx.get("leaguePoints") or 22.0
     found = {}
     for row in ctx["mains"]:
@@ -748,7 +753,12 @@ def sheet_best(ctx):
         parts = [(0.35, _clamp((defense["ratio"] - 0.85) / 0.5, 0, 1)), (0.25, _clamp((edge + 0.1) / 0.35, 0, 1)), (0.25, form)]
         if chance is not None:
             parts.append((0.15, _clamp((chance - 0.4) / 0.25, 0, 1)))
-        score = round(100 * sum(weight * part for weight, part in parts) / sum(weight for weight, _part in parts))
+        spread = game.get("spread")
+        favored = None if spread is None else spread if game["home"] == team else -spread
+        notes = nfl_scouting.for_market(nfl_scouting.notes_for(scout, row.get("playerId"), team, opponent, favored), market) if scout else []
+        score = 100 * sum(weight * part for weight, part in parts) / sum(weight for weight, _part in parts)
+        # The notes move the score up to 12 either way.
+        score = round(_clamp(score + 12 * nfl_scouting.lean_of(notes), 0, 100))
         key = row.get("playerId") or norm(who["name"])
         if key in found and found[key]["score"] >= score:
             continue
@@ -759,6 +769,7 @@ def sheet_best(ctx):
                       "defense": _r(defense["ratio"] - 1, 3), "recent": _r(recent, 1), "projection": _r(projection, 1),
                       "edge": _r(edge, 3), "points": points, "hits": hits, "chance": _r(chance, 3), "books": books,
                       "best": best_price(row), "prices": prices(row), "status": ctx["hurt"].get(row.get("playerId")),
+                      "notes": [{"text": note["text"], "lean": note["lean"] if note["weight"] else 0} for note in notes],
                       "tier": "elite" if score >= 75 else "strong" if score >= 60 else "lean", "score": score, "top": False}
     rows = sorted(found.values(), key=lambda item: (-item["score"], -(item["edge"] or 0)))
     marked = set()
@@ -1375,7 +1386,7 @@ def sheet_speed(ctx):
 BUILDERS = {"best": sheet_best, "td": sheet_td, "firsttd": sheet_firsttd, "streaks": sheet_streaks, "zones": sheet_zones,
             "redzone": sheet_redzone, "speed": sheet_speed, "steam": sheet_steam, "shop": sheet_shop,
             "dvp": sheet_dvp, "soft": sheet_soft, "goblins": sheet_goblins}
-NEEDS = {"best": ("dvp", "lines"), "td": ("pbp", "seasons", "dvp", "lines"), "firsttd": ("pbp", "seasons", "dvp"), "streaks": ("lines",),
+NEEDS = {"best": ("dvp", "lines", "scout"), "td": ("pbp", "seasons", "dvp", "lines"), "firsttd": ("pbp", "seasons", "dvp"), "streaks": ("lines",),
          "zones": ("pbp", "lines"), "redzone": ("pbp", "seasons", "dvp", "lines"), "speed": ("lines",),
          "steam": ("lines",), "shop": ("lines",), "dvp": ("dvp",), "soft": ("dvp", "lines"), "goblins": ("lines",)}
 
@@ -1391,6 +1402,12 @@ def context(season, needs, now=None):
         ctx["seasons"] = player_seasons(rows)
     if "pbp" in needs:
         ctx["pbp"] = pbp_summary(season)
+    if "scout" in needs:
+        try:
+            import nfl_scouting
+            ctx["scout"] = nfl_scouting.table(season)
+        except Exception:  # noqa: BLE001 -- the sheet stands on its other parts
+            ctx["scout"] = None
     if "lines" in needs:
         rows = upcoming(board_rows(season), now)
         ctx["upcoming"], ctx["mains"] = rows, main_lines(rows)

@@ -11,7 +11,7 @@ import './nfl-sheets.css';
 
 export const NFL_SHEETS=[
  {key:'best',tint:'#E26CFF',title:'Best Matchups',kicker:'Top prop each game',icon:Swords,blurb:'The best matchup in every game, at any position.',
-  about:"Every posted line's More side, at any position, read four ways: what his opponent gives up to his position in that stat against the league (its last five games and the season), a projection from his recent games moved by that defense and his team's implied points, how often he has cleared the line (last 10 and season), and the books' chance with their margin taken out. Only defenses that give up more than average count. Each player shows his best line, and each game's top one is marked."},
+  about:"Every posted line's More side, at any position, read four ways: what his opponent gives up to his position in that stat against the league (its last five games and the season), a projection from his recent games moved by that defense and his team's implied points, how often he has cleared the line (last 10 and season), and the books' chance with their margin taken out. Scouting notes then move the score: how often the defense blitzes and pressures the quarterback, the boxes it plays against the run, the yards a carry and a pass it allows, how he does against the blitz or light boxes, his snaps and touches lately, and the spread. Only defenses that give up more than average count. Each player shows his best line, and each game's top one is marked."},
  {key:'td',tint:'#3FE39E',title:'TD Scorers',kicker:'Anytime TD',icon:Trophy,blurb:"Every player's touchdown chance this week, next to the best price.",
   about:"Each team's expected rushing and receiving touchdowns come from its implied points (the spread and total) and the league's touchdowns per point. They're split among the team's healthy players by their share of its touchdowns, red-zone looks and touches this season, nudged toward the positions the defense gives up touchdowns to."},
  {key:'firsttd',tint:'#6EA8FF',title:'First TD',kicker:'Opening drives',icon:Timer,blurb:'Who scores early: first-two-drive touchdowns and the game’s first score.',
@@ -38,6 +38,7 @@ export const NFL_SHEETS=[
 const FAQ={
  best:[['What makes it the best matchup?','The defense gives up more than most to his position in that stat, his projection against it clears the line, he has been clearing it, and the books agree. Each part adds to the score; the defense counts the most.'],
   ['Why only More?','A good matchup is a defense that gives up a lot, so the play is More.'],
+  ['Where do the scouting notes come from?','Every play this season, charted: how many rushers each defense sends, how many it puts in the box, who gets the ball against each look, plus pressures, yards after contact and snap counts. The charting comes out a few days after each week, so the newest games can be missing for a few days.'],
   ['Why is each player listed once?','Each player shows his best line, so one player can’t fill the board. Pick a game to see every matchup in it.']],
  td:[['Why is the chance different from the book?','The book prices in its margin and its own read. Edge is our chance minus the chance the best price implies; a positive edge means the price pays more than our number says it should.'],
   ['Does it count passing touchdowns?','No. A quarterback is listed for touchdowns he runs in himself, the way anytime touchdown props settle.']],
@@ -183,7 +184,7 @@ function BestSheet({data,filter,game}){
    {game==='all'&&<Seg value={view} onChange={setView} label="Show" options={[['games','Best per game'],['all','All matchups']]}/>}
    <Seg value={position} onChange={setPosition} label="Position" options={[['all','All'],...POSITIONS.map(item=>[item,item])]}/>
   </div>
-  <Table rows={rows} empty="No matchups on the board right now." expand={row=><><BestWhy row={row}/><Prices prices={row.prices}/></>} moreLabel="Why and prices" columns={[
+  <Table rows={rows} empty="No matchups on the board right now." expand={row=><><BestWhy row={row}/><Notes notes={row.notes}/><Prices prices={row.prices}/></>} moreLabel="Scouting and prices" columns={[
    {key:'player',label:'Player',className:'cs-sticky',render:row=><Who who={row.who} opponent={row.opponent} startsAt={row.startsAt} status={row.status} tag={tier(row)}/>},
    {key:'pick',label:'Pick',render:row=><Pick line={row.line} label={row.label}/>},
    {key:'proj',label:'Proj',value:row=>row.edge,render:row=><span className="nfl-two"><b>{fixed(row.projection,1)}</b><small>{finite(row.edge)?`${row.edge>0?'+':''}${Math.round(row.edge*100)}% vs line`:''}</small></span>},
@@ -193,6 +194,11 @@ function BestSheet({data,filter,game}){
    {key:'score',label:'Score',value:row=>row.score,render:row=><Score value={row.score} label="Matchup score"/>},
   ]}/>
  </>;
+}
+// The scouting notes (nfl_scouting.py): a dot for which way each leans.
+function Notes({notes}){
+ if(!notes?.length)return null;
+ return <ul className="nfl-notes" aria-label="Scouting notes">{notes.map((note,index)=><li key={index} data-lean={note.lean>0?'up':note.lean<0?'down':'flat'}>{note.text}</li>)}</ul>;
 }
 function BestWhy({row}){
  const l10=row.hits?.l10,szn=row.hits?.szn;

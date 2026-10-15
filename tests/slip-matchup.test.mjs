@@ -79,6 +79,33 @@ test('NFL: a quarterback against a pass rush, a receiver with the target share',
   assert.equal(share.text, "Gets 26% of IND's targets (most on the team)");
 });
 
+test('NFL: the scouting notes read against his opponent this week, yards-only notes on yards props', () => {
+  const note = (key, text, lean, weight, extra = {}) => ({key, kind: 'opponent', text, lean, weight, yards: false, ...extra});
+  const scout = {players: {
+    '00-9': {team: 'SEA', opponent: 'DEN', notes: {
+      receiving: [{...note('blitz-split', 'Gets 24% of targets when the defense blitzes, 8% when it doesn\'t; DEN blitz on 38% of dropbacks, 7th most', 1, 2), kind: 'split'},
+        note('pass-yards-allowed', 'DEN allow 7.9 yards a pass, 3rd most', 1, 1, {yards: true})]}},
+    '00-7': {team: 'ATL', opponent: 'CHI', notes: {passing: [note('pressure', 'CHI pressure the quarterback on 32% of dropbacks, 2nd most', -1, 2)]}}}};
+  const league = {teamCount: 32, teamStats: {CHI: {off: {sacks: [3.4, 2]}, def: {}}}, scout};
+  const te = {sport: 'nfl', player: 'AJ Barner', playerId: '00-9', teamAbbr: 'SEA', opponent: 'DEN', marketKey: 'receptions', market: 'Receptions', line: 2.5, gameLog: []};
+  const read = matchupCase({row: te, side: 'OVER', grade: {records: {}}}, {nfl: league});
+  const blitz = read.facts.find(item => item.key === 'scout-blitz-split');
+  assert.equal(blitz.tone, 'up');
+  assert.equal(blitz.impact, 5);
+  assert.equal(blitz.kind, 'split');
+  assert.ok(!read.facts.some(item => item.key === 'scout-pass-yards-allowed'), 'yards a pass stays off a receptions line');
+  assert.ok(matchupCase({row: {...te, marketKey: 'receiving_yards'}, side: 'OVER', grade: {records: {}}}, {nfl: league}).facts.some(item => item.key === 'scout-pass-yards-allowed'));
+  // On the under the same note counts the other way.
+  assert.equal(matchupCase({row: te, side: 'UNDER', grade: {records: {}}}, {nfl: league}).facts.find(item => item.key === 'scout-blitz-split').impact, -5);
+  // Another opponent (a stale week): no notes.
+  assert.ok(!matchupCase({row: {...te, opponent: 'KC'}, side: 'OVER', grade: {records: {}}}, {nfl: league}).facts.some(item => item.key.startsWith('scout-')));
+  // The pressure rate replaces the sacks line for a quarterback.
+  const qb = {sport: 'nfl', player: 'Michael Penix', playerId: '00-7', opponent: 'CHI', marketKey: 'passing_yards', market: 'Pass Yards', line: 235.5, gameLog: []};
+  const facts = matchupCase({row: qb, side: 'OVER', grade: {records: {}}}, {nfl: league}).facts;
+  assert.equal(facts.find(item => item.key === 'scout-pressure').tone, 'down');
+  assert.ok(!facts.some(item => item.key === 'pass-rush'));
+});
+
 test('NHL: what the defense allows his position; a goalie the shots he will face', () => {
   const cell = (value, rank) => ({l20: [value, rank]});
   const dvp = {EDM: {C: {sog: cell(3.4, 30)}, G: {saves: cell(31, 30)}}, TOR: {C: {sog: cell(2.6, 10)}}, BOS: {C: {sog: cell(2.4, 3)}},
@@ -100,6 +127,7 @@ test('a line gets its league\'s tables, loaded once for the sports on the slip',
   const tables = await loadMatchups(['mlb', 'nfl', 'nfl'], {fetcher});
   assert.deepEqual(Object.keys(tables).sort(), ['mlb', 'nfl']);
   assert.equal(asked.filter(url => /finder-league/.test(url)).length, 1);
+  assert.equal(asked.filter(url => /finder-scout/.test(url)).length, 1, 'the NFL scouting notes come with it');
   const hitter = withMatchups({sport: 'mlb', playerId: 660271, marketKey: 'hitting:hrr', opponentTeamId: 115}, tables);
   assert.equal(hitter.hitterMatchup.grades.other.score, 70);
 });

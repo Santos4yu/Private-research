@@ -249,6 +249,21 @@ class LineSheetTests(unittest.TestCase):
         self.assertGreater(shakir["score"], waddle["score"])
         self.assertIn(shakir["tier"], ("elite", "strong"))
 
+    def test_best_matchups_carry_the_scouting_notes_into_the_score(self):
+        table = {"MIA": {"WR": {"receiving_yards": {"l5": [190.0, 30], "szn": [180.0, 29]}}}}
+        league = {"WR": {"receiving_yards": {"l5": 150.0, "szn": 150.0}}}
+        played = {team: 4 for team in ("MIA", "BUF", *map(str, range(30)))}
+        rows = [board_row("pp:1", "shakir", "receiving_yards", 45.5, [{"key": "prizepicks"}], values=[50, 60, 30, 70, 80, 20, 55, 60, 65, 90])]
+        plain = sheets.sheet_best(self.ctx(rows, (table, league, played)))["rows"][0]
+        ctx = self.ctx(rows, (table, league, played))
+        ctx["scout"] = {"teamCount": 32, "teams": {"MIA": {"def": {"blitz": [0.4, 2], "ypa": [8.1, 3]}, "off": {}}, "BUF": {"def": {}, "off": {}}},
+                        "players": {"shakir": {"team": "BUF", "targetSplit": [0.3, 0.18, 14], "targets": [], "carries": []}}}
+        scouted = sheets.sheet_best(ctx)["rows"][0]
+        self.assertEqual(plain["notes"], [])
+        self.assertEqual([note["lean"] for note in scouted["notes"]], [1, 1])
+        self.assertTrue(scouted["notes"][0]["text"].startswith("MIA allow 8.1 yards a pass, 3rd most"))
+        self.assertGreater(scouted["score"], plain["score"])
+
     def test_goblins_get_the_books_chance_at_their_number(self):
         rows = [board_row("pp:3", "kincaid", "receiving_yards", 19.5,
                           [{"key": "prizepicks"}, {"key": "draftkings", "over": -400}, {"key": "fanduel", "over": -300, "under": 220}],

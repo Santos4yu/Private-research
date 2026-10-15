@@ -90,6 +90,11 @@
 /* Expanded rows */
 .nfl-why{margin:6px 0 0;max-width:820px;color:var(--c-body);font-size:13px;line-height:1.65;white-space:normal}
 .nfl-why b{color:var(--c-text)}
+.nfl-notes{display:grid;gap:7px;max-width:820px;margin:10px 0 2px;padding:0;list-style:none;white-space:normal}
+.nfl-notes li{position:relative;padding-left:17px;color:var(--c-body);font-size:12.5px;line-height:1.5}
+.nfl-notes li::before{content:"";position:absolute;left:2px;top:.5em;width:7px;height:7px;border-radius:50%;background:#5A666D}
+.nfl-notes li[data-lean="up"]::before{background:var(--c-up)}
+.nfl-notes li[data-lean="down"]::before{background:var(--c-down)}
 .nfl-prices{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .nfl-prices>span{display:inline-grid;grid-template-columns:auto auto;align-items:center;column-gap:7px;padding:7px 11px;border-radius:10px;background:var(--c-raised);border:1px solid var(--c-line)}
 .nfl-prices b{font-size:12px;font-weight:650;color:var(--c-text)}

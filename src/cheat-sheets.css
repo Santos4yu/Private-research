@@ -228,7 +228,7 @@
 .cs-table .cs-sticky{position:sticky;left:0;z-index:1;text-align:left;background:var(--c-panel);min-width:240px}
 .cs-table th.cs-sticky{z-index:3}
 .cs-table tbody tr:hover .cs-sticky{background-color:var(--c-hover)}
-.cs-table tr[data-open] td{background:var(--c-hover)}
+.cs-table tr[data-open] td{background-color:var(--c-hover)}
 .cs-chevron{width:40px}
 .cs-chevron svg{width:16px;height:16px;color:var(--c-faint);transition:transform .2s}
 .cs-table tr[data-open] .cs-chevron svg{transform:rotate(180deg)}
