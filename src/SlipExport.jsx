@@ -1,7 +1,7 @@
 import React,{useCallback,useEffect,useRef,useState} from 'react';
 import {ArrowUpRight,Check,ChevronDown,ClipboardPaste,ImageUp,Pencil,RotateCcw,Search,TriangleAlert,X} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
-import {shrink} from './image-shrink';
+import {shrink} from './slip-image';
 import './slip-analyzer.css';
 import './slip-export.css';
 

@@ -8,6 +8,8 @@ import NFLFinderContext from './NFLFinderContext';
 import '../../mlb-finder-context.css';
 import '../wnba/wnba-context.css';
 import './nfl-finder.css';
+import {withLines} from '../../trend-lines';
+
 
 // The NFL player page, on the WNBA and MLB Finder pages' exact layout: the
 // shared trend chart, supporting stats, depth chart, team usage and game log
@@ -43,7 +45,7 @@ function TrendChart({row,playerRows,rows,loading,onStat,chips,chipsNote,onChipRe
  const config=useMemo(()=>({sport:'NFL',player:row.player,teamAbbr:row.teamAbbr||'',teamLogo:row.teamLogo||'',opponent,
   opponentLogo:opponent?`https://static.www.nfl.com/t_q-best/league/api/clubs/logos/${opponent}.svg`:'',matchupLabel:away&&home?`${away} @ ${home}`:'',
   kickoffLabel:row.startsAt?new Date(row.startsAt).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'}):'',status:'Pre-game',headshot:row.headshot||null,
-  stats:statTabs(playerRows),statKey:row.marketKey,stat:row.market,
+  stats:withLines(statTabs(playerRows),playerRows),startsAt:row.startsAt,statKey:row.marketKey,stat:row.market,
   side:row.direction==='UNDER'?'Under':'Over',line:row.line,chart:nflFinderChart(rows,row.marketKey,opponent),lines:nflLineLadder(offers),linesStatus:'ready',
   odds:nflOddsRows(offers),loading,onStat,filters:['seasonKind'],chips,chipsNote,onChipRemove,onChipsClear}),
   [row,rows,loading,onStat,opponent,offers,home,away,chips,chipsNote,onChipRemove,onChipsClear,playerRows]);

@@ -48,6 +48,40 @@ def code(sport, value):
     return ALIASES.get(sport, {}).get(value, value)
 
 
+def photo(sport, ident, team="", starts_at=None):
+    """A player's headshot from his id in the game's box score -- ESPN's for
+    football, basketball and soccer, MLB's and the NHL's own -- or ""."""
+    ident = str(ident or "").strip()
+    if not ident.isdigit():
+        return ""
+    if sport in ("nfl", "nba", "wnba", "soccer"):
+        return f"https://a.espncdn.com/i/headshots/{sport}/players/full/{ident}.png"
+    if sport == "mlb":
+        return f"https://img.mlbstatic.com/mlb-photos/image/upload/w_180,q_auto:best/v1/people/{ident}/headshot/67/current"
+    if sport == "nhl" and team:
+        import nhl_research
+        moment = _time(starts_at)
+        return nhl_research.mug(nhl_research.season_id(moment.date() if moment else None), team, ident)
+    return ""
+
+
+def team_logo(sport, team):
+    """A club's logo from its code, where the league's code is enough: the
+    NFL's own, ESPN's for basketball and baseball, the NHL's own; "" for
+    soccer (its clubs go by ESPN id)."""
+    team = code(sport, team)
+    if not team or not re.fullmatch(r"[A-Z]{2,5}", team):
+        return ""
+    if sport == "nfl":
+        return f"https://static.www.nfl.com/t_q-best/league/api/clubs/logos/{team}.svg"
+    if sport in ("nba", "wnba", "mlb"):
+        return f"https://a.espncdn.com/i/teamlogos/{sport}/500/{team.lower()}.png"
+    if sport == "nhl":
+        import nhl_research
+        return nhl_research.logo(team)
+    return ""
+
+
 def _number(value):
     try:
         number = float(str(value).replace(",", ""))
@@ -234,11 +268,47 @@ def cfb_lines(summary):
             for pid, entry in cfb_research.parse_box(summary)["lines"].items()]
 
 
+def _implied(price):
+    if price is None or abs(price) < 100:
+        return None
+    return 100 / (price + 100) if price > 0 else -price / (-price + 100)
+
+
+def game_odds(home, away, total, home_spread, home_moneyline, away_moneyline):
+    """A game's betting line keyed by the teams' codes: its total, each
+    side's spread and each side's chance to win (the moneylines with the
+    margin taken out). None when there is none of it. The Parlay Builder's
+    prop model reads blowout risk and expected scoring off it."""
+    home_p, away_p = _implied(home_moneyline), _implied(away_moneyline)
+    win = {home: round(home_p / (home_p + away_p), 4), away: round(away_p / (home_p + away_p), 4)} if home_p and away_p else None
+    spread = {home: home_spread, away: -home_spread} if home_spread is not None else None
+    if total is None and spread is None and win is None:
+        return None
+    return {"total": total, "spread": spread, "win": win}
+
+
+def espn_odds(summary, teams):
+    """The pregame line from ESPN's pick center (its spread is the home side's)."""
+    home = next((team for team, side in teams.items() if side["home"]), None)
+    away = next((team for team, side in teams.items() if not side["home"]), None)
+    if not home or not away:
+        return None
+    for entry in summary.get("pickcenter") or []:
+        odds = game_odds(home, away, _number(entry.get("overUnder")), _number(entry.get("spread")),
+                         _number((entry.get("homeTeamOdds") or {}).get("moneyLine")),
+                         _number((entry.get("awayTeamOdds") or {}).get("moneyLine")))
+        if odds:
+            return odds
+    return None
+
+
 def espn_view(sport, summary, item):
     competition = ((summary.get("header") or {}).get("competitions") or [{}])[0]
     view = {"found": True, "id": str((summary.get("header") or {}).get("id") or competition.get("id") or ""),
             **espn_status(competition), "startsAt": competition.get("date"), "teams": _sides(competition, sport),
             "injuries": espn_injuries(summary, sport)}
+    if sport in ("nba", "wnba") and view["state"] == "pre":
+        view["odds"] = espn_odds(summary, view["teams"])
     lines = []
     if view["state"] != "pre":
         try:
@@ -254,7 +324,7 @@ def espn_view(sport, summary, item):
 NHL_STATES = {"FUT": "pre", "PRE": "pre", "LIVE": "in", "CRIT": "in", "FINAL": "post", "OFF": "post"}
 
 
-def nhl_view(box, item, injuries):
+def nhl_view(box, item, injuries, odds=None):
     import nhl_research
     state = NHL_STATES.get(str(box.get("gameState") or "").upper(), "pre")
     period = (box.get("periodDescriptor") or {}).get("number")
@@ -273,7 +343,21 @@ def nhl_view(box, item, injuries):
     return {"found": True, "id": str(box.get("id") or ""), "state": state, "detail": detail, "period": period,
             "clock": clock.get("timeRemaining"), "intermission": bool(clock.get("inIntermission")),
             "completed": state == "post", "off": str(box.get("gameScheduleState") or "OK").upper() not in ("OK", ""),
-            "startsAt": box.get("startTimeUTC"), "teams": teams, "injuries": injuries, "players": _players(item, lines)}
+            "startsAt": box.get("startTimeUTC"), "teams": teams, "injuries": injuries, "odds": odds if state == "pre" else None,
+            "players": _players(item, lines)}
+
+
+def nhl_odds(box):
+    """The NHL game's pregame line from ESPN's scoreboard (nhl_research.py)."""
+    import nhl_research
+    home, away = (nhl_research.canonical((box.get(side) or {}).get("abbrev")) for side in ("homeTeam", "awayTeam"))
+    if not home or not away or not box.get("startTimeUTC"):
+        return None
+    found = nhl_research._odds({"start": box["startTimeUTC"], "home": home, "away": away})
+    if not found:
+        return None
+    return game_odds(code("nhl", home), code("nhl", away), _number(found.get("total")), _number((found.get("home") or {}).get("spread")),
+                     _number((found.get("home") or {}).get("moneyline")), _number((found.get("away") or {}).get("moneyline")))
 
 
 def _nhl(item):
@@ -301,7 +385,13 @@ def _nhl(item):
                                                for entry in nhl_research.injuries(team)]
             except Exception:  # noqa: BLE001
                 pass
-    return nhl_view(box, item, injuries)
+    odds = None
+    if NHL_STATES.get(str(box.get("gameState") or "").upper(), "pre") == "pre":
+        try:
+            odds = nhl_odds(box)
+        except Exception:  # noqa: BLE001 -- the game reads without its line
+            odds = None
+    return nhl_view(box, item, injuries, odds)
 
 
 # ---------------------------------------------------------------- MLB
@@ -435,7 +525,8 @@ def _players(item, lines):
     out = {}
     for person in item.get("players") or []:
         found = find_person(lines, person.get("name"), person.get("id"))
-        out[str(person.get("key"))] = {k: v for k, v in (found or {}).items() if k != "id"} if found else None
+        out[str(person.get("key"))] = {**{k: v for k, v in found.items() if k != "id"},
+                                       "headshot": photo(item.get("sport"), found.get("id"), found.get("team"), item.get("startsAt"))} if found else None
     return out
 
 

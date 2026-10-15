@@ -396,7 +396,7 @@ class handler(BaseHTTPRequestHandler):
             picks = [item["pick"] for item in found if item.get("pick")]
             return self._send(200, {"legs": found, "url": prizepicks_export_core.picks_url(picks)})
         if action == "slip-save":
-            # A graded slip's picks for the site's record, and the slip for its member when they track it (slip_ledger.py).
+            # A graded slip's picks for the ledger (not the site's record), and the slip for its member when they track it (slip_ledger.py).
             try:
                 content_length = int(self.headers.get("Content-Length") or 0)
                 if content_length < 1 or content_length > 32_768:

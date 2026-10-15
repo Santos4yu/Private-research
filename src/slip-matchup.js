@@ -16,10 +16,13 @@
 //   NHL          what the defense allows his position in every stat, the
 //                shots it gives up, the penalties it takes, the shots a
 //                team takes for a goalie, his ice time
-//   Soccer       what the opponent gives up to his position (shots, saves
-//                its keeper forces, passes, tackles...), its shots and
-//                possession, the game's favourite, his starts, minutes and
-//                share of his team's shots (soccer_research.league)
+//   Soccer       what the opponent's recent matches say about the stat
+//                (the shots on target it takes for a keeper, the shots it
+//                gives up for a forward), the ball, the match odds
+//                (soccer-matchup.js); without them, what the opponent gives
+//                up to his position against every club on the board, its
+//                shots and possession (soccer_research.league); and his
+//                starts, minutes and share of his team's shots
 //   Every sport  his playing time lately against before, home/road, his
 //                history against the opponent and his recent form
 //
@@ -31,6 +34,7 @@ import {defenseCell, loadFinderDefense, loadMlbMatchups, loadHitterMatchups, wit
 import {homeToday, matchupRead} from './slip-analyst.js';
 import {newsFacts} from './slip-games.js';
 import {statKeyOf} from './sports/soccer/soccer-stats.js';
+import {soccerText, oddsTilt} from './soccer-matchup.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
@@ -87,8 +91,17 @@ export function withMatchups(row, tables = {}) {
     if (table.hitters) out = withHitterMatchups([out], table.hitters)[0];
     return out;
   }
-  if (row.sport === 'nba' || row.sport === 'wnba' || row.sport === 'nfl' || row.sport === 'cfb') return finite(row.defenseValue) ? row : withDefense([row], table)[0];
-  if (row.sport === 'nhl') return finite(row.defenseValue) ? row : nhlDefense(row, table);
+  if (row.sport === 'nba' || row.sport === 'wnba') {
+    const out = finite(row.defenseValue) ? row : withDefense([row], table)[0];
+    const scoring = scoringOf(row, table.teamStats, team => team?.off?.pts?.[0], team => team?.def?.pts?.[0]);
+    return scoring ? {...out, scoring} : out;
+  }
+  if (row.sport === 'nfl' || row.sport === 'cfb') return finite(row.defenseValue) ? row : withDefense([row], table)[0];
+  if (row.sport === 'nhl') {
+    const out = finite(row.defenseValue) ? row : nhlDefense(row, table);
+    const scoring = scoringOf(row, table.teams, team => team?.off?.goals?.l20?.[0], team => team?.def?.goals?.l20?.[0]);
+    return scoring ? {...out, scoring} : out;
+  }
   if (row.sport === 'soccer') return row.soccerLeague === table ? row : soccerDefense(row, table);
   return row;
 }
@@ -136,6 +149,20 @@ function soccerDefense(row, league) {
   const rank = all.map(([, value]) => value).sort((a, b) => a - b).indexOf(mine) + 1;
   return {...out, defense: rank, defenseTeams: all.length, defenseValue: mine, defenseRecent: null, defenseAverage: average, defensePosition: group,
     allowTable: Object.fromEntries(all.filter(([abbr]) => abbr).map(([abbr, value]) => [abbr, value / average]))};
+}
+
+/**
+ * His team's expected scoring today from both teams' scoring for and
+ * against (`expected`), and a normal team's (`normal`): what the prop
+ * model scales scoring stats by when the game's odds aren't in.
+ */
+function scoringOf(row, teams, scored, allowed) {
+  const own = teams?.[row.teamAbbr], their = teams?.[row.opponent];
+  const all = Object.values(teams || {}).map(scored).filter(finite);
+  if (!own || !their || all.length < 5) return null;
+  const normal = mean(all);
+  const expected = [scored(own), allowed(their)].every(finite) ? (scored(own) + allowed(their)) / 2 : null;
+  return normal > 0 && finite(expected) ? {normal, expected} : null;
 }
 
 // ---------------------------------------------------------------- facts
@@ -418,7 +445,8 @@ const SOCCER_WORDS = {saves: 'saves', gc: 'goals', sotf: 'shots on target', shot
   passAtt: 'passes', passes: 'completed passes', touch: 'touches', tackles: 'tackles', tacklesWon: 'tackles won', int: 'interceptions',
   clear: 'clearances', blk: 'blocked shots', fouls: 'fouls', fd: 'fouls drawn', off: 'offsides', cross: 'crosses', crossAcc: 'accurate crosses',
   sa: 'shots assisted', drib: 'dribbles', ast: 'assists'};
-function soccer(row, sign, league) {
+// The league table's read (soccer_research.league).
+function soccerTable(row, sign, league) {
   const out = [];
   const stat = statKeyOf(row.marketKey);
   const teams = league?.teams || {};
@@ -485,6 +513,37 @@ function samePlayer(a, b) {
   const x = nameWords(a), y = nameWords(b);
   if (!x.length || !y.length) return false;
   return x.join(' ') === y.join(' ') || (x.at(-1) === y.at(-1) && x[0][0] === y[0][0]);
+}
+
+// What the opponent's recent matches say about the stat (soccer-matchup.js),
+// how much of the ball his team should have, and the match odds.
+function soccerRecent(row, sign) {
+  const read = row.soccerMatchup;
+  if (!read) return [];
+  const out = [fact('opponent', 'defense', soccerText(read), clamp((read.ratio - 1) * 90 * read.weight, -22, 22) * sign, {primary: true})];
+  const ball = read.possession;
+  if (ball && read.ball) {
+    // Passes and touches rise with the ball; tackles and clearances with the other side having it.
+    const lean = read.direction >= 0 ? 1 : -1;
+    out.push(fact('opponent', 'possession', `${read.team || 'His team'} should have about ${Math.round(ball.expected)}% of the ball `
+      + `(${Math.round(ball.own)}% on average; ${read.opponent} let teams have ${Math.round(ball.allowed)}%)`,
+    clamp((ball.expected / ball.own - 1) * 60 * lean, -6, 6) * sign));
+  }
+  if (finite(row.winChance) && read.direction) {
+    const tilt = oddsTilt(row, read);
+    const draw = finite(row.drawChance) ? `, ${Math.round(row.drawChance)}% draw` : '';
+    out.push(fact('opponent', 'odds', `${read.team || 'His team'} ${Math.round(row.winChance)}% to win${draw}`, clamp((tilt - 1) * 90, -5, 5) * sign));
+  }
+  return out;
+}
+
+// The opponents' recent matches read the stat when they're in (they are
+// what the prop model weighs); the league table fills in when they aren't,
+// and adds his place in his team either way.
+function soccer(row, sign, league) {
+  const table = soccerTable(row, sign, league);
+  if (!row.soccerMatchup) return table;
+  return [...soccerRecent(row, sign), ...table.filter(item => item.kind === 'usage')];
 }
 
 // Every sport ------------------------------------------------------------
@@ -557,6 +616,13 @@ export function matchupCase(leg, tables = {}) {
   for (const extra of [roleTrend(row, sign), venueSplit(row, sign), headToHead(row, records), recentForm(row, records, leg.side)]) if (extra) facts.push(extra);
   // Is he playing, who's out around him, where he bats (slip-games.js).
   facts.push(...newsFacts(row, leg.side));
+  // What the prop model has already counted (his lineup spot, a teammate's
+  // absence, the game's scoring) is shown but not counted again.
+  const counted = new Set(leg.grade?.read?.model?.used || []);
+  // The prop model's opportunities already carry his playing time.
+  if (leg.grade?.read?.model) counted.add('role-trend');
+  for (const item of facts) if (counted.has(item.key)) item.modelled = true;
+  const impact = item => item.modelled ? 0 : item.impact;
   // In a bigger role today (a backup starting), his own games came in the
   // smaller one: shown for what they are, and not counted.
   if (facts.some(item => item.level === 'role')) {
@@ -575,9 +641,9 @@ export function matchupCase(leg, tables = {}) {
     const over = String(row.marketKey || '').endsWith(':strikeouts') ? 100 - model.score : model.score;
     const sided = sign > 0 ? over : 100 - over;
     const outside = facts.filter(item => item.kind === 'split' && item.key === 'venue' || item.kind === 'form' || item.kind === 'news')
-      .reduce((sum, item) => sum + item.impact, 0);
+      .reduce((sum, item) => sum + impact(item), 0);
     score = sided + outside;
-  } else score = 50 + facts.reduce((sum, item) => sum + item.impact, 0);
+  } else score = 50 + facts.reduce((sum, item) => sum + impact(item), 0);
   score = Math.round(clamp(score, 3, 97));
   const [, label, tone] = BANDS.find(([floor]) => score >= floor);
   // The news first (is he playing), then the opponent, history and splits, then form.

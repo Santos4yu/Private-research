@@ -10,6 +10,8 @@ import '../../mlb-finder-context.css';
 import '../wnba/wnba-context.css';
 import '../nfl/nfl-finder.css';
 import './nhl-player.css';
+import {withLines} from '../../trend-lines';
+
 
 // The NHL player page, on the WNBA / MLB / NFL Finder pages' layout: the
 // shared trend chart, supporting stats, depth chart and game log on the
@@ -35,7 +37,7 @@ function TrendChart({row,playerRows,rows,loading,onStat,chips,chipsNote,onChipRe
  const config=useMemo(()=>({sport:'NHL',player:row.player,teamAbbr:row.teamAbbr||'',teamLogo:row.teamLogo||nhlLogo(row.teamAbbr),opponent,
   opponentLogo:nhlLogo(opponent),matchupLabel:away&&home?`${away} @ ${home}`:'',
   kickoffLabel:row.startsAt?new Date(row.startsAt).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'}):'',status:'Pre-game',headshot:row.headshot||null,
-  stats:statTabs(playerRows),statKey:row.marketKey,stat:row.market,side:row.direction==='UNDER'?'Under':'Over',line:row.line,
+  stats:withLines(statTabs(playerRows),playerRows),startsAt:row.startsAt,statKey:row.marketKey,stat:row.market,side:row.direction==='UNDER'?'Under':'Over',line:row.line,
   chart:nhlChart(rows,row.valueKey,opponent),lines:wnbaLines(playerRows,row.marketKey),linesStatus:'ready',odds:wnbaOdds(playerRows,row.marketKey),
   loading,onStat,filters:['seasonKind','opponent'],chips,chipsNote,onChipRemove,onChipsClear}),
   [row,rows,loading,onStat,opponent,home,away,chips,chipsNote,onChipRemove,onChipsClear,playerRows]);

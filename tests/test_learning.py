@@ -16,9 +16,10 @@ NOW = datetime(2026, 10, 4, 15, 0, tzinfo=timezone.utc)
 
 
 def settled(n, hits, chance, sport="nba", tier="strong", **extra):
-    """n settled picks the model gave `chance`, `hits` of them hits."""
+    """n settled picks today's model gave `chance`, `hits` of them hits."""
     return [("2026-10-01", f"{sport}-{chance}-{i}", {"sport": sport, "tier": tier, "chance": chance, "raw": chance,
-                                                        "result": "hit" if i < hits else "miss", "late": False, **extra})
+                                                        "result": "hit" if i < hits else "miss", "late": False,
+                                                        "model": learning.BASIS, **extra})
             for i in range(n)]
 
 
@@ -66,6 +67,24 @@ class FitTests(unittest.TestCase):
         model = learning.fit(entries, now=NOW)
         self.assertIsNotNone(offset(model, "nba", 0.72))
         self.assertIsNone(offset(model, "nba", 0.6))
+
+    def test_another_models_picks_and_corrections_dont_carry_over(self):
+        # The prop model's leagues: picks graded before it aren't learned from.
+        before = [(d, k, {key: value for key, value in p.items() if key != "model"}) for d, k, p in settled(400, 200, 0.72)]
+        model = learning.fit(before + settled(10, 7, 0.72, sport="nhl"), now=NOW)
+        self.assertEqual(model["picks"], 10)
+        self.assertEqual(model["basis"], learning.BASIS)
+        # Other leagues' picks still count, whichever model graded them.
+        self.assertEqual(learning.fit([(d, k, {**p, "model": 1}) for d, k, p in settled(30, 20, 0.6, sport="nfl")], now=NOW)["picks"], 30)
+        # Yesterday's corrections from the old model start over from none.
+        old = {"version": 1, "groups": {"nba": {"points": [[0.72, -0.15, 400, 0.5]]}, "all": {"points": [[0.72, -0.15, 400, 0.5]]}}}
+        model = learning.fit(settled(10, 7, 0.72), previous=old, now=NOW)
+        self.assertEqual(offset(model, "nba", 0.72), 0.0)
+
+    def test_a_kept_pick_says_which_model_graded_it(self):
+        kept = slip_ledger.clean_pick({**pick(), "model": 2}, NOW)
+        self.assertEqual(kept["model"], 2)
+        self.assertEqual(slip_ledger.clean_pick({**pick(), "model": "x"}, NOW)["model"], 1)
 
     def test_the_tiers_show_what_they_said_and_what_happened(self):
         model = learning.fit(settled(100, 70, 0.75, tier="elite"), now=NOW)
@@ -154,15 +173,16 @@ class LedgerTests(unittest.TestCase):
             learning._memory.clear()
             self.assertIsNotNone(learning.daily(NOW + timedelta(hours=21)))
 
-    def test_members_see_the_parlays_by_grade_with_their_slips(self):
+    def test_members_parlays_stay_off_the_record(self):
+        # The record is only what the admin posts (slip_ledger.RECORD): the
+        # members' parlays are counted for the model, not shown as the record.
         slip_ledger.save("member-a", slip(letter="A", source="builder"), now=NOW)
         with patch.object(learning, "_store", return_value=self.store), patch.dict(learning._memory, clear=True), \
                 patch.object(slip_ledger, "settle", return_value={}):
             learning.daily(NOW)
             shown = slip_ledger.history("member-a", now=NOW)
-        self.assertEqual(shown["record"]["parlayDays"], learning.RECORD_DAYS)
-        # Not settled yet: on the record once its picks are.
-        self.assertEqual(shown["record"]["parlays"]["A"]["slips"], 0)
+        self.assertNotIn("parlays", shown["record"])
+        self.assertEqual(shown["record"]["picks"], 0)
 
 
 if __name__ == "__main__":

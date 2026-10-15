@@ -1,6 +1,9 @@
 /* The public record (src/results-page.js). Ace Props green on near-black. */
 :root{--rp-bg:#090b0d;--rp-card:#121619;--rp-raised:#181e22;--rp-line:#232b30;--rp-text:#f4f7f6;--rp-muted:#9ca5aa;--rp-faint:#737d82;
- --rp-accent:#00f58a;--rp-on-accent:#03140b;--rp-hit:#2fdc8d;--rp-miss:#f16b75;--rp-gold:#f5c66a;color-scheme:dark}
+ --rp-accent:#00f58a;--rp-on-accent:#03140b;--rp-hit:#2fdc8d;--rp-miss:#f16b75;--rp-gold:#f5c66a;color-scheme:dark;
+ /* The running line's green: a step deeper than --rp-hit so the chart sits in
+    the dark lightness band (checked with its miss partner #c4384a, OKLab dE 11.2 deutan). */
+ --rp-hit-mark:#1fae84;--rp-grid:#1d2428;--rp-ease:cubic-bezier(.2,.8,.2,1)}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--rp-bg);color:var(--rp-text);font:400 15px/1.5 'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 body{background:radial-gradient(ellipse at 50% -10%,rgba(0,245,138,.12),transparent 55%),var(--rp-bg);min-height:100dvh}
@@ -16,9 +19,17 @@ body{background:radial-gradient(ellipse at 50% -10%,rgba(0,245,138,.12),transpar
 .rp-eyebrow{margin:0 0 6px;color:var(--rp-accent);font:700 12px 'JetBrains Mono',monospace;letter-spacing:.12em;text-transform:uppercase}
 .rp-hero h1{margin:0;font:800 clamp(34px,7vw,52px)/1.05 'Sora',sans-serif;letter-spacing:-.04em}
 .rp-lede{max-width:520px;margin:12px auto 0;color:var(--rp-muted);font-size:15px}
-.rp-overall{display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:22px}
-.rp-overall strong{font:800 clamp(56px,14vw,84px)/1 'Sora',sans-serif;letter-spacing:-.05em;color:var(--rp-accent)}
-.rp-overall span{color:var(--rp-text);font-weight:600}
+.rp-overall{display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:22px}
+/* The hit rate inside a ring that sweeps round to it. */
+.rp-ring{position:relative;width:min(220px,62vw);aspect-ratio:1}
+.rp-ring svg{display:block;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}
+.rp-ring-track{fill:none;stroke:var(--rp-grid);stroke-width:12}
+.rp-ring-fill{fill:none;stroke:var(--rp-accent);stroke-width:12;stroke-linecap:round;transition:stroke-dashoffset 1.4s var(--rp-ease);filter:drop-shadow(0 0 10px rgba(0,245,138,.35))}
+.rp-ring-text{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.rp-ring-text strong{font:800 clamp(44px,13vw,62px)/1 'Sora',sans-serif;letter-spacing:-.05em;color:var(--rp-accent)}
+.rp-ring-text small{color:var(--rp-muted);font:700 11px 'JetBrains Mono',monospace;letter-spacing:.12em;text-transform:uppercase}
+.rp-record{margin:0;font:700 22px/1.2 'Sora',sans-serif}
+.rp-record em{color:var(--rp-muted);font:600 15px 'Inter',sans-serif;font-style:normal}
 .rp-note{display:inline-block;margin:14px auto 0;padding:6px 12px;border:1px solid rgba(245,198,106,.3);border-radius:999px;background:rgba(245,198,106,.08);color:var(--rp-gold);font-size:12.5px}
 
 .rp-tiers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
@@ -28,35 +39,39 @@ body{background:radial-gradient(ellipse at 50% -10%,rgba(0,245,138,.12),transpar
 .rp-tier-rate{font:800 34px/1.05 'Sora',sans-serif}
 .rp-tier-record{color:var(--rp-muted);font-size:13px}
 .rp-bar{display:block;height:6px;margin-top:6px;border-radius:999px;background:#232b30;overflow:hidden}
-.rp-bar>i{display:block;height:100%;border-radius:inherit;background:var(--rp-accent)}
+.rp-bar>i{display:block;height:100%;border-radius:inherit;background:var(--rp-accent);transition:width 1.2s var(--rp-ease)}
 
 .rp-section{margin-top:26px}
 .rp-section h2,.rp-join h2{margin:0 0 12px;font:700 18px 'Sora',sans-serif;letter-spacing:-.01em}
-.rp-sports{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
-.rp-sport{display:grid;grid-template-columns:22px 1fr auto;align-items:center;gap:4px 8px;padding:12px;border:1px solid var(--rp-line);border-radius:14px;background:var(--rp-card)}
-.rp-sport img{width:22px;height:22px;object-fit:contain;grid-row:span 2}
+.rp-sports{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.rp-sport{display:grid;grid-template-columns:28px 1fr auto;align-items:center;gap:2px 10px;padding:12px;border:1px solid var(--rp-line);border-radius:14px;background:var(--rp-card)}
+.rp-sport img{width:28px;height:28px;object-fit:contain;grid-row:span 2}
+.rp-sport .rp-bar{grid-column:1/-1;height:4px;margin-top:8px}
 .rp-sport-name{font-weight:700;font-size:13px}
-.rp-sport b{font:800 16px 'Sora',sans-serif;grid-row:span 2}
-.rp-sport small{color:var(--rp-faint);font-size:11.5px}
+.rp-sport b{font:800 16px 'Sora',sans-serif}
+.rp-sport small{color:var(--rp-faint);font-size:11.5px;grid-column:2/-1;white-space:nowrap}
 
-.rp-daily{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px;padding:14px 12px 10px;border:1px solid var(--rp-line);border-radius:16px;background:var(--rp-card)}
-.rp-day{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0}
-.rp-day-bars{display:flex;align-items:flex-end;gap:2px;width:100%;height:110px}
-.rp-day-bars i{flex:1;min-height:0;border-radius:4px 4px 0 0}
-.rp-day small{color:var(--rp-faint);font-size:10.5px;white-space:nowrap}
-i.rp-hit{background:var(--rp-hit)}
-i.rp-miss{background:var(--rp-miss)}
-.rp-legend{display:flex;align-items:center;gap:6px;margin:8px 0 0;color:var(--rp-muted);font-size:12px}
-.rp-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-left:8px}
-.rp-legend i:first-child{margin-left:0}
+.rp-section-head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:4px 12px;margin-bottom:12px}
+.rp-section-head h2{margin:0}
+.rp-section-head p{margin:0;color:var(--rp-faint);font-size:12.5px}
+.rp-card{padding:14px 12px 10px;border:1px solid var(--rp-line);border-radius:16px;background:var(--rp-card)}
 
 .rp-picks{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
-.rp-pick{display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--rp-line);border-radius:14px;background:var(--rp-card)}
-.rp-face{position:relative;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--rp-raised);overflow:hidden;color:var(--rp-muted);font:700 12px 'Sora',sans-serif}
-.rp-face img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.rp-pick{display:grid;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--rp-line);border-radius:14px;background:var(--rp-card)}
+/* The player's photo, his initials beneath until it loads, his team's logo on its corner. */
+.rp-face-wrap{position:relative;width:48px;height:48px}
+.rp-face{position:relative;display:grid;place-items:center;width:48px;height:48px;border-radius:50%;background:radial-gradient(circle at 50% 28%,#26313a,#141a1e 70%);overflow:hidden;color:var(--rp-muted);font:700 13px 'Sora',sans-serif}
+.rp-face img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 15%}
+.rp-has-photo>i{visibility:hidden}
+.rp-face-team{position:absolute;right:-4px;bottom:-4px;width:22px;height:22px;padding:2px;border:1px solid var(--rp-line);border-radius:50%;background:var(--rp-bg);object-fit:contain}
+.rp-matchup{display:flex!important;align-items:center;flex-wrap:wrap;gap:3px 5px;white-space:normal!important;margin-top:2px}
+.rp-team{display:inline-flex;align-items:center;gap:4px;color:var(--rp-muted);font-weight:600}
+.rp-logo{width:16px;height:16px;object-fit:contain}
+.rp-vs{color:var(--rp-faint)}
+.rp-team+.rp-meta{flex-basis:100%}
 .rp-pick-main{display:flex;flex-direction:column;min-width:0}
 .rp-pick-main b{font-size:14px}
-.rp-pick-main span{color:var(--rp-text);font-size:13px}
+.rp-pick-main>span{color:var(--rp-text);font-size:13px}
 .rp-pick-main small{overflow:hidden;color:var(--rp-faint);font-size:11.5px;white-space:nowrap;text-overflow:ellipsis}
 .rp-pick-result{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
 .rp-chip{padding:4px 10px;border-radius:999px;font:700 12px 'Inter',sans-serif}
@@ -74,6 +89,57 @@ i.rp-miss{background:var(--rp-miss)}
 
 @media (max-width:420px){
  .rp-tier-rate{font-size:28px}
- .rp-daily{gap:3px;padding:12px 8px 8px}
- .rp-day small{font-size:9.5px}
+ .rp-card{padding:12px 8px 8px}
 }
+/* A slip: its picks together, won or lost. */
+.rp-slip{display:flex;flex-direction:column;gap:8px;padding:10px;border:1px solid var(--rp-line);border-radius:16px;background:var(--rp-raised)}
+.rp-slip-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:2px 4px}
+.rp-stack{display:flex;padding-left:8px}
+.rp-face.rp-face-mini{width:30px;height:30px;margin-left:-8px;border:2px solid var(--rp-raised);font-size:10px}
+.rp-slip-head div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.rp-slip-head b{font-size:14px}
+.rp-slip-head small{color:var(--rp-faint);font-size:11.5px}
+.rp-slip[data-status=won]{border-color:rgba(47,220,141,.35)}
+.rp-slip[data-status=won]>.rp-slip-head .rp-chip{background:rgba(47,220,141,.14);color:var(--rp-hit)}
+.rp-slip[data-status=lost]>.rp-slip-head .rp-chip{background:rgba(241,107,117,.14);color:var(--rp-miss)}
+.rp-slip .rp-pick{background:var(--rp-card)}
+.rp-pick:not([data-result=hit]):not([data-result=miss]) .rp-chip{background:var(--rp-raised);color:var(--rp-muted)}
+.rp-slips{margin:10px 0 0;color:var(--rp-muted);font-size:14px;text-align:center}
+.rp-slips b{color:var(--rp-text)}
+
+/* The running record: hits minus misses so far, a line that writes itself. */
+.rp-run{min-height:210px;border-radius:8px;outline:none}
+.rp-run:focus-visible{box-shadow:0 0 0 2px var(--rp-accent)}
+.rp-run svg{display:block;touch-action:pan-y}
+.rp-run-line{fill:none;stroke:var(--rp-hit-mark);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.rp-run-area{fill:var(--rp-hit-mark);fill-opacity:.1}
+.rp-run-end,.rp-run-dot{fill:var(--rp-hit-mark);stroke:var(--rp-card);stroke-width:2}
+.rp-run-label{fill:var(--rp-text);font:700 14px 'Sora',sans-serif}
+.rp-run-grid{stroke:var(--rp-grid);stroke-width:1}
+.rp-run-zero{stroke:#2c363c;stroke-width:1}
+.rp-run-axis{fill:var(--rp-faint);font:500 11px 'Inter',sans-serif;font-variant-numeric:tabular-nums}
+.rp-run-cross{stroke:var(--rp-muted);stroke-width:1}
+.rp-run-go .rp-run-line{transition:stroke-dashoffset 1.6s cubic-bezier(.35,.6,.2,1)}
+.rp-run-go .rp-run-area{transition:opacity .7s ease 1.1s}
+.rp-run-go .rp-run-end{transition:opacity .3s ease 1.55s}
+.rp-run-go .rp-run-label{transition:opacity .3s ease 1.65s}
+
+/* One tooltip for every chart: the value first, then what it is. */
+.rp-tip{position:fixed;z-index:20;display:grid;gap:1px;max-width:220px;padding:8px 11px;border:1px solid var(--rp-line);border-radius:10px;background:rgba(15,19,22,.96);box-shadow:0 10px 30px rgba(0,0,0,.45);pointer-events:none;font-size:12px;color:var(--rp-muted)}
+.rp-tip[hidden]{display:none}
+.rp-tip b{color:var(--rp-text);font:700 15px 'Sora',sans-serif}
+
+/* Every chart's numbers, for anyone who'd rather read them. */
+.rp-table{margin-top:8px;font-size:13px}
+.rp-table summary{width:max-content;color:var(--rp-muted);cursor:pointer;font-size:12.5px;list-style:none;text-decoration:underline;text-decoration-color:var(--rp-line);text-underline-offset:3px}
+.rp-table summary::-webkit-details-marker{display:none}
+.rp-table summary:hover{color:var(--rp-text)}
+.rp-table table{width:100%;margin-top:8px;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.rp-table th{color:var(--rp-faint);font-weight:600;text-align:left}
+.rp-table th,.rp-table td{padding:6px 8px;border-bottom:1px solid var(--rp-grid)}
+
+/* Results slide up into place as they scroll in. */
+.rp-reveal{opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .6s var(--rp-ease)}
+.rp-reveal.rp-in{opacity:1;transform:none}
+
+@media (prefers-reduced-motion:reduce){.rp *,.rp *::before,.rp *::after{transition:none!important;animation:none!important}}

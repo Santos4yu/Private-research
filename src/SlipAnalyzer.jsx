@@ -2,7 +2,7 @@ import React,{useCallback,useEffect,useId,useMemo,useRef,useState} from 'react';
 import {ArrowRight,BookmarkPlus,Check,ChevronDown,ClipboardPaste,Crosshair,Crown,ImageUp,Link2,Pencil,Plus,Radio,Repeat2,RotateCcw,Search,Share2,ShieldCheck,Trash2,TriangleAlert,Unlink,X} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import {siteFinderSportAllowed,siteIsAdmin} from './site-access';
-import {finderSlipProp} from './unified-finder-data';
+import {finderSlipProp,loadSoccerOpponents,within} from './unified-finder-data';
 import {loadLines,ENRICH} from './finder-pool';
 import {candidates} from './smart-slip';
 import {SLIP_SPORTS,SPORT_NAMES,TIERS,LETTERS,checkLeg,scoreEntry,verdict,swaps,sideWord,offeredStats,judge,regrade,saferPick} from './slip-check';
@@ -15,18 +15,17 @@ import {lookupRow} from './slip-lookup';
 import {loadGames,loadTeammates,withGame,newsOf,liveRead,anyLive} from './slip-games';
 import {MatchupCase} from './MatchupCase';
 import {opponentLogo,teamLogo,useCount,Img,Face,TierBadge,Records,Meter,Games,AnalystRead} from './PickParts';
-import {shareSlip} from './slip-share';
+import {shareCard} from './slip-share';
 import {Record,History,hasRecord} from './SlipHistory';
 import {newSlipId,slipPayload,saveSlip,removeSlip,loadHistory} from './slip-history';
 import {pickBuilder} from './pick-builder-client';
-import {shrink} from './image-shrink';
+import {READ_URL,shrink} from './slip-image';
 import './slip-analyzer.css';
 
 // The Slip Analyzer (the Slip Analyzer tab): a screenshot of a slip goes
 // to the server to be read (slip_reader.py); its legs are matched to the
 // Finder's lines and graded here (slip-check.js), and any leg can be fixed
 // by hand if it was misread.
-const READ_URL='/api/prediction?action=slip-analyzer';
 const STEPS=['Reading your slip','Finding the players','Checking the matchups','Grading the parlay'];
 const MODIFIER_ICON={goblin:'/prizepicks/goblin.png',demon:'/prizepicks/demon.png'};
 const TYPE_NAMES={power:'Power Play',flex:'Flex Play',parlay:'Parlay'};
@@ -242,7 +241,7 @@ function Explain({score}){
  </div>;
 }
 
-function Parlay({score,slip,legs,pool,onSwap,onSaveAll,onNew,onShare,sharing,shot,tracked,onTrack,tracking}){
+function Parlay({score,slip,legs,pool,onSwap,onSaveAll,onNew,onShare,sharing,shot,tracked,onTrack,tracking,onPost,posting,posted}){
  const options=useMemo(()=>swaps(legs,pool),[legs,pool]);
  const [open,setOpen]=useState(false);
  const n=legs.length;
@@ -315,8 +314,12 @@ function Parlay({score,slip,legs,pool,onSwap,onSaveAll,onNew,onShare,sharing,sho
    {onTrack&&<button type="button" className="sa-btn sa-track" onClick={onTrack} disabled={tracking} aria-pressed={tracked}
     title={tracked?'Tracking this slip in Your tracked slips. Tap to stop.':'Played it? Track it to see how it finishes.'}>
     {tracked?<Check size={15}/>:<BookmarkPlus size={15}/>}{tracked?'Tracking':'Track slip'}</button>}
+   {onPost&&<button type="button" className="sa-btn sa-track sa-post" onClick={onPost} disabled={posting||Boolean(posted?.added)} aria-pressed={Boolean(posted?.added)}
+    title="Admin: put these picks on the site's record (Admin › Record)">
+    {posted?.added?<Check size={15}/>:<Crown size={15}/>}{posting?'Posting…':posted?.added?'On the record':'Post to record'}</button>}
    {score&&onShare&&<button type="button" className="sa-btn" onClick={onShare} disabled={sharing}><Share2 size={15}/>{sharing?'Making…':'Share'}</button>}
    <button type="button" className="sa-btn" onClick={onNew}><RotateCcw size={15}/>New slip</button>
+   {posted?.message&&<p className="sa-post-note" role="status">{posted.message}</p>}
    {shot&&<details className="sa-shot-peek"><summary><ImageUp size={14}/>Your screenshot<ChevronDown size={14}/></summary><img src={shot.url} alt="Your screenshot"/></details>}
   </div>
  </section>;
@@ -348,6 +351,9 @@ export function SlipAnalyzer(){
  const [tracking,setTracking]=useState(false);
  const [canTrack,setCanTrack]=useState(false);
  const markTracked=value=>{trackedRef.current=value;setTracked(value);};
+ // The admin's own slips go on the site's record (slip_ledger.record_add); nobody else's do.
+ const [posting,setPosting]=useState(false);
+ const [posted,setPosted]=useState(null);
  const boards=useRef({});
  const control=useRef(null);
  const host=useRef(null);
@@ -403,7 +409,7 @@ export function SlipAnalyzer(){
   const job=new AbortController();control.current=job;const {signal}=job;
   setShot(old=>{if(old?.url)URL.revokeObjectURL(old.url);return file?{url:URL.createObjectURL(file)}:null;});
   setPhase('reading');setStep(0);setError('');setDetail('');setLegs([]);setSlip(null);setEditing(null);setPool([]);setSaved(new Set());
-  games.current={};mates.current={};slipId.current=newSlipId();savedSig.current='';markTracked(false);
+  games.current={};mates.current={};slipId.current=newSlipId();savedSig.current='';markTracked(false);setPosted(null);
   const sports=SLIP_SPORTS.filter(siteFinderSportAllowed);
   // Today's lines load while the screenshot is read.
   const loading=Object.fromEntries(sports.map(sport=>[sport,loadLines(sport,{signal,only:()=>false}).catch(()=>[])]));
@@ -427,6 +433,8 @@ export function SlipAnalyzer(){
    // The lines read as the Parlay Builder reads them: the matchup tables,
    // then what each opponent gave up to players like him where a league
    // has no table (slip-analyst.js), so both grade a pick the same.
+   // Soccer's opponent reads need each opponent's recent matches (soccer-matchup.js).
+   if(rows.soccer?.length)await within(loadSoccerOpponents(rows.soccer,{signal}),8000).catch(error=>{if(error.name==='AbortError')throw error;});
    for(const sport of Object.keys(rows))rows[sport]=withPoolDefense((rows[sport]||[]).map(row=>withMatchups(row,found)));
    boards.current=rows;tables.current=found;
    await pause(calm()?0:350,signal);
@@ -501,8 +509,12 @@ export function SlipAnalyzer(){
  const shareIt=async()=>{
   if(!score)return;
   setSharing(true);
-  try{await shareSlip({score,legs,headline:HEADLINES[score.letter],kind:[slip.app?.name,`${legs.length}-Pick ${TYPE_NAMES[score.type]||'Parlay'}`].filter(Boolean).join(' · '),
-   side:leg=>sideWord(leg.side,slip.app)});}
+  // The slip card (slip-share.js), each pick's line as the app shows it; a pick the board didn't have keeps what was read.
+  try{await shareCard({letter:score.letter,appLogo:appLogo(slip.app?.key),source:'SLIP ANALYZER',
+   kind:`${legs.length}-pick ${(TYPE_NAMES[score.type]||'Parlay').replace(' Play','')}`,tagline:'Every pick graded on its matchup, recent games and the news',
+   legs:legs.map(leg=>({player:leg.row?.player||leg.player,team:leg.row?.teamAbbr||leg.team,position:leg.row?.position,sport:leg.row?.sport||leg.sport,
+    headshot:leg.row?.headshot,teamLogo:teamLogo(leg.row),side:leg.side,line:leg.line??leg.row?.line,stat:leg.stat||leg.row?.market,
+    modifier:leg.modifier||leg.row?.modifier}))});}
   finally{setSharing(false);}
  };
  const reset=()=>{control.current?.abort();games.current={};mates.current={};setPhase('pick');setLegs([]);setSlip(null);setError('');};
@@ -523,6 +535,24 @@ export function SlipAnalyzer(){
    setHistoryTick(tick=>tick+1);
   }catch{/* the button stays as it was */}
   finally{setTracking(false);}
+ };
+ // A pick changed after posting (fixed, swapped, regraded): it can be posted again.
+ const postSig=JSON.stringify(legs.map(leg=>[leg.row?.player,leg.side,leg.line,leg.grade?.tier]));
+ useEffect(()=>{setPosted(null);},[postSig]);
+ const postIt=async()=>{
+  if(!score||!slip||posting)return;
+  const picks=slipPayload(slipId.current,slip,legs,score).picks;
+  if(!picks.length){setPosted({message:'Nothing graded to post yet.'});return;}
+  setPosting(true);
+  try{
+   const response=await fetch('/api/v2-admin',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'record-add',id:slipId.current,appName:slip.app?.name||'',picks})});
+   const data=await response.json().catch(()=>({}));
+   if(!response.ok)throw new Error(data.error||'The record couldn\'t be updated.');
+   const started=data.started?` ${data.started} already started, so not posted: add finished plays in Admin › Record.`:'';
+   setPosted({added:data.added,message:data.added?`Posted ${data.added} pick${data.added===1?'':'s'} to the record.${started}`:`Nothing posted.${started}`});
+  }catch(err){setPosted({message:err.message});}
+  finally{setPosting(false);}
  };
  // Off the list from Your tracked slips (the one on screen too, when it's this one).
  const untrack=async id=>{
@@ -602,7 +632,8 @@ export function SlipAnalyzer(){
      {!changes.same&&!changes.items.length&&<small>The lines and news are the same, so the grade moved with the latest numbers.</small>}</div>
    </div>}
    <Parlay score={score} slip={slip} legs={legs} shot={shot} pool={pool} onSwap={swapIn} onSaveAll={saveAll} onNew={reset}
-    onShare={shareIt} sharing={sharing} tracked={tracked} tracking={tracking} onTrack={canTrack?trackIt:null}/>
+    onShare={shareIt} sharing={sharing} tracked={tracked} tracking={tracking} onTrack={canTrack?trackIt:null}
+    onPost={siteIsAdmin()?postIt:null} posting={posting} posted={posted}/>
    {slip.source==='text'&&<p className="sa-heads-up"><TriangleAlert size={14}/>This slip was read from its text, so double-check each {sideWord('OVER',slip.app)} and {sideWord('UNDER',slip.app)}.</p>}
    <div className="sa-props-head"><h2>The picks</h2><span>{legs.length} pick{legs.length===1?'':'s'}</span></div>
    <div className="sa-props" data-count={legs.length}>

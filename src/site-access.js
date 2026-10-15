@@ -3,6 +3,7 @@ import {serviceRequestError} from './storage-retry.js';
 import {accessGranted,needsSubscription,accountControlsVisible,canUseTab,availableTab,canUseSport,canUseFinderSport,canUseSheet,hiddenTabs,ADMIN_TABS,FINDER_SPORTS,CHEAT_SHEETS} from './site-access-core.js';
 import {mountMembersPanel,memberBadge} from './site-members.js';
 import {mountAnnouncePanel} from './site-announce.js';
+import {mountRecordPanel} from './site-record.js';
 import {renderPricing} from './billing.js';
 import {mountSubscribersPanel} from './site-subscribers.js';
 import {accountProfile,saveAccountProfile} from './account-sync.js';
@@ -512,6 +513,7 @@ export async function loadSiteControls(){
    +'<button type="button" class="site-tab" data-panel-tab="members" role="tab" aria-selected="false">Members</button>'
    +'<button type="button" class="site-tab" data-panel-tab="subscribers" role="tab" aria-selected="false">Subscribers</button>'
    +'<button type="button" class="site-tab" data-panel-tab="announce" role="tab" aria-selected="false">Announce</button>'
+   +'<button type="button" class="site-tab" data-panel-tab="record" role="tab" aria-selected="false">Record</button>'
   +'</div>'
   +'<form>'
    +'<div class="site-tab-panel" data-panel="general">'
@@ -553,17 +555,19 @@ export async function loadSiteControls(){
   // Members saves person by person, so it sits outside the settings form.
   +'<div class="site-tab-panel site-members-panel" data-panel="members" hidden></div>'
   +'<div class="site-tab-panel site-subscribers-panel" data-panel="subscribers" hidden></div>'
-  +'<div class="site-tab-panel site-announce-panel" data-panel="announce" hidden></div>';
+  +'<div class="site-tab-panel site-announce-panel" data-panel="announce" hidden></div>'
+  +'<div class="site-tab-panel site-record-panel" data-panel="record" hidden></div>';
  const tabs=[...host.querySelectorAll('.site-tab')],panels=[...host.querySelectorAll('.site-tab-panel')];
  tabs.forEach(tab=>tab.addEventListener('click',()=>{
   tabs.forEach(t=>t.setAttribute('aria-selected',String(t===tab)));
   panels.forEach(p=>{p.hidden=p.dataset.panel!==tab.dataset.panelTab;});
   const panel=tab.dataset.panelTab;
-  // Members and Announce save on their own, outside the settings form.
-  host.querySelector('form').hidden=panel==='members'||panel==='announce'||panel==='subscribers';
+  // Members, Announce and Record save on their own, outside the settings form.
+  host.querySelector('form').hidden=panel==='members'||panel==='announce'||panel==='subscribers'||panel==='record';
   if(panel==='members')mountMembersPanel(host.querySelector('.site-members-panel'),{request,names});
   if(panel==='announce')mountAnnouncePanel(host.querySelector('.site-announce-panel'),{request});
   if(panel==='subscribers')mountSubscribersPanel(host.querySelector('.site-subscribers-panel'),{request});
+  if(panel==='record')mountRecordPanel(host.querySelector('.site-record-panel'),{request});
  }));
  const form=host.querySelector('form');for(const [key,title] of Object.entries({maintenance:'Maintenance mode — members cannot use the website',requireLogin:'Require email account to access research',registrationOpen:'Allow new account registrations',paidAccess:'Require a paid subscription (Whop) — members subscribe before using the website'})){const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.name=key;input.checked=policy[key];label.append(input,document.createTextNode(title));host.querySelector('.site-control-switches').append(label);}
  form.elements.paidAccess.checked=Boolean(policy.paidAccess);

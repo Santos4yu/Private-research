@@ -2917,11 +2917,38 @@ function populateGameLogStats() {
   const existing = [...els.gamelogStatTabs.querySelectorAll('button[data-stat]')];
   if (existing.length === stats.length && existing.every((button,index) => button.dataset.stat === stats[index])) {
     existing.forEach(button => {button.classList.toggle('active',button.dataset.stat===gameLogState.stat);button.setAttribute('aria-pressed',String(button.dataset.stat===gameLogState.stat));});
+    syncTrendChipLine();
     return;
   }
   const scrollLeft = els.gamelogStatTabs.scrollLeft;
-  els.gamelogStatTabs.innerHTML = trendAdapter.statList().map((stat) => `<button type="button" data-stat="${escapeHtml(stat)}" title="${escapeHtml(stat)}" aria-label="${escapeHtml(stat)}" aria-pressed="${stat === gameLogState.stat}" class="${stat === gameLogState.stat ? "active" : ""}">${escapeHtml(gameLogStatCode(stat))}</button>`).join("");
+  els.gamelogStatTabs.innerHTML = trendAdapter.statList().map((stat) => `<button type="button" data-stat="${escapeHtml(stat)}" title="${escapeHtml(stat)}" aria-label="${escapeHtml(stat)}" aria-pressed="${stat === gameLogState.stat}" class="${stat === gameLogState.stat ? "active" : ""}"><b>${escapeHtml(trendChipName(stat))}</b><small data-chip-line>${escapeHtml(trendChipLine(stat))}</small></button>`).join("");
   els.gamelogStatTabs.scrollLeft = scrollLeft;
+  syncTrendChipLine();
+}
+// A chip's name: the stat's code, or a long name shortened the way a
+// sportsbook writes it ("Receiving Yards" -> "Rec Yds").
+const CHIP_WORDS = [[/\breceiving\b/gi, "Rec"], [/\breceptions\b/gi, "Rec"], [/\brushing\b/gi, "Rush"], [/\bpassing\b/gi, "Pass"],
+  [/\byards\b/gi, "Yds"], [/\battempts\b/gi, "Att"], [/\bcompletions\b/gi, "Cmp"], [/\btouchdowns?\b/gi, "TD"],
+  [/\binterceptions\b/gi, "INT"], [/\blongest\b/gi, "Long"], [/\breception\b/gi, "Rec"], [/\brebounds\b/gi, "Reb"],
+  [/\bassists\b/gi, "Ast"], [/\bpoints\b/gi, "Pts"], [/\bthree pointers made\b/gi, "3PM"], [/\b3-?pointers made\b/gi, "3PM"],
+  [/\bfantasy score\b/gi, "Fantasy"], [/\bshots on target\b/gi, "SOT"], [/\bshots on goal\b/gi, "SOG"], [/\bgoalie saves\b/gi, "Saves"],
+  [/\bblocked shots\b/gi, "Blocks"], [/\bpasses attempted\b/gi, "Passes"], [/\bturnovers\b/gi, "TO"], [/\bsteals\b/gi, "Stl"]];
+function trendChipName(stat) {
+  const code = gameLogStatCode(stat);
+  if (code !== stat || String(stat).length <= 9) return code;
+  return CHIP_WORDS.reduce((text, [pattern, short]) => text.replace(pattern, short), String(stat));
+}
+// A stat chip's line: the chart's for the stat on it, else the host's posted one.
+function trendChipLine(stat) {
+  if (stat === gameLogState.stat && Number.isFinite(Number(gameLogState.line))) return Number(gameLogState.line).toFixed(1);
+  const posted = externalTrendConfig?.stats?.find((item) => item.label === stat)?.line;
+  return Number.isFinite(Number(posted)) && posted !== null && posted !== "" ? Number(posted).toFixed(1) : "";
+}
+function syncTrendChipLine() {
+  els.gamelogStatTabs?.querySelectorAll("button[data-stat]").forEach((button) => {
+    const slot = button.querySelector("[data-chip-line]");
+    if (slot) slot.textContent = trendChipLine(button.dataset.stat);
+  });
 }
 
 // The sport-neutral half of switching the panel to another stat: badge,
@@ -3296,20 +3323,46 @@ function renderGameLogSubfilters() {
 // Hit rate + average for one window's worth of games, for the window-tabs
 // bar below -- games are already regraded (.over set) by regradeGameLog()
 // before this runs.
+let trendTilesKey = "";
+// The longer windows' figures, for the last tile's menu.
+let gameLogMoreWindows = [];
+function renderGameLogWindowMenu() {
+  const menu = document.getElementById("gamelog-window-menu");
+  if (!menu) return;
+  menu.innerHTML = `<header><strong>Game history</strong><button type="button" data-window-close aria-label="Close">×</button></header>`
+    + gameLogMoreWindows.map((w) => {
+      const active = w.key === gameLogState.windowKey;
+      return `<button type="button" role="menuitemradio" aria-checked="${active}" class="${active ? "active" : ""}" data-window="${w.key}" data-tone="${rateTone(w.hitRate)}"><b>${escapeHtml(w.label)}${active ? ' <i aria-hidden="true">✓</i>' : ""}</b><span>${w.hitRate == null ? "—" : `${w.hitRate}%`}</span><small>${w.avg == null ? "" : `Avg ${trendNumber(Math.round(w.avg * 10) / 10)}`}</small></button>`;
+    }).join("");
+}
 function windowStat(games) {
-  if (!games.length) return { hitRate: null, avg: null };
+  if (!games.length) return { hitRate: null, avg: null, hits: 0, games: 0 };
   const hits = games.filter((g) => g.over).length;
   const avg = games.reduce((sum, g) => sum + (Number(g.value) || 0), 0) / games.length;
-  return { hitRate: Math.round((hits / games.length) * 100), avg };
+  return { hitRate: Math.round((hits / games.length) * 100), avg, hits, games: games.length };
 }
+// A hit rate's tone on the tiles: strong, middling, poor.
+const rateTone = (rate) => rate == null ? "none" : rate >= 50 ? "up" : "down";
+// The season the latest games are from, and how many of the filtered games are in it.
+function latestSeason(games) {
+  const seasonOf = (game) => String(game.season || String(game.fullDate || "").slice(0, 4));
+  const last = games.length ? seasonOf(games[games.length - 1]) : "";
+  if (!/^\d{4}$/.test(last)) return { label: "", count: 0 };
+  let count = 0;
+  for (let i = games.length - 1; i >= 0 && seasonOf(games[i]) === last; i -= 1) count += 1;
+  return { label: last, count };
+}
+// The windows behind the last tile's menu.
+const MORE_WINDOWS = ["15", "20", "30", "season"];
 
 function renderGameLogTabs() {
   const filtered = filterGames(recentGameLogSource());
   const max = filtered.length;
   // Keep the requested window as filters/data change. Clamping the stored
   // count to a partial response left L10 showing only 1–5 games after load.
+  const year = latestSeason(filtered);
   if (gameLogState.window !== "h2h") {
-    const requested = gameLogState.windowKey === "season" ? max : Number(gameLogState.windowKey);
+    const requested = gameLogState.windowKey === "season" ? max : gameLogState.windowKey === "year" ? year.count : Number(gameLogState.windowKey);
     gameLogState.gameCount = Math.max(1, requested || gameLogState.gameCount);
   }
   const h2hGames = filterGames(gameLogState.chart?.h2h || []);
@@ -3325,23 +3378,39 @@ function renderGameLogTabs() {
   // "last 10 games matching these filters" really is those 6 games -- so the
   // figure stays correct; it's flagged as capped so identical-looking rows
   // are explained rather than confusing.
-  const windows = [5, 10, 15, 20]
-    .map((n) => ({ key: String(n), label: `L${n}`, capped: max > 0 && max < n, sample: Math.min(n, max), ...windowStat(filtered.slice(-n)) }));
-  windows.push({ key: "season", label: gameLogState.season === "all" ? "All" : "Season", sample: max, ...windowStat(filtered) });
-  if (h2hGames.length) windows.push({ key: "h2h", label: "H2H", sample: h2hGames.length, ...windowStat(h2hGames) });
-
+  // This season, head-to-head, the last 5 and 10, then a longer window
+  // whose menu offers 15, 20, 30 or every game.
+  const longer = (key) => key === "season" ? { key, label: `All (${max})`, short: "All", sample: max, ...windowStat(filtered) }
+    : { key, label: `L${key}`, short: `L${key}`, capped: max > 0 && max < Number(key), sample: Math.min(Number(key), max), ...windowStat(filtered.slice(-Number(key))) };
+  const more = MORE_WINDOWS.includes(gameLogState.windowKey) ? gameLogState.windowKey : "20";
+  const windows = [
+    { key: "year", label: year.label || "Season", sample: year.count, empty: !year.count, ...windowStat(year.count ? filtered.slice(-year.count) : []) },
+    { key: "h2h", label: "H2H", sample: h2hGames.length, empty: !h2hGames.length, ...windowStat(h2hGames) },
+    ...["5", "10"].map((key) => longer(key)),
+    { ...longer(more), label: longer(more).short, menu: true },
+  ];
+  gameLogMoreWindows = MORE_WINDOWS.map(longer);
   if (els.gamelogTabs) {
-    els.gamelogTabs.innerHTML = windows.map((w) => {
+    // The tiles rise in for a new player or stat, not on every redraw.
+    const tilesKey = `${gameLogState.player}|${gameLogState.stat}`;
+    els.gamelogTabs.classList.toggle("gl-rise", tilesKey !== trendTilesKey);
+    trendTilesKey = tilesKey;
+    els.gamelogTabs.innerHTML = windows.map((w, index) => {
       const active = w.key === gameLogState.windowKey;
-      const stat = w.hitRate == null ? '<span class="gl-window-rate">—</span><span class="gl-window-avg">No games</span>' : `<span class="gl-window-rate${w.hitRate < 50 ? " is-low" : ""}">HR ${w.hitRate}%</span><span class="gl-window-avg">Avg ${w.avg.toFixed(2)}</span>`;
+      // Each window's record over its games and the hit rate, toned.
+      const stat = w.hitRate == null ? '<span class="gl-window-rec">0/0</span><span class="gl-window-pct">-</span>'
+        : `<span class="gl-window-rec">${w.hits}/${w.games}</span><span class="gl-window-pct">${w.hitRate}%</span>`;
       const titleText = w.key === 'h2h' && gameLogState.chart?.meta?.h2hLabel ? gameLogState.chart.meta.h2hLabel
         : w.capped ? `Only ${w.sample} game${w.sample === 1 ? "" : "s"} match the current filters` : '';
       const title = titleText ? ` title="${escapeHtml(titleText)}"` : '';
-      return `<button type="button" class="${active ? "active" : ""}" aria-pressed="${active}"${w.capped ? ' data-capped="true"' : ""}${title} data-window="${w.key}"><strong>${w.label}</strong>${stat}</button>`;
+      const menu = w.menu ? ' data-window-menu="true" aria-haspopup="menu"' : "";
+      const chevron = w.menu ? '<svg class="gl-window-chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg>' : "";
+      return `<button type="button" class="${active ? "active" : ""}" aria-pressed="${active}"${w.capped ? ' data-capped="true"' : ""}${w.empty ? " disabled" : ""}${title}${menu} data-window="${w.key}" data-tone="${rateTone(w.hitRate)}" style="--i:${index}"><strong>${w.label}${chevron}</strong>${stat}</button>`;
     }).join("");
   }
 
   const seasons = [...new Set(recentGameLogSource().map((game) => String(game.season || String(game.fullDate || "").slice(0, 4))).filter((season) => /^\d{4}$/.test(season)))].sort().concat("all");
+  if (!document.getElementById("gamelog-window-menu")?.hidden) renderGameLogWindowMenu();
   els.gamelogSeasonBridge?.setOptions(seasons.map((season) => ({ value: seasonLabel(season), label: seasonLabel(season) })));
   els.gamelogSeasonBridge?.setValue(seasonLabel(gameLogState.season));
   renderGameLogSubfilters();
@@ -3373,6 +3442,49 @@ function formatGameLogDate(iso) {
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
 }
 
+// A team's logo for the chart's opponent row: the game's own when the host
+// gave one (soccer), else the league's logo for its code (MLB by team id,
+// ESPN's for the NFL, NBA, WNBA and NHL). Null when there's no telling.
+const TREND_LOGO_LEAGUES = { nfl: "nfl", nba: "nba", wnba: "wnba", nhl: "nhl" };
+function trendTeamLogo(abbr, game = {}) {
+  if (game.opponentLogo) return game.opponentLogo;
+  const code = String(abbr || "").toUpperCase();
+  if (!code) return null;
+  const sport = String(externalTrendConfig?.sport || "MLB").toLowerCase();
+  if (sport === "mlb") {
+    const id = game.opponentTeamId || MLB_TEAM_IDS[code];
+    return id ? `https://www.mlbstatic.com/team-logos/${id}.svg` : null;
+  }
+  const league = TREND_LOGO_LEAGUES[sport];
+  return league ? `https://a.espncdn.com/i/teamlogos/${league}/500/${code.toLowerCase()}.png` : null;
+}
+// "Dec 28" as two lines under a bar (dates are UTC days, see formatGameLogDate).
+function trendDateParts(iso) {
+  const d = new Date(iso || "");
+  if (Number.isNaN(d.getTime())) return null;
+  return [d.toLocaleString("en-US", { month: "short", timeZone: "UTC" }), String(d.getUTCDate())];
+}
+function trendMedian(values) {
+  const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);
+  if (!sorted.length) return null;
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+const trendNumber = (value) => Number.isInteger(value) ? String(value) : Number(value).toFixed(1);
+// The bars grow in only when the games change (a new player, stat or
+// window), not every time the line moves over the same games.
+let trendBarsSignature = "";
+
+function trendLogoMarkup(abbr, game) {
+  const url = trendTeamLogo(abbr, game);
+  const text = escapeHtml(String(abbr || "").slice(0, 3));
+  return `<span class="gl-logo${url ? "" : " is-text"}">${url ? `<img src="${escapeHtml(url)}" alt="" loading="lazy" onerror="this.parentElement.classList.add('is-text');this.remove()">` : ""}<b>${text}</b></span>`;
+}
+function trendDateMarkup(iso, fallback) {
+  const parts = trendDateParts(iso);
+  return parts ? `<span class="gl-date"><i>${parts[0]}</i>${parts[1]}</span>` : `<span class="gl-date">${escapeHtml(fallback || "")}</span>`;
+}
+
 function renderGameLogChart() {
   // Background data may refresh during a pointer gesture. Keep the captured
   // marker mounted until the gesture ends, then paint the latest results.
@@ -3380,6 +3492,10 @@ function renderGameLogChart() {
   const pool = gameLogPool();
   const games = gameLogState.window === "h2h" ? pool : pool.slice(-gameLogState.gameCount);
   const holder = els.gamelogChart;
+  // Where the line and each bar's darker part sat before this paint: when
+  // only the line changed, they glide from there to the new line.
+  const previousCuts = [...holder.querySelectorAll(".gl-bar")].map((bar) => bar.style.getPropertyValue("--cut"));
+  const previousOffset = holder.querySelector(".gl-line-marker")?.style.getPropertyValue("--line-offset") || "";
   holder.classList.toggle('is-loading', gameLogState.loading && !recentGameLogSource().length);
   holder.setAttribute('aria-busy', String(gameLogState.loading));
   holder.dataset.window = gameLogState.window;
@@ -3407,6 +3523,8 @@ function renderGameLogChart() {
     document.getElementById("gamelog-summary-rate-percent").textContent = "—";
     document.getElementById("gamelog-summary-record").textContent = "—";
     document.getElementById("gamelog-summary-average").textContent = "—";
+    document.getElementById("gamelog-summary-median").textContent = "—";
+    trendBarsSignature = "";
     if (gameLogState.loading) {
       holder.innerHTML = `<div class="gl-loading"><div class="gl-loading-bars" aria-hidden="true">${'<span></span>'.repeat(10)}</div><div role="status" aria-live="polite"><strong>Loading ${escapeHtml(gameLogState.stat)}…</strong><p>You can keep switching stats or adjust the line.</p></div></div>`;
     } else if (gameLogState.error) {
@@ -3427,7 +3545,14 @@ function renderGameLogChart() {
   document.getElementById("gamelog-summary-rate").textContent = `${overCount}/${games.length}`;
   document.getElementById("gamelog-summary-rate-percent").textContent = `${hitRate}% hit rate`;
   document.getElementById("gamelog-summary-record").textContent = `${overCount}–${games.length - overCount}`;
-  document.getElementById("gamelog-summary-average").textContent = average.toFixed(2);
+  document.getElementById("gamelog-summary-average").textContent = trendNumber(Math.round(average * 10) / 10);
+  const median = trendMedian(games.map((game) => Number(game.value)));
+  document.getElementById("gamelog-summary-median").textContent = median == null ? "—" : trendNumber(median);
+  syncTrendChipLine();
+  const barsSignature = JSON.stringify([gameLogState.player, gameLogState.stat, games.map((game) => [game.fullDate || game.date, game.value])]);
+  const sameBars = barsSignature === trendBarsSignature;
+  holder.classList.toggle("gl-grow", !sameBars);
+  trendBarsSignature = barsSignature;
 
   // Scale to the visible sample with a small market-specific floor. The old
   // fixed caps (for example 10 for H+R+RBI) left most of a short chart empty
@@ -3448,9 +3573,10 @@ function renderGameLogChart() {
   );
   const track = document.createElement("div");
   track.className = "gamelog-chart-track";
-  track.style.setProperty("--game-count", String(games.length));
+  // One more column on the end: the game coming up.
+  track.style.setProperty("--game-count", String(games.length + 1));
   const mobileChart = window.matchMedia("(max-width: 680px)").matches;
-  const mobileWidth = Math.max(12, Math.floor((Math.min(window.innerWidth || 390, 430) - 92) / Math.max(games.length, 1)));
+  const mobileWidth = Math.max(12, Math.floor((Math.min(window.innerWidth || 390, 430) - 92) / Math.max(games.length + 1, 1)));
   track.style.setProperty("--bar-width", mobileChart ? `${mobileWidth}px` : games.length > 20 ? "30px" : games.length > 10 ? "38px" : "52px");
   track.dataset.count = String(games.length);
   track.dataset.dense = games.length > 20 ? "true" : "false";
@@ -3481,9 +3607,13 @@ function renderGameLogChart() {
   // sideways instead, opening on the latest games. The line and axis stay put.
   const scrolling = chartWidth / Math.max(games.length, 1) < 4;
   track.dataset.scroll = scrolling ? "true" : "false";
-  games.forEach((g) => {
+  // Where the line crosses each bar: below it the bar is muted, above it
+  // bright, so how far a game cleared it shows at a glance.
+  const linePx = Number.isFinite(Number(line)) ? (Number(line) / max) * trackPx : 0;
+  games.forEach((g, index) => {
     const col = document.createElement("div");
     col.className = "gl-col";
+    col.style.setProperty("--i", String(index));
     const heightPx = Math.max(4, (g.value / max) * trackPx);
     const details = g.pitcherDetails || null;
     const opponentId = g.opponentTeamId || MLB_TEAM_IDS[String(g.opponent || "").toUpperCase()];
@@ -3502,13 +3632,14 @@ function renderGameLogChart() {
       <div class="gl-track" style="height:${trackPx}px">
         <div class="gl-bar-shell${context == null ? "" : " has-context"}" tabindex="0" role="img" aria-label="${escapeHtml(aria)}" title="${escapeHtml(aria)}">
           ${context == null ? "" : `<div class="gl-bar-context${contextPx - heightPx < 44 ? " is-tight" : ""}" style="height:${contextPx}px" aria-hidden="true"><span>${context}</span></div>`}
-          <div class="gl-bar${g.over ? "" : " gl-bar-under"}" style="height:${heightPx}px">
+          <div class="gl-bar${g.over ? "" : " gl-bar-under"}" style="height:${heightPx}px;--cut:${Math.max(0, Math.min(heightPx, linePx))}px">
             <span class="gl-val">${g.value}</span>
           </div>
           ${details ? `<div class="gl-detail-card" role="tooltip"><header><strong>${escapeHtml(fullDate)}</strong><span>${escapeHtml(g.opponent || "")}</span></header><div class="gl-detail-result">${g.over ? "Cleared" : "Under"} by ${Math.abs(Number(g.value) - Number(gameLogState.line)).toFixed(1)}</div>${tooltipRows}</div>` : ""}
         </div>
       </div>
-      <span class="gl-date">${escapeHtml(g.dateLabel || formatGameLogDate(fullDate))}</span>
+      ${trendLogoMarkup(g.opponent, g)}
+      ${trendDateMarkup(fullDate, g.dateLabel)}
       <span class="gl-opp">${escapeHtml(g.opponentLabel || MLB_TEAM_ABBRS[opponentId] || String(g.opponent || "").slice(0, 4))}</span>
     `;
     const shell = col.querySelector(".gl-bar-shell");
@@ -3520,6 +3651,18 @@ function renderGameLogChart() {
     });
     track.appendChild(col);
   });
+  // The game coming up: an open bar, today's opponent and its day.
+  const nextOpponent = externalTrendConfig?.opponent || activeFinderProp?.matchup?.opponent || gameLogState.opponent || "";
+  const next = document.createElement("div");
+  next.className = "gl-col gl-next";
+  next.style.setProperty("--i", String(games.length));
+  next.innerHTML = `
+      <div class="gl-track" style="height:${trackPx}px"><div class="gl-next-bar" aria-hidden="true"><span>?</span></div></div>
+      ${trendLogoMarkup(nextOpponent, {})}
+      ${trendDateMarkup(externalTrendConfig?.startsAt || activeFinderProp?.startsAt || "", "Next")}
+      <span class="gl-opp">${escapeHtml(String(nextOpponent).slice(0, 4) || "Next")}</span>`;
+  next.setAttribute("aria-label", `Next game${nextOpponent ? ` vs ${nextOpponent}` : ""}`);
+  track.appendChild(next);
 
   if (typeof line === "number" && line >= 0 && line <= max) {
     const topPx = Math.max(0, trackPx - (line / max) * trackPx);
@@ -3550,6 +3693,9 @@ function renderGameLogChart() {
       marker.setPointerCapture(event.pointerId);
       const dragToken = gameLogState.fetchToken;
       const bounds = track.getBoundingClientRect();
+      const bars = [...track.querySelectorAll(".gl-col:not(.gl-next) .gl-bar")];
+      const under = /^(under|less)$/i.test(String(gameLogState.side || ""));
+      holder.classList.add("is-dragging");
       const update = (ev, settle) => {
         if (dragToken !== gameLogState.fetchToken) return;
         const chartTop = bounds.top;
@@ -3561,18 +3707,36 @@ function renderGameLogChart() {
           const displayLine = snapPropLine(raw);
           marker.style.setProperty("--line-offset", `${Math.max(0, trackPx - (raw / max) * trackPx)}px`);
           marker.querySelector(".gl-line-tag").textContent = displayLine.toFixed(1);
+          // Each bar's darker part and its hit or miss follow the line as it moves.
+          const linePx = (raw / max) * trackPx;
+          bars.forEach((bar, index) => {
+            const value = Number(games[index]?.value);
+            bar.style.setProperty("--cut", `${Math.max(0, Math.min(parseFloat(bar.style.height) || 0, linePx))}px`);
+            bar.classList.toggle("gl-bar-under", !(under ? value < displayLine : value > displayLine));
+          });
         }
       };
-      marker.onpointermove = (ev) => update(ev, false);
+      // One paint per frame: the line and every shadow move together from
+      // the latest pointer position, however fast the finger goes.
+      let pending = null, frame = 0;
+      const stopFrame = () => { if (frame) cancelAnimationFrame(frame); frame = 0; pending = null; };
+      marker.onpointermove = (ev) => {
+        pending = ev;
+        if (!frame) frame = requestAnimationFrame(() => { frame = 0; if (pending) update(pending, false); pending = null; });
+      };
       marker.onpointerup = (ev) => {
+        stopFrame();
         marker.onpointermove = null;
         marker.onpointerup = null;
         gameLogState.dragging = false;
+        holder.classList.remove("is-dragging");
         update(ev, true);
       };
       marker.onpointercancel = marker.onlostpointercapture = () => {
+        stopFrame();
         if (!gameLogState.dragging) return;
         gameLogState.dragging = false;
+        holder.classList.remove("is-dragging");
         renderGameLogChart();
       };
     });
@@ -3592,6 +3756,19 @@ function renderGameLogChart() {
   axis.setAttribute("aria-hidden", "true");
   axis.innerHTML = `<span>${Number(max).toFixed(max % 1 ? 1 : 0)}</span><span>${Number(max / 2).toFixed(max % 1 ? 1 : 0)}</span><span>0</span>`;
   holder.appendChild(axis);
+  // Same games, new line: start the darker parts and the line where they
+  // were and let them glide (trend-edge.css transitions) to where they are now.
+  const bars = [...track.querySelectorAll(".gl-col:not(.gl-next) .gl-bar")];
+  const marker = holder.querySelector(".gl-line-marker");
+  if (sameBars && previousCuts.length === bars.length) {
+    const cuts = bars.map((bar) => bar.style.getPropertyValue("--cut"));
+    const offset = marker?.style.getPropertyValue("--line-offset") || "";
+    bars.forEach((bar, index) => bar.style.setProperty("--cut", previousCuts[index]));
+    if (marker && previousOffset) marker.style.setProperty("--line-offset", previousOffset);
+    void holder.offsetHeight;
+    bars.forEach((bar, index) => bar.style.setProperty("--cut", cuts[index]));
+    if (marker && previousOffset) marker.style.setProperty("--line-offset", offset);
+  }
   // Never move the viewport as a side effect of rendering. Only direct user
   // input should animate or change the chart position.
   gameLogState.animationDirection = "none";
@@ -3633,11 +3810,28 @@ function wireGameLogModal() {
   });
   document.fonts?.ready?.then(stabilizeGameLogLayout).catch(() => {});
   if (typeof ResizeObserver === "function") new ResizeObserver(stabilizeGameLogLayout).observe(els.gamelogChart);
+  const windowMenu = document.getElementById("gamelog-window-menu");
+  const closeWindowMenu = () => { if (windowMenu) windowMenu.hidden = true; els.gamelogTabs?.querySelector("[data-window-menu]")?.setAttribute("aria-expanded", "false"); };
   els.gamelogTabs?.addEventListener("click", (event) => {
     const btn = event.target.closest("button[data-window]");
     if (!btn) return;
+    if (btn.dataset.windowMenu && windowMenu) {
+      renderGameLogWindowMenu();
+      windowMenu.hidden = !windowMenu.hidden;
+      btn.setAttribute("aria-expanded", String(!windowMenu.hidden));
+      return;
+    }
+    closeWindowMenu();
     setGameLogWindow(btn.dataset.window);
   });
+  windowMenu?.addEventListener("click", (event) => {
+    if (event.target.closest("[data-window-close]")) return closeWindowMenu();
+    const btn = event.target.closest("button[data-window]");
+    if (!btn) return;
+    closeWindowMenu();
+    setGameLogWindow(btn.dataset.window);
+  });
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape" && windowMenu && !windowMenu.hidden) closeWindowMenu(); });
   // These selects carry the label as their value (see renderGameLogSubfilters),
   // so translate back to the internal key filterGames() matches on.
   window.addEventListener("vortex:gamelog-season-pick", (event) => {
@@ -7090,7 +7284,8 @@ function setGameLogWindow(key) {
     return;
   }
   gameLogState.windowKey = key;
-  setGameLogCount(key === "season" ? filterGames(recentGameLogSource()).length : Number(key), "none");
+  const filtered = filterGames(recentGameLogSource());
+  setGameLogCount(key === "season" ? filtered.length : key === "year" ? Math.max(1, latestSeason(filtered).count) : Number(key), "none");
 }
 
 /* Expanded card — Silas-style emoji-rich format */

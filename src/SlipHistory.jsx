@@ -29,14 +29,14 @@ export function Record({record}){
  return <section className="sh-record" aria-label="How our grades have done">
   <header><span className="sh-eyebrow"><Trophy size={13}/>Our record</span>
    <h2>How our grades have done</h2>
-   <p>Every pick we grade, settled from the final box score. Last {record.days} days.</p></header>
+   <p>Every pick we post, settled from the final box score. Last {record.days} days.</p></header>
   {rows.length?<ul>{rows.map(([tier,counts],index)=><li key={tier} data-tier={tier} style={{'--i':index}}>
    <span className="sh-tier">{TIERS[tier].label}</span>
    <span className="sh-bar" aria-hidden="true"><i style={{'--w':`${Math.round(counts.rate*100)}%`}}/></span>
    <b>{Math.round(counts.rate*100)}%</b>
    <small>{counts.hits}–{counts.misses}</small>
   </li>)}</ul>
-   :<p className="sh-empty">Results show up here as graded picks finish.</p>}
+   :<p className="sh-empty">Results show up here as our posted picks finish.</p>}
   {grades.length>0&&<div className="sh-grades">
    <h3>Parlays by grade <span>every pick hit · last {record.parlayDays||record.days} days</span></h3>
    <ul>{grades.map(([letter,counts],index)=><li key={letter} style={{'--i':rows.length+index,'--tier':GRADES[letter].tone}}>

@@ -4,15 +4,21 @@ When a member grades a slip in the Slip Analyzer, the browser saves it here
 (save): the slip under the member's account (the last 40), and each pick in
 that day's ledger, keyed by the pick itself -- player, stat, line, side --
 so the same pick graded by two members, or twice, counts once. A pick keeps
-the last tier it was given before its game started; a pick graded after
-kickoff is kept for the member but left out of the site's record.
+the last tier it was given before its game started. The ledger is for the
+members' own slips, their alerts and what the model learns (learning.py):
+none of it is the site's record.
 
 After the games each pick is settled from the final box score
 (slip_games.py, the same readers as the live tracking): hit, miss, push, or
 void when he didn't play or the game was called off. The timer does it
 (tick), and so does a member opening their slips (history).
 
-The record: each tier's hits and misses over the last 30 days.
+The record (the /results page and the record in the app) is only the slips
+the admin posts from the Slip Analyzer (record_add) and the finished plays
+the admin types in or reads off screenshots (record_enter, record_enter_many),
+kept apart from the ledger and settled
+the same way: each tier's hits and misses over the last
+30 days. Members grading slips never touch it.
 
 Before the games the timer also re-reads each pending pick's game news and
 tells the members who graded it when the player is ruled out or doubtful, or
@@ -121,6 +127,8 @@ def clean_pick(raw, now):
             "source": raw.get("source") if raw.get("source") in SOURCES else "analyzer",
             # The stat it's on, as learning.py keeps its corrections ("rbis").
             "group": re.sub(r"[^a-z0-9+ ]+", " ", _short(raw.get("group"), 40).lower()).strip(),
+            # Which model graded it (learning.py BASIS).
+            "model": raw.get("model") if raw.get("model") in (1, 2) else 1,
             "position": _short(raw.get("position"), 6), "average": round(average, 2) if average is not None else None,
             "settle": settle, "late": bool(starts and starts <= now)}
 
@@ -128,7 +136,7 @@ def clean_pick(raw, now):
 # ---------------------------------------------------------------- saving
 
 def save(uid, payload, now=None):
-    """Each pick of a graded slip in the ledger (the site's record), and the
+    """Each pick of a graded slip in the ledger (members' slips, not the site's record), and the
     slip in `uid`'s list when they track it (payload["track"]): a new id, or
     the same id again after a pick is fixed or swapped. A slip only graded,
     not tracked, adds no owner (no alerts) and nothing to their list."""
@@ -250,7 +258,7 @@ def parlays(days):
 def remove(uid, slip_id):
     """Stop tracking a slip: off `uid`'s list (with any copy of the same
     parlay), and off its picks' owners where no other slip of theirs has them.
-    The picks stay in the site's record."""
+    The picks stay in the ledger."""
     if not uid or not re.fullmatch(r"[a-z0-9-]{8,40}", str(slip_id or "")):
         raise ValueError("A slip id is required.")
     store = _store()
@@ -393,8 +401,8 @@ def _read_games(items):
     return views
 
 
-def _ledger(days):
-    reads = _pipeline([["HGETALL", PREFIX + "ledger:" + day] for day in days])
+def _ledger(days, space="ledger:"):
+    reads = _pipeline([["HGETALL", PREFIX + space + day] for day in days])
     out = []
     for day, flat in zip(days, reads):
         flat = flat or []
@@ -410,9 +418,10 @@ def _days(now, back):
     return [(today - timedelta(days=offset)).isoformat() for offset in range(back)]
 
 
-def settle(entries, now, limit=8):
+def settle(entries, now, limit=8, space="ledger:"):
     """Settle the entries whose games should be over: {(day, key): pick}
-    for the ones that changed. At most `limit` games are read."""
+    for the ones that changed. At most `limit` games are read. `space` is
+    where they're kept: the ledger, or the admin's record (RECORD)."""
     due = []
     for day, key, pick in entries:
         if pick.get("result"):
@@ -454,20 +463,20 @@ def settle(entries, now, limit=8):
                 result = outcome(value, pick["line"], pick["side"])
             changed[(day, person["key"])] = {**pick, "result": result, "value": value, "settledAt": now.isoformat()}
     if changed:
-        _pipeline([["HSET", PREFIX + "ledger:" + day, key, json.dumps(pick, separators=(",", ":"))] for (day, key), pick in changed.items()])
+        _pipeline([["HSET", PREFIX + space + day, key, json.dumps(pick, separators=(",", ":"))] for (day, key), pick in changed.items()])
     return changed
 
 
 # ---------------------------------------------------------------- reading
 
 def record(now=None, entries=None):
-    """Each tier's hits and misses over the last RECORD_DAYS: picks graded
-    before their game, settled hit or miss."""
+    """Each tier's hits and misses over the last RECORD_DAYS: the admin's
+    record (RECORD), settled hit or miss."""
     now = now or datetime.now(timezone.utc)
     held = _memory.get("record")
     if entries is None and held and time.time() - held[0] < RECORD_FRESH:
         return held[1]
-    rows = entries if entries is not None else _ledger(_days(now, RECORD_DAYS))
+    rows = entries if entries is not None else _ledger(_days(now, RECORD_DAYS), RECORD)
     tiers = {tier: {"hits": 0, "misses": 0} for tier in TIERS}
     for _, _, pick in rows:
         if pick.get("late") or pick.get("result") not in ("hit", "miss") or pick.get("tier") not in tiers:
@@ -496,7 +505,7 @@ def _status(picks):
 
 def history(uid, now=None, settle_limit=4):
     """The member's graded slips with each pick's result (settling what's
-    due on the way), and the site's record."""
+    due on the way), and the site's record (the admin's, RECORD)."""
     now = now or datetime.now(timezone.utc)
     slips = _once([slip for slip in (_load(_store().get(PREFIX + "user:" + str(uid))) or []) if isinstance(slip, dict)])
     wanted = sorted({ref["day"] for slip in slips for ref in slip.get("picks") or [] if isinstance(ref, dict) and ref.get("day")})
@@ -520,14 +529,8 @@ def history(uid, now=None, settle_limit=4):
             hits = sum(pick["result"] == "hit" for pick in picks)
             shown.append({**{name: slip.get(name) for name in ("id", "at", "app", "appName", "type", "letter", "chance", "multiplier", "value")},
                           "picks": picks, "hits": hits, "status": _status(picks)})
-    # The site's parlays by their grade, as the daily learning step counted them.
-    try:
-        import learning
-        learned = learning.model(now) or {}
-    except Exception:  # noqa: BLE001 -- shown once there's a count
-        learned = {}
-    return {"slips": shown, "record": {**record(now), "parlays": learned.get("parlays") or {},
-                                       "parlayDays": learned.get("parlayDays") or RECORD_DAYS}}
+    # Only the admin's record: not the members' parlays (learning.py counts those for the model).
+    return {"slips": shown, "record": record(now)}
 
 
 # ---------------------------------------------------------------- the news, before the games
@@ -629,6 +632,12 @@ def tick(now=None, limit=8):
     entries = _ledger(_days(now + timedelta(days=1), 4))
     settled = settle(entries, now, limit=limit)
     entries = [(day, key, settled.get((day, key), pick)) for day, key, pick in entries]
+    try:
+        posted = settle(_ledger(_days(now + timedelta(days=1), 4), RECORD), now, limit=limit, space=RECORD)
+    except Exception:  # noqa: BLE001 -- settled on the next turn
+        posted = {}
+    if posted:
+        _forget()
     news = alerts(entries, now, limit=limit)
     learned = None
     try:
@@ -637,47 +646,323 @@ def tick(now=None, limit=8):
         learned = {"picks": fitted["picks"], "at": fitted["at"]} if fitted else None
     except Exception:  # noqa: BLE001 -- never at the cost of settling
         learned = None
-    return {"settled": len(settled), **news, "learned": learned}
+    return {"settled": len(settled), "record": len(posted), **news, "learned": learned}
+
+
+# ---------------------------------------------------------------- the admin's record
+
+# The site's record: only the slips the admin posts (record_add), one hash a
+# day like the ledger, kept apart from it so no member's grading reaches it.
+RECORD = "record:"
+RECORD_KEEP_DAYS = 120
+RESULTS = ("hit", "miss", "push", "void")
+
+
+def _forget():
+    _memory.pop("record", None)
+    _memory.pop("public", None)
+
+
+def _slip_of(raw):
+    """The slip a pick was posted with: {"slip", "slipApp"} -- its picks are
+    shown together and the slip counted won or lost -- or {} for a pick on
+    its own."""
+    raw = raw if isinstance(raw, dict) else {}
+    slip = str(raw.get("slip") or raw.get("id") or "").strip().lower()
+    if not re.fullmatch(r"[a-z0-9-]{4,40}", slip):
+        return {}
+    return {"slip": slip, "slipApp": _short(raw.get("slipApp") or raw.get("appName"), 30)}
+
+
+def record_add(payload, now=None):
+    """The picks of a slip the admin graded, onto the record: {added, started}.
+    A pick whose game has started isn't taken (the record is picks made before
+    the game); one already on the record before its game takes the new tier."""
+    now = now or datetime.now(timezone.utc)
+    raws = (payload or {}).get("picks") if isinstance(payload, dict) else None
+    picks = [pick for pick in (clean_pick(raw, now) for raw in (raws or [])[:8]) if pick]
+    if not picks:
+        raise ValueError("No graded picks to post.")
+    fresh = [pick for pick in picks if not pick["late"]]
+    slip = _slip_of(payload)
+    entries = []
+    for pick in fresh:
+        day = _eastern_day(_time(pick["startsAt"]) or now)
+        entries.append((day, pick_key(pick, day), pick))
+    held = _pipeline([["HGET", PREFIX + RECORD + day, key] for day, key, _ in entries]) if entries else []
+    writes = []
+    for (day, key, pick), raw in zip(entries, held):
+        kept = _load(raw)
+        if kept and kept.get("result"):
+            continue
+        pick = {**{name: value for name, value in pick.items() if name != "late"}, **slip, "owners": [], "result": None, "value": None,
+                "alerted": [], "at": (kept or {}).get("at") or now.isoformat()}
+        writes.append(["HSET", PREFIX + RECORD + day, key, json.dumps(pick, separators=(",", ":"))])
+        writes.append(["EXPIRE", PREFIX + RECORD + day, RECORD_KEEP_DAYS * 86400])
+    if writes:
+        _pipeline(writes)
+    _forget()
+    return {"added": len(writes) // 2, "started": len(picks) - len(fresh)}
+
+
+PHOTO_SPORTS = ("nfl", "nba", "wnba", "mlb", "nhl")
+PHOTO_TRIES = 2
+
+
+def _dress(entries, now, limit=3):
+    """Headshots for the record's picks that came without one (read off a
+    screenshot or typed in): the player's, from his game's box score, found by
+    his team and the day once the game has started. A game that can't be
+    found is tried PHOTO_TRIES times. {(day, key): pick} for the changed ones."""
+    wanting = [(day, key, pick) for day, key, pick in entries
+               if not pick.get("headshot") and pick.get("team") and pick.get("sport") in PHOTO_SPORTS
+               and int(pick.get("photoTries") or 0) < PHOTO_TRIES
+               and (starts := _time(pick.get("startsAt"))) and starts <= now]
+    if not wanting:
+        return {}
+    by_key = {key: (day, pick) for day, key, pick in wanting}
+    items = _game_items([(key, pick) for _, key, pick in wanting])[:limit]
+    changed = {}
+    for item, view in zip(items, _read_games(items)):
+        for person in item["players"]:
+            day, pick = by_key[person["key"]]
+            found = (view.get("players") or {}).get(person["key"]) if view.get("found") else None
+            photo = (found or {}).get("headshot") or ""
+            changed[(day, person["key"])] = {**pick, "headshot": photo, "photoTries": int(pick.get("photoTries") or 0) + (0 if photo else 1)}
+    if changed:
+        _pipeline([["HSET", PREFIX + RECORD + day, key, json.dumps(pick, separators=(",", ":"))] for (day, key), pick in changed.items()])
+    return changed
+
+
+def record_picks(now=None, settle_limit=4):
+    """Everything on the record, newest game first, for the admin to look
+    over (settling what's due on the way): [{day, key, ...pick}]."""
+    now = now or datetime.now(timezone.utc)
+    entries = _ledger(_days(now + timedelta(days=3), RECORD_DAYS + 3), RECORD)
+    try:
+        changed = settle(entries, now, limit=settle_limit, space=RECORD)
+    except Exception:  # noqa: BLE001 -- settled on the next look
+        changed = {}
+    entries = [(day, key, changed.get((day, key), pick)) for day, key, pick in entries]
+    try:
+        dressed = _dress(entries, now)
+    except Exception:  # noqa: BLE001 -- photos come on the next look
+        dressed = {}
+    if changed or dressed:
+        _forget()
+    rows = [{"day": day, "key": key, **{name: value for name, value in dressed.get((day, key), pick).items()
+                                         if name not in ("owners", "alerted", "settle")}}
+            for day, key, pick in entries]
+    return sorted(rows, key=lambda row: (row.get("startsAt") or row["day"], row["key"]), reverse=True)
+
+
+def _record_ref(day, key):
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(day or "")) or not re.fullmatch(r"[0-9a-f]{16}", str(key or "")):
+        raise ValueError("A record pick is required.")
+    return PREFIX + RECORD + day, key
+
+
+RECORD_BATCH = 40
+
+
+def _entered(raw, now, days):
+    """(day, key, pick) for a finished play the admin typed in or read off a
+    screenshot, or ValueError saying what's missing."""
+    raw = raw if isinstance(raw, dict) else {}
+    day = str(raw.get("day") or "")
+    if day not in days:
+        raise ValueError(f"Pick a date in the last {RECORD_DAYS} days.")
+    sport, side, tier, result = raw.get("sport"), str(raw.get("side") or "").upper(), raw.get("tier"), raw.get("result")
+    if sport not in SPORTS:
+        raise ValueError("Pick a sport.")
+    if side not in SIDES:
+        raise ValueError("Pick Over or Under.")
+    if tier not in TIERS:
+        raise ValueError("Pick a tier.")
+    if result not in RESULTS:
+        raise ValueError("Pick hit, miss, push or void.")
+    player, stat, line = _short(raw.get("player")), _short(raw.get("stat")), _number(raw.get("line"))
+    if not player or not stat or line is None:
+        raise ValueError("Player, stat and line are required.")
+    modifier = _short(raw.get("modifier") or "standard", 12).lower()
+    pick = {"sport": sport, "player": player, "playerId": "", "team": _short(raw.get("team"), 8).upper(),
+            "opponent": _short(raw.get("opponent"), 8).upper(), "startsAt": f"{day}T23:00:00+00:00", "side": side, "line": line,
+            "stat": stat, "modifier": modifier if modifier in ("goblin", "demon") else "standard", "tier": tier, "chance": None,
+            "headshot": "", "settle": None, "owners": [], "alerted": [], "result": result, "value": _number(raw.get("value")),
+            "manual": True, "entered": True, "at": now.isoformat(), "settledAt": now.isoformat(), **_slip_of(raw)}
+    return day, pick_key(pick, day), pick
+
+
+def record_enter(payload, now=None):
+    """A play that already finished, typed in by the admin with its result:
+    onto the record as it stands (nothing to settle). Its day is the game's
+    date, within the RECORD_DAYS the record shows."""
+    now = now or datetime.now(timezone.utc)
+    day, key, pick = _entered(payload, now, _days(now, RECORD_DAYS))
+    _pipeline([["HSET", PREFIX + RECORD + day, key, json.dumps(pick, separators=(",", ":"))],
+               ["EXPIRE", PREFIX + RECORD + day, RECORD_KEEP_DAYS * 86400]])
+    _forget()
+    return {"day": day, "key": key, "result": pick["result"]}
+
+
+def record_enter_many(plays, now=None):
+    """Finished plays read off the admin's screenshots, each with the result
+    the admin gave it, onto the record together: all of them or, when one
+    is missing something, none (saying which)."""
+    now = now or datetime.now(timezone.utc)
+    if not isinstance(plays, list) or not plays:
+        raise ValueError("No plays to add.")
+    if len(plays) > RECORD_BATCH:
+        raise ValueError(f"Add at most {RECORD_BATCH} plays at a time.")
+    days, entries = _days(now, RECORD_DAYS), []
+    for number, raw in enumerate(plays, 1):
+        try:
+            entries.append(_entered(raw, now, days))
+        except ValueError as exc:
+            name = _short((raw or {}).get("player") if isinstance(raw, dict) else "") or f"Play {number}"
+            raise ValueError(f"{name}: {exc}") from None
+    writes = []
+    for day, key, pick in entries:
+        writes.append(["HSET", PREFIX + RECORD + day, key, json.dumps(pick, separators=(",", ":"))])
+        writes.append(["EXPIRE", PREFIX + RECORD + day, RECORD_KEEP_DAYS * 86400])
+    _pipeline(writes)
+    _forget()
+    return {"added": len(entries), "hits": sum(pick["result"] == "hit" for _, _, pick in entries),
+            "misses": sum(pick["result"] == "miss" for _, _, pick in entries)}
+
+
+def record_group(refs, app=""):
+    """Picks already on the record, joined into one slip (added one by one,
+    or before slips were kept together): [{day, key}] -> {slip, picks}."""
+    refs = [_record_ref(ref.get("day"), ref.get("key")) for ref in (refs or []) if isinstance(ref, dict)][:RECORD_BATCH]
+    if len(refs) < 2:
+        raise ValueError("Pick at least two plays to make a slip.")
+    held = _pipeline([["HGET", name, key] for name, key in refs])
+    if not all(isinstance(_load(raw), dict) for raw in held):
+        raise ValueError("One of those plays isn't on the record anymore.")
+    slip = "g-" + hashlib.sha1("|".join(key for _, key in refs).encode()).hexdigest()[:12]
+    _pipeline([["HSET", name, key, json.dumps({**_load(raw), "slip": slip, "slipApp": _short(app, 30)}, separators=(",", ":"))]
+               for (name, key), raw in zip(refs, held)])
+    _forget()
+    return {"slip": slip, "picks": len(refs)}
+
+
+def record_remove(day, key):
+    """Take one pick off the record."""
+    name, key = _record_ref(day, key)
+    removed = _pipeline([["HDEL", name, key]])[0] or 0
+    _forget()
+    return {"removed": int(removed)}
+
+
+def record_set_result(day, key, result, value=None):
+    """The admin's own call on a pick: hit, miss, push or void, or None to
+    let the box score settle it again."""
+    name, key = _record_ref(day, key)
+    if result is not None and result not in RESULTS:
+        raise ValueError("Result must be hit, miss, push or void.")
+    pick = _load(_pipeline([["HGET", name, key]])[0])
+    if not isinstance(pick, dict):
+        raise ValueError("That pick isn't on the record.")
+    if result is None and pick.get("entered"):
+        raise ValueError("A play you typed in has no box score to settle from: pick its result.")
+    pick = {**pick, "result": result, "value": _number(value) if result else None, "manual": bool(result),
+            "settledAt": datetime.now(timezone.utc).isoformat() if result else None}
+    _pipeline([["HSET", name, key, json.dumps(pick, separators=(",", ":"))]])
+    _forget()
+    return {"day": day, "key": key, "result": result}
+
+
+def record_clear(now=None):
+    """Erase the whole record: every day it could hold."""
+    now = now or datetime.now(timezone.utc)
+    names = [PREFIX + RECORD + day for day in _days(now + timedelta(days=7), RECORD_KEEP_DAYS + 8)]
+    removed = sum(int(count or 0) for count in _pipeline([["DEL", *names[start:start + 50]] for start in range(0, len(names), 50)]))
+    _forget()
+    return {"cleared": removed}
 
 
 # ---------------------------------------------------------------- public record
 
-PUBLIC_TIERS = ("elite", "strong")
 PUBLIC_RECENT = 24
-PUBLIC_DAYS = 14
-# A pick's public face: what was picked and how it finished -- never who
-# graded it (owners), nor how it was settled.
+# A pick's public face: what was picked and how it finished -- never how it
+# was settled.
 PUBLIC_FIELDS = ("player", "sport", "stat", "line", "side", "tier", "result", "value", "modifier", "team", "opponent", "headshot")
 
 
+def _slips(rows):
+    """The record's picks as they were posted: each slip's picks together,
+    and a pick posted on its own alone, newest first. [(slip, app, [(day, pick)])]."""
+    groups = {}
+    for day, key, pick in rows:
+        group = pick.get("slip") or f"pick:{day}:{key}"
+        groups.setdefault(group, []).append((day, pick))
+    start = lambda item: (_time(item[1].get("startsAt")) or datetime.min.replace(tzinfo=timezone.utc)).timestamp()  # noqa: E731
+    out = [(group if not group.startswith("pick:") else None, next((pick.get("slipApp") for _, pick in picks if pick.get("slipApp")), ""),
+            sorted(picks, key=start)) for group, picks in groups.items()]
+    return sorted(out, key=lambda item: max(start(entry) for entry in item[2]), reverse=True)
+
+
 def public_results(now=None, entries=None):
-    """The site's record for anyone to see (the /results page): Elite and
-    Strong picks graded before their games and settled from the final box
-    score over the last RECORD_DAYS -- by tier, by sport, by day -- and the
-    latest finished ones. Only finished games: today's open picks stay
-    members-only."""
+    """The site's record for anyone to see (the /results page): every pick
+    the admin posted (RECORD) and settled hit or miss over the last
+    RECORD_DAYS -- by tier, by sport, as it built up day by day, each slip won or lost -- and
+    the latest finished slips and picks. Only finished games: today's open
+    picks stay members-only."""
     now = now or datetime.now(timezone.utc)
     held = _memory.get("public")
     if entries is None and held and time.time() - held[0] < RECORD_FRESH:
         return held[1]
-    rows = entries if entries is not None else _ledger(_days(now, RECORD_DAYS))
-    done = [(day, pick) for day, _, pick in rows
-            if not pick.get("late") and pick.get("tier") in PUBLIC_TIERS and pick.get("result") in ("hit", "miss")]
+    rows = entries if entries is not None else _ledger(_days(now, RECORD_DAYS), RECORD)
+    done = [(day, pick) for day, _, pick in rows if pick.get("tier") in TIERS and pick.get("result") in ("hit", "miss")]
 
     def tally(picks):
         hits = sum(1 for pick in picks if pick["result"] == "hit")
         decided = len(picks)
         return {"hits": hits, "misses": decided - hits, "picks": decided, "rate": round(hits / decided, 4) if decided else None}
 
-    tiers = {tier: tally([pick for _, pick in done if pick["tier"] == tier]) for tier in PUBLIC_TIERS}
+    tiers = {tier: tally([pick for _, pick in done if pick["tier"] == tier]) for tier in TIERS}
     sports = {sport: tally([pick for _, pick in done if pick.get("sport") == sport]) for sport in SPORTS}
-    recent_days = _days(now, PUBLIC_DAYS)
-    days = [{"day": day, **tally([pick for d, pick in done if d == day])} for day in reversed(recent_days)]
-    latest = sorted(done, key=lambda item: (_time(item[1].get("startsAt")) or now).timestamp(), reverse=True)[:PUBLIC_RECENT]
+    # Slips: won when nothing missed and something hit, lost on a miss; shown
+    # once every pick in it has finished.
+    finished, won, lost = [], 0, 0
+    for slip, app, picks in _slips([row for row in rows if row[2].get("tier") in TIERS]):
+        status = _status([pick for _, pick in picks])
+        if status == "pending" or not any(pick.get("result") in ("hit", "miss") for _, pick in picks):
+            continue
+        if slip:
+            won, lost = won + (status == "won"), lost + (status == "lost")
+        finished.append((slip, app, status, picks))
+    import slip_games
+
+    def face(day, pick):
+        return {**{field: pick.get(field) for field in PUBLIC_FIELDS}, "day": day,
+                "teamLogo": slip_games.team_logo(pick.get("sport"), pick.get("team")),
+                "opponentLogo": slip_games.team_logo(pick.get("sport"), pick.get("opponent"))}
+
+    latest, shown = [], 0
+    for slip, app, status, picks in finished:
+        if shown >= PUBLIC_RECENT:
+            break
+        shown += len(picks)
+        latest.append({"slip": bool(slip), "app": app, "status": status, "day": max(day for day, _ in picks),
+                       "picks": [face(day, pick) for day, pick in picks]})
+    # The record as it built up, day by day: hits and misses so far, from the
+    # first day with a finished pick.
+    running, hits, misses = [], 0, 0
+    for day in reversed(_days(now, RECORD_DAYS)):
+        today = [pick for d, pick in done if d == day]
+        if not today and not running:
+            continue
+        hits += sum(pick["result"] == "hit" for pick in today)
+        misses += sum(pick["result"] == "miss" for pick in today)
+        running.append({"day": day, "hits": hits, "misses": misses})
+    decided = won + lost
     out = {"days": RECORD_DAYS, "tiers": tiers, "all": tally([pick for _, pick in done]),
+           "slips": {"won": won, "lost": lost, "slips": decided, "rate": round(won / decided, 4) if decided else None},
            "sports": {sport: counts for sport, counts in sports.items() if counts["picks"]},
-           "daily": days,
-           "recent": [{**{field: pick.get(field) for field in PUBLIC_FIELDS}, "day": day} for day, pick in latest],
+           "running": running,
+           "latest": latest,
            "at": now.isoformat()}
     if entries is None:
         _memory["public"] = (time.time(), out)

@@ -199,6 +199,7 @@
 .sa-parlay-actions{display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px}
 /* Tracking: the slip is on Your tracked slips (results, alerts). */
 .slip-analyzer .sa-track[aria-pressed=true]{color:#46e39a!important;border-color:color-mix(in srgb,#46e39a 45%,var(--a-line))!important;background:color-mix(in srgb,#46e39a 10%,var(--a-raised))!important}
+.slip-analyzer .sa-post-note{flex-basis:100%;margin:2px 2px 0;font-size:12.5px;color:var(--a-muted,#9aa3a7)}
 .sa-shot-peek{margin-left:auto}
 .sa-shot-peek summary{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border-radius:12px;color:var(--a-muted);font-weight:700;cursor:pointer;list-style:none}
 .sa-shot-peek summary::-webkit-details-marker{display:none}

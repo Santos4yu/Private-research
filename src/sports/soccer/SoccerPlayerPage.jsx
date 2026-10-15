@@ -7,6 +7,8 @@ import {SOCCER_STATS,applySplits,average,finite,fmt,mergeGames,playerGames,short
 import '../../mlb-finder-context.css';
 import '../wnba/wnba-context.css';
 import './soccer-player.css';
+import {withLines} from '../../trend-lines';
+
 
 // The soccer player page, on the WNBA / NFL / MLB Finder pages' layout: the
 // shared trend chart, supporting stats and game log on the left, the tabbed
@@ -29,7 +31,7 @@ function TrendChart({row,playerRows,games,loading,onStat,chips,chipsNote,onChipR
  const config=useMemo(()=>({sport:'SOCCER',player:row.player,teamAbbr:row.teamAbbr||'',teamLogo:row.teamLogo||'',opponent:row.opponent||'',
   opponentLogo:row.opponentLogo||'',matchupLabel:row.awayTeamAbbr&&row.homeTeamAbbr?`${row.awayTeamAbbr} @ ${row.homeTeamAbbr}`:'',
   kickoffLabel:kickoff(row.startsAt),status:'Pre-game',headshot:row.headshot||null,
-  stats:statTabs(playerRows),statKey:row.marketKey,stat:row.market,side:row.direction==='UNDER'?'Under':'Over',line:row.line,
+  stats:withLines(statTabs(playerRows),playerRows),startsAt:row.startsAt,statKey:row.marketKey,stat:row.market,side:row.direction==='UNDER'?'Under':'Over',line:row.line,
   chart:soccerChart(games,statKeyOf(row.marketKey),row.opponent),lines:wnbaLines(playerRows,row.marketKey),linesStatus:'ready',
   odds:wnbaOdds(playerRows,row.marketKey),loading,onStat,filters:['opponent','league','team'],chips,chipsNote,onChipRemove,onChipsClear}),
   [row,playerRows,games,loading,onStat,chips,chipsNote,onChipRemove,onChipsClear]);

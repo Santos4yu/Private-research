@@ -57,7 +57,7 @@ test('a read: projection, venue, head-to-head, playing time, and what to watch',
   const records = {l10: {won: 7, games: 10, rate: 0.7}, l5: {won: 4, games: 5, rate: 0.8}, season: {won: 14, games: 20, rate: 0.7}};
   const read = readPick(guard(), 'OVER', {records, book: 0.6});
   assert.ok(read.projection > 21 && read.projection < 25, read.projection);
-  assert.ok(read.projected > 0.65, read.projected);
+  assert.ok(read.projected > 0.6, read.projected);
   assert.deepEqual(read.factors.map(item => item.key), ['matchup', 'venue', 'h2h', 'role']);
   assert.equal(read.factors.find(item => item.key === 'role').text, 'Minutes up to 34 from 30');
   assert.equal(read.risks.length, 0);
@@ -67,7 +67,6 @@ test('a read: projection, venue, head-to-head, playing time, and what to watch',
   assert.equal(conflicted(read), false);
   assert.equal(analystNote(guard(), 'OVER', read, {records, book: 0.6}),
     'Projects for ' + (Math.round(read.projection * 10) / 10) + ' against the 17.5 line, over in 7 of the last 10. LV allows 18 points a game to guards, 20% more than average (2nd-most); the books have it at 60%.');
-  assert.equal(read.lineCheck.verdict, 'low', 'projecting well past the line: the line looks low');
   // The Under of the same line: everything above argues against it.
   const under = readPick(guard(), 'UNDER', {records: {l10: {won: 3, games: 10, rate: 0.3}}, book: 0.4});
   assert.ok(conflicted(under));
@@ -159,16 +158,6 @@ test('recent games are judged by who they came against, then set against tonight
   const soft = readPick(scorer('SOFT1', softRun), 'OVER');
   assert.equal(soft.similar.text, 'Against soft defenses like SOFT1: 8 of 8 over 22.5');
   assert.ok(soft.signals.some(item => item.key === 'similar' && item.weight > 0));
-});
-
-test('the line check: projection against the line, in the stat\'s usual swing', () => {
-  // About 23 a night, swinging 17 to 29.
-  const steady = line => readPick({...scorer('MID', []), allowTable: null, line,
-    gameLog: [17, 29, 20, 26, 23, 18, 28, 22, 24, 25, 21, 27, 19, 23, 24, 22].map((value, index) => ({value, date: `2026-03-${String(index + 1).padStart(2, '0')}`, opponent: 'MID'}))}, 'OVER');
-  assert.equal(steady(22.5).lineCheck.verdict, 'fair', 'a 22.5 line for a 23-a-night scorer');
-  assert.equal(steady(17.5).lineCheck.verdict, 'low');
-  assert.equal(steady(28.5).lineCheck.verdict, 'high');
-  assert.ok(Math.abs(steady(22.5).lineCheck.average - 23) < 0.01);
 });
 
 test('MLB: a hitter\'s past games judged by the staffs he faced', () => {

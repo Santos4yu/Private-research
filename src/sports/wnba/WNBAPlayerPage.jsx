@@ -7,6 +7,8 @@ import {basketballLogUrl} from '../../unified-finder-data';
 import {applySplits,finite,fmt,hasPlayerContext,hasSplit,leagueOf,logValue,opponentOf,playerContextParams,positionOf,realGames,shortDate,splitFilter,splitKey,splitLabel,toggleSplit,useWnba} from './wnba-research';
 import '../../mlb-finder-context.css';
 import './wnba-context.css';
+import {withLines} from '../../trend-lines';
+
 
 // The WNBA player page, on the MLB Finder page's exact layout: the shared
 // trend chart, supporting stats and game log on the left, the tabbed
@@ -28,7 +30,7 @@ function TrendChart({row,playerRows,logs,loading,onStat,chips,chipsNote,onChipRe
  const config=useMemo(()=>({sport:row.sport==='nba'?'NBA':'WNBA',player:row.player,teamAbbr:row.teamAbbr||'',teamLogo:row.teamLogo||'',opponent:opponent||'',
   opponentLogo:row.team===row.homeTeam?row.awayTeamLogo:row.homeTeamLogo,matchupLabel:`${row.awayTeam} @ ${row.homeTeam}`,
   kickoffLabel:new Date(row.startsAt).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'}),status:'Pre-game',headshot:row.headshot||null,
-  stats:statTabs(playerRows,available),statKey:row.marketKey,stat:row.market,side:row.direction==='UNDER'?'Under':'Over',line:row.line,
+  stats:withLines(statTabs(playerRows,available),playerRows),startsAt:row.startsAt,statKey:row.marketKey,stat:row.market,side:row.direction==='UNDER'?'Under':'Over',line:row.line,
   chart:wnbaChart(logs,row.marketKey,opponent),lines:wnbaLines(playerRows,row.marketKey),linesStatus:'ready',odds:wnbaOdds(playerRows,row.marketKey),loading,onStat,
   filters:['seasonKind'],chips,chipsNote,onChipRemove,onChipsClear}),
   [row,playerRows,logs,loading,onStat,opponent,chips,chipsNote,onChipRemove,onChipsClear]);

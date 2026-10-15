@@ -2,7 +2,7 @@ import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowLeft,ArrowUpRight,BarChart3,CalendarClock,Check,ChevronLeft,ChevronRight,CircleCheck,Crown,Layers,Lock,LockOpen,Pencil,RefreshCw,Repeat2,Rocket,Search,Share2,Shield,ShieldCheck,Stethoscope,Ticket as TicketIcon,TriangleAlert,UserRound,X,Zap} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import {siteFinderSportAllowed} from './site-access';
-import {finderSlipProp} from './unified-finder-data';
+import {finderSlipProp,loadSoccerOpponents,within} from './unified-finder-data';
 import {BOARD_FRESH,loadBoard,loadLines} from './finder-pool';
 import {TARGETS,MIXES,SPORT_NAMES,candidates,buildLadder,safest,exportLeg,isPrizePicksLine,gameKey,slateGames} from './smart-slip';
 import {pickBuilder,usePickBuilder} from './pick-builder-client';
@@ -11,7 +11,7 @@ import {withPoolDefense} from './slip-analyst';
 import {gradeMatchups,withMatchup,passesMatchup,overOnly} from './krazy-bot';
 import {loadGames,loadTeammates,withGame} from './slip-games';
 import {HEADLINES,gradeTone} from './slip-score';
-import {shareSlip} from './slip-share';
+import {shareCard} from './slip-share';
 import {builderSlip,handOff} from './slip-handoff';
 import {loadLearning} from './learning';
 import {logTopPicks,newSlipId,saveSlip,slipPayload} from './slip-history';
@@ -52,6 +52,7 @@ const LAST=FLOW.length;
 const MOST_PLAYERS=3;
 const STEPS=[['Pulling the lines',Layers],['Checking hit rates',BarChart3],['Matchups, injuries and odds',Stethoscope],['Building your slip',TicketIcon]];
 const PRIZEPICKS_LOGO='/prizepicks/logo.png';
+const KIND_NAME={standard:'regular',goblin:'Goblin',demon:'Demon'};
 // The picks a slip is built from, judged as the Slip Analyzer and Krazy Bot
 // judge them (krazy-bot.js withMatchup): the matchup first, then each one's
 // game news (who's out, who starts, a teammate's absence) for the strongest
@@ -62,10 +63,13 @@ const PRIZEPICKS_LOGO='/prizepicks/logo.png';
 // game news is read, as the Slip Analyzer reads it for every pick.
 const NEWS_FOR=60;
 async function judged(rows,sports,{signal,now}){
- const tables=await loadMatchups(sports,{signal}).catch(()=>({}));
+ // Soccer's opponent reads need each opponent's recent matches (soccer-matchup.js).
+ const [tables]=await Promise.all([loadMatchups(sports,{signal}).catch(()=>({})),
+  within(loadSoccerOpponents(rows,{signal}),8000).catch(error=>{if(error.name==='AbortError')throw error;})]);
  const listed=withPoolDefense(rows.map(row=>withMatchups(row,tables)));
- // Overs only: an Under never makes a slip.
- const usable=leg=>passesMatchup(leg)&&overOnly(leg);
+ // Overs only: an Under never makes a slip. Read again with its game's
+ // news, a pick has to still clear the bar (`backed`), not just its tier.
+ const usable=leg=>passesMatchup(leg)&&overOnly(leg)&&leg.backed!==false;
  const graded=gradeMatchups(candidates(listed,{now}),tables).filter(usable);
  const top=['standard','goblin','demon'].flatMap(kind=>graded.filter(leg=>leg.modifier===kind).sort((a,b)=>b.chance*b.factor-a.chance*a.factor).slice(0,NEWS_FOR));
  const asks=top.map(leg=>({key:leg.id,row:leg.row}));
@@ -74,10 +78,15 @@ async function judged(rows,sports,{signal,now}){
   found=await loadGames(asks,{signal})||{};
   mates=await loadTeammates(asks.filter(item=>found[item.key]).map(item=>({key:item.key,row:withGame(item.row,found[item.key])})),{signal}).catch(()=>({}));
  }catch{/* built on the matchups alone */}
- return graded.map(leg=>{
+ const read=graded.map(leg=>{
   const game=found[leg.id];
   return game?withMatchup({...leg,chance:leg.trendChance??leg.chance,row:withGame(leg.row,{...game,teammates:mates[leg.id]||[]})},leg.matchupRequired,tables):leg;
- }).filter(usable);
+ });
+ const out=read.filter(usable);
+ // A tier short (Lean) but still over the bar: what a slip falls back on
+ // when no slip can be built from Elite and Strong picks alone.
+ out.leans=read.filter(leg=>leg&&leg.tier==='lean'&&overOnly(leg)&&leg.backed!==false);
+ return out;
 }
 
 const percent=value=>`${Math.round(value*100)}%`;
@@ -120,12 +129,14 @@ function Token({kind}){
  return <i className={`ss-token is-${MODIFIER_ICON[kind]?kind:'standard'}`}><img src={MODIFIER_ICON[kind]||PRIZEPICKS_LOGO} alt=""/></i>;
 }
 
+// A headshot is see-through around the player, so the initials beneath step aside once it's in.
+const photoIn=event=>event.currentTarget.parentElement.classList.add('has-photo');
 // A row of player photos, overlapping (initials when there's no photo).
 function Faces({players,max=3}){
  const shown=(players||[]).slice(0,max),more=(players||[]).length-shown.length;
  return <span className="ss-faces" aria-hidden="true">{shown.map(player=><span key={player.name} className="ss-face-mini">
   <i>{String(player.name||'').split(/\s+/).map(part=>part[0]).join('').slice(0,2)}</i>
-  {player.headshot&&<img src={player.headshot} alt="" loading="lazy" onError={event=>{event.currentTarget.hidden=true;}}/>}</span>)}
+  {player.headshot&&<img src={player.headshot} alt="" loading="lazy" onLoad={photoIn} onError={event=>{event.currentTarget.hidden=true;}}/>}</span>)}
   {more>0&&<span className="ss-face-mini is-more"><i>+{more}</i></span>}</span>;
 }
 
@@ -283,11 +294,11 @@ function Pick({leg,index,need,locked,onLock,onSwap,onResearch}){
  </article>;
 }
 
-// The built slip as a picture to post (slip-share.js, the Slip Analyzer's own).
+// The built slip as a picture to post: the slip card, each pick's line as PrizePicks shows it (slip-share.js drawCard).
 async function shareBuilt(slip){
- await shareSlip({score:{letter:slip.letter,chance:slip.play==='flex'?slip.profit:slip.chance,multiplier:slip.payout,value:slip.value},
-  legs:slip.legs.map(leg=>({row:leg.row,player:leg.row.player,side:leg.side,line:leg.row.line,stat:leg.row.market,grade:{tier:leg.tier,chance:leg.chance}})),
-  headline:HEADLINES[slip.letter]||'My parlay',kind:`PrizePicks · ${slip.legs.length}-Pick ${slip.play==='flex'?'Flex':'Power'} Play`});
+ await shareCard({letter:slip.letter,kind:`${slip.legs.length}-pick ${slip.play==='flex'?'Flex':'Power'}`,
+  legs:slip.legs.map(leg=>({player:leg.row.player,team:leg.row.teamAbbr,position:leg.row.position,sport:leg.row.sport,headshot:leg.row.headshot,
+   teamLogo:teamLogo(leg.row),side:leg.side,line:leg.row.line,stat:leg.row.market,modifier:leg.row.modifier}))});
 }
 
 function Ticket({slip,locked,onLock,onSwap,onResearch,onAdd,onExport,exporting,link,onCheck}){
@@ -393,6 +404,7 @@ export function SmartSlip(){
  const [progress,setProgress]=useState({});
  const [lineCount,setLineCount]=useState(0);
  const [pool,setPool]=useState([]);
+ const [leans,setLeans]=useState([]);
  const [builtAt,setBuiltAt]=useState(0);
  // What the slips on hand were built from: change any of it and they need building again.
  const [builtFor,setBuiltFor]=useState('');
@@ -436,10 +448,29 @@ export function SmartSlip(){
  useEffect(()=>()=>clearTimeout(advance.current),[]);
  const chooseThenGo=()=>{clearTimeout(advance.current);advance.current=setTimeout(onward,calm()?0:320);};
 
- const base=useMemo(()=>pool.length?buildLadder(pool,{play,size,mix,sameGame,perGame,locked,excluded}):[],[pool,play,size,mix,sameGame,perGame,locked,excluded]);
+ // What cleared the bar, by kind of line (said when nothing builds).
+ const qualified=useMemo(()=>{
+  const all=[...pool,...leans];
+  const counts=['standard','goblin','demon'].map(kind=>[kind,all.filter(leg=>leg.modifier===kind).length]).filter(([,n])=>n);
+  const games=new Set(all.map(leg=>leg.game)).size;
+  return all.length?`${all.length} pick${all.length===1?'':'s'} cleared the bar (${counts.map(([kind,n])=>`${n} ${KIND_NAME[kind]}`).join(', ')}) across ${games} game${games===1?'':'s'}${lineCount?`, of ${lineCount} lines checked`:''}.`
+   :`None of the ${lineCount||''} lines checked cleared the bar.`.replace('  ',' ');
+ },[pool,leans,lineCount]);
+ const strict=useMemo(()=>pool.length?buildLadder(pool,{play,size,mix,sameGame,perGame,locked,excluded}):[],[pool,play,size,mix,sameGame,perGame,locked,excluded]);
+ // Nothing from Elite and Strong picks alone: built with the Lean picks too, and said so.
+ const leaning=!strict.length&&leans.length>0;
+ const usable=useMemo(()=>leaning?[...pool,...leans]:pool,[leaning,pool,leans]);
+ const leaned=useMemo(()=>leaning?buildLadder(usable,{play,size,mix,sameGame,perGame,locked,excluded}):strict,
+  [leaning,usable,strict,play,size,mix,sameGame,perGame,locked,excluded]);
+ // The mix needs a kind of line none of which cleared the bar (no Goblin today): regular lines, and said so.
+ const missingKinds=useMemo(()=>(MIXES[mix]?.needs||[]).filter(kind=>!usable.some(leg=>leg.modifier===kind)),[mix,usable]);
+ const fallback=!leaned.length&&missingKinds.length>0&&usable.some(leg=>leg.modifier==='standard');
+ const built=fallback?'regular':mix;
+ const base=useMemo(()=>fallback?buildLadder(usable,{play,size,mix:'regular',sameGame,perGame,locked,excluded}):leaned,
+  [fallback,usable,leaned,play,size,sameGame,perGame,locked,excluded]);
  // A swap changes one pick of one slip: same band, same size, the rest kept.
- const swapped=useMemo(()=>swap&&pool.length?buildLadder(pool,{play,size:swap.size,mix,sameGame,perGame,locked:[...new Set([...locked,...swap.kept])],excluded,only:[swap.target]})[0]||null:null,
-  [swap,pool,play,mix,sameGame,perGame,locked,excluded]);
+ const swapped=useMemo(()=>swap&&usable.length?buildLadder(usable,{play,size:swap.size,mix:built,sameGame,perGame,locked:[...new Set([...locked,...swap.kept])],excluded,only:[swap.target]})[0]||null:null,
+  [swap,usable,play,built,sameGame,perGame,locked,excluded]);
  const ladder=useMemo(()=>{
   const bands=new Map(base.map(item=>[item.target,item]));
   if(swapped)bands.set(swapped.target,swapped);
@@ -457,7 +488,7 @@ export function SmartSlip(){
   const control=new AbortController();controller.current=control;
   const started=Date.now();
   setEditing(false);
-  setStatus('loading');setStep(0);setNotice('');setLocked([]);setSwap(null);setExcluded([]);setSelected(null);setProgress({});setPool([]);setLineCount(0);
+  setStatus('loading');setStep(0);setNotice('');setLocked([]);setSwap(null);setExcluded([]);setSelected(null);setProgress({});setPool([]);setLeans([]);setLineCount(0);
   scan.current=[];
   // What the results have taught the model, before anything is graded.
   await loadLearning();
@@ -503,7 +534,7 @@ export function SmartSlip(){
   if(!await hold(1,checked?200:500))return;
   if(!await hold(2,550))return;
   // The picks drop into the slip on the last step, then the options show.
-  setPool(found);setLocked(around);
+  setPool(found);setLeans(found.leans||[]);setLocked(around);
   if(!await hold(3,1300))return;
   setBuiltAt(Date.now());setBuiltFor(source);
   setStatus(rows.length?'ready':'error');
@@ -513,7 +544,7 @@ export function SmartSlip(){
   setNotice(notes.join(' '));
  },[chosen,picked,anchored,slate,mix,source]);
  useEffect(()=>()=>controller.current?.abort(),[]);
- const cancel=()=>{controller.current?.abort();setStatus('idle');setEditing(true);setPool([]);go(LAST);};
+ const cancel=()=>{controller.current?.abort();setStatus('idle');setEditing(true);setPool([]);setLeans([]);go(LAST);};
 
  const toggleSport=key=>setSports(old=>{const base=old.filter(item=>allowed.includes(item));const current=base.length?base:allowed;
   const next=current.includes(key)?current.filter(item=>item!==key):[...current,key];return next.length===allowed.length?[]:next.length?next:[key];});
@@ -528,7 +559,7 @@ export function SmartSlip(){
   if(!slip)return;
   const kept=slip.legs.filter(other=>other.id!==leg.id).map(other=>other.id);
   // Nothing else fits: the slip stays as it is.
-  const next=buildLadder(pool,{play,size:slip.legs.length,mix,sameGame,perGame,locked:[...new Set([...locked,...kept])],excluded:[...excluded,leg.id],only:[slip.target]})[0];
+  const next=buildLadder(usable,{play,size:slip.legs.length,mix:built,sameGame,perGame,locked:[...new Set([...locked,...kept])],excluded:[...excluded,leg.id],only:[slip.target]})[0];
   if(!next){setToast('No other pick fits this slip right now');return;}
   setSwap({target:slip.target,size:slip.legs.length,kept});
   setExcluded(old=>[...old,leg.id]);setSelected(slip.target);
@@ -688,7 +719,7 @@ export function SmartSlip(){
      <div className="ss-mini">
       <header><img src={PRIZEPICKS_LOGO} alt=""/><b>Your slip</b><span>Graded A+ to F</span></header>
       <ol>{[0,1,2].map(n=>{const player=faces[n];
-       return <li key={n} style={{'--i':n}}>{player?<><span className="ss-face-mini"><i>{player.name.split(' ').map(part=>part[0]).join('').slice(0,2)}</i>{player.headshot&&<img src={player.headshot} alt="" onError={event=>{event.currentTarget.hidden=true;}}/>}</span>
+       return <li key={n} style={{'--i':n}}>{player?<><span className="ss-face-mini"><i>{player.name.split(' ').map(part=>part[0]).join('').slice(0,2)}</i>{player.headshot&&<img src={player.headshot} alt="" onLoad={photoIn} onError={event=>{event.currentTarget.hidden=true;}}/>}</span>
         <span className="ss-mini-who"><b>{player.name}</b><small>{player.team} · {SPORT_NAMES[player.game.sport]}</small></span><em>More</em></>
         :<><i className="ss-slot-face"/><span className="ss-slot-text"><i/><i/></span></>}</li>;})}</ol>
       <footer><span>3-pick Power</span><b>Pays 6x</b></footer>
@@ -736,9 +767,12 @@ export function SmartSlip(){
    </div>
    {notice&&<p className="ss-notice" role="status">{notice}</p>}
    {status==='ready'&&!ladder.length&&<div className="ss-empty"><b>No slip clears the bar right now</b>
+    <small className="ss-empty-count">{qualified}</small>
     <span>{anchored.length?'Try another payout, or build around another player.':picked.length?'Add another game, try another line mix, or a different payout.':'Try more sports, another line mix, or a different payout.'}</span>
     <button type="button" onClick={()=>{setEditing(true);go(LAST);}}>Change my choices</button></div>}
    {status==='error'&&<div className="ss-empty"><b>Lines couldn’t load</b><button type="button" onClick={build}>Try again</button></div>}
+   {status==='ready'&&ladder.length>0&&fallback&&<p className="ss-notice ss-leaning" role="status">No {missingKinds.map(kind=>KIND_NAME[kind]).join(' or ')} line cleared the bar today, so this slip uses regular lines.</p>}
+   {status==='ready'&&ladder.length>0&&leaning&&<p className="ss-notice ss-leaning" role="status">Nothing Elite or Strong makes a slip with these choices, so this one uses Lean picks too: each still clears the bar, with a smaller edge.</p>}
    {status==='ready'&&ladder.length>0&&<>
     <div className="ss-ladder" role="listbox" aria-label="Payout options">{ladder.map((item,index)=>{
      const active=item===slip;

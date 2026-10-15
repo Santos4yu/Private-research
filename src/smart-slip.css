@@ -189,6 +189,7 @@
 .smart-slip .ss-face-mini{position:relative;display:grid;place-items:center;width:28px;height:28px;margin-left:-7px;overflow:hidden;border-radius:50%;background:#232b30;box-shadow:0 0 0 2px #151a1d}
 .smart-slip .ss-face-mini i{color:var(--s-muted);font:800 9px/1 var(--s-sans);font-style:normal;letter-spacing:-.2px}
 .smart-slip .ss-face-mini img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top}
+.smart-slip .ss-face-mini.has-photo i{visibility:hidden}
 .smart-slip .ss-face-mini.is-more{background:#1b2226}
 .ss-ladder .ss-faces{min-height:28px;padding-left:7px}
 
@@ -345,6 +346,10 @@
 .ss-progress-text b{color:var(--s-text);font-variant-numeric:tabular-nums}
 
 .ss-notice{margin:12px 2px 0;color:var(--s-muted);font-size:12px}
+/* A slip built with Lean picks too: said plainly, in the gold the tiers use for a smaller edge. */
+.ss-empty-count{display:block;color:var(--s-faint);font-size:12px}
+.ss-notice.ss-leaning{padding:10px 12px;border:1px solid color-mix(in srgb,var(--s-gold) 35%,transparent);border-radius:10px;
+ background:color-mix(in srgb,var(--s-gold) 8%,transparent);color:var(--s-gold);font-size:13px;line-height:1.4}
 .ss-empty{display:grid;justify-items:center;gap:8px;margin-top:14px;padding:36px 16px;border:1px solid var(--s-line);border-radius:18px;background:var(--s-card);color:var(--s-muted);text-align:center;animation:ss-in .35s ease-out}
 .ss-empty b{color:var(--s-text);font-size:15px}
 .ss-empty button{min-height:40px;padding:0 16px;border:1px solid var(--s-line)!important;border-radius:10px;background:var(--s-raised)!important;font-weight:700}

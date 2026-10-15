@@ -10,6 +10,14 @@
 // the sample behind them is thin: a matchup moves a projection a few
 // percent, never doubles it, and all of them together move it at most
 // MAX_SHIFT.
+//
+// In MLB, the NHL and basketball the projection is the prop model's
+// (prop-model.js): his rate per plate appearance, pitch or minute times
+// today's opportunities, its chance read off the way the stat falls and
+// held toward the line's break-even by how sure the model can be.
+import {sideChance, projectStat, modelRead, modelMean, withModelPriors} from './prop-model.js';
+import {withSoccerMatchups, soccerText, oddsTilt} from './soccer-matchup.js';
+import {cachedSoccerLog} from './unified-finder-data.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
@@ -34,64 +42,8 @@ const SOFT = 1.05, TOUGH = 0.95;
 
 // ---------------------------------------------------------------- distributions
 
-// log Γ(x), Lanczos.
-function logGamma(x) {
-  const g = 7, c = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059,
-    12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
-  if (x < 0.5) return Math.log(Math.PI / Math.sin(Math.PI * x)) - logGamma(1 - x);
-  x -= 1;
-  let a = c[0];
-  const t = x + g + 0.5;
-  for (let i = 1; i < g + 2; i++) a += c[i] / (x + i);
-  return 0.5 * Math.log(2 * Math.PI) + (x + 0.5) * Math.log(t) - t + Math.log(a);
-}
-
-function normalCdf(z) {
-  // Abramowitz-Stegun 7.1.26 on erf.
-  const x = Math.abs(z) / Math.SQRT2, t = 1 / (1 + 0.3275911 * x);
-  const erf = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
-  return z >= 0 ? (1 + erf) / 2 : (1 - erf) / 2;
-}
-
-// P(X = k) for a count with this mean and variance: negative binomial when
-// the games spread wider than a Poisson, Poisson otherwise.
-function countPmf(k, mu, variance) {
-  if (k < 0) return 0;
-  if (variance > mu * 1.05) {
-    const r = mu * mu / (variance - mu), p = r / (r + mu);
-    return Math.exp(logGamma(k + r) - logGamma(k + 1) - logGamma(r) + r * Math.log(p) + k * Math.log(1 - p));
-  }
-  return Math.exp(k * Math.log(mu) - mu - logGamma(k + 1));
-}
-
-/**
- * The chance a stat with this mean and spread lands on `side` of `line`,
- * pushes (an exact whole-number line) left out. Counts use a count
- * distribution; big or fractional stats a normal curve.
- */
-export function sideChance(mu, variance, line, side, {counts = true} = {}) {
-  if (!finite(mu) || !finite(line)) return null;
-  if (mu <= 0) return side === 'UNDER' ? 1 : 0;
-  let over, push = 0;
-  if (counts && (variance > mu * 1.05 || mu < 4)) {
-    const k = Math.floor(line);
-    let atMost = 0;
-    for (let i = 0; i <= k; i++) atMost += countPmf(i, mu, variance);
-    push = Number.isInteger(line) ? countPmf(line, mu, variance) : 0;
-    over = 1 - atMost;
-  } else {
-    const sd = Math.sqrt(Math.max(variance, counts ? mu * 0.3 : (mu * 0.12) ** 2, 0.25));
-    if (counts) {
-      const k = Math.floor(line);
-      over = 1 - normalCdf((k + 0.5 - mu) / sd);
-      push = Number.isInteger(line) ? normalCdf((line + 0.5 - mu) / sd) - normalCdf((line - 0.5 - mu) / sd) : 0;
-    } else over = 1 - normalCdf((line - mu) / sd);
-  }
-  const decided = 1 - push;
-  if (decided <= 0) return null;
-  const chance = side === 'UNDER' ? (1 - over - push) / decided : over / decided;
-  return clamp(chance, 0.01, 0.99);
-}
+// The distributions live with the prop model (prop-model.js).
+export {sideChance};
 
 // ---------------------------------------------------------------- context
 
@@ -213,6 +165,8 @@ function hitterModelRead(row) {
  * game logs on today's board: every other player at his position with a
  * line in this stat, his games against the opponent held against his own
  * average. For leagues without a defense table (NHL), or when it's missing.
+ * Each line also gets the board's rate per opportunity in its stat
+ * (prop-model.js withModelPriors).
  */
 const poolPosition = row => {
   const position = String(row.position || '').toUpperCase();
@@ -250,7 +204,7 @@ export function withPoolDefense(rows) {
     for (const [team, {total, games}] of teams) if (games >= 6) table[team] = 1 + (total / games - 1) * games / (games + 12);
     if (Object.keys(table).length >= 4) tables.set(key, table);
   }
-  return rows.map(row => {
+  const defended = rows.map(row => {
     if (finite(row.defenseValue) || row.opponent == null) return row;
     const position = poolPosition(row);
     const players = position && groups.get(`${row.sport}|${row.market}|${position}`);
@@ -267,6 +221,9 @@ export function withPoolDefense(rows) {
     const ratio = 1 + (total / games - 1) * games / (games + 12);
     return {...row, poolDefense: {ratio, games, position}};
   });
+  // Soccer's opponent reads (soccer-matchup.js), and what the rest of the
+  // board does per opportunity (prop-model.js).
+  return withModelPriors(withSoccerMatchups(defended, cachedSoccerLog));
 }
 
 /**
@@ -354,6 +311,14 @@ export function matchupGrade(read, side) {
 
 /** What today's opponent does to the stat: a factor on the projection and its words. */
 export function matchupRead(row) {
+  if (row.sport === 'soccer' && row.soccerMatchup) {
+    // Soccer: what the opponent's recent matches say about the stat, and
+    // the match odds' small tilt (soccer-matchup.js).
+    const read = row.soccerMatchup;
+    const factor = clamp(shift(read.ratio, read.weight, 0.85, 1.18) * oddsTilt(row, read), 0.82, 1.2);
+    const gap = Math.round((factor - 1) * 100);
+    return {factor, short: `${gap >= 0 ? '+' : '−'}${Math.abs(gap)}%`, label: `vs ${read.opponent}`, text: soccerText(read)};
+  }
   if (DEFENSE_SPORTS.has(row.sport) && finite(row.defenseValue) && finite(row.defenseAverage) && row.defenseAverage > 0) {
     const allowed = finite(row.defenseRecent) ? 0.65 * row.defenseValue + 0.35 * row.defenseRecent : row.defenseValue;
     const ratio = allowed / row.defenseAverage;
@@ -435,6 +400,16 @@ export function matchupRead(row) {
 
 // ---------------------------------------------------------------- the read
 
+// What the matchup and the splits add on top of the prop model's rate:
+// a hitter's matchup grade says less than a lineup's strikeout rate says
+// of a pitcher's strikeouts; head-to-head is a handful of games; playing
+// time is already in the model's opportunities.
+function modelWeights(row) {
+  const pitcher = String(row.marketKey || '').startsWith('pitching:');
+  const matchup = row.sport === 'mlb' ? (pitcher ? 1 : 0.6) : row.sport === 'nhl' ? 0.7 : row.sport === 'soccer' ? 0.9 : 0.8;
+  return {matchup, venue: 0.5, h2h: 0.3, role: 0, rest: 1};
+}
+
 const rateOn = (games, line, side) => {
   const decided = games.filter(game => game.value !== line);
   if (!decided.length) return null;
@@ -456,6 +431,10 @@ export function readPick(row, side, {records = {}, book = null, baseline = 0.5, 
   const sign = side === 'UNDER' ? -1 : 1;
   const out = {projection: null, projected: null, factors: [], risks: []};
   const matchup = matchupRead(row);
+  // The prop model where it knows the stat: the matchup and the splits move
+  // its rate by what they add on top of it.
+  const model = finite(line) ? projectStat(row) : null;
+  const counted = model ? modelWeights(row) : null;
 
   const allow = allowReader(row);
   if (log.length >= MIN_GAMES && finite(line)) {
@@ -504,7 +483,10 @@ export function readPick(row, side, {records = {}, book = null, baseline = 0.5, 
     }
     const variance = n > 1 ? values.reduce((sum, value) => sum + (value - plain) ** 2, 0) / (n - 1) : plain;
     let factor = 1;
-    const move = (key, value, detail) => { factor *= value; out.factors.push({key, factor: value, ...detail}); };
+    const move = (key, value, detail) => {
+      factor *= counted ? 1 + (value - 1) * (counted[key] ?? 1) : value;
+      out.factors.push({key, factor: value, ...detail});
+    };
 
     if (matchup) move('matchup', matchup.factor, matchup);
 
@@ -549,22 +531,30 @@ export function readPick(row, side, {records = {}, book = null, baseline = 0.5, 
       if (rest < 1.6) { move('rest', 0.98, {short: 'B2B', label: 'back-to-back', text: 'Second night of a back-to-back'}); out.risks.push('Back-to-back'); }
     }
 
-    const projected = base * clamp(factor, 1 - MAX_SHIFT, 1 + MAX_SHIFT);
-    const counts = values.every(value => Number.isInteger(value) && value >= 0);
-    let chance = sideChance(projected, variance * (plain > 0 ? projected / plain : 1), line, side, {counts});
-    // A short history says less: pulled toward even (a one-event line:
-    // toward the player's season rate, smart-slip.js assessLeg).
-    if (chance != null) chance = anchor + (chance - anchor) * n / (n + 4);
-    out.projection = projected;
-    out.projected = chance;
-    out.games = n;
-    // Is the line too high or too low: the projection against it, in the
-    // stat's usual game-to-game swing, beside his season and recent averages.
-    const spread = Math.sqrt(Math.max(variance * (plain > 0 ? projected / plain : 1), 0.25));
-    const z = (projected - line) / spread;
-    out.lineCheck = {projection: projected, line, gap: projected - line, z, verdict: z >= 0.25 ? 'low' : z <= -0.25 ? 'high' : 'fair',
-      average: plain, recent: mean(values.slice(-10))};
-    if (n < 8) out.risks.push(`Only ${n} games of history`);
+    if (model) {
+      const scale = {rate: clamp(factor, 1 - MAX_SHIFT, 1 + MAX_SHIFT) * model.context.rate};
+      // Held toward the line's break-even by how sure the model can be.
+      const read = modelRead(model, line, side, {rate: scale.rate, baseline});
+      out.projection = modelMean(model, scale);
+      out.projected = read?.chance ?? null;
+      out.games = model.games;
+      out.model = {key: model.key, unit: model.unit, rate: model.rate, prior: model.prior, usage: model.usage, recentUsage: model.recentUsage,
+        raw: read?.raw ?? null, weight: read?.weight ?? 0, unsure: read?.unsure ?? null, spot: model.context.spot,
+        used: model.context.used, notes: model.context.notes};
+      out.risks.push(...model.context.risks);
+      if (model.games < 8) out.risks.push(`Only ${model.games} games of history`);
+    } else {
+      const projected = base * clamp(factor, 1 - MAX_SHIFT, 1 + MAX_SHIFT);
+      const counts = values.every(value => Number.isInteger(value) && value >= 0);
+      let chance = sideChance(projected, variance * (plain > 0 ? projected / plain : 1), line, side, {counts});
+      // A short history says less: pulled toward even (a one-event line:
+      // toward the player's season rate, smart-slip.js assessLeg).
+      if (chance != null) chance = anchor + (chance - anchor) * n / (n + 4);
+      out.projection = projected;
+      out.projected = chance;
+      out.games = n;
+      if (n < 8) out.risks.push(`Only ${n} games of history`);
+    }
   } else if (matchup) {
     out.factors.push({key: 'matchup', ...matchup});
   }

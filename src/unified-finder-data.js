@@ -1007,6 +1007,38 @@ export async function loadSoccerLog(row, options = {}) {
   return payload;
 }
 
+/** A soccer team's recent matches for a line's match when they're already loaded (loadSoccerLog), else null. */
+export function cachedSoccerLog(row, teamId) {
+  if (!row?.eventId || !teamId) return null;
+  return historyCache.get(`soccer:${soccerLogKey({...row, teamId})}`)?.value || null;
+}
+
+/**
+ * Loads the recent matches of every soccer line's opponent the board
+ * doesn't have yet (soccer-matchup.js reads them). Usually only a few: an
+ * opponent with lines of its own is already loaded.
+ */
+export async function loadSoccerOpponents(rows, {signal, concurrency = 4, ...options} = {}) {
+  const wanted = new Map();
+  for (const row of rows || []) {
+    if (row?.sport !== 'soccer' || !row.eventId || !row.opponentId) continue;
+    const ask = {...row, teamId: row.opponentId};
+    const key = soccerLogKey(ask);
+    if (!wanted.has(key) && !historyCache.has(`soccer:${key}`)) wanted.set(key, ask);
+  }
+  const queue = [...wanted.values()];
+  let next = 0;
+  async function worker() {
+    while (next < queue.length) {
+      aborted(signal);
+      const ask = queue[next++];
+      try { await loadSoccerLog(ask, {signal, ...options}); } catch (error) { if (signal?.aborted || error.name === 'AbortError') throw error; }
+    }
+  }
+  await Promise.all(Array.from({length: Math.min(queue.length, Math.max(1, concurrency))}, worker));
+  return queue.length;
+}
+
 export function applySoccerHistory(row, log) {
   const stat = statKeyOf(row.marketKey);
   const games = playerGames(log, row.player).filter(game => number(valueOf(game, stat)) != null);

@@ -9,7 +9,8 @@
 // re-scored at the slip's number, so a 2.5 on Underdog is graded as a 2.5,
 // not as PrizePicks' 1.5.
 import {finderMarket} from './prop-finder-core.js';
-import {finderWindow} from './unified-finder-data.js';
+import {finderWindow, cachedSoccerLog, loadSoccerOpponents, within} from './unified-finder-data.js';
+import {withSoccerMatchups} from './soccer-matchup.js';
 import {assessLeg, POWER, FLEX, SPORT_NAMES} from './smart-slip.js';
 import {matchupCase, withMatchups} from './slip-matchup.js';
 import {links} from './slip-correlation.js';
@@ -372,6 +373,11 @@ export function tierOf(read) {
   return 'lean';
 }
 
+// For a prop-model read: how much of its chance stands, and how far a
+// matchup grade 50 points from neutral moves it on top. Baseball and
+// hockey matchup grades say less about one game than basketball's.
+const MODEL_BLEND = {mlb: [0.9, 0.05], nhl: [0.9, 0.05], soccer: [0.9, 0.06], nba: [0.9, 0.07], wnba: [0.9, 0.07]};
+
 /**
  * A read judged on its matchup: the case for it (slip-matchup.js), its
  * chance with the matchup counting most and the recent games after
@@ -379,13 +385,24 @@ export function tierOf(read) {
  */
 export function judge(read, tables = {}) {
   if (!read) return null;
+  // With his game's news in (the lineup, who's out, the odds), the prop
+  // model reads the pick again with it (prop-model.js gameContext).
+  if (read.row?.game && read.read?.model && read.side) {
+    const again = assessLeg(read.row, read.side, {any: true, started: true});
+    if (again?.read?.model) read = {...read, chance: again.chance, history: again.history, read: again.read, grade: again.grade,
+      note: again.note, backed: read.backed !== false && again.backed};
+  }
   const matchup = matchupCase({row: read.row, side: read.side, grade: read}, tables);
   const base = baselineOf(read);
   // A bigger role than his recent games (a backup starting) leaves those
   // games little to say (slip-games.js).
   const role = matchup?.facts?.some(item => item.level === 'role');
-  const trend = role ? 0.15 : matchup?.primary ? 0.45 : 0.7;
-  const raw = matchup ? Math.min(0.95, Math.max(0.05, base + trend * (read.chance - base) + 0.18 * (matchup.score - 50) / 50)) : read.chance;
+  // The prop model already carries the matchup in its projection: its
+  // read leads and the matchup grade adds a little on top.
+  const blend = read.read?.model ? MODEL_BLEND[read.row?.sport] : null;
+  const trend = role ? 0.15 : blend ? blend[0] : matchup?.primary ? 0.45 : 0.7;
+  const lift = blend ? blend[1] : 0.18;
+  const raw = matchup ? Math.min(0.95, Math.max(0.05, base + trend * (read.chance - base) + lift * (matchup.score - 50) / 50)) : read.chance;
   // What the results have taught the model (learning.js): the same
   // correction on every page. `rawChance` is the model's own, learned from.
   const chance = calibrate(raw, read.row?.sport, statGroup(read.row));
@@ -522,6 +539,14 @@ export const sideWord = (side, app) => {
  * `lookup(leg, sports)` (slip-lookup.js) and graded from his own games:
  * state 'history'.
  */
+// A soccer line read against its opponent once its own matches are in
+// (soccer-matchup.js), loading the opponent's when the board hasn't.
+async function soccerRead(row, signal) {
+  if (row?.sport !== 'soccer' || !row.eventId) return row;
+  await within(loadSoccerOpponents([row], {signal}), 6000).catch(error => { if (error.name === 'AbortError') throw error; });
+  return withSoccerMatchups([row], cachedSoccerLog)[0];
+}
+
 export async function checkLeg(read, boards, {enrichFor = () => null, lookup = null, sports = SLIP_SPORTS, tables = {}, signal} = {}) {
   // A side that couldn't be read is taken as More (the usual pick, and the
   // only one on a Goblin or Demon) and flagged, so the parlay still grades.
@@ -540,8 +565,8 @@ export async function checkLeg(read, boards, {enrichFor = () => null, lookup = n
       return {...base, lookupError: error.message || 'Player data is unavailable right now.'};
     }
     if (!found) return base;
-    const row = withMatchups(known ? {...found, headshot: found.headshot || known.headshot, teamLogo: found.teamLogo || known.teamLogo,
-      opponent: found.opponent || known.opponent, startsAt: found.startsAt || known.startsAt} : found, tables);
+    const row = await soccerRead(withMatchups(known ? {...found, headshot: found.headshot || known.headshot, teamLogo: found.teamLogo || known.teamLogo,
+      opponent: found.opponent || known.opponent, startsAt: found.startsAt || known.startsAt} : found, tables), signal);
     if (leg.line == null || !leg.side) return {...base, sport: row.sport, row, state: 'needs'};
     const grade = gradeLeg(leg, row, tables);
     return {...base, sport: row.sport, row, grade, state: grade ? 'history' : 'thin'};
@@ -556,7 +581,7 @@ export async function checkLeg(read, boards, {enrichFor = () => null, lookup = n
     } catch (error) { if (error.name === 'AbortError') throw error; }
   }
   if (spot.state === 'relined') row = await relined(spot.board, leg.line, {enrich, signal});
-  row = withMatchups(row, tables);
+  row = await soccerRead(withMatchups(row, tables), signal);
   const grade = gradeLeg(leg, row, tables);
   return {...base, row, grade, state: grade ? spot.state : 'thin'};
 }
