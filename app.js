@@ -2915,11 +2915,38 @@ function populateGameLogStats() {
   const existing = [...els.gamelogStatTabs.querySelectorAll('button[data-stat]')];
   if (existing.length === stats.length && existing.every((button,index) => button.dataset.stat === stats[index])) {
     existing.forEach(button => {button.classList.toggle('active',button.dataset.stat===gameLogState.stat);button.setAttribute('aria-pressed',String(button.dataset.stat===gameLogState.stat));});
+    syncTrendChipLine();
     return;
   }
   const scrollLeft = els.gamelogStatTabs.scrollLeft;
-  els.gamelogStatTabs.innerHTML = trendAdapter.statList().map((stat) => `<button type="button" data-stat="${escapeHtml(stat)}" title="${escapeHtml(stat)}" aria-label="${escapeHtml(stat)}" aria-pressed="${stat === gameLogState.stat}" class="${stat === gameLogState.stat ? "active" : ""}">${escapeHtml(gameLogStatCode(stat))}</button>`).join("");
+  els.gamelogStatTabs.innerHTML = trendAdapter.statList().map((stat) => `<button type="button" data-stat="${escapeHtml(stat)}" title="${escapeHtml(stat)}" aria-label="${escapeHtml(stat)}" aria-pressed="${stat === gameLogState.stat}" class="${stat === gameLogState.stat ? "active" : ""}"><b>${escapeHtml(trendChipName(stat))}</b><small data-chip-line>${escapeHtml(trendChipLine(stat))}</small></button>`).join("");
   els.gamelogStatTabs.scrollLeft = scrollLeft;
+  syncTrendChipLine();
+}
+// A chip's name: the stat's code, or a long name shortened the way a
+// sportsbook writes it ("Receiving Yards" -> "Rec Yds").
+const CHIP_WORDS = [[/\breceiving\b/gi, "Rec"], [/\breceptions\b/gi, "Rec"], [/\brushing\b/gi, "Rush"], [/\bpassing\b/gi, "Pass"],
+  [/\byards\b/gi, "Yds"], [/\battempts\b/gi, "Att"], [/\bcompletions\b/gi, "Cmp"], [/\btouchdowns?\b/gi, "TD"],
+  [/\binterceptions\b/gi, "INT"], [/\blongest\b/gi, "Long"], [/\breception\b/gi, "Rec"], [/\brebounds\b/gi, "Reb"],
+  [/\bassists\b/gi, "Ast"], [/\bpoints\b/gi, "Pts"], [/\bthree pointers made\b/gi, "3PM"], [/\b3-?pointers made\b/gi, "3PM"],
+  [/\bfantasy score\b/gi, "Fantasy"], [/\bshots on target\b/gi, "SOT"], [/\bshots on goal\b/gi, "SOG"], [/\bgoalie saves\b/gi, "Saves"],
+  [/\bblocked shots\b/gi, "Blocks"], [/\bpasses attempted\b/gi, "Passes"], [/\bturnovers\b/gi, "TO"], [/\bsteals\b/gi, "Stl"]];
+function trendChipName(stat) {
+  const code = gameLogStatCode(stat);
+  if (code !== stat || String(stat).length <= 9) return code;
+  return CHIP_WORDS.reduce((text, [pattern, short]) => text.replace(pattern, short), String(stat));
+}
+// A stat chip's line: the chart's for the stat on it, else the host's posted one.
+function trendChipLine(stat) {
+  if (stat === gameLogState.stat && Number.isFinite(Number(gameLogState.line))) return Number(gameLogState.line).toFixed(1);
+  const posted = externalTrendConfig?.stats?.find((item) => item.label === stat)?.line;
+  return Number.isFinite(Number(posted)) && posted !== null && posted !== "" ? Number(posted).toFixed(1) : "";
+}
+function syncTrendChipLine() {
+  els.gamelogStatTabs?.querySelectorAll("button[data-stat]").forEach((button) => {
+    const slot = button.querySelector("[data-chip-line]");
+    if (slot) slot.textContent = trendChipLine(button.dataset.stat);
+  });
 }
 
 // The sport-neutral half of switching the panel to another stat: badge,
@@ -3295,11 +3322,13 @@ function renderGameLogSubfilters() {
 // bar below -- games are already regraded (.over set) by regradeGameLog()
 // before this runs.
 function windowStat(games) {
-  if (!games.length) return { hitRate: null, avg: null };
+  if (!games.length) return { hitRate: null, avg: null, hits: 0, games: 0 };
   const hits = games.filter((g) => g.over).length;
   const avg = games.reduce((sum, g) => sum + (Number(g.value) || 0), 0) / games.length;
-  return { hitRate: Math.round((hits / games.length) * 100), avg };
+  return { hitRate: Math.round((hits / games.length) * 100), avg, hits, games: games.length };
 }
+// A hit rate's tone on the tiles: strong, middling, poor.
+const rateTone = (rate) => rate == null ? "none" : rate >= 60 ? "up" : rate >= 45 ? "mid" : "down";
 
 function renderGameLogTabs() {
   const filtered = filterGames(recentGameLogSource());
@@ -3323,19 +3352,22 @@ function renderGameLogTabs() {
   // "last 10 games matching these filters" really is those 6 games -- so the
   // figure stays correct; it's flagged as capped so identical-looking rows
   // are explained rather than confusing.
-  const windows = [5, 10, 15, 20]
-    .map((n) => ({ key: String(n), label: `L${n}`, capped: max > 0 && max < n, sample: Math.min(n, max), ...windowStat(filtered.slice(-n)) }));
-  windows.push({ key: "season", label: gameLogState.season === "all" ? "All" : "Season", sample: max, ...windowStat(filtered) });
-  if (h2hGames.length) windows.push({ key: "h2h", label: "H2H", sample: h2hGames.length, ...windowStat(h2hGames) });
+  // The season (or every game) and head-to-head lead, then the recent windows.
+  const windows = [{ key: "season", label: gameLogState.season === "all" ? "All" : seasonLabel(gameLogState.season), sample: max, ...windowStat(filtered) }];
+  windows.push({ key: "h2h", label: "H2H", sample: h2hGames.length, empty: !h2hGames.length, ...windowStat(h2hGames) });
+  windows.push(...[5, 10, 15, 20]
+    .map((n) => ({ key: String(n), label: `L${n}`, capped: max > 0 && max < n, sample: Math.min(n, max), ...windowStat(filtered.slice(-n)) })));
 
   if (els.gamelogTabs) {
-    els.gamelogTabs.innerHTML = windows.map((w) => {
+    els.gamelogTabs.innerHTML = windows.map((w, index) => {
       const active = w.key === gameLogState.windowKey;
-      const stat = w.hitRate == null ? '<span class="gl-window-rate">—</span><span class="gl-window-avg">No games</span>' : `<span class="gl-window-rate${w.hitRate < 50 ? " is-low" : ""}">HR ${w.hitRate}%</span><span class="gl-window-avg">Avg ${w.avg.toFixed(2)}</span>`;
+      // Each window's record over its games and the hit rate, toned.
+      const stat = w.hitRate == null ? '<span class="gl-window-rec">—</span><span class="gl-window-pct">0 games</span>'
+        : `<span class="gl-window-rec">${w.hits}/${w.games}</span><span class="gl-window-pct">${w.hitRate}%</span>`;
       const titleText = w.key === 'h2h' && gameLogState.chart?.meta?.h2hLabel ? gameLogState.chart.meta.h2hLabel
         : w.capped ? `Only ${w.sample} game${w.sample === 1 ? "" : "s"} match the current filters` : '';
       const title = titleText ? ` title="${escapeHtml(titleText)}"` : '';
-      return `<button type="button" class="${active ? "active" : ""}" aria-pressed="${active}"${w.capped ? ' data-capped="true"' : ""}${title} data-window="${w.key}"><strong>${w.label}</strong>${stat}</button>`;
+      return `<button type="button" class="${active ? "active" : ""}" aria-pressed="${active}"${w.capped ? ' data-capped="true"' : ""}${w.empty ? " disabled" : ""}${title} data-window="${w.key}" data-tone="${rateTone(w.hitRate)}" style="--i:${index}"><strong>${w.label}</strong>${stat}</button>`;
     }).join("");
   }
 
@@ -3369,6 +3401,49 @@ function formatGameLogDate(iso) {
   // them back with local getters rolls the date back a day for anyone west
   // of UTC. Use the UTC getters since there's no time component to localize.
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+}
+
+// A team's logo for the chart's opponent row: the game's own when the host
+// gave one (soccer), else the league's logo for its code (MLB by team id,
+// ESPN's for the NFL, NBA, WNBA and NHL). Null when there's no telling.
+const TREND_LOGO_LEAGUES = { nfl: "nfl", nba: "nba", wnba: "wnba", nhl: "nhl" };
+function trendTeamLogo(abbr, game = {}) {
+  if (game.opponentLogo) return game.opponentLogo;
+  const code = String(abbr || "").toUpperCase();
+  if (!code) return null;
+  const sport = String(externalTrendConfig?.sport || "MLB").toLowerCase();
+  if (sport === "mlb") {
+    const id = game.opponentTeamId || MLB_TEAM_IDS[code];
+    return id ? `https://www.mlbstatic.com/team-logos/${id}.svg` : null;
+  }
+  const league = TREND_LOGO_LEAGUES[sport];
+  return league ? `https://a.espncdn.com/i/teamlogos/${league}/500/${code.toLowerCase()}.png` : null;
+}
+// "Dec 28" as two lines under a bar (dates are UTC days, see formatGameLogDate).
+function trendDateParts(iso) {
+  const d = new Date(iso || "");
+  if (Number.isNaN(d.getTime())) return null;
+  return [d.toLocaleString("en-US", { month: "short", timeZone: "UTC" }), String(d.getUTCDate())];
+}
+function trendMedian(values) {
+  const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);
+  if (!sorted.length) return null;
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+const trendNumber = (value) => Number.isInteger(value) ? String(value) : Number(value).toFixed(1);
+// The bars grow in only when the games change (a new player, stat or
+// window), not every time the line moves over the same games.
+let trendBarsSignature = "";
+
+function trendLogoMarkup(abbr, game) {
+  const url = trendTeamLogo(abbr, game);
+  const text = escapeHtml(String(abbr || "").slice(0, 3));
+  return `<span class="gl-logo${url ? "" : " is-text"}">${url ? `<img src="${escapeHtml(url)}" alt="" loading="lazy" onerror="this.parentElement.classList.add('is-text');this.remove()">` : ""}<b>${text}</b></span>`;
+}
+function trendDateMarkup(iso, fallback) {
+  const parts = trendDateParts(iso);
+  return parts ? `<span class="gl-date"><i>${parts[0]}</i>${parts[1]}</span>` : `<span class="gl-date">${escapeHtml(fallback || "")}</span>`;
 }
 
 function renderGameLogChart() {
@@ -3405,6 +3480,8 @@ function renderGameLogChart() {
     document.getElementById("gamelog-summary-rate-percent").textContent = "—";
     document.getElementById("gamelog-summary-record").textContent = "—";
     document.getElementById("gamelog-summary-average").textContent = "—";
+    document.getElementById("gamelog-summary-median").textContent = "—";
+    trendBarsSignature = "";
     if (gameLogState.loading) {
       holder.innerHTML = `<div class="gl-loading"><div class="gl-loading-bars" aria-hidden="true">${'<span></span>'.repeat(10)}</div><div role="status" aria-live="polite"><strong>Loading ${escapeHtml(gameLogState.stat)}…</strong><p>You can keep switching stats or adjust the line.</p></div></div>`;
     } else if (gameLogState.error) {
@@ -3425,7 +3502,13 @@ function renderGameLogChart() {
   document.getElementById("gamelog-summary-rate").textContent = `${overCount}/${games.length}`;
   document.getElementById("gamelog-summary-rate-percent").textContent = `${hitRate}% hit rate`;
   document.getElementById("gamelog-summary-record").textContent = `${overCount}–${games.length - overCount}`;
-  document.getElementById("gamelog-summary-average").textContent = average.toFixed(2);
+  document.getElementById("gamelog-summary-average").textContent = trendNumber(Math.round(average * 10) / 10);
+  const median = trendMedian(games.map((game) => Number(game.value)));
+  document.getElementById("gamelog-summary-median").textContent = median == null ? "—" : trendNumber(median);
+  syncTrendChipLine();
+  const barsSignature = JSON.stringify([gameLogState.player, gameLogState.stat, games.map((game) => [game.fullDate || game.date, game.value])]);
+  holder.classList.toggle("gl-grow", barsSignature !== trendBarsSignature);
+  trendBarsSignature = barsSignature;
 
   // Scale to the visible sample with a small market-specific floor. The old
   // fixed caps (for example 10 for H+R+RBI) left most of a short chart empty
@@ -3446,9 +3529,10 @@ function renderGameLogChart() {
   );
   const track = document.createElement("div");
   track.className = "gamelog-chart-track";
-  track.style.setProperty("--game-count", String(games.length));
+  // One more column on the end: the game coming up.
+  track.style.setProperty("--game-count", String(games.length + 1));
   const mobileChart = window.matchMedia("(max-width: 680px)").matches;
-  const mobileWidth = Math.max(12, Math.floor((Math.min(window.innerWidth || 390, 430) - 92) / Math.max(games.length, 1)));
+  const mobileWidth = Math.max(12, Math.floor((Math.min(window.innerWidth || 390, 430) - 92) / Math.max(games.length + 1, 1)));
   track.style.setProperty("--bar-width", mobileChart ? `${mobileWidth}px` : games.length > 20 ? "30px" : games.length > 10 ? "38px" : "52px");
   track.dataset.count = String(games.length);
   track.dataset.dense = games.length > 20 ? "true" : "false";
@@ -3479,9 +3563,10 @@ function renderGameLogChart() {
   // sideways instead, opening on the latest games. The line and axis stay put.
   const scrolling = chartWidth / Math.max(games.length, 1) < 4;
   track.dataset.scroll = scrolling ? "true" : "false";
-  games.forEach((g) => {
+  games.forEach((g, index) => {
     const col = document.createElement("div");
     col.className = "gl-col";
+    col.style.setProperty("--i", String(index));
     const heightPx = Math.max(4, (g.value / max) * trackPx);
     const details = g.pitcherDetails || null;
     const opponentId = g.opponentTeamId || MLB_TEAM_IDS[String(g.opponent || "").toUpperCase()];
@@ -3502,11 +3587,13 @@ function renderGameLogChart() {
           ${context == null ? "" : `<div class="gl-bar-context${contextPx - heightPx < 44 ? " is-tight" : ""}" style="height:${contextPx}px" aria-hidden="true"><span>${context}</span></div>`}
           <div class="gl-bar${g.over ? "" : " gl-bar-under"}" style="height:${heightPx}px">
             <span class="gl-val">${g.value}</span>
+            ${heightPx >= 64 && Number.isFinite(Number(line)) ? `<span class="gl-margin" aria-hidden="true">${Number(g.value) - Number(line) >= 0 ? "+" : "−"}${trendNumber(Math.abs(Math.round((Number(g.value) - Number(line)) * 10) / 10))}</span>` : ""}
           </div>
           ${details ? `<div class="gl-detail-card" role="tooltip"><header><strong>${escapeHtml(fullDate)}</strong><span>${escapeHtml(g.opponent || "")}</span></header><div class="gl-detail-result">${g.over ? "Cleared" : "Under"} by ${Math.abs(Number(g.value) - Number(gameLogState.line)).toFixed(1)}</div>${tooltipRows}</div>` : ""}
         </div>
       </div>
-      <span class="gl-date">${escapeHtml(g.dateLabel || formatGameLogDate(fullDate))}</span>
+      ${trendLogoMarkup(g.opponent, g)}
+      ${trendDateMarkup(fullDate, g.dateLabel)}
       <span class="gl-opp">${escapeHtml(g.opponentLabel || MLB_TEAM_ABBRS[opponentId] || String(g.opponent || "").slice(0, 4))}</span>
     `;
     const shell = col.querySelector(".gl-bar-shell");
@@ -3518,6 +3605,18 @@ function renderGameLogChart() {
     });
     track.appendChild(col);
   });
+  // The game coming up: an open bar, today's opponent and its day.
+  const nextOpponent = externalTrendConfig?.opponent || activeFinderProp?.matchup?.opponent || gameLogState.opponent || "";
+  const next = document.createElement("div");
+  next.className = "gl-col gl-next";
+  next.style.setProperty("--i", String(games.length));
+  next.innerHTML = `
+      <div class="gl-track" style="height:${trackPx}px"><div class="gl-next-bar" aria-hidden="true"><span>?</span></div></div>
+      ${trendLogoMarkup(nextOpponent, {})}
+      ${trendDateMarkup(externalTrendConfig?.startsAt || activeFinderProp?.startsAt || "", "Next")}
+      <span class="gl-opp">${escapeHtml(String(nextOpponent).slice(0, 4) || "Next")}</span>`;
+  next.setAttribute("aria-label", `Next game${nextOpponent ? ` vs ${nextOpponent}` : ""}`);
+  track.appendChild(next);
 
   if (typeof line === "number" && line >= 0 && line <= max) {
     const topPx = Math.max(0, trackPx - (line / max) * trackPx);

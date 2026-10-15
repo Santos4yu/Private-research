@@ -1,12 +1,17 @@
 import React,{useEffect,useState} from 'react';
 import {ArrowLeft,Info,Percent,UserRound} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
+import {useTeamTint} from './team-tint';
 import './finder-player-banner.css';
 
 // The player header on a Finder player page (WNBA and MLB): the page's own
 // gradient header rather than a separate
 // card -- back / brand / account, the player with team badge, position and
 // height, the game, and the book odds for the line on the chart.
+//
+// The player sits on a card washed in his team's color (read off its logo,
+// team-tint.js) with the logo large and faint behind him, and the pick in
+// one line under his name: More 9.5 › Receiving Yards.
 //
 // The odds follow the chart: app.js announces the quotes for whatever line
 // the chart is on (vortex:trend-odds) every time it changes, and the chart
@@ -57,12 +62,17 @@ export function FinderPlayerBanner({row,playerRows=[],onBack}){
  const tier=['goblin','demon'].includes(String(pick?.modifier).toLowerCase())?String(pick.modifier).toLowerCase():null;
  const time=gameTime(row.startsAt),league=LEAGUE_LOGOS[String(row.sport||'').toLowerCase()];
  const initials=String(row.player||'').split(' ').map(part=>part[0]).slice(0,2).join('');
- return <header className="fpb">
+ const tint=useTeamTint(row.teamLogo);
+ const side=String(row.direction||'OVER').toUpperCase()==='UNDER'?'Less':'More';
+ const shownLine=finite(Number(line))?(Number.isInteger(Number(line))?String(line):Number(line).toFixed(1)):'';
+ return <header className="fpb" style={tint?{'--fpb-team':tint}:undefined} data-tinted={tint?'true':'false'}>
   <div className="fpb-top">
    <button type="button" className="fpb-back" aria-label="Back to Finder" onClick={onBack}><ArrowLeft size={18} aria-hidden="true"/>Back</button>
    <span className="fpb-brand"><img src="/brand/ace-props-wordmark.png" alt="Ace Props" width="84" height="32"/></span>
    <button type="button" className="fpb-account" aria-label="Your account" aria-haspopup="dialog" onClick={pressAccount}><UserRound size={18} aria-hidden="true"/></button>
   </div>
+  <div className="fpb-hero">
+  {row.teamLogo&&<img className="fpb-watermark" src={row.teamLogo} alt="" aria-hidden="true" onError={e=>{e.currentTarget.hidden=true;}}/>}
   <div className="fpb-player">
    <span className="fpb-avatar"><span className="fpb-initials" aria-hidden="true">{initials}</span>
     {row.headshot&&<img className="fpb-photo" src={row.headshot} alt="" onError={e=>{e.currentTarget.hidden=true;}}/>}
@@ -70,7 +80,9 @@ export function FinderPlayerBanner({row,playerRows=[],onBack}){
    <div className="fpb-identity">
     <h1>{row.player}{row.position&&<span>{row.position}</span>}{row.height&&<span>{row.height}</span>}</h1>
     <p>{gameLabel(row)}{time&&<><i aria-hidden="true">•</i>{time}</>}{league&&<img className="fpb-league" src={league} alt={String(row.sport||'').toUpperCase()}/>}</p>
+    {row.market&&shownLine&&<p className="fpb-prop"><b>{side} {shownLine}</b><i aria-hidden="true">›</i><span>{row.market}</span></p>}
    </div>
+  </div>
   </div>
   {(odds||pick||books.length>0)&&<div className="fpb-odds" role="list" aria-label={`Odds at ${line}`}>
    {odds&&<div className="fpb-card fpb-chance" role="listitem" title="Market chance">

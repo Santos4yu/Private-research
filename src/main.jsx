@@ -40,6 +40,7 @@ import './trend-workspace.css';
 import './ace-theme.css';
 import './ace-shell.css';
 import './ace-pages.css';
+import './trend-edge.css';
 
 import { topTabs } from './navTabs';
 import { VortexSidebar } from './VortexSidebar';

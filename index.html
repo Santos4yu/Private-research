@@ -234,7 +234,7 @@
 <!-- Game log panel: L5/L10/L15/L20/H2H chart, moved into the research
      report's Trend tab by src/report-tabs.js instead of staying a popup --
      see mountResearchTabs(). Starts hidden until a report populates it. -->
-<div id="gamelog-overlay" hidden>
+<div id="gamelog-overlay" class="trend-edge" hidden>
   <div class="gamelog-modal">
     <div class="modal-head">
       <div class="gamelog-heading">
@@ -259,14 +259,24 @@
         </div>
       </article>
     </div>
-    <div class="gamelog-workbench">
-    <!-- Real per-line sportsbook odds (PrizePicks/DraftKings/BetRivers --
-         the only 3 books this app has both real odds data AND a real logo
-         file for). Populated by loadGameLogBookOdds()/renderGameLogBookOdds()
-         in app.js and re-rendered (no new fetch) every time the line or
-         stat changes. -->
-    <div class="gamelog-odds-row" id="gamelog-odds-row" aria-label="Sportsbook odds for this line"></div>
+    <!-- Top to bottom, the way a member reads a prop: which stat (each
+         with its line), the games against the line, the windows' records,
+         the average and median, then the line, the filters and the odds. -->
     <nav class="gamelog-stat-tabs" id="gamelog-stat-tabs" aria-label="Performance markets"></nav>
+    <div class="gamelog-studio" id="gamelog-studio">
+      <div class="gamelog-stage">
+        <div class="gamelog-chart" id="gamelog-chart"></div>
+      </div>
+    </div>
+    <div class="gamelog-windowbar" id="gamelog-tabs" role="group" aria-label="Game sample"></div>
+    <div class="gamelog-summary">
+      <div class="gl-sum-rate"><span>Hit rate</span><strong id="gamelog-summary-rate">—</strong><small id="gamelog-summary-rate-percent">—</small></div>
+      <div class="gl-sum-record"><span>Record</span><strong id="gamelog-summary-record">—</strong></div>
+      <div class="gl-sum-average"><span>Average</span><strong id="gamelog-summary-average">—</strong></div>
+      <div class="gl-sum-median"><span>Median</span><strong id="gamelog-summary-median">—</strong></div>
+      <p class="gamelog-sub" id="gamelog-sub"></p>
+    </div>
+    <div class="gamelog-workbench">
     <div class="gamelog-toolbar">
       <h4 class="gamelog-market-title" id="gamelog-market-title">Prop performance</h4>
       <!-- Line controls and sample metrics share the desktop toolbar;
@@ -288,7 +298,6 @@
           <button type="button" class="gamelog-save" id="gamelog-save" data-requires-tab="saved" aria-haspopup="dialog" aria-pressed="false" aria-label="Save this prop to your picks" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg></button>
         </div>
       </div>
-      <div class="gamelog-windowbar" id="gamelog-tabs" role="group" aria-label="Game sample"></div>
     </div>
     <div class="gamelog-filter-panel" id="gamelog-filter-panel" aria-label="Game log filters">
       <!-- These three used to be native <select> elements -- a browser's
@@ -334,17 +343,12 @@
            <teammate>"), one removable chip each. MLB never sets any. -->
       <div class="gamelog-ext-chips" id="gamelog-ext-chips" aria-label="Applied lineup filters" hidden></div>
     </div>
-    </div>
-    <div class="gamelog-studio" id="gamelog-studio">
-      <div class="gamelog-stage">
-        <div class="gamelog-summary">
-          <div><span>Hit rate</span><strong id="gamelog-summary-rate">—</strong><small id="gamelog-summary-rate-percent">—</small></div>
-          <div><span>Record</span><strong id="gamelog-summary-record">—</strong></div>
-          <div><span>Average</span><strong id="gamelog-summary-average">—</strong></div>
-          <p class="gamelog-sub" id="gamelog-sub"></p>
-        </div>
-        <div class="gamelog-chart" id="gamelog-chart"></div>
-      </div>
+    <!-- Real per-line sportsbook odds (PrizePicks/DraftKings/BetRivers --
+         the only 3 books this app has both real odds data AND a real logo
+         file for). Populated by loadGameLogBookOdds()/renderGameLogBookOdds()
+         in app.js and re-rendered (no new fetch) every time the line or
+         stat changes. -->
+    <div class="gamelog-odds-row" id="gamelog-odds-row" aria-label="Sportsbook odds for this line"></div>
     </div>
   </div>
 </div>
