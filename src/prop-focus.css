@@ -1,0 +1,37 @@
+/* The rows behind the line being researched (prop-focus.js): its own stat
+   tinted mint with a solid "Your line" pill and an edge down the left, the
+   stats that feed it lighter with a "Related" pill. They lead each table. */
+
+.prop-focus-label { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.prop-focus-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 17px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font: 800 9px/1 var(--font-sans);
+  font-style: normal;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.prop-focus-tag[data-focus=key] { background: #3FE39E; color: #062B19; }
+.prop-focus-tag[data-focus=related] { border: 1px solid rgba(63, 227, 158, .35); background: rgba(63, 227, 158, .1); color: #8FF0C4; }
+
+/* Table rows (defense vs position, the starter card). */
+html:root :is(.mlb-context-table-wrap, .mlb-starter-scroll) tbody tr[data-focus=key] > :is(th, td) { background: rgba(63, 227, 158, .11) !important; }
+html:root :is(.mlb-context-table-wrap, .mlb-starter-scroll) tbody tr[data-focus=related] > :is(th, td) { background: rgba(63, 227, 158, .045) !important; }
+html:root :is(.mlb-context-table-wrap, .mlb-starter-scroll) tbody tr[data-focus=key] > :first-child { box-shadow: inset 3px 0 #3FE39E !important; color: #fff !important; }
+html:root :is(.mlb-context-table-wrap, .mlb-starter-scroll) tbody tr[data-focus=related] > :first-child { box-shadow: inset 2px 0 rgba(63, 227, 158, .5) !important; }
+html:root .finder-trend-view[data-trend-tab] .mlb-context-table-wrap tbody tr[data-focus=key] > :is(th, td) { background: rgba(63, 227, 158, .11) !important; }
+html:root .finder-trend-view[data-trend-tab] .mlb-context-table-wrap tbody tr[data-focus=related] > :is(th, td) { background: rgba(63, 227, 158, .045) !important; }
+html:root .finder-trend-view[data-trend-tab] .mlb-context-table-wrap tbody tr[data-focus=key] > th { color: #fff !important; }
+
+/* Offense vs defense and the soccer team comparison: rows of bars. */
+html:root :is(.wnba-ovd-row, .soccer-compare-row)[data-focus] { margin-inline: -8px; padding-inline: 8px; border-radius: 10px; }
+html:root :is(.wnba-ovd-row, .soccer-compare-row)[data-focus=key] { background: rgba(63, 227, 158, .11); box-shadow: inset 3px 0 #3FE39E; }
+html:root :is(.wnba-ovd-row, .soccer-compare-row)[data-focus=related] { background: rgba(63, 227, 158, .045); box-shadow: inset 2px 0 rgba(63, 227, 158, .5); }
+html:root .wnba-ovd-row[data-focus] > div > small,
+html:root .soccer-compare-row[data-focus] > div > span { display: inline-flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; }
+html:root .wnba-ovd-row[data-focus=key] > div > small,
+html:root .soccer-compare-row[data-focus=key] > div > span { color: #fff; font-weight: 700; }

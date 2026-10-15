@@ -1,6 +1,8 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {Activity,CalendarClock,ChartColumn,ChartPie,HeartPulse,ListOrdered,RefreshCw,Search,Shirt,Trophy,UserCheck,UserRound,Users,UserX} from 'lucide-react';
 import {TEAM_GROUPS,average,finite,findPlayer,fmt,longDate,price,shortDate,squad,statKeyOf,statOf,teamAverages,teamLogParams,teammateSplit,useSoccer,valueOf} from './soccer-finder';
+import {propFocus} from '../../prop-focus';
+import PropFocusTag from '../../PropFocusTag';
 
 // The soccer matchup panel, on the WNBA / MLB panel's layout. Matchup and
 // Form read the match's own ESPN summary; Team Comparison and Similar read
@@ -80,7 +82,10 @@ function MatchOdds({match}){
 
 const WINDOWS=[[5,'L5'],[15,'L15'],[30,'L30']];
 function TeamComparison({row,match,own,opponentLog}){
- const [n,setN]=useState(15),[group,setGroup]=useState('attack');
+ const focus=useMemo(()=>propFocus(row),[row]);
+ const [n,setN]=useState(15),[group,setGroup]=useState(focus.group||'attack');
+ // A new line opens the group its stat sits in.
+ useEffect(()=>{if(focus.group)setGroup(focus.group);},[focus]);
  const [mine,theirs]=sides(row,match.data);
  if((own.loading&&!own.data)||(opponentLog.loading&&!opponentLog.data))return <Card title="Team comparison" icon={ChartColumn}><Skeleton/></Card>;
  if(!own.data&&!opponentLog.data)return <Card title="Team comparison" icon={ChartColumn}><Failed state={own.error?own:opponentLog} label="Team comparison"/></Card>;
@@ -90,15 +95,15 @@ function TeamComparison({row,match,own,opponentLog}){
    <Switch label="Matches" options={WINDOWS.map(([size,label])=>[size,label])} value={n} onChange={setN}/>
    <span><span><strong>{theirs.abbr}</strong><small>{b.games} matches</small></span><Logo src={theirs.logo} size={26}/></span></div>
   <Switch label="Category" options={TEAM_GROUPS.map(([key,label])=>[key,label])} value={group} onChange={setGroup}/>
-  <div className="soccer-compare-rows">{a.rows.map((item,index)=>{const left=item.value,right=b.rows[index].value;
+  <div className="soccer-compare-rows">{focus.order(a.rows.map((item,index)=>[item,b.rows[index]]),([item])=>item.label).map(([item,other])=>{const left=item.value,right=other.value,f=focus.of(item.label);
    if(!finite(left)&&!finite(right))return null;
    const total=(finite(left)?left:0)+(finite(right)?right:0);
    const share=total?(finite(left)?left:0)/total*100:50;
    const leftBetter=finite(left)&&finite(right)&&left!==right&&(item.lowerIsBetter?left<right:left>right);
    const rightBetter=finite(left)&&finite(right)&&left!==right&&!leftBetter;
    const digits=Math.max(Math.abs(left||0),Math.abs(right||0))>=100?0:1;
-   return <div className="soccer-compare-row" key={item.label}>
-    <div><b data-better={leftBetter}>{fmt(left,digits)}{finite(left)?item.unit:''}</b><span>{item.label}</span><b data-better={rightBetter}>{fmt(right,digits)}{finite(right)?item.unit:''}</b></div>
+   return <div className="soccer-compare-row" key={item.label} data-focus={f||undefined}>
+    <div><b data-better={leftBetter}>{fmt(left,digits)}{finite(left)?item.unit:''}</b><span>{item.label}<PropFocusTag focus={f}/></span><b data-better={rightBetter}>{fmt(right,digits)}{finite(right)?item.unit:''}</b></div>
     <span className="soccer-compare-bar" role="img" aria-label={`${item.label}: ${mine.abbr} ${fmt(left)}, ${theirs.abbr} ${fmt(right)}`}><i data-tone={leftBetter?'good':rightBetter?'poor':'even'} style={{width:`${share}%`}}/><i data-tone={rightBetter?'good':leftBetter?'poor':'even'} style={{width:`${100-share}%`}}/></span>
    </div>;})}</div>
  </Card>;

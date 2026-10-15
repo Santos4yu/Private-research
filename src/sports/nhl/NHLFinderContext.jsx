@@ -4,6 +4,8 @@ import {FinderDropdown,FinderDropdownAssets} from '../../FinderDropdown';
 import {ago,average,finite,fmt,ordinal,price,rankTone,signed,teamColor} from '../wnba/wnba-research';
 import {STATS,family,nhlLogo,nhlSeason,playedGames,seasonLabel,statValue,withWithout} from './nhl-stats';
 import {opponentOf,useNhl} from './nhl-finder';
+import {propFocus} from '../../prop-focus';
+import PropFocusTag from '../../PropFocusTag';
 
 // The NHL page's matchup panel: the NFL and WNBA panels' cards and styling
 // filled from the NHL's own feed and ESPN -- Matchup, Defense, Similar,
@@ -88,6 +90,7 @@ function DefenseVsPosition({league,row,position}){
  const [pos,setPos]=useState(start),[team,setTeam]=useState(opponent);
  useEffect(()=>setPos(start),[start]);
  useEffect(()=>setTeam(opponent),[opponent]);
+ const focus=useMemo(()=>propFocus(row),[row]);
  if(!data)return <Card title="Defense vs position" icon={Shield}>{league.loading?<Skeleton/>:<Failed state={league} label="Defense data"/>}</Card>;
  const n=data.teamCount,entry=data.dvp?.[team]?.[pos],labels=data.dvpStats?.[pos]||[];
  const tone=rank=>rankTone(finite(rank)?n+1-rank:rank,n);
@@ -97,7 +100,7 @@ function DefenseVsPosition({league,row,position}){
    <div className="wnba-team-picker"><FinderDropdownAssets.Provider value={{Defense:Object.fromEntries(Object.keys(data.teams).map(abbr=>[abbr,nhlLogo(abbr)]))}}><FinderDropdown aria-label="Defense" value={team} onChange={e=>setTeam(e.target.value)}>{Object.keys(data.teams).sort().map(abbr=><option key={abbr} value={abbr}>{abbr}</option>)}</FinderDropdown></FinderDropdownAssets.Provider></div>
   </div></div>
   {entry?<div className="mlb-context-table-wrap"><table><thead><tr><th scope="col">Stat</th><th scope="col" className="wnba-bar-col"><span className="finder-sr-only">Rank</span></th>{Object.values(WINDOW_LABEL).map(label=><th scope="col" key={label}>{label}</th>)}<th scope="col">Strength</th></tr></thead><tbody>
-   {labels.filter(([key])=>entry[key]).map(([key,label])=>{const cell=entry[key],[value,rank]=cell.l20||[];return <tr key={key}><th scope="row"><span className="wnba-stat-name">{label}<small>{fmt(value)} allowed/g</small></span></th>
+   {focus.order(labels.filter(([key])=>entry[key]),([key])=>key).map(([key,label])=>{const cell=entry[key],[value,rank]=cell.l20||[],f=focus.of(key);return <tr key={key} data-focus={f||undefined}><th scope="row"><span className="wnba-stat-name"><span className="prop-focus-label">{label}<PropFocusTag focus={f}/></span><small>{fmt(value)} allowed/g</small></span></th>
     <td className="wnba-bar-col"><span className="wnba-rank-bar" data-tone={tone(rank)} aria-hidden="true"><i style={{width:finite(rank)?`${rank/n*100}%`:'0%'}}/></span></td>
     {Object.keys(WINDOW_LABEL).map(window=>{const r=cell[window]?.[1];return <td key={window} data-tone={tone(r)}>{ordinal(r)}</td>;})}
     <td><span className="wnba-strength" data-tone={tone(rank)}>{strength[tone(rank)]||'—'}</span></td></tr>;})}
@@ -108,6 +111,7 @@ function DefenseVsPosition({league,row,position}){
 const OVD_ORDER=['goals','assists','points','sog','attempts','hits','fow','fol','blocked','ppp','pim','fantasy','saves','ga','shots_faced'];
 function OffenseVsDefense({league,row}){
  const data=league.data,[flip,setFlip]=useState(false);
+ const focus=useMemo(()=>propFocus(row),[row]);
  if(!data)return null;
  const labels=Object.fromEntries(data.stats||[]);
  const team=row.teamAbbr,opponent=opponentOf(row),offense=flip?opponent:team,defense=flip?team:opponent;
@@ -116,9 +120,9 @@ function OffenseVsDefense({league,row}){
  return <Card title="Offense vs defense" note="Last 20 games" icon={ArrowLeftRight} className="wnba-ovd">
   <div className="wnba-ovd-head"><span className="wnba-team-cell"><Logo src={nhlLogo(offense)}/>{offense}</span><button type="button" className="wnba-swap" aria-label="Swap offense and defense" onClick={()=>setFlip(v=>!v)}><ArrowLeftRight size={15}/></button><span className="wnba-team-cell">{defense}<Logo src={nhlLogo(defense)}/></span></div>
   <div className="nfl-ovd-labels"><span>Off rank</span><span>Advantage</span><span>Def rank</span></div>
-  <div className="wnba-ovd-rows nfl-ovd-rows">{OVD_ORDER.map(key=>{const [ov,or]=off.off?.[key]?.l20||[],[dv,dr]=def.def?.[key]?.l20||[];if(!finite(or)||!finite(dr))return null;
+  <div className="wnba-ovd-rows nfl-ovd-rows">{focus.order(OVD_ORDER).map(key=>{const [ov,or]=off.off?.[key]?.l20||[],[dv,dr]=def.def?.[key]?.l20||[],f=focus.of(key);if(!finite(or)||!finite(dr))return null;
    const share=((n-or)/(n-1||1)+(dr-1)/(n-1||1))/2*100,strong=rank=>rank<=Math.ceil(n/3);
-   return <div className="wnba-ovd-row" key={key}><span data-side="off" data-strong={strong(or)}>{ordinal(or)}<small>{fmt(ov)}</small></span><div><small>{labels[key]||key}</small><span className="wnba-ovd-bar" role="img" aria-label={`${labels[key]}: ${offense} ranks ${ordinal(or)}, ${defense} allows ${ordinal(dr)}`}><i style={{width:`${share}%`}}/></span></div><span data-side="def" data-strong={strong(dr)}>{ordinal(dr)}<small>{fmt(dv)}</small></span></div>;})}</div>
+   return <div className="wnba-ovd-row" key={key} data-focus={f||undefined}><span data-side="off" data-strong={strong(or)}>{ordinal(or)}<small>{fmt(ov)}</small></span><div><small>{labels[key]||key}<PropFocusTag focus={f}/></small><span className="wnba-ovd-bar" role="img" aria-label={`${labels[key]}: ${offense} ranks ${ordinal(or)}, ${defense} allows ${ordinal(dr)}`}><i style={{width:`${share}%`}}/></span></div><span data-side="def" data-strong={strong(dr)}>{ordinal(dr)}<small>{fmt(dv)}</small></span></div>;})}</div>
   <div className="wnba-ovd-legend"><span><i data-side="off"/>Offensive advantage</span><span>Defensive advantage<i data-side="def"/></span></div>
  </Card>;
 }
