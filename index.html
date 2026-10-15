@@ -263,12 +263,16 @@
          with its line), the games against the line, the windows' records,
          the average and median, then the line, the filters and the odds. -->
     <nav class="gamelog-stat-tabs" id="gamelog-stat-tabs" aria-label="Performance markets"></nav>
+    <!-- A player page puts its player card here (FinderPlayerBanner.jsx,
+         through a portal), so the card runs straight into the chart. -->
+    <div class="gamelog-hero-slot" id="gamelog-hero-slot"></div>
     <div class="gamelog-studio" id="gamelog-studio">
       <div class="gamelog-stage">
         <div class="gamelog-chart" id="gamelog-chart"></div>
       </div>
     </div>
     <div class="gamelog-windowbar" id="gamelog-tabs" role="group" aria-label="Game sample"></div>
+    <div class="gamelog-window-menu" id="gamelog-window-menu" role="menu" aria-label="Game history" hidden></div>
     <div class="gamelog-summary">
       <div class="gl-sum-rate"><span>Hit rate</span><strong id="gamelog-summary-rate">—</strong><small id="gamelog-summary-rate-percent">—</small></div>
       <div class="gl-sum-record"><span>Record</span><strong id="gamelog-summary-record">—</strong></div>
@@ -276,6 +280,8 @@
       <div class="gl-sum-median"><span>Median</span><strong id="gamelog-summary-median">—</strong></div>
       <p class="gamelog-sub" id="gamelog-sub"></p>
     </div>
+    <!-- The player page's odds (FinderPlayerBanner.jsx), under the numbers. -->
+    <div class="gamelog-quotes-slot" id="gamelog-quotes-slot"></div>
     <div class="gamelog-workbench">
     <div class="gamelog-toolbar">
       <h4 class="gamelog-market-title" id="gamelog-market-title">Prop performance</h4>

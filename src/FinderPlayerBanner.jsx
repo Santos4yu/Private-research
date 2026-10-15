@@ -1,6 +1,6 @@
-import React,{useEffect,useState} from 'react';
+import React,{useEffect,useRef,useState} from 'react';
+import {createPortal} from 'react-dom';
 import {ArrowLeft,Info,Percent,UserRound} from 'lucide-react';
-import {LEAGUE_LOGOS} from './league-logos';
 import {useTeamTint} from './team-tint';
 import './finder-player-banner.css';
 
@@ -10,8 +10,11 @@ import './finder-player-banner.css';
 // height, the game, and the book odds for the line on the chart.
 //
 // The player sits on a card washed in his team's color (read off its logo,
-// team-tint.js) with the logo large and faint behind him, and the pick in
-// one line under his name: More 9.5 › Receiving Yards.
+// team-tint.js) with the logo large and faint behind him, the pick in one
+// line under his name (More 9.5 › Receiving Yards) and its price. On a page
+// with the trend chart, the card goes into the chart panel itself
+// (#gamelog-hero-slot) so it runs straight into the bars, and the odds go
+// under the chart's numbers (#gamelog-quotes-slot).
 //
 // The odds follow the chart: app.js announces the quotes for whatever line
 // the chart is on (vortex:trend-odds) every time it changes, and the chart
@@ -31,7 +34,7 @@ function gameLabel(row){
 function gameTime(value){
  const date=new Date(value);
  if(Number.isNaN(date.getTime()))return '';
- return `${date.toLocaleDateString([],{weekday:'short'})} @ ${date.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}).replace(/\s/g,'')}`;
+ return `${date.toLocaleDateString([],{weekday:'short'})} ${date.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}`;
 }
 // Over/under chances from the first book pricing both sides, with the
 // bookmaker's margin taken out. One-sided prices are shown as they are.
@@ -44,7 +47,30 @@ function chances(books){
 }
 const pressAccount=event=>{event.stopPropagation();document.querySelector('.site-account-trigger')?.click();};
 
+// The chart panel's slots for the card and the odds, once the page has
+// mounted the panel beside this header (it may do so after this renders).
+function usePanelSlots(ref){
+ const [slots,setSlots]=useState(null);
+ useEffect(()=>{
+  const scope=ref.current?.parentElement;
+  if(!scope)return undefined;
+  const look=()=>{
+   const hero=scope.querySelector('#gamelog-hero-slot');
+   if(!hero)return false;
+   setSlots({hero,quotes:scope.querySelector('#gamelog-quotes-slot')});
+   return true;
+  };
+  if(look())return undefined;
+  const watch=new MutationObserver(()=>{if(look())watch.disconnect();});
+  watch.observe(scope,{childList:true,subtree:true});
+  return()=>watch.disconnect();
+ },[ref]);
+ return slots;
+}
+
 export function FinderPlayerBanner({row,playerRows=[],onBack}){
+ const ref=useRef(null);
+ const slots=usePanelSlots(ref);
  const [quotes,setQuotes]=useState(null);
  useEffect(()=>{
   setQuotes(null);
@@ -60,43 +86,49 @@ export function FinderPlayerBanner({row,playerRows=[],onBack}){
  // the line on the chart, with its Goblin/Demon tier.
  const pick=playerRows.find(item=>item.marketKey===row.marketKey&&Number(item.line)===Number(line)&&(item.apps||[]).some(app=>app.key==='prizepicks'));
  const tier=['goblin','demon'].includes(String(pick?.modifier).toLowerCase())?String(pick.modifier).toLowerCase():null;
- const time=gameTime(row.startsAt),league=LEAGUE_LOGOS[String(row.sport||'').toLowerCase()];
+ const time=gameTime(row.startsAt);
  const initials=String(row.player||'').split(' ').map(part=>part[0]).slice(0,2).join('');
  const tint=useTeamTint(row.teamLogo);
  const side=String(row.direction||'OVER').toUpperCase()==='UNDER'?'Less':'More';
  const shownLine=finite(Number(line))?(Number.isInteger(Number(line))?String(line):Number(line).toFixed(1)):'';
- return <header className="fpb" style={tint?{'--fpb-team':tint}:undefined} data-tinted={tint?'true':'false'}>
+ // The price for the side at the line: the first book quoting it.
+ const sideKey=side==='Less'?'under':'over';
+ const priced=books.find(book=>finite(book[sideKey])&&Math.abs(book[sideKey])>=100);
+ const hero=<div className="fpb-hero" style={tint?{'--fpb-team':tint}:undefined} data-tinted={tint?'true':'false'}>
+  {row.teamLogo&&<img className="fpb-watermark" src={row.teamLogo} alt="" aria-hidden="true" onError={e=>{e.currentTarget.hidden=true;}}/>}
+  <span className="fpb-avatar"><span className="fpb-initials" aria-hidden="true">{initials}</span>
+   {row.headshot&&<img className="fpb-photo" src={row.headshot} alt="" onError={e=>{e.currentTarget.hidden=true;}}/>}</span>
+  <div className="fpb-identity">
+   <h1>{row.player}</h1>
+   <p className="fpb-meta">{row.position&&<><b>{row.position}</b><i aria-hidden="true">·</i></>}<span>{gameLabel(row)}</span>
+    {time&&<><i className="fpb-chev" aria-hidden="true">›</i><span>{time}</span></>}</p>
+   {row.market&&shownLine&&<p className="fpb-prop"><b>{side} {shownLine}</b><i aria-hidden="true">›</i><span>{row.market}</span></p>}
+  </div>
+  {priced&&<span className="fpb-price" title={`${priced.name} ${american(priced[sideKey])}`}>
+   <img src={priced.logo} alt={priced.name} width="22" height="22" onError={e=>{e.currentTarget.hidden=true;}}/>
+   <b data-side={priced[sideKey]<0?'fav':'dog'}>{american(priced[sideKey])}</b></span>}
+ </div>;
+ const oddsRow=(odds||pick||books.length>0)?<div className="fpb-odds" role="list" aria-label={`Odds at ${line}`}>
+  {odds&&<div className="fpb-card fpb-chance" role="listitem" title="Market chance">
+   <span className="fpb-chance-mark" aria-hidden="true"><Percent size={17}/></span>
+   <span className="fpb-lines"><span><b>O</b><em data-side="over">{finite(odds.over)?odds.over.toFixed(1)+'%':'—'}</em></span><span><b>U</b><em data-side="under">{finite(odds.under)?odds.under.toFixed(1)+'%':'—'}</em></span></span>
+   <Info size={16} className="fpb-info" aria-label={`Chance implied by ${odds.book.name} odds`}/>
+  </div>}
+  {pick&&<div className="fpb-card fpb-pick" role="listitem" title={`PrizePicks ${tier?tier[0].toUpperCase()+tier.slice(1):'standard'} line at ${line}`}>
+   <img src={PRIZEPICKS_LOGO} alt="PrizePicks" width="30" height="30"/>{tier?<img src={`/prizepicks/${tier}.png`} alt={tier} width="26" height="26"/>:<small>More / Less</small>}
+  </div>}
+  {books.map(book=><div className="fpb-card" role="listitem" key={book.key} title={book.name}>
+   <img src={book.logo} alt={book.name} width="30" height="30" onError={e=>{e.currentTarget.hidden=true;}}/>
+   <span className="fpb-lines"><span><b data-side="over">O</b>{american(book.over)}</span><span><b data-side="under">U</b>{american(book.under)}</span></span>
+  </div>)}
+ </div>:null;
+ return <header ref={ref} className={`fpb${slots?' fpb-merged':''}`}>
   <div className="fpb-top">
    <button type="button" className="fpb-back" aria-label="Back to Finder" onClick={onBack}><ArrowLeft size={18} aria-hidden="true"/>Back</button>
    <span className="fpb-brand"><img src="/brand/ace-props-wordmark.png" alt="Ace Props" width="84" height="32"/></span>
    <button type="button" className="fpb-account" aria-label="Your account" aria-haspopup="dialog" onClick={pressAccount}><UserRound size={18} aria-hidden="true"/></button>
   </div>
-  <div className="fpb-hero">
-  {row.teamLogo&&<img className="fpb-watermark" src={row.teamLogo} alt="" aria-hidden="true" onError={e=>{e.currentTarget.hidden=true;}}/>}
-  <div className="fpb-player">
-   <span className="fpb-avatar"><span className="fpb-initials" aria-hidden="true">{initials}</span>
-    {row.headshot&&<img className="fpb-photo" src={row.headshot} alt="" onError={e=>{e.currentTarget.hidden=true;}}/>}
-    {row.teamLogo&&<img className="fpb-team" src={row.teamLogo} alt={row.teamAbbr||''} onError={e=>{e.currentTarget.hidden=true;}}/>}</span>
-   <div className="fpb-identity">
-    <h1>{row.player}{row.position&&<span>{row.position}</span>}{row.height&&<span>{row.height}</span>}</h1>
-    <p>{gameLabel(row)}{time&&<><i aria-hidden="true">•</i>{time}</>}{league&&<img className="fpb-league" src={league} alt={String(row.sport||'').toUpperCase()}/>}</p>
-    {row.market&&shownLine&&<p className="fpb-prop"><b>{side} {shownLine}</b><i aria-hidden="true">›</i><span>{row.market}</span></p>}
-   </div>
-  </div>
-  </div>
-  {(odds||pick||books.length>0)&&<div className="fpb-odds" role="list" aria-label={`Odds at ${line}`}>
-   {odds&&<div className="fpb-card fpb-chance" role="listitem" title="Market chance">
-    <span className="fpb-chance-mark" aria-hidden="true"><Percent size={17}/></span>
-    <span className="fpb-lines"><span><b>O</b><em data-side="over">{finite(odds.over)?odds.over.toFixed(1)+'%':'—'}</em></span><span><b>U</b><em data-side="under">{finite(odds.under)?odds.under.toFixed(1)+'%':'—'}</em></span></span>
-    <Info size={16} className="fpb-info" aria-label={`Chance implied by ${odds.book.name} odds`}/>
-   </div>}
-   {pick&&<div className="fpb-card fpb-pick" role="listitem" title={`PrizePicks ${tier?tier[0].toUpperCase()+tier.slice(1):'standard'} line at ${line}`}>
-    <img src={PRIZEPICKS_LOGO} alt="PrizePicks" width="30" height="30"/>{tier?<img src={`/prizepicks/${tier}.png`} alt={tier} width="26" height="26"/>:<small>More / Less</small>}
-   </div>}
-   {books.map(book=><div className="fpb-card" role="listitem" key={book.key} title={book.name}>
-    <img src={book.logo} alt={book.name} width="30" height="30" onError={e=>{e.currentTarget.hidden=true;}}/>
-    <span className="fpb-lines"><span><b data-side="over">O</b>{american(book.over)}</span><span><b data-side="under">U</b>{american(book.under)}</span></span>
-   </div>)}
-  </div>}
+  {slots?createPortal(hero,slots.hero):hero}
+  {oddsRow&&(slots?.quotes?createPortal(oddsRow,slots.quotes):oddsRow)}
  </header>;
 }
