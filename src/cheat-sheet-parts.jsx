@@ -43,11 +43,15 @@ const share=(column,row)=>{const value=column?.value?.(row);return finite(value)
 
 // The top three on a podium: second, first and third, each on its step,
 // with the number the sheet ranks by.
-export function Podium({rows,who,headline,rowKey,open,onPick}){
+// A sheet's pick column (the line itself) also shows under each name on the
+// podium: on a sheet of props the line is what matters most.
+const noteOf=columns=>columns.find(column=>column.key==='pick');
+export function Podium({rows,who,note,headline,rowKey,open,onPick}){
  if(rows.length<3)return null;
  return <div className="lb-podium" aria-label="Top three">{[1,0,2].map(place=>{const row=rows[place],key=rowKey(row);
   return <button type="button" key={key} className="lb-step" data-place={place+1} data-open={open===key?'':undefined} aria-expanded={open===key} onClick={()=>onPick(key)}>
    <span className="lb-step-who">{show(who,row)}</span>
+   {note&&<span className="lb-step-note">{show(note,row)}</span>}
    <span className="lb-step-value">{show(headline,row)}</span>
    <span className="lb-step-block" aria-hidden="true"><b>{place+1}</b></span>
   </button>;})}</div>;
@@ -71,7 +75,7 @@ export function Table({rows,columns,initial,empty,rowKey=row=>row.id,expand,more
  const toggle=key=>setOpen(current=>current===key?null:key);
  if(phone)return <Board rows={sorted} columns={columns} headline={headline} sort={sort} setSort={setSort} rowKey={rowKey} expand={expand} moreLabel={moreLabel}/>;
  return <div className="lb-desk">
-  <Podium rows={sorted} who={columns[0]} headline={headline} rowKey={rowKey} open={open} onPick={toggle}/>
+  <Podium rows={sorted} who={columns[0]} note={noteOf(columns)} headline={headline} rowKey={rowKey} open={open} onPick={toggle}/>
   <div className="cs-table-wrap"><table className="cs-table">
   <thead><tr><th className="cs-rank">#</th>{columns.map(column=><th key={column.key} className={column.className} data-sorted={sort.key===column.key?(sort.dir>0?'up':'down'):undefined}>
    {column.value?<button type="button" onClick={()=>setSort(current=>({key:column.key,dir:current.key===column.key?-current.dir:-1}))}>{column.label}{sort.key===column.key&&(sort.dir>0?<ArrowUp aria-hidden="true"/>:<ArrowDown aria-hidden="true"/>)}</button>:column.label}
@@ -115,7 +119,7 @@ export function Board({rows,columns,headline,sort,setSort,rowKey,expand,moreLabe
    <label><span>Rank by</span><select value={sort.key} onChange={event=>setSort({key:event.target.value,dir:-1})}>{sortable.map(column=><option key={column.key} value={column.key}>{column.label}</option>)}</select><ChevronDown aria-hidden="true"/></label>
    <button type="button" onClick={()=>setSort(current=>({...current,dir:-current.dir}))} aria-label={sort.dir>0?'Lowest first':'Highest first'}>{sort.dir>0?<ArrowUp aria-hidden="true"/>:<ArrowDown aria-hidden="true"/>}{sort.dir>0?'Lowest':'Highest'}</button>
   </div>}
-  {podium&&<Podium rows={rows} who={who} headline={headline} rowKey={rowKey} open={open} onPick={toggle}/>}
+  {podium&&<Podium rows={rows} who={who} note={noteOf(columns)} headline={headline} rowKey={rowKey} open={open} onPick={toggle}/>}
   {picked&&<div className="lb-picked">{detail(picked)}</div>}
   <ol className="lb-rows">{list.slice(0,limit).map((row,index)=>{const key=rowKey(row),shown=open===key,bar=headline?.key==='score'?share(headline,row):null;
    return <li key={key} className="lb-row" data-open={shown?'':undefined} style={{'--i':Math.min(index,12)}}>

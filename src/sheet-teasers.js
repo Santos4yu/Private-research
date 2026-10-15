@@ -55,6 +55,10 @@ const MLB = {
 };
 
 const NFL = {
+  best: data => {
+    const row = best(data.rows, item => item.score);
+    return row && {...nflWho(row), detail: `More ${row.line} ${row.label} vs ${row.opponent}`, value: row.score, kind: 'score'};
+  },
   td: data => {
     const row = best(data.players, item => item.chance);
     return row && {...nflWho(row), detail: `${row.who?.position || ''} · ${row.who?.team} vs ${row.opponent}`.replace(/^ · /, ''), value: row.chance, kind: 'pct'};

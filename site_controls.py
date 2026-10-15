@@ -29,7 +29,7 @@ LEGACY_FINDER_SPORTS=('wnba','mlb','nfl')
 # nfl_sheets.py). MLB's eight came before sheetsSeen, so they stay as they
 # were; a sheet added later starts switched off until the admin turns it on.
 SHEETS=('mlb:hr','mlb:hot','mlb:matchups','mlb:bvp','mlb:nrfi','mlb:park','mlb:strikeouts','mlb:streaks',
- 'nfl:td','nfl:firsttd','nfl:streaks','nfl:zones','nfl:redzone','nfl:speed','nfl:steam','nfl:shop','nfl:dvp','nfl:soft','nfl:goblins')
+ 'nfl:best','nfl:td','nfl:firsttd','nfl:streaks','nfl:zones','nfl:redzone','nfl:speed','nfl:steam','nfl:shop','nfl:dvp','nfl:soft','nfl:goblins')
 LEGACY_SHEETS=tuple(key for key in SHEETS if key.startswith('mlb:'))
 HEX_COLOR_RE=re.compile(r'^#[0-9a-fA-F]{6}$')
 DEFAULT={'maintenance':False,'message':'We are updating Ace Props. Please check back shortly.','requireLogin':True,'registrationOpen':True,'paidAccess':False,'disabledTabs':[],'disabledSports':[],'disabledFinderSports':[],'disabledSheets':[],'backgroundImage':{'url':'','opacity':35},'theme':{'primary':'','secondary':'','tint':0},'updatedAt':None}

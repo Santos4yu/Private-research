@@ -44,7 +44,7 @@ export function canUseFinderSport(policy,sport){
 export const CHEAT_SHEETS=[
  ['mlb:hr','HR Props'],['mlb:hot','Hot Bats'],['mlb:matchups','Pitcher vs Lineup'],['mlb:bvp','Batter vs Pitcher'],
  ['mlb:nrfi','NRFI / YRFI'],['mlb:park','Ballpark & Weather'],['mlb:strikeouts','Strikeouts'],['mlb:streaks','Streaks'],
- ['nfl:td','TD Scorers'],['nfl:firsttd','First TD'],['nfl:streaks','Prop Streaks'],['nfl:zones','Target Zones'],
+ ['nfl:best','Best Matchups'],['nfl:td','TD Scorers'],['nfl:firsttd','First TD'],['nfl:streaks','Prop Streaks'],['nfl:zones','Target Zones'],
  ['nfl:redzone','Red Zone'],['nfl:speed','Speed Edges'],['nfl:steam','Steam Moves'],['nfl:shop','Line Shopping'],
  ['nfl:dvp','Defense vs Position'],['nfl:soft','Soft Spots'],['nfl:goblins','Goblins & Demons'],
 ];

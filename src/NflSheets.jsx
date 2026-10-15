@@ -1,15 +1,17 @@
 import React,{useEffect,useMemo,useState} from 'react';
-import {Activity,ArrowDown,ArrowRight,ArrowUp,ChevronDown,Crosshair,Flame,Gauge,Ghost,Grid3x3,Info,RefreshCw,Search,Shield,Snowflake,Tags,Target,Timer,Trophy,Zap} from 'lucide-react';
+import {Activity,ArrowDown,ArrowRight,ArrowUp,ChevronDown,Crosshair,Flame,Gauge,Ghost,Grid3x3,Info,RefreshCw,Search,Shield,Snowflake,Star,Swords,Tags,Target,Timer,Trophy,Zap} from 'lucide-react';
 import {finite,nameKey,num,fixed,price,time,initials,Img,Score,Tag,Table,Faq,Skeleton} from './cheat-sheet-parts';
 import {teamLogoUrl} from './sports/nfl/nfl-ui-core';
 import './nfl-sheets.css';
 
-// NFL Cheat Sheets: this week's games read eleven ways (nfl_sheets.py).
+// NFL Cheat Sheets: this week's games read twelve ways (nfl_sheets.py).
 // Each sheet is one request, kept here for a few minutes. Every sheet has an
 // admin switch (site_controls SHEETS); CheatSheets.jsx only offers the ones
 // that are on.
 
 export const NFL_SHEETS=[
+ {key:'best',tint:'#E26CFF',title:'Best Matchups',kicker:'Top prop each game',icon:Swords,blurb:'The best matchup in every game, at any position.',
+  about:"Every posted line's More side, at any position, read four ways: what his opponent gives up to his position in that stat against the league (its last five games and the season), a projection from his recent games moved by that defense and his team's implied points, how often he has cleared the line (last 10 and season), and the books' chance with their margin taken out. Only defenses that give up more than average count. Each player shows his best line, and each game's top one is marked."},
  {key:'td',tint:'#3FE39E',title:'TD Scorers',kicker:'Anytime TD',icon:Trophy,blurb:"Every player's touchdown chance this week, next to the best price.",
   about:"Each team's expected rushing and receiving touchdowns come from its implied points (the spread and total) and the league's touchdowns per point. They're split among the team's healthy players by their share of its touchdowns, red-zone looks and touches this season, nudged toward the positions the defense gives up touchdowns to."},
  {key:'firsttd',tint:'#6EA8FF',title:'First TD',kicker:'Opening drives',icon:Timer,blurb:'Who scores early: first-two-drive touchdowns and the game’s first score.',
@@ -34,6 +36,9 @@ export const NFL_SHEETS=[
   about:"PrizePicks' goblin and demon lines next to the sportsbooks' prices at the same number (their alternate lines). The chance is the books' price with their margin taken out, averaged across books."},
 ];
 const FAQ={
+ best:[['What makes it the best matchup?','The defense gives up more than most to his position in that stat, his projection against it clears the line, he has been clearing it, and the books agree. Each part adds to the score; the defense counts the most.'],
+  ['Why only More?','A good matchup is a defense that gives up a lot, so the play is More.'],
+  ['Why is each player listed once?','Each player shows his best line, so one player can’t fill the board. Pick a game to see every matchup in it.']],
  td:[['Why is the chance different from the book?','The book prices in its margin and its own read. Edge is our chance minus the chance the best price implies; a positive edge means the price pays more than our number says it should.'],
   ['Does it count passing touchdowns?','No. A quarterback is listed for touchdowns he runs in himself, the way anytime touchdown props settle.']],
  firsttd:[['What counts as an early touchdown?','A touchdown on either of the team’s first two offensive drives.'],
@@ -164,6 +169,35 @@ function Slate({data,counts,game,setGame}){
 const countBy=(rows,key=row=>row.gameId)=>rows.reduce((found,row)=>{const id=key(row);if(id)found[id]=(found[id]||0)+1;return found;},{});
 
 // ---------------------------------------------------------------- sheets
+
+function BestSheet({data,filter,game}){
+ const [position,setPosition]=useState('all');
+ const [view,setView]=useState('games');
+ const base=useMemo(()=>(data.rows||[]).filter(row=>filter(row)&&(position==='all'||row.who.position===position)),[data,filter,position]);
+ const perGame=view==='games'&&game==='all';
+ // Rows come best first, so each game's first is its best.
+ const rows=useMemo(()=>{if(!perGame)return base;const seen=new Set();return base.filter(row=>!seen.has(row.gameId)&&seen.add(row.gameId));},[base,perGame]);
+ const tier=row=><Tag tone={row.tier==='elite'?'hot':row.tier==='strong'?'strong':'limited'} icon={row.top&&!perGame?Star:undefined}>{row.tier==='elite'?'Elite':row.tier==='strong'?'Strong':'Lean'}</Tag>;
+ return <>
+  <div className="nfl-controls">
+   {game==='all'&&<Seg value={view} onChange={setView} label="Show" options={[['games','Best per game'],['all','All matchups']]}/>}
+   <Seg value={position} onChange={setPosition} label="Position" options={[['all','All'],...POSITIONS.map(item=>[item,item])]}/>
+  </div>
+  <Table rows={rows} empty="No matchups on the board right now." expand={row=><><BestWhy row={row}/><Prices prices={row.prices}/></>} moreLabel="Why and prices" columns={[
+   {key:'player',label:'Player',className:'cs-sticky',render:row=><Who who={row.who} opponent={row.opponent} startsAt={row.startsAt} status={row.status} tag={tier(row)}/>},
+   {key:'pick',label:'Pick',render:row=><Pick line={row.line} label={row.label}/>},
+   {key:'proj',label:'Proj',value:row=>row.edge,render:row=><span className="nfl-two"><b>{fixed(row.projection,1)}</b><small>{finite(row.edge)?`${row.edge>0?'+':''}${Math.round(row.edge*100)}% vs line`:''}</small></span>},
+   {key:'rank',label:'Opp vs pos',short:'Opp',value:row=>row.rank,render:row=><Rank rank={row.rank} teams={row.teams} value={row.allowed}/>},
+   {key:'l10',label:'L10',value:row=>row.hits.l10.rate,render:row=><Rate hit={row.hits.l10}/>},
+   {key:'best',label:'Best',value:row=>row.best?.price,render:row=><BookPrice best={row.best} line={row.line}/>},
+   {key:'score',label:'Score',value:row=>row.score,render:row=><Score value={row.score} label="Matchup score"/>},
+  ]}/>
+ </>;
+}
+function BestWhy({row}){
+ const l10=row.hits?.l10,szn=row.hits?.szn;
+ return <p className="nfl-why">{row.opponent} allow <b>{fixed(row.allowed,1)}</b> {String(row.label).toLowerCase()} a game to {row.who.position}s (league {fixed(row.average,1)}){finite(row.rank)?<>: <b>#{row.rank}</b> of {row.teams}</>:null}. {row.who.name} has averaged {fixed(row.recent,1)} lately; with this matchup{finite(row.points)?<> and {row.who.team}'s {fixed(row.points,1)} implied points</>:null} that projects to <b>{fixed(row.projection,1)}</b> against the {num(row.line,1)} line.{l10?.games?<> He's gone over it in <b>{l10.hits} of his last {l10.games}</b>{szn?.games?<> ({szn.hits} of {szn.games} this season)</>:null}.</>:null}{finite(row.chance)?<> The books give More a <b>{percent(row.chance)}</b> chance across {row.books} book{row.books===1?'':'s'}.</>:null}</p>;
+}
 
 function TdSheet({data,filter,game}){
  const rows=useMemo(()=>(data.players||[]).filter(filter),[data,filter]);
@@ -449,6 +483,8 @@ const top=(rows,count=5)=>(rows||[]).slice(0,count);
 function rails(sheet,data){
  const face=row=>({headshot:row.who?.headshot,name:row.who?.name,team:row.who?.team});
  switch(sheet){
+  case 'best':return [{title:'Best in each game',sub:'Matchup score',items:top((data.rows||[]).filter(row=>row.top),8).map(row=>({key:row.id,face:face(row),name:row.who.name,meta:`More ${num(row.line,1)} ${row.label} · vs ${row.opponent}`,value:row.score,bar:(row.score||0)/100}))},
+   {title:'Biggest projection edges',sub:'Projection over the line',items:top([...(data.rows||[])].sort((a,b)=>(b.edge||0)-(a.edge||0))).map(row=>({key:row.id,face:face(row),name:row.who.name,meta:`More ${num(row.line,1)} ${row.label}`,value:`+${Math.round((row.edge||0)*100)}%`,tone:'good',sub:`proj ${fixed(row.projection,1)}`}))}];
   case 'td':{const leaks=(data.cards||[]).flatMap(card=>card.sides.flatMap(side=>side.defense.map(leak=>({...leak,team:side.opponent,versus:side.team})))).filter(leak=>finite(leak.rank)).sort((a,b)=>b.rank-a.rank||(b.allowed||0)-(a.allowed||0));
    return [{title:'Top TD chances',sub:'This week',items:top(data.players).map(row=>({key:row.who.id,face:face(row),name:row.who.name,meta:`${row.who.position} · ${row.who.team} vs ${row.opponent}`,value:percent(row.chance),sub:`fair ${price(row.fair)}`}))},
     {title:'Leakiest TD defenses',sub:'Touchdowns allowed a game, by position',items:top(leaks,6).map(leak=>({key:leak.team+leak.position,logo:teamLogo(leak.team),name:`${leak.team} vs ${leak.position}`,meta:`plays ${leak.versus}`,value:`#${leak.rank}`,tone:'good',sub:`${fixed(leak.allowed,2)}/g`}))}];}
@@ -470,7 +506,7 @@ function rails(sheet,data){
   default:return [];
  }
 }
-const MAIN_ROWS={td:'players',streaks:'rows',zones:'rows',redzone:'rows',speed:'rows',steam:'rows',shop:'rows',soft:'spots',goblins:'lines'};
+const MAIN_ROWS={best:'rows',td:'players',streaks:'rows',zones:'rows',redzone:'rows',speed:'rows',steam:'rows',shop:'rows',soft:'spots',goblins:'lines'};
 
 // ---------------------------------------------------------------- the view
 
@@ -513,6 +549,7 @@ export function NflSheetView({sheetKey,sheets,onOpen}){
     <div className="cs-body" data-loading={state.loading?'':undefined}>
      {state.error?<div className="cs-error"><p>{state.error}</p><button type="button" onClick={()=>load(true)}>Try again</button></div>
       :!data?<Skeleton/>
+      :sheet.key==='best'?<BestSheet data={data} filter={filter} game={game}/>
       :sheet.key==='td'?<TdSheet data={data} filter={filter} game={game}/>
       :sheet.key==='firsttd'?<FirstTdSheet data={data} game={game}/>
       :sheet.key==='streaks'?<StreaksSheet data={data} filter={filter}/>

@@ -51,6 +51,12 @@ test('NFL sheets: chance, edge and rank read the way the sheet shows them', () =
   assert.deepEqual(td, {name: 'Bijan Robinson', photo: 'b.png', detail: 'RB · ATL vs TB', value: 0.52, kind: 'pct'});
   assert.equal(teaserValue(td), '52%');
 
+  const top = teaser('nfl', 'best', {rows: [
+    {who: {name: 'Cam Skattebo', headshot: null}, line: 50.5, label: 'Rush Yards', opponent: 'PHI', score: 83},
+    {who: {name: 'Josh Allen'}, line: 231.5, label: 'Pass Yards', opponent: 'NE', score: 61},
+  ]});
+  assert.deepEqual(top, {name: 'Cam Skattebo', photo: null, detail: 'More 50.5 Rush Yards vs PHI', value: 83, kind: 'score'});
+
   const shop = teaser('nfl', 'shop', {rows: [
     {who: {name: 'Puka Nacua'}, side: 'over', line: 6.5, label: 'Receptions', bookName: 'FanDuel', edge: 0.061},
   ]});

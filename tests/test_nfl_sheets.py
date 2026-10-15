@@ -207,6 +207,48 @@ class LineSheetTests(unittest.TestCase):
         self.assertEqual(spot["hits"]["l10"], {"rate": 0.8, "hits": 8, "games": 10})
         self.assertEqual(spot["best"]["book"], "fanduel")
 
+    def test_best_matchups_one_line_per_player_and_each_games_top(self):
+        table = {"MIA": {"WR": {"receiving_yards": {"l5": [190.0, 30], "szn": [180.0, 29]},
+                                "receptions": {"l5": [13.0, 20], "szn": [12.5, 18]}},
+                         "RB": {"rushing_yards": {"l5": [80.0, 4], "szn": [85.0, 5]}}},
+                 "BUF": {"WR": {"receiving_yards": {"l5": [170.0, 28], "szn": [160.0, 25]}}}}
+        league = {"WR": {"receiving_yards": {"l5": 150.0, "szn": 150.0}, "receptions": {"l5": 12.0, "szn": 12.0}},
+                  "RB": {"rushing_yards": {"l5": 110.0, "szn": 110.0}}}
+        played = {team: 4 for team in ("MIA", "BUF", *map(str, range(30)))}
+        shakir_yards = [50, 60, 30, 70, 80, 20, 55, 60, 65, 90]
+        rows = [board_row("pp:1", "shakir", "receiving_yards", 45.5, [{"key": "prizepicks"}, {"key": "fanduel", "over": -130, "under": 110}],
+                          values=shakir_yards),
+                board_row("pp:2", "shakir", "receptions", 3.5, [{"key": "prizepicks"}], values=[4, 5, 3, 4, 3, 2, 4, 5, 3, 4]),
+                # A tough run defense: not a matchup.
+                board_row("pp:3", "cook", "rushing_yards", 60.5, [{"key": "prizepicks"}], position="RB", values=[70] * 6),
+                # Anytime touchdowns have their own sheet.
+                board_row("pp:4", "kincaid", "touchdowns", 0.5, [{"key": "prizepicks"}], position="TE", values=[1] * 6),
+                board_row("pp:5", "waddle", "receiving_yards", 55.5, [{"key": "prizepicks"}], team="MIA", opponent="BUF",
+                          values=[60, 40, 70, 50, 65, 45]),
+                board_row("pp:6", "hill", "receiving_yards", 70.5, [{"key": "prizepicks"}], team="MIA", opponent="BUF",
+                          values=[90, 80, 100, 85, 95, 75])]
+        ctx = self.ctx(rows, (table, league, played))
+        ctx["hurt"] = {"hill": "Out"}
+        body = sheets.sheet_best(ctx)
+        self.assertEqual([row["who"]["id"] for row in body["rows"]], ["shakir", "waddle"])
+        shakir, waddle = body["rows"]
+        self.assertEqual((shakir["market"], shakir["rank"], shakir["sznRank"], shakir["teams"]), ("receiving_yards", 30, 29, 32))
+        # MIA allow 1.267x the league over five games and 1.2x on the season:
+        # 1.24 blended, pulled toward even over four games played.
+        ratio = (1.24 * 4 + 3) / 7
+        self.assertAlmostEqual(shakir["defense"], round(ratio - 1, 3), places=3)
+        # 58 a game lately, the matchup and BUF's 27 implied points (capped
+        # at 1.2x the league's 22) project him over his 45.5.
+        projection = 58 * (1 + 0.6 * (ratio - 1)) * (1 + 0.25 * 0.2)
+        self.assertEqual(shakir["projection"], round(projection, 1))
+        self.assertEqual(shakir["edge"], round(projection / 45.5 - 1, 3))
+        self.assertEqual(shakir["hits"]["l10"], {"rate": 0.8, "hits": 8, "games": 10})
+        self.assertEqual((shakir["books"], shakir["best"]["book"]), (1, "fanduel"))
+        self.assertTrue(shakir["top"])
+        self.assertFalse(waddle["top"], "the same game: only its best is marked")
+        self.assertGreater(shakir["score"], waddle["score"])
+        self.assertIn(shakir["tier"], ("elite", "strong"))
+
     def test_goblins_get_the_books_chance_at_their_number(self):
         rows = [board_row("pp:3", "kincaid", "receiving_yards", 19.5,
                           [{"key": "prizepicks"}, {"key": "draftkings", "over": -400}, {"key": "fanduel", "over": -300, "under": 220}],

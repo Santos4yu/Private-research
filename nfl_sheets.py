@@ -1,5 +1,8 @@
-"""NFL cheat sheets: this week's games read eleven ways.
+"""NFL cheat sheets: this week's games read twelve ways.
 
+  best      each game's best matchups at any position: what the defense
+            gives up to his position in that stat, his projection against
+            the line, his hit rate and the books' chance, in one score
   td        anytime touchdown chances: each player's scoring rate and
             red-zone role against what the defense allows his position,
             scaled by the points his team is expected to score
@@ -46,7 +49,7 @@ from backend.sports.nfl.services.nflverse import RELEASE, canonical_team
 from backend.sports.nfl.services.research_stats import numeric, prizepicks_fantasy
 
 VERSION = "nfl-sheets-v1"
-SHEETS = ("td", "firsttd", "streaks", "zones", "redzone", "speed", "steam", "shop", "dvp", "soft", "goblins")
+SHEETS = ("best", "td", "firsttd", "streaks", "zones", "redzone", "speed", "steam", "shop", "dvp", "soft", "goblins")
 SKILL = ("QB", "RB", "WR", "TE")
 ZONES = ("short_left", "short_middle", "short_right", "deep_left", "deep_middle", "deep_right")
 WINDOWS = (("l3", 3), ("l5", 5), ("l10", 10), ("szn", None))
@@ -670,6 +673,102 @@ def sheet_soft(ctx):
     return {"spots": spots, "defenses": defenses}
 
 
+# The lines Best Matchups reads: the production props. Anytime touchdowns
+# have their own sheet, and an Over on interceptions isn't a matchup to want.
+BEST_MARKETS = tuple(market for market in MARKET_STAT if market not in ("touchdowns", "interceptions"))
+
+
+def _mean(values):
+    return sum(values) / len(values) if values else None
+
+
+def _defense_read(ctx, defense, position, stat):
+    """What the defense allows the position in this stat against the league:
+    its last five (most of the weight) and its season, pulled toward even
+    while it has played few games. None when neither is known."""
+    l5, rank, average, teams = _dvp_cell(ctx, defense, position, stat, "l5")
+    szn, szn_rank, szn_average, _teams = _dvp_cell(ctx, defense, position, stat, "szn")
+    parts = [(value / base, weight) for value, base, weight in ((l5, average, 0.6), (szn, szn_average, 0.4))
+             if value is not None and base]
+    if not parts:
+        return None
+    ratio = sum(value * weight for value, weight in parts) / sum(weight for _value, weight in parts)
+    seen = ctx["dvp"][2].get(defense, 0)
+    recent = l5 is not None
+    return {"ratio": (ratio * seen + 3) / (seen + 3), "allowed": l5 if recent else szn,
+            "average": average if recent else szn_average, "rank": rank if recent else szn_rank,
+            "sznRank": szn_rank, "teams": teams}
+
+
+def sheet_best(ctx):
+    """Each game's best matchups: every posted line's More side, at any
+    position, read four ways and scored 0-100.
+
+      defense   what the opponent allows his position in that stat against
+                the league (the most weight)
+      edge      his recent average, moved by that defense and by his team's
+                implied points, against the line
+      form      how often he has cleared the line, last 10 and season
+      market    the books' chance of the Over, their margin out
+
+    Only defenses that give up more than the league average count. One row
+    per player (his best line), and each game's top row is marked."""
+    season, opponents = ctx["season"], _opponents(ctx["games"])
+    league_points = ctx.get("leaguePoints") or 22.0
+    found = {}
+    for row in ctx["mains"]:
+        market, line, team = row.get("propType"), line_of(row), row.get("teamId")
+        stat = MARKET_STAT.get(market) if market in BEST_MARKETS else None
+        who = row_who(row, ctx["people"])
+        positions = next((positions for key, _label, positions in DVP_STATS if key == stat), ())
+        if not stat or who["position"] not in positions or not _finite(line) or line <= 0:
+            continue
+        if ctx["hurt"].get(row.get("playerId")) == "Out":
+            continue
+        values = values_of(row)
+        game = _game_of(row, ctx["games"]) or (opponents.get(team) or (None,))[0]
+        if len(values) < 4 or not game or game["started"] or team not in (game["home"], game["away"]):
+            continue
+        opponent = game["away"] if game["home"] == team else game["home"]
+        defense = _defense_read(ctx, opponent, who["position"], stat)
+        if not defense or defense["ratio"] <= 1:
+            continue
+        recent = 0.5 * _mean(values[-5:]) + 0.5 * _mean(values[-10:])
+        points = game["points"].get(team)
+        script = _clamp(points / league_points, 0.8, 1.2) if points else 1.0
+        # A defense's number is the whole position group's, so it moves one
+        # player's projection only part of the way.
+        projection = recent * (1 + 0.6 * (defense["ratio"] - 1)) * (1 + 0.25 * (script - 1))
+        edge = projection / line - 1
+        hits = _hits(row, season)
+        l10, szn = hits["l10"]["rate"], hits["szn"]["rate"]
+        l10 = 0.5 if l10 is None else l10
+        form = 0.65 * l10 + 0.35 * (l10 if szn is None else szn)
+        chance, books = book_probability(row.get("apps"))
+        parts = [(0.35, _clamp((defense["ratio"] - 0.85) / 0.5, 0, 1)), (0.25, _clamp((edge + 0.1) / 0.35, 0, 1)), (0.25, form)]
+        if chance is not None:
+            parts.append((0.15, _clamp((chance - 0.4) / 0.25, 0, 1)))
+        score = round(100 * sum(weight * part for weight, part in parts) / sum(weight for weight, _part in parts))
+        key = row.get("playerId") or norm(who["name"])
+        if key in found and found[key]["score"] >= score:
+            continue
+        found[key] = {"id": row.get("id"), "who": who, "opponent": opponent, "gameId": game["gameId"],
+                      "startsAt": row.get("startsAt") or game["startsAt"], "market": market, "label": label_of(row),
+                      "line": line, "rank": defense["rank"], "sznRank": defense["sznRank"], "teams": defense["teams"],
+                      "allowed": _r(defense["allowed"], 1), "average": _r(defense["average"], 1),
+                      "defense": _r(defense["ratio"] - 1, 3), "recent": _r(recent, 1), "projection": _r(projection, 1),
+                      "edge": _r(edge, 3), "points": points, "hits": hits, "chance": _r(chance, 3), "books": books,
+                      "best": best_price(row), "prices": prices(row), "status": ctx["hurt"].get(row.get("playerId")),
+                      "tier": "elite" if score >= 75 else "strong" if score >= 60 else "lean", "score": score, "top": False}
+    rows = sorted(found.values(), key=lambda item: (-item["score"], -(item["edge"] or 0)))
+    marked = set()
+    for item in rows:
+        if item["gameId"] not in marked:
+            marked.add(item["gameId"])
+            item["top"] = True
+    return {"rows": rows}
+
+
 def sheet_goblins(ctx):
     rows, season = ctx["upcoming"], ctx["season"]
     mains = {(row.get("playerId"), row.get("propType")): line_of(row) for row in ctx["mains"]}
@@ -1273,10 +1372,10 @@ def sheet_speed(ctx):
     return {"rows": output}
 
 
-BUILDERS = {"td": sheet_td, "firsttd": sheet_firsttd, "streaks": sheet_streaks, "zones": sheet_zones,
+BUILDERS = {"best": sheet_best, "td": sheet_td, "firsttd": sheet_firsttd, "streaks": sheet_streaks, "zones": sheet_zones,
             "redzone": sheet_redzone, "speed": sheet_speed, "steam": sheet_steam, "shop": sheet_shop,
             "dvp": sheet_dvp, "soft": sheet_soft, "goblins": sheet_goblins}
-NEEDS = {"td": ("pbp", "seasons", "dvp", "lines"), "firsttd": ("pbp", "seasons", "dvp"), "streaks": ("lines",),
+NEEDS = {"best": ("dvp", "lines"), "td": ("pbp", "seasons", "dvp", "lines"), "firsttd": ("pbp", "seasons", "dvp"), "streaks": ("lines",),
          "zones": ("pbp", "lines"), "redzone": ("pbp", "seasons", "dvp", "lines"), "speed": ("lines",),
          "steam": ("lines",), "shop": ("lines",), "dvp": ("dvp",), "soft": ("dvp", "lines"), "goblins": ("lines",)}
 
