@@ -1,16 +1,17 @@
 /* The Finder's lines as cards on phones (UnifiedFinder.jsx Row), in the
-   same look as the trend page: one dark card per line. On top, the player
-   (a rounded-square photo), the line as a mint pill and the stat, the game
-   and the defense, then a plain-words line: his L10 average against the
-   line and his current run. The market's chance for the pick sits top
-   right. Under it, five hit-rate tiles (L5, L10, L15, H2H, season), each
-   with a meter that fills to the rate, then the apps' prices and a way
-   into the trends.
+   trends page's language. Each card is washed in the player's team color
+   (team-tint.js, --team on the row) from the top left, with his team's
+   logo faint behind the corner. On top: his photo, name, game and the pick
+   as a mint pill, and his L10 hit rate as a ring that fills in. Under it,
+   his last games against the line as small bars (muted under the line,
+   bright above it, coral for a miss) beside his L10 average, its gap to the
+   line and his run. Then L5, L15, H2H and season as tiles with a meter, and
+   the apps' prices with the market's chance along the bottom.
 
-   Desktop keeps the table. Rules carry html:root to win over the board's
-   older phone rules (unified-finder.css). */
+   Desktop keeps the table: the card's extras are hidden there. Rules carry
+   html:root to win over the board's older phone rules (unified-finder.css). */
 
-.finder-quick { display: none; }
+.finder-card-mark, .finder-ring, .finder-form { display: none; }
 
 @media (max-width: 760px) {
   html:root .unified-finder {
@@ -21,156 +22,250 @@
     --fc-muted: #A3ACB1;
     --fc-faint: #6F797E;
     --fc-good: #3FE39E;
+    --fc-good-low: #1F8F62;
     --fc-mid: #F2C26B;
     --fc-low: #F06A77;
     --fc-on: rgba(63, 227, 158, .12);
     --fc-on-line: rgba(63, 227, 158, .5);
     --fc-ease: var(--ace-ease, cubic-bezier(.2, .8, .2, 1));
+    --fc-spring: cubic-bezier(.34, 1.42, .6, 1);
   }
 
   /* ------------------------------------------------------------ the card */
 
-  html:root .unified-finder .finder-table tbody { gap: 10px; }
+  html:root .unified-finder .finder-table tbody { gap: 12px; }
   html:root .unified-finder .finder-table tbody tr {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    --team: #3FE39E;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     column-gap: 6px;
     padding: 0 12px;
-    border: 1px solid var(--fc-line);
-    border-radius: 18px;
-    background: var(--fc-card);
-    box-shadow: inset 0 1px rgba(255, 255, 255, .04);
+    border: 1px solid color-mix(in srgb, var(--team) 22%, var(--fc-line));
+    border-radius: 20px;
+    background:
+      linear-gradient(158deg, color-mix(in srgb, var(--team) 34%, var(--fc-card)) 0%, color-mix(in srgb, var(--team) 10%, var(--fc-card)) 34%, var(--fc-card) 58%);
+    box-shadow: inset 0 1px rgba(255, 255, 255, .06), 0 6px 18px rgba(0, 0, 0, .22);
     transition: border-color .2s var(--fc-ease), transform .15s ease;
+    animation: fc-rise .45s var(--fc-ease) both;
   }
-  html:root .unified-finder .finder-table tbody tr:hover { filter: none; border-color: #2E383E; }
-  html:root .unified-finder .finder-table tbody tr:active { border-color: var(--fc-on-line); transform: scale(.985); }
+  /* A thin team-color edge along the top, like the trends page's card. */
+  html:root .unified-finder .finder-table tbody tr::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 3px;
+    background: linear-gradient(90deg, var(--team), color-mix(in srgb, var(--team) 25%, transparent) 70%, transparent);
+    pointer-events: none;
+  }
+  html:root .unified-finder .finder-table tbody tr:hover { filter: none; }
+  html:root .unified-finder .finder-table tbody tr:active { transform: scale(.985); }
   html:root .unified-finder .finder-table tbody tr > td { background: none !important; }
 
-  /* The player. */
-  html:root .unified-finder .finder-table .finder-player-cell { grid-column: 1 / -1; padding: 14px 2px 12px !important; border: 0 !important; }
-  /* Only the name and the line make room for the market's chance; the rest runs the card's width. */
-  html:root .unified-finder .finder-table tr:has(.finder-probability:not(.is-empty)) :is(.finder-name, .finder-market) { margin-right: 84px; }
-  html:root .unified-finder .finder-table .finder-player { gap: 12px; align-items: flex-start; }
-  html:root .unified-finder .finder-table .finder-portrait-wrap { flex: 0 0 48px !important; width: 48px; height: 48px; }
+  /* His team's logo, faint, tilted behind the top right corner. */
+  html:root .unified-finder .finder-table .finder-card-mark {
+    display: block;
+    position: absolute;
+    z-index: 0;
+    top: -18px;
+    right: -14px;
+    width: 128px;
+    height: 128px;
+    object-fit: contain;
+    opacity: .09;
+    transform: rotate(-10deg);
+    pointer-events: none;
+  }
+
+  /* ------------------------------------------------------------ the player */
+
+  html:root .unified-finder .finder-table .finder-player-cell { grid-column: 1 / -1; padding: 14px 2px 0 !important; border: 0 !important; }
+  html:root .unified-finder .finder-table .finder-player { position: relative; z-index: 1; gap: 12px; align-items: flex-start; }
+  html:root .unified-finder .finder-table .finder-portrait-wrap { flex: 0 0 56px !important; width: 56px; height: 56px; }
   html:root .unified-finder .finder-table .finder-portrait {
-    width: 48px !important;
-    height: 48px !important;
-    border: 1px solid rgba(255, 255, 255, .1);
-    border-radius: 14px;
-    background: #1C2328;
+    width: 56px !important;
+    height: 56px !important;
+    border: 1.5px solid rgba(255, 255, 255, .16);
+    border-radius: 16px;
+    background: linear-gradient(160deg, color-mix(in srgb, var(--team) 45%, #1C2328), #11161A);
     object-fit: cover;
     object-position: top;
   }
-  html:root .unified-finder .finder-table .finder-initials { display: grid; place-items: center; color: var(--fc-muted); font-weight: 700; }
-  html:root .unified-finder .finder-table .finder-open { display: grid; gap: 5px; min-height: 0; text-align: left; }
-  html:root .unified-finder .finder-table .finder-name { color: var(--fc-text); font: 700 15px/1.2 var(--font-sans); letter-spacing: -.01em; }
-  html:root .unified-finder .finder-table .finder-name em { color: var(--fc-faint); font-size: 12px; font-style: normal; font-weight: 600; }
-  html:root .unified-finder .finder-table .finder-market {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 6px;
-    color: #D5DBDE;
-    font: 600 13px/1.25 var(--font-sans);
-  }
-  html:root .unified-finder .finder-table .finder-market .finder-league { width: 14px; height: 16px; object-fit: contain; }
-  html:root .unified-finder .finder-table .finder-market b {
-    padding: 3px 9px;
-    border-radius: 999px;
-    background: var(--fc-on);
-    box-shadow: inset 0 0 0 1px var(--fc-on-line);
-    color: var(--fc-good);
-    font: 800 12.5px/1 var(--font-display, var(--font-sans));
-  }
+  html:root .unified-finder .finder-table .finder-initials { display: grid; place-items: center; color: #fff; font: 800 16px/1 var(--font-display, var(--font-sans)); }
+  html:root .unified-finder .finder-table .finder-open { display: grid; gap: 4px; min-height: 0; text-align: left; }
+  html:root .unified-finder .finder-table .finder-name { order: 1; color: #fff; font: 800 16.5px/1.15 var(--font-display, var(--font-sans)); letter-spacing: -.01em; }
+  html:root .unified-finder .finder-table .finder-name em { color: rgba(255, 255, 255, .55); font: 600 12px/1 var(--font-sans); font-style: normal; }
   html:root .unified-finder .finder-table .finder-game {
+    order: 2;
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 4px 8px;
     margin: 0;
-    color: var(--fc-faint);
-    font: 500 11.5px/1.3 var(--font-sans);
+    color: rgba(244, 247, 246, .7);
+    font: 500 12px/1.3 var(--font-sans);
   }
   html:root .unified-finder .finder-table .finder-defense {
     margin: 0;
     padding: 2px 7px;
     border: 0;
     border-radius: 999px;
-    background: var(--fc-tile);
+    background: rgba(8, 11, 13, .45);
     font: 700 10.5px/1.4 var(--font-sans);
   }
-
-  /* His L10 average against the line and his run, in words. */
-  html:root .unified-finder .finder-table .finder-quick {
+  html:root .unified-finder .finder-table .finder-moneyline { order: 4; justify-self: start; margin: 0; }
+  /* The pick: MORE / LESS and the line in a mint pill, then the stat. */
+  html:root .unified-finder .finder-table .finder-market {
+    order: 3;
     display: flex;
+    align-items: center;
     flex-wrap: wrap;
-    gap: 4px 12px;
-    color: var(--fc-muted);
-    font: 500 11.5px/1.3 var(--font-sans);
-  }
-  html:root .unified-finder .finder-quick > span { display: inline-flex; align-items: baseline; gap: 4px; }
-  html:root .unified-finder .finder-quick b { color: var(--fc-text); font-weight: 700; }
-  html:root .unified-finder .finder-quick em { font-style: normal; font-weight: 700; }
-  html:root .unified-finder .finder-quick [data-tone=good] { color: var(--fc-good); }
-  html:root .unified-finder .finder-quick [data-tone=mid] { color: var(--fc-mid); }
-  html:root .unified-finder .finder-quick [data-tone=low] { color: var(--fc-low); }
-  html:root .unified-finder .finder-quick span[data-tone] b { color: inherit; }
-
-  /* The market's chance for the pick's side, top right. */
-  html:root .unified-finder .finder-table .finder-prob-cell { top: 14px !important; right: 12px !important; width: auto !important; height: auto !important; }
-  html:root .unified-finder .finder-table .finder-probability {
-    display: grid !important;
-    justify-items: end;
-    gap: 4px;
-    width: auto !important;
-    height: auto !important;
-    padding: 0 !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    background: none !important;
-  }
-  html:root .unified-finder .finder-table .finder-probability.is-empty { display: none !important; }
-  html:root .unified-finder .finder-table .finder-probability::before {
-    position: static !important;
-    inset: auto !important;
-    border-radius: 0 !important;
-    background: none !important;
-    -webkit-mask: none !important;
-    mask: none !important;
-    content: "Market";
-    color: var(--fc-faint);
-    font: 600 10px/1 var(--font-sans);
-    letter-spacing: .06em;
+    gap: 6px;
+    margin-top: 2px;
+    color: #E3E8EA;
+    font: 700 12px/1.2 var(--font-sans);
+    letter-spacing: .01em;
     text-transform: uppercase;
   }
-  html:root .unified-finder .finder-table .finder-probability > span {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 6px 10px;
-    border-radius: 12px;
-    background: var(--fc-tile);
-    color: var(--fc-muted);
-    font: 700 11px/1 var(--font-sans);
+  html:root .unified-finder .finder-table .finder-market .finder-league { width: 14px; height: 16px; object-fit: contain; }
+  html:root .unified-finder .finder-table .finder-market b {
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: var(--fc-good);
+    color: #03140B;
+    font: 800 12.5px/1 var(--font-display, var(--font-sans));
+    letter-spacing: .02em;
   }
-  html:root .unified-finder .finder-table .finder-probability[data-pick=O] > span[data-side=U],
-  html:root .unified-finder .finder-table .finder-probability[data-pick=U] > span[data-side=O] { display: none; }
-  html:root .unified-finder .finder-table .finder-probability > span b { font: 800 15px/1 var(--font-display, var(--font-sans)); }
-  html:root .unified-finder .finder-table .finder-probability > span[data-tone=good] b { color: var(--fc-good); }
-  html:root .unified-finder .finder-table .finder-probability > span[data-tone=mid] b { color: var(--fc-mid); }
-  html:root .unified-finder .finder-table .finder-probability > span[data-tone=low] b { color: var(--fc-low); }
+  html:root .unified-finder .finder-table .finder-market b::before { content: "More "; }
+  html:root .unified-finder .finder-table .finder-market b[data-side=less]::before { content: "Less "; }
+  html:root .unified-finder .finder-table .finder-market b[data-side=less] { background: #FFB4BC; color: #3A0A10; }
+  html:root .unified-finder .finder-table .finder-market .finder-u { display: none; }
+
+  /* His L10 hit rate: a ring that fills once, beside the bars of those games. */
+  html:root .unified-finder .finder-table .finder-ring {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    align-self: center;
+    width: 56px;
+  }
+  html:root .unified-finder .finder-ring svg { width: 56px; height: 56px; transform: rotate(-90deg); }
+  html:root .unified-finder .finder-ring circle { fill: none; stroke-width: 5; }
+  html:root .unified-finder .finder-ring circle:first-child { stroke: rgba(8, 11, 13, .5); }
+  html:root .unified-finder .finder-ring circle + circle {
+    stroke: var(--fc-good);
+    stroke-linecap: round;
+    stroke-dashoffset: var(--fill);
+    animation: fc-ring 1s var(--fc-ease) .15s both;
+  }
+  html:root .unified-finder .finder-ring[data-tone=mid] circle + circle { stroke: var(--fc-mid); }
+  html:root .unified-finder .finder-ring[data-tone=low] circle + circle { stroke: var(--fc-low); }
+  html:root .unified-finder .finder-ring b {
+    position: absolute;
+    top: 0;
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    color: #fff;
+    font: 800 15px/1 var(--font-display, var(--font-sans));
+  }
+  html:root .unified-finder .finder-ring b small { font-size: 9px; font-weight: 700; }
+  html:root .unified-finder .finder-ring em {
+    margin-top: 4px;
+    color: rgba(244, 247, 246, .72);
+    font: 700 10px/1 var(--font-sans);
+    font-style: normal;
+    white-space: nowrap;
+  }
+  html:root .unified-finder .finder-ring.is-empty b { position: static; border: 5px solid rgba(8, 11, 13, .5); border-radius: 50%; color: var(--fc-faint); }
+
+  /* ------------------------------------------------------------ his form */
+
+  html:root .unified-finder .finder-table .finder-form {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 12px;
+    margin: 12px 0 10px;
+    padding: 9px 12px 9px 10px;
+    border: 1px solid var(--fc-line);
+    border-radius: 14px;
+    background: rgba(10, 13, 16, .72);
+  }
+  html:root .unified-finder .finder-form-chart { display: grid; gap: 6px; min-width: 0; }
+  html:root .unified-finder .finder-form-chart > small { color: var(--fc-faint); font: 700 10px/1 var(--font-sans); letter-spacing: .06em; text-transform: uppercase; }
+  html:root .unified-finder .finder-form-bars {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 40px;
+  }
+  /* The line across the bars. */
+  html:root .unified-finder .finder-form-bars::after {
+    content: "";
+    position: absolute;
+    left: -2px;
+    right: -2px;
+    bottom: var(--line);
+    height: 1.5px;
+    background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .7) 0 4px, transparent 4px 7px);
+    pointer-events: none;
+  }
+  html:root .unified-finder .finder-form-bars > i {
+    position: relative;
+    flex: 1 1 0;
+    max-width: 18px;
+    height: var(--h);
+    border-radius: 4px 4px 2px 2px;
+    background: var(--fc-good);
+    transform-origin: 50% 100%;
+    animation: fc-grow .5s var(--fc-spring) both;
+    animation-delay: calc(var(--i, 0) * 35ms + .1s);
+  }
+  html:root .unified-finder .finder-form-bars > i::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: var(--cut);
+    border-radius: 0 0 2px 2px;
+    background: var(--fc-good-low);
+  }
+  html:root .unified-finder .finder-form-bars > i[data-hit=no] { background: var(--fc-low); }
+  html:root .unified-finder .finder-form-bars > i[data-hit=push] { background: #59636A; }
+  html:root .unified-finder .finder-form-side { display: grid; justify-items: end; gap: 3px; text-align: right; }
+  html:root .unified-finder .finder-form-side > span { color: var(--fc-faint); font: 700 10px/1 var(--font-sans); letter-spacing: .06em; text-transform: uppercase; }
+  html:root .unified-finder .finder-form-side > strong { color: #fff; font: 800 19px/1 var(--font-display, var(--font-sans)); }
+  html:root .unified-finder .finder-form-side > em { font: 700 11px/1.1 var(--font-sans); font-style: normal; white-space: nowrap; }
+  html:root .unified-finder .finder-form-side > b {
+    margin-top: 3px;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: var(--fc-on);
+    font: 700 10.5px/1.2 var(--font-sans);
+    white-space: nowrap;
+  }
+  html:root .unified-finder .finder-form-side > b[data-tone=low] { background: rgba(240, 106, 119, .14); }
+  html:root .unified-finder .finder-form [data-tone=good] { color: var(--fc-good); }
+  html:root .unified-finder .finder-form [data-tone=mid] { color: var(--fc-mid); }
+  html:root .unified-finder .finder-form [data-tone=low] { color: var(--fc-low); }
 
   /* ------------------------------------------------------------ hit-rate tiles */
 
-  /* AVG, DIFF and STRK are in the words line above. */
-  html:root .unified-finder .finder-table td:is(:nth-child(4), :nth-child(5), :nth-child(10)) { display: none; }
+  /* L10 is the ring; AVG, DIFF and STRK sit beside the form bars. */
+  html:root .unified-finder .finder-table td:is(:nth-child(4), :nth-child(5), :nth-child(7), :nth-child(10)) { display: none; }
   html:root .unified-finder .finder-table td:nth-child(6) { grid-column: 1; }
-  html:root .unified-finder .finder-table td:nth-child(7) { grid-column: 2; }
-  html:root .unified-finder .finder-table td:nth-child(8) { grid-column: 3; }
-  html:root .unified-finder .finder-table td:nth-child(9) { grid-column: 4; }
-  html:root .unified-finder .finder-table td:nth-child(11) { grid-column: 5; }
+  html:root .unified-finder .finder-table td:nth-child(8) { grid-column: 2; }
+  html:root .unified-finder .finder-table td:nth-child(9) { grid-column: 3; }
+  html:root .unified-finder .finder-table td:nth-child(11) { grid-column: 4; }
   html:root .unified-finder .finder-table .finder-stat {
     grid-row: 2;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     border: 1px solid var(--fc-line);
     border-radius: 12px;
     background: var(--fc-tile) !important;
@@ -187,7 +282,7 @@
     position: relative;
     height: auto;
     gap: 3px;
-    padding: 5px 0 12px;
+    padding: 4px 0 11px;
     border: 0;
     background: none;
     color: var(--fc-faint);
@@ -208,34 +303,67 @@
     border-radius: 3px;
     background: linear-gradient(90deg, currentColor var(--rate), rgba(255, 255, 255, .08) var(--rate));
     transform-origin: 0 50%;
-    animation: fc-fill .6s var(--fc-ease) both;
+    animation: fc-fill .6s var(--fc-ease) .2s both;
   }
 
   /* ------------------------------------------------------------ prices */
 
   html:root .unified-finder .finder-table td:nth-child(2) {
-    position: relative;
     grid-row: 3;
     margin: 0 -12px;
     padding: 10px 14px;
     border-top: 1px solid var(--fc-line);
+    background: rgba(8, 11, 13, .35) !important;
+    border-radius: 0 0 19px 19px;
   }
-  html:root .unified-finder .finder-table td:nth-child(2)::after {
-    content: "Trends ›";
-    position: absolute;
-    right: 14px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--fc-good);
-    font: 700 12px/1 var(--font-sans);
-  }
-  html:root .unified-finder .finder-table .finder-books { gap: 14px; padding-right: 72px; }
+  html:root .unified-finder .finder-table .finder-books { flex-wrap: nowrap; gap: 12px; min-width: 0; padding-right: 88px; overflow: hidden; }
+  html:root .unified-finder .finder-table tr:has(.finder-probability.is-empty) .finder-books { padding-right: 0; }
+  html:root .unified-finder .finder-table .finder-books:has(.finder-book + .finder-book) .finder-book small { display: none; }
+  html:root .unified-finder .finder-table .finder-book { flex: 0 0 auto; }
+  /* Two priced apps and the market's chance fill the row; the rest stay in the +N's tooltip on desktop. */
+  html:root .unified-finder .finder-table tr:has(.finder-probability:not(.is-empty)) .finder-books:has(.finder-book + .finder-book) .finder-extra { display: none; }
   html:root .unified-finder .finder-table .finder-book { gap: 7px; }
   html:root .unified-finder .finder-table .finder-book > img { width: 22px; height: 22px; border-radius: 6px; }
   html:root .unified-finder .finder-table .finder-book > span { color: #D5DBDE; font: 600 12px/1.25 var(--font-sans); }
   html:root .unified-finder .finder-table .finder-book > span > span { font-size: 12px; }
   html:root .unified-finder .finder-table .finder-book small { color: var(--fc-muted); font: 600 12px/1 var(--font-sans); }
   html:root .unified-finder .finder-table .finder-extra { color: var(--fc-muted); font-size: 12px; }
+
+  /* The market's chance for the pick's side, at the end of the prices. */
+  html:root .unified-finder .finder-table .finder-prob-cell { top: auto !important; bottom: 9px !important; right: 12px !important; width: auto !important; height: auto !important; }
+  html:root .unified-finder .finder-table .finder-probability {
+    display: inline-flex !important;
+    flex-direction: column !important;
+    align-items: flex-end;
+    gap: 3px;
+    width: auto !important;
+    height: auto !important;
+    padding: 5px 10px !important;
+    border: 1px solid var(--fc-line) !important;
+    border-radius: 12px !important;
+    background: var(--fc-tile) !important;
+  }
+  html:root .unified-finder .finder-table .finder-probability.is-empty { display: none !important; }
+  html:root .unified-finder .finder-table .finder-probability::before {
+    position: static !important;
+    inset: auto !important;
+    border-radius: 0 !important;
+    background: none !important;
+    -webkit-mask: none !important;
+    mask: none !important;
+    content: "Market";
+    color: var(--fc-faint);
+    font: 700 9px/1 var(--font-sans);
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+  html:root .unified-finder .finder-table .finder-probability > span { display: inline-flex; gap: 4px; padding: 0; color: var(--fc-muted); font: 700 11px/1 var(--font-sans); white-space: nowrap; }
+  html:root .unified-finder .finder-table .finder-probability[data-pick=O] > span[data-side=U],
+  html:root .unified-finder .finder-table .finder-probability[data-pick=U] > span[data-side=O] { display: none; }
+  html:root .unified-finder .finder-table .finder-probability > span b { font: 800 13px/1 var(--font-display, var(--font-sans)); }
+  html:root .unified-finder .finder-table .finder-probability > span[data-tone=good] b { color: var(--fc-good); }
+  html:root .unified-finder .finder-table .finder-probability > span[data-tone=mid] b { color: var(--fc-mid); }
+  html:root .unified-finder .finder-table .finder-probability > span[data-tone=low] b { color: var(--fc-low); }
 
   /* ------------------------------------------------------------ the controls above */
 
@@ -245,10 +373,7 @@
     background: var(--fc-card) !important;
     box-shadow: none !important;
   }
-  html:root .unified-finder .finder-filters .finder-multi-select.is-active {
-    border-color: var(--fc-on-line) !important;
-    background: var(--fc-on) !important;
-  }
+  html:root .unified-finder .finder-filters .finder-multi-select.is-active { border-color: var(--fc-on-line) !important; background: var(--fc-on) !important; }
   html:root .unified-finder .finder-filters .finder-multi-select.is-active .finder-multi-trigger { color: var(--fc-text); }
   html:root .unified-finder .finder-sort-chip { border: 1px solid var(--fc-line); border-radius: 999px; background: var(--fc-card); }
   html:root .unified-finder .finder-sort-chip[data-active] { border-color: var(--fc-on-line); background: var(--fc-on); }
@@ -256,10 +381,21 @@
   html:root .unified-finder .finder-mobile-sort .finder-sort-chip button[aria-pressed=true] { color: var(--fc-text); }
   html:root .unified-finder .finder-sort-chip b { background: var(--fc-good); color: #062B19; }
 
+  /* Narrow phones: a smaller ring so the bars keep their room. */
+  @media (max-width: 370px) {
+    html:root .unified-finder .finder-table .finder-ring { width: 48px; }
+    html:root .unified-finder .finder-ring svg, html:root .unified-finder .finder-ring b { width: 48px; height: 48px; }
+    html:root .unified-finder .finder-ring b { font-size: 13.5px; }
+    html:root .unified-finder .finder-table .finder-form { gap: 10px; padding-inline: 9px; }
+    html:root .unified-finder .finder-form-side > strong { font-size: 17px; }
+  }
+
+  @keyframes fc-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @keyframes fc-grow { from { transform: scaleY(0); } to { transform: none; } }
   @keyframes fc-fill { from { transform: scaleX(0); } to { transform: none; } }
+  @keyframes fc-ring { from { stroke-dashoffset: var(--full); } to { stroke-dashoffset: var(--fill); } }
 }
 
 @media (max-width: 760px) and (prefers-reduced-motion: reduce) {
-  html:root .unified-finder .finder-table .finder-heat::after { animation: none; }
-  html:root .unified-finder .finder-table tbody tr { transition: none; }
+  html:root .unified-finder .finder-table :is(tbody tr, .finder-form-bars > i, .finder-ring circle, .finder-heat::after) { animation: none !important; transition: none !important; }
 }
