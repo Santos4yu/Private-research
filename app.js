@@ -3490,6 +3490,10 @@ function renderGameLogChart() {
   const pool = gameLogPool();
   const games = gameLogState.window === "h2h" ? pool : pool.slice(-gameLogState.gameCount);
   const holder = els.gamelogChart;
+  // Where the line and each bar's darker part sat before this paint: when
+  // only the line changed, they glide from there to the new line.
+  const previousCuts = [...holder.querySelectorAll(".gl-bar")].map((bar) => bar.style.getPropertyValue("--cut"));
+  const previousOffset = holder.querySelector(".gl-line-marker")?.style.getPropertyValue("--line-offset") || "";
   holder.classList.toggle('is-loading', gameLogState.loading && !recentGameLogSource().length);
   holder.setAttribute('aria-busy', String(gameLogState.loading));
   holder.dataset.window = gameLogState.window;
@@ -3544,7 +3548,8 @@ function renderGameLogChart() {
   document.getElementById("gamelog-summary-median").textContent = median == null ? "—" : trendNumber(median);
   syncTrendChipLine();
   const barsSignature = JSON.stringify([gameLogState.player, gameLogState.stat, games.map((game) => [game.fullDate || game.date, game.value])]);
-  holder.classList.toggle("gl-grow", barsSignature !== trendBarsSignature);
+  const sameBars = barsSignature === trendBarsSignature;
+  holder.classList.toggle("gl-grow", !sameBars);
   trendBarsSignature = barsSignature;
 
   // Scale to the visible sample with a small market-specific floor. The old
@@ -3686,6 +3691,9 @@ function renderGameLogChart() {
       marker.setPointerCapture(event.pointerId);
       const dragToken = gameLogState.fetchToken;
       const bounds = track.getBoundingClientRect();
+      const bars = [...track.querySelectorAll(".gl-col:not(.gl-next) .gl-bar")];
+      const under = /^(under|less)$/i.test(String(gameLogState.side || ""));
+      holder.classList.add("is-dragging");
       const update = (ev, settle) => {
         if (dragToken !== gameLogState.fetchToken) return;
         const chartTop = bounds.top;
@@ -3697,6 +3705,13 @@ function renderGameLogChart() {
           const displayLine = snapPropLine(raw);
           marker.style.setProperty("--line-offset", `${Math.max(0, trackPx - (raw / max) * trackPx)}px`);
           marker.querySelector(".gl-line-tag").textContent = displayLine.toFixed(1);
+          // Each bar's darker part and its hit or miss follow the line as it moves.
+          const linePx = (raw / max) * trackPx;
+          bars.forEach((bar, index) => {
+            const value = Number(games[index]?.value);
+            bar.style.setProperty("--cut", `${Math.max(0, Math.min(parseFloat(bar.style.height) || 0, linePx))}px`);
+            bar.classList.toggle("gl-bar-under", !(under ? value < displayLine : value > displayLine));
+          });
         }
       };
       marker.onpointermove = (ev) => update(ev, false);
@@ -3704,11 +3719,13 @@ function renderGameLogChart() {
         marker.onpointermove = null;
         marker.onpointerup = null;
         gameLogState.dragging = false;
+        holder.classList.remove("is-dragging");
         update(ev, true);
       };
       marker.onpointercancel = marker.onlostpointercapture = () => {
         if (!gameLogState.dragging) return;
         gameLogState.dragging = false;
+        holder.classList.remove("is-dragging");
         renderGameLogChart();
       };
     });
@@ -3728,6 +3745,19 @@ function renderGameLogChart() {
   axis.setAttribute("aria-hidden", "true");
   axis.innerHTML = `<span>${Number(max).toFixed(max % 1 ? 1 : 0)}</span><span>${Number(max / 2).toFixed(max % 1 ? 1 : 0)}</span><span>0</span>`;
   holder.appendChild(axis);
+  // Same games, new line: start the darker parts and the line where they
+  // were and let them glide (trend-edge.css transitions) to where they are now.
+  const bars = [...track.querySelectorAll(".gl-col:not(.gl-next) .gl-bar")];
+  const marker = holder.querySelector(".gl-line-marker");
+  if (sameBars && previousCuts.length === bars.length) {
+    const cuts = bars.map((bar) => bar.style.getPropertyValue("--cut"));
+    const offset = marker?.style.getPropertyValue("--line-offset") || "";
+    bars.forEach((bar, index) => bar.style.setProperty("--cut", previousCuts[index]));
+    if (marker && previousOffset) marker.style.setProperty("--line-offset", previousOffset);
+    void holder.offsetHeight;
+    bars.forEach((bar, index) => bar.style.setProperty("--cut", cuts[index]));
+    if (marker && previousOffset) marker.style.setProperty("--line-offset", offset);
+  }
   // Never move the viewport as a side effect of rendering. Only direct user
   // input should animate or change the chart position.
   gameLogState.animationDirection = "none";

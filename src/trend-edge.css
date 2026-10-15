@@ -122,11 +122,30 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart-track {
   display: flex !important;
   align-items: flex-start !important;
   justify-content: center !important;
-  gap: 7px !important;
+  /* app.js shrinks the gap as the sample grows (--gl-gap): a fixed gap
+     across 80+ games would take the whole width and squeeze the bars out. */
+  gap: min(7px, var(--gl-gap, 7px)) !important;
   width: 100% !important;
   margin: 0 !important;
   padding: 0 !important;
 }
+/* A window too long to fit (All, two seasons) scrolls sideways at a fixed
+   bar width, opening on the latest games (app.js renderGameLogChart). */
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-scroller > .gamelog-chart-track[data-scroll="true"] {
+  width: max-content !important;
+  min-width: 100% !important;
+  justify-content: flex-end !important;
+  gap: 2px !important;
+}
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-scroller > .gamelog-chart-track[data-scroll="true"] > .gl-col {
+  flex: 0 0 5px !important;
+  width: 5px !important;
+  min-width: 5px !important;
+  max-width: none !important;
+}
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-scroller > .gamelog-chart-track[data-scroll="true"] > .gl-next { flex-basis: 12px !important; width: 12px !important; min-width: 12px !important; }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart-track[data-scroll="true"] .gl-next-bar { border-width: 1.5px; border-radius: 5px; }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart-track[data-scroll="true"] .gl-next-bar span { display: none; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-col {
   flex: 1 1 0 !important;
   min-width: 0 !important;
@@ -155,22 +174,40 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar-shell {
 }
 /* Two tones split where the line crosses the bar (--cut, from app.js):
    muted under the line, bright above it, so the margin reads at a glance.
-   A miss is coral throughout. A fine grain and a lit top edge on both. */
+   The muted part is its own layer and glides when the line moves (and
+   follows a dragged line live). A miss is coral throughout. A fine grain,
+   laid from the bottom so both tones line up, and a lit top edge. */
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar {
   position: relative !important;
   width: 100% !important;
   min-height: 6px;
   border-radius: 8px 8px 4px 4px !important;
   background:
-    radial-gradient(rgba(255, 255, 255, .16) .8px, transparent 1.2px) 0 0 / 6px 6px,
-    linear-gradient(to top, var(--te-mint-low) 0 var(--cut, 0px), var(--te-mint) var(--cut, 0px)) !important;
+    radial-gradient(rgba(255, 255, 255, .16) .8px, transparent 1.2px) 0 100% / 6px 6px,
+    var(--te-mint) !important;
   box-shadow: inset 0 2px 0 rgba(255, 255, 255, .28) !important;
   transform-origin: 50% 100%;
   transition: transform .22s var(--te-ease), filter .22s var(--te-ease);
 }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--cut, 0px);
+  border-radius: 0 0 4px 4px;
+  background:
+    radial-gradient(rgba(255, 255, 255, .12) .8px, transparent 1.2px) 0 100% / 6px 6px,
+    var(--te-mint-low);
+  pointer-events: none;
+  transition: height .34s var(--te-ease);
+}
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart.is-dragging .gl-bar::before { transition-duration: .07s; }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar.gl-bar-under::before { display: none; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar.gl-bar-under {
   background:
-    radial-gradient(rgba(255, 255, 255, .14) .8px, transparent 1.2px) 0 0 / 6px 6px,
+    radial-gradient(rgba(255, 255, 255, .14) .8px, transparent 1.2px) 0 100% / 6px 6px,
     linear-gradient(to top, var(--te-miss-low), var(--te-miss)) !important;
 }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar-shell:hover .gl-bar,
@@ -246,10 +283,18 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-next-bar {
    marker is the panel's own 24px band centred on the line (styles.css). */
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart > .gl-line-marker { --chart-top: 12px; left: 0 !important; right: 0 !important; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-line-marker::before {
-  border-top: 2px dashed rgba(255, 255, 255, .78) !important;
-  border-color: rgba(255, 255, 255, .78) !important;
-  border-width: 2px 0 0 !important;
+  top: 50% !important;
+  height: 2px !important;
+  margin-top: -1px;
+  border: 0 !important;
+  border-radius: 2px;
+  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .8) 0 8px, transparent 8px 14px) !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
 }
+/* The line glides to a new value (the +/- buttons, a typed line); a drag follows the finger. */
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart > .gl-line-marker { opacity: 1 !important; transition: transform .34s var(--te-ease) !important; }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart.is-dragging > .gl-line-marker { transition: none !important; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-line-marker .gl-line-tag {
   left: auto !important;
   right: 0 !important;
