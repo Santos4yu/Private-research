@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="College football">
+  <ellipse cx="32" cy="32" rx="27" ry="17" transform="rotate(-35 32 32)" fill="#8a4b22" stroke="#c9844f" stroke-width="3"/>
+  <path d="M20 44 44 20" stroke="#f4eadf" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M27 33l4 4M31 29l4 4M35 25l4 4" stroke="#f4eadf" stroke-width="3" stroke-linecap="round"/>
+  <path d="M12 41c3 5 8 9 13 10M52 23c-3-5-8-9-13-10" fill="none" stroke="#f4eadf" stroke-width="3" stroke-linecap="round"/>
+</svg>

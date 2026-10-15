@@ -18,7 +18,7 @@ ADMIN_TABS=('moneyline','export')
 # Leagues offered inside the Finder. Kept separate from disabledSports, which
 # governs Research's own MLB/NFL switch -- hiding NFL from the Finder must not
 # take NFL research away from anyone.
-FINDER_SPORTS=('wnba','mlb','nfl','soccer','nhl','nba','tennis','cs2')
+FINDER_SPORTS=('wnba','mlb','nfl','soccer','nhl','nba','tennis','cs2','cfb')
 # The Finder leagues settings saved before finderSportsSeen existed knew of.
 # A league added later starts switched off until the admin turns it on, so a
 # half-built league never appears for everyone the moment it deploys.

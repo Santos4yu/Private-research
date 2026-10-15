@@ -25,8 +25,9 @@ from datetime import datetime, timedelta, timezone
 import requests
 
 ESPN = "https://site.api.espn.com/apis/site/v2/sports"
-PATHS = {"nfl": "football/nfl", "nba": "basketball/nba", "wnba": "basketball/wnba", "nhl": "hockey/nhl", "mlb": "baseball/mlb"}
-SPORTS = ("nfl", "nba", "wnba", "nhl", "mlb", "soccer")
+PATHS = {"nfl": "football/nfl", "cfb": "football/college-football", "nba": "basketball/nba", "wnba": "basketball/wnba",
+         "nhl": "hockey/nhl", "mlb": "baseball/mlb"}
+SPORTS = ("nfl", "cfb", "nba", "wnba", "nhl", "mlb", "soccer")
 MAX_GAMES = 8
 MAX_PLAYERS = 12
 # The same club under each source's code; both sides of a comparison are
@@ -225,6 +226,14 @@ def basketball_lines(summary, sport):
     return out
 
 
+def cfb_lines(summary):
+    """Each player's line so far, under the college football Finder's value
+    keys (cfb_research.parse_box): [{id, name, team, line}]."""
+    import cfb_research
+    return [{"id": pid, "name": entry["name"], "team": entry["team"], "line": entry["values"]}
+            for pid, entry in cfb_research.parse_box(summary)["lines"].items()]
+
+
 def espn_view(sport, summary, item):
     competition = ((summary.get("header") or {}).get("competitions") or [{}])[0]
     view = {"found": True, "id": str((summary.get("header") or {}).get("id") or competition.get("id") or ""),
@@ -233,7 +242,7 @@ def espn_view(sport, summary, item):
     lines = []
     if view["state"] != "pre":
         try:
-            lines = nfl_lines(summary) if sport == "nfl" else basketball_lines(summary, sport)
+            lines = nfl_lines(summary) if sport == "nfl" else cfb_lines(summary) if sport == "cfb" else basketball_lines(summary, sport)
         except Exception:  # noqa: BLE001 -- the status and injuries still help
             lines = []
     view["players"] = _players(item, lines)
@@ -433,7 +442,10 @@ def _players(item, lines):
 def read_game(item):
     sport = item.get("sport")
     try:
-        if sport in ("nfl", "nba", "wnba"):
+        if sport == "cfb" and str(item.get("gameId") or "").isdigit():
+            # The line carries ESPN's own game id (cfb_board.py).
+            view = espn_view(sport, _summary(sport, item["gameId"]), item)
+        elif sport in ("nfl", "nba", "wnba", "cfb"):
             event = _espn_event(sport, item)
             view = espn_view(sport, _summary(sport, event["id"]), item) if event else None
         elif sport == "nhl":

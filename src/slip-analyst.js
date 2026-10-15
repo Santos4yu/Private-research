@@ -214,7 +214,7 @@ function hitterModelRead(row) {
 const poolPosition = row => {
   const position = String(row.position || '').toUpperCase();
   if (row.sport === 'nhl') return position === 'G' ? 'GK' : position === 'D' ? 'D' : position ? 'FWD' : null;
-  if (row.sport === 'nfl') return ['QB', 'RB', 'WR', 'TE'].includes(position) ? position : null;
+  if (row.sport === 'nfl' || row.sport === 'cfb') return ['QB', 'RB', 'WR', 'TE'].includes(position) ? position : null;
   if (row.sport === 'nba' || row.sport === 'wnba') return /C/.test(position) ? 'C' : /F/.test(position) ? 'F' : /G/.test(position) ? 'G' : null;
   return null;
 };

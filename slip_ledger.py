@@ -33,10 +33,10 @@ LEDGER_DAYS = 40
 RECORD_DAYS = 30
 RECORD_FRESH = 10 * 60
 # How long after the start a game is surely over, and when to give up on one.
-DUE_AFTER = {"nfl": 3.6, "nba": 2.8, "wnba": 2.6, "nhl": 3.0, "mlb": 3.4, "soccer": 2.3}
+DUE_AFTER = {"nfl": 3.6, "cfb": 3.8, "nba": 2.8, "wnba": 2.6, "nhl": 3.0, "mlb": 3.4, "soccer": 2.3}
 GIVE_UP_AFTER = 48 * 3600
 TIERS = ("elite", "strong", "lean", "risky", "fade")
-SPORTS = ("nfl", "nba", "wnba", "nhl", "mlb", "soccer")
+SPORTS = ("nfl", "cfb", "nba", "wnba", "nhl", "mlb", "soccer")
 SIDES = ("OVER", "UNDER")
 SETTLE_KINDS = ("key", "mlb", "soccer")
 # Where a graded pick came from: a member's slip in the Slip Analyzer, the
@@ -445,6 +445,10 @@ def settle(entries, now, limit=8):
             player = (view.get("players") or {}).get(person["key"])
             value = value_of(pick.get("settle"), player) if pick.get("settle") else None
             if not pick.get("settle"):
+                result = "unknown"
+            elif pick["sport"] == "cfb" and not player:
+                # A college box score lists only who recorded a stat: no
+                # catch and not playing look the same, so it isn't called.
                 result = "unknown"
             else:
                 result = outcome(value, pick["line"], pick["side"])

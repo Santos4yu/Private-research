@@ -166,7 +166,7 @@ class handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         from site_controls import allowed
-        tab={'finder-history':'finder','prop-history':'research','moneyline':'moneyline','nrfi':'nrfi','soccer':'finder','nhl':'finder','tennis':'finder','moves':'moves','mlb-context':'finder','moneylines':'moneyline','mlb-sheet':'sheets','nfl-sheet':'sheets','mlb-matchups':'bot'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
+        tab={'finder-history':'finder','prop-history':'research','moneyline':'moneyline','nrfi':'nrfi','soccer':'finder','nhl':'finder','cfb':'finder','tennis':'finder','moves':'moves','mlb-context':'finder','moneylines':'moneyline','mlb-sheet':'sheets','nfl-sheet':'sheets','mlb-matchups':'bot'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
         if (parse_qs(urlparse(self.path).query).get('view') or [''])[0] == 'cs2':
             tab = 'finder'
         # Krazy Bot reads the MLB sheets and slate matchups too, so either tab opens them.
@@ -305,6 +305,41 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(200, nhl_board())
             except Exception:
                 return self._send(502, {"error": "NHL lines are temporarily unavailable."})
+        if view == "cfb":
+            # The Finder's college football lines (cfb_board.py) and each
+            # team's games (cfb_research.py); its admin switch is "CFB in
+            # the Finder".
+            from site_controls import finder_sport_allowed
+            if not finder_sport_allowed(self.headers, "cfb"):
+                return self._send(503, {"error": "This section is temporarily unavailable", "featureDisabled": True})
+            qs = parse_qs(urlparse(self.path).query)
+            arg = lambda name: (qs.get(name) or [""])[0].strip()
+            resource = arg("resource")
+            if resource:
+                import cfb_research
+                team, opponent = arg("team"), arg("opponent")
+                try:
+                    if resource == "find":
+                        # A slip's pick whose game has started (so it's off
+                        # the board): the player's ESPN id, team and photo.
+                        who = arg("name")
+                        if not who or len(who) > 60 or len(team) > 40:
+                            return self._send(400, {"error": "A player name is required."})
+                        return self._send(200, {"rows": cfb_research.find(who, team or None)})
+                    if resource == "log":
+                        if not cfb_research.valid_id(team) or (opponent and not cfb_research.valid_id(opponent)):
+                            return self._send(400, {"error": "Unknown team."})
+                        from finder_history_store import remember
+                        return self._send(200, remember('cfb', f'cfb:{team}:{opponent}', cfb_research.team_log(team, opponent or None),
+                                                        {'team': team, 'opponent': opponent}))
+                except Exception:
+                    return self._send(502, {"error": "College football data is temporarily unavailable."})
+                return self._send(400, {"error": "Unknown college football resource."})
+            try:
+                from cfb_board import board as cfb_board
+                return self._send(200, cfb_board())
+            except Exception:
+                return self._send(502, {"error": "College football lines are temporarily unavailable."})
         if view == "moves":
             # The Line Moves page (line_moves.py): its own admin switch, and
             # only the leagues this viewer may see in the Finder. While it is

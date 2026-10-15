@@ -17,7 +17,7 @@ import {LETTERS, letterFor, scoreParlay} from './slip-score.js';
 import {calibrate, statGroup} from './learning.js';
 import {newsCap} from './slip-games.js';
 
-export const SLIP_SPORTS = ['mlb', 'nba', 'wnba', 'nfl', 'nhl', 'soccer'];
+export const SLIP_SPORTS = ['mlb', 'nba', 'wnba', 'nfl', 'cfb', 'nhl', 'soccer'];
 export {SPORT_NAMES};
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
@@ -126,7 +126,8 @@ function nflKey(text) {
 export function statKeys(sport, text) {
   if (!text) return [];
   if (sport === 'mlb') return mlbKeys(text);
-  if (sport === 'nfl') {
+  // College football's stats are named the NFL's way.
+  if (sport === 'nfl' || sport === 'cfb') {
     const key = nflKey(text);
     // A quarterback's "Interceptions" and "Attempts" are thrown ones.
     const more = key === 'int' ? ['int+pass'] : key === 'att' ? ['att+pass', 'att+rush'] : key === 'yds' ? [] : [];
@@ -211,7 +212,7 @@ export function statRows(leg, rows) {
 const SEASON_START = sport => {
   const now = new Date();
   const year = now.getUTCFullYear();
-  const month = {nfl: 8, nba: 9, nhl: 9, mlb: 2, wnba: 4, soccer: 7}[sport] ?? 0;
+  const month = {nfl: 8, cfb: 7, nba: 9, nhl: 9, mlb: 2, wnba: 4, soccer: 7}[sport] ?? 0;
   return new Date(Date.UTC(now.getUTCMonth() >= month ? year : year - 1, month, 1)).toISOString().slice(0, 10);
 };
 

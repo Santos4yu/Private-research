@@ -24,7 +24,7 @@ import './smart-slip.css';
 // lines), the sports, a game or a player to build around, and a last look
 // before building. The build plays out in the same card, then the slips
 // show. smart-slip.js finds them.
-const KEYS=['mlb','nba','wnba','nfl','nhl','soccer'];
+const KEYS=['mlb','nba','wnba','nfl','cfb','nhl','soccer'];
 const SIZES=['auto',2,3,4,5,6];
 const PREFS_KEY='krazy-smart-slip';
 const EXPORT_URL='/api/prediction?action=prizepicks-export&from=parlay';
@@ -688,7 +688,7 @@ export function SmartSlip(){
      <div className="ss-mini">
       <header><img src={PRIZEPICKS_LOGO} alt=""/><b>Your slip</b><span>Graded A+ to F</span></header>
       <ol>{[0,1,2].map(n=>{const player=faces[n];
-       return <li key={n} style={{'--i':n}}>{player?<><span className="ss-face-mini"><i>{player.name.split(' ').map(part=>part[0]).join('').slice(0,2)}</i><img src={player.headshot} alt="" onError={event=>{event.currentTarget.hidden=true;}}/></span>
+       return <li key={n} style={{'--i':n}}>{player?<><span className="ss-face-mini"><i>{player.name.split(' ').map(part=>part[0]).join('').slice(0,2)}</i>{player.headshot&&<img src={player.headshot} alt="" onError={event=>{event.currentTarget.hidden=true;}}/>}</span>
         <span className="ss-mini-who"><b>{player.name}</b><small>{player.team} · {SPORT_NAMES[player.game.sport]}</small></span><em>More</em></>
         :<><i className="ss-slot-face"/><span className="ss-slot-text"><i/><i/></span></>}</li>;})}</ol>
       <footer><span>3-pick Power</span><b>Pays 6x</b></footer>

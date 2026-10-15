@@ -18,7 +18,7 @@ export const newSlipId = () => `s-${Date.now().toString(36)}-${Math.random().toS
 export function pickPayload(leg) {
   const row = leg.row;
   return {sport: row.sport, player: row.player, playerId: row.playerId ?? '', team: row.teamAbbr || '', opponent: row.opponent || '',
-    startsAt: row.startsAt || '', gameId: row.sport === 'nhl' ? row.gameId || '' : '', eventId: row.eventId || '',
+    startsAt: row.startsAt || '', gameId: row.sport === 'nhl' || row.sport === 'cfb' ? row.gameId || '' : '', eventId: row.eventId || '',
     teamId: row.teamId ?? '', opponentId: row.opponentId ?? '', competition: row.competition || '',
     side: leg.side, line: leg.line ?? row.line, stat: leg.stat || row.market, modifier: leg.modifier || row.modifier || 'standard',
     tier: leg.grade.tier, chance: leg.grade.chance, raw: leg.grade.rawChance ?? leg.grade.chance, headshot: row.headshot || '', position: row.position || '',

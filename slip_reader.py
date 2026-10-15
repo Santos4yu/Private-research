@@ -21,7 +21,7 @@ import os
 import re
 import time
 
-SPORTS = ("mlb", "nba", "wnba", "nfl", "nhl", "soccer")
+SPORTS = ("mlb", "nba", "wnba", "nfl", "cfb", "nhl", "soccer")
 MAX_LEGS = 8
 # Groq retired Llama 4 Scout and Maverick in 2026; Qwen is its vision model now.
 VISION_MODELS = ("qwen/qwen3.8-27b", "qwen/qwen3.6-27b", "meta-llama/llama-4-scout-17b-16e-instruct")
@@ -42,7 +42,7 @@ APPS = {
 
 STAT_NAMES = """MLB: Hits, Runs, RBIs, Hits+Runs+RBIs, Total Bases, Home Runs, Singles, Doubles, Walks, Hitter Strikeouts, Stolen Bases, Hitter Fantasy Score, Pitcher Strikeouts, Pitching Outs, Hits Allowed, Earned Runs Allowed, Walks Allowed, Pitches Thrown, Pitcher Fantasy Score, 1st Inning Runs Allowed
 NBA and WNBA: Points, Rebounds, Assists, Pts+Rebs+Asts, Pts+Rebs, Pts+Asts, Rebs+Asts, 3-PT Made, 3-PT Attempted, Blks+Stls, Blocked Shots, Steals, Turnovers, FG Made, FG Attempted, Free Throws Made, Fantasy Score, Double-Double
-NFL: Pass Yards, Pass TDs, Pass Attempts, Pass Completions, Pass INTs, Rush Yards, Rush Attempts, Receptions, Receiving Yards, Rush + Rec Yds, Pass + Rush Yds, Rush + Rec TDs, Longest Reception, Longest Rush, Fantasy Score, FG Made, Kicking Points, Total Tackles, Sacks
+NFL and CFB: Pass Yards, Pass TDs, Pass Attempts, Pass Completions, Pass INTs, Rush Yards, Rush Attempts, Receptions, Receiving Yards, Rush + Rec Yds, Pass + Rush Yds, Rush + Rec TDs, Longest Reception, Longest Rush, Fantasy Score, FG Made, Kicking Points, Total Tackles, Sacks
 NHL: Points, Goals, Assists, Shots On Goal, Hits, Blocked Shots, Power Play Points, Goalie Saves, Goals Against, Faceoffs Won, Time On Ice, Fantasy Score
 Soccer: Shots, Shots On Target, Goals, Assists, Goal + Assist, Passes Attempted, Tackles, Clearances, Goalie Saves, Fouls, Shots Assisted"""
 
@@ -53,7 +53,7 @@ SHAPE = """{"app": "", "entry_type": "", "stake": null, "payout": null, "payout_
 RULES = f"""Read every player prop leg on the slip, top to bottom. For each leg report what the slip shows:
 - player: the player's full name as shown.
 - team and opponent: team abbreviations if shown, else "".
-- sport: one of mlb, nba, wnba, nfl, nhl, soccer, or "" if unsure. Use league badges, team names and the stat.
+- sport: one of mlb, nba, wnba, nfl, cfb (college football), nhl, soccer, or "" if unsure. Use league badges, team names and the stat.
 - league: the league the pick is in, as the app names it, in capitals: NBA, WNBA, NFL, MLB, NHL, CFB, CBB, SOCCER, TENNIS,
   CS2, LOL, VAL, DOTA2, COD, MMA, PGA, NASCAR and so on -- whatever the badge, the teams or the stat say. "" if unsure.
 - stat: the stat exactly as written on the slip, e.g. "Hits+Runs+RBIs", "Pts+Rebs+Asts", "Shots On Goal".
@@ -318,6 +318,7 @@ _OVER = {"over", "more", "higher", "high", "up", "above", "o", "yes", "↑", "�
 _UNDER = {"under", "less", "lower", "low", "down", "below", "u", "no", "↓", "▼", "⬇"}
 _SPORT_WORDS = {
     "mlb": "mlb", "baseball": "mlb", "nba": "nba", "wnba": "wnba", "nfl": "nfl", "nhl": "nhl", "hockey": "nhl",
+    "cfb": "cfb", "ncaaf": "cfb", "collegefootball": "cfb", "ncaafootball": "cfb",
     "soccer": "soccer", "epl": "soccer", "premierleague": "soccer", "mls": "soccer", "laliga": "soccer",
     "seriea": "soccer", "bundesliga": "soccer", "ligue1": "soccer", "ucl": "soccer", "championsleague": "soccer",
     "uefachampionsleague": "soccer", "europaleague": "soccer", "fifa": "soccer", "worldcup": "soccer",

@@ -16,7 +16,7 @@ const lastName = name => String(name || '').split(' ').filter(word => !/^(jr|sr|
 export function role(row) {
   const key = rowStatKey(row) || '';
   const sport = row.sport;
-  if (sport === 'nfl') {
+  if (sport === 'nfl' || sport === 'cfb') {
     const words = key.split('+');
     if (words.includes('fantasy')) return /QB/i.test(row.position || '') ? 'pass' : /RB/i.test(row.position || '') ? 'rush' : 'receive';
     if (words.includes('td') && words.includes('rush') && words.includes('rec')) return 'td';
@@ -81,7 +81,7 @@ const TABLE = {
     opponents: {'attack|saves': [0.2, 'shots-faced']},
   },
 };
-const family = sport => sport === 'nba' || sport === 'wnba' ? 'basketball' : sport;
+const family = sport => sport === 'nba' || sport === 'wnba' ? 'basketball' : sport === 'cfb' ? 'nfl' : sport;
 
 // The two players' teams and game, when the lines say.
 const team = row => String(row.teamAbbr || row.team || '').toUpperCase();

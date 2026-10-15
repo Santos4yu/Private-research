@@ -302,8 +302,8 @@ class SwitchTests(unittest.TestCase):
         self.assertEqual((status, body['sports']), (200, [sport for sport in controls.FINDER_SPORTS if sport in moves.SPORTS]))
         on = {**off, 'disabledTabs': []}
         (status, body), fresh = call(False, on)
-        self.assertEqual((status, body['sports']), (200, ['wnba', 'mlb', 'nfl', 'nhl', 'nba', 'cs2']))
-        self.assertEqual(fresh.call_args.args[0], ['wnba', 'mlb', 'nfl', 'nhl', 'nba', 'cs2'])
+        self.assertEqual((status, body['sports']), (200, ['wnba', 'mlb', 'nfl', 'nhl', 'nba', 'cs2', 'cfb']))
+        self.assertEqual(fresh.call_args.args[0], ['wnba', 'mlb', 'nfl', 'nhl', 'nba', 'cs2', 'cfb'])
 
 
 if __name__ == '__main__':

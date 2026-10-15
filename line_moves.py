@@ -56,7 +56,7 @@ PULL_BEFORE_START = 10 * 60
 # A feed missing more than this share of its lines at once is taken as
 # incomplete (a page that failed to load), not as lines pulled.
 PULL_SHARE = 0.3
-LEAGUES = {'MLB': 'mlb', 'WNBA': 'wnba', 'NFL': 'nfl', 'NHL': 'nhl', 'SOCCER': 'soccer', 'NBA': 'nba', 'CS2': 'cs2'}
+LEAGUES = {'MLB': 'mlb', 'WNBA': 'wnba', 'NFL': 'nfl', 'NHL': 'nhl', 'SOCCER': 'soccer', 'NBA': 'nba', 'CS2': 'cs2', 'CFB': 'cfb'}
 SPORTS = tuple(LEAGUES.values())
 BOOK_NAMES = {'prizepicks': 'PrizePicks', 'underdog': 'Underdog', 'pick6': 'DK Pick6', 'betr_us_dfs': 'Betr Picks',
               'draftkings': 'DraftKings', 'fanduel': 'FanDuel', 'betmgm': 'BetMGM', 'williamhill_us': 'Caesars',

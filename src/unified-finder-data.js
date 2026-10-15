@@ -3,6 +3,7 @@ import {teamLogoUrl} from './sports/nfl/nfl-ui-core.js';
 import {MARKET_STAT as WNBA_DVP_STAT, positionOf} from './sports/wnba/wnba-research.js';
 import {playerGames, statKeyOf, valueOf} from './sports/soccer/soccer-stats.js';
 import {playerGames as nhlPlayerGames, statValue as nhlValue} from './sports/nhl/nhl-stats.js';
+import {playerGames as cfbPlayerGames, statValue as cfbValue, allowedByTeam as cfbAllowed, allowTable as cfbAllowTable} from './sports/cfb/cfb-stats.js';
 import {storedBoard, storeBoard} from './finder-store.js';
 
 const WINDOW_KEYS = ['l5', 'l10', 'l15', 'l20', 'h2h', 'season'];
@@ -582,6 +583,20 @@ export function normalizeFinderRows(sport, payload, players = [], {now = Date.no
         apps: Array.isArray(raw.apps) && raw.apps.length ? raw.apps : [{key: 'prizepicks', name: 'PrizePicks', over: null, under: null}],
         average: null, windows: null, raw, historyStatus: ready ? 'pending' : 'none'});
     }
+    if (sport === 'cfb') {
+      // PrizePicks' college football lines (cfb_board.py), pinned to the
+      // ESPN game and player; the hit rates fill in from his team's games.
+      const ready = Boolean(raw.playerId && raw.valueKey && raw.teamId);
+      return finish({id: `cfb:${raw.id}`, sport, player: raw.player, playerId: optional(raw.playerId), headshot: optional(raw.headshot),
+        position: optional(raw.position), teamAbbr: optional(raw.team), teamId: optional(raw.teamId), teamLogo: optional(raw.teamLogo),
+        teamName: optional(raw.teamName), opponent: optional(raw.opponent), opponentId: optional(raw.opponentId),
+        opponentLogo: optional(raw.opponentLogo), opponentName: optional(raw.opponentName),
+        homeTeamAbbr: optional(raw.homeTeamAbbr), awayTeamAbbr: optional(raw.awayTeamAbbr), isHome: raw.isHome ?? null,
+        gameId: optional(raw.gameId), startsAt: optional(raw.startsAt), market: raw.stat, marketKey: raw.marketKey,
+        valueKey: optional(raw.valueKey), line: raw.line, direction: 'OVER', modifier: raw.modifier,
+        apps: Array.isArray(raw.apps) && raw.apps.length ? raw.apps : [{key: 'prizepicks', name: 'PrizePicks', over: null, under: null}],
+        average: null, windows: null, raw, historyStatus: ready ? 'pending' : 'none'});
+    }
     if (sport === 'tennis' || sport === 'cs2') {
       const row = finish({id: `${sport}:${raw.id}`, sport, player: raw.player, playerId: optional(raw.playerId),
         headshot: optional(raw.headshot), position: optional(raw.position), teamAbbr: optional(raw.teamAbbr), teamLogo: null,
@@ -638,6 +653,10 @@ export async function loadFinderSportRaw(sport, options = {}) {
     const payload = await request('/api/board?view=nhl', options);
     return {...payload, rows: normalizeFinderRows(sport, payload), fetchedAt: payload.builtAt || null};
   }
+  if (sport === 'cfb') {
+    const payload = await request('/api/board?view=cfb', options);
+    return {...payload, rows: normalizeFinderRows(sport, payload), fetchedAt: payload.builtAt || null};
+  }
   if (sport === 'tennis' || sport === 'cs2') {
     const payload = await request(`/api/board?view=${sport}`, options);
     return {...payload, rows: normalizeFinderRows(sport, payload), fetchedAt: payload.builtAt || null};
@@ -650,6 +669,7 @@ export function finderHistoryKey(row, season=new Date().getUTCFullYear()) {
   if(row.sport==='mlb')return mlbHistoryKey(row);
   if(row.sport==='soccer')return `soccer:${soccerLogKey(row)}`;
   if(row.sport==='nhl')return `nhl:${nhlLogKey(row.teamAbbr,row.opponent)}`;
+  if(row.sport==='cfb')return `cfb:${row.teamId||''}:`;
   if(row.sport==='tennis')return `tennis:${row.player}`;
   return null;
 }
@@ -660,7 +680,7 @@ export function applyFinderSnapshot(rows, histories={}, now=Date.now()) {
   return rows.map(row=>{
     const key=finderHistoryKey(row),entry=histories[key];
     if(!entry?.payload||!Number.isFinite(entry.at)||now-entry.at<0||now-entry.at>24*60*60*1000)return row;
-    const apply=BASKETBALL.has(row.sport)?applyWnbaHistory:({mlb:applyMlbHistory,soccer:applySoccerHistory,nhl:applyNhlHistory,tennis:applyTennisHistory})[row.sport];
+    const apply=BASKETBALL.has(row.sport)?applyWnbaHistory:({mlb:applyMlbHistory,soccer:applySoccerHistory,nhl:applyNhlHistory,cfb:applyCfbHistory,tennis:applyTennisHistory})[row.sport];
     if(!apply)return row;
     const result=apply(row,entry.payload);
     if(result.historyStatus!=='ready')return row;
@@ -1102,6 +1122,94 @@ export async function enrichNhlRows(rows, {signal, onRows, concurrency = 4, ...o
   }
   await Promise.all(Array.from({length: Math.min(queue.length, Math.max(1, Math.min(6, concurrency)))}, worker));
   return rows.map(row => enriched.get(row.id) || row);
+}
+
+// ---------------------------------------------------------------- college football
+
+// One request per team: its games this season and last carry every
+// player's line (cfb_research.team_log), so the whole roster's rows fill
+// from it, and what it gave up in each game rates its defense.
+export async function loadCfbLog(team, options = {}) {
+  const key = `cfb:${team}:`;
+  const cached = historyCache.get(key);
+  if (cached && Date.now() - cached.at < HISTORY_TTL) return cached.value;
+  const payload = await patientRequest(`/api/board?${new URLSearchParams({view: 'cfb', resource: 'log', team})}`, options);
+  // A log still being gathered is not kept, so the next look asks again.
+  if (payload?.complete !== false) historyCache.set(key, {at: Date.now(), value: payload});
+  if (historyCache.size > 500) historyCache.delete(historyCache.keys().next().value);
+  return payload;
+}
+
+export function applyCfbHistory(row, log) {
+  const games = cfbPlayerGames(log, row.playerId).filter(game => !game.dnp && number(cfbValue(game, row.valueKey)) != null);
+  if (!row.valueKey || !games.length) return {...row, historyStatus: 'unavailable'};
+  const values = games.map(game => cfbValue(game, row.valueKey));
+  const season = games.at(-1).season;
+  const windows = Object.fromEntries([5, 10, 15, 20].map(size => [`l${size}`, finderWindow(values.slice(-size), row.line, row.direction)]));
+  const faced = game => row.opponentId ? String(game.opponentId) === String(row.opponentId) : row.opponent && game.opponent === row.opponent;
+  windows.h2h = finderWindow(games.filter(faced).map(game => cfbValue(game, row.valueKey)), row.line, row.direction);
+  windows.season = finderWindow(games.filter(game => game.season === season).map(game => cfbValue(game, row.valueKey)), row.line, row.direction);
+  let streak = 0;
+  for (let index = values.length - 1; index >= 0; index -= 1) {
+    if (values[index] === row.line) break;
+    const sign = values[index] > row.line ? 1 : -1;
+    if (streak && Math.sign(streak) !== sign) break;
+    streak += sign;
+  }
+  const position = row.position || log?.players?.[row.playerId]?.pos || null;
+  return finish({...row, position, average: mean(values.slice(-10)), windows, streak, historyStatus: 'ready', historyRefresh: false,
+    historyAsOf: Date.now(), enrichedAt: Date.now(),
+    gameLog: gameLog(games.map(game => ({value: cfbValue(game, row.valueKey), date: game.date, home: game.isHome, opponent: game.opponent})))});
+}
+
+/** Each college football line's defense table: how much each team on the
+ * board gives up of what the stat feeds on, from the teams' own logs. */
+export function withCfbDefense(rows, logs) {
+  const allowed = cfbAllowed(logs);
+  const tables = new Map();
+  return rows.map(row => {
+    if (row.sport !== 'cfb' || !row.valueKey) return row;
+    if (!tables.has(row.valueKey)) tables.set(row.valueKey, cfbAllowTable(allowed, row.valueKey));
+    const table = tables.get(row.valueKey);
+    return table ? {...row, allowTable: table} : row;
+  });
+}
+
+/** Hydrate college football hit rates after the lines are already on the board. */
+export async function enrichCfbRows(rows, {signal, onRows, concurrency = 4, ...options} = {}) {
+  const groups = new Map();
+  for (const row of rows) {
+    if (row.sport !== 'cfb' || !row.teamId || row.historyStatus !== 'pending' && !row.historyRefresh) continue;
+    if (!groups.has(row.teamId)) groups.set(row.teamId, []);
+    groups.get(row.teamId).push(row);
+  }
+  const queue = [...groups.values()];
+  const enriched = new Map(), logs = [];
+  let next = 0;
+  async function worker() {
+    while (next < queue.length) {
+      aborted(signal);
+      const batch = queue[next++];
+      let updates;
+      try {
+        const log = await loadCfbLog(batch[0].teamId, {signal, ...options});
+        aborted(signal);
+        logs.push(log);
+        updates = batch.map(row => applyCfbHistory(row, log));
+      } catch (error) {
+        if (signal?.aborted || error.name === 'AbortError') throw error;
+        updates = batch.map(row => ({...row, historyStatus: 'unavailable'}));
+      }
+      updates=updates.map((update,i)=>batch[i].historyStatus==='ready'&&update.historyStatus!=='ready'?{...batch[i],historyRefresh:true}:update);
+      updates.forEach(row => enriched.set(row.id, row));
+      onRows?.(updates);
+    }
+  }
+  await Promise.all(Array.from({length: Math.min(queue.length, Math.max(1, Math.min(6, concurrency)))}, worker));
+  // Every team's log is in: each line gets its defense table.
+  const out = withCfbDefense(rows.map(row => enriched.get(row.id) || row), logs);
+  if (logs.length) onRows?.(out.filter(row => enriched.has(row.id)));
+  return out;
 }
 
 export async function loadTennisHistory(player, options = {}) {

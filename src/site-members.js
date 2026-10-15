@@ -4,7 +4,7 @@
 // suspension, and a badge. Rules follow the email address, so someone can be
 // set up before they ever sign in.
 
-const SPORTS={wnba:'WNBA',mlb:'MLB',nfl:'NFL',soccer:'Soccer',nhl:'NHL',nba:'NBA'};
+const SPORTS={wnba:'WNBA',mlb:'MLB',nfl:'NFL',soccer:'Soccer',nhl:'NHL',nba:'NBA',cfb:'CFB'};
 const LISTS={tab:'disabledTabs',sport:'disabledSports',finderSport:'disabledFinderSports'};
 const GROUPS=[['tab','Sections'],['sport','Research sports'],['finderSport','Finder sports']];
 const CHOICES=[['default','Default'],['on','On'],['off','Off']];

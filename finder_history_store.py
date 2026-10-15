@@ -14,7 +14,7 @@ import unicodedata
 import re
 from threading import Lock
 
-SPORTS = ('wnba', 'nba', 'mlb', 'soccer', 'nhl', 'tennis')
+SPORTS = ('wnba', 'nba', 'mlb', 'soccer', 'nhl', 'cfb', 'tennis')
 MAX_AGE = 24 * 3600
 FRESH = 30 * 60
 # Players nobody has opened (and no board has listed) for a week stop being
@@ -308,6 +308,9 @@ def refresh(sport, key, args, seen=None):
         payload = team_log(args['team'], args['event'], args.get('league') or None)
     elif sport == 'nhl':
         from nhl_research import team_log
+        payload = team_log(args['team'], args.get('opponent') or None)
+    elif sport == 'cfb':
+        from cfb_research import team_log
         payload = team_log(args['team'], args.get('opponent') or None)
     else:
         from tennis_history import history

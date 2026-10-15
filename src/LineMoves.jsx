@@ -8,7 +8,7 @@ import './line-moves.css';
 // checks for new moves while it is open and on screen.
 const POLL_MS=30000;
 const APP_LOGOS={prizepicks:'/prizepicks/logo.png',underdog:'/sportsbooks/underdog.png'};
-const SPORT_NAMES={mlb:'MLB',nba:'NBA',wnba:'WNBA',nfl:'NFL',nhl:'NHL',soccer:'Soccer',cs2:'CS2'};
+const SPORT_NAMES={mlb:'MLB',nba:'NBA',wnba:'WNBA',nfl:'NFL',nhl:'NHL',soccer:'Soccer',cs2:'CS2',cfb:'CFB'};
 const SOURCES=[['all','All'],['prizepicks','PrizePicks'],['underdog','Underdog'],['books','Sportsbooks']];
 
 const finite=value=>typeof value==='number'&&Number.isFinite(value);

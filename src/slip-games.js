@@ -11,7 +11,7 @@ import {finderMarket, gameValue} from './prop-finder-core.js';
 import {statKeyOf, valueOf} from './sports/soccer/soccer-stats.js';
 
 const URL = '/api/prediction?action=slip-games';
-const SPORTS = new Set(['nfl', 'nba', 'wnba', 'nhl', 'mlb', 'soccer']);
+const SPORTS = new Set(['nfl', 'cfb', 'nba', 'wnba', 'nhl', 'mlb', 'soccer']);
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const SUFFIX = new Set(['jr', 'sr', 'ii', 'iii', 'iv', 'v']);
 const words = name => String(name || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/'/g, '')
@@ -44,8 +44,9 @@ export function gameRequests(legs) {
     const key = gameKey(row);
     if (!games.has(key)) {
       games.set(key, {key, sport: row.sport, team: row.teamAbbr || '', opponent: row.opponent || '', startsAt: row.startsAt || '',
-        // The NHL row's game is the NHL's own; the NFL's is nflverse's, which ESPN doesn't know.
-        gameId: row.sport === 'nhl' ? row.gameId || '' : '', eventId: row.eventId || '', teamId: row.teamId ?? '',
+        // The NHL row's game is the NHL's own and college football's is
+        // ESPN's; the NFL's is nflverse's, which ESPN doesn't know.
+        gameId: row.sport === 'nhl' || row.sport === 'cfb' ? row.gameId || '' : '', eventId: row.eventId || '', teamId: row.teamId ?? '',
         opponentId: row.opponentId ?? '', competition: row.competition || '', players: []});
     }
     // ESPN's box score knows the basketball, NHL and MLB ids; the NFL's are nflverse's.
@@ -145,7 +146,7 @@ const NFL_DEFENSIVE_MARKETS = /tackle|sack|def_|interceptions_def|defensive/;
 const position = value => String(value || '').toUpperCase().split(/[-/]/)[0];
 function bearsOn(row, mate) {
   const theirs = position(mate.position), mine = position(row.position);
-  if (row.sport === 'nfl') {
+  if (row.sport === 'nfl' || row.sport === 'cfb') {
     if (NFL_DEFENSE.has(mine) || NFL_DEFENSIVE_MARKETS.test(String(row.marketKey || ''))) return NFL_DEFENSE.has(theirs);
     return (NFL_OFFENSE.has(mine) || !mine) && NFL_OFFENSE.has(theirs);
   }
@@ -309,7 +310,7 @@ export function liveValue(row, player) {
   const line = player?.line;
   if (!line) return null;
   if (row.sport === 'nfl' || row.sport === 'nba' || row.sport === 'wnba') return finite(line[row.marketKey]) ? line[row.marketKey] : null;
-  if (row.sport === 'nhl') return finite(line[row.valueKey]) ? line[row.valueKey] : null;
+  if (row.sport === 'nhl' || row.sport === 'cfb') return finite(line[row.valueKey]) ? line[row.valueKey] : null;
   if (row.sport === 'mlb') {
     const market = finderMarket(row.raw?.stat || row.market);
     if (!market || market.firstInning) return null;
@@ -320,7 +321,7 @@ export function liveValue(row, player) {
   return null;
 }
 
-const UNITS = {nfl: 'quarter', nba: 'quarter', wnba: 'quarter', nhl: 'period'};
+const UNITS = {nfl: 'quarter', cfb: 'quarter', nba: 'quarter', wnba: 'quarter', nhl: 'period'};
 /** Where the game is: "3rd quarter, 8:42", "Halftime", "Top 5th", "67'", "Final". */
 export function clockText(game) {
   if (!game) return '';
@@ -382,7 +383,7 @@ export function anyLive(rows, now = Date.now()) {
 export function settleKey(row) {
   if (!row) return null;
   if (row.sport === 'nfl' || row.sport === 'nba' || row.sport === 'wnba') return row.marketKey ? {kind: 'key', key: row.marketKey} : null;
-  if (row.sport === 'nhl') return row.valueKey ? {kind: 'key', key: row.valueKey} : null;
+  if (row.sport === 'nhl' || row.sport === 'cfb') return row.valueKey ? {kind: 'key', key: row.valueKey} : null;
   if (row.sport === 'mlb') {
     const market = finderMarket(row.raw?.stat || row.market);
     return market && !market.firstInning ? {kind: 'mlb', field: market.field, pitcher: Boolean(market.pitcher)} : null;

@@ -7,6 +7,7 @@ export const LEAGUE_LOGOS = {
   soccer: '/leagues/soccer.svg',
   tennis: '/leagues/tennis.svg',
   cs2: '/leagues/cs2.png',
+  cfb: '/leagues/cfb.svg',
   wnba: 'https://a.espncdn.com/i/teamlogos/leagues/500/wnba.png',
   nba: 'https://a.espncdn.com/i/teamlogos/leagues/500/nba.png',
 };

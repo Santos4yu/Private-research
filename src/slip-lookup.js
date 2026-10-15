@@ -17,6 +17,16 @@ const NHL = {pts: 'points', goals: 'goals', ast: 'assists', sog: 'sog', hits: 'h
   ppp: 'ppp', attempts: 'attempts', pim: 'pim', pm: 'plus_minus', saves: 'saves', ga: 'ga', fantasy: 'fantasy',
   'blk+hits': 'hits_blocks'};
 
+// College football's stats, named the NFL's way (slip-check.js statKeys),
+// as cfb_research's value keys.
+const FOOTBALL = {'pass+yds': 'passing_yards', 'pass+td': 'passing_touchdowns', 'att+pass': 'passing_attempts',
+  'cmp+pass': 'pass_completions', 'int+pass': 'interceptions', 'rush+yds': 'rushing_yards', 'att+rush': 'rush_attempts',
+  'rush+td': 'rushing_tds', 'longest+rush': 'longest_rush', receptions: 'receptions', 'rec+yds': 'receiving_yards',
+  'rec+td': 'receiving_tds', 'longest+receptions': 'longest_reception', 'rec+rush+yds': 'rushing_receiving_yards',
+  'pass+rush+yds': 'passing_rushing_yards', 'rec+rush+td': 'touchdowns', fantasy: 'fantasy_score', 'fg+made': 'fg_made',
+  'kicking+points': 'kicking_points', tackles: 'tackles', sacks: 'sacks', targets: 'targets', 'fumbles+lost': 'fumbles_lost'};
+export const footballValueKey = text => statKeys('cfb', text).map(key => FOOTBALL[key]).find(Boolean) || null;
+
 const nflSeason = (now = new Date()) => now.getUTCFullYear() - (now.getUTCMonth() < 2 ? 1 : 0);
 const slug = value => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
@@ -79,6 +89,19 @@ async function nhl(leg, options) {
   return scored || row;
 }
 
+async function cfb(leg, options) {
+  const query = new URLSearchParams({view: 'cfb', resource: 'find', name: leg.player});
+  if (leg.team) query.set('team', leg.team);
+  const [who] = (await get(`/api/board?${query}`, options)).rows || [];
+  if (!who?.playerId) return null;
+  const valueKey = footballValueKey(leg.stat) || footballValueKey(leg.statName);
+  const [row] = normalized('cfb', {rows: [{...who, id: `slip:${who.playerId}:${slug(leg.stat)}:${leg.line}`, stat: leg.stat,
+    marketKey: slug(leg.stat).replace(/-/g, ''), valueKey, line: leg.line, modifier: 'standard', apps: []}]});
+  if (!row || row.historyStatus !== 'pending') return row;
+  const [scored] = await options.enrich('cfb')([row], {signal: options.signal, concurrency: 1});
+  return scored || row;
+}
+
 /**
  * The leg's player as a board line at the slip's number, his hit rates
  * worked out from his games; null when no one by that name is found.
@@ -98,7 +121,8 @@ export async function lookupRow(leg, {sports = [], enrich, signal, fetcher} = {}
       const row = sport === 'nfl' ? await nfl(asked, options)
         : sport === 'nba' || sport === 'wnba' ? await basketball(asked, sport, options)
           : sport === 'mlb' ? await mlb(asked, options)
-            : sport === 'nhl' ? await nhl(asked, options) : null;
+            : sport === 'nhl' ? await nhl(asked, options)
+              : sport === 'cfb' ? await cfb(asked, options) : null;
       answered = true;
       if (row) return unread ? {...row, line: null, windows: null, average: null, streak: null} : row;
     } catch (error) {

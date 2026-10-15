@@ -6,7 +6,7 @@
 import {readFinderCache, loadFinderSportRaw, loadFinderSnapshot, hasFinderSnapshot, readFinderView, linkTarget} from './unified-finder-data.js';
 import {BOARD_FRESH} from './finder-pool.js';
 
-export const FINDER_KEYS = ['nba', 'wnba', 'mlb', 'nfl', 'nhl', 'soccer', 'tennis', 'cs2'];
+export const FINDER_KEYS = ['nba', 'wnba', 'mlb', 'nfl', 'cfb', 'nhl', 'soccer', 'tennis', 'cs2'];
 // Started this long ago or more, a head start is stale and loading begins afresh.
 const KEEP = 30 * 1000;
 const early = new Map();
