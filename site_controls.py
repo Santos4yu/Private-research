@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from v2.board import store, admin_auth
 SITE_BACKGROUND_PATH_RE=re.compile(r'^/api/v2-admin\?action=site-background&v=\d+$')
 KEY='krazy_data:site_controls:v1'
-TABS=('research','finder','moves','v2','slate','saved','slip','builder','moneyline','nrfi','community','bot','sheets','promos')
+TABS=('research','finder','moves','v2','slate','saved','slip','builder','moneyline','nrfi','community','bot','sheets','promos','export')
 # The sections settings saved before tabsSeen existed knew of. A section
 # added later starts switched off until the admin turns it on, the same way
 # new Finder leagues do below -- so a page still being built never appears
@@ -14,7 +14,7 @@ TABS=('research','finder','moves','v2','slate','saved','slip','builder','moneyli
 LEGACY_TABS=('research','finder','v2','slate','saved','slip','builder','moneyline','nrfi','community')
 # Sections only an admin session may open. They have no site switch or
 # per-member rule (src/site-access-core.js ADMIN_TABS is the page's side).
-ADMIN_TABS=('moneyline',)
+ADMIN_TABS=('moneyline','export')
 # Leagues offered inside the Finder. Kept separate from disabledSports, which
 # governs Research's own MLB/NFL switch -- hiding NFL from the Finder must not
 # take NFL research away from anyone.
@@ -49,7 +49,8 @@ def read_saved():
  policy={**DEFAULT,**value}
  seen_tabs=value.get('tabsSeen')
  seen_tabs=set(seen_tabs) if isinstance(seen_tabs,list) else set(LEGACY_TABS)
- new_tabs=[tab for tab in TABS if tab not in seen_tabs]
+ # An admin-only section has no switch: nothing to start switched off.
+ new_tabs=[tab for tab in TABS if tab not in seen_tabs and tab not in ADMIN_TABS]
  if new_tabs:policy['disabledTabs']=sorted(set(policy.get('disabledTabs') or [])|set(new_tabs))
  known=value.get('finderSportsSeen')
  known=set(known) if isinstance(known,list) else set(LEGACY_FINDER_SPORTS)

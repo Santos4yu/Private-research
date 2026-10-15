@@ -98,7 +98,7 @@ def _league_id(league):
     league name below, so a stale id can only find nothing, never the wrong
     league's lines.
     """
-    fallback = LEAGUE_IDS[league]
+    fallback = LEAGUE_IDS.get(league)
     if league == "MLB":
         return fallback
     now = time.time()
@@ -117,6 +117,9 @@ def _league_id(league):
                 break
     except (requests.RequestException, ValueError, AttributeError):
         pass
+    if league_id is None:
+        # Not one of the boards' leagues, and PrizePicks lists no such league.
+        raise ValueError(f"PrizePicks has no {league} board right now.")
     with _CACHE_LOCK:
         _LEAGUE_CACHE[league] = {"loaded_at": now, "id": league_id}
     return league_id
@@ -174,7 +177,7 @@ def _fetch_projection_rows(force=False, league="MLB"):
 
 def _load_projection_rows(force=False, league="MLB"):
     league = str(league or "MLB").upper()
-    if league not in LEAGUE_IDS:
+    if not re.fullmatch(r"[A-Z0-9][A-Z0-9 ]{1,19}", league):
         raise ValueError(f"PrizePicks export does not support {league}.")
     now = time.time()
     with _CACHE_LOCK:
@@ -397,3 +400,214 @@ def build_export(legs):
         "matches": matches, "changed": [match for match in matches if match["changed"]],
         "skipped": unmatched, "reviewRequired": True,
     }
+
+
+# ---------------------------------------------------------------- a slip's picture, to PrizePicks
+
+# What a slip may call a league, as PrizePicks names it.
+_LEAGUE_ALIASES = {
+    "CSGO": "CS2", "CS": "CS2", "COUNTERSTRIKE": "CS2", "COUNTERSTRIKE2": "CS2", "LEAGUEOFLEGENDS": "LOL", "VALORANT": "VAL",
+    "DOTA": "DOTA2", "NCAAF": "CFB", "COLLEGEFOOTBALL": "CFB", "NCAAB": "CBB", "NCAAM": "CBB", "COLLEGEBASKETBALL": "CBB",
+    "UFC": "MMA", "GOLF": "PGA", "FOOTBALL": "NFL", "BASKETBALL": "NBA", "BASEBALL": "MLB", "HOCKEY": "NHL", "FUTBOL": "SOCCER",
+    "EPL": "SOCCER", "MLS": "SOCCER", "UCL": "SOCCER", "LALIGA": "SOCCER", "WTA": "TENNIS", "ATP": "TENNIS", "CALLOFDUTY": "COD",
+}
+_ACTIVE_LEAGUES = {"loaded_at": 0.0, "names": []}
+# How long finding a slip's picks may spend reading PrizePicks' boards.
+_FIND_BUDGET = 30
+
+
+def _squash_league(value):
+    return re.sub(r"[^A-Z0-9]", "", str(value or "").upper())
+
+
+def league_name(value):
+    """A league as PrizePicks names it ("CS2", "NBA"), or "" when unsure."""
+    text = _squash_league(value)
+    return _LEAGUE_ALIASES.get(text, text)[:20] if text else ""
+
+
+def _active_leagues():
+    """The leagues PrizePicks has lines up in right now, as its feed names
+    them; each one's id is kept for _league_id on the way."""
+    now = time.time()
+    if _ACTIVE_LEAGUES["names"] and now - _ACTIVE_LEAGUES["loaded_at"] < 10 * 60:
+        return _ACTIVE_LEAGUES["names"]
+    names = []
+    try:
+        response = requests.get(PRIZEPICKS_LEAGUES_URL, headers=_HEADERS, timeout=10)
+        response.raise_for_status()
+        for item in response.json().get("data") or []:
+            attrs = item.get("attributes") or {}
+            name = str(attrs.get("name") or "").strip().upper()
+            count = attrs.get("projections_count")
+            if (not re.fullmatch(r"[A-Z0-9][A-Z0-9 ]{1,19}", name) or item.get("id") is None
+                    or attrs.get("active") is False or (count is not None and count <= 0)):
+                continue
+            names.append(name)
+            with _CACHE_LOCK:
+                _LEAGUE_CACHE[name] = {"loaded_at": now, "id": str(item["id"])}
+    except (requests.RequestException, ValueError, AttributeError, TypeError):
+        names = []
+    names = list(dict.fromkeys(names)) or list(LEAGUE_IDS)
+    _ACTIVE_LEAGUES.update(loaded_at=now, names=names)
+    return names
+
+
+def _board_names(value, active):
+    """The boards in `active` a slip's league could be: "CSGO" is CS2,
+    "LoL" is LOL; one PrizePicks doesn't list is still tried by name."""
+    text = _squash_league(value)
+    if not text:
+        return []
+    wanted = {text, league_name(text)}
+    found = [name for name in active if _squash_league(name) in wanted]
+    return found or [league_name(text)]
+
+
+def _words(value):
+    ascii_value = unicodedata.normalize("NFKD", str(value or "")).encode("ascii", "ignore").decode("ascii").lower()
+    return [word for word in re.split(r"[^a-z0-9]+", ascii_value) if word and word not in {"jr", "sr", "ii", "iii", "iv"}]
+
+
+def _alike(a, b):
+    """How alike two names are, 0 to 1: the letters and the words."""
+    from difflib import SequenceMatcher
+    if not a or not b:
+        return 0.0
+    if _norm(a) == _norm(b):
+        return 1.0
+    left, right = set(_words(a)), set(_words(b))
+    shared = len(left & right) / len(left | right) if left | right else 0.0
+    return max(SequenceMatcher(None, _norm(a), _norm(b)).ratio(), shared)
+
+
+def _player_score(read, listed):
+    if _norm(read) == _norm(listed):
+        return 1.0
+    a, b = _words(read), _words(listed)
+    # "J. Brunson" or a cut-off first name: the last name and the first initial.
+    if a and b and a[-1] == b[-1] and a[0][:1] == b[0][:1]:
+        return 0.93
+    return _alike(read, listed)
+
+
+def _stat_score(read, listed):
+    if not read:
+        return 0.0
+    if _norm_stat(read) == _norm_stat(listed):
+        return 1.0
+    a, b = _norm(read), _norm(listed)
+    if a and b and (a in b or b in a):
+        return 0.86
+    return _alike(read, listed)
+
+
+def _find_one(leg, rows):
+    """The PrizePicks line a slip's leg is, from `rows`: (row, how sure) or (None, why)."""
+    player, stat = str(leg.get("player") or ""), str(leg.get("stat") or leg.get("statName") or "")
+    side = "under" if str(leg.get("side") or "").lower() in ("under", "less", "lower") else "over"
+    tier = str(leg.get("modifier") or "standard").lower()
+    try:
+        line = float(leg.get("line"))
+    except (TypeError, ValueError):
+        line = None
+    best, best_key, near_player = None, None, False
+    for row in rows:
+        if row.get("combo"):
+            continue
+        who = _player_score(player, row["player"])
+        if who < 0.85:
+            continue
+        near_player = True
+        what = max(_stat_score(stat, row["stat"]), _stat_score(leg.get("statName"), row["stat"]))
+        if what < 0.6:
+            continue
+        exact = line is not None and abs(row["line"] - line) < 0.001
+        key = (round(who * 0.6 + what * 0.4, 3), exact, _playable(row, side), row["odds_type"] == tier,
+               -abs(row["line"] - line) if line is not None else 0, -_TIER_ORDER.get(row["odds_type"], 3))
+        if best_key is None or key > best_key:
+            best, best_key = row, key
+    if best is None:
+        return None, ("PrizePicks has this player, but not this stat right now" if near_player
+                      else "Not on PrizePicks right now")
+    return best, best_key[0]
+
+
+def find_picks(legs, budget=_FIND_BUDGET):
+    """Each leg read off a slip's picture, found on PrizePicks' boards: the
+    league the slip shows first, then every league PrizePicks has up, read
+    side by side, within `budget` seconds. In the slip's order:
+    [{index, read, pick}] or [{index, read, reason}]."""
+    from concurrent.futures import ThreadPoolExecutor, wait
+    started = time.time()
+    boards = {}
+
+    def read_boards(names):
+        names = [name for name in dict.fromkeys(names) if name not in boards]
+        if not names:
+            return
+        pool = ThreadPoolExecutor(max_workers=6)
+        futures = {pool.submit(_fetch_projection_rows, league=name): name for name in names}
+        done, _ = wait(futures, timeout=max(1.0, budget - (time.time() - started)))
+        # A board still loading past the budget is left behind, not waited on.
+        pool.shutdown(wait=False, cancel_futures=True)
+        for future in futures:
+            rows = []
+            if future in done:
+                try:
+                    rows = [row for row in future.result() if not row.get("combo")]
+                except Exception:  # noqa: BLE001 -- one league's board failing leaves the others
+                    rows = []
+            boards[futures[future]] = rows
+
+    def search(pick, names):
+        for name in names:
+            row, score = _find_one(pick["leg"], boards.get(name) or [])
+            if row is None:
+                # The closer miss says more ("has this player, but not this stat").
+                if "player" in score:
+                    pick["reason"] = score
+            elif not pick["found"] or score > pick["score"]:
+                pick.update(found=row, score=score, reason=None)
+
+    picks = [{"leg": leg, "found": None, "score": 0.0, "reason": "Not on PrizePicks right now"} for leg in legs]
+    active = _active_leagues()
+    named = {id(pick): _board_names(pick["leg"].get("league") or pick["leg"].get("sport"), active)
+             for pick in picks}
+    read_boards([name for names in named.values() for name in names])
+    for pick in picks:
+        search(pick, named[id(pick)])
+    # Not in the league the slip shows (or it shows none): every other one.
+    if any(pick["found"] is None for pick in picks):
+        read_boards(active)
+        for pick in picks:
+            if pick["found"] is None:
+                search(pick, [name for name in boards if name not in named[id(pick)]])
+    out = []
+    for index, pick in enumerate(picks):
+        leg, row = pick["leg"], pick["found"]
+        side = "under" if str(leg.get("side") or "").lower() in ("under", "less", "lower") else "over"
+        entry = {"index": index, "read": {key: leg.get(key) for key in ("player", "stat", "line", "side", "modifier", "league", "sport")}}
+        if row is None:
+            entry["reason"] = pick["reason"]
+        else:
+            # PrizePicks only takes More on a Goblin or Demon.
+            if not _playable(row, side):
+                side = "over"
+            try:
+                read_line = float(leg.get("line"))
+            except (TypeError, ValueError):
+                read_line = None
+            entry["pick"] = {"projectionId": row["id"], "league": row["league"], "player": row["player"], "stat": row["stat"],
+                             "line": row["line"], "oddsType": row["odds_type"], "side": side, "headshot": row.get("headshot") or "",
+                             "team": row.get("team") or "", "opponent": row.get("description") or "", "startsAt": row.get("start_time") or "",
+                             "sides": [name for name in ("over", "under") if _playable(row, name)],
+                             "changed": read_line is not None and abs(row["line"] - read_line) >= 0.001, "sure": round(pick["score"], 2)}
+        out.append(entry)
+    return out
+
+
+def picks_url(picks):
+    """The PrizePicks link that opens these picks ({projectionId, side, line}), each on its side."""
+    tokens = [f"{pick['projectionId']}-{'u' if pick.get('side') == 'under' else 'o'}-{float(pick['line']):g}" for pick in picks]
+    return PRIZEPICKS_APP_URL + ",".join(tokens) if tokens else None

@@ -47,13 +47,15 @@ NHL: Points, Goals, Assists, Shots On Goal, Hits, Blocked Shots, Power Play Poin
 Soccer: Shots, Shots On Target, Goals, Assists, Goal + Assist, Passes Attempted, Tackles, Clearances, Goalie Saves, Fouls, Shots Assisted"""
 
 SHAPE = """{"app": "", "entry_type": "", "stake": null, "payout": null, "payout_is_profit": false, "multiplier": null, "skipped": 0,
- "legs": [{"player": "", "team": "", "opponent": "", "sport": "", "stat": "", "stat_name": "", "line": null, "plus": false,
+ "legs": [{"player": "", "team": "", "opponent": "", "sport": "", "league": "", "stat": "", "stat_name": "", "line": null, "plus": false,
            "side": "", "modifier": "standard", "odds": null, "confidence": 0}]}"""
 
 RULES = f"""Read every player prop leg on the slip, top to bottom. For each leg report what the slip shows:
 - player: the player's full name as shown.
 - team and opponent: team abbreviations if shown, else "".
 - sport: one of mlb, nba, wnba, nfl, nhl, soccer, or "" if unsure. Use league badges, team names and the stat.
+- league: the league the pick is in, as the app names it, in capitals: NBA, WNBA, NFL, MLB, NHL, CFB, CBB, SOCCER, TENNIS,
+  CS2, LOL, VAL, DOTA2, COD, MMA, PGA, NASCAR and so on -- whatever the badge, the teams or the stat say. "" if unsure.
 - stat: the stat exactly as written on the slip, e.g. "Hits+Runs+RBIs", "Pts+Rebs+Asts", "Shots On Goal".
 - stat_name: the same stat using the closest name from the list for that sport below, or "" if none fits.
 - line: the number the leg is settled against, e.g. 1.5 or 24.5.
@@ -404,7 +406,8 @@ def normalize_leg(raw):
     confidence = number(raw.get("confidence"))
     leg = {
         "player": player, "team": _text(raw.get("team"), 8).upper(), "opponent": _text(raw.get("opponent"), 8).upper(),
-        "sport": sport_of(raw.get("sport")), "stat": stat, "statName": _text(raw.get("stat_name"), 60),
+        "sport": sport_of(raw.get("sport")), "league": re.sub(r"[^A-Z0-9]", "", _text(raw.get("league"), 16).upper()),
+        "stat": stat, "statName": _text(raw.get("stat_name"), 60),
         "line": line, "plus": plus, "side": side,
         "modifier": modifier if modifier in ("goblin", "demon") else "standard",
         "odds": int(odds) if odds is not None and abs(odds) >= 100 else None,

@@ -69,6 +69,8 @@ const KrazyBot = lazy(sections.bot);
 const CheatSheets = lazy(sections.sheets);
 const PromoBoard = lazy(sections.promos);
 const SlipAnalyzer = lazy(sections.analyzer);
+// Admin only, so not among the sections every member's browser fetches ahead.
+const SlipExport = lazy(() => import('./SlipExport').then(m => ({ default: m.SlipExport })));
 const later = element => <Suspense fallback={null}>{element}</Suspense>;
 
 function VortexTopTabs() {
@@ -128,6 +130,7 @@ const lineMovesRoot = document.getElementById('line-moves-root');
 const smartSlipRoot = document.getElementById('smart-slip-root');
 const slipAnalyzerRoot = document.getElementById('slip-analyzer-root');
 const moneylinesRoot = document.getElementById('moneylines-root');
+const slipExportRoot = document.getElementById('slip-export-root');
 const krazyBotRoot = document.getElementById('krazy-bot-root');
 const cheatSheetsRoot = document.getElementById('cheat-sheets-root');
 const promoBoardRoot = document.getElementById('promo-board-root');
@@ -167,12 +170,15 @@ function mountPrivateResearch(granted){
   warmSections();
  }else if(!granted&&privateRoots){privateRoots.home?.unmount();privateRoots.finder?.unmount();privateRoots.moves?.unmount();privateRoots.slip?.unmount();privateRoots.analyzer?.unmount();privateRoots=null;}
 }
-// Moneylines is an admin-only section (site-access-core.js ADMIN_TABS):
-// mounted, and so asking for data, only in an admin session.
-let moneylinesMount=null,krazyBotMount=null;
+// Moneylines and Slip to PrizePicks are admin-only sections
+// (site-access-core.js ADMIN_TABS): mounted, and so asking for data, only in
+// an admin session.
+let moneylinesMount=null,slipExportMount=null,krazyBotMount=null;
 function mountAdminSections(admin){
  if(admin&&!moneylinesMount&&moneylinesRoot){moneylinesMount=shownRoot(moneylinesRoot,later(<Moneylines/>));}
  else if(!admin&&moneylinesMount){moneylinesMount.unmount();moneylinesMount=null;}
+ if(admin&&!slipExportMount&&slipExportRoot){slipExportMount=shownRoot(slipExportRoot,later(<SlipExport/>));}
+ else if(!admin&&slipExportMount){slipExportMount.unmount();slipExportMount=null;}
 }
 // Krazy Bot is a regular section the admin switches on for members (off
 // until then); it mounts only for someone allowed to open it.

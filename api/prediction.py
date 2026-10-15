@@ -329,7 +329,7 @@ class handler(BaseHTTPRequestHandler):
         # in the side panel is there for everyone, so its export closes only
         # with the site itself (maintenance) or for a suspended member.
         source=(parse_qs(urlparse(self.path).query).get('from') or [''])[0]
-        tab='slip' if 'slip-analyzer' in self.path else 'builder' if source=='parlay' else None
+        tab='slip' if 'slip-analyzer' in self.path else 'export' if 'slip-export' in self.path else 'builder' if source=='parlay' else None
         if not allowed(self.headers,tab):return self._send(503,{'error':'This section is temporarily unavailable','featureDisabled':True})
         session = session_with_live_access(self.headers)
         if not session:
@@ -354,6 +354,47 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(status, body)
             except Exception:
                 return self._send(422, {"error": "That screenshot couldn't be read. Try again, or use a clearer one."})
+        if action == "slip-export":
+            # Slip to PrizePicks (admin only, site_controls ADMIN_TABS), in two
+            # asks so neither runs out of time: a slip's picture read into its
+            # picks (slip_reader.py), then those picks -- fixed on the page if
+            # need be -- found on PrizePicks' boards in any league
+            # (prizepicks_export_core.find_picks), with the link that opens them.
+            from v2.board import admin_auth
+            if not admin_auth.is_admin_request(self.headers):
+                return self._send(403, {"error": "This section is temporarily unavailable", "featureDisabled": True})
+            try:
+                content_length = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                content_length = 0
+            content_type = (self.headers.get("Content-Type") or "").split(";", 1)[0].lower()
+            if content_length < 1 or content_length > 4 * 1024 * 1024:
+                return self._send(413, {"error": "The picture must be smaller than 4 MB."})
+            body = self.rfile.read(content_length)
+            if content_type in {"image/png", "image/jpeg", "image/webp"}:
+                import slip_reader
+                try:
+                    slip = slip_reader.read_slip(body)
+                except Exception:  # noqa: BLE001
+                    slip = {"error": "That picture couldn't be read. Try again, or use a clearer one."}
+                if slip.get("error"):
+                    return self._send(503 if slip.get("reason") else 422, {"error": slip["error"]})
+                return self._send(200, {"app": slip.get("app"), "legs": slip.get("legs") or []})
+            if content_type != "application/json":
+                return self._send(415, {"error": "Paste or upload a PNG, JPG, or WEBP picture of a slip."})
+            try:
+                given = json.loads(body or b"{}").get("legs")
+            except (ValueError, AttributeError):
+                given = None
+            if not isinstance(given, list) or not any(isinstance(leg, dict) for leg in given):
+                return self._send(400, {"error": "No picks to find."})
+            import prizepicks_export_core
+            try:
+                found = prizepicks_export_core.find_picks([leg for leg in given if isinstance(leg, dict)][:10])
+            except Exception:  # noqa: BLE001 -- PrizePicks itself is the problem
+                return self._send(502, {"error": "PrizePicks isn't answering right now. Try again in a minute."})
+            picks = [item["pick"] for item in found if item.get("pick")]
+            return self._send(200, {"legs": found, "url": prizepicks_export_core.picks_url(picks)})
         if action == "slip-save":
             # A graded slip's picks for the site's record, and the slip for its member when they track it (slip_ledger.py).
             try:
