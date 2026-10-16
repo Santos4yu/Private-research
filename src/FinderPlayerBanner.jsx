@@ -72,11 +72,16 @@ function usePanelSlots(ref){
 // matchup (the page's matchup panel) and the depth chart and usage. The
 // switch marks the page (data-trend-tab) and trend-page.css shows the
 // sections that belong to it; a view the sport doesn't have isn't offered.
+// On a computer the matchup stays open in its own column, so the switch
+// offers only Trends and Depth there.
+const WIDE='(min-width: 1051px)';
 const VIEWS=[['trends','Trends',TrendingUp],['matchup','Matchup',Swords],['depth','Depth',Layers]];
 const VIEW_PARTS={matchup:'.mlb-finder-context',depth:'.wnba-depth,.nfl-pass-run,.nfl-share'};
 function TrendSwitch({section}){
  const [view,setView]=useState('trends');
  const [have,setHave]=useState({matchup:false,depth:false});
+ const [wide,setWide]=useState(()=>typeof matchMedia==='function'&&matchMedia(WIDE).matches);
+ useEffect(()=>{if(typeof matchMedia!=='function')return undefined;const query=matchMedia(WIDE),on=()=>setWide(query.matches);on();query.addEventListener('change',on);return()=>query.removeEventListener('change',on);},[]);
  useEffect(()=>{
   const check=()=>setHave(old=>{
    const next={matchup:Boolean(section.querySelector(VIEW_PARTS.matchup)),depth:Boolean(section.querySelector(VIEW_PARTS.depth))};
@@ -87,7 +92,7 @@ function TrendSwitch({section}){
   watch.observe(section,{childList:true,subtree:true});
   return()=>{watch.disconnect();delete section.dataset.trendTab;};
  },[section]);
- const views=VIEWS.filter(([key])=>key==='trends'||have[key]);
+ const views=VIEWS.filter(([key])=>key==='trends'||(have[key]&&!(wide&&key==='matchup')));
  const current=views.some(([key])=>key===view)?view:'trends';
  useEffect(()=>{section.dataset.trendTab=current;},[section,current]);
  if(views.length<2)return null;

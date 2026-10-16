@@ -27,22 +27,28 @@ html:root .finder-trend-view[data-trend-tab] {
 /* ---------------------------------------------------------------- one view at a time */
 
 html:root .finder-trend-view[data-trend-tab] #gamelog-overlay#gamelog-overlay .gamelog-switch-slot:empty { display: none; }
-html:root .finder-trend-view[data-trend-tab][data-trend-tab=trends] :is(.mlb-finder-context, .wnba-depth, .nfl-pass-run, .nfl-share) { display: none !important; }
+html:root .finder-trend-view[data-trend-tab][data-trend-tab=trends] :is(.wnba-depth, .nfl-pass-run, .nfl-share) { display: none !important; }
 html:root .finder-trend-view[data-trend-tab]:not([data-trend-tab=trends]) :is(.mlb-supporting, .mlb-player-gamelog, .wnba-filter-empty) { display: none !important; }
 html:root .finder-trend-view[data-trend-tab]:not([data-trend-tab=trends]) #gamelog-overlay#gamelog-overlay.trend-edge :is(.gamelog-stat-tabs, .gamelog-studio, .gamelog-windowbar, .gamelog-window-menu, .gamelog-summary, .gamelog-quotes-slot, .gamelog-workbench) { display: none !important; }
 html:root .finder-trend-view[data-trend-tab][data-trend-tab=matchup] :is(.wnba-depth, .nfl-pass-run, .nfl-share) { display: none !important; }
-html:root .finder-trend-view[data-trend-tab][data-trend-tab=depth] .mlb-finder-context { display: none !important; }
-
-/* One column: the switch makes the page's sides into views. */
-html:root .finder-trend-view[data-trend-tab] .mlb-finder-workspace { grid-template-columns: minmax(0, 1fr) !important; gap: 12px !important; }
 html:root .finder-trend-view[data-trend-tab] .mlb-trend-main { gap: 12px !important; }
 html:root .finder-trend-view[data-trend-tab] .mlb-finder-context { gap: 12px !important; }
+
+/* Phones and tablets: one column, and the switch makes the matchup a view of its own. */
+@media (max-width: 1050px) {
+  html:root .finder-trend-view[data-trend-tab]:is([data-trend-tab=trends], [data-trend-tab=depth]) .mlb-finder-context { display: none !important; }
+  html:root .finder-trend-view[data-trend-tab] .mlb-finder-workspace { grid-template-columns: minmax(0, 1fr) !important; gap: 12px !important; }
+}
+
+/* Computers: the trend (or the depth chart) on the left, the matchup always
+   open beside it on the right; the switch offers Trends and Depth. */
 @media (min-width: 1051px) {
-  /* Wide screens lay the matchup cards out two across. */
-  html:root .finder-trend-view[data-trend-tab][data-trend-tab=matchup] .mlb-finder-context { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
-  html:root .finder-trend-view[data-trend-tab][data-trend-tab=matchup] .mlb-finder-context > :is(.mlb-context-tabs, .nfl-averages) { grid-column: 1 / -1; }
-  html:root .finder-trend-view[data-trend-tab][data-trend-tab=depth] .mlb-trend-main { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
-  html:root .finder-trend-view[data-trend-tab][data-trend-tab=depth] .mlb-trend-main > :is(.wnba-trend-host, .wnba-depth, .wnba-board-message, .mlb-context-note) { grid-column: 1 / -1; }
+  html:root .finder-trend-view[data-trend-tab] .mlb-finder-workspace { grid-template-columns: minmax(0, 1.5fr) minmax(340px, 1fr) !important; gap: 16px !important; align-items: start; }
+  html:root .finder-trend-view[data-trend-tab] .mlb-finder-context { display: grid !important; }
+  /* The matchup's sections as a grid of tiles over its cards. */
+  html:root .finder-trend-view[data-trend-tab] .mlb-finder-context > .mlb-context-tabs { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; overflow: visible !important; }
+  html:root .finder-trend-view[data-trend-tab] .mlb-finder-context > .mlb-context-tabs > button { flex-direction: column !important; justify-content: center; gap: 6px !important; min-height: 58px !important; padding: 0 8px !important; border-radius: 14px !important; font-size: 12.5px !important; }
+  html:root .finder-trend-view[data-trend-tab] .mlb-finder-context > .mlb-context-tabs > button svg { width: 17px; height: 17px; }
 }
 
 /* ---------------------------------------------------------------- the cards */
