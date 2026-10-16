@@ -36,6 +36,8 @@ class handler(BaseHTTPRequestHandler):
             return self._json(503, exc.payload())
 
     def _get(self):
+        from account_auth import use_client
+        use_client(self.headers)
         query = parse_qs(urlparse(self.path).query)
         action = (query.get("action") or [""])[0].strip().lower()
         if action == "site-status":
@@ -117,7 +119,8 @@ class handler(BaseHTTPRequestHandler):
         if (parse_qs(urlparse(getattr(self,'path','')).query).get('action') or [''])[0]=='whop-webhook':
             return self._whop_webhook()
         from site_controls import same_origin,read
-        from account_auth import call,cookies,REFRESH,session_cookies,clear_cookies,identity,refresh_session,remembered
+        from account_auth import call,cookies,REFRESH,session_cookies,clear_cookies,identity,refresh_session,remembered,use_client
+        use_client(self.headers)
         if not same_origin(self.headers):return self._json(403,{'error':'Same-origin request required'})
         try:
             length=int(self.headers.get('Content-Length','0'))

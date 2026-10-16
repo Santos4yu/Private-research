@@ -348,3 +348,28 @@ class AdminSessionTests(unittest.TestCase):
   self.assertIsNone(self.auth.renewal_cookie(self.cookie('forged.token')))
  def test_lasts_a_month_not_four_hours(self):
   self.assertGreaterEqual(self.auth.ADMIN_TTL_SEC,30*24*3600)
+
+
+class ForwardedAddressTests(unittest.TestCase):
+ """Supabase counts each member's own address, not the server's."""
+ ENV={'SUPABASE_URL':'https://test.invalid','SUPABASE_ANON_KEY':'anon-test-only'}
+ def sent(self,env,headers):
+  import os
+  class Reply:
+   status_code=200;ok=True;content=b'{}'
+   def json(self):return {}
+  with patch.dict(os.environ,{**self.ENV,**env}),patch.object(accounts.requests,'request',return_value=Reply()) as request:
+   accounts.use_client(headers);accounts.call('user',token='member-token')
+  return request.call_args.kwargs['headers']
+ def tearDown(self):accounts._client_ip.set('')
+ def test_secret_key_forwards_the_members_address(self):
+  sent=self.sent({'SUPABASE_SECRET_KEY':'sb_secret_test-only'},{'x-forwarded-for':'203.0.113.7, 10.0.0.1'})
+  self.assertEqual(sent['Sb-Forwarded-For'],'203.0.113.7');self.assertEqual(sent['apikey'],'sb_secret_test-only')
+  self.assertEqual(sent['Authorization'],'Bearer member-token')
+ def test_without_a_secret_key_calls_go_out_as_before(self):
+  for env in ({},{'SUPABASE_SECRET_KEY':'eyJ-legacy-service-role'}):
+   sent=self.sent(env,{'x-forwarded-for':'203.0.113.7'})
+   self.assertNotIn('Sb-Forwarded-For',sent);self.assertEqual(sent['apikey'],'anon-test-only')
+ def test_a_malformed_address_is_never_forwarded(self):
+  sent=self.sent({'SUPABASE_SECRET_KEY':'sb_secret_test-only'},{'x-forwarded-for':'evil\r\nX-Injected: 1'})
+  self.assertNotIn('Sb-Forwarded-For',sent);self.assertEqual(sent['apikey'],'anon-test-only')

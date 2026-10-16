@@ -38,7 +38,9 @@ Why members were being signed out, and what this module now does about it:
    when a session does end, the reason Supabase gave is logged.
 """
 import base64
+import contextvars
 import hashlib
+import ipaddress
 import json
 import os
 import secrets
@@ -95,12 +97,46 @@ class AccountUnavailable(RuntimeError):
 def configured():return bool(os.getenv('SUPABASE_URL') and os.getenv('SUPABASE_ANON_KEY'))
 
 
+# Supabase limits sign-ins and refreshes per address. Every call comes from
+# this server, so without help all members shared one address's allowance
+# (30 sign-ins per 5 minutes for the whole site). With a secret key
+# (sb_secret_..., SUPABASE_SECRET_KEY) the member's own address goes along in
+# Sb-Forwarded-For, and Supabase counts each member separately once "IP
+# address forwarding" is on (Authentication -> Rate Limits). Without a
+# secret key, calls go out as before.
+_client_ip=contextvars.ContextVar('account_client_ip',default='')
+
+
+def use_client(headers):
+    """Remember the member's address for this request's calls to Supabase."""
+    get=getattr(headers,'get',None)
+    raw=''
+    if get:
+        raw=(get('x-real-ip') or get('X-Real-IP') or (get('x-forwarded-for') or get('X-Forwarded-For') or '').split(',')[0] or '').strip()
+    try:ip=str(ipaddress.ip_address(raw))
+    except ValueError:ip=''
+    _client_ip.set(ip)
+    return ip
+
+
+def _secret_key():
+    key=os.getenv('SUPABASE_SECRET_KEY','')
+    return key if key.startswith('sb_secret_') else ''
+
+
+def _auth_headers(token=None):
+    headers={'apikey':os.environ['SUPABASE_ANON_KEY'],'Content-Type':'application/json'}
+    ip,secret=_client_ip.get(),_secret_key()
+    if ip and secret:headers.update({'apikey':secret,'Sb-Forwarded-For':ip})
+    if token:headers['Authorization']='Bearer '+token
+    return headers
+
+
 def call(path,body=None,token=None,method=None):
     if not configured():raise RuntimeError('Email accounts are not configured yet')
     url=os.environ['SUPABASE_URL'].rstrip('/')
     if not url.startswith('https://'):raise RuntimeError('Invalid account configuration')
-    headers={'apikey':os.environ['SUPABASE_ANON_KEY'],'Content-Type':'application/json'}
-    if token:headers['Authorization']='Bearer '+token
+    headers=_auth_headers(token)
     try:
         response=requests.request(method or ('POST' if body is not None else 'GET'),url+'/auth/v1/'+path,json=body,headers=headers,timeout=12)
     except requests.RequestException as exc:
@@ -248,6 +284,7 @@ def identity_for_token(token):
 
 
 def identity(headers):
+    use_client(headers)
     return identity_for_token(cookies(headers).get(ACCESS))
 
 
@@ -335,6 +372,7 @@ def ensure_session(headers):
     an expired token, and after expiry when they come back. Only a definite
     rejection from Supabase ends the session; a failed attempt leaves the
     cookies alone and reports `pending` so the client simply tries again."""
+    use_client(headers)
     jar=cookies(headers)
     access=jar.get(ACCESS);refresh=jar.get(REFRESH)
     exp=token_expiry(access) if access else None
