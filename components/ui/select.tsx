@@ -1,5 +1,14 @@
 "use client";
 
+// The site's dropdown: a trigger button and a compact menu of options
+// (select.css). The menu sizes itself to its options, opens just under (or,
+// near the bottom of the screen, just over) its trigger, and lives in the
+// page itself rather than pinned to the screen, so it scrolls with the page
+// exactly -- no chasing the trigger a frame behind while scrolling. A
+// trigger inside a fixed panel gets a fixed menu for the same reason.
+// A wrapper marked [data-select-field] (a filter bar with its label) opens
+// the menu from anywhere on it.
+
 import {
   forwardRef,
   useRef,
@@ -7,106 +16,21 @@ import {
   useLayoutEffect,
   useState,
   useCallback,
+  useId,
   createContext,
   useContext,
   type ReactNode,
   type HTMLAttributes,
-  type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
 import { cva, type VariantProps } from "class-variance-authority";
 import type { LucideIcon } from "lucide-react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import "./select.css";
 
 function cn(...inputs: (string | undefined | null | false | Record<string, boolean>)[]) {
   return twMerge(clsx(inputs));
-}
-
-const springs = {
-  fast: { type: "spring" as const, duration: 0.08, bounce: 0 },
-  moderate: { type: "spring" as const, duration: 0.16, bounce: 0.15 },
-};
-
-const shape = {
-  bg: "rounded-[20px]",
-  item: "rounded-[20px]",
-  input: "rounded-[20px]",
-  focusRing: "rounded-[20px]",
-  container: "rounded-[20px]",
-};
-
-// ─── useProximityHover (inlined) ─────────────────────────────────────────────
-
-interface ItemRect { top: number; height: number; left: number; width: number; }
-
-function useProximityHover<T extends HTMLElement>(containerRef: RefObject<T | null>) {
-  const itemsRef = useRef(new Map<number, HTMLElement>());
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const [itemRects, setItemRects] = useState<ItemRect[]>([]);
-  const itemRectsRef = useRef<ItemRect[]>([]);
-  const sessionRef = useRef(0);
-  const rafIdRef = useRef<number | null>(null);
-
-  const registerItem = useCallback((index: number, element: HTMLElement | null) => {
-    if (element) itemsRef.current.set(index, element);
-    else itemsRef.current.delete(index);
-  }, []);
-
-  const measureItems = useCallback(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const containerRect = container.getBoundingClientRect();
-    const rects: ItemRect[] = [];
-    itemsRef.current.forEach((element, index) => {
-      const rect = element.getBoundingClientRect();
-      rects[index] = {
-        top: rect.top - containerRect.top + container.scrollTop - container.clientTop,
-        height: rect.height,
-        left: rect.left - containerRect.left + container.scrollLeft - container.clientLeft,
-        width: rect.width,
-      };
-    });
-    itemRectsRef.current = rects;
-    setItemRects(rects);
-  }, [containerRef]);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    const mouseY = e.clientY;
-    if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current);
-    rafIdRef.current = requestAnimationFrame(() => {
-      rafIdRef.current = null;
-      const container = containerRef.current;
-      if (!container) return;
-      const containerRect = container.getBoundingClientRect();
-      let closestIndex: number | null = null; let closestDistance = Infinity; let containingIndex: number | null = null;
-      const rects = itemRectsRef.current;
-      for (let index = 0; index < rects.length; index++) {
-        const r = rects[index]; if (!r) continue;
-        const itemStart = containerRect.top + container.clientTop + r.top - container.scrollTop;
-        const itemEnd = itemStart + r.height;
-        if (mouseY >= itemStart && mouseY <= itemEnd) containingIndex = index;
-        const distance = Math.abs(mouseY - (itemStart + r.height / 2));
-        if (distance < closestDistance) { closestDistance = distance; closestIndex = index; }
-      }
-      setActiveIndex(containingIndex ?? closestIndex);
-    });
-  }, [containerRef]);
-
-  const handleMouseEnter = useCallback(() => { sessionRef.current += 1; }, []);
-  const handleMouseLeave = useCallback(() => {
-    if (rafIdRef.current !== null) { cancelAnimationFrame(rafIdRef.current); rafIdRef.current = null; }
-    setActiveIndex(null);
-  }, []);
-
-  useEffect(() => { return () => { if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current); }; }, []);
-
-  return {
-    activeIndex, setActiveIndex, itemRects, sessionRef,
-    handlers: { onMouseMove: handleMouseMove, onMouseEnter: handleMouseEnter, onMouseLeave: handleMouseLeave },
-    registerItem, measureItems,
-  };
 }
 
 // ─── Select Context ──────────────────────────────────────────────────────────
@@ -129,9 +53,9 @@ function useSelectContext() {
 }
 
 interface SelectContentContextValue {
-  registerItem: (index: number, element: HTMLElement | null) => void;
+  id: string;
   activeIndex: number | null;
-  checkedIndex?: number;
+  setActiveIndex: (index: number | null) => void;
 }
 
 const SelectContentContext = createContext<SelectContentContextValue | null>(null);
@@ -161,7 +85,7 @@ function Select({ children, value, defaultValue, onValueChange, disabled = false
     if (value === undefined) setInternalValue(v);
     onValueChange?.(v);
     setOpen(false);
-    requestAnimationFrame(() => triggerRef.current?.focus());
+    requestAnimationFrame(() => triggerRef.current?.focus({ preventScroll: true }));
   }, [value, onValueChange]);
 
   return (
@@ -177,8 +101,8 @@ Select.displayName = "Select";
 // ─── SelectTrigger ───────────────────────────────────────────────────────────
 
 const triggerVariants = cva(
-  ["group inline-flex items-center justify-between gap-2 outline-none cursor-pointer",
-   "text-[13px] h-9 px-3 min-w-[160px]", "transition-all duration-80",
+  ["ace-select-trigger group inline-flex items-center justify-between gap-2 outline-none cursor-pointer",
+   "text-[13px] h-9 px-3 min-w-[160px]", "transition-colors duration-100",
    "disabled:opacity-50 disabled:pointer-events-none", "focus-visible:ring-1 focus-visible:ring-[#5CF8B2]"],
   {
     variants: {
@@ -203,6 +127,20 @@ const SelectTrigger = forwardRef<HTMLButtonElement, SelectTriggerProps>(
     const { value, open, setOpen, disabled, triggerRef, labelMap } = useSelectContext();
     const label = value ? labelMap.current.get(value) ?? value : undefined;
 
+    // A labelled bar around the trigger ([data-select-field]) opens it from anywhere on it.
+    useEffect(() => {
+      const area = triggerRef.current?.closest("[data-select-field]");
+      if (!area) return undefined;
+      const onClick = (event: Event) => {
+        const trigger = triggerRef.current;
+        if (!trigger || trigger.disabled || trigger.contains(event.target as Node)) return;
+        trigger.click();
+        trigger.focus({ preventScroll: true });
+      };
+      area.addEventListener("click", onClick);
+      return () => area.removeEventListener("click", onClick);
+    }, [triggerRef]);
+
     return (
       <div className="flex flex-col gap-1">
         <button
@@ -215,16 +153,16 @@ const SelectTrigger = forwardRef<HTMLButtonElement, SelectTriggerProps>(
           onClick={() => setOpen(!open)}
           onKeyDown={(e) => { if (!open && ["ArrowDown", "ArrowUp", "Enter", " "].includes(e.key)) { e.preventDefault(); setOpen(true); } }}
           aria-invalid={!!error || undefined}
-          className={cn(triggerVariants({ variant }), shape.input, error && "border-destructive/50", className)}
+          className={cn(triggerVariants({ variant }), "rounded-[12px]", error && "border-destructive/50", className)}
           {...props}
         >
           <span className="flex items-center gap-2 min-w-0 flex-1">
-            {Icon && <Icon size={16} strokeWidth={1.5} className="shrink-0 text-muted-foreground transition-[color,stroke-width] duration-80 group-hover:text-foreground group-hover:stroke-[2]" />}
+            {Icon && <Icon size={16} strokeWidth={1.5} className="shrink-0 text-muted-foreground transition-colors duration-100 group-hover:text-foreground" />}
             <span className="min-w-0 flex-1 text-left truncate">
               {displayValue ?? label ?? <span className="text-muted-foreground">{placeholder}</span>}
             </span>
           </span>
-          <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-muted-foreground transition-colors duration-80 group-hover:text-foreground">
+          <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="ace-select-chevron shrink-0 text-muted-foreground group-hover:text-foreground" aria-hidden="true">
             <path d="M6 9l6 6 6-6" />
           </svg>
         </button>
@@ -238,176 +176,138 @@ SelectTrigger.displayName = "SelectTrigger";
 
 // ─── SelectContent ───────────────────────────────────────────────────────────
 
-interface SelectContentProps { className?: string; children: ReactNode; }
+interface SelectContentProps {
+  className?: string;
+  children: ReactNode;
+  /** Which edge of the trigger the menu lines up with. */
+  align?: "start" | "end";
+}
+
+const GAP = 6;
+const EDGE = 8;
+const MAX_HEIGHT = 300;
+
+function inFixedLayer(node: Element | null) {
+  for (let el = node; el && el !== document.body; el = el.parentElement) {
+    if (getComputedStyle(el).position === "fixed") return true;
+  }
+  return false;
+}
 
 const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
-  ({ className, children }, ref) => {
+  ({ className, children, align = "start" }, ref) => {
     const { open, setOpen, value, triggerRef } = useSelectContext();
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [triggerRect, setTriggerRect] = useState<DOMRect | null>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
+    const [activeIndex, setActiveIndex] = useState<number | null>(null);
+    const id = useId();
 
-    const { activeIndex, setActiveIndex, itemRects, sessionRef, handlers, registerItem, measureItems } = useProximityHover(containerRef);
-    const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
-    const [checkedIndex, setCheckedIndex] = useState<number | undefined>(undefined);
+    // Place the menu against its trigger. Written straight to the element's
+    // style (no re-render), before the browser paints.
+    const place = useCallback(() => {
+      const menu = menuRef.current, trigger = triggerRef.current;
+      if (!menu || !trigger) return;
+      if (!trigger.isConnected) { setOpen(false); return; }
+      const rect = trigger.getBoundingClientRect();
+      const fixed = menu.dataset.fixed === "true";
+      const below = window.innerHeight - rect.bottom - GAP - EDGE;
+      const above = rect.top - GAP - EDGE;
+      menu.style.maxHeight = `${Math.max(120, Math.min(MAX_HEIGHT, below))}px`;
+      let height = menu.offsetHeight;
+      const up = height > below && above > below;
+      if (up) { menu.style.maxHeight = `${Math.max(120, Math.min(MAX_HEIGHT, above))}px`; height = menu.offsetHeight; }
+      const width = menu.offsetWidth;
+      let left = align === "end" ? rect.right - width : rect.left;
+      left = Math.min(Math.max(EDGE, left), Math.max(EDGE, window.innerWidth - width - EDGE));
+      const top = up ? rect.top - GAP - height : rect.bottom + GAP;
+      // A menu in the page scrolls with it; one beside a fixed panel stays on screen with it.
+      const dx = fixed ? 0 : window.scrollX, dy = fixed ? 0 : window.scrollY;
+      menu.style.left = `${Math.round(left + dx)}px`;
+      menu.style.top = `${Math.round(top + dy)}px`;
+      menu.dataset.side = up ? "top" : "bottom";
+    }, [align, triggerRef, setOpen]);
 
-    // The menu is rendered in a portal at position:fixed, so its coordinates
-    // are viewport coordinates of the trigger AT THE MOMENT IT OPENED. That
-    // measurement used to be taken once: scrolling the page (or any ancestor
-    // scroll container) then moved the trigger while the menu stayed put, and
-    // it ended up floating somewhere else entirely. Re-measure for as long as
-    // it is open, and stop tracking once it closes.
     useLayoutEffect(() => {
-      if (!open) { setTriggerRect(null); return; }
-      const measure = () => {
-        const trigger = triggerRef.current;
-        if (!trigger) return;
-        const rect = trigger.getBoundingClientRect();
-        // Once the trigger has scrolled clean out of view there is nothing
-        // left to anchor to, and a menu floating over unrelated content is
-        // worse than no menu -- close instead of following it off-screen.
-        if (rect.bottom < 0 || rect.top > window.innerHeight) { setOpen(false); return; }
-        setTriggerRect(rect);
+      if (!open) { setActiveIndex(null); return undefined; }
+      const menu = menuRef.current;
+      if (!menu) return undefined;
+      menu.dataset.fixed = String(inFixedLayer(triggerRef.current));
+      place();
+      // Start on the chosen option, scrolled into view.
+      const items = Array.from(menu.querySelectorAll<HTMLElement>('[role="option"]'));
+      const checked = items.findIndex((el) => el.dataset.value === value);
+      setActiveIndex(checked >= 0 ? checked : null);
+      if (checked >= 0) items[checked].scrollIntoView({ block: "nearest" });
+      menu.focus({ preventScroll: true });
+      // The page's own scroll moves the menu with it; a scroll inside some
+      // other box (or a resize) moves the trigger alone, so follow that.
+      const onScroll = (event: Event) => {
+        const target = event.target as Node;
+        if (target === document || target === document.documentElement || menu.contains(target)) return;
+        place();
       };
-      measure();
-      // Measured synchronously on purpose. Throttling through
-      // requestAnimationFrame looks like the careful choice, but rAF does not
-      // run at all while the tab is hidden, so the menu would come back
-      // attached to wherever the trigger used to be. Scroll events are already
-      // frame-aligned, and this reads one element's rect.
-      // capture:true -- a scroll inside any ancestor container moves the
-      // trigger just as much as a page scroll does, and those do not bubble.
-      window.addEventListener("scroll", measure, true);
-      window.addEventListener("resize", measure);
-      const observer = typeof ResizeObserver === "function" ? new ResizeObserver(measure) : null;
+      window.addEventListener("scroll", onScroll, true);
+      window.addEventListener("resize", place);
+      const observer = typeof ResizeObserver === "function" ? new ResizeObserver(() => place()) : null;
       if (observer && triggerRef.current) observer.observe(triggerRef.current);
       return () => {
-        window.removeEventListener("scroll", measure, true);
-        window.removeEventListener("resize", measure);
+        window.removeEventListener("scroll", onScroll, true);
+        window.removeEventListener("resize", place);
         observer?.disconnect();
       };
-    }, [open, triggerRef, setOpen]);
+    }, [open, place, triggerRef, value]);
 
-    const hasRect = triggerRect !== null;
+    // Escape and Tab close it; a press anywhere outside the trigger (or its labelled bar) and the menu closes it.
     useEffect(() => {
-      if (!open || !hasRect) return;
-      let outer: number; let inner: number;
-      outer = requestAnimationFrame(() => {
-        inner = requestAnimationFrame(() => {
-          measureItems();
-          const container = containerRef.current;
-          if (container) {
-            const items = Array.from(container.querySelectorAll("[data-proximity-index]")) as HTMLElement[];
-            const idx = items.findIndex((el) => el.getAttribute("data-value") === value);
-            setCheckedIndex(idx !== -1 ? idx : undefined);
-            containerRef.current?.focus({ preventScroll: true });
-          }
-        });
-      });
-      return () => { cancelAnimationFrame(outer); cancelAnimationFrame(inner); };
-    }, [open, hasRect, measureItems, value]);
-
-    useEffect(() => {
-      if (!open) return;
-      const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { setOpen(false); triggerRef.current?.focus(); } };
-      document.addEventListener("keydown", onKey);
-      return () => document.removeEventListener("keydown", onKey);
-    }, [open, setOpen, triggerRef]);
-
-    useEffect(() => {
-      if (!open) return;
-      const onPointer = (e: MouseEvent) => {
-        if (!containerRef.current?.contains(e.target as Node) && !triggerRef.current?.contains(e.target as Node)) setOpen(false);
+      if (!open) return undefined;
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key === "Escape") { setOpen(false); triggerRef.current?.focus({ preventScroll: true }); }
+        else if (e.key === "Tab") setOpen(false);
       };
-      document.addEventListener("mousedown", onPointer);
-      return () => document.removeEventListener("mousedown", onPointer);
+      const onPointer = (e: PointerEvent) => {
+        const target = e.target as Node;
+        const area = triggerRef.current?.closest("[data-select-field]") ?? triggerRef.current;
+        if (!menuRef.current?.contains(target) && !area?.contains(target)) setOpen(false);
+      };
+      document.addEventListener("keydown", onKey);
+      document.addEventListener("pointerdown", onPointer);
+      return () => { document.removeEventListener("keydown", onKey); document.removeEventListener("pointerdown", onPointer); };
     }, [open, setOpen, triggerRef]);
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-      const items = Array.from(containerRef.current?.querySelectorAll('[role="option"]:not([data-disabled])') ?? []) as HTMLElement[];
-      const currentIdx = items.indexOf(e.target as HTMLElement);
-      if (["ArrowDown", "ArrowUp", "ArrowRight", "ArrowLeft"].includes(e.key)) {
-        e.preventDefault();
-        if (currentIdx === -1) { const checked = checkedIndex != null ? items[checkedIndex] : null; (checked ?? items[0])?.focus(); }
-        else { const next = ["ArrowDown", "ArrowRight"].includes(e.key) ? (currentIdx + 1) % items.length : (currentIdx - 1 + items.length) % items.length; items[next]?.focus(); }
-      } else if (e.key === "Home") { e.preventDefault(); items[0]?.focus(); }
-      else if (e.key === "End") { e.preventDefault(); items[items.length - 1]?.focus(); }
-    }, [checkedIndex]);
+      const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="option"]:not([data-disabled])') ?? []);
+      if (!items.length) return;
+      const all = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="option"]') ?? []);
+      const current = activeIndex == null ? -1 : items.indexOf(all[activeIndex]);
+      let next: number | null = null;
+      if (e.key === "ArrowDown") next = current < 0 ? 0 : (current + 1) % items.length;
+      else if (e.key === "ArrowUp") next = current < 0 ? items.length - 1 : (current - 1 + items.length) % items.length;
+      else if (e.key === "Home") next = 0;
+      else if (e.key === "End") next = items.length - 1;
+      else if ((e.key === "Enter" || e.key === " ") && current >= 0) { e.preventDefault(); items[current].click(); return; }
+      if (next == null) return;
+      e.preventDefault();
+      setActiveIndex(all.indexOf(items[next]));
+      items[next].scrollIntoView({ block: "nearest" });
+    }, [activeIndex]);
 
-    if (!open) return <div hidden aria-hidden="true">{children}</div>;
-    if (!triggerRect) return null;
-
-    const activeRect = activeIndex !== null ? itemRects[activeIndex] : null;
-    const checkedRect = checkedIndex != null ? itemRects[checkedIndex] : null;
-    const focusRect = focusedIndex !== null ? itemRects[focusedIndex] : null;
-    const isHoveringOther = activeIndex !== null && activeIndex !== checkedIndex;
-
-    const GAP = 6;
-    const EDGE = 8;
-    const viewportHeight = typeof window === "undefined" ? 0 : window.innerHeight;
-    const viewportWidth = typeof window === "undefined" ? 0 : window.innerWidth;
-    const spaceBelow = viewportHeight - triggerRect.bottom - GAP - EDGE;
-    const spaceAbove = triggerRect.top - GAP - EDGE;
-    const flipUp = spaceBelow < 180 && spaceAbove > spaceBelow;
-    const maxHeight = Math.max(120, Math.min(300, flipUp ? spaceAbove : spaceBelow));
-    const width = Math.max(triggerRect.width, 160);
-    const left = Math.min(Math.max(EDGE, triggerRect.left), Math.max(EDGE, viewportWidth - width - EDGE));
+    // Closed, the options still render (hidden) so the trigger knows their labels.
+    if (!open) return <SelectContentContext.Provider value={{ id, activeIndex: null, setActiveIndex }}><div hidden aria-hidden="true">{children}</div></SelectContentContext.Provider>;
 
     return createPortal(
-      <SelectContentContext.Provider value={{ registerItem, activeIndex, checkedIndex }}>
-        <div style={{
-          position: "fixed",
-          top: flipUp ? undefined : triggerRect.bottom + GAP,
-          bottom: flipUp ? viewportHeight - triggerRect.top + GAP : undefined,
-          left,
-          minWidth: triggerRect.width,
-          zIndex: 50,
-        }}>
-          <motion.div
-            ref={(node) => {
-              (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-              if (typeof ref === "function") ref(node);
-              else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
-            }}
-            role="listbox" tabIndex={-1}
-            onMouseEnter={() => { handlers.onMouseEnter(); setFocusedIndex(null); }}
-            onMouseMove={handlers.onMouseMove}
-            onMouseLeave={handlers.onMouseLeave}
-            onFocus={(e) => {
-              const indexAttr = (e.target as HTMLElement).closest("[data-proximity-index]")?.getAttribute("data-proximity-index");
-              if (indexAttr != null) { const idx = Number(indexAttr); setActiveIndex(idx); setFocusedIndex((e.target as HTMLElement).matches(":focus-visible") ? idx : null); }
-            }}
-            onBlur={(e) => { if (containerRef.current?.contains(e.relatedTarget as Node)) return; setFocusedIndex(null); setActiveIndex(null); }}
-            onKeyDown={handleKeyDown}
-            className={cn(`relative flex flex-col gap-0.5 max-h-[300px] overflow-y-auto ${shape.container} bg-card shadow-[0_4px_12px_rgba(0,0,0,0.02)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-border/60 p-1 select-none outline-none`, className)}
-            initial={{ opacity: 0, y: flipUp ? 4 : -4, scaleY: 0.96 }}
-            animate={{ opacity: 1, y: 0, scaleY: 1 }}
-            transition={springs.fast}
-            style={{ transformOrigin: flipUp ? "bottom center" : "top center", maxHeight }}
-          >
-            <AnimatePresence>
-              {checkedRect && (
-                <motion.div className={`absolute ${shape.bg} bg-neutral-200/50 dark:bg-neutral-800/40 pointer-events-none`} initial={false}
-                  animate={{ top: checkedRect.top, left: checkedRect.left, width: checkedRect.width, height: checkedRect.height, opacity: isHoveringOther ? 0.8 : 1 }}
-                  exit={{ opacity: 0, transition: { duration: 0.12 } }} transition={{ ...springs.moderate, opacity: { duration: 0.08 } }} />
-              )}
-            </AnimatePresence>
-            <AnimatePresence>
-              {activeRect && (
-                <motion.div key={sessionRef.current} className={`absolute ${shape.bg} bg-neutral-200/40 dark:bg-neutral-800/25 pointer-events-none`}
-                  initial={{ opacity: 0, top: checkedRect?.top ?? activeRect.top, left: checkedRect?.left ?? activeRect.left, width: checkedRect?.width ?? activeRect.width, height: checkedRect?.height ?? activeRect.height }}
-                  animate={{ opacity: 1, top: activeRect.top, left: activeRect.left, width: activeRect.width, height: activeRect.height }}
-                  exit={{ opacity: 0, transition: { duration: 0.06 } }} transition={{ ...springs.fast, opacity: { duration: 0.08 } }} />
-              )}
-            </AnimatePresence>
-            <AnimatePresence>
-              {focusRect && (
-                <motion.div className={`absolute ${shape.focusRing} pointer-events-none z-20 border border-[#5CF8B2]`} initial={false}
-                  animate={{ left: focusRect.left - 2, top: focusRect.top - 2, width: focusRect.width + 4, height: focusRect.height + 4 }}
-                  exit={{ opacity: 0, transition: { duration: 0.06 } }} transition={{ ...springs.fast, opacity: { duration: 0.08 } }} />
-              )}
-            </AnimatePresence>
-            {children}
-          </motion.div>
+      <SelectContentContext.Provider value={{ id, activeIndex, setActiveIndex }}>
+        <div
+          ref={(node) => {
+            (menuRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+            if (typeof ref === "function") ref(node);
+            else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
+          }}
+          role="listbox" tabIndex={-1}
+          aria-activedescendant={activeIndex != null ? `${id}-${activeIndex}` : undefined}
+          onKeyDown={handleKeyDown}
+          onMouseLeave={() => setActiveIndex(null)}
+          className={cn("ace-select-menu", className)}
+        >
+          {children}
         </div>
       </SelectContentContext.Provider>,
       document.body
@@ -430,41 +330,31 @@ const SelectItem = forwardRef<HTMLDivElement, SelectItemProps>(
   ({ className, children, icon: Icon, value, index, disabled = false, ...props }, ref) => {
     const selectCtx = useSelectContext();
     const contentCtx = useContext(SelectContentContext);
-    const internalRef = useRef<HTMLDivElement>(null);
-    const hasMounted = useRef(false);
 
-    useEffect(() => { hasMounted.current = true; }, []);
     useEffect(() => { if (typeof children === "string") selectCtx.labelMap.current.set(value, children); }, [value, children, selectCtx.labelMap]);
-    useEffect(() => { contentCtx?.registerItem(index, internalRef.current); return () => contentCtx?.registerItem(index, null); }, [index, contentCtx]);
 
     const isActive = contentCtx?.activeIndex === index;
     const isChecked = selectCtx.value === value;
-    const skipAnimation = !hasMounted.current;
 
     return (
       <div
-        ref={(node) => {
-          (internalRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-          if (typeof ref === "function") ref(node);
-          else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
-        }}
-        data-proximity-index={index} data-value={value} data-disabled={disabled || undefined}
-        role="option" aria-selected={isChecked} aria-label={typeof children === "string" ? children : undefined}
-        tabIndex={isChecked ? 0 : index === (contentCtx?.checkedIndex ?? 0) ? 0 : -1}
+        ref={ref}
+        id={contentCtx ? `${contentCtx.id}-${index}` : undefined}
+        data-value={value} data-disabled={disabled || undefined} data-active={isActive || undefined}
+        role="option" aria-selected={isChecked} aria-disabled={disabled || undefined}
+        aria-label={typeof children === "string" ? children : undefined}
+        onMouseMove={() => { if (!isActive) contentCtx?.setActiveIndex(index); }}
         onClick={() => { if (!disabled) selectCtx.onChange(value); }}
-        onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !disabled) { e.preventDefault(); selectCtx.onChange(value); } }}
-        className={cn(`relative z-10 flex items-center gap-2 ${shape.item} px-2 py-2 text-[13px] cursor-pointer outline-none select-none`, "transition-[color] duration-80", isActive || isChecked ? "text-foreground" : "text-muted-foreground", disabled && "opacity-50 pointer-events-none", className)}
+        className={cn("ace-select-item", className)}
         {...props}
       >
-        {Icon && <Icon size={16} strokeWidth={isActive || isChecked ? 2 : 1.5} className="shrink-0 transition-[color,stroke-width] duration-80" />}
-        <span className="flex-1 min-w-0 truncate">{children}</span>
-        <AnimatePresence>
-          {isChecked && (
-            <motion.svg key="check" width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-foreground" initial={{ opacity: 1 }} animate={{ opacity: 1 }} exit={{ opacity: 1 }}>
-              <motion.path d="M4 12L9 17L20 6" initial={{ pathLength: skipAnimation ? 1 : 0 }} animate={{ pathLength: 1, transition: { duration: 0.08, ease: "easeOut" } }} exit={{ pathLength: 0, transition: { duration: 0.04, ease: "easeIn" } }} />
-            </motion.svg>
-          )}
-        </AnimatePresence>
+        {Icon && <Icon size={15} strokeWidth={isChecked ? 2 : 1.6} className="shrink-0" />}
+        <span className="ace-select-text">{children}</span>
+        {isChecked && (
+          <svg className="ace-select-check" width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M4 12L9 17L20 6" />
+          </svg>
+        )}
       </div>
     );
   }
@@ -480,12 +370,12 @@ function SelectGroup({ children, className, ...props }: HTMLAttributes<HTMLDivEl
 SelectGroup.displayName = "SelectGroup";
 
 const SelectLabel = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => <div ref={ref} className={cn("px-2 py-1.5 text-[11px] text-muted-foreground", className)} {...props} />
+  ({ className, ...props }, ref) => <div ref={ref} className={cn("ace-select-label", className)} {...props} />
 );
 SelectLabel.displayName = "SelectLabel";
 
 const SelectSeparator = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => <div ref={ref} role="separator" className={cn("my-1 -mx-1 h-px bg-border/60", className)} {...props} />
+  ({ className, ...props }, ref) => <div ref={ref} role="separator" className={cn("ace-select-separator", className)} {...props} />
 );
 SelectSeparator.displayName = "SelectSeparator";
 

@@ -441,31 +441,6 @@
 }
 :root[data-theme] #gamelog-overlay .gamelog-line-control button:active { background: #3b3f45 !important; }
 :root[data-theme] #gamelog-overlay button[role="combobox"]:disabled { opacity: .5; cursor: not-allowed; }
-:root[data-theme] .trend-select-menu[role="listbox"] {
-  min-width: 160px !important;
-  max-width: calc(100vw - 16px) !important;
-  padding: 5px !important;
-  border: 1px solid #484d53 !important;
-  border-radius: 12px !important;
-  background: linear-gradient(155deg, #202529, #15191c) !important;
-  box-shadow: 0 16px 40px #00000066, inset 0 1px 0 #ffffff08 !important;
-  scrollbar-width: thin;
-  scrollbar-color: #53585e transparent;
-}
-:root[data-theme] .trend-select-menu [role="option"] {
-  min-height: 36px;
-  padding: 8px 10px !important;
-  border: 0 !important;
-  border-radius: 7px !important;
-  color: #cdd0d2 !important;
-  font-size: 12px;
-}
-:root[data-theme] .trend-select-menu [role="option"][aria-selected="true"] {
-  background: #373c3e !important;
-  color: #f4f7f6 !important;
-  box-shadow: inset 3px 0 0 var(--theme-accent-soft,var(--theme-accent));
-}
-:root[data-theme] .trend-select-menu [role="option"]:focus-visible { outline: 2px solid var(--theme-accent-soft,var(--theme-accent)) !important; outline-offset: -2px; }
 :root[data-theme] .trend-lines-menu .pp-select-line-row { gap: 8px; }
 :root[data-theme] .trend-lines-menu .posted-line-primary img,
 :root[data-theme] #gamelog-lines-select-root .posted-line-primary img { width: 18px; height: 18px; object-fit: contain; }
@@ -474,9 +449,7 @@
 @media (hover: hover) {
   :root[data-theme] #gamelog-overlay button[role="combobox"]:hover { border-color: #7c8188 !important; }
   :root[data-theme] #gamelog-overlay .gamelog-line-control button:hover { background: #2d3137 !important; color: #fff !important; }
-  :root[data-theme] .trend-select-menu [role="option"]:hover { background: #2f353a !important; color: #fff !important; }
 }
-@media (pointer: coarse) { :root[data-theme] .trend-select-menu [role="option"] { min-height: 44px; } }
 @media (prefers-reduced-motion: reduce) {
   :root[data-theme] #gamelog-overlay button[role="combobox"],
   :root[data-theme] #gamelog-overlay button[role="combobox"] > svg,

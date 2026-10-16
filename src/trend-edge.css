@@ -554,6 +554,16 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field {
   background: var(--te-card) !important;
 }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field[hidden] { display: none !important; }
+/* The whole bar opens its menu (select.tsx [data-select-field]). */
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field[data-select-field] { cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+@media (hover: hover) {
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field[data-select-field]:hover { border-color: #34404A !important; }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field[data-select-field]:hover button[role="combobox"] { color: #fff !important; }
+}
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field[data-select-field]:has(button[aria-expanded="true"]) { border-color: rgba(63, 227, 158, .55) !important; }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field button[role="combobox"] { min-width: 0 !important; gap: 4px !important; border: 0 !important; background: none !important; box-shadow: none !important; }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field button[role="combobox"]:focus-visible { box-shadow: none !important; outline: none !important; }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field[data-select-field]:has(button[role="combobox"]:focus-visible) { border-color: rgba(63, 227, 158, .55) !important; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field > span { color: var(--te-faint) !important; font: 600 11px/1 var(--font-sans) !important; text-transform: uppercase; letter-spacing: .05em; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field button {
   min-height: 32px !important;

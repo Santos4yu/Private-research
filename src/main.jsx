@@ -421,7 +421,7 @@ function SimpleSelectHost({ controllerRef, onPick, ariaLabel, isTrend = false })
   return (
     <Select value={value} onValueChange={(next) => { setValue(next); onPick(next); }} disabled={disabled}>
       <SelectTrigger placeholder="All" aria-label={ariaLabel} />
-      <SelectContent className={isTrend ? 'trend-select-menu' : undefined}>
+      <SelectContent className={isTrend ? 'trend-select-menu' : undefined} align={isTrend ? 'end' : 'start'}>
         {options.map((opt, index) => <SelectItem key={opt.value} index={index} value={opt.value}>{opt.label}</SelectItem>)}
       </SelectContent>
     </Select>

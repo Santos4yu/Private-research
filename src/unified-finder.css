@@ -203,13 +203,9 @@
 .finder-option-label{display:flex;align-items:center;gap:9px;min-width:0;text-align:left}
 .finder-option-label>img{flex:0 0 22px;width:22px;height:22px;object-fit:contain}
 .finder-option-label>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.finder-select-menu{background:#161b1f!important;border:1px solid #3e4248!important;border-radius:12px!important;padding:5px!important;color:#f4f7f6!important;box-shadow:0 16px 40px #0008!important;font:500 13px/1.45 Inter,Arial,sans-serif!important;scrollbar-width:thin;scrollbar-color:#4e5359 #161b1f}
-.finder-select-menu .finder-select-option{min-height:42px;padding:9px 11px;border-radius:7px;color:#d1d4d6;cursor:pointer;font:500 13px/1.45 Inter,Arial,sans-serif;letter-spacing:0}
-.finder-select-menu .finder-select-option:hover,.finder-select-menu .finder-select-option:focus{background:#2f3439;color:#fff;outline:2px solid var(--theme-accent);outline-offset:-2px}
-.finder-select-menu .finder-select-option[aria-selected=true]{background:#3e4345;color:#f4f7f6;font-weight:650}
 .unified-finder .finder-app-icons{display:none}
 .unified-finder .finder-pagination .finder-custom-select{width:100px}.unified-finder .finder-pagination .finder-select-trigger{height:28px;font-size:12px}
-@media(max-width:760px){.unified-finder .finder-custom-select .finder-select-trigger{height:42px;font-size:13px}.finder-select-menu .finder-select-option{min-height:44px}.unified-finder .finder-mobile-sport .finder-custom-select{width:100px}.unified-finder .finder-pagination .finder-custom-select{width:90px}}
+@media(max-width:760px){.unified-finder .finder-custom-select .finder-select-trigger{height:42px;font-size:13px}.unified-finder .finder-mobile-sport .finder-custom-select{width:100px}.unified-finder .finder-pagination .finder-custom-select{width:90px}}
 @media(max-width:760px){
  .unified-finder{border:0;background:#0b0e10;padding-bottom:env(safe-area-inset-bottom)}
  .finder-topbar{border-radius:0;background:linear-gradient(110deg,color-mix(in srgb,var(--theme-accent) 62%,#0f1215),color-mix(in srgb,var(--theme-accent) 19%,#0f1215));padding:8px 10px}
