@@ -3,7 +3,7 @@
 // games. The opportunities are what the game logs count beside the stat
 // (gameLog `usage`): an MLB hitter's plate appearances, a pitcher's
 // pitches, an NHL player's minutes on the ice, a basketball or soccer
-// player's minutes. Splitting the two reads a hitter moved to leadoff, a starter on
+// player's minutes, the passes or runs a college football team makes. Splitting the two reads a hitter moved to leadoff, a starter on
 // a short leash, a forward with more ice time or a guard in for more
 // minutes for what they are, and turns the projection into a chance the
 // way the stat actually falls: one hit or none in each trip to the plate
@@ -31,6 +31,7 @@
 // for them is strong.
 import {newsOf, samePerson} from './slip-games.js';
 import {statKeyOf} from './sports/soccer/soccer-stats.js';
+import {PLAY_WORDS} from './sports/cfb/cfb-stats.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
@@ -138,7 +139,7 @@ function basesPerTrip(hit, perHit = LEAGUE_BASES_PER_HIT) {
 // ---------------------------------------------------------------- the stats
 
 // unit: the opportunity -- 'pa' plate appearances, 'pitches', 'toi' minutes
-// on the ice, 'min' minutes. shape: 'binary' (one at most a trip),
+// on the ice, 'min' minutes, 'plays' a college team's passes, runs or both. shape: 'binary' (one at most a trip),
 // 'bases' (total bases), 'count' (negative binomial, `spread` times a
 // Poisson's variance), 'curve' (a normal curve), 'self' (the stat is the
 // opportunity: pitches, ice time). k: see above. market: how far, as a
@@ -256,6 +257,32 @@ const PROFILES = {
   'soccer:drib': stat('count', 270, 0.13, 0.08, {unit: 'min', spread: 1.4}),
   'soccer:off': stat('count', 600, 0.13, 0.12, {unit: 'min', spread: 1.2}),
   'soccer:yc': stat('count', 900, 0.13, 0.15, {unit: 'min', spread: 1.05}),
+  // College football, per team play the stat feeds on (its passes, runs or
+  // both: cfb-stats.js PLAYS): a receiver's yards are his team's passes
+  // times his yards per team pass -- his share of them and what he does
+  // with it -- so a team throwing more today, or a defense that faces more
+  // throws, counts where it comes from. Starters and backups differ so
+  // much in a stat that the board's rate pulls little (a game or two of
+  // plays); the short season, blowouts and FCS opponents make the model
+  // run further off than in the pros.
+  'cfb:passing_yards': stat('curve', 90, 0.07, 0.08, {unit: 'plays', plays: 'pass'}),
+  'cfb:passing_attempts': stat('count', 60, 0.07, 0.07, {unit: 'plays', plays: 'pass', spread: 1.1}),
+  'cfb:pass_completions': stat('count', 90, 0.07, 0.07, {unit: 'plays', plays: 'pass', spread: 1.1}),
+  'cfb:passing_touchdowns': stat('count', 300, 0.08, 0.15, {unit: 'plays', plays: 'pass', spread: 1.1}),
+  'cfb:interceptions': stat('count', 400, 0.06, 0.2, {unit: 'plays', plays: 'pass', spread: 1}),
+  'cfb:receiving_yards': stat('curve', 60, 0.08, 0.1, {unit: 'plays', plays: 'pass'}),
+  'cfb:receptions': stat('count', 60, 0.08, 0.08, {unit: 'plays', plays: 'pass', spread: 1.15}),
+  'cfb:longest_reception': stat('curve', 90, 0.08, 0.12, {unit: 'plays', plays: 'pass'}),
+  'cfb:receiving_tds': stat('count', 300, 0.06, 0.18, {unit: 'plays', plays: 'pass', spread: 1.05}),
+  'cfb:rushing_yards': stat('curve', 60, 0.08, 0.1, {unit: 'plays', plays: 'run'}),
+  'cfb:rush_attempts': stat('count', 45, 0.08, 0.08, {unit: 'plays', plays: 'run', spread: 1.15}),
+  'cfb:longest_rush': stat('curve', 90, 0.08, 0.14, {unit: 'plays', plays: 'run'}),
+  'cfb:rushing_tds': stat('count', 300, 0.06, 0.18, {unit: 'plays', plays: 'run', spread: 1.05}),
+  'cfb:rushing_receiving_yards': stat('curve', 60, 0.08, 0.1, {unit: 'plays', plays: 'both'}),
+  'cfb:passing_rushing_yards': stat('curve', 90, 0.07, 0.08, {unit: 'plays', plays: 'both'}),
+  'cfb:touchdowns': stat('count', 300, 0.06, 0.18, {unit: 'plays', plays: 'both', spread: 1.05}),
+  'cfb:pass_rush_rec_tds': stat('count', 300, 0.07, 0.16, {unit: 'plays', plays: 'both', spread: 1.05}),
+  'cfb:fantasy_score': stat('curve', 90, 0.06, 0.1, {unit: 'plays', plays: 'both'}),
   'basketball:dd': stat(null, 0, 0.05, 0.15),
   'basketball:td': stat(null, 0, 0.04, 0.2),
 };
@@ -281,6 +308,7 @@ export function modelKey(row) {
     const key = statKeyOf(row.marketKey);
     return key ? `soccer:${key}` : null;
   }
+  if (row.sport === 'cfb') return row.valueKey ? `cfb:${row.valueKey}` : null;
   return null;
 }
 
@@ -296,6 +324,7 @@ function peerGroup(row) {
   if (row.sport === 'nhl') return isGoalie(row) ? 'G' : position === 'D' ? 'D' : 'F';
   if (row.sport === 'nba' || row.sport === 'wnba') return /C/.test(position) ? 'C' : /F/.test(position) ? 'F' : 'G';
   if (row.sport === 'soccer') return ['G', 'D', 'M', 'F'].find(letter => position.startsWith(letter)) || '';
+  if (row.sport === 'cfb') return position === 'FB' ? 'RB' : ['QB', 'RB', 'WR', 'TE'].includes(position) ? position : '';
   return '';
 }
 
@@ -385,6 +414,8 @@ function scoringRatio(row) {
  */
 export function gameContext(row, profile = profileOf(row), expectedUsage = null) {
   const out = {rate: 1, usage: 1, spot: null, role: null, used: [], notes: [], risks: []};
+  // A college team's plays read the opponent's pace even before the game's own page is in.
+  if (row?.sport === 'cfb' && profile?.plays) cfbContext(row, profile, modelKey(row).split(':')[1], expectedUsage, out);
   if (!row?.game || !profile) return out;
   const key = modelKey(row).split(':')[1];
   const news = newsOf(row);
@@ -428,18 +459,69 @@ export function gameContext(row, profile = profileOf(row), expectedUsage = null)
   return out;
 }
 
+// College football: what today does to his team's plays and what they're
+// worth. How many passes (runs) the opponent faces against the board's
+// teams; the spread's game script (a favourite runs more and throws less as
+// it pulls away, an underdog the other way) and its blowout risk (starters
+// sitting a lopsided fourth quarter); and the points the game's line expects
+// of his team against what it has scored. Each is small and capped.
+const CFB_TDS = new Set(['passing_touchdowns', 'receiving_tds', 'rushing_tds', 'touchdowns', 'pass_rush_rec_tds']);
+function cfbContext(row, profile, key, usualPlays, out) {
+  const plays = profile.plays, team = row.game?.team || row.teamAbbr, odds = row.game?.odds;
+  const words = PLAY_WORDS[plays];
+  // The opponent's pace, half of it his own team's (when a per-game
+  // defense-vs-position number is read instead, it already carries it).
+  const opp = row.cfbOpponent;
+  const faced = plays === 'pass' ? [opp?.passes, opp?.passAverage] : plays === 'run' ? [opp?.runs, opp?.runAverage]
+    : [finite(opp?.passes) && finite(opp?.runs) ? opp.passes + opp.runs : null, finite(opp?.passAverage) && finite(opp?.runAverage) ? opp.passAverage + opp.runAverage : null];
+  if (!finite(row.defenseValue) && finite(faced[0]) && faced[1] > 0) {
+    const trust = finite(opp.games) ? opp.games / (opp.games + 3) : 0.5;
+    out.usage *= clamp(1 + (faced[0] / faced[1] - 1) * 0.5 * trust, 0.88, 1.12);
+    out.used.push('volume');
+    out.notes.push({key: 'volume', text: `${row.opponent} faces ${Math.round(faced[0])} ${words} a game (board average ${Math.round(faced[1])})`});
+  }
+  const spread = odds?.spread?.[team];
+  if (finite(spread) && row.game?.state !== 'in' && row.game?.state !== 'post') {
+    const lead = clamp(-spread, -28, 28);
+    if (plays !== 'both') {
+      out.usage *= clamp(1 + (plays === 'pass' ? -1 : 1) * lead * 0.004, 0.9, 1.1);
+      out.used.push('script');
+      if (Math.abs(lead) >= 7) out.notes.push({key: 'script', text: `${row.teamAbbr || 'His team'} is a ${one(Math.abs(spread))}-point ${lead > 0 ? 'favorite' : 'underdog'}: `
+        + `${(lead > 0) === (plays === 'run') ? 'more' : 'fewer'} ${words} as the game goes on`});
+    }
+    if (Math.abs(spread) >= 17) {
+      const cut = Math.min(0.12, (Math.abs(spread) - 14) * 0.008) * (lead > 0 ? 1 : 0.5);
+      out.usage *= 1 - cut;
+      out.notes.push({key: 'blowout', text: `A ${one(Math.abs(spread))}-point spread: ${finite(usualPlays) ? `about ${Math.round(usualPlays * cut)} fewer team ${words}` : `fewer ${words}`} for the starters if it gets out of hand`});
+      if (cut >= 0.03) out.risks.push(`Blowout risk (${one(Math.abs(spread))}-point spread)`);
+    }
+    const scored = row.cfbTeam?.points;
+    if (finite(odds.total) && scored > 0 && key !== 'interceptions') {
+      const own = (odds.total - spread) / 2;
+      const weight = CFB_TDS.has(key) ? 0.6 : /longest/.test(key) ? 0.15 : 0.25;
+      out.rate *= clamp(1 + (own / scored - 1) * weight, 0.88, 1.12);
+      out.used.push('pace');
+      out.notes.push({key: 'scoring', text: `${row.teamAbbr || 'His team'} is expected to score about ${one(own)} (${one(scored)} a game so far)`});
+    }
+  }
+}
+
 // ---------------------------------------------------------------- one line
 
-const HALF_LIFE = {pa: 30, pitches: 8, toi: 20, min: 12};
+const HALF_LIFE = {pa: 30, pitches: 8, toi: 20, min: 12, plays: 6};
 // His opportunities lately: the last this many games, a game this many back counting half.
-const USAGE_GAMES = {pa: 15, pitches: 6, toi: 10, min: 10};
-const USAGE_HALF_LIFE = {pa: 6, pitches: 3, toi: 4, min: 4};
+const USAGE_GAMES = {pa: 15, pitches: 6, toi: 10, min: 10, plays: 6};
+const USAGE_HALF_LIFE = {pa: 6, pitches: 3, toi: 4, min: 4, plays: 3};
+// A college game against an FCS side counts this much of one against FBS:
+// a big day there says less about the next FBS defense.
+const FCS_WEIGHT = 0.35;
+const gameWeight = game => (game.fbs === false ? FCS_WEIGHT : 1);
 
 function weighted(games, halfLife, value) {
   const n = games.length;
   let weights = 0, total = 0, square = 0;
   games.forEach((game, index) => {
-    const weight = 0.5 ** ((n - 1 - index) / halfLife);
+    const weight = 0.5 ** ((n - 1 - index) / halfLife) * gameWeight(game);
     const x = value(game);
     weights += weight; total += weight * x; square += weight * x * x;
   });
@@ -495,7 +577,7 @@ export function projectStat(row) {
     const meanUsage = totalUsage / n;
     let weights = 0, made = 0, used = 0;
     games.forEach((game, index) => {
-      const weight = 0.5 ** ((n - 1 - index) / HALF_LIFE[profile.unit]);
+      const weight = 0.5 ** ((n - 1 - index) / HALF_LIFE[profile.unit]) * gameWeight(game);
       weights += weight; made += weight * game.value; used += weight * game.usage;
     });
     let own = made / used;
@@ -515,7 +597,7 @@ export function projectStat(row) {
     rate = prior != null && profile.k ? (volume * own + profile.k * prior) / (volume + profile.k) : own;
   }
   const meanUsage = games.reduce((sum, game) => sum + game.usage, 0) / n;
-  return {key: modelKey(row), shape: profile.shape, unit: profile.unit, spread: profile.spread ?? 1, market: profile.market, error: profile.error,
+  return {key: modelKey(row), shape: profile.shape, unit: profile.unit, plays: profile.plays ?? null, spread: profile.spread ?? 1, market: profile.market, error: profile.error,
     rate, usage: opportunities, usageSd: usage.sd, recentUsage: usage.average, meanUsage, games: n, volume,
     evidence: volume + (prior != null ? profile.k : 0), prior, plain, variance,
     counts: values.every(value => Number.isInteger(value) && value >= 0), basesPerHit: row.basesPerHit ?? null, context};
@@ -600,5 +682,6 @@ export function usageWords(model) {
   if (model.unit === 'pa') return `${one(amount)} plate appearances`;
   if (model.unit === 'pitches') return `${Math.round(amount)} pitches`;
   if (model.unit === 'toi') return `${one(amount)} minutes on the ice`;
+  if (model.unit === 'plays') return `${Math.round(amount)} team ${PLAY_WORDS[model.plays] || 'plays'}`;
   return `${one(amount)} minutes`;
 }

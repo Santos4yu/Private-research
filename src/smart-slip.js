@@ -58,11 +58,16 @@ const SWING_LINE = 1.5;
 // ten games is mostly luck: the season counts most and every window is
 // pulled harder toward 50/50.
 const SWINGY = {prior: 10, weights: {l5: 0.05, l10: 0.15, l15: 0.10, l20: 0.20, season: 0.50}};
-const HISTORY = {mlb: SWINGY, nhl: SWINGY, soccer: SWINGY};
+// College football: a dozen games a season, so a hot five is a big share
+// of what there is; its season and last ten count most and every window is
+// pulled toward 50/50 harder than the pros'. (Last season's games are only
+// those with his current team: a transfer's old school isn't in its log.)
+const COLLEGE = {prior: 8, weights: {l5: 0.15, l10: 0.30, l15: 0.05, l20: 0.10, season: 0.40}};
+const HISTORY = {mlb: SWINGY, nhl: SWINGY, soccer: SWINGY, cfb: COLLEGE};
 // The chance a regular line needs before it's backed. A PrizePicks Power
 // Play breaks even at about 55% a pick (58% on two), so in the leagues the
 // prop model reads the bar sits there; elsewhere it stays where it was.
-const BACK_AT = {mlb: 0.55, nhl: 0.55, soccer: 0.55, nba: 0.54, wnba: 0.54};
+const BACK_AT = {mlb: 0.55, nhl: 0.55, soccer: 0.55, nba: 0.54, wnba: 0.54, cfb: 0.55};
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));

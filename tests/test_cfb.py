@@ -146,6 +146,32 @@ class TeamLogTests(unittest.TestCase):
         self.assertEqual(log["players"]["4870906"]["pos"], "QB")
         self.assertEqual(log["team"], "TEX")
 
+    def test_each_game_says_whether_the_opponent_is_fbs(self):
+        schedule = [s.event("401600010", "2025-11-29T17:00Z", s.TEXAS, s.team("245", "TA&M", "Texas A&M", "Aggies"), 17, 7, True, 2025, schedule=True),
+                    s.event("401700010", "2026-09-06T19:30Z", s.TEXAS, s.team("194", "OSU", "Ohio State", "Buckeyes"), 24, 27, True, 2026, schedule=True)]
+        routes = {"teams/251/schedule?season=2025&seasontype=2": {"events": schedule[:1]},
+                  "teams/251/schedule?season=2026&seasontype=2": {"events": schedule[1:]},
+                  "seasontype=3": {"events": []}, "teams/251/roster": s.ROSTERS["251"],
+                  "summary?event=401600010": s.summary(s.manning("18/27", "210", "1", "0", "5", "20"), "245"),
+                  "summary?event=401700010": s.summary(s.manning("22/35", "301", "3", "1", "9", "45"), "194"),
+                  # Ohio State is on the FBS list; the other side here is not.
+                  "/teams?groups=80": {"sports": [{"leagues": [{"teams": [{"team": s.TEXAS}, {"team": s.team("194", "OSU", "Ohio State", "Buckeyes")}]}]}]}}
+        with no_kv(), espn(routes):
+            log = cfb.team_log("251", day=date(2026, 10, 15))
+        self.assertEqual([game["opponentFbs"] for game in log["games"]], [False, True])
+
+    def test_an_unreadable_fbs_list_leaves_the_opponents_unknown(self):
+        schedule = [s.event("401700010", "2026-09-06T19:30Z", s.TEXAS, s.team("194", "OSU", "Ohio State", "Buckeyes"), 24, 27, True, 2026, schedule=True)]
+        routes = {"teams/251/schedule?season=2025&seasontype=2": {"events": []},
+                  "teams/251/schedule?season=2026&seasontype=2": {"events": schedule},
+                  "seasontype=3": {"events": []}, "teams/251/roster": s.ROSTERS["251"],
+                  "summary?event=401700010": s.summary(s.manning("22/35", "301", "3", "1", "9", "45"), "194"),
+                  "/teams?groups=80": {"sports": []}}
+        with no_kv(), espn(routes):
+            log = cfb.team_log("251", day=date(2026, 10, 15))
+        self.assertIsNone(log["games"][0]["opponentFbs"], "not every opponent marked FCS because the list was empty")
+        self.assertEqual(log["games"][0]["players"]["4870906"]["passing_yards"], 301)
+
 
 class FindTests(unittest.TestCase):
     def setUp(self):

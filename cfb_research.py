@@ -520,6 +520,12 @@ def team_log(team, opponent=None, day=None):
         names = roster(team)
     except Exception:  # noqa: BLE001 -- positions then come from what they did
         names = {}
+    # Which opponents are FBS: a big day against an FCS side says less about
+    # the next FBS defense. Unknown (None) when the FBS list can't be read.
+    try:
+        fbs = teams()
+    except Exception:  # noqa: BLE001 -- the games stand without it
+        fbs = {}
     games, players = [], {}
     for item in schedule:
         record = records.get(item["id"])
@@ -542,10 +548,11 @@ def team_log(team, opponent=None, day=None):
         totals["points"] = own.get("score")
         games.append({"gameId": item["id"], "season": item["season"], "seasonKind": item["kind"], "date": _eastern_day(item["start"]),
                       "team": own["abbr"], "teamId": team, "opponent": other["abbr"], "opponentId": other["id"],
-                      "opponentLogo": other.get("logo") or logo(other["id"]), "isHome": None if item["neutral"] else home,
+                      "opponentLogo": other.get("logo") or logo(other["id"]), "opponentFbs": (other["id"] in fbs) if fbs else None,
+                      "isHome": None if item["neutral"] else home,
                       "result": ("W" if own["score"] > other["score"] else "L" if own["score"] < other["score"] else "T") if scored else None,
                       "score": f"{own['score']}-{other['score']}" if scored else "", "players": lines, "totals": totals, "against": against})
-    info = teams().get(team) or {}
+    info = fbs.get(team) or {}
     return {"team": info.get("abbr") or (games[-1]["team"] if games else ""), "teamId": team, "opponent": opponent or None,
             "games": games, "players": players, "complete": complete and time.time() - started < LOG_BUDGET,
             "season": season, "builtAt": time.time(), "version": VERSION}

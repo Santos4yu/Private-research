@@ -55,7 +55,7 @@ export function playerGames(log,playerId){
  return games.slice(first).map(game=>{
   const line=game.players?.[pid];
   return {gameId:game.gameId,season:game.season,seasonKind:game.seasonKind,date:game.date,team:game.team,opponent:game.opponent,opponentId:game.opponentId,
-   opponentLogo:game.opponentLogo,isHome:game.isHome,result:game.result,score:game.score,dnp:!line,values:line||{},totals:game.totals,against:game.against};
+   opponentLogo:game.opponentLogo,opponentFbs:game.opponentFbs,isHome:game.isHome,result:game.result,score:game.score,dnp:!line,values:line||{},totals:game.totals,against:game.against};
  });
 }
 export const playedGames=rows=>(rows||[]).filter(row=>!row.dnp);
@@ -83,6 +83,56 @@ export const AGAINST={
 };
 export const AGAINST_WORDS={passYards:'passing yards',passAttempts:'pass attempts',completions:'completions',passTds:'passing TDs',
  rushYards:'rushing yards',rushAttempts:'rush attempts',rushTds:'rushing TDs',totalYards:'total yards',points:'points'};
+
+// What a stat feeds on, for the prop model's opportunities: the team's
+// passes (a quarterback's and his receivers' numbers), its runs, or every
+// play (combos, touchdowns, fantasy). ESPN's college team rush count
+// includes sacks, as college scoring does.
+export const PLAYS={passing_yards:'pass',passing_attempts:'pass',pass_completions:'pass',passing_touchdowns:'pass',interceptions:'pass',
+ receiving_yards:'pass',receptions:'pass',receiving_tds:'pass',longest_reception:'pass',targets:'pass',
+ rushing_yards:'run',rush_attempts:'run',rushing_tds:'run',longest_rush:'run',
+ rushing_receiving_yards:'both',passing_rushing_yards:'both',touchdowns:'both',pass_rush_rec_tds:'both',fantasy_score:'both'};
+export const PLAY_WORDS={pass:'passes',run:'runs',both:'plays'};
+const RECEIVING=new Set(['receiving_yards','receptions','receiving_tds','longest_reception','targets']);
+
+/** The team's plays in a game that a stat feeds on (its pass attempts,
+ * rush attempts or both), or null when the box score doesn't have them. */
+export function teamPlays(totals,valueKey){
+ const kind=PLAYS[valueKey],pass=totals?.passAttempts,run=totals?.rushAttempts;
+ if(kind==='pass')return finite(pass)&&pass>0?pass:null;
+ if(kind==='run')return finite(run)&&run>0?run:null;
+ if(kind==='both')return finite(pass)&&finite(run)&&pass+run>0?pass+run:null;
+ return null;
+}
+
+/** His share of what his team did that the stat comes from, 0-1: of its
+ * catches for a receiving stat, its throws for a passing one, its carries
+ * for a rushing one, its plays where he had the ball for the rest. Null
+ * without the team's numbers. */
+export function playShare(game,valueKey){
+ const kind=PLAYS[valueKey],mine=game?.values||{},team=game?.totals||{};
+ const part=(own,all)=>finite(all)&&all>0?Math.min(1,(finite(own)?own:0)/all):null;
+ if(RECEIVING.has(valueKey))return part(mine.receptions,team.completions);
+ if(kind==='pass')return part(mine.passing_attempts,team.passAttempts);
+ if(kind==='run')return part(mine.rush_attempts,team.rushAttempts);
+ if(kind==='both'){
+  const plays=teamPlays(team,valueKey);
+  return plays?part((mine.passing_attempts||0)+(mine.rush_attempts||0)+(mine.receptions||0),plays):null;
+ }
+ return null;
+}
+
+/** The team's own numbers a game this season (last season's games fill in
+ * under three): points, pass and rush attempts. */
+export function teamAverages(log){
+ const games=log?.games||[];
+ if(!games.length)return null;
+ const season=games.at(-1).season;
+ let used=games.filter(game=>game.season===season);
+ if(used.length<3)used=games.slice(-8);
+ const avg=key=>{const values=used.map(game=>game.totals?.[key]).filter(finite);return values.length?values.reduce((a,b)=>a+b,0)/values.length:null;};
+ return {games:used.length,points:avg('points'),passAttempts:avg('passAttempts'),rushAttempts:avg('rushAttempts')};
+}
 
 /** Each team's average given up per game, this season (last season's when
  * it has fewer than three games yet): {team abbr: {passYards, ...}, games}. */

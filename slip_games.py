@@ -307,7 +307,9 @@ def espn_view(sport, summary, item):
     view = {"found": True, "id": str((summary.get("header") or {}).get("id") or competition.get("id") or ""),
             **espn_status(competition), "startsAt": competition.get("date"), "teams": _sides(competition, sport),
             "injuries": espn_injuries(summary, sport)}
-    if sport in ("nba", "wnba") and view["state"] == "pre":
+    # The pregame line: the prop model's expected scoring and blowout risk
+    # (basketball), a football team's game script and passing volume.
+    if sport in ("nba", "wnba", "nfl", "cfb") and view["state"] == "pre":
         view["odds"] = espn_odds(summary, view["teams"])
     lines = []
     if view["state"] != "pre":

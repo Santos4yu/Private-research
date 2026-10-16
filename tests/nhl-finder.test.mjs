@@ -69,3 +69,25 @@ test('a busy NHL answer is waited out, then asked again', async () => {
   const failing = async () => ({ok: false, json: async () => ({error: 'Unknown team or game.'})});
   await assert.rejects(patientRequest('/x', {fetcher: failing}), /Unknown team/);
 });
+
+test('a goalie\'s row says how often he gets the net, never that tonight is confirmed',async()=>{
+ const {matchupCase}=await import('../src/slip-matchup.js');
+ const {readPick}=await import('../src/slip-analyst.js');
+ const dates=['2026-10-01','2026-10-03','2026-10-05','2026-10-07','2026-10-09','2026-10-11','2026-10-13','2026-10-15'];
+ const goalie=(index,starter)=>({saves:24+index,shots_against:26+index,ga:2,toi:starter?60:0,starter});
+ // Andersen starts six of eight, the last one included; Kochetkov the other two.
+ const games=dates.map((date,index)=>game(`g${index}`,date,'BOS',index===2||index===5?{'31':goalie(index,false),'52':goalie(index,true)}:{'31':goalie(index,true)}));
+ const goalies={team:'CAR',players:{'31':{name:'Frederik Andersen',pos:'G'},'52':{name:'Pyotr Kochetkov',pos:'G'}},games};
+ const [line]=normalizeFinderRows('nhl',{rows:[{id:'pp:9',player:'Frederik Andersen',playerId:'31',team:'CAR',opponent:'BOS',position:'G',stat:'Goalie Saves',
+  marketKey:'goaliesaves',valueKey:'saves',line:24.5,modifier:'standard',startsAt:'2026-10-16T23:00:00Z',homeTeamAbbr:'CAR',awayTeamAbbr:'BOS',
+  apps:[{key:'prizepicks',name:'PrizePicks'}]}]});
+ const row=applyNhlHistory(line,goalies);
+ assert.deepEqual(row.goalieStarts,{started:6,of:8,last:true,lastDate:'2026-10-15'});
+ const {facts}=matchupCase({row,side:'OVER'},{});
+ const starts=facts.find(item=>item.key==='starts');
+ assert.match(starts.text,/^Started 6 of CAR's last 8 games, including the last one; tonight's starter isn't confirmed here$/);
+ assert.equal(starts.impact,0);
+ // He started last night: the second night of a back-to-back.
+ const read=readPick(row,'OVER',{records:{}});
+ assert.ok(read.risks.includes('Started last night: teams usually start the backup on the second night'),JSON.stringify(read.risks));
+});

@@ -138,6 +138,15 @@ class EspnTests(unittest.TestCase):
         # Under way, the pregame line no longer says anything.
         self.assertNotIn("odds", slip_games.espn_view("wnba", {**summary, "header": espn_header("NY", "IND", 40, 38)}, {"sport": "wnba", "players": []}))
 
+    def test_college_football_pregame_line(self):
+        summary = {"header": espn_header("PUR", "WASH", 0, 0, state="pre", period=0, clock="0:00", detail="7:30 PM", name="STATUS_SCHEDULED"),
+                   "boxscore": {"players": []},
+                   "pickcenter": [{"overUnder": 51.5, "spread": 10.5, "homeTeamOdds": {"moneyLine": 340}, "awayTeamOdds": {"moneyLine": -450}}]}
+        odds = slip_games.espn_view("cfb", summary, {"sport": "cfb", "players": []})["odds"]
+        self.assertEqual(odds["total"], 51.5)
+        self.assertEqual(odds["spread"], {"PUR": 10.5, "WASH": -10.5}, "a 10.5-point home underdog")
+        self.assertLess(odds["win"]["PUR"], 0.25)
+
     def test_game_carries_the_picks_codes(self):
         item = {"sport": "nfl", "team": "DAL", "opponent": "LAR", "players": [{"key": "a", "name": "CeeDee Lamb"}]}
         with patch.object(slip_games, "_espn_event", return_value={"id": "401"}), patch.object(slip_games, "_summary", return_value=nfl_summary()):

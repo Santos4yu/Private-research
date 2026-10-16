@@ -15,7 +15,8 @@
 // (prop-model.js): his rate per plate appearance, pitch or minute times
 // today's opportunities, its chance read off the way the stat falls and
 // held toward the line's break-even by how sure the model can be.
-import {sideChance, projectStat, modelRead, modelMean, withModelPriors} from './prop-model.js';
+import {sideChance, projectStat, modelRead, modelMean, withModelPriors, profileOf} from './prop-model.js';
+import {PLAYS as CFB_PLAYS, AGAINST_WORDS as CFB_AGAINST_WORDS} from './sports/cfb/cfb-stats.js';
 import {withSoccerMatchups, soccerText, oddsTilt} from './soccer-matchup.js';
 import {cachedSoccerLog} from './unified-finder-data.js';
 
@@ -54,6 +55,14 @@ const positionName = row => (row.sport === 'nhl' && row.defensePosition === 'G' 
 const DEFENSE_SPORTS = new Set(['wnba', 'nba', 'nfl', 'cfb', 'nhl', 'soccer']);
 const USAGE_NAMES = {wnba: 'Minutes', nba: 'Minutes', soccer: 'Minutes', nhl: 'Ice time'};
 const statWord = row => String(row.market || 'this stat').toLowerCase();
+
+// "TEX's catches": what a college stat's share is of.
+const CFB_RECEIVING = new Set(['receiving_yards', 'receptions', 'receiving_tds', 'longest_reception', 'targets']);
+export function cfbShareOf(row) {
+  const team = row.teamAbbr ? `${row.teamAbbr}'s` : "his team's";
+  const kind = CFB_PLAYS[row.valueKey];
+  return `${team} ${CFB_RECEIVING.has(row.valueKey) ? 'catches' : kind === 'pass' ? 'throws' : kind === 'run' ? 'carries' : 'plays'}`;
+}
 
 /** Is the player at home today? Null when the board doesn't say. */
 export function homeToday(row) {
@@ -340,6 +349,8 @@ export function matchupRead(row) {
     const modeled = hitterModelRead(row);
     if (modeled) return modeled;
   }
+  const college = row.sport === 'cfb' ? cfbOpponentRead(row) : null;
+  if (college) return college;
   if (row.poolDefense && finite(row.poolDefense.ratio)) {
     const {ratio, games, position} = row.poolDefense;
     const gap = Math.round((ratio - 1) * 100);
@@ -398,6 +409,34 @@ export function matchupRead(row) {
   return null;
 }
 
+/**
+ * College football without a defense-vs-position number for the stat: what
+ * today's opponent gives up of what it feeds on (its passing yards for a
+ * receiver), against the other defenses on today's board, from the teams'
+ * own games (unified-finder-data.js withCfbDefense). When the prop model
+ * counts the team's plays, it's read per pass (run) faced, since the plays
+ * are already counted there.
+ */
+function cfbOpponentRead(row) {
+  const o = row.cfbOpponent;
+  if (!o || !finite(o.value) || !(o.average > 0) || !row.opponent) return null;
+  const kind = CFB_PLAYS[row.valueKey];
+  const faced = kind === 'pass' ? [o.passes, o.passAverage] : kind === 'run' ? [o.runs, o.runAverage]
+    : [finite(o.passes) && finite(o.runs) ? o.passes + o.runs : null, finite(o.passAverage) && finite(o.runAverage) ? o.passAverage + o.runAverage : null];
+  const modelled = Boolean(profileOf(row)?.plays) && (row.gameLog || []).filter(game => finite(game.usage) && game.usage > 0).length >= 5;
+  const perPlay = modelled && finite(faced[0]) && faced[0] > 0 && faced[1] > 0;
+  const ratio = perPlay ? (o.value / faced[0]) / (o.average / faced[1]) : o.value / o.average;
+  const trust = finite(o.games) ? o.games / (o.games + 3) : 0.5;
+  const factor = shift(1 + (ratio - 1) * trust, 0.3, 0.9, 1.1);
+  const gap = Math.round((o.value / o.average - 1) * 100);
+  const words = CFB_AGAINST_WORDS[o.key] || statWord(row);
+  const most = finite(o.teams) && finite(o.rank) ? o.teams - o.rank + 1 : null;
+  const place = most && o.teams >= 6 && most <= o.teams / 3 ? ` (${ordinal(most)}-most)` : o.teams >= 6 && o.rank <= o.teams / 3 ? ` (${ordinal(o.rank)}-fewest)` : '';
+  const value = figure(Math.round(o.value * 10) / 10);
+  return {factor, short: `${gap >= 0 ? '+' : '−'}${Math.abs(gap)}%`, label: `vs ${row.opponent}`,
+    text: `${row.opponent} allows ${value} ${words} a game, ${Math.abs(gap)}% ${gap >= 0 ? 'more' : 'less'} than the average defense on today's board${place}`};
+}
+
 // ---------------------------------------------------------------- the read
 
 // What the matchup and the splits add on top of the prop model's rate:
@@ -406,8 +445,11 @@ export function matchupRead(row) {
 // time is already in the model's opportunities.
 function modelWeights(row) {
   const pitcher = String(row.marketKey || '').startsWith('pitching:');
-  const matchup = row.sport === 'mlb' ? (pitcher ? 1 : 0.6) : row.sport === 'nhl' ? 0.7 : row.sport === 'soccer' ? 0.9 : 0.8;
-  return {matchup, venue: 0.5, h2h: 0.3, role: 0, rest: 1};
+  const matchup = row.sport === 'mlb' ? (pitcher ? 1 : 0.6) : row.sport === 'nhl' ? 0.7 : row.sport === 'soccer' ? 0.9 : row.sport === 'cfb' ? 0.6 : 0.8;
+  // A college player's opportunities are his team's plays: his share of
+  // them sits in his rate, recent games counting most, so a role that
+  // changed lately still counts some.
+  return {matchup, venue: 0.5, h2h: 0.3, role: row.sport === 'cfb' ? 0.5 : 0, rest: 1};
 }
 
 const rateOn = (games, line, side) => {
@@ -512,7 +554,18 @@ export function readPick(row, side, {records = {}, book = null, baseline = 0.5, 
       }
     }
 
-    const usage = log.map(game => game.usage).filter(finite);
+    // College football: his share of the team's catches (carries, throws),
+    // his last three games against the ones before. Its plays aren't his.
+    const shares = row.sport === 'cfb' ? log.map(game => game.share).filter(finite) : [];
+    if (shares.length >= 6) {
+      const lately = mean(shares.slice(-3)), before = mean(shares.slice(-11, -3));
+      if (before > 0 && Math.abs(lately / before - 1) >= 0.15 && Math.abs(lately - before) >= 0.04) {
+        const up = lately > before;
+        move('role', shift(lately / before, 0.4, 0.9, 1.12), {short: `${up ? '+' : '−'}${Math.abs(Math.round((lately - before) * 100))} pts`, label: 'share',
+          text: `Share of ${cfbShareOf(row)} ${up ? 'up' : 'down'} to ${Math.round(lately * 100)}% over his last 3 games from ${Math.round(before * 100)}%`});
+      }
+    }
+    const usage = row.sport === 'cfb' ? [] : log.map(game => game.usage).filter(finite);
     if (usage.length >= 8) {
       const lately = mean(usage.slice(-5)), before = mean(usage.slice(0, -5));
       if (before > 0 && Math.abs(lately / before - 1) >= 0.06) {
@@ -528,7 +581,12 @@ export function readPick(row, side, {records = {}, book = null, baseline = 0.5, 
     const last = log.at(-1)?.date, starts = Date.parse(row.startsAt || '');
     if ((row.sport === 'wnba' || row.sport === 'nba' || row.sport === 'nhl') && last && Number.isFinite(starts)) {
       const rest = (starts - Date.parse(`${last}T12:00:00Z`)) / 86400000;
-      if (rest < 1.6) { move('rest', 0.98, {short: 'B2B', label: 'back-to-back', text: 'Second night of a back-to-back'}); out.risks.push('Back-to-back'); }
+      if (rest < 1.6) {
+        move('rest', 0.98, {short: 'B2B', label: 'back-to-back', text: 'Second night of a back-to-back'});
+        // A goalie who started last night: the backup usually gets the second.
+        const goalie = row.sport === 'nhl' ? row.goalieStarts : null;
+        out.risks.push(goalie?.last && goalie.lastDate === last ? 'Started last night: teams usually start the backup on the second night' : 'Back-to-back');
+      }
     }
 
     if (model) {

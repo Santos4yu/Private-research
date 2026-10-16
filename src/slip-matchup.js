@@ -35,6 +35,8 @@ import {homeToday, matchupRead} from './slip-analyst.js';
 import {newsFacts} from './slip-games.js';
 import {statKeyOf} from './sports/soccer/soccer-stats.js';
 import {soccerText, oddsTilt} from './soccer-matchup.js';
+import {PLAYS as CFB_PLAYS, PLAY_WORDS as CFB_PLAY_WORDS, AGAINST_WORDS as CFB_AGAINST_WORDS} from './sports/cfb/cfb-stats.js';
+import {cfbShareOf} from './slip-analyst.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
@@ -328,6 +330,15 @@ const PASSING = new Set(['passing_yards', 'pass_completions', 'passing_attempts'
 const TEAM_ALLOWED = {passing_rushing_yards: ['pass_rush_yards', 'pass + rush yards'], pass_rush_yards: ['pass_rush_yards', 'pass + rush yards'],
   touchdowns: ['rush_rec_tds', 'rushing + receiving TDs'], rush_rec_tds: ['rush_rec_tds', 'rushing + receiving TDs'],
   rushing_tds: ['rushing_tds', 'rushing TDs'], receiving_tds: ['receiving_tds', 'receiving TDs'], longest_reception: ['receiving_yards', 'receiving yards']};
+// College football's team table (cfb_research.TEAM_STATS) keeps its own
+// names: what a defense gives up as a team that each stat feeds on.
+const CFB_TEAM_ALLOWED = {passing_yards: ['passing_yards', 'passing yards'], pass_completions: ['completions', 'completions'],
+  passing_attempts: ['attempts', 'pass attempts'], passing_touchdowns: ['passing_tds', 'passing TDs'],
+  receiving_yards: ['passing_yards', 'passing yards'], receptions: ['completions', 'completions'], receiving_tds: ['passing_tds', 'passing TDs'],
+  longest_reception: ['passing_yards', 'passing yards'], rushing_yards: ['rushing_yards', 'rushing yards'], rush_attempts: ['carries', 'rush attempts'],
+  rushing_tds: ['rushing_tds', 'rushing TDs'], longest_rush: ['rushing_yards', 'rushing yards'], rushing_receiving_yards: ['total_yards', 'total yards'],
+  passing_rushing_yards: ['total_yards', 'total yards'], touchdowns: ['points', 'points'], pass_rush_rec_tds: ['points', 'points'],
+  fantasy_score: ['total_yards', 'total yards']};
 // The scouting notes a prop reads (nfl_scouting.py FAMILIES and YARDS):
 // yards-only notes (yards a carry, a pass) stay off count props.
 const SCOUT_FAMILIES = {passing_yards: ['passing'], pass_completions: ['passing'], passing_attempts: ['passing'], passing_touchdowns: ['passing'],
@@ -363,7 +374,7 @@ function football(row, sign, league) {
   const market = row.sport === 'cfb' ? row.valueKey : row.marketKey || row.raw?.propType;
   // A prop the position table doesn't keep (pass + rush yards, touchdowns,
   // longest catch): what the defense gives up as a team in that stat.
-  const allowed = !defense && TEAM_ALLOWED[market];
+  const allowed = !defense && (row.sport === 'cfb' ? CFB_TEAM_ALLOWED : TEAM_ALLOWED)[market];
   const given = allowed && their?.def?.[allowed[0]];
   const normalGiven = allowed && mean(Object.values(stats || {}).map(team => team.def?.[allowed[0]]?.[0]).filter(finite));
   if (given && finite(given[0]) && normalGiven > 0) {
@@ -403,6 +414,54 @@ function football(row, sign, league) {
       clamp((pct - 15) / 3, -3, 5) * sign));
   }
   out.push(...scouted);
+  if (row.sport === 'cfb') out.push(...college(row, sign, out));
+  return out;
+}
+
+// College football beyond the league table: today's opponent from the
+// teams on the board when the table has nothing on it (withCfbDefense), the
+// passes or runs it faces, his share of his team's and how it's moving,
+// the FCS games in his log and what the game's line expects.
+function college(row, sign, already) {
+  const out = [];
+  const kind = CFB_PLAYS[row.valueKey], words = CFB_PLAY_WORDS[kind];
+  const o = row.cfbOpponent;
+  if (o && !already.some(item => item.primary) && finite(o.value) && o.average > 0) {
+    const ratio = o.value / o.average, gap = Math.round((ratio - 1) * 100);
+    const trust = finite(o.games) ? o.games / (o.games + 3) : 0.5;
+    out.push(fact('opponent', 'team-defense', `${row.opponent} allows ${one(Math.round(o.value * 10) / 10)} ${CFB_AGAINST_WORDS[o.key] || statWord(row)} a game, `
+      + `${Math.abs(gap)}% ${gap >= 0 ? 'more' : 'less'} than the average defense on today's board${place(o.rank, o.teams)}`,
+    clamp((ratio - 1) * 80 * trust, -16, 16) * sign, {primary: true}));
+  }
+  const faced = kind === 'pass' ? [o?.passes, o?.passAverage] : kind === 'run' ? [o?.runs, o?.runAverage] : [null, null];
+  if (finite(faced[0]) && faced[1] > 0 && Math.abs(faced[0] / faced[1] - 1) >= 0.05) {
+    out.push(fact('opponent', 'volume', `${row.opponent} faces ${Math.round(faced[0])} ${words} a game (board average ${Math.round(faced[1])})`,
+      clamp((faced[0] / faced[1] - 1) * 40, -6, 6) * sign));
+  }
+  const log = row.gameLog || [];
+  const shares = log.map(game => game.share).filter(finite);
+  if (shares.length >= 6) {
+    const lately = mean(shares.slice(-3)), before = mean(shares.slice(-11, -3));
+    if (before > 0 && Math.abs(lately / before - 1) >= 0.15 && Math.abs(lately - before) >= 0.04) {
+      out.push(fact('usage', 'role', `Share of ${cfbShareOf(row)} ${lately > before ? 'up' : 'down'} to ${Math.round(lately * 100)}% over his last 3 games from ${Math.round(before * 100)}%`,
+        clamp((lately / before - 1) * 12, -6, 6) * sign));
+    } else if (!already.some(item => item.key === 'share')) {
+      out.push(fact('usage', 'share', `Gets ${Math.round(mean(shares.slice(-8)) * 100)}% of ${cfbShareOf(row)} lately`, 0));
+    }
+  }
+  const recent = log.slice(-10), fcs = recent.filter(game => game.fbs === false).length;
+  if (fcs) out.push(fact('history', 'fcs', `${fcs} of his last ${recent.length} games came against FCS teams; they count for less`, 0));
+  const odds = row.game?.state === 'pre' || !row.game?.state ? row.game?.odds : null;
+  const spread = odds?.spread?.[row.game?.team || row.teamAbbr];
+  if (finite(spread)) {
+    const scored = row.cfbTeam?.points;
+    const own = finite(odds.total) ? (odds.total - spread) / 2 : null;
+    const ratio = finite(own) && scored > 0 ? own / scored : null;
+    const script = Math.abs(spread) >= 7 && kind !== 'both' ? `; ${(spread < 0) === (kind === 'run') ? 'more' : 'fewer'} ${words} as the game goes on` : '';
+    out.push(fact('opponent', 'pace', `${row.teamAbbr || 'His team'} is a ${one(Math.abs(spread))}-point ${spread < 0 ? 'favorite' : 'underdog'}`
+      + `${finite(own) ? `, expected to score about ${one(Math.round(own * 10) / 10)}${scored > 0 ? ` (${one(Math.round(scored * 10) / 10)} a game so far)` : ''}` : ''}${script}`,
+    ratio != null ? clamp((ratio - 1) * 30, -6, 6) * sign : 0));
+  }
   return out;
 }
 
@@ -460,6 +519,11 @@ function hockey(row, sign, league) {
   if (position === 'G' && key === 'ga' && !out.length) {
     const scoring = teamFact('scoring', 'off', 'goals', value => `${row.opponent} scores ${value} goals a game`, 70, {primary: !out.length});
     if (scoring) out.push(scoring);
+  }
+  // How often he gets the net: his starts in his team's last ten.
+  const starts = position === 'G' ? row.goalieStarts : null;
+  if (starts && starts.of >= 3) {
+    out.push(fact('usage', 'starts', `Started ${starts.started} of ${row.teamAbbr || 'his team'}'s last ${starts.of} games${starts.last ? ', including the last one' : ''}; tonight's starter isn't confirmed here`, 0));
   }
   // A goalie's saves follow the shots the other team takes.
   if (position === 'G' && key === 'saves') {

@@ -3,7 +3,8 @@ import {teamLogoUrl} from './sports/nfl/nfl-ui-core.js';
 import {MARKET_STAT as WNBA_DVP_STAT, positionOf} from './sports/wnba/wnba-research.js';
 import {playerGames, statKeyOf, valueOf} from './sports/soccer/soccer-stats.js';
 import {playerGames as nhlPlayerGames, statValue as nhlValue} from './sports/nhl/nhl-stats.js';
-import {playerGames as cfbPlayerGames, statValue as cfbValue, allowedByTeam as cfbAllowed, allowTable as cfbAllowTable} from './sports/cfb/cfb-stats.js';
+import {playerGames as cfbPlayerGames, statValue as cfbValue, allowedByTeam as cfbAllowed, allowTable as cfbAllowTable, AGAINST as CFB_AGAINST,
+  teamPlays as cfbTeamPlays, playShare as cfbPlayShare, teamAverages as cfbTeamAverages} from './sports/cfb/cfb-stats.js';
 import {storedBoard, storeBoard} from './finder-store.js';
 
 const WINDOW_KEYS = ['l5', 'l10', 'l15', 'l20', 'h2h', 'season'];
@@ -354,12 +355,18 @@ export function loadFinderDefense(sport, options = {}) {
 
 // The games behind a line, newest last, for the Smart Slip's projection
 // (slip-analyst.js): each game's value, date, venue, opponent and the
-// player's playing time (minutes, plate appearances, pitches).
+// player's playing time (minutes, plate appearances, pitches; a college
+// player's team plays). College football adds his share of those plays
+// and whether the opponent was FBS, kept only where a sport gives them.
 const GAME_LOG = 25;
 export function gameLog(entries) {
-  return (entries || []).map(entry => ({value: number(entry.value), date: entry.date ? String(entry.date).slice(0, 10) : null,
-    home: typeof entry.home === 'boolean' ? entry.home : null, opponent: entry.opponent ?? null, usage: number(entry.usage)}))
-    .filter(entry => entry.value != null).slice(-GAME_LOG);
+  return (entries || []).map(entry => {
+    const out = {value: number(entry.value), date: entry.date ? String(entry.date).slice(0, 10) : null,
+      home: typeof entry.home === 'boolean' ? entry.home : null, opponent: entry.opponent ?? null, usage: number(entry.usage)};
+    if (number(entry.share) != null) out.share = number(entry.share);
+    if (typeof entry.fbs === 'boolean') out.fbs = entry.fbs;
+    return out;
+  }).filter(entry => entry.value != null).slice(-GAME_LOG);
 }
 
 export function finderWindow(values, line, direction = 'OVER') {
@@ -1127,7 +1134,17 @@ export function applyNhlHistory(row, log) {
     if (streak && Math.sign(streak) !== sign) break;
     streak += sign;
   }
+  // A goalie: how many of his team's last ten he started (from the box
+  // scores' starter flags) and whether he started its last game. Nobody
+  // posts tonight's starter here, so it is never called confirmed.
+  let goalieStarts = null;
+  if (String(row.position || '').toUpperCase() === 'G') {
+    const team = nhlPlayerGames(log, row.playerId).slice(-10);
+    if (team.length >= 3) goalieStarts = {started: team.filter(game => game.values?.starter === true).length, of: team.length,
+      last: team.at(-1).values?.starter === true, lastDate: team.at(-1).date || null};
+  }
   return finish({...row, average: mean(values.slice(-10)), windows, streak, historyStatus: 'ready', historyRefresh:false, historyAsOf:Date.now(), enrichedAt:Date.now(),
+    goalieStarts,
     gameLog: gameLog(games.map(game => ({value: nhlValue(game, row.valueKey), date: game.date, home: game.isHome, opponent: game.opponent,
       usage: game.values?.toi})))});
 }
@@ -1199,21 +1216,42 @@ export function applyCfbHistory(row, log) {
     streak += sign;
   }
   const position = row.position || log?.players?.[row.playerId]?.pos || null;
+  // Each game's team plays the stat feeds on (the prop model's
+  // opportunities), his share of them and whether the opponent was FBS.
   return finish({...row, position, average: mean(values.slice(-10)), windows, streak, historyStatus: 'ready', historyRefresh: false,
-    historyAsOf: Date.now(), enrichedAt: Date.now(),
-    gameLog: gameLog(games.map(game => ({value: cfbValue(game, row.valueKey), date: game.date, home: game.isHome, opponent: game.opponent})))});
+    historyAsOf: Date.now(), enrichedAt: Date.now(), cfbTeam: cfbTeamAverages(log),
+    gameLog: gameLog(games.map(game => ({value: cfbValue(game, row.valueKey), date: game.date, home: game.isHome, opponent: game.opponent,
+      usage: cfbTeamPlays(game.totals, row.valueKey), share: cfbPlayShare(game, row.valueKey),
+      fbs: typeof game.opponentFbs === 'boolean' ? game.opponentFbs : undefined})))});
 }
 
 /** Each college football line's defense table: how much each team on the
- * board gives up of what the stat feeds on, from the teams' own logs. */
+ * board gives up of what the stat feeds on, from the teams' own logs; and
+ * today's opponent's own numbers (`cfbOpponent`): what it gives up of that
+ * a game and the passes and runs it faces, against the board's teams. */
 export function withCfbDefense(rows, logs) {
   const allowed = cfbAllowed(logs);
   const tables = new Map();
+  const board = key => {
+    const values = Object.values(allowed).map(item => item[key]).filter(value => number(value) != null);
+    return values.length >= 6 ? {average: mean(values), values} : null;
+  };
   return rows.map(row => {
     if (row.sport !== 'cfb' || !row.valueKey) return row;
     if (!tables.has(row.valueKey)) tables.set(row.valueKey, cfbAllowTable(allowed, row.valueKey));
     const table = tables.get(row.valueKey);
-    return table ? {...row, allowTable: table} : row;
+    let out = table ? {...row, allowTable: table} : row;
+    const theirs = row.opponent ? allowed[row.opponent] : null;
+    const key = CFB_AGAINST[row.valueKey];
+    const given = key ? board(key) : null;
+    if (theirs && key && given && number(theirs[key]) != null) {
+      // Rank 1 gives up the least, as in the league table.
+      const rank = given.values.filter(value => value < theirs[key]).length + 1;
+      const pass = board('passAttempts'), run = board('rushAttempts');
+      out = {...out, cfbOpponent: {key, value: theirs[key], average: given.average, rank, teams: given.values.length, games: theirs.games,
+        passes: number(theirs.passAttempts), runs: number(theirs.rushAttempts), passAverage: pass?.average ?? null, runAverage: run?.average ?? null}};
+    }
+    return out;
   });
 }
 
