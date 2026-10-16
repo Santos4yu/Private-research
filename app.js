@@ -35,7 +35,6 @@ const API_PRIZEPICKS_EXPORT = "/api/prediction?action=prizepicks-export";
 const researchClient = createResearchClient({ endpoint: API_SOURCE });
 
 const SAVED_KEY = "vortex_saved_prop_ids";
-const LAST_TAB_KEY = "krazy-last-tab";
 const AVATAR_HUES = [168, 262, 24, 200, 330, 48, 140, 300];
 
 // Just names, not data -- every lookup still goes through the live API.
@@ -1351,9 +1350,6 @@ function switchTab(tab, options = {}) {
   const changed = state.currentTab !== tab;
   if (changed) screenScroll.set(state.currentTab, window.scrollY);
   state.currentTab = tab;
-  // The app opens here next time (wireAppNavigation), the way a native app
-  // comes back where it was left.
-  if (tab !== "admin") { try { localStorage.setItem(LAST_TAB_KEY, tab); } catch { /* private mode */ } }
   const screenTitle = document.getElementById("mobile-screen-title");
   if (screenTitle) screenTitle.textContent = SCREEN_TITLES[tab];
   document.title = `${SCREEN_TITLES[tab]} · Ace Props`;
@@ -1420,11 +1416,9 @@ function wireAppNavigation() {
   // Back-compat: a link or bookmark carrying the old #tab hash (or a stray
   // hash left over from before this became path-based routing) still lands
   // on the right screen instead of always falling back to research.
-  // Opened at the bare address (the home-screen icon's start page): the page
-  // that was open last time.
-  let lastTab = "";
-  try { lastTab = localStorage.getItem(LAST_TAB_KEY) || ""; } catch { /* private mode */ }
-  const requestedSlug = location.pathname.slice(1) || location.hash.slice(1) || (lastTab !== "admin" ? lastTab : "");
+  // Opened at the bare address (the home-screen icon's start page): the
+  // Finder, not the page that was open when the app was last closed.
+  const requestedSlug = location.pathname.slice(1) || location.hash.slice(1);
   const requested = Object.hasOwn(SLUG_TO_TAB, requestedSlug) ? SLUG_TO_TAB[requestedSlug] : requestedSlug;
   const initialTab = Object.hasOwn(SCREEN_TITLES, requested) && (!adminOnly(requested) || state.adminUnlocked) ? requested : state.currentTab;
   const url = new URL(location.href);
