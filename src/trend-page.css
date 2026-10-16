@@ -59,7 +59,7 @@ html:root .finder-trend-view[data-trend-tab] .mlb-context-card {
   background: var(--te-card) !important;
   box-shadow: none !important;
   overflow: hidden;
-  animation: tp-rise .45s var(--te-ease) both;
+  animation: tp-rise .45s var(--te-ease) backwards;
 }
 html:root .finder-trend-view[data-trend-tab] :is(.mlb-trend-main, .mlb-finder-context, .mlb-finder-workspace) > .mlb-context-card:nth-of-type(2) { animation-delay: 0.05s; }
 html:root .finder-trend-view[data-trend-tab] :is(.mlb-trend-main, .mlb-finder-context, .mlb-finder-workspace) > .mlb-context-card:nth-of-type(3) { animation-delay: 0.10s; }
@@ -120,6 +120,9 @@ html:root .finder-trend-view[data-trend-tab] :is(.mlb-context-table-wrap, .mlb-p
 html:root .finder-trend-view[data-trend-tab] :is(.mlb-context-table-wrap, .mlb-player-log-scroll) tbody tr:last-child > * { border-bottom: 0 !important; }
 html:root .finder-trend-view[data-trend-tab] :is(.mlb-context-table-wrap, .mlb-player-log-scroll) tbody tr:hover { background: var(--te-raise) !important; }
 html:root .finder-trend-view[data-trend-tab] .mlb-player-log-scroll { scrollbar-color: #2C353B transparent; }
+/* The log's header row sits in a box that only scrolls sideways, so it can
+   never stick; as sticky cells each one was its own layer on every scroll. */
+html:root .finder-trend-view[data-trend-tab] .mlb-player-gamelog thead th { position: static !important; }
 
 /* Switches inside cards: small pills, mint when on. */
 html:root .finder-trend-view[data-trend-tab] :is(.mlb-context-switch, .wnba-depth-teams) { display: flex; flex-wrap: wrap; gap: 6px !important; padding: 0 16px 12px !important; }
@@ -204,7 +207,7 @@ html:root .finder-trend-view[data-trend-tab] .mlb-support-track > div {
   box-shadow: inset 0 2px 0 rgba(255, 255, 255, .22);
   transform-origin: 50% 100%;
   transition: height .35s var(--te-ease);
-  animation: tp-grow .6s var(--te-spring) both;
+  animation: tp-grow .6s var(--te-spring) backwards;
 }
 html:root .finder-trend-view[data-trend-tab] .mlb-support-chart > div:nth-child(2) .mlb-support-track > div { animation-delay: 0.03s; }
 html:root .finder-trend-view[data-trend-tab] .mlb-support-chart > div:nth-child(3) .mlb-support-track > div { animation-delay: 0.06s; }
@@ -243,16 +246,16 @@ html:root .finder-trend-view[data-trend-tab] .nfl-pass-run-bar i {
   border-right: 3px solid var(--te-card) !important;
   background: var(--te-mint) !important;
   transform-origin: 0 50%;
-  animation: tp-fill .8s var(--te-ease) both .1s;
+  animation: tp-fill .8s var(--te-ease) backwards .1s;
 }
-html:root .finder-trend-view[data-trend-tab] .nfl-donut { width: 140px !important; height: 140px !important; animation: tp-turn .7s var(--te-ease) both; }
+html:root .finder-trend-view[data-trend-tab] .nfl-donut { width: 140px !important; height: 140px !important; animation: tp-turn .7s var(--te-ease) backwards; }
 html:root .finder-trend-view[data-trend-tab] .nfl-donut::before { inset: 22px !important; background: var(--te-card) !important; }
 html:root .finder-trend-view[data-trend-tab] .nfl-share-table tr[data-current=true] > * { background: var(--te-on) !important; }
 
 /* ---------------------------------------------------------------- matchup bits */
 
 html:root .finder-trend-view[data-trend-tab] .mlb-win-body { padding: 8px 16px 18px !important; }
-html:root .finder-trend-view[data-trend-tab] .mlb-win-ring { animation: tp-turn .7s var(--te-ease) both; }
+html:root .finder-trend-view[data-trend-tab] .mlb-win-ring { animation: tp-turn .7s var(--te-ease) backwards; }
 html:root .finder-trend-view[data-trend-tab] .mlb-win-ring > span { background: var(--te-card) !important; color: var(--te-faint) !important; font: 700 9.5px/1.4 var(--font-sans) !important; }
 html:root .finder-trend-view[data-trend-tab] .mlb-win-team b { background: var(--te-bg) !important; border-radius: 999px !important; padding: 5px 9px !important; font-family: var(--font-display); }
 html:root .finder-trend-view[data-trend-tab] .nfl-average-section { border-top: 1px solid var(--te-line) !important; }

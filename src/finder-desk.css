@@ -55,7 +55,7 @@
     box-shadow: inset 0 1px rgba(255, 255, 255, .05), 0 6px 18px rgba(0, 0, 0, .2);
     cursor: pointer;
     transition: border-color .2s var(--fc-ease), transform .2s var(--fc-ease), box-shadow .2s var(--fc-ease);
-    animation: fd-rise .45s var(--fc-ease) both;
+    animation: fd-rise .45s var(--fc-ease) backwards;
     filter: none;
   }
   /* A thin team-color edge down the left, the phone card's top edge turned on its side. */

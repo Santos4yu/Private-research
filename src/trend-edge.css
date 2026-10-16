@@ -378,7 +378,7 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-window-menu {
   border: 1px solid var(--te-line);
   border-radius: 16px;
   background: var(--te-card);
-  animation: te-rise .25s var(--te-ease) both;
+  animation: te-rise .25s var(--te-ease) backwards;
 }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-window-menu[hidden] { display: none; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-window-menu header { display: flex; align-items: center; justify-content: space-between; padding: 0 2px 4px; }
@@ -455,22 +455,22 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-market-title { di
 @keyframes te-wait { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart.gl-grow .gl-bar {
-  animation: te-grow .7s var(--te-spring) both;
+  animation: te-grow .7s var(--te-spring) backwards;
   animation-delay: calc(var(--i, 0) * 45ms);
 }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart.gl-grow .gl-val {
-  animation: te-pop .32s ease-out both;
+  animation: te-pop .32s ease-out backwards;
   animation-delay: calc(var(--i, 0) * 45ms + .42s);
 }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart.gl-grow .gl-logo,
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart.gl-grow .gl-date {
-  animation: te-rise .4s var(--te-ease) both;
+  animation: te-rise .4s var(--te-ease) backwards;
   animation-delay: calc(var(--i, 0) * 45ms + .2s);
 }
-html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart.gl-grow .gl-next-bar { animation: te-fade .45s var(--te-ease) both; animation-delay: calc(var(--i, 0) * 45ms + .3s); }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart.gl-grow .gl-next-bar { animation: te-fade .45s var(--te-ease) backwards; animation-delay: calc(var(--i, 0) * 45ms + .3s); }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-next-bar span { display: inline-block; animation: te-wait 2.4s ease-in-out 1.4s 2; }
-html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart.gl-grow .gl-line-tag { animation: te-slide .45s var(--te-ease) .35s both; }
-html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar.gl-rise button { animation: te-rise .4s var(--te-ease) both; animation-delay: calc(var(--i, 0) * 50ms); }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart.gl-grow .gl-line-tag { animation: te-slide .45s var(--te-ease) .35s backwards; }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar.gl-rise button { animation: te-rise .4s var(--te-ease) backwards; animation-delay: calc(var(--i, 0) * 50ms); }
 
 @media (prefers-reduced-motion: reduce) {
   html:root #gamelog-overlay#gamelog-overlay.trend-edge *,
@@ -567,3 +567,52 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field butt
 }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-quotes-slot .fpb-card { height: 48px; min-width: 0; padding: 0 12px; border-radius: 12px; border-color: var(--te-line); background: var(--te-card); }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-quotes-slot .fpb-card > img { width: 24px; height: 24px; }
+
+/* ---------------------------------------------------------------- computers: one bet panel */
+
+/* On a computer the odds, the line and the filters fill one panel across the
+   chart's width instead of sitting in small boxes on the left: the odds on
+   top, then the line control with the line picker stretching to the save
+   star, then the filters sharing the width. Phones keep their layout. */
+@media (min-width: 761px) {
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-quotes-slot:not(:empty) {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 4px 0 0 !important;
+    padding: 12px 14px;
+    border: 1px solid var(--te-line);
+    border-bottom: 0;
+    border-radius: 16px 16px 0 0;
+    background: var(--te-card);
+  }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-quotes-slot:not(:empty)::before {
+    content: "Odds";
+    flex: 0 0 auto;
+    color: var(--te-faint);
+    font: 700 10.5px/1 var(--font-sans);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-quotes-slot .fpb-odds { flex: 1 1 auto; min-width: 0; margin: 0 !important; padding: 0 !important; }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-quotes-slot .fpb-card { height: 46px; background: var(--te-bg); }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-workbench {
+    gap: 10px !important;
+    margin: 0 0 6px !important;
+    padding: 12px 14px 14px !important;
+    border: 1px solid var(--te-line) !important;
+    border-radius: 0 0 16px 16px !important;
+    background: var(--te-card) !important;
+  }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-quotes-slot:empty + .gamelog-workbench { margin-top: 4px !important; border-radius: 16px !important; }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-quotes-slot:not(:empty) + .gamelog-workbench { border-top: 1px solid var(--te-line) !important; }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-toolbar { display: block !important; width: 100% !important; margin: 0 !important; padding: 0 !important; }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-toolbar-row { width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-toolbar-head { flex-wrap: nowrap !important; width: 100% !important; padding: 0 !important; border: 0 !important; background: none !important; }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-lines-select-root { flex: 1 1 auto !important; min-width: 0; max-width: none !important; }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-lines-select-root > *,
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-lines-select-root button { width: 100% !important; max-width: none !important; }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-panel { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px !important; }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field { justify-content: space-between; height: 40px; border-radius: 12px !important; background: var(--te-bg) !important; }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field > div { flex: 0 0 auto; }
+}
