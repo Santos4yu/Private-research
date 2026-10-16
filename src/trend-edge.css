@@ -117,6 +117,11 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart {
 @media (min-width: 681px) {
   html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart { --gl-track-height: 250px; }
 }
+/* On a computer the chart is wide and tall enough that the green turns the
+   whole panel green; there the bars sit on the plain black page. */
+@media (min-width: 761px) {
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart { background: none !important; }
+}
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-y-axis { display: none !important; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart-track {
   display: flex !important;
