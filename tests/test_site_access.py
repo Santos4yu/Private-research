@@ -255,6 +255,33 @@ class SessionPersistenceTests(unittest.TestCase):
    first=accounts.refresh_session('old-refresh');again=accounts.refresh_session('old-refresh')  # the browser never got `first`
   self.assertEqual(again,first);self.assertEqual(first['refresh_token'],'new-refresh')
   self.assertEqual(provider.call_count,1)  # the revoked token was never presented to Supabase again
+ def test_an_old_token_from_hours_ago_leads_to_the_current_session(self):
+  # Three rotations; the browser lost the replies to the last two and comes back with the first token.
+  sessions=[{**_rotated(),'refresh_token':f'refresh-{n}'} for n in (2,3)]
+  with patch.object(accounts,'call',side_effect=sessions) as provider:
+   accounts.refresh_session('refresh-1');accounts.refresh_session('refresh-2')
+   again=accounts.refresh_session('refresh-1')
+  self.assertEqual(again['refresh_token'],'refresh-3');self.assertEqual(provider.call_count,2)
+ def test_a_replay_about_to_expire_is_refreshed_from_the_newest_token(self):
+  stale={'access_token':_jwt(time.time()+60),'refresh_token':'refresh-2','expires_in':3600}
+  self.kv['krazy_data:account_rotated:'+accounts._digest('refresh-1')]=stale
+  with patch.object(accounts,'call',return_value={**_rotated(),'refresh_token':'refresh-3'}) as provider:
+   fresh=accounts.refresh_session('refresh-1')
+  self.assertEqual(fresh['refresh_token'],'refresh-3')
+  self.assertEqual(provider.call_args.args[1],{'refresh_token':'refresh-2'})  # never the rotated-away token
+ def test_a_refresh_already_running_elsewhere_is_waited_for(self):
+  done={**_rotated(),'refresh_token':'theirs'}
+  def finish(key,seconds):
+   self.kv['krazy_data:account_rotated:'+accounts._digest('shared')]=done  # the other instance finishes
+   return False
+  with patch.object(accounts,'_kv_claim',side_effect=finish),patch.object(accounts,'call') as provider,patch.object(accounts.time,'sleep'):
+   self.assertEqual(accounts.refresh_session('shared'),done)
+  provider.assert_not_called()
+ def test_refreshed_but_unconfirmed_is_still_signed_in(self):
+  headers={'Cookie':f'{accounts.REFRESH}=old-refresh'}
+  rotated={k:v for k,v in _rotated().items() if k!='user'}
+  with patch.object(accounts,'call',side_effect=[rotated,accounts.AccountUnavailable('busy')]):ident,jar,pending=accounts.ensure_session(headers)
+  self.assertIsNone(ident);self.assertTrue(pending);self.assertTrue(any(c.startswith(accounts.REFRESH+'=new-refresh') for c in jar))
  def test_session_refreshed_before_it_expires(self):
   headers={'Cookie':f'{accounts.ACCESS}={_jwt(time.time()+60)}; {accounts.REFRESH}=old-refresh; {accounts.REMEMBER}=1'}
   with patch.object(accounts,'call',return_value=_rotated()):ident,jar,pending=accounts.ensure_session(headers)
@@ -300,3 +327,24 @@ class RememberMeRouteTests(unittest.TestCase):
   with patch.object(accounts,'ensure_session',return_value=(dict(USER),['cookie-a','cookie-b'],False)),patch.object(controls,'read',return_value=dict(controls.DEFAULT)),patch.object(request,'_json') as send:
    request.do_GET()
   self.assertEqual(send.call_args.args[2],['cookie-a','cookie-b']);self.assertFalse(send.call_args.args[1]['refreshAvailable'])
+
+
+class AdminSessionTests(unittest.TestCase):
+ """The admin stays in until they sign out: the session renews while in use."""
+ def setUp(self):
+  from v2.board import admin_auth
+  self.auth=admin_auth;self.secret=patch.object(admin_auth,'SESSION_SECRET','test-only-secret');self.secret.start()
+ def tearDown(self):self.secret.stop()
+ def cookie(self,token):return {'Cookie':f'{self.auth.ADMIN_COOKIE_NAME}={token}'}
+ def test_a_session_older_than_an_hour_is_renewed(self):
+  with patch.object(self.auth.time,'time',return_value=time.time()-7200):old=self.auth.create_admin_token()
+  renewed=self.auth.renewal_cookie(self.cookie(old))
+  self.assertTrue(renewed.startswith(self.auth.ADMIN_COOKIE_NAME+'='));self.assertIn(f'Max-Age={self.auth.ADMIN_TTL_SEC}',renewed)
+  self.assertTrue(self.auth.verify_admin_token(renewed.split(';')[0].split('=',1)[1]))
+ def test_a_fresh_session_is_left_alone(self):
+  self.assertIsNone(self.auth.renewal_cookie(self.cookie(self.auth.create_admin_token())))
+ def test_no_or_forged_session_is_never_renewed(self):
+  self.assertIsNone(self.auth.renewal_cookie({}))
+  self.assertIsNone(self.auth.renewal_cookie(self.cookie('forged.token')))
+ def test_lasts_a_month_not_four_hours(self):
+  self.assertGreaterEqual(self.auth.ADMIN_TTL_SEC,30*24*3600)

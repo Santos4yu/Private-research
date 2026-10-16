@@ -340,8 +340,7 @@ class handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header(
             "Set-Cookie",
-            f"{admin_auth.ADMIN_COOKIE_NAME}={token}; Path=/; HttpOnly; Secure; SameSite=Strict; "
-            f"Max-Age={admin_auth.ADMIN_TTL_SEC}",
+            admin_auth.admin_cookie(token),
         )
         self.end_headers()
         self.wfile.write(json.dumps({"ok": True}).encode("utf-8"))

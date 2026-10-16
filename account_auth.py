@@ -25,6 +25,17 @@ Why members were being signed out, and what this module now does about it:
 4. "Remember me" did nothing. It now decides whether the session cookies are
    persistent (kept across browser restarts, sliding 180 days) or end with
    the browser session.
+
+5. Members were still signed out a few times a day. A rotation kept for only
+   ten minutes didn't cover a browser that lost a refresh's reply (phone
+   locked, network switched) and came back later: it presented the old,
+   rotated token, Supabase saw it reused and ended the session. Rotations
+   are now kept for a month and followed link by link, so any token this
+   browser ever held leads to the session's current one. Two refreshes of
+   the same token at once (two server instances) wait for each other
+   instead of racing. A refresh that worked but whose member couldn't be
+   confirmed this instant reports "still checking", not "signed out". And
+   when a session does end, the reason Supabase gave is logged.
 """
 import base64
 import hashlib
@@ -54,8 +65,14 @@ REFRESH_AHEAD_SECONDS=10*60
 # A verified token is trusted without re-asking Supabase for this long.
 # Revoking an account therefore takes effect within five minutes.
 IDENTITY_FRESH_SECONDS=5*60
-# How long the result of a refresh-token rotation is kept for replay.
-ROTATION_GRACE_SECONDS=10*60
+# How long the result of a refresh-token rotation is kept for replay: long
+# enough for a browser that lost a reply to come back days later.
+ROTATION_GRACE_SECONDS=30*24*3600
+# How many rotations a replay may follow to reach the current session.
+ROTATION_HOPS=48
+# A refresh of one token runs once at a time; others wait this long for it.
+REFRESH_LOCK_SECONDS=15
+REFRESH_WAIT_SECONDS=4
 _COOKIE_FLAGS='; Path=/; HttpOnly; Secure; SameSite=Strict'
 
 
@@ -63,7 +80,11 @@ class AccountRejected(ValueError):
     """Supabase gave a verdict: bad credentials, or an invalid/revoked token.
 
     A ValueError subclass, and its message starts with "Account", so the
-    session handler's existing error path reports it exactly as before."""
+    session handler's existing error path reports it exactly as before.
+    `reason` is Supabase's own code (for the logs), never shown to members."""
+    def __init__(self,message,reason=''):
+        super().__init__(message)
+        self.reason=reason
 
 
 class AccountUnavailable(RuntimeError):
@@ -87,7 +108,12 @@ def call(path,body=None,token=None,method=None):
     if response.status_code==429 or response.status_code>=500:
         raise AccountUnavailable('Account service busy')
     if not response.ok:
-        raise AccountRejected('Account request unsuccessful. Check your credentials or email confirmation and try again.')
+        try:
+            body=response.json()
+            reason=str(body.get('error_code') or body.get('error') or body.get('msg') or '')[:80]
+        except Exception:
+            reason=''
+        raise AccountRejected('Account request unsuccessful. Check your credentials or email confirmation and try again.',f'{response.status_code} {reason}'.strip())
     return response.json() if response.content else {}
 
 
@@ -142,6 +168,25 @@ def _kv_setex(key,value,seconds):
         store.pipeline([['SET',key,json.dumps(value),'EX',int(seconds)]],timeout=2)
     except Exception:
         pass
+
+
+def _kv_claim(key,seconds):
+    """True when this call claimed `key` (it wasn't held), else False. With no
+    storage, or storage failing, every caller may go ahead."""
+    store=_kv()
+    if not store:return True
+    try:
+        result=store.pipeline([['SETNX',key,'1'],['EXPIRE',key,int(seconds)]],timeout=2)
+        return result[0].get('result') in (1,True,'1','OK')
+    except Exception:
+        return True
+
+
+def _kv_release(key):
+    store=_kv()
+    if not store:return
+    try:store.pipeline([['DEL',key]],timeout=2)
+    except Exception:pass
 
 
 # token hash -> (verified_at, identity). Shared across instances through KV,
@@ -206,21 +251,56 @@ def identity(headers):
     return identity_for_token(cookies(headers).get(ACCESS))
 
 
+def _rotation(refresh_token):
+    return _kv_get('krazy_data:account_rotated:'+_digest(refresh_token))
+
+
+def _latest_rotation(refresh_token):
+    """The newest session this token was ever rotated into, following each
+    stored rotation in turn (old token -> next -> ... -> current), or None."""
+    found,seen,token=None,set(),refresh_token
+    for _ in range(ROTATION_HOPS):
+        step=_rotation(token)
+        if not (step and step.get('access_token') and step.get('refresh_token')) or step['refresh_token'] in seen:break
+        found=step;seen.add(token);token=step['refresh_token']
+    return found
+
+
+def _usable(session):
+    exp=token_expiry(session.get('access_token','')) if session else None
+    return bool(exp and exp-time.time()>REFRESH_AHEAD_SECONDS)
+
+
 def refresh_session(refresh_token):
     """Exchange a refresh token, safely under Supabase's rotation.
 
-    The outcome of each rotation is kept briefly, keyed by a hash of the OLD
-    token. Presenting that old token again -- a retry after a lost response,
-    or two tabs refreshing at once -- gets the session it was already rotated
-    into, instead of reusing a revoked token."""
-    if not refresh_token:raise AccountRejected('Account session unavailable')
-    key='krazy_data:account_rotated:'+_digest(refresh_token)
-    replay=_kv_get(key)
-    if replay and replay.get('access_token') and replay.get('refresh_token'):return replay
-    data=call('token?grant_type=refresh_token',{'refresh_token':refresh_token})
-    if not data.get('access_token') or not data.get('refresh_token'):raise AccountRejected('Account session unavailable')
-    result={'access_token':data['access_token'],'refresh_token':data['refresh_token'],'expires_in':data.get('expires_in',3600)}
-    _kv_setex(key,result,ROTATION_GRACE_SECONDS)
+    Every rotation is kept for a month, keyed by a hash of the OLD token.
+    Presenting an old token again -- a retry after a lost response, a browser
+    back days later, two tabs refreshing at once -- follows those rotations to
+    the session's current token instead of reusing a revoked one. One refresh
+    of a token runs at a time across server instances; the others wait for
+    its result."""
+    if not refresh_token:raise AccountRejected('Account session unavailable','no refresh token')
+    latest=_latest_rotation(refresh_token)
+    if latest and _usable(latest):return latest
+    # The token to present to Supabase: the newest in the chain, which has
+    # never been rotated (or there would be another link).
+    current=latest['refresh_token'] if latest else refresh_token
+    lock='krazy_data:account_refreshing:'+_digest(current)
+    claimed=_kv_claim(lock,REFRESH_LOCK_SECONDS)
+    if not claimed:
+        deadline=time.time()+REFRESH_WAIT_SECONDS
+        while time.time()<deadline:
+            time.sleep(.25)
+            done=_rotation(current)
+            if done and done.get('access_token') and done.get('refresh_token'):return done
+    try:
+        data=call('token?grant_type=refresh_token',{'refresh_token':current})
+        if not data.get('access_token') or not data.get('refresh_token'):raise AccountRejected('Account session unavailable','no tokens returned')
+        result={'access_token':data['access_token'],'refresh_token':data['refresh_token'],'expires_in':data.get('expires_in',3600)}
+        _kv_setex('krazy_data:account_rotated:'+_digest(current),result,ROTATION_GRACE_SECONDS)
+    finally:
+        if claimed:_kv_release(lock)
     # Seed the verification from the user Supabase just returned, so the very
     # next request does not have to ask again.
     identity=_identity_from_user(data.get('user') or {})
@@ -262,8 +342,12 @@ def ensure_session(headers):
     if refresh and due:
         try:
             data=refresh_session(refresh)
-            return identity_for_token(data['access_token']),session_cookies(data,remembered(headers)),False
-        except AccountRejected:
+            member=identity_for_token(data['access_token'])
+            # Refreshed but not confirmed this instant (Supabase slow): still
+            # signed in, so the page keeps asking instead of signing out.
+            return member,session_cookies(data,remembered(headers)),member is None
+        except AccountRejected as exc:
+            print(f'[account] session ended: refresh rejected ({exc.reason or "no reason given"})',flush=True)
             return None,clear_cookies(),False
         except (RuntimeError,ValueError):
             pass

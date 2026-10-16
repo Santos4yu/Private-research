@@ -67,6 +67,9 @@ class handler(BaseHTTPRequestHandler):
             # it from here, at most every few minutes (site_health.py).
             import site_health
             site_health.light_check()
+            # The admin session slides the same way: renewed while in use.
+            renewed=admin_auth.renewal_cookie(self.headers)
+            if renewed:session_updates=[*session_updates,renewed]
             return self._json(200,{**policy,**viewer,'accountsConfigured':configured() and not policy.get('temporaryPublicAccess',False),'account':account,'refreshAvailable':pending,'isAdmin':admin_auth.is_admin_request(self.headers)},session_updates)
         if action == "account":
             # The member's own profile and synced settings (account_profile.py).

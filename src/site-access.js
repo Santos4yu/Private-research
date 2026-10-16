@@ -373,7 +373,11 @@ function holdBoot(pending){
 }
 async function readStatus(){
  let next=await request('/api/session?action=site-status');
- if(unsettled(next)){try{await request('/api/session',{action:'refresh'});next=await request('/api/session?action=site-status');}catch{}}
+ // A member who was signed in a moment ago and now reads as signed out gets
+ // one more try (a refresh, then the status again) before the page believes
+ // it -- a definite sign-out from the server fails that refresh and stands.
+ const dropped=status?.account&&!next?.account&&!next?.temporaryPublicAccess;
+ if(unsettled(next)||dropped){try{await request('/api/session',{action:'refresh'});next=await request('/api/session?action=site-status');}catch{}}
  return next;
 }
 async function checkSiteAccess(){

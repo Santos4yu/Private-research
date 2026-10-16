@@ -26,7 +26,12 @@ SESSION_SECRET = os.getenv("WEB_SECRET_KEY", "")
 # commit a short admin code to source control.
 ADMIN_PIN = os.getenv("ADMIN_PIN", "")
 ADMIN_COOKIE_NAME = "vortex_v2_admin"
-ADMIN_TTL_SEC = 4 * 3600  # re-enter the PIN every 4 hours
+# The admin stays in until they sign out: the session slides, renewed while
+# the site is in use (renewal_cookie), and only a month untouched ends it.
+# It used to end four hours after the PIN no matter what, which on a site in
+# maintenance mode dropped the admin on the "back shortly" screen mid-use.
+ADMIN_TTL_SEC = 30 * 24 * 3600
+ADMIN_RENEW_AFTER_SEC = 3600  # renew at most once an hour
 
 
 def _sign(payload_b64: str) -> str:
@@ -64,6 +69,34 @@ def verify_admin_token(token: str) -> bool:
     except (ValueError, json.JSONDecodeError):
         return False
     return bool(payload.get("admin")) and payload.get("exp", 0) >= time.time()
+
+
+def admin_cookie(token: str) -> str:
+    return f"{ADMIN_COOKIE_NAME}={token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age={ADMIN_TTL_SEC}"
+
+
+def token_expiry(token: str) -> int:
+    try:
+        payload_b64 = token.rsplit(".", 1)[0]
+        payload = json.loads(base64.urlsafe_b64decode(payload_b64 + "=" * (-len(payload_b64) % 4)))
+        return int(payload.get("exp", 0))
+    except (ValueError, json.JSONDecodeError, AttributeError):
+        return 0
+
+
+def renewal_cookie(headers) -> str | None:
+    """A fresh admin cookie for a valid admin session last renewed over an
+    hour ago, else None. Called from the site's status poll."""
+    cookie_header = headers.get("Cookie", "") or headers.get("cookie", "")
+    token = parse_cookie_header(cookie_header, ADMIN_COOKIE_NAME)
+    if not verify_admin_token(token):
+        return None
+    if token_expiry(token) - time.time() > ADMIN_TTL_SEC - ADMIN_RENEW_AFTER_SEC:
+        return None
+    try:
+        return admin_cookie(create_admin_token())
+    except RuntimeError:
+        return None
 
 
 def parse_cookie_header(cookie_header: str, name: str) -> str:
