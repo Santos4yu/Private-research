@@ -1,12 +1,12 @@
 import './site-access.css';
 import {serviceRequestError} from './storage-retry.js';
 import {accessGranted,needsSubscription,accountControlsVisible,canUseTab,availableTab,canUseSport,canUseFinderSport,canUseSheet,hiddenTabs,ADMIN_TABS,FINDER_SPORTS,CHEAT_SHEETS} from './site-access-core.js';
-import {mountMembersPanel,memberBadge} from './site-members.js';
+import {mountMembersPanel} from './site-members.js';
 import {mountAnnouncePanel} from './site-announce.js';
 import {mountRecordPanel} from './site-record.js';
 import {renderPricing} from './billing.js';
 import {mountSubscribersPanel} from './site-subscribers.js';
-import {accountProfile,saveAccountProfile} from './account-sync.js';
+import {accountProfile} from './account-sync.js';
 import {isOldBrandTheme} from './brand-colors.js';
 import './push-alerts.js';
 import './install-guide.js';
@@ -138,85 +138,17 @@ window.addEventListener('popstate',()=>{
  if(!gate||gate.dataset.kind!=='login'||!status.accountsConfigured)return;
  renderSignedOutView(gate);
 });
+// The account sheet (AccountSheet.jsx): profile, numbers, plan, shortcuts,
+// colors and signing out. Admin access lives behind 3 rapid clicks on the
+// settings gear, not here.
 function accountDialog(){
  if(activeDialog)return;
- const dialog=element('dialog',null,'site-account-dialog');activeDialog=dialog;
- const header=element('header');header.append(element('h2','Your account'),button('×',()=>dialog.close(),'site-dialog-close'));header.lastChild.setAttribute('aria-label','Close account');dialog.append(header);
- // Admin access lives behind 3 rapid clicks on the settings gear now, not
- // here -- this dialog is the member's profile + signing out.
- const account=status?.account;
- const badge=status?.isAdmin&&!account?{key:'admin',label:'Admin'}:status?.badge;
- const signOut=button('Sign out',async()=>{try{await request('/api/session',{action:'sign-out'});location.reload();}catch(error){dialog.append(element('p',error.message));}},account?'site-secondary-button site-profile-signout':'site-primary-button');
- dialog.onclose=()=>{activeDialog=null;window.removeEventListener('vortex:account-profile',fill);dialog.remove();};
- if(!account){
-  const who=element('p','Administrator','site-account-email');if(badge)who.append(' ',memberBadge(badge));
-  dialog.append(who,signOut);document.body.append(dialog);dialog.showModal();return;
- }
- // Name and photo live on the account (account_profile.py), so they show on
- // every device and next to the member's community posts.
- let photo,preview=null;
- const form=element('form',null,'site-profile');
- const avatar=element('span',null,'site-profile-avatar');
- const file=document.createElement('input');file.type='file';file.accept='image/*';file.hidden=true;
- const photoButton=button('',()=>file.click(),'site-profile-photo');photoButton.setAttribute('aria-label','Change profile photo');
- photoButton.append(avatar,element('span','Edit','site-profile-photo-edit'));
- const removePhoto=button('Remove photo',()=>{photo=null;paint();},'site-text-button site-profile-remove');
- const plan=subscriptionSummary();
- const nameInput=document.createElement('input');nameInput.name='displayName';nameInput.maxLength=32;nameInput.autocomplete='nickname';nameInput.placeholder='How you appear in Community';
- const nameLabel=element('label',null,'site-profile-name');nameLabel.append(element('span','Display name'),nameInput);
- const who=element('p',account.email||'','site-account-email site-profile-email');if(badge)who.append(' ',memberBadge(badge));
- const message=element('p',null,'site-profile-status');message.setAttribute('role','status');
- const save=element('button','Save profile','site-primary-button');save.type='submit';
- function paint(){
-  const current=accountProfile();
-  const src=photo===null?null:preview||current?.avatarUrl;
-  avatar.replaceChildren((nameInput.value||current?.name||account.email||'?').trim().slice(0,1).toUpperCase());
-  if(src){const img=document.createElement('img');img.src=src;img.alt='';img.onerror=()=>img.remove();avatar.append(img);}
-  removePhoto.hidden=!src;
- }
- function fill(){
-  const current=accountProfile();
-  nameInput.disabled=save.disabled=!current;
-  if(current&&document.activeElement!==nameInput&&!form.dataset.edited)nameInput.value=current.name||'';
-  if(!current)nameInput.placeholder='Loading your profile…';else nameInput.placeholder='How you appear in Community';
-  paint();
- }
- window.addEventListener('vortex:account-profile',fill);
- nameInput.addEventListener('input',()=>{form.dataset.edited='1';paint();});
- file.addEventListener('change',()=>{
-  const chosen=file.files?.[0];file.value='';if(!chosen)return;
-  if(!chosen.type.startsWith('image/')){message.textContent='Choose an image file.';return;}
-  photo=chosen;if(preview)URL.revokeObjectURL(preview);preview=URL.createObjectURL(chosen);paint();
-  message.textContent='Looks good. Save to use this photo.';
- });
- form.onsubmit=async event=>{
-  event.preventDefault();save.disabled=true;message.textContent='Saving…';
-  try{
-   await saveAccountProfile({name:nameInput.value,...(photo!==undefined?{photo}:{})});
-   photo=undefined;if(preview){URL.revokeObjectURL(preview);preview=null;}delete form.dataset.edited;
-   fill();message.textContent='Saved. Your name and photo show on every device.';
-  }catch(error){message.textContent=error.message;}
-  finally{save.disabled=!accountProfile();}
- };
- const row=element('div',null,'site-profile-row');
- const fields=element('div',null,'site-profile-fields');fields.append(nameLabel,who);
- row.append(photoButton,fields);
- form.append(row,file,removePhoto,message,save);
- dialog.append(form,...(plan?[plan]:[]),element('p','Your slip, colors, presets and background follow this account to every device you sign in on.','site-profile-note'),signOut);
- fill();
- document.body.append(dialog);dialog.showModal();
-}
-// The member's subscription, in their account menu, while paid access is on.
-function subscriptionSummary(){
- if(!status?.paidAccess||!status.account)return null;
- const box=element('div',null,'site-subscription');
- if(status.comped){box.append(element('strong','Ace Props Pro'),element('span','Free access, courtesy of Ace Props.'));return box;}
- const sub=status.subscription;if(!sub)return null;
- const date=Date.parse(sub.renewsAt||'');const when=Number.isFinite(date)?new Date(date).toLocaleDateString([],{month:'short',day:'numeric',year:'numeric'}):'';
- const line=sub.cancelAtPeriodEnd||sub.status==='canceling'?(when?`Cancelled · access until ${when}`:'Cancelled · access until the period ends'):sub.status==='past_due'?'Payment failed · update your card to keep access':sub.status==='trialing'?(when?`Free trial · ends ${when}`:'Free trial'):when?`Active · renews ${when}`:'Active';
- box.append(element('strong','Ace Props Pro'),element('span',line));
- if(sub.manageUrl){const link=element('a','Manage subscription');link.href=sub.manageUrl;link.target='_blank';link.rel='noopener';box.append(link);}
- return box;
+ activeDialog={close:()=>{}};
+ const badge=status?.isAdmin&&!status?.account?{key:'admin',label:'Admin'}:status?.badge;
+ import('./AccountSheet.jsx').then(({openAccountSheet})=>{
+  activeDialog=openAccountSheet({status,badge,onClosed:()=>{activeDialog=null;},
+   signOut:async()=>{await request('/api/session',{action:'sign-out'});location.reload();}});
+ }).catch(()=>{activeDialog=null;});
 }
 // The pricing page: members without a subscription while paid access is on,
 // or the admin previewing it from the admin panel.

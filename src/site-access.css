@@ -277,29 +277,9 @@ html[data-hidden-tabs~="slate"][data-hidden-tabs~="slip"] :is(.lab-tools,.lab-se
  .site-member-actions button{flex:1}
 }
 
-/* Account menu: profile (account_profile.py) */
+/* The account button: the member's photo once they have one (the menu it opens is AccountSheet.jsx). */
 .site-account-trigger{overflow:hidden;padding:0}
 .site-account-trigger img{width:100%;height:100%;object-fit:cover}
-.site-profile{display:flex;flex-direction:column;gap:12px;margin-top:20px}
-.site-profile-row{display:flex;align-items:center;gap:16px}
-.site-profile-photo{position:relative;flex:0 0 76px;width:76px;height:76px;padding:0;border:0;border-radius:50%;background:transparent;cursor:pointer}
-.site-profile-avatar{position:absolute;inset:0;display:grid;place-items:center;overflow:hidden;border-radius:50%;background:var(--theme-accent,#00f58a);color:var(--theme-on-accent,#fff);font:800 28px/1 'Sora',sans-serif}
-.site-profile-avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.site-profile-photo-edit{position:absolute;right:-2px;bottom:-2px;padding:3px 8px;border:2px solid #191f23;border-radius:999px;background:#3a3f41;color:#f4f7f6;font:700 10px/1.2 'Sora',sans-serif}
-.site-profile-photo:hover .site-profile-avatar{filter:brightness(1.08)}
-.site-profile-fields{display:grid;gap:6px;min-width:0;flex:1}
-.site-profile-name{display:grid;gap:6px;font-size:12px;color:#afb5b8}
-.site-profile-name input{box-sizing:border-box;width:100%;min-height:44px;padding:0 12px;border:1px solid #50575a;border-radius:12px;background:#252d33;color:#f4f7f6;font:500 15px 'Sora',sans-serif}
-.site-profile-name input:focus-visible{outline:2px solid var(--theme-accent,#00f58a);outline-offset:1px}
-.site-profile-name input:disabled{opacity:.6}
-.site-account-dialog .site-profile-email{margin:0;font-size:12px}
-.site-profile-remove{align-self:flex-start;min-height:32px;padding:0;border:0;background:none;color:#ff8ea3;font:600 12px 'Sora',sans-serif;cursor:pointer}
-.site-profile-remove[hidden]{display:none}
-.site-profile-status{margin:0;font-size:12px;color:#afb5b8;min-height:0}
-.site-profile-status:empty{display:none}
-.site-profile .site-primary-button{margin:0}
-.site-profile-note{margin:16px 0 12px;font-size:12px;line-height:1.5;color:#90989c}
-.site-profile-signout{margin-bottom:0}
 
 /* Admin panel: Subscribers (src/site-subscribers.js). */
 .site-subscribers-panel{gap:12px}
