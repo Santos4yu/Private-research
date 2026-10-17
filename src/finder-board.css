@@ -5,7 +5,8 @@
 
      computer: star, photo, name and game | the line | DEF | AVG | STRK |
                L5 | L10 | L15 | H2H | SZN, each window a colored box
-     phone:    photo, name and game, the line under them | L5 | L10 | L15
+     phone:    photo, name and game | the line; DEF, AVG and STRK in a strip;
+               the five hit-rate boxes side by side; sort buttons on top
 
    On a computer a player's trends page sits in the same panel, under the
    same bar, in place of the controls and the table. Rules carry
@@ -213,55 +214,106 @@ html:root .unified-finder .finder-table .finder-heat:is([data-tone=good], [data-
 
 /* ------------------------------------------------------------ a phone */
 
+/* A phone gets its own layout with everything a computer shows. Each prop
+   is a block in the one panel: photo, name and game on the left with the
+   line on the right; a strip with the defense's rank, his average and his
+   run; then the five hit-rate boxes side by side, each named inside. The
+   column titles become a row of sort buttons across the top (hit rates
+   first), scrolling sideways. */
 @media (max-width: 760px) {
-  /* Photo, name and game on top, the line under them; L5, L10 and L15 beside both. */
-  html:root .unified-finder { --fb-cols: minmax(0, 1fr) repeat(3, 48px); }
+  html:root .unified-finder { --fb-cols: repeat(15, minmax(0, 1fr)); }
   html:root .unified-finder .finder-board { margin: 4px 12px 10px; border: 1px solid var(--fb-line-2); border-radius: 16px; background: var(--fb-panel); overflow: hidden; }
   html:root .unified-finder .finder-scroll { max-height: none; min-height: 0; overflow: visible; }
-  html:root .unified-finder .finder-table thead { position: static; }
-  html:root .unified-finder .finder-table thead tr { min-height: 34px; padding: 0 10px; column-gap: 4px; }
-  html:root .unified-finder .finder-table th:first-child { padding-left: 4px; }
-  html:root .unified-finder .finder-table th:is(:nth-child(2), :nth-child(3), :nth-child(4), :nth-child(5), :nth-child(9), :nth-child(10)) { display: none; }
-  html:root .unified-finder .finder-table th > button { height: 30px; padding: 0 4px; }
   html:root .unified-finder .finder-table tbody { display: block; }
 
-  html:root .unified-finder .finder-table tbody tr { grid-template-rows: auto auto; column-gap: 4px; min-height: 0; padding: 9px 10px; isolation: auto; }
+  /* Sort buttons. */
+  html:root .unified-finder .finder-table thead { position: static; background: var(--fb-head); }
+  html:root .unified-finder .finder-table thead tr { display: flex; gap: 6px; min-height: 0; padding: 10px 12px; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+  html:root .unified-finder .finder-table thead tr::-webkit-scrollbar { display: none; }
+  html:root .unified-finder .finder-table th { display: block; flex: none; padding: 0 !important; }
+  html:root .unified-finder .finder-table th:nth-child(6) { order: 0; }
+  html:root .unified-finder .finder-table th:nth-child(7) { order: 1; }
+  html:root .unified-finder .finder-table th:nth-child(8) { order: 2; }
+  html:root .unified-finder .finder-table th:nth-child(9) { order: 3; }
+  html:root .unified-finder .finder-table th:nth-child(10) { order: 4; }
+  html:root .unified-finder .finder-table th:nth-child(5) { order: 5; }
+  html:root .unified-finder .finder-table th:nth-child(4) { order: 6; }
+  html:root .unified-finder .finder-table th:nth-child(3) { order: 7; }
+  html:root .unified-finder .finder-table th:nth-child(2) { order: 8; }
+  html:root .unified-finder .finder-table th:nth-child(1) { order: 9; }
+  html:root .unified-finder .finder-table th > button,
+  html:root .unified-finder .finder-table th:is(:first-child, :nth-child(2)) > button { height: 34px; margin: 0; padding: 0 13px; border: 1px solid var(--fb-line-2); border-radius: 999px; background: var(--fb-control); color: var(--fb-muted); font: 700 11.5px/1 var(--font-sans); letter-spacing: .06em; }
+  html:root .unified-finder .finder-table th > button.is-sorted { border-color: rgba(255, 255, 255, .3); background: rgba(255, 255, 255, .1); color: var(--fb-text); }
+
+  /* A prop. */
+  html:root .unified-finder .finder-table tbody tr { grid-template-rows: auto auto auto; column-gap: 0; row-gap: 10px; min-height: 0; padding: 14px 12px; isolation: auto; }
   html:root .unified-finder .finder-table tbody tr:hover { background: none; }
   html:root .unified-finder .finder-table tbody tr:nth-child(even):hover { background: rgba(255, 255, 255, .014); }
   html:root .unified-finder .finder-table tbody tr:active { background: rgba(255, 255, 255, .04); }
-  html:root .unified-finder .finder-table .finder-player-cell { position: static !important; grid-column: 1; grid-row: 1; padding: 0 !important; }
-  html:root .unified-finder .finder-table .finder-player { gap: 10px; }
-  html:root .unified-finder .finder-table .finder-portrait-wrap { flex: 0 0 40px !important; width: 40px; height: 40px; }
-  html:root .unified-finder .finder-table .finder-portrait { width: 40px !important; height: 40px !important; }
-  /* On a phone the star sits on the photo's corner (unified-finder.css),
-     so the team's logo takes the other one. */
-  html:root .unified-finder .finder-table .finder-team { right: auto; bottom: -4px; left: -5px; width: 17px; height: 17px; }
-  html:root .unified-finder .finder-table .finder-open { gap: 3px; padding: 0; }
-  html:root .unified-finder .finder-table .finder-name { font-size: 14px; white-space: nowrap; line-height: 1.2; }
-  html:root .unified-finder .finder-table .finder-game { margin: 0; font-size: 11px; white-space: nowrap; line-height: 1.2; }
-  html:root .unified-finder .finder-table td.finder-line-cell { grid-column: 1; grid-row: 2; display: flex; align-items: center; gap: 7px; min-height: 0; padding: 7px 0 0 50px; border: 0; }
-  html:root .unified-finder .finder-table .finder-market b { font-size: 14px; }
-  html:root .unified-finder .finder-table td:is(:nth-child(3), :nth-child(4), :nth-child(5), :nth-child(9), :nth-child(10)) { display: none; }
-  html:root .unified-finder .finder-table td:nth-child(6) { grid-column: 2; }
-  html:root .unified-finder .finder-table td:nth-child(7) { grid-column: 3; }
-  html:root .unified-finder .finder-table td:nth-child(8) { grid-column: 4; }
-  html:root .unified-finder .finder-table .finder-stat { grid-row: 1 / 3; align-self: stretch; padding: 0; border: 0; }
-  html:root .unified-finder .finder-table .finder-heat { height: 100%; min-height: 50px; border-radius: 10px; }
-  html:root .unified-finder .finder-table .finder-heat strong { font-size: 14px; }
-  html:root .unified-finder .finder-table .finder-heat small { font-size: 9.5px; }
+  html:root .unified-finder .finder-table td { align-self: stretch; border: 0; }
+
+  /* Who, on the left of the top row. */
+  html:root .unified-finder .finder-table .finder-player-cell { position: static !important; grid-column: 1 / 11; grid-row: 1; align-self: center; padding: 0 !important; }
+  html:root .unified-finder .finder-table .finder-player { gap: 11px; }
+  html:root .unified-finder .finder-table .finder-portrait-wrap { flex: 0 0 46px !important; width: 46px; height: 46px; }
+  html:root .unified-finder .finder-table .finder-portrait { width: 46px !important; height: 46px !important; }
+  /* The star sits on the photo's corner (unified-finder.css), so the
+     team's logo takes the other one. */
+  html:root .unified-finder .finder-table .finder-team { right: auto; bottom: -4px; left: -5px; width: 18px; height: 18px; }
+  html:root .unified-finder .finder-table .finder-open { gap: 4px; padding: 0; }
+  html:root .unified-finder .finder-table .finder-name { font-size: 15px; white-space: nowrap; line-height: 1.2; }
+  html:root .unified-finder .finder-table .finder-game { margin: 0; font-size: 11.5px; white-space: nowrap; line-height: 1.2; }
+
+  /* The line, on the right of the top row. */
+  html:root .unified-finder .finder-table td.finder-line-cell { grid-column: 11 / 16; grid-row: 1; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 5px; min-height: 0; padding: 0 0 0 8px; border: 0; text-align: right; }
+  html:root .unified-finder .finder-table .finder-market { justify-content: flex-end; }
+  html:root .unified-finder .finder-table .finder-market b { font-size: 17px; }
+  html:root .unified-finder .finder-table .finder-stat-name { max-width: 100%; font-size: 12px; }
+
+  /* Defense, average and run: one strip, a name over each number. */
+  html:root .unified-finder .finder-table td.finder-num {
+    grid-row: 2;
+    display: block;
+    min-height: 0;
+    padding: 8px 10px !important;
+    background: var(--fb-control) !important;
+    text-align: center;
+    white-space: nowrap;
+  }
+  html:root .unified-finder .finder-table td.finder-num:nth-child(3) { grid-column: 1 / 5; border-radius: 11px 0 0 11px; }
+  html:root .unified-finder .finder-table td.finder-num:nth-child(4) { grid-column: 5 / 12; border-left: 1px solid var(--fb-line); }
+  html:root .unified-finder .finder-table td.finder-num:nth-child(5) { grid-column: 12 / 16; border-left: 1px solid var(--fb-line); border-radius: 0 11px 11px 0; }
+  html:root .unified-finder .finder-table td.finder-num::before { content: attr(data-label); display: block; width: auto; margin: 0 0 5px; padding: 0; background: none; color: var(--fb-faint); font: 700 9.5px/1 var(--font-sans); letter-spacing: .08em; text-transform: uppercase; }
+  html:root .unified-finder .finder-table td.finder-num b { font-size: 15px; }
+  html:root .unified-finder .finder-table td.finder-num small { display: inline; margin-left: 5px; font-size: 11px; }
+  html:root .unified-finder .finder-table td.finder-num .finder-no-data { font-size: 14px; }
+
+  /* The five hit rates, side by side. */
+  html:root .unified-finder .finder-table .finder-stat { grid-row: 3; padding: 0 3px; border: 0; }
+  html:root .unified-finder .finder-table .finder-stat:nth-child(6) { grid-column: 1 / 4; padding-left: 0; }
+  html:root .unified-finder .finder-table .finder-stat:nth-child(7) { grid-column: 4 / 7; }
+  html:root .unified-finder .finder-table .finder-stat:nth-child(8) { grid-column: 7 / 10; }
+  html:root .unified-finder .finder-table .finder-stat:nth-child(9) { grid-column: 10 / 13; }
+  html:root .unified-finder .finder-table .finder-stat:nth-child(10) { grid-column: 13 / 16; padding-right: 0; }
+  html:root .unified-finder .finder-table .finder-heat { gap: 4px; height: 60px; border-radius: 11px; }
+  html:root .unified-finder .finder-table .finder-heat::before { content: attr(data-label); color: var(--fb-muted); font: 700 9.5px/1 var(--font-sans); letter-spacing: .08em; }
+  html:root .unified-finder .finder-table .finder-heat strong { font-size: 15.5px; }
+  html:root .unified-finder .finder-table .finder-heat small { font-size: 10px; }
   html:root .unified-finder .finder-pagination { margin: 0; border: 0; border-top: 1px solid var(--fb-line); border-radius: 0; background: var(--fb-head); }
 }
 
-/* Smaller phones: slimmer boxes and photo, and the position steps out, so the name fits. */
+/* Smaller phones: a slimmer photo and the position steps out, so the name fits. */
 @media (max-width: 389px) {
-  html:root .unified-finder { --fb-cols: minmax(0, 1fr) repeat(3, 44px); }
-  html:root .unified-finder .finder-table .finder-portrait-wrap { flex: 0 0 36px !important; width: 36px; height: 36px; }
-  html:root .unified-finder .finder-table .finder-portrait { width: 36px !important; height: 36px !important; }
+  html:root .unified-finder .finder-table .finder-portrait-wrap { flex: 0 0 40px !important; width: 40px; height: 40px; }
+  html:root .unified-finder .finder-table .finder-portrait { width: 40px !important; height: 40px !important; }
   html:root .unified-finder .finder-table .finder-player { gap: 9px; }
-  html:root .unified-finder .finder-table .finder-name { font-size: 13.5px; }
+  html:root .unified-finder .finder-table .finder-name { font-size: 14px; }
   html:root .unified-finder .finder-table .finder-name em { display: none; }
-  html:root .unified-finder .finder-table td.finder-line-cell { padding-left: 45px; }
-  html:root .unified-finder .finder-table .finder-heat strong { font-size: 13px; }
+  html:root .unified-finder .finder-table .finder-market b { font-size: 15.5px; }
+  html:root .unified-finder .finder-table .finder-stat-name { font-size: 11.5px; }
+  html:root .unified-finder .finder-table td.finder-num { padding: 8px 8px !important; }
+  html:root .unified-finder .finder-table td.finder-num small { font-size: 10.5px; }
+  html:root .unified-finder .finder-table .finder-heat strong { font-size: 14px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
