@@ -287,9 +287,14 @@ export function KrazyBot(){
    node.toggleAttribute('data-keyboard',open);
    page.toggleAttribute('data-bot-typing',open);
    if(open){node.style.setProperty('--kb-vv-top',`${Math.round(viewport.offsetTop)}px`);node.style.setProperty('--kb-vv-h',`${Math.round(viewport.height)}px`);}
+   // iOS can leave the page scrolled once the keys go down, which lifts
+   // everything pinned to the screen (the dock over a black strip). This
+   // page never scrolls as a whole, so while it's showing it goes back to
+   // the top.
+   else if(node.getClientRects().length&&(window.scrollY||page.scrollTop))window.scrollTo(0,0);
   };
   const settle=()=>{fit();setTimeout(fit,320);};
-  const later=()=>setTimeout(fit,60);
+  const later=()=>{setTimeout(fit,60);setTimeout(fit,420);};
   viewport.addEventListener('resize',fit);
   viewport.addEventListener('scroll',fit);
   node.addEventListener('focusin',settle);

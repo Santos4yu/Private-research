@@ -402,7 +402,14 @@ html[data-bot-typing] body .mobile-app-nav{opacity:0!important;visibility:hidden
 }
 @media (max-width:1179px){.ace-starts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:760px){
- .ace-top{min-height:0;padding:calc(env(safe-area-inset-top,0px) + var(--site-status-inset,0px) + 10px) 14px 10px}
+ /* The desk fills the screen from the very top: the header's own colour
+    runs up under the clock and it pads just below it and iOS's glass band
+    (--site-status-inset holds both), so there's no black strip above it
+    and no empty block inside it. One row: the league badges are left to
+    the computer. */
+ .krazy-bot.ace{--kb-top:0px}
+ .ace-top{min-height:0;padding:calc(var(--site-status-inset,0px) + 6px) 14px 10px}
+ .ace-top-leagues{display:none}
  .ace-title{gap:10px}
  .ace-mark{width:36px;height:36px;border-radius:11px}
  .ace-mark img{width:21px;height:21px}
@@ -416,6 +423,7 @@ html[data-bot-typing] body .mobile-app-nav{opacity:0!important;visibility:hidden
  .ace-intro h2{font-size:27px;letter-spacing:-.8px}
  .ace-intro>p:not(.ace-hello){font-size:14px}
  .ace-spot{padding:15px;gap:12px;border-radius:18px}
+ .ace-spot.is-empty{min-height:120px}
  .ace-spot .sa-face{--size:52px}
  .ace-spot-who b{font-size:17px}
  .ace-spot-line>b{font-size:22px}
