@@ -1,8 +1,7 @@
 import {loadLearning} from './learning';
 import {logTopPicks} from './slip-history';
-import React,{useEffect,useMemo,useRef,useState} from 'react';
-import {ArrowUp,ChevronDown,Mic,RotateCcw} from 'lucide-react';
-import MorphOrb from '@/components/ui/ai-thiking-orb-and-input';
+import React,{useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
+import {ArrowUp,Mic,Plus,RotateCcw,Sparkles} from 'lucide-react';
 import {createBot,SPORTS} from './krazy-bot';
 import {BotCard} from './KrazyBotCard';
 import {KrazyBotHome,LOOK_QUESTIONS} from './KrazyBotHome';
@@ -15,24 +14,25 @@ import {siteFinderSportAllowed} from './site-access';
 import {useVoice} from './voice-input';
 import './krazy-bot.css';
 
+// The Ace Assistant: a conversation with the bot (krazy-bot.js), which
+// answers from today's graded picks in the browser, on the lines the Finder
+// already loads. Before the first question, today's board (KrazyBotHome.jsx);
+// then the thread, each answer streaming in with its report card
+// (KrazyBotCard.jsx) under it, and the box to ask the next one at the foot.
+
 // What the bot remembers about this member (krazy-bot.js profile). It
 // follows their account to other devices (account-sync.js SYNCED.bot).
 const MEMORY_KEY='krazy-bot-memory-v1';
-// An answer with data behind it opens a wider card (the trends, the matchup);
-// on a computer wider still, with the report laid out side by side
-// (krazy-bot.css), and plain answers get a little more room too.
-const CARD_WIDTH=440;
-const roomy=room=>room>860;
-const cardWidth=room=>roomy(room)?Math.min(760,room-96):CARD_WIDTH;
-const textWidth=room=>roomy(room)?520:null;
-// Typing on a phone the input moves up under the account buttons (its centre
-// this far from the top), where no keyboard can cover it, whatever the phone
-// does with the page when the keyboard opens.
-const TYPING_TOP=92;
 const memory={
  read(){try{return JSON.parse(localStorage.getItem(MEMORY_KEY)||'null');}catch{return null;}},
  write(value){try{localStorage.setItem(MEMORY_KEY,JSON.stringify(value));}catch{/* private mode */}},
 };
+// However fast the answer is, the thinking shows this long, so it reads.
+const THINK_MS=1300;
+// The answer's words stream in this far apart, all of them within STREAM_MS.
+const WORD_MS=26,STREAM_MS=1500;
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,Math.max(0,ms)));
+
 // Recent line moves, when this member can see them (the Line Moves feed).
 async function recentMoves(){
  const response=await fetch('/api/board?view=moves',{cache:'no-store',credentials:'same-origin'});
@@ -41,20 +41,60 @@ async function recentMoves(){
  return Array.isArray(body.moves)?body.moves:[];
 }
 
-// Ask out loud: the words fill the field as they're heard and the question
+// The assistant's mark: the Ace spade in a ring of light that turns, faster
+// while it thinks.
+export function AceOrb({size='md',thinking=false}){
+ return <span className="ka-orb" data-size={size} data-thinking={thinking||undefined} aria-hidden="true">
+  <span className="ka-orb-ring"/><span className="ka-orb-core"><img src="/brand/ace-props-mark.png" alt="" width="40" height="40"/></span>
+ </span>;
+}
+
+// Ask out loud: the words fill the box as they're heard and the question
 // goes when the speaker stops. Hidden where the browser can't listen.
-function VoiceButton({onWords,onSaid,tabIndex}){
+function VoiceButton({onWords,onSaid,disabled}){
  const voice=useVoice({onWords,onSaid});
  if(!voice.supported)return null;
- return <button type="button" className="kb-mic" data-listening={voice.listening?'':undefined} onClick={voice.listening?voice.stop:voice.start}
-  tabIndex={tabIndex} aria-pressed={voice.listening} aria-label={voice.listening?'Stop listening':'Ask out loud'} title={voice.listening?'Listening…':'Ask out loud'}>
-  {voice.listening?<span className="kb-mic-wave" aria-hidden="true"><i/><i/><i/><i/></span>:<Mic aria-hidden="true"/>}
+ return <button type="button" className="ka-mic" data-listening={voice.listening||undefined} onClick={voice.listening?voice.stop:voice.start} disabled={disabled}
+  aria-pressed={voice.listening} aria-label={voice.listening?'Stop listening':'Ask out loud'} title={voice.listening?'Listening…':'Ask out loud'}>
+  {voice.listening?<span className="ka-wave" aria-hidden="true"><i/><i/><i/><i/></span>:<Mic aria-hidden="true"/>}
  </button>;
 }
 
-// Krazy Bot: the orb chat component, answering from today's graded picks
-// (krazy-bot.js). Everything runs in the browser on the lines the Finder
-// already loads -- no extra server work.
+// What the assistant is doing, one line at a time, while it thinks.
+function Thinking({labels}){
+ const [at,setAt]=useState(0);
+ useEffect(()=>{
+  if(!labels?.length)return undefined;
+  const timer=setInterval(()=>setAt(index=>Math.min(index+1,labels.length-1)),1100);
+  return()=>clearInterval(timer);
+ },[labels]);
+ return <div className="ka-thinking" role="status" aria-live="polite">
+  <span className="ka-thinking-dots" aria-hidden="true"><i/><i/><i/></span>
+  <span key={at} className="ka-thinking-text">{labels?.[at]||'Thinking'}</span>
+  <span className="ka-ghost" aria-hidden="true"><i/><i/><i/></span>
+ </div>;
+}
+
+// One answer: its words stream in, then the report card under it loads in
+// turn (its animations start once the words have landed).
+function Answer({message,onRetry}){
+ const words=useMemo(()=>String(message.text||'').split(/\s+/).filter(Boolean),[message.text]);
+ const gap=words.length>1?Math.min(WORD_MS,STREAM_MS/(words.length-1)):0;
+ const [ready,setReady]=useState(false);
+ useEffect(()=>{
+  if(message.status!=='done')return undefined;
+  const timer=setTimeout(()=>setReady(true),Math.min(STREAM_MS,gap*words.length)+260);
+  return()=>clearTimeout(timer);
+ },[message.status,gap,words.length]);
+ if(message.status==='thinking')return <Thinking labels={message.labels}/>;
+ if(message.status==='error')return <div className="ka-error"><p>That didn't come through. The board may still be loading.</p>
+  <button type="button" onClick={onRetry}><RotateCcw aria-hidden="true"/>Try again</button></div>;
+ return <div className="ka-answer" data-ready={ready||undefined} data-card={message.card?'':undefined}>
+  <p className="ka-text">{words.map((word,index)=><span key={index} style={{'--d':`${Math.round(index*gap)}ms`}}>{word}{' '}</span>)}</p>
+  {message.card&&<div className="ka-card"><BotCard card={message.card}/></div>}
+ </div>;
+}
+
 export function KrazyBot(){
  const sports=useMemo(()=>{const open=Object.keys(SPORTS).filter(sport=>siteFinderSportAllowed(sport));return open.length?open:['mlb'];},[]);
  const bot=useMemo(()=>createBot({
@@ -84,137 +124,21 @@ export function KrazyBot(){
    return response.json();
   },
  }),[sports]);
- const host=useRef(null);
- const queued=useRef(null);
- const measureRef=useRef(()=>{});
- const [phase,setPhase]=useState('idle');
+ const host=useRef(null),scroller=useRef(null),field=useRef(null),lastAsked=useRef(null);
+ const [messages,setMessages]=useState([]);
+ const [busy,setBusy]=useState(false);
+ const [draft,setDraft]=useState('');
+ const [follow,setFollow]=useState([]);
  const [examples,setExamples]=useState(()=>bot.examples());
  // Today's board for the home screen (top plays, quick looks).
  const [today,setToday]=useState(null);
  const [todayFailed,setTodayFailed]=useState(false);
- const refreshToday=()=>bot.today().then(value=>{
+ const refreshToday=useCallback(()=>bot.today().then(value=>{
   setToday(value);setTodayFailed(false);
   // Its top plays go back to be settled and learned from (learning.py).
   logTopPicks((value.graded||[]).map(leg=>({row:leg.row,side:leg.side,grade:leg})),{source:'assistant',limit:30});
- }).catch(()=>setTodayFailed(true));
- const [follow,setFollow]=useState([]);
- const [rich,setRich]=useState(false);
- const [draft,setDraft]=useState('');
+ }).catch(()=>setTodayFailed(true)),[bot]);
 
- // Type a question into the component's own field and send it.
- const send=text=>{
-  const root=host.current?.querySelector('.mo-root');
-  const input=root?.querySelector('.mo-field'),form=root?.querySelector('.mo-input');
-  if(!input||!form)return;
-  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,text);
-  input.dispatchEvent(new Event('input',{bubbles:true}));
-  requestAnimationFrame(()=>form.requestSubmit());
- };
- // Words heard so far, shown in the component's own field without asking yet.
- const typeInto=text=>{
-  const input=host.current?.querySelector('.mo-root .mo-field');
-  if(!input)return;
-  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,text);
-  input.dispatchEvent(new Event('input',{bubbles:true}));
- };
- // From an answer, a tapped follow-up clears it first, then asks.
- const askNow=text=>{
-  const root=host.current?.querySelector('.mo-root');
-  if(!root)return;
-  if(root.dataset.phase==='idle')send(text);
-  else if(root.dataset.phase==='answered'){queued.current=text;root.querySelector('.mo-reset')?.click();}
- };
-
- // The bar under an answer: ask the next question without starting over.
- const askFromBar=event=>{
-  event.preventDefault();
-  const text=draft.trim();
-  if(!text)return;
-  setDraft('');
-  askNow(text);
- };
- // A card taller than the screen: the next part of it, one tap at a time.
- const more=()=>{const answer=host.current?.querySelector('.mo-answer');answer?.scrollBy({top:answer.clientHeight*.7,behavior:'smooth'});};
- const startOver=()=>{const root=host.current?.querySelector('.mo-root');if(root?.dataset.phase==='answered')root.querySelector('.mo-reset')?.click();};
- // Centered in what's visible: beside the desktop rail, whatever its width.
- useEffect(()=>{
-  const shell=document.getElementById('app-shell');
-  const place=()=>{const left=shell?parseFloat(getComputedStyle(shell).paddingLeft)||0:0;host.current?.style.setProperty('--kb-left',`${left}px`);};
-  place();
-  window.addEventListener('resize',place);
-  return()=>window.removeEventListener('resize',place);
- },[]);
- // Typing on a phone: the input moves to the top of the screen with the
- // suggestions under it, and the board and the site's bottom menu step out of
- // the way, so nothing depends on where the keyboard ends. On a tablet the bot
- // is fitted to what's left above the keyboard instead, with the input resting
- // just over the keys (measured against the tallest the screen has been at
- // this width, since some shrink the whole window for the keyboard).
- useEffect(()=>{
-  const viewport=window.visualViewport,node=host.current;
-  if(!node)return undefined;
-  const page=document.documentElement;
-  let full=0,width=0;
-  const fit=()=>{
-   const height=viewport?viewport.height:window.innerHeight;
-   if(window.innerWidth!==width){width=window.innerWidth;full=0;}
-   const field=document.activeElement;
-   const typing=Boolean(field&&node.contains(field)&&field.matches('input,textarea'));
-   if(!typing||height>full)full=Math.max(full,height);
-   // Touch screens only: zooming in on a computer shrinks the viewport too.
-   const touch=window.matchMedia('(pointer: coarse)').matches;
-   const phone=touch&&window.matchMedia('(max-width: 760px)').matches;
-   const up=phone&&typing;
-   const open=!phone&&touch&&typing&&height<full-120;
-   // Typing, iOS scrolls the page under the keyboard: the bot follows the
-   // visible part of the screen so the input never rides up under the clock.
-   if(open||up)node.style.setProperty('--kb-vv-top',`${Math.round(viewport?viewport.offsetTop:0)}px`);
-   if(open)node.style.setProperty('--kb-vv-h',`${Math.round(height)}px`);
-   const moved=open!==node.hasAttribute('data-keyboard')||up!==node.hasAttribute('data-typing');
-   node.toggleAttribute('data-keyboard',open);
-   node.toggleAttribute('data-typing',up);
-   page.toggleAttribute('data-bot-typing',open||up);
-   measureRef.current();
-   // The orb places its input when the window resizes: tell it to look again.
-   if(moved)window.dispatchEvent(new Event('resize'));
-  };
-  const later=()=>setTimeout(fit,60);
-  // The keyboard slides in after the field takes focus: look again once it has.
-  const settle=()=>{fit();setTimeout(fit,320);};
-  fit();
-  viewport?.addEventListener('resize',fit);
-  viewport?.addEventListener('scroll',fit);
-  window.addEventListener('resize',fit);
-  node.addEventListener('focusin',settle);
-  node.addEventListener('focusout',later);
-  // Sent from a phone: the keyboard goes down so the answer has the screen.
-  const sent=event=>{
-   if(!window.matchMedia('(pointer: coarse)').matches)return;
-   const field=event.target.querySelector?.('input');
-   if(field&&document.activeElement===field)field.blur();
-  };
-  node.addEventListener('submit',sent,true);
-  return()=>{
-   viewport?.removeEventListener('resize',fit);viewport?.removeEventListener('scroll',fit);window.removeEventListener('resize',fit);
-   node.removeEventListener('focusin',settle);node.removeEventListener('focusout',later);node.removeEventListener('submit',sent,true);
-   page.removeAttribute('data-bot-typing');
-  };
- },[]);
- // Where the orb's input pill rests, as its distance up from the bottom of
- // the bot's box: typing on a phone, near the top (TYPING_TOP); typing on a
- // tablet, just above the keys (38px); otherwise --mo-pill-bottom in
- // krazy-bot.css, 96px less 54% of the room kept for the site's bottom menu.
- // Measured from the box, not the window: on a phone the box starts below
- // the status bar, and the orb's own window-based spot then sank the pill
- // behind the bottom menu.
- const pillBottom=()=>{
-  const node=host.current;
-  if(!node)return null;
-  if(node.hasAttribute('data-typing'))return (node.querySelector('.mo-root')?.clientHeight||node.clientHeight)-TYPING_TOP;
-  if(node.hasAttribute('data-keyboard'))return 38;
-  const below=Math.max(0,window.innerHeight-node.getBoundingClientRect().bottom);
-  return 96-.54*below;
- };
  // Load the boards when the page is first opened (not on every page load).
  useEffect(()=>{
   const node=host.current;
@@ -223,103 +147,140 @@ export function KrazyBot(){
   const seen=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)){warm();seen.disconnect();}});
   seen.observe(node);
   return()=>seen.disconnect();
- },[bot]);
- // Follow the component's state (data-phase on its root): examples while it
- // waits, follow-ups under an answer, and the answer card sized to its text.
- useEffect(()=>{
-  const root=host.current?.querySelector('.mo-root');
-  const actor=root?.querySelector('.mo-actor'),answer=root?.querySelector('.mo-answer');
-  if(!root||!actor||!answer)return undefined;
-  // The card grows to fit its answer, centred in the open space between the
-  // top of the page and the follow-ups under it, and scrolling inside when
-  // that isn't room enough.
-  const atEnd=()=>answer.toggleAttribute('data-end',answer.scrollTop+answer.clientHeight>=answer.scrollHeight-4);
-  // The answer's own height (the box itself is stretched to the card, so its
-  // scrollHeight never drops when the card's report switches to a shorter tab).
-  const content=()=>{
-   const last=answer.lastElementChild;
-   return last?last.offsetTop+last.offsetHeight+(parseFloat(getComputedStyle(answer).paddingBottom)||0):answer.scrollHeight;
-  };
-  const measure=()=>{
-   const box=host.current.getBoundingClientRect();
-   const follow=host.current.querySelector('.krazy-bot-follow');
-   const floor=(follow?follow.getBoundingClientRect().top-box.top:box.height-130)-12;
-   // Phones keep it under the account and settings buttons up top (while
-   // typing, only as far as they still show above the keyboard).
-   const typing=host.current.hasAttribute('data-keyboard');
-   const ceiling=window.innerWidth>760?12:typing?Math.max(12,64-(window.visualViewport?.offsetTop||0)):64;
-   const room=Math.max(160,floor-ceiling);
-   const full=content();
-   const height=Math.min(full,room);
-   const centre=box.height*.46;
-   const top=ceiling+(room-height)/2;
-   actor.style.setProperty('--ans-h',`${height}px`);
-   // A card taller than the room scrolls; its foot fades until you reach it.
-   answer.toggleAttribute('data-scrolls',full>room+1);
-   atEnd();
-   actor.style.setProperty('--ans-y',`${Math.round(top-(centre-height/2))}px`);
-   root.style.setProperty('--ans-cap',`${room}px`);
-   // Where the card ends, for the "More" button.
-   host.current.style.setProperty('--kb-card-foot',`${Math.round(top+height)}px`);
-  };
-  measureRef.current=measure;
-  const watch=new MutationObserver(()=>{
-   const next=root.dataset.phase;
-   setPhase(next);measure();
-   if(next==='answered')setFollow(bot.suggestions());
-   if(next==='idle'){
-    setExamples(bot.examples());
-    refreshToday();
-    if(queued.current){const text=queued.current;queued.current=null;send(text);}
-   }
-  });
-  watch.observe(root,{attributes:true,attributeFilter:['data-phase']});
-  const words=new MutationObserver(measure);
-  words.observe(answer,{childList:true,subtree:true});
-  window.addEventListener('resize',measure);
-  answer.addEventListener('scroll',atEnd,{passive:true});
-  return()=>{watch.disconnect();words.disconnect();window.removeEventListener('resize',measure);answer.removeEventListener('scroll',atEnd);};
- },[bot]);
- // The follow-ups can wrap to a second row; keep the card clear of them.
- useEffect(()=>{measureRef.current();},[follow]);
- // The answer's text, plus the card of data behind it when there is one.
- const reply=async text=>{
-  const said=await bot.ask(text);
-  const shown=bot.card();
-  setRich(Boolean(shown?.card));
-  const room=host.current?.clientWidth||window.innerWidth;
-  if(shown?.card)return {text:shown.lead||said,extra:<BotCard card={shown.card}/>,width:cardWidth(room)};
-  return textWidth(room)?{text:said,width:textWidth(room)}:said;
- };
+ },[bot,refreshToday]);
 
- const idle=phase==='idle',answered=phase==='answered';
- return <div className="krazy-bot" ref={host}>
-  <MorphOrb onSubmit={reply} thinkingLabels={text=>bot.thinking(text)} minThinkMs={3000} pillBottom={pillBottom}
-   inputAccessory={idle?<VoiceButton onWords={typeInto} onSaid={text=>text&&askNow(text)}/>:null}/>
-  <section className="krazy-bot-home" data-idle={idle?'':undefined} aria-hidden={idle?undefined:true}>
-   <div className="krazy-bot-home-inner">
-    <header className="krazy-bot-head">
-     <span className="krazy-bot-badge">{sports.map(sport=>SPORTS[sport].name).join(' · ')}</span>
-     <h1>Ace Assistant</h1>
-     <p>Ask about today's props: the best plays, matchups, a player or a slip. I remember what you ask.</p>
-    </header>
-    <KrazyBotHome today={today} failed={todayFailed} onAsk={askNow} idle={idle}/>
+ const ask=useCallback(async raw=>{
+  const text=String(raw||'').trim();
+  if(!text||busy)return;
+  const id=`${Date.now()}`;
+  lastAsked.current=`q${id}`;
+  setDraft('');setFollow([]);setBusy(true);
+  setMessages(list=>[...list,{id:`q${id}`,role:'user',text},{id:`a${id}`,role:'bot',status:'thinking',labels:bot.thinking(text),question:text}]);
+  // Sent from a phone: the keyboard goes down so the answer has the screen.
+  if(window.matchMedia('(pointer: coarse)').matches)field.current?.blur();
+  const started=performance.now();
+  let reply;
+  try{
+   const said=await bot.ask(text);
+   const shown=bot.card();
+   reply={status:'done',text:shown?.card?(shown.lead||said):said,card:shown?.card||null};
+  }catch{reply={status:'error'};}
+  await sleep(THINK_MS-(performance.now()-started));
+  setMessages(list=>list.map(message=>message.id===`a${id}`?{...message,...reply}:message));
+  if(reply.status==='done')setFollow(bot.suggestions());
+  setBusy(false);
+ },[bot,busy]);
+
+ const fresh=()=>{if(busy)return;setMessages([]);setFollow([]);setExamples(bot.examples());refreshToday();};
+
+ // A new question rises to the top of the thread, so its answer has the room under it.
+ useLayoutEffect(()=>{
+  const id=lastAsked.current;
+  if(!id)return;
+  lastAsked.current=null;
+  const node=scroller.current?.querySelector(`[data-id="${id}"]`);
+  if(node&&scroller.current)scroller.current.scrollTo({top:node.offsetTop-12,behavior:'smooth'});
+ },[messages]);
+
+ // The box grows with what's typed, up to five lines.
+ useLayoutEffect(()=>{
+  const node=field.current;
+  if(!node)return;
+  node.style.height='';
+  if(draft)node.style.height=`${Math.min(node.scrollHeight,132)}px`;
+ },[draft]);
+ // The room the thread has, so the latest answer can hold the screen under
+ // its question (krazy-bot.css --ka-room).
+ useEffect(()=>{
+  const node=scroller.current;
+  if(!node||typeof ResizeObserver==='undefined')return undefined;
+  const watch=new ResizeObserver(()=>node.style.setProperty('--ka-room',`${node.clientHeight}px`));
+  watch.observe(node);
+  return()=>watch.disconnect();
+ },[]);
+
+ // Typing on a touch screen: the assistant fits what's left above the
+ // keyboard (window.visualViewport), so the box rests just over the keys
+ // and the site's bottom menu steps out of the way.
+ useEffect(()=>{
+  const viewport=window.visualViewport,node=host.current;
+  if(!node||!viewport)return undefined;
+  const page=document.documentElement;
+  const fit=()=>{
+   const touch=window.matchMedia('(pointer: coarse)').matches;
+   const typing=touch&&document.activeElement===field.current;
+   const open=typing&&viewport.height<window.innerHeight-120;
+   node.toggleAttribute('data-keyboard',open);
+   page.toggleAttribute('data-bot-typing',open);
+   if(open){node.style.setProperty('--kb-vv-top',`${Math.round(viewport.offsetTop)}px`);node.style.setProperty('--kb-vv-h',`${Math.round(viewport.height)}px`);}
+  };
+  const settle=()=>{fit();setTimeout(fit,320);};
+  viewport.addEventListener('resize',fit);
+  viewport.addEventListener('scroll',fit);
+  node.addEventListener('focusin',settle);
+  node.addEventListener('focusout',()=>setTimeout(fit,60));
+  return()=>{viewport.removeEventListener('resize',fit);viewport.removeEventListener('scroll',fit);node.removeEventListener('focusin',settle);page.removeAttribute('data-bot-typing');};
+ },[]);
+ // Beside the desktop rail, whatever its width.
+ useEffect(()=>{
+  const shell=document.getElementById('app-shell');
+  const place=()=>{const left=shell?parseFloat(getComputedStyle(shell).paddingLeft)||0:0;host.current?.style.setProperty('--kb-left',`${left}px`);};
+  place();
+  window.addEventListener('resize',place);
+  return()=>window.removeEventListener('resize',place);
+ },[]);
+
+ const submit=event=>{event.preventDefault();ask(draft);};
+ const keys=event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();ask(draft);}};
+ const chatting=messages.length>0;
+ const narrow=typeof window!=='undefined'&&window.matchMedia('(max-width: 760px)').matches;
+ const chips=chatting?follow:examples.filter(text=>!LOOK_QUESTIONS.includes(text));
+
+ return <div className="krazy-bot" ref={host} data-chatting={chatting||undefined}>
+  <header className="ka-top">
+   <div className="ka-brand">
+    <AceOrb size="sm" thinking={busy}/>
+    <div><h1>Ace Assistant</h1>
+     <p>{busy?<span className="ka-live is-busy">Thinking…</span>
+      :today?<span className="ka-live">{today.props.toLocaleString()} props · {today.games} games{today.next?` · next ${today.next}`:''}</span>
+      :<span className="ka-live is-idle">{todayFailed?'Board unavailable right now':'Loading today\'s board…'}</span>}</p></div>
    </div>
-  </section>
-  <div className="krazy-bot-examples" data-idle={idle?'':undefined} aria-label="Example questions">
-   {examples.filter(text=>!LOOK_QUESTIONS.includes(text)).map(text=><button key={text} type="button" tabIndex={idle?0:-1} onClick={()=>askNow(text)}>{text}</button>)}
+   {chatting&&<button type="button" className="ka-new" onClick={fresh} disabled={busy}><Plus aria-hidden="true"/><span>New chat</span></button>}
+  </header>
+
+  <div className="ka-scroll" ref={scroller}>
+   {!chatting?<div className="ka-home">
+    <section className="ka-hero">
+     <AceOrb size="lg"/>
+     <span className="ka-sports">{sports.map(sport=>SPORTS[sport].name).join(' · ')}</span>
+     <h2>What's the play <span>today?</span></h2>
+     <p>Ask about any player, prop, matchup or slip. I grade every pick on today's board and remember what you ask.</p>
+    </section>
+    <KrazyBotHome today={today} failed={todayFailed} onAsk={ask} idle/>
+   </div>
+   :<ol className="ka-thread" aria-label="Conversation">
+    {messages.map(message=>message.role==='user'
+     ?<li key={message.id} data-id={message.id} className="ka-msg is-user"><p>{message.text}</p></li>
+     :<li key={message.id} data-id={message.id} className="ka-msg is-bot" data-status={message.status}>
+      <AceOrb size="xs" thinking={message.status==='thinking'}/>
+      <div className="ka-bubble"><Answer message={message} onRetry={()=>{setMessages(list=>list.filter(item=>item.id!==message.id&&item.id!==message.id.replace(/^a/,'q')));ask(message.question);}}/></div>
+     </li>)}
+   </ol>}
   </div>
-  <div className="krazy-bot-more" data-show={answered?'':undefined} data-after-card={rich?'':undefined}>
-   <button type="button" onClick={more} tabIndex={answered?0:-1}>More<ChevronDown aria-hidden="true"/></button>
-  </div>
-  <form className="krazy-bot-ask" data-show={answered?'':undefined} data-after-card={rich?'':undefined} onSubmit={askFromBar} autoComplete="off">
-   <button type="button" className="krazy-bot-new" onClick={startOver} tabIndex={answered?0:-1} aria-label="New question" title="New question"><RotateCcw aria-hidden="true"/></button>
-   <input value={draft} onChange={event=>setDraft(event.target.value)} maxLength={200} placeholder="Ask a follow-up…" aria-label="Ask a follow-up" enterKeyHint="send" spellCheck={false} autoCorrect="off" tabIndex={answered?0:-1}/>
-   <VoiceButton onWords={setDraft} onSaid={text=>{if(text){setDraft('');askNow(text);}}} tabIndex={answered?0:-1}/>
-   <button type="submit" className="krazy-bot-send" data-ready={draft.trim()?'':undefined} tabIndex={answered?0:-1} aria-label="Send"><ArrowUp aria-hidden="true"/></button>
-  </form>
-  <div className="krazy-bot-follow" data-show={answered&&follow.length?'':undefined} data-after-card={rich?'':undefined} aria-label="Follow-up questions">
-   {follow.map((text,index)=><button key={text} type="button" style={{'--i':index}} tabIndex={answered?0:-1} onClick={()=>askNow(text)}>{text}</button>)}
-  </div>
+
+  <footer className="ka-dock">
+   {chips.length>0&&!busy&&<div className="ka-chips" aria-label={chatting?'Follow-up questions':'Example questions'}>
+    {chips.map((text,index)=><button key={text} type="button" style={{'--i':index}} onClick={()=>ask(text)}><Sparkles aria-hidden="true"/>{text}</button>)}
+   </div>}
+   <form className="ka-composer" onSubmit={submit} autoComplete="off" data-busy={busy||undefined}>
+    <textarea ref={field} rows={1} value={draft} onChange={event=>setDraft(event.target.value)} onKeyDown={keys} maxLength={200}
+     placeholder={chatting?'Ask a follow-up…':narrow?'Ask about any prop…':'Ask about any player, prop or matchup…'} aria-label="Ask the Ace Assistant" enterKeyHint="send" spellCheck={false} autoCorrect="off"/>
+    <VoiceButton onWords={setDraft} onSaid={text=>{if(text)ask(text);}} disabled={busy}/>
+    <button type="submit" className="ka-send" disabled={busy||!draft.trim()} aria-label={busy?'Thinking':'Send'}>
+     {busy?<span className="ka-spin" aria-hidden="true"/>:<ArrowUp aria-hidden="true"/>}
+    </button>
+   </form>
+   <small className="ka-foot">Grades are from today's board and recent games. Not a guarantee. Play responsibly.</small>
+  </footer>
  </div>;
 }
