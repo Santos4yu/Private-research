@@ -2,10 +2,10 @@ import {loadLearning} from './learning';
 import {logTopPicks} from './slip-history';
 import React,{useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {ArrowUp,Check,ChevronRight,Clock3,Flame,Layers,Mic,Plus,RotateCcw,Scale,Search,ShieldCheck,Swords,Target} from 'lucide-react';
+import {LEAGUE_LOGOS} from './league-logos';
 import {createBot,SPORTS} from './krazy-bot';
-import {Face} from './KrazyBotCard';
-import {AceCard} from './AceCards';
-import {TierBadge} from './PickParts';
+import {AceCard,Chance} from './AceCards';
+import {Img,Face as SlipFace,TierBadge} from './PickParts';
 import {loadLines} from './finder-pool';
 import {loadHitterMatchups,withHitterMatchups} from './unified-finder-data';
 import {loadMatchups} from './slip-matchup';
@@ -92,29 +92,74 @@ function Reply({message,onAsk,onRetry}){
  </div>;
 }
 
-// Today's top plays as rows: who, the line, the tier and the chance.
+// A league's logo, or its short name if the logo won't load.
+function LeagueMark({sport}){
+ const [broken,setBroken]=useState(false);
+ return broken||!LEAGUE_LOGOS[sport]?<em className="ace-league-text">{sport.toUpperCase()}</em>
+  :<img src={LEAGUE_LOGOS[sport]} alt="" onError={()=>setBroken(true)}/>;
+}
+
+const TIER_NAMES={elite:'Elite',strong:'Strong',lean:'Lean',risky:'Risky',fade:'Fade'};
+const gameOf=play=>[play.team&&play.opponent?`${play.team} ${play.home===false?'@':'vs'} ${play.opponent}`:play.team,play.time].filter(Boolean).join(' · ');
+const faceRow=play=>play.row||{player:play.player,headshot:play.headshot,sport:play.sport,teamLogo:play.teamLogo};
+
+// Today's top play, up front: who, the line, his chance and his last games.
+function Spotlight({play,onAsk,loading}){
+ if(!play)return <div className="ace-spot is-empty" aria-hidden="true">{!loading&&<p>Today's top play shows here once the board loads.</p>}</div>;
+ const last=play.last||[];
+ const top=Math.max(play.line*1.5,...last.map(game=>game.value),1);
+ const decided=last.filter(game=>game.hit!==null),hits=decided.filter(game=>game.hit).length;
+ return <button type="button" className="ace-spot" data-tier={play.tier||'none'} onClick={()=>onAsk(play.question)}>
+  <Img className="ace-spot-mark" src={play.teamLogo}/>
+  <span className="ace-spot-top"><span className="ace-spot-tag"><Flame size={13} aria-hidden="true"/>Top play right now</span>{play.tier&&<TierBadge tier={play.tier}/>}</span>
+  <span className="ace-spot-head">
+   <SlipFace row={faceRow(play)} tier={play.tier}/>
+   <span className="ace-spot-who"><b>{play.player}</b>
+    <small>{play.team}{play.position&&` · ${play.position}`}{play.opponent&&<span className="ace-spot-vs"> {play.home===false?'@':'vs'} <Img src={play.opponentLogo}/>{play.opponent}</span>}</small>
+    {play.time&&<small>{play.time}</small>}</span>
+   <Chance value={play.chance} tier={play.tier} size={60}/>
+  </span>
+  <span className="ace-spot-line"><em data-side={play.side}>{play.side==='UNDER'?'Less':'More'}</em><b>{figure(play.line)}</b><span>{play.stat}</span></span>
+  {last.length>=3&&<span className="ace-spot-games">
+   <span className="ace-spot-games-head"><small>Last {last.length} games</small><b>{hits}/{decided.length} {play.side==='UNDER'?'under':'over'}</b></span>
+   <span className="ace-spot-bars">{last.map((game,index)=><i key={index} data-hit={game.hit===null?'push':game.hit?'hit':'miss'} style={{'--h':`${Math.max(6,game.value/top*100)}%`,'--i':index}}/>)}
+    <u style={{'--y':`${play.line/top*100}%`}}/></span>
+  </span>}
+  {play.matchup?.text&&<span className="ace-spot-note" data-tone={play.matchup.tone||undefined}><Swords size={13} aria-hidden="true"/>{play.matchup.text}</span>}
+  <span className="ace-spot-go">See the full report<ChevronRight size={15} aria-hidden="true"/></span>
+ </button>;
+}
+
+// Top plays as rows: who, the line, the game and the chance.
 function TopPlays({plays,onAsk,loading,disabled}){
  if(!plays.length)return loading?<ul className="ace-plays" aria-hidden="true">{[0,1,2,3].map(index=><li key={index} className="ace-ghost"/>)}</ul>
   :<p className="ace-empty">No plays to show right now.</p>;
  return <ul className="ace-plays">{plays.map((play,index)=><li key={`${play.player}-${play.stat}-${play.line}`} style={{'--i':index}}>
-  <button type="button" onClick={()=>onAsk(play.question)} disabled={disabled}>
-   <Face src={play.headshot} name={play.player} logo={play.teamLogo} size="md"/>
+  <button type="button" onClick={()=>onAsk(play.question)} disabled={disabled} data-tier={play.tier||'none'}>
+   <SlipFace row={faceRow(play)} tier={play.tier}/>
    <span className="ace-play-main"><b>{play.player}</b>
     <span><em data-side={play.side}>{play.side==='UNDER'?'Less':'More'}</em> {figure(play.line)} {play.short||play.stat}</span>
-    <small>{[play.team&&play.opponent?`${play.team} ${play.home===false?'@':'vs'} ${play.opponent}`:play.team,play.time].filter(Boolean).join(' · ')}</small></span>
-   <span className="ace-play-end">{play.tier&&<TierBadge tier={play.tier}/>}<b>{pct(play.chance)}</b></span>
+    <small>{gameOf(play)}</small></span>
+   <span className="ace-play-end"><Chance value={play.chance} tier={play.tier}/>{play.tier&&<em className="ace-tier-word">{TIER_NAMES[play.tier]}</em>}</span>
   </button>
  </li>)}</ul>;
 }
 
-function Stats({today,failed}){
+// Today's numbers in one strip, and each league's share of the props.
+function Board({today,failed}){
  const leagues=today?.leagues||[];
- return <dl className="ace-stats">
-  <div><dt>Props</dt><dd>{today?today.props.toLocaleString():'—'}</dd></div>
-  <div><dt>Games</dt><dd>{today?today.games:'—'}</dd></div>
-  <div><dt>Next start</dt><dd>{today?(today.next||'—'):failed?'—':'…'}</dd></div>
-  {leagues.length>1&&<div className="ace-stats-leagues"><dt>By league</dt><dd>{leagues.map(item=><span key={item.sport}>{item.name} <b>{item.props.toLocaleString()}</b></span>)}</dd></div>}
- </dl>;
+ const most=Math.max(1,...leagues.map(item=>item.props));
+ return <div className="ace-board">
+  <dl className="ace-stats">
+   <div><dt>Props</dt><dd>{today?today.props.toLocaleString():'—'}</dd></div>
+   <div><dt>Games</dt><dd>{today?today.games:'—'}</dd></div>
+   <div><dt>Next start</dt><dd>{today?(today.next||'—'):failed?'—':'…'}</dd></div>
+  </dl>
+  {leagues.length>0&&<ul className="ace-leagues">{leagues.map(item=><li key={item.sport}>
+   <span className="ace-league-mark"><LeagueMark sport={item.sport}/></span><span>{item.name}</span><b>{item.props.toLocaleString()}</b>
+   <i style={{'--w':`${Math.round(item.props/most*100)}%`}}/>
+  </li>)}</ul>}
+ </div>;
 }
 
 export function KrazyBot(){
@@ -281,8 +326,9 @@ export function KrazyBot(){
 
  return <div className="krazy-bot ace" ref={host} data-chatting={chatting||undefined}>
   <header className="ace-top">
-   <div className="ace-title"><img src={MARK} alt="" width="30" height="30"/>
-    <div><h1>Ace Assistant</h1><p>{sports.map(sport=>SPORTS[sport].name).join(' · ')}</p></div></div>
+   <div className="ace-title"><span className="ace-mark"><img src={MARK} alt="" width="24" height="24"/></span>
+    <div><h1>Ace Assistant</h1>
+     <ul className="ace-top-leagues" aria-label={sports.map(sport=>SPORTS[sport].name).join(', ')}>{sports.map(sport=><li key={sport} title={SPORTS[sport].name}><LeagueMark sport={sport}/></li>)}</ul></div></div>
    <div className="ace-top-end">
     <span className="ace-status" data-state={busy?'busy':today?'live':todayFailed?'down':'idle'}>
      <i aria-hidden="true"/>{busy?'Researching':today?`${today.props.toLocaleString()} props live`:todayFailed?'Board unavailable':'Loading board'}</span>
@@ -294,12 +340,17 @@ export function KrazyBot(){
    <main className="ace-main">
     <div className="ace-scroll" ref={scroller}>
      {!chatting?<div className="ace-welcome">
-      <section className="ace-intro">
-       <p className="ace-hello">{greeting}</p>
-       <h2>What are we looking at today?</h2>
-       <p>Ask about a player, a prop or a slip. I check it against his recent games, the matchup, injuries and the books, and grade it the way the Slip Analyzer does.</p>
+      <section className="ace-hero">
+       <div className="ace-intro">
+        <p className="ace-hello">{greeting}</p>
+        <h2>What are we <span>playing today?</span></h2>
+        <p>Ask about a player, a prop or a slip. I check it against his recent games, the matchup, injuries and the books, and grade it the way the Slip Analyzer does.</p>
+        <p className="ace-live" data-ready={today?'':undefined}><i aria-hidden="true"/>
+         {today?<>{today.props.toLocaleString()} props<em>·</em>{today.games} games{today.next&&<><em>·</em>next start {today.next}</>}</>
+          :todayFailed?'Today\'s board is unavailable right now':'Loading today\'s board'}</p>
+       </div>
+       <Spotlight play={plays[0]} onAsk={ask} loading={!today&&!todayFailed}/>
       </section>
-      <section className="ace-welcome-stats"><Stats today={today} failed={todayFailed}/></section>
       <section>
        <h3>Start with</h3>
        <div className="ace-starts">{starts.map(({icon:Icon,title,text,go},index)=><button key={title} type="button" style={{'--i':index}} onClick={go}>
@@ -307,13 +358,13 @@ export function KrazyBot(){
         <ChevronRight size={16} className="ace-start-go" aria-hidden="true"/>
        </button>)}</div>
       </section>
-      <section className="ace-welcome-plays"><h3>Top plays right now</h3><TopPlays plays={plays} onAsk={ask} loading={!today&&!todayFailed}/></section>
+      {(plays.length>1||!today)&&<section className="ace-welcome-plays"><h3>More top plays</h3><TopPlays plays={plays.slice(1)} onAsk={ask} loading={!today&&!todayFailed}/></section>}
      </div>
      :<ol className="ace-thread" aria-label="Conversation">
       {messages.map(message=>message.role==='user'
        ?<li key={message.id} data-id={message.id} className="ace-msg is-user"><p>{message.text}</p></li>
        :<li key={message.id} data-id={message.id} className="ace-msg is-bot" data-status={message.status}>
-        <div className="ace-from"><img src={MARK} alt="" width="18" height="18"/><b>Ace</b>{message.status==='done'&&<time>{clock(message.at)}</time>}</div>
+        <div className="ace-from"><span className="ace-mark is-small"><img src={MARK} alt="" width="14" height="14"/></span><b>Ace</b>{message.status==='done'&&<time>{clock(message.at)}</time>}</div>
         <Reply message={message} onAsk={ask} onRetry={()=>retry(message)}/>
        </li>)}
      </ol>}
@@ -335,7 +386,7 @@ export function KrazyBot(){
    </main>
 
    <aside className="ace-side" aria-label="Today's board">
-    <section><h3>Today's board</h3><Stats today={today} failed={todayFailed}/></section>
+    <section><h3>Today's board</h3><Board today={today} failed={todayFailed}/></section>
     <section><h3>Top plays</h3><TopPlays plays={plays} onAsk={ask} loading={!today&&!todayFailed} disabled={busy}/></section>
     {recent.length>0&&<section><h3>You asked</h3><ul className="ace-recent">{recent.map(text=><li key={text}>
      <button type="button" onClick={()=>ask(text)} disabled={busy}><Clock3 size={14} aria-hidden="true"/><span>{text}</span></button></li>)}</ul></section>}

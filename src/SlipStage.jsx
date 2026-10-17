@@ -59,7 +59,7 @@ export function SlipStage({sports,names,onFile,onPaste}){
      <div className="sa-demo-grade">
       <svg viewBox="0 0 120 120"><defs><linearGradient id="sa-demo-ring" x1="0" y1="0" x2="1" y2="1">
        <stop offset="0" stopColor="var(--a-accent)"/><stop offset="1" stopColor="#3fd0ff"/></linearGradient></defs>
-       <circle cx="60" cy="60" r="50" className="sa-demo-track"/><circle cx="60" cy="60" r="50" className="sa-demo-arc" stroke="url(#sa-demo-ring)"/></svg>
+       <circle cx="60" cy="60" r="41" className="sa-demo-disc"/><circle cx="60" cy="60" r="50" className="sa-demo-track"/><circle cx="60" cy="60" r="50" className="sa-demo-arc" stroke="url(#sa-demo-ring)"/></svg>
       <div className="sa-demo-letter"><b>A-</b><small>Slip grade</small></div>
      </div>
      <ul className="sa-demo-picks">{EXAMPLE.map((pick,index)=><li key={pick.name} style={{'--i':index}}>

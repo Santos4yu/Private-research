@@ -1,23 +1,28 @@
-/* The Ace Assistant (KrazyBot.jsx, AceCards.jsx): a research desk. Solid
-   panels with plain borders, one accent for what you can tap, and the
-   Slip Analyzer's parts for a pick. On a computer the conversation and
-   today's board sit side by side; on a phone it's one column, with the box
-   to ask fitted over the keys. */
+/* The Ace Assistant (KrazyBot.jsx, AceCards.jsx): a research desk. Deep
+   charcoal surfaces with a little depth, colour where it means something
+   (a tier, a hit or a miss, a kind of question) and the Slip Analyzer's
+   parts for a pick. On a computer the conversation and today's board sit
+   side by side; on a phone it's one column, the box to ask over the keys. */
 #panel-bot.tab-panel{max-width:none;padding:0;animation:none!important;transform:none!important}
 #panel-bot.tab-panel::before{display:none}
 body:has(#panel-bot:not([hidden])) .site-footer{display:none}
 html:has(#panel-bot:not([hidden])),body:has(#panel-bot:not([hidden])){overflow:hidden}
 
-.ace{--ace-bg:#0b0e10;--ace-side:#0e1214;--ace-panel:#121619;--ace-raised:#171c20;--ace-line:#222a2f;--ace-line-2:#2c353b;
- --ace-text:#eef2f1;--ace-muted:#97a1a5;--ace-faint:#687277;--ace-accent:var(--theme-accent,#00f58a);--ace-on-accent:var(--theme-on-accent,#03140B);
- --ace-up:#46e39a;--ace-down:#ff7b8a;--ace-gold:#f6b955;
+.ace{--ace-bg:#0a0d0f;--ace-side:#0d1113;--ace-panel:#12171a;--ace-raised:#171d21;--ace-line:#20282d;--ace-line-2:#2b343a;
+ --ace-text:#eef2f1;--ace-muted:#98a2a6;--ace-faint:#6a7479;--ace-accent:var(--theme-accent,#00f58a);--ace-on-accent:var(--theme-on-accent,#03140B);
+ --ace-up:#46e39a;--ace-down:#ff7b8a;--ace-gold:#f6b955;--ace-cyan:#3fd0ff;--ace-display:'Sora',var(--font-sans,Inter,Arial,sans-serif);
+ --ace-card:linear-gradient(180deg,#151b1e,#101417);--ace-lift:0 18px 40px rgba(0,0,0,.32),inset 0 1px 0 rgba(255,255,255,.045);
  position:fixed;top:var(--kb-top,0px);right:0;bottom:var(--kb-bottom,0px);left:var(--kb-left,0px);z-index:1;display:flex;flex-direction:column;overflow:hidden;
- background:var(--ace-bg);color:var(--ace-text);font:400 14px/1.45 var(--font-sans,Inter,Arial,sans-serif);color-scheme:dark}
+ background:linear-gradient(180deg,#0d1113 0%,var(--ace-bg) 340px);color:var(--ace-text);font:400 14px/1.45 var(--font-sans,Inter,Arial,sans-serif);color-scheme:dark}
 :where(.ace) *{box-sizing:border-box}
 :where(.ace) :where(h1,h2,h3,h4,p,ol,ul,dl,dd){margin:0}
 :where(.ace) :where(ol,ul){padding:0;list-style:none}
 :where(.ace) :where(button){font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
 .ace button:focus-visible{outline:2px solid color-mix(in srgb,var(--ace-accent) 75%,#fff);outline-offset:2px}
+/* The Slip Analyzer's tier colours, for rings, faces and badges. */
+.ace [data-tier]{--tier:#61696d}
+.ace [data-tier=elite]{--tier:#46e39a}.ace [data-tier=strong]{--tier:#3cc9b9}.ace [data-tier=lean]{--tier:#aeb5b8}
+.ace [data-tier=risky]{--tier:#f6b955}.ace [data-tier=fade]{--tier:#ff7b8a}
 @media (max-width:760px){.ace{--kb-bottom:calc(68px + env(safe-area-inset-bottom,0px))}}
 @media (min-width:761px){.ace{--kb-left:64px}}
 /* Typing on a touch screen: fitted to what's left above the keyboard, and
@@ -27,53 +32,83 @@ html:has(#panel-bot:not([hidden])),body:has(#panel-bot:not([hidden])){overflow:h
 html[data-bot-typing] body .mobile-app-nav{opacity:0!important;visibility:hidden!important;pointer-events:none!important;transition:none!important}
 
 /* ── The header ──────────────────────────────────────────────────────── */
-.ace-top{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:64px;padding:12px 24px;border-bottom:1px solid var(--ace-line);background:var(--ace-bg)}
+.ace-top{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:66px;padding:12px 24px;border-bottom:1px solid var(--ace-line);
+ background:linear-gradient(180deg,#121719,#0e1214)}
 .ace-title{display:flex;align-items:center;gap:12px;min-width:0}
-.ace-title>img{flex:none;width:30px;height:30px;object-fit:contain}
-.ace-title h1{font:800 17px/1.15 'Sora',var(--font-sans,Inter,Arial,sans-serif);letter-spacing:-.2px;color:var(--ace-text)}
-.ace-title p{margin-top:2px;overflow:hidden;color:var(--ace-faint);font-size:12px;font-weight:600;white-space:nowrap;text-overflow:ellipsis}
+.ace-mark{flex:none;display:grid;place-items:center;width:40px;height:40px;border:1px solid var(--ace-line-2);border-radius:12px;
+ background:linear-gradient(160deg,#1c2428,#111619);box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.ace-mark img{width:24px;height:24px;object-fit:contain}
+.ace-mark.is-small{width:26px;height:26px;border-radius:8px}
+.ace-mark.is-small img{width:15px;height:15px}
+.ace-title h1{font:800 17px/1.15 var(--ace-display);letter-spacing:-.2px;color:var(--ace-text)}
+.ace-top-leagues{display:flex;gap:5px;margin-top:5px}
+.ace-top-leagues li{display:grid;place-items:center;height:20px;min-width:20px;padding:0 3px;border-radius:6px;background:rgba(255,255,255,.05)}
+.ace-top-leagues img{width:14px;height:14px;object-fit:contain}
+.ace-league-text{color:var(--ace-muted);font:800 9px/1 var(--font-sans,Inter,Arial,sans-serif);font-style:normal;letter-spacing:.03em}
 .ace-top-end{display:flex;align-items:center;gap:10px;flex:none}
-.ace-status{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 12px;border:1px solid var(--ace-line);border-radius:8px;background:var(--ace-panel);
+.ace-status{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 13px;border:1px solid var(--ace-line);border-radius:999px;background:rgba(255,255,255,.03);
  color:var(--ace-muted);font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
 .ace-status i{width:7px;height:7px;border-radius:50%;background:var(--ace-faint)}
-.ace-status[data-state=live] i{background:var(--ace-up)}
+.ace-status[data-state=live] i{background:var(--ace-up);box-shadow:0 0 0 3px color-mix(in srgb,var(--ace-up) 18%,transparent)}
 .ace-status[data-state=busy] i{background:var(--ace-gold);animation:ace-blink 1s ease-in-out infinite}
 .ace-status[data-state=down] i{background:var(--ace-down)}
-.ace-new{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px;border:1px solid var(--ace-line-2);border-radius:8px;background:var(--ace-raised);
+.ace-new{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px;border:1px solid var(--ace-line-2);border-radius:999px;background:var(--ace-raised);
  color:var(--ace-text);font-size:13px;font-weight:700;cursor:pointer;transition:border-color .15s,background .15s}
 .ace-new:hover:not(:disabled){border-color:color-mix(in srgb,var(--ace-accent) 50%,var(--ace-line-2));background:#1b2125}
 .ace-new:disabled{opacity:.5;cursor:default}
 
 /* ── The desk: the conversation, and today's board beside it ────────── */
 .ace-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr)}
-@media (min-width:1180px){.ace-body{grid-template-columns:minmax(0,1fr) 340px}}
+@media (min-width:1180px){.ace-body{grid-template-columns:minmax(0,1fr) 350px}}
+@media (min-width:1700px){.ace-body{grid-template-columns:minmax(0,1fr) 380px}}
 .ace-main{display:flex;flex-direction:column;min-width:0;min-height:0}
 .ace-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#2a3237 transparent}
-.ace-scroll>*,.ace-dock>*{width:100%;max-width:920px;margin-inline:auto}
+.ace-scroll>*,.ace-dock>*{width:100%;max-width:980px;margin-inline:auto}
+@media (min-width:1700px){.ace-scroll>*,.ace-dock>*{max-width:1120px}}
 
 .ace-side{display:none}
 @media (min-width:1180px){
- .ace-side{display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:22px;min-width:0;min-height:0;overflow-y:auto;padding:20px 18px 24px;border-left:1px solid var(--ace-line);background:var(--ace-side);scrollbar-width:thin;scrollbar-color:#2a3237 transparent}
- /* The board's numbers and plays are in the side panel here. */
- .ace-welcome-stats,.ace-welcome-plays{display:none}
+ .ace-side{display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:24px;min-width:0;min-height:0;overflow-y:auto;padding:22px 20px 26px;
+  border-left:1px solid var(--ace-line);background:linear-gradient(180deg,#101416,var(--ace-side) 260px);scrollbar-width:thin;scrollbar-color:#2a3237 transparent}
+ /* The rest of the top plays are in the side panel here. */
+ .ace-welcome-plays{display:none}
 }
-:is(.ace-side,.ace-welcome) h3{margin:0 0 10px;color:var(--ace-faint);font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase}
+:is(.ace-side,.ace-welcome) h3{display:flex;align-items:center;gap:8px;margin:0 0 12px;color:var(--ace-muted);font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+:is(.ace-side,.ace-welcome) h3::after{content:"";flex:1;height:1px;background:var(--ace-line)}
 
-/* Today's numbers. */
-.ace-stats{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,.85fr) minmax(0,1.3fr);gap:8px}
-.ace-stats>div{display:grid;gap:3px;min-width:0;padding:10px 12px;border:1px solid var(--ace-line);border-radius:10px;background:var(--ace-panel)}
+/* Today's numbers in one strip, and each league's share. */
+.ace-board{display:grid;gap:14px;padding:14px;border:1px solid var(--ace-line);border-radius:16px;background:var(--ace-card);box-shadow:var(--ace-lift)}
+.ace-stats{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,.8fr) minmax(0,1.3fr)}
+.ace-stats>div{display:grid;gap:4px;min-width:0;padding:0 12px}
+.ace-stats>div:first-child{padding-left:2px}
+.ace-stats>div+div{border-left:1px solid var(--ace-line)}
 .ace-stats dt{color:var(--ace-faint);font-size:11px;font-weight:700}
-.ace-stats dd{overflow:hidden;font:800 18px/1.1 'Sora',var(--font-sans,Inter,Arial,sans-serif);font-variant-numeric:tabular-nums;white-space:nowrap;text-overflow:ellipsis}
-.ace-stats .ace-stats-leagues{grid-column:1/-1}
-.ace-stats-leagues dd{display:flex;flex-wrap:wrap;gap:4px 14px;font:600 12.5px/1.3 var(--font-sans,Inter,Arial,sans-serif);color:var(--ace-muted);white-space:normal}
-.ace-stats-leagues b{color:var(--ace-text);font-variant-numeric:tabular-nums}
+.ace-stats dd{overflow:hidden;font:800 19px/1.1 var(--ace-display);font-variant-numeric:tabular-nums;white-space:nowrap;text-overflow:ellipsis}
+.ace-leagues{display:grid;gap:9px;padding-top:12px;border-top:1px solid var(--ace-line)}
+.ace-leagues li{display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:center;gap:4px 10px;font-size:12.5px;font-weight:600;color:var(--ace-muted)}
+.ace-leagues b{color:var(--ace-text);font-variant-numeric:tabular-nums}
+.ace-leagues i{grid-column:2/-1;height:4px;border-radius:4px;background:rgba(255,255,255,.06);position:relative;overflow:hidden}
+.ace-leagues i::before{content:"";position:absolute;inset:0 auto 0 0;width:var(--w);border-radius:inherit;background:linear-gradient(90deg,color-mix(in srgb,var(--ace-accent) 55%,#1b6b52),var(--ace-accent));
+ animation:ace-grow .9s cubic-bezier(.2,.8,.2,1) .2s both;transform-origin:left}
+.ace-league-mark{grid-row:span 2;display:grid;place-items:center;width:24px;height:24px;border-radius:7px;background:rgba(255,255,255,.05)}
+.ace-league-mark img{width:16px;height:16px;object-fit:contain}
 
-/* Top plays: a row each. */
+/* The chance a pick hits: a ring in its tier's colour. */
+.ace-chance{position:relative;flex:none;display:grid;place-items:center;width:var(--s);height:var(--s)}
+.ace-chance svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.ace-chance-track{fill:none;stroke:rgba(255,255,255,.08);stroke-width:4}
+.ace-chance-arc{fill:none;stroke:var(--tier);stroke-width:4;stroke-linecap:round;animation:ace-arc 1.1s cubic-bezier(.2,.8,.2,1) .15s both}
+.ace-chance b{font:800 calc(var(--s) * .28)/1 var(--ace-display);font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+.ace-chance b small{font-size:.62em;color:var(--ace-muted)}
+
+/* Top plays: a row each, the face ringed in the pick's tier. */
 .ace-plays{display:grid;gap:8px}
-.ace-plays button{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:11px;width:100%;padding:10px 12px;border:1px solid var(--ace-line);border-radius:12px;
- background:var(--ace-panel);text-align:left;cursor:pointer;transition:border-color .15s,background .15s}
-.ace-plays button:hover:not(:disabled){border-color:var(--ace-line-2);background:var(--ace-raised)}
+.ace-plays button{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;width:100%;padding:11px 12px;
+ border:1px solid var(--ace-line);border-radius:16px;background:var(--ace-card);box-shadow:inset 0 1px 0 rgba(255,255,255,.035);text-align:left;cursor:pointer;
+ transition:border-color .15s,transform .15s}
+.ace-plays button:hover:not(:disabled){border-color:color-mix(in srgb,var(--tier) 40%,var(--ace-line));transform:translateY(-1px)}
 .ace-plays button:disabled{cursor:default}
+.ace-plays .sa-face{--size:44px}
 .ace-plays li{animation:ace-in .35s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 50ms)}
 .ace-play-main{display:grid;gap:2px;min-width:0}
 .ace-play-main>*{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
@@ -83,96 +118,159 @@ html[data-bot-typing] body .mobile-app-nav{opacity:0!important;visibility:hidden
 .ace em[data-side]{font-style:normal;font-weight:800}
 .ace em[data-side=OVER]{color:var(--ace-up)}
 .ace em[data-side=UNDER]{color:var(--ace-down)}
-.ace-play-end{display:grid;justify-items:end;gap:5px}
-.ace-play-end b{font:800 15px/1 'Sora',var(--font-sans,Inter,Arial,sans-serif);font-variant-numeric:tabular-nums}
-.ace .ace-play-end .sa-tier,.ace .ace-row-end .sa-tier{padding:4px 7px;font-size:9.5px;gap:4px;animation:none}
-.ace .ace-play-end .sa-tier svg,.ace .ace-row-end .sa-tier svg{width:11px;height:11px}
-.ace-ghost{height:62px;border:1px solid var(--ace-line);border-radius:12px;background:linear-gradient(100deg,var(--ace-panel) 30%,#182024 50%,var(--ace-panel) 70%) 0 0/250% 100%;animation:ace-ghost 1.4s linear infinite}
-.ace-empty{padding:14px;border:1px dashed var(--ace-line-2);border-radius:12px;color:var(--ace-faint);font-size:13px;text-align:center}
+.ace-play-end{display:grid;justify-items:center;gap:3px}
+.ace-tier-word{color:var(--tier);font:800 9.5px/1 var(--font-sans,Inter,Arial,sans-serif);font-style:normal;letter-spacing:.08em;text-transform:uppercase}
+.ace-play-end .ace-tier-word{color:inherit}
+.ace-plays button[data-tier] .ace-tier-word{color:var(--tier)}
+.ace .ace-row-end .sa-tier{padding:4px 7px;font-size:9.5px;gap:4px;animation:none}
+.ace .ace-row-end .sa-tier svg{width:11px;height:11px}
+.ace-ghost{height:68px;border:1px solid var(--ace-line);border-radius:16px;background:linear-gradient(100deg,var(--ace-panel) 30%,#182024 50%,var(--ace-panel) 70%) 0 0/250% 100%;animation:ace-ghost 1.4s linear infinite}
+.ace-empty{padding:14px;border:1px dashed var(--ace-line-2);border-radius:14px;color:var(--ace-faint);font-size:13px;text-align:center}
 
 /* What they asked before. */
 .ace-recent{display:grid;gap:2px}
-.ace-recent button{display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;border:0;border-radius:8px;background:none;color:var(--ace-muted);font-size:13px;text-align:left;cursor:pointer}
-.ace-recent button:hover:not(:disabled){background:var(--ace-panel);color:var(--ace-text)}
+.ace-recent button{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:0;border-radius:10px;background:none;color:var(--ace-muted);font-size:13px;text-align:left;cursor:pointer}
+.ace-recent button:hover:not(:disabled){background:rgba(255,255,255,.04);color:var(--ace-text)}
 .ace-recent svg{flex:none;color:var(--ace-faint)}
 .ace-recent span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 
 /* ── Before the first question ───────────────────────────────────────── */
-.ace-welcome{display:grid;gap:26px;padding:34px 28px 28px}
-.ace-intro{display:grid;gap:8px;animation:ace-in .4s cubic-bezier(.2,.8,.2,1) both}
+.ace-welcome{display:grid;gap:28px;padding:28px 28px 30px}
+/* The opening: hello and what it does, beside today's top play. */
+.ace-hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,400px);align-items:center;gap:28px;padding:28px;border:1px solid rgba(255,255,255,.07);border-radius:24px;
+ background:
+  radial-gradient(60% 90% at 0% 0%,color-mix(in srgb,var(--ace-accent) 10%,transparent),transparent 62%),
+  radial-gradient(50% 80% at 100% 100%,color-mix(in srgb,var(--ace-cyan) 6%,transparent),transparent 65%),
+  linear-gradient(180deg,#141a1d,#0e1215);
+ box-shadow:0 24px 60px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.06);animation:ace-in .45s cubic-bezier(.2,.8,.2,1) both}
+.ace-intro{display:grid;gap:10px;min-width:0}
 .ace-hello{color:var(--ace-accent);font-size:13px;font-weight:700}
-.ace-intro h2{font:800 30px/1.15 'Sora',var(--font-sans,Inter,Arial,sans-serif);letter-spacing:-.7px;color:var(--ace-text)}
-.ace-intro>p:last-child{max-width:640px;color:var(--ace-muted);font-size:15px;line-height:1.55}
-.ace-starts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-.ace-starts button{--hue:#46e39a;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;min-height:74px;padding:14px;border:1px solid var(--ace-line);border-radius:12px;
- background:var(--ace-panel);text-align:left;cursor:pointer;transition:border-color .15s,background .15s;animation:ace-in .4s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 45ms + 80ms)}
+.ace-intro h2{font:800 36px/1.08 var(--ace-display);letter-spacing:-1.2px;color:#fff}
+.ace-intro h2 span{color:var(--ace-accent)}
+.ace-intro>p:not(.ace-hello){max-width:520px;color:#b4bdc0;font-size:15px;line-height:1.6}
+.ace-intro>p.ace-live{display:inline-flex;align-items:center;flex-wrap:wrap;gap:6px;justify-self:start;margin-top:6px;padding:8px 13px;border:1px solid rgba(255,255,255,.08);border-radius:999px;
+ background:rgba(255,255,255,.03);color:var(--ace-text);font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums}
+.ace-live i{width:7px;height:7px;border-radius:50%;background:var(--ace-faint)}
+.ace-live[data-ready] i{background:var(--ace-up);box-shadow:0 0 0 3px color-mix(in srgb,var(--ace-up) 18%,transparent)}
+.ace-live em{color:var(--ace-faint);font-style:normal}
+
+/* Today's top play, as a card you can open. */
+.ace-spot{--tier:#61696d;position:relative;isolation:isolate;display:grid;gap:13px;min-width:0;padding:18px;overflow:hidden;
+ border:1px solid color-mix(in srgb,var(--tier) 35%,var(--ace-line));border-radius:20px;text-align:left;cursor:pointer;
+ background:radial-gradient(110% 60% at 0% 0%,color-mix(in srgb,var(--tier) 12%,transparent),transparent 65%),linear-gradient(180deg,#192025,#111619);
+ box-shadow:0 22px 50px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.06);transition:transform .18s,border-color .18s;animation:ace-in .5s cubic-bezier(.2,.8,.2,1) .1s both}
+.ace-spot:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--tier) 60%,var(--ace-line))}
+.ace-spot.is-empty{min-height:290px;place-content:center;cursor:default;background:linear-gradient(100deg,#141a1d 30%,#1a2226 50%,#141a1d 70%) 0 0/250% 100%;animation:ace-ghost 1.4s linear infinite}
+.ace-spot.is-empty p{color:var(--ace-faint);font-size:13px;text-align:center}
+.ace-spot-mark{position:absolute;z-index:-1;top:-28px;right:-28px;width:150px;height:150px;object-fit:contain;opacity:.08;pointer-events:none}
+.ace-spot-tag{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:color-mix(in srgb,var(--ace-gold) 14%,transparent);
+ color:var(--ace-gold);font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.ace-spot-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:13px}
+.ace-spot .sa-face{--size:58px}
+.ace-spot-who{display:grid;gap:3px;min-width:0}
+.ace-spot-who b{overflow:hidden;font:800 19px/1.15 var(--ace-display);letter-spacing:-.3px;white-space:nowrap;text-overflow:ellipsis}
+.ace-spot-who small{display:flex;flex-wrap:wrap;align-items:center;gap:4px;color:var(--ace-muted);font-size:12px;font-weight:600}
+.ace-spot-who small+small{color:var(--ace-faint);font-weight:500}
+.ace-spot-vs{display:inline-flex;align-items:center;gap:4px}
+.ace-spot-vs img{width:15px;height:15px;object-fit:contain}
+.ace-spot-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:11px 13px;border:1px solid var(--ace-line);border-radius:14px;background:rgba(8,11,13,.55)}
+.ace-spot-line em{padding:5px 9px;border-radius:8px;background:color-mix(in srgb,var(--ace-up) 15%,transparent);font-size:11px;letter-spacing:.07em;text-transform:uppercase}
+.ace-spot-line em[data-side=UNDER]{background:color-mix(in srgb,var(--ace-down) 15%,transparent)}
+.ace-spot-line>b{font:800 24px/1 var(--ace-display);letter-spacing:-.5px}
+.ace-spot-line>span{font-size:13.5px;font-weight:700}
+.ace-spot-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ace-spot-top .sa-tier{align-self:center;animation:none}
+.ace-spot-games{display:grid;gap:7px}
+.ace-spot-games-head{display:flex;justify-content:space-between;align-items:baseline}
+.ace-spot-games-head small{color:var(--ace-faint);font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.ace-spot-games-head b{font-size:12.5px;font-weight:700;color:var(--ace-text)}
+.ace-spot-bars{position:relative;display:flex;align-items:flex-end;gap:4px;height:48px}
+.ace-spot-bars i{flex:1;height:var(--h);border-radius:4px 4px 2px 2px;background:linear-gradient(180deg,#5ef0ad,#2fa974);transform-origin:bottom;
+ animation:ace-bar .6s cubic-bezier(.3,1.3,.6,1) both;animation-delay:calc(.35s + var(--i) * 45ms)}
+.ace-spot-bars i[data-hit=miss]{background:linear-gradient(180deg,#ff8f9c,#b8505d)}
+.ace-spot-bars i[data-hit=push]{background:#7c868b}
+.ace-spot-bars u{position:absolute;left:0;right:0;bottom:var(--y);border-top:1.5px dashed rgba(255,255,255,.55);pointer-events:none}
+.ace-spot-note{display:flex;align-items:flex-start;gap:7px;color:var(--ace-muted);font-size:12.5px;line-height:1.4}
+.ace-spot-note svg{flex:none;margin-top:2px;color:var(--ace-faint)}
+.ace-spot-note[data-tone=up] svg{color:var(--ace-up)}.ace-spot-note[data-tone=down] svg{color:var(--ace-down)}
+.ace-spot-go{display:flex;align-items:center;justify-content:space-between;padding-top:11px;border-top:1px solid var(--ace-line);color:var(--ace-accent);font-size:13px;font-weight:700}
+.ace-spot-go svg{transition:transform .15s}
+.ace-spot:hover .ace-spot-go svg{transform:translateX(3px)}
+
+/* Six ways to start, each its own colour. */
+.ace-starts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.ace-starts button{--hue:#46e39a;position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:13px;min-height:80px;padding:15px;overflow:hidden;
+ border:1px solid color-mix(in srgb,var(--hue) 16%,var(--ace-line));border-radius:18px;text-align:left;cursor:pointer;
+ background:linear-gradient(140deg,color-mix(in srgb,var(--hue) 9%,#13181b) 0%,#111518 58%);box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+ transition:border-color .18s,transform .18s;animation:ace-in .4s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 45ms + 120ms)}
 .ace-starts button:nth-child(2){--hue:#3cc9b9}.ace-starts button:nth-child(3){--hue:#f6b955}
 .ace-starts button:nth-child(4){--hue:#6cb6ff}.ace-starts button:nth-child(5){--hue:#b69cff}.ace-starts button:nth-child(6){--hue:#ff8fa3}
-.ace-starts button:hover{border-color:color-mix(in srgb,var(--hue) 45%,var(--ace-line));background:var(--ace-raised)}
-.ace-start-icon{display:grid;place-items:center;width:38px;height:38px;border-radius:10px;background:color-mix(in srgb,var(--hue) 14%,transparent);color:var(--hue)}
+.ace-starts button:hover{border-color:color-mix(in srgb,var(--hue) 50%,var(--ace-line));transform:translateY(-2px)}
+.ace-start-icon{display:grid;place-items:center;width:42px;height:42px;border:1px solid color-mix(in srgb,var(--hue) 30%,transparent);border-radius:13px;
+ background:linear-gradient(150deg,color-mix(in srgb,var(--hue) 26%,transparent),color-mix(in srgb,var(--hue) 8%,transparent));color:var(--hue)}
 .ace-start-text{display:grid;gap:3px;min-width:0}
-.ace-start-text b{font-size:14px;font-weight:700}
+.ace-start-text b{font-size:14.5px;font-weight:700}
 .ace-start-text small{overflow:hidden;color:var(--ace-muted);font-size:12.5px;white-space:nowrap;text-overflow:ellipsis}
 .ace-start-go{color:var(--ace-faint);transition:transform .15s,color .15s}
 .ace-starts button:hover .ace-start-go{transform:translateX(2px);color:var(--hue)}
-@media (min-width:761px) and (max-width:1179px){.ace-welcome-plays .ace-plays{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (min-width:761px) and (max-width:1179px){.ace-welcome-plays .ace-plays{grid-template-columns:repeat(3,minmax(0,1fr))}}
 
 /* ── The conversation ────────────────────────────────────────────────── */
-.ace-thread{display:grid;align-content:start;gap:22px;padding:26px 28px 30px}
+.ace-thread{display:grid;align-content:start;gap:24px;padding:28px 28px 30px}
 .ace-msg{min-width:0;animation:ace-in .3s cubic-bezier(.2,.8,.2,1) both}
 .ace-msg.is-user{display:flex;justify-content:flex-end}
-.ace-msg.is-user p{max-width:min(70%,560px);padding:10px 14px;border:1px solid var(--ace-line-2);border-radius:14px 14px 4px 14px;background:#1a2024;font-size:15px;line-height:1.45;overflow-wrap:anywhere}
-.ace-msg.is-bot{display:grid;gap:10px;align-content:start}
+.ace-msg.is-user p{max-width:min(70%,560px);padding:11px 15px;border:1px solid color-mix(in srgb,var(--ace-accent) 26%,transparent);border-radius:18px 18px 5px 18px;
+ background:linear-gradient(160deg,color-mix(in srgb,var(--ace-accent) 15%,#12181b),color-mix(in srgb,var(--ace-accent) 7%,#101518));font-size:15px;line-height:1.45;overflow-wrap:anywhere}
+.ace-msg.is-bot{display:grid;gap:11px;align-content:start}
 /* The latest answer holds the screen under its question, so a new question
    can rise to the top (KrazyBot.jsx --ace-room). */
 .ace-thread>.ace-msg.is-bot:last-child{min-height:max(0px,calc(var(--ace-room,0px) - 120px))}
-.ace-from{display:flex;align-items:center;gap:8px;color:var(--ace-muted);font-size:12.5px}
-.ace-from img{width:18px;height:18px;object-fit:contain}
+.ace-from{display:flex;align-items:center;gap:9px;color:var(--ace-muted);font-size:12.5px}
 .ace-from b{color:var(--ace-text);font-weight:700}
 .ace-from time{color:var(--ace-faint);font-variant-numeric:tabular-nums}
-.ace-text{max-width:760px;color:var(--ace-text);font-size:15px;line-height:1.6;animation:ace-fade .35s ease both}
+.ace-text{max-width:780px;color:var(--ace-text);font-size:15.5px;line-height:1.6;animation:ace-fade .35s ease both}
 .ace-answer{display:grid;gap:14px;min-width:0}
 
 /* The research while it works: each step ticked off. */
-.ace-research{display:grid;gap:10px;width:min(100%,420px);padding:12px 14px 14px;border:1px solid var(--ace-line);border-radius:12px;background:var(--ace-panel)}
-.ace-research ol{display:grid;gap:7px}
-.ace-research li{display:flex;align-items:center;gap:9px;color:var(--ace-text);font-size:13px;font-weight:600;animation:ace-in .25s ease both}
+.ace-research{display:grid;gap:11px;width:min(100%,440px);padding:14px 16px 15px;border:1px solid var(--ace-line);border-radius:16px;background:var(--ace-card);box-shadow:var(--ace-lift)}
+.ace-research ol{display:grid;gap:8px}
+.ace-research li{display:flex;align-items:center;gap:10px;color:var(--ace-text);font-size:13px;font-weight:600;animation:ace-in .25s ease both}
 .ace-research li[data-done]{color:var(--ace-faint);font-weight:500}
 .ace-research li svg{flex:none;width:14px;color:var(--ace-up)}
-.ace-progress{display:block;height:3px;overflow:hidden;border-radius:3px;background:var(--ace-line)}
-.ace-progress i{display:block;width:calc(var(--p,0) * 100%);height:100%;border-radius:inherit;background:var(--ace-accent);transition:width .45s ease}
+.ace-progress{display:block;height:4px;overflow:hidden;border-radius:4px;background:rgba(255,255,255,.06)}
+.ace-progress i{display:block;width:calc(var(--p,0) * 100%);height:100%;border-radius:inherit;background:linear-gradient(90deg,color-mix(in srgb,var(--ace-accent) 55%,#1b6b52),var(--ace-accent));transition:width .45s ease}
 .ace-spinner{flex:none;display:inline-block;width:14px;height:14px;border:2px solid color-mix(in srgb,var(--ace-accent) 25%,transparent);border-top-color:var(--ace-accent);border-radius:50%;animation:ace-turn .75s linear infinite}
-.ace-error{display:grid;justify-items:start;gap:10px;width:min(100%,460px);padding:12px 14px;border:1px solid color-mix(in srgb,var(--ace-down) 35%,var(--ace-line));border-radius:12px;background:var(--ace-panel);font-size:14px}
-.ace-error button{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 12px;border:1px solid var(--ace-line-2);border-radius:8px;background:var(--ace-raised);font-size:13px;font-weight:700;cursor:pointer}
+.ace-error{display:grid;justify-items:start;gap:10px;width:min(100%,460px);padding:14px 16px;border:1px solid color-mix(in srgb,var(--ace-down) 35%,var(--ace-line));border-radius:16px;background:var(--ace-card);font-size:14px}
+.ace-error button{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px;border:1px solid var(--ace-line-2);border-radius:999px;background:var(--ace-raised);font-size:13px;font-weight:700;cursor:pointer}
 
 /* ── The foot: suggestions and the box ──────────────────────────────── */
-.ace-dock{flex:none;display:grid;gap:10px;padding:12px 28px 14px;border-top:1px solid var(--ace-line);background:var(--ace-bg)}
+.ace-dock{flex:none;display:grid;gap:10px;padding:12px 28px 14px;border-top:1px solid var(--ace-line);background:linear-gradient(180deg,#0d1113,var(--ace-bg))}
 .ace-chips{display:flex;flex-wrap:wrap;gap:8px}
-.ace-chips button{min-height:34px;padding:7px 13px;border:1px solid var(--ace-line);border-radius:8px;background:var(--ace-panel);color:var(--ace-muted);font-size:13px;font-weight:600;
+.ace-chips button{min-height:34px;padding:7px 14px;border:1px solid var(--ace-line-2);border-radius:999px;background:rgba(255,255,255,.03);color:var(--ace-muted);font-size:13px;font-weight:600;
  cursor:pointer;white-space:nowrap;transition:border-color .15s,color .15s,background .15s;animation:ace-in .3s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 40ms)}
-.ace-chips button:hover{border-color:color-mix(in srgb,var(--ace-accent) 45%,var(--ace-line));background:var(--ace-raised);color:var(--ace-text)}
-.ace-composer{display:flex;align-items:flex-end;gap:6px;padding:7px 7px 7px 16px;border:1px solid var(--ace-line-2);border-radius:14px;background:var(--ace-panel);transition:border-color .15s}
+.ace-chips button:hover{border-color:color-mix(in srgb,var(--ace-accent) 50%,var(--ace-line));background:color-mix(in srgb,var(--ace-accent) 7%,transparent);color:var(--ace-text)}
+.ace-composer{display:flex;align-items:flex-end;gap:6px;padding:8px 8px 8px 18px;border:1px solid var(--ace-line-2);border-radius:18px;
+ background:linear-gradient(180deg,#171d21,#121619);box-shadow:0 14px 34px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.05);transition:border-color .15s}
 .ace-composer:focus-within{border-color:color-mix(in srgb,var(--ace-accent) 55%,var(--ace-line-2))}
 .ace-composer textarea{flex:1;min-width:0;height:40px;max-height:132px;padding:9px 0;border:0;outline:0;resize:none;background:none;color:var(--ace-text);font:400 15px/22px var(--font-sans,Inter,Arial,sans-serif)}
 .ace-composer textarea::placeholder{color:var(--ace-faint)}
 /* Over the site's own field styles (styles.css): the box is the composer. */
 :root .ace .ace-composer textarea{border:0!important;background:none!important;box-shadow:none;outline:0}
-.ace-mic,.ace-send{flex:none;display:grid;place-items:center;width:40px;height:40px;border:0;border-radius:10px;cursor:pointer;transition:background .15s,color .15s,transform .1s}
+.ace-mic,.ace-send{flex:none;display:grid;place-items:center;width:42px;height:42px;border:0;border-radius:13px;cursor:pointer;transition:background .15s,color .15s,transform .1s}
 .ace-mic{background:none;color:var(--ace-muted)}
-.ace-mic:hover:not(:disabled){background:var(--ace-raised);color:var(--ace-text)}
+.ace-mic:hover:not(:disabled){background:rgba(255,255,255,.05);color:var(--ace-text)}
 .ace-mic[data-listening]{background:color-mix(in srgb,var(--ace-accent) 14%,transparent);color:var(--ace-accent)}
 .ace-wave{display:flex;align-items:center;gap:2px;height:16px}
 .ace-wave i{width:3px;height:100%;border-radius:2px;background:currentColor;animation:ace-wave .9s ease-in-out infinite}
 .ace-wave i:nth-child(2){animation-delay:.15s}.ace-wave i:nth-child(3){animation-delay:.3s}.ace-wave i:nth-child(4){animation-delay:.45s}
-.ace-send{background:var(--ace-accent);color:var(--ace-on-accent)}
+.ace-send{background:linear-gradient(180deg,color-mix(in srgb,var(--ace-accent) 85%,#fff),var(--ace-accent));color:var(--ace-on-accent);box-shadow:inset 0 1px 0 rgba(255,255,255,.3)}
 .ace-send:active:not(:disabled){transform:scale(.95)}
-.ace-send:disabled{background:var(--ace-raised);color:var(--ace-faint);cursor:default}
-.ace-composer[data-busy] .ace-send:disabled{background:var(--ace-raised)}
+.ace-send:disabled{background:rgba(255,255,255,.05);color:var(--ace-faint);box-shadow:none;cursor:default}
 .ace-fine{color:var(--ace-faint);font-size:11px;text-align:center}
 
 /* ── The answer cards (AceCards.jsx) ─────────────────────────────────── */
 .ace-card-wrap{min-width:0;font-size:13px}
-.ace-frame{padding:14px;border:1px solid var(--ace-line);border-radius:16px;background:var(--ace-panel)}
+.ace-frame{padding:14px;border:1px solid var(--ace-line);border-radius:20px;background:var(--ace-card);box-shadow:var(--ace-lift)}
 .ace .ace-legacy{padding:16px}
 /* Two picks are cards of their own: no frame around them. */
 .ace-frame:has(>.ace-compare){padding:0;border:0;background:none}
@@ -238,9 +336,9 @@ html[data-bot-typing] body .mobile-app-nav{opacity:0!important;visibility:hidden
 /* Ranked picks: a row each, tap for the full report. */
 .ace .ace-rows{display:grid;gap:8px}
 .ace .ace-rows li{animation:ace-in .35s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 60ms + 120ms)}
-.ace .ace-rows button{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto auto;align-items:center;gap:12px;width:100%;padding:11px 12px;border:1px solid var(--a-line,#252d33);border-radius:12px;
- background:var(--a-raised,#181e22);text-align:left;cursor:pointer;transition:border-color .15s,background .15s}
-.ace .ace-rows button:hover{border-color:var(--ace-line-2);background:#1b2125}
+.ace .ace-rows button{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto auto auto;align-items:center;gap:12px;width:100%;padding:11px 12px;border:1px solid var(--a-line,#252d33);border-radius:16px;
+ background:linear-gradient(180deg,#1a2024,#14191c);box-shadow:inset 0 1px 0 rgba(255,255,255,.04);text-align:left;cursor:pointer;transition:border-color .15s,transform .15s}
+.ace .ace-rows button:hover{border-color:color-mix(in srgb,var(--tier) 45%,var(--ace-line));transform:translateY(-1px)}
 .ace-rank{display:grid;place-items:center;width:24px;height:24px;border-radius:7px;background:var(--ace-bg);color:var(--a-muted,#9ea5a9);font:800 12px/1 'Sora',var(--font-sans,Inter,Arial,sans-serif)}
 .ace .ace-rows li:first-child .ace-rank{background:color-mix(in srgb,var(--ace-accent) 16%,transparent);color:var(--ace-accent)}
 .ace-row-main{display:grid;gap:2px;min-width:0}
@@ -251,8 +349,6 @@ html[data-bot-typing] body .mobile-app-nav{opacity:0!important;visibility:hidden
 .ace-row-main small{color:var(--a-faint,#6d767b);font-size:11.5px}
 .ace-tag{justify-self:start;padding:2px 6px;border-radius:5px;background:color-mix(in srgb,var(--ace-accent) 13%,transparent);color:var(--ace-accent);font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
 .ace-row-end{display:grid;justify-items:end;gap:3px}
-.ace-row-end>b{font:800 17px/1 'Sora',var(--font-sans,Inter,Arial,sans-serif);font-variant-numeric:tabular-nums}
-.ace-row-end>small{color:var(--a-faint,#6d767b);font-size:10.5px}
 .ace-row-go{color:var(--a-faint,#6d767b)}
 
 /* A slip: its grade, the picks, what helps or hurts, save it. */
@@ -294,45 +390,56 @@ html[data-bot-typing] body .mobile-app-nav{opacity:0!important;visibility:hidden
 @keyframes ace-blink{50%{opacity:.35}}
 @keyframes ace-wave{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
 @keyframes ace-ghost{to{background-position:-250% 0}}
+@keyframes ace-grow{from{transform:scaleX(0)}}
+@keyframes ace-arc{from{stroke-dasharray:0 999}}
+@keyframes ace-bar{from{transform:scaleY(0)}}
 
-/* ── Tablets and phones ──────────────────────────────────────────────── */
+/* ── Narrower desks, tablets and phones ──────────────────────────────── */
+.ace-scroll{container-type:inline-size}
+@container (max-width:880px){
+ .ace-hero{grid-template-columns:minmax(0,1fr);gap:22px}
+ .ace-spot{max-width:560px}
+}
 @media (max-width:1179px){.ace-starts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:760px){
  .ace-top{min-height:0;padding:calc(env(safe-area-inset-top,0px) + var(--site-status-inset,0px) + 10px) 14px 10px}
  .ace-title{gap:10px}
- .ace-title>img{width:26px;height:26px}
+ .ace-mark{width:36px;height:36px;border-radius:11px}
+ .ace-mark img{width:21px;height:21px}
  .ace-title h1{font-size:16px}
- .ace-title p{font-size:11px}
- .ace-status{height:30px;padding:0 10px;font-size:12px}
+ .ace-top-leagues{margin-top:4px}
+ .ace-status{height:30px;padding:0 11px;font-size:12px}
  .ace[data-chatting] .ace-status{display:none}
- .ace-new{height:30px;padding:0 10px}
- .ace-welcome{gap:22px;padding:22px 14px 20px}
- .ace-intro h2{font-size:25px;letter-spacing:-.5px}
- .ace-intro>p:last-child{font-size:14px}
- .ace-stats{gap:6px}
- .ace-stats>div{padding:9px 10px}
- .ace-stats dd{font-size:16px}
+ .ace-new{height:32px;padding:0 12px}
+ .ace-welcome{gap:22px;padding:14px 12px 20px}
+ .ace-hero{gap:18px;padding:20px 16px 16px;border-radius:22px}
+ .ace-intro h2{font-size:27px;letter-spacing:-.8px}
+ .ace-intro>p:not(.ace-hello){font-size:14px}
+ .ace-spot{padding:15px;gap:12px;border-radius:18px}
+ .ace-spot .sa-face{--size:52px}
+ .ace-spot-who b{font-size:17px}
+ .ace-spot-line>b{font-size:22px}
  /* The six starts in a 2 by 3 grid: the icon over the words. */
  .ace-starts{gap:8px}
- .ace-starts button{grid-template-columns:minmax(0,1fr);align-content:start;gap:9px;min-height:0;padding:12px}
- .ace-start-icon{width:34px;height:34px}
+ .ace-starts button{grid-template-columns:minmax(0,1fr);align-content:start;gap:10px;min-height:0;padding:13px;border-radius:16px}
+ .ace-start-icon{width:36px;height:36px;border-radius:11px}
  .ace-start-text small{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
  .ace-start-go{display:none}
- .ace-thread{gap:18px;padding:18px 14px 22px}
+ .ace-thread{gap:20px;padding:18px 12px 22px}
  .ace-msg.is-user p{max-width:86%}
  .ace-text{font-size:15px}
- .ace-frame{padding:12px;border-radius:14px}
+ .ace-frame{padding:12px;border-radius:16px}
  .ace-dock{gap:8px;padding:8px 10px 10px}
  /* Suggestions in one row that scrolls, not a pile of them. */
  .ace-chips{flex-wrap:nowrap;margin:0 -10px;padding:0 10px;overflow-x:auto;scrollbar-width:none}
  .ace-chips::-webkit-scrollbar{display:none}
  .ace-chips button{flex:none}
- .ace-composer{padding:5px 5px 5px 14px;border-radius:12px}
+ .ace-composer{padding:5px 5px 5px 15px;border-radius:16px}
  .ace-fine{display:none}
  .ace-pick.sa-prop{padding:14px;border-radius:18px}
  .ace-pick .sa-face{--size:52px}
  .ace .ace-rows button{grid-template-columns:auto minmax(0,1fr) auto;gap:10px;padding:10px}
- .ace-rank,.ace-row-go{display:none}
+ .ace-rank,.ace-row-go,.ace-row-end{display:none}
  .ace-slip-sum{grid-template-columns:repeat(2,minmax(0,1fr))}
  .ace-compare{grid-template-columns:minmax(0,1fr)}
 }

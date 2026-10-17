@@ -3,7 +3,7 @@ import {Check,ChevronRight,Link2,Plus,ShieldAlert,TriangleAlert,Unlink} from 'lu
 import {LEAGUE_LOGOS} from './league-logos';
 import {Img,Face as SlipFace,TierBadge,Records,Meter,Games,AnalystRead,opponentLogo} from './PickParts';
 import {MatchupCase} from './MatchupCase';
-import {BotCard,Actions,Face} from './KrazyBotCard';
+import {BotCard,Actions} from './KrazyBotCard';
 import {finderSlipProp} from './unified-finder-data';
 import {pickBuilder} from './pick-builder-client';
 
@@ -21,6 +21,16 @@ const sideWord=side=>side==='UNDER'?'Less':'More';
 const lastName=name=>String(name||'').split(' ').filter(part=>!/^(jr|sr|ii|iii|iv)\.?$/i.test(part)).at(-1)||name;
 // The report's rings as the Slip Analyzer's records ({l10:{won,games,rate}}).
 const recordsOf=pick=>Object.fromEntries((pick.report?.rings||[]).map(ring=>[ring.key,{won:ring.won,games:ring.games,rate:ring.rate}]));
+
+// The chance a pick hits, as a ring in its tier's color.
+export function Chance({value,tier,size=42}){
+ const r=size/2-3.5,around=2*Math.PI*r;
+ return <span className="ace-chance" data-tier={tier||'none'} style={{'--s':`${size}px`}} aria-label={`${pct(value)} to hit`}>
+  <svg viewBox={`0 0 ${size} ${size}`} aria-hidden="true"><circle cx={size/2} cy={size/2} r={r} className="ace-chance-track"/>
+   <circle cx={size/2} cy={size/2} r={r} className="ace-chance-arc" strokeDasharray={`${around*Math.max(0,Math.min(1,value))} ${around}`}/></svg>
+  <b>{Math.round(value*100)}<small>%</small></b>
+ </span>;
+}
 
 function Who({pick}){
  const row=pick.row||{};
@@ -117,9 +127,9 @@ export function AcePick({pick,verdict}){
 /** Ranked picks, one row each; a tap asks about that one. */
 function Rows({picks,tags,onAsk,ranked=true}){
  return <ol className="ace-rows">{picks.map((pick,index)=><li key={`${pick.player}-${index}`} style={{'--i':index}}>
-  <button type="button" onClick={()=>onAsk?.(`How's ${pick.player} looking?`)}>
+  <button type="button" data-tier={pick.tier||'none'} onClick={()=>onAsk?.(`How's ${pick.player} looking?`)}>
    {ranked&&<span className="ace-rank">{index+1}</span>}
-   <Face src={pick.headshot} name={pick.player} logo={pick.teamLogo} size="md"/>
+   <SlipFace row={pick.row||{player:pick.player,headshot:pick.headshot,sport:pick.sport,teamLogo:pick.teamLogo}} tier={pick.tier}/>
    <span className="ace-row-main">
     {tags?.[index]&&<span className="ace-tag">{tags[index]}</span>}
     <b>{pick.player}</b>
@@ -129,9 +139,8 @@ function Rows({picks,tags,onAsk,ranked=true}){
    </span>
    <span className="ace-row-end">
     {pick.tier?<TierBadge tier={pick.tier}/>:pick.grade&&<span className="ace-letter" data-grade={pick.grade[0]}>{pick.grade}</span>}
-    <b>{Number.isFinite(pick.chance)?pct(pick.chance):'—'}</b>
-    <small>to hit</small>
    </span>
+   {Number.isFinite(pick.chance)&&<Chance value={pick.chance} tier={pick.tier} size={46}/>}
    <ChevronRight className="ace-row-go" size={16} aria-hidden="true"/>
   </button>
  </li>)}</ol>;

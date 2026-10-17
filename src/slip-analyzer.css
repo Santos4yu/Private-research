@@ -46,10 +46,6 @@
   radial-gradient(65% 85% at 0% 0%,color-mix(in srgb,var(--a-accent) 15%,transparent),transparent 58%),
   linear-gradient(180deg,#141a1d 0%,#0d1114 100%);
  box-shadow:0 30px 80px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.06);transition:border-color .2s}
-/* A fine grid that fades out from behind the example. */
-.sa-stage::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
- background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
- background-size:32px 32px;-webkit-mask-image:radial-gradient(70% 75% at 75% 35%,#000,transparent 75%);mask-image:radial-gradient(70% 75% at 75% 35%,#000,transparent 75%)}
 .sa-stage[data-over]{border-color:var(--a-accent)}
 .sa-stage-main{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);gap:36px;align-items:center}
 .sa-stage-copy{min-width:0}
@@ -94,8 +90,9 @@
 .sa-demo-grade{position:relative;width:136px;height:136px;margin:16px auto 16px}
 .sa-demo-grade svg{width:100%;height:100%;transform:rotate(-90deg)}
 .sa-demo-track{fill:none;stroke:rgba(255,255,255,.07);stroke-width:10}
-.sa-demo-arc{fill:none;stroke-width:10;stroke-linecap:round;stroke-dasharray:314.2;stroke-dashoffset:60;
- filter:drop-shadow(0 0 7px color-mix(in srgb,var(--a-accent) 55%,transparent));animation:sa-demo-arc 1.5s cubic-bezier(.2,.8,.2,1) .2s both}
+.sa-demo-arc{fill:none;stroke-width:10;stroke-linecap:round;stroke-dasharray:314.2;stroke-dashoffset:60;animation:sa-demo-arc 1.5s cubic-bezier(.2,.8,.2,1) .2s both}
+/* A disc inside the ring, so the grade sits on something solid. */
+.sa-demo-disc{fill:#151b1f;stroke:rgba(255,255,255,.06);stroke-width:1}
 @keyframes sa-demo-arc{from{stroke-dashoffset:314.2}}
 .sa-demo-letter{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
 .sa-demo-letter b{color:#fff;font:800 46px/1 var(--a-display);letter-spacing:-1.5px}
@@ -511,8 +508,9 @@
  .sa-stage-works li{flex:0 0 auto}
  .sa-stage-leagues{display:grid;grid-template-columns:repeat(auto-fit,minmax(40px,1fr))}
  .sa-stage-leagues li{width:auto}
- .sa-demo-grade{width:108px;height:108px;margin:12px auto}
- .sa-demo-letter b{font-size:36px}
+ .sa-demo-grade{width:126px;height:126px;margin:12px auto}
+ .sa-demo-letter b{font-size:38px}
+ .sa-demo-letter small{font-size:8.5px;letter-spacing:.1em}
  .sa-stage-steps{grid-template-columns:1fr;margin:22px -18px 0}
  .sa-stage-steps li{padding:14px 18px}
  .sa-stage-steps li+li{border-left:0;border-top:1px solid rgba(255,255,255,.07)}
