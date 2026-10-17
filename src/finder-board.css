@@ -7,8 +7,8 @@
                L5 | L10 | L15 | H2H | SZN, each window a colored box
      phone:    photo, name and game, the line under them | L5 | L10 | L15
 
-   A player's trends page keeps its own look: the panel frames the Finder
-   only while no player is open (finder-detail-active). Rules carry
+   On a computer a player's trends page sits in the same panel, under the
+   same bar, in place of the controls and the table. Rules carry
    html:root, and !important where the older phone rules in
    unified-finder.css do, to win over them. */
 
@@ -160,15 +160,24 @@ html:root .unified-finder .finder-table .finder-heat:is([data-tone=good], [data-
 /* ------------------------------------------------------------ a computer */
 
 @media (min-width: 761px) {
-  /* The Finder is one panel: the bar, the controls, the titles and the rows. */
-  html:root .unified-finder.unified-finder:not(.finder-detail-active) {
+  /* The Finder is one panel: the bar, then the controls, the titles and
+     the rows, or a player's trends page. */
+  html:root .unified-finder.unified-finder {
     overflow: visible;
     border: 1px solid var(--fb-line-2) !important;
     border-radius: 18px;
     background: var(--fb-panel) !important;
     box-shadow: 0 18px 50px rgba(0, 0, 0, .3) !important;
   }
-  html:root .unified-finder:not(.finder-detail-active) .finder-topbar { padding: 14px 18px 12px; }
+  html:root .unified-finder .finder-topbar { padding: 14px 18px 12px; }
+  html:root .unified-finder.finder-detail-active > .finder-trend-view {
+    margin: 0;
+    border: 0;
+    border-top: 1px solid var(--fb-line);
+    border-radius: 0 0 18px 18px;
+    background: none;
+    box-shadow: none;
+  }
   html:root .unified-finder .finder-controls { gap: 8px; padding: 0 18px 14px; border-bottom: 1px solid var(--fb-line); }
   html:root .unified-finder .finder-search-row { gap: 8px; }
   html:root .unified-finder .finder-filters { gap: 8px !important; }
@@ -182,9 +191,9 @@ html:root .unified-finder .finder-table .finder-heat:is([data-tone=good], [data-
   html:root .unified-finder :is(.finder-app-filter, .finder-filters .finder-multi-select) .finder-multi-trigger { border-radius: 11px; }
   html:root .unified-finder .finder-search-row > .finder-icon { width: 40px; }
   html:root .unified-finder .finder-filters > .finder-reset { flex: 0 0 40px; width: 40px; }
-  html:root .unified-finder:not(.finder-detail-active) .finder-sports > button { min-height: 34px; padding: 0 13px; border-color: var(--fb-line-2); background: var(--fb-control); }
-  html:root .unified-finder:not(.finder-detail-active) .finder-sports > button[aria-pressed=true] { border-color: rgba(255, 255, 255, .28); background: rgba(255, 255, 255, .1); box-shadow: none; }
-  html:root .unified-finder:not(.finder-detail-active) :is(.finder-picks-trigger, .finder-top-save) { width: 38px; height: 38px; border-radius: 11px; background: var(--fb-control); }
+  html:root .unified-finder .finder-sports > button { min-height: 34px; padding: 0 13px; border-color: var(--fb-line-2); background: var(--fb-control); }
+  html:root .unified-finder .finder-sports > button[aria-pressed=true] { border-color: rgba(255, 255, 255, .28); background: rgba(255, 255, 255, .1); box-shadow: none; }
+  html:root .unified-finder :is(.finder-picks-trigger, .finder-top-save) { width: 38px; height: 38px; border-radius: 11px; background: var(--fb-control); }
   html:root .unified-finder .finder-meta { padding: 10px 20px 0; }
   html:root .unified-finder .finder-availability { margin: 12px 18px 0; border-radius: 12px; }
 

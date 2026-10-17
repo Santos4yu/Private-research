@@ -3281,6 +3281,9 @@ function windowStat(games) {
 }
 // A hit rate's tone on the tiles: strong, middling, poor.
 const rateTone = (rate) => rate == null ? "none" : rate >= 50 ? "up" : "down";
+// The Finder's cut-offs for its hit-rate boxes (UnifiedFinder.jsx tone), so a
+// window reads the same color on the trends page as on the board.
+const heatTone = (rate) => rate == null ? "none" : rate >= 70 ? "good" : rate >= 45 ? "mid" : "low";
 // The season the latest games are from, and how many of the filtered games are in it.
 function latestSeason(games) {
   const seasonOf = (game) => String(game.season || String(game.fullDate || "").slice(0, 4));
@@ -3343,7 +3346,7 @@ function renderGameLogTabs() {
       const title = titleText ? ` title="${escapeHtml(titleText)}"` : '';
       const menu = w.menu ? ' data-window-menu="true" aria-haspopup="menu"' : "";
       const chevron = w.menu ? '<svg class="gl-window-chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg>' : "";
-      return `<button type="button" class="${active ? "active" : ""}" aria-pressed="${active}"${w.capped ? ' data-capped="true"' : ""}${w.empty ? " disabled" : ""}${title}${menu} data-window="${w.key}" data-tone="${rateTone(w.hitRate)}" style="--i:${index}"><strong>${w.label}${chevron}</strong>${stat}</button>`;
+      return `<button type="button" class="${active ? "active" : ""}" aria-pressed="${active}"${w.capped ? ' data-capped="true"' : ""}${w.empty ? " disabled" : ""}${title}${menu} data-window="${w.key}" data-tone="${rateTone(w.hitRate)}" data-heat="${heatTone(w.hitRate)}" style="--i:${index}"><strong>${w.label}${chevron}</strong>${stat}</button>`;
     }).join("");
   }
 

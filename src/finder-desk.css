@@ -1,6 +1,5 @@
-/* The Finder's bar and controls on a computer (the board itself is
-   finder-board.css). These also sit over a player's trends page, so they
-   stay as they are there. Rules carry html:root to win over
+/* The Finder's bar and controls on a computer (the panel around them and
+   the board are finder-board.css). Rules carry html:root to win over
    unified-finder.css. */
 
 @media (min-width: 761px) {
@@ -22,29 +21,9 @@
 
   /* ------------------------------------------------------------ the frame */
 
-  /* Over a player's page the Finder has no box of its own (the list's
-     panel is finder-board.css). */
-  html:root .unified-finder {
-    position: relative;
-    isolation: isolate;
-    overflow: visible;
-    border: 0 !important;
-    border-radius: 0;
-    background: transparent !important;
-    background-image: none !important;
-    box-shadow: none !important;
-  }
-  /* A player's page sits in a solid panel of its own. The trend chart and
-     its numbers sit straight on the page, so without one they float over
-     whatever is behind it (a background image from Settings clears the
-     page's own color). */
-  html:root .unified-finder.finder-detail-active > :is(.finder-trend-view, .finder-detail) {
-    margin: 2px 4px 12px;
-    border: 1px solid var(--fc-line);
-    border-radius: 22px;
-    background: #0B0E10;
-    box-shadow: 0 18px 50px rgba(0, 0, 0, .35);
-  }
+  /* The frame itself (one panel for the list and a player's page alike)
+     is finder-board.css. */
+  html:root .unified-finder { position: relative; isolation: isolate; background-image: none !important; }
 
   /* The bar: "Finder /" large, the sports as round pills, round buttons on the right. */
   html:root .unified-finder .finder-topbar { min-height: 0; gap: 16px; padding: 8px 4px 14px; border: 0; background: none !important; box-shadow: none !important; }

@@ -374,6 +374,57 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button.
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button:disabled { cursor: default; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button:disabled strong { color: var(--te-faint); }
 
+/* On a computer the tiles are the Finder's hit-rate boxes
+   (finder-board.css): the window's name, its hit rate large and the record
+   under it, the box fading from dark into green, yellow or red by the same
+   cut-offs as the Finder (data-heat, app.js heatTone). The window being
+   shown wears a light ring. */
+@media (min-width: 761px) {
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar { gap: 8px !important; margin: 12px 0 0 !important; }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button {
+    --tone: var(--te-faint);
+    align-content: center;
+    gap: 5px !important;
+    min-height: 76px;
+    padding: 10px 6px !important;
+    border: 1px solid var(--te-line) !important;
+    border-radius: 12px !important;
+    background: #12171A !important;
+    cursor: pointer;
+    transition: border-color .15s ease;
+  }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button[data-heat=good] { --tone: #3FE39E; }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button[data-heat=mid] { --tone: #F0B54A; }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button[data-heat=low] { --tone: #EE5470; }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button:is([data-heat=good], [data-heat=mid], [data-heat=low]) {
+    border-color: color-mix(in srgb, var(--tone) 20%, var(--te-line)) !important;
+    background: linear-gradient(180deg,
+      color-mix(in srgb, var(--tone) 4%, #101417) 0%,
+      color-mix(in srgb, var(--tone) 13%, #101417) 45%,
+      color-mix(in srgb, var(--tone) 38%, #101417) 100%) !important;
+    box-shadow: inset 0 -1px color-mix(in srgb, var(--tone) 50%, transparent) !important;
+  }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button[data-heat] strong {
+    order: 0;
+    padding: 0;
+    background: none;
+    color: var(--te-muted);
+    font: 700 11px/1 var(--font-sans);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button[data-heat] .gl-window-pct { order: 1; margin: 1px 0 0; color: color-mix(in srgb, var(--tone) 85%, #fff); font: 800 20px/1 var(--font-sans); letter-spacing: -.01em; }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button[data-heat] .gl-window-rec { order: 2; margin: 0; color: color-mix(in srgb, var(--tone) 40%, #D9DFDD); font: 600 11.5px/1 var(--font-sans); }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button[data-heat=none] .gl-window-rec { color: var(--te-faint); }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button[data-heat]:hover:not(:disabled) { border-color: color-mix(in srgb, var(--tone) 50%, #5A646A) !important; }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button[data-heat].active {
+    border-color: rgba(255, 255, 255, .85) !important;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .85), inset 0 -1px color-mix(in srgb, var(--tone) 50%, transparent) !important;
+  }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button[data-heat].active strong { color: #fff; }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button[data-heat]:disabled { opacity: .7; }
+}
+
 /* The longer windows, from the last tile. */
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-window-menu {
   display: grid;
