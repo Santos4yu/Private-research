@@ -13,9 +13,9 @@ const EXAMPLE=[
  {initials:'JC',name:"J. Chase",pick:'More 6.5 Receptions',hit:'6 of 10',tier:'lean',label:'Lean'},
 ];
 const STEPS=[
- {icon:ImageUp,title:'Upload your slip',text:'A screenshot from any app'},
- {icon:Crosshair,title:'Every pick checked',text:'Recent games, matchup, injuries and odds'},
- {icon:ShieldCheck,title:'Get the grade',text:'One grade for the slip, a read on each pick'},
+ {icon:ImageUp,title:'Upload your slip',short:'Upload a slip',text:'A screenshot from any app'},
+ {icon:Crosshair,title:'Every pick checked',short:'Picks checked',text:'Recent games, matchup, injuries and odds'},
+ {icon:ShieldCheck,title:'Get the grade',short:'Get the grade',text:'One grade for the slip, a read on each pick'},
 ];
 
 // A league's logo, or its short name if the logo won't load.
@@ -74,10 +74,10 @@ export function SlipStage({sports,names,onFile,onPaste}){
    </div>
   </div>
 
-  <ol className="sa-stage-steps">{STEPS.map(({icon:Icon,title,text},index)=><li key={title}>
+  <ol className="sa-stage-steps">{STEPS.map(({icon:Icon,title,short,text},index)=><li key={title}>
    <span className="sa-step-num">{index+1}</span>
    <span className="sa-step-icon"><Icon size={17} aria-hidden="true"/></span>
-   <span><b>{title}</b><small>{text}</small></span>
+   <span><b><span className="sa-step-long">{title}</span><span className="sa-step-short">{short}</span></b><small>{text}</small></span>
   </li>)}</ol>
   {over&&<div className="sa-stage-drop" aria-hidden="true"><ImageUp size={28}/><b>Drop it to grade it</b></div>}
  </section>;
