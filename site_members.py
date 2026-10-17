@@ -200,6 +200,18 @@ def touch(account):
         pass
 
 
+def member_since(account):
+    """When this member first signed in (ISO time), or None when unknown."""
+    email = normalize_email((account or {}).get('email'))
+    if not email:
+        return None
+    try:
+        result = _pipeline([['HGET', FIRST_SEEN_KEY, email]], timeout=2) or [{}]
+        return result[0].get('result') or None
+    except Exception:  # noqa: BLE001 -- unknown is fine; the page decides without it
+        return None
+
+
 def _pairs(flat):
     flat = flat or []
     return dict(zip(flat[0::2], flat[1::2]))

@@ -9,6 +9,7 @@ import { PickBuilder } from './PickBuilder';
 import { SideMenu } from './SideMenu';
 import { ResearchHome } from './ResearchHome';
 import { UnifiedFinder } from './UnifiedFinder';
+import { WelcomeTour } from './WelcomeTour';
 import { finderStartKeys, startFinder } from './finder-early';
 import { siteFinderSportAllowed } from './site-access';
 import { canUseTab } from './site-access-core';
@@ -126,6 +127,8 @@ const sideMenuRoot = document.getElementById('side-menu-root');
 if (sideMenuRoot) createRoot(sideMenuRoot).render(<SideMenu />);
 const pickBuilderRoot = document.getElementById('pick-builder-root');
 if (pickBuilderRoot) createRoot(pickBuilderRoot).render(<PickBuilder />);
+// A first look around for new members, and Settings' "Take the tour".
+createRoot(document.body.appendChild(document.createElement('div'))).render(<WelcomeTour />);
 const researchHomeRoot = document.getElementById('research-home-root');
 
 const unifiedFinderRoot = document.getElementById('unified-finder-root');

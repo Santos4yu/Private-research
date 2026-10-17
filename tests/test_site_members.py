@@ -106,6 +106,16 @@ class MemberRuleTests(unittest.TestCase):
         command = pipeline.call_args.args[0][0]
         self.assertEqual(command[:3], ['HSET', members.SEEN_KEY, 'tester@example.com'])
 
+    def test_member_since_is_their_first_sign_in(self):
+        with patch.object(members, '_pipeline', return_value=[{'result': '2026-10-01T12:00:00+00:00'}]) as pipeline:
+            self.assertEqual(members.member_since({'email': ' Fan@Example.com'}), '2026-10-01T12:00:00+00:00')
+        self.assertEqual(pipeline.call_args[0][0], [['HGET', members.FIRST_SEEN_KEY, 'fan@example.com']])
+        with patch.object(members, '_pipeline', side_effect=RuntimeError('down')):
+            self.assertIsNone(members.member_since({'email': 'fan@example.com'}))
+        with patch.object(members, '_pipeline', return_value=None):
+            self.assertIsNone(members.member_since({'email': 'fan@example.com'}))
+        self.assertIsNone(members.member_since({}))
+
     def test_community_badges(self):
         rules = {'tester@example.com': {'badge': 'staff'}}
         posts = [{'id': 'p1', 'authorId': 'uid-1', 'authorName': 'Tester@example.com'},

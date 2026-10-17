@@ -32,7 +32,7 @@ RESERVED_NAMES = {'admin', 'administrator', 'krazydata', 'aceprops', 'moderator'
 IMAGE_SLOTS = {'avatar': 300 * 1024, 'background': 1536 * 1024}
 # What follows the account, and the JSON shape each one must have.
 PREFS = {'slip': list, 'accent': dict, 'accentPresets': list, 'background': dict,
-         'recentResearch': list, 'recentNfl': list, 'bot': dict}
+         'recentResearch': list, 'recentNfl': list, 'bot': dict, 'tour': dict}
 MAX_PREFS_BYTES = 200 * 1024
 
 

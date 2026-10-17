@@ -17,12 +17,13 @@ export const SYNCED={
  recentResearch:'krazy-data-recent-research-v1',
  recentNfl:'krazy-data:recent-players:nfl:v1',
  bot:'krazy-bot-memory-v1',
+ tour:'aceprops:welcome-tour:v1',
 };
 const NAMES=Object.fromEntries(Object.entries(SYNCED).map(([name,key])=>[key,name]));
 const META_KEY='krazy_data:account-sync:v1';
 const PUSH_DELAY=1200,PULL_EVERY=15000;
 
-let uid=null,ready=false,profile=null,pushTimer=0,pulling=null,lastPull=0,applying=false;
+let uid=null,ready=false,profile=null,pushTimer=0,pulling=null,lastPull=0,applying=false,memberSince=null;
 const dirty=new Set();
 
 function storage(){try{return window.localStorage;}catch{return null;}}
@@ -81,6 +82,7 @@ async function pull(){
   if(forUid!==uid)return;
   lastPull=Date.now();
   profile=data.profile||{name:'',avatarUrl:null};emitProfile();
+  memberSince=data.memberSince||null;
   if(meta.owner!==forUid){
    // Another account's settings are on this device: never upload them.
    if(meta.owner)for(const name of Object.keys(SYNCED))writeLocal(name,null);
@@ -95,7 +97,9 @@ async function pull(){
   writeMeta();
   if(applied.length)window.dispatchEvent(new CustomEvent('vortex:account-prefs-applied',{detail:{keys:applied}}));
   for(const name of Object.keys(push))dirty.add(name);
+  const first=!ready;
   ready=true;
+  if(first)emitSynced();
   if(dirty.size)schedulePush(0);
  })().finally(()=>{pulling=null;});
  return pulling;
@@ -162,10 +166,15 @@ export async function saveAccountProfile({name,photo}={}){
  return profile;
 }
 
+// The first pull after signing in is done (or failed): this device now
+// holds the account's settings, so whatever reads them can decide.
+function emitSynced(){window.dispatchEvent(new CustomEvent('vortex:account-synced',{detail:{uid,memberSince}}));}
+export function accountSynced(){return ready&&uid?{uid,memberSince}:null;}
+
 function start(nextUid){
  if(nextUid===uid)return;
- uid=nextUid;ready=false;profile=null;dirty.clear();clearTimeout(pushTimer);emitProfile();
- if(uid)pull().catch(()=>{ready=true;});
+ uid=nextUid;ready=false;profile=null;memberSince=null;dirty.clear();clearTimeout(pushTimer);emitProfile();
+ if(uid)pull().catch(()=>{if(!ready){ready=true;emitSynced();}});
 }
 window.addEventListener('vortex:site-policy',event=>{
  const detail=event.detail||{};

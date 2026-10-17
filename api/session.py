@@ -80,7 +80,10 @@ class handler(BaseHTTPRequestHandler):
             account=identity(self.headers)
             if not account or not account_profile.valid_uid(account.get('id')):return self._json(401,{'error':'Sign in to load your account'})
             uid=account['id']
-            return self._json(200,{'profile':account_profile.public_profile(uid,account_profile.read_profile(uid)),'prefs':account_profile.read_prefs(uid)})
+            # When they joined: the welcome tour opens by itself only for new members (src/WelcomeTour.jsx).
+            import site_members
+            return self._json(200,{'profile':account_profile.public_profile(uid,account_profile.read_profile(uid)),'prefs':account_profile.read_prefs(uid),
+                                   'memberSince':site_members.member_since(account)})
         if action == "account-image":
             return self._account_image(query)
         if action == "results":
