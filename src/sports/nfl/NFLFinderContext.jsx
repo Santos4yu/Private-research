@@ -5,6 +5,7 @@ import {STATS,STAT_MARKET,family,injuryCode,nflSeason,opponentOf,playedGames,tea
 import {ago,average,finite,fmt,ordinal,price,rankTone,signed} from '../wnba/wnba-research';
 import {propFocus} from '../../prop-focus';
 import PropFocusTag from '../../PropFocusTag';
+import FootballWeather from '../FootballWeather';
 
 // The NFL page's matchup panel: the WNBA panel's cards and styling
 // (WNBAFinderContext.jsx) filled from nflverse -- Matchup, Defense, Similar,
@@ -231,11 +232,11 @@ function Averages({row,rows,position,playerRows,season}){
  </Card>;
 }
 
-export default function NFLFinderContext({row,playerRows,season,rows,position,league,matchup,context,pbp,filters,onToggleFilter}){
+export default function NFLFinderContext({row,playerRows,season,rows,position,league,matchup,weather,context,pbp,filters,onToggleFilter}){
  const [tab,setTab]=useState('matchup');
  return <aside className="mlb-finder-context wnba-finder-context nfl-finder-context" data-tab={tab} aria-label="NFL matchup research">
   <nav className="mlb-context-tabs" aria-label="Research sections">{tabs.map(([key,label,Icon])=><button key={key} data-section={key} type="button" aria-pressed={tab===key} onClick={()=>setTab(key)}><Icon size={18} aria-hidden="true"/>{label}</button>)}</nav>
-  {tab==='matchup'&&<><CurrentLine row={row} playerRows={playerRows}/><WinPredictor matchup={matchup}/><MatchupOdds matchup={matchup}/><LastFive matchup={matchup}/><Standings league={league} row={row}/></>}
+  {tab==='matchup'&&<><CurrentLine row={row} playerRows={playerRows}/><WinPredictor matchup={matchup}/><FootballWeather state={weather} gameId={row.raw?.gameId||row.gameId} team={row.teamAbbr}/><MatchupOdds matchup={matchup}/><LastFive matchup={matchup}/><Standings league={league} row={row}/></>}
   {tab==='defense'&&<><DefenseVsPosition row={row} position={position}/><OffenseVsDefense league={league} pbp={pbp} row={row}/></>}
   {tab==='similar'&&<SimilarPlayers context={context} row={row} position={position}/>}
   {tab==='injuries'&&<Injuries row={row} season={season} context={context} filters={filters} onToggleFilter={onToggleFilter}/>}

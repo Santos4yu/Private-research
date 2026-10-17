@@ -156,6 +156,7 @@ export function CFBPlayerPage({row,playerRows,onBack}){
  const log=useLog(row.playerId?selected.teamId:null);
  const league=useCfb('league',{season});
  const matchup=useCfb('matchup',{event:selected.gameId},Boolean(selected.gameId));
+ const weather=useCfb('weather',{event:selected.gameId},Boolean(selected.gameId));
  const rows=useMemo(()=>playerGames(log.data,row.playerId),[log.data,row.playerId]);
  const position=selected.position||log.data?.players?.[row.playerId]?.pos;
  const impact=useMemo(()=>log.data?withWithout(log.data,row.playerId,selected.valueKey):null,[log.data,row.playerId,selected.valueKey]);
@@ -176,7 +177,7 @@ export function CFBPlayerPage({row,playerRows,onBack}){
    <TeamUsage row={selected} league={league}/>
    <PlayerGameLog row={selected} rows={rows} loading={log.loading} error={Boolean(log.error)} onRetry={log.retry} position={position}/>
   </div>
-  <CFBFinderContext row={selected} playerRows={playerRows} season={season} rows={rows} position={position} league={league} matchup={matchup}
+  <CFBFinderContext row={selected} playerRows={playerRows} season={season} rows={rows} position={position} league={league} matchup={matchup} weather={weather}
    impact={impact} filters={filters} onToggleFilter={toggleFilter}/></div></>}
  </section>;
 }

@@ -12,7 +12,8 @@
 //                how much scoring the two teams' games produce
 //   NFL          what the defense allows his position, its pass rush and
 //                pass defense for a quarterback, his share of the targets
-//                or carries
+//                or carries, and the wind, rain, snow or cold at kickoff
+//                (football_weather.py; college games too)
 //   NHL          what the defense allows his position in every stat, the
 //                shots it gives up, the penalties it takes, the shots a
 //                team takes for a goalie, his ice time
@@ -71,13 +72,18 @@ export async function loadMatchups(sports, {signal, fetcher} = {}) {
   const wanted = [...new Set(sports)];
   const pairs = await Promise.all(wanted.map(async sport => {
     if (sport === 'nfl') {
-      const [league, scout] = await Promise.all([quietly(loadFinderDefense(sport, options)), quietly(loadNflScout(options))]);
-      return [sport, league || scout ? {...(league || {}), scout} : null];
+      const [league, scout, weather] = await Promise.all([quietly(loadFinderDefense(sport, options)), quietly(loadNflScout(options)),
+        quietly(request(`/api/nfl?resource=finder-weather&season=${nflSeasonNow()}`, options))]);
+      return [sport, league || scout || weather ? {...(league || {}), scout, weather} : null];
     }
     if (sport === 'nba' || sport === 'wnba') return [sport, await quietly(loadFinderDefense(sport, options))];
     if (sport === 'nhl') return [sport, await quietly(request('/api/board?view=nhl&resource=league', options))];
     if (sport === 'soccer') return [sport, await quietly(request('/api/board?view=soccer&resource=league', options))];
-    if (sport === 'cfb') return [sport, await quietly(request('/api/board?view=cfb&resource=league', options))];
+    if (sport === 'cfb') {
+      const [league, weather] = await Promise.all([quietly(request('/api/board?view=cfb&resource=league', options)),
+        quietly(request('/api/board?view=cfb&resource=weather', options))]);
+      return [sport, league || weather ? {...(league || {}), weather} : null];
+    }
     if (sport === 'mlb') {
       const [context, hitters] = await Promise.all([quietly(loadMlbMatchups(options)), quietly(loadHitterMatchups(options))]);
       return [sport, context || hitters ? {context, hitters} : null];
@@ -90,9 +96,11 @@ export async function loadMatchups(sports, {signal, fetcher} = {}) {
 // This week's NFL scouting notes (nfl_scouting.py): blitz, pressure, boxes,
 // run defense, each player's splits and usage, read against his opponent.
 function loadNflScout(options) {
+  return request(`/api/nfl?resource=finder-scout&season=${nflSeasonNow()}`, options);
+}
+function nflSeasonNow() {
   const today = new Date();
-  const season = today.getUTCFullYear() - (today.getUTCMonth() < 2 ? 1 : 0);
-  return request(`/api/nfl?resource=finder-scout&season=${season}`, options);
+  return today.getUTCFullYear() - (today.getUTCMonth() < 2 ? 1 : 0);
 }
 
 /** A line with its league's matchup tables attached (what the analyst reads). */
@@ -414,8 +422,37 @@ function football(row, sign, league) {
       clamp((pct - 15) / 3, -3, 5) * sign));
   }
   out.push(...scouted);
+  const weather = footballWeather(row, sign, league?.weather, market);
+  if (weather) out.push(weather);
   if (row.sport === 'cfb') out.push(...college(row, sign, out));
   return out;
+}
+
+// Kickoff weather (football_weather.py): how much each prop feels the
+// passing and kicking levels (0-3), and the run props the lean to the run.
+const WEATHER_PASSING = {passing_yards: 1, longest_completion: 1, quarters_25_pass_yds: 0.8, passing_rushing_yards: 0.7, pass_completions: 0.7,
+  completion_pct: 0.7, passing_touchdowns: 0.6, passing_attempts: 0.4, receiving_yards: 1, longest_reception: 1, rec_yards_first_2: 0.8,
+  quarters_5_rec_yds: 0.8, halves_25_rec_yds: 0.8, receptions: 0.6, receiving_tds: 0.5, rushing_receiving_yards: 0.4, targets: 0.4};
+const WEATHER_KICKING = {fg_made: 1, fg_yards: 1, longest_fg: 1, kicking_points: 0.8, kicker_fantasy: 0.8, fg_attempts: 0.5};
+const WEATHER_RUN = {rush_attempts: 1, rushing_yards: 0.6, quarters_5_rush_yds: 0.5, halves_25_rush_yds: 0.5};
+const WEATHER_WORDS = ['', 'can slow', 'hurts', 'really hurts'];
+/** Wind, rain, snow or cold at kickoff, as a fact on the props it moves. */
+function footballWeather(row, sign, weather, market) {
+  const games = weather?.games;
+  if (!games) return null;
+  const game = games[row.gameId || row.raw?.gameId] || games[weather.teams?.[row.teamAbbr || row.team]];
+  if (!game?.available || game.covered || !game.flags?.length) return null;
+  const said = `${game.flags.map(flag => flag.label).join(', ')} at kickoff`;
+  if (WEATHER_PASSING[market] && game.passing) {
+    return fact('venue', 'weather', `${said}: ${WEATHER_WORDS[game.passing]} passing`, -game.passing * 3.5 * WEATHER_PASSING[market] * sign);
+  }
+  if (WEATHER_KICKING[market] && game.kicking) {
+    return fact('venue', 'weather', `${said}: ${WEATHER_WORDS[game.kicking]} kicking`, -game.kicking * 4 * WEATHER_KICKING[market] * sign);
+  }
+  if (WEATHER_RUN[market] && game.run) {
+    return fact('venue', 'weather', `${said}: teams lean on the run`, (game.passing - 1) * 2.5 * WEATHER_RUN[market] * sign);
+  }
+  return null;
 }
 
 // College football beyond the league table: today's opponent from the

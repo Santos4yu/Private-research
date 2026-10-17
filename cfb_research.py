@@ -234,10 +234,15 @@ def _event(item):
     status = ((competition.get("status") or item.get("status") or {}).get("type") or {})
     season = item.get("season") or {}
     kind = (item.get("seasonType") or {}).get("type") or season.get("type")
+    venue = competition.get("venue") or {}
+    address = venue.get("address") or {}
     return {"id": str(item.get("id") or competition.get("id") or ""), "start": item.get("date") or competition.get("date") or "",
             "season": _num(season.get("year")), "kind": "postseason" if str(kind) == "3" else "regular",
             "home": sides["home"], "away": sides["away"], "neutral": bool(competition.get("neutralSite")),
-            "completed": bool(status.get("completed")), "state": status.get("state") or ""}
+            "completed": bool(status.get("completed")), "state": status.get("state") or "",
+            # Where it's played, for the kickoff weather (football_weather.py).
+            "venue": {"name": venue.get("fullName") or "", "city": address.get("city") or "", "state": address.get("state") or "",
+                      "country": address.get("country") or "", "indoor": bool(venue.get("indoor"))}}
 
 
 def schedule_day(day, seconds=10 * 60):

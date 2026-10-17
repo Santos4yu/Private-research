@@ -162,6 +162,7 @@ export function NFLPlayerPage({row,playerRows,onBack}){
  const context=useNfl('player',{season,playerId:row.playerId,team:selected.teamAbbr,opponent,market:contextMarket,line:contextMarket===selected.marketKey?selected.line:''},
   Boolean(row.playerId&&selected.teamAbbr&&opponent&&contextMarket));
  const matchup=useNfl('matchup',{season,gameId:gameIdOf(selected)},Boolean(gameIdOf(selected)));
+ const weather=useNfl('weather',{season});
  const rows=useMemo(()=>mergePlayByPlay(log.data?.rows,pbp.data),[log.data,pbp.data]);
  const position=positionOf(log.data?.player?.position||selected.position);
  // Switching stat keeps the book/tier this row came from where possible.
@@ -189,6 +190,6 @@ export function NFLPlayerPage({row,playerRows,onBack}){
    <TeamUsage row={selected} league={league}/>
    <PlayerGameLog row={selected} rows={rows} loading={loading} error={Boolean(log.error)} onRetry={log.retry} position={position}/>
   </div>
-  <NFLFinderContext row={selected} playerRows={playerRows} season={season} rows={rows} position={position} league={league} matchup={matchup} context={context} pbp={pbp} filters={filters} onToggleFilter={toggleFilter}/></div></>}
+  <NFLFinderContext row={selected} playerRows={playerRows} season={season} rows={rows} position={position} league={league} matchup={matchup} weather={weather} context={context} pbp={pbp} filters={filters} onToggleFilter={toggleFilter}/></div></>}
  </section>;
 }

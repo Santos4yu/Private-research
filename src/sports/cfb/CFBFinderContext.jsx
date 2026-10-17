@@ -4,6 +4,7 @@ import {FinderDropdown,FinderDropdownAssets} from '../../FinderDropdown';
 import {ago,average,finite,fmt,ordinal,price,rankTone,signed} from '../wnba/wnba-research';
 import {propFocus} from '../../prop-focus';
 import PropFocusTag from '../../PropFocusTag';
+import FootballWeather from '../FootballWeather';
 import {STATS,cfbLogo,family,playedGames,statValue} from './cfb-stats';
 import {cfbSeason,dvpPosition,injuryCode,opponentOf,useCfb} from './cfb-finder';
 
@@ -242,11 +243,11 @@ function Averages({row,rows,position,playerRows,season}){
  </Card>;
 }
 
-export default function CFBFinderContext({row,playerRows,season,rows,position,league,matchup,impact,filters,onToggleFilter}){
+export default function CFBFinderContext({row,playerRows,season,rows,position,league,matchup,weather,impact,filters,onToggleFilter}){
  const [tab,setTab]=useState('matchup');
  return <aside className="mlb-finder-context wnba-finder-context nfl-finder-context" data-tab={tab} aria-label="College football matchup research">
   <nav className="mlb-context-tabs" aria-label="Research sections">{tabs.map(([key,label,Icon])=><button key={key} data-section={key} type="button" aria-pressed={tab===key} onClick={()=>setTab(key)}><Icon size={18} aria-hidden="true"/>{label}</button>)}</nav>
-  {tab==='matchup'&&<><CurrentLine row={row} playerRows={playerRows}/><WinPredictor matchup={matchup}/><MatchupOdds matchup={matchup}/><LastFive matchup={matchup}/><Standings league={league} row={row}/></>}
+  {tab==='matchup'&&<><CurrentLine row={row} playerRows={playerRows}/><WinPredictor matchup={matchup}/><FootballWeather state={weather} gameId={row.gameId} team={row.teamAbbr||row.team}/><MatchupOdds matchup={matchup}/><LastFive matchup={matchup}/><Standings league={league} row={row}/></>}
   {tab==='defense'&&<><DefenseVsPosition row={row} position={position}/><OffenseVsDefense league={league} row={row}/></>}
   {tab==='similar'&&<SimilarPlayers row={row} position={position}/>}
   {tab==='injuries'&&<Injuries row={row} matchup={matchup} impact={impact} filters={filters} onToggleFilter={onToggleFilter}/>}

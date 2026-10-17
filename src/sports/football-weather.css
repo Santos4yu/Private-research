@@ -1,0 +1,30 @@
+/* The kickoff weather card (FootballWeather.jsx): four even tiles for the
+   forecast, three for what it does to the game. */
+.football-weather-flags { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 12px 0; }
+.football-weather-flags span { padding: 5px 10px; border-radius: 999px; background: rgba(255, 196, 87, .14); color: #ffd27a; font: 700 12px/1.2 var(--font-sans, inherit); }
+.football-weather-flags span[data-level="high"] { background: rgba(255, 110, 130, .15); color: #ff9aac; }
+.football-weather-grid,
+.football-weather-effects { display: grid; gap: 8px; margin: 0; padding: 12px; }
+.football-weather-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.football-weather-effects { grid-template-columns: repeat(3, minmax(0, 1fr)); padding-top: 0; }
+.football-weather-grid > div,
+.football-weather-effects > div { min-width: 0; padding: 9px 10px; border: 1px solid rgba(255, 255, 255, .06); border-radius: 10px; background: rgba(144, 152, 156, .08); }
+.football-weather-grid dt,
+.football-weather-effects dt { color: var(--text-muted, #a0a7ab); font: 600 11px/1.2 var(--font-sans, inherit); }
+.football-weather-grid dd,
+.football-weather-effects dd { margin: 5px 0 0; font: 700 15px/1.25 var(--font-sans, inherit); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.football-weather-effects dd { font-size: 13px; }
+.football-weather-grid dd small { display: block; margin-top: 3px; color: var(--text-muted, #a0a7ab); font-size: 11px; font-weight: 500; }
+.football-weather-effects > div[data-level="1"] { border-color: rgba(255, 196, 87, .28); background: rgba(255, 196, 87, .08); }
+.football-weather-effects > div[data-level="1"] dd { color: #ffd27a; }
+.football-weather-effects > div:is([data-level="2"], [data-level="3"]) { border-color: rgba(255, 110, 130, .3); background: rgba(255, 110, 130, .08); }
+.football-weather-effects > div:is([data-level="2"], [data-level="3"]) dd { color: #ff9aac; }
+.football-weather-effects > div[data-level="up"] { border-color: rgba(48, 214, 140, .3); background: rgba(48, 214, 140, .08); }
+.football-weather-effects > div[data-level="up"] dd { color: #5fe3a6; }
+.football-weather-credit { display: block; padding: 0 12px 12px; color: var(--text-muted, #a0a7ab); font-size: 10px; }
+@media (max-width: 480px) {
+  .football-weather-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .football-weather-effects { gap: 6px; }
+  .football-weather-effects > div { padding: 8px; }
+  .football-weather-effects dd { font-size: 12px; }
+}

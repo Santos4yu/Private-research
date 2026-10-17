@@ -358,6 +358,14 @@ class handler(BaseHTTPRequestHandler):
                         if not cfb_research.valid_id(team) or (event and not cfb_research.valid_id(event)):
                             return self._send(400, {"error": "Unknown team."})
                         return self._send(200, cfb_research.team_context(team, event or None))
+                    if resource == "weather":
+                        # Kickoff weather for the week's games (football_weather.py);
+                        # with an event, that game's town is looked up now if needed.
+                        event = arg("event")
+                        if event and not cfb_research.valid_id(event):
+                            return self._send(400, {"error": "Unknown game."})
+                        import football_weather
+                        return self._send(200, football_weather.cfb_week(focus=event or None))
                     if resource == "log":
                         if not cfb_research.valid_id(team) or (opponent and not cfb_research.valid_id(opponent)):
                             return self._send(400, {"error": "Unknown team."})

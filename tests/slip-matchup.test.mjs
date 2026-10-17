@@ -128,8 +128,40 @@ test('a line gets its league\'s tables, loaded once for the sports on the slip',
   assert.deepEqual(Object.keys(tables).sort(), ['mlb', 'nfl']);
   assert.equal(asked.filter(url => /finder-league/.test(url)).length, 1);
   assert.equal(asked.filter(url => /finder-scout/.test(url)).length, 1, 'the NFL scouting notes come with it');
+  assert.equal(asked.filter(url => /finder-weather/.test(url)).length, 1, 'and the kickoff weather');
   const hitter = withMatchups({sport: 'mlb', playerId: 660271, marketKey: 'hitting:hrr', opponentTeamId: 115}, tables);
   assert.equal(hitter.hitterMatchup.grades.other.score, 70);
+});
+
+test('football: wind, rain or snow at kickoff moves passing, kicking and run props', async () => {
+  const windy = {available: true, passing: 3, kicking: 3, run: 1, flags: [{key: 'wind', level: 'high', label: 'Wind 22 mph, gusts to 38'}]};
+  const weather = {games: {'2026_07_MIA_BUF': windy, '2026_07_SEA_DET': {available: true, covered: true, passing: 0, kicking: 0, run: 0, flags: []}},
+    teams: {BUF: '2026_07_MIA_BUF', MIA: '2026_07_MIA_BUF', DET: '2026_07_SEA_DET', SEA: '2026_07_SEA_DET'}};
+  const tables = {nfl: {weather}};
+  const pick = (row, side = 'OVER') => matchupCase({row: {sport: 'nfl', gameLog: [], ...row}, side, grade: {records: {}}}, tables).facts.find(item => item.key === 'weather');
+  const qb = pick({player: 'Josh Allen', teamAbbr: 'BUF', opponent: 'MIA', gameId: '2026_07_MIA_BUF', marketKey: 'passing_yards', market: 'Pass Yards', line: 245.5});
+  assert.equal(qb.text, 'Wind 22 mph, gusts to 38 at kickoff: really hurts passing');
+  assert.equal(qb.impact, -10.5);
+  assert.equal(pick({teamAbbr: 'BUF', marketKey: 'passing_yards'}, 'UNDER').impact, 10.5, 'the same wind helps the under');
+  // Found by team when the row has no game id; receptions feel it less.
+  assert.equal(pick({teamAbbr: 'MIA', marketKey: 'receptions'}).impact, -6.3);
+  assert.equal(pick({teamAbbr: 'BUF', marketKey: 'fg_made'}).text, 'Wind 22 mph, gusts to 38 at kickoff: really hurts kicking');
+  const run = pick({teamAbbr: 'BUF', marketKey: 'rush_attempts'});
+  assert.equal(run.impact, 5);
+  assert.equal(run.text, 'Wind 22 mph, gusts to 38 at kickoff: teams lean on the run');
+  // Under a roof, or a prop weather doesn't touch: nothing said.
+  assert.equal(pick({teamAbbr: 'DET', marketKey: 'passing_yards'}), undefined);
+  assert.equal(pick({teamAbbr: 'BUF', marketKey: 'tackles'}), undefined);
+  // College rows carry the NFL's keys as value keys, and their ESPN event id.
+  const college = matchupCase({row: {sport: 'cfb', gameLog: [], team: 'ALA', gameId: '401', valueKey: 'receiving_yards', marketKey: 'receiving_yards'}, side: 'OVER',
+    grade: {records: {}}}, {cfb: {weather: {games: {401: {...windy, passing: 2, flags: [{key: 'rain', level: 'high', label: 'Heavy rain'}]}}, teams: {}}}});
+  assert.equal(college.facts.find(item => item.key === 'weather').text, 'Heavy rain at kickoff: hurts passing');
+  // The college slate loads with the league tables.
+  const asked = [];
+  const fetcher = async url => { asked.push(url); return {ok: true, json: async () => ({games: {}, teams: {}})}; };
+  const loaded = await loadMatchups(['cfb'], {fetcher});
+  assert.ok(asked.some(url => /view=cfb&resource=weather/.test(url)));
+  assert.ok(loaded.cfb.weather);
 });
 
 // Soccer: four clubs on the board, what each gives up a match.

@@ -100,7 +100,7 @@ def _source_payload(resource, season, week, season_type, team, player_id, season
 
 # The Finder's NFL player page (backend/sports/nfl/finder.py).
 FINDER_RESOURCES = ('finder-board', 'finder-find', 'finder-log', 'finder-pbp', 'finder-league', 'finder-team', 'finder-matchup', 'finder-player',
-                    'finder-scout')
+                    'finder-scout', 'finder-weather')
 PLAYER_ID = re.compile(r'^\d{2}-\d{7}$')
 TEAM = re.compile(r'^[A-Z]{2,3}$')
 GAME_ID = re.compile(r'^\d{4}_\d{2}_[A-Z]{2,3}_[A-Z]{2,3}$')
@@ -142,6 +142,10 @@ class handler(BaseHTTPRequestHandler):
                 # blitz, pressure, boxes, run defense, splits and usage.
                 import nfl_scouting
                 return send_json(self, 200, nfl_scouting.report(season))
+            if resource == 'finder-weather':
+                # Kickoff weather for the week's games (football_weather.py).
+                import football_weather
+                return send_json(self, 200, football_weather.nfl_slate(season))
             if resource == 'finder-team':
                 return send_json(self, 200, finder.team_context(season, team))
             if resource == 'finder-matchup':
