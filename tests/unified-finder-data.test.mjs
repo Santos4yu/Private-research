@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {applyTennisHistory,applySoccerHistory,finderWindow,normalizeFinderRows,applyMlbHistory,enrichMlbRows,loadFinderSport,finderSlipProp,bookProbability,powerDevig,defenseRank,withDefense,trendPickRow,withMlbMatchups,gameLog} from '../src/unified-finder-data.js';
+import {applyTennisHistory,applySoccerHistory,finderWindow,windowGames,windowRate,normalizeFinderRows,applyMlbHistory,enrichMlbRows,loadFinderSport,finderSlipProp,bookProbability,powerDevig,defenseRank,withDefense,trendPickRow,withMlbMatchups,gameLog} from '../src/unified-finder-data.js';
 
 test('book chance comes from the books\' prices with the margin removed, never a fixed 50/50',()=>{
  // PrizePicks' payouts and an app quoting the same price both ways say nothing.
@@ -66,6 +66,15 @@ test('NFL rows list every app posting the line',()=>{
  assert.equal(row.id,'nfl:odds:g:00-2:receptions:4.5');
  assert.deepEqual(row.apps.map(app=>[app.key,app.over,app.under]),[['draftkings',-125,-105],['williamhill_us',-120,-110]]);
  assert.equal(bookProbability(row.apps).books.length,2);
+});
+test('the board counts a push as a game that did not clear the line, like the trends page',()=>{
+ const window=finderWindow([3,6,3,3,4],3);
+ assert.equal(window.hitRate,100);
+ assert.equal(windowGames(window),5);
+ assert.equal(windowRate(window),40);
+ assert.equal(windowRate(finderWindow([1,2],3,'UNDER')),100);
+ assert.equal(windowRate(null),null);
+ assert.equal(windowRate({hitRate:62}),62);
 });
 test('pushes are excluded, missing values stay missing, and Under reverses the outcome',()=>{
  assert.equal(finderWindow([null,undefined,'',0,2,3],2).hitRate,50);

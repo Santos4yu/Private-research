@@ -379,6 +379,21 @@ export function finderWindow(values, line, direction = 'OVER') {
     hitRate: decisions ? hits / decisions * 100 : null, average: mean(valid)};
 }
 
+/**
+ * A window as the board shows it, the way the trends page counts: the
+ * games over (or under) the line out of every game in it, so one that lands
+ * right on the line counts as a game that didn't clear it. (hitRate leaves
+ * those pushes out; the grades use that.) 3, 6, 3, 3, 4 against More 3 is
+ * 2 of 5, 40%, not 2 of 2.
+ */
+export function windowGames(window) {
+  return window && Number.isFinite(window.hits) ? window.hits + (window.misses || 0) + (window.pushes || 0) : 0;
+}
+export function windowRate(window) {
+  const games = windowGames(window);
+  return games ? window.hits / games * 100 : window?.hitRate ?? null;
+}
+
 function normalizeWindows(windows) {
   return Object.fromEntries(WINDOW_KEYS.map(key => {
     const source = windows?.[key] || (key === 'season' ? windows?.szn : null);
