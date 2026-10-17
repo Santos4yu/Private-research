@@ -84,7 +84,7 @@ function screenshotBox(onAdd){
   }catch{status.textContent='Pasting was blocked by your browser. Choose the screenshot instead.';}
  }
  document.addEventListener('paste',event=>{
-  if(!box.isConnected||!box.offsetParent||reading)return;
+  if(!box.isConnected||!(box.checkVisibility?box.checkVisibility():box.offsetParent)||reading)return;
   if(event.target instanceof HTMLElement&&event.target.closest('input,textarea,select,[contenteditable]'))return;
   const found=[...(event.clipboardData?.items||[])].filter(item=>item.type.startsWith('image/')).map(item=>item.getAsFile()).filter(Boolean);
   if(!found.length)return;

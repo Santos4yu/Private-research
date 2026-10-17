@@ -11,31 +11,70 @@
    owns navigation there. */
 #sidebar-root { display: none; }
 
+/* The rail is 64px until a pointer rests on it, then as wide as
+   --rail-open (244px, or 380px with the Pick Builder inside). Opening and
+   closing move only layers the browser has already drawn: the backdrop
+   (.vortex-sidebar-sheet) is scaled from the rail's width to the open
+   width, its edge line and shadow ride along, and the names fade in. The
+   rail's own box only snaps between the two widths (at the start of
+   opening, at the end of closing), so nothing is laid out frame by frame. */
 .vortex-sidebar-desktop {
+  --rail-open: 244;
+  --rail-w: calc(var(--rail-open) * 1px);
+  --rail-ease: cubic-bezier(.2, .8, .2, 1);
+  --rail-time: .24s;
   position: fixed;
   left: 0;
   top: 0;
   z-index: 500;
   display: none;
-  flex-direction: column;
+  width: 64px;
   height: 100vh;
-  padding: 18px 10px 14px;
-  overflow: hidden;
-  border-right: 1px solid rgba(255, 255, 255, .06);
-  /* A soft wash of the member's accent from the top corner, over a deep
-     charcoal that darkens toward the bottom. */
+  contain: layout style;
+  /* Closing: the box stays wide until the backdrop has folded away. */
+  transition: width 0s linear var(--rail-time);
+}
+.vortex-sidebar-desktop.is-wide { width: var(--rail-w); transition-delay: 0s; }
+/* A soft wash of the member's accent from the top corner, over a deep
+   charcoal that darkens toward the bottom. */
+.vortex-sidebar-sheet,
+.vortex-sidebar-shade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--rail-w);
+  transform-origin: 0 0;
+  transform: scaleX(calc(64 / var(--rail-open)));
+  transition: transform var(--rail-time) var(--rail-ease), opacity var(--rail-time) var(--rail-ease);
+  will-change: transform;
+  pointer-events: none;
+}
+.vortex-sidebar-sheet {
   background:
     radial-gradient(130% 34% at 0% 0%, color-mix(in srgb, var(--theme-accent, #00F58A) 11%, transparent), transparent 70%),
     linear-gradient(180deg, #121619 0%, #0c0f11 100%);
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, .02);
-  transition: box-shadow .2s ease;
 }
-/* Open over the page: lift it off with a shadow. */
-.vortex-sidebar-desktop:has(.vortex-sidebar-body.is-wide) { box-shadow: 18px 0 50px rgba(0, 0, 0, .5), inset -1px 0 0 rgba(255, 255, 255, .02); }
+/* Open over the page: lifted off it with a shadow. */
+.vortex-sidebar-shade { box-shadow: 18px 0 50px rgba(0, 0, 0, .5); opacity: 0; }
+.vortex-sidebar-edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 63px;
+  width: 1px;
+  background: rgba(255, 255, 255, .06);
+  transition: transform var(--rail-time) var(--rail-ease);
+  will-change: transform;
+  pointer-events: none;
+}
+.vortex-sidebar-desktop.is-wide :is(.vortex-sidebar-sheet, .vortex-sidebar-shade) { transform: none; }
+.vortex-sidebar-desktop.is-wide .vortex-sidebar-shade { opacity: 1; }
+.vortex-sidebar-desktop.is-wide .vortex-sidebar-edge { transform: translateX(calc(var(--rail-w) - 64px)); }
 
 @media (min-width: 761px) {
   #sidebar-root { display: block; }
-  .vortex-sidebar-desktop { display: flex; }
+  .vortex-sidebar-desktop { display: block; }
   #app-shell { padding-left: 64px; }
   /* The sidebar replaces this bar's job on desktop; it already hides
      itself below 760px (expandable-tabs.css), so mobile is untouched. */
@@ -50,12 +89,17 @@
   #settings-panel { top: auto; right: auto; bottom: 16px; left: 76px; }
 }
 
-.vortex-sidebar-body { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 18px; }
+/* What's in the rail, over its backdrop, cut to the rail's width. While
+   compact everything sits in the first 64px, left-aligned, so it stays put
+   whatever the box's width is at that moment. */
+.vortex-sidebar-inner { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 18px; width: 100%; height: 100%; padding: 18px 10px 14px; overflow: hidden; box-sizing: border-box; }
 
-.vortex-sidebar-top { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 8px; }
-.vortex-sidebar-top.collapsed { justify-content: center; padding: 0; }
-.vortex-sidebar-mark { flex: 0 0 auto; width: 32px; height: 32px; object-fit: contain; filter: drop-shadow(0 4px 14px color-mix(in srgb, var(--theme-accent, #00F58A) 30%, transparent)); }
-.vortex-sidebar-wordmark { flex: 0 0 auto; display: block; width: auto; height: 35px; object-fit: contain; }
+.vortex-sidebar-top { position: relative; flex: 0 0 auto; height: 36px; }
+.vortex-sidebar-top img { position: absolute; top: 50%; transition: opacity .18s ease; }
+.vortex-sidebar-mark { left: 6px; width: 32px; height: 32px; margin-top: -16px; object-fit: contain; }
+.vortex-sidebar-wordmark { left: 8px; width: auto; height: 35px; margin-top: -17.5px; object-fit: contain; opacity: 0; }
+.vortex-sidebar-desktop.is-wide .vortex-sidebar-mark { opacity: 0; }
+.vortex-sidebar-desktop.is-wide .vortex-sidebar-wordmark { opacity: 1; transition-delay: .06s; }
 
 /* The links give way (scroll) on a short window, so the footer below is
    never pushed out of the rail. */
@@ -63,8 +107,11 @@
 .vortex-sidebar-links::-webkit-scrollbar { display: none; }
 .vortex-sidebar-group { display: flex; flex-direction: column; gap: 2px; }
 /* Each section's heading; a short rule in its place while the rail is compact. */
-.vortex-sidebar-heading { display: flex; align-items: center; height: 24px; padding: 0 10px; color: #6c777c; font: 700 10.5px/1 var(--font-sans); letter-spacing: .14em; text-transform: uppercase; white-space: nowrap; }
-.vortex-sidebar-heading i { display: block; width: 18px; height: 1px; margin: 0 auto; background: rgba(255, 255, 255, .12); }
+.vortex-sidebar-heading { position: relative; display: flex; align-items: center; height: 24px; padding: 0 10px; color: #6c777c; font: 700 10.5px/1 var(--font-sans); letter-spacing: .14em; text-transform: uppercase; white-space: nowrap; }
+.vortex-sidebar-heading span { opacity: 0; transition: opacity .16s ease; }
+.vortex-sidebar-heading i { position: absolute; top: 50%; left: 13px; width: 18px; height: 1px; background: rgba(255, 255, 255, .12); transition: opacity .16s ease; }
+.vortex-sidebar-desktop.is-wide .vortex-sidebar-heading span { opacity: 1; transition-delay: .05s; }
+.vortex-sidebar-desktop.is-wide .vortex-sidebar-heading i { opacity: 0; }
 
 .vortex-sidebar-link {
   position: relative;
@@ -107,7 +154,11 @@
   box-shadow: 0 6px 16px color-mix(in srgb, var(--theme-accent, #00F58A) 32%, transparent), inset 0 1px 0 rgba(255, 255, 255, .35);
 }
 .vortex-sidebar-link.active::before { content: ''; position: absolute; left: -10px; top: 11px; bottom: 11px; width: 3px; border-radius: 0 3px 3px 0; background: var(--theme-accent, #00F58A); box-shadow: 0 0 12px var(--theme-accent, #00F58A); }
-.vortex-sidebar-link-label { flex: 1; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+/* Closing: each item is cut back to its icon tile at once, so nothing
+   hangs out past the backdrop as it folds. */
+.vortex-sidebar-desktop:not(.is-wide) .vortex-sidebar-link { width: 44px; }
+.vortex-sidebar-link-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: left; opacity: 0; transition: opacity .14s ease; }
+.vortex-sidebar-desktop.is-wide .vortex-sidebar-link-label { opacity: 1; transition: opacity .2s ease .05s; }
 
 /* The icon's own positioning context, so the notification dot below can
    pin to its corner regardless of whether the rail is collapsed or the
@@ -146,7 +197,11 @@
 .vortex-sidebar-slip-text small { overflow: hidden; text-overflow: ellipsis; color: #8d979b; font: 500 11px/1.1 var(--font-sans); }
 
 .vortex-sidebar-account { display: flex; align-items: center; gap: 6px; }
-.vortex-sidebar-body:not(.is-wide) .vortex-sidebar-account { flex-direction: column; gap: 8px; }
+.vortex-sidebar-body:not(.is-wide) .vortex-sidebar-account { flex-direction: column; align-items: flex-start; gap: 8px; }
+.vortex-sidebar-body:not(.is-wide) .vortex-sidebar-gear { margin-left: 5px; }
+/* What only shows on the open rail comes in with it. */
+:is(.vortex-sidebar-slip, .vortex-sidebar-me-text) { animation: vs-fade .2s ease .04s backwards; }
+@keyframes vs-fade { from { opacity: 0; } }
 .vortex-sidebar-me { display: flex; flex: 1 1 auto; align-items: center; gap: 10px; min-width: 0; padding: 6px; border: 0; border-radius: 12px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
 .vortex-sidebar-body:not(.is-wide) .vortex-sidebar-me { flex: 0 0 auto; }
 .vortex-sidebar-me:hover { background: rgba(255, 255, 255, .04); }
@@ -174,12 +229,12 @@
 .vortex-sidebar-mobile { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
-  .vortex-sidebar-desktop, .vortex-sidebar-link, .vortex-sidebar-link-label { transition: none !important; animation: none !important; }
+  .vortex-sidebar-desktop, .vortex-sidebar-desktop * { transition: none !important; animation: none !important; }
 }
 
 /* The Pick Builder inside the rail: the rail widens and the builder takes
    the space between the links and the footer, scrolling on its own. */
-.vortex-sidebar-body.has-builder { gap: 14px; }
+.vortex-sidebar-body.has-builder .vortex-sidebar-inner { gap: 14px; }
 .vortex-sidebar-body.has-builder .vortex-sidebar-links { flex: 0 0 auto; }
 /* The links fold into a row of icon tiles above it, so the builder gets the room. */
 .vortex-sidebar-body.has-builder .vortex-sidebar-links { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
@@ -189,4 +244,4 @@
 .vortex-sidebar-body.has-builder .vortex-sidebar-link-label { display: none !important; }
 .vortex-sidebar-body.has-builder .vortex-sidebar-link.active::before { display: none; }
 .vortex-sidebar-builder { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0 -4px; padding: 0 4px; scrollbar-width: thin; }
-.vortex-sidebar-desktop:has(.vortex-sidebar-builder) { box-shadow: 18px 0 40px rgba(0, 0, 0, .45); }
+

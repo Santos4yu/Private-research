@@ -215,7 +215,6 @@ async function init() {
   } catch (err) {
     console.error("wireChromeAutoHide failed:", err);
   }
-  wireCardBorderGlow();
   wireBrandLoop();
   wireTabs();
   wireMainMenu();
@@ -1064,61 +1063,6 @@ function applyExperience(enabled) {
 function wireChromeAutoHide() {
   // App navigation remains reachable while reading a long report.
   els.settingsBtn.classList.remove("mobile-chrome-hidden");
-}
-
-/* ---------- Border glow for every card surface ---------- */
-
-const CARD_GLOW_SELECTOR = [
-  ".player-profile", ".report-block", ".report-card", ".slate-card",
-  ".slate-row", ".saved-card", ".v2-card", ".board-card",
-  ".market-card", ".market-page-head",
-].join(", ");
-
-function wireCardBorderGlow() {
-  let glowFrame = 0;
-  let pendingGlow = null;
-  const enableGlow = (card) => {
-    if (card.classList.contains("border-glow-enabled")) return;
-    card.classList.add("border-glow-enabled");
-    const glow = document.createElement("span");
-    glow.className = "card-border-glow";
-    glow.setAttribute("aria-hidden", "true");
-    card.append(glow);
-  };
-
-  document.querySelectorAll(CARD_GLOW_SELECTOR).forEach(enableGlow);
-
-  document.addEventListener("pointermove", (event) => {
-    if (event.pointerType === "touch") return;
-    const card = event.target.closest?.(CARD_GLOW_SELECTOR);
-    if (!card) return;
-
-    enableGlow(card);
-    pendingGlow = { card, x: event.clientX, y: event.clientY };
-    if (glowFrame) return;
-    glowFrame = requestAnimationFrame(() => {
-      glowFrame = 0;
-      const next = pendingGlow;
-      pendingGlow = null;
-      if (!next) return;
-      const rect = next.card.getBoundingClientRect();
-      const x = next.x - rect.left;
-      const y = next.y - rect.top;
-      const distanceToEdge = Math.min(x, y, rect.width - x, rect.height - y);
-      const edgeRange = Math.min(76, Math.min(rect.width, rect.height) * 0.35);
-      const strength = Math.max(0, 1 - distanceToEdge / edgeRange);
-      next.card.style.setProperty("--border-glow-x", `${x}px`);
-      next.card.style.setProperty("--border-glow-y", `${y}px`);
-      next.card.style.setProperty("--border-glow-strength", strength.toFixed(3));
-    });
-  }, { passive: true });
-
-  document.addEventListener("pointerout", (event) => {
-    const card = event.target.closest?.(CARD_GLOW_SELECTOR);
-    if (card && !card.contains(event.relatedTarget)) {
-      card.style.setProperty("--border-glow-strength", "0");
-    }
-  }, { passive: true });
 }
 
 const BRAND_LOOP_WORDS = ["Data", "Props", "Edge", "Signal"];

@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { Sidebar, SidebarBody, SidebarLink } from '../components/ui/sidebar';
 import { ChevronRight, Settings, Ticket } from 'lucide-react';
 import { topTabs } from './navTabs';
 import { PickBuilder } from './PickBuilder';
@@ -54,6 +53,18 @@ function useMember() {
     return () => window.removeEventListener('vortex:account-profile', onProfile);
   }, [policy]);
   return member;
+}
+
+// One destination in the rail: its icon tile, and its name beside it while
+// the rail is open (always in the page, faded in and out by the stylesheet).
+function RailLink({ label, icon, active, onClick, ...props }) {
+  return (
+    <button type="button" className={`vortex-sidebar-link${active ? ' active' : ''}`} onClick={onClick}
+      aria-current={active ? 'page' : undefined} aria-label={label} {...props}>
+      <span className="vortex-sidebar-link-icon">{icon}</span>
+      <span className="vortex-sidebar-link-label">{label}</span>
+    </button>
+  );
 }
 
 // Same destinations, same dock-sync wiring as the top pill bar
@@ -142,16 +153,22 @@ export function VortexSidebar() {
     ? <img src={member.photo} alt="" onError={() => setBroken(member.photo)} />
     : <span aria-hidden="true">{initial}</span>;
 
+  // Opening and closing only move layers the browser has already drawn
+  // (vortex-sidebar.css): the rail's backdrop unfolds with a transform, the
+  // names fade in, and nothing on the page is laid out again mid-way.
   return (
-    <Sidebar open={wide} setOpen={setOpen} width={builderOpen ? '380px' : '244px'} pinned={builderOpen}>
-      <SidebarBody className={`vortex-sidebar-body${builderOpen ? ' has-builder' : ''}${wide ? ' is-wide' : ''}`}>
+    <aside className={`vortex-sidebar-desktop vortex-sidebar-body${builderOpen ? ' has-builder' : ''}${wide ? ' is-wide' : ''}`}
+      style={{ '--rail-open': builderOpen ? 380 : 244 }} aria-label="Site"
+      onMouseEnter={() => setOpen(true)} onMouseLeave={() => { if (!builderOpen) setOpen(false); }}>
+      <span className="vortex-sidebar-shade" aria-hidden="true" />
+      <span className="vortex-sidebar-sheet" aria-hidden="true" />
+      <span className="vortex-sidebar-edge" aria-hidden="true" />
+      <div className="vortex-sidebar-inner">
         {/* The full wordmark while the rail is open, the spade A while it
-            is compact (the wordmark is never just clipped by the narrow
-            rail). */}
-        <div className={`vortex-sidebar-top${!wide ? ' collapsed' : ''}`}>
-          {wide
-            ? <img src="/brand/ace-props-wordmark.png" alt="Ace Props" className="vortex-sidebar-wordmark" width={92} height={35} />
-            : <img src="/brand/ace-props-mark.png" alt="Ace Props" className="vortex-sidebar-mark" width={32} height={32} />}
+            is compact, one fading into the other. */}
+        <div className="vortex-sidebar-top">
+          <img src="/brand/ace-props-mark.png" alt={wide ? '' : 'Ace Props'} className="vortex-sidebar-mark" width={32} height={32} />
+          <img src="/brand/ace-props-wordmark.png" alt={wide ? 'Ace Props' : ''} className="vortex-sidebar-wordmark" width={92} height={35} />
         </div>
         <nav className="vortex-sidebar-links" aria-label="Main">
           {grouped.map((group) => {
@@ -160,28 +177,26 @@ export function VortexSidebar() {
             return (
               <div className="vortex-sidebar-group" key={group.key} role="group" aria-label={group.label}>
                 {/* The heading, or a short rule while the rail is compact. */}
-                <div className="vortex-sidebar-heading" aria-hidden="true">{wide ? group.label : <i />}</div>
+                <div className="vortex-sidebar-heading" aria-hidden="true"><span>{group.label}</span><i /></div>
                 {group.items.map((item) => (
-                  <SidebarLink
+                  <RailLink
                     key={item.value}
                     data-requires-tab={item.value}
                     title={builderOpen ? item.title : undefined}
-                    link={{
-                      label: item.title,
-                      // Badge lives inside the icon's own wrapper (not after the
-                      // label) so it can sit pinned to the icon's corner like a
-                      // notification dot, in both the collapsed and expanded rail.
-                      icon: (
-                        <span className="vortex-sidebar-icon-wrap">
-                          <item.icon size={18} strokeWidth={1.9} />
-                          {item.value === 'saved' && saved > 0 && (
-                            <span className="vortex-sidebar-notif" aria-label={`${saved} saved props`}>{saved}</span>
-                          )}
-                        </span>
-                      ),
-                      active: item.value === 'saved' ? builderOpen : tab === item.value && !builderOpen,
-                      onClick: () => go(item.value),
-                    }}
+                    label={item.title}
+                    // Badge lives inside the icon's own wrapper (not after the
+                    // label) so it can sit pinned to the icon's corner like a
+                    // notification dot, in both the collapsed and expanded rail.
+                    icon={(
+                      <span className="vortex-sidebar-icon-wrap">
+                        <item.icon size={18} strokeWidth={1.9} />
+                        {item.value === 'saved' && saved > 0 && (
+                          <span className="vortex-sidebar-notif" aria-label={`${saved} saved props`}>{saved}</span>
+                        )}
+                      </span>
+                    )}
+                    active={item.value === 'saved' ? builderOpen : tab === item.value && !builderOpen}
+                    onClick={() => go(item.value)}
                   />
                 ))}
               </div>
@@ -221,7 +236,7 @@ export function VortexSidebar() {
             </button>
           </div>
         </div>
-      </SidebarBody>
-    </Sidebar>
+      </div>
+    </aside>
   );
 }

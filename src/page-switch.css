@@ -1,0 +1,21 @@
+/* Switching pages (app.js switchTab). A page you leave is parked rather
+   than taken out of the layout: content-visibility keeps its styles and
+   layout, so coming back to it is a repaint, not a rebuild of every
+   element. It takes no room (no height, no vertical padding or margin)
+   and, like display:none, nothing in it is drawn, focusable or read out.
+   The page you open shows at once, without a fade that would draw it
+   twice. (The selector outweighs each page's own sizing rules.) */
+html body #app-shell#app-shell > .tab-panel.tab-panel[hidden] {
+  display: block !important;
+  content-visibility: hidden;
+  height: 0 !important;
+  min-height: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border-top-width: 0 !important;
+  border-bottom-width: 0 !important;
+  overflow: hidden;
+}
+.panel-enter { animation: none !important; }
