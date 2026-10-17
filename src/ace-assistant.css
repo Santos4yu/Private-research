@@ -6,7 +6,6 @@
 #panel-bot.tab-panel{max-width:none;padding:0;animation:none!important;transform:none!important}
 #panel-bot.tab-panel::before{display:none}
 body:has(#panel-bot:not([hidden])) .site-footer{display:none}
-#app-shell:has(#panel-bot:not([hidden]))>.hero{display:none!important}
 html:has(#panel-bot:not([hidden])),body:has(#panel-bot:not([hidden])){overflow:hidden}
 
 .ace{--ace-bg:#0a0d0f;--ace-side:#0d1113;--ace-panel:#12171a;--ace-raised:#171d21;--ace-line:#20282d;--ace-line-2:#2b343a;
@@ -24,8 +23,7 @@ html:has(#panel-bot:not([hidden])),body:has(#panel-bot:not([hidden])){overflow:h
 .ace [data-tier]{--tier:#61696d}
 .ace [data-tier=elite]{--tier:#46e39a}.ace [data-tier=strong]{--tier:#3cc9b9}.ace [data-tier=lean]{--tier:#aeb5b8}
 .ace [data-tier=risky]{--tier:#f6b955}.ace [data-tier=fade]{--tier:#ff7b8a}
-/* On a phone the page runs up behind the clock; its header's padding clears it. */
-@media (max-width:760px){.krazy-bot.ace{--kb-top:0px;--kb-bottom:calc(68px + env(safe-area-inset-bottom,0px))}}
+@media (max-width:760px){.ace{--kb-bottom:calc(68px + env(safe-area-inset-bottom,0px))}}
 @media (min-width:761px){.ace{--kb-left:64px}}
 /* Typing on a touch screen: fitted to what's left above the keyboard, and
    the site's bottom menu steps out of the way (KrazyBot.jsx). */
@@ -404,7 +402,14 @@ html[data-bot-typing] body .mobile-app-nav{opacity:0!important;visibility:hidden
 }
 @media (max-width:1179px){.ace-starts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:760px){
- .ace-top{min-height:0;padding:calc(var(--site-status-inset,0px) + 10px) 14px 10px}
+ /* The desk fills the screen from the very top: the header's own colour
+    runs up under the clock and it pads just below it and iOS's glass band
+    (--site-status-inset holds both), so there's no black strip above it
+    and no empty block inside it. One row: the league badges are left to
+    the computer. */
+ .krazy-bot.ace{--kb-top:0px}
+ .ace-top{min-height:0;padding:calc(var(--site-status-inset,0px) + 6px) 14px 10px}
+ .ace-top-leagues{display:none}
  .ace-title{gap:10px}
  .ace-mark{width:36px;height:36px;border-radius:11px}
  .ace-mark img{width:21px;height:21px}
@@ -418,6 +423,7 @@ html[data-bot-typing] body .mobile-app-nav{opacity:0!important;visibility:hidden
  .ace-intro h2{font-size:27px;letter-spacing:-.8px}
  .ace-intro>p:not(.ace-hello){font-size:14px}
  .ace-spot{padding:15px;gap:12px;border-radius:18px}
+ .ace-spot.is-empty{min-height:120px}
  .ace-spot .sa-face{--size:52px}
  .ace-spot-who b{font-size:17px}
  .ace-spot-line>b{font-size:22px}

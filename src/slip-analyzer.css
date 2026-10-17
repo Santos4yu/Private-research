@@ -543,8 +543,9 @@
  .sa-step-short{display:inline}
  :root[data-theme] body #app-shell #panel-slip{width:100%!important;max-width:none!important;margin:0!important;padding:0 0 calc(86px + env(safe-area-inset-bottom,0px))!important}
  :root[data-theme] body:has(#panel-slip:not([hidden])) :is(.site-account-bar,.site-account-trigger,#settings-btn){display:none!important}
- /* flow-root: the start screen's top margin stays inside the page, so the
-    page's color reaches up behind the clock instead of leaving black there. */
+ /* flow-root: the start card's top margin stays inside the page instead of
+    pushing the whole page (and its glow) down, which left a bare black
+    band under the clock. */
  .slip-analyzer{position:relative;isolation:isolate;display:flow-root}
  .slip-analyzer::before{content:"";position:absolute;z-index:-1;inset:0 0 auto;height:calc(var(--site-status-inset,0px) + 240px);pointer-events:none;
   background:

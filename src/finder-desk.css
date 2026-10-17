@@ -329,6 +329,17 @@
     background: linear-gradient(180deg, color-mix(in srgb, var(--theme-accent) 13%, #0F1215) 0%, color-mix(in srgb, var(--theme-accent) 4%, #0B0E10) 55%, rgba(11, 14, 16, 0) 100%);
   }
   html:root .unified-finder.finder-detail-active::before { display: none; }
+  /* A player's page sits in a solid panel of its own. The list's rows are
+     cards, but the trend chart and its numbers sit straight on the page, so
+     without one they float over whatever is behind it (a background image
+     from Settings clears the page's own color). */
+  html:root .unified-finder.finder-detail-active > :is(.finder-trend-view, .finder-detail) {
+    margin: 2px 4px 12px;
+    border: 1px solid var(--fc-line);
+    border-radius: 22px;
+    background: #0B0E10;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, .35);
+  }
   html:root #app-shell:has(> #panel-finder:not([hidden])) { overflow-x: clip; }
 
   /* The bar: "Finder /" large, the sports as round pills, round buttons on the right. */
