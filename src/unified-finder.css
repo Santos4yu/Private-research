@@ -602,7 +602,7 @@
   background:
    linear-gradient(180deg,color-mix(in srgb,var(--theme-accent) 12%,#0f1215) 0%,color-mix(in srgb,var(--theme-accent) 4%,#0b0e10) 58%,#0b0e10 100%)}
  .unified-finder.finder-detail-active::before{display:none}
- .unified-finder .finder-topbar{height:auto;min-height:0;gap:2px;padding:calc(var(--site-status-inset,0px) + 12px) 16px 6px;border:0;background:none!important;box-shadow:none!important}
+ .unified-finder .finder-topbar{height:auto;min-height:0;gap:2px;padding:calc(var(--site-status-inset,0px) + 4px) 16px 6px;border:0;background:none!important;box-shadow:none!important}
  .unified-finder .finder-title{display:flex;flex:1 1 auto;align-items:center;gap:9px;min-width:0;width:auto}
  .unified-finder .finder-title .finder-picks-trigger{display:none}
  .unified-finder .finder-topbar .finder-title>h1{display:block!important;flex:none;color:#fff;font-size:21px;font-weight:700;letter-spacing:-.035em}
