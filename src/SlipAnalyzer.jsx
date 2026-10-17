@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useId,useMemo,useRef,useState} from 'react';
-import {ArrowRight,BookmarkPlus,Check,ChevronDown,ClipboardPaste,Crosshair,Crown,ImageUp,Link2,Pencil,Plus,Radio,Repeat2,RotateCcw,Search,Share2,ShieldCheck,Trash2,TriangleAlert,Unlink,X} from 'lucide-react';
+import {ArrowRight,BookmarkPlus,Check,ChevronDown,Crosshair,Crown,ImageUp,Link2,Pencil,Plus,Radio,Repeat2,RotateCcw,Search,Share2,ShieldCheck,Trash2,TriangleAlert,Unlink,X} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import {siteFinderSportAllowed,siteIsAdmin} from './site-access';
 import {finderSlipProp,loadSoccerOpponents,within} from './unified-finder-data';
@@ -17,6 +17,7 @@ import {MatchupCase} from './MatchupCase';
 import {opponentLogo,teamLogo,useCount,Img,Face,TierBadge,Records,Meter,Games,AnalystRead} from './PickParts';
 import {shareCard} from './slip-share';
 import {Record,History,hasRecord} from './SlipHistory';
+import {SlipStage} from './SlipStage';
 import {newSlipId,slipPayload,saveSlip,removeSlip,loadHistory} from './slip-history';
 import {pickBuilder} from './pick-builder-client';
 import {READ_URL,shrink} from './slip-image';
@@ -337,7 +338,6 @@ export function SlipAnalyzer(){
  const [editing,setEditing]=useState(null);
  const [pool,setPool]=useState([]);
  const [saved,setSaved]=useState(()=>new Set());
- const [over,setOver]=useState(false);
  const [sharing,setSharing]=useState(false);
  // Graded slips kept for the member and the site's record (slip-history.js).
  const [history,setHistory]=useState(null);
@@ -589,25 +589,11 @@ export function SlipAnalyzer(){
  const sports=SLIP_SPORTS.filter(siteFinderSportAllowed);
 
  return <div className="slip-analyzer" ref={host}>
-  <header className="sa-head">
+  {phase==='pick'?<SlipStage sports={sports} names={SPORT_NAMES} onFile={run} onPaste={pasteButton}/>
+  :<header className="sa-head">
    <div><span className="sa-eyebrow">Slip Analyzer</span><h1>Grade your parlay.</h1>
     <p>Upload a screenshot of your picks. The parlay gets one grade, and every pick is checked against the player's recent games, the matchup and sportsbook odds.</p></div>
-  </header>
-
-  {phase==='pick'&&<div className="sa-drop" data-over={over||undefined}
-   onDragOver={event=>{event.preventDefault();setOver(true);}} onDragLeave={()=>setOver(false)}
-   onDrop={event=>{event.preventDefault();setOver(false);run(event.dataTransfer.files?.[0]);}}>
-   <div className="sa-drop-art" aria-hidden="true"><i/><i/><i/></div>
-   <h2>Drop a screenshot of your slip</h2>
-   <p>PrizePicks, Underdog, Sleeper, Pick6 or a sportsbook parlay, with 2 to 6 player props.</p>
-   <div className="sa-drop-actions">
-    <button type="button" className="sa-btn sa-btn-primary" onClick={()=>input.current?.click()}><ImageUp size={16}/>Choose screenshot</button>
-    <button type="button" className="sa-btn" onClick={pasteButton}><ClipboardPaste size={16}/>Paste</button>
-    <input ref={input} type="file" accept="image/*" hidden onChange={event=>{run(event.target.files?.[0]);event.target.value='';}}/>
-   </div>
-   <small className="sa-drop-hint">or press Ctrl+V / ⌘V</small>
-   <ul className="sa-leagues" aria-label="Sports">{sports.map(sport=><li key={sport}><img src={LEAGUE_LOGOS[sport]} alt=""/>{SPORT_NAMES[sport]}</li>)}</ul>
-  </div>}
+  </header>}
 
   {phase==='reading'&&<div className="sa-reading" role="status" aria-live="polite" aria-label={STEPS[step]}>
    {shot&&<figure className="sa-shot"><img src={shot.url} alt="Your screenshot"/><i className="sa-scan" aria-hidden="true"/></figure>}

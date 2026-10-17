@@ -33,7 +33,7 @@ const view=()=>({width:window.innerWidth,height:window.innerHeight});
 async function pageFor(step){
  if(step.page==='slip'){
   if(!shown('panel-slip'))switchTab('slip');
-  return Boolean(await waitFor(['#panel-slip:not([hidden]) .sa-drop'],5000));
+  return Boolean(await waitFor(['#panel-slip:not([hidden]) .sa-stage'],5000));
  }
  if(!shown('panel-finder')){switchTab('finder');await sleep(250);}
  if(step.page==='player'){

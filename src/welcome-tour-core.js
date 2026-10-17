@@ -21,7 +21,7 @@ export const STEPS=[
   text:'Tap any card to open it: every recent game against the line, his full game log and his trends.'},
  {key:'research',page:'player',target:['.mlb-context-tabs','.fpb-switch'],title:'Matchup research',
   text:'The defense he faces, injuries, odds and the weather for this game are all a tap away.'},
- {key:'slip',page:'slip',target:['.sa-drop','#panel-slip'],title:'Slip Analyzer',
+ {key:'slip',page:'slip',target:['.sa-stage','#panel-slip'],title:'Slip Analyzer',
   text:'Upload a screenshot of your slip and every pick gets a grade, plus one for the whole slip.'},
  {key:'done',title:"You're all set",text:'You can replay this tour anytime from Settings.'},
 ];
