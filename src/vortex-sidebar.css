@@ -21,9 +21,17 @@
   height: 100vh;
   padding: 18px 10px 14px;
   overflow: hidden;
-  border-right: 1px solid var(--ace-border-soft, #20272B);
-  background: var(--ace-sidebar, #111418);
+  border-right: 1px solid rgba(255, 255, 255, .06);
+  /* A soft wash of the member's accent from the top corner, over a deep
+     charcoal that darkens toward the bottom. */
+  background:
+    radial-gradient(130% 34% at 0% 0%, color-mix(in srgb, var(--theme-accent, #00F58A) 11%, transparent), transparent 70%),
+    linear-gradient(180deg, #121619 0%, #0c0f11 100%);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, .02);
+  transition: box-shadow .2s ease;
 }
+/* Open over the page: lift it off with a shadow. */
+.vortex-sidebar-desktop:has(.vortex-sidebar-body.is-wide) { box-shadow: 18px 0 50px rgba(0, 0, 0, .5), inset -1px 0 0 rgba(255, 255, 255, .02); }
 
 @media (min-width: 761px) {
   #sidebar-root { display: block; }
@@ -42,47 +50,63 @@
   #settings-panel { top: auto; right: auto; bottom: 16px; left: 76px; }
 }
 
-.vortex-sidebar-body { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 20px; }
+.vortex-sidebar-body { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 18px; }
 
-.vortex-sidebar-top { display: flex; align-items: center; gap: 10px; min-height: 32px; padding: 0 8px; }
+.vortex-sidebar-top { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 8px; }
 .vortex-sidebar-top.collapsed { justify-content: center; padding: 0; }
-.vortex-sidebar-mark { flex: 0 0 auto; width: 32px; height: 32px; object-fit: contain; }
-/* The "KRAZY DATA" lettering from the brand wordmark, beside the mark. */
+.vortex-sidebar-mark { flex: 0 0 auto; width: 32px; height: 32px; object-fit: contain; filter: drop-shadow(0 4px 14px color-mix(in srgb, var(--theme-accent, #00F58A) 30%, transparent)); }
 .vortex-sidebar-wordmark { flex: 0 0 auto; display: block; width: auto; height: 35px; object-fit: contain; }
 
 /* The links give way (scroll) on a short window, so the footer below is
    never pushed out of the rail. */
-.vortex-sidebar-links { display: flex; flex-direction: column; gap: 2px; flex: 0 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+.vortex-sidebar-links { display: flex; flex-direction: column; gap: 12px; flex: 0 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: none; }
 .vortex-sidebar-links::-webkit-scrollbar { display: none; }
-.vortex-sidebar-footer { display: flex; flex-direction: column; gap: 2px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--ace-border-soft, #20272B); }
-.vortex-sidebar-link.is-open { color: var(--ace-text, #F4F7F6); background: var(--ace-card, #181D21); }
-.vortex-sidebar-sep { height: 1px; margin: 8px 6px; background: var(--ace-border-soft, #20272B); }
+.vortex-sidebar-group { display: flex; flex-direction: column; gap: 2px; }
+/* Each section's heading; a short rule in its place while the rail is compact. */
+.vortex-sidebar-heading { display: flex; align-items: center; height: 24px; padding: 0 10px; color: #6c777c; font: 700 10.5px/1 var(--font-sans); letter-spacing: .14em; text-transform: uppercase; white-space: nowrap; }
+.vortex-sidebar-heading i { display: block; width: 18px; height: 1px; margin: 0 auto; background: rgba(255, 255, 255, .12); }
 
 .vortex-sidebar-link {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 42px;
-  padding: 0 12px;
+  gap: 11px;
+  min-height: 44px;
+  padding: 0 6px;
   border: 0;
-  border-radius: 10px;
-  color: var(--ace-muted, #9CA5AA);
+  border-radius: 12px;
+  color: #a9b2b6;
   background: transparent;
-  font: 500 13.5px/1 var(--font-sans);
+  font: 600 13.5px/1 var(--font-sans);
   letter-spacing: -.005em;
   text-align: left;
   cursor: pointer;
   white-space: nowrap;
-  transition: color .16s var(--ace-ease), background-color .16s var(--ace-ease);
+  transition: color .16s var(--ace-ease), background .16s var(--ace-ease), box-shadow .16s var(--ace-ease);
 }
-.vortex-sidebar-link:hover { color: var(--ace-text, #F4F7F6); background: var(--ace-card, #181D21); }
-/* The page you're on: white text, a green icon and a slim green bar, on a
-   faint green wash. No glow. */
-.vortex-sidebar-link.active { color: var(--ace-text, #F4F7F6); background: color-mix(in srgb, var(--theme-accent, #00F58A) 11%, var(--ace-sidebar, #111418)); }
-.vortex-sidebar-link.active::before { content: ''; position: absolute; left: -10px; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--theme-accent, #00F58A); }
-.vortex-sidebar-link.active .vortex-sidebar-link-icon { color: var(--theme-accent, #00F58A); }
-.vortex-sidebar-link-icon { display: grid; flex: 0 0 auto; place-items: center; width: 20px; }
+/* Every icon sits on its own small tile. */
+.vortex-sidebar-link-icon {
+  display: grid; flex: 0 0 auto; place-items: center; width: 32px; height: 32px;
+  border: 1px solid rgba(255, 255, 255, .05); border-radius: 10px; background: rgba(255, 255, 255, .035); color: #b9c1c4;
+  transition: color .16s var(--ace-ease), background .16s var(--ace-ease), border-color .16s var(--ace-ease), box-shadow .16s var(--ace-ease);
+}
+.vortex-sidebar-link:hover { color: #fff; background: rgba(255, 255, 255, .035); }
+.vortex-sidebar-link:hover .vortex-sidebar-link-icon { color: #fff; background: rgba(255, 255, 255, .07); border-color: rgba(255, 255, 255, .09); }
+.vortex-sidebar-link:focus-visible { outline: 2px solid var(--theme-accent, #00F58A); outline-offset: 1px; }
+/* The page you're on: a lit accent tile, a wash fading to the right and a
+   slim glowing bar at the rail's edge. */
+.vortex-sidebar-link.active {
+  color: #fff;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--theme-accent, #00F58A) 15%, transparent), color-mix(in srgb, var(--theme-accent, #00F58A) 3%, transparent) 75%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--theme-accent, #00F58A) 16%, transparent);
+}
+.vortex-sidebar-link.active .vortex-sidebar-link-icon {
+  border-color: transparent;
+  background: linear-gradient(145deg, var(--theme-accent, #00F58A), color-mix(in srgb, var(--theme-accent, #00F58A) 72%, #04120b));
+  color: var(--theme-on-accent, #03140B);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--theme-accent, #00F58A) 32%, transparent), inset 0 1px 0 rgba(255, 255, 255, .35);
+}
+.vortex-sidebar-link.active::before { content: ''; position: absolute; left: -10px; top: 11px; bottom: 11px; width: 3px; border-radius: 0 3px 3px 0; background: var(--theme-accent, #00F58A); box-shadow: 0 0 12px var(--theme-accent, #00F58A); }
 .vortex-sidebar-link-label { flex: 1; overflow: hidden; text-overflow: ellipsis; text-align: left; }
 
 /* The icon's own positioning context, so the notification dot below can
@@ -91,20 +115,58 @@
 .vortex-sidebar-icon-wrap { position: relative; display: grid; place-items: center; }
 .vortex-sidebar-notif {
   position: absolute;
-  top: -6px;
-  right: -7px;
+  top: -11px;
+  right: -12px;
   display: grid;
-  min-width: 15px;
-  height: 15px;
+  min-width: 16px;
+  height: 16px;
   place-items: center;
   padding: 0 3px;
   border-radius: 999px;
-  border: 2px solid var(--ace-sidebar, #111418);
+  border: 2px solid #101315;
   background: var(--theme-accent, #00F58A);
   color: var(--theme-on-accent, #03140B);
   font: 800 9px/1 var(--font-mono, monospace);
 }
-.vortex-sidebar-link.active .vortex-sidebar-notif { border-color: color-mix(in srgb, var(--theme-accent, #00F58A) 11%, var(--ace-sidebar, #111418)); }
+.vortex-sidebar-link.active .vortex-sidebar-notif { background: #fff; border-color: color-mix(in srgb, var(--theme-accent, #00F58A) 60%, #101315); }
+
+/* The bottom: your slip at a glance (open rail only), then you and Settings. */
+.vortex-sidebar-footer { display: flex; flex-direction: column; gap: 10px; margin-top: auto; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, .06); }
+.vortex-sidebar-slip {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px; box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--theme-accent, #00F58A) 22%, rgba(255, 255, 255, .06)); border-radius: 14px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--theme-accent, #00F58A) 12%, #14191c), #111518 70%);
+  color: #f4f7f6; text-align: left; white-space: nowrap; cursor: pointer; transition: border-color .16s ease, transform .16s ease;
+}
+.vortex-sidebar-slip:hover { border-color: color-mix(in srgb, var(--theme-accent, #00F58A) 45%, transparent); }
+.vortex-sidebar-slip > svg { flex: 0 0 auto; margin-left: auto; color: #8d979b; }
+.vortex-sidebar-slip-icon { display: grid; flex: 0 0 auto; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: color-mix(in srgb, var(--theme-accent, #00F58A) 18%, transparent); color: var(--theme-accent, #00F58A); }
+.vortex-sidebar-slip-text { display: grid; gap: 4px; min-width: 0; }
+.vortex-sidebar-slip-text b { overflow: hidden; text-overflow: ellipsis; font: 700 13px/1.1 var(--font-sans); }
+.vortex-sidebar-slip-text small { overflow: hidden; text-overflow: ellipsis; color: #8d979b; font: 500 11px/1.1 var(--font-sans); }
+
+.vortex-sidebar-account { display: flex; align-items: center; gap: 6px; }
+.vortex-sidebar-body:not(.is-wide) .vortex-sidebar-account { flex-direction: column; gap: 8px; }
+.vortex-sidebar-me { display: flex; flex: 1 1 auto; align-items: center; gap: 10px; min-width: 0; padding: 6px; border: 0; border-radius: 12px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.vortex-sidebar-body:not(.is-wide) .vortex-sidebar-me { flex: 0 0 auto; }
+.vortex-sidebar-me:hover { background: rgba(255, 255, 255, .04); }
+.vortex-sidebar-avatar {
+  display: grid; flex: 0 0 auto; place-items: center; width: 32px; height: 32px; overflow: hidden; border-radius: 999px;
+  background: linear-gradient(145deg, var(--theme-accent, #00F58A), color-mix(in srgb, var(--theme-accent, #00F58A) 55%, #04120b));
+  color: var(--theme-on-accent, #03140B); font: 800 13px/1 var(--font-sans);
+  box-shadow: 0 0 0 2px #101315, 0 0 0 3px color-mix(in srgb, var(--theme-accent, #00F58A) 45%, transparent);
+}
+.vortex-sidebar-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.vortex-sidebar-me-text { display: grid; gap: 4px; min-width: 0; white-space: nowrap; }
+.vortex-sidebar-me-text b { overflow: hidden; color: #fff; text-overflow: ellipsis; font: 700 13px/1.1 var(--font-sans); }
+.vortex-sidebar-me-text small { color: #8d979b; font: 600 11px/1.1 var(--font-sans); }
+.vortex-sidebar-me-text small[data-admin] { color: var(--theme-accent, #00F58A); }
+.vortex-sidebar-gear { display: grid; flex: 0 0 auto; place-items: center; width: 34px; height: 34px; border: 1px solid rgba(255, 255, 255, .07); border-radius: 10px; background: rgba(255, 255, 255, .03); color: #9aa4a8; cursor: pointer; transition: color .16s ease, border-color .16s ease, background .16s ease; }
+.vortex-sidebar-gear:hover { color: #fff; background: rgba(255, 255, 255, .07); }
+.vortex-sidebar-account.is-open .vortex-sidebar-gear { color: var(--theme-accent, #00F58A); border-color: color-mix(in srgb, var(--theme-accent, #00F58A) 45%, transparent); background: color-mix(in srgb, var(--theme-accent, #00F58A) 10%, transparent); }
+.vortex-sidebar-me:focus-visible, .vortex-sidebar-gear:focus-visible, .vortex-sidebar-slip:focus-visible { outline: 2px solid var(--theme-accent, #00F58A); outline-offset: 1px; }
+/* A short window keeps the links; the slip card steps aside. */
+@media (max-height: 820px) { .vortex-sidebar-slip { display: none; } }
 
 /* Mobile: the bottom dock (MobileNavigation) already covers this same
    navigation, so the rail and its own toggle both stay off below the
@@ -119,5 +181,12 @@
    the space between the links and the footer, scrolling on its own. */
 .vortex-sidebar-body.has-builder { gap: 14px; }
 .vortex-sidebar-body.has-builder .vortex-sidebar-links { flex: 0 0 auto; }
+/* The links fold into a row of icon tiles above it, so the builder gets the room. */
+.vortex-sidebar-body.has-builder .vortex-sidebar-links { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.vortex-sidebar-body.has-builder .vortex-sidebar-group { display: contents; }
+.vortex-sidebar-body.has-builder .vortex-sidebar-heading { display: none; }
+.vortex-sidebar-body.has-builder .vortex-sidebar-link { justify-content: center; padding: 0; }
+.vortex-sidebar-body.has-builder .vortex-sidebar-link-label { display: none !important; }
+.vortex-sidebar-body.has-builder .vortex-sidebar-link.active::before { display: none; }
 .vortex-sidebar-builder { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0 -4px; padding: 0 4px; scrollbar-width: thin; }
 .vortex-sidebar-desktop:has(.vortex-sidebar-builder) { box-shadow: 18px 0 40px rgba(0, 0, 0, .45); }
