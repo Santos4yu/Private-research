@@ -306,7 +306,9 @@
 
   /* The Finder is the page, as on the phone: no box around it. The
      header's color (the member's accent) lights the top and fades into
-     the page behind the controls. */
+     the page behind the controls. The glow runs square from the sidebar
+     to the window's edge (the page clips what reaches past it), so no
+     dark sliver is left at either side. */
   html:root .unified-finder {
     position: relative;
     isolation: isolate;
@@ -321,13 +323,13 @@
     content: "";
     position: absolute;
     z-index: -1;
-    inset: -14px -14px auto;
+    inset: -14px -100vw auto;
     height: 320px;
-    border-radius: 26px 26px 0 0;
     pointer-events: none;
     background: linear-gradient(180deg, color-mix(in srgb, var(--theme-accent) 13%, #0F1215) 0%, color-mix(in srgb, var(--theme-accent) 4%, #0B0E10) 55%, rgba(11, 14, 16, 0) 100%);
   }
   html:root .unified-finder.finder-detail-active::before { display: none; }
+  html:root #app-shell:has(> #panel-finder:not([hidden])) { overflow-x: clip; }
 
   /* The bar: "Finder /" large, the sports as round pills, round buttons on the right. */
   html:root .unified-finder .finder-topbar { min-height: 0; gap: 16px; padding: 8px 4px 14px; border: 0; background: none !important; box-shadow: none !important; }
