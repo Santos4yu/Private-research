@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Layers2 as BarChart3, Ticket as ClipboardList, Grid2X2 as MoreHorizontal, Compass as Search, SearchCheck } from 'lucide-react';
+import { DockIcon } from './DockIcons';
 import { pickBuilder } from './pick-builder-client';
 
 const destinations = [
-  { key: 'finder', label: 'Finder', icon: SearchCheck },
-  { key: 'research', label: 'Research', icon: Search },
-  { key: 'v2', label: 'Props', icon: BarChart3 },
-  { key: 'saved', label: 'My Slip', icon: ClipboardList },
+  { key: 'finder', label: 'Finder', icon: 'finder' },
+  { key: 'research', label: 'Research', icon: 'research' },
+  { key: 'v2', label: 'Props', icon: 'props' },
+  { key: 'saved', label: 'My Slip', icon: 'slip' },
 ];
 
 export function MobileNavigation() {
@@ -31,7 +31,7 @@ export function MobileNavigation() {
 
   return (
     <nav className="mobile-app-nav" aria-label="Primary navigation">
-      {destinations.map(({ key, label, icon: Icon }) => (
+      {destinations.map(({ key, label, icon }) => (
         // My Slip opens the side panel at the Pick Builder rather than the
         // old My Slip page.
         <button key={key} type="button" className="mobile-app-tab" data-requires-tab={key}
@@ -39,7 +39,7 @@ export function MobileNavigation() {
           {...(key === 'saved' ? { 'aria-controls': 'side-panel', 'aria-haspopup': 'dialog' } : {})}
           onClick={() => key === 'saved' ? pickBuilder.open()
             : window.dispatchEvent(new CustomEvent('vortex:switch-tab', { detail: { tab: key } }))}>
-          <span className="mobile-app-tab-icon"><Icon size={24} strokeWidth={2} aria-hidden="true" />
+          <span className="mobile-app-tab-icon"><DockIcon name={icon} active={tab === key} />
             {key === 'saved' && saved > 0 && <span className="mobile-app-count" aria-hidden="true">{saved}</span>}
           </span>
           <span>{label}</span>
@@ -50,7 +50,7 @@ export function MobileNavigation() {
         aria-controls="side-panel" aria-expanded={moreOpen} aria-haspopup="dialog"
         aria-current={!destinations.some(({ key }) => key === tab) ? 'page' : undefined}
         onClick={() => window.dispatchEvent(new Event('vortex:open-more'))}>
-        <span className="mobile-app-tab-icon"><MoreHorizontal size={24} strokeWidth={2} aria-hidden="true" /></span>
+        <span className="mobile-app-tab-icon"><DockIcon name="more" active={!destinations.some(({ key }) => key === tab)} /></span>
         <span>More</span>
       </button>
     </nav>

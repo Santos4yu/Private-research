@@ -78,10 +78,10 @@
     -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: color 180ms ease;
   }
   .mobile-app-tab-icon { position: relative; display: grid; place-items: center; width: 28px; height: 24px; transition: transform 160ms cubic-bezier(.3, .7, .4, 1); }
-  .mobile-app-tab svg { width: 22px; height: 22px; stroke-width: 1.7; fill: none; transition: filter 180ms ease; }
+  .mobile-app-tab svg { width: 24px; height: 24px; stroke-width: 1.7; fill: none; overflow: visible; transition: filter 180ms ease; }
   .mobile-app-tab[aria-current="page"] { color: var(--ace-text, #F4F7F6); font-weight: 600; }
   .mobile-app-tab[aria-current="page"] .mobile-app-tab-icon { color: var(--theme-accent, #00F58A); }
-  .mobile-app-tab[aria-current="page"] svg { stroke-width: 2; }
+  .mobile-app-tab[aria-current="page"] svg { stroke-width: 1.9; }
   .mobile-app-tab:active .mobile-app-tab-icon { transform: scale(.86); }
   .mobile-app-tab:focus-visible { outline: 2px solid var(--theme-accent, #00F58A) !important; outline-offset: -3px !important; }
   .mobile-app-count {
