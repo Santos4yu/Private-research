@@ -300,7 +300,7 @@ function Market({report}){
 }
 
 // Put the pick in My Slip, open it in the Finder, or share it as an image.
-function Actions({pick}){
+export function Actions({pick}){
  const [added,setAdded]=useState(false);
  const [sharing,setSharing]=useState(false);
  if(!pick.row)return null;

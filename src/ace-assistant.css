@@ -1,0 +1,344 @@
+/* The Ace Assistant (KrazyBot.jsx, AceCards.jsx): a research desk. Solid
+   panels with plain borders, one accent for what you can tap, and the
+   Slip Analyzer's parts for a pick. On a computer the conversation and
+   today's board sit side by side; on a phone it's one column, with the box
+   to ask fitted over the keys. */
+#panel-bot.tab-panel{max-width:none;padding:0;animation:none!important;transform:none!important}
+#panel-bot.tab-panel::before{display:none}
+body:has(#panel-bot:not([hidden])) .site-footer{display:none}
+html:has(#panel-bot:not([hidden])),body:has(#panel-bot:not([hidden])){overflow:hidden}
+
+.ace{--ace-bg:#0b0e10;--ace-side:#0e1214;--ace-panel:#121619;--ace-raised:#171c20;--ace-line:#222a2f;--ace-line-2:#2c353b;
+ --ace-text:#eef2f1;--ace-muted:#97a1a5;--ace-faint:#687277;--ace-accent:var(--theme-accent,#00f58a);--ace-on-accent:var(--theme-on-accent,#03140B);
+ --ace-up:#46e39a;--ace-down:#ff7b8a;--ace-gold:#f6b955;
+ position:fixed;top:var(--kb-top,0px);right:0;bottom:var(--kb-bottom,0px);left:var(--kb-left,0px);z-index:1;display:flex;flex-direction:column;overflow:hidden;
+ background:var(--ace-bg);color:var(--ace-text);font:400 14px/1.45 var(--font-sans,Inter,Arial,sans-serif);color-scheme:dark}
+:where(.ace) *{box-sizing:border-box}
+:where(.ace) :where(h1,h2,h3,h4,p,ol,ul,dl,dd){margin:0}
+:where(.ace) :where(ol,ul){padding:0;list-style:none}
+:where(.ace) :where(button){font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}
+.ace button:focus-visible{outline:2px solid color-mix(in srgb,var(--ace-accent) 75%,#fff);outline-offset:2px}
+@media (max-width:760px){.ace{--kb-bottom:calc(68px + env(safe-area-inset-bottom,0px))}}
+@media (min-width:761px){.ace{--kb-left:64px}}
+/* Typing on a touch screen: fitted to what's left above the keyboard, and
+   the site's bottom menu steps out of the way (KrazyBot.jsx). */
+.ace[data-keyboard]{top:var(--kb-vv-top,0px);bottom:auto;height:var(--kb-vv-h,100%)}
+.ace[data-keyboard] :is(.ace-fine,.ace-chips){display:none}
+html[data-bot-typing] body .mobile-app-nav{opacity:0!important;visibility:hidden!important;pointer-events:none!important;transition:none!important}
+
+/* ── The header ──────────────────────────────────────────────────────── */
+.ace-top{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:64px;padding:12px 24px;border-bottom:1px solid var(--ace-line);background:var(--ace-bg)}
+.ace-title{display:flex;align-items:center;gap:12px;min-width:0}
+.ace-title>img{flex:none;width:30px;height:30px;object-fit:contain}
+.ace-title h1{font:800 17px/1.15 'Sora',var(--font-sans,Inter,Arial,sans-serif);letter-spacing:-.2px;color:var(--ace-text)}
+.ace-title p{margin-top:2px;overflow:hidden;color:var(--ace-faint);font-size:12px;font-weight:600;white-space:nowrap;text-overflow:ellipsis}
+.ace-top-end{display:flex;align-items:center;gap:10px;flex:none}
+.ace-status{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 12px;border:1px solid var(--ace-line);border-radius:8px;background:var(--ace-panel);
+ color:var(--ace-muted);font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ace-status i{width:7px;height:7px;border-radius:50%;background:var(--ace-faint)}
+.ace-status[data-state=live] i{background:var(--ace-up)}
+.ace-status[data-state=busy] i{background:var(--ace-gold);animation:ace-blink 1s ease-in-out infinite}
+.ace-status[data-state=down] i{background:var(--ace-down)}
+.ace-new{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px;border:1px solid var(--ace-line-2);border-radius:8px;background:var(--ace-raised);
+ color:var(--ace-text);font-size:13px;font-weight:700;cursor:pointer;transition:border-color .15s,background .15s}
+.ace-new:hover:not(:disabled){border-color:color-mix(in srgb,var(--ace-accent) 50%,var(--ace-line-2));background:#1b2125}
+.ace-new:disabled{opacity:.5;cursor:default}
+
+/* ── The desk: the conversation, and today's board beside it ────────── */
+.ace-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr)}
+@media (min-width:1180px){.ace-body{grid-template-columns:minmax(0,1fr) 340px}}
+.ace-main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.ace-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#2a3237 transparent}
+.ace-scroll>*,.ace-dock>*{width:100%;max-width:920px;margin-inline:auto}
+
+.ace-side{display:none}
+@media (min-width:1180px){
+ .ace-side{display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:22px;min-width:0;min-height:0;overflow-y:auto;padding:20px 18px 24px;border-left:1px solid var(--ace-line);background:var(--ace-side);scrollbar-width:thin;scrollbar-color:#2a3237 transparent}
+ /* The board's numbers and plays are in the side panel here. */
+ .ace-welcome-stats,.ace-welcome-plays{display:none}
+}
+:is(.ace-side,.ace-welcome) h3{margin:0 0 10px;color:var(--ace-faint);font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase}
+
+/* Today's numbers. */
+.ace-stats{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,.85fr) minmax(0,1.3fr);gap:8px}
+.ace-stats>div{display:grid;gap:3px;min-width:0;padding:10px 12px;border:1px solid var(--ace-line);border-radius:10px;background:var(--ace-panel)}
+.ace-stats dt{color:var(--ace-faint);font-size:11px;font-weight:700}
+.ace-stats dd{overflow:hidden;font:800 18px/1.1 'Sora',var(--font-sans,Inter,Arial,sans-serif);font-variant-numeric:tabular-nums;white-space:nowrap;text-overflow:ellipsis}
+.ace-stats .ace-stats-leagues{grid-column:1/-1}
+.ace-stats-leagues dd{display:flex;flex-wrap:wrap;gap:4px 14px;font:600 12.5px/1.3 var(--font-sans,Inter,Arial,sans-serif);color:var(--ace-muted);white-space:normal}
+.ace-stats-leagues b{color:var(--ace-text);font-variant-numeric:tabular-nums}
+
+/* Top plays: a row each. */
+.ace-plays{display:grid;gap:8px}
+.ace-plays button{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:11px;width:100%;padding:10px 12px;border:1px solid var(--ace-line);border-radius:12px;
+ background:var(--ace-panel);text-align:left;cursor:pointer;transition:border-color .15s,background .15s}
+.ace-plays button:hover:not(:disabled){border-color:var(--ace-line-2);background:var(--ace-raised)}
+.ace-plays button:disabled{cursor:default}
+.ace-plays li{animation:ace-in .35s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 50ms)}
+.ace-play-main{display:grid;gap:2px;min-width:0}
+.ace-play-main>*{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.ace-play-main b{font-size:14px;font-weight:700}
+.ace-play-main span{color:var(--ace-text);font-size:12.5px;font-weight:600}
+.ace-play-main small{color:var(--ace-faint);font-size:11.5px}
+.ace em[data-side]{font-style:normal;font-weight:800}
+.ace em[data-side=OVER]{color:var(--ace-up)}
+.ace em[data-side=UNDER]{color:var(--ace-down)}
+.ace-play-end{display:grid;justify-items:end;gap:5px}
+.ace-play-end b{font:800 15px/1 'Sora',var(--font-sans,Inter,Arial,sans-serif);font-variant-numeric:tabular-nums}
+.ace .ace-play-end .sa-tier,.ace .ace-row-end .sa-tier{padding:4px 7px;font-size:9.5px;gap:4px;animation:none}
+.ace .ace-play-end .sa-tier svg,.ace .ace-row-end .sa-tier svg{width:11px;height:11px}
+.ace-ghost{height:62px;border:1px solid var(--ace-line);border-radius:12px;background:linear-gradient(100deg,var(--ace-panel) 30%,#182024 50%,var(--ace-panel) 70%) 0 0/250% 100%;animation:ace-ghost 1.4s linear infinite}
+.ace-empty{padding:14px;border:1px dashed var(--ace-line-2);border-radius:12px;color:var(--ace-faint);font-size:13px;text-align:center}
+
+/* What they asked before. */
+.ace-recent{display:grid;gap:2px}
+.ace-recent button{display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;border:0;border-radius:8px;background:none;color:var(--ace-muted);font-size:13px;text-align:left;cursor:pointer}
+.ace-recent button:hover:not(:disabled){background:var(--ace-panel);color:var(--ace-text)}
+.ace-recent svg{flex:none;color:var(--ace-faint)}
+.ace-recent span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+
+/* ── Before the first question ───────────────────────────────────────── */
+.ace-welcome{display:grid;gap:26px;padding:34px 28px 28px}
+.ace-intro{display:grid;gap:8px;animation:ace-in .4s cubic-bezier(.2,.8,.2,1) both}
+.ace-hello{color:var(--ace-accent);font-size:13px;font-weight:700}
+.ace-intro h2{font:800 30px/1.15 'Sora',var(--font-sans,Inter,Arial,sans-serif);letter-spacing:-.7px;color:var(--ace-text)}
+.ace-intro>p:last-child{max-width:640px;color:var(--ace-muted);font-size:15px;line-height:1.55}
+.ace-starts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.ace-starts button{--hue:#46e39a;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;min-height:74px;padding:14px;border:1px solid var(--ace-line);border-radius:12px;
+ background:var(--ace-panel);text-align:left;cursor:pointer;transition:border-color .15s,background .15s;animation:ace-in .4s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 45ms + 80ms)}
+.ace-starts button:nth-child(2){--hue:#3cc9b9}.ace-starts button:nth-child(3){--hue:#f6b955}
+.ace-starts button:nth-child(4){--hue:#6cb6ff}.ace-starts button:nth-child(5){--hue:#b69cff}.ace-starts button:nth-child(6){--hue:#ff8fa3}
+.ace-starts button:hover{border-color:color-mix(in srgb,var(--hue) 45%,var(--ace-line));background:var(--ace-raised)}
+.ace-start-icon{display:grid;place-items:center;width:38px;height:38px;border-radius:10px;background:color-mix(in srgb,var(--hue) 14%,transparent);color:var(--hue)}
+.ace-start-text{display:grid;gap:3px;min-width:0}
+.ace-start-text b{font-size:14px;font-weight:700}
+.ace-start-text small{overflow:hidden;color:var(--ace-muted);font-size:12.5px;white-space:nowrap;text-overflow:ellipsis}
+.ace-start-go{color:var(--ace-faint);transition:transform .15s,color .15s}
+.ace-starts button:hover .ace-start-go{transform:translateX(2px);color:var(--hue)}
+@media (min-width:761px) and (max-width:1179px){.ace-welcome-plays .ace-plays{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* ── The conversation ────────────────────────────────────────────────── */
+.ace-thread{display:grid;align-content:start;gap:22px;padding:26px 28px 30px}
+.ace-msg{min-width:0;animation:ace-in .3s cubic-bezier(.2,.8,.2,1) both}
+.ace-msg.is-user{display:flex;justify-content:flex-end}
+.ace-msg.is-user p{max-width:min(70%,560px);padding:10px 14px;border:1px solid var(--ace-line-2);border-radius:14px 14px 4px 14px;background:#1a2024;font-size:15px;line-height:1.45;overflow-wrap:anywhere}
+.ace-msg.is-bot{display:grid;gap:10px;align-content:start}
+/* The latest answer holds the screen under its question, so a new question
+   can rise to the top (KrazyBot.jsx --ace-room). */
+.ace-thread>.ace-msg.is-bot:last-child{min-height:max(0px,calc(var(--ace-room,0px) - 120px))}
+.ace-from{display:flex;align-items:center;gap:8px;color:var(--ace-muted);font-size:12.5px}
+.ace-from img{width:18px;height:18px;object-fit:contain}
+.ace-from b{color:var(--ace-text);font-weight:700}
+.ace-from time{color:var(--ace-faint);font-variant-numeric:tabular-nums}
+.ace-text{max-width:760px;color:var(--ace-text);font-size:15px;line-height:1.6;animation:ace-fade .35s ease both}
+.ace-answer{display:grid;gap:14px;min-width:0}
+
+/* The research while it works: each step ticked off. */
+.ace-research{display:grid;gap:10px;width:min(100%,420px);padding:12px 14px 14px;border:1px solid var(--ace-line);border-radius:12px;background:var(--ace-panel)}
+.ace-research ol{display:grid;gap:7px}
+.ace-research li{display:flex;align-items:center;gap:9px;color:var(--ace-text);font-size:13px;font-weight:600;animation:ace-in .25s ease both}
+.ace-research li[data-done]{color:var(--ace-faint);font-weight:500}
+.ace-research li svg{flex:none;width:14px;color:var(--ace-up)}
+.ace-progress{display:block;height:3px;overflow:hidden;border-radius:3px;background:var(--ace-line)}
+.ace-progress i{display:block;width:calc(var(--p,0) * 100%);height:100%;border-radius:inherit;background:var(--ace-accent);transition:width .45s ease}
+.ace-spinner{flex:none;display:inline-block;width:14px;height:14px;border:2px solid color-mix(in srgb,var(--ace-accent) 25%,transparent);border-top-color:var(--ace-accent);border-radius:50%;animation:ace-turn .75s linear infinite}
+.ace-error{display:grid;justify-items:start;gap:10px;width:min(100%,460px);padding:12px 14px;border:1px solid color-mix(in srgb,var(--ace-down) 35%,var(--ace-line));border-radius:12px;background:var(--ace-panel);font-size:14px}
+.ace-error button{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 12px;border:1px solid var(--ace-line-2);border-radius:8px;background:var(--ace-raised);font-size:13px;font-weight:700;cursor:pointer}
+
+/* ── The foot: suggestions and the box ──────────────────────────────── */
+.ace-dock{flex:none;display:grid;gap:10px;padding:12px 28px 14px;border-top:1px solid var(--ace-line);background:var(--ace-bg)}
+.ace-chips{display:flex;flex-wrap:wrap;gap:8px}
+.ace-chips button{min-height:34px;padding:7px 13px;border:1px solid var(--ace-line);border-radius:8px;background:var(--ace-panel);color:var(--ace-muted);font-size:13px;font-weight:600;
+ cursor:pointer;white-space:nowrap;transition:border-color .15s,color .15s,background .15s;animation:ace-in .3s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 40ms)}
+.ace-chips button:hover{border-color:color-mix(in srgb,var(--ace-accent) 45%,var(--ace-line));background:var(--ace-raised);color:var(--ace-text)}
+.ace-composer{display:flex;align-items:flex-end;gap:6px;padding:7px 7px 7px 16px;border:1px solid var(--ace-line-2);border-radius:14px;background:var(--ace-panel);transition:border-color .15s}
+.ace-composer:focus-within{border-color:color-mix(in srgb,var(--ace-accent) 55%,var(--ace-line-2))}
+.ace-composer textarea{flex:1;min-width:0;height:40px;max-height:132px;padding:9px 0;border:0;outline:0;resize:none;background:none;color:var(--ace-text);font:400 15px/22px var(--font-sans,Inter,Arial,sans-serif)}
+.ace-composer textarea::placeholder{color:var(--ace-faint)}
+/* Over the site's own field styles (styles.css): the box is the composer. */
+:root .ace .ace-composer textarea{border:0!important;background:none!important;box-shadow:none;outline:0}
+.ace-mic,.ace-send{flex:none;display:grid;place-items:center;width:40px;height:40px;border:0;border-radius:10px;cursor:pointer;transition:background .15s,color .15s,transform .1s}
+.ace-mic{background:none;color:var(--ace-muted)}
+.ace-mic:hover:not(:disabled){background:var(--ace-raised);color:var(--ace-text)}
+.ace-mic[data-listening]{background:color-mix(in srgb,var(--ace-accent) 14%,transparent);color:var(--ace-accent)}
+.ace-wave{display:flex;align-items:center;gap:2px;height:16px}
+.ace-wave i{width:3px;height:100%;border-radius:2px;background:currentColor;animation:ace-wave .9s ease-in-out infinite}
+.ace-wave i:nth-child(2){animation-delay:.15s}.ace-wave i:nth-child(3){animation-delay:.3s}.ace-wave i:nth-child(4){animation-delay:.45s}
+.ace-send{background:var(--ace-accent);color:var(--ace-on-accent)}
+.ace-send:active:not(:disabled){transform:scale(.95)}
+.ace-send:disabled{background:var(--ace-raised);color:var(--ace-faint);cursor:default}
+.ace-composer[data-busy] .ace-send:disabled{background:var(--ace-raised)}
+.ace-fine{color:var(--ace-faint);font-size:11px;text-align:center}
+
+/* ── The answer cards (AceCards.jsx) ─────────────────────────────────── */
+.ace-card-wrap{min-width:0;font-size:13px}
+.ace-frame{padding:14px;border:1px solid var(--ace-line);border-radius:16px;background:var(--ace-panel)}
+.ace .ace-legacy{padding:16px}
+/* Two picks are cards of their own: no frame around them. */
+.ace-frame:has(>.ace-compare){padding:0;border:0;background:none}
+
+/* One pick, the whole report: the Slip Analyzer's card, its report beside it. */
+.ace-pick{container-type:inline-size}
+.ace-pick .sa-prop-pick{gap:6px 10px}
+.ace-verdict{margin-left:auto;padding:6px 11px;border-radius:8px;background:color-mix(in srgb,#aeb5b8 14%,transparent);color:#ced3d5;font:800 12px/1 var(--font-sans,Inter,Arial,sans-serif);font-style:normal;letter-spacing:.02em}
+.ace-verdict[data-tone=yes]{background:color-mix(in srgb,var(--ace-up) 16%,transparent);color:var(--ace-up)}
+.ace-verdict[data-tone=flip]{background:color-mix(in srgb,var(--ace-gold) 16%,transparent);color:var(--ace-gold)}
+.ace-verdict[data-tone=pass]{background:color-mix(in srgb,var(--ace-down) 16%,transparent);color:var(--ace-down)}
+.ace-letter{flex:none;display:grid;place-items:center;min-width:34px;height:30px;padding:0 8px;border-radius:8px;background:color-mix(in srgb,var(--ace-up) 15%,transparent);color:var(--ace-up);font:800 14px/1 'Sora',var(--font-sans,Inter,Arial,sans-serif)}
+.ace-letter[data-grade=B]{background:color-mix(in srgb,#aeb5b8 15%,transparent);color:#ced3d5}
+.ace-letter:is([data-grade=C],[data-grade=D]){background:color-mix(in srgb,var(--ace-gold) 15%,transparent);color:var(--ace-gold)}
+.ace-letter[data-grade=F]{background:color-mix(in srgb,var(--ace-down) 15%,transparent);color:var(--ace-down)}
+.ace-flag{display:flex;align-items:flex-start;gap:9px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--ace-down) 32%,transparent);border-radius:12px;background:color-mix(in srgb,var(--ace-down) 8%,transparent);font-size:13px}
+.ace-flag svg{flex:none;margin-top:1px;color:var(--ace-down)}
+.ace-flag b{display:block;color:var(--ace-down);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.ace-pick-body{display:grid;gap:14px;min-width:0}
+.ace-pick-main,.ace-pick-side{display:grid;align-content:start;gap:12px;min-width:0}
+@container (min-width:660px){.ace-pick-body{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px}}
+.ace-panel{display:grid;gap:10px;padding:12px 14px;border:1px solid var(--a-line,#252d33);border-radius:14px;background:rgba(12,15,17,.6)}
+.ace-panel h4{color:var(--a-faint,#6d767b);font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase}
+.ace-figures{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:0}
+.ace-figures>div{display:grid;gap:2px;padding:8px 10px;border-radius:10px;background:var(--a-raised,#181e22)}
+.ace-figures dt{color:var(--a-faint,#6d767b);font-size:10.5px;font-weight:700}
+.ace-figures dd{margin:0;font:800 17px/1.1 'Sora',var(--font-sans,Inter,Arial,sans-serif);font-variant-numeric:tabular-nums}
+.ace-figures dd small{color:var(--a-muted,#9ea5a9);font-size:13px}
+.ace-figures [data-tone=up] dd{color:var(--ace-up)}
+.ace-figures [data-tone=down] dd{color:var(--ace-down)}
+.ace-splits{display:grid;gap:9px}
+.ace-splits li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:baseline;gap:4px 10px}
+.ace-splits span{display:flex;align-items:center;gap:6px;min-width:0;color:var(--a-muted,#9ea5a9);font-size:12.5px;font-weight:600}
+.ace-splits span em{padding:2px 5px;border-radius:5px;background:color-mix(in srgb,var(--ace-accent) 14%,transparent);color:var(--ace-accent);font-size:9.5px;font-style:normal;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
+.ace-splits b{font:800 15px/1 'Sora',var(--font-sans,Inter,Arial,sans-serif);font-variant-numeric:tabular-nums}
+.ace-splits small{min-width:62px;color:var(--a-faint,#6d767b);font-size:11.5px;text-align:right;font-variant-numeric:tabular-nums}
+.ace-splits i{--c:#aeb5b8;grid-column:1/-1;height:4px;border-radius:4px;background:linear-gradient(90deg,var(--c) var(--w),rgba(255,255,255,.07) 0)}
+.ace-splits i[data-tone=up]{--c:var(--ace-up)}.ace-splits i[data-tone=down]{--c:var(--ace-down)}
+.ace-market{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.ace-market span{display:grid;gap:2px;padding:8px 10px;border-radius:10px;background:var(--a-raised,#181e22)}
+.ace-market small{color:var(--a-faint,#6d767b);font-size:10.5px;font-weight:700}
+.ace-market b{font:800 16px/1.1 'Sora',var(--font-sans,Inter,Arial,sans-serif);font-variant-numeric:tabular-nums}
+.ace-market [data-tone=up] b{color:var(--ace-up)}.ace-market [data-tone=down] b{color:var(--ace-down)}
+.ace-books{display:grid;gap:6px}
+.ace-books li{display:grid;grid-template-columns:minmax(0,1fr) auto 44px;align-items:center;gap:10px;font-size:12.5px}
+.ace-books span{overflow:hidden;color:var(--a-muted,#9ea5a9);white-space:nowrap;text-overflow:ellipsis}
+.ace-books b{font-variant-numeric:tabular-nums}
+.ace-books small{color:var(--a-faint,#6d767b);text-align:right;font-variant-numeric:tabular-nums}
+.ace-defense{display:flex;align-items:center;gap:12px}
+.ace-defense b{flex:none;font:800 24px/1 'Sora',var(--font-sans,Inter,Arial,sans-serif);font-variant-numeric:tabular-nums}
+.ace-defense b small{color:var(--a-faint,#6d767b);font-size:13px}
+.ace-defense span{color:var(--a-muted,#9ea5a9);font-size:12.5px;line-height:1.4}
+.ace-note{padding:10px 12px;border-radius:12px;background:var(--a-raised,#181e22);color:var(--a-muted,#9ea5a9);font-size:12.5px}
+/* The card's actions, in the desk's buttons. */
+.ace .ace-card-wrap .kb-actions{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:8px}
+.ace .ace-card-wrap .kb-actions button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:40px;padding:8px 10px;border:1px solid var(--ace-line-2);border-radius:10px;
+ background:var(--ace-raised);color:var(--ace-text);font-size:13px;font-weight:700;white-space:nowrap;cursor:pointer;transition:border-color .15s,background .15s}
+.ace .ace-card-wrap .kb-actions button:hover:not(:disabled){background:#1d2428}
+.ace .ace-card-wrap .kb-actions button:first-child{border-color:transparent;background:var(--ace-accent);color:var(--ace-on-accent)}
+.ace .ace-card-wrap .kb-actions button[data-done]{border-color:color-mix(in srgb,var(--ace-up) 40%,transparent);background:color-mix(in srgb,var(--ace-up) 14%,transparent);color:var(--ace-up)}
+.ace .ace-card-wrap .kb-actions svg{width:15px;height:15px}
+
+/* Ranked picks: a row each, tap for the full report. */
+.ace .ace-rows{display:grid;gap:8px}
+.ace .ace-rows li{animation:ace-in .35s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 60ms + 120ms)}
+.ace .ace-rows button{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto auto;align-items:center;gap:12px;width:100%;padding:11px 12px;border:1px solid var(--a-line,#252d33);border-radius:12px;
+ background:var(--a-raised,#181e22);text-align:left;cursor:pointer;transition:border-color .15s,background .15s}
+.ace .ace-rows button:hover{border-color:var(--ace-line-2);background:#1b2125}
+.ace-rank{display:grid;place-items:center;width:24px;height:24px;border-radius:7px;background:var(--ace-bg);color:var(--a-muted,#9ea5a9);font:800 12px/1 'Sora',var(--font-sans,Inter,Arial,sans-serif)}
+.ace .ace-rows li:first-child .ace-rank{background:color-mix(in srgb,var(--ace-accent) 16%,transparent);color:var(--ace-accent)}
+.ace-row-main{display:grid;gap:2px;min-width:0}
+.ace-row-main>*{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.ace-row-main b{font-size:14.5px;font-weight:700}
+.ace-row-line{color:var(--ace-text);font-size:13px;font-weight:600}
+.ace-row-line i{color:var(--a-faint,#6d767b);font-style:normal;font-weight:500}
+.ace-row-main small{color:var(--a-faint,#6d767b);font-size:11.5px}
+.ace-tag{justify-self:start;padding:2px 6px;border-radius:5px;background:color-mix(in srgb,var(--ace-accent) 13%,transparent);color:var(--ace-accent);font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.ace-row-end{display:grid;justify-items:end;gap:3px}
+.ace-row-end>b{font:800 17px/1 'Sora',var(--font-sans,Inter,Arial,sans-serif);font-variant-numeric:tabular-nums}
+.ace-row-end>small{color:var(--a-faint,#6d767b);font-size:10.5px}
+.ace-row-go{color:var(--a-faint,#6d767b)}
+
+/* A slip: its grade, the picks, what helps or hurts, save it. */
+.ace-slip{display:grid;gap:12px}
+.ace-slip-sum{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.ace-slip-sum>span{display:grid;gap:3px;padding:10px 12px;border-radius:12px;background:var(--a-raised,#181e22)}
+.ace-slip-sum small{color:var(--a-faint,#6d767b);font-size:10.5px;font-weight:700}
+.ace-slip-sum b{font:800 20px/1 'Sora',var(--font-sans,Inter,Arial,sans-serif);font-variant-numeric:tabular-nums}
+.ace-slip-grade{border:1px solid color-mix(in srgb,var(--ace-up) 35%,transparent)}
+.ace-slip-grade b{color:var(--ace-up)}
+.ace-slip-grade[data-grade=B]{border-color:#aeb5b855}.ace-slip-grade[data-grade=B] b{color:#ced3d5}
+.ace-slip-grade:is([data-grade=C],[data-grade=D]){border-color:color-mix(in srgb,var(--ace-gold) 35%,transparent)}.ace-slip-grade:is([data-grade=C],[data-grade=D]) b{color:var(--ace-gold)}
+.ace-slip-grade[data-grade=F]{border-color:color-mix(in srgb,var(--ace-down) 35%,transparent)}.ace-slip-grade[data-grade=F] b{color:var(--ace-down)}
+.ace-links{display:grid;gap:6px}
+.ace-links li{display:flex;align-items:center;gap:8px;color:var(--a-muted,#9ea5a9);font-size:12.5px}
+.ace-links li[data-tone=together] svg{color:var(--ace-up)}
+.ace-links li:not([data-tone=together]) svg{color:var(--ace-gold)}
+.ace .ace-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:0 16px;border-radius:10px;background:var(--ace-accent);color:var(--ace-on-accent);font-size:14px;font-weight:800}
+
+/* Two picks side by side. */
+.ace-compare{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.ace-compare-side{position:relative;display:grid;align-content:start;gap:12px;min-width:0;padding:14px;border:1px solid var(--a-line,#252d33);border-radius:14px;background:var(--a-raised,#181e22)}
+.ace-compare-side[data-best]{border-color:color-mix(in srgb,var(--ace-up) 40%,var(--a-line,#252d33))}
+.ace-compare-side .sa-face{--size:48px}
+.ace-best{justify-self:start;padding:3px 8px;border-radius:6px;background:color-mix(in srgb,var(--ace-up) 15%,transparent);color:var(--ace-up);font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+
+/* The parts of a card load in once its words have landed. */
+.ace-answer:not([data-ready]) .ace-card-wrap{opacity:0}
+.ace-answer[data-ready] .ace-card-wrap{animation:ace-in .4s cubic-bezier(.2,.8,.2,1) both}
+.ace-answer[data-ready] :is(.ace-pick-main,.ace-pick-side)>*{animation:ace-in .4s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--n,0) * 70ms + 150ms)}
+.ace-pick-main>:nth-child(2),.ace-pick-side>:nth-child(1){--n:1}
+.ace-pick-main>:nth-child(3),.ace-pick-side>:nth-child(2){--n:2}
+.ace-pick-main>:nth-child(4),.ace-pick-side>:nth-child(3){--n:3}
+.ace-pick-main>:nth-child(n+5),.ace-pick-side>:nth-child(n+4){--n:4}
+
+@keyframes ace-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes ace-fade{from{opacity:0}}
+@keyframes ace-turn{to{transform:rotate(360deg)}}
+@keyframes ace-blink{50%{opacity:.35}}
+@keyframes ace-wave{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+@keyframes ace-ghost{to{background-position:-250% 0}}
+
+/* ── Tablets and phones ──────────────────────────────────────────────── */
+@media (max-width:1179px){.ace-starts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:760px){
+ .ace-top{min-height:0;padding:calc(env(safe-area-inset-top,0px) + var(--site-status-inset,0px) + 10px) 14px 10px}
+ .ace-title{gap:10px}
+ .ace-title>img{width:26px;height:26px}
+ .ace-title h1{font-size:16px}
+ .ace-title p{font-size:11px}
+ .ace-status{height:30px;padding:0 10px;font-size:12px}
+ .ace[data-chatting] .ace-status{display:none}
+ .ace-new{height:30px;padding:0 10px}
+ .ace-welcome{gap:22px;padding:22px 14px 20px}
+ .ace-intro h2{font-size:25px;letter-spacing:-.5px}
+ .ace-intro>p:last-child{font-size:14px}
+ .ace-stats{gap:6px}
+ .ace-stats>div{padding:9px 10px}
+ .ace-stats dd{font-size:16px}
+ /* The six starts in a 2 by 3 grid: the icon over the words. */
+ .ace-starts{gap:8px}
+ .ace-starts button{grid-template-columns:minmax(0,1fr);align-content:start;gap:9px;min-height:0;padding:12px}
+ .ace-start-icon{width:34px;height:34px}
+ .ace-start-text small{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+ .ace-start-go{display:none}
+ .ace-thread{gap:18px;padding:18px 14px 22px}
+ .ace-msg.is-user p{max-width:86%}
+ .ace-text{font-size:15px}
+ .ace-frame{padding:12px;border-radius:14px}
+ .ace-dock{gap:8px;padding:8px 10px 10px}
+ /* Suggestions in one row that scrolls, not a pile of them. */
+ .ace-chips{flex-wrap:nowrap;margin:0 -10px;padding:0 10px;overflow-x:auto;scrollbar-width:none}
+ .ace-chips::-webkit-scrollbar{display:none}
+ .ace-chips button{flex:none}
+ .ace-composer{padding:5px 5px 5px 14px;border-radius:12px}
+ .ace-fine{display:none}
+ .ace-pick.sa-prop{padding:14px;border-radius:18px}
+ .ace-pick .sa-face{--size:52px}
+ .ace .ace-rows button{grid-template-columns:auto minmax(0,1fr) auto;gap:10px;padding:10px}
+ .ace-rank,.ace-row-go{display:none}
+ .ace-slip-sum{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .ace-compare{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:420px){
+ .ace .ace-card-wrap .kb-actions button{font-size:12px;padding:8px 6px}
+}
+@media (prefers-reduced-motion:reduce){
+ .ace *,.ace *::before,.ace *::after{animation:none!important;transition:none!important}
+}

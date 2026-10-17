@@ -1,24 +1,27 @@
 import {loadLearning} from './learning';
 import {logTopPicks} from './slip-history';
 import React,{useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
-import {ArrowUp,Mic,Plus,RotateCcw,Sparkles} from 'lucide-react';
+import {ArrowUp,Check,ChevronRight,Clock3,Flame,Layers,Mic,Plus,RotateCcw,Scale,Search,ShieldCheck,Swords,Target} from 'lucide-react';
 import {createBot,SPORTS} from './krazy-bot';
-import {BotCard} from './KrazyBotCard';
-import {KrazyBotHome,LOOK_QUESTIONS} from './KrazyBotHome';
+import {Face} from './KrazyBotCard';
+import {AceCard} from './AceCards';
+import {TierBadge} from './PickParts';
 import {loadLines} from './finder-pool';
 import {loadHitterMatchups,withHitterMatchups} from './unified-finder-data';
 import {loadMatchups} from './slip-matchup';
 import {loadGames,loadTeammates,withGame} from './slip-games';
 import {isPrizePicksLine} from './smart-slip';
 import {siteFinderSportAllowed} from './site-access';
+import {accountProfile} from './account-sync';
 import {useVoice} from './voice-input';
 import './krazy-bot.css';
+import './ace-assistant.css';
 
-// The Ace Assistant: a conversation with the bot (krazy-bot.js), which
-// answers from today's graded picks in the browser, on the lines the Finder
-// already loads. Before the first question, today's board (KrazyBotHome.jsx);
-// then the thread, each answer streaming in with its report card
-// (KrazyBotCard.jsx) under it, and the box to ask the next one at the foot.
+// The Ace Assistant: a research desk you can talk to. It answers from
+// today's graded picks (krazy-bot.js) in the browser, on the lines the
+// Finder already loads, and shows a pick the way the Slip Analyzer does
+// (AceCards.jsx). On a computer today's board sits beside the conversation;
+// on a phone it's on the first screen, and the box to ask rests over the keys.
 
 // What the bot remembers about this member (krazy-bot.js profile). It
 // follows their account to other devices (account-sync.js SYNCED.bot).
@@ -27,11 +30,15 @@ const memory={
  read(){try{return JSON.parse(localStorage.getItem(MEMORY_KEY)||'null');}catch{return null;}},
  write(value){try{localStorage.setItem(MEMORY_KEY,JSON.stringify(value));}catch{/* private mode */}},
 };
-// However fast the answer is, the thinking shows this long, so it reads.
-const THINK_MS=1300;
-// The answer's words stream in this far apart, all of them within STREAM_MS.
-const WORD_MS=26,STREAM_MS=1500;
+// However fast the answer is, the research shows this long, so it reads.
+const THINK_MS=1500;
+// Each research step is ticked off this far apart.
+const STEP_MS=520;
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,Math.max(0,ms)));
+const pct=value=>`${Math.round(value*100)}%`;
+const figure=value=>value==null?'—':String(Math.round(Number(value)*10)/10);
+const clock=at=>new Date(at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+const MARK='/brand/ace-props-mark.png';
 
 // Recent line moves, when this member can see them (the Line Moves feed).
 async function recentMoves(){
@@ -41,58 +48,73 @@ async function recentMoves(){
  return Array.isArray(body.moves)?body.moves:[];
 }
 
-// The assistant's mark: the Ace spade in a ring of light that turns, faster
-// while it thinks.
-export function AceOrb({size='md',thinking=false}){
- return <span className="ka-orb" data-size={size} data-thinking={thinking||undefined} aria-hidden="true">
-  <span className="ka-orb-ring"/><span className="ka-orb-core"><img src="/brand/ace-props-mark.png" alt="" width="40" height="40"/></span>
- </span>;
-}
-
 // Ask out loud: the words fill the box as they're heard and the question
 // goes when the speaker stops. Hidden where the browser can't listen.
 function VoiceButton({onWords,onSaid,disabled}){
  const voice=useVoice({onWords,onSaid});
  if(!voice.supported)return null;
- return <button type="button" className="ka-mic" data-listening={voice.listening||undefined} onClick={voice.listening?voice.stop:voice.start} disabled={disabled}
+ return <button type="button" className="ace-mic" data-listening={voice.listening||undefined} onClick={voice.listening?voice.stop:voice.start} disabled={disabled}
   aria-pressed={voice.listening} aria-label={voice.listening?'Stop listening':'Ask out loud'} title={voice.listening?'Listening…':'Ask out loud'}>
-  {voice.listening?<span className="ka-wave" aria-hidden="true"><i/><i/><i/><i/></span>:<Mic aria-hidden="true"/>}
+  {voice.listening?<span className="ace-wave" aria-hidden="true"><i/><i/><i/><i/></span>:<Mic size={18} aria-hidden="true"/>}
  </button>;
 }
 
-// What the assistant is doing, one line at a time, while it thinks.
-function Thinking({labels}){
+// What it's checking, as a list: each step ticked off as the next starts.
+function Research({labels}){
+ const steps=labels?.length?labels:['Reading your question','Checking today\'s board','Grading the picks'];
  const [at,setAt]=useState(0);
  useEffect(()=>{
-  if(!labels?.length)return undefined;
-  const timer=setInterval(()=>setAt(index=>Math.min(index+1,labels.length-1)),1100);
+  const timer=setInterval(()=>setAt(index=>Math.min(index+1,steps.length-1)),STEP_MS);
   return()=>clearInterval(timer);
- },[labels]);
- return <div className="ka-thinking" role="status" aria-live="polite">
-  <span className="ka-thinking-dots" aria-hidden="true"><i/><i/><i/></span>
-  <span key={at} className="ka-thinking-text">{labels?.[at]||'Thinking'}</span>
-  <span className="ka-ghost" aria-hidden="true"><i/><i/><i/></span>
+ },[steps.length]);
+ return <div className="ace-research" role="status" aria-live="polite">
+  <ol>{steps.slice(0,at+1).map((text,index)=><li key={text} data-done={index<at||undefined}>
+   {index<at?<Check size={13} strokeWidth={3} aria-hidden="true"/>:<span className="ace-spinner" aria-hidden="true"/>}{text}</li>)}</ol>
+  <span className="ace-progress" style={{'--p':(at+1)/steps.length}} aria-hidden="true"><i/></span>
  </div>;
 }
 
-// One answer: its words stream in, then the report card under it loads in
-// turn (its animations start once the words have landed).
-function Answer({message,onRetry}){
- const words=useMemo(()=>String(message.text||'').split(/\s+/).filter(Boolean),[message.text]);
- const gap=words.length>1?Math.min(WORD_MS,STREAM_MS/(words.length-1)):0;
+// One answer: the words, then the card under them (its parts load in once
+// the words have landed).
+function Reply({message,onAsk,onRetry}){
  const [ready,setReady]=useState(false);
  useEffect(()=>{
   if(message.status!=='done')return undefined;
-  const timer=setTimeout(()=>setReady(true),Math.min(STREAM_MS,gap*words.length)+260);
+  const timer=setTimeout(()=>setReady(true),220);
   return()=>clearTimeout(timer);
- },[message.status,gap,words.length]);
- if(message.status==='thinking')return <Thinking labels={message.labels}/>;
- if(message.status==='error')return <div className="ka-error"><p>That didn't come through. The board may still be loading.</p>
-  <button type="button" onClick={onRetry}><RotateCcw aria-hidden="true"/>Try again</button></div>;
- return <div className="ka-answer" data-ready={ready||undefined} data-card={message.card?'':undefined}>
-  <p className="ka-text">{words.map((word,index)=><span key={index} style={{'--d':`${Math.round(index*gap)}ms`}}>{word}{' '}</span>)}</p>
-  {message.card&&<div className="ka-card"><BotCard card={message.card}/></div>}
+ },[message.status]);
+ if(message.status==='thinking')return <Research labels={message.labels}/>;
+ if(message.status==='error')return <div className="ace-error"><p>That one didn't come through. Today's board may still be loading.</p>
+  <button type="button" onClick={onRetry}><RotateCcw size={15} aria-hidden="true"/>Try again</button></div>;
+ return <div className="ace-answer" data-ready={ready||undefined}>
+  <p className="ace-text">{message.text}</p>
+  {message.card&&<AceCard card={message.card} onAsk={onAsk}/>}
  </div>;
+}
+
+// Today's top plays as rows: who, the line, the tier and the chance.
+function TopPlays({plays,onAsk,loading,disabled}){
+ if(!plays.length)return loading?<ul className="ace-plays" aria-hidden="true">{[0,1,2,3].map(index=><li key={index} className="ace-ghost"/>)}</ul>
+  :<p className="ace-empty">No plays to show right now.</p>;
+ return <ul className="ace-plays">{plays.map((play,index)=><li key={`${play.player}-${play.stat}-${play.line}`} style={{'--i':index}}>
+  <button type="button" onClick={()=>onAsk(play.question)} disabled={disabled}>
+   <Face src={play.headshot} name={play.player} logo={play.teamLogo} size="md"/>
+   <span className="ace-play-main"><b>{play.player}</b>
+    <span><em data-side={play.side}>{play.side==='UNDER'?'Less':'More'}</em> {figure(play.line)} {play.short||play.stat}</span>
+    <small>{[play.team&&play.opponent?`${play.team} ${play.home===false?'@':'vs'} ${play.opponent}`:play.team,play.time].filter(Boolean).join(' · ')}</small></span>
+   <span className="ace-play-end">{play.tier&&<TierBadge tier={play.tier}/>}<b>{pct(play.chance)}</b></span>
+  </button>
+ </li>)}</ul>;
+}
+
+function Stats({today,failed}){
+ const leagues=today?.leagues||[];
+ return <dl className="ace-stats">
+  <div><dt>Props</dt><dd>{today?today.props.toLocaleString():'—'}</dd></div>
+  <div><dt>Games</dt><dd>{today?today.games:'—'}</dd></div>
+  <div><dt>Next start</dt><dd>{today?(today.next||'—'):failed?'—':'…'}</dd></div>
+  {leagues.length>1&&<div className="ace-stats-leagues"><dt>By league</dt><dd>{leagues.map(item=><span key={item.sport}>{item.name} <b>{item.props.toLocaleString()}</b></span>)}</dd></div>}
+ </dl>;
 }
 
 export function KrazyBot(){
@@ -130,7 +152,8 @@ export function KrazyBot(){
  const [draft,setDraft]=useState('');
  const [follow,setFollow]=useState([]);
  const [examples,setExamples]=useState(()=>bot.examples());
- // Today's board for the home screen (top plays, quick looks).
+ const [recent,setRecent]=useState([]);
+ // Today's board (the numbers, the top plays) for the welcome and the side panel.
  const [today,setToday]=useState(null);
  const [todayFailed,setTodayFailed]=useState(false);
  const refreshToday=useCallback(()=>bot.today().then(value=>{
@@ -138,16 +161,21 @@ export function KrazyBot(){
   // Its top plays go back to be settled and learned from (learning.py).
   logTopPicks((value.graded||[]).map(leg=>({row:leg.row,side:leg.side,grade:leg})),{source:'assistant',limit:30});
  }).catch(()=>setTodayFailed(true)),[bot]);
+ // The member's latest questions, newest first (krazy-bot.js profile).
+ const readRecent=useCallback(()=>{
+  const asked=bot.profile()?.asked||[];
+  setRecent([...new Set(asked.map(item=>item.q).filter(Boolean))].slice(0,4));
+ },[bot]);
 
  // Load the boards when the page is first opened (not on every page load).
  useEffect(()=>{
   const node=host.current;
-  const warm=()=>bot.board().then(()=>{setExamples(bot.examples());return refreshToday();}).catch(()=>setTodayFailed(true));
+  const warm=()=>bot.board().then(()=>{setExamples(bot.examples());readRecent();return refreshToday();}).catch(()=>setTodayFailed(true));
   if(!node||typeof IntersectionObserver==='undefined'){warm();return undefined;}
   const seen=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)){warm();seen.disconnect();}});
   seen.observe(node);
   return()=>seen.disconnect();
- },[bot,refreshToday]);
+ },[bot,refreshToday,readRecent]);
 
  const ask=useCallback(async raw=>{
   const text=String(raw||'').trim();
@@ -155,7 +183,7 @@ export function KrazyBot(){
   const id=`${Date.now()}`;
   lastAsked.current=`q${id}`;
   setDraft('');setFollow([]);setBusy(true);
-  setMessages(list=>[...list,{id:`q${id}`,role:'user',text},{id:`a${id}`,role:'bot',status:'thinking',labels:bot.thinking(text),question:text}]);
+  setMessages(list=>[...list,{id:`q${id}`,role:'user',text},{id:`a${id}`,role:'bot',status:'thinking',labels:bot.thinking(text),question:text,at:Date.now()}]);
   // Sent from a phone: the keyboard goes down so the answer has the screen.
   if(window.matchMedia('(pointer: coarse)').matches)field.current?.blur();
   const started=performance.now();
@@ -166,22 +194,33 @@ export function KrazyBot(){
    reply={status:'done',text:shown?.card?(shown.lead||said):said,card:shown?.card||null};
   }catch{reply={status:'error'};}
   await sleep(THINK_MS-(performance.now()-started));
-  setMessages(list=>list.map(message=>message.id===`a${id}`?{...message,...reply}:message));
+  setMessages(list=>list.map(message=>message.id===`a${id}`?{...message,...reply,at:Date.now()}:message));
   if(reply.status==='done')setFollow(bot.suggestions());
+  readRecent();
   setBusy(false);
- },[bot,busy]);
-
+ },[bot,busy,readRecent]);
+ const retry=message=>{setMessages(list=>list.filter(item=>item.id!==message.id&&item.id!==message.id.replace(/^a/,'q')));ask(message.question);};
  const fresh=()=>{if(busy)return;setMessages([]);setFollow([]);setExamples(bot.examples());refreshToday();};
+ // Start a question for them to finish ("How's ___ looking?").
+ const prime=text=>{setDraft(text);requestAnimationFrame(()=>{const node=field.current;if(node){node.focus();node.setSelectionRange(text.length,text.length);}});};
 
- // A new question rises to the top of the thread, so its answer has the room under it.
+ // A new question rises to the top of the conversation, its answer under it.
  useLayoutEffect(()=>{
   const id=lastAsked.current;
   if(!id)return;
   lastAsked.current=null;
   const node=scroller.current?.querySelector(`[data-id="${id}"]`);
-  if(node&&scroller.current)scroller.current.scrollTo({top:node.offsetTop-12,behavior:'smooth'});
+  if(node&&scroller.current)scroller.current.scrollTo({top:node.offsetTop-14,behavior:'smooth'});
  },[messages]);
-
+ // The room the conversation has, so the latest answer can hold the screen
+ // under its question (ace-assistant.css --ace-room).
+ useEffect(()=>{
+  const node=scroller.current;
+  if(!node||typeof ResizeObserver==='undefined')return undefined;
+  const watch=new ResizeObserver(()=>node.style.setProperty('--ace-room',`${node.clientHeight}px`));
+  watch.observe(node);
+  return()=>watch.disconnect();
+ },[]);
  // The box grows with what's typed, up to five lines.
  useLayoutEffect(()=>{
   const node=field.current;
@@ -189,19 +228,9 @@ export function KrazyBot(){
   node.style.height='';
   if(draft)node.style.height=`${Math.min(node.scrollHeight,132)}px`;
  },[draft]);
- // The room the thread has, so the latest answer can hold the screen under
- // its question (krazy-bot.css --ka-room).
- useEffect(()=>{
-  const node=scroller.current;
-  if(!node||typeof ResizeObserver==='undefined')return undefined;
-  const watch=new ResizeObserver(()=>node.style.setProperty('--ka-room',`${node.clientHeight}px`));
-  watch.observe(node);
-  return()=>watch.disconnect();
- },[]);
-
- // Typing on a touch screen: the assistant fits what's left above the
- // keyboard (window.visualViewport), so the box rests just over the keys
- // and the site's bottom menu steps out of the way.
+ // Typing on a touch screen: the page fits what's left above the keyboard
+ // (window.visualViewport), the box rests just over the keys and the
+ // site's bottom menu steps out of the way.
  useEffect(()=>{
   const viewport=window.visualViewport,node=host.current;
   if(!node||!viewport)return undefined;
@@ -215,11 +244,12 @@ export function KrazyBot(){
    if(open){node.style.setProperty('--kb-vv-top',`${Math.round(viewport.offsetTop)}px`);node.style.setProperty('--kb-vv-h',`${Math.round(viewport.height)}px`);}
   };
   const settle=()=>{fit();setTimeout(fit,320);};
+  const later=()=>setTimeout(fit,60);
   viewport.addEventListener('resize',fit);
   viewport.addEventListener('scroll',fit);
   node.addEventListener('focusin',settle);
-  node.addEventListener('focusout',()=>setTimeout(fit,60));
-  return()=>{viewport.removeEventListener('resize',fit);viewport.removeEventListener('scroll',fit);node.removeEventListener('focusin',settle);page.removeAttribute('data-bot-typing');};
+  node.addEventListener('focusout',later);
+  return()=>{viewport.removeEventListener('resize',fit);viewport.removeEventListener('scroll',fit);node.removeEventListener('focusin',settle);node.removeEventListener('focusout',later);page.removeAttribute('data-bot-typing');};
  },[]);
  // Beside the desktop rail, whatever its width.
  useEffect(()=>{
@@ -233,54 +263,83 @@ export function KrazyBot(){
  const submit=event=>{event.preventDefault();ask(draft);};
  const keys=event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();ask(draft);}};
  const chatting=messages.length>0;
- const narrow=typeof window!=='undefined'&&window.matchMedia('(max-width: 760px)').matches;
- const chips=chatting?follow:examples.filter(text=>!LOOK_QUESTIONS.includes(text));
+ const plays=today?.top?.filter(Boolean)||[];
+ const name=String(accountProfile()?.name||'').trim().split(/\s+/)[0];
+ const hour=new Date().getHours();
+ const greeting=`${hour<12?'Good morning':hour<18?'Good afternoon':'Good evening'}${name?`, ${name}`:''}`;
+ const starts=[
+  {icon:ShieldCheck,title:'Safest pick',text:today?.safest?`${today.safest.player} · ${pct(today.safest.chance)} to hit`:'The likeliest hit on the board',go:()=>ask('Safest pick')},
+  {icon:Swords,title:'Best matchup',text:today?.matchup?`${today.matchup.player}${today.matchup.rating?` · ${today.matchup.rating.label}`:''}`:'The softest spot today',go:()=>ask('Best matchup today')},
+  {icon:Layers,title:'Build a slip',text:'Three picks, B or better, different games',go:()=>ask('Build me a 3-pick slip')},
+  {icon:Search,title:'Check a player',text:'Type a name, get every line graded',go:()=>prime('How\'s ')},
+  {icon:Scale,title:'Compare two',text:'Which of two picks is the better play',go:()=>prime('Compare ')},
+  today?.mlb===false?{icon:Flame,title:'Best value',text:'A demon worth the payout',go:()=>ask('Best value play')}
+   :{icon:Target,title:'NRFI / YRFI',text:'First-inning chances by game',go:()=>ask('nrfi today?')},
+ ];
+ const asked=new Set(['Safest pick','Best matchup today','Build me a 3-pick slip','nrfi today?','Best value play']);
+ const chips=chatting?follow:examples.filter(text=>!asked.has(text)).slice(0,4);
 
- return <div className="krazy-bot" ref={host} data-chatting={chatting||undefined}>
-  <header className="ka-top">
-   <div className="ka-brand">
-    <AceOrb size="sm" thinking={busy}/>
-    <div><h1>Ace Assistant</h1>
-     <p>{busy?<span className="ka-live is-busy">Thinking…</span>
-      :today?<span className="ka-live">{today.props.toLocaleString()} props · {today.games} games{today.next?` · next ${today.next}`:''}</span>
-      :<span className="ka-live is-idle">{todayFailed?'Board unavailable right now':'Loading today\'s board…'}</span>}</p></div>
+ return <div className="krazy-bot ace" ref={host} data-chatting={chatting||undefined}>
+  <header className="ace-top">
+   <div className="ace-title"><img src={MARK} alt="" width="30" height="30"/>
+    <div><h1>Ace Assistant</h1><p>{sports.map(sport=>SPORTS[sport].name).join(' · ')}</p></div></div>
+   <div className="ace-top-end">
+    <span className="ace-status" data-state={busy?'busy':today?'live':todayFailed?'down':'idle'}>
+     <i aria-hidden="true"/>{busy?'Researching':today?`${today.props.toLocaleString()} props live`:todayFailed?'Board unavailable':'Loading board'}</span>
+    {chatting&&<button type="button" className="ace-new" onClick={fresh} disabled={busy}><Plus size={16} aria-hidden="true"/><span>New chat</span></button>}
    </div>
-   {chatting&&<button type="button" className="ka-new" onClick={fresh} disabled={busy}><Plus aria-hidden="true"/><span>New chat</span></button>}
   </header>
 
-  <div className="ka-scroll" ref={scroller}>
-   {!chatting?<div className="ka-home">
-    <section className="ka-hero">
-     <AceOrb size="lg"/>
-     <span className="ka-sports">{sports.map(sport=>SPORTS[sport].name).join(' · ')}</span>
-     <h2>What's the play <span>today?</span></h2>
-     <p>Ask about any player, prop, matchup or slip. I grade every pick on today's board and remember what you ask.</p>
-    </section>
-    <KrazyBotHome today={today} failed={todayFailed} onAsk={ask} idle/>
-   </div>
-   :<ol className="ka-thread" aria-label="Conversation">
-    {messages.map(message=>message.role==='user'
-     ?<li key={message.id} data-id={message.id} className="ka-msg is-user"><p>{message.text}</p></li>
-     :<li key={message.id} data-id={message.id} className="ka-msg is-bot" data-status={message.status}>
-      <AceOrb size="xs" thinking={message.status==='thinking'}/>
-      <div className="ka-bubble"><Answer message={message} onRetry={()=>{setMessages(list=>list.filter(item=>item.id!==message.id&&item.id!==message.id.replace(/^a/,'q')));ask(message.question);}}/></div>
-     </li>)}
-   </ol>}
-  </div>
+  <div className="ace-body">
+   <main className="ace-main">
+    <div className="ace-scroll" ref={scroller}>
+     {!chatting?<div className="ace-welcome">
+      <section className="ace-intro">
+       <p className="ace-hello">{greeting}</p>
+       <h2>What are we looking at today?</h2>
+       <p>Ask about a player, a prop or a slip. I check it against his recent games, the matchup, injuries and the books, and grade it the way the Slip Analyzer does.</p>
+      </section>
+      <section className="ace-welcome-stats"><Stats today={today} failed={todayFailed}/></section>
+      <section>
+       <h3>Start with</h3>
+       <div className="ace-starts">{starts.map(({icon:Icon,title,text,go},index)=><button key={title} type="button" style={{'--i':index}} onClick={go}>
+        <span className="ace-start-icon"><Icon size={18} aria-hidden="true"/></span><span className="ace-start-text"><b>{title}</b><small>{text}</small></span>
+        <ChevronRight size={16} className="ace-start-go" aria-hidden="true"/>
+       </button>)}</div>
+      </section>
+      <section className="ace-welcome-plays"><h3>Top plays right now</h3><TopPlays plays={plays} onAsk={ask} loading={!today&&!todayFailed}/></section>
+     </div>
+     :<ol className="ace-thread" aria-label="Conversation">
+      {messages.map(message=>message.role==='user'
+       ?<li key={message.id} data-id={message.id} className="ace-msg is-user"><p>{message.text}</p></li>
+       :<li key={message.id} data-id={message.id} className="ace-msg is-bot" data-status={message.status}>
+        <div className="ace-from"><img src={MARK} alt="" width="18" height="18"/><b>Ace</b>{message.status==='done'&&<time>{clock(message.at)}</time>}</div>
+        <Reply message={message} onAsk={ask} onRetry={()=>retry(message)}/>
+       </li>)}
+     </ol>}
+    </div>
+    <footer className="ace-dock">
+     {chips.length>0&&!busy&&<div className="ace-chips" aria-label={chatting?'Follow-up questions':'Example questions'}>
+      {chips.map((text,index)=><button key={text} type="button" style={{'--i':index}} onClick={()=>ask(text)}>{text}</button>)}
+     </div>}
+     <form className="ace-composer" onSubmit={submit} autoComplete="off" data-busy={busy||undefined}>
+      <textarea ref={field} rows={1} value={draft} onChange={event=>setDraft(event.target.value)} onKeyDown={keys} maxLength={200}
+       placeholder={chatting?'Ask a follow-up':'Ask about a player or a prop'} aria-label="Ask the Ace Assistant" enterKeyHint="send" spellCheck={false} autoCorrect="off"/>
+      <VoiceButton onWords={setDraft} onSaid={text=>{if(text)ask(text);}} disabled={busy}/>
+      <button type="submit" className="ace-send" disabled={busy||!draft.trim()} aria-label={busy?'Researching':'Send'}>
+       {busy?<span className="ace-spinner" aria-hidden="true"/>:<ArrowUp size={18} aria-hidden="true"/>}
+      </button>
+     </form>
+     <small className="ace-fine">Grades come from today's board and recent games. Not a guarantee. Play responsibly.</small>
+    </footer>
+   </main>
 
-  <footer className="ka-dock">
-   {chips.length>0&&!busy&&<div className="ka-chips" aria-label={chatting?'Follow-up questions':'Example questions'}>
-    {chips.map((text,index)=><button key={text} type="button" style={{'--i':index}} onClick={()=>ask(text)}><Sparkles aria-hidden="true"/>{text}</button>)}
-   </div>}
-   <form className="ka-composer" onSubmit={submit} autoComplete="off" data-busy={busy||undefined}>
-    <textarea ref={field} rows={1} value={draft} onChange={event=>setDraft(event.target.value)} onKeyDown={keys} maxLength={200}
-     placeholder={chatting?'Ask a follow-up…':narrow?'Ask about any prop…':'Ask about any player, prop or matchup…'} aria-label="Ask the Ace Assistant" enterKeyHint="send" spellCheck={false} autoCorrect="off"/>
-    <VoiceButton onWords={setDraft} onSaid={text=>{if(text)ask(text);}} disabled={busy}/>
-    <button type="submit" className="ka-send" disabled={busy||!draft.trim()} aria-label={busy?'Thinking':'Send'}>
-     {busy?<span className="ka-spin" aria-hidden="true"/>:<ArrowUp aria-hidden="true"/>}
-    </button>
-   </form>
-   <small className="ka-foot">Grades are from today's board and recent games. Not a guarantee. Play responsibly.</small>
-  </footer>
+   <aside className="ace-side" aria-label="Today's board">
+    <section><h3>Today's board</h3><Stats today={today} failed={todayFailed}/></section>
+    <section><h3>Top plays</h3><TopPlays plays={plays} onAsk={ask} loading={!today&&!todayFailed} disabled={busy}/></section>
+    {recent.length>0&&<section><h3>You asked</h3><ul className="ace-recent">{recent.map(text=><li key={text}>
+     <button type="button" onClick={()=>ask(text)} disabled={busy}><Clock3 size={14} aria-hidden="true"/><span>{text}</span></button></li>)}</ul></section>}
+   </aside>
+  </div>
  </div>;
 }

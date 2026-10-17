@@ -743,6 +743,8 @@ export function pickCard(leg, {ladder = []} = {}) {
         .sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact)).slice(0, 5),
       pitches: (model.pitches || []).slice(0, 4)} : null,
     redFlag: leg.redFlag || null,
+    // The analyst's read (slip-analyst.js), for the Slip Analyzer's own notes on the card.
+    read: leg.read || null,
     report: pickReport(leg, {ladder}),
     // The line itself, for the card's buttons (add to My Slip, open in the Finder).
     row,
