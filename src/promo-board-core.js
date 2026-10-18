@@ -14,7 +14,7 @@ function usualLine(rows,promo){
  return any?{line:any.line,modifier:String(any.modifier||'standard')}:null;
 }
 
-/** Each promo line on the board, read on the Over (the side Ace Props backs). */
+/** Each promo line on the board, read on the Over (the side PropScout backs). */
 export function promoCards(rows,{now=Date.now(),tables={}}={}){
  const promos=rows.filter(row=>row.promo&&isPrizePicksLine(row)&&Date.parse(row.startsAt||'')>now);
  const legs=gradeMatchups(promos.map(row=>assessLeg(row,'OVER',{now})||null),tables);

@@ -9,7 +9,7 @@ export const TOUR_KEY='aceprops:welcome-tour:v1';
 export const NEW_FOR_DAYS=14;
 
 export const STEPS=[
- {key:'welcome',title:'Welcome to Ace Props',text:"Here's a quick look around. It takes about a minute, and you can skip it anytime."},
+ {key:'welcome',title:'Welcome to PropScout',text:"Here's a quick look around. It takes about a minute, and you can skip it anytime."},
  {key:'sports',target:['.finder-sports','.finder-title'],title:'Pick a sport',
   text:'The Finder lists every prop posted today, with how often each one has hit.'},
  {key:'search',target:['.finder-controls'],title:'Search and filter',

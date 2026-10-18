@@ -7,7 +7,7 @@ import {BotCard,Actions} from './KrazyBotCard';
 import {finderSlipProp} from './unified-finder-data';
 import {pickBuilder} from './pick-builder-client';
 
-// The Ace Assistant's answer cards. A pick reads as it does in the Slip
+// The Scout Assistant's answer cards. A pick reads as it does in the Slip
 // Analyzer (the same parts: PickParts.jsx, MatchupCase.jsx), with the rest
 // of the report beside it rather than behind tabs: his numbers, home and
 // road, the books and the defense. Lists and slips are rows of the same
@@ -179,7 +179,7 @@ function AceCompare({card}){
  </div>)}</div>;
 }
 
-/** Whatever the answer brought, drawn for the Ace Assistant. */
+/** Whatever the answer brought, drawn for the Scout Assistant. */
 export function AceCard({card,onAsk}){
  if(!card)return null;
  let body;

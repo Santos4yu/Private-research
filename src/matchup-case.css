@@ -1,32 +1,32 @@
 /* The matchup panel: the case for a pick, matchup first (slip-matchup.js),
    shared by the Slip Analyzer's picks and Krazy Bot's cards (MatchupCase.jsx). */
-.sa-case{--c:#aeb5b8;display:grid;gap:10px;padding:13px 14px;border:1px solid color-mix(in srgb,var(--c) 28%,var(--a-line,#252d33));border-radius:14px;
- background:linear-gradient(180deg,color-mix(in srgb,var(--c) 9%,#111518),#0f1215)}
+.sa-case{--c:#9eadc8;display:grid;gap:10px;padding:13px 14px;border:1px solid color-mix(in srgb,var(--c) 28%,var(--a-line,#1f2839));border-radius:14px;
+ background:linear-gradient(180deg,color-mix(in srgb,var(--c) 9%,#0e131b),#0d1117)}
 .sa-case[data-tone=excellent]{--c:#46e39a}
 .sa-case[data-tone=good]{--c:#3cc9b9}
-.sa-case[data-tone=neutral]{--c:#929b9f}
+.sa-case[data-tone=neutral]{--c:#8b95a6}
 .sa-case[data-tone=tough]{--c:#f6b955}
 .sa-case[data-tone=bad]{--c:#ff7b8a}
 .sa-case>header{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .sa-case>header b{color:var(--c);font:800 13px/1.2 var(--a-sans,var(--font-sans,Inter,Arial,sans-serif));letter-spacing:.06em;text-transform:uppercase}
 .sa-case-score{display:inline-flex;align-items:center;gap:8px;min-width:120px}
-.sa-case-score i{position:relative;flex:1;height:6px;overflow:hidden;border-radius:3px;background:#242c31}
+.sa-case-score i{position:relative;flex:1;height:6px;overflow:hidden;border-radius:3px;background:#1e2737}
 .sa-case-score i::after{content:"";position:absolute;inset:0 auto 0 0;width:var(--w);border-radius:3px;background:var(--c);transform-origin:left;
  animation:mc-wipe .8s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0) * 90ms + 400ms)}
-.sa-case-score em{color:var(--a-text,#f4f7f6);font:800 13px/1 var(--a-display,'Sora',var(--font-sans,Inter,Arial,sans-serif));font-style:normal;font-variant-numeric:tabular-nums}
+.sa-case-score em{color:var(--a-text,#f3f5f8);font:800 13px/1 var(--a-display,'Sora',var(--font-sans,Inter,Arial,sans-serif));font-style:normal;font-variant-numeric:tabular-nums}
 .sa-case ul{display:grid;gap:7px;margin:0;padding:0;list-style:none}
-.sa-case li{display:grid;grid-template-columns:16px minmax(0,1fr);align-items:start;gap:9px;color:#dce3e0;font-size:13px;line-height:1.45}
-.sa-case li svg{margin-top:2px;color:var(--a-faint,#6d767b)}
+.sa-case li{display:grid;grid-template-columns:16px minmax(0,1fr);align-items:start;gap:9px;color:#d7dde8;font-size:13px;line-height:1.45}
+.sa-case li svg{margin-top:2px;color:var(--a-faint,#657083)}
 .sa-case li[data-tone=up] svg{color:#46e39a}
 .sa-case li[data-tone=down] svg{color:#ff7b8a}
-.sa-case li[data-kind=form]{color:var(--a-muted,#9ea5a9)}
+.sa-case li[data-kind=form]{color:var(--a-muted,#98a0af)}
 .sa-case li[data-tone=warn] svg{color:#f6b955}
 .sa-case li[data-kind=news]{font-weight:600}
 @keyframes mc-wipe{from{transform:scaleX(0)}}
 @media (prefers-reduced-motion:reduce){.sa-case-score i::after{animation:none}}
 /* On Krazy Bot's cards: the card's own frame, a little tighter. */
 .kb-card .sa-case{padding:12px;border-radius:12px;background:linear-gradient(180deg,color-mix(in srgb,var(--c) 8%,rgba(255,255,255,.03)),rgba(255,255,255,.02))}
-.kb-card .sa-case li{color:#dcdce4}
+.kb-card .sa-case li{color:#d7dee9}
 .sa-case-more{justify-self:start;display:inline-flex;align-items:center;gap:4px;padding:0;border:0;background:none;color:var(--c);font:700 12px/1.2 var(--a-sans,var(--font-sans,Inter,Arial,sans-serif));cursor:pointer}
 .sa-case-more svg{transition:transform .2s}
 .sa-case-more[aria-expanded=true] svg{transform:rotate(180deg)}

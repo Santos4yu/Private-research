@@ -9,6 +9,6 @@ export function NFLDecisionPanel({resource,propKey}) {
     <p>{data.productionStatus==='SHADOW_ONLY'?'EXPERIMENTAL MODEL · shadow only':'Model unavailable for betting decisions'}</p>
     <small>Point {data.pointStatus} · distribution {data.distributionStatus} · health {data.health}</small>
     <p>No production-grade recommendation. Betting calibration is unavailable and model validation gates have not passed. Posted research lines do not establish a betting edge.</p>
-    <details><summary>Why Ace Props is passing</summary><ul>{(data.eligibilityReasons || data.reasons || []).map((reason,index)=><li key={index}>{reason}</li>)}</ul></details>
+    <details><summary>Why PropScout is passing</summary><ul>{(data.eligibilityReasons || data.reasons || []).map((reason,index)=><li key={index}>{reason}</li>)}</ul></details>
   </section>;
 }

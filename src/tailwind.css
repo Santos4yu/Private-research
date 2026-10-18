@@ -18,21 +18,21 @@
    /components/ui automatically matches whichever theme the user has
    selected instead of rendering unstyled or off-palette. */
 :root {
-  --background: var(--theme-bg, #0d1013);
-  --foreground: var(--theme-text, #f4f7f6);
-  --card: var(--theme-panel, #12171a);
-  --border: var(--theme-border, #2c353c);
-  --muted: var(--theme-panel-2, #191f23);
-  --muted-foreground: var(--theme-dim, #a1a8ab);
+  --background: var(--theme-bg, #0b0f15);
+  --foreground: var(--theme-text, #f3f5f8);
+  --card: var(--theme-panel, #0f141d);
+  --border: var(--theme-border, #243044);
+  --muted: var(--theme-panel-2, #151c27);
+  --muted-foreground: var(--theme-dim, #9aa3b2);
   --destructive: #ff3f9c;
-  --primary: var(--theme-accent, #00f58a);
+  --primary: var(--theme-accent, #3d7bff);
   --primary-foreground: var(--theme-on-accent, #ffffff);
-  --secondary: var(--theme-panel-2, #191f23);
-  --secondary-foreground: var(--theme-text, #f4f7f6);
-  --accent: var(--theme-panel-2, #191f23);
-  --accent-foreground: var(--theme-text, #f4f7f6);
-  --input: var(--theme-border, #2c353c);
-  --ring: var(--theme-accent, #00f58a);
+  --secondary: var(--theme-panel-2, #151c27);
+  --secondary-foreground: var(--theme-text, #f3f5f8);
+  --accent: var(--theme-panel-2, #151c27);
+  --accent-foreground: var(--theme-text, #f3f5f8);
+  --input: var(--theme-border, #243044);
+  --ring: var(--theme-accent, #3d7bff);
 }
 @theme inline {
   --color-background: var(--background);

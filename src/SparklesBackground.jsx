@@ -15,7 +15,7 @@ import { SparklesCore } from '../components/ui/sparkles';
 // fields. With this called with no props from AuthCard/LandingPage, memo
 // makes React skip re-rendering it (and therefore Particles) entirely
 // instead of relying on the library's own (broken) reinit check.
-export const SparklesBackground = memo(function SparklesBackground({ particleColor = '#00f58a', particleDensity = 90 }) {
+export const SparklesBackground = memo(function SparklesBackground({ particleColor = '#3d7bff', particleDensity = 90 }) {
   return (
     <div className="absolute inset-0 bg-black overflow-hidden">
       <SparklesCore

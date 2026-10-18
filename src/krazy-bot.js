@@ -546,7 +546,7 @@ function redFlagWords(leg) {
 // A pick we'd recommend: Elite or Strong (a good matchup and the numbers
 // behind it), or a Lean in a league with no opponent reads today.
 export {confidentUnder};
-// Ace Props backs Overs only: no Under goes on a slip, into the picks or
+// PropScout backs Overs only: no Under goes on a slip, into the picks or
 // the top plays, or gets offered as the side to flip to. Asked about one
 // player's Under, the bot gives the read but doesn't back it.
 export const overOnly = leg => leg?.side !== 'UNDER';
@@ -1658,7 +1658,7 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
     }
     if (back && stat) return `Welcome back! Want your usual, the best ${stat.name} prop? Or ask me anything about today's board.`;
     if (back) return pick(['Welcome back! What are we looking at today?', 'Good to see you again. What do you need?'], random);
-    return `Hi, I'm the Ace Assistant. Ask me about today's ${allowed.map(sport => SPORTS[sport].name).join(', ')} props: best plays, matchups, a player, or a slip.`;
+    return `Hi, I'm the Scout Assistant. Ask me about today's ${allowed.map(sport => SPORTS[sport].name).join(', ')} props: best plays, matchups, a player, or a slip.`;
   }
 
   function recall() {

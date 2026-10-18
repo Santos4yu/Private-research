@@ -63,8 +63,8 @@
     left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px));
     top: auto; bottom: calc(8px + env(safe-area-inset-bottom, 0px));
     max-width: 400px; margin-inline: auto; min-height: 58px; padding: 4px 6px;
-    border: 1px solid var(--ace-border, #2A3236); border-radius: 999px;
-    background: rgba(17, 20, 24, .88);
+    border: 1px solid var(--ace-border, #222C3E); border-radius: 999px;
+    background: rgba(14, 19, 27, .88);
     -webkit-backdrop-filter: blur(18px) saturate(140%); backdrop-filter: blur(18px) saturate(140%);
     box-shadow: 0 14px 36px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .04);
     opacity: 1; transform: translate3d(0, 0, 0); visibility: visible;
@@ -73,21 +73,21 @@
   .mobile-app-tab {
     appearance: none; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
     min-width: 0; min-height: 50px; gap: 3px; padding: 3px 2px; border: 0; border-radius: 999px;
-    background: transparent; color: var(--ace-muted, #9CA5AA); cursor: pointer;
+    background: transparent; color: var(--ace-muted, #97A0AF); cursor: pointer;
     font: 500 10.5px/1.15 var(--font-sans); letter-spacing: .01em;
     -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: color 180ms ease;
   }
   .mobile-app-tab-icon { position: relative; display: grid; place-items: center; width: 28px; height: 24px; transition: transform 160ms cubic-bezier(.3, .7, .4, 1); }
   .mobile-app-tab svg { width: 24px; height: 24px; stroke-width: 1.7; fill: none; overflow: visible; transition: filter 180ms ease; }
-  .mobile-app-tab[aria-current="page"] { color: var(--ace-text, #F4F7F6); font-weight: 600; }
-  .mobile-app-tab[aria-current="page"] .mobile-app-tab-icon { color: var(--theme-accent, #00F58A); }
+  .mobile-app-tab[aria-current="page"] { color: var(--ace-text, #F3F5F8); font-weight: 600; }
+  .mobile-app-tab[aria-current="page"] .mobile-app-tab-icon { color: var(--theme-accent, #3D7BFF); }
   .mobile-app-tab[aria-current="page"] svg { stroke-width: 1.9; }
   .mobile-app-tab:active .mobile-app-tab-icon { transform: scale(.86); }
-  .mobile-app-tab:focus-visible { outline: 2px solid var(--theme-accent, #00F58A) !important; outline-offset: -3px !important; }
+  .mobile-app-tab:focus-visible { outline: 2px solid var(--theme-accent, #3D7BFF) !important; outline-offset: -3px !important; }
   .mobile-app-count {
     position: absolute; top: -5px; right: -8px; min-width: 17px; height: 17px; display: grid; place-items: center; padding: 0 4px;
-    border-radius: 999px; background: var(--theme-accent, #00F58A); color: var(--theme-on-accent, #03140B); font: 700 10px/1 var(--font-sans);
-    box-shadow: 0 0 0 2px var(--ace-sidebar, #111418);
+    border-radius: 999px; background: var(--theme-accent, #3D7BFF); color: var(--theme-on-accent, #FFFFFF); font: 700 10px/1 var(--font-sans);
+    box-shadow: 0 0 0 2px var(--ace-sidebar, #0e131b);
   }
   body.mobile-keyboard-open .mobile-app-nav,
   body:has(.modal-overlay:not([hidden])) .mobile-app-nav,
@@ -144,8 +144,8 @@
     position: fixed; z-index: 140 !important; inset: 0 auto 0 0 !important;
     width: min(340px, 86vw) !important; max-width: none !important; height: 100% !important; max-height: none;
     padding: calc(var(--site-status-inset, env(safe-area-inset-top, 0px)) + 12px) 14px calc(18px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px)) !important;
-    overflow-y: auto; overscroll-behavior: contain; border: 0 !important; border-right: 1px solid #23292d !important;
-    border-radius: 0 22px 22px 0 !important; background: linear-gradient(180deg, #121619 0%, #0d0f11 100%) !important;
+    overflow-y: auto; overscroll-behavior: contain; border: 0 !important; border-right: 1px solid #1c2534 !important;
+    border-radius: 0 22px 22px 0 !important; background: linear-gradient(180deg, #0f141c 0%, #0a0e14 100%) !important;
     box-shadow: 24px 0 60px rgba(0, 0, 0, .5) !important; animation: mobile-drawer-in 240ms cubic-bezier(.22, 1, .36, 1);
   }
   :root[data-theme] .side-scrim { z-index: 135 !important; }

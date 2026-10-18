@@ -44,7 +44,7 @@ def fetch_image(url):
         if not allowed(url):
             return None
         try:
-            response = requests.get(url, timeout=8, headers={"User-Agent": "AceProps/1.0"}, allow_redirects=False, stream=True)
+            response = requests.get(url, timeout=8, headers={"User-Agent": "PropScout/1.0"}, allow_redirects=False, stream=True)
         except requests.RequestException:
             return None
         if response.is_redirect:

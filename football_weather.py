@@ -22,7 +22,7 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
-AGENT = 'AceProps/1.0 (https://aceprops.xyz)'
+AGENT = 'PropScout/1.0 (https://aceprops.xyz)'
 FORECAST = 'https://api.met.no/weatherapi/locationforecast/2.0/complete'
 GEOCODER = 'https://nominatim.openstreetmap.org/search'
 CREDIT = 'Forecast: MET Norway'

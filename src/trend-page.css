@@ -11,15 +11,15 @@
 html:root .finder-trend-view[data-trend-tab] {
   --te-mint: #3FE39E;
   --te-mint-low: #1F8F62;
-  --te-bg: #0E1215;
-  --te-card: #14191D;
-  --te-raise: #192026;
-  --te-line: #232B30;
-  --te-text: #F4F7F6;
-  --te-muted: #A3ACB1;
-  --te-faint: #6F797E;
-  --te-on: rgba(63, 227, 158, .12);
-  --te-on-line: rgba(63, 227, 158, .5);
+  --te-bg: #0C1017;
+  --te-card: #111720;
+  --te-raise: #161d29;
+  --te-line: #1D2636;
+  --te-text: #F3F5F8;
+  --te-muted: #9FA7B5;
+  --te-faint: #677286;
+  --te-on: rgba(61, 123, 255, .12);
+  --te-on-line: rgba(61, 123, 255, .5);
   --te-spring: cubic-bezier(.34, 1.42, .6, 1);
   --te-ease: var(--ace-ease, cubic-bezier(.2, .8, .2, 1));
 }
@@ -114,12 +114,12 @@ html:root .finder-trend-view[data-trend-tab] :is(.mlb-context-table-wrap, .mlb-p
   height: auto !important;
   padding: 10px !important;
   border-bottom: 1px solid var(--te-line) !important;
-  color: #D5DBDE !important;
+  color: #CFD7E4 !important;
 }
 html:root .finder-trend-view[data-trend-tab] :is(.mlb-context-table-wrap, .mlb-player-log-scroll) tbody tr { background: none !important; }
 html:root .finder-trend-view[data-trend-tab] :is(.mlb-context-table-wrap, .mlb-player-log-scroll) tbody tr:last-child > * { border-bottom: 0 !important; }
 html:root .finder-trend-view[data-trend-tab] :is(.mlb-context-table-wrap, .mlb-player-log-scroll) tbody tr:hover { background: var(--te-raise) !important; }
-html:root .finder-trend-view[data-trend-tab] .mlb-player-log-scroll { scrollbar-color: #2C353B transparent; }
+html:root .finder-trend-view[data-trend-tab] .mlb-player-log-scroll { scrollbar-color: #242F43 transparent; }
 /* The log's header row sits in a box that only scrolls sideways, so it can
    never stick; as sticky cells each one was its own layer on every scroll. */
 html:root .finder-trend-view[data-trend-tab] .mlb-player-gamelog thead th { position: static !important; }

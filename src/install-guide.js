@@ -2,7 +2,7 @@
 // so this sheet shows the steps: once for a signed-in phone visitor, straight
 // away for someone arriving by an invite link (/?invite=1), and whenever
 // "Get the app" in Settings or the Alerts note is tapped. Android and desktop
-// Chrome get the browser's own Install button instead. "Share Ace Props"
+// Chrome get the browser's own Install button instead. "Share PropScout"
 // sends the invite link.
 import './install-guide.css';
 
@@ -44,7 +44,7 @@ function steps() {
   return [
     ['menu', 'Tap ⋮ in your browser', 'Top right of the screen'],
     ['add', 'Tap Install app', 'Or Add to Home screen'],
-    ['icon', 'Open Ace Props', 'From your Home Screen'],
+    ['icon', 'Open PropScout', 'From your Home Screen'],
   ];
 }
 
@@ -88,11 +88,11 @@ export function openInstallGuide() {
     <div class="install-backdrop"></div>
     <section class="install-sheet" role="dialog" aria-modal="true" aria-labelledby="install-title">
       <button type="button" class="install-close" aria-label="Close">×</button>
-      <img class="install-app-icon" src="/icons/apple-touch-icon.png?v=4" alt="" width="64" height="64" />
-      <h2 id="install-title">Get the Ace Props app</h2>
+      <img class="install-app-icon" src="/icons/apple-touch-icon.png?v=6" alt="" width="64" height="64" />
+      <h2 id="install-title">Get the PropScout app</h2>
       <p class="install-lead">Opens full screen from your Home Screen, with alerts when your picks move.</p>
       ${native ? '' : `<ol class="install-steps">${steps().map(([icon, title, detail], index) => `
-        <li><span class="install-step-icon" data-icon="${icon}">${icon === 'icon' ? '<img src="/icons/apple-touch-icon.png?v=4" alt="" width="30" height="30" />' : ICONS[icon]}</span>
+        <li><span class="install-step-icon" data-icon="${icon}">${icon === 'icon' ? '<img src="/icons/apple-touch-icon.png?v=6" alt="" width="30" height="30" />' : ICONS[icon]}</span>
           <span><b>${index + 1}. ${title}</b><small>${detail}</small></span></li>`).join('')}</ol>`}
       ${native ? '<button type="button" class="install-primary">Install</button>' : ''}
       <button type="button" class="install-later">Not now</button>
@@ -110,7 +110,7 @@ export function openInstallGuide() {
 // link is copied.
 export async function shareInvite(button) {
   const url = `${location.origin}/?invite=1`;
-  const data = {title: 'Ace Props', text: 'Props, hit rates and line moves. Get the app:', url};
+  const data = {title: 'PropScout', text: 'Props, hit rates and line moves. Get the app:', url};
   try {
     if (navigator.share && (!navigator.canShare || navigator.canShare(data))) { await navigator.share(data); return; }
   } catch (error) {

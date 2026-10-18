@@ -50,7 +50,7 @@ def _discord(title, detail):
     if not url.startswith('https://'):
         return False
     try:
-        return requests.post(url, json={'content': f'**Ace Props · {title}**\n{detail}'[:1900]}, timeout=6).ok
+        return requests.post(url, json={'content': f'**PropScout · {title}**\n{detail}'[:1900]}, timeout=6).ok
     except requests.RequestException:
         return False
 

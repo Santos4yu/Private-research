@@ -12,7 +12,7 @@ import requests
 
 from tennis_live import read, write
 
-AGENT = 'AceProps/1.0 (https://aceprops.xyz)'
+AGENT = 'PropScout/1.0 (https://aceprops.xyz)'
 GEOCODER = 'https://nominatim.openstreetmap.org/search'
 FORECAST = 'https://api.met.no/weatherapi/locationforecast/2.0/compact'
 VENUE_SECONDS = 30 * 86400

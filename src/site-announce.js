@@ -27,7 +27,7 @@ export function mountAnnouncePanel(host,{request}){
  // Reopening the tab only refreshes the numbers; a half-written message stays.
  if(host.refreshAnnounce)return host.refreshAnnounce();
  const count=h('strong',{className:'announce-count',text:'…'});
- const title=h('input',{type:'text',name:'announceTitle',maxlength:TITLE_MAX,placeholder:'Ace Props',autocomplete:'off'});
+ const title=h('input',{type:'text',name:'announceTitle',maxlength:TITLE_MAX,placeholder:'PropScout',autocomplete:'off'});
  const body=h('textarea',{name:'announceBody',maxlength:BODY_MAX,rows:3,placeholder:'New update is live'});
  const left=h('span',{className:'announce-left',text:String(BODY_MAX)});
  const status=h('p',{role:'status'});

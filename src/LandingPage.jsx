@@ -80,7 +80,7 @@ export function LandingPage({ onSignUp, onSignIn }) {
       <SparklesBackground particleDensity={60} />
       <div className="kd-landing-glow" aria-hidden="true" />
       <header className="kd-landing-bar">
-        <img className="kd-landing-logo" src="/brand/ace-props-wordmark.png" width={105} height={40} alt="Ace Props" />
+        <img className="kd-landing-logo" src="/brand/propscout-logo.svg" width={151} height={28} alt="PropScout" />
         <nav aria-label="Account">
           <button type="button" className="kd-button kd-button-quiet" onClick={onSignIn}>Sign in</button>
           <button type="button" className="kd-button kd-button-primary" onClick={onSignUp}>Sign up</button>

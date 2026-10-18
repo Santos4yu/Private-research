@@ -9,7 +9,7 @@ const WHOP_LOADER='https://js.whop.com/static/checkout/loader.js';
 const COMPLETE_CALLBACK='acePropsCheckoutComplete';
 // Only the leagues that are live for members. Add one here once it is.
 const LEAGUES=['nba','wnba','mlb','nfl','nhl','soccer'];
-const PERKS=['Prop Finder for NBA, WNBA, MLB, NFL, NHL and soccer','Research, game logs and matchups','Cheat Sheets, Line Moves and NRFI / YRFI','Slip Analyzer and Parlay Builder','Ace Assistant'];
+const PERKS=['Prop Finder for NBA, WNBA, MLB, NFL, NHL and soccer','Research, game logs and matchups','Cheat Sheets, Line Moves and NRFI / YRFI','Slip Analyzer and Parlay Builder','Scout Assistant'];
 const PERIOD_SHORT={month:'mo','3 months':'3 mo','6 months':'6 mo',year:'yr',week:'wk'};
 
 function h(tag,props={},...children){
@@ -52,12 +52,12 @@ export function renderPricing(host,{request,email='',preview=false,live=false,on
  const checkout=h('div',{className:'ace-pricing-checkout'});
  const message=h('p',{className:'ace-pricing-message',role:'status'});
  const left=h('div',{className:'ace-pricing-summary'},
-  h('div',{className:'ace-pricing-brand'},h('img',{src:'/brand/ace-props-mark.png',alt:'',width:'32',height:'32'}),h('h1',{id:'ace-pricing-title',text:'Ace Props Pro'})),
+  h('div',{className:'ace-pricing-brand'},h('img',{src:'/brand/propscout-mark.svg',alt:'',width:'32',height:'32'}),h('h1',{id:'ace-pricing-title',text:'PropScout Pro'})),
   price,subtitle,choices,
   logoRow('ace-pricing-leagues',LEAGUES,key=>LEAGUE_LOGOS[key],String(LEAGUES.length),'sports'),
   h('ul',{className:'ace-pricing-perks'},PERKS.map(perk=>h('li',{text:perk}))));
  const right=h('div',{className:'ace-pricing-pay'},checkout,
-  h('p',{className:'ace-pricing-secure'},h('span',{'aria-hidden':'true',text:'🔒'}),' Payments are processed securely by Whop. Ace Props never sees your card.'));
+  h('p',{className:'ace-pricing-secure'},h('span',{'aria-hidden':'true',text:'🔒'}),' Payments are processed securely by Whop. PropScout never sees your card.'));
  const footer=h('footer',{className:'ace-pricing-footer'},
   email&&h('span',{className:'ace-pricing-who',text:`Signed in as ${email}`}),
   !preview&&h('button',{type:'button',className:'ace-pricing-link',onClick:()=>refresh(true)},'Already subscribed? Refresh access'),
@@ -105,10 +105,10 @@ export function renderPricing(host,{request,email='',preview=false,live=false,on
  // also looked up directly, so access doesn't hinge on the webhook timing.
  window[COMPLETE_CALLBACK]=async(_planId,receiptId)=>{
   finishing=true;
-  checkout.replaceChildren(h('div',{className:'ace-pricing-placeholder ace-pricing-done'},h('div',{className:'ace-pricing-loading','aria-hidden':'true'}),h('strong',{text:'Payment received'}),h('p',{text:'Unlocking Ace Props…'})));
+  checkout.replaceChildren(h('div',{className:'ace-pricing-placeholder ace-pricing-done'},h('div',{className:'ace-pricing-loading','aria-hidden':'true'}),h('strong',{text:'Payment received'}),h('p',{text:'Unlocking PropScout…'})));
   if(typeof receiptId==='string'&&receiptId)try{await request('/api/session',{action:'billing-confirm',payment:receiptId});}catch{}
   for(let attempt=0;attempt<20;attempt++){
-   if(await onRefresh?.()){placeholder('You’re in','Ace Props Pro is active on this account.');return;}
+   if(await onRefresh?.()){placeholder('You’re in','PropScout Pro is active on this account.');return;}
    await new Promise(resolve=>setTimeout(resolve,3000));
   }
   checkout.querySelector('p').textContent='Your payment went through. Access can take a minute to arrive — press “Refresh access” below.';

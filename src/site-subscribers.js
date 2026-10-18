@@ -39,7 +39,7 @@ export function mountSubscribersPanel(host, {request}) {
  let data = null, filter = 'live';
  const refresh = h('button', {type: 'button', className: 'site-subs-sync', onClick: () => load(true)}, 'Sync with Whop');
  host.append(
-  h('p', {className: 'site-controls-hint', text: 'Everyone with an Ace Props membership on Whop. Sync with Whop also updates each member’s access on the site, in case a Whop message was missed.'}),
+  h('p', {className: 'site-controls-hint', text: 'Everyone with a PropScout membership on Whop. Sync with Whop also updates each member’s access on the site, in case a Whop message was missed.'}),
   totals, h('div', {className: 'site-subs-bar'}, filters, refresh), list, status);
  [['live', 'Current'], ['all', 'Everyone']].forEach(([key, text]) => filters.append(h('button', {type: 'button', 'data-key': key, onClick: () => { filter = key; render(); }}, text)));
 

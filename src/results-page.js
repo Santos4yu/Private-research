@@ -77,7 +77,7 @@ addEventListener('scroll', hideTip, {passive: true});
 
 function header() {
  return h('header', {className: 'rp-head'},
-  h('a', {href: '/', className: 'rp-brand', 'aria-label': 'Ace Props home'}, h('img', {src: '/brand/ace-props-wordmark.png', alt: 'Ace Props', width: '126', height: '48'})),
+  h('a', {href: '/', className: 'rp-brand', 'aria-label': 'PropScout home'}, h('img', {src: '/brand/propscout-logo.svg', alt: 'PropScout', width: '151', height: '28'})),
   h('a', {href: '/sign-up', className: 'rp-cta-small'}, 'Get every pick'));
 }
 
@@ -302,8 +302,8 @@ function render(root, data) {
   h('section', {className: 'rp-join'},
    h('h2', {text: 'Get every pick before the game'}),
    h('p', {text: 'The Finder, research on every line, the Parlay Builder and the Slip Analyzer, for NBA, WNBA, MLB, NFL, NHL and soccer.'}),
-   h('a', {href: '/sign-up', className: 'rp-cta'}, 'Join Ace Props'),
-   h('a', {href: '/', className: 'rp-link'}, 'Already a member? Open Ace Props')),
+   h('a', {href: '/sign-up', className: 'rp-cta'}, 'Join PropScout'),
+   h('a', {href: '/', className: 'rp-link'}, 'Already a member? Open PropScout')),
   h('footer', {className: 'rp-foot'},
    h('p', {text: 'Results are updated through the day as games finish. Past results don’t guarantee future ones. For adults 21+ where legal. Play responsibly.'}),
    h('small', {text: `Updated ${new Date(data.at).toLocaleString([], {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'})}`})),

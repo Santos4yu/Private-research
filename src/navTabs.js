@@ -5,7 +5,7 @@ import { Layers2 as BarChart3, Ticket as ClipboardList, TicketPercent, Radar as 
 // so the two can never drift apart on where a tab actually goes.
 export const topTabs = [
   { title: 'Finder', icon: SearchCheck, value: 'finder' },
-  { title: 'Ace Assistant', icon: Bot, value: 'bot' },
+  { title: 'Scout Assistant', icon: Bot, value: 'bot' },
   { title: 'Cheat Sheets', icon: NotebookTabs, value: 'sheets' },
   { title: 'Line Moves', icon: Activity, value: 'moves' },
   { title: 'Promo Board', icon: TicketPercent, value: 'promos' },

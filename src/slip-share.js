@@ -89,7 +89,7 @@ export async function drawCard({legs, letter, kind, appLogo = '/prizepicks/logo.
   const set = (size, weight = 600) => { ctx.font = `${weight} ${size}px ${font}`; };
   const GREEN = '#46e39a', CARD = '#0e1114', ROW = '#151a1d', LINE = '#2d363d';
   const n = legs.length;
-  const [mark, logo, goblin, demon, ...pictures] = await Promise.all([image('/brand/ace-props-wordmark.png'), image(appLogo),
+  const [mark, logo, goblin, demon, ...pictures] = await Promise.all([image('/brand/propscout-logo.png'), image(appLogo),
     image('/prizepicks/goblin.png'), image('/prizepicks/demon.png'), ...legs.flatMap(leg => [image(leg.headshot), image(leg.teamLogo)])]);
 
   // Background, a green glow behind the card.
@@ -97,9 +97,9 @@ export async function drawCard({legs, letter, kind, appLogo = '/prizepicks/logo.
   bg.addColorStop(0, '#141a1d'); bg.addColorStop(1, '#090b0c');
   ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
   const glow = ctx.createRadialGradient(W / 2, H * 0.42, 40, W / 2, H * 0.42, 620);
-  glow.addColorStop(0, 'rgba(0,245,138,.16)'); glow.addColorStop(1, 'rgba(0,245,138,0)');
+  glow.addColorStop(0, 'rgba(61,123,255,.16)'); glow.addColorStop(1, 'rgba(61,123,255,0)');
   ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
-  if (mark) ctx.drawImage(mark, PAD, 44, 168, 64);
+  if (mark) ctx.drawImage(mark, PAD, 55, 220, 42);
   set(24, 800); ctx.fillStyle = MUTED; ctx.textAlign = 'right';
   ctx.fillText(source, W - PAD, 90);
 
@@ -184,7 +184,7 @@ export async function drawCard({legs, letter, kind, appLogo = '/prizepicks/logo.
 
   set(22, 600); ctx.fillStyle = FAINT; ctx.textAlign = 'center';
   ctx.fillText(tagline, W / 2, H - 64);
-  set(26, 800); ctx.fillStyle = '#00f58a';
+  set(26, 800); ctx.fillStyle = '#3d7bff';
   ctx.fillText(SITE, W / 2, H - 26);
   return canvas;
 }

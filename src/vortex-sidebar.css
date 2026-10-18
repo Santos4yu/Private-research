@@ -52,8 +52,8 @@
 }
 .vortex-sidebar-sheet {
   background:
-    radial-gradient(130% 34% at 0% 0%, color-mix(in srgb, var(--theme-accent, #00F58A) 11%, transparent), transparent 70%),
-    linear-gradient(180deg, #121619 0%, #0c0f11 100%);
+    radial-gradient(130% 34% at 0% 0%, color-mix(in srgb, var(--theme-accent, #3D7BFF) 11%, transparent), transparent 70%),
+    linear-gradient(180deg, #0f141c 0%, #0a0d13 100%);
 }
 /* Open over the page: lifted off it with a shadow. */
 .vortex-sidebar-shade { box-shadow: 18px 0 50px rgba(0, 0, 0, .5); opacity: 0; }
@@ -97,7 +97,7 @@
 .vortex-sidebar-top { position: relative; flex: 0 0 auto; height: 36px; }
 .vortex-sidebar-top img { position: absolute; top: 50%; transition: opacity .18s ease; }
 .vortex-sidebar-mark { left: 6px; width: 32px; height: 32px; margin-top: -16px; object-fit: contain; }
-.vortex-sidebar-wordmark { left: 8px; width: auto; height: 35px; margin-top: -17.5px; object-fit: contain; opacity: 0; }
+.vortex-sidebar-wordmark { left: 10px; width: auto; height: 26px; margin-top: -13px; object-fit: contain; opacity: 0; }
 .vortex-sidebar-desktop.is-wide .vortex-sidebar-mark { opacity: 0; }
 .vortex-sidebar-desktop.is-wide .vortex-sidebar-wordmark { opacity: 1; transition-delay: .06s; }
 
@@ -107,7 +107,7 @@
 .vortex-sidebar-links::-webkit-scrollbar { display: none; }
 .vortex-sidebar-group { display: flex; flex-direction: column; gap: 2px; }
 /* Each section's heading; a short rule in its place while the rail is compact. */
-.vortex-sidebar-heading { position: relative; display: flex; align-items: center; height: 24px; padding: 0 10px; color: #6c777c; font: 700 10.5px/1 var(--font-sans); letter-spacing: .14em; text-transform: uppercase; white-space: nowrap; }
+.vortex-sidebar-heading { position: relative; display: flex; align-items: center; height: 24px; padding: 0 10px; color: #657083; font: 700 10.5px/1 var(--font-sans); letter-spacing: .14em; text-transform: uppercase; white-space: nowrap; }
 .vortex-sidebar-heading span { opacity: 0; transition: opacity .16s ease; }
 .vortex-sidebar-heading i { position: absolute; top: 50%; left: 13px; width: 18px; height: 1px; background: rgba(255, 255, 255, .12); transition: opacity .16s ease; }
 .vortex-sidebar-desktop.is-wide .vortex-sidebar-heading span { opacity: 1; transition-delay: .05s; }
@@ -122,7 +122,7 @@
   padding: 0 6px;
   border: 0;
   border-radius: 12px;
-  color: #a9b2b6;
+  color: #a5adba;
   background: transparent;
   font: 600 13.5px/1 var(--font-sans);
   letter-spacing: -.005em;
@@ -134,26 +134,26 @@
 /* Every icon sits on its own small tile. */
 .vortex-sidebar-link-icon {
   display: grid; flex: 0 0 auto; place-items: center; width: 32px; height: 32px;
-  border: 1px solid rgba(255, 255, 255, .05); border-radius: 10px; background: rgba(255, 255, 255, .035); color: #b9c1c4;
+  border: 1px solid rgba(255, 255, 255, .05); border-radius: 10px; background: rgba(255, 255, 255, .035); color: #acbad1;
   transition: color .16s var(--ace-ease), background .16s var(--ace-ease), border-color .16s var(--ace-ease), box-shadow .16s var(--ace-ease);
 }
 .vortex-sidebar-link:hover { color: #fff; background: rgba(255, 255, 255, .035); }
 .vortex-sidebar-link:hover .vortex-sidebar-link-icon { color: #fff; background: rgba(255, 255, 255, .07); border-color: rgba(255, 255, 255, .09); }
-.vortex-sidebar-link:focus-visible { outline: 2px solid var(--theme-accent, #00F58A); outline-offset: 1px; }
+.vortex-sidebar-link:focus-visible { outline: 2px solid var(--theme-accent, #3D7BFF); outline-offset: 1px; }
 /* The page you're on: a lit accent tile, a wash fading to the right and a
    slim glowing bar at the rail's edge. */
 .vortex-sidebar-link.active {
   color: #fff;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--theme-accent, #00F58A) 15%, transparent), color-mix(in srgb, var(--theme-accent, #00F58A) 3%, transparent) 75%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--theme-accent, #00F58A) 16%, transparent);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--theme-accent, #3D7BFF) 15%, transparent), color-mix(in srgb, var(--theme-accent, #3D7BFF) 3%, transparent) 75%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--theme-accent, #3D7BFF) 16%, transparent);
 }
 .vortex-sidebar-link.active .vortex-sidebar-link-icon {
   border-color: transparent;
-  background: linear-gradient(145deg, var(--theme-accent, #00F58A), color-mix(in srgb, var(--theme-accent, #00F58A) 72%, #04120b));
-  color: var(--theme-on-accent, #03140B);
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--theme-accent, #00F58A) 32%, transparent), inset 0 1px 0 rgba(255, 255, 255, .35);
+  background: linear-gradient(145deg, var(--theme-accent, #3D7BFF), color-mix(in srgb, var(--theme-accent, #3D7BFF) 72%, #080a0e));
+  color: var(--theme-on-accent, #FFFFFF);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--theme-accent, #3D7BFF) 32%, transparent), inset 0 1px 0 rgba(255, 255, 255, .35);
 }
-.vortex-sidebar-link.active::before { content: ''; position: absolute; left: -10px; top: 11px; bottom: 11px; width: 3px; border-radius: 0 3px 3px 0; background: var(--theme-accent, #00F58A); box-shadow: 0 0 12px var(--theme-accent, #00F58A); }
+.vortex-sidebar-link.active::before { content: ''; position: absolute; left: -10px; top: 11px; bottom: 11px; width: 3px; border-radius: 0 3px 3px 0; background: var(--theme-accent, #3D7BFF); box-shadow: 0 0 12px var(--theme-accent, #3D7BFF); }
 /* Closing: each item is cut back to its icon tile at once, so nothing
    hangs out past the backdrop as it folds. */
 .vortex-sidebar-desktop:not(.is-wide) .vortex-sidebar-link { width: 44px; }
@@ -174,27 +174,27 @@
   place-items: center;
   padding: 0 3px;
   border-radius: 999px;
-  border: 2px solid #101315;
-  background: var(--theme-accent, #00F58A);
-  color: var(--theme-on-accent, #03140B);
+  border: 2px solid #0d1118;
+  background: var(--theme-accent, #3D7BFF);
+  color: var(--theme-on-accent, #FFFFFF);
   font: 800 9px/1 var(--font-mono, monospace);
 }
-.vortex-sidebar-link.active .vortex-sidebar-notif { background: #fff; border-color: color-mix(in srgb, var(--theme-accent, #00F58A) 60%, #101315); }
+.vortex-sidebar-link.active .vortex-sidebar-notif { background: #fff; border-color: color-mix(in srgb, var(--theme-accent, #3D7BFF) 60%, #0d1118); }
 
 /* The bottom: your slip at a glance (open rail only), then you and Settings. */
 .vortex-sidebar-footer { display: flex; flex-direction: column; gap: 10px; margin-top: auto; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, .06); }
 .vortex-sidebar-slip {
   display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px; box-sizing: border-box;
-  border: 1px solid color-mix(in srgb, var(--theme-accent, #00F58A) 22%, rgba(255, 255, 255, .06)); border-radius: 14px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--theme-accent, #00F58A) 12%, #14191c), #111518 70%);
-  color: #f4f7f6; text-align: left; white-space: nowrap; cursor: pointer; transition: border-color .16s ease, transform .16s ease;
+  border: 1px solid color-mix(in srgb, var(--theme-accent, #3D7BFF) 22%, rgba(255, 255, 255, .06)); border-radius: 14px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--theme-accent, #3D7BFF) 12%, #11161f), #0e131b 70%);
+  color: #f3f5f8; text-align: left; white-space: nowrap; cursor: pointer; transition: border-color .16s ease, transform .16s ease;
 }
-.vortex-sidebar-slip:hover { border-color: color-mix(in srgb, var(--theme-accent, #00F58A) 45%, transparent); }
-.vortex-sidebar-slip > svg { flex: 0 0 auto; margin-left: auto; color: #8d979b; }
-.vortex-sidebar-slip-icon { display: grid; flex: 0 0 auto; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: color-mix(in srgb, var(--theme-accent, #00F58A) 18%, transparent); color: var(--theme-accent, #00F58A); }
+.vortex-sidebar-slip:hover { border-color: color-mix(in srgb, var(--theme-accent, #3D7BFF) 45%, transparent); }
+.vortex-sidebar-slip > svg { flex: 0 0 auto; margin-left: auto; color: #8690a2; }
+.vortex-sidebar-slip-icon { display: grid; flex: 0 0 auto; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: color-mix(in srgb, var(--theme-accent, #3D7BFF) 18%, transparent); color: var(--theme-accent, #3D7BFF); }
 .vortex-sidebar-slip-text { display: grid; gap: 4px; min-width: 0; }
 .vortex-sidebar-slip-text b { overflow: hidden; text-overflow: ellipsis; font: 700 13px/1.1 var(--font-sans); }
-.vortex-sidebar-slip-text small { overflow: hidden; text-overflow: ellipsis; color: #8d979b; font: 500 11px/1.1 var(--font-sans); }
+.vortex-sidebar-slip-text small { overflow: hidden; text-overflow: ellipsis; color: #8690a2; font: 500 11px/1.1 var(--font-sans); }
 
 .vortex-sidebar-account { display: flex; align-items: center; gap: 6px; }
 .vortex-sidebar-body:not(.is-wide) .vortex-sidebar-account { flex-direction: column; align-items: flex-start; gap: 8px; }
@@ -207,19 +207,19 @@
 .vortex-sidebar-me:hover { background: rgba(255, 255, 255, .04); }
 .vortex-sidebar-avatar {
   display: grid; flex: 0 0 auto; place-items: center; width: 32px; height: 32px; overflow: hidden; border-radius: 999px;
-  background: linear-gradient(145deg, var(--theme-accent, #00F58A), color-mix(in srgb, var(--theme-accent, #00F58A) 55%, #04120b));
-  color: var(--theme-on-accent, #03140B); font: 800 13px/1 var(--font-sans);
-  box-shadow: 0 0 0 2px #101315, 0 0 0 3px color-mix(in srgb, var(--theme-accent, #00F58A) 45%, transparent);
+  background: linear-gradient(145deg, var(--theme-accent, #3D7BFF), color-mix(in srgb, var(--theme-accent, #3D7BFF) 55%, #080a0e));
+  color: var(--theme-on-accent, #FFFFFF); font: 800 13px/1 var(--font-sans);
+  box-shadow: 0 0 0 2px #0d1118, 0 0 0 3px color-mix(in srgb, var(--theme-accent, #3D7BFF) 45%, transparent);
 }
 .vortex-sidebar-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .vortex-sidebar-me-text { display: grid; gap: 4px; min-width: 0; white-space: nowrap; }
 .vortex-sidebar-me-text b { overflow: hidden; color: #fff; text-overflow: ellipsis; font: 700 13px/1.1 var(--font-sans); }
-.vortex-sidebar-me-text small { color: #8d979b; font: 600 11px/1.1 var(--font-sans); }
-.vortex-sidebar-me-text small[data-admin] { color: var(--theme-accent, #00F58A); }
-.vortex-sidebar-gear { display: grid; flex: 0 0 auto; place-items: center; width: 34px; height: 34px; border: 1px solid rgba(255, 255, 255, .07); border-radius: 10px; background: rgba(255, 255, 255, .03); color: #9aa4a8; cursor: pointer; transition: color .16s ease, border-color .16s ease, background .16s ease; }
+.vortex-sidebar-me-text small { color: #8690a2; font: 600 11px/1.1 var(--font-sans); }
+.vortex-sidebar-me-text small[data-admin] { color: var(--theme-accent, #3D7BFF); }
+.vortex-sidebar-gear { display: grid; flex: 0 0 auto; place-items: center; width: 34px; height: 34px; border: 1px solid rgba(255, 255, 255, .07); border-radius: 10px; background: rgba(255, 255, 255, .03); color: #959ead; cursor: pointer; transition: color .16s ease, border-color .16s ease, background .16s ease; }
 .vortex-sidebar-gear:hover { color: #fff; background: rgba(255, 255, 255, .07); }
-.vortex-sidebar-account.is-open .vortex-sidebar-gear { color: var(--theme-accent, #00F58A); border-color: color-mix(in srgb, var(--theme-accent, #00F58A) 45%, transparent); background: color-mix(in srgb, var(--theme-accent, #00F58A) 10%, transparent); }
-.vortex-sidebar-me:focus-visible, .vortex-sidebar-gear:focus-visible, .vortex-sidebar-slip:focus-visible { outline: 2px solid var(--theme-accent, #00F58A); outline-offset: 1px; }
+.vortex-sidebar-account.is-open .vortex-sidebar-gear { color: var(--theme-accent, #3D7BFF); border-color: color-mix(in srgb, var(--theme-accent, #3D7BFF) 45%, transparent); background: color-mix(in srgb, var(--theme-accent, #3D7BFF) 10%, transparent); }
+.vortex-sidebar-me:focus-visible, .vortex-sidebar-gear:focus-visible, .vortex-sidebar-slip:focus-visible { outline: 2px solid var(--theme-accent, #3D7BFF); outline-offset: 1px; }
 /* A short window keeps the links; the slip card steps aside. */
 @media (max-height: 820px) { .vortex-sidebar-slip { display: none; } }
 

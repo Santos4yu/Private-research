@@ -182,7 +182,7 @@ export function FinderPlayerBanner({row,playerRows=[],onBack}){
  return <header ref={ref} className={`fpb${slots?' fpb-merged':''}`}>
   <div className="fpb-top">
    <button type="button" className="fpb-back" aria-label="Back to Finder" onClick={onBack}><ArrowLeft size={18} aria-hidden="true"/>Back</button>
-   <span className="fpb-brand"><img src="/brand/ace-props-wordmark.png" alt="Ace Props" width="84" height="32"/></span>
+   <span className="fpb-brand"><img src="/brand/propscout-logo.svg" alt="PropScout" width="119" height="22"/></span>
    <button type="button" className="fpb-account" aria-label="Your account" aria-haspopup="dialog" onClick={pressAccount}><UserRound size={18} aria-hidden="true"/></button>
   </div>
   {slots?.tabs&&createPortal(<TrendSwitch section={slots.section}/>,slots.tabs)}

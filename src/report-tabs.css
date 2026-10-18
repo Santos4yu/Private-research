@@ -16,7 +16,7 @@
 .rr-tab { display: flex; align-items: center; justify-content: center; gap: 7px; min-width: 0; min-height: 48px; padding: 8px 4px; border: 0; border-radius: 12px; color: var(--theme-dim); background: transparent; font: 600 13px/1.2 var(--font-sans); cursor: pointer; transition: background .15s, color .15s; }
 .rr-tab svg { flex-shrink: 0; }
 .rr-tab:hover { background: var(--theme-panel-2); color: var(--theme-text); }
-.rr-tab[aria-selected="true"] { background: var(--theme-accent); color: var(--theme-on-accent, #152009); box-shadow: 0 2px 8px #0002; }
+.rr-tab[aria-selected="true"] { background: var(--theme-accent); color: var(--theme-on-accent, #0e131b); box-shadow: 0 2px 8px #0002; }
 .rr-tab:focus-visible, .rr-disclosure summary:focus-visible, .rr-tab-panel:focus-visible { outline: 2px solid var(--theme-accent); outline-offset: 3px; }
 .rr-tab-panel { display: grid; gap: 12px; min-width: 0; }
 :root[data-theme] .rr-report [hidden] { display: none !important; }
@@ -31,7 +31,7 @@
 .rr-save-copy { display: grid; gap: 4px; min-width: 0; }
 .rr-save-copy strong { font-size: 13px; color: var(--theme-text); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .rr-save-copy span { color: var(--theme-dim); font-size: 11px; line-height: 1.35; }
-:root[data-theme] .rr-save-dock .save-btn { min-height: 46px !important; flex-shrink: 0; padding: 10px 16px !important; border: 1px solid var(--theme-accent) !important; border-radius: 12px !important; background: var(--theme-accent) !important; color: var(--theme-on-accent, #152009) !important; font-size: 13px !important; }
+:root[data-theme] .rr-save-dock .save-btn { min-height: 46px !important; flex-shrink: 0; padding: 10px 16px !important; border: 1px solid var(--theme-accent) !important; border-radius: 12px !important; background: var(--theme-accent) !important; color: var(--theme-on-accent, #0e131b) !important; font-size: 13px !important; }
 :root[data-theme] .rr-save-dock .save-btn.saved { background: var(--theme-panel-2) !important; color: var(--theme-accent) !important; }
 @media (max-width: 760px) {
   .rr-sticky { top: var(--app-top); }

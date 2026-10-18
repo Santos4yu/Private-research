@@ -16,7 +16,7 @@ import './account-sheet.css';
 // happens.
 
 // The accent colors offered here; any other is a tap on Custom away.
-const SWATCHES=[['#00F58A','Ace green'],['#2DD4BF','Teal'],['#4F8CFF','Blue'],['#8B5CF6','Violet'],['#F472B6','Pink'],['#FB923C','Orange'],['#FACC15','Gold'],['#F43F5E','Red']];
+const SWATCHES=[['#3D7BFF','PropScout blue'],['#00F58A','Green'],['#2DD4BF','Teal'],['#8B5CF6','Violet'],['#F472B6','Pink'],['#FB923C','Orange'],['#FACC15','Gold'],['#F43F5E','Red']];
 const CLOSE_MS=260;
 
 const hiddenTabs=()=>new Set((document.documentElement.dataset.hiddenTabs||'').split(/\s+/).filter(Boolean));
@@ -24,7 +24,7 @@ const monthYear=iso=>{const time=Date.parse(iso||'');return Number.isFinite(time
 
 // The member's plan: Pro while paid access is on, else full access.
 function plan(status){
- if(status?.comped)return {name:'Ace Props Pro',line:'Free access, courtesy of Ace Props'};
+ if(status?.comped)return {name:'PropScout Pro',line:'Free access, courtesy of PropScout'};
  const sub=status?.paidAccess?status.subscription:null;
  if(sub){
   const date=Date.parse(sub.renewsAt||'');const when=Number.isFinite(date)?new Date(date).toLocaleDateString([],{month:'short',day:'numeric',year:'numeric'}):'';
@@ -32,9 +32,9 @@ function plan(status){
    :sub.status==='past_due'?'Payment failed · update your card to keep access'
    :sub.status==='trialing'?(when?`Free trial · ends ${when}`:'Free trial')
    :when?`Active · renews ${when}`:'Active';
-  return {name:'Ace Props Pro',line,manage:sub.manageUrl||''};
+  return {name:'PropScout Pro',line,manage:sub.manageUrl||''};
  }
- return {name:status?.isAdmin?'Administrator':'Ace Props',line:'Full access to every tool'};
+ return {name:status?.isAdmin?'Administrator':'PropScout',line:'Full access to every tool'};
 }
 
 // The settings panel's alerts switch, mirrored: whether alerts can be
@@ -169,7 +169,7 @@ function AccountSheet({status,badge,signOut,onDone,handle}){
       <Avatar name={name} photo={profile?.avatarUrl} size={64}/>
       <div className="as-who-text">
        <h3>{name}{badge&&<span className="member-badge" data-badge={badge.key}>{badge.label}</span>}</h3>
-       <p>{since?`Member since ${monthYear(since)}`:account?'Ace Props member':'Signed in as the site admin'}</p>
+       <p>{since?`Member since ${monthYear(since)}`:account?'PropScout member':'Signed in as the site admin'}</p>
       </div>
       {account&&<button type="button" className="as-edit-button" onClick={()=>setView('edit')}>Edit</button>}
      </section>
@@ -181,7 +181,7 @@ function AccountSheet({status,badge,signOut,onDone,handle}){
      </section>
 
      <section className="as-plan">
-      <img src="/brand/ace-props-mark.png" alt="" width="36" height="36"/>
+      <img src="/brand/propscout-mark.svg" alt="" width="36" height="36"/>
       <div><b>{membership.name}</b><span>{membership.line}</span></div>
       {membership.manage&&<a href={membership.manage} target="_blank" rel="noopener">Manage</a>}
      </section>
@@ -205,7 +205,7 @@ function AccountSheet({status,badge,signOut,onDone,handle}){
 
      <h4 className="as-label">App</h4>
      <div className="as-group">
-      {canInstall()&&<Row icon={Download} title="Get the app" detail="Add Ace Props to your Home Screen" onClick={()=>close(()=>document.getElementById('get-app-row')?.click())}/>}
+      {canInstall()&&<Row icon={Download} title="Get the app" detail="Add PropScout to your Home Screen" onClick={()=>close(()=>document.getElementById('get-app-row')?.click())}/>}
       <Row icon={Share2} title="Invite friends" detail="Send friends the link" onClick={event=>shareInvite(event.currentTarget)}/>
       <Row icon={Compass} title="Take the tour" detail="A one-minute look around" onClick={()=>close(()=>window.dispatchEvent(new Event('aceprops:start-tour')))}/>
       <Row icon={Settings} title="All settings" detail="Colors, background and more" onClick={openSettings}/>

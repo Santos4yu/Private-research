@@ -366,7 +366,7 @@ def _all_memberships():
 
 def subscribers(sync=False):
     """Everyone with a Whop membership, for the admin panel: plan, status,
-    when it renews or ends, and which Ace Props account it unlocks. `sync`
+    when it renews or ends, and which PropScout account it unlocks. `sync`
     also records each one, which mends any webhook that never arrived."""
     labels = {}
     try:

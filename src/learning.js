@@ -1,7 +1,7 @@
 // What the results have taught the model (learning.py, refit once a day on
 // the timer): for each sport and how sure the model was, how far its
 // chances have been off. Every pick graded anywhere -- the Parlay Builder,
-// the Slip Analyzer, the Ace Assistant -- goes through slip-check.js judge(),
+// the Slip Analyzer, the Scout Assistant -- goes through slip-check.js judge(),
 // which applies it here, so they all move together.
 //
 // The day's top picks are sent back (slip-history.js logTopPicks) to be

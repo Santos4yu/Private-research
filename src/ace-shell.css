@@ -1,4 +1,4 @@
-/* Ace Props: the Research home and the page header around it.
+/* PropScout: the Research home and the page header around it.
    Loaded right after ace-theme.css. The legacy shell stacks many layers of
    !important rules on these elements (styles.css), so the selectors here
    carry the same #app-shell / #panel-research prefixes to settle them in
@@ -9,7 +9,7 @@
   display: flex !important; flex-direction: column; align-items: flex-start; gap: 10px;
   margin: 0; font: inherit !important; letter-spacing: 0 !important; line-height: 1 !important;
 }
-:root[data-theme] .kp-brand-copy .ace-hero-wordmark { display: block; width: auto; height: 56px; }
+:root[data-theme] .kp-brand-copy .ace-hero-wordmark { display: block; width: auto; height: 34px; }
 :root[data-theme] .kp-brand-copy .ace-hero-tagline {
   display: block; color: var(--ace-muted) !important;
   font: 500 13px/1.3 var(--font-sans) !important; letter-spacing: .01em !important; text-transform: none !important;
@@ -17,7 +17,7 @@
 
 /* The Discord sign-in gate: the wordmark is the heading. */
 .auth-gate-brand { display: flex; justify-content: center; margin: 0 0 12px; }
-.auth-gate-brand .ace-wordmark { height: 48px; }
+.auth-gate-brand .ace-wordmark { height: 32px; }
 
 /* Research / Prop Builder switch under the header. */
 :root[data-theme] .home-mode-switch {
@@ -43,9 +43,9 @@
   box-shadow: inset 0 0 0 1px var(--ace-border), 0 1px 2px rgba(0, 0, 0, .3) !important;
   transition: box-shadow 160ms var(--ace-ease) !important;
 }
-:root[data-theme] #app-shell #panel-research .search-beam > .search-box:hover { box-shadow: inset 0 0 0 1px #3A4448, 0 1px 2px rgba(0, 0, 0, .3) !important; }
+:root[data-theme] #app-shell #panel-research .search-beam > .search-box:hover { box-shadow: inset 0 0 0 1px #2D3C54, 0 1px 2px rgba(0, 0, 0, .3) !important; }
 :root[data-theme] #app-shell #panel-research .search-beam > .search-box:focus-within {
-  box-shadow: inset 0 0 0 1px var(--theme-accent, var(--ace-accent)), 0 0 0 3px rgba(0, 245, 138, .14) !important;
+  box-shadow: inset 0 0 0 1px var(--theme-accent, var(--ace-accent)), 0 0 0 3px rgba(61, 123, 255, .14) !important;
 }
 :root[data-theme] #app-shell #panel-research .search-beam > .search-box input { font: 400 16px/1.4 var(--font-sans) !important; }
 :root[data-theme] #app-shell #panel-research .search-beam > .search-box input::placeholder { color: var(--ace-faint) !important; }
@@ -67,7 +67,7 @@
 :root[data-theme] .lab-matchup-card,
 :root[data-theme] .lab-player {
   border: 1px solid var(--ace-border) !important; border-radius: var(--ace-radius-lg) !important;
-  background: linear-gradient(165deg, #1E2429 0%, #161B1F 55%, #121619 100%) !important;
+  background: linear-gradient(165deg, #19212E 0%, #131822 55%, #0f141c 100%) !important;
   box-shadow: var(--ace-shadow) !important;
   transition: transform 180ms var(--ace-ease), border-color 180ms ease !important;
 }
@@ -76,36 +76,36 @@
   border-radius: 0 0 3px 3px; background: var(--theme-accent, var(--ace-accent)); pointer-events: none;
 }
 :root[data-theme] .lab-matchup-card--accent-0 {
-  background: linear-gradient(135deg, rgba(0, 245, 138, .17) 0%, rgba(0, 245, 138, .05) 42%, transparent 72%), linear-gradient(165deg, #1E2429 0%, #161B1F 55%, #121619 100%) !important;
-  border-color: rgba(0, 245, 138, .32) !important;
+  background: linear-gradient(135deg, rgba(61, 123, 255, .17) 0%, rgba(61, 123, 255, .05) 42%, transparent 72%), linear-gradient(165deg, #19212E 0%, #131822 55%, #0f141c 100%) !important;
+  border-color: rgba(61, 123, 255, .32) !important;
 }
 :root[data-theme] .lab-matchup-card--accent-1 {
-  background: linear-gradient(135deg, rgba(0, 245, 138, .09) 0%, rgba(0, 245, 138, .025) 42%, transparent 72%), linear-gradient(165deg, #1E2429 0%, #161B1F 55%, #121619 100%) !important;
-  border-color: rgba(0, 245, 138, .18) !important;
+  background: linear-gradient(135deg, rgba(61, 123, 255, .09) 0%, rgba(61, 123, 255, .025) 42%, transparent 72%), linear-gradient(165deg, #19212E 0%, #131822 55%, #0f141c 100%) !important;
+  border-color: rgba(61, 123, 255, .18) !important;
 }
 :root[data-theme] .lab-player--blue {
-  background: linear-gradient(135deg, rgba(0, 245, 138, .17) 0%, rgba(0, 245, 138, .05) 42%, transparent 72%), linear-gradient(165deg, #1E2429 0%, #161B1F 55%, #121619 100%) !important;
-  border-color: rgba(0, 245, 138, .32) !important;
+  background: linear-gradient(135deg, rgba(61, 123, 255, .17) 0%, rgba(61, 123, 255, .05) 42%, transparent 72%), linear-gradient(165deg, #19212E 0%, #131822 55%, #0f141c 100%) !important;
+  border-color: rgba(61, 123, 255, .32) !important;
 }
 :root[data-theme] .lab-matchup-card--skeleton { background: var(--ace-card) !important; box-shadow: none !important; }
 :root[data-theme] .lab-matchup-card--skeleton::before { display: none; }
 @media (hover: hover) {
   :root[data-theme] .lab-matchup-card:not(.lab-matchup-card--skeleton):hover,
-  :root[data-theme] .lab-player:hover { transform: translateY(-2px); border-color: #3A4448 !important; }
+  :root[data-theme] .lab-player:hover { transform: translateY(-2px); border-color: #2D3C54 !important; }
 }
-:root[data-theme] .lab-player::after { background: linear-gradient(0deg, rgba(9, 11, 13, .82), transparent 70%) !important; }
+:root[data-theme] .lab-player::after { background: linear-gradient(0deg, rgba(8, 10, 14, .82), transparent 70%) !important; }
 :root[data-theme] .lab-player-grid { opacity: .16 !important; }
-:root[data-theme] .lab-player-watermark { color: rgba(244, 247, 246, .035) !important; font-family: var(--font-display) !important; }
+:root[data-theme] .lab-player-watermark { color: rgba(243, 245, 248, .035) !important; font-family: var(--font-display) !important; }
 :root[data-theme] .lab-player-tag {
   border-color: var(--ace-border) !important; border-radius: 6px !important;
-  background: rgba(9, 11, 13, .55) !important; color: var(--ace-muted) !important; letter-spacing: .1em !important;
+  background: rgba(8, 10, 14, .55) !important; color: var(--ace-muted) !important; letter-spacing: .1em !important;
 }
 :root[data-theme] .lab-player-name, :root[data-theme] .lab-matchup-name { font-family: var(--font-display); text-shadow: none !important; }
 :root[data-theme] .lab-matchup-context { color: var(--ace-muted); }
 :root[data-theme] .lab-matchup-context b { color: var(--ace-text); }
 :root[data-theme] .lab-matchup-prop { color: var(--ace-muted); }
 :root[data-theme] .lab-matchup-meter-label { color: var(--ace-faint); }
-:root[data-theme] .lab-matchup-meter-track { background: rgba(244, 247, 246, .08); }
+:root[data-theme] .lab-matchup-meter-track { background: rgba(243, 245, 248, .08); }
 /* Matchup bands keep their meaning: green good, yellow middling, red poor. */
 :root[data-theme] .lab-matchup-meter-fill:is([data-band="strong"], [data-band="favorable"]) { background: var(--ace-positive); }
 :root[data-theme] .lab-matchup-meter-fill:is([data-band="slight"], [data-band="neutral"]) { background: var(--ace-warning); }
@@ -113,10 +113,10 @@
 :root[data-theme] .lab-player-tag:is([data-band="strong"], [data-band="favorable"]) b { color: var(--ace-positive); }
 :root[data-theme] .lab-player-tag:is([data-band="slight"], [data-band="neutral"]) b { color: var(--ace-warning); }
 :root[data-theme] .lab-player-tag:is([data-band="caution"], [data-band="unfavorable"]) b { color: var(--ace-negative); }
-:root[data-theme] .lab-matchup-icon { border-color: #181D21; background: var(--ace-raised); }
+:root[data-theme] .lab-matchup-icon { border-color: #141A25; background: var(--ace-raised); }
 :root[data-theme] .lab-matchup-open,
 :root[data-theme] .lab-player-open {
-  border: 1px solid transparent !important; background: var(--ace-text) !important; color: #0B0E10 !important;
+  border: 1px solid transparent !important; background: var(--ace-text) !important; color: #090C12 !important;
   border-radius: 9px !important; font-family: var(--font-sans);
 }
 
@@ -130,20 +130,20 @@
 :root[data-theme] .lab-icon-box { border-color: var(--ace-accent-line) !important; background: var(--ace-accent-tint) !important; border-radius: 10px !important; }
 :root[data-theme] .lab-tool-art { opacity: 1; }
 :root[data-theme] .lab-tool {
-  background: linear-gradient(180deg, rgba(0, 245, 138, .07), transparent 55%), var(--ace-card) !important;
+  background: linear-gradient(180deg, rgba(61, 123, 255, .07), transparent 55%), var(--ace-card) !important;
 }
 :root[data-theme] .lab-tool > strong { font-family: var(--font-display); color: var(--ace-text) !important; }
 :root[data-theme] .lab-tool > span:last-child { color: var(--ace-muted) !important; }
 @media (hover: hover) {
-  :root[data-theme] .lab-tool:hover { transform: translateY(-2px); border-color: #3A4448 !important; }
+  :root[data-theme] .lab-tool:hover { transform: translateY(-2px); border-color: #2D3C54 !important; }
   :root[data-theme] .lab-tool:hover .lab-tool-top > svg { color: var(--theme-accent, var(--ace-accent)); }
 }
 
 /* Prop board: a card with one green action, not a full green slab. */
 :root[data-theme] .lab-board-button {
   gap: 16px !important; padding: 18px !important; border: 1px solid var(--ace-border) !important; border-radius: var(--ace-radius-lg) !important;
-  background: linear-gradient(90deg, rgba(0, 245, 138, .13), rgba(0, 245, 138, .03) 55%, transparent), var(--ace-card) !important;
-  border-color: rgba(0, 245, 138, .28) !important;
+  background: linear-gradient(90deg, rgba(61, 123, 255, .13), rgba(61, 123, 255, .03) 55%, transparent), var(--ace-card) !important;
+  border-color: rgba(61, 123, 255, .28) !important;
   color: var(--ace-text) !important; box-shadow: none !important;
   transition: border-color 160ms ease, transform 160ms var(--ace-ease) !important;
 }
@@ -163,7 +163,7 @@
 
 @media (max-width: 760px) {
   :root[data-theme] .kp-brand-copy .ace-hero-title { gap: 0; }
-  :root[data-theme] .kp-brand-copy .ace-hero-wordmark { height: 26px; margin-bottom: 4px; }
+  :root[data-theme] .kp-brand-copy .ace-hero-wordmark { height: 22px; margin-bottom: 4px; }
   :root[data-theme] .kp-brand-copy .ace-hero-tagline { display: none !important; }
   :root[data-theme] #app-shell #panel-research .search-beam > .search-box { height: 54px !important; }
   :root[data-theme] .lab-section-heading h2 { font-size: 22px; }

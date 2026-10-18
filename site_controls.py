@@ -32,7 +32,7 @@ SHEETS=('mlb:hr','mlb:hot','mlb:matchups','mlb:bvp','mlb:nrfi','mlb:park','mlb:s
  'nfl:best','nfl:td','nfl:firsttd','nfl:streaks','nfl:zones','nfl:redzone','nfl:speed','nfl:steam','nfl:shop','nfl:dvp','nfl:soft','nfl:goblins')
 LEGACY_SHEETS=tuple(key for key in SHEETS if key.startswith('mlb:'))
 HEX_COLOR_RE=re.compile(r'^#[0-9a-fA-F]{6}$')
-DEFAULT={'maintenance':False,'message':'We are updating Ace Props. Please check back shortly.','requireLogin':True,'registrationOpen':True,'paidAccess':False,'disabledTabs':[],'disabledSports':[],'disabledFinderSports':[],'disabledSheets':[],'backgroundImage':{'url':'','opacity':35},'theme':{'primary':'','secondary':'','tint':0},'updatedAt':None}
+DEFAULT={'maintenance':False,'message':'We are updating PropScout. Please check back shortly.','requireLogin':True,'registrationOpen':True,'paidAccess':False,'disabledTabs':[],'disabledSports':[],'disabledFinderSports':[],'disabledSheets':[],'backgroundImage':{'url':'','opacity':35},'theme':{'primary':'','secondary':'','tint':0},'updatedAt':None}
 def read():
  try:
   policy=read_saved()
@@ -128,8 +128,9 @@ def validate(body):
  if isinstance(theme_tint,bool) or not isinstance(theme_tint,(int,float)) or not 0<=theme_tint<=35:
   raise ValueError('Theme tint must be between 0 and 35')
  result['theme']={'primary':theme_primary.lower(),'secondary':theme_secondary.lower(),'tint':int(round(theme_tint))}
- # Colours chosen since the Ace Props rebrand are marked, so visitors keep
- # them even when they are blue (src/brand-colors.js).
+ # Colours chosen since a rebrand are marked, so visitors keep them even
+ # when they match an earlier brand's default (src/brand-colors.js).
+ if theme_primary and theme.get('scout') is True:result['theme']['scout']=True
  if theme_primary and theme.get('ace') is True:result['theme']['ace']=True
  result['updatedAt']=datetime.now(timezone.utc).isoformat()
  return result

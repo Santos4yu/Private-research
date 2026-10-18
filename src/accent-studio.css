@@ -1,10 +1,10 @@
 :root[data-theme] .settings-panel { width:min(340px,calc(100vw - 28px)) !important; max-height:calc(100dvh - 82px); overflow-y:auto; padding:18px !important; border-radius:20px !important; }
 :root[data-theme][data-custom-accents] {
-  --theme-bg:color-mix(in srgb,var(--theme-secondary) var(--theme-bg-tint,0%),#090B0D);
-  --theme-bg-2:color-mix(in srgb,var(--theme-secondary) var(--theme-bg2-tint,0%),#0E1114);
-  --theme-panel:color-mix(in srgb,var(--theme-secondary) var(--theme-panel-tint,0%),#181D21);
-  --theme-panel-2:color-mix(in srgb,var(--theme-secondary) var(--theme-panel2-tint,0%),#1F252A);
-  --theme-border:color-mix(in srgb,var(--theme-secondary) var(--theme-border-tint,0%),#2A3236);
+  --theme-bg:color-mix(in srgb,var(--theme-secondary) var(--theme-bg-tint,0%),#080A0E);
+  --theme-bg-2:color-mix(in srgb,var(--theme-secondary) var(--theme-bg2-tint,0%),#0C1016);
+  --theme-panel:color-mix(in srgb,var(--theme-secondary) var(--theme-panel-tint,0%),#141A25);
+  --theme-panel-2:color-mix(in srgb,var(--theme-secondary) var(--theme-panel2-tint,0%),#1A222F);
+  --theme-border:color-mix(in srgb,var(--theme-secondary) var(--theme-border-tint,0%),#222C3E);
 }
 .accent-studio-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
 .accent-studio-head strong { display:block; margin-top:5px; color:var(--theme-text); font-size:18px; letter-spacing:-.025em; }
@@ -80,7 +80,7 @@ details.bg-image-details { display:block; }
 .accent-preset { display:grid; grid-template-columns:34px minmax(0,1fr) 44px; align-items:center; gap:9px; min-height:48px; padding:5px 5px 5px 8px; border:1px solid var(--theme-border); border-radius:12px; background:var(--theme-panel-2); color:var(--theme-text); }
 .accent-preset-preview { display:flex; width:32px; height:26px; overflow:hidden; border:1px solid var(--theme-border); border-radius:8px; }
 .accent-preset-preview i { flex:1; background:var(--preset-primary); }
-.accent-preset-preview i:last-child { background:color-mix(in srgb,var(--preset-secondary) var(--preset-tint,0%),#0e1114); }
+.accent-preset-preview i:last-child { background:color-mix(in srgb,var(--preset-secondary) var(--preset-tint,0%),#0c1016); }
 .accent-preset-name { overflow:hidden; font-size:11px; font-weight:700; text-overflow:ellipsis; white-space:nowrap; }
 .accent-preset > button { min-width:44px; min-height:44px; border:0; border-radius:10px; background:transparent; color:var(--theme-dim); cursor:pointer; }
 .accent-preset > button:hover { color:#ff768c; background:#ff567112; }
@@ -95,7 +95,7 @@ details.bg-image-details { display:block; }
     gap:10px !important; padding:8px 14px 14px !important; border-radius:22px !important; z-index:1200 !important; overflow-y:auto; overscroll-behavior:contain;
     box-shadow:0 -12px 40px rgba(0,0,0,.55) !important; animation:settings-sheet-in .22s cubic-bezier(.2,.8,.2,1); }
   :root[data-theme] body #settings-panel::before { content:""; flex:none; display:block; width:36px; height:4px; margin:0 auto 2px; border-radius:2px; background:color-mix(in srgb,var(--theme-text) 28%,transparent); }
-  body:has(#settings-panel:not([hidden])) .settings-backdrop { display:block; position:fixed; inset:0; z-index:1199; background:rgba(6,8,9,.5); }
+  body:has(#settings-panel:not([hidden])) .settings-backdrop { display:block; position:fixed; inset:0; z-index:1199; background:rgba(5,7,10,.5); }
   #settings-panel .settings-section { gap:9px; }
   #settings-panel .accent-studio-head { align-items:center; }
   #settings-panel .accent-studio-head strong { margin-top:2px; font-size:15px; }

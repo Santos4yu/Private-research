@@ -125,7 +125,7 @@ class EncryptionTests(unittest.TestCase):
 
     def test_only_the_phone_can_read_its_message(self):
         private, auth, subscription = phone()
-        message = json.dumps({'title': 'Ace Props', 'body': 'NHL is live 🏒'}).encode()
+        message = json.dumps({'title': 'PropScout', 'body': 'NHL is live 🏒'}).encode()
         body = push.encrypt(message, subscription['keys']['p256dh'], subscription['keys']['auth'])
         self.assertEqual(decrypt(body, private, auth), message)
         other, _, _ = phone()
@@ -162,7 +162,7 @@ class SubscriptionTests(unittest.TestCase):
             self.assertEqual([record['account'] for record in push.subscriptions().values()], ['uid-2'])
 
     def test_announcement_text_is_checked(self):
-        self.assertEqual(push.valid_announcement('', 'New props are up'), {'title': 'Ace Props', 'body': 'New props are up', 'url': '/'})
+        self.assertEqual(push.valid_announcement('', 'New props are up'), {'title': 'PropScout', 'body': 'New props are up', 'url': '/'})
         self.assertEqual(push.valid_announcement(' Big   update ', 'x', '//evil.example')['title'], 'Big update')
         self.assertEqual(push.valid_announcement('t', 'x', '//evil.example')['url'], '/')
         self.assertEqual(push.valid_announcement('t', 'x', 'https://evil.example')['url'], '/')

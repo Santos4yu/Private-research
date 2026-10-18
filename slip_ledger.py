@@ -46,7 +46,7 @@ SPORTS = ("nfl", "cfb", "nba", "wnba", "nhl", "mlb", "soccer")
 SIDES = ("OVER", "UNDER")
 SETTLE_KINDS = ("key", "mlb", "soccer")
 # Where a graded pick came from: a member's slip in the Slip Analyzer, the
-# Parlay Builder, the Ace Assistant, or the day's top picks the site logs
+# Parlay Builder, the Scout Assistant, or the day's top picks the site logs
 # for itself so it learns from results every day (learning.py).
 SOURCES = ("analyzer", "builder", "assistant", "board")
 # The site's own top picks it logs a day, at most.

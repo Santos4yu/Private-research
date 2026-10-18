@@ -17,7 +17,7 @@ import {useVoice} from './voice-input';
 import './krazy-bot.css';
 import './ace-assistant.css';
 
-// The Ace Assistant: a research desk you can talk to. It answers from
+// The Scout Assistant: a research desk you can talk to. It answers from
 // today's graded picks (krazy-bot.js) in the browser, on the lines the
 // Finder already loads, and shows a pick the way the Slip Analyzer does
 // (AceCards.jsx). On a computer today's board sits beside the conversation;
@@ -38,7 +38,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,Math.max(0,ms)));
 const pct=value=>`${Math.round(value*100)}%`;
 const figure=value=>value==null?'—':String(Math.round(Number(value)*10)/10);
 const clock=at=>new Date(at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
-const MARK='/brand/ace-props-mark.png';
+const MARK='/brand/propscout-mark.svg';
 
 // Recent line moves, when this member can see them (the Line Moves feed).
 async function recentMoves(){
@@ -332,7 +332,7 @@ export function KrazyBot(){
  return <div className="krazy-bot ace" ref={host} data-chatting={chatting||undefined}>
   <header className="ace-top">
    <div className="ace-title"><span className="ace-mark"><img src={MARK} alt="" width="24" height="24"/></span>
-    <div><h1>Ace Assistant</h1>
+    <div><h1>Scout Assistant</h1>
      <ul className="ace-top-leagues" aria-label={sports.map(sport=>SPORTS[sport].name).join(', ')}>{sports.map(sport=><li key={sport} title={SPORTS[sport].name}><LeagueMark sport={sport}/></li>)}</ul></div></div>
    <div className="ace-top-end">
     <span className="ace-status" data-state={busy?'busy':today?'live':todayFailed?'down':'idle'}>
@@ -369,7 +369,7 @@ export function KrazyBot(){
       {messages.map(message=>message.role==='user'
        ?<li key={message.id} data-id={message.id} className="ace-msg is-user"><p>{message.text}</p></li>
        :<li key={message.id} data-id={message.id} className="ace-msg is-bot" data-status={message.status}>
-        <div className="ace-from"><span className="ace-mark is-small"><img src={MARK} alt="" width="14" height="14"/></span><b>Ace</b>{message.status==='done'&&<time>{clock(message.at)}</time>}</div>
+        <div className="ace-from"><span className="ace-mark is-small"><img src={MARK} alt="" width="14" height="14"/></span><b>Scout</b>{message.status==='done'&&<time>{clock(message.at)}</time>}</div>
         <Reply message={message} onAsk={ask} onRetry={()=>retry(message)}/>
        </li>)}
      </ol>}
@@ -380,7 +380,7 @@ export function KrazyBot(){
      </div>}
      <form className="ace-composer" onSubmit={submit} autoComplete="off" data-busy={busy||undefined}>
       <textarea ref={field} rows={1} value={draft} onChange={event=>setDraft(event.target.value)} onKeyDown={keys} maxLength={200}
-       placeholder={chatting?'Ask a follow-up':'Ask about a player or a prop'} aria-label="Ask the Ace Assistant" enterKeyHint="send" spellCheck={false} autoCorrect="off"/>
+       placeholder={chatting?'Ask a follow-up':'Ask about a player or a prop'} aria-label="Ask the Scout Assistant" enterKeyHint="send" spellCheck={false} autoCorrect="off"/>
       <VoiceButton onWords={setDraft} onSaid={text=>{if(text)ask(text);}} disabled={busy}/>
       <button type="submit" className="ace-send" disabled={busy||!draft.trim()} aria-label={busy?'Researching':'Send'}>
        {busy?<span className="ace-spinner" aria-hidden="true"/>:<ArrowUp size={18} aria-hidden="true"/>}

@@ -3,7 +3,7 @@ import {initSiteAccess,siteTabAllowed,loadSiteControls,showLockedTab,availableSi
 import {ADMIN_TABS} from './src/site-access-core.js';
 import {isOldBrandTheme} from './src/brand-colors.js';
 /* =========================================================
-   Ace Props research — client-side renderer
+   PropScout research — client-side renderer
    No backend, no database, no odds API. Reads a single JSON
    file and lets you search + render one full prop breakdown
    at a time (mirrors the /prediction command output).
@@ -155,7 +155,7 @@ const THEME_KEY = "vortex_theme_mode";
 const ACCENT_THEME_KEY = "vortex_custom_accents";
 const ACCENT_PRESETS_KEY = "vortex_accent_presets";
 const BG_IMAGE_KEY = "vortex_bg_image";
-const DEFAULT_ACCENTS = Object.freeze({ primary: "#00f58a", secondary: "#dce3e0", tint: 0 });
+const DEFAULT_ACCENTS = Object.freeze({ primary: "#3d7bff", secondary: "#dce6ff", tint: 0 });
 // The old blue brand colours give way to the new default (src/brand-colors.js).
 const isLegacyAccent = isOldBrandTheme;
 try {
@@ -171,7 +171,7 @@ const EXPERIENCE_KEY = "private_jarvis_interface";
 applyAccentTheme(loadAccentTheme(), { persist: false });
 applyExperience(localStorage.getItem(EXPERIENCE_KEY) === "true");
 
-const SCREEN_TITLES = Object.freeze({ research: "Research", finder: "Finder", moves: "Line Moves", v2: "Props", slate: "Tools", saved: "My Slip", builder: "Parlay Builder", slip: "Slip Analyzer", moneyline: "Moneylines", export: "Slip to PrizePicks", bot: "Ace Assistant", sheets: "Cheat Sheets", promos: "Promo Board", nrfi: "NRFI / YRFI", community: "Community", admin: "Admin Results" });
+const SCREEN_TITLES = Object.freeze({ research: "Research", finder: "Finder", moves: "Line Moves", v2: "Props", slate: "Tools", saved: "My Slip", builder: "Parlay Builder", slip: "Slip Analyzer", moneyline: "Moneylines", export: "Slip to PrizePicks", bot: "Scout Assistant", sheets: "Cheat Sheets", promos: "Promo Board", nrfi: "NRFI / YRFI", community: "Community", admin: "Admin Results" });
 // The URL path for each tab differs from its internal id in a few cases
 // (v2 -> /props, slate -> /tools, slip -> /slip-analyzer) so the address
 // bar reads naturally -- everything else just uses its id as-is.
@@ -560,7 +560,7 @@ function applyAccentTheme(theme, { persist = true, syncControls = true } = {}) {
   root.style.setProperty("--theme-accent-dim", `color-mix(in srgb, ${primary} 14%, transparent)`);
   root.style.setProperty("--theme-on-accent", accentTextColor(primary));
   localStorage.removeItem(THEME_KEY);
-  if (persist) localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify({ primary, secondary, tint, ace: true }));
+  if (persist) localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify({ primary, secondary, tint, scout: true }));
   if (syncControls && els.primaryAccent) {
     els.primaryAccent.value = primary;
     els.secondaryAccent.value = secondary;
@@ -1145,7 +1145,7 @@ function wireSettingsPanel() {
       if (els.accentTintValue) els.accentTintValue.textContent = `${theme.tint}%`;
     });
     const save = () => {
-      localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify({ ...theme, ace: true }));
+      localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify({ ...theme, scout: true }));
       els.accentStatus.textContent = "Colors saved automatically on this device.";
     };
     if (saveNow) save();
@@ -1296,7 +1296,7 @@ function switchTab(tab, options = {}) {
   state.currentTab = tab;
   const screenTitle = document.getElementById("mobile-screen-title");
   if (screenTitle) screenTitle.textContent = SCREEN_TITLES[tab];
-  document.title = `${SCREEN_TITLES[tab]} · Ace Props`;
+  document.title = `${SCREEN_TITLES[tab]} · PropScout`;
   if (changed && screenHistoryReady && options.history !== false) {
     const url = new URL(location.href);
     url.hash = "";
@@ -1535,7 +1535,7 @@ function renderAdminLearning() {
   const groups = Object.entries(data.groups || {}).sort(([a], [b]) => (a === "all" ? -1 : b === "all" ? 1 : a.localeCompare(b)));
   const summary = `<div class="record-summary"><span><b>${Number(data.picks || 0).toLocaleString()}</b>settled picks</span><span><b>${groups.filter(([name]) => name !== "all").length}</b>sports</span><span><b>${escapeHtml(updated)}</b>last refit</span></div>`;
   if (!groups.length) {
-    els.adminResultsList.innerHTML = summary + "<p class=\"empty-state\">Nothing settled yet. The Parlay Builder and Ace Assistant send their top picks each day; once those games are final, the model refits every morning.</p>";
+    els.adminResultsList.innerHTML = summary + "<p class=\"empty-state\">Nothing settled yet. The Parlay Builder and Scout Assistant send their top picks each day; once those games are final, the model refits every morning.</p>";
     return;
   }
   const table = ([name, group]) => {
@@ -7018,7 +7018,7 @@ async function buildResearchShareImage(prop,mode) {
   const glow=(x,y,r,color)=>{const g=c.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,color);g.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=g;c.fillRect(x-r,y-r,r*2,r*2);};glow(1760,260,780,'rgba(92,248,178,.24)');glow(180,540,680,'rgba(0,245,138,.18)');glow(420,2480,760,'rgba(0,208,170,.10)');
   c.save();c.globalAlpha=.16;c.strokeStyle='#5cf8b2';c.lineWidth=3;for(let i=0;i<4;i++){c.beginPath();c.moveTo(-100,1880+i*80);c.bezierCurveTo(520,1580+i*70,1260,2260-i*55,2260,1840+i*45);c.stroke();}c.restore();
   round(92,92,1976,2516,68,'rgba(16,19,21,.78)','rgba(92,248,178,.20)');
-  round(160,160,1840,116,32,'rgba(255,255,255,.055)');if(pp)c.drawImage(pp,196,188,58,58);text('ACE PROPS',280,232,39,'#fff',800);text('MLB PLAYER RESEARCH',1960,230,26,'#969ea2',700,'right');
+  round(160,160,1840,116,32,'rgba(255,255,255,.055)');if(pp)c.drawImage(pp,196,188,58,58);text('PROPSCOUT',280,232,39,'#fff',800);text('MLB PLAYER RESEARCH',1960,230,26,'#969ea2',700,'right');
   if(player){c.save();c.shadowColor='rgba(0,0,0,.38)';c.shadowBlur=26;c.shadowOffsetY=18;drawContain(player,120,302,490,458);c.restore();}else{round(150,330,430,430,60,'rgba(255,255,255,.035)','rgba(255,255,255,.08)');text(prop.player?.split(' ').map(v=>v[0]).join('').slice(0,2)||'MLB',365,585,100,'#fff',800,'center');}
   if(team){round(480,615,132,132,38,'rgba(255,255,255,.05)','rgba(255,255,255,.1)');drawContain(team,494,629,104,104);}if(opponent){round(625,625,112,112,34,'rgba(255,255,255,.04)','rgba(255,255,255,.09)');drawContain(opponent,639,639,84,84);}
   text(prop.player,650,455,82,'#fff',850);text(`${gameLogState.window==='h2h'?'H2H':`LAST ${games.length}`} · ${gameLogState.stat}`,650,530,30,'#95a2b3',750);round(650,558,72,72,22,'rgba(255,255,255,.06)','rgba(255,255,255,.12)');c.strokeStyle=accent;c.lineWidth=7;c.lineCap='round';[[672,604,672,589],[686,604,686,575],[700,604,700,566]].forEach(v=>{c.beginPath();c.moveTo(v[0],v[1]);c.lineTo(v[2],v[3]);c.stroke();});text(`MORE ${line.toFixed(1)}`,744,618,62,accent,850);if(pp)c.drawImage(pp,650,660,54,54);text(prop.oddsType==='goblin'?'GOBLIN · MORE ONLY':prop.oddsType==='demon'?'DEMON · MORE ONLY':'PRIZEPICKS · STANDARD',724,703,25,'#b8c1cd',750);if(prop.matchup?.opponent){round(650,742,760,62,22,'rgba(22,140,255,.10)','rgba(22,140,255,.28)');text(`${prop.isHome===false?'AT':'VS'} ${String(prop.matchup.opponent).toUpperCase()}`,684,783,22,'#b9d9ff',800);}
@@ -7059,7 +7059,7 @@ async function buildResearchShareImage(prop,mode) {
     [0,.5,1].forEach(step=>{const y=baseY-chartH*step;c.strokeStyle='rgba(255,255,255,.055)';c.lineWidth=2;c.beginPath();c.moveTo(220,y);c.lineTo(1940,y);c.stroke();text((max*step).toFixed(max<4?1:0),190,y+8,18,'#6e787d',650,'right');});
     games.forEach((game,i)=>{const value=Number(game.value)||0,x=235+i*(barW+gap),h=Math.max(12,value/max*chartH),hit=value>line,bar=c.createLinearGradient(0,baseY-h,0,baseY);bar.addColorStop(0,hit?'#35e89b':'#ff6170');bar.addColorStop(1,hit?'#0da75b':'#d92843');round(x,baseY-h,barW,h,Math.min(18,barW/3),bar);round(x+Math.max(0,(barW-56)/2),baseY-h-58,Math.min(56,barW),36,18,hit?'rgba(53,232,155,.14)':'rgba(255,97,112,.14)');text(value,x+barW/2,baseY-h-32,20,'#fff',850,'center');if(gameLogos[i]){round(x+barW/2-25,baseY+18,50,50,25,'rgba(255,255,255,.055)','rgba(255,255,255,.10)');drawContain(gameLogos[i],x+barW/2-19,baseY+24,38,38);}else{text(String(game.opponent||'').slice(0,3).toUpperCase(),x+barW/2,baseY+50,18,'#a4abae',800,'center');}});c.strokeStyle=accent;c.lineWidth=4;c.setLineDash([16,12]);const lineY=baseY-line/max*chartH;c.beginPath();c.moveTo(210,lineY);c.lineTo(1950,lineY);c.stroke();c.setLineDash([]);round(1760,lineY-48,180,38,19,'rgba(11,13,14,.9)',accent);text(`${line.toFixed(1)} LINE`,1850,lineY-22,18,accent,850,'center');text(`${hits} CLEARED · ${games.length-hits} MISSED`,1940,2370,20,'#989fa3',750,'right');
   }
-  text('ACE PROPS',160,2510,27,'#fff',800);text(`${new Date().toLocaleDateString()} · Research only`,2000,2510,23,'#858e93',600,'right');return await new Promise(resolve=>canvas.toBlob(resolve,'image/png',1));
+  text('PROPSCOUT',160,2510,27,'#fff',800);text(`${new Date().toLocaleDateString()} · Research only`,2000,2510,23,'#858e93',600,'right');return await new Promise(resolve=>canvas.toBlob(resolve,'image/png',1));
 }
 
 /* ---------- Slip share card ---------- */
@@ -7076,7 +7076,7 @@ async function buildSlipShareImage(legs) {
   const c = canvas.getContext("2d");
   c.scale(scale, scale);
   const styles = getComputedStyle(document.documentElement);
-  const accent = styles.getPropertyValue("--theme-accent").trim() || "#00f58a";
+  const accent = styles.getPropertyValue("--theme-accent").trim() || "#3d7bff";
   const secondary = styles.getPropertyValue("--theme-secondary").trim() || "#dce3e0";
   const round = (x, y, w, h, r, fill, stroke, strokeWidth = 3) => { c.beginPath(); c.roundRect(x, y, w, h, r); if (fill) { c.fillStyle = fill; c.fill(); } if (stroke) { c.strokeStyle = stroke; c.lineWidth = strokeWidth; c.stroke(); } };
   const circle = (x, y, r, fill, stroke, strokeWidth = 3) => { c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); if (fill) { c.fillStyle = fill; c.fill(); } if (stroke) { c.strokeStyle = stroke; c.lineWidth = strokeWidth; c.stroke(); } };
@@ -7107,7 +7107,7 @@ async function buildSlipShareImage(legs) {
   round(140, 140, 900, 96, 26, "rgba(255,255,255,.055)");
   const brandDot = c.createLinearGradient(164, 164, 212, 212); brandDot.addColorStop(0, accent); brandDot.addColorStop(1, `color-mix(in srgb, ${accent} 60%, #9b4dff)`);
   circle(188, 188, 24, brandDot); text("K", 188, 198, 24, "#fff", 900, "center");
-  text("ACE PROPS", 236, 197, 32, "#fff", 800);
+  text("PROPSCOUT", 236, 197, 32, "#fff", 800);
   round(1400, 152, 620, 72, 22, "rgba(255,255,255,.045)", "rgba(255,255,255,.10)");
   text(new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }), 2000, 197, 26, "#cbcfd1", 700, "right");
 
@@ -7149,8 +7149,8 @@ async function buildSlipShareImage(legs) {
 
   c.strokeStyle = "rgba(255,255,255,.10)"; c.lineWidth = 2; c.beginPath(); c.moveTo(140, logicalH - footerH + 20); c.lineTo(2020, logicalH - footerH + 20); c.stroke();
   circle(164, logicalH - 96, 20, brandDot); text("K", 164, logicalH - 88, 20, "#fff", 900, "center");
-  text("ACE PROPS", 200, logicalH - 84, 27, "#fff", 800);
-  text("Share your own picks — Ace Props", 2020, logicalH - 84, 23, secondary || "#a3aaae", 650, "right");
+  text("PROPSCOUT", 200, logicalH - 84, 27, "#fff", 800);
+  text("Share your own picks — PropScout", 2020, logicalH - 84, 23, secondary || "#a3aaae", 650, "right");
   return await new Promise((resolve) => canvas.toBlob(resolve, "image/png", 1));
 }
 
@@ -7685,7 +7685,7 @@ function evaluatePdChallenge(p, key) {
   const stats = p.stats || {}, drivers = pdDecisionDrivers(p);
   const terms = { recent:/recent|form|l5|l10|l20/i, hand:/hand|platoon/i, pitcher:/pitch|matchup|opposing/i, bullpen:/bullpen/i, opportunity:/lineup|opportunity|plate appearance/i, workload:/workload|pitch count|leash|innings/i, environment:/weather|park|wind/i, price:/market|price|odds|line/i, bvp:/batter vs|bvp/i };
   const matches = drivers.filter(d => terms[key]?.test(`${d.name} ${d.detail}`));
-  let status = "NEEDS VERIFICATION", strength = "Unknown", shift = 0, explanation = "Ace Props does not currently have a verified input for this concern. Treat it as a wait condition, not an automatic fade.";
+  let status = "NEEDS VERIFICATION", strength = "Unknown", shift = 0, explanation = "PropScout does not currently have a verified input for this concern. Treat it as a wait condition, not an automatic fade.";
   if (key === "gut") {
     status = "NOT QUANTIFIABLE"; strength = "Unverified";
     explanation = "A gut concern is worth noticing, but it cannot overturn the model until you can name the underlying baseball or pricing assumption.";

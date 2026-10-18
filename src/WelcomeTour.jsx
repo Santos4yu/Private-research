@@ -164,7 +164,7 @@ export function WelcomeTour(){
   <section ref={cardRef} className="wt-card" role="dialog" aria-modal="true" aria-labelledby="wt-title" aria-describedby="wt-text" data-side={card?.side}
    style={card?{top:card.top,left:card.left}:{visibility:'hidden'}}>
    <header className="wt-head">
-    {number?<span className="wt-count">{number} of {middle}</span>:<span className="wt-brand"><img src="/brand/ace-props-mark.png" alt="" width="22" height="22"/>Ace Props</span>}
+    {number?<span className="wt-count">{number} of {middle}</span>:<span className="wt-brand"><img src="/brand/propscout-mark.svg" alt="" width="24" height="22"/>PropScout</span>}
     <button type="button" className="wt-close" aria-label="Close the tour" onClick={()=>finish('skipped')}><X size={16} aria-hidden="true"/></button>
    </header>
    <h2 id="wt-title">{step.title}</h2>
@@ -173,7 +173,7 @@ export function WelcomeTour(){
    <div className="wt-actions">
     {index===0?<button type="button" className="wt-quiet" onClick={()=>finish('skipped')}>Skip</button>
      :!last&&<button type="button" className="wt-quiet" onClick={back} disabled={busy}>Back</button>}
-    <button type="button" ref={nextRef} className="wt-next" onClick={next} disabled={busy}>{index===0?'Start the tour':last?'Start using Ace Props':busy?'Loading…':'Next'}</button>
+    <button type="button" ref={nextRef} className="wt-next" onClick={next} disabled={busy}>{index===0?'Start the tour':last?'Start using PropScout':busy?'Loading…':'Next'}</button>
    </div>
   </section>
  </div>,document.body);

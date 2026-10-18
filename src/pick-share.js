@@ -46,18 +46,18 @@ export async function drawPick(pick) {
   const report = pick.report || {};
   const under = pick.side === 'UNDER';
 
-  const [photo, logo, opponentLogo, mark] = await Promise.all([image(pick.headshot), image(pick.teamLogo), image(pick.opponentLogo), image('/brand/ace-props-wordmark.png')]);
+  const [photo, logo, opponentLogo, mark] = await Promise.all([image(pick.headshot), image(pick.teamLogo), image(pick.opponentLogo), image('/brand/propscout-logo.png')]);
 
   // Background: deep navy with a soft glow behind the player.
   const bg = ctx.createLinearGradient(0, 0, 0, H);
   bg.addColorStop(0, '#161b1e'); bg.addColorStop(1, '#0b0d0e');
   ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
   const glow = ctx.createRadialGradient(W / 2, 250, 20, W / 2, 250, 520);
-  glow.addColorStop(0, 'rgba(0,245,138,.18)'); glow.addColorStop(1, 'rgba(0,245,138,0)');
+  glow.addColorStop(0, 'rgba(61,123,255,.18)'); glow.addColorStop(1, 'rgba(61,123,255,0)');
   ctx.fillStyle = glow; ctx.fillRect(0, 0, W, 800);
 
   // Header: the wordmark and the game time.
-  if (mark) ctx.drawImage(mark, PAD, 44, 168, 64);
+  if (mark) ctx.drawImage(mark, PAD, 55, 220, 42);
   set(26, 600); ctx.fillStyle = MUTED; ctx.textAlign = 'right';
   ctx.fillText([String(pick.sport || '').toUpperCase(), pick.time].filter(Boolean).join(' · '), W - PAD, 92);
 
@@ -178,7 +178,7 @@ export async function drawPick(pick) {
   // Where it came from, so anyone who sees it can find the site: the top
   // right, beside the wordmark (the foot carries the matchup).
   ctx.save(); ctx.font = `800 26px ${(typeof document !== 'undefined' && getComputedStyle(document.body).fontFamily) || 'system-ui, sans-serif'}`;
-  ctx.fillStyle = '#00f58a'; ctx.textAlign = 'right'; ctx.fillText(SITE, W - PAD, 132); ctx.restore();
+  ctx.fillStyle = '#3d7bff'; ctx.textAlign = 'right'; ctx.fillText(SITE, W - PAD, 132); ctx.restore();
 
   return canvas;
 }

@@ -90,7 +90,7 @@ export function PromoBoard(){
   <header className="pb-head">
    <div className="pb-title"><span className="pb-mark" aria-hidden="true"><TicketPercent size={22}/></span>
     <div><h1 id="promo-board-title">Promo Board</h1>
-     <p>Every PrizePicks promo live right now, graded by Ace Props. PrizePicks takes one promo per entry, so pick your best one.</p></div></div>
+     <p>Every PrizePicks promo live right now, graded by PropScout. PrizePicks takes one promo per entry, so pick your best one.</p></div></div>
    <button type="button" className="pb-refresh" onClick={load} disabled={status==='loading'||status==='refreshing'} aria-label="Refresh promos">
     <RefreshCw size={16} className={status==='refreshing'?'pb-spin':undefined}/></button>
   </header>

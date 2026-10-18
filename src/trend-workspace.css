@@ -2,34 +2,34 @@
    embedded Trend panel has one predictable, responsive layout. Page-scroll
    recovery and singleton mounting remain in gamelog-inline.css. */
 :root[data-theme] .rr-report {
-  --kd-panel: #101416;
-  --kd-input: #1f2428;
-  --kd-border: #2f3339;
-  --kd-text: #f4f7f6;
-  --kd-muted: #a8adb4;
+  --kd-panel: #0d1119;
+  --kd-input: #19212e;
+  --kd-border: #243044;
+  --kd-text: #f3f5f8;
+  --kd-muted: #a3abb9;
   --kd-accent: var(--theme-accent-soft,var(--theme-accent));
   --kd-positive: #00D68F;
   --kd-negative: #F16B75;
 }
-.rr-brandline { color: #dce3e0; font: 750 13px/1.3 var(--font-sans, sans-serif); letter-spacing: -.02em; }
+.rr-brandline { color: #d7dde8; font: 750 13px/1.3 var(--font-sans, sans-serif); letter-spacing: -.02em; }
 :root[data-theme] .rr-report .rr-sticky .report-header {
   display: grid !important;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px 20px;
   padding: 18px 22px !important;
-  background:  linear-gradient(180deg, #181d20, #121618) !important;
-  border-color: color-mix(in srgb,var(--theme-accent) 45%,#2f3339) !important;
+  background:  linear-gradient(180deg, #141a24, #0f131b) !important;
+  border-color: color-mix(in srgb,var(--theme-accent) 45%,#243044) !important;
   color: var(--kd-text) !important;
 }
 :root[data-theme] .rr-report .rr-brandline { grid-column: 1 / -1; margin: 0; }
 :root[data-theme] .rr-report .report-header .report-title-row { grid-column: 1; min-width: 0; }
 :root[data-theme] .rr-report .report-header .rt-avatar-slot { display: block !important; }
-:root[data-theme] .rr-report .report-header .rt-avatar-slot .avatar { width: 64px; height: 64px; border: 1px solid #ffffff60; background: color-mix(in srgb,var(--theme-accent) 36%,#0f1215); }
-:root[data-theme] .rr-report .report-header .rt-avatar-slot > img { width: 64px; height: 64px; object-fit: contain; border: 1px solid #ffffff60; border-radius: 50%; background: color-mix(in srgb,var(--theme-accent) 36%,#0f1215); }
+:root[data-theme] .rr-report .report-header .rt-avatar-slot .avatar { width: 64px; height: 64px; border: 1px solid #ffffff60; background: color-mix(in srgb,var(--theme-accent) 36%,#0d1117); }
+:root[data-theme] .rr-report .report-header .rt-avatar-slot > img { width: 64px; height: 64px; object-fit: contain; border: 1px solid #ffffff60; border-radius: 50%; background: color-mix(in srgb,var(--theme-accent) 36%,#0d1117); }
 :root[data-theme] .rr-report .rr-sticky .rt-title { font-size: clamp(22px, 2.2vw, 28px) !important; color: #fff !important; letter-spacing: -.035em; }
 :root[data-theme] .rr-report .rr-sticky .rt-sub,
-:root[data-theme] .rr-report .rr-prop-line { color: #dce3e0 !important; font-size: 13px !important; }
-:root[data-theme] .rr-report .rr-sticky .rt-sport { color: #d0d3d5 !important; }
+:root[data-theme] .rr-report .rr-prop-line { color: #d7dde8 !important; font-size: 13px !important; }
+:root[data-theme] .rr-report .rr-sticky .rt-sport { color: #c6cfdf !important; }
 :root[data-theme] .rr-report .rr-save-dock { grid-column: 2; align-self: center; padding: 0 !important; }
 :root[data-theme] .rr-report .rr-save-dock .save-btn { background: #ffffff16 !important; color: #fff !important; border-color: #ffffff55 !important; }
 :root[data-theme] .rr-report .rr-save-dock .save-btn.saved { background: #ffffff2a !important; }
@@ -38,11 +38,11 @@
 :root[data-theme] .rr-report .rr-tab[aria-selected="true"] { color: #fff; background: color-mix(in srgb,var(--theme-accent) 19%,transparent); box-shadow: inset 0 -2px var(--theme-accent-soft,var(--theme-accent)); }
 
 :root[data-theme] #gamelog-overlay {
-  --kd-panel: #101416;
-  --kd-input: #1f2428;
-  --kd-border: #2f3339;
-  --kd-text: #f4f7f6;
-  --kd-muted: #a8adb4;
+  --kd-panel: #0d1119;
+  --kd-input: #19212e;
+  --kd-border: #243044;
+  --kd-text: #f3f5f8;
+  --kd-muted: #a3abb9;
   --kd-accent: var(--theme-accent-soft,var(--theme-accent));
   --kd-positive: #00D68F;
   --kd-negative: #F16B75;
@@ -126,10 +126,10 @@
 :root[data-theme] #gamelog-overlay .gamelog-odds-values b { color: var(--kd-muted); font-size: 11px; }
 :root[data-theme] #gamelog-overlay .posted-line-books { display:inline-flex;align-items:center;isolation:isolate; }
 :root[data-theme] #gamelog-overlay .posted-line-books img,
-:root[data-theme] #gamelog-overlay .posted-line-books i { width:18px;height:18px;margin-left:-4px;border:2px solid #151a1e;border-radius:50%;object-fit:contain;background:#fff; }
+:root[data-theme] #gamelog-overlay .posted-line-books i { width:18px;height:18px;margin-left:-4px;border:2px solid #121721;border-radius:50%;object-fit:contain;background:#fff; }
 :root[data-theme] #gamelog-overlay .posted-line-books img:first-child,
 :root[data-theme] #gamelog-overlay .posted-line-books i:first-child { margin-left:0; }
-:root[data-theme] #gamelog-overlay .posted-line-books i { display:grid;place-items:center;color:#151a1d;font:800 7px/1 system-ui;font-style:normal; }
+:root[data-theme] #gamelog-overlay .posted-line-books i { display:grid;place-items:center;color:#121720;font:800 7px/1 system-ui;font-style:normal; }
 :root[data-theme] #gamelog-overlay .gamelog-stat-tabs {
   order: 1;
   flex: 0 0 auto;
@@ -178,7 +178,7 @@
   height: 40px !important;
   min-height: 40px !important;
   margin: 0;
-  background: #151a1e !important;
+  background: #121721 !important;
   border: 1px solid var(--kd-border);
   border-radius: 8px;
 }
@@ -210,7 +210,7 @@
   margin: 0 !important;
   border: 0 !important;
   border-radius: 10px;
-  background: #0b0d0e !important;
+  background: #090c10 !important;
 }
 :root[data-theme] #gamelog-overlay .gamelog-windowbar button {
   flex: 1 0 65px;
@@ -220,7 +220,7 @@
   border-radius: 7px !important;
   gap: 4px;
 }
-:root[data-theme] #gamelog-overlay .gamelog-windowbar button.active { background: #242a2e !important; border-color: #686d73 !important; }
+:root[data-theme] #gamelog-overlay .gamelog-windowbar button.active { background: #1d2635 !important; border-color: #5f6a7c !important; }
 :root[data-theme] #gamelog-overlay .gamelog-windowbar button strong { font: 700 13px/1.2 var(--font-sans, sans-serif); margin: 0; }
 :root[data-theme] #gamelog-overlay .gamelog-windowbar .gl-window-rate { color: var(--kd-positive) !important; font: 700 12px/1.2 var(--font-sans, sans-serif); }
 :root[data-theme] #gamelog-overlay .gamelog-windowbar .gl-window-rate.is-low { color: var(--kd-negative) !important; }
@@ -248,7 +248,7 @@
   height: auto !important;
   min-height: 0 !important;
   padding: 30px 18px 18px !important;
-  background: linear-gradient(180deg, #13171a 0%, color-mix(in srgb, var(--theme-accent) 13%, #111517) 100%) !important;
+  background: linear-gradient(180deg, #10151d 0%, color-mix(in srgb, var(--theme-accent) 13%, #0e121a) 100%) !important;
   border: 0 !important;
   overflow: hidden !important;
   scrollbar-gutter: auto;
@@ -285,13 +285,13 @@
 :root[data-theme] #gamelog-overlay .gl-bar-under { background: linear-gradient(180deg, #ff7a8c 0%, #ff536d 30%, #b8334a 100%) !important; }
 :root[data-theme] #gamelog-overlay .gl-val { top: -21px !important; bottom: auto !important; color: var(--kd-positive) !important; font: 650 12px/1.2 var(--font-sans, sans-serif) !important; }
 :root[data-theme] #gamelog-overlay .gl-bar-under .gl-val { color: var(--kd-negative) !important; }
-:root[data-theme] #gamelog-overlay .gl-date { order: 1; margin-top: 10px !important; font: 600 12px/1.2 var(--font-sans, sans-serif) !important; color: #bdc2c4 !important; }
-:root[data-theme] #gamelog-overlay .gl-opp { order: 2; margin-top: 4px !important; font: 500 11px/1.2 var(--font-sans, sans-serif) !important; color: #acb1b8 !important; }
+:root[data-theme] #gamelog-overlay .gl-date { order: 1; margin-top: 10px !important; font: 600 12px/1.2 var(--font-sans, sans-serif) !important; color: #afbcd2 !important; }
+:root[data-theme] #gamelog-overlay .gl-opp { order: 2; margin-top: 4px !important; font: 500 11px/1.2 var(--font-sans, sans-serif) !important; color: #a8afbc !important; }
 :root[data-theme] #gamelog-overlay .gl-y-axis { display: none; }
 :root[data-theme] #gamelog-overlay .gl-line-marker { --chart-top: 30px; left: 18px !important; right: 18px !important; touch-action: none; }
 :root[data-theme] #gamelog-overlay .gl-line-marker { border: 0 !important; background: none !important; box-shadow: none !important; }
-:root[data-theme] #gamelog-overlay .gl-line-marker::before { border: 0 !important; height: 1px !important; background: repeating-linear-gradient(to right, #8a9097 0 8px, transparent 8px 13px) !important; box-shadow: none !important; opacity: .8; }
-:root[data-theme] #gamelog-overlay .gl-line-marker .gl-line-tag { left: 0 !important; right: auto !important; color: #dce3e0 !important; background: #1f2529 !important; border: 1px solid #5d6268 !important; box-shadow: none !important; font-size: 10px !important; border-radius: 5px !important; padding: 2px 6px !important; }
+:root[data-theme] #gamelog-overlay .gl-line-marker::before { border: 0 !important; height: 1px !important; background: repeating-linear-gradient(to right, #828d9f 0 8px, transparent 8px 13px) !important; box-shadow: none !important; opacity: .8; }
+:root[data-theme] #gamelog-overlay .gl-line-marker .gl-line-tag { left: 0 !important; right: auto !important; color: #d7dde8 !important; background: #19212f !important; border: 1px solid #565f6f !important; box-shadow: none !important; font-size: 10px !important; border-radius: 5px !important; padding: 2px 6px !important; }
 :root[data-theme] #gamelog-overlay .gl-empty { display: grid; align-content: center; justify-items: center; min-height: 230px; gap: 8px; color: var(--kd-text); }
 :root[data-theme] #gamelog-overlay .gl-empty p { margin: 0; color: var(--kd-muted); font-size: 13px; }
 :root[data-theme] #gamelog-overlay .gamelog-chart.is-loading { opacity: 1; pointer-events: auto; }
@@ -343,7 +343,7 @@
   padding: 0 18px;
   border: 1px solid var(--theme-accent);
   border-radius: 8px;
-  background: color-mix(in srgb,var(--theme-accent) 43%,#0f1215);
+  background: color-mix(in srgb,var(--theme-accent) 43%,#0d1117);
   color: var(--kd-text);
   font: 650 13px/1.3 var(--font-sans, sans-serif);
   cursor: pointer;
@@ -386,15 +386,15 @@
 }
 /* Trends controls: restrained depth, consistent hit areas and explicit states. */
 :root[data-theme] #gamelog-overlay {
-  --trend-control-edge: #41464c;
-  --trend-control-text: #f4f7f6;
+  --trend-control-edge: #31415c;
+  --trend-control-text: #f3f5f8;
   --trend-control-accent: var(--theme-accent-soft,var(--theme-accent));
 }
 :root[data-theme] #gamelog-overlay :is(#gamelog-lines-select-root, .gamelog-filter-field) button[role="combobox"] {
   min-width: 0 !important;
   border: 1px solid var(--trend-control-edge) !important;
   border-radius: 10px !important;
-  background: linear-gradient(165deg, #282e32, #1b2125) !important;
+  background: linear-gradient(165deg, #1f293a, #161d2a) !important;
   color: var(--trend-control-text) !important;
   box-shadow: inset 0 1px 0 #ffffff09, 0 2px 5px #00000018 !important;
   font-variant-numeric: tabular-nums;
@@ -402,19 +402,19 @@
 }
 :root[data-theme] #gamelog-overlay :is(#gamelog-lines-select-root, .gamelog-filter-field) button[aria-expanded="true"] {
   border-color: var(--trend-control-accent) !important;
-  background: linear-gradient(165deg, #2f3339, #242a2e) !important;
+  background: linear-gradient(165deg, #243044, #1d2635) !important;
   box-shadow: 0 0 0 2px color-mix(in srgb,var(--theme-accent-soft,var(--theme-accent)) 9%,transparent) !important;
 }
 :root[data-theme] #gamelog-overlay button[role="combobox"] > svg {
   width: 13px;
-  color: #b6bcbf;
+  color: #a7b5ce;
   transition: transform 140ms ease;
 }
 :root[data-theme] #gamelog-overlay button[aria-expanded="true"] > svg { transform: rotate(180deg); }
 :root[data-theme] #gamelog-overlay .gamelog-line-control {
   border: 1px solid var(--trend-control-edge) !important;
   border-radius: 10px !important;
-  background: #171c1f !important;
+  background: #131923 !important;
   box-shadow: inset 0 1px 0 #ffffff08 !important;
   overflow: hidden;
   gap: 0 !important;
@@ -422,7 +422,7 @@
 :root[data-theme] #gamelog-overlay .gamelog-line-control button {
   border: 0 !important;
   border-radius: 0 !important;
-  background: linear-gradient(165deg, #282e32, #1b2125) !important;
+  background: linear-gradient(165deg, #1f293a, #161d2a) !important;
   color: var(--theme-accent-soft,var(--theme-accent)) !important;
   box-shadow: none !important;
   transition: background 140ms ease, color 140ms ease !important;
@@ -431,15 +431,15 @@
   display: grid;
   place-items: center;
   align-self: stretch;
-  border-inline: 1px solid #41464c;
-  color: #f4f7f6;
+  border-inline: 1px solid #31415c;
+  color: #f3f5f8;
   font-variant-numeric: tabular-nums;
 }
 :root[data-theme] #gamelog-overlay :is(.gamelog-line-control button, button[role="combobox"]):focus-visible {
   outline: 2px solid var(--trend-control-accent) !important;
   outline-offset: -3px !important;
 }
-:root[data-theme] #gamelog-overlay .gamelog-line-control button:active { background: #3b3f45 !important; }
+:root[data-theme] #gamelog-overlay .gamelog-line-control button:active { background: #2d3b53 !important; }
 :root[data-theme] #gamelog-overlay button[role="combobox"]:disabled { opacity: .5; cursor: not-allowed; }
 :root[data-theme] .trend-lines-menu .pp-select-line-row { gap: 8px; }
 :root[data-theme] .trend-lines-menu .posted-line-primary img,
@@ -447,8 +447,8 @@
 :root[data-theme] .trend-lines-menu .pp-select-line-value { min-width: 28px; font-weight: 750; font-variant-numeric: tabular-nums; }
 :root[data-theme] .trend-lines-menu .pp-select-line-tier { margin-left: auto; font-size: 10px; }
 @media (hover: hover) {
-  :root[data-theme] #gamelog-overlay button[role="combobox"]:hover { border-color: #7c8188 !important; }
-  :root[data-theme] #gamelog-overlay .gamelog-line-control button:hover { background: #2d3137 !important; color: #fff !important; }
+  :root[data-theme] #gamelog-overlay button[role="combobox"]:hover { border-color: #727e92 !important; }
+  :root[data-theme] #gamelog-overlay .gamelog-line-control button:hover { background: #232e41 !important; color: #fff !important; }
 }
 @media (prefers-reduced-motion: reduce) {
   :root[data-theme] #gamelog-overlay button[role="combobox"],

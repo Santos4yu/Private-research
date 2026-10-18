@@ -164,11 +164,11 @@ export function VortexSidebar() {
       <span className="vortex-sidebar-sheet" aria-hidden="true" />
       <span className="vortex-sidebar-edge" aria-hidden="true" />
       <div className="vortex-sidebar-inner">
-        {/* The full wordmark while the rail is open, the spade A while it
-            is compact, one fading into the other. */}
+        {/* The full logo while the rail is open, the P mark while it is
+            compact, one fading into the other. */}
         <div className="vortex-sidebar-top">
-          <img src="/brand/ace-props-mark.png" alt={wide ? '' : 'Ace Props'} className="vortex-sidebar-mark" width={32} height={32} />
-          <img src="/brand/ace-props-wordmark.png" alt={wide ? 'Ace Props' : ''} className="vortex-sidebar-wordmark" width={92} height={35} />
+          <img src="/brand/propscout-mark.svg" alt={wide ? '' : 'PropScout'} className="vortex-sidebar-mark" width={32} height={29} />
+          <img src="/brand/propscout-logo.svg" alt={wide ? 'PropScout' : ''} className="vortex-sidebar-wordmark" width={140} height={26} />
         </div>
         <nav className="vortex-sidebar-links" aria-label="Main">
           {grouped.map((group) => {

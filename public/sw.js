@@ -6,10 +6,10 @@ self.addEventListener('activate', event => event.waitUntil(self.clients.claim())
 self.addEventListener('push', event => {
   let message = {};
   try { message = event.data ? event.data.json() : {}; } catch { message = {body: event.data?.text() || ''}; }
-  event.waitUntil(self.registration.showNotification(message.title || 'Ace Props', {
+  event.waitUntil(self.registration.showNotification(message.title || 'PropScout', {
     body: message.body || '',
-    icon: '/icons/icon-192.png?v=4',
-    badge: '/icons/icon-192.png?v=4',
+    icon: '/icons/icon-192.png?v=6',
+    badge: '/icons/icon-192.png?v=6',
     tag: message.tag || 'announcement',
     data: {url: message.url || '/'},
   }));

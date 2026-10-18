@@ -5,7 +5,7 @@
    bars; each game a dotted bar with its result on top, the result and the
    stat inside, the opponent's logo and day under it, the next game left
    open; the windows' records; average and median; then the odds, the line
-   and the filters. Ace Props' mint and dark, and plain motion: bars grow
+   and the filters. PropScout's blue and blue-black, and plain motion: bars grow
    up with a little give, numbers pop on, tiles rise in turn.
 
    Every rule carries html:root and the id twice: the panel's older sheets
@@ -19,12 +19,12 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge {
   --te-miss: #EF5361;
   --te-miss-low: #A8323E;
   --te-miss-ink: #3A0A10;
-  --te-bg: #0E1215;
-  --te-card: #14191D;
-  --te-line: #232B30;
-  --te-text: #F4F7F6;
-  --te-muted: #A3ACB1;
-  --te-faint: #6F797E;
+  --te-bg: #0C1017;
+  --te-card: #111720;
+  --te-line: #1D2636;
+  --te-text: #F3F5F8;
+  --te-muted: #9FA7B5;
+  --te-faint: #677286;
   --te-spring: cubic-bezier(.34, 1.42, .6, 1);
   --te-ease: var(--ace-ease, cubic-bezier(.2, .8, .2, 1));
 }
@@ -82,8 +82,8 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-stat-tabs button 
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-stat-tabs button small:empty { display: none; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-stat-tabs button:active { transform: scale(.97); }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-stat-tabs button.active {
-  border-color: rgba(63, 227, 158, .55) !important;
-  background: rgba(63, 227, 158, .10) !important;
+  border-color: rgba(61, 123, 255, .55) !important;
+  background: rgba(61, 123, 255, .12) !important;
   color: var(--te-text) !important;
 }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-stat-tabs button.active small { color: var(--te-text); }
@@ -109,8 +109,8 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart {
   padding: 12px 2px 4px !important;
   border: 0 !important;
   border-radius: 0 !important;
-  /* A soft green rising behind the bars, dark under them. */
-  background: linear-gradient(180deg, transparent 0%, rgba(63, 227, 158, .07) 45%, rgba(63, 227, 158, .13) 78%, transparent 100%) !important;
+  /* A soft blue rising behind the bars, dark under them. */
+  background: linear-gradient(180deg, transparent 0%, rgba(61, 123, 255, .06) 45%, rgba(61, 123, 255, .11) 78%, transparent 100%) !important;
   box-shadow: none !important;
   overflow: hidden;
 }
@@ -229,7 +229,7 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-val {
   padding: 2px 6px !important;
   border: 1px solid rgba(255, 255, 255, .1) !important;
   border-radius: 999px !important;
-  background: #1B2125 !important;
+  background: #161D2A !important;
   color: var(--te-text) !important;
   font: 700 11px/1.2 var(--font-display) !important;
   text-align: center;
@@ -261,7 +261,7 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-date {
   justify-items: center;
   min-height: 28px;
   margin: 0 !important;
-  color: #C9D0D4 !important;
+  color: #C1CBDC !important;
   font: 500 11.5px/1.2 var(--font-sans) !important;
   white-space: nowrap;
 }
@@ -279,7 +279,7 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-next-bar {
   width: 100%;
   max-width: 50px;
   height: 70%;
-  border: 2px dashed rgba(244, 247, 246, .3);
+  border: 2px dashed rgba(243, 245, 248, .3);
   border-radius: 10px 10px 5px 5px;
   color: var(--te-muted);
   font: 600 18px/1 var(--font-sans);
@@ -311,13 +311,13 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-line-marker .gl-line-t
   border: 0 !important;
   border-radius: 9px !important;
   background: #fff !important;
-  color: #0B0F12 !important;
+  color: #0A0D13 !important;
   box-shadow: 0 4px 14px rgba(0, 0, 0, .45) !important;
   font: 800 13px/1.1 var(--font-display) !important;
   letter-spacing: 0 !important;
   text-align: center;
 }
-html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-line-marker:focus-visible .gl-line-tag { outline: 2px solid var(--te-mint); outline-offset: 2px; }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gl-line-marker:focus-visible .gl-line-tag { outline: 2px solid #3D7BFF; outline-offset: 2px; }
 
 /* ---------------------------------------------------------------- window tiles */
 
@@ -353,7 +353,7 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button 
   justify-content: center;
   gap: 4px;
   padding: 7px 2px 6px;
-  background: #0A0D10;
+  background: #090C11;
   color: var(--te-text);
   font: 600 12.5px/1 var(--font-sans);
 }
@@ -368,8 +368,8 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button[
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button[data-tone="none"] .gl-window-pct { color: var(--te-faint); }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button:active { transform: scale(.96); }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button.active {
-  border-color: var(--te-mint) !important;
-  box-shadow: 0 0 0 1px var(--te-mint) inset !important;
+  border-color: #3D7BFF !important;
+  box-shadow: 0 0 0 1px #3D7BFF inset !important;
 }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button:disabled { cursor: default; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button:disabled strong { color: var(--te-faint); }
@@ -389,7 +389,7 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button:
     padding: 10px 6px !important;
     border: 1px solid var(--te-line) !important;
     border-radius: 12px !important;
-    background: #12171A !important;
+    background: #0F141D !important;
     cursor: pointer;
     transition: border-color .15s ease;
   }
@@ -399,9 +399,9 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button:
   html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button:is([data-heat=good], [data-heat=mid], [data-heat=low]) {
     border-color: color-mix(in srgb, var(--tone) 20%, var(--te-line)) !important;
     background: linear-gradient(180deg,
-      color-mix(in srgb, var(--tone) 4%, #101417) 0%,
-      color-mix(in srgb, var(--tone) 13%, #101417) 45%,
-      color-mix(in srgb, var(--tone) 38%, #101417) 100%) !important;
+      color-mix(in srgb, var(--tone) 4%, #0e1219) 0%,
+      color-mix(in srgb, var(--tone) 13%, #0e1219) 45%,
+      color-mix(in srgb, var(--tone) 38%, #0e1219) 100%) !important;
     box-shadow: inset 0 -1px color-mix(in srgb, var(--tone) 50%, transparent) !important;
   }
   html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button[data-heat] strong {
@@ -414,9 +414,9 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button:
     text-transform: uppercase;
   }
   html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button[data-heat] .gl-window-pct { order: 1; margin: 1px 0 0; color: color-mix(in srgb, var(--tone) 85%, #fff); font: 800 20px/1 var(--font-sans); letter-spacing: -.01em; }
-  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button[data-heat] .gl-window-rec { order: 2; margin: 0; color: color-mix(in srgb, var(--tone) 40%, #D9DFDD); font: 600 11.5px/1 var(--font-sans); }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button[data-heat] .gl-window-rec { order: 2; margin: 0; color: color-mix(in srgb, var(--tone) 40%, #D2D9E6); font: 600 11.5px/1 var(--font-sans); }
   html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button[data-heat=none] .gl-window-rec { color: var(--te-faint); }
-  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button[data-heat]:hover:not(:disabled) { border-color: color-mix(in srgb, var(--tone) 50%, #5A646A) !important; }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button[data-heat]:hover:not(:disabled) { border-color: color-mix(in srgb, var(--tone) 50%, #555F6F) !important; }
   html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-windowbar button[data-heat].active {
     border-color: rgba(255, 255, 255, .85) !important;
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .85), inset 0 -1px color-mix(in srgb, var(--tone) 50%, transparent) !important;
@@ -440,7 +440,7 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-window-menu[hidde
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-window-menu header { display: flex; align-items: center; justify-content: space-between; padding: 0 2px 4px; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-window-menu header strong { color: var(--te-text); font: 700 17px/1.2 var(--font-display); }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-window-menu header button {
-  width: 32px; height: 32px; border: 0; border-radius: 50%; background: #1F262B; color: var(--te-muted); font: 500 20px/1 var(--font-sans); cursor: pointer;
+  width: 32px; height: 32px; border: 0; border-radius: 50%; background: #1A2230; color: var(--te-muted); font: 500 20px/1 var(--font-sans); cursor: pointer;
 }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-window-menu > button {
   display: grid;
@@ -462,7 +462,7 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-window-menu > but
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-window-menu > button[data-tone="up"] span { color: var(--te-mint); }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-window-menu > button[data-tone="down"] span { color: var(--te-miss); }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-window-menu > button small { color: var(--te-muted); font: 500 13px/1 var(--font-sans); text-align: right; }
-html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-window-menu > button.active { border-color: var(--te-mint); background: rgba(63, 227, 158, .08); }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-window-menu > button.active { border-color: #3D7BFF; background: rgba(61, 123, 255, .1); }
 
 /* ---------------------------------------------------------------- average and median */
 
@@ -575,7 +575,7 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-line-control butt
   height: 40px !important;
   border: 0 !important;
   background: none !important;
-  color: var(--te-mint) !important;
+  color: #6A9BFF !important;
   font: 700 18px/1 var(--font-sans) !important;
 }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-line-control strong {
@@ -613,13 +613,13 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field[hidd
 /* The whole bar opens its menu (select.tsx [data-select-field]). */
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field[data-select-field] { cursor: pointer; transition: border-color .15s ease, background .15s ease; }
 @media (hover: hover) {
-  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field[data-select-field]:hover { border-color: #34404A !important; }
+  html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field[data-select-field]:hover { border-color: #2C3A52 !important; }
   html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field[data-select-field]:hover button[role="combobox"] { color: #fff !important; }
 }
-html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field[data-select-field]:has(button[aria-expanded="true"]) { border-color: rgba(63, 227, 158, .55) !important; }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field[data-select-field]:has(button[aria-expanded="true"]) { border-color: rgba(61, 123, 255, .6) !important; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field button[role="combobox"] { min-width: 0 !important; gap: 4px !important; border: 0 !important; background: none !important; box-shadow: none !important; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field button[role="combobox"]:focus-visible { box-shadow: none !important; outline: none !important; }
-html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field[data-select-field]:has(button[role="combobox"]:focus-visible) { border-color: rgba(63, 227, 158, .55) !important; }
+html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field[data-select-field]:has(button[role="combobox"]:focus-visible) { border-color: rgba(61, 123, 255, .6) !important; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field > span { color: var(--te-faint) !important; font: 600 11px/1 var(--font-sans) !important; text-transform: uppercase; letter-spacing: .05em; }
 html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field button {
   min-height: 32px !important;

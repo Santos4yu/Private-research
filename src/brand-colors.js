@@ -1,10 +1,12 @@
-// Ace Props replaced the old blue brand colour with green. A colour theme
-// saved before that change (a member's own accent, which also comes back
-// from their account on sign-in, or the admin's site-wide colours) that is
-// blue was the old brand, not a choice made for Ace Props, so it gives way
-// to the new default. Themes saved since carry `ace: true` and are always
-// kept, blue or not, as are older themes in any other colour.
-export const OLD_BRAND_ACCENTS = new Set(['#0082fe', '#67a8ff']);
+// Brand colours that were defaults rather than choices. A colour theme saved
+// under an earlier brand (a member's own accent, which also comes back from
+// their account on sign-in, or the admin's site-wide colours) that is one
+// of those defaults gives way to PropScout's: the first site's blue, and
+// Ace Props' green. Themes saved since PropScout carry `scout: true` and
+// are always kept. Ace Props themes (`ace: true`) in any other colour are a
+// member's own choice and are kept too, as are older themes that are not
+// the first site's blue.
+export const OLD_BRAND_ACCENTS = new Set(['#0082fe', '#67a8ff', '#00f58a']);
 
 function hue(hex) {
   const value = String(hex || '').trim().toLowerCase();
@@ -28,6 +30,7 @@ export function isOldBrandBlue(hex) {
 export function isOldBrandTheme(theme) {
   const primary = String(theme?.primary || '').toLowerCase();
   if (!primary) return false;
+  if (theme?.scout) return false;
   if (OLD_BRAND_ACCENTS.has(primary)) return true;
   if (theme?.ace) return false;
   return isOldBrandBlue(primary);
