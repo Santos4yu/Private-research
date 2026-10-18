@@ -8,6 +8,8 @@ import {applySplits,finite,fmt,hasPlayerContext,hasSplit,leagueOf,logValue,oppon
 import '../../mlb-finder-context.css';
 import './wnba-context.css';
 import {withLines} from '../../trend-lines';
+import {Failure} from '../../AdminNotice';
+import {useTrendPanel} from '../../trend-panel.js';
 
 
 // The WNBA player page, on the MLB Finder page's exact layout: the shared
@@ -34,10 +36,7 @@ function TrendChart({row,playerRows,logs,loading,onStat,chips,chipsNote,onChipRe
   chart:wnbaChart(logs,row.marketKey,opponent),lines:wnbaLines(playerRows,row.marketKey),linesStatus:'ready',odds:wnbaOdds(playerRows,row.marketKey),loading,onStat,
   filters:['seasonKind'],chips,chipsNote,onChipRemove,onChipsClear}),
   [row,playerRows,logs,loading,onStat,opponent,chips,chipsNote,onChipRemove,onChipsClear]);
- const latest=useRef(config);latest.current=config;
- const [available_,setAvailable]=useState(true);
- useLayoutEffect(()=>{const panel=window.vortexTrendPanel;if(!panel||!host.current){setAvailable(false);return undefined;}setAvailable(Boolean(panel.mount(host.current,latest.current)));return()=>panel.unmount();},[]);
- useLayoutEffect(()=>{window.vortexTrendPanel?.update(config);},[config]);
+ const available_=useTrendPanel(host,config);
  return <>{!available_&&<div className="wnba-board-message" role="status"><Database size={22} aria-hidden="true"/><strong>Trends could not open</strong><span>Refresh the page to reload player research.</span></div>}<div className="wnba-trend-host finder-mlb-trend-host" ref={host}/></>;
 }
 
@@ -63,7 +62,7 @@ function logCell(game,key){
 function PlayerGameLog({row,logs,loading,error,onRetry}){
  const games=realGames(logs).slice(-15).reverse();
  return <section className="mlb-context-card mlb-player-gamelog"><header><h2><ListOrdered size={15} aria-hidden="true"/>Game log · Last 15 games</h2><small>{row.player}</small></header>
-  {loading&&!games.length?<p className="mlb-context-note" role="status">Loading player game log…</p>:error&&!games.length?<p className="mlb-context-note" role="status">Game log could not load. <button type="button" onClick={onRetry}>Retry</button></p>:games.length?
+  {loading&&!games.length?<p className="mlb-context-note" role="status">Loading player game log…</p>:error&&!games.length?<Failure onRetry={onRetry} quiet="No games to show yet.">Game log could not load.</Failure>:games.length?
   <div className="mlb-player-log-scroll" tabIndex={0} role="region" aria-label={`${row.player} recent game statistics; scroll for more columns`}><table><thead><tr><th scope="col">Date</th><th scope="col">Opponent</th><th scope="col">Result</th>{LOG_COLUMNS.map(([key,label])=><th scope="col" key={key}>{label}</th>)}</tr></thead>
   <tbody>{games.map(game=><tr key={game.gameId}><th scope="row" title={game.date}><span className="mlb-log-date"><CalendarDays size={12} aria-hidden="true"/>{shortDate(game.date)}</span></th>
    <td><span className="mlb-log-opponent"><span className="mlb-log-logo"><Shield size={17} aria-hidden="true"/>{game.opponentLogo&&<img src={game.opponentLogo} width="20" height="20" alt="" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}</span><span>{game.isHome===false?'@ ':''}{game.opponent}</span></span></td>

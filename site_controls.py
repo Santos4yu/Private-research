@@ -14,7 +14,11 @@ TABS=('research','finder','moves','v2','slate','saved','slip','builder','moneyli
 LEGACY_TABS=('research','finder','v2','slate','saved','slip','builder','moneyline','nrfi','community')
 # Sections only an admin session may open. They have no site switch or
 # per-member rule (src/site-access-core.js ADMIN_TABS is the page's side).
-ADMIN_TABS=('moneyline','export')
+ADMIN_TABS=('moneyline',)
+# Sections that were admin-only and now have a switch like the rest. Every
+# saved setting had already "seen" them, so they're kept off for members
+# until the admin has saved the settings with their switch showing.
+OPENED_TABS=('export',)
 # Leagues offered inside the Finder. Kept separate from disabledSports, which
 # governs Research's own MLB/NFL switch -- hiding NFL from the Finder must not
 # take NFL research away from anyone.
@@ -32,7 +36,14 @@ SHEETS=('mlb:hr','mlb:hot','mlb:matchups','mlb:bvp','mlb:nrfi','mlb:park','mlb:s
  'nfl:best','nfl:td','nfl:firsttd','nfl:streaks','nfl:zones','nfl:redzone','nfl:speed','nfl:steam','nfl:shop','nfl:dvp','nfl:soft','nfl:goblins')
 LEGACY_SHEETS=tuple(key for key in SHEETS if key.startswith('mlb:'))
 HEX_COLOR_RE=re.compile(r'^#[0-9a-fA-F]{6}$')
-DEFAULT={'maintenance':False,'message':'We are updating PropScout. Please check back shortly.','requireLogin':True,'registrationOpen':True,'paidAccess':False,'disabledTabs':[],'disabledSports':[],'disabledFinderSports':[],'disabledSheets':[],'backgroundImage':{'url':'','opacity':35},'theme':{'primary':'','secondary':'','tint':0},'updatedAt':None}
+# The phone dock: the sections the admin puts in its four slots, in order
+# (More is always last). Any section a member can have may go there; one
+# switched off for someone is filled from the next in line on their phone
+# (src/mobile-nav-core.js dockTabs).
+DOCK_TABS=tuple(tab for tab in TABS if tab not in ADMIN_TABS)
+DOCK_SIZE=4
+DOCK_DEFAULT=['finder','research','v2','saved']
+DEFAULT={'maintenance':False,'message':'We are updating PropScout. Please check back shortly.','requireLogin':True,'registrationOpen':True,'paidAccess':False,'disabledTabs':[],'disabledSports':[],'disabledFinderSports':[],'disabledSheets':[],'dockTabs':list(DOCK_DEFAULT),'backgroundImage':{'url':'','opacity':35},'theme':{'primary':'','secondary':'','tint':0},'updatedAt':None}
 def read():
  try:
   policy=read_saved()
@@ -51,6 +62,9 @@ def read_saved():
  seen_tabs=set(seen_tabs) if isinstance(seen_tabs,list) else set(LEGACY_TABS)
  # An admin-only section has no switch: nothing to start switched off.
  new_tabs=[tab for tab in TABS if tab not in seen_tabs and tab not in ADMIN_TABS]
+ opened=value.get('openedTabsSeen')
+ opened=set(opened) if isinstance(opened,list) else set()
+ new_tabs+=[tab for tab in OPENED_TABS if tab not in opened and tab not in new_tabs]
  if new_tabs:policy['disabledTabs']=sorted(set(policy.get('disabledTabs') or [])|set(new_tabs))
  known=value.get('finderSportsSeen')
  known=set(known) if isinstance(known,list) else set(LEGACY_FINDER_SPORTS)
@@ -94,6 +108,10 @@ def validate(body):
  finder_sports=body.get('disabledFinderSports',[])
  if not isinstance(finder_sports,list) or any(t not in FINDER_SPORTS for t in finder_sports):raise ValueError('Invalid Finder sport')
  result['disabledFinderSports']=sorted(set(finder_sports))
+ dock=body.get('dockTabs',DOCK_DEFAULT)
+ if not isinstance(dock,list) or not 1<=len(dock)<=DOCK_SIZE or any(t not in DOCK_TABS for t in dock) or len(set(dock))!=len(dock):
+  raise ValueError('The dock takes one to four different sections')
+ result['dockTabs']=list(dock)
  sheets=body.get('disabledSheets',[])
  if not isinstance(sheets,list) or any(t not in SHEETS for t in sheets):raise ValueError('Invalid cheat sheet')
  result['disabledSheets']=sorted(set(sheets))
@@ -101,6 +119,7 @@ def validate(body):
  result['finderSportsSeen']=list(FINDER_SPORTS)
  result['sheetsSeen']=list(SHEETS)
  result['tabsSeen']=list(TABS)
+ result['openedTabsSeen']=list(OPENED_TABS)
  # Site-wide background must be a real http(s) link or our own uploaded-
  # image endpoint (see site_background.py) -- never a raw data: URL, since
  # this whole object is embedded in every visitor's site-status poll

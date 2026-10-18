@@ -9,6 +9,8 @@ import '../../mlb-finder-context.css';
 import '../wnba/wnba-context.css';
 import './nfl-finder.css';
 import {withLines} from '../../trend-lines';
+import {Failure} from '../../AdminNotice';
+import {useTrendPanel} from '../../trend-panel.js';
 
 
 // The NFL player page, on the WNBA and MLB Finder pages' exact layout: the
@@ -49,10 +51,7 @@ function TrendChart({row,playerRows,rows,loading,onStat,chips,chipsNote,onChipRe
   side:row.direction==='UNDER'?'Under':'Over',line:row.line,chart:nflFinderChart(rows,row.marketKey,opponent),lines:nflLineLadder(offers),linesStatus:'ready',
   odds:nflOddsRows(offers),loading,onStat,filters:['seasonKind'],chips,chipsNote,onChipRemove,onChipsClear}),
   [row,rows,loading,onStat,opponent,offers,home,away,chips,chipsNote,onChipRemove,onChipsClear,playerRows]);
- const latest=useRef(config);latest.current=config;
- const [ready,setReady]=useState(true);
- useLayoutEffect(()=>{const panel=window.vortexTrendPanel;if(!panel||!host.current){setReady(false);return undefined;}setReady(Boolean(panel.mount(host.current,latest.current)));return()=>panel.unmount();},[]);
- useLayoutEffect(()=>{window.vortexTrendPanel?.update(config);},[config]);
+ const ready=useTrendPanel(host,config);
  return <>{!ready&&<div className="wnba-board-message" role="status"><Database size={22} aria-hidden="true"/><strong>Trends could not open</strong><span>Refresh the page to reload player research.</span></div>}<div className="wnba-trend-host finder-mlb-trend-host" ref={host}/></>;
 }
 
@@ -137,7 +136,7 @@ function PlayerGameLog({row,rows,loading,error,onRetry,position}){
  const columns=family(position).log;
  const games=(rows||[]).slice(-15).reverse();
  return <section className="mlb-context-card mlb-player-gamelog"><header><h2><ListOrdered size={15} aria-hidden="true"/>Game log · Last 15 games</h2><small>{row.player}</small></header>
-  {loading&&!games.length?<p className="mlb-context-note" role="status">Loading player game log…</p>:error&&!games.length?<p className="mlb-context-note" role="status">Game log could not load. <button type="button" onClick={onRetry}>Retry</button></p>:games.length?
+  {loading&&!games.length?<p className="mlb-context-note" role="status">Loading player game log…</p>:error&&!games.length?<Failure onRetry={onRetry} quiet="No games to show yet.">Game log could not load.</Failure>:games.length?
   <div className="mlb-player-log-scroll" tabIndex={0} role="region" aria-label={`${row.player} recent game statistics; scroll for more columns`}><table><thead><tr><th scope="col">Date</th><th scope="col">Opponent</th><th scope="col">Result</th>{columns.map(key=><th scope="col" key={key}>{STATS[key].short}</th>)}</tr></thead>
   <tbody>{games.map(game=><tr key={game.gameId} data-dnp={game.dnp}><th scope="row" title={game.date}><span className="mlb-log-date"><CalendarDays size={12} aria-hidden="true"/>{shortDay(game.date)}</span></th>
    <td><span className="mlb-log-opponent"><span className="mlb-log-logo"><Shield size={17} aria-hidden="true"/><img src={`https://static.www.nfl.com/t_q-best/league/api/clubs/logos/${game.opponent}.svg`} width="20" height="20" alt="" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/></span><span>{game.isHome===false?'@ ':''}{game.opponent}</span></span></td>

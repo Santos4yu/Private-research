@@ -11,8 +11,11 @@ import {wnbaChart,wnbaLines,wnbaOdds} from './sports/wnba/trend-data';
 import TennisFinderContext from './sports/tennis/TennisFinderContext';
 import {TENNIS_MARKET_TABS,tennisPostedSelection} from './sports/tennis/tennis-research';
 import './sports/wnba/wnba-context.css';
+import {useIsAdmin} from './admin-notice.js';
+import {useTrendPanel} from './trend-panel.js';
 
 function TennisTrends({row,playerRows,onBack}) {
+  const admin=useIsAdmin();
   const host=useRef(null), [selected,setSelected]=useState(row), [data,setData]=useState(null), [loading,setLoading]=useState(true), [error,setError]=useState('');
   const [support,setSupport]=useState('totalgames');
   const [context,setContext]=useState(null);
@@ -38,14 +41,12 @@ function TennisTrends({row,playerRows,onBack}) {
     chart:wnbaChart(games.map(game=>({...game,opponent:tennisOpponentMatches(game.opponent,opponent)?opponent:game.opponent})),selected.marketKey,opponent),lines:wnbaLines(offers,selected.marketKey),
     odds:wnbaOdds(offers,selected.marketKey),linesStatus:'ready',loading,filters:['opponent'],researchOnly:String(selected.id).startsWith('research:'),
     onStat:key=>{const next=tennisPostedSelection(offers,key);if(next)setSelected(next);else{const stat=TENNIS_MARKET_TABS.find(item=>item.key===key),values=games.map(game=>game.values?.[key]).filter(Number.isFinite);if(stat)setSelected({...row,id:`research:${key}`,marketKey:key,market:stat.label,line:values.length?Math.round(values.reduce((a,b)=>a+b,0)/values.length*10)/10:0,apps:[],modifier:null});}}}),[row,selected,offers,data,context,loading,opponent]);
-  const latest=useRef(config);latest.current=config;
-  useLayoutEffect(()=>{const panel=window.vortexTrendPanel;panel?.mount(host.current,latest.current);return()=>panel?.unmount();},[]);
-  useLayoutEffect(()=>{window.vortexTrendPanel?.update(config);},[config]);
+  useTrendPanel(host,config);
   return <section className="finder-trend-view wnba-trend-page wnba-player-page">
     <FinderPlayerBanner row={selected} playerRows={offers} onBack={onBack}/>
     <div className="mlb-finder-workspace"><div className="mlb-trend-main">
       <div className="wnba-trend-host finder-mlb-trend-host" ref={host}/>
-      {error&&<p className="mlb-context-note" role="status">{error}</p>}
+      {error&&admin&&<p className="mlb-context-note" role="status">{error}</p>}
       {String(selected.id).startsWith('research:')&&<p className="mlb-context-note">No posted line.</p>}
       <section className="mlb-context-card mlb-supporting"><header><h2>Supporting stats</h2><small>Last 10 matches</small></header>
         <div className="mlb-support-tabs">{[['totalgames','Total Games'],['totalsets','Total Sets'],['aces','Aces'],['doublefaults','Double Faults']].map(([key,label])=>{const sample=games.slice(-10).map(g=>g.values[key]).filter(Number.isFinite);return <button type="button" key={key} aria-pressed={support===key} onClick={()=>setSupport(key)}>{label}<strong>{sample.length?(sample.reduce((a,b)=>a+b,0)/sample.length).toFixed(1):'—'} <small>avg.</small></strong></button>;})}</div>
@@ -62,9 +63,10 @@ function MLBTrends({ row, playerRows, onBack }) {
   const host = useRef(null);
   const [available, setAvailable] = useState(true);
   useEffect(() => {
-    const panel = window.vortexTrendPanel;
-    setAvailable(Boolean(panel?.mountMlb(host.current, row)));
-    return () => panel?.unmount();
+    const panel = window.vortexTrendPanel, node = host.current;
+    setAvailable(Boolean(panel?.mountMlb(node, row)));
+    // Only if this page still holds it (trend-panel.js).
+    return () => panel?.unmount(node);
   }, [row]);
   return <section className="finder-trend-view wnba-trend-page">
     <FinderPlayerBanner row={row} playerRows={playerRows} onBack={onBack} />

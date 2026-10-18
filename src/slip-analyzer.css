@@ -702,3 +702,29 @@
 .sa-builder-check ul{margin:6px 0 0;padding-left:18px;color:#b8c3d7}
 .sa-builder-check li{margin:2px 0}
 .sa-builder-check small{display:block;margin-top:4px;color:#98a0af;font-size:12px}
+
+/* ---------------------------------------------------------------- phones: one screen */
+/* The start screen sits in exactly the room between the clock and the
+   dock, nothing under the dock and nothing to scroll: a little higher than
+   before (its own colour runs up into iOS's glass band, its first words
+   just below it) and as tall as what's left above the dock. The example
+   takes the height that remains, centred, trimmed from the bottom on a
+   short phone; the three steps, which the buttons already say, only show
+   on a tall one. */
+@media (max-width:760px){
+ .sa-stage{--sa-top:max(10px,calc(var(--site-status-inset,0px) - 14px));--sa-dock:calc(82px + env(safe-area-inset-bottom,0px));
+  display:flex;flex-direction:column;box-sizing:border-box;height:calc(100dvh - var(--sa-top) - var(--sa-dock));min-height:0;margin-top:var(--sa-top)}
+ .sa-stage-main{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;align-items:stretch}
+ .sa-stage-copy{flex:none}
+ .sa-stage-demo{flex:1 1 auto;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+ .sa-stage-demo .sa-demo-card{margin-block:auto}
+ .sa-stage-steps{flex:none}
+}
+@media (max-width:760px) and (max-height:899px){
+ .sa-stage-steps{display:none}
+ .sa-stage-demo{padding-bottom:12px}
+}
+/* A short phone (SE): the example shows its first pick, whole. */
+@media (max-width:760px) and (max-height:740px){
+ .sa-demo-picks li:nth-child(n+2){display:none}
+}

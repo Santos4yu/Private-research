@@ -37,8 +37,10 @@ test('CS2 exact map markets retain lines and never fabricate hit rates',()=>{
 });
 test('CS2 uses the existing shared layout and tabs, not a separate design',()=>{
  const source=readFileSync(new URL('../src/sports/cs2/CS2PlayerPage.jsx',import.meta.url),'utf8');
- for(const shared of ['FinderPlayerBanner','FinderResearchTabs','vortexTrendPanel','mlb-finder-workspace','wnba-trend-host'])assert.ok(source.includes(shared));
- assert.ok(source.includes('useLayoutEffect'));
+ for(const shared of ['FinderPlayerBanner','FinderResearchTabs','useTrendPanel','mlb-finder-workspace','wnba-trend-host'])assert.ok(source.includes(shared));
+ // The shared trend panel, through the hook every player page uses.
+ const hook=readFileSync(new URL('../src/trend-panel.js',import.meta.url),'utf8');
+ assert.ok(hook.includes('vortexTrendPanel')&&hook.includes('useLayoutEffect'));
 });
 
 test('CS2 player page renders sport-specific tabs in the shared layout',async()=>{

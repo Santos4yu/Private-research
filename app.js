@@ -1,5 +1,5 @@
 import {dockState} from './src/mobile-nav-core.js';
-import {initSiteAccess,siteTabAllowed,loadSiteControls,showLockedTab,availableSiteTab,refreshSiteAccess,dismissBootLoader} from './src/site-access.js';
+import {initSiteAccess,siteTabAllowed,siteIsAdmin,loadSiteControls,showLockedTab,availableSiteTab,refreshSiteAccess,dismissBootLoader} from './src/site-access.js';
 import {ADMIN_TABS} from './src/site-access-core.js';
 import {isOldBrandTheme} from './src/brand-colors.js';
 /* =========================================================
@@ -972,7 +972,7 @@ async function loadCommunityFeed() {
     renderCommunityFeed();
   } catch (err) {
     console.error("loadCommunityFeed failed:", err);
-    els.communityFeedList.innerHTML = `<p class="empty-state">Couldn't load the feed. Try again.</p>`;
+    els.communityFeedList.innerHTML = `<p class="empty-state">${forMember("Couldn't load the feed. Try again.", "No posts to show yet.")}</p>`;
   } finally {
     communityLoading = false;
   }
@@ -1643,6 +1643,12 @@ function teamLogoHtml(teamId, teamName = "", className = "team-logo") {
 
 async function checkAuth() {
   return initSiteAccess();
+}
+
+// Errors are for admins (src/admin-notice.js): where part of a page can't
+// load, a member sees a calm line instead of what went wrong.
+function forMember(adminText, memberText) {
+  return siteIsAdmin() ? adminText : memberText;
 }
 
 function showToast(message, variant = "default", detail = "") {
@@ -2499,9 +2505,10 @@ async function fetchLivePrediction(player, stat, line, side, token) {
     renderReport(withAuthoritativeBoardMatchup(result, player, stat, line, side));
   } catch (err) {
     if (token !== lineSelectionToken) return;
-    const errorMessage = err.name === "AbortError"
+    const errorMessage = forMember(err.name === "AbortError"
       ? "Research took longer than 15 seconds. Please retry."
-      : err.message || "Live research is temporarily unavailable. Please tap the stat to retry.";
+      : err.message || "Live research is temporarily unavailable. Please tap the stat to retry.",
+    "Research for this stat isn't ready yet. Tap it again in a moment.");
     showNoDataMessage(stat, line, side, errorMessage);
   }
 }
@@ -2978,7 +2985,7 @@ async function loadGameLogStat(stat, { initialProp = null } = {}) {
   const wasLoading = gameLogState.loading;
   gameLogState.loading = false;
   if (results.length && results.every(result => result.status === 'rejected') && !recentGameLogSource().length) {
-    gameLogState.error = 'Could not load this stat. Try again.';
+    gameLogState.error = forMember('Could not load this stat. Try again.', 'No games to show for this stat yet.');
   }
   if (requests.length || wasLoading) paint();
   await lines;
@@ -4059,10 +4066,21 @@ window.vortexTrendPanel = {
     renderExternalTrendChips(config);
     if (viewport) restoreGameLogViewport(viewport);
   },
+  // Whether `host` has the panel right now: it mounted it last and the
+  // node is still inside it (a research report may have moved it since).
+  holds(host) {
+    const overlay = document.getElementById("gamelog-overlay") || els.gamelogOverlay;
+    return Boolean(host && externalTrendHost === host && overlay && host.contains(overlay));
+  },
   // Park the shared node back on <body> so a later MLB report can reclaim
   // it (getElementById only ever finds an ATTACHED node -- see
-  // parkGameLogOverlay for the bug class this avoids).
-  unmount() {
+  // parkGameLogOverlay for the bug class this avoids). A page passes its
+  // host: if another page has taken the panel since (React can run an old
+  // page's cleanup after a new page's mount), it is left alone -- parking
+  // it, and clearing the new page's setup, left that page broken and the
+  // chart reopened on its own over it.
+  unmount(caller) {
+    if (caller && caller !== externalTrendHost) return;
     const host = externalTrendHost;
     if (trendAdapter === EXTERNAL_TREND_ADAPTER) trendAdapter = MLB_TREND_ADAPTER;
     externalTrendConfig = null;
@@ -4299,7 +4317,7 @@ function renderTeamModal() {
   }
   if (data.error || !data.battingOrder || !data.battingOrder.length) {
     els.teamLineupNote.hidden = true;
-    const msg = data.error ? `Couldn't load roster — ${data.error}` : "No roster data available for this team.";
+    const msg = data.error && siteIsAdmin() ? `Couldn't load roster — ${data.error}` : "No roster data available for this team.";
     els.orderEmpty.hidden = false;
     els.orderEmpty.textContent = msg;
     els.orderTbody.innerHTML = "";
@@ -6036,7 +6054,7 @@ async function loadResearchTool(tool, force = false, token = toolRenderToken) {
       els.slateError.innerHTML = rows.length ? rows.map(renderToolCard).join("") : `<strong>${escapeHtml(tool)}</strong><span>No qualifying live data is available yet. No substitute list is shown.</span>`;
     }).catch((err) => {
       if (token !== toolRenderToken || activeResearchTool !== tool) return;
-      els.slateError.textContent = "Live data is temporarily unavailable.";
+      els.slateError.textContent = forMember("Live data is temporarily unavailable.", "Nothing to show here yet. Check back soon.");
     });
 }
 
@@ -6086,7 +6104,7 @@ async function loadSlate(force = false, token = toolRenderToken) {
     if (token !== toolRenderToken || activeResearchTool !== "attack") return;
     els.slateLoading.hidden = true;
     els.slateList.innerHTML = "";
-    els.slateError.textContent = "Live data is temporarily unavailable.";
+    els.slateError.textContent = forMember("Live data is temporarily unavailable.", "Nothing to show here yet. Check back soon.");
     els.slateError.hidden = false;
   }
 }
@@ -6438,7 +6456,9 @@ async function loadPitcherFinder(force = false) {
     unique.forEach(row => requestFinderHistory(row).catch(() => {}));
   } catch (error) {
     els.pitcherFinderState.hidden = false;
-    els.pitcherFinderState.textContent = state.pitcherFinderLoaded ? 'Showing recently loaded lines. Refresh could not complete.' : 'Live lines could not load. Tap Refresh to retry.';
+    els.pitcherFinderState.textContent = state.pitcherFinderLoaded
+      ? forMember('Showing recently loaded lines. Refresh could not complete.', 'Showing the latest lines.')
+      : forMember('Live lines could not load. Tap Refresh to retry.', 'No lines to show yet. Tap Refresh.');
   } finally { els.pitcherFinderRefresh.disabled = false; }
 }
 

@@ -1,5 +1,5 @@
-// Slip to PrizePicks (SlipExport.jsx): the page is for admins only, and its
-// link opens each pick found on its side.
+// Slip to PrizePicks (SlipExport.jsx): members get it when the admin switches it on,
+// and its link opens each pick found on its side.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {after} from 'node:test';
@@ -21,9 +21,10 @@ test('the link opens every pick found, each on its side, up to six', () => {
  assert.equal(entryLink([]),null);
 });
 
-test('only an admin sees Slip to PrizePicks', () => {
- const member={accessGranted:true,isAdmin:false,maintenance:false,suspended:false,requireLogin:false,disabledTabs:[],account:{id:'m'}};
+test('Slip to PrizePicks has its own switch: members get it when the admin turns it on', () => {
+ const member={accessGranted:true,isAdmin:false,maintenance:false,suspended:false,requireLogin:false,disabledTabs:['export'],account:{id:'m'}};
  assert.equal(canUseTab(member,'export'),false);
  assert.ok(hiddenTabs(member,['finder','export']).includes('export'));
- assert.equal(canUseTab({...member,isAdmin:true},'export'),true);
+ assert.equal(canUseTab({...member,isAdmin:true},'export'),true,'an admin always has it');
+ assert.equal(canUseTab({...member,disabledTabs:[]},'export'),true,'switched on: every member');
 });

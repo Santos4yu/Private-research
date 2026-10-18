@@ -32,9 +32,38 @@ class SiteControlsTests(unittest.TestCase):
   with patch.object(controls,'read',return_value=policy),patch.object(controls.admin_auth,'is_admin_request',return_value=False):
    self.assertFalse(controls.allowed({},'research',sport='nfl'));self.assertTrue(controls.allowed({},'research'))
   with patch.object(controls,'read',return_value=policy),patch.object(controls.admin_auth,'is_admin_request',return_value=True):self.assertTrue(controls.allowed({},'research',sport='nfl'))
+ def test_the_admin_chooses_the_phone_dock(self):
+  saved=controls.validate({**controls.DEFAULT,'dockTabs':['finder','bot','slip','v2']})
+  self.assertEqual(saved['dockTabs'],['finder','bot','slip','v2'],'kept in the order chosen')
+  # Settings saved before the dock was a choice keep the dock it always had.
+  body={key:value for key,value in controls.DEFAULT.items() if key!='dockTabs'}
+  self.assertEqual(controls.validate(body)['dockTabs'],['finder','research','v2','saved'])
+  for dock in ([],['finder','finder'],['finder','research','v2','saved','slip'],['moneyline'],['made-up'],'finder'):
+   with self.assertRaises(ValueError,msg=dock):controls.validate({**controls.DEFAULT,'dockTabs':dock})
  def test_sport_settings_validated_and_old_settings_compatible(self):
   self.assertEqual(controls.validate({**controls.DEFAULT,'disabledSports':['nfl']})['disabledSports'],['nfl'])
   with self.assertRaises(ValueError):controls.validate({**controls.DEFAULT,'disabledSports':['unknown']})
+ def test_slip_to_prizepicks_starts_off_for_members_until_the_admin_saves_its_switch(self):
+  import json
+  # Saved while it was admin-only: every section "seen", Slip to PrizePicks
+  # wasn't switchable -- it starts off for members.
+  saved={**controls.DEFAULT,'disabledTabs':[],'tabsSeen':list(controls.TABS),'finderSportsSeen':list(controls.FINDER_SPORTS),'sheetsSeen':list(controls.SHEETS)}
+  with patch.object(controls.store,'get',return_value=json.dumps(saved)):
+   self.assertEqual(controls.read()['disabledTabs'],['export'])
+  # Saved with its switch showing: the admin's choice stands, either way.
+  on=controls.validate({**controls.DEFAULT,'disabledTabs':[]})
+  self.assertIn('export',on['openedTabsSeen'])
+  with patch.object(controls.store,'get',return_value=json.dumps(on)):
+   self.assertEqual(controls.read()['disabledTabs'],[])
+  off=controls.validate({**controls.DEFAULT,'disabledTabs':['export']})
+  with patch.object(controls.store,'get',return_value=json.dumps(off)):
+   self.assertEqual(controls.read()['disabledTabs'],['export'])
+  # A switched-on section is open to members; Moneylines stays admin-only.
+  with patch.object(controls,'read',return_value={**controls.DEFAULT,'disabledTabs':[]}),patch.object(controls.admin_auth,'is_admin_request',return_value=False),\
+    patch.object(controls,'_items_open',return_value=True):
+   self.assertTrue(controls.allowed({},'export'))
+   self.assertFalse(controls.allowed({},'moneyline'))
+  self.assertIn('export',controls.DOCK_TABS)
  def test_a_new_finder_league_starts_off_until_the_admin_saves_it_on(self):
   import json
   # Settings saved before soccer and tennis existed: both are off, the rest unchanged.

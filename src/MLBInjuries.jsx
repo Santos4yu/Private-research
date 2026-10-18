@@ -1,6 +1,7 @@
 import React,{useEffect,useState} from 'react';
 import {HeartPulse,CalendarClock,UserRound} from 'lucide-react';
 import {createMLBContextClient} from './mlb-finder-research';
+import {Failure} from './AdminNotice';
 const request=createMLBContextClient();
 const aliases={ATH:'OAK',WSH:'WSN',CWS:'CHW',AZ:'ARI'};
 const key=value=>{const text=String(value||'').trim().toUpperCase();return aliases[text]||text;};
@@ -16,7 +17,7 @@ export default function MLBInjuries({row,data}){
  const selected=findInjuryTeam(teams,choices[side].values);
  return <section className="mlb-context-card mlb-injuries"><header><h2><HeartPulse size={16} aria-hidden="true"/>Injuries</h2><small>Current report</small></header>
   <div className="mlb-context-switch" aria-label="Injury report team">{choices.map((choice,index)=>{const team=findInjuryTeam(teams,choice.values);return <button type="button" key={index} aria-pressed={side===index} onClick={()=>setSide(index)}>{team?.logo&&<img src={team.logo} alt="" width="20" height="20"/>}{team?.abbr||choice.label}</button>;})}</div>
-  {state.loading?<div className="mlb-context-skeleton" role="status" aria-label="Loading injuries"><span/><span/><span/></div>:state.error?<p className="mlb-context-note" role="status">Injury report is temporarily unavailable. <button type="button" onClick={()=>setRetry(n=>n+1)}>Retry</button></p>:!selected?<p className="mlb-context-note">No injury report is available for this team.</p>:!selected.players.length?<p className="mlb-context-note">No injuries listed in the current report.</p>:<div className="mlb-injury-list">{selected.players.map(player=><article className="mlb-injury-card" key={player.id}>
+  {state.loading?<div className="mlb-context-skeleton" role="status" aria-label="Loading injuries"><span/><span/><span/></div>:state.error?<Failure onRetry={()=>setRetry(n=>n+1)} quiet="No injury report for this game yet.">Injury report is temporarily unavailable.</Failure>:!selected?<p className="mlb-context-note">No injury report is available for this team.</p>:!selected.players.length?<p className="mlb-context-note">No injuries listed in the current report.</p>:<div className="mlb-injury-list">{selected.players.map(player=><article className="mlb-injury-card" key={player.id}>
    <div className="mlb-injury-heading"><span className="mlb-injury-avatar"><UserRound size={26} aria-hidden="true"/>{player.photo&&<img src={player.photo} alt="" width="48" height="48" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}</span><div><h3>{player.name}</h3><small>{player.position}</small></div><span className="mlb-injury-status" data-day={player.status==='Day-To-Day'}>{player.status.replaceAll('-',' ')}</span></div>
    <p className="mlb-injury-reason">{player.reason}</p>
    <div className="mlb-injury-return"><CalendarClock size={15} aria-hidden="true"/><span>{injuryDate(player.expectedReturn)?`Estimated return · ${injuryDate(player.expectedReturn)}`:'Return timetable not reported'}</span></div>

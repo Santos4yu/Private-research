@@ -2,6 +2,7 @@ import './site-access.css';
 import {serviceRequestError} from './storage-retry.js';
 import {accessGranted,needsSubscription,accountControlsVisible,canUseTab,availableTab,canUseSport,canUseFinderSport,canUseSheet,hiddenTabs,ADMIN_TABS,FINDER_SPORTS,CHEAT_SHEETS} from './site-access-core.js';
 import {mountMembersPanel} from './site-members.js';
+import {DOCK_DEFAULT,DOCK_FILL,DOCK_SIZE,dockTabs} from './mobile-nav-core.js';
 import {mountAnnouncePanel} from './site-announce.js';
 import {mountRecordPanel} from './site-record.js';
 import {renderPricing} from './billing.js';
@@ -15,6 +16,8 @@ const names={research:'Research',finder:'Finder',moves:'Line Moves',v2:'Props',s
 let status=null,initPromise=null,activeDialog=null,lockedDialog=null;
 export function siteTabAllowed(tab){return canUseTab(status,tab);}
 export function siteIsAdmin(){return Boolean(status?.isAdmin);}
+/** The phone dock the admin chose (site_controls.py dockTabs), or null before the policy arrives. */
+export function siteDockTabs(){return Array.isArray(status?.dockTabs)?status.dockTabs:null;}
 export function siteSportAllowed(sport){return canUseSport(status,sport);}
 export function siteFinderSportAllowed(sport){return canUseFinderSport(status,sport);}
 export function siteSheetAllowed(key){return canUseSheet(status,key);}
@@ -459,6 +462,7 @@ export async function loadSiteControls(){
    +'</div>'
    +'<div class="site-tab-panel" data-panel="access" hidden>'
     +'<fieldset><legend>Available tabs</legend></fieldset>'
+    +'<fieldset class="site-dock-controls"><legend>Phone dock</legend><p class="site-controls-hint">The four sections on the bottom bar on phones, left to right; More is always last. If one is switched off for members, the next section in line takes its slot.</p></fieldset>'
     +'<fieldset class="site-sport-controls"><legend>Visible sports</legend></fieldset><fieldset class="site-finder-sport-controls"><legend>Finder sports</legend><p class="site-controls-hint">Leagues offered inside the Finder. Separate from the Research sports above. Admins always see every league.</p></fieldset>'
     +'<fieldset class="site-sheet-controls"><legend>Cheat sheets</legend><p class="site-controls-hint">Each sheet inside Cheat Sheets. New sheets start off. Admins always see every sheet.</p></fieldset>'
    +'</div>'
@@ -511,6 +515,27 @@ export async function loadSiteControls(){
  host.querySelector('.site-control-switches').append(button('Preview the pricing page',previewPricing,'site-secondary-button site-pricing-preview'));
  form.elements.message.value=policy.message;
  for(const [key,title] of Object.entries(names).filter(([key])=>!ADMIN_TABS.includes(key))){const label=document.createElement('label');const input=document.createElement('input');input.type='checkbox';input.name='tab';input.value=key;input.checked=!policy.disabledTabs.includes(key);label.append(input,document.createTextNode(title));host.querySelector('fieldset').append(label);}
+ // The phone dock: four slots, each any section a member can have
+ // (site_controls.py dockTabs). The line under them is what members get
+ // with the sections switched as above (mobile-nav-core.js dockTabs).
+ {
+  const box=host.querySelector('.site-dock-controls'),chosen=Array.isArray(policy.dockTabs)?policy.dockTabs:DOCK_DEFAULT,slots=[];
+  const grid=element('div');grid.className='site-dock-slots';box.append(grid);
+  for(let index=0;index<DOCK_SIZE;index++){
+   const label=element('label');label.className='site-dock-slot';
+   const select=document.createElement('select');select.name='dockSlot';
+   for(const key of DOCK_FILL){const option=document.createElement('option');option.value=key;option.textContent=names[key];select.append(option);}
+   select.value=chosen[index]||DOCK_FILL.find(key=>!chosen.includes(key)&&!slots.some(slot=>slot.value===key));
+   label.append(document.createTextNode(`Slot ${index+1}`),select);grid.append(label);slots.push(select);
+  }
+  const preview=element('p');preview.className='site-controls-hint site-dock-preview';box.append(preview);
+  const show=()=>{
+   const picked=slots.map(slot=>slot.value),off=new Set([...form.querySelectorAll('[name=tab]')].filter(input=>!input.checked).map(input=>input.value));
+   preview.textContent=new Set(picked).size!==picked.length?'Each slot needs a different section.'
+    :`Members see: ${dockTabs(picked,key=>!off.has(key)).map(key=>names[key]).join(' · ')} · More`;
+  };
+  form.addEventListener('change',show);show();
+ }
  const sportLabel=element('label');const sportInput=document.createElement('input');sportInput.type='checkbox';sportInput.name='sport';sportInput.value='nfl';sportInput.checked=!(policy.disabledSports||[]).includes('nfl');sportLabel.append(sportInput,document.createTextNode('NFL — show sport and allow NFL data'));host.querySelector('.site-sport-controls').append(sportLabel);
  // Finder leagues, one switch each. Unchecked = hidden from regular users.
  const finderSportNames={wnba:'WNBA',mlb:'MLB',nfl:'NFL',soccer:'Soccer',nhl:'NHL',nba:'NBA',tennis:'Tennis',cs2:'CS2',cfb:'CFB'};
@@ -603,7 +628,7 @@ export async function loadSiteControls(){
  form.onsubmit=async e=>{e.preventDefault();const message=statusEl();const button=host.querySelector('[type=submit]');button.disabled=true;const bgUrl=form.elements.bgUrl.value.trim();
   const themePrimary=form.elements.themePrimary.value,themeSecondary=form.elements.themeSecondary.value,themeTint=Number(form.elements.themeTint.value);
   const themeIsDefault=themePrimary.toLowerCase()===DEFAULT_THEME.primary&&themeSecondary.toLowerCase()===DEFAULT_THEME.secondary&&themeTint===DEFAULT_THEME.tint;
-  try{await request('/api/v2-admin',{action:'site-settings',settings:{maintenance:form.elements.maintenance.checked,requireLogin:form.elements.requireLogin.checked,registrationOpen:form.elements.registrationOpen.checked,paidAccess:form.elements.paidAccess.checked,message:form.elements.message.value,disabledSports:[...form.querySelectorAll('[name=sport]')].filter(c=>!c.checked).map(c=>c.value),disabledFinderSports:[...form.querySelectorAll('[name=finderSport]')].filter(c=>!c.checked).map(c=>c.value),disabledSheets:[...form.querySelectorAll('[name=sheet]')].filter(c=>!c.checked).map(c=>c.value),disabledTabs:[...form.querySelectorAll('[name=tab]')].filter(c=>!c.checked).map(c=>c.value),backgroundImage:{url:bgUrl,opacity:Number(form.elements.bgOpacity.value)},theme:themeIsDefault?{primary:'',secondary:'',tint:0}:{primary:themePrimary,secondary:themeSecondary,tint:themeTint,scout:true}}});
+  try{await request('/api/v2-admin',{action:'site-settings',settings:{maintenance:form.elements.maintenance.checked,requireLogin:form.elements.requireLogin.checked,registrationOpen:form.elements.registrationOpen.checked,paidAccess:form.elements.paidAccess.checked,message:form.elements.message.value,disabledSports:[...form.querySelectorAll('[name=sport]')].filter(c=>!c.checked).map(c=>c.value),disabledFinderSports:[...form.querySelectorAll('[name=finderSport]')].filter(c=>!c.checked).map(c=>c.value),disabledSheets:[...form.querySelectorAll('[name=sheet]')].filter(c=>!c.checked).map(c=>c.value),dockTabs:[...form.querySelectorAll('[name=dockSlot]')].map(select=>select.value),disabledTabs:[...form.querySelectorAll('[name=tab]')].filter(c=>!c.checked).map(c=>c.value),backgroundImage:{url:bgUrl,opacity:Number(form.elements.bgOpacity.value)},theme:themeIsDefault?{primary:'',secondary:'',tint:0}:{primary:themePrimary,secondary:themeSecondary,tint:themeTint,scout:true}}});
   if(bgUrl){
    message.textContent='Saved. Checking that the image loads…';
    const loads=await probeImageLoads(bgUrl);

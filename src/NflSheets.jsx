@@ -3,6 +3,7 @@ import {Activity,ArrowDown,ArrowRight,ArrowUp,ChevronDown,Crosshair,Flame,Gauge,
 import {finite,nameKey,num,fixed,price,time,initials,Img,Score,Tag,Table,Faq,Skeleton} from './cheat-sheet-parts';
 import {teamLogoUrl} from './sports/nfl/nfl-ui-core';
 import './nfl-sheets.css';
+import {useIsAdmin} from './admin-notice.js';
 
 // NFL Cheat Sheets: this week's games read twelve ways (nfl_sheets.py).
 // Each sheet is one request, kept here for a few minutes. Every sheet has an
@@ -517,6 +518,7 @@ const MAIN_ROWS={best:'rows',td:'players',streaks:'rows',zones:'rows',redzone:'r
 // ---------------------------------------------------------------- the view
 
 export function NflSheetView({sheetKey,sheets,onOpen}){
+ const admin=useIsAdmin();
  const sheet=sheets.find(item=>item.key===sheetKey)||sheets[0];
  const [state,setState]=useState({loading:true,data:null,error:null});
  const [game,setGame]=useState('all');
@@ -553,7 +555,7 @@ export function NflSheetView({sheetKey,sheets,onOpen}){
    </div>}
    <div className="nfl-layout" data-rail={side.length?'':undefined}>
     <div className="cs-body" data-loading={state.loading?'':undefined}>
-     {state.error?<div className="cs-error"><p>{state.error}</p><button type="button" onClick={()=>load(true)}>Try again</button></div>
+     {state.error?<div className="cs-error"><p>{admin?state.error:'This sheet is still being put together. Check back in a minute.'}</p><button type="button" onClick={()=>load(true)}>{admin?'Try again':'Refresh'}</button></div>
       :!data?<Skeleton/>
       :sheet.key==='best'?<BestSheet data={data} filter={filter} game={game}/>
       :sheet.key==='td'?<TdSheet data={data} filter={filter} game={game}/>

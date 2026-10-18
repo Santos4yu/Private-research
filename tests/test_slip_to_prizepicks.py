@@ -1,6 +1,6 @@
 """Slip to PrizePicks: a slip's picks, read off a picture, found on
 PrizePicks' boards in any league (prizepicks_export_core.find_picks), and
-the admin-only route that does it (api/prediction.py action=slip-export)."""
+the route that does it (api/prediction.py action=slip-export), behind its section switch."""
 import io
 import json
 import sys
@@ -114,10 +114,25 @@ class SlipExportRouteTests(unittest.TestCase):
             handler.do_POST()
         return sent, gate
 
-    def test_only_an_admin_gets_in(self):
+    def test_the_section_switch_decides_who_gets_in(self):
         sent, gate = self.post({"legs": [leg("Jalen Brunson", "Points", 26.5)]}, admin=False)
         self.assertEqual(gate.call_args.args[1], "export")
         self.assertEqual((sent["status"], sent["body"].get("featureDisabled")), (503, True))
+
+    def test_a_member_gets_in_once_the_section_is_on(self):
+        from api import prediction
+        from v2.board import admin_auth
+        raw = json.dumps({"legs": []}).encode()
+        handler = prediction.handler.__new__(prediction.handler)
+        handler.path = "/api/prediction?action=slip-export"
+        handler.headers = {"Content-Length": str(len(raw)), "Content-Type": "application/json"}
+        handler.rfile = io.BytesIO(raw)
+        sent = {}
+        with patch("site_controls.allowed", return_value=True), patch.object(admin_auth, "is_admin_request", return_value=False), \
+                patch.object(prediction, "session_with_live_access", return_value=True), \
+                patch.object(prediction.handler, "_send", lambda _self, status, payload: sent.update(status=status, body=payload)):
+            handler.do_POST()
+        self.assertEqual(sent["status"], 400, "past the door: an empty slip is the only thing wrong")
 
     def test_a_picture_is_read_into_its_picks(self):
         slip = {"app": {"key": "underdog", "name": "Underdog"}, "legs": [leg("ZywOo", "Kills", 38.5, league="CS2")]}
