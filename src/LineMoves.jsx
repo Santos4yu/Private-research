@@ -2,6 +2,7 @@ import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {Activity,ArrowDown,ArrowUp,ChevronDown,Grid2X2,RefreshCw,Search,X} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import './line-moves.css';
+import {useIsAdmin} from './admin-notice.js';
 
 // Line Moves: every change to a line the site sees, newest first
 // (line_moves.py fills the list; /api/board?view=moves reads it). The page
@@ -95,6 +96,7 @@ function Row({move,count,open,onToggle,fresh,now,history}){
 }
 
 export function LineMoves(){
+ const admin=useIsAdmin();
  const [data,setData]=useState({moves:[],checked:{},sports:[]});
  const [status,setStatus]=useState('loading');
  const [sport,setSport]=useState('all');
@@ -184,7 +186,7 @@ export function LineMoves(){
   </div>
 
   {status==='loading'&&<ul className="moves-list moves-skeleton" aria-hidden="true">{Array.from({length:6},(_,index)=><li key={index}/>)}</ul>}
-  {status==='error'&&<div className="moves-empty"><Activity size={22} aria-hidden="true"/><b>Line moves are unavailable right now</b><button type="button" onClick={()=>{setStatus('loading');load();}}>Try again</button></div>}
+  {status==='error'&&<div className="moves-empty"><Activity size={22} aria-hidden="true"/><b>{admin?'Line moves are unavailable right now':'No line moves to show yet'}</b><button type="button" onClick={()=>{setStatus('loading');load();}}>{admin?'Try again':'Refresh'}</button></div>}
   {status==='ready'&&!shown.length&&<div className="moves-empty"><Activity size={22} aria-hidden="true"/><b>{data.moves.length?'No moves match':'No line moves yet'}</b></div>}
   {status==='ready'&&groups.map(group=><div className="moves-group" key={group.label}>
    <h2>{group.label}</h2>

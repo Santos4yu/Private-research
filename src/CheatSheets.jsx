@@ -6,6 +6,7 @@ import {NFL_SHEETS,NflSheetView,fetchSheet as fetchNflSheet} from './NflSheets';
 import {teaser,teaserValue} from './sheet-teasers';
 import {siteSheetAllowed} from './site-access';
 import './cheat-sheets.css';
+import {useIsAdmin} from './admin-notice.js';
 
 // Cheat Sheets: today's MLB slate read eight ways (mlb_sheets.py). Each
 // sheet is one request to the board endpoint, kept here for a few minutes;
@@ -360,6 +361,7 @@ function Hub({league,sheets,onOpen}){
 }
 
 function SheetView({sheetKey,sheets,onOpen}){
+ const admin=useIsAdmin();
  const sheet=sheets.find(item=>item.key===sheetKey)||sheets[0];
  const [day,setDay]=useState('today');
  const [state,setState]=useState({loading:true,data:null,error:null});
@@ -398,7 +400,7 @@ function SheetView({sheetKey,sheets,onOpen}){
    </div>}
    {projected&&['hr','matchups','bvp'].includes(sheet.key)&&<p className="cs-note"><Info aria-hidden="true"/>Some lineups aren't posted yet, so those teams show their active hitters.</p>}
    <div className="cs-body" data-loading={state.loading?'':undefined}>
-    {state.error?<div className="cs-error"><p>{state.error}</p><button type="button" onClick={()=>load(true)}>Try again</button></div>
+    {state.error?<div className="cs-error"><p>{admin?state.error:'This sheet is still being put together. Check back in a minute.'}</p><button type="button" onClick={()=>load(true)}>{admin?'Try again':'Refresh'}</button></div>
      :!data?<Skeleton/>
      :sheet.key==='hr'?<HrSheet data={data} filter={filter} prices={prices}/>
      :sheet.key==='hot'?<HotSheet data={data} filter={filter}/>

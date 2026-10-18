@@ -8,6 +8,7 @@ import '../../mlb-finder-context.css';
 import '../wnba/wnba-context.css';
 import './soccer-player.css';
 import {withLines} from '../../trend-lines';
+import {Failure} from '../../AdminNotice';
 
 
 // The soccer player page, on the WNBA / NFL / MLB Finder pages' layout: the
@@ -72,7 +73,7 @@ function PlayerGameLog({row,games,loading,error,onRetry}){
  const shown=games.slice(-15).reverse();
  const columns=LOG_COLUMNS.filter(([key])=>shown.some(game=>finite(cell(game,key))));
  return <section className="mlb-context-card mlb-player-gamelog"><header><h2><ListOrdered size={15} aria-hidden="true"/>Match log · Last 15</h2><small>{row.player}</small></header>
-  {loading&&!shown.length?<p className="mlb-context-note" role="status">Loading match log…</p>:error&&!shown.length?<p className="mlb-context-note" role="status">The match log could not load. <button type="button" onClick={onRetry}>Retry</button></p>:shown.length?
+  {loading&&!shown.length?<p className="mlb-context-note" role="status">Loading match log…</p>:error&&!shown.length?<Failure onRetry={onRetry} quiet="No matches to show yet.">The match log could not load.</Failure>:shown.length?
   <div className="mlb-player-log-scroll" tabIndex={0} role="region" aria-label={`${row.player} recent match statistics; scroll for more columns`}><table><thead><tr><th scope="col">Date</th><th scope="col">Opponent</th><th scope="col">Result</th>{columns.map(([key,label])=><th scope="col" key={key}>{label}</th>)}</tr></thead>
   <tbody>{shown.map(game=><tr key={game.gameId}><th scope="row" title={`${game.date}${game.leagueName?' · '+game.leagueName:''}`}><span className="mlb-log-date"><CalendarDays size={12} aria-hidden="true"/>{shortDate(game.date)}</span></th>
    <td><span className="mlb-log-opponent"><span className="mlb-log-logo"><Shield size={17} aria-hidden="true"/>{game.opponentLogo&&<img src={game.opponentLogo} width="20" height="20" alt="" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}</span><span>{game.isHome===false?'@ ':''}{game.opponent}</span></span></td>

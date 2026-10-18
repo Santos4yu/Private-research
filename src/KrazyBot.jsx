@@ -16,6 +16,7 @@ import {accountProfile} from './account-sync';
 import {useVoice} from './voice-input';
 import './krazy-bot.css';
 import './ace-assistant.css';
+import {useIsAdmin} from './admin-notice.js';
 
 // The Scout Assistant: a research desk you can talk to. It answers from
 // today's graded picks (krazy-bot.js) in the browser, on the lines the
@@ -163,6 +164,7 @@ function Board({today,failed}){
 }
 
 export function KrazyBot(){
+ const admin=useIsAdmin();
  const sports=useMemo(()=>{const open=Object.keys(SPORTS).filter(sport=>siteFinderSportAllowed(sport));return open.length?open:['mlb'];},[]);
  const bot=useMemo(()=>createBot({
   sports,profile:memory,moves:recentMoves,
@@ -335,8 +337,8 @@ export function KrazyBot(){
     <div><h1>Scout Assistant</h1>
      <ul className="ace-top-leagues" aria-label={sports.map(sport=>SPORTS[sport].name).join(', ')}>{sports.map(sport=><li key={sport} title={SPORTS[sport].name}><LeagueMark sport={sport}/></li>)}</ul></div></div>
    <div className="ace-top-end">
-    <span className="ace-status" data-state={busy?'busy':today?'live':todayFailed?'down':'idle'}>
-     <i aria-hidden="true"/>{busy?'Researching':today?`${today.props.toLocaleString()} props live`:todayFailed?'Board unavailable':'Loading board'}</span>
+    <span className="ace-status" data-state={busy?'busy':today?'live':todayFailed&&admin?'down':'idle'}>
+     <i aria-hidden="true"/>{busy?'Researching':today?`${today.props.toLocaleString()} props live`:todayFailed?(admin?'Board unavailable':'Updating board'):'Loading board'}</span>
     {chatting&&<button type="button" className="ace-new" onClick={fresh} disabled={busy}><Plus size={16} aria-hidden="true"/><span>New chat</span></button>}
    </div>
   </header>
@@ -352,7 +354,7 @@ export function KrazyBot(){
         <p>Ask about a player, a prop or a slip. I check it against his recent games, the matchup, injuries and the books, and grade it the way the Slip Analyzer does.</p>
         <p className="ace-live" data-ready={today?'':undefined}><i aria-hidden="true"/>
          {today?<>{today.props.toLocaleString()} props<em>·</em>{today.games} games{today.next&&<><em>·</em>next start {today.next}</>}</>
-          :todayFailed?'Today\'s board is unavailable right now':'Loading today\'s board'}</p>
+          :todayFailed?(admin?'Today\'s board is unavailable right now':'Today\'s board updates shortly'):'Loading today\'s board'}</p>
        </div>
        <Spotlight play={plays[0]} onAsk={ask} loading={!today&&!todayFailed}/>
       </section>

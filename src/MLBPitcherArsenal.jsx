@@ -1,6 +1,7 @@
 import React,{useEffect,useState} from 'react';
 import {ChartPie,Users} from 'lucide-react';
 import {createMLBContextClient,pitchTypeStats,statText,lineupState} from './mlb-finder-research';
+import {Failure} from './AdminNotice';
 
 const request=createMLBContextClient();
 const colors=['#76edbc','#5cf8b2','#5cf8b2','#ffd27c','#ff8797','#5cf8b2'];
@@ -18,7 +19,7 @@ export default function MLBPitcherArsenal({data}){
   </section>
   <section className="mlb-context-card"><header><h2><Users size={16} aria-hidden="true"/>Opposing hitters vs pitch arsenal</h2><small>{data.teamInsightsTeamName}</small></header>
    <div className="mlb-context-switch" aria-label="Pitch type"><button type="button" aria-pressed={selected==='all'} onClick={()=>setSelected('all')}>All</button>{pitches.map((p,i)=><button type="button" key={p.code} aria-pressed={selected===p.code} title={p.name} onClick={()=>setSelected(p.code)} style={{color:colors[i%colors.length]}}>{p.code}</button>)}</div>
-   {state.loading?<p className="mlb-context-note" role="status">Preparing pitch-type matchups…</p>:state.error?<p className="mlb-context-note">Pitch-type results are temporarily unavailable. <button type="button" onClick={()=>setRetry(n=>n+1)}>Retry</button></p>:rows.length?<>
+   {state.loading?<p className="mlb-context-note" role="status">Preparing pitch-type matchups…</p>:state.error?<Failure onRetry={()=>setRetry(n=>n+1)}>Pitch-type results are temporarily unavailable.</Failure>:rows.length?<>
     <p className="mlb-context-note">{lineupState(state.data)}</p>
     <div className="mlb-context-table-wrap"><table><thead><tr>{['Hitter','PA','Pitches','K%','wOBA'].map(h=><th key={h} scope="col">{h}</th>)}</tr></thead><tbody>{rows.map(p=>{const s=pitchTypeStats(p,selected);return <tr key={p.id}><th scope="row"><span className="mlb-context-batter">{(state.data.lineupConfirmed||state.data.lineupProjected)&&<small>{p.order}</small>}<span>{p.name}<small>{p.position}</small></span></span></th><td>{statText(s.pa)}</td><td>{statText(s.pitches)}</td><td>{statText(s.k_pct,1)}{s.k_pct!=null?'%':''}</td><td>{statText(s.woba,3)}</td></tr>;})}</tbody></table></div>
    </>:<p className="mlb-context-note">Pitch-type results are not available for this lineup yet.</p>}

@@ -3,6 +3,7 @@ import {Activity,CalendarClock,ChartColumn,ChartPie,HeartPulse,ListOrdered,Refre
 import {TEAM_GROUPS,average,finite,findPlayer,fmt,longDate,price,shortDate,squad,statKeyOf,statOf,teamAverages,teamLogParams,teammateSplit,useSoccer,valueOf} from './soccer-finder';
 import {propFocus} from '../../prop-focus';
 import PropFocusTag from '../../PropFocusTag';
+import {useIsAdmin,QUIET} from '../../admin-notice.js';
 
 // The soccer matchup panel, on the WNBA / MLB panel's layout. Matchup and
 // Form read the match's own ESPN summary; Team Comparison and Similar read
@@ -12,7 +13,7 @@ const tabs=[['matchup','Matchup',Trophy],['similar','Similar',Users],['lineups',
 function Card({title,note,children,icon:Icon=Activity,className=''}){return <section className={'mlb-context-card '+className}><header><h2><Icon size={16} aria-hidden="true"/>{title}</h2>{note&&<small>{note}</small>}</header>{children}</section>;}
 function Empty({children}){return <p className="mlb-context-note">{children}</p>;}
 function Skeleton(){return <div className="mlb-context-skeleton" role="status" aria-label="Loading research"><span/><span/><span/><span/></div>;}
-function Failed({state,label}){return <Empty>{state.error||`${label} is temporarily unavailable.`} <button type="button" onClick={state.retry}><RefreshCw size={13} aria-hidden="true"/> Retry</button></Empty>;}
+function Failed({state,label}){const admin=useIsAdmin();return <Empty>{admin?<>{state.error||`${label} is temporarily unavailable.`} <button type="button" onClick={state.retry}><RefreshCw size={13} aria-hidden="true"/> Retry</button></>:QUIET}</Empty>;}
 function Logo({src,size=22}){return src?<img className="wnba-logo" src={src} alt="" width={size} height={size} loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>:null;}
 function Switch({label,options,value,onChange}){return <div className="mlb-context-switch" aria-label={label}>{options.map(([key,text])=><button type="button" key={key} aria-pressed={value===key} onClick={()=>onChange(key)}>{text}</button>)}</div>;}
 

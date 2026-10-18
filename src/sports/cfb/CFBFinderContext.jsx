@@ -7,6 +7,7 @@ import PropFocusTag from '../../PropFocusTag';
 import FootballWeather from '../FootballWeather';
 import {STATS,cfbLogo,family,playedGames,statValue} from './cfb-stats';
 import {cfbSeason,dvpPosition,injuryCode,opponentOf,useCfb} from './cfb-finder';
+import {useIsAdmin,QUIET} from '../../admin-notice.js';
 
 // The college football page's matchup panel: the NFL panel's tabs and cards
 // (NFLFinderContext.jsx) filled from ESPN's college football feed --
@@ -16,7 +17,7 @@ const tabs=[['matchup','Matchup',Trophy],['defense','Defense',Shield],['similar'
 function Card({title,note,children,icon:Icon=Activity,className=''}){return <section className={'mlb-context-card '+className}><header><h2><Icon size={16} aria-hidden="true"/>{title}</h2>{note&&<small>{note}</small>}</header>{children}</section>;}
 function Empty({children}){return <p className="mlb-context-note">{children}</p>;}
 function Skeleton(){return <div className="mlb-context-skeleton" role="status" aria-label="Loading research"><span/><span/><span/><span/></div>;}
-function Failed({state,label}){return <Empty>{state.error||`${label} is temporarily unavailable.`} <button type="button" onClick={state.retry}>Retry</button></Empty>;}
+function Failed({state,label}){const admin=useIsAdmin();return <Empty>{admin?<>{state.error||`${label} is temporarily unavailable.`} <button type="button" onClick={state.retry}>Retry</button></>:QUIET}</Empty>;}
 function Logo({src,size=22}){return src?<img className="wnba-logo" src={src} alt="" width={size} height={size} loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>:null;}
 function Avatar({src}){return <span className="wnba-avatar"><UserRound size={18} aria-hidden="true"/>{src&&<img src={src} alt="" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}</span>;}
 const logoFor=(league,abbr,row)=>league?.data?.teams?.[abbr]?.logo||(abbr===row?.teamAbbr?row?.teamLogo||cfbLogo(row?.teamId):abbr===opponentOf(row||{})?row?.opponentLogo||cfbLogo(row?.opponentId):'');

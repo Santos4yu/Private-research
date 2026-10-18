@@ -70,6 +70,8 @@ function harness(respond = () => undefined) {
     syncGameLogContext: () => {}, captureGameLogViewport: () => ({}), restoreGameLogViewport: () => {},
     recordLineHistory: () => {}, renderLineMovement: () => {}, isMlbTrend: () => true, trendAdapter: {statCode: stat => stat}, externalTrendConfig: null,
     escapeHtml: value => String(value), americanOdds: value => Number(value) > 0 ? `+${value}` : String(value),
+    // Read as an admin, who is told what went wrong (app.js forMember).
+    forMember: adminText => adminText,
   };
   const names = ['syncTrendStatHeader','gameLogLineKey','snapPropLine','gameLogStatCode','regradeGameLog','setGameLogPreviewLine',
     'loadGameLogStat','requestGameLogDetails','gamelogLineTier','loadGameLogPostedLines','loadGameLogBookOdds',

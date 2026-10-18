@@ -11,8 +11,10 @@ import {wnbaChart,wnbaLines,wnbaOdds} from './sports/wnba/trend-data';
 import TennisFinderContext from './sports/tennis/TennisFinderContext';
 import {TENNIS_MARKET_TABS,tennisPostedSelection} from './sports/tennis/tennis-research';
 import './sports/wnba/wnba-context.css';
+import {useIsAdmin} from './admin-notice.js';
 
 function TennisTrends({row,playerRows,onBack}) {
+  const admin=useIsAdmin();
   const host=useRef(null), [selected,setSelected]=useState(row), [data,setData]=useState(null), [loading,setLoading]=useState(true), [error,setError]=useState('');
   const [support,setSupport]=useState('totalgames');
   const [context,setContext]=useState(null);
@@ -45,7 +47,7 @@ function TennisTrends({row,playerRows,onBack}) {
     <FinderPlayerBanner row={selected} playerRows={offers} onBack={onBack}/>
     <div className="mlb-finder-workspace"><div className="mlb-trend-main">
       <div className="wnba-trend-host finder-mlb-trend-host" ref={host}/>
-      {error&&<p className="mlb-context-note" role="status">{error}</p>}
+      {error&&admin&&<p className="mlb-context-note" role="status">{error}</p>}
       {String(selected.id).startsWith('research:')&&<p className="mlb-context-note">No posted line.</p>}
       <section className="mlb-context-card mlb-supporting"><header><h2>Supporting stats</h2><small>Last 10 matches</small></header>
         <div className="mlb-support-tabs">{[['totalgames','Total Games'],['totalsets','Total Sets'],['aces','Aces'],['doublefaults','Double Faults']].map(([key,label])=>{const sample=games.slice(-10).map(g=>g.values[key]).filter(Number.isFinite);return <button type="button" key={key} aria-pressed={support===key} onClick={()=>setSupport(key)}>{label}<strong>{sample.length?(sample.reduce((a,b)=>a+b,0)/sample.length).toFixed(1):'—'} <small>avg.</small></strong></button>;})}</div>
