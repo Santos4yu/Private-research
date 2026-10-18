@@ -245,6 +245,16 @@ class LedgerTests(unittest.TestCase):
         body = sent[0]["member-a"][0]["body"]
         self.assertEqual(body, "Mayfield (QB) is out, so Daniels likely steps in. Recheck your Jalon Daniels Under 28.5 Pass Attempts.")
 
+    def test_a_limit_on_the_report_is_sent_for_an_over(self):
+        view = {"team": "DAL", "injuries": {"DAL": [{"name": "CeeDee Lamb", "status": "Active", "position": "WR",
+                                                     "limit": {"kind": "snaps", "cleared": False, "date": "2026-10-03"}}]}}
+        self.assertEqual(slip_ledger.news_alerts(pick(), view),
+                         [("limit:snaps", "Slip update", "CeeDee Lamb is expected to be on a snap count today. Recheck your CeeDee Lamb Over 59.5 Receiving Yards.")])
+        # An Under, or a limit said to be lifted: nothing to send.
+        self.assertEqual(slip_ledger.news_alerts(pick(side="UNDER"), view), [])
+        lifted = {"team": "DAL", "injuries": {"DAL": [{**view["injuries"]["DAL"][0], "limit": {"kind": "snaps", "cleared": True}}]}}
+        self.assertEqual(slip_ledger.news_alerts(pick(), lifted), [])
+
 
 
 class AdminRecordTests(unittest.TestCase):

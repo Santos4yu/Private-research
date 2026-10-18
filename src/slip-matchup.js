@@ -34,6 +34,7 @@ import {defenseCell, loadFinderDefense, loadMlbMatchups, loadHitterMatchups, wit
   withDefense} from './unified-finder-data.js';
 import {homeToday, matchupRead} from './slip-analyst.js';
 import {newsFacts} from './slip-games.js';
+import {workloadFacts} from './workload.js';
 import {statKeyOf} from './sports/soccer/soccer-stats.js';
 import {soccerText, oddsTilt} from './soccer-matchup.js';
 import {PLAYS as CFB_PLAYS, PLAY_WORDS as CFB_PLAY_WORDS, AGAINST_WORDS as CFB_AGAINST_WORDS} from './sports/cfb/cfb-stats.js';
@@ -753,8 +754,9 @@ export function matchupCase(leg, tables = {}) {
   else if (row.sport === 'soccer') facts.push(...soccer(row, sign, league));
   const records = leg.grade?.records;
   for (const extra of [roleTrend(row, sign), venueSplit(row, sign), headToHead(row, records), recentForm(row, records, leg.side)]) if (extra) facts.push(extra);
-  // Is he playing, who's out around him, where he bats (slip-games.js).
-  facts.push(...newsFacts(row, leg.side));
+  // Is he being held back (a snap count, his first game back: workload.js),
+  // is he playing, who's out around him, where he bats (slip-games.js).
+  facts.push(...workloadFacts(row, leg.side), ...newsFacts(row, leg.side));
   // What the prop model has already counted (his lineup spot, a teammate's
   // absence, the game's scoring) is shown but not counted again.
   const counted = new Set(leg.grade?.read?.model?.used || []);
@@ -769,6 +771,11 @@ export function matchupCase(leg, tables = {}) {
       if (item.kind === 'form' || item.kind === 'history' || (item.kind === 'split' && item.key === 'venue')) {
         Object.assign(item, {impact: 0, tone: 'flat', text: `${item.text} (in a smaller role)`});
       }
+    }
+  } else if (facts.some(item => item.level === 'return')) {
+    // His first game back: those games came before he was out, at his full workload.
+    for (const item of facts) {
+      if (item.kind === 'form' || item.kind === 'history') Object.assign(item, {impact: 0, tone: 'flat', text: `${item.text} (before he was out)`});
     }
   }
   const primary = facts.some(item => item.primary);

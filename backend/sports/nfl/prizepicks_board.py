@@ -158,6 +158,13 @@ def _support(hits, decisions):
     return (p + z * z / (2 * decisions) - z * sqrt(p * (1 - p) / decisions + z * z / (4 * decisions * decisions))) / (1 + z * z / decisions)
 
 
+def opportunities(values):
+    """A game's work for one player: passes thrown, carries and targets
+    (None for a defender or kicker, who has none of them)."""
+    total = sum(values.get(key) or 0 for key in ("passing_attempts", "rush_attempts", "targets") if _finite(values.get(key)))
+    return total or None
+
+
 def history_fields(games, market, line, opponent):
     """Windows, streak and support for one line from the player's games."""
     if not market:
@@ -178,8 +185,17 @@ def history_fields(games, market, line, opponent):
     # The games themselves, newest last, for the Smart Slip's projection
     # (src/slip-analyst.js). Preseason games are left out: starters barely
     # play them.
-    game_log = [{"value": value, "date": game.get("date") or None, "home": game.get("isHome"), "opponent": game.get("opponent")}
-                for game, value in played if _finite(value)][-GAME_LOG:]
+    # `usage`: his work that game (passes thrown, carries, targets), so a
+    # back on a snap count after an injury shows as one (src/workload.js).
+    game_log = []
+    for game, value in played:
+        if _finite(value):
+            entry = {"value": value, "date": game.get("date") or None, "home": game.get("isHome"), "opponent": game.get("opponent")}
+            usage = opportunities(game.get("values") or {})
+            if usage:
+                entry["usage"] = usage
+            game_log.append(entry)
+    game_log = game_log[-GAME_LOG:]
     return {"windows": windows, "streak": streak if values else None, "support": _support(l20["hits"], l20["decisions"]),
             "sample": len(recent), "average": windows["l10"]["average"], "gameLog": game_log}
 

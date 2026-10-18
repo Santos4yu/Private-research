@@ -1,6 +1,7 @@
 import React,{lazy,startTransition,Suspense,useCallback,useDeferredValue,useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowDown,ArrowUp,ArrowUpDown,ArrowLeft,Bookmark,ChartNoAxesColumnIncreasing,ChevronDown,ChevronLeft,ChevronRight,Grid2X2,ListFilter,LoaderCircle,RefreshCw,Search,SlidersHorizontal,Star,Swords,Table2,Trash2,Users,CalendarDays,Settings,UserRound} from 'lucide-react';
 import {finderPlayerRows,loadFinderSportRaw,loadFinderSnapshot,hasFinderSnapshot,applyFinderSnapshot,within,persistFinderCache,readFinderCache,carryHistory,matchesPrizePicksLine,finderSlipId,slipApps,windowGames,windowRate,loadFinderDefense,withDefense,trendPickRow,BOOK_NAMES,linkTarget,findLinkedRow,readFinderView,saveFinderView} from './unified-finder-data';
+import {comebackTag} from './workload';
 import {WNBAPlayerPage} from './sports/wnba/WNBAPlayerPage';
 import {siteFinderSportAllowed,siteIsAdmin} from './site-access';
 import {accountProfile} from './account-sync';
@@ -59,12 +60,14 @@ function Heat({value,kind,detail,loading,label}){return <td className="finder-st
 // hit rates for each window as colored boxes.
 const dash=<span className="finder-no-data">—</span>;
 const Row=React.memo(function Row({row,onOpen,pick,onPick}){
+ // Back from an absence: his hit rates may come from before it (workload.js).
+ const back=comebackTag(row);
  const record=w=>played(w)?w.hits+'/'+played(w):'';
  const delta=finite(row.average)?row.average-row.line:null,loading=row.historyStatus==='pending';
  const run=row.streak,teams=row.defenseTeams||0;
  return <tr onClick={()=>onOpen(row)}>
   <td className="finder-player-cell"><div className="finder-player"><div className="finder-portrait-wrap"><Photo src={row.headshot} className="finder-portrait" width="38" height="38" loading="lazy" fallback={<span className="finder-portrait finder-initials">{row.player.split(' ').map(p=>p[0]).slice(0,2).join('')}</span>}/>{row.teamLogo&&<img className="finder-team" src={row.teamLogo} alt="" width="16" height="16" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}<button className="finder-star" type="button" data-requires-tab="saved" aria-label={pick?row.player+' '+row.line+' '+row.market+' is in your picks ('+pick+'). Change or remove':'Add '+row.player+' '+row.line+' '+row.market+' to your picks'} aria-haspopup="dialog" aria-pressed={Boolean(pick)} data-side={pick?pick.toLowerCase():undefined} onClick={e=>{e.stopPropagation();onPick(row,e.currentTarget);}}><Star size={10} fill={pick?'currentColor':'none'}/></button></div>
-   <button type="button" className="finder-open" onClick={e=>{e.stopPropagation();onOpen(row);}} aria-label={'Open '+row.sport.toUpperCase()+' '+row.player+' '+row.line+' '+row.market+' trends'}><span className="finder-name">{row.player}{row.position&&<em>{row.position}</em>}</span><span className="finder-game"><League sport={row.sport}/>{row.teamAbbr||row.sport.toUpperCase()}{row.opponent?' vs '+row.opponent:''}{row.startsAt?' · '+when(row.startsAt):''}</span></button></div></td>
+   <button type="button" className="finder-open" onClick={e=>{e.stopPropagation();onOpen(row);}} aria-label={'Open '+row.sport.toUpperCase()+' '+row.player+' '+row.line+' '+row.market+' trends'}><span className="finder-name">{row.player}{row.position&&<em>{row.position}</em>}</span><span className="finder-game">{back&&<b className="finder-comeback" title={back.title}>{back.text}</b>}<League sport={row.sport}/>{row.teamAbbr||row.sport.toUpperCase()}{row.opponent?' vs '+row.opponent:''}{row.startsAt?' · '+when(row.startsAt):''}</span></button></div></td>
   <td className="finder-line-cell"><span className="finder-market"><b data-side={row.direction==='UNDER'?'less':'more'}><i>{row.direction==='UNDER'?'Less':'More'}</i>{row.line}</b>{['goblin','demon'].includes(row.modifier)&&<img src={'/prizepicks/'+row.modifier+'.png'} alt={row.modifier} width="15" height="15"/>}</span><span className="finder-stat-name">{row.market}</span></td>
   <td className="finder-num" data-label="DEF" title={finite(row.defense)?row.opponent+' ranks '+row.defense+(teams?' of '+teams:'')+' in what it allows to this position in this stat (1 allows the least).':undefined}>{finite(row.defense)?<><b>{row.defense}</b>{teams>0&&<small>of {teams}</small>}</>:dash}</td>
   <td className="finder-num" data-label="AVG L10" title="His average over his last 10, against the line">{finite(row.average)?<><b>{num(row.average)}</b>{delta!=null&&<small>{(delta>0?'+':delta<0?'−':'')+num(Math.abs(delta))} vs line</small>}</>:loading?<span className="finder-no-data">…</span>:dash}</td>

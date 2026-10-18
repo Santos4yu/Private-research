@@ -101,6 +101,9 @@ html:root .unified-finder .finder-table .finder-open { display: grid; gap: 4px; 
 html:root .unified-finder .finder-table .finder-name { display: block; overflow: hidden; color: var(--fb-text); font: 700 14px/1.2 var(--font-sans); letter-spacing: -.005em; white-space: nowrap; text-overflow: ellipsis; }
 html:root .unified-finder .finder-table .finder-name em { margin-left: 6px; color: var(--fb-faint); font: 600 10.5px/1 var(--font-sans); font-style: normal; letter-spacing: .03em; }
 html:root .unified-finder .finder-table .finder-game { display: block; margin: 0; overflow: hidden; color: var(--fb-muted); font: 500 11.5px/1.2 var(--font-sans); white-space: nowrap; text-overflow: ellipsis; }
+/* A player back from an absence: amber, a caution (workload.js). */
+html:root .unified-finder .finder-table .finder-game .finder-comeback { display: inline-block; margin: 0 6px 0 0; padding: 1px 5px; border-radius: 4px; vertical-align: top;
+  color: #F0B54A; background: rgba(240, 181, 74, .12); box-shadow: inset 0 0 0 1px rgba(240, 181, 74, .32); font: 700 9.5px/1.15 var(--font-sans); letter-spacing: .01em; }
 html:root .unified-finder .finder-table .finder-game .finder-league { display: inline-block; width: 12px; height: 13px; margin: -2px 5px 0 0; vertical-align: middle; object-fit: contain; }
 
 /* The line: More or Less, the number, any goblin or demon, then the stat. */

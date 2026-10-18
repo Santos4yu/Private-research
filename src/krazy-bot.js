@@ -519,7 +519,8 @@ export function withMatchup(leg, required, tables = {}) {
     matchup: found ? {...found, band: found.tone, tone, text: lead?.text || ''} : null};
   const news = found?.facts.find(item => item.kind === 'news' && item.level);
   const recent = leg.records?.l10 || leg.records?.l5;
-  if (judged.capped && news) {
+  // Held back today (workload.js) is the reason, capped or already Risky.
+  if (news && (judged.capped || news.level === 'limited' || news.level === 'return')) {
     out.redFlag = news.text;
     out.backed = false;
   } else if (tone === 'tough') {

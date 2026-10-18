@@ -297,16 +297,17 @@ export function newsFacts(row, side, teammates = row?.game?.teammates || []) {
 
 /**
  * The best tier the news allows, or null: a player who is out (or a
- * pitcher who isn't starting) is a Fade; Doubtful, out of the lineup or
- * in a bigger role than his recent games is Risky at best; Questionable,
- * or a teammate out whose absence puts him on the other side of the line,
- * keeps him out of Elite.
+ * pitcher who isn't starting) is a Fade; Doubtful, out of the lineup, in a
+ * bigger role than his recent games, or held back (on a snap count, in his
+ * first game back, his work down since: workload.js) is Risky at best;
+ * Questionable, a game back, or a teammate out whose absence puts him on
+ * the other side of the line, keeps him out of Elite.
  */
 export function newsCap(facts = []) {
   const levels = new Set(facts.map(item => item.level).filter(Boolean));
   if (levels.has('out')) return 'fade';
-  if (levels.has('doubtful') || levels.has('benched') || levels.has('role')) return 'risky';
-  if (levels.has('questionable') || levels.has('split')) return 'strong';
+  if (['doubtful', 'benched', 'role', 'limited', 'return'].some(level => levels.has(level))) return 'risky';
+  if (levels.has('questionable') || levels.has('split') || levels.has('back')) return 'strong';
   return null;
 }
 

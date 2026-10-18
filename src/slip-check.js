@@ -396,7 +396,8 @@ export function judge(read, tables = {}) {
   const base = baselineOf(read);
   // A bigger role than his recent games (a backup starting) leaves those
   // games little to say (slip-games.js).
-  const role = matchup?.facts?.some(item => item.level === 'role');
+  // Held back today (a snap count, his first game back: workload.js) the same.
+  const role = matchup?.facts?.some(item => item.level === 'role' || item.level === 'return' || item.level === 'limited');
   // The prop model already carries the matchup in its projection: its
   // read leads and the matchup grade adds a little on top.
   const blend = read.read?.model ? MODEL_BLEND[read.row?.sport] : null;

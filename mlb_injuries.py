@@ -4,6 +4,8 @@ from functools import lru_cache
 import time
 import requests
 
+import workload
+
 
 def normalize_report(payload):
     if not isinstance(payload, dict) or not isinstance(payload.get('injuries'), list):
@@ -20,7 +22,10 @@ def normalize_report(payload):
             details = injury.get('details') or {}
             # Structured medical fields avoid copying publisher names from news prose.
             reason = ' '.join(str(details[k]) for k in ('side', 'type', 'detail') if details.get(k))
+            # A pitch count or innings limit in the note, as a flag (workload.py).
+            limit = workload.note_limit(injury, 'mlb')
             players.append({
+                **({'limit': limit} if limit else {}),
                 'id': str(injury.get('id') or athlete['displayName']),
                 'name': athlete['displayName'],
                 'position': (athlete.get('position') or {}).get('abbreviation', ''),

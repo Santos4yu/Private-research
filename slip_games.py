@@ -24,6 +24,8 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
+import workload
+
 ESPN = "https://site.api.espn.com/apis/site/v2/sports"
 PATHS = {"nfl": "football/nfl", "cfb": "football/college-football", "nba": "basketball/nba", "wnba": "basketball/wnba",
          "nhl": "hockey/nhl", "mlb": "baseball/mlb"}
@@ -161,21 +163,73 @@ def espn_status(competition):
             "completed": bool(kind.get("completed")), "off": off}
 
 
+def _entry(item, sport):
+    """One ESPN injury-report entry: name, status, position and, when its
+    note says he'll be held back (a snap count, a minutes limit), the flag
+    for it (workload.py; the note itself stays here)."""
+    athlete = item.get("athlete") or {}
+    name = athlete.get("displayName") or athlete.get("fullName")
+    status = item.get("status") or ((item.get("details") or {}).get("fantasyStatus") or {}).get("description") or ""
+    if not (name and status):
+        return None
+    entry = {"name": name, "status": str(status), "position": (athlete.get("position") or {}).get("abbreviation") or ""}
+    limit = workload.note_limit(item, sport)
+    if limit:
+        entry["limit"] = limit
+    return entry
+
+
 def espn_injuries(summary, sport):
     """ESPN's injury report on its game page, by club code."""
     found = {}
     for block in summary.get("injuries") or []:
         team = code(sport, (block.get("team") or {}).get("abbreviation"))
-        listed = []
-        for item in block.get("injuries") or []:
-            athlete = item.get("athlete") or {}
-            name = athlete.get("displayName") or athlete.get("fullName")
-            status = item.get("status") or ((item.get("details") or {}).get("fantasyStatus") or {}).get("description") or ""
-            if name and status:
-                listed.append({"name": name, "status": str(status), "position": (athlete.get("position") or {}).get("abbreviation") or ""})
+        listed = [entry for entry in (_entry(item, sport) for item in block.get("injuries") or []) if entry]
         if team:
             found[team] = listed
     return found
+
+
+def league_injuries(sport):
+    """The league's whole injury report (ESPN), by club code: the same
+    entries with each player's latest note, for a player the game page
+    leaves off or lists without one. Kept ten minutes."""
+    def load():
+        payload = _get(f"{ESPN}/{PATHS[sport]}/injuries")
+        found = {}
+        for block in payload.get("injuries") or []:
+            for item in block.get("injuries") or []:
+                team = code(sport, ((item.get("athlete") or {}).get("team") or {}).get("abbreviation"))
+                entry = _entry(item, sport)
+                if team and entry:
+                    found.setdefault(team, []).append(entry)
+        return found
+    return _kept(f"injuries:{sport}", load, lambda _: 600)
+
+
+def with_league_notes(injuries, sport, item):
+    """`injuries` with the league report's workload flags added for the
+    players this pick asks about: on the game page without a flag, or not
+    on it at all. Nothing changes if the report can't be read."""
+    asked = [person.get("name") for person in item.get("players") or [] if person.get("name")]
+    team = code(sport, item.get("team"))
+    if not asked or not team:
+        return injuries
+    try:
+        report = league_injuries(sport).get(team) or []
+    except Exception:  # noqa: BLE001 -- the game page's report still stands
+        return injuries
+    listed = list(injuries.get(team) or [])
+    for name in asked:
+        noted = next((entry for entry in report if entry.get("limit") and find_person([entry], name)), None)
+        if not noted:
+            continue
+        mine = next((entry for entry in listed if find_person([entry], name)), None)
+        if mine is None:
+            listed.append(dict(noted))
+        elif not mine.get("limit"):
+            listed[listed.index(mine)] = {**mine, "limit": noted["limit"]}
+    return {**injuries, team: listed}
 
 
 def _scoreboard(sport, day):
@@ -307,6 +361,8 @@ def espn_view(sport, summary, item):
     view = {"found": True, "id": str((summary.get("header") or {}).get("id") or competition.get("id") or ""),
             **espn_status(competition), "startsAt": competition.get("date"), "teams": _sides(competition, sport),
             "injuries": espn_injuries(summary, sport)}
+    if view["state"] == "pre":
+        view["injuries"] = with_league_notes(view["injuries"], sport, item)
     # The pregame line: the prop model's expected scoring and blowout risk
     # (basketball), a football team's game script and passing volume.
     if sport in ("nba", "wnba", "nfl", "cfb") and view["state"] == "pre":
@@ -322,6 +378,12 @@ def espn_view(sport, summary, item):
 
 
 # ---------------------------------------------------------------- NHL
+
+def _noted(entry, note, date, sport):
+    """`entry` with the workload flag its report note gives, if any."""
+    limit = workload.note_limit({"shortComment": note, "date": date}, sport) if note else None
+    return {**entry, "limit": limit} if limit else entry
+
 
 NHL_STATES = {"FUT": "pre", "PRE": "pre", "LIVE": "in", "CRIT": "in", "FINAL": "post", "OFF": "post"}
 
@@ -383,7 +445,8 @@ def _nhl(item):
     for team in (item.get("team"), item.get("opponent")):
         if team:
             try:
-                injuries[code("nhl", team)] = [{"name": entry["name"], "status": entry["status"], "position": entry["position"]}
+                injuries[code("nhl", team)] = [_noted({"name": entry["name"], "status": entry["status"], "position": entry["position"]},
+                                                      entry.get("note"), entry.get("date"), "nhl")
                                                for entry in nhl_research.injuries(team)]
             except Exception:  # noqa: BLE001
                 pass
@@ -475,7 +538,8 @@ def _mlb(item):
         for club in mlb_injuries.get_injury_report().get("teams") or []:
             club_code = code("mlb", club.get("abbr"))
             if club_code in (team, opponent):
-                injuries[club_code] = [{"name": player["name"], "status": player["status"], "position": player["position"]}
+                injuries[club_code] = [{"name": player["name"], "status": player["status"], "position": player["position"],
+                                        **({"limit": player["limit"]} if player.get("limit") else {})}
                                        for player in club.get("players") or []]
     except Exception:  # noqa: BLE001
         pass
@@ -497,7 +561,8 @@ def soccer_view(summary, item):
     lineups = {team_id: {"confirmed": any(player.get("starter") for player in lineup["players"]),
                          "order": [{"id": player["id"], "name": player["name"]} for player in lineup["players"] if player.get("starter")]}
                for team_id, lineup in soccer_research._lineups(summary).items()}
-    injuries = {team_id: [{"name": entry["name"], "status": entry["status"], "position": entry["pos"]} for entry in listed]
+    injuries = {team_id: [_noted({"name": entry["name"], "status": entry["status"], "position": entry["pos"]}, entry.get("comment"), None, "soccer")
+                          for entry in listed]
                 for team_id, listed in soccer_research._injuries(summary).items()}
     status = espn_status(competition)
     return {"found": True, "id": str(item.get("eventId")), **status, "startsAt": competition.get("date"), "teams": teams,

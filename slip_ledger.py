@@ -554,6 +554,11 @@ def _group(position):
     return GROUP.get(position, position)
 
 
+# What the injury report's note says is held back (workload.py's kinds).
+HELD = {"snaps": "a snap count", "touches": "a limited number of touches", "minutes": "a minutes limit",
+        "icetime": "limited ice time", "pitches": "a pitch count", "innings": "an innings limit", "workload": "a limited workload"}
+
+
 def news_alerts(pick, view):
     """What's changed for a pending pick in its game's news: [(tag, title, body)]."""
     import slip_games
@@ -568,6 +573,12 @@ def news_alerts(pick, view):
         body = (f"{pick['player']} is listed {own['status']}. Picks on a player who doesn't play are usually voided."
                 if level == "out" else f"{pick['player']} is listed Doubtful and may not play. Recheck your {line}.")
         out.append((f"status:{level}", "Slip update", body))
+    # Held back today: a snap count, a minutes limit, a pitch count (workload.py).
+    limit = (own or {}).get("limit") or {}
+    if limit.get("kind") and not limit.get("cleared") and level != "out" and pick.get("side") == "OVER":
+        held = HELD.get(limit["kind"], HELD["workload"])
+        out.append((f"limit:{limit['kind']}", "Slip update",
+                    f"{pick['player']} is expected to be on {held} today. Recheck your {line}."))
     average = pick.get("average")
     # Hockey skaters share the ice four lines deep: one out doesn't hand another his job (slip-games.js newsFacts).
     one_job = not (pick.get("sport") == "nhl" and _group(pick.get("position")) != "G")
