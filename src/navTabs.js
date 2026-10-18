@@ -14,6 +14,7 @@ export const topTabs = [
   { title: 'Props', icon: BarChart3, value: 'v2' },
   { title: 'Parlay', icon: Sparkles, value: 'builder' },
   { title: 'Slip Analyzer', icon: ScanLine, value: 'slip' },
+  { title: 'Slip to PrizePicks', icon: ImageUp, value: 'export' },
   { type: 'separator' },
   { title: 'Builder', icon: ClipboardList, value: 'saved' },
 ];
@@ -29,6 +30,5 @@ export const moreTabs = [
 // Listed only for an admin session, under their own heading.
 export const adminTabs = [
   { title: 'Moneylines', icon: Trophy, value: 'moneyline' },
-  { title: 'Slip to PrizePicks', icon: ImageUp, value: 'export' },
   { title: 'Admin', icon: ShieldCheck, value: 'admin' },
 ];

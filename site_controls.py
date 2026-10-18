@@ -14,7 +14,11 @@ TABS=('research','finder','moves','v2','slate','saved','slip','builder','moneyli
 LEGACY_TABS=('research','finder','v2','slate','saved','slip','builder','moneyline','nrfi','community')
 # Sections only an admin session may open. They have no site switch or
 # per-member rule (src/site-access-core.js ADMIN_TABS is the page's side).
-ADMIN_TABS=('moneyline','export')
+ADMIN_TABS=('moneyline',)
+# Sections that were admin-only and now have a switch like the rest. Every
+# saved setting had already "seen" them, so they're kept off for members
+# until the admin has saved the settings with their switch showing.
+OPENED_TABS=('export',)
 # Leagues offered inside the Finder. Kept separate from disabledSports, which
 # governs Research's own MLB/NFL switch -- hiding NFL from the Finder must not
 # take NFL research away from anyone.
@@ -58,6 +62,9 @@ def read_saved():
  seen_tabs=set(seen_tabs) if isinstance(seen_tabs,list) else set(LEGACY_TABS)
  # An admin-only section has no switch: nothing to start switched off.
  new_tabs=[tab for tab in TABS if tab not in seen_tabs and tab not in ADMIN_TABS]
+ opened=value.get('openedTabsSeen')
+ opened=set(opened) if isinstance(opened,list) else set()
+ new_tabs+=[tab for tab in OPENED_TABS if tab not in opened and tab not in new_tabs]
  if new_tabs:policy['disabledTabs']=sorted(set(policy.get('disabledTabs') or [])|set(new_tabs))
  known=value.get('finderSportsSeen')
  known=set(known) if isinstance(known,list) else set(LEGACY_FINDER_SPORTS)
@@ -112,6 +119,7 @@ def validate(body):
  result['finderSportsSeen']=list(FINDER_SPORTS)
  result['sheetsSeen']=list(SHEETS)
  result['tabsSeen']=list(TABS)
+ result['openedTabsSeen']=list(OPENED_TABS)
  # Site-wide background must be a real http(s) link or our own uploaded-
  # image endpoint (see site_background.py) -- never a raw data: URL, since
  # this whole object is embedded in every visitor's site-status poll

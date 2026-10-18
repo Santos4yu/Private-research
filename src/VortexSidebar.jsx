@@ -9,7 +9,7 @@ import './vortex-sidebar.css';
 // listed here lands in the last one.
 const GROUPS = [
   { key: 'discover', label: 'Discover', tabs: ['finder', 'bot', 'sheets', 'moves', 'research'] },
-  { key: 'build', label: 'Build', tabs: ['builder', 'slip', 'saved'] },
+  { key: 'build', label: 'Build', tabs: ['builder', 'slip', 'export', 'saved'] },
   { key: 'more', label: 'More', tabs: ['promos', 'slate', 'v2'] },
 ];
 const items = topTabs.filter((item) => item.type !== 'separator');

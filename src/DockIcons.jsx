@@ -81,6 +81,12 @@ const ICONS = {
     <path d="M3 19.5a6 6 0 0 1 12 0" fill={fill(active)}/>
     <path d="M15.5 5.2a3.5 3.5 0 0 1 0 6.6M17.5 14a6 6 0 0 1 3.5 5.5"/>
   </>,
+  // A slip with an arrow leaving it: Slip to PrizePicks.
+  export: active => <>
+    <path d="M5 7.5A2.5 2.5 0 0 1 7.5 5h5M5 7.5v9A2.5 2.5 0 0 0 7.5 19h9a2.5 2.5 0 0 0 2.5-2.5v-5" />
+    <rect x="5" y="5" width="14" height="14" rx="2.5" fill={active ? 'currentColor' : 'none'} stroke="none"/>
+    <path d="M13 11l6.5-6.5M15 4.5h4.5V9" style={active ? INK : undefined}/>
+  </>,
   // Three tiles and a dot: everything else.
   more: active => <>
     <rect x="4" y="4" width="6.5" height="6.5" rx="2" fill={fill(active)}/>

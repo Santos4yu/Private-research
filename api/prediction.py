@@ -355,14 +355,11 @@ class handler(BaseHTTPRequestHandler):
             except Exception:
                 return self._send(422, {"error": "That screenshot couldn't be read. Try again, or use a clearer one."})
         if action == "slip-export":
-            # Slip to PrizePicks (admin only, site_controls ADMIN_TABS), in two
+            # Slip to PrizePicks (its own section switch, checked above), in two
             # asks so neither runs out of time: a slip's picture read into its
             # picks (slip_reader.py), then those picks -- fixed on the page if
             # need be -- found on PrizePicks' boards in any league
             # (prizepicks_export_core.find_picks), with the link that opens them.
-            from v2.board import admin_auth
-            if not admin_auth.is_admin_request(self.headers):
-                return self._send(403, {"error": "This section is temporarily unavailable", "featureDisabled": True})
             try:
                 content_length = int(self.headers.get("Content-Length") or 0)
             except ValueError:

@@ -12,7 +12,7 @@ export function accountControlsVisible(policy){
 }
 // Sections only an admin session ever sees. They have no switch in the
 // admin panel and no per-member rule: nobody else can be let in.
-export const ADMIN_TABS=['moneyline','export'];
+export const ADMIN_TABS=['moneyline'];
 export function canUseTab(policy,tab) {
   return accessGranted(policy) && (policy.isAdmin || (!ADMIN_TABS.includes(tab) && !policy.disabledTabs.includes(tab)));
 }
