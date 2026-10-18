@@ -33,7 +33,9 @@ QUIET_SECONDS = 6 * 3600
 # The outside timer checks lines every few minutes; this long without one is a problem.
 LINES_STALE_SECONDS = 45 * 60
 LIGHT_EVERY_SECONDS = 5 * 60
-_light = {'at': 0.0}
+# Never checked yet: a fresh server checks on its first poll (monotonic time
+# starts near zero when the machine does).
+_light = {'at': float('-inf')}
 
 
 def _store():

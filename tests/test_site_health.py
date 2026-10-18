@@ -37,7 +37,7 @@ class SiteHealthTests(unittest.TestCase):
         patch.object(health, '_store', return_value=self.store).start()
         self.sent = []
         patch.object(health, '_discord', side_effect=lambda title, detail: self.sent.append(title) or True).start()
-        health._light['at'] = 0.0
+        health._light['at'] = float('-inf')
         self.addCleanup(patch.stopall)
 
     def test_one_kind_of_problem_is_sent_once_until_it_goes_quiet(self):
@@ -52,7 +52,7 @@ class SiteHealthTests(unittest.TestCase):
         with patch('line_moves.checked', return_value=fresh):
             health.light_check()
         self.assertEqual(self.sent, [])
-        health._light['at'] = 0.0
+        health._light['at'] = float('-inf')
         stale = {'nfl': '2020-01-01T00:00:00+00:00', 'mlb': time.time() - 3 * 3600}
         with patch('line_moves.checked', return_value=stale):
             health.light_check()
