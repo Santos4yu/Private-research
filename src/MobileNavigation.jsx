@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { DockIcon } from './DockIcons';
 import { pickBuilder } from './pick-builder-client';
+import { DOCK_ITEMS, dockTabs } from './mobile-nav-core.js';
+import { siteDockTabs, siteTabAllowed } from './site-access';
 
-const destinations = [
-  { key: 'finder', label: 'Finder', icon: 'finder' },
-  { key: 'research', label: 'Research', icon: 'research' },
-  { key: 'v2', label: 'Props', icon: 'props' },
-  { key: 'saved', label: 'My Slip', icon: 'slip' },
-];
+// The admin's four sections (site_controls.py dockTabs), each one this
+// person can't open replaced in its slot by the next that they can.
+const readDock = () => dockTabs(siteDockTabs(), siteTabAllowed).map(key => ({ key, ...DOCK_ITEMS[key] }));
 
 export function MobileNavigation() {
   const [tab, setTab] = useState('finder');
   const [saved, setSaved] = useState(0);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [destinations, setDestinations] = useState(readDock);
 
   useEffect(() => {
     const sync = ({ detail }) => {
@@ -20,12 +20,16 @@ export function MobileNavigation() {
       setSaved(detail?.saved ?? 0);
     };
     const syncMore = ({ detail }) => setMoreOpen(Boolean(detail?.open));
+    const syncDock = () => setDestinations(readDock());
     window.addEventListener('vortex:dock-sync', sync);
     window.addEventListener('vortex:more-sync', syncMore);
+    window.addEventListener('vortex:site-policy', syncDock);
+    syncDock();
     window.dispatchEvent(new Event('vortex:dock-ready'));
     return () => {
       window.removeEventListener('vortex:dock-sync', sync);
       window.removeEventListener('vortex:more-sync', syncMore);
+      window.removeEventListener('vortex:site-policy', syncDock);
     };
   }, []);
 

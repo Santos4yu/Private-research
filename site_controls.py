@@ -32,7 +32,14 @@ SHEETS=('mlb:hr','mlb:hot','mlb:matchups','mlb:bvp','mlb:nrfi','mlb:park','mlb:s
  'nfl:best','nfl:td','nfl:firsttd','nfl:streaks','nfl:zones','nfl:redzone','nfl:speed','nfl:steam','nfl:shop','nfl:dvp','nfl:soft','nfl:goblins')
 LEGACY_SHEETS=tuple(key for key in SHEETS if key.startswith('mlb:'))
 HEX_COLOR_RE=re.compile(r'^#[0-9a-fA-F]{6}$')
-DEFAULT={'maintenance':False,'message':'We are updating PropScout. Please check back shortly.','requireLogin':True,'registrationOpen':True,'paidAccess':False,'disabledTabs':[],'disabledSports':[],'disabledFinderSports':[],'disabledSheets':[],'backgroundImage':{'url':'','opacity':35},'theme':{'primary':'','secondary':'','tint':0},'updatedAt':None}
+# The phone dock: the sections the admin puts in its four slots, in order
+# (More is always last). Any section a member can have may go there; one
+# switched off for someone is filled from the next in line on their phone
+# (src/mobile-nav-core.js dockTabs).
+DOCK_TABS=tuple(tab for tab in TABS if tab not in ADMIN_TABS)
+DOCK_SIZE=4
+DOCK_DEFAULT=['finder','research','v2','saved']
+DEFAULT={'maintenance':False,'message':'We are updating PropScout. Please check back shortly.','requireLogin':True,'registrationOpen':True,'paidAccess':False,'disabledTabs':[],'disabledSports':[],'disabledFinderSports':[],'disabledSheets':[],'dockTabs':list(DOCK_DEFAULT),'backgroundImage':{'url':'','opacity':35},'theme':{'primary':'','secondary':'','tint':0},'updatedAt':None}
 def read():
  try:
   policy=read_saved()
@@ -94,6 +101,10 @@ def validate(body):
  finder_sports=body.get('disabledFinderSports',[])
  if not isinstance(finder_sports,list) or any(t not in FINDER_SPORTS for t in finder_sports):raise ValueError('Invalid Finder sport')
  result['disabledFinderSports']=sorted(set(finder_sports))
+ dock=body.get('dockTabs',DOCK_DEFAULT)
+ if not isinstance(dock,list) or not 1<=len(dock)<=DOCK_SIZE or any(t not in DOCK_TABS for t in dock) or len(set(dock))!=len(dock):
+  raise ValueError('The dock takes one to four different sections')
+ result['dockTabs']=list(dock)
  sheets=body.get('disabledSheets',[])
  if not isinstance(sheets,list) or any(t not in SHEETS for t in sheets):raise ValueError('Invalid cheat sheet')
  result['disabledSheets']=sorted(set(sheets))

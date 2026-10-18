@@ -32,6 +32,14 @@ class SiteControlsTests(unittest.TestCase):
   with patch.object(controls,'read',return_value=policy),patch.object(controls.admin_auth,'is_admin_request',return_value=False):
    self.assertFalse(controls.allowed({},'research',sport='nfl'));self.assertTrue(controls.allowed({},'research'))
   with patch.object(controls,'read',return_value=policy),patch.object(controls.admin_auth,'is_admin_request',return_value=True):self.assertTrue(controls.allowed({},'research',sport='nfl'))
+ def test_the_admin_chooses_the_phone_dock(self):
+  saved=controls.validate({**controls.DEFAULT,'dockTabs':['finder','bot','slip','v2']})
+  self.assertEqual(saved['dockTabs'],['finder','bot','slip','v2'],'kept in the order chosen')
+  # Settings saved before the dock was a choice keep the dock it always had.
+  body={key:value for key,value in controls.DEFAULT.items() if key!='dockTabs'}
+  self.assertEqual(controls.validate(body)['dockTabs'],['finder','research','v2','saved'])
+  for dock in ([],['finder','finder'],['finder','research','v2','saved','slip'],['moneyline'],['made-up'],'finder'):
+   with self.assertRaises(ValueError,msg=dock):controls.validate({**controls.DEFAULT,'dockTabs':dock})
  def test_sport_settings_validated_and_old_settings_compatible(self):
   self.assertEqual(controls.validate({**controls.DEFAULT,'disabledSports':['nfl']})['disabledSports'],['nfl'])
   with self.assertRaises(ValueError):controls.validate({**controls.DEFAULT,'disabledSports':['unknown']})
