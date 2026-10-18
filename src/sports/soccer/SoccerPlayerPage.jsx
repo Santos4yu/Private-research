@@ -9,6 +9,7 @@ import '../wnba/wnba-context.css';
 import './soccer-player.css';
 import {withLines} from '../../trend-lines';
 import {Failure} from '../../AdminNotice';
+import {useTrendPanel} from '../../trend-panel.js';
 
 
 // The soccer player page, on the WNBA / NFL / MLB Finder pages' layout: the
@@ -36,10 +37,7 @@ function TrendChart({row,playerRows,games,loading,onStat,chips,chipsNote,onChipR
   chart:soccerChart(games,statKeyOf(row.marketKey),row.opponent),lines:wnbaLines(playerRows,row.marketKey),linesStatus:'ready',
   odds:wnbaOdds(playerRows,row.marketKey),loading,onStat,filters:['opponent','league','team'],chips,chipsNote,onChipRemove,onChipsClear}),
   [row,playerRows,games,loading,onStat,chips,chipsNote,onChipRemove,onChipsClear]);
- const latest=useRef(config);latest.current=config;
- const [ready,setReady]=useState(true);
- useLayoutEffect(()=>{const panel=window.vortexTrendPanel;if(!panel||!host.current){setReady(false);return undefined;}setReady(Boolean(panel.mount(host.current,latest.current)));return()=>panel.unmount();},[]);
- useLayoutEffect(()=>{window.vortexTrendPanel?.update(config);},[config]);
+ const ready=useTrendPanel(host,config);
  return <>{!ready&&<div className="wnba-board-message" role="status"><Database size={22} aria-hidden="true"/><strong>Trends could not open</strong><span>Refresh the page to reload player research.</span></div>}<div className="wnba-trend-host finder-mlb-trend-host" ref={host}/></>;
 }
 

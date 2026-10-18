@@ -4066,10 +4066,21 @@ window.vortexTrendPanel = {
     renderExternalTrendChips(config);
     if (viewport) restoreGameLogViewport(viewport);
   },
+  // Whether `host` has the panel right now: it mounted it last and the
+  // node is still inside it (a research report may have moved it since).
+  holds(host) {
+    const overlay = document.getElementById("gamelog-overlay") || els.gamelogOverlay;
+    return Boolean(host && externalTrendHost === host && overlay && host.contains(overlay));
+  },
   // Park the shared node back on <body> so a later MLB report can reclaim
   // it (getElementById only ever finds an ATTACHED node -- see
-  // parkGameLogOverlay for the bug class this avoids).
-  unmount() {
+  // parkGameLogOverlay for the bug class this avoids). A page passes its
+  // host: if another page has taken the panel since (React can run an old
+  // page's cleanup after a new page's mount), it is left alone -- parking
+  // it, and clearing the new page's setup, left that page broken and the
+  // chart reopened on its own over it.
+  unmount(caller) {
+    if (caller && caller !== externalTrendHost) return;
     const host = externalTrendHost;
     if (trendAdapter === EXTERNAL_TREND_ADAPTER) trendAdapter = MLB_TREND_ADAPTER;
     externalTrendConfig = null;

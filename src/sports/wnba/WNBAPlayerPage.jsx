@@ -9,6 +9,7 @@ import '../../mlb-finder-context.css';
 import './wnba-context.css';
 import {withLines} from '../../trend-lines';
 import {Failure} from '../../AdminNotice';
+import {useTrendPanel} from '../../trend-panel.js';
 
 
 // The WNBA player page, on the MLB Finder page's exact layout: the shared
@@ -35,10 +36,7 @@ function TrendChart({row,playerRows,logs,loading,onStat,chips,chipsNote,onChipRe
   chart:wnbaChart(logs,row.marketKey,opponent),lines:wnbaLines(playerRows,row.marketKey),linesStatus:'ready',odds:wnbaOdds(playerRows,row.marketKey),loading,onStat,
   filters:['seasonKind'],chips,chipsNote,onChipRemove,onChipsClear}),
   [row,playerRows,logs,loading,onStat,opponent,chips,chipsNote,onChipRemove,onChipsClear]);
- const latest=useRef(config);latest.current=config;
- const [available_,setAvailable]=useState(true);
- useLayoutEffect(()=>{const panel=window.vortexTrendPanel;if(!panel||!host.current){setAvailable(false);return undefined;}setAvailable(Boolean(panel.mount(host.current,latest.current)));return()=>panel.unmount();},[]);
- useLayoutEffect(()=>{window.vortexTrendPanel?.update(config);},[config]);
+ const available_=useTrendPanel(host,config);
  return <>{!available_&&<div className="wnba-board-message" role="status"><Database size={22} aria-hidden="true"/><strong>Trends could not open</strong><span>Refresh the page to reload player research.</span></div>}<div className="wnba-trend-host finder-mlb-trend-host" ref={host}/></>;
 }
 

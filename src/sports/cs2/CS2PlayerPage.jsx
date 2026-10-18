@@ -7,6 +7,7 @@ import {wnbaChart,wnbaLines,wnbaOdds} from '../wnba/trend-data';
 import '../wnba/wnba-context.css';
 import {researchData,shortDate,CS2_STATS,cs2Selection,cs2Sample,cs2Coverage} from './research-data';
 import './cs2-context.css';
+import {useTrendPanel} from '../../trend-panel.js';
 export const CS2_TABS=[['matchup','Matchup',Trophy],['maps','Maps',MapIcon],['stats','Player Stats',User],['odds','Prop Odds',ChartPie],['form','Recent Form',ListOrdered]];
 
 function MapSummary({maps}){
@@ -61,9 +62,7 @@ export function CS2PlayerPage({row,playerRows,onBack}){
   linesStatus:'ready',loading:false,filters:['opponent'],researchOnly:String(selected.id).startsWith('research:'),
   onStat:key=>{const next=cs2Selection(offers,key,row,games);if(next)setSelected(next);}
  }),[row,selected,offers,stats,history]);
- const latest=useRef(config);latest.current=config;
- useLayoutEffect(()=>{const panel=window.vortexTrendPanel;panel?.mount(host.current,latest.current);return()=>panel?.unmount();},[]);
- useLayoutEffect(()=>{window.vortexTrendPanel?.update(config);},[config]);
+ useTrendPanel(host,config);
  return <section className="finder-trend-view wnba-trend-page wnba-player-page cs2-player-page">
   <FinderPlayerBanner row={selected} playerRows={offers} onBack={onBack}/>
   <div className="mlb-finder-workspace"><div className="mlb-trend-main">

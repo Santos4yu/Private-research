@@ -11,6 +11,7 @@ import '../../mlb-finder-context.css';
 import '../wnba/wnba-context.css';
 import '../nfl/nfl-finder.css';
 import {Failure} from '../../AdminNotice';
+import {useTrendPanel} from '../../trend-panel.js';
 
 // The college football player page, on the NFL Finder page's layout: the
 // shared trend chart, supporting stats, depth chart, team usage and game log
@@ -50,10 +51,7 @@ function TrendChart({row,playerRows,rows,loading,onStat,chips,chipsNote,onChipRe
   chart:cfbChart(rows,row.valueKey,opponent),lines:wnbaLines(playerRows,row.marketKey),linesStatus:'ready',odds:wnbaOdds(playerRows,row.marketKey),
   loading,onStat,filters:['seasonKind','opponent'],chips,chipsNote,onChipRemove,onChipsClear}),
   [row,rows,loading,onStat,opponent,home,away,playerRows,chips,chipsNote,onChipRemove,onChipsClear]);
- const latest=useRef(config);latest.current=config;
- const [ready,setReady]=useState(true);
- useLayoutEffect(()=>{const panel=window.vortexTrendPanel;if(!panel||!host.current){setReady(false);return undefined;}setReady(Boolean(panel.mount(host.current,latest.current)));return()=>panel.unmount();},[]);
- useLayoutEffect(()=>{window.vortexTrendPanel?.update(config);},[config]);
+ const ready=useTrendPanel(host,config);
  return <>{!ready&&<div className="wnba-board-message" role="status"><Database size={22} aria-hidden="true"/><strong>Trends could not open</strong><span>Refresh the page to reload player research.</span></div>}<div className="wnba-trend-host finder-mlb-trend-host" ref={host}/></>;
 }
 
