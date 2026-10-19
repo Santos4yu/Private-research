@@ -1,7 +1,8 @@
-import React,{useEffect,useId,useLayoutEffect,useRef,useState} from 'react';
-import {BadgeDollarSign,ChartColumn,Check,CloudSun,Gauge,History,House,Newspaper,Plus,RotateCcw,ScanSearch,Shield,Target,TrendingUp,TriangleAlert,X} from 'lucide-react';
+import React,{useEffect,useId,useRef,useState} from 'react';
+import {BadgeDollarSign,ChartColumn,Check,CloudSun,Gauge,History,House,Newspaper,Plus,RotateCcw,Shield,Target,TrendingUp,TriangleAlert,X} from 'lucide-react';
 import {gradeProp} from './prop-analyze';
 import {buildInsight} from './prop-insight';
+import {createTour} from './analyze-tour';
 import {useIsAdmin} from './admin-notice';
 import {finderSlipProp} from './unified-finder-data';
 import {pickBuilder} from './pick-builder-client';
@@ -10,45 +11,22 @@ import './analyze-prop.css';
 // The Finder's Analyze, once its button is pressed (AnalyzeButton.jsx): the
 // line on the chart graded both ways the way the Slip Analyzer grades a pick
 // (prop-analyze.js), and written up (prop-insight.js). While it grades, a
-// spotlight moves over the page's own sections -- the chart, the hit rates,
-// the odds, the matchup cards -- and each one's name drops into the
-// progress card; then the result opens as a sheet from the bottom on a
-// phone, a dialog on a computer.
+// cursor (a finger on a phone) researches the page the way a person would
+// (analyze-tour.js): the chart, the hit-rate windows, the matchup and its
+// tabs, the game log, each dropping into the progress card. Then the result
+// opens as a sheet from the bottom on a phone, a dialog on a computer.
 
 const calm=()=>typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+const coarse=()=>typeof matchMedia==='function'&&matchMedia('(pointer: coarse)').matches;
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
 const figure=value=>Number.isInteger(value)?String(value):value.toFixed(1);
 const percent=value=>`${Math.round(value*100)}%`;
-// Each step of the progress card shows for at least this long.
-const STEP_MS=520;
-// The spotlight's stay on each section.
-const SPOT_MS=470;
+// Below the phone's status bar (app.js --site-status-inset) and the tag over the spotlight.
+const topEdge=()=>(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--site-status-inset'))||0)+58;
 
 const ICONS={form:TrendingUp,projection:Gauge,defense:Shield,usage:Target,history:History,venue:House,news:Newspaper,weather:CloudSun,books:BadgeDollarSign,risk:TriangleAlert};
 const STEPS=[['games','Reading the game log',ChartColumn],['matchup','Checking the matchup',Shield],['odds','Comparing the books',BadgeDollarSign],
- ['news','News, role and weather',Newspaper],['grade','Grading the pick',Gauge]];
-
-// The page's own sections, in reading order, that the scan passes over:
-// the player card, the chart, the hit rates, the odds, then the matchup
-// cards by their own titles. Only what's on the screen.
-const SPOTS=[['.fpb-hero','The line'],['.gamelog-chart','Last games'],['.gamelog-summary','Hit rates'],['.fpb-odds','Odds']];
-function pageSpots(floor=innerHeight){
- const out=[],seen=new Set();
- const add=(element,label)=>{
-  if(!element||seen.has(element)||element.closest('.ap-layer'))return;
-  const box=element.getBoundingClientRect();
-  const top=Math.max(box.top,10),bottom=Math.min(box.bottom,innerHeight-10,floor-14);
-  if(box.width<80||bottom-top<40)return;
-  seen.add(element);
-  out.push({label,box:{left:box.left,top,width:box.width,height:bottom-top}});
- };
- for(const [selector,label] of SPOTS)add(document.querySelector(selector),label);
- for(const card of document.querySelectorAll('.mlb-context-card')){
-  const title=(card.querySelector('h2')?.textContent||'').split('·')[0].trim();
-  add(card,title||'Matchup');
- }
- return out.slice(0,6);
-}
+ ['news','Injuries and news',Newspaper],['grade','Grading the pick',Gauge]];
 
 function useCount(target,run,ms=900){
  const [value,setValue]=useState(0);
@@ -162,15 +140,26 @@ export default function AnalyzeLayer({row,line,playerRows,origin,onClose}){
  const titleId=useId();
  const [attempt,setAttempt]=useState(0);
  const [phase,setPhase]=useState('scan');
- const [at,setAt]=useState(0);
+ const [stage,setStage]=useState(0);
  const [result,setResult]=useState(null);
  const [closing,setClosing]=useState(false);
- const [scanned,setScanned]=useState(false);
- const spot=useRef(null),tag=useRef(null),chips=useRef(null),card=useRef(null),closeButton=useRef(null);
+ const spot=useRef(null),tag=useRef(null),pointer=useRef(null),ripples=useRef(null),chips=useRef(null),card=useRef(null),closeButton=useRef(null);
+ const tour=useRef(null);
+ // The grading and the walk-through run together; the result opens when both are done.
+ const flow=useRef({graded:null,toured:false,shown:false});
+ const touch=useRef(coarse()).current;
+ const finish=()=>{
+  const state=flow.current;
+  if(!state.graded||!state.toured||state.shown)return;
+  state.shown=true;
+  setStage(STEPS.length);
+  setTimeout(()=>{setResult(state.graded);setPhase(state.graded.error?'error':'done');},calm()?0:420);
+ };
  const close=useRef(()=>{});
- close.current=()=>{if(closing)return;setClosing(true);setTimeout(onClose,calm()?0:260);};
+ close.current=()=>{if(closing)return;tour.current?.stop();setClosing(true);setTimeout(onClose,calm()?0:260);};
+ const skip=()=>{tour.current?.stop();flow.current.toured=true;setStage(STEPS.length-1);finish();};
 
- // The page stays put underneath; Escape closes.
+ // The page stays put underneath (the walk-through scrolls it itself); Escape closes.
  useEffect(()=>{
   const html=document.documentElement,body=document.body;
   const before=[html.style.overflow,body.style.overflow];
@@ -180,69 +169,33 @@ export default function AnalyzeLayer({row,line,playerRows,origin,onClose}){
   return()=>{html.style.overflow=before[0];body.style.overflow=before[1];window.removeEventListener('keydown',key);};
  },[]);
 
- // The grading, and the progress card's steps: each shows for a beat, and
- // never ahead of the grading itself.
  useEffect(()=>{
   const job=new AbortController();
-  let shown=0,reached=0,done=false,outcome=null,timer=null;
-  setPhase('scan');setAt(0);setResult(null);setScanned(false);
-  const quick=calm();
-  const index=key=>STEPS.findIndex(([name])=>name===key);
-  const tick=()=>{
-   if(shown<Math.min(reached,STEPS.length)){shown+=1;setAt(shown);}
-   if(done&&shown>=STEPS.length){
-    timer=setTimeout(()=>{setResult(outcome);setPhase(outcome?.error?'error':'done');},quick?0:280);
-    return;
-   }
-   timer=setTimeout(tick,quick?90:STEP_MS);
-  };
-  gradeProp(row,{line,playerRows,signal:job.signal,step:key=>{reached=Math.max(reached,index(key));}})
+  flow.current={graded:null,toured:false,shown:false};
+  setPhase('scan');setStage(0);setResult(null);
+  let outcome=null;
+  gradeProp(row,{line,playerRows,signal:job.signal})
    .then(({row:graded,over,under})=>{outcome={row:graded,insight:buildInsight(graded,over,under)};})
-   .catch(error=>{if(job.signal.aborted||error?.name==='AbortError')return;outcome={error};})
-   .finally(()=>{if(job.signal.aborted)return;reached=STEPS.length;done=true;});
-  timer=setTimeout(tick,quick?60:STEP_MS);
-  return()=>{job.abort();clearTimeout(timer);};
+   .catch(error=>{if(!job.signal.aborted&&error?.name!=='AbortError')outcome={error};})
+   .then(()=>{if(job.signal.aborted||!outcome)return;flow.current.graded=outcome;finish();});
+  let stopTour=()=>{};
+  if(calm()){
+   // Reduced motion: no walk-through, the steps tick quickly.
+   let index=0;
+   const timer=setInterval(()=>{
+    index+=1;setStage(Math.min(index,STEPS.length-1));
+    if(index>=STEPS.length-1){clearInterval(timer);flow.current.toured=true;finish();}
+   },110);
+   stopTour=()=>clearInterval(timer);
+  }else{
+   const walk=createTour({spot:spot.current,tag:tag.current,pointer:pointer.current,ripples:ripples.current,chips:chips.current,card:()=>card.current,
+    step:index=>setStage(index),top:topEdge,floor:()=>card.current?.getBoundingClientRect().top??innerHeight,touch,start:origin});
+   tour.current=walk;
+   walk.run().catch(()=>{}).then(()=>{if(job.signal.aborted)return;flow.current.toured=true;finish();});
+   stopTour=()=>walk.stop();
+  }
+  return()=>{job.abort();stopTour();};
  },[row,line,playerRows,attempt]);
-
- // The scan: the spotlight starts on the button, moves over each section
- // on the screen, and drops its name into the progress card.
- useLayoutEffect(()=>{
-  if(phase!=='scan'||calm())return undefined;
-  const element=spot.current;
-  if(!element)return undefined;
-  const spots=pageSpots(card.current?.getBoundingClientRect().top??innerHeight);
-  const timers=[];
-  const later=(fn,ms)=>timers.push(setTimeout(fn,ms));
-  const place=box=>Object.assign(element.style,{left:`${box.left-6}px`,top:`${box.top-6}px`,width:`${box.width+12}px`,height:`${box.height+12}px`});
-  if(origin)place(origin);
-  const fly=item=>{
-   const host=chips.current,target=card.current?.getBoundingClientRect();
-   if(!host||!target)return;
-   const chip=document.createElement('span');
-   chip.className='ap-chip';
-   chip.textContent=item.label;
-   host.append(chip);
-   const from={x:item.box.left+item.box.width/2-chip.offsetWidth/2,y:item.box.top+Math.min(item.box.height/2,90)-chip.offsetHeight/2};
-   const to={x:target.left+target.width/2-chip.offsetWidth/2,y:target.top+18};
-   const flight=chip.animate([
-    {transform:`translate(${from.x}px,${from.y}px) scale(.9)`,opacity:0},
-    {transform:`translate(${from.x}px,${from.y-10}px) scale(1)`,opacity:1,offset:.18},
-    {transform:`translate(${to.x}px,${to.y}px) scale(.72)`,opacity:.9,offset:.88},
-    {transform:`translate(${to.x}px,${to.y+6}px) scale(.6)`,opacity:0}],{duration:760,easing:'cubic-bezier(.45,0,.2,1)',fill:'forwards'});
-   flight.onfinish=()=>{chip.remove();card.current?.animate([{scale:'1'},{scale:'1.018'},{scale:'1'}],{duration:260,easing:'ease-out'});};
-  };
-  spots.forEach((item,index)=>{
-   later(()=>{
-    place(item.box);
-    element.dataset.on='true';
-    if(tag.current)tag.current.textContent=item.label;
-    later(()=>fly(item),300);
-   },140+index*SPOT_MS);
-  });
-  // The scan done: the spotlight lets go and the page dims evenly.
-  later(()=>{element.dataset.on='false';setScanned(true);},140+spots.length*SPOT_MS+120);
-  return()=>timers.forEach(clearTimeout);
- },[phase,origin,attempt]);
 
  useEffect(()=>{if(phase!=='scan')closeButton.current?.focus({preventScroll:true});},[phase]);
 
@@ -251,18 +204,25 @@ export default function AnalyzeLayer({row,line,playerRows,origin,onClose}){
  const graded=result?.row||row;
  const failed=phase==='error';
  const thin=phase==='done'&&!insight;
- return <div className="ap-layer" data-phase={phase} data-closing={closing||undefined} data-scanned={scanned||calm()||undefined}>
+ const current=STEPS[Math.min(stage,STEPS.length-1)];
+ const CurrentIcon=current[2];
+ return <div className="ap-layer" data-phase={phase} data-closing={closing||undefined}>
   <div className="ap-dim" onClick={()=>close.current()} aria-hidden="true"/>
-  {phase==='scan'&&!calm()&&<div className="ap-spot" ref={spot} aria-hidden="true"><span className="ap-spot-tag"><ScanSearch size={13}/><span ref={tag}>The line</span></span></div>}
+  {phase==='scan'&&!calm()&&<div className="ap-spot" ref={spot} aria-hidden="true"><span className="ap-spot-tag"><CurrentIcon size={13}/><span ref={tag}>The line</span></span></div>}
   <div className="ap-chips" ref={chips} aria-hidden="true"/>
+  <div className="ap-ripples" ref={ripples} aria-hidden="true"/>
+  {phase==='scan'&&!calm()&&<span className="ap-pointer" ref={pointer} data-touch={touch||undefined} aria-hidden="true">
+   {touch?<i/>:<svg viewBox="0 0 26 32"><path d="M2 2 L2 25 L7.6 20 L11.4 29 L15.4 27.3 L11.6 18.6 L19 18.6 Z"/></svg>}</span>}
   {phase==='scan'&&<div className="ap-progress" ref={card} role="status" aria-live="polite">
    <div className="ap-progress-head">
     <span className="ap-spinner" aria-hidden="true"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="16"/><path d="M20 4a16 16 0 0 1 16 16"/></svg></span>
-    <span><b>Analyzing {row.player}</b><small>{sideWord} {figure(Number(line))} {row.market}</small></span>
+    <span className="ap-progress-title"><b>Analyzing {row.player}</b><small>{sideWord} {figure(Number(line))} {row.market}</small></span>
+    {!calm()&&<button type="button" className="ap-skip" onClick={skip}>Skip</button>}
    </div>
-   <ol>{STEPS.map(([key,label,Icon],index)=><li key={key} data-state={index<at?'done':index===at?'on':'wait'}>
-    <span className="ap-step-icon">{index<at?<Check size={14} strokeWidth={3} aria-hidden="true"/>:<Icon size={14} aria-hidden="true"/>}</span>{label}</li>)}</ol>
-   <span className="ap-progress-bar" aria-hidden="true"><i style={{transform:`scaleX(${Math.max(.04,at/STEPS.length)})`}}/></span>
+   <p className="ap-now"><span className="ap-step-icon"><CurrentIcon size={14} aria-hidden="true"/></span>{current[1]}…</p>
+   <ol>{STEPS.map(([key,label,Icon],index)=><li key={key} data-state={index<stage?'done':index===stage?'on':'wait'}>
+    <span className="ap-step-icon">{index<stage?<Check size={14} strokeWidth={3} aria-hidden="true"/>:<Icon size={14} aria-hidden="true"/>}</span>{label}</li>)}</ol>
+   <span className="ap-progress-bar" aria-hidden="true"><i style={{transform:`scaleX(${Math.max(.05,Math.min(1,(stage+(stage<STEPS.length?.5:0))/STEPS.length))})`}}/></span>
   </div>}
   {phase!=='scan'&&<div className="ap-sheet" role="dialog" aria-modal="true" aria-labelledby={titleId} data-tier={insight?.tier||'none'}>
    <span className="ap-grip" aria-hidden="true"/>

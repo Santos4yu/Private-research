@@ -3,7 +3,7 @@ import {createPortal} from 'react-dom';
 import {ScanSearch} from 'lucide-react';
 import './analyze-prop.css';
 
-// The Analyze button on a Finder player page: the line on the chart graded
+// The Analyze button on a Finder player card, beside the hit-rate ring: the line on the chart graded
 // the Slip Analyzer's way. The grading and its screens (AnalyzeProp.jsx)
 // load the first time it's pressed.
 const AnalyzeLayer=lazy(()=>import('./AnalyzeProp'));
@@ -22,7 +22,7 @@ export function AnalyzeButton({row,line,playerRows=[]}){
   setOpen(true);
  };
  return <>
-  <button type="button" className="ap-trigger" onClick={start} aria-haspopup="dialog"><ScanSearch size={16} strokeWidth={2.4} aria-hidden="true"/>Analyze</button>
+  <button type="button" className="ap-trigger" onClick={start} aria-haspopup="dialog"><ScanSearch size={15} strokeWidth={2.5} aria-hidden="true"/><span>Analyze</span></button>
   {open&&typeof document!=='undefined'&&createPortal(<Suspense fallback={<div className="ap-layer"><div className="ap-dim" style={{opacity:1}}/></div>}>
    <AnalyzeLayer row={row} line={at} playerRows={playerRows} origin={origin.current} onClose={()=>setOpen(false)}/></Suspense>,document.body)}
  </>;
