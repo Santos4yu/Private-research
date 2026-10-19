@@ -13,16 +13,23 @@ import './analyze-prop.css';
 // (prop-analyze.js), and written up (prop-insight.js). While it grades, a
 // cursor (a finger on a phone) researches the page the way a person would
 // (analyze-tour.js): the chart, the hit-rate windows, the matchup and its
-// tabs, the game log, each dropping into the progress card. Then the result
-// opens as a sheet from the bottom on a phone, a dialog on a computer.
+// tabs, the game log, each dropping into the progress pill at the top. Then
+// the result opens as a sheet from the bottom on a phone, a dialog on a
+// computer.
 
 const calm=()=>typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 const coarse=()=>typeof matchMedia==='function'&&matchMedia('(pointer: coarse)').matches;
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
 const figure=value=>Number.isInteger(value)?String(value):value.toFixed(1);
 const percent=value=>`${Math.round(value*100)}%`;
-// Below the phone's status bar (app.js --site-status-inset) and the tag over the spotlight.
-const topEdge=()=>(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--site-status-inset'))||0)+58;
+// The walk-through works between the progress pill (and room for the
+// spotlight's tag) and the phone's dock.
+const topEdge=card=>()=>(card.current?.getBoundingClientRect().bottom??60)+28;
+const floorEdge=()=>{
+ const dock=document.querySelector('.mobile-app-nav');
+ const rect=dock?.getClientRects().length?dock.getBoundingClientRect():null;
+ return rect&&rect.height&&rect.top<innerHeight?rect.top-6:innerHeight-14;
+};
 
 const ICONS={form:TrendingUp,projection:Gauge,defense:Shield,usage:Target,history:History,venue:House,news:Newspaper,weather:CloudSun,books:BadgeDollarSign,risk:TriangleAlert};
 const STEPS=[['games','Reading the game log',ChartColumn],['matchup','Checking the matchup',Shield],['odds','Comparing the books',BadgeDollarSign],
@@ -135,7 +142,11 @@ function Sheet({row,insight,run,onClose,titleId}){
  </>;
 }
 
-export default function AnalyzeLayer({row,line,playerRows,origin,onClose}){
+export default function AnalyzeLayer(props){
+ // The line as it was when pressed: the Finder refreshes its rows every
+ // few seconds, and that mustn't start the analysis over.
+ const [{row,line,playerRows,origin}]=useState(()=>({row:props.row,line:props.line,playerRows:props.playerRows,origin:props.origin}));
+ const {onClose}=props;
  const admin=useIsAdmin();
  const titleId=useId();
  const [attempt,setAttempt]=useState(0);
@@ -189,13 +200,13 @@ export default function AnalyzeLayer({row,line,playerRows,origin,onClose}){
    stopTour=()=>clearInterval(timer);
   }else{
    const walk=createTour({spot:spot.current,tag:tag.current,pointer:pointer.current,ripples:ripples.current,chips:chips.current,card:()=>card.current,
-    step:index=>setStage(index),top:topEdge,floor:()=>card.current?.getBoundingClientRect().top??innerHeight,touch,start:origin});
+    step:index=>setStage(index),top:topEdge(card),floor:floorEdge,touch,start:origin});
    tour.current=walk;
    walk.run().catch(()=>{}).then(()=>{if(job.signal.aborted)return;flow.current.toured=true;finish();});
    stopTour=()=>walk.stop();
   }
   return()=>{job.abort();stopTour();};
- },[row,line,playerRows,attempt]);
+ },[attempt]);
 
  useEffect(()=>{if(phase!=='scan')closeButton.current?.focus({preventScroll:true});},[phase]);
 
@@ -213,15 +224,14 @@ export default function AnalyzeLayer({row,line,playerRows,origin,onClose}){
   <div className="ap-ripples" ref={ripples} aria-hidden="true"/>
   {phase==='scan'&&!calm()&&<span className="ap-pointer" ref={pointer} data-touch={touch||undefined} aria-hidden="true">
    {touch?<i/>:<svg viewBox="0 0 26 32"><path d="M2 2 L2 25 L7.6 20 L11.4 29 L15.4 27.3 L11.6 18.6 L19 18.6 Z"/></svg>}</span>}
-  {phase==='scan'&&<div className="ap-progress" ref={card} role="status" aria-live="polite">
-   <div className="ap-progress-head">
-    <span className="ap-spinner" aria-hidden="true"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="16"/><path d="M20 4a16 16 0 0 1 16 16"/></svg></span>
-    <span className="ap-progress-title"><b>Analyzing {row.player}</b><small>{sideWord} {figure(Number(line))} {row.market}</small></span>
-    {!calm()&&<button type="button" className="ap-skip" onClick={skip}>Skip</button>}
-   </div>
-   <p className="ap-now"><span className="ap-step-icon"><CurrentIcon size={14} aria-hidden="true"/></span>{current[1]}…</p>
-   <ol>{STEPS.map(([key,label,Icon],index)=><li key={key} data-state={index<stage?'done':index===stage?'on':'wait'}>
-    <span className="ap-step-icon">{index<stage?<Check size={14} strokeWidth={3} aria-hidden="true"/>:<Icon size={14} aria-hidden="true"/>}</span>{label}</li>)}</ol>
+  {/* A slim pill at the top, out of the walk-through's way: what it's on now, and how far along. */}
+  {phase==='scan'&&<div className="ap-progress" ref={card}>
+   <span className="ap-spinner" aria-hidden="true"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="16"/><path d="M20 4a16 16 0 0 1 16 16"/></svg>
+    <CurrentIcon key={stage} size={14} strokeWidth={2.4}/></span>
+   <span className="ap-progress-title" role="status" aria-live="polite"><b key={stage}>{current[1]}…</b><small><span className="ap-wide">Analyzing </span>{row.player} · {sideWord} {figure(Number(line))} {row.market}</small></span>
+   <span className="ap-steps" role="img" aria-label={`Step ${Math.min(stage+1,STEPS.length)} of ${STEPS.length}`}>
+    {STEPS.map(([key],index)=><i key={key} data-state={index<stage?'done':index===stage?'on':'wait'}/>)}</span>
+   {!calm()&&<button type="button" className="ap-skip" onClick={skip}>Skip</button>}
    <span className="ap-progress-bar" aria-hidden="true"><i style={{transform:`scaleX(${Math.max(.05,Math.min(1,(stage+(stage<STEPS.length?.5:0))/STEPS.length))})`}}/></span>
   </div>}
   {phase!=='scan'&&<div className="ap-sheet" role="dialog" aria-modal="true" aria-labelledby={titleId} data-tier={insight?.tier||'none'}>
