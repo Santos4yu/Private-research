@@ -277,5 +277,147 @@ class QuarterbackNoteTests(unittest.TestCase):
         self.assertIn("qb-pressure", keys)
 
 
+class QuarterbackTendencyTests(unittest.TestCase):
+    def test_blitz_split_long_scrambles_and_close_games(self):
+        """One game: 20 blitzed dropbacks (2 scrambles of 12 yards), 40 others
+        (2 of 4). The first 30 plays are within one score, the rest not;
+        both 12-yard scrambles come while it's close."""
+        plays, charting = [], {}
+        for index in range(60):
+            blitz = index < 20
+            scramble = index in (0, 1, 50, 51)
+            fields = dict(qb_dropback=1, score_differential=0 if index < 30 else 14)
+            if scramble:
+                fields.update(play_type="run", qb_scramble=1, rush_attempt=1, rusher_player_id="qb", rushing_yards=12 if blitz else 4)
+            else:
+                fields.update(pass_attempt=1, passer_player_id="qb", receiver_player_id="wr", passing_yards=6)
+            plays.append(play("G1", "BUF", "MIA", index + 1, 1, **fields))
+            charting[("G1", index + 1)] = {"blitz": blitz, "box": 6}
+        game = scouting.summarize(plays, charting, {}, {}, {})["players"]["qb"]["qbRush"]["games"][0]
+        self.assertEqual(game["vsBlitz"], {"dropbacks": 20, "scrambles": 2})
+        self.assertEqual(game["noBlitz"], {"dropbacks": 40, "scrambles": 2})
+        self.assertEqual((game["longest"], game["long"]), (12, 2))
+        self.assertEqual(game["close"], {"runs": 2, "plays": 30})
+        self.assertEqual(game["other"], {"runs": 2, "plays": 30})
+
+    def test_a_defense_against_what_each_quarterback_usually_runs_for(self):
+        """Three quarterbacks each play MIA, NYJ and DAL. Against MIA each
+        runs for 20 yards; against the others, 5. So MIA give 15 more than
+        their usual (5), NYJ and DAL 7.5 fewer (their usual: 12.5)."""
+        plays, number = [], 0
+        for qb_id, offense in (("qa", "OA"), ("qb", "OB"), ("qc", "OC")):
+            for week, defense in ((1, "MIA"), (2, "NYJ"), (3, "DAL")):
+                game = f"{qb_id}-{week}"
+                for _ in range(12):
+                    number += 1
+                    plays.append(play(game, offense, defense, number, week, qb_dropback=1, pass_attempt=1, passer_player_id=qb_id,
+                                      passer_player_name=qb_id.upper(), receiver_player_id="wr", passing_yards=6))
+                for yards in ((10, 10) if defense == "MIA" else (5,)):
+                    number += 1
+                    plays.append(play(game, offense, defense, number, week, play_type="run", qb_dropback=1, qb_scramble=1, rush_attempt=1,
+                                      rusher_player_id=qb_id, rushing_yards=yards))
+        table = scouting.summarize(plays, {}, {}, {}, {})
+        self.assertEqual(table["teams"]["MIA"]["def"]["qbRushVsUsual"], [15.0, 1])
+        self.assertEqual(table["teams"]["NYJ"]["def"]["qbRushVsUsual"], [-7.5, 2])
+        log = table["teams"]["MIA"]["qbLog"]
+        self.assertEqual(len(log), 3)
+        self.assertEqual({(game["qb"], game["offense"], game["rushYards"], game["usual"]) for game in log},
+                         {("QA", "OA", 20, 5.0), ("QB", "OB", 20, 5.0), ("QC", "OC", 20, 5.0)})
+        # Three games each: the per-game and per-scramble numbers.
+        self.assertEqual(table["teams"]["MIA"]["def"]["qbScrambles"], [2.0, 1])
+        self.assertIsNone(table["teams"]["MIA"]["def"]["yardsPerScramble"], "6 scrambles is too few")
+
+
+class LineInjuryTests(unittest.TestCase):
+    def setUp(self):
+        from types import SimpleNamespace as N
+        from backend.sports.nfl.services import nflverse
+        self.nflverse, self.saved = nflverse, (nflverse.injuries, nflverse.depth_chart)
+        starter = lambda team, pid, position, rank=1: N(team_id=team, player_id=pid, player_name=pid.title(), position=position, rank=rank)
+        depth = [starter("SF", "williams", "LT"), starter("SF", "puni", "RG"), starter("SF", "backup", "LT", 2),
+                 starter("WAS", "end", "LDE"), starter("WAS", "edge", "SLB"), starter("WAS", "inside", "LILB"),
+                 starter("DAL", "tackle", "LDT"), starter("DAL", "backer", "SLB")]
+        report = [N(team_id="SF", player_id="williams", game_status="Out"), N(team_id="SF", player_id="puni", game_status="Questionable"),
+                  N(team_id="SF", player_id="backup", game_status="Out"), N(team_id="WAS", player_id="edge", game_status="Doubtful"),
+                  N(team_id="DAL", player_id="backer", game_status="Out")]
+        nflverse.injuries = lambda season, week: N(data=report if week == 7 else [])
+        nflverse.depth_chart = lambda season: N(data=depth)
+
+    def tearDown(self):
+        self.nflverse.injuries, self.nflverse.depth_chart = self.saved
+
+    def test_starters_out_or_doubtful_up_front(self):
+        lines = scouting.line_injuries(2026, 7)
+        # Out counts, questionable doesn't; a backup out isn't a starter out.
+        self.assertEqual(lines["SF"]["line"], [{"position": "LT", "name": "Williams", "status": "Out"}])
+        # A 3-4 (inside backers listed): its outside backers rush the passer.
+        self.assertEqual(lines["WAS"]["rush"], [{"position": "SLB", "name": "Edge", "status": "Doubtful"}])
+        # A 4-3: an off-ball backer out isn't the pass rush.
+        self.assertEqual(lines["DAL"]["rush"], [])
+        self.assertIsNone(scouting.line_injuries(2026, 8), "no report yet for week 8")
+        self.assertEqual(scouting.lines_for(lines, "SF", "WAS"), {"line": lines["SF"]["line"], "rush": lines["WAS"]["rush"]})
+        self.assertIsNone(scouting.lines_for(None, "SF", "WAS"))
+        self.assertEqual(scouting.week_of("2026_07_SF_WAS"), 7)
+
+
+class ReportTests(unittest.TestCase):
+    def test_the_week_report_reads_its_injury_report(self):
+        saved = scouting.table, scouting.line_injuries
+        lines = {"SEA": {"line": [{"position": "LT", "name": "Trent Williams", "status": "Out"}], "rush": []}, "DEN": {"line": [], "rush": []}}
+        try:
+            scouting.table = lambda season: qb_scout(3, 30, blitz=[0.3, 16])
+            scouting.line_injuries = lambda season, week: lines if week == 7 else None
+            game = {"home": "DEN", "away": "SEA", "spread": 2.5, "gameId": "2026_07_SEA_DEN", "started": False}
+            notes = scouting.report(2026, games=[game])["players"]["qb"]["notes"]
+            self.assertIn("line-out", [note["key"] for note in notes["rushing"]])
+            self.assertIn("line-out", [note["key"] for note in notes["passing"]])
+            # Before the week's report: nothing about the lines.
+            notes = scouting.report(2026, games=[{**game, "gameId": "2026_08_SEA_DEN"}])["players"]["qb"]["notes"]
+            self.assertNotIn("line-out", [note["key"] for family in notes.values() for note in family])
+        finally:
+            scouting.table, scouting.line_injuries = saved
+
+
+class QuarterbackTendencyNoteTests(unittest.TestCase):
+    def scout(self, **defense):
+        scout = qb_scout(3, 30, **defense)
+        for game in scout["players"]["qb"]["qbRush"]["games"]:
+            game.update(vsBlitz={"dropbacks": 8, "scrambles": 1}, noBlitz={"dropbacks": 20, "scrambles": 1}, longest=14, long=1,
+                        close={"runs": 4, "plays": 40}, other={"runs": 1, "plays": 25})
+        return scout
+
+    def notes(self, scout, **kwargs):
+        return {note["key"]: note for note in scouting.for_market(scouting.notes_for(scout, "qb", "SEA", "DEN", **kwargs), "rushing_yards")}
+
+    def test_his_tendencies_against_this_defense(self):
+        notes = self.notes(self.scout(blitz=[0.46, 2], qbRushVsUsual=[12.2, 3], qbRushYards=[22.4, 9]), spread=2.5)
+        # More scrambles against the blitz (12.5% to 5%), and they blitz a lot.
+        self.assertEqual(notes["qb-blitz"]["text"], "Scrambles on 12% of dropbacks against the blitz, 5% without it; DEN blitz on 46% of dropbacks, 2nd most")
+        self.assertEqual((notes["qb-blitz"]["lean"], notes["qb-blitz"]["weight"]), (1, 2))
+        self.assertEqual(notes["qb-long-scrambles"]["text"], "A 10+ yard scramble in 4 of his 4 games; his longest went 14 yards")
+        self.assertEqual(notes["qb-close"]["text"], "A close game expected (favored by 2.5); he runs on 10% of plays within one score, 4% otherwise")
+        self.assertEqual(notes["qb-close"]["lean"], 1)
+        self.assertEqual(notes["qb-rush-vs-usual"]["text"], "Quarterbacks run for 12.2 more yards a game against DEN than in their other games, 3rd most")
+        self.assertEqual((notes["qb-rush-vs-usual"]["lean"], notes["qb-rush-vs-usual"]["weight"]), (1, 2))
+        # With what they allow against each quarterback's usual in hand, the raw yards are context.
+        self.assertEqual(notes["qb-rush-defense"]["weight"], 0)
+
+    def test_starters_out_up_front(self):
+        lines = {"line": [{"position": "LT", "name": "Trent Williams", "status": "Out"}], "rush": [{"position": "RDE", "name": "Edge Guy", "status": "Doubtful"}]}
+        middling = self.scout(blitz=[0.3, 16])
+        notes = self.notes(middling, lines=lines)
+        self.assertEqual(notes["line-out"]["text"], "SEA without 1 starting offensive lineman: LT Trent Williams (out); more pressure, and he gets away from it")
+        self.assertEqual(notes["line-out"]["lean"], 1)
+        self.assertEqual(notes["rush-out"]["lean"], -1, "fewer pressures to run away from")
+        passing = {note["key"]: note for note in scouting.for_market(scouting.notes_for(middling, "qb", "SEA", "DEN", lines=lines), "passing_yards")}
+        self.assertEqual((passing["line-out"]["lean"], passing["rush-out"]["lean"]), (-1, 1))
+        # A back: harder to run behind his line, a lighter front to run at.
+        back = scout(ypc=[4.1, 16])
+        running = {note["key"]: note for note in scouting.for_market(scouting.notes_for(back, "rb", "SEA", "DEN", lines=lines), "rushing_yards")}
+        self.assertEqual((running["line-out"]["lean"], running["rush-out"]["lean"]), (-1, 1))
+        # No report yet: nothing said.
+        self.assertNotIn("line-out", self.notes(middling, lines=None))
+
+
 if __name__ == "__main__":
     unittest.main()

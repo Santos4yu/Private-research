@@ -148,7 +148,8 @@ class handler(BaseHTTPRequestHandler):
                 if not TEAM.match(opponent):
                     return send_json(self, 400, {'error': 'An opponent is required.'})
                 import nfl_scouting
-                return send_json(self, 200, nfl_scouting.qb_rush(season, player_id, opponent))
+                week = nfl_scouting.week_of(game_id) if GAME_ID.match(game_id) else None
+                return send_json(self, 200, nfl_scouting.qb_rush(season, player_id, opponent, week))
             if resource == 'finder-weather':
                 # Kickoff weather for the week's games (football_weather.py).
                 import football_weather

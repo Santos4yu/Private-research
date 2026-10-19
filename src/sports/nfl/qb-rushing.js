@@ -18,6 +18,9 @@ export function qbSeason(player) {
   const graded = games.filter(game => typeof game.pressured === 'number');
   const charted = games.filter(game => game.underPressure);
   const under = key => charted.reduce((total, game) => total + number(game.underPressure[key]), 0);
+  // Nested counts (against the blitz, in a close game...) added up.
+  const part = (key, field) => games.reduce((total, game) => total + number(game[key]?.[field]), 0);
+  const rate = (key, top, bottom, minimum) => (part(key, bottom) >= minimum ? part(key, top) / part(key, bottom) : null);
   return {
     games: games.length, rows: games,
     scrambles: sum('scrambles'), scrambleYards: sum('scrambleYards'),
@@ -26,19 +29,33 @@ export function qbSeason(player) {
     pressured: sum('pressured', graded), pressuredGames: graded.length,
     pressureRate: sum('dropbacks', graded) ? sum('pressured', graded) / sum('dropbacks', graded) : null,
     under: charted.length ? {games: charted.length, dropbacks: under('dropbacks'), scrambles: under('scrambles'), yards: under('yards')} : null,
+    // Scrambles a dropback against the blitz and without it (FTN charting).
+    vsBlitz: rate('vsBlitz', 'scrambles', 'dropbacks', 20), noBlitz: rate('noBlitz', 'scrambles', 'dropbacks', 40),
+    blitzedDropbacks: part('vsBlitz', 'dropbacks'),
+    // Games with a 10+ yard scramble, and his longest.
+    longGames: games.filter(game => number(game.long) > 0).length,
+    longest: games.reduce((most, game) => Math.max(most, number(game.longest)), 0),
+    // Runs a play within one score and otherwise.
+    close: rate('close', 'runs', 'plays', 60), other: rate('other', 'runs', 'plays', 40),
   };
 }
 
 const ordinal = n => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : {1: 'st', 2: 'nd', 3: 'rd'}[n % 10] || 'th'}`;
 
 /** '6th most', 'the fewest', or '15th of 32' in the middle. Rank 1 is the most. */
-export function rankWords(rank, count, near = 10) {
+export function rankWords(rank, count, near = 10, {most = 'most', fewest: few = 'fewest'} = {}) {
   if (!rank || !count) return '';
-  if (rank <= near) return rank === 1 ? 'the most' : `${ordinal(rank)} most`;
+  if (rank <= near) return rank === 1 ? `the ${most}` : `${ordinal(rank)} ${most}`;
   const fewest = count - rank + 1;
-  if (fewest <= near) return fewest === 1 ? 'the fewest' : `${ordinal(fewest)} fewest`;
+  if (fewest <= near) return fewest === 1 ? `the ${few}` : `${ordinal(fewest)} ${few}`;
   return `${ordinal(rank)} of ${count}`;
 }
+
+/** '2026_07_SF_WAS' -> 7. */
+export const weekOf = gameId => {
+  const week = Number(String(gameId || '').split('_')[1]);
+  return Number.isInteger(week) && week > 0 ? week : null;
+};
 
 /** Whether a rank helps his rushing line ('good'), hurts it ('poor') or neither. */
 export function rankTone(rank, count, moreHelps = true, edge = 8) {

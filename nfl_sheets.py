@@ -755,7 +755,8 @@ def sheet_best(ctx):
             parts.append((0.15, _clamp((chance - 0.4) / 0.25, 0, 1)))
         spread = game.get("spread")
         favored = None if spread is None else spread if game["home"] == team else -spread
-        notes = nfl_scouting.for_market(nfl_scouting.notes_for(scout, row.get("playerId"), team, opponent, favored), market) if scout else []
+        lines = nfl_scouting.lines_for(ctx.get("lineInjuries"), team, opponent)
+        notes = nfl_scouting.for_market(nfl_scouting.notes_for(scout, row.get("playerId"), team, opponent, favored, lines=lines), market) if scout else []
         score = 100 * sum(weight * part for weight, part in parts) / sum(weight for weight, _part in parts)
         # The notes move the score up to 12 either way.
         score = round(_clamp(score + 12 * nfl_scouting.lean_of(notes), 0, 100))
@@ -1406,6 +1407,7 @@ def context(season, needs, now=None):
         try:
             import nfl_scouting
             ctx["scout"] = nfl_scouting.table(season)
+            ctx["lineInjuries"] = nfl_scouting.week_lines(season, ctx.get("week"))
         except Exception:  # noqa: BLE001 -- the sheet stands on its other parts
             ctx["scout"] = None
     if "lines" in needs:

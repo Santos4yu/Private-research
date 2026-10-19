@@ -50,22 +50,24 @@ if(typeof window!=='undefined'){
  window.addEventListener('pageshow',wake);window.addEventListener('online',wake);
  document.addEventListener('visibilitychange',wake);
 }
-export function nflGet(resource,params={}){
- const query=new URLSearchParams({resource:`finder-${resource}`});
+// `model` asks the model's own resources (opportunity, projection...) by
+// name rather than the Finder's finder-* ones.
+export function nflGet(resource,params={},{model=false}={}){
+ const query=new URLSearchParams({resource:model?resource:`finder-${resource}`});
  Object.entries(params).forEach(([key,value])=>{if(value!=null&&value!=='')query.set(key,String(value));});
  const url='/api/nfl?'+query;
  if(!requests.has(url))requests.set(url,load(url));
  return requests.get(url).promise;
 }
-export function useNfl(resource,params,enabled=true){
+export function useNfl(resource,params,enabled=true,{model=false}={}){
  const key=JSON.stringify(params);
  const [retry,setRetry]=useState(0),[state,setState]=useState({loading:enabled});
  useEffect(()=>{
   if(!enabled){setState({});return undefined;}
   let active=true;setState(old=>({loading:true,data:old.key===key?old.data:undefined,key}));
-  nflGet(resource,params).then(data=>{if(active)setState({data,key});}).catch(error=>{if(active)setState({error:error.message,key});});
+  nflGet(resource,params,{model}).then(data=>{if(active)setState({data,key});}).catch(error=>{if(active)setState({error:error.message,key});});
   return()=>{active=false;};
- },[resource,key,enabled,retry]);
+ },[resource,key,enabled,retry,model]);
  return {...state,retry:()=>setRetry(n=>n+1)};
 }
 
