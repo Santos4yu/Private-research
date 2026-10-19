@@ -6,6 +6,7 @@ import {propFocus} from '../../prop-focus';
 import PropFocusTag from '../../PropFocusTag';
 import {MARKET_STAT,POSITIONS,ago,average,finite,fmt,hasPlayerContext,hasSplit,leagueOf,opponentOf,ordinal,playerContextParams,positionOf,price,rankTone,realGames,shortDate,signed,splitFilter,useWnba} from './wnba-research';
 import {useIsAdmin,QUIET} from '../../admin-notice.js';
+import Opportunity from './Opportunity';
 
 function Empty({children}){return <p className="mlb-context-note">{children}</p>;}
 function Skeleton(){return <div className="mlb-context-skeleton" role="status" aria-label="Loading research"><span/><span/><span/><span/></div>;}
@@ -244,12 +245,14 @@ export default function WNBAFinderContext({row,logs,matchup,filters,onToggleFilt
  const opponent=opponentOf(row);
  const league=useWnba('league-context',{league:leagueOf(row)});
  const player=useWnba('player-context',playerContextParams(row),hasPlayerContext(row));
+ // The NBA's own tracking (potential assists, rebound chances), when its site answers.
+ const tracking=useWnba('player-tracking',{name:row.player,team:row.teamAbbr,league:'nba'},row.sport==='nba'&&Boolean(row.player));
  const stat=MARKET_STAT[row.marketKey]||'pts';
  const playerPosition=positionOf(player.data?.position||row.position);
  const statLabel=useMemo(()=>Object.fromEntries(league.data?.stats||[])[stat]||row.market,[league.data,stat,row.market]);
  return <aside className="mlb-finder-context wnba-finder-context" data-tab={tab} aria-label={`${row.sport==='nba'?'NBA':'WNBA'} matchup research`}>
   <FinderResearchTabs tab={tab} onChange={setTab}/>
-  {tab==='matchup'&&<><WinPredictor matchup={matchup}/><MatchupOdds matchup={matchup}/><LastFive matchup={matchup}/><Standings matchup={matchup} team={row.teamAbbr}/></>}
+  {tab==='matchup'&&<><Opportunity row={row} player={player} league={league} matchup={matchup} tracking={tracking} statLabel={statLabel}/><WinPredictor matchup={matchup}/><MatchupOdds matchup={matchup}/><LastFive matchup={matchup}/><Standings matchup={matchup} team={row.teamAbbr}/></>}
   {tab==='defense'&&<><DefenseVsPosition league={league} row={row} stat={stat} playerPosition={playerPosition}/><OffenseVsDefense league={league} row={row}/></>}
   {tab==='shooting'&&<ShotChart player={player} league={league} row={row}/>}
   {tab==='similar'&&<SimilarPlayers player={player} row={row} statLabel={statLabel} playerPosition={playerPosition}/>}

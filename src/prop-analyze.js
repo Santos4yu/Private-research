@@ -11,13 +11,34 @@ import {loadLearning} from './learning.js';
 import {loadGames, loadTeammates, withGame} from './slip-games.js';
 import {gradeLeg, relined, rewindow} from './slip-check.js';
 import {loadSoccerOpponents, within} from './unified-finder-data.js';
+import {projectStat} from './prop-model.js';
+import {hasPlayerContext, leagueOf, playerContextParams, wnbaGet} from './sports/wnba/wnba-research.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const aborted = error => error?.name === 'AbortError';
 // A part that can't load leaves the rest standing, as on the Slip Analyzer.
 const optional = (promise, fallback) => promise.catch(error => { if (aborted(error)) throw error; return fallback; });
 
-const DEFAULTS = {loadLines, loadMatchups, loadLearning, loadGames, loadTeammates, loadSoccerOpponents, enrich: sport => ENRICH[sport]};
+/**
+ * A basketball player's chances (opportunity.js): his minutes, usage and
+ * shares, his splits without each teammate, tonight's injury report and
+ * (NBA) the league's tracking. The same requests his page makes, so
+ * they're usually answered already. Null when there's no player context.
+ */
+async function loadOpportunity(row) {
+  if (row.sport !== 'nba' && row.sport !== 'wnba') return null;
+  const quiet = promise => promise.catch(() => null);
+  const [context, matchup, tracking] = await Promise.all([
+    hasPlayerContext(row) ? quiet(wnbaGet('player-context', playerContextParams(row))) : null,
+    row.homeTeamAbbr && row.awayTeamAbbr && row.startsAt
+      ? quiet(wnbaGet('matchup', {home: row.homeTeamAbbr, away: row.awayTeamAbbr, startsAt: row.startsAt, league: leagueOf(row)})) : null,
+    row.sport === 'nba' && row.player ? quiet(wnbaGet('player-tracking', {name: row.player, team: row.teamAbbr, league: 'nba'})) : null,
+  ]);
+  if (!context?.opportunity?.szn) return null;
+  return {chances: context.opportunity, withWithout: context.withWithout || [], injuries: matchup?.injuries?.[row.teamAbbr] || [], tracking};
+}
+
+const DEFAULTS = {loadLines, loadMatchups, loadLearning, loadGames, loadTeammates, loadSoccerOpponents, loadOpportunity, enrich: sport => ENRICH[sport]};
 
 /**
  * The line at `line` (the one on the chart) for `row`'s player and stat:
@@ -40,11 +61,12 @@ export async function gradeProp(row, {line = row?.line, playerRows = [], signal,
   const sport = row.sport;
   step('games');
   const enrich = use.enrich(sport);
-  const [current, board, tables] = await Promise.all([
+  const [current, board, tables, , chances] = await Promise.all([
     lineAt(row, Number(line), playerRows, {enrich, signal}),
     optional(use.loadLines(sport, {signal, only: () => false}), []),
     optional(use.loadMatchups([sport], {signal}), {}),
     optional(Promise.resolve().then(() => use.loadLearning()), null),
+    optional(Promise.resolve().then(() => use.loadOpportunity(row, {signal})), null),
   ]);
   step('matchup');
   // The board's copy of the line carries what its defense allows (and the
@@ -65,6 +87,12 @@ export async function gradeProp(row, {line = row?.line, playerRows = [], signal,
     }
   } catch (error) { if (aborted(error)) throw error; }
   step('grade');
+  // His chances against what the line takes (slip-matchup.js basketball).
+  if (chances) {
+    let model = null;
+    try { model = projectStat(graded); } catch { model = null; }
+    graded = {...graded, opportunity: {...chances, projected: model?.unit === 'min' ? model.usage : null}};
+  }
   const over = gradeLeg({side: 'OVER'}, graded, tables);
   const standard = String(graded.modifier || 'standard').toLowerCase() === 'standard';
   const under = standard ? gradeLeg({side: 'UNDER'}, graded, tables) : null;

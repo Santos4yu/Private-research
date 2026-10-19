@@ -39,6 +39,8 @@ import {statKeyOf} from './sports/soccer/soccer-stats.js';
 import {soccerText, oddsTilt} from './soccer-matchup.js';
 import {PLAYS as CFB_PLAYS, PLAY_WORDS as CFB_PLAY_WORDS, AGAINST_WORDS as CFB_AGAINST_WORDS} from './sports/cfb/cfb-stats.js';
 import {cfbShareOf} from './slip-analyst.js';
+import {MARKET_STAT as BASKETBALL_STAT} from './sports/wnba/wnba-research.js';
+import {familyOf, opportunityFacts, opportunityRead} from './sports/wnba/opportunity.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
@@ -318,6 +320,36 @@ function basketball(row, sign, league) {
   if (defense) out.push(defense);
   const stats = league?.teamStats;
   const own = stats?.[row.teamAbbr], their = stats?.[row.opponent];
+  const stat = BASKETBALL_STAT[row.marketKey], family = familyOf(stat);
+  // The chances the defense gives this stat (opportunity.py): the shots it
+  // misses for rebounds, the threes it lets teams take, how well it lets
+  // them shoot for assists.
+  const table = league?.opportunity, theirs = table?.teams?.[row.opponent], usual = table?.league || {};
+  const given = (key, words, weight, ends = {low: 'most', high: 'fewest'}) => {
+    const [value, rank] = theirs?.[key] || [];
+    if (!finite(value) || !(usual[key] > 0)) return;
+    const ratio = value / usual[key];
+    out.push(fact('opponent', key, `${row.opponent} ${words(one(value), one(usual[key]), place(rank, table.count, ends))}`,
+      clamp((ratio - 1) * weight, -6, 6) * sign));
+  };
+  if (family === 'rebounds' || stat === 'pr' || stat === 'ra' || stat === 'pra') given('miss', (value, avg, where) => `misses ${value} shots a game${where}, league ${avg}: rebounds to be had`, 80);
+  if (family === 'threes') given('tpaAllowed', (value, avg, where) => `lets teams take ${value} threes a game${where}, league ${avg}`, 50);
+  if (stat === 'ast' || stat === 'ra' || stat === 'pa' || stat === 'pra') given('fgPctAllowed', (value, avg, where) => `lets teams shoot ${value}%${where}, league ${avg}%: more passes become assists`, 120, {low: 'highest', high: 'lowest'});
+  // His own chances against what the line takes (Analyze loads them: row.opportunity).
+  if (row.opportunity && stat) {
+    const read = opportunityRead(stat, Number(row.line), sign < 0 ? 'UNDER' : 'OVER',
+      {...row.opportunity, table, team: row.teamAbbr, opponent: row.opponent, statLabel: row.market});
+    for (const item of opportunityFacts(read, sign)) out.push(fact(item.kind, item.key, item.text, item.impact, item.key === 'opportunity' ? {read} : {}));
+  }
+  // How many possessions the two teams play to, when the table has them.
+  const pace = table?.teams?.[row.teamAbbr]?.poss?.[0] != null && theirs?.poss?.[0] != null && usual.poss > 0
+    ? (table.teams[row.teamAbbr].poss[0] + theirs.poss[0]) / 2 : null;
+  if (finite(pace) && POINTS_STATS.test(`${row.marketKey} ${row.market}`)) {
+    const ratio = pace / usual.poss;
+    const words = ratio >= 1.015 ? 'a fast game' : ratio <= 0.985 ? 'a slow game' : 'an average-pace game';
+    out.push(fact('opponent', 'pace', `Projects as ${words}: about ${one(pace)} possessions (league ${one(usual.poss)})`, clamp((ratio - 1) * 160, -8, 8) * sign));
+    return out;
+  }
   // How much scoring their games produce, for points-heavy lines.
   if (own && their && POINTS_STATS.test(`${row.marketKey} ${row.market}`)) {
     const teamFor = own.off?.pts?.[0], teamAgainst = own.def?.pts?.[0], oppFor = their.off?.pts?.[0], oppAgainst = their.def?.pts?.[0];

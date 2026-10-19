@@ -834,6 +834,18 @@ class handler(BaseHTTPRequestHandler):
                     "name", "headshot", "position", "height", "team", "teamAbbr", "teamLogo")} | {"playerId": identity.get("id")}]})
             if resource in ("matchup", "league-context", "player-context"):
                 return self._context(resource, query, league)
+            if resource == "player-tracking":
+                # The NBA's own tracking (backend/sports/wnba/tracking.py):
+                # potential assists, rebound chances, catch-and-shoot, touches.
+                who = query.get("name", [""])[0].strip()
+                team = query.get("team", [""])[0].strip().upper()
+                if league != "nba" or not who or len(who) > 60 or len(team) > 4:
+                    return _send(self, 400, {"error": "An NBA player's name is required."})
+                from backend.sports.wnba import league as stored_league, tracking
+                found = tracking.player(stored_league.current_season(league="nba"), who, team)
+                if found.get("reason") == "unreachable":
+                    return _send(self, 503, {"error": "NBA tracking stats (stats.nba.com) didn't answer the site's server.", **found})
+                return _send(self, 200, found)
             if resource != "board": return _send(self, 404, {"error": f"Unknown {name} resource."})
             fast = query.get("fast", ["0"])[0].lower() in ("1", "true", "yes")
             from finder_history_store import enroll_basketball
@@ -864,6 +876,9 @@ class handler(BaseHTTPRequestHandler):
                 return _send(self, 200, matchup.matchup(event_id, league_name))
             season = league.current_season(league=league_name)
             payload = league.ensure(season, league_name)
+            # Tip-off day, before a game has finished: the player's page reads last season.
+            if resource == "player-context" and (not payload or not payload.get("games")):
+                payload, season = league.stored(season - 1, league_name), season - 1
             if not payload or not payload.get("games"):
                 return _send(self, 503, {"error": "Season data is still being prepared. Try again shortly."})
             if resource == "league-context":
@@ -880,6 +895,12 @@ class handler(BaseHTTPRequestHandler):
             if market not in context.MARKET_STAT:
                 return _send(self, 400, {"error": "Unknown market."})
             line = _number(arg("line"))
+            # The start of a season: too few of his team's games to split or
+            # share out, so last season's join them (opportunity.blend).
+            from backend.sports.wnba import opportunity
+            played = sum(1 for game in payload["games"].values() if team in (game.get("t") or {}))
+            if played < opportunity.BLEND_GAMES:
+                payload = opportunity.blend(league.stored(season - 1, league_name), payload)
             return _send(self, 200, context.player_context(payload, player_id, team, opponent, market, line))
         except Exception:
             return _send(self, 503, {"error": "Matchup research is temporarily unavailable."})

@@ -117,6 +117,12 @@ function Sheet({row,insight,run,onClose,titleId}){
    <h3><span aria-hidden="true">📝</span>The breakdown</h3>
    <p className="ap-write">{insight.summary.join(' ')}</p>
   </section>
+  {insight.opportunity&&<section className="ap-card ap-rise" style={{'--i':3}}>
+   <h3><span aria-hidden="true">🎯</span>The opportunity</h3>
+   <p className="ap-opp-verdict" data-tone={insight.opportunity.verdict}>{insight.opportunity.title}</p>
+   <p className="ap-write">{insight.opportunity.text}</p>
+   {insight.opportunity.points.length>0&&<List items={insight.opportunity.points} tone="matchup"/>}
+  </section>}
   <section className="ap-card ap-rise" style={{'--i':3}}>
    <h3><span aria-hidden="true">{verdict.play?'✅':'➕'}</span>{verdict.play?'Why it can hit':'What\'s going for it'}</h3>
    <List items={reasons} tone="good"/>
