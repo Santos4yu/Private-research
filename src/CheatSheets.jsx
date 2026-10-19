@@ -445,7 +445,10 @@ export function CheatSheets(){
   window.addEventListener('vortex:site-policy',bump);
   return()=>{window.removeEventListener('hashchange',sync);window.removeEventListener('popstate',sync);window.removeEventListener('vortex:site-policy',bump);};
  },[]);
- const open=useMemo(()=>Object.fromEntries(Object.entries(LEAGUES).map(([league,list])=>[league,list.filter(item=>siteSheetAllowed(`${league}:${item.key}`))])),[revision]);
+ // The site's status comes back every 30 seconds: only a change in which
+ // sheets are open counts, so the same answer never reloads the sheets.
+ const openKey=useMemo(()=>Object.entries(LEAGUES).flatMap(([league,list])=>list.map(item=>`${league}:${item.key}`)).filter(siteSheetAllowed).join(),[revision]);
+ const open=useMemo(()=>{const keys=new Set(openKey.split(','));return Object.fromEntries(Object.entries(LEAGUES).map(([league,list])=>[league,list.filter(item=>keys.has(`${league}:${item.key}`))]));},[openKey]);
  const league=route.league&&open[route.league]?.length?route.league:route.sheet?'mlb':Object.keys(LEAGUES).find(key=>open[key].length)||'mlb';
  const sheets=open[league];
  const sheet=route.sheet&&sheets.some(item=>item.key===route.sheet)?route.sheet:null;

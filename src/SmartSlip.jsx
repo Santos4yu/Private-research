@@ -339,7 +339,10 @@ export function SmartSlip(){
  const saved=useMemo(readPrefs,[]);
  const [revision,setRevision]=useState(0);
  useEffect(()=>{const bump=()=>setRevision(n=>n+1);window.addEventListener('vortex:site-policy',bump);return()=>window.removeEventListener('vortex:site-policy',bump);},[]);
- const allowed=useMemo(()=>KEYS.filter(siteFinderSportAllowed),[revision]);
+ // The site's status comes back every 30 seconds: only a change in which
+ // sports are open counts, so the same answer never reloads the games.
+ const allowedKey=useMemo(()=>KEYS.filter(siteFinderSportAllowed).join(),[revision]);
+ const allowed=useMemo(()=>allowedKey?allowedKey.split(','):[],[allowedKey]);
  const [target,setTarget]=useState(TARGETS.includes(saved.target)?saved.target:2);
  const [mix,setMix]=useState(MIXES[saved.mix]?saved.mix:saved.alternates===false?'regular':'any');
  const [size,setSize]=useState(SIZES.includes(saved.size)?saved.size:'auto');
@@ -353,15 +356,21 @@ export function SmartSlip(){
  // Finder keeps, else fresh ones): what the Games step lists, and how many
  // each sport has.
  const [slate,setSlate]=useState({loading:true,refreshing:false,games:[]});
+ // The boards on screen: a sport opened or closed by the site loads (or
+ // drops) only that sport, and the games already listed stay put.
+ const boardsRef=useRef({});
  useEffect(()=>{
   const control=new AbortController();
-  const boards={};let left=allowed.length;
+  const boards=Object.fromEntries(allowed.filter(sport=>boardsRef.current[sport]).map(sport=>[sport,boardsRef.current[sport]]));
+  boardsRef.current=boards;
+  const missing=allowed.filter(sport=>!boards[sport]);
+  let left=missing.length;
   const publish=()=>{
    if(control.signal.aborted)return;
    setSlate({loading:left>0&&!Object.keys(boards).length,refreshing:left>0,games:slateGames(Object.values(boards).flat(),{logo:teamLogo,opponentLogo})});
   };
-  setSlate(old=>({...old,loading:!old.games.length,refreshing:allowed.length>0}));
-  for(const sport of allowed){
+  if(left)setSlate(old=>({...old,loading:!old.games.length,refreshing:true}));else publish();
+  for(const sport of missing){
    (async()=>{
     // The board this phone saved shows at once; today's comes in behind it,
     // so a board saved days ago (when the sport was last opened in the

@@ -113,7 +113,10 @@ export function UnifiedFinder(){
  // whenever the site policy changes rather than only on mount.
  const [policyRevision,setPolicyRevision]=useState(0);
  useEffect(()=>{const bump=()=>setPolicyRevision(n=>n+1);window.addEventListener('vortex:site-policy',bump);return()=>window.removeEventListener('vortex:site-policy',bump);},[]);
- const allowedKeys=useMemo(()=>KEYS.filter(siteFinderSportAllowed),[policyRevision]);
+ // The site's status comes back every 30 seconds: only a change in which
+ // sports are open counts.
+ const allowedKey=useMemo(()=>KEYS.filter(siteFinderSportAllowed).join(),[policyRevision]);
+ const allowedKeys=useMemo(()=>allowedKey?allowedKey.split(','):[],[allowedKey]);
  // "All" only means something with more than one league to combine.
  const visibleSports=allowedKeys.length>1?['all',...allowedKeys]:allowedKeys;
  // The leagues on the board. None picked -- the default -- means every
