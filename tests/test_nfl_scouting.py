@@ -150,5 +150,132 @@ class NoteTests(unittest.TestCase):
         self.assertTrue(notes["rushing"][0]["text"].startswith("DEN play six or fewer in the box on 63% of runs, the most"))
 
 
+def qb_season():
+    """BUF's quarterback against MIA (weeks 1 and 3) and NYJ (week 2). Each
+    game: 25 throws, 3 scrambles for 8 yards each, 2 sacks, 2 designed runs
+    for 4 yards (one a sneak) and the back's 10 carries for 5. He kneels
+    twice in week 1 (a yard lost each). The participation file covers week 1
+    only: 6 of its dropbacks were pressured, two of them his scrambles and one
+    a sack."""
+    plays, charting, pressured, number = [], {}, set(), 0
+    for game, defense, week in (("G1", "MIA", 1), ("G2", "NYJ", 2), ("G3", "MIA", 3)):
+        def add(**fields):
+            nonlocal number
+            number += 1
+            plays.append(play(game, "BUF", defense, number, week, **fields))
+            return number
+        throws = [add(qb_dropback=1, pass_attempt=1, passer_player_id="qb", receiver_player_id="wr", passing_yards=7) for _ in range(25)]
+        scrambles = [add(play_type="run", qb_dropback=1, qb_scramble=1, rush_attempt=1, rusher_player_id="qb", rushing_yards=8) for _ in range(3)]
+        sacks = [add(qb_dropback=1, pass_attempt=1, sack=1, passer_player_id="qb") for _ in range(2)]
+        sneak = add(play_type="run", rush_attempt=1, rusher_player_id="qb", rushing_yards=4)
+        charting[(game, sneak)] = {"blitz": False, "box": 8, "sneak": True}
+        add(play_type="run", rush_attempt=1, rusher_player_id="qb", rushing_yards=4)
+        for _ in range(10):
+            add(play_type="run", rush_attempt=1, rusher_player_id="rb", rushing_yards=5)
+        if week == 1:
+            for _ in range(2):
+                add(play_type="qb_kneel", rush_attempt=1, qb_kneel=1, rusher_player_id="qb", rushing_yards=-1)
+            pressured |= {(game, play_id) for play_id in scrambles[:2] + sacks[:1] + throws[:3]}
+    qb_pressure = {"qb": {"G1": {"pressured": 10, "sacked": 2, "blitzed": 5, "hit": 3},
+                          "G2": {"pressured": 10, "sacked": 2, "blitzed": 4, "hit": 2},
+                          "G3": {"pressured": 10, "sacked": 0, "blitzed": 6, "hit": 1}}}
+    return plays, charting, qb_pressure, {"games": {"G1"}, "plays": pressured}
+
+
+class QuarterbackRushingTests(unittest.TestCase):
+    def setUp(self):
+        plays, charting, qb_pressure, pressure = qb_season()
+        self.table = scouting.summarize(plays, charting, {"MIA": 20, "NYJ": 10}, {}, {}, sacked={"MIA": 4, "NYJ": 2},
+                                        qb_pressure=qb_pressure, pressure_plays=pressure,
+                                        last_pressure={"qb": {"games": 15, "pressured": 150, "scrambles": 20, "yards": 120}})
+
+    def test_his_runs_game_by_game(self):
+        rushing = self.table["players"]["qb"]["qbRush"]
+        first = rushing["games"][0]
+        self.assertEqual((first["week"], first["opponent"], first["dropbacks"]), (1, "MIA", 30))
+        self.assertEqual((first["scrambles"], first["scrambleYards"]), (3, 24))
+        self.assertEqual((first["designed"], first["designedYards"], first["sneaks"]), (2, 8, 1))
+        self.assertEqual((first["kneels"], first["kneelYards"]), (2, -2))
+        self.assertEqual((first["pressured"], first["sacked"], first["blitzed"]), (10, 2, 5))
+        # The per-play pressure covers week 1 only.
+        self.assertEqual(first["underPressure"], {"dropbacks": 6, "scrambles": 2, "yards": 16, "sacks": 1})
+        self.assertIsNone(rushing["games"][1]["underPressure"])
+        self.assertEqual(rushing["games"][1]["kneels"], 0)
+        # 9 scrambles against 30 pressures; 4 sacks. The only quarterback, so 1st of 1.
+        self.assertEqual(rushing["escape"], [0.3, 1, 1])
+        self.assertEqual(rushing["sackRate"], [round(4 / 30, 4), 1, 1])
+        self.assertEqual(rushing["lastSeason"]["yards"], 120)
+        self.assertNotIn("qbRush", self.table["players"]["rb"], "a back is not a quarterback")
+
+    def test_what_a_defense_gives_quarterbacks(self):
+        mia, nyj = self.table["teams"]["MIA"]["def"], self.table["teams"]["NYJ"]["def"]
+        # Two games: 6 scrambles for 48 yards, 4 designed runs for 16; kneel-downs
+        # and the back's 20 carries left out.
+        self.assertEqual(mia["qbScrambleYards"], [24.0, 1])
+        self.assertEqual(mia["qbRushYards"], [32.0, 1])
+        self.assertEqual(mia["scrambleRate"], [0.1, 1])
+        self.assertEqual(mia["sackPerPressure"], [0.2, 1])
+        # One game and 30 dropbacks: too little to say, and too few pressures.
+        self.assertIsNone(nyj["qbScrambleYards"])
+        self.assertIsNone(nyj["scrambleRate"])
+        self.assertIsNone(nyj["sackPerPressure"])
+
+
+def qb_scout(scrambles, scramble_yards, **defense):
+    games = [{"week": week, "opponent": "DEN", "team": "SEA", "dropbacks": 32, "scrambles": scrambles, "scrambleYards": scramble_yards,
+              "designed": 2, "designedYards": 6, "sneaks": 1, "kneels": 1, "kneelYards": -1, "sacks": 2, "pressured": 9, "sacked": 2,
+              "blitzed": 7, "hit": 3, "outside": 6, "underPressure": None} for week in (1, 2, 3, 4)]
+    teams = {"DEN": {"def": defense, "off": {}}, "SEA": {"def": {}, "off": {"top": [1980.0, 3]}}}
+    return {"teams": teams, "teamCount": 32, "players": {"qb": {"team": "SEA", "passes": 120, "targets": [], "carries": [2, 2, 2, 2],
+            "qbRush": {"games": games, "escape": [0.42, 3, 28], "sackRate": [0.11, 28, 28],
+                       "lastSeason": {"games": 15, "pressured": 150, "scrambles": 20, "yards": 120}}}}}
+
+
+class QuarterbackNoteTests(unittest.TestCase):
+    DEFENSE = dict(qbScrambleYards=[20.8, 6], qbRushYards=[22.4, 9], scrambleRate=[0.061, 9], blitz=[0.46, 2], pressure=[0.25, 7],
+                   sackPerPressure=[0.17, 29], ypc=[4.9, 2], lightBox=[0.64, 3])
+
+    def notes(self, scout, spread=None, market="rushing_yards"):
+        return {note["key"]: note for note in scouting.for_market(scouting.notes_for(scout, "qb", "SEA", "DEN", spread=spread), market)}
+
+    def test_a_running_quarterback_against_a_defense_that_lets_them_run(self):
+        notes = self.notes(qb_scout(3, 30, **self.DEFENSE), spread=4)
+        self.assertEqual(notes["qb-runs"]["text"], "Runs 5.0 times a game: 3.0 scrambles for 30.0 yards, 2.0 designed runs for 6.0; "
+                                                   "4 of his 8 designed runs were QB sneaks")
+        self.assertEqual(notes["qb-scramble-defense"]["text"], "DEN allow 20.8 quarterback scramble yards a game, 6th most")
+        self.assertEqual((notes["qb-scramble-defense"]["lean"], notes["qb-scramble-defense"]["weight"]), (1, 2))
+        self.assertEqual(notes["qb-blitz"]["lean"], 1)
+        self.assertEqual(notes["qb-pressure"]["text"], "DEN pressure the quarterback on 25% of dropbacks, 7th most, but turn only 17% of pressures "
+                                                       "into sacks (4th fewest): pressured quarterbacks get out and run")
+        self.assertEqual((notes["qb-pressure"]["lean"], notes["qb-pressure"]["weight"]), (1, 2))
+        self.assertEqual(notes["qb-escape"]["text"], "Scrambles 42 times for every 100 times he's pressured, 3rd most of 28 quarterbacks; "
+                                                     "sacked on 11% of pressures, the fewest")
+        self.assertEqual(notes["qb-under-pressure"]["text"], "Last season he ran for 8.0 yards a game under pressure (20 scrambles on 150 pressured dropbacks)")
+        # A kneel a game is a yard: shown, and leaning Under when his team is favored.
+        self.assertEqual(notes["qb-kneels"]["text"], "Kneel-downs take 1.0 yards a game off his rushing (4 kneels): 36.0 a game without them, 35.0 with; "
+                                                     "favored teams kneel to finish games")
+        self.assertEqual(notes["qb-kneels"]["lean"], -1)
+        # A back's notes stay off a quarterback's line.
+        self.assertNotIn("light-box", notes)
+        self.assertNotIn("run-defense", notes)
+        self.assertGreater(scouting.lean_of(list(notes.values())), 0.5)
+
+    def test_a_pocket_passer_reads_the_same_numbers_without_a_lean(self):
+        notes = self.notes(qb_scout(0, 0, **self.DEFENSE))
+        self.assertIn("qb-pressure", notes)
+        self.assertTrue(all(note["lean"] == 0 for key, note in notes.items() if note["kind"] == "opponent"))
+
+    def test_attempts_lines_leave_the_yards_notes_out(self):
+        keys = set(self.notes(qb_scout(3, 30, **self.DEFENSE), market="rush_attempts"))
+        self.assertNotIn("qb-scramble-defense", keys)
+        self.assertIn("qb-scramble-rate", keys)
+        self.assertIn("qb-pressure", keys)
+
+    def test_pass_and_rush_yards_read_both(self):
+        keys = set(self.notes(qb_scout(3, 30, **self.DEFENSE), market="passing_rushing_yards"))
+        self.assertIn("pressure", keys)
+        self.assertIn("qb-pressure", keys)
+
+
 if __name__ == "__main__":
     unittest.main()

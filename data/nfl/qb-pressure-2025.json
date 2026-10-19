@@ -1,0 +1,475 @@
+{
+ "season": 2025,
+ "players": {
+  "00-0022942": {
+   "name": "P.Rivers",
+   "team": "IND",
+   "games": 3,
+   "pressured": 25,
+   "scrambles": 0,
+   "yards": 0,
+   "sacks": 5
+  },
+  "00-0023459": {
+   "name": "A.Rodgers",
+   "team": "PIT",
+   "games": 16,
+   "pressured": 112,
+   "scrambles": 1,
+   "yards": 1.0,
+   "sacks": 29
+  },
+  "00-0026158": {
+   "name": "J.Flacco",
+   "team": "CIN",
+   "games": 10,
+   "pressured": 130,
+   "scrambles": 1,
+   "yards": 13.0,
+   "sacks": 18
+  },
+  "00-0026300": {
+   "name": "J.Johnson",
+   "team": "WAS",
+   "games": 3,
+   "pressured": 18,
+   "scrambles": 2,
+   "yards": 12.0,
+   "sacks": 2
+  },
+  "00-0026498": {
+   "name": "M.Stafford",
+   "team": "LAR",
+   "games": 17,
+   "pressured": 149,
+   "scrambles": 0,
+   "yards": 0,
+   "sacks": 23
+  },
+  "00-0028118": {
+   "name": "T.Taylor",
+   "team": "NYJ",
+   "games": 5,
+   "pressured": 60,
+   "scrambles": 11,
+   "yards": 75.0,
+   "sacks": 14
+  },
+  "00-0029263": {
+   "name": "R.Wilson",
+   "team": "NYG",
+   "games": 4,
+   "pressured": 47,
+   "scrambles": 4,
+   "yards": 18.0,
+   "sacks": 9
+  },
+  "00-0029604": {
+   "name": "K.Cousins",
+   "team": "ATL",
+   "games": 9,
+   "pressured": 94,
+   "scrambles": 0,
+   "yards": 0,
+   "sacks": 13
+  },
+  "00-0030565": {
+   "name": "G.Smith",
+   "team": "LV",
+   "games": 15,
+   "pressured": 173,
+   "scrambles": 9,
+   "yards": 47.0,
+   "sacks": 55
+  },
+  "00-0032268": {
+   "name": "M.Mariota",
+   "team": "WAS",
+   "games": 9,
+   "pressured": 70,
+   "scrambles": 6,
+   "yards": 81.0,
+   "sacks": 15
+  },
+  "00-0032950": {
+   "name": "C.Wentz",
+   "team": "MIN",
+   "games": 5,
+   "pressured": 70,
+   "scrambles": 4,
+   "yards": 16.0,
+   "sacks": 19
+  },
+  "00-0033077": {
+   "name": "D.Prescott",
+   "team": "DAL",
+   "games": 17,
+   "pressured": 201,
+   "scrambles": 11,
+   "yards": 74.0,
+   "sacks": 31
+  },
+  "00-0033106": {
+   "name": "J.Goff",
+   "team": "DET",
+   "games": 17,
+   "pressured": 186,
+   "scrambles": 1,
+   "yards": 5.0,
+   "sacks": 38
+  },
+  "00-0033119": {
+   "name": "J.Brissett",
+   "team": "ARI",
+   "games": 12,
+   "pressured": 181,
+   "scrambles": 6,
+   "yards": 51.0,
+   "sacks": 43
+  },
+  "00-0033662": {
+   "name": "C.Rush",
+   "team": "BAL",
+   "games": 3,
+   "pressured": 14,
+   "scrambles": 0,
+   "yards": 0,
+   "sacks": 1
+  },
+  "00-0033873": {
+   "name": "P.Mahomes",
+   "team": "KC",
+   "games": 14,
+   "pressured": 173,
+   "scrambles": 9,
+   "yards": 62.0,
+   "sacks": 34
+  },
+  "00-0034796": {
+   "name": "L.Jackson",
+   "team": "BAL",
+   "games": 13,
+   "pressured": 123,
+   "scrambles": 15,
+   "yards": 93.0,
+   "sacks": 36
+  },
+  "00-0034855": {
+   "name": "B.Mayfield",
+   "team": "TB",
+   "games": 17,
+   "pressured": 177,
+   "scrambles": 25,
+   "yards": 212.0,
+   "sacks": 36
+  },
+  "00-0034857": {
+   "name": "J.Allen",
+   "team": "BUF",
+   "games": 16,
+   "pressured": 146,
+   "scrambles": 22,
+   "yards": 167.0,
+   "sacks": 40
+  },
+  "00-0034869": {
+   "name": "S.Darnold",
+   "team": "SEA",
+   "games": 17,
+   "pressured": 145,
+   "scrambles": 6,
+   "yards": 32.0,
+   "sacks": 27
+  },
+  "00-0035100": {
+   "name": "J.Browning",
+   "team": "CIN",
+   "games": 4,
+   "pressured": 51,
+   "scrambles": 1,
+   "yards": 4.0,
+   "sacks": 9
+  },
+  "00-0035228": {
+   "name": "K.Murray",
+   "team": "ARI",
+   "games": 5,
+   "pressured": 51,
+   "scrambles": 6,
+   "yards": 58.0,
+   "sacks": 16
+  },
+  "00-0035710": {
+   "name": "D.Jones",
+   "team": "IND",
+   "games": 12,
+   "pressured": 117,
+   "scrambles": 6,
+   "yards": 38.0,
+   "sacks": 22
+  },
+  "00-0035993": {
+   "name": "T.Huntley",
+   "team": "BAL",
+   "games": 4,
+   "pressured": 27,
+   "scrambles": 3,
+   "yards": 44.0,
+   "sacks": 8
+  },
+  "00-0036212": {
+   "name": "T.Tagovailoa",
+   "team": "MIA",
+   "games": 14,
+   "pressured": 117,
+   "scrambles": 4,
+   "yards": 20.0,
+   "sacks": 30
+  },
+  "00-0036264": {
+   "name": "J.Love",
+   "team": "GB",
+   "games": 15,
+   "pressured": 138,
+   "scrambles": 9,
+   "yards": 72.0,
+   "sacks": 21
+  },
+  "00-0036355": {
+   "name": "J.Herbert",
+   "team": "LAC",
+   "games": 16,
+   "pressured": 223,
+   "scrambles": 16,
+   "yards": 164.0,
+   "sacks": 54
+  },
+  "00-0036389": {
+   "name": "J.Hurts",
+   "team": "PHI",
+   "games": 16,
+   "pressured": 155,
+   "scrambles": 21,
+   "yards": 145.0,
+   "sacks": 32
+  },
+  "00-0036442": {
+   "name": "J.Burrow",
+   "team": "CIN",
+   "games": 8,
+   "pressured": 87,
+   "scrambles": 5,
+   "yards": 16.0,
+   "sacks": 17
+  },
+  "00-0036898": {
+   "name": "D.Mills",
+   "team": "HOU",
+   "games": 5,
+   "pressured": 42,
+   "scrambles": 3,
+   "yards": 32.0,
+   "sacks": 8
+  },
+  "00-0036945": {
+   "name": "J.Fields",
+   "team": "NYJ",
+   "games": 9,
+   "pressured": 91,
+   "scrambles": 12,
+   "yards": 129.0,
+   "sacks": 27
+  },
+  "00-0036971": {
+   "name": "T.Lawrence",
+   "team": "JAX",
+   "games": 17,
+   "pressured": 179,
+   "scrambles": 22,
+   "yards": 148.0,
+   "sacks": 41
+  },
+  "00-0036972": {
+   "name": "M.Jones",
+   "team": "SF",
+   "games": 8,
+   "pressured": 69,
+   "scrambles": 1,
+   "yards": 8.0,
+   "sacks": 16
+  },
+  "00-0037324": {
+   "name": "C.Oladokun",
+   "team": "KC",
+   "games": 3,
+   "pressured": 24,
+   "scrambles": 2,
+   "yards": 6.0,
+   "sacks": 8
+  },
+  "00-0037834": {
+   "name": "B.Purdy",
+   "team": "SF",
+   "games": 9,
+   "pressured": 89,
+   "scrambles": 6,
+   "yards": 30.0,
+   "sacks": 11
+  },
+  "00-0039150": {
+   "name": "B.Young",
+   "team": "CAR",
+   "games": 16,
+   "pressured": 165,
+   "scrambles": 13,
+   "yards": 81.0,
+   "sacks": 27
+  },
+  "00-0039163": {
+   "name": "C.Stroud",
+   "team": "HOU",
+   "games": 14,
+   "pressured": 133,
+   "scrambles": 6,
+   "yards": 34.0,
+   "sacks": 23
+  },
+  "00-0039376": {
+   "name": "S.Rattler",
+   "team": "NO",
+   "games": 8,
+   "pressured": 94,
+   "scrambles": 9,
+   "yards": 62.0,
+   "sacks": 18
+  },
+  "00-0039732": {
+   "name": "B.Nix",
+   "team": "DEN",
+   "games": 17,
+   "pressured": 179,
+   "scrambles": 7,
+   "yards": 37.0,
+   "sacks": 22
+  },
+  "00-0039851": {
+   "name": "D.Maye",
+   "team": "NE",
+   "games": 17,
+   "pressured": 188,
+   "scrambles": 16,
+   "yards": 129.0,
+   "sacks": 47
+  },
+  "00-0039910": {
+   "name": "J.Daniels",
+   "team": "WAS",
+   "games": 7,
+   "pressured": 88,
+   "scrambles": 20,
+   "yards": 124.0,
+   "sacks": 18
+  },
+  "00-0039917": {
+   "name": "M.Penix",
+   "team": "ATL",
+   "games": 9,
+   "pressured": 73,
+   "scrambles": 5,
+   "yards": 29.0,
+   "sacks": 13
+  },
+  "00-0039918": {
+   "name": "C.Williams",
+   "team": "CHI",
+   "games": 17,
+   "pressured": 194,
+   "scrambles": 18,
+   "yards": 162.0,
+   "sacks": 24
+  },
+  "00-0039923": {
+   "name": "J.McCarthy",
+   "team": "MIN",
+   "games": 10,
+   "pressured": 97,
+   "scrambles": 9,
+   "yards": 88.0,
+   "sacks": 27
+  },
+  "00-0040234": {
+   "name": "Q.Ewers",
+   "team": "MIA",
+   "games": 4,
+   "pressured": 36,
+   "scrambles": 0,
+   "yards": 0,
+   "sacks": 8
+  },
+  "00-0040398": {
+   "name": "B.Cook",
+   "team": "NYJ",
+   "games": 5,
+   "pressured": 45,
+   "scrambles": 3,
+   "yards": 9.0,
+   "sacks": 19
+  },
+  "00-0040494": {
+   "name": "M.Brosmer",
+   "team": "MIN",
+   "games": 4,
+   "pressured": 32,
+   "scrambles": 0,
+   "yards": 0,
+   "sacks": 14
+  },
+  "00-0040668": {
+   "name": "S.Sanders",
+   "team": "CLE",
+   "games": 8,
+   "pressured": 115,
+   "scrambles": 8,
+   "yards": 78.0,
+   "sacks": 23
+  },
+  "00-0040676": {
+   "name": "C.Ward",
+   "team": "TEN",
+   "games": 16,
+   "pressured": 195,
+   "scrambles": 10,
+   "yards": 60.0,
+   "sacks": 55
+  },
+  "00-0040691": {
+   "name": "J.Dart",
+   "team": "NYG",
+   "games": 12,
+   "pressured": 122,
+   "scrambles": 11,
+   "yards": 70.0,
+   "sacks": 35
+  },
+  "00-0040704": {
+   "name": "D.Gabriel",
+   "team": "CLE",
+   "games": 6,
+   "pressured": 61,
+   "scrambles": 2,
+   "yards": 27.0,
+   "sacks": 18
+  },
+  "00-0040743": {
+   "name": "T.Shough",
+   "team": "NO",
+   "games": 10,
+   "pressured": 96,
+   "scrambles": 9,
+   "yards": 77.0,
+   "sacks": 31
+  }
+ },
+ "source": "nflverse play by play and participation",
+ "builtAt": "2026-10-19T16:57:52+00:00"
+}

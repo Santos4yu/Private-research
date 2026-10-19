@@ -100,7 +100,7 @@ def _source_payload(resource, season, week, season_type, team, player_id, season
 
 # The Finder's NFL player page (backend/sports/nfl/finder.py).
 FINDER_RESOURCES = ('finder-board', 'finder-find', 'finder-log', 'finder-pbp', 'finder-league', 'finder-team', 'finder-matchup', 'finder-player',
-                    'finder-scout', 'finder-weather')
+                    'finder-scout', 'finder-weather', 'finder-qb-rush')
 PLAYER_ID = re.compile(r'^\d{2}-\d{7}$')
 TEAM = re.compile(r'^[A-Z]{2,3}$')
 GAME_ID = re.compile(r'^\d{4}_\d{2}_[A-Z]{2,3}_[A-Z]{2,3}$')
@@ -111,7 +111,7 @@ class handler(BaseHTTPRequestHandler):
         from backend.sports.nfl import finder
         arg = lambda name: (query.get(name) or [''])[0].strip()
         player_id, team, opponent, game_id = arg('playerId'), arg('team').upper(), arg('opponent').upper(), arg('gameId')
-        if resource in ('finder-log', 'finder-pbp', 'finder-player') and not PLAYER_ID.match(player_id):
+        if resource in ('finder-log', 'finder-pbp', 'finder-player', 'finder-qb-rush') and not PLAYER_ID.match(player_id):
             return send_json(self, 400, {'error': 'A verified NFL player is required.'})
         if resource in ('finder-team', 'finder-player') and not TEAM.match(team):
             return send_json(self, 400, {'error': 'A team abbreviation is required.'})
@@ -142,6 +142,13 @@ class handler(BaseHTTPRequestHandler):
                 # blitz, pressure, boxes, run defense, splits and usage.
                 import nfl_scouting
                 return send_json(self, 200, nfl_scouting.report(season))
+            if resource == 'finder-qb-rush':
+                # A quarterback's scrambles, designed runs and kneel-downs, and
+                # what this defense gives quarterbacks (nfl_scouting.py).
+                if not TEAM.match(opponent):
+                    return send_json(self, 400, {'error': 'An opponent is required.'})
+                import nfl_scouting
+                return send_json(self, 200, nfl_scouting.qb_rush(season, player_id, opponent))
             if resource == 'finder-weather':
                 # Kickoff weather for the week's games (football_weather.py).
                 import football_weather

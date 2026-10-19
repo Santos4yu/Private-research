@@ -1,0 +1,39 @@
+/* The QB rushing card (QBRushing.jsx), in the context panel's card style. */
+.qbr-card .qbr-section { padding: 12px 14px 4px; }
+.qbr-card .qbr-section + .qbr-section { border-top: 1px solid #222; }
+.qbr-card h3 { margin: 0 0 10px; color: #cfcfcf; font: 800 10.5px/1.2 var(--font-sans, Inter, sans-serif); letter-spacing: .08em; text-transform: uppercase; }
+.qbr-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding-bottom: 10px; }
+.qbr-tile { display: grid; align-content: start; gap: 4px; min-width: 0; padding: 10px 11px; border: 1px solid #262626; border-radius: 10px; background: #171717; }
+.qbr-tile > span { color: #a6a6a6; font: 700 11px/1.25 var(--font-sans, Inter, sans-serif); }
+.qbr-tile > strong { color: #f5f5f5; font: 800 19px/1.1 var(--font-sans, Inter, sans-serif); letter-spacing: -.01em; }
+.qbr-tile > strong small { margin-left: 5px; color: #a6a6a6; font-size: 11px; font-weight: 600; letter-spacing: 0; }
+.qbr-tile > em { color: #8f8f8f; font: 500 11px/1.35 var(--font-sans, Inter, sans-serif); font-style: normal; }
+
+.qbr-defense { display: grid; gap: 0; margin: 0 0 8px; padding: 0; list-style: none; }
+.qbr-defense li { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "label value" "label rank"; align-items: center;
+  column-gap: 12px; row-gap: 3px; padding: 9px 0; border-top: 1px solid #1f1f1f; }
+.qbr-defense li:first-child { border-top: 0; }
+.qbr-defense li > span { grid-area: label; color: #d6d6d6; font: 600 12.5px/1.3 var(--font-sans, Inter, sans-serif); }
+.qbr-defense li > span small { display: block; margin-top: 2px; color: #8f8f8f; font-size: 10.5px; font-weight: 500; }
+.qbr-defense li > b { grid-area: value; justify-self: end; color: #f5f5f5; font: 800 13.5px/1.2 var(--font-sans, Inter, sans-serif); }
+.qbr-defense li > i { grid-area: rank; justify-self: end; display: inline-flex; align-items: center; gap: 6px; padding: 2px 7px; border-radius: 999px;
+  background: #1f1f1f; color: #bdbdbd; font: 700 10.5px/1.5 var(--font-sans, Inter, sans-serif); font-style: normal; white-space: nowrap; }
+.qbr-defense li > i small { color: #8f8f8f; font-size: 10px; font-weight: 600; }
+.qbr-defense li > i[data-tone=good] { background: rgba(70, 227, 154, .12); color: #5fe0a8; }
+.qbr-defense li > i[data-tone=poor] { background: rgba(255, 123, 138, .12); color: #ff8b98; }
+
+.qbr-games { border-top: 1px solid #222; }
+.qbr-games > summary { display: flex; align-items: center; gap: 8px; padding: 11px 14px; color: #e6e6e6; font: 700 12.5px/1 var(--font-sans, Inter, sans-serif);
+  cursor: pointer; list-style: none; }
+.qbr-games > summary::-webkit-details-marker { display: none; }
+.qbr-games > summary small { color: #8f8f8f; font-weight: 600; }
+.qbr-games > summary svg { margin-left: auto; color: #a6a6a6; transition: transform .2s ease; }
+.qbr-games[open] > summary svg { transform: rotate(180deg); }
+.qbr-table { overflow-x: auto; padding: 0 14px 10px; -webkit-overflow-scrolling: touch; }
+.qbr-table table { width: 100%; min-width: 520px; border-collapse: collapse; font: 600 12px/1.3 var(--font-sans, Inter, sans-serif); color: #d6d6d6; }
+.qbr-table th { padding: 6px 6px; color: #8f8f8f; font-size: 10.5px; font-weight: 700; text-align: right; white-space: nowrap; border-bottom: 1px solid #262626; }
+.qbr-table td { padding: 7px 6px; text-align: right; white-space: nowrap; border-bottom: 1px solid #1c1c1c; }
+.qbr-table :is(th, td):nth-child(-n+2) { text-align: left; }
+.qbr-table td small { color: #8f8f8f; font-size: 10.5px; }
+.qbr-foot { margin: 0; padding: 0 14px 12px; color: #7e7e7e; font: 500 10.5px/1.45 var(--font-sans, Inter, sans-serif); }
+@media (max-width: 380px) { .qbr-tiles { gap: 6px; } .qbr-tile { padding: 9px; } .qbr-tile > strong { font-size: 17px; } }

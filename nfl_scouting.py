@@ -13,10 +13,19 @@ from free data and written as short notes for a prop.
   contact   a back's yards after contact and broken tackles (rank among
             backs)
   script    the spread and the time his team holds the ball
+  qb runs   a quarterback's scrambles and designed runs (sneaks among
+            them) and what kneel-downs take off his rushing yards; how often
+            he's pressured, sacked when pressured and gets away; and what a
+            defense gives quarterbacks on the ground: scramble yards, rushing
+            yards without kneel-downs, scrambles a dropback, the pressures it
+            turns into sacks. Rushing yards under pressure come from the
+            NFL's per-play pressure (nflverse participation), once it's out
+            for the season; until then last season's (data/nfl).
 
 Sources (nflverse's free season files): play by play, FTN's charting of
-every play (blitzers, box count), Pro Football Reference's advanced stats
-(pressures, yards after contact, broken tackles) and snap counts. Charting
+every play (blitzers, box count, sneaks, out of the pocket), Pro Football
+Reference's advanced stats (pressures, sacks, yards after contact, broken
+tackles), snap counts and the NFL's participation file (pressure on a play). Charting
 and the advanced stats come out a few days after the games, so the newest
 week can be missing; the notes say what they're built on and never guess.
 
@@ -31,15 +40,17 @@ from __future__ import annotations
 import csv
 import gzip
 import io
+import json
 import time
 from collections import defaultdict
+from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from backend.sports.nfl.cache import NFLCacheDomain, cached_nfl
 from backend.sports.nfl.services.nflverse import RELEASE, canonical_team
 
-VERSION = "nfl-scout-v1"
+VERSION = "nfl-scout-v2"
 USER_AGENT = {"User-Agent": "KrazyData-NFL-scout/1.0"}
 PBP_FIELDS = ("game_id", "play_id", "season_type", "week", "posteam", "defteam", "play_type", "pass_attempt",
               "rush_attempt", "sack", "qb_dropback", "qb_scramble", "qb_kneel", "qb_spike", "two_point_attempt",
@@ -54,6 +65,10 @@ MIN_LIGHT_CARRIES = 15
 MIN_CONTACT_CARRIES = 20
 NEAR = 10          # "6th most" is shown from 1st to 10th either way
 EDGE = 8           # a rank this near either end leans the note
+MIN_QB_DROPBACKS = 20   # a quarterback, not a trick-play passer
+START_DROPBACKS = 10    # a game he played, not a relief series
+MIN_QB_GAMES = 3        # games before his own rates say anything
+MIN_ESCAPE_PRESSURES = 25
 
 
 # ---------------------------------------------------------------- reading
@@ -93,6 +108,20 @@ def _stream(url, gz=False):
         return list(csv.DictReader(io.TextIOWrapper(raw, encoding="utf-8-sig")))
 
 
+def _rows(url, gz=False):
+    """A release file a row at a time, for the big ones (the participation
+    file runs to 50MB); none when it isn't published."""
+    try:
+        response = urlopen(Request(url, headers=USER_AGENT), timeout=40)
+    except HTTPError as error:
+        if error.code == 404:
+            return
+        raise
+    with response:
+        raw = gzip.GzipFile(fileobj=response) if gz else response
+        yield from csv.DictReader(io.TextIOWrapper(raw, encoding="utf-8-sig"))
+
+
 def _clock(value):
     """'4:32' -> 272 seconds."""
     try:
@@ -104,19 +133,38 @@ def _clock(value):
 
 # ---------------------------------------------------------------- the table
 
-def summarize(plays, charting, pressured, contact, snaps):
+def summarize(plays, charting, pressured, contact, snaps, sacked=None, qb_pressure=None, pressure_plays=None, last_pressure=None):
     """The season's scouting table from its parts:
 
       plays      play-by-play rows (PBP_FIELDS)
-      charting   {(game_id, play_id): {"blitz": bool, "box": int | None}}
+      charting   {(game_id, play_id): {"blitz": bool, "box": int | None,
+                  "sneak": bool, "outside": bool}}
       pressured  {defense: times opposing quarterbacks were pressured}
       contact    {gsis id: {"carries", "afterContact", "broken"}}
       snaps      {gsis id: [(week, share of offensive snaps), ...]}
+      sacked     {defense: sacks, as the advanced stats count them}
+      qb_pressure {gsis id: {game id: {"pressured", "sacked", "blitzed", "hit"}}}
+      pressure_plays {"games": game ids charted, "plays": {(game id, play id)}
+                  pressured} -- the participation file, when it's out
+      last_pressure {gsis id: last season's runs under pressure} (data/nfl)
     """
     defense = defaultdict(lambda: defaultdict(float))
     offense = defaultdict(lambda: {"games": set(), "drives": {}})
     team_game = defaultdict(lambda: defaultdict(float))   # (team, game) -> targets on charted dropbacks
     player = defaultdict(lambda: {"team": None, "week": -1, "games": {}, "passes": 0, "split": defaultdict(float)})
+    # A quarterback's games as a runner and passer, and every designed run by
+    # anyone (which of those are a quarterback's is known once the season is
+    # read: he's the one with the dropbacks).
+    qb = defaultdict(dict)
+    designed_by = {}     # (rusher, game) -> runs, yards, sneaks
+    defense_games = defaultdict(set)
+    charted_pressure = (pressure_plays or {}).get("plays") or set()
+    pressure_games = (pressure_plays or {}).get("games") or set()
+
+    def qb_game(player_id, game_id, week, team, against):
+        return qb[player_id].setdefault(game_id, {"week": week, "team": team, "opponent": against, "dropbacks": 0, "scrambles": 0,
+                                                  "scrambleYards": 0, "kneels": 0, "kneelYards": 0, "sacks": 0, "charted": 0,
+                                                  "outside": 0, "pDropbacks": 0, "pScrambles": 0, "pYards": 0, "pSacks": 0})
     for row in plays:
         if str(row.get("season_type")).upper() != "REG" or _flag(row, "two_point_attempt"):
             continue
@@ -124,8 +172,10 @@ def summarize(plays, charting, pressured, contact, snaps):
         if not game_id or not team or not against:
             continue
         week = int(_num(row.get("week")) or 0)
-        chart = charting.get(_play_key(game_id, row.get("play_id")))
+        key = _play_key(game_id, row.get("play_id"))
+        chart = charting.get(key)
         offense[team]["games"].add(game_id)
+        defense_games[against].add(game_id)
         drive = row.get("fixed_drive")
         seconds = _clock(row.get("drive_time_of_possession"))
         if _present(drive) and seconds is not None:
@@ -137,12 +187,40 @@ def summarize(plays, charting, pressured, contact, snaps):
                 entry["week"], entry["team"] = week, team
             return entry.setdefault("games", {}).setdefault(game_id, {"week": week, "team": team, "targets": 0, "carries": 0})
 
+        scrambled, knelt, sacked_here = _flag(row, "qb_scramble"), _flag(row, "qb_kneel"), _flag(row, "sack")
+        passer, rusher = row.get("passer_player_id"), row.get("rusher_player_id")
         if _flag(row, "qb_dropback"):
             stats = defense[against]
             stats["dropbacks"] += 1
             if chart is not None:
                 stats["charted"] += 1
                 stats["blitzed"] += chart["blitz"]
+            # Whose dropback: the passer's, or on a scramble the runner's.
+            mine = passer if _present(passer) else rusher if scrambled and _present(rusher) else None
+            if mine:
+                game = qb_game(mine, game_id, week, team, against)
+                game["dropbacks"] += 1
+                game["sacks"] += sacked_here
+                if chart is not None:
+                    game["charted"] += 1
+                    game["outside"] += bool(chart.get("outside"))
+                if game_id in pressure_games and key in charted_pressure:
+                    game["pDropbacks"] += 1
+                    game["pSacks"] += sacked_here
+                    if scrambled:
+                        game["pScrambles"] += 1
+                        game["pYards"] += _num(row.get("rushing_yards")) or 0
+        if scrambled and _present(rusher):
+            yards = _num(row.get("rushing_yards")) or 0
+            game = qb_game(rusher, game_id, week, team, against)
+            game["scrambles"] += 1
+            game["scrambleYards"] += yards
+            defense[against]["qbScrambles"] += 1
+            defense[against]["qbScrambleYards"] += yards
+        if knelt and _present(rusher):
+            game = qb_game(rusher, game_id, week, team, against)
+            game["kneels"] += 1
+            game["kneelYards"] += _num(row.get("rushing_yards")) or 0
         passed = _flag(row, "pass_attempt") and not _flag(row, "sack") and not _flag(row, "qb_spike")
         if passed:
             yards = _num(row.get("passing_yards")) or 0
@@ -171,7 +249,11 @@ def summarize(plays, charting, pressured, contact, snaps):
             stats["runs"] += 1
             stats["runYards"] += yards
             stats["runSuccess"] += _flag(row, "success")
-            rusher = row.get("rusher_player_id")
+            if _present(rusher):
+                runs = designed_by.setdefault((rusher, game_id), {"runs": 0, "yards": 0, "sneaks": 0, "week": week, "team": team, "against": against})
+                runs["runs"] += 1
+                runs["yards"] += yards
+                runs["sneaks"] += bool(chart and chart.get("sneak"))
             box = chart["box"] if chart is not None else None
             if box is not None:
                 stats["boxed"] += 1
@@ -184,7 +266,20 @@ def summarize(plays, charting, pressured, contact, snaps):
                     split["car" + tag] += 1
                     split["ryd" + tag] += yards
 
+    # Quarterbacks: whoever has a season's worth of dropbacks. Their designed
+    # runs (sneaks among them) join their games and what each defense allowed.
+    quarterbacks = {pid for pid, games in qb.items() if sum(game["dropbacks"] for game in games.values()) >= MIN_QB_DROPBACKS}
+    for (rusher, game_id), runs in designed_by.items():
+        if rusher not in quarterbacks:
+            continue
+        game = qb_game(rusher, game_id, runs["week"], runs["team"], runs["against"])
+        game["designed"], game["designedYards"], game["sneaks"] = int(runs["runs"]), runs["yards"], int(runs["sneaks"])
+        defense[runs["against"]]["qbDesigned"] += runs["runs"]
+        defense[runs["against"]]["qbDesignedYards"] += runs["yards"]
+
     teams = sorted(set(defense) | set(offense))
+    games_of = lambda team: len(defense_games[team])
+    sacked = sacked or {}
     rates = {
         "blitz": {team: _ratio(defense[team]["blitzed"], defense[team]["charted"], 60) for team in teams},
         "pressure": {team: _ratio(pressured.get(team), defense[team]["dropbacks"], 60) if team in pressured else None for team in teams},
@@ -192,6 +287,12 @@ def summarize(plays, charting, pressured, contact, snaps):
         "ypc": {team: _ratio(defense[team]["runYards"], defense[team]["runs"], 40) for team in teams},
         "rushSuccess": {team: _ratio(defense[team]["runSuccess"], defense[team]["runs"], 40) for team in teams},
         "ypa": {team: _ratio(defense[team]["passYards"], defense[team]["attempts"], 60) for team in teams},
+        # What quarterbacks do on the ground against them, a game (kneel-downs left out).
+        "qbScrambleYards": {team: _ratio(defense[team]["qbScrambleYards"], games_of(team), 2) for team in teams},
+        "qbRushYards": {team: _ratio(defense[team]["qbScrambleYards"] + defense[team]["qbDesignedYards"], games_of(team), 2) for team in teams},
+        "scrambleRate": {team: _ratio(defense[team]["qbScrambles"], defense[team]["dropbacks"], 60) for team in teams},
+        # The pressures they turn into sacks (both from the advanced stats).
+        "sackPerPressure": {team: _ratio(sacked.get(team), pressured.get(team), 20) if team in sacked and team in pressured else None for team in teams},
     }
     possession = {team: (sum(offense[team]["drives"].values()) / len(offense[team]["games"]) if offense[team]["games"] and offense[team]["drives"] else None)
                   for team in teams}
@@ -224,10 +325,47 @@ def summarize(plays, charting, pressured, contact, snaps):
         if snaps.get(pid):
             out["snaps"] = [share for _week, share in sorted(snaps[pid])]
         players[pid] = out
+    for pid, rushing in _quarterbacks(quarterbacks, qb, qb_pressure or {}, pressure_games, last_pressure or {}).items():
+        entry = players.setdefault(pid, {"team": rushing["games"][-1]["team"], "games": len(rushing["games"]), "passes": 0, "targets": [], "carries": []})
+        entry["qbRush"] = rushing
     weeks = sorted({int(_num(row.get("week")) or 0) for row in plays if str(row.get("season_type")).upper() == "REG"} - {0})
     charted = sorted({key[0] for key in charting})
     return {"teams": table, "league": league, "players": players, "teamCount": len(teams), "weeks": weeks,
             "chartedGames": len(charted), "version": VERSION}
+
+
+def _quarterbacks(quarterbacks, qb, qb_pressure, pressure_games, last_pressure):
+    """Each quarterback's season as a runner, game by game, with how often he
+    gets away when pressured and how often he's sacked, ranked among
+    quarterbacks pressured enough to say."""
+    out, escapes, sacks = {}, {}, {}
+    for pid in quarterbacks:
+        games, pressures, sacked, scrambles = [], 0, 0, 0
+        for game_id, game in sorted(qb[pid].items(), key=lambda item: item[1]["week"]):
+            pfr = (qb_pressure.get(pid) or {}).get(game_id) or {}
+            charted = game_id in pressure_games
+            games.append({"week": game["week"], "opponent": game["opponent"], "team": game["team"], "dropbacks": game["dropbacks"],
+                          "scrambles": game["scrambles"], "scrambleYards": game["scrambleYards"],
+                          "designed": game.get("designed", 0), "designedYards": game.get("designedYards", 0), "sneaks": game.get("sneaks", 0),
+                          "kneels": game["kneels"], "kneelYards": game["kneelYards"], "sacks": game["sacks"],
+                          "pressured": pfr.get("pressured"), "sacked": pfr.get("sacked"), "blitzed": pfr.get("blitzed"), "hit": pfr.get("hit"),
+                          "outside": game["outside"] if game["charted"] else None,
+                          "underPressure": {"dropbacks": game["pDropbacks"], "scrambles": game["pScrambles"], "yards": game["pYards"],
+                                            "sacks": game["pSacks"]} if charted else None})
+            if pfr.get("pressured") is not None:
+                pressures += pfr["pressured"]
+                sacked += pfr.get("sacked") or 0
+                scrambles += game["scrambles"]
+        if pressures >= MIN_ESCAPE_PRESSURES:
+            escapes[pid], sacks[pid] = scrambles / pressures, sacked / pressures
+        out[pid] = {"games": games}
+        if last_pressure.get(pid):
+            out[pid]["lastSeason"] = last_pressure[pid]
+    escape_rank, sack_rank = _ranks(escapes), _ranks(sacks)
+    for pid in escapes:
+        out[pid]["escape"] = [round(escapes[pid], 4), escape_rank[pid], len(escapes)]
+        out[pid]["sackRate"] = [round(sacks[pid], 4), sack_rank[pid], len(sacks)]
+    return out
 
 
 def _ratio(top, bottom, minimum):
@@ -259,17 +397,29 @@ def build(season):
         key = _play_key(row.get("nflverse_game_id"), row.get("nflverse_play_id"))
         if key:
             blitzers, box = _num(row.get("n_blitzers")), _num(row.get("n_defense_box"))
-            charting[key] = {"blitz": bool(blitzers and blitzers > 0), "box": int(box) if box is not None else None}
-    pressured = defaultdict(float)
-    for row in _stream(f"{RELEASE}/pfr_advstats/advstats_week_pass_{season}.csv"):
-        if str(row.get("game_type")).upper() == "REG" and _num(row.get("times_pressured")) is not None:
-            pressured[canonical_team(row.get("opponent"))] += _num(row["times_pressured"])
+            charting[key] = {"blitz": bool(blitzers and blitzers > 0), "box": int(box) if box is not None else None,
+                             "sneak": str(row.get("is_qb_sneak")).upper() == "TRUE",
+                             "outside": str(row.get("is_qb_out_of_pocket")).upper() == "TRUE"}
     from backend.sports.nfl import finder
     by_pfr = {}
     for row in finder.roster_rows(season):
         pfr, gsis = str(row.get("pfr_id") or "").strip(), str(row.get("gsis_id") or "").strip()
         if _present(pfr) and _present(gsis):
             by_pfr[pfr] = gsis
+    # Pressures and sacks: each defense's (what opposing quarterbacks
+    # suffered) and each quarterback's, game by game.
+    pressured, sacked, qb_pressure = defaultdict(float), defaultdict(float), defaultdict(dict)
+    for row in _stream(f"{RELEASE}/pfr_advstats/advstats_week_pass_{season}.csv"):
+        if str(row.get("game_type")).upper() != "REG" or _num(row.get("times_pressured")) is None:
+            continue
+        against = canonical_team(row.get("opponent"))
+        pressured[against] += _num(row["times_pressured"])
+        sacked[against] += _num(row.get("times_sacked")) or 0
+        gsis = by_pfr.get(row.get("pfr_player_id"))
+        if gsis and row.get("game_id"):
+            qb_pressure[gsis][row["game_id"]] = {key: _num(row.get(field)) for key, field in
+                                                 (("pressured", "times_pressured"), ("sacked", "times_sacked"),
+                                                  ("blitzed", "times_blitzed"), ("hit", "times_hit"))}
     contact = defaultdict(lambda: {"carries": 0, "afterContact": 0, "broken": 0})
     for row in _stream(f"{RELEASE}/pfr_advstats/advstats_week_rush_{season}.csv"):
         gsis = by_pfr.get(row.get("pfr_player_id"))
@@ -284,13 +434,56 @@ def build(season):
         gsis, share = by_pfr.get(row.get("pfr_player_id")), _num(row.get("offense_pct"))
         if gsis and share and str(row.get("game_type")).upper() == "REG":
             snaps[gsis].append((int(_num(row.get("week")) or 0), share))
-    return summarize(plays, charting, dict(pressured), dict(contact), dict(snaps))
+    return summarize(plays, charting, dict(pressured), dict(contact), dict(snaps), sacked=dict(sacked), qb_pressure=dict(qb_pressure),
+                     pressure_plays=pressure_plays(season), last_pressure=last_season_pressure(season - 1))
+
+
+def pressure_plays(season):
+    """The plays the NFL marks as a pressure (nflverse's participation file),
+    and the games it covers. Nothing until the season's file is out."""
+    games, plays = set(), set()
+    for row in _rows(f"{RELEASE}/pbp_participation/pbp_participation_{season}.csv"):
+        key = _play_key(row.get("nflverse_game_id"), row.get("play_id"))
+        if key is None:
+            continue
+        games.add(key[0])
+        if str(row.get("was_pressure")).upper() == "TRUE":
+            plays.add(key)
+    return {"games": games, "plays": plays}
+
+
+PRESSURE_FILE = Path(__file__).resolve().parent / "data" / "nfl" / "qb-pressure-{season}.json"
+
+
+def last_season_pressure(season):
+    """A finished season's runs under pressure for each quarterback
+    (tools/build_qb_pressure.py writes it once the season is over)."""
+    try:
+        return json.loads(PRESSURE_FILE.with_name(PRESSURE_FILE.name.format(season=season)).read_text(encoding="utf-8")).get("players") or {}
+    except (OSError, ValueError):
+        return {}
 
 
 def table(season):
     """The season's scouting table, built once and kept (it streams the
     whole play-by-play file)."""
     return cached_nfl(NFLCacheDomain.PLAY_BY_PLAY, (VERSION, "table", season), lambda: build(season))
+
+
+# What a defense gives quarterbacks, for the player page's card.
+QB_DEFENSE = ("qbScrambleYards", "qbRushYards", "scrambleRate", "blitz", "pressure", "sackPerPressure")
+
+
+def qb_rush(season, player_id, opponent):
+    """One quarterback's season as a runner and what this defense gives
+    quarterbacks (each with its rank, 1 the most), against the league."""
+    scout = table(season)
+    me = (scout.get("players") or {}).get(player_id) or {}
+    them = ((scout.get("teams") or {}).get(opponent) or {}).get("def") or {}
+    league = scout.get("league") or {}
+    return {"season": season, "weeks": scout.get("weeks") or [], "teamCount": scout.get("teamCount"), "chartedGames": scout.get("chartedGames"),
+            "player": me.get("qbRush"), "opponent": {"team": opponent, **{key: them.get(key) for key in QB_DEFENSE}},
+            "league": {key: league.get(key) for key in QB_DEFENSE}, "version": VERSION}
 
 
 # ---------------------------------------------------------------- notes
@@ -300,8 +493,11 @@ FAMILIES = {
     "passing_touchdowns": ("passing",), "receptions": ("receiving",), "receiving_yards": ("receiving",),
     "targets": ("receiving",), "longest_reception": ("receiving",), "rushing_yards": ("rushing",),
     "rush_attempts": ("rushing",), "rushing_receiving_yards": ("rushing", "receiving"),
+    "passing_rushing_yards": ("passing", "rushing"), "longest_rush": ("rushing",), "rush_yards_first_5": ("rushing",),
+    "first_rush_yards": ("rushing",), "quarters_5_rush_yds": ("rushing",), "halves_25_rush_yds": ("rushing",),
 }
-YARDS = {"passing_yards", "receiving_yards", "rushing_yards", "rushing_receiving_yards", "longest_reception"}
+YARDS = {"passing_yards", "receiving_yards", "rushing_yards", "rushing_receiving_yards", "longest_reception",
+         "passing_rushing_yards", "longest_rush", "rush_yards_first_5", "first_rush_yards", "quarters_5_rush_yds", "halves_25_rush_yds"}
 
 
 def _ordinal(number):
@@ -329,6 +525,10 @@ def _lean(rank, teams):
     if rank is None or not teams:
         return 0
     return 1 if rank <= EDGE else -1 if teams - rank + 1 <= EDGE else 0
+
+
+def _count(number, one, many):
+    return f"{number:g} {one if number == 1 else many}"
 
 
 def _pct(value):
@@ -448,7 +648,116 @@ def notes_for(scout, player_id, team, opponent, spread=None):
             out["receiving"].append(targets)
         if carries and sum(me["carries"]) >= MIN_CONTACT_CARRIES:
             out["rushing"].append(carries)
+    # A quarterback's runs read their own notes: his scrambles and designed
+    # runs, what this defense gives quarterbacks, its blitz and pass rush.
+    if (me or {}).get("qbRush"):
+        out["rushing"] = _qb_notes(me["qbRush"], opponent, cell, count, spread)
     return {family: items for family, items in out.items() if items}
+
+
+def _qb_notes(rushing, opponent, cell, count, spread):
+    """A quarterback's rushing notes against this defense."""
+    games = [game for game in rushing.get("games") or [] if game["dropbacks"] >= START_DROPBACKS]
+    if len(games) < MIN_QB_GAMES:
+        return []
+    n = len(games)
+    total = lambda key: sum(game.get(key) or 0 for game in games)
+    scrambles, scramble_yards = total("scrambles"), total("scrambleYards")
+    designed, designed_yards, sneaks = total("designed"), total("designedYards"), total("sneaks")
+    kneels, kneel_yards = total("kneels"), total("kneelYards")
+    scrambler = scrambles / n >= 1.5
+    # How much the defense's numbers matter: a quarterback who runs for 15+
+    # yards a game feels them fully, 7+ by half, a pocket passer not at all.
+    rushing_yards = (scramble_yards + designed_yards) / n
+    runner = 2 if rushing_yards >= 15 else 1 if rushing_yards >= 7 else 0
+    weigh = lambda lean, weight: (lean, min(weight, runner)) if runner else (0, 0)
+    out = []
+    # His running: how much of it he makes up, and how much is called.
+    if scrambles + designed:
+        text = (f"Runs {(scrambles + designed) / n:.1f} times a game: {scrambles / n:.1f} scrambles for {scramble_yards / n:.1f} yards, "
+                f"{designed / n:.1f} designed runs for {designed_yards / n:.1f}")
+        if sneaks:
+            text += (f"; {'both' if designed == 2 else 'all ' + format(designed, 'g')} of his designed runs were QB sneaks" if sneaks == designed and designed > 1
+                     else f"; his one designed run was a QB sneak" if sneaks == designed
+                     else f"; {sneaks:g} of his {designed:g} designed runs {'was a QB sneak' if sneaks == 1 else 'were QB sneaks'}")
+        out.append(_note("qb-runs", "usage", text))
+    # Kneel-downs count as rushing (and settle the line), but they aren't running.
+    if kneels >= 2 and -kneel_yards / n >= 1:
+        favored = spread is not None and spread >= 3
+        text = (f"Kneel-downs take {abs(kneel_yards) / n:.1f} yards a game off his rushing ({kneels} kneels): "
+                f"{(scramble_yards + designed_yards) / n:.1f} a game without them, {(scramble_yards + designed_yards + kneel_yards) / n:.1f} with")
+        out.append(_note("qb-kneels", "usage", text + ("; favored teams kneel to finish games" if favored else ""), -1 if favored else 0, 1, yards=True))
+    # What this defense gives quarterbacks on the ground.
+    value, rank = cell("qbScrambleYards")
+    where = _where(rank, count)
+    if value is not None and where:
+        out.append(_note("qb-scramble-defense", "opponent", f"{opponent} allow {value:.1f} quarterback scramble yards a game, {where}",
+                         *weigh(_lean(rank, count), 2 if scrambler else 1), yards=True))
+    value, rank = cell("qbRushYards")
+    where = _where(rank, count)
+    if value is not None and where:
+        out.append(_note("qb-rush-defense", "opponent", f"{opponent} allow {value:.1f} rushing yards a game to quarterbacks (kneel-downs left out), {where}",
+                         *weigh(_lean(rank, count), 1 if scrambler else 2), yards=True))
+    value, rank = cell("scrambleRate")
+    where = _where(rank, count)
+    if value is not None and where:
+        out.append(_note("qb-scramble-rate", "opponent", f"Quarterbacks scramble on {_pct(value)} of dropbacks against {opponent}, {where}", *weigh(_lean(rank, count), 1)))
+    # The blitz and the pass rush: a blitz leaves fewer to chase him; pressure
+    # makes him run unless it ends in a sack.
+    blitz, blitz_rank = cell("blitz")
+    if blitz is not None and blitz_rank is not None and blitz_rank <= NEAR and scrambles / n >= 1:
+        out.append(_note("qb-blitz", "opponent", f"{opponent} blitz on {_pct(blitz)} of dropbacks, {_nth(blitz_rank, 'most')}: "
+                                                 "a blitz leaves fewer defenders to chase a scramble", *weigh(1, 1)))
+    escape, sacked = rushing.get("escape"), rushing.get("sackRate")
+    escapes = bool(escape and escape[1] <= NEAR)
+    pressure, pressure_rank = cell("pressure")
+    convert, convert_rank = cell("sackPerPressure")
+    low = convert is not None and convert_rank is not None and count - convert_rank + 1 <= EDGE
+    high = convert is not None and convert_rank is not None and convert_rank <= EDGE
+    if pressure is not None and pressure_rank is not None and pressure_rank <= NEAR:
+        text = f"{opponent} pressure the quarterback on {_pct(pressure)} of dropbacks, {_nth(pressure_rank, 'most')}"
+        if low:
+            text, lean, weight = text + f", but turn only {_pct(convert)} of pressures into sacks ({_nth(count - convert_rank + 1, 'fewest')}): pressured quarterbacks get out and run", 1, 2
+        elif high:
+            text, lean, weight = text + f", and turn {_pct(convert)} of pressures into sacks ({_nth(convert_rank, 'most')}): plays end before he can run", -1, 2
+        else:
+            text, lean, weight = text + ": more chances to scramble", 1 if escapes else 0, 1
+        out.append(_note("qb-pressure", "opponent", text, *weigh(lean, weight)))
+    elif low or high:
+        out.append(_note("qb-pressure", "opponent", f"{opponent} turn {_pct(convert)} of pressures into sacks, "
+                                                    + (f"{_nth(convert_rank, 'most')}: plays end before he can run" if high
+                                                       else f"{_nth(count - convert_rank + 1, 'fewest')}: pressured quarterbacks get out"), *weigh(-1 if high else 1, 1)))
+    # How he handles pressure: gets out and runs, or goes down.
+    if escape:
+        often_sacked = sacked and sacked[1] <= EDGE
+        rarely_sacked = sacked and sacked[2] - sacked[1] + 1 <= EDGE
+        if escapes or often_sacked or rarely_sacked:
+            text = f"Scrambles {round(escape[0] * 100)} times for every 100 times he's pressured"
+            text += f", {_nth(escape[1], 'most')} of {escape[2]} quarterbacks" if escapes else ""
+            if sacked:
+                text += f"; sacked on {_pct(sacked[0])} of pressures"
+                text += f", {_nth(sacked[1], 'most')}" if often_sacked else f", {_nth(sacked[2] - sacked[1] + 1, 'fewest')}" if rarely_sacked else ""
+            lean = -1 if often_sacked else 1 if escape[1] <= EDGE else 0
+            out.append(_note("qb-escape", "split", text, lean, 1))
+    # His running under pressure: this season's once it's charted, else last season's.
+    charted = [game["underPressure"] for game in games if game.get("underPressure")]
+    last = rushing.get("lastSeason")
+    if len(charted) >= MIN_QB_GAMES:
+        pressured, ran, yards = (sum(item[key] for item in charted) for key in ("dropbacks", "scrambles", "yards"))
+        out.append(_note("qb-under-pressure", "split", f"Runs for {yards / len(charted):.1f} yards a game under pressure "
+                                                       f"({_count(ran, 'scramble', 'scrambles')} on {pressured} pressured dropbacks)", yards=True))
+    elif last and last.get("games"):
+        out.append(_note("qb-under-pressure", "split", f"Last season he ran for {last['yards'] / last['games']:.1f} yards a game under pressure "
+                                                       f"({_count(last['scrambles'], 'scramble', 'scrambles')} on {last['pressured']} pressured dropbacks)", yards=True))
+    # The game script: behind, he drops back more; ahead, he kneels.
+    if spread is not None and abs(spread) >= 6:
+        points = f"{abs(spread):g}"
+        out.append(_note("script", "opponent", f"{points}-point underdog: teams behind drop back more, so more chances to scramble" if spread < 0
+                         else f"Favored by {points}: teams ahead drop back less and kneel to finish", 1 if spread < 0 else -1, 1))
+    recent = _recent([int(game["scrambles"] + (game.get("designed") or 0)) for game in games], "runs")
+    if recent:
+        out.append(recent)
+    return out
 
 
 def for_market(notes, market):
@@ -491,7 +800,7 @@ def report(season, games=None):
         opponent, spread, game_id = found
         # Only the props his role has: a passer's, a receiver's, a runner's.
         roles = {"passing": (entry.get("passes") or 0) >= 20, "receiving": sum(entry.get("targets") or []) >= 5,
-                 "rushing": sum(entry.get("carries") or []) >= 10}
+                 "rushing": sum(entry.get("carries") or []) >= 10 or bool(entry.get("qbRush"))}
         notes = {family: items for family, items in notes_for(scout, player_id, entry["team"], opponent, spread).items() if roles[family]}
         if notes:
             players[player_id] = {"opponent": opponent, "notes": notes}

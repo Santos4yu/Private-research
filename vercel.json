@@ -16,10 +16,11 @@
     },
     "api/board.py": {
       "maxDuration": 60,
-      "includeFiles": "data/tennis/history.json.gz"
+      "includeFiles": "data/**"
     },
     "api/nfl.py": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "includeFiles": "data/nfl/**"
     },
     "api/wnba.py": {
       "maxDuration": 60

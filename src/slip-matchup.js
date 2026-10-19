@@ -352,8 +352,11 @@ const CFB_TEAM_ALLOWED = {passing_yards: ['passing_yards', 'passing yards'], pas
 // yards-only notes (yards a carry, a pass) stay off count props.
 const SCOUT_FAMILIES = {passing_yards: ['passing'], pass_completions: ['passing'], passing_attempts: ['passing'], passing_touchdowns: ['passing'],
   receptions: ['receiving'], receiving_yards: ['receiving'], targets: ['receiving'], longest_reception: ['receiving'],
-  rushing_yards: ['rushing'], rush_attempts: ['rushing'], rushing_receiving_yards: ['rushing', 'receiving']};
-const SCOUT_YARDS = new Set(['passing_yards', 'receiving_yards', 'rushing_yards', 'rushing_receiving_yards', 'longest_reception']);
+  rushing_yards: ['rushing'], rush_attempts: ['rushing'], rushing_receiving_yards: ['rushing', 'receiving'],
+  passing_rushing_yards: ['passing', 'rushing'], longest_rush: ['rushing'], rush_yards_first_5: ['rushing'], first_rush_yards: ['rushing'],
+  quarters_5_rush_yds: ['rushing'], halves_25_rush_yds: ['rushing']};
+const SCOUT_YARDS = new Set(['passing_yards', 'receiving_yards', 'rushing_yards', 'rushing_receiving_yards', 'longest_reception',
+  'passing_rushing_yards', 'longest_rush', 'rush_yards_first_5', 'first_rush_yards', 'quarters_5_rush_yds', 'halves_25_rush_yds']);
 /** His scouting notes against this opponent, as facts: each leans the Over by its weight, up to 12 in all. */
 function scoutFacts(row, sign, scout, market) {
   const me = scout?.players?.[String(row.playerId)];
