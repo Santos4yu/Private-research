@@ -9,8 +9,8 @@
 :root[data-theme] #app-shell .ace-page-head {
   position: relative; display: flex; align-items: center; gap: 16px;
   width: 100%; max-width: 1120px !important; margin: 0 auto 20px; padding: 20px 22px;
-  border: 1px solid rgba(61, 123, 255, .22); border-radius: var(--ace-radius-lg);
-  background: linear-gradient(115deg, rgba(61, 123, 255, .14) 0%, rgba(61, 123, 255, .04) 38%, transparent 68%), var(--ace-card);
+  border: 1px solid rgba(204,204,204, .22); border-radius: var(--ace-radius-lg);
+  background: linear-gradient(115deg, rgba(130,130,130, .14) 0%, rgba(130,130,130, .04) 38%, transparent 68%), var(--ace-card);
   box-shadow: var(--ace-shadow);
 }
 :root[data-theme] #app-shell .ace-page-icon {
@@ -37,7 +37,7 @@
   display: inline-flex !important; align-items: center; justify-content: center; gap: 7px;
   min-height: 42px !important; padding: 0 16px !important; margin: 0 !important;
   border: 1px solid var(--ace-border) !important; border-radius: 10px !important;
-  background: rgba(8, 10, 14, .55) !important; color: var(--ace-text) !important; box-shadow: none !important;
+  background: rgba(10,10,10, .55) !important; color: var(--ace-text) !important; box-shadow: none !important;
   font: 600 13px/1 var(--font-sans) !important; letter-spacing: 0 !important; text-transform: none !important; transform: none !important;
 }
 @media (hover: hover) {
@@ -71,7 +71,7 @@
   border-color: var(--theme-accent, var(--ace-accent)) !important; background: var(--theme-accent, var(--ace-accent)) !important;
   color: var(--theme-on-accent, var(--ace-on-accent)) !important;
 }
-:root[data-theme] #app-shell #panel-v2 #board-filter-row button:hover:not(.active) { border-color: #2D3C54 !important; color: var(--ace-text) !important; }
+:root[data-theme] #app-shell #panel-v2 #board-filter-row button:hover:not(.active) { border-color: #3B3B3B !important; color: var(--ace-text) !important; }
 :root[data-theme] #app-shell #panel-v2 .matchup-game-picker { max-width: 1120px !important; width: 100%; margin: 0 auto 18px; }
 :root[data-theme] #app-shell #panel-v2 .pitcher-board-label { max-width: 1120px !important; margin: 4px auto 12px; color: var(--ace-muted); font: 600 11px/1.3 var(--font-sans); letter-spacing: .12em; text-transform: uppercase; }
 
@@ -85,27 +85,27 @@
 .ace-prop {
   position: relative; display: flex; flex-direction: column; gap: 14px; min-width: 0; padding: 18px;
   border: 1px solid var(--ace-border); border-radius: var(--ace-radius-lg);
-  background: linear-gradient(165deg, #19212E 0%, #131924 60%, #10161F 100%);
+  background: linear-gradient(165deg, #212121 0%, #191919 60%, #161616 100%);
   color: var(--ace-text); text-align: left; cursor: pointer; box-shadow: var(--ace-shadow);
   transition: transform 180ms var(--ace-ease), border-color 160ms ease;
   animation: ace-card-in .42s var(--ace-ease) both;
 }
 @keyframes ace-card-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .ace-prop[data-tier="elite"] {
-  border-color: rgba(61, 123, 255, .34);
-  background: linear-gradient(135deg, rgba(61, 123, 255, .16) 0%, rgba(61, 123, 255, .04) 40%, transparent 70%), linear-gradient(165deg, #19212E 0%, #131924 60%, #10161F 100%);
+  border-color: rgba(204,204,204, .34);
+  background: linear-gradient(135deg, rgba(130,130,130, .16) 0%, rgba(130,130,130, .04) 40%, transparent 70%), linear-gradient(165deg, #212121 0%, #191919 60%, #161616 100%);
 }
 .ace-prop[data-tier="strong"] {
   border-color: rgba(0, 214, 143, .22);
-  background: linear-gradient(135deg, rgba(0, 214, 143, .09) 0%, rgba(0, 214, 143, .02) 40%, transparent 70%), linear-gradient(165deg, #19212E 0%, #131924 60%, #10161F 100%);
+  background: linear-gradient(135deg, rgba(0, 214, 143, .09) 0%, rgba(0, 214, 143, .02) 40%, transparent 70%), linear-gradient(165deg, #212121 0%, #191919 60%, #161616 100%);
 }
-@media (hover: hover) { .ace-prop:hover { transform: translateY(-2px); border-color: #2D3C54; } .ace-prop[data-tier="elite"]:hover { border-color: rgba(61, 123, 255, .55); } }
+@media (hover: hover) { .ace-prop:hover { transform: translateY(-2px); border-color: #3B3B3B; } .ace-prop[data-tier="elite"]:hover { border-color: rgba(204,204,204, .55); } }
 .ace-prop:focus-visible { outline: 2px solid var(--theme-accent, var(--ace-accent)); outline-offset: 2px; }
 
 .ace-prop-top { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .ace-prop-photo {
   position: relative; display: grid; place-items: end center; flex: 0 0 52px; width: 52px; height: 52px; overflow: hidden;
-  border: 1px solid var(--ace-border); border-radius: 14px; background: linear-gradient(180deg, #222C3E, #161D28);
+  border: 1px solid var(--ace-border); border-radius: 14px; background: linear-gradient(180deg, #2C2C2C, #1D1D1D);
 }
 .ace-prop-photo img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
 .ace-prop-initials { align-self: center; color: var(--ace-muted); font: 600 15px/1 var(--font-display); }
@@ -116,18 +116,18 @@
 
 .ace-prop-tier {
   flex: none; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--ace-border);
-  background: rgba(8, 10, 14, .5); color: var(--ace-muted); font: 700 11px/1 var(--font-sans); letter-spacing: .04em;
+  background: rgba(10,10,10, .5); color: var(--ace-muted); font: 700 11px/1 var(--font-sans); letter-spacing: .04em;
 }
 .ace-prop[data-tier="elite"] .ace-prop-tier { border-color: transparent; background: var(--theme-accent, var(--ace-accent)); color: var(--theme-on-accent, var(--ace-on-accent)); }
 .ace-prop[data-tier="strong"] .ace-prop-tier { border-color: rgba(0, 214, 143, .4); background: rgba(0, 214, 143, .12); color: var(--ace-positive); }
-.ace-prop[data-tier="good"] .ace-prop-tier { border-color: rgba(141, 249, 198, .3); color: #A9C4FF; }
+.ace-prop[data-tier="good"] .ace-prop-tier { border-color: rgba(141, 249, 198, .3); color: #F1F1F1; }
 .ace-prop[data-tier="lean"] .ace-prop-tier { color: var(--ace-neutral); }
 .ace-prop[data-tier="risky"] .ace-prop-tier { border-color: rgba(241, 107, 117, .4); background: rgba(241, 107, 117, .1); color: var(--ace-negative); }
 .ace-prop[data-tier="research"] .ace-prop-tier { border-color: rgba(245, 198, 106, .4); background: rgba(245, 198, 106, .1); color: var(--ace-warning); }
 
 .ace-prop-line {
   display: flex; align-items: baseline; gap: 8px; min-width: 0; padding: 10px 12px;
-  border: 1px solid var(--ace-border-soft); border-radius: 11px; background: rgba(8, 10, 14, .45);
+  border: 1px solid var(--ace-border-soft); border-radius: 11px; background: rgba(10,10,10, .45);
 }
 .ace-prop-line b { color: var(--ace-positive); font: 700 12px/1 var(--font-sans); letter-spacing: .06em; text-transform: uppercase; }
 .ace-prop-line[data-side="under"] b { color: var(--ace-negative); }
@@ -166,7 +166,7 @@
   border: 1px solid var(--ace-border) !important; border-radius: var(--ace-radius-lg) !important; background: var(--ace-card) !important; box-shadow: none !important;
 }
 :root[data-theme] #app-shell #panel-v2 .board-card-skeleton :is(i, b, span, small, em) {
-  display: block; border-radius: 8px !important; background: linear-gradient(100deg, #19212E 30%, #1F293A 50%, #19212E 70%) 0 0 / 250% 100% !important;
+  display: block; border-radius: 8px !important; background: linear-gradient(100deg, #212121 30%, #292929 50%, #212121 70%) 0 0 / 250% 100% !important;
   animation: ace-shimmer 1.4s ease-in-out infinite !important;
 }
 :root[data-theme] #app-shell #panel-v2 .board-card-skeleton i { width: 52px; height: 52px; border-radius: 14px !important; }
@@ -189,13 +189,13 @@
   display: grid !important; grid-template-columns: auto 48px minmax(0, 1fr) auto auto; align-items: center; gap: 12px !important;
   min-height: 76px; padding: 12px 14px !important; margin: 0 !important;
   border: 1px solid var(--ace-border) !important; border-radius: 14px !important;
-  background: linear-gradient(165deg, #19212E, #131822) !important; box-shadow: none !important; cursor: pointer;
+  background: linear-gradient(165deg, #212121, #181818) !important; box-shadow: none !important; cursor: pointer;
 }
 :root[data-theme] #app-shell #panel-saved .saved-card.selected {
-  border-color: rgba(61, 123, 255, .45) !important;
-  background: linear-gradient(135deg, rgba(61, 123, 255, .13), transparent 60%), linear-gradient(165deg, #19212E, #131822) !important;
+  border-color: rgba(204,204,204, .45) !important;
+  background: linear-gradient(135deg, rgba(130,130,130, .13), transparent 60%), linear-gradient(165deg, #212121, #181818) !important;
 }
-@media (hover: hover) { :root[data-theme] #app-shell #panel-saved .saved-card:hover { border-color: #2D3C54 !important; } }
+@media (hover: hover) { :root[data-theme] #app-shell #panel-saved .saved-card:hover { border-color: #3B3B3B !important; } }
 :root[data-theme] #app-shell #panel-saved .saved-card .avatar-slot { width: 48px; height: 48px; }
 :root[data-theme] #app-shell #panel-saved .saved-card .avatar-slot > * { width: 48px !important; height: 48px !important; border-radius: 13px !important; }
 :root[data-theme] #app-shell #panel-saved .saved-card-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -215,7 +215,7 @@
 }
 @media (hover: hover) { :root[data-theme] #app-shell #panel-saved .saved-remove:hover { border-color: rgba(241, 107, 117, .5) !important; color: var(--ace-negative) !important; } }
 :root[data-theme] #app-shell #panel-saved .saved-select .checkmark {
-  width: 22px !important; height: 22px !important; border: 1.5px solid #474F5D !important; border-radius: 7px !important; background: transparent !important;
+  width: 22px !important; height: 22px !important; border: 1.5px solid #4F4F4F !important; border-radius: 7px !important; background: transparent !important;
 }
 :root[data-theme] #app-shell #panel-saved .saved-card.selected .saved-select .checkmark { border-color: var(--theme-accent, var(--ace-accent)) !important; background: var(--theme-accent, var(--ace-accent)) !important; }
 
@@ -227,12 +227,12 @@
 .ace-nrfi {
   display: flex; flex-direction: column; gap: 14px; padding: 18px; min-width: 0;
   border: 1px solid var(--ace-border); border-radius: var(--ace-radius-lg);
-  background: linear-gradient(165deg, #19212E 0%, #131924 60%, #10161F 100%); box-shadow: var(--ace-shadow);
+  background: linear-gradient(165deg, #212121 0%, #191919 60%, #161616 100%); box-shadow: var(--ace-shadow);
   animation: ace-card-in .42s var(--ace-ease) both;
 }
 .ace-nrfi[data-confidence="strong"] {
-  border-color: rgba(61, 123, 255, .32);
-  background: linear-gradient(135deg, rgba(61, 123, 255, .15) 0%, rgba(61, 123, 255, .04) 42%, transparent 72%), linear-gradient(165deg, #19212E 0%, #131924 60%, #10161F 100%);
+  border-color: rgba(204,204,204, .32);
+  background: linear-gradient(135deg, rgba(130,130,130, .15) 0%, rgba(130,130,130, .04) 42%, transparent 72%), linear-gradient(165deg, #212121 0%, #191919 60%, #161616 100%);
 }
 .ace-nrfi header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .ace-nrfi-call {
@@ -284,7 +284,7 @@
 }
 :root[data-theme] #app-shell #panel-slate .tool-tab.active span { color: var(--theme-on-accent, var(--ace-on-accent)) !important; opacity: .75; }
 :root[data-theme] #app-shell #panel-slate .tool-tab.active span::before { background: currentColor; }
-:root[data-theme] #app-shell #panel-slate .tool-tab:hover:not(.active) { border-color: #2D3C54 !important; color: var(--ace-text) !important; }
+:root[data-theme] #app-shell #panel-slate .tool-tab:hover:not(.active) { border-color: #3B3B3B !important; color: var(--ace-text) !important; }
 
 :root[data-theme] #app-shell #panel-slate .slate-toolbar {
   display: flex !important; align-items: center !important; justify-content: space-between; gap: 14px;
@@ -310,16 +310,16 @@
   align-items: center !important; justify-items: start !important; gap: 4px 14px !important;
   min-height: 0 !important; margin: 0 !important; padding: 16px !important; overflow: hidden;
   border: 1px solid var(--ace-border) !important; border-radius: var(--ace-radius-lg) !important;
-  background: linear-gradient(165deg, #19212E 0%, #131924 60%, #10161F 100%) !important; box-shadow: var(--ace-shadow) !important; cursor: pointer;
+  background: linear-gradient(165deg, #212121 0%, #191919 60%, #161616 100%) !important; box-shadow: var(--ace-shadow) !important; cursor: pointer;
 }
 :root[data-theme] #app-shell #panel-slate .slate-row:has(.slate-read.slate-easy) {
-  border-color: rgba(61, 123, 255, .3) !important;
-  background: linear-gradient(135deg, rgba(61, 123, 255, .13) 0%, rgba(61, 123, 255, .03) 42%, transparent 72%), linear-gradient(165deg, #19212E 0%, #131924 60%, #10161F 100%) !important;
+  border-color: rgba(204,204,204, .3) !important;
+  background: linear-gradient(135deg, rgba(130,130,130, .13) 0%, rgba(130,130,130, .03) 42%, transparent 72%), linear-gradient(165deg, #212121 0%, #191919 60%, #161616 100%) !important;
 }
-@media (hover: hover) { :root[data-theme] #app-shell #panel-slate .slate-row:not(.slate-row-loading):hover { border-color: #2D3C54 !important; transform: translateY(-2px); } }
+@media (hover: hover) { :root[data-theme] #app-shell #panel-slate .slate-row:not(.slate-row-loading):hover { border-color: #3B3B3B !important; transform: translateY(-2px); } }
 :root[data-theme] #app-shell #panel-slate .slate-player-photo-wrap {
   grid-area: photo !important; display: grid !important; place-items: end center; width: 64px !important; height: 64px !important; overflow: hidden; margin: 0 !important;
-  border: 1px solid var(--ace-border) !important; border-radius: 16px !important; background: linear-gradient(180deg, #222C3E, #161D28) !important; box-shadow: none !important;
+  border: 1px solid var(--ace-border) !important; border-radius: 16px !important; background: linear-gradient(180deg, #2C2C2C, #1D1D1D) !important; box-shadow: none !important;
 }
 :root[data-theme] #app-shell #panel-slate .slate-player-photo { width: 100% !important; height: 100% !important; object-fit: cover; object-position: top; border-radius: 0 !important; }
 :root[data-theme] #app-shell #panel-slate .slate-main { display: contents !important; }
@@ -331,18 +331,18 @@
 :root[data-theme] #app-shell #panel-slate .slate-stats {
   grid-area: stats !important; width: 100% !important; overflow: visible !important; border: 0 !important; border-radius: 0 !important; background: none !important; display: grid !important; grid-template-columns: repeat(3, minmax(0, .7fr)) minmax(0, 1.5fr) !important; gap: 8px !important; margin-top: 12px !important;
 }
-:root[data-theme] #app-shell #panel-slate .slate-stats > span { min-height: 0 !important; place-content: start !important; text-align: left !important; padding: 9px 10px !important; border: 1px solid var(--ace-border-soft) !important; border-radius: 10px !important; background: rgba(8, 10, 14, .45) !important; }
+:root[data-theme] #app-shell #panel-slate .slate-stats > span { min-height: 0 !important; place-content: start !important; text-align: left !important; padding: 9px 10px !important; border: 1px solid var(--ace-border-soft) !important; border-radius: 10px !important; background: rgba(10,10,10, .45) !important; }
 :root[data-theme] #app-shell #panel-slate .slate-stats > span { display: flex !important; flex-direction: column; gap: 4px; min-width: 0; }
 :root[data-theme] #app-shell #panel-slate .slate-stats small { overflow: hidden; color: var(--ace-faint) !important; font: 600 9.5px/1.1 var(--font-sans) !important; letter-spacing: .05em !important; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
 :root[data-theme] #app-shell #panel-slate .slate-stats b { overflow: hidden; color: var(--ace-text) !important; font: 600 14px/1.2 var(--font-mono) !important; text-overflow: ellipsis; white-space: nowrap; }
 :root[data-theme] #app-shell #panel-slate .slate-stats > span:last-child b { font: 600 13px/1.2 var(--font-sans) !important; }
 :root[data-theme] #app-shell #panel-slate .slate-read {
   grid-area: read !important; width: auto !important; display: flex !important; flex-direction: column; align-items: center; gap: 5px; min-width: 92px; padding: 10px 12px !important; margin: 0 !important;
-  border: 1px solid var(--ace-border) !important; border-radius: 12px !important; background: rgba(8, 10, 14, .45) !important; box-shadow: none !important;
+  border: 1px solid var(--ace-border) !important; border-radius: 12px !important; background: rgba(10,10,10, .45) !important; box-shadow: none !important;
 }
 :root[data-theme] #app-shell #panel-slate .slate-read small { color: var(--ace-faint) !important; font: 600 10px/1 var(--font-sans) !important; letter-spacing: .08em; text-transform: uppercase; }
 :root[data-theme] #app-shell #panel-slate .slate-read b { font: 700 14px/1 var(--font-display) !important; }
-:root[data-theme] #app-shell #panel-slate .slate-read.slate-easy { border-color: rgba(61, 123, 255, .4) !important; background: rgba(61, 123, 255, .1) !important; }
+:root[data-theme] #app-shell #panel-slate .slate-read.slate-easy { border-color: rgba(204,204,204, .4) !important; background: rgba(130,130,130, .1) !important; }
 :root[data-theme] #app-shell #panel-slate .slate-read.slate-easy b { color: var(--ace-positive) !important; }
 :root[data-theme] #app-shell #panel-slate .slate-read.slate-medium b { color: var(--ace-warning) !important; }
 :root[data-theme] #app-shell #panel-slate .slate-read.slate-hard { border-color: rgba(241, 107, 117, .4) !important; background: rgba(241, 107, 117, .08) !important; }
@@ -360,11 +360,11 @@
 :root[data-theme] #app-shell #panel-slate .tool-result {
   display: flex !important; flex-direction: column; gap: 12px; min-width: 0; margin: 0 !important; padding: 18px !important;
   border: 1px solid var(--ace-border) !important; border-radius: var(--ace-radius-lg) !important;
-  background: linear-gradient(165deg, #19212E 0%, #131924 60%, #10161F 100%) !important; box-shadow: var(--ace-shadow) !important;
+  background: linear-gradient(165deg, #212121 0%, #191919 60%, #161616 100%) !important; box-shadow: var(--ace-shadow) !important;
 }
 :root[data-theme] #app-shell #panel-slate .tool-result.tool-good {
-  border-color: rgba(61, 123, 255, .3) !important;
-  background: linear-gradient(135deg, rgba(61, 123, 255, .13) 0%, rgba(61, 123, 255, .03) 42%, transparent 72%), linear-gradient(165deg, #19212E 0%, #131924 60%, #10161F 100%) !important;
+  border-color: rgba(204,204,204, .3) !important;
+  background: linear-gradient(135deg, rgba(130,130,130, .13) 0%, rgba(130,130,130, .03) 42%, transparent 72%), linear-gradient(165deg, #212121 0%, #191919 60%, #161616 100%) !important;
 }
 :root[data-theme] #app-shell #panel-slate .tool-result.tool-bad { border-color: rgba(241, 107, 117, .3) !important; }
 :root[data-theme] #app-shell #panel-slate .tool-result header { display: block; margin: 0 !important; padding: 0 !important; border: 0 !important; }
@@ -376,7 +376,7 @@
 :root[data-theme] #app-shell #panel-slate .tool-evidence-grid { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px !important; margin: 0 !important; }
 :root[data-theme] #app-shell #panel-slate .tool-evidence {
   display: flex !important; flex-direction: column; gap: 4px; padding: 10px 12px !important;
-  border: 1px solid var(--ace-border-soft) !important; border-radius: 11px !important; background: rgba(8, 10, 14, .45) !important;
+  border: 1px solid var(--ace-border-soft) !important; border-radius: 11px !important; background: rgba(10,10,10, .45) !important;
 }
 :root[data-theme] #app-shell #panel-slate .tool-evidence span { color: var(--ace-faint) !important; font: 600 10px/1.2 var(--font-sans) !important; letter-spacing: .07em; text-transform: uppercase; }
 :root[data-theme] #app-shell #panel-slate .tool-evidence strong { color: var(--ace-text) !important; font: 700 16px/1.2 var(--font-mono) !important; }

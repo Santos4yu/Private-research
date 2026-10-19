@@ -16,7 +16,7 @@ import './account-sheet.css';
 // happens.
 
 // The accent colors offered here; any other is a tap on Custom away.
-const SWATCHES=[['#3D7BFF','PropScout blue'],['#00F58A','Green'],['#2DD4BF','Teal'],['#8B5CF6','Violet'],['#F472B6','Pink'],['#FB923C','Orange'],['#FACC15','Gold'],['#F43F5E','Red']];
+const SWATCHES=[['#FFFFFF','White'],['#00F58A','Green'],['#2DD4BF','Teal'],['#8B5CF6','Violet'],['#F472B6','Pink'],['#FB923C','Orange'],['#FACC15','Gold'],['#F43F5E','Red']];
 const CLOSE_MS=260;
 
 const hiddenTabs=()=>new Set((document.documentElement.dataset.hiddenTabs||'').split(/\s+/).filter(Boolean));

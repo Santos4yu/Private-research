@@ -18,21 +18,21 @@
    /components/ui automatically matches whichever theme the user has
    selected instead of rendering unstyled or off-palette. */
 :root {
-  --background: var(--theme-bg, #0b0f15);
+  --background: var(--theme-bg, #0f0f0f);
   --foreground: var(--theme-text, #f3f5f8);
-  --card: var(--theme-panel, #0f141d);
-  --border: var(--theme-border, #243044);
-  --muted: var(--theme-panel-2, #151c27);
-  --muted-foreground: var(--theme-dim, #9aa3b2);
-  --destructive: #ff3f9c;
-  --primary: var(--theme-accent, #3d7bff);
+  --card: var(--theme-panel, #141414);
+  --border: var(--theme-border, #303030);
+  --muted: var(--theme-panel-2, #1c1c1c);
+  --muted-foreground: var(--theme-dim, #a2a2a2);
+  --destructive: #8e8e8e;
+  --primary: var(--theme-accent, #828282);
   --primary-foreground: var(--theme-on-accent, #ffffff);
-  --secondary: var(--theme-panel-2, #151c27);
+  --secondary: var(--theme-panel-2, #1c1c1c);
   --secondary-foreground: var(--theme-text, #f3f5f8);
-  --accent: var(--theme-panel-2, #151c27);
+  --accent: var(--theme-panel-2, #1c1c1c);
   --accent-foreground: var(--theme-text, #f3f5f8);
-  --input: var(--theme-border, #243044);
-  --ring: var(--theme-accent, #3d7bff);
+  --input: var(--theme-border, #303030);
+  --ring: var(--theme-accent, #828282);
 }
 @theme inline {
   --color-background: var(--background);

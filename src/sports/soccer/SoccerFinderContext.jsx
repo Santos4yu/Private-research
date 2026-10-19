@@ -24,12 +24,6 @@ function sides(row,match){
  return [{id:row.teamId,abbr:row.teamAbbr,name:row.teamName||row.teamAbbr,logo:row.teamLogo,...find(row.teamId,row.teamAbbr)},
   {id:row.opponentId,abbr:row.opponent,name:row.opponentName||row.opponent,logo:row.opponentLogo,...find(row.opponentId,row.opponent)}];
 }
-const hex=value=>/^[0-9a-f]{6}$/i.test(String(value||''))?'#'+value:null;
-function colorOf(team,fallback){
- const light=value=>{const n=parseInt(value.slice(1),16);return 0.2126*((n>>16)&255)/255+0.7152*((n>>8)&255)/255+0.0722*(n&255)/255;};
- for(const color of [hex(team?.color),hex(team?.altColor)])if(color&&light(color)>0.2)return color;
- return fallback;
-}
 
 // ---------------------------------------------------------------- Lines
 // Every PrizePicks line on this stat for the player, with when PrizePicks
@@ -53,7 +47,8 @@ function WinPredictor({row,match}){
  const m=match.data,chance=m?.odds?.noVig;
  const [home,away]=m?.teams?.length===2?m.teams:[null,null];
  if(!m)return <section className="mlb-context-card mlb-win-predictor"><header><h2>Win predictor</h2><small>Pregame</small></header>{match.loading?<Skeleton/>:<Failed state={match} label="The match preview"/>}</section>;
- const colors=[colorOf(home,'#28cb98'),'#5c6468',colorOf(away,'#5cf8b2')];
+ // Home white, draw dark grey, away grey: the site's black and white, not team colours.
+ const colors=['#f2f2f2','#4f4f4f','#8c8c8c'];
  if(colors[0]===colors[2])colors[2]='#5cf8b2';
  return <section className="mlb-context-card mlb-win-predictor soccer-win"><header><h2>Win predictor</h2><small>{m.odds?.provider?`${m.odds.provider} · no vig`:'Pregame'}</small></header>
   {chance&&home&&away?<div className="mlb-win-body">

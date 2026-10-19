@@ -413,7 +413,7 @@ function escapeHtml(str){return String(str).replace(/[&<>"']/g,c=>({'&':'&amp;',
 // Site theme presets are a convenience local to the admin's own browser --
 // only whichever one gets picked and saved actually goes out to visitors.
 const THEME_PRESETS_KEY='krazy_data_site_theme_presets';
-const DEFAULT_THEME=Object.freeze({primary:'#3d7bff',secondary:'#dce6ff',tint:0});
+const DEFAULT_THEME=Object.freeze({primary:'#ffffff',secondary:'#a3a3a3',tint:0});
 function loadThemePresets(){
  try{const saved=JSON.parse(localStorage.getItem(THEME_PRESETS_KEY)||'[]');return Array.isArray(saved)?saved.filter(p=>p&&p.name).slice(0,12):[];}catch{return [];}
 }
@@ -479,8 +479,8 @@ export async function loadSiteControls(){
     +'<div class="site-theme-control">'
      +'<span class="settings-label">Website color theme — everyone sees this</span>'
      +'<div class="accent-controls">'
-      +'<label class="accent-control"><span>Primary</span><div><input type="color" name="themePrimary" value="#3d7bff" /><output>#3D7BFF</output></div></label>'
-      +'<label class="accent-control"><span>Secondary</span><div><input type="color" name="themeSecondary" value="#dce6ff" /><output>#DCE6FF</output></div></label>'
+      +'<label class="accent-control"><span>Primary</span><div><input type="color" name="themePrimary" value="#828282" /><output>#828282</output></div></label>'
+      +'<label class="accent-control"><span>Secondary</span><div><input type="color" name="themeSecondary" value="#e6e6e6" /><output>#E6E6E6</output></div></label>'
      +'</div>'
      +'<label class="accent-tint-control"><span>Background tint</span><input type="range" name="themeTint" min="0" max="35" step="1" value="0" /><output>0%</output></label>'
      +'<div class="bg-image-actions"><button type="button" id="site-theme-reset">Use default colors</button><button type="button" id="site-theme-apply-preview">Preview here</button></div>'
@@ -628,7 +628,7 @@ export async function loadSiteControls(){
  form.onsubmit=async e=>{e.preventDefault();const message=statusEl();const button=host.querySelector('[type=submit]');button.disabled=true;const bgUrl=form.elements.bgUrl.value.trim();
   const themePrimary=form.elements.themePrimary.value,themeSecondary=form.elements.themeSecondary.value,themeTint=Number(form.elements.themeTint.value);
   const themeIsDefault=themePrimary.toLowerCase()===DEFAULT_THEME.primary&&themeSecondary.toLowerCase()===DEFAULT_THEME.secondary&&themeTint===DEFAULT_THEME.tint;
-  try{await request('/api/v2-admin',{action:'site-settings',settings:{maintenance:form.elements.maintenance.checked,requireLogin:form.elements.requireLogin.checked,registrationOpen:form.elements.registrationOpen.checked,paidAccess:form.elements.paidAccess.checked,message:form.elements.message.value,disabledSports:[...form.querySelectorAll('[name=sport]')].filter(c=>!c.checked).map(c=>c.value),disabledFinderSports:[...form.querySelectorAll('[name=finderSport]')].filter(c=>!c.checked).map(c=>c.value),disabledSheets:[...form.querySelectorAll('[name=sheet]')].filter(c=>!c.checked).map(c=>c.value),dockTabs:[...form.querySelectorAll('[name=dockSlot]')].map(select=>select.value),disabledTabs:[...form.querySelectorAll('[name=tab]')].filter(c=>!c.checked).map(c=>c.value),backgroundImage:{url:bgUrl,opacity:Number(form.elements.bgOpacity.value)},theme:themeIsDefault?{primary:'',secondary:'',tint:0}:{primary:themePrimary,secondary:themeSecondary,tint:themeTint,scout:true}}});
+  try{await request('/api/v2-admin',{action:'site-settings',settings:{maintenance:form.elements.maintenance.checked,requireLogin:form.elements.requireLogin.checked,registrationOpen:form.elements.registrationOpen.checked,paidAccess:form.elements.paidAccess.checked,message:form.elements.message.value,disabledSports:[...form.querySelectorAll('[name=sport]')].filter(c=>!c.checked).map(c=>c.value),disabledFinderSports:[...form.querySelectorAll('[name=finderSport]')].filter(c=>!c.checked).map(c=>c.value),disabledSheets:[...form.querySelectorAll('[name=sheet]')].filter(c=>!c.checked).map(c=>c.value),dockTabs:[...form.querySelectorAll('[name=dockSlot]')].map(select=>select.value),disabledTabs:[...form.querySelectorAll('[name=tab]')].filter(c=>!c.checked).map(c=>c.value),backgroundImage:{url:bgUrl,opacity:Number(form.elements.bgOpacity.value)},theme:themeIsDefault?{primary:'',secondary:'',tint:0}:{primary:themePrimary,secondary:themeSecondary,tint:themeTint,scout:true,mono:true}}});
   if(bgUrl){
    message.textContent='Saved. Checking that the image loads…';
    const loads=await probeImageLoads(bgUrl);

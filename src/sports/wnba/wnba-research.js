@@ -72,13 +72,6 @@ export function ago(value){
 }
 // Rank r of n teams, where 1 is always the better side for whoever reads it.
 export function rankTone(rank,count){if(!finite(rank)||!count)return 'neutral';return rank<=Math.ceil(count/3)?'good':rank>count-Math.ceil(count/3)?'poor':'fair';}
-// A team's own color when it reads on the dark cards, else its alternate.
-export function teamColor(team,fallback='#7b8cff'){
- const hex=value=>/^[0-9a-f]{6}$/i.test(String(value||''))?'#'+value:null;
- const light=value=>{const n=parseInt(value.slice(1),16);return 0.2126*((n>>16)&255)/255+0.7152*((n>>8)&255)/255+0.0722*(n&255)/255;};
- for(const color of [hex(team?.color),hex(team?.altColor)])if(color&&light(color)>0.2)return color;
- return fallback;
-}
 // A game-log row's value for a stat key (box line first, markets second).
 export function logValue(game,key){
  const box=game.box||{};

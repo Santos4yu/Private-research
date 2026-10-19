@@ -1,15 +1,15 @@
 .cs2-player-page .mlb-support-tabs:has(>div){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:16px}
-.cs2-player-page .mlb-support-tabs>div{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--border,#263247);border-radius:10px;background:var(--surface,#181f2c);font-size:12px}
+.cs2-player-page .mlb-support-tabs>div{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--border,#323232);border-radius:10px;background:var(--surface,#1f1f1f);font-size:12px}
 .cs2-player-page .mlb-support-tabs>div strong{font-size:23px;color:var(--text,#f3f5f8);font-variant-numeric:tabular-nums}
 .cs2-player-page .mlb-context-table-wrap table{width:100%;min-width:0}
 .cs2-player-page .mlb-context-table-wrap th,.cs2-player-page .mlb-context-table-wrap td{padding:12px 10px!important;text-align:left;font-variant-numeric:tabular-nums}
 .cs2-player-page .mlb-context-table-wrap td:first-child{white-space:nowrap}
 .cs2-map-list{display:grid;gap:12px;padding:16px}
-.cs2-map-card{border:1px solid var(--border,#263247);border-radius:12px;padding:14px;background:var(--surface,#181f2c)}
+.cs2-map-card{border:1px solid var(--border,#323232);border-radius:12px;padding:14px;background:var(--surface,#1f1f1f)}
 .cs2-map-card header{display:flex;justify-content:space-between;gap:8px}
 .cs2-map-card dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0 0}
 .cs2-map-card dt{font-size:12px;opacity:.75}
 .cs2-map-card dd{margin:6px 0 0;font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
-.cs2-coverage{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;min-height:64px;padding:12px 16px;border:1px solid var(--border,#263247);border-radius:12px;background:var(--surface,#181f2c);color:var(--text,#f3f5f8);font-size:14px;line-height:1.5;font-variant-numeric:tabular-nums}
+.cs2-coverage{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;min-height:64px;padding:12px 16px;border:1px solid var(--border,#323232);border-radius:12px;background:var(--surface,#1f1f1f);color:var(--text,#f3f5f8);font-size:14px;line-height:1.5;font-variant-numeric:tabular-nums}
 .cs2-coverage span{flex:1 1 240px}
 .cs2-missing-value{color:var(--text,#f3f5f8);font-size:12px}

@@ -53,7 +53,7 @@ function Matchup({profiles,match,lists,row}){
  return <Card title={match?.event||'Tennis matchup'} note={[match?.round,courtLabel(match?.surface),match?.bestOf?`BO${match.bestOf}`:null].filter(Boolean).join(' · ')} icon={Trophy} className="tennis-matchup">
   {date&&<div className="tennis-match-time">{new Date(date).toLocaleString([],{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</div>}
   <div className="mlb-win-body">{profiles.map((p,i)=><React.Fragment key={p.name}>
-   {i===1&&<div className="mlb-win-ring" role="img" aria-label={profiles.map(p=>`${p.name} ${fmt(p.winProbability)}%`).join(', ')} style={Number.isFinite(profiles[0]?.winProbability)?{background:`conic-gradient(var(--theme-accent,#5cf8b2) 0% ${profiles[0].winProbability}%, #28cb98 ${profiles[0].winProbability}% 100%)`}:undefined}><span>WIN<br/>CHANCE</span></div>}
+   {i===1&&<div className="mlb-win-ring" role="img" aria-label={profiles.map(p=>`${p.name} ${fmt(p.winProbability)}%`).join(', ')} style={Number.isFinite(profiles[0]?.winProbability)?{background:`conic-gradient(var(--theme-accent,#5cf8b2) 0% ${profiles[0].winProbability}%, #8c8c8c ${profiles[0].winProbability}% 100%)`}:undefined}><span>WIN<br/>CHANCE</span></div>}
    <div className="mlb-win-team"><strong>{p.name}</strong>
     <div className="tennis-profile-tags">{p.rank&&<span>#{p.rank}</span>}{p.hand&&<span>{p.hand==='Left'?'Lefty':'Righty'}</span>}</div>
     <small>{[p.age!=null?`Age ${p.age}`:null,p.heightCm?`${p.heightCm} cm`:null].filter(Boolean).join(' · ')}</small>

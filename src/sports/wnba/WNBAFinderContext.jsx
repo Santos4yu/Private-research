@@ -4,7 +4,7 @@ import {FinderDropdown,FinderDropdownAssets} from '../../FinderDropdown';
 import {FinderResearchTabs,FinderResearchCard as Card} from '../../FinderResearchSections';
 import {propFocus} from '../../prop-focus';
 import PropFocusTag from '../../PropFocusTag';
-import {MARKET_STAT,POSITIONS,ago,average,finite,fmt,hasPlayerContext,hasSplit,leagueOf,opponentOf,ordinal,playerContextParams,positionOf,price,rankTone,realGames,shortDate,signed,splitFilter,teamColor,useWnba} from './wnba-research';
+import {MARKET_STAT,POSITIONS,ago,average,finite,fmt,hasPlayerContext,hasSplit,leagueOf,opponentOf,ordinal,playerContextParams,positionOf,price,rankTone,realGames,shortDate,signed,splitFilter,useWnba} from './wnba-research';
 import {useIsAdmin,QUIET} from '../../admin-notice.js';
 
 function Empty({children}){return <p className="mlb-context-note">{children}</p>;}
@@ -19,8 +19,8 @@ function WinPredictor({matchup}){
  if(!m)return <section className="mlb-context-card mlb-win-predictor"><header><h2>Win predictor</h2><small>Pregame</small></header>{matchup.loading?<Skeleton/>:<Empty>{matchup.error||'Matchup prediction is not available yet.'}</Empty>}</section>;
  const [away,home]=m.teams;const market=m.odds?.noVig;
  const source=m.predictor?{away:m.predictor.away,home:m.predictor.home,}:market?{away:market.away,home:market.home}:null;
- const colors=[teamColor(away,'#7b8cff'),teamColor(home,'#28cb98')];
- if(colors[0]===colors[1])colors[1]='#28cb98';
+ // Away grey, home white: the site's black and white, not team colours.
+ const colors=['#8c8c8c','#f2f2f2'];
  return <section className="mlb-context-card mlb-win-predictor"><header><h2>Win predictor</h2><small>{m.status?.detail||'Pregame'}</small></header>
   {source?<><div className="mlb-win-body">{[away,home].map((team,index)=><React.Fragment key={team.id}>{index===1&&<div className="mlb-win-ring" role="img" aria-label={`${away.abbr} ${source.away}%, ${home.abbr} ${source.home}%`} style={{background:`conic-gradient(${colors[0]} 0% ${source.away}%, ${colors[1]} ${source.away}% 100%)`}}><span>WIN<br/>CHANCE</span></div>}
    <div className="mlb-win-team"><Logo src={team.logo} size={32}/><strong>{team.abbr}</strong><small>{team.record||'Record unavailable'}{index===1?' · Home':''}</small><b style={{color:colors[index]}}>{fmt(index?source.home:source.away)}%</b></div></React.Fragment>)}</div></>
@@ -121,7 +121,7 @@ function ShotChart({player,league,row}){
  const zones=p.zones||{},defense=data.zoneDefense[opponent]||{},n=data.teamCount;
  const makes=Object.values(zones).reduce((sum,[made])=>sum+made,0);
  const share=zone=>makes?(zones[zone]?.[0]||0)/makes*100:0;
- const fill=zone=>{const band=bandOf(defense[zone]?.[1],n);return band==null?'#393e41':BAND_COLORS[band];};
+ const fill=zone=>{const band=bandOf(defense[zone]?.[1],n);return band==null?'#3d3d3d':BAND_COLORS[band];};
  const label=(zone,x,y)=><g className="wnba-zone-label" transform={`translate(${x} ${y})`}><rect x="-21" y="-15" width="42" height="30" rx="7"/><text y="-2">{fmt(share(zone),0)}%</text><text y="10" className="wnba-zone-rank">#{defense[zone]?.[1]??'—'}</text></g>;
  const inside=['ra','paint','mid'],three=['c3l','c3r','ab3'];
  const groupShare=group=>group.reduce((sum,zone)=>sum+share(zone),0);

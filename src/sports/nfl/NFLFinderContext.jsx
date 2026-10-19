@@ -1,7 +1,7 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {Activity,ArrowLeftRight,CalendarClock,ChartColumn,ChevronDown,HeartPulse,Home,ListOrdered,Plane,Search,Shield,Swords,Trophy,UserCheck,UserRound,Users,UserX} from 'lucide-react';
 import {FinderDropdown,FinderDropdownAssets} from '../../FinderDropdown';
-import {STATS,STAT_MARKET,family,injuryCode,nflSeason,opponentOf,playedGames,teamColor,useNfl} from './nfl-finder';
+import {STATS,STAT_MARKET,family,injuryCode,nflSeason,opponentOf,playedGames,useNfl} from './nfl-finder';
 import {ago,average,finite,fmt,ordinal,price,rankTone,signed} from '../wnba/wnba-research';
 import {propFocus} from '../../prop-focus';
 import PropFocusTag from '../../PropFocusTag';
@@ -39,8 +39,8 @@ function WinPredictor({matchup}){
  const m=matchup.data;
  if(!m)return <section className="mlb-context-card mlb-win-predictor"><header><h2>Win predictor</h2><small>Pregame</small></header>{matchup.loading?<Skeleton/>:<Empty>{matchup.error||'Matchup prediction is not available yet.'}</Empty>}</section>;
  const [away,home]=m.teams,source=m.odds?.noVig;
- const colors=[teamColor(away.abbr,'#7b8cff'),teamColor(home.abbr,'#28cb98')];
- if(colors[0]===colors[1])colors[1]='#28cb98';
+ // Away grey, home white: the site's black and white, not team colours.
+ const colors=['#8c8c8c','#f2f2f2'];
  return <section className="mlb-context-card mlb-win-predictor"><header><h2>Win predictor</h2><small>{m.game.divisional?'Division game':'Regular season'}</small></header>
   {source?<><div className="mlb-win-body">{[away,home].map((team,index)=><React.Fragment key={team.abbr}>{index===1&&<div className="mlb-win-ring" role="img" aria-label={`${away.abbr} ${fmt(source.away,0)}%, ${home.abbr} ${fmt(source.home,0)}%`} style={{background:`conic-gradient(${colors[0]} 0% ${source.away}%, ${colors[1]} ${source.away}% 100%)`}}><span>WIN<br/>CHANCE</span></div>}
    <div className="mlb-win-team"><Logo src={team.logo} size={32}/><strong>{team.abbr}</strong><small>{team.record||'0-0'}{index===1?' · Home':''}</small><b style={{color:colors[index]}}>{fmt(index?source.home:source.away,0)}%</b></div></React.Fragment>)}</div></>

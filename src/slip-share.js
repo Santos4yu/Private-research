@@ -7,7 +7,7 @@ const W = 1080, H = 1350, PAD = 72;
 export const SITE = 'aceprops.xyz';
 const INK = '#f4f7f6', MUTED = 'rgba(244,247,246,.58)', FAINT = 'rgba(244,247,246,.34)';
 // A grade's colour, as on every page: A green, B grey, C amber, D and F red.
-const GRADE_TONE = {A: '#46e39a', B: '#aeb5b8', C: '#f6b955'};
+const GRADE_TONE = {A: '#46e39a', B: '#b4b4b4', C: '#f6b955'};
 
 const initials = name => String(name || '').split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase();
 const nice = value => (Number.isInteger(value) ? String(value) : Number(value).toFixed(1));
@@ -87,17 +87,17 @@ export async function drawCard({legs, letter, kind, appLogo = '/prizepicks/logo.
   const ctx = canvas.getContext('2d');
   const font = (typeof document !== 'undefined' && getComputedStyle(document.body).fontFamily) || 'system-ui, sans-serif';
   const set = (size, weight = 600) => { ctx.font = `${weight} ${size}px ${font}`; };
-  const GREEN = '#46e39a', CARD = '#0e1114', ROW = '#151a1d', LINE = '#2d363d';
+  const GREEN = '#46e39a', CARD = '#111111', ROW = '#191919', LINE = '#353535';
   const n = legs.length;
   const [mark, logo, goblin, demon, ...pictures] = await Promise.all([image('/brand/propscout-logo.png'), image(appLogo),
     image('/prizepicks/goblin.png'), image('/prizepicks/demon.png'), ...legs.flatMap(leg => [image(leg.headshot), image(leg.teamLogo)])]);
 
   // Background, a green glow behind the card.
   const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, '#141a1d'); bg.addColorStop(1, '#090b0c');
+  bg.addColorStop(0, '#191919'); bg.addColorStop(1, '#090b0c');
   ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
   const glow = ctx.createRadialGradient(W / 2, H * 0.42, 40, W / 2, H * 0.42, 620);
-  glow.addColorStop(0, 'rgba(61,123,255,.16)'); glow.addColorStop(1, 'rgba(61,123,255,0)');
+  glow.addColorStop(0, 'rgba(130,130,130,.16)'); glow.addColorStop(1, 'rgba(130,130,130,0)');
   ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
   if (mark) ctx.drawImage(mark, PAD, 55, 220, 42);
   set(24, 800); ctx.fillStyle = MUTED; ctx.textAlign = 'right';
@@ -140,11 +140,11 @@ export async function drawCard({legs, letter, kind, appLogo = '/prizepicks/logo.
   legs.forEach((leg, index) => {
     const y = y0 + headH + index * (rowH + gap), mid = y + rowH / 2;
     ctx.beginPath(); ctx.roundRect(left, y, right - left, rowH, 26);
-    ctx.fillStyle = ROW; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#232b30'; ctx.stroke();
+    ctx.fillStyle = ROW; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#2a2a2a'; ctx.stroke();
     // The photo, initials only without one, the team's logo on its corner.
     const r = Math.round(rowH * 0.31), px = left + 26 + r;
     const [photo, team] = [pictures[index * 2], pictures[index * 2 + 1]];
-    ctx.save(); ctx.beginPath(); ctx.arc(px, mid, r, 0, Math.PI * 2); ctx.fillStyle = '#232b30'; ctx.fill(); ctx.clip();
+    ctx.save(); ctx.beginPath(); ctx.arc(px, mid, r, 0, Math.PI * 2); ctx.fillStyle = '#2a2a2a'; ctx.fill(); ctx.clip();
     if (photo) {
       const scale = Math.max((r * 2) / photo.width, (r * 2) / photo.height);
       ctx.drawImage(photo, px - photo.width * scale / 2, mid - r, photo.width * scale, photo.height * scale);
@@ -162,7 +162,7 @@ export async function drawCard({legs, letter, kind, appLogo = '/prizepicks/logo.
     const number = nice(leg.line), icon = icons[index], topW = tops[index], statText = statShort(leg.stat);
     const boxH = rowH - 30, bx = right - 16 - boxW, by = y + 15;
     ctx.beginPath(); ctx.roundRect(bx, by, boxW, boxH, 22);
-    ctx.lineWidth = 2.5; ctx.strokeStyle = '#3d474e'; ctx.stroke();
+    ctx.lineWidth = 2.5; ctx.strokeStyle = '#464646'; ctx.stroke();
     let cx = bx + (boxW - topW) / 2;
     const lineY = by + boxH * 0.47;
     if (icon) { ctx.drawImage(icon, cx, lineY - iconW * 0.62, iconW, iconW); cx += iconW + 12; }
@@ -184,7 +184,7 @@ export async function drawCard({legs, letter, kind, appLogo = '/prizepicks/logo.
 
   set(22, 600); ctx.fillStyle = FAINT; ctx.textAlign = 'center';
   ctx.fillText(tagline, W / 2, H - 64);
-  set(26, 800); ctx.fillStyle = '#3d7bff';
+  set(26, 800); ctx.fillStyle = '#828282';
   ctx.fillText(SITE, W / 2, H - 26);
   return canvas;
 }

@@ -15,22 +15,22 @@
   text-transform: uppercase;
   white-space: nowrap;
 }
-.prop-focus-tag[data-focus=key] { background: #3D7BFF; color: #FFFFFF; }
-.prop-focus-tag[data-focus=related] { border: 1px solid rgba(61, 123, 255, .35); background: rgba(61, 123, 255, .1); color: #A9C4FF; }
+.prop-focus-tag[data-focus=key] { background: #EDEDED; color: #0b0b0b; }
+.prop-focus-tag[data-focus=related] { border: 1px solid rgba(204,204,204, .35); background: rgba(130,130,130, .1); color: #F1F1F1; }
 
 /* Table rows (defense vs position, the starter card). */
-html:root :is(.mlb-context-table-wrap, .mlb-starter-scroll) tbody tr[data-focus=key] > :is(th, td) { background: rgba(61, 123, 255, .11) !important; }
-html:root :is(.mlb-context-table-wrap, .mlb-starter-scroll) tbody tr[data-focus=related] > :is(th, td) { background: rgba(61, 123, 255, .045) !important; }
-html:root :is(.mlb-context-table-wrap, .mlb-starter-scroll) tbody tr[data-focus=key] > :first-child { box-shadow: inset 3px 0 #3D7BFF !important; color: #fff !important; }
-html:root :is(.mlb-context-table-wrap, .mlb-starter-scroll) tbody tr[data-focus=related] > :first-child { box-shadow: inset 2px 0 rgba(61, 123, 255, .5) !important; }
-html:root .finder-trend-view[data-trend-tab] .mlb-context-table-wrap tbody tr[data-focus=key] > :is(th, td) { background: rgba(61, 123, 255, .11) !important; }
-html:root .finder-trend-view[data-trend-tab] .mlb-context-table-wrap tbody tr[data-focus=related] > :is(th, td) { background: rgba(61, 123, 255, .045) !important; }
+html:root :is(.mlb-context-table-wrap, .mlb-starter-scroll) tbody tr[data-focus=key] > :is(th, td) { background: rgba(130,130,130, .11) !important; }
+html:root :is(.mlb-context-table-wrap, .mlb-starter-scroll) tbody tr[data-focus=related] > :is(th, td) { background: rgba(130,130,130, .045) !important; }
+html:root :is(.mlb-context-table-wrap, .mlb-starter-scroll) tbody tr[data-focus=key] > :first-child { box-shadow: inset 3px 0 #CCCCCC !important; color: #fff !important; }
+html:root :is(.mlb-context-table-wrap, .mlb-starter-scroll) tbody tr[data-focus=related] > :first-child { box-shadow: inset 2px 0 rgba(204,204,204, .5) !important; }
+html:root .finder-trend-view[data-trend-tab] .mlb-context-table-wrap tbody tr[data-focus=key] > :is(th, td) { background: rgba(130,130,130, .11) !important; }
+html:root .finder-trend-view[data-trend-tab] .mlb-context-table-wrap tbody tr[data-focus=related] > :is(th, td) { background: rgba(130,130,130, .045) !important; }
 html:root .finder-trend-view[data-trend-tab] .mlb-context-table-wrap tbody tr[data-focus=key] > th { color: #fff !important; }
 
 /* Offense vs defense and the soccer team comparison: rows of bars. */
 html:root :is(.wnba-ovd-row, .soccer-compare-row)[data-focus] { margin-inline: -8px; padding-inline: 8px; border-radius: 10px; }
-html:root :is(.wnba-ovd-row, .soccer-compare-row)[data-focus=key] { background: rgba(61, 123, 255, .11); box-shadow: inset 3px 0 #3D7BFF; }
-html:root :is(.wnba-ovd-row, .soccer-compare-row)[data-focus=related] { background: rgba(61, 123, 255, .045); box-shadow: inset 2px 0 rgba(61, 123, 255, .5); }
+html:root :is(.wnba-ovd-row, .soccer-compare-row)[data-focus=key] { background: rgba(130,130,130, .11); box-shadow: inset 3px 0 #CCCCCC; }
+html:root :is(.wnba-ovd-row, .soccer-compare-row)[data-focus=related] { background: rgba(130,130,130, .045); box-shadow: inset 2px 0 rgba(204,204,204, .5); }
 html:root .wnba-ovd-row[data-focus] > div > small,
 html:root .soccer-compare-row[data-focus] > div > span { display: inline-flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; }
 html:root .wnba-ovd-row[data-focus=key] > div > small,

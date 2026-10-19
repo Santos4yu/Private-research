@@ -12,15 +12,17 @@ import {useIsAdmin} from './admin-notice.js';
 // sheet is one request to the board endpoint, kept here for a few minutes;
 // prices come from the lines the Finder already loads.
 
+// Every sheet in the site's black and white.
+const SHEET_TINT='#E8E8E8';
 const SHEETS=[
- {key:'hr',tint:'#FF8A4C',blurb:"Power, matchup and park for every bat on the slate.",title:'HR Props',kicker:'Home run props',icon:Flame,about:'Power hitters ranked for home run props: barrel rate, hard-hit rate and exit velocity, slugging and ISO against today\'s pitcher hand, and the park and weather.'},
- {key:'hot',tint:'#F2C26B',blurb:"Who's hitting well above their season right now.",title:'Hot Bats',kicker:'Last 14 days',icon:TrendingUp,about:'Hitters running well above their season over the last two weeks: OPS, ISO and average gains, home runs, and a sparkline of their recent total bases.'},
- {key:'matchups',tint:'#6EA8FF',blurb:"Each starter against the lineup he faces.",title:'Pitcher vs Lineup',kicker:'Game by game',icon:Swords,about:'Every starter against the lineup he faces: his splits against lefties and righties, his pitch mix, and each hitter\'s numbers against his hand.'},
- {key:'bvp',tint:'#B48CFF',blurb:"Career numbers against today's starter.",title:'Batter vs Pitcher',kicker:'Career matchups',icon:Crosshair,about:'Career numbers for today\'s hitters against today\'s starter, with the sample size flagged so a 2-for-3 never passes for a trend.'},
- {key:'nrfi',tint:'#3FE39E',blurb:"Our first-inning chance and fair odds for every game.",title:'NRFI / YRFI',kicker:'First inning',icon:Target,about:'Each starter\'s scoreless-first-inning rate, each offense\'s first-inning scoring, and our model\'s chance of a scoreless first with fair odds.'},
- {key:'park',tint:'#4FD1C5',blurb:"How each park and today's weather move scoring.",title:'Ballpark & Weather',kicker:'Parks & weather',icon:Sun,about:'How every park and the forecast move runs and home runs today: park factor, temperature, wind blowing in or out, and roofs.'},
- {key:'strikeouts',tint:'#FFD452',blurb:"Strikeout projections against today's lineups.",title:'Strikeouts',kicker:'K props',icon:Zap,about:'Starters\' strikeout profiles against the lineup they face: K rate, recent strikeouts, expected innings, the lineup\'s K rate against his hand, and a projection.'},
- {key:'streaks',tint:'#FF6FA3',blurb:"Active hit, on-base and home run streaks.",title:'Streaks',kicker:'Parlay legs',icon:Layers,about:'Active streaks for today\'s hitters: hits, on base, total bases, home runs, walks, steals and strikeouts, longest first.'},
+ {key:'hr',tint:SHEET_TINT,blurb:"Power, matchup and park for every bat on the slate.",title:'HR Props',kicker:'Home run props',icon:Flame,about:'Power hitters ranked for home run props: barrel rate, hard-hit rate and exit velocity, slugging and ISO against today\'s pitcher hand, and the park and weather.'},
+ {key:'hot',tint:SHEET_TINT,blurb:"Who's hitting well above their season right now.",title:'Hot Bats',kicker:'Last 14 days',icon:TrendingUp,about:'Hitters running well above their season over the last two weeks: OPS, ISO and average gains, home runs, and a sparkline of their recent total bases.'},
+ {key:'matchups',tint:SHEET_TINT,blurb:"Each starter against the lineup he faces.",title:'Pitcher vs Lineup',kicker:'Game by game',icon:Swords,about:'Every starter against the lineup he faces: his splits against lefties and righties, his pitch mix, and each hitter\'s numbers against his hand.'},
+ {key:'bvp',tint:SHEET_TINT,blurb:"Career numbers against today's starter.",title:'Batter vs Pitcher',kicker:'Career matchups',icon:Crosshair,about:'Career numbers for today\'s hitters against today\'s starter, with the sample size flagged so a 2-for-3 never passes for a trend.'},
+ {key:'nrfi',tint:SHEET_TINT,blurb:"Our first-inning chance and fair odds for every game.",title:'NRFI / YRFI',kicker:'First inning',icon:Target,about:'Each starter\'s scoreless-first-inning rate, each offense\'s first-inning scoring, and our model\'s chance of a scoreless first with fair odds.'},
+ {key:'park',tint:SHEET_TINT,blurb:"How each park and today's weather move scoring.",title:'Ballpark & Weather',kicker:'Parks & weather',icon:Sun,about:'How every park and the forecast move runs and home runs today: park factor, temperature, wind blowing in or out, and roofs.'},
+ {key:'strikeouts',tint:SHEET_TINT,blurb:"Strikeout projections against today's lineups.",title:'Strikeouts',kicker:'K props',icon:Zap,about:'Starters\' strikeout profiles against the lineup they face: K rate, recent strikeouts, expected innings, the lineup\'s K rate against his hand, and a projection.'},
+ {key:'streaks',tint:SHEET_TINT,blurb:"Active hit, on-base and home run streaks.",title:'Streaks',kicker:'Parlay legs',icon:Layers,about:'Active streaks for today\'s hitters: hits, on base, total bases, home runs, walks, steals and strikeouts, longest first.'},
 ];
 const SPORTS=[{key:'mlb',label:'MLB'},{key:'nfl',label:'NFL'},{key:'nba',label:'NBA'},{key:'nhl',label:'NHL'}];
 const FAQ={

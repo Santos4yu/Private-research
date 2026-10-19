@@ -13,7 +13,7 @@ const hexToRGB = hex => {
 };
 
 const prepColors = input => {
-  const base = (input && input.length ? input : ['#3D7BFF', '#3D7BFF', '#F3F6FB']).slice(0, MAX_COLORS);
+  const base = (input && input.length ? input : ['#828282', '#828282', '#F6F6F6']).slice(0, MAX_COLORS);
   const count = base.length;
   const arr = [];
   for (let i = 0; i < MAX_COLORS; i++) arr.push(hexToRGB(base[Math.min(i, base.length - 1)]));

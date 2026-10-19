@@ -4,17 +4,17 @@
 
 @media (max-width: 760px) {
   html:root .unified-finder {
-    --fc-card: #111720;
-    --fc-tile: #0C1017;
-    --fc-line: #1D2636;
+    --fc-card: #171717;
+    --fc-tile: #101010;
+    --fc-line: #262626;
     --fc-text: #F3F5F8;
-    --fc-muted: #9FA7B5;
-    --fc-faint: #677286;
+    --fc-muted: #A6A6A6;
+    --fc-faint: #717171;
     --fc-good: #3FE39E;
     --fc-mid: #F2C26B;
     --fc-low: #F06A77;
-    --fc-on: rgba(61, 123, 255, .12);
-    --fc-on-line: rgba(61, 123, 255, .5);
+    --fc-on: rgba(130,130,130, .12);
+    --fc-on-line: rgba(130,130,130, .5);
     --fc-ease: var(--ace-ease, cubic-bezier(.2, .8, .2, 1));
   }
 

@@ -16,7 +16,7 @@ function when(value){
 }
 
 // A parlay's grade group, in the colours its letter has on every page.
-const GRADES={A:{label:'A',tone:'#46e39a'},B:{label:'B',tone:'#aeb5b8'},C:{label:'C',tone:'#f6b955'},D:{label:'D / F',tone:'#ff7b8a'}};
+const GRADES={A:{label:'A',tone:'#46e39a'},B:{label:'B',tone:'#b4b4b4'},C:{label:'C',tone:'#f6b955'},D:{label:'D / F',tone:'#ff7b8a'}};
 const gradeRows=record=>Object.keys(GRADES).map(letter=>[letter,record?.parlays?.[letter]]).filter(([,counts])=>counts?.slips>0);
 /** Whether there's any record to show yet. */
 export const hasRecord=record=>Boolean(record&&(record.picks>0||gradeRows(record).length));

@@ -50,10 +50,10 @@ export async function drawPick(pick) {
 
   // Background: deep navy with a soft glow behind the player.
   const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, '#161b1e'); bg.addColorStop(1, '#0b0d0e');
+  bg.addColorStop(0, '#1a1a1a'); bg.addColorStop(1, '#0b0d0e');
   ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
   const glow = ctx.createRadialGradient(W / 2, 250, 20, W / 2, 250, 520);
-  glow.addColorStop(0, 'rgba(61,123,255,.18)'); glow.addColorStop(1, 'rgba(61,123,255,0)');
+  glow.addColorStop(0, 'rgba(130,130,130,.18)'); glow.addColorStop(1, 'rgba(130,130,130,0)');
   ctx.fillStyle = glow; ctx.fillRect(0, 0, W, 800);
 
   // Header: the wordmark and the game time.
@@ -66,7 +66,7 @@ export async function drawPick(pick) {
   ctx.save();
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
   const face = ctx.createLinearGradient(0, cy - r, 0, cy + r);
-  face.addColorStop(0, '#2a333a'); face.addColorStop(1, '#161b1f');
+  face.addColorStop(0, '#323232'); face.addColorStop(1, '#1a1a1a');
   ctx.fillStyle = face; ctx.fill(); ctx.clip();
   if (photo) {
     const scale = Math.max((r * 2) / photo.width, (r * 2) / photo.height);
@@ -78,7 +78,7 @@ export async function drawPick(pick) {
   ctx.restore();
   ctx.lineWidth = 4; ctx.strokeStyle = UP; ctx.beginPath(); ctx.arc(cx, cy, r + 6, 0, Math.PI * 2); ctx.stroke();
   if (logo) {
-    ctx.fillStyle = '#14191c'; ctx.beginPath(); ctx.arc(cx + r * .72, cy + r * .72, 40, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#181818'; ctx.beginPath(); ctx.arc(cx + r * .72, cy + r * .72, 40, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = HAIR; ctx.lineWidth = 2; ctx.stroke();
     ctx.drawImage(logo, cx + r * .72 - 26, cy + r * .72 - 26, 52, 52);
   }
@@ -142,7 +142,7 @@ export async function drawPick(pick) {
       ctx.fillStyle = item.hit == null ? 'rgba(255,255,255,.3)' : item.hit ? UP : 'rgba(248,113,113,.75)';
       ctx.fill();
       set(22, 700); ctx.textAlign = 'center';
-      ctx.lineWidth = 8; ctx.lineJoin = 'round'; ctx.strokeStyle = '#101416';
+      ctx.lineWidth = 8; ctx.lineJoin = 'round'; ctx.strokeStyle = '#131313';
       ctx.strokeText(nice(item.value), x + barW / 2, barTop - 10);
       ctx.fillStyle = INK; ctx.fillText(nice(item.value), x + barW / 2, barTop - 10);
       set(18, 500); ctx.fillStyle = FAINT;
@@ -178,7 +178,7 @@ export async function drawPick(pick) {
   // Where it came from, so anyone who sees it can find the site: the top
   // right, beside the wordmark (the foot carries the matchup).
   ctx.save(); ctx.font = `800 26px ${(typeof document !== 'undefined' && getComputedStyle(document.body).fontFamily) || 'system-ui, sans-serif'}`;
-  ctx.fillStyle = '#3d7bff'; ctx.textAlign = 'right'; ctx.fillText(SITE, W - PAD, 132); ctx.restore();
+  ctx.fillStyle = '#828282'; ctx.textAlign = 'right'; ctx.fillText(SITE, W - PAD, 132); ctx.restore();
 
   return canvas;
 }

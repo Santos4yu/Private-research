@@ -217,14 +217,14 @@ const colorVariants: Record<
     outer: "bg-gradient-to-b from-[#005A43] to-[#7CCB9B]",
     inner: "bg-gradient-to-b from-[#E5F8F0] via-[#00352F] to-[#D1F0E6]",
     button: "bg-gradient-to-b from-[#9ADBC8] to-[#3E8F7C]",
-    textColor: "text-[#FFF7F0]",
+    textColor: "text-[#F8F8F8]",
     textShadow: "[text-shadow:_0_-1px_0_rgb(6_78_59_/_100%)]",
   },
   error: {
     outer: "bg-gradient-to-b from-[#5A0000] to-[#FFAEB0]",
     inner: "bg-gradient-to-b from-[#FFDEDE] via-[#680002] to-[#FFE9E9]",
     button: "bg-gradient-to-b from-[#F08D8F] to-[#A45253]",
-    textColor: "text-[#FFF7F0]",
+    textColor: "text-[#F8F8F8]",
     textShadow: "[text-shadow:_0_-1px_0_rgb(146_64_14_/_100%)]",
   },
   gold: {
@@ -238,7 +238,7 @@ const colorVariants: Record<
     outer: "bg-gradient-to-b from-[#864813] to-[#E9B486]",
     inner: "bg-gradient-to-b from-[#EDC5A1] via-[#5F2D01] to-[#FFDEC1]",
     button: "bg-gradient-to-b from-[#FFE3C9] to-[#A36F3D]",
-    textColor: "text-[#FFF7F0]",
+    textColor: "text-[#F8F8F8]",
     textShadow: "[text-shadow:_0_-1px_0_rgb(124_45_18_/_100%)]",
   },
 };

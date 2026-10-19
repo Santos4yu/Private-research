@@ -43,9 +43,9 @@
   box-shadow: inset 0 0 0 1px var(--ace-border), 0 1px 2px rgba(0, 0, 0, .3) !important;
   transition: box-shadow 160ms var(--ace-ease) !important;
 }
-:root[data-theme] #app-shell #panel-research .search-beam > .search-box:hover { box-shadow: inset 0 0 0 1px #2D3C54, 0 1px 2px rgba(0, 0, 0, .3) !important; }
+:root[data-theme] #app-shell #panel-research .search-beam > .search-box:hover { box-shadow: inset 0 0 0 1px #3B3B3B, 0 1px 2px rgba(0, 0, 0, .3) !important; }
 :root[data-theme] #app-shell #panel-research .search-beam > .search-box:focus-within {
-  box-shadow: inset 0 0 0 1px var(--theme-accent, var(--ace-accent)), 0 0 0 3px rgba(61, 123, 255, .14) !important;
+  box-shadow: inset 0 0 0 1px var(--theme-accent, var(--ace-accent)), 0 0 0 3px rgba(204,204,204, .14) !important;
 }
 :root[data-theme] #app-shell #panel-research .search-beam > .search-box input { font: 400 16px/1.4 var(--font-sans) !important; }
 :root[data-theme] #app-shell #panel-research .search-beam > .search-box input::placeholder { color: var(--ace-faint) !important; }
@@ -67,7 +67,7 @@
 :root[data-theme] .lab-matchup-card,
 :root[data-theme] .lab-player {
   border: 1px solid var(--ace-border) !important; border-radius: var(--ace-radius-lg) !important;
-  background: linear-gradient(165deg, #19212E 0%, #131822 55%, #0f141c 100%) !important;
+  background: linear-gradient(165deg, #212121 0%, #181818 55%, #141414 100%) !important;
   box-shadow: var(--ace-shadow) !important;
   transition: transform 180ms var(--ace-ease), border-color 180ms ease !important;
 }
@@ -76,29 +76,29 @@
   border-radius: 0 0 3px 3px; background: var(--theme-accent, var(--ace-accent)); pointer-events: none;
 }
 :root[data-theme] .lab-matchup-card--accent-0 {
-  background: linear-gradient(135deg, rgba(61, 123, 255, .17) 0%, rgba(61, 123, 255, .05) 42%, transparent 72%), linear-gradient(165deg, #19212E 0%, #131822 55%, #0f141c 100%) !important;
-  border-color: rgba(61, 123, 255, .32) !important;
+  background: linear-gradient(135deg, rgba(130,130,130, .17) 0%, rgba(130,130,130, .05) 42%, transparent 72%), linear-gradient(165deg, #212121 0%, #181818 55%, #141414 100%) !important;
+  border-color: rgba(204,204,204, .32) !important;
 }
 :root[data-theme] .lab-matchup-card--accent-1 {
-  background: linear-gradient(135deg, rgba(61, 123, 255, .09) 0%, rgba(61, 123, 255, .025) 42%, transparent 72%), linear-gradient(165deg, #19212E 0%, #131822 55%, #0f141c 100%) !important;
-  border-color: rgba(61, 123, 255, .18) !important;
+  background: linear-gradient(135deg, rgba(130,130,130, .09) 0%, rgba(130,130,130, .025) 42%, transparent 72%), linear-gradient(165deg, #212121 0%, #181818 55%, #141414 100%) !important;
+  border-color: rgba(204,204,204, .18) !important;
 }
 :root[data-theme] .lab-player--blue {
-  background: linear-gradient(135deg, rgba(61, 123, 255, .17) 0%, rgba(61, 123, 255, .05) 42%, transparent 72%), linear-gradient(165deg, #19212E 0%, #131822 55%, #0f141c 100%) !important;
-  border-color: rgba(61, 123, 255, .32) !important;
+  background: linear-gradient(135deg, rgba(130,130,130, .17) 0%, rgba(130,130,130, .05) 42%, transparent 72%), linear-gradient(165deg, #212121 0%, #181818 55%, #141414 100%) !important;
+  border-color: rgba(204,204,204, .32) !important;
 }
 :root[data-theme] .lab-matchup-card--skeleton { background: var(--ace-card) !important; box-shadow: none !important; }
 :root[data-theme] .lab-matchup-card--skeleton::before { display: none; }
 @media (hover: hover) {
   :root[data-theme] .lab-matchup-card:not(.lab-matchup-card--skeleton):hover,
-  :root[data-theme] .lab-player:hover { transform: translateY(-2px); border-color: #2D3C54 !important; }
+  :root[data-theme] .lab-player:hover { transform: translateY(-2px); border-color: #3B3B3B !important; }
 }
-:root[data-theme] .lab-player::after { background: linear-gradient(0deg, rgba(8, 10, 14, .82), transparent 70%) !important; }
+:root[data-theme] .lab-player::after { background: linear-gradient(0deg, rgba(10,10,10, .82), transparent 70%) !important; }
 :root[data-theme] .lab-player-grid { opacity: .16 !important; }
 :root[data-theme] .lab-player-watermark { color: rgba(243, 245, 248, .035) !important; font-family: var(--font-display) !important; }
 :root[data-theme] .lab-player-tag {
   border-color: var(--ace-border) !important; border-radius: 6px !important;
-  background: rgba(8, 10, 14, .55) !important; color: var(--ace-muted) !important; letter-spacing: .1em !important;
+  background: rgba(10,10,10, .55) !important; color: var(--ace-muted) !important; letter-spacing: .1em !important;
 }
 :root[data-theme] .lab-player-name, :root[data-theme] .lab-matchup-name { font-family: var(--font-display); text-shadow: none !important; }
 :root[data-theme] .lab-matchup-context { color: var(--ace-muted); }
@@ -113,10 +113,10 @@
 :root[data-theme] .lab-player-tag:is([data-band="strong"], [data-band="favorable"]) b { color: var(--ace-positive); }
 :root[data-theme] .lab-player-tag:is([data-band="slight"], [data-band="neutral"]) b { color: var(--ace-warning); }
 :root[data-theme] .lab-player-tag:is([data-band="caution"], [data-band="unfavorable"]) b { color: var(--ace-negative); }
-:root[data-theme] .lab-matchup-icon { border-color: #141A25; background: var(--ace-raised); }
+:root[data-theme] .lab-matchup-icon { border-color: #1A1A1A; background: var(--ace-raised); }
 :root[data-theme] .lab-matchup-open,
 :root[data-theme] .lab-player-open {
-  border: 1px solid transparent !important; background: var(--ace-text) !important; color: #090C12 !important;
+  border: 1px solid transparent !important; background: var(--ace-text) !important; color: #0C0C0C !important;
   border-radius: 9px !important; font-family: var(--font-sans);
 }
 
@@ -130,20 +130,20 @@
 :root[data-theme] .lab-icon-box { border-color: var(--ace-accent-line) !important; background: var(--ace-accent-tint) !important; border-radius: 10px !important; }
 :root[data-theme] .lab-tool-art { opacity: 1; }
 :root[data-theme] .lab-tool {
-  background: linear-gradient(180deg, rgba(61, 123, 255, .07), transparent 55%), var(--ace-card) !important;
+  background: linear-gradient(180deg, rgba(130,130,130, .07), transparent 55%), var(--ace-card) !important;
 }
 :root[data-theme] .lab-tool > strong { font-family: var(--font-display); color: var(--ace-text) !important; }
 :root[data-theme] .lab-tool > span:last-child { color: var(--ace-muted) !important; }
 @media (hover: hover) {
-  :root[data-theme] .lab-tool:hover { transform: translateY(-2px); border-color: #2D3C54 !important; }
+  :root[data-theme] .lab-tool:hover { transform: translateY(-2px); border-color: #3B3B3B !important; }
   :root[data-theme] .lab-tool:hover .lab-tool-top > svg { color: var(--theme-accent, var(--ace-accent)); }
 }
 
 /* Prop board: a card with one green action, not a full green slab. */
 :root[data-theme] .lab-board-button {
   gap: 16px !important; padding: 18px !important; border: 1px solid var(--ace-border) !important; border-radius: var(--ace-radius-lg) !important;
-  background: linear-gradient(90deg, rgba(61, 123, 255, .13), rgba(61, 123, 255, .03) 55%, transparent), var(--ace-card) !important;
-  border-color: rgba(61, 123, 255, .28) !important;
+  background: linear-gradient(90deg, rgba(130,130,130, .13), rgba(130,130,130, .03) 55%, transparent), var(--ace-card) !important;
+  border-color: rgba(204,204,204, .28) !important;
   color: var(--ace-text) !important; box-shadow: none !important;
   transition: border-color 160ms ease, transform 160ms var(--ace-ease) !important;
 }

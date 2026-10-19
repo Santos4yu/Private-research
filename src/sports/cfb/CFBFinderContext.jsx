@@ -40,7 +40,8 @@ function WinPredictor({matchup}){
  const m=matchup.data;
  if(!m)return <section className="mlb-context-card mlb-win-predictor"><header><h2>Win predictor</h2><small>Pregame</small></header>{matchup.loading?<Skeleton/>:<Empty>{matchup.error||'Matchup prediction is not available yet.'}</Empty>}</section>;
  const [away,home]=m.teams||[],chance=m.chance;
- const colors=['#7b8cff','#28cb98'];
+ // Away grey, home white: the site's black and white, not team colours.
+ const colors=['#8c8c8c','#f2f2f2'];
  return <section className="mlb-context-card mlb-win-predictor"><header><h2>Win predictor</h2><small>{m.chanceSource==='espn'?'ESPN projection':m.conference?'Conference game':'Pregame'}</small></header>
   {chance&&away&&home?<div className="mlb-win-body">{[away,home].map((team,index)=><React.Fragment key={team.abbr}>{index===1&&<div className="mlb-win-ring" role="img" aria-label={`${away.abbr} ${fmt(chance.away,0)}%, ${home.abbr} ${fmt(chance.home,0)}%`} style={{background:`conic-gradient(${colors[0]} 0% ${chance.away}%, ${colors[1]} ${chance.away}% 100%)`}}><span>WIN<br/>CHANCE</span></div>}
    <div className="mlb-win-team"><Logo src={team.logo} size={32}/><strong>{ranked(team)}{team.abbr}</strong><small>{team.record||'0-0'}{index===1&&!m.neutral?' · Home':''}</small><b style={{color:colors[index]}}>{fmt(index?chance.home:chance.away,0)}%</b></div></React.Fragment>)}</div>

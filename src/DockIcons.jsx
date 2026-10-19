@@ -5,7 +5,7 @@ import React from 'react';
 // tab is the one showing, then filled in the member's color with its inner
 // marks cut out in the dock's own dark, the way a phone app's tab bar does.
 
-const INK = {stroke: 'var(--dock-ink, #111418)'};
+const INK = {stroke: 'var(--dock-ink, #141414)'};
 const fill = active => (active ? 'currentColor' : 'none');
 
 const ICONS = {

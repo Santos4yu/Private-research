@@ -17,9 +17,9 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 4px;
-  border: 1px solid #283035;
+  border: 1px solid #2f2f2f;
   border-radius: 12px;
-  background: #151A1E;
+  background: #191919;
   box-shadow: 0 14px 34px rgba(0, 0, 0, .5), inset 0 1px rgba(255, 255, 255, .04);
   color: #F4F7F6;
   font: 500 13px/1.2 var(--font-sans, Inter, Arial, sans-serif);
@@ -27,7 +27,7 @@
   text-transform: none;
   outline: none;
   scrollbar-width: thin;
-  scrollbar-color: #2C353B transparent;
+  scrollbar-color: #343434 transparent;
   transform-origin: 50% 0;
   animation: ace-select-in .14s cubic-bezier(.2, .8, .2, 1);
 }
@@ -41,20 +41,20 @@
   min-height: 34px;
   padding: 0 10px;
   border-radius: 8px;
-  color: #C3CACE;
+  color: #C9C9C9;
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
   outline: none;
 }
 .ace-select-item .ace-select-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.ace-select-item[data-active] { background: #1E262B; color: #fff; }
+.ace-select-item[data-active] { background: #252525; color: #fff; }
 .ace-select-item[aria-selected="true"] { color: #3FE39E; font-weight: 650; }
 .ace-select-item[aria-selected="true"][data-active] { background: rgba(63, 227, 158, .1); }
 .ace-select-item[data-disabled] { opacity: .45; pointer-events: none; }
 .ace-select-check { flex: 0 0 auto; margin-left: 6px; color: #3FE39E; }
-.ace-select-label { padding: 6px 10px 4px; color: #6F797E; font: 700 10.5px/1 var(--font-sans, Inter, Arial, sans-serif); letter-spacing: .06em; text-transform: uppercase; }
-.ace-select-separator { height: 1px; margin: 4px 2px; background: #232B30; }
+.ace-select-label { padding: 6px 10px 4px; color: #777777; font: 700 10.5px/1 var(--font-sans, Inter, Arial, sans-serif); letter-spacing: .06em; text-transform: uppercase; }
+.ace-select-separator { height: 1px; margin: 4px 2px; background: #2A2A2A; }
 
 /* The trigger's arrow turns over while its menu is open. */
 .ace-select-chevron { transition: transform .18s cubic-bezier(.2, .8, .2, 1), color .1s ease; }
@@ -68,4 +68,4 @@
 
 /* The menu takes focus for the arrow keys; the site's general focus ring is not for it. */
 .ace-select-menu:focus,
-.ace-select-menu:focus-visible { outline: none !important; border-color: #283035 !important; box-shadow: 0 14px 34px rgba(0, 0, 0, .5), inset 0 1px rgba(255, 255, 255, .04) !important; }
+.ace-select-menu:focus-visible { outline: none !important; border-color: #2f2f2f !important; box-shadow: 0 14px 34px rgba(0, 0, 0, .5), inset 0 1px rgba(255, 255, 255, .04) !important; }

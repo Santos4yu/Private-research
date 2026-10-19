@@ -3,37 +3,37 @@
    the bottom on a phone, a dialog on a computer. Tier colors are the Slip
    Analyzer's. */
 
-.ap-layer, .ap-trigger { --ap-ease: cubic-bezier(.22, 1, .36, 1); --ap-blue: #3D7BFF; --ap-card: #0f141c; --ap-panel: #151b26; --ap-line: #232c3a;
-  --ap-text: #eef2f8; --ap-sub: #8f9bae; font-family: var(--font-sans, Inter, system-ui, sans-serif); }
+.ap-layer, .ap-trigger { --ap-ease: cubic-bezier(.22, 1, .36, 1); --ap-accent: #ffffff; --ap-card: #141414; --ap-panel: #1b1b1b; --ap-line: #2b2b2b;
+  --ap-text: #f2f2f2; --ap-sub: #9a9a9a; font-family: var(--font-sans, Inter, system-ui, sans-serif); }
 .ap-layer [data-tier=elite], .ap-layer[data-tier=elite], .ap-sheet[data-tier=elite] { --tier: #46e39a; }
 .ap-layer [data-tier=strong], .ap-sheet[data-tier=strong] { --tier: #3cc9b9; }
-.ap-layer [data-tier=lean], .ap-sheet[data-tier=lean] { --tier: #9eadc8; }
+.ap-layer [data-tier=lean], .ap-sheet[data-tier=lean] { --tier: #acacac; }
 .ap-layer [data-tier=risky], .ap-sheet[data-tier=risky] { --tier: #f6b955; }
 .ap-layer [data-tier=fade], .ap-sheet[data-tier=fade] { --tier: #ff7b8a; }
-.ap-layer [data-tier=none], .ap-sheet[data-tier=none] { --tier: #5a6374; }
+.ap-layer [data-tier=none], .ap-sheet[data-tier=none] { --tier: #636363; }
 
 /* The button, on the player card beside the hit-rate ring. The chart panel
    it sits in styles buttons with !important (trend-edge.css), so its colors
    are held here the same way. */
 html:root .ap-trigger {
   display: inline-flex !important; align-items: center; justify-content: center; gap: 6px; min-height: 34px; margin: 2px 0 0 !important;
-  padding: 0 13px 0 10px !important; border: 1px solid rgba(255, 255, 255, .26) !important; border-radius: 999px !important;
-  background: linear-gradient(180deg, #5b93ff 0%, #3d7bff 52%, #2d63e3 100%) !important;
+  padding: 0 13px 0 10px !important; border: 1px solid rgba(255, 255, 255, .72) !important; border-radius: 999px !important;
+  background: rgba(10, 10, 10, .78) !important; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
   color: #fff !important; -webkit-text-fill-color: #fff !important; cursor: pointer; white-space: nowrap;
   font: 800 12.5px/1 var(--font-sans, Inter, system-ui, sans-serif) !important; letter-spacing: .02em;
-  box-shadow: 0 8px 18px rgba(29, 72, 190, .42), inset 0 1px 0 rgba(255, 255, 255, .38), inset 0 -1px 0 rgba(0, 0, 0, .18) !important;
-  transition: transform .18s var(--ap-ease), box-shadow .18s, filter .18s;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .45) !important;
+  transition: transform .18s var(--ap-ease), background .18s, border-color .18s;
   animation: ap-pop .5s var(--ap-ease) .25s backwards;
 }
 html:root .ap-trigger svg { flex: none; color: #fff !important; }
 html:root .ap-trigger span { color: #fff !important; -webkit-text-fill-color: #fff !important; }
-html:root .ap-trigger:hover { transform: translateY(-1px); filter: brightness(1.06); box-shadow: 0 12px 24px rgba(29, 72, 190, .5), inset 0 1px 0 rgba(255, 255, 255, .38) !important; }
+html:root .ap-trigger:hover { transform: translateY(-1px); border-color: #fff !important; background: rgba(34, 34, 34, .9) !important; }
 html:root .ap-trigger:active { transform: scale(.95); }
-html:root .ap-trigger:focus-visible { outline: 3px solid #9ec0ff !important; outline-offset: 2px; }
+html:root .ap-trigger:focus-visible { outline: 3px solid #f1f1f1 !important; outline-offset: 2px; }
 
 /* The layer over everything, the dock included. */
 .ap-layer { position: fixed; inset: 0; z-index: 10100; color: var(--ap-text); -webkit-tap-highlight-color: transparent; }
-.ap-dim { position: absolute; inset: 0; background: rgba(4, 7, 12, .64); opacity: 0; transition: opacity .3s ease; }
+.ap-dim { position: absolute; inset: 0; background: rgba(7,7,7, .64); opacity: 0; transition: opacity .3s ease; }
 .ap-layer:not([data-phase=scan]) .ap-dim { opacity: 1; }
 /* Reduced motion has no spotlight to dim around: the page dims evenly. */
 @media (prefers-reduced-motion: reduce) { .ap-layer .ap-dim { opacity: 1; } }
@@ -42,47 +42,47 @@ html:root .ap-trigger:focus-visible { outline: 3px solid #9ec0ff !important; out
 /* The spotlight: the page shows through it, the rest dims around it. */
 .ap-spot {
   position: fixed; left: 0; top: 0; width: 0; height: 0; border-radius: 18px; pointer-events: none; opacity: 0; will-change: transform, width, height;
-  box-shadow: 0 0 0 2px rgba(61, 123, 255, .95), 0 0 0 6px rgba(61, 123, 255, .18), 0 0 0 200vmax rgba(4, 7, 12, .58);
+  box-shadow: 0 0 0 2px rgba(204,204,204, .95), 0 0 0 6px rgba(204,204,204, .18), 0 0 0 200vmax rgba(7,7,7, .58);
   transition: opacity .3s ease;
 }
 .ap-spot[data-on=true] { opacity: 1; }
 .ap-spot-tag {
   position: absolute; left: 10px; top: -15px; display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px 6px 8px; border-radius: 999px;
-  background: #fff; color: #0b0e14; font: 800 12px/1 var(--font-sans, Inter, system-ui, sans-serif); white-space: nowrap;
+  background: #fff; color: #0e0e0e; font: 800 12px/1 var(--font-sans, Inter, system-ui, sans-serif); white-space: nowrap;
   box-shadow: 0 8px 20px rgba(0, 0, 0, .35);
 }
-.ap-spot-tag svg { color: var(--ap-blue); }
+.ap-spot-tag svg { color: #0b0b0b; }
 
 /* The walk-through's pointer, or a finger on a touch screen, and its taps. */
 .ap-pointer { position: fixed; left: 0; top: 0; z-index: 3; pointer-events: none; will-change: transform; animation: ap-fade-in .3s ease both; }
 .ap-pointer svg { display: block; width: 24px; height: 30px; margin: -2px 0 0 -2px; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, .5)); }
-.ap-pointer path { fill: #fff; stroke: #0b0e14; stroke-width: 1.8; stroke-linejoin: round; }
+.ap-pointer path { fill: #fff; stroke: #0e0e0e; stroke-width: 1.8; stroke-linejoin: round; }
 .ap-pointer[data-touch] i { display: block; width: 34px; height: 34px; margin: -17px 0 0 -17px; border: 2px solid rgba(255, 255, 255, .95); border-radius: 50%;
   background: rgba(255, 255, 255, .28); box-shadow: 0 6px 16px rgba(0, 0, 0, .45); }
 .ap-ripples { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
-.ap-ripple { position: absolute; left: 0; top: 0; width: 52px; height: 52px; margin: -26px 0 0 -26px; border: 2.5px solid #9ec0ff; border-radius: 50%; }
+.ap-ripple { position: absolute; left: 0; top: 0; width: 52px; height: 52px; margin: -26px 0 0 -26px; border: 2.5px solid #f1f1f1; border-radius: 50%; }
 
 /* What the walk-through gathers, flying into the progress card. */
 .ap-chips { position: fixed; inset: 0; pointer-events: none; }
 .ap-chip {
   position: absolute; left: 0; top: 0; display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border-radius: 999px;
-  background: var(--ap-panel); border: 1px solid #2c3647; color: #fff; font: 700 12.5px/1 var(--font-sans, Inter, system-ui, sans-serif); white-space: nowrap;
+  background: var(--ap-panel); border: 1px solid #363636; color: #fff; font: 700 12.5px/1 var(--font-sans, Inter, system-ui, sans-serif); white-space: nowrap;
   box-shadow: 0 10px 26px rgba(0, 0, 0, .45); will-change: transform, opacity;
 }
-.ap-chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ap-blue); }
+.ap-chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ap-accent); }
 
 /* The progress pill: slim, at the top over the site's header, so the
    walk-through has the rest of the screen. */
 .ap-progress {
   position: fixed; z-index: 4; left: 0; right: 0; top: calc(env(safe-area-inset-top, 0px) + 12px); width: min(540px, calc(100vw - 32px)); margin-inline: auto;
   display: flex; align-items: center; gap: 12px; padding: 9px 9px 11px 10px; overflow: hidden;
-  border: 1px solid #2a3446; border-radius: 20px; background: rgba(15, 20, 29, .94); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  border: 1px solid #343434; border-radius: 20px; background: rgba(20,20,20, .94); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
   box-shadow: 0 18px 44px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .05); animation: ap-progress-in .45s var(--ap-ease) both;
 }
-.ap-spinner { position: relative; display: grid; place-items: center; flex: none; width: 36px; height: 36px; color: #9ec0ff; }
+.ap-spinner { position: relative; display: grid; place-items: center; flex: none; width: 36px; height: 36px; color: #f1f1f1; }
 .ap-spinner svg:first-child { position: absolute; inset: 0; width: 100%; height: 100%; animation: ap-spin .9s linear infinite; }
-.ap-spinner circle { fill: none; stroke: #232c3a; stroke-width: 4; }
-.ap-spinner path { fill: none; stroke: var(--ap-blue); stroke-width: 4; stroke-linecap: round; }
+.ap-spinner circle { fill: none; stroke: #2b2b2b; stroke-width: 4; }
+.ap-spinner path { fill: none; stroke: var(--ap-accent); stroke-width: 4; stroke-linecap: round; }
 .ap-spinner svg + svg { animation: ap-pop .35s var(--ap-ease) both; }
 .ap-progress-title { min-width: 0; flex: 1; }
 .ap-progress-title b { display: block; overflow: hidden; color: #fff; font: 800 14.5px/1.2 var(--font-display, var(--font-sans, Inter, sans-serif)); letter-spacing: -.01em;
@@ -91,43 +91,43 @@ html:root .ap-trigger:focus-visible { outline: 3px solid #9ec0ff !important; out
   white-space: nowrap; text-overflow: ellipsis; }
 /* One dot a step: green once done, a longer blue one for the step it's on. */
 .ap-steps { display: flex; align-items: center; gap: 4px; flex: none; }
-.ap-steps i { width: 6px; height: 6px; border-radius: 3px; background: #2a3446; transition: width .35s var(--ap-ease), background .3s ease; }
+.ap-steps i { width: 6px; height: 6px; border-radius: 3px; background: #343434; transition: width .35s var(--ap-ease), background .3s ease; }
 .ap-steps i[data-state=done] { background: #22c55e; }
-.ap-steps i[data-state=on] { width: 16px; background: var(--ap-blue); }
-.ap-skip { flex: none; min-height: 34px; padding: 0 14px; border: 1px solid #2c3647; border-radius: 999px; background: #1a2130; color: #cfd8e5; cursor: pointer;
+.ap-steps i[data-state=on] { width: 16px; background: var(--ap-accent); }
+.ap-skip { flex: none; min-height: 34px; padding: 0 14px; border: 1px solid #363636; border-radius: 999px; background: #212121; color: #d7d7d7; cursor: pointer;
   font: 800 12.5px/1 var(--font-sans, Inter, sans-serif); transition: background .2s; }
-.ap-skip:hover { background: #232c3d; }
+.ap-skip:hover { background: #2c2c2c; }
 .ap-progress-bar { position: absolute; left: 0; right: 0; bottom: 0; display: block; height: 3px; background: rgba(255, 255, 255, .05); }
-.ap-progress-bar i { display: block; height: 100%; background: linear-gradient(90deg, #5b93ff, var(--ap-blue)); transform-origin: 0 50%;
+.ap-progress-bar i { display: block; height: 100%; background: linear-gradient(90deg, #f2f2f2, var(--ap-accent)); transform-origin: 0 50%;
   transition: transform .5s var(--ap-ease); }
 
 /* The result. */
 .ap-sheet {
   position: fixed; left: 50%; top: 50%; display: flex; flex-direction: column; width: min(640px, calc(100vw - 48px)); max-height: min(88vh, 940px);
   transform: translate(-50%, -50%); border: 1px solid color-mix(in srgb, var(--tier) 30%, var(--ap-line)); border-radius: 26px; overflow: hidden;
-  background: radial-gradient(120% 60% at 0% 0%, color-mix(in srgb, var(--tier) 12%, transparent), transparent 62%), linear-gradient(180deg, #121823, #0c1118);
+  background: radial-gradient(120% 60% at 0% 0%, color-mix(in srgb, var(--tier) 12%, transparent), transparent 62%), linear-gradient(180deg, #181818, #111111);
   box-shadow: 0 40px 100px rgba(0, 0, 0, .6); animation: ap-dialog-in .5s var(--ap-ease) both;
 }
 .ap-layer[data-closing] .ap-sheet { animation: ap-dialog-out .24s ease-in both; }
 .ap-grip { display: none; }
 .ap-head { display: flex; align-items: center; gap: 12px; padding: 16px 16px 12px 18px; border-bottom: 1px solid rgba(255, 255, 255, .06); }
 .ap-face { position: relative; display: grid; place-items: center; flex: none; width: 46px; height: 46px; border-radius: 14px; overflow: hidden;
-  background: linear-gradient(145deg, #26324a, #141b28); color: #dfe5ee; font: 800 15px/1 var(--font-sans, Inter, sans-serif); }
+  background: linear-gradient(145deg, #323232, #1b1b1b); color: #e4e4e4; font: 800 15px/1 var(--font-sans, Inter, sans-serif); }
 .ap-face img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; }
 .ap-who { min-width: 0; flex: 1; }
 .ap-who b { display: block; font: 800 17px/1.2 var(--font-display, var(--font-sans, Inter, sans-serif)); letter-spacing: -.01em; }
 .ap-who small { display: block; margin-top: 3px; overflow: hidden; color: var(--ap-sub); font: 600 13px/1.25 var(--font-sans, Inter, sans-serif); text-overflow: ellipsis; white-space: nowrap; }
 .ap-close { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border: 1px solid var(--ap-line); border-radius: 12px;
-  background: var(--ap-panel); color: #cfd7e3; cursor: pointer; transition: background .2s; }
-.ap-close:hover { background: #1c2433; }
-.ap-close:focus-visible, .ap-btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--ap-blue) 70%, #fff); outline-offset: 2px; }
+  background: var(--ap-panel); color: #d6d6d6; cursor: pointer; transition: background .2s; }
+.ap-close:hover { background: #242424; }
+.ap-close:focus-visible, .ap-btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--ap-accent) 70%, #fff); outline-offset: 2px; }
 .ap-body { display: grid; gap: 12px; padding: 16px 16px 18px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 
 .ap-verdict { display: flex; align-items: center; gap: 16px; padding: 6px 2px 4px; }
 .ap-ring { position: relative; display: grid; place-items: center; flex: none; width: 112px; height: 112px; }
 .ap-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
 .ap-ring circle { fill: none; stroke-width: 10; }
-.ap-ring-track { stroke: #1d2533; }
+.ap-ring-track { stroke: #252525; }
 .ap-ring-fill { stroke: var(--tier); stroke-linecap: round; }
 .ap-ring b { margin-top: -8px; font: 800 30px/1 var(--font-display, var(--font-sans, Inter, sans-serif)); letter-spacing: -.02em; }
 .ap-ring b small { font-size: 15px; }
@@ -137,42 +137,42 @@ html:root .ap-trigger:focus-visible { outline: 3px solid #9ec0ff !important; out
   font: 800 11px/1 var(--font-sans, Inter, sans-serif); letter-spacing: .12em; text-transform: uppercase; animation: ap-pop .45s var(--ap-ease) .35s backwards; }
 .ap-verdict h2 { display: flex; align-items: baseline; gap: 8px; margin: 0; font: 800 23px/1.15 var(--font-display, var(--font-sans, Inter, sans-serif)); letter-spacing: -.02em; }
 .ap-emoji { flex: none; font-size: 21px; }
-.ap-verdict p { margin: 0; color: #b9c4d4; font: 600 14px/1.35 var(--font-sans, Inter, sans-serif); }
+.ap-verdict p { margin: 0; color: #c3c3c3; font: 600 14px/1.35 var(--font-sans, Inter, sans-serif); }
 .ap-verdict .ap-other { color: var(--ap-sub); font-size: 12.5px; }
-.ap-other b { color: #dfe5ee; }
+.ap-other b { color: #e4e4e4; }
 .ap-other [data-tier] { color: var(--tier); font-weight: 800; }
 
 .ap-meters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
-.ap-meter { display: grid; gap: 9px; padding: 12px 14px; border: 1px solid var(--ap-line); border-radius: 16px; background: rgba(21, 27, 38, .7); }
+.ap-meter { display: grid; gap: 9px; padding: 12px 14px; border: 1px solid var(--ap-line); border-radius: 16px; background: rgba(27,27,27, .7); }
 .ap-meter-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .ap-meter small { color: var(--ap-sub); font: 700 11.5px/1 var(--font-sans, Inter, sans-serif); letter-spacing: .06em; text-transform: uppercase; }
 .ap-meter b { font: 800 15px/1 var(--font-display, var(--font-sans, Inter, sans-serif)); }
-.ap-meter-bar { display: block; height: 7px; border-radius: 7px; background: #1c2431; overflow: hidden; }
-.ap-meter-bar i { display: block; height: 100%; border-radius: 7px; background: var(--tier, var(--ap-blue)); transform-origin: 0 50%; }
+.ap-meter-bar { display: block; height: 7px; border-radius: 7px; background: #242424; overflow: hidden; }
+.ap-meter-bar i { display: block; height: 100%; border-radius: 7px; background: var(--tier, var(--ap-accent)); transform-origin: 0 50%; }
 .ap-meter[data-tone=excellent], .ap-meter[data-tone=good] { --tier: #46e39a; }
-.ap-meter[data-tone=neutral] { --tier: #9eadc8; }
+.ap-meter[data-tone=neutral] { --tier: #acacac; }
 .ap-meter[data-tone=tough] { --tier: #f6b955; }
 .ap-meter[data-tone=bad] { --tier: #ff7b8a; }
 
-.ap-card { padding: 14px 15px 15px; border: 1px solid var(--ap-line); border-radius: 18px; background: rgba(21, 27, 38, .72); }
+.ap-card { padding: 14px 15px 15px; border: 1px solid var(--ap-line); border-radius: 18px; background: rgba(27,27,27, .72); }
 .ap-card h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font: 800 14.5px/1.2 var(--font-sans, Inter, sans-serif); letter-spacing: -.005em; }
 .ap-card h3 > span:first-child { font-size: 16px; }
-.ap-score { margin-left: auto; padding: 5px 9px; border-radius: 999px; background: #1c2431; color: #c9d3e1; font: 800 11px/1 var(--font-sans, Inter, sans-serif); white-space: nowrap; }
+.ap-score { margin-left: auto; padding: 5px 9px; border-radius: 999px; background: #242424; color: #d2d2d2; font: 800 11px/1 var(--font-sans, Inter, sans-serif); white-space: nowrap; }
 .ap-score[data-tone=excellent], .ap-score[data-tone=good] { background: #12301f; color: #6ee7a0; }
 .ap-score[data-tone=tough] { background: #33270f; color: #ffd166; }
 .ap-score[data-tone=bad] { background: #3a1420; color: #ff8fa3; }
-.ap-write { margin: 0; color: #dbe3ee; font: 500 15px/1.6 var(--font-sans, Inter, sans-serif); }
+.ap-write { margin: 0; color: #e2e2e2; font: 500 15px/1.6 var(--font-sans, Inter, sans-serif); }
 .ap-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.ap-list li { display: flex; align-items: flex-start; gap: 10px; color: #d5dde8; font: 600 14px/1.45 var(--font-sans, Inter, sans-serif); }
+.ap-list li { display: flex; align-items: flex-start; gap: 10px; color: #dcdcdc; font: 600 14px/1.45 var(--font-sans, Inter, sans-serif); }
 .ap-list-icon { display: grid; place-items: center; flex: none; width: 26px; height: 26px; margin-top: -2px; border-radius: 8px; background: #12301f; color: #6ee7a0; }
 .ap-list[data-tone=risk] .ap-list-icon { background: #33270f; color: #ffd166; }
-.ap-list[data-tone=matchup] .ap-list-icon { background: #1a2338; color: #9ec0ff; }
+.ap-list[data-tone=matchup] .ap-list-icon { background: #232323; color: #f1f1f1; }
 .ap-list[data-tone=matchup] li[data-tone=up] .ap-list-icon { background: #12301f; color: #6ee7a0; }
 .ap-list[data-tone=matchup] li[data-tone=down] .ap-list-icon { background: #3a1420; color: #ff8fa3; }
 .ap-list[data-tone=matchup] li[data-tone=warn] .ap-list-icon { background: #33270f; color: #ffd166; }
 
 .ap-numbers { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
-.ap-numbers span { display: grid; gap: 5px; padding: 10px 11px; border-radius: 13px; background: #121822; border: 1px solid #1f2836; }
+.ap-numbers span { display: grid; gap: 5px; padding: 10px 11px; border-radius: 13px; background: #181818; border: 1px solid #282828; }
 .ap-numbers small { color: var(--ap-sub); font: 700 10.5px/1 var(--font-sans, Inter, sans-serif); letter-spacing: .07em; text-transform: uppercase; }
 .ap-numbers b { font: 800 17px/1 var(--font-display, var(--font-sans, Inter, sans-serif)); }
 .ap-numbers em { color: var(--ap-sub); font: 700 11.5px/1 var(--font-sans, Inter, sans-serif); font-style: normal; }
@@ -180,22 +180,22 @@ html:root .ap-trigger:focus-visible { outline: 3px solid #9ec0ff !important; out
 .ap-numbers [data-tone=mid] em { color: #ffd166; }
 .ap-numbers [data-tone=down] em { color: #ff8fa3; }
 
-.ap-foot { margin: 2px 2px 0; color: #6f7b8e; font: 600 12px/1.45 var(--font-sans, Inter, sans-serif); }
+.ap-foot { margin: 2px 2px 0; color: #7a7a7a; font: 600 12px/1.45 var(--font-sans, Inter, sans-serif); }
 /* Kept in reach at the bottom of the result while it scrolls. */
 .ap-actions { position: sticky; bottom: -18px; z-index: 1; display: flex; flex-wrap: wrap; gap: 10px; margin: 0 -16px -18px; padding: 12px 16px 18px;
-  background: linear-gradient(180deg, rgba(12, 17, 24, 0), #0c1118 34%); }
+  background: linear-gradient(180deg, rgba(17,17,17, 0), #111111 34%); }
 .ap-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex: 1 1 140px; min-height: 48px; padding: 0 18px;
-  border: 1px solid var(--ap-line); border-radius: 14px; background: var(--ap-panel); color: #e4eaf3; cursor: pointer;
+  border: 1px solid var(--ap-line); border-radius: 14px; background: var(--ap-panel); color: #e9e9e9; cursor: pointer;
   font: 800 14.5px/1 var(--font-sans, Inter, sans-serif); transition: transform .15s var(--ap-ease), background .2s; }
-.ap-btn:hover { background: #1c2433; }
+.ap-btn:hover { background: #242424; }
 .ap-btn:active { transform: scale(.97); }
-.ap-btn-main { border-color: transparent; background: var(--ap-blue); color: #fff; }
-.ap-btn-main:hover { background: #3570ec; }
+.ap-btn-main { border-color: transparent; background: var(--ap-accent); color: #0b0b0b; }
+.ap-btn-main:hover { background: #e9e9e9; }
 .ap-btn:disabled { cursor: default; opacity: .85; }
 .ap-empty { display: grid; justify-items: center; gap: 10px; padding: 18px 6px 6px; text-align: center; }
 .ap-empty-icon { font-size: 34px; }
 .ap-empty h2 { margin: 0; font: 800 19px/1.25 var(--font-display, var(--font-sans, Inter, sans-serif)); }
-.ap-empty p { margin: 0; color: #b3bfd0; font: 600 14px/1.45 var(--font-sans, Inter, sans-serif); }
+.ap-empty p { margin: 0; color: #bebebe; font: 600 14px/1.45 var(--font-sans, Inter, sans-serif); }
 .ap-empty .ap-actions { position: static; width: 100%; margin: 8px 0 0; padding: 0; background: none; }
 .ap-admin { padding: 8px 12px; border-radius: 10px; background: #2a1418; color: #ff9aa5 !important; font: 600 12px/1.4 ui-monospace, monospace !important; }
 

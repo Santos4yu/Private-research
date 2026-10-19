@@ -11,7 +11,7 @@ export default function MLBPitcherArsenal({data}){
  useEffect(()=>{let active=true;setState({loading:true});setSelected('all');if(!params){setState({});return;}request('/api/team-insights',{...params,detail:'arsenal'}).then(value=>{if(active)setState({data:value});}).catch(()=>{if(active)setState({error:true});});return()=>{active=false;};},[params,retry]);
  const pitches=(data.pitchArsenal||[]).filter(p=>Number(p.pct)>0);
  let cursor=0;const gradient=pitches.map((p,i)=>{const start=cursor;cursor+=Number(p.pct);return `${colors[i%colors.length]} ${start}% ${cursor}%`;});
- if(cursor<100)gradient.push(`#2f3940 ${cursor}% 100%`);
+ if(cursor<100)gradient.push(`#383838 ${cursor}% 100%`);
  const rows=state.data?.pitchRows||[];
  return <>
   <section className="mlb-context-card"><header><h2><ChartPie size={16} aria-hidden="true"/>Pitcher's arsenal</h2><small>{data.starterProfile?.name} · {data.starterProfile?.hand}HP</small></header>

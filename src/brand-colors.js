@@ -5,8 +5,11 @@
 // Ace Props' green. Themes saved since PropScout carry `scout: true` and
 // are always kept. Ace Props themes (`ace: true`) in any other colour are a
 // member's own choice and are kept too, as are older themes that are not
-// the first site's blue.
+// the first site's blue. PropScout's own blue was a default too: a theme
+// still on it gives way to the black-and-white one, unless it was saved
+// since that theme (`mono: true`).
 export const OLD_BRAND_ACCENTS = new Set(['#0082fe', '#67a8ff', '#00f58a']);
+const PROPSCOUT_BLUE = '#3d7bff';
 
 function hue(hex) {
   const value = String(hex || '').trim().toLowerCase();
@@ -30,6 +33,8 @@ export function isOldBrandBlue(hex) {
 export function isOldBrandTheme(theme) {
   const primary = String(theme?.primary || '').toLowerCase();
   if (!primary) return false;
+  if (theme?.mono) return false;
+  if (primary === PROPSCOUT_BLUE) return true;
   if (theme?.scout) return false;
   if (OLD_BRAND_ACCENTS.has(primary)) return true;
   if (theme?.ace) return false;

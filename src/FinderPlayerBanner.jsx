@@ -1,7 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {ArrowLeft,Info,Layers,Percent,Swords,TrendingUp,UserRound} from 'lucide-react';
-import {useTeamTint} from './team-tint';
 import {AnalyzeButton,ANALYZE_SPORTS} from './AnalyzeButton';
 import './finder-player-banner.css';
 
@@ -10,9 +9,9 @@ import './finder-player-banner.css';
 // card -- back / brand / account, the player with team badge, position and
 // height, the game, and the book odds for the line on the chart.
 //
-// The player sits on a card washed in his team's color (read off its logo,
-// team-tint.js) with the logo large and faint behind him, the pick in one
-// line under his name (More 9.5 › Receiving Yards) and its price. On a page
+// The player sits on a grey card with his team's logo large and faint
+// behind him, the pick in one line under his name (More 9.5 › Receiving
+// Yards) and its price. On a page
 // with the trend chart, the card goes into the chart panel itself
 // (#gamelog-hero-slot) so it runs straight into the bars, and the odds go
 // under the chart's numbers (#gamelog-quotes-slot).
@@ -142,14 +141,13 @@ export function FinderPlayerBanner({row,playerRows=[],onBack}){
  const tier=['goblin','demon'].includes(String(pick?.modifier).toLowerCase())?String(pick.modifier).toLowerCase():null;
  const time=gameTime(row.startsAt);
  const initials=String(row.player||'').split(' ').map(part=>part[0]).slice(0,2).join('');
- const tint=useTeamTint(row.teamLogo);
  const side=String(row.direction||'OVER').toUpperCase()==='UNDER'?'Less':'More';
  const shownLine=finite(Number(line))?(Number.isInteger(Number(line))?String(line):Number(line).toFixed(1)):'';
  // The price for the side at the line: the first book quoting it.
  const sideKey=side==='Less'?'under':'over';
  const priced=books.find(book=>finite(book[sideKey])&&Math.abs(book[sideKey])>=100);
  const record=lastTen(row);
- const hero=<div className="fpb-hero" style={tint?{'--fpb-team':tint}:undefined} data-tinted={tint?'true':'false'}>
+ const hero=<div className="fpb-hero">
   {row.teamLogo&&<img className="fpb-watermark" src={row.teamLogo} alt="" aria-hidden="true" onError={e=>{e.currentTarget.hidden=true;}}/>}
   <span className="fpb-avatar"><span className="fpb-initials" aria-hidden="true">{initials}</span>
    {row.headshot&&<img className="fpb-photo" src={row.headshot} alt="" onError={e=>{e.currentTarget.hidden=true;}}/>}</span>

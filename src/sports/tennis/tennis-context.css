@@ -2,61 +2,61 @@
 .tennis-matchup .mlb-win-ring{width:110px;height:110px;min-width:0;flex:none}
 .tennis-matchup .mlb-win-ring>span{width:74%;height:74%}
 .tennis-opponent-summary{display:flex;gap:8px;flex-wrap:wrap;padding:12px;font-size:12px}
-.tennis-opponent-summary>span{background:rgba(136,146,164,.12);border-radius:6px;padding:6px 8px}
-.tennis-opponent-heading,.tennis-opponent-row{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,.8fr) minmax(0,1fr);gap:10px;padding:12px;font-size:12px;border-top:1px solid rgba(136,146,164,.18)}
-.tennis-opponent-heading{color:var(--text-muted,#9aa2b1)}
+.tennis-opponent-summary>span{background:rgba(145,145,145,.12);border-radius:6px;padding:6px 8px}
+.tennis-opponent-heading,.tennis-opponent-row{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,.8fr) minmax(0,1fr);gap:10px;padding:12px;font-size:12px;border-top:1px solid rgba(145,145,145,.18)}
+.tennis-opponent-heading{color:var(--text-muted,#a2a2a2)}
 .tennis-opponent-row>div{display:grid;gap:5px;min-width:0;align-content:center}
 .tennis-opponent-row strong{overflow-wrap:anywhere;font-size:13px}
-.tennis-opponent-row small{font-size:12px;color:var(--text-muted,#9aa2b1)}
+.tennis-opponent-row small{font-size:12px;color:var(--text-muted,#a2a2a2)}
 .tennis-opponent-row [data-outcome="Over"]>strong{color:#42dda7}.tennis-opponent-row [data-outcome="Under"]>strong{color:#ff7f95}
-.tennis-result-bar{height:5px;background:rgba(136,146,164,.2);border-radius:4px;position:relative}
-.tennis-result-bar i{display:block;height:100%;background:var(--theme-accent,#7aa5ff);border-radius:4px}
+.tennis-result-bar{height:5px;background:rgba(145,145,145,.2);border-radius:4px;position:relative}
+.tennis-result-bar i{display:block;height:100%;background:var(--theme-accent,#f6f6f6);border-radius:4px}
 .tennis-opponent-row [data-outcome="Over"] i{background:#42dda7}.tennis-opponent-row [data-outcome="Under"] i{background:#ff7f95}
-.tennis-result-bar b{position:absolute;top:-2px;height:9px;width:2px;background:var(--text-primary,#d7dde8)}
+.tennis-result-bar b{position:absolute;top:-2px;height:9px;width:2px;background:var(--text-primary,#dddddd)}
 .tennis-results-pager{padding:12px;justify-content:center}.tennis-results-pager button{min-width:44px;min-height:44px}
 .tennis-finder-context .wnba-dvp-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:12px}
-.tennis-finder-context .wnba-dvp-controls label{display:grid;gap:6px;font-size:12px;min-width:0;color:var(--text-muted,#9aa2b1)}
-.tennis-finder-context .finder-select-trigger{display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%;min-height:44px;padding:8px 10px;background:rgba(136,146,164,.12);color:var(--text-primary,#d7dde8);border:1px solid rgba(136,146,164,.2);border-radius:8px;font:inherit;text-align:left}
+.tennis-finder-context .wnba-dvp-controls label{display:grid;gap:6px;font-size:12px;min-width:0;color:var(--text-muted,#a2a2a2)}
+.tennis-finder-context .finder-select-trigger{display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%;min-height:44px;padding:8px 10px;background:rgba(145,145,145,.12);color:var(--text-primary,#dddddd);border:1px solid rgba(145,145,145,.2);border-radius:8px;font:inherit;text-align:left}
 .tennis-finder-context .finder-select-trigger svg{width:14px;height:14px;flex:none}
 .tennis-matchup .mlb-win-team{min-width:0;gap:8px}
 .tennis-matchup .mlb-win-team strong{font-size:15px;line-height:1.3;overflow-wrap:anywhere}
 .tennis-matchup .mlb-win-team small{font-size:12px;line-height:1.4}
 .tennis-matchup .mlb-win-team>b{font-size:22px}
-.tennis-match-time{text-align:center;color:var(--text-muted,#9aa2b1);font-size:12px;padding:12px 12px 0}
+.tennis-match-time{text-align:center;color:var(--text-muted,#a2a2a2);font-size:12px;padding:12px 12px 0}
 .tennis-profile-tags{display:flex;flex-wrap:wrap;justify-content:center;gap:5px}
-.tennis-profile-tags span{font-size:11px;padding:3px 7px;border-radius:5px;background:rgba(136,146,164,.12);color:var(--text-muted,#b5c1d5)}
-.tennis-odds-strip{display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid rgba(136,146,164,.18);padding:12px 0}
+.tennis-profile-tags span{font-size:11px;padding:3px 7px;border-radius:5px;background:rgba(145,145,145,.12);color:var(--text-muted,#c0c0c0)}
+.tennis-odds-strip{display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid rgba(145,145,145,.18);padding:12px 0}
 .tennis-odds-strip>div{display:grid;gap:4px;text-align:center;padding:0 8px}
-.tennis-odds-strip>div+div{border-left:1px solid rgba(136,146,164,.18)}
-.tennis-odds-strip span,.tennis-odds-strip small{font-size:11px;color:var(--text-muted,#9aa2b1)}
+.tennis-odds-strip>div+div{border-left:1px solid rgba(145,145,145,.18)}
+.tennis-odds-strip span,.tennis-odds-strip small{font-size:11px;color:var(--text-muted,#a2a2a2)}
 .tennis-odds-strip strong{font-size:17px;font-variant-numeric:tabular-nums}
-.tennis-odds-strip small b{color:var(--text-primary,#d7dde8)}
+.tennis-odds-strip small b{color:var(--text-primary,#dddddd)}
 @media(max-width:420px){.tennis-matchup .mlb-win-body{grid-template-columns:minmax(0,1fr) 82px minmax(0,1fr);gap:8px}.tennis-matchup .mlb-win-ring{width:82px;height:82px}.tennis-matchup .mlb-win-team strong{font-size:13px}.tennis-matchup .mlb-win-team small{font-size:11px}.tennis-matchup .mlb-win-ring span{font-size:10px}}
 .tennis-form h3{margin:10px 0;font-size:13px}
-.tennis-form-summary{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:11px;color:var(--text-muted,#9aa2b1);padding-bottom:12px}
-.tennis-form-summary span:first-child{color:var(--theme-accent,#7aa5ff);font-weight:700}
-.tennis-form-match{margin-bottom:8px;padding:11px;border:1px solid rgba(136,146,164,.18);border-radius:8px;background:rgba(136,146,164,.035);min-width:0}
-.tennis-form-match header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-size:11px;color:var(--text-muted,#9aa2b1)}
+.tennis-form-summary{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:11px;color:var(--text-muted,#a2a2a2);padding-bottom:12px}
+.tennis-form-summary span:first-child{color:var(--theme-accent,#e3e3e3);font-weight:700}
+.tennis-form-match{margin-bottom:8px;padding:11px;border:1px solid rgba(145,145,145,.18);border-radius:8px;background:rgba(145,145,145,.035);min-width:0}
+.tennis-form-match header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-size:11px;color:var(--text-muted,#a2a2a2)}
 .tennis-result{font-weight:700;padding:3px 6px;border-radius:4px}
 .tennis-result[data-result=W]{background:rgba(40,203,152,.12);color:#28cb98}
 .tennis-result[data-result=L]{background:rgba(255,88,105,.12);color:#ff5869}
 .tennis-form-opponent{font-size:12px;font-weight:600;line-height:1.4}
-.tennis-form-opponent small{font-size:10px;color:var(--text-muted,#9aa2b1)}
+.tennis-form-opponent small{font-size:10px;color:var(--text-muted,#a2a2a2)}
 .tennis-form-score{display:block;margin:8px 0;font-size:13px;letter-spacing:.04em}
-.tennis-form-match footer{display:grid;gap:4px;color:var(--text-muted,#9aa2b1);font-size:10px}
+.tennis-form-match footer{display:grid;gap:4px;color:var(--text-muted,#a2a2a2);font-size:10px}
 .tennis-form-match footer span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .tennis-form-match footer small{font-size:10px}
 .tennis-finder-context .wnba-last-five-grid>div{min-width:0}
-.tennis-finder-context .mlb-context-table-wrap th:first-child{position:sticky;left:0;background:var(--card-bg,#131923);z-index:1}
+.tennis-finder-context .mlb-context-table-wrap th:first-child{position:sticky;left:0;background:var(--card-bg,#191919);z-index:1}
 
 .tennis-surface-strip{padding-top:10px}
 .tennis-weather-flags{display:flex;flex-wrap:wrap;gap:6px;padding:12px 12px 0}
 .tennis-weather-flags span{font-size:12px;font-weight:600;padding:5px 9px;border-radius:999px;background:rgba(255,196,87,.14);color:#ffd27a}
 .tennis-weather-flags span[data-level="high"]{background:rgba(255,127,149,.16);color:#ff9aac}
-.tennis-weather-flags span[data-level="low"]{background:rgba(136,146,164,.14);color:var(--text-muted,#9aa2b1)}
+.tennis-weather-flags span[data-level="low"]{background:rgba(145,145,145,.14);color:var(--text-muted,#a2a2a2)}
 .tennis-weather-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:0;padding:12px}
-.tennis-weather-grid>div{background:rgba(136,146,164,.1);border-radius:8px;padding:8px 10px;min-width:0}
-.tennis-weather-grid dt{font-size:11px;color:var(--text-muted,#9aa2b1)}
+.tennis-weather-grid>div{background:rgba(145,145,145,.1);border-radius:8px;padding:8px 10px;min-width:0}
+.tennis-weather-grid dt{font-size:11px;color:var(--text-muted,#a2a2a2)}
 .tennis-weather-grid dd{margin:4px 0 0;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
-.tennis-weather-grid dd small{font-size:11px;font-weight:400;color:var(--text-muted,#9aa2b1)}
-.tennis-weather-credit{display:block;padding:0 12px 12px;font-size:10px;color:var(--text-muted,#9aa2b1)}
+.tennis-weather-grid dd small{font-size:11px;font-weight:400;color:var(--text-muted,#a2a2a2)}
+.tennis-weather-credit{display:block;padding:0 12px 12px;font-size:10px;color:var(--text-muted,#a2a2a2)}

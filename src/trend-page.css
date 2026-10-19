@@ -11,15 +11,15 @@
 html:root .finder-trend-view[data-trend-tab] {
   --te-mint: #3FE39E;
   --te-mint-low: #1F8F62;
-  --te-bg: #0C1017;
-  --te-card: #111720;
-  --te-raise: #161d29;
-  --te-line: #1D2636;
+  --te-bg: #101010;
+  --te-card: #171717;
+  --te-raise: #1d1d1d;
+  --te-line: #262626;
   --te-text: #F3F5F8;
-  --te-muted: #9FA7B5;
-  --te-faint: #677286;
-  --te-on: rgba(61, 123, 255, .12);
-  --te-on-line: rgba(61, 123, 255, .5);
+  --te-muted: #A6A6A6;
+  --te-faint: #717171;
+  --te-on: rgba(130,130,130, .12);
+  --te-on-line: rgba(130,130,130, .5);
   --te-spring: cubic-bezier(.34, 1.42, .6, 1);
   --te-ease: var(--ace-ease, cubic-bezier(.2, .8, .2, 1));
 }
@@ -114,12 +114,12 @@ html:root .finder-trend-view[data-trend-tab] :is(.mlb-context-table-wrap, .mlb-p
   height: auto !important;
   padding: 10px !important;
   border-bottom: 1px solid var(--te-line) !important;
-  color: #CFD7E4 !important;
+  color: #D6D6D6 !important;
 }
 html:root .finder-trend-view[data-trend-tab] :is(.mlb-context-table-wrap, .mlb-player-log-scroll) tbody tr { background: none !important; }
 html:root .finder-trend-view[data-trend-tab] :is(.mlb-context-table-wrap, .mlb-player-log-scroll) tbody tr:last-child > * { border-bottom: 0 !important; }
 html:root .finder-trend-view[data-trend-tab] :is(.mlb-context-table-wrap, .mlb-player-log-scroll) tbody tr:hover { background: var(--te-raise) !important; }
-html:root .finder-trend-view[data-trend-tab] .mlb-player-log-scroll { scrollbar-color: #242F43 transparent; }
+html:root .finder-trend-view[data-trend-tab] .mlb-player-log-scroll { scrollbar-color: #2F2F2F transparent; }
 /* The log's header row sits in a box that only scrolls sideways, so it can
    never stick; as sticky cells each one was its own layer on every scroll. */
 html:root .finder-trend-view[data-trend-tab] .mlb-player-gamelog thead th { position: static !important; }
@@ -240,8 +240,8 @@ html:root .finder-trend-view[data-trend-tab] .wnba-depth-name .is-self { color: 
 html:root .finder-trend-view[data-trend-tab] .nfl-pass-run-body { gap: 10px !important; padding: 4px 16px 16px !important; }
 html:root .finder-trend-view[data-trend-tab] .nfl-pass-run-labels span { display: inline-flex; align-items: center; gap: 6px; color: var(--te-text) !important; font: 600 12.5px/1 var(--font-sans) !important; }
 html:root .finder-trend-view[data-trend-tab] .nfl-pass-run-labels span::before { content: ""; width: 8px; height: 8px; border-radius: 3px; background: var(--te-mint); }
-html:root .finder-trend-view[data-trend-tab] .nfl-pass-run-labels span + span::before { background: #7FA7FF; }
-html:root .finder-trend-view[data-trend-tab] .nfl-pass-run-bar { height: 12px !important; border-radius: 999px !important; background: #7FA7FF !important; }
+html:root .finder-trend-view[data-trend-tab] .nfl-pass-run-labels span + span::before { background: #F7F7F7; }
+html:root .finder-trend-view[data-trend-tab] .nfl-pass-run-bar { height: 12px !important; border-radius: 999px !important; background: #F7F7F7 !important; }
 html:root .finder-trend-view[data-trend-tab] .nfl-pass-run-bar i {
   border-right: 3px solid var(--te-card) !important;
   background: var(--te-mint) !important;

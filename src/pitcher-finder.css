@@ -9,7 +9,7 @@
 .pitcher-finder-tabs { display:flex; gap:7px; margin:10px 0; padding:4px; overflow-x:auto; scrollbar-width:none; border:1px solid var(--theme-border); border-radius:15px; background:var(--theme-panel); }
 .pitcher-finder-tabs::-webkit-scrollbar { display:none; }
 .pitcher-finder-tabs button { display:inline-flex; flex:0 0 auto; align-items:center; justify-content:center; gap:6px; min-width:58px; min-height:44px; padding:0 13px; border:0; border-radius:11px; background:transparent; color:var(--theme-dim); font:700 12px/1 var(--font-sans); cursor:pointer; }
-.pitcher-finder-tabs button.active { background:var(--theme-accent); color:#0e121a; box-shadow:0 8px 24px rgba(213,250,100,.12); }
+.pitcher-finder-tabs button.active { background:var(--theme-accent); color:#121212; box-shadow:0 8px 24px rgba(213,250,100,.12); }
 .pitcher-finder-tabs img { width:18px; height:18px; object-fit:contain; }
 .pitcher-finder-meta { display:flex; align-items:center; justify-content:space-between; min-height:44px; padding:0 4px; color:var(--theme-faint); font-size:11px; }
 .pitcher-finder-meta button { display:inline-flex; align-items:center; gap:6px; min-height:44px; padding:0 8px; border:0; background:transparent; color:var(--theme-dim); font:700 11px/1 var(--font-sans); cursor:pointer; }

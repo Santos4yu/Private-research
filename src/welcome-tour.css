@@ -5,33 +5,33 @@
 .wt-dim { position: fixed; inset: 0; background: rgba(4, 5, 6, .74); animation: wt-fade .2s ease-out; }
 .wt-spot {
   position: fixed; border-radius: 14px; pointer-events: none;
-  box-shadow: 0 0 0 2px var(--theme-accent, #3d7bff), 0 0 28px color-mix(in srgb, var(--theme-accent, #3d7bff) 45%, transparent), 0 0 0 200vmax rgba(4, 5, 6, .74);
+  box-shadow: 0 0 0 2px var(--theme-accent, #cccccc), 0 0 28px color-mix(in srgb, var(--theme-accent, #cccccc) 45%, transparent), 0 0 0 200vmax rgba(4, 5, 6, .74);
   transition: top .28s ease, left .28s ease, width .28s ease, height .28s ease;
 }
 .wt-card {
   position: fixed; width: min(360px, calc(100vw - 24px)); box-sizing: border-box; padding: 16px 16px 14px;
   border: 1px solid rgba(255, 255, 255, .09); border-radius: 18px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--theme-accent, #3d7bff) 9%, #11161f) 0%, #0e1219 60%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--theme-accent, #828282) 9%, #161616) 0%, #121212 60%);
   box-shadow: 0 24px 70px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .05);
   transition: top .28s ease, left .28s ease; animation: wt-rise .24s ease-out;
 }
 .wt-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
-.wt-count { padding: 4px 9px; border-radius: 999px; background: color-mix(in srgb, var(--theme-accent, #3d7bff) 14%, transparent); color: var(--theme-accent, #3d7bff); font: 800 11px/1 var(--font-sans, inherit); letter-spacing: .04em; text-transform: uppercase; }
-.wt-brand { display: inline-flex; align-items: center; gap: 7px; color: #bec9db; font: 700 12px/1 var(--font-sans, inherit); }
-.wt-close { display: grid; place-items: center; width: 32px; height: 32px; margin: -4px -4px 0 0; border: 0; border-radius: 10px; background: transparent; color: #97a0af; cursor: pointer; }
+.wt-count { padding: 4px 9px; border-radius: 999px; background: color-mix(in srgb, var(--theme-accent, #828282) 14%, transparent); color: var(--theme-accent, #cccccc); font: 800 11px/1 var(--font-sans, inherit); letter-spacing: .04em; text-transform: uppercase; }
+.wt-brand { display: inline-flex; align-items: center; gap: 7px; color: #c8c8c8; font: 700 12px/1 var(--font-sans, inherit); }
+.wt-close { display: grid; place-items: center; width: 32px; height: 32px; margin: -4px -4px 0 0; border: 0; border-radius: 10px; background: transparent; color: #9f9f9f; cursor: pointer; }
 .wt-close:hover { background: rgba(255, 255, 255, .07); color: #fff; }
 .wt-card h2 { margin: 0 0 6px; color: #fff; font: 800 18px/1.25 var(--font-sans, inherit); letter-spacing: -.01em; }
-.wt-card p { margin: 0; color: #b7c2d6; font: 400 14px/1.55 var(--font-sans, inherit); }
+.wt-card p { margin: 0; color: #c1c1c1; font: 400 14px/1.55 var(--font-sans, inherit); }
 .wt-dots { display: flex; gap: 5px; margin-top: 14px; }
 .wt-dots i { flex: 1; height: 4px; border-radius: 999px; background: rgba(255, 255, 255, .1); transition: background .2s ease; }
-.wt-dots i[data-done] { background: color-mix(in srgb, var(--theme-accent, #3d7bff) 45%, transparent); }
-.wt-dots i[data-on] { background: var(--theme-accent, #3d7bff); }
+.wt-dots i[data-done] { background: color-mix(in srgb, var(--theme-accent, #828282) 45%, transparent); }
+.wt-dots i[data-on] { background: var(--theme-accent, #ededed); }
 .wt-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 .wt-actions button { min-height: 42px; padding: 0 16px; border-radius: 12px; font: 700 14px/1 var(--font-sans, inherit); cursor: pointer; }
 .wt-actions button:disabled { opacity: .55; cursor: default; }
-.wt-quiet { margin-right: auto; border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .04); color: #cdd5e3; }
+.wt-quiet { margin-right: auto; border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .04); color: #d4d4d4; }
 .wt-quiet:hover:not(:disabled) { background: rgba(255, 255, 255, .08); }
-.wt-next { border: 0; background: var(--theme-accent, #3d7bff); color: #080b10; box-shadow: 0 6px 20px color-mix(in srgb, var(--theme-accent, #3d7bff) 30%, transparent); }
+.wt-next { border: 0; background: var(--theme-accent, #ededed); color: #0b0b0b; box-shadow: 0 6px 20px color-mix(in srgb, var(--theme-accent, #cccccc) 30%, transparent); }
 .wt-next:hover:not(:disabled) { filter: brightness(1.06); }
 .wt :focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 @keyframes wt-fade { from { opacity: 0; } }

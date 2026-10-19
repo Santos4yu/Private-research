@@ -10,30 +10,32 @@ import {useIsAdmin} from './admin-notice.js';
 // admin switch (site_controls SHEETS); CheatSheets.jsx only offers the ones
 // that are on.
 
+// Every sheet in the site's black and white.
+const SHEET_TINT='#E8E8E8';
 export const NFL_SHEETS=[
- {key:'best',tint:'#E26CFF',title:'Best Matchups',kicker:'Top prop each game',icon:Swords,blurb:'The best matchup in every game, at any position.',
+ {key:'best',tint:SHEET_TINT,title:'Best Matchups',kicker:'Top prop each game',icon:Swords,blurb:'The best matchup in every game, at any position.',
   about:"Every posted line's More side, at any position, read four ways: what his opponent gives up to his position in that stat against the league (its last five games and the season), a projection from his recent games moved by that defense and his team's implied points, how often he has cleared the line (last 10 and season), and the books' chance with their margin taken out. Scouting notes then move the score: how often the defense blitzes and pressures the quarterback, the boxes it plays against the run, the yards a carry and a pass it allows, how he does against the blitz or light boxes, his snaps and touches lately, and the spread. Only defenses that give up more than average count. Each player shows his best line, and each game's top one is marked."},
- {key:'td',tint:'#3FE39E',title:'TD Scorers',kicker:'Anytime TD',icon:Trophy,blurb:"Every player's touchdown chance this week, next to the best price.",
+ {key:'td',tint:SHEET_TINT,title:'TD Scorers',kicker:'Anytime TD',icon:Trophy,blurb:"Every player's touchdown chance this week, next to the best price.",
   about:"Each team's expected rushing and receiving touchdowns come from its implied points (the spread and total) and the league's touchdowns per point. They're split among the team's healthy players by their share of its touchdowns, red-zone looks and touches this season, nudged toward the positions the defense gives up touchdowns to."},
- {key:'firsttd',tint:'#6EA8FF',title:'First TD',kicker:'Opening drives',icon:Timer,blurb:'Who scores early: first-two-drive touchdowns and the game’s first score.',
+ {key:'firsttd',tint:SHEET_TINT,title:'First TD',kicker:'Opening drives',icon:Timer,blurb:'Who scores early: first-two-drive touchdowns and the game’s first score.',
   about:"How often each team scores a touchdown on its first two drives, how often its defense allows one, who scored each game's first touchdown, and who gets the ball on those early drives. The chance a team scores first leans on its expected points and both early rates; a player's part follows his share of the team's touchdowns."},
- {key:'streaks',tint:'#FF8A4C',title:'Prop Streaks',kicker:'Hit-rate runs',icon:Flame,blurb:'Lines a player keeps clearing game after game.',
+ {key:'streaks',tint:SHEET_TINT,title:'Prop Streaks',kicker:'Hit-rate runs',icon:Flame,blurb:'Lines a player keeps clearing game after game.',
   about:"Every posted line checked against the player's games: how many in a row he has cleared (or missed), and his hit rate over the last 10, last 20 and this season. Preseason games are left out."},
- {key:'zones',tint:'#4FD1C5',title:'Target Zones',kicker:'Where the ball goes',icon:Grid3x3,blurb:"Where a receiver's targets go, against where the defense gives up yards.",
+ {key:'zones',tint:SHEET_TINT,title:'Target Zones',kicker:'Where the ball goes',icon:Grid3x3,blurb:"Where a receiver's targets go, against where the defense gives up yards.",
   about:"Every target this season split six ways: short or deep, and left, middle or right of the field (from the play-by-play). Each receiver's share in each zone is set against the yards per target the defense allows there, compared with the league."},
- {key:'redzone',tint:'#F06A77',title:'Red Zone',kicker:'Inside the 20',icon:Target,blurb:'Red-zone trips, who gets the ball there, and the touchdown chance.',
+ {key:'redzone',tint:SHEET_TINT,title:'Red Zone',kicker:'Inside the 20',icon:Target,blurb:'Red-zone trips, who gets the ball there, and the touchdown chance.',
   about:"Red-zone trips are drives that reached the opponent's 20. Each player's red-zone looks are his carries and targets from there; inside-10 looks are the ones from the 10 in. The touchdown chance is the same one TD Scorers shows."},
- {key:'speed',tint:'#FFD452',title:'Speed Edges',kicker:'40-yard speed',icon:Gauge,blurb:"A player's 40-yard speed against the defenders across from him.",
+ {key:'speed',tint:SHEET_TINT,title:'Speed Edges',kicker:'40-yard speed',icon:Gauge,blurb:"A player's 40-yard speed against the defenders across from him.",
   about:"Speed is from each player's 40-yard dash at the NFL Combine, turned into miles per hour over the 40. Receivers are set against the other team's starting corners and nickel, tight ends against its safeties and a linebacker, backs against its starting linebackers, from this week's depth chart. Players who didn't run at the Combine aren't listed."},
- {key:'steam',tint:'#B48CFF',title:'Steam Moves',kicker:'Line movement',icon:Activity,blurb:'Lines that moved since they opened, and how many books moved together.',
+ {key:'steam',tint:SHEET_TINT,title:'Steam Moves',kicker:'Line movement',icon:Activity,blurb:'Lines that moved since they opened, and how many books moved together.',
   about:"Each line's first number is recorded when a book posts it; the sheet compares it with the number now. A move is steam when two or more books moved the same way. Juice is the shift in the Over's implied chance at an unchanged line."},
- {key:'shop',tint:'#F2C26B',title:'Line Shopping',kicker:'Best prices',icon:Tags,blurb:"Prices that beat the other books, and numbers off the market's line.",
+ {key:'shop',tint:SHEET_TINT,title:'Line Shopping',kicker:'Best prices',icon:Tags,blurb:"Prices that beat the other books, and numbers off the market's line.",
   about:"A better price compares each book's price with the fair chance the other books imply (their margin taken out) and shows the expected return. An off-market line is an app or book posting a number well away from the one most books share."},
- {key:'dvp',tint:'#5CC8FF',title:'Defense vs Position',kicker:'Matchup ranks',icon:Shield,blurb:'What every defense gives up to each position, game by game.',
+ {key:'dvp',tint:SHEET_TINT,title:'Defense vs Position',kicker:'Matchup ranks',icon:Shield,blurb:'What every defense gives up to each position, game by game.',
   about:"For each defense, the whole position group's total in each game (every receiver's yards added up, say), averaged over its last 3, 5 or 10 games or the season. Rank 1 allows the least; the last rank allows the most."},
- {key:'soft',tint:'#FF6FA3',title:'Soft Spots',kicker:'Matchup props',icon:Crosshair,blurb:'Props lined up against the defenses that allow the most for that stat.',
+ {key:'soft',tint:SHEET_TINT,title:'Soft Spots',kicker:'Matchup props',icon:Crosshair,blurb:'Props lined up against the defenses that allow the most for that stat.',
   about:"Every posted line whose player faces one of the eight defenses that allow the most of that stat to his position over their last five games, with how far above the league average that is, his hit rates and the best price."},
- {key:'goblins',tint:'#A3E635',title:'Goblins & Demons',kicker:'PrizePicks lines',icon:Ghost,blurb:'Goblins and demons the sportsbooks price at the same number.',
+ {key:'goblins',tint:SHEET_TINT,title:'Goblins & Demons',kicker:'PrizePicks lines',icon:Ghost,blurb:'Goblins and demons the sportsbooks price at the same number.',
   about:"PrizePicks' goblin and demon lines next to the sportsbooks' prices at the same number (their alternate lines). The chance is the books' price with their margin taken out, averaged across books."},
 ];
 const FAQ={
