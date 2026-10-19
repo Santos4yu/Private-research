@@ -88,11 +88,11 @@ export function openInstallGuide() {
     <div class="install-backdrop"></div>
     <section class="install-sheet" role="dialog" aria-modal="true" aria-labelledby="install-title">
       <button type="button" class="install-close" aria-label="Close">×</button>
-      <img class="install-app-icon" src="/icons/apple-touch-icon.png?v=7" alt="" width="64" height="64" />
+      <img class="install-app-icon" src="/icons/apple-touch-icon.png?v=8" alt="" width="64" height="64" />
       <h2 id="install-title">Get the PropScout app</h2>
       <p class="install-lead">Opens full screen from your Home Screen, with alerts when your picks move.</p>
       ${native ? '' : `<ol class="install-steps">${steps().map(([icon, title, detail], index) => `
-        <li><span class="install-step-icon" data-icon="${icon}">${icon === 'icon' ? '<img src="/icons/apple-touch-icon.png?v=7" alt="" width="30" height="30" />' : ICONS[icon]}</span>
+        <li><span class="install-step-icon" data-icon="${icon}">${icon === 'icon' ? '<img src="/icons/apple-touch-icon.png?v=8" alt="" width="30" height="30" />' : ICONS[icon]}</span>
           <span><b>${index + 1}. ${title}</b><small>${detail}</small></span></li>`).join('')}</ol>`}
       ${native ? '<button type="button" class="install-primary">Install</button>' : ''}
       <button type="button" class="install-later">Not now</button>
