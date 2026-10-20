@@ -247,3 +247,75 @@ class PickResultTests(unittest.TestCase):
                                                    {"player": "B", "arrow": "down", "line": 4.5, "actual": 6, "final": False}]})
         self.assertEqual([leg["result"] for leg in live["legs"]], ["hit", "miss"])
         self.assertEqual(live["result"], "loss")
+
+
+class FastReadTests(unittest.TestCase):
+    """Reading a bet quickly: the first reader to answer wins, a picture already read comes back at once,
+    and Qwen is asked not to think first."""
+    PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
+
+    def test_the_backup_answers_when_the_first_is_slow(self):
+        import time as clock
+        import slip_reader
+        slow = lambda: clock.sleep(2) or {"app": "PrizePicks", "money_lines": ["$1 to pay $3"]}
+        quick = lambda: {"app": "PrizePicks", "money_lines": ["$2.00 to pay $5.60"]}
+        with patch.object(slip_reader, "HEAD_START", 0.2):
+            began = clock.time()
+            bet = slip_reader.read_bet(self.PNG, readers=[slow, quick])
+        self.assertLess(clock.time() - began, 1.5)
+        self.assertEqual((bet["stake"], bet["payout"]), (2, 5.6))
+
+    def test_a_picture_read_before_comes_back_at_once(self):
+        import slip_reader
+        kept = {"stake": 5.0, "payout": 10.0, "kind": "pickem", "result": "pending", "legs": []}
+        with patch.object(slip_reader, "_cached_bet", return_value=kept), \
+             patch.object(slip_reader, "_groq", side_effect=AssertionError("no model asked")):
+            bet = slip_reader.read_bet(self.PNG)
+        self.assertEqual((bet["stake"], bet["payout"], bet["cached"]), (5, 10, True))
+
+    def test_qwen_is_asked_not_to_think(self):
+        import slip_reader
+        asked = []
+
+        class Answer:
+            def __init__(self, text):
+                self.choices = [type("C", (), {"message": type("M", (), {"content": text})()})()]
+
+        class Client:
+            def __init__(self):
+                self.models = type("Models", (), {"list": lambda _: type("L", (), {"data": [type("I", (), {"id": "qwen/qwen3.8-27b"})()]})()})()
+                self.chat = type("Chat", (), {"completions": type("Comp", (), {"create": lambda _, **kw: asked.append(kw) or Answer('{"stake": 5}')})()})()
+
+            def with_options(self, **_):
+                return self
+
+        slip_reader._available.update(at=0, ids=None)
+        with patch.object(slip_reader, "_groq", return_value=Client()), patch.object(slip_reader, "fit_image", return_value=(b"x", "image/jpeg")):
+            self.assertEqual(slip_reader._groq_bet(self.PNG, []), {"stake": 5})
+        self.assertEqual(asked[0]["reasoning_effort"], "none")
+        self.assertEqual(asked[0]["response_format"], {"type": "json_object"})
+        slip_reader._available.update(at=0, ids=None)
+
+
+class RaceTests(unittest.TestCase):
+    def test_every_timing(self):
+        import time as clock
+        import slip_reader
+
+        def after(seconds, value):
+            def read():
+                clock.sleep(seconds)
+                if isinstance(value, Exception):
+                    raise value
+                return value
+            return read
+        cases = [([after(2, "A"), after(0, "B")], {"head_start": 0.2}, "B", 1),          # the backup, once the first is slow
+                 ([after(0, "A"), after(2, "B")], {"head_start": 0.2}, "A", 0.5),        # the first, when it's quick
+                 ([after(0, None), after(0, "B")], {"head_start": 5}, "B", 0.5),         # the next at once when one fails
+                 ([after(0, RuntimeError()), after(0, "B")], {"head_start": 5}, "B", 0.5),
+                 ([after(2, "A"), after(2, "B")], {"head_start": 0.1, "deadline": 0.4}, None, 1),   # nothing by the deadline
+                 ([after(0, None), after(0, None)], {}, None, 0.5)]
+        for readers, options, want, limit in cases:
+            began = clock.time()
+            self.assertEqual(slip_reader.race(readers, **options), want)
+            self.assertLess(clock.time() - began, limit)

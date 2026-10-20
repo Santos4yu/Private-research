@@ -741,23 +741,165 @@ def normalize_bet(raw):
             "date": day if re.fullmatch(r"\d{4}-\d{2}-\d{2}", day) else None, "sport": sport, "legs": legs}
 
 
-def read_bet(data):
+# Reading a bet fast: no model thinks out loud first, the first answer
+# that reads wins (a second reader starts if the first hasn't answered in
+# HEAD_START seconds), every call has a short limit, and a picture already
+# read is answered from the store at once.
+BET_READ_VERSION = "bet-read-v4"
+BET_CACHE_SECONDS = 14 * 86400
+HEAD_START = 4.0
+BET_DEADLINE = 28.0
+CALL_LIMIT = 16.0
+
+
+def _bet_cache_key(data):
+    import hashlib
+    return f"krazy_data:bet-reads:{BET_READ_VERSION}:{hashlib.sha256(data).hexdigest()}"
+
+
+def _cached_bet(data):
+    try:
+        from v2.board import store
+        raw = store.get(_bet_cache_key(data))
+        return json.loads(raw) if raw else None
+    except Exception:  # noqa: BLE001 -- no store: read it again
+        return None
+
+
+def _keep_bet(data, bet):
+    try:
+        from v2.board import store
+        store.set(_bet_cache_key(data), json.dumps(bet, separators=(",", ":")), ex=BET_CACHE_SECONDS)
+    except Exception:  # noqa: BLE001 -- kept next time
+        pass
+
+
+def _groq_bet(data, problems, limit=CALL_LIMIT):
+    """One quick ask of each Groq vision model in turn: JSON, no thinking,
+    a short answer, a short time limit."""
+    client = _groq()
+    if client is None:
+        return None
+    fitted, mime = fit_image(data)
+    content = [{"type": "text", "text": BET_PROMPT},
+               {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{base64.b64encode(fitted).decode()}"}}]
+    quick = client.with_options(timeout=limit, max_retries=0)
+    for model in models_for(client, VISION_MODELS, True)[:3]:
+        tries = ([{"reasoning_effort": "none"}, {"reasoning_format": "hidden"}] if "qwen" in model.lower() else [{}])
+        for extra in tries:
+            try:
+                answer = parse_json(quick.chat.completions.create(
+                    model=model, messages=[{"role": "user", "content": content}], temperature=0, max_completion_tokens=1400,
+                    response_format={"type": "json_object"}, **extra).choices[0].message.content)
+                if isinstance(answer, (dict, list)):
+                    return answer
+                problems.append(f"Groq {model}: no readable answer")
+            except Exception as exc:  # noqa: BLE001 -- the next mode or model may work
+                last = f"{type(exc).__name__}: {_scrub(exc)}"
+                problems.append(f"Groq {model} {extra}: {last}")
+                if re.search(r"\b(404|401|403)\b|does not exist|not found|decommissioned", last, re.I):
+                    break
+    return None
+
+
+def _gemini_bet(data, problems, limit=CALL_LIMIT):
+    """One quick ask of the newest Gemini Flash models that answer."""
+    key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not key:
+        return None
+    import requests
+    fitted, mime = fit_image(data)
+    body = {"contents": [{"role": "user", "parts": [{"text": BET_PROMPT},
+                                                   {"inline_data": {"mime_type": mime, "data": base64.b64encode(fitted).decode()}}]}],
+            "generationConfig": {"temperature": 0, "responseMimeType": "application/json", "maxOutputTokens": 2048,
+                                 "thinkingConfig": {"thinkingBudget": 0}}}
+    for model in gemini_models(key)[:2]:
+        for config in (body, {**body, "generationConfig": {k: v for k, v in body["generationConfig"].items() if k != "thinkingConfig"}}):
+            try:
+                response = requests.post(f"{GEMINI_URL}/models/{model}:generateContent", json=config, timeout=limit,
+                                         headers={"x-goog-api-key": key, "Content-Type": "application/json"})
+                if response.status_code == 400 and config is body:
+                    continue  # this model can't turn thinking off: ask it plainly
+                if not response.ok:
+                    problems.append(f"Gemini {model}: HTTP {response.status_code}")
+                    break
+                parts = ((response.json().get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
+                answer = parse_json("".join(part.get("text", "") for part in parts))
+                if isinstance(answer, (dict, list)):
+                    return answer
+                problems.append(f"Gemini {model}: no readable answer")
+                break
+            except Exception as exc:  # noqa: BLE001 -- the next model may work
+                problems.append(f"Gemini {model}: {type(exc).__name__}: {_scrub(exc)}")
+                break
+    return None
+
+
+def race(readers, head_start=None, deadline=None):
+    """The first answer from `readers` (callables, best first): the first
+    starts at once, each next one when the ones before haven't answered
+    within `head_start` seconds or have failed. None when none answer by
+    `deadline`."""
+    from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+    head_start = HEAD_START if head_start is None else head_start
+    deadline = BET_DEADLINE if deadline is None else deadline
+    readers = [reader for reader in readers if reader]
+    if not readers:
+        return None
+    pool = ThreadPoolExecutor(max_workers=len(readers))
+    started, waiting, end = [], list(readers), time.time() + deadline
+    try:
+        started.append(pool.submit(waiting.pop(0)))
+        while True:
+            # Every reader that has finished, before waiting on any other.
+            for future in [future for future in started if future.done()]:
+                started.remove(future)
+                try:
+                    answer = future.result()
+                except Exception:  # noqa: BLE001 -- that reader failed
+                    answer = None
+                if answer is not None:
+                    return answer
+            if not started:
+                if not waiting:
+                    return None
+                started.append(pool.submit(waiting.pop(0)))  # the ones before failed: the next, now
+                continue
+            left = end - time.time()
+            if left <= 0:
+                return None
+            done, _ = wait(started, timeout=min(left, head_start) if waiting else left, return_when=FIRST_COMPLETED)
+            if not done and waiting:
+                started.append(pool.submit(waiting.pop(0)))  # no answer yet: start the next alongside
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+
+
+def read_bet(data, readers=None):
     """The bet in this screenshot (normalize_bet), or {"error": ...}."""
     if not mime_of(data):
         return {"error": "Use a PNG, JPG or WEBP screenshot."}
+    kept = _cached_bet(data) if readers is None else None
+    if kept:
+        return {**kept, "cached": True}
     gemini = bool(os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
-    if _groq() is None and not gemini:
+    if readers is None and _groq() is None and not gemini:
         return {"error": "Reading pictures isn't set up on this server yet.", "reason": "no-key"}
-    problems = []
-    raw = _read_vision(data, problems, BET_PROMPT) if _groq() is not None else None
-    if raw is None and gemini:
-        raw = _read_gemini(data, problems, BET_PROMPT)
-    if raw is None and _groq() is not None:
+    problems, began, own = [], time.time(), readers is None
+    if own:
+        readers = [(lambda: _groq_bet(data, problems)) if _groq() is not None else None,
+                   (lambda: _gemini_bet(data, problems)) if gemini else None]
+    raw = race(readers)
+    if raw is None and own and _groq() is not None and time.time() - began < 20:
+        # Every reader said no quickly: the words on the picture, read and
+        # then understood. Slower, so only while there's time for it.
         raw = _read_text(data, problems, BET_TEXT_PROMPT)
     if raw is None:
         print(f"[slip-reader] bet: every reader failed: {'; '.join(problems)[:900]}")
-        return {"error": "Reading pictures is unavailable right now. Try again in a minute.", "reason": "models"}
+        return {"error": "Reading pictures is slow or down right now. Try again in a minute.", "reason": "models"}
     bet = normalize_bet(raw[0] if isinstance(raw, list) and raw else raw)
     if not bet or (bet["stake"] is None and bet["payout"] is None):
         return {"error": "No amount was found in that picture. Use one that shows what you put in and what it pays."}
+    if own:
+        _keep_bet(data, bet)
     return bet

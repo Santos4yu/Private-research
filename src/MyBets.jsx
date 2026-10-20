@@ -32,12 +32,22 @@ async function call(action,body){
 }
 
 // A picture of a bet, read on the server (slip_reader.read_bet).
-async function readPicture(file){
+// Given up on after READ_LIMIT: the server stops trying well before that.
+const READ_LIMIT=45000;
+async function readPicture(file,signal){
  const body=await shrink(file);
- const response=await fetch('/api/prediction?action=bets-read',{method:'POST',credentials:'same-origin',headers:{'Content-Type':body.type||'image/jpeg'},body});
+ const response=await fetch('/api/prediction?action=bets-read',{method:'POST',credentials:'same-origin',headers:{'Content-Type':body.type||'image/jpeg'},body,signal});
  const data=await response.json().catch(()=>({}));
  if(!response.ok)throw new Error(data.error||'That picture couldn\'t be read. Try again, or use a clearer one.');
  return data;
+}
+// Wakes the server that reads pictures while the member finds theirs, so
+// the read doesn't wait for it to start up. At most once a minute.
+let warmed=0;
+function warmReader(){
+ if(Date.now()-warmed<60000)return;
+ warmed=Date.now();
+ fetch('/api/prediction?action=ping',{credentials:'same-origin',cache:'no-store'}).catch(()=>{});
 }
 const dollars=value=>finite(value)?`$${value.toLocaleString('en-US',{minimumFractionDigits:value%1?2:0,maximumFractionDigits:2})}`:null;
 const unitMoney=value=>`$${Number(value).toLocaleString('en-US',{minimumFractionDigits:Number(value)%1?2:0,maximumFractionDigits:2})}`;
@@ -131,16 +141,31 @@ function BetForm({initial,unit,slips,onSave,onDelete,onClose}){
  const [money,setMoney]=useState(false);
  const [picture,setPicture]=useState({state:'idle'});
  const pictureInput=useRef(null);
+ // One read at a time: a new picture, or closing the form, stops the last.
+ const reading=useRef(null);
+ const lastFile=useRef(null);
  const readFile=async file=>{
   if(!file||!/^image\//.test(file.type||'image/')){setPicture({state:'error',error:'Use a screenshot (PNG, JPG or WEBP).'});return;}
+  reading.current?.abort();
+  const job=new AbortController();reading.current=job;lastFile.current=file;
+  const slow=setTimeout(()=>{if(reading.current===job)setPicture(current=>current.state==='reading'?{...current,slow:true}:current);},6000);
+  const limit=setTimeout(()=>job.abort('slow'),READ_LIMIT);
   setPicture({state:'reading'});setError('');
   try{
-   const read=await readPicture(file);
+   const read=await readPicture(file,job.signal);
+   if(reading.current!==job)return;
    setBet(current=>({...current,...betFromRead(read,unit,sport=>SPORT_NAME[sport]?sport:'other'),slipId:undefined}));
    setPicture({state:'read',read});
    setMoney(finite(read.stake));
-  }catch(problem){setPicture({state:'error',error:problem.message});}
+  }catch(problem){
+   if(reading.current!==job)return;
+   const timedOut=job.signal.aborted;
+   setPicture({state:'error',retry:true,error:timedOut?'That took too long. Tap Try again.':problem.message||'That picture couldn\'t be read.'});
+  }finally{clearTimeout(slow);clearTimeout(limit);if(reading.current===job)reading.current=null;}
  };
+ // Closing the form stops a read on its way.
+ useEffect(()=>()=>reading.current?.abort(),[]);
+ useEffect(()=>{if(!editing)warmReader();},[]);
  // The Paste button: the picture on the clipboard (iPhone asks first).
  const pastePicture=async()=>{
   try{
@@ -172,7 +197,7 @@ function BetForm({initial,unit,slips,onSave,onDelete,onClose}){
    <header><h2>{editing?'Edit bet':'Log a bet'}</h2><button type="button" className="mb-icon" onClick={onClose} aria-label="Close"><X aria-hidden="true"/></button></header>
    {!editing&&<div className="mb-picture" data-state={picture.state} onDragOver={event=>event.preventDefault()} onDrop={event=>{event.preventDefault();readFile(event.dataTransfer.files?.[0]);}}>
     <input ref={pictureInput} type="file" accept="image/*" hidden onChange={event=>{readFile(event.target.files?.[0]);event.target.value='';}}/>
-    {picture.state==='reading'?<p className="mb-picture-busy"><Loader2 aria-hidden="true"/>Reading your bet…</p>
+    {picture.state==='reading'?<p className="mb-picture-busy"><Loader2 aria-hidden="true"/>{picture.slow?'Still reading… busy right now, almost there.':'Reading your bet…'}</p>
      :picture.state==='read'?<div className="mb-picture-read">
       <p><b>Read from your picture</b>{[dollars(picture.read.stake)&&`${dollars(picture.read.stake)} in`,dollars(picture.read.payout)&&`pays ${dollars(picture.read.payout)}`,
         finite(picture.read.multiplier)&&picture.read.kind==='pickem'&&`${Math.round(picture.read.multiplier*100)/100}x`,READ_RESULT[picture.read.result]].filter(Boolean).join(' · ')}</p>
@@ -189,7 +214,7 @@ function BetForm({initial,unit,slips,onSave,onDelete,onClose}){
       </button>
       <button type="button" className="mb-picture-paste" onClick={pastePicture}><ClipboardPaste aria-hidden="true"/>Paste</button>
      </div>}
-    {picture.state==='error'&&<p className="mb-picture-error" role="alert">{picture.error} <button type="button" onClick={()=>pictureInput.current?.click()}>Choose one</button> · <button type="button" onClick={pastePicture}>Paste again</button></p>}
+    {picture.state==='error'&&<p className="mb-picture-error" role="alert">{picture.error} {picture.retry&&lastFile.current&&<><button type="button" onClick={()=>readFile(lastFile.current)}>Try again</button> · </>}<button type="button" onClick={()=>pictureInput.current?.click()}>Choose one</button> · <button type="button" onClick={pastePicture}>Paste again</button></p>}
    </div>}
    {!editing&&slips.length>0&&<details className="mb-from">
     <summary>From a slip you track <small>{slips.length}</small></summary>

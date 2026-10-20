@@ -253,6 +253,9 @@ class handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         from site_controls import allowed
+        if (parse_qs(urlparse(self.path).query).get("action", [""])[0]).strip().lower() == "ping":
+            # Wakes this function before a picture is sent to it (My Bets); nothing else.
+            return self._send(200, {"ok": True})
         if (parse_qs(urlparse(self.path).query).get("action", [""])[0]).strip().lower() == "bets":
             return self._bets_list()
         if not allowed(self.headers,'research'):
