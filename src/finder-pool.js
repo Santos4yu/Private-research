@@ -10,6 +10,14 @@ export const ENRICH = {wnba: enrichWnbaRows, nba: enrichWnbaRows, mlb: enrichMlb
 export const ENRICH_CONCURRENCY = {wnba: 4, nba: 4, mlb: 3, soccer: 4, nhl: 4, cfb: 4, tennis: 2};
 // A saved board younger than this is used without asking again.
 export const BOARD_FRESH = 2 * 60 * 1000;
+// When a new board can't be had (its source refusing for a moment), one
+// saved within this long stands in: lines whose games have started drop
+// out wherever they're used.
+export const BOARD_FALLBACK = 60 * 60 * 1000;
+// A failure this quick is asked again once, after a moment; a slow one
+// (the server ran out of time) isn't, so nobody waits twice as long.
+const QUICK_FAILURE = 12 * 1000;
+const RETRY_AFTER = 1500;
 // When each line's hit rates were worked out, so a later board can keep them.
 export const stamped = rows => {
   const now = Date.now();
@@ -24,14 +32,32 @@ export const needsHistory = (sport, row) => row.historyStatus === 'pending'
  * saved one while it is fresh (or, with `saved`, any from the last day),
  * else a new one, saved for next time.
  */
-export async function loadBoard(sport, {signal, saved = false} = {}) {
-  const cached = await readFinderCache(sport);
+export async function loadBoard(sport, {signal, saved = false, load = loadFinderSport, read = readFinderCache, persist = persistFinderCache,
+  wait = pause} = {}) {
+  const cached = await read(sport);
   if (cached && (saved || Date.now() - Number(cached.ts || 0) < BOARD_FRESH)) return cached;
-  const fresh = await loadFinderSport(sport, {signal, fast: sport === 'wnba' || sport === 'nba'});
+  const ask = () => load(sport, {signal, fast: sport === 'wnba' || sport === 'nba'});
+  let fresh;
+  const started = Date.now();
+  try {
+    fresh = await ask().catch(async error => {
+      if (error?.name === 'AbortError' || Date.now() - started > QUICK_FAILURE) throw error;
+      await wait(RETRY_AFTER, signal);
+      return ask();
+    });
+  } catch (error) {
+    if (error?.name !== 'AbortError' && cached?.rows?.length && Date.now() - Number(cached.ts || 0) < BOARD_FALLBACK) return cached;
+    throw error;
+  }
   const result = {...fresh, ts: Date.now(), rows: carryHistory(fresh.rows, cached?.rows || [])};
-  persistFinderCache(sport, result);
+  persist(sport, result);
   return result;
 }
+
+const pause = (ms, signal) => new Promise((resolve, reject) => {
+  const timer = setTimeout(resolve, ms);
+  signal?.addEventListener('abort', () => { clearTimeout(timer); reject(new DOMException('Aborted', 'AbortError')); }, {once: true});
+});
 
 /**
  * One league's current lines, hit rates filled in, (WNBA, NBA, NFL) what each
