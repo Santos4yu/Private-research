@@ -235,13 +235,65 @@ def zone_defense(by_team: dict) -> tuple[dict, dict]:
     return result, league_pct
 
 
-def rotation(by_team: dict, players: dict, size: int = 5, league: str = "wnba") -> dict:
+# A roster this short is the off-season's (free agents gone): not used.
+FULL_ROSTER = 8
+_ROSTER_POSITION = {"PG": "G", "SG": "G", "G": "G", "SF": "F", "PF": "F", "F": "F", "C": "C"}
+
+
+def _roster_position(value) -> str:
+    """ESPN's roster position (PG, SF, G-F...) as G, F or C."""
+    text = str(value or "").upper()
+    return _ROSTER_POSITION.get(text) or _ROSTER_POSITION.get(text.split("-")[0]) or text[:1]
+
+
+def _roster_rotation(team: str, games: list, roster: dict, history: dict, players: dict, size: int, league: str) -> list:
+    """The team's players now (`roster`: id -> {name, pos, headshot}), each
+    on his own last few games wherever he played them: anyone gone since is
+    off, and a newcomer is on before his first game here. The starters are
+    the team's last game's who are still here, then whoever started his own
+    latest game, most minutes first, to five."""
+    entries = []
+    for pid, info in roster.items():
+        played = history.get(pid, [])[-size:]
+        known = players.get(pid) or ["", "", None, None]
+        entries.append({"id": pid, "name": info.get("name") or known[0], "pos": known[1] or _roster_position(info.get("pos")),
+                        "headshot": info.get("headshot") or headshot(pid, known, league),
+                        "min": _round(sum(minutes for _, _, minutes in played) / len(played), 1) if played else 0,
+                        "games": len(played), "starts": sum(started for _, started, _ in played), "lastStart": False})
+    chosen = [row[0] for row in games[-1]["own"]["p"] if row[1] and row[0] in roster] if games else []
+    others = sorted((entry for entry in entries if entry["id"] not in chosen and history.get(entry["id"]) and history[entry["id"]][-1][1]),
+                    key=lambda entry: -entry["min"])
+    chosen += [entry["id"] for entry in others][:max(0, 5 - len(chosen))]
+    for entry in entries:
+        entry["lastStart"] = entry["id"] in chosen
+    return entries
+
+
+def rotation(by_team: dict, players: dict, size: int = 5, league: str = "wnba", rosters: dict | None = None) -> dict:
     """Who plays, from the last few games: last game's starters first, then
     everyone else by minutes. ESPN publishes no WNBA depth chart, so this is
-    the rotation as actually used, not a coach's depth chart."""
+    the rotation as actually used, not a coach's depth chart. With the
+    current `rosters` (team -> {id: {name, pos, headshot}}), a team's chart
+    is its players now (_roster_rotation): at the start of a season its
+    last games are last season's, and a signing would be missing."""
     order = {"G": 0, "F": 1, "C": 2}
     result = {}
+    # Every player's games, wherever he played them: (date, started, minutes), in order.
+    history = defaultdict(list)
+    if rosters:
+        for games in by_team.values():
+            for game in games:
+                for row in game["own"]["p"]:
+                    history[row[0]].append((game["date"] or "", row[1], row[_I["min"]] or 0))
+        for played in history.values():
+            played.sort(key=lambda item: item[0])
     for team, games in by_team.items():
+        roster = (rosters or {}).get(team) or {}
+        if len(roster) >= FULL_ROSTER:
+            entries = _roster_rotation(team, games, roster, history, players, size, league)
+            entries.sort(key=lambda e: (not e["lastStart"], order.get(primary_position([None, e["pos"]]), 3) if e["lastStart"] else 0, -e["min"]))
+            result[team] = {"games": min(len(games), size), "lastGame": games[-1]["date"] if games else None, "players": entries[:13]}
+            continue
         if not games:
             continue
         recent = games[-size:]
@@ -291,7 +343,7 @@ def rest_table(schedule: list, now: datetime | None = None) -> dict:
     return {team: sorted(dates) for team, dates in near.items()}
 
 
-def league_context(payload: dict) -> dict:
+def league_context(payload: dict, rosters: dict | None = None) -> dict:
     by_team = team_games(payload)
     players = payload.get("players", {})
     zones, league_zones = zone_defense(by_team)
@@ -306,7 +358,7 @@ def league_context(payload: dict) -> dict:
         # Pace, ratings and the chances each team's games give (opportunity.py).
         "opportunity": opportunity.team_table(by_team),
         "zoneDefense": zones, "leagueZones": league_zones,
-        "rotation": rotation(by_team, players, league=payload.get("league") or "wnba"),
+        "rotation": rotation(by_team, players, league=payload.get("league") or "wnba", rosters=rosters),
         "rest": rest_table(payload.get("schedule")),
         "games": {team: len(games) for team, games in by_team.items()},
     }

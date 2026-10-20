@@ -135,6 +135,25 @@ class ContextTests(unittest.TestCase):
         self.assertEqual(rotation[0]["id"], "star")
         self.assertTrue(all(player["headshot"] for player in rotation))  # ESPN fallback when missing
 
+    def test_rotation_reads_the_current_roster(self):
+        # AAA now: Mate stays, B Guard signed from BBB, Star is gone, and
+        # rookies who haven't played. Off-season-short rosters aren't used.
+        roster = {"mate": {"name": "Mate", "pos": "C"}, "b_g": {"name": "B Guard", "pos": "PG"},
+                  **{f"rookie{n}": {"name": f"Rookie {n}", "pos": "SF", "headshot": "x.png"} for n in range(6)}}
+        chart = context.league_context(self.payload, rosters={"AAA": roster})["rotation"]["AAA"]["players"]
+        ids = [player["id"] for player in chart]
+        self.assertNotIn("star", ids)
+        # Starters (guards first): the two who started their own last games, the signing among them.
+        self.assertEqual(ids[:2], ["b_g", "mate"])
+        self.assertTrue(all(player["lastStart"] for player in chart[:2]))
+        self.assertFalse(any(player["lastStart"] for player in chart[2:]))
+        signing = chart[0]
+        self.assertEqual((signing["pos"], signing["games"], signing["min"]), ("G", 2, 30))
+        self.assertEqual(chart[-1]["pos"], "F")              # ESPN's SF, as the page reads positions
+        self.assertEqual(chart[-1]["min"], 0)
+        short = context.league_context(self.payload, rosters={"AAA": {"mate": {"name": "Mate"}}})["rotation"]["AAA"]["players"]
+        self.assertEqual(short[0]["id"], "star")
+
     def test_player_context(self):
         ctx = context.player_context(self.payload, "star", "AAA", "BBB", "player_points", 25.0)
         self.assertEqual(ctx["zones"]["ra"], [3, 4])

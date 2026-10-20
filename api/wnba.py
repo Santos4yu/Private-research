@@ -181,6 +181,22 @@ def _espn_json(url):
     return response.json()
 
 
+def _team_rosters(league="wnba"):
+    """({team code: {id: {name, pos, headshot}}}, when they were read), from
+    the roster directory; (None, 0) when it can't be read."""
+    try:
+        directory = _roster_directory(league)
+    except Exception:  # noqa: BLE001 -- the charts fall back to the games alone
+        return None, 0
+    rosters = {}
+    for entries in (directory.get("players") or {}).values():
+        for entry in entries:
+            if entry.get("id") and entry.get("teamAbbr"):
+                rosters.setdefault(entry["teamAbbr"], {})[str(entry["id"])] = {
+                    "name": entry.get("name"), "pos": entry.get("position"), "headshot": entry.get("headshot")}
+    return rosters, (_roster_memory.get(league) or (0,))[0]
+
+
 def _roster_directory(league="wnba"):
     now = time.time()
     memory = _roster_memory.get(league)
@@ -979,10 +995,13 @@ class handler(BaseHTTPRequestHandler):
             if not payload or not payload.get("games"):
                 return _send(self, 503, {"error": "Season data is still being prepared. Try again shortly."})
             if resource == "league-context":
-                built = (payload.get("builtAt"), tuple(payload.get("blended") or ()))
+                # The depth charts read each team's players now (ESPN's
+                # rosters), so a signing shows before his first game there.
+                rosters, roster_at = _team_rosters(league_name)
+                built = (payload.get("builtAt"), tuple(payload.get("blended") or ()), roster_at)
                 memory = _league_memory.get(league_name) or {}
                 if memory.get("key") != (season, built):
-                    memory = {"key": (season, built), "value": context.league_context(payload)}
+                    memory = {"key": (season, built), "value": context.league_context(payload, rosters=rosters)}
                     _league_memory[league_name] = memory
                 return _send(self, 200, memory["value"])
             player_id, team, opponent = arg("playerId"), team_code(arg("team")), team_code(arg("opponent"))
