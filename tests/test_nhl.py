@@ -320,6 +320,10 @@ class LeagueTests(unittest.TestCase):
         # What FLA allowed to centers: Staal's four goals over the two games.
         self.assertEqual(data["dvp"]["FLA"]["C"]["goals"]["l5"][0], 2)
         self.assertEqual(data["dvp"]["FLA"]["G"]["saves"]["l5"][0], 29)
+        # Each team's game days, as noon Eastern, oldest first: who played last night.
+        self.assertTrue(data["rest"]["CAR"])
+        self.assertTrue(all(when.endswith("T17:00:00Z") for when in data["rest"]["CAR"]))
+        self.assertEqual(data["rest"]["CAR"], sorted(data["rest"]["CAR"]))
         # The players' reports are read from the earliest game any team's window needs.
         self.assertIn(("skater/summary", 'gameDate>="2026-01-10"', True), stats.calls)
 

@@ -241,3 +241,31 @@ test('NFL: props the position table leaves out are read off what the defense all
   assert.equal(read.facts[0].text, 'DAL allows 2.4 rushing + receiving TDs a game, 33% more than average (3rd-most)');
   assert.ok(read.score > 55);
 });
+
+test('NHL: a goalie who started last night, a backup, and an opponent on a back-to-back', () => {
+  const tonight = '2026-11-12T00:00:00Z';                                       // Nov 11, 7pm Eastern
+  const goalie = starts => ({sport: 'nhl', player: 'Frederik Andersen', position: 'G', teamAbbr: 'CAR', opponent: 'FLA', valueKey: 'saves',
+    market: 'Goalie Saves', line: 24.5, startsAt: tonight, gameLog: [], goalieStarts: starts});
+  const read = row => matchupCase({row, side: 'OVER', grade: {records: {}}}, {nhl: {teamCount: 32}});
+  const fact = row => read(row).facts.find(item => item.key === 'starts');
+  const tired = fact(goalie({started: 8, of: 10, last: true, lastDate: '2026-11-10'}));
+  assert.match(tired.text, /^Started CAR's game last night/);
+  assert.equal(tired.impact, -8);
+  const rested = fact(goalie({started: 3, of: 10, last: false, lastDate: '2026-11-10'}));
+  assert.match(rested.text, /^Rested while CAR played last night/);
+  assert.equal(rested.impact, 0);
+  assert.equal(fact(goalie({started: 3, of: 10, last: false, lastDate: '2026-11-08'})).impact, -5);   // a backup
+  assert.equal(fact(goalie({started: 6, of: 10, last: true, lastDate: '2026-11-08'})).impact, -2);   // a split
+  assert.equal(fact(goalie({started: 9, of: 10, last: true, lastDate: '2026-11-08'})).impact, 0);    // the starter
+  // A skater against a team that played last night (and his own rested).
+  const rest = {FLA: ['2026-11-08T17:00:00Z', '2026-11-10T17:00:00Z'], CAR: ['2026-11-08T17:00:00Z']};
+  const skater = {sport: 'nhl', player: 'Sebastian Aho', position: 'C', teamAbbr: 'CAR', opponent: 'FLA', valueKey: 'sog', market: 'Shots On Goal',
+    line: 2.5, startsAt: tonight, gameLog: []};
+  const facts = matchupCase({row: skater, side: 'OVER', grade: {records: {}}}, {nhl: {teamCount: 32, rest}}).facts;
+  assert.equal(facts.find(item => item.key === 'rest-opponent').impact, 2.5);
+  // Both tired, or a stat the backup goalie doesn't touch: nothing.
+  const both = {...rest, CAR: ['2026-11-10T17:00:00Z']};
+  assert.ok(!matchupCase({row: skater, side: 'OVER', grade: {records: {}}}, {nhl: {teamCount: 32, rest: both}}).facts.some(item => item.key === 'rest-opponent'));
+  assert.ok(!matchupCase({row: {...skater, valueKey: 'hits', market: 'Hits'}, side: 'OVER', grade: {records: {}}}, {nhl: {teamCount: 32, rest}})
+    .facts.some(item => item.key === 'rest-opponent'));
+});

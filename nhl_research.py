@@ -1122,6 +1122,8 @@ GOALIE_DVP = (("saves", "Saves"), ("ga", "Goals Allowed"), ("shots_against", "Sh
 DVP_POSITIONS = ("C", "LW", "RW", "D", "G")
 _POSITION = {"L": "LW", "R": "RW", "C": "C", "D": "D", "G": "G", "LW": "LW", "RW": "RW"}
 WINDOWS = (("l20", LEAGUE_GAMES), ("l10", 10), ("l5", 5))
+# A team's last few game days: enough to tell who played last night.
+REST_GAMES = 4
 
 
 def _league_rows(day=None):
@@ -1204,16 +1206,24 @@ def _opponent_in(lines, team):
     return next((line["team"] for line in lines.values() if line["team"] != team), "")
 
 
+def _played_on(lines):
+    """A game's day, as noon Eastern (so any timezone reads the same day)."""
+    day = next((line.get("date") for line in lines.values() if line.get("date")), "")
+    return f"{day}T17:00:00Z" if day else None
+
+
 def league(day=None):
     """Every team's per-game numbers for and against over its last 20, 10
-    and 5 games, ranked, and what each defense allows by position."""
+    and 5 games, ranked, what each defense allows by position, and the days
+    of each team's last few games (rest: who played last night)."""
     def build():
         data = _league_rows(day)
-        teams, dvp = {}, {}
+        teams, dvp, rest = {}, {}, {}
         for code, ids in data["games"].items():
             played = [game_id for game_id in ids if game_id in data["lines"]]
             if not played:
                 continue
+            rest[code] = [when for when in (_played_on(data["lines"][game_id]) for game_id in played[-REST_GAMES:]) if when]
             entry = {"off": {}, "def": {}}
             for name, size in WINDOWS:
                 recent = played[-size:]
@@ -1245,11 +1255,11 @@ def league(day=None):
                     ranks = _rank(table, high_first=False)
                     for code in table:
                         dvp[code][position][key][name][1] = ranks.get(code)
-        return {"teams": teams, "dvp": dvp, "teamCount": len(teams), "stats": [list(item) for item in RANK_STATS],
+        return {"teams": teams, "dvp": dvp, "rest": rest, "teamCount": len(teams), "stats": [list(item) for item in RANK_STATS],
                 "dvpStats": {position: [list(item) for item in (GOALIE_DVP if position == "G" else DVP_STATS)] for position in DVP_POSITIONS},
                 "dvpPositions": list(DVP_POSITIONS), "windows": [name for name, _size in WINDOWS],
                 "logos": {code: logo(code) for code in TEAMS}, "complete": True, "builtAt": time.time(), "version": VERSION}
-    return _cached(f"nhl:league:{VERSION}.2:{season_id(day)}", 3 * 3600, build, keep=lambda value: value["teamCount"] > 0,
+    return _cached(f"nhl:league:{VERSION}.3:{season_id(day)}", 3 * 3600, build, keep=lambda value: value["teamCount"] > 0,
                    stale=3 * 24 * 3600)
 
 

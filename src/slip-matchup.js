@@ -573,6 +573,8 @@ function college(row, sign, already) {
 const NHL_POSITION = {L: 'LW', R: 'RW', LW: 'LW', RW: 'RW', C: 'C', D: 'D', G: 'G'};
 const NHL_DVP_KEY = {points: 'points', goals: 'goals', assists: 'assists', sog: 'sog', hits: 'hits', blocked: 'blocked', ppp: 'ppp',
   fow: 'fow', fantasy: 'fantasy', saves: 'saves', ga: 'ga', attempts: 'attempts', pim: 'pim', hits_blocks: 'hits_blocks', faceoffs: 'faceoffs'};
+// The skater stats an opponent's tired legs and backup goalie help.
+const SKATER_OFFENSE = new Set(['goals', 'assists', 'points', 'sog', 'attempts', 'ppp', 'fantasy']);
 function hockey(row, sign, league) {
   const out = [];
   const position = NHL_POSITION[String(row.position || '').toUpperCase()];
@@ -623,10 +625,30 @@ function hockey(row, sign, league) {
     const scoring = teamFact('scoring', 'off', 'goals', value => `${row.opponent} scores ${value} goals a game`, 70, {primary: !out.length});
     if (scoring) out.push(scoring);
   }
-  // How often he gets the net: his starts in his team's last ten.
+  // How often he gets the net: his starts in his team's last ten. Nobody
+  // posts tonight's starter here, so a backup's line counts for less, and
+  // a goalie who started last night usually sits the second night.
   const starts = position === 'G' ? row.goalieStarts : null;
   if (starts && starts.of >= 3) {
-    out.push(fact('usage', 'starts', `Started ${starts.started} of ${row.teamAbbr || 'his team'}'s last ${starts.of} games${starts.last ? ', including the last one' : ''}; tonight's starter isn't confirmed here`, 0));
+    const team = row.teamAbbr || 'his team';
+    const lastNight = Boolean(starts.lastDate) && restBefore([`${starts.lastDate}T17:00:00Z`], row.startsAt)?.backToBack;
+    if (lastNight && starts.last) {
+      out.push(fact('usage', 'starts', `Started ${team}'s game last night: teams usually give the second night to the backup, so he may not start`, -8 * sign));
+    } else if (lastNight) {
+      out.push(fact('usage', 'starts', `Rested while ${team} played last night: the usual second-night start`, 0));
+    } else {
+      const share = starts.started / starts.of;
+      out.push(fact('usage', 'starts', `Started ${starts.started} of ${team}'s last ${starts.of} games${starts.last ? ', including the last one' : ''}; tonight's starter isn't confirmed here`,
+        (share <= 0.4 ? -5 : share < 0.7 ? -2 : 0) * sign));
+    }
+  }
+  // An opponent on the second night of a back-to-back: tired legs, and
+  // usually its backup in goal. Scoring and shots come easier.
+  if (position !== 'G' && SKATER_OFFENSE.has(key || row.valueKey)) {
+    const theirs = restBefore(league?.rest?.[row.opponent], row.startsAt), mine = restBefore(league?.rest?.[row.teamAbbr], row.startsAt);
+    if (theirs?.backToBack && !mine?.backToBack) {
+      out.push(fact('rest', 'rest-opponent', `${row.opponent} played last night: tired legs, and teams usually start their backup goalie on the second night`, 2.5 * sign));
+    }
   }
   // A goalie's saves follow the shots the other team takes.
   if (position === 'G' && key === 'saves') {
