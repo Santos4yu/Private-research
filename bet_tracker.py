@@ -108,7 +108,7 @@ def clean(raw, now=None):
     stake = _number(raw.get("stake"))
     if stake is None or not 0 < stake <= 1000:
         raise ValueError("Enter how many units you staked (more than 0).")
-    bet = {"kind": kind, "stake": round(stake, 2), "book": _short(raw.get("book"), 24), "title": _short(raw.get("title"), 90),
+    bet = {"kind": kind, "stake": round(stake, 4), "book": _short(raw.get("book"), 24), "title": _short(raw.get("title"), 90),
            "sport": raw.get("sport") if raw.get("sport") in SPORTS else "other",
            "result": raw.get("result") if raw.get("result") in RESULTS else "pending", "note": _short(raw.get("note"), 140)}
     if kind == "pickem":
@@ -129,7 +129,7 @@ def clean(raw, now=None):
         returned = _number(raw.get("returned"))
         if returned is None or not 0 <= returned <= 1_000_000:
             raise ValueError("Enter how many units came back.")
-        bet["returned"] = round(returned, 2)
+        bet["returned"] = round(returned, 4)
     legs = [leg for leg in (_leg(item) for item in (raw.get("legs") or [])[:MAX_LEGS]) if leg]
     if legs:
         bet["legs"] = legs

@@ -183,3 +183,10 @@ class PrizePicksSlipTests(unittest.TestCase):
                                          "legs": [{"player": "Knicks", "pick": "Knicks -3.5"}]})
         self.assertEqual((bet["stake"], bet["payout"], bet["odds"]), (20, 38.18, -110))
         self.assertIn('"2-Pick"', slip_reader.BET_PROMPT)
+
+
+class PrecisionTests(unittest.TestCase):
+    def test_small_stakes_and_odd_payouts_are_kept(self):
+        bet = bet_tracker.clean({"kind": "pickem", "stake": 0.588, "payout": 2.10204, "result": "win"})
+        self.assertEqual((bet["stake"], bet["payout"]), (0.588, 2.102))
+        self.assertAlmostEqual(bet_tracker.profit(bet) * 2.5, 1.62, places=2)   # $1.47 in, $3.09 back

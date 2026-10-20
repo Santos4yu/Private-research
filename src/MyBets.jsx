@@ -40,6 +40,7 @@ async function readPicture(file){
  return data;
 }
 const dollars=value=>finite(value)?`$${value.toLocaleString('en-US',{minimumFractionDigits:value%1?2:0,maximumFractionDigits:2})}`:null;
+const unitMoney=value=>`$${Number(value).toLocaleString('en-US',{minimumFractionDigits:Number(value)%1?2:0,maximumFractionDigits:2})}`;
 const READ_RESULT={win:'Won',loss:'Lost',push:'Refunded',cashout:'Paid part',pending:'Not settled yet'};
 
 // ---------------------------------------------------------------- chart
@@ -174,7 +175,7 @@ function BetForm({initial,unit,slips,onSave,onDelete,onClose}){
     {picture.state==='reading'?<p className="mb-picture-busy"><Loader2 aria-hidden="true"/>Reading your bet…</p>
      :picture.state==='read'?<div className="mb-picture-read">
       <p><b>Read from your picture</b>{[dollars(picture.read.stake)&&`${dollars(picture.read.stake)} in`,dollars(picture.read.payout)&&`pays ${dollars(picture.read.payout)}`,
-        finite(picture.read.multiplier)&&picture.read.kind==='pickem'&&`${picture.read.multiplier}x`,READ_RESULT[picture.read.result]].filter(Boolean).join(' · ')}</p>
+        finite(picture.read.multiplier)&&picture.read.kind==='pickem'&&`${Math.round(picture.read.multiplier*100)/100}x`,READ_RESULT[picture.read.result]].filter(Boolean).join(' · ')}</p>
       {picture.read.estimated&&<small className="mb-picture-guess">The picture didn't show the payout, so this is {(name=>/s$/i.test(name)?`${name}'`:`${name}'s`)(picture.read.app?.name||'the app')} usual {picture.read.multiplier}x for {picture.read.legs?.length} picks. Change Pays if yours is different.</small>}
       <small>Check it below, then tap Log bet. <button type="button" onClick={()=>pictureInput.current?.click()}>Use another picture</button> · <button type="button" onClick={pastePicture}>Paste another</button></small>
      </div>
@@ -201,11 +202,11 @@ function BetForm({initial,unit,slips,onSave,onDelete,onClose}){
     <label><span>Sport</span><select value={bet.sport} onChange={event=>set('sport',event.target.value)}>{SPORTS.map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
     <label><span className="mb-stake-head">Stake<span className="mb-mini" role="radiogroup" aria-label="Stake in">
       <button type="button" role="radio" aria-checked={!money} onClick={()=>setMoney(false)}>Units</button><button type="button" role="radio" aria-checked={money} onClick={()=>setMoney(true)}>$</button></span></span>
-     <input type="number" inputMode="decimal" min="0.01" step="0.01" required aria-label={money?'Stake in dollars':'Stake in units'}
+     <input type="number" inputMode="decimal" min="0" step="any" required aria-label={money?'Stake in dollars':'Stake in units'}
       value={money?(stake>0?Math.round(stake*unit*100)/100:bet.stake):bet.stake}
       onChange={event=>set('stake',money&&event.target.value!==''?Math.round(Number(event.target.value)/unit*10000)/10000:event.target.value)}/>
-     <small>{money?(stake>0?`${Math.round(stake*100)/100}u`:'—'):(stake>0?moneyText(stake*unit).replace('+',''):'—')} at ${unit} a unit</small></label>
-    {bet.kind==='pickem'?<label><span>Pays</span><input type="number" inputMode="decimal" min="1.01" step="0.01" value={bet.payout} onChange={event=>set('payout',event.target.value)} required/>
+     <small>{money?(stake>0?`${Math.round(stake*100)/100}u`:'—'):(stake>0?moneyText(stake*unit).replace('+',''):'—')} at {unitMoney(unit)} a unit</small></label>
+    {bet.kind==='pickem'?<label><span>Pays</span><input type="number" inputMode="decimal" min="1" step="any" value={bet.payout} onChange={event=>set('payout',event.target.value)} required/>
      <small className="mb-chips">{PAYOUTS.map(value=><button key={value} type="button" data-on={Number(bet.payout)===value?'':undefined} onClick={()=>set('payout',value)}>{value}x</button>)}</small></label>
      :<label><span>Odds</span><input type="number" inputMode="numeric" step="1" value={bet.odds} onChange={event=>set('odds',event.target.value)} required/>
      <small>Like −110 or +250</small></label>}
@@ -213,7 +214,7 @@ function BetForm({initial,unit,slips,onSave,onDelete,onClose}){
     <p className="mb-towin">{finite(toWin)?<>To win <b>{unitsText(toWin)}</b> · {moneyText(toWin*unit)}</>:'Enter the stake and price to see what it pays.'}</p>
    </div>
    <div className="mb-seg mb-results" role="radiogroup" aria-label="Result">{RESULTS.map(([key,label])=><button key={key} type="button" role="radio" aria-checked={bet.result===key} data-result={key} onClick={()=>set('result',key)}>{label}</button>)}</div>
-   {bet.result==='cashout'&&<label className="mb-returned"><span>Units that came back</span><input type="number" inputMode="decimal" min="0" step="0.01" value={bet.returned} onChange={event=>set('returned',event.target.value)} required/>
+   {bet.result==='cashout'&&<label className="mb-returned"><span>Units that came back</span><input type="number" inputMode="decimal" min="0" step="any" value={bet.returned} onChange={event=>set('returned',event.target.value)} required/>
     <small>For a cash out, or a flex entry that paid part</small></label>}
    {error&&<p className="mb-error" role="alert">{error}</p>}
    <footer>
@@ -239,7 +240,7 @@ function BetRow({bet,onEdit,onResult}){
    {bet.check&&<span className="mb-check"><AlertTriangle aria-hidden="true"/>A pick was voided, so it may have paid less. Tap to set what it paid.</span>}
   </button>
   <span className="mb-bet-side">
-   <small>{Number(bet.stake)}u @ {priceText(bet)}</small>
+   <small>{Math.round(Number(bet.stake)*100)/100}u @ {priceText(bet)}</small>
    {bet.result==='pending'?<span className="mb-quick">
     <button type="button" data-result="win" onClick={()=>onResult(bet,'win')}>Won</button>
     <button type="button" data-result="loss" onClick={()=>onResult(bet,'loss')}>Lost</button>
@@ -342,7 +343,7 @@ export function MyBets(){
   {state.error&&<p className="mb-error" role="alert">{state.error}</p>}
 
   <section className="mb-tiles" aria-label="Totals">
-   <div className="mb-tile mb-tile-profit" data-tone={tone(totals.units)}><span>Profit</span><b>{unitsText(totals.units,2)}</b><small>{moneyText(totals.units*unit)} at ${unit} a unit</small></div>
+   <div className="mb-tile mb-tile-profit" data-tone={tone(totals.units)}><span>Profit</span><b>{unitsText(totals.units,2)}</b><small>{moneyText(totals.units*unit)} at {unitMoney(unit)} a unit</small></div>
    <div className="mb-tile"><span>Record</span><b>{totals.wins}-{totals.losses}-{totals.pushes}</b><small>{totals.pending?`${totals.pending} pending`:`${totals.count} bet${totals.count===1?'':'s'}`}</small></div>
    <div className="mb-tile"><span>Win rate</span><b>{pct(totals.winRate)}</b><small>{run?`${run.kind==='W'?'Won':'Lost'} last ${run.count}`:'No results yet'}</small></div>
    <div className="mb-tile" data-tone={tone(totals.roi)}><span>ROI</span><b>{pct(totals.roi,true)}</b><small>{Number(totals.staked.toFixed(2))}u staked</small></div>

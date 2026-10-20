@@ -187,7 +187,7 @@ export function moneyText(value) {
   const text = Math.abs(value).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
   return `${value > 0 ? '+' : value < 0 ? '−' : ''}$${text}`;
 }
-export const priceText = bet => bet.kind === 'pickem' ? `${Number(bet.payout)}x` : `${Number(bet.odds) > 0 ? '+' : ''}${bet.odds}`;
+export const priceText = bet => bet.kind === 'pickem' ? `${Math.round(Number(bet.payout) * 100) / 100}x` : `${Number(bet.odds) > 0 ? '+' : ''}${bet.odds}`;
 
 /** A tracked slip (slip_ledger.history) as a bet to log. */
 export function betFromSlip(slip, sportOf = () => 'other') {
@@ -201,7 +201,7 @@ export function betFromSlip(slip, sportOf = () => 'other') {
     legs: picks.map(pick => ({player: pick.player, stat: pick.stat, line: pick.line, side: pick.side}))};
 }
 
-const round2 = value => Math.round(value * 100) / 100;
+const round4 = value => Math.round(value * 10000) / 10000;
 /**
  * A bet read from a picture (slip_reader.read_bet: dollars as the slip
  * shows them) as the form's fields, in units at the member's unit size.
@@ -216,10 +216,10 @@ export function betFromRead(read, unit, sportOf = sport => sport) {
   const title = kind === 'straight' && legs.length === 1 ? [legs[0].player, legs[0].stat].filter(Boolean).join(' ')
     : legs.length ? `${legs.length}-pick: ${names.slice(0, 4).join(', ')}${names.length > 4 ? '…' : ''}` : `${read?.app?.name || 'Sportsbook'} bet`;
   const out = {kind, book: read?.app?.name || '', sport: sportOf(read?.sport || 'other'), title: title.slice(0, 90),
-    stake: finite(read?.stake) ? round2(read.stake / size) : 1, result: read?.result || 'pending', date: read?.date || today(),
+    stake: finite(read?.stake) ? round4(read.stake / size) : 1, result: read?.result || 'pending', date: read?.date || today(),
     legs: legs.map(leg => ({player: leg.player, stat: leg.stat || '', line: leg.line ?? null, side: leg.side || '', result: leg.result || null}))};
   if (kind === 'pickem') out.payout = finite(read?.multiplier) ? read.multiplier : '';
   else out.odds = finite(read?.odds) ? read.odds : '';
-  if (out.result === 'cashout') out.returned = finite(read?.paid) ? round2(read.paid / size) : '';
+  if (out.result === 'cashout') out.returned = finite(read?.paid) ? round4(read.paid / size) : '';
   return out;
 }

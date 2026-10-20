@@ -103,3 +103,14 @@ test("a PrizePicks entry is pick'em even if read as a parlay", async () => {
   assert.equal(bet.stake, 0.5);
   assert.equal('odds' in bet, false);
 });
+
+test('a $1.47 entry at $2.50 a unit stays $1.47, and an odd payout is kept', async () => {
+  const {betFromRead, priceText, profitOf} = await import('../src/my-bets-core.js');
+  const bet = betFromRead({kind: 'pickem', app: {key: 'prizepicks', name: 'PrizePicks'}, stake: 1.47, payout: 3.09, multiplier: 2.102, result: 'loss',
+    legs: [{player: 'James Cook III'}, {player: 'AJ Barner'}]}, 2.5);
+  assert.equal(bet.stake, 0.588);
+  assert.equal(Math.round(bet.stake * 2.5 * 100) / 100, 1.47);
+  assert.equal(bet.payout, 2.102);
+  assert.equal(priceText(bet), '2.1x');
+  assert.equal(profitOf(bet), -0.588);
+});
