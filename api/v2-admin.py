@@ -508,6 +508,18 @@ class handler(BaseHTTPRequestHandler):
                     nba = {"season": season, "games": len(built["games"]), "partial": built["partial"]}
                 finally:
                     seasons._set_lock("0", "nba")
+            # First-quarter and first-half lines for games stored before they
+            # were kept (periods.py): this season, then last, a batch a tick.
+            elif time.monotonic()-started < 30 and not seasons._locked("nba"):
+                seasons._set_lock(str(time.time()), "nba")
+                try:
+                    for year in (season, season - 1):
+                        filled = seasons.backfill_periods(year, "nba", deadline_seconds=8)
+                        if filled["done"] or filled["left"]:
+                            nba = {"season": year, "periods": filled}
+                            break
+                finally:
+                    seasons._set_lock("0", "nba")
         except Exception:  # noqa: BLE001 -- never at the cost of the line checks
             pass
         histories = None

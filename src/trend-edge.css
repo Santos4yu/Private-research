@@ -718,6 +718,11 @@ html:root .gl-game-pop .gp-tile span { color: var(--ace-faint, #767676); font: 7
 html:root .gl-game-pop .gp-tile b { font: 700 13px/1.15 var(--font-sans); font-variant-numeric: tabular-nums; white-space: nowrap; }
 html:root .gl-game-pop .gp-tile small { color: var(--ace-muted, #A9A9A9); font: 500 9px/1 var(--font-sans); white-space: nowrap; }
 html:root .gl-game-pop .gp-tile.is-focus { box-shadow: inset 0 0 0 1px var(--ace-accent, #fff); background: var(--ace-raised, #282828); }
+html:root .gl-game-pop .gp-period { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 8px 0 0; padding: 7px 8px; border-radius: 8px; background: rgba(61,123,255,.1); border: 1px solid rgba(61,123,255,.28); }
+html:root .gl-game-pop .gp-period > span { margin-right: 4px; color: #3D7BFF; font: 800 10px/1 var(--font-sans); letter-spacing: .04em; }
+html:root .gl-game-pop .gp-period i { font: 600 10.5px/1 var(--font-sans); font-style: normal; color: var(--ace-muted, #A9A9A9); white-space: nowrap; }
+html:root .gl-game-pop .gp-period i + i::before { content: "·"; margin: 0 4px 0 0; color: var(--ace-faint, #767676); }
+html:root .gl-game-pop .gp-period i b { color: var(--ace-text, #F3F5F8); font-weight: 800; }
 html:root .gl-game-pop footer { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 8px 0 0; padding: 8px 0 0; border-top: 1px solid var(--ace-border, #333); }
 html:root .gl-game-pop footer > span { margin-right: 2px; color: var(--ace-faint, #767676); font: 700 9px/1 var(--font-sans); letter-spacing: .06em; text-transform: uppercase; }
 html:root .gl-game-pop footer i { padding: 3px 6px; border-radius: 6px; background: var(--ace-card-2, #222); font: 600 10.5px/1 var(--font-sans); font-style: normal; white-space: nowrap; }

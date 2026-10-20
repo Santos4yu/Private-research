@@ -39,7 +39,7 @@ import {statKeyOf} from './sports/soccer/soccer-stats.js';
 import {soccerText, oddsTilt} from './soccer-matchup.js';
 import {PLAYS as CFB_PLAYS, PLAY_WORDS as CFB_PLAY_WORDS, AGAINST_WORDS as CFB_AGAINST_WORDS} from './sports/cfb/cfb-stats.js';
 import {cfbShareOf} from './slip-analyst.js';
-import {MARKET_STAT as BASKETBALL_STAT} from './sports/wnba/wnba-research.js';
+import {MARKET_STAT as BASKETBALL_STAT, baseMarket, isPeriodMarket, periodless} from './sports/wnba/wnba-research.js';
 import {familyOf, opportunityFacts, opportunityRead} from './sports/wnba/opportunity.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
@@ -200,7 +200,8 @@ const POSITION_WORDS = {GK: 'goalkeepers', DEF: 'defenders', MID: 'midfielders',
   TE: 'tight ends', K: 'kickers', LW: 'left wings', RW: 'right wings', D: 'defensemen'};
 // "Hits+Runs+RBIs" keeps its capitals; "Receiving Yards" reads "receiving yards"; a pitcher's "Pitcher Strikeouts" is his strikeouts.
 const statWord = row => {
-  const name = String(row.market || 'this stat').replace(/^pitcher\s+/i, '');
+  // A basketball period line's defense numbers are whole games: "points", not "1Q points".
+  const name = String((isPeriodMarket(row.marketKey) ? periodless(row.market) : row.market) || 'this stat').replace(/^pitcher\s+/i, '');
   return /[A-Z]{2}|\+/.test(name) ? name : name.toLowerCase();
 };
 // "4th-most" / "3rd-fewest" when a rank is near either end, else nothing.
@@ -345,7 +346,11 @@ function basketball(row, sign, league) {
   if (defense) out.push(defense);
   const stats = league?.teamStats;
   const own = stats?.[row.teamAbbr], their = stats?.[row.opponent];
-  const stat = BASKETBALL_STAT[row.marketKey], family = familyOf(stat);
+  // A first-quarter or first-half line reads the whole game's chances as
+  // ratios (more misses, more threes allowed); his own chances against the
+  // line need whole-game lines, so they're left out for it.
+  const period = isPeriodMarket(row.marketKey);
+  const stat = BASKETBALL_STAT[baseMarket(row.marketKey)], family = familyOf(stat);
   // The chances the defense gives this stat (opportunity.py): the shots it
   // misses for rebounds, the threes it lets teams take, how well it lets
   // them shoot for assists.
@@ -361,7 +366,7 @@ function basketball(row, sign, league) {
   if (family === 'threes') given('tpaAllowed', (value, avg, where) => `lets teams take ${value} threes a game${where}, league ${avg}`, 50);
   if (stat === 'ast' || stat === 'ra' || stat === 'pa' || stat === 'pra') given('fgPctAllowed', (value, avg, where) => `lets teams shoot ${value}%${where}, league ${avg}%: more passes become assists`, 120, {low: 'highest', high: 'lowest'});
   // His own chances against what the line takes (Analyze loads them: row.opportunity).
-  if (row.opportunity && stat) {
+  if (row.opportunity && stat && !period) {
     const read = opportunityRead(stat, Number(row.line), sign < 0 ? 'UNDER' : 'OVER',
       {...row.opportunity, table, team: row.teamAbbr, opponent: row.opponent, statLabel: row.market});
     for (const item of opportunityFacts(read, sign)) out.push(fact(item.kind, item.key, item.text, item.impact, item.key === 'opportunity' ? {read} : {}));

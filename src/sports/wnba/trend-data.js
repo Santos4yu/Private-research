@@ -10,6 +10,10 @@ export const WNBA_STATS=[
  ['player_twos_attempts','Two Pointers Attempted','2PA'],['player_fouls','Personal Fouls','PF'],
  ['player_offensive_rebounds','Offensive Rebounds','OREB'],['player_defensive_rebounds','Defensive Rebounds','DREB'],['player_double_double','Double-Double','DD'],
  ['player_triple_double','Triple-Double','TD'],
+ // First quarter and first half (api/wnba.py, from the play-by-play).
+ ...[['1q','1Q'],['1h','1H']].flatMap(([suffix,name])=>[['points','Points','PTS'],['rebounds','Rebounds','REB'],['assists','Assists','AST'],
+  ['threes','3-PT Made','3PM'],['points_rebounds','Pts+Rebs','PR'],['points_assists','Pts+Asts','PA'],['rebounds_assists','Rebs+Asts','RA'],
+  ['points_rebounds_assists','Pts+Rebs+Asts','PRA']].map(([key,label,code])=>[`player_${key}_${suffix}`,`${name} ${label}`,`${name} ${code}`])),
 ].map(([key,label,code])=>({key,label,code}));
 
 // ESPN stamps games in UTC, so a 7pm tip on the 22nd is the 23rd there.
@@ -25,9 +29,18 @@ const FOCUS={player_points:['pts'],player_rebounds:['reb'],player_assists:['ast'
 // One game's card on the chart (app.js gameCard): his box line, the
 // result, and from the stored season (api/wnba.py game-notes) his usage
 // rate, whether he started and who sat out.
+// A first-quarter or first-half line's card adds his line for that part of
+// the game under the box score.
+const PERIOD=/_(1[qh])$/;
+function periodLine(values,marketKey){
+ const suffix=PERIOD.exec(String(marketKey||''))?.[1];
+ if(!suffix)return null;
+ const part=key=>values[`player_${key}_${suffix}`];
+ return {label:suffix.toUpperCase(),pts:part('points'),reb:part('rebounds'),ast:part('assists'),tpm:part('threes')};
+}
 export function gameDetails(row,marketKey,note){
  const box=row.box||{},values=row.values||{};
- return {kind:'hoops',focus:FOCUS[marketKey]||[],result:row.result||null,score:row.score||'',logo:row.opponentLogo||null,
+ return {kind:'hoops',focus:FOCUS[marketKey]||[],period:periodLine(values,marketKey),result:row.result||null,score:row.score||'',logo:row.opponentLogo||null,
   min:box.min??row.minutes??null,usage:note?.usage??null,started:note?typeof note.started==='boolean'?note.started:null:null,
   pts:box.pts,reb:box.reb,oreb:values.player_offensive_rebounds,dreb:values.player_defensive_rebounds,ast:box.ast,to:box.to,
   stl:box.stl,blk:box.blk,pf:box.pf,fgm:box.fgm,fga:box.fga,tpm:box.tpm,tpa:box.tpa,ftm:box.ftm,fta:box.fta,out:note?.out||[]};

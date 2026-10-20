@@ -88,6 +88,70 @@ PRIZEPICKS_LABELS = {**MARKETS, "player_threes_attempts": "3-PT Attempted", "pla
                      "player_double_double": "Double-Double"}
 PRIZEPICKS_MARKETS.update({"tripledouble": "player_triple_double", "tripledoubles": "player_triple_double"})
 PRIZEPICKS_LABELS["player_triple_double"] = "Triple-Double"
+# First-quarter and first-half lines (backend/sports/wnba/periods.py): any of
+# PrizePicks' spellings ("1Q Points", "Points - 1st Half", "1H Pts+Rebs").
+from backend.sports.wnba import periods as _periods  # noqa: E402
+PRIZEPICKS_LABELS.update(_periods.LABELS)
+_PERIOD_TOKENS = {"1q": ("1stquarter", "firstquarter", "1stqtr", "1qtr", "1q", "q1"),
+                  "1h": ("1sthalf", "firsthalf", "1h", "h1")}
+_PERIOD_BASES = {**PRIZEPICKS_MARKETS, "pts": "player_points", "rebs": "player_rebounds", "asts": "player_assists"}
+
+
+def _market_of(stat):
+    """PrizePicks' stat name (lower case, letters and digits only) as the
+    board's market key: its full-game stats, then a first quarter or first
+    half of one (periods.py), else its own name."""
+    if stat in PRIZEPICKS_MARKETS:
+        return PRIZEPICKS_MARKETS[stat]
+    for suffix, tokens in _PERIOD_TOKENS.items():
+        for token in tokens:
+            if stat.startswith(token):
+                rest = stat[len(token):]
+            elif stat.endswith(token):
+                rest = stat[:-len(token)]
+            else:
+                continue
+            key = f"{_PERIOD_BASES[rest]}_{suffix}" if rest in _PERIOD_BASES else None
+            if key in _periods.PERIOD_FIELDS:
+                return key
+    return f"pp:{stat}"
+
+
+_period_memory = {}
+
+
+def _period_rows(league, seasons):
+    """player id -> {game id: his first-quarter/first-half row} over the
+    stored seasons (periods.py), kept while those seasons are unchanged."""
+    from backend.sports.wnba import league as season_store
+    payloads = [(year, season_store.stored(year, league)) for year in seasons]
+    key = (league, tuple((year, (payload or {}).get("builtAt"), len((payload or {}).get("games") or {})) for year, payload in payloads))
+    if _period_memory.get(league, (None,))[0] == key:
+        return _period_memory[league][1]
+    index = {}
+    for _year, payload in payloads:
+        for game_id, game in ((payload or {}).get("games") or {}).items():
+            for side in (game.get("t") or {}).values():
+                for row in side.get("h") or []:
+                    index.setdefault(row[0], {})[str(game_id)] = row
+    _period_memory[league] = (key, index)
+    return index
+
+
+def _with_periods(rows, player_id, league, seasons):
+    """`rows` (his game logs) with each game's first-quarter and first-half
+    values among its markets, where the stored season has them."""
+    try:
+        mine = _period_rows(league, seasons).get(str(player_id)) or {}
+    except Exception:  # noqa: BLE001 -- the full-game history still stands
+        return rows
+    if not mine:
+        return rows
+    out = []
+    for row in rows:
+        found = mine.get(str(row.get("gameId")))
+        out.append({**row, "values": {**(row.get("values") or {}), **_periods.values_of(found)}} if found else row)
+    return out
 _memory = {"at": 0.0, "value": None}
 _roster_memory = {}
 # The league context derived from the stored season, per (league, season, builtAt).
@@ -331,7 +395,8 @@ def _history(player_id, league="wnba", season=None):
     """A player's game logs, oldest first: the WNBA season asked for, or the
     NBA's last two seasons together."""
     if league != "nba":
-        return _game_logs(player_id, season or datetime.now(timezone.utc).year).get("rows", [])
+        season = season or datetime.now(timezone.utc).year
+        return _with_periods(_game_logs(player_id, season).get("rows", []), player_id, "wnba", [season])
     rows, seen = [], set()
     for year in _nba_seasons():
         try:
@@ -343,7 +408,7 @@ def _history(player_id, league="wnba", season=None):
                 seen.add(log.get("gameId"))
                 rows.append(log)
     rows.sort(key=lambda row: row.get("date") or "")
-    return rows
+    return _with_periods(rows, player_id, "nba", _nba_seasons())
 
 
 # The most game logs one request may ask for (resource=gamelogs).
@@ -449,7 +514,7 @@ def _merge_prizepicks(rows, events, directory, now, alternates=None, lines=None)
             continue
         name = str(line.get("player") or "").strip()
         stat = re.sub(r"[^a-z0-9]", "", str(line.get("stat") or "").lower())
-        market = PRIZEPICKS_MARKETS.get(stat) or f"pp:{stat}"
+        market = _market_of(stat)
         modifier = str(line.get("odds_type") or "standard").lower()
         existing = by_key.get((name.casefold(), market, value))
         if existing:
@@ -701,7 +766,7 @@ def _nba_row(line, starts, directory, by_team):
     """One PrizePicks NBA line as a board row, on ESPN's player and game."""
     name = str(line.get("player") or "").strip()
     stat = re.sub(r"[^a-z0-9]", "", str(line.get("stat") or "").lower())
-    market = PRIZEPICKS_MARKETS.get(stat) or f"pp:{stat}"
+    market = _market_of(stat)
     modifier = str(line.get("odds_type") or "standard").lower()
     code = str(line.get("team") or "").upper()
     code = NBA_TEAM_CODES.get(code, code)

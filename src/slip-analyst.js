@@ -19,6 +19,7 @@ import {sideChance, projectStat, modelRead, modelMean, withModelPriors, profileO
 import {PLAYS as CFB_PLAYS, AGAINST_WORDS as CFB_AGAINST_WORDS} from './sports/cfb/cfb-stats.js';
 import {withSoccerMatchups, soccerText, oddsTilt} from './soccer-matchup.js';
 import {cachedSoccerLog} from './unified-finder-data.js';
+import {isPeriodMarket, periodless} from './sports/wnba/wnba-research.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
@@ -54,7 +55,7 @@ const POSITION_NAMES = {G: 'guards', F: 'forwards', C: 'centers', QB: 'QBs', RB:
 const positionName = row => (row.sport === 'nhl' && row.defensePosition === 'G' ? 'goalies' : POSITION_NAMES[row.defensePosition]) || 'the position';
 const DEFENSE_SPORTS = new Set(['wnba', 'nba', 'nfl', 'cfb', 'nhl', 'soccer']);
 const USAGE_NAMES = {wnba: 'Minutes', nba: 'Minutes', soccer: 'Minutes', nhl: 'Ice time'};
-const statWord = row => String(row.market || 'this stat').toLowerCase();
+const statWord = row => String((isPeriodMarket(row.marketKey) ? periodless(row.market) : row.market) || 'this stat').toLowerCase();
 
 // "TEX's catches": what a college stat's share is of.
 const CFB_RECEIVING = new Set(['receiving_yards', 'receptions', 'receiving_tds', 'longest_reception', 'targets']);

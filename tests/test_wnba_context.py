@@ -150,8 +150,12 @@ class ContextTests(unittest.TestCase):
         self.assertEqual(similar[0]["avg"], 25.0)  # her average in her OTHER games
 
     def test_market_mapping_covers_the_board(self):
-        # Every Odds API market, plus the ones only PrizePicks' feed posts.
-        self.assertEqual(set(context.MARKET_STAT), set(wnba_api.PRIZEPICKS_LABELS))
+        # Every Odds API market, plus the ones only PrizePicks' feed posts;
+        # a first-quarter or first-half line reads its whole-game market.
+        from backend.sports.wnba import periods
+        whole = {key for key in wnba_api.PRIZEPICKS_LABELS if key not in periods.PERIOD_FIELDS}
+        self.assertEqual(set(context.MARKET_STAT), whole)
+        self.assertTrue({key.rsplit("_", 1)[0] for key in periods.PERIOD_FIELDS} <= set(context.MARKET_STAT))
         self.assertTrue(set(wnba_api.MARKETS) <= set(context.MARKET_STAT))
 
 

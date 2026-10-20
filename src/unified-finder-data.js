@@ -1,6 +1,6 @@
 import {finderMarket, gameValue, historyChart, nameKey} from './prop-finder-core.js';
 import {teamLogoUrl} from './sports/nfl/nfl-ui-core.js';
-import {MARKET_STAT as WNBA_DVP_STAT, positionOf} from './sports/wnba/wnba-research.js';
+import {MARKET_STAT as WNBA_DVP_STAT, baseMarket, positionOf} from './sports/wnba/wnba-research.js';
 import {playerGames, statKeyOf, valueOf} from './sports/soccer/soccer-stats.js';
 import {playerGames as nhlPlayerGames, statValue as nhlValue} from './sports/nhl/nhl-stats.js';
 import {playerGames as cfbPlayerGames, statValue as cfbValue, allowedByTeam as cfbAllowed, allowTable as cfbAllowTable, AGAINST as CFB_AGAINST,
@@ -233,7 +233,8 @@ function cfbDvpPosition(value) {
 }
 /** The (position, stat) a line is judged on in its league's defense table. */
 function dvpKey(row) {
-  if (BASKETBALL.has(row.sport)) return [positionOf(row.position), WNBA_DVP_STAT[row.marketKey]];
+  // A first-quarter or first-half line: what the defense allows over whole games.
+  if (BASKETBALL.has(row.sport)) return [positionOf(row.position), WNBA_DVP_STAT[baseMarket(row.marketKey)]];
   if (row.sport === 'cfb') return [cfbDvpPosition(row.position), row.valueKey];
   return [nflDvpPosition(row.position), NFL_DVP_STAT[row.marketKey]];
 }

@@ -8,7 +8,7 @@ import {FinderResearchCard as Card} from '../../FinderResearchSections';
 import {useIsAdmin} from '../../admin-notice.js';
 import {projectStat} from '../../prop-model.js';
 import {voice} from '../../prop-insight.js';
-import {MARKET_STAT, opponentOf} from './wnba-research';
+import {MARKET_STAT, baseMarket, opponentOf} from './wnba-research';
 import {absences, gameRows, playerTiles, seasonsName, trackingTiles} from './opportunity';
 import './opportunity.css';
 
@@ -18,7 +18,7 @@ function Tile({label, value, unit, note}) {
 
 export default function Opportunity({row, player, league, matchup, tracking, statLabel}) {
   const admin = useIsAdmin();
-  const stat = MARKET_STAT[row.marketKey] || 'pts', opponent = opponentOf(row), name = row.sport === 'nba' ? 'nba' : 'wnba';
+  const stat = MARKET_STAT[baseMarket(row.marketKey)] || 'pts', opponent = opponentOf(row), name = row.sport === 'nba' ? 'nba' : 'wnba';
   const chances = player.data?.opportunity;
   const model = useMemo(() => { try { return projectStat(row); } catch { return null; } }, [row]);
   // A WNBA player in her own pronouns (prop-insight.js voice).

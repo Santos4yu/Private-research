@@ -3447,6 +3447,13 @@ function closeGameCard() {
   if (gameCard) gameCard.hidden = true;
   gameCardPinned = null;
 }
+// His first quarter or first half, on a 1Q/1H line's game card.
+function periodStrip(period) {
+  if (!period) return "";
+  const parts = [["pts", "PTS"], ["reb", "REB"], ["ast", "AST"], ["tpm", "3PM"]]
+    .filter(([key]) => Number.isFinite(period[key])).map(([key, label]) => `<i><b>${period[key]}</b> ${label}</i>`);
+  return parts.length ? `<div class="gp-period"><span>${escapeHtml(period.label)}</span>${parts.join("")}</div>` : "";
+}
 function gameCardMarkup(g) {
   const d = g.details || {};
   const num = (value) => (Number.isFinite(Number(value)) && value !== null && value !== "" ? Number(value) : null);
@@ -3473,6 +3480,7 @@ function gameCardMarkup(g) {
       ${tile("ast", "AST", show(d.ast))}${tile("to", "TO", show(d.to))}${tile("stl", "STL", show(d.stl))}${tile("blk", "BLK", show(d.blk))}
       ${tile("fg", "FG", fg, fgPct)}${tile("tp", "3PT", tp, tpPct)}${tile("ft", "FT", ft, ftPct)}${tile("pf", "PF", show(d.pf))}
     </div>
+    ${periodStrip(d.period)}
     ${out.length ? `<footer><span>Sat out</span>${out.map((person) => `<i title="${escapeHtml(person.name)} · ${escapeHtml(String(person.ppg))} points a game">${escapeHtml(shortName(person.name))} <b>${escapeHtml(String(person.ppg))}</b></i>`).join("")}</footer>` : ""}`;
 }
 function openGameCard(shell, g, pin) {

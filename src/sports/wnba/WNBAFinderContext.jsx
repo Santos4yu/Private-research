@@ -4,7 +4,7 @@ import {FinderDropdown,FinderDropdownAssets} from '../../FinderDropdown';
 import {FinderResearchTabs,FinderResearchCard as Card} from '../../FinderResearchSections';
 import {propFocus} from '../../prop-focus';
 import PropFocusTag from '../../PropFocusTag';
-import {MARKET_STAT,POSITIONS,ago,average,finite,fmt,hasPlayerContext,hasSplit,leagueOf,opponentOf,ordinal,playerContextParams,positionOf,price,rankTone,realGames,shortDate,signed,splitFilter,useWnba} from './wnba-research';
+import {MARKET_STAT,POSITIONS,baseMarket,ago,average,finite,fmt,hasPlayerContext,hasSplit,leagueOf,opponentOf,ordinal,playerContextParams,positionOf,price,rankTone,realGames,shortDate,signed,splitFilter,useWnba} from './wnba-research';
 import {useIsAdmin,QUIET} from '../../admin-notice.js';
 import Opportunity from './Opportunity';
 
@@ -274,7 +274,7 @@ function DefenderCard({row}){
  const sorted=[...listed].sort((a,b)=>sort==='tough'?(a.pts??99)-(b.pts??99):sort==='easy'?(b.pts??-1)-(a.pts??-1):b.poss-a.poss).slice(0,8);
  const chosen=defenders.find(item=>item.id===picked)||defenders.find(item=>item.id===data.likely?.id)||theirs[0]||defenders[0];
  const isLikely=chosen.id===data.likely?.id;
- const lead=LEAD[row.marketKey]||'pts',leadTile=DEF_TILES.find(([key])=>key===lead);
+ const lead=LEAD[baseMarket(row.marketKey)]||'pts',leadTile=DEF_TILES.find(([key])=>key===lead);
  const leadChange=change(lead,chosen[lead],usual?.[lead]);
  // "18.3 points per 75 vs Moody, usually 20.4" or "36.4% FG vs Moody, usually 41.7%".
  const pctLead=PCT.has(lead),unit=pctLead?'%':'';
@@ -316,7 +316,7 @@ export default function WNBAFinderContext({row,logs,matchup,filters,onToggleFilt
  const player=useWnba('player-context',playerContextParams(row),hasPlayerContext(row));
  // The NBA's own tracking (potential assists, rebound chances), when its site answers.
  const tracking=useWnba('player-tracking',{name:row.player,team:row.teamAbbr,league:'nba'},row.sport==='nba'&&Boolean(row.player));
- const stat=MARKET_STAT[row.marketKey]||'pts';
+ const stat=MARKET_STAT[baseMarket(row.marketKey)]||'pts';
  const playerPosition=positionOf(player.data?.position||row.position);
  const statLabel=useMemo(()=>Object.fromEntries(league.data?.stats||[])[stat]||row.market,[league.data,stat,row.market]);
  return <aside className="mlb-finder-context wnba-finder-context" data-tab={tab} aria-label={`${row.sport==='nba'?'NBA':'WNBA'} matchup research`}>

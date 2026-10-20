@@ -300,13 +300,16 @@ def basketball_lines(summary, sport):
     """Each player's line so far, as the basketball markets
     (backend/sports/wnba/context.py MARKET_STAT); `played` is False for a
     player who hasn't been on the floor."""
-    from backend.sports.wnba import context, league
+    from backend.sports.wnba import context, league, periods
     directory = {}
     record = league.extract_game(summary, {"id": "", "date": "", "type": "", "home": "", "away": ""}, directory)
     out = []
     for team, block in (record.get("t") or {}).items():
+        firsts = {line[0]: line for line in block.get("h") or []}
         for row in block.get("p") or []:
             values = {market: context.stat_value(row, stat) for market, stat in context.MARKET_STAT.items()}
+            # First quarter and first half so far (periods.py), for those lines.
+            values.update(periods.values_of(firsts.get(row[0])))
             out.append({"id": row[0], "name": (directory.get(row[0]) or [""])[0], "team": code(sport, team), "line": values,
                         "minutes": row[2], "starter": bool(row[1]), "played": True})
         for pid in block.get("dnp") or []:

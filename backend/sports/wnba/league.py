@@ -24,6 +24,8 @@ from datetime import datetime, timezone
 
 import requests
 
+from . import periods
+
 ESPN = "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba"
 LEAGUE_KEY = "krazy_data:wnba:v1:league:{season}"
 BUILD_LOCK_KEY = "krazy_data:wnba:v1:league_building"
@@ -269,7 +271,53 @@ def extract_game(summary: dict, game: dict, players: dict) -> dict:
         if team in record["t"]:
             record["t"][team]["z"] = [[pid, ZONES.index(zone), made, attempts]
                                       for (pid, zone), (made, attempts) in cells.items()]
+    # Each player's first quarter and first half (periods.py); [] when the
+    # play-by-play is missing or doesn't agree with the box.
+    lines = periods.period_lines(summary, record, FIELDS)
+    for team, side in record["t"].items():
+        side["h"] = lines.get(team, [])
     return record
+
+
+def backfill_periods(season: int, league: str = "wnba", deadline_seconds: float = 10.0, limit: int = 150) -> dict:
+    """Games stored before first-quarter and first-half lines were kept get
+    them, newest first (the ones the hit rates read), a batch at a time.
+    {"done": games filled, "left": games still without}."""
+    started = time.monotonic()
+    payload = stored(season, league)
+    games = (payload or {}).get("games") or {}
+    todo = sorted((game for game in games.values() if any("h" not in side for side in (game.get("t") or {}).values())),
+                  key=lambda game: game.get("date") or "", reverse=True)
+    if not todo:
+        return {"done": 0, "left": 0}
+    changed, done = set(), 0
+    executor = ThreadPoolExecutor(max_workers=12)
+    try:
+        futures = [(game, executor.submit(espn, "/summary", {"event": game["id"]}, 20, league)) for game in todo[:limit]]
+        for game, future in futures:
+            remaining = deadline_seconds - (time.monotonic() - started)
+            if remaining <= 0:
+                break
+            try:
+                summary = future.result(timeout=remaining)
+            except FuturesTimeout:
+                break
+            except Exception:  # noqa: BLE001 -- tried again next time
+                continue
+            lines = periods.period_lines(summary, game, FIELDS)
+            for team, side in (game.get("t") or {}).items():
+                side["h"] = lines.get(team, [])
+            changed.add(str(game.get("date") or "")[:7] or "undated")
+            done += 1
+    finally:
+        executor.shutdown(wait=False, cancel_futures=True)
+    if changed:
+        try:
+            _save(season, payload, league, changed)
+        except Exception:  # noqa: BLE001 -- the next tick writes it again
+            pass
+        _memory[_memory_key(season, league)] = (time.time(), payload)
+    return {"done": done, "left": len(todo) - done}
 
 
 # The KV store has a per-record limit; the same gzip envelope the NFL board

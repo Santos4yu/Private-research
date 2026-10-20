@@ -40,10 +40,18 @@ export const POSITIONS=[['G','Guards'],['F','Forwards'],['C','Centers']];
 export const opponentOf=row=>row.team===row.homeTeam?row.awayTeamAbbr:row.homeTeamAbbr;
 // The league a request is for: only the NBA says so (the WNBA is the default).
 export const leagueOf=row=>row?.sport==='nba'?'nba':undefined;
+// A first-quarter or first-half line (player_points_1q...) and the
+// whole-game market it's part of: the league's tables, splits and similar
+// players are kept for whole games, so they're read for that.
+export const isPeriodMarket=key=>/_1[qh]$/.test(String(key||''));
+export const baseMarket=key=>String(key||'').replace(/_1[qh]$/,'');
+// "1Q Points" / "Points 1st Half" -> "Points".
+export const periodless=name=>String(name||'').replace(/^\s*(1q|1h)\s+/i,'').replace(/\s+(1st\s+(quarter|half)|1q|1h)\s*$/i,'');
 // One definition, so every card asking for the player's context shares a
-// single request (wnbaGet keys on the URL, and the URL on this order).
-export const playerContextParams=row=>({playerId:row.playerId,team:row.teamAbbr,opponent:opponentOf(row),market:row.marketKey,line:row.line,league:leagueOf(row)});
-export const hasPlayerContext=row=>Boolean(row.playerId&&row.teamAbbr&&opponentOf(row)&&MARKET_STAT[row.marketKey]);
+// single request (wnbaGet keys on the URL, and the URL on this order). A
+// period line's number isn't a whole-game one, so it isn't sent.
+export const playerContextParams=row=>({playerId:row.playerId,team:row.teamAbbr,opponent:opponentOf(row),market:baseMarket(row.marketKey),line:isPeriodMarket(row.marketKey)?undefined:row.line,league:leagueOf(row)});
+export const hasPlayerContext=row=>Boolean(row.playerId&&row.teamAbbr&&opponentOf(row)&&MARKET_STAT[baseMarket(row.marketKey)]);
 // With/without choices on the chart. Several can be on at once (two
 // teammates out, one in...); the chart keeps only the games matching all of
 // them. The depth chart and the Injuries tab share this one list.

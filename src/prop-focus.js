@@ -2,7 +2,7 @@
 // being researched: its own stat (`key`) and the ones that feed it
 // (`related`). The tables light those rows up and lead with them, so one
 // look shows where to read; they follow the line as it changes.
-import {MARKET_STAT} from './sports/wnba/wnba-research.js';
+import {MARKET_STAT, baseMarket} from './sports/wnba/wnba-research.js';
 import {statKeyOf} from './sports/soccer/soccer-stats.js';
 
 // ---------------------------------------------------------------- football
@@ -207,7 +207,7 @@ export function propFocus(row) {
     return stat ? build([stat], FOOTBALL_RELATED[stat] || [], value => FOOTBALL_ROW[value] || value) : NONE;
   }
   if (sport === 'nba' || sport === 'wnba') {
-    const stat = MARKET_STAT[row.marketKey];
+    const stat = MARKET_STAT[baseMarket(row.marketKey)];
     return stat ? build([stat], BASKETBALL_RELATED[stat] || []) : NONE;
   }
   if (sport === 'nhl') {
