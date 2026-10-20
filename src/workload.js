@@ -27,17 +27,21 @@ const lastName = name => String(name || '').split(/\s+/).filter(word => word && 
 // Each league: the days between games that mean he missed some (a bye or
 // a break is shorter), when its season turns over (the month a season's
 // year starts in), the date by which every team has played a couple of
-// games (before it, not having played yet this season says nothing), and
-// whether the game log's `usage` is his own work.
+// games (before it, not having played yet this season says nothing), about
+// when its regular season ends (a player whose last game came weeks before
+// that sat out the end of it: hurt, most often), and whether the game
+// log's `usage` is his own work.
 const LEAGUES = {
-  nfl: {gap: 21, turn: 6, settled: [8, 24], own: true},
-  cfb: {gap: 21, turn: 6, settled: [8, 14], own: false},
-  nba: {gap: 9, turn: 8, settled: [10, 1], own: true},
-  wnba: {gap: 10, turn: 0, settled: [4, 30], own: true},
-  nhl: {gap: 12, turn: 8, settled: [9, 22], own: true},
-  mlb: {gap: 16, turn: 0, settled: [3, 12], own: true},
-  soccer: {gap: 24, turn: 6, settled: [8, 1], own: true},
+  nfl: {gap: 21, turn: 6, settled: [8, 24], ended: [0, 4], own: true},
+  cfb: {gap: 21, turn: 6, settled: [8, 14], ended: [10, 29], own: false},
+  nba: {gap: 9, turn: 8, settled: [10, 1], ended: [3, 12], own: true},
+  wnba: {gap: 10, turn: 0, settled: [4, 30], ended: [8, 12], own: true},
+  nhl: {gap: 12, turn: 8, settled: [9, 22], ended: [3, 16], own: true},
+  mlb: {gap: 16, turn: 0, settled: [3, 12], ended: [8, 28], own: true},
+  soccer: {gap: 24, turn: 6, settled: [8, 1], ended: [4, 18], own: true},
 };
+// Missing this much of the end of last season reads as sitting it out.
+const SAT_OUT = 21;
 // What teams usually hold back in a player's first games back.
 const EXPECTED = {nfl: 'a snap count', cfb: 'a snap count', nba: 'a minutes limit', wnba: 'a minutes limit', nhl: 'limited ice time',
   mlb: 'a pitch count', soccer: 'a minutes limit'};
@@ -55,14 +59,17 @@ const seasonOf = (time, league) => {
   return date.getUTCMonth() >= league.turn ? date.getUTCFullYear() : date.getUTCFullYear() - 1;
 };
 const settledBy = (season, league) => Date.UTC(season + (league.settled[0] < league.turn ? 1 : 0), league.settled[0], league.settled[1]);
+const endedBy = (season, league) => Date.UTC(season + (league.ended[0] < league.turn ? 1 : 0), league.ended[0], league.ended[1]);
 const shortDate = time => new Date(time).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC'});
 const ordinal = n => ['first', 'second', 'third'][n] || `${n + 1}th`;
 
 /** Did the time between `before` and `after` include games he missed? */
 function missed(before, after, league) {
   if (after - before >= league.gap * DAY && seasonOf(before, league) === seasonOf(after, league)) return true;
-  // Last season to this one: only once this season is well under way.
-  return seasonOf(before, league) < seasonOf(after, league) && after >= settledBy(seasonOf(after, league), league);
+  if (seasonOf(before, league) >= seasonOf(after, league)) return false;
+  // Last season to this one: once this season is well under way, or from
+  // opening night when he sat out the end of last season.
+  return after >= settledBy(seasonOf(after, league), league) || before < endedBy(seasonOf(before, league), league) - SAT_OUT * DAY;
 }
 
 /**

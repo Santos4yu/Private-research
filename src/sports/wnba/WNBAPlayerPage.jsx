@@ -37,7 +37,7 @@ function TrendChart({row,playerRows,logs,loading,onStat,chips,chipsNote,onChipRe
   kickoffLabel:new Date(row.startsAt).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'}),status:'Pre-game',headshot:row.headshot||null,
   stats:withLines(statTabs(playerRows,available),playerRows),startsAt:row.startsAt,statKey:row.marketKey,stat:row.market,side:row.direction==='UNDER'?'Under':'Over',line:row.line,
   chart:wnbaChart(logs,row.marketKey,opponent,games),lines:wnbaLines(playerRows,row.marketKey),linesStatus:'ready',odds:wnbaOdds(playerRows,row.marketKey),loading,onStat,
-  filters:['seasonKind'],chips,chipsNote,onChipRemove,onChipsClear}),
+  filters:['seasonKind'],seasonKind:'games',chips,chipsNote,onChipRemove,onChipsClear}),
   [row,playerRows,logs,loading,onStat,opponent,chips,chipsNote,onChipRemove,onChipsClear,games]);
  const available_=useTrendPanel(host,config);
  return <>{!available_&&<div className="wnba-board-message" role="status"><Database size={22} aria-hidden="true"/><strong>Trends could not open</strong><span>Refresh the page to reload player research.</span></div>}<div className="wnba-trend-host finder-mlb-trend-host" ref={host}/></>;

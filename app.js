@@ -3023,7 +3023,9 @@ function openGameLogModal(p, adapter = MLB_TREND_ADAPTER) {
   gameLogState.handFilter = "all";
   gameLogState.venueFilter = "all";
   gameLogState.extraFilters = {};
-  gameLogState.seasonKind = "all";
+  // A page may start without preseason games (basketball at tip-off: the
+  // last five would be preseason minutes, the Finder's aren't).
+  gameLogState.seasonKind = (trendAdapter === EXTERNAL_TREND_ADAPTER && externalTrendConfig?.seasonKind) || "all";
   gameLogState.handDataLoaded = false;
   gameLogState.gameCount = 10;
   gameLogState.windowKey = "10";
@@ -3201,15 +3203,17 @@ function extraFilterValues(field) {
 function extraFilterOn(field) {
   return trendAdapter === EXTERNAL_TREND_ADAPTER && Boolean(externalTrendConfig?.filters?.includes(field));
 }
-// Season part (config.filters "seasonKind"): every game by default, or only
+// Season part (config.filters "seasonKind"): every game by default (or the
+// page's config.seasonKind), every game but the preseason, or only
 // preseason, regular season or postseason games.
-const GL_KIND_PAIRS = [["all", "All"], ["preseason", "Preseason"], ["regular", "Regular Season"], ["postseason", "Postseason"]];
+const GL_KIND_PAIRS = [["all", "All"], ["games", "Regular + Playoffs"], ["preseason", "Preseason"], ["regular", "Regular Season"], ["postseason", "Postseason"]];
 const seasonKindOn = () => extraFilterOn("seasonKind");
 
 function filterGames(games) {
   return games.filter((g) => {
     if (gameLogState.season !== "all" && String(g.season || String(g.fullDate || "").slice(0, 4)) !== gameLogState.season) return false;
-    if (seasonKindOn() && gameLogState.seasonKind && gameLogState.seasonKind !== "all" && g.seasonKind !== gameLogState.seasonKind) return false;
+    const kind = seasonKindOn() ? gameLogState.seasonKind : "all";
+    if (kind === "games" ? g.seasonKind === "preseason" : kind && kind !== "all" && g.seasonKind !== kind) return false;
     for (const [field] of GL_EXTRA_FILTERS) {
       const wanted = gameLogState.extraFilters?.[field];
       if (wanted && wanted !== "all" && String(g[field] || "") !== wanted) return false;
@@ -3465,7 +3469,7 @@ function gameCardMarkup(g) {
       ${result}
     </header>
     <div class="gp-grid">
-      ${tile("min", "MIN", show(d.min))}${tile("usg", "USG", num(d.usage) == null ? "–" : `${num(d.usage)}%`)}${tile("pts", "PTS", show(d.pts))}${tile("reb", "REB", show(d.reb), rebounds)}
+      ${tile("min", "MIN", show(d.min))}${tile("usg", "USG", num(d.usage) == null ? "–" : `${Math.round(num(d.usage) * 10) / 10}%`)}${tile("pts", "PTS", show(d.pts))}${tile("reb", "REB", show(d.reb), rebounds)}
       ${tile("ast", "AST", show(d.ast))}${tile("to", "TO", show(d.to))}${tile("stl", "STL", show(d.stl))}${tile("blk", "BLK", show(d.blk))}
       ${tile("fg", "FG", fg, fgPct)}${tile("tp", "3PT", tp, tpPct)}${tile("ft", "FT", ft, ftPct)}${tile("pf", "PF", show(d.pf))}
     </div>

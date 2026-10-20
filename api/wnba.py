@@ -900,10 +900,21 @@ class handler(BaseHTTPRequestHandler):
             # Tip-off day, before a game has finished: the player's page reads last season.
             if resource == "player-context" and (not payload or not payload.get("games")):
                 payload, season = league.stored(season - 1, league_name), season - 1
+            if resource == "league-context":
+                # The start of a season: defenses ranked, rotations and shot
+                # zones read on a game or two would be noise (or nothing, at
+                # tip-off), so last season's games join this season's until
+                # each team has played enough (opportunity.blend).
+                from backend.sports.wnba import opportunity
+                games = len((payload or {}).get("games") or {})
+                teams = len({team for game in ((payload or {}).get("games") or {}).values() for team in (game.get("t") or {})}) or 1
+                if games * 2 / teams < opportunity.BLEND_GAMES:
+                    previous = league.stored(season - 1, league_name)
+                    payload = opportunity.blend(previous, payload) if games else previous
             if not payload or not payload.get("games"):
                 return _send(self, 503, {"error": "Season data is still being prepared. Try again shortly."})
             if resource == "league-context":
-                built = payload.get("builtAt")
+                built = (payload.get("builtAt"), tuple(payload.get("blended") or ()))
                 memory = _league_memory.get(league_name) or {}
                 if memory.get("key") != (season, built):
                     memory = {"key": (season, built), "value": context.league_context(payload)}

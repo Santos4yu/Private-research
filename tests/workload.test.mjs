@@ -112,3 +112,15 @@ test('the Scout Assistant says why: he is held back', async () => {
   assert.equal(leg.backed, false);
   assert.match(leg.redFlag, /^First game back: Skattebo hasn't played since Oct 26, 2025/);
 });
+
+test('opening night: back from sitting out the end of last season', () => {
+  const daily = (start, count, usage = 34) => Array.from({length: count}, (_, index) => ({
+    date: new Date(Date.parse(`${start}T12:00:00Z`) + index * 2 * 86400000).toISOString().slice(0, 10), value: 25, usage}));
+  const row = log => ({sport: 'nba', player: 'Test Guard', startsAt: '2026-10-21T23:30:00Z', marketKey: 'player_points', line: 24.5, gameLog: log});
+  // Hurt in February, out the rest of the season: flagged on opening night.
+  const hurt = workloadFacts(row(daily('2026-01-20', 12)), 'OVER');
+  assert.equal(hurt[0].level, 'return');
+  assert.match(hurt[0].text, /hasn't played since Feb 11, 2026/);
+  // Played into April (and the playoffs): opening night is just opening night.
+  assert.deepEqual(workloadFacts(row([...daily('2026-03-01', 20), ...daily('2026-05-02', 3)]), 'OVER'), []);
+});
