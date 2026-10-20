@@ -234,8 +234,27 @@ class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self._send(200, {})
 
+    def _bets_list(self):
+        """The member's own bets and unit size (bet_tracker.py), behind the My Bets switch."""
+        from site_controls import allowed
+        if not allowed(self.headers, 'bets'):
+            return self._send(503, {"error": "This section is temporarily unavailable", "featureDisabled": True})
+        session = session_with_live_access(self.headers)
+        if not session:
+            return self._send(401, {"error": "Sign in to see your bets.", "authRequired": True})
+        member = _member_id(self.headers, session)
+        if not member:
+            return self._send(401, {"error": "Sign in to see your bets.", "authRequired": True})
+        try:
+            import bet_tracker
+            return self._send(200, bet_tracker.listing(member))
+        except Exception:
+            return self._send(503, {"error": "Your bets are unavailable right now. Try again in a minute."})
+
     def do_GET(self):
         from site_controls import allowed
+        if (parse_qs(urlparse(self.path).query).get("action", [""])[0]).strip().lower() == "bets":
+            return self._bets_list()
         if not allowed(self.headers,'research'):
             return self._send(503, {"error":"This section is temporarily unavailable", "featureDisabled":True})
         # Live (uncached) Discord role check -- this is the "real data"
@@ -329,7 +348,7 @@ class handler(BaseHTTPRequestHandler):
         # in the side panel is there for everyone, so its export closes only
         # with the site itself (maintenance) or for a suspended member.
         source=(parse_qs(urlparse(self.path).query).get('from') or [''])[0]
-        tab='slip' if 'slip-analyzer' in self.path else 'export' if 'slip-export' in self.path else 'builder' if source=='parlay' else None
+        tab='slip' if 'slip-analyzer' in self.path else 'export' if 'slip-export' in self.path else 'bets' if 'action=bets-' in self.path else 'builder' if source=='parlay' else None
         if not allowed(self.headers,tab):return self._send(503,{'error':'This section is temporarily unavailable','featureDisabled':True})
         session = session_with_live_access(self.headers)
         if not session:
@@ -407,6 +426,28 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(400, {"error": str(exc) or "Invalid request."})
             except Exception:
                 return self._send(503, {"error": "The slip couldn't be saved right now."})
+        if action in ("bets-save", "bets-remove", "bets-unit"):
+            # The member's own bets (bet_tracker.py): add or change one, take one off, or set the unit size.
+            try:
+                content_length = int(self.headers.get("Content-Length") or 0)
+                if content_length < 1 or content_length > 16_384:
+                    return self._send(413, {"error": "Invalid request size."})
+                import bet_tracker
+                member = _member_id(self.headers, session)
+                if not member:
+                    return self._send(401, {"error": "Sign in to keep your bets."})
+                body = json.loads(self.rfile.read(content_length) or b"{}")
+                if not isinstance(body, dict):
+                    raise ValueError("Invalid request.")
+                if action == "bets-save":
+                    return self._send(200, bet_tracker.save(member, body.get("bet")))
+                if action == "bets-remove":
+                    return self._send(200, bet_tracker.remove(member, body.get("id")))
+                return self._send(200, bet_tracker.set_unit(member, body.get("unit")))
+            except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                return self._send(400, {"error": str(exc) or "Invalid request."})
+            except Exception:
+                return self._send(503, {"error": "Your bets couldn't be saved right now. Try again in a minute."})
         if action == "slip-learn":
             # The day's top picks as the site graded them, to learn from once
             # they're settled (slip_ledger.learn). Kept once each, capped a day.

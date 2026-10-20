@@ -87,6 +87,11 @@ const ICONS = {
     <rect x="5" y="5" width="14" height="14" rx="2.5" fill={active ? 'currentColor' : 'none'} stroke="none"/>
     <path d="M13 11l6.5-6.5M15 4.5h4.5V9" style={active ? INK : undefined}/>
   </>,
+  // A line climbing out of a box: My Bets.
+  bets: active => <>
+    <rect x="3.5" y="3.5" width="17" height="17" rx="4.5" fill={fill(active)}/>
+    <path d="M7.5 15.5l3-3.5 2.5 2 3.5-5" style={active ? INK : undefined}/>
+  </>,
   // Three tiles and a dot: everything else.
   more: active => <>
     <rect x="4" y="4" width="6.5" height="6.5" rx="2" fill={fill(active)}/>

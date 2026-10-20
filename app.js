@@ -171,11 +171,11 @@ const EXPERIENCE_KEY = "private_jarvis_interface";
 applyAccentTheme(loadAccentTheme(), { persist: false });
 applyExperience(localStorage.getItem(EXPERIENCE_KEY) === "true");
 
-const SCREEN_TITLES = Object.freeze({ research: "Research", finder: "Finder", moves: "Line Moves", v2: "Props", slate: "Tools", saved: "My Slip", builder: "Parlay Builder", slip: "Slip Analyzer", moneyline: "Moneylines", export: "Slip to PrizePicks", bot: "Scout Assistant", sheets: "Cheat Sheets", promos: "Promo Board", nrfi: "NRFI / YRFI", community: "Community", admin: "Admin Results" });
+const SCREEN_TITLES = Object.freeze({ research: "Research", finder: "Finder", moves: "Line Moves", v2: "Props", slate: "Tools", saved: "My Slip", builder: "Parlay Builder", slip: "Slip Analyzer", moneyline: "Moneylines", export: "Slip to PrizePicks", bot: "Scout Assistant", sheets: "Cheat Sheets", promos: "Promo Board", bets: "My Bets", nrfi: "NRFI / YRFI", community: "Community", admin: "Admin Results" });
 // The URL path for each tab differs from its internal id in a few cases
 // (v2 -> /props, slate -> /tools, slip -> /slip-analyzer) so the address
 // bar reads naturally -- everything else just uses its id as-is.
-const SCREEN_SLUGS = Object.freeze({ v2: "props", slate: "tools", slip: "slip-analyzer", sheets: "cheat-sheets", export: "slip-to-prizepicks" });
+const SCREEN_SLUGS = Object.freeze({ v2: "props", slate: "tools", slip: "slip-analyzer", sheets: "cheat-sheets", export: "slip-to-prizepicks", bets: "my-bets" });
 const SLUG_TO_TAB = Object.freeze(Object.fromEntries(Object.keys(SCREEN_TITLES).map((tab) => [SCREEN_SLUGS[tab] || tab, tab])));
 const screenScroll = new Map();
 let screenHistoryReady = false;
@@ -335,6 +335,7 @@ function cacheEls() {
   els.panelBot = document.getElementById("panel-bot");
   els.panelSheets = document.getElementById("panel-sheets");
   els.panelPromos = document.getElementById("panel-promos");
+  els.panelBets = document.getElementById("panel-bets");
   els.panelExport = document.getElementById("panel-export");
   els.panelNrfi = document.getElementById("panel-nrfi");
   els.panelAdmin = document.getElementById("panel-admin");
@@ -1332,6 +1333,7 @@ function switchTab(tab, options = {}) {
   if (els.panelBot) els.panelBot.hidden = tab !== "bot";
   if (els.panelSheets) els.panelSheets.hidden = tab !== "sheets";
   if (els.panelPromos) els.panelPromos.hidden = tab !== "promos";
+  if (els.panelBets) els.panelBets.hidden = tab !== "bets";
   if (els.panelExport) els.panelExport.hidden = tab !== "export";
   els.panelNrfi.hidden = tab !== "nrfi";
   els.panelCommunity.hidden = tab !== "community";
