@@ -114,3 +114,13 @@ test('a $1.47 entry at $2.50 a unit stays $1.47, and an odd payout is kept', asy
   assert.equal(priceText(bet), '2.1x');
   assert.equal(profitOf(bet), -0.588);
 });
+
+test('dollars are each bet at the unit size it was placed at', async () => {
+  const {summarize} = await import('../src/my-bets-core.js');
+  const bets = [bet('2026-10-01', 'win', {unit: 2.5}), bet('2026-10-02', 'loss', {unit: 5}), bet('2026-10-03', 'win')];
+  const totals = summarize(bets, 10);
+  assert.equal(totals.units, 2 - 1 + 2);
+  assert.equal(totals.money, 2 * 2.5 - 5 + 2 * 10);       // the last has no size of its own: the member's
+  assert.deepEqual(totals.sizes, [2.5, 5, 10]);
+  assert.deepEqual(summarize([bet('2026-10-01', 'win', {unit: 2.5})], 10).sizes, [2.5]);
+});

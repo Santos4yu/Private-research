@@ -14,6 +14,13 @@ what it paid. Everything else is the member's to mark.
 Profit is in units: a win pays the stake times the payout less the stake
 (American odds as their decimal price), a loss costs the stake, a push or
 void costs nothing, and a cash out returns what the member says it did.
+
+Each bet keeps the unit size it was placed at ("unit", dollars), so its
+dollars stay what they were when the member changes their unit size: a
+new size counts for the bets logged after it. A bet kept before bets had
+their own size counts at the member's size until it changes, then keeps
+the one it had. The member can also put every bet at the new size, for
+when the old one was set wrong.
 """
 from __future__ import annotations
 
@@ -111,6 +118,9 @@ def clean(raw, now=None):
     bet = {"kind": kind, "stake": round(stake, 4), "book": _short(raw.get("book"), 24), "title": _short(raw.get("title"), 90),
            "sport": raw.get("sport") if raw.get("sport") in SPORTS else "other",
            "result": raw.get("result") if raw.get("result") in RESULTS else "pending", "note": _short(raw.get("note"), 140)}
+    size = _number(raw.get("unit"))
+    if size is not None and 0 < size <= 1_000_000:
+        bet["unit"] = round(size, 2)
     if kind == "pickem":
         payout = _number(raw.get("payout"))
         if payout is None or not 1 < payout <= 10000:
@@ -173,6 +183,7 @@ def save(uid, raw, now=None):
     data = read(uid)
     wanted = str((raw or {}).get("id") or "")
     held = next((item for item in data["bets"] if item["id"] == wanted), None) if wanted else None
+    bet.setdefault("unit", (held or {}).get("unit") or data["unit"])
     if held:
         bet = {**bet, "id": held["id"], "at": held.get("at") or now.isoformat()}
         data["bets"] = [bet if item is held else item for item in data["bets"]]
@@ -197,14 +208,23 @@ def remove(uid, bet_id):
     return {"removed": removed}
 
 
-def set_unit(uid, value):
+def set_unit(uid, value, every=False):
+    """The member's unit size for the bets they log from now on. The bets
+    already kept stay at the size they had, or with `every`, all of them
+    count at this one (their units the same, their dollars at it)."""
     unit = _number(value)
     if not uid or unit is None or not 0 < unit <= 1_000_000:
         raise ValueError("Enter a unit size in dollars.")
+    unit = round(unit, 2)
     data = read(uid)
-    data["unit"] = round(unit, 2)
+    for bet in data["bets"]:
+        if every:
+            bet["unit"] = unit
+        else:
+            bet.setdefault("unit", data["unit"])
+    data["unit"] = unit
     _write(uid, data)
-    return {"unit": data["unit"]}
+    return {"unit": unit, "older": sum(bet["unit"] != unit for bet in data["bets"])}
 
 
 def settle_from_slips(bets, slips):
@@ -248,4 +268,4 @@ def listing(uid, slips_loader=None):
                 _write(uid, data)
         except Exception:  # noqa: BLE001 -- they settle on the next look
             pass
-    return {"unit": data["unit"], "bets": [{**bet, "profit": profit(bet)} for bet in data["bets"]]}
+    return {"unit": data["unit"], "bets": [{"unit": data["unit"], **bet, "profit": profit(bet)} for bet in data["bets"]]}

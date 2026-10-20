@@ -70,6 +70,29 @@ class StoreTests(unittest.TestCase):
         # Another member sees none of it.
         self.assertEqual(bet_tracker.listing("u2")["bets"], [])
 
+    def test_each_bet_keeps_its_unit_size(self):
+        old = bet_tracker.save("u1", {"kind": "pickem", "stake": 3, "payout": 1.8, "result": "win"})["bet"]
+        self.assertEqual(old["unit"], bet_tracker.DEFAULT_UNIT)
+        bet_tracker.set_unit("u1", 2.5)
+        # A bet kept before bets had their own size: counted at the member's.
+        data = json.loads(self.store.data[bet_tracker.PREFIX + "u1"])
+        data["bets"].append({"id": "aaaaaaaaaaaa", "kind": "pickem", "stake": 1, "payout": 3, "result": "loss", "date": "2026-10-01"})
+        self.store.data[bet_tracker.PREFIX + "u1"] = json.dumps(data)
+        self.assertEqual(next(bet for bet in bet_tracker.listing("u1")["bets"] if bet["id"] == "aaaaaaaaaaaa")["unit"], 2.5)
+        # Going up to $5: what's kept stays at the size it had.
+        self.assertEqual(bet_tracker.set_unit("u1", 5), {"unit": 5, "older": 2})
+        new = bet_tracker.save("u1", {"kind": "pickem", "stake": 1, "payout": 3})["bet"]
+        units = {bet["id"]: bet["unit"] for bet in bet_tracker.listing("u1")["bets"]}
+        self.assertEqual((units[old["id"]], units["aaaaaaaaaaaa"], units[new["id"]]), (10, 2.5, 5))
+        # Changing a bet keeps its size; marking it from the list sends it back.
+        bet_tracker.save("u1", {"id": old["id"], "kind": "pickem", "stake": 3, "payout": 1.8, "result": "loss"})
+        self.assertEqual(next(bet for bet in bet_tracker.listing("u1")["bets"] if bet["id"] == old["id"])["unit"], 10)
+        # Every bet at one size, when the old one was wrong: units stay, dollars follow.
+        self.assertEqual(bet_tracker.set_unit("u1", 2.5, every=True), {"unit": 2.5, "older": 0})
+        listed = bet_tracker.listing("u1")["bets"]
+        self.assertEqual({bet["unit"] for bet in listed}, {2.5})
+        self.assertEqual(next(bet for bet in listed if bet["id"] == old["id"])["stake"], 3)
+
     def test_a_slip_is_logged_once(self):
         bet_tracker.save("u1", {"kind": "pickem", "stake": 1, "payout": 3, "slipId": "slip-abc-123"})
         with self.assertRaises(ValueError):

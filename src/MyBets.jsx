@@ -137,6 +137,8 @@ function BetForm({initial,unit,slips,onSave,onDelete,onClose}){
  const stake=Number(bet.stake);
  const toWin=finite(paid)&&stake>0?stake*(paid-1):null;
  const editing=Boolean(bet.id);
+ // A bet keeps the unit size it was placed at; a new one is at theirs now.
+ const size=Number(bet.unit)>0?Number(bet.unit):unit;
  // The stake in units, or in dollars at their unit size.
  const [money,setMoney]=useState(false);
  const [picture,setPicture]=useState({state:'idle'});
@@ -154,7 +156,7 @@ function BetForm({initial,unit,slips,onSave,onDelete,onClose}){
   try{
    const read=await readPicture(file,job.signal);
    if(reading.current!==job)return;
-   setBet(current=>({...current,...betFromRead(read,unit,sport=>SPORT_NAME[sport]?sport:'other'),slipId:undefined}));
+   setBet(current=>({...current,...betFromRead(read,size,sport=>SPORT_NAME[sport]?sport:'other'),slipId:undefined}));
    setPicture({state:'read',read});
    setMoney(finite(read.stake));
   }catch(problem){
@@ -183,11 +185,11 @@ function BetForm({initial,unit,slips,onSave,onDelete,onClose}){
   if(editing)return undefined;
   const paste=event=>{const file=[...(event.clipboardData?.files||[])].find(item=>/^image\//.test(item.type));if(file){event.preventDefault();readFile(file);}};
   document.addEventListener('paste',paste);return()=>document.removeEventListener('paste',paste);
- },[editing,unit]);
+ },[editing,size]);
  const fromSlip=slip=>setBet(current=>({...current,...betFromSlip(slip,sport=>SPORT_NAME[sport]?sport:'other'),stake:current.stake||1}));
  const submit=async event=>{
   event.preventDefault();setBusy(true);setError('');
-  try{await onSave({...bet,stake:Number(bet.stake),payout:Number(bet.payout),odds:Number(bet.odds),returned:bet.result==='cashout'?Number(bet.returned):undefined,check:false});}
+  try{await onSave({...bet,unit:size,stake:Number(bet.stake),payout:Number(bet.payout),odds:Number(bet.odds),returned:bet.result==='cashout'?Number(bet.returned):undefined,check:false});}
   catch(problem){setError(problem.message);setBusy(false);}
  };
  useEffect(()=>{const close=event=>{if(event.key==='Escape')onClose();};window.addEventListener('keydown',close);return()=>window.removeEventListener('keydown',close);},[onClose]);
@@ -232,15 +234,15 @@ function BetForm({initial,unit,slips,onSave,onDelete,onClose}){
     <label><span className="mb-stake-head">Stake<span className="mb-mini" role="radiogroup" aria-label="Stake in">
       <button type="button" role="radio" aria-checked={!money} onClick={()=>setMoney(false)}>Units</button><button type="button" role="radio" aria-checked={money} onClick={()=>setMoney(true)}>$</button></span></span>
      <input type="number" inputMode="decimal" min="0" step="any" required aria-label={money?'Stake in dollars':'Stake in units'}
-      value={money?(stake>0?Math.round(stake*unit*100)/100:bet.stake):bet.stake}
-      onChange={event=>set('stake',money&&event.target.value!==''?Math.round(Number(event.target.value)/unit*10000)/10000:event.target.value)}/>
-     <small>{money?(stake>0?`${Math.round(stake*100)/100}u`:'—'):(stake>0?moneyText(stake*unit).replace('+',''):'—')} at {unitMoney(unit)} a unit</small></label>
+      value={money?(stake>0?Math.round(stake*size*100)/100:bet.stake):bet.stake}
+      onChange={event=>set('stake',money&&event.target.value!==''?Math.round(Number(event.target.value)/size*10000)/10000:event.target.value)}/>
+     <small>{money?(stake>0?`${Math.round(stake*100)/100}u`:'—'):(stake>0?moneyText(stake*size).replace('+',''):'—')} at {unitMoney(size)} a unit</small></label>
     {bet.kind==='pickem'?<label><span>Pays</span><input type="number" inputMode="decimal" min="1" step="any" value={bet.payout} onChange={event=>set('payout',event.target.value)} required/>
      <small className="mb-chips">{PAYOUTS.map(value=><button key={value} type="button" data-on={Number(bet.payout)===value?'':undefined} onClick={()=>set('payout',value)}>{value}x</button>)}</small></label>
      :<label><span>Odds</span><input type="number" inputMode="numeric" step="1" value={bet.odds} onChange={event=>set('odds',event.target.value)} required/>
      <small>Like −110 or +250</small></label>}
     <label className="mb-wide"><span>Date</span><input type="date" value={bet.date} onChange={event=>set('date',event.target.value)} required/></label>
-    <p className="mb-towin">{finite(toWin)?<>To win <b>{unitsText(toWin)}</b> · {moneyText(toWin*unit)}</>:'Enter the stake and price to see what it pays.'}</p>
+    <p className="mb-towin">{finite(toWin)?<>To win <b>{unitsText(toWin)}</b> · {moneyText(toWin*size)}</>:'Enter the stake and price to see what it pays.'}</p>
    </div>
    <div className="mb-seg mb-results" role="radiogroup" aria-label="Result">{RESULTS.map(([key,label])=><button key={key} type="button" role="radio" aria-checked={bet.result===key} data-result={key} onClick={()=>set('result',key)}>{label}</button>)}</div>
    {bet.result==='cashout'&&<label className="mb-returned"><span>Units that came back</span><input type="number" inputMode="decimal" min="0" step="any" value={bet.returned} onChange={event=>set('returned',event.target.value)} required/>
@@ -312,8 +314,8 @@ export function MyBets(){
  const mine=useMemo(()=>state.bets.filter(bet=>sport==='all'||bet.sport===sport),[state.bets,sport]);
  const shown=useMemo(()=>mine.filter(bet=>inPeriod(bet,period)),[mine,period]);
  useEffect(()=>setLimit(15),[period,sport]);
- const totals=useMemo(()=>summarize(shown),[shown]);
- const allTime=useMemo(()=>summarize(mine),[mine]);
+ const totals=useMemo(()=>summarize(shown,state.unit),[shown,state.unit]);
+ const allTime=useMemo(()=>summarize(mine,state.unit),[mine,state.unit]);
  const run=useMemo(()=>streak(shown),[shown]);
  const points=useMemo(()=>series(shown,period,now),[shown,period,now]);
  const cal=useMemo(()=>calendar(shown,period,anchor),[shown,period,anchor]);
@@ -344,6 +346,14 @@ export function MyBets(){
   setUnitNote('Saving…');
   call('bets-unit',{unit:value}).then(()=>setUnitNote('Saved')).catch(problem=>{savedUnit.current=null;setUnitNote(problem.message||'Not saved. Try again.');});
  };
+ // Bets placed at another size keep it; this puts them all at this one.
+ const older=unitNote==='Saved'?state.bets.filter(bet=>Number(bet.unit)>0&&Number(bet.unit)!==unit).length:0;
+ const [moving,setMoving]=useState(false);
+ const everyBet=()=>{
+  setMoving(true);
+  call('bets-unit',{unit,every:true}).then(()=>setState(current=>({...current,bets:current.bets.map(bet=>({...bet,unit}))})))
+   .catch(problem=>setState(current=>({...current,error:problem.message||'Not saved. Try again.'}))).finally(()=>setMoving(false));
+ };
  const typeUnit=value=>{setUnitDraft(value);clearTimeout(unitTimer.current);unitTimer.current=setTimeout(()=>saveUnit(value),800);};
  const drill=cell=>{
   if(cal.unit==='day'){setKind('day');setAnchor(cell.key);}
@@ -363,7 +373,7 @@ export function MyBets(){
     <button type="button" className="mb-primary mb-log" onClick={()=>setEditing({})}><Plus aria-hidden="true"/>Log a bet</button>
    </div>
    <div className="mb-deck-stats">
-    <div className="mb-stat mb-stat-profit" data-tone={tone(totals.units)}><span>Profit</span><b>{unitsText(totals.units,2)}</b><small>{moneyText(totals.units*unit)} at {unitMoney(unit)} a unit</small></div>
+    <div className="mb-stat mb-stat-profit" data-tone={tone(totals.units)}><span>Profit</span><b>{unitsText(totals.units,2)}</b><small>{moneyText(totals.money)} {totals.sizes.length>1?'at your unit sizes':`at ${unitMoney(totals.sizes[0]||unit)} a unit`}</small></div>
     <div className="mb-stat"><span>Record</span><b>{totals.wins}-{totals.losses}-{totals.pushes}</b><small>{totals.pending?`${totals.pending} pending`:`${totals.count} bet${totals.count===1?'':'s'}`}</small></div>
     <div className="mb-stat"><span>Win rate</span><b>{pct(totals.winRate)}</b><small>{run?`${run.kind==='W'?'Won':'Lost'} last ${run.count}`:'No results yet'}</small></div>
     <div className="mb-stat" data-tone={tone(totals.roi)}><span>ROI</span><b>{pct(totals.roi,true)}</b><small>{Number(totals.staked.toFixed(2))}u staked</small></div>
@@ -388,8 +398,12 @@ export function MyBets(){
 
   <section className="mb-card mb-unit">
    <label><span>Unit size</span><span className="mb-dollar">$<input type="number" inputMode="decimal" min="0.01" step="any" value={unitDraft} onChange={event=>typeUnit(event.target.value)} onBlur={()=>saveUnit()} onKeyDown={event=>{if(event.key==='Enter')event.currentTarget.blur();}} aria-label="Dollars per unit"/></span>{unitNote&&<small className="mb-unit-note" data-tone={unitNote==='Saved'?'up':unitNote==='Saving…'?undefined:'down'}>{unitNote}</small>}</label>
-   <p><span>{period.label}</span><b data-tone={tone(totals.units)}>{moneyText(totals.units*unit)}</b></p>
-   <p><span>All time</span><b data-tone={tone(allTime.units)}>{moneyText(allTime.units*unit)}</b></p>
+   <p><span>{period.label}</span><b data-tone={tone(totals.money)}>{moneyText(totals.money)}</b></p>
+   <p><span>All time</span><b data-tone={tone(allTime.money)}>{moneyText(allTime.money)}</b></p>
+   {older>0&&<div className="mb-unit-older">
+    <p>New bets count at {unitMoney(unit)} a unit. Your {older} older bet{older===1?'':'s'} stay at the size {older===1?'it was':'they were'} placed at, so your dollars don't change.</p>
+    <button type="button" className="mb-ghost" onClick={everyBet} disabled={moving}>{moving?'Saving…':`Use ${unitMoney(unit)} for all my bets`}</button>
+   </div>}
   </section>
 
   <section className="mb-card mb-list">

@@ -466,7 +466,7 @@ class handler(BaseHTTPRequestHandler):
                     return self._send(200, bet_tracker.save(member, body.get("bet")))
                 if action == "bets-remove":
                     return self._send(200, bet_tracker.remove(member, body.get("id")))
-                return self._send(200, bet_tracker.set_unit(member, body.get("unit")))
+                return self._send(200, bet_tracker.set_unit(member, body.get("unit"), every=body.get("every") is True))
             except (TypeError, ValueError, json.JSONDecodeError) as exc:
                 return self._send(400, {"error": str(exc) or "Invalid request."})
             except Exception:

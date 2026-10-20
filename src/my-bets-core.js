@@ -79,20 +79,28 @@ export function shiftAnchor(kind, anchor, steps) {
 
 export const inPeriod = (bet, period) => !period.start || (bet.date >= period.start && bet.date <= period.end);
 
-/** The totals for `bets`: units, staked, record, win rate and ROI. */
-export function summarize(bets) {
-  let units = 0, staked = 0, wins = 0, losses = 0, pushes = 0, pending = 0, best = null;
+/**
+ * The totals for `bets`: units, dollars, staked, record, win rate and ROI.
+ * Dollars are each bet's units at the unit size it was placed at (`unit`
+ * for one that has none), and `sizes` the sizes they were placed at.
+ */
+export function summarize(bets, unit = null) {
+  let units = 0, money = 0, staked = 0, wins = 0, losses = 0, pushes = 0, pending = 0, best = null;
+  const sizes = new Set();
   for (const bet of bets) {
     const profit = profitOf(bet);
     if (profit === null) { pending += 1; continue; }
+    const size = Number(bet.unit) > 0 ? Number(bet.unit) : Number(unit) || 0;
     units += profit;
+    money += profit * size;
+    sizes.add(size);
     if (bet.result === 'push' || bet.result === 'void') { pushes += 1; continue; }
     staked += Number(bet.stake) || 0;
     if (profit > 0) wins += 1; else if (profit < 0) losses += 1; else pushes += 1;
     if (profit > 0 && (!best || profit > best.profit)) best = {bet, profit};
   }
   const decided = wins + losses;
-  return {units, staked, wins, losses, pushes, pending, count: bets.length, best,
+  return {units, money, sizes: [...sizes], staked, wins, losses, pushes, pending, count: bets.length, best,
     winRate: decided ? wins / decided : null, roi: staked ? units / staked : null};
 }
 

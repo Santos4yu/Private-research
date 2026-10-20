@@ -110,6 +110,9 @@
 .mb-dollar input{width:76px;min-height:36px;border:0;background:transparent;color:var(--mb-text);font:750 15px var(--font-sans);outline:none}
 .mb-unit p{display:grid;gap:2px;margin:0;text-align:right}
 .mb-unit p b{font-size:17px;font-weight:800}
+.mb-unit .mb-unit-older{display:flex;align-items:center;gap:10px 14px;flex:1 1 100%;flex-wrap:wrap;margin:2px 0 0;padding:10px 12px;border-radius:12px;background:var(--mb-raised)}
+.mb-unit .mb-unit-older p{display:block;flex:1 1 260px;margin:0;color:var(--mb-muted);font-size:12.5px;line-height:1.45;text-align:left}
+.mb-unit .mb-unit-older .mb-ghost{min-height:36px;background:var(--mb-card)}
 
 /* The list */
 .mb-list ul{display:grid;margin:0;padding:0;list-style:none}
@@ -201,6 +204,8 @@
  .mb-unit{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
  .mb-unit label{grid-column:1/-1;justify-content:space-between;margin:0}
  .mb-unit p{text-align:left}
+ .mb-unit .mb-unit-older{grid-column:1/-1}
+ .mb-unit .mb-unit-older .mb-ghost{width:100%;justify-content:center}
  .mb-bet{grid-template-columns:auto minmax(0,1fr);gap:4px 10px}
  .mb-bet-side{grid-column:2;grid-template-columns:auto auto;justify-content:space-between;align-items:center;width:100%}
  .mb-sheet{place-items:end center;padding:0}
