@@ -176,6 +176,10 @@ function BetForm({initial,unit,slips,onSave,onDelete,onClose}){
      :picture.state==='read'?<div className="mb-picture-read">
       <p><b>Read from your picture</b>{[dollars(picture.read.stake)&&`${dollars(picture.read.stake)} in`,dollars(picture.read.payout)&&`pays ${dollars(picture.read.payout)}`,
         finite(picture.read.multiplier)&&picture.read.kind==='pickem'&&`${Math.round(picture.read.multiplier*100)/100}x`,READ_RESULT[picture.read.result]].filter(Boolean).join(' · ')}</p>
+      {picture.read.legs?.length>0&&<span className="mb-picture-legs">{picture.read.legs.map((leg,index)=><em key={index} data-result={leg.result||undefined}>
+       {leg.player.split(' ').slice(-1)[0]}{leg.line!=null?` ${leg.side==='UNDER'?'Less':leg.side==='OVER'?'More':''} ${leg.line}`.replace(/\s+/g,' '):''}{leg.actual!=null?` · ${leg.actual}`:''}
+       {leg.result==='hit'?' ✓':leg.result==='miss'?' ✗':leg.result==='push'?' =':''}</em>)}</span>}
+      {picture.read.doubt&&<small className="mb-picture-guess">The marks on the slip and its numbers didn't agree, so the result goes by the numbers. Check it.</small>}
       {picture.read.estimated&&<small className="mb-picture-guess">The picture didn't show the payout, so this is {(name=>/s$/i.test(name)?`${name}'`:`${name}'s`)(picture.read.app?.name||'the app')} usual {picture.read.multiplier}x for {picture.read.legs?.length} picks. Change Pays if yours is different.</small>}
       <small>Check it below, then tap Log bet. <button type="button" onClick={()=>pictureInput.current?.click()}>Use another picture</button> · <button type="button" onClick={pastePicture}>Paste another</button></small>
      </div>

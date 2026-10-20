@@ -220,3 +220,30 @@ class SlipLinesTests(unittest.TestCase):
         bet = slip_reader.normalize_bet({"app": "PrizePicks", "status": "pending", "money_lines": ["$5 to pay $15"],
                                          "legs": [{"player": "A", "result": "hit"}, {"player": "B", "result": "hit"}]})
         self.assertEqual((bet["result"], bet["paid"]), ("win", 15))
+
+
+class PickResultTests(unittest.TestCase):
+    """Each pick decided by its own numbers: the Swiatek/Burel entry is lost even when a model calls it won."""
+
+    def test_by_the_numbers(self):
+        import slip_reader
+        bet = slip_reader.normalize_bet({"app": "PrizePicks", "entry_type": "Power Play", "status": "won", "money_lines": ["$2.00 to pay $5.60"],
+                                         "legs": [{"player": "Iga Swiatek", "arrow": "down", "line": 22.5, "actual": 23, "final": True, "result": "hit"},
+                                                  {"player": "Clara Burel", "arrow": "up", "line": 5.5, "actual": 6, "final": True, "result": "hit"}]})
+        self.assertEqual([leg["result"] for leg in bet["legs"]], ["miss", "hit"])
+        self.assertEqual([leg["side"] for leg in bet["legs"]], ["UNDER", "OVER"])
+        self.assertEqual((bet["result"], bet["paid"], bet["doubt"]), ("loss", 0, True))
+
+    def test_a_game_still_to_play_keeps_it_open(self):
+        import slip_reader
+        bet = slip_reader.normalize_bet({"app": "PrizePicks", "status": "", "money_lines": ["2-Pick $10", "$5 Power Play"],
+                                         "legs": [{"player": "Anthony Edwards", "arrow": "up", "line": 0.5, "actual": 0, "final": False},
+                                                  {"player": "George Kittle", "arrow": "up", "line": 3.5, "actual": 5, "final": True}]})
+        self.assertEqual([leg["result"] for leg in bet["legs"]], [None, "hit"])
+        self.assertEqual(bet["result"], "pending")
+        # An over already past its line is a hit before the game ends; an under past it is a miss.
+        live = slip_reader.normalize_bet({"app": "PrizePicks", "money_lines": ["$5 to pay $15"],
+                                          "legs": [{"player": "A", "arrow": "up", "line": 20.5, "actual": 24, "final": False},
+                                                   {"player": "B", "arrow": "down", "line": 4.5, "actual": 6, "final": False}]})
+        self.assertEqual([leg["result"] for leg in live["legs"]], ["hit", "miss"])
+        self.assertEqual(live["result"], "loss")

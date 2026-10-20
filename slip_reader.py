@@ -86,7 +86,7 @@ TEXT_PROMPT = ("Below is the text read from a screenshot of a sports pick'em ent
 # pays or paid, and how it stands. Any kind of bet, not only player props.
 BET_SHAPE = """{"app": "", "kind": "", "entry_type": "", "stake": null, "payout": null, "to_win": null, "payout_is_profit": false, "multiplier": null,
  "odds": null, "status": "", "paid": null, "date": "", "sport": "", "money_lines": [""], "amounts": [{"label": "", "amount": null}],
- "legs": [{"player": "", "pick": "", "line": null, "side": "", "result": ""}]}"""
+ "legs": [{"player": "", "pick": "", "arrow": "", "line": null, "side": "", "actual": null, "final": false, "result": ""}]}"""
 
 BET_RULES = f"""Report what the screenshot shows about this one bet:
 - app: the app or sportsbook name.
@@ -107,14 +107,18 @@ BET_RULES = f"""Report what the screenshot shows about this one bet:
   PrizePicks writes an entry as "2-Pick $10" over "$5 Power Play": the "N-Pick" amount is what it pays, the
   "Power Play" or "Flex Play" amount is what was put in.
 - odds: the whole bet's American odds if shown (+450, -110), else null.
-- status: "won", "lost", "pending" (open, live, in progress, not settled yet), "push" (refunded, void, cancelled,
-  tie, reverted) or "cashed_out". Use the slip's own words, badges and colours (a green WIN or check, a red LOSS or X).
+- status: "won", "lost", "push" (refunded, void, cancelled, tie, reverted) or "cashed_out" only when the slip itself says
+  so in words or a badge (Win, Won, Loss, Lost, Paid, Refunded, Cashed out); "pending" when it says Pending, Open or Live;
+  otherwise "".
 - paid: the money actually paid back once settled (won, cashed out, refunded, or a flex entry that paid part),
   else null. A lost bet pays 0.
 - date: the date the bet was placed or its games were played, as YYYY-MM-DD, if shown, else "".
 - sport: nba, nfl, mlb, nhl, wnba, cfb, cbb, soccer, tennis, golf, mma, esports or other.
 - legs: each pick top to bottom: player (or team), pick as written ("Over 24.5 Points", "Knicks -3.5", "More 6.5 Rebounds"),
-  line (the number, or null), side ("over", "under" or ""), result ("hit", "miss", "push" or "" if the slip doesn't mark it).
+  arrow ("up" or "down" when the pick shows an arrow next to its line: up is More, down is Less, else ""),
+  line (the number the pick is on, or null), side ("over", "under" or ""),
+  actual (the number the slip shows for how the player actually did, usually under or beside the pick's progress bar, else null),
+  final (true when that pick's game shows Final), and result ("hit" for a green check, "miss" for a red X, "push", or "").
 Never invent a number you can't see; use null for anything that isn't there.
 
 Answer with JSON only, in this shape:
@@ -659,7 +663,7 @@ def normalize_bet(raw):
     multiplier, odds = number(raw.get("multiplier")), number(raw.get("odds"))
     if odds is not None and -100 < odds < 100:
         odds = None
-    legs = []
+    legs, doubts = [], 0
     for item in (raw.get("legs") or [])[:12]:
         if not isinstance(item, dict):
             continue
@@ -667,9 +671,24 @@ def normalize_bet(raw):
         pick = _text(item.get("pick") or item.get("stat"), 60)
         if not player and not pick:
             continue
-        result = _squash(item.get("result"))
-        legs.append({"player": player or pick, "stat": pick if player else "", "line": number(item.get("line")),
-                     "side": side_of(item.get("side")) or "", "result": result if result in ("hit", "miss", "push") else None})
+        marked = _squash(item.get("result"))
+        marked = marked if marked in ("hit", "miss", "push") else None
+        arrow = _squash(item.get("arrow"))
+        side = {"up": "OVER", "down": "UNDER"}.get(arrow) or side_of(item.get("side")) or ""
+        line, actual = number(item.get("line")), number(item.get("actual"))
+        final = item.get("final") is True or _squash(item.get("final")) == "true"
+        # By the numbers when the slip shows them: an over is a hit once the
+        # player passes the line, an under a miss; at the final either way.
+        counted = None
+        if side and line is not None and actual is not None:
+            if actual > line:
+                counted = "hit" if side == "OVER" else "miss"
+            elif final:
+                counted = "push" if actual == line else "miss" if side == "OVER" else "hit"
+        if counted and marked and counted != marked:
+            doubts += 1
+        legs.append({"player": player or pick, "stat": pick if player else "", "line": line, "side": side, "actual": actual,
+                     "result": counted or marked})
     if kind not in ("pickem", "parlay", "straight"):
         kind = "parlay" if len(legs) > 1 else "straight"
     if kind == "pickem":
@@ -717,7 +736,7 @@ def normalize_bet(raw):
     if sport not in BET_SPORTS:
         sports = {sport_of(item.get("sport")) for item in raw.get("legs") or [] if isinstance(item, dict)} - {None, ""}
         sport = sports.pop() if len(sports) == 1 else "other"
-    return {"app": app, "kind": kind, "entryType": entry_type or None, "stake": stake, "payout": payout, "estimated": estimated,
+    return {"app": app, "kind": kind, "entryType": entry_type or None, "stake": stake, "payout": payout, "estimated": estimated, "doubt": bool(doubts),
             "multiplier": multiplier, "odds": int(odds) if odds is not None else None, "result": result, "paid": paid,
             "date": day if re.fullmatch(r"\d{4}-\d{2}-\d{2}", day) else None, "sport": sport, "legs": legs}
 
