@@ -306,17 +306,35 @@ class LeagueTests(unittest.TestCase):
     def setUp(self):
         reset()
 
+    def test_every_page_of_a_report_is_read(self):
+        pages = [{"data": [{"gameId": 1, "playerId": 1}, {"gameId": 1, "playerId": 2}], "total": 3},
+                 {"data": [{"gameId": 2, "playerId": 1}], "total": 3}]
+        urls = []
+        with patch.object(nhl, "_get", side_effect=lambda url, **_: (urls.append(url), pages[len(urls) - 1])[1]):
+            rows = nhl._stats("skater/summary", 'gameDate>="2026-10-01"')
+        self.assertEqual([(row["gameId"], row["playerId"]) for row in rows], [(1, 1), (1, 2), (2, 1)])
+        self.assertIn("start=0&", urls[0])
+        self.assertIn("start=2&", urls[1])
+        # A service that answers the same page again: read once, no endless asking.
+        same = {"data": [{"gameId": 1, "playerId": 1}], "total": 5}
+        with patch.object(nhl, "_get", return_value=same) as get:
+            self.assertEqual(len(nhl._stats("skater/summary", "x")), 1)
+        self.assertEqual(get.call_count, 2)
+
     def test_ranks_and_defense_by_position(self):
         stats = s.fake_stats()
         with patch.object(nhl, "_stats", stats), no_kv():
             data = nhl.league(DAY)
         self.assertEqual(data["teamCount"], 2)
         car, fla = data["teams"]["CAR"], data["teams"]["FLA"]
-        # CAR's skaters: 5 + 2 + 1 and 3 + 4 shots on goal; FLA's 4 + 1 and 5 + 2.
-        self.assertEqual(car["off"]["sog"]["l5"], [7.5, 1])
-        self.assertEqual(fla["off"]["sog"]["l5"], [6, 2])
+        # Shots for and against come from the teams' own rows (CAR 35 and 25
+        # for, 30 and 33 against), not the few skaters' lines in the sample.
+        self.assertEqual(car["off"]["sog"]["l5"], [30, 2])
+        self.assertEqual(fla["off"]["sog"]["l5"], [31.5, 1])
         # Defense: 1 allows the fewest.
-        self.assertEqual((car["def"]["sog"]["l5"], fla["def"]["sog"]["l5"]), ([6, 1], [7.5, 2]))
+        self.assertEqual((car["def"]["sog"]["l5"], fla["def"]["sog"]["l5"]), ([31.5, 2], [30, 1]))
+        # Everything else adds up the players' lines: CAR's shot attempts, 15 and 11.
+        self.assertEqual(car["off"]["attempts"]["l5"][0], 13)
         # What FLA allowed to centers: Staal's four goals over the two games.
         self.assertEqual(data["dvp"]["FLA"]["C"]["goals"]["l5"][0], 2)
         self.assertEqual(data["dvp"]["FLA"]["G"]["saves"]["l5"][0], 29)

@@ -154,11 +154,32 @@ def _web(path, timeout=12):
     return _get(f"{NHL}{path}", timeout=timeout, attempts=1, nhl=True)
 
 
+# The stats service can stop short of every row a report matches, however
+# many are asked for: it says how many there are (`total`), and the rest
+# are asked for from where its answer ended.
+STATS_PAGES = 8
+
+
 def _stats(report, cayenne, game=True):
     """Every row of one stats-service report that matches `cayenne`."""
-    url = (f"{STATS}/{report}?isAggregate=false&isGame={'true' if game else 'false'}&start=0&limit=-1"
-           f"&cayenneExp={urllib.parse.quote(cayenne)}")
-    return (_get(url, timeout=40, nhl=True) or {}).get("data") or []
+    rows, seen, start = [], set(), 0
+    for _page in range(STATS_PAGES):
+        url = (f"{STATS}/{report}?isAggregate=false&isGame={'true' if game else 'false'}&start={start}&limit=-1"
+               f"&cayenneExp={urllib.parse.quote(cayenne)}")
+        payload = _get(url, timeout=40, nhl=True) or {}
+        data = payload.get("data") or []
+        fresh = 0
+        for row in data:
+            key = (row.get("gameId"), row.get("playerId"), row.get("teamId"), row.get("teamFullName"), row.get("seasonId"))
+            if key not in seen:
+                seen.add(key)
+                rows.append(row)
+                fresh += 1
+        start += len(data)
+        total = payload.get("total")
+        if not fresh or not isinstance(total, int) or len(rows) >= total:
+            break
+    return rows
 
 
 def _stored(key):
@@ -1139,11 +1160,17 @@ def _league_rows(day=None):
             code = _team_code(row)
             if code in TEAMS and row.get("gameId"):
                 by_team.setdefault(code, []).append(row)
-        chosen, cutoff = {}, None
+        chosen, cutoff, shots = {}, None, {}
         for code, rows in by_team.items():
             rows.sort(key=lambda row: (str(row.get("gameDate")), str(row.get("gameId"))))
             recent = rows[-LEAGUE_GAMES:]
             chosen[code] = [str(row["gameId"]) for row in recent]
+            # The team's own count of its shots for and against: whole, where
+            # the players' lines add up only what each report hands back.
+            for row in recent:
+                made, allowed = _num(row.get("shotsForPerGame")), _num(row.get("shotsAgainstPerGame"))
+                if made is not None and allowed is not None:
+                    shots.setdefault(str(row["gameId"]), {})[code] = [made, allowed]
             first = str(recent[0].get("gameDate"))[:10]
             cutoff = first if cutoff is None or first < cutoff else cutoff
         lines, names = {}, {}
@@ -1169,8 +1196,8 @@ def _league_rows(day=None):
                             date=str(row.get("gameDate") or "")[:10])
                 lines.setdefault(key[0], {})[key[1]] = line
                 names[key[1]] = row.get("goalieFullName") or ""
-        return {"games": chosen, "lines": lines, "names": names}
-    return _cached(f"nhl:leaguerows:{VERSION}:{season}", 3 * 3600, build, stale=3 * 24 * 3600, packed=True)
+        return {"games": chosen, "lines": lines, "names": names, "shots": shots}
+    return _cached(f"nhl:leaguerows:{VERSION}.2:{season}", 3 * 3600, build, stale=3 * 24 * 3600, packed=True)
 
 
 def _rank(table, high_first=True):
@@ -1232,6 +1259,11 @@ def league(day=None):
                 for key, _label in RANK_STATS:
                     entry["off"].setdefault(key, {})[name] = [_mean(total[key] for total in own), None]
                     entry["def"].setdefault(key, {})[name] = [_mean(total[key] for total in other), None]
+                # Shots for and against from the team's own rows, when every game has them.
+                team_shots = [(data.get("shots") or {}).get(game_id, {}).get(code) for game_id in recent]
+                if team_shots and all(team_shots):
+                    entry["off"]["sog"][name] = [_mean(made for made, _allowed in team_shots), None]
+                    entry["def"]["sog"][name] = [_mean(allowed for _made, allowed in team_shots), None]
             teams[code] = entry
             dvp[code] = {}
             for position in DVP_POSITIONS:
@@ -1259,7 +1291,7 @@ def league(day=None):
                 "dvpStats": {position: [list(item) for item in (GOALIE_DVP if position == "G" else DVP_STATS)] for position in DVP_POSITIONS},
                 "dvpPositions": list(DVP_POSITIONS), "windows": [name for name, _size in WINDOWS],
                 "logos": {code: logo(code) for code in TEAMS}, "complete": True, "builtAt": time.time(), "version": VERSION}
-    return _cached(f"nhl:league:{VERSION}.3:{season_id(day)}", 3 * 3600, build, keep=lambda value: value["teamCount"] > 0,
+    return _cached(f"nhl:league:{VERSION}.4:{season_id(day)}", 3 * 3600, build, keep=lambda value: value["teamCount"] > 0,
                    stale=3 * 24 * 3600)
 
 
