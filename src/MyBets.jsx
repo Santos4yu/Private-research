@@ -137,6 +137,7 @@ function BetForm({initial,unit,slips,onSave,onDelete,onClose}){
    const read=await readPicture(file);
    setBet(current=>({...current,...betFromRead(read,unit,sport=>SPORT_NAME[sport]?sport:'other'),slipId:undefined}));
    setPicture({state:'read',read});
+   setMoney(finite(read.stake));
   }catch(problem){setPicture({state:'error',error:problem.message});}
  };
  // The Paste button: the picture on the clipboard (iPhone asks first).
@@ -174,6 +175,7 @@ function BetForm({initial,unit,slips,onSave,onDelete,onClose}){
      :picture.state==='read'?<div className="mb-picture-read">
       <p><b>Read from your picture</b>{[dollars(picture.read.stake)&&`${dollars(picture.read.stake)} in`,dollars(picture.read.payout)&&`pays ${dollars(picture.read.payout)}`,
         finite(picture.read.multiplier)&&picture.read.kind==='pickem'&&`${picture.read.multiplier}x`,READ_RESULT[picture.read.result]].filter(Boolean).join(' · ')}</p>
+      {picture.read.estimated&&<small className="mb-picture-guess">The picture didn't show the payout, so this is {(name=>/s$/i.test(name)?`${name}'`:`${name}'s`)(picture.read.app?.name||'the app')} usual {picture.read.multiplier}x for {picture.read.legs?.length} picks. Change Pays if yours is different.</small>}
       <small>Check it below, then tap Log bet. <button type="button" onClick={()=>pictureInput.current?.click()}>Use another picture</button> · <button type="button" onClick={pastePicture}>Paste another</button></small>
      </div>
      :<div className="mb-picture-row">
@@ -300,12 +302,19 @@ export function MyBets(){
   setEditing(null);
  };
  const mark=(bet,result)=>save({...bet,result,check:false}).catch(problem=>setState(current=>({...current,error:problem.message})));
- const saveUnit=()=>{
-  const value=Number(unitDraft);
-  if(!(value>0)||value===unit)return setUnitDraft(String(unit));
+ const unitTimer=useRef(null),savedUnit=useRef(null);
+ const [unitNote,setUnitNote]=useState('');
+ const saveUnit=(raw=unitDraft)=>{
+  clearTimeout(unitTimer.current);
+  const value=Number(raw);
+  if(!(value>0)){setUnitDraft(String(unit));return;}
+  if(value===(savedUnit.current??unit))return;
+  savedUnit.current=value;
   setState(current=>({...current,unit:value}));
-  call('bets-unit',{unit:value}).catch(()=>{});
+  setUnitNote('Saving…');
+  call('bets-unit',{unit:value}).then(()=>setUnitNote('Saved')).catch(problem=>{savedUnit.current=null;setUnitNote(problem.message||'Not saved. Try again.');});
  };
+ const typeUnit=value=>{setUnitDraft(value);clearTimeout(unitTimer.current);unitTimer.current=setTimeout(()=>saveUnit(value),800);};
  const drill=cell=>{
   if(cal.unit==='day'){setKind('day');setAnchor(cell.key);}
   else if(cal.unit==='month'){setKind('month');setAnchor(`${cell.key}-01`);}
@@ -351,7 +360,7 @@ export function MyBets(){
   </section>
 
   <section className="mb-card mb-unit">
-   <label><span>Unit size</span><span className="mb-dollar">$<input type="number" inputMode="decimal" min="1" step="1" value={unitDraft} onChange={event=>setUnitDraft(event.target.value)} onBlur={saveUnit} onKeyDown={event=>{if(event.key==='Enter')event.currentTarget.blur();}} aria-label="Dollars per unit"/></span></label>
+   <label><span>Unit size</span><span className="mb-dollar">$<input type="number" inputMode="decimal" min="0.01" step="any" value={unitDraft} onChange={event=>typeUnit(event.target.value)} onBlur={()=>saveUnit()} onKeyDown={event=>{if(event.key==='Enter')event.currentTarget.blur();}} aria-label="Dollars per unit"/></span>{unitNote&&<small className="mb-unit-note" data-tone={unitNote==='Saved'?'up':unitNote==='Saving…'?undefined:'down'}>{unitNote}</small>}</label>
    <p><span>{period.label}</span><b data-tone={tone(totals.units)}>{moneyText(totals.units*unit)}</b></p>
    <p><span>All time</span><b data-tone={tone(allTime.units)}>{moneyText(allTime.units*unit)}</b></p>
   </section>

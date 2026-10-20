@@ -84,7 +84,7 @@ TEXT_PROMPT = ("Below is the text read from a screenshot of a sports pick'em ent
 
 # A bet the member placed, for My Bets (read_bet): what went in, what it
 # pays or paid, and how it stands. Any kind of bet, not only player props.
-BET_SHAPE = """{"app": "", "kind": "", "entry_type": "", "stake": null, "payout": null, "payout_is_profit": false, "multiplier": null,
+BET_SHAPE = """{"app": "", "kind": "", "entry_type": "", "stake": null, "payout": null, "to_win": null, "payout_is_profit": false, "multiplier": null,
  "odds": null, "status": "", "paid": null, "date": "", "sport": "",
  "legs": [{"player": "", "pick": "", "line": null, "side": "", "result": ""}]}"""
 
@@ -94,9 +94,12 @@ BET_RULES = f"""Report what the screenshot shows about this one bet:
   "parlay" for a sportsbook bet with two or more legs, "straight" for a sportsbook bet on one thing.
 - entry_type: "power", "flex", "parlay", "same game parlay" or "".
 - stake: the money put in (entry fee, entry, wager, risk, stake, bet amount), as a number of dollars.
-- payout: what the bet pays in total if it wins, stake included ("Payout", "To pay", "Potential payout", "Pays", "Win").
-  If the slip only shows the profit ("To win"), give that and set payout_is_profit to true.
-- multiplier: the payout multiplier if shown (5 for 5x), else null.
+- payout: what the bet pays in total if it wins, stake included ("Payout", "To pay", "Potential payout", "Pays", "Paid").
+- to_win: the amount labelled "To win" or "Win", exactly as shown, else null.
+- payout_is_profit: true only when a sportsbook shows just the profit.
+  On PrizePicks, Underdog and the other pick'em apps every amount paid ("To win", "Payout", "Paid", "$5 -> $15") is the
+  whole amount, stake included: put it in payout too and leave payout_is_profit false.
+- multiplier: the payout multiplier if shown anywhere ("3x", "5X", "10x Power Play", "Pays 6x"), else null.
 - odds: the whole bet's American odds if shown (+450, -110), else null.
 - status: "won", "lost", "pending" (open, live, in progress, not settled yet), "push" (refunded, void, cancelled,
   tie, reverted) or "cashed_out". Use the slip's own words, badges and colours (a green WIN or check, a red LOSS or X).
@@ -522,6 +525,12 @@ PICKEM_APPS = ("prizepicks", "underdog", "sleeper", "pick6", "betr", "parlayplay
 _STATUS = {"won": "win", "win": "win", "winner": "win", "lost": "loss", "loss": "loss", "lose": "loss", "pending": "pending",
            "open": "pending", "live": "pending", "inprogress": "pending", "push": "push", "void": "push", "refunded": "push",
            "cancelled": "push", "canceled": "push", "tie": "push", "reverted": "push", "cashedout": "cashout", "cashout": "cashout"}
+# The apps' usual payouts by number of picks, for an entry whose picture
+# doesn't show what it pays (goblins, demons and promos change them).
+USUAL_PAYOUTS = {
+    "prizepicks": {"power": {2: 3, 3: 5, 4: 10, 5: 20, 6: 37.5}, "flex": {3: 3, 4: 6, 5: 10, 6: 25}},
+    "underdog": {"power": {2: 3, 3: 6, 4: 10, 5: 20, 6: 35}, "flex": {3: 3, 4: 6, 5: 10, 6: 25}},
+}
 BET_SPORTS = ("nba", "nfl", "mlb", "nhl", "wnba", "cfb", "cbb", "soccer", "tennis", "golf", "mma", "esports", "other")
 
 
@@ -538,15 +547,27 @@ def normalize_bet(raw):
     if not isinstance(raw, dict):
         return None
     stake, payout, paid = number(raw.get("stake")), number(raw.get("payout")), number(raw.get("paid"))
+    to_win = number(raw.get("to_win"))
     if stake is not None and stake <= 0:
         stake = None
-    if payout is not None and raw.get("payout_is_profit") and stake:
-        payout += stake
+    app = app_of(raw.get("app"))
+    kind = _squash(raw.get("kind"))
+    # A pick'em app's entry is always a pick'em entry, and every amount it
+    # shows as paid is the whole payout ("To win $15" on a $5 entry).
+    pickem = bool(app and app["key"] in PICKEM_APPS)
+    if pickem:
+        kind = "pickem"
+        payout = payout or to_win
+    else:
+        if payout is not None and raw.get("payout_is_profit") and stake:
+            payout += stake
+        if payout is None and to_win and stake:
+            payout = to_win + stake
+    if payout is not None and stake and payout <= stake:
+        payout = None
     multiplier, odds = number(raw.get("multiplier")), number(raw.get("odds"))
     if odds is not None and -100 < odds < 100:
         odds = None
-    app = app_of(raw.get("app"))
-    kind = _squash(raw.get("kind"))
     legs = []
     for item in (raw.get("legs") or [])[:12]:
         if not isinstance(item, dict):
@@ -559,7 +580,9 @@ def normalize_bet(raw):
         legs.append({"player": player or pick, "stat": pick if player else "", "line": number(item.get("line")),
                      "side": side_of(item.get("side")) or "", "result": result if result in ("hit", "miss", "push") else None})
     if kind not in ("pickem", "parlay", "straight"):
-        kind = "pickem" if app and app["key"] in PICKEM_APPS else "parlay" if len(legs) > 1 else "straight"
+        kind = "parlay" if len(legs) > 1 else "straight"
+    if kind == "pickem":
+        odds = None
     # What a win returns per dollar in: the payout over the stake, else the
     # multiplier or the odds the slip shows.
     if stake and payout and payout > stake:
@@ -570,6 +593,14 @@ def normalize_bet(raw):
         multiplier = None
     if kind != "pickem" and multiplier and odds is None:
         odds = american(multiplier)
+    # Nothing on the picture says what a pick'em entry pays: the app's usual
+    # payout for that many picks, marked as a guess for the member to check.
+    estimated = False
+    entry_type = _squash(raw.get("entry_type"))
+    if kind == "pickem" and not multiplier and payout is None:
+        table = USUAL_PAYOUTS.get((app or {}).get("key"), {}).get("flex" if "flex" in entry_type else "power", {})
+        if table.get(len(legs)):
+            multiplier, estimated = table[len(legs)], True
     if payout is None and stake and multiplier:
         payout = round(stake * multiplier, 2)
     result = _STATUS.get(_squash(raw.get("status")), "pending")
@@ -587,7 +618,7 @@ def normalize_bet(raw):
     if sport not in BET_SPORTS:
         sports = {sport_of(item.get("sport")) for item in raw.get("legs") or [] if isinstance(item, dict)} - {None, ""}
         sport = sports.pop() if len(sports) == 1 else "other"
-    return {"app": app, "kind": kind, "entryType": _squash(raw.get("entry_type")) or None, "stake": stake, "payout": payout,
+    return {"app": app, "kind": kind, "entryType": entry_type or None, "stake": stake, "payout": payout, "estimated": estimated,
             "multiplier": multiplier, "odds": int(odds) if odds is not None else None, "result": result, "paid": paid,
             "date": day if re.fullmatch(r"\d{4}-\d{2}-\d{2}", day) else None, "sport": sport, "legs": legs}
 

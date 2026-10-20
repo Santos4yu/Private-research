@@ -246,3 +246,6 @@
  background:var(--mb-raised);color:var(--mb-text);font-size:12px;font-weight:700;cursor:pointer}
 .mb-picture-paste svg{width:20px;height:20px}
 .mb-picture-paste:hover{border-color:color-mix(in srgb,var(--mb-accent) 55%,var(--mb-line))}
+
+.mb-picture-guess{display:block;margin-top:2px;color:var(--mb-gold)!important}
+.mb-unit-note{color:var(--mb-faint);font-size:11.5px;font-weight:650}

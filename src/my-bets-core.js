@@ -209,7 +209,9 @@ const round2 = value => Math.round(value * 100) / 100;
 export function betFromRead(read, unit, sportOf = sport => sport) {
   const size = Number(unit) > 0 ? Number(unit) : 10;
   const legs = (read?.legs || []).filter(leg => leg?.player);
-  const kind = ['pickem', 'parlay', 'straight'].includes(read?.kind) ? read.kind : 'pickem';
+  // An entry on a pick'em app is a pick'em entry, whatever else the picture suggests.
+  const pickemApp = /prizepicks|underdog|sleeper|pick6|betr|parlayplay|dabble|chalkboard/i.test(`${read?.app?.key || ''} ${read?.app?.name || ''}`);
+  const kind = pickemApp ? 'pickem' : ['pickem', 'parlay', 'straight'].includes(read?.kind) ? read.kind : 'pickem';
   const names = [...new Set(legs.map(leg => leg.player))];
   const title = kind === 'straight' && legs.length === 1 ? [legs[0].player, legs[0].stat].filter(Boolean).join(' ')
     : legs.length ? `${legs.length}-pick: ${names.slice(0, 4).join(', ')}${names.length > 4 ? '…' : ''}` : `${read?.app?.name || 'Sportsbook'} bet`;

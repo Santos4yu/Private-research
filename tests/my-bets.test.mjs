@@ -93,3 +93,13 @@ test('a bet read from a picture, in units', async () => {
   assert.equal(flex.returned, 2.5);
   assert.equal(flex.title, 'Sportsbook bet');
 });
+
+test("a PrizePicks entry is pick'em even if read as a parlay", async () => {
+  const {betFromRead} = await import('../src/my-bets-core.js');
+  const bet = betFromRead({kind: 'parlay', app: {key: 'prizepicks', name: 'PrizePicks'}, stake: 5, multiplier: 3, odds: -110, result: 'pending',
+    legs: [{player: 'Anthony Edwards'}, {player: 'George Kittle'}]}, 10);
+  assert.equal(bet.kind, 'pickem');
+  assert.equal(bet.payout, 3);
+  assert.equal(bet.stake, 0.5);
+  assert.equal('odds' in bet, false);
+});

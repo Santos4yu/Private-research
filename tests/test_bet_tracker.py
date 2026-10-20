@@ -133,3 +133,23 @@ class ReadBetTests(unittest.TestCase):
         bet = self.read({"app": "PrizePicks", "status": "won"})
         self.assertIsNone(bet["stake"])
         self.assertIsNone(bet["payout"])
+
+
+class PickemReadTests(unittest.TestCase):
+    """A PrizePicks entry read as a parlay with made-up odds and its "To win" taken for profit: still a 3x pick'em entry."""
+
+    def test_prizepicks_to_win_is_the_whole_payout(self):
+        import slip_reader
+        bet = slip_reader.normalize_bet({"app": "PrizePicks", "kind": "parlay", "stake": 5, "to_win": 15, "payout_is_profit": True, "odds": -110,
+                                         "status": "pending", "legs": [{"player": "Anthony Edwards"}, {"player": "George Kittle"}]})
+        self.assertEqual((bet["kind"], bet["payout"], bet["multiplier"], bet["odds"], bet["estimated"]), ("pickem", 15, 3, None, False))
+
+    def test_no_payout_on_the_picture_uses_the_usual_one(self):
+        import slip_reader
+        bet = slip_reader.normalize_bet({"app": "PrizePicks", "stake": 5, "status": "pending", "legs": [{"player": "A"}, {"player": "B"}]})
+        self.assertEqual((bet["payout"], bet["multiplier"], bet["estimated"]), (15, 3, True))
+        flex = slip_reader.normalize_bet({"app": "PrizePicks", "entry_type": "Flex Play", "stake": 10, "legs": [{"player": n} for n in "ABCD"]})
+        self.assertEqual((flex["multiplier"], flex["payout"]), (6, 60))
+        # A sportsbook's "To win" is profit.
+        book = slip_reader.normalize_bet({"app": "FanDuel", "stake": 10, "to_win": 9.09, "legs": [{"player": "Knicks", "pick": "Knicks -3.5"}]})
+        self.assertEqual((book["kind"], book["payout"], book["odds"]), ("straight", 19.09, -110))
