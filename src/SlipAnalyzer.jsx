@@ -13,6 +13,7 @@ import {takeHandoff,onHandoff,changesSince} from './slip-handoff';
 import {loadLearning} from './learning';
 import {lookupRow} from './slip-lookup';
 import {loadGames,loadTeammates,withGame,newsOf,liveRead,anyLive} from './slip-games';
+import {loadChances,withChances} from './basketball-chances';
 import {MatchupCase} from './MatchupCase';
 import {opponentLogo,teamLogo,useCount,Img,Face,TierBadge,Records,Meter,Games,AnalystRead} from './PickParts';
 import {shareCard} from './slip-share';
@@ -371,11 +372,13 @@ export function SlipAnalyzer(){
  // checking while a game is on.
  const games=useRef({});
  const mates=useRef({});
+ // Basketball picks' chances (minutes, usage, shots), asked once per pick.
+ const chances=useRef({});
  const latest=useRef(legs);latest.current=legs;
  const withNews=useCallback(list=>list.map(leg=>{
-  const game=games.current[leg.key];
-  if(!leg.row||!game)return leg;
-  const row=withGame(leg.row,{...game,teammates:mates.current[leg.key]||[]});
+  const game=games.current[leg.key],more=chances.current[leg.key];
+  if(!leg.row||(!game&&!more))return leg;
+  const row=withChances(game?withGame(leg.row,{...game,teammates:mates.current[leg.key]||[]}):leg.row,more);
   return {...leg,row,grade:regrade(leg.grade,row,tables.current)};
  }),[]);
  const signature=legs.map(leg=>`${leg.key}:${leg.row?.id||leg.row?.player||''}`).join('|');
@@ -389,8 +392,10 @@ export function SlipAnalyzer(){
     Object.assign(games.current,found);
     // What a teammate's absence has meant, asked once per pick.
     const asking=list.filter(leg=>leg.row&&found[leg.key]&&!mates.current[leg.key]);
-    const splits=await loadTeammates(asking.map(leg=>({key:leg.key,row:withGame(leg.row,found[leg.key])})),{signal:job.signal});
+    const [splits,more]=await Promise.all([loadTeammates(asking.map(leg=>({key:leg.key,row:withGame(leg.row,found[leg.key])})),{signal:job.signal}),
+     loadChances(list.filter(leg=>leg.row&&!(leg.key in chances.current))).catch(()=>({}))]);
     for(const leg of asking)mates.current[leg.key]=splits[leg.key]||[];
+    for(const leg of list)if(leg.row&&!(leg.key in chances.current)&&(leg.row.sport==='nba'||leg.row.sport==='wnba'))chances.current[leg.key]=more[leg.key]||null;
     if(!job.signal.aborted)setLegs(current=>withNews(current));
    }catch(error){if(error.name==='AbortError')return;}
    const rows=Object.values(games.current).map(game=>({game,startsAt:game.startsAt}));

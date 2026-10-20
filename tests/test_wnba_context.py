@@ -418,5 +418,19 @@ class TrackingTests(unittest.TestCase):
         self.assertEqual(self.tracking.player(2026, "Nobody Here", get=self.get, store=FakeStore())["reason"], "not-found")
 
 
+class RestTableTests(unittest.TestCase):
+    def test_each_teams_games_near_today(self):
+        from datetime import datetime, timezone
+        now = datetime(2026, 10, 26, 12, tzinfo=timezone.utc)
+        schedule = [{"id": "1", "date": "2026-10-25T23:30Z", "home": "IND", "away": "NO"},
+                    {"id": "2", "date": "2026-10-27T00:00Z", "home": "NO", "away": "IND"},
+                    {"id": "3", "date": "2026-09-01T00:00Z", "home": "IND", "away": "BOS"},
+                    {"id": "4", "date": "not a date", "home": "IND", "away": "BOS"}]
+        table = context.rest_table(schedule, now)
+        self.assertEqual(table["IND"], ["2026-10-25T23:30Z", "2026-10-27T00:00Z"])
+        self.assertNotIn("BOS", table)
+        self.assertEqual(context.rest_table(None, now), {})
+
+
 if __name__ == "__main__":
     unittest.main()

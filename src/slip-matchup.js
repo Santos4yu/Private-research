@@ -314,8 +314,33 @@ function mlbPitcher(row, sign) {
 // Basketball -------------------------------------------------------------
 
 const POINTS_STATS = /pts|points|pra|pts\+|fantasy/i;
-function basketball(row, sign, league) {
+// Rest (league.rest, context.rest_table: each team's game times near today).
+// The second night of a back-to-back means a few fewer minutes and colder
+// shooting, and a tired defense gives up more. Days are the US Eastern
+// calendar's, as the schedule is played.
+const EASTERN = 5 * 3600000;
+const eastDay = time => new Date(time - EASTERN).toISOString().slice(0, 10);
+export function restBefore(dates, startsAt) {
+  const start = Date.parse(startsAt || '');
+  if (!finite(start) || !dates?.length) return null;
+  const today = Date.parse(`${eastDay(start)}T12:00:00Z`);
+  const days = dates.map(date => Date.parse(date)).filter(finite).map(time => Math.round((today - Date.parse(`${eastDay(time)}T12:00:00Z`)) / 86400000))
+    .filter(gap => gap > 0).sort((a, b) => a - b);
+  if (!days.length) return null;
+  return {days: days[0], backToBack: days[0] === 1, threeInFour: days.filter(gap => gap <= 3).length >= 2};
+}
+function restFacts(row, sign, rest) {
+  if (!rest || !row.startsAt) return [];
+  const mine = restBefore(rest[row.teamAbbr], row.startsAt), theirs = restBefore(rest[row.opponent], row.startsAt);
   const out = [];
+  if (mine?.backToBack) out.push(fact('rest', 'rest', `Second night of a back-to-back for ${row.teamAbbr}: tired legs mean a few fewer minutes and colder shooting, and stars sometimes sit`, -3 * sign));
+  else if (mine?.threeInFour) out.push(fact('rest', 'rest', `${row.teamAbbr}'s third game in four nights`, -1.5 * sign));
+  if (theirs?.backToBack && !mine?.backToBack) out.push(fact('rest', 'rest-opponent', `${row.opponent} played last night: a tired defense gives up more`, 2 * sign));
+  return out;
+}
+
+function basketball(row, sign, league) {
+  const out = [...restFacts(row, sign, league?.rest)];
   const defense = positionDefense(row, sign);
   if (defense) out.push(defense);
   const stats = league?.teamStats;
@@ -828,7 +853,7 @@ export function matchupCase(leg, tables = {}) {
   score = Math.round(clamp(score, 3, 97));
   const [, label, tone] = BANDS.find(([floor]) => score >= floor);
   // The news first (is he playing), then the opponent, history and splits, then form.
-  const order = {news: -1, opponent: 0, history: 1, split: 2, venue: 3, usage: 4, form: 5};
+  const order = {news: -1, opponent: 0, history: 1, split: 2, venue: 3, rest: 3, usage: 4, form: 5};
   facts.sort((a, b) => order[a.kind] - order[b.kind] || (a.rank ?? 0) - (b.rank ?? 0) || Math.abs(b.impact) - Math.abs(a.impact));
   return {score, label, tone, primary, facts};
 }

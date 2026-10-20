@@ -10,6 +10,7 @@ import {loadMatchups,withMatchups} from './slip-matchup';
 import {withPoolDefense} from './slip-analyst';
 import {gradeMatchups,withMatchup,passesMatchup,overOnly} from './krazy-bot';
 import {loadGames,loadTeammates,withGame} from './slip-games';
+import {loadChances,withChances} from './basketball-chances';
 import {HEADLINES,gradeTone} from './slip-score';
 import {shareCard} from './slip-share';
 import {builderSlip,handOff} from './slip-handoff';
@@ -73,14 +74,17 @@ async function judged(rows,sports,{signal,now}){
  const graded=gradeMatchups(candidates(listed,{now}),tables).filter(usable);
  const top=['standard','goblin','demon'].flatMap(kind=>graded.filter(leg=>leg.modifier===kind).sort((a,b)=>b.chance*b.factor-a.chance*a.factor).slice(0,NEWS_FOR));
  const asks=top.map(leg=>({key:leg.id,row:leg.row}));
- let found={},mates={};
+ let found={},mates={},chances={};
  try{
-  found=await loadGames(asks,{signal})||{};
+  // Basketball picks also get their chances (minutes, usage, shots) against what the line takes.
+  [found,chances]=await Promise.all([loadGames(asks,{signal}).then(value=>value||{}),loadChances(asks).catch(()=>({}))]);
   mates=await loadTeammates(asks.filter(item=>found[item.key]).map(item=>({key:item.key,row:withGame(item.row,found[item.key])})),{signal}).catch(()=>({}));
  }catch{/* built on the matchups alone */}
  const read=graded.map(leg=>{
-  const game=found[leg.id];
-  return game?withMatchup({...leg,chance:leg.trendChance??leg.chance,row:withGame(leg.row,{...game,teammates:mates[leg.id]||[]})},leg.matchupRequired,tables):leg;
+  const game=found[leg.id],more=chances[leg.id];
+  if(!game&&!more)return leg;
+  const row=withChances(game?withGame(leg.row,{...game,teammates:mates[leg.id]||[]}):leg.row,more);
+  return withMatchup({...leg,chance:leg.trendChance??leg.chance,row},leg.matchupRequired,tables);
  });
  const out=read.filter(usable);
  // A tier short (Lean) but still over the bar: what a slip falls back on

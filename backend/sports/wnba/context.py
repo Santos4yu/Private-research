@@ -8,6 +8,7 @@ written down next to it and repeated to the viewer in the page's notes.
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import datetime, timezone
 
 from . import opportunity
 from .league import FIELDS, ZONES
@@ -266,6 +267,30 @@ def rotation(by_team: dict, players: dict, size: int = 5, league: str = "wnba") 
     return result
 
 
+# How far either side of today a team's game dates are kept for rest (the
+# page works out back-to-backs and games in a few nights from them).
+REST_DAYS = 10
+
+
+def rest_table(schedule: list, now: datetime | None = None) -> dict:
+    """team -> the start times of its games within REST_DAYS of now, in
+    order: enough for the page to tell a back-to-back, three games in four
+    nights or a long rest before any game this week."""
+    now = now or datetime.now(timezone.utc)
+    near = {}
+    for game in schedule or []:
+        try:
+            when = datetime.fromisoformat(str(game.get("date")).replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            continue
+        if abs((when - now).total_seconds()) > REST_DAYS * 86400:
+            continue
+        for team in (game.get("home"), game.get("away")):
+            if team:
+                near.setdefault(team, []).append(game["date"])
+    return {team: sorted(dates) for team, dates in near.items()}
+
+
 def league_context(payload: dict) -> dict:
     by_team = team_games(payload)
     players = payload.get("players", {})
@@ -282,6 +307,7 @@ def league_context(payload: dict) -> dict:
         "opportunity": opportunity.team_table(by_team),
         "zoneDefense": zones, "leagueZones": league_zones,
         "rotation": rotation(by_team, players, league=payload.get("league") or "wnba"),
+        "rest": rest_table(payload.get("schedule")),
         "games": {team: len(games) for team, games in by_team.items()},
     }
 

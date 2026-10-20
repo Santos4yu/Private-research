@@ -1,11 +1,11 @@
 import React,{useState} from 'react';
-import {Activity,ArrowLeftRight,ChevronDown,Crosshair,History,ListOrdered,MapPin,Stethoscope,Users} from 'lucide-react';
+import {Activity,ArrowLeftRight,BatteryLow,ChevronDown,Crosshair,History,ListOrdered,MapPin,Stethoscope,Users} from 'lucide-react';
 import './matchup-case.css';
 
 // The matchup panel: the case for a pick (slip-matchup.js matchupCase), its
 // band and score, then each fact with what it's about. The Slip Analyzer's
 // picks and Krazy Bot's cards both show it, so they read the same.
-const FACT_ICON={opponent:Crosshair,history:History,split:ArrowLeftRight,venue:MapPin,usage:Users,form:Activity};
+const FACT_ICON={opponent:Crosshair,history:History,split:ArrowLeftRight,venue:MapPin,rest:BatteryLow,usage:Users,form:Activity};
 // The news: his status, a teammate out, his lineup spot or the starter.
 const newsIcon=key=>key==='lineup'||key==='starter'?ListOrdered:String(key).startsWith('mate:')?Users:Stethoscope;
 
