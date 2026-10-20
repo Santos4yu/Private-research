@@ -648,3 +648,16 @@
 :root .finder-multi-popover.finder-sport-popover .finder-sport-tile img{width:17px;height:17px}
 :root .finder-multi-popover.finder-sport-popover .finder-multi-options{max-height:none;padding:2px 0}
 :root .finder-multi-popover.finder-sport-popover .finder-sport-only{min-height:44px;padding:0 12px;font-size:10px;letter-spacing:.1em}
+
+/* Phones: a name still searched, shown under the search icon once the box
+   folds back, with a tap to clear it. */
+.finder-search-chip{display:none}
+@media(max-width:760px){
+ .unified-finder:not(.finder-search-expanded) .finder-search-chip{display:flex;align-items:center;gap:2px;justify-self:start;max-width:100%;height:32px;margin:0;padding:0 2px 0 0;border:1px solid color-mix(in srgb,var(--theme-accent,#3d7bff) 55%,transparent);border-radius:999px;
+  background:color-mix(in srgb,var(--theme-accent,#3d7bff) 14%,#151515);color:#f3f5f8}
+ .finder-search-chip button{display:flex;align-items:center;gap:6px;min-width:0;height:30px;padding:0 6px 0 11px;border:0;background:none;color:inherit;font-size:13px;font-weight:650;cursor:pointer}
+ .finder-search-chip button span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+ .finder-search-chip button+button{flex:none;justify-content:center;width:30px;padding:0;border-radius:50%;color:#c9cdd3}
+ .unified-finder .finder-search-row>.finder-mobile-search-toggle[data-active]{position:relative;inset:auto;color:var(--theme-accent,#3d7bff)}
+ .unified-finder .finder-mobile-search-toggle[data-active]::after{content:"";position:absolute;top:8px;right:8px;width:7px;height:7px;border-radius:50%;background:var(--theme-accent,#3d7bff)}
+}

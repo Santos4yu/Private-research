@@ -6219,6 +6219,11 @@ body::before{background:linear-gradient(115deg,transparent 12%,color-mix(in srgb
   border-color:var(--theme-border)!important;background-color:var(--theme-panel-2)!important;color:var(--theme-text)!important;
 }
 :root[data-theme] option{background:var(--theme-panel)!important;color:var(--theme-text)!important}
+/* A text box inside a field that draws the box itself stays clear, so no
+   second grey box shows inside the field. */
+:root[data-theme] :is(.mb-dollar,.command-player-field,.ss-game-search,.nfl-filter-search,.nfl-player-search,.nfl-injury-search) :is(input,textarea):not([type="range"]):not([type="checkbox"]):not([type="color"]){
+  background-color:transparent!important;
+}
 
 @media(max-width:700px){
   :root[data-theme] .pp-lines-menu,
