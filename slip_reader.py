@@ -85,7 +85,7 @@ TEXT_PROMPT = ("Below is the text read from a screenshot of a sports pick'em ent
 # A bet the member placed, for My Bets (read_bet): what went in, what it
 # pays or paid, and how it stands. Any kind of bet, not only player props.
 BET_SHAPE = """{"app": "", "kind": "", "entry_type": "", "stake": null, "payout": null, "to_win": null, "payout_is_profit": false, "multiplier": null,
- "odds": null, "status": "", "paid": null, "date": "", "sport": "", "amounts": [{"label": "", "amount": null}],
+ "odds": null, "status": "", "paid": null, "date": "", "sport": "", "money_lines": [""], "amounts": [{"label": "", "amount": null}],
  "legs": [{"player": "", "pick": "", "line": null, "side": "", "result": ""}]}"""
 
 BET_RULES = f"""Report what the screenshot shows about this one bet:
@@ -100,6 +100,8 @@ BET_RULES = f"""Report what the screenshot shows about this one bet:
   On PrizePicks, Underdog and the other pick'em apps every amount paid ("To win", "Payout", "Paid", "$5 -> $15") is the
   whole amount, stake included: put it in payout too and leave payout_is_profit false.
 - multiplier: the payout multiplier if shown anywhere ("3x", "5X", "10x Power Play", "Pays 6x"), else null.
+- money_lines: every line of text on the slip that has a dollar amount in it, copied exactly as written, word for word,
+  e.g. "$2.00 to pay $5.60", "2-Pick $10", "$5 Power Play", "Wager $20.00", "To Win $18.18", "Paid $7.50".
 - amounts: every dollar amount on the slip with the words right next to it, exactly as written, e.g.
   [{{"label": "2-Pick", "amount": 10}}, {{"label": "Power Play", "amount": 5}}] or [{{"label": "Wager", "amount": 20}}, {{"label": "To Win", "amount": 18.18}}].
   PrizePicks writes an entry as "2-Pick $10" over "$5 Power Play": the "N-Pick" amount is what it pays, the
@@ -552,6 +554,49 @@ _PAYOUT_WORDS = re.compile(r"\dpick|payout|topay|pays|paid|return|^win$|totalwin
 _TO_WIN_WORDS = re.compile(r"towin|profit")
 
 
+_MONEY = r"\$?\s*(\d[\d,]*(?:\.\d+)?)"
+
+
+def _money(text):
+    return float(text.replace(",", ""))
+
+
+def _from_lines(raw, pickem):
+    """(stake, payout, to_win) from the slip's lines with dollar amounts in
+    them, copied word for word: "$2.00 to pay $5.60", "2-Pick $10" over
+    "$5 Power Play", "Wager $20 / To Win $18.18". Read by rule, not guessed."""
+    stake = payout = to_win = None
+    for line in raw.get("money_lines") or []:
+        text = re.sub(r"\s+", " ", str(line or "")).strip()
+        if "$" not in text and not re.search(r"\d", text):
+            continue
+        pair = re.search(_MONEY + r"\s+to\s+(pay|win|return)\s+" + _MONEY, text, re.I)
+        if pair:
+            stake = _money(pair.group(1))
+            if pair.group(2).lower() == "win" and not pickem:
+                to_win = _money(pair.group(3))
+            else:
+                payout = _money(pair.group(3))
+            continue
+        picks = re.search(r"\d+\s*-?\s*pick\b[^$\d]*" + _MONEY, text, re.I)
+        if picks and payout is None:
+            payout = _money(picks.group(1))
+        play = re.search(_MONEY + r"\s*(?:power|flex)\s*play", text, re.I) \
+            or re.search(r"\b(?:entry(?:\s*fee)?|wager|risk|stake|bet\s*amount)\b\s*:?\s*" + _MONEY, text, re.I)
+        if play and stake is None:
+            stake = _money(play.group(1))
+        paid = re.search(r"\b(?:payout|potential\s*payout|to\s*pay|paid|returns?)\b\s*:?\s*" + _MONEY, text, re.I)
+        if paid and payout is None:
+            payout = _money(paid.group(1))
+        won = re.search(r"\bto\s*win\b\s*:?\s*" + _MONEY, text, re.I)
+        if won:
+            if pickem:
+                payout = payout if payout is not None else _money(won.group(1))
+            elif to_win is None:
+                to_win = _money(won.group(1))
+    return stake, payout, to_win
+
+
 def _labelled(raw, pickem):
     """(stake, payout, to_win) from the amounts read with their labels."""
     stake = payout = to_win = None
@@ -583,6 +628,11 @@ def normalize_bet(raw):
     # The amounts with their own words beside them say best which is which.
     pickem_app = bool((app_of(raw.get("app")) or {}).get("key") in PICKEM_APPS)
     said_stake, said_payout, said_to_win = _labelled(raw, pickem_app)
+    # The lines copied word for word come first; then the labelled amounts.
+    line_stake, line_payout, line_to_win = _from_lines(raw, pickem_app)
+    said_stake = line_stake if line_stake is not None else said_stake
+    if line_payout is not None or line_to_win is not None:
+        said_payout, said_to_win = line_payout, line_to_win
     if said_stake is not None:
         stake = said_stake
     if said_payout is not None:
@@ -645,6 +695,14 @@ def normalize_bet(raw):
     if payout is None and stake and multiplier:
         payout = round(stake * multiplier, 2)
     result = _STATUS.get(_squash(raw.get("status")), "pending")
+    # A power play needs every pick: one miss loses it, all hits win it
+    # (a 2-pick is always a power play; only flex entries pay part).
+    results = [leg["result"] for leg in legs]
+    power = kind == "pickem" and ("flex" not in entry_type or len(legs) <= 2)
+    if power and "miss" in results:
+        result = "loss"
+    elif power and legs and all(item == "hit" for item in results):
+        result = "win"
     if result == "loss":
         paid = 0.0
     # A flex entry that paid part, or a bet cashed out: what came back.

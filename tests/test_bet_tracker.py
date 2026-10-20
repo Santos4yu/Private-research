@@ -190,3 +190,33 @@ class PrecisionTests(unittest.TestCase):
         bet = bet_tracker.clean({"kind": "pickem", "stake": 0.588, "payout": 2.10204, "result": "win"})
         self.assertEqual((bet["stake"], bet["payout"]), (0.588, 2.102))
         self.assertAlmostEqual(bet_tracker.profit(bet) * 2.5, 1.62, places=2)   # $1.47 in, $3.09 back
+
+
+class SlipLinesTests(unittest.TestCase):
+    """Amounts read by rule from the slip's lines, copied word for word, and a power play settled by its picks."""
+
+    def test_two_dollars_to_pay_five_sixty_that_lost(self):
+        import slip_reader
+        # What a model made of it: the payout as the stake, and a "won" with part paid.
+        bet = slip_reader.normalize_bet({"app": "PrizePicks", "entry_type": "Power Play", "stake": 5.6, "status": "won", "paid": 5.6, "sport": "tennis",
+                                         "money_lines": ["2-Pick Power Play", "$2.00 to pay $5.60"],
+                                         "legs": [{"player": "Iga Swiatek", "pick": "Less 22.5 Fantasy Score", "result": "miss"},
+                                                  {"player": "Clara Burel", "pick": "More 5.5 Break Points Won", "result": "hit"}]})
+        self.assertEqual((bet["kind"], bet["stake"], bet["payout"], bet["multiplier"], bet["estimated"], bet["result"], bet["paid"], bet["sport"]),
+                         ("pickem", 2, 5.6, 2.8, False, "loss", 0, "tennis"))
+
+    def test_every_way_an_amount_is_written(self):
+        import slip_reader
+        read = lambda lines, pickem=True: slip_reader._from_lines({"money_lines": lines}, pickem)
+        self.assertEqual(read(["2-Pick $10", "$5 Power Play"]), (5, 10, None))
+        self.assertEqual(read(["2-Pick $7.50", "$3.75 Power Play"]), (3.75, 7.5, None))
+        self.assertEqual(read(["$2.00 to pay $5.60"]), (2, 5.6, None))
+        self.assertEqual(read(["Wager $20.00", "To Win $18.18"], False), (20, None, 18.18))
+        self.assertEqual(read(["$10 to win $25"], False), (10, None, 25))
+        self.assertEqual(read(["Entry Fee: $1,250.00", "Payout $3,750"]), (1250, 3750, None))
+
+    def test_a_power_play_whose_picks_all_hit_won(self):
+        import slip_reader
+        bet = slip_reader.normalize_bet({"app": "PrizePicks", "status": "pending", "money_lines": ["$5 to pay $15"],
+                                         "legs": [{"player": "A", "result": "hit"}, {"player": "B", "result": "hit"}]})
+        self.assertEqual((bet["result"], bet["paid"]), ("win", 15))
