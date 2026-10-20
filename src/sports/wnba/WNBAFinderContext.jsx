@@ -239,6 +239,72 @@ function Averages({row,logs}){
  </Card>;
 }
 
+// ---------------------------------------------------------------- Defender
+// Who guards him (NBA only): NBA.com's season matchups, per 75 possessions
+// (about a game), against his own season across every defender
+// (nba_matchups.py). Today's opponent's defenders first; tap one to see him.
+const DEF_TILES=[['pts','PTS',' /75'],['ts','TS%','%'],['tov','TOV',' /75',true],['fga','FGA',' /75'],['fg','FG%','%'],['tpa','3PA',' /75'],['tp','3P%','%'],['fta','FTA',' /75'],['ast','AST',' /75']];
+const PCT=new Set(['ts','fg','tp']);
+const nbaHead=id=>id?`https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png`:null;
+const lastWord=name=>String(name||'').split(' ').filter(part=>!/^(jr|sr|ii|iii|iv)\.?$/i.test(part)).slice(-1)[0]||name;
+// A tile's change from his usual: points for a percentage, a share otherwise.
+function change(key,value,usual){
+ if(!finite(value)||!finite(usual))return null;
+ if(PCT.has(key))return {text:`${value-usual>=0?'+':''}${fmt(value-usual,1)} pts`,diff:value-usual};
+ if(!usual)return null;
+ const share=(value-usual)/usual*100;return {text:`${share>=0?'+':''}${fmt(share,0)}%`,diff:share};
+}
+// The prop's own number for the line under the faces.
+const LEAD={player_assists:'ast',player_threes:'tp',player_threes_attempts:'tpa',player_field_goals:'fg',player_field_goals_attempts:'fga',player_frees_made:'fta',player_frees_attempts:'fta',player_turnovers:'tov'};
+function DefenderCard({row}){
+ const opponent=opponentOf(row);
+ const state=useWnba('defender',{league:'nba',player:row.player,team:row.teamAbbr,opponent},row.sport==='nba'&&Boolean(row.player&&opponent));
+ const data=state.data,defenders=data?.defenders||[],usual=data?.usual;
+ const theirs=useMemo(()=>defenders.filter(item=>item.team===data?.opponent),[defenders,data]);
+ const [scope,setScope]=useState('theirs'),[sort,setSort]=useState('poss'),[picked,setPicked]=useState(null);
+ useEffect(()=>{setPicked(null);setScope('theirs');},[row.playerId,opponent]);
+ if(state.loading&&!data)return <Card title="Who guards him" icon={Shield}><Skeleton/></Card>;
+ if(state.error)return <Card title="Who guards him" icon={Shield}><Failed state={state} label="Defender matchups"/></Card>;
+ if(!data?.player||!defenders.length)return <Card title="Who guards him" icon={Shield}><Empty>No defender tracking for {row.player} yet this season.</Empty></Card>;
+ const listed=(scope==='theirs'&&theirs.length?theirs:defenders).filter(item=>sort==='poss'||item.poss>=10);
+ const sorted=[...listed].sort((a,b)=>sort==='tough'?(a.pts??99)-(b.pts??99):sort==='easy'?(b.pts??-1)-(a.pts??-1):b.poss-a.poss).slice(0,8);
+ const chosen=defenders.find(item=>item.id===picked)||defenders.find(item=>item.id===data.likely?.id)||theirs[0]||defenders[0];
+ const isLikely=chosen.id===data.likely?.id;
+ const lead=LEAD[row.marketKey]||'pts',leadTile=DEF_TILES.find(([key])=>key===lead);
+ const leadChange=change(lead,chosen[lead],usual?.[lead]);
+ // "18.3 points per 75 vs Moody, usually 20.4" or "36.4% FG vs Moody, usually 41.7%".
+ const pctLead=PCT.has(lead),unit=pctLead?'%':'';
+ const said=`${fmt(chosen[lead],1)}${unit} ${pctLead?leadTile[1].replace('%',''):`${lead==='pts'?'points':leadTile[1]} per 75`} vs ${lastWord(chosen.name)}, usually ${fmt(usual?.[lead],1)}${unit}`;
+ const big=leadChange&&Math.abs(leadChange.diff)>=(pctLead?2:8),better=leadChange&&(lead==='tov'?leadChange.diff<0:leadChange.diff>0);
+ const verdict=!leadChange?null:`${!big?'About his usual':better?'Better than usual':'Worse than usual'}: ${said}`;
+ return <Card title="Who guards him" note={data.season} icon={Shield} className="nba-defender">
+  <div className="nd-faces">
+   <figure><Avatar src={nbaHead(data.player.id)}/><figcaption><b>{lastWord(row.player)}</b><small>{row.teamAbbr}</small></figcaption></figure>
+   <span className="nd-vs">vs</span>
+   <figure className="is-defender"><figcaption><b>{lastWord(chosen.name)}</b><small>{chosen.team||'—'}</small></figcaption><Avatar src={nbaHead(chosen.id)}/></figure>
+  </div>
+  <p className="nd-sub"><span><b>{fmt(chosen.poss,0)}</b> poss</span><span><b>{chosen.gp}</b> {chosen.gp===1?'game':'games'}</span><span><b>{fmt(chosen.min,1)}</b> min</span>
+   {isLikely&&<em data-sure={data.likely.sure}>{data.likely.sure==='likely'?'Likely defender':'Possible defender'} · {data.likely.share}% of his possessions vs {data.opponent}</em>}</p>
+  {verdict&&<p className="nd-verdict" data-tone={big?(better?'good':'poor'):'fair'}>{verdict}</p>}
+  {chosen.poss<20&&<p className="nd-small">Small sample: {fmt(chosen.poss,0)} possessions.</p>}
+  <div className="nd-tiles">{DEF_TILES.map(([key,label,unit,lowerBetter])=>{const moved=change(key,chosen[key],usual?.[key]);
+   const tone=!moved||Math.abs(moved.diff)<(PCT.has(key)?2:8)?'fair':((lowerBetter?moved.diff<0:moved.diff>0)?'good':'poor');
+   return <div key={key} data-focus={key===lead||undefined}><span>{label}{unit.includes('/75')?<i>/75</i>:null}</span><b>{finite(chosen[key])?fmt(chosen[key],1)+(PCT.has(key)?'%':''):'—'}</b>
+    <small>usual {finite(usual?.[key])?fmt(usual[key],1)+(PCT.has(key)?'%':''):'—'}</small>{moved&&<em data-tone={tone}>{moved.text}</em>}</div>;})}</div>
+  <div className="nd-list-head"><h3>Defenders he's faced</h3>
+   <div className="nd-seg" role="group" aria-label="Which defenders">{theirs.length>0&&<button type="button" aria-pressed={scope==='theirs'} onClick={()=>setScope('theirs')}>{data.opponent} <small>{theirs.length}</small></button>}
+    <button type="button" aria-pressed={scope==='all'||!theirs.length} onClick={()=>setScope('all')}>All <small>{defenders.length}</small></button></div></div>
+  <div className="nd-seg nd-sort" role="group" aria-label="Sort defenders">{[['poss','Most time'],['tough','Toughest'],['easy','Easiest']].map(([key,label])=><button type="button" key={key} aria-pressed={sort===key} onClick={()=>setSort(key)}>{label}</button>)}</div>
+  <table className="nd-table"><thead><tr><th scope="col">Defender</th><th scope="col">Poss</th><th scope="col">PTS/75</th><th scope="col">TS%</th><th scope="col">FGA/75</th></tr></thead>
+   <tbody>{sorted.map(item=><tr key={item.id} aria-selected={item.id===chosen.id} onClick={()=>setPicked(item.id)}>
+    <th scope="row"><button type="button" onClick={()=>setPicked(item.id)}><Avatar src={nbaHead(item.id)}/><span><b>{item.name}</b><small>{item.team||'—'}</small></span></button></th>
+    <td>{fmt(item.poss,0)}</td><td data-tone={finite(item.pts)&&finite(usual?.pts)?(item.pts>usual.pts*1.08?'good':item.pts<usual.pts*.92?'poor':undefined):undefined}>{fmt(item.pts,1)}</td>
+    <td>{finite(item.ts)?fmt(item.ts,1)+'%':'—'}</td><td>{fmt(item.fga,1)}</td></tr>)}</tbody></table>
+  {scope==='theirs'&&!theirs.length&&<Empty>He hasn't faced {data.opponent}'s defenders this season; showing everyone.</Empty>}
+  <p className="nd-foot">Per 75 possessions, about a game, from NBA.com's matchup tracking ({data.season}). Usual: his season across every defender ({fmt(usual?.poss,0)} possessions).</p>
+ </Card>;
+}
+
 export default function WNBAFinderContext({row,logs,matchup,filters,onToggleFilter}){
  const [tab,setTab]=useState('matchup');
  const opponent=opponentOf(row);
@@ -250,7 +316,7 @@ export default function WNBAFinderContext({row,logs,matchup,filters,onToggleFilt
  return <aside className="mlb-finder-context wnba-finder-context" data-tab={tab} aria-label={`${row.sport==='nba'?'NBA':'WNBA'} matchup research`}>
   <FinderResearchTabs tab={tab} onChange={setTab}/>
   {tab==='matchup'&&<><WinPredictor matchup={matchup}/><MatchupOdds matchup={matchup}/><LastFive matchup={matchup}/><Standings matchup={matchup} team={row.teamAbbr}/></>}
-  {tab==='defense'&&<><DefenseVsPosition league={league} row={row} stat={stat} playerPosition={playerPosition}/><OffenseVsDefense league={league} row={row}/></>}
+  {tab==='defense'&&<>{row.sport==='nba'&&<DefenderCard row={row}/>}<DefenseVsPosition league={league} row={row} stat={stat} playerPosition={playerPosition}/><OffenseVsDefense league={league} row={row}/></>}
   {tab==='shooting'&&<ShotChart player={player} league={league} row={row}/>}
   {tab==='similar'&&<SimilarPlayers player={player} row={row} statLabel={statLabel} playerPosition={playerPosition}/>}
   {tab==='injuries'&&<Injuries matchup={matchup} player={player} row={row} filters={filters} onToggleFilter={onToggleFilter}/>}

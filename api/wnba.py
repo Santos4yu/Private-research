@@ -832,6 +832,18 @@ class handler(BaseHTTPRequestHandler):
                     return _send(self, 200, {"rows": []})
                 return _send(self, 200, {"rows": [{key: identity.get(key) for key in (
                     "name", "headshot", "position", "height", "team", "teamAbbr", "teamLogo")} | {"playerId": identity.get("id")}]})
+            if resource == "defender":
+                # Who guards him (NBA.com's season matchups): the NBA only.
+                if league != "nba":
+                    return _send(self, 404, {"error": "Defender matchups are for the NBA."})
+                who, team, opponent = (query.get(key, [""])[0].strip() for key in ("player", "team", "opponent"))
+                if not who or len(who) > 60 or len(team) > 4 or len(opponent) > 4:
+                    return _send(self, 400, {"error": "A player, his team and the opponent are required."})
+                import nba_matchups
+                try:
+                    return _send(self, 200, nba_matchups.defender(who, team, opponent))
+                except nba_matchups.Unreachable as error:
+                    return _send(self, 503, {"error": str(error)})
             if resource in ("matchup", "league-context", "player-context", "game-notes"):
                 return self._context(resource, query, league)
             if resource != "board": return _send(self, 404, {"error": f"Unknown {name} resource."})
