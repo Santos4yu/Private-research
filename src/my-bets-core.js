@@ -200,3 +200,24 @@ export function betFromSlip(slip, sportOf = () => 'other') {
     date: first ? today(new Date(first)) : today(), stake: 1, result: 'pending', slipId: slip?.id,
     legs: picks.map(pick => ({player: pick.player, stat: pick.stat, line: pick.line, side: pick.side}))};
 }
+
+const round2 = value => Math.round(value * 100) / 100;
+/**
+ * A bet read from a picture (slip_reader.read_bet: dollars as the slip
+ * shows them) as the form's fields, in units at the member's unit size.
+ */
+export function betFromRead(read, unit, sportOf = sport => sport) {
+  const size = Number(unit) > 0 ? Number(unit) : 10;
+  const legs = (read?.legs || []).filter(leg => leg?.player);
+  const kind = ['pickem', 'parlay', 'straight'].includes(read?.kind) ? read.kind : 'pickem';
+  const names = [...new Set(legs.map(leg => leg.player))];
+  const title = kind === 'straight' && legs.length === 1 ? [legs[0].player, legs[0].stat].filter(Boolean).join(' ')
+    : legs.length ? `${legs.length}-pick: ${names.slice(0, 4).join(', ')}${names.length > 4 ? '…' : ''}` : `${read?.app?.name || 'Sportsbook'} bet`;
+  const out = {kind, book: read?.app?.name || '', sport: sportOf(read?.sport || 'other'), title: title.slice(0, 90),
+    stake: finite(read?.stake) ? round2(read.stake / size) : 1, result: read?.result || 'pending', date: read?.date || today(),
+    legs: legs.map(leg => ({player: leg.player, stat: leg.stat || '', line: leg.line ?? null, side: leg.side || '', result: leg.result || null}))};
+  if (kind === 'pickem') out.payout = finite(read?.multiplier) ? read.multiplier : '';
+  else out.odds = finite(read?.odds) ? read.odds : '';
+  if (out.result === 'cashout') out.returned = finite(read?.paid) ? round2(read.paid / size) : '';
+  return out;
+}

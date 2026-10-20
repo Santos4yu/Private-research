@@ -82,6 +82,38 @@ VISION_PROMPT = "This is a screenshot of a sports pick'em entry or betting slip 
 TEXT_PROMPT = ("Below is the text read from a screenshot of a sports pick'em entry or betting slip. The layout is lost, so "
                "only give a side where the text says it next to that leg; otherwise leave side empty.\n" + RULES + "\n\nTEXT:\n")
 
+# A bet the member placed, for My Bets (read_bet): what went in, what it
+# pays or paid, and how it stands. Any kind of bet, not only player props.
+BET_SHAPE = """{"app": "", "kind": "", "entry_type": "", "stake": null, "payout": null, "payout_is_profit": false, "multiplier": null,
+ "odds": null, "status": "", "paid": null, "date": "", "sport": "",
+ "legs": [{"player": "", "pick": "", "line": null, "side": "", "result": ""}]}"""
+
+BET_RULES = f"""Report what the screenshot shows about this one bet:
+- app: the app or sportsbook name.
+- kind: "pickem" for an entry on a pick'em app (PrizePicks, Underdog, Sleeper, Pick6, Betr, ParlayPlay, Dabble),
+  "parlay" for a sportsbook bet with two or more legs, "straight" for a sportsbook bet on one thing.
+- entry_type: "power", "flex", "parlay", "same game parlay" or "".
+- stake: the money put in (entry fee, entry, wager, risk, stake, bet amount), as a number of dollars.
+- payout: what the bet pays in total if it wins, stake included ("Payout", "To pay", "Potential payout", "Pays", "Win").
+  If the slip only shows the profit ("To win"), give that and set payout_is_profit to true.
+- multiplier: the payout multiplier if shown (5 for 5x), else null.
+- odds: the whole bet's American odds if shown (+450, -110), else null.
+- status: "won", "lost", "pending" (open, live, in progress, not settled yet), "push" (refunded, void, cancelled,
+  tie, reverted) or "cashed_out". Use the slip's own words, badges and colours (a green WIN or check, a red LOSS or X).
+- paid: the money actually paid back once settled (won, cashed out, refunded, or a flex entry that paid part),
+  else null. A lost bet pays 0.
+- date: the date the bet was placed or its games were played, as YYYY-MM-DD, if shown, else "".
+- sport: nba, nfl, mlb, nhl, wnba, cfb, cbb, soccer, tennis, golf, mma, esports or other.
+- legs: each pick top to bottom: player (or team), pick as written ("Over 24.5 Points", "Knicks -3.5", "More 6.5 Rebounds"),
+  line (the number, or null), side ("over", "under" or ""), result ("hit", "miss", "push" or "" if the slip doesn't mark it).
+Never invent a number you can't see; use null for anything that isn't there.
+
+Answer with JSON only, in this shape:
+{BET_SHAPE}"""
+
+BET_PROMPT = "This is a screenshot of a bet someone placed: a pick'em entry, a sportsbook parlay or a single bet. It may be open or settled.\n" + BET_RULES
+BET_TEXT_PROMPT = ("Below is the text read from a screenshot of a bet someone placed. The layout is lost.\n" + BET_RULES + "\n\nTEXT:\n")
+
 _client = None
 
 
@@ -254,13 +286,13 @@ def gemini_models(key):
     return fits or named
 
 
-def _read_gemini(data, problems):
+def _read_gemini(data, problems, prompt=VISION_PROMPT):
     key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not key:
         return None
     import requests
     data, mime = fit_image(data)
-    body = {"contents": [{"role": "user", "parts": [{"text": VISION_PROMPT},
+    body = {"contents": [{"role": "user", "parts": [{"text": prompt},
                                                    {"inline_data": {"mime_type": mime, "data": base64.b64encode(data).decode()}}]}],
             "generationConfig": {"temperature": 0, "responseMimeType": "application/json", "maxOutputTokens": 8192}}
     for model in gemini_models(key)[:4]:
@@ -285,13 +317,13 @@ def _read_gemini(data, problems):
     return None
 
 
-def _read_vision(data, problems=None):
+def _read_vision(data, problems=None, prompt=VISION_PROMPT):
     data, mime = fit_image(data)
     url = f"data:{mime};base64,{base64.b64encode(data).decode()}"
-    return _ask(VISION_MODELS, [{"type": "text", "text": VISION_PROMPT}, {"type": "image_url", "image_url": {"url": url}}], problems)
+    return _ask(VISION_MODELS, [{"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": url}}], problems)
 
 
-def _read_text(data, problems=None):
+def _read_text(data, problems=None, prompt=TEXT_PROMPT):
     import asyncio
     try:
         from analyze import _ocr_image
@@ -302,7 +334,9 @@ def _read_text(data, problems=None):
         if problems is not None:
             problems.append(f"OCR: {_scrub(text.get('error') if isinstance(text, dict) else 'no text')}")
         return None
-    raw = _ask(TEXT_MODELS, TEXT_PROMPT + text[:6000], problems)
+    raw = _ask(TEXT_MODELS, prompt + text[:6000], problems)
+    if prompt is not TEXT_PROMPT:
+        return raw
     # OCR cannot preserve which of two visible buttons is highlighted.
     # Keep the picks, but require side confirmation rather than grading a guess.
     if re.search(r"\b(more|higher|over)\b", text, re.I) and re.search(r"\b(less|lower|under)\b", text, re.I):
@@ -480,3 +514,101 @@ def read_slip(data):
         print(f"[slip-reader] read from {source} after: {detail}")
         slip["detail"] = detail
     return slip
+
+
+# ---------------------------------------------------------------- a bet, for My Bets
+
+PICKEM_APPS = ("prizepicks", "underdog", "sleeper", "pick6", "betr", "parlayplay", "dabble", "chalkboard")
+_STATUS = {"won": "win", "win": "win", "winner": "win", "lost": "loss", "loss": "loss", "lose": "loss", "pending": "pending",
+           "open": "pending", "live": "pending", "inprogress": "pending", "push": "push", "void": "push", "refunded": "push",
+           "cancelled": "push", "canceled": "push", "tie": "push", "reverted": "push", "cashedout": "cashout", "cashout": "cashout"}
+BET_SPORTS = ("nba", "nfl", "mlb", "nhl", "wnba", "cfb", "cbb", "soccer", "tennis", "golf", "mma", "esports", "other")
+
+
+def american(decimal):
+    """A decimal price as American odds (3.5 -> 250, 1.91 -> -110)."""
+    if not decimal or decimal <= 1:
+        return None
+    return round((decimal - 1) * 100) if decimal >= 2 else round(-100 / (decimal - 1))
+
+
+def normalize_bet(raw):
+    """A bet as My Bets fills its form in: dollars as read, the payout
+    worked out from whatever the slip shows, and its result."""
+    if not isinstance(raw, dict):
+        return None
+    stake, payout, paid = number(raw.get("stake")), number(raw.get("payout")), number(raw.get("paid"))
+    if stake is not None and stake <= 0:
+        stake = None
+    if payout is not None and raw.get("payout_is_profit") and stake:
+        payout += stake
+    multiplier, odds = number(raw.get("multiplier")), number(raw.get("odds"))
+    if odds is not None and -100 < odds < 100:
+        odds = None
+    app = app_of(raw.get("app"))
+    kind = _squash(raw.get("kind"))
+    legs = []
+    for item in (raw.get("legs") or [])[:12]:
+        if not isinstance(item, dict):
+            continue
+        player = _text(item.get("player"), 60)
+        pick = _text(item.get("pick") or item.get("stat"), 60)
+        if not player and not pick:
+            continue
+        result = _squash(item.get("result"))
+        legs.append({"player": player or pick, "stat": pick if player else "", "line": number(item.get("line")),
+                     "side": side_of(item.get("side")) or "", "result": result if result in ("hit", "miss", "push") else None})
+    if kind not in ("pickem", "parlay", "straight"):
+        kind = "pickem" if app and app["key"] in PICKEM_APPS else "parlay" if len(legs) > 1 else "straight"
+    # What a win returns per dollar in: the payout over the stake, else the
+    # multiplier or the odds the slip shows.
+    if stake and payout and payout > stake:
+        multiplier = round(payout / stake, 3)
+    elif not multiplier and odds:
+        multiplier = round(1 + (odds / 100 if odds > 0 else 100 / -odds), 3)
+    if multiplier is not None and not 1 < multiplier < 100000:
+        multiplier = None
+    if kind != "pickem" and multiplier and odds is None:
+        odds = american(multiplier)
+    if payout is None and stake and multiplier:
+        payout = round(stake * multiplier, 2)
+    result = _STATUS.get(_squash(raw.get("status")), "pending")
+    if result == "loss":
+        paid = 0.0
+    # A flex entry that paid part, or a bet cashed out: what came back.
+    if result == "win" and paid is not None and payout and paid < payout * 0.98:
+        result = "cashout"
+    if result == "win" and paid is None:
+        paid = payout
+    if result == "push" and paid is None:
+        paid = stake
+    day = str(raw.get("date") or "")
+    sport = _squash(raw.get("sport"))
+    if sport not in BET_SPORTS:
+        sports = {sport_of(item.get("sport")) for item in raw.get("legs") or [] if isinstance(item, dict)} - {None, ""}
+        sport = sports.pop() if len(sports) == 1 else "other"
+    return {"app": app, "kind": kind, "entryType": _squash(raw.get("entry_type")) or None, "stake": stake, "payout": payout,
+            "multiplier": multiplier, "odds": int(odds) if odds is not None else None, "result": result, "paid": paid,
+            "date": day if re.fullmatch(r"\d{4}-\d{2}-\d{2}", day) else None, "sport": sport, "legs": legs}
+
+
+def read_bet(data):
+    """The bet in this screenshot (normalize_bet), or {"error": ...}."""
+    if not mime_of(data):
+        return {"error": "Use a PNG, JPG or WEBP screenshot."}
+    gemini = bool(os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
+    if _groq() is None and not gemini:
+        return {"error": "Reading pictures isn't set up on this server yet.", "reason": "no-key"}
+    problems = []
+    raw = _read_vision(data, problems, BET_PROMPT) if _groq() is not None else None
+    if raw is None and gemini:
+        raw = _read_gemini(data, problems, BET_PROMPT)
+    if raw is None and _groq() is not None:
+        raw = _read_text(data, problems, BET_TEXT_PROMPT)
+    if raw is None:
+        print(f"[slip-reader] bet: every reader failed: {'; '.join(problems)[:900]}")
+        return {"error": "Reading pictures is unavailable right now. Try again in a minute.", "reason": "models"}
+    bet = normalize_bet(raw[0] if isinstance(raw, list) and raw else raw)
+    if not bet or (bet["stake"] is None and bet["payout"] is None):
+        return {"error": "No amount was found in that picture. Use one that shows what you put in and what it pays."}
+    return bet

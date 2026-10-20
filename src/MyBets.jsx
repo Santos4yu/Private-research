@@ -1,8 +1,9 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {AlertTriangle,CalendarDays,ChevronLeft,ChevronRight,LineChart,Plus,Trash2,X} from 'lucide-react';
-import {KINDS,PERIODS,calendar,inPeriod,moneyText,periodOf,priceText,profitOf,series,shiftAnchor,streak,summarize,today,unitsText,multiplierOf,betFromSlip} from './my-bets-core';
+import {AlertTriangle,CalendarDays,Camera,ChevronLeft,ChevronRight,LineChart,Loader2,Plus,Trash2,X} from 'lucide-react';
+import {KINDS,PERIODS,calendar,inPeriod,moneyText,periodOf,priceText,profitOf,series,shiftAnchor,streak,summarize,today,unitsText,multiplierOf,betFromSlip,betFromRead} from './my-bets-core';
 import {loadHistory} from './slip-history';
+import {shrink} from './slip-image';
 import './my-bets.css';
 
 // My Bets: each member's own bets (bet_tracker.py through /api/prediction):
@@ -29,6 +30,17 @@ async function call(action,body){
  if(!response.ok)throw new Error(data.error||'Your bets are unavailable right now.');
  return data;
 }
+
+// A picture of a bet, read on the server (slip_reader.read_bet).
+async function readPicture(file){
+ const body=await shrink(file);
+ const response=await fetch('/api/prediction?action=bets-read',{method:'POST',credentials:'same-origin',headers:{'Content-Type':body.type||'image/jpeg'},body});
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok)throw new Error(data.error||'That picture couldn\'t be read. Try again, or use a clearer one.');
+ return data;
+}
+const dollars=value=>finite(value)?`$${value.toLocaleString('en-US',{minimumFractionDigits:value%1?2:0,maximumFractionDigits:2})}`:null;
+const READ_RESULT={win:'Won',loss:'Lost',push:'Refunded',cashout:'Paid part',pending:'Not settled yet'};
 
 // ---------------------------------------------------------------- chart
 
@@ -112,6 +124,25 @@ function BetForm({initial,unit,slips,onSave,onDelete,onClose}){
  const stake=Number(bet.stake);
  const toWin=finite(paid)&&stake>0?stake*(paid-1):null;
  const editing=Boolean(bet.id);
+ // The stake in units, or in dollars at their unit size.
+ const [money,setMoney]=useState(false);
+ const [picture,setPicture]=useState({state:'idle'});
+ const pictureInput=useRef(null);
+ const readFile=async file=>{
+  if(!file||!/^image\//.test(file.type||'image/')){setPicture({state:'error',error:'Use a screenshot (PNG, JPG or WEBP).'});return;}
+  setPicture({state:'reading'});setError('');
+  try{
+   const read=await readPicture(file);
+   setBet(current=>({...current,...betFromRead(read,unit,sport=>SPORT_NAME[sport]?sport:'other'),slipId:undefined}));
+   setPicture({state:'read',read});
+  }catch(problem){setPicture({state:'error',error:problem.message});}
+ };
+ // A screenshot pasted while the form is open is read too.
+ useEffect(()=>{
+  if(editing)return undefined;
+  const paste=event=>{const file=[...(event.clipboardData?.files||[])].find(item=>/^image\//.test(item.type));if(file){event.preventDefault();readFile(file);}};
+  document.addEventListener('paste',paste);return()=>document.removeEventListener('paste',paste);
+ },[editing,unit]);
  const fromSlip=slip=>setBet(current=>({...current,...betFromSlip(slip,sport=>SPORT_NAME[sport]?sport:'other'),stake:current.stake||1}));
  const submit=async event=>{
   event.preventDefault();setBusy(true);setError('');
@@ -123,6 +154,19 @@ function BetForm({initial,unit,slips,onSave,onDelete,onClose}){
  return createPortal(<div className="my-bets mb-sheet" role="dialog" aria-modal="true" aria-label={editing?'Edit bet':'Log a bet'} onClick={event=>{if(event.target===event.currentTarget)onClose();}}>
   <form className="mb-form" onSubmit={submit}>
    <header><h2>{editing?'Edit bet':'Log a bet'}</h2><button type="button" className="mb-icon" onClick={onClose} aria-label="Close"><X aria-hidden="true"/></button></header>
+   {!editing&&<div className="mb-picture" data-state={picture.state} onDragOver={event=>event.preventDefault()} onDrop={event=>{event.preventDefault();readFile(event.dataTransfer.files?.[0]);}}>
+    <input ref={pictureInput} type="file" accept="image/*" hidden onChange={event=>{readFile(event.target.files?.[0]);event.target.value='';}}/>
+    {picture.state==='reading'?<p className="mb-picture-busy"><Loader2 aria-hidden="true"/>Reading your bet…</p>
+     :picture.state==='read'?<div className="mb-picture-read">
+      <p><b>Read from your picture</b>{[dollars(picture.read.stake)&&`${dollars(picture.read.stake)} in`,dollars(picture.read.payout)&&`pays ${dollars(picture.read.payout)}`,
+        finite(picture.read.multiplier)&&picture.read.kind==='pickem'&&`${picture.read.multiplier}x`,READ_RESULT[picture.read.result]].filter(Boolean).join(' · ')}</p>
+      <small>Check it below, then tap Log bet. <button type="button" onClick={()=>pictureInput.current?.click()}>Use another picture</button></small>
+     </div>
+     :<button type="button" className="mb-picture-pick" onClick={()=>pictureInput.current?.click()}>
+      <Camera aria-hidden="true"/><span><b>Add a picture of your bet</b><small>What you put in, what it pays and how it went are filled in for you.</small></span>
+     </button>}
+    {picture.state==='error'&&<p className="mb-picture-error" role="alert">{picture.error} <button type="button" onClick={()=>pictureInput.current?.click()}>Try another</button></p>}
+   </div>}
    {!editing&&slips.length>0&&<details className="mb-from">
     <summary>From a slip you track <small>{slips.length}</small></summary>
     <ul>{slips.map(slip=><li key={slip.id}><button type="button" data-picked={bet.slipId===slip.id?'':undefined} onClick={()=>fromSlip(slip)}>
@@ -136,8 +180,12 @@ function BetForm({initial,unit,slips,onSave,onDelete,onClose}){
     <label className="mb-wide"><span>What you bet</span><input value={bet.title} onChange={event=>set('title',event.target.value)} placeholder={bet.kind==='straight'?'Knicks −3.5':'3-pick: Brunson, Towns, Bridges'} maxLength={90}/></label>
     <label><span>App or book</span><input list="mb-books" value={bet.book} onChange={event=>set('book',event.target.value)} maxLength={24}/></label>
     <label><span>Sport</span><select value={bet.sport} onChange={event=>set('sport',event.target.value)}>{SPORTS.map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
-    <label><span>Stake (units)</span><input type="number" inputMode="decimal" min="0.01" step="0.01" value={bet.stake} onChange={event=>set('stake',event.target.value)} required/>
-     <small>{stake>0?moneyText(stake*unit).replace('+',''):'—'} at ${unit} a unit</small></label>
+    <label><span className="mb-stake-head">Stake<span className="mb-mini" role="radiogroup" aria-label="Stake in">
+      <button type="button" role="radio" aria-checked={!money} onClick={()=>setMoney(false)}>Units</button><button type="button" role="radio" aria-checked={money} onClick={()=>setMoney(true)}>$</button></span></span>
+     <input type="number" inputMode="decimal" min="0.01" step="0.01" required aria-label={money?'Stake in dollars':'Stake in units'}
+      value={money?(stake>0?Math.round(stake*unit*100)/100:bet.stake):bet.stake}
+      onChange={event=>set('stake',money&&event.target.value!==''?Math.round(Number(event.target.value)/unit*10000)/10000:event.target.value)}/>
+     <small>{money?(stake>0?`${Math.round(stake*100)/100}u`:'—'):(stake>0?moneyText(stake*unit).replace('+',''):'—')} at ${unit} a unit</small></label>
     {bet.kind==='pickem'?<label><span>Pays</span><input type="number" inputMode="decimal" min="1.01" step="0.01" value={bet.payout} onChange={event=>set('payout',event.target.value)} required/>
      <small className="mb-chips">{PAYOUTS.map(value=><button key={value} type="button" data-on={Number(bet.payout)===value?'':undefined} onClick={()=>set('payout',value)}>{value}x</button>)}</small></label>
      :<label><span>Odds</span><input type="number" inputMode="numeric" step="1" value={bet.odds} onChange={event=>set('odds',event.target.value)} required/>

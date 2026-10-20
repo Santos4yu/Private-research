@@ -426,6 +426,26 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(400, {"error": str(exc) or "Invalid request."})
             except Exception:
                 return self._send(503, {"error": "The slip couldn't be saved right now."})
+        if action == "bets-read":
+            # A picture of a bet for My Bets: what went in, what it pays or paid, how it stands (slip_reader.read_bet).
+            content_type = (self.headers.get("Content-Type") or "").split(";", 1)[0].lower()
+            if content_type not in {"image/png", "image/jpeg", "image/webp"}:
+                return self._send(415, {"error": "Use a PNG, JPG or WEBP screenshot."})
+            try:
+                content_length = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                content_length = 0
+            if content_length < 1 or content_length > 4 * 1024 * 1024:
+                return self._send(413, {"error": "The picture must be smaller than 4 MB."})
+            if not _member_id(self.headers, session):
+                return self._send(401, {"error": "Sign in to keep your bets."})
+            try:
+                import slip_reader
+                bet = slip_reader.read_bet(self.rfile.read(content_length))
+                return self._send((503 if bet.get("reason") else 422) if bet.get("error") else 200,
+                                  {"error": bet["error"]} if bet.get("error") else bet)
+            except Exception:
+                return self._send(422, {"error": "That picture couldn't be read. Try again, or use a clearer one."})
         if action in ("bets-save", "bets-remove", "bets-unit"):
             # The member's own bets (bet_tracker.py): add or change one, take one off, or set the unit size.
             try:

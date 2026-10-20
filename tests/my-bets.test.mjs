@@ -75,3 +75,21 @@ test('words and a tracked slip as a bet', () => {
   assert.equal(made.title, '2-pick Power entry');
   assert.equal(made.legs.length, 2);
 });
+
+test('a bet read from a picture, in units', async () => {
+  const {betFromRead} = await import('../src/my-bets-core.js');
+  const pickem = betFromRead({kind: 'pickem', app: {name: 'PrizePicks'}, stake: 10, payout: 50, multiplier: 5, result: 'win', paid: 50, date: '2026-10-20', sport: 'nba',
+    legs: [{player: 'Jalen Brunson', stat: 'More 24.5 Points'}, {player: 'Karl-Anthony Towns', stat: 'More 11.5 Rebounds'}]}, 2.5);
+  assert.equal(pickem.stake, 4);                // $10 at $2.50 a unit
+  assert.equal(pickem.payout, 5);
+  assert.equal(pickem.result, 'win');
+  assert.equal(pickem.title, '2-pick: Jalen Brunson, Karl-Anthony Towns');
+  assert.equal(pickem.book, 'PrizePicks');
+  const straight = betFromRead({kind: 'straight', app: {name: 'FanDuel'}, stake: 11, odds: -110, result: 'pending', legs: [{player: 'Jalen Brunson', stat: 'Over 26.5 Points'}]}, 10);
+  assert.equal(straight.odds, -110);
+  assert.equal(straight.stake, 1.1);
+  assert.equal(straight.title, 'Jalen Brunson Over 26.5 Points');
+  const flex = betFromRead({kind: 'pickem', stake: 10, payout: 100, multiplier: 10, result: 'cashout', paid: 25, legs: []}, 10);
+  assert.equal(flex.returned, 2.5);
+  assert.equal(flex.title, 'Sportsbook bet');
+});

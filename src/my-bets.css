@@ -204,3 +204,37 @@
  .mb-form{width:100%;max-height:92dvh;border-radius:18px 18px 0 0;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
  .mb-fields{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
 }
+
+/* A picture of the bet, read into the form. */
+.mb-picture{border:1px dashed #3a3a3a;border-radius:14px;background:var(--mb-card)}
+.mb-picture[data-state="read"]{border-style:solid;border-color:color-mix(in srgb,var(--mb-up) 40%,var(--mb-line));background:color-mix(in srgb,var(--mb-up) 6%,var(--mb-card))}
+.mb-picture-pick{display:flex;align-items:center;gap:12px;width:100%;padding:13px 14px;border:0;background:transparent;color:var(--mb-text);text-align:left;cursor:pointer}
+.mb-picture-pick>svg{flex:none;width:34px;height:34px;padding:7px;border-radius:10px;background:color-mix(in srgb,var(--mb-accent) 16%,var(--mb-raised));color:var(--mb-text)}
+.mb-picture-pick span{display:grid;gap:2px}
+.mb-picture-pick b{font-size:14px}
+.mb-picture-pick small{color:var(--mb-muted);font-size:12px}
+.mb-picture-busy{display:flex;align-items:center;gap:10px;margin:0;padding:15px 14px;color:var(--mb-muted);font-size:13.5px;font-weight:600}
+.mb-picture-busy svg{width:18px;height:18px;animation:mb-spin 1s linear infinite}
+@keyframes mb-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.mb-picture-busy svg{animation-duration:3s}}
+.mb-picture-read{display:grid;gap:3px;padding:11px 14px}
+.mb-picture-read p{margin:0;color:var(--mb-text);font-size:13px;font-weight:650}
+.mb-picture-read p b{display:block;margin-bottom:2px;color:var(--mb-up);font-size:11px;letter-spacing:.05em;text-transform:uppercase}
+.mb-picture-read small,.mb-picture-error{color:var(--mb-muted);font-size:12px}
+.mb-picture-read button,.mb-picture-error button{padding:0;border:0;background:none;color:var(--mb-text);font-size:12px;font-weight:700;text-decoration:underline;cursor:pointer}
+.mb-picture-error{margin:0;padding:0 14px 12px;color:var(--mb-down)}
+
+/* Stake in units or dollars. */
+.mb-stake-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.mb-mini{display:inline-flex;padding:2px;border:1px solid var(--mb-line);border-radius:7px;background:var(--mb-card);letter-spacing:0;text-transform:none}
+.mb-mini button{min-height:20px;padding:0 7px;border:0;border-radius:5px;background:transparent;color:var(--mb-faint);font-size:10.5px;font-weight:700;cursor:pointer}
+.mb-mini button[aria-checked="true"]{background:var(--mb-raised);color:var(--mb-text)}
+
+/* Fields line up at the top, and iPhone's date box stays inside the form. */
+.mb-fields label{align-content:start}
+.mb-form input[type="date"]{-webkit-appearance:none;appearance:none;display:block;min-width:0;max-width:100%;box-sizing:border-box;text-align:left}
+.mb-form input[type="date"]::-webkit-date-and-time-value{text-align:left;margin:0}
+.mb-form input,.mb-form select{box-sizing:border-box}
+/* Every label the same height, the Units/$ switch included, so the boxes line up. */
+.mb-fields label>span{display:flex;align-items:center;min-height:26px}
+.mb-mini button{min-height:18px}

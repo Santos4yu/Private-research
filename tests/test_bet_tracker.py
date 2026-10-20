@@ -98,3 +98,38 @@ class StoreTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReadBetTests(unittest.TestCase):
+    """A picture of a bet, as slip_reader.normalize_bet turns what the model read into the form's numbers."""
+
+    def setUp(self):
+        import slip_reader
+        self.read = slip_reader.normalize_bet
+
+    def test_a_pickem_entry_that_won(self):
+        bet = self.read({"app": "PrizePicks", "stake": "$10", "payout": 50, "status": "Won", "date": "2026-10-20",
+                         "legs": [{"player": "Jalen Brunson", "pick": "More 24.5 Points", "line": 24.5, "side": "more", "result": "hit"}]})
+        self.assertEqual((bet["kind"], bet["stake"], bet["payout"], bet["multiplier"], bet["result"], bet["paid"]),
+                         ("pickem", 10, 50, 5, "win", 50))
+        self.assertEqual(bet["app"]["name"], "PrizePicks")
+        self.assertEqual(bet["legs"][0]["side"], "OVER")
+
+    def test_a_sportsbook_parlay_shown_as_to_win(self):
+        bet = self.read({"app": "DraftKings", "stake": 20, "payout": 90, "payout_is_profit": True, "status": "open",
+                         "legs": [{"player": "Knicks", "pick": "Knicks -3.5"}, {"player": "Celtics", "pick": "Over 220.5"}]})
+        self.assertEqual((bet["kind"], bet["payout"], bet["multiplier"], bet["odds"], bet["result"]), ("parlay", 110, 5.5, 450, "pending"))
+
+    def test_a_straight_bet_from_its_odds_and_a_loss(self):
+        bet = self.read({"app": "FanDuel", "stake": 11, "odds": -110, "status": "lost", "legs": [{"player": "Jalen Brunson", "pick": "Over 26.5 Points"}]})
+        self.assertEqual((bet["kind"], bet["odds"], bet["payout"], bet["result"], bet["paid"]), ("straight", -110, 21.0, "loss", 0))
+
+    def test_a_flex_entry_that_paid_part(self):
+        bet = self.read({"app": "PrizePicks", "entry_type": "Flex Play", "stake": 10, "payout": 100, "status": "won", "paid": 25})
+        self.assertEqual((bet["result"], bet["paid"]), ("cashout", 25))
+
+    def test_nothing_to_go_on(self):
+        self.assertIsNone(self.read("nope"))
+        bet = self.read({"app": "PrizePicks", "status": "won"})
+        self.assertIsNone(bet["stake"])
+        self.assertIsNone(bet["payout"])
