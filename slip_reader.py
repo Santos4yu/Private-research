@@ -89,7 +89,8 @@ BET_SHAPE = """{"app": "", "kind": "", "entry_type": "", "stake": null, "payout"
  "legs": [{"player": "", "pick": "", "arrow": "", "line": null, "side": "", "actual": null, "final": false, "result": ""}]}"""
 
 BET_RULES = f"""Report what the screenshot shows about this one bet:
-- app: the app or sportsbook name.
+- app: the app or sportsbook name as the slip shows it. PrizePicks shows a purple "P" logo and words like "Power Play",
+  "Flex Play" and "2-Pick"; never name a sportsbook the slip doesn't show.
 - kind: "pickem" for an entry on a pick'em app (PrizePicks, Underdog, Sleeper, Pick6, Betr, ParlayPlay, Dabble),
   "parlay" for a sportsbook bet with two or more legs, "straight" for a sportsbook bet on one thing.
 - entry_type: "power", "flex", "parlay", "same game parlay" or "".
@@ -601,6 +602,9 @@ def _from_lines(raw, pickem):
     return stake, payout, to_win
 
 
+_PRIZEPICKS_WORDS = re.compile(r"power\s*play|flex\s*play|\b\d\s*-\s*pick\b", re.I)
+
+
 def _labelled(raw, pickem):
     """(stake, payout, to_win) from the amounts read with their labels."""
     stake = payout = to_win = None
@@ -630,6 +634,11 @@ def normalize_bet(raw):
     stake, payout, paid = number(raw.get("stake")), number(raw.get("payout")), number(raw.get("paid"))
     to_win = number(raw.get("to_win"))
     # The amounts with their own words beside them say best which is which.
+    # PrizePicks' own words ("2-Pick Power Play", "Flex Play") make it a
+    # PrizePicks entry whatever app the model named (its logo has no name).
+    words = " ".join(str(item or "") for item in [raw.get("entry_type"), *(raw.get("money_lines") or [])])
+    if _PRIZEPICKS_WORDS.search(words) and (app_of(raw.get("app")) or {}).get("key") not in PICKEM_APPS:
+        raw = {**raw, "app": "PrizePicks"}
     pickem_app = bool((app_of(raw.get("app")) or {}).get("key") in PICKEM_APPS)
     said_stake, said_payout, said_to_win = _labelled(raw, pickem_app)
     # The lines copied word for word come first; then the labelled amounts.
@@ -717,14 +726,17 @@ def normalize_bet(raw):
     # A power play needs every pick: one miss loses it, all hits win it
     # (a 2-pick is always a power play; only flex entries pay part).
     results = [leg["result"] for leg in legs]
-    power = kind == "pickem" and ("flex" not in entry_type or len(legs) <= 2)
+    power = kind == "pickem" and ("flex" not in entry_type or 0 < len(legs) <= 2)
     if power and "miss" in results:
         result = "loss"
     elif power and legs and all(item == "hit" for item in results):
         result = "win"
     if result == "loss":
         paid = 0.0
-    # A flex entry that paid part, or a bet cashed out: what came back.
+    # A won power play pays all of it; only a flex entry or a bet cashed
+    # out pays part.
+    if power and result == "win" and payout:
+        paid = payout
     if result == "win" and paid is not None and payout and paid < payout * 0.98:
         result = "cashout"
     if result == "win" and paid is None:
@@ -744,8 +756,11 @@ def normalize_bet(raw):
 # Reading a bet fast: no model thinks out loud first, the first answer
 # that reads wins (a second reader starts if the first hasn't answered in
 # HEAD_START seconds), every call has a short limit, and a picture already
-# read is answered from the store at once.
-BET_READ_VERSION = "bet-read-v4"
+# read is answered from the store at once. What's kept is what the model
+# saw, under the question it was asked: the rules that turn it into the
+# form's numbers (normalize_bet) run again on every read, so a fix to them
+# reaches pictures read before it, and a new question reads them afresh.
+BET_READ_VERSION = "bet-read-v5"
 BET_CACHE_SECONDS = 14 * 86400
 HEAD_START = 4.0
 BET_DEADLINE = 28.0
@@ -754,7 +769,8 @@ CALL_LIMIT = 16.0
 
 def _bet_cache_key(data):
     import hashlib
-    return f"krazy_data:bet-reads:{BET_READ_VERSION}:{hashlib.sha256(data).hexdigest()}"
+    asked = hashlib.sha256(BET_PROMPT.encode()).hexdigest()[:12]
+    return f"krazy_data:bet-reads:{BET_READ_VERSION}:{asked}:{hashlib.sha256(data).hexdigest()}"
 
 
 def _cached_bet(data):
@@ -881,7 +897,9 @@ def read_bet(data, readers=None):
         return {"error": "Use a PNG, JPG or WEBP screenshot."}
     kept = _cached_bet(data) if readers is None else None
     if kept:
-        return {**kept, "cached": True}
+        bet = normalize_bet(kept)
+        if bet and (bet["stake"] is not None or bet["payout"] is not None):
+            return {**bet, "cached": True}
     gemini = bool(os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
     if readers is None and _groq() is None and not gemini:
         return {"error": "Reading pictures isn't set up on this server yet.", "reason": "no-key"}
@@ -901,5 +919,5 @@ def read_bet(data, readers=None):
     if not bet or (bet["stake"] is None and bet["payout"] is None):
         return {"error": "No amount was found in that picture. Use one that shows what you put in and what it pays."}
     if own:
-        _keep_bet(data, bet)
+        _keep_bet(data, raw[0] if isinstance(raw, list) and raw else raw)
     return bet

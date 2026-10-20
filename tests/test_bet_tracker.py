@@ -267,7 +267,7 @@ class FastReadTests(unittest.TestCase):
 
     def test_a_picture_read_before_comes_back_at_once(self):
         import slip_reader
-        kept = {"stake": 5.0, "payout": 10.0, "kind": "pickem", "result": "pending", "legs": []}
+        kept = {"app": "PrizePicks", "money_lines": ["2-Pick $10", "$5 Power Play"], "status": "pending", "legs": []}   # what the model saw
         with patch.object(slip_reader, "_cached_bet", return_value=kept), \
              patch.object(slip_reader, "_groq", side_effect=AssertionError("no model asked")):
             bet = slip_reader.read_bet(self.PNG)
@@ -319,3 +319,21 @@ class RaceTests(unittest.TestCase):
             began = clock.time()
             self.assertEqual(slip_reader.race(readers, **options), want)
             self.assertLess(clock.time() - began, limit)
+
+
+
+class AppWordsTests(unittest.TestCase):
+    def test_a_prizepicks_win_the_model_called_draftkings(self):
+        import slip_reader
+        bet = slip_reader.normalize_bet({"app": "DraftKings", "kind": "pickem", "entry_type": "2-Pick Power Play", "status": "Win", "paid": 7.5,
+                                         "sport": "soccer", "money_lines": ["2-Pick Power Play", "$2.50 to win $7.50"],
+                                         "legs": [{"player": "Virgil van Dijk", "arrow": "up", "line": 11, "actual": 16.65, "final": True},
+                                                  {"player": "Cucho Hernandez", "arrow": "down", "line": 2.5, "actual": 1, "final": True}]})
+        self.assertEqual((bet["app"]["name"], bet["stake"], bet["payout"], bet["multiplier"], bet["result"], bet["paid"]),
+                         ("PrizePicks", 2.5, 7.5, 3, "win", 7.5))
+        self.assertEqual([leg["result"] for leg in bet["legs"]], ["hit", "hit"])
+
+    def test_a_sportsbook_keeps_its_to_win(self):
+        import slip_reader
+        bet = slip_reader.normalize_bet({"app": "DraftKings", "money_lines": ["$10 to win $25"], "legs": [{"player": "Knicks", "pick": "Knicks ML"}]})
+        self.assertEqual((bet["app"]["name"], bet["payout"], bet["odds"]), ("DraftKings", 35, 250))
