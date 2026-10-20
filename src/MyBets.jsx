@@ -352,31 +352,28 @@ export function MyBets(){
  };
 
  return <div className="my-bets">
-  <header className="mb-head">
-   <div><h1>My Bets</h1><p>Every bet you log, in units and dollars. Know if you're winning.</p></div>
-   <button type="button" className="mb-primary" onClick={()=>setEditing({})}><Plus aria-hidden="true"/>Log a bet</button>
-  </header>
-
-  <div className="mb-bar">
-   <div className="mb-seg mb-periods" role="tablist" aria-label="Period">{PERIODS.map(([key,label])=><button key={key} type="button" role="tab" aria-selected={kind===key} onClick={()=>{setKind(key);setAnchor(now);}}>{label}</button>)}</div>
-   {kind!=='all'&&<div className="mb-step">
-    <button type="button" className="mb-icon" onClick={()=>setAnchor(shiftAnchor(kind,anchor,-1))} aria-label="Earlier"><ChevronLeft aria-hidden="true"/></button>
-    <b>{period.label}</b>
-    <button type="button" className="mb-icon" onClick={()=>setAnchor(shiftAnchor(kind,anchor,1))} disabled={!canNext} aria-label="Later"><ChevronRight aria-hidden="true"/></button>
+  <section className="mb-deck" aria-label="Your totals">
+   <div className="mb-deck-top">
+    <div className="mb-seg mb-periods" role="tablist" aria-label="Period">{PERIODS.map(([key,label])=><button key={key} type="button" role="tab" aria-selected={kind===key} onClick={()=>{setKind(key);setAnchor(now);}}>{label}</button>)}</div>
+    <div className="mb-step">
+     <button type="button" className="mb-icon" onClick={()=>setAnchor(shiftAnchor(kind,anchor,-1))} disabled={kind==='all'} aria-label="Earlier"><ChevronLeft aria-hidden="true"/></button>
+     <b>{period.label}</b>
+     <button type="button" className="mb-icon" onClick={()=>setAnchor(shiftAnchor(kind,anchor,1))} disabled={!canNext} aria-label="Later"><ChevronRight aria-hidden="true"/></button>
+    </div>
+    <button type="button" className="mb-primary mb-log" onClick={()=>setEditing({})}><Plus aria-hidden="true"/>Log a bet</button>
+   </div>
+   <div className="mb-deck-stats">
+    <div className="mb-stat mb-stat-profit" data-tone={tone(totals.units)}><span>Profit</span><b>{unitsText(totals.units,2)}</b><small>{moneyText(totals.units*unit)} at {unitMoney(unit)} a unit</small></div>
+    <div className="mb-stat"><span>Record</span><b>{totals.wins}-{totals.losses}-{totals.pushes}</b><small>{totals.pending?`${totals.pending} pending`:`${totals.count} bet${totals.count===1?'':'s'}`}</small></div>
+    <div className="mb-stat"><span>Win rate</span><b>{pct(totals.winRate)}</b><small>{run?`${run.kind==='W'?'Won':'Lost'} last ${run.count}`:'No results yet'}</small></div>
+    <div className="mb-stat" data-tone={tone(totals.roi)}><span>ROI</span><b>{pct(totals.roi,true)}</b><small>{Number(totals.staked.toFixed(2))}u staked</small></div>
+   </div>
+   {sports.length>1&&<div className="mb-sports" role="tablist" aria-label="Sport">
+    {[['all','All'],...SPORTS.filter(([key])=>sports.includes(key))].map(([key,label])=><button key={key} type="button" aria-pressed={sport===key} onClick={()=>setSport(key)}>{label}</button>)}
    </div>}
-  </div>
-  {sports.length>1&&<div className="mb-sports" role="tablist" aria-label="Sport">
-   {[['all','All'],...SPORTS.filter(([key])=>sports.includes(key))].map(([key,label])=><button key={key} type="button" aria-pressed={sport===key} onClick={()=>setSport(key)}>{label}</button>)}
-  </div>}
+  </section>
 
   {state.error&&<p className="mb-error" role="alert">{state.error}</p>}
-
-  <section className="mb-tiles" aria-label="Totals">
-   <div className="mb-tile mb-tile-profit" data-tone={tone(totals.units)}><span>Profit</span><b>{unitsText(totals.units,2)}</b><small>{moneyText(totals.units*unit)} at {unitMoney(unit)} a unit</small></div>
-   <div className="mb-tile"><span>Record</span><b>{totals.wins}-{totals.losses}-{totals.pushes}</b><small>{totals.pending?`${totals.pending} pending`:`${totals.count} bet${totals.count===1?'':'s'}`}</small></div>
-   <div className="mb-tile"><span>Win rate</span><b>{pct(totals.winRate)}</b><small>{run?`${run.kind==='W'?'Won':'Lost'} last ${run.count}`:'No results yet'}</small></div>
-   <div className="mb-tile" data-tone={tone(totals.roi)}><span>ROI</span><b>{pct(totals.roi,true)}</b><small>{Number(totals.staked.toFixed(2))}u staked</small></div>
-  </section>
 
   <section className="mb-card mb-perf">
    <header><h2>{view==='chart'?'Running units':'Day by day'}</h2>

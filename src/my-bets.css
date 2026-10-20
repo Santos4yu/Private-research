@@ -12,11 +12,6 @@
 .my-bets [data-tone="down"]{color:var(--mb-down)}
 .my-bets button{font-family:inherit}
 
-/* Head */
-.mb-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 20px;border:1px solid var(--mb-line);border-radius:18px;
- background:radial-gradient(120% 160% at 0 0,color-mix(in srgb,var(--mb-accent) 16%,transparent),transparent 58%),var(--mb-card)}
-.mb-head h1{margin:0;font:800 24px/1.1 var(--font-display,'Sora',sans-serif);letter-spacing:-.02em}
-.mb-head p{margin:4px 0 0;color:var(--mb-muted);font-size:13.5px}
 .mb-primary{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:42px;padding:0 16px;border:0;border-radius:12px;background:var(--mb-accent);color:var(--mb-on-accent);
  font-weight:750;font-size:13.5px;cursor:pointer;white-space:nowrap;transition:filter .15s var(--ace-ease,ease)}
 .mb-primary:hover{filter:brightness(1.08)}
@@ -28,30 +23,34 @@
 .mb-icon:disabled{opacity:.35;cursor:default}
 .mb-icon svg{width:17px;height:17px}
 
-/* Period and sport */
-.mb-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+/* The panel up top: the period and the stretch shown, Log a bet, the
+   totals for it, and the sports. One card, so nothing floats on a phone. */
+.mb-deck{display:grid;min-width:0;border:1px solid var(--mb-line);border-radius:18px;overflow:hidden;
+ background:radial-gradient(120% 150% at 0 0,color-mix(in srgb,var(--mb-accent) 12%,transparent),transparent 55%),var(--mb-card)}
+.mb-deck-top{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px 14px;padding:12px 14px;border-bottom:1px solid var(--mb-line)}
 .mb-seg{display:inline-flex;gap:3px;padding:3px;border:1px solid var(--mb-line);border-radius:12px;background:var(--mb-card)}
+.mb-deck .mb-seg{background:rgba(0,0,0,.3)}
 .mb-seg button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:32px;padding:0 12px;border:0;border-radius:9px;background:transparent;color:var(--mb-muted);font-weight:650;font-size:12.5px;cursor:pointer;white-space:nowrap}
 .mb-seg button[aria-selected="true"],.mb-seg button[aria-checked="true"]{background:var(--mb-raised);color:var(--mb-text);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--mb-accent) 55%,transparent)}
 .mb-seg button svg{width:14px;height:14px}
-.mb-step{display:inline-flex;align-items:center;gap:8px}
-.mb-step b{min-width:140px;text-align:center;font-size:14px;font-weight:750}
-.mb-sports{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.mb-step{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0}
+.mb-step b{min-width:140px;overflow:hidden;text-align:center;font-size:14px;font-weight:750;white-space:nowrap;text-overflow:ellipsis}
+.mb-deck-stats{display:grid;grid-template-columns:1.35fr repeat(3,minmax(0,1fr))}
+.mb-stat{display:grid;align-content:start;gap:4px;min-width:0;padding:14px 16px;border-left:1px solid var(--mb-line)}
+.mb-stat:first-child{border-left:0}
+.mb-stat span{color:var(--mb-faint);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.mb-stat b{overflow:hidden;color:var(--mb-text);font:800 23px/1.1 var(--font-display,'Sora',sans-serif);letter-spacing:-.02em;white-space:nowrap;text-overflow:ellipsis}
+.mb-stat small{overflow:hidden;color:var(--mb-muted);font-size:12px;white-space:nowrap;text-overflow:ellipsis}
+.mb-stat[data-tone="up"],.mb-stat[data-tone="down"]{color:inherit}
+.mb-stat[data-tone="up"] b{color:var(--mb-up)}
+.mb-stat[data-tone="down"] b{color:var(--mb-down)}
+.mb-stat-profit b{font-size:28px}
+.mb-stat-profit[data-tone="up"]{background:linear-gradient(160deg,color-mix(in srgb,var(--mb-up) 10%,transparent),transparent 75%)}
+.mb-stat-profit[data-tone="down"]{background:linear-gradient(160deg,color-mix(in srgb,var(--mb-down) 10%,transparent),transparent 75%)}
+.mb-sports{display:flex;gap:6px;overflow-x:auto;padding:10px 14px;border-top:1px solid var(--mb-line);scrollbar-width:none}
 .mb-sports::-webkit-scrollbar{display:none}
-.mb-sports button{flex:none;min-height:32px;padding:0 13px;border:1px solid var(--mb-line);border-radius:999px;background:var(--mb-card);color:var(--mb-muted);font-weight:650;font-size:12.5px;cursor:pointer}
+.mb-sports button{flex:none;min-height:30px;padding:0 13px;border:1px solid var(--mb-line);border-radius:999px;background:var(--mb-raised);color:var(--mb-muted);font-weight:650;font-size:12.5px;cursor:pointer}
 .mb-sports button[aria-pressed="true"]{border-color:color-mix(in srgb,var(--mb-accent) 60%,transparent);background:color-mix(in srgb,var(--mb-accent) 14%,var(--mb-card));color:var(--mb-text)}
-
-/* Totals */
-.mb-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-.mb-tile{display:grid;gap:4px;min-width:0;padding:14px 16px;border:1px solid var(--mb-line);border-radius:14px;background:var(--mb-card)}
-.mb-tile span{color:var(--mb-faint);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
-.mb-tile b{overflow:hidden;color:var(--mb-text);font:800 24px/1.1 var(--font-display,'Sora',sans-serif);letter-spacing:-.02em;white-space:nowrap;text-overflow:ellipsis}
-.mb-tile small{color:var(--mb-muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mb-tile[data-tone="up"] b{color:var(--mb-up)}
-.mb-tile[data-tone="down"] b{color:var(--mb-down)}
-.mb-tile[data-tone="up"],.mb-tile[data-tone="down"]{color:inherit}
-.mb-tile-profit[data-tone="up"]{background:linear-gradient(160deg,color-mix(in srgb,var(--mb-up) 11%,transparent),transparent 70%),var(--mb-card);border-color:color-mix(in srgb,var(--mb-up) 30%,var(--mb-line))}
-.mb-tile-profit[data-tone="down"]{background:linear-gradient(160deg,color-mix(in srgb,var(--mb-down) 11%,transparent),transparent 70%),var(--mb-card);border-color:color-mix(in srgb,var(--mb-down) 30%,var(--mb-line))}
 
 /* Cards */
 .mb-card{min-width:0;padding:14px 16px;border:1px solid var(--mb-line);border-radius:16px;background:var(--mb-card)}
@@ -179,17 +178,21 @@
 
 @media (max-width:760px){
  :root[data-theme] body #app-shell #panel-bets{width:100%!important;padding:calc(var(--site-status-inset,0px) + 8px) 10px calc(96px + env(safe-area-inset-bottom,0px))!important}
- .mb-head{padding:14px 15px}
- .mb-head h1{font-size:21px}
- .mb-head p{font-size:12.5px}
- .mb-primary{min-height:40px;padding:0 13px}
- .mb-bar{display:grid;grid-template-columns:minmax(0,1fr)}
- .mb-periods{display:flex}
- .mb-periods button{flex:1;padding:0 6px}
- .mb-step{justify-content:space-between}
- .mb-tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
- .mb-tile{padding:12px 13px}
- .mb-tile b{font-size:20px}
+ .mb-primary{min-height:38px;padding:0 13px}
+ .mb-deck{border-radius:16px}
+ .mb-deck-top{grid-template-columns:minmax(0,1fr) auto;gap:10px 8px;padding:10px}
+ .mb-periods{grid-column:1/-1;display:flex}
+ .mb-periods button{flex:1;padding:0 4px}
+ .mb-step{justify-content:flex-start;gap:4px}
+ .mb-step b{flex:1;min-width:0;font-size:13.5px}
+ .mb-deck-stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .mb-stat{padding:11px 12px}
+ .mb-stat-profit{grid-column:1/-1;padding:13px 14px;border-bottom:1px solid var(--mb-line)}
+ .mb-stat:nth-child(2){border-left:0}
+ .mb-stat b{font-size:17px}
+ .mb-stat-profit b{font-size:30px}
+ .mb-stat small{font-size:11px}
+ .mb-sports{padding:9px 10px}
  .mb-card{padding:12px 13px}
  .mb-cal[data-unit="day"] .mb-cal-grid,.mb-cal-week{gap:4px}
  .mb-cal[data-unit="day"] .mb-cal-cell{min-height:46px;padding:5px 5px}
