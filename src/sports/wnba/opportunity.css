@@ -1,0 +1,42 @@
+/* The Opportunity card (Opportunity.jsx), in the context panel's card style. */
+.bko-card .bko-section { padding: 12px 14px 4px; }
+.bko-card .bko-section + .bko-section { border-top: 1px solid #222; }
+.bko-card h3 { margin: 0 0 10px; color: #cfcfcf; font: 800 10.5px/1.2 var(--font-sans, Inter, sans-serif); letter-spacing: .08em; text-transform: uppercase; }
+.bko-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding-bottom: 10px; }
+.bko-tile { display: grid; align-content: start; gap: 4px; min-width: 0; padding: 10px 11px; border: 1px solid #262626; border-radius: 10px; background: #171717; }
+.bko-tile > span { color: #a6a6a6; font: 700 11px/1.25 var(--font-sans, Inter, sans-serif); }
+.bko-tile > strong { color: #f5f5f5; font: 800 19px/1.1 var(--font-sans, Inter, sans-serif); letter-spacing: -.01em; }
+.bko-tile > strong small { margin-left: 5px; color: #a6a6a6; font-size: 11px; font-weight: 600; letter-spacing: 0; }
+.bko-tile > em { color: #8f8f8f; font: 500 11px/1.35 var(--font-sans, Inter, sans-serif); font-style: normal; }
+
+.bko-rows { display: grid; margin: 0 0 8px; padding: 0; list-style: none; }
+.bko-rows li { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "label value" "label rank"; align-items: center;
+  column-gap: 12px; row-gap: 3px; padding: 9px 0; border-top: 1px solid #1f1f1f; }
+.bko-rows li:first-child { border-top: 0; }
+.bko-rows li > span { grid-area: label; color: #d6d6d6; font: 600 12.5px/1.3 var(--font-sans, Inter, sans-serif); }
+.bko-rows li > span small { display: block; margin-top: 2px; color: #8f8f8f; font-size: 10.5px; font-weight: 500; }
+.bko-rows li > b { grid-area: value; justify-self: end; color: #f5f5f5; font: 800 13.5px/1.2 var(--font-sans, Inter, sans-serif); text-align: right; }
+.bko-rows li > i { grid-area: rank; justify-self: end; display: inline-flex; align-items: center; gap: 6px; padding: 2px 7px; border-radius: 999px;
+  background: #1f1f1f; color: #bdbdbd; font: 700 10.5px/1.5 var(--font-sans, Inter, sans-serif); font-style: normal; white-space: nowrap; }
+.bko-rows li > i small { color: #8f8f8f; font-size: 10px; font-weight: 600; }
+.bko-rows li > i[data-tone=good] { background: rgba(70, 227, 154, .12); color: #5fe0a8; }
+.bko-rows li > i[data-tone=poor] { background: rgba(255, 123, 138, .12); color: #ff8b98; }
+
+.bko-out { display: grid; margin: 0 0 8px; padding: 0; list-style: none; }
+.bko-out li { display: grid; gap: 6px; padding: 9px 0; border-top: 1px solid #1f1f1f; }
+.bko-out li:first-child { border-top: 0; }
+.bko-out p { margin: 0; color: #f0f0f0; font: 700 12.5px/1.3 var(--font-sans, Inter, sans-serif); }
+.bko-out p span { margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: #2a2116; color: #f6b955; font-size: 10.5px; font-weight: 700; }
+.bko-out em { color: #8f8f8f; font: 500 11px/1.35 var(--font-sans, Inter, sans-serif); font-style: normal; }
+.bko-parts { display: flex; flex-wrap: wrap; gap: 6px; }
+.bko-parts > span { display: grid; gap: 2px; min-width: 74px; padding: 7px 9px; border: 1px solid #262626; border-radius: 9px; background: #171717; }
+.bko-parts small { color: #a6a6a6; font: 700 10px/1.2 var(--font-sans, Inter, sans-serif); }
+.bko-parts b { color: #f5f5f5; font: 800 14px/1.1 var(--font-sans, Inter, sans-serif); }
+.bko-parts i { color: #bdbdbd; font: 700 10.5px/1.2 var(--font-sans, Inter, sans-serif); font-style: normal; }
+.bko-parts i[data-tone=good] { color: #5fe0a8; }
+.bko-parts i[data-tone=poor] { color: #ff8b98; }
+
+.bko-wait { margin: 0; padding: 12px 14px; color: #a6a6a6; font: 500 12px/1.45 var(--font-sans, Inter, sans-serif); }
+.bko-admin { padding-top: 0; color: #f6b955; }
+.bko-foot { margin: 0; padding: 4px 14px 12px; color: #7e7e7e; font: 500 10.5px/1.45 var(--font-sans, Inter, sans-serif); }
+@media (max-width: 380px) { .bko-tiles { gap: 6px; } .bko-tile { padding: 9px; } .bko-tile > strong { font-size: 17px; } }

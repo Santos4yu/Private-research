@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
+from . import opportunity
 from .league import FIELDS, ZONES
 
 # A player's row is [id, starter, *FIELDS].
@@ -101,7 +102,7 @@ def team_games(payload: dict) -> dict:
             continue
         for team in teams:
             opponent = teams[1] if teams[0] == team else teams[0]
-            by_team[team].append({"id": game["id"], "date": game["date"], "type": game["type"],
+            by_team[team].append({"id": game["id"], "date": game["date"], "type": game["type"], "season": game.get("season"),
                                   "home": game["home"] == team, "opponent": opponent,
                                   "own": game["t"][team], "opp": game["t"][opponent]})
     for games in by_team.values():
@@ -277,6 +278,8 @@ def league_context(payload: dict) -> dict:
         "stats": [[key, label] for key, label, _ in STATS],
         "dvp": defense_vs_position(by_team, players),
         "teamStats": team_stats(by_team),
+        # Pace, ratings and the chances each team's games give (opportunity.py).
+        "opportunity": opportunity.team_table(by_team),
         "zoneDefense": zones, "leagueZones": league_zones,
         "rotation": rotation(by_team, players, league=payload.get("league") or "wnba"),
         "games": {team: len(games) for team, games in by_team.items()},
@@ -381,6 +384,8 @@ def player_context(payload: dict, player_id: str, team: str, opponent: str, mark
         return {"games": len(decided), "avg": _round(sum(decided) / len(decided)) if decided else None,
                 "hits": hits if line is not None else None, "misses": misses if line is not None else None}
 
+    # His opportunity (opportunity.py): over his games, and in each split.
+    his_games = opportunity.games_of(by_team, player_id)
     impact = []
     for pid, since in first_seen.items():
         player = players.get(pid) or ["", "", None, None]
@@ -394,8 +399,9 @@ def player_context(payload: dict, player_id: str, team: str, opponent: str, mark
             (with_ids if played else without_ids).append(game["id"])
         impact.append({"id": pid, "name": player[0], "pos": player[1], "headshot": headshot(pid, player, payload.get("league") or "wnba"),
                        "min": _round(teammate_minutes[pid] / teammate_games[pid], 1) if teammate_games[pid] else 0,
-                       "with": {**split([mine[g] for g in with_ids]), "gameIds": with_ids},
-                       "without": {**split([mine[g] for g in without_ids]), "gameIds": without_ids}})
+                       "with": {**split([mine[g] for g in with_ids]), "gameIds": with_ids, "chances": opportunity.split(his_games, with_ids)},
+                       "without": {**split([mine[g] for g in without_ids]), "gameIds": without_ids,
+                                   "chances": opportunity.split(his_games, without_ids)}})
     impact.sort(key=lambda item: -(item["min"] or 0))
 
     # Players like this one against the opponent: every opposing player at a
@@ -430,4 +436,7 @@ def player_context(payload: dict, player_id: str, team: str, opponent: str, mark
     return {"playerId": player_id, "team": team, "opponent": opponent, "market": market, "stat": stat,
             "position": primary_position(player), "line": line,
             "zones": zones, "withWithout": impact, "similar": similar,
-            "similarMinMinutes": SIMILAR_MIN_MINUTES, "teamGames": len(team_log)}
+            "similarMinMinutes": SIMILAR_MIN_MINUTES, "teamGames": len(team_log),
+            "opportunity": opportunity.player_opportunity(his_games),
+            # Last season's games are in here too (opportunity.blend) at the start of a season.
+            "seasons": payload.get("blended") or [payload.get("season")]}

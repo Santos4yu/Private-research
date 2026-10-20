@@ -256,5 +256,167 @@ class GameNoteTests(unittest.TestCase):
         self.assertEqual(context.game_notes([None, None], "me"), {})
 
 
+def box(pid, **values):
+    """A player's stored line with every field given (the rest zero)."""
+    full = {field: 0 for field in league.FIELDS}
+    full.update(values)
+    return [pid, 1] + [full[field] for field in league.FIELDS]
+
+
+class OpportunityTests(unittest.TestCase):
+    """One game worked out by hand: AAA (star 24 minutes, the rest of the
+    team 216) against BBB. A 48-minute game, so star played half of it."""
+
+    def setUp(self):
+        from backend.sports.wnba import opportunity
+        self.opportunity = opportunity
+        star = box("star", min=24, pts=13, reb=6, oreb=1, dreb=5, ast=4, fgm=5, fga=10, tpm=1, tpa=2, ftm=2, fta=4, to=2)
+        rest = box("mate", min=216, pts=36, reb=24, oreb=4, dreb=20, ast=10, fgm=15, fga=30, tpm=2, tpa=6, ftm=4, fta=6, to=8)
+        them = box("opp", min=240, pts=50, reb=40, oreb=10, dreb=30, ast=12, fgm=20, fga=50, tpm=6, tpa=20, ftm=4, fta=10, to=5)
+        self.payload = {"season": 2026, "builtAt": "x", "teams": {}, "players": {
+            "star": ["Star", "G", None, "AAA"], "mate": ["Mate", "C", None, "AAA"], "opp": ["Opp", "F", None, "BBB"]},
+            "games": {"1": game("1", "2026-01-01", "AAA", "BBB", [star, rest], [them])}}
+
+    def test_possessions_and_ratings(self):
+        table = context.league_context(self.payload)["opportunity"]
+        aaa, bbb = table["teams"]["AAA"], table["teams"]["BBB"]
+        # Trips: 40 shots - 5 offensive boards + 10 turnovers + 0.44 x 10 free throws = 49.4 (BBB the same).
+        self.assertEqual(aaa["poss"][0], 49.4)
+        self.assertEqual(aaa["ortg"][0], 99.2)   # 49 points on 49.4 trips, per 100
+        self.assertEqual(aaa["drtg"][0], 101.2)  # 50 allowed
+        self.assertEqual(aaa["miss"], [20, 2])          # AAA missed 20; BBB missed more
+        self.assertEqual(aaa["missAllowed"], [30, 1])   # and made BBB miss 30, the most
+        self.assertEqual(aaa["gameMiss"][0], 50)
+        self.assertEqual(aaa["tpaAllowed"][0], 20)
+        self.assertEqual(table["count"], 2)
+
+    def test_his_shares(self):
+        chances = context.player_context(self.payload, "star", "AAA", "BBB", "player_rebounds", 5.5)["opportunity"]["szn"]
+        self.assertEqual(chances["usage"], 50.6)       # (10 + 0.44x4 + 2) x 48 / (24 x 54.4)
+        self.assertEqual(chances["rebShare"], 17.1)    # 6 of the 35 rebounds while he played
+        self.assertEqual(chances["orebShare"], 5.7)
+        self.assertEqual(chances["drebShare"], 28.6)
+        self.assertEqual(chances["astShare"], 80.0)    # 4 of teammates' 5 baskets while he played
+        self.assertEqual(chances["missesOn"], 25.0)    # half the game's 50 misses
+        self.assertEqual(chances["possOn"], 24.7)
+        self.assertEqual(chances["mateFg"], 50.0)      # teammates 15 of 30
+        self.assertEqual(chances["per36"]["pts"], 19.5)
+        self.assertEqual((chances["games"], chances["fga"], chances["fta"]), (1, 10, 4))
+
+    def test_splits_carry_his_chances(self):
+        later = game("2", "2026-01-03", "AAA", "BBB",
+                     [box("star", min=36, pts=30, fga=22, fgm=11, fta=8, ftm=6, to=3, reb=5, dreb=5)],
+                     [box("opp", min=240, pts=40, fga=45, fgm=15, reb=40, dreb=30, oreb=10)])
+        payload = {**self.payload, "games": {**self.payload["games"], "2": later}}
+        mate = next(item for item in context.player_context(payload, "star", "AAA", "BBB", "player_points", 20.5)["withWithout"]
+                    if item["id"] == "mate")
+        self.assertEqual(mate["without"]["chances"]["fga"], 22)
+        self.assertEqual(mate["without"]["chances"]["min"], 36)
+        self.assertEqual(mate["with"]["chances"]["fga"], 10)
+
+    def test_last_season_joins_a_young_one(self):
+        previous = {"season": 2025, "players": {"star": ["Star", "G", None, "OLD"]},
+                    "games": {"0": game("0", "2025-03-01", "AAA", "BBB", [box("star", min=30, fga=12, fgm=6)], [box("opp", min=240)])}}
+        blended = self.opportunity.blend(previous, self.payload)
+        self.assertEqual(blended["blended"], [2025, 2026])
+        self.assertEqual(blended["players"]["star"][3], "AAA")  # where he plays now
+        ctx = context.player_context(blended, "star", "AAA", "BBB", "player_points", 12.5)
+        self.assertEqual(ctx["opportunity"]["games"], 2)
+        self.assertEqual(ctx["opportunity"]["seasons"], [2025, 2026])
+        self.assertEqual(ctx["seasons"], [2025, 2026])
+        self.assertIs(self.opportunity.blend(None, self.payload), self.payload)
+
+
+class FakeStore:
+    def __init__(self):
+        self.values = {}
+
+    def get(self, key, **_):
+        return self.values.get(key)
+
+    def pipeline(self, commands, **_):
+        for command in commands:
+            self.values[command[1]] = command[2]
+
+
+class FakeResponse:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def raise_for_status(self):
+        pass
+
+    def json(self):
+        return self.payload
+
+
+def tracking_answer(measure, last):
+    """stats.nba.com's leaguedashptstats, as the NBA's site answers it."""
+    from backend.sports.wnba import tracking
+    columns = list(tracking.MEASURES[measure])
+    values = {"POTENTIAL_AST": 11.2 if not last else 12.6, "AST": 7.1, "REB_CHANCES": 15.0, "REB": 9.8, "REB_CHANCE_PCT": 0.653,
+              "REB_CONTEST_PCT": 0.41, "CATCH_SHOOT_FG3A": 4.2, "CATCH_SHOOT_FG3_PCT": 0.389, "TOUCHES": 70.4, "TIME_OF_POSS": 6.1}
+    rows = [[201, "Nikola Jokić", "DEN", 20 if not last else 10, 34.5] + [values.get(column, 1.0) for column in columns],
+            [202, "Someone Else", "BOS", 30, 30.0] + [1.0 for _ in columns]]
+    return {"resource": "leaguedashptstats",
+            "resultSets": [{"name": "LeagueDashPtStats", "headers": ["PLAYER_ID", "PLAYER_NAME", "TEAM_ABBREVIATION", "GP", "MIN"] + columns,
+                            "rowSet": rows}]}
+
+
+class TrackingTests(unittest.TestCase):
+    def setUp(self):
+        from backend.sports.wnba import tracking
+        self.tracking = tracking
+        self.calls = []
+
+    def get(self, url, params=None, **_):
+        self.calls.append((params["PtMeasureType"], params["Season"], params["LastNGames"]))
+        return FakeResponse(tracking_answer(params["PtMeasureType"], params["LastNGames"]))
+
+    def test_season_names_and_player_names(self):
+        self.assertEqual(self.tracking.season_label(2026), "2025-26")
+        self.assertEqual(self.tracking.name_key("Nikola Jokić"), self.tracking.name_key("Nikola Jokic"))
+        self.assertEqual(self.tracking.name_key("Jaren Jackson Jr."), "jaren jackson")
+
+    def test_a_player_read_off_the_nba_tables(self):
+        store = FakeStore()
+        found = self.tracking.player(2026, "Nikola Jokic", "DEN", get=self.get, store=store)
+        self.assertTrue(found["available"])
+        self.assertEqual(found["season"], "2025-26")
+        self.assertEqual(found["games"], 20)
+        self.assertEqual(found["passing"]["potentialAst"], 11.2)
+        self.assertEqual(found["recent"]["passing"]["potentialAst"], 12.6)
+        self.assertEqual(found["recent"]["games"], 10)
+        self.assertEqual(found["rebounding"]["chancePct"], 65.3)   # a fraction on the NBA's site
+        self.assertEqual(found["catchShoot"]["fg3Pct"], 38.9)
+        self.assertEqual(found["touches"]["timeOfPoss"], 6.1)
+        asked = len(self.calls)
+        self.assertEqual(asked, len(self.tracking.MEASURES) + len(self.tracking.RECENT_MEASURES))
+        # Kept: a second page asks nothing.
+        self.tracking.player(2026, "Nikola Jokic", "DEN", get=self.get, store=store)
+        self.assertEqual(len(self.calls), asked)
+
+    def test_a_refusal_is_remembered(self):
+        store = FakeStore()
+
+        def refused(*_, **__):
+            self.calls.append("refused")
+            raise RuntimeError("timed out")
+        self.assertEqual(self.tracking.player(2026, "Nikola Jokic", get=refused, store=store), {"available": False, "reason": "unreachable"})
+        tried = len(self.calls)
+        self.tracking.player(2026, "Nikola Jokic", get=refused, store=store)
+        self.assertEqual(len(self.calls), tried)
+
+    def test_a_young_season_reads_last_one(self):
+        def young(url, params=None, **_):
+            if params["Season"] == "2026-27":
+                return FakeResponse({"resultSets": [{"headers": ["PLAYER_ID", "PLAYER_NAME", "TEAM_ABBREVIATION", "GP"], "rowSet": []}]})
+            return self.get(url, params)
+        found = self.tracking.player(2027, "Nikola Jokic", "DEN", get=young, store=FakeStore())
+        self.assertEqual(found["season"], "2025-26")  # 2026-27 has none of his games yet
+        self.assertTrue(found["available"])
+        self.assertEqual(self.tracking.player(2026, "Nobody Here", get=self.get, store=FakeStore())["reason"], "not-found")
+
+
 if __name__ == "__main__":
     unittest.main()

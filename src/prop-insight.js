@@ -26,6 +26,8 @@ const bullet = text => capital(String(text || '').trim().replace(/\.$/, ''));
 const rank = judged => judged?.tier ? TIERS[judged.tier].rank : 0;
 
 export const SIDE_WORDS = {OVER: 'More', UNDER: 'Less'};
+// Facts said in their own section of the sheet (the opportunity read), not again in the lists.
+const OWN_SECTION = new Set(['opportunity', 'teammate-out']);
 
 /** The matchup case's words, for a WNBA player in her own pronouns. */
 export function voice(text, row) {
@@ -117,11 +119,11 @@ function writeup(row, judged, other, verdict) {
   const matchup = facts.filter(item => item.kind === 'opponent' && (item.tone === wanted || (!verdict.play && item.tone === 'warn')))
     .sort((a, b) => Boolean(b.primary) - Boolean(a.primary) || Math.abs(b.impact) - Math.abs(a.impact))[0];
   if (matchup) out.push(`${verdict.play ? 'On top of that, ' : 'And the matchup doesn\'t help: '}${voice(matchup.text, row)}`);
-  const usage = facts.find(item => item.kind === 'usage' && item.tone === wanted);
+  const usage = facts.find(item => item.kind === 'usage' && !OWN_SECTION.has(item.key) && item.tone === wanted);
   if (usage) out.push(`${verdict.play ? 'Plus, ' : ''}${voice(usage.text, row)}`);
   const books = booksRead(judged);
   if (books) out.push(books.text);
-  const news = facts.find(item => item.kind === 'news' && item.level);
+  const news = facts.find(item => item.kind === 'news' && item.level && !OWN_SECTION.has(item.key));
   if (news) out.push(voice(news.text, row));
   if (verdict.play) out.push(`${TIERS[judged.tier].text}.`);
   else {
@@ -146,7 +148,7 @@ function reasonsFor(row, judged) {
   const projection = judged.read?.projection;
   if (finite(projection) && finite(row.line) && (judged.side === 'UNDER' ? projection < row.line : projection > row.line))
     add('projection', `Projects for ${figure(projection)} against the ${figure(row.line)} line`);
-  for (const item of judged.matchup?.facts || []) if (item.tone === 'up' && item.kind !== 'form') add(iconOf(item), voice(item.text, row));
+  for (const item of judged.matchup?.facts || []) if (item.tone === 'up' && item.kind !== 'form' && !OWN_SECTION.has(item.key)) add(iconOf(item), voice(item.text, row));
   const books = booksRead(judged);
   if (books?.tone === 'up') add('books', books.short);
   return out.slice(0, 5);
@@ -159,7 +161,7 @@ function risksFor(row, judged) {
     const said = bullet(voice(text, row));
     if (said && !out.some(item => item.text.toLowerCase() === said.toLowerCase())) out.push({icon, text: said});
   };
-  for (const item of judged.matchup?.facts || []) if ((item.tone === 'down' || item.tone === 'warn') && item.kind !== 'form') add(iconOf(item), item.text);
+  for (const item of judged.matchup?.facts || []) if ((item.tone === 'down' || item.tone === 'warn') && item.kind !== 'form' && !OWN_SECTION.has(item.key)) add(iconOf(item), item.text);
   const opponentSaid = (judged.matchup?.facts || []).some(item => item.kind === 'opponent' && (item.tone === 'down' || item.tone === 'warn'));
   for (const risk of judged.read?.risks || []) {
     if (/^Tough matchup: /.test(risk) && opponentSaid) continue;
@@ -190,7 +192,11 @@ export function buildInsight(row, over, under) {
     finite(pick.read?.projection) ? {label: 'Projection', value: figure(pick.read.projection), rate: null} : null,
     finite(pick.book) ? {label: 'Books', value: percent(pick.book), rate: pick.book} : null].filter(Boolean);
   const matchup = pick.matchup ? {score: pick.matchup.score, label: pick.matchup.label, tone: pick.matchup.tone,
-    facts: pick.matchup.facts.filter(item => item.kind !== 'form').slice(0, 5).map(item => ({icon: iconOf(item), tone: item.tone, text: bullet(voice(item.text, row))}))} : null;
+    facts: pick.matchup.facts.filter(item => item.kind !== 'form' && !OWN_SECTION.has(item.key)).slice(0, 5).map(item => ({icon: iconOf(item), tone: item.tone, text: bullet(voice(item.text, row))}))} : null;
+  // Whether the chances behind the line are there, not just the hit rate (basketball: opportunity.js).
+  const read = (pick.matchup?.facts || []).find(item => item.key === 'opportunity')?.read;
+  const opportunity = read ? {verdict: read.verdict, title: voice(read.title, row), text: voice(read.text, row),
+    points: read.points.map(item => ({icon: 'usage', tone: item.tone, text: bullet(voice(item.text, row))}))} : null;
   const pass = !verdict.play;
   return {
     player: row.player, side: pick.side, sideWord: side, line: row.line, market: row.market, tier: pick.tier,
@@ -200,7 +206,7 @@ export function buildInsight(row, over, under) {
     summary: writeup(row, pick, other, verdict),
     reasons: reasonsFor(row, pick),
     risks: risksFor(row, pick),
-    matchup, numbers,
+    matchup, numbers, opportunity,
     other: other?.tier ? {side: other.side, sideWord: SIDE_WORDS[other.side], tier: other.tier, tierLabel: TIERS[other.tier].label, chance: other.chance,
       held: other.side === 'UNDER' && rank(other) >= TIERS.lean.rank && !confidentUnder(other)} : null,
   };
