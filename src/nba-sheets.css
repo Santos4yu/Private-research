@@ -1,0 +1,75 @@
+/* NBA Cheat Sheets (NbaSheets.jsx): pace-up games and teammates out, on the
+   Cheat Sheets look (cheat-sheets.css tokens). */
+
+/* A game in the first column: both teams' logos, overlapped. */
+.nba-logos{position:relative;flex:none;display:flex;align-items:center;width:46px;height:34px}
+.nba-logos img{width:28px;height:28px;object-fit:contain;border-radius:50%;background:var(--c-sunk);padding:3px;box-shadow:0 0 0 1.5px var(--c-panel)}
+.nba-logos img+img{margin-left:-10px}
+.lb-step .nba-logos{width:60px;height:44px;justify-content:center}
+.lb-step .nba-logos img{width:36px;height:36px}
+
+/* Pace: each side of a game with who gets the extra trips. */
+.nba-sides{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.nba-side{min-width:0;padding:10px 12px;border-radius:10px;background:var(--c-sunk);box-shadow:inset 0 0 0 1px var(--c-line)}
+.nba-side header{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin-bottom:6px}
+.nba-side header>b{color:var(--c-text);font-size:13px}
+.nba-side header>span{color:var(--c-muted);font-size:11.5px;white-space:nowrap}
+.nba-side header>span small{margin-left:3px;color:var(--c-faint);font-size:10.5px}
+.nba-side-logo{width:20px;height:20px;object-fit:contain}
+.nba-side ul{display:grid;gap:2px;margin:0;padding:0;list-style:none}
+.nba-side li{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:10px;padding:5px 0;border-top:1px solid var(--c-line)}
+.nba-side li:first-child{border-top:0}
+.nba-side-who{display:grid;gap:1px;min-width:0}
+.nba-side-who b{overflow:hidden;color:var(--c-text);font-size:12.5px;font-weight:650;white-space:nowrap;text-overflow:ellipsis}
+.nba-side-who small{color:var(--c-faint);font-size:10.5px;white-space:nowrap}
+.nba-side-gain{display:grid;justify-items:end;min-width:38px}
+.nba-side-gain b{color:var(--c-body);font-size:12.5px;font-weight:700}
+.nba-side-gain small{color:var(--c-faint);font-size:9.5px;text-transform:uppercase;letter-spacing:.04em}
+.nba-side-gain[data-tone="good"] b{color:var(--c-up)}
+.nba-side-gain[data-tone="bad"] b{color:var(--c-down)}
+
+/* Teammate out: a card per player ruled out. */
+/* One card a row: a short card never leaves a gap beside a tall one. */
+.nba-outs{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+.nba-out{min-width:0;padding:12px 14px;border-radius:12px;background:var(--c-panel);box-shadow:inset 0 0 0 1px var(--c-line)}
+.nba-out header{display:flex;align-items:center;gap:11px}
+.nba-out-who{display:grid;gap:2px;min-width:0;flex:1}
+.nba-out-who strong{overflow:hidden;color:var(--c-text);font-size:14px;white-space:nowrap;text-overflow:ellipsis}
+.nba-out-who small{color:var(--c-muted);font-size:11.5px}
+.nba-out-who small i{font-style:normal;opacity:.55;margin:0 4px}
+.nba-out-tags{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px}
+.nba-status{padding:3px 7px;border-radius:6px;background:rgba(255,143,156,.14);color:var(--c-down);font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.nba-status[data-status="doubtful"]{background:rgba(242,196,107,.14);color:var(--c-gold)}
+.nba-role{margin:8px 0 10px;color:var(--c-muted);font-size:12px}
+.nba-role b{color:var(--c-text);font-weight:650}
+.nba-role i{font-style:normal;opacity:.5;margin:0 6px}
+.nba-gains-wrap{overflow-x:auto;margin:0 -2px}
+.nba-gains{width:100%;border-collapse:collapse;font-size:12px}
+.nba-gains th{padding:0 6px 5px;color:var(--c-faint);font-size:9.5px;font-weight:700;letter-spacing:.05em;text-align:right;text-transform:uppercase;white-space:nowrap}
+.nba-gains th:first-child{text-align:left}
+.nba-gains td{padding:6px;border-top:1px solid var(--c-line);text-align:right;white-space:nowrap}
+.nba-gains td:first-child{text-align:left}
+.nba-gains td b{display:block;color:var(--c-body);font-weight:650}
+.nba-gains td small{display:block;color:var(--c-faint);font-size:10.5px;font-weight:600}
+.nba-gains td small[data-tone="good"]{color:var(--c-up)}
+.nba-gains td small[data-tone="bad"]{color:var(--c-down)}
+.nba-gains td.nba-games{color:var(--c-muted)}
+.nba-gain-who{display:flex;align-items:center;gap:8px}
+.nba-gain-who b{display:inline!important;color:var(--c-text)!important}
+.nba-none p{margin:0;color:var(--c-muted);font-size:12.5px}
+.nba-next{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:8px!important}
+.nba-next>span{margin-right:3px;color:var(--c-faint);font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.nba-next i{padding:4px 8px;border-radius:7px;background:var(--c-sunk);color:var(--c-text);font-size:11.5px;font-style:normal;font-weight:600}
+.nba-next i b{margin-left:5px;color:var(--c-faint);font-weight:600}
+
+@media (max-width:640px){
+ .nba-sides{grid-template-columns:minmax(0,1fr)}
+ .nba-out{padding:11px 12px}
+ .nba-out header{flex-wrap:wrap}
+ .nba-out-tags{width:100%;justify-content:flex-start}
+ .nba-gains{font-size:11.5px}
+ .nba-gains th,.nba-gains td{padding-left:4px;padding-right:4px}
+ .nba-gain-who .cs-face{display:none}
+ /* FGA: the column a phone can spare. */
+ .nba-gains th:nth-child(7),.nba-gains td:nth-child(7){display:none}
+}

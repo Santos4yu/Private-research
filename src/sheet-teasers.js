@@ -1,6 +1,6 @@
 // Each Cheat Sheet's #1 right now, for its card on the hub (CheatSheets.jsx):
 // who or what it is, a short line on why, and the number behind it. Read
-// from the same data the sheet itself shows (mlb_sheets.py, nfl_sheets.py).
+// from the same data the sheet itself shows (mlb_sheets.py, nfl_sheets.py, nba_sheets.py).
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const best = (rows, value) => (rows || []).reduce((top, row) => {
@@ -105,7 +105,20 @@ const NFL = {
   },
 };
 
-const LEAGUES = {mlb: MLB, nfl: NFL};
+const NBA = {
+  pace: data => {
+    const row = (data.rows || [])[0];
+    return row && {name: `${row.away} @ ${row.home}`, photo: `https://a.espncdn.com/i/teamlogos/nba/500/${String(row.home).toLowerCase()}.png`,
+      detail: `${one(row.projected)} possessions${row.paceUp ? ' · two fast teams' : ''}`, value: row.score, kind: 'score'};
+  },
+  out: data => {
+    const row = best(data.rows, item => item.score);
+    return row && {...nflWho(row), detail: `Without ${last(row.out?.name)}: ${row.diff?.pts > 0 ? '+' : ''}${one(row.diff?.pts || 0)} pts in ${row.games} games`,
+      value: row.score, kind: 'score'};
+  },
+};
+
+const LEAGUES = {mlb: MLB, nfl: NFL, nba: NBA};
 
 /** The sheet's #1 as {name, detail, value, kind, id | photo}, or null. */
 export function teaser(league, sheet, data) {

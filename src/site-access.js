@@ -541,7 +541,7 @@ export async function loadSiteControls(){
  const finderSportNames={wnba:'WNBA',mlb:'MLB',nfl:'NFL',soccer:'Soccer',nhl:'NHL',nba:'NBA',tennis:'Tennis',cs2:'CS2',cfb:'CFB'};
  for(const sport of FINDER_SPORTS){const label=element('label');const input=document.createElement('input');input.type='checkbox';input.name='finderSport';input.value=sport;input.checked=!(policy.disabledFinderSports||[]).includes(sport);label.append(input,document.createTextNode(`${finderSportNames[sport]} in the Finder`));host.querySelector('.site-finder-sport-controls').append(label);}
  // Cheat sheets, one switch each, grouped by league. Unchecked = hidden from regular users.
- for(const league of ['mlb','nfl']){
+ for(const league of ['mlb','nfl','nba']){
   const group=element('div');group.className='site-sheet-group';
   const title=element('strong');title.textContent=league.toUpperCase();group.append(title);
   for(const [key,name] of CHEAT_SHEETS.filter(([key])=>key.startsWith(league+':'))){const label=element('label');const input=document.createElement('input');input.type='checkbox';input.name='sheet';input.value=key;input.checked=!(policy.disabledSheets||[]).includes(key);label.append(input,document.createTextNode(name));group.append(label);}

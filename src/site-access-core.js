@@ -47,6 +47,7 @@ export const CHEAT_SHEETS=[
  ['nfl:best','Best Matchups'],['nfl:td','TD Scorers'],['nfl:firsttd','First TD'],['nfl:streaks','Prop Streaks'],['nfl:zones','Target Zones'],
  ['nfl:redzone','Red Zone'],['nfl:speed','Speed Edges'],['nfl:steam','Steam Moves'],['nfl:shop','Line Shopping'],
  ['nfl:dvp','Defense vs Position'],['nfl:soft','Soft Spots'],['nfl:goblins','Goblins & Demons'],
+ ['nba:pace','Pace-up Games'],['nba:out','Teammate Out'],
 ];
 export function canUseSheet(policy,key){
  return canUseTab(policy,'sheets')&&(policy.isAdmin||!(policy.disabledSheets||[]).includes(key));

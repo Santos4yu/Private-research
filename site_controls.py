@@ -33,7 +33,8 @@ LEGACY_FINDER_SPORTS=('wnba','mlb','nfl')
 # nfl_sheets.py). MLB's eight came before sheetsSeen, so they stay as they
 # were; a sheet added later starts switched off until the admin turns it on.
 SHEETS=('mlb:hr','mlb:hot','mlb:matchups','mlb:bvp','mlb:nrfi','mlb:park','mlb:strikeouts','mlb:streaks',
- 'nfl:best','nfl:td','nfl:firsttd','nfl:streaks','nfl:zones','nfl:redzone','nfl:speed','nfl:steam','nfl:shop','nfl:dvp','nfl:soft','nfl:goblins')
+ 'nfl:best','nfl:td','nfl:firsttd','nfl:streaks','nfl:zones','nfl:redzone','nfl:speed','nfl:steam','nfl:shop','nfl:dvp','nfl:soft','nfl:goblins',
+ 'nba:pace','nba:out')
 LEGACY_SHEETS=tuple(key for key in SHEETS if key.startswith('mlb:'))
 HEX_COLOR_RE=re.compile(r'^#[0-9a-fA-F]{6}$')
 # The phone dock: the sections the admin puts in its four slots, in order

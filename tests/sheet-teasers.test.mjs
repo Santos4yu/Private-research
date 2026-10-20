@@ -80,3 +80,13 @@ test('nothing to show reads as no pick, never a crash', () => {
   assert.equal(teaserValue({value: null, kind: 'pct'}), '—');
   assert.equal(teaserValue(), '—');
 });
+
+test('NBA Pace-up Games and Teammate Out', () => {
+  const pace = teaser('nba', 'pace', {rows: [{away: 'ATL', home: 'IND', projected: 104.24, paceUp: true, score: 79}, {away: 'NY', home: 'MIA', projected: 96, score: 20}]});
+  assert.deepEqual(pace, {name: 'ATL @ IND', photo: 'https://a.espncdn.com/i/teamlogos/nba/500/ind.png', detail: '104.2 possessions · two fast teams', value: 79, kind: 'score'});
+  const out = teaser('nba', 'out', {rows: [
+    {who: {name: 'Bennedict Mathurin', headshot: 'h.png'}, out: {name: 'Tyrese Haliburton'}, diff: {pts: 6.2}, games: 4, score: 70},
+    {who: {name: 'Other Guy'}, out: {name: 'X Y'}, diff: {pts: 1}, games: 2, score: 55}]});
+  assert.deepEqual(out, {name: 'Bennedict Mathurin', photo: 'h.png', detail: 'Without Haliburton: +6.2 pts in 4 games', value: 70, kind: 'score'});
+  assert.equal(teaser('nba', 'out', {rows: []}), null);
+});

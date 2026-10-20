@@ -3,6 +3,8 @@ import {ArrowDown,ArrowLeft,ArrowUp,ChevronDown,ChevronRight,CloudRain,Crosshair
 import {loadLines} from './finder-pool';
 import {finite,nameKey,pct,num,fixed,signed,price,time,dayLabel,tone,initials,Img,Score,Tag,Table,better,Faq,Skeleton} from './cheat-sheet-parts';
 import {NFL_SHEETS,NflSheetView,fetchSheet as fetchNflSheet} from './NflSheets';
+import {NBA_SHEETS,NbaSheetView,fetchSheet as fetchNbaSheet} from './NbaSheets';
+import {LEAGUE_LOGOS} from './league-logos';
 import {teaser,teaserValue} from './sheet-teasers';
 import {siteSheetAllowed} from './site-access';
 import './cheat-sheets.css';
@@ -329,7 +331,7 @@ function useTeasers(league,sheets){
  useEffect(()=>{
   let live=true;
   setPicks({});
-  const load=league==='nfl'?key=>fetchNflSheet(key):key=>fetchSheet(key,'today');
+  const load=league==='nfl'?key=>fetchNflSheet(key):league==='nba'?key=>fetchNbaSheet(key):key=>fetchSheet(key,'today');
   const queue=[...sheets];
   const worker=async()=>{
    while(live&&queue.length){
@@ -421,12 +423,14 @@ function SheetView({sheetKey,sheets,onOpen}){
 
 // The league and sheet in the address, so a sheet can be shared and Back
 // works: #hr (an MLB sheet, as before), #nfl for the NFL sheets, #nfl/dvp.
-const LEAGUES={mlb:SHEETS,nfl:NFL_SHEETS};
+const LEAGUES={mlb:SHEETS,nfl:NFL_SHEETS,nba:NBA_SHEETS};
 const LEAGUE_NOTE={mlb:count=>`Today's MLB slate, read ${count} ways. Updated through the day.`,
- nfl:count=>`This week's NFL games, read ${count} ways. Updated through the week.`};
+ nfl:count=>`This week's NFL games, read ${count} ways. Updated through the week.`,
+ nba:count=>`Tonight's NBA slate, read ${count===1?'one way':`${count} ways`}. Updated through the day.`};
 function readRoute(){
  const [first,second]=location.hash.slice(1).split('/');
  if(first==='nfl')return {league:'nfl',sheet:NFL_SHEETS.some(item=>item.key===second)?second:null};
+ if(first==='nba')return {league:'nba',sheet:NBA_SHEETS.some(item=>item.key===second)?second:null};
  if(first==='mlb')return {league:'mlb',sheet:SHEETS.some(item=>item.key===second)?second:null};
  return {league:null,sheet:SHEETS.some(item=>item.key===first)?first:null};
 }
@@ -464,10 +468,12 @@ export function CheatSheets(){
    {sheet?<button type="button" className="cs-back" onClick={()=>go(league,null)}><ArrowLeft aria-hidden="true"/>Cheat Sheets</button>
     :<div className="cs-top-title"><h1>Cheat Sheets</h1><p>{LEAGUE_NOTE[league](sheets.length)}</p></div>}
    <div className="cs-sports" role="tablist" aria-label="Sport">{SPORTS.map(sport=>{const live=Boolean(open[sport.key]?.length);return <button key={sport.key} type="button" role="tab" aria-selected={sport.key===league} data-active={sport.key===league?'':undefined} disabled={!live} onClick={()=>go(sport.key,null)}>
-    <Img className="cs-sport-logo" src={`/leagues/${sport.key}.svg`}/>{sport.label}{!live&&<small>Soon</small>}
+    <Img className="cs-sport-logo" src={LEAGUE_LOGOS[sport.key]||`/leagues/${sport.key}.svg`}/>{sport.label}{!live&&<small>Soon</small>}
    </button>;})}</div>
   </header>
-  {sheet?(league==='nfl'?<NflSheetView sheetKey={sheet} sheets={sheets} onOpen={key=>go('nfl',key)}/>:<SheetView sheetKey={sheet} sheets={sheets} onOpen={key=>go('mlb',key)}/>)
+  {sheet?(league==='nfl'?<NflSheetView sheetKey={sheet} sheets={sheets} onOpen={key=>go('nfl',key)}/>
+   :league==='nba'?<NbaSheetView sheetKey={sheet} sheets={sheets} onOpen={key=>go('nba',key)}/>
+   :<SheetView sheetKey={sheet} sheets={sheets} onOpen={key=>go('mlb',key)}/>)
    :<Hub league={league} sheets={sheets} onOpen={key=>go(league,key)}/>}
  </div>;
 }
