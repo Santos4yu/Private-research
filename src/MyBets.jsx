@@ -1,6 +1,6 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {AlertTriangle,CalendarDays,Camera,ChevronLeft,ChevronRight,LineChart,Loader2,Plus,Trash2,X} from 'lucide-react';
+import {AlertTriangle,CalendarDays,Camera,ClipboardPaste,ChevronLeft,ChevronRight,LineChart,Loader2,Plus,Trash2,X} from 'lucide-react';
 import {KINDS,PERIODS,calendar,inPeriod,moneyText,periodOf,priceText,profitOf,series,shiftAnchor,streak,summarize,today,unitsText,multiplierOf,betFromSlip,betFromRead} from './my-bets-core';
 import {loadHistory} from './slip-history';
 import {shrink} from './slip-image';
@@ -116,7 +116,9 @@ function Calendar({cells,unit,title,onPick,now}){
 const blank=()=>({kind:'pickem',book:'PrizePicks',sport:'nba',title:'',stake:1,payout:3,odds:-110,date:today(),result:'pending',returned:''});
 
 function BetForm({initial,unit,slips,onSave,onDelete,onClose}){
- const [bet,setBet]=useState(()=>({...blank(),...initial}));
+ // A picture pasted on the page before the form opened comes in with it.
+ const {picture:pasted,...given}=initial||{};
+ const [bet,setBet]=useState(()=>({...blank(),...given}));
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
  const set=(key,value)=>setBet(current=>({...current,[key]:value}));
@@ -137,6 +139,18 @@ function BetForm({initial,unit,slips,onSave,onDelete,onClose}){
    setPicture({state:'read',read});
   }catch(problem){setPicture({state:'error',error:problem.message});}
  };
+ // The Paste button: the picture on the clipboard (iPhone asks first).
+ const pastePicture=async()=>{
+  try{
+   if(!navigator.clipboard?.read)throw new Error('no clipboard');
+   for(const item of await navigator.clipboard.read()){
+    const type=item.types.find(name=>name.startsWith('image/'));
+    if(type){readFile(new File([await item.getType(type)],'pasted',{type}));return;}
+   }
+   setPicture({state:'error',error:'There\'s no picture on your clipboard. Copy the screenshot first.'});
+  }catch{setPicture({state:'error',error:'Your browser didn\'t allow pasting. Tap Add a picture and choose the screenshot instead.'});}
+ };
+ useEffect(()=>{if(pasted)readFile(pasted);},[]);
  // A screenshot pasted while the form is open is read too.
  useEffect(()=>{
   if(editing)return undefined;
@@ -160,12 +174,15 @@ function BetForm({initial,unit,slips,onSave,onDelete,onClose}){
      :picture.state==='read'?<div className="mb-picture-read">
       <p><b>Read from your picture</b>{[dollars(picture.read.stake)&&`${dollars(picture.read.stake)} in`,dollars(picture.read.payout)&&`pays ${dollars(picture.read.payout)}`,
         finite(picture.read.multiplier)&&picture.read.kind==='pickem'&&`${picture.read.multiplier}x`,READ_RESULT[picture.read.result]].filter(Boolean).join(' · ')}</p>
-      <small>Check it below, then tap Log bet. <button type="button" onClick={()=>pictureInput.current?.click()}>Use another picture</button></small>
+      <small>Check it below, then tap Log bet. <button type="button" onClick={()=>pictureInput.current?.click()}>Use another picture</button> · <button type="button" onClick={pastePicture}>Paste another</button></small>
      </div>
-     :<button type="button" className="mb-picture-pick" onClick={()=>pictureInput.current?.click()}>
-      <Camera aria-hidden="true"/><span><b>Add a picture of your bet</b><small>What you put in, what it pays and how it went are filled in for you.</small></span>
-     </button>}
-    {picture.state==='error'&&<p className="mb-picture-error" role="alert">{picture.error} <button type="button" onClick={()=>pictureInput.current?.click()}>Try another</button></p>}
+     :<div className="mb-picture-row">
+      <button type="button" className="mb-picture-pick" onClick={()=>pictureInput.current?.click()}>
+       <Camera aria-hidden="true"/><span><b>Add a picture of your bet</b><small>What you put in, what it pays and how it went are filled in for you.</small></span>
+      </button>
+      <button type="button" className="mb-picture-paste" onClick={pastePicture}><ClipboardPaste aria-hidden="true"/>Paste</button>
+     </div>}
+    {picture.state==='error'&&<p className="mb-picture-error" role="alert">{picture.error} <button type="button" onClick={()=>pictureInput.current?.click()}>Choose one</button> · <button type="button" onClick={pastePicture}>Paste again</button></p>}
    </div>}
    {!editing&&slips.length>0&&<details className="mb-from">
     <summary>From a slip you track <small>{slips.length}</small></summary>
@@ -245,6 +262,16 @@ export function MyBets(){
  const load=()=>call('bets').then(data=>{setState({loading:false,error:'',bets:data.bets||[],unit:data.unit||10});setUnitDraft(String(data.unit||10));})
   .catch(problem=>setState(current=>({...current,loading:false,error:problem.message})));
  useEffect(()=>{load();},[]);
+ // A screenshot pasted on the page (Ctrl+V) opens Log a bet and reads it.
+ useEffect(()=>{
+  if(editing)return undefined;
+  const paste=event=>{
+   if(/^(input|textarea)$/i.test(event.target?.tagName||''))return;
+   const file=[...(event.clipboardData?.files||[])].find(item=>/^image\//.test(item.type));
+   if(file){event.preventDefault();setEditing({picture:file});}
+  };
+  document.addEventListener('paste',paste);return()=>document.removeEventListener('paste',paste);
+ },[editing]);
  // The slips they track, to log one as a bet.
  useEffect(()=>{if(editing&&!editing.id)loadHistory().then(data=>setSlips(data.slips||[])).catch(()=>setSlips([]));},[editing]);
  const period=useMemo(()=>periodOf(kind,anchor),[kind,anchor]);

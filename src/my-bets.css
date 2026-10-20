@@ -238,3 +238,11 @@
 /* Every label the same height, the Units/$ switch included, so the boxes line up. */
 .mb-fields label>span{display:flex;align-items:center;min-height:26px}
 .mb-mini button{min-height:18px}
+
+/* Add a picture, or paste one. */
+.mb-picture-row{display:flex;align-items:stretch}
+.mb-picture-row .mb-picture-pick{flex:1;min-width:0}
+.mb-picture-paste{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;flex:none;width:76px;margin:8px 8px 8px 0;border:1px solid var(--mb-line);border-radius:12px;
+ background:var(--mb-raised);color:var(--mb-text);font-size:12px;font-weight:700;cursor:pointer}
+.mb-picture-paste svg{width:20px;height:20px}
+.mb-picture-paste:hover{border-color:color-mix(in srgb,var(--mb-accent) 55%,var(--mb-line))}
