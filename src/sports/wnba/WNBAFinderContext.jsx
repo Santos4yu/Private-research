@@ -258,6 +258,7 @@ function change(key,value,usual){
 // The prop's own number for the line under the faces.
 const LEAD={player_assists:'ast',player_threes:'tp',player_threes_attempts:'tpa',player_field_goals:'fg',player_field_goals_attempts:'fga',player_frees_made:'fta',player_frees_attempts:'fta',player_turnovers:'tov'};
 function DefenderCard({row}){
+ const admin=useIsAdmin();
  const opponent=opponentOf(row);
  const state=useWnba('defender',{league:'nba',player:row.player,team:row.teamAbbr,opponent},row.sport==='nba'&&Boolean(row.player&&opponent));
  const data=state.data,defenders=data?.defenders||[],usual=data?.usual;
@@ -265,8 +266,10 @@ function DefenderCard({row}){
  const [scope,setScope]=useState('theirs'),[sort,setSort]=useState('poss'),[picked,setPicked]=useState(null);
  useEffect(()=>{setPicked(null);setScope('theirs');},[row.playerId,opponent]);
  if(state.loading&&!data)return <Card title="Who guards him" icon={Shield}><Skeleton/></Card>;
- if(state.error)return <Card title="Who guards him" icon={Shield}><Failed state={state} label="Defender matchups"/></Card>;
- if(!data?.player||!defenders.length)return <Card title="Who guards him" icon={Shield}><Empty>No defender tracking for {row.player} yet this season.</Empty></Card>;
+ // Nothing to show (NBA.com not answering the site, or no tracking for
+ // him): members see no card at all; the admin sees why.
+ if(state.error)return admin?<Card title="Who guards him" icon={Shield}><Failed state={state} label="Defender matchups"/></Card>:null;
+ if(!data?.player||!defenders.length)return admin?<Card title="Who guards him" icon={Shield}><Empty>No defender tracking for {row.player} yet this season.</Empty></Card>:null;
  const listed=(scope==='theirs'&&theirs.length?theirs:defenders).filter(item=>sort==='poss'||item.poss>=10);
  const sorted=[...listed].sort((a,b)=>sort==='tough'?(a.pts??99)-(b.pts??99):sort==='easy'?(b.pts??-1)-(a.pts??-1):b.poss-a.poss).slice(0,8);
  const chosen=defenders.find(item=>item.id===picked)||defenders.find(item=>item.id===data.likely?.id)||theirs[0]||defenders[0];
