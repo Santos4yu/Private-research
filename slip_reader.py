@@ -85,7 +85,7 @@ TEXT_PROMPT = ("Below is the text read from a screenshot of a sports pick'em ent
 # A bet the member placed, for My Bets (read_bet): what went in, what it
 # pays or paid, and how it stands. Any kind of bet, not only player props.
 BET_SHAPE = """{"app": "", "kind": "", "entry_type": "", "stake": null, "payout": null, "to_win": null, "payout_is_profit": false, "multiplier": null,
- "odds": null, "status": "", "paid": null, "date": "", "sport": "",
+ "odds": null, "status": "", "paid": null, "date": "", "sport": "", "amounts": [{"label": "", "amount": null}],
  "legs": [{"player": "", "pick": "", "line": null, "side": "", "result": ""}]}"""
 
 BET_RULES = f"""Report what the screenshot shows about this one bet:
@@ -100,6 +100,10 @@ BET_RULES = f"""Report what the screenshot shows about this one bet:
   On PrizePicks, Underdog and the other pick'em apps every amount paid ("To win", "Payout", "Paid", "$5 -> $15") is the
   whole amount, stake included: put it in payout too and leave payout_is_profit false.
 - multiplier: the payout multiplier if shown anywhere ("3x", "5X", "10x Power Play", "Pays 6x"), else null.
+- amounts: every dollar amount on the slip with the words right next to it, exactly as written, e.g.
+  [{{"label": "2-Pick", "amount": 10}}, {{"label": "Power Play", "amount": 5}}] or [{{"label": "Wager", "amount": 20}}, {{"label": "To Win", "amount": 18.18}}].
+  PrizePicks writes an entry as "2-Pick $10" over "$5 Power Play": the "N-Pick" amount is what it pays, the
+  "Power Play" or "Flex Play" amount is what was put in.
 - odds: the whole bet's American odds if shown (+450, -110), else null.
 - status: "won", "lost", "pending" (open, live, in progress, not settled yet), "push" (refunded, void, cancelled,
   tie, reverted) or "cashed_out". Use the slip's own words, badges and colours (a green WIN or check, a red LOSS or X).
@@ -541,6 +545,34 @@ def american(decimal):
     return round((decimal - 1) * 100) if decimal >= 2 else round(-100 / (decimal - 1))
 
 
+# The words next to a dollar amount that say what it is (squashed: no
+# spaces, lower case). A pick'em app's "To win" is its whole payout.
+_STAKE_WORDS = re.compile(r"powerplay|flexplay|entry|wager|risk|stake|betamount|^bet$|^amount$")
+_PAYOUT_WORDS = re.compile(r"\dpick|payout|topay|pays|paid|return|^win$|totalwin")
+_TO_WIN_WORDS = re.compile(r"towin|profit")
+
+
+def _labelled(raw, pickem):
+    """(stake, payout, to_win) from the amounts read with their labels."""
+    stake = payout = to_win = None
+    for item in raw.get("amounts") or []:
+        if not isinstance(item, dict):
+            continue
+        label, amount = _squash(item.get("label")), number(item.get("amount"))
+        if not label or amount is None or amount <= 0:
+            continue
+        if _STAKE_WORDS.search(label) and stake is None:
+            stake = amount
+        elif _PAYOUT_WORDS.search(label) and payout is None:
+            payout = amount
+        elif _TO_WIN_WORDS.search(label) and to_win is None:
+            if pickem:
+                payout = payout or amount
+            else:
+                to_win = amount
+    return stake, payout, to_win
+
+
 def normalize_bet(raw):
     """A bet as My Bets fills its form in: dollars as read, the payout
     worked out from whatever the slip shows, and its result."""
@@ -548,6 +580,15 @@ def normalize_bet(raw):
         return None
     stake, payout, paid = number(raw.get("stake")), number(raw.get("payout")), number(raw.get("paid"))
     to_win = number(raw.get("to_win"))
+    # The amounts with their own words beside them say best which is which.
+    pickem_app = bool((app_of(raw.get("app")) or {}).get("key") in PICKEM_APPS)
+    said_stake, said_payout, said_to_win = _labelled(raw, pickem_app)
+    if said_stake is not None:
+        stake = said_stake
+    if said_payout is not None:
+        payout, to_win = said_payout, None
+    elif said_to_win is not None:
+        to_win, payout = said_to_win, None
     if stake is not None and stake <= 0:
         stake = None
     app = app_of(raw.get("app"))

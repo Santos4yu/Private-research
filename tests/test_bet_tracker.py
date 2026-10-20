@@ -153,3 +153,33 @@ class PickemReadTests(unittest.TestCase):
         # A sportsbook's "To win" is profit.
         book = slip_reader.normalize_bet({"app": "FanDuel", "stake": 10, "to_win": 9.09, "legs": [{"player": "Knicks", "pick": "Knicks -3.5"}]})
         self.assertEqual((book["kind"], book["payout"], book["odds"]), ("straight", 19.09, -110))
+
+
+class PrizePicksSlipTests(unittest.TestCase):
+    """Two real PrizePicks entries: "2-Pick $10" over "$5 Power Play" is $5 in to pay $10, whatever the
+    model made of the numbers on its own, and a cashed "2-Pick $7.50" over "$3.75 Power Play" is a win."""
+
+    def test_the_n_pick_amount_is_the_payout(self):
+        import slip_reader
+        bet = slip_reader.normalize_bet({"app": "PrizePicks", "kind": "parlay", "entry_type": "Power Play", "stake": 10, "payout": None,
+                                         "status": "PENDING", "date": "2026-10-18",
+                                         "amounts": [{"label": "2-Pick", "amount": 10}, {"label": "Power Play", "amount": 5}],
+                                         "legs": [{"player": "Anthony Edwards", "pick": "More 0.5 Points"}, {"player": "George Kittle", "pick": "More 3.5 Recs", "result": "hit"}]})
+        self.assertEqual((bet["kind"], bet["stake"], bet["payout"], bet["multiplier"], bet["estimated"], bet["result"], bet["date"]),
+                         ("pickem", 5, 10, 2, False, "pending", "2026-10-18"))
+
+    def test_a_cashed_entry(self):
+        import slip_reader
+        bet = slip_reader.normalize_bet({"app": "PrizePicks", "entry_type": "Power Play", "status": "Win", "date": "2026-10-19", "sport": "nfl",
+                                         "amounts": [{"label": "2-Pick", "amount": 7.5}, {"label": "Power Play", "amount": 3.75}],
+                                         "legs": [{"player": "Brock Purdy", "pick": "More 19.5 Rush Yards", "result": "hit"},
+                                                  {"player": "Drew Stevens", "pick": "More 0.5 FG Made", "result": "hit"}]})
+        self.assertEqual((bet["stake"], bet["payout"], bet["multiplier"], bet["result"], bet["paid"], bet["sport"]), (3.75, 7.5, 2, "win", 7.5, "nfl"))
+        self.assertEqual([leg["result"] for leg in bet["legs"]], ["hit", "hit"])
+
+    def test_a_sportsbook_wager_and_to_win(self):
+        import slip_reader
+        bet = slip_reader.normalize_bet({"app": "FanDuel", "amounts": [{"label": "Wager", "amount": 20}, {"label": "To Win", "amount": 18.18}],
+                                         "legs": [{"player": "Knicks", "pick": "Knicks -3.5"}]})
+        self.assertEqual((bet["stake"], bet["payout"], bet["odds"]), (20, 38.18, -110))
+        self.assertIn('"2-Pick"', slip_reader.BET_PROMPT)
