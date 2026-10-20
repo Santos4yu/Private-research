@@ -832,7 +832,7 @@ class handler(BaseHTTPRequestHandler):
                     return _send(self, 200, {"rows": []})
                 return _send(self, 200, {"rows": [{key: identity.get(key) for key in (
                     "name", "headshot", "position", "height", "team", "teamAbbr", "teamLogo")} | {"playerId": identity.get("id")}]})
-            if resource in ("matchup", "league-context", "player-context"):
+            if resource in ("matchup", "league-context", "player-context", "game-notes"):
                 return self._context(resource, query, league)
             if resource != "board": return _send(self, 404, {"error": f"Unknown {name} resource."})
             fast = query.get("fast", ["0"])[0].lower() in ("1", "true", "yes")
@@ -862,6 +862,15 @@ class handler(BaseHTTPRequestHandler):
                 if not event_id:
                     return _send(self, 404, {"error": "This game is not on ESPN's schedule yet."})
                 return _send(self, 200, matchup.matchup(event_id, league_name))
+            if resource == "game-notes":
+                # The trend chart's game cards: this season and last, from
+                # what is stored (no rebuild for a card).
+                player_id = arg("playerId")
+                if not player_id.isdigit():
+                    return _send(self, 400, {"error": "A verified player is required."})
+                season = league.current_season(league=league_name)
+                payloads = [league.stored(year, league_name) for year in (season - 1, season)]
+                return _send(self, 200, {"games": context.game_notes(payloads, player_id)})
             season = league.current_season(league=league_name)
             payload = league.ensure(season, league_name)
             if not payload or not payload.get("games"):

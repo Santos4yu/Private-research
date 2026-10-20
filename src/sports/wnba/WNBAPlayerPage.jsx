@@ -28,14 +28,17 @@ function statTabs(playerRows,available){
 }
 function TrendChart({row,playerRows,logs,loading,onStat,chips,chipsNote,onChipRemove,onChipsClear}){
  const host=useRef(null);
+ // Each game's usage rate and who sat out, for the chart's game cards.
+ const notes=useWnba('game-notes',{playerId:row.playerId,league:leagueOf(row)},Boolean(row.playerId));
+ const games=notes.data?.games;
  const opponent=opponentOf(row),available=new Set(playerRows.map(item=>item.marketKey));
  const config=useMemo(()=>({sport:row.sport==='nba'?'NBA':'WNBA',player:row.player,teamAbbr:row.teamAbbr||'',teamLogo:row.teamLogo||'',opponent:opponent||'',
   opponentLogo:row.team===row.homeTeam?row.awayTeamLogo:row.homeTeamLogo,matchupLabel:`${row.awayTeam} @ ${row.homeTeam}`,
   kickoffLabel:new Date(row.startsAt).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'}),status:'Pre-game',headshot:row.headshot||null,
   stats:withLines(statTabs(playerRows,available),playerRows),startsAt:row.startsAt,statKey:row.marketKey,stat:row.market,side:row.direction==='UNDER'?'Under':'Over',line:row.line,
-  chart:wnbaChart(logs,row.marketKey,opponent),lines:wnbaLines(playerRows,row.marketKey),linesStatus:'ready',odds:wnbaOdds(playerRows,row.marketKey),loading,onStat,
+  chart:wnbaChart(logs,row.marketKey,opponent,games),lines:wnbaLines(playerRows,row.marketKey),linesStatus:'ready',odds:wnbaOdds(playerRows,row.marketKey),loading,onStat,
   filters:['seasonKind'],chips,chipsNote,onChipRemove,onChipsClear}),
-  [row,playerRows,logs,loading,onStat,opponent,chips,chipsNote,onChipRemove,onChipsClear]);
+  [row,playerRows,logs,loading,onStat,opponent,chips,chipsNote,onChipRemove,onChipsClear,games]);
  const available_=useTrendPanel(host,config);
  return <>{!available_&&<div className="wnba-board-message" role="status"><Database size={22} aria-hidden="true"/><strong>Trends could not open</strong><span>Refresh the page to reload player research.</span></div>}<div className="wnba-trend-host finder-mlb-trend-host" ref={host}/></>;
 }

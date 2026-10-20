@@ -682,3 +682,45 @@ html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-quotes-slot .fpb-
   html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field { justify-content: space-between; height: 40px; border-radius: 12px !important; background: var(--te-bg) !important; }
   html:root #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-filter-field > div { flex: 0 0 auto; }
 }
+
+/* ---------------------------------------------------------------- game card
+   A basketball game's line, beside the bar it's for (app.js gameCard). It
+   floats on the page, so it sits outside the overlay's scope. Small: twelve
+   numbers in a 4-wide grid, the prop's own stat ringed. */
+html:root .gl-game-pop {
+  position: fixed;
+  z-index: 2147483000;
+  width: 248px;
+  padding: 10px;
+  border: 1px solid var(--ace-border, #333);
+  border-radius: 12px;
+  background: var(--ace-card, #1B1B1B);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .55);
+  color: var(--ace-text, #F6F6F6);
+  font-family: var(--font-sans);
+  animation: gp-in .14s ease-out;
+}
+html:root .gl-game-pop[hidden] { display: none; }
+@keyframes gp-in { from { opacity: 0; transform: translateY(4px); } }
+html:root .gl-game-pop header { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
+html:root .gl-game-pop header img { width: 22px; height: 22px; object-fit: contain; flex: none; }
+html:root .gl-game-pop header div { display: grid; gap: 2px; min-width: 0; flex: 1; }
+html:root .gl-game-pop header strong { font: 700 13px/1.1 var(--font-sans); }
+html:root .gl-game-pop header small { color: var(--ace-muted, #A9A9A9); font: 500 10.5px/1.1 var(--font-sans); white-space: nowrap; }
+html:root .gl-game-pop .gp-result { flex: none; padding: 3px 6px; border-radius: 6px; font: 700 11px/1 var(--font-sans); font-style: normal; font-variant-numeric: tabular-nums;
+  color: var(--ace-muted, #A9A9A9); background: var(--ace-raised, #282828); }
+html:root .gl-game-pop .gp-result[data-result="W"] { color: #3FE39E; background: rgba(63, 227, 158, .12); }
+html:root .gl-game-pop .gp-result[data-result="L"] { color: #EE5470; background: rgba(238, 84, 112, .12); }
+html:root .gl-game-pop .gp-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+html:root .gl-game-pop .gp-tile { display: grid; align-content: center; justify-items: center; gap: 1px; min-height: 40px; padding: 4px 2px;
+  border-radius: 8px; background: var(--ace-card-2, #222); text-align: center; }
+html:root .gl-game-pop .gp-tile span { color: var(--ace-faint, #767676); font: 700 9px/1 var(--font-sans); letter-spacing: .06em; }
+html:root .gl-game-pop .gp-tile b { font: 700 13px/1.15 var(--font-sans); font-variant-numeric: tabular-nums; white-space: nowrap; }
+html:root .gl-game-pop .gp-tile small { color: var(--ace-muted, #A9A9A9); font: 500 9px/1 var(--font-sans); white-space: nowrap; }
+html:root .gl-game-pop .gp-tile.is-focus { box-shadow: inset 0 0 0 1px var(--ace-accent, #fff); background: var(--ace-raised, #282828); }
+html:root .gl-game-pop footer { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 8px 0 0; padding: 8px 0 0; border-top: 1px solid var(--ace-border, #333); }
+html:root .gl-game-pop footer > span { margin-right: 2px; color: var(--ace-faint, #767676); font: 700 9px/1 var(--font-sans); letter-spacing: .06em; text-transform: uppercase; }
+html:root .gl-game-pop footer i { padding: 3px 6px; border-radius: 6px; background: var(--ace-card-2, #222); font: 600 10.5px/1 var(--font-sans); font-style: normal; white-space: nowrap; }
+html:root .gl-game-pop footer i b { color: var(--ace-muted, #A9A9A9); font-weight: 700; }
+html:root #gamelog-overlay .gl-bar-shell[role="button"] { cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { html:root .gl-game-pop { animation: none; } }

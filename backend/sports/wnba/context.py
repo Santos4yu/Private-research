@@ -293,6 +293,59 @@ def _player_rows(by_team: dict) -> dict:
     return rows
 
 
+def usage_rate(row: list, team_rows: list) -> float | None:
+    """His share of his team's plays while he was on the floor (the usual
+    usage rate): his shots, trips to the line and turnovers, against the
+    team's, scaled by his minutes. None without minutes or a team box."""
+    value = lambda entry, field: entry[_I[field]] or 0
+    plays = lambda entry: value(entry, "fga") + 0.44 * value(entry, "fta") + value(entry, "to")
+    minutes = value(row, "min")
+    team_minutes = sum(value(entry, "min") for entry in team_rows)
+    team_plays = sum(plays(entry) for entry in team_rows)
+    if not minutes or not team_minutes or not team_plays:
+        return None
+    return _round(100 * plays(row) * (team_minutes / 5) / (minutes * team_plays), 1)
+
+
+# A teammate counts as missing from a game when he scored at least this
+# much that season, over at least this many games.
+OUT_PPG, OUT_GAMES, OUT_SHOWN = 6.0, 3, 3
+
+
+def game_notes(payloads: list, player_id: str) -> dict:
+    """For each stored game the player played: his usage rate, whether he
+    started, and the teammates who sat it out that mattered (their season
+    scoring, most first), keyed by game id. `payloads` are stored seasons,
+    oldest first; any may be missing."""
+    notes = {}
+    for payload in payloads:
+        if not payload:
+            continue
+        games = list((payload.get("games") or {}).values())
+        players = payload.get("players") or {}
+        scored = defaultdict(lambda: [0.0, 0])
+        for game in games:
+            for side in (game.get("t") or {}).values():
+                for row in side.get("p", []):
+                    if row[_I["pts"]] is not None:
+                        scored[row[0]][0] += row[_I["pts"]]
+                        scored[row[0]][1] += 1
+        for game in games:
+            for side in (game.get("t") or {}).values():
+                mine = next((row for row in side.get("p", []) if row[0] == player_id), None)
+                if not mine:
+                    continue
+                out = []
+                for pid in side.get("dnp", []):
+                    points, played = scored.get(pid, (0.0, 0))
+                    if played >= OUT_GAMES and points / played >= OUT_PPG:
+                        person = players.get(pid) or ["", ""]
+                        out.append({"id": pid, "name": person[0], "pos": person[1], "ppg": _round(points / played, 1)})
+                out.sort(key=lambda item: -item["ppg"])
+                notes[str(game["id"])] = {"usage": usage_rate(mine, side["p"]), "started": bool(mine[1]), "out": out[:OUT_SHOWN]}
+    return notes
+
+
 def player_context(payload: dict, player_id: str, team: str, opponent: str, market: str, line: float | None) -> dict:
     by_team = team_games(payload)
     players = payload.get("players", {})

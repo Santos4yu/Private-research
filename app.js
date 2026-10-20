@@ -3433,6 +3433,92 @@ function trendDateMarkup(iso, fallback) {
   return parts ? `<span class="gl-date"><i>${parts[0]}</i>${parts[1]}</span>` : `<span class="gl-date">${escapeHtml(fallback || "")}</span>`;
 }
 
+// A basketball game's card on the trend chart: tap or click a bar (hover
+// shows it on a computer) for his line that game, the result, his usage
+// rate and who sat out (src/sports/wnba/trend-data.js gameDetails). One
+// card floats over the page, beside its bar, so the chart never clips it.
+let gameCard = null;
+let gameCardPinned = null;
+function closeGameCard() {
+  if (gameCard) gameCard.hidden = true;
+  gameCardPinned = null;
+}
+function gameCardMarkup(g) {
+  const d = g.details || {};
+  const num = (value) => (Number.isFinite(Number(value)) && value !== null && value !== "" ? Number(value) : null);
+  const show = (value) => (num(value) == null ? "–" : String(num(value)));
+  const pair = (made, tried) => (num(made) == null || num(tried) == null ? ["–", ""] : [`${num(made)}/${num(tried)}`, num(tried) ? `${Math.round((num(made) / num(tried)) * 100)}%` : ""]);
+  const focus = new Set(d.focus || []);
+  const tile = (key, label, value, sub = "") => `<div class="gp-tile${focus.has(key) ? " is-focus" : ""}"><span>${label}</span><b>${escapeHtml(value)}</b>${sub ? `<small>${escapeHtml(sub)}</small>` : ""}</div>`;
+  const rebounds = num(d.oreb) != null && num(d.dreb) != null ? `${num(d.oreb)} OR · ${num(d.dreb)} DR` : "";
+  const [fg, fgPct] = pair(d.fgm, d.fga), [tp, tpPct] = pair(d.tpm, d.tpa), [ft, ftPct] = pair(d.ftm, d.fta);
+  const date = new Date(g.fullDate || "");
+  const day = Number.isNaN(date.getTime()) ? (g.dateLabel || "") : date.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+  const result = d.result ? `<em class="gp-result" data-result="${escapeHtml(String(d.result).toUpperCase().slice(0, 1))}">${escapeHtml(String(d.result).toUpperCase().slice(0, 1))} ${escapeHtml(String(d.score || "").replace("-", "–"))}</em>` : "";
+  const role = d.started === true ? "Started" : d.started === false ? "Bench" : "";
+  const shortName = (name) => { const parts = String(name || "").split(/\s+/).filter(Boolean); return parts.length > 1 ? `${parts[0][0]}. ${parts.slice(1).join(" ")}` : parts[0] || ""; };
+  const out = (d.out || []).slice(0, 3);
+  return `
+    <header>
+      ${d.logo ? `<img src="${escapeHtml(d.logo)}" alt="" width="22" height="22" onerror="this.hidden=true">` : ""}
+      <div><strong>${g.isHome === false ? "@" : "vs"} ${escapeHtml(g.opponent || "")}</strong><small>${escapeHtml(day)}${role ? ` · ${role}` : ""}</small></div>
+      ${result}
+    </header>
+    <div class="gp-grid">
+      ${tile("min", "MIN", show(d.min))}${tile("usg", "USG", num(d.usage) == null ? "–" : `${num(d.usage)}%`)}${tile("pts", "PTS", show(d.pts))}${tile("reb", "REB", show(d.reb), rebounds)}
+      ${tile("ast", "AST", show(d.ast))}${tile("to", "TO", show(d.to))}${tile("stl", "STL", show(d.stl))}${tile("blk", "BLK", show(d.blk))}
+      ${tile("fg", "FG", fg, fgPct)}${tile("tp", "3PT", tp, tpPct)}${tile("ft", "FT", ft, ftPct)}${tile("pf", "PF", show(d.pf))}
+    </div>
+    ${out.length ? `<footer><span>Sat out</span>${out.map((person) => `<i title="${escapeHtml(person.name)} · ${escapeHtml(String(person.ppg))} points a game">${escapeHtml(shortName(person.name))} <b>${escapeHtml(String(person.ppg))}</b></i>`).join("")}</footer>` : ""}`;
+}
+function openGameCard(shell, g, pin) {
+  if (!gameCard) {
+    gameCard = document.createElement("div");
+    gameCard.className = "gl-game-pop";
+    gameCard.setAttribute("role", "dialog");
+    gameCard.hidden = true;
+    document.body.appendChild(gameCard);
+    document.addEventListener("click", (event) => {
+      if (!gameCard.hidden && !gameCard.contains(event.target) && !event.target.closest?.(".gl-bar-shell")) closeGameCard();
+    });
+    document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeGameCard(); });
+    window.addEventListener("resize", closeGameCard);
+    window.addEventListener("scroll", () => { if (!gameCardPinned) closeGameCard(); }, { passive: true, capture: true });
+  }
+  gameCard.innerHTML = gameCardMarkup(g);
+  gameCard.setAttribute("aria-label", `${g.fullDate || ""} game details`);
+  gameCard.hidden = false;
+  gameCardPinned = pin ? shell : null;
+  const bar = (shell.querySelector(".gl-bar") || shell).getBoundingClientRect();
+  const width = gameCard.offsetWidth, height = gameCard.offsetHeight;
+  const viewWidth = document.documentElement.clientWidth || window.innerWidth, viewHeight = window.innerHeight;
+  // Beside the bar (right, else left); on a phone, above it, centred and kept on screen.
+  let left = bar.right + 10;
+  let top = bar.top + bar.height / 2 - height / 2;
+  if (viewWidth < 600) {
+    left = bar.left + bar.width / 2 - width / 2;
+    top = bar.top - height - 10;
+    if (top < 8) top = bar.bottom + 10;
+  } else if (left + width > viewWidth - 8) left = bar.left - width - 10;
+  gameCard.style.left = `${Math.round(Math.min(Math.max(8, left), viewWidth - width - 8))}px`;
+  gameCard.style.top = `${Math.round(Math.min(Math.max(8, top), viewHeight - height - 8))}px`;
+}
+function wireGameCard(shell, g) {
+  const fine = () => window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  shell.addEventListener("mouseenter", () => { if (fine() && !gameCardPinned) openGameCard(shell, g, false); });
+  shell.addEventListener("mouseleave", () => { if (fine() && !gameCardPinned) closeGameCard(); });
+  shell.addEventListener("click", () => {
+    if (gameCardPinned === shell) closeGameCard();
+    else openGameCard(shell, g, true);
+  });
+  shell.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    if (gameCardPinned === shell) closeGameCard();
+    else openGameCard(shell, g, true);
+  });
+}
+
 function renderGameLogChart() {
   // Background data may refresh during a pointer gesture. Keep the captured
   // marker mounted until the gesture ends, then paint the latest results.
@@ -3450,6 +3536,7 @@ function renderGameLogChart() {
   holder.dataset.change = gameLogState.animationDirection;
   holder.innerHTML = "";
   holder.scrollLeft = 0;
+  closeGameCard();
 
   const filterBits = [];
   if (gameLogState.handFilter !== "all") filterBits.push(`vs ${gameLogState.handFilter}HP`);
@@ -3578,7 +3665,7 @@ function renderGameLogChart() {
     const aria = `${fullDate}, ${g.opponent || "opponent"}, ${gameLogStatCode(gameLogState.stat)} ${g.value}${contextText}, ${g.over ? "above" : "below"} the ${line} line`;
     col.innerHTML = `
       <div class="gl-track" style="height:${trackPx}px">
-        <div class="gl-bar-shell${context == null ? "" : " has-context"}" tabindex="0" role="img" aria-label="${escapeHtml(aria)}" title="${escapeHtml(aria)}">
+        <div class="gl-bar-shell${context == null ? "" : " has-context"}" tabindex="0" ${g.details?.kind === "hoops" ? `role="button" aria-haspopup="dialog" aria-label="${escapeHtml(aria)}. Show the game"` : `role="img" aria-label="${escapeHtml(aria)}" title="${escapeHtml(aria)}"`}>
           ${context == null ? "" : `<div class="gl-bar-context${contextPx - heightPx < 44 ? " is-tight" : ""}" style="height:${contextPx}px" aria-hidden="true"><span>${context}</span></div>`}
           <div class="gl-bar${g.over ? "" : " gl-bar-under"}" style="height:${heightPx}px;--cut:${Math.max(0, Math.min(heightPx, linePx))}px">
             <span class="gl-val">${g.value}</span>
@@ -3591,6 +3678,7 @@ function renderGameLogChart() {
       <span class="gl-opp">${escapeHtml(g.opponentLabel || MLB_TEAM_ABBRS[opponentId] || String(g.opponent || "").slice(0, 4))}</span>
     `;
     const shell = col.querySelector(".gl-bar-shell");
+    if (shell && g.details?.kind === "hoops") wireGameCard(shell, g);
     shell?.addEventListener("click", () => {
       if (!window.matchMedia("(hover: none), (pointer: coarse)").matches || !details) return;
       const willOpen = !shell.classList.contains("detail-open");

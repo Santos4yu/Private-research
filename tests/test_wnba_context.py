@@ -222,5 +222,39 @@ class ScoreTests(unittest.TestCase):
             self.assertIsNone(flip(None, "L"))
 
 
+class GameNoteTests(unittest.TestCase):
+    """The trend chart's game cards: usage rate, starter, who sat out."""
+
+    def season(self):
+        games = {}
+        # Five games: the star "s" plays the first four, sits the fifth.
+        for index in range(5):
+            mine = [row("me", 30, 20, starter=1), row("b", 30, 10, starter=0), row("c", 30, 6),
+                    row("d", 30, 4), row("e", 30, 2)]
+            if index < 4:
+                mine.append(row("s", 36, 25))
+            games[f"g{index}"] = game(f"g{index}", f"2026-03-0{index + 1}", "AAA", "BBB", mine, [row("x", 40, 10)])
+            if index == 4:
+                games["g4"]["t"]["AAA"]["dnp"] = ["s", "bench"]
+        return {"games": games, "players": {"s": ["Star Scorer", "F", None, "AAA"], "bench": ["Deep Bench", "G", None, "AAA"]}}
+
+    def test_usage_starter_and_who_sat(self):
+        notes = context.game_notes([None, self.season()], "me")
+        self.assertEqual(sorted(notes), ["g0", "g1", "g2", "g3", "g4"])
+        # Every player the same shots, trips and turnovers: his share is one in five
+        # with six playing, scaled by minutes (30 of the team's 186 / 5).
+        first = notes["g0"]
+        self.assertTrue(first["started"])
+        self.assertEqual(first["usage"], round(100 * (8 + 0.44 * 2 + 1) * (186 / 5) / (30 * 6 * (8 + 0.44 * 2 + 1)), 1))
+        self.assertEqual(first["out"], [])
+        # The star sat the fifth: listed with his scoring. The deep bench
+        # player never played enough to count.
+        self.assertEqual(notes["g4"]["out"], [{"id": "s", "name": "Star Scorer", "pos": "F", "ppg": 25.0}])
+
+    def test_no_minutes_no_usage(self):
+        self.assertIsNone(context.usage_rate(row("me", 0, 0), [row("me", 0, 0)]))
+        self.assertEqual(context.game_notes([None, None], "me"), {})
+
+
 if __name__ == "__main__":
     unittest.main()

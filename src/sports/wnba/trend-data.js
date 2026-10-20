@@ -15,10 +15,28 @@ export const WNBA_STATS=[
 // ESPN stamps games in UTC, so a 7pm tip on the 22nd is the 23rd there.
 // The chart shows the day the game was played where the viewer is.
 const playedOn=date=>{const day=new Date(date);return Number.isNaN(day.getTime())?'':day.toLocaleDateString([],{month:'numeric',day:'numeric'});};
-export function wnbaChart(logs,marketKey,opponent){
+// The box-score fields a market is made of: the game card rings them.
+const FOCUS={player_points:['pts'],player_rebounds:['reb'],player_assists:['ast'],player_threes:['tp'],player_threes_attempts:['tp'],
+ player_field_goals:['fg'],player_field_goals_attempts:['fg'],player_frees_made:['ft'],player_frees_attempts:['ft'],player_blocks:['blk'],
+ player_steals:['stl'],player_blocks_steals:['blk','stl'],player_turnovers:['to'],player_points_rebounds:['pts','reb'],
+ player_points_assists:['pts','ast'],player_rebounds_assists:['reb','ast'],player_points_rebounds_assists:['pts','reb','ast'],
+ player_fouls:['pf'],player_offensive_rebounds:['reb'],player_defensive_rebounds:['reb'],player_twos:['fg'],player_twos_attempts:['fg'],
+ player_fantasy_points:['pts','reb','ast','stl','blk','to'],player_double_double:['pts','reb','ast'],player_triple_double:['pts','reb','ast']};
+// One game's card on the chart (app.js gameCard): his box line, the
+// result, and from the stored season (api/wnba.py game-notes) his usage
+// rate, whether he started and who sat out.
+export function gameDetails(row,marketKey,note){
+ const box=row.box||{},values=row.values||{};
+ return {kind:'hoops',focus:FOCUS[marketKey]||[],result:row.result||null,score:row.score||'',logo:row.opponentLogo||null,
+  min:box.min??row.minutes??null,usage:note?.usage??null,started:note?typeof note.started==='boolean'?note.started:null:null,
+  pts:box.pts,reb:box.reb,oreb:values.player_offensive_rebounds,dreb:values.player_defensive_rebounds,ast:box.ast,to:box.to,
+  stl:box.stl,blk:box.blk,pf:box.pf,fgm:box.fgm,fga:box.fga,tpm:box.tpm,tpa:box.tpa,ftm:box.ftm,fta:box.fta,out:note?.out||[]};
+}
+export function wnbaChart(logs,marketKey,opponent,notes={}){
  // Every game by default; the chart's Season menu narrows it to
  // preseason, regular season or postseason.
- const all=(logs||[]).map(row=>({value:row.values?.[marketKey],season:String(row.season||''),fullDate:row.date||'',dateLabel:playedOn(row.date),opponent:row.opponent||'',opponentLabel:(row.isHome===false?'@':'')+(row.opponent||''),isHome:row.isHome,gameId:row.gameId,result:row.result,score:row.score,seasonKind:row.seasonKind||'regular'})).filter(row=>Number.isFinite(row.value));
+ const all=(logs||[]).map(row=>({value:row.values?.[marketKey],season:String(row.season||''),fullDate:row.date||'',dateLabel:playedOn(row.date),opponent:row.opponent||'',opponentLabel:(row.isHome===false?'@':'')+(row.opponent||''),isHome:row.isHome,gameId:row.gameId,result:row.result,score:row.score,seasonKind:row.seasonKind||'regular',
+  details:gameDetails(row,marketKey,notes?.[String(row.gameId)])})).filter(row=>Number.isFinite(row.value));
  const chart={all};const h2h=opponent?all.filter(game=>game.opponent===opponent):[];
  if(h2h.length){chart.h2h=h2h;chart.meta={h2hLabel:`vs ${opponent}`};}return chart;
 }
