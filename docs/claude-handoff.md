@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-10-21. Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-10-21 (jersey number added). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -101,13 +101,29 @@ not book odds.
   it); the client ignores league numbers covering under 25 teams and
   retries every 45 seconds.
 
+- Jersey number in the banner: ESPN's rosters (`api/wnba.py`
+  `_roster_directory`, cache key now `nba:v2`) give each NBA row a
+  `jersey`; the banner reads "#5 · Timberwolves · Guard".
+
+### Also on the site (another session, same week)
+
+- The Finder's NBA/WNBA player page has an Opportunity card first in its
+  Matchup tab (`src/sports/wnba/Opportunity.jsx`, `opportunity.js`;
+  server `backend/sports/wnba/opportunity.py`, `tracking.py`): minutes,
+  usage, shots, rebound and assist shares, pace, what the defense gives
+  the stat, and his numbers without each injured teammate. The owner
+  asked for it, so it stays in the Finder.
+- Finder Analyze has "The opportunity" section: what the line takes at
+  his usual rate against what he's been getting.
+
 ### What the owner may ask next
 
 - They compare our numbers with RotoBot's screenshots. Ours won't match
   exactly: RotoBot's formula is private and it uses NBA.com data, while
   ours mostly comes from ESPN box scores. Say so plainly, and fix any
   number that's clearly wrong.
-- Not built yet: a jersey number in the banner (ESPN rosters have it) and
-  a Highlights tab (RotoBot has one).
+- Not built yet: a Highlights tab (RotoBot has one). What goes in it isn't
+  decided: ask the owner (video clips from ESPN's game recaps, or his
+  standout games and streaks).
 - The shot chart's corner-three counts come from ESPN play-by-play
   coordinates and can differ from NBA.com's.

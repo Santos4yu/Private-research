@@ -17,7 +17,7 @@ NOW = datetime(2026, 11, 3, 16, tzinfo=timezone.utc)
 DIRECTORY = {
     "players": {
         "stephen curry": [{"id": "3975", "name": "Stephen Curry", "team": "Golden State Warriors", "teamAbbr": "GS",
-                           "teamLogo": "gs.png", "headshot": "curry.png", "position": "G", "height": "6'2"}],
+                           "teamLogo": "gs.png", "headshot": "curry.png", "position": "G", "height": "6'2", "jersey": "30"}],
         # Two players of one name: the line's team decides.
         "jalen williams": [{"id": "1", "name": "Jalen Williams", "team": "Oklahoma City Thunder", "teamAbbr": "OKC"},
                            {"id": "2", "name": "Jalen Williams", "team": "Phoenix Suns", "teamAbbr": "PHX"}],
@@ -95,6 +95,7 @@ class BoardTests(unittest.TestCase):
                          ("player_points", "3975", "GS", "Golden State Warriors"))
         self.assertEqual((points["eventId"], points["homeTeamAbbr"], points["awayTeamAbbr"], points["awayTeam"]),
                          ("401", "GS", "LAL", "Los Angeles Lakers"))
+        self.assertEqual(points["jersey"], "30")  # the matchup page's banner
         self.assertEqual(rows["Pts+Rebs+Asts"]["marketKey"], "player_points_rebounds_assists")
         self.assertEqual(rows["Pts+Rebs+Asts"]["modifier"], "goblin")
         self.assertEqual(rows["Triple-Double"]["marketKey"], "player_triple_double")
@@ -116,6 +117,22 @@ class BoardTests(unittest.TestCase):
         with patch("prizepicks_export_core._fetch_projection_rows", side_effect=RuntimeError("PrizePicks returned no active NBA projections.")), \
                 patch.object(api, "_roster_directory", return_value=DIRECTORY):
             self.assertEqual(api._nba_board()["rows"], [])
+
+
+class RosterTests(unittest.TestCase):
+    def test_each_player_carries_his_jersey_number(self):
+        teams = {"sports": [{"leagues": [{"teams": [{"team": {"id": "9", "displayName": "Golden State Warriors", "abbreviation": "GS",
+                                                             "logos": [{"rel": ["default"], "href": "gs.png"}]}}]}]}]}
+        roster = {"athletes": [{"id": "3975", "displayName": "Stephen Curry", "jersey": "30", "displayHeight": "6' 2\"",
+                                "position": {"abbreviation": "G"}, "headshot": {"href": "curry.png"}},
+                               {"id": "77", "displayName": "Two Way", "position": {"abbreviation": "F"}}]}
+        api._roster_memory.pop("nba", None)
+        with patch.object(api, "_espn_json", side_effect=lambda url: roster if url.endswith("/roster") else teams), \
+                patch.object(api.store, "get", return_value=None), patch.object(api.store, "set"):
+            players = api._roster_directory("nba")["players"]
+        api._roster_memory.pop("nba", None)
+        self.assertEqual((players["stephen curry"][0]["jersey"], players["stephen curry"][0]["height"]), ("30", "6'2"))
+        self.assertIsNone(players["two way"][0]["jersey"])  # none listed yet
 
 
 class GameLogTests(unittest.TestCase):

@@ -259,7 +259,8 @@ def _round_or_none(value):
 # game and per market, which would cost about 26 credits a game each refresh.
 NBA_CACHE_SECONDS = 90
 LEAGUES = ("wnba", "nba")
-ROSTER_KEYS = {"wnba": ROSTER_CACHE_KEY, "nba": "krazy_data:nba:v1:roster_directory"}
+# v2: entries carry the jersey number (the NBA matchup page's banner).
+ROSTER_KEYS = {"wnba": ROSTER_CACHE_KEY, "nba": "krazy_data:nba:v2:roster_directory"}
 # PrizePicks' NBA team codes, where ESPN's differ.
 NBA_TEAM_CODES = {"GSW": "GS", "NYK": "NY", "SAS": "SA", "NOP": "NO", "NOR": "NO", "UTA": "UTAH", "WAS": "WSH",
                   "PHO": "PHX", "BRK": "BKN"}
@@ -334,6 +335,7 @@ def _roster_directory(league="wnba"):
                     "position": (athlete.get("position") or {}).get("abbreviation"),
                     # ESPN writes 6' 3"; the player banner shows 6'3.
                     "height": str(athlete.get("displayHeight") or "").replace("' ", "'").rstrip('"') or None,
+                    "jersey": str(athlete.get("jersey") or "").strip() or None,
                 })
     value = {"players": players, "teams": {_norm(meta["name"]): meta for meta in team_meta.values()}}
     _roster_memory[league] = (now, value)
@@ -911,7 +913,7 @@ def _nba_row(line, starts, directory, by_team):
             row[f"{side}Team"], row[f"{side}TeamAbbr"] = game[side]["name"], game[side]["abbr"]
             row[f"{side}TeamLogo"] = game[side]["logo"] or (teams.get(game[side]["abbr"]) or {}).get("logo")
     if identity:
-        row.update({key: identity.get(key) for key in ("headshot", "position", "height", "team", "teamAbbr", "teamLogo")})
+        row.update({key: identity.get(key) for key in ("headshot", "position", "height", "jersey", "team", "teamAbbr", "teamLogo")})
         row["playerId"] = identity.get("id")
     else:
         team = teams.get(team_code) or {}
@@ -1016,7 +1018,7 @@ class handler(BaseHTTPRequestHandler):
                 if not identity:
                     return _send(self, 200, {"rows": []})
                 return _send(self, 200, {"rows": [{key: identity.get(key) for key in (
-                    "name", "headshot", "position", "height", "team", "teamAbbr", "teamLogo")} | {"playerId": identity.get("id")}]})
+                    "name", "headshot", "position", "height", "jersey", "team", "teamAbbr", "teamLogo")} | {"playerId": identity.get("id")}]})
             if resource == "defender":
                 # Who guards him (NBA.com's season matchups): the NBA only.
                 if league != "nba":

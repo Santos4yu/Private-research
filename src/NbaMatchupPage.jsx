@@ -148,7 +148,7 @@ const nameLines=name=>{const parts=String(name||'').trim().split(/\s+/);return p
 
 function Hero({row,team,opponent,home,onBack,heroRef}){
  const [first,last]=nameLines(row.player),longest=Math.max(first.length,last.length);
- const facts=[team?.short||row.teamAbbr,POSITION_NAMES[String(row.position||'')[0]]||row.position].filter(Boolean);
+ const facts=[row.jersey?`#${row.jersey}`:null,team?.short||row.teamAbbr,POSITION_NAMES[String(row.position||'')[0]]||row.position].filter(Boolean);
  return <header ref={heroRef} className="mp-hero" data-long={longest>=14?'xl':longest>=10?'l':undefined}>
   {team?.logo&&<img className="mp-hero-mark" src={team.logo} alt="" onError={hide}/>}
   {row.headshot&&<img className="mp-hero-photo" src={row.headshot} alt="" onError={hide}/>}
