@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import patch
 
 import account_auth as accounts
+import line_archive as archive
 import line_moves as moves
 import site_controls as controls
 
@@ -25,9 +26,11 @@ class FakeKV:
     def __init__(self):
         self.data = {}
         self.calls = 0
+        self.log = []
 
     def __call__(self, commands, timeout=None):
         self.calls += len(commands)
+        self.log.extend(commands)
         return [self.run(*command) for command in commands]
 
     def run(self, name, key, *args):
@@ -41,8 +44,10 @@ class FakeKV:
         if name == 'DEL':
             return int(self.data.pop(key, None) is not None)
         if name == 'HSET':
-            self.data.setdefault(key, {})[args[0]] = str(args[1])
-            return 1
+            table = self.data.setdefault(key, {})
+            for field, value in zip(args[0::2], args[1::2]):
+                table[field] = str(value)
+            return len(args) // 2
         if name == 'HSETNX':
             table = self.data.setdefault(key, {})
             if args[0] in table:
@@ -100,6 +105,39 @@ class Base(unittest.TestCase):
 
     def listed(self):
         return [json.loads(item) for item in self.kv.data.get(moves.LIST_KEY, [])]
+
+
+class LineArchiveTests(Base):
+    """Each NBA line's last number before its game, kept by game day."""
+
+    def setUp(self):
+        super().setUp()
+        archive._written.clear()
+
+    def nba(self, player, stat, line, start='2026-10-22T02:30:00+00:00', **extra):
+        return pp(player, stat, line, league='NBA', start_time=start, **extra)
+
+    def test_the_last_number_before_the_game_is_kept_by_its_us_day(self):
+        moves.observe_prizepicks('NBA', [self.nba('Jeremiah Fears', 'Pts+Rebs', 13.5),
+                                         self.nba('Derik Queen', 'Pts+Rebs', 13.5, start='2026-10-21T23:30:00+00:00')], fetched_at=T0)
+        moves.observe_prizepicks('NBA', [self.nba('Jeremiah Fears', 'Pts+Rebs', 14.5)], fetched_at=T0 + 120)
+        # A 10:30 pm Eastern tip (02:30 the next day in UTC) is still the 21st.
+        self.assertEqual(archive.lines_on('nba', '2026-10-21', self.kv),
+                         {'jeremiahfears|ptsrebs': 14.5, 'derikqueen|ptsrebs': 13.5})
+
+    def test_an_unchanged_number_is_not_written_again(self):
+        rows = [self.nba('Jeremiah Fears', 'Points', 9.5)]
+        moves.observe_prizepicks('NBA', rows, fetched_at=T0)
+        before = self.kv.calls
+        moves.observe_prizepicks('NBA', rows, fetched_at=T0 + 120)
+        self.assertFalse(any(name == 'HSET' and str(key).startswith(archive.PREFIX)
+                             for name, key, *_ in self.kv.log[before:]))
+
+    def test_started_games_goblins_and_other_leagues_are_left_out(self):
+        moves.observe_prizepicks('NBA', [self.nba('A', 'Points', 9.5, start=moves._iso(T0 - 60)),
+                                         self.nba('B', 'Points', 7.5, odds_type='goblin')], fetched_at=T0)
+        moves.observe_prizepicks('MLB', [pp('Aaron Judge', 'Total Bases', 1.5)], fetched_at=T0)
+        self.assertFalse([key for key in self.kv.data if str(key).startswith(archive.PREFIX)])
 
 
 class PrizePicksTests(Base):

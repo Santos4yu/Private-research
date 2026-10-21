@@ -250,6 +250,15 @@ def observe_prizepicks(league, rows, fetched_at=None, app='prizepicks'):
                                          row.get('description') or ''])
         stats.setdefault(norm(stat), stat)
 
+    if app == 'prizepicks':
+        # Each night's numbers, kept for grading players at their own line.
+        try:
+            import line_archive
+            line_archive.record(sport, [(*key.split('|')[:2], line, start) for key, (line, _updated, start) in entries.items()],
+                                _pipeline, now=fetched_at)
+        except Exception:  # noqa: BLE001 -- the moves stand without the archive
+            pass
+
     def find_moves(before, now, previous_at, state, old):
         moves = []
         for key, (line, updated, _start) in now.items():
