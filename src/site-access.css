@@ -114,6 +114,8 @@ html:not([data-site-access="granted"]) #dock-root{display:none!important}
 #site-controls .announce-timer-link{box-sizing:border-box;width:100%;min-width:0;margin:0;padding:0 12px;height:44px;border:1px solid #525252;border-radius:10px;background:#282828;color:#d0d0d0;font:500 12px/1 var(--font-mono,monospace)}
 .announce-timer-row .announce-me{min-height:44px;padding:0 16px;border-radius:10px;font-family:inherit;font-weight:700;cursor:pointer}
 .announce-timer small{color:#7d7d7d;font-size:11px}
+.announce-timer .announce-problem{color:#d0a060;overflow-wrap:anywhere}
+.announce-problem[hidden]{display:none}
 #site-controls [role=status]:empty{display:none}
 #site-controls button[type=submit]{align-self:flex-start;min-height:48px;padding:0 22px;border-radius:12px;border:1px solid var(--theme-accent,#cccccc);background:var(--theme-accent,#ededed);color:var(--theme-on-accent,#0b0b0b);font:700 13px/1 inherit;cursor:pointer;transition:filter .15s ease,transform .15s ease}
 #site-controls button[type=submit]:hover{filter:brightness(1.1)}

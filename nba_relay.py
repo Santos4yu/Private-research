@@ -27,6 +27,8 @@ PREFIX = 'nba:relay:v1'
 KEY_KEY = f'{PREFIX}:key'
 # fingerprint -> when the phone last sent that table.
 SENT_KEY = f'{PREFIX}:sent'
+# The last upload the site turned away, described (describe()).
+PROBLEM_KEY = f'{PREFIX}:problem'
 STATS = 'https://stats.nba.com/stats'
 # This season's tables are asked again after this long; last season's once.
 FRESH_SECONDS = 20 * 3600
@@ -258,12 +260,30 @@ def key():
     return reply[0]
 
 
+def describe(raw, payload=None):
+    """What an upload the site turned away looked like, for the admin to
+    see: its top-level names and how it starts."""
+    text = raw.decode('utf-8', 'replace') if isinstance(raw, (bytes, bytearray)) else str(raw or '')
+    names = f"names: {', '.join(map(str, list(payload)[:8]))}; " if isinstance(payload, dict) else ''
+    return f"{names}{len(text)} characters, starting {' '.join(text[:160].split())!r}"
+
+
+def note_problem(text):
+    """Keep the last turned-away upload's description (a week) for the admin panel."""
+    try:
+        _pipeline([['SET', PROBLEM_KEY, str(text)[:400], 'EX', 7 * 86400]])
+    except Exception:  # noqa: BLE001 -- a note is never worth failing on
+        pass
+
+
 def status(now=None):
-    """For the admin panel: when the phone last sent anything, and how many
-    of this season's tables are current."""
+    """For the admin panel: when the phone last sent anything, how many of
+    this season's tables are current, and the last upload turned away."""
     now = time.time() if now is None else now
     season = current_season(datetime.fromtimestamp(now, timezone.utc))
     sent = _sent()
     wanted = [fingerprint(*job) for job in tables(season)]
+    problem = (_pipeline([['GET', PROBLEM_KEY]]) or [None])[0]
     return {'last': max(sent.values()) if sent else None,
-            'current': sum(now - sent.get(name, 0) < FRESH_SECONDS + 6 * 3600 for name in wanted), 'tables': len(wanted)}
+            'current': sum(now - sent.get(name, 0) < FRESH_SECONDS + 6 * 3600 for name in wanted), 'tables': len(wanted),
+            'problem': problem}

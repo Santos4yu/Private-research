@@ -58,10 +58,11 @@ export function mountAnnouncePanel(host,{request}){
   catch{phoneLink.select();document.execCommand?.('copy');phoneCopy.textContent='Copied';}
   setTimeout(()=>{phoneCopy.textContent='Copy';},1600);
  }});
+ const phoneProblem=h('small',{className:'announce-problem',hidden:true});
  const phone=h('div',{className:'announce-timer',hidden:true},
   h('span',{className:'announce-field-head'},'NBA phone link',phoneSeen),
   h('div',{className:'announce-timer-row'},phoneLink,phoneCopy),
-  h('small',{text:'Goes in the NBA Shortcut on your phone.'}));
+  h('small',{text:'Goes in the NBA Shortcut on your phone.'}),phoneProblem);
  host.append(
   h('div',{className:'announce-reach'},h('span',{text:'Alerts on'}),count),
   h('label',{className:'announce-field'},'Title',title),
@@ -86,6 +87,8 @@ export function mountAnnouncePanel(host,{request}){
    phone.hidden=!data.phone?.path;
    if(data.phone?.path)phoneLink.value=location.origin+data.phone.path;
    phoneSeen.textContent=data.phone?.last?`Last sent ${when(data.phone.last)} · ${data.phone.current}/${data.phone.tables} current`:'Nothing sent yet';
+   phoneProblem.hidden=!data.phone?.problem;
+   phoneProblem.textContent=data.phone?.problem?`Last one turned away: ${data.phone.problem}`:'';
   }
  }
  async function refresh(){

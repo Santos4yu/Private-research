@@ -486,13 +486,17 @@ class handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", 0) or 0)
         if length <= 0 or length > nba_relay.MAX_BODY:
             return self._send(413, {"error": "Too large" if length else "Nothing sent"})
+        raw = self.rfile.read(length)
+        payload = None
         try:
-            payload = json.loads(self.rfile.read(length))
+            payload = json.loads(raw)
             return self._send(200, nba_relay.accept(payload))
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            return self._send(400, {"error": "Not an NBA.com answer"})
-        except nba_relay.Rejected as error:
-            return self._send(400, {"error": str(error)})
+        except (json.JSONDecodeError, UnicodeDecodeError, nba_relay.Rejected) as error:
+            # What arrived, so the admin can see why (admin panel, and the Shortcut's own result).
+            seen = nba_relay.describe(raw, payload)
+            reason = str(error) if isinstance(error, nba_relay.Rejected) else "Not an NBA.com answer."
+            nba_relay.note_problem(f"{reason} {seen}")
+            return self._send(400, {"error": reason, "received": seen})
 
     def _handle_moves_tick(self, qs):
         """Check every league's PrizePicks lines now (line_moves.py), which
