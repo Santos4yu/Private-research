@@ -46,7 +46,51 @@ function legacyStore() {
 function usableBoard(value, now) {
   if (!value || !Array.isArray(value.rows) || !value.rows.length || now - Number(value.ts || 0) > FINDER_CACHE_TTL) return null;
   const rows = value.rows.filter(row => !row.startsAt || !Number.isFinite(Date.parse(row.startsAt)) || Date.parse(row.startsAt) > now);
-  return rows.length ? {...value, rows, persisted: true} : null;
+  if (!rows.length) return null;
+  const {logs, ...board} = value;
+  return {...board, rows: unpackGameLogs(rows, logs), persisted: true};
+}
+
+// The games behind a saved board's lines, packed. Every line of one player
+// has the same games (dates, opponents, minutes), so each set is saved once
+// for the board and a line keeps only its own values: a big board is a
+// fraction of the size, quicker to save and to read back.
+const sameLog = (a, b) => a.keys.length === b.keys.length && a.keys.every((key, index) => key === b.keys[index]
+  && a.columns[index].length === b.columns[index].length && a.columns[index].every((value, game) => Object.is(value, b.columns[index][game])));
+export function packGameLogs(rows) {
+  const logs = [], byPlayer = new Map();
+  for (const row of rows) {
+    const games = row.gameLog;
+    if (!Array.isArray(games) || !games.length) continue;
+    const keys = [];
+    for (const game of games) for (const key in game || {}) if (key !== 'value' && !keys.includes(key)) keys.push(key);
+    const log = {keys, columns: keys.map(key => games.map(game => game?.[key]))};
+    const player = String(row.playerId ?? row.player ?? '');
+    const theirs = byPlayer.get(player) || [];
+    let at = theirs.find(index => sameLog(logs[index], log));
+    if (at === undefined) { at = logs.length; logs.push(log); theirs.push(at); byPlayer.set(player, theirs); }
+    row.gameValues = games.map(game => game?.value);
+    row.gameLogAt = at;
+    delete row.gameLog;
+  }
+  return logs;
+}
+
+export function unpackGameLogs(rows, logs) {
+  if (!Array.isArray(logs)) return rows;
+  return rows.map(row => {
+    if (!Array.isArray(row.gameValues)) return row;
+    const {gameValues, gameLogAt, ...line} = row;
+    const log = logs[gameLogAt];
+    if (!log) return line;
+    line.gameLog = gameValues.map((value, index) => {
+      const game = {};
+      if (value !== undefined) game.value = value;
+      log.keys.forEach((key, column) => { const field = log.columns[column][index]; if (field !== undefined) game[key] = field; });
+      return game;
+    });
+    return line;
+  });
 }
 
 /** The saved board for a sport (IndexedDB, finder-store.js), so a returning
@@ -77,9 +121,10 @@ export function persistFinderCache(sport, value) {
     if (BASKETBALL.has(compact.sport)) delete compact.raw;
     return compact;
   });
+  const logs = packGameLogs(rows);
   // ts is when the board was fetched (kept through later saves), so a board
   // re-saved from the screen doesn't pass for a newer one.
-  return storeBoard(sport, {ts: Number(value.ts) || Date.now(), fetchedAt: value.fetchedAt || null, rows}).catch(() => {});
+  return storeBoard(sport, {ts: Number(value.ts) || Date.now(), fetchedAt: value.fetchedAt || null, rows, logs}).catch(() => {});
 }
 
 // A line's hit rates stay good until the player's next game, and a line is

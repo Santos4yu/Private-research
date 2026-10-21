@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {carryHistory, readFinderCache, persistFinderCache} from '../src/unified-finder-data.js';
+import {carryHistory, readFinderCache, persistFinderCache, packGameLogs, unpackGameLogs, gameLog} from '../src/unified-finder-data.js';
 
 const NOW = Date.parse('2026-09-29T20:00:00Z');
 const ready = (id, extra = {}) => ({id, sport: 'mlb', player: 'Aaron Judge', stat: 'Total Bases', line: 1.5, direction: 'OVER',
@@ -39,4 +39,32 @@ test('a line that switched stat or side is not the same prop', () => {
 test('no saved board anywhere is simply nothing', async () => {
   assert.equal(await readFinderCache('mlb', NOW), null);
   await persistFinderCache('mlb', {rows: [ready('mlb:1')]});
+});
+
+test('saved game logs come back exactly, each player\'s games kept once', () => {
+  const games = gameLog([{value: 24, date: '2026-10-20', home: true, opponent: 'BOS', usage: 34},
+    {value: 31, date: '2026-10-22', home: false, opponent: 'NY', usage: 36}]);
+  const college = gameLog([{value: 88, date: '2026-10-04', home: true, opponent: 'UGA', usage: 70, share: 0.21, fbs: true},
+    {value: 41, date: '2026-10-11', home: false, opponent: 'Kent St', usage: 64}]);
+  const rows = [
+    {id: 'a', gameLog: games},
+    {id: 'b', gameLog: games.map(game => ({...game, value: game.value / 2}))},
+    {id: 'c', gameLog: college},
+    {id: 'd', gameLog: []},
+    {id: 'e'},
+  ];
+  const saved = rows.map(row => ({...row}));
+  const logs = packGameLogs(saved);
+  assert.equal(logs.length, 2);
+  assert.equal(saved[0].gameLog, undefined);
+  // What IndexedDB hands back is a structured copy.
+  const back = unpackGameLogs(structuredClone(saved), structuredClone(logs));
+  assert.deepEqual(back, rows);
+  // The games the second college game didn't have stay left out.
+  assert.equal('share' in back[2].gameLog[1], false);
+});
+
+test('a board saved before game logs were packed reads as it was', () => {
+  const rows = [{id: 'a', gameLog: [{value: 1, date: '2026-10-20'}]}];
+  assert.equal(unpackGameLogs(rows, undefined), rows);
 });

@@ -149,14 +149,21 @@ export function UnifiedFinder(){
   if(boardsRef.current[key]?.rows?.length)startTransition(update);else update();
  },[]);
  // Saving a board to the device copies every line, so it waits for a quiet moment.
+ // A board already saved as it is isn't copied again.
  const saveTimers=useRef(new Map());
+ const savedRows=useRef(new Map());
+ const saveBoard=useCallback(key=>{
+  const board=boardsRef.current[key];
+  if(!board?.rows?.length||savedRows.current.get(key)===board.rows)return;
+  savedRows.current.set(key,board.rows);persistFinderCache(key,board);
+ },[]);
  const saveSoon=useCallback(key=>{
   clearTimeout(saveTimers.current.get(key));
   saveTimers.current.set(key,setTimeout(()=>{
-   const save=()=>{const board=boardsRef.current[key];if(board?.rows?.length)persistFinderCache(key,board);};
+   const save=()=>saveBoard(key);
    if(typeof window!=='undefined'&&window.requestIdleCallback)window.requestIdleCallback(save,{timeout:4000});else save();
   },1200));
- },[]);
+ },[saveBoard]);
  // Hit rates for the lines on screen (and the top of the list) load first.
  const priority=useRef(new Set());
  const enriching=useRef(new Map()),scopeRef=useRef([]);scopeRef.current=scope;
@@ -202,7 +209,7 @@ export function UnifiedFinder(){
    const started=!force?takeEarly(key):null;
    const cached=!force?await (started?started.cached:readFinderCache(key)):null;
    if(c.signal.aborted)return;
-   if(cached){latest.current[key]=cached.rows;putBoard(key,old=>({...old,...cached,state:'ready',error:null,version:(old.version||0)+1}));}
+   if(cached){latest.current[key]=cached.rows;savedRows.current.set(key,cached.rows);putBoard(key,old=>({...old,...cached,state:'ready',error:null,version:(old.version||0)+1}));}
    else setBoards(old=>({...old,[key]:{...old[key],state:old[key].rows?.length?'ready':'loading',error:null}}));
    // A board saved moments ago is current; otherwise ask again, keeping the
    // hit rates of every line that hasn't changed (carryHistory).
@@ -242,9 +249,9 @@ export function UnifiedFinder(){
  // Save what is on screen when the app goes to the background, so hit rates
  // loaded so far are there on the next open even if loading was cut short.
  useEffect(()=>{
-  const save=()=>{if(document.visibilityState!=='hidden')return;KEYS.forEach(key=>{const board=boardsRef.current[key];if(board.state==='ready'&&board.rows?.length)persistFinderCache(key,board);});};
+  const save=()=>{if(document.visibilityState!=='hidden')return;KEYS.forEach(key=>{if(boardsRef.current[key].state==='ready')saveBoard(key);});};
   document.addEventListener('visibilitychange',save);return()=>document.removeEventListener('visibilitychange',save);
- },[]);
+ },[saveBoard]);
  useEffect(()=>{scope.forEach(key=>load(key));},[scopeKey,load]);
  // Keep open screens current, but never spend background-tab bandwidth.
  useEffect(()=>{const refresh=()=>{if(document.visibilityState==='hidden')return;scope.forEach(key=>load(key,true));};const timer=setInterval(refresh,BOARD_FRESH);document.addEventListener('visibilitychange',refresh);return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',refresh);};},[scopeKey,load]);
