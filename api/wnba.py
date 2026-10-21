@@ -477,7 +477,14 @@ def _attach_history(rows, season, league="wnba"):
         h2h = [value for value in h2h if value is not None]
         row["windows"] = {key: _window(values[-size:], row["line"]) for key, size in (("l5", 5), ("l10", 10), ("l15", 15), ("l20", 20))}
         row["windows"]["h2h"] = _window(h2h, row["line"])
-        row["windows"]["season"] = _window(values, row["line"])
+        # An NBA history runs two seasons (so the first weeks still have ten
+        # and twenty games); its season rate is the one under way alone.
+        if league == "nba":
+            latest = _nba_seasons()[-1]
+            season_values = [(log.get("values") or {}).get(row["marketKey"]) for log in logs if log.get("season") == latest]
+            row["windows"]["season"] = _window([value for value in season_values if value is not None], row["line"])
+        else:
+            row["windows"]["season"] = _window(values, row["line"])
         row["season"] = season
         streak = 0
         for value in reversed(values):

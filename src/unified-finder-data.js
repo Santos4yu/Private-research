@@ -846,7 +846,11 @@ export function applyWnbaHistory(row, payload) {
     .map(log => number(log.values[row.marketKey])).filter(value => value != null);
   const windows = Object.fromEntries([5, 10, 15, 20].map(size => [`l${size}`, finderWindow(values.slice(-size), row.line, row.direction)]));
   windows.h2h = finderWindow(h2hValues, row.line, row.direction);
-  windows.season = finderWindow(values, row.line, row.direction);
+  // An NBA history runs two seasons (so the first weeks still have ten and
+  // twenty games); its season rate is the one under way alone.
+  const current = payload?.season != null && logs.some(log => log.season != null)
+    ? logs.filter(log => String(log.season) === String(payload.season)).map(log => number(log.values[row.marketKey])) : values;
+  windows.season = finderWindow(current, row.line, row.direction);
   let streak = 0;
   for (let index = values.length - 1; index >= 0; index -= 1) {
     if (values[index] === row.line) break;

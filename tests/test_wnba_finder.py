@@ -32,6 +32,16 @@ class WNBAFinderHistoryTests(unittest.TestCase):
         self.assertEqual(row["windows"]["h2h"]["sample"], 2)
         self.assertEqual(row["windows"]["h2h"]["hitRate"], 0)
 
+    def test_nba_season_rate_is_the_season_under_way(self):
+        logs = [{"season": 2026, "seasonKind": "regular", "opponent": "BOS", "values": {"player_points": 30}},
+                {"season": 2026, "seasonKind": "regular", "opponent": "BOS", "values": {"player_points": 28}},
+                {"season": 2027, "seasonKind": "regular", "opponent": "BOS", "values": {"player_points": 12}}]
+        rows = [{"playerId": "test-only", "marketKey": "player_points", "line": 20.5}]
+        with patch("api.wnba._history", return_value=logs), patch("api.wnba._nba_seasons", return_value=[2026, 2027]):
+            row = _attach_history(rows, None, "nba")[0]
+        self.assertEqual((row["windows"]["season"]["sample"], row["windows"]["season"]["hitRate"]), (1, 0))
+        self.assertEqual(row["windows"]["l10"]["sample"], 3)
+
     def test_multiple_markets_share_one_player_history_and_failure_stays_unknown(self):
         rows = [
             {"playerId": "test-only", "marketKey": market, "line": 2.5}

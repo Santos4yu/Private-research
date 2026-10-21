@@ -297,3 +297,15 @@ test('Basketball hit rates leave preseason games out (they stay on the chart)',a
  assert.equal(row.average,25);
  assert.equal(row.streak,2);
 });
+
+test('An NBA season hit rate is the season under way; the last ten still reach back into last season',async()=>{
+ const {applyWnbaHistory}=await import('../src/unified-finder-data.js');
+ const log=(pts,date,season)=>({gameId:date,date,values:{player_points:pts},seasonKind:'regular',season,opponent:'BOS'});
+ const payload={season:2027,rows:[log(30,'2026-04-01',2026),log(28,'2026-04-03',2026),log(25,'2026-04-05',2026),log(12,'2026-10-20',2027)]};
+ const row=applyWnbaHistory({id:'x',sport:'nba',playerId:'1',marketKey:'player_points',line:20.5,direction:'over',opponent:'BOS'},payload);
+ assert.deepEqual([row.windows.season.hits,row.windows.season.decisions],[0,1]);   // opening night only
+ assert.deepEqual([row.windows.l10.hits,row.windows.l10.decisions],[3,4]);
+ // A one-season history (the WNBA's) reads as before.
+ const wnba=applyWnbaHistory({id:'y',sport:'wnba',playerId:'2',marketKey:'player_points',line:20.5,direction:'over'},{rows:payload.rows.slice(0,3)});
+ assert.equal(wnba.windows.season.decisions,3);
+});
