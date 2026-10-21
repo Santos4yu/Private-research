@@ -81,7 +81,7 @@ function GradeCard({opponent,own,position,onPosition,scores,chosen,onPick}){
    <div className="ng-tiles" role="group" aria-label="Stat">{scores.map(item=><button type="button" key={item.marketKey} data-tone={item.tone} aria-pressed={item.marketKey===chosen.marketKey}
     disabled={item.score==null} onClick={()=>onPick(item.marketKey)} aria-label={`${item.stat} ${item.score??'no score'}${item.label?`, ${item.label}`:''}`}>
     <span>{item.stat}</span><b>{item.score??'—'}</b></button>)}</div>
-   <p className="nd-foot">0-100 for the over, 50 an average matchup. It weighs their defense (40%) and pace (15%), what they allow {POS_WORDS[position][1]} in the stat (35%) and his own games against them (10%).</p>
+   <p className="nd-foot">0-100 for the over, 50 an even matchup. It adds up how far {opponent} sit from the league average in points allowed, defensive rating and pace, and in what they allow {POS_WORDS[position][1]} in the stat (threes also read the 3-point % they allow, assists the FG% they allow, steals how often they turn it over). 100: far softer than most teams. His own games against them are shown under Why this score, not counted in it.</p>
   </div>
  </section>;
 }

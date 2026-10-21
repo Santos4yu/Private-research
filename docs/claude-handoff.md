@@ -66,9 +66,13 @@ not book odds.
   `src/main.jsx` (`warmPropsLeague`) preloads it after the site opens.
 - `src/NbaMatchupPage.jsx`: the player page. Full-width banner (team
   colors, team-logo watermark, photo, two-line name, next game), a slim
-  bar + pill tabs that pin to the top on scroll, then Overview (averages,
-  his games vs the line, injuries), Matchup, Stats (position ranks, game
-  log by month).
+  bar + tab bar (underlined, attached to the banner) that pin to the top
+  on scroll, then Overview (averages, his games vs the line, injuries),
+  Matchup, Stats (position ranks, game log by month). The owner wants it
+  to read as one page, not floating boxes: sections sit straight on the
+  page split by thin lines (`nba-scout.css`, `.mp-body>*+*`); on wider
+  screens the whole page is one surface. Don't bring back bordered cards
+  or pill tabs there.
 - `src/sports/wnba/NbaScout.jsx` + `nba-scout.css`: the Matchup tab's
   cards. MatchupGrade (stat + opponent, G/F/C switch, verdict, number,
   gauge, six stats in a row), then a "Why this score" label, the

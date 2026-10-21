@@ -1,6 +1,8 @@
-/* The NBA matchup page (NbaMatchupPage.jsx) and its cards (NbaScout.jsx),
-   opened from the Props tab. Its own look, apart from the Finder: dark
-   cards, green for a soft spot, pink-red for a tough one, grey between. */
+/* The NBA matchup page (NbaMatchupPage.jsx) and its sections (NbaScout.jsx),
+   opened from the Props tab. Its own look, apart from the Finder: one page,
+   the banner and tab bar across the top and the sections down it split by
+   thin lines (no floating boxes); green for a soft spot, pink-red for a
+   tough one, grey between. */
 .nba-mp{--mp-card:#141414;--mp-raised:#1d1d1d;--mp-line:#262626;--mp-text:#f3f5f8;--mp-muted:#a3a3a3;--mp-faint:#767676;
  --mp-good:#3FE39E;--mp-edge:#3CC9B9;--mp-fair:#F6C35B;--mp-poor:#EE5470;--mp-accent:var(--theme-accent,#4cc9f0);
  max-width:780px;margin:0 auto;padding-bottom:28px;color:var(--mp-text);font-family:var(--font-sans,'Inter',system-ui,sans-serif)}
@@ -10,8 +12,8 @@
 /* The banner: his team's colours edge to edge, his photo on the right
    over a faint team logo, his name on two lines, tonight's game. On phones
    it runs the full width of the screen from the very top. */
-.nba-mp .mp-hero{position:relative;isolation:isolate;overflow:hidden;display:flex;flex-direction:column;align-items:flex-start;min-height:300px;margin-bottom:12px;
- padding:16px 18px 18px;border-radius:26px;
+.nba-mp .mp-hero{position:relative;isolation:isolate;overflow:hidden;display:flex;flex-direction:column;align-items:flex-start;min-height:300px;margin-bottom:0;
+ padding:16px 18px 18px;border-radius:21px 21px 0 0;
  background:radial-gradient(85% 75% at 82% 30%,color-mix(in srgb,var(--team,#2f5b9a) 50%,transparent),transparent 72%),
   linear-gradient(160deg,color-mix(in srgb,var(--team,#2f5b9a) 42%,#0b0d12) 0%,#0b0d12 80%)}
 .nba-mp .mp-hero-mark{position:absolute;z-index:-2;top:46%;right:4%;width:min(64%,320px);aspect-ratio:1;object-fit:contain;transform:translateY(-50%);
@@ -25,7 +27,7 @@
 .nba-mp .mp-hero[data-long=xl] h1{font-size:24px}
 .nba-mp .mp-hero p{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0 14px;color:#d3d8e0;font-size:14px;font-weight:700;text-shadow:0 1px 10px #000a}
 .nba-mp .mp-hero p i{width:4px;height:4px;border-radius:50%;background:#8d95a3}
-.nba-mp .mp-next{display:inline-flex;align-items:center;gap:10px;padding:9px 16px 9px 10px;border:1px solid #ffffff24;border-radius:16px;background:#0b0d12b8;backdrop-filter:blur(8px)}
+.nba-mp .mp-next{display:inline-flex;align-items:center;gap:10px;padding:2px 0 2px 12px;border-left:3px solid color-mix(in srgb,var(--team,#2f5b9a) 70%,#fff)}
 .nba-mp .mp-next img{width:34px;height:34px;object-fit:contain}
 .nba-mp .mp-next span{display:grid;gap:1px}
 .nba-mp .mp-next small{color:#9aa0aa;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
@@ -34,8 +36,8 @@
 
 /* Sections, pinned under a slim bar (photo, name, tonight's game) once the banner scrolls away. */
 .nba-mp{--mp-mini-h:58px;--mp-bg:var(--theme-bg,#0a0a0a)}
-.nba-mp .mp-stick-slot{margin-bottom:12px}
-.nba-mp .mp-stick{padding:6px 0;background:var(--mp-bg)}
+.nba-mp .mp-stick-slot{margin-bottom:0}
+.nba-mp .mp-stick{padding:0;background:var(--mp-bg)}
 .nba-mp .mp-stick[data-mini]{position:fixed;top:var(--mp-mini-h);z-index:40;box-sizing:border-box}
 .nba-mp .mp-mini{position:absolute;right:0;bottom:100%;left:0;display:flex;align-items:center;gap:10px;height:var(--mp-mini-h);padding:0 4px;
  border-bottom:1px solid var(--mp-line);background:linear-gradient(90deg,color-mix(in srgb,var(--team,#2f5b9a) 22%,var(--mp-bg)),var(--mp-bg) 70%);
@@ -47,31 +49,39 @@
 .nba-mp .mp-mini-game img{width:18px;height:18px;object-fit:contain}
 .nba-mp .mp-mini-game small{color:var(--mp-muted);font-size:11.5px;font-weight:700}
 @media (prefers-reduced-motion:reduce){.nba-mp .mp-mini{transition:none}}
-.nba-mp .mp-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.nba-mp .mp-tabs button{min-height:42px;border:1px solid #2a2f38;border-radius:999px;background:#12151b;color:#aeb4bf;font-size:12.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
-.nba-mp .mp-tabs button[aria-selected=true]{border-color:transparent;background:var(--mp-accent);color:var(--theme-on-accent,#071018);box-shadow:0 6px 22px color-mix(in srgb,var(--mp-accent) 32%,transparent)}
-.nba-mp .mp-body{display:grid;gap:12px}
-.nba-mp .mp-section{display:flex;align-items:center;gap:12px;margin:8px 2px 0;color:var(--mp-muted);font-size:11.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
-.nba-mp .mp-section::after{content:"";flex:1;height:1px;background:var(--mp-line)}
+.nba-mp .mp-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-bottom:1px solid var(--mp-line)}
+.nba-mp .mp-tabs button{min-height:48px;border:0;border-radius:0;background:transparent;color:#9a9a9a;font-size:12.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+ box-shadow:inset 0 -3px 0 transparent;cursor:pointer}
+.nba-mp .mp-tabs button[aria-selected=true]{color:var(--mp-text);box-shadow:inset 0 -3px 0 var(--mp-accent)}
+/* The sections, one after another down the page, a thin line between. */
+.nba-mp .mp-body{display:block}
+.nba-mp .mp-body>*+*{border-top:1px solid var(--mp-line)}
+.nba-mp .mp-section{display:flex;align-items:center;padding:22px 0 0;color:var(--mp-accent);font-size:11.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.nba-mp .mp-body>.mp-section+*{border-top:0}
+
+/* Wider screens: the page is one surface, the banner across its top. */
+@media (min-width:761px){
+ .nba-mp{--mp-bg:#121212;border:1px solid var(--mp-line);border-radius:22px;background:var(--mp-bg)}
+ .nba-mp .mp-body{padding:0 24px}
+}
 
 @media (max-width:760px){
  /* The page takes the whole screen: the app's title bar steps aside. */
  :root[data-theme] body:has(#panel-v2:not([hidden]) #props-league-root[data-page=player]) .hero{display:none!important}
  :root[data-theme] body #app-shell #panel-v2:has(#props-league-root[data-page=player]){padding-top:0!important}
  .nba-mp{--mp-mini-h:calc(58px + env(safe-area-inset-top,0px))}
- .nba-mp .mp-hero{margin:0 calc(50% - 50vw) 10px;min-height:calc(312px + env(safe-area-inset-top,0px));padding:calc(12px + env(safe-area-inset-top,0px)) 16px 18px;border-radius:0 0 28px 28px}
+ .nba-mp .mp-hero{margin:0 calc(50% - 50vw);min-height:calc(312px + env(safe-area-inset-top,0px));padding:calc(12px + env(safe-area-inset-top,0px)) 16px 18px;border-radius:0}
  .nba-mp .mp-stick-slot{margin-inline:calc(50% - 50vw)}
- .nba-mp .mp-stick{padding-inline:12px}
  .nba-mp .mp-mini{padding:env(safe-area-inset-top,0px) 12px 0}
 }
 
-/* The card shell. */
-.nba-mp .mp-card{border:1px solid var(--mp-line);border-radius:18px;background:var(--mp-card);overflow:hidden}
-.nba-mp .mp-card>header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 14px}
-.nba-mp .mp-card>header h2{display:flex;align-items:center;gap:8px;margin:0;font:800 15px/1.2 var(--font-sans)}
+/* A section: its heading, what it's about on the right, then the body. */
+.nba-mp .mp-card{border:0;border-radius:0;background:transparent}
+.nba-mp .mp-card>header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:22px 0 12px}
+.nba-mp .mp-card>header h2{display:flex;align-items:center;gap:8px;margin:0;font:800 17px/1.2 var(--font-sans)}
 .nba-mp .mp-card>header h2 svg{color:var(--mp-accent)}
-.nba-mp .mp-card>header small{flex:none;max-width:55%;overflow:hidden;padding:4px 10px;border-radius:999px;background:#1f1f1f;color:var(--mp-muted);font-size:11.5px;font-weight:700;white-space:nowrap;text-overflow:ellipsis}
-.nba-mp .mp-card-body{padding:0 14px 14px}
+.nba-mp .mp-card>header small{flex:none;max-width:55%;overflow:hidden;color:var(--mp-faint);font-size:12px;font-weight:700;white-space:nowrap;text-overflow:ellipsis}
+.nba-mp .mp-card-body{padding:0 0 22px}
 .nba-mp .nd-foot{margin:10px 0 0;color:var(--mp-faint);font:500 10.5px/1.45 var(--font-sans)}
 .nba-mp .mp-empty{margin:4px 0 0;color:var(--mp-muted);font-size:12.5px}
 .nba-mp .mp-skeleton{display:grid;gap:8px}
@@ -161,7 +171,7 @@
 
 /* Matchup grade: the stat and opponent with the position switch, the
    verdict and number, the gauge, then all six stats in a row. */
-.nba-mp .nba-grade>header{padding:13px 14px 4px}
+.nba-mp .nba-grade>header{padding:20px 0 4px}
 .nba-mp .nba-grade>header h2{color:var(--mp-muted);font:800 11.5px/1.2 var(--font-sans);letter-spacing:.1em;text-transform:uppercase}
 .nba-mp .nba-grade>header h2 i{width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.7}
 .nba-mp .ng-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:8px 0 12px}
@@ -252,9 +262,8 @@
 .nba-mp .ng2-grid>.ng2-label{display:flex;align-items:center;color:var(--mp-faint);font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
 
 /* The shot zones door. */
-.nba-mp .ns-shotlink{display:grid;grid-template-columns:92px minmax(0,1fr) auto;align-items:center;gap:14px;width:100%;padding:12px 14px;
- border:1px solid color-mix(in srgb,var(--mp-accent) 40%,#2a2a2a);border-radius:18px;
- background:radial-gradient(120% 140% at 0 0,color-mix(in srgb,var(--mp-accent) 12%,transparent),transparent 60%),var(--mp-card);color:inherit;text-align:left;cursor:pointer}
+.nba-mp .ns-shotlink{display:grid;grid-template-columns:92px minmax(0,1fr) auto;align-items:center;gap:14px;width:100%;padding:18px 0;
+ border:0;border-radius:0;background:transparent;color:inherit;text-align:left;cursor:pointer}
 .nba-mp .ns-court{width:92px;height:62px}
 .nba-mp .ns-court :is(rect,path){fill:none;stroke:#4a4a4a;stroke-width:1.5}
 .nba-mp .ns-court rect:first-child{fill:#1d1d1d}
