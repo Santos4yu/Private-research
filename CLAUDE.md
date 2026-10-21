@@ -8,3 +8,10 @@
   one. One push to `main` per finished change.
 - A change that doesn't touch the site (notes like this file) isn't pushed on
   its own: it goes out with the next change that does.
+
+# Before starting
+
+Read `docs/claude-handoff.md`: how the owner likes to work, the standing
+rules (keys, branding, what stays switched off) and where the current
+project (NBA matchups on the Props tab) stands. Update it when you finish
+a piece of work, so the next session can pick up from there.
