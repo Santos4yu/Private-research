@@ -6,7 +6,7 @@
 // Numbers: nba-matchup-score.js and the league context (ESPN box scores,
 // backend/sports/wnba/context.py + scout.py), NBA.com's tables through the
 // phone relay (play types, defenders), /api/wnba?resource=scout.
-import React,{useEffect,useMemo,useState} from 'react';
+import React,{useEffect,useId,useMemo,useState} from 'react';
 import {Activity,ChevronDown,ChevronRight,Medal,Shield,Swords,Target,UserRound,Users} from 'lucide-react';
 import {baseMarket,finite,fmt,opponentOf,ordinal,positionOf,realGames,shortDate,signed,useWnba} from './wnba-research';
 import {cardScores} from '../../nba-matchup-score';
@@ -287,9 +287,19 @@ const ZONE_COLORS={ra:'#4cc9f0',paint:'#8b7cf6',mid:'#22d3c5',ab3:'#4f8ef7',c3l:
 // -1 the toughest defense in the league at it, 1 the softest (rank 1 allows the lowest FG%).
 const zoneSoftness=(rank,count)=>finite(rank)&&count>1?(rank-(count+1)/2)/((count-1)/2):0;
 const zoneRankText=(rank,count)=>!finite(rank)||!count?'—':rank<=Math.ceil(count/2)?`${ordinal(rank)} lowest`:`${ordinal(count-rank+1)} highest`;
-const tint=(color,strength)=>`color-mix(in srgb,${color} ${Math.round(8+Math.min(1,strength)*52)}%,#141414)`;
+// A zone's colour over the floor: see-through, stronger the further from even.
+const tint=(color,strength)=>`color-mix(in srgb,${color} ${Math.round(16+Math.min(1,strength)*50)}%,transparent)`;
+// The zones as shapes that don't overlap (each cut out of the one around it),
+// so their see-through colours never stack.
+const ZONE_SHAPES={
+ ab3:'M0 0 H300 V130 H260 A130.4 130.4 0 0 0 40 130 H0 Z',
+ c3l:'M0 130 H40 V220 H0 Z',c3r:'M260 130 H300 V220 H260 Z',
+ mid:'M40 220 V130 A130.4 130.4 0 0 1 260 130 V220 Z M105 110 V220 H195 V110 Z',
+ paint:'M105 110 H195 V220 H105 Z M122 220 V200 A28 28 0 0 1 178 200 V220 Z',
+ ra:'M122 220 V200 A28 28 0 0 1 178 200 V220 Z'};
 export function ShotZones({player,league,row}){
  const [view,setView]=useState('fg'),[picked,setPicked]=useState(null);
+ const id=useId().replace(/:/g,'');
  const data=league.data,p=player.data,opponent=row.opponent||(row.opponent||opponentOf(row));
  if(!data||!p)return league.loading||player.loading?<Card title="Shot zones" icon={Target}><Loading/></Card>:null;
  const zones=p.zones||{},defense=data.zoneDefense[opponent]||{},n=data.teamCount,usual=data.leagueZones||{};
@@ -306,14 +316,19 @@ export function ShotZones({player,league,row}){
  const chosen=picked&&ZONE_LABELS[picked]?picked:order[0];
  const fill=zone=>{
   if(view==='share')return tint('#4f8ef7',share(zone)/45);
-  if(view==='opp'){const s=soft(zone);return Math.abs(s)<0.2?'#1d1d1d':tint(s>0?'#3FE39E':'#EE5470',Math.abs(s));}
-  const d=vsLeague(zone);return !finite(d)||few(zone)?'#1d1d1d':tint(d>=0?'#3FE39E':'#EE5470',Math.abs(d)/10);};
+  if(view==='opp'){const s=soft(zone);return Math.abs(s)<0.2?'transparent':tint(s>0?'#3FE39E':'#EE5470',Math.abs(s));}
+  const d=vsLeague(zone);return !finite(d)||few(zone)?'transparent':tint(d>=0?'#3FE39E':'#EE5470',Math.abs(d)/10);};
+ // The small line under a zone's number, green or red the way its colour reads.
+ const toneOf=zone=>{if(view==='share')return undefined;
+  if(view==='opp'){const s=soft(zone);return s>=0.2?'good':s<=-0.2?'poor':undefined;}
+  const d=vsLeague(zone);return !finite(d)||few(zone)?undefined:d>=0?'good':'poor';};
  const words=zone=>view==='share'?[`${fmt(share(zone),0)}%`,'of his pts']:view==='opp'?[finite(defense[zone]?.[0])?`${fmt(defense[zone][0],1)}%`:'—',zoneRankText(defense[zone]?.[1],n)]
   :[finite(pct(zone))?`${fmt(pct(zone),1)}%`:'—',few(zone)?`${zones[zone]?.[1]||0} FGA`:finite(vsLeague(zone))?`${signed(vsLeague(zone),1)} vs lg`:''];
  const label=(zone,x,y)=>{const [top,sub]=words(zone),corner=zone==='c3l'||zone==='c3r';
-  return <g className="nsz-label" transform={`translate(${x} ${y})`} data-picked={zone===chosen||undefined}><text y="-2">{top}</text>
-   <text y="11" className="nsz-sub">{corner?sub.replace(' vs lg','').replace(/ (lowest|highest)$/,''):sub}</text></g>;};
- const zoneProps=zone=>({fill:fill(zone),onClick:()=>setPicked(zone),role:'button',tabIndex:0,'aria-label':`${ZONE_LABELS[zone]}: ${words(zone).join(' ')}`,
+  return <g className="nsz-label" transform={`translate(${x} ${y})`} data-picked={zone===chosen||undefined} data-corner={corner||undefined} filter={`url(#${id}-lift)`}>
+   <text y="-1">{top}</text>
+   <text y="11" className="nsz-sub" data-tone={toneOf(zone)}>{corner?sub.replace(' vs lg','').replace(/ (lowest|highest)$/,'').replace('of his pts','of pts'):sub}</text></g>;};
+ const zoneProps=zone=>({d:ZONE_SHAPES[zone],fillRule:'evenodd',fill:fill(zone),onClick:()=>setPicked(zone),role:'button',tabIndex:0,'aria-label':`${ZONE_LABELS[zone]}: ${words(zone).join(' ')}`,
   'data-picked':zone===chosen||undefined,onKeyDown:event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();setPicked(zone);}}});
  const [made,attempts]=zones[chosen]||[0,0],cell=defense[chosen];
  const views=[['fg',`${first} FG%`],['share','Share of pts'],['opp',`${name} allow`]];
@@ -321,13 +336,26 @@ export function ShotZones({player,league,row}){
   {total?<>
   <div className="ws-views" role="tablist" aria-label="What the court shows">{views.map(([key,text])=><button type="button" role="tab" key={key} aria-selected={view===key} onClick={()=>setView(key)}>{text}</button>)}</div>
   <svg className="nsz-court" viewBox="0 0 300 220" aria-label="Shot zones">
-   <rect x="0" y="0" width="300" height="220" {...zoneProps('ab3')}/>
-   <rect x="0" y="130" width="40" height="90" {...zoneProps('c3l')}/><rect x="260" y="130" width="40" height="90" {...zoneProps('c3r')}/>
-   <path d="M40 220 L40 130 A130.4 130.4 0 0 1 260 130 L260 220 Z" {...zoneProps('mid')}/>
-   <rect x="105" y="110" width="90" height="110" {...zoneProps('paint')}/>
-   <path d="M122 220 L122 200 A28 28 0 0 1 178 200 L178 220 Z" {...zoneProps('ra')}/>
-   <g className="nsz-lines"><rect x="0" y="0" width="300" height="220"/><path d="M40 220 L40 130 A130.4 130.4 0 0 1 260 130 L260 220"/><rect x="105" y="110" width="90" height="110"/><path d="M122 220 L122 200 A28 28 0 0 1 178 200 L178 220"/></g>
-   {label('ab3',150,46)}{label('mid',150,90)}{label('paint',150,150)}{label('ra',150,206)}{label('c3l',20,176)}{label('c3r',280,176)}
+   <defs>
+    <linearGradient id={`${id}-floor`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#232326"/><stop offset="1" stopColor="#141416"/></linearGradient>
+    {/* Floorboards running toward the basket, their ends staggered. */}
+    <pattern id={`${id}-boards`} width="30" height="96" patternUnits="userSpaceOnUse">
+     <path d="M0.5 0 V96 M15.5 0 V96 M0 0.5 H15 M15 48.5 H30" stroke="#ffffff" strokeOpacity=".045" strokeWidth="1"/></pattern>
+    <linearGradient id={`${id}-gloss`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#fff" stopOpacity=".13"/><stop offset=".42" stopColor="#fff" stopOpacity=".02"/><stop offset="1" stopColor="#fff" stopOpacity="0"/></linearGradient>
+    <radialGradient id={`${id}-shine`} cx=".5" cy="0" r=".75"><stop offset="0" stopColor="#fff" stopOpacity=".09"/><stop offset="1" stopColor="#fff" stopOpacity="0"/></radialGradient>
+    <filter id={`${id}-lift`} x="-30%" y="-40%" width="160%" height="180%"><feDropShadow dx="0" dy="1" stdDeviation="1.1" floodColor="#000" floodOpacity=".9"/></filter>
+   </defs>
+   <rect width="300" height="220" fill={`url(#${id}-floor)`}/>
+   <rect width="300" height="220" fill={`url(#${id}-boards)`}/>
+   {['ab3','c3l','c3r','mid','paint','ra'].map(zone=><path key={zone} {...zoneProps(zone)}/>)}
+   <g className="nsz-lines">
+    <path d="M40 220 V130 A130.4 130.4 0 0 1 260 130 V220"/><path d="M105 220 V110 H195 V220"/><path d="M122 220 V200 A28 28 0 0 1 178 200 V220"/>
+    <path className="nsz-split" d="M0 130 H40 M260 130 H300"/>
+    <path className="nsz-board" d="M136 216.5 H164"/><circle className="nsz-rim" cx="150" cy="210.5" r="3.6"/>
+   </g>
+   <rect width="300" height="220" fill={`url(#${id}-gloss)`} pointerEvents="none"/>
+   <rect width="300" height="220" fill={`url(#${id}-shine)`} pointerEvents="none"/>
+   {label('ab3',150,40)}{label('mid',150,91)}{label('paint',150,149)}{label('ra',150,190)}{label('c3l',20,176)}{label('c3r',280,176)}
   </svg>
   <div className="ws-legend"><span>Tap a zone</span>{view==='share'?<span><i data-tone="blue"/>more of his points</span>:<><span><i data-tone="good"/>{view==='opp'?'gives up the most':'above league'}</span><span><i data-tone="poor"/>{view==='opp'?'gives up the least':'below league'}</span></>}</div>
   <div className="ws-detail"><div className="ws-detail-head"><b>{ZONE_LABELS[chosen]}</b>{finite(vsLeague(chosen))&&<em data-tone={few(chosen)?undefined:vsLeague(chosen)>=0?'good':'poor'}>{signed(vsLeague(chosen),1)} vs lg</em>}</div>

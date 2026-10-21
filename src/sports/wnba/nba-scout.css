@@ -313,15 +313,25 @@
 
 /* Shot zones: three views, the picked zone in words, every zone. */
 .nba-mp .ws-views{display:flex;border-bottom:1px solid var(--mp-line)}
-.nba-mp .nsz-court{display:block;width:100%;max-width:440px;margin:12px auto 0;border-radius:12px;overflow:hidden}
+/* The court: a dark wood floor with a soft shine, white court lines, the
+   backboard and an orange rim; each zone a see-through colour over it. */
+.nba-mp .nsz-court{display:block;width:100%;max-width:460px;margin:14px auto 0;border:1px solid #2c2c2e;border-radius:16px;overflow:hidden;
+ box-shadow:0 14px 34px #000000b3,0 1px 0 #ffffff14 inset}
 .nba-mp .nsz-court [role=button]{cursor:pointer;transition:fill .2s}
 .nba-mp .nsz-court [role=button]:focus-visible{outline:none;stroke:#fff;stroke-width:2}
-.nba-mp .nsz-court [data-picked][role=button]{stroke:#ffffffb3;stroke-width:1.5}
-.nba-mp .nsz-lines{fill:none;stroke:#2c2c2c;stroke-width:1.5;pointer-events:none}
+.nba-mp .nsz-court [data-picked][role=button]{stroke:#fff;stroke-opacity:.9;stroke-width:1.6;stroke-linejoin:round}
+.nba-mp .nsz-lines{fill:none;stroke:#f2f2f2;stroke-opacity:.72;stroke-width:1.4;stroke-linejoin:round;pointer-events:none}
+.nba-mp .nsz-lines .nsz-split{stroke-opacity:.28;stroke-dasharray:3 3}
+.nba-mp .nsz-lines .nsz-board{stroke-opacity:.9;stroke-width:2.2;stroke-linecap:round}
+.nba-mp .nsz-lines .nsz-rim{stroke:#ff8a3d;stroke-opacity:1;stroke-width:1.6}
 .nba-mp .nsz-label{pointer-events:none}
-.nba-mp .nsz-label text{fill:#fff;font:800 12px var(--font-sans,Arial,sans-serif);text-anchor:middle;paint-order:stroke;stroke:#0d0d0d;stroke-width:3px;stroke-linejoin:round}
-.nba-mp .nsz-label .nsz-sub{font-size:9px;font-weight:700;fill:#d6d6d6}
-.nba-mp .nsz-label[data-picked] text:first-child{fill:var(--mp-accent)}
+.nba-mp .nsz-label text{fill:#fff;font:800 14px var(--font-sans,Arial,sans-serif);letter-spacing:-.01em;text-anchor:middle;font-variant-numeric:tabular-nums}
+.nba-mp .nsz-label[data-corner] text:first-child{font-size:11.5px}
+.nba-mp .nsz-label .nsz-sub{font-size:9px;font-weight:700;letter-spacing:.01em;fill:#d4d4d4}
+.nba-mp .nsz-label .nsz-sub[data-tone=good]{fill:#6ff0b6}
+.nba-mp .nsz-label .nsz-sub[data-tone=poor]{fill:#ff97a9}
+.nba-mp .nsz-label[data-picked] text:first-child{fill:#fff;font-size:15px}
+.nba-mp .nsz-label[data-picked][data-corner] text:first-child{font-size:12px}
 .nba-mp .ws-legend{display:flex;justify-content:center;flex-wrap:wrap;gap:6px 16px;margin-top:8px;color:#8a8a8a;font-size:11px;font-weight:600}
 .nba-mp .ws-legend span{display:inline-flex;align-items:center;gap:6px}
 .nba-mp .ws-legend i{width:9px;height:9px;border-radius:50%;background:#4f8ef7}
