@@ -104,6 +104,31 @@ export function summarize(bets, unit = null) {
     winRate: decided ? wins / decided : null, roi: staked ? units / staked : null};
 }
 
+/**
+ * The member's balance (bet_tracker.set_bank): what they had when they set
+ * it, the money they put in or took out since, and the bets they logged
+ * after it -- each settled one's profit at the unit size it was placed at,
+ * each pending one's stake out until it settles. Null with none set.
+ */
+export function bankroll(bank, bets, unit = null) {
+  if (!bank || !Number.isFinite(Number(bank.start))) return null;
+  const since = Date.parse(bank.at || '') || 0;
+  const amounts = (bank.moves || []).map(move => Number(move.amount) || 0);
+  const added = amounts.filter(amount => amount > 0).reduce((sum, amount) => sum + amount, 0);
+  const taken = -amounts.filter(amount => amount < 0).reduce((sum, amount) => sum + amount, 0);
+  const moves = added - taken;
+  let won = 0, inPlay = 0, pending = 0, settled = 0;
+  for (const bet of bets || []) {
+    if (!(Date.parse(bet.at || '') >= since)) continue;
+    const size = Number(bet.unit) > 0 ? Number(bet.unit) : Number(unit) || 0;
+    const profit = profitOf(bet);
+    if (profit !== null) { won += profit * size; settled += 1; }
+    else if (bet.result === 'pending') { inPlay += (Number(bet.stake) || 0) * size; pending += 1; }
+  }
+  const start = Number(bank.start);
+  return {start, since: bank.at, moves, added, taken, won, inPlay, pending, settled, balance: start + moves + won - inPlay};
+}
+
 /** The current run of wins or losses, newest first: {kind: 'W'|'L', count}. */
 export function streak(bets) {
   const settled = bets.map(bet => ({bet, profit: profitOf(bet)})).filter(item => item.profit !== null && item.profit !== 0)

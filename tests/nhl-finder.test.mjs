@@ -73,9 +73,12 @@ test('a busy NHL answer is waited out, then asked again', async () => {
 test('a goalie\'s row says how often he gets the net, never that tonight is confirmed',async()=>{
  const {matchupCase}=await import('../src/slip-matchup.js');
  const {readPick}=await import('../src/slip-analyst.js');
- // Tonight's game is a few hours away; CAR's last eight came every other day up to last night.
- const startsAt=new Date(Date.now()+6*3600e3);
- const dates=[15,13,11,9,7,5,3,1].map(days=>new Date(startsAt.getTime()-days*86400e3).toISOString().slice(0,10));
+ // Tonight's game starts at the next midnight UTC (the evening, Eastern); CAR's
+ // last eight came every other day up to last night, by the Eastern calendar.
+ const now=new Date();
+ const startsAt=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()+1));
+ const tonight=Date.parse(`${new Date(startsAt.getTime()-5*3600e3).toISOString().slice(0,10)}T12:00:00Z`);
+ const dates=[15,13,11,9,7,5,3,1].map(days=>new Date(tonight-days*86400e3).toISOString().slice(0,10));
  const goalie=(index,starter)=>({saves:24+index,shots_against:26+index,ga:2,toi:starter?60:0,starter});
  // Andersen starts six of eight, the last one included; Kochetkov the other two.
  const games=dates.map((date,index)=>game(`g${index}`,date,'BOS',index===2||index===5?{'31':goalie(index,false),'52':goalie(index,true)}:{'31':goalie(index,true)}));
@@ -85,11 +88,15 @@ test('a goalie\'s row says how often he gets the net, never that tonight is conf
   apps:[{key:'prizepicks',name:'PrizePicks'}]}]});
  const row=applyNhlHistory(line,goalies);
  assert.deepEqual(row.goalieStarts,{started:6,of:8,last:true,lastDate:dates.at(-1)});
- const {facts}=matchupCase({row,side:'OVER'},{});
- const starts=facts.find(item=>item.key==='starts');
- assert.match(starts.text,/^Started 6 of CAR's last 8 games, including the last one; tonight's starter isn't confirmed here$/);
- assert.equal(starts.impact,0);
- // He started last night: the second night of a back-to-back.
+ // He started last night: teams usually give the backup the second night.
+ const starts=matchupCase({row,side:'OVER'},{}).facts.find(item=>item.key==='starts');
+ assert.match(starts.text,/^Started CAR's game last night: teams usually give the second night to the backup, so he may not start$/);
+ assert.equal(starts.impact,-8);
  const read=readPick(row,'OVER',{records:{}});
  assert.ok(read.risks.includes('Started last night: teams usually start the backup on the second night'),JSON.stringify(read.risks));
+ // Two nights ago instead: how often he gets the net, never that tonight is confirmed.
+ const rested={...row,goalieStarts:{...row.goalieStarts,lastDate:new Date(tonight-2*86400e3).toISOString().slice(0,10)}};
+ const usual=matchupCase({row:rested,side:'OVER'},{}).facts.find(item=>item.key==='starts');
+ assert.match(usual.text,/^Started 6 of CAR's last 8 games, including the last one; tonight's starter isn't confirmed here$/);
+ assert.equal(usual.impact,0);
 });

@@ -1,7 +1,7 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {AlertTriangle,CalendarDays,Camera,ClipboardPaste,ChevronLeft,ChevronRight,LineChart,Loader2,Plus,Trash2,X} from 'lucide-react';
-import {KINDS,PERIODS,calendar,inPeriod,moneyText,periodOf,priceText,profitOf,series,shiftAnchor,streak,summarize,today,unitsText,multiplierOf,betFromSlip,betFromRead} from './my-bets-core';
+import {KINDS,PERIODS,bankroll,calendar,inPeriod,moneyText,periodOf,priceText,profitOf,series,shiftAnchor,streak,summarize,today,unitsText,multiplierOf,betFromSlip,betFromRead} from './my-bets-core';
 import {loadHistory} from './slip-history';
 import {shrink} from './slip-image';
 import './my-bets.css';
@@ -258,6 +258,59 @@ function BetForm({initial,unit,slips,onSave,onDelete,onClose}){
  </div>,document.body);
 }
 
+// ---------------------------------------------------------------- the balance
+
+// Dollars as a balance reads them: $1,284.57, −$12.00.
+const balanceText=value=>`${value<0?'−':''}$${Math.abs(value).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+const BANK_ASK={set:'New balance',in:'Add money',out:'Take out'};
+
+/** What's in the member's account: set once, then moved by every bet they log and the money they put in or take out. */
+function BankCard({bank,bets,unit,onSave}){
+ const roll=useMemo(()=>bankroll(bank,bets,unit),[bank,bets,unit]);
+ const [mode,setMode]=useState(null);
+ const [amount,setAmount]=useState('');
+ const [busy,setBusy]=useState(false);
+ const [error,setError]=useState('');
+ const open=next=>{setMode(next);setError('');setAmount(next==='set'&&roll?String(Math.round(roll.balance*100)/100):'');};
+ const submit=async event=>{
+  event.preventDefault();
+  const value=Number(amount);
+  if(amount===''||!Number.isFinite(value)||value<0||(mode!=='set'&&value===0)){setError('Enter an amount in dollars.');return;}
+  setBusy(true);setError('');
+  try{await onSave(mode==='set'?{start:value}:{move:mode==='in'?value:-value});setMode(null);}
+  catch(problem){setError(problem.message||'Not saved. Try again.');}
+  finally{setBusy(false);}
+ };
+ const since=roll?.since?new Date(roll.since).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
+ return <section className="mb-card mb-bank" aria-label="Balance">
+  {roll?<div className="mb-bank-main">
+   <span>Balance</span>
+   <b>{balanceText(roll.balance)}</b>
+   <small><span>Started with {balanceText(roll.start)} on {since}</span>
+    {roll.settled>0&&<span><i>·</i><em data-tone={tone(roll.won)}>{moneyText(roll.won)}</em> from bets</span>}
+    {roll.added>=0.005&&<span><i>·</i>{balanceText(roll.added)} added</span>}
+    {roll.taken>=0.005&&<span><i>·</i>{balanceText(roll.taken)} taken out</span>}
+    {roll.pending>0&&<span><i>·</i>{balanceText(roll.inPlay)} in play</span>}</small>
+  </div>:<div className="mb-bank-main mb-bank-empty">
+   <span>Balance</span>
+   <p>Set what's in your account, and it goes up and down with every bet you log.</p>
+  </div>}
+  {!mode&&<div className="mb-bank-actions">
+   {roll&&<button type="button" className="mb-ghost" onClick={()=>open('in')}>Add money</button>}
+   {roll&&<button type="button" className="mb-ghost" onClick={()=>open('out')}>Take out</button>}
+   <button type="button" className={roll?'mb-ghost':'mb-primary'} onClick={()=>open('set')}>{roll?'Edit':'Set balance'}</button>
+  </div>}
+  {mode&&<form className="mb-bank-form" onSubmit={submit}>
+   <label><span>{BANK_ASK[mode]}</span><span className="mb-dollar">$<input type="number" inputMode="decimal" min="0" step="any" autoFocus value={amount} onChange={event=>setAmount(event.target.value)} aria-label={`${BANK_ASK[mode]} in dollars`}/></span></label>
+   <button type="submit" className="mb-primary" disabled={busy}>{busy?'Saving…':'Save'}</button>
+   <button type="button" className="mb-ghost" onClick={()=>setMode(null)}>Cancel</button>
+   {mode==='set'&&roll&&<small>Starts counting again from now: bets you log from here move it.</small>}
+   {!roll&&<small>Bets you log from here move it.</small>}
+   {error&&<small className="mb-bank-error" role="alert">{error}</small>}
+  </form>}
+ </section>;
+}
+
 // ---------------------------------------------------------------- the list
 
 function BetRow({bet,onEdit,onResult}){
@@ -284,7 +337,7 @@ function BetRow({bet,onEdit,onResult}){
 // ---------------------------------------------------------------- the page
 
 export function MyBets(){
- const [state,setState]=useState({loading:true,error:'',bets:[],unit:10});
+ const [state,setState]=useState({loading:true,error:'',bets:[],unit:10,bank:null});
  const [kind,setKind]=useState('month');
  const [anchor,setAnchor]=useState(today);
  const [sport,setSport]=useState('all');
@@ -293,7 +346,7 @@ export function MyBets(){
  const [slips,setSlips]=useState([]);
  const [unitDraft,setUnitDraft]=useState('');
  const [limit,setLimit]=useState(15);
- const load=()=>call('bets').then(data=>{setState({loading:false,error:'',bets:data.bets||[],unit:data.unit||10});setUnitDraft(String(data.unit||10));})
+ const load=()=>call('bets').then(data=>{setState({loading:false,error:'',bets:data.bets||[],unit:data.unit||10,bank:data.bank||null});setUnitDraft(String(data.unit||10));})
   .catch(problem=>setState(current=>({...current,loading:false,error:problem.message})));
  useEffect(()=>{load();},[]);
  // A screenshot pasted on the page (Ctrl+V) opens Log a bet and reads it.
@@ -384,6 +437,8 @@ export function MyBets(){
   </section>
 
   {state.error&&<p className="mb-error" role="alert">{state.error}</p>}
+
+  {!state.loading&&<BankCard bank={state.bank} bets={state.bets} unit={unit} onSave={async body=>{const {bank}=await call('bets-bank',body);setState(current=>({...current,bank}));}}/>}
 
   <section className="mb-card mb-perf">
    <header><h2>{view==='chart'?'Running units':'Day by day'}</h2>

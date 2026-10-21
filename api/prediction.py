@@ -449,8 +449,8 @@ class handler(BaseHTTPRequestHandler):
                                   {"error": bet["error"]} if bet.get("error") else bet)
             except Exception:
                 return self._send(422, {"error": "That picture couldn't be read. Try again, or use a clearer one."})
-        if action in ("bets-save", "bets-remove", "bets-unit"):
-            # The member's own bets (bet_tracker.py): add or change one, take one off, or set the unit size.
+        if action in ("bets-save", "bets-remove", "bets-unit", "bets-bank"):
+            # The member's own bets (bet_tracker.py): add or change one, take one off, set the unit size or the balance.
             try:
                 content_length = int(self.headers.get("Content-Length") or 0)
                 if content_length < 1 or content_length > 16_384:
@@ -466,6 +466,8 @@ class handler(BaseHTTPRequestHandler):
                     return self._send(200, bet_tracker.save(member, body.get("bet")))
                 if action == "bets-remove":
                     return self._send(200, bet_tracker.remove(member, body.get("id")))
+                if action == "bets-bank":
+                    return self._send(200, bet_tracker.set_bank(member, body))
                 return self._send(200, bet_tracker.set_unit(member, body.get("unit"), every=body.get("every") is True))
             except (TypeError, ValueError, json.JSONDecodeError) as exc:
                 return self._send(400, {"error": str(exc) or "Invalid request."})

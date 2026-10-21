@@ -21,6 +21,11 @@ new size counts for the bets logged after it. A bet kept before bets had
 their own size counts at the member's size until it changes, then keeps
 the one it had. The member can also put every bet at the new size, for
 when the old one was set wrong.
+
+A member can keep a balance ("bank": {"start": dollars, "at": when it was
+set, "moves": [{"amount", "at"}]}): what they had when they set it, money
+they put in (+) or took out (-) since, and the bets they log after it
+(the page adds those up: my-bets-core.js bankroll).
 """
 from __future__ import annotations
 
@@ -38,6 +43,8 @@ RESULTS = ("pending", "win", "loss", "push", "void", "cashout")
 SPORTS = ("nba", "nfl", "mlb", "nhl", "wnba", "cfb", "cbb", "soccer", "tennis", "golf", "mma", "esports", "other")
 MAX_LEGS = 10
 DEFAULT_UNIT = 10.0
+MAX_MONEY = 10_000_000
+MAX_MOVES = 300
 
 
 def _store():
@@ -165,7 +172,11 @@ def read(uid):
         data = {}
     bets = [bet for bet in data.get("bets") or [] if isinstance(bet, dict) and bet.get("id")]
     unit = _number(data.get("unit"))
-    return {"unit": unit if unit and unit > 0 else DEFAULT_UNIT, "bets": bets}
+    out = {"unit": unit if unit and unit > 0 else DEFAULT_UNIT, "bets": bets}
+    bank = data.get("bank")
+    if isinstance(bank, dict) and _number(bank.get("start")) is not None:
+        out["bank"] = bank
+    return out
 
 
 def _write(uid, data):
@@ -227,6 +238,35 @@ def set_unit(uid, value, every=False):
     return {"unit": unit, "older": sum(bet["unit"] != unit for bet in data["bets"])}
 
 
+def set_bank(uid, raw, now=None):
+    """The member's balance: {"start": dollars} sets it (counted from now,
+    money in and out since cleared), {"move": dollars} puts money in (+) or
+    takes it out (-), {"clear": true} stops keeping it."""
+    now = now or datetime.now(timezone.utc)
+    if not uid or not isinstance(raw, dict):
+        raise ValueError("Sign in to keep your balance.")
+    data = read(uid)
+    if raw.get("clear") is True:
+        data.pop("bank", None)
+        _write(uid, data)
+        return {"bank": None}
+    if "start" in raw:
+        start = _number(raw.get("start"))
+        if start is None or not 0 <= start <= MAX_MONEY:
+            raise ValueError("Enter your balance in dollars.")
+        data["bank"] = {"start": round(start, 2), "at": now.isoformat(), "moves": []}
+    else:
+        bank = data.get("bank")
+        if not bank:
+            raise ValueError("Set your balance first.")
+        amount = _number(raw.get("move"))
+        if amount is None or amount == 0 or abs(amount) > MAX_MONEY:
+            raise ValueError("Enter an amount in dollars.")
+        bank["moves"] = [*(bank.get("moves") or []), {"amount": round(amount, 2), "at": now.isoformat()}][-MAX_MOVES:]
+    _write(uid, data)
+    return {"bank": data["bank"]}
+
+
 def settle_from_slips(bets, slips):
     """Pending bets logged from a tracked slip, settled as the slip did:
     (bets, changed). `slips` are slip_ledger.history's."""
@@ -268,4 +308,5 @@ def listing(uid, slips_loader=None):
                 _write(uid, data)
         except Exception:  # noqa: BLE001 -- they settle on the next look
             pass
-    return {"unit": data["unit"], "bets": [{"unit": data["unit"], **bet, "profit": profit(bet)} for bet in data["bets"]]}
+    return {"unit": data["unit"], "bank": data.get("bank"),
+            "bets": [{"unit": data["unit"], **bet, "profit": profit(bet)} for bet in data["bets"]]}

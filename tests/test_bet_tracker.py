@@ -1,6 +1,7 @@
 """My Bets (bet_tracker.py): each member's bets, profit in units, and bets
 logged from a tracked slip settling with it."""
 import json
+from datetime import datetime, timezone
 import sys
 import unittest
 from pathlib import Path
@@ -92,6 +93,28 @@ class StoreTests(unittest.TestCase):
         listed = bet_tracker.listing("u1")["bets"]
         self.assertEqual({bet["unit"] for bet in listed}, {2.5})
         self.assertEqual(next(bet for bet in listed if bet["id"] == old["id"])["stake"], 3)
+
+    def test_a_balance_set_moved_and_kept_with_the_bets(self):
+        when = datetime(2026, 10, 21, 18, 0, tzinfo=timezone.utc)
+        self.assertEqual(bet_tracker.listing("u1")["bank"], None)
+        with self.assertRaises(ValueError):
+            bet_tracker.set_bank("u1", {"move": 50})            # nothing to move yet
+        bank = bet_tracker.set_bank("u1", {"start": "250"}, now=when)["bank"]
+        self.assertEqual((bank["start"], bank["at"], bank["moves"]), (250, when.isoformat(), []))
+        bet_tracker.set_bank("u1", {"move": 100})
+        bet_tracker.set_bank("u1", {"move": -40.5})
+        # A bet and the unit size change don't touch it.
+        bet_tracker.save("u1", {"kind": "pickem", "stake": 1, "payout": 3})
+        bet_tracker.set_unit("u1", 5)
+        bank = bet_tracker.listing("u1")["bank"]
+        self.assertEqual([move["amount"] for move in bank["moves"]], [100, -40.5])
+        for bad in ({"move": 0}, {"move": "x"}, {"start": -5}, {"start": 20_000_000}):
+            with self.assertRaises(ValueError):
+                bet_tracker.set_bank("u1", bad)
+        # Setting it again starts over; clearing stops keeping it.
+        self.assertEqual(bet_tracker.set_bank("u1", {"start": 300})["bank"]["moves"], [])
+        self.assertEqual(bet_tracker.set_bank("u1", {"clear": True}), {"bank": None})
+        self.assertNotIn("bank", json.loads(self.store.data[bet_tracker.PREFIX + "u1"]))
 
     def test_a_slip_is_logged_once(self):
         bet_tracker.save("u1", {"kind": "pickem", "stake": 1, "payout": 3, "slipId": "slip-abc-123"})

@@ -124,3 +124,23 @@ test('dollars are each bet at the unit size it was placed at', async () => {
   assert.deepEqual(totals.sizes, [2.5, 5, 10]);
   assert.deepEqual(summarize([bet('2026-10-01', 'win', {unit: 2.5})], 10).sizes, [2.5]);
 });
+
+test('the balance: what was there, money in and out, and the bets logged after it', async () => {
+  const {bankroll} = await import('../src/my-bets-core.js');
+  const set = '2026-10-21T18:00:00.000Z';
+  const bank = {start: 250, at: set, moves: [{amount: 100}, {amount: -40}]};
+  const bets = [
+    {at: '2026-10-21T17:00:00Z', kind: 'pickem', stake: 2, payout: 3, result: 'win', unit: 10},     // before it was set: not counted
+    {at: '2026-10-21T19:00:00Z', kind: 'pickem', stake: 3, payout: 1.8, result: 'win', unit: 2.5},  // +2.4u at $2.50 = +$6
+    {at: '2026-10-21T20:00:00Z', kind: 'pickem', stake: 2, payout: 3, result: 'loss', unit: 5},     // −$10
+    {at: '2026-10-21T21:00:00Z', kind: 'pickem', stake: 1, payout: 3, result: 'pending', unit: 7.5}, // $7.50 in play
+    {at: '2026-10-21T21:30:00Z', kind: 'pickem', stake: 1, payout: 3, result: 'push'},              // nothing
+  ];
+  const roll = bankroll(bank, bets, 10);
+  assert.deepEqual([roll.moves, roll.added, roll.taken], [60, 100, 40]);
+  assert.ok(Math.abs(roll.won - -4) < 1e-9);
+  assert.equal(roll.inPlay, 7.5);
+  assert.deepEqual([roll.pending, roll.settled], [1, 3]);
+  assert.ok(Math.abs(roll.balance - (250 + 60 - 4 - 7.5)) < 1e-9);
+  assert.equal(bankroll(null, bets, 10), null);
+});
