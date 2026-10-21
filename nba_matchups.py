@@ -240,7 +240,12 @@ def defender(name: str, team: str, opponent: str, now: datetime | None = None) -
     person = find_player(roster, name, team) or find_player(players(season - 1), name, team)
     if not person:
         return {"player": None, "season": season_label(season), "usual": None, "opponent": team_code(opponent), "defenders": [], "likely": None}
-    card = view(season_matchups(person["id"], season), roster, opponent, season)
+    try:
+        current = season_matchups(person["id"], season)
+    except Unreachable:
+        # This season unanswered: last season's alone.
+        current = []
+    card = view(current, roster, opponent, season)
     if card["usual"]["poss"] < ENOUGH:
         last = view(season_matchups(person["id"], season - 1), roster, opponent, season - 1)
         if last["usual"]["poss"] > card["usual"]["poss"]:

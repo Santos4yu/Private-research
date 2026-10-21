@@ -95,6 +95,10 @@ class AcceptTests(Base):
         # Sent, and nothing for him: an empty answer, not "ask NBA.com".
         self.assertEqual(relay.rows('leagueseasonmatchups', {'Season': '2025-26', 'OffPlayerID': '999'}), [])
         self.assertIsNone(relay.rows('leagueseasonmatchups', {'Season': '2026-27', 'OffPlayerID': '101'}))
+        # Once the phone has sent anything for this season, no matchups is an answer.
+        relay.accept(answer('commonallplayers', {'Season': '2026-27'}, ['PERSON_ID'], [[101]]), now=NOW)
+        relay._memory.clear()
+        self.assertEqual(relay.rows('leagueseasonmatchups', {'Season': '2026-27', 'OffPlayerID': '101'}), [])
 
     def test_other_tables_come_back_as_nba_com_rows(self):
         params = tracking._params('Passing', 2026, 0)

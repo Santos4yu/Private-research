@@ -80,6 +80,17 @@ class LookupTests(unittest.TestCase):
         self.assertEqual(card["player"]["id"], "1")
         self.assertEqual(card["likely"]["id"], "2")
 
+    def test_an_unanswered_season_reads_last_one(self):
+        def answered(pid, year):
+            if year == 2027:
+                raise nba_matchups.Unreachable("no answer")
+            return ROWS
+        with patch.object(nba_matchups, "players", return_value=ROSTER), \
+             patch.object(nba_matchups, "season_matchups", side_effect=answered):
+            card = nba_matchups.defender("Darius Garland", "LAC", "SAC", now=datetime(2026, 11, 2, tzinfo=timezone.utc))
+        self.assertEqual(card["season"], "2025-26")
+        self.assertEqual(card["likely"]["id"], "2")
+
     def test_nba_com_refusing_is_remembered_briefly(self):
         nba_matchups._memory.clear()
         with patch.object(nba_matchups.requests, "get", side_effect=nba_matchups.requests.ConnectionError("refused")) as get:

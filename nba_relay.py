@@ -339,7 +339,10 @@ def rows(endpoint, params):
                 return None
             flat, sent = reply[0] or [], reply[1] or []
             found = [row for value in flat[1::2] for row in (_dicts(_unpack(value)) or [])]
-            covered = any(name.startswith(f'leagueseasonmatchups|season={_norm(label)}|') for name in sent[0::2])
+            # The phone asks a season's matchups right after its player list, and a
+            # team with none yet sends nothing to keep: anything sent for the season
+            # means it was asked.
+            covered = any(f'season={_norm(label)}' in name for name in sent[0::2])
             value = found if found or covered else None
         else:
             reply = _pipeline([['GET', f'{PREFIX}:t:{fingerprint(endpoint, lowered)}']])
