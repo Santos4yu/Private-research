@@ -63,11 +63,15 @@ const pause = (ms, signal) => new Promise((resolve, reject) => {
  * One league's current lines, hit rates filled in, (WNBA, NBA, NFL) what each
  * defense allows and (MLB) today's probable starters and lineups. `only` limits which lines get their hit rates worked out;
  * `onProgress` hears {sport, stage, done, total, rows} as it goes, `rows`
- * being the lines just filled in.
+ * being the lines just filled in; `onBoard` gets the board's lines as soon as
+ * they're in, before any hit rates are worked out.
  */
-export async function loadLines(sport, {signal, onProgress, only} = {}) {
+export async function loadLines(sport, {signal, onProgress, onBoard, only} = {}) {
   onProgress?.({sport, stage: 'lines', done: 0, total: 0});
   let result = await loadBoard(sport, {signal});
+  // The board as it stands (hit rates kept from before where the line
+  // hasn't changed), for a page that shows lines before the rest arrive.
+  onBoard?.(result.rows);
   const enrich = ENRICH[sport];
   const pending = result.rows.filter(row => (!only || only(row)) && needsHistory(sport, row));
   if (enrich && pending.length) {

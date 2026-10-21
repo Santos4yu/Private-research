@@ -215,7 +215,16 @@ function mountMyBets(open){
 // NBA side is switched on for; everyone else sees the MLB board alone.
 const propsLeagueRoot=document.getElementById('props-league-root');
 let propsLeagueMount=null;
+// NBA matchups are switched on: their lines and hit rates load in idle time
+// after the site opens, so the Props tab shows them at once.
+let propsWarm=false;
+function warmPropsLeague(){
+ if(propsWarm)return;propsWarm=true;
+ const go=()=>{import('./NbaMatchups').catch(()=>{});import('./nba-props-data').then(module=>module.warmNbaProps()).catch(()=>{});};
+ setTimeout(()=>(window.requestIdleCallback?window.requestIdleCallback(go,{timeout:6000}):go()),3000);
+}
 function mountPropsLeague(open){
+ if(open)warmPropsLeague();
  if(open&&!propsLeagueMount&&propsLeagueRoot){propsLeagueMount=shownRoot(propsLeagueRoot,later(<PropsLeague/>));}
  else if(!open&&propsLeagueMount){propsLeagueMount.unmount();propsLeagueMount=null;}
 }

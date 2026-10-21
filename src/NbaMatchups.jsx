@@ -4,8 +4,8 @@
 // player's matchup page (NbaMatchupPage.jsx); "Why" shows what made the score.
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ChevronDown,RefreshCw,Search,X} from 'lucide-react';
-import {loadLines} from './finder-pool';
-import {loadFinderDefense,windowGames,windowRate} from './unified-finder-data';
+import {windowGames,windowRate} from './unified-finder-data';
+import {nbaProps,onNbaProps,refreshNbaProps,warmNbaProps,wanted} from './nba-props-data';
 import {spreadScores} from './nba-matchup-score';
 import {Face} from './PickParts';
 import {NbaMatchupPage} from './NbaMatchupPage';
@@ -20,8 +20,6 @@ const figure=value=>Number.isInteger(Number(value))?String(Number(value)):Number
 const when=iso=>{const time=Date.parse(iso||'');if(!Number.isFinite(time))return '';const date=new Date(time),today=new Date();
  const clock=date.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
  return date.toDateString()===today.toDateString()?clock:`${date.toLocaleDateString([],{weekday:'short'})} ${clock}`;};
-const wanted=row=>row.sport==='nba'&&SHORT[row.marketKey]&&(row.modifier||'standard')==='standard'&&!row.promo
- &&(!row.startsAt||Date.parse(row.startsAt)>Date.now());
 const gameOf=row=>`${row.awayTeamAbbr||''}@${row.homeTeamAbbr||''}|${row.startsAt||''}`;
 const hitOf=row=>{const window=row.windows?.l10;const games=windowGames(window);return games?{rate:windowRate(window),hits:window.hits,games}:null;};
 
@@ -39,7 +37,7 @@ function Row({row,read,hit,open,onToggle,onOpen}){
    <span className="nm-line"><small>More</small><b>{figure(row.line)}</b><em>{SHORT[row.marketKey]}</em></span>
    <span className="nm-stat nm-hit"><span className="nm-stat-top"><small>L10</small><b>{hit?`${Math.round(hit.rate)}%`:'—'}</b></span>
     {hit?<Bar value={hit.rate} tone={hit.rate>=70?'strong':hit.rate>=55?'edge':hit.rate>=40?'neutral':'tough'}/>:<Bar value={0}/>}
-    <small className="nm-sub">{hit?`${hit.hits} of ${hit.games}`:'No games yet'}</small></span>
+    <small className="nm-sub">{hit?`${hit.hits} of ${hit.games}`:row.historyStatus==='pending'||row.historyRefresh?'Loading…':'No games yet'}</small></span>
    <span className="nm-stat nm-score" data-tone={read?.tone}><span className="nm-stat-top"><small>Matchup</small><b>{read?read.score:'—'}</b></span>
     <Bar value={read?.score||0} tone={read?.tone}/><small className="nm-sub">{read?read.label:'Not enough data'}</small></span>
   </button>
@@ -53,33 +51,27 @@ function Row({row,read,hit,open,onToggle,onOpen}){
 }
 
 export function NbaMatchups(){
- const [rows,setRows]=useState([]);
- const [league,setLeague]=useState(null);
- const [status,setStatus]=useState('loading');
- const [progress,setProgress]=useState(null);
+ // The lines and league numbers live in nba-props-data.js, loaded before
+ // the tab opens and saved on the device: what's there shows at once and
+ // a fresh board fills in behind it.
+ const [data,setData]=useState(nbaProps);
  const [stat,setStat]=useState('all');
  const [game,setGame]=useState('all');
  const [query,setQuery]=useState('');
  const [sort,setSort]=useState('matchup');
  const [openId,setOpenId]=useState(null);
  const [page,setPage]=useState(null);
- const [at,setAt]=useState(0);
  const listScroll=useRef(0);
- const control=useRef(null);
- const load=useCallback(async()=>{
-  control.current?.abort();
-  const abort=new AbortController();control.current=abort;
-  setStatus(old=>old==='ready'?'refreshing':'loading');setProgress(null);
-  try{
-   // Only the lines this page lists get their hit rates worked out.
-   const [lines,context]=await Promise.all([
-    loadLines('nba',{signal:abort.signal,only:wanted,onProgress:item=>item.stage==='history'&&setProgress({done:item.done,total:item.total})}),
-    loadFinderDefense('nba',{signal:abort.signal}).catch(()=>null)]);
-   if(abort.signal.aborted)return;
-   setRows(lines.filter(wanted));setLeague(context);setAt(Date.now());setStatus('ready');
-  }catch(error){if(error?.name!=='AbortError')setStatus(old=>old==='refreshing'?'ready':'error');}
+ useEffect(()=>{
+  const stop=onNbaProps(setData);
+  warmNbaProps();
+  return stop;
  },[]);
- useEffect(()=>{load();return()=>control.current?.abort();},[load]);
+ const load=useCallback(()=>{refreshNbaProps();},[]);
+ const rows=useMemo(()=>(data.rows||[]).filter(wanted),[data.rows]);
+ const league=data.league,progress=data.progress,at=data.at;
+ // Something to show beats a spinner: the list stays up while a board loads.
+ const status=data.rows==null||(!rows.length&&data.loading)?'loading':!rows.length&&data.error?'error':data.loading?'refreshing':'ready';
  const scores=useMemo(()=>league?spreadScores(rows,league):new Map(),[rows,league]);
  const games=useMemo(()=>{
   const seen=new Map();
