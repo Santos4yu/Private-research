@@ -14,7 +14,7 @@ const STATS=[['all','All'],['player_points','PTS'],['player_rebounds','REB'],['p
  ['player_points_rebounds','P+R'],['player_points_assists','P+A'],['player_points_rebounds_assists','PRA'],['player_steals','STL'],['player_blocks','BLK']];
 const SHORT=Object.fromEntries(STATS);
 const SORTS=[['matchup','Matchup'],['hit','Hit %']];
-const READS={position:'vs his position',team:'Team defense',pace:'Game speed',fit:'His games vs them'};
+const READS={defense:'Their defense',pace:'Their pace',position:'vs his position',fit:'His games vs them'};
 const figure=value=>Number.isInteger(Number(value))?String(Number(value)):Number(value).toFixed(1);
 const when=iso=>{const time=Date.parse(iso||'');if(!Number.isFinite(time))return '';const date=new Date(time),today=new Date();
  const clock=date.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
@@ -132,6 +132,6 @@ export function NbaMatchups(){
   {(status==='ready'||status==='refreshing')&&rows.length>0&&!shown.length&&<div className="nm-empty"><b>Nothing matches</b>
    <span>Try another stat or game, or clear the search.</span></div>}
 
-  {at>0&&rows.length>0&&<p className="nm-meta">Matchup is how good tonight’s opponent is for that stat: what they allow his position (40%), their whole defense in it (25%), the game’s speed (15%) and his own games against them (20%), placed against every team in the league. · {shown.length} props · updated {new Date(at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</p>}
+  {at>0&&rows.length>0&&<p className="nm-meta">Matchup is how good tonight’s opponent is for that stat: how much their defense gives up and how fast they play, what they allow his position in it, and his own games against them. 100 is as soft as it gets. · {shown.length} props · updated {new Date(at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</p>}
  </section>;
 }

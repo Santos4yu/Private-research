@@ -41,7 +41,7 @@ function softness(rank,count,softHigh=true){
 const toneOf=soft=>soft>=0.33?'soft':soft<=-0.33?'tough':'even';
 
 // ------------------------------------------------------------ Matchup grade
-const READ_NAMES={position:'vs his position',team:'Team defense',pace:'Game speed',fit:'His games vs them'};
+const READ_NAMES={defense:'Their defense',pace:'Their pace',position:'vs his position',fit:'His games vs them'};
 export function GradeCard({row,league,logs}){
  const opponent=row.opponent||opponentOf(row);
  const own=positionOf(row.position)||'G';
@@ -69,7 +69,7 @@ export function GradeCard({row,league,logs}){
    <span className="ng-read-head"><b>{READ_NAMES[read.key]}</b><em>{read.weight}%</em></span>
    <span className="ng-read-text">{read.text}</span>
    <span className="ng-bar" data-tone={read.score>=60?'edge':read.score>=40?'neutral':'tough'}><i style={{width:`${clamp(read.score,4,100)}%`}}/></span></li>)}</ul>}
-  <p className="nd-foot">0-100 for the over, 50 an average matchup, against every team in the league: what they allow his position, their defense in the stat, the game's speed and his own games against them.</p>
+  <p className="nd-foot">0-100 for the over, 50 an average matchup: how much their defense gives up and how fast they play, then what they allow his position in the stat and his own games against them. 100 is as soft as it gets.</p>
  </Card>;
 }
 
