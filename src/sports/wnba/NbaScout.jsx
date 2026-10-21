@@ -1,31 +1,35 @@
-// The NBA player page's scouting cards, shown when the Props tab's NBA
-// matchups switch is on: tonight's matchup grade, the defense behind it, how
-// he scores, who will guard him, how he and the players at his position have
-// done against this team, and where he ranks at his position.
+// The NBA matchup page's cards (NbaMatchupPage.jsx, opened from the Props
+// tab's NBA list): tonight's matchup grade, the defense behind it, how he
+// scores, who will guard him, his shot zones against them, how he and the
+// players at his position have done against this team, and where he ranks
+// at his position.
 // Numbers: nba-matchup-score.js and the league context (ESPN box scores,
 // backend/sports/wnba/context.py + scout.py), NBA.com's tables through the
 // phone relay (play types, defenders), /api/wnba?resource=scout.
 import React,{useEffect,useMemo,useState} from 'react';
 import {Activity,ChevronDown,ChevronRight,Medal,Shield,Swords,Target,UserRound,Users} from 'lucide-react';
-import {FinderResearchCard as Card} from '../../FinderResearchSections';
 import {baseMarket,finite,fmt,opponentOf,ordinal,positionOf,realGames,shortDate,signed,useWnba} from './wnba-research';
 import {cardScores} from '../../nba-matchup-score';
 import './nba-scout.css';
 
-const POS_WORDS={G:['guard','guards','Guards'],F:['forward','forwards','Forwards'],C:['center','centers','Centers']};
+export function Card({title,note,icon:Icon=Activity,className='',children}){
+ return <section className={`mp-card ${className}`}><header><h2><Icon size={16} aria-hidden="true"/>{title}</h2>{note&&<small>{note}</small>}</header>
+  <div className="mp-card-body">{children}</div></section>;
+}
+export const POS_WORDS={G:['guard','guards','Guards'],F:['forward','forwards','Forwards'],C:['center','centers','Centers']};
 const POSITIONS=['G','F','C'];
-const nbaHead=id=>id?`https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png`:null;
+export const nbaHead=id=>id?`https://cdn.nba.com/headshots/nba/latest/260x190/${id}.png`:null;
 const lastWord=name=>String(name||'').split(' ').filter(part=>!/^(jr|sr|ii|iii|iv)\.?$/i.test(part)).slice(-1)[0]||name;
 const firstWord=name=>String(name||'').split(' ')[0]||name;
 // "Tyler Herro" -> "T. Herro": the list's name column is narrow on a phone.
 const shortName=name=>{const parts=String(name||'').split(' ');return parts.length>1?`${parts[0][0]}. ${parts.slice(1).join(' ')}`:name;};
 const clamp=(value,low,high)=>Math.min(high,Math.max(low,value));
-const teamName=(league,abbr)=>league?.teams?.[abbr]?.short||league?.teams?.[abbr]?.name||abbr;
+export const teamName=(league,abbr)=>league?.teams?.[abbr]?.short||league?.teams?.[abbr]?.name||abbr;
 
-function Photo({src,size}){
+export function Photo({src,size}){
  return <span className="ns-photo" data-size={size||undefined}><UserRound size={16} aria-hidden="true"/>{src&&<img src={src} alt="" loading="lazy" onError={event=>{event.currentTarget.hidden=true;}}/>}</span>;
 }
-function Loading(){return <div className="mlb-context-skeleton" role="status" aria-label="Loading"><span/><span/><span/><span/></div>;}
+export function Loading(){return <div className="mp-skeleton" role="status" aria-label="Loading"><span/><span/><span/></div>;}
 
 // Rank r of n where 1 is the lowest number: "3rd most" / "5th fewest".
 function placeText(rank,count,words=['fewest','most']){
@@ -43,7 +47,7 @@ const toneOf=soft=>soft>=0.33?'soft':soft<=-0.33?'tough':'even';
 // ------------------------------------------------------------ Matchup grade
 const READ_NAMES={defense:'Their defense',pace:'Their pace',position:'vs his position',fit:'His games vs them'};
 export function GradeCard({row,league,logs}){
- const opponent=row.opponent||opponentOf(row);
+ const opponent=row.opponent||(row.opponent||opponentOf(row));
  const own=positionOf(row.position)||'G';
  const [position,setPosition]=useState(own),[picked,setPicked]=useState(null);
  useEffect(()=>{setPosition(own);setPicked(null);},[own,row.id]);
@@ -91,7 +95,7 @@ function DivergeRow({label,sub,soft,text}){
 
 export function TheirDefense({row,league}){
  const [more,setMore]=useState(false);
- const data=league.data,opponent=row.opponent||opponentOf(row),position=positionOf(row.position)||'G';
+ const data=league.data,opponent=row.opponent||(row.opponent||opponentOf(row)),position=positionOf(row.position)||'G';
  if(!data)return null;
  const n=data.teamCount,cells=data.dvp?.[opponent]?.[position]?.stats;
  if(!cells)return null;
@@ -121,7 +125,7 @@ export function TheirDefense({row,league}){
 // ------------------------------------------------------------ How he scores
 const PLAY_COLORS=['#4cc9f0','#4f8ef7','#8b7cf6','#22d3c5','#93c5fd','#c4b5fd','#5eead4'];
 export function PlayTypes({row}){
- const opponent=row.opponent||opponentOf(row);
+ const opponent=row.opponent||(row.opponent||opponentOf(row));
  const state=useWnba('play-types',{league:'nba',player:row.player,team:row.teamAbbr,opponent},Boolean(row.player&&opponent));
  const data=state.data,plays=data?.player||[];
  if(state.loading&&!data)return <Card title="How he scores" icon={Activity}><Loading/></Card>;
@@ -153,7 +157,7 @@ const GUARD_ROWS=[
  ['STL+BLK',item=>item.stlBlk,false,value=>fmt(value,1)]];
 
 export function LikelyDefenders({row}){
- const opponent=opponentOf(row);
+ const opponent=(row.opponent||opponentOf(row));
  const state=useWnba('defender',{league:'nba',player:row.player,team:row.teamAbbr,opponent},Boolean(row.player&&opponent));
  const data=state.data;
  const top=useMemo(()=>{
@@ -177,7 +181,7 @@ export function LikelyDefenders({row}){
 
 // ------------------------------------------------------------ Shot chart link
 export function ShotLink({row,league,onOpen}){
- const opponent=opponentOf(row);
+ const opponent=(row.opponent||opponentOf(row));
  return <button type="button" className="ns-shotlink" onClick={onOpen}>
   <svg className="ns-court" viewBox="0 0 120 80" aria-hidden="true"><rect x="1" y="1" width="118" height="78" rx="8"/><path d="M18 79 V48 A42 42 0 0 1 102 48 V79"/><rect x="44" y="40" width="32" height="39"/>
    <circle cx="60" cy="66" r="7" className="ns-dot-pink"/><circle cx="30" cy="30" r="7" className="ns-dot-green"/><circle cx="90" cy="30" r="7" className="ns-dot-green"/></svg>
@@ -197,7 +201,7 @@ function Diff({value,line,usual}){
 }
 
 export function VsTeam({row,league,logs,lines}){
- const opponent=opponentOf(row),name=teamName(league.data,opponent),first=firstWord(row.player);
+ const opponent=(row.opponent||opponentOf(row)),name=teamName(league.data,opponent),first=firstWord(row.player);
  const [tab,setTab]=useState('him'),[filter,setFilter]=useState('all');
  useEffect(()=>{setTab('him');setFilter('all');},[row.playerId,opponent]);
  const scout=useWnba('scout',{league:'nba',playerId:row.playerId,team:row.teamAbbr,opponent},Boolean(row.playerId&&row.teamAbbr&&opponent));
@@ -250,7 +254,7 @@ export function VsTeam({row,league,logs,lines}){
 
 // ------------------------------------------------------------ Position ranks
 export function PositionRanks({row}){
- const opponent=opponentOf(row),[side,setSide]=useState('offense');
+ const opponent=(row.opponent||opponentOf(row)),[side,setSide]=useState('offense');
  const scout=useWnba('scout',{league:'nba',playerId:row.playerId,team:row.teamAbbr,opponent},Boolean(row.playerId&&row.teamAbbr&&opponent));
  const peers=scout.data?.peers;
  if(scout.loading&&!peers)return <Card title="At his position" icon={Medal}><Loading/></Card>;
@@ -264,3 +268,70 @@ export function PositionRanks({row}){
   <p className="nd-foot">Ranked among {words[1]} playing 20+ minutes a game{seasons.length>1?', last season and this one together until this season has enough games':''}. Per game.</p>
  </Card>;
 }
+
+// ------------------------------------------------------------ Shot zones
+// Three looks at the same zones: how well he shoots each against the
+// league, where his points come from, and what tonight's defense allows.
+const ZONE_LABELS={ra:'At the rim',paint:'Paint',mid:'Mid-range',ab3:'Above-break 3',c3l:'Left corner 3',c3r:'Right corner 3'};
+const THREES=new Set(['c3l','c3r','ab3']);
+const ZONE_COLORS={ra:'#4cc9f0',paint:'#8b7cf6',mid:'#22d3c5',ab3:'#4f8ef7',c3l:'#93c5fd',c3r:'#c4b5fd'};
+// -1 the toughest defense in the league at it, 1 the softest (rank 1 allows the lowest FG%).
+const zoneSoftness=(rank,count)=>finite(rank)&&count>1?(rank-(count+1)/2)/((count-1)/2):0;
+const zoneRankText=(rank,count)=>!finite(rank)||!count?'—':rank<=Math.ceil(count/2)?`${ordinal(rank)} lowest`:`${ordinal(count-rank+1)} highest`;
+const tint=(color,strength)=>`color-mix(in srgb,${color} ${Math.round(8+Math.min(1,strength)*52)}%,#141414)`;
+export function ShotZones({player,league,row}){
+ const [view,setView]=useState('fg'),[picked,setPicked]=useState(null);
+ const data=league.data,p=player.data,opponent=row.opponent||(row.opponent||opponentOf(row));
+ if(!data||!p)return league.loading||player.loading?<Card title="Shot zones" icon={Target}><Loading/></Card>:null;
+ const zones=p.zones||{},defense=data.zoneDefense[opponent]||{},n=data.teamCount,usual=data.leagueZones||{};
+ const name=data.teams?.[opponent]?.short||opponent,first=String(row.player||'').split(' ')[0];
+ const points=zone=>(zones[zone]?.[0]||0)*(THREES.has(zone)?3:2);
+ const total=Object.keys(ZONE_LABELS).reduce((sum,zone)=>sum+points(zone),0);
+ const share=zone=>total?points(zone)/total*100:0;
+ const pct=zone=>{const [made,attempts]=zones[zone]||[0,0];return attempts?made/attempts*100:null;};
+ const vsLeague=zone=>finite(pct(zone))&&finite(usual[zone])?pct(zone)-usual[zone]:null;
+ const soft=zone=>zoneSoftness(defense[zone]?.[1],n);
+ const order=Object.keys(ZONE_LABELS).sort((a,b)=>share(b)-share(a));
+ const chosen=picked&&ZONE_LABELS[picked]?picked:order[0];
+ const fill=zone=>{
+  if(view==='share')return tint('#4f8ef7',share(zone)/45);
+  if(view==='opp'){const s=soft(zone);return Math.abs(s)<0.2?'#1d1d1d':tint(s>0?'#3FE39E':'#EE5470',Math.abs(s));}
+  const d=vsLeague(zone);return !finite(d)?'#1d1d1d':tint(d>=0?'#3FE39E':'#EE5470',Math.abs(d)/10);};
+ const words=zone=>view==='share'?[`${fmt(share(zone),0)}%`,'of his pts']:view==='opp'?[finite(defense[zone]?.[0])?`${fmt(defense[zone][0],1)}%`:'—',zoneRankText(defense[zone]?.[1],n)]
+  :[finite(pct(zone))?`${fmt(pct(zone),1)}%`:'—',finite(vsLeague(zone))?`${signed(vsLeague(zone),1)} vs lg`:''];
+ const label=(zone,x,y)=>{const [top,sub]=words(zone),corner=zone==='c3l'||zone==='c3r';
+  return <g className="nsz-label" transform={`translate(${x} ${y})`} data-picked={zone===chosen||undefined}><text y="-2">{top}</text>
+   <text y="11" className="nsz-sub">{corner?sub.replace(' vs lg','').replace(/ (lowest|highest)$/,''):sub}</text></g>;};
+ const zoneProps=zone=>({fill:fill(zone),onClick:()=>setPicked(zone),role:'button',tabIndex:0,'aria-label':`${ZONE_LABELS[zone]}: ${words(zone).join(' ')}`,
+  'data-picked':zone===chosen||undefined,onKeyDown:event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();setPicked(zone);}}});
+ const [made,attempts]=zones[chosen]||[0,0],cell=defense[chosen];
+ const views=[['fg',`${first} FG%`],['share','Share of pts'],['opp',`${name} allow`]];
+ return <Card title="Shot zones" note={`vs ${name}`} icon={Target} className="nba-shots">
+  {total?<>
+  <div className="ws-views" role="tablist" aria-label="What the court shows">{views.map(([key,text])=><button type="button" role="tab" key={key} aria-selected={view===key} onClick={()=>setView(key)}>{text}</button>)}</div>
+  <svg className="nsz-court" viewBox="0 0 300 220" aria-label="Shot zones">
+   <rect x="0" y="0" width="300" height="220" {...zoneProps('ab3')}/>
+   <rect x="0" y="130" width="40" height="90" {...zoneProps('c3l')}/><rect x="260" y="130" width="40" height="90" {...zoneProps('c3r')}/>
+   <path d="M40 220 L40 130 A130.4 130.4 0 0 1 260 130 L260 220 Z" {...zoneProps('mid')}/>
+   <rect x="105" y="110" width="90" height="110" {...zoneProps('paint')}/>
+   <path d="M122 220 L122 200 A28 28 0 0 1 178 200 L178 220 Z" {...zoneProps('ra')}/>
+   <g className="nsz-lines"><rect x="0" y="0" width="300" height="220"/><path d="M40 220 L40 130 A130.4 130.4 0 0 1 260 130 L260 220"/><rect x="105" y="110" width="90" height="110"/><path d="M122 220 L122 200 A28 28 0 0 1 178 200 L178 220"/></g>
+   {label('ab3',150,46)}{label('mid',150,90)}{label('paint',150,150)}{label('ra',150,206)}{label('c3l',20,176)}{label('c3r',280,176)}
+  </svg>
+  <div className="ws-legend"><span>Tap a zone</span>{view==='share'?<span><i data-tone="blue"/>more of his points</span>:<><span><i data-tone="good"/>{view==='opp'?'gives up the most':'above league'}</span><span><i data-tone="poor"/>{view==='opp'?'gives up the least':'below league'}</span></>}</div>
+  <div className="ws-detail"><div className="ws-detail-head"><b>{ZONE_LABELS[chosen]}</b>{finite(vsLeague(chosen))&&<em data-tone={vsLeague(chosen)>=0?'good':'poor'}>{signed(vsLeague(chosen),1)} vs lg</em>}</div>
+   <p>{attempts?`He shoots ${fmt(pct(chosen),1)}% here${finite(vsLeague(chosen))?` (${signed(vsLeague(chosen),1)} vs league)`:''} on ${attempts} ${attempts===1?'try':'tries'}, ${fmt(share(chosen),0)}% of his points.`:'He has no tries from here on record.'}
+    {finite(cell?.[0])?` ${name} allow ${fmt(cell[0],1)}% here, the ${zoneRankText(cell[1],n)} in the league.`:''}</p></div>
+  <div className="ws-mix-head">Where his points come from</div>
+  <div className="ws-mix" aria-hidden="true">{order.filter(zone=>share(zone)>0).map(zone=><i key={zone} style={{flexGrow:share(zone),background:ZONE_COLORS[zone]}}/>)}</div>
+  <div className="ws-zones" role="list">{order.map(zone=>{const [m,a]=zones[zone]||[0,0],d=vsLeague(zone),s=soft(zone),theirs=defense[zone];
+   return <button type="button" role="listitem" key={zone} className="ws-zone" aria-pressed={zone===chosen} onClick={()=>setPicked(zone)}>
+    <i style={{background:ZONE_COLORS[zone]}}/><span className="ws-zone-name"><b>{ZONE_LABELS[zone]}</b><small>{fmt(share(zone),0)}% of pts · {a} FGA</small></span>
+    <span className="ws-zone-num"><b>{a?`${fmt(m/a*100,1)}%`:'—'}</b><small data-tone={finite(d)?(d>=0?'good':'poor'):undefined}>{finite(d)?signed(d,1):''}</small></span>
+    <span className="ws-zone-num" data-tone={s>=0.33?'good':s<=-0.33?'poor':undefined}><b>{finite(theirs?.[0])?`${fmt(theirs[0],1)}%`:'—'}</b><small>{s>=0.33?'Soft spot':s<=-0.33?'Tough':finite(theirs?.[0])?'Average':''}</small></span></button>;})}</div>
+  <p className="nd-foot">His FG% in each zone with the gap to the league's, then what {name} allow there. Located shots this season from ESPN's play-by-play.</p></>
+  :<p className="mp-empty">No located shots are recorded for him yet.</p>}
+ </Card>;
+}
+
+

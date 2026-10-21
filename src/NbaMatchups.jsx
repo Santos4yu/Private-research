@@ -1,13 +1,14 @@
 // The Props tab's NBA side: every NBA prop on PrizePicks tonight with how
 // often it has cleared its line lately and how good tonight's opponent is
-// for it (nba-matchup-score.js), sortable either way. A row opens the
-// player in the Finder; "Why" shows what made the score.
+// for it (nba-matchup-score.js), sortable either way. A row opens that
+// player's matchup page (NbaMatchupPage.jsx); "Why" shows what made the score.
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ChevronDown,RefreshCw,Search,X} from 'lucide-react';
 import {loadLines} from './finder-pool';
 import {loadFinderDefense,windowGames,windowRate} from './unified-finder-data';
 import {spreadScores} from './nba-matchup-score';
 import {Face} from './PickParts';
+import {NbaMatchupPage} from './NbaMatchupPage';
 import './nba-matchups.css';
 
 const STATS=[['all','All'],['player_points','PTS'],['player_rebounds','REB'],['player_assists','AST'],['player_threes','3PM'],
@@ -28,14 +29,10 @@ function Bar({value,tone}){
  return <span className="nm-bar" data-tone={tone||undefined}><i style={{width:`${Math.max(4,Math.min(100,value))}%`}}/></span>;
 }
 
-function Row({row,read,hit,open,onToggle}){
- const research=()=>{
-  window.dispatchEvent(new CustomEvent('vortex:open-prop',{detail:{sport:row.sport,player:row.player,stat:row.raw?.stat||row.market}}));
-  window.dispatchEvent(new CustomEvent('vortex:switch-tab',{detail:{tab:'finder'}}));
- };
+function Row({row,read,hit,open,onToggle,onOpen}){
  const home=row.teamAbbr&&row.teamAbbr===row.homeTeamAbbr;
  return <li className="nm-row" data-open={open||undefined}>
-  <button type="button" className="nm-main" onClick={research} aria-label={`Open ${row.player} ${row.market} in the Finder`}>
+  <button type="button" className="nm-main" onClick={()=>onOpen(row)} aria-label={`Open ${row.player}'s ${SHORT[row.marketKey]||row.market} matchup`}>
    <Face row={row}/>
    <span className="nm-who"><b>{row.player}</b>
     <small>{[row.position,row.teamAbbr&&row.opponent?`${row.teamAbbr} ${home?'vs':'@'} ${row.opponent}`:row.teamAbbr,when(row.startsAt)].filter(Boolean).join(' · ')}</small></span>
@@ -65,7 +62,9 @@ export function NbaMatchups(){
  const [query,setQuery]=useState('');
  const [sort,setSort]=useState('matchup');
  const [openId,setOpenId]=useState(null);
+ const [page,setPage]=useState(null);
  const [at,setAt]=useState(0);
+ const listScroll=useRef(0);
  const control=useRef(null);
  const load=useCallback(async()=>{
   control.current?.abort();
@@ -94,6 +93,25 @@ export function NbaMatchups(){
   .sort((a,b)=>sort==='hit'?(b.hit?.rate??-1)-(a.hit?.rate??-1)||(b.read?.score??-1)-(a.read?.score??-1)
    :(b.read?.score??-1)-(a.read?.score??-1)||(b.hit?.rate??-1)-(a.hit?.rate??-1)),[rows,scores,stat,game,needle,sort]);
  const counts=useMemo(()=>rows.reduce((out,row)=>({...out,[row.marketKey]:(out[row.marketKey]||0)+1}),{}),[rows]);
+ // A player's page: its own history entry, so the phone's back gesture
+ // closes it the same as the page's back button.
+ const openPage=useCallback(row=>{
+  listScroll.current=window.scrollY;
+  history.pushState({...history.state,nbaMatchup:row.id},'',location.href);
+  setPage(row);window.scrollTo(0,0);
+ },[]);
+ const closePage=useCallback(()=>{if(history.state?.nbaMatchup)history.back();else setPage(null);},[]);
+ useEffect(()=>{
+  const onPop=()=>{if(!history.state?.nbaMatchup)setPage(null);};
+  window.addEventListener('popstate',onPop);return()=>window.removeEventListener('popstate',onPop);
+ },[]);
+ useEffect(()=>{
+  const root=document.getElementById('props-league-root');
+  if(root)root.dataset.page=page?'player':'';
+  if(!page)requestAnimationFrame(()=>window.scrollTo(0,listScroll.current));
+  return()=>{if(root)root.dataset.page='';};
+ },[page]);
+ if(page)return <NbaMatchupPage key={page.id} row={page} lines={rows.filter(item=>item.player===page.player&&item.teamAbbr===page.teamAbbr)} league={league} onBack={closePage}/>;
 
  return <section className="nba-matchups" aria-labelledby="nba-matchups-title">
   <header className="nm-head">
@@ -128,7 +146,7 @@ export function NbaMatchups(){
   {(status==='ready'||status==='refreshing')&&rows.length>0&&!league&&<p className="nm-note">Matchup scores are still loading the league’s numbers. Hit rates are below.</p>}
 
   {shown.length>0&&<ul className="nm-list">{shown.map(({row,read,hit})=><Row key={row.id} row={row} read={read} hit={hit}
-   open={openId===row.id} onToggle={()=>setOpenId(id=>id===row.id?null:row.id)}/>)}</ul>}
+   open={openId===row.id} onToggle={()=>setOpenId(id=>id===row.id?null:row.id)} onOpen={openPage}/>)}</ul>}
   {(status==='ready'||status==='refreshing')&&rows.length>0&&!shown.length&&<div className="nm-empty"><b>Nothing matches</b>
    <span>Try another stat or game, or clear the search.</span></div>}
 

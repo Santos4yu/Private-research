@@ -166,6 +166,6 @@ export function WNBAPlayerPage({row,playerRows,onBack}){
    <DepthChart row={selected} matchup={matchup.data} filters={filters} onToggleFilter={toggleFilter}/>
    <PlayerGameLog row={selected} logs={trend.rows} loading={loading} error={trend.state==='error'} onRetry={()=>setRetry(n=>n+1)}/>
   </div>
-  <WNBAFinderContext row={selected} logs={trend.rows} lines={playerRows} matchup={matchup} filters={filters} onToggleFilter={toggleFilter}/></div></>}
+  <WNBAFinderContext row={selected} logs={trend.rows} matchup={matchup} filters={filters} onToggleFilter={toggleFilter}/></div></>}
  </section>;
 }

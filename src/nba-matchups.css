@@ -3,6 +3,8 @@
 #panel-v2[data-league=nba]>:not(#props-league-root),:root[data-theme] #app-shell #panel-v2[data-league=nba]>:not(#props-league-root){display:none!important}
 #props-league-root{max-width:1120px;margin:0 auto}
 #props-league-root:empty{display:none}
+/* A player's matchup page has its own back button: the league switch steps aside. */
+#props-league-root[data-page=player] .nm-league{display:none}
 .nm-league{display:inline-flex;gap:4px;margin:0 0 14px;padding:4px;border:1px solid #282828;border-radius:999px;background:#121212}
 .nm-league button{display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:0 16px;border:0;border-radius:999px;background:transparent;color:#a0a0a0;
  font:700 13px var(--font-sans,'Inter',system-ui,sans-serif);cursor:pointer}
