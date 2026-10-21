@@ -8,18 +8,26 @@
 //   their pace       possessions a game
 //   vs his position  what they allow guards (forwards, centers) in the stat
 //   threes           also the 3-point percentage they allow
+//   assists          also the field-goal percentage they allow (made
+//                    shots are what passes turn into assists)
 //   steals           also how often they turn the ball over
 //
 // Each read is how far the team sits from the league's average in spreads
 // (standard deviations), the soft side up, and moves the score from 50 by
 // its gain a spread (GAINS); the total is held between 0 and 100. The
-// gains are fitted to RotoBot's grades: its Dallas page (Oct 2026: 8th
-// most points allowed, 11th highest rating, 4th fastest pace; forwards
-// get the 5th most points, 7th most rebounds, 6th most assists) reads 91,
-// 89 and 90 for forwards, and these gains give the same. The team's
-// defense and pace set where a matchup starts; the position's own number
-// moves it a little. So a soft, fast team is a good matchup in almost
-// every stat, and a team far softer than the rest reads 100.
+// gains are fitted to RotoBot's grades on two of its pages at once
+// (Oct 2026, tests/nba-matchup-score.test.mjs):
+//   Dallas, for a forward: 8th most points allowed, 11th highest rating,
+//   4th fastest pace; forwards get the 5th most points, 7th most
+//   rebounds, 6th most assists. RotoBot 91, 89, 90; these give 91, 89, 91.
+//   Indiana, for a guard: 6th most points allowed, 5th highest rating,
+//   7th fastest pace; guards get the 3rd most rebounds and 12th most
+//   blocks, middling assists, but teams shoot the 4th-highest percentage
+//   there. RotoBot rebounds 100, blocks 94, assists 100; these give the
+//   same.
+// The team's defense and pace set where a matchup starts; the position's
+// own number moves it a little. So a soft, fast team is a good matchup in
+// almost every stat, and a team far softer than the rest reads 100.
 //
 import {defenseCell, statGameLog} from './unified-finder-data.js';
 import {MARKET_STAT, baseMarket} from './sports/wnba/wnba-research.js';
@@ -31,7 +39,7 @@ const one = value => (Math.round(value * 10) / 10).toFixed(1);
 const ordinal = n => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th'}`;
 
 // Points a spread each read moves the score (see the top of the file).
-export const GAINS = {allowed: 14.5, rating: 14.5, pace: 14.5, position: 7.5, shooting: 12, turnovers: 12};
+export const GAINS = {allowed: 16, rating: 16, pace: 13, position: 7.5, shooting: 12, finishing: 8, turnovers: 12};
 // A combo is the average of its parts' scores.
 const COMBOS = {pr: ['player_points', 'player_rebounds'], pa: ['player_points', 'player_assists'], ra: ['player_rebounds', 'player_assists'],
   pra: ['player_points', 'player_rebounds', 'player_assists'], bs: ['player_blocks', 'player_steals']};
@@ -128,6 +136,17 @@ function shootingRead(row, league) {
     text: `${row.opponent} lets teams make ${one(cell[0])}% of their threes${where ? ` (${where})` : ''}`};
 }
 
+/** Assists: the field-goal percentage they allow (rank 1 the highest). */
+function finishingRead(row, league) {
+  const table = league?.opportunity, cell = table?.teams?.[row.opponent]?.fgPctAllowed, teams = table?.count || league?.teamCount;
+  if (!finite(cell?.[0])) return null;
+  const soft = spreads(cell[0], column(table.teams, team => team?.fgPctAllowed?.[0])) ?? fromRank(cell[1], teams);
+  if (!finite(soft)) return null;
+  const where = place(finite(cell[1]) ? teams - cell[1] + 1 : null, teams, ['lowest', 'highest']);
+  return {key: 'finishing', kind: 'finishing', soft, points: GAINS.finishing * soft,
+    text: `${row.opponent} lets teams shoot ${one(cell[0])}% from the field${where ? ` (${where})` : ''}`};
+}
+
 /** Steals: how often they turn the ball over (offense; rank 1 the fewest). */
 function turnoverRead(row, league) {
   const cell = league?.teamStats?.[row.opponent]?.off?.to, count = league?.teamCount;
@@ -162,7 +181,8 @@ export function matchupScore(row, league) {
   const parts = (COMBOS[stat] || [baseMarket(row.marketKey)]).map(marketKey => [marketKey, MARKET_STAT[marketKey]]);
   const shared = [defenseRead(row, league), paceRead(row, league)].filter(Boolean);
   const own = parts.flatMap(([marketKey, part]) => [positionRead({...row, marketKey}, league, part),
-    part === 'tpm' ? shootingRead(row, league) : null, part === 'stl' ? turnoverRead(row, league) : null].filter(Boolean)
+    part === 'tpm' ? shootingRead(row, league) : null, part === 'ast' ? finishingRead(row, league) : null,
+    part === 'stl' ? turnoverRead(row, league) : null].filter(Boolean)
     .map(read => ({...read, points: read.points / parts.length})));
   const reads = [...shared, ...own];
   if (!reads.some(read => read.kind === 'defense' || read.kind === 'position')) return null;

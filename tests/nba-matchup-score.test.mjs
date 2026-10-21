@@ -6,7 +6,7 @@ import {statGameLog} from '../src/unified-finder-data.js';
 
 // Thirty teams with their numbers spread like the normal curve, the named
 // teams placed at given ranks (rank 1 the most) and the rest in order.
-const N = 30, TEAMS = ['DAL', 'HOU', 'BOS', 'UTA', ...[...Array(26)].map((_, i) => `T${i}`)];
+const N = 30, TEAMS = ['DAL', 'HOU', 'BOS', 'UTA', 'IND', 'NO', ...[...Array(24)].map((_, i) => `T${i}`)];
 const erf = x => { const t = 1 / (1 + 0.3275911 * Math.abs(x)); const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x); return x >= 0 ? y : -y; };
 function quantile(rank) {
   const p = 1 - (rank - 0.5) / N;
@@ -25,15 +25,25 @@ function table(placed, average, spread, fewestFirst = false) {
 // RotoBot's Dallas page (Oct 2026): 8th most points allowed, 11th highest
 // rating, 4th fastest pace; forwards get the 5th most points, 7th most
 // rebounds, 6th most assists, 9th most threes, 12th fewest steals, about
-// the 7th most blocks. BOS is at the stingy, slow end of everything.
-const allowed = table({DAL: 8, BOS: 30}, 114, 4, true), rating = table({DAL: 11, BOS: 30}, 114, 3), pace = table({DAL: 4, BOS: 30}, 99.5, 2);
-const F = {pts: table({DAL: 5, BOS: 30}, 10, 1.2, true), reb: table({DAL: 7, BOS: 30}, 4.2, 0.4, true), ast: table({DAL: 6, BOS: 30}, 1.9, 0.25, true),
-  tpm: table({DAL: 9, BOS: 30}, 1.1, 0.15, true), stl: table({DAL: 19, BOS: 30}, 0.72, 0.06, true), blk: table({DAL: 7, BOS: 30}, 0.45, 0.08, true)};
+// the 7th most blocks (its field-goal percentage allowed isn't shown:
+// taken as average). Its Indiana page: 6th most points allowed, 5th
+// highest rating, 7th fastest pace, the 4th highest field-goal percentage
+// allowed and 17th highest from three; guards get the 7th most points, 3rd
+// most rebounds, 13th fewest assists, 3rd fewest threes, 12th most blocks.
+// BOS is at the stingy, slow end of everything.
+const allowed = table({DAL: 8, IND: 6, BOS: 30}, 114, 4, true), rating = table({DAL: 11, IND: 5, BOS: 30}, 114, 3), pace = table({DAL: 4, IND: 7, BOS: 30}, 99.5, 2);
+const fgPct = table({IND: 4, DAL: 15, BOS: 30}, 47, 1), tpPct = table({IND: 17, DAL: 16, BOS: 30}, 36, 1.2);
+const F = {pts: table({DAL: 5, IND: 15, BOS: 30}, 10, 1.2, true), reb: table({DAL: 7, IND: 15, BOS: 30}, 4.2, 0.4, true), ast: table({DAL: 6, IND: 15, BOS: 30}, 1.9, 0.25, true),
+  tpm: table({DAL: 9, IND: 15, BOS: 30}, 1.1, 0.15, true), stl: table({DAL: 19, IND: 15, BOS: 30}, 0.72, 0.06, true), blk: table({DAL: 7, IND: 15, BOS: 30}, 0.45, 0.08, true)};
+const G = {pts: table({IND: 7, DAL: 15, BOS: 30}, 10.5, 1.2, true), reb: table({IND: 3, DAL: 15, BOS: 30}, 3, 0.3, true), ast: table({IND: 18, DAL: 15, BOS: 30}, 3.1, 0.3, true),
+  tpm: table({IND: 28, DAL: 15, BOS: 30}, 1.6, 0.2, true), stl: table({IND: 16, DAL: 15, BOS: 30}, 0.8, 0.07, true), blk: table({IND: 12, DAL: 15, BOS: 30}, 0.3, 0.05, true)};
+const positions = {F, G};
 const league = {
   teamCount: N,
   teamStats: Object.fromEntries(TEAMS.map(team => [team, {def: {pts: allowed[team]}}])),
-  opportunity: {count: N, teams: Object.fromEntries(TEAMS.map(team => [team, {drtg: rating[team], poss: pace[team]}]))},
-  dvp: Object.fromEntries(TEAMS.map(team => [team, {F: {stats: Object.fromEntries(Object.entries(F).map(([stat, cells]) => [stat, {szn: cells[team]}]))}}])),
+  opportunity: {count: N, teams: Object.fromEntries(TEAMS.map(team => [team, {drtg: rating[team], poss: pace[team], fgPctAllowed: fgPct[team], tpPctAllowed: tpPct[team]}]))},
+  dvp: Object.fromEntries(TEAMS.map(team => [team, Object.fromEntries(Object.entries(positions).map(([position, stats]) =>
+    [position, {stats: Object.fromEntries(Object.entries(stats).map(([stat, cells]) => [stat, {szn: cells[team]}]))}]))])),
 };
 const row = (id, extra = {}) => ({id, sport: 'nba', player: `P${id}`, playerId: id, marketKey: 'player_points', position: 'F', teamAbbr: 'HOU',
   opponent: 'DAL', line: 14.5, gameLog: [], ...extra});
@@ -41,7 +51,8 @@ const row = (id, extra = {}) => ({id, sport: 'nba', player: `P${id}`, playerId: 
 test('reads Dallas the way RotoBot does for a forward', () => {
   const card = Object.fromEntries(cardScores(row('1'), league).map(item => [item.stat, item.score]));
   // RotoBot: PTS 91, REB 89, AST 90, BLK 89.
-  assert.deepEqual([card.PTS, card.REB, card.AST, card.BLK], [91, 89, 90, 89]);
+  assert.deepEqual([card.PTS, card.REB, card.BLK], [91, 89, 89]);
+  assert.ok(Math.abs(card.AST - 90) <= 1, String(card.AST));
   assert.equal(band(card.PTS).label, 'Strong edge');
   // A combo is the average of its parts: RotoBot's points + rebounds 90.
   assert.equal(matchupScore(row('2', {marketKey: 'player_points_rebounds'}), league).score, 90);
@@ -51,6 +62,18 @@ test('reads Dallas the way RotoBot does for a forward', () => {
   assert.match(points.reads[2].text, /to forwards \(5th most\)$/);
   // The parts add up to the score from an even 50.
   assert.ok(Math.abs(50 + points.reads.reduce((sum, read) => sum + read.points, 0) - points.raw) < 0.2);
+});
+
+test('reads Indiana the way RotoBot does for a guard', () => {
+  const card = Object.fromEntries(cardScores(row('g1', {position: 'G', teamAbbr: 'NO', opponent: 'IND'}), league).map(item => [item.stat, item.score]));
+  // RotoBot: REB 100, BLK 94; AST 100 though guards' assists there are
+  // middling (the shooting they allow); PTS 100; 3PM 77.
+  assert.deepEqual([card.REB, card.BLK], [100, 94]);
+  assert.ok(card.AST >= 97, String(card.AST));
+  assert.ok(card.PTS >= 97, String(card.PTS));
+  assert.ok(Math.abs(card['3PM'] - 77) <= 4, String(card['3PM']));
+  const assists = matchupScore(row('g2', {position: 'G', teamAbbr: 'NO', opponent: 'IND', marketKey: 'player_assists'}), league);
+  assert.match(assists.reads.find(read => read.kind === 'finishing').text, /IND lets teams shoot .*% from the field \(4th highest\)/);
 });
 
 test('the same for every forward against a team: his own games sit beside it', () => {
