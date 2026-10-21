@@ -22,10 +22,12 @@ their own size counts at the member's size until it changes, then keeps
 the one it had. The member can also put every bet at the new size, for
 when the old one was set wrong.
 
-A member can keep a balance ("bank": {"start": dollars, "from": the first
-day it counts, "at": when it was set, "moves": [{"amount", "at"}]}): what
-they had, money they put in (+) or took out (-) since, and every bet dated
-on or after "from" (the page adds those up: my-bets-core.js bankroll).
+A member can keep a balance ("bank": {"start": dollars, "at": when it was
+set, "moves": [{"amount", "at"}]}) the way their app keeps theirs: what
+they had then, money they put in (+) or took out (-) since, each bet's
+stake when it's logged after it, and what each pays back when its result
+comes in after it ("settledAt", kept on every bet). The page adds those up
+(my-bets-core.js bankroll).
 """
 from __future__ import annotations
 
@@ -195,6 +197,9 @@ def save(uid, raw, now=None):
     wanted = str((raw or {}).get("id") or "")
     held = next((item for item in data["bets"] if item["id"] == wanted), None) if wanted else None
     bet.setdefault("unit", (held or {}).get("unit") or data["unit"])
+    # When its result came in: kept while the result stays, now when it changes.
+    if bet["result"] != "pending":
+        bet["settledAt"] = (held.get("settledAt") or held.get("at")) if held and held.get("result") == bet["result"] else now.isoformat()
     if held:
         bet = {**bet, "id": held["id"], "at": held.get("at") or now.isoformat()}
         data["bets"] = [bet if item is held else item for item in data["bets"]]
@@ -239,10 +244,9 @@ def set_unit(uid, value, every=False):
 
 
 def set_bank(uid, raw, now=None):
-    """The member's balance: {"start": dollars, "from": "YYYY-MM-DD"} sets it
-    (bets dated on or after "from" move it, today when it's left out; money
-    in and out since cleared), {"move": dollars} puts money in (+) or takes
-    it out (-), {"clear": true} stops keeping it."""
+    """The member's balance: {"start": dollars} sets it to what they have
+    now (money in and out since cleared), {"move": dollars} puts money in
+    (+) or takes it out (-), {"clear": true} stops keeping it."""
     now = now or datetime.now(timezone.utc)
     if not uid or not isinstance(raw, dict):
         raise ValueError("Sign in to keep your balance.")
@@ -255,10 +259,7 @@ def set_bank(uid, raw, now=None):
         start = _number(raw.get("start"))
         if start is None or not 0 <= start <= MAX_MONEY:
             raise ValueError("Enter your balance in dollars.")
-        day = str(raw.get("from") or "")
-        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", day):
-            day = _today()
-        data["bank"] = {"start": round(start, 2), "from": day, "at": now.isoformat(), "moves": []}
+        data["bank"] = {"start": round(start, 2), "at": now.isoformat(), "moves": []}
     else:
         bank = data.get("bank")
         if not bank:
@@ -283,7 +284,8 @@ def settle_from_slips(bets, slips):
             out.append(bet)
             continue
         results = {pick.get("result") for pick in slip.get("picks") or []}
-        bet = {**bet, "result": {"won": "win", "lost": "loss", "void": "void"}[slip["status"]], "auto": True}
+        bet = {**bet, "result": {"won": "win", "lost": "loss", "void": "void"}[slip["status"]], "auto": True,
+               "settledAt": datetime.now(timezone.utc).isoformat()}
         if bet["result"] == "win" and results & {"void", "push"}:
             # Fewer picks counted: the app pays a smaller entry. The member says what.
             bet["check"] = True

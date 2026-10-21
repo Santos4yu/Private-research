@@ -125,27 +125,33 @@ test('dollars are each bet at the unit size it was placed at', async () => {
   assert.deepEqual(summarize([bet('2026-10-01', 'win', {unit: 2.5})], 10).sizes, [2.5]);
 });
 
-test('the balance: what was there, money in and out, and every bet from its day on', async () => {
+test('the balance follows the account: stakes out when logged, payouts in when the result comes', async () => {
   const {bankroll} = await import('../src/my-bets-core.js');
-  const bank = {start: 250, from: '2026-10-20', at: '2026-10-21T01:00:00Z', moves: [{amount: 100}, {amount: -40}]};
+  const set = '2026-10-21T01:30:00.123456+00:00';                    // set on Oct 20, 9:30pm Eastern
+  const bank = {start: 71.47, at: set, moves: [{amount: 100}, {amount: -40}]};
   const bets = [
-    {date: '2026-10-19', kind: 'pickem', stake: 2, payout: 3, result: 'win', unit: 10},     // the day before: not counted
-    {date: '2026-10-20', kind: 'pickem', stake: 3, payout: 1.8, result: 'win', unit: 2.5},  // logged before it was set, still counted: +$6
-    {date: '2026-10-21', kind: 'pickem', stake: 2, payout: 3, result: 'loss', unit: 5},     // −$10
-    {date: '2026-10-21', kind: 'pickem', stake: 1, payout: 3, result: 'pending', unit: 7.5}, // $7.50 in play
-    {date: '2026-10-21', kind: 'pickem', stake: 1, payout: 3, result: 'push'},              // nothing
+    // Logged and settled before it was set: already in what was typed. Not counted.
+    {at: '2026-10-20T20:00:00Z', settledAt: '2026-10-21T00:30:00Z', kind: 'pickem', stake: 3, payout: 1.8, result: 'win', unit: 2.5},
+    {at: '2026-10-20T19:00:00Z', kind: 'pickem', stake: 2, payout: 3, result: 'loss', unit: 2.5},
+    // Placed before, won after: the stake was already out, the $15 payout comes in.
+    {at: '2026-10-20T22:00:00Z', settledAt: '2026-10-21T04:00:00Z', kind: 'pickem', stake: 2, payout: 3, result: 'win', unit: 2.5},
+    // Logged after and lost: the $5 stake goes.
+    {at: '2026-10-21T15:00:00Z', settledAt: '2026-10-21T15:00:00Z', kind: 'pickem', stake: 2, payout: 3, result: 'loss', unit: 2.5},
+    // Logged after, cashed out for $1.50 of a $2.50 stake: −$1.
+    {at: '2026-10-21T16:00:00Z', settledAt: '2026-10-22T02:00:00Z', kind: 'pickem', stake: 1, payout: 3, result: 'cashout', returned: 0.6, unit: 2.5},
+    // Logged after, still pending: $7.50 in play.
+    {at: '2026-10-21T17:00:00Z', kind: 'pickem', stake: 1, payout: 3, result: 'pending', unit: 7.5},
+    // Placed before and still pending: its stake was already out. Nothing yet.
+    {at: '2026-10-20T23:00:00Z', kind: 'pickem', stake: 4, payout: 3, result: 'pending', unit: 2.5},
   ];
   const roll = bankroll(bank, bets, 10);
   assert.deepEqual([roll.moves, roll.added, roll.taken], [60, 100, 40]);
-  assert.ok(Math.abs(roll.won - -4) < 1e-9);
+  assert.ok(Math.abs(roll.won - (15 - 5 - 1)) < 1e-9);
   assert.equal(roll.inPlay, 7.5);
   assert.deepEqual([roll.pending, roll.settled], [1, 3]);
-  assert.ok(Math.abs(roll.balance - (250 + 60 - 4 - 7.5)) < 1e-9);
-  // The pending one marked won: the stake comes back with the winnings.
-  const won = bankroll(bank, bets.map((bet, index) => index === 3 ? {...bet, result: 'win'} : bet), 10);
-  assert.ok(Math.abs(won.balance - (250 + 60 - 4 + 15)) < 1e-9);
+  assert.ok(Math.abs(roll.balance - (71.47 + 60 + 9 - 7.5)) < 1e-9);
+  // The pending one placed after, marked won: its $22.50 comes in on top of the stake that went.
+  const won = bankroll(bank, bets.map((bet, index) => index === 5 ? {...bet, result: 'win', settledAt: '2026-10-22T05:00:00Z'} : bet), 10);
+  assert.ok(Math.abs(won.balance - (71.47 + 60 + 9 - 7.5 + 22.5)) < 1e-9);
   assert.equal(bankroll(null, bets, 10), null);
-  // A balance kept before it had a day counts from the day it was set (this device's calendar).
-  const {localDay} = await import('../src/my-bets-core.js');
-  assert.equal(bankroll({start: 10, at: '2026-10-20T15:00:00Z', moves: []}, bets, 10).from, localDay('2026-10-20T15:00:00Z'));
 });

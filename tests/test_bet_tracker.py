@@ -99,10 +99,8 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(bet_tracker.listing("u1")["bank"], None)
         with self.assertRaises(ValueError):
             bet_tracker.set_bank("u1", {"move": 50})            # nothing to move yet
-        bank = bet_tracker.set_bank("u1", {"start": "250", "from": "2026-10-20"}, now=when)["bank"]
-        self.assertEqual((bank["start"], bank["from"], bank["at"], bank["moves"]), (250, "2026-10-20", when.isoformat(), []))
-        # No day given (or a bad one): today.
-        self.assertEqual(bet_tracker.set_bank("u1", {"start": 250, "from": "soon"})["bank"]["from"], bet_tracker._today())
+        bank = bet_tracker.set_bank("u1", {"start": "250"}, now=when)["bank"]
+        self.assertEqual((bank["start"], bank["at"], bank["moves"]), (250, when.isoformat(), []))
         bet_tracker.set_bank("u1", {"move": 100})
         bet_tracker.set_bank("u1", {"move": -40.5})
         # A bet and the unit size change don't touch it.
@@ -117,6 +115,21 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(bet_tracker.set_bank("u1", {"start": 300})["bank"]["moves"], [])
         self.assertEqual(bet_tracker.set_bank("u1", {"clear": True}), {"bank": None})
         self.assertNotIn("bank", json.loads(self.store.data[bet_tracker.PREFIX + "u1"]))
+
+    def test_when_a_result_came_in_is_kept(self):
+        logged = datetime(2026, 10, 20, 18, 0, tzinfo=timezone.utc)
+        bet = bet_tracker.save("u1", {"kind": "pickem", "stake": 1, "payout": 3}, now=logged)["bet"]
+        self.assertNotIn("settledAt", bet)                                     # pending: nothing in yet
+        won = datetime(2026, 10, 21, 3, 0, tzinfo=timezone.utc)
+        bet = bet_tracker.save("u1", {**bet, "result": "win"}, now=won)["bet"]
+        self.assertEqual((bet["at"], bet["settledAt"]), (logged.isoformat(), won.isoformat()))
+        # Changing something else keeps when it came in; a new result is a new time.
+        later = datetime(2026, 10, 22, 1, 0, tzinfo=timezone.utc)
+        self.assertEqual(bet_tracker.save("u1", {**bet, "note": "nice"}, now=later)["bet"]["settledAt"], won.isoformat())
+        self.assertEqual(bet_tracker.save("u1", {**bet, "result": "loss"}, now=later)["bet"]["settledAt"], later.isoformat())
+        self.assertNotIn("settledAt", bet_tracker.save("u1", {**bet, "result": "pending"}, now=later)["bet"])
+        # Logged already settled: in when it was logged.
+        self.assertEqual(bet_tracker.save("u1", {"kind": "pickem", "stake": 1, "payout": 3, "result": "loss"}, now=won)["bet"]["settledAt"], won.isoformat())
 
     def test_a_slip_is_logged_once(self):
         bet_tracker.save("u1", {"kind": "pickem", "stake": 1, "payout": 3, "slipId": "slip-abc-123"})

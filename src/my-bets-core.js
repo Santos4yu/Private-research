@@ -104,38 +104,50 @@ export function summarize(bets, unit = null) {
     winRate: decided ? wins / decided : null, roi: staked ? units / staked : null};
 }
 
-/** The day a time falls on, on this device's calendar: 2026-10-20. */
-export const localDay = time => {
-  const when = new Date(time);
-  if (Number.isNaN(when.getTime())) return null;
-  return `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, '0')}-${String(when.getDate()).padStart(2, '0')}`;
-};
+// What a settled bet hands back, in units: its payout on a win, what came
+// back on a cash out, the stake on a push or void, nothing on a loss.
+function returnedOf(bet) {
+  const stake = Number(bet.stake) || 0;
+  if (bet.result === 'loss') return 0;
+  if (bet.result === 'push' || bet.result === 'void') return stake;
+  const profit = profitOf(bet);
+  return profit === null ? null : stake + profit;
+}
 
 /**
- * The member's balance (bet_tracker.set_bank): what they had, the money
- * they put in or took out since, and every bet dated on or after the day
- * it counts from (`from`; a balance kept before that had one counts from
- * the day it was set) -- each settled one's profit at the unit size it
- * was placed at, each pending one's stake out until it settles, so logging
- * or changing any of them moves it at once. Null with none set.
+ * The member's balance (bet_tracker.set_bank), kept the way their app
+ * keeps it: what they had when they set it, the money they put in or took
+ * out since, each bet's stake once it's logged after that (out "in play"
+ * while it's pending), and what each bet pays back once its result comes
+ * in after that (`settledAt`) -- a bet already settled when the balance
+ * was set is in it already. Every amount at the unit size its bet was
+ * placed at. Null with none set.
  */
 export function bankroll(bank, bets, unit = null) {
   if (!bank || !Number.isFinite(Number(bank.start))) return null;
-  const from = bank.from || localDay(bank.at) || '';
+  const since = Date.parse(bank.at || '') || 0;
   const amounts = (bank.moves || []).map(move => Number(move.amount) || 0);
   const added = amounts.filter(amount => amount > 0).reduce((sum, amount) => sum + amount, 0);
   const taken = -amounts.filter(amount => amount < 0).reduce((sum, amount) => sum + amount, 0);
   const moves = added - taken;
   let won = 0, inPlay = 0, pending = 0, settled = 0;
   for (const bet of bets || []) {
-    if (!(String(bet.date || '') >= from)) continue;
     const size = Number(bet.unit) > 0 ? Number(bet.unit) : Number(unit) || 0;
-    const profit = profitOf(bet);
-    if (profit !== null) { won += profit * size; settled += 1; }
-    else if (bet.result === 'pending') { inPlay += (Number(bet.stake) || 0) * size; pending += 1; }
+    const stake = (Number(bet.stake) || 0) * size;
+    const placed = Date.parse(bet.at || '') >= since;
+    if (bet.result === 'pending') {
+      if (placed) { inPlay += stake; pending += 1; }
+      continue;
+    }
+    const came = Date.parse(bet.settledAt || bet.at || '') >= since;
+    if (!placed && !came) continue;
+    const back = returnedOf(bet);
+    if (placed) won -= stake;
+    if (came && back !== null) won += back * size;
+    settled += 1;
   }
   const start = Number(bank.start);
-  return {start, from, moves, added, taken, won, inPlay, pending, settled, balance: start + moves + won - inPlay};
+  return {start, since: bank.at, moves, added, taken, won, inPlay, pending, settled, balance: start + moves + won - inPlay};
 }
 
 /** The current run of wins or losses, newest first: {kind: 'W'|'L', count}. */
