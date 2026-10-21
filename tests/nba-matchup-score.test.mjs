@@ -1,115 +1,115 @@
+// The NBA matchup score (src/nba-matchup-score.js), held to RotoBot's grades.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {matchupScore, spreadScores, cardScores, band, WEIGHTS} from '../src/nba-matchup-score.js';
+import {matchupScore, spreadScores, cardScores, band, GAINS} from '../src/nba-matchup-score.js';
 import {statGameLog} from '../src/unified-finder-data.js';
 
-// Thirty teams. T0..T29, with IND among them as the soft, fast defense.
-const TEAMS = ['IND', 'MIN', 'BOS', 'NY', ...[...Array(26)].map((_, i) => `T${i}`)];
-const N = TEAMS.length;
-// Every table ranks the thirty teams once, IND and BOS where named and the
-// rest in order. Least-first ranks (1 allows the fewest) for points allowed
-// and what guards get; most-first ranks (1 the highest) for rating and pace.
-// IND: 6th-most points, 5th-highest rating, 7th-fastest; guards get the
-// 7th-most points and the 3rd-fewest threes against them. BOS is the
-// stingy, slow one.
-function ranks(ind, bos) {
-  const free = [...Array(N)].map((_, i) => i + 1).filter(rank => rank !== ind && rank !== bos);
-  return Object.fromEntries(TEAMS.map(team => [team, team === 'IND' ? ind : team === 'BOS' ? bos : free.shift()]));
+// Thirty teams with their numbers spread like the normal curve, the named
+// teams placed at given ranks (rank 1 the most) and the rest in order.
+const N = 30, TEAMS = ['DAL', 'HOU', 'BOS', 'UTA', ...[...Array(26)].map((_, i) => `T${i}`)];
+const erf = x => { const t = 1 / (1 + 0.3275911 * Math.abs(x)); const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x); return x >= 0 ? y : -y; };
+function quantile(rank) {
+  const p = 1 - (rank - 0.5) / N;
+  let low = -5, high = 5;
+  for (let i = 0; i < 60; i++) { const mid = (low + high) / 2; if (0.5 * (1 + erf(mid / Math.SQRT2)) < p) low = mid; else high = mid; }
+  return (low + high) / 2;
 }
-// A team's number, spread evenly from low (least-first rank 1) to high.
-const even = (rank, low, high) => Math.round((low + (high - low) * (rank - 1) / (N - 1)) * 10) / 10;
-const cell = (table, team, low, high) => [even(table[team], low, high), table[team]];
-const flipped = (table, team, low, high) => [even(N + 1 - table[team], low, high), table[team]];
-const G = {pts: [ranks(N - 6, 1), 18, 30], tpm: [ranks(3, 2), 2, 4], reb: [ranks(N - 2, 3), 5, 9], ast: [ranks(13, 4), 4, 7],
-  stl: [ranks(15, 5), 0.8, 1.6], blk: [ranks(N - 11, 6), 0.3, 0.9]};
-const ALLOWED = ranks(N - 5, 1), RATING = ranks(5, N), PACE = ranks(7, N - 1);
+// {team: [value, rank]} with rank 1 the most; `fewestFirst` turns ranks the other way (dvp, points allowed).
+function table(placed, average, spread, fewestFirst = false) {
+  const free = [...Array(N)].map((_, i) => i + 1).filter(rank => !Object.values(placed).includes(rank));
+  return Object.fromEntries(TEAMS.map(team => {
+    const rank = placed[team] ?? free.shift();
+    return [team, [Math.round((average + spread * quantile(rank)) * 100) / 100, fewestFirst ? N - rank + 1 : rank]];
+  }));
+}
+// RotoBot's Dallas page (Oct 2026): 8th most points allowed, 11th highest
+// rating, 4th fastest pace; forwards get the 5th most points, 7th most
+// rebounds, 6th most assists, 9th most threes, 12th fewest steals, about
+// the 7th most blocks. BOS is at the stingy, slow end of everything.
+const allowed = table({DAL: 8, BOS: 30}, 114, 4, true), rating = table({DAL: 11, BOS: 30}, 114, 3), pace = table({DAL: 4, BOS: 30}, 99.5, 2);
+const F = {pts: table({DAL: 5, BOS: 30}, 10, 1.2, true), reb: table({DAL: 7, BOS: 30}, 4.2, 0.4, true), ast: table({DAL: 6, BOS: 30}, 1.9, 0.25, true),
+  tpm: table({DAL: 9, BOS: 30}, 1.1, 0.15, true), stl: table({DAL: 19, BOS: 30}, 0.72, 0.06, true), blk: table({DAL: 7, BOS: 30}, 0.45, 0.08, true)};
 const league = {
   teamCount: N,
-  dvp: Object.fromEntries(TEAMS.map(team => [team, {G: {stats: Object.fromEntries(Object.entries(G).map(([stat, [table, low, high]]) =>
-    [stat, {szn: cell(table, team, low, high)}]))}}])),
-  teamStats: Object.fromEntries(TEAMS.map(team => [team, {def: {pts: cell(ALLOWED, team, 106, 124)}}])),
-  opportunity: {count: N, league: {poss: 100}, teams: Object.fromEntries(TEAMS.map(team => [team,
-    {drtg: flipped(RATING, team, 108, 120), poss: flipped(PACE, team, 96, 104)}]))},
+  teamStats: Object.fromEntries(TEAMS.map(team => [team, {def: {pts: allowed[team]}}])),
+  opportunity: {count: N, teams: Object.fromEntries(TEAMS.map(team => [team, {drtg: rating[team], poss: pace[team]}]))},
+  dvp: Object.fromEntries(TEAMS.map(team => [team, {F: {stats: Object.fromEntries(Object.entries(F).map(([stat, cells]) => [stat, {szn: cells[team]}]))}}])),
 };
-const row = (id, extra = {}) => ({id, sport: 'nba', player: `P${id}`, playerId: id, marketKey: 'player_points', position: 'G', teamAbbr: 'MIN',
-  opponent: 'IND', line: 24.5, gameLog: [], ...extra});
+const row = (id, extra = {}) => ({id, sport: 'nba', player: `P${id}`, playerId: id, marketKey: 'player_points', position: 'F', teamAbbr: 'HOU',
+  opponent: 'DAL', line: 14.5, gameLog: [], ...extra});
 
-test('a bad, fast defense lifts every stat; the stat\'s own matchup spreads them', () => {
-  const points = matchupScore(row('1'), league), threes = matchupScore(row('2', {marketKey: 'player_threes'}), league);
-  assert.equal(points.score, 82);
-  assert.equal(band(points.score).label, 'Strong edge');
-  assert.equal(threes.score, 53);
-  assert.deepEqual(points.reads.map(read => read.key), ['defense', 'pace', 'position']);
-  assert.match(points.reads[0].text, /IND gives up 120\.9 points a game \(6th most\) and 118\.3 per 100 possessions \(5th highest\)/);
-  assert.match(points.reads[1].text, /102\.3 possessions a game \(7th fastest\)/);
-  assert.match(threes.reads[2].text, /IND allows 2\.1 threes a game to guards \(3rd fewest\)/);
-  // Assists they're a little tough on still read better than average: the defense carries it.
-  assert.equal(band(matchupScore(row('3', {marketKey: 'player_assists'}), league).score).label, 'Edge');
-  // Nothing piles up at 100 unless every read is the softest there is.
-  assert.ok(points.score < 100);
+test('reads Dallas the way RotoBot does for a forward', () => {
+  const card = Object.fromEntries(cardScores(row('1'), league).map(item => [item.stat, item.score]));
+  // RotoBot: PTS 91, REB 89, AST 90, BLK 89.
+  assert.deepEqual([card.PTS, card.REB, card.AST, card.BLK], [91, 89, 90, 89]);
+  assert.equal(band(card.PTS).label, 'Strong edge');
+  // A combo is the average of its parts: RotoBot's points + rebounds 90.
+  assert.equal(matchupScore(row('2', {marketKey: 'player_points_rebounds'}), league).score, 90);
+  const points = matchupScore(row('3'), league);
+  assert.deepEqual(points.reads.map(read => read.kind), ['defense', 'pace', 'position']);
+  assert.match(points.reads[0].text, /DAL gives up .* points a game \(8th most\) and .* per 100 possessions \(11th highest\)/);
+  assert.match(points.reads[2].text, /to forwards \(5th most\)$/);
+  // The parts add up to the score from an even 50.
+  assert.ok(Math.abs(50 + points.reads.reduce((sum, read) => sum + read.points, 0) - points.raw) < 0.2);
 });
 
-test('a defense far worse than the rest reads as soft as it gets; the middle of the pack near 50', () => {
-  // IND now gives up far more than anyone, plays far faster and lets guards
-  // score far more: every read is well past the rest of the league.
+test('the same for every forward against a team: his own games sit beside it', () => {
+  const quiet = matchupScore(row('4'), league);
+  const log = [...[...Array(8)].map(() => ({value: 10, opponent: 'T1'})), ...[...Array(3)].map(() => ({value: 25, opponent: 'DAL'}))];
+  const hot = matchupScore(row('5', {gameLog: log}), league);
+  assert.equal(hot.score, quiet.score);
+  assert.match(hot.fit.text, /^3 games against DAL: 25\.0 a game, his usual 14\.1$/);
+  assert.ok(hot.fit.score > 60);
+  assert.equal(quiet.fit, null);
+});
+
+test('threes read the 3-point percentage they allow; steals how often they turn it over', () => {
+  const shooting = structuredClone(league);
+  for (const [team, cell] of Object.entries(table({DAL: 29}, 36, 1.2))) shooting.opportunity.teams[team].tpPctAllowed = cell;
+  for (const [team, cell] of Object.entries(table({DAL: 6}, 14, 1.2, true))) shooting.teamStats[team].off = {to: cell};
+  const before = Object.fromEntries(cardScores(row('6'), league).map(item => [item.stat, item.score]));
+  const after = Object.fromEntries(cardScores(row('6'), shooting).map(item => [item.stat, item.score]));
+  // Dallas holds teams to the 2nd-lowest 3-point percentage: threes drop (RotoBot 69).
+  assert.ok(after['3PM'] < before['3PM'] - 15, `${before['3PM']} -> ${after['3PM']}`);
+  assert.ok(Math.abs(after['3PM'] - 69) <= 4, String(after['3PM']));
+  // It turns the ball over the 6th most: steals rise (RotoBot 87).
+  assert.ok(after.STL > before.STL + 5, `${before.STL} -> ${after.STL}`);
+  assert.equal(after.PTS, before.PTS);
+  const threes = matchupScore(row('7', {marketKey: 'player_threes'}), shooting);
+  assert.match(threes.reads.find(read => read.kind === 'shooting').text, /DAL lets teams make .*% of their threes \(2nd lowest\)/);
+  assert.match(matchupScore(row('8', {marketKey: 'player_steals'}), shooting).reads.find(read => read.kind === 'turnovers').text,
+    /DAL turns it over .* times a game \(6th most\)/);
+});
+
+test('far softer than everyone reads 100; the middle near 50; the stingy, slow end near 0', () => {
   const far = structuredClone(league);
-  far.teamStats.IND.def.pts = [134, N];
-  far.opportunity.teams.IND = {drtg: [127, 1], poss: [109, 1]};
-  far.dvp.IND.G.stats.pts.szn = [38, N];
-  assert.equal(matchupScore(row('11'), far).score, 100);
-  // The team with the 15th-most of everything sits at about average.
-  const middle = TEAMS.find(team => ALLOWED[team] === 15);
-  far.opportunity.teams[middle] = {drtg: [114, 15], poss: [100, 15]};
-  far.dvp[middle].G.stats.pts.szn = [24, 15];
-  const even = matchupScore(row('12', {opponent: middle}), far).score;
-  assert.ok(Math.abs(even - 50) <= 6, String(even));
-});
-
-test('a stingy, slow defense reads tough', () => {
-  const tough = matchupScore(row('4', {opponent: 'BOS'}), league);
-  assert.ok(tough.score < 10, String(tough.score));
+  far.teamStats.UTA.def.pts = [128, N];
+  far.opportunity.teams.UTA = {drtg: [124, 1], poss: [105, 1]};
+  assert.equal(matchupScore(row('9', {opponent: 'UTA'}), far).score, 100);
+  const middle = TEAMS.find(team => allowed[team][1] === 15);
+  assert.ok(Math.abs(matchupScore(row('10', {opponent: middle}), league).score - 50) <= 8);
+  const tough = matchupScore(row('11', {opponent: 'BOS'}), league);
+  assert.ok(tough.score <= 5, String(tough.score));
   assert.equal(band(tough.score).label, 'Tough');
 });
 
-test('his games against them count more the more there are', () => {
-  const log = [...Array(10)].map(() => ({value: 20, opponent: 'T1'}));
-  const quiet = {...league, opportunity: undefined, teamStats: {}};
-  const once = matchupScore(row('5', {opponent: 'NY', gameLog: [...log, {value: 30, opponent: 'NY'}].slice(1)}), quiet);
-  const thrice = matchupScore(row('6', {opponent: 'NY', gameLog: [...log.slice(3), ...[1, 2, 3].map(() => ({value: 30, opponent: 'NY'}))]}), quiet);
-  const fit = read => read.reads.find(item => item.key === 'fit');
-  assert.ok(fit(thrice).score > fit(once).score);
-  assert.ok(thrice.score > once.score);
-  // Each read's share of the score is its weight among the reads there are.
-  assert.equal(fit(once).weight, Math.round(WEIGHTS.fit / (WEIGHTS.position + WEIGHTS.fit) * 100));
-});
-
-test('the list scores each prop on its own: same prop, same number, any night', () => {
+test('the list and the player card score a prop the same', () => {
   const scores = spreadScores([row('a'), row('b', {opponent: 'BOS'})], league);
-  assert.equal(scores.get('a').score, 82);
+  assert.equal(scores.get('a').score, 91);
   assert.equal(scores.get('a').label, 'Strong edge');
-  assert.equal(spreadScores([row('a')], league).get('a').score, 82);
   assert.ok(scores.get('b').score < scores.get('a').score);
-});
-
-test('the player card scores every stat the way the list does', () => {
-  const card = cardScores(row('9'), league);
-  assert.deepEqual(card.map(item => item.stat), ['PTS', 'REB', 'AST', '3PM', 'STL', 'BLK']);
-  assert.deepEqual(card.map(item => item.score), [82, 87, 66, 53, 70, 77]);
-  assert.equal(card[0].score, spreadScores([row('9')], league).get('9').score);
-});
-
-test('the card reads each stat from his own games in it, same as that stat\'s line', () => {
-  const history = {rows: [...Array(12)].map((_, i) => ({date: `2026-0${1 + (i % 9)}-1${i % 10}`, opponent: i % 4 ? 'NY' : 'BOS', isHome: i % 2 === 0,
-    minutes: 30, values: {player_points: i % 4 ? 20 : 30, player_blocks: i % 4 ? 0 : 3}}))};
-  const card = cardScores(row('9', {opponent: 'BOS'}), league, history);
-  const blocks = row('10', {opponent: 'BOS', marketKey: 'player_blocks', gameLog: statGameLog(history, 'player_blocks')});
+  const history = {rows: [...Array(12)].map((_, i) => ({date: `2026-0${1 + (i % 9)}-1${i % 10}`, opponent: i % 4 ? 'T3' : 'DAL', isHome: i % 2 === 0,
+    minutes: 30, values: {player_points: i % 4 ? 12 : 20, player_blocks: i % 4 ? 0 : 3}}))};
+  const card = cardScores(row('12'), league, history);
+  const blocks = row('13', {marketKey: 'player_blocks', gameLog: statGameLog(history, 'player_blocks')});
   const shown = card.find(item => item.stat === 'BLK');
-  assert.equal(shown.score, spreadScores([blocks], league).get('10').score);
-  assert.ok(shown.reads.some(read => read.key === 'fit'));
+  assert.equal(shown.score, spreadScores([blocks], league).get('13').score);
+  assert.ok(shown.fit);
+  assert.equal(GAINS.position < GAINS.allowed, true);  // the team leads, the position nudges
 });
 
 test('nothing about the opponent, no score; bands by the number', () => {
-  assert.equal(matchupScore(row('6', {opponent: 'XXX'}), league), null);
-  assert.equal(matchupScore({...row('7'), sport: 'wnba'}, league), null);
+  assert.equal(matchupScore(row('14', {opponent: 'XXX'}), league), null);
+  assert.equal(matchupScore({...row('15'), sport: 'wnba'}, league), null);
   assert.deepEqual([band(80).label, band(65).label, band(50).label, band(20).label], ['Strong edge', 'Edge', 'Neutral', 'Tough']);
 });

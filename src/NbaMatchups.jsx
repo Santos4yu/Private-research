@@ -15,7 +15,9 @@ const STATS=[['all','All'],['player_points','PTS'],['player_rebounds','REB'],['p
  ['player_points_rebounds','P+R'],['player_points_assists','P+A'],['player_points_rebounds_assists','PRA'],['player_steals','STL'],['player_blocks','BLK']];
 const SHORT=Object.fromEntries(STATS);
 const SORTS=[['matchup','Matchup'],['hit','Hit %']];
-const READS={defense:'Their defense',pace:'Their pace',position:'vs his position',fit:'His games vs them'};
+const READS={defense:'Their defense',pace:'Their pace',position:'vs his position',shooting:'Their 3-point defense',turnovers:'Their turnovers'};
+// What a read adds to (or takes from) the even 50.
+const added=points=>`${points>0?'+':points<0?'−':''}${Math.abs(Math.round(points))} ${Math.abs(Math.round(points))===1?'point':'points'}`;
 const figure=value=>Number.isInteger(Number(value))?String(Number(value)):Number(value).toFixed(1);
 const when=iso=>{const time=Date.parse(iso||'');if(!Number.isFinite(time))return '';const date=new Date(time),today=new Date();
  const clock=date.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
@@ -42,8 +44,8 @@ function Row({row,read,hit,open,onToggle,onOpen}){
     <Bar value={read?.score||0} tone={read?.tone}/><small className="nm-sub">{read?read.label:'Not enough data'}</small></span>
   </button>
   {read&&<button type="button" className="nm-why" aria-expanded={open} onClick={onToggle}>Why<ChevronDown size={14}/></button>}
-  {open&&read&&<ul className="nm-reads">{read.reads.map(item=><li key={item.key}>
-   <span className="nm-read-head"><b>{READS[item.key]}</b><em>{item.weight}% of the score</em></span>
+  {open&&read&&<ul className="nm-reads"><li className="nm-read-note">An even matchup is 50. Each part adds or takes away points.</li>{read.reads.map(item=><li key={item.key}>
+   <span className="nm-read-head"><b>{READS[item.kind]||READS[item.key]}</b><em>{added(item.points)}</em></span>
    <span className="nm-read-text">{item.text}</span>
    <Bar value={item.score} tone={item.score>=60?'edge':item.score>=40?'neutral':'tough'}/>
   </li>)}</ul>}

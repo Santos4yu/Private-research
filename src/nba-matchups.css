@@ -78,6 +78,8 @@
 .nm-why[aria-expanded=true] svg{transform:rotate(180deg)}
 .nm-reads{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin:0;padding:0 14px 14px;list-style:none}
 .nm-reads li{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:1px solid var(--m-line);border-radius:12px;background:#111111}
+/* The line above the parts: how the points add up. */
+.nm-reads li.nm-read-note{grid-column:1/-1;padding:0 2px;border:0;background:none;color:#a6a6a6;font-size:12px;font-weight:600;line-height:1.4}
 .nm-read-head{display:flex;justify-content:space-between;gap:8px}
 .nm-read-head b{font-size:12.5px}
 .nm-read-head em{color:var(--m-faint);font-size:11px;font-style:normal;white-space:nowrap}

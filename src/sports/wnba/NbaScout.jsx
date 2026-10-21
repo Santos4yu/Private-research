@@ -62,7 +62,7 @@ export function MatchupGrade({row,league,logs}){
  return <>
   <GradeCard opponent={opponent} own={own} position={position} onPosition={setPosition} scores={scores} chosen={chosen} onPick={setPicked}/>
   <div className="mp-section"><span>Why this score</span></div>
-  <TheirDefense row={row} league={league} position={position} stat={STAT_KEYS[chosen.marketKey]} fit={chosen.reads?.find(read=>read.key==='fit')}/>
+  <TheirDefense row={row} league={league} position={position} stat={STAT_KEYS[chosen.marketKey]} fit={chosen.fit}/>
  </>;
 }
 
