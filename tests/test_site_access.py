@@ -64,6 +64,16 @@ class SiteControlsTests(unittest.TestCase):
    self.assertTrue(controls.allowed({},'export'))
    self.assertFalse(controls.allowed({},'moneyline'))
   self.assertIn('export',controls.DOCK_TABS)
+ def test_the_props_tab_nba_side_starts_off_until_the_admin_saves_it_on(self):
+  import json
+  with patch.object(controls.store,'get',return_value=json.dumps(controls.DEFAULT)):
+   self.assertEqual(controls.read()['disabledPropsLeagues'],['nba'])
+  saved=controls.validate({**controls.DEFAULT,'disabledPropsLeagues':[]})
+  self.assertEqual(saved['propsLeaguesSeen'],['nba'])
+  with patch.object(controls.store,'get',return_value=json.dumps(saved)):
+   self.assertEqual(controls.read()['disabledPropsLeagues'],[])
+  with self.assertRaises(ValueError):
+   controls.validate({**controls.DEFAULT,'disabledPropsLeagues':['xyz']})
  def test_a_new_finder_league_starts_off_until_the_admin_saves_it_on(self):
   import json
   # Settings saved before soccer and tennis existed: both are off, the rest unchanged.

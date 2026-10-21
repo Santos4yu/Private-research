@@ -36,6 +36,9 @@ SHEETS=('mlb:hr','mlb:hot','mlb:matchups','mlb:bvp','mlb:nrfi','mlb:park','mlb:s
  'nfl:best','nfl:td','nfl:firsttd','nfl:streaks','nfl:zones','nfl:redzone','nfl:speed','nfl:steam','nfl:shop','nfl:dvp','nfl:soft','nfl:goblins',
  'nba:pace','nba:out')
 LEGACY_SHEETS=tuple(key for key in SHEETS if key.startswith('mlb:'))
+# Leagues inside the Props tab besides MLB's board, one switch each. Each
+# starts switched off until the admin turns it on (propsLeaguesSeen).
+PROPS_LEAGUES=('nba',)
 HEX_COLOR_RE=re.compile(r'^#[0-9a-fA-F]{6}$')
 # The phone dock: the sections the admin puts in its four slots, in order
 # (More is always last). Any section a member can have may go there; one
@@ -44,7 +47,7 @@ HEX_COLOR_RE=re.compile(r'^#[0-9a-fA-F]{6}$')
 DOCK_TABS=tuple(tab for tab in TABS if tab not in ADMIN_TABS)
 DOCK_SIZE=4
 DOCK_DEFAULT=['finder','research','v2','saved']
-DEFAULT={'maintenance':False,'message':'We are updating PropScout. Please check back shortly.','requireLogin':True,'registrationOpen':True,'paidAccess':False,'disabledTabs':[],'disabledSports':[],'disabledFinderSports':[],'disabledSheets':[],'dockTabs':list(DOCK_DEFAULT),'backgroundImage':{'url':'','opacity':35},'theme':{'primary':'','secondary':'','tint':0},'updatedAt':None}
+DEFAULT={'maintenance':False,'message':'We are updating PropScout. Please check back shortly.','requireLogin':True,'registrationOpen':True,'paidAccess':False,'disabledTabs':[],'disabledSports':[],'disabledFinderSports':[],'disabledSheets':[],'disabledPropsLeagues':[],'dockTabs':list(DOCK_DEFAULT),'backgroundImage':{'url':'','opacity':35},'theme':{'primary':'','secondary':'','tint':0},'updatedAt':None}
 def read():
  try:
   policy=read_saved()
@@ -75,6 +78,9 @@ def read_saved():
  seen_sheets=set(seen_sheets) if isinstance(seen_sheets,list) else set(LEGACY_SHEETS)
  new_sheets=[key for key in SHEETS if key not in seen_sheets]
  if new_sheets:policy['disabledSheets']=sorted(set(policy.get('disabledSheets') or [])|set(new_sheets))
+ seen_props=value.get('propsLeaguesSeen')
+ new_props=[key for key in PROPS_LEAGUES if key not in (seen_props if isinstance(seen_props,list) else [])]
+ if new_props:policy['disabledPropsLeagues']=sorted(set(policy.get('disabledPropsLeagues') or [])|set(new_props))
  return policy
 def _valid_background_url(url):
  if not isinstance(url,str):return False
@@ -116,9 +122,13 @@ def validate(body):
  sheets=body.get('disabledSheets',[])
  if not isinstance(sheets,list) or any(t not in SHEETS for t in sheets):raise ValueError('Invalid cheat sheet')
  result['disabledSheets']=sorted(set(sheets))
+ props=body.get('disabledPropsLeagues',[])
+ if not isinstance(props,list) or any(t not in PROPS_LEAGUES for t in props):raise ValueError('Invalid Props league')
+ result['disabledPropsLeagues']=sorted(set(props))
  # Every league and sheet the admin saw a switch for is now a deliberate choice.
  result['finderSportsSeen']=list(FINDER_SPORTS)
  result['sheetsSeen']=list(SHEETS)
+ result['propsLeaguesSeen']=list(PROPS_LEAGUES)
  result['tabsSeen']=list(TABS)
  result['openedTabsSeen']=list(OPENED_TABS)
  # Site-wide background must be a real http(s) link or our own uploaded-

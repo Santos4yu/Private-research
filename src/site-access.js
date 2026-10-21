@@ -1,6 +1,6 @@
 import './site-access.css';
 import {serviceRequestError} from './storage-retry.js';
-import {accessGranted,needsSubscription,accountControlsVisible,canUseTab,availableTab,canUseSport,canUseFinderSport,canUseSheet,hiddenTabs,ADMIN_TABS,FINDER_SPORTS,CHEAT_SHEETS} from './site-access-core.js';
+import {accessGranted,needsSubscription,accountControlsVisible,canUseTab,availableTab,canUseSport,canUseFinderSport,canUseSheet,hiddenTabs,ADMIN_TABS,FINDER_SPORTS,CHEAT_SHEETS,PROPS_LEAGUES} from './site-access-core.js';
 import {mountMembersPanel} from './site-members.js';
 import {DOCK_DEFAULT,DOCK_FILL,DOCK_SIZE,dockTabs} from './mobile-nav-core.js';
 import {mountAnnouncePanel} from './site-announce.js';
@@ -464,6 +464,7 @@ export async function loadSiteControls(){
     +'<fieldset><legend>Available tabs</legend></fieldset>'
     +'<fieldset class="site-dock-controls"><legend>Phone dock</legend><p class="site-controls-hint">The four sections on the bottom bar on phones, left to right; More is always last. If one is switched off for members, the next section in line takes its slot.</p></fieldset>'
     +'<fieldset class="site-sport-controls"><legend>Visible sports</legend></fieldset><fieldset class="site-finder-sport-controls"><legend>Finder sports</legend><p class="site-controls-hint">Leagues offered inside the Finder. Separate from the Research sports above. Admins always see every league.</p></fieldset>'
+    +'<fieldset class="site-props-controls"><legend>Props tab</legend><p class="site-controls-hint">Leagues in the Props tab besides MLB. New ones start off. Admins always see them.</p></fieldset>'
     +'<fieldset class="site-sheet-controls"><legend>Cheat sheets</legend><p class="site-controls-hint">Each sheet inside Cheat Sheets. New sheets start off. Admins always see every sheet.</p></fieldset>'
    +'</div>'
    +'<div class="site-tab-panel" data-panel="appearance" hidden>'
@@ -540,6 +541,10 @@ export async function loadSiteControls(){
  // Finder leagues, one switch each. Unchecked = hidden from regular users.
  const finderSportNames={wnba:'WNBA',mlb:'MLB',nfl:'NFL',soccer:'Soccer',nhl:'NHL',nba:'NBA',tennis:'Tennis',cs2:'CS2',cfb:'CFB'};
  for(const sport of FINDER_SPORTS){const label=element('label');const input=document.createElement('input');input.type='checkbox';input.name='finderSport';input.value=sport;input.checked=!(policy.disabledFinderSports||[]).includes(sport);label.append(input,document.createTextNode(`${finderSportNames[sport]} in the Finder`));host.querySelector('.site-finder-sport-controls').append(label);}
+ // Props tab leagues, one switch each. Unchecked = hidden from regular users.
+ {const group=element('div');group.className='site-sheet-group';
+  for(const [key,name] of PROPS_LEAGUES){const label=element('label');const input=document.createElement('input');input.type='checkbox';input.name='propsLeague';input.value=key;input.checked=!(policy.disabledPropsLeagues||[]).includes(key);label.append(input,document.createTextNode(name));group.append(label);}
+  host.querySelector('.site-props-controls').append(group);}
  // Cheat sheets, one switch each, grouped by league. Unchecked = hidden from regular users.
  for(const league of ['mlb','nfl','nba']){
   const group=element('div');group.className='site-sheet-group';
@@ -628,7 +633,7 @@ export async function loadSiteControls(){
  form.onsubmit=async e=>{e.preventDefault();const message=statusEl();const button=host.querySelector('[type=submit]');button.disabled=true;const bgUrl=form.elements.bgUrl.value.trim();
   const themePrimary=form.elements.themePrimary.value,themeSecondary=form.elements.themeSecondary.value,themeTint=Number(form.elements.themeTint.value);
   const themeIsDefault=themePrimary.toLowerCase()===DEFAULT_THEME.primary&&themeSecondary.toLowerCase()===DEFAULT_THEME.secondary&&themeTint===DEFAULT_THEME.tint;
-  try{await request('/api/v2-admin',{action:'site-settings',settings:{maintenance:form.elements.maintenance.checked,requireLogin:form.elements.requireLogin.checked,registrationOpen:form.elements.registrationOpen.checked,paidAccess:form.elements.paidAccess.checked,message:form.elements.message.value,disabledSports:[...form.querySelectorAll('[name=sport]')].filter(c=>!c.checked).map(c=>c.value),disabledFinderSports:[...form.querySelectorAll('[name=finderSport]')].filter(c=>!c.checked).map(c=>c.value),disabledSheets:[...form.querySelectorAll('[name=sheet]')].filter(c=>!c.checked).map(c=>c.value),dockTabs:[...form.querySelectorAll('[name=dockSlot]')].map(select=>select.value),disabledTabs:[...form.querySelectorAll('[name=tab]')].filter(c=>!c.checked).map(c=>c.value),backgroundImage:{url:bgUrl,opacity:Number(form.elements.bgOpacity.value)},theme:themeIsDefault?{primary:'',secondary:'',tint:0}:{primary:themePrimary,secondary:themeSecondary,tint:themeTint,scout:true,mono:true}}});
+  try{await request('/api/v2-admin',{action:'site-settings',settings:{maintenance:form.elements.maintenance.checked,requireLogin:form.elements.requireLogin.checked,registrationOpen:form.elements.registrationOpen.checked,paidAccess:form.elements.paidAccess.checked,message:form.elements.message.value,disabledSports:[...form.querySelectorAll('[name=sport]')].filter(c=>!c.checked).map(c=>c.value),disabledFinderSports:[...form.querySelectorAll('[name=finderSport]')].filter(c=>!c.checked).map(c=>c.value),disabledSheets:[...form.querySelectorAll('[name=sheet]')].filter(c=>!c.checked).map(c=>c.value),disabledPropsLeagues:[...form.querySelectorAll('[name=propsLeague]')].filter(c=>!c.checked).map(c=>c.value),dockTabs:[...form.querySelectorAll('[name=dockSlot]')].map(select=>select.value),disabledTabs:[...form.querySelectorAll('[name=tab]')].filter(c=>!c.checked).map(c=>c.value),backgroundImage:{url:bgUrl,opacity:Number(form.elements.bgOpacity.value)},theme:themeIsDefault?{primary:'',secondary:'',tint:0}:{primary:themePrimary,secondary:themeSecondary,tint:themeTint,scout:true,mono:true}}});
   if(bgUrl){
    message.textContent='Saved. Checking that the image loads…';
    const loads=await probeImageLoads(bgUrl);

@@ -49,6 +49,12 @@ export const CHEAT_SHEETS=[
  ['nfl:dvp','Defense vs Position'],['nfl:soft','Soft Spots'],['nfl:goblins','Goblins & Demons'],
  ['nba:pace','Pace-up Games'],['nba:out','Teammate Out'],
 ];
+// Leagues inside the Props tab besides MLB's board (site_controls
+// PROPS_LEAGUES), one switch each; hidden from everyone but admins when off.
+export const PROPS_LEAGUES=[['nba','NBA matchups']];
+export function canUsePropsLeague(policy,league){
+ return canUseTab(policy,'v2')&&(policy.isAdmin||!(policy.disabledPropsLeagues||[]).includes(league));
+}
 export function canUseSheet(policy,key){
  return canUseTab(policy,'sheets')&&(policy.isAdmin||!(policy.disabledSheets||[]).includes(key));
 }

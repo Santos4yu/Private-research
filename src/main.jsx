@@ -12,7 +12,7 @@ import { UnifiedFinder } from './UnifiedFinder';
 import { WelcomeTour } from './WelcomeTour';
 import { finderStartKeys, startFinder } from './finder-early';
 import { siteFinderSportAllowed } from './site-access';
-import { canUseTab } from './site-access-core';
+import { canUseTab, canUsePropsLeague } from './site-access-core';
 import { ExpandableTabs } from '../components/ui/expandable-tabs';
 import { ResearchAILoader } from '../components/ui/research-ai-loader';
 import { ActivityDropdown } from '../components/ui/activity-dropdown';
@@ -61,6 +61,7 @@ const sections = {
   promos: () => import('./PromoBoard').then(m => ({ default: m.PromoBoard })),
   bets: () => import('./MyBets').then(m => ({ default: m.MyBets })),
   analyzer: () => import('./SlipAnalyzer').then(m => ({ default: m.SlipAnalyzer })),
+  props: () => import('./PropsLeague').then(m => ({ default: m.PropsLeague })),
 };
 // The signed-out screens and the admin PIN load only when they're shown, so
 // a signed-in member's first load doesn't carry them (or the sparkles).
@@ -76,6 +77,7 @@ const CheatSheets = lazy(sections.sheets);
 const PromoBoard = lazy(sections.promos);
 const MyBets = lazy(sections.bets);
 const SlipAnalyzer = lazy(sections.analyzer);
+const PropsLeague = lazy(sections.props);
 // Admin only, so not among the sections every member's browser fetches ahead.
 const SlipExport = lazy(() => import('./SlipExport').then(m => ({ default: m.SlipExport })));
 const later = element => <Suspense fallback={null}>{element}</Suspense>;
@@ -209,12 +211,20 @@ function mountMyBets(open){
  if(open&&!myBetsMount&&myBetsRoot){myBetsMount=shownRoot(myBetsRoot,later(<MyBets/>));}
  else if(!open&&myBetsMount){myBetsMount.unmount();myBetsMount=null;}
 }
+// The Props tab's NBA side: its league switch mounts only for someone the
+// NBA side is switched on for; everyone else sees the MLB board alone.
+const propsLeagueRoot=document.getElementById('props-league-root');
+let propsLeagueMount=null;
+function mountPropsLeague(open){
+ if(open&&!propsLeagueMount&&propsLeagueRoot){propsLeagueMount=shownRoot(propsLeagueRoot,later(<PropsLeague/>));}
+ else if(!open&&propsLeagueMount){propsLeagueMount.unmount();propsLeagueMount=null;}
+}
 let cheatSheetsMount=null;
 function mountCheatSheets(open){
  if(open&&!cheatSheetsMount&&cheatSheetsRoot){cheatSheetsMount=shownRoot(cheatSheetsRoot,later(<CheatSheets/>));}
  else if(!open&&cheatSheetsMount){cheatSheetsMount.unmount();cheatSheetsMount=null;}
 }
-window.addEventListener('vortex:site-policy',event=>{mountPrivateResearch(event.detail.accessGranted);mountAdminSections(Boolean(event.detail.accessGranted&&event.detail.isAdmin));mountKrazyBot(canUseTab(event.detail,'bot'));mountCheatSheets(canUseTab(event.detail,'sheets'));mountPromoBoard(canUseTab(event.detail,'promos'));mountMyBets(canUseTab(event.detail,'bets'));});
+window.addEventListener('vortex:site-policy',event=>{mountPrivateResearch(event.detail.accessGranted);mountAdminSections(Boolean(event.detail.accessGranted&&event.detail.isAdmin));mountKrazyBot(canUseTab(event.detail,'bot'));mountCheatSheets(canUseTab(event.detail,'sheets'));mountPromoBoard(canUseTab(event.detail,'promos'));mountMyBets(canUseTab(event.detail,'bets'));mountPropsLeague(canUsePropsLeague(event.detail,'nba'));});
 mountPrivateResearch(document.documentElement.dataset.siteAccess==='granted');
 
 const filterIcons = { all: LayoutGrid, hrr: BarChart3, 'total-bases': Diamond, hits: CircleDot, strikeouts: Target, matchup: Crosshair };

@@ -6221,7 +6221,8 @@ body::before{background:linear-gradient(115deg,transparent 12%,color-mix(in srgb
 :root[data-theme] option{background:var(--theme-panel)!important;color:var(--theme-text)!important}
 /* A text box inside a field that draws the box itself stays clear, so no
    second grey box shows inside the field. */
-:root[data-theme] :is(.mb-dollar,.command-player-field,.ss-game-search,.nfl-filter-search,.nfl-player-search,.nfl-injury-search) :is(input,textarea):not([type="range"]):not([type="checkbox"]):not([type="color"]){
+:root[data-theme] :is(.mb-dollar,.command-player-field,.ss-game-search,.nfl-filter-search,.nfl-player-search,.nfl-injury-search,.nm-search) :is(input,textarea):not([type="range"]):not([type="checkbox"]):not([type="color"]),
+:root[data-theme] .nm-game select{
   background-color:transparent!important;
 }
 
