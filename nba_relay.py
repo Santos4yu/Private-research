@@ -206,7 +206,8 @@ def accept(payload, now=None):
     else:
         key = f'{PREFIX}:t:{name}'
         commands.append(['SET', key, _pack({'headers': headers, 'rows': rows}), 'EX', keep])
-    commands.append(['HSET', SENT_KEY, name, str(int(now))])
+    # A table taken clears the last turned-away note: the phone works now.
+    commands += [['HSET', SENT_KEY, name, str(int(now))], ['DEL', PROBLEM_KEY]]
     for start in range(0, len(commands), 60):
         if _pipeline(commands[start:start + 60], timeout=10) is None:
             raise Rejected('The site has nowhere to keep it.')

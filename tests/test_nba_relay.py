@@ -35,6 +35,8 @@ class FakeKV:
             return [item for pair in self.data.get(key, {}).items() for item in pair]
         if name == 'EXPIRE':
             return 1
+        if name == 'DEL':
+            return int(self.data.pop(key, None) is not None)
         raise AssertionError(name)
 
 
@@ -101,6 +103,12 @@ class AcceptTests(Base):
         self.assertEqual(relay.rows('leaguedashptstats', params), [{'PLAYER_ID': 1, 'PLAYER_NAME': 'Jeremiah Fears', 'POTENTIAL_AST': 7.1}])
         self.assertIsNone(relay.rows('leaguedashptstats', tracking._params('Rebounding', 2026, 0)))
         self.assertEqual(relay.status(NOW)['last'], int(NOW))
+
+    def test_a_table_taken_clears_the_last_turned_away_note(self):
+        relay.note_problem('Not a table the site asks for (unnamed).')
+        self.assertTrue(relay.status(NOW)['problem'])
+        relay.accept(answer('commonallplayers', {'Season': '2026-27'}, ['PERSON_ID'], [[1]]), now=NOW)
+        self.assertIsNone(relay.status(NOW)['problem'])
 
     def test_parameters_listed_one_per_entry_are_read_too(self):
         payload = answer('commonallplayers', [{'LeagueID': '00'}, {'Season': '2026-27'}, {'IsOnlyCurrentSeason': 1}],
