@@ -60,7 +60,12 @@ not book odds.
 
 - `src/PropsLeague.jsx`: the MLB/NBA switch on the Props tab.
 - `src/NbaMatchups.jsx` + `src/nba-matchups.css`: the NBA list. On "All"
-  each player shows once, with his best line.
+  each player shows once, with his best line. Laid out as a page like the
+  player page: NBA/MLB and the stat as underlined tabs, search + game +
+  sort in one row of 44px controls, column names on wide screens, rows
+  split by thin lines (no cards). The whole Props tab hides the site's
+  background photo and glow (`styles.css`, next to `.user-bg-layer`): the
+  owner wants solid pages there, nothing showing through or floating.
 - `src/nba-props-data.js`: keeps the list's lines and league numbers warm
   and saved on the device (IndexedDB), so the tab opens instantly.
   `src/main.jsx` (`warmPropsLeague`) preloads it after the site opens.

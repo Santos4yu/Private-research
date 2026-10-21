@@ -295,6 +295,9 @@ html, body {
   transition: opacity .25s ease;
 }
 .user-bg-layer[hidden] { display: none; }
+/* The Props tab is a solid page: the background photo and glow don't show through it. */
+body:has(#panel-v2:not([hidden])) .user-bg-layer,
+body:has(#panel-v2:not([hidden]))::before { display: none !important; }
 
 body::before {
   content: "";
