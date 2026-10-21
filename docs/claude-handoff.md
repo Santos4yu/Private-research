@@ -77,7 +77,10 @@ not book odds.
   to read as one page, not floating boxes: sections sit straight on the
   page split by thin lines (`nba-scout.css`, `.mp-body>*+*`); on wider
   screens the whole page is one surface. Don't bring back bordered cards
-  or pill tabs there.
+  or pill tabs there. On a computer (1100px+) it takes up to 1440px (the
+  Props tab widens while a player page is open) with a bigger banner and
+  each tab in two columns (`.mp-cols`/`.mp-col` in `NbaMatchupPage.jsx`);
+  a column with nothing in it gives the other the full width.
 - `src/sports/wnba/NbaScout.jsx` + `nba-scout.css`: the Matchup tab's
   cards. MatchupGrade (stat + opponent, G/F/C switch, verdict, number,
   gauge, six stats in a row), then a "Why this score" label, the

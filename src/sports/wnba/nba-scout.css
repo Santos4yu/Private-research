@@ -53,9 +53,12 @@
 .nba-mp .mp-tabs button{min-height:48px;border:0;border-radius:0;background:transparent;color:#9a9a9a;font-size:12.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
  box-shadow:inset 0 -3px 0 transparent;cursor:pointer}
 .nba-mp .mp-tabs button[aria-selected=true]{color:var(--mp-text);box-shadow:inset 0 -3px 0 var(--mp-accent)}
-/* The sections, one after another down the page, a thin line between. */
+/* The sections, one after another down the page, a thin line between
+   (in two columns on a wide screen, split by a line too). */
 .nba-mp .mp-body{display:block}
-.nba-mp .mp-body>*+*{border-top:1px solid var(--mp-line)}
+.nba-mp .mp-body>*+*,.nba-mp .mp-col>*+*,.nba-mp .mp-col+.mp-col>:first-child{border-top:1px solid var(--mp-line)}
+.nba-mp .mp-col{min-width:0}
+.nba-mp .mp-col>.mp-section+*{border-top:0}
 .nba-mp .mp-section{display:flex;align-items:center;padding:22px 0 0;color:var(--mp-accent);font-size:11.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
 .nba-mp .mp-body>.mp-section+*{border-top:0}
 
@@ -63,6 +66,35 @@
 @media (min-width:761px){
  .nba-mp{--mp-bg:#121212;border:1px solid var(--mp-line);border-radius:22px;background:var(--mp-bg)}
  .nba-mp .mp-body{padding:0 24px}
+}
+/* A computer: the page takes most of the screen, a bigger banner, and the
+   sections in two columns side by side. */
+@media (min-width:1100px){
+ /* The Props tab steps out of its usual width while a player's page is open. */
+ :root[data-theme] body #app-shell #panel-v2:has(#props-league-root[data-page=player]),
+ #panel-v2:has(#props-league-root[data-page=player]){width:min(1440px,calc(100% - 48px))!important;max-width:1440px!important}
+ #props-league-root[data-page=player]{max-width:none}
+ .nba-mp{max-width:100%}
+ .nba-mp .mp-hero{min-height:360px;padding:22px 40px 30px}
+ .nba-mp .mp-hero-text{max-width:55%}
+ .nba-mp .mp-hero h1{font-size:56px}
+ .nba-mp .mp-hero[data-long=l] h1{font-size:48px}
+ .nba-mp .mp-hero[data-long=xl] h1{font-size:40px}
+ .nba-mp .mp-hero p{font-size:16px}
+ .nba-mp .mp-hero-photo{right:5%;height:min(94%,350px)}
+ .nba-mp .mp-hero-mark{right:6%;width:min(40%,380px)}
+ .nba-mp .mp-tabs{grid-template-columns:repeat(3,minmax(0,200px));padding:0 40px}
+ .nba-mp .mp-body{padding:0 40px 8px}
+ .nba-mp .mp-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+ .nba-mp .mp-cols[data-wide=right]{grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr)}
+ .nba-mp .mp-col:first-child{padding-right:36px}
+ .nba-mp .mp-col+.mp-col{padding-left:36px;border-left:1px solid var(--mp-line)}
+ .nba-mp .mp-col+.mp-col>:first-child{border-top:0}
+ /* Nothing in the second column (no injury report): the first takes the width. */
+ .nba-mp .mp-cols:has(>.mp-col:last-child:empty){grid-template-columns:minmax(0,1fr)}
+ .nba-mp .mp-cols:has(>.mp-col:last-child:empty)>.mp-col:first-child{padding-right:0}
+ .nba-mp .mp-col:empty{display:none}
+ .nba-mp .ns-shotlink:hover{background:linear-gradient(90deg,transparent,#181818 15%,#181818 85%,transparent)}
 }
 
 @media (max-width:760px){
@@ -122,7 +154,7 @@
 .nba-mp .mp-stepper span{display:grid;justify-items:center;min-width:56px}
 .nba-mp .mp-stepper small{font-size:9.5px}
 .nba-mp .mp-stepper b{font-size:18px;color:var(--mp-accent)}
-.nba-mp .mp-bars{position:relative;display:flex;align-items:flex-end;gap:5px;height:190px;margin-top:14px;padding-top:22px}
+.nba-mp .mp-bars{--mp-bars-room:22px;position:relative;display:flex;align-items:flex-end;gap:5px;box-sizing:border-box;height:190px;margin-top:14px;padding-top:var(--mp-bars-room)}
 .nba-mp .mp-bars>span{position:relative;display:flex;flex:1;flex-direction:column;justify-content:flex-end;align-items:center;min-width:0;height:100%}
 .nba-mp .mp-bars>span b{margin-bottom:3px;color:var(--tone,var(--mp-muted));font-size:11px;font-weight:800}
 .nba-mp .mp-bars>span i{width:100%;max-width:34px;border-radius:7px 7px 3px 3px;background:var(--tone,#555)}

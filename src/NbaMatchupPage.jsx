@@ -84,7 +84,8 @@ function Trend({row,lines,logs}){
   <div className="mp-seg" role="group" aria-label="Games">{[['l5','L5'],['l10','L10'],['l20','L20'],['h2h','H2H']].map(([key,label])=>
    <button type="button" key={key} aria-pressed={span===key} onClick={()=>setSpan(key)}>{label}</button>)}</div>
   {games.length?<div className="mp-bars" role="img" aria-label={`${SHORT[stat]}: ${values.join(', ')}`}>
-   {finite(line)&&<i className="mp-bars-line" style={{bottom:`${line/top*100}%`}}/>}
+   {/* Measured like the bars: over the chart's height less the room kept above them for the numbers. */}
+   {finite(line)&&<i className="mp-bars-line" style={{bottom:`calc((100% - var(--mp-bars-room)) * ${Math.min(1,line/top)})`}}/>}
    {games.map((game,index)=>{const value=game.values[stat];return <span key={game.gameId||index} data-tone={finite(line)?(value>line?'good':'poor'):undefined}>
     <b>{fmt(value,0)}</b><i style={{height:`${Math.max(3,value/top*100)}%`}}/><small>{game.opponent||''}</small></span>;})}
   </div>:<p className="mp-empty">{span==='h2h'?`He hasn't played ${row.opponent} in the games on record.`:'No games on record yet.'}</p>}
@@ -204,11 +205,17 @@ export function NbaMatchupPage({row,lines,league,onBack}){
    <nav className="mp-tabs" role="tablist" aria-label="Sections">{TABS.map(([key,label])=><button type="button" role="tab" key={key} aria-selected={tab===key} onClick={()=>pick(key)}>{label}</button>)}</nav>
   </div></div>
   <div className="mp-body">
-   {tab==='overview'&&<>{log.loading&&!logs.length?<Card title="His games" icon={LineChart}><Loading/></Card>:<><Averages logs={logs}/><Trend row={row} lines={lines} logs={logs}/></>}
-    <Injuries row={row} league={leagueState} matchup={matchup} player={player}/></>}
-   {tab==='matchup'&&<><MatchupGrade row={row} league={leagueState} logs={logs}/><PlayTypes row={row}/>
-    <LikelyDefenders row={row} league={leagueState} matchup={matchup}/><ShotLink row={row} league={leagueState} onOpen={()=>setShots(true)}/><VsTeam row={row} league={leagueState} logs={logs} lines={lines}/></>}
-   {tab==='stats'&&<><PositionRanks row={row}/><GameLog logs={logs} league={leagueState}/></>}
+   {/* Two columns side by side on a wide screen, one after the other on a phone. */}
+   {tab==='overview'&&<div className="mp-cols">
+    <div className="mp-col">{log.loading&&!logs.length?<Card title="His games" icon={LineChart}><Loading/></Card>:<><Averages logs={logs}/><Trend row={row} lines={lines} logs={logs}/></>}</div>
+    <div className="mp-col"><Injuries row={row} league={leagueState} matchup={matchup} player={player}/></div></div>}
+   {tab==='matchup'&&<div className="mp-cols">
+    <div className="mp-col"><MatchupGrade row={row} league={leagueState} logs={logs}/></div>
+    <div className="mp-col"><PlayTypes row={row}/><LikelyDefenders row={row} league={leagueState} matchup={matchup}/>
+     <ShotLink row={row} league={leagueState} onOpen={()=>setShots(true)}/><VsTeam row={row} league={leagueState} logs={logs} lines={lines}/></div></div>}
+   {tab==='stats'&&<div className="mp-cols" data-wide="right">
+    <div className="mp-col"><PositionRanks row={row}/></div>
+    <div className="mp-col"><GameLog logs={logs} league={leagueState}/></div></div>}
   </div>
   {shots&&<div className="mp-sheet" role="dialog" aria-modal="true" aria-label="Shot zones" onClick={event=>{if(event.target===event.currentTarget)setShots(false);}}>
    <div className="mp-sheet-panel"><div className="mp-sheet-head"><span><small>Shot zones</small><b>Where he scores vs {teamName(league,row.opponent)}</b></span>
