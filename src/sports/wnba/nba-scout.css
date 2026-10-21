@@ -1,0 +1,145 @@
+/* NBA scouting cards on the player page (NbaScout.jsx). Same card shell
+   and colors as the rest of the page: green for a soft spot, pink-red for
+   a tough one, grey in between. */
+.mlb-context-card:is(.nba-their-defense,.nba-guards,.nba-vs,.nba-ranks)>:not(header){margin-left:14px;margin-right:14px}
+.mlb-context-card:is(.nba-their-defense,.nba-guards,.nba-vs,.nba-ranks)>:not(header):nth-child(2){margin-top:12px}
+.mlb-context-card:is(.nba-their-defense,.nba-guards,.nba-vs,.nba-ranks)>:last-child{margin-bottom:14px}
+.mlb-context-card:is(.nba-their-defense,.nba-guards,.nba-vs,.nba-ranks) .nd-foot{margin-top:10px;margin-bottom:0;color:#767676;font:500 10.5px/1.4 var(--font-sans)}
+/* The scouting cards lead the Matchup tab, ahead of the win predictor (same order, earlier in the page). */
+.mlb-finder-context>.mlb-context-card:is(.nba-grade,.nba-their-defense,.nba-plays,.nba-guards,.nba-vs),.mlb-finder-context>.ns-shotlink{order:1}
+
+.ns-photo{position:relative;display:grid;place-items:center;flex:none;width:34px;height:34px;border-radius:50%;overflow:hidden;background:#262626;color:#7d7d7d}
+.ns-photo[data-size=lg]{width:54px;height:54px}
+.ns-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top}
+.ns-seg{display:inline-flex;gap:3px;padding:3px;border:1px solid #2c2c2c;border-radius:999px;background:#141414}
+.mlb-finder-context .ns-seg button{min-width:34px;min-height:28px;padding:0 10px;border:0;border-radius:999px;background:transparent;color:#9b9b9b;font:700 11.5px var(--font-sans);cursor:pointer}
+.mlb-finder-context .ns-seg button[aria-pressed=true]{background:#2a2a2a;color:#fff;box-shadow:inset 0 0 0 1px #444}
+
+/* Matchup grade: the verdict, the score on a tough-to-soft scale, the tiles. */
+.nba-grade .ng-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:10px}
+.nba-grade .ng-verdict{display:grid;gap:3px;min-width:0}
+.nba-grade .ng-verdict small{color:#767676;font:700 10px/1.2 var(--font-sans);letter-spacing:.06em;text-transform:uppercase}
+.nba-grade .ng-verdict b{font:800 21px/1.1 var(--font-sans);color:#F6C35B}
+.nba-grade .ng-verdict span{color:#a9a9a9;font:500 12px/1.3 var(--font-sans)}
+.nba-grade .ng-score{display:flex;align-items:baseline;gap:2px;flex:none}
+.nba-grade .ng-score b{font:800 42px/1 var(--font-sans);font-variant-numeric:tabular-nums;color:#f3f5f8}
+.nba-grade .ng-score small{color:#767676;font:600 12px var(--font-sans)}
+.nba-grade :is(.ng-verdict b,.ng-score b)[data-tone=strong],.nba-grade .ng-score[data-tone=strong] b{color:#3FE39E}
+.nba-grade :is(.ng-verdict b)[data-tone=edge],.nba-grade .ng-score[data-tone=edge] b{color:#3CC9B9}
+.nba-grade :is(.ng-verdict b)[data-tone=tough],.nba-grade .ng-score[data-tone=tough] b{color:#EE5470}
+.nba-grade .ng-gauge{position:relative;height:8px;margin:2px 7px 0;border-radius:999px;background:linear-gradient(90deg,#EE5470,#F2915A 30%,#F6C35B 50%,#9BD86A 72%,#3FE39E)}
+.nba-grade .ng-gauge i{position:absolute;top:50%;width:16px;height:16px;border:3px solid #0f0f0f;border-radius:50%;background:#fff;transform:translate(-50%,-50%);box-shadow:0 0 0 1px #ffffff55}
+.nba-grade .ng-gauge-ends{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:9px 0 12px}
+.nba-grade .ng-gauge-ends>span{color:#767676;font:700 10px var(--font-sans);letter-spacing:.06em;text-transform:uppercase}
+
+/* Their defense: three team numbers, then each stat on a tough/soft scale. */
+.ns-base{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.ns-base>div{display:grid;gap:3px;min-width:0;padding:9px 10px;border-radius:10px;background:#1f1f1f}
+.ns-base small{overflow:hidden;color:#8a8a8a;font:700 9.5px/1.2 var(--font-sans);letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;text-overflow:ellipsis}
+.ns-base b{font:800 18px/1.1 var(--font-sans);font-variant-numeric:tabular-nums}
+.ns-base em{color:#a9a9a9;font:600 11px/1.2 var(--font-sans);font-style:normal}
+.ns-base [data-tone=soft] em,.ns-diverge-row[data-tone=soft] em{color:#3FE39E}
+.ns-base [data-tone=tough] em,.ns-diverge-row[data-tone=tough] em{color:#EE5470}
+.ns-sub-head{display:grid;gap:2px;margin:14px 0 6px}
+.ns-sub-head b{font:700 13px/1.2 var(--font-sans)}
+.ns-sub-head span{color:#8a8a8a;font:500 11.5px/1.3 var(--font-sans)}
+.ns-diverge-scale,.ns-diverge-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr) 84px;align-items:center;gap:10px}
+.ns-diverge-scale{grid-template-columns:minmax(0,1fr) minmax(0,.625fr) minmax(0,.625fr) 84px}
+.ns-diverge-scale span{color:#767676;font:700 9.5px var(--font-sans);letter-spacing:.06em;text-transform:uppercase}
+.ns-diverge-scale span:first-child{grid-column:2;text-align:left}
+.ns-diverge-scale span:last-child{grid-column:3;text-align:right}
+.ns-diverge-row{padding:8px 0;border-top:1px solid #222}
+.ns-diverge-row:first-child{border-top:0}
+.ns-diverge-name{display:grid;min-width:0}
+.ns-diverge-name b{overflow:hidden;font:700 12.5px/1.25 var(--font-sans);white-space:nowrap;text-overflow:ellipsis}
+.ns-diverge-name small{color:#8a8a8a;font:500 11px/1.25 var(--font-sans)}
+.ns-diverge-bar{position:relative;height:10px;border-radius:999px;background:#1d1d1d}
+.ns-diverge-bar::after{content:"";position:absolute;top:-3px;bottom:-3px;left:50%;width:1px;background:#4a4a4a}
+.ns-diverge-bar i{position:absolute;top:0;bottom:0;border-radius:999px;background:#7a7a7a}
+.ns-diverge-row[data-tone=soft] .ns-diverge-bar i{background:#3FE39E}
+.ns-diverge-row[data-tone=tough] .ns-diverge-bar i{background:#EE5470}
+.ns-diverge-row em{color:#bdbdbd;font:700 11.5px/1.2 var(--font-sans);font-style:normal;text-align:right;white-space:nowrap}
+.mlb-finder-context .ns-more{display:flex;align-items:center;justify-content:center;gap:6px;width:calc(100% - 28px);min-height:40px;margin-top:8px;border:1px solid #2c2c2c;border-radius:12px;background:#161616;color:var(--theme-accent-soft,var(--theme-accent,#d8d8d8));font:700 12.5px var(--font-sans);cursor:pointer}
+.mlb-finder-context .ns-more[aria-expanded=true] svg{transform:rotate(180deg)}
+
+/* How he scores: his mix of plays, colored the same as the dots below. */
+.nba-plays .np-mix{display:flex;gap:3px;height:8px}
+.nba-plays .np-mix i{min-width:4px;border-radius:999px}
+.nba-plays .np-mix .np-mix-rest{background:#2a2a2a}
+.nba-plays .np-table th[scope=row]{display:flex;align-items:flex-start;gap:8px}
+.nba-plays .np-table th[scope=row]>span:last-child{display:grid;gap:1px}
+.nba-plays .np-table th[scope=row] b{font-weight:700}
+.nba-plays .np-dot{flex:none;width:9px;height:9px;margin-top:3px;border-radius:3px}
+
+/* Who guards him: his three most common defenders side by side. */
+.ng2-grid{display:grid;grid-template-columns:minmax(86px,1.1fr) repeat(var(--cols),minmax(0,1fr));gap:0 6px;align-items:center}
+.ng2-grid figure{display:grid;justify-items:center;gap:5px;margin:0 0 6px;padding:9px 4px;border:1px solid #2a2a2a;border-radius:12px;background:#191919}
+.ng2-grid figure[data-likely]{border-color:color-mix(in srgb,var(--theme-accent,#4cc9f0) 70%,transparent)}
+.ng2-grid figcaption{overflow:hidden;max-width:100%;font:700 12px/1.2 var(--font-sans);white-space:nowrap;text-overflow:ellipsis}
+.ng2-grid>span,.ng2-grid>.ng2-label{min-height:36px;padding:7px 4px;border-top:1px solid #232323}
+.ng2-grid>span{display:grid;place-items:center;border-radius:0;font:700 13px var(--font-sans);font-variant-numeric:tabular-nums}
+.ng2-grid>span:first-child{border-top:0}
+.ng2-grid>span[data-tough]{border-radius:8px;background:rgba(238,84,112,.14);color:#ff8ea2}
+.ng2-grid>.ng2-label{display:flex;align-items:center;color:#8a8a8a;font:700 10px/1.2 var(--font-sans);letter-spacing:.05em;text-transform:uppercase}
+
+/* The shot chart's door, on the Matchup tab. */
+.mlb-finder-context .ns-shotlink{display:grid;grid-template-columns:92px minmax(0,1fr) auto;align-items:center;gap:14px;width:100%;margin:0;padding:12px 14px;
+ border:1px solid color-mix(in srgb,var(--theme-accent,#4cc9f0) 35%,#2a2a2a);border-radius:16px;
+ background:radial-gradient(120% 140% at 0 0,color-mix(in srgb,var(--theme-accent,#4cc9f0) 10%,transparent),transparent 60%),#151515;color:inherit;text-align:left;cursor:pointer}
+.ns-shotlink .ns-court{width:92px;height:62px}
+.ns-shotlink .ns-court :is(rect,path){fill:none;stroke:#4a4a4a;stroke-width:1.5}
+.ns-shotlink .ns-court rect:first-child{fill:#1d1d1d}
+.ns-shotlink .ns-dot-green{fill:#3FE39E;opacity:.75}.ns-shotlink .ns-dot-pink{fill:#EE5470;opacity:.75}
+.ns-shotlink>span{display:grid;gap:2px;min-width:0}
+.ns-shotlink small{color:var(--theme-accent-soft,var(--theme-accent,#4cc9f0));font:800 10px var(--font-sans);letter-spacing:.08em;text-transform:uppercase}
+.ns-shotlink b{font:800 15px/1.2 var(--font-sans)}
+.ns-shotlink em{color:#9b9b9b;font:500 12px/1.3 var(--font-sans);font-style:normal}
+.ns-shotlink>svg:last-child{color:#cfcfcf}
+
+/* vs the team: tabs, filters, the tally tiles and each game. */
+.nv-tabs{display:flex;border-bottom:1px solid #262626}
+.mlb-finder-context .nv-tabs button{flex:1;min-height:40px;padding:0 6px;border:0;border-bottom:2px solid transparent;background:transparent;color:#8a8a8a;font:700 12.5px var(--font-sans);cursor:pointer;white-space:nowrap}
+.mlb-finder-context .nv-tabs button[aria-selected=true]{border-bottom-color:var(--theme-accent,#4cc9f0);color:#fff}
+.nv-filters{display:flex;gap:6px;margin-top:10px;overflow-x:auto;scrollbar-width:none}
+.nv-filters::-webkit-scrollbar{display:none}
+.mlb-finder-context .nv-filters button{flex:none;min-height:32px;padding:0 12px;border:1px solid #363636;border-radius:999px;background:#191919;color:#a9a9a9;font:700 11.5px var(--font-sans);cursor:pointer}
+.mlb-finder-context .nv-filters button[aria-pressed=true]{border-color:color-mix(in srgb,var(--theme-accent,#4cc9f0) 70%,transparent);color:#fff;background:color-mix(in srgb,var(--theme-accent,#4cc9f0) 12%,#161616)}
+.nv-summary{margin:10px 0 0;color:#cfcfcf;font:500 12.5px/1.45 var(--font-sans)}
+.nv-summary b{color:#fff}
+.nv-tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-top:10px}
+.nv-tiles>div{display:grid;justify-items:center;gap:2px;padding:8px 4px;border-radius:10px;background:#1f1f1f}
+.nv-tiles small{color:#8a8a8a;font:700 9.5px var(--font-sans);letter-spacing:.05em}
+.nv-tiles b{font:800 16px/1.1 var(--font-sans);font-variant-numeric:tabular-nums}
+.nv-tiles em{color:#8a8a8a;font:600 10px var(--font-sans);font-style:normal}
+.nv-list{margin-top:6px}
+.nv-row{display:grid;grid-template-columns:minmax(0,2.1fr) repeat(5,minmax(0,1fr));align-items:center;gap:4px;padding:9px 0;border-top:1px solid #222}
+.nv-row:first-child{border-top:0}
+.nv-row>span:not(.nv-who){display:grid;justify-items:center;gap:1px}
+.nv-row>span b{font:800 14px/1.1 var(--font-sans);font-variant-numeric:tabular-nums}
+.nv-row small{min-height:13px;font:700 10.5px/1.2 var(--font-sans);font-variant-numeric:tabular-nums}
+.nv-row small[data-tone=good]{color:#3FE39E}.nv-row small[data-tone=poor]{color:#EE5470}.nv-row small[data-tone=muted]{color:#767676}
+.nv-who{display:flex;align-items:center;gap:8px;min-width:0}
+.nv-who>span{display:grid;min-width:0}
+.nv-who b,.nv-who>b{overflow:hidden;font:700 12.5px/1.25 var(--font-sans);white-space:nowrap;text-overflow:ellipsis}
+.nv-who small{overflow:hidden;color:#8a8a8a;font:500 11px/1.25 var(--font-sans);white-space:nowrap;text-overflow:ellipsis}
+.nba-vs .nv-who:not(:has(.ns-photo)){display:grid;gap:1px}
+
+/* At his position: his averages and where they rank. */
+.nr-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:12px}
+.nr-grid[data-count="6"]{grid-template-columns:repeat(3,minmax(0,1fr))}
+.nr-grid>div{display:grid;justify-items:center;gap:2px;padding:10px 4px;border-radius:10px;background:#1f1f1f}
+.nr-grid small{color:#8a8a8a;font:700 9.5px var(--font-sans);letter-spacing:.05em}
+.nr-grid b{font:800 18px/1.1 var(--font-sans);font-variant-numeric:tabular-nums}
+.nr-grid em{color:#a9a9a9;font:700 11px var(--font-sans);font-style:normal}
+.nr-grid [data-top] em{color:#3FE39E}
+
+@media (max-width:480px){
+ .ns-base b,.nr-grid b{font-size:16px}
+ .ns-diverge-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 76px;gap:8px}
+ .ns-diverge-scale{grid-template-columns:minmax(0,1fr) minmax(0,.5fr) minmax(0,.5fr) 76px;gap:8px}
+ .nv-row{grid-template-columns:minmax(0,2.2fr) repeat(5,minmax(0,1fr));gap:2px}
+ .nv-row>span b{font-size:13px}
+ .nv-row .ns-photo{width:28px;height:28px}
+ .mlb-finder-context .ns-shotlink{grid-template-columns:72px minmax(0,1fr) auto;gap:10px}
+ .ns-shotlink .ns-court{width:72px;height:50px}
+}

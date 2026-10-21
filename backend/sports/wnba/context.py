@@ -344,6 +344,7 @@ def rest_table(schedule: list, now: datetime | None = None) -> dict:
 
 
 def league_context(payload: dict, rosters: dict | None = None) -> dict:
+    from . import scout
     by_team = team_games(payload)
     players = payload.get("players", {})
     zones, league_zones = zone_defense(by_team)
@@ -358,6 +359,8 @@ def league_context(payload: dict, rosters: dict | None = None) -> dict:
         # Pace, ratings and the chances each team's games give (opportunity.py).
         "opportunity": opportunity.team_table(by_team),
         "zoneDefense": zones, "leagueZones": league_zones,
+        # Shooting each position gets against a defense, and what else it gives up (scout.py).
+        "positionShooting": scout.position_shooting(by_team, players), "teamDefense": scout.team_defense(by_team),
         "rotation": rotation(by_team, players, league=payload.get("league") or "wnba", rosters=rosters),
         "rest": rest_table(payload.get("schedule")),
         "games": {team: len(games) for team, games in by_team.items()},

@@ -156,6 +156,96 @@ _memory = {"at": 0.0, "value": None}
 _roster_memory = {}
 # The league context derived from the stored season, per (league, season, builtAt).
 _league_memory = {}
+# league -> {"key": the stored season's build, "table": scout.season_table}
+_scout_memory = {}
+# A PrizePicks stat (line_moves.norm) -> the game stat it counts (scout.GAME_STATS).
+_ARCHIVE_STATS = {"points": "pts", "rebounds": "reb", "assists": "ast", "3ptmade": "tpm", "threepointersmade": "tpm",
+                  "ptsrebsasts": "pra", "pointsreboundsassists": "pra"}
+
+
+def _archived_lines(league_name):
+    """lines(day, name) -> {stat: line}: each night's PrizePicks lines as
+    line_archive.py kept them (the NBA only), read once a day per request."""
+    if league_name != "nba":
+        return None
+    import line_archive
+    import line_moves
+    days = {}
+
+    def lines(day, name):
+        if day not in days:
+            kept = {}
+            try:
+                for field, line in line_archive.lines_on("nba", day, line_moves._pipeline).items():
+                    player, _, stat = field.partition("|")
+                    if stat in _ARCHIVE_STATS:
+                        kept.setdefault(player, {})[_ARCHIVE_STATS[stat]] = line
+            except Exception:  # noqa: BLE001 -- the games show without their lines
+                kept = {}
+            days[day] = kept
+        return days[day].get(line_moves.norm(name)) or {}
+    return lines
+
+
+def _scout(payload, season, player_id, opponent, league_name):
+    """The scouting cards' data (scout.py): who at each position faced the
+    opponent lately and how, and where he ranks at his position."""
+    from backend.sports.wnba import opportunity, scout
+    from backend.sports.wnba.context import team_games
+    from backend.sports.wnba import league
+    # Early in a season the opponent's latest games and everyone's averages
+    # take last season's games too.
+    played = sum(1 for game in payload["games"].values() if opponent in (game.get("t") or {}))
+    if played < opportunity.BLEND_GAMES:
+        payload = opportunity.blend(league.stored(season - 1, league_name), payload)
+    built = (payload.get("builtAt"), tuple(payload.get("blended") or ()))
+    memory = _scout_memory.get(league_name) or {}
+    by_team = team_games(payload)
+    players = payload.get("players") or {}
+    if memory.get("key") != built:
+        memory = {"key": built, "table": scout.season_table(by_team, players)}
+        _scout_memory[league_name] = memory
+    table = memory["table"]
+    return {"opponent": opponent, "seasons": list(payload.get("blended") or [payload.get("season")]),
+            "faced": scout.faced(by_team, players, table, opponent, me=player_id, lines=_archived_lines(league_name), league=league_name),
+            "peers": scout.peer_ranks(table, player_id),
+            "me": {key: _round_or_none((table.get(player_id) or {}).get(key)) for key in ("usage", "pts", "ast", "gp")}}
+
+
+def _with_box_stats(card):
+    """Each defender's steals and blocks a game, from ESPN's box scores (NBA.com's
+    defender tables have none). The card as it was when the season isn't stored."""
+    try:
+        from backend.sports.wnba import league, opportunity, scout
+        from backend.sports.wnba.context import team_games
+        season = league.current_season(league="nba")
+        payload = league.stored(season, "nba")
+        if not payload or len(payload.get("games") or {}) < opportunity.BLEND_GAMES * 15:
+            payload = opportunity.blend(league.stored(season - 1, "nba"), payload or {})
+        if not payload or not payload.get("games"):
+            return card
+        built = (payload.get("builtAt"), tuple(payload.get("blended") or ()))
+        memory = _scout_memory.get("nba") or {}
+        if memory.get("key") != built:
+            memory = {"key": built, "table": scout.season_table(team_games(payload), payload.get("players") or {})}
+            _scout_memory["nba"] = memory
+        names = scout.by_name(memory["table"], payload.get("players") or {})
+        for item in card.get("defenders") or []:
+            row = names.get(nba_name_key(item.get("name")))
+            if row:
+                item["stlBlk"] = round(row["stlblk"], 1)
+    except Exception:  # noqa: BLE001 -- the card stands without them
+        pass
+    return card
+
+
+def nba_name_key(name):
+    from backend.sports.wnba.tracking import name_key
+    return name_key(name or "")
+
+
+def _round_or_none(value):
+    return None if value is None else round(value, 1)
 
 # The NBA: every line PrizePicks posts, on ESPN's rosters and schedule. No
 # sportsbook comparison here -- player props from The Odds API are asked per
@@ -929,9 +1019,10 @@ class handler(BaseHTTPRequestHandler):
                     return _send(self, 400, {"error": "A player, his team and the opponent are required."})
                 import nba_matchups
                 try:
-                    return _send(self, 200, nba_matchups.defender(who, team, opponent))
+                    card = nba_matchups.defender(who, team, opponent)
                 except nba_matchups.Unreachable as error:
                     return _send(self, 503, {"error": str(error)})
+                return _send(self, 200, _with_box_stats(card))
             if resource == "play-types":
                 # How he scores and how the opponent defends it (NBA.com's play types): the NBA only.
                 if league != "nba":
@@ -941,7 +1032,7 @@ class handler(BaseHTTPRequestHandler):
                     return _send(self, 400, {"error": "A player, his team and the opponent are required."})
                 import nba_matchups
                 return _send(self, 200, nba_matchups.play_types(who, team, opponent))
-            if resource in ("matchup", "league-context", "player-context", "game-notes"):
+            if resource in ("matchup", "league-context", "player-context", "game-notes", "scout"):
                 return self._context(resource, query, league)
             if resource == "player-tracking":
                 # The NBA's own tracking (backend/sports/wnba/tracking.py):
@@ -995,7 +1086,7 @@ class handler(BaseHTTPRequestHandler):
             season = league.current_season(league=league_name)
             payload = league.ensure(season, league_name)
             # Tip-off day, before a game has finished: the player's page reads last season.
-            if resource == "player-context" and (not payload or not payload.get("games")):
+            if resource in ("player-context", "scout") and (not payload or not payload.get("games")):
                 payload, season = league.stored(season - 1, league_name), season - 1
             if resource == "league-context":
                 # The start of a season: defenses ranked, rotations and shot
@@ -1023,6 +1114,8 @@ class handler(BaseHTTPRequestHandler):
             player_id, team, opponent = arg("playerId"), team_code(arg("team")), team_code(arg("opponent"))
             if not player_id.isdigit() or not team or not opponent:
                 return _send(self, 400, {"error": "A verified player, team and opponent are required."})
+            if resource == "scout":
+                return _send(self, 200, _scout(payload, season, player_id, opponent, league_name))
             market = arg("market")
             if market not in context.MARKET_STAT:
                 return _send(self, 400, {"error": "Unknown market."})

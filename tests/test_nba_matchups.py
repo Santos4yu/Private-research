@@ -139,3 +139,12 @@ class PlayTypeTests(unittest.TestCase):
             self.assertEqual(nba_matchups.defense_shooting(2026)["9"], {"dfg": 44.1, "normal": 47.3, "diff": -3.2, "fga": 9.1, "gp": 70})
         with patch.object(nba_matchups, "_rows", side_effect=nba_matchups.Unreachable("no")):
             self.assertEqual(nba_matchups.defense_shooting(2026), {})
+        # At the rim and on threes, from their own tables, when the phone has sent them.
+        tables = {"Overall": rows, "Less Than 6Ft": [{"CLOSE_DEF_PERSON_ID": 9, "LT_06_PCT": 0.612, "NS_LT_06_PCT": 0.64}],
+                  "3 Pointers": [{"CLOSE_DEF_PERSON_ID": 9, "FG3_PCT": 0.335, "NS_FG3_PCT": 0.36}]}
+        with patch.object(nba_matchups, "_rows", side_effect=lambda endpoint, params: tables[params["DefenseCategory"]]):
+            card = nba_matchups.defense_shooting(2026)["9"]
+        self.assertEqual((card["rim"], card["three"]), ({"pct": 61.2, "normal": 64.0}, {"pct": 33.5, "normal": 36.0}))
+        missing = lambda endpoint, params: rows if params["DefenseCategory"] == "Overall" else (_ for _ in ()).throw(nba_matchups.Unreachable("no"))
+        with patch.object(nba_matchups, "_rows", side_effect=missing):
+            self.assertNotIn("rim", nba_matchups.defense_shooting(2026)["9"])

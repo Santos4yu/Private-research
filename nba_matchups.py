@@ -327,26 +327,42 @@ def play_types(name: str, team: str, opponent: str, now: datetime | None = None)
 
 # ---------------------------------------------------------------- defenders' shooting
 
+# The shooting each defense category reads: (category, made-percent column, usual-percent column).
+SHOOTING_PARTS = (("Overall", "D_FG_PCT", "NORMAL_FG_PCT"), ("Less Than 6Ft", "LT_06_PCT", "NS_LT_06_PCT"),
+                  ("3 Pointers", "FG3_PCT", "NS_FG3_PCT"))
+
+
+def _ptdefend(season: int, category: str) -> list:
+    return _rows("leaguedashptdefend", {"College": "", "Conference": "", "Country": "", "DateFrom": "", "DateTo": "", "Division": "",
+                                        "DraftPick": "", "DraftYear": "", "GameSegment": "", "Height": "", "LastNGames": 0,
+                                        "LeagueID": "00", "Location": "", "Month": 0, "OpponentTeamID": 0, "Outcome": "", "PORound": 0,
+                                        "PerMode": "PerGame", "Period": 0, "PlayerExperience": "", "PlayerPosition": "",
+                                        "Season": season_label(season), "SeasonSegment": "", "SeasonType": "Regular Season",
+                                        "StarterBench": "", "TeamID": 0, "VsConference": "", "VsDivision": "", "Weight": "",
+                                        "DefenseCategory": category, "PlayerID": ""})
+
+
 def defense_shooting(season: int) -> dict:
-    """Every defender's shooting allowed this season (leaguedashptdefend,
-    Overall): id -> {dfg, normal, diff, fga, gp}, as percentages. Empty when
-    NBA.com's table can't be had."""
-    try:
-        rows = _rows("leaguedashptdefend", {"College": "", "Conference": "", "Country": "", "DateFrom": "", "DateTo": "", "Division": "",
-                                            "DraftPick": "", "DraftYear": "", "GameSegment": "", "Height": "", "LastNGames": 0,
-                                            "LeagueID": "00", "Location": "", "Month": 0, "OpponentTeamID": 0, "Outcome": "", "PORound": 0,
-                                            "PerMode": "PerGame", "Period": 0, "PlayerExperience": "", "PlayerPosition": "",
-                                            "Season": season_label(season), "SeasonSegment": "", "SeasonType": "Regular Season",
-                                            "StarterBench": "", "TeamID": 0, "VsConference": "", "VsDivision": "", "Weight": "",
-                                            "DefenseCategory": "Overall", "PlayerID": ""})
-    except Unreachable:
-        return {}
+    """Every defender's shooting allowed this season (leaguedashptdefend):
+    id -> {dfg, normal, diff, fga, gp} overall, as percentages, with "rim"
+    (inside six feet) and "three" ({pct, normal}) when those tables are in.
+    Empty when NBA.com's overall table can't be had."""
     out = {}
-    for row in rows:
-        pid = str(row.get("CLOSE_DEF_PERSON_ID") or row.get("PLAYER_ID") or "")
-        dfg, normal = _number(row.get("D_FG_PCT")), _number(row.get("NORMAL_FG_PCT"))
-        if not pid or dfg is None or normal is None:
+    for category, made, usual in SHOOTING_PARTS:
+        try:
+            rows = _ptdefend(season, category)
+        except Unreachable:
+            if category == "Overall":
+                return {}
             continue
-        out[pid] = {"dfg": round(dfg * 100, 1), "normal": round(normal * 100, 1), "diff": round((dfg - normal) * 100, 1),
-                    "fga": _number(row.get("D_FGA")), "gp": _number(row.get("GP"))}
+        for row in rows:
+            pid = str(row.get("CLOSE_DEF_PERSON_ID") or row.get("PLAYER_ID") or "")
+            pct, normal = _number(row.get(made)), _number(row.get(usual))
+            if not pid or pct is None or normal is None:
+                continue
+            if category == "Overall":
+                out[pid] = {"dfg": round(pct * 100, 1), "normal": round(normal * 100, 1), "diff": round((pct - normal) * 100, 1),
+                            "fga": _number(row.get("D_FGA")), "gp": _number(row.get("GP"))}
+            elif pid in out:
+                out[pid]["rim" if category == "Less Than 6Ft" else "three"] = {"pct": round(pct * 100, 1), "normal": round(normal * 100, 1)}
     return out
