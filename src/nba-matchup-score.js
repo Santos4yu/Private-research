@@ -3,23 +3,21 @@
 // opponent's defense as a whole first, then what it gives his position in
 // the stat, then his own games against them.
 //
-//   their defense    points allowed a game and per 100 possessions
-//   their pace       how fast they play: more trips, more of everything
-//   vs his position  what they allow guards (forwards, centers) in the stat
-//   his games        his games against them, held against his usual,
-//                    trusted by how many there are
+//   their defense    40%  points allowed a game and per 100 possessions
+//   their pace       15%  how fast they play: more trips, more of everything
+//   vs his position  35%  what they allow guards (forwards, centers) in it
+//   his games        10%  his games against them, held against his usual,
+//                         trusted by how many there are
 //
 // Each read is the opponent's place in the league, from -1 (the toughest
-// team there is at it) to 1 (the softest), and moves the score by its
-// weight in points from 50. A bad, fast defense lifts every stat -- most of
-// the score -- and the stat's own matchup moves it from there: a defense
-// with the 6th-most points allowed, the 5th-worst rating and the 7th-fastest
-// pace scores 100 for points against guards it gives the 7th-most, and 77
-// for threes when it holds guards to the 3rd-fewest. Past 100 (or 0) it's
-// clipped.
+// team there is at it) to 1 (the softest). The score is their weighted
+// blend, from 0 (every read the toughest) to 100 (every read the softest),
+// a read with nothing behind it leaving its share to the others. A bad,
+// fast defense lifts every stat, and the stat's own matchup spreads them:
+// a defense with the 6th-most points allowed, the 5th-worst rating and the
+// 7th-fastest pace scores about 82 for points when it gives guards the
+// 7th-most, and about 53 for threes when it holds them to the 3rd-fewest.
 //
-// Every number comes from ESPN box scores (backend/sports/wnba/context.py,
-// opportunity.py); early in a season they carry last season's games.
 import {defenseCell, statGameLog} from './unified-finder-data.js';
 import {MARKET_STAT, baseMarket} from './sports/wnba/wnba-research.js';
 
@@ -29,8 +27,8 @@ const mean = values => values.length ? values.reduce((sum, value) => sum + value
 const one = value => (Math.round(value * 10) / 10).toFixed(1);
 const ordinal = n => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th'}`;
 
-// Points each read moves the score at its extreme (-1 or 1).
-export const WEIGHTS = {defense: 70, pace: 30, position: 45, fit: 15};
+// Each read's share of the score (of the reads there are).
+export const WEIGHTS = {defense: 40, pace: 15, position: 35, fit: 10};
 const WORDS = {pts: 'points', reb: 'rebounds', ast: 'assists', tpm: 'threes', tpa: 'three-point tries', stl: 'steals', blk: 'blocks',
   bs: 'blocks + steals', pr: 'points + rebounds', pa: 'points + assists', ra: 'rebounds + assists', pra: 'points, rebounds and assists',
   fs: 'fantasy points', fgm: 'field goals', fga: 'shots', ftm: 'free throws', fta: 'free throws', twos: 'twos', twosa: 'twos',
@@ -106,8 +104,8 @@ export function matchupScore(row, league) {
   if (row?.sport !== 'nba' || !stat || !row.opponent || !league) return null;
   const reads = [defenseRead(row, league), paceRead(row, league), positionRead(row, league, stat), fitRead(row)].filter(Boolean);
   if (!reads.some(read => read.key === 'defense' || read.key === 'position')) return null;
-  const raw = 50 + reads.reduce((sum, read) => sum + WEIGHTS[read.key] * read.soft, 0);
   const total = reads.reduce((sum, read) => sum + WEIGHTS[read.key], 0);
+  const raw = 50 + 50 * reads.reduce((sum, read) => sum + WEIGHTS[read.key] * read.soft, 0) / total;
   return {score: Math.round(clamp(raw, 0, 100)), raw,
     reads: reads.map(read => ({key: read.key, text: read.text, score: Math.round(50 + 50 * read.soft), weight: Math.round(WEIGHTS[read.key] / total * 100)}))};
 }

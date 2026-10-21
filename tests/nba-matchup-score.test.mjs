@@ -24,16 +24,19 @@ const league = {
 const row = (id, extra = {}) => ({id, sport: 'nba', player: `P${id}`, playerId: id, marketKey: 'player_points', position: 'G', teamAbbr: 'MIN',
   opponent: 'IND', line: 24.5, gameLog: [], ...extra});
 
-test('a bad, fast defense lifts every stat; the stat\'s own matchup moves it from there', () => {
+test('a bad, fast defense lifts every stat; the stat\'s own matchup spreads them', () => {
   const points = matchupScore(row('1'), league), threes = matchupScore(row('2', {marketKey: 'player_threes'}), league);
-  assert.equal(points.score, 100);
-  assert.equal(threes.score, 77);
+  assert.equal(points.score, 82);
+  assert.equal(band(points.score).label, 'Strong edge');
+  assert.equal(threes.score, 53);
   assert.deepEqual(points.reads.map(read => read.key), ['defense', 'pace', 'position']);
   assert.match(points.reads[0].text, /IND gives up 120\.4 points a game \(6th most\) and 117\.9 per 100 possessions \(5th highest\)/);
   assert.match(points.reads[1].text, /101\.8 possessions a game \(7th fastest\)/);
   assert.match(threes.reads[2].text, /IND allows 2\.1 threes a game to guards \(3rd fewest\)/);
-  // Assists they're a little tough on still read soft: the defense carries it.
-  assert.equal(matchupScore(row('3', {marketKey: 'player_assists'}), league).score, 100);
+  // Assists they're a little tough on still read better than average: the defense carries it.
+  assert.equal(band(matchupScore(row('3', {marketKey: 'player_assists'}), league).score).label, 'Edge');
+  // Nothing piles up at 100 unless every read is the softest there is.
+  assert.ok(points.score < 100);
 });
 
 test('a stingy, slow defense reads tough', () => {
@@ -56,16 +59,16 @@ test('his games against them count more the more there are', () => {
 
 test('the list scores each prop on its own: same prop, same number, any night', () => {
   const scores = spreadScores([row('a'), row('b', {opponent: 'BOS'})], league);
-  assert.equal(scores.get('a').score, 100);
+  assert.equal(scores.get('a').score, 82);
   assert.equal(scores.get('a').label, 'Strong edge');
-  assert.equal(spreadScores([row('a')], league).get('a').score, 100);
+  assert.equal(spreadScores([row('a')], league).get('a').score, 82);
   assert.ok(scores.get('b').score < scores.get('a').score);
 });
 
 test('the player card scores every stat the way the list does', () => {
   const card = cardScores(row('9'), league);
   assert.deepEqual(card.map(item => item.stat), ['PTS', 'REB', 'AST', '3PM', 'STL', 'BLK']);
-  assert.deepEqual(card.map(item => item.score), [100, 100, 100, 77, 100, 100]);
+  assert.deepEqual(card.map(item => item.score), [82, 87, 67, 53, 70, 75]);
   assert.equal(card[0].score, spreadScores([row('9')], league).get('9').score);
 });
 
