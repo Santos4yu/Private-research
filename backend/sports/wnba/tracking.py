@@ -31,8 +31,8 @@ HEADERS = {
 TIMEOUT = (4, 9)
 KEEP_SECONDS = 6 * 3600
 DOWN_SECONDS = 3600
-KEY = "krazy_data:nba:v1:tracking:{season}"
-DOWN_KEY = "krazy_data:nba:v1:tracking-down:{season}"
+KEY = "krazy_data:nba:v2:tracking:{season}"
+DOWN_KEY = "krazy_data:nba:v2:tracking-down:{season}"
 # A season with fewer of his games than this reads last season's instead.
 MIN_GAMES = 5
 RECENT = 10

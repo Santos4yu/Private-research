@@ -50,6 +50,11 @@ IDENTITY = {
     'leaguedashptdefend': ('Season', 'DefenseCategory'),
     'synergyplaytypes': ('SeasonYear', 'PlayType', 'PlayerOrTeam', 'TypeGrouping'),
 }
+# Tables to ask for again when the phone sent them before a given time
+# (epoch seconds): 2025-26's season passing and rebounding were overwritten
+# by their last-ten twins on 2026-10-21.
+REDO = {f'leaguedashptstats|season=2025-26|ptmeasuretype={measure}|lastngames=0': 1792574293
+        for measure in ('passing', 'rebounding')}
 # What NBA.com calls a table in its answer, where that isn't the address asked.
 RESOURCE_NAMES = {'synergyplaytype': 'synergyplaytypes'}
 _BLANK = {'College': '', 'Conference': '', 'Country': '', 'DateFrom': '', 'DateTo': '', 'Division': '', 'DraftPick': '',
@@ -140,7 +145,8 @@ def _sent():
             out[name] = float(value)
         except (TypeError, ValueError):
             continue
-    return out
+    # Copies kept before a fix are asked for again.
+    return {name: at for name, at in out.items() if at >= REDO.get(name, 0)}
 
 
 def jobs(now=None):
@@ -195,7 +201,15 @@ def _measure(headers):
     return found[0] if len(found) == 1 else None
 
 
-def _identify(endpoint, params, headers, rows, wanted):
+def _most_games(headers, table):
+    """The most games any player in a table has played (its GP column)."""
+    if 'GP' not in headers:
+        return 0
+    column = headers.index('GP')
+    return max((row[column] for row in table if isinstance(row[column], (int, float))), default=0)
+
+
+def _identify(endpoint, params, headers, table, wanted, current=None):
     """Which asked-for tables an answer is: by the parameters NBA.com echoes,
     matching only the ones it gave when it leaves some out, then by what's
     in it -- a tracking table by its columns and how many games its players
@@ -208,9 +222,9 @@ def _identify(endpoint, params, headers, rows, wanted):
     lowered = {_norm(field): value for field, value in (params or {}).items()}
     given = {field: _norm(lowered[field]) for field in map(_norm, IDENTITY.get(endpoint, ()))
              if lowered.get(field) not in (None, '')}
-    if endpoint == 'leagueseasonmatchups' and 'season' not in given and rows and 'SEASON_ID' in headers:
+    if endpoint == 'leagueseasonmatchups' and 'season' not in given and table and 'SEASON_ID' in headers:
         # SEASON_ID "22025": a regular season, the one starting in 2025.
-        start = str(rows[0][headers.index('SEASON_ID')])[-4:]
+        start = str(table[0][headers.index('SEASON_ID')])[-4:]
         if start.isdigit():
             given['season'] = _norm(season_label(int(start) + 1))
     if endpoint == 'leaguedashptstats' and _measure(headers):
@@ -221,13 +235,23 @@ def _identify(endpoint, params, headers, rows, wanted):
         return candidates
     if endpoint == 'leaguedashptstats' and 'season' in given and 'ptmeasuretype' in given and 'lastngames' not in given:
         from backend.sports.wnba.tracking import RECENT
-        games = [row[headers.index('GP')] for row in rows if 'GP' in headers and isinstance(row[headers.index('GP')], (int, float))]
+        most = _most_games(headers, table)
         whole = fingerprint(endpoint, {'Season': given['season'], 'PtMeasureType': given['ptmeasuretype'], 'LastNGames': 0})
-        if games and max(games) > RECENT:
+        recent = fingerprint(endpoint, {'Season': given['season'], 'PtMeasureType': given['ptmeasuretype'], 'LastNGames': RECENT})
+        if most > RECENT:
             return [whole] if whole in wanted else []
+        # Ten games or fewer: the last-ten table, once anyone has played more
+        # than ten -- always so for a finished season, and so this season
+        # once the whole-season table kept says so. Before that the season
+        # so far is the last ten, and the table is both.
+        season_params = {'Season': given['season'], 'PtMeasureType': given['ptmeasuretype'], 'LastNGames': 0}
+        finished = given['season'] != _norm(season_label(current or current_season()))
+        kept = rows(endpoint, season_params) if not finished else None
+        if finished or (kept and _most_games(list(kept[0]), [list(row.values()) for row in kept]) > RECENT):
+            return [recent] if recent in wanted else []
         return candidates
     if endpoint == 'leagueseasonmatchups' and 'season' in given:
-        team = _matchup_team(headers, rows, given['season'])
+        team = _matchup_team(headers, table, given['season'])
         if team:
             found = fingerprint(endpoint, {'Season': given['season'], 'OffTeamID': team})
             return [found] if found in wanted else []
@@ -250,7 +274,7 @@ def accept(payload, now=None):
     season = current_season(datetime.fromtimestamp(now, timezone.utc))
     wanted = {fingerprint(*job): job for job in tables(season) + tables(season - 1)}
     headers, rows = _table(payload) if endpoint in IDENTITY else ([], [])
-    names = _identify(endpoint, params, headers, rows, wanted)
+    names = _identify(endpoint, params, headers, rows, wanted, current=season)
     if not names and endpoint == 'leagueseasonmatchups' and not rows:
         # A team with no matchups yet (the season's first days): nothing to keep.
         return {'table': endpoint, 'rows': 0}

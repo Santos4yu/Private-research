@@ -142,6 +142,30 @@ class AcceptTests(Base):
         for last in (0, tracking.RECENT):
             self.assertEqual(relay.rows('leaguedashptstats', tracking._params('Passing', 2027, last))[0]['POTENTIAL_AST'], 2.0)
 
+    def test_a_last_ten_table_never_overwrites_its_season(self):
+        columns = ['PLAYER_ID', 'PLAYER_NAME', 'TEAM_ABBREVIATION', 'GP', 'MIN', *tracking.MEASURES['Passing']]
+        echoed = {'Season': '2025-26', 'PlayerOrTeam': 'Player', 'LastNGames': None, 'PtMeasureType': None}
+        relay.accept(answer('leaguedashptstats', echoed, columns, [[1, 'A', 'NOP', 82, 30.0, *[1.0] * 6]]), now=NOW)
+        # Last season is over: ten games or fewer is its last ten, only.
+        done = relay.accept(answer('leaguedashptstats', echoed, columns, [[1, 'A', 'NOP', 10, 30.0, *[3.0] * 6]]), now=NOW)
+        self.assertEqual(done['table'], relay.fingerprint('leaguedashptstats', tracking._params('Passing', 2026, tracking.RECENT)))
+        self.assertEqual(relay.rows('leaguedashptstats', tracking._params('Passing', 2026, 0))[0]['GP'], 82)
+        # This season, once its whole-season table has more than ten games.
+        now_echoed = {**echoed, 'Season': '2026-27'}
+        relay.accept(answer('leaguedashptstats', now_echoed, columns, [[1, 'A', 'NOP', 14, 30.0, *[1.0] * 6]]), now=NOW)
+        later = relay.accept(answer('leaguedashptstats', now_echoed, columns, [[1, 'A', 'NOP', 10, 30.0, *[3.0] * 6]]), now=NOW)
+        self.assertEqual(later['table'], relay.fingerprint('leaguedashptstats', tracking._params('Passing', 2027, tracking.RECENT)))
+        self.assertEqual(relay.rows('leaguedashptstats', tracking._params('Passing', 2027, 0))[0]['GP'], 14)
+
+    def test_damaged_copies_are_asked_for_again(self):
+        damaged = 'leaguedashptstats|season=2025-26|ptmeasuretype=passing|lastngames=0'
+        self.kv.data[relay.SENT_KEY] = {damaged: str(relay.REDO[damaged] - 60)}
+        self.assertTrue(any('PtMeasureType=Passing' in link and 'Season=2025-26' in link and 'LastNGames=0' in link
+                            for link in relay.jobs(NOW)))
+        self.kv.data[relay.SENT_KEY] = {damaged: str(relay.REDO[damaged] + 60)}
+        self.assertFalse(any('PtMeasureType=Passing' in link and 'Season=2025-26' in link and 'LastNGames=0' in link
+                             for link in relay.jobs(NOW)))
+
     def test_parameters_listed_one_per_entry_are_read_too(self):
         payload = answer('commonallplayers', [{'LeagueID': '00'}, {'Season': '2026-27'}, {'IsOnlyCurrentSeason': 1}],
                          ['PERSON_ID', 'DISPLAY_FIRST_LAST'], [[1, 'Jeremiah Fears']])
