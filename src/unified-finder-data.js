@@ -885,6 +885,12 @@ function seriesFor(payload, marketKey) {
   return series;
 }
 
+/** A stat's games from a basketball history ({rows}), as a row's gameLog. */
+export function statGameLog(payload, marketKey) {
+  const {logs} = payload && typeof payload === 'object' ? seriesFor(payload, marketKey) : {logs: []};
+  return gameLog(logs.map(log => ({value: log.values[marketKey], date: log.date, home: log.isHome, opponent: log.opponent, usage: log.minutes})));
+}
+
 export function applyWnbaHistory(row, payload) {
   const {logs, values} = payload && typeof payload === 'object' ? seriesFor(payload, row.marketKey) : {logs: [], values: []};
   const h2hValues = logs.filter(log => !row.opponent || log.opponent === row.opponent)
@@ -904,7 +910,7 @@ export function applyWnbaHistory(row, payload) {
     streak += sign;
   }
   return finish({...row, average: mean(values.slice(-10)), windows, streak: values.length ? streak : null,
-    gameLog: gameLog(logs.map(log => ({value: log.values[row.marketKey], date: log.date, home: log.isHome, opponent: log.opponent, usage: log.minutes}))),
+    gameLog: statGameLog(payload, row.marketKey),
     historyStatus: 'ready', historyRefresh:false, historyAsOf:Date.now(), enrichedAt:Date.now(), history: payload});
 }
 

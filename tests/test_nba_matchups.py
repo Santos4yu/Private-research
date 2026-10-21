@@ -104,3 +104,38 @@ class LookupTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PlayTypeTests(unittest.TestCase):
+    def setUp(self):
+        nba_matchups._memory.clear()
+
+    def synergy(self, endpoint, params):
+        self.assertEqual(endpoint, "synergyplaytypes")
+        kind, season = params["PlayType"], params["SeasonYear"]
+        if params["PlayerOrTeam"] == "P":
+            share = {"PRBallHandler": 0.31, "Isolation": 0.12, "Spotup": 0.18, "Cut": 0.02}.get(kind)
+            if share is None or season != "2025-26":
+                return []
+            return [{"PLAYER_NAME": "Anthony Edwards", "TEAM_ABBREVIATION": "MIN", "POSS_PCT": share, "PPP": 1.01, "PERCENTILE": 0.72,
+                     "POSS": 20 * share, "GP": 79}]
+        return [{"TEAM_ABBREVIATION": code, "PPP": ppp, "POSS_PCT": 0.15} for code, ppp in (("MIA", 0.92), ("IND", 1.08), ("BOS", 0.85))]
+
+    def test_his_play_types_against_how_they_defend_them(self):
+        with patch.object(nba_matchups, "_rows", side_effect=self.synergy):
+            card = nba_matchups.play_types("Anthony Edwards", "MIN", "MIA", now=datetime(2026, 10, 22, tzinfo=timezone.utc))
+        # Too few plays this season: last season's, his main ones only, most used first.
+        self.assertEqual(card["season"], "2025-26")
+        self.assertEqual([item["type"] for item in card["player"]], ["PRBallHandler", "Spotup", "Isolation"])
+        self.assertEqual(card["player"][0]["share"], 31.0)
+        self.assertEqual(card["player"][0]["percentile"], 72)
+        # Rank 1 allows the most points a play.
+        self.assertEqual(card["opponent"]["PRBallHandler"]["rank"], 2)
+        self.assertEqual(card["opponent"]["PRBallHandler"]["teams"], 3)
+
+    def test_defenders_shooting_allowed(self):
+        rows = [{"CLOSE_DEF_PERSON_ID": 9, "D_FG_PCT": 0.441, "NORMAL_FG_PCT": 0.473, "D_FGA": 9.1, "GP": 70}]
+        with patch.object(nba_matchups, "_rows", return_value=rows):
+            self.assertEqual(nba_matchups.defense_shooting(2026)["9"], {"dfg": 44.1, "normal": 47.3, "diff": -3.2, "fga": 9.1, "gp": 70})
+        with patch.object(nba_matchups, "_rows", side_effect=nba_matchups.Unreachable("no")):
+            self.assertEqual(nba_matchups.defense_shooting(2026), {})

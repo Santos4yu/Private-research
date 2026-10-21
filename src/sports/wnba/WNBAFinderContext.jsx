@@ -7,6 +7,8 @@ import PropFocusTag from '../../PropFocusTag';
 import {MARKET_STAT,POSITIONS,baseMarket,ago,average,finite,fmt,hasPlayerContext,hasSplit,leagueOf,opponentOf,ordinal,playerContextParams,positionOf,price,rankTone,realGames,shortDate,signed,splitFilter,useWnba} from './wnba-research';
 import {useIsAdmin,QUIET} from '../../admin-notice.js';
 import Opportunity from './Opportunity';
+import {cardScores} from '../../nba-matchup-score';
+import {sitePropsLeagueAllowed} from '../../site-access';
 
 function Empty({children}){return <p className="mlb-context-note">{children}</p>;}
 function Skeleton(){return <div className="mlb-context-skeleton" role="status" aria-label="Loading research"><span/><span/><span/><span/></div>;}
@@ -290,6 +292,8 @@ function DefenderCard({row}){
   <p className="nd-sub"><span><b>{fmt(chosen.poss,0)}</b> poss</span><span><b>{chosen.gp}</b> {chosen.gp===1?'game':'games'}</span><span><b>{fmt(chosen.min,1)}</b> min</span>
    {isLikely&&<em data-sure={data.likely.sure}>{data.likely.sure==='likely'?'Likely defender':'Possible defender'} · {data.likely.share}% of his possessions vs {data.opponent}</em>}</p>
   {verdict&&<p className="nd-verdict" data-tone={big?(better?'good':'poor'):'fair'}>{verdict}</p>}
+  {chosen.shooting&&<p className="nd-shooting" data-tone={chosen.shooting.diff<=-2?'poor':chosen.shooting.diff>=2?'good':undefined}>
+   {lastWord(chosen.name)} holds the players he guards to <b>{fmt(chosen.shooting.dfg,1)}%</b> shooting, against the <b>{fmt(chosen.shooting.normal,1)}%</b> they usually shoot ({signed(chosen.shooting.diff,1)})</p>}
   {chosen.poss<20&&<p className="nd-small">Small sample: {fmt(chosen.poss,0)} possessions.</p>}
   <div className="nd-tiles">{DEF_TILES.map(([key,label,unit,lowerBetter])=>{const moved=change(key,chosen[key],usual?.[key]);
    const tone=!moved||Math.abs(moved.diff)<(PCT.has(key)?2:8)?'fair':((lowerBetter?moved.diff<0:moved.diff>0)?'good':'poor');
@@ -309,6 +313,49 @@ function DefenderCard({row}){
  </Card>;
 }
 
+// The NBA matchup grade (nba-matchup-score.js): tonight's opponent scored
+// for each of his main stats, the line's own stat first, and why.
+const READ_NAMES={position:'vs his position',team:'Team defense',pace:'Game speed',fit:'His games vs them'};
+function MatchupGrade({row,league,logs}){
+ const opponent=row.opponent||opponentOf(row);
+ const history=useMemo(()=>logs?.length?{rows:logs}:row.history,[logs,row.history]);
+ const scores=useMemo(()=>league.data?cardScores({...row,opponent},league.data,history):[],[row,opponent,league.data,history]);
+ const [picked,setPicked]=useState(null);
+ useEffect(()=>setPicked(null),[row.id]);
+ if(league.loading&&!league.data)return <Card title="Matchup grade" icon={Target}><Skeleton/></Card>;
+ if(!scores.some(item=>item.score!=null))return null;
+ const own=scores.find(item=>item.marketKey===baseMarket(row.marketKey));
+ const chosen=scores.find(item=>item.marketKey===picked)||own||scores.find(item=>item.score!=null);
+ return <Card title="Matchup grade" note={`vs ${opponent}`} icon={Target} className="nba-grade">
+  <div className="ng-tiles" role="group" aria-label="Stat">{scores.map(item=><button type="button" key={item.marketKey} data-tone={item.tone} aria-pressed={item.marketKey===chosen?.marketKey}
+   data-own={item.marketKey===own?.marketKey||undefined} disabled={item.score==null} onClick={()=>setPicked(item.marketKey)}>
+   <span>{item.stat}</span><b>{item.score??'—'}</b><small>{item.label||'No data'}</small></button>)}</div>
+  {chosen?.reads&&<ul className="ng-reads">{chosen.reads.map(read=><li key={read.key}>
+   <span className="ng-read-head"><b>{READ_NAMES[read.key]}</b><em>{read.weight}%</em></span>
+   <span className="ng-read-text">{read.text}</span>
+   <span className="ng-bar" data-tone={read.score>=60?'edge':read.score>=40?'neutral':'tough'}><i style={{width:`${Math.max(4,Math.min(100,read.score))}%`}}/></span></li>)}</ul>}
+  <p className="nd-foot">0-100 for the over, 50 an average matchup, against every team in the league. What they allow his position, their defense in the stat, the game's speed and his own games against them.</p>
+ </Card>;
+}
+
+// How he scores (NBA.com's play types) against how the opponent defends each.
+function PlayTypes({row}){
+ const opponent=row.opponent||opponentOf(row);
+ const state=useWnba('play-types',{league:'nba',player:row.player,team:row.teamAbbr,opponent},Boolean(row.player&&opponent));
+ const data=state.data,plays=data?.player||[];
+ if(state.loading&&!data)return <Card title="How he scores" icon={Activity}><Skeleton/></Card>;
+ if(state.error||!plays.length)return null;
+ return <Card title="How he scores" note={data.season} icon={Activity} className="nba-plays">
+  <table className="np-table"><thead><tr><th scope="col">Play type</th><th scope="col">His plays</th><th scope="col">Pts/play</th><th scope="col">{data.opponentCode} allows</th></tr></thead>
+   <tbody>{plays.map(item=>{const theirs=data.opponent?.[item.type];
+    const soft=theirs&&theirs.rank<=Math.round(theirs.teams/3),tough=theirs&&theirs.rank>theirs.teams-Math.round(theirs.teams/3);
+    return <tr key={item.type}><th scope="row">{item.label}</th><td>{fmt(item.share,0)}%</td>
+     <td>{fmt(item.ppp,2)}{finite(item.percentile)&&<small>{ordinal(item.percentile)} pct</small>}</td>
+     <td data-tone={soft?'good':tough?'poor':undefined}>{theirs?<>{fmt(theirs.ppp,2)}<small>{soft?`${ordinal(theirs.rank)}-most`:tough?`${ordinal(theirs.teams-theirs.rank+1)}-fewest`:`${ordinal(theirs.rank)} of ${theirs.teams}`}</small></>:'—'}</td></tr>;})}</tbody></table>
+  <p className="nd-foot">His plays: the share of his possessions that end in each, with points a play and where that ranks among NBA players. {data.opponentCode} allows: points a play {data.opponentCode} gives up on it; green is among the most in the league, red among the fewest. From NBA.com.</p>
+ </Card>;
+}
+
 export default function WNBAFinderContext({row,logs,matchup,filters,onToggleFilter}){
  const [tab,setTab]=useState('matchup');
  const opponent=opponentOf(row);
@@ -321,7 +368,7 @@ export default function WNBAFinderContext({row,logs,matchup,filters,onToggleFilt
  const statLabel=useMemo(()=>Object.fromEntries(league.data?.stats||[])[stat]||row.market,[league.data,stat,row.market]);
  return <aside className="mlb-finder-context wnba-finder-context" data-tab={tab} aria-label={`${row.sport==='nba'?'NBA':'WNBA'} matchup research`}>
   <FinderResearchTabs tab={tab} onChange={setTab}/>
-  {tab==='matchup'&&<><Opportunity row={row} player={player} league={league} matchup={matchup} tracking={tracking} statLabel={statLabel}/><WinPredictor matchup={matchup}/><MatchupOdds matchup={matchup}/><LastFive matchup={matchup}/><Standings matchup={matchup} team={row.teamAbbr}/></>}
+  {tab==='matchup'&&<>{row.sport==='nba'&&sitePropsLeagueAllowed('nba')&&<><MatchupGrade row={row} league={league} logs={logs}/><PlayTypes row={row}/></>}<Opportunity row={row} player={player} league={league} matchup={matchup} tracking={tracking} statLabel={statLabel}/><WinPredictor matchup={matchup}/><MatchupOdds matchup={matchup}/><LastFive matchup={matchup}/><Standings matchup={matchup} team={row.teamAbbr}/></>}
   {tab==='defense'&&<>{row.sport==='nba'&&<DefenderCard row={row}/>}<DefenseVsPosition league={league} row={row} stat={stat} playerPosition={playerPosition}/><OffenseVsDefense league={league} row={row}/></>}
   {tab==='shooting'&&<ShotChart player={player} league={league} row={row}/>}
   {tab==='similar'&&<SimilarPlayers player={player} row={row} statLabel={statLabel} playerPosition={playerPosition}/>}

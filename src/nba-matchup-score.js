@@ -17,10 +17,11 @@
 // Every number comes from ESPN box scores (backend/sports/wnba/context.py,
 // opportunity.py); early in a season they carry last season's games.
 //
-// A night's scores are then spread (spreadScores) so the best of the slate
-// sit near the top of the scale and the worst near the bottom, instead of
-// a dozen props all reading 100.
-import {defenseCell} from './unified-finder-data.js';
+// The score is then placed against the same read for every team in the
+// league (placed): the best opponent there is for his position and stat
+// sits near the top, the worst near the bottom, instead of a dozen props
+// all reading 100.
+import {defenseCell, statGameLog} from './unified-finder-data.js';
 import {MARKET_STAT, baseMarket} from './sports/wnba/wnba-research.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
@@ -133,41 +134,51 @@ export function matchupScore(row, league) {
 }
 
 /**
- * Tonight's scores spread over the scale: each raw score's distance from
- * the slate's average, in the slate's spread, so the best and worst
- * matchups stand apart. A player's several lines on one stat count once.
- * Returns a Map from row id to {score, label, tone, raw, reads}.
+ * A raw score placed on the scale against every matchup he could have had:
+ * the same read of his stat against each of the league's teams. The best
+ * opponent in the league for it lands near the top and the worst near the
+ * bottom, the same on any night and on any page.
  */
 const SPREAD = 16;
+const spreads = new WeakMap();
+function placed(row, league, raw) {
+  let cache = spreads.get(league);
+  if (!cache) spreads.set(league, cache = new Map());
+  const key = `${row.position}|${statOf(row)}|${row.teamAbbr}`;
+  if (!cache.has(key)) {
+    const raws = Object.keys(league.dvp || {}).filter(team => team !== row.teamAbbr)
+      .map(opponent => matchupScore({...row, opponent, gameLog: []}, league)?.raw).filter(finite);
+    const center = mean(raws) ?? 50;
+    cache.set(key, {center, sd: raws.length >= 8 ? Math.sqrt(mean(raws.map(value => (value - center) ** 2))) : 0});
+  }
+  const {center, sd} = cache.get(key);
+  return Math.round(clamp(sd > 0.5 ? 50 + (raw - center) / sd * SPREAD : raw, 1, 99));
+}
+
+/** Tonight's props scored: a Map from row id to {score, label, tone, raw, reads}. */
 export function spreadScores(rows, league) {
-  const scored = rows.map(row => [row, matchupScore(row, league)]).filter(([, read]) => read);
-  const seen = new Map();
-  for (const [row, read] of scored) seen.set(`${row.playerId || row.player}|${statOf(row)}`, read.raw);
-  const values = [...seen.values()], center = mean(values) ?? 50;
-  const sd = values.length >= 8 ? Math.sqrt(mean(values.map(value => (value - center) ** 2))) : 0;
   const out = new Map();
-  for (const [row, read] of scored) {
-    const score = Math.round(clamp(sd > 0.5 ? 50 + (read.raw - center) / sd * SPREAD : read.raw, 1, 99));
+  for (const row of rows) {
+    const read = matchupScore(row, league);
+    if (!read) continue;
+    const score = placed(row, league, read.raw);
     out.set(row.id, {score, ...band(score), raw: read.raw, reads: read.reads});
   }
   return out;
 }
 
-/** A player's scores in each of the card's stats, against the same slate (player page). */
-export function cardScores(row, league, slate = null) {
+/**
+ * A player's scores in each of the card's stats (player page). history is
+ * his game-log payload ({rows}), so each stat reads his own games in it the
+ * way that stat's line does on the list.
+ */
+export function cardScores(row, league, history = row.history) {
   return CARD_STATS.map(([marketKey, stat]) => {
-    const read = matchupScore({...row, marketKey, gameLog: marketKey === row.marketKey ? row.gameLog : []}, league);
+    const games = history?.rows?.length ? statGameLog(history, marketKey) : marketKey === row.marketKey ? row.gameLog : [];
+    const line = {...row, marketKey, gameLog: games};
+    const read = matchupScore(line, league);
     if (!read) return {marketKey, stat, score: null};
-    const center = slate?.center ?? 50, sd = slate?.sd ?? 0;
-    const score = Math.round(clamp(sd > 0.5 ? 50 + (read.raw - center) / sd * SPREAD : read.raw, 1, 99));
+    const score = placed(line, league, read.raw);
     return {marketKey, stat, score, ...band(score), reads: read.reads};
   });
-}
-
-/** The slate's center and spread, for cardScores to place a player on it. */
-export function slateSpread(rows, league) {
-  const values = [...new Map(rows.map(row => [`${row.playerId || row.player}|${statOf(row)}`, matchupScore(row, league)?.raw]))
-    .values()].filter(finite);
-  const center = mean(values) ?? 50;
-  return {center, sd: values.length >= 8 ? Math.sqrt(mean(values.map(value => (value - center) ** 2))) : 0};
 }

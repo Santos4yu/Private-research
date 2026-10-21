@@ -245,9 +245,108 @@ def defender(name: str, team: str, opponent: str, now: datetime | None = None) -
     except Unreachable:
         # This season unanswered: last season's alone.
         current = []
-    card = view(current, roster, opponent, season)
+    card, year = view(current, roster, opponent, season), season
     if card["usual"]["poss"] < ENOUGH:
         last = view(season_matchups(person["id"], season - 1), roster, opponent, season - 1)
         if last["usual"]["poss"] > card["usual"]["poss"]:
-            card = last
+            card, year = last, season - 1
+    # How well each defender holds shooters, the same season.
+    shooting = defense_shooting(year)
+    for item in card["defenders"]:
+        item["shooting"] = shooting.get(item["id"])
     return {"player": person, **card}
+
+
+# ---------------------------------------------------------------- play types
+
+# NBA.com's play types (synergyplaytypes), in the words the page uses.
+PLAY_TYPES = {"PRBallHandler": "Pick & roll ball handler", "Isolation": "Isolation", "Spotup": "Spot-up", "Transition": "Transition",
+              "PRRollman": "Pick & roll roll man", "Postup": "Post-up", "Handoff": "Handoff", "Cut": "Cut", "OffScreen": "Off screen",
+              "OffRebound": "Putbacks", "Misc": "Other"}
+# A play type he runs less than this share of the time isn't worth a line.
+PLAY_SHARE = 0.05
+# Too few plays this season (its first weeks): last season's instead.
+ENOUGH_PLAYS = 60
+
+
+def _synergy(season: int, kind: str, who: str, grouping: str) -> list:
+    return _rows("synergyplaytypes", {"LeagueID": "00", "SeasonYear": season_label(season), "SeasonType": "Regular Season",
+                                      "PerMode": "PerGame", "PlayType": kind, "PlayerOrTeam": who, "TypeGrouping": grouping})
+
+
+def _season_play_types(name: str, team: str, opponent: str, season: int) -> dict:
+    """His play types and the opponent's defense of each, for one season."""
+    wanted, mine, theirs = name_key(name), [], {}
+    for kind, label in PLAY_TYPES.items():
+        try:
+            players = _synergy(season, kind, "P", "offensive")
+        except Unreachable:
+            players = []
+        rows = [row for row in players if name_key(row.get("PLAYER_NAME")) == wanted]
+        if len(rows) > 1 and team:
+            rows = [row for row in rows if team_code(row.get("TEAM_ABBREVIATION")) == team_code(team)] or rows
+        if rows:
+            row = rows[0]
+            mine.append({"type": kind, "label": label, "share": _number(row.get("POSS_PCT")), "ppp": _number(row.get("PPP")),
+                         "percentile": _number(row.get("PERCENTILE")), "poss": _number(row.get("POSS")), "gp": _number(row.get("GP"))})
+        try:
+            teams = _synergy(season, kind, "T", "defensive")
+        except Unreachable:
+            teams = []
+        allowed = sorted(((team_code(row.get("TEAM_ABBREVIATION")), _number(row.get("PPP")), _number(row.get("POSS_PCT"))) for row in teams),
+                         key=lambda item: -(item[1] if item[1] is not None else -1))
+        for rank, (code, ppp, share) in enumerate(allowed, 1):
+            if code == team_code(opponent):
+                theirs[kind] = {"ppp": ppp, "share": share, "rank": rank, "teams": len(allowed),
+                                "league": round(sum(item[1] for item in allowed if item[1] is not None) / max(1, len(allowed)), 3)}
+    return {"season": season_label(season), "player": mine, "opponent": theirs}
+
+
+def play_types(name: str, team: str, opponent: str, now: datetime | None = None) -> dict:
+    """How he scores (his play types: how often, points per play, NBA
+    percentile) and how the opponent defends each (points per play allowed,
+    rank 1 allows the most): this season once he has enough plays, else
+    last season. Only the play types he runs at least PLAY_SHARE of the time."""
+    season = current_season(now)
+    card = _season_play_types(name, team, opponent, season)
+    # Plays a game in each type, times his games: his plays this season.
+    plays = max((item["gp"] or 0 for item in card["player"]), default=0) * sum(item["poss"] or 0 for item in card["player"])
+    if plays < ENOUGH_PLAYS:
+        last = _season_play_types(name, team, opponent, season - 1)
+        if last["player"]:
+            card = last
+    card["player"] = sorted((item for item in card["player"] if (item["share"] or 0) >= PLAY_SHARE), key=lambda item: -(item["share"] or 0))
+    for item in card["player"]:
+        item["share"] = round(item["share"] * 100, 1) if item["share"] is not None else None
+        item["percentile"] = round(item["percentile"] * 100) if item["percentile"] is not None else None
+    for item in card["opponent"].values():
+        item["share"] = round(item["share"] * 100, 1) if item["share"] is not None else None
+    card["opponentCode"] = team_code(opponent)
+    return card
+
+
+# ---------------------------------------------------------------- defenders' shooting
+
+def defense_shooting(season: int) -> dict:
+    """Every defender's shooting allowed this season (leaguedashptdefend,
+    Overall): id -> {dfg, normal, diff, fga, gp}, as percentages. Empty when
+    NBA.com's table can't be had."""
+    try:
+        rows = _rows("leaguedashptdefend", {"College": "", "Conference": "", "Country": "", "DateFrom": "", "DateTo": "", "Division": "",
+                                            "DraftPick": "", "DraftYear": "", "GameSegment": "", "Height": "", "LastNGames": 0,
+                                            "LeagueID": "00", "Location": "", "Month": 0, "OpponentTeamID": 0, "Outcome": "", "PORound": 0,
+                                            "PerMode": "PerGame", "Period": 0, "PlayerExperience": "", "PlayerPosition": "",
+                                            "Season": season_label(season), "SeasonSegment": "", "SeasonType": "Regular Season",
+                                            "StarterBench": "", "TeamID": 0, "VsConference": "", "VsDivision": "", "Weight": "",
+                                            "DefenseCategory": "Overall", "PlayerID": ""})
+    except Unreachable:
+        return {}
+    out = {}
+    for row in rows:
+        pid = str(row.get("CLOSE_DEF_PERSON_ID") or row.get("PLAYER_ID") or "")
+        dfg, normal = _number(row.get("D_FG_PCT")), _number(row.get("NORMAL_FG_PCT"))
+        if not pid or dfg is None or normal is None:
+            continue
+        out[pid] = {"dfg": round(dfg * 100, 1), "normal": round(normal * 100, 1), "diff": round((dfg - normal) * 100, 1),
+                    "fga": _number(row.get("D_FGA")), "gp": _number(row.get("GP"))}
+    return out

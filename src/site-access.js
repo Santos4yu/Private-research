@@ -1,6 +1,6 @@
 import './site-access.css';
 import {serviceRequestError} from './storage-retry.js';
-import {accessGranted,needsSubscription,accountControlsVisible,canUseTab,availableTab,canUseSport,canUseFinderSport,canUseSheet,hiddenTabs,ADMIN_TABS,FINDER_SPORTS,CHEAT_SHEETS,PROPS_LEAGUES} from './site-access-core.js';
+import {accessGranted,needsSubscription,accountControlsVisible,canUseTab,availableTab,canUseSport,canUseFinderSport,canUseSheet,canUsePropsLeague,hiddenTabs,ADMIN_TABS,FINDER_SPORTS,CHEAT_SHEETS,PROPS_LEAGUES} from './site-access-core.js';
 import {mountMembersPanel} from './site-members.js';
 import {DOCK_DEFAULT,DOCK_FILL,DOCK_SIZE,dockTabs} from './mobile-nav-core.js';
 import {mountAnnouncePanel} from './site-announce.js';
@@ -21,6 +21,7 @@ export function siteDockTabs(){return Array.isArray(status?.dockTabs)?status.doc
 export function siteSportAllowed(sport){return canUseSport(status,sport);}
 export function siteFinderSportAllowed(sport){return canUseFinderSport(status,sport);}
 export function siteSheetAllowed(key){return canUseSheet(status,key);}
+export function sitePropsLeagueAllowed(league){return canUsePropsLeague(status,league);}
 export function availableSiteTab(current){return availableTab(status,current);}
 export function showLockedTab(tab){
  if(!accessGranted(status)){renderStatus();return;}

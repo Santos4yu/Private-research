@@ -132,6 +132,6 @@ export function NbaMatchups(){
   {(status==='ready'||status==='refreshing')&&rows.length>0&&!shown.length&&<div className="nm-empty"><b>Nothing matches</b>
    <span>Try another stat or game, or clear the search.</span></div>}
 
-  {at>0&&rows.length>0&&<p className="nm-meta">Matchup is how good tonight’s opponent is for that stat: what they allow his position (40%), their whole defense in it (25%), the game’s speed (15%) and his own games against them (20%), spread across tonight’s props. · {shown.length} props · updated {new Date(at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</p>}
+  {at>0&&rows.length>0&&<p className="nm-meta">Matchup is how good tonight’s opponent is for that stat: what they allow his position (40%), their whole defense in it (25%), the game’s speed (15%) and his own games against them (20%), placed against every team in the league. · {shown.length} props · updated {new Date(at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</p>}
  </section>;
 }
