@@ -170,6 +170,50 @@ def _table(payload):
     return headers, rows
 
 
+def _matchup_team(headers, table, label):
+    """The team a season-matchups table is for, from its players: the team
+    most of them are on in the season's player list the phone sent."""
+    if 'OFF_PLAYER_ID' not in headers:
+        return None
+    listed = rows('commonallplayers', {'Season': label}) or []
+    teams = {str(row.get('PERSON_ID')): str(row.get('TEAM_ID') or '') for row in listed}
+    column = headers.index('OFF_PLAYER_ID')
+    counts = {}
+    for row in table:
+        team = teams.get(str(row[column]))
+        if team and team != '0':
+            counts[team] = counts.get(team, 0) + 1
+    return max(counts, key=counts.get) if counts else None
+
+
+def _identify(endpoint, params, headers, rows, wanted):
+    """Which asked-for table an answer is: by the parameters NBA.com echoes,
+    matching only the ones it gave when it leaves some out; a season-matchups
+    table it doesn't name the team of is told by its players. None when it
+    can't be told."""
+    name = fingerprint(endpoint, params)
+    if name in wanted:
+        return name
+    lowered = {_norm(field): value for field, value in (params or {}).items()}
+    given = {field: _norm(lowered[field]) for field in map(_norm, IDENTITY.get(endpoint, ()))
+             if lowered.get(field) not in (None, '')}
+    if endpoint == 'leagueseasonmatchups' and 'season' not in given and rows and 'SEASON_ID' in headers:
+        # SEASON_ID "22025": a regular season, the one starting in 2025.
+        start = str(rows[0][headers.index('SEASON_ID')])[-4:]
+        if start.isdigit():
+            given['season'] = _norm(season_label(int(start) + 1))
+    candidates = [print_ for print_, (job_endpoint, job_params) in wanted.items() if job_endpoint == endpoint
+                  and all(_norm({_norm(f): v for f, v in job_params.items()}.get(field)) == value for field, value in given.items())]
+    if len(candidates) == 1:
+        return candidates[0]
+    if endpoint == 'leagueseasonmatchups' and 'season' in given:
+        team = _matchup_team(headers, rows, given['season'])
+        if team:
+            found = fingerprint(endpoint, {'Season': given['season'], 'OffTeamID': team})
+            return found if found in wanted else None
+    return None
+
+
 def accept(payload, now=None):
     """Keep one NBA.com answer the phone sent. Returns what it was; raises
     Rejected when it isn't one of the tables asked for."""
@@ -182,13 +226,18 @@ def accept(payload, now=None):
         # Older tables list their parameters one per entry.
         params = {name: value for entry in params if isinstance(entry, dict) for name, value in entry.items()}
     params = params if isinstance(params, dict) else {}
-    name = fingerprint(endpoint, params)
     season = current_season(datetime.fromtimestamp(now, timezone.utc))
     wanted = {fingerprint(*job): job for job in tables(season) + tables(season - 1)}
-    if name not in wanted:
-        raise Rejected(f'Not a table the site asks for ({endpoint or "unnamed"}).')
-    headers, rows = _table(payload)
-    label = _season_of(endpoint, params)
+    headers, rows = _table(payload) if endpoint in IDENTITY else ([], [])
+    name = _identify(endpoint, params, headers, rows, wanted)
+    if name is None and endpoint == 'leagueseasonmatchups' and not rows:
+        # A team with no matchups yet (the season's first days): nothing to keep.
+        return {'table': endpoint, 'rows': 0}
+    if name is None:
+        shown = json.dumps(params, separators=(',', ':'), default=str)[:300]
+        raise Rejected(f'Not a table the site asks for ({endpoint or "unnamed"}; parameters {shown}).')
+    job_params = wanted[name][1]
+    label = _season_of(endpoint, job_params)
     keep = KEEP_CURRENT if label == season_label(season) else KEEP_PAST
     commands = []
     if endpoint == 'leagueseasonmatchups':
@@ -196,7 +245,7 @@ def accept(payload, now=None):
         column = headers.index('OFF_PLAYER_ID') if 'OFF_PLAYER_ID' in headers else None
         if column is None:
             raise Rejected('The table is damaged.')
-        team = _norm({_norm(field): value for field, value in params.items()}.get('offteamid'))
+        team = _norm(job_params.get('OffTeamID'))
         by_player = {}
         for row in rows:
             by_player.setdefault(str(row[column]), []).append(row)

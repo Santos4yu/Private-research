@@ -110,6 +110,18 @@ class AcceptTests(Base):
         relay.accept(answer('commonallplayers', {'Season': '2026-27'}, ['PERSON_ID'], [[1]]), now=NOW)
         self.assertIsNone(relay.status(NOW)['problem'])
 
+    def test_season_matchups_whose_team_nba_com_leaves_out_are_told_by_their_players(self):
+        relay.accept(answer('commonallplayers', {'LeagueID': '00', 'Season': '2025-26', 'IsOnlyCurrentSeason': 1},
+                            ['PERSON_ID', 'DISPLAY_FIRST_LAST', 'TEAM_ID'], [[101, 'A Guard', 1610612754], [102, 'B Wing', 1610612754]]), now=NOW)
+        payload = matchups('1610612754', [['22025', 101, 'A Guard', 9, 'Nembhard', 3, '12:10', 40.5, 22],
+                                          ['22025', 102, 'B Wing', 9, 'Nembhard', 1, '2:00', 6.0, 2]])
+        # Echoed without the team, and without the season too.
+        payload['parameters'] = {'OffPlayerID': None, 'DefPlayerID': None, 'DefTeamID': None, 'SeasonType': 'Regular Season',
+                                 'LeagueID': '00', 'PORound': None}
+        self.assertEqual(relay.accept(payload, now=NOW)['table'], 'leagueseasonmatchups|season=2025-26|offteamid=1610612754')
+        found = relay.rows('leagueseasonmatchups', {'Season': '2025-26', 'OffPlayerID': '101'})
+        self.assertEqual(found[0]['DEF_PLAYER_NAME'], 'Nembhard')
+
     def test_parameters_listed_one_per_entry_are_read_too(self):
         payload = answer('commonallplayers', [{'LeagueID': '00'}, {'Season': '2026-27'}, {'IsOnlyCurrentSeason': 1}],
                          ['PERSON_ID', 'DISPLAY_FIRST_LAST'], [[1, 'Jeremiah Fears']])
