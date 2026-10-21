@@ -1,0 +1,73 @@
+# Can GitHub's machines reach NBA.com's stats? stats.nba.com turns away the
+# site's own servers, so the defender and play-type numbers it alone has
+# (nba_matchups.py, tracking.py) only load from a home connection. This asks
+# each of those tables once and prints whether it answered. Run by hand.
+name: NBA.com check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ask NBA.com
+        shell: python
+        run: |
+          import json, time, urllib.parse, urllib.request
+
+          HEADERS = {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+              "Accept": "application/json, text/plain, */*", "Accept-Language": "en-US,en;q=0.9",
+              "Origin": "https://www.nba.com", "Referer": "https://www.nba.com/",
+              "x-nba-stats-origin": "stats", "x-nba-stats-token": "true",
+          }
+          SEASON = "2025-26"
+          BLANK = {"College": "", "Conference": "", "Country": "", "DateFrom": "", "DateTo": "", "Division": "", "DraftPick": "",
+                   "DraftYear": "", "GameSegment": "", "Height": "", "LastNGames": 0, "LeagueID": "00", "Location": "", "Month": 0,
+                   "OpponentTeamID": 0, "Outcome": "", "PORound": 0, "PerMode": "PerGame", "Period": 0, "PlayerExperience": "",
+                   "PlayerPosition": "", "Season": SEASON, "SeasonSegment": "", "SeasonType": "Regular Season", "StarterBench": "",
+                   "TeamID": 0, "VsConference": "", "VsDivision": "", "Weight": ""}
+          ASKS = [
+              ("players", "commonallplayers", {"LeagueID": "00", "Season": SEASON, "IsOnlyCurrentSeason": "1"}),
+              ("who guarded whom", "leagueseasonmatchups", {"LeagueID": "00", "Season": SEASON, "SeasonType": "Regular Season",
+                                                             "PerMode": "Totals", "OffPlayerID": "2544"}),
+              ("defenders' FG% allowed", "leaguedashptdefend", {**BLANK, "DefenseCategory": "Overall", "PlayerID": ""}),
+              ("play types", "synergyplaytypes", {"LeagueID": "00", "SeasonYear": SEASON, "SeasonType": "Regular Season",
+                                                  "PerMode": "PerGame", "PlayType": "PRBallHandler", "PlayerOrTeam": "P",
+                                                  "TypeGrouping": "offensive"}),
+              ("tracking", "leaguedashptstats", {**BLANK, "GameScope": "", "PlayerOrTeam": "Player", "PtMeasureType": "Passing"}),
+          ]
+
+          def ask(url, headers):
+              started = time.monotonic()
+              try:
+                  with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=25) as reply:
+                      body = reply.read()
+                      return reply.status, body, time.monotonic() - started
+              except urllib.error.HTTPError as error:
+                  return error.code, b"", time.monotonic() - started
+              except Exception as error:  # timeouts, resets
+                  return type(error).__name__, b"", time.monotonic() - started
+
+          answered = 0
+          for label, endpoint, params in ASKS:
+              url = f"https://stats.nba.com/stats/{endpoint}?{urllib.parse.urlencode(params)}"
+              status, body, seconds = ask(url, HEADERS)
+              rows = None
+              if status == 200:
+                  try:
+                      sets = json.loads(body).get("resultSets") or []
+                      rows = len((sets[0] if isinstance(sets, list) else sets).get("rowSet") or [])
+                  except Exception:
+                      rows = "unreadable"
+              answered += status == 200
+              print(f"{label:24} {endpoint:22} -> {status} in {seconds:.1f}s" + (f", {rows} rows" if rows is not None else ""))
+
+          status, _, seconds = ask("https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json", {"User-Agent": HEADERS["User-Agent"]})
+          print(f"{'game files (cdn)':24} {'todaysScoreboard':22} -> {status} in {seconds:.1f}s")
+          print(f"\nNBA.com stats answered {answered} of {len(ASKS)}.")
