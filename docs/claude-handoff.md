@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-10-21 (jersey number added). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-10-22 (matchup score fitted to RotoBot). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -75,13 +75,20 @@ not book odds.
   opponent's defense card (team baseline + "vs guards, by stat" with the
   picked stat marked + his games vs them), play types, likely defenders,
   shot chart sheet, vs that team, position ranks.
-- `src/nba-matchup-score.js`: the 0-100 score. Weights: their defense 40%
-  (points allowed + defensive rating), pace 15%, what they allow his
-  position in that stat 35%, his own games vs them 10%. Each read is how
-  far the team sits from the league average in standard deviations
-  (1.65 or more = the end of the scale), so an extreme defense like Utah
-  reads 100 and middle teams stay near 50. Bands: 75+ Strong edge,
-  60+ Edge, 40+ Neutral, under 40 Tough.
+- `src/nba-matchup-score.js`: the 0-100 score, fitted to RotoBot's grades
+  (2026-10-22, its Dallas page: forwards PTS 91, REB 89, AST 90, BLK 89,
+  P+R 90; ours gives the same; see `tests/nba-matchup-score.test.mjs`).
+  Like RotoBot's, it's the same for every player at a position against a
+  team (his own games vs them show beside it, not in it), and a combo is
+  the average of its parts. Each read is how far the team sits from the
+  league average in standard deviations and adds a fixed number of
+  points per spread to 50 (`GAINS`): points allowed, defensive rating
+  and pace 14.5 each, what they allow his position in the stat 7.5,
+  threes also the 3-point % allowed (12), steals also the opponent's
+  turnovers (12). Bands: 75+ Strong edge, 60+ Edge, 40+ Neutral, under
+  40 Tough. To tune it further, get more RotoBot pages (a team's G/F/C
+  six-stat row plus its "Team baseline" and "Vs position" ranks) and
+  refit the gains against them.
 - Server: `api/wnba.py` (resources `league-context`, `scout`,
   `play-types`, `defender`, `matchup`, `player-context`, `gamelog`),
   `backend/sports/wnba/context.py`, `scout.py`, `opportunity.py`,
