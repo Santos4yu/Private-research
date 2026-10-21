@@ -129,6 +129,19 @@ class AcceptTests(Base):
         self.assertEqual(relay.rows('synergyplaytypes', params), [{'TEAM_ID': 1610612754, 'PPP': 0.98}])
         self.assertEqual(relay.status(NOW)['past'], 1)
 
+    def test_tracking_tables_are_told_by_their_columns_and_games(self):
+        columns = ['PLAYER_ID', 'PLAYER_NAME', 'TEAM_ABBREVIATION', 'GP', 'MIN', *tracking.MEASURES['Passing']]
+        echoed = {'Season': '2025-26', 'PlayerOrTeam': 'Player', 'LastNGames': None, 'PtMeasureType': None}
+        # A whole season: players with more than ten games.
+        whole = relay.accept(answer('leaguedashptstats', echoed, columns, [[1, 'A', 'NOP', 82, 30.0, *[1.0] * 6]]), now=NOW)
+        self.assertEqual(whole['table'], relay.fingerprint('leaguedashptstats', tracking._params('Passing', 2026, 0)))
+        # Ten games or fewer: the season so far and the last ten are the same table.
+        early = relay.accept(answer('leaguedashptstats', {**echoed, 'Season': '2026-27'}, columns,
+                                    [[1, 'A', 'NOP', 1, 30.0, *[2.0] * 6]]), now=NOW)
+        self.assertEqual(len(early['table']), 2)
+        for last in (0, tracking.RECENT):
+            self.assertEqual(relay.rows('leaguedashptstats', tracking._params('Passing', 2027, last))[0]['POTENTIAL_AST'], 2.0)
+
     def test_parameters_listed_one_per_entry_are_read_too(self):
         payload = answer('commonallplayers', [{'LeagueID': '00'}, {'Season': '2026-27'}, {'IsOnlyCurrentSeason': 1}],
                          ['PERSON_ID', 'DISPLAY_FIRST_LAST'], [[1, 'Jeremiah Fears']])

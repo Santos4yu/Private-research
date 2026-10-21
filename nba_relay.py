@@ -188,14 +188,23 @@ def _matchup_team(headers, table, label):
     return max(counts, key=counts.get) if counts else None
 
 
+def _measure(headers):
+    """Which tracking table a leaguedashptstats answer is, by its columns."""
+    from backend.sports.wnba.tracking import MEASURES
+    found = [measure for measure, columns in MEASURES.items() if set(columns) <= set(headers)]
+    return found[0] if len(found) == 1 else None
+
+
 def _identify(endpoint, params, headers, rows, wanted):
-    """Which asked-for table an answer is: by the parameters NBA.com echoes,
-    matching only the ones it gave when it leaves some out; a season-matchups
-    table it doesn't name the team of is told by its players. None when it
-    can't be told."""
+    """Which asked-for tables an answer is: by the parameters NBA.com echoes,
+    matching only the ones it gave when it leaves some out, then by what's
+    in it -- a tracking table by its columns and how many games its players
+    have (a last-ten table never has more than ten; early in a season the
+    two are the same and it is both), a season-matchups table by its
+    players. [] when it can't be told."""
     name = fingerprint(endpoint, params)
     if name in wanted:
-        return name
+        return [name]
     lowered = {_norm(field): value for field, value in (params or {}).items()}
     given = {field: _norm(lowered[field]) for field in map(_norm, IDENTITY.get(endpoint, ()))
              if lowered.get(field) not in (None, '')}
@@ -204,16 +213,25 @@ def _identify(endpoint, params, headers, rows, wanted):
         start = str(rows[0][headers.index('SEASON_ID')])[-4:]
         if start.isdigit():
             given['season'] = _norm(season_label(int(start) + 1))
+    if endpoint == 'leaguedashptstats' and _measure(headers):
+        given['ptmeasuretype'] = _norm(_measure(headers))
     candidates = [print_ for print_, (job_endpoint, job_params) in wanted.items() if job_endpoint == endpoint
                   and all(_norm({_norm(f): v for f, v in job_params.items()}.get(field)) == value for field, value in given.items())]
-    if len(candidates) == 1:
-        return candidates[0]
+    if len(candidates) <= 1:
+        return candidates
+    if endpoint == 'leaguedashptstats' and 'season' in given and 'ptmeasuretype' in given and 'lastngames' not in given:
+        from backend.sports.wnba.tracking import RECENT
+        games = [row[headers.index('GP')] for row in rows if 'GP' in headers and isinstance(row[headers.index('GP')], (int, float))]
+        whole = fingerprint(endpoint, {'Season': given['season'], 'PtMeasureType': given['ptmeasuretype'], 'LastNGames': 0})
+        if games and max(games) > RECENT:
+            return [whole] if whole in wanted else []
+        return candidates
     if endpoint == 'leagueseasonmatchups' and 'season' in given:
         team = _matchup_team(headers, rows, given['season'])
         if team:
             found = fingerprint(endpoint, {'Season': given['season'], 'OffTeamID': team})
-            return found if found in wanted else None
-    return None
+            return [found] if found in wanted else []
+    return []
 
 
 def accept(payload, now=None):
@@ -232,14 +250,23 @@ def accept(payload, now=None):
     season = current_season(datetime.fromtimestamp(now, timezone.utc))
     wanted = {fingerprint(*job): job for job in tables(season) + tables(season - 1)}
     headers, rows = _table(payload) if endpoint in IDENTITY else ([], [])
-    name = _identify(endpoint, params, headers, rows, wanted)
-    if name is None and endpoint == 'leagueseasonmatchups' and not rows:
+    names = _identify(endpoint, params, headers, rows, wanted)
+    if not names and endpoint == 'leagueseasonmatchups' and not rows:
         # A team with no matchups yet (the season's first days): nothing to keep.
         return {'table': endpoint, 'rows': 0}
-    if name is None:
-        shown = json.dumps(params, separators=(',', ':'), default=str)[:300]
-        raise Rejected(f'Not a table the site asks for ({endpoint or "unnamed"}; parameters {shown}).')
-    job_params = wanted[name][1]
+    if not names:
+        lowered = {_norm(field): value for field, value in params.items()}
+        echoed = {field: lowered.get(_norm(field)) for field in IDENTITY.get(endpoint, ())}
+        raise Rejected(f'Not a table the site asks for ({endpoint or "unnamed"}; it says {json.dumps(echoed, default=str)}; '
+                       f'columns {", ".join(map(str, headers[:14]))}).')
+    for name in names:
+        _keep(endpoint, name, wanted[name][1], headers, rows, season, now)
+    _memory.clear()
+    return {'table': names[0] if len(names) == 1 else names, 'rows': len(rows)}
+
+
+def _keep(endpoint, name, job_params, headers, rows, season, now):
+    """Write one identified table to the store."""
     label = _season_of(endpoint, job_params)
     keep = KEEP_CURRENT if label == season_label(season) else KEEP_PAST
     commands = []
@@ -263,8 +290,6 @@ def accept(payload, now=None):
     for start in range(0, len(commands), 60):
         if _pipeline(commands[start:start + 60], timeout=10) is None:
             raise Rejected('The site has nowhere to keep it.')
-    _memory.clear()
-    return {'table': name, 'rows': len(rows)}
 
 
 def _dicts(table):
