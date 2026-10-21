@@ -1,4 +1,5 @@
-import React,{lazy,startTransition,Suspense,useCallback,useDeferredValue,useEffect,useMemo,useRef,useState} from 'react';
+import React,{lazy,startTransition,Suspense,useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import {matchesSearch,searchKey} from './finder-search.js';
 import {flushSync} from 'react-dom';
 import {ArrowDown,ArrowUp,ArrowUpDown,ArrowLeft,Bookmark,ChartNoAxesColumnIncreasing,ChevronDown,ChevronLeft,ChevronRight,Grid2X2,ListFilter,LoaderCircle,RefreshCw,Search,SlidersHorizontal,Star,Swords,Table2,Trash2,Users,CalendarDays,Settings,UserRound,X} from 'lucide-react';
 import {finderPlayerRows,loadFinderSportRaw,loadFinderSnapshot,hasFinderSnapshot,applyFinderSnapshot,within,persistFinderCache,readFinderCache,carryHistory,matchesPrizePicksLine,finderSlipId,slipApps,windowGames,windowRate,loadFinderDefense,withDefense,trendPickRow,BOOK_NAMES,linkTarget,findLinkedRow,readFinderView,saveFinderView} from './unified-finder-data';
@@ -309,19 +310,28 @@ export function UnifiedFinder(){
  const dayOptions=useMemo(()=>days.map(value=>({value,label:new Date(value+'T12:00:00').toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'})})),[days]);
  const lineOptions=useMemo(()=>[{value:'standard',label:'Regular'},{value:'goblin',label:'Goblins'},{value:'demon',label:'Demons'}],[]);
  const order=useMemo(()=>sorts.length?sorts:[DEFAULT_SORT],[sorts]),sort=order[0];
- // Typing in the search box stays instant; the list catches up a beat later.
- const searched=useDeferredValue(query);
+ // Typing in the search box stays instant; the list catches up a beat
+ // after the last key, as an ordinary update. (A deferred value could be
+ // held back for as long as the board kept refreshing -- hit rates still
+ // coming in on a phone -- leaving every line showing under a name.)
+ const [searched,setSearched]=useState(query);
+ useEffect(()=>{
+  if(!query.trim()){setSearched(query);return undefined;}
+  const id=setTimeout(()=>setSearched(query),150);
+  return()=>clearTimeout(id);
+ },[query]);
+ const words=useMemo(()=>searchKey(searched).split(' ').filter(Boolean),[searched]);
  const rows=useMemo(()=>{
   const hitActive=hitFilter.windows.length>0||hitFilter.min>0||hitFilter.max<100;
   const hitWindows=hitFilter.windows.length?hitFilter.windows:['l5','l10','l15','h2h','season'];
   const filtered=sportRows.filter(r=>(!marketFilter.length||marketFilter.includes(r.market))&&(!bookFilter.length||bookFilter.some(book=>r.apps.some(a=>a.key===book)))&&(!teamFilter.length||teamFilter.includes(r.teamAbbr))&&(!dayFilter.length||dayFilter.includes(dayKey(r.startsAt)))&&(!gameFilter.length||gameFilter.includes(gameKey(r)))&&
     matchesPrizePicksLine(r,modifierFilter)&&
-    (!hitActive||hitWindows.every(key=>{const value=rate(r.windows?.[key]);return finite(value)&&value>=hitFilter.min&&value<=hitFilter.max;}))&&(!savedOnly||picks.has(r.id))&&(!searched.trim()||(r.player+' '+(r.teamAbbr||'')+' '+(r.opponent||'')).toLowerCase().includes(searched.trim().toLowerCase())));
+    (!hitActive||hitWindows.every(key=>{const value=rate(r.windows?.[key]);return finite(value)&&value>=hitFilter.min&&value<=hitFilter.max;}))&&(!savedOnly||picks.has(r.id))&&(!words.length||matchesSearch(r,words)));
   // Each chosen sort in turn; a row missing that value goes after the rest.
   const value=(r,key)=>key==='player'?r.player:key==='average'?r.average:key==='diff'?r.diff:key==='streak'?r.streak:key==='line'?r.line:key==='defense'?r.defense:rate(r.windows?.[key]);
   const compare=(a,b,{key,direction})=>{const av=value(a,key),bv=value(b,key);if(av==null&&bv==null)return 0;if(av==null)return 1;if(bv==null)return -1;const n=typeof av==='string'?byName(av,bv):av-bv;return direction==='asc'?n:-n;};
   return filtered.sort((a,b)=>{for(const item of order){const n=compare(a,b,item);if(n)return n;}return byName(a.player,b.player);});
- },[sportRows,marketFilter,bookFilter,teamFilter,dayFilter,gameFilter,modifierFilter,hitFilter,savedOnly,picks,searched,order]);
+ },[sportRows,marketFilter,bookFilter,teamFilter,dayFilter,gameFilter,modifierFilter,hitFilter,savedOnly,picks,words,order]);
  useEffect(()=>setPage(0),[scopeKey,query,marketFilter,bookFilter,teamFilter,dayFilter,gameFilter,modifierFilter,hitFilter,pageSize,savedOnly,order]);
  const pages=Math.max(1,Math.ceil(rows.length/pageSize)),currentPage=Math.min(page,pages-1),visible=rows.slice(currentPage*pageSize,(currentPage+1)*pageSize);
  priority.current=new Set([...visible,...rows.slice(0,60)].map(row=>row.id));
