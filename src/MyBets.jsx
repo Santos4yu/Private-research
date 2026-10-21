@@ -1,7 +1,7 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {AlertTriangle,CalendarDays,Camera,ClipboardPaste,ChevronLeft,ChevronRight,LineChart,Loader2,Plus,Trash2,X} from 'lucide-react';
-import {KINDS,PERIODS,bankroll,calendar,inPeriod,moneyText,periodOf,priceText,profitOf,series,shiftAnchor,streak,summarize,today,unitsText,multiplierOf,betFromSlip,betFromRead} from './my-bets-core';
+import {KINDS,PERIODS,bankroll,localDay,calendar,inPeriod,moneyText,periodOf,priceText,profitOf,series,shiftAnchor,streak,summarize,today,unitsText,multiplierOf,betFromSlip,betFromRead} from './my-bets-core';
 import {loadHistory} from './slip-history';
 import {shrink} from './slip-image';
 import './my-bets.css';
@@ -262,38 +262,40 @@ function BetForm({initial,unit,slips,onSave,onDelete,onClose}){
 
 // Dollars as a balance reads them: $1,284.57, −$12.00.
 const balanceText=value=>`${value<0?'−':''}$${Math.abs(value).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
-const BANK_ASK={set:'New balance',in:'Add money',out:'Take out'};
+const BANK_ASK={set:'Starting balance',in:'Add money',out:'Take out'};
 
 /** What's in the member's account: set once, then moved by every bet they log and the money they put in or take out. */
 function BankCard({bank,bets,unit,onSave}){
  const roll=useMemo(()=>bankroll(bank,bets,unit),[bank,bets,unit]);
  const [mode,setMode]=useState(null);
  const [amount,setAmount]=useState('');
+ const [from,setFrom]=useState('');
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
- const open=next=>{setMode(next);setError('');setAmount(next==='set'&&roll?String(Math.round(roll.balance*100)/100):'');};
+ // Editing changes where it started (the amount and the first day it counts), never adds the bets twice.
+ const open=next=>{setMode(next);setError('');setAmount(next==='set'&&roll?String(roll.start):'');setFrom(roll?.from||localDay(Date.now()));};
  const submit=async event=>{
   event.preventDefault();
   const value=Number(amount);
   if(amount===''||!Number.isFinite(value)||value<0||(mode!=='set'&&value===0)){setError('Enter an amount in dollars.');return;}
   setBusy(true);setError('');
-  try{await onSave(mode==='set'?{start:value}:{move:mode==='in'?value:-value});setMode(null);}
+  try{await onSave(mode==='set'?{start:value,from:from||localDay(Date.now())}:{move:mode==='in'?value:-value});setMode(null);}
   catch(problem){setError(problem.message||'Not saved. Try again.');}
   finally{setBusy(false);}
  };
- const since=roll?.since?new Date(roll.since).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
+ const since=roll?.from?new Date(`${roll.from}T12:00:00`).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
  return <section className="mb-card mb-bank" aria-label="Balance">
   {roll?<div className="mb-bank-main">
    <span>Balance</span>
    <b>{balanceText(roll.balance)}</b>
-   <small><span>Started with {balanceText(roll.start)} on {since}</span>
+   <small><span>Started with {balanceText(roll.start)}, counting bets from {since}</span>
     {roll.settled>0&&<span><i>·</i><em data-tone={tone(roll.won)}>{moneyText(roll.won)}</em> from bets</span>}
     {roll.added>=0.005&&<span><i>·</i>{balanceText(roll.added)} added</span>}
     {roll.taken>=0.005&&<span><i>·</i>{balanceText(roll.taken)} taken out</span>}
     {roll.pending>0&&<span><i>·</i>{balanceText(roll.inPlay)} in play</span>}</small>
   </div>:<div className="mb-bank-main mb-bank-empty">
    <span>Balance</span>
-   <p>Set what's in your account, and it goes up and down with every bet you log.</p>
+   <p>Set what's in your account, and it goes up and down with your bets.</p>
   </div>}
   {!mode&&<div className="mb-bank-actions">
    {roll&&<button type="button" className="mb-ghost" onClick={()=>open('in')}>Add money</button>}
@@ -302,10 +304,10 @@ function BankCard({bank,bets,unit,onSave}){
   </div>}
   {mode&&<form className="mb-bank-form" onSubmit={submit}>
    <label><span>{BANK_ASK[mode]}</span><span className="mb-dollar">$<input type="number" inputMode="decimal" min="0" step="any" autoFocus value={amount} onChange={event=>setAmount(event.target.value)} aria-label={`${BANK_ASK[mode]} in dollars`}/></span></label>
+   {mode==='set'&&<label className="mb-bank-from"><span>Count bets from</span><input type="date" value={from} max={localDay(Date.now())} onChange={event=>setFrom(event.target.value)}/></label>}
    <button type="submit" className="mb-primary" disabled={busy}>{busy?'Saving…':'Save'}</button>
    <button type="button" className="mb-ghost" onClick={()=>setMode(null)}>Cancel</button>
-   {mode==='set'&&roll&&<small>Starts counting again from now: bets you log from here move it.</small>}
-   {!roll&&<small>Bets you log from here move it.</small>}
+   {mode==='set'&&<small>Every bet dated that day or later moves it: log one, mark it won or lost, or edit it, and the balance follows.</small>}
    {error&&<small className="mb-bank-error" role="alert">{error}</small>}
   </form>}
  </section>;

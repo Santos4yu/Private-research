@@ -99,8 +99,10 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(bet_tracker.listing("u1")["bank"], None)
         with self.assertRaises(ValueError):
             bet_tracker.set_bank("u1", {"move": 50})            # nothing to move yet
-        bank = bet_tracker.set_bank("u1", {"start": "250"}, now=when)["bank"]
-        self.assertEqual((bank["start"], bank["at"], bank["moves"]), (250, when.isoformat(), []))
+        bank = bet_tracker.set_bank("u1", {"start": "250", "from": "2026-10-20"}, now=when)["bank"]
+        self.assertEqual((bank["start"], bank["from"], bank["at"], bank["moves"]), (250, "2026-10-20", when.isoformat(), []))
+        # No day given (or a bad one): today.
+        self.assertEqual(bet_tracker.set_bank("u1", {"start": 250, "from": "soon"})["bank"]["from"], bet_tracker._today())
         bet_tracker.set_bank("u1", {"move": 100})
         bet_tracker.set_bank("u1", {"move": -40.5})
         # A bet and the unit size change don't touch it.

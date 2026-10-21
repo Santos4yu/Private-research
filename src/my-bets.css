@@ -281,6 +281,7 @@
 .mb-bank-form label{display:grid;gap:5px}
 .mb-bank-form label>span:first-child{color:var(--mb-faint);font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
 .mb-bank-form .mb-dollar input{width:130px}
+.mb-bank-from input{min-height:38px;padding:0 10px;border:1px solid var(--mb-line);border-radius:10px;background:var(--mb-raised);color:var(--mb-text);font:600 14px var(--font-sans);color-scheme:dark;box-sizing:border-box}
 .mb-bank-form button{min-height:38px}
 .mb-bank-form small{flex-basis:100%;color:var(--mb-faint);font-size:11.5px}
 .mb-bank-form .mb-bank-error{color:var(--mb-down)}
@@ -292,5 +293,6 @@
  .mb-bank-form label{flex:1 1 100%}
  .mb-bank-form .mb-dollar{display:flex}
  .mb-bank-form .mb-dollar input{width:100%}
+ .mb-bank-from input{width:100%;-webkit-appearance:none;appearance:none;text-align:left}
  .mb-bank-form button{flex:1}
 }

@@ -22,10 +22,10 @@ their own size counts at the member's size until it changes, then keeps
 the one it had. The member can also put every bet at the new size, for
 when the old one was set wrong.
 
-A member can keep a balance ("bank": {"start": dollars, "at": when it was
-set, "moves": [{"amount", "at"}]}): what they had when they set it, money
-they put in (+) or took out (-) since, and the bets they log after it
-(the page adds those up: my-bets-core.js bankroll).
+A member can keep a balance ("bank": {"start": dollars, "from": the first
+day it counts, "at": when it was set, "moves": [{"amount", "at"}]}): what
+they had, money they put in (+) or took out (-) since, and every bet dated
+on or after "from" (the page adds those up: my-bets-core.js bankroll).
 """
 from __future__ import annotations
 
@@ -239,9 +239,10 @@ def set_unit(uid, value, every=False):
 
 
 def set_bank(uid, raw, now=None):
-    """The member's balance: {"start": dollars} sets it (counted from now,
-    money in and out since cleared), {"move": dollars} puts money in (+) or
-    takes it out (-), {"clear": true} stops keeping it."""
+    """The member's balance: {"start": dollars, "from": "YYYY-MM-DD"} sets it
+    (bets dated on or after "from" move it, today when it's left out; money
+    in and out since cleared), {"move": dollars} puts money in (+) or takes
+    it out (-), {"clear": true} stops keeping it."""
     now = now or datetime.now(timezone.utc)
     if not uid or not isinstance(raw, dict):
         raise ValueError("Sign in to keep your balance.")
@@ -254,7 +255,10 @@ def set_bank(uid, raw, now=None):
         start = _number(raw.get("start"))
         if start is None or not 0 <= start <= MAX_MONEY:
             raise ValueError("Enter your balance in dollars.")
-        data["bank"] = {"start": round(start, 2), "at": now.isoformat(), "moves": []}
+        day = str(raw.get("from") or "")
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", day):
+            day = _today()
+        data["bank"] = {"start": round(start, 2), "from": day, "at": now.isoformat(), "moves": []}
     else:
         bank = data.get("bank")
         if not bank:
