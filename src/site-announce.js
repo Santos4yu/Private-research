@@ -49,12 +49,25 @@ export function mountAnnouncePanel(host,{request}){
   h('span',{className:'announce-field-head'},'Line check link',timerSeen),
   h('div',{className:'announce-timer-row'},timerLink,timerCopy),
   h('small',{text:'Add it at cron-job.org, every 5 minutes.'}));
+ // The NBA phone link (nba_relay.py): the admin's phone Shortcut fetches
+ // NBA.com's tables, which turn the site's servers away, and sends them here.
+ const phoneLink=h('input',{type:'text',readonly:true,className:'announce-timer-link','aria-label':'NBA phone link'});
+ const phoneSeen=h('span',{className:'announce-left'});
+ const phoneCopy=h('button',{type:'button',className:'announce-me',text:'Copy',onClick:async()=>{
+  try{await navigator.clipboard.writeText(phoneLink.value);phoneCopy.textContent='Copied';}
+  catch{phoneLink.select();document.execCommand?.('copy');phoneCopy.textContent='Copied';}
+  setTimeout(()=>{phoneCopy.textContent='Copy';},1600);
+ }});
+ const phone=h('div',{className:'announce-timer',hidden:true},
+  h('span',{className:'announce-field-head'},'NBA phone link',phoneSeen),
+  h('div',{className:'announce-timer-row'},phoneLink,phoneCopy),
+  h('small',{text:'Goes in the NBA Shortcut on your phone.'}));
  host.append(
   h('div',{className:'announce-reach'},h('span',{text:'Alerts on'}),count),
   h('label',{className:'announce-field'},'Title',title),
   h('label',{className:'announce-field'},h('span',{className:'announce-field-head'},'Message',left),body),
   h('div',{className:'announce-actions'},toMe,toAll),
-  status,last,timer);
+  status,last,timer,phone);
 
  let reach=0;
  function show(data){
@@ -68,6 +81,11 @@ export function mountAnnouncePanel(host,{request}){
    if(data.timer?.path)timerLink.value=location.origin+data.timer.path;
    const newest=Math.max(0,...Object.values(data.timer?.checked||{}).map(value=>Date.parse(value)/1000||0));
    timerSeen.textContent=newest?`Last check ${when(newest)}`:'Not checked yet';
+  }
+  if('phone' in data){
+   phone.hidden=!data.phone?.path;
+   if(data.phone?.path)phoneLink.value=location.origin+data.phone.path;
+   phoneSeen.textContent=data.phone?.last?`Last sent ${when(data.phone.last)} · ${data.phone.current}/${data.phone.tables} current`:'Nothing sent yet';
   }
  }
  async function refresh(){

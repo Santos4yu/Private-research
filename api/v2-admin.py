@@ -112,9 +112,20 @@ class handler(BaseHTTPRequestHandler):
                                        "checked": line_moves.checked()}
                 except Exception:  # noqa: BLE001
                     status["timer"] = None
+                # The link the admin's phone Shortcut uses to carry NBA.com's
+                # tables (nba_relay.py), and when it last did.
+                try:
+                    import nba_relay
+                    phone = nba_relay.key()
+                    status["phone"] = {"path": f"/api/v2-admin?action=nba-phone&key={phone}" if phone else None,
+                                       **nba_relay.status()}
+                except Exception:  # noqa: BLE001
+                    status["phone"] = None
                 return self._send(200, status)
             if action == "moves-tick":
                 return self._handle_moves_tick(qs)
+            if action == "nba-phone":
+                return self._handle_nba_phone(qs)
             if action == "key-status":
                 if not admin_auth.is_admin_request(self.headers):
                     return self._send(401, {"error": "Admin session required"})
@@ -197,6 +208,9 @@ class handler(BaseHTTPRequestHandler):
             return self._send(500, {"error": "Admin service temporarily unavailable. Please try again."})
 
     def do_POST(self):
+        query = parse_qs(urlparse(getattr(self, "path", "")).query)
+        if (query.get("action") or [""])[0] == "nba-phone":
+            return self._handle_nba_phone(query, upload=True)
         length = int(self.headers.get("Content-Length", 0) or 0)
         try:
             body = json.loads(self.rfile.read(length) or b"{}")
@@ -454,6 +468,31 @@ class handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(raw)))
         self.end_headers()
         self.wfile.write(raw)
+
+    def _handle_nba_phone(self, qs, upload=False):
+        """The admin's phone carrying NBA.com's tables (nba_relay.py): a GET
+        lists the NBA.com links to fetch, a POST hands back one answer."""
+        import hmac
+        import nba_relay
+        given = (qs.get("key") or [""])[0]
+        try:
+            key = nba_relay.key() or ""
+        except Exception:  # noqa: BLE001
+            key = ""
+        if not (key and given and hmac.compare_digest(given, key)):
+            return self._send(401, {"error": "Phone key required"})
+        if not upload:
+            return self._send(200, nba_relay.jobs())
+        length = int(self.headers.get("Content-Length", 0) or 0)
+        if length <= 0 or length > nba_relay.MAX_BODY:
+            return self._send(413, {"error": "Too large" if length else "Nothing sent"})
+        try:
+            payload = json.loads(self.rfile.read(length))
+            return self._send(200, nba_relay.accept(payload))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return self._send(400, {"error": "Not an NBA.com answer"})
+        except nba_relay.Rejected as error:
+            return self._send(400, {"error": str(error)})
 
     def _handle_moves_tick(self, qs):
         """Check every league's PrizePicks lines now (line_moves.py), which

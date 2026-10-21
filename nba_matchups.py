@@ -106,8 +106,14 @@ def _kept(key, seconds, load):
 
 
 def _rows(endpoint, params):
-    """One NBA.com stats table as dicts. A refusal is remembered briefly so
-    a page full of cards doesn't knock on a closed door again and again."""
+    """One NBA.com stats table as dicts: the copy the admin's phone sent
+    (nba_relay.py) when there is one, else NBA.com itself. A refusal is
+    remembered briefly so a page full of cards doesn't knock on a closed
+    door again and again."""
+    import nba_relay
+    relayed = nba_relay.rows(endpoint, params)
+    if relayed is not None:
+        return relayed
     refused = _memory.get("refused")
     if refused and time.time() - refused[0] < REFUSED_SECONDS:
         raise Unreachable("NBA.com's matchup data isn't answering right now.")

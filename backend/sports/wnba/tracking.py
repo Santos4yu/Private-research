@@ -88,8 +88,24 @@ def _params(measure: str, season: int, last: int) -> dict:
             "VsDivision": "", "Weight": ""}
 
 
+def _relayed(endpoint, params):
+    """The copy of an NBA.com table the admin's phone sent (nba_relay.py), or None."""
+    try:
+        import nba_relay
+    except ImportError:
+        return None
+    return nba_relay.rows(endpoint, params)
+
+
+def _refuse(*_args, **_kwargs):
+    raise requests.ConnectionError("NBA.com is known to be down for the site.")
+
+
 def _fetch(job, get=requests.get):
     measure, season, last = job
+    relayed = _relayed("leaguedashptstats", _params(measure, season, last))
+    if relayed is not None:
+        return job, relayed
     response = get(URL, params=_params(measure, season, last), headers=HEADERS, timeout=TIMEOUT)
     response.raise_for_status()
     return job, parse(response.json())
@@ -146,12 +162,12 @@ def table(season: int, get=requests.get, store=None) -> dict | None:
             kept = json.loads(raw)
             if time.time() - float(kept.get("builtAt") or 0) < KEEP_SECONDS:
                 return kept
-        if store.get(DOWN_KEY.format(season=season)):
-            return None
+        down = bool(store.get(DOWN_KEY.format(season=season)))
     except Exception:  # noqa: BLE001 -- no cache, ask the site
-        pass
+        down = False
     try:
-        built = build(season, get)
+        # While NBA.com is down for the site, only what the phone sent.
+        built = build(season, _refuse if down else get)
     except Exception:  # noqa: BLE001 -- refused, timed out or changed: remembered as down
         try:
             store.pipeline([["SET", DOWN_KEY.format(season=season), "1", "EX", DOWN_SECONDS]], timeout=5)
