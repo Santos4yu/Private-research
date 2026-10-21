@@ -65,7 +65,9 @@ export function NbaMatchups(){
  useEffect(()=>{
   const stop=onNbaProps(setData);
   warmNbaProps();
-  return stop;
+  // League numbers the server wasn't ready with are asked for again.
+  const retry=setInterval(()=>{if(!nbaProps().league)refreshNbaProps();},45000);
+  return()=>{stop();clearInterval(retry);};
  },[]);
  const load=useCallback(()=>{refreshNbaProps();},[]);
  const rows=useMemo(()=>(data.rows||[]).filter(wanted),[data.rows]);

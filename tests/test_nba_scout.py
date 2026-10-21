@@ -122,3 +122,36 @@ class ApiTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LeagueContextTests(unittest.TestCase):
+    """The start of a season: last season's games join the new one's, and a
+    league table is never built from a handful of new games alone."""
+
+    def call(self, current, previous):
+        from unittest.mock import patch
+        from backend.sports.wnba import league
+        sent = []
+        handler = wnba_api.handler.__new__(wnba_api.handler)
+        with patch.object(wnba_api, "_send", lambda _self, status, body: sent.append((status, body))), \
+                patch.object(league, "current_season", return_value=2027), \
+                patch.object(league, "ensure", return_value=current), \
+                patch.object(league, "stored", return_value=previous), \
+                patch.object(wnba_api, "_team_rosters", return_value=({}, None)):
+            wnba_api._league_memory.clear()
+            handler._context("league-context", {}, "nba")
+        return sent[0]
+
+    def test_last_season_unreadable_is_not_ready(self):
+        opening = {"season": 2027, "builtAt": "y", "teams": {}, "players": PLAYERS,
+                   "games": {"1": payload()["games"]["1"]}}
+        status, body = self.call(opening, None)
+        self.assertEqual(status, 503)
+        self.assertIn("prepared", body["error"])
+
+    def test_last_season_joins_the_first_games(self):
+        opening = {"season": 2027, "builtAt": "y", "teams": {}, "players": PLAYERS,
+                   "games": {"9": {**payload()["games"]["1"], "id": "9", "date": "2026-10-21T00:00Z"}}}
+        status, body = self.call(opening, payload())
+        self.assertEqual(status, 200)
+        self.assertEqual(sorted(body["dvp"]), ["AAA", "BBB", "CCC"])

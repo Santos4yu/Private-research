@@ -16,6 +16,9 @@ export const wanted = row => row.sport === 'nba' && MARKETS.has(row.marketKey) &
   && (!row.startsAt || Date.parse(row.startsAt) > Date.now());
 
 const LEAGUE_KEY = 'nba:league-context';
+// League numbers for fewer teams than this are a season's first few games alone.
+const MIN_TEAMS = 25;
+const teamsIn = league => Object.keys(league?.dvp || {}).length;
 // Saved league numbers this old still show while new ones load.
 const LEAGUE_KEEP = 24 * 60 * 60 * 1000;
 // A board this recent isn't asked for again when the tab opens.
@@ -45,7 +48,7 @@ export function savedNbaProps() {
   saved ||= Promise.all([readFinderCache('nba').catch(() => null), storedBoard(LEAGUE_KEY).catch(() => null)]).then(([board, league]) => {
     publish({
       rows: state.rows || (board?.rows || []).filter(wanted),
-      league: state.league || (league?.data && Date.now() - Number(league.ts || 0) < LEAGUE_KEEP ? league.data : null),
+      league: state.league || (league?.data && teamsIn(league.data) >= MIN_TEAMS && Date.now() - Number(league.ts || 0) < LEAGUE_KEEP ? league.data : null),
       at: state.at || Number(board?.ts) || 0,
     });
     return state;
@@ -60,7 +63,10 @@ export function refreshNbaProps() {
     publish({loading: true, progress: null, error: false});
     try {
       const league = loadFinderDefense('nba').then(data => {
-        if (data) {
+        // League numbers for only a few teams (a new season's first games
+        // read without last season's) don't replace the ones here: most
+        // opponents would have no numbers at all.
+        if (data && teamsIn(data) >= MIN_TEAMS) {
           publish({league: data});
           storeBoard(LEAGUE_KEY, {ts: Date.now(), data}).catch(() => {});
         }

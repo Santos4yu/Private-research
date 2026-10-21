@@ -197,7 +197,7 @@ def _scout(payload, season, player_id, opponent, league_name):
     # take last season's games too.
     played = sum(1 for game in payload["games"].values() if opponent in (game.get("t") or {}))
     if played < opportunity.BLEND_GAMES:
-        payload = opportunity.blend(league.stored(season - 1, league_name), payload)
+        payload = opportunity.blend(_last_season(season, league_name), payload)
     built = (payload.get("builtAt"), tuple(payload.get("blended") or ()))
     memory = _scout_memory.get(league_name) or {}
     by_team = team_games(payload)
@@ -212,6 +212,13 @@ def _scout(payload, season, player_id, opponent, league_name):
             "me": {key: _round_or_none((table.get(player_id) or {}).get(key)) for key in ("usage", "pts", "ast", "gp")}}
 
 
+def _last_season(season, league_name):
+    """The season before `season` as stored, asked twice: it joins a new
+    season's first games, and one slow read shouldn't leave them alone."""
+    from backend.sports.wnba import league
+    return league.stored(season - 1, league_name) or league.stored(season - 1, league_name)
+
+
 def _with_box_stats(card):
     """Each defender's steals and blocks a game, from ESPN's box scores (NBA.com's
     defender tables have none). The card as it was when the season isn't stored."""
@@ -221,7 +228,7 @@ def _with_box_stats(card):
         season = league.current_season(league="nba")
         payload = league.stored(season, "nba")
         if not payload or len(payload.get("games") or {}) < opportunity.BLEND_GAMES * 15:
-            payload = opportunity.blend(league.stored(season - 1, "nba"), payload or {})
+            payload = opportunity.blend(_last_season(season, "nba"), payload or {})
         if not payload or not payload.get("games"):
             return card
         built = (payload.get("builtAt"), tuple(payload.get("blended") or ()))
@@ -1087,7 +1094,7 @@ class handler(BaseHTTPRequestHandler):
             payload = league.ensure(season, league_name)
             # Tip-off day, before a game has finished: the player's page reads last season.
             if resource in ("player-context", "scout") and (not payload or not payload.get("games")):
-                payload, season = league.stored(season - 1, league_name), season - 1
+                payload, season = _last_season(season, league_name), season - 1
             if resource == "league-context":
                 # The start of a season: defenses ranked, rotations and shot
                 # zones read on a game or two would be noise (or nothing, at
@@ -1097,7 +1104,12 @@ class handler(BaseHTTPRequestHandler):
                 games = len((payload or {}).get("games") or {})
                 teams = len({team for game in ((payload or {}).get("games") or {}).values() for team in (game.get("t") or {})}) or 1
                 if games * 2 / teams < opportunity.BLEND_GAMES:
-                    previous = league.stored(season - 1, league_name)
+                    previous = _last_season(season, league_name)
+                    if games and not previous:
+                        # Last season couldn't be read: a handful of new games
+                        # would rank a few teams and leave the rest blank. The
+                        # page keeps the numbers it already has.
+                        return _send(self, 503, {"error": "Season data is still being prepared. Try again shortly."})
                     payload = opportunity.blend(previous, payload) if games else previous
             if not payload or not payload.get("games"):
                 return _send(self, 503, {"error": "Season data is still being prepared. Try again shortly."})
@@ -1125,7 +1137,7 @@ class handler(BaseHTTPRequestHandler):
             from backend.sports.wnba import opportunity
             played = sum(1 for game in payload["games"].values() if team in (game.get("t") or {}))
             if played < opportunity.BLEND_GAMES:
-                payload = opportunity.blend(league.stored(season - 1, league_name), payload)
+                payload = opportunity.blend(_last_season(season, league_name), payload)
             return _send(self, 200, context.player_context(payload, player_id, team, opponent, market, line))
         except Exception:
             return _send(self, 503, {"error": "Matchup research is temporarily unavailable."})
