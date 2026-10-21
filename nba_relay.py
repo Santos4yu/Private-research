@@ -50,6 +50,8 @@ IDENTITY = {
     'leaguedashptdefend': ('Season', 'DefenseCategory'),
     'synergyplaytypes': ('SeasonYear', 'PlayType', 'PlayerOrTeam', 'TypeGrouping'),
 }
+# What NBA.com calls a table in its answer, where that isn't the address asked.
+RESOURCE_NAMES = {'synergyplaytype': 'synergyplaytypes'}
 _BLANK = {'College': '', 'Conference': '', 'Country': '', 'DateFrom': '', 'DateTo': '', 'Division': '', 'DraftPick': '',
           'DraftYear': '', 'GameSegment': '', 'Height': '', 'LastNGames': 0, 'LeagueID': '00', 'Location': '', 'Month': 0,
           'OpponentTeamID': 0, 'Outcome': '', 'PORound': 0, 'PerMode': 'PerGame', 'Period': 0, 'PlayerExperience': '',
@@ -221,6 +223,7 @@ def accept(payload, now=None):
     if not isinstance(payload, dict):
         raise Rejected('Not an NBA.com answer.')
     endpoint = _norm(payload.get('resource'))
+    endpoint = RESOURCE_NAMES.get(endpoint, endpoint)
     params = payload.get('parameters')
     if isinstance(params, list):
         # Older tables list their parameters one per entry.
@@ -333,7 +336,8 @@ def status(now=None):
     season = current_season(datetime.fromtimestamp(now, timezone.utc))
     sent = _sent()
     wanted = [fingerprint(*job) for job in tables(season)]
+    past = [fingerprint(*job) for job in tables(season - 1)]
     problem = (_pipeline([['GET', PROBLEM_KEY]]) or [None])[0]
     return {'last': max(sent.values()) if sent else None,
             'current': sum(now - sent.get(name, 0) < FRESH_SECONDS + 6 * 3600 for name in wanted), 'tables': len(wanted),
-            'problem': problem}
+            'past': sum(name in sent for name in past), 'pastTables': len(past), 'problem': problem}

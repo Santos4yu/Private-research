@@ -86,7 +86,7 @@ export function mountAnnouncePanel(host,{request}){
   if('phone' in data){
    phone.hidden=!data.phone?.path;
    if(data.phone?.path)phoneLink.value=location.origin+data.phone.path;
-   phoneSeen.textContent=data.phone?.last?`Last sent ${when(data.phone.last)} · ${data.phone.current}/${data.phone.tables} current`:'Nothing sent yet';
+   phoneSeen.textContent=data.phone?.last?`Sent ${when(data.phone.last)} · last season ${data.phone.past??0}/${data.phone.pastTables??0} · this season ${data.phone.current}/${data.phone.tables}`:'Nothing sent yet';
    phoneProblem.hidden=!data.phone?.problem;
    phoneProblem.textContent=data.phone?.problem?`Last one turned away: ${data.phone.problem}`:'';
   }

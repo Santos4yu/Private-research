@@ -122,6 +122,13 @@ class AcceptTests(Base):
         found = relay.rows('leagueseasonmatchups', {'Season': '2025-26', 'OffPlayerID': '101'})
         self.assertEqual(found[0]['DEF_PLAYER_NAME'], 'Nembhard')
 
+    def test_play_types_come_back_named_in_the_singular(self):
+        params = {'LeagueID': '00', 'SeasonYear': '2025-26', 'SeasonType': 'Regular Season', 'PerMode': 'PerGame',
+                  'PlayType': 'Misc', 'PlayerOrTeam': 'T', 'TypeGrouping': 'defensive'}
+        relay.accept(answer('synergyplaytype', params, ['TEAM_ID', 'PPP'], [[1610612754, 0.98]]), now=NOW)
+        self.assertEqual(relay.rows('synergyplaytypes', params), [{'TEAM_ID': 1610612754, 'PPP': 0.98}])
+        self.assertEqual(relay.status(NOW)['past'], 1)
+
     def test_parameters_listed_one_per_entry_are_read_too(self):
         payload = answer('commonallplayers', [{'LeagueID': '00'}, {'Season': '2026-27'}, {'IsOnlyCurrentSeason': 1}],
                          ['PERSON_ID', 'DISPLAY_FIRST_LAST'], [[1, 'Jeremiah Fears']])
