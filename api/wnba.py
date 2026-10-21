@@ -237,7 +237,7 @@ def _with_box_stats(card):
             memory = {"key": built, "table": scout.season_table(team_games(payload), payload.get("players") or {})}
             _scout_memory["nba"] = memory
         names = scout.by_name(memory["table"], payload.get("players") or {})
-        for item in card.get("defenders") or []:
+        for item in (card.get("defenders") or []) + (card.get("theirs") or []):
             row = names.get(nba_name_key(item.get("name")))
             if row:
                 item["stlBlk"] = round(row["stlblk"], 1)
@@ -1027,8 +1027,11 @@ class handler(BaseHTTPRequestHandler):
                 if not who or len(who) > 60 or len(team) > 4 or len(opponent) > 4:
                     return _send(self, 400, {"error": "A player, his team and the opponent are required."})
                 import nba_matchups
+                from backend.sports.wnba import league as stored_league
                 try:
-                    card = nba_matchups.defender(who, team, opponent)
+                    # ESPN's box scores say which team each defender played for in his games.
+                    card = nba_matchups.defender(who, team, opponent,
+                                                 faced=lambda year: nba_matchups.faced_teams(stored_league.stored(year, "nba"), who))
                 except nba_matchups.Unreachable as error:
                     return _send(self, 503, {"error": str(error)})
                 return _send(self, 200, _with_box_stats(card))

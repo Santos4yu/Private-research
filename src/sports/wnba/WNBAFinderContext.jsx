@@ -7,6 +7,7 @@ import PropFocusTag from '../../PropFocusTag';
 import {MARKET_STAT,POSITIONS,baseMarket,ago,average,finite,fmt,hasPlayerContext,hasSplit,leagueOf,opponentOf,ordinal,playerContextParams,positionOf,price,rankTone,realGames,shortDate,signed,splitFilter,useWnba} from './wnba-research';
 import {useIsAdmin,QUIET} from '../../admin-notice.js';
 import Opportunity from './Opportunity';
+import {theirDefenders,theirSeasons} from './defenders';
 
 function Empty({children}){return <p className="mlb-context-note">{children}</p>;}
 function Skeleton(){return <div className="mlb-context-skeleton" role="status" aria-label="Loading research"><span/><span/><span/><span/></div>;}
@@ -257,12 +258,13 @@ function change(key,value,usual){
 }
 // The prop's own number for the line under the faces.
 const LEAD={player_assists:'ast',player_threes:'tp',player_threes_attempts:'tpa',player_field_goals:'fg',player_field_goals_attempts:'fga',player_frees_made:'fta',player_frees_attempts:'fta',player_turnovers:'tov'};
-function DefenderCard({row}){
+function DefenderCard({row,matchup}){
  const admin=useIsAdmin();
  const opponent=opponentOf(row);
  const state=useWnba('defender',{league:'nba',player:row.player,team:row.teamAbbr,opponent},row.sport==='nba'&&Boolean(row.player&&opponent));
- const data=state.data,defenders=data?.defenders||[],usual=data?.usual;
- const theirs=useMemo(()=>defenders.filter(item=>item.team===data?.opponent),[defenders,data]);
+ const data=state.data,defenders=data?.defenders||[],usual=data?.usual,injuries=matchup?.data?.injuries?.[opponent];
+ // The opponent's players now, only for the games they played for it against him; anyone out tonight left off.
+ const theirs=useMemo(()=>theirDefenders(data,injuries),[data,injuries]);
  const [scope,setScope]=useState('theirs'),[sort,setSort]=useState('poss'),[picked,setPicked]=useState(null);
  useEffect(()=>{setPicked(null);setScope('theirs');},[row.playerId,opponent]);
  if(state.loading&&!data)return <Card title="Who guards him" icon={Shield}><Skeleton/></Card>;
@@ -272,7 +274,8 @@ function DefenderCard({row}){
  if(!data?.player||!defenders.length)return admin?<Card title="Who guards him" icon={Shield}><Empty>No defender tracking for {row.player} yet this season.</Empty></Card>:null;
  const listed=(scope==='theirs'&&theirs.length?theirs:defenders).filter(item=>sort==='poss'||item.poss>=10);
  const sorted=[...listed].sort((a,b)=>sort==='tough'?(a.pts??99)-(b.pts??99):sort==='easy'?(b.pts??-1)-(a.pts??-1):b.poss-a.poss).slice(0,8);
- const chosen=defenders.find(item=>item.id===picked)||defenders.find(item=>item.id===data.likely?.id)||theirs[0]||defenders[0];
+ const chosen=(scope==='theirs'&&theirs.length?theirs:defenders).find(item=>item.id===picked)||defenders.find(item=>item.id===picked)
+  ||theirs.find(item=>item.id===data.likely?.id)||theirs[0]||defenders[0];
  const isLikely=chosen.id===data.likely?.id;
  const lead=LEAD[baseMarket(row.marketKey)]||'pts',leadTile=DEF_TILES.find(([key])=>key===lead);
  const leadChange=change(lead,chosen[lead],usual?.[lead]);
@@ -304,8 +307,8 @@ function DefenderCard({row}){
     <th scope="row"><button type="button" onClick={()=>setPicked(item.id)}><Avatar src={nbaHead(item.id)}/><span><b>{item.name}</b><small>{item.team||'—'}</small></span></button></th>
     <td>{fmt(item.poss,0)}</td><td data-tone={finite(item.pts)&&finite(usual?.pts)?(item.pts>usual.pts*1.08?'good':item.pts<usual.pts*.92?'poor':undefined):undefined}>{fmt(item.pts,1)}</td>
     <td>{finite(item.ts)?fmt(item.ts,1)+'%':'—'}</td><td>{fmt(item.fga,1)}</td></tr>)}</tbody></table>
-  {scope==='theirs'&&!theirs.length&&<Empty>He hasn't faced {data.opponent}'s defenders this season; showing everyone.</Empty>}
-  <p className="nd-foot">Per 75 possessions, about a game, from NBA.com's matchup tracking ({data.season}). Usual: his season across every defender ({fmt(usual?.poss,0)} possessions).</p>
+  {scope==='theirs'&&!theirs.length&&<Empty>He hasn't faced {data.opponent}'s current players in games against them; showing everyone.</Empty>}
+  <p className="nd-foot">Per 75 possessions, about a game, from NBA.com's matchup tracking ({data.season}). {data.opponent}: players on {data.opponent} now, only in games they played for {data.opponent} against him ({theirSeasons(data,theirs)}); anyone out tonight left off. Usual: his season across every defender ({fmt(usual?.poss,0)} possessions).</p>
  </Card>;
 }
 
@@ -322,7 +325,7 @@ export default function WNBAFinderContext({row,logs,matchup,filters,onToggleFilt
  return <aside className="mlb-finder-context wnba-finder-context" data-tab={tab} aria-label={`${row.sport==='nba'?'NBA':'WNBA'} matchup research`}>
   <FinderResearchTabs tab={tab} onChange={setTab}/>
   {tab==='matchup'&&<><Opportunity row={row} player={player} league={league} matchup={matchup} tracking={tracking} statLabel={statLabel}/><WinPredictor matchup={matchup}/><MatchupOdds matchup={matchup}/><LastFive matchup={matchup}/><Standings matchup={matchup} team={row.teamAbbr}/></>}
-  {tab==='defense'&&<>{row.sport==='nba'&&<DefenderCard row={row}/>}<DefenseVsPosition league={league} row={row} stat={stat} playerPosition={playerPosition}/><OffenseVsDefense league={league} row={row}/></>}
+  {tab==='defense'&&<>{row.sport==='nba'&&<DefenderCard row={row} matchup={matchup}/>}<DefenseVsPosition league={league} row={row} stat={stat} playerPosition={playerPosition}/><OffenseVsDefense league={league} row={row}/></>}
   {tab==='shooting'&&<ShotChart player={player} league={league} row={row}/>}
   {tab==='similar'&&<SimilarPlayers player={player} row={row} statLabel={statLabel} playerPosition={playerPosition}/>}
   {tab==='injuries'&&<Injuries matchup={matchup} player={player} row={row} filters={filters} onToggleFilter={onToggleFilter}/>}

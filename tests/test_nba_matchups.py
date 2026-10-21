@@ -60,6 +60,85 @@ class ViewTests(unittest.TestCase):
         self.assertIsNone(nba_matchups.view(rows, ROSTER, "BOS", 2026)["likely"])
 
 
+def game(gid, sides):
+    """A stored ESPN game: {team: [player ids who played]}."""
+    return {"id": gid, "date": "2026-01-01", "type": 2, "home": list(sides)[0], "away": list(sides)[1],
+            "t": {team: {"p": [[pid, 1, 30] for pid in pids], "dnp": []} for team, pids in sides.items()}}
+
+
+# RJ Barrett's 2025-26 box scores: Giddey and Okoro played for Chicago against
+# him, Hawkins for New Orleans (he joined Chicago in October 2026), Huerter
+# for Chicago once and for Detroit twice.
+SEASON = {"players": {"10": ["RJ Barrett", "SF", None, "TOR"], "20": ["Josh Giddey", "PG", None, "CHI"],
+                      "21": ["Isaac Okoro", "SG", None, "CHI"], "22": ["Jordan Hawkins", "SG", None, "NO"],
+                      "23": ["Kevin Huerter", "SG", None, "DET"]},
+          "games": {"1": game("1", {"TOR": ["10"], "CHI": ["20", "21", "23"]}), "2": game("2", {"CHI": ["20", "21"], "TOR": ["10"]}),
+                    "3": game("3", {"TOR": ["10"], "NO": ["22"]}), "4": game("4", {"DET": ["23"], "TOR": ["10"]}),
+                    "5": game("5", {"TOR": ["10"], "DET": ["23"]}), "6": game("6", {"CHI": ["20"], "MIA": ["99"]})}}
+BULLS = [{"id": "20", "name": "Josh Giddey", "team": "CHI"}, {"id": "21", "name": "Isaac Okoro", "team": "CHI"},
+         {"id": "22", "name": "Jordan Hawkins", "team": "CHI"}, {"id": "23", "name": "Kevin Huerter", "team": "CHI"},
+         {"id": "10", "name": "RJ Barrett", "team": "TOR"}]
+BARRETT = [matchup(20, "Josh Giddey", 60, 18, 7, 15, gp=2), matchup(22, "Jordan Hawkins", 30, 9, 3, 7, gp=1),
+           matchup(21, "Isaac Okoro", 20, 4, 2, 6, gp=2), matchup(23, "Kevin Huerter", 30, 12, 5, 9, gp=3)]
+
+
+class TheirsTests(unittest.TestCase):
+    def test_the_teams_each_defender_played_for_against_him(self):
+        faced = nba_matchups.faced_teams(SEASON, "RJ Barrett")
+        self.assertEqual(faced["josh giddey"], {"CHI": 2})
+        self.assertEqual(faced["jordan hawkins"], {"NO": 1})
+        self.assertEqual(faced["kevin huerter"], {"CHI": 1, "DET": 2})
+        self.assertNotIn("rj barrett", faced)
+        self.assertIsNone(nba_matchups.faced_teams(SEASON, "Nobody Here"))
+        self.assertIsNone(nba_matchups.faced_teams(None, "RJ Barrett"))
+
+    def test_only_games_for_the_opponent_count(self):
+        faced = nba_matchups.faced_teams(SEASON, "RJ Barrett")
+        theirs = nba_matchups.against([("2025-26", BARRETT, faced)], BULLS, "CHI")
+        # Hawkins guarded him only for New Orleans: not one of Chicago's.
+        self.assertEqual([item["name"] for item in theirs], ["Josh Giddey", "Isaac Okoro", "Kevin Huerter"])
+        # Huerter: one of his three games against him was for Chicago.
+        huerter = theirs[2]
+        self.assertEqual((huerter["poss"], huerter["gp"]), (10, 1))
+        self.assertEqual(huerter["pts"], 30.0)           # 4 of his 12 points, in 10 possessions, per 75
+        # Shares of the 90 possessions against Chicago's players.
+        self.assertEqual([item["share"] for item in theirs], [67, 22, 11])
+        self.assertEqual(theirs[0]["seasons"], ["2025-26"])
+        # Without the box scores, every game counts (the card as it was).
+        self.assertEqual([item["name"] for item in nba_matchups.against([("2025-26", BARRETT, None)], BULLS, "CHI")],
+                         ["Josh Giddey", "Jordan Hawkins", "Kevin Huerter", "Isaac Okoro"])
+
+    def test_both_seasons_and_the_likely_one(self):
+        now = datetime(2026, 11, 2, tzinfo=timezone.utc)
+        seasons = {2027: [matchup(21, "Isaac Okoro", 45, 6, 3, 9, gp=1)], 2026: BARRETT}
+        boxes = {2027: {"players": SEASON["players"], "games": {"9": game("9", {"CHI": ["21", "20"], "TOR": ["10"]})}}, 2026: SEASON}
+        with patch.object(nba_matchups, "players", return_value=BULLS), \
+             patch.object(nba_matchups, "season_matchups", side_effect=lambda pid, year: seasons[year]), \
+             patch.object(nba_matchups, "defense_shooting", return_value={"21": {"dfg": 45.8}}):
+            card = nba_matchups.defender("RJ Barrett", "TOR", "CHI", now=now,
+                                         faced=lambda year: nba_matchups.faced_teams(boxes[year], "RJ Barrett"))
+        # Okoro: 45 possessions this season and 20 last; Giddey 60 last season.
+        self.assertEqual([(item["name"], item["poss"]) for item in card["theirs"]],
+                         [("Isaac Okoro", 65), ("Josh Giddey", 60), ("Kevin Huerter", 10)])
+        self.assertEqual(card["theirs"][0]["seasons"], ["2026-27", "2025-26"])
+        self.assertEqual(card["theirs"][0]["gp"], 3)
+        self.assertEqual(card["theirs"][0]["shooting"], {"dfg": 45.8})
+        self.assertEqual(card["likely"], {"id": "21", "share": 48, "sure": "likely"})
+        self.assertNotIn("Jordan Hawkins", [item["name"] for item in card["theirs"]])
+        # The rest of the card is still his main season, every defender he faced.
+        self.assertEqual(card["season"], "2025-26")
+        self.assertIn("Jordan Hawkins", [item["name"] for item in card["defenders"]])
+
+    def test_box_scores_that_fail_count_every_game(self):
+        def broken(year):
+            raise RuntimeError("store down")
+        with patch.object(nba_matchups, "players", return_value=BULLS), \
+             patch.object(nba_matchups, "season_matchups", side_effect=lambda pid, year: BARRETT if year == 2026 else []), \
+             patch.object(nba_matchups, "defense_shooting", return_value={}):
+            card = nba_matchups.defender("RJ Barrett", "TOR", "CHI", now=datetime(2026, 11, 2, tzinfo=timezone.utc), faced=broken)
+        self.assertEqual(len(card["theirs"]), 4)
+
+
 class LookupTests(unittest.TestCase):
     def test_names_and_codes(self):
         self.assertEqual(nba_matchups.season_label(2027), "2026-27")

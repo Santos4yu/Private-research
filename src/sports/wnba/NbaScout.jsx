@@ -10,6 +10,7 @@ import React,{useEffect,useMemo,useState} from 'react';
 import {Activity,ChevronDown,ChevronRight,Medal,Shield,Swords,Target,UserRound,Users} from 'lucide-react';
 import {baseMarket,finite,fmt,opponentOf,ordinal,positionOf,realGames,shortDate,signed,useWnba} from './wnba-research';
 import {cardScores} from '../../nba-matchup-score';
+import {theirDefenders,theirSeasons} from './defenders';
 import './nba-scout.css';
 
 export function Card({title,note,icon:Icon=Activity,className='',children}){
@@ -166,26 +167,23 @@ const GUARD_ROWS=[
  ['On threes',item=>item.shooting?.three?.pct,true,value=>`${fmt(value,1)}%`],
  ['STL+BLK',item=>item.stlBlk,false,value=>fmt(value,1)]];
 
-export function LikelyDefenders({row}){
+export function LikelyDefenders({row,league,matchup}){
  const opponent=(row.opponent||opponentOf(row));
  const state=useWnba('defender',{league:'nba',player:row.player,team:row.teamAbbr,opponent},Boolean(row.player&&opponent));
- const data=state.data;
- const top=useMemo(()=>{
-  const theirs=(data?.defenders||[]).filter(item=>item.team===data?.opponent).sort((a,b)=>b.poss-a.poss).slice(0,3);
-  const total=theirs.reduce((sum,item)=>sum+(item.poss||0),0);
-  return theirs.map(item=>({...item,share:total?item.poss/total*100:null}));
- },[data]);
+ const data=state.data,injuries=matchup?.data?.injuries?.[opponent];
+ const top=useMemo(()=>theirDefenders(data,injuries).slice(0,3),[data,injuries]);
  if(state.loading&&!data)return <Card title="Who guards him" icon={Swords}><Loading/></Card>;
  if(state.error||top.length<2)return null;
  const rows=GUARD_ROWS.filter(([,read])=>top.filter(item=>finite(read(item))).length>=2);
- return <Card title="Who guards him" note="most time on him" icon={Swords} className="nba-guards">
+ const them=teamName(league?.data,opponent);
+ return <Card title="Who guards him" note={`most time on him vs ${them}`} icon={Swords} className="nba-guards">
   <div className="ng2-grid" style={{'--cols':top.length}}>
-   <span/>{top.map(item=><figure key={item.id} data-likely={item.id===data.likely?.id||undefined}><Photo src={nbaHead(item.id)} size="lg"/><figcaption>{lastWord(item.name)}</figcaption></figure>)}
+   <span/>{top.map((item,index)=><figure key={item.id} data-likely={(index===0&&item.poss>=5)||undefined}><Photo src={nbaHead(item.id)} size="lg"/><figcaption>{lastWord(item.name)}</figcaption></figure>)}
    {rows.map(([label,read,lowerTough,show])=>{const values=top.map(read),known=values.filter(finite);
     const toughest=lowerTough==null||!known.length?null:(lowerTough?Math.min(...known):Math.max(...known));
     return <React.Fragment key={label}><b className="ng2-label">{label}</b>{values.map((value,index)=><span key={top[index].id} data-tough={finite(value)&&value===toughest||undefined}>{finite(value)?show(value):'—'}</span>)}</React.Fragment>;})}
   </div>
-  <p className="nd-foot">Shaded: the toughest on {lastWord(row.player)} in that row. Time on him: his possessions against each of them this season ({data.season}). From NBA.com's matchup and defense tracking.</p>
+  <p className="nd-foot">Time on him: of {lastWord(row.player)}&rsquo;s possessions against players on the {them} now, the share each one guarded him, only in games they played for the {them} ({theirSeasons(data,top)}). Anyone out tonight is left off. Shaded: the toughest on him in that row; FG% allowed, at the rim and on threes are against every shooter ({data.season}). From NBA.com&rsquo;s matchup and defense tracking.</p>
  </Card>;
 }
 

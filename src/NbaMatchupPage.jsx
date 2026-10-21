@@ -207,7 +207,7 @@ export function NbaMatchupPage({row,lines,league,onBack}){
    {tab==='overview'&&<>{log.loading&&!logs.length?<Card title="His games" icon={LineChart}><Loading/></Card>:<><Averages logs={logs}/><Trend row={row} lines={lines} logs={logs}/></>}
     <Injuries row={row} league={leagueState} matchup={matchup} player={player}/></>}
    {tab==='matchup'&&<><MatchupGrade row={row} league={leagueState} logs={logs}/><PlayTypes row={row}/>
-    <LikelyDefenders row={row}/><ShotLink row={row} league={leagueState} onOpen={()=>setShots(true)}/><VsTeam row={row} league={leagueState} logs={logs} lines={lines}/></>}
+    <LikelyDefenders row={row} league={leagueState} matchup={matchup}/><ShotLink row={row} league={leagueState} onOpen={()=>setShots(true)}/><VsTeam row={row} league={leagueState} logs={logs} lines={lines}/></>}
    {tab==='stats'&&<><PositionRanks row={row}/><GameLog logs={logs} league={leagueState}/></>}
   </div>
   {shots&&<div className="mp-sheet" role="dialog" aria-modal="true" aria-label="Shot zones" onClick={event=>{if(event.target===event.currentTarget)setShots(false);}}>

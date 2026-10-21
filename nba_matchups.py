@@ -8,9 +8,12 @@ is: nothing else here has who guarded whom.
 
 For a player this reads every defender he faced, puts each pair on the
 same footing (per 75 possessions, about a game), and sets it against his
-own season across all of them. Today's opponent's defenders come first,
-the one who guarded him most is the likely defender, and how sure that is
-depends on how much of the time vs that team it was him.
+own season across all of them. Today's opponent's defenders are the ones on
+its roster now, counted only for the games they played for it against him
+(this season and last; ESPN's box scores say who played for whom), so a
+player who guarded him for another team isn't one of theirs. The one who
+guarded him most is the likely defender, and how sure that is depends on
+how much of the time vs that team it was him.
 
 NBA.com is slow and sometimes refuses servers outright; answers are kept
 for hours, a refusal is remembered for a minute, and the page shows
@@ -75,6 +78,11 @@ def name_key(name) -> str:
     text = unicodedata.normalize("NFKD", str(name or "")).encode("ascii", "ignore").decode().lower()
     words = [word for word in re.sub(r"[^a-z ]+", " ", text.replace("'", "")).split() if word not in SUFFIXES]
     return " ".join(words)
+
+
+def _key(name) -> str:
+    """A name both NBA.com and ESPN spell alike ("P.J." and "PJ" too)."""
+    return name_key(str(name or "").replace(".", ""))
 
 
 def team_code(value) -> str:
@@ -206,12 +214,88 @@ def _minutes(value):
     return _number(value) or 0
 
 
-def view(rows: list, roster: list, opponent: str, season: int) -> dict:
-    """The card: his season across every defender (`usual`), each defender
-    he faced (most possessions first, today's opponent's flagged), and the
-    likely defender today with how sure that is."""
+def faced_teams(payload: dict | None, name: str) -> dict | None:
+    """{defender: {team: games}} for one stored season of ESPN box scores:
+    for every game he played, the team each opposing player who played was
+    on (defenders by _key). None when the season or he isn't in it."""
+    if not payload or not payload.get("games"):
+        return None
+    wanted, directory = _key(name), payload.get("players") or {}
+    mine = {str(pid) for pid, entry in directory.items() if entry and _key(entry[0]) == wanted}
+    if not wanted or not mine:
+        return None
+    out: dict = {}
+    for game in payload["games"].values():
+        sides = game.get("t") or {}
+        if len(sides) != 2:
+            continue
+        for team, side in sides.items():
+            if not any(str(entry[0]) in mine for entry in side.get("p") or []):
+                continue
+            other = next(code for code in sides if code != team)
+            for entry in sides[other].get("p") or []:
+                person = directory.get(str(entry[0]))
+                if person:
+                    games = out.setdefault(_key(person[0]), {})
+                    games[other] = games.get(other, 0) + 1
+    return out
+
+
+def against(seasons: list, roster: list, opponent: str) -> list:
+    """His possessions against each player on the opponent's roster now,
+    over [(season label, rows, faced)]. Only the games a defender played
+    for the opponent count: a pair's season is split by his games against
+    him for each team (`faced`, faced_teams()), and a player who guarded him
+    only for another team drops out. When the box scores don't have the
+    pair (or the season), all of it counts. Most possessions first, each
+    with `share`: his percent of the possessions against them all."""
     teams = {person["id"]: person["team"] for person in roster}
     opponent = team_code(opponent)
+    kept: dict = {}
+    for label, rows, faced in seasons:
+        for row in rows or []:
+            pid = str(row.get("DEF_PLAYER_ID") or "")
+            if not pid or not opponent or teams.get(pid) != opponent:
+                continue
+            part = 1.0
+            games = (faced or {}).get(_key(row.get("DEF_PLAYER_NAME"))) or {}
+            if sum(games.values()):
+                part = games.get(opponent, 0) / sum(games.values())
+            if not part:
+                continue
+            pair = _totals([row])
+            entry = kept.setdefault(pid, {"name": row.get("DEF_PLAYER_NAME") or "", "seasons": [],
+                                          "totals": {key: 0.0 for key in pair}})
+            for key, value in pair.items():
+                entry["totals"][key] += value * part
+            if label not in entry["seasons"]:
+                entry["seasons"].append(label)
+    theirs = []
+    for pid, entry in kept.items():
+        entry["totals"]["gp"] = round(entry["totals"]["gp"])
+        if entry["totals"]["poss"] > 0:
+            theirs.append({"id": pid, "name": entry["name"], "team": opponent, "seasons": entry["seasons"], **line(entry["totals"])})
+    theirs.sort(key=lambda item: -item["poss"])
+    total = sum(item["poss"] for item in theirs)
+    for item in theirs:
+        item["share"] = round(item["poss"] / total * 100) if total else None
+    return theirs
+
+
+def _likely(theirs: list) -> dict | None:
+    """The one of theirs who guarded him most, and how sure that is."""
+    if not theirs or theirs[0]["poss"] < 5:
+        return None
+    top = theirs[0]
+    return {"id": top["id"], "share": top["share"], "sure": "likely" if top["share"] >= 40 and top["gp"] >= 2 else "possible"}
+
+
+def view(rows: list, roster: list, opponent: str, season: int, faced: dict | None = None) -> dict:
+    """The card: his season across every defender (`usual`), each defender
+    he faced (most possessions first, on the team each is on now), today's
+    opponent's (`theirs`, against()) and the likely defender today with how
+    sure that is."""
+    teams = {person["id"]: person["team"] for person in roster}
     defenders = []
     for row in rows:
         pid = str(row.get("DEF_PLAYER_ID") or "")
@@ -220,39 +304,51 @@ def view(rows: list, roster: list, opponent: str, season: int) -> dict:
         defenders.append({"id": pid, "name": row.get("DEF_PLAYER_NAME") or "", "team": teams.get(pid, ""),
                           **line(_totals([row]))})
     defenders.sort(key=lambda item: -item["poss"])
-    theirs = [item for item in defenders if opponent and item["team"] == opponent]
-    against = sum(item["poss"] for item in theirs)
-    likely = None
-    if theirs and theirs[0]["poss"] >= 5:
-        share = theirs[0]["poss"] / against if against else 0
-        likely = {"id": theirs[0]["id"], "share": round(share * 100),
-                  "sure": "likely" if share >= 0.4 and theirs[0]["gp"] >= 2 else "possible"}
-    return {"season": season_label(season), "usual": line(_totals(rows)), "opponent": opponent,
-            "defenders": defenders, "likely": likely}
+    theirs = against([(season_label(season), rows, faced)], roster, opponent)
+    return {"season": season_label(season), "usual": line(_totals(rows)), "opponent": team_code(opponent),
+            "defenders": defenders, "theirs": theirs, "likely": _likely(theirs)}
 
 
-def defender(name: str, team: str, opponent: str, now: datetime | None = None) -> dict:
+def defender(name: str, team: str, opponent: str, now: datetime | None = None, faced=None) -> dict:
     """The whole card for a player by ESPN name and team: this season once
-    it has enough possessions, else last season (its first weeks)."""
+    it has enough possessions, else last season (its first weeks). Today's
+    opponent's defenders read both seasons, each only for the games they
+    played for it against him: `faced(season)` gives faced_teams() for a
+    season (None when the box scores aren't to be had)."""
     season = current_season(now)
+
+    def seen(year):
+        try:
+            return faced(year) if faced else None
+        except Exception:  # noqa: BLE001 -- without the box scores, every game counts
+            return None
+
     # Today's rosters say which team each defender is on now.
     roster = players(season) or players(season - 1)
     person = find_player(roster, name, team) or find_player(players(season - 1), name, team)
     if not person:
-        return {"player": None, "season": season_label(season), "usual": None, "opponent": team_code(opponent), "defenders": [], "likely": None}
+        return {"player": None, "season": season_label(season), "usual": None, "opponent": team_code(opponent), "defenders": [],
+                "theirs": [], "likely": None}
     try:
         current = season_matchups(person["id"], season)
     except Unreachable:
         # This season unanswered: last season's alone.
         current = []
+    try:
+        before = season_matchups(person["id"], season - 1)
+    except Unreachable:
+        before = []
     card, year = view(current, roster, opponent, season), season
     if card["usual"]["poss"] < ENOUGH:
-        last = view(season_matchups(person["id"], season - 1), roster, opponent, season - 1)
+        last = view(before, roster, opponent, season - 1)
         if last["usual"]["poss"] > card["usual"]["poss"]:
             card, year = last, season - 1
+    theirs = against([(season_label(season), current, seen(season)), (season_label(season - 1), before, seen(season - 1))],
+                     roster, opponent)
+    card["theirs"], card["likely"] = theirs, _likely(theirs)
     # How well each defender holds shooters, the same season.
     shooting = defense_shooting(year)
-    for item in card["defenders"]:
+    for item in card["defenders"] + card["theirs"]:
         item["shooting"] = shooting.get(item["id"])
     return {"player": person, **card}
 

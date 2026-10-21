@@ -113,6 +113,23 @@ not book odds.
 - Jersey number in the banner: ESPN's rosters (`api/wnba.py`
   `_roster_directory`, cache key now `nba:v2`) give each NBA row a
   `jersey`; the banner reads "#5 · Timberwolves · Guard".
+- "Who guards him" (both the Matchup tab card and the Finder's Defense
+  tab): the owner showed RJ Barrett vs Chicago listing Jordan Hawkins,
+  who guarded him for New Orleans and only joined the Bulls in Oct 2026,
+  and missing Isaac Okoro (RotoBot: Okoro, Giddey, Buzelis). NBA.com's
+  season matchups don't say which team a defender was on, so
+  `nba_matchups.against()` now splits each pair by the games the
+  defender played for each team against him (ESPN box scores,
+  `faced_teams()`), over this season and last. The answer's `theirs`
+  list (with `share`, `seasons`) is what both cards show, less anyone
+  listed Out on tonight's injury report (`src/sports/wnba/defenders.js`).
+  The rest of the card (`defenders`, `usual`) is still one season.
+- The matchup score vs RotoBot's per-player grades: tested his games vs
+  the team, similar players vs the team, defenders, play types and shot
+  zones against RotoBot's Dallas guards (Sheppard, Thompson, Smart); none
+  explains their player-by-player part, which looks like a trained model.
+  The owner was told; the team + position part stays as fitted. Offered,
+  not built: a small "his games vs them" piece (narrows the gap ~1 point).
 
 ### Also on the site (another session, same week)
 
@@ -131,8 +148,7 @@ not book odds.
   exactly: RotoBot's formula is private and it uses NBA.com data, while
   ours mostly comes from ESPN box scores. Say so plainly, and fix any
   number that's clearly wrong.
-- Not built yet: a Highlights tab (RotoBot has one). What goes in it isn't
-  decided: ask the owner (video clips from ESPN's game recaps, or his
-  standout games and streaks).
+- Not built: a Highlights tab (RotoBot has one). The owner said to leave
+  it ("Nothing sir that"); don't bring it up unless they do.
 - The shot chart's corner-three counts come from ESPN play-by-play
   coordinates and can differ from NBA.com's.
