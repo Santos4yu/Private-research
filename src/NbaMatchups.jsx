@@ -83,7 +83,10 @@ export function NbaMatchups(){
   .filter(row=>(stat==='all'||row.marketKey===stat)&&(game==='all'||gameOf(row)===game)&&(!needle||row.player.toLowerCase().includes(needle)))
   .map(row=>({row,read:scores.get(row.id)||null,hit:hitOf(row)}))
   .sort((a,b)=>sort==='hit'?(b.hit?.rate??-1)-(a.hit?.rate??-1)||(b.read?.score??-1)-(a.read?.score??-1)
-   :(b.read?.score??-1)-(a.read?.score??-1)||(b.hit?.rate??-1)-(a.hit?.rate??-1)),[rows,scores,stat,game,needle,sort]);
+   :(b.read?.score??-1)-(a.read?.score??-1)||(b.hit?.rate??-1)-(a.hit?.rate??-1))
+  // All stats: each player once, at his best line by the sort; a stat chip lists that stat's line.
+  .filter((item,index,list)=>stat!=='all'||list.findIndex(other=>other.row.player===item.row.player&&other.row.teamAbbr===item.row.teamAbbr)===index),
+  [rows,scores,stat,game,needle,sort]);
  const counts=useMemo(()=>rows.reduce((out,row)=>({...out,[row.marketKey]:(out[row.marketKey]||0)+1}),{}),[rows]);
  // A player's page: its own history entry, so the phone's back gesture
  // closes it the same as the page's back button.
