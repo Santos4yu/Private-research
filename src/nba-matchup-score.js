@@ -9,14 +9,18 @@
 //   his games        10%  his games against them, held against his usual,
 //                         trusted by how many there are
 //
-// Each read is the opponent's place in the league, from -1 (the toughest
-// team there is at it) to 1 (the softest). The score is their weighted
-// blend, from 0 (every read the toughest) to 100 (every read the softest),
-// a read with nothing behind it leaving its share to the others. A bad,
-// fast defense lifts every stat, and the stat's own matchup spreads them:
-// a defense with the 6th-most points allowed, the 5th-worst rating and the
-// 7th-fastest pace scores about 82 for points when it gives guards the
-// 7th-most, and about 53 for threes when it holds them to the 3rd-fewest.
+// Each read is how far the opponent's number sits from the league's
+// average, in spreads (standard deviations), from -1 (1.65 spreads or more
+// on the tough side: about the league's toughest 5%) to 1 (as far on the
+// soft side). Measuring the gap, not the place, lets a defense far worse
+// than everyone else read as soft as it gets, while teams bunched near the
+// middle stay near 50. The score is the reads' weighted blend, from 0 to
+// 100, a read with nothing behind it leaving its share to the others. A
+// bad, fast defense lifts every stat, and the stat's own matchup spreads
+// them: with every team's numbers spread evenly, a defense with the
+// 6th-most points allowed, the 5th-worst rating and the 7th-fastest pace
+// scores about 82 for points when it gives guards the 7th-most, and about
+// 53 for threes when it holds them to the 3rd-fewest.
 //
 import {defenseCell, statGameLog} from './unified-finder-data.js';
 import {MARKET_STAT, baseMarket} from './sports/wnba/wnba-research.js';
@@ -49,6 +53,19 @@ const statOf = row => MARKET_STAT[baseMarket(row?.marketKey)] || null;
 // (the fewest allowed, the toughest); "most first": rank 1 is the highest.
 const fromLeast = (rank, count) => finite(rank) && count > 1 ? clamp((rank - (count + 1) / 2) / ((count - 1) / 2), -1, 1) : null;
 const fromMost = (rank, count) => finite(rank) && count > 1 ? clamp(((count + 1) / 2 - rank) / ((count - 1) / 2), -1, 1) : null;
+// How far value sits from the league's numbers, -1 to 1 (FULL spreads or
+// more is the end), a higher number the soft side. null when there aren't
+// enough teams to measure against.
+const FULL = 1.65;
+function fromAverage(value, values) {
+  const kept = (values || []).filter(finite);
+  if (!finite(value) || kept.length < 8) return null;
+  const average = mean(kept), spread = Math.sqrt(mean(kept.map(item => (item - average) ** 2)));
+  if (!(spread > 0)) return 0;
+  const gap = (value - average) / spread;
+  return clamp(gap / FULL, -1, 1);
+}
+const column = (table, read) => Object.values(table || {}).map(read);
 // "7th most" / "3rd fewest" from a least-first rank.
 function place(rank, count, [low, high] = ['fewest', 'most']) {
   if (!finite(rank) || !count) return '';
@@ -59,7 +76,8 @@ function place(rank, count, [low, high] = ['fewest', 'most']) {
 function defenseRead(row, league) {
   const allowed = league?.teamStats?.[row.opponent]?.def?.pts, count = league?.teamCount;
   const table = league?.opportunity, rating = table?.teams?.[row.opponent]?.drtg, teams = table?.count || count;
-  const parts = [fromLeast(allowed?.[1], count), fromMost(rating?.[1], teams)].filter(finite);
+  const parts = [fromAverage(allowed?.[0], column(league?.teamStats, team => team?.def?.pts?.[0])) ?? fromLeast(allowed?.[1], count),
+    fromAverage(rating?.[0], column(table?.teams, team => team?.drtg?.[0])) ?? fromMost(rating?.[1], teams)].filter(finite);
   if (!parts.length) return null;
   const words = [finite(allowed?.[0]) && `${row.opponent} gives up ${one(allowed[0])} points a game (${place(allowed[1], count)})`,
     finite(rating?.[0]) && `${one(rating[0])} per 100 possessions (${place(finite(rating[1]) ? teams - rating[1] + 1 : null, teams, ['lowest', 'highest'])})`];
@@ -69,16 +87,19 @@ function defenseRead(row, league) {
 /** How fast they play. */
 function paceRead(row, league) {
   const table = league?.opportunity, pace = table?.teams?.[row.opponent]?.poss, teams = table?.count || league?.teamCount;
-  const soft = fromMost(pace?.[1], teams);
-  if (!finite(soft) || !finite(pace?.[0])) return null;
-  return {key: 'pace', soft, text: `${row.opponent} plays at ${one(pace[0])} possessions a game (${place(teams - pace[1] + 1, teams, ['slowest', 'fastest'])})`};
+  if (!finite(pace?.[0])) return null;
+  const soft = fromAverage(pace[0], column(table.teams, team => team?.poss?.[0])) ?? fromMost(pace[1], teams);
+  if (!finite(soft)) return null;
+  const where = place(finite(pace[1]) ? teams - pace[1] + 1 : null, teams, ['slowest', 'fastest']);
+  return {key: 'pace', soft, text: `${row.opponent} plays at ${one(pace[0])} possessions a game${where ? ` (${where})` : ''}`};
 }
 
 /** What they allow his position in the stat (dvp: rank 1 allows the least). */
 function positionRead(row, league, stat) {
   const cell = defenseCell(row, league);
-  const soft = fromLeast(cell?.rank, league?.teamCount);
-  if (!cell || !finite(soft) || !finite(cell.value)) return null;
+  if (!cell || !finite(cell.value)) return null;
+  const soft = fromAverage(cell.value, cell.values) ?? fromLeast(cell.rank, league?.teamCount);
+  if (!finite(soft)) return null;
   return {key: 'position', soft,
     text: `${row.opponent} allows ${one(cell.value)} ${WORDS[stat] || 'of it'} a game to ${POSITIONS[cell.position] || 'his position'} (${place(cell.rank, league.teamCount)})`};
 }

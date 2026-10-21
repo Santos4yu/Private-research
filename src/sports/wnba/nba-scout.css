@@ -7,30 +7,63 @@
 .nba-mp button{font-family:inherit}
 .nba-mp button:focus-visible{outline:2px solid var(--mp-accent);outline-offset:2px}
 
-/* Header: back, who he is, tonight's game, his photo. */
-.nba-mp .mp-hero{position:relative;overflow:hidden;margin-bottom:12px;padding:14px 16px 0;border:1px solid var(--mp-line);border-radius:22px;
- background:radial-gradient(120% 120% at 100% 0,color-mix(in srgb,var(--team,#3b82f6) 32%,transparent),transparent 62%),linear-gradient(180deg,#181c24,#121212)}
-.nba-mp .mp-back{display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:0 14px 0 10px;border:1px solid #ffffff22;border-radius:999px;
- background:#0000004d;color:#fff;font-size:13px;font-weight:700;cursor:pointer}
-.nba-mp .mp-hero-main{display:grid;grid-template-columns:minmax(0,1fr) 150px;align-items:end;gap:10px}
-.nba-mp .mp-hero-text{padding:14px 0 16px}
-.nba-mp .mp-hero h1{margin:0;font:800 28px/1.05 'Sora',var(--font-sans);letter-spacing:-.02em}
-.nba-mp .mp-hero p{margin:6px 0 12px;color:#c9ccd3;font-size:13.5px;font-weight:600}
-.nba-mp .mp-next{display:inline-flex;align-items:center;gap:10px;padding:9px 14px 9px 10px;border:1px solid #ffffff1f;border-radius:14px;background:#0000005c}
+/* The banner: his team's colours edge to edge, his photo on the right
+   over a faint team logo, his name on two lines, tonight's game. On phones
+   it runs the full width of the screen from the very top. */
+.nba-mp .mp-hero{position:relative;isolation:isolate;overflow:hidden;display:flex;flex-direction:column;align-items:flex-start;min-height:300px;margin-bottom:12px;
+ padding:16px 18px 18px;border-radius:26px;
+ background:radial-gradient(85% 75% at 82% 30%,color-mix(in srgb,var(--team,#2f5b9a) 50%,transparent),transparent 72%),
+  linear-gradient(160deg,color-mix(in srgb,var(--team,#2f5b9a) 42%,#0b0d12) 0%,#0b0d12 80%)}
+.nba-mp .mp-hero-mark{position:absolute;z-index:-2;top:46%;right:4%;width:min(64%,320px);aspect-ratio:1;object-fit:contain;transform:translateY(-50%);
+ opacity:.12;filter:grayscale(1) brightness(1.8);pointer-events:none}
+.nba-mp .mp-hero-photo{position:absolute;z-index:-1;right:-6px;bottom:0;width:auto;max-width:none;height:min(80%,260px);object-fit:contain;object-position:bottom right;
+ filter:drop-shadow(0 12px 28px #0009);pointer-events:none}
+.nba-mp .mp-back{display:grid;place-items:center;flex:none;width:44px;height:44px;padding:0;border:1px solid #ffffff30;border-radius:50%;background:#00000052;color:#fff;cursor:pointer}
+.nba-mp .mp-hero-text{display:flex;flex-direction:column;align-items:flex-start;margin-top:auto;padding-top:26px;max-width:62%}
+.nba-mp .mp-hero h1{margin:0;font:800 36px/1.02 'Sora',var(--font-sans);letter-spacing:-.025em;white-space:nowrap;text-shadow:0 2px 18px #000a}
+.nba-mp .mp-hero[data-long=l] h1{font-size:30px}
+.nba-mp .mp-hero[data-long=xl] h1{font-size:24px}
+.nba-mp .mp-hero p{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0 14px;color:#d3d8e0;font-size:14px;font-weight:700;text-shadow:0 1px 10px #000a}
+.nba-mp .mp-hero p i{width:4px;height:4px;border-radius:50%;background:#8d95a3}
+.nba-mp .mp-next{display:inline-flex;align-items:center;gap:10px;padding:9px 16px 9px 10px;border:1px solid #ffffff24;border-radius:16px;background:#0b0d12b8;backdrop-filter:blur(8px)}
 .nba-mp .mp-next img{width:34px;height:34px;object-fit:contain}
 .nba-mp .mp-next span{display:grid;gap:1px}
 .nba-mp .mp-next small{color:#9aa0aa;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
 .nba-mp .mp-next b{font-size:16px}
-.nba-mp .mp-next em{color:#c9ccd3;font-size:12px;font-style:normal}
-.nba-mp .mp-hero-photo{position:relative;align-self:end;height:150px}
-.nba-mp .mp-hero-photo img{position:absolute;right:-12px;bottom:0;width:190px;max-width:none;height:150px;object-fit:cover;object-position:top}
+.nba-mp .mp-next em{color:#c9ccd3;font-size:12px;font-style:normal;white-space:nowrap}
 
-/* Sections. */
-.nba-mp .mp-tabs{position:sticky;top:0;z-index:5;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:12px;padding:6px;
- border:1px solid var(--mp-line);border-radius:999px;background:#101010f2;backdrop-filter:blur(8px)}
-.nba-mp .mp-tabs button{min-height:38px;border:0;border-radius:999px;background:transparent;color:var(--mp-muted);font-size:13px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;cursor:pointer}
-.nba-mp .mp-tabs button[aria-selected=true]{background:var(--mp-accent);color:var(--theme-on-accent,#071018)}
+/* Sections, pinned under a slim bar (photo, name, tonight's game) once the banner scrolls away. */
+.nba-mp{--mp-mini-h:58px;--mp-bg:var(--theme-bg,#0a0a0a)}
+.nba-mp .mp-stick-slot{margin-bottom:12px}
+.nba-mp .mp-stick{padding:6px 0;background:var(--mp-bg)}
+.nba-mp .mp-stick[data-mini]{position:fixed;top:var(--mp-mini-h);z-index:40;box-sizing:border-box}
+.nba-mp .mp-mini{position:absolute;right:0;bottom:100%;left:0;display:flex;align-items:center;gap:10px;height:var(--mp-mini-h);padding:0 4px;
+ border-bottom:1px solid var(--mp-line);background:linear-gradient(90deg,color-mix(in srgb,var(--team,#2f5b9a) 22%,var(--mp-bg)),var(--mp-bg) 70%);
+ opacity:0;pointer-events:none;transform:translateY(-6px);transition:opacity .16s ease,transform .16s ease}
+.nba-mp .mp-stick[data-mini] .mp-mini{opacity:1;pointer-events:auto;transform:none}
+.nba-mp .mp-mini .mp-back{width:36px;height:36px}
+.nba-mp .mp-mini>b{overflow:hidden;min-width:0;font-size:15px;white-space:nowrap;text-overflow:ellipsis}
+.nba-mp .mp-mini-game{display:inline-flex;align-items:center;gap:6px;flex:none;margin-left:auto;padding:5px 11px;border:1px solid #ffffff1f;border-radius:999px;background:#ffffff0d;font-size:12.5px;font-weight:800}
+.nba-mp .mp-mini-game img{width:18px;height:18px;object-fit:contain}
+.nba-mp .mp-mini-game small{color:var(--mp-muted);font-size:11.5px;font-weight:700}
+@media (prefers-reduced-motion:reduce){.nba-mp .mp-mini{transition:none}}
+.nba-mp .mp-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.nba-mp .mp-tabs button{min-height:42px;border:1px solid #2a2f38;border-radius:999px;background:#12151b;color:#aeb4bf;font-size:12.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.nba-mp .mp-tabs button[aria-selected=true]{border-color:transparent;background:var(--mp-accent);color:var(--theme-on-accent,#071018);box-shadow:0 6px 22px color-mix(in srgb,var(--mp-accent) 32%,transparent)}
 .nba-mp .mp-body{display:grid;gap:12px}
+.nba-mp .mp-section{display:flex;align-items:center;gap:12px;margin:8px 2px 0;color:var(--mp-muted);font-size:11.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.nba-mp .mp-section::after{content:"";flex:1;height:1px;background:var(--mp-line)}
+
+@media (max-width:760px){
+ /* The page takes the whole screen: the app's title bar steps aside. */
+ :root[data-theme] body:has(#panel-v2:not([hidden]) #props-league-root[data-page=player]) .hero{display:none!important}
+ :root[data-theme] body #app-shell #panel-v2:has(#props-league-root[data-page=player]){padding-top:0!important}
+ .nba-mp{--mp-mini-h:calc(58px + env(safe-area-inset-top,0px))}
+ .nba-mp .mp-hero{margin:0 calc(50% - 50vw) 10px;min-height:calc(312px + env(safe-area-inset-top,0px));padding:calc(12px + env(safe-area-inset-top,0px)) 16px 18px;border-radius:0 0 28px 28px}
+ .nba-mp .mp-stick-slot{margin-inline:calc(50% - 50vw)}
+ .nba-mp .mp-stick{padding-inline:12px}
+ .nba-mp .mp-mini{padding:env(safe-area-inset-top,0px) 12px 0}
+}
 
 /* The card shell. */
 .nba-mp .mp-card{border:1px solid var(--mp-line);border-radius:18px;background:var(--mp-card);overflow:hidden}
@@ -126,42 +159,35 @@
 .nba-mp .mp-sheet-head b{font:800 18px/1.2 'Sora',var(--font-sans)}
 .nba-mp .mp-sheet-head button{display:grid;place-items:center;width:40px;height:40px;border:1px solid #2e2e2e;border-radius:50%;background:#1a1a1a;color:#fff;cursor:pointer}
 
-/* Matchup grade. */
-.nba-mp .ng-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:10px}
-.nba-mp .ng-verdict{display:grid;gap:3px;min-width:0}
-.nba-mp .ng-verdict small{color:var(--mp-faint);font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
-.nba-mp .ng-verdict b{font:800 22px/1.1 var(--font-sans);color:var(--mp-fair)}
-.nba-mp .ng-verdict span{color:var(--mp-muted);font-size:12px}
-.nba-mp .ng-score{display:flex;align-items:baseline;gap:2px;flex:none}
-.nba-mp .ng-score b{font:800 46px/1 'Sora',var(--font-sans);font-variant-numeric:tabular-nums}
-.nba-mp .ng-score small{color:var(--mp-faint);font-size:12px;font-weight:700}
-.nba-mp :is(.ng-verdict b,.ng-score)[data-tone=strong],.nba-mp .ng-score[data-tone=strong] b{color:var(--mp-good)}
-.nba-mp .ng-verdict b[data-tone=edge],.nba-mp .ng-score[data-tone=edge] b{color:var(--mp-edge)}
-.nba-mp .ng-verdict b[data-tone=tough],.nba-mp .ng-score[data-tone=tough] b{color:var(--mp-poor)}
-.nba-mp .ng-gauge{position:relative;height:8px;margin:2px 7px 0;border-radius:999px;background:linear-gradient(90deg,#EE5470,#F2915A 30%,#F6C35B 50%,#9BD86A 72%,#3FE39E)}
-.nba-mp .ng-gauge i{position:absolute;top:50%;width:16px;height:16px;border:3px solid #0f0f0f;border-radius:50%;background:#fff;transform:translate(-50%,-50%);box-shadow:0 0 0 1px #ffffff55}
-.nba-mp .ng-gauge-ends{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:9px 0 12px}
-.nba-mp .ng-gauge-ends>span{color:var(--mp-faint);font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
-.nba-mp .ng-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:10px}
-.nba-mp .ng-tiles button{display:grid;gap:2px;justify-items:start;min-width:0;padding:9px 10px;border:0;border-radius:12px;background:var(--mp-raised);color:inherit;text-align:left;cursor:pointer}
+/* Matchup grade: the stat and opponent with the position switch, the
+   verdict and number, the gauge, then all six stats in a row. */
+.nba-mp .nba-grade>header{padding:13px 14px 4px}
+.nba-mp .nba-grade>header h2{color:var(--mp-muted);font:800 11.5px/1.2 var(--font-sans);letter-spacing:.1em;text-transform:uppercase}
+.nba-mp .nba-grade>header h2 i{width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.7}
+.nba-mp .ng-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:8px 0 12px}
+.nba-mp .ng-verdict{display:grid;gap:4px;min-width:0}
+.nba-mp .ng-verdict b{font:800 25px/1.1 'Sora',var(--font-sans);color:var(--mp-fair)}
+.nba-mp .ng-verdict span{color:var(--mp-muted);font-size:13px}
+.nba-mp .ng-score{display:flex;align-items:baseline;gap:3px;flex:none}
+.nba-mp .ng-score b{font:800 52px/.9 'Sora',var(--font-sans);font-variant-numeric:tabular-nums}
+.nba-mp .ng-score small{color:var(--mp-faint);font-size:13px;font-weight:700}
+.nba-mp .ng-verdict b[data-tone=strong]{color:var(--mp-good)}
+.nba-mp .ng-verdict b[data-tone=edge]{color:var(--mp-edge)}
+.nba-mp .ng-verdict b[data-tone=tough]{color:var(--mp-poor)}
+.nba-mp .ng-gauge{position:relative;height:8px;margin:0 7px;border-radius:999px;background:linear-gradient(90deg,#EE5470,#F2915A 30%,#F6C35B 50%,#9BD86A 72%,#3FE39E)}
+.nba-mp .ng-gauge i{position:absolute;top:50%;width:18px;height:18px;border:3px solid #0f0f0f;border-radius:50%;background:#fff;transform:translate(-50%,-50%);box-shadow:0 0 0 1px #ffffff55}
+.nba-mp .ng-gauge-ends{display:flex;justify-content:space-between;margin:10px 0 14px;color:var(--mp-faint);font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.nba-mp .ng-tiles{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;padding-top:14px;border-top:1px solid var(--mp-line)}
+.nba-mp .ng-tiles button{display:grid;justify-items:center;gap:3px;min-width:0;padding:10px 2px 9px;border:1px solid #2a2a2a;border-radius:14px;background:var(--mp-raised);color:inherit;cursor:pointer}
 .nba-mp .ng-tiles button:disabled{opacity:.45;cursor:default}
-.nba-mp .ng-tiles button[aria-pressed=true]{box-shadow:inset 0 0 0 1.5px var(--mp-accent)}
-.nba-mp .ng-tiles span{color:var(--mp-faint);font-size:10px;font-weight:800;letter-spacing:.05em}
-.nba-mp .ng-tiles b{font:800 20px/1.1 var(--font-sans);font-variant-numeric:tabular-nums}
-.nba-mp .ng-tiles small{overflow:hidden;max-width:100%;color:var(--mp-muted);font-size:10.5px;font-weight:700;white-space:nowrap;text-overflow:ellipsis}
-.nba-mp .ng-tiles [data-tone=strong] :is(b,small){color:var(--mp-good)}
-.nba-mp .ng-tiles [data-tone=edge] :is(b,small){color:var(--mp-edge)}
-.nba-mp .ng-tiles [data-tone=tough] :is(b,small){color:var(--mp-poor)}
-.nba-mp .ng-reads{display:grid;gap:6px;margin:0;padding:0;list-style:none}
-.nba-mp .ng-reads li{display:grid;gap:4px;padding:9px 11px;border-radius:12px;background:var(--mp-raised)}
-.nba-mp .ng-read-head{display:flex;justify-content:space-between;gap:8px}
-.nba-mp .ng-read-head b{font-size:12.5px}
-.nba-mp .ng-read-head em{color:var(--mp-faint);font-size:11px;font-style:normal;font-weight:700}
-.nba-mp .ng-read-text{color:var(--mp-muted);font-size:12px;line-height:1.4}
-.nba-mp .ng-bar{display:block;height:5px;border-radius:999px;background:#2a2a2a;overflow:hidden}
-.nba-mp .ng-bar i{display:block;height:100%;border-radius:inherit;background:var(--mp-fair)}
-.nba-mp .ng-bar[data-tone=edge] i{background:var(--mp-edge)}
-.nba-mp .ng-bar[data-tone=tough] i{background:var(--mp-poor)}
+.nba-mp .ng-tiles button[aria-pressed=true]{border-color:var(--mp-accent);background:color-mix(in srgb,var(--mp-accent) 12%,var(--mp-raised))}
+.nba-mp .ng-tiles span{color:var(--mp-faint);font-size:10px;font-weight:800;letter-spacing:.06em}
+.nba-mp .ng-tiles button[aria-pressed=true] span{color:var(--mp-accent)}
+.nba-mp .ng-tiles b{font:800 20px/1.1 'Sora',var(--font-sans);font-variant-numeric:tabular-nums}
+.nba-mp .ng-tiles [data-tone=strong] b{color:var(--mp-good)}
+.nba-mp .ng-tiles [data-tone=edge] b{color:var(--mp-edge)}
+.nba-mp .ng-tiles [data-tone=neutral] b{color:var(--mp-fair)}
+.nba-mp .ng-tiles [data-tone=tough] b{color:var(--mp-poor)}
 
 /* Their defense. */
 .nba-mp .ns-base{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
@@ -172,6 +198,7 @@
 .nba-mp .ns-base [data-tone=soft] em,.nba-mp .ns-diverge-row[data-tone=soft] em{color:var(--mp-good)}
 .nba-mp .ns-base [data-tone=tough] em,.nba-mp .ns-diverge-row[data-tone=tough] em{color:var(--mp-poor)}
 .nba-mp .ns-sub-head{display:grid;gap:2px;margin:14px 0 6px}
+.nba-mp .mp-card-body>.ns-sub-head:first-child{margin-top:0}
 .nba-mp .ns-sub-head b{font-size:13px}
 .nba-mp .ns-sub-head span{color:var(--mp-faint);font-size:11.5px}
 .nba-mp :is(.ns-diverge-scale,.ns-diverge-row){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr) 84px;align-items:center;gap:10px}
@@ -181,6 +208,11 @@
 .nba-mp .ns-diverge-scale span:last-child{grid-column:3;text-align:right}
 .nba-mp .ns-diverge-row{padding:8px 0;border-top:1px solid #222}
 .nba-mp .ns-diverge-row:first-child{border-top:0}
+.nba-mp .ns-diverge-row[data-picked]{margin:0 -8px;padding:8px;border-radius:12px;background:color-mix(in srgb,var(--mp-accent) 9%,transparent);
+ box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--mp-accent) 38%,transparent)}
+.nba-mp .ns-diverge-row[data-picked]+.ns-diverge-row{border-top-color:transparent}
+.nba-mp .ns-fit{margin:0;padding:10px 12px;border-left:3px solid #4a4a4a;border-radius:10px;background:var(--mp-raised);color:#d6d6d6;font-size:12.5px;line-height:1.45}
+.nba-mp .ns-fit[data-tone=soft]{border-left-color:var(--mp-good)}.nba-mp .ns-fit[data-tone=tough]{border-left-color:var(--mp-poor)}
 .nba-mp .ns-diverge-name{display:grid;min-width:0}
 .nba-mp .ns-diverge-name b{overflow:hidden;font-size:12.5px;white-space:nowrap;text-overflow:ellipsis}
 .nba-mp .ns-diverge-name small{color:var(--mp-faint);font-size:11px}
@@ -308,11 +340,10 @@
 .nba-mp .ws-zone-num small{min-height:12px;color:var(--mp-faint);font-size:10px;font-weight:800}
 
 @media (max-width:520px){
- .nba-mp .mp-hero{border-radius:18px}
- .nba-mp .mp-hero-main{grid-template-columns:minmax(0,1fr) 118px}
- .nba-mp .mp-hero h1{font-size:24px}
- .nba-mp .mp-hero-photo{height:128px}
- .nba-mp .mp-hero-photo img{width:160px;height:128px}
+ .nba-mp .mp-hero-photo{height:min(70%,230px)}
+ .nba-mp .ng-score b{font-size:46px}
+ .nba-mp .ng-tiles{gap:5px}
+ .nba-mp .ng-tiles b{font-size:17px}
  .nba-mp .mp-avg-grid b{font-size:19px}
  .nba-mp .ns-base b,.nba-mp .nr-grid b{font-size:16px}
  .nba-mp .ns-diverge-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 76px;gap:8px}

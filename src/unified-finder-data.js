@@ -305,7 +305,7 @@ export function defenseCell(row, league) {
   const rank = cell?.szn?.[1];
   if (typeof rank !== 'number' || !Number.isFinite(rank)) return null;
   const everyone = Object.values(league.dvp).map(team => number(team?.[position]?.stats?.[stat]?.szn?.[0])).filter(value => value != null);
-  return {rank, value: number(cell.szn[0]), recent: number((cell.l10 || cell.l5)?.[0]), average: mean(everyone), position};
+  return {rank, value: number(cell.szn[0]), recent: number((cell.l10 || cell.l5)?.[0]), average: mean(everyone), values: everyone, position};
 }
 
 // What every team allows a position in a stat, against the league's

@@ -45,36 +45,44 @@ function softness(rank,count,softHigh=true){
 const toneOf=soft=>soft>=0.33?'soft':soft<=-0.33?'tough':'even';
 
 // ------------------------------------------------------------ Matchup grade
-const READ_NAMES={defense:'Their defense',pace:'Their pace',position:'vs his position',fit:'His games vs them'};
-export function GradeCard({row,league,logs}){
- const opponent=row.opponent||(row.opponent||opponentOf(row));
+// The grade on top (the stat picked, as defended at a position), then "Why
+// this score": the defense behind it, the picked stat's row marked.
+const STAT_KEYS={player_points:'pts',player_rebounds:'reb',player_assists:'ast',player_threes:'tpm',player_steals:'stl',player_blocks:'blk'};
+export function MatchupGrade({row,league,logs}){
+ const opponent=row.opponent||opponentOf(row);
  const own=positionOf(row.position)||'G';
  const [position,setPosition]=useState(own),[picked,setPicked]=useState(null);
  useEffect(()=>{setPosition(own);setPicked(null);},[own,row.id]);
  const history=useMemo(()=>logs?.length?{rows:logs}:row.history,[logs,row.history]);
  const scores=useMemo(()=>league.data?cardScores({...row,opponent,position},league.data,history):[],[row,opponent,position,league.data,history]);
  if(league.loading&&!league.data)return <Card title="Matchup grade" icon={Target}><Loading/></Card>;
- if(!scores.some(item=>item.score!=null))return null;
+ if(!scores.some(item=>item.score!=null))return <TheirDefense row={row} league={league} position={position}/>;
  const mine=scores.find(item=>item.marketKey===baseMarket(row.marketKey));
  const chosen=scores.find(item=>item.marketKey===picked&&item.score!=null)||(mine?.score!=null?mine:null)||scores.find(item=>item.score!=null);
- return <Card title="Matchup grade" note={`vs ${opponent}`} icon={Target} className="nba-grade">
-  <div className="ng-head">
-   <div className="ng-verdict"><small>{chosen.stat} matchup</small><b data-tone={chosen.tone}>{chosen.label}</b>
-    <span>{position===own?'Defended as a':'If defended as a'} {POS_WORDS[position][0]}</span></div>
-   <div className="ng-score" data-tone={chosen.tone}><b>{chosen.score}</b><small>/100</small></div>
+ return <>
+  <GradeCard opponent={opponent} own={own} position={position} onPosition={setPosition} scores={scores} chosen={chosen} onPick={setPicked}/>
+  <div className="mp-section"><span>Why this score</span></div>
+  <TheirDefense row={row} league={league} position={position} stat={STAT_KEYS[chosen.marketKey]} fit={chosen.reads?.find(read=>read.key==='fit')}/>
+ </>;
+}
+
+function GradeCard({opponent,own,position,onPosition,scores,chosen,onPick}){
+ return <section className="mp-card nba-grade" aria-label="Matchup grade">
+  <header><h2>{chosen.stat} matchup <i aria-hidden="true"/> vs {opponent}</h2>
+   <div className="ns-seg" role="group" aria-label="Defended as">{POSITIONS.map(key=><button type="button" key={key} aria-pressed={position===key} onClick={()=>onPosition(key)}>{key}</button>)}</div></header>
+  <div className="mp-card-body">
+   <div className="ng-head">
+    <div className="ng-verdict"><b data-tone={chosen.tone}>{chosen.label}</b><span>{position===own?'Defended as a':'If defended as a'} {POS_WORDS[position][0]}</span></div>
+    <div className="ng-score"><b>{chosen.score}</b><small>/100</small></div>
+   </div>
+   <div className="ng-gauge" role="img" aria-label={`${chosen.score} out of 100, ${chosen.label}`}><i style={{left:`${clamp(chosen.score,2,98)}%`}}/></div>
+   <div className="ng-gauge-ends" aria-hidden="true"><span>Tough</span><span>Soft</span></div>
+   <div className="ng-tiles" role="group" aria-label="Stat">{scores.map(item=><button type="button" key={item.marketKey} data-tone={item.tone} aria-pressed={item.marketKey===chosen.marketKey}
+    disabled={item.score==null} onClick={()=>onPick(item.marketKey)} aria-label={`${item.stat} ${item.score??'no score'}${item.label?`, ${item.label}`:''}`}>
+    <span>{item.stat}</span><b>{item.score??'—'}</b></button>)}</div>
+   <p className="nd-foot">0-100 for the over, 50 an average matchup. It weighs their defense (40%) and pace (15%), what they allow {POS_WORDS[position][1]} in the stat (35%) and his own games against them (10%).</p>
   </div>
-  <div className="ng-gauge" role="img" aria-label={`${chosen.score} out of 100, ${chosen.label}`}><i style={{left:`${clamp(chosen.score,2,98)}%`}}/></div>
-  <div className="ng-gauge-ends"><span aria-hidden="true">Tough</span><div className="ns-seg ng-position" role="group" aria-label="Defended as">
-   {POSITIONS.map(key=><button type="button" key={key} aria-pressed={position===key} onClick={()=>setPosition(key)}>{key}</button>)}</div><span aria-hidden="true">Soft</span></div>
-  <div className="ng-tiles" role="group" aria-label="Stat">{scores.map(item=><button type="button" key={item.marketKey} data-tone={item.tone} aria-pressed={item.marketKey===chosen.marketKey}
-   data-own={item.marketKey===mine?.marketKey||undefined} disabled={item.score==null} onClick={()=>setPicked(item.marketKey)}>
-   <span>{item.stat}</span><b>{item.score??'—'}</b><small>{item.label||'No data'}</small></button>)}</div>
-  {chosen.reads&&<ul className="ng-reads">{chosen.reads.map(read=><li key={read.key}>
-   <span className="ng-read-head"><b>{READ_NAMES[read.key]}</b><em>{read.weight}%</em></span>
-   <span className="ng-read-text">{read.text}</span>
-   <span className="ng-bar" data-tone={read.score>=60?'edge':read.score>=40?'neutral':'tough'}><i style={{width:`${clamp(read.score,4,100)}%`}}/></span></li>)}</ul>}
-  <p className="nd-foot">0-100 for the over, 50 an average matchup: how much their defense gives up and how fast they play, then what they allow his position in the stat and his own games against them. 100 is as soft as it gets.</p>
- </Card>;
+ </section>;
 }
 
 // ------------------------------------------------------------ Their defense
@@ -85,17 +93,17 @@ const MORE=[['fgPct','Their FG%','shooting',true,1,'%'],['tpPct','Their 3P%','sh
  ['ftr','Free throws a shot','shooting',true,3,''],['tov','Turnover rate','shooting',false,1,'%'],
  ['astAllowed','Assists allowed','team',true,1,''],['paintAllowed','Paint points allowed','team',true,1,''],['drebPct','Def rebound %','team',false,1,'%']];
 
-function DivergeRow({label,sub,soft,text}){
+function DivergeRow({label,sub,soft,text,picked}){
  const tone=toneOf(soft),width=Math.abs(soft)*50;
- return <div className="ns-diverge-row" data-tone={tone}>
+ return <div className="ns-diverge-row" data-tone={tone} data-picked={picked||undefined}>
   <span className="ns-diverge-name"><b>{label}</b><small>{sub}</small></span>
   <span className="ns-diverge-bar" aria-hidden="true"><i style={soft>=0?{left:'50%',width:`${Math.max(2,width)}%`}:{right:'50%',width:`${Math.max(2,width)}%`}}/></span>
   <em>{text}</em></div>;
 }
 
-export function TheirDefense({row,league}){
+export function TheirDefense({row,league,position=positionOf(row.position)||'G',stat,fit}){
  const [more,setMore]=useState(false);
- const data=league.data,opponent=row.opponent||(row.opponent||opponentOf(row)),position=positionOf(row.position)||'G';
+ const data=league.data,opponent=row.opponent||opponentOf(row);
  if(!data)return null;
  const n=data.teamCount,cells=data.dvp?.[opponent]?.[position]?.stats;
  if(!cells)return null;
@@ -111,13 +119,15 @@ export function TheirDefense({row,league}){
   return <DivergeRow key={key} label={label} sub={`${digits===3?cell[0].toFixed(3).replace(/^0/,''):fmt(cell[0],digits)}${unit}`} soft={softness(cell[1],n,softHigh)}
    text={placeText(cell[1],n,unit==='%'||digits===3?['lowest','highest']:['fewest','most'])}/>;}).filter(Boolean);
  return <Card title={`${teamName(data,opponent)} defense`} note={`rank of ${n} teams`} icon={Shield} className="nba-their-defense">
+  <div className="ns-sub-head"><b>As a team</b><span>What the {teamName(data,opponent)} allow every opponent, all positions</span></div>
   <div className="ns-base">{base.map(item=><div key={item.label} data-tone={toneOf(item.soft)}><small>{item.label}</small><b>{item.value}</b><em>{item.text}</em></div>)}</div>
-  <div className="ns-sub-head"><b>Vs {words[1]}, by stat</b><span>What {teamName(data,opponent)} gives up to {words[1]} a game</span></div>
+  <div className="ns-sub-head"><b>Vs {words[1]}, by stat</b><span>What the {teamName(data,opponent)} allow {words[1]} a game</span></div>
   <div className="ns-diverge-scale" aria-hidden="true"><span>Tough</span><span>Soft</span></div>
   <div className="ns-diverge">{BY_STAT.map(([key,label])=>{const [value,rank]=cells[key]?.szn||[];if(!finite(value))return null;
-   return <DivergeRow key={key} label={label} sub={`${fmt(value,1)} a game`} soft={softness(rank,n)} text={placeText(rank,n)}/>;})}
+   return <DivergeRow key={key} label={label} sub={`${fmt(value,1)} a game`} soft={softness(rank,n)} text={placeText(rank,n)} picked={key===stat}/>;})}
    {more&&extra}</div>
   {extra.length>0&&<button type="button" className="ns-more" aria-expanded={more} onClick={()=>setMore(value=>!value)}>{more?'Show less':`Shooting and more (${extra.length})`}<ChevronDown size={14} aria-hidden="true"/></button>}
+  {fit&&<><div className="ns-sub-head"><b>His games against them</b></div><p className="ns-fit" data-tone={fit.score>=60?'soft':fit.score<40?'tough':undefined}>{fit.text}</p></>}
   <p className="nd-foot">Green: among the most the league gives up (good for the over). Red: among the fewest. Their FG%, 3P%, eFG%, free throws and turnovers are {words[1]}' against them; the last three are the whole team's.</p>
  </Card>;
 }
@@ -274,6 +284,7 @@ export function PositionRanks({row}){
 // league, where his points come from, and what tonight's defense allows.
 const ZONE_LABELS={ra:'At the rim',paint:'Paint',mid:'Mid-range',ab3:'Above-break 3',c3l:'Left corner 3',c3r:'Right corner 3'};
 const THREES=new Set(['c3l','c3r','ab3']);
+const FEW=5;
 const ZONE_COLORS={ra:'#4cc9f0',paint:'#8b7cf6',mid:'#22d3c5',ab3:'#4f8ef7',c3l:'#93c5fd',c3r:'#c4b5fd'};
 // -1 the toughest defense in the league at it, 1 the softest (rank 1 allows the lowest FG%).
 const zoneSoftness=(rank,count)=>finite(rank)&&count>1?(rank-(count+1)/2)/((count-1)/2):0;
@@ -289,6 +300,8 @@ export function ShotZones({player,league,row}){
  const total=Object.keys(ZONE_LABELS).reduce((sum,zone)=>sum+points(zone),0);
  const share=zone=>total?points(zone)/total*100:0;
  const pct=zone=>{const [made,attempts]=zones[zone]||[0,0];return attempts?made/attempts*100:null;};
+ // Under FEW tries in a zone his percentage there says little: shown, not coloured.
+ const few=zone=>(zones[zone]?.[1]||0)<FEW;
  const vsLeague=zone=>finite(pct(zone))&&finite(usual[zone])?pct(zone)-usual[zone]:null;
  const soft=zone=>zoneSoftness(defense[zone]?.[1],n);
  const order=Object.keys(ZONE_LABELS).sort((a,b)=>share(b)-share(a));
@@ -296,9 +309,9 @@ export function ShotZones({player,league,row}){
  const fill=zone=>{
   if(view==='share')return tint('#4f8ef7',share(zone)/45);
   if(view==='opp'){const s=soft(zone);return Math.abs(s)<0.2?'#1d1d1d':tint(s>0?'#3FE39E':'#EE5470',Math.abs(s));}
-  const d=vsLeague(zone);return !finite(d)?'#1d1d1d':tint(d>=0?'#3FE39E':'#EE5470',Math.abs(d)/10);};
+  const d=vsLeague(zone);return !finite(d)||few(zone)?'#1d1d1d':tint(d>=0?'#3FE39E':'#EE5470',Math.abs(d)/10);};
  const words=zone=>view==='share'?[`${fmt(share(zone),0)}%`,'of his pts']:view==='opp'?[finite(defense[zone]?.[0])?`${fmt(defense[zone][0],1)}%`:'—',zoneRankText(defense[zone]?.[1],n)]
-  :[finite(pct(zone))?`${fmt(pct(zone),1)}%`:'—',finite(vsLeague(zone))?`${signed(vsLeague(zone),1)} vs lg`:''];
+  :[finite(pct(zone))?`${fmt(pct(zone),1)}%`:'—',few(zone)?`${zones[zone]?.[1]||0} FGA`:finite(vsLeague(zone))?`${signed(vsLeague(zone),1)} vs lg`:''];
  const label=(zone,x,y)=>{const [top,sub]=words(zone),corner=zone==='c3l'||zone==='c3r';
   return <g className="nsz-label" transform={`translate(${x} ${y})`} data-picked={zone===chosen||undefined}><text y="-2">{top}</text>
    <text y="11" className="nsz-sub">{corner?sub.replace(' vs lg','').replace(/ (lowest|highest)$/,''):sub}</text></g>;};
@@ -319,7 +332,7 @@ export function ShotZones({player,league,row}){
    {label('ab3',150,46)}{label('mid',150,90)}{label('paint',150,150)}{label('ra',150,206)}{label('c3l',20,176)}{label('c3r',280,176)}
   </svg>
   <div className="ws-legend"><span>Tap a zone</span>{view==='share'?<span><i data-tone="blue"/>more of his points</span>:<><span><i data-tone="good"/>{view==='opp'?'gives up the most':'above league'}</span><span><i data-tone="poor"/>{view==='opp'?'gives up the least':'below league'}</span></>}</div>
-  <div className="ws-detail"><div className="ws-detail-head"><b>{ZONE_LABELS[chosen]}</b>{finite(vsLeague(chosen))&&<em data-tone={vsLeague(chosen)>=0?'good':'poor'}>{signed(vsLeague(chosen),1)} vs lg</em>}</div>
+  <div className="ws-detail"><div className="ws-detail-head"><b>{ZONE_LABELS[chosen]}</b>{finite(vsLeague(chosen))&&<em data-tone={few(chosen)?undefined:vsLeague(chosen)>=0?'good':'poor'}>{signed(vsLeague(chosen),1)} vs lg</em>}</div>
    <p>{attempts?`He shoots ${fmt(pct(chosen),1)}% here${finite(vsLeague(chosen))?` (${signed(vsLeague(chosen),1)} vs league)`:''} on ${attempts} ${attempts===1?'try':'tries'}, ${fmt(share(chosen),0)}% of his points.`:'He has no tries from here on record.'}
     {finite(cell?.[0])?` ${name} allow ${fmt(cell[0],1)}% here, the ${zoneRankText(cell[1],n)} in the league.`:''}</p></div>
   <div className="ws-mix-head">Where his points come from</div>
@@ -327,9 +340,9 @@ export function ShotZones({player,league,row}){
   <div className="ws-zones" role="list">{order.map(zone=>{const [m,a]=zones[zone]||[0,0],d=vsLeague(zone),s=soft(zone),theirs=defense[zone];
    return <button type="button" role="listitem" key={zone} className="ws-zone" aria-pressed={zone===chosen} onClick={()=>setPicked(zone)}>
     <i style={{background:ZONE_COLORS[zone]}}/><span className="ws-zone-name"><b>{ZONE_LABELS[zone]}</b><small>{fmt(share(zone),0)}% of pts · {a} FGA</small></span>
-    <span className="ws-zone-num"><b>{a?`${fmt(m/a*100,1)}%`:'—'}</b><small data-tone={finite(d)?(d>=0?'good':'poor'):undefined}>{finite(d)?signed(d,1):''}</small></span>
+    <span className="ws-zone-num"><b>{a?`${fmt(m/a*100,1)}%`:'—'}</b><small data-tone={finite(d)&&!few(zone)?(d>=0?'good':'poor'):undefined}>{finite(d)?signed(d,1):''}</small></span>
     <span className="ws-zone-num" data-tone={s>=0.33?'good':s<=-0.33?'poor':undefined}><b>{finite(theirs?.[0])?`${fmt(theirs[0],1)}%`:'—'}</b><small>{s>=0.33?'Soft spot':s<=-0.33?'Tough':finite(theirs?.[0])?'Average':''}</small></span></button>;})}</div>
-  <p className="nd-foot">His FG% in each zone with the gap to the league's, then what {name} allow there. Located shots this season from ESPN's play-by-play.</p></>
+  <p className="nd-foot">His FG% in each zone with the gap to the league's (grey under {FEW} tries), then what the {name} allow there. Located shots this season from ESPN's play-by-play.</p></>
   :<p className="mp-empty">No located shots are recorded for him yet.</p>}
  </Card>;
 }

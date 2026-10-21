@@ -1,11 +1,12 @@
 // One NBA player's matchup page, opened from the Props tab's NBA list
-// (NbaMatchups.jsx) and closed back to it: who he is and tonight's game up
-// top, then Overview (his averages, his games against tonight's line, the
+// (NbaMatchups.jsx) and closed back to it: a full-width banner with who he
+// is and tonight's game (a slim bar takes its place, pinned above the
+// sections, once it scrolls away), then Overview (his averages, his games against tonight's line, the
 // injury report), Matchup (the grade and everything behind it,
 // NbaScout.jsx) and Stats (where he ranks at his position, his game log).
-import React,{useEffect,useMemo,useState} from 'react';
+import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowLeft,CalendarDays,ChevronDown,HeartPulse,LineChart,Minus,Plus,X} from 'lucide-react';
-import {Card,GradeCard,LikelyDefenders,Loading,Photo,PlayTypes,PositionRanks,ShotLink,ShotZones,TheirDefense,VsTeam,teamName} from './sports/wnba/NbaScout';
+import {Card,LikelyDefenders,Loading,MatchupGrade,Photo,PlayTypes,PositionRanks,ShotLink,ShotZones,VsTeam,teamName} from './sports/wnba/NbaScout';
 import {finite,fmt,realGames,useWnba} from './sports/wnba/wnba-research';
 import {basketballLogUrl} from './unified-finder-data';
 
@@ -141,9 +142,30 @@ function GameLog({logs,league}){
 }
 
 // ------------------------------------------------------------ The page
+const hide=event=>{event.currentTarget.hidden=true;};
+// "Shai Gilgeous-Alexander" -> ["Shai", "Gilgeous-Alexander"]: the banner sets the name on two lines.
+const nameLines=name=>{const parts=String(name||'').trim().split(/\s+/);return parts.length>1?[parts[0],parts.slice(1).join(' ')]:[parts[0]||'',''];};
+
+function Hero({row,team,opponent,home,onBack,heroRef}){
+ const [first,last]=nameLines(row.player),longest=Math.max(first.length,last.length);
+ const facts=[team?.short||row.teamAbbr,POSITION_NAMES[String(row.position||'')[0]]||row.position].filter(Boolean);
+ return <header ref={heroRef} className="mp-hero" data-long={longest>=14?'xl':longest>=10?'l':undefined}>
+  {team?.logo&&<img className="mp-hero-mark" src={team.logo} alt="" onError={hide}/>}
+  {row.headshot&&<img className="mp-hero-photo" src={row.headshot} alt="" onError={hide}/>}
+  <button type="button" className="mp-back" onClick={onBack} aria-label="Back to matchups"><ArrowLeft size={20}/></button>
+  <div className="mp-hero-text">
+   <h1>{first}{last&&<><br/>{last}</>}</h1>
+   <p>{facts.map((fact,index)=><React.Fragment key={fact}>{index>0&&<i aria-hidden="true"/>}{fact}</React.Fragment>)}</p>
+   <div className="mp-next">{opponent?.logo&&<img src={opponent.logo} alt="" width="34" height="34" onError={hide}/>}
+    <span><small>Next matchup</small><b>{home?'vs':'@'} {row.opponent}</b><em>{when(row.startsAt)}</em></span></div>
+  </div>
+ </header>;
+}
+
 const TABS=[['overview','Overview'],['matchup','Matchup'],['stats','Stats']];
 export function NbaMatchupPage({row,lines,league,onBack}){
- const [tab,setTab]=useState('overview'),[shots,setShots]=useState(false);
+ const [tab,setTab]=useState('overview'),[shots,setShots]=useState(false),[pinned,setPinned]=useState(null);
+ const heroRef=useRef(null),slotRef=useRef(null),miniRef=useRef(null);
  const leagueState=useMemo(()=>({data:league,loading:!league}),[league]);
  const log=useGameLog(row);
  const logs=log.rows;
@@ -152,25 +174,39 @@ export function NbaMatchupPage({row,lines,league,onBack}){
  const matchup=useWnba('matchup',{home:row.homeTeamAbbr,away:row.awayTeamAbbr,startsAt:row.startsAt,league:'nba'},Boolean(row.homeTeamAbbr&&row.awayTeamAbbr&&row.startsAt));
  const home=row.teamAbbr&&row.teamAbbr===row.homeTeamAbbr;
  const team=league?.teams?.[row.teamAbbr],opponent=league?.teams?.[row.opponent];
+ const color=team?.color?`#${String(team.color).replace('#','')}`:null;
  useEffect(()=>{if(!shots)return undefined;const close=event=>{if(event.key==='Escape')setShots(false);};
   document.addEventListener('keydown',close);return()=>document.removeEventListener('keydown',close);},[shots]);
- return <section className="nba-mp" aria-label={`${row.player} matchup`}>
-  <header className="mp-hero" style={team?.color?{'--team':`#${String(team.color).replace('#','')}`}:undefined}>
-   <button type="button" className="mp-back" onClick={onBack}><ArrowLeft size={18}/>Matchups</button>
-   <div className="mp-hero-main">
-    <div className="mp-hero-text"><h1>{row.player}</h1>
-     <p>{[team?.short||row.teamAbbr,POSITION_NAMES[String(row.position||'')[0]]||row.position].filter(Boolean).join(' · ')}</p>
-     <div className="mp-next">{opponent?.logo&&<img src={opponent.logo} alt="" width="34" height="34"/>}
-      <span><small>Next matchup</small><b>{home?'vs':'@'} {row.opponent}</b><em>{when(row.startsAt)}</em></span></div>
-    </div>
-    <span className="mp-hero-photo">{row.headshot&&<img src={row.headshot} alt="" onError={event=>{event.currentTarget.hidden=true;}}/>}</span>
+ // Once the banner scrolls up under where the slim bar goes, the bar and
+ // the section tabs pin to the top of the screen (fixed: the page's body
+ // doesn't let sticky elements stick), their slot keeping its height.
+ useEffect(()=>{
+  const hero=heroRef.current,slot=slotRef.current,bar=miniRef.current;
+  if(!hero||!slot||!bar||typeof IntersectionObserver==='undefined')return undefined;
+  slot.style.minHeight=`${slot.offsetHeight}px`;
+  let out=false;
+  const place=()=>{const box=slot.getBoundingClientRect();setPinned(out?{left:box.left,width:box.width}:null);};
+  const watch=new IntersectionObserver(([entry])=>{out=!entry.isIntersecting&&entry.boundingClientRect.top<0;place();},{rootMargin:`-${bar.offsetHeight}px 0px 0px 0px`});
+  watch.observe(hero);addEventListener('resize',place);
+  return()=>{watch.disconnect();removeEventListener('resize',place);};
+ },[]);
+ // A new section starts at its top, under the pinned bar.
+ const pick=key=>{setTab(key);const slot=slotRef.current,bar=miniRef.current;
+  if(pinned&&slot&&bar)window.scrollTo(0,window.scrollY+slot.getBoundingClientRect().top-bar.offsetHeight+1);};
+ return <section className="nba-mp" aria-label={`${row.player} matchup`} style={color?{'--team':color}:undefined}>
+  <Hero row={row} team={team} opponent={opponent} home={home} onBack={onBack} heroRef={heroRef}/>
+  <div className="mp-stick-slot" ref={slotRef}><div className="mp-stick" data-mini={pinned?true:undefined} style={pinned?{left:pinned.left,width:pinned.width}:undefined}>
+   <div className="mp-mini" ref={miniRef} aria-hidden={!pinned}>
+    <button type="button" className="mp-back" onClick={onBack} tabIndex={pinned?0:-1} aria-label="Back to matchups"><ArrowLeft size={18}/></button>
+    <Photo src={row.headshot}/><b>{row.player}</b>
+    <span className="mp-mini-game">{opponent?.logo&&<img src={opponent.logo} alt="" width="18" height="18" onError={hide}/>}{home?'vs':'@'} {row.opponent}<small>{when(row.startsAt)}</small></span>
    </div>
-  </header>
-  <nav className="mp-tabs" role="tablist" aria-label="Sections">{TABS.map(([key,label])=><button type="button" role="tab" key={key} aria-selected={tab===key} onClick={()=>setTab(key)}>{label}</button>)}</nav>
+   <nav className="mp-tabs" role="tablist" aria-label="Sections">{TABS.map(([key,label])=><button type="button" role="tab" key={key} aria-selected={tab===key} onClick={()=>pick(key)}>{label}</button>)}</nav>
+  </div></div>
   <div className="mp-body">
    {tab==='overview'&&<>{log.loading&&!logs.length?<Card title="His games" icon={LineChart}><Loading/></Card>:<><Averages logs={logs}/><Trend row={row} lines={lines} logs={logs}/></>}
     <Injuries row={row} league={leagueState} matchup={matchup} player={player}/></>}
-   {tab==='matchup'&&<><GradeCard row={row} league={leagueState} logs={logs}/><TheirDefense row={row} league={leagueState}/><PlayTypes row={row}/>
+   {tab==='matchup'&&<><MatchupGrade row={row} league={leagueState} logs={logs}/><PlayTypes row={row}/>
     <LikelyDefenders row={row}/><ShotLink row={row} league={leagueState} onOpen={()=>setShots(true)}/><VsTeam row={row} league={leagueState} logs={logs} lines={lines}/></>}
    {tab==='stats'&&<><PositionRanks row={row}/><GameLog logs={logs} league={leagueState}/></>}
   </div>
