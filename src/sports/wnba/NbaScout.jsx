@@ -81,7 +81,7 @@ function GradeCard({opponent,own,position,onPosition,scores,chosen,onPick}){
    <div className="ng-tiles" role="group" aria-label="Stat">{scores.map(item=><button type="button" key={item.marketKey} data-tone={item.tone} aria-pressed={item.marketKey===chosen.marketKey}
     disabled={item.score==null} onClick={()=>onPick(item.marketKey)} aria-label={`${item.stat} ${item.score??'no score'}${item.label?`, ${item.label}`:''}`}>
     <span>{item.stat}</span><b>{item.score??'—'}</b></button>)}</div>
-   <p className="nd-foot">0-100 for the over, 50 an even matchup. It adds up how far {opponent} sit from the league average in points allowed, defensive rating and pace, and in what they allow each {POS_WORDS[position][0]} in the stat (threes also read how many threes they let teams take, assists the FG% they allow, steals how often they turn it over). 100: far softer than most teams. His own games against them are shown under Why this score, not counted in it.</p>
+   <p className="nd-foot">0-100 for the over, 50 an even matchup. It adds up how far {opponent} sit from the league average in points allowed and defensive rating, pace, and what they allow each {POS_WORDS[position][0]} in the stat (rebounds and assists also read the rebounds and assists they give up, steals how often they turn it over, threes only how many threes they let teams take), each counted by how much it predicted overs over the last two seasons. 90+: the softest few percent of matchups. His own games against them are shown under Why this score, not counted in it.</p>
   </div>
  </section>;
 }
@@ -158,10 +158,13 @@ export function PlayTypes({row}){
 }
 
 // ------------------------------------------------------------ Likely defenders
-// [label, value, lower is tougher, format]
+// [label, value, lower is tougher, format, too few to read (grey, never the toughest)]
+// His points against one defender over a handful of possessions swing wildly
+// (McCain: 73.8 a 75 against Braun on 16), so under FEW_POSS they're grey.
+const FEW_POSS=25;
 const GUARD_ROWS=[
  ['Time on him',item=>item.share,null,value=>`${fmt(value,0)}%`],
- ['His pts/75',item=>item.pts,true,value=>fmt(value,1)],
+ ['His pts/75',item=>item.pts,true,value=>fmt(value,1),item=>!(item.poss>=FEW_POSS)],
  ['FG% allowed',item=>item.shooting?.dfg,true,value=>`${fmt(value,1)}%`],
  ['vs usual',item=>item.shooting?.diff,true,value=>`${signed(value,1)}`],
  ['At the rim',item=>item.shooting?.rim?.pct,true,value=>`${fmt(value,1)}%`],
@@ -180,11 +183,13 @@ export function LikelyDefenders({row,league,matchup}){
  return <Card title="Who guards him" note={`most time on him vs ${them}`} icon={Swords} className="nba-guards">
   <div className="ng2-grid" style={{'--cols':top.length}}>
    <span/>{top.map((item,index)=><figure key={item.id} data-likely={(index===0&&item.poss>=5)||undefined}><Photo src={nbaHead(item.id)} size="lg"/><figcaption>{lastWord(item.name)}</figcaption></figure>)}
-   {rows.map(([label,read,lowerTough,show])=>{const values=top.map(read),known=values.filter(finite);
+   {rows.map(([label,read,lowerTough,show,thin])=>{const values=top.map(read),few=top.map(item=>Boolean(thin?.(item)));
+    const known=values.filter((value,index)=>finite(value)&&!few[index]);
     const toughest=lowerTough==null||!known.length?null:(lowerTough?Math.min(...known):Math.max(...known));
-    return <React.Fragment key={label}><b className="ng2-label">{label}</b>{values.map((value,index)=><span key={top[index].id} data-tough={finite(value)&&value===toughest||undefined}>{finite(value)?show(value):'—'}</span>)}</React.Fragment>;})}
+    return <React.Fragment key={label}><b className="ng2-label">{label}</b>{values.map((value,index)=><span key={top[index].id} data-few={finite(value)&&few[index]||undefined}
+     data-tough={finite(value)&&!few[index]&&value===toughest||undefined}>{finite(value)?show(value):'—'}</span>)}</React.Fragment>;})}
   </div>
-  <p className="nd-foot">Time on him: of {lastWord(row.player)}&rsquo;s possessions against players on the {them} now, the share each one guarded him, only in games they played for the {them} ({theirSeasons(data,top)}). Anyone out tonight is left off. Shaded: the toughest on him in that row; FG% allowed, at the rim and on threes are against every shooter ({data.season}). From NBA.com&rsquo;s matchup and defense tracking.</p>
+  <p className="nd-foot">Time on him: of {lastWord(row.player)}&rsquo;s possessions against players on the {them} now, the share each one guarded him, only in games they played for the {them} ({theirSeasons(data,top)}). Anyone out tonight is left off. His pts/75: his points for every 75 possessions with that player on him; grey under {FEW_POSS} possessions, too few to read much into. Shaded: the toughest on him in that row; FG% allowed, at the rim and on threes are against every shooter ({data.season}). From NBA.com&rsquo;s matchup and defense tracking.</p>
  </Card>;
 }
 

@@ -1,7 +1,8 @@
-// The NBA matchup score (src/nba-matchup-score.js), held to RotoBot's grades.
+// The NBA matchup score (src/nba-matchup-score.js), built on a backtest of
+// 2024-25 and 2025-26 (the weights and what they meant: the top of that file).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {matchupScore, spreadScores, cardScores, band, GAINS} from '../src/nba-matchup-score.js';
+import {matchupScore, spreadScores, cardScores, band, WEIGHTS} from '../src/nba-matchup-score.js';
 import {statGameLog} from '../src/unified-finder-data.js';
 import {readFileSync} from 'node:fs';
 
@@ -52,37 +53,31 @@ const row = (id, extra = {}) => ({id, sport: 'nba', player: `P${id}`, playerId: 
 // Last season's real numbers in league-context's shape (ESPN box scores):
 // what both sites read before a team has played this season.
 const real = JSON.parse(readFileSync(new URL('./fixtures/nba-2025-26-league.json', import.meta.url)));
-// RotoBot's grades (Oct 2026): four player pages and three more OKC guards
-// from its list against Denver.
-const PAGES = [['DAL', 'F', 'a forward', {PTS: 91, REB: 89, AST: 90, '3PM': 69, STL: 87, BLK: 89}],
-  ['IND', 'G', 'a guard', {REB: 100, AST: 100, BLK: 94, PTS: 100, '3PM': 77}],
-  ['DEN', 'G', 'Wallace', {PTS: 73, REB: 62, AST: 56, '3PM': 91, STL: 51, BLK: 59}],
-  ['DEN', 'G', 'Gilgeous-Alexander', {PTS: 63, REB: 61, AST: 75, '3PM': 84, STL: 40, BLK: 76}],
-  ['DEN', 'G', 'McCain', {'3PM': 91}], ['DEN', 'G', 'Caruso', {'3PM': 72}], ['DEN', 'G', 'Mitchell', {AST: 71}]];
-
-test('close to RotoBot on every grade it showed', () => {
-  const gaps = [];
-  const cards = {};
-  for (const [opponent, position, who, theirs] of PAGES) {
-    const card = cards[opponent] = Object.fromEntries(cardScores(row(`${opponent}1`, {position, teamAbbr: 'OKC', opponent}), real).map(item => [item.stat, item.score]));
-    for (const [stat, grade] of Object.entries(theirs)) gaps.push([`${who} ${stat}`, card[stat], grade, Math.abs(card[stat] - grade)]);
-  }
-  const average = gaps.reduce((sum, [, , , gap]) => sum + gap, 0) / gaps.length;
-  assert.equal(gaps.length, 26);
-  assert.ok(average <= 5.5, JSON.stringify(gaps));
-  assert.deepEqual([cards.DAL.PTS, cards.IND.REB, cards.IND.AST, cards.DEN.STL], [91, 100, 100, 51]);
-  // Every OKC guard reads the same Denver; RotoBot's four threes (91, 91,
-  // 84, 72) average 84.5. Its own part for each player isn't known.
-  assert.ok(cards.DEN['3PM'] >= 80 && cards.DEN['3PM'] <= 88, String(cards.DEN['3PM']));
+test('last season’s real numbers: Denver for a guard, and how the scores spread', () => {
+  const card = Object.fromEntries(cardScores(row('d1', {position: 'G', teamAbbr: 'OKC', opponent: 'DEN'}), real).map(item => [item.stat, item.score]));
+  // RotoBot (Oct 2026) moves each guard on something of its own: points 89
+  // McCain, 73 Wallace, 63 Gilgeous-Alexander; steals 40-51. Denver turn it
+  // over the fewest times, which is what predicted steals.
+  assert.deepEqual(card, {PTS: 56, REB: 44, AST: 62, '3PM': 72, STL: 25, BLK: 66});
+  const scores = Object.keys(real.teamStats).flatMap(opponent => ['G', 'F', 'C'].flatMap(position =>
+    cardScores(row(`${opponent}${position}`, {position, teamAbbr: 'OKC', opponent}), real).map(item => item.score))).sort((a, b) => a - b);
+  const top = scores.filter(score => score >= 90).length / scores.length;
+  assert.ok(top > 0.01 && top < 0.05, String(top));                  // the backtest's scale: about 2.5% at 90+
+  assert.ok(Math.abs(scores[Math.floor(scores.length / 2)] - 50) <= 5);
 });
 
 test('what a defense allows his position is a player at a time, as RotoBot counts it', () => {
   // RotoBot: Denver allow each guard 11.0 points, 1.5 threes a game.
   const threes = matchupScore(row('w', {position: 'G', teamAbbr: 'OKC', opponent: 'DEN', marketKey: 'player_threes'}), real);
-  assert.deepEqual(threes.reads.map(read => read.kind), ['defense', 'pace', 'position', 'attempts']);
-  assert.equal(threes.reads[2].text, 'DEN allows each guard 1.5 threes a game (10th most)');
-  assert.equal(threes.reads[3].text, 'DEN lets teams take 39.1 threes a game (4th most)');
-  assert.match(threes.reads[0].text, /^DEN gives up 116\.9 points a game \(10th most\) and .* per 100 possessions \(10th highest\)$/);
+  // Threes read only the threes they let teams take; his position is shown, not counted.
+  assert.deepEqual(threes.reads.map(read => [read.kind, read.points === 0]), [['position', true], ['attempts', false]]);
+  assert.equal(threes.reads[0].text, 'DEN allows each guard 1.5 threes a game (10th most)');
+  assert.equal(threes.reads[1].text, 'DEN lets teams take 39.1 threes a game (4th most)');
+  const points = matchupScore(row('p', {position: 'G', teamAbbr: 'OKC', opponent: 'DEN'}), real);
+  assert.deepEqual(points.reads.map(read => read.kind), ['defense', 'pace', 'position']);
+  assert.match(points.reads[0].text, /^DEN gives up 116\.9 points a game \(10th most\) and .* per 100 possessions \(10th highest\)$/);
+  assert.equal(matchupScore(row('a', {position: 'G', teamAbbr: 'OKC', opponent: 'DEN', marketKey: 'player_assists'}), real).reads.at(-1).text,
+    'DEN gives up 27.5 assists a game (10th most)');
   // An older server's totals still score, read as the position's.
   const older = {...real, dvpEach: undefined};
   assert.match(matchupScore(row('w2', {position: 'G', teamAbbr: 'OKC', opponent: 'DEN'}), older).reads[2].text, /^DEN allows guards 57\.1 points a game/);
@@ -100,7 +95,7 @@ test('the same for every forward against a team: his own games sit beside it', (
   assert.equal(quiet.fit, null);
 });
 
-test('threes rise with the threes a team allows, not the percentage made; steals rise with turnovers', () => {
+test('threes rise with the threes a team allows, not the percentage made; steals with turnovers; assists with assists, not FG%', () => {
   const shooting = structuredClone(league);
   for (const [team, cell] of Object.entries(table({DAL: 29}, 36, 1.2))) shooting.opportunity.teams[team].tpPctAllowed = cell;
   for (const [team, cell] of Object.entries(table({DAL: 6}, 14, 1.2, true))) shooting.teamStats[team].off = {to: cell};
@@ -120,17 +115,24 @@ test('threes rise with the threes a team allows, not the percentage made; steals
   assert.equal(after.PTS, before.PTS);
   assert.match(matchupScore(row('8', {marketKey: 'player_steals'}), shooting).reads.find(read => read.kind === 'turnovers').text,
     /DAL turns it over .* times a game \(6th most\)/);
+  // The FG% a defense allows pointed the wrong way for assists in the backtest: not read.
+  const finishing = structuredClone(league);
+  for (const [team, cell] of Object.entries(table({DAL: 1}, 49, 1.5))) finishing.opportunity.teams[team].fgPctAllowed = cell;
+  assert.equal(cardScores(row('6'), finishing).find(item => item.stat === 'AST').score, before.AST);
+  const passing = structuredClone(league);
+  for (const [team, cell] of Object.entries(table({DAL: 2}, 26, 1.8))) passing.opportunity.teams[team].astAllowed = cell;
+  assert.ok(cardScores(row('6'), passing).find(item => item.stat === 'AST').score > before.AST + 8);
 });
 
-test('far softer than everyone reads 100; the middle near 50; the stingy, slow end near 0', () => {
+test('far softer than everyone reads near 100; the middle near 50; the stingy, slow end near 0', () => {
   const far = structuredClone(league);
   far.teamStats.UTA.def.pts = [128, N];
   far.opportunity.teams.UTA = {drtg: [124, 1], poss: [105, 1]};
-  assert.equal(matchupScore(row('9', {opponent: 'UTA'}), far).score, 100);
+  assert.ok(matchupScore(row('9', {opponent: 'UTA'}), far).score >= 95);
   const middle = TEAMS.find(team => allowed[team][1] === 15);
   assert.ok(Math.abs(matchupScore(row('10', {opponent: middle}), league).score - 50) <= 8);
   const tough = matchupScore(row('11', {opponent: 'BOS'}), league);
-  assert.ok(tough.score <= 5, String(tough.score));
+  assert.ok(tough.score <= 12, String(tough.score));
   assert.equal(band(tough.score).label, 'Tough');
 });
 
@@ -146,7 +148,7 @@ test('the list and the player card score a prop the same', () => {
   const shown = card.find(item => item.stat === 'BLK');
   assert.equal(shown.score, spreadScores([blocks], league).get('13').score);
   assert.ok(shown.fit);
-  assert.equal(GAINS.position < GAINS.allowed, true);  // the team leads, the position nudges
+  assert.ok(WEIGHTS.pts.position < WEIGHTS.pts.defense);  // for points the team leads, the position nudges
 });
 
 test('nothing about the opponent, no score; bands by the number', () => {

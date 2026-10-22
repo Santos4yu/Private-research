@@ -1,40 +1,39 @@
 // The NBA matchup score: how good tonight's opponent is for a stat, 0-100
-// for the over (50 an average matchup), built the way RotoBot grades a
-// matchup. Like its grade, it's the same for every player at a position
-// against a team (his own games don't move it; they're shown beside it),
-// and a combo (points + rebounds...) is the average of its parts.
+// for the over (50 an even matchup). It's the same for every player at a
+// position against a team (his own games against them are shown beside it,
+// not counted), and a combo (points + rebounds...) averages its parts.
 //
-//   their defense    points allowed a game and per 100 possessions
+// Built from a backtest, the way the NFL score is: every 2024-25 and
+// 2025-26 regular-season player-game with a real role (15+ minutes), each
+// read with only what was known about the opponent that morning, against
+// whether he beat his own average (the season so far, last season worth ten
+// games of it). A read counts only where its sign held in both seasons:
+//
+//   their defense    points allowed a game and per 100 possessions (one
+//                    read: the two say nearly the same thing)
 //   their pace       possessions a game
-//   vs his position  what they allow guards (forwards, centers) in the stat
-//   threes           also how many threes they let teams take
-//   assists          also the field-goal percentage they allow (made
-//                    shots are what passes turn into assists)
+//   vs his position  what they allow a player at his position in the stat,
+//                    a player at a time (league.dvpEach). That beat the
+//                    position's total and tied per-minute rates.
+//   rebounds         also the rebounds they give up a game
+//   assists          also the assists they give up a game
+//   threes           only the threes they let teams take: nothing else
+//                    held its sign for threes in both seasons
 //   steals           also how often they turn the ball over
 //
+// What didn't hold up isn't read: the 3-point and field-goal percentages a
+// defense allows (FG% allowed pointed the wrong way for assists), and pace
+// for rebounds and steals.
+//
 // Each read is how far the team sits from the league's average in spreads
-// (standard deviations), the soft side up, and moves the score from 50 by
-// its gain a spread (GAINS); the total is held between 0 and 100. The
-// gains are fitted to every grade on three of RotoBot's pages (Oct 2026,
-// tests/nba-matchup-score.test.mjs, on last season's real numbers -- what
-// both sites read before a team has played): Dallas for a forward (PTS 91,
-// REB 89, AST 90, 3PM 69, STL 87, BLK 89), Indiana for a guard (REB 100,
-// AST 100, BLK 94, PTS 100, 3PM 77), Denver for Cason Wallace (PTS 73,
-// REB 62, AST 56, 3PM 91, STL 51, BLK 59) and for Shai Gilgeous-Alexander
-// (PTS 63, REB 61, AST 75, 3PM 84, STL 40, BLK 76), plus the threes of
-// Jared McCain (91) and Alex Caruso (72) and Ajay Mitchell's assists (71)
-// against Denver: about 5 points apart on average over the 26. What a
-// defense allows his position is a player at a time (league.dvpEach:
-// Denver allow each guard 11.1 points a game), the way RotoBot counts it
-// -- its printed numbers match to the decimal. Threes read how many a
-// team lets opponents take, not the percentage they make: RotoBot's
-// threes follow the tries (Denver allow the 4th most, and its OKC guards'
-// threes average 84.5 there; Indiana the fewest, 77 on a page of 94-100)
-// and not the percentage (Denver hold teams to the 3rd lowest). RotoBot
-// also moves each player on something of his own (Wallace 91,
-// Gilgeous-Alexander 84, Caruso 72 on threes against the same Denver).
-// It isn't his games against them, his own averages or who guards him:
-// each fits some of the two Denver pages and not the rest. So it isn't here.
+// (standard deviations, held to 3), the soft side up, times its weight
+// (WEIGHTS: the backtest's log-odds times 245, a scale that puts the top
+// 2.5% of props at 90 or more); the total moves the score from 50 along
+// 50 + 50 tanh(points / 50). Scored on the season it wasn't fitted on,
+// props at 90+ (3%) beat their own average 4.4 points of % more often than
+// usual, 75-89 3.7, 60-74 2.3, 40-59 even, 25-39 2.3 less, under 25 3.9
+// less. The weights fitted to RotoBot's grades before this put 19% of
+// props at 90+, and those beat their average only 3.3 more often.
 //
 import {defenseCell, statGameLog} from './unified-finder-data.js';
 import {MARKET_STAT, baseMarket} from './sports/wnba/wnba-research.js';
@@ -45,8 +44,18 @@ const mean = values => values.length ? values.reduce((sum, value) => sum + value
 const one = value => (Math.round(value * 10) / 10).toFixed(1);
 const ordinal = n => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th'}`;
 
-// Points a spread each read moves the score (see the top of the file).
-export const GAINS = {allowed: 19.5, rating: 19.5, pace: 6.5, position: 7.5, shooting: 0, attempts: 16.5, finishing: 9, turnovers: 6.5};
+// Points a spread each read moves the score, by stat (see the top of the
+// file). Stats the backtest didn't cover read the nearest one (FAMILY).
+export const WEIGHTS = {
+  pts: {defense: 19, pace: 12, position: 3.5},
+  reb: {defense: 6, position: 6, rebounds: 18.5},
+  ast: {defense: 5, pace: 7.5, position: 13, assists: 18},
+  tpm: {attempts: 22},
+  stl: {defense: 10, position: 6, turnovers: 18.5},
+  blk: {defense: 7, pace: 9, position: 17.5},
+};
+const FAMILY = {oreb: 'reb', dreb: 'reb', tpa: 'tpm'};
+const weightsOf = stat => WEIGHTS[stat] || WEIGHTS[FAMILY[stat]] || WEIGHTS.pts;
 // A combo is the average of its parts' scores.
 const COMBOS = {pr: ['player_points', 'player_rebounds'], pa: ['player_points', 'player_assists'], ra: ['player_rebounds', 'player_assists'],
   pra: ['player_points', 'player_rebounds', 'player_assists'], bs: ['player_blocks', 'player_steals']};
@@ -109,8 +118,7 @@ function defenseRead(row, league) {
   if (!parts.length) return null;
   const words = [finite(allowed?.[0]) && `${row.opponent} gives up ${one(allowed[0])} points a game (${place(allowed[1], count)})`,
     finite(rating?.[0]) && `${one(rating[0])} per 100 possessions (${place(finite(rating[1]) ? teams - rating[1] + 1 : null, teams, ['lowest', 'highest'])})`];
-  return {key: 'defense', kind: 'defense', soft: mean(parts), points: GAINS.allowed * (fromAllowed ?? 0) + GAINS.rating * (fromRating ?? 0),
-    text: words.filter(Boolean).join(' and ')};
+  return {key: 'defense', kind: 'defense', soft: mean(parts), text: words.filter(Boolean).join(' and ')};
 }
 
 /** How fast they play. */
@@ -120,7 +128,7 @@ function paceRead(row, league) {
   const soft = spreads(pace[0], column(table.teams, team => team?.poss?.[0])) ?? fromRank(pace[1], teams);
   if (!finite(soft)) return null;
   const where = place(finite(pace[1]) ? teams - pace[1] + 1 : null, teams, ['slowest', 'fastest']);
-  return {key: 'pace', kind: 'pace', soft, points: GAINS.pace * soft, text: `${row.opponent} plays at ${one(pace[0])} possessions a game${where ? ` (${where})` : ''}`};
+  return {key: 'pace', kind: 'pace', soft, text: `${row.opponent} plays at ${one(pace[0])} possessions a game${where ? ` (${where})` : ''}`};
 }
 
 /**
@@ -135,41 +143,28 @@ function positionRead(row, league, stat) {
   const soft = spreads(cell.value, cell.values) ?? fromRank(league?.teamCount - cell.rank + 1, league?.teamCount);
   if (!finite(soft)) return null;
   const who = each ? `each ${ONE[cell.position] || 'player at his position'}` : POSITIONS[cell.position] || 'his position';
-  return {key: `position-${stat}`, kind: 'position', soft, points: GAINS.position * soft,
+  return {key: `position-${stat}`, kind: 'position', soft,
     text: `${row.opponent} allows ${who} ${one(cell.value)} ${WORDS[stat] || 'of it'} a game (${place(cell.rank, league.teamCount)})`};
 }
 
-/** Threes: the 3-point percentage they allow (rank 1 the highest). */
-function shootingRead(row, league) {
-  const table = league?.opportunity, cell = table?.teams?.[row.opponent]?.tpPctAllowed, teams = table?.count || league?.teamCount;
+/**
+ * A number of theirs from the opportunity table (opportunity.team_table:
+ * rank 1 the most), the more the softer: the threes they let teams take,
+ * the rebounds and assists they give up.
+ */
+const OPPORTUNITY = {
+  attempts: [cell => cell?.tpaAllowed, value => `lets teams take ${value} threes a game`],
+  rebounds: [cell => cell?.rebAllowed, value => `gives up ${value} rebounds a game`],
+  assists: [cell => cell?.astAllowed, value => `gives up ${value} assists a game`],
+};
+function opportunityRead(row, league, key) {
+  const [pick, say] = OPPORTUNITY[key];
+  const table = league?.opportunity, cell = pick(table?.teams?.[row.opponent]), teams = table?.count || league?.teamCount;
   if (!finite(cell?.[0])) return null;
-  const soft = spreads(cell[0], column(table.teams, team => team?.tpPctAllowed?.[0])) ?? fromRank(cell[1], teams);
-  if (!finite(soft)) return null;
-  const where = place(finite(cell[1]) ? teams - cell[1] + 1 : null, teams, ['lowest', 'highest']);
-  return {key: 'shooting', kind: 'shooting', soft, points: GAINS.shooting * soft,
-    text: `${row.opponent} lets teams make ${one(cell[0])}% of their threes${where ? ` (${where})` : ''}`};
-}
-
-/** Threes: how many threes they let teams take a game (rank 1 the most). */
-function attemptsRead(row, league) {
-  const table = league?.opportunity, cell = table?.teams?.[row.opponent]?.tpaAllowed, teams = table?.count || league?.teamCount;
-  if (!finite(cell?.[0])) return null;
-  const soft = spreads(cell[0], column(table.teams, team => team?.tpaAllowed?.[0])) ?? fromRank(cell[1], teams);
+  const soft = spreads(cell[0], column(table.teams, team => pick(team)?.[0])) ?? fromRank(cell[1], teams);
   if (!finite(soft)) return null;
   const where = place(finite(cell[1]) ? teams - cell[1] + 1 : null, teams);
-  return {key: 'attempts', kind: 'attempts', soft, points: GAINS.attempts * soft,
-    text: `${row.opponent} lets teams take ${one(cell[0])} threes a game${where ? ` (${where})` : ''}`};
-}
-
-/** Assists: the field-goal percentage they allow (rank 1 the highest). */
-function finishingRead(row, league) {
-  const table = league?.opportunity, cell = table?.teams?.[row.opponent]?.fgPctAllowed, teams = table?.count || league?.teamCount;
-  if (!finite(cell?.[0])) return null;
-  const soft = spreads(cell[0], column(table.teams, team => team?.fgPctAllowed?.[0])) ?? fromRank(cell[1], teams);
-  if (!finite(soft)) return null;
-  const where = place(finite(cell[1]) ? teams - cell[1] + 1 : null, teams, ['lowest', 'highest']);
-  return {key: 'finishing', kind: 'finishing', soft, points: GAINS.finishing * soft,
-    text: `${row.opponent} lets teams shoot ${one(cell[0])}% from the field${where ? ` (${where})` : ''}`};
+  return {key, kind: key, soft, text: `${row.opponent} ${say(one(cell[0]))}${where ? ` (${where})` : ''}`};
 }
 
 /** Steals: how often they turn the ball over (offense; rank 1 the fewest). */
@@ -178,8 +173,7 @@ function turnoverRead(row, league) {
   if (!finite(cell?.[0])) return null;
   const soft = spreads(cell[0], column(league.teamStats, team => team?.off?.to?.[0])) ?? fromRank(finite(cell[1]) ? count - cell[1] + 1 : null, count);
   if (!finite(soft)) return null;
-  return {key: 'turnovers', kind: 'turnovers', soft, points: GAINS.turnovers * soft,
-    text: `${row.opponent} turns it over ${one(cell[0])} times a game (${place(cell[1], count)})`};
+  return {key: 'turnovers', kind: 'turnovers', soft, text: `${row.opponent} turns it over ${one(cell[0])} times a game (${place(cell[1], count)})`};
 }
 
 /** His own games against them, against his usual: shown beside the score, not in it. */
@@ -196,24 +190,30 @@ function fitRead(row) {
 /**
  * One prop's matchup: {score, raw, reads, fit}, score 0-100 for the over;
  * each read {key, kind, text, score (its own 0-100), points (what it adds
- * to or takes from 50)}; fit is his own games against them, shown beside
- * the score. null when nothing is known about the opponent's defense.
+ * to or takes from the total that moves the score from 50; raw is 50 plus
+ * them all)}; fit is his own games against them, shown beside the score. null when nothing is known about the opponent's defense.
  */
 export function matchupScore(row, league) {
   const stat = statOf(row);
   if (row?.sport !== 'nba' || !stat || !row.opponent || !league) return null;
-  // A combo's parts each read their own stat; the team's reads are shared.
+  // A combo's parts each read their own stat with their own weights; the
+  // team's reads (defense, pace) are shared at the parts' average weight.
   const parts = (COMBOS[stat] || [baseMarket(row.marketKey)]).map(marketKey => [marketKey, MARKET_STAT[marketKey]]);
-  const shared = [defenseRead(row, league), paceRead(row, league)].filter(Boolean);
-  const own = parts.flatMap(([marketKey, part]) => [positionRead({...row, marketKey}, league, part),
-    part === 'tpm' && GAINS.shooting ? shootingRead(row, league) : null, part === 'tpm' ? attemptsRead(row, league) : null,
-    part === 'ast' ? finishingRead(row, league) : null,
-    part === 'stl' ? turnoverRead(row, league) : null].filter(Boolean)
-    .map(read => ({...read, points: read.points / parts.length})));
-  const reads = [...shared, ...own];
+  const share = name => mean(parts.map(([, part]) => weightsOf(part)[name] || 0));
+  const weighed = (read, weight) => read && {...read, points: weight * read.soft};
+  const shared = [['defense', defenseRead], ['pace', paceRead]].filter(([name]) => share(name))
+    .map(([name, read]) => weighed(read(row, league), share(name)));
+  const own = parts.flatMap(([marketKey, part]) => {
+    const weights = weightsOf(part);
+    const extra = Object.keys(weights).filter(name => OPPORTUNITY[name] || name === 'turnovers')
+      .map(name => weighed(name === 'turnovers' ? turnoverRead(row, league) : opportunityRead(row, league, name), weights[name] / parts.length));
+    // His position is always shown; for threes it doesn't count (weight 0).
+    return [weighed(positionRead({...row, marketKey}, league, part), (weights.position || 0) / parts.length), ...extra];
+  });
+  const reads = [...shared, ...own].filter(Boolean);
   if (!reads.some(read => read.kind === 'defense' || read.kind === 'position')) return null;
-  const raw = 50 + reads.reduce((sum, read) => sum + read.points, 0);
-  return {score: Math.round(clamp(raw, 0, 100)), raw, fit: fitRead(row),
+  const points = reads.reduce((sum, read) => sum + read.points, 0);
+  return {score: Math.round(50 + 50 * Math.tanh(points / 50)), raw: 50 + points, fit: fitRead(row),
     reads: reads.map(read => ({key: read.key, kind: read.kind, text: read.text, score: alone(read.soft), points: Math.round(read.points * 10) / 10}))};
 }
 

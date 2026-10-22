@@ -95,36 +95,36 @@ not book odds.
   opponent's defense card (team baseline + "vs guards, by stat" with the
   picked stat marked + his games vs them), play types, likely defenders,
   shot chart sheet, vs that team, position ranks.
-- `src/nba-matchup-score.js`: the 0-100 score, refitted Oct 22 on every
-  grade of three RotoBot pages using last season's real numbers (what both
-  sites read before a team has played; `tests/fixtures/nba-2025-26-league.json`
-  from ESPN box scores via sportsdataverse on GitHub, which this container
-  can reach while ESPN/NBA.com are blocked): Dallas for a forward, Indiana
-  for a guard, Denver for Cason Wallace -- 17 grades, about 5 points apart
-  on average (was about 7). Gains a spread: points allowed 19.5, defensive
-  rating 19.5, pace 6.5, what the defense allows his position 7.5 (assists
-  also FG% allowed 9, steals the opponent's turnovers 6.5). Two findings:
-  RotoBot's "vs guards" is a player at a time (Denver allow each guard
-  11.0 points, 1.5 threes; our server's `dvp` adds the position up, 57
-  points), so `context.league_context` now also sends `dvpEach` and the
-  Props score and page read it (the Finder keeps `dvp`); and RotoBot's
-  threes don't move with the 3-point % a team allows, so that read is out.
-  Like RotoBot's team part it's the same for every player at a position.
-  Oct 22, second pass, with RotoBot's Gilgeous-Alexander page (PTS 63,
-  REB 61, AST 75, 3PM 84, STL 40, BLK 76) beside Wallace's: the Denver
-  numbers on both are identical, and their average matches ours on every
-  stat but threes. RotoBot's threes follow the threes a team lets
-  opponents take (Denver 4th most: its four OKC guards average 84.5;
-  Indiana the fewest: 77 on a page of 94-100), so threes now read
-  `opportunity.teams[team].tpaAllowed` (gain 16.5): OKC guards' threes
-  66 -> 84 against Denver, average gap 6.8 -> 5.35 over 26 RotoBot grades
-  (the test has them all). Indiana's guard threes got worse (82 -> 58,
-  RotoBot 77). RotoBot's per-player part (Wallace 91, SGA 84, Caruso 72
-  on threes against the same Denver) is still unexplained: his last
-  three games against them fit PTS/REB/AST/3PM but not STL/BLK or
-  Caruso; his primary defender (Braun for SGA, Murray for Wallace) fits
-  PTS/3PM only; his own averages among guards fit AST/STL/BLK only. Don't
-  chase it further without more pages (Caruso's threes would be the one).
+- `src/nba-matchup-score.js`: the 0-100 score, rebuilt Oct 22 on a
+  backtest like NFL's (the owner's call, after RotoBot's per-player grades
+  proved impossible to explain): every 2024-25 and 2025-26 player-game with
+  15+ minutes, the opponent read as it stood that morning, against whether
+  he beat his own average (season so far, last season worth 10 games). A
+  read counts only where its sign held in both seasons; weights are the
+  log-odds x 245 (2.5% of props at 90+), score 50 + 50 tanh(points/50).
+  Weights a spread (`WEIGHTS`): points defense 19 (points allowed and per
+  100 possessions as one read), pace 12, position 3.5; rebounds defense 6,
+  position 6, rebounds allowed 18.5; assists defense 5, pace 7.5, position
+  13, assists allowed 18; threes only the threes they let teams take 22;
+  steals defense 10, position 6, their turnovers 18.5; blocks defense 7,
+  pace 9, position 17.5. Out of sample: 90+ (3% of props) beat their
+  average 4.4 points of % more often than usual, 75-89 +3.7, 60-74 +2.3,
+  40-59 even, 25-39 -2.3, under 25 -3.9. The RotoBot-fitted weights before
+  it put 19% at 90+ (+3.3) and 30% under 25. Findings: "vs position" a
+  player at a time (`dvpEach`, RotoBot's way) beat the position's total
+  and tied per-minute; FG% allowed pointed the wrong way for assists and
+  3P% allowed predicted nothing, so neither is read. OKC guards vs Denver
+  on last season's numbers: PTS 56, REB 44, AST 62, 3PM 72, STL 25, BLK 66
+  (Denver turn it over the fewest). Backtest scripts aren't in the repo
+  (ESPN box scores from sportsdataverse's GitHub releases, reachable from
+  the container). RotoBot comparisons, for the record: its Denver numbers
+  match ours to the decimal, but it gives each guard its own grade
+  (points: McCain 89, Wallace 73, SGA 63) and nothing on its pages explains
+  that: not his games against them, players like him, his averages, or
+  who guards him (McCain and Wallace share Murray). Not chased further.
+- "Who guards him" on the Props page: his pts/75 against a defender with
+  under 25 possessions is grey and never the "toughest" (McCain read 73.8
+  against Braun on about 16).
 - Server: `api/wnba.py` (resources `league-context`, `scout`,
   `play-types`, `defender`, `matchup`, `player-context`, `gamelog`),
   `backend/sports/wnba/context.py`, `scout.py`, `opportunity.py`,

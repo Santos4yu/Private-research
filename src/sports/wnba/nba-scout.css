@@ -291,6 +291,7 @@
 .nba-mp .ng2-grid>span{display:grid;place-items:center;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
 .nba-mp .ng2-grid>span:first-child{border-top:0}
 .nba-mp .ng2-grid>span[data-tough]{border-radius:8px;background:rgba(238,84,112,.14);color:#ff8ea2}
+.nba-mp .ng2-grid>span[data-few]{color:var(--mp-faint);font-weight:600}
 .nba-mp .ng2-grid>.ng2-label{display:flex;align-items:center;color:var(--mp-faint);font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
 
 /* The shot zones door. */
