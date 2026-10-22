@@ -11,6 +11,10 @@
 //   NBA          the Props tab's matchup score and its reads, so a line
 //                reads the same number on every page (nba-matchup-score.js:
 //                their defense, pace and what they allow his position)
+//   NFL lines    the Props tab's score and reads too, where it grades the
+//                line (nfl-matchup-score.js: what the defense allows his
+//                position); the scouting notes and weather below are shown
+//                beside it
 //   WNBA         what the defense allows his position in this stat, and
 //                how much scoring the two teams' games produce
 //   NFL          what the defense allows his position, its pass rush and
@@ -46,6 +50,7 @@ import {cfbShareOf} from './slip-analyst.js';
 import {MARKET_STAT as BASKETBALL_STAT, baseMarket, isPeriodMarket, periodless} from './sports/wnba/wnba-research.js';
 import {familyOf, opportunityFacts, opportunityRead} from './sports/wnba/opportunity.js';
 import {matchupScore, band as nbaBand} from './nba-matchup-score.js';
+import {matchupScore as nflScore} from './nfl-matchup-score.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
@@ -834,13 +839,13 @@ function recentForm(row, records, side) {
 const BANDS = [[72, 'Excellent matchup', 'excellent'], [60, 'Good matchup', 'good'], [45, 'Neutral matchup', 'neutral'], [35, 'Tough matchup', 'tough'], [0, 'Bad matchup', 'bad']];
 // Where a matchup score turns (slip-check.js tierOf, krazy-bot.js): Elite
 // needs `elite`, Strong `strong`, a good one counts from `good`, under
-// `risky` is tough and under `fade` points the other way. An NBA score is
-// the Props tab's, spread wider (a soft team reads 90-100): its own bands
+// `risky` is tough and under `fade` points the other way. An NBA or NFL
+// score is the Props tab's, spread wider (a soft team reads 90-100): its own bands
 // (75 Strong edge, 60 Edge, under 40 Tough), and half the pull on a pick's
 // chance (`pull`), so it moves a chance as much as the old scale did.
 export const CUTS = {elite: 68, strong: 56, good: 60, risky: 45, fade: 35};
-const NBA_CUTS = {elite: 75, strong: 60, good: 60, risky: 40, fade: 20};
-const NBA_TONES = {strong: 'excellent', edge: 'good', neutral: 'neutral', tough: 'tough'};
+const PROPS_CUTS = {elite: 75, strong: 60, good: 60, risky: 40, fade: 20};
+const PROPS_TONES = {strong: 'excellent', edge: 'good', neutral: 'neutral', tough: 'tough'};
 
 /**
  * A graded leg's case: {score, label, tone, primary, facts}. `score` is
@@ -854,9 +859,15 @@ export function matchupCase(leg, tables = {}) {
   const league = tables[row.sport];
   const facts = [];
   if (row.sport === 'mlb') facts.push(...(String(row.marketKey || '').startsWith('pitching:') ? mlbPitcher(row, sign) : mlbHitter(row, sign)));
-  const props = row.sport === 'nba' ? matchupScore(row, league) : null;
+  const props = row.sport === 'nba' ? matchupScore(row, league) : row.sport === 'nfl' ? nflScore(row, league) : null;
   if (row.sport === 'nba' || row.sport === 'wnba') facts.push(...basketball(row, sign, league, props));
-  else if (row.sport === 'nfl' || row.sport === 'cfb') facts.push(...football(row, sign, league));
+  else if (row.sport === 'nfl' || row.sport === 'cfb') {
+    const read = football(row, sign, league);
+    // An NFL line the Props tab grades: its reads stand for what the defense allows his position.
+    if (props) facts.push(...props.reads.map(item => fact('opponent', `nfl-${item.key}`, item.text, item.points * sign, {primary: true})),
+      ...read.filter(item => item.key !== 'defense'));
+    else facts.push(...read);
+  }
   else if (row.sport === 'nhl') facts.push(...hockey(row, sign, league));
   else if (row.sport === 'soccer') facts.push(...soccer(row, sign, league));
   const records = leg.grade?.records;
@@ -896,7 +907,7 @@ export function matchupCase(leg, tables = {}) {
   if (props) {
     // The Props tab's number for his side; his form, history and rest are shown beside it.
     const score = sign > 0 ? props.score : 100 - props.score, {label, tone} = nbaBand(score);
-    return {score, label, tone: NBA_TONES[tone], primary: true, facts: sorted(), cuts: NBA_CUTS, pull: 0.5};
+    return {score, label, tone: PROPS_TONES[tone], primary: true, facts: sorted(), cuts: PROPS_CUTS, pull: 0.5};
   }
   let score;
   if (model && finite(model.score)) {

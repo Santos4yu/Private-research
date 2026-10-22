@@ -13,5 +13,5 @@
 
 Read `docs/claude-handoff.md`: how the owner likes to work, the standing
 rules (keys, branding, what stays switched off) and where the current
-project (NBA matchups on the Props tab) stands. Update it when you finish
+project (NBA and NFL matchups on the Props tab) stands. Update it when you finish
 a piece of work, so the next session can pick up from there.

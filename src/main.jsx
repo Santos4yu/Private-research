@@ -215,25 +215,32 @@ function mountMyBets(open){
 // NBA side is switched on for; everyone else sees the MLB board alone.
 const propsLeagueRoot=document.getElementById('props-league-root');
 let propsLeagueMount=null;
-// NBA matchups are switched on: their lines and hit rates load in idle time
-// after the site opens, so the Props tab shows them at once.
-let propsWarm=false;
-function warmPropsLeague(){
- if(propsWarm)return;propsWarm=true;
- const go=()=>{import('./NbaMatchups').catch(()=>{});import('./nba-props-data').then(module=>module.warmNbaProps()).catch(()=>{});};
+// The Props tab's leagues this person has (NBA, NFL): their lines and hit
+// rates load in idle time after the site opens, each once, so the tab shows
+// them at once.
+const propsLeagues=policy=>['nba','nfl'].filter(league=>canUsePropsLeague(policy,league));
+const propsWarmed=new Set();
+function warmPropsLeague(leagues){
+ const fresh=leagues.filter(league=>!propsWarmed.has(league));
+ if(!fresh.length)return;
+ fresh.forEach(league=>propsWarmed.add(league));
+ const go=()=>{
+  if(fresh.includes('nba')){import('./NbaMatchups').catch(()=>{});import('./nba-props-data').then(module=>module.warmNbaProps()).catch(()=>{});}
+  if(fresh.includes('nfl')){import('./NflMatchups').catch(()=>{});import('./nfl-props-data').then(module=>module.nfl.warm()).catch(()=>{});}
+ };
  setTimeout(()=>(window.requestIdleCallback?window.requestIdleCallback(go,{timeout:6000}):go()),3000);
 }
-function mountPropsLeague(open){
- if(open)warmPropsLeague();
- if(open&&!propsLeagueMount&&propsLeagueRoot){propsLeagueMount=shownRoot(propsLeagueRoot,later(<PropsLeague/>));}
- else if(!open&&propsLeagueMount){propsLeagueMount.unmount();propsLeagueMount=null;}
+function mountPropsLeague(leagues){
+ if(leagues.length)warmPropsLeague(leagues);
+ if(leagues.length&&!propsLeagueMount&&propsLeagueRoot){propsLeagueMount=shownRoot(propsLeagueRoot,later(<PropsLeague leagues={leagues}/>));}
+ else if(!leagues.length&&propsLeagueMount){propsLeagueMount.unmount();propsLeagueMount=null;}
 }
 let cheatSheetsMount=null;
 function mountCheatSheets(open){
  if(open&&!cheatSheetsMount&&cheatSheetsRoot){cheatSheetsMount=shownRoot(cheatSheetsRoot,later(<CheatSheets/>));}
  else if(!open&&cheatSheetsMount){cheatSheetsMount.unmount();cheatSheetsMount=null;}
 }
-window.addEventListener('vortex:site-policy',event=>{mountPrivateResearch(event.detail.accessGranted);mountAdminSections(Boolean(event.detail.accessGranted&&event.detail.isAdmin));mountKrazyBot(canUseTab(event.detail,'bot'));mountCheatSheets(canUseTab(event.detail,'sheets'));mountPromoBoard(canUseTab(event.detail,'promos'));mountMyBets(canUseTab(event.detail,'bets'));mountPropsLeague(canUsePropsLeague(event.detail,'nba'));});
+window.addEventListener('vortex:site-policy',event=>{mountPrivateResearch(event.detail.accessGranted);mountAdminSections(Boolean(event.detail.accessGranted&&event.detail.isAdmin));mountKrazyBot(canUseTab(event.detail,'bot'));mountCheatSheets(canUseTab(event.detail,'sheets'));mountPromoBoard(canUseTab(event.detail,'promos'));mountMyBets(canUseTab(event.detail,'bets'));mountPropsLeague(propsLeagues(event.detail));});
 mountPrivateResearch(document.documentElement.dataset.siteAccess==='granted');
 
 const filterIcons = { all: LayoutGrid, hrr: BarChart3, 'total-bases': Diamond, hits: CircleDot, strikeouts: Target, matchup: Crosshair };

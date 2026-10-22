@@ -5,6 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {matchupScore, spreadScores, cardScores, band} from '../src/nfl-matchup-score.js';
+import {matchupCase} from '../src/slip-matchup.js';
 
 const league = JSON.parse(readFileSync(new URL('./fixtures/nfl-2026-week7-league.json', import.meta.url)));
 const row = (player, position, opponent, marketKey) => ({id: player, sport: 'nfl', player, position, opponent, marketKey, line: 1.5});
@@ -56,4 +57,17 @@ test('the list and the page score a prop the same', () => {
   const card = cardScores(gibbs, league);
   assert.deepEqual(card.map(item => item.stat), ['RUSH YDS', 'CAR', 'REC', 'REC YDS', 'TD']);
   assert.equal(card.find(item => item.stat === 'TD').score, listed.score);
+});
+
+test('the slips read the same number for an NFL line', () => {
+  const gibbs = {...row('Jahmyr Gibbs', 'RB', 'GB', 'touchdowns'), teamAbbr: 'DET', market: 'Rush + Rec TDs'};
+  const listed = spreadScores([gibbs], league).get('Jahmyr Gibbs');
+  const over = matchupCase({row: gibbs, side: 'OVER', grade: {}}, {nfl: league});
+  assert.equal(over.score, listed.score);
+  assert.equal(over.label, listed.label);
+  assert.equal(over.cuts.risky, 40);
+  assert.ok(over.facts.some(item => item.kind === 'opponent' && /allows running backs/.test(item.text)));
+  // A line the Props tab doesn't grade (a kicker's) keeps the old read.
+  const kicker = matchupCase({row: {...row('K', 'K', 'GB', 'kicking_points'), teamAbbr: 'DET'}, side: 'OVER', grade: {}}, {nfl: league});
+  assert.ok(!kicker || kicker.cuts.risky === 45);
 });

@@ -38,7 +38,7 @@ SHEETS=('mlb:hr','mlb:hot','mlb:matchups','mlb:bvp','mlb:nrfi','mlb:park','mlb:s
 LEGACY_SHEETS=tuple(key for key in SHEETS if key.startswith('mlb:'))
 # Leagues inside the Props tab besides MLB's board, one switch each. Each
 # starts switched off until the admin turns it on (propsLeaguesSeen).
-PROPS_LEAGUES=('nba',)
+PROPS_LEAGUES=('nba','nfl')
 HEX_COLOR_RE=re.compile(r'^#[0-9a-fA-F]{6}$')
 # The phone dock: the sections the admin puts in its four slots, in order
 # (More is always last). Any section a member can have may go there; one

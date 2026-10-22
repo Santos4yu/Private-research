@@ -1,6 +1,6 @@
 /* The Props tab's league switch (PropsLeague.jsx) and its NBA side
    (NbaMatchups.jsx). Photos come from PickParts (slip-analyzer.css). */
-#panel-v2[data-league=nba]>:not(#props-league-root),:root[data-theme] #app-shell #panel-v2[data-league=nba]>:not(#props-league-root){display:none!important}
+#panel-v2:is([data-league=nba],[data-league=nfl])>:not(#props-league-root),:root[data-theme] #app-shell #panel-v2:is([data-league=nba],[data-league=nfl])>:not(#props-league-root){display:none!important}
 #props-league-root{max-width:1120px;margin:0 auto}
 #props-league-root:empty{display:none}
 /* A player's matchup page has its own back button: the league switch steps aside. */

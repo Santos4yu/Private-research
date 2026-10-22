@@ -44,10 +44,11 @@ Last updated 2026-10-22 (one NBA matchup score; the assistant's play breakdowns)
   stick. Use fixed positioning (see the pinned bar in NbaMatchupPage.jsx).
 - Deploy result: `gh api repos/santos4yu/private-research/commits/<sha>/status`.
 
-## Current project: NBA matchups on the Props tab
+## Current project: NBA and NFL matchups on the Props tab
 
-Where members find it: Props tab → MLB/NBA switch → NBA. It's off by
-default: Admin → Access → Props tab → NBA matchups. Tapping a player opens
+Where members find it: Props tab → NBA / NFL / MLB tabs. Each league is
+off by default: Admin → Access → Props tab → NBA matchups / NFL matchups
+(`site_controls.py` and `src/site-access-core.js` `PROPS_LEAGUES`). Tapping a player opens
 his matchup page; the back button (or the phone's back gesture) returns to
 the list.
 
@@ -58,8 +59,15 @@ not book odds.
 
 ### Files
 
-- `src/PropsLeague.jsx`: the MLB/NBA switch on the Props tab.
-- `src/NbaMatchups.jsx` + `src/nba-matchups.css`: the NBA list. On "All"
+- `src/PropsLeague.jsx`: the NBA / NFL / MLB tabs on the Props tab (only
+  the leagues switched on show).
+- `src/MatchupList.jsx`: the list both leagues use, given a config
+  (`src/NbaMatchups.jsx`, `src/NflMatchups.jsx`: data store, stat tabs,
+  score function, player page, words). `src/props-data.js` is the shared
+  keep-warm store (`nba-props-data.js`, `nfl-props-data.js` wrap it).
+  `src/MatchupPageShell.jsx` is the shared player-page frame (banner,
+  pinned bar, tabs) and the "His games" chart.
+- `src/nba-matchups.css`: the list. On "All"
   each player shows once, with his best line. Laid out as a page like the
   player page: NBA/MLB and the stat as underlined tabs, search + game +
   sort in one row of 44px controls, column names on wide screens, rows
@@ -182,6 +190,41 @@ not book odds.
   Other sports still answer with the plain list. Tests:
   `tests/play-breakdown.test.mjs`, the last test in
   `tests/krazy-bot.test.mjs`.
+
+### NFL on the Props tab (Oct 22)
+
+The owner sent RotoBot's NFL screens (list with hit rate + matchup; player
+page with Trends, Matchup, Metrics, Games, News; box count, run concept,
+run direction, coverage; RBs vs that defense; defense injuries; a bio
+slide) and asked for NFL on the Props tab. Built in phases:
+
+- Phase 1 (pushed, switched off until the owner turns it on): the NFL
+  list (PrizePicks' standard lines for QBs, backs, receivers, tight ends,
+  from the Finder's NFL board) and a player page
+  (`src/NflMatchupPage.jsx`): Overview (last 10 vs season averages, his
+  games vs the line, both teams' injury reports), Matchup (grade with a
+  tile per stat, the reads behind it, what that defense allows his
+  position this season and last 5, his games vs them, their defense's
+  injuries), Stats (game log by season with each opponent's rank).
+- The score (`src/nfl-matchup-score.js`): mostly what the defense allows
+  his position in the stat (24 points per spread from the league average),
+  a little of what it allows every offense (4), `50 + 50·tanh(s/50)`.
+  Fitted to RotoBot's week-7 grades (`tests/fixtures/nfl-2026-week7-league.json`,
+  `tests/nfl-matchup-score.test.mjs`): about 10 points apart on average
+  over 10 grades (Gibbs TD 87 vs RotoBot 91, Golden 89 vs 84, Stafford 78
+  vs 79, Skattebo 26 vs 25; Kraft 97 vs 82 and Love 93 vs 82 run high;
+  Stroud and Jeudy are far off and unexplained). Touchdowns read the new
+  `rush_rec_tds` split (`backend/sports/nfl/finder.py`, VERSION
+  nfl-finder-v5). The slips, Parlay Builder and assistant use this same
+  score for an NFL line (`slip-matchup.js`, `PROPS_CUTS`).
+- Phase 2 (next): how the matchup plays: box count (nflverse FTN
+  `n_defense_box` / participation `defenders_in_box`), run direction (pbp
+  `run_location`), coverage faced (participation
+  `defense_coverage_type`); RotoBot's run concepts aren't in free data.
+  Also players at his position vs that defense with their lines, and his
+  metrics with ranks among his position.
+- Phase 3: bio slide (height, weight, age, experience), news, and the
+  assistant's sectioned breakdowns for NFL plays.
 
 ### What the owner may ask next
 

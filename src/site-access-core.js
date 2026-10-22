@@ -51,7 +51,7 @@ export const CHEAT_SHEETS=[
 ];
 // Leagues inside the Props tab besides MLB's board (site_controls
 // PROPS_LEAGUES), one switch each; hidden from everyone but admins when off.
-export const PROPS_LEAGUES=[['nba','NBA matchups']];
+export const PROPS_LEAGUES=[['nba','NBA matchups'],['nfl','NFL matchups']];
 export function canUsePropsLeague(policy,league){
  return canUseTab(policy,'v2')&&(policy.isAdmin||!(policy.disabledPropsLeagues||[]).includes(league));
 }
