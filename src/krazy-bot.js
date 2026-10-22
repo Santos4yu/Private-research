@@ -18,7 +18,7 @@ import {matchupRead, matchupGrade, withPoolDefense} from './slip-analyst.js';
 import {judge as judgeLeg, scoreEntry, TIERS, baselineOf, confidentUnder} from './slip-check.js';
 import {link, links, jointChance, against, together} from './slip-correlation.js';
 import {withGame} from './slip-games.js';
-import {withMatchups} from './slip-matchup.js';
+import {CUTS, withMatchups} from './slip-matchup.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const percent = value => `${Math.round(value * 100)}%`;
@@ -512,8 +512,9 @@ export function withMatchup(leg, required, tables = {}) {
   if (!leg) return leg;
   const judged = judgeLeg(leg, tables);
   const found = judged.matchup;
-  // The matchup's lean, on the tiers' own lines: 56+ can back a Strong pick, under 45 caps it at Risky.
-  const tone = !found ? null : found.score >= 56 ? 'good' : found.score < 45 ? 'tough' : 'neutral';
+  // The matchup's lean, on the tiers' own lines (slip-matchup.js CUTS): Strong's can back a pick, under Risky's caps it.
+  const cuts = found?.cuts || CUTS;
+  const tone = !found ? null : found.score >= cuts.strong ? 'good' : found.score < cuts.risky ? 'tough' : 'neutral';
   const lead = found?.facts.find(item => item.kind !== 'form') || found?.facts[0];
   const out = {...judged, grade: TIER_GRADE[judged.tier] || leg.grade, matchupRequired: Boolean(required),
     matchup: found ? {...found, band: found.tone, tone, text: lead?.text || ''} : null};

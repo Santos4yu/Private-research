@@ -12,7 +12,7 @@ import {finderMarket} from './prop-finder-core.js';
 import {finderWindow, cachedSoccerLog, loadSoccerOpponents, within} from './unified-finder-data.js';
 import {withSoccerMatchups} from './soccer-matchup.js';
 import {assessLeg, POWER, FLEX, SPORT_NAMES} from './smart-slip.js';
-import {matchupCase, withMatchups} from './slip-matchup.js';
+import {CUTS, matchupCase, withMatchups} from './slip-matchup.js';
 import {links} from './slip-correlation.js';
 import {LETTERS, letterFor, scoreParlay} from './slip-score.js';
 import {calibrate, statGroup} from './learning.js';
@@ -365,11 +365,11 @@ export function confidentUnder(read) {
 export function tierOf(read) {
   if (!read) return null;
   const edge = read.chance - baselineOf(read);
-  const score = read.matchup?.score ?? 50;
-  if (read.matchup?.primary && score >= 68 && edge >= 0.08) return 'elite';
-  if (score >= 56 && edge >= 0.04) return 'strong';
-  if (score < 35 || edge < -0.04) return 'fade';
-  if (score < 45 || edge < 0.01) return 'risky';
+  const score = read.matchup?.score ?? 50, cuts = read.matchup?.cuts || CUTS;
+  if (read.matchup?.primary && score >= cuts.elite && edge >= 0.08) return 'elite';
+  if (score >= cuts.strong && edge >= 0.04) return 'strong';
+  if (score < cuts.fade || edge < -0.04) return 'fade';
+  if (score < cuts.risky || edge < 0.01) return 'risky';
   return 'lean';
 }
 
@@ -403,7 +403,7 @@ export function judge(read, tables = {}) {
   const blend = read.read?.model ? MODEL_BLEND[read.row?.sport] : null;
   const trend = role ? 0.15 : blend ? blend[0] : matchup?.primary ? 0.45 : 0.7;
   const lift = blend ? blend[1] : 0.18;
-  const raw = matchup ? Math.min(0.95, Math.max(0.05, base + trend * (read.chance - base) + lift * (matchup.score - 50) / 50)) : read.chance;
+  const raw = matchup ? Math.min(0.95, Math.max(0.05, base + trend * (read.chance - base) + lift * (matchup.pull ?? 1) * (matchup.score - 50) / 50)) : read.chance;
   // What the results have taught the model (learning.js): the same
   // correction on every page. `rawChance` is the model's own, learned from.
   const chance = calibrate(raw, read.row?.sport, statGroup(read.row));
@@ -486,8 +486,9 @@ export function scoreEntry(legs, {app, entry} = {}) {
     if (key && !/:$|:-?:/.test(key)) games.set(key, (games.get(key) || 0) + 1);
   }
   const shared = [...games.values()].filter(count => count > 1).reduce((sum, count) => sum + count, 0);
-  const matchups = {good: graded.filter(leg => leg.grade.matchup?.score >= 60).length,
-    tough: graded.filter(leg => leg.grade.matchup && leg.grade.matchup.score < 45).length,
+  const cutsOf = matchup => matchup.cuts || CUTS;
+  const matchups = {good: graded.filter(leg => leg.grade.matchup && leg.grade.matchup.score >= cutsOf(leg.grade.matchup).good).length,
+    tough: graded.filter(leg => leg.grade.matchup && leg.grade.matchup.score < cutsOf(leg.grade.matchup).risky).length,
     known: graded.filter(leg => leg.grade.matchup?.primary).length};
   const linked = pairs.filter(pair => Math.abs(pair.rho) >= 0.08)
     .map(pair => ({...pair, players: [legs[pair.a].row?.player || legs[pair.a].player, legs[pair.b].row?.player || legs[pair.b].player]}));

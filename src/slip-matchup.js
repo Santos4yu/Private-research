@@ -8,7 +8,10 @@
 //                (mlb_prop_matchups.py, mlb_context.py)
 //   MLB pitcher  the lineup he faces: its strikeout rate against his hand,
 //                how it has hit lately, how deep he goes
-//   NBA / WNBA   what the defense allows his position in this stat, and
+//   NBA          the Props tab's matchup score and its reads, so a line
+//                reads the same number on every page (nba-matchup-score.js:
+//                their defense, pace and what they allow his position)
+//   WNBA         what the defense allows his position in this stat, and
 //                how much scoring the two teams' games produce
 //   NFL          what the defense allows his position, its pass rush and
 //                pass defense for a quarterback, his share of the targets
@@ -28,8 +31,9 @@
 //                history against the opponent and his recent form
 //
 // Every fact carries an impact on a 0-100 scale for the pick's side (50 is
-// neutral); the matchup score is 50 plus their sum. src/slip-check.js
-// grades a pick on that score first and its recent games second.
+// neutral); the matchup score is 50 plus their sum (an NBA line's is the
+// Props tab's score, on its own scale: CUTS). src/slip-check.js grades a
+// pick on that score first and its recent games second.
 import {defenseCell, loadFinderDefense, loadMlbMatchups, loadHitterMatchups, withMlbMatchups, withHitterMatchups,
   withDefense} from './unified-finder-data.js';
 import {homeToday, matchupRead} from './slip-analyst.js';
@@ -41,6 +45,7 @@ import {PLAYS as CFB_PLAYS, PLAY_WORDS as CFB_PLAY_WORDS, AGAINST_WORDS as CFB_A
 import {cfbShareOf} from './slip-analyst.js';
 import {MARKET_STAT as BASKETBALL_STAT, baseMarket, isPeriodMarket, periodless} from './sports/wnba/wnba-research.js';
 import {familyOf, opportunityFacts, opportunityRead} from './sports/wnba/opportunity.js';
+import {matchupScore, band as nbaBand} from './nba-matchup-score.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
@@ -340,9 +345,12 @@ function restFacts(row, sign, rest) {
   return out;
 }
 
-function basketball(row, sign, league) {
+function basketball(row, sign, league, props = null) {
   const out = [...restFacts(row, sign, league?.rest)];
-  const defense = positionDefense(row, sign);
+  // An NBA line's opponent is the Props tab's read of it (its score is the
+  // matchup's); the WNBA's is read here.
+  if (props) out.push(...props.reads.map(read => fact('opponent', `nba-${read.key}`, read.text, read.points * sign, {primary: true})));
+  const defense = props ? null : positionDefense(row, sign);
   if (defense) out.push(defense);
   const stats = league?.teamStats;
   const own = stats?.[row.teamAbbr], their = stats?.[row.opponent];
@@ -356,6 +364,7 @@ function basketball(row, sign, league) {
   // them shoot for assists.
   const table = league?.opportunity, theirs = table?.teams?.[row.opponent], usual = table?.league || {};
   const given = (key, words, weight, ends = {low: 'most', high: 'fewest'}) => {
+    if (props) return;
     const [value, rank] = theirs?.[key] || [];
     if (!finite(value) || !(usual[key] > 0)) return;
     const ratio = value / usual[key];
@@ -374,6 +383,7 @@ function basketball(row, sign, league) {
   // How many possessions the two teams play to, when the table has them.
   const pace = table?.teams?.[row.teamAbbr]?.poss?.[0] != null && theirs?.poss?.[0] != null && usual.poss > 0
     ? (table.teams[row.teamAbbr].poss[0] + theirs.poss[0]) / 2 : null;
+  if (props) return out;
   if (finite(pace) && POINTS_STATS.test(`${row.marketKey} ${row.market}`)) {
     const ratio = pace / usual.poss;
     const words = ratio >= 1.015 ? 'a fast game' : ratio <= 0.985 ? 'a slow game' : 'an average-pace game';
@@ -822,6 +832,15 @@ function recentForm(row, records, side) {
 }
 
 const BANDS = [[72, 'Excellent matchup', 'excellent'], [60, 'Good matchup', 'good'], [45, 'Neutral matchup', 'neutral'], [35, 'Tough matchup', 'tough'], [0, 'Bad matchup', 'bad']];
+// Where a matchup score turns (slip-check.js tierOf, krazy-bot.js): Elite
+// needs `elite`, Strong `strong`, a good one counts from `good`, under
+// `risky` is tough and under `fade` points the other way. An NBA score is
+// the Props tab's, spread wider (a soft team reads 90-100): its own bands
+// (75 Strong edge, 60 Edge, under 40 Tough), and half the pull on a pick's
+// chance (`pull`), so it moves a chance as much as the old scale did.
+export const CUTS = {elite: 68, strong: 56, good: 60, risky: 45, fade: 35};
+const NBA_CUTS = {elite: 75, strong: 60, good: 60, risky: 40, fade: 20};
+const NBA_TONES = {strong: 'excellent', edge: 'good', neutral: 'neutral', tough: 'tough'};
 
 /**
  * A graded leg's case: {score, label, tone, primary, facts}. `score` is
@@ -835,7 +854,8 @@ export function matchupCase(leg, tables = {}) {
   const league = tables[row.sport];
   const facts = [];
   if (row.sport === 'mlb') facts.push(...(String(row.marketKey || '').startsWith('pitching:') ? mlbPitcher(row, sign) : mlbHitter(row, sign)));
-  else if (row.sport === 'nba' || row.sport === 'wnba') facts.push(...basketball(row, sign, league));
+  const props = row.sport === 'nba' ? matchupScore(row, league) : null;
+  if (row.sport === 'nba' || row.sport === 'wnba') facts.push(...basketball(row, sign, league, props));
   else if (row.sport === 'nfl' || row.sport === 'cfb') facts.push(...football(row, sign, league));
   else if (row.sport === 'nhl') facts.push(...hockey(row, sign, league));
   else if (row.sport === 'soccer') facts.push(...soccer(row, sign, league));
@@ -869,6 +889,15 @@ export function matchupCase(leg, tables = {}) {
   // A hitter's model grade already weighs the starter, his history, the
   // pitch mix, the split, the park and the weather: it is the backbone.
   const model = row.sport === 'mlb' ? row.hitterMatchup?.grades?.[HITTER_FAMILY[String(row.marketKey || '').split(':')[1]] || 'other'] : null;
+  // The order the facts are read in: the news first (is he playing), then
+  // the opponent, history and splits, then form.
+  const order = {news: -1, opponent: 0, history: 1, split: 2, venue: 3, rest: 3, usage: 4, form: 5};
+  const sorted = () => facts.sort((a, b) => order[a.kind] - order[b.kind] || (a.rank ?? 0) - (b.rank ?? 0) || Math.abs(b.impact) - Math.abs(a.impact));
+  if (props) {
+    // The Props tab's number for his side; his form, history and rest are shown beside it.
+    const score = sign > 0 ? props.score : 100 - props.score, {label, tone} = nbaBand(score);
+    return {score, label, tone: NBA_TONES[tone], primary: true, facts: sorted(), cuts: NBA_CUTS, pull: 0.5};
+  }
   let score;
   if (model && finite(model.score)) {
     const over = String(row.marketKey || '').endsWith(':strikeouts') ? 100 - model.score : model.score;
@@ -879,8 +908,5 @@ export function matchupCase(leg, tables = {}) {
   } else score = 50 + facts.reduce((sum, item) => sum + impact(item), 0);
   score = Math.round(clamp(score, 3, 97));
   const [, label, tone] = BANDS.find(([floor]) => score >= floor);
-  // The news first (is he playing), then the opponent, history and splits, then form.
-  const order = {news: -1, opponent: 0, history: 1, split: 2, venue: 3, rest: 3, usage: 4, form: 5};
-  facts.sort((a, b) => order[a.kind] - order[b.kind] || (a.rank ?? 0) - (b.rank ?? 0) || Math.abs(b.impact) - Math.abs(a.impact));
-  return {score, label, tone, primary, facts};
+  return {score, label, tone, primary, facts: sorted(), cuts: CUTS, pull: 1};
 }
