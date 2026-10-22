@@ -1,15 +1,18 @@
 // A Props tab league's list (NbaMatchups.jsx, NflMatchups.jsx): every prop
-// PrizePicks posts in it with how often it has cleared its line lately and
-// how good the opponent is for it, sortable either way. A row opens that
+// PrizePicks posts in it with how often it has cleared its line lately, how
+// good the opponent is for it, and its Prop grade (props-grade.js: the over
+// at tonight's line as the Analyzer grades it), sortable each way. A row opens that
 // player's matchup page; "Why" shows what made the score. `config` says
 // which league: its stats, its lines (props-data.js), its score and page.
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ChevronDown,RefreshCw,Search,X} from 'lucide-react';
 import {windowGames,windowRate} from './unified-finder-data';
 import {Face} from './PickParts';
+import {propGrades} from './props-grade';
+import {loadLearning} from './learning';
 import './nba-matchups.css';
 
-const SORTS=[['matchup','Matchup'],['hit','Hit %']];
+const SORTS=[['matchup','Matchup'],['hit','Hit %'],['prop','Prop grade']];
 const READS={defense:'Their defense',pace:'Their pace',position:'vs his position',attempts:'Threes they allow',rebounds:'Rebounds they allow',assists:'Assists they allow',turnovers:'Their turnovers',meetings:'His games vs them'};
 // What a read adds to (or takes from) the even 50.
 const added=points=>`${points>0?'+':points<0?'−':''}${Math.abs(Math.round(points))} ${Math.abs(Math.round(points))===1?'point':'points'}`;
@@ -24,7 +27,7 @@ function Bar({value,tone}){
  return <span className="nm-bar" data-tone={tone||undefined}><i style={{width:`${Math.max(4,Math.min(100,value))}%`}}/></span>;
 }
 
-function Row({row,read,hit,open,onToggle,onOpen,short}){
+function Row({row,read,hit,prop,open,onToggle,onOpen,short}){
  const home=row.teamAbbr&&row.teamAbbr===row.homeTeamAbbr;
  return <li className="nm-row" data-open={open||undefined}>
   <button type="button" className="nm-main" onClick={()=>onOpen(row)} aria-label={`Open ${row.player}'s ${short[row.marketKey]||row.market} matchup`}>
@@ -37,9 +40,12 @@ function Row({row,read,hit,open,onToggle,onOpen,short}){
     <small className="nm-sub">{hit?`${hit.hits} of ${hit.games}`:row.historyStatus==='pending'||row.historyRefresh?'Loading…':'No games yet'}</small></span>
    <span className="nm-stat nm-score" data-tone={read?.tone}><span className="nm-stat-top"><small>Matchup</small><b>{read?read.score:'—'}</b></span>
     <Bar value={read?.score||0} tone={read?.tone}/><small className="nm-sub">{read?read.label:'Not enough data'}</small></span>
+   <span className="nm-stat nm-prop" data-tone={prop?.tone}><span className="nm-stat-top"><small>Prop</small><b>{prop?`${Math.round(prop.chance*100)}%`:'—'}</b></span>
+    <Bar value={prop?prop.chance*100:0} tone={prop?.tone}/><small className="nm-sub">{prop?prop.label:hit?'Not graded':'Loading…'}</small></span>
   </button>
   {read&&<button type="button" className="nm-why" aria-expanded={open} onClick={onToggle}>Why<ChevronDown size={14}/></button>}
-  {open&&read&&<ul className="nm-reads"><li className="nm-read-note">An even matchup is 50. Each part adds or takes away points.</li>{read.reads.map(item=><li key={item.key}>
+  {open&&read&&<ul className="nm-reads">{prop&&<li className="nm-read-note">Prop grade: a {Math.round(prop.chance*100)}% chance of the over at {figure(row.line)}{String(row.modifier||'').toLowerCase()==='demon'?' (a Demon pays more, so it needs less)':''}, from his recent games and role with this matchup. {prop.label}.</li>}
+   <li className="nm-read-note">An even matchup is 50. Each part adds or takes away points.</li>{read.reads.map(item=><li key={item.key}>
    <span className="nm-read-head"><b>{READS[item.kind]||READS[item.key]}</b><em>{added(item.points)}</em></span>
    <span className="nm-read-text">{item.text}</span>
    <Bar value={item.score} tone={item.score>=60?'edge':item.score>=40?'neutral':'tough'}/>
@@ -74,6 +80,10 @@ export function MatchupList({config}){
  // Something to show beats a spinner: the list stays up while a board loads.
  const status=data.rows==null||(!rows.length&&data.loading)?'loading':!rows.length&&data.error?'error':data.loading?'refreshing':'ready';
  const scores=useMemo(()=>league?score(rows,league):new Map(),[rows,league,score]);
+ // What results have taught the model (learning.js): the Analyzer's correction, once loaded.
+ const [learned,setLearned]=useState(0);
+ useEffect(()=>{let live=true;Promise.resolve().then(()=>loadLearning()).then(()=>{if(live)setLearned(Date.now());}).catch(()=>{});return()=>{live=false;};},[]);
+ const grades=useMemo(()=>propGrades(rows,league),[rows,league,learned]);
  const games=useMemo(()=>{
   const seen=new Map();
   for(const row of rows)if(!seen.has(gameOf(row)))seen.set(gameOf(row),row);
@@ -82,12 +92,13 @@ export function MatchupList({config}){
  const needle=query.trim().toLowerCase();
  const shown=useMemo(()=>rows
   .filter(row=>(stat==='all'||row.marketKey===stat)&&(game==='all'||gameOf(row)===game)&&(!needle||row.player.toLowerCase().includes(needle)))
-  .map(row=>({row,read:scores.get(row.id)||null,hit:hitOf(row)}))
+  .map(row=>({row,read:scores.get(row.id)||null,hit:hitOf(row),prop:grades.get(row.id)||null}))
   .sort((a,b)=>sort==='hit'?(b.hit?.rate??-1)-(a.hit?.rate??-1)||(b.read?.score??-1)-(a.read?.score??-1)
+   :sort==='prop'?(b.prop?.rank??-1)-(a.prop?.rank??-1)||(b.prop?.edge??-1)-(a.prop?.edge??-1)
    :(b.read?.score??-1)-(a.read?.score??-1)||(b.hit?.rate??-1)-(a.hit?.rate??-1))
   // All stats: each player once, at his best line by the sort; a stat chip lists that stat's line.
   .filter((item,index,list)=>stat!=='all'||list.findIndex(other=>other.row.player===item.row.player&&other.row.teamAbbr===item.row.teamAbbr)===index),
-  [rows,scores,stat,game,needle,sort]);
+  [rows,scores,grades,stat,game,needle,sort]);
  const counts=useMemo(()=>rows.reduce((out,row)=>({...out,[row.marketKey]:(out[row.marketKey]||0)+1}),{}),[rows]);
  // A player's page: its own history entry, so the phone's back gesture
  // closes it the same as the page's back button.
@@ -141,8 +152,8 @@ export function MatchupList({config}){
    <span>{words.noneText}</span></div>}
   {(status==='ready'||status==='refreshing')&&rows.length>0&&!league&&<p className="nm-note">Matchup scores are still loading the league’s numbers. Hit rates are below.</p>}
 
-  {shown.length>0&&<div className="nm-cols" aria-hidden="true"><span>Player</span><span>Line</span><span>Last 10</span><span>Matchup</span></div>}
-  {shown.length>0&&<ul className="nm-list">{shown.map(({row,read,hit})=><Row key={row.id} row={row} read={read} hit={hit} short={SHORT}
+  {shown.length>0&&<div className="nm-cols" aria-hidden="true"><span>Player</span><span>Line</span><span>Last 10</span><span>Matchup</span><span>Prop grade</span></div>}
+  {shown.length>0&&<ul className="nm-list">{shown.map(({row,read,hit,prop})=><Row key={row.id} row={row} read={read} hit={hit} prop={prop} short={SHORT}
    open={openId===row.id} onToggle={()=>setOpenId(id=>id===row.id?null:row.id)} onOpen={openPage}/>)}</ul>}
   {(status==='ready'||status==='refreshing')&&rows.length>0&&!shown.length&&<div className="nm-empty"><b>Nothing matches</b>
    <span>Try another stat or game, or clear the search.</span></div>}

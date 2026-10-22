@@ -54,7 +54,7 @@
 .nm-stats button[aria-pressed=true]{color:var(--m-text);box-shadow:inset 0 -3px 0 var(--m-accent)}
 
 /* The list: column names, then a row per prop with a line under it. */
-.nm-cols,.nm-main{display:grid;grid-template-columns:44px minmax(0,1fr) 96px 150px 170px;align-items:center;gap:16px}
+.nm-cols,.nm-main{display:grid;grid-template-columns:44px minmax(0,1fr) 96px 140px 150px 150px;align-items:center;gap:16px}
 .nm-cols{padding:12px 84px 10px 0;border-bottom:1px solid var(--m-line);color:var(--m-faint);font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
 .nm-cols span:first-child{grid-column:1/3}
 .nm-list{margin:0;padding:0;list-style:none}
@@ -72,12 +72,15 @@
 .nm-line em{color:var(--m-muted);font-size:11.5px;font-style:normal;font-weight:700}
 .nm-stat{display:flex;flex-direction:column;gap:5px;min-width:0}
 .nm-stat-top{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
-.nm-stat-top small{color:var(--m-faint);font-size:11px;font-weight:700}
+.nm-stat-top small{color:var(--m-faint);font-size:11px;font-weight:700;white-space:nowrap}
 .nm-stat-top b{font:800 17px/1 'Sora',var(--font-sans)}
 .nm-sub{overflow:hidden;color:var(--m-faint);font-size:11.5px;white-space:nowrap;text-overflow:ellipsis}
 .nm-score[data-tone=strong] .nm-stat-top b,.nm-score[data-tone=strong] .nm-sub{color:var(--m-strong)}
 .nm-score[data-tone=edge] .nm-stat-top b,.nm-score[data-tone=edge] .nm-sub{color:var(--m-edge)}
 .nm-score[data-tone=tough] .nm-stat-top b,.nm-score[data-tone=tough] .nm-sub{color:var(--m-tough)}
+.nm-prop[data-tone=strong] .nm-stat-top b,.nm-prop[data-tone=strong] .nm-sub{color:var(--m-strong)}
+.nm-prop[data-tone=edge] .nm-stat-top b,.nm-prop[data-tone=edge] .nm-sub{color:var(--m-edge)}
+.nm-prop[data-tone=tough] .nm-stat-top b,.nm-prop[data-tone=tough] .nm-sub{color:var(--m-tough)}
 .nm-bar{display:block;height:6px;border-radius:999px;background:#242424;overflow:hidden}
 .nm-bar i{display:block;height:100%;border-radius:inherit;background:#6f6f6f}
 .nm-bar[data-tone=strong] i{background:var(--m-strong)}
@@ -111,16 +114,21 @@
 @media (max-width:760px){
  .nm-league button{flex:1;min-width:0}
  .nm-head h2{font-size:21px}
- .nm-tools{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:'search search' 'game sort'}
- .nm-sort button{min-width:72px}
+ .nm-tools{grid-template-columns:minmax(0,1fr) minmax(0,150px);grid-template-areas:'search game' 'sort sort'}
+ .nm-sort button{min-width:0;padding:0 8px}
  .nm-cols{display:none}
- .nm-main{grid-template-columns:repeat(6,minmax(0,1fr));grid-template-areas:'face who who who who who' 'line line hit hit score score';gap:12px 10px;padding:14px 0}
+ .nm-main{grid-template-columns:repeat(8,minmax(0,1fr));grid-template-areas:'face who who who who who who who' 'line line hit hit score score prop prop';gap:12px 8px;padding:14px 0}
  .nm-main:hover{background:none}
  .nm-main .sa-face{grid-area:face;width:42px;height:42px}
- .nm-who{grid-area:who;padding-right:64px}
+ .nm-who{grid-area:who;padding:0 64px 0 6px}
  .nm-line{grid-area:line;justify-content:center;padding:6px 9px}
  .nm-hit{grid-area:hit}
  .nm-score{grid-area:score}
+ .nm-prop{grid-area:prop}
  .nm-why,.nm-row[data-open] .nm-why{top:14px;transform:none}
  .nm-reads{margin:0 0 14px;grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:380px){
+ .nm-main{gap:12px 6px}
+ .nm-stat-top b{font-size:15px}
 }

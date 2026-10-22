@@ -149,6 +149,17 @@ not book odds.
   NFL): one line per player and stat, the standard one; a stat PrizePicks
   posts only as Demons shows its lowest Demon (marked "Demon" in red); a
   Goblin never shows.
+- Prop grade on the Props lists (Oct 22, `src/props-grade.js`): a third
+  number a row, the over at tonight's line as the Analyzer grades it
+  (`slip-check.js gradeLeg`: prop model on his games and role, the matchup
+  case on top, `learning.js` calibration, Demons against what they pay),
+  without tonight's game news (the player page / Analyze add that). Shown
+  as a chance with the tier (Elite..Fade), sortable ("Prop grade"),
+  explained first in Why. It's what RotoBot's "matchup" number really is
+  (its assistant says it mixes form, role, odds, injuries and a
+  projection), kept beside our pure matchup score. Not backtestable on
+  free data (no past PrizePicks lines). Phone layout: four cells a row,
+  checked at 360/393px.
 - "Who guards him" on the Props page: his pts/75 against a defender with
   under 25 possessions is grey and never the "toughest" (McCain read 73.8
   against Braun on about 16).
