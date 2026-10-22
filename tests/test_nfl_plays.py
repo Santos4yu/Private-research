@@ -276,3 +276,32 @@ class StoreTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MatchupInputTests(unittest.TestCase):
+    """What the matchup score reads from the league answer (finder.league):
+    each player's role and each team's next line."""
+
+    def test_role_is_his_share_a_game_with_last_season_as_three_games(self):
+        from backend.sports.nfl import finder
+        row = lambda player, game, team, **stats: {"player_id": player, "game_id": game, "team": team, "season_type": "REG",
+                                                   **{key: str(value) for key, value in stats.items()}}
+        now = [row("wr", "G1", "DET", targets=6), row("te", "G1", "DET", targets=4), row("rb", "G1", "DET", carries=15, targets=0),
+               row("rb2", "G1", "DET", carries=5),
+               # Week 2: he's out; the backup's share is his own game's.
+               row("te", "G2", "DET", targets=8), row("rb2", "G2", "DET", carries=20)]
+        last = [row("wr", "L1", "DET", targets=3), row("x", "L1", "DET", targets=7)]
+        usage = finder.usage_of(now, last)
+        self.assertEqual(usage["wr"], [round((0.6 * 1 + 3 * 0.3) / 4, 3), 0.0])   # this season's 60% in one game, last season's 30% as three
+        self.assertEqual(usage["te"], [0.7, 0.0])                                    # 40% and 100%, no last season
+        self.assertEqual(usage["rb2"][1], round((0.25 + 1.0) / 2, 3))
+
+    def test_next_game_line_from_his_side(self):
+        from backend.sports.nfl import finder
+        games = {"2026_07_GB_DET": {"home": "DET", "away": "GB", "kickoff": 2000, "final": False, "spread_line": "3", "total_line": "53.5"},
+                 "2026_06_GB_X": {"home": "X", "away": "GB", "kickoff": 1000, "final": True, "spread_line": "1", "total_line": "40"},
+                 "2026_08_GB_Y": {"home": "Y", "away": "GB", "kickoff": 3000, "final": False, "spread_line": "NA", "total_line": "NA"}}
+        slate = finder.slate_of(games, now=1500)
+        self.assertEqual(slate["DET"], {"gameId": "2026_07_GB_DET", "favBy": 3.0, "total": 53.5, "implied": 28.25})
+        self.assertEqual(slate["GB"], {"gameId": "2026_07_GB_DET", "favBy": -3.0, "total": 53.5, "implied": 25.25})
+        self.assertNotIn("Y", slate)   # no line posted yet

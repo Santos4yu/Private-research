@@ -17,6 +17,7 @@ from __future__ import annotations
 import csv
 import gzip
 import io
+import time
 from collections import defaultdict
 from datetime import datetime, timezone
 from urllib.error import HTTPError
@@ -27,7 +28,7 @@ from .cache import NFLCacheDomain, cached_nfl, remember_nfl
 from .services.nflverse import RELEASE, SCHEDULE_URL, TEAM_URL, ProviderError, _source_rows, canonical_team
 from .services.research_stats import numeric, prizepicks_fantasy
 
-VERSION = "nfl-finder-v5"
+VERSION = "nfl-finder-v6"
 USER_AGENT = {"User-Agent": "KrazyData-NFL-finder/1.0"}
 
 CONFERENCES = {
@@ -860,10 +861,81 @@ def league(season):
             "teamStats": _ranked(averages, [key for key, *_ in TEAM_STATS]),
             "dvp": _dvp(players, games), "dvpPositions": list(DVP_POSITIONS),
             "dvpStats": {position: [[key, STAT_LABELS[key]] for key in keys] for position, keys in DVP_STATS.items()},
-            "standings": standings, "passRun": pass_run, "share": shares, "version": VERSION,
+            "standings": standings, "passRun": pass_run, "share": shares,
+            # The matchup score's role and game reads (src/nfl-matchup-score.js).
+            "usage": usage_of(players, player_rows(season - 1)), "slate": slate_of(games),
+            "version": VERSION,
         }
     # "dvp-totals": the defense-vs-position table counted a game at a time (_dvp).
     return cached_nfl(NFLCacheDomain.STATS, (VERSION, "league-dvp-totals", season), load)
+
+
+# Last season's shares count as this many games of this season's, so a role
+# reads right in September and this season's takes over as it's played.
+USAGE_PRIOR = 3
+
+
+def _shares(rows):
+    """{player id: (games, mean target share, mean carry share)}, a game at a
+    time over the regular-season games he played (attempts, carries or
+    targets), each his share of his team's that game."""
+    team = defaultdict(lambda: [0.0, 0.0])
+    played = []
+    for row in rows:
+        if str(row.get("season_type")).upper() != "REG":
+            continue
+        key = (row.get("game_id"), canonical_team(row.get("team")))
+        targets, carries = _n(row, "targets") or 0, _n(row, "carries") or 0
+        team[key][0] += targets
+        team[key][1] += carries
+        if targets or carries or (_n(row, "attempts") or 0):
+            played.append((row.get("player_id"), key, targets, carries))
+    games = defaultdict(list)
+    for player_id, key, targets, carries in played:
+        total_targets, total_carries = team[key]
+        games[player_id].append((targets / total_targets if total_targets else 0, carries / total_carries if total_carries else 0))
+    return {player_id: (len(each), sum(t for t, _ in each) / len(each), sum(c for _, c in each) / len(each))
+            for player_id, each in games.items()}
+
+
+def usage_of(rows, last_rows=()):
+    """{player id: [target share, carry share]}: his share of his team's
+    targets and carries a game this season, last season's worth
+    USAGE_PRIOR games of it. The matchup score reads a receiver's targets and
+    a back's carries (backtested on 2024-25: a bigger role beats its own
+    average more often)."""
+    now, before = _shares(rows), _shares(last_rows)
+    out = {}
+    for player_id, (games, targets, carries) in now.items():
+        if player_id in before:
+            _, last_targets, last_carries = before[player_id]
+            targets = (targets * games + USAGE_PRIOR * last_targets) / (games + USAGE_PRIOR)
+            carries = (carries * games + USAGE_PRIOR * last_carries) / (games + USAGE_PRIOR)
+        out[player_id] = [round(targets, 3), round(carries, 3)]
+    return out
+
+
+def slate_of(games, now=None):
+    """{team: {gameId, favBy, total, implied}}: each team's next game and its
+    line from nflverse's schedule (spread_line is how many points the HOME
+    team is favored by); implied is the points the line expects it to score."""
+    now = time.time() if now is None else now
+    upcoming = {}
+    for game_id, game in games.items():
+        kickoff = game.get("kickoff")
+        if game.get("final") or not kickoff or kickoff < now - 6 * 3600:
+            continue
+        for team in (game.get("home"), game.get("away")):
+            if team and (team not in upcoming or kickoff < upcoming[team][1].get("kickoff")):
+                upcoming[team] = (game_id, game)
+    out = {}
+    for team, (game_id, game) in upcoming.items():
+        spread, total = _n(game, "spread_line"), _n(game, "total_line")
+        if spread is None or total is None:
+            continue
+        fav = spread if team == game.get("home") else -spread
+        out[team] = {"gameId": game_id, "favBy": fav, "total": total, "implied": round(total / 2 + fav / 2, 2)}
+    return out
 
 
 # ------------------------------------------------------------------ depth charts, injuries

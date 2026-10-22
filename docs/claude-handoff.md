@@ -206,17 +206,30 @@ slide) and asked for NFL on the Props tab. Built in phases:
   tile per stat, the reads behind it, what that defense allows his
   position this season and last 5, his games vs them, their defense's
   injuries), Stats (game log by season with each opponent's rank).
-- The score (`src/nfl-matchup-score.js`): mostly what the defense allows
-  his position in the stat (24 points per spread from the league average),
-  a little of what it allows every offense (4), `50 + 50·tanh(s/50)`.
-  Fitted to RotoBot's week-7 grades (`tests/fixtures/nfl-2026-week7-league.json`,
-  `tests/nfl-matchup-score.test.mjs`): about 10 points apart on average
-  over 10 grades (Gibbs TD 87 vs RotoBot 91, Golden 89 vs 84, Stafford 78
-  vs 79, Skattebo 26 vs 25; Kraft 97 vs 82 and Love 93 vs 82 run high;
-  Stroud and Jeudy are far off and unexplained). Touchdowns read the new
-  `rush_rec_tds` split (`backend/sports/nfl/finder.py`, VERSION
-  nfl-finder-v5). The slips, Parlay Builder and assistant use this same
-  score for an NFL line (`slip-matchup.js`, `PROPS_CUTS`).
+- The score (`src/nfl-matchup-score.js`, rebuilt Oct 22 after the owner
+  asked why the list was all 90s and whether target share counts): built
+  from a backtest of every 2024 and 2025 player-game with a real role,
+  scored with only pre-game data against whether he beat his own average
+  (scripts were in the session scratchpad; the method is in the file's
+  header). What held up out of sample is all it reads, weighted by its
+  log-odds x 140: what the defense allows his position (counted g/(g+4)
+  after g games), what it allows every offense, the spread (game script:
+  favorites run more and throw less), the team's implied points (the only
+  thing that predicted touchdowns) and his role (`league.usage`: his share
+  of the targets / carries a game, last season as three games of it). It
+  needs `league.usage` and `league.slate` from `finder.league()`
+  (`usage_of`, `slate_of`; finder VERSION nfl-finder-v6) and still scores
+  on the defense alone without them. About 2.5% of props score 90+ (1.5% on
+  the real week-7 board); out of sample those beat their average 7 points
+  more often than usual, 75-90 about 3, under 40 3-4 less. Wide receivers'
+  matchups barely mattered in the backtest, so their scores sit nearer 50;
+  passing TDs and QB rushing had no signal and stay near even. Against
+  RotoBot's week-7 grades: Gibbs TD 90 (91), Nacua TD 82 (85), Boutte 36
+  (41), Skattebo 20 (25), Kraft 93 (82), Golden 66 (84), Stroud 11 (82:
+  Houston are 10.5-point favorites against a stingy pass defense, which
+  the backtest says means fewer passing yards). Tests:
+  `tests/nfl-matchup-score.test.mjs` on the week-7 fixture (now with
+  `usage`, `slate` and each defense's games).
 - Phase 2 (done, Oct 22): `nfl_plays.py` builds a season table from
   nflverse (play-by-play streamed, FTN charting, weekly stats, snap counts,
   PFR rushing) and `/api/nfl?resource=finder-plays` serves one player's

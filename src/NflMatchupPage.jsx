@@ -92,7 +92,7 @@ function Grade({row,league,group,picked,onPick}){
    <div className="ng-tiles" role="group" aria-label="Stat" style={{gridTemplateColumns:`repeat(${scores.length},minmax(0,1fr))`}}>{scores.map(item=>
     <button type="button" key={item.marketKey} data-tone={item.tone} aria-pressed={item.marketKey===chosen.marketKey} disabled={item.score==null}
      onClick={()=>onPick(item.marketKey)} aria-label={`${item.stat} ${item.score??'no score'}${item.label?`, ${item.label}`:''}`}><span>{item.stat}</span><b>{item.score??'—'}</b></button>)}</div>
-   <p className="nd-foot">0-100 for the over, 50 an even matchup. Mostly what {row.opponent} allows {GROUPS[group]} in the stat, against the league’s average, with a little of what it allows every offense. 100: far softer than most defenses.</p>
+   <p className="nd-foot">0-100 for the over, 50 an even matchup. It adds up what {row.opponent} allows (counted for less while they’ve played few games), the game’s line and his share of the ball, each weighted by how well it predicted players beating their own average in 2024 and 2025; the number beside each reason is what it adds. 90 or more: about the top 2-3% of props.</p>
    {chosen.reads?.length>0&&<ul className="nf-reads">{chosen.reads.map(read=><li key={read.key} data-tone={read.points>=1?'soft':read.points<=-1?'tough':undefined}>
     <span>{read.text}</span><b>{read.points>0?'+':read.points<0?'−':''}{fmt(Math.abs(read.points),0)}</b></li>)}</ul>}
   </div>
