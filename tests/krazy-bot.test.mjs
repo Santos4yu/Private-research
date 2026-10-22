@@ -654,3 +654,28 @@ test('a slip from the assistant carries one PrizePicks promo line at most', asyn
   }
   assert.ok(slips >= 2, 'slips were built');
 });
+
+test('best NBA props: five plays to go through one by one', async () => {
+  const games = [['MIA', 'MIN'], ['UTA', 'MEM'], ['GSW', 'LAL']];
+  const rows = [], reads = new Map();
+  ['Ace Bailey', 'Ayo Dosunmu', 'Tyler Herro', 'Jimmy Butler', 'Jaren Jackson', 'Rudy Gobert'].forEach((name, i) => {
+    const [team, opponent] = games[i % 3];
+    const item = {...row(name, 'nba', 'Points', 14.5 + i, {team, opponent, game: `${team}-${opponent}`, marketKey: 'player_points'}),
+      awayTeamAbbr: team, homeTeamAbbr: opponent};
+    rows.push(item);
+    reads.set(`${item.id}|OVER`, graded(item, 'OVER', {grade: 'A', chance: 0.66 - i * 0.01}));
+  });
+  const bot = createBot({sports: ['nba'], load: async sport => (sport === 'nba' ? rows : []),
+    judge: list => list.map(item => reads.get(`${item.id}|OVER`)).filter(Boolean), assess: (item, side) => reads.get(`${item.id}|${side}`) || null,
+    now: () => START, random: () => 0});
+  // "Props" asks for several; "prop" for the one.
+  assert.equal(understand('best nba props').count, 5);
+  assert.equal(understand('best nba prop').count, 1);
+  assert.equal(understand('top 3 nba props').count, 3);
+  await bot.ask('best nba props');
+  const {lead, card} = bot.card();
+  assert.equal(card.kind, 'plays');
+  assert.equal(card.picks.length, 5);
+  assert.equal(card.games, 'MIA @ MIN, UTA @ MEM and GSW @ LAL');
+  assert.equal(lead, '5 plays I like from MIA @ MIN, UTA @ MEM and GSW @ LAL. Tap a player to see why.');
+});

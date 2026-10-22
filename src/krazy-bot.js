@@ -367,6 +367,8 @@ export function understand(text, {keepWords} = {}) {
 
   const counted = q.match(/\b(?:top|best|give me|show me)\s+(\d|one|two|three|four|five|six)\b/) || q.match(/\b(\d|two|three|four|five|six)\s+(?:best|top|picks?|plays?|props?|legs?)\b/);
   if (counted) ask.count = Math.max(1, Math.min(5, Number(counted[1]) || NUMBER_WORDS[counted[1]] || 1));
+  // "Best NBA props", no number: five of them, one per player.
+  else if (/\b(best|top|good)\b/.test(q) && /\b(props|plays|picks)\b/.test(q)) ask.count = 5;
 
   for (const [key, sport] of Object.entries(SPORTS)) {
     if (ask.sport && ask.sport !== key) continue;
@@ -700,6 +702,21 @@ export function pickReport(leg, {ladder = []} = {}) {
   };
 }
 
+/** "MIA @ MIN, UTA @ MEM and GSW @ LAL": the games a list's picks are in. */
+function gamesOf(legs) {
+  const seen = new Map();
+  for (const leg of legs) {
+    const row = leg.row || {}, team = row.teamAbbr, opponent = row.opponent;
+    if (!team || !opponent) continue;
+    const away = row.awayTeamAbbr || (row.isHome === false ? team : row.isHome === true ? opponent : null);
+    const home = row.homeTeamAbbr || (row.isHome === false ? opponent : row.isHome === true ? team : null);
+    const key = [team, opponent].sort().join('-');
+    if (!seen.has(key)) seen.set(key, away && home ? `${away} @ ${home}` : `${team} vs ${opponent}`);
+  }
+  const games = [...seen.values()];
+  return games.length ? (games.length === 1 ? games[0] : `${games.slice(0, -1).join(', ')} and ${games.at(-1)}`) : '';
+}
+
 export function pickCard(leg, {ladder = []} = {}) {
   const {row, side} = leg;
   const line = row.line;
@@ -737,7 +754,7 @@ export function pickCard(leg, {ladder = []} = {}) {
     risks: (leg.read?.risks || []).slice(0, 2),
     // The Slip Analyzer's matchup panel (slip-matchup.js), as it reads there.
     case: leg.matchup?.facts?.length ? {score: leg.matchup.score, label: leg.matchup.label, tone: leg.matchup.band || leg.matchup.tone,
-      primary: Boolean(leg.matchup.primary), facts: leg.matchup.facts} : null,
+      primary: Boolean(leg.matchup.primary), facts: leg.matchup.facts, cuts: leg.matchup.cuts || null} : null,
     // The Research model's factors and the starter's pitches (MLB hitters), for the pitch-mix chart.
     rating: model ? {score: model.score, label: model.label, tone: model.tone, versus: row.hitterMatchup?.pitcher?.name || null,
       factors: (model.factors || []).filter(item => item.available && finite(item.impact))
@@ -1359,7 +1376,14 @@ export function createBot({load, sports = ['mlb'], judge = rows => candidates(ro
       ctx = {...ctx, ask: question, ranked, index: 0, sport: ranked[0].row.sport, player: ranked[0].player, leg: ranked[0]};
       suggestions = ['Why #1?', 'Build me a 3-pick slip', 'Safest pick'];
       const label = `Top ${Math.min(question.count, ranked.length)} ${question.stat ? question.stat.name + ' ' : ''}props today:`;
-      answer = {lead: `${label.replace(/:$/, '.')} Ask "why #1" for the breakdown.`, card: {kind: 'list', picks: ranked.slice(0, question.count).map(pickCard)}};
+      const shown = ranked.slice(0, question.count);
+      // Basketball plays come broken down one by one (AceCards.jsx plays):
+      // the read, the matchup, his form, the game and his role.
+      if (shown.every(leg => leg.row?.sport === 'nba' || leg.row?.sport === 'wnba')) {
+        const games = gamesOf(shown);
+        answer = {lead: `${shown.length} ${shown.length === 1 ? 'play' : 'plays'} I like${games ? ` from ${games}` : ''}. Tap a player to see why.`,
+          card: {kind: 'plays', picks: shown.map(pickCard), games}};
+      } else answer = {lead: `${label.replace(/:$/, '.')} Ask "why #1" for the breakdown.`, card: {kind: 'list', picks: shown.map(pickCard)}};
       return `${label} ${ranked.slice(0, question.count).map((leg, index) => `${index + 1}) ${pickLine(leg)}, ${gradeWord(leg)}, ${percent(leg.chance)}`).join('; ')}. Ask "why #1" for the breakdown.`;
     }
     return answerPick(question, ranked);

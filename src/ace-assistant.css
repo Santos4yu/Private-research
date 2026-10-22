@@ -454,6 +454,52 @@ html[data-bot-typing] body .mobile-app-nav{opacity:0!important;visibility:hidden
 @media (max-width:420px){
  .ace .ace-card-wrap .kb-actions button{font-size:12px;padding:8px 6px}
 }
+/* "Best NBA props": the plays along the top, the picked one broken down
+   into parts that open, each with its verdict (AceCards.jsx AcePlays). */
+.ace .ace-pb{display:grid;gap:12px}
+.ace .ace-pb-head{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px}
+.ace .ace-pb-head span{color:var(--ace-text);font:800 12px/1 var(--font-sans,Inter,Arial,sans-serif);letter-spacing:.08em;text-transform:uppercase}
+.ace .ace-pb-head small{color:var(--ace-faint);font-size:12px}
+.ace .ace-pb-pick{display:flex;gap:8px;margin:0 -2px;padding:2px 2px 4px;overflow-x:auto;scrollbar-width:none}
+.ace .ace-pb-pick::-webkit-scrollbar{display:none}
+.ace .ace-pb-pick button{display:flex;align-items:center;gap:9px;flex:none;min-height:52px;padding:6px 14px 6px 6px;border:1px solid var(--ace-line-2);border-radius:14px;
+ background:var(--ace-raised);color:var(--ace-text);text-align:left;cursor:pointer;transition:border-color .15s,background .15s}
+.ace .ace-pb-pick button:hover{border-color:#3a3a3a}
+.ace .ace-pb-pick button[aria-selected=true]{border-color:var(--ace-accent);background:color-mix(in srgb,var(--ace-accent) 8%,var(--ace-raised))}
+.ace .ace-pb-pick .sa-face{width:38px;height:38px}
+.ace .ace-pb-pick span{display:grid;gap:1px;min-width:0}
+.ace .ace-pb-pick b{font-size:13.5px;white-space:nowrap}
+.ace .ace-pb-pick small{color:var(--ace-muted);font-size:11.5px;white-space:nowrap}
+.ace .ace-pb-play{display:grid;gap:12px;padding:14px;border:1px solid var(--ace-line);border-radius:16px;background:#111}
+.ace .ace-pb-play .sa-prop-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px}
+.ace .ace-pb-line{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.ace .ace-pb-line>b{font:800 20px/1 var(--ace-display)}
+.ace .ace-pb-line>span:not(.sa-side){color:var(--ace-muted);font-size:13.5px;font-weight:700}
+.ace .ace-pb-line .sa-tier{margin-left:auto}
+.ace .ace-break{display:grid;border-top:1px solid var(--ace-line)}
+.ace .ace-break-part{border-bottom:1px solid var(--ace-line)}
+.ace .ace-break-head{display:flex;align-items:center;gap:10px;width:100%;min-height:50px;padding:0 2px;border:0;background:transparent;color:var(--ace-text);text-align:left;cursor:pointer}
+.ace .ace-break-head b{flex:1;font-size:14px;font-weight:800}
+.ace .ace-break-head svg{flex:none;color:var(--ace-faint);transition:transform .2s}
+.ace .ace-break-part[data-open] .ace-break-head svg{transform:rotate(180deg)}
+.ace .ace-verdict-pill{flex:none;padding:4px 10px;border:1px solid;border-radius:999px;font-size:11.5px;font-weight:800;letter-spacing:.02em}
+.ace .ace-verdict-pill[data-verdict=helps]{border-color:color-mix(in srgb,var(--ace-up) 45%,transparent);background:color-mix(in srgb,var(--ace-up) 12%,transparent);color:var(--ace-up)}
+.ace .ace-verdict-pill[data-verdict=mixed]{border-color:color-mix(in srgb,var(--ace-gold) 45%,transparent);background:color-mix(in srgb,var(--ace-gold) 12%,transparent);color:var(--ace-gold)}
+.ace .ace-verdict-pill[data-verdict=hurts]{border-color:color-mix(in srgb,var(--ace-down) 45%,transparent);background:color-mix(in srgb,var(--ace-down) 12%,transparent);color:var(--ace-down)}
+.ace .ace-break-body{display:grid;gap:8px;padding:0 2px 16px}
+.ace .ace-break-body p{margin:0;color:#c9c9c9;font-size:13.5px;line-height:1.6}
+.ace .ace-break-body .ace-break-lead{color:var(--ace-text);font-weight:700}
+.ace .ace-break-body .ace-break-take{margin-top:2px;padding-left:10px;border-left:2px solid var(--ace-line-2);color:var(--ace-muted);font-weight:600}
+.ace .ace-break-wait{margin:0;color:var(--ace-faint);font-size:12px}
+.ace .ace-pick-break{display:grid;gap:8px;margin:2px 0 14px}
+.ace .ace-pb-add{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;border:1px solid var(--ace-line-2);border-radius:12px;
+ background:var(--ace-raised);color:var(--ace-text);font-size:13.5px;font-weight:800;cursor:pointer}
+.ace .ace-pb-add:hover:not(:disabled){border-color:#3a3a3a}
+.ace .ace-pb-add:disabled{opacity:.5;cursor:default}
+@media (max-width:760px){
+ .ace .ace-pb-play{padding:12px}
+ .ace .ace-break-body p{font-size:13px}
+}
 @media (prefers-reduced-motion:reduce){
  .ace *,.ace *::before,.ace *::after{animation:none!important;transition:none!important}
 }

@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-10-22 (matchup score fitted to RotoBot). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-10-22 (one NBA matchup score; the assistant's play breakdowns). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -153,6 +153,35 @@ not book odds.
   asked for it, so it stays in the Finder.
 - Finder Analyze has "The opportunity" section: what the line takes at
   his usual rate against what he's been getting.
+
+### One matchup number, and the assistant's breakdowns (Oct 22)
+
+- The owner saw RJ Barrett's matchup at 100 on the Props tab but 60-70 in
+  the Slip Analyzer / Parlay Builder: those graded an NBA line with their
+  own formula (`slip-matchup.js` matchupCase: 50 plus small pieces for
+  defense, pace, rest, form, history). An NBA line's matchup is now the
+  Props tab's score and reads (`nba-matchup-score.js`) everywhere: Slip
+  Analyzer, Parlay Builder, Finder Analyze, the assistant. The case
+  carries `cuts` (that scale's bands: 75 Strong edge, 60 Edge, under 40
+  Tough) for the tiers and red flags (`slip-check.js` tierOf,
+  `krazy-bot.js` withMatchup) and `pull: 0.5` on the chance. WNBA and the
+  other sports keep the old formula and `CUTS`. Test:
+  `tests/nba-one-score.test.mjs`.
+- The owner sent RotoBot's chat ("best nba props": 5 plays, each with Key
+  Analysis / Matchup / Recent Trends / Game Script / Usage & Roles and a
+  verdict each) and wants the assistant that smart, in our own style.
+  Now: "best NBA props" (plural, no number) asks for 5; a basketball list
+  answers with a plays card (`AceCards.jsx` AcePlays, classes `ace-pb-*`;
+  `ace-plays` is the side panel's, don't reuse it): the players along the
+  top, the picked one broken down by `src/play-breakdown.js` into The
+  read, Matchup, Recent form, The game, Role & minutes, each Helps /
+  Mixed / Hurts with the numbers in sentences. It shows at once from the
+  answer, then again with the research Analyze does (`prop-analyze.js`
+  gradeProp: game odds, news, minutes and usage, NBA tracking). A single
+  basketball pick ("How's X looking?") opens with the same breakdown.
+  Other sports still answer with the plain list. Tests:
+  `tests/play-breakdown.test.mjs`, the last test in
+  `tests/krazy-bot.test.mjs`.
 
 ### What the owner may ask next
 

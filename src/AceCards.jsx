@@ -1,11 +1,12 @@
-import React,{useState} from 'react';
-import {Check,ChevronRight,Link2,Plus,ShieldAlert,TriangleAlert,Unlink} from 'lucide-react';
+import React,{useEffect,useMemo,useState} from 'react';
+import {Check,ChevronDown,ChevronRight,Link2,Plus,ShieldAlert,TriangleAlert,Unlink} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import {Img,Face as SlipFace,TierBadge,Records,Meter,Games,AnalystRead,opponentLogo} from './PickParts';
 import {MatchupCase} from './MatchupCase';
 import {BotCard,Actions} from './KrazyBotCard';
 import {finderSlipProp} from './unified-finder-data';
 import {pickBuilder} from './pick-builder-client';
+import {playBreakdown} from './play-breakdown';
 
 // The Scout Assistant's answer cards. A pick reads as it does in the Slip
 // Analyzer (the same parts: PickParts.jsx, MatchupCase.jsx), with the rest
@@ -58,6 +59,9 @@ function Split({label,split,today,side}){
 /** One pick, the whole report. */
 export function AcePick({pick,verdict}){
  const report=pick.report||{};
+ // A basketball pick opens with its breakdown (the read, matchup, form, the game, his role).
+ const basketball=BASKETBALL.has(pick.sport);
+ const breakdown=useBreakdown(pick,basketball);
  const stats=report.stats,splits=report.splits||{},market=report.market||{};
  const records=recordsOf(pick);
  const opp=splits.versus?.opponent||pick.opponent;
@@ -75,6 +79,8 @@ export function AcePick({pick,verdict}){
    {verdict?.label&&<em className="ace-verdict" data-tone={verdict.tone||undefined}>{verdict.label}</em>}
   </div>
   {pick.redFlag&&<p className="ace-flag"><ShieldAlert size={15}/><span><b>Red flag</b>{pick.redFlag}</span></p>}
+  {basketball&&breakdown.parts.length>0&&<div className="ace-pick-break"><Breakdown key={breakdown.ready?'full':'quick'} parts={breakdown.parts}/>
+   {breakdown.busy&&<p className="ace-break-wait">{WAIT}</p>}</div>}
   <div className="ace-pick-body">
    <div className="ace-pick-main">
     {Number.isFinite(pick.chance)&&<Meter chance={pick.chance} need={null}/>}
@@ -179,12 +185,87 @@ function AceCompare({card}){
  </div>)}</div>;
 }
 
+// ---------------------------------------------------------------- plays
+// "Best NBA props": a play per player, picked from the row along the top,
+// each broken down the way Analyze reads a line (play-breakdown.js): the
+// read, the matchup, his form, the game and his role, a verdict each. It
+// shows at once from what the answer knew, then again with tonight's odds,
+// news and his minutes once they're in (prop-analyze.js gradeProp).
+const researched=new Map();
+function research(pick){
+ const key=`${pick.row?.id}|${pick.side}`;
+ if(!researched.has(key))researched.set(key,import('./prop-analyze.js').then(({gradeProp})=>gradeProp(pick.row))
+  .then(({row,over,under})=>{const graded=pick.side==='UNDER'?under:over;return graded?.tier?{row,graded}:null;}).catch(()=>null));
+ return researched.get(key);
+}
+// The answer's own read of a pick, in the shape play-breakdown.js reads.
+const quickRead=pick=>({side:pick.side,chance:pick.chance,tier:pick.tier,modifier:pick.modifier,records:recordsOf(pick),matchup:pick.case,
+ read:pick.read,redFlag:pick.redFlag,book:pick.report?.market?.books??null});
+
+function Breakdown({parts}){
+ const [open,setOpen]=useState(()=>new Set(['read']));
+ const toggle=key=>setOpen(now=>{const next=new Set(now);if(next.has(key))next.delete(key);else next.add(key);return next;});
+ return <div className="ace-break">{parts.map(part=>{const shown=open.has(part.key);return <section key={part.key} className="ace-break-part" data-open={shown||undefined}>
+  <button type="button" className="ace-break-head" aria-expanded={shown} onClick={()=>toggle(part.key)}>
+   <b>{part.title}</b><span className="ace-verdict-pill" data-verdict={part.verdict}>{part.label}</span><ChevronDown size={16} aria-hidden="true"/></button>
+  {shown&&<div className="ace-break-body"><p className="ace-break-lead">{part.lead}</p>{part.body.map(text=><p key={text}>{text}</p>)}<p className="ace-break-take">{part.takeaway}</p></div>}
+ </section>;})}</div>;
+}
+
+// A basketball pick's breakdown: at once from the answer, then with the research.
+const BASKETBALL=new Set(['nba','wnba']);
+function useBreakdown(pick,enabled=true){
+ const quick=useMemo(()=>enabled?playBreakdown(pick.row,quickRead(pick)):[],[pick,enabled]);
+ const [full,setFull]=useState(null),[busy,setBusy]=useState(false);
+ useEffect(()=>{
+  let live=true;setFull(null);setBusy(Boolean(enabled&&pick.row));
+  if(enabled&&pick.row)research(pick).then(found=>{if(!live)return;if(found)setFull({graded:found.graded,parts:playBreakdown(found.row,found.graded)});setBusy(false);});
+  return()=>{live=false;};
+ },[pick,enabled]);
+ return {parts:full?.parts||quick,graded:full?.graded||null,busy,ready:Boolean(full)};
+}
+const WAIT='Adding tonight’s odds, injury news and his minutes…';
+
+function Play({pick}){
+ const {parts,graded,busy,ready}=useBreakdown(pick);
+ const [added,setAdded]=useState(false);
+ useEffect(()=>setAdded(false),[pick]);
+ const tier=graded?.tier||pick.tier,chance=graded?.chance??pick.chance;
+ const add=()=>{if(!added&&pick.row)pickBuilder.set(finderSlipProp(pick.row),pick.side==='UNDER'?'Under':'Over');setAdded(true);pickBuilder.open();};
+ return <article className="ace-pb-play" data-tier={tier||'none'}>
+  <header className="sa-prop-head">
+   <SlipFace row={pick.row||{player:pick.player,headshot:pick.headshot,sport:pick.sport,teamLogo:pick.teamLogo}} tier={tier}/>
+   <Who pick={pick}/>
+   {Number.isFinite(chance)&&<Chance value={chance} tier={tier} size={46}/>}
+  </header>
+  <div className="ace-pb-line"><span className="sa-side" data-side={pick.side}>{sideWord(pick.side)}</span><b>{figure(pick.line)}</b><span>{pick.stat}</span>
+   {tier&&<TierBadge tier={tier}/>}</div>
+  <Breakdown key={ready?'full':'quick'} parts={parts}/>
+  {busy&&<p className="ace-break-wait">{WAIT}</p>}
+  <button type="button" className="ace-pb-add" onClick={add} disabled={!pick.row}>{added?<Check size={15}/>:<Plus size={15}/>}{added?'Open My Slip':'Add to My Slip'}</button>
+ </article>;
+}
+
+function AcePlays({card}){
+ const [index,setIndex]=useState(0);
+ const pick=card.picks[Math.min(index,card.picks.length-1)];
+ return <div className="ace-pb">
+  <div className="ace-pb-head"><span>{card.picks.length} {card.picks.length===1?'play':'plays'}</span>{card.games&&<small>{card.games}</small>}</div>
+  <div className="ace-pb-pick" role="tablist" aria-label="Plays">{card.picks.map((item,at)=><button type="button" role="tab" key={`${item.player}-${at}`}
+   aria-selected={at===index} onClick={()=>setIndex(at)}>
+   <SlipFace row={item.row||{player:item.player,headshot:item.headshot,sport:item.sport,teamLogo:item.teamLogo}} tier={item.tier}/>
+   <span><b>{lastName(item.player)}</b><small>{sideWord(item.side)} {figure(item.line)} {item.short||item.stat}</small></span></button>)}</div>
+  {pick&&<Play key={`${pick.player}-${index}`} pick={pick}/>}
+ </div>;
+}
+
 /** Whatever the answer brought, drawn for the Scout Assistant. */
 export function AceCard({card,onAsk}){
  if(!card)return null;
  let body;
  if(card.kind==='pick')body=<AcePick pick={card.pick} verdict={card.verdict}/>;
  else if(card.kind==='list')body=<div className="ace-frame"><Rows picks={card.picks} onAsk={onAsk}/></div>;
+ else if(card.kind==='plays')body=<div className="ace-frame"><AcePlays card={card}/></div>;
  else if(card.kind==='rundown')body=<div className="ace-frame"><Rows picks={card.rows.map(item=>item.pick)} tags={card.rows.map(item=>item.tag)} onAsk={onAsk} ranked={false}/></div>;
  else if(card.kind==='slip')body=<div className="ace-frame"><AceSlip card={card} onAsk={onAsk}/></div>;
  else if(card.kind==='compare')body=<div className="ace-frame"><AceCompare card={card}/></div>;
