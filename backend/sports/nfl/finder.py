@@ -27,7 +27,7 @@ from .cache import NFLCacheDomain, cached_nfl, remember_nfl
 from .services.nflverse import RELEASE, SCHEDULE_URL, TEAM_URL, ProviderError, _source_rows, canonical_team
 from .services.research_stats import numeric, prizepicks_fantasy
 
-VERSION = "nfl-finder-v4"
+VERSION = "nfl-finder-v5"
 USER_AGENT = {"User-Agent": "KrazyData-NFL-finder/1.0"}
 
 CONFERENCES = {
@@ -649,10 +649,10 @@ def _ranked(stats, keys):
 DVP_POSITIONS = ("QB", "RB", "WR", "TE", "FB", "K", "DL", "LB", "DB")
 DVP_STATS = {
     "QB": ("passing_yards", "passing_tds", "attempts", "completions", "interceptions", "rushing_yards", "fantasy"),
-    "RB": ("rushing_yards", "carries", "rushing_tds", "receptions", "receiving_yards", "targets", "rush_rec_yards", "fantasy"),
+    "RB": ("rushing_yards", "carries", "rushing_tds", "receptions", "receiving_yards", "targets", "rush_rec_yards", "rush_rec_tds", "fantasy"),
     "FB": ("rushing_yards", "carries", "receptions", "receiving_yards", "targets", "fantasy"),
-    "WR": ("receiving_yards", "receptions", "targets", "receiving_tds", "rushing_yards", "fantasy"),
-    "TE": ("receiving_yards", "receptions", "targets", "receiving_tds", "fantasy"),
+    "WR": ("receiving_yards", "receptions", "targets", "receiving_tds", "rushing_yards", "rush_rec_tds", "fantasy"),
+    "TE": ("receiving_yards", "receptions", "targets", "receiving_tds", "rush_rec_tds", "fantasy"),
     "K": ("fg_made", "pat_made", "kicking_points"),
     "DL": ("tackles", "assists", "tackles_assists", "sacks"),
     "LB": ("tackles", "assists", "tackles_assists", "sacks"),
@@ -663,7 +663,8 @@ PLAYER_STAT_FIELDS = {
     "completions": ("completions",), "interceptions": ("passing_interceptions",), "rushing_yards": ("rushing_yards",),
     "carries": ("carries",), "rushing_tds": ("rushing_tds",), "receptions": ("receptions",),
     "receiving_yards": ("receiving_yards",), "targets": ("targets",), "receiving_tds": ("receiving_tds",),
-    "rush_rec_yards": ("rushing_yards", "receiving_yards"), "fg_made": ("fg_made",), "pat_made": ("pat_made",),
+    "rush_rec_yards": ("rushing_yards", "receiving_yards"), "rush_rec_tds": ("rushing_tds", "receiving_tds"),
+    "fg_made": ("fg_made",), "pat_made": ("pat_made",),
     # Combined tackles count every assisted tackle he was in on, the way the
     # tackles props settle (_defense): his own assisted tackles and his assists.
     "tackles": ("def_tackles_solo",), "assists": ("def_tackles_with_assist", "def_tackle_assists"),
