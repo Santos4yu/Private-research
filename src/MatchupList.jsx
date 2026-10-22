@@ -31,7 +31,7 @@ function Row({row,read,hit,open,onToggle,onOpen,short}){
    <Face row={row}/>
    <span className="nm-who"><b>{row.player}</b>
     <small>{[row.position,row.teamAbbr&&row.opponent?`${row.teamAbbr} ${home?'vs':'@'} ${row.opponent}`:row.teamAbbr,when(row.startsAt)].filter(Boolean).join(' · ')}</small></span>
-   <span className="nm-line"><small>More</small><b>{figure(row.line)}</b><em>{short[row.marketKey]||row.market}</em></span>
+   <span className="nm-line"><small>More{String(row.modifier||'').toLowerCase()==='demon'&&<i className="nm-demon">Demon</i>}</small><b>{figure(row.line)}</b><em>{short[row.marketKey]||row.market}</em></span>
    <span className="nm-stat nm-hit"><span className="nm-stat-top"><small>Last 10</small><b>{hit?`${Math.round(hit.rate)}%`:'—'}</b></span>
     {hit?<Bar value={hit.rate} tone={hit.rate>=70?'strong':hit.rate>=55?'edge':hit.rate>=40?'neutral':'tough'}/>:<Bar value={0}/>}
     <small className="nm-sub">{hit?`${hit.hits} of ${hit.games}`:row.historyStatus==='pending'||row.historyRefresh?'Loading…':'No games yet'}</small></span>

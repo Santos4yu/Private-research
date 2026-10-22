@@ -145,6 +145,10 @@ not book odds.
   McCain 89, Wallace 89, SGA 71, Caruso 89, no meetings 72 (RotoBot 91,
   91, 84, 72). Recent form (last 10 vs his average) predicted far more
   than any matchup read, but lines price it in; it isn't in the score.
+- Props lists' lines (owner's rule, Oct 22; `src/props-lines.js`, NBA and
+  NFL): one line per player and stat, the standard one; a stat PrizePicks
+  posts only as Demons shows its lowest Demon (marked "Demon" in red); a
+  Goblin never shows.
 - "Who guards him" on the Props page: his pts/75 against a defender with
   under 25 possessions is grey and never the "toughest" (McCain read 73.8
   against Braun on about 16).

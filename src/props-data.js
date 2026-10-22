@@ -6,6 +6,7 @@
 import {loadLines, needsHistory} from './finder-pool.js';
 import {loadFinderDefense, readFinderCache} from './unified-finder-data.js';
 import {storeBoard, storedBoard} from './finder-store.js';
+import {pickLines} from './props-lines.js';
 
 // Saved league numbers this old still show while new ones load.
 const LEAGUE_KEEP = 24 * 60 * 60 * 1000;
@@ -36,7 +37,7 @@ export function propsData({sport, wanted, minTeams}) {
   const savedProps = () => {
     saved ||= Promise.all([readFinderCache(sport).catch(() => null), storedBoard(leagueKey).catch(() => null)]).then(([board, league]) => {
       publish({
-        rows: state.rows || (board?.rows || []).filter(wanted),
+        rows: state.rows || pickLines((board?.rows || []).filter(wanted)),
         league: state.league || (league?.data && teamsIn(league.data) >= minTeams && Date.now() - Number(league.ts || 0) < LEAGUE_KEEP ? league.data : null),
         at: state.at || Number(board?.ts) || 0,
       });
@@ -58,14 +59,14 @@ export function propsData({sport, wanted, minTeams}) {
         }).catch(() => {});
         const rows = await loadLines(sport, {
           only: wanted,
-          onBoard: board => publish({rows: merged(null, board.filter(wanted))}),
+          onBoard: board => publish({rows: merged(null, pickLines(board.filter(wanted)))}),
           onProgress: item => {
             if (item.stage !== 'history') return;
             publish({progress: {done: item.done, total: item.total}, ...(item.rows ? {rows: merged(state.rows, item.rows.filter(wanted))} : {})});
           },
         });
         await league;
-        publish({rows: rows.filter(wanted), at: Date.now(), loading: false, progress: null});
+        publish({rows: pickLines(rows.filter(wanted)), at: Date.now(), loading: false, progress: null});
       } catch {
         publish({loading: false, progress: null, error: true});
       } finally {
