@@ -1,4 +1,5 @@
 import './request-guard';
+import { watchForUpdates } from './app-update';
 import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Layers2 as BarChart3, CircleDot, LayoutGrid, Diamond, Crosshair, Target, ChartNoAxesCombined } from 'lucide-react';
@@ -134,6 +135,8 @@ const pickBuilderRoot = document.getElementById('pick-builder-root');
 if (pickBuilderRoot) createRoot(pickBuilderRoot).render(<PickBuilder />);
 // A first look around for new members, and Settings' "Take the tour".
 createRoot(document.body.appendChild(document.createElement('div'))).render(<WelcomeTour />);
+// A newer release reloads an open app (scores are worked out on the phone).
+watchForUpdates();
 const researchHomeRoot = document.getElementById('research-home-root');
 
 const unifiedFinderRoot = document.getElementById('unified-finder-root');

@@ -43,6 +43,13 @@ Last updated 2026-10-22 (one NBA matchup score; the assistant's play breakdowns)
 - The page body has `overflow-x:hidden`, so `position:sticky` doesn't
   stick. Use fixed positioning (see the pinned bar in NbaMatchupPage.jsx).
 - Deploy result: `gh api repos/santos4yu/private-research/commits/<sha>/status`.
+- Open apps update themselves (Oct 22): every build bakes its id into the
+  bundle and writes `/version.json` (`vite.config.js`); `src/app-update.js`
+  checks it when the app comes back to the front (reloads at once) and every
+  5 minutes (reloads after 3 untouched), at most once a release per 10
+  minutes. Scores are worked out on the phone, so without this a phone kept
+  old scores until the app was fully closed. Phones on a build from before
+  this need one full close and reopen to pick it up.
 
 ## Current project: NBA and NFL matchups on the Props tab
 

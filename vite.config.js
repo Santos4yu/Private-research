@@ -2,8 +2,19 @@ import { defineConfig } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath, URL } from "node:url";
 
+// Each build's id: baked into the app and written to /version.json, so an
+// open app notices a newer release and reloads itself (src/app-update.js).
+const BUILD_ID = process.env.VERCEL_GIT_COMMIT_SHA || String(Date.now());
+const buildId = {
+  name: "build-id",
+  generateBundle() {
+    this.emitFile({ type: "asset", fileName: "version.json", source: JSON.stringify({ id: BUILD_ID }) });
+  },
+};
+
 export default defineConfig({
-  plugins: [tailwindcss()],
+  plugins: [tailwindcss(), buildId],
+  define: { __BUILD_ID__: JSON.stringify(BUILD_ID) },
   resolve: {
     alias: { "@": fileURLToPath(new URL(".", import.meta.url)) },
   },
