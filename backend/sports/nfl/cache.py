@@ -44,6 +44,8 @@ class NFLCacheDomain(StrEnum):
     MATCHUP = "matchup"
     SOURCE_ROWS = "source_rows"
     PLAY_BY_PLAY = "play_by_play"
+    PLAYS = "plays"
+    PLAYS_PAST = "plays_past"
     SPORTSBOOK_LINES = "sportsbook_lines"
 
 
@@ -69,6 +71,10 @@ NFL_CACHE_TTLS = {
     # A season's play-by-play summary. nflverse republishes it overnight, and
     # rebuilding it means streaming the whole season file.
     NFLCacheDomain.PLAY_BY_PLAY: 12 * 60 * 60,
+    # How a matchup plays (nfl_plays.py): rebuilt by a daily cron, so it
+    # outlives a day plus the cron's slack; a finished season's for two weeks.
+    NFLCacheDomain.PLAYS: 26 * 60 * 60,
+    NFLCacheDomain.PLAYS_PAST: 14 * 24 * 60 * 60,
     # One game's player props from The Odds API, which charges per market
     # returned for every game fetched.
     NFLCacheDomain.SPORTSBOOK_LINES: 30 * 60,
@@ -106,6 +112,12 @@ def _kv_get(key: str, ttl: float) -> object | None:
     """Best-effort durable-cache read. Never raises -- a KV outage or a
     value that was never written must degrade to "cache miss", not break
     the request. Reads both the compressed and the older plain format."""
+    found = _kv_entry(key, ttl)
+    return None if found is None else found[1]
+
+
+def _kv_entry(key: str, ttl: float) -> tuple[float, object] | None:
+    """(when it was written, the value), as _kv_get reads it."""
     if _kv_store is None:
         return None
     try:
@@ -117,12 +129,12 @@ def _kv_get(key: str, ttl: float) -> object | None:
         envelope = json.loads(raw)
         if time.time() - envelope["ts"] >= ttl:
             return None
-        return envelope["value"]
+        return float(envelope["ts"]), envelope["value"]
     except Exception:
         return None
 
 
-def _kv_set(key: str, value: object) -> None:
+def _kv_set(key: str, value: object) -> bool:
     """Best-effort durable-cache write. Silently does nothing for a value
     that can't round-trip through JSON (e.g. a dataclass-bearing result).
 
@@ -133,16 +145,16 @@ def _kv_set(key: str, value: object) -> None:
     logs. api/nfl.py now caches the finished JSON payload for those
     resources instead, which round-trips by construction."""
     if _kv_store is None:
-        return
+        return False
     try:
         blob = json.dumps({"ts": time.time(), "value": value})
         if len(blob) > _KV_COMPRESS_OVER:
             blob = _KV_GZIP_PREFIX + base64.b64encode(gzip.compress(blob.encode("utf-8"), 6)).decode("ascii")
         if len(blob) > _KV_MAX_BYTES:
-            return
-        _kv_store.set(key, blob)
+            return False
+        return _kv_store.set(key, blob) is not False
     except Exception:
-        pass
+        return False
 
 
 def cached_nfl(domain: NFLCacheDomain, parts: tuple[object, ...], loader: Callable[[], T],
@@ -168,7 +180,10 @@ def cached_nfl(domain: NFLCacheDomain, parts: tuple[object, ...], loader: Callab
     if not owner:
         return pending.result()
     try:
-        kv_value = _kv_get(key, NFL_CACHE_TTLS[domain]) if durable else None
+        found = _kv_entry(key, NFL_CACHE_TTLS[domain]) if durable else None
+        # Kept in memory as of when it was written, not read: a warm instance
+        # then picks up a newer copy (a cron's rebuild) when this one is due.
+        written, kv_value = found if found is not None else (time.time(), None)
         if kv_value is not None and codec is not None:
             try:
                 kv_value = codec[1](kv_value)
@@ -179,7 +194,7 @@ def cached_nfl(domain: NFLCacheDomain, parts: tuple[object, ...], loader: Callab
         if kv_value is not None:
             with _lock:
                 if generation == _generation:
-                    _memory[key] = (time.time(), kv_value)
+                    _memory[key] = (written, kv_value)
             pending.set_result(kv_value)
             return kv_value  # type: ignore[return-value]
         value = loader()
@@ -223,3 +238,13 @@ def clear_nfl_cache() -> None:
         _generation += 1
         _memory.clear()
         _pending.clear()
+
+
+def store_nfl(domain: NFLCacheDomain, parts: tuple[object, ...], value: object) -> tuple[int, bool]:
+    """Put a freshly built value in both layers now (a cron's rebuild), so
+    the next cached_nfl() anywhere reads it instead of building it. Returns
+    its JSON size in bytes and whether the durable copy was written."""
+    key = nfl_cache_key(domain, *parts)
+    with _lock:
+        _memory[key] = (time.time(), value)
+    return len(json.dumps(value)), _kv_set(key, value)

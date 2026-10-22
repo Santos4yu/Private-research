@@ -133,6 +133,12 @@ class LineArchiveTests(Base):
         self.assertFalse(any(name == 'HSET' and str(key).startswith(archive.PREFIX)
                              for name, key, *_ in self.kv.log[before:]))
 
+    def test_nfl_lines_are_kept_too(self):
+        # A Sunday 1 pm Eastern kickoff, read back on its own day.
+        moves.observe_prizepicks('NFL', [pp('Jahmyr Gibbs', 'Rush Yards', 79.5, league='NFL', start_time='2026-10-25T17:00:00+00:00')],
+                                 fetched_at=T0)
+        self.assertEqual(archive.lines_on('nfl', '2026-10-25', self.kv), {'jahmyrgibbs|rushyards': 79.5})
+
     def test_started_games_goblins_and_other_leagues_are_left_out(self):
         moves.observe_prizepicks('NBA', [self.nba('A', 'Points', 9.5, start=moves._iso(T0 - 60)),
                                          self.nba('B', 'Points', 7.5, odds_type='goblin')], fetched_at=T0)

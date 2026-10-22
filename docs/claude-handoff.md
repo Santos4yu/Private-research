@@ -217,14 +217,53 @@ slide) and asked for NFL on the Props tab. Built in phases:
   `rush_rec_tds` split (`backend/sports/nfl/finder.py`, VERSION
   nfl-finder-v5). The slips, Parlay Builder and assistant use this same
   score for an NFL line (`slip-matchup.js`, `PROPS_CUTS`).
-- Phase 2 (next): how the matchup plays: box count (nflverse FTN
-  `n_defense_box` / participation `defenders_in_box`), run direction (pbp
-  `run_location`), coverage faced (participation
-  `defense_coverage_type`); RotoBot's run concepts aren't in free data.
-  Also players at his position vs that defense with their lines, and his
-  metrics with ranks among his position.
-- Phase 3: bio slide (height, weight, age, experience), news, and the
-  assistant's sectioned breakdowns for NFL plays.
+- Phase 2 (done, Oct 22): `nfl_plays.py` builds a season table from
+  nflverse (play-by-play streamed, FTN charting, weekly stats, snap counts,
+  PFR rushing) and `/api/nfl?resource=finder-plays` serves one player's
+  slice; the page shows it in `src/NflPlays.jsx` (words in
+  `src/nfl-plays.js`):
+  - Matchup tab: "How it plays" (box count, direction, run lane for backs;
+    target depth, field area, blitz for receivers; throw depth,
+    play-action, blitz for quarterbacks; coverage for all), each split
+    folding open under a one-line read, and a bottom line; "Running backs
+    vs GB" (everyone at his position who faced them, against his
+    PrizePicks line that day where kept, else his average going in).
+  - Metrics tab (new, 4th): production, volume and efficiency ranked at his
+    position (this season or last), and "Where he does best".
+  - The run side reproduces RotoBot's Gibbs page to the carry (light box
+    54 car, 289 yds, 11th of 65; GB 2.62 a carry up the middle, the
+    fewest): designed runs only; a run at either guard is "middle"; box 6
+    or fewer light, 7 base, 8+ stacked; the defense side counts running
+    backs only; a player is ranked in a look with 8+ plays there. Locked
+    in by `tests/test_nfl_plays.py` RotoBotTests on a real week-6 fixture.
+    Production/volume ranks match too. The bars scale with each player's
+    own team games (regulars: 1.5 carries+targets a game; efficiency 7
+    carries / 3.33 targets / 14 attempts a game), so a bye or a Thursday
+    game doesn't move anyone; RotoBot uses flat league weeks, so our pools
+    run one or two bigger (89 backs to its 88), same ranks.
+    First downs include those by penalty (as RotoBot counts them); dropbacks
+    use `passer_id` so scrambles count; ANY/A takes sack yards as stored
+    (negative). Fullbacks aren't in "Running backs vs X" (RotoBot lists backs).
+    Yards after contact is PFR's (RotoBot's comes from paid charting, so
+    it differs).
+  - Not in free data: RotoBot's run concepts (outside zone, power...). The
+    "run lane" (end / tackle / guard / center, the hole the play-by-play
+    logs) stands in, and the page says what it is. Coverage (man, Cover 3,
+    split safety) only comes in the NFL participation file, published
+    after a season: until 2026's is out the page shows 2025's, labelled
+    "2025" (`data/nfl/coverage-2025.json`, rebuild with
+    `python3 tools/build_nfl_coverage.py 2025`). Once
+    `pbp_participation_2026` exists the table picks it up by itself.
+  - Past PrizePicks NFL lines weren't kept, so weeks 1-6 compare each
+    player with his average before that game. `line_archive.py` now keeps
+    NFL lines too (from Oct 22), so later weeks show real lines.
+  - The table is rebuilt daily by a cron (`/api/v2-admin?action=nfl-plays-cron`,
+    12:00 UTC, `vercel.json`) into the PLAYS cache (26h; last season's 14
+    days); a miss builds it on the request (about 1s locally at week 6).
+- Phase 3 (next): bio slide (height, weight, age, experience), news, and
+  the assistant's sectioned breakdowns for NFL plays (play-breakdown.js
+  is basketball only). RotoBot's Games tab also has a career block
+  (half-PPR finish by year) we don't have yet.
 
 ### What the owner may ask next
 

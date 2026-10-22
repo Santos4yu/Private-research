@@ -49,7 +49,7 @@
 .nba-mp .mp-mini-game img{width:18px;height:18px;object-fit:contain}
 .nba-mp .mp-mini-game small{color:var(--mp-muted);font-size:11.5px;font-weight:700}
 @media (prefers-reduced-motion:reduce){.nba-mp .mp-mini{transition:none}}
-.nba-mp .mp-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-bottom:1px solid var(--mp-line)}
+.nba-mp .mp-tabs{display:grid;grid-template-columns:repeat(var(--mp-tab-count,3),minmax(0,1fr));border-bottom:1px solid var(--mp-line)}
 .nba-mp .mp-tabs button{min-height:48px;border:0;border-radius:0;background:transparent;color:#9a9a9a;font-size:12.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
  box-shadow:inset 0 -3px 0 transparent;cursor:pointer}
 .nba-mp .mp-tabs button[aria-selected=true]{color:var(--mp-text);box-shadow:inset 0 -3px 0 var(--mp-accent)}
@@ -83,7 +83,7 @@
  .nba-mp .mp-hero p{font-size:16px}
  .nba-mp .mp-hero-photo{right:5%;height:min(94%,350px)}
  .nba-mp .mp-hero-mark{right:6%;width:min(40%,380px)}
- .nba-mp .mp-tabs{grid-template-columns:repeat(3,minmax(0,200px));padding:0 40px}
+ .nba-mp .mp-tabs{grid-template-columns:repeat(var(--mp-tab-count,3),minmax(0,200px));padding:0 40px}
  .nba-mp .mp-body{padding:0 40px 8px}
  .nba-mp .mp-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
  .nba-mp .mp-cols[data-wide=right]{grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr)}
@@ -442,3 +442,82 @@
  .nba-mp .ns-shotlink{grid-template-columns:72px minmax(0,1fr) auto;gap:10px}
  .nba-mp .ns-court{width:72px;height:50px}
 }
+
+/* NFL: how it plays (NflPlays.jsx). Each split folds open under its
+   one-line read; the table is his share of each look, what the opponent
+   does in it and his own rate there. */
+.nba-mp .nf-angle{border-top:1px solid var(--mp-line)}
+.nba-mp .nf-angle:first-child{border-top:0}
+.nba-mp .nf-angle>summary{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:13px 0;list-style:none;cursor:pointer}
+.nba-mp .nf-angle>summary::-webkit-details-marker{display:none}
+.nba-mp .nf-angle>summary>span{display:grid;gap:4px;min-width:0}
+.nba-mp .nf-angle>summary b{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.nba-mp .nf-angle>summary small{color:#c9c9c9;font-size:13px;line-height:1.45}
+.nba-mp .nf-angle>summary svg{flex:none;margin-top:2px;color:var(--mp-faint);transition:transform .2s ease}
+.nba-mp .nf-angle[open]>summary svg{transform:rotate(180deg)}
+.nba-mp .nf-angle>summary:focus-visible{outline:2px solid var(--mp-accent);outline-offset:2px;border-radius:6px}
+.nba-mp .nf-tag{padding:1px 6px;border-radius:5px;background:#2a2410;color:#f6c35b;font-size:10px;font-style:normal;letter-spacing:.04em}
+.nba-mp .nf-look{width:100%;margin:0 0 12px;border-collapse:collapse;font-variant-numeric:tabular-nums;table-layout:fixed}
+.nba-mp .nf-look th,.nba-mp .nf-look td{padding:10px 4px;border-top:1px solid #222;vertical-align:top;text-align:right}
+.nba-mp .nf-look thead th{padding-top:0;border-top:0;color:var(--mp-faint);font-size:9.5px;font-weight:800;letter-spacing:.06em;line-height:1.3;text-transform:uppercase}
+.nba-mp .nf-look :is(thead th,tbody th):first-child{width:46%;padding-left:0;text-align:left}
+.nba-mp .nf-look tbody th b{display:block;font-size:13px;line-height:1.3}
+.nba-mp .nf-look tbody th small,.nba-mp .nf-look td small{display:block;margin-top:3px;color:var(--mp-faint);font-size:10.5px;font-weight:700;line-height:1.3}
+.nba-mp .nf-look td b{display:block;font-size:15px;line-height:1.2}
+.nba-mp .nf-look td[data-tone=soft] small:not(.nf-look-sub),.nba-mp .nf-look td[data-tone=good] small{color:var(--mp-good)}
+.nba-mp .nf-look td[data-tone=tough] small:not(.nf-look-sub),.nba-mp .nf-look td[data-tone=poor] small{color:var(--mp-poor)}
+.nba-mp .nf-look td[data-tone=good] b{color:var(--mp-good)}.nba-mp .nf-look td[data-tone=poor] b{color:var(--mp-poor)}
+.nba-mp .nf-look .nf-none{color:var(--mp-faint)}
+.nba-mp .nf-share{display:block;height:4px;margin-top:6px;border-radius:99px;background:#232323;overflow:hidden}
+.nba-mp .nf-share i{display:block;height:100%;border-radius:inherit;background:var(--mp-accent)}
+.nba-mp .nf-bottom{display:grid;gap:4px;margin:6px 0 0;padding:12px 0 0;border-top:1px solid var(--mp-line);color:#d6d6d6;font-size:13.5px;line-height:1.55}
+.nba-mp .nf-bottom b{color:var(--mp-accent);font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+.nba-mp .nf-retry{margin-left:6px;padding:4px 10px;border:1px solid #333;border-radius:8px;background:#1b1b1b;color:#fff;font-size:12px;font-weight:700;cursor:pointer}
+
+/* NFL: the players at his position who faced the opponent. */
+.nba-mp .nf-faced-sum{margin:0 0 10px;color:#cfcfcf;font-size:13px}
+.nba-mp .nf-faced-sum b{color:var(--mp-text)}
+.nba-mp .nf-faced-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.nba-mp .nf-faced-chips span{display:grid;gap:1px;min-width:62px;padding:7px 10px;border-radius:10px;background:var(--mp-raised)}
+.nba-mp .nf-faced-chips b{color:var(--tone,var(--mp-text));font:800 15px/1.1 'Sora',var(--font-sans);font-variant-numeric:tabular-nums}
+.nba-mp .nf-faced-chips small{color:var(--mp-faint);font-size:9.5px;font-weight:800;letter-spacing:.06em}
+.nba-mp .nf-faced-wrap{overflow-x:auto;scrollbar-width:thin}
+.nba-mp .nf-faced-table{width:100%;min-width:340px;border-collapse:collapse;font-variant-numeric:tabular-nums;table-layout:fixed}
+.nba-mp .nf-faced-table th,.nba-mp .nf-faced-table td{padding:8px 4px;border-top:1px solid #222;text-align:right;vertical-align:top}
+.nba-mp .nf-faced-table thead th{border-top:0;color:var(--mp-faint);font-size:9.5px;font-weight:800;letter-spacing:.06em}
+.nba-mp .nf-faced-table :is(thead th,tbody th):first-child{width:36%;padding-left:0;text-align:left}
+.nba-mp .nf-faced-table tbody th b{display:block;overflow:hidden;font-size:13px;white-space:nowrap;text-overflow:ellipsis}
+.nba-mp .nf-faced-table small{display:block;margin-top:2px;color:var(--mp-faint);font-size:10.5px;font-weight:700}
+.nba-mp .nf-faced-table td b{display:block;color:var(--tone,var(--mp-text));font-size:14.5px}
+.nba-mp .nf-more{width:100%;min-height:40px;margin-top:8px;border:1px solid #2c2c2c;border-radius:10px;background:#151515;color:#e5e5e5;font-size:12.5px;font-weight:800;cursor:pointer}
+
+/* NFL metrics: production tiles, then bars whose length is his rank among
+   his position (best at full). */
+.nba-mp .nf-season{margin-bottom:12px}
+.nba-mp .nf-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.nba-mp .nf-tiles>div{display:grid;justify-items:center;gap:3px;padding:12px 4px;border-radius:12px;background:var(--mp-raised);text-align:center}
+.nba-mp .nf-tiles small{color:var(--mp-faint);font-size:9.5px;font-weight:800;letter-spacing:.05em;line-height:1.25;text-transform:uppercase}
+.nba-mp .nf-tiles b{font:800 21px/1.1 'Sora',var(--font-sans);font-variant-numeric:tabular-nums}
+.nba-mp .nf-tiles em{color:var(--tone,var(--mp-faint));font-size:11px;font-style:normal;font-weight:800}
+.nba-mp .nf-bars{display:grid;margin:0;padding:0;list-style:none}
+.nba-mp .nf-bars li{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto 46px;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #222}
+.nba-mp .nf-bars li:first-child{border-top:0}
+.nba-mp .nf-bars span{color:#dcdcdc;font-size:13px}
+.nba-mp .nf-bars>li>i{display:block;height:5px;border-radius:99px;background:#232323;overflow:hidden}
+.nba-mp .nf-bars>li>i>i{display:block;height:100%;border-radius:inherit;background:var(--tone,#8a8a8a)}
+.nba-mp .nf-bars b{font-size:14px;font-variant-numeric:tabular-nums;text-align:right}
+.nba-mp .nf-bars em{color:var(--tone,var(--mp-faint));font-size:11.5px;font-style:normal;font-weight:800;text-align:right}
+
+/* NFL: where he does best, a card per look, his best one outlined. */
+.nba-mp .nf-wins-group+.nf-wins-group{margin-top:14px}
+.nba-mp .nf-wins-group h3{margin:0 0 8px;color:var(--mp-muted);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.nba-mp .nf-wins-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:6px}
+.nba-mp .nf-wins-grid>div{display:grid;gap:4px;padding:11px 12px;border:1px solid transparent;border-radius:12px;background:var(--mp-raised)}
+.nba-mp .nf-wins-grid>div[data-best]{border-color:color-mix(in srgb,var(--mp-good) 55%,transparent);background:color-mix(in srgb,var(--mp-good) 7%,var(--mp-raised))}
+.nba-mp .nf-wins-grid small{color:var(--mp-faint);font-size:10px;font-weight:800;letter-spacing:.04em;line-height:1.3;text-transform:uppercase}
+.nba-mp .nf-wins-grid b{display:flex;align-items:baseline;gap:5px;color:var(--tone,var(--mp-text));font:800 22px/1.1 'Sora',var(--font-sans);font-variant-numeric:tabular-nums}
+.nba-mp .nf-wins-grid b span{color:var(--mp-faint);font:800 9.5px/1 var(--font-sans);letter-spacing:.06em}
+.nba-mp .nf-wins-grid em{color:#bdbdbd;font-size:11px;font-style:normal;font-weight:700}
+.nba-mp .nf-wins-grid i{color:var(--tone,var(--mp-faint));font-size:10.5px;font-style:normal;font-weight:800}
+/* Four tabs on the narrowest phones: a little tighter so "Overview" fits. */
+@media (max-width:360px){.nba-mp .mp-tabs button{font-size:11.5px;letter-spacing:.04em}}

@@ -1,5 +1,5 @@
-"""Closing lines: the last PrizePicks number each NBA line had before its
-game, kept by game day for the season.
+"""Closing lines: the last PrizePicks number each NBA and NFL line had
+before its game, kept by game day for the season.
 
 A line on the board today says nothing about last week's; to grade how a
 player did "at his own line that night" the night's numbers have to have
@@ -16,7 +16,7 @@ import time
 from datetime import datetime, timezone
 
 PREFIX = 'krazy:lines:v1'
-SPORTS = ('nba',)
+SPORTS = ('nba', 'nfl')
 # A season and its playoffs.
 KEEP_SECONDS = 270 * 86400
 DAY_SHIFT = 6 * 3600

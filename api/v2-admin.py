@@ -174,6 +174,8 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(200, tennis_live.tick(budget=25))
             if action == "nfl-cron-scan":
                 return self._handle_nfl_cron_scan()
+            if action == "nfl-plays-cron":
+                return self._handle_nfl_plays_cron()
             if action == "site-background":
                 # Public and unauthenticated on purpose: this is the image
                 # every visitor's browser fetches directly (not through the
@@ -614,6 +616,29 @@ class handler(BaseHTTPRequestHandler):
         elif "vercel-cron" not in user_agent.lower() and cron_header != "1":
             return self._send(401, {"error": "Cron request required"})
         return self._build_nfl_board(trigger="cron")
+
+    def _handle_nfl_plays_cron(self):
+        """Rebuild the NFL player pages' matchup splits and metrics
+        (nfl_plays.py) once nflverse has published the night's games, so no
+        page waits on streaming the season's play-by-play. Same gate as the
+        NFL scan, the secret compared in constant time."""
+        import hmac
+        secret = os.getenv("CRON_SECRET", "")
+        if secret:
+            if not hmac.compare_digest(self.headers.get("Authorization", ""), f"Bearer {secret}"):
+                return self._send(401, {"error": "Cron auth required"})
+        elif "vercel-cron" not in self.headers.get("User-Agent", "").lower() and self.headers.get("x-vercel-cron", "") != "1":
+            return self._send(401, {"error": "Cron request required"})
+        try:
+            import nfl_plays
+            season = nfl_plays.season_now()
+            size, stored = nfl_plays.refresh(season)
+        except LookupError as exc:
+            return self._send(200, {"ok": False, "skipped": str(exc)})
+        except Exception as exc:  # noqa: BLE001 -- report, don't hang the caller
+            return self._send(500, {"error": f"NFL plays build failed: {exc}"})
+        # Built but not kept: every page would rebuild it, so say so.
+        return self._send(200 if stored else 500, {"ok": stored, "season": season, "bytes": size, "stored": stored})
 
     def _build_wnba_league(self, trigger="manual", league="wnba"):
         """Add every newly finished WNBA game to the stored season, on demand.

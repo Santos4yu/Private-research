@@ -3,10 +3,13 @@
 // page (MatchupPageShell.jsx): Overview (his last-10 averages against the
 // season, his games against the line, the injury report), Matchup (the
 // grade in each of his position's stats, what the defense allows his
-// position, his games against them, their defense's injuries) and Stats
-// (his game log, each opponent's rank against his position beside it).
+// position, how the matchup plays, the players at his position who faced
+// them, his games against them, their defense's injuries), Metrics (his
+// production, volume and efficiency ranked at his position, where he does
+// best) and Stats (his game log, each opponent's rank beside it).
 // His games come from /api/nfl?resource=finder-log (nflverse), the
-// injuries from finder-team, the league numbers from the list.
+// injuries from finder-team, the plays sections from finder-plays
+// (NflPlays.jsx), the league numbers from the list.
 import React,{useMemo,useState} from 'react';
 import {CalendarDays,HeartPulse,History,LineChart,ListOrdered,Shield,Target} from 'lucide-react';
 import {Card,Loading} from './sports/wnba/NbaScout';
@@ -14,6 +17,7 @@ import {finite,fmt} from './sports/wnba/wnba-research';
 import {nflSeason,teamColor,useNfl} from './sports/nfl/nfl-finder';
 import {MatchupPageShell,Trend} from './MatchupPageShell';
 import {band,cardScores,positionOf} from './nfl-matchup-score';
+import {FacedThem,HowItPlays,Metrics,WhereHeWins} from './NflPlays';
 
 // The stats a line can be in, as the list and the chart name them.
 export const NFL_STATS=[['all','All'],['receiving_yards','REC YDS'],['rushing_yards','RUSH YDS'],['passing_yards','PASS YDS'],['receptions','REC'],
@@ -22,7 +26,7 @@ export const NFL_STATS=[['all','All'],['receiving_yards','REC YDS'],['rushing_ya
 const CHIPS=NFL_STATS.slice(1);
 const POSITION_NAMES={QB:'Quarterback',RB:'Running back',WR:'Wide receiver',TE:'Tight end'};
 const GROUPS={QB:'quarterbacks',RB:'running backs',WR:'receivers',TE:'tight ends'};
-const TABS=[['overview','Overview'],['matchup','Matchup'],['stats','Stats']];
+const TABS=[['overview','Overview'],['matchup','Matchup'],['metrics','Metrics'],['stats','Stats']];
 const mean=values=>{const kept=values.filter(finite);return kept.length?kept.reduce((sum,value)=>sum+value,0)/kept.length:null;};
 const ordinal=n=>`${n}${n%100>=11&&n%100<=13?'th':['th','st','nd','rd'][n%10]||'th'}`;
 // Rank 1 allows the least: "3rd most" / "5th fewest".
@@ -182,6 +186,13 @@ function GameLog({logs,league,group}){
 export function NflMatchupPage({row,lines,league,onBack}){
  const [tab,setTab]=useState('overview'),[picked,setPicked]=useState(null);
  const season=nflSeason();
+ const [metricSeason,setMetricSeason]=useState(season);
+ // This week's opponent's looks and his metrics come in one answer, asked
+ // for as the page opens; last season's metrics only when picked.
+ const plays=useNfl('plays',{season,playerId:row.playerId,opponent:row.opponent},Boolean(row.playerId));
+ const before=useNfl('plays',{season:season-1,playerId:row.playerId},Boolean(row.playerId)&&tab==='metrics'&&metricSeason!==season);
+ // The moment last season is picked its request hasn't started: that's loading, not "no games".
+ const shown=metricSeason===season?plays:{...before,loading:before.loading||(!before.data&&!before.error)};
  const leagueState=useMemo(()=>({data:league,loading:!league}),[league]);
  const log=useNfl('log',{season,playerId:row.playerId},Boolean(row.playerId));
  const logs=log.data?.rows||[];
@@ -199,8 +210,13 @@ export function NflMatchupPage({row,lines,league,onBack}){
   {tab==='matchup'&&<div className="mp-cols">
    <div className="mp-col"><Grade row={row} league={leagueState} group={group} picked={picked} onPick={setPicked}/>
     <div className="mp-section"><span>Why this score</span></div>
-    <TheirDefense row={row} league={leagueState} group={group} picked={picked}/></div>
-   <div className="mp-col"><VsThem row={row} logs={logs} lines={lines}/><TheirInjuries row={row} season={season} league={league}/></div></div>}
+    <TheirDefense row={row} league={leagueState} group={group} picked={picked}/>
+    <HowItPlays plays={plays} row={row} season={season}/></div>
+   <div className="mp-col"><FacedThem plays={plays} row={row} group={group}/><VsThem row={row} logs={logs} lines={lines}/>
+    <TheirInjuries row={row} season={season} league={league}/></div></div>}
+  {tab==='metrics'&&<div className="mp-cols">
+   <div className="mp-col"><Metrics state={shown} season={metricSeason} seasons={[season,season-1]} onSeason={setMetricSeason}/></div>
+   <div className="mp-col"><WhereHeWins state={shown} season={metricSeason} key={metricSeason}/></div></div>}
   {tab==='stats'&&<GameLog logs={logs} league={leagueState} group={group}/>}
  </MatchupPageShell>;
 }
