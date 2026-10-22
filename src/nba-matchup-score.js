@@ -25,6 +25,16 @@
 // defense allows (FG% allowed pointed the wrong way for assists), and pace
 // for rebounds and steals.
 //
+// One read is his own (MEETINGS), for threes and blocks alone: his last
+// three games against them (the two seasons a history holds) against his
+// usual, ln((made + 0.5) / (games x usual + 0.5)) trusted n/(n + 3) and
+// centred. With his recent form held, it predicted overs in both seasons
+// for those two and for nothing else (points, rebounds, assists and steals
+// flipped sign). Out of sample, threes and blocks at 90+ (3-4% of them)
+// beat his average about 6 points of % more often than usual, 40-59 even,
+// under 25 4-5 less. So against one team two guards' threes can differ;
+// everything else is the same for every player at a position.
+//
 // Each read is how far the team sits from the league's average in spreads
 // (standard deviations, held to 3), the soft side up, times its weight
 // (WEIGHTS: the backtest's log-odds times 245, a scale that puts the top
@@ -35,7 +45,7 @@
 // less. The weights fitted to RotoBot's grades before this put 19% of
 // props at 90+, and those beat their average only 3.3 more often.
 //
-import {defenseCell, statGameLog} from './unified-finder-data.js';
+import {defenseCell, meetingsOf, statGameLog} from './unified-finder-data.js';
 import {MARKET_STAT, baseMarket} from './sports/wnba/wnba-research.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
@@ -55,6 +65,9 @@ export const WEIGHTS = {
   blk: {defense: 7, pace: 9, position: 17.5},
 };
 const FAMILY = {oreb: 'reb', dreb: 'reb', tpa: 'tpm'};
+// His last three games against them (meetingsOf): points a unit, the
+// league's average of the read (taken off), its spread (for its own bar).
+export const MEETINGS = {tpm: {weight: 80, center: -0.095, spread: 0.27}, blk: {weight: 51, center: -0.114, spread: 0.31}};
 const weightsOf = stat => WEIGHTS[stat] || WEIGHTS[FAMILY[stat]] || WEIGHTS.pts;
 // A combo is the average of its parts' scores.
 const COMBOS = {pr: ['player_points', 'player_rebounds'], pa: ['player_points', 'player_assists'], ra: ['player_rebounds', 'player_assists'],
@@ -176,6 +189,17 @@ function turnoverRead(row, league) {
   return {key: 'turnovers', kind: 'turnovers', soft, text: `${row.opponent} turns it over ${one(cell[0])} times a game (${place(cell[1], count)})`};
 }
 
+/** Threes and blocks: his last three games against them, against his usual (MEETINGS). */
+function meetingsRead(row, stat) {
+  const rule = MEETINGS[stat], last = (row.meetings?.values || []).filter(finite), usual = row.meetings?.usual;
+  if (!rule || !last.length || !finite(usual)) return null;
+  const n = last.length, made = last.reduce((sum, value) => sum + value, 0);
+  const lean = Math.log((made + 0.5) / (n * Math.max(usual, 0.25) + 0.5)) * n / (n + 3) - rule.center;
+  const games = n === 1 ? 'game' : `${n} games`;
+  return {key: 'meetings', kind: 'meetings', soft: lean / rule.spread, points: rule.weight * lean, counted: true,
+    text: `His last ${games} against ${row.opponent}: ${last.join(', ')} ${WORDS[stat] || ''} (${one(made / n)} a game), his usual ${one(usual)}`};
+}
+
 /** His own games against them, against his usual: shown beside the score, not in it. */
 function fitRead(row) {
   const games = (row.gameLog || []).filter(game => finite(game.value));
@@ -210,10 +234,13 @@ export function matchupScore(row, league) {
     // His position is always shown; for threes it doesn't count (weight 0).
     return [weighed(positionRead({...row, marketKey}, league, part), (weights.position || 0) / parts.length), ...extra];
   });
-  const reads = [...shared, ...own].filter(Boolean);
+  // Threes and blocks alone also read his last three games against them.
+  const meetings = parts.length === 1 ? meetingsRead(row, parts[0][1]) : null;
+  const reads = [...shared, ...own, meetings].filter(Boolean);
   if (!reads.some(read => read.kind === 'defense' || read.kind === 'position')) return null;
   const points = reads.reduce((sum, read) => sum + read.points, 0);
-  return {score: Math.round(50 + 50 * Math.tanh(points / 50)), raw: 50 + points, fit: fitRead(row),
+  const fit = meetings ? {key: 'meetings', kind: 'meetings', score: alone(meetings.soft), text: meetings.text, counted: true} : fitRead(row);
+  return {score: Math.round(50 + 50 * Math.tanh(points / 50)), raw: 50 + points, fit,
     reads: reads.map(read => ({key: read.key, kind: read.kind, text: read.text, score: alone(read.soft), points: Math.round(read.points * 10) / 10}))};
 }
 
@@ -234,8 +261,10 @@ export function spreadScores(rows, league) {
  */
 export function cardScores(row, league, history = row.history) {
   return CARD_STATS.map(([marketKey, stat]) => {
-    const games = history?.rows?.length ? statGameLog(history, marketKey) : marketKey === row.marketKey ? row.gameLog : [];
-    const read = matchupScore({...row, marketKey, gameLog: games}, league);
+    const full = Boolean(history?.rows?.length), own = marketKey === row.marketKey;
+    const games = full ? statGameLog(history, marketKey) : own ? row.gameLog : [];
+    const meetings = full ? meetingsOf(history, marketKey, row.opponent) : own ? row.meetings : null;
+    const read = matchupScore({...row, marketKey, gameLog: games, meetings}, league);
     if (!read) return {marketKey, stat, score: null};
     return {marketKey, stat, score: read.score, ...band(read.score), reads: read.reads, fit: read.fit};
   });

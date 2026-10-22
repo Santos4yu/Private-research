@@ -14,7 +14,7 @@ const NBA={key:'nba',store:nba,stats:STATS,score:spreadScores,Page:NbaMatchupPag
  title:'NBA Matchups',blurb:'Every NBA prop tonight, graded on the matchup and how often it has hit lately.',
  loading:'Loading tonight’s NBA props…',failed:'NBA props couldn’t load',none:'No NBA props posted right now',
  noneText:'PrizePicks posts tonight’s lines through the day. Check back soon.',
- meta:'Matchup: how soft tonight’s opponent is for that stat, from how much they give up, how fast they play and what they allow his position in it. 50 is an even matchup, 90+ the softest few percent, each part counted by how much it predicted overs over the last two seasons. Last 10: how many of his last 10 games went over this line.'}};
+ meta:'Matchup: how soft tonight’s opponent is for that stat, from how much they give up, how fast they play and what they allow his position in it. Threes and blocks also count his last three games against them. 50 is an even matchup, 90+ the softest few percent, each part counted by how much it predicted overs over the last two seasons. Last 10: how many of his last 10 games went over this line.'}};
 
 export function NbaMatchups(){
  return <MatchupList config={NBA}/>;

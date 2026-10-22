@@ -132,7 +132,7 @@ export function persistFinderCache(sport, value) {
 // that is still the same prop at the same number. Only new lines, and lines
 // that moved, load history again.
 const HISTORY_KEEP = 6 * 60 * 60 * 1000;
-const HISTORY_FIELDS = ['average', 'windows', 'streak', 'diff', 'averageDelta', 'historyStatus', 'enrichedAt', 'gameLog', 'historyAsOf', 'historyRefresh'];
+const HISTORY_FIELDS = ['average', 'windows', 'streak', 'diff', 'averageDelta', 'historyStatus', 'enrichedAt', 'gameLog', 'meetings', 'historyAsOf', 'historyRefresh'];
 // What history fills in that a board can leave blank (an MLB player's id,
 // photo and opponent). Prices and odds are never carried: the new board's
 // are the current ones.
@@ -145,7 +145,9 @@ export function carryHistory(rows, previous = [], now = Date.now()) {
   if (!before.size) return rows;
   return rows.map(row => {
     const old = before.get(row.id);
-    if (!old || (row.historyStatus === 'ready' && Number(row.enrichedAt||0)>=Number(old.enrichedAt||0)) || old.line !== row.line || old.direction !== row.direction
+    // A basketball line saved before histories carried his meetings loads again.
+    if (!old || (BASKETBALL.has(row.sport) && !('meetings' in old))
+      || (row.historyStatus === 'ready' && Number(row.enrichedAt||0)>=Number(old.enrichedAt||0)) || old.line !== row.line || old.direction !== row.direction
       || (old.valueKey || old.marketKey || old.stat) !== (row.valueKey || row.marketKey || row.stat)) return row;
     const kept = {...row};
     for (const key of IDENTITY_FIELDS) if (kept[key] == null && old[key] != null) kept[key] = old[key];
@@ -891,6 +893,28 @@ export function statGameLog(payload, marketKey) {
   return gameLog(logs.map(log => ({value: log.values[marketKey], date: log.date, home: log.isHome, opponent: log.opponent, usage: log.minutes})));
 }
 
+/**
+ * His last three games against `opponent` in the stat and his usual: this
+ * season so far, last season counting as LAST_SEASON_GAMES games of it (the
+ * NBA matchup score's threes and blocks read them; nba-matchup-score.js).
+ * {values, usual}, null without a history.
+ */
+const LAST_SEASON_GAMES = 10;
+export function meetingsOf(payload, marketKey, opponent) {
+  if (!payload || typeof payload !== 'object' || !opponent) return null;
+  const {logs, values} = seriesFor(payload, marketKey);
+  if (!values.length) return null;
+  const seasonOf = index => logs[index].season, now = payload.season;
+  const split = now != null && logs.some(log => log.season != null);
+  const current = split ? values.filter((_, index) => String(seasonOf(index)) === String(now)) : values;
+  const before = split ? values.filter((_, index) => seasonOf(index) != null && String(seasonOf(index)) !== String(now)) : [];
+  const total = current.reduce((sum, value) => sum + value, 0);
+  const usual = before.length ? (total + LAST_SEASON_GAMES * mean(before)) / (current.length + LAST_SEASON_GAMES) : mean(current);
+  if (usual == null) return null;
+  return {values: logs.filter(log => log.opponent === opponent).slice(-3).map(log => number(log.values[marketKey])),
+    usual: Math.round(usual * 100) / 100};
+}
+
 export function applyWnbaHistory(row, payload) {
   const {logs, values} = payload && typeof payload === 'object' ? seriesFor(payload, row.marketKey) : {logs: [], values: []};
   const h2hValues = logs.filter(log => !row.opponent || log.opponent === row.opponent)
@@ -910,7 +934,7 @@ export function applyWnbaHistory(row, payload) {
     streak += sign;
   }
   return finish({...row, average: mean(values.slice(-10)), windows, streak: values.length ? streak : null,
-    gameLog: statGameLog(payload, row.marketKey),
+    gameLog: statGameLog(payload, row.marketKey), meetings: meetingsOf(payload, row.marketKey, row.opponent),
     historyStatus: 'ready', historyRefresh:false, historyAsOf:Date.now(), enrichedAt:Date.now(), history: payload});
 }
 

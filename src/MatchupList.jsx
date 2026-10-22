@@ -10,7 +10,7 @@ import {Face} from './PickParts';
 import './nba-matchups.css';
 
 const SORTS=[['matchup','Matchup'],['hit','Hit %']];
-const READS={defense:'Their defense',pace:'Their pace',position:'vs his position',attempts:'Threes they allow',rebounds:'Rebounds they allow',assists:'Assists they allow',turnovers:'Their turnovers'};
+const READS={defense:'Their defense',pace:'Their pace',position:'vs his position',attempts:'Threes they allow',rebounds:'Rebounds they allow',assists:'Assists they allow',turnovers:'Their turnovers',meetings:'His games vs them'};
 // What a read adds to (or takes from) the even 50.
 const added=points=>`${points>0?'+':points<0?'−':''}${Math.abs(Math.round(points))} ${Math.abs(Math.round(points))===1?'point':'points'}`;
 const figure=value=>Number.isInteger(Number(value))?String(Number(value)):Number(value).toFixed(1);

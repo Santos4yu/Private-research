@@ -122,6 +122,22 @@ not book odds.
   (points: McCain 89, Wallace 73, SGA 63) and nothing on its pages explains
   that: not his games against them, players like him, his averages, or
   who guards him (McCain and Wallace share Murray). Not chased further.
+- Threes and blocks also read his own record (`MEETINGS` in
+  `nba-matchup-score.js`, owner's call Oct 22): his last three games
+  against the opponent in the two-season history (`meetingsOf` in
+  `unified-finder-data.js`; board rows carry it as `row.meetings` from
+  `applyWnbaHistory`, the player page works it out from the history, saved
+  rows without it reload), against his usual (this season, last season
+  worth 10 games): ln((made + 0.5) / (games x usual + 0.5)) x n/(n+3),
+  centred (-0.095 threes, -0.114 blocks), weights 80 and 51. Backtested
+  with his last-10 form held: consistent in both seasons for threes and
+  blocks only (points, rebounds, assists, steals flipped). The log form
+  was picked over a ratio for calibration (ratio scored 40-59 props +3).
+  It shows as a "Why" line and as "His games against them · Counted in
+  this score" on the page. Last season's OKC guards vs Denver, threes:
+  McCain 89, Wallace 89, SGA 71, Caruso 89, no meetings 72 (RotoBot 91,
+  91, 84, 72). Recent form (last 10 vs his average) predicted far more
+  than any matchup read, but lines price it in; it isn't in the score.
 - "Who guards him" on the Props page: his pts/75 against a defender with
   under 25 possessions is grey and never the "toughest" (McCain read 73.8
   against Braun on about 16).

@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {matchupScore, spreadScores, cardScores, band, WEIGHTS} from '../src/nba-matchup-score.js';
-import {statGameLog} from '../src/unified-finder-data.js';
+import {meetingsOf, statGameLog} from '../src/unified-finder-data.js';
 import {readFileSync} from 'node:fs';
 
 // Thirty teams with their numbers spread like the normal curve, the named
@@ -144,11 +144,43 @@ test('the list and the player card score a prop the same', () => {
   const history = {rows: [...Array(12)].map((_, i) => ({date: `2026-0${1 + (i % 9)}-1${i % 10}`, opponent: i % 4 ? 'T3' : 'DAL', isHome: i % 2 === 0,
     minutes: 30, values: {player_points: i % 4 ? 12 : 20, player_blocks: i % 4 ? 0 : 3}}))};
   const card = cardScores(row('12'), league, history);
-  const blocks = row('13', {marketKey: 'player_blocks', gameLog: statGameLog(history, 'player_blocks')});
+  // A board row carries the meetings its history gave it (applyWnbaHistory).
+  const blocks = row('13', {marketKey: 'player_blocks', gameLog: statGameLog(history, 'player_blocks'), meetings: meetingsOf(history, 'player_blocks', 'DAL')});
   const shown = card.find(item => item.stat === 'BLK');
   assert.equal(shown.score, spreadScores([blocks], league).get('13').score);
-  assert.ok(shown.fit);
+  assert.ok(shown.fit.counted);
+  assert.ok(!card.find(item => item.stat === 'PTS').fit.counted);
   assert.ok(WEIGHTS.pts.position < WEIGHTS.pts.defense);  // for points the team leads, the position nudges
+});
+
+test('threes and blocks count his last three games against them; points don’t', () => {
+  // Two guards, one Denver: McCain made 2, 3, 3 threes in his last three
+  // meetings (1.5 usual), Gilgeous-Alexander 1, 0, 3 (1.7).
+  const guard = (id, meetings, marketKey) => row(id, {position: 'G', teamAbbr: 'OKC', opponent: 'DEN', marketKey, meetings});
+  const mccain = {values: [2, 3, 3], usual: 1.5}, shai = {values: [1, 0, 3], usual: 1.7};
+  const hot = matchupScore(guard('m', mccain, 'player_threes'), real), cold = matchupScore(guard('s', shai, 'player_threes'), real);
+  assert.ok(hot.score > cold.score + 10, `${hot.score} vs ${cold.score}`);
+  assert.equal(hot.reads.at(-1).text, 'His last 3 games against DEN: 2, 3, 3 threes (2.7 a game), his usual 1.5');
+  assert.equal(hot.fit.text, hot.reads.at(-1).text);
+  const none = matchupScore(guard('n', null, 'player_threes'), real);
+  assert.ok(hot.score > none.score && cold.score < none.score);
+  // Points: his games against them predicted nothing, so they stay out.
+  assert.equal(matchupScore(guard('m2', {values: [30, 30, 30], usual: 8}, 'player_points'), real).score,
+    matchupScore(guard('s2', {values: [5, 5, 5], usual: 30}, 'player_points'), real).score);
+  // One meeting is trusted half as much as three (n / (n + 3)).
+  const once = matchupScore(guard('o', {values: [3], usual: 1.5}, 'player_threes'), real);
+  assert.ok(once.score < hot.score && once.reads.at(-1).text.startsWith('His last game against DEN: 3 threes'));
+});
+
+test('his meetings: the last three against them, his usual with last season worth ten games', () => {
+  const games = [...[...Array(20)].map((_, i) => ({date: `2026-01-${String(i + 1).padStart(2, '0')}`, season: 2026, opponent: i % 5 ? 'BOS' : 'DEN',
+    values: {player_threes: 1}})), ...[...Array(4)].map((_, i) => ({date: `2026-11-0${i + 1}`, season: 2027, opponent: i === 3 ? 'DEN' : 'BOS',
+    values: {player_threes: i === 3 ? 4 : 3}}))];
+  const found = meetingsOf({season: 2027, rows: games}, 'player_threes', 'DEN');
+  assert.deepEqual(found.values, [1, 1, 4]);
+  assert.equal(found.usual, Math.round((3 + 3 + 3 + 4 + 10 * 1) / 14 * 100) / 100);
+  assert.equal(meetingsOf({season: 2027, rows: games}, 'player_threes', 'LAL').values.length, 0);
+  assert.equal(meetingsOf(null, 'player_threes', 'DEN'), null);
 });
 
 test('nothing about the opponent, no score; bands by the number', () => {

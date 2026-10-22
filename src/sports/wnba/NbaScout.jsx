@@ -81,7 +81,7 @@ function GradeCard({opponent,own,position,onPosition,scores,chosen,onPick}){
    <div className="ng-tiles" role="group" aria-label="Stat">{scores.map(item=><button type="button" key={item.marketKey} data-tone={item.tone} aria-pressed={item.marketKey===chosen.marketKey}
     disabled={item.score==null} onClick={()=>onPick(item.marketKey)} aria-label={`${item.stat} ${item.score??'no score'}${item.label?`, ${item.label}`:''}`}>
     <span>{item.stat}</span><b>{item.score??'—'}</b></button>)}</div>
-   <p className="nd-foot">0-100 for the over, 50 an even matchup. It adds up how far {opponent} sit from the league average in points allowed and defensive rating, pace, and what they allow each {POS_WORDS[position][0]} in the stat (rebounds and assists also read the rebounds and assists they give up, steals how often they turn it over, threes only how many threes they let teams take), each counted by how much it predicted overs over the last two seasons. 90+: the softest few percent of matchups. His own games against them are shown under Why this score, not counted in it.</p>
+   <p className="nd-foot">0-100 for the over, 50 an even matchup. It adds up how far {opponent} sit from the league average in points allowed and defensive rating, pace, and what they allow each {POS_WORDS[position][0]} in the stat (rebounds and assists also read the rebounds and assists they give up, steals how often they turn it over, threes only how many threes they let teams take), each counted by how much it predicted overs over the last two seasons. Threes and blocks also count his last three games against them, the only stats where those predicted overs. 90+: the softest few percent of matchups. For the other stats his games against them are shown under Why this score, not counted in it.</p>
   </div>
  </section>;
 }
@@ -129,7 +129,7 @@ export function TheirDefense({row,league,position=positionOf(row.position)||'G',
    return <DivergeRow key={key} label={label} sub={`${fmt(value,1)} a game`} soft={softness(rank,n)} text={placeText(rank,n)} picked={key===stat}/>;})}
    {more&&extra}</div>
   {extra.length>0&&<button type="button" className="ns-more" aria-expanded={more} onClick={()=>setMore(value=>!value)}>{more?'Show less':`Shooting and more (${extra.length})`}<ChevronDown size={14} aria-hidden="true"/></button>}
-  {fit&&<><div className="ns-sub-head"><b>His games against them</b></div><p className="ns-fit" data-tone={fit.score>=60?'soft':fit.score<40?'tough':undefined}>{fit.text}</p></>}
+  {fit&&<><div className="ns-sub-head"><b>His games against them</b>{fit.counted&&<span>Counted in this score</span>}</div><p className="ns-fit" data-tone={fit.score>=60?'soft':fit.score<40?'tough':undefined}>{fit.text}</p></>}
   <p className="nd-foot">Green: among the most the league gives up (good for the over). Red: among the fewest. Their FG%, 3P%, eFG%, free throws and turnovers are {words[1]}' against them; the last three are the whole team's.</p>
  </Card>;
 }

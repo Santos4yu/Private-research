@@ -30,6 +30,15 @@ test('new lines, moved lines and old hit rates load again', () => {
   assert.deepEqual(rows.map(row => row.historyStatus), ['pending', 'pending', 'pending']);
 });
 
+test('a basketball line saved before histories carried his meetings loads again', () => {
+  const nba = {sport: 'nba', stat: undefined, marketKey: 'player_threes'};
+  const [old, kept] = carryHistory([fresh('nba:1', nba), fresh('nba:2', nba)],
+    [ready('nba:1', nba), ready('nba:2', {...nba, meetings: {values: [2, 3, 3], usual: 1.5}})], NOW);
+  assert.equal(old.historyStatus, 'pending');
+  assert.equal(kept.historyStatus, 'ready');
+  assert.deepEqual(kept.meetings, {values: [2, 3, 3], usual: 1.5});
+});
+
 test('a line that switched stat or side is not the same prop', () => {
   const rows = carryHistory([fresh('mlb:1', {stat: 'Hits'}), fresh('mlb:4', {direction: 'UNDER'})],
     [ready('mlb:1'), ready('mlb:4')], NOW);
