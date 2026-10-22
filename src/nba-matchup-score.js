@@ -15,19 +15,20 @@
 // Each read is how far the team sits from the league's average in spreads
 // (standard deviations), the soft side up, and moves the score from 50 by
 // its gain a spread (GAINS); the total is held between 0 and 100. The
-// gains are fitted to RotoBot's grades on two of its pages at once
-// (Oct 2026, tests/nba-matchup-score.test.mjs):
-//   Dallas, for a forward: 8th most points allowed, 11th highest rating,
-//   4th fastest pace; forwards get the 5th most points, 7th most
-//   rebounds, 6th most assists. RotoBot 91, 89, 90; these give 91, 89, 91.
-//   Indiana, for a guard: 6th most points allowed, 5th highest rating,
-//   7th fastest pace; guards get the 3rd most rebounds and 12th most
-//   blocks, middling assists, but teams shoot the 4th-highest percentage
-//   there. RotoBot rebounds 100, blocks 94, assists 100; these give the
-//   same.
-// The team's defense and pace set where a matchup starts; the position's
-// own number moves it a little. So a soft, fast team is a good matchup in
-// almost every stat, and a team far softer than the rest reads 100.
+// gains are fitted to every grade on three of RotoBot's pages (Oct 2026,
+// tests/nba-matchup-score.test.mjs, on last season's real numbers -- what
+// both sites read before a team has played): Dallas for a forward (PTS 91,
+// REB 89, AST 90, 3PM 69, STL 87, BLK 89), Indiana for a guard (REB 100,
+// AST 100, BLK 94, PTS 100, 3PM 77) and Denver for Cason Wallace (PTS 73,
+// REB 62, AST 56, 3PM 91, STL 51, BLK 59): about 5 points apart on
+// average over the 17. What a defense allows his position is a player at
+// a time (league.dvpEach: Denver allow each guard 11.1 points a game),
+// the way RotoBot counts it -- its printed numbers match to the decimal.
+// The 3-point percentage a team allows isn't read: RotoBot's grades don't
+// move with it (Denver hold teams to the 3rd lowest and Wallace's threes
+// read 91). RotoBot also moves each player on something of his own
+// (Wallace's threes 91, Gilgeous-Alexander's 84, Caruso's 72 against the
+// same Denver); that part isn't known, so it isn't here.
 //
 import {defenseCell, statGameLog} from './unified-finder-data.js';
 import {MARKET_STAT, baseMarket} from './sports/wnba/wnba-research.js';
@@ -39,7 +40,7 @@ const one = value => (Math.round(value * 10) / 10).toFixed(1);
 const ordinal = n => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th'}`;
 
 // Points a spread each read moves the score (see the top of the file).
-export const GAINS = {allowed: 16, rating: 16, pace: 13, position: 7.5, shooting: 12, finishing: 8, turnovers: 12};
+export const GAINS = {allowed: 19.5, rating: 19.5, pace: 6.5, position: 7.5, shooting: 0, finishing: 9, turnovers: 6.5};
 // A combo is the average of its parts' scores.
 const COMBOS = {pr: ['player_points', 'player_rebounds'], pa: ['player_points', 'player_assists'], ra: ['player_rebounds', 'player_assists'],
   pra: ['player_points', 'player_rebounds', 'player_assists'], bs: ['player_blocks', 'player_steals']};
@@ -48,6 +49,7 @@ const WORDS = {pts: 'points', reb: 'rebounds', ast: 'assists', tpm: 'threes', tp
   fs: 'fantasy points', fgm: 'field goals', fga: 'shots', ftm: 'free throws', fta: 'free throws', twos: 'twos', twosa: 'twos',
   oreb: 'offensive rebounds', dreb: 'defensive rebounds', to: 'turnovers', pf: 'fouls', dd: 'double-doubles', td: 'triple-doubles'};
 const POSITIONS = {G: 'guards', F: 'forwards', C: 'centers'};
+const ONE = {G: 'guard', F: 'forward', C: 'center'};
 // The stats the player page scores side by side.
 export const CARD_STATS = [['player_points', 'PTS'], ['player_rebounds', 'REB'], ['player_assists', 'AST'], ['player_threes', '3PM'],
   ['player_steals', 'STL'], ['player_blocks', 'BLK']];
@@ -115,14 +117,20 @@ function paceRead(row, league) {
   return {key: 'pace', kind: 'pace', soft, points: GAINS.pace * soft, text: `${row.opponent} plays at ${one(pace[0])} possessions a game${where ? ` (${where})` : ''}`};
 }
 
-/** What they allow his position in the stat (dvp: rank 1 allows the least). */
+/**
+ * What they allow a player at his position in the stat (dvpEach, a player
+ * at a time; the position's total, dvp, from a server that doesn't send it
+ * yet). Rank 1 allows the least.
+ */
 function positionRead(row, league, stat) {
-  const cell = defenseCell(row, league);
+  const each = Boolean(league?.dvpEach);
+  const cell = defenseCell(row, each ? {...league, dvp: league.dvpEach} : league);
   if (!cell || !finite(cell.value)) return null;
   const soft = spreads(cell.value, cell.values) ?? fromRank(league?.teamCount - cell.rank + 1, league?.teamCount);
   if (!finite(soft)) return null;
+  const who = each ? `each ${ONE[cell.position] || 'player at his position'}` : POSITIONS[cell.position] || 'his position';
   return {key: `position-${stat}`, kind: 'position', soft, points: GAINS.position * soft,
-    text: `${row.opponent} allows ${one(cell.value)} ${WORDS[stat] || 'of it'} a game to ${POSITIONS[cell.position] || 'his position'} (${place(cell.rank, league.teamCount)})`};
+    text: `${row.opponent} allows ${who} ${one(cell.value)} ${WORDS[stat] || 'of it'} a game (${place(cell.rank, league.teamCount)})`};
 }
 
 /** Threes: the 3-point percentage they allow (rank 1 the highest). */
@@ -181,7 +189,7 @@ export function matchupScore(row, league) {
   const parts = (COMBOS[stat] || [baseMarket(row.marketKey)]).map(marketKey => [marketKey, MARKET_STAT[marketKey]]);
   const shared = [defenseRead(row, league), paceRead(row, league)].filter(Boolean);
   const own = parts.flatMap(([marketKey, part]) => [positionRead({...row, marketKey}, league, part),
-    part === 'tpm' ? shootingRead(row, league) : null, part === 'ast' ? finishingRead(row, league) : null,
+    part === 'tpm' && GAINS.shooting ? shootingRead(row, league) : null, part === 'ast' ? finishingRead(row, league) : null,
     part === 'stl' ? turnoverRead(row, league) : null].filter(Boolean)
     .map(read => ({...read, points: read.points / parts.length})));
   const reads = [...shared, ...own];

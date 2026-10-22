@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {matchupScore, spreadScores, cardScores, band, GAINS} from '../src/nba-matchup-score.js';
 import {statGameLog} from '../src/unified-finder-data.js';
+import {readFileSync} from 'node:fs';
 
 // Thirty teams with their numbers spread like the normal curve, the named
 // teams placed at given ranks (rank 1 the most) and the rest in order.
@@ -48,32 +49,38 @@ const league = {
 const row = (id, extra = {}) => ({id, sport: 'nba', player: `P${id}`, playerId: id, marketKey: 'player_points', position: 'F', teamAbbr: 'HOU',
   opponent: 'DAL', line: 14.5, gameLog: [], ...extra});
 
-test('reads Dallas the way RotoBot does for a forward', () => {
-  const card = Object.fromEntries(cardScores(row('1'), league).map(item => [item.stat, item.score]));
-  // RotoBot: PTS 91, REB 89, AST 90, BLK 89.
-  assert.deepEqual([card.PTS, card.REB, card.BLK], [91, 89, 89]);
-  assert.ok(Math.abs(card.AST - 90) <= 1, String(card.AST));
-  assert.equal(band(card.PTS).label, 'Strong edge');
-  // A combo is the average of its parts: RotoBot's points + rebounds 90.
-  assert.equal(matchupScore(row('2', {marketKey: 'player_points_rebounds'}), league).score, 90);
-  const points = matchupScore(row('3'), league);
-  assert.deepEqual(points.reads.map(read => read.kind), ['defense', 'pace', 'position']);
-  assert.match(points.reads[0].text, /DAL gives up .* points a game \(8th most\) and .* per 100 possessions \(11th highest\)/);
-  assert.match(points.reads[2].text, /to forwards \(5th most\)$/);
-  // The parts add up to the score from an even 50.
-  assert.ok(Math.abs(50 + points.reads.reduce((sum, read) => sum + read.points, 0) - points.raw) < 0.2);
+// Last season's real numbers in league-context's shape (ESPN box scores):
+// what both sites read before a team has played this season.
+const real = JSON.parse(readFileSync(new URL('./fixtures/nba-2025-26-league.json', import.meta.url)));
+const PAGES = [['DAL', 'F', {PTS: 91, REB: 89, AST: 90, '3PM': 69, STL: 87, BLK: 89}],
+  ['IND', 'G', {REB: 100, AST: 100, BLK: 94, PTS: 100, '3PM': 77}],
+  ['DEN', 'G', {PTS: 73, REB: 62, AST: 56, '3PM': 91, STL: 51, BLK: 59}]];
+
+test('close to RotoBot on every grade of its three pages', () => {
+  const gaps = [];
+  const cards = {};
+  for (const [opponent, position, theirs] of PAGES) {
+    const card = cards[opponent] = Object.fromEntries(cardScores(row(`${opponent}1`, {position, teamAbbr: 'OKC', opponent}), real).map(item => [item.stat, item.score]));
+    for (const [stat, grade] of Object.entries(theirs)) gaps.push([`${opponent} ${stat}`, card[stat], grade, Math.abs(card[stat] - grade)]);
+  }
+  const average = gaps.reduce((sum, [, , , gap]) => sum + gap, 0) / gaps.length;
+  assert.ok(average <= 5.5, JSON.stringify(gaps));
+  assert.deepEqual([cards.DAL.PTS, cards.IND.REB, cards.IND.AST, cards.DEN.STL], [91, 100, 100, 51]);
+  // RotoBot's own part for each player isn't known: Wallace's threes read 91 there.
+  assert.ok(cards.DEN['3PM'] >= 60 && cards.DEN['3PM'] <= 70, String(cards.DEN['3PM']));
 });
 
-test('reads Indiana the way RotoBot does for a guard', () => {
-  const card = Object.fromEntries(cardScores(row('g1', {position: 'G', teamAbbr: 'NO', opponent: 'IND'}), league).map(item => [item.stat, item.score]));
-  // RotoBot: REB 100, BLK 94; AST 100 though guards' assists there are
-  // middling (the shooting they allow); PTS 100; 3PM 77.
-  assert.deepEqual([card.REB, card.BLK], [100, 94]);
-  assert.ok(card.AST >= 97, String(card.AST));
-  assert.ok(card.PTS >= 97, String(card.PTS));
-  assert.ok(Math.abs(card['3PM'] - 77) <= 4, String(card['3PM']));
-  const assists = matchupScore(row('g2', {position: 'G', teamAbbr: 'NO', opponent: 'IND', marketKey: 'player_assists'}), league);
-  assert.match(assists.reads.find(read => read.kind === 'finishing').text, /IND lets teams shoot .*% from the field \(4th highest\)/);
+test('what a defense allows his position is a player at a time, as RotoBot counts it', () => {
+  // RotoBot: Denver allow each guard 11.0 points, 1.5 threes a game.
+  const threes = matchupScore(row('w', {position: 'G', teamAbbr: 'OKC', opponent: 'DEN', marketKey: 'player_threes'}), real);
+  assert.deepEqual(threes.reads.map(read => read.kind), ['defense', 'pace', 'position']);
+  assert.equal(threes.reads[2].text, 'DEN allows each guard 1.5 threes a game (10th most)');
+  assert.match(threes.reads[0].text, /^DEN gives up 116\.9 points a game \(10th most\) and .* per 100 possessions \(10th highest\)$/);
+  // An older server's totals still score, read as the position's.
+  const older = {...real, dvpEach: undefined};
+  assert.match(matchupScore(row('w2', {position: 'G', teamAbbr: 'OKC', opponent: 'DEN'}), older).reads[2].text, /^DEN allows guards 57\.1 points a game/);
+  // The parts add up to the score from an even 50.
+  assert.ok(Math.abs(50 + threes.reads.reduce((sum, read) => sum + read.points, 0) - threes.raw) < 0.2);
 });
 
 test('the same for every forward against a team: his own games sit beside it', () => {
@@ -86,20 +93,17 @@ test('the same for every forward against a team: his own games sit beside it', (
   assert.equal(quiet.fit, null);
 });
 
-test('threes read the 3-point percentage they allow; steals how often they turn it over', () => {
+test('threes don’t move with the 3-point percentage allowed; steals rise with turnovers', () => {
   const shooting = structuredClone(league);
   for (const [team, cell] of Object.entries(table({DAL: 29}, 36, 1.2))) shooting.opportunity.teams[team].tpPctAllowed = cell;
   for (const [team, cell] of Object.entries(table({DAL: 6}, 14, 1.2, true))) shooting.teamStats[team].off = {to: cell};
   const before = Object.fromEntries(cardScores(row('6'), league).map(item => [item.stat, item.score]));
   const after = Object.fromEntries(cardScores(row('6'), shooting).map(item => [item.stat, item.score]));
-  // Dallas holds teams to the 2nd-lowest 3-point percentage: threes drop (RotoBot 69).
-  assert.ok(after['3PM'] < before['3PM'] - 15, `${before['3PM']} -> ${after['3PM']}`);
-  assert.ok(Math.abs(after['3PM'] - 69) <= 4, String(after['3PM']));
-  // It turns the ball over the 6th most: steals rise (RotoBot 87).
-  assert.ok(after.STL > before.STL + 5, `${before.STL} -> ${after.STL}`);
+  // RotoBot's threes don't follow it (Denver: 3rd lowest, Wallace 91).
+  assert.equal(after['3PM'], before['3PM']);
+  // Dallas turns the ball over the 6th most: steals rise (RotoBot 87).
+  assert.ok(after.STL > before.STL + 3, `${before.STL} -> ${after.STL}`);
   assert.equal(after.PTS, before.PTS);
-  const threes = matchupScore(row('7', {marketKey: 'player_threes'}), shooting);
-  assert.match(threes.reads.find(read => read.kind === 'shooting').text, /DAL lets teams make .*% of their threes \(2nd lowest\)/);
   assert.match(matchupScore(row('8', {marketKey: 'player_steals'}), shooting).reads.find(read => read.kind === 'turnovers').text,
     /DAL turns it over .* times a game \(6th most\)/);
 });
@@ -118,7 +122,7 @@ test('far softer than everyone reads 100; the middle near 50; the stingy, slow e
 
 test('the list and the player card score a prop the same', () => {
   const scores = spreadScores([row('a'), row('b', {opponent: 'BOS'})], league);
-  assert.equal(scores.get('a').score, 91);
+  assert.equal(scores.get('a').score, cardScores(row('a'), league).find(item => item.stat === 'PTS').score);
   assert.equal(scores.get('a').label, 'Strong edge');
   assert.ok(scores.get('b').score < scores.get('a').score);
   const history = {rows: [...Array(12)].map((_, i) => ({date: `2026-0${1 + (i % 9)}-1${i % 10}`, opponent: i % 4 ? 'T3' : 'DAL', isHome: i % 2 === 0,

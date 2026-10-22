@@ -81,7 +81,7 @@ function GradeCard({opponent,own,position,onPosition,scores,chosen,onPick}){
    <div className="ng-tiles" role="group" aria-label="Stat">{scores.map(item=><button type="button" key={item.marketKey} data-tone={item.tone} aria-pressed={item.marketKey===chosen.marketKey}
     disabled={item.score==null} onClick={()=>onPick(item.marketKey)} aria-label={`${item.stat} ${item.score??'no score'}${item.label?`, ${item.label}`:''}`}>
     <span>{item.stat}</span><b>{item.score??'—'}</b></button>)}</div>
-   <p className="nd-foot">0-100 for the over, 50 an even matchup. It adds up how far {opponent} sit from the league average in points allowed, defensive rating and pace, and in what they allow {POS_WORDS[position][1]} in the stat (threes also read the 3-point % they allow, assists the FG% they allow, steals how often they turn it over). 100: far softer than most teams. His own games against them are shown under Why this score, not counted in it.</p>
+   <p className="nd-foot">0-100 for the over, 50 an even matchup. It adds up how far {opponent} sit from the league average in points allowed, defensive rating and pace, and in what they allow each {POS_WORDS[position][0]} in the stat (assists also read the FG% they allow, steals how often they turn it over). 100: far softer than most teams. His own games against them are shown under Why this score, not counted in it.</p>
   </div>
  </section>;
 }
@@ -106,7 +106,8 @@ export function TheirDefense({row,league,position=positionOf(row.position)||'G',
  const [more,setMore]=useState(false);
  const data=league.data,opponent=row.opponent||opponentOf(row);
  if(!data)return null;
- const n=data.teamCount,cells=data.dvp?.[opponent]?.[position]?.stats;
+ // A player at a time, as the score reads it (dvpEach); the position's total from an older server.
+ const each=Boolean(data.dvpEach),n=data.teamCount,cells=(data.dvpEach||data.dvp)?.[opponent]?.[position]?.stats;
  if(!cells)return null;
  const def=data.teamStats?.[opponent]?.def||{},opp=data.opportunity?.teams?.[opponent]||{},count=data.opportunity?.count||n;
  const shooting=data.positionShooting?.teams?.[opponent]?.[position]||{},team=data.teamDefense?.teams?.[opponent]||{};
@@ -122,7 +123,7 @@ export function TheirDefense({row,league,position=positionOf(row.position)||'G',
  return <Card title={`${teamName(data,opponent)} defense`} note={`rank of ${n} teams`} icon={Shield} className="nba-their-defense">
   <div className="ns-sub-head"><b>As a team</b><span>What the {teamName(data,opponent)} allow every opponent, all positions</span></div>
   <div className="ns-base">{base.map(item=><div key={item.label} data-tone={toneOf(item.soft)}><small>{item.label}</small><b>{item.value}</b><em>{item.text}</em></div>)}</div>
-  <div className="ns-sub-head"><b>Vs {words[1]}, by stat</b><span>What the {teamName(data,opponent)} allow {words[1]} a game</span></div>
+  <div className="ns-sub-head"><b>Vs {words[1]}, by stat</b><span>{each?`What the ${teamName(data,opponent)} allow each ${words[0]} a game`:`What the ${teamName(data,opponent)} allow ${words[1]} a game`}</span></div>
   <div className="ns-diverge-scale" aria-hidden="true"><span>Tough</span><span>Soft</span></div>
   <div className="ns-diverge">{BY_STAT.map(([key,label])=>{const [value,rank]=cells[key]?.szn||[];if(!finite(value))return null;
    return <DivergeRow key={key} label={label} sub={`${fmt(value,1)} a game`} soft={softness(rank,n)} text={placeText(rank,n)} picked={key===stat}/>;})}

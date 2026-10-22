@@ -121,6 +121,9 @@ class ContextTests(unittest.TestCase):
         self.assertEqual(ctx["dvp"]["CCC"]["G"]["stats"]["pts"]["szn"][0], round((30 + 9 + 20) / 3, 2))
         # Tied teams share a rank.
         self.assertEqual(context._rank({"A": 1.0, "B": 2.0, "C": 2.0, "D": 3.0}, ascending=True), {"A": 1, "B": 2, "C": 2, "D": 4})
+        # A player at a time (the Props tab's, as RotoBot counts it): CCC's
+        # guards against them scored 30, 9, 8 and 12 -- 14.75 each.
+        self.assertEqual(ctx["dvpEach"]["CCC"]["G"]["stats"]["pts"]["szn"][0], round((30 + 9 + 8 + 12) / 4, 2))
 
     def test_team_offense_and_defense_ranks(self):
         stats = context.league_context(self.payload)["teamStats"]

@@ -161,6 +161,33 @@ def defense_vs_position(by_team: dict, players: dict) -> dict:
     return result
 
 
+def defense_vs_each(by_team: dict, players: dict) -> dict:
+    """What each team allows a player at a position a game: every opposing
+    guard's (forward's, center's) line against them averaged, a player-game
+    at a time -- the way RotoBot reads "vs guards" (11.0 points a game per
+    guard, not the 57 they add up to), so the Props tab's matchup score and
+    page agree with it. Same shape and ranks as defense_vs_position (rank 1
+    allows the least); the Finder keeps reading that one."""
+    averages = {}
+    for team, games in by_team.items():
+        for window, size in WINDOWS:
+            chosen = games[-size:] if size else games
+            for position in POSITIONS:
+                rows = [row for game in chosen for row in game["opp"]["p"]
+                        if row[_I["min"]] and primary_position(players.get(row[0])) == position]
+                values = {key: [value for row in rows if (value := stat_value(row, key)) is not None] for key in STAT_KEYS}
+                averages[(team, position, window)] = {key: sum(found) / len(found) for key, found in values.items() if found}
+    result = {team: {position: {"stats": {}} for position in POSITIONS} for team in by_team}
+    for position in POSITIONS:
+        for window, _ in WINDOWS:
+            for key in STAT_KEYS:
+                values = {team: averages[(team, position, window)].get(key) for team in by_team}
+                ranks = _rank(values, ascending=True)
+                for team in by_team:
+                    result[team][position]["stats"].setdefault(key, {})[window] = [_round(values[team]), ranks.get(team)]
+    return result
+
+
 def _totals(side) -> dict:
     totals = defaultdict(float)
     for row in side["p"]:
@@ -355,6 +382,8 @@ def league_context(payload: dict, rosters: dict | None = None) -> dict:
         "teamCount": len(by_team),
         "stats": [[key, label] for key, label, _ in STATS],
         "dvp": defense_vs_position(by_team, players),
+        # The same, a player at a time (the Props tab's NBA score and page).
+        "dvpEach": defense_vs_each(by_team, players),
         "teamStats": team_stats(by_team),
         # Pace, ratings and the chances each team's games give (opportunity.py).
         "opportunity": opportunity.team_table(by_team),
