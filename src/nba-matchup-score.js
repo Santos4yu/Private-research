@@ -7,7 +7,7 @@
 //   their defense    points allowed a game and per 100 possessions
 //   their pace       possessions a game
 //   vs his position  what they allow guards (forwards, centers) in the stat
-//   threes           also the 3-point percentage they allow
+//   threes           also how many threes they let teams take
 //   assists          also the field-goal percentage they allow (made
 //                    shots are what passes turn into assists)
 //   steals           also how often they turn the ball over
@@ -19,16 +19,22 @@
 // tests/nba-matchup-score.test.mjs, on last season's real numbers -- what
 // both sites read before a team has played): Dallas for a forward (PTS 91,
 // REB 89, AST 90, 3PM 69, STL 87, BLK 89), Indiana for a guard (REB 100,
-// AST 100, BLK 94, PTS 100, 3PM 77) and Denver for Cason Wallace (PTS 73,
-// REB 62, AST 56, 3PM 91, STL 51, BLK 59): about 5 points apart on
-// average over the 17. What a defense allows his position is a player at
-// a time (league.dvpEach: Denver allow each guard 11.1 points a game),
-// the way RotoBot counts it -- its printed numbers match to the decimal.
-// The 3-point percentage a team allows isn't read: RotoBot's grades don't
-// move with it (Denver hold teams to the 3rd lowest and Wallace's threes
-// read 91). RotoBot also moves each player on something of his own
-// (Wallace's threes 91, Gilgeous-Alexander's 84, Caruso's 72 against the
-// same Denver); that part isn't known, so it isn't here.
+// AST 100, BLK 94, PTS 100, 3PM 77), Denver for Cason Wallace (PTS 73,
+// REB 62, AST 56, 3PM 91, STL 51, BLK 59) and for Shai Gilgeous-Alexander
+// (PTS 63, REB 61, AST 75, 3PM 84, STL 40, BLK 76), plus the threes of
+// Jared McCain (91) and Alex Caruso (72) and Ajay Mitchell's assists (71)
+// against Denver: about 5 points apart on average over the 26. What a
+// defense allows his position is a player at a time (league.dvpEach:
+// Denver allow each guard 11.1 points a game), the way RotoBot counts it
+// -- its printed numbers match to the decimal. Threes read how many a
+// team lets opponents take, not the percentage they make: RotoBot's
+// threes follow the tries (Denver allow the 4th most, and its OKC guards'
+// threes average 84.5 there; Indiana the fewest, 77 on a page of 94-100)
+// and not the percentage (Denver hold teams to the 3rd lowest). RotoBot
+// also moves each player on something of his own (Wallace 91,
+// Gilgeous-Alexander 84, Caruso 72 on threes against the same Denver).
+// It isn't his games against them, his own averages or who guards him:
+// each fits some of the two Denver pages and not the rest. So it isn't here.
 //
 import {defenseCell, statGameLog} from './unified-finder-data.js';
 import {MARKET_STAT, baseMarket} from './sports/wnba/wnba-research.js';
@@ -40,7 +46,7 @@ const one = value => (Math.round(value * 10) / 10).toFixed(1);
 const ordinal = n => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th'}`;
 
 // Points a spread each read moves the score (see the top of the file).
-export const GAINS = {allowed: 19.5, rating: 19.5, pace: 6.5, position: 7.5, shooting: 0, finishing: 9, turnovers: 6.5};
+export const GAINS = {allowed: 19.5, rating: 19.5, pace: 6.5, position: 7.5, shooting: 0, attempts: 16.5, finishing: 9, turnovers: 6.5};
 // A combo is the average of its parts' scores.
 const COMBOS = {pr: ['player_points', 'player_rebounds'], pa: ['player_points', 'player_assists'], ra: ['player_rebounds', 'player_assists'],
   pra: ['player_points', 'player_rebounds', 'player_assists'], bs: ['player_blocks', 'player_steals']};
@@ -144,6 +150,17 @@ function shootingRead(row, league) {
     text: `${row.opponent} lets teams make ${one(cell[0])}% of their threes${where ? ` (${where})` : ''}`};
 }
 
+/** Threes: how many threes they let teams take a game (rank 1 the most). */
+function attemptsRead(row, league) {
+  const table = league?.opportunity, cell = table?.teams?.[row.opponent]?.tpaAllowed, teams = table?.count || league?.teamCount;
+  if (!finite(cell?.[0])) return null;
+  const soft = spreads(cell[0], column(table.teams, team => team?.tpaAllowed?.[0])) ?? fromRank(cell[1], teams);
+  if (!finite(soft)) return null;
+  const where = place(finite(cell[1]) ? teams - cell[1] + 1 : null, teams);
+  return {key: 'attempts', kind: 'attempts', soft, points: GAINS.attempts * soft,
+    text: `${row.opponent} lets teams take ${one(cell[0])} threes a game${where ? ` (${where})` : ''}`};
+}
+
 /** Assists: the field-goal percentage they allow (rank 1 the highest). */
 function finishingRead(row, league) {
   const table = league?.opportunity, cell = table?.teams?.[row.opponent]?.fgPctAllowed, teams = table?.count || league?.teamCount;
@@ -189,7 +206,8 @@ export function matchupScore(row, league) {
   const parts = (COMBOS[stat] || [baseMarket(row.marketKey)]).map(marketKey => [marketKey, MARKET_STAT[marketKey]]);
   const shared = [defenseRead(row, league), paceRead(row, league)].filter(Boolean);
   const own = parts.flatMap(([marketKey, part]) => [positionRead({...row, marketKey}, league, part),
-    part === 'tpm' && GAINS.shooting ? shootingRead(row, league) : null, part === 'ast' ? finishingRead(row, league) : null,
+    part === 'tpm' && GAINS.shooting ? shootingRead(row, league) : null, part === 'tpm' ? attemptsRead(row, league) : null,
+    part === 'ast' ? finishingRead(row, league) : null,
     part === 'stl' ? turnoverRead(row, league) : null].filter(Boolean)
     .map(read => ({...read, points: read.points / parts.length})));
   const reads = [...shared, ...own];

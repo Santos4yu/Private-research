@@ -109,13 +109,22 @@ not book odds.
   points), so `context.league_context` now also sends `dvpEach` and the
   Props score and page read it (the Finder keeps `dvp`); and RotoBot's
   threes don't move with the 3-point % a team allows, so that read is out.
-  Like RotoBot's team part it's the same for every player at a position;
-  RotoBot also moves each player on something of his own (Wallace's threes
-  91, Gilgeous-Alexander's 84, Caruso's 72 against the same Denver; ours
-  66 for all three). His games against them, shooting, volume, the line
-  and the odds don't explain it. The owner chose to stay close to RotoBot
-  (not a backtest like NFL) and was asked for RotoBot's Matchup tab for
-  Gilgeous-Alexander's threes to compare with Wallace's.
+  Like RotoBot's team part it's the same for every player at a position.
+  Oct 22, second pass, with RotoBot's Gilgeous-Alexander page (PTS 63,
+  REB 61, AST 75, 3PM 84, STL 40, BLK 76) beside Wallace's: the Denver
+  numbers on both are identical, and their average matches ours on every
+  stat but threes. RotoBot's threes follow the threes a team lets
+  opponents take (Denver 4th most: its four OKC guards average 84.5;
+  Indiana the fewest: 77 on a page of 94-100), so threes now read
+  `opportunity.teams[team].tpaAllowed` (gain 16.5): OKC guards' threes
+  66 -> 84 against Denver, average gap 6.8 -> 5.35 over 26 RotoBot grades
+  (the test has them all). Indiana's guard threes got worse (82 -> 58,
+  RotoBot 77). RotoBot's per-player part (Wallace 91, SGA 84, Caruso 72
+  on threes against the same Denver) is still unexplained: his last
+  three games against them fit PTS/REB/AST/3PM but not STL/BLK or
+  Caruso; his primary defender (Braun for SGA, Murray for Wallace) fits
+  PTS/3PM only; his own averages among guards fit AST/STL/BLK only. Don't
+  chase it further without more pages (Caruso's threes would be the one).
 - Server: `api/wnba.py` (resources `league-context`, `scout`,
   `play-types`, `defender`, `matchup`, `player-context`, `gamelog`),
   `backend/sports/wnba/context.py`, `scout.py`, `opportunity.py`,
