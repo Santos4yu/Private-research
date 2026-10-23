@@ -107,6 +107,41 @@ def period_lines(summary: dict, record: dict, fields: tuple = ()) -> dict:
     return out
 
 
+# Whole-game markets only the play-by-play counts: the box score's matchup
+# tables (context.py) don't cover them, like the period lines above.
+DUNKS = "player_dunks"
+PLAY_MARKETS = (DUNKS,)
+
+
+def dunk_counts(summary: dict, record: dict, fields: tuple = ()) -> dict:
+    """{team: {player id: made dunks}} for the players in `record`'s box (a
+    player who made none isn't listed), from the play-by-play's shot types
+    ("Cutting Dunk Shot", "Alley Oop Dunk Shot"...): PrizePicks posts a Dunks
+    line and the box score has no dunks. {} without a play-by-play; a team is
+    left out when a player's dunks come to more than the twos he made (the
+    plays and the box disagree)."""
+    plays = summary.get("plays") or []
+    if not plays:
+        return {}
+    made = defaultdict(int)
+    for play in plays:
+        kind = str(((play.get("type") or {}).get("text")) or "").lower()
+        people = _people(play)
+        if "dunk" in kind and play.get("scoringPlay") and people and people[0]:
+            made[people[0]] += 1
+    index = {name: position + 2 for position, name in enumerate(fields)}
+    out = {}
+    for team, side in (record.get("t") or {}).items():
+        rows = side.get("p") or []
+        if not rows:
+            continue
+        twos = {row[0]: (row[index["fgm"]] or 0) - (row[index["tpm"]] or 0) for row in rows} if "fgm" in index and "tpm" in index else None
+        if twos is not None and any(made[pid] > made_twos for pid, made_twos in twos.items()):
+            continue
+        out[team] = {row[0]: made[row[0]] for row in rows if made[row[0]]}
+    return out
+
+
 def values_of(row: list) -> dict:
     """A player's `h` row as the board's period markets ({key: value}),
     leaving out any line whose parts didn't check out."""

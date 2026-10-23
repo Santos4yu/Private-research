@@ -149,6 +149,16 @@ not book odds.
   NFL): one line per player and stat, the standard one; a stat PrizePicks
   posts only as Demons shows its lowest Demon (marked "Demon" in red); a
   Goblin never shows.
+- Dunks (Oct 23): PrizePicks' NBA "Dunks" lines had no history (the box
+  score has no dunks), so the Finder showed them blank. Now
+  `periods.dunk_counts` counts made dunks from ESPN's play-by-play shot types
+  ("Cutting Dunk Shot", "Alley Oop Dunk Shot"...; ~12,000 made in 2025-26,
+  Zubac 1.7 a game) into each stored game side as `dk` ({pid: n}, None when
+  the plays and box disagree), `backfill_periods` fills older games newest
+  first in the daily cron, and `api/wnba.py _with_periods` adds
+  `player_dunks` to his game logs (absent, not 0, for a game not counted).
+  The market is `player_dunks` ("Dunks"); context/matchup tables don't cover
+  it (`periods.PLAY_MARKETS`), so no matchup score or player-context for it.
 - Props lists are cards (Oct 23, owner picked "Cards" over a cleaner table
   or grouping by game; `MatchupList.jsx` PropCard): photo, name, game, the
   line as a pill with the Demon tag, three tiles Matchup / Last 10 (hits

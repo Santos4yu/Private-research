@@ -100,7 +100,7 @@ class BoardTests(unittest.TestCase):
         self.assertEqual(rows["Pts+Rebs+Asts"]["modifier"], "goblin")
         self.assertEqual(rows["Triple-Double"]["marketKey"], "player_triple_double")
         self.assertEqual(rows["Blocked Shots"]["marketKey"], "player_blocks")
-        self.assertEqual(rows["Dunks"]["marketKey"], "pp:dunks")       # shown, no history to chart yet
+        self.assertEqual(rows["Dunks"]["marketKey"], "player_dunks")   # counted from the play-by-play (periods.dunk_counts)
         self.assertEqual(points["apps"][0]["key"], "prizepicks")
 
     def test_same_name_players_are_told_apart_by_team_and_unknowns_still_show(self):

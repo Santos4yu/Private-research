@@ -79,13 +79,15 @@ PRIZEPICKS_MARKETS = {
     "offensiverebounds": "player_offensive_rebounds", "offrebounds": "player_offensive_rebounds",
     "defensiverebounds": "player_defensive_rebounds", "defrebounds": "player_defensive_rebounds",
     "doubledouble": "player_double_double", "doubledoubles": "player_double_double",
+    # Counted from the play-by-play (periods.dunk_counts), not the box score.
+    "dunks": "player_dunks",
 }
 PRIZEPICKS_LABELS = {**MARKETS, "player_threes_attempts": "3-PT Attempted", "player_field_goals": "FG Made",
                      "player_frees_made": "Free Throws Made", "player_field_goals_attempts": "FG Attempted",
                      "player_frees_attempts": "Free Throws Attempted", "player_twos": "Two Pointers Made",
                      "player_twos_attempts": "Two Pointers Attempted", "player_fouls": "Personal Fouls",
                      "player_offensive_rebounds": "Offensive Rebounds", "player_defensive_rebounds": "Defensive Rebounds",
-                     "player_double_double": "Double-Double"}
+                     "player_double_double": "Double-Double", "player_dunks": "Dunks"}
 PRIZEPICKS_MARKETS.update({"tripledouble": "player_triple_double", "tripledoubles": "player_triple_double"})
 PRIZEPICKS_LABELS["player_triple_double"] = "Triple-Double"
 # First-quarter and first-half lines (backend/sports/wnba/periods.py): any of
@@ -121,11 +123,15 @@ _period_memory = {}
 
 
 def _period_rows(league, seasons):
-    """player id -> {game id: his first-quarter/first-half row} over the
-    stored seasons (periods.py), kept while those seasons are unchanged."""
+    """player id -> {game id: {"h": his first-quarter/first-half row, "dk":
+    his made dunks}} over the stored seasons (periods.py), each where the
+    game has it, kept while those seasons are unchanged."""
     from backend.sports.wnba import league as season_store
     payloads = [(year, season_store.stored(year, league)) for year in seasons]
-    key = (league, tuple((year, (payload or {}).get("builtAt"), len((payload or {}).get("games") or {})) for year, payload in payloads))
+    # The catch-up (league.backfill_periods) fills games in without a new
+    # build: how many sides carry dunks counts as a change too.
+    filled = lambda payload: sum("dk" in side for game in ((payload or {}).get("games") or {}).values() for side in (game.get("t") or {}).values())
+    key = (league, tuple((year, (payload or {}).get("builtAt"), len((payload or {}).get("games") or {}), filled(payload)) for year, payload in payloads))
     if _period_memory.get(league, (None,))[0] == key:
         return _period_memory[league][1]
     index = {}
@@ -133,14 +139,19 @@ def _period_rows(league, seasons):
         for game_id, game in ((payload or {}).get("games") or {}).items():
             for side in (game.get("t") or {}).values():
                 for row in side.get("h") or []:
-                    index.setdefault(row[0], {})[str(game_id)] = row
+                    index.setdefault(row[0], {}).setdefault(str(game_id), {})["h"] = row
+                # A team's dunks were counted: a player not listed made none.
+                if isinstance(side.get("dk"), dict):
+                    for row in side.get("p") or []:
+                        index.setdefault(row[0], {}).setdefault(str(game_id), {})["dk"] = side["dk"].get(row[0], 0)
     _period_memory[league] = (key, index)
     return index
 
 
 def _with_periods(rows, player_id, league, seasons):
     """`rows` (his game logs) with each game's first-quarter and first-half
-    values among its markets, where the stored season has them."""
+    values and his made dunks among its markets, where the stored season has
+    them."""
     try:
         mine = _period_rows(league, seasons).get(str(player_id)) or {}
     except Exception:  # noqa: BLE001 -- the full-game history still stands
@@ -150,7 +161,8 @@ def _with_periods(rows, player_id, league, seasons):
     out = []
     for row in rows:
         found = mine.get(str(row.get("gameId")))
-        out.append({**row, "values": {**(row.get("values") or {}), **_periods.values_of(found)}} if found else row)
+        extra = {**_periods.values_of(found.get("h")), **({_periods.DUNKS: found["dk"]} if "dk" in found else {})} if found else {}
+        out.append({**row, "values": {**(row.get("values") or {}), **extra}} if extra else row)
     return out
 _memory = {"at": 0.0, "value": None}
 _roster_memory = {}

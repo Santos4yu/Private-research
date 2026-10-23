@@ -276,17 +276,24 @@ def extract_game(summary: dict, game: dict, players: dict) -> dict:
     lines = periods.period_lines(summary, record, FIELDS)
     for team, side in record["t"].items():
         side["h"] = lines.get(team, [])
+    # Each player's made dunks (periods.dunk_counts): {} a team counted with
+    # none, None when its plays and box disagree; left off without a
+    # play-by-play, for the catch-up to try again.
+    if summary.get("plays"):
+        dunks = periods.dunk_counts(summary, record, FIELDS)
+        for team, side in record["t"].items():
+            side["dk"] = dunks.get(team)
     return record
 
 
 def backfill_periods(season: int, league: str = "wnba", deadline_seconds: float = 10.0, limit: int = 150) -> dict:
-    """Games stored before first-quarter and first-half lines were kept get
-    them, newest first (the ones the hit rates read), a batch at a time.
-    {"done": games filled, "left": games still without}."""
+    """Games stored before first-quarter and first-half lines (and dunks)
+    were kept get them, newest first (the ones the hit rates read), a batch
+    at a time. {"done": games filled, "left": games still without}."""
     started = time.monotonic()
     payload = stored(season, league)
     games = (payload or {}).get("games") or {}
-    todo = sorted((game for game in games.values() if any("h" not in side for side in (game.get("t") or {}).values())),
+    todo = sorted((game for game in games.values() if any("h" not in side or "dk" not in side for side in (game.get("t") or {}).values())),
                   key=lambda game: game.get("date") or "", reverse=True)
     if not todo:
         return {"done": 0, "left": 0}
@@ -305,8 +312,11 @@ def backfill_periods(season: int, league: str = "wnba", deadline_seconds: float 
             except Exception:  # noqa: BLE001 -- tried again next time
                 continue
             lines = periods.period_lines(summary, game, FIELDS)
+            dunks = periods.dunk_counts(summary, game, FIELDS)
             for team, side in (game.get("t") or {}).items():
                 side["h"] = lines.get(team, [])
+                # None: no play-by-play, or it disagreed with the box -- not tried again.
+                side["dk"] = dunks.get(team)
             changed.add(str(game.get("date") or "")[:7] or "undated")
             done += 1
     finally:
