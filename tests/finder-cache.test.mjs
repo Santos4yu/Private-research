@@ -39,6 +39,12 @@ test('a basketball line saved before histories carried his meetings loads again'
   assert.deepEqual(kept.meetings, {values: [2, 3, 3], usual: 1.5});
 });
 
+test('a line that had no games behind it loads again', () => {
+  const blank = {windows: {l10: {hits: 0, sample: 0}, season: {hits: 0, sample: 0}}};
+  const [row] = carryHistory([fresh('mlb:5')], [ready('mlb:5', blank)], NOW);
+  assert.equal(row.historyStatus, 'pending');
+});
+
 test('a line that switched stat or side is not the same prop', () => {
   const rows = carryHistory([fresh('mlb:1', {stat: 'Hits'}), fresh('mlb:4', {direction: 'UNDER'})],
     [ready('mlb:1'), ready('mlb:4')], NOW);

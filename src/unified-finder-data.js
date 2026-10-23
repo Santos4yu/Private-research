@@ -145,8 +145,11 @@ export function carryHistory(rows, previous = [], now = Date.now()) {
   if (!before.size) return rows;
   return rows.map(row => {
     const old = before.get(row.id);
-    // A basketball line saved before histories carried his meetings loads again.
-    if (!old || (BASKETBALL.has(row.sport) && !('meetings' in old))
+    // A basketball line saved before histories carried his meetings loads
+    // again, and so does one that had no games behind it (a stat the server
+    // has only just started counting, like dunks).
+    const empty = old && old.windows && !Object.values(old.windows).some(window => windowGames(window) > 0);
+    if (!old || empty || (BASKETBALL.has(row.sport) && !('meetings' in old))
       || (row.historyStatus === 'ready' && Number(row.enrichedAt||0)>=Number(old.enrichedAt||0)) || old.line !== row.line || old.direction !== row.direction
       || (old.valueKey || old.marketKey || old.stat) !== (row.valueKey || row.marketKey || row.stat)) return row;
     const kept = {...row};
