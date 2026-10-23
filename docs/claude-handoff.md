@@ -171,6 +171,15 @@ not book odds.
   plays yet isn't saved). The Finder's batch (`gamelogs`) only reads that
   hash, it never fetches. Dunks has its own tab ("DNK", after B+S) in
   `trend-data.js WNBA_STATS`.
+  Checked on PrizePicks' live partner feed (Oct 23, hand-run workflow
+  `.github/workflows/prizepicks-check.yml`, GitHub's machines can reach it;
+  pause between asks or it answers 429): league 7 "NBA" carried 9,554
+  lines incl. 52 "Dunks", but none for Zubac (his 59 lines: Points,
+  Rebounds, Assists, combos, Blocks, Steals, Turnovers, Fantasy). PrizePicks
+  keeps quarters/halves in their own leagues (NBA1Q 192: 1,061 lines of
+  Points/Rebounds/Assists; NBA1H 84; NBA2H 80; NBA4Q 149), which
+  `_nba_board` never reads (it reads league 7 only), so the board has no
+  NBA 1Q/1H lines although periods.py could chart them. Not fixed yet.
   PrizePicks posts Dunks only some nights (the owner's Zubac page had no
   Dunks tab), so an NBA page now offers Dunks from his game logs on a night
   with no Dunks line (`trend-data.js researchRows`, `researchOnly` rows):
