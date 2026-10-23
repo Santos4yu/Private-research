@@ -1,6 +1,7 @@
 import React,{useEffect,useState} from 'react';
 import {ArrowUpRight,Flame,TrendingDown,TrendingUp,TriangleAlert} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
+import {sharpHead} from './photo-url';
 import {TIERS} from './slip-check';
 import {allowReader,defenseKind,defenseWords} from './slip-analyst';
 import {teamLogoUrl} from './sports/nfl/nfl-ui-core';
@@ -46,14 +47,16 @@ export function Img({src,className,alt=''}){
 }
 
 export function Face({row,leg,tier}){
- const [bad,setBad]=useState(false);
- const src=row?.headshot;
- useEffect(()=>setBad(false),[src]);
+ // 0: the resized photo (photo-url.js), 1: the full one, 2: initials.
+ const [stage,setStage]=useState(0);
+ const src=row?.headshot,sharp=sharpHead(src);
+ useEffect(()=>setStage(0),[src]);
+ const shown=!src?null:stage===0?sharp:stage===1&&sharp!==src?src:null;
  const name=row?.player||leg?.player;
  const sport=row?.sport||leg?.sport;
  const badge=teamLogo(row)||LEAGUE_LOGOS[sport];
  return <span className="sa-face" data-tier={tier||undefined}>
-  <span className="sa-face-photo">{src&&!bad?<img src={src} alt="" loading="lazy" onError={()=>setBad(true)}/>
+  <span className="sa-face-photo">{shown?<img src={shown} alt="" loading="lazy" decoding="async" onError={()=>setStage(value=>value===0&&sharp!==src?1:2)}/>
    :<i>{String(name||'').split(' ').map(part=>part[0]).slice(0,2).join('')}</i>}</span>
   {badge&&<Img className="sa-face-badge" src={badge}/>}
  </span>;

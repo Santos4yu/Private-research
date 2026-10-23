@@ -149,6 +149,17 @@ not book odds.
   NFL): one line per player and stat, the standard one; a stat PrizePicks
   posts only as Demons shows its lowest Demon (marked "Demon" in red); a
   Goblin never shows.
+- Props lists are cards (Oct 23, owner picked "Cards" over a cleaner table
+  or grouping by game; `MatchupList.jsx` PropCard): photo, name, game, the
+  line as a pill with the Demon tag, three tiles Matchup / Last 10 (hits
+  over games, % under) / Prop, Why inside the card. Grid on desktop (3
+  across at 1120px), one column on phones. The game menu is our own
+  (GamePicker: logos, time, prop count, keys, outside tap) and a game is its
+  two teams on the day, so lines posted at 6:30 and 6:40 are one game.
+  Photos: `src/photo-url.js` asks ESPN's resizer for 208x152 (the 1040px
+  originals came out jagged in 44-52px circles), falling back to the full
+  photo, then initials. The resizer URL couldn't be checked from the
+  container (ESPN blocked): if photos show initials live, check it first.
 - Prop grade on the Props lists (Oct 22, `src/props-grade.js`): a third
   number a row, the over at tonight's line as the Analyzer grades it
   (`slip-check.js gradeLeg`: prop model on his games and role, the matchup

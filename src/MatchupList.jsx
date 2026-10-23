@@ -1,56 +1,107 @@
-// A Props tab league's list (NbaMatchups.jsx, NflMatchups.jsx): every prop
-// PrizePicks posts in it with how often it has cleared its line lately, how
-// good the opponent is for it, and its Prop grade (props-grade.js: the over
-// at tonight's line as the Analyzer grades it), sortable each way. A row opens that
-// player's matchup page; "Why" shows what made the score. `config` says
-// which league: its stats, its lines (props-data.js), its score and page.
+// A Props tab league's list (NbaMatchups.jsx, NflMatchups.jsx): a card for
+// every prop PrizePicks posts in it, with how good the opponent is for it,
+// how often it has cleared its line lately and its Prop grade (props-grade.js:
+// the over at tonight's line as the Analyzer grades it), sortable each way.
+// A card opens that player's matchup page; "Why" shows what made the scores.
+// `config` says which league: its stats, its lines (props-data.js), its score
+// and page.
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {ChevronDown,RefreshCw,Search,X} from 'lucide-react';
+import {Check,ChevronDown,RefreshCw,Search,X} from 'lucide-react';
 import {windowGames,windowRate} from './unified-finder-data';
-import {Face} from './PickParts';
+import {Face,Img} from './PickParts';
 import {propGrades} from './props-grade';
 import {loadLearning} from './learning';
 import './nba-matchups.css';
 
 const SORTS=[['matchup','Matchup'],['hit','Hit %'],['prop','Prop grade']];
-const READS={defense:'Their defense',pace:'Their pace',position:'vs his position',attempts:'Threes they allow',rebounds:'Rebounds they allow',assists:'Assists they allow',turnovers:'Their turnovers',meetings:'His games vs them'};
+const READS={defense:'Their defense',pace:'Their pace',position:'vs his position',attempts:'Threes they allow',rebounds:'Rebounds they allow',assists:'Assists they allow',turnovers:'Their turnovers',meetings:'His games vs them',
+ script:'The game line',scoring:'His team’s scoring',role:'His role'};
 // What a read adds to (or takes from) the even 50.
 const added=points=>`${points>0?'+':points<0?'−':''}${Math.abs(Math.round(points))} ${Math.abs(Math.round(points))===1?'point':'points'}`;
 const figure=value=>Number.isInteger(Number(value))?String(Number(value)):Number(value).toFixed(1);
 const when=iso=>{const time=Date.parse(iso||'');if(!Number.isFinite(time))return '';const date=new Date(time),today=new Date();
  const clock=date.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
  return date.toDateString()===today.toDateString()?clock:`${date.toLocaleDateString([],{weekday:'short'})} ${clock}`;};
-const gameOf=row=>`${row.awayTeamAbbr||''}@${row.homeTeamAbbr||''}|${row.startsAt||''}`;
+// One game, whatever start time each of its lines carries (PrizePicks posts
+// some at 6:30 and some at 6:40): the two teams on the day.
+const dayOf=iso=>{const time=Date.parse(iso||'');return Number.isFinite(time)?new Date(time).toDateString():'';};
+const gameOf=row=>`${row.awayTeamAbbr||''}@${row.homeTeamAbbr||''}|${dayOf(row.startsAt)}`;
+const hitTone=rate=>rate>=70?'strong':rate>=55?'edge':rate>=40?'neutral':'tough';
 const hitOf=row=>{const window=row.windows?.l10;const games=windowGames(window);return games?{rate:windowRate(window),hits:window.hits,games}:null;};
 
 function Bar({value,tone}){
  return <span className="nm-bar" data-tone={tone||undefined}><i style={{width:`${Math.max(4,Math.min(100,value))}%`}}/></span>;
 }
 
-function Row({row,read,hit,prop,open,onToggle,onOpen,short}){
+// One of the card's three numbers: what it is, the number, what it means.
+function Tile({kind,label,value,sub,tone,bar}){
+ return <span className={`nm-tile nm-${kind}`} data-tone={tone||undefined}><small>{label}</small><b>{value}</b>
+  <Bar value={bar||0} tone={tone}/><em>{sub}</em></span>;
+}
+
+function PropCard({row,read,hit,prop,open,onToggle,onOpen,short}){
  const home=row.teamAbbr&&row.teamAbbr===row.homeTeamAbbr;
- return <li className="nm-row" data-open={open||undefined}>
-  <button type="button" className="nm-main" onClick={()=>onOpen(row)} aria-label={`Open ${row.player}'s ${short[row.marketKey]||row.market} matchup`}>
-   <Face row={row}/>
-   <span className="nm-who"><b>{row.player}</b>
-    <small>{[row.position,row.teamAbbr&&row.opponent?`${row.teamAbbr} ${home?'vs':'@'} ${row.opponent}`:row.teamAbbr,when(row.startsAt)].filter(Boolean).join(' · ')}</small></span>
-   <span className="nm-line"><small>More{String(row.modifier||'').toLowerCase()==='demon'&&<i className="nm-demon">Demon</i>}</small><b>{figure(row.line)}</b><em>{short[row.marketKey]||row.market}</em></span>
-   <span className="nm-stat nm-hit"><span className="nm-stat-top"><small>Last 10</small><b>{hit?`${Math.round(hit.rate)}%`:'—'}</b></span>
-    {hit?<Bar value={hit.rate} tone={hit.rate>=70?'strong':hit.rate>=55?'edge':hit.rate>=40?'neutral':'tough'}/>:<Bar value={0}/>}
-    <small className="nm-sub">{hit?`${hit.hits} of ${hit.games}`:row.historyStatus==='pending'||row.historyRefresh?'Loading…':'No games yet'}</small></span>
-   <span className="nm-stat nm-score" data-tone={read?.tone}><span className="nm-stat-top"><small>Matchup</small><b>{read?read.score:'—'}</b></span>
-    <Bar value={read?.score||0} tone={read?.tone}/><small className="nm-sub">{read?read.label:'Not enough data'}</small></span>
-   <span className="nm-stat nm-prop" data-tone={prop?.tone}><span className="nm-stat-top"><small>Prop</small><b>{prop?`${Math.round(prop.chance*100)}%`:'—'}</b></span>
-    <Bar value={prop?prop.chance*100:0} tone={prop?.tone}/><small className="nm-sub">{prop?prop.label:hit?'Not graded':'Loading…'}</small></span>
+ const demon=String(row.modifier||'').toLowerCase()==='demon';
+ const stat=short[row.marketKey]||row.market;
+ const waiting=row.historyStatus==='pending'||row.historyRefresh;
+ return <li className="nm-card" data-open={open||undefined}>
+  <button type="button" className="nm-main" onClick={()=>onOpen(row)} aria-label={`Open ${row.player}'s ${stat} matchup`}>
+   <span className="nm-top"><Face row={row}/>
+    <span className="nm-who"><b>{row.player}</b>
+     <small>{[row.position,row.teamAbbr&&row.opponent?`${row.teamAbbr} ${home?'vs':'@'} ${row.opponent}`:row.teamAbbr,when(row.startsAt)].filter(Boolean).join(' · ')}</small></span></span>
+   <span className="nm-line"><small>More</small><b>{figure(row.line)}</b><em>{stat}</em>{demon&&<i className="nm-demon">Demon</i>}</span>
+   <span className="nm-tiles">
+    <Tile kind="score" label="Matchup" value={read?read.score:'—'} sub={read?read.label:'Not enough data'} tone={read?.tone} bar={read?.score}/>
+    <Tile kind="hit" label="Last 10" value={hit?`${hit.hits}/${hit.games}`:'—'} sub={hit?`${Math.round(hit.rate)}% over`:waiting?'Loading…':'No games yet'}
+     tone={hit?hitTone(hit.rate):undefined} bar={hit?.rate}/>
+    <Tile kind="prop" label="Prop" value={prop?`${Math.round(prop.chance*100)}%`:'—'} sub={prop?prop.label:hit?'Not graded':'Loading…'} tone={prop?.tone} bar={prop?prop.chance*100:0}/>
+   </span>
   </button>
-  {read&&<button type="button" className="nm-why" aria-expanded={open} onClick={onToggle}>Why<ChevronDown size={14}/></button>}
-  {open&&read&&<ul className="nm-reads">{prop&&<li className="nm-read-note">Prop grade: a {Math.round(prop.chance*100)}% chance of the over at {figure(row.line)}{String(row.modifier||'').toLowerCase()==='demon'?' (a Demon pays more, so it needs less)':''}, from his recent games and role with this matchup. {prop.label}.</li>}
-   <li className="nm-read-note">An even matchup is 50. Each part adds or takes away points.</li>{read.reads.map(item=><li key={item.key}>
-   <span className="nm-read-head"><b>{READS[item.kind]||READS[item.key]}</b><em>{added(item.points)}</em></span>
+  {read&&<div className="nm-foot"><button type="button" className="nm-why" aria-expanded={open} onClick={onToggle}>Why<ChevronDown size={14}/></button></div>}
+  {open&&read&&<ul className="nm-reads">{prop&&<li className="nm-read-note">Prop grade: a {Math.round(prop.chance*100)}% chance of the over at {figure(row.line)}{demon?' (a Demon pays more, so it needs less)':''}, from his recent games and role with this matchup. {prop.label}.</li>}
+   <li className="nm-read-note">Matchup: an even one is 50. Each part adds or takes away points.</li>{read.reads.map(item=><li key={item.key}>
+   <span className="nm-read-head"><b>{READS[item.kind]||READS[item.key]||'Their defense'}</b><em>{added(item.points)}</em></span>
    <span className="nm-read-text">{item.text}</span>
    <Bar value={item.score} tone={item.score>=60?'edge':item.score>=40?'neutral':'tough'}/>
   </li>)}</ul>}
  </li>;
+}
+
+// The game menu: each game once, with both teams' logos, its time and how
+// many props it has. Opens under the button; Escape, a tap outside or a pick
+// closes it, and the arrow keys move through it.
+function GamePicker({games,value,onChange}){
+ const [open,setOpen]=useState(false);
+ const box=useRef(null),button=useRef(null),list=useRef(null);
+ const options=useMemo(()=>[{key:'all',label:'All games',count:games.reduce((sum,game)=>sum+game.count,0)},...games],[games]);
+ const chosen=options.find(option=>option.key===value)||options[0];
+ useEffect(()=>{
+  if(!open)return undefined;
+  const away=event=>{if(box.current&&!box.current.contains(event.target))setOpen(false);};
+  document.addEventListener('pointerdown',away);
+  requestAnimationFrame(()=>list.current?.querySelector('[aria-selected=true]')?.focus());
+  return()=>document.removeEventListener('pointerdown',away);
+ },[open]);
+ const pick=key=>{onChange(key);setOpen(false);button.current?.focus();};
+ const keys=event=>{
+  const items=[...(list.current?.querySelectorAll('[role=option]')||[])],at=items.indexOf(document.activeElement);
+  if(event.key==='Escape'){event.preventDefault();setOpen(false);button.current?.focus();}
+  else if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();items[Math.max(0,Math.min(items.length-1,at+(event.key==='ArrowDown'?1:-1)))]?.focus();}
+  else if(event.key==='Home'||event.key==='End'){event.preventDefault();(event.key==='Home'?items[0]:items.at(-1))?.focus();}
+ };
+ return <div className="nm-game" ref={box} data-open={open||undefined}>
+  <button type="button" ref={button} className="nm-game-button" aria-haspopup="listbox" aria-expanded={open} onClick={()=>setOpen(value=>!value)}
+   onKeyDown={event=>{if(event.key==='ArrowDown'&&!open){event.preventDefault();setOpen(true);}}}>
+   <span className="nm-label">Game</span><span className="nm-game-now">{chosen.key==='all'?'All games':`${chosen.away} @ ${chosen.home}`}</span><ChevronDown size={14} aria-hidden="true"/></button>
+  {open&&<ul className="nm-game-menu" role="listbox" aria-label="Game" ref={list} onKeyDown={keys}>{options.map(option=>
+   <li key={option.key} role="option" aria-selected={option.key===chosen.key} tabIndex={-1} onClick={()=>pick(option.key)}
+    onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();pick(option.key);}}}>
+    {option.key==='all'?<span className="nm-game-teams"><b>All games</b></span>
+     :<span className="nm-game-teams"><Img src={option.awayLogo}/><b>{option.away}</b><i>@</i><Img src={option.homeLogo}/><b>{option.home}</b></span>}
+    <span className="nm-game-when">{option.key==='all'?`${option.count} props`:`${when(option.startsAt)} · ${option.count}`}</span>
+    {option.key===chosen.key&&<Check size={14} aria-hidden="true"/>}
+   </li>)}</ul>}
+ </div>;
 }
 
 export function MatchupList({config}){
@@ -86,19 +137,25 @@ export function MatchupList({config}){
  const grades=useMemo(()=>propGrades(rows,league),[rows,league,learned]);
  const games=useMemo(()=>{
   const seen=new Map();
-  for(const row of rows)if(!seen.has(gameOf(row)))seen.set(gameOf(row),row);
-  return [...seen.entries()].sort((a,b)=>String(a[1].startsAt).localeCompare(String(b[1].startsAt)));
+  for(const row of rows){
+   const key=gameOf(row),game=seen.get(key);
+   if(!game)seen.set(key,{key,away:row.awayTeamAbbr||'?',home:row.homeTeamAbbr||'?',awayLogo:row.awayTeamLogo||null,homeLogo:row.homeTeamLogo||null,startsAt:row.startsAt,count:1});
+   else{game.count+=1;if(String(row.startsAt)<String(game.startsAt))game.startsAt=row.startsAt;}
+  }
+  return [...seen.values()].sort((a,b)=>String(a.startsAt).localeCompare(String(b.startsAt)));
  },[rows]);
+ // A picked game that has since left the board (it started) shows them all again.
+ const picked=games.some(item=>item.key===game)?game:'all';
  const needle=query.trim().toLowerCase();
  const shown=useMemo(()=>rows
-  .filter(row=>(stat==='all'||row.marketKey===stat)&&(game==='all'||gameOf(row)===game)&&(!needle||row.player.toLowerCase().includes(needle)))
+  .filter(row=>(stat==='all'||row.marketKey===stat)&&(picked==='all'||gameOf(row)===picked)&&(!needle||row.player.toLowerCase().includes(needle)))
   .map(row=>({row,read:scores.get(row.id)||null,hit:hitOf(row),prop:grades.get(row.id)||null}))
   .sort((a,b)=>sort==='hit'?(b.hit?.rate??-1)-(a.hit?.rate??-1)||(b.read?.score??-1)-(a.read?.score??-1)
    :sort==='prop'?(b.prop?.rank??-1)-(a.prop?.rank??-1)||(b.prop?.edge??-1)-(a.prop?.edge??-1)
    :(b.read?.score??-1)-(a.read?.score??-1)||(b.hit?.rate??-1)-(a.hit?.rate??-1))
   // All stats: each player once, at his best line by the sort; a stat chip lists that stat's line.
   .filter((item,index,list)=>stat!=='all'||list.findIndex(other=>other.row.player===item.row.player&&other.row.teamAbbr===item.row.teamAbbr)===index),
-  [rows,scores,grades,stat,game,needle,sort]);
+  [rows,scores,grades,stat,picked,needle,sort]);
  const counts=useMemo(()=>rows.reduce((out,row)=>({...out,[row.marketKey]:(out[row.marketKey]||0)+1}),{}),[rows]);
  // A player's page: its own history entry, so the phone's back gesture
  // closes it the same as the page's back button.
@@ -132,11 +189,7 @@ export function MatchupList({config}){
    <label className="nm-search"><Search size={16} aria-hidden="true"/>
     <input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Find a player" enterKeyHint="search" aria-label="Find a player"/>
     {query&&<button type="button" onClick={()=>setQuery('')} aria-label="Clear search"><X size={14}/></button>}</label>
-   <label className="nm-game"><span className="nm-label">Game</span>
-    <select value={game} onChange={event=>setGame(event.target.value)}>
-     <option value="all">All games</option>
-     {games.map(([key,row])=><option key={key} value={key}>{`${row.awayTeamAbbr||'?'} @ ${row.homeTeamAbbr||'?'} · ${when(row.startsAt)}`}</option>)}
-    </select><ChevronDown size={14} aria-hidden="true"/></label>
+   <GamePicker games={games} value={picked} onChange={setGame}/>
    <div className="nm-sort" role="group" aria-label="Sort by">
     {SORTS.map(([key,text])=><button type="button" key={key} aria-pressed={sort===key} onClick={()=>setSort(key)}>{text}</button>)}
    </div>
@@ -152,8 +205,7 @@ export function MatchupList({config}){
    <span>{words.noneText}</span></div>}
   {(status==='ready'||status==='refreshing')&&rows.length>0&&!league&&<p className="nm-note">Matchup scores are still loading the league’s numbers. Hit rates are below.</p>}
 
-  {shown.length>0&&<div className="nm-cols" aria-hidden="true"><span>Player</span><span>Line</span><span>Last 10</span><span>Matchup</span><span>Prop grade</span></div>}
-  {shown.length>0&&<ul className="nm-list">{shown.map(({row,read,hit,prop})=><Row key={row.id} row={row} read={read} hit={hit} prop={prop} short={SHORT}
+  {shown.length>0&&<ul className="nm-list">{shown.map(({row,read,hit,prop})=><PropCard key={row.id} row={row} read={read} hit={hit} prop={prop} short={SHORT}
    open={openId===row.id} onToggle={()=>setOpenId(id=>id===row.id?null:row.id)} onOpen={openPage}/>)}</ul>}
   {(status==='ready'||status==='refreshing')&&rows.length>0&&!shown.length&&<div className="nm-empty"><b>Nothing matches</b>
    <span>Try another stat or game, or clear the search.</span></div>}

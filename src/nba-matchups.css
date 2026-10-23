@@ -37,10 +37,23 @@
 .nm-search input::placeholder{color:var(--m-faint)}
 .nm-search input::-webkit-search-cancel-button{display:none}
 .nm-search button{display:grid;place-items:center;flex:none;width:28px;height:28px;border:0;border-radius:8px;background:#232323;color:var(--m-muted);cursor:pointer}
-.nm-game{grid-area:game;position:relative;display:flex;align-items:center;gap:8px;padding:0 12px}
+.nm-game{grid-area:game;position:relative}
+.nm-game-button{display:flex;align-items:center;gap:8px;width:100%;height:100%;padding:0 12px;border:0;border-radius:inherit;background:transparent;color:var(--m-text);font:inherit;text-align:left;cursor:pointer}
 .nm-label{flex:none;color:var(--m-faint);font-size:12px;font-weight:700}
-.nm-game select{flex:1;min-width:0;height:100%;padding:0 20px 0 0;border:0;background:transparent;color:var(--m-text);font:600 14px var(--font-sans);appearance:none;cursor:pointer}
-.nm-game svg{position:absolute;right:12px;color:var(--m-faint);pointer-events:none}
+.nm-game-now{flex:1;min-width:0;overflow:hidden;font:600 14px var(--font-sans);white-space:nowrap;text-overflow:ellipsis}
+.nm-game-button svg{flex:none;color:var(--m-faint);transition:transform .15s}
+.nm-game[data-open] .nm-game-button svg{transform:rotate(180deg)}
+.nm-game-menu{position:absolute;z-index:30;top:calc(100% + 6px);right:-1px;min-width:calc(100% + 2px);width:max-content;max-width:calc(100vw - 32px);max-height:min(420px,60vh);
+ margin:0;padding:6px;overflow-y:auto;border:1px solid #2e2e2e;border-radius:14px;background:#151515;box-shadow:0 18px 40px rgba(0,0,0,.55);list-style:none}
+.nm-game-menu li{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 10px;border-radius:9px;color:var(--m-text);cursor:pointer;outline:none}
+.nm-game-menu li:hover,.nm-game-menu li:focus-visible{background:#222}
+.nm-game-menu li[aria-selected=true]{background:#262626}
+.nm-game-teams{display:flex;align-items:center;gap:6px;flex:1;min-width:0;font-size:13.5px}
+.nm-game-teams img{width:20px;height:20px;object-fit:contain}
+.nm-game-teams b{font-weight:700}
+.nm-game-teams i{color:var(--m-faint);font-style:normal}
+.nm-game-when{flex:none;color:var(--m-faint);font-size:12px;white-space:nowrap}
+.nm-game-menu li svg{flex:none;color:var(--m-text)}
 .nm-sort{grid-area:sort;display:flex;gap:3px;padding:3px}
 .nm-sort button{flex:1;min-width:84px;height:100%;padding:0 12px;border:0;border-radius:9px;background:transparent;color:var(--m-muted);font:700 13px var(--font-sans);white-space:nowrap;cursor:pointer}
 .nm-sort button[aria-pressed=true]{background:#262626;color:var(--m-text)}
@@ -53,58 +66,57 @@
  box-shadow:inset 0 -3px 0 transparent;cursor:pointer}
 .nm-stats button[aria-pressed=true]{color:var(--m-text);box-shadow:inset 0 -3px 0 var(--m-accent)}
 
-/* The list: column names, then a row per prop with a line under it. */
-.nm-cols,.nm-main{display:grid;grid-template-columns:44px minmax(0,1fr) 96px 140px 150px 150px;align-items:center;gap:16px}
-.nm-cols{padding:12px 84px 10px 0;border-bottom:1px solid var(--m-line);color:var(--m-faint);font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
-.nm-cols span:first-child{grid-column:1/3}
-.nm-list{margin:0;padding:0;list-style:none}
-.nm-row{position:relative;border-bottom:1px solid var(--m-line)}
-.nm-main{width:100%;padding:14px 84px 14px 0;border:0;background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}
-.nm-main:hover{background:linear-gradient(90deg,transparent,#141414 12%,#141414 88%,transparent)}
-.nm-main .sa-face{width:44px;height:44px}
-.nm-who{display:flex;flex-direction:column;gap:2px;min-width:0}
-.nm-who b{overflow:hidden;font-size:15px;white-space:nowrap;text-overflow:ellipsis}
+/* The list: a card per prop, as many across as fit (one on a phone). */
+.nm-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));align-items:start;gap:12px;margin:16px 0 0;padding:0;list-style:none}
+.nm-card{display:flex;flex-direction:column;min-width:0;border:1px solid var(--m-line);border-radius:16px;background:var(--m-card);overflow:hidden}
+.nm-main{display:flex;flex-direction:column;gap:12px;width:100%;padding:14px 14px 10px;border:0;background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}
+.nm-main:hover{background:#181818}
+.nm-top{display:flex;align-items:center;gap:12px;min-width:0}
+.nm-main .sa-face{--size:52px}
+.nm-who{display:flex;flex-direction:column;gap:3px;min-width:0}
+.nm-who b{overflow:hidden;font-size:16px;white-space:nowrap;text-overflow:ellipsis}
 .nm-who small{overflow:hidden;color:var(--m-faint);font-size:12px;white-space:nowrap;text-overflow:ellipsis}
-.nm-line{display:flex;flex-direction:column;align-items:flex-start;padding:7px 10px;border-radius:10px;background:var(--m-raised)}
-.nm-line small{color:var(--m-faint);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
-.nm-line .nm-demon{margin-left:5px;color:#ff6b81;font-style:normal}
-.nm-line b{font:800 17px/1.1 'Sora',var(--font-sans)}
-.nm-line em{color:var(--m-muted);font-size:11.5px;font-style:normal;font-weight:700}
-.nm-stat{display:flex;flex-direction:column;gap:5px;min-width:0}
-.nm-stat-top{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
-.nm-stat-top small{color:var(--m-faint);font-size:11px;font-weight:700;white-space:nowrap}
-.nm-stat-top b{font:800 17px/1 'Sora',var(--font-sans)}
-.nm-sub{overflow:hidden;color:var(--m-faint);font-size:11.5px;white-space:nowrap;text-overflow:ellipsis}
-.nm-score[data-tone=strong] .nm-stat-top b,.nm-score[data-tone=strong] .nm-sub{color:var(--m-strong)}
-.nm-score[data-tone=edge] .nm-stat-top b,.nm-score[data-tone=edge] .nm-sub{color:var(--m-edge)}
-.nm-score[data-tone=tough] .nm-stat-top b,.nm-score[data-tone=tough] .nm-sub{color:var(--m-tough)}
-.nm-prop[data-tone=strong] .nm-stat-top b,.nm-prop[data-tone=strong] .nm-sub{color:var(--m-strong)}
-.nm-prop[data-tone=edge] .nm-stat-top b,.nm-prop[data-tone=edge] .nm-sub{color:var(--m-edge)}
-.nm-prop[data-tone=tough] .nm-stat-top b,.nm-prop[data-tone=tough] .nm-sub{color:var(--m-tough)}
-.nm-bar{display:block;height:6px;border-radius:999px;background:#242424;overflow:hidden}
+/* The line: More 3.5 AST, a Demon marked on the right. */
+.nm-line{display:flex;align-items:baseline;gap:7px;padding:9px 12px;border-radius:11px;background:var(--m-raised)}
+.nm-line small{color:var(--m-faint);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em}
+.nm-line b{font:800 18px/1 'Sora',var(--font-sans)}
+.nm-line em{color:var(--m-muted);font-size:12.5px;font-style:normal;font-weight:800}
+.nm-line .nm-demon{margin-left:auto;padding:3px 8px;border-radius:999px;background:rgba(255,107,129,.14);color:#ff8a9b;font:800 10.5px var(--font-sans);font-style:normal;letter-spacing:.05em;text-transform:uppercase}
+/* Matchup, Last 10 and Prop: three tiles across. */
+.nm-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.nm-tile{display:flex;flex-direction:column;gap:6px;min-width:0;padding:10px 10px 9px;border:1px solid #202020;border-radius:12px;background:#101010}
+.nm-tile small{color:var(--m-faint);font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.nm-tile b{font:800 22px/1 'Sora',var(--font-sans);white-space:nowrap}
+.nm-tile em{overflow:hidden;color:var(--m-faint);font-size:11.5px;font-style:normal;font-weight:600;white-space:nowrap;text-overflow:ellipsis}
+.nm-tile[data-tone=strong] b,.nm-tile[data-tone=strong] em{color:var(--m-strong)}
+.nm-tile[data-tone=edge] b,.nm-tile[data-tone=edge] em{color:var(--m-edge)}
+.nm-tile[data-tone=tough] b,.nm-tile[data-tone=tough] em{color:var(--m-tough)}
+.nm-tile[data-tone=neutral] em{color:var(--m-neutral)}
+.nm-bar{display:block;height:4px;border-radius:999px;background:#242424;overflow:hidden}
 .nm-bar i{display:block;height:100%;border-radius:inherit;background:#6f6f6f}
 .nm-bar[data-tone=strong] i{background:var(--m-strong)}
 .nm-bar[data-tone=edge] i{background:var(--m-edge)}
 .nm-bar[data-tone=neutral] i{background:var(--m-neutral)}
 .nm-bar[data-tone=tough] i{background:var(--m-tough)}
-.nm-why{position:absolute;top:50%;right:0;display:inline-flex;align-items:center;gap:4px;min-height:36px;padding:0 10px;border:0;border-radius:10px;transform:translateY(-50%);
- background:transparent;color:var(--m-muted);font:800 12.5px var(--font-sans);cursor:pointer}
+.nm-foot{display:flex;justify-content:flex-end;padding:0 8px 8px}
+.nm-why{display:inline-flex;align-items:center;gap:4px;min-height:36px;padding:0 10px;border:0;border-radius:10px;background:transparent;color:var(--m-muted);font:800 12.5px var(--font-sans);cursor:pointer}
 .nm-why:hover,.nm-why[aria-expanded=true]{background:var(--m-raised);color:var(--m-text)}
-.nm-row[data-open] .nm-why{top:36px}
 .nm-why svg{transition:transform .2s}
 .nm-why[aria-expanded=true] svg{transform:rotate(180deg)}
-/* What made the score, under the row. */
-.nm-reads{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 20px;margin:0 0 14px 60px;padding:6px 14px;border-radius:12px;background:#111111;list-style:none}
+/* What made the scores, inside the card. */
+.nm-reads{display:flex;flex-direction:column;margin:0 10px 12px;padding:4px 12px;border-radius:12px;background:#0f0f0f;list-style:none}
 .nm-reads li{display:flex;flex-direction:column;gap:6px;padding:10px 0;border-bottom:1px solid #1f1f1f}
-/* The line above the parts: how the points add up. */
-.nm-reads li.nm-read-note{grid-column:1/-1;padding:6px 0 8px;color:#a6a6a6;font-size:12px;font-weight:600;line-height:1.4}
+.nm-reads li:last-child{border-bottom:0}
+/* The lines above the parts: the Prop grade, then how the matchup's points add up. */
+.nm-reads li.nm-read-note{padding:8px 0;color:#a6a6a6;font-size:12px;font-weight:600;line-height:1.45}
 .nm-read-head{display:flex;justify-content:space-between;gap:8px}
 .nm-read-head b{font-size:12.5px}
 .nm-read-head em{color:var(--m-faint);font-size:11px;font-style:normal;white-space:nowrap}
 .nm-read-text{color:var(--m-muted);font-size:12.5px;line-height:1.45}
-.nm-main:focus-visible,.nm-why:focus-visible,.nm-stats button:focus-visible,.nm-sort button:focus-visible,.nm-refresh:focus-visible{outline:2px solid var(--theme-accent,#cccccc);outline-offset:-2px}
+.nm-main:focus-visible,.nm-why:focus-visible,.nm-stats button:focus-visible,.nm-sort button:focus-visible,.nm-refresh:focus-visible,.nm-game-button:focus-visible{outline:2px solid var(--theme-accent,#cccccc);outline-offset:-2px}
+.nm-game-menu li:focus-visible{outline:2px solid var(--theme-accent,#cccccc);outline-offset:-2px}
 
-.nm-empty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:48px 20px;border-bottom:1px solid var(--m-line);color:var(--m-muted);text-align:center}
+.nm-empty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:48px 20px;color:var(--m-muted);text-align:center}
 .nm-empty b{color:var(--m-text);font-size:15px}
 .nm-empty span{max-width:360px;font-size:13px;line-height:1.5}
 .nm-empty button{min-height:44px;padding:0 18px;border:1px solid var(--m-line);border-radius:12px;background:var(--m-field);color:var(--m-text);font-weight:700;cursor:pointer}
@@ -116,19 +128,17 @@
  .nm-head h2{font-size:21px}
  .nm-tools{grid-template-columns:minmax(0,1fr) minmax(0,150px);grid-template-areas:'search game' 'sort sort'}
  .nm-sort button{min-width:0;padding:0 8px}
- .nm-cols{display:none}
- .nm-main{grid-template-columns:repeat(8,minmax(0,1fr));grid-template-areas:'face who who who who who who who' 'line line hit hit score score prop prop';gap:12px 8px;padding:14px 0}
- .nm-main:hover{background:none}
- .nm-main .sa-face{grid-area:face;width:42px;height:42px}
- .nm-who{grid-area:who;padding:0 64px 0 6px}
- .nm-line{grid-area:line;justify-content:center;padding:6px 9px}
- .nm-hit{grid-area:hit}
- .nm-score{grid-area:score}
- .nm-prop{grid-area:prop}
- .nm-why,.nm-row[data-open] .nm-why{top:14px;transform:none}
- .nm-reads{margin:0 0 14px;grid-template-columns:minmax(0,1fr)}
+ /* "All games" or "MIA @ MIN" says what it is: the label makes room. */
+ .nm-game-button .nm-label{display:none}
+ .nm-list{grid-template-columns:minmax(0,1fr);gap:10px}
+ .nm-main{padding:12px 12px 8px}
+ .nm-main .sa-face{--size:48px}
+ .nm-tile{padding:9px 8px 8px}
+ .nm-tile b{font-size:20px}
+ .nm-reads{margin:0 8px 10px}
 }
 @media (max-width:380px){
- .nm-main{gap:12px 6px}
- .nm-stat-top b{font-size:15px}
+ .nm-tiles{gap:6px}
+ .nm-tile b{font-size:18px}
+ .nm-tile small{font-size:10px;letter-spacing:.04em}
 }
