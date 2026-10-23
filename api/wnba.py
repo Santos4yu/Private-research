@@ -518,9 +518,102 @@ def _nba_seasons(now=None):
     return [latest - 1, latest]
 
 
-def _history(player_id, league="wnba", season=None):
+# Made dunks a game (periods.dunk_counts), counted when a player's game log
+# is opened for research before the catch-up (league.backfill_periods) has
+# reached those games: game id -> {player id: dunks} for every player whose
+# team was counted (0s included), shared by everyone in the game.
+DUNKS_KEY = "krazy_data:nba:v1:dunks"
+# His most recent games without dunks, at most, counted on one open.
+DUNK_FILL = 15
+
+
+def _saved_dunks(game_ids):
+    """{game id: {player id: dunks}} from the shared hash for the ids given."""
+    from finder_history_store import commands
+    ids = list(dict.fromkeys(str(game_id) for game_id in game_ids if game_id))
+    if not ids:
+        return {}
+    try:
+        raw = commands(["HMGET", DUNKS_KEY, *ids])[0] or []
+    except Exception:  # noqa: BLE001 -- the game logs stand without them
+        return {}
+    out = {}
+    for game_id, value in zip(ids, raw):
+        try:
+            found = json.loads(value) if value else None
+        except (TypeError, ValueError):
+            found = None
+        if isinstance(found, dict):
+            out[game_id] = found
+    return out
+
+
+def _count_dunks(game_ids, deadline_seconds=8.0):
+    """Count the dunks in these games from ESPN's summaries (a few at once)
+    and save them to the shared hash: {game id: {player id: dunks}}."""
+    from backend.sports.wnba import league as season_store
+    from concurrent.futures import TimeoutError as FuturesTimeout
+    from finder_history_store import commands
+    started, found = time.monotonic(), {}
+    pool = ThreadPoolExecutor(max_workers=8)
+    try:
+        futures = [(game_id, pool.submit(season_store.espn, "/summary", {"event": game_id}, 10, "nba")) for game_id in game_ids]
+        for game_id, future in futures:
+            remaining = deadline_seconds - (time.monotonic() - started)
+            if remaining <= 0:
+                break
+            try:
+                summary = future.result(timeout=remaining)
+            except FuturesTimeout:
+                break
+            except Exception:  # noqa: BLE001 -- that game waits for the catch-up
+                continue
+            record = season_store.extract_game(summary, {"id": game_id, "date": "", "type": 2, "home": "", "away": ""}, {})
+            sides = list((record.get("t") or {}).values())
+            if not any("dk" in side for side in sides):
+                continue  # no plays posted yet: tried again next time
+            # A team whose dunks couldn't be told apart is left out ({} when
+            # neither was), so the game isn't fetched again.
+            counted = {}
+            for side in sides:
+                if isinstance(side.get("dk"), dict):
+                    counted.update({str(row[0]): side["dk"].get(row[0], 0) for row in side.get("p") or []})
+            found[str(game_id)] = counted
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+    if found:
+        try:
+            commands(["HSET", DUNKS_KEY, *[part for game_id, counted in found.items() for part in (game_id, json.dumps(counted, separators=(",", ":")))]])
+        except Exception:  # noqa: BLE001 -- counted again next time
+            pass
+    return found
+
+
+def _with_saved_dunks(rows, player_id, fill=False):
+    """`rows` with his dunks from the shared hash where the stored season
+    hasn't got them; `fill` (his research page) counts his most recent such
+    games first."""
+    from backend.sports.wnba.periods import DUNKS
+    missing = [row for row in rows if row.get("gameId") and DUNKS not in (row.get("values") or {})]
+    if not missing:
+        return rows
+    saved = _saved_dunks(row["gameId"] for row in missing)
+    if fill:
+        recent = sorted((row for row in missing if row.get("seasonKind") != "preseason"), key=lambda row: row.get("date") or "")[-DUNK_FILL:]
+        todo = [str(row["gameId"]) for row in recent if str(row["gameId"]) not in saved]
+        if todo:
+            saved.update(_count_dunks(todo))
+    pid, out = str(player_id), []
+    for row in rows:
+        counted = saved.get(str(row.get("gameId"))) or {}
+        out.append({**row, "values": {**(row.get("values") or {}), DUNKS: counted[pid]}} if pid in counted and DUNKS not in (row.get("values") or {}) else row)
+    return out
+
+
+def _history(player_id, league="wnba", season=None, fill_dunks=False):
     """A player's game logs, oldest first: the WNBA season asked for, or the
-    NBA's last two seasons together."""
+    NBA's last two seasons together (with his dunks; `fill_dunks` counts the
+    games still without them, for his research page)."""
     if league != "nba":
         season = season or datetime.now(timezone.utc).year
         return _with_periods(_game_logs(player_id, season).get("rows", []), player_id, "wnba", [season])
@@ -535,25 +628,26 @@ def _history(player_id, league="wnba", season=None):
                 seen.add(log.get("gameId"))
                 rows.append(log)
     rows.sort(key=lambda row: row.get("date") or "")
-    return _with_periods(rows, player_id, "nba", _nba_seasons())
+    return _with_saved_dunks(_with_periods(rows, player_id, "nba", _nba_seasons()), player_id, fill=fill_dunks)
 
 
 # The most game logs one request may ask for (resource=gamelogs).
 MAX_GAMELOG_BATCH = 8
 
 
-def _nba_gamelog(player_id):
-    """An NBA player's last two seasons of games, as the Finder reads them."""
+def _nba_gamelog(player_id, fill_dunks=False):
+    """An NBA player's last two seasons of games, as the Finder reads them
+    (`fill_dunks`: one player's research page, see _with_saved_dunks)."""
     seasons = _nba_seasons()
     return {"status": "AVAILABLE", "source": "espn", "playerId": player_id, "season": seasons[-1],
-            "seasons": seasons, "rows": _saved_history(player_id, "nba")["rows"],
+            "seasons": seasons, "rows": _saved_history(player_id, "nba", fill_dunks=fill_dunks)["rows"],
             "fetchedAt": datetime.now(timezone.utc).isoformat()}
 
 
-def _saved_history(player_id, league, season=None):
+def _saved_history(player_id, league, season=None, fill_dunks=False):
     from finder_history_store import remember
     season = season or datetime.now(timezone.utc).year
-    payload = {"rows": _history(player_id, league, season)} if league == 'nba' else _game_logs(player_id, season)
+    payload = {"rows": _history(player_id, league, season, fill_dunks=fill_dunks)} if league == 'nba' else _game_logs(player_id, season)
     return remember(league, f"{league}:{player_id}:{'recent' if league == 'nba' else season}",
                     payload, {"playerId": player_id, "season": season})
 
@@ -997,7 +1091,7 @@ class handler(BaseHTTPRequestHandler):
                 if league == "nba":
                     if not player_id.isdigit():
                         return _send(self, 400, {"error": "A verified NBA player is required."})
-                    return _send(self, 200, _nba_gamelog(player_id))
+                    return _send(self, 200, _nba_gamelog(player_id, fill_dunks=True))
                 try: season = int(query.get("season", [str(datetime.now(timezone.utc).year)])[0])
                 except ValueError: return _send(self, 400, {"error": "A valid WNBA season is required."})
                 if not player_id.isdigit() or not 2000 <= season <= 2100: return _send(self, 400, {"error": "A verified WNBA player and season are required."})

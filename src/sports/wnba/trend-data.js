@@ -2,7 +2,7 @@ export const WNBA_STATS=[
  ['player_points','Points','PTS'],['player_rebounds','Rebounds','REB'],['player_assists','Assists','AST'],
  ['player_threes','3-Pointers Made','3PM'],['player_threes_attempts','3-PT Attempted','3PA'],['player_field_goals','FG Made','FGM'],
  ['player_frees_made','Free Throws Made','FTM'],['player_blocks','Blocks','BLK'],['player_steals','Steals','STL'],
- ['player_blocks_steals','Blocks + Steals','B+S'],['player_turnovers','Turnovers','TO'],
+ ['player_blocks_steals','Blocks + Steals','B+S'],['player_dunks','Dunks','DNK'],['player_turnovers','Turnovers','TO'],
  ['player_points_rebounds','Points + Rebounds','PR'],['player_points_assists','Points + Assists','PA'],
  ['player_rebounds_assists','Rebounds + Assists','RA'],['player_points_rebounds_assists','Points + Rebounds + Assists','PRA'],
  ['player_fantasy_points','Fantasy Points','FS'],['player_field_goals_attempts','FG Attempted','FGA'],
@@ -24,7 +24,7 @@ const FOCUS={player_points:['pts'],player_rebounds:['reb'],player_assists:['ast'
  player_field_goals:['fg'],player_field_goals_attempts:['fg'],player_frees_made:['ft'],player_frees_attempts:['ft'],player_blocks:['blk'],
  player_steals:['stl'],player_blocks_steals:['blk','stl'],player_turnovers:['to'],player_points_rebounds:['pts','reb'],
  player_points_assists:['pts','ast'],player_rebounds_assists:['reb','ast'],player_points_rebounds_assists:['pts','reb','ast'],
- player_fouls:['pf'],player_offensive_rebounds:['reb'],player_defensive_rebounds:['reb'],player_twos:['fg'],player_twos_attempts:['fg'],
+ player_fouls:['pf'],player_dunks:['fg'],player_offensive_rebounds:['reb'],player_defensive_rebounds:['reb'],player_twos:['fg'],player_twos_attempts:['fg'],
  player_fantasy_points:['pts','reb','ast','stl','blk','to'],player_double_double:['pts','reb','ast'],player_triple_double:['pts','reb','ast']};
 // One game's card on the chart (app.js gameCard): his box line, the
 // result, and from the stored season (api/wnba.py game-notes) his usage

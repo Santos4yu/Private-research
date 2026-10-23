@@ -161,6 +161,16 @@ not book odds.
   `player_dunks` to his game logs (absent, not 0, for a game not counted).
   The market is `player_dunks` ("Dunks"); context/matchup tables don't cover
   it (`periods.PLAY_MARKETS`), so no matchup score or player-context for it.
+  The owner still couldn't research dunks after that (the catch-up hadn't
+  reached the games yet), so opening a player's research page
+  (`resource=gamelog`, `_with_saved_dunks(fill=True)`) now counts his 15
+  most recent games still without dunks on the spot (ESPN summaries, 8 at
+  once, 8s cap) and saves each game for everyone in it to the KV hash
+  `krazy_data:nba:v1:dunks` (game id -> {pid: n}, 0s included; {} when
+  neither team could be counted, so it isn't fetched again; a game without
+  plays yet isn't saved). The Finder's batch (`gamelogs`) only reads that
+  hash, it never fetches. Dunks has its own tab ("DNK", after B+S) in
+  `trend-data.js WNBA_STATS`.
 - Props lists are cards (Oct 23, owner picked "Cards" over a cleaner table
   or grouping by game; `MatchupList.jsx` PropCard): photo, name, game, the
   line as a pill with the Demon tag, three tiles Matchup / Last 10 (hits

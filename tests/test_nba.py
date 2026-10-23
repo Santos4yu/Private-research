@@ -292,3 +292,69 @@ class GamelogBatchTests(unittest.TestCase):
         self.assertEqual(self.ask(f"/api/wnba?league=nba&resource=gamelogs&playerIds={many}")[0], 400)
         self.assertEqual(self.ask("/api/wnba?league=nba&resource=gamelogs&playerIds=1,abc")[0], 400)
         self.assertEqual(self.ask("/api/wnba?resource=gamelogs&playerIds=")[0], 400)
+
+
+class ResearchDunksTests(unittest.TestCase):
+    """A researched player's games the catch-up hasn't reached get their dunks
+    counted there and then, and saved for everyone in those games."""
+
+    def summary(self, curry_dunks, plays=True):
+        names = ["minutes", "points", "fieldGoalsMade-fieldGoalsAttempted", "threePointFieldGoalsMade-threePointFieldGoalsAttempted"]
+        athlete = lambda pid, name: {"athlete": {"id": pid, "displayName": name}, "stats": ["30", "20", "8-15", "1-4"]}
+        box = {"players": [{"team": {"id": "9", "abbreviation": "GS"}, "statistics": [{"keys": names, "athletes": [athlete("3975", "Stephen Curry"), athlete("77", "Draymond Green")]}]},
+                           {"team": {"id": "13", "abbreviation": "LAL"}, "statistics": [{"keys": names, "athletes": [athlete("55", "LeBron James")]}]}]}
+        dunk = {"type": {"text": "Driving Dunk Shot"}, "scoringPlay": True, "participants": [{"athlete": {"id": "3975"}}]}
+        return {"boxscore": box, "plays": [dunk] * curry_dunks if plays else []}
+
+    def history(self, ask, saved, counted=None, fill=True, plays=True):
+        rows = [{"gameId": game_id, "date": f"2026-0{index + 1}-01", "seasonKind": "regular", "values": {"player_points": 20}}
+                for index, game_id in enumerate(("401", "402", "403"))]
+        rows[0]["values"]["player_dunks"] = 4  # the catch-up got there already
+        kv = []
+
+        def commands(*rows_):
+            kv.append(rows_[0])
+            if rows_[0][0] == "HMGET":
+                return [[saved.get(game_id) for game_id in rows_[0][2:]]]
+            return [1]
+        fetched = []
+
+        def espn(path, params, timeout, league_name):
+            fetched.append(params["event"])
+            return self.summary(counted.get(params["event"], 0), plays)
+        with patch("finder_history_store.commands", side_effect=commands), patch.object(league, "espn", side_effect=espn):
+            out = api._with_saved_dunks(rows, "3975", fill=fill)
+        return out, kv, fetched
+
+    def test_research_counts_his_missing_games_and_saves_them_for_the_whole_game(self):
+        out, kv, fetched = self.history("3975", {"402": '{"3975":2,"77":0}'}, counted={"403": 3})
+        self.assertEqual([row["values"].get("player_dunks") for row in out], [4, 2, 3])
+        # Only the game nobody had counted is fetched; the saved one is read.
+        self.assertEqual(fetched, ["403"])
+        saved = [row for row in kv if row[0] == "HSET"][0]
+        self.assertEqual(saved[:3], ["HSET", api.DUNKS_KEY, "403"])
+        # Every player of the counted teams, a 0 included, for their own pages.
+        self.assertEqual(api.json.loads(saved[3]), {"3975": 3, "77": 0, "55": 0})
+
+    def test_the_finders_batch_only_reads_what_research_saved(self):
+        out, kv, fetched = self.history("3975", {"403": '{"3975":1}'}, fill=False)
+        self.assertEqual([row["values"].get("player_dunks") for row in out], [4, None, 1])
+        self.assertEqual((fetched, [row[0] for row in kv]), ([], ["HMGET"]))
+
+    def test_a_game_without_plays_yet_is_left_to_try_again(self):
+        out, kv, fetched = self.history("3975", {}, counted={}, plays=False)
+        self.assertEqual([row["values"].get("player_dunks") for row in out], [4, None, None])
+        self.assertEqual(sorted(fetched), ["402", "403"])
+        self.assertFalse([row for row in kv if row[0] == "HSET"])
+
+    def test_only_one_players_page_counts(self):
+        request = object.__new__(api.handler)
+        request.path, request.headers = "/api/wnba?league=nba&resource=gamelog&playerId=3975", {}
+        asked = []
+        with patch.object(api, "_send"), patch.object(api, "session_with_live_access", return_value=True), \
+                patch("site_controls.finder_sport_allowed", return_value=True), \
+                patch.object(api, "_saved_history", side_effect=lambda *args, **kwargs: asked.append(kwargs) or {"rows": []}):
+            request.do_GET()
+            request.path = "/api/wnba?league=nba&resource=gamelogs&playerIds=3975&season=2026"
+            request.do_GET()
+        self.assertEqual(asked, [{"fill_dunks": True}, {"fill_dunks": False}])
