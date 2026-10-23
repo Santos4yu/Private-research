@@ -523,6 +523,33 @@ class handler(BaseHTTPRequestHandler):
         cs2_pool = ThreadPoolExecutor(max_workers=1)
         cs2_job = cs2_pool.submit(lambda: cs2_warm(budget=45, limit=24) if cs2_due() else {"waiting": True})
         cs2_pool.shutdown(wait=False)
+        # The NBA's season of box scores (backend/sports/wnba/league.py) fills
+        # in a few hundred games a tick until it is complete; after that the
+        # pages' own reads add each new final, and the catch-up gives games
+        # stored before first-quarter lines and dunks were kept their share
+        # (this season, then last, newest first). Beside the line checks from
+        # the start, like CS2: waiting its turn behind them it rarely got one.
+        def nba_tick():
+            from backend.sports.wnba import league as seasons
+            season = seasons.current_season(league="nba")
+            summary = seasons.progress(season, "nba")
+            if seasons._locked("nba"):
+                return {"waiting": True}
+            seasons._set_lock(str(time.time()), "nba")
+            try:
+                if not summary or summary["partial"]:
+                    built = seasons.build(season, deadline_seconds=12, league="nba")
+                    return {"season": season, "games": len(built["games"]), "partial": built["partial"]}
+                for year in (season, season - 1):
+                    filled = seasons.backfill_periods(year, "nba", deadline_seconds=20)
+                    if filled["done"] or filled["left"]:
+                        return {"season": year, "periods": filled}
+                return {"complete": True}
+            finally:
+                seasons._set_lock("0", "nba")
+        nba_pool = ThreadPoolExecutor(max_workers=1)
+        nba_job = nba_pool.submit(nba_tick)
+        nba_pool.shutdown(wait=False)
         line_moves.safely(line_moves.keep_fresh, set(line_moves.SPORTS), budget=25)
         # Moneylines ride the same timer: prices near the start (closing
         # lines) and settling finished plays (moneyline_model.py).
@@ -538,35 +565,6 @@ class handler(BaseHTTPRequestHandler):
             tennis = tennis_live.tick(budget=10)
         except Exception:
             tennis = {"status":"unavailable"}
-        # The NBA's season of box scores (backend/sports/wnba/league.py) fills
-        # in a few hundred games a tick until it is complete; after that the
-        # pages' own reads add each new final.
-        nba = None
-        try:
-            from backend.sports.wnba import league as seasons
-            season = seasons.current_season(league="nba")
-            summary = seasons.progress(season, "nba")
-            if (not summary or summary["partial"]) and not seasons._locked("nba"):
-                seasons._set_lock(str(time.time()), "nba")
-                try:
-                    built = seasons.build(season, deadline_seconds=12, league="nba")
-                    nba = {"season": season, "games": len(built["games"]), "partial": built["partial"]}
-                finally:
-                    seasons._set_lock("0", "nba")
-            # First-quarter and first-half lines for games stored before they
-            # were kept (periods.py): this season, then last, a batch a tick.
-            elif time.monotonic()-started < 30 and not seasons._locked("nba"):
-                seasons._set_lock(str(time.time()), "nba")
-                try:
-                    for year in (season, season - 1):
-                        filled = seasons.backfill_periods(year, "nba", deadline_seconds=8)
-                        if filled["done"] or filled["left"]:
-                            nba = {"season": year, "periods": filled}
-                            break
-                finally:
-                    seasons._set_lock("0", "nba")
-        except Exception:  # noqa: BLE001 -- never at the cost of the line checks
-            pass
         histories = None
         try:
             from finder_history_store import warm
@@ -587,6 +585,11 @@ class handler(BaseHTTPRequestHandler):
         try:
             cs2 = cs2_job.result(timeout=max(0, 55-(time.monotonic()-started)))
         except Exception:
+            pass
+        nba = None
+        try:
+            nba = nba_job.result(timeout=max(0, 55-(time.monotonic()-started)))
+        except Exception:  # noqa: BLE001 -- never at the cost of the line checks
             pass
         return self._send(200, {"ok": True, "checked": line_moves.checked(), "moneylines": moneylines, "nba": nba, "tennis": tennis, "histories":histories, "cs2":cs2,
                                 "slips": slips})

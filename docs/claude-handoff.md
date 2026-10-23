@@ -155,7 +155,9 @@ not book odds.
   ("Cutting Dunk Shot", "Alley Oop Dunk Shot"...; ~12,000 made in 2025-26,
   Zubac 1.7 a game) into each stored game side as `dk` ({pid: n}, None when
   the plays and box disagree), `backfill_periods` fills older games newest
-  first in the daily cron, and `api/wnba.py _with_periods` adds
+  first on the moves timer (every few minutes; it now runs beside the
+  line checks from the start instead of waiting behind them, which mostly
+  starved it), and `api/wnba.py _with_periods` adds
   `player_dunks` to his game logs (absent, not 0, for a game not counted).
   The market is `player_dunks` ("Dunks"); context/matchup tables don't cover
   it (`periods.PLAY_MARKETS`), so no matchup score or player-context for it.

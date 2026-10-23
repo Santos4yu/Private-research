@@ -217,5 +217,23 @@ class RouteTests(Base):
         self.assertEqual(fresh.call_count, 2)
 
 
+    def test_the_timer_runs_the_nba_catch_up_beside_the_line_checks(self):
+        # Line checks that use up the clock no longer leave the NBA catch-up
+        # (first quarters and dunks for games stored before them) no turn.
+        from backend.sports.wnba import league as seasons
+        path = self.admin('?action=announce-status')[1]['timer']['path']
+        key = path.split('key=')[1]
+        with patch.object(moves, 'keep_fresh'), \
+             patch.object(seasons, 'current_season', return_value=2027), \
+             patch.object(seasons, 'progress', return_value={'partial': False}), \
+             patch.object(seasons, '_locked', return_value=False), \
+             patch.object(seasons, '_set_lock'), \
+             patch.object(seasons, 'backfill_periods', return_value={'done': 40, 'left': 900}) as caught:
+            status, body = self.admin(f'?action=moves-tick&key={key}')
+        self.assertEqual(status, 200)
+        self.assertEqual(body['nba'], {'season': 2027, 'periods': {'done': 40, 'left': 900}})
+        self.assertEqual(caught.call_args.kwargs['deadline_seconds'], 20)
+
+
 if __name__ == '__main__':
     unittest.main()
