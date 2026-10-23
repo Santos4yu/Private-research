@@ -16,6 +16,25 @@ export const WNBA_STATS=[
   ['points_rebounds_assists','Pts+Rebs+Asts','PRA']].map(([key,label,code])=>[`player_${key}_${suffix}`,`${name} ${label}`,`${name} ${code}`])),
 ].map(([key,label,code])=>({key,label,code}));
 
+// Stats his page offers on nights PrizePicks posts no line in them, from his
+// game logs alone: the NBA's dunks (counted from the play-by-play, api/wnba.py
+// _with_saved_dunks), which PrizePicks posts only some nights. The chart
+// starts at the half nearest his average over his last 10 counted games and
+// the chip shows no line; the banner says none is posted.
+const RESEARCH_ONLY={nba:[['player_dunks','Dunks']]};
+export function researchRows(row,playerRows,logs){
+ const out=[];
+ for(const [marketKey,market] of RESEARCH_ONLY[row?.sport]||[]){
+  if((playerRows||[]).some(item=>item.marketKey===marketKey))continue;
+  const values=(logs||[]).filter(log=>log.seasonKind!=='preseason').map(log=>log.values?.[marketKey]).filter(Number.isFinite);
+  if(!values.length)continue;
+  const recent=values.slice(-10),average=recent.reduce((sum,value)=>sum+value,0)/recent.length;
+  out.push({...row,id:`${row.id}|research|${marketKey}`,marketKey,market,line:Math.max(0.5,Math.round(average-0.5)+0.5),
+   direction:'OVER',modifier:'standard',apps:[],windows:null,researchOnly:true});
+ }
+ return out;
+}
+
 // ESPN stamps games in UTC, so a 7pm tip on the 22nd is the 23rd there.
 // The chart shows the day the game was played where the viewer is.
 const playedOn=date=>{const day=new Date(date);return Number.isNaN(day.getTime())?'':day.toLocaleDateString([],{month:'numeric',day:'numeric'});};

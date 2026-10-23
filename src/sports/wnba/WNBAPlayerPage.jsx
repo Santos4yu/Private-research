@@ -1,6 +1,6 @@
 import React,{useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {ArrowLeft,CalendarDays,Database,ListOrdered,RefreshCw,Shield,UserCheck,UserRound,Users,UserX} from 'lucide-react';
-import {WNBA_STATS,wnbaChart,wnbaLines,wnbaOdds} from './trend-data';
+import {WNBA_STATS,researchRows,wnbaChart,wnbaLines,wnbaOdds} from './trend-data';
 import WNBAFinderContext from './WNBAFinderContext';
 import {FinderPlayerBanner} from '../../FinderPlayerBanner';
 import {basketballLogUrl} from '../../unified-finder-data';
@@ -18,6 +18,7 @@ import {useTrendPanel} from '../../trend-panel.js';
 
 // The known stats in their usual order, then any other market PrizePicks
 // posts for this player (shown by its own name; no history to chart yet).
+// `playerRows` here includes his research-only rows (researchRows).
 function statTabs(playerRows,available){
  const known=WNBA_STATS.filter(stat=>available.has(stat.key));
  const extra=[...available].filter(key=>key&&!WNBA_STATS.some(stat=>stat.key===key)).map(key=>{
@@ -26,19 +27,20 @@ function statTabs(playerRows,available){
  });
  return [...known,...extra];
 }
-function TrendChart({row,playerRows,logs,loading,onStat,chips,chipsNote,onChipRemove,onChipsClear}){
+function TrendChart({row,playerRows,extraRows,logs,loading,onStat,chips,chipsNote,onChipRemove,onChipsClear}){
  const host=useRef(null);
  // Each game's usage rate and who sat out, for the chart's game cards.
  const notes=useWnba('game-notes',{playerId:row.playerId,league:leagueOf(row)},Boolean(row.playerId));
  const games=notes.data?.games;
- const opponent=opponentOf(row),available=new Set(playerRows.map(item=>item.marketKey));
+ const opponent=opponentOf(row),statRows=[...playerRows,...extraRows],available=new Set(statRows.map(item=>item.marketKey));
+ const lines=wnbaLines(playerRows,row.marketKey);
  const config=useMemo(()=>({sport:row.sport==='nba'?'NBA':'WNBA',player:row.player,teamAbbr:row.teamAbbr||'',teamLogo:row.teamLogo||'',opponent:opponent||'',
   opponentLogo:row.team===row.homeTeam?row.awayTeamLogo:row.homeTeamLogo,matchupLabel:`${row.awayTeam} @ ${row.homeTeam}`,
   kickoffLabel:new Date(row.startsAt).toLocaleString([],{weekday:'short',hour:'numeric',minute:'2-digit'}),status:'Pre-game',headshot:row.headshot||null,
-  stats:withLines(statTabs(playerRows,available),playerRows),startsAt:row.startsAt,statKey:row.marketKey,stat:row.market,side:row.direction==='UNDER'?'Under':'Over',line:row.line,
-  chart:wnbaChart(logs,row.marketKey,opponent,games),lines:wnbaLines(playerRows,row.marketKey),linesStatus:'ready',odds:wnbaOdds(playerRows,row.marketKey),loading,onStat,
+  stats:withLines(statTabs(statRows,available),playerRows),startsAt:row.startsAt,statKey:row.marketKey,stat:row.market,side:row.direction==='UNDER'?'Under':'Over',line:row.line,
+  chart:wnbaChart(logs,row.marketKey,opponent,games),lines,linesStatus:lines.length?'ready':'empty',odds:wnbaOdds(playerRows,row.marketKey),loading,onStat,
   filters:['seasonKind'],seasonKind:'games',chips,chipsNote,onChipRemove,onChipsClear}),
-  [row,playerRows,logs,loading,onStat,opponent,chips,chipsNote,onChipRemove,onChipsClear,games]);
+  [row,playerRows,extraRows,logs,loading,onStat,opponent,chips,chipsNote,onChipRemove,onChipsClear,games]);
  const available_=useTrendPanel(host,config);
  return <>{!available_&&<div className="wnba-board-message" role="status"><Database size={22} aria-hidden="true"/><strong>Trends could not open</strong><span>Refresh the page to reload player research.</span></div>}<div className="wnba-trend-host finder-mlb-trend-host" ref={host}/></>;
 }
@@ -149,7 +151,9 @@ export function WNBAPlayerPage({row,playerRows,onBack}){
    .catch(error=>{if(error.name!=='AbortError')setTrend({state:'error',rows:[],error:error.message});});
   return()=>controller.abort();},[row.playerId,row.sport,retry]);
  const matchup=useWnba('matchup',{home:selected.homeTeamAbbr,away:selected.awayTeamAbbr,startsAt:selected.startsAt,league:leagueOf(selected)},Boolean(selected.homeTeamAbbr&&selected.awayTeamAbbr&&selected.startsAt));
- const onStat=useMemo(()=>key=>{const next=playerRows.find(item=>item.marketKey===key);if(next)setSelected(next);},[playerRows]);
+ // His stats with no line tonight that his games can still chart (Dunks).
+ const extraRows=useMemo(()=>researchRows(row,playerRows,trend.rows),[row,playerRows,trend.rows]);
+ const onStat=useMemo(()=>key=>{const next=[...playerRows,...extraRows].find(item=>item.marketKey===key);if(next)setSelected(next);},[playerRows,extraRows]);
  const chartLogs=useMemo(()=>applySplits(trend.rows,filters),[trend.rows,filters]);
  const chips=useMemo(()=>filters.map(filter=>({key:splitKey(filter),kind:filter.kind,label:splitLabel(filter),title:`${filter.ids.length} of ${selected.player}'s games ${filter.kind} ${filter.name}`})),[filters,selected.player]);
  const shown=realGames(chartLogs).length;
@@ -160,7 +164,7 @@ export function WNBAPlayerPage({row,playerRows,onBack}){
   {!row.playerId?<div className="wnba-board-message" role="status"><Database size={22} aria-hidden="true"/><strong>Player history unavailable</strong><span>This player could not be matched to ESPN's roster yet, so trends and matchup research are not available.</span></div>:<>
   {trend.state==='error'&&<div className="wnba-board-message" role="alert"><span>{trend.error}</span><button type="button" className="wnba-trend-back" onClick={()=>setRetry(n=>n+1)}><RefreshCw size={16} aria-hidden="true"/>Retry</button></div>}
   <div className="mlb-finder-workspace"><div className="mlb-trend-main">
-   <TrendChart row={selected} playerRows={playerRows} logs={chartLogs} loading={loading} onStat={onStat} chips={chips} chipsNote={chipsNote} onChipRemove={removeFilter} onChipsClear={clearFilters}/>
+   <TrendChart row={selected} playerRows={playerRows} extraRows={extraRows} logs={chartLogs} loading={loading} onStat={onStat} chips={chips} chipsNote={chipsNote} onChipRemove={removeFilter} onChipsClear={clearFilters}/>
    {filters.length>0&&!shown&&!loading&&<p className="wnba-filter-empty" role="status">No games match all of these together. Remove a filter to see more.</p>}
    <SupportingStats logs={trend.rows} loading={loading}/>
    <DepthChart row={selected} matchup={matchup.data} filters={filters} onToggleFilter={toggleFilter}/>

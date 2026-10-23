@@ -171,6 +171,14 @@ not book odds.
   plays yet isn't saved). The Finder's batch (`gamelogs`) only reads that
   hash, it never fetches. Dunks has its own tab ("DNK", after B+S) in
   `trend-data.js WNBA_STATS`.
+  PrizePicks posts Dunks only some nights (the owner's Zubac page had no
+  Dunks tab), so an NBA page now offers Dunks from his game logs on a night
+  with no Dunks line (`trend-data.js researchRows`, `researchOnly` rows):
+  chip with no line, chart starting at the half nearest his last-10 average
+  (adjustable with -/+, lines menu "No lines"), banner "Dunks · No
+  PrizePicks line tonight" and no Analyze. The shared panel (`app.js`
+  vortexTrendPanel.update) now redraws its chips when the stat list
+  changes without a market change (they used to stay as first drawn).
 - Props lists are cards (Oct 23, owner picked "Cards" over a cleaner table
   or grouping by game; `MatchupList.jsx` PropCard): photo, name, game, the
   line as a pill with the Demon tag, three tiles Matchup / Last 10 (hits

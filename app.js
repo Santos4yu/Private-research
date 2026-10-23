@@ -4164,6 +4164,10 @@ window.vortexTrendPanel = {
       renderGameLogTabs();
       renderGameLogChart();
     }
+    // A stat that arrives with his games (an NBA page's Dunks on a night with
+    // no Dunks line, WNBAPlayerPage researchRows) adds its chip.
+    const statLabels = (entry) => (entry?.stats || []).map((item) => item.label).join("|");
+    if (!switched && !marketChanged && statLabels(previous) !== statLabels(config)) populateGameLogStats();
     applyExternalTrendMarket(config);
     renderExternalTrendChips(config);
     if (viewport) restoreGameLogViewport(viewport);

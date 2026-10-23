@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {baseMarket, isPeriodMarket, periodless, playerContextParams, hasPlayerContext} from '../src/sports/wnba/wnba-research.js';
-import {WNBA_STATS, gameDetails, wnbaChart} from '../src/sports/wnba/trend-data.js';
+import {WNBA_STATS, gameDetails, researchRows, wnbaChart} from '../src/sports/wnba/trend-data.js';
 import {withDefense} from '../src/unified-finder-data.js';
 import {matchupCase} from '../src/slip-matchup.js';
 
@@ -53,4 +53,20 @@ test("a period line is graded on the defense's whole-game numbers as a ratio, ne
   // The whole-game line does read his chances.
   const whole = matchupCase({row: {...defended, marketKey: 'player_rebounds', market: 'Rebounds', line: 11.5, opportunity: chances}, side: 'OVER', grade: {records: {}}}, {nba: {opportunity}});
   assert.ok(whole.facts.find(item => item.key === 'opportunity'));
+});
+
+test('an NBA page charts his dunks on a night with no Dunks line', () => {
+  const row = {id: 'zubac|pts', sport: 'nba', player: 'Ivica Zubac', marketKey: 'player_points', market: 'Points', line: 10.5,
+    windows: {l10: {hits: 6, sample: 10}}, apps: [{key: 'prizepicks'}]};
+  const logs = [{seasonKind: 'preseason', values: {player_dunks: 9}}, ...[1, 2, 3, 1, 0, 2, 4, 1, 2, 1, 3].map(value => ({seasonKind: 'regular', values: {player_dunks: value}})),
+    {seasonKind: 'regular', values: {player_points: 12}}];
+  const [dunks] = researchRows(row, [row], logs);
+  // His last 10 counted games (preseason and uncounted games aside) average 1.9: the chart starts at 1.5.
+  assert.deepEqual({key: dunks.marketKey, market: dunks.market, line: dunks.line, only: dunks.researchOnly, windows: dunks.windows, apps: dunks.apps},
+    {key: 'player_dunks', market: 'Dunks', line: 1.5, only: true, windows: null, apps: []});
+  assert.equal(researchRows(row, [row], [{values: {player_dunks: 0}}])[0].line, 0.5);
+  // A posted Dunks line, no counted games or another league: nothing extra.
+  assert.deepEqual(researchRows(row, [row, {...row, marketKey: 'player_dunks'}], logs), []);
+  assert.deepEqual(researchRows(row, [row], [{values: {player_points: 12}}]), []);
+  assert.deepEqual(researchRows({...row, sport: 'wnba'}, [row], logs), []);
 });

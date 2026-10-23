@@ -155,15 +155,17 @@ export function FinderPlayerBanner({row,playerRows=[],onBack}){
    <h1>{row.player}</h1>
    <p className="fpb-meta">{row.position&&<><b>{row.position}</b><i aria-hidden="true">·</i></>}<span>{gameLabel(row)}</span>
     {time&&<><i className="fpb-chev" aria-hidden="true">›</i><span>{time}</span></>}</p>
-   {row.market&&shownLine&&<p className="fpb-prop"><b>{side} {shownLine}</b><i aria-hidden="true">›</i><span>{row.market}</span></p>}
+   {/* A research-only stat (WNBAPlayerPage researchRows): no line posted tonight. */}
+   {row.market&&row.researchOnly?<p className="fpb-prop"><span>{row.market}</span><i aria-hidden="true">·</i><span>No PrizePicks line tonight</span></p>
+    :row.market&&shownLine&&<p className="fpb-prop"><b>{side} {shownLine}</b><i aria-hidden="true">›</i><span>{row.market}</span></p>}
   </div>
-  {(record||priced||ANALYZE_SPORTS.has(row.sport))&&<div className="fpb-side">
+  {(record||priced||(ANALYZE_SPORTS.has(row.sport)&&!row.researchOnly))&&<div className="fpb-side">
    {record&&<HitRing record={record}/>}
    {priced&&<span className="fpb-price" title={`${priced.name} ${american(priced[sideKey])}`}>
     <img src={priced.logo} alt={priced.name} width="18" height="18" onError={e=>{e.currentTarget.hidden=true;}}/>
     <b data-side={priced[sideKey]<0?'fav':'dog'}>{american(priced[sideKey])}</b></span>}
    {/* The line on the chart, graded the Slip Analyzer's way (AnalyzeProp.jsx). */}
-   <AnalyzeButton row={row} line={Number(line)} playerRows={playerRows}/>
+   {!row.researchOnly&&<AnalyzeButton row={row} line={Number(line)} playerRows={playerRows}/>}
   </div>}
  </div>;
  const oddsRow=(odds||pick||books.length>0)?<div className="fpb-odds" role="list" aria-label={`Odds at ${line}`}>
