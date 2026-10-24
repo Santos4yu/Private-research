@@ -79,7 +79,9 @@ class RecordTests(unittest.TestCase):
         self.assertEqual(bands['Under 40']['over'], 1)
         tiers = {item['tier']: item for item in found['tiers']}
         self.assertEqual((tiers['elite']['over'], tiers['fade']['over'], tiers['strong']['under']), (1, 1, 1))
-        self.assertEqual(found['all'], {'over': 2, 'under': 1, 'push': 1, 'props': 4, 'overRate': 66.7})
+        # Against what each needed: the three decided, all regular lines (50%).
+        self.assertEqual(found['all'], {'over': 2, 'under': 1, 'push': 1, 'props': 4, 'overRate': 66.7, 'priced': 3, 'pricedRate': 66.7, 'needed': 50.0})
+        self.assertEqual((tiers['elite']['priced'], tiers['elite']['pricedRate'], tiers['elite']['needed']), (1, 100.0, 50.0))
 
     def test_nothing_kept_reads_empty(self):
         found = props_record.record(['2026-11-01'], FakeKV(), [], context.stat_value, today='2026-11-04')

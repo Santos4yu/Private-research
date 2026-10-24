@@ -72,7 +72,7 @@ export function MatchupGrade({row,league,logs}){
 
 // Tonight's part of the score (nba-matchup-score.js): who's out on either
 // side, and the opponent's last 10 games. Each with what it adds.
-const TONIGHT={teammates:'His teammates out',missing:'Their players out',recent:'Their last 10 games'};
+const TONIGHT={teammates:'His teammates out',back:'Teammates back',missing:'Their players out',recent:'Their last 10 games'};
 function Tonight({reads,stat}){
  const shown=(reads||[]).filter(read=>TONIGHT[read.kind]);
  if(!shown.length)return null;

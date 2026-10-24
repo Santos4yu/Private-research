@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {modelKey, profileOf, withModelPriors, projectStat, modelChance, modelMean, modelRead} from '../src/prop-model.js';
+import {modelKey, profileOf, withModelPriors, projectStat, modelChance, modelMean, modelRead, blowoutOf} from '../src/prop-model.js';
 import {readPick} from '../src/slip-analyst.js';
 import {assessLeg} from '../src/smart-slip.js';
 import {judge} from '../src/slip-check.js';
@@ -110,10 +110,16 @@ test('basketball: his minutes, a teammate out, a blowout and the game\'s scoring
   const without = projectStat(guard({game: {team: 'LA', injuries, teammates: [split]}}));
   assert.ok(without.context.rate > 1.15, without.context.rate);
   assert.ok(without.context.used.includes('mate:Dearica Hamby'));
-  // A big spread: fewer minutes for a starter if it gets out of hand.
+  // A big spread: a starter's projection comes down a little (the backtest's 2%), a bench player's goes up.
   const blowout = projectStat(guard({game: {team: 'LA', injuries: {}, odds: {total: 164, spread: {LA: -14.5, LV: 14.5}}}}));
-  assert.ok(blowout.usage < plain.usage * 0.96, blowout.usage);
+  near(blowout.usage / plain.usage, 0.975, 0.001);
   assert.ok(blowout.context.risks.some(risk => risk.startsWith('Blowout risk')));
+  assert.equal(blowout.context.notes.find(note => note.key === 'blowout').text, 'A 14.5-point spread: starters sit if it gets out of hand, 3% off his projection');
+  const bench = extra => projectStat(guard({gameLog: games([9, 11, 8, 10, 12, 9, 10, 8, 11, 10], 20), ...extra}));
+  const benchBlowout = bench({game: {team: 'LA', injuries: {}, odds: {total: 164, spread: {LA: -14.5, LV: 14.5}}}});
+  near(benchBlowout.usage / bench().usage, 1.0665, 0.001);
+  assert.equal(benchBlowout.context.risks.length, 0);
+  assert.deepEqual([blowoutOf(6, 30, 'pts'), blowoutOf(12, 20, 'reb'), blowoutOf(12, 10, 'pts')], [{role: 'starter', change: 0, size: 6}, null, null]);
   // The game's total and spread: a team expected to score more.
   const high = projectStat(guard({game: {team: 'LA', injuries: {}, odds: {total: 176, spread: {LA: -2, LV: 2}}}}));
   const low = projectStat(guard({game: {team: 'LA', injuries: {}, odds: {total: 154, spread: {LA: 2, LV: -2}}}}));
@@ -163,4 +169,32 @@ test('with the game in, the pick is read again, and what the model counted isn\'
   assert.ok(lineup && lineup.modelled);
   const counted = matchupCase({row: first.row, side: 'OVER', grade: {...first, read: {...first.read, model: {...first.read.model, used: []}}}});
   assert.ok(counted.score > first.matchup.score, `${counted.score} ${first.matchup.score}`);
+});
+
+test('a hot shooter\'s points and threes are pulled back toward his usual; a cold one\'s up', async () => {
+  const {shootingForm} = await import('../src/unified-finder-data.js');
+  const {gameContext} = await import('../src/prop-model.js');
+  // Last season 7 of 20 from the field and 2 of 6 from three a game; this
+  // season 10 games like that, then 10 at 10 of 18 and 4 of 7.
+  const log = (season, index, fgm, fga, tpm, tpa, pts) => ({date: `${season - 1}-12-${String(index + 1).padStart(2, '0')}`, season, minutes: 32,
+    values: {player_field_goals: fgm, player_field_goals_attempts: fga, player_threes: tpm, player_threes_attempts: tpa, player_points: pts}});
+  const rows = [...Array(20)].map((_, i) => log(2026, i, 7, 20, 2, 6, 18)).concat([...Array(10)].map((_, i) => log(2027, i, 7, 20, 2, 6, 18)),
+    [...Array(10)].map((_, i) => log(2027, i + 10, 10, 18, 4, 7, 28)));
+  const hot = shootingForm({season: 2027, rows});
+  near(hot.three10, 40 / 70, 0.001);
+  near(hot.threeUsual, (60 + 20) / (130 + 60), 0.001);
+  assert.ok(hot.hot3 > 0.03 && hot.hotFg > 0.1, JSON.stringify(hot));
+  const row = (marketKey, average) => ({sport: 'nba', marketKey, average, shooting: hot});
+  const points = gameContext(row('player_points', 23)), threes = gameContext(row('player_threes', 3));
+  assert.ok(points.rate < 0.95 && points.rate >= 0.88, String(points.rate));
+  assert.ok(threes.rate < 0.95 && threes.rate >= 0.88, String(threes.rate));
+  assert.match(threes.notes.find(note => note.key === 'shooting').text, /^Shooting 57% from three his last 10 games \(his usual 42%\): a hot streak like that tends to cool off, so \d+% off his projection$/);
+  // Rebounds don't read it; a combo with points by points' share.
+  assert.equal(gameContext(row('player_rebounds', 8)).rate, 1);
+  const pra = gameContext(row('player_points_rebounds_assists', 38)).rate;
+  assert.ok(pra < 1 && pra > points.rate);
+  // Cold: the other way. Under five games this season: nothing.
+  const cold = shootingForm({season: 2027, rows: rows.slice(0, 30).concat([...Array(10)].map((_, i) => log(2027, i + 10, 5, 20, 1, 7, 12)))});
+  assert.ok(gameContext({sport: 'nba', marketKey: 'player_threes', average: 2, shooting: cold}).rate > 1);
+  assert.equal(shootingForm({season: 2027, rows: rows.slice(0, 24)}), null);
 });

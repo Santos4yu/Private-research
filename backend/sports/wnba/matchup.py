@@ -120,6 +120,12 @@ def _odds(summary, teams):
         return None
     home_odds, away_odds = pick.get("homeTeamOdds") or {}, pick.get("awayTeamOdds") or {}
     spread = _number(pick.get("spread"))
+    # The home side's spread; when `details` ("BOS -7.5") names the other
+    # side as the favorite, the number given is the favorite's.
+    sides = {team.get("side"): team.get("abbr") for team in teams or []}
+    favorite = str(pick.get("details") or "").split(" ")[0]
+    if spread is not None and favorite and ((favorite == sides.get("away") and spread < 0) or (favorite == sides.get("home") and spread > 0)):
+        spread = -spread
     home_ml, away_ml = _number(home_odds.get("moneyLine")), _number(away_odds.get("moneyLine"))
     result = {
         "provider": (pick.get("provider") or {}).get("name"),

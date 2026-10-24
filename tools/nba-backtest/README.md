@@ -23,4 +23,19 @@ folder `NBA_DATA` names. Needs pandas, numpy and scikit-learn.
 7. `chances.py`: the rebound and assist chance numbers (misses, crashing,
    baskets allowed, % assisted): do they predict overs on top of the score?
 
+8. `build3.py`: teammates back (20+ minutes a game, missed the team's
+   last 3), hot shooting (last 10 games' FG% / 3P% against his usual,
+   shrunk by the tries) and his last-10 averages → `extra3.pkl`.
+9. `fit8.py`: those on top of the final reads, per season, against his
+   average and his last 10 (the teammates-back weights) → `tables8.pkl`.
+10. `fit9.py` / `fit10.py`: against a projection shaped like
+    `src/prop-model.js`'s; `fit10.py` gives the hot-shooting multipliers.
+11. `corr.py`: same-game correlations between players' overs (the slip
+    builder's basketball numbers, `src/slip-correlation.js`).
+12. `blowout.py` / `blowout2.py`: the game line. `odds.csv` comes from the
+    `NBA odds history` check (`.github/workflows/nba-odds-history.yml`):
+    run it by hand, then turn its log's `ODDS,` lines into
+    `event,date,home,away,home_spread,total`. ESPN only kept lines for
+    2025-26 (980 games), so these test the two halves of that season.
+
 Run from this folder (`fit*.py` read the `.pkl` files and each other).

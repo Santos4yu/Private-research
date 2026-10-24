@@ -153,6 +153,53 @@ not book odds.
     list shows it once a band has 20 props. This is the real test against
     PrizePicks' lines (which already price injury news): watch whether
     75+ and Elite beat ~54% over the next weeks, and refit if not.
+- Hit-rate round (Oct 24, owner: "make money ... really good hit rate",
+  then "Do everything"). Five pieces, each backtested first (scripts 8-12
+  in `tools/nba-backtest/`):
+  - Teammate back (`nba-matchup-score.js` `backTonight`, read `back`,
+    "Teammates back"): a rotation player (20+ min over 5+ games) who
+    missed his team's last 3 but played one of its last 10, not listed
+    out tonight (questionable counts 0.65). Per 30 of his minutes at the
+    player's position about -20 points on the 133 scale (rebounds -31,
+    blocks -20), elsewhere -9 (`WEIGHTS` backPos/backOther, centred on
+    `BACK_CENTRES`). Signs held in both seasons. Skipped when the team's
+    last game is over 20 days old (a season's first game reads last
+    season's games). Newcomers (no games for this team in its last 10)
+    don't count.
+  - Hot shooting (`prop-model.js` `HOT`, `shootingContext`; history ->
+    `unified-finder-data.js` `shootingForm`, on NBA rows as `shooting`):
+    a projection on recent rates runs ahead of hot shooters. Points x
+    (1 - 0.54 hotFg - 0.49 hot3), threes x (1 - 1.67 hot3), combos with
+    points by points' share, held to +-12%. Same in both seasons. Against
+    his season average hot shooting points the other way (real form), so
+    it's a projection fix, not a matchup read.
+  - Game line: `nba-odds-history.yml` (by hand) got ESPN lines for 980
+    games, all 2025-26 (ESPN kept none for 2024-25), so tested on the
+    season's two halves. Starters (28+ min) lose 1.3 minutes at a 10-13
+    point spread and 2.8 past 13 but only come in ~2% under projection;
+    bench players (15-28 min) beat projection in points, assists and
+    threes by 3-4% at 7-13 and 7% past 13. `prop-model.js` `blowoutOf`
+    replaced the old guessed cut. The team's expected points (the old
+    `scoringRatio`) held up: +2-6% per 10 over usual, kept as is.
+    `_nba_tonight` now sends each team's `spread` and `total`;
+    `props-grade.js` `withTonight` gives list rows that line as their
+    game's odds, and a 10+ spread shows "Blowout risk" (starter) or
+    "Blowout boost" (bench) under the Prop grade, with a line in Why.
+    `matchup.py` `_odds` now flips ESPN's spread when `details` names the
+    other side as favorite.
+  - Hitting mark (`props-record.js` `hittingTiers`): the record now keeps
+    what each prop needed (`priced`, `pricedRate`, `needed` per band and
+    tier). A tier whose props went over more than they needed, by one
+    standard error, over 40+ props, gets "Hitting" under its grade and a
+    line in Why; the record's grade table shows "Needed".
+  - Slip correlations (`slip-correlation.js`): measured on every pair of
+    rotation players in a game. Teammates' points ~0 (was -0.05),
+    opponents' points ~0.01 (was +0.08: removed), assists with a
+    teammate's scoring +0.045 (was 0.08, now under the "together"
+    threshold, so smart slips no longer seek those pairs), two centers'
+    rebounds -0.06 (avoided), other boards 0. One player's two lines:
+    points/threes 0.48, points/rebounds 0.21, assists/rebounds 0.165,
+    points/assists 0.15, threes with either 0.09.
 - Rebound and assist research (Oct 24, owner: points has shot zones vs
   their zone defense, rebounds and assists only "5th most allowed"). On
   the NBA player page's Matchup tab, beside "Where he scores", two doors

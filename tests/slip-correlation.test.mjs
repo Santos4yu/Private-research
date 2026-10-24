@@ -66,3 +66,25 @@ test('the parlay grade uses the linked chance and names the pairs', () => {
   assert.deepEqual(score.links[0].players, ['Dak Prescott', 'CeeDee Lamb']);
   assert.equal(score.links[0].tone, 'together');
 });
+
+test('basketball pairs use the measured numbers', () => {
+  const nba = (player, team, opponent, market, position) => pick(row(player, 'nba', team, opponent, market, {position, gameId: 'g1'}));
+  const brunson = nba('Jalen Brunson', 'NY', 'BOS', 'Assists', 'G');
+  const towns = nba('Karl-Anthony Towns', 'NY', 'BOS', 'Points', 'C');
+  assert.equal(link(brunson, towns).rho, 0.045);
+  // Teammates' points, and opponents' points, barely move together: no link.
+  assert.equal(link(nba('Jalen Brunson', 'NY', 'BOS', 'Points', 'G'), towns), null);
+  assert.equal(link(towns, nba('Jayson Tatum', 'BOS', 'NY', 'Points', 'F')), null);
+  // Two centers' boards pull apart; a guard's and a center's don't.
+  const robinson = nba('Mitchell Robinson', 'NY', 'BOS', 'Rebounds', 'C');
+  assert.equal(link(nba('Karl-Anthony Towns', 'NY', 'BOS', 'Rebounds', 'C'), robinson).rho, -0.06);
+  assert.equal(link(nba('Josh Hart', 'NY', 'BOS', 'Rebounds', 'G'), robinson), null);
+  // One player's points and threes ride together far more than his points and assists.
+  const same = market => pick(row('Jalen Brunson', 'nba', 'NY', 'BOS', market, {gameId: 'g1', playerId: 7}));
+  assert.equal(link(same('Points'), same('3-PT Made')).rho, 0.48);
+  assert.equal(link(same('Points'), same('Assists')).rho, 0.15);
+  assert.equal(link(same('Pts+Rebs+Asts'), same('Points')).rho, 0.5);
+  // Other sports keep their figure for one player's two lines.
+  const dak = market => pick(row('Dak Prescott', 'nfl', 'DAL', 'TB', market, {playerId: 4}));
+  assert.equal(link(dak('Pass Yards'), dak('Rush Yards')).rho, 0.5);
+});

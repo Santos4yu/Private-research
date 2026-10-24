@@ -6,7 +6,12 @@
 // parlay's chance of every pick hitting is adjusted for it.
 //
 // The numbers are deliberately modest, the size the research on same-game
-// parlays tends to find; they never turn two coin flips into a lock.
+// parlays tends to find; they never turn two coin flips into a lock. The
+// basketball ones are measured: two NBA seasons of every pair of rotation
+// players in one game, each beating his own average (tools/nba-backtest).
+// Teammates' points barely move together, nor do opponents': only a
+// teammate's assists with a scorer's points, and two centers splitting the
+// boards, show up.
 import {rowStatKey, personKey} from './slip-check.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
@@ -69,8 +74,7 @@ const TABLE = {
       'hit|pouts': [-0.12, 'pitcher']},
   },
   basketball: {
-    team: {'score|score': [-0.05, 'share'], 'assist|score': [0.08, 'feed'], 'board|board': [-0.08, 'share']},
-    opponents: {'score|score': [0.08, 'pace']},
+    team: {'assist|score': [0.045, 'feed'], 'board|board': [0, 'share']},
   },
   nhl: {
     team: {'score|score': [0.12, 'line'], 'score|shots': [0.08, 'line']},
@@ -82,6 +86,19 @@ const TABLE = {
   },
 };
 const family = sport => sport === 'nba' || sport === 'wnba' ? 'basketball' : sport === 'cfb' ? 'nfl' : sport;
+
+// One basketball player's two lines, by stat (measured the same way); a
+// combo and a stat inside it ride on the same numbers, two others he has
+// no measure for get the middle of the measured ones.
+const SAME = {'3pm|pts': 0.48, 'pts|reb': 0.21, 'ast|reb': 0.165, 'ast|pts': 0.15, '3pm|ast': 0.09, '3pm|reb': 0.09};
+function sameHoops(a, b) {
+  const [x, y] = [rowStatKey(a) || '', rowStatKey(b) || ''];
+  const measured = SAME[[x, y].sort().join('|')];
+  if (measured != null) return measured;
+  const parts = key => key === 'fantasy' ? ['pts', 'reb', 'ast'] : key.split('+');
+  return parts(x).some(part => parts(y).includes(part)) ? 0.5 : 0.15;
+}
+const center = row => String(row.position || '').toUpperCase().split('-')[0].trim() === 'C';
 
 // The two players' teams and game, when the lines say.
 const team = row => String(row.teamAbbr || row.team || '').toUpperCase();
@@ -128,13 +145,16 @@ export function link(a, b) {
   if (!how) return null;
   let rho, kind;
   if (how === 'player') {
-    [rho, kind] = [0.5, 'player'];
+    [rho, kind] = [family(a.row.sport) === 'basketball' ? sameHoops(a.row, b.row) : 0.5, 'player'];
   } else {
     const roles = [role(a.row), role(b.row)];
     const key = [...roles].sort().join('|');
     const entry = TABLE[family(a.row.sport)]?.[how]?.[key];
     if (!entry) return null;
     [rho, kind] = entry;
+    // Two centers on one team take the same misses; other teammates' boards don't touch.
+    if (family(a.row.sport) === 'basketball' && key === 'board|board') rho = center(a.row) && center(b.row) ? -0.06 : 0;
+    if (!rho) return null;
   }
   // An under turns a pairing around; two unders move like two overs.
   if ((a.side === 'UNDER') !== (b.side === 'UNDER')) rho = -rho;

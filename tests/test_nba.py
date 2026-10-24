@@ -377,7 +377,8 @@ class TonightTests(unittest.TestCase):
                              {"id": "402", "start": datetime(2026, 11, 4, 1, tzinfo=timezone.utc), "home": side("BOS"), "away": side("NY")}],
                 "20261104": [{"id": "403", "start": datetime(2026, 11, 5, 0, tzinfo=timezone.utc), "home": side("LAL"), "away": side("PHX")}]}
         reports = {"401": {"injuries": {"GS": [{"id": "3975", "name": "Stephen Curry", "position": "PG", "status": "Out"},
-                                               {"id": "1", "name": "A", "position": "F", "status": "Day-To-Day"}]}},
+                                               {"id": "1", "name": "A", "position": "F", "status": "Day-To-Day"}]},
+                           "odds": {"total": 228.5, "home": {"spread": -6.5}, "away": {"spread": 6.5}}},
                    "402": {"injuries": {}}, "403": {"injuries": {"PHX": []}}}
         with patch.object(api, "_nba_day", side_effect=lambda day: days.get(day, [])), \
                 patch.object(matchup, "matchup", side_effect=lambda event_id, league_name: reports[event_id]):
@@ -387,6 +388,16 @@ class TonightTests(unittest.TestCase):
         self.assertEqual([(item["name"], item["out"]) for item in teams["GS"]["injuries"]], [("Stephen Curry", True), ("A", False)])
         self.assertNotIn("BOS", teams)
         self.assertEqual(teams["PHX"]["injuries"], [])
+        # Each side's spread and the game's total, where the game page had them.
+        self.assertEqual((teams["GS"]["spread"], teams["LAL"]["spread"], teams["GS"]["total"]), (-6.5, 6.5, 228.5))
+        self.assertEqual((teams["PHX"]["spread"], teams["PHX"]["total"]), (None, None))
+
+    def test_the_home_spread_when_espn_gives_the_favorites(self):
+        teams = [{"side": "away", "abbr": "BOS"}, {"side": "home", "abbr": "WSH"}]
+        pick = lambda spread, details: {"pickcenter": [{"spread": spread, "details": details, "overUnder": 225.5}]}
+        self.assertEqual(matchup._odds(pick(-9.5, "BOS -9.5"), teams)["home"]["spread"], 9.5)
+        self.assertEqual(matchup._odds(pick(9.5, "BOS -9.5"), teams)["home"]["spread"], 9.5)
+        self.assertEqual(matchup._odds(pick(-3.5, "WSH -3.5"), teams)["away"]["spread"], 3.5)
 
 
 class PropsLogTests(unittest.TestCase):

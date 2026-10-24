@@ -26,7 +26,8 @@ test('his form and the matchup together: hot leans over, cold fades, a tough mat
   assert.equal(cold.tier, 'fade');
   // Boston were the stingiest on points last season: the same form grades lower.
   assert.ok(tough.rank < hot.rank && tough.chance < hot.chance);
-  assert.deepEqual(Object.keys(hot).sort(), ['chance', 'edge', 'label', 'needs', 'priced', 'rank', 'tier', 'tone']);
+  assert.deepEqual(Object.keys(hot).sort(), ['blowout', 'chance', 'edge', 'label', 'needs', 'priced', 'rank', 'tier', 'tone']);
+  assert.equal(hot.blowout, null);
   assert.equal(hot.needs, 0.5);
 });
 
@@ -40,4 +41,16 @@ test('a Demon is measured against what it pays; a line without his games waits',
   assert.equal(Math.round((demon.chance - demon.needs) * 1000), Math.round(demon.edge * 1000));
   assert.equal(grades.has('empty'), false);
   assert.equal(propGrades([row('x', HOT, 10.5)], null).size, 0);
+});
+
+test('tonight\'s line: a big spread takes a little off a starter and adds to a bench player, and tags both', () => {
+  const night = spread => ({...real, tonight: {teams: {OKC: {opponent: 'DEN', spread, total: 228.5, injuries: []}}}});
+  const starter = row('s', HOT, 14.5), bench = {...row('b', HOT, 14.5), gameLog: row('b', HOT, 14.5).gameLog.map(game => ({...game, usage: 20}))};
+  const close = propGrades([starter, bench], night(-2.5)), wide = propGrades([starter, bench], night(-14.5));
+  assert.ok(wide.get('s').chance < close.get('s').chance, `${wide.get('s').chance} ${close.get('s').chance}`);
+  assert.ok(wide.get('b').chance > close.get('b').chance, `${wide.get('b').chance} ${close.get('b').chance}`);
+  assert.deepEqual([wide.get('s').blowout.role, wide.get('s').blowout.spread, wide.get('b').blowout.role], ['starter', -14.5, 'bench']);
+  assert.equal(close.get('s').blowout, null);
+  // A line for another game (tomorrow's, against someone else) isn't read.
+  assert.equal(propGrades([{...starter, opponent: 'LAL'}], night(-14.5)).get('s').blowout, null);
 });

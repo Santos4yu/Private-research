@@ -2,7 +2,7 @@
 // 2024-25 and 2025-26 (the weights and what they meant: the top of that file).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {matchupScore, spreadScores, cardScores, band, outTonight, WEIGHTS, OUT_CENTRES} from '../src/nba-matchup-score.js';
+import {matchupScore, spreadScores, cardScores, band, outTonight, backTonight, WEIGHTS, OUT_CENTRES} from '../src/nba-matchup-score.js';
 import {meetingsOf, statGameLog} from '../src/unified-finder-data.js';
 import {readFileSync} from 'node:fs';
 
@@ -257,4 +257,30 @@ test('their last 10 games read beside the season, where the server sends them', 
   assert.match(read.text, /^T23 over its last 10 games: 129\.0 points a game, 129\.0 per 100 possessions allowed$/);
   assert.ok(read.points > 0);
   assert.equal(matchupScore(row('r2'), league).reads.some(item => item.kind === 'recent'), false);
+});
+
+test('a teammate back after missing their last 3 takes minutes back; only once the team has played lately', () => {
+  const now = Date.parse('2026-11-04T12:00:00Z');
+  const players = [
+    {id: 'g1', name: 'Fred VanVleet', pos: 'PG', played10: 9, min10: 33, last3: true, min: 33, games: 5},
+    {id: 'g5', name: 'Reed Sheppard', pos: 'G', played10: 4, min10: 26, last3: false, min: 27, games: 5},
+    {id: 'c5', name: 'Steven Adams', pos: 'C', played10: 6, min10: 22, last3: false, min: 22, games: 5},
+    {id: 'g6', name: 'Barely Plays', pos: 'G', played10: 5, min10: 12, last3: false, min: 12, games: 5},
+    {id: 'g7', name: 'New Signing', pos: 'G', played10: 0, min10: 0, last3: false, min: 30, games: 5}];
+  const night = (injuries, lastGame = '2026-11-02') => ({...league, rotation: {...rotation, HOU: {lastGame, players}}, tonight: {teams: report('HOU', injuries)}});
+  // Sheppard and Adams are back; not the one who barely plays, nor one who hasn't played for them; Adams is questionable.
+  assert.deepEqual(backTonight('HOU', night([out('c5', 'Questionable')]), 'tg', now).map(player => [player.name, player.pos, player.plays]),
+    [['Reed Sheppard', 'G', 1], ['Steven Adams', 'C', 0.65]]);
+  // Out tonight after all: not back.
+  assert.deepEqual(backTonight('HOU', night([out('g5'), out('c5')]), 'tg', now), []);
+  // A season's first game (their last games are last season's): no read.
+  assert.equal(backTonight('HOU', night([], '2026-04-12'), 'tg', now), null);
+  // The score reads the clock: their last game two days ago.
+  const score = (marketKey, injuries) => matchupScore(guard({marketKey}), night(injuries, new Date(Date.now() - 2 * 864e5).toISOString().slice(0, 10)));
+  const back = score('player_points', []), gone = score('player_points', [out('g5'), out('c5')]);
+  const read = back.reads.find(item => item.kind === 'back');
+  assert.ok(read.points < -5, String(read.points));
+  assert.ok(back.score < gone.score);
+  assert.equal(read.text, 'Back for HOU tonight after missing their last 3: Reed Sheppard (G, 27 min), Steven Adams (C, 22 min). They take minutes and shots back, most from the guards');
+  assert.equal(gone.reads.some(item => item.kind === 'back'), false);
 });

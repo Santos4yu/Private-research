@@ -27,3 +27,14 @@ test('sent at most every ten minutes, unless many more props are scored', () => 
   assert.equal(reportProps([{id: '1'}], {fetcher, storage: store}), false);
   assert.deepEqual(sent, [['/api/wnba?league=nba&resource=props-log', 1]]);
 });
+
+test('a grade is hitting once its props beat what they needed, over enough of them', async () => {
+  const {hittingTiers, HOT} = await import('../src/props-record.js');
+  const tier = (name, priced, pricedRate, needed) => ({tier: name, priced, pricedRate, needed});
+  const found = hittingTiers({tiers: [tier('elite', 60, 64, 52), tier('strong', 60, 55, 52), tier('lean', 20, 80, 50), tier('fade', 80, 30, 50)]});
+  // Elite: 12 points over with 60 props (one error is about 6.5). Strong: 3 over, not enough. Lean: too few.
+  assert.deepEqual([...found.keys()], ['elite']);
+  assert.deepEqual(found.get('elite'), {rate: 64, needed: 52, props: 60});
+  assert.equal(HOT.props, 40);
+  assert.equal(hittingTiers(null).size, 0);
+});

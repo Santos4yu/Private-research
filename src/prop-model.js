@@ -412,8 +412,67 @@ function scoringRatio(row) {
  * opportunities; `used` names the game-news facts it has counted
  * (slip-matchup.js leaves them out of the matchup score); `notes` say it.
  */
+// Hot or cold shooting (Oct 24 backtest, two NBA seasons): a projection on
+// his recent rate runs ahead of a hot shooter and behind a cold one. With
+// hotFg and hot3 his last 10 games' FG% and 3P% against his usual
+// (unified-finder-data.js shootingForm), points came in at 1 - 0.54 hotFg -
+// 0.49 hot3 of such a projection and threes at 1 - 1.67 hot3, alike in both
+// seasons. A combo with points counts it by points' share of the combo.
+const HOT = {pts: {hotFg: -0.54, hot3: -0.49}, tpm: {hot3: -1.67}};
+const WITH_POINTS = new Set(['pr', 'pa', 'pra', 'fs']);
+const pct = value => `${Math.round(value * 100)}%`;
+function shootingContext(row, key, out) {
+  const form = row.shooting;
+  if (row.sport !== 'nba' || !form) return;
+  const factor = rule => 1 + Object.entries(rule).reduce((sum, [name, weight]) => sum + weight * (finite(form[name]) ? form[name] : 0), 0);
+  let scale = HOT[key] ? factor(HOT[key]) : null;
+  if (WITH_POINTS.has(key) && finite(form.points10) && finite(row.average) && row.average > 0) {
+    scale = 1 + (factor(HOT.pts) - 1) * clamp(form.points10 / row.average, 0, 1);
+  }
+  if (!finite(scale)) return;
+  scale = clamp(scale, 0.88, 1.12);
+  out.rate *= scale;
+  if (Math.abs(scale - 1) < 0.02) return;
+  out.used.push('shooting');
+  const threes = key === 'tpm' || Math.abs((HOT.pts.hot3 * form.hot3) || 0) > Math.abs((HOT.pts.hotFg * form.hotFg) || 0);
+  const [recent, usual, what] = threes ? [form.three10, form.threeUsual, 'from three'] : [form.fg10, form.fgUsual, 'from the field'];
+  if (!finite(recent) || !finite(usual)) return;
+  out.notes.push({key: 'shooting', text: `Shooting ${pct(recent)} ${what} his last 10 games (his usual ${pct(usual)}): `
+    + `${scale < 1 ? 'a hot streak like that tends to cool off' : 'a cold streak like that tends to turn around'}, so ${Math.round(Math.abs(scale - 1) * 100)}% ${scale < 1 ? 'off' : 'on'} his projection`});
+}
+
+// A big spread (Oct 24 backtest: the 980 games of 2025-26 with lines, both
+// halves of the season alike): as a game gets out of hand, starters (28+
+// minutes) sit, about 1.3 minutes at a 10-13 point spread and 2.8 past 13,
+// and came in about 2% under a projection on their usual; players off the
+// bench (15-28) get those minutes and beat it in points, assists and threes
+// by 3-4% at 7-13 points and 7% past 13 (rebounds, steals and blocks not
+// clearly). The team's expected points (scoringRatio) held up there too:
+// 2-6% more a game for each 10 over what it usually scores.
+export const BLOWOUT = {starter: 28, bench: 15, starterCut: [8, 0.006, 0.025], benchBoost: [5, 0.007, 0.07]};
+const BENCH_STATS = new Set(['pts', 'ast', 'tpm', 'pr', 'pa', 'ra', 'pra', 'fs', 'tpa', 'fgm', 'fga']);
+export function blowoutOf(spread, minutes, key) {
+  if (!finite(spread) || !finite(minutes)) return null;
+  const size = Math.abs(spread), step = ([from, per, cap]) => clamp((size - from) * per, 0, cap);
+  if (minutes >= BLOWOUT.starter) return {role: 'starter', change: -step(BLOWOUT.starterCut) || 0, size};
+  if (minutes >= BLOWOUT.bench && BENCH_STATS.has(key)) return {role: 'bench', change: step(BLOWOUT.benchBoost), size};
+  return null;
+}
+function blowout(row, key, expectedUsage, out) {
+  const found = blowoutOf(row.game?.odds?.spread?.[row.game?.team], expectedUsage, key);
+  if (!found || !found.change) return;
+  out.usage *= 1 + found.change;
+  out.used.push('blowout');
+  const spread = one(found.size);
+  out.notes.push({key: 'blowout', text: found.role === 'starter'
+    ? `A ${spread}-point spread: starters sit if it gets out of hand, ${Math.round(-found.change * 100)}% off his projection`
+    : `A ${spread}-point spread: the bench plays more if it gets out of hand, ${Math.round(found.change * 100)}% on his projection`});
+  if (found.role === 'starter' && found.size >= 10) out.risks.push(`Blowout risk (${spread}-point spread)`);
+}
+
 export function gameContext(row, profile = profileOf(row), expectedUsage = null) {
   const out = {rate: 1, usage: 1, spot: null, role: null, used: [], notes: [], risks: []};
+  if (profile) shootingContext(row, (modelKey(row) || '').split(':')[1], out);
   // A college team's plays read the opponent's pace even before the game's own page is in.
   if (row?.sport === 'cfb' && profile?.plays) cfbContext(row, profile, modelKey(row).split(':')[1], expectedUsage, out);
   if (!row?.game || !profile) return out;
@@ -437,14 +496,7 @@ export function gameContext(row, profile = profileOf(row), expectedUsage = null)
       out.notes.push({key: 'teammates', text: `Without ${mate.name}: ${one(split.without.avg)} a game in ${split.without.games} (${one(split.with.avg)} with)`});
     }
     out.rate *= clamp(scale, 0.8, 1.3);
-    // A big favorite or underdog: starters sit the fourth quarter of a blowout.
-    const spread = row.game.odds?.spread?.[row.game.team];
-    if (finite(spread) && Math.abs(spread) > 7 && finite(expectedUsage) && expectedUsage >= 24) {
-      const cut = Math.min(0.07, (Math.abs(spread) - 7) * 0.006);
-      out.usage *= 1 - cut;
-      out.notes.push({key: 'blowout', text: `A ${one(Math.abs(spread))}-point spread: about ${one(expectedUsage * cut)} fewer minutes if it gets out of hand`});
-      if (cut >= 0.03) out.risks.push(`Blowout risk (${one(Math.abs(spread))}-point spread)`);
-    }
+    blowout(row, key, expectedUsage, out);
   }
   const weight = SCORING_WEIGHT[key];
   if (weight && ['nba', 'wnba', 'nhl'].includes(row.sport) && (row.sport !== 'nhl' || !isGoalie(row))) {

@@ -45,3 +45,20 @@ export async function loadRecord(days = 14, {fetcher = fetch} = {}) {
 
 // Enough props in a band or tier for its rate to say something.
 export const ENOUGH = 20;
+
+// A Prop grade "hitting lately": its props have gone over more often than
+// they needed to be worth taking, over enough of them that it isn't one
+// good night (HOT.props, and a standard error clear of break-even).
+export const HOT = {props: 40, errors: 1};
+
+/** The tiers hitting lately: Map tier -> {rate, needed, props}. */
+export function hittingTiers(record) {
+  const out = new Map();
+  for (const item of record?.tiers || []) {
+    const n = item.priced, rate = item.pricedRate, needed = item.needed;
+    if (!(n >= HOT.props) || !Number.isFinite(rate) || !Number.isFinite(needed)) continue;
+    const p = needed / 100, error = Math.sqrt(p * (1 - p) / n) * 100;
+    if (rate - needed >= HOT.errors * error) out.set(item.tier, {rate, needed, props: n});
+  }
+  return out;
+}

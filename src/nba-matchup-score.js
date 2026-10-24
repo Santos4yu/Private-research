@@ -51,6 +51,15 @@
 // there; combos stay the even average of their parts (weighting by his mix
 // read overs slightly worse).
 //
+// A teammate coming back (Oct 24, the same games): one who played 20+
+// minutes a game, missed his team's last 3 and plays tonight takes his
+// minutes and shots back. Per 30 of his minutes at his position, a player
+// beat his average 4-8 points of % less often (both seasons; rebounds and
+// blocks most), and 2-4 less for one elsewhere (points, assists, threes,
+// steals). Read only when his team played lately (not a season's first
+// game, whose last three are last season's) and its report is in: a player
+// on it counts for the share of his minutes he's likely to play.
+//
 // Each read is how far the team sits from the league's average in spreads
 // (standard deviations, held to 3), the soft side up, times its weight
 // (WEIGHTS: the backtest's log-odds times 133, a scale that puts the top
@@ -75,14 +84,20 @@ const ordinal = n => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st',
 // teamPos / teamOther: his teammates out at his position / elsewhere;
 // oppPos / oppOther / oppAll / oppC: the opponent's at his position,
 // elsewhere, all of them, their centers; recent: their last 10 games.
+// backPos / backOther: teammates back tonight, at his position / elsewhere.
 export const WEIGHTS = {
-  pts: {defense: 6, pace: 5.9, position: 2.2, recent: 4.2, teamPos: 39.5, teamOther: 27.8, oppPos: 4.2, oppOther: 7},
-  reb: {position: 3.4, rebounds: 9.5, recent: 5.3, teamPos: 25.4, teamOther: 18.5, oppC: 12.9},
-  ast: {pace: 3.3, position: 7.5, assists: 8.2, recent: 5, teamPos: 29.3, teamOther: 18.3, oppAll: 4.9},
-  tpm: {attempts: 11.1, recent: 3.1, teamPos: 24.5, teamOther: 7.6},
-  stl: {defense: 5.1, position: 3.4, turnovers: 9.5, teamPos: 15, teamOther: 7, oppAll: 2.5},
-  blk: {defense: 3.1, pace: 4.9, position: 9.1, oppAll: 5.5},
+  pts: {defense: 6, pace: 5.9, position: 2.2, recent: 4.2, teamPos: 39.5, teamOther: 27.8, oppPos: 4.2, oppOther: 7, backPos: -20.4, backOther: -9},
+  reb: {position: 3.4, rebounds: 9.5, recent: 5.3, teamPos: 25.4, teamOther: 18.5, oppC: 12.9, backPos: -31.3},
+  ast: {pace: 3.3, position: 7.5, assists: 8.2, recent: 5, teamPos: 29.3, teamOther: 18.3, oppAll: 4.9, backPos: -15.4, backOther: -8.8},
+  tpm: {attempts: 11.1, recent: 3.1, teamPos: 24.5, teamOther: 7.6, backOther: -9.9},
+  stl: {defense: 5.1, position: 3.4, turnovers: 9.5, teamPos: 15, teamOther: 7, oppAll: 2.5, backPos: -14, backOther: -17},
+  blk: {defense: 3.1, pace: 4.9, position: 9.1, oppAll: 5.5, backPos: -20.2},
 };
+// A usual night's minutes back, in the same units, by his position.
+export const BACK_CENTRES = {backPos: {G: 0.065, F: 0.055, C: 0.019}, backOther: {G: 0.06, F: 0.071, C: 0.106}};
+// Who counts as back: 20+ minutes a game over 5+ games, out of the team's
+// last 3 but in one of its last 10, its last game within BACK.days.
+export const BACK = {minutes: 20, games: 5, days: 20};
 // A usual night's minutes out, in 30-minute units (the backtest's average):
 // at his position by position, elsewhere, all of the opponent's, their centers.
 export const OUT_CENTRES = {teamPos: {G: 0.41, F: 0.323, C: 0.094}, teamOther: 0.57, oppPos: {G: 0.464, F: 0.354, C: 0.151}, oppOther: 0.589,
@@ -252,6 +267,28 @@ export function outTonight(team, league, skip = null) {
     })
     .sort((a, b) => b.sits * b.min - a.sits * a.min);
 }
+/**
+ * A team's players back tonight (see the top of the file): [{id, name, pos,
+ * min, plays}], plays the share of his minutes he's likely to play. null
+ * when the report or the recent minutes are missing, or the team hasn't
+ * played lately.
+ */
+export function backTonight(team, league, skip = null, now = Date.now()) {
+  const report = league?.tonight?.teams?.[team], side = league?.rotation?.[team], players = side?.players;
+  if (!report || !Array.isArray(report.injuries) || !Array.isArray(players) || !players.some(player => 'played10' in player)) return null;
+  const last = Date.parse(side.lastGame || '');
+  if (!finite(last) || now - last > BACK.days * 864e5) return null;
+  const chance = item => SITS[String(item?.status || '').trim().toLowerCase()] ?? (item?.out ? 1 : 0);
+  const listed = new Map(report.injuries.map(item => [String(item.id), chance(item)]));
+  return players.filter(player => String(player.id) !== String(skip) && player.last3 === false && player.played10 >= 1
+    && player.games >= BACK.games && player.min >= BACK.minutes && (listed.get(String(player.id)) ?? 0) < 1)
+    .map(player => ({id: String(player.id), name: player.name, pos: positionCode(player.pos) || 'F', min: player.min,
+      plays: 1 - (listed.get(String(player.id)) ?? 0), status: report.injuries.find(item => String(item.id) === String(player.id))?.status || null}))
+    .sort((a, b) => b.plays * b.min - a.plays * a.min);
+}
+const backMinutes = players => players.reduce((sum, player) => sum + player.min * player.plays, 0) / 30;
+const listBack = players => players.map(player => `${player.name} (${player.pos}, ${Math.round(player.min)} min${player.plays < 1 ? `, ${String(player.status).toLowerCase()}` : ''})`).join(', ');
+
 // Minutes out, in 30-minute units: each counted by how likely he is to sit.
 const minutesOf = players => players.reduce((sum, player) => sum + player.min * player.sits, 0) / 30;
 const listOut = players => players.map(player => `${player.name} (${player.pos}, ${Math.round(player.min)} min${player.sits < 1 ? `, ${String(player.status).toLowerCase()}` : ''})`).join(', ');
@@ -274,6 +311,13 @@ function absenceReads(row, league, parts) {
       ? `Out for ${row.teamAbbr} tonight: ${listOut(mine)}. Their minutes and shots go to the rest${at.length ? `, most to the ${POSITIONS[pos]}` : ''}`
       : `Nobody in ${row.teamAbbr}'s rotation is out tonight (a usual night has about ${usual(OUT_CENTRES.teamPos[pos] + OUT_CENTRES.teamOther)} out), so no extra minutes or shots to go around`;
     reads.push({key: 'teammates', kind: 'teammates', points, soft: points / 15, text});
+  }
+  const back = average('backPos') || average('backOther') ? backTonight(row.teamAbbr, league, row.playerId) : null;
+  if (back?.length) {
+    const at = back.filter(player => player.pos === pos), rest = back.filter(player => player.pos !== pos);
+    const points = average('backPos') * (backMinutes(at) - BACK_CENTRES.backPos[pos]) + average('backOther') * (backMinutes(rest) - BACK_CENTRES.backOther[pos]);
+    reads.push({key: 'back', kind: 'back', points, soft: points / 15,
+      text: `Back for ${row.teamAbbr} tonight after missing their last 3: ${listBack(back)}. ${back.length > 1 ? 'They take' : 'He takes'} minutes and shots back${at.length ? `, most from the ${POSITIONS[pos]}` : ''}`});
   }
   const theirs = outTonight(row.opponent, league);
   const oppNames = ['oppPos', 'oppOther', 'oppAll', 'oppC'].filter(name => average(name));

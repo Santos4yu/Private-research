@@ -979,8 +979,8 @@ OUT_STATUSES = ("out", "doubtful", "suspension", "suspended")
 
 
 def _nba_tonight(now=None):
-    """{teams: {abbr: {eventId, startsAt, opponent, injuries: [{id, name,
-    position, status, out}]}}}: each team's next game today or tomorrow (US
+    """{teams: {abbr: {eventId, startsAt, opponent, spread, total, injuries:
+    [{id, name, position, status, out}]}}}: each team's next game today or tomorrow (US
     dates). A team is listed only when its game's report came back (a team
     without anyone on it then has an empty list); one that's missing means
     unknown, not healthy."""
@@ -994,13 +994,14 @@ def _nba_tonight(now=None):
 
     def report(game):
         try:
-            return game, game_reports.matchup(game["id"], "nba").get("injuries")
+            found = game_reports.matchup(game["id"], "nba")
+            return game, found.get("injuries"), found.get("odds") or {}
         except Exception:  # noqa: BLE001 -- that game's teams stay unknown
-            return game, None
+            return game, None, {}
 
     teams = {}
     with ThreadPoolExecutor(max_workers=6) as pool:
-        for game, injuries in pool.map(report, games):
+        for game, injuries, odds in pool.map(report, games):
             # A game whose report lists nobody on either side can't be told
             # from one that wasn't published: unknown.
             if not injuries:
@@ -1010,6 +1011,8 @@ def _nba_tonight(now=None):
                 if abbr in teams:
                     continue
                 teams[abbr] = {"eventId": game["id"], "startsAt": game["start"].isoformat(), "opponent": game[other]["abbr"],
+                               # The game's line: his team's spread (negative: favored) and the total.
+                               "spread": (odds.get(side) or {}).get("spread"), "total": odds.get("total"),
                                "injuries": [{"id": item.get("id"), "name": item.get("name"), "position": item.get("position"),
                                              "status": item.get("status"), "out": str(item.get("status") or "").strip().lower() in OUT_STATUSES}
                                             for item in injuries.get(abbr) or []]}

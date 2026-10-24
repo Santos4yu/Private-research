@@ -122,18 +122,34 @@ def results(payloads, stat_value):
 
 
 def _tally():
-    return {'over': 0, 'under': 0, 'push': 0}
+    return {'over': 0, 'under': 0, 'push': 0, 'priced': 0, 'pricedOver': 0, 'needSum': 0.0}
+
+
+def _count(tally, outcome, needs):
+    tally[outcome] += 1
+    # Against what each line needed to be worth taking (its break-even):
+    # the decided ones that said.
+    if needs is not None and outcome != 'push':
+        tally['priced'] += 1
+        tally['pricedOver'] += outcome == 'over'
+        tally['needSum'] += needs
 
 
 def _rate(tally):
     decided = tally['over'] + tally['under']
-    return {**tally, 'props': decided + tally['push'], 'overRate': round(tally['over'] / decided * 100, 1) if decided else None}
+    priced = tally['priced']
+    return {'over': tally['over'], 'under': tally['under'], 'push': tally['push'], 'props': decided + tally['push'],
+            'overRate': round(tally['over'] / decided * 100, 1) if decided else None,
+            'priced': priced, 'pricedRate': round(tally['pricedOver'] / priced * 100, 1) if priced else None,
+            'needed': round(tally['needSum'] / priced * 100, 1) if priced else None}
 
 
 def record(days, pipeline, payloads, stat_value, today=None):
     """How the props shown went, by matchup score band and Prop grade tier:
-    {days, nights, bands: [{band, over, under, push, props, overRate}],
-    tiers: [...], all: {...}}. Days still to finish (today) aren't read."""
+    {days, nights, bands: [{band, over, under, push, props, overRate,
+    priced, pricedRate, needed}], tiers: [...], all: {...}}: pricedRate the
+    over rate of the `priced` props that said what they needed, `needed`
+    their average need (%). Days still to finish (today) aren't read."""
     today = today or day_of(time.time())
     asked = sorted(day for day in days if day < today)
     kept = reports(asked, pipeline)
@@ -148,10 +164,11 @@ def record(days, pipeline, payloads, stat_value, today=None):
             line = float(line)
             outcome = 'over' if value > line else 'under' if value < line else 'push'
             nights.add(day)
-            overall[outcome] += 1
-            bands[next(label for floor, label in BANDS if score >= floor)][outcome] += 1
+            needs = _number(needs)
+            _count(overall, outcome, needs)
+            _count(bands[next(label for floor, label in BANDS if score >= floor)], outcome, needs)
             if tier:
-                tiers[tier][outcome] += 1
+                _count(tiers[tier], outcome, needs)
     return {'days': len(asked), 'nights': len(nights), 'from': asked[0] if asked else None, 'to': asked[-1] if asked else None,
             'bands': [{'band': label, **_rate(bands[label])} for _, label in BANDS],
             'tiers': [{'tier': tier, **_rate(tiers[tier])} for tier in TIERS],

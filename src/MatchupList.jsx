@@ -13,13 +13,13 @@ import {Face,Img} from './PickParts';
 import {propGrades} from './props-grade';
 import {loadLearning} from './learning';
 import {lineupRole} from './lineup-role';
-import {ENOUGH,loadRecord,reportProps,reportRows} from './props-record';
+import {ENOUGH,hittingTiers,loadRecord,reportProps,reportRows} from './props-record';
 import './nba-matchups.css';
 
 const SORTS=[['matchup','Matchup'],['hit','Hit %'],['prop','Prop grade']];
 // The table's headings for the sorted columns: full, and on a phone.
 const HEADS={matchup:['Matchup','Match'],hit:['Last 10','L10'],prop:['Prop grade','Prop']};
-const READS={teammates:'His teammates out',missing:'Their players out',recent:'Their last 10 games',defense:'Their defense',pace:'Their pace',position:'vs his position',attempts:'Threes they allow',rebounds:'Rebounds they allow',assists:'Assists they allow',turnovers:'Their turnovers',meetings:'His games vs them',
+const READS={teammates:'His teammates out',back:'Teammates back',missing:'Their players out',recent:'Their last 10 games',defense:'Their defense',pace:'Their pace',position:'vs his position',attempts:'Threes they allow',rebounds:'Rebounds they allow',assists:'Assists they allow',turnovers:'Their turnovers',meetings:'His games vs them',
  script:'The game line',scoring:'His team’s scoring',role:'His role'};
 // What a read adds to (or takes from) the even 50.
 const added=points=>`${points>0?'+':points<0?'−':''}${Math.abs(Math.round(points))} ${Math.abs(Math.round(points))===1?'point':'points'}`;
@@ -48,8 +48,13 @@ const percent=value=>`${Math.round(value*100)}%`;
 const gapText=prop=>{const gap=Math.round(prop.chance*100)-Math.round(prop.needs*100);
  return gap?`${percent(prop.chance)} is ${Math.abs(gap)} ${Math.abs(gap)===1?'point':'points'} ${gap>0?'over':'under'} that`:`${percent(prop.chance)} is right at that`;};
 
+// A big spread tonight (props-grade.js): what it does to him, in a sentence.
+const blowoutText=found=>`his team is a ${figure(Math.abs(found.spread))}-point ${found.spread<0?'favorite':'underdog'}. `
+ +(found.role==='starter'?`In games like that, starters sit late and come in about ${Math.round(-found.change*100)}% under their usual`
+  :`In games like that, the bench plays the late minutes and comes in about ${Math.round(found.change*100)}% over its usual`);
+
 // One prop: who and when, the line, then Matchup, Last 10 and Prop grade.
-function PropRow({row,read,hit,prop,role,open,onToggle,onOpen,short}){
+function PropRow({row,read,hit,prop,role,hot,open,onToggle,onOpen,short}){
  const home=row.teamAbbr&&row.teamAbbr===row.homeTeamAbbr;
  const demon=String(row.modifier||'').toLowerCase()==='demon';
  const stat=short[row.marketKey]||row.market;
@@ -64,12 +69,17 @@ function PropRow({row,read,hit,prop,role,open,onToggle,onOpen,short}){
    <span className="nm-line"><small>More</small><b>{figure(row.line)}</b><em>{stat}</em>{demon&&<img className="nm-demon" src="/prizepicks/demon-64.png" alt="Demon" title="PrizePicks Demon: a higher line that pays more" width="18" height="18"/>}</span>
    <Cell kind="score" value={read?read.score:'—'} sub={read?read.label:'No data yet'} tone={read?.tone}/>
    <Cell kind="hit" value={hit?`${hit.hits}/${hit.games}`:'—'} sub={hit?`${Math.round(hit.rate)}% over`:waiting?'Loading…':'No games'} tone={hit?hitTone(hit.rate):undefined}/>
-   <Cell kind="prop" value={prop?percent(prop.chance):'—'} sub={prop?prop.label:hit?'Not graded':'Loading…'} note={prop&&prop.needs!==0.5?`needs ${percent(prop.needs)}`:null} tone={prop?.tone}/>
+   <Cell kind="prop" value={prop?percent(prop.chance):'—'} sub={prop?prop.label:hit?'Not graded':'Loading…'} tone={prop?.tone}
+    note={prop&&(prop.needs!==0.5||hot||prop.blowout)?<>{prop.needs!==0.5&&<span>needs {percent(prop.needs)}</span>}
+     {hot&&<i className="nm-hot" title={`${prop.label} grades have gone over ${Math.round(hot.rate)}% of ${hot.props} lately (they needed ${Math.round(hot.needed)}%)`}>Hitting</i>}
+     {prop.blowout&&<i className="nm-blowout" data-role={prop.blowout.role} title={blowoutText(prop.blowout)}>{prop.blowout.role==='starter'?'Blowout risk':'Blowout boost'}</i>}</>:null}/>
   </button>
   {read?<button type="button" className="nm-why" aria-expanded={open} aria-label={`Why ${row.player}'s scores`} title="Why these scores" onClick={onToggle}><ChevronDown size={16}/></button>:<span aria-hidden="true"/>}
   {open&&read&&<ul className="nm-reads">{prop&&<li className="nm-read-note">Prop grade: a {percent(prop.chance)} chance of the over at {figure(row.line)}, from his recent games and role with this matchup.
    {prop.needs===0.5?' A regular line needs 50% to be worth taking;':prop.priced?` The sportsbooks give the over at this line a ${percent(prop.needs)} chance, so that's what this ${demon?'Demon':'Goblin'} needs to beat;`
     :` A ${demon?'Demon':'Goblin'} ${demon?'pays more than a regular line, so it only needs':'pays less, so it needs'} about ${percent(prop.needs)} to be worth taking (a regular line needs 50%);`} {gapText(prop)}{read?`, with a ${read.score} matchup`:''}: {prop.label}.</li>}
+   {hot&&<li className="nm-read-note">Hitting: {prop.label} grades have gone over {Math.round(hot.rate)}% of the time across the last {hot.props} this list showed, more than the {Math.round(hot.needed)}% they needed.</li>}
+   {prop?.blowout&&<li className="nm-read-note">{prop.blowout.role==='starter'?'Blowout risk':'Blowout boost'}: {blowoutText(prop.blowout)}.</li>}
    {role&&<li className="nm-read-note">{role.label}: {role.starter?'he started his team’s last game':'he didn’t start his team’s last game'} and {role.starts} of his last {role.games}. Tonight’s lineup is announced about half an hour before tip-off.</li>}
    <li className="nm-read-note">Matchup: an even one is 50. Each part adds or takes away points.</li>{read.reads.map(item=><li key={item.key}>
    <span className="nm-read-head"><b>{READS[item.kind]||READS[item.key]||'Their defense'}</b><em>{added(item.points)}</em></span>
@@ -83,9 +93,8 @@ function PropRow({row,read,hit,prop,role,open,onToggle,onOpen,short}){
 // band and Prop grade tier, over each one's line, once enough have been
 // played. The NBA's only.
 const TIER_NAMES={elite:'Elite',strong:'Strong',lean:'Lean',risky:'Risky',fade:'Fade'};
-function TrackRecord(){
- const [record,setRecord]=useState(null),[open,setOpen]=useState(false);
- useEffect(()=>{let live=true;loadRecord(14).then(data=>{if(live)setRecord(data);}).catch(()=>{});return()=>{live=false;};},[]);
+function TrackRecord({record}){
+ const [open,setOpen]=useState(false);
  const bands=(record?.bands||[]).filter(item=>item.props>=ENOUGH),tiers=(record?.tiers||[]).filter(item=>item.props>=ENOUGH);
  if(!record||!bands.length)return record?.nights>0?<p className="nm-record-note">Track record: {record.all.props} props over {record.nights} {record.nights===1?'night':'nights'} so far. Rates show once each band has {ENOUGH}.</p>:null;
  const top=bands[0];
@@ -98,8 +107,8 @@ function TrackRecord(){
     <thead><tr><th scope="col">Matchup</th><th scope="col">Over</th><th scope="col">Props</th></tr></thead>
     <tbody>{bands.map(item=><tr key={item.band}><th scope="row">{item.band}</th><td>{rate(item)}</td><td>{item.props}</td></tr>)}</tbody></table>
    {tiers.length>0&&<table><caption>By Prop grade</caption>
-    <thead><tr><th scope="col">Grade</th><th scope="col">Over</th><th scope="col">Props</th></tr></thead>
-    <tbody>{tiers.map(item=><tr key={item.tier}><th scope="row">{TIER_NAMES[item.tier]}</th><td>{rate(item)}</td><td>{item.props}</td></tr>)}</tbody></table>}
+    <thead><tr><th scope="col">Grade</th><th scope="col">Over</th><th scope="col">Needed</th><th scope="col">Props</th></tr></thead>
+    <tbody>{tiers.map(item=><tr key={item.tier}><th scope="row">{TIER_NAMES[item.tier]}</th><td>{rate(item)}</td><td>{Number.isFinite(item.needed)?`${Math.round(item.needed)}%`:'—'}</td><td>{item.props}</td></tr>)}</tbody></table>}
   </div>}
  </section>;
 }
@@ -181,6 +190,11 @@ export function MatchupList({config}){
   const wait=setTimeout(()=>reportProps(reportRows(rows,scores,grades)),4000);
   return()=>clearTimeout(wait);
  },[config.key,rows,scores,grades]);
+ // How the props it showed went (the NBA's): the record above the list, and
+ // a grade that has been beating what it needed marked on its rows.
+ const [record,setRecord]=useState(null);
+ useEffect(()=>{if(config.key!=='nba')return undefined;let live=true;loadRecord(14).then(found=>{if(live)setRecord(found);}).catch(()=>{});return()=>{live=false;};},[config.key]);
+ const hitting=useMemo(()=>hittingTiers(record),[record]);
  const games=useMemo(()=>{
   const seen=new Map();
   for(const row of rows){
@@ -249,14 +263,14 @@ export function MatchupList({config}){
   {status==='error'&&<div className="nm-empty"><b>{words.failed}</b><button type="button" onClick={load}>Try again</button></div>}
   {(status==='ready'||status==='refreshing')&&!rows.length&&<div className="nm-empty"><b>{words.none}</b>
    <span>{words.noneText}</span></div>}
-  {config.key==='nba'&&<TrackRecord/>}
+  {config.key==='nba'&&<TrackRecord record={record}/>}
   {(status==='ready'||status==='refreshing')&&rows.length>0&&!league&&<p className="nm-note">Matchup scores are still loading the league’s numbers. Hit rates are below.</p>}
 
   {shown.length>0&&<div className="nm-table">
    <div className="nm-thead"><span className="nm-th-player">Player</span><span className="nm-th-line">Line</span>
     {SORTS.map(([key])=><button type="button" key={key} className={`nm-th nm-th-${key}`} aria-pressed={sort===key} onClick={()=>setSort(key)}
      aria-label={`Sort by ${HEADS[key][0]}`}><span className="nm-long">{HEADS[key][0]}</span><span className="nm-short">{HEADS[key][1]}</span>{sort===key&&<ArrowDown size={13} aria-hidden="true"/>}</button>)}</div>
-   <ul className="nm-list">{shown.map(({row,read,hit,prop,role})=><PropRow key={row.id} row={row} read={read} hit={hit} prop={prop} role={role} short={SHORT}
+   <ul className="nm-list">{shown.map(({row,read,hit,prop,role})=><PropRow key={row.id} row={row} read={read} hit={hit} prop={prop} role={role} hot={prop?hitting.get(prop.tier):null} short={SHORT}
     open={openId===row.id} onToggle={()=>setOpenId(id=>id===row.id?null:row.id)} onOpen={openPage}/>)}</ul></div>}
   {(status==='ready'||status==='refreshing')&&rows.length>0&&!shown.length&&<div className="nm-empty"><b>Nothing matches</b>
    <span>Try another stat or game, or clear the search.</span></div>}

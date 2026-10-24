@@ -97,6 +97,7 @@
 .nm-role{font-weight:800}
 .nm-role[data-role=starter]{color:#e6e6e6}
 .nm-role[data-role=bench]{color:var(--m-neutral)}
+
 /* Matchup, Last 10 and Prop grade: the number, what it means under it. */
 .nm-cell{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;text-align:center}
 .nm-cell.nm-score{grid-area:score}
@@ -108,7 +109,13 @@
 .nm-cell[data-tone=edge] b,.nm-cell[data-tone=edge] em{color:var(--m-edge)}
 .nm-cell[data-tone=tough] b,.nm-cell[data-tone=tough] em{color:var(--m-tough)}
 .nm-cell[data-tone=neutral] em{color:var(--m-neutral)}
-.nm-cell small{color:var(--m-faint);font-size:10.5px;font-weight:600;line-height:1.1;white-space:nowrap}
+.nm-cell small{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:3px 4px;color:var(--m-faint);font-size:10.5px;font-weight:600;line-height:1.1;white-space:nowrap}
+/* Marks under the grade: its props have been beating what they needed
+   lately (Hitting); a big spread tonight, a starter's risk or a bench
+   player's boost. */
+.nm-hot,.nm-blowout{padding:1px 5px;border-radius:999px;font-size:10px;font-style:normal;font-weight:800;letter-spacing:.02em}
+.nm-hot,.nm-blowout[data-role=bench]{background:rgba(70,227,154,.14);color:var(--m-strong)}
+.nm-blowout[data-role=starter]{background:rgba(255,123,123,.14);color:var(--m-tough)}
 .nm-bar{display:block;height:4px;border-radius:999px;background:#242424;overflow:hidden}
 .nm-bar i{display:block;height:100%;border-radius:inherit;background:#6f6f6f}
 .nm-bar[data-tone=strong] i{background:var(--m-strong)}

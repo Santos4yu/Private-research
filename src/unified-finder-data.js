@@ -927,6 +927,37 @@ export function meetingsOf(payload, marketKey, opponent) {
     usual: Math.round(usual * 100) / 100};
 }
 
+/**
+ * His shooting over his last 10 games against his usual (this season so
+ * far, last season worth 10 games of it), each shrunk by the tries behind
+ * it: {hotFg, hot3, fg10, fgUsual, three10, threeUsual, points10}, null
+ * before 5 games this season. The NBA projection pulls a hot or cold
+ * shooter back toward his usual (prop-model.js HOT).
+ */
+const SHRINK = {fg: 60, three: 25};
+export function shootingForm(payload) {
+  if (!payload || typeof payload !== 'object' || payload.season == null) return null;
+  const logs = inDateOrder(payload, payload.rows).filter(log => log?.seasonKind !== 'preseason' && number(log?.values?.player_field_goals_attempts) != null
+    && !(number(log.minutes) === 0));
+  const now = logs.filter(log => String(log.season) === String(payload.season));
+  if (now.length < 5) return null;
+  const before = logs.filter(log => log.season != null && String(log.season) !== String(payload.season));
+  const sum = (games, key) => games.reduce((total, log) => total + (number(log.values[key]) || 0), 0);
+  const last = now.slice(-10);
+  const form = (made, tries, shrink) => {
+    const usualTries = sum(now, tries) + (before.length ? 10 * sum(before, tries) / before.length : 0);
+    const usual = usualTries > 0 ? (sum(now, made) + (before.length ? 10 * sum(before, made) / before.length : 0)) / usualTries : null;
+    const recentTries = sum(last, tries), recent = recentTries > 0 ? sum(last, made) / recentTries : null;
+    if (usual == null || recent == null) return [0, recent, usual];
+    return [(recent - usual) * recentTries / (recentTries + shrink), recent, usual];
+  };
+  const [hotFg, fg10, fgUsual] = form('player_field_goals', 'player_field_goals_attempts', SHRINK.fg);
+  const [hot3, three10, threeUsual] = form('player_threes', 'player_threes_attempts', SHRINK.three);
+  const round = value => value == null ? null : Math.round(value * 1000) / 1000;
+  return {hotFg: round(hotFg), hot3: round(hot3), fg10: round(fg10), fgUsual: round(fgUsual), three10: round(three10), threeUsual: round(threeUsual),
+    points10: round(mean(last.map(log => number(log.values.player_points)).filter(value => value != null)))};
+}
+
 export function applyWnbaHistory(row, payload) {
   const {logs, values} = payload && typeof payload === 'object' ? seriesFor(payload, row.marketKey) : {logs: [], values: []};
   const h2hValues = logs.filter(log => !row.opponent || log.opponent === row.opponent)
@@ -947,6 +978,7 @@ export function applyWnbaHistory(row, payload) {
   }
   return finish({...row, average: mean(values.slice(-10)), windows, streak: values.length ? streak : null,
     gameLog: statGameLog(payload, row.marketKey), meetings: meetingsOf(payload, row.marketKey, row.opponent),
+    shooting: row.sport === 'nba' ? shootingForm(payload) : null,
     historyStatus: 'ready', historyRefresh:false, historyAsOf:Date.now(), enrichedAt:Date.now(), history: payload});
 }
 
