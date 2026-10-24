@@ -11,6 +11,12 @@ Last updated 2026-10-22 (one NBA matchup score; the assistant's play breakdowns)
   wording, branding or layout one to one.
 - No text on the site that looks AI-made, admin-only or like debug output.
   No "PP" labels and no PickFinder branding.
+- No explanatory footnotes (Oct 24, the owner: "remove all these things
+  like this" about a grey "Green: among the most... Red: among the
+  fewest..." note). All `nd-foot` notes on the NBA/NFL player pages and
+  the Finder's matchup card, the Props list's long how-it-works line and
+  the track record's note are gone. Explain in labels, the Why panels and
+  the read texts instead; don't add fine print under cards.
 - Look: colorful but balanced and compact. No uneven layouts or gaps, no
   grey box inside a text field, nothing that looks "AI/futuristic".
 - Free data only. The owner won't pay for another API.

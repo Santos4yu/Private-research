@@ -96,7 +96,6 @@ function GradeCard({opponent,own,position,onPosition,scores,chosen,onPick}){
    <div className="ng-tiles" role="group" aria-label="Stat">{scores.map(item=><button type="button" key={item.marketKey} data-tone={item.tone} aria-pressed={item.marketKey===chosen.marketKey}
     disabled={item.score==null} onClick={()=>onPick(item.marketKey)} aria-label={`${item.stat} ${item.score??'no score'}${item.label?`, ${item.label}`:''}`}>
     <span>{item.stat}</span><b>{item.score??'—'}</b></button>)}</div>
-   <p className="nd-foot">0-100 for the over, 50 an even matchup. The biggest part is who's out tonight from both teams' injury reports: a regular in his rotation out (above all at his position) hands him minutes and shots; one of theirs out thins their defense. Then how far {opponent} sit from the league average in points allowed and defensive rating (the season and their last 10 games), pace, and what they allow each {POS_WORDS[position][0]} in the stat (rebounds and assists also read the rebounds and assists they give up, steals how often they turn it over, threes how many threes they let teams take). Each part is counted by how much it predicted overs over the last two seasons. Threes and blocks also count his last three games against them, the only stats where those predicted overs. 90+: the best few percent. For the other stats his games against them are shown under Why this score, not counted in it.</p>
   </div>
  </section>;
 }
@@ -145,7 +144,6 @@ export function TheirDefense({row,league,position=positionOf(row.position)||'G',
    {more&&extra}</div>
   {extra.length>0&&<button type="button" className="ns-more" aria-expanded={more} onClick={()=>setMore(value=>!value)}>{more?'Show less':`Shooting and more (${extra.length})`}<ChevronDown size={14} aria-hidden="true"/></button>}
   {fit&&<><div className="ns-sub-head"><b>His games against them</b>{fit.counted&&<span>Counted in this score</span>}</div><p className="ns-fit" data-tone={fit.score>=60?'soft':fit.score<40?'tough':undefined}>{fit.text}</p></>}
-  <p className="nd-foot">Green: among the most the league gives up (good for the over). Red: among the fewest. Their FG%, 3P%, eFG%, free throws and turnovers are {words[1]}' against them; the last three are the whole team's.</p>
  </Card>;
 }
 
@@ -168,7 +166,6 @@ export function PlayTypes({row}){
     return <tr key={item.type}><th scope="row"><span className="np-dot" style={{background:PLAY_COLORS[index%PLAY_COLORS.length]}}/><span><b>{item.label}</b><small>{fmt(item.share,0)}% of his plays</small></span></th>
      <td>{fmt(item.ppp,2)}{finite(item.percentile)&&<small>{item.percentile>=50?`top ${100-item.percentile}%`:`bottom ${item.percentile}%`}</small>}</td>
      <td data-tone={soft?'good':tough?'poor':undefined}>{theirs?<>{fmt(theirs.ppp,2)}<small>{soft?`${ordinal(theirs.rank)} most`:tough?`${ordinal(theirs.teams-theirs.rank+1)} fewest`:`${ordinal(theirs.rank)} of ${theirs.teams}`}</small></>:'—'}</td></tr>;})}</tbody></table>
-  <p className="nd-foot">Pts/play: his points each time a play of that kind ends with him, and where that sits among NBA players. {data.opponentCode} allows: points a play they give up on it; green among the most in the league, red among the fewest. From NBA.com.</p>
  </Card>;
 }
 
@@ -204,7 +201,6 @@ export function LikelyDefenders({row,league,matchup}){
     return <React.Fragment key={label}><b className="ng2-label">{label}</b>{values.map((value,index)=><span key={top[index].id} data-few={finite(value)&&few[index]||undefined}
      data-tough={finite(value)&&!few[index]&&value===toughest||undefined}>{finite(value)?show(value):'—'}</span>)}</React.Fragment>;})}
   </div>
-  <p className="nd-foot">Time on him: of {lastWord(row.player)}&rsquo;s possessions against players on the {them} now, the share each one guarded him, only in games they played for the {them} ({theirSeasons(data,top)}). Anyone out tonight is left off. His pts/75: his points for every 75 possessions with that player on him; grey under {FEW_POSS} possessions, too few to read much into. Shaded: the toughest on him in that row; FG% allowed, at the rim and on threes are against every shooter ({data.season}). From NBA.com&rsquo;s matchup and defense tracking.</p>
  </Card>;
 }
 
@@ -255,9 +251,6 @@ export function Chances({kind,row,league,player,line}){
    {/* His average without him is in the prop's own stat: shown only on that stat's sheet. */}
    {splits.map(item=><li key={item.id}><b>Without {item.name}</b><span>{[finite(line)?item.stat:null,...item.parts.filter(part=>part.label!=='Minutes')].filter(Boolean).map(part=>`${part.without} ${part.label.toLowerCase()}${part.change?` (${part.change})`:''}`).join(', ')} in {item.games} {item.games===1?'game':'games'}</span></li>)}
   </ul></>}
-  <p className="nd-foot">{kind==='reb'
-   ?`Rebounds come off missed shots. On defense his chances are ${opponent}'s misses they don't get back themselves; on offense, the share of his team's misses it gets back. Tonight's are each team's usual numbers met halfway, against his team's usual game, and his rebounds on each end moved by as much (${read.basis}). Arithmetic, not a pick: the matchup score's rebounds read already counts this.`
-   :`Assists come off teammates' baskets. Tonight's are his team's usual baskets and what ${opponent} usually allows met halfway, times the share assisted (both teams' habits, halfway), against his team's usual, and his assists moved by as much (${read.basis}). Arithmetic, not a pick: the matchup score's assists read already counts this.`}</p>
  </div>;
 }
 
@@ -297,14 +290,13 @@ export function VsTeam({row,league,logs,lines}){
  if(!meetings.length&&!faced)return scout.loading?<Card title={`vs ${name}`} icon={Users}><Loading/></Card>:null;
  const tabs=[['him',first],...POSITIONS.map(key=>[key,POS_WORDS[key][2]])];
  const note=tab==='him'?`last ${meetings.length} ${meetings.length===1?'meeting':'meetings'}`:`last ${faced?.games||0} ${name} games`;
- let tiles,summary,body,foot;
+ let tiles,summary,body;
  if(tab==='him'){
   tiles=VS_STATS.map(([market,,label])=>{const line=tonight[market],values=meetings.map(game=>game.values?.[market]).filter(finite);
    return {label,top:finite(line)&&values.length?`${values.filter(value=>value>line).length}/${values.length}`:'—',sub:finite(line)?`o${fmt(line,1)}`:'no line'};});
   body=meetings.map(game=><div className="nv-row" key={game.gameId||game.date}><span className="nv-who"><b>{shortDate(game.date)}</b><small>{game.isHome?'vs':'@'} {name}</small></span>
    {VS_STATS.map(([market])=><span key={market}><b>{fmt(game.values?.[market],0)}</b><Diff value={game.values?.[market]} line={tonight[market]}/></span>)}</div>);
   summary=meetings.length?null:<p className="nv-summary">He hasn't played {name} in the games on record.</p>;
-  foot=`Graded at tonight's lines; the number under each is how far over or under it he finished.`;
  }else{
   const words=POS_WORDS[tab];
   tiles=VS_STATS.map(([,key,label])=>{const graded=shown.filter(item=>finite(item.values?.[key])&&finite(item.lines?.[key]));
@@ -319,7 +311,6 @@ export function VsTeam({row,league,logs,lines}){
   body=shown.map(item=><div className="nv-row" key={item.id+item.date}><span className="nv-who"><Photo src={item.headshot}/><span><b title={item.name}>{shortName(item.name)}</b>
    <small>{shortDate(item.date)} · {item.team}</small>{finite(item.usage)&&<small>{fmt(item.usage,0)}% usage</small>}</span></span>
    {VS_STATS.map(([,key])=><span key={key}><b>{fmt(item.values?.[key],0)}</b><Diff value={item.values?.[key]} line={item.lines?.[key]} usual={item.avg?.[key]}/></span>)}</div>);
-  foot='Colored: against his own PrizePicks line that night. Grey: against his usual, for nights before lines were kept.';
  }
  return <Card title={`vs ${name}`} note={note} icon={Users} className="nba-vs">
   <div className="nv-tabs" role="tablist" aria-label="Whose games">{tabs.map(([key,label])=><button type="button" role="tab" key={key} aria-selected={tab===key} onClick={()=>setTab(key)}>{label}</button>)}</div>
@@ -329,7 +320,7 @@ export function VsTeam({row,league,logs,lines}){
    {(tab==='him'?meetings.length:shown.length)>0&&<>
     <div className="nv-tiles">{tiles.map(tile=><div key={tile.label}><small>{tile.label}</small><b>{tile.top}</b><em>{tile.sub}</em></div>)}</div>
     <div className="nv-list">{body}</div>
-    <p className="nd-foot">{foot}</p></>}</>}
+</>}</>}
  </Card>;
 }
 
@@ -346,7 +337,6 @@ export function PositionRanks({row}){
   <div className="nv-tabs" role="tablist" aria-label="Side">{[['offense','Offense'],['defense','Defense & boards']].map(([key,label])=><button type="button" role="tab" key={key} aria-selected={side===key} onClick={()=>setSide(key)}>{label}</button>)}</div>
   <div className="nr-grid" data-count={tiles.length}>{tiles.map(tile=>{const top=finite(tile.rank)&&tile.rank<=Math.ceil(peers.count/4),most=['to','pf'].includes(tile.key);
    return <div key={tile.key} data-top={top&&!most||undefined}><small>{tile.label}</small><b>{fmt(tile.value,1)}{tile.key==='ts'||tile.key==='usage'?'%':''}</b><em>{finite(tile.rank)?`#${tile.rank}${most?' most':''}`:'—'}</em></div>;})}</div>
-  <p className="nd-foot">Ranked among {words[1]} playing 20+ minutes a game{seasons.length>1?', last season and this one together until this season has enough games':''}. Per game.</p>
  </Card>;
 }
 
@@ -441,7 +431,7 @@ export function ShotZones({player,league,row}){
     <i style={{background:ZONE_COLORS[zone]}}/><span className="ws-zone-name"><b>{ZONE_LABELS[zone]}</b><small>{fmt(share(zone),0)}% of pts · {a} FGA</small></span>
     <span className="ws-zone-num"><b>{a?`${fmt(m/a*100,1)}%`:'—'}</b><small data-tone={finite(d)&&!few(zone)?(d>=0?'good':'poor'):undefined}>{finite(d)?signed(d,1):''}</small></span>
     <span className="ws-zone-num" data-tone={s>=0.33?'good':s<=-0.33?'poor':undefined}><b>{finite(theirs?.[0])?`${fmt(theirs[0],1)}%`:'—'}</b><small>{s>=0.33?'Soft spot':s<=-0.33?'Tough':finite(theirs?.[0])?'Average':''}</small></span></button>;})}</div>
-  <p className="nd-foot">His FG% in each zone with the gap to the league's (grey under {FEW} tries), then what the {name} allow there. Located shots this season from ESPN's play-by-play.</p></>
+</>
   :<p className="mp-empty">No located shots are recorded for him yet.</p>}
  </Card>;
 }

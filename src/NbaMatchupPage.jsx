@@ -69,7 +69,6 @@ function Injuries({row,league,matchup,player}){
      <span className="mp-inj-who"><b>{item.name}</b><small>{[item.position,item.injury||item.detail].filter(Boolean).join(' · ')||'Undisclosed'}</small></span>
      {finite(change)?<span className="mp-inj-split" data-tone={change>=0?'good':'poor'}><b>{change>=0?'+':''}{fmt(change,1)}</b><small>{without.games} games without</small></span>
       :<span className="mp-pill" data-tone={STATUS_TONE(item.status)}>{item.code||item.status||'—'}</span>}</div>;})}</div>)}
-  <p className="nd-foot">Green: his average goes up in the games that teammate missed; red: it goes down.</p>
  </Card>;
 }
 

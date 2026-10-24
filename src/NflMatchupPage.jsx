@@ -92,7 +92,6 @@ function Grade({row,league,group,picked,onPick}){
    <div className="ng-tiles" role="group" aria-label="Stat" style={{gridTemplateColumns:`repeat(${scores.length},minmax(0,1fr))`}}>{scores.map(item=>
     <button type="button" key={item.marketKey} data-tone={item.tone} aria-pressed={item.marketKey===chosen.marketKey} disabled={item.score==null}
      onClick={()=>onPick(item.marketKey)} aria-label={`${item.stat} ${item.score??'no score'}${item.label?`, ${item.label}`:''}`}><span>{item.stat}</span><b>{item.score??'—'}</b></button>)}</div>
-   <p className="nd-foot">0-100 for the over, 50 an even matchup. It adds up what {row.opponent} allows (counted for less while they’ve played few games), the game’s line and his share of the ball, each weighted by how well it predicted players beating their own average in 2024 and 2025; the number beside each reason is what it adds. 90 or more: about the top 2-3% of props.</p>
    {chosen.reads?.length>0&&<ul className="nf-reads">{chosen.reads.map(read=><li key={read.key} data-tone={read.points>=1?'soft':read.points<=-1?'tough':undefined}>
     <span>{read.text}</span><b>{read.points>0?'+':read.points<0?'−':''}{fmt(Math.abs(read.points),0)}</b></li>)}</ul>}
   </div>
@@ -123,7 +122,6 @@ function TheirDefense({row,league,group,picked}){
   {TEAM_ROWS.some(([key])=>team[key])&&<><div className="ns-sub-head"><b>Every offense</b><span>What {row.opponent} allows a game, all positions</span></div>
    <div className="ns-base">{TEAM_ROWS.filter(([key])=>team[key]).map(([key,label])=><div key={key} data-tone={toneOf(team[key][1],teams)}>
     <small>{label}</small><b>{fmt(team[key][0],1)}</b><em>{place(team[key][1],teams)}</em></div>)}</div></>}
-  <p className="nd-foot">Green: among the most the league allows (good for the over). Red: among the fewest. Each game counts every {GROUPS[group].replace(/s$/,'')} who played against them, added up.</p>
  </Card>;
 }
 
@@ -158,7 +156,6 @@ const LOG_COLUMNS={QB:[['CMP/ATT',game=>finite(game.values?.pass_completions)?`$
  WR:[['TGT','targets'],['REC','receptions'],['REC YDS','receiving_yards'],['TD','touchdowns'],['RUSH YDS','rushing_yards']]};
 LOG_COLUMNS.TE=LOG_COLUMNS.WR;
 const MAIN={QB:'passing_yards',RB:'rushing_yards',WR:'receiving_yards',TE:'receiving_yards'};
-const MAIN_WORDS={QB:'passing yards',RB:'rushing yards',WR:'receiving yards',TE:'receiving yards'};
 const cellOf=(game,read)=>typeof read==='function'?read(game):fmt(game.values?.[read],0);
 
 function GameLog({logs,league,group}){
@@ -178,7 +175,7 @@ function GameLog({logs,league,group}){
      <td><span className="mp-opp">{game.isHome?'':'@'}{game.opponent}{finite(rank)&&shown===seasons[0]&&<em className="nf-drank" data-tone={toneOf(rank,count)}>D#{rank}</em>}</span></td>
      {game.dnp?<td colSpan={columns.length} className="nf-dnp">Did not play</td>:columns.map(([label,read])=><td key={label}>{cellOf(game,read)}</td>)}</tr>;})}
     <tr className="mp-log-avg"><td colSpan="2">Totals</td>{totals.map((total,index)=><td key={columns[index][0]}>{total==null?'':fmt(total,0)}</td>)}</tr></tbody></table></div>
-  {shown===seasons[0]&&<p className="nd-foot">D#: where that defense ranks this season in {MAIN_WORDS[group]} allowed to {GROUPS[group]}. 1 allows the fewest (tough), {count||32} the most (soft).</p>}
+  
  </Card>;
 }
 

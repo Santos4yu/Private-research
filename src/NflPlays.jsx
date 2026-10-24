@@ -43,9 +43,9 @@ function Angle({split,context,open}){
   <summary><span><b>{SPLIT_TITLES[split.split]}{split.season<context.season&&<em className="nf-tag">{split.season}</em>}</b>
    <small>{headline(split,context)}</small></span><ChevronDown size={18} aria-hidden="true"/></summary>
   <SplitTable split={split} opponent={context.opponent}/>
-  {split.split==='lane'&&<p className="nd-foot">The hole the play-by-play logs for each run (where he ended up, not the blocking scheme).</p>}
-  {split.split==='coverage'&&split.season<context.season&&<p className="nd-foot">From {split.season}: the NFL publishes coverage after a season ends, so this season’s isn’t out yet. Defenses change from year to year; read it as a lean.</p>}
-  {split.split==='blitz'&&<p className="nd-foot">A blitz is five or more pass rushers (FTN’s charting). “Of team”: his share of his team’s targets that way.</p>}
+  
+  
+  
  </details>;
 }
 
@@ -59,7 +59,6 @@ export function HowItPlays({plays,row,season}){
  return <Card title="How it plays" note={`${season} · ${row.opponent} vs him`} icon={Route} className="nf-plays">
   {splits.map((split,index)=><Angle key={split.split} split={split} context={context} open={index===0}/>)}
   {line&&<p className="nf-bottom"><b>Bottom line</b>{line}</p>}
-  <p className="nd-foot">Green: among the most the league allows there (good for the over), or among his position’s best. Red: the reverse. Ranks count players with 8+ plays in that look{splits.some(split=>split.kind==='pass')?' (15+ throws for quarterbacks)':''}. From nflverse’s play-by-play and FTN’s charting.</p>
  </Card>;
 }
 
@@ -87,7 +86,6 @@ export function FacedThem({plays,row,group}){
       <small>{against?`${against.kind==='line'?'line':'avg'} ${num(against.value,1)}`:''}</small></td>;})}
    </tr>)}</tbody></table></div>
   {faced.rows.length>8&&<button type="button" className="nf-more" aria-expanded={all} onClick={()=>setAll(value=>!value)}>{all?'Show fewer':`Show all ${faced.rows.length}`}</button>}
-  <p className="nd-foot">Green: beat his own number that game. “line” is his PrizePicks line that day{lines?'':' (kept from week 7 on)'}; “avg” his average in his games before it, where no line was kept. A first game of the season has neither. Players with a real part in the game only.</p>
  </Card>;
 }
 
@@ -116,18 +114,16 @@ export function Metrics({state,season,seasons,onSeason}){
  const switcher=<SeasonSwitch seasons={seasons} shown={season} onPick={onSeason}/>;
  if(!data?.player)return <Card title="Metrics" icon={BarChart3}>{switcher}<p className="mp-empty">No {season} games on record for him.</p></Card>;
  const groups=data.metrics||[],[production,volume,...efficiency]=groups;
- const regulars=production?.items?.find(item=>item.of)?.of;
  return <>
   <Card title="Production" note={`${season} · ${data.player.games} ${data.player.games===1?'game':'games'}`} icon={Trophy} className="nf-metrics">
    {switcher}
    {production&&<Tiles group={production}/>}
-   <p className="nd-foot">Each rank is among {regulars?`the ${regulars} `:''}{(GROUP_NOUNS[data.player.group]||'players').toLowerCase()} with a regular role (about 1.5 {data.player.group==='QB'?'pass attempts or carries':'carries or targets'} a week). 1st is the most{production?.items?.some(item=>item.low)?' (for interceptions, the fewest)':''}. Fantasy points: half-PPR.</p>
   </Card>
   {volume&&<Card title="Volume" note="his workload" icon={Activity} className="nf-metrics"><Bars group={volume}/></Card>}
   {efficiency.map(group=><Card key={group.key} title={group.title} note={group.need?`${group.need.min}+ ${NEED_WORDS[group.need.stat]||group.need.stat} · ${group.items.find(item=>item.of)?.of??0} ranked`:null}
    icon={BarChart3} className="nf-metrics">
    <Bars group={group}/>
-   {!group.ranked&&group.need&&<p className="nd-foot">Not ranked: he has fewer than {group.need.min} {NEED_WORDS[group.need.stat]||group.need.stat} this season.</p>}
+   
   </Card>)}
  </>;
 }
@@ -147,6 +143,5 @@ export function WhereHeWins({state,season}){
      <b>{row.his.n?num(row.his.value):'—'}<span>{per}</span></b>
      <em>{row.his.n} {unit} · {num(row.his.yards,0)} yds</em>
      {finite(row.his.rank)&&<i>{rankWords(row.his.rank,row.his.of)}</i>}</div>)}</div></section>;})}
-  <p className="nd-foot">His best look in each group is outlined: the best rank at his position, among players with 8+ plays there.</p>
  </Card>;
 }

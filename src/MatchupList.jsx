@@ -100,7 +100,6 @@ function TrackRecord(){
    {tiers.length>0&&<table><caption>By Prop grade</caption>
     <thead><tr><th scope="col">Grade</th><th scope="col">Over</th><th scope="col">Props</th></tr></thead>
     <tbody>{tiers.map(item=><tr key={item.tier}><th scope="row">{TIER_NAMES[item.tier]}</th><td>{rate(item)}</td><td>{item.props}</td></tr>)}</tbody></table>}
-   <p>Each prop as the list showed it before its game, against his line that night. A push (landing on the line) isn't counted in the rate. Over {record.all.props} props in all, {rate(record.all)} went over. Demons need less than half to pay; regular lines need more than half.</p>
   </div>}
  </section>;
 }
@@ -262,6 +261,6 @@ export function MatchupList({config}){
   {(status==='ready'||status==='refreshing')&&rows.length>0&&!shown.length&&<div className="nm-empty"><b>Nothing matches</b>
    <span>Try another stat or game, or clear the search.</span></div>}
 
-  {at>0&&rows.length>0&&<p className="nm-meta">{words.meta} · {shown.length} {shown.length===1?'prop':'props'} · updated {new Date(at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</p>}
+  {at>0&&rows.length>0&&<p className="nm-meta">{shown.length} {shown.length===1?'prop':'props'} · updated {new Date(at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</p>}
  </section>;
 }

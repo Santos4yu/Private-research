@@ -308,7 +308,6 @@ function DefenderCard({row,matchup}){
     <td>{fmt(item.poss,0)}</td><td data-tone={finite(item.pts)&&finite(usual?.pts)?(item.pts>usual.pts*1.08?'good':item.pts<usual.pts*.92?'poor':undefined):undefined}>{fmt(item.pts,1)}</td>
     <td>{finite(item.ts)?fmt(item.ts,1)+'%':'—'}</td><td>{fmt(item.fga,1)}</td></tr>)}</tbody></table>
   {scope==='theirs'&&!theirs.length&&<Empty>He hasn't faced {data.opponent}'s current players in games against them; showing everyone.</Empty>}
-  <p className="nd-foot">Per 75 possessions, about a game, from NBA.com's matchup tracking ({data.season}). {data.opponent}: players on {data.opponent} now, only in games they played for {data.opponent} against him ({theirSeasons(data,theirs)}); anyone out tonight left off. Usual: his season across every defender ({fmt(usual?.poss,0)} possessions).</p>
  </Card>;
 }
 
