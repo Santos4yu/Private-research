@@ -13,12 +13,13 @@ import {Face,Img} from './PickParts';
 import {propGrades} from './props-grade';
 import {loadLearning} from './learning';
 import {lineupRole} from './lineup-role';
+import {ENOUGH,loadRecord,reportProps,reportRows} from './props-record';
 import './nba-matchups.css';
 
 const SORTS=[['matchup','Matchup'],['hit','Hit %'],['prop','Prop grade']];
 // The table's headings for the sorted columns: full, and on a phone.
 const HEADS={matchup:['Matchup','Match'],hit:['Last 10','L10'],prop:['Prop grade','Prop']};
-const READS={defense:'Their defense',pace:'Their pace',position:'vs his position',attempts:'Threes they allow',rebounds:'Rebounds they allow',assists:'Assists they allow',turnovers:'Their turnovers',meetings:'His games vs them',
+const READS={teammates:'His teammates out',missing:'Their players out',recent:'Their last 10 games',defense:'Their defense',pace:'Their pace',position:'vs his position',attempts:'Threes they allow',rebounds:'Rebounds they allow',assists:'Assists they allow',turnovers:'Their turnovers',meetings:'His games vs them',
  script:'The game line',scoring:'His team’s scoring',role:'His role'};
 // What a read adds to (or takes from) the even 50.
 const added=points=>`${points>0?'+':points<0?'−':''}${Math.abs(Math.round(points))} ${Math.abs(Math.round(points))===1?'point':'points'}`;
@@ -78,6 +79,32 @@ function PropRow({row,read,hit,prop,role,open,onToggle,onOpen,short}){
  </li>;
 }
 
+// How the props the list showed went (props-record.js): by matchup score
+// band and Prop grade tier, over each one's line, once enough have been
+// played. The NBA's only.
+const TIER_NAMES={elite:'Elite',strong:'Strong',lean:'Lean',risky:'Risky',fade:'Fade'};
+function TrackRecord(){
+ const [record,setRecord]=useState(null),[open,setOpen]=useState(false);
+ useEffect(()=>{let live=true;loadRecord(14).then(data=>{if(live)setRecord(data);}).catch(()=>{});return()=>{live=false;};},[]);
+ const bands=(record?.bands||[]).filter(item=>item.props>=ENOUGH),tiers=(record?.tiers||[]).filter(item=>item.props>=ENOUGH);
+ if(!record||!bands.length)return record?.nights>0?<p className="nm-record-note">Track record: {record.all.props} props over {record.nights} {record.nights===1?'night':'nights'} so far. Rates show once each band has {ENOUGH}.</p>:null;
+ const top=bands[0];
+ const rate=item=>`${Math.round(item.overRate)}%`;
+ return <section className="nm-record" data-open={open||undefined}>
+  <button type="button" className="nm-record-head" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>
+   <span><b>Track record</b><small>Last {record.nights} {record.nights===1?'night':'nights'}: matchup {top.band} went over {rate(top)} of {top.props}</small></span><ChevronDown size={16} aria-hidden="true"/></button>
+  {open&&<div className="nm-record-body">
+   <table><caption>How often the props this list showed went over their line, by matchup score</caption>
+    <thead><tr><th scope="col">Matchup</th><th scope="col">Over</th><th scope="col">Props</th></tr></thead>
+    <tbody>{bands.map(item=><tr key={item.band}><th scope="row">{item.band}</th><td>{rate(item)}</td><td>{item.props}</td></tr>)}</tbody></table>
+   {tiers.length>0&&<table><caption>By Prop grade</caption>
+    <thead><tr><th scope="col">Grade</th><th scope="col">Over</th><th scope="col">Props</th></tr></thead>
+    <tbody>{tiers.map(item=><tr key={item.tier}><th scope="row">{TIER_NAMES[item.tier]}</th><td>{rate(item)}</td><td>{item.props}</td></tr>)}</tbody></table>}
+   <p>Each prop as the list showed it before its game, against his line that night. A push (landing on the line) isn't counted in the rate. Over {record.all.props} props in all, {rate(record.all)} went over. Demons need less than half to pay; regular lines need more than half.</p>
+  </div>}
+ </section>;
+}
+
 // The game menu: each game once, with both teams' logos, its time and how
 // many props it has. Opens under the button; Escape, a tap outside or a pick
 // closes it, and the arrow keys move through it.
@@ -133,12 +160,15 @@ export function MatchupList({config}){
   const stop=store.on(setData);
   store.warm();
   // League numbers the server wasn't ready with are asked for again.
-  const retry=setInterval(()=>{if(!store.get().league)store.refresh();},45000);
+  // Tonight's injury reports (the NBA) are asked for again every few minutes.
+  const retry=setInterval(()=>{if(!store.get().league)store.refresh();store.freshenTonight?.();},45000);
   return()=>{stop();clearInterval(retry);};
  },[store]);
  const load=useCallback(()=>{store.refresh();},[store]);
  const rows=useMemo(()=>(data.rows||[]).filter(store.wanted),[data.rows,store]);
- const league=data.league,progress=data.progress,at=data.at;
+ // Tonight's injury reports (the NBA) ride with the league numbers into the score.
+ const league=useMemo(()=>data.league&&data.tonight?{...data.league,tonight:data.tonight}:data.league,[data.league,data.tonight]);
+ const progress=data.progress,at=data.at;
  // Something to show beats a spinner: the list stays up while a board loads.
  const status=data.rows==null||(!rows.length&&data.loading)?'loading':!rows.length&&data.error?'error':data.loading?'refreshing':'ready';
  const scores=useMemo(()=>league?score(rows,league):new Map(),[rows,league,score]);
@@ -146,6 +176,12 @@ export function MatchupList({config}){
  const [learned,setLearned]=useState(0);
  useEffect(()=>{let live=true;Promise.resolve().then(()=>loadLearning()).then(()=>{if(live)setLearned(Date.now());}).catch(()=>{});return()=>{live=false;};},[]);
  const grades=useMemo(()=>propGrades(rows,league),[rows,league,learned]);
+ // The NBA list reports what it shows for the track record (props-record.js).
+ useEffect(()=>{
+  if(config.key!=='nba'||!scores.size)return undefined;
+  const wait=setTimeout(()=>reportProps(reportRows(rows,scores,grades)),4000);
+  return()=>clearTimeout(wait);
+ },[config.key,rows,scores,grades]);
  const games=useMemo(()=>{
   const seen=new Map();
   for(const row of rows){
@@ -214,6 +250,7 @@ export function MatchupList({config}){
   {status==='error'&&<div className="nm-empty"><b>{words.failed}</b><button type="button" onClick={load}>Try again</button></div>}
   {(status==='ready'||status==='refreshing')&&!rows.length&&<div className="nm-empty"><b>{words.none}</b>
    <span>{words.noneText}</span></div>}
+  {config.key==='nba'&&<TrackRecord/>}
   {(status==='ready'||status==='refreshing')&&rows.length>0&&!league&&<p className="nm-note">Matchup scores are still loading the league’s numbers. Hit rates are below.</p>}
 
   {shown.length>0&&<div className="nm-table">

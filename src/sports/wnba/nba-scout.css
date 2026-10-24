@@ -115,6 +115,16 @@
 .nba-mp .mp-card>header small{flex:none;max-width:55%;overflow:hidden;color:var(--mp-faint);font-size:12px;font-weight:700;white-space:nowrap;text-overflow:ellipsis}
 .nba-mp .mp-card-body{padding:0 0 22px}
 .nba-mp .nd-foot{margin:10px 0 0;color:var(--mp-faint);font:500 10.5px/1.45 var(--font-sans)}
+/* Tonight's part of the score: who's out, their last 10 games. */
+.nba-mp .ng-tonight{display:flex;flex-direction:column;margin:0;padding:0;list-style:none}
+.nba-mp .ng-tonight li{display:flex;flex-direction:column;gap:4px;padding:10px 0;border-top:1px solid #1f1f1f}
+.nba-mp .ng-tonight li:first-child{border-top:0;padding-top:0}
+.nba-mp .ng-tonight span{display:flex;justify-content:space-between;gap:10px}
+.nba-mp .ng-tonight b{font-size:13px}
+.nba-mp .ng-tonight em{flex:none;color:var(--mp-faint);font-size:12px;font-style:normal;font-weight:800}
+.nba-mp .ng-tonight em[data-sign=up]{color:#46e39a}
+.nba-mp .ng-tonight em[data-sign=down]{color:#ff7b7b}
+.nba-mp .ng-tonight small{color:var(--mp-muted);font-size:12.5px;line-height:1.45}
 .nba-mp .mp-empty{margin:4px 0 0;color:var(--mp-muted);font-size:12.5px}
 .nba-mp .mp-skeleton{display:grid;gap:8px}
 .nba-mp .mp-skeleton span{height:14px;border-radius:7px;background:linear-gradient(90deg,#1c1c1c,#262626,#1c1c1c);background-size:200% 100%;animation:mp-shine 1.2s linear infinite}

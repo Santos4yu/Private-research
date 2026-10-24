@@ -29,9 +29,18 @@ test('a line reads the Props tab number in the slips', () => {
     // The Less reads it the other way round.
     assert.equal(matchupCase({row: row(opponent), side: 'UNDER', grade: {}}, {nba: league}).score, 100 - props.score);
   }
+  // The softest defense alone is an edge; tonight's absences (a starter at
+  // his position out) make it a strong one, in the slips too.
   const soft = matchupCase({row: row('SOFT'), side: 'OVER', grade: {}}, {nba: league});
-  assert.ok(soft.score >= 90, String(soft.score));
-  assert.equal(soft.tone, 'excellent');
+  assert.ok(soft.score >= 70, String(soft.score));
+  assert.equal(soft.tone, 'good');
+  const night = {...league, rotation: {TOR: {players: [{id: 'f9', name: 'Scottie Barnes', pos: 'SF', played10: 10, min10: 35, last3: true}]}},
+    tonight: {teams: {TOR: {injuries: [{id: 'f9', name: 'Scottie Barnes', status: 'Out', out: true}]}}}};
+  const short = matchupCase({row: row('SOFT'), side: 'OVER', grade: {}}, {nba: night});
+  assert.equal(short.score, spreadScores([row('SOFT')], night).get('r-SOFT').score);
+  assert.ok(short.score >= 80 && short.score > soft.score + 8, String(short.score));
+  assert.equal(short.tone, 'excellent');
+  assert.ok(short.facts.some(item => /^Out for TOR tonight: Scottie Barnes \(F, 35 min\)/.test(item.text)));
   // The reasons are the Props tab's reads.
   assert.ok(soft.facts.some(item => item.kind === 'opponent' && /SOFT gives up/.test(item.text)));
 });

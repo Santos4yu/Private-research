@@ -2,6 +2,7 @@
 seasons of game logs, and the season of box scores kept a month per record.
 No network: ESPN, PrizePicks and the store are stand-ins."""
 import importlib.util
+import json
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
@@ -358,3 +359,55 @@ class ResearchDunksTests(unittest.TestCase):
             request.path = "/api/wnba?league=nba&resource=gamelogs&playerIds=3975&season=2026"
             request.do_GET()
         self.assertEqual(asked, [{"fill_dunks": True}, {"fill_dunks": False}])
+
+
+class TonightTests(unittest.TestCase):
+    """Tonight's injury reports for the NBA score's who's-out reads (api/wnba.py _nba_tonight)."""
+
+    def setUp(self):
+        api._tonight_memory.update(at=0.0, value=None)
+
+    def tearDown(self):
+        api._tonight_memory.update(at=0.0, value=None)
+
+    def test_each_teams_next_game_and_who_is_listed(self):
+        now = datetime(2026, 11, 3, 16, tzinfo=timezone.utc)
+        side = lambda abbr: {"abbr": abbr, "name": abbr, "logo": None}
+        days = {"20261103": [{"id": "401", "start": datetime(2026, 11, 4, 0, tzinfo=timezone.utc), "home": side("GS"), "away": side("LAL")},
+                             {"id": "402", "start": datetime(2026, 11, 4, 1, tzinfo=timezone.utc), "home": side("BOS"), "away": side("NY")}],
+                "20261104": [{"id": "403", "start": datetime(2026, 11, 5, 0, tzinfo=timezone.utc), "home": side("LAL"), "away": side("PHX")}]}
+        reports = {"401": {"injuries": {"GS": [{"id": "3975", "name": "Stephen Curry", "position": "PG", "status": "Out"},
+                                               {"id": "1", "name": "A", "position": "F", "status": "Day-To-Day"}]}},
+                   "402": {"injuries": {}}, "403": {"injuries": {"PHX": []}}}
+        with patch.object(api, "_nba_day", side_effect=lambda day: days.get(day, [])), \
+                patch.object(matchup, "matchup", side_effect=lambda event_id, league_name: reports[event_id]):
+            teams = api._nba_tonight(now)["teams"]
+        # LAL's next game is tonight's at GS; a game whose report lists nobody stays unknown.
+        self.assertEqual((teams["LAL"]["eventId"], teams["LAL"]["opponent"], teams["LAL"]["injuries"]), ("401", "GS", []))
+        self.assertEqual([(item["name"], item["out"]) for item in teams["GS"]["injuries"]], [("Stephen Curry", True), ("A", False)])
+        self.assertNotIn("BOS", teams)
+        self.assertEqual(teams["PHX"]["injuries"], [])
+
+
+class PropsLogTests(unittest.TestCase):
+    """The Props tab's report (api/wnba.py do_POST -> props_record.remember)."""
+
+    def post(self, path, body):
+        import io
+        request = object.__new__(api.handler)
+        raw = json.dumps(body).encode()
+        request.path, request.headers, request.rfile = path, {"Content-Length": str(len(raw))}, io.BytesIO(raw)
+        sent = []
+        with patch.object(api, "_send", side_effect=lambda _, status, payload: sent.append((status, payload))), \
+             patch.object(api, "session_with_live_access", return_value=True):
+            request.do_POST()
+        return sent[0]
+
+    def test_a_report_is_kept(self):
+        kept = []
+        import props_record
+        with patch.object(props_record, "remember", side_effect=lambda rows, pipeline: kept.append(rows) or len(rows)):
+            status, payload = self.post("/api/wnba?league=nba&resource=props-log", {"rows": [{"id": "1"}, {"id": "2"}]})
+        self.assertEqual((status, payload["kept"]), (200, 2))
+        self.assertEqual(kept[0][1]["id"], "2")
+        self.assertEqual(self.post("/api/wnba?resource=props-log", {"rows": []})[0], 404)

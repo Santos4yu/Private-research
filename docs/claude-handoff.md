@@ -102,6 +102,51 @@ not book odds.
   opponent's defense card (team baseline + "vs guards, by stat" with the
   picked stat marked + his games vs them), play types, likely defenders,
   shot chart sheet, vs that team, position ranks.
+- NBA matchup score v3 (Oct 24, owner: "build everything you think is
+  best to get our matchups most accurate"). Same backtest, new reads
+  (scripts now in `tools/nba-backtest/`, README there; data from
+  sportsdataverse's GitHub releases):
+  - Who's out: a team's recent rotation players (3+ of its last 10 games,
+    one of its last 3, 15+ minutes in them) who sat. Per 30 minutes his
+    teammates had out at his position, he beat his average far more often
+    (log-odds x 245: points +71/+75 in the two seasons, threes +40/+50,
+    assists +65/+44), elsewhere less (+48/+55 points); the opponent's out
+    a little (their center for rebounds +26/+21). By far the strongest
+    read. Centred on a usual night (`OUT_CENTRES`: about 12 minutes out
+    at a guard's position, 17 elsewhere), so nobody out reads a bit
+    below. Fitted together, defense flipped sign for rebounds and assists
+    (dropped there); last-10-games defense added (`recent`, small);
+    back-to-backs too unsteady (opponent's for rebounds only, left out:
+    the Analyzer's rest facts cover it); combos weighted by his stat mix
+    read worse than the even average (kept even).
+  - New scale K 133 (weights in `WEIGHTS`; meetings refitted 70.6 / 45.6).
+    Out of sample: 90+ (2.6%) +13.5 points of % over usual, 75-89 +6.9,
+    60-74 +2.6, 40-59 even, 25-39 -2.8, under 25 (10.8%) -7.0; best tenth
+    vs worst tenth 15 points apart (8 before; points 20, PRA 26). Without
+    tonight's report the opponent alone ranges about 18-83.
+  - Live: `resource=tonight` (api/wnba.py `_nba_tonight`: each game's
+    ESPN injury report via matchup.py, 5 min; a game whose report lists
+    nobody is unknown, not healthy) and league-context `rotation` players'
+    `played10`/`min10`/`last3` (context.py `_recent_minutes`) and
+    opportunity `ptsAllowed10`/`drtg10`. `outTonight` counts Out /
+    Suspended fully, Doubtful 0.8, Questionable / Day-To-Day 0.35 (public
+    rates; the backtest counted who actually sat). ESPN positions
+    (PG/SG/SF/PF) go through `positionCode` (positionOf alone read PG as
+    F). The list and the Analyzer load tonight's reports (props-data.js
+    `refreshTonight`, slip-matchup.js `loadMatchups`); never saved on the
+    device. In the Analyzer the teammates read is marked counted when the
+    prop model has used a teammate's absence (`mate:` keys).
+  - Shown: list Why ("His teammates out", "Their players out", "Their last
+    10 games") and a "Tonight" block on the player page under Why this
+    score; footnotes rewritten.
+  - Track record (`props_record.py`, `src/props-record.js`): the NBA list
+    POSTs what it shows (`resource=props-log`, at most every 10 min per
+    tab, games still to come; KV `krazy:props-record:v1:nba:<day>`), and
+    `resource=props-record&days=14` grades it against the stored season's
+    box scores by score band and Prop tier (pushes left out of rates). The
+    list shows it once a band has 20 props. This is the real test against
+    PrizePicks' lines (which already price injury news): watch whether
+    75+ and Elite beat ~54% over the next weeks, and refit if not.
 - `src/nba-matchup-score.js`: the 0-100 score, rebuilt Oct 22 on a
   backtest like NFL's (the owner's call, after RotoBot's per-player grades
   proved impossible to explain): every 2024-25 and 2025-26 player-game with

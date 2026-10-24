@@ -50,6 +50,7 @@ import {cfbShareOf} from './slip-analyst.js';
 import {MARKET_STAT as BASKETBALL_STAT, baseMarket, isPeriodMarket, periodless} from './sports/wnba/wnba-research.js';
 import {familyOf, opportunityFacts, opportunityRead} from './sports/wnba/opportunity.js';
 import {matchupScore, band as nbaBand} from './nba-matchup-score.js';
+import {loadTonight} from './unified-finder-data.js';
 import {matchupScore as nflScore} from './nfl-matchup-score.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
@@ -89,7 +90,12 @@ export async function loadMatchups(sports, {signal, fetcher} = {}) {
         quietly(request(`/api/nfl?resource=finder-weather&season=${nflSeasonNow()}`, options))]);
       return [sport, league || scout || weather ? {...(league || {}), scout, weather} : null];
     }
-    if (sport === 'nba' || sport === 'wnba') return [sport, await quietly(loadFinderDefense(sport, options))];
+    if (sport === 'nba') {
+      // With tonight's injury reports for the score's who's-out reads.
+      const [league, tonight] = await Promise.all([quietly(loadFinderDefense(sport, options)), quietly(loadTonight(options))]);
+      return [sport, league ? {...league, tonight} : null];
+    }
+    if (sport === 'wnba') return [sport, await quietly(loadFinderDefense(sport, options))];
     if (sport === 'nhl') return [sport, await quietly(request('/api/board?view=nhl&resource=league', options))];
     if (sport === 'soccer') return [sport, await quietly(request('/api/board?view=soccer&resource=league', options))];
     if (sport === 'cfb') {
@@ -880,6 +886,9 @@ export function matchupCase(leg, tables = {}) {
   const counted = new Set(leg.grade?.read?.model?.used || []);
   // The prop model's opportunities already carry his playing time.
   if (leg.grade?.read?.model) counted.add('role-trend');
+  // With the game's news, the prop model reads who's out around him from his
+  // own games without them: the score's teammates read isn't counted again.
+  if ([...counted].some(key => key.startsWith('mate:'))) counted.add('nba-teammates');
   for (const item of facts) if (counted.has(item.key)) item.modelled = true;
   const impact = item => item.modelled ? 0 : item.impact;
   // In a bigger role today (a backup starting), his own games came in the

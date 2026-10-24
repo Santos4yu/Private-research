@@ -2,7 +2,7 @@
 // 2024-25 and 2025-26 (the weights and what they meant: the top of that file).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {matchupScore, spreadScores, cardScores, band, WEIGHTS} from '../src/nba-matchup-score.js';
+import {matchupScore, spreadScores, cardScores, band, outTonight, WEIGHTS, OUT_CENTRES} from '../src/nba-matchup-score.js';
 import {meetingsOf, statGameLog} from '../src/unified-finder-data.js';
 import {readFileSync} from 'node:fs';
 
@@ -58,11 +58,13 @@ test('last season’s real numbers: Denver for a guard, and how the scores sprea
   // RotoBot (Oct 2026) moves each guard on something of its own: points 89
   // McCain, 73 Wallace, 63 Gilgeous-Alexander; steals 40-51. Denver turn it
   // over the fewest times, which is what predicted steals.
-  assert.deepEqual(card, {PTS: 56, REB: 44, AST: 62, '3PM': 72, STL: 25, BLK: 66});
+  assert.deepEqual(card, {PTS: 52, REB: 46, AST: 55, '3PM': 62, STL: 36, BLK: 58});
   const scores = Object.keys(real.teamStats).flatMap(opponent => ['G', 'F', 'C'].flatMap(position =>
     cardScores(row(`${opponent}${position}`, {position, teamAbbr: 'OKC', opponent}), real).map(item => item.score))).sort((a, b) => a - b);
-  const top = scores.filter(score => score >= 90).length / scores.length;
-  assert.ok(top > 0.01 && top < 0.05, String(top));                  // the backtest's scale: about 2.5% at 90+
+  // The opponent's numbers alone (no injury report) keep inside 15-85: who's
+  // out tonight is what reaches the ends (the backtest's 2.5% at 90+).
+  assert.ok(scores[0] >= 15 && scores.at(-1) < 90, `${scores[0]} ${scores.at(-1)}`);
+  assert.ok(scores[Math.floor(scores.length * 0.1)] < 40 && scores[Math.floor(scores.length * 0.9)] > 60);
   assert.ok(Math.abs(scores[Math.floor(scores.length / 2)] - 50) <= 5);
 });
 
@@ -128,18 +130,19 @@ test('far softer than everyone reads near 100; the middle near 50; the stingy, s
   const far = structuredClone(league);
   far.teamStats.UTA.def.pts = [128, N];
   far.opportunity.teams.UTA = {drtg: [124, 1], poss: [105, 1]};
-  assert.ok(matchupScore(row('9', {opponent: 'UTA'}), far).score >= 95);
+  assert.ok(matchupScore(row('9', {opponent: 'UTA'}), far).score >= 80);
   const middle = TEAMS.find(team => allowed[team][1] === 15);
   assert.ok(Math.abs(matchupScore(row('10', {opponent: middle}), league).score - 50) <= 8);
   const tough = matchupScore(row('11', {opponent: 'BOS'}), league);
-  assert.ok(tough.score <= 12, String(tough.score));
+  assert.ok(tough.score <= 25, String(tough.score));
   assert.equal(band(tough.score).label, 'Tough');
 });
 
 test('the list and the player card score a prop the same', () => {
   const scores = spreadScores([row('a'), row('b', {opponent: 'BOS'})], league);
   assert.equal(scores.get('a').score, cardScores(row('a'), league).find(item => item.stat === 'PTS').score);
-  assert.equal(scores.get('a').label, 'Strong edge');
+  assert.equal(scores.get('a').label, band(scores.get('a').score).label);
+  assert.ok(scores.get('a').score >= 60);
   assert.ok(scores.get('b').score < scores.get('a').score);
   const history = {rows: [...Array(12)].map((_, i) => ({date: `2026-0${1 + (i % 9)}-1${i % 10}`, opponent: i % 4 ? 'T3' : 'DAL', isHome: i % 2 === 0,
     minutes: 30, values: {player_points: i % 4 ? 12 : 20, player_blocks: i % 4 ? 0 : 3}}))};
@@ -187,4 +190,71 @@ test('nothing about the opponent, no score; bands by the number', () => {
   assert.equal(matchupScore(row('14', {opponent: 'XXX'}), league), null);
   assert.equal(matchupScore({...row('15'), sport: 'wnba'}, league), null);
   assert.deepEqual([band(80).label, band(65).label, band(50).label, band(20).label], ['Strong edge', 'Edge', 'Neutral', 'Tough']);
+});
+
+// Tonight's injury reports (api/wnba.py _nba_tonight) and each team's
+// rotation lately (context.py _recent_minutes).
+const rotation = {
+  HOU: {players: [
+    {id: 'g1', name: 'Fred VanVleet', pos: 'PG', played10: 9, min10: 33, last3: true},
+    {id: 'g2', name: 'Amen Thompson', pos: 'G', played10: 10, min10: 31, last3: true},
+    {id: 'f1', name: 'Jabari Smith', pos: 'PF', played10: 10, min10: 30, last3: true},
+    {id: 'c1', name: 'Alperen Sengun', pos: 'C', played10: 10, min10: 32, last3: true},
+    {id: 'g9', name: 'Long Gone', pos: 'G', played10: 3, min10: 28, last3: false},
+    {id: 'g8', name: 'Deep Bench', pos: 'G', played10: 6, min10: 9, last3: true}]},
+  DAL: {players: [
+    {id: 'dc', name: 'Dereck Lively', pos: 'C', played10: 8, min10: 27, last3: true},
+    {id: 'dg', name: 'Kyrie Irving', pos: 'G', played10: 10, min10: 35, last3: true}]},
+};
+const report = (team, injuries) => ({[team]: {eventId: '1', startsAt: '2026-11-04T00:00:00Z', opponent: '?', injuries}});
+const out = (id, status = 'Out') => ({id, name: id, status, out: ['Out', 'Doubtful'].includes(status)});
+const tonight = teams => ({...league, rotation, tonight: {teams}});
+const guard = (extra = {}) => row('tg', {position: 'G', teamAbbr: 'HOU', opponent: 'DAL', ...extra});
+
+test('who counts as out: listed Out or Doubtful and in the rotation lately', () => {
+  const night = tonight(report('HOU', [out('g1'), out('g2', 'Questionable'), out('g9'), out('g8'), out('c1', 'Doubtful'), out('tg'), out('f1', 'Probable')]));
+  // VanVleet (PG: a guard) out, Sengun doubtful, Thompson questionable (a
+  // third of his minutes); not the one out for weeks, the one who barely
+  // plays, himself, or a probable.
+  assert.deepEqual(outTonight('HOU', night, 'tg').map(player => [player.name, player.pos, player.min, player.sits]),
+    [['Fred VanVleet', 'G', 33, 1], ['Alperen Sengun', 'C', 32, 0.8], ['Amen Thompson', 'G', 31, 0.35]]);
+  // No report for the team, or a server without the recent minutes: unknown, not healthy.
+  assert.equal(outTonight('DAL', night), null);
+  const old = {...night, rotation: {HOU: {players: rotation.HOU.players.map(({played10, min10, last3, ...rest}) => rest)}}};
+  assert.equal(outTonight('HOU', old), null);
+});
+
+test('a teammate out at his position lifts his score the most; a usual night reads even; no report, no read', () => {
+  const none = matchupScore(guard(), league);
+  const healthy = matchupScore(guard(), tonight(report('HOU', [])));
+  const mateOut = matchupScore(guard(), tonight(report('HOU', [out('g1')])));
+  const bigOut = matchupScore(guard(), tonight(report('HOU', [out('c1')])));
+  assert.equal(none.reads.some(read => read.kind === 'teammates'), false);
+  // Nobody out is a little below a usual night (most nights someone sits).
+  const usual = WEIGHTS.pts.teamPos * OUT_CENTRES.teamPos.G + WEIGHTS.pts.teamOther * OUT_CENTRES.teamOther;
+  assert.ok(Math.abs(healthy.reads.find(read => read.kind === 'teammates').points + usual) < 0.1);
+  // A starter at his position out lifts him past a no-report night; their center out, less.
+  assert.ok(healthy.score < bigOut.score && bigOut.score < mateOut.score && mateOut.score > none.score, `${healthy.score} ${none.score} ${bigOut.score} ${mateOut.score}`);
+  assert.equal(mateOut.reads.find(read => read.kind === 'teammates').text,
+    'Out for HOU tonight: Fred VanVleet (G, 33 min). Their minutes and shots go to the rest, most to the guards');
+  // A starter's 33 minutes at his position moves points about 30 on the backtest's scale.
+  assert.ok(mateOut.score - healthy.score >= 20, `${healthy.score} -> ${mateOut.score}`);
+});
+
+test('the opponent\'s absences: their center out lifts rebounds; threes don\'t read them', () => {
+  const rebounds = extra => matchupScore(guard({marketKey: 'player_rebounds', ...extra}), tonight({...report('HOU', []), ...report('DAL', extra.injuries || [])}));
+  const full = rebounds({}), noBig = rebounds({injuries: [out('dc')]});
+  assert.ok(noBig.score > full.score);
+  assert.match(noBig.reads.find(read => read.kind === 'missing').text, /^Out for DAL tonight: Dereck Lively \(C, 27 min\)\. A thinner defense, without its center on the glass$/);
+  const threes = matchupScore(guard({marketKey: 'player_threes'}), tonight({...report('HOU', []), ...report('DAL', [out('dc'), out('dg')])}));
+  assert.equal(threes.reads.some(read => read.kind === 'missing'), false);
+});
+
+test('their last 10 games read beside the season, where the server sends them', () => {
+  const recent = structuredClone(league);
+  TEAMS.forEach((team, index) => Object.assign(recent.opportunity.teams[team], {ptsAllowed10: [100 + index, null], drtg10: [100 + index, null]}));
+  const read = matchupScore(row('r1', {opponent: 'T23'}), recent).reads.find(item => item.kind === 'recent');
+  assert.match(read.text, /^T23 over its last 10 games: 129\.0 points a game, 129\.0 per 100 possessions allowed$/);
+  assert.ok(read.points > 0);
+  assert.equal(matchupScore(row('r2'), league).reads.some(item => item.kind === 'recent'), false);
 });

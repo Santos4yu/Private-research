@@ -7,7 +7,7 @@
 // backend/sports/wnba/context.py + scout.py), NBA.com's tables through the
 // phone relay (play types, defenders), /api/wnba?resource=scout.
 import React,{useEffect,useId,useMemo,useState} from 'react';
-import {Activity,ChevronDown,ChevronRight,Medal,Shield,Swords,Target,UserRound,Users} from 'lucide-react';
+import {Activity,CalendarClock,ChevronDown,ChevronRight,Medal,Shield,Swords,Target,UserRound,Users} from 'lucide-react';
 import {baseMarket,finite,fmt,opponentOf,ordinal,positionOf,realGames,shortDate,signed,useWnba} from './wnba-research';
 import {cardScores} from '../../nba-matchup-score';
 import {theirDefenders,theirSeasons} from './defenders';
@@ -63,8 +63,21 @@ export function MatchupGrade({row,league,logs}){
  return <>
   <GradeCard opponent={opponent} own={own} position={position} onPosition={setPosition} scores={scores} chosen={chosen} onPick={setPicked}/>
   <div className="mp-section"><span>Why this score</span></div>
+  <Tonight reads={chosen.reads} stat={chosen.stat}/>
   <TheirDefense row={row} league={league} position={position} stat={STAT_KEYS[chosen.marketKey]} fit={chosen.fit}/>
  </>;
+}
+
+// Tonight's part of the score (nba-matchup-score.js): who's out on either
+// side, and the opponent's last 10 games. Each with what it adds.
+const TONIGHT={teammates:'His teammates out',missing:'Their players out',recent:'Their last 10 games'};
+function Tonight({reads,stat}){
+ const shown=(reads||[]).filter(read=>TONIGHT[read.kind]);
+ if(!shown.length)return null;
+ return <Card title="Tonight" icon={CalendarClock} note={`In the ${stat} score`}>
+  <ul className="ng-tonight">{shown.map(read=><li key={read.key}><span><b>{TONIGHT[read.kind]}</b><em data-sign={read.points>0.5?'up':read.points<-0.5?'down':'flat'}>{read.points>0?'+':read.points<0?'−':''}{Math.abs(Math.round(read.points))} {Math.abs(Math.round(read.points))===1?'point':'points'}</em></span>
+   <small>{read.text}</small></li>)}</ul>
+ </Card>;
 }
 
 function GradeCard({opponent,own,position,onPosition,scores,chosen,onPick}){
@@ -81,7 +94,7 @@ function GradeCard({opponent,own,position,onPosition,scores,chosen,onPick}){
    <div className="ng-tiles" role="group" aria-label="Stat">{scores.map(item=><button type="button" key={item.marketKey} data-tone={item.tone} aria-pressed={item.marketKey===chosen.marketKey}
     disabled={item.score==null} onClick={()=>onPick(item.marketKey)} aria-label={`${item.stat} ${item.score??'no score'}${item.label?`, ${item.label}`:''}`}>
     <span>{item.stat}</span><b>{item.score??'—'}</b></button>)}</div>
-   <p className="nd-foot">0-100 for the over, 50 an even matchup. It adds up how far {opponent} sit from the league average in points allowed and defensive rating, pace, and what they allow each {POS_WORDS[position][0]} in the stat (rebounds and assists also read the rebounds and assists they give up, steals how often they turn it over, threes only how many threes they let teams take), each counted by how much it predicted overs over the last two seasons. Threes and blocks also count his last three games against them, the only stats where those predicted overs. 90+: the softest few percent of matchups. For the other stats his games against them are shown under Why this score, not counted in it.</p>
+   <p className="nd-foot">0-100 for the over, 50 an even matchup. The biggest part is who's out tonight from both teams' injury reports: a regular in his rotation out (above all at his position) hands him minutes and shots; one of theirs out thins their defense. Then how far {opponent} sit from the league average in points allowed and defensive rating (the season and their last 10 games), pace, and what they allow each {POS_WORDS[position][0]} in the stat (rebounds and assists also read the rebounds and assists they give up, steals how often they turn it over, threes how many threes they let teams take). Each part is counted by how much it predicted overs over the last two seasons. Threes and blocks also count his last three games against them, the only stats where those predicted overs. 90+: the best few percent. For the other stats his games against them are shown under Why this score, not counted in it.</p>
   </div>
  </section>;
 }

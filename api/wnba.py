@@ -968,6 +968,56 @@ def _nba_day(day):
     return games
 
 
+# Tonight's NBA injury reports, by team (each game's ESPN summary,
+# backend/sports/wnba/matchup.py): who the matchup score's who's-out reads
+# count, kept five minutes.
+_tonight_memory = {"at": 0.0, "value": None}
+TONIGHT_SECONDS = 5 * 60
+# Listed as one of these, a player is counted out; Day-To-Day, Questionable
+# and Probable leave him in.
+OUT_STATUSES = ("out", "doubtful", "suspension", "suspended")
+
+
+def _nba_tonight(now=None):
+    """{teams: {abbr: {eventId, startsAt, opponent, injuries: [{id, name,
+    position, status, out}]}}}: each team's next game today or tomorrow (US
+    dates). A team is listed only when its game's report came back (a team
+    without anyone on it then has an empty list); one that's missing means
+    unknown, not healthy."""
+    if _tonight_memory["value"] is not None and time.time() - _tonight_memory["at"] < TONIGHT_SECONDS:
+        return _tonight_memory["value"]
+    from backend.sports.wnba import matchup as game_reports
+    now = now or datetime.now(timezone.utc)
+    east = now - timedelta(hours=5)
+    games = sorted((game for offset in (0, 1) for game in _safe(_nba_day, (east + timedelta(days=offset)).strftime("%Y%m%d"), [])
+                    if now - timedelta(hours=3) < game["start"] < now + timedelta(hours=36)), key=lambda game: game["start"])
+
+    def report(game):
+        try:
+            return game, game_reports.matchup(game["id"], "nba").get("injuries")
+        except Exception:  # noqa: BLE001 -- that game's teams stay unknown
+            return game, None
+
+    teams = {}
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        for game, injuries in pool.map(report, games):
+            # A game whose report lists nobody on either side can't be told
+            # from one that wasn't published: unknown.
+            if not injuries:
+                continue
+            for side, other in (("home", "away"), ("away", "home")):
+                abbr = game[side]["abbr"]
+                if abbr in teams:
+                    continue
+                teams[abbr] = {"eventId": game["id"], "startsAt": game["start"].isoformat(), "opponent": game[other]["abbr"],
+                               "injuries": [{"id": item.get("id"), "name": item.get("name"), "position": item.get("position"),
+                                             "status": item.get("status"), "out": str(item.get("status") or "").strip().lower() in OUT_STATUSES}
+                                            for item in injuries.get(abbr) or []]}
+    value = {"teams": teams, "fetchedAt": now.isoformat()}
+    _tonight_memory.update(at=time.time(), value=value)
+    return value
+
+
 def _nba_games(lines, now):
     """Team code -> its games on the days the lines are for (ESPN's
     scoreboard files a game under its US date, so a late tip is still the
@@ -1070,7 +1120,61 @@ def _nba_board(include_history=False):
     return result
 
 
+def _kv(commands, timeout=4):
+    """Several KV commands in one request; None without a store."""
+    if not store.configured():
+        return None
+    return [entry["result"] for entry in store.pipeline(commands, timeout=timeout)]
+
+
+# The Props tab's track record (props_record.py), worked out at most every ten minutes.
+_record_memory = {}
+RECORD_SECONDS = 10 * 60
+# The most a report may weigh (a full night's list is well under this).
+MAX_REPORT_BYTES = 400_000
+
+
+def _props_record(days):
+    """How the NBA props the list showed over the last `days` days went."""
+    import props_record
+    from backend.sports.wnba import context as season_context, league as stored_league
+    hit = _record_memory.get(days)
+    if hit and time.time() - hit[0] < RECORD_SECONDS:
+        return hit[1]
+    today = props_record.day_of(time.time())
+    first = datetime.fromisoformat(today) - timedelta(days=days)
+    wanted = [(first + timedelta(days=n)).date().isoformat() for n in range(days)]
+    season = stored_league.current_season(league="nba")
+    payloads = [stored_league.stored(year, "nba") for year in (season - 1, season)]
+    value = {**props_record.record(wanted, _kv, payloads, season_context.stat_value, today=today), "fetchedAt": datetime.now(timezone.utc).isoformat()}
+    _record_memory[days] = (time.time(), value)
+    return value
+
+
 class handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        """The Props tab's report of what it shows (props_record.py): NBA only."""
+        query = parse_qs(urlparse(self.path).query)
+        if query.get("league", [""])[0] != "nba" or query.get("resource", [""])[0] != "props-log":
+            return _send(self, 404, {"error": "Unknown resource."})
+        if not session_with_live_access(self.headers):
+            return _send(self, 401, {"error": "Sign in to use NBA data.", "authRequired": True})
+        try:
+            size = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            size = 0
+        if not 0 < size <= MAX_REPORT_BYTES:
+            return _send(self, 413 if size else 400, {"error": "A report of the list's props is required."})
+        try:
+            rows = json.loads(self.rfile.read(size)).get("rows")
+        except (ValueError, AttributeError):
+            return _send(self, 400, {"error": "A report of the list's props is required."})
+        import props_record
+        try:
+            return _send(self, 200, {"kept": props_record.remember(rows if isinstance(rows, list) else [], _kv)})
+        except Exception:  # noqa: BLE001 -- the list never waits on this
+            return _send(self, 200, {"kept": 0})
+
     def do_GET(self):
         query = parse_qs(urlparse(self.path).query)
         league = "nba" if query.get("league", ["wnba"])[0].strip().lower() == "nba" else "wnba"
@@ -1152,6 +1256,18 @@ class handler(BaseHTTPRequestHandler):
                 return _send(self, 200, nba_matchups.play_types(who, team, opponent))
             if resource in ("matchup", "league-context", "player-context", "game-notes", "scout"):
                 return self._context(resource, query, league)
+            if resource == "props-record":
+                # How the props the list showed went (props_record.py).
+                if league != "nba":
+                    return _send(self, 400, {"error": "The record is the NBA's only."})
+                try: days = int(query.get("days", ["14"])[0])
+                except ValueError: days = 14
+                return _send(self, 200, _props_record(max(1, min(days, 60))))
+            if resource == "tonight":
+                # Tonight's injury reports for the NBA matchup score's who's-out reads.
+                if league != "nba":
+                    return _send(self, 400, {"error": "Tonight's reports are the NBA's only."})
+                return _send(self, 200, _nba_tonight())
             if resource == "player-tracking":
                 # The NBA's own tracking (backend/sports/wnba/tracking.py):
                 # potential assists, rebound chances, catch-and-shoot, touches.

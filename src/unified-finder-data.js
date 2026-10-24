@@ -393,6 +393,15 @@ export function withHitterMatchups(rows, data) {
 }
 
 /** The league table the defense ranks come from (WNBA, NBA and NFL). */
+/**
+ * Tonight's NBA injury reports by team (api/wnba.py _nba_tonight), for the
+ * matchup score's who's-out reads. Never kept with the league numbers: an
+ * old report would be worse than none.
+ */
+export function loadTonight(options = {}) {
+  return request('/api/wnba?league=nba&resource=tonight', options);
+}
+
 export function loadFinderDefense(sport, options = {}) {
   if (sport === 'wnba') return request('/api/wnba?resource=league-context', options);
   if (sport === 'nba') return request('/api/wnba?league=nba&resource=league-context', options);

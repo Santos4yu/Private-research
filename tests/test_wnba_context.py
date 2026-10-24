@@ -125,6 +125,31 @@ class ContextTests(unittest.TestCase):
         # guards against them scored 30, 9, 8 and 12 -- 14.75 each.
         self.assertEqual(ctx["dvpEach"]["CCC"]["G"]["stats"]["pts"]["szn"][0], round((30 + 9 + 8 + 12) / 4, 2))
 
+    def test_rotation_carries_each_players_recent_minutes(self):
+        # The NBA score's who's-out reads: games played of the team's last
+        # 10, minutes in them, and whether he played one of its last 3.
+        rotation = {player["id"]: player for player in context.league_context(self.payload)["rotation"]["AAA"]["players"]}
+        self.assertEqual((rotation["star"]["played10"], rotation["star"]["min10"], rotation["star"]["last3"]), (2, 31.0, True))
+        self.assertEqual((rotation["mate"]["played10"], rotation["mate"]["min10"], rotation["mate"]["last3"]), (1, 25.0, True))
+        # Off the current roster's path too.
+        roster = {"mate": {"name": "Mate", "pos": "C"}, "b_g": {"name": "B Guard", "pos": "PG"},
+                  **{f"rookie{n}": {"name": f"Rookie {n}", "pos": "SF"} for n in range(6)}}
+        chart = {player["id"]: player for player in context.league_context(self.payload, rosters={"AAA": roster})["rotation"]["AAA"]["players"]}
+        # B Guard played his games for BBB: none of AAA's last 10.
+        self.assertEqual((chart["b_g"]["played10"], chart["b_g"]["last3"]), (0, False))
+        self.assertEqual(chart["mate"]["played10"], 1)
+
+    def test_last_ten_games_defense(self):
+        from backend.sports.wnba import opportunity
+        # Twelve AAA-BBB games: BBB scores 100 + n in game n. AAA's last 10
+        # allowed 103..112 (107.5); four games aren't enough to read.
+        games = {str(n): game(str(n), f"2026-06-{n + 1:02d}", "AAA", "BBB", [row("star", 30, 110)], [row("b_g", 30, 100 + n)]) for n in range(1, 13)}
+        teams = opportunity.team_table(context.team_games({**self.payload, "games": games}))["teams"]
+        self.assertEqual(teams["AAA"]["ptsAllowed10"][0], 107.5)
+        self.assertIsNotNone(teams["AAA"]["drtg10"][0])
+        few = opportunity.team_table(context.team_games(self.payload))["teams"]
+        self.assertIsNone(few["AAA"]["ptsAllowed10"][0])
+
     def test_team_offense_and_defense_ranks(self):
         stats = context.league_context(self.payload)["teamStats"]
         # Team points per game: AAA 30, BBB 12, CCC 29 -- most ranks first.

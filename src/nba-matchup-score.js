@@ -35,18 +35,34 @@
 // under 25 4-5 less. So against one team two guards' threes can differ;
 // everything else is the same for every player at a position.
 //
+// Who's out tonight (Oct 24 backtest, the same games): the strongest read
+// there is. A rotation player sitting (3+ of his team's last 10 games, one
+// of its last 3, 15+ minutes in them) hands his minutes and shots to the
+// rest: per 30 minutes out at his position, a player beat his average about
+// 18 points of % more often in points, threes and assists (both seasons),
+// 7-12 for anyone else out. The opponent's absences count too, less: a
+// player at his position out (points), any of them (assists, steals,
+// blocks), their center (rebounds). Read in 30-minute units against a usual
+// night's (OUT_CENTRES: someone is nearly always out), from tonight's
+// injury reports (league.tonight); no report, no read. Also their last 10
+// games' defense beside the season's (league.opportunity ptsAllowed10,
+// drtg10): a defense that has changed. Fitted with these, their defense as
+// a whole no longer held its sign for rebounds or assists, so it isn't read
+// there; combos stay the even average of their parts (weighting by his mix
+// read overs slightly worse).
+//
 // Each read is how far the team sits from the league's average in spreads
 // (standard deviations, held to 3), the soft side up, times its weight
-// (WEIGHTS: the backtest's log-odds times 245, a scale that puts the top
+// (WEIGHTS: the backtest's log-odds times 133, a scale that puts the top
 // 2.5% of props at 90 or more); the total moves the score from 50 along
 // 50 + 50 tanh(points / 50). Scored on the season it wasn't fitted on,
-// props at 90+ (3%) beat their own average 4.4 points of % more often than
-// usual, 75-89 3.7, 60-74 2.3, 40-59 even, 25-39 2.3 less, under 25 3.9
-// less. The weights fitted to RotoBot's grades before this put 19% of
-// props at 90+, and those beat their average only 3.3 more often.
+// props at 90+ (2.6%) beat their own average 13.5 points of % more often
+// than usual, 75-89 6.9, 60-74 2.6, 40-59 even, 25-39 2.8 less, under 25
+// 7.0 less: the best tenth and the worst tenth 15 points of % apart (8
+// before who's out and the recent defense, 20 for points, 25 for PRA).
 //
 import {defenseCell, meetingsOf, statGameLog} from './unified-finder-data.js';
-import {MARKET_STAT, baseMarket} from './sports/wnba/wnba-research.js';
+import {MARKET_STAT, baseMarket, positionOf} from './sports/wnba/wnba-research.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
@@ -56,18 +72,35 @@ const ordinal = n => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st',
 
 // Points a spread each read moves the score, by stat (see the top of the
 // file). Stats the backtest didn't cover read the nearest one (FAMILY).
+// teamPos / teamOther: his teammates out at his position / elsewhere;
+// oppPos / oppOther / oppAll / oppC: the opponent's at his position,
+// elsewhere, all of them, their centers; recent: their last 10 games.
 export const WEIGHTS = {
-  pts: {defense: 19, pace: 12, position: 3.5},
-  reb: {defense: 6, position: 6, rebounds: 18.5},
-  ast: {defense: 5, pace: 7.5, position: 13, assists: 18},
-  tpm: {attempts: 22},
-  stl: {defense: 10, position: 6, turnovers: 18.5},
-  blk: {defense: 7, pace: 9, position: 17.5},
+  pts: {defense: 6, pace: 5.9, position: 2.2, recent: 4.2, teamPos: 39.5, teamOther: 27.8, oppPos: 4.2, oppOther: 7},
+  reb: {position: 3.4, rebounds: 9.5, recent: 5.3, teamPos: 25.4, teamOther: 18.5, oppC: 12.9},
+  ast: {pace: 3.3, position: 7.5, assists: 8.2, recent: 5, teamPos: 29.3, teamOther: 18.3, oppAll: 4.9},
+  tpm: {attempts: 11.1, recent: 3.1, teamPos: 24.5, teamOther: 7.6},
+  stl: {defense: 5.1, position: 3.4, turnovers: 9.5, teamPos: 15, teamOther: 7, oppAll: 2.5},
+  blk: {defense: 3.1, pace: 4.9, position: 9.1, oppAll: 5.5},
 };
+// A usual night's minutes out, in 30-minute units (the backtest's average):
+// at his position by position, elsewhere, all of the opponent's, their centers.
+export const OUT_CENTRES = {teamPos: {G: 0.41, F: 0.323, C: 0.094}, teamOther: 0.57, oppPos: {G: 0.464, F: 0.354, C: 0.151}, oppOther: 0.589,
+  oppAll: 0.969, oppC: 0.148};
+// Who counts as out: on tonight's report and in the rotation lately. The
+// backtest counted who sat; a report says how likely that is, so a listing
+// counts as that share of his minutes (public rates: a Doubtful player sits
+// about four times in five, a Questionable or Day-To-Day one about a third
+// of the time).
+export const ROTATION = {played: 3, minutes: 15};
+export const SITS = {out: 1, suspension: 1, suspended: 1, doubtful: 0.8, questionable: 0.35, 'day-to-day': 0.35};
+// ESPN's positions (PG, SG, SF, PF, C, G-F...) as guard, forward or center.
+const CODES = {PG: 'G', SG: 'G', G: 'G', SF: 'F', PF: 'F', F: 'F', C: 'C'};
+export const positionCode = value => CODES[String(value || '').toUpperCase().split('-')[0].trim()] || positionOf(value);
 const FAMILY = {oreb: 'reb', dreb: 'reb', tpa: 'tpm'};
 // His last three games against them (meetingsOf): points a unit, the
 // league's average of the read (taken off), its spread (for its own bar).
-export const MEETINGS = {tpm: {weight: 80, center: -0.095, spread: 0.27}, blk: {weight: 51, center: -0.114, spread: 0.31}};
+export const MEETINGS = {tpm: {weight: 70.6, center: -0.095, spread: 0.27}, blk: {weight: 45.6, center: -0.114, spread: 0.31}};
 const weightsOf = stat => WEIGHTS[stat] || WEIGHTS[FAMILY[stat]] || WEIGHTS.pts;
 // A combo is the average of its parts' scores.
 const COMBOS = {pr: ['player_points', 'player_rebounds'], pa: ['player_points', 'player_assists'], ra: ['player_rebounds', 'player_assists'],
@@ -189,6 +222,74 @@ function turnoverRead(row, league) {
   return {key: 'turnovers', kind: 'turnovers', soft, text: `${row.opponent} turns it over ${one(cell[0])} times a game (${place(cell[1], count)})`};
 }
 
+/** Their last 10 games' defense: points allowed a game and per 100 possessions. */
+function recentRead(row, league) {
+  const table = league?.opportunity, cell = table?.teams?.[row.opponent];
+  const parts = [spreads(cell?.ptsAllowed10?.[0], column(table?.teams, team => team?.ptsAllowed10?.[0])),
+    spreads(cell?.drtg10?.[0], column(table?.teams, team => team?.drtg10?.[0]))].filter(finite);
+  if (!parts.length) return null;
+  const words = [finite(cell?.ptsAllowed10?.[0]) && `${one(cell.ptsAllowed10[0])} points a game`, finite(cell?.drtg10?.[0]) && `${one(cell.drtg10[0])} per 100 possessions`];
+  return {key: 'recent', kind: 'recent', soft: mean(parts), text: `${row.opponent} over its last 10 games: ${words.filter(Boolean).join(', ')} allowed`};
+}
+
+/**
+ * A team's players out tonight who've been in its rotation lately: [{name,
+ * pos, min}] from its injury report (league.tonight) and recent minutes
+ * (league.rotation). null when either is missing (unknown, not healthy):
+ * a server that doesn't send the recent minutes yet, a game whose report
+ * didn't come back.
+ */
+export function outTonight(team, league, skip = null) {
+  const report = league?.tonight?.teams?.[team], players = league?.rotation?.[team]?.players;
+  if (!report || !Array.isArray(report.injuries) || !Array.isArray(players) || !players.some(player => 'played10' in player)) return null;
+  const chance = item => SITS[String(item?.status || '').trim().toLowerCase()] ?? (item?.out ? 1 : 0);
+  const listed = new Map(report.injuries.filter(item => chance(item) > 0).map(item => [String(item.id), item]));
+  return players.filter(player => String(player.id) !== String(skip) && listed.has(String(player.id))
+    && player.played10 >= ROTATION.played && player.last3 && player.min10 >= ROTATION.minutes)
+    .map(player => {
+      const item = listed.get(String(player.id));
+      return {id: String(player.id), name: player.name, pos: positionCode(player.pos) || 'F', min: player.min10, sits: chance(item), status: item.status};
+    })
+    .sort((a, b) => b.sits * b.min - a.sits * a.min);
+}
+// Minutes out, in 30-minute units: each counted by how likely he is to sit.
+const minutesOf = players => players.reduce((sum, player) => sum + player.min * player.sits, 0) / 30;
+const listOut = players => players.map(player => `${player.name} (${player.pos}, ${Math.round(player.min)} min${player.sits < 1 ? `, ${String(player.status).toLowerCase()}` : ''})`).join(', ');
+const usual = units => `${Math.round(units * 30)} minutes`;
+
+/**
+ * Who's out tonight, his side and theirs (see the top of the file): each
+ * part's weights (a combo's parts averaged), against a usual night.
+ */
+function absenceReads(row, league, parts) {
+  const pos = positionCode(row.position);
+  if (!pos) return [];
+  const average = name => mean(parts.map(([, part]) => weightsOf(part)[name] || 0));
+  const reads = [];
+  const mine = outTonight(row.teamAbbr, league, row.playerId);
+  if (mine && (average('teamPos') || average('teamOther'))) {
+    const at = mine.filter(player => player.pos === pos), rest = mine.filter(player => player.pos !== pos);
+    const points = average('teamPos') * (minutesOf(at) - OUT_CENTRES.teamPos[pos]) + average('teamOther') * (minutesOf(rest) - OUT_CENTRES.teamOther);
+    const text = mine.length
+      ? `Out for ${row.teamAbbr} tonight: ${listOut(mine)}. Their minutes and shots go to the rest${at.length ? `, most to the ${POSITIONS[pos]}` : ''}`
+      : `Nobody in ${row.teamAbbr}'s rotation is out tonight (a usual night has about ${usual(OUT_CENTRES.teamPos[pos] + OUT_CENTRES.teamOther)} out), so no extra minutes or shots to go around`;
+    reads.push({key: 'teammates', kind: 'teammates', points, soft: points / 15, text});
+  }
+  const theirs = outTonight(row.opponent, league);
+  const oppNames = ['oppPos', 'oppOther', 'oppAll', 'oppC'].filter(name => average(name));
+  if (theirs && oppNames.length) {
+    const at = theirs.filter(player => player.pos === pos), centers = theirs.filter(player => player.pos === 'C');
+    const value = {oppPos: minutesOf(at) - OUT_CENTRES.oppPos[pos], oppOther: minutesOf(theirs.filter(player => player.pos !== pos)) - OUT_CENTRES.oppOther,
+      oppAll: minutesOf(theirs) - OUT_CENTRES.oppAll, oppC: minutesOf(centers) - OUT_CENTRES.oppC};
+    const points = oppNames.reduce((sum, name) => sum + average(name) * value[name], 0);
+    const text = theirs.length
+      ? `Out for ${row.opponent} tonight: ${listOut(theirs)}. A thinner defense${centers.length && oppNames.includes('oppC') ? ', without its center on the glass' : ''}`
+      : `Nobody in ${row.opponent}'s rotation is out tonight: a full-strength defense (most nights a team is missing someone)`;
+    reads.push({key: 'missing', kind: 'missing', points, soft: points / 15, text});
+  }
+  return reads;
+}
+
 /** Threes and blocks: his last three games against them, against his usual (MEETINGS). */
 function meetingsRead(row, stat) {
   const rule = MEETINGS[stat], last = (row.meetings?.values || []).filter(finite), usual = row.meetings?.usual;
@@ -225,7 +326,7 @@ export function matchupScore(row, league) {
   const parts = (COMBOS[stat] || [baseMarket(row.marketKey)]).map(marketKey => [marketKey, MARKET_STAT[marketKey]]);
   const share = name => mean(parts.map(([, part]) => weightsOf(part)[name] || 0));
   const weighed = (read, weight) => read && {...read, points: weight * read.soft};
-  const shared = [['defense', defenseRead], ['pace', paceRead]].filter(([name]) => share(name))
+  const shared = [['defense', defenseRead], ['pace', paceRead], ['recent', recentRead]].filter(([name]) => share(name))
     .map(([name, read]) => weighed(read(row, league), share(name)));
   const own = parts.flatMap(([marketKey, part]) => {
     const weights = weightsOf(part);
@@ -236,7 +337,7 @@ export function matchupScore(row, league) {
   });
   // Threes and blocks alone also read his last three games against them.
   const meetings = parts.length === 1 ? meetingsRead(row, parts[0][1]) : null;
-  const reads = [...shared, ...own, meetings].filter(Boolean);
+  const reads = [...shared, ...own, ...absenceReads(row, league, parts), meetings].filter(Boolean);
   if (!reads.some(read => read.kind === 'defense' || read.kind === 'position')) return null;
   const points = reads.reduce((sum, read) => sum + read.points, 0);
   const fit = meetings ? {key: 'meetings', kind: 'meetings', score: alone(meetings.soft), text: meetings.text, counted: true} : fitRead(row);

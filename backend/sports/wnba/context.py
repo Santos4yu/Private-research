@@ -273,6 +273,37 @@ def _roster_position(value) -> str:
     return _ROSTER_POSITION.get(text) or _ROSTER_POSITION.get(text.split("-")[0]) or text[:1]
 
 
+# Each player's part in his team's last RECENT games (the NBA matchup score's
+# who's-out reads): how many he played, his minutes in them, and whether he
+# played one of the last three. A player out tonight counts only if he's
+# been in the rotation lately -- someone out for weeks is already missing
+# from the team's recent games.
+RECENT = 10
+
+
+def _recent_minutes(games: list) -> dict:
+    """player id -> (games played of the team's last RECENT, average
+    minutes in them, played one of its last three)."""
+    played, minutes, last3 = defaultdict(int), defaultdict(float), set()
+    window = games[-RECENT:]
+    for index, game in enumerate(window):
+        for row in game["own"]["p"]:
+            if (row[_I["min"]] or 0) > 0:
+                played[row[0]] += 1
+                minutes[row[0]] += row[_I["min"]]
+                if index >= len(window) - 3:
+                    last3.add(row[0])
+    return {pid: (count, minutes[pid] / count, pid in last3) for pid, count in played.items()}
+
+
+def _with_recent(entries: list, games: list) -> list:
+    recent = _recent_minutes(games)
+    for entry in entries:
+        count, avg, last3 = recent.get(entry["id"], (0, 0.0, False))
+        entry.update({"played10": count, "min10": _round(avg, 1), "last3": last3})
+    return entries
+
+
 def _roster_rotation(team: str, games: list, roster: dict, history: dict, players: dict, size: int, league: str) -> list:
     """The team's players now (`roster`: id -> {name, pos, headshot}), each
     on his own last few games wherever he played them: anyone gone since is
@@ -317,7 +348,7 @@ def rotation(by_team: dict, players: dict, size: int = 5, league: str = "wnba", 
     for team, games in by_team.items():
         roster = (rosters or {}).get(team) or {}
         if len(roster) >= FULL_ROSTER:
-            entries = _roster_rotation(team, games, roster, history, players, size, league)
+            entries = _with_recent(_roster_rotation(team, games, roster, history, players, size, league), games)
             entries.sort(key=lambda e: (not e["lastStart"], order.get(primary_position([None, e["pos"]]), 3) if e["lastStart"] else 0, -e["min"]))
             result[team] = {"games": min(len(games), size), "lastGame": games[-1]["date"] if games else None, "players": entries[:13]}
             continue
@@ -342,7 +373,7 @@ def rotation(by_team: dict, players: dict, size: int = 5, league: str = "wnba", 
                             "min": _round(minutes[pid] / appearances[pid], 1), "games": appearances[pid],
                             "starts": starts[pid], "lastStart": pid in last_starters})
         entries.sort(key=lambda e: (not e["lastStart"], order.get(primary_position([None, e["pos"]]), 3) if e["lastStart"] else 0, -e["min"]))
-        result[team] = {"games": len(recent), "lastGame": games[-1]["date"], "players": entries[:13]}
+        result[team] = {"games": len(recent), "lastGame": games[-1]["date"], "players": _with_recent(entries[:13], games)}
     return result
 
 

@@ -132,6 +132,23 @@
 .nm-main:focus-visible,.nm-why:focus-visible,.nm-th:focus-visible,.nm-stats button:focus-visible,.nm-sort button:focus-visible,.nm-refresh:focus-visible,.nm-game-button:focus-visible{outline:2px solid var(--theme-accent,#cccccc);outline-offset:-2px}
 .nm-game-menu li:focus-visible{outline:2px solid var(--theme-accent,#cccccc);outline-offset:-2px}
 
+/* The track record (props-record.js): one line, a table under it when opened. */
+.nm-record{margin:12px 0 0;border:1px solid var(--m-line);border-radius:12px;background:var(--m-field)}
+.nm-record-head{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:48px;padding:8px 14px;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.nm-record-head span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.nm-record-head b{font-size:13px}
+.nm-record-head small{overflow:hidden;color:var(--m-muted);font-size:12px;white-space:nowrap;text-overflow:ellipsis}
+.nm-record-head svg{flex:none;color:var(--m-faint);transition:transform .2s}
+.nm-record[data-open] .nm-record-head svg{transform:rotate(180deg)}
+.nm-record-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px 20px;padding:0 14px 14px}
+.nm-record-body table{width:100%;border-collapse:collapse;font-size:12.5px}
+.nm-record-body caption{padding:0 0 6px;color:var(--m-faint);font-size:11px;font-weight:700;text-align:left}
+.nm-record-body th,.nm-record-body td{padding:6px 0;border-top:1px solid #1f1f1f;text-align:right;font-variant-numeric:tabular-nums}
+.nm-record-body th:first-child{text-align:left}
+.nm-record-body thead th{color:var(--m-faint);font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border-top:0}
+.nm-record-body p{grid-column:1 / -1;margin:0;color:var(--m-faint);font-size:11.5px;line-height:1.5}
+.nm-record-note{margin:12px 0 0;color:var(--m-faint);font-size:12px}
+.nm-record-head:focus-visible{outline:2px solid var(--theme-accent,#cccccc);outline-offset:-2px}
 .nm-empty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:48px 20px;color:var(--m-muted);text-align:center}
 .nm-empty b{color:var(--m-text);font-size:15px}
 .nm-empty span{max-width:360px;font-size:13px;line-height:1.5}

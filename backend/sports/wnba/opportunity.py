@@ -66,8 +66,11 @@ def _ranks(values: dict) -> dict:
 
 
 # What each team's games give, a game. `Allowed` is what its opponents did.
+# The `10` keys are its defense over its last RECENT games alone (the NBA
+# matchup score reads them beside the season's: a defense that has changed).
 TEAM_KEYS = ("poss", "ortg", "drtg", "miss", "missAllowed", "gameMiss", "tpa", "tpaAllowed", "tpPctAllowed",
-             "fga", "fgaAllowed", "fta", "ftaAllowed", "fgPctAllowed", "astAllowed", "rebAllowed")
+             "fga", "fgaAllowed", "fta", "ftaAllowed", "fgPctAllowed", "astAllowed", "rebAllowed", "ptsAllowed10", "drtg10")
+RECENT = 10
 
 
 def team_table(by_team: dict) -> dict:
@@ -76,13 +79,14 @@ def team_table(by_team: dict) -> dict:
     points allowed per 100 possessions, the most misses)."""
     values = {}
     for team, games in by_team.items():
-        sums, count = defaultdict(float), 0
+        sums, count, lately = defaultdict(float), 0, []
         for game in games:
             own, opp = side_totals(game["own"]), side_totals(game["opp"])
             if not own["min"] or not opp["min"]:
                 continue
             count += 1
             poss = possessions(own, opp)
+            lately.append((opp["pts"], poss))
             sums["poss"] += poss
             sums["pts"] += own["pts"]
             sums["ptsAllowed"] += opp["pts"]
@@ -103,6 +107,10 @@ def team_table(by_team: dict) -> dict:
         row["tpPctAllowed"] = 100 * sums["tpmAllowed"] / sums["tpaAllowed"] if sums["tpaAllowed"] else None
         row["fgPctAllowed"] = 100 * sums["fgmAllowed"] / sums["fgaAllowed"] if sums["fgaAllowed"] else None
         row["games"] = count
+        recent = lately[-RECENT:]
+        if len(recent) >= 5:
+            row["ptsAllowed10"] = sum(pts for pts, _ in recent) / len(recent)
+            row["drtg10"] = 100 * sum(pts for pts, _ in recent) / sum(poss for _, poss in recent) if sum(poss for _, poss in recent) else None
         values[team] = row
     table = {team: {"games": row["games"]} for team, row in values.items()}
     league = {}

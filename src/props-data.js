@@ -4,12 +4,14 @@
 // device: opening the tab shows the last board at once while a fresh one
 // fills in, line by line, as each player's hit rates arrive.
 import {loadLines, needsHistory} from './finder-pool.js';
-import {loadFinderDefense, readFinderCache} from './unified-finder-data.js';
+import {loadFinderDefense, loadTonight, readFinderCache} from './unified-finder-data.js';
 import {storeBoard, storedBoard} from './finder-store.js';
 import {pickLines} from './props-lines.js';
 
 // Saved league numbers this old still show while new ones load.
 const LEAGUE_KEEP = 24 * 60 * 60 * 1000;
+// The NBA's injury reports (loadTonight) are asked for again after this; never saved.
+const TONIGHT_FRESH = 5 * 60 * 1000;
 // A board this recent isn't asked for again when the tab opens.
 export const PROPS_FRESH = 2 * 60 * 1000;
 const teamsIn = league => Object.keys(league?.dvp || {}).length;
@@ -21,7 +23,7 @@ const teamsIn = league => Object.keys(league?.dvp || {}).length;
  */
 export function propsData({sport, wanted, minTeams}) {
   const leagueKey = `${sport}:league-context`;
-  let state = {rows: null, league: null, at: 0, loading: false, progress: null, error: false};
+  let state = {rows: null, league: null, tonight: null, tonightAt: 0, at: 0, loading: false, progress: null, error: false};
   const listeners = new Set();
   let saved = null, running = null;
   const publish = patch => { state = {...state, ...patch}; listeners.forEach(listener => listener(state)); };
@@ -45,11 +47,20 @@ export function propsData({sport, wanted, minTeams}) {
     });
     return saved;
   };
+  /** Tonight's injury reports (the NBA), on their own: they change through the day. */
+  let asking = null;
+  const refreshTonight = () => {
+    if (sport !== 'nba') return Promise.resolve(null);
+    asking ||= loadTonight().then(tonight => { if (tonight?.teams) publish({tonight, tonightAt: Date.now()}); return tonight; })
+      .catch(() => null).finally(() => { asking = null; });
+    return asking;
+  };
   /** A new board and league numbers, hit rates filling in as they come. One run at a time. */
   const refresh = () => {
     if (running) return running;
     running = (async () => {
       publish({loading: true, progress: null, error: false});
+      refreshTonight();
       try {
         const league = loadFinderDefense(sport).then(data => {
           if (data && teamsIn(data) >= minTeams) {
@@ -79,6 +90,12 @@ export function propsData({sport, wanted, minTeams}) {
   const stale = current => !current.rows?.length || Date.now() - current.at > PROPS_FRESH || !current.league
     || current.rows.some(row => needsHistory(sport, row));
   /** The saved board read, and a new one loaded if it's stale. */
-  const warm = () => savedProps().then(current => (stale(current) ? refresh() : current));
-  return {sport, wanted, get, on, saved: savedProps, refresh, warm};
+  const warm = () => savedProps().then(current => {
+    if (stale(current)) return refresh();
+    if (sport === 'nba' && Date.now() - current.tonightAt > TONIGHT_FRESH) refreshTonight();
+    return current;
+  });
+  /** Tonight's reports again once they're older than TONIGHT_FRESH (a list left open through the evening). */
+  const freshenTonight = () => { if (sport === 'nba' && Date.now() - state.tonightAt > TONIGHT_FRESH) refreshTonight(); };
+  return {sport, wanted, get, on, saved: savedProps, refresh, warm, freshenTonight};
 }
