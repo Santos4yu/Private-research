@@ -1,0 +1,95 @@
+# Two seasons of NBA game lines (spread, total) from ESPN's scoreboard,
+# for the matchup score's backtest (tools/nba-backtest): ESPN refuses the
+# site's servers and the coding container, GitHub's machines reach it. One
+# scoreboard a day; prints one line a game to read back from the log:
+#   ODDS,<event id>,<date>,<home>,<away>,<home spread>,<total>
+# Run by hand.
+name: NBA odds history
+
+on:
+  workflow_dispatch:
+    inputs:
+      seasons:
+        description: Regular seasons to read, as first-day:last-day pairs
+        default: "20241022:20250413,20251021:20260412"
+
+permissions:
+  contents: read
+
+jobs:
+  odds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Read ESPN scoreboards
+        shell: python
+        env:
+          SEASONS: ${{ github.event.inputs.seasons }}
+        run: |
+          import json, os, time, urllib.request
+          from datetime import date, timedelta
+
+          HEADERS = {"Accept": "application/json", "User-Agent": "Mozilla/5.0 (compatible; VORTEX-Private-Research/1.0)"}
+          BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba"
+
+          def get(url):
+              for attempt in range(4):
+                  try:
+                      with urllib.request.urlopen(urllib.request.Request(url, headers=HEADERS), timeout=25) as response:
+                          return json.loads(response.read())
+                  except Exception as error:  # noqa: BLE001
+                      time.sleep(3 * (attempt + 1))
+              return None
+
+          def number(value):
+              try:
+                  return float(value)
+              except (TypeError, ValueError):
+                  return None
+
+          def home_spread(odds, home, away):
+              """The home team's spread (negative: favored), from ESPN's odds entry."""
+              spread = number(odds.get("spread"))
+              details = str(odds.get("details") or "")
+              if spread is None:
+                  return None
+              # ESPN's `spread` is the home side's; `details` names the favorite ("BOS -7.5").
+              favorite = details.split(" ")[0] if details else ""
+              if favorite == away and spread < 0:
+                  return -spread
+              if favorite == home and spread > 0:
+                  return -spread
+              return spread
+
+          found = missing = 0
+          missed = []
+          for pair in os.environ.get("SEASONS", "").split(","):
+              first, last = (date(int(part[:4]), int(part[4:6]), int(part[6:])) for part in pair.split(":"))
+              day = first
+              while day <= last:
+                  board = get(f"{BASE}/scoreboard?dates={day:%Y%m%d}&limit=50")
+                  for event in (board or {}).get("events") or []:
+                      competition = (event.get("competitions") or [{}])[0]
+                      sides = {item.get("homeAway"): (item.get("team") or {}).get("abbreviation") for item in competition.get("competitors") or []}
+                      odds = (competition.get("odds") or [None])[0] or {}
+                      spread, total = home_spread(odds, sides.get("home"), sides.get("away")), number(odds.get("overUnder"))
+                      if spread is None and total is None:
+                          missing += 1
+                          missed.append(str(event.get("id")))
+                          continue
+                      found += 1
+                      print(f"ODDS,{event.get('id')},{day:%Y-%m-%d},{sides.get('home')},{sides.get('away')},{'' if spread is None else spread},{'' if total is None else total}")
+                  day += timedelta(days=1)
+                  time.sleep(0.15)
+          # Games the scoreboard had no odds for: their game page's pick center.
+          for event_id in missed:
+              summary = get(f"{BASE}/summary?event={event_id}")
+              pick = ((summary or {}).get("pickcenter") or [None])[0] or {}
+              header = (((summary or {}).get("header") or {}).get("competitions") or [{}])[0]
+              sides = {item.get("homeAway"): (item.get("team") or {}).get("abbreviation") for item in header.get("competitors") or []}
+              spread, total = home_spread(pick, sides.get("home"), sides.get("away")), number(pick.get("overUnder"))
+              if spread is not None or total is not None:
+                  found += 1
+                  print(f"ODDS,{event_id},,{sides.get('home')},{sides.get('away')},{'' if spread is None else spread},{'' if total is None else total}")
+              time.sleep(0.15)
+          print(f"DONE found={found} scoreboard-missing={missing}")
