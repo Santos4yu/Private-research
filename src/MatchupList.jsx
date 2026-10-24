@@ -1,12 +1,13 @@
-// A Props tab league's list (NbaMatchups.jsx, NflMatchups.jsx): a card for
-// every prop PrizePicks posts in it, with how good the opponent is for it,
-// how often it has cleared its line lately and its Prop grade (props-grade.js:
-// the over at tonight's line as the Analyzer grades it), sortable each way.
-// A card opens that player's matchup page; "Why" shows what made the scores.
+// A Props tab league's list (NbaMatchups.jsx, NflMatchups.jsx): a table row
+// for every prop PrizePicks posts in it, with how good the opponent is for
+// it, how often it has cleared its line lately and its Prop grade
+// (props-grade.js: the over at tonight's line as the Analyzer grades it),
+// sortable by each from the buttons or the column headings. A row opens that
+// player's matchup page; its arrow shows what made the scores.
 // `config` says which league: its stats, its lines (props-data.js), its score
 // and page.
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {Check,ChevronDown,RefreshCw,Search,X} from 'lucide-react';
+import {ArrowDown,Check,ChevronDown,RefreshCw,Search,X} from 'lucide-react';
 import {windowGames,windowRate} from './unified-finder-data';
 import {Face,Img} from './PickParts';
 import {propGrades} from './props-grade';
@@ -14,6 +15,8 @@ import {loadLearning} from './learning';
 import './nba-matchups.css';
 
 const SORTS=[['matchup','Matchup'],['hit','Hit %'],['prop','Prop grade']];
+// The table's headings for the sorted columns: full, and on a phone.
+const HEADS={matchup:['Matchup','Match'],hit:['Last 10','L10'],prop:['Prop grade','Prop']};
 const READS={defense:'Their defense',pace:'Their pace',position:'vs his position',attempts:'Threes they allow',rebounds:'Rebounds they allow',assists:'Assists they allow',turnovers:'Their turnovers',meetings:'His games vs them',
  script:'The game line',scoring:'His team’s scoring',role:'His role'};
 // What a read adds to (or takes from) the even 50.
@@ -33,31 +36,29 @@ function Bar({value,tone}){
  return <span className="nm-bar" data-tone={tone||undefined}><i style={{width:`${Math.max(4,Math.min(100,value))}%`}}/></span>;
 }
 
-// One of the card's three numbers: what it is, the number, what it means.
-function Tile({kind,label,value,sub,tone,bar}){
- return <span className={`nm-tile nm-${kind}`} data-tone={tone||undefined}><small>{label}</small><b>{value}</b>
-  <Bar value={bar||0} tone={tone}/><em>{sub}</em></span>;
+// One of the row's three numbers, under its heading: the number and what it means.
+function Cell({kind,value,sub,tone}){
+ return <span className={`nm-cell nm-${kind}`} data-tone={tone||undefined}><b>{value}</b><em>{sub}</em></span>;
 }
 
-function PropCard({row,read,hit,prop,open,onToggle,onOpen,short}){
+// One prop: who and when, the line, then Matchup, Last 10 and Prop grade.
+function PropRow({row,read,hit,prop,open,onToggle,onOpen,short}){
  const home=row.teamAbbr&&row.teamAbbr===row.homeTeamAbbr;
  const demon=String(row.modifier||'').toLowerCase()==='demon';
  const stat=short[row.marketKey]||row.market;
  const waiting=row.historyStatus==='pending'||row.historyRefresh;
- return <li className="nm-card" data-open={open||undefined}>
-  <button type="button" className="nm-main" onClick={()=>onOpen(row)} aria-label={`Open ${row.player}'s ${stat} matchup`}>
-   <span className="nm-top"><Face row={row}/>
-    <span className="nm-who"><b>{row.player}</b>
-     <small>{[row.position,row.teamAbbr&&row.opponent?`${row.teamAbbr} ${home?'vs':'@'} ${row.opponent}`:row.teamAbbr,when(row.startsAt)].filter(Boolean).join(' · ')}</small></span></span>
+ const said=[read&&`matchup ${read.score}`,hit&&`last 10 ${hit.hits} of ${hit.games}`,prop&&`prop grade ${Math.round(prop.chance*100)}%`].filter(Boolean).join(', ');
+ return <li className="nm-row" data-open={open||undefined}>
+  <button type="button" className="nm-main" onClick={()=>onOpen(row)} aria-label={`${row.player}, more ${figure(row.line)} ${stat}${demon?' Demon':''}${said?`: ${said}`:''}. Open his matchup page`}>
+   <Face row={row}/>
+   <b className="nm-name">{row.player}</b>
+   <small className="nm-when">{row.position&&<span className="nm-pos">{row.position} · </span>}{[row.teamAbbr&&row.opponent?`${row.teamAbbr} ${home?'vs':'@'} ${row.opponent}`:row.teamAbbr,when(row.startsAt)].filter(Boolean).join(' · ')}</small>
    <span className="nm-line"><small>More</small><b>{figure(row.line)}</b><em>{stat}</em>{demon&&<i className="nm-demon">Demon</i>}</span>
-   <span className="nm-tiles">
-    <Tile kind="score" label="Matchup" value={read?read.score:'—'} sub={read?read.label:'Not enough data'} tone={read?.tone} bar={read?.score}/>
-    <Tile kind="hit" label="Last 10" value={hit?`${hit.hits}/${hit.games}`:'—'} sub={hit?`${Math.round(hit.rate)}% over`:waiting?'Loading…':'No games yet'}
-     tone={hit?hitTone(hit.rate):undefined} bar={hit?.rate}/>
-    <Tile kind="prop" label="Prop" value={prop?`${Math.round(prop.chance*100)}%`:'—'} sub={prop?prop.label:hit?'Not graded':'Loading…'} tone={prop?.tone} bar={prop?prop.chance*100:0}/>
-   </span>
+   <Cell kind="score" value={read?read.score:'—'} sub={read?read.label:'No data yet'} tone={read?.tone}/>
+   <Cell kind="hit" value={hit?`${hit.hits}/${hit.games}`:'—'} sub={hit?`${Math.round(hit.rate)}% over`:waiting?'Loading…':'No games'} tone={hit?hitTone(hit.rate):undefined}/>
+   <Cell kind="prop" value={prop?`${Math.round(prop.chance*100)}%`:'—'} sub={prop?prop.label:hit?'Not graded':'Loading…'} tone={prop?.tone}/>
   </button>
-  {read&&<div className="nm-foot"><button type="button" className="nm-why" aria-expanded={open} onClick={onToggle}>Why<ChevronDown size={14}/></button></div>}
+  {read?<button type="button" className="nm-why" aria-expanded={open} aria-label={`Why ${row.player}'s scores`} title="Why these scores" onClick={onToggle}><ChevronDown size={16}/></button>:<span aria-hidden="true"/>}
   {open&&read&&<ul className="nm-reads">{prop&&<li className="nm-read-note">Prop grade: a {Math.round(prop.chance*100)}% chance of the over at {figure(row.line)}{demon?' (a Demon pays more, so it needs less)':''}, from his recent games and role with this matchup. {prop.label}.</li>}
    <li className="nm-read-note">Matchup: an even one is 50. Each part adds or takes away points.</li>{read.reads.map(item=><li key={item.key}>
    <span className="nm-read-head"><b>{READS[item.kind]||READS[item.key]||'Their defense'}</b><em>{added(item.points)}</em></span>
@@ -205,8 +206,12 @@ export function MatchupList({config}){
    <span>{words.noneText}</span></div>}
   {(status==='ready'||status==='refreshing')&&rows.length>0&&!league&&<p className="nm-note">Matchup scores are still loading the league’s numbers. Hit rates are below.</p>}
 
-  {shown.length>0&&<ul className="nm-list">{shown.map(({row,read,hit,prop})=><PropCard key={row.id} row={row} read={read} hit={hit} prop={prop} short={SHORT}
-   open={openId===row.id} onToggle={()=>setOpenId(id=>id===row.id?null:row.id)} onOpen={openPage}/>)}</ul>}
+  {shown.length>0&&<div className="nm-table">
+   <div className="nm-thead"><span className="nm-th-player">Player</span><span className="nm-th-line">Line</span>
+    {SORTS.map(([key])=><button type="button" key={key} className={`nm-th nm-th-${key}`} aria-pressed={sort===key} onClick={()=>setSort(key)}
+     aria-label={`Sort by ${HEADS[key][0]}`}><span className="nm-long">{HEADS[key][0]}</span><span className="nm-short">{HEADS[key][1]}</span>{sort===key&&<ArrowDown size={13} aria-hidden="true"/>}</button>)}</div>
+   <ul className="nm-list">{shown.map(({row,read,hit,prop})=><PropRow key={row.id} row={row} read={read} hit={hit} prop={prop} short={SHORT}
+    open={openId===row.id} onToggle={()=>setOpenId(id=>id===row.id?null:row.id)} onOpen={openPage}/>)}</ul></div>}
   {(status==='ready'||status==='refreshing')&&rows.length>0&&!shown.length&&<div className="nm-empty"><b>Nothing matches</b>
    <span>Try another stat or game, or clear the search.</span></div>}
 

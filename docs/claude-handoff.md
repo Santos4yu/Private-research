@@ -188,11 +188,16 @@ not book odds.
   PrizePicks line tonight" and no Analyze. The shared panel (`app.js`
   vortexTrendPanel.update) now redraws its chips when the stat list
   changes without a market change (they used to stay as first drawn).
-- Props lists are cards (Oct 23, owner picked "Cards" over a cleaner table
-  or grouping by game; `MatchupList.jsx` PropCard): photo, name, game, the
-  line as a pill with the Demon tag, three tiles Matchup / Last 10 (hits
-  over games, % under) / Prop, Why inside the card. Grid on desktop (3
-  across at 1120px), one column on phones. The game menu is our own
+- Props lists are a clean table (Oct 24; the owner had picked cards on Oct
+  23, then "hate the cards look", and chose the table over grouping by
+  game or the old list; `MatchupList.jsx` PropRow, `.nm-table`): headings
+  once (Player, Line, Matchup, Last 10, Prop grade; the last three sort,
+  like the sort buttons), one slim row per prop (61px desktop, ~71px phone),
+  each number with its meaning under it, an arrow column for Why, which
+  opens under the row. Rows and headings share `--nm-cols`, so the columns
+  line up (checked at 360/393/1440). On phones the line goes under the
+  name, the headings shorten (Match, L10, Prop) and the position is
+  dropped from the game line. Don't bring back boxes or tiles. The game menu is our own
   (GamePicker: logos, time, prop count, keys, outside tap) and a game is its
   two teams on the day, so lines posted at 6:30 and 6:40 are one game.
   Photos: `src/photo-url.js` asks ESPN's resizer for 208x152 (the 1040px

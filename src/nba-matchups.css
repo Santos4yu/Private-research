@@ -66,45 +66,55 @@
  box-shadow:inset 0 -3px 0 transparent;cursor:pointer}
 .nm-stats button[aria-pressed=true]{color:var(--m-text);box-shadow:inset 0 -3px 0 var(--m-accent)}
 
-/* The list: a card per prop, as many across as fit (one on a phone). */
-.nm-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));align-items:start;gap:12px;margin:16px 0 0;padding:0;list-style:none}
-.nm-card{display:flex;flex-direction:column;min-width:0;border:1px solid var(--m-line);border-radius:16px;background:var(--m-card);overflow:hidden}
-.nm-main{display:flex;flex-direction:column;gap:12px;width:100%;padding:14px 14px 10px;border:0;background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}
-.nm-main:hover{background:#181818}
-.nm-top{display:flex;align-items:center;gap:12px;min-width:0}
-.nm-main .sa-face{--size:52px}
-.nm-who{display:flex;flex-direction:column;gap:3px;min-width:0}
-.nm-who b{overflow:hidden;font-size:16px;white-space:nowrap;text-overflow:ellipsis}
-.nm-who small{overflow:hidden;color:var(--m-faint);font-size:12px;white-space:nowrap;text-overflow:ellipsis}
-/* The line: More 3.5 AST, a Demon marked on the right. */
-.nm-line{display:flex;align-items:baseline;gap:7px;padding:9px 12px;border-radius:11px;background:var(--m-raised)}
-.nm-line small{color:var(--m-faint);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em}
-.nm-line b{font:800 18px/1 'Sora',var(--font-sans)}
-.nm-line em{color:var(--m-muted);font-size:12.5px;font-style:normal;font-weight:800}
-.nm-line .nm-demon{margin-left:auto;padding:3px 8px;border-radius:999px;background:rgba(255,107,129,.14);color:#ff8a9b;font:800 10.5px var(--font-sans);font-style:normal;letter-spacing:.05em;text-transform:uppercase}
-/* Matchup, Last 10 and Prop: three tiles across. */
-.nm-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.nm-tile{display:flex;flex-direction:column;gap:6px;min-width:0;padding:10px 10px 9px;border:1px solid #202020;border-radius:12px;background:#101010}
-.nm-tile small{color:var(--m-faint);font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
-.nm-tile b{font:800 22px/1 'Sora',var(--font-sans);white-space:nowrap}
-.nm-tile em{overflow:hidden;color:var(--m-faint);font-size:11.5px;font-style:normal;font-weight:600;white-space:nowrap;text-overflow:ellipsis}
-.nm-tile[data-tone=strong] b,.nm-tile[data-tone=strong] em{color:var(--m-strong)}
-.nm-tile[data-tone=edge] b,.nm-tile[data-tone=edge] em{color:var(--m-edge)}
-.nm-tile[data-tone=tough] b,.nm-tile[data-tone=tough] em{color:var(--m-tough)}
-.nm-tile[data-tone=neutral] em{color:var(--m-neutral)}
+/* The list: a table, one slim row per prop. The headings sit once above
+   the rows, and each row and the headings share one set of columns
+   (--nm-cols): photo, name over game, line, Matchup, Last 10, Prop grade;
+   the arrow for Why sits in its own column at the end. */
+.nm-table{--nm-cols:40px minmax(0,1.5fr) minmax(0,1fr) minmax(88px,.7fr) minmax(88px,.7fr) minmax(96px,.7fr);--nm-why:44px;margin:14px 0 0}
+.nm-thead{display:grid;grid-template-columns:var(--nm-cols);column-gap:12px;align-items:center;padding:0 calc(12px + var(--nm-why)) 8px 12px;
+ border-bottom:1px solid var(--m-line);color:var(--m-faint);font:800 11px var(--font-sans);letter-spacing:.06em;text-transform:uppercase}
+.nm-th-player{grid-column:1 / span 2}
+.nm-th-player,.nm-th-line{display:flex;align-items:center;min-height:32px}
+.nm-th{display:inline-flex;align-items:center;justify-content:center;gap:3px;min-height:32px;padding:0;border:0;background:transparent;color:inherit;font:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer}
+.nm-th:hover,.nm-th[aria-pressed=true]{color:var(--m-text)}
+.nm-short{display:none}
+.nm-list{margin:0;padding:0;list-style:none}
+.nm-row{display:grid;grid-template-columns:minmax(0,1fr) var(--nm-why);align-items:center;border-bottom:1px solid var(--m-line)}
+.nm-row:hover,.nm-row[data-open]{background:#121212}
+.nm-main{display:grid;grid-template-columns:var(--nm-cols);grid-template-areas:'face name line score hit prop' 'face when line score hit prop';column-gap:12px;row-gap:2px;
+ align-items:center;width:100%;min-width:0;padding:10px 12px;border:0;background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}
+.nm-main .sa-face{--size:40px;grid-area:face}
+.nm-name{grid-area:name;align-self:end;overflow:hidden;font-size:14.5px;white-space:nowrap;text-overflow:ellipsis}
+.nm-when{grid-area:when;align-self:start;overflow:hidden;color:var(--m-faint);font-size:12px;white-space:nowrap;text-overflow:ellipsis}
+/* The line: More 3.5 AST, a Demon marked beside it. */
+.nm-line{grid-area:line;display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 6px;min-width:0}
+.nm-line small{color:var(--m-faint);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em}
+.nm-line b{font:800 15px/1 'Sora',var(--font-sans)}
+.nm-line em{color:var(--m-muted);font-size:12px;font-style:normal;font-weight:800}
+.nm-line .nm-demon{padding:2px 7px;border-radius:999px;background:rgba(255,107,129,.14);color:#ff8a9b;font:800 10px var(--font-sans);font-style:normal;letter-spacing:.05em;text-transform:uppercase}
+/* Matchup, Last 10 and Prop grade: the number, what it means under it. */
+.nm-cell{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;text-align:center}
+.nm-cell.nm-score{grid-area:score}
+.nm-cell.nm-hit{grid-area:hit}
+.nm-cell.nm-prop{grid-area:prop}
+.nm-cell b{font:800 17px/1 'Sora',var(--font-sans);white-space:nowrap}
+.nm-cell em{max-width:100%;overflow:hidden;color:var(--m-faint);font-size:11px;font-style:normal;font-weight:600;line-height:1.2;white-space:nowrap;text-overflow:ellipsis}
+.nm-cell[data-tone=strong] b,.nm-cell[data-tone=strong] em{color:var(--m-strong)}
+.nm-cell[data-tone=edge] b,.nm-cell[data-tone=edge] em{color:var(--m-edge)}
+.nm-cell[data-tone=tough] b,.nm-cell[data-tone=tough] em{color:var(--m-tough)}
+.nm-cell[data-tone=neutral] em{color:var(--m-neutral)}
 .nm-bar{display:block;height:4px;border-radius:999px;background:#242424;overflow:hidden}
 .nm-bar i{display:block;height:100%;border-radius:inherit;background:#6f6f6f}
 .nm-bar[data-tone=strong] i{background:var(--m-strong)}
 .nm-bar[data-tone=edge] i{background:var(--m-edge)}
 .nm-bar[data-tone=neutral] i{background:var(--m-neutral)}
 .nm-bar[data-tone=tough] i{background:var(--m-tough)}
-.nm-foot{display:flex;justify-content:flex-end;padding:0 8px 8px}
-.nm-why{display:inline-flex;align-items:center;gap:4px;min-height:36px;padding:0 10px;border:0;border-radius:10px;background:transparent;color:var(--m-muted);font:800 12.5px var(--font-sans);cursor:pointer}
+.nm-why{display:grid;place-items:center;width:36px;height:36px;padding:0;border:0;border-radius:10px;background:transparent;color:var(--m-faint);cursor:pointer}
 .nm-why:hover,.nm-why[aria-expanded=true]{background:var(--m-raised);color:var(--m-text)}
 .nm-why svg{transition:transform .2s}
 .nm-why[aria-expanded=true] svg{transform:rotate(180deg)}
-/* What made the scores, inside the card. */
-.nm-reads{display:flex;flex-direction:column;margin:0 10px 12px;padding:4px 12px;border-radius:12px;background:#0f0f0f;list-style:none}
+/* What made the scores, under the row. */
+.nm-reads{grid-column:1 / -1;display:flex;flex-direction:column;margin:0 12px 12px 64px;padding:4px 12px;border-radius:12px;background:#0f0f0f;list-style:none}
 .nm-reads li{display:flex;flex-direction:column;gap:6px;padding:10px 0;border-bottom:1px solid #1f1f1f}
 .nm-reads li:last-child{border-bottom:0}
 /* The lines above the parts: the Prop grade, then how the matchup's points add up. */
@@ -113,7 +123,7 @@
 .nm-read-head b{font-size:12.5px}
 .nm-read-head em{color:var(--m-faint);font-size:11px;font-style:normal;white-space:nowrap}
 .nm-read-text{color:var(--m-muted);font-size:12.5px;line-height:1.45}
-.nm-main:focus-visible,.nm-why:focus-visible,.nm-stats button:focus-visible,.nm-sort button:focus-visible,.nm-refresh:focus-visible,.nm-game-button:focus-visible{outline:2px solid var(--theme-accent,#cccccc);outline-offset:-2px}
+.nm-main:focus-visible,.nm-why:focus-visible,.nm-th:focus-visible,.nm-stats button:focus-visible,.nm-sort button:focus-visible,.nm-refresh:focus-visible,.nm-game-button:focus-visible{outline:2px solid var(--theme-accent,#cccccc);outline-offset:-2px}
 .nm-game-menu li:focus-visible{outline:2px solid var(--theme-accent,#cccccc);outline-offset:-2px}
 
 .nm-empty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:48px 20px;color:var(--m-muted);text-align:center}
@@ -130,15 +140,23 @@
  .nm-sort button{min-width:0;padding:0 8px}
  /* "All games" or "MIA @ MIN" says what it is: the label makes room. */
  .nm-game-button .nm-label{display:none}
- .nm-list{grid-template-columns:minmax(0,1fr);gap:10px}
- .nm-main{padding:12px 12px 8px}
- .nm-main .sa-face{--size:48px}
- .nm-tile{padding:9px 8px 8px}
- .nm-tile b{font-size:20px}
+ /* A phone: the line goes under the name, the headings shorten and a
+    caption may take two lines. */
+ .nm-table{--nm-cols:30px minmax(0,1fr) 42px 48px 50px;--nm-why:26px}
+ .nm-thead{column-gap:5px;padding:0 calc(8px + var(--nm-why)) 6px 8px;font-size:10.5px;letter-spacing:.04em}
+ .nm-th-line{display:none}
+ .nm-long{display:none}
+ .nm-short{display:inline}
+ .nm-th{min-height:40px}
+ .nm-main{grid-template-areas:'face name score hit prop' 'face line score hit prop' 'face when score hit prop';column-gap:5px;row-gap:3px;padding:10px 8px}
+ .nm-main .sa-face{--size:30px}
+ .nm-pos{display:none}
+ .nm-name{font-size:13.5px}
+ .nm-when{font-size:11px}
+ .nm-line b{font-size:13.5px}
+ .nm-line em{font-size:11px}
+ .nm-cell b{font-size:15px}
+ .nm-cell em{font-size:10px;white-space:normal;overflow-wrap:anywhere}
+ .nm-why{width:26px;height:36px}
  .nm-reads{margin:0 8px 10px}
-}
-@media (max-width:380px){
- .nm-tiles{gap:6px}
- .nm-tile b{font-size:18px}
- .nm-tile small{font-size:10px;letter-spacing:.04em}
 }
