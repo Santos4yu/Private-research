@@ -26,13 +26,18 @@ test('his form and the matchup together: hot leans over, cold fades, a tough mat
   assert.equal(cold.tier, 'fade');
   // Boston were the stingiest on points last season: the same form grades lower.
   assert.ok(tough.rank < hot.rank && tough.chance < hot.chance);
-  assert.deepEqual(Object.keys(hot).sort(), ['chance', 'edge', 'label', 'rank', 'tier', 'tone']);
+  assert.deepEqual(Object.keys(hot).sort(), ['chance', 'edge', 'label', 'needs', 'priced', 'rank', 'tier', 'tone']);
+  assert.equal(hot.needs, 0.5);
 });
 
 test('a Demon is measured against what it pays; a line without his games waits', () => {
   const grades = propGrades([row('demon', HOT, 16.5, {modifier: 'demon'}), {...row('empty', HOT, 10.5), windows: null, gameLog: []}], real);
   const demon = grades.get('demon');
   assert.ok(demon.chance < 0.5 && demon.edge > -0.05, `${demon.chance} ${demon.edge}`);   // about 35% is what a Demon needs
+  // What it needs is shown beside its grade, so a sub-50% Demon graded well reads right.
+  assert.equal(demon.needs, 0.35);
+  assert.equal(demon.priced, false);
+  assert.equal(Math.round((demon.chance - demon.needs) * 1000), Math.round(demon.edge * 1000));
   assert.equal(grades.has('empty'), false);
   assert.equal(propGrades([row('x', HOT, 10.5)], null).size, 0);
 });

@@ -197,7 +197,18 @@ not book odds.
   opens under the row. Rows and headings share `--nm-cols`, so the columns
   line up (checked at 360/393/1440). On phones the line goes under the
   name, the headings shorten (Match, L10, Prop) and the position is
-  dropped from the game line. Don't bring back boxes or tiles. The game menu is our own
+  dropped from the game line. Don't bring back boxes or tiles.
+  Oct 24, from the owner: Starter or Bench at the front of each NBA row's
+  game line and in the matchup page header (`src/lineup-role.js`, from
+  league-context `rotation`: lastStart = in the five who started his team's
+  last game; it's not tonight's announced lineup, the Why says so). A
+  Demon shows PrizePicks' Demon icon (`public/prizepicks/demon-64.png`, a
+  5 KB copy of the 286 KB original) instead of the word. The owner asked
+  why a 43% Demon was "Elite": the grade measures the chance against what
+  the line needs (`slip-check.js baselineOf`: 50% regular; Demon/Goblin the
+  books' chance at that line where priced, else 35% / 70%), so Prop shows
+  "needs 35%" under a Demon's or Goblin's grade and the Why spells it out
+  (`props-grade.js` returns `needs` and `priced`). The game menu is our own
   (GamePicker: logos, time, prop count, keys, outside tap) and a game is its
   two teams on the day, so lines posted at 6:30 and 6:40 are one game.
   Photos: `src/photo-url.js` asks ESPN's resizer for 208x152 (the 1040px

@@ -11,7 +11,14 @@ const finite = value => typeof value === 'number' && Number.isFinite(value);
 // A tier's colour on the list's bars.
 export const TIER_TONES = {elite: 'strong', strong: 'edge', lean: 'neutral', risky: 'tough', fade: 'tough'};
 
-/** {row id: {chance, edge, tier, label, rank, tone}} for the lines graded so far (a line waits for his games). */
+/**
+ * {row id: {chance, needs, priced, edge, tier, label, rank, tone}} for the
+ * lines graded so far (a line waits for his games). `needs` is the chance the
+ * line has to beat to be worth taking (slip-check.js baselineOf): 50% for a
+ * regular line; for a Demon or Goblin the sportsbooks' chance at that line
+ * where they price it (`priced`), else about 35% for a Demon (it pays more,
+ * so a 43% Demon can grade Elite) and 70% for a Goblin.
+ */
 export function propGrades(rows, league) {
   const out = new Map();
   if (!league) return out;
@@ -20,7 +27,8 @@ export function propGrades(rows, league) {
     let graded = null;
     try { graded = gradeLeg({side: 'OVER'}, row, {[row.sport]: league}); } catch { graded = null; }
     if (!graded || !finite(graded.chance) || !TIERS[graded.tier]) continue;
-    out.set(row.id, {chance: graded.chance, edge: graded.chance - baselineOf(graded), tier: graded.tier, label: TIERS[graded.tier].label,
+    const needs = baselineOf(graded);
+    out.set(row.id, {chance: graded.chance, needs, priced: needs !== 0.5 && graded.book != null, edge: graded.chance - needs, tier: graded.tier, label: TIERS[graded.tier].label,
       rank: TIERS[graded.tier].rank, tone: TIER_TONES[graded.tier]});
   }
   return out;

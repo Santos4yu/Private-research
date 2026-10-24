@@ -91,7 +91,12 @@
 .nm-line small{color:var(--m-faint);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em}
 .nm-line b{font:800 15px/1 'Sora',var(--font-sans)}
 .nm-line em{color:var(--m-muted);font-size:12px;font-style:normal;font-weight:800}
-.nm-line .nm-demon{padding:2px 7px;border-radius:999px;background:rgba(255,107,129,.14);color:#ff8a9b;font:800 10px var(--font-sans);font-style:normal;letter-spacing:.05em;text-transform:uppercase}
+/* PrizePicks' own Demon icon, as the Finder shows it. */
+.nm-line .nm-demon{flex:none;align-self:center;width:18px;height:18px;object-fit:contain}
+/* Starter or Bench, at the front of the game line. */
+.nm-role{font-weight:800}
+.nm-role[data-role=starter]{color:#e6e6e6}
+.nm-role[data-role=bench]{color:var(--m-neutral)}
 /* Matchup, Last 10 and Prop grade: the number, what it means under it. */
 .nm-cell{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;text-align:center}
 .nm-cell.nm-score{grid-area:score}
@@ -103,6 +108,7 @@
 .nm-cell[data-tone=edge] b,.nm-cell[data-tone=edge] em{color:var(--m-edge)}
 .nm-cell[data-tone=tough] b,.nm-cell[data-tone=tough] em{color:var(--m-tough)}
 .nm-cell[data-tone=neutral] em{color:var(--m-neutral)}
+.nm-cell small{color:var(--m-faint);font-size:10.5px;font-weight:600;line-height:1.1;white-space:nowrap}
 .nm-bar{display:block;height:4px;border-radius:999px;background:#242424;overflow:hidden}
 .nm-bar i{display:block;height:100%;border-radius:inherit;background:#6f6f6f}
 .nm-bar[data-tone=strong] i{background:var(--m-strong)}
@@ -150,7 +156,9 @@
  .nm-th{min-height:40px}
  .nm-main{grid-template-areas:'face name score hit prop' 'face line score hit prop' 'face when score hit prop';column-gap:5px;row-gap:3px;padding:10px 8px}
  .nm-main .sa-face{--size:30px}
- .nm-pos{display:none}
+ .nm-pos,.nm-own{display:none}
+ .nm-line .nm-demon{width:16px;height:16px}
+ .nm-cell small{font-size:9.5px}
  .nm-name{font-size:13.5px}
  .nm-when{font-size:11px}
  .nm-line b{font-size:13.5px}

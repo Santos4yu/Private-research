@@ -10,6 +10,7 @@ import {MatchupPageShell,Trend} from './MatchupPageShell';
 import {Card,LikelyDefenders,Loading,MatchupGrade,Photo,PlayTypes,PositionRanks,ShotLink,ShotZones,VsTeam,teamName} from './sports/wnba/NbaScout';
 import {finite,fmt,realGames,useWnba} from './sports/wnba/wnba-research';
 import {basketballLogUrl} from './unified-finder-data';
+import {lineupRole} from './lineup-role';
 
 const STAT_CHIPS=[['player_points','PTS'],['player_rebounds','REB'],['player_assists','AST'],['player_threes','3PM'],['player_points_rebounds','P+R'],
  ['player_points_assists','P+A'],['player_rebounds_assists','R+A'],['player_points_rebounds_assists','PRA'],['player_steals','STL'],['player_blocks','BLK']];
@@ -115,7 +116,9 @@ export function NbaMatchupPage({row,lines,league,onBack}){
  const home=row.teamAbbr&&row.teamAbbr===row.homeTeamAbbr;
  const team=league?.teams?.[row.teamAbbr],opponent=league?.teams?.[row.opponent];
  const color=team?.color?`#${String(team.color).replace('#','')}`:null;
- const facts=[row.jersey?`#${row.jersey}`:null,team?.short||row.teamAbbr,POSITION_NAMES[String(row.position||'')[0]]||row.position].filter(Boolean);
+ // Starter or Bench (lineup-role.js): who started his team's last game.
+ const role=lineupRole(row,league);
+ const facts=[row.jersey?`#${row.jersey}`:null,team?.short||row.teamAbbr,POSITION_NAMES[String(row.position||'')[0]]||row.position,role?.label].filter(Boolean);
  useEffect(()=>{if(!shots)return undefined;const close=event=>{if(event.key==='Escape')setShots(false);};
   document.addEventListener('keydown',close);return()=>document.removeEventListener('keydown',close);},[shots]);
  const sheet=shots&&<div className="mp-sheet" role="dialog" aria-modal="true" aria-label="Shot zones" onClick={event=>{if(event.target===event.currentTarget)setShots(false);}}>

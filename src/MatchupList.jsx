@@ -12,6 +12,7 @@ import {windowGames,windowRate} from './unified-finder-data';
 import {Face,Img} from './PickParts';
 import {propGrades} from './props-grade';
 import {loadLearning} from './learning';
+import {lineupRole} from './lineup-role';
 import './nba-matchups.css';
 
 const SORTS=[['matchup','Matchup'],['hit','Hit %'],['prop','Prop grade']];
@@ -36,13 +37,18 @@ function Bar({value,tone}){
  return <span className="nm-bar" data-tone={tone||undefined}><i style={{width:`${Math.max(4,Math.min(100,value))}%`}}/></span>;
 }
 
-// One of the row's three numbers, under its heading: the number and what it means.
-function Cell({kind,value,sub,tone}){
- return <span className={`nm-cell nm-${kind}`} data-tone={tone||undefined}><b>{value}</b><em>{sub}</em></span>;
+// One of the row's three numbers, under its heading: the number and what it
+// means, and for a Demon's grade the chance it needs.
+function Cell({kind,value,sub,note,tone}){
+ return <span className={`nm-cell nm-${kind}`} data-tone={tone||undefined}><b>{value}</b><em>{sub}</em>{note&&<small>{note}</small>}</span>;
 }
+const percent=value=>`${Math.round(value*100)}%`;
+// How far the chance sits from what the line needs, in the rounded numbers shown.
+const gapText=prop=>{const gap=Math.round(prop.chance*100)-Math.round(prop.needs*100);
+ return gap?`${percent(prop.chance)} is ${Math.abs(gap)} ${Math.abs(gap)===1?'point':'points'} ${gap>0?'over':'under'} that`:`${percent(prop.chance)} is right at that`;};
 
 // One prop: who and when, the line, then Matchup, Last 10 and Prop grade.
-function PropRow({row,read,hit,prop,open,onToggle,onOpen,short}){
+function PropRow({row,read,hit,prop,role,open,onToggle,onOpen,short}){
  const home=row.teamAbbr&&row.teamAbbr===row.homeTeamAbbr;
  const demon=String(row.modifier||'').toLowerCase()==='demon';
  const stat=short[row.marketKey]||row.market;
@@ -52,14 +58,18 @@ function PropRow({row,read,hit,prop,open,onToggle,onOpen,short}){
   <button type="button" className="nm-main" onClick={()=>onOpen(row)} aria-label={`${row.player}, more ${figure(row.line)} ${stat}${demon?' Demon':''}${said?`: ${said}`:''}. Open his matchup page`}>
    <Face row={row}/>
    <b className="nm-name">{row.player}</b>
-   <small className="nm-when">{row.position&&<span className="nm-pos">{row.position} · </span>}{[row.teamAbbr&&row.opponent?`${row.teamAbbr} ${home?'vs':'@'} ${row.opponent}`:row.teamAbbr,when(row.startsAt)].filter(Boolean).join(' · ')}</small>
-   <span className="nm-line"><small>More</small><b>{figure(row.line)}</b><em>{stat}</em>{demon&&<i className="nm-demon">Demon</i>}</span>
+   <small className="nm-when">{row.position&&<span className="nm-pos">{row.position} · </span>}{role&&<><span className="nm-role" data-role={role.starter?'starter':'bench'} title={role.text}>{role.label}</span> · </>}
+    {row.teamAbbr&&row.opponent?<><span className="nm-own">{row.teamAbbr} </span>{home?'vs':'@'} {row.opponent}</>:row.teamAbbr}{row.startsAt&&` · ${when(row.startsAt)}`}</small>
+   <span className="nm-line"><small>More</small><b>{figure(row.line)}</b><em>{stat}</em>{demon&&<img className="nm-demon" src="/prizepicks/demon-64.png" alt="Demon" title="PrizePicks Demon: a higher line that pays more" width="18" height="18"/>}</span>
    <Cell kind="score" value={read?read.score:'—'} sub={read?read.label:'No data yet'} tone={read?.tone}/>
    <Cell kind="hit" value={hit?`${hit.hits}/${hit.games}`:'—'} sub={hit?`${Math.round(hit.rate)}% over`:waiting?'Loading…':'No games'} tone={hit?hitTone(hit.rate):undefined}/>
-   <Cell kind="prop" value={prop?`${Math.round(prop.chance*100)}%`:'—'} sub={prop?prop.label:hit?'Not graded':'Loading…'} tone={prop?.tone}/>
+   <Cell kind="prop" value={prop?percent(prop.chance):'—'} sub={prop?prop.label:hit?'Not graded':'Loading…'} note={prop&&prop.needs!==0.5?`needs ${percent(prop.needs)}`:null} tone={prop?.tone}/>
   </button>
   {read?<button type="button" className="nm-why" aria-expanded={open} aria-label={`Why ${row.player}'s scores`} title="Why these scores" onClick={onToggle}><ChevronDown size={16}/></button>:<span aria-hidden="true"/>}
-  {open&&read&&<ul className="nm-reads">{prop&&<li className="nm-read-note">Prop grade: a {Math.round(prop.chance*100)}% chance of the over at {figure(row.line)}{demon?' (a Demon pays more, so it needs less)':''}, from his recent games and role with this matchup. {prop.label}.</li>}
+  {open&&read&&<ul className="nm-reads">{prop&&<li className="nm-read-note">Prop grade: a {percent(prop.chance)} chance of the over at {figure(row.line)}, from his recent games and role with this matchup.
+   {prop.needs===0.5?' A regular line needs 50% to be worth taking;':prop.priced?` The sportsbooks give the over at this line a ${percent(prop.needs)} chance, so that's what this ${demon?'Demon':'Goblin'} needs to beat;`
+    :` A ${demon?'Demon':'Goblin'} ${demon?'pays more than a regular line, so it only needs':'pays less, so it needs'} about ${percent(prop.needs)} to be worth taking (a regular line needs 50%);`} {gapText(prop)}{read?`, with a ${read.score} matchup`:''}: {prop.label}.</li>}
+   {role&&<li className="nm-read-note">{role.label}: {role.starter?'he started his team’s last game':'he didn’t start his team’s last game'} and {role.starts} of his last {role.games}. Tonight’s lineup is announced about half an hour before tip-off.</li>}
    <li className="nm-read-note">Matchup: an even one is 50. Each part adds or takes away points.</li>{read.reads.map(item=><li key={item.key}>
    <span className="nm-read-head"><b>{READS[item.kind]||READS[item.key]||'Their defense'}</b><em>{added(item.points)}</em></span>
    <span className="nm-read-text">{item.text}</span>
@@ -150,13 +160,13 @@ export function MatchupList({config}){
  const needle=query.trim().toLowerCase();
  const shown=useMemo(()=>rows
   .filter(row=>(stat==='all'||row.marketKey===stat)&&(picked==='all'||gameOf(row)===picked)&&(!needle||row.player.toLowerCase().includes(needle)))
-  .map(row=>({row,read:scores.get(row.id)||null,hit:hitOf(row),prop:grades.get(row.id)||null}))
+  .map(row=>({row,read:scores.get(row.id)||null,hit:hitOf(row),prop:grades.get(row.id)||null,role:lineupRole(row,league)}))
   .sort((a,b)=>sort==='hit'?(b.hit?.rate??-1)-(a.hit?.rate??-1)||(b.read?.score??-1)-(a.read?.score??-1)
    :sort==='prop'?(b.prop?.rank??-1)-(a.prop?.rank??-1)||(b.prop?.edge??-1)-(a.prop?.edge??-1)
    :(b.read?.score??-1)-(a.read?.score??-1)||(b.hit?.rate??-1)-(a.hit?.rate??-1))
   // All stats: each player once, at his best line by the sort; a stat chip lists that stat's line.
   .filter((item,index,list)=>stat!=='all'||list.findIndex(other=>other.row.player===item.row.player&&other.row.teamAbbr===item.row.teamAbbr)===index),
-  [rows,scores,grades,stat,picked,needle,sort]);
+  [rows,scores,grades,stat,picked,needle,sort,league]);
  const counts=useMemo(()=>rows.reduce((out,row)=>({...out,[row.marketKey]:(out[row.marketKey]||0)+1}),{}),[rows]);
  // A player's page: its own history entry, so the phone's back gesture
  // closes it the same as the page's back button.
@@ -210,7 +220,7 @@ export function MatchupList({config}){
    <div className="nm-thead"><span className="nm-th-player">Player</span><span className="nm-th-line">Line</span>
     {SORTS.map(([key])=><button type="button" key={key} className={`nm-th nm-th-${key}`} aria-pressed={sort===key} onClick={()=>setSort(key)}
      aria-label={`Sort by ${HEADS[key][0]}`}><span className="nm-long">{HEADS[key][0]}</span><span className="nm-short">{HEADS[key][1]}</span>{sort===key&&<ArrowDown size={13} aria-hidden="true"/>}</button>)}</div>
-   <ul className="nm-list">{shown.map(({row,read,hit,prop})=><PropRow key={row.id} row={row} read={read} hit={hit} prop={prop} short={SHORT}
+   <ul className="nm-list">{shown.map(({row,read,hit,prop,role})=><PropRow key={row.id} row={row} read={read} hit={hit} prop={prop} role={role} short={SHORT}
     open={openId===row.id} onToggle={()=>setOpenId(id=>id===row.id?null:row.id)} onOpen={openPage}/>)}</ul></div>}
   {(status==='ready'||status==='refreshing')&&rows.length>0&&!shown.length&&<div className="nm-empty"><b>Nothing matches</b>
    <span>Try another stat or game, or clear the search.</span></div>}
