@@ -147,6 +147,28 @@ not book odds.
     list shows it once a band has 20 props. This is the real test against
     PrizePicks' lines (which already price injury news): watch whether
     75+ and Elite beat ~54% over the next weeks, and refit if not.
+- Rebound and assist research (Oct 24, owner: points has shot zones vs
+  their zone defense, rebounds and assists only "5th most allowed"). On
+  the NBA player page's Matchup tab, beside "Where he scores", two doors
+  open sheets (`NbaScout.jsx` ChancesLink / Chances, math in
+  `src/sports/wnba/chances.js`): "Where his rebounds come from" (tonight's
+  misses on each end: their misses they don't get back and his team's
+  misses it gets back, each team's usual met halfway, against his team's
+  usual game, his own defensive / offensive boards moved by as much; his
+  shares; why they allow what they do: misses, how hard they crash, how
+  weak their glass is; who's out with his splits) and "Where his assists
+  come from" (his team's baskets and the share assisted, halfway with
+  what the opponent allows; his assist share and teammates' shooting;
+  baskets allowed, % of baskets assisted against them, FG% allowed). The
+  prop's own stat's door comes first. New team-table keys (opportunity.py):
+  fgm, fgmAllowed, orebPct, orebAllowedPct, assistedPct, assistedAllowed.
+  Backtested first (scratchpad chances.py): alone they line up with overs
+  (fgm allowed top vs bottom third +6.1, % assisted allowed +3.9, game
+  misses +2.6, their weak glass +2.8) but add nothing on top of
+  rebounds/assists allowed, so they explain the score, not join it; the
+  sheets say "Arithmetic, not a pick". The without-a-teammate average
+  shows only on the prop's own stat's sheet (player-context's split is
+  in the prop's market).
 - `src/nba-matchup-score.js`: the 0-100 score, rebuilt Oct 22 on a
   backtest like NFL's (the owner's call, after RotoBot's per-player grades
   proved impossible to explain): every 2024-25 and 2025-26 player-game with

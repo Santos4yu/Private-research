@@ -316,6 +316,45 @@
 .nba-mp .ns-shotlink b{font:800 15px/1.2 var(--font-sans)}
 .nba-mp .ns-shotlink em{color:var(--mp-muted);font-size:12px;font-style:normal}
 .nba-mp .ns-shotlink>svg:last-child{color:#cfcfcf}
+.nba-mp .ns-court .ns-pass{fill:none;stroke:var(--mp-good);stroke-width:2;stroke-dasharray:4 3;opacity:.8}
+
+/* Rebound and assist chances (the sheets behind ChancesLink). */
+.nba-mp .nc{display:grid;gap:14px;padding:0 4px 4px}
+.nba-mp .nc-head{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px}
+.nba-mp .nc-head>span{display:grid;gap:3px;padding:12px;border:1px solid #232323;border-radius:14px;background:#141414}
+.nba-mp .nc-head small{color:var(--mp-faint);font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.nba-mp .nc-head b{font:800 24px/1 'Sora',var(--font-sans)}
+.nba-mp .nc-head em{color:var(--mp-muted);font-size:11.5px;font-style:normal}
+.nba-mp .nc-head>span:first-child b{color:var(--mp-accent)}
+.nba-mp .nc-why{margin:0;color:#d6d6d6;font-size:13.5px;line-height:1.5}
+.nba-mp .nc-ends,.nba-mp .nc-rows,.nba-mp .nc-out{display:flex;flex-direction:column;margin:0;padding:0;list-style:none}
+.nba-mp .nc-ends li{display:grid;gap:4px;padding:10px 0;border-top:1px solid #1f1f1f}
+.nba-mp .nc-ends li:first-child{border-top:0;padding-top:0}
+.nba-mp .nc-ends li>span{display:flex;justify-content:space-between;gap:10px}
+.nba-mp .nc-ends b{font-size:13.5px}
+.nba-mp .nc-ends em{flex:none;color:var(--mp-faint);font-size:12.5px;font-style:normal;font-weight:800}
+.nba-mp .nc-ends em[data-sign=up]{color:var(--mp-good)}
+.nba-mp .nc-ends em[data-sign=down]{color:var(--mp-poor)}
+.nba-mp .nc-ends small{color:var(--mp-muted);font-size:12.5px;line-height:1.45}
+.nba-mp .nc-h{margin:4px 0 -4px;color:var(--mp-accent);font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+.nba-mp .nc-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.nba-mp .nc-tiles>span{display:grid;gap:3px;padding:10px 12px;border-radius:12px;background:#171717}
+.nba-mp .nc-tiles small{color:var(--mp-faint);font-size:11px;font-weight:700}
+.nba-mp .nc-tiles b{font:800 19px/1.1 'Sora',var(--font-sans)}
+.nba-mp .nc-tiles em{color:var(--mp-muted);font-size:11.5px;font-style:normal;line-height:1.35}
+.nba-mp .nc-rows li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #1f1f1f}
+.nba-mp .nc-rows li:first-child{border-top:0}
+.nba-mp .nc-rows li>span{display:grid;gap:2px;min-width:0}
+.nba-mp .nc-rows li>span:last-child{flex:none;justify-items:end;text-align:right}
+.nba-mp .nc-rows b{font-size:13px}
+.nba-mp .nc-rows small{color:var(--mp-faint);font-size:11.5px;line-height:1.35}
+.nba-mp .nc-rows em{color:var(--mp-muted);font-size:11.5px;font-style:normal;font-weight:700}
+.nba-mp .nc-rows em[data-tone=good]{color:var(--mp-good)}
+.nba-mp .nc-rows em[data-tone=poor]{color:var(--mp-poor)}
+.nba-mp .nc-out li{display:grid;gap:2px;padding:8px 0;border-top:1px solid #1f1f1f;font-size:12.5px}
+.nba-mp .nc-out li:first-child{border-top:0}
+.nba-mp .nc-out b{font-size:12.5px}
+.nba-mp .nc-out span{color:var(--mp-muted);line-height:1.45}
 
 /* vs the team. */
 .nba-mp .nv-tabs{display:flex;border-bottom:1px solid var(--mp-line)}

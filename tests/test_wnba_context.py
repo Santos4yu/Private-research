@@ -150,6 +150,21 @@ class ContextTests(unittest.TestCase):
         few = opportunity.team_table(context.team_games(self.payload))["teams"]
         self.assertIsNone(few["AAA"]["ptsAllowed10"][0])
 
+    def test_what_explains_rebounds_and_assists_allowed(self):
+        from backend.sports.wnba import opportunity
+        def boxed(pid, oreb, ast):
+            line = row(pid, 30, 10, reb=oreb + 4, ast=ast)          # 3 of 8 shooting: 5 misses a player
+            line[2 + league.FIELDS.index("oreb")] = oreb
+            return line
+        # AAA: two players, 6 baskets and 10 misses a game, 3 misses back, 4 assists.
+        # BBB against them: 6 baskets, 10 misses, 1 back, 3 assists.
+        games = {str(n): game(str(n), f"2026-06-0{n}", "AAA", "BBB", [boxed("star", 2, 3), boxed("mate", 1, 1)], [boxed("b_g", 1, 3), boxed("b_c", 0, 0)])
+                 for n in (1, 2)}
+        teams = opportunity.team_table(context.team_games({**self.payload, "games": games}))["teams"]
+        aaa = {key: teams["AAA"][key][0] for key in ("fgm", "fgmAllowed", "orebPct", "orebAllowedPct", "assistedPct", "assistedAllowed")}
+        self.assertEqual(aaa, {"fgm": 6.0, "fgmAllowed": 6.0, "orebPct": 30.0, "orebAllowedPct": 10.0, "assistedPct": 66.7, "assistedAllowed": 50.0})
+        self.assertEqual(teams["AAA"]["orebPct"][1], 1)              # [value, rank], 1 the most
+
     def test_team_offense_and_defense_ranks(self):
         stats = context.league_context(self.payload)["teamStats"]
         # Team points per game: AAA 30, BBB 12, CCC 29 -- most ranks first.

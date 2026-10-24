@@ -68,8 +68,13 @@ def _ranks(values: dict) -> dict:
 # What each team's games give, a game. `Allowed` is what its opponents did.
 # The `10` keys are its defense over its last RECENT games alone (the NBA
 # matchup score reads them beside the season's: a defense that has changed).
+# The rest explain the rebounds and assists a team gives up (the player
+# page's rebound and assist chances): baskets made and allowed, the share
+# of its own misses it gets back (orebPct) and of its opponents'
+# (orebAllowedPct), and the share of baskets assisted, its own and allowed.
 TEAM_KEYS = ("poss", "ortg", "drtg", "miss", "missAllowed", "gameMiss", "tpa", "tpaAllowed", "tpPctAllowed",
-             "fga", "fgaAllowed", "fta", "ftaAllowed", "fgPctAllowed", "astAllowed", "rebAllowed", "ptsAllowed10", "drtg10")
+             "fga", "fgaAllowed", "fta", "ftaAllowed", "fgPctAllowed", "astAllowed", "rebAllowed", "ptsAllowed10", "drtg10",
+             "fgm", "fgmAllowed", "orebPct", "orebAllowedPct", "assistedPct", "assistedAllowed")
 RECENT = 10
 
 
@@ -94,6 +99,9 @@ def team_table(by_team: dict) -> dict:
             sums["missAllowed"] += opp["fga"] - opp["fgm"]
             for key, box in (("tpa", own), ("fga", own), ("fta", own)):
                 sums[key] += box[key]
+            for key, field in (("fgm", "fgm"), ("oreb", "oreb"), ("ast", "ast")):
+                sums[key] += own[field]
+            sums["orebAllowed"] += opp["oreb"]
             for key, field in (("tpaAllowed", "tpa"), ("fgaAllowed", "fga"), ("ftaAllowed", "fta"), ("astAllowed", "ast"),
                                ("rebAllowed", "reb"), ("tpmAllowed", "tpm"), ("fgmAllowed", "fgm")):
                 sums[key] += opp[field]
@@ -106,6 +114,11 @@ def team_table(by_team: dict) -> dict:
         row["drtg"] = 100 * sums["ptsAllowed"] / sums["poss"] if sums["poss"] else None
         row["tpPctAllowed"] = 100 * sums["tpmAllowed"] / sums["tpaAllowed"] if sums["tpaAllowed"] else None
         row["fgPctAllowed"] = 100 * sums["fgmAllowed"] / sums["fgaAllowed"] if sums["fgaAllowed"] else None
+        row["fgm"], row["fgmAllowed"] = sums["fgm"] / count, sums["fgmAllowed"] / count
+        row["orebPct"] = 100 * sums["oreb"] / sums["miss"] if sums["miss"] else None
+        row["orebAllowedPct"] = 100 * sums["orebAllowed"] / sums["missAllowed"] if sums["missAllowed"] else None
+        row["assistedPct"] = 100 * sums["ast"] / sums["fgm"] if sums["fgm"] else None
+        row["assistedAllowed"] = 100 * sums["astAllowed"] / sums["fgmAllowed"] if sums["fgmAllowed"] else None
         row["games"] = count
         recent = lately[-RECENT:]
         if len(recent) >= 5:

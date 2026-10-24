@@ -21,3 +21,5 @@ folder `NBA_DATA` names. Needs pandas, numpy and scikit-learn.
    his stat mix (even read better).
 
 Run from this folder (`fit*.py` read the `.pkl` files and each other).
+7. `chances.py`: the rebound and assist chance numbers (misses, crashing,
+   baskets allowed, % assisted): do they predict overs on top of the score?

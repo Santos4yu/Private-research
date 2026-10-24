@@ -7,7 +7,7 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import {CalendarDays,ChevronDown,HeartPulse,LineChart,X} from 'lucide-react';
 import {MatchupPageShell,Trend} from './MatchupPageShell';
-import {Card,LikelyDefenders,Loading,MatchupGrade,Photo,PlayTypes,PositionRanks,ShotLink,ShotZones,VsTeam,teamName} from './sports/wnba/NbaScout';
+import {Card,Chances,ChancesLink,LikelyDefenders,Loading,MatchupGrade,Photo,PlayTypes,PositionRanks,ShotLink,ShotZones,VsTeam,teamName} from './sports/wnba/NbaScout';
 import {finite,fmt,realGames,useWnba} from './sports/wnba/wnba-research';
 import {basketballLogUrl} from './unified-finder-data';
 import {lineupRole} from './lineup-role';
@@ -105,8 +105,15 @@ function GameLog({logs,league}){
 }
 
 const TABS=[['overview','Overview'],['matchup','Matchup'],['stats','Stats']];
+// The research doors on the Matchup tab, the prop's own stats first: where
+// he scores (shot zones), where his rebounds and assists come from.
+const DOORS={player_points:['shots'],player_rebounds:['reb'],player_assists:['ast'],player_points_rebounds:['shots','reb'],
+ player_points_assists:['shots','ast'],player_rebounds_assists:['reb','ast'],player_points_rebounds_assists:['shots','reb','ast']};
+const doorsFor=marketKey=>[...new Set([...(DOORS[marketKey]||[]),'shots','reb','ast'])];
+const SHEETS={shots:['Shot zones','Where he scores vs'],reb:['Rebound chances','Where his rebounds come from vs'],ast:['Assist chances','Where his assists come from vs']};
+const LINE_OF={reb:'player_rebounds',ast:'player_assists'};
 export function NbaMatchupPage({row,lines,league,onBack}){
- const [tab,setTab]=useState('overview'),[shots,setShots]=useState(false);
+ const [tab,setTab]=useState('overview'),[shots,setShots]=useState(null);
  const leagueState=useMemo(()=>({data:league,loading:!league}),[league]);
  const log=useGameLog(row);
  const logs=log.rows;
@@ -121,11 +128,14 @@ export function NbaMatchupPage({row,lines,league,onBack}){
  const facts=[row.jersey?`#${row.jersey}`:null,team?.short||row.teamAbbr,POSITION_NAMES[String(row.position||'')[0]]||row.position,role?.label].filter(Boolean);
  useEffect(()=>{if(!shots)return undefined;const close=event=>{if(event.key==='Escape')setShots(false);};
   document.addEventListener('keydown',close);return()=>document.removeEventListener('keydown',close);},[shots]);
- const sheet=shots&&<div className="mp-sheet" role="dialog" aria-modal="true" aria-label="Shot zones" onClick={event=>{if(event.target===event.currentTarget)setShots(false);}}>
-  <div className="mp-sheet-panel"><div className="mp-sheet-head"><span><small>Shot zones</small><b>Where he scores vs {teamName(league,row.opponent)}</b></span>
-   <button type="button" onClick={()=>setShots(false)} aria-label="Close"><X size={18}/></button></div>
-   <ShotZones player={player} league={leagueState} row={row}/></div>
+ const lineFor=kind=>row.marketKey===LINE_OF[kind]?row.line:null;
+ const sheet=shots&&<div className="mp-sheet" role="dialog" aria-modal="true" aria-label={SHEETS[shots][0]} onClick={event=>{if(event.target===event.currentTarget)setShots(null);}}>
+  <div className="mp-sheet-panel"><div className="mp-sheet-head"><span><small>{SHEETS[shots][0]}</small><b>{SHEETS[shots][1]} {teamName(league,row.opponent)}</b></span>
+   <button type="button" onClick={()=>setShots(null)} aria-label="Close"><X size={18}/></button></div>
+   {shots==='shots'?<ShotZones player={player} league={leagueState} row={row}/>:<Chances kind={shots} row={row} league={leagueState} player={player} line={lineFor(shots)}/>}</div>
  </div>;
+ const door=kind=>kind==='shots'?<ShotLink key={kind} row={row} league={leagueState} onOpen={()=>setShots('shots')}/>
+  :<ChancesLink key={kind} kind={kind} row={row} league={leagueState} onOpen={()=>setShots(kind)}/>;
  return <MatchupPageShell row={row} team={team} opponent={opponent} home={home} facts={facts} color={color} onBack={onBack} tabs={TABS} tab={tab} onTab={setTab} after={sheet}>
   {/* Two columns side by side on a wide screen, one after the other on a phone. */}
   {tab==='overview'&&<div className="mp-cols">
@@ -133,8 +143,9 @@ export function NbaMatchupPage({row,lines,league,onBack}){
    <div className="mp-col"><Injuries row={row} league={leagueState} matchup={matchup} player={player}/></div></div>}
   {tab==='matchup'&&<div className="mp-cols">
    <div className="mp-col"><MatchupGrade row={row} league={leagueState} logs={logs}/></div>
-   <div className="mp-col"><PlayTypes row={row}/><LikelyDefenders row={row} league={leagueState} matchup={matchup}/>
-    <ShotLink row={row} league={leagueState} onOpen={()=>setShots(true)}/><VsTeam row={row} league={leagueState} logs={logs} lines={lines}/></div></div>}
+   <div className="mp-col">{doorsFor(row.marketKey).slice(0,(DOORS[row.marketKey]||[]).length).map(kind=>door(kind))}
+    <PlayTypes row={row}/><LikelyDefenders row={row} league={leagueState} matchup={matchup}/>
+    {doorsFor(row.marketKey).slice((DOORS[row.marketKey]||[]).length).map(kind=>door(kind))}<VsTeam row={row} league={leagueState} logs={logs} lines={lines}/></div></div>}
   {tab==='stats'&&<div className="mp-cols" data-wide="right">
    <div className="mp-col"><PositionRanks row={row}/></div>
    <div className="mp-col"><GameLog logs={logs} league={leagueState}/></div></div>}

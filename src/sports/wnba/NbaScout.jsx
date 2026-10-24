@@ -9,7 +9,9 @@
 import React,{useEffect,useId,useMemo,useState} from 'react';
 import {Activity,CalendarClock,ChevronDown,ChevronRight,Medal,Shield,Swords,Target,UserRound,Users} from 'lucide-react';
 import {baseMarket,finite,fmt,opponentOf,ordinal,positionOf,realGames,shortDate,signed,useWnba} from './wnba-research';
-import {cardScores} from '../../nba-matchup-score';
+import {cardScores,outTonight} from '../../nba-matchup-score';
+import {assistChances,reboundChances} from './chances';
+import {absences} from './opportunity';
 import {theirDefenders,theirSeasons} from './defenders';
 import './nba-scout.css';
 
@@ -207,6 +209,58 @@ export function LikelyDefenders({row,league,matchup}){
 }
 
 // ------------------------------------------------------------ Shot chart link
+// ------------------------------------------------------------ Rebound and assist chances
+// The doors beside the shot chart's, and their sheets (chances.js): the
+// chances tonight's game should give him against his usual, his share of
+// them, why the opponent gives up what it does, and who's out.
+const CHANCE_WORDS={reb:{title:'Where his rebounds come from',small:'Rebound chances',em:'Misses on both ends, who crashes, who sits',stat:'rebounds'},
+ ast:{title:'Where his assists come from',small:'Assist chances',em:'Teammates’ baskets, how many get assisted, who sits',stat:'assists'}};
+export function ChancesLink({kind,row,league,onOpen}){
+ const opponent=(row.opponent||opponentOf(row)),words=CHANCE_WORDS[kind];
+ return <button type="button" className="ns-shotlink" onClick={onOpen}>
+  <svg className="ns-court" viewBox="0 0 120 80" aria-hidden="true"><rect x="1" y="1" width="118" height="78" rx="8"/><path d="M18 79 V48 A42 42 0 0 1 102 48 V79"/><rect x="44" y="40" width="32" height="39"/>
+   {kind==='reb'?<><circle cx="60" cy="66" r="5" className="ns-dot-pink"/><circle cx="48" cy="50" r="4" className="ns-dot-green"/><circle cx="72" cy="52" r="4" className="ns-dot-green"/><circle cx="60" cy="40" r="4" className="ns-dot-green"/></>
+    :<><circle cx="24" cy="26" r="5" className="ns-dot-green"/><path d="M24 26 L60 58" className="ns-pass"/><circle cx="60" cy="58" r="5" className="ns-dot-green"/></>}</svg>
+  <span><small>{words.small}</small><b>{words.title} vs {teamName(league.data,opponent)}</b><em>{words.em}</em></span>
+  <ChevronRight size={18} aria-hidden="true"/></button>;
+}
+
+export function Chances({kind,row,league,player,line}){
+ const opponent=row.opponent||opponentOf(row),data=league.data,p=player.data,words=CHANCE_WORDS[kind];
+ const read=useMemo(()=>!data||!p?null:kind==='reb'?reboundChances(p,data.opportunity,row.teamAbbr,opponent):assistChances(p,data.opportunity,row.teamAbbr,opponent),[kind,data,p,row.teamAbbr,opponent]);
+ const mine=useMemo(()=>data?outTonight(row.teamAbbr,data,row.playerId):null,[data,row.teamAbbr,row.playerId]);
+ const theirs=useMemo(()=>data?outTonight(opponent,data):null,[data,opponent]);
+ const splits=useMemo(()=>absences(kind,data?.tonight?.teams?.[row.teamAbbr]?.injuries||[],p?.withWithout||[],words.stat).filter(item=>item.known&&item.games>=2),[kind,data,row.teamAbbr,p,words.stat]);
+ if((league.loading&&!data)||(player.loading&&!p))return <Loading/>;
+ if(!read)return <p className="mp-empty">Not enough of his or {opponent}'s games yet to work this out.</p>;
+ const first=firstWord(row.player),change=read.expected-read.usual;
+ const listOut=players=>players.map(item=>`${item.name} (${item.pos}, ${Math.round(item.min)} min${item.sits<1?`, ${String(item.status).toLowerCase()}`:''})`).join(', ');
+ return <div className="nc">
+  <div className="nc-head">
+   <span><small>Tonight at his usual share</small><b>{read.expected.toFixed(1)}</b><em>{words.stat}</em></span>
+   <span><small>His average</small><b>{read.usual.toFixed(1)}</b><em>{read.basis}</em></span>
+   {finite(line)&&<span><small>The line</small><b>{line}</b><em>{Math.abs(read.expected-line)<0.25?'right at the chances':read.expected>line?'the chances point over':'the chances point under'}</em></span>}
+  </div>
+  <p className="nc-why">{Math.abs(change)<0.15?`About his usual chances tonight.`:`${change>0?'More':'Fewer'} chances than his usual game: about ${fmt(Math.abs(change))} ${change>0?'more':'fewer'} ${words.stat} if ${first} gets his usual share of them.`}</p>
+  {kind==='reb'?<ul className="nc-ends">{read.ends.map(end=>{const ratio=finite(end.tonight)&&end.usual>0?end.tonight/end.usual-1:0;
+   return <li key={end.key}><span><b>{end.label}</b><em data-sign={ratio>0.02?'up':ratio<-0.02?'down':'flat'}>{ratio?`${ratio>0?'+':'−'}${Math.round(Math.abs(ratio)*100)}%`:'as usual'}</em></span>
+    <small>{end.text}. He grabs {fmt(end.mine)} a game here.</small></li>;})}</ul>
+  :<ul className="nc-ends"><li><span><b>Teammates’ baskets</b><em data-sign={read.expected>read.usual*1.02?'up':read.expected<read.usual*0.98?'down':'flat'}>{`${read.expected>=read.usual?'+':'−'}${Math.round(Math.abs(read.expected/read.usual-1)*100)}%`}</em></span><small>{read.text}.</small></li></ul>}
+  {read.mine.length>0&&<><h3 className="nc-h">{first}</h3><div className="nc-tiles">{read.mine.map(item=><span key={item.key}><small>{item.label}</small><b>{item.value}</b><em>{item.note}</em></span>)}</div></>}
+  <h3 className="nc-h">{teamName(data,opponent)}</h3>
+  <ul className="nc-rows">{read.rows.map(item=><li key={item.key}><span><b>{item.label}</b><small>{item.note}</small></span><span><b>{item.value}</b><em data-tone={item.tone}>{item.words}</em></span></li>)}</ul>
+  {(mine||theirs||splits.length>0)&&<><h3 className="nc-h">Who's out tonight</h3><ul className="nc-out">
+   {mine&&<li><b>{row.teamAbbr}</b><span>{mine.length?listOut(mine):'Nobody in the rotation'}</span></li>}
+   {theirs&&<li><b>{opponent}</b><span>{theirs.length?listOut(theirs):'Nobody in the rotation'}</span></li>}
+   {/* His average without him is in the prop's own stat: shown only on that stat's sheet. */}
+   {splits.map(item=><li key={item.id}><b>Without {item.name}</b><span>{[finite(line)?item.stat:null,...item.parts.filter(part=>part.label!=='Minutes')].filter(Boolean).map(part=>`${part.without} ${part.label.toLowerCase()}${part.change?` (${part.change})`:''}`).join(', ')} in {item.games} {item.games===1?'game':'games'}</span></li>)}
+  </ul></>}
+  <p className="nd-foot">{kind==='reb'
+   ?`Rebounds come off missed shots. On defense his chances are ${opponent}'s misses they don't get back themselves; on offense, the share of his team's misses it gets back. Tonight's are each team's usual numbers met halfway, against his team's usual game, and his rebounds on each end moved by as much (${read.basis}). Arithmetic, not a pick: the matchup score's rebounds read already counts this.`
+   :`Assists come off teammates' baskets. Tonight's are his team's usual baskets and what ${opponent} usually allows met halfway, times the share assisted (both teams' habits, halfway), against his team's usual, and his assists moved by as much (${read.basis}). Arithmetic, not a pick: the matchup score's assists read already counts this.`}</p>
+ </div>;
+}
+
 export function ShotLink({row,league,onOpen}){
  const opponent=(row.opponent||opponentOf(row));
  return <button type="button" className="ns-shotlink" onClick={onOpen}>
