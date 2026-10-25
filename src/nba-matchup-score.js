@@ -134,6 +134,19 @@ const ONE = {G: 'guard', F: 'forward', C: 'center'};
 export const CARD_STATS = [['player_points', 'PTS'], ['player_rebounds', 'REB'], ['player_assists', 'AST'], ['player_threes', '3PM'],
   ['player_steals', 'STL'], ['player_blocks', 'BLK']];
 
+// The opponent's reads, stretched (Oct 25, the owner: "his matchup is
+// great", Reaves at the league's softest defense read 79). On the
+// backtest's scale the 90s were left to injury nights: a defense alone
+// topped out in the low 80s. Now each stat's opponent reads are stretched
+// so an opponent 1.65 spreads soft on all of them reads 97, the way the
+// softest defense tops a list. Who's out still adds on top (held to 100).
+// The number reads as how soft the defense is more than as the backtest's
+// odds; the track record shows how each band does.
+const OPPONENT = ['defense', 'pace', 'position', 'recent', 'attempts', 'rebounds', 'assists', 'turnovers'];
+export const STRETCH = Object.fromEntries(Object.entries(WEIGHTS).map(([stat, weights]) =>
+  [stat, 50 * Math.atanh(0.94) / (1.65 * OPPONENT.reduce((sum, name) => sum + (weights[name] || 0), 0))]));
+const stretchOf = stat => STRETCH[stat] || STRETCH[FAMILY[stat]] || STRETCH.pts;
+
 export const BANDS = [[75, 'Strong edge', 'strong'], [60, 'Edge', 'edge'], [40, 'Neutral', 'neutral'], [0, 'Tough', 'tough']];
 export function band(score) {
   const [, label, tone] = BANDS.find(([floor]) => score >= floor);
@@ -384,9 +397,15 @@ export function matchupScore(row, league) {
   const meetings = parts.length === 1 ? meetingsRead(row, parts[0][1]) : null;
   const reads = [...shared, ...own, ...absenceReads(row, league, parts), meetings].filter(Boolean);
   if (!reads.some(read => read.kind === 'defense' || read.kind === 'position')) return null;
+  // The backtest's own number (`calibrated`) stays what the Analyzer's
+  // chances read; the score shown has the opponent's reads stretched by the
+  // parts' average (STRETCH).
+  const calibrated = Math.round(50 + 50 * Math.tanh(reads.reduce((sum, read) => sum + read.points, 0) / 50));
+  const stretch = mean(parts.map(([, part]) => stretchOf(part)));
+  for (const read of reads) if (OPPONENT.includes(read.kind)) read.points *= stretch;
   const points = reads.reduce((sum, read) => sum + read.points, 0);
   const fit = meetings ? {key: 'meetings', kind: 'meetings', score: alone(meetings.soft), text: meetings.text, counted: true} : fitRead(row);
-  return {score: Math.round(50 + 50 * Math.tanh(points / 50)), raw: 50 + points, fit,
+  return {score: Math.round(50 + 50 * Math.tanh(points / 50)), calibrated, raw: 50 + points, fit,
     reads: reads.map(read => ({key: read.key, kind: read.kind, text: read.text, score: alone(read.soft), points: Math.round(read.points * 10) / 10}))};
 }
 
@@ -412,6 +431,6 @@ export function cardScores(row, league, history = row.history) {
     const meetings = full ? meetingsOf(history, marketKey, row.opponent) : own ? row.meetings : null;
     const read = matchupScore({...row, marketKey, gameLog: games, meetings}, league);
     if (!read) return {marketKey, stat, score: null};
-    return {marketKey, stat, score: read.score, ...band(read.score), reads: read.reads, fit: read.fit};
+    return {marketKey, stat, score: read.score, calibrated: read.calibrated, ...band(read.score), reads: read.reads, fit: read.fit};
   });
 }

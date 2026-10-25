@@ -76,6 +76,15 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   out-of-sample numbers in the file's header are no longer exact: watch
   the track record. If it should be re-fitted, the backtest is in
   `tools/nba-backtest/`.
+- Same night, the owner: Reaves @ UTA still only 79 ("his matchup is
+  great"). On the backtest's scale a defense alone topped out in the low
+  80s; the 90s were left to injury nights. Now each stat's opponent reads
+  are stretched (`STRETCH` in nba-matchup-score.js) so an opponent 1.65
+  spreads soft on all of them reads 97. On last season's numbers the
+  opponent alone now spans about 1-98, median 49, ~8% at 90+. The
+  backtest's own number is kept as `calibrated` and is what the Analyzer's
+  chances and tiers read (slip-matchup.js `odds`, slip-check.js), so the
+  stretch changes what members see, not the model's chances.
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).

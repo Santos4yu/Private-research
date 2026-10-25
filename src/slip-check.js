@@ -365,7 +365,7 @@ export function confidentUnder(read) {
 export function tierOf(read) {
   if (!read) return null;
   const edge = read.chance - baselineOf(read);
-  const score = read.matchup?.score ?? 50, cuts = read.matchup?.cuts || CUTS;
+  const score = read.matchup?.odds ?? read.matchup?.score ?? 50, cuts = read.matchup?.cuts || CUTS;
   if (read.matchup?.primary && score >= cuts.elite && edge >= 0.08) return 'elite';
   if (score >= cuts.strong && edge >= 0.04) return 'strong';
   if (score < cuts.fade || edge < -0.04) return 'fade';
@@ -403,7 +403,7 @@ export function judge(read, tables = {}) {
   const blend = read.read?.model ? MODEL_BLEND[read.row?.sport] : null;
   const trend = role ? 0.15 : blend ? blend[0] : matchup?.primary ? 0.45 : 0.7;
   const lift = blend ? blend[1] : 0.18;
-  const raw = matchup ? Math.min(0.95, Math.max(0.05, base + trend * (read.chance - base) + lift * (matchup.pull ?? 1) * (matchup.score - 50) / 50)) : read.chance;
+  const raw = matchup ? Math.min(0.95, Math.max(0.05, base + trend * (read.chance - base) + lift * (matchup.pull ?? 1) * ((matchup.odds ?? matchup.score) - 50) / 50)) : read.chance;
   // What the results have taught the model (learning.js): the same
   // correction on every page. `rawChance` is the model's own, learned from.
   const chance = calibrate(raw, read.row?.sport, statGroup(read.row));

@@ -916,7 +916,9 @@ export function matchupCase(leg, tables = {}) {
   if (props) {
     // The Props tab's number for his side; his form, history and rest are shown beside it.
     const score = sign > 0 ? props.score : 100 - props.score, {label, tone} = nbaBand(score);
-    return {score, label, tone: PROPS_TONES[tone], primary: true, facts: sorted(), cuts: PROPS_CUTS, pull: 0.5};
+    // The chance reads the backtest's own number (`odds`); the score shown is the Props tab's.
+    const odds = finite(props.calibrated) ? (sign > 0 ? props.calibrated : 100 - props.calibrated) : score;
+    return {score, odds, label, tone: PROPS_TONES[tone], primary: true, facts: sorted(), cuts: PROPS_CUTS, pull: 0.5};
   }
   let score;
   if (model && finite(model.score)) {

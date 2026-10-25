@@ -58,13 +58,14 @@ test('last season’s real numbers: Denver for a guard, and how the scores sprea
   // RotoBot (Oct 2026) moves each guard on something of its own: points 89
   // McCain, 73 Wallace, 63 Gilgeous-Alexander; steals 40-51. Denver turn it
   // over the fewest times, which is what predicted steals.
-  assert.deepEqual(card, {PTS: 52, REB: 46, AST: 55, '3PM': 62, STL: 36, BLK: 58});
+  assert.deepEqual(card, {PTS: 54, REB: 38, AST: 60, '3PM': 85, STL: 16, BLK: 73});
   const scores = Object.keys(real.teamStats).flatMap(opponent => ['G', 'F', 'C'].flatMap(position =>
     cardScores(row(`${opponent}${position}`, {position, teamAbbr: 'OKC', opponent}), real).map(item => item.score))).sort((a, b) => a - b);
-  // The opponent's numbers alone (no injury report) keep inside 15-85: who's
-  // out tonight is what reaches the ends (the backtest's 2.5% at 90+).
-  assert.ok(scores[0] >= 15 && scores.at(-1) < 90, `${scores[0]} ${scores.at(-1)}`);
-  assert.ok(scores[Math.floor(scores.length * 0.1)] < 40 && scores[Math.floor(scores.length * 0.9)] > 60);
+  // The opponent's numbers alone (no injury report) now reach both ends
+  // (Oct 25: stretched, as RotoBot's soft defenses read in the 90s): a few
+  // in ten at 90+, the stingy end near 0, the middle near 50.
+  assert.ok(scores[0] <= 10 && scores.at(-1) >= 95, `${scores[0]} ${scores.at(-1)}`);
+  assert.ok(scores[Math.floor(scores.length * 0.1)] < 25 && scores[Math.floor(scores.length * 0.9)] > 80);
   assert.ok(Math.abs(scores[Math.floor(scores.length / 2)] - 50) <= 5);
 });
 
@@ -162,17 +163,18 @@ test('threes and blocks count his last three games against them; points don’t'
   const guard = (id, meetings, marketKey) => row(id, {position: 'G', teamAbbr: 'OKC', opponent: 'DEN', marketKey, meetings});
   const mccain = {values: [2, 3, 3], usual: 1.5}, shai = {values: [1, 0, 3], usual: 1.7};
   const hot = matchupScore(guard('m', mccain, 'player_threes'), real), cold = matchupScore(guard('s', shai, 'player_threes'), real);
-  assert.ok(hot.score > cold.score + 10, `${hot.score} vs ${cold.score}`);
+  // On the backtest's own number (the shown score can top out).
+  assert.ok(hot.calibrated > cold.calibrated + 10, `${hot.calibrated} vs ${cold.calibrated}`);
   assert.equal(hot.reads.at(-1).text, 'His last 3 games against DEN: 2, 3, 3 threes (2.7 a game), his usual 1.5');
   assert.equal(hot.fit.text, hot.reads.at(-1).text);
   const none = matchupScore(guard('n', null, 'player_threes'), real);
-  assert.ok(hot.score > none.score && cold.score < none.score);
+  assert.ok(hot.calibrated > none.calibrated && cold.calibrated < none.calibrated);
   // Points: his games against them predicted nothing, so they stay out.
   assert.equal(matchupScore(guard('m2', {values: [30, 30, 30], usual: 8}, 'player_points'), real).score,
     matchupScore(guard('s2', {values: [5, 5, 5], usual: 30}, 'player_points'), real).score);
   // One meeting is trusted half as much as three (n / (n + 3)).
   const once = matchupScore(guard('o', {values: [3], usual: 1.5}, 'player_threes'), real);
-  assert.ok(once.score < hot.score && once.reads.at(-1).text.startsWith('His last game against DEN: 3 threes'));
+  assert.ok(once.calibrated < hot.calibrated && once.reads.at(-1).text.startsWith('His last game against DEN: 3 threes'));
 });
 
 test('his meetings: the last three against them, his usual with last season worth ten games', () => {
