@@ -85,6 +85,12 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   backtest's own number is kept as `calibrated` and is what the Analyzer's
   chances and tiers read (slip-matchup.js `odds`, slip-check.js), so the
   stretch changes what members see, not the model's chances.
+- Then: a starter (lineup-role.js: started his team's last game) is
+  scored on the opponent alone. His teammates out / back reads are left
+  out for him; a bench player still reads them; the opponent's players out
+  count for everyone. A who's-out line that adds 0 points isn't shown.
+  Checked on last season's numbers: every stat and combo scores 0-100,
+  medians 42-52, 2-14% at 90+.
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).

@@ -286,3 +286,14 @@ test('a teammate back after missing their last 3 takes minutes back; only once t
   assert.equal(read.text, 'Back for HOU tonight after missing their last 3: Reed Sheppard (G, 27 min), Steven Adams (C, 22 min). They take minutes and shots back, most from the guards');
   assert.equal(gone.reads.some(item => item.kind === 'back'), false);
 });
+
+test('a starter is scored on the opponent alone: his teammates in or out don\'t count', () => {
+  const starting = structuredClone(rotation);
+  starting.HOU.players = starting.HOU.players.map(player => player.id === 'tg' ? {...player, games: 5, starts: 5, lastStart: true} : player);
+  if (!starting.HOU.players.some(player => player.id === 'tg')) starting.HOU.players.push({id: 'tg', name: 'tg', pos: 'G', games: 5, starts: 5, lastStart: true});
+  const night = {...league, rotation: starting, tonight: {teams: report('HOU', [out('g1')])}};
+  const starter = matchupScore(guard(), night), bench = matchupScore(guard(), tonight(report('HOU', [out('g1')])));
+  assert.equal(starter.reads.some(read => read.kind === 'teammates' || read.kind === 'back'), false);
+  assert.equal(starter.score, matchupScore(guard(), league).score);
+  assert.ok(bench.reads.some(read => read.kind === 'teammates') && bench.score > starter.score);
+});

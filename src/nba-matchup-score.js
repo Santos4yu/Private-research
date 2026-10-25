@@ -76,6 +76,7 @@
 //
 import {defenseCell, meetingsOf, statGameLog} from './unified-finder-data.js';
 import {MARKET_STAT, baseMarket, positionOf} from './sports/wnba/wnba-research.js';
+import {lineupRole} from './lineup-role.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
@@ -321,14 +322,20 @@ function absenceReads(row, league, parts) {
   if (!pos) return [];
   const average = name => mean(parts.map(([, part]) => weightsOf(part)[name] || 0));
   const reads = [];
-  const mine = outTonight(row.teamAbbr, league, row.playerId);
+  // A starter's matchup is the opponent's (Oct 25, the owner: teammates in
+  // or out shouldn't decide a starter's matchup). His minutes don't hang on
+  // who else plays, so his own team's reads are left out for him; a bench
+  // player, whose minutes do, still reads them. Who's out for the opponent
+  // is part of the matchup and counts for everyone.
+  const starter = lineupRole(row, league)?.starter === true;
+  const mine = starter ? null : outTonight(row.teamAbbr, league, row.playerId);
   if (mine && (average('teamPos') || average('teamOther'))) {
     const at = mine.filter(player => player.pos === pos), rest = mine.filter(player => player.pos !== pos);
     const points = average('teamPos') * beyond(minutesOf(at), OUT_CENTRES.teamPos[pos]) + average('teamOther') * beyond(minutesOf(rest), OUT_CENTRES.teamOther);
-    if (mine.length) reads.push({key: 'teammates', kind: 'teammates', points, soft: points / 15,
+    if (mine.length && Math.round(points)) reads.push({key: 'teammates', kind: 'teammates', points, soft: points / 15,
       text: `Out for ${row.teamAbbr} tonight: ${listOut(mine)}. Their minutes and shots go to the rest${at.length ? `, most to the ${POSITIONS[pos]}` : ''}`});
   }
-  const back = average('backPos') || average('backOther') ? backTonight(row.teamAbbr, league, row.playerId) : null;
+  const back = !starter && (average('backPos') || average('backOther')) ? backTonight(row.teamAbbr, league, row.playerId) : null;
   if (back?.length) {
     const at = back.filter(player => player.pos === pos), rest = back.filter(player => player.pos !== pos);
     const points = average('backPos') * (backMinutes(at) - BACK_CENTRES.backPos[pos]) + average('backOther') * (backMinutes(rest) - BACK_CENTRES.backOther[pos]);
@@ -342,7 +349,7 @@ function absenceReads(row, league, parts) {
     const value = {oppPos: beyond(minutesOf(at), OUT_CENTRES.oppPos[pos]), oppOther: beyond(minutesOf(theirs.filter(player => player.pos !== pos)), OUT_CENTRES.oppOther),
       oppAll: beyond(minutesOf(theirs), OUT_CENTRES.oppAll), oppC: beyond(minutesOf(centers), OUT_CENTRES.oppC)};
     const points = oppNames.reduce((sum, name) => sum + average(name) * value[name], 0);
-    if (theirs.length) reads.push({key: 'missing', kind: 'missing', points, soft: points / 15,
+    if (theirs.length && Math.round(points)) reads.push({key: 'missing', kind: 'missing', points, soft: points / 15,
       text: `Out for ${row.opponent} tonight: ${listOut(theirs)}. A thinner defense${centers.length && oppNames.includes('oppC') ? ', without its center on the glass' : ''}`});
   }
   return reads;
