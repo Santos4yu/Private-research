@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-10-22 (one NBA matchup score; the assistant's play breakdowns). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the matchup score). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -56,6 +56,29 @@ Last updated 2026-10-22 (one NBA matchup score; the assistant's play breakdowns)
   minutes. Scores are worked out on the phone, so without this a phone kept
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
+
+### Oct 25: cleaner list, full rosters neutral
+
+- The owner: the list looked crowded ("hitting and prop grade and blowout
+  stuff"), wanted just the matchup like RotoBot. Rows now show the photo,
+  name, line, game, a big matchup number with a bar under it, and a quiet
+  Last 10 (`5/10`). Gone from rows: Prop grade column and sort, Hitting
+  pill, Blowout mark, Starter/Bench, "Strong edge" text, "% over". Sort is
+  Matchup | Last 10. The Why panel keeps the blowout and role notes; the
+  track record shows matchup bands only. Prop grades are still computed
+  and still reported to the track record in the background.
+- The owner: Reaves @ UTA (the league's softest defense) read 44 for
+  points. Cause: with nobody out on either team, the who's-out reads took
+  up to ~38 points off (centred on a usual night's minutes out). Now only
+  minutes out beyond a usual night count (`beyond()` in
+  nba-matchup-score.js); a clean report adds nothing and shows no line.
+  This shifts ordinary nights up versus the backtest's bands, so the
+  out-of-sample numbers in the file's header are no longer exact: watch
+  the track record. If it should be re-fitted, the backtest is in
+  `tools/nba-backtest/`.
+- npm's registry wasn't reachable from the container this session, so no
+  `vite build` ran here: checked with esbuild + Playwright on a harness
+  page and the JS tests (4 failures there are older, missing packages).
 
 ## Current project: NBA and NFL matchups on the Props tab
 

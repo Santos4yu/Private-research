@@ -44,7 +44,11 @@
 // player at his position out (points), any of them (assists, steals,
 // blocks), their center (rebounds). Read in 30-minute units against a usual
 // night's (OUT_CENTRES: someone is nearly always out), from tonight's
-// injury reports (league.tonight); no report, no read. Also their last 10
+// injury reports (league.tonight); no report, no read. Only the minutes out
+// beyond a usual night count (Oct 25, the owner: Reaves against the
+// league's softest defense read 44 for points because nobody on either team
+// was out). A full roster is news of nothing: it no longer takes up to 38
+// points off a score, so the opponent's defense decides an ordinary night. Also their last 10
 // games' defense beside the season's (league.opportunity ptsAllowed10,
 // drtg10): a defense that has changed. Fitted with these, their defense as
 // a whole no longer held its sign for rebounds or assists, so it isn't read
@@ -292,7 +296,8 @@ const listBack = players => players.map(player => `${player.name} (${player.pos}
 // Minutes out, in 30-minute units: each counted by how likely he is to sit.
 const minutesOf = players => players.reduce((sum, player) => sum + player.min * player.sits, 0) / 30;
 const listOut = players => players.map(player => `${player.name} (${player.pos}, ${Math.round(player.min)} min${player.sits < 1 ? `, ${String(player.status).toLowerCase()}` : ''})`).join(', ');
-const usual = units => `${Math.round(units * 30)} minutes`;
+// Only minutes out beyond a usual night count; fewer reads even, not below.
+const beyond = (units, centre) => Math.max(0, units - centre);
 
 /**
  * Who's out tonight, his side and theirs (see the top of the file): each
@@ -306,11 +311,9 @@ function absenceReads(row, league, parts) {
   const mine = outTonight(row.teamAbbr, league, row.playerId);
   if (mine && (average('teamPos') || average('teamOther'))) {
     const at = mine.filter(player => player.pos === pos), rest = mine.filter(player => player.pos !== pos);
-    const points = average('teamPos') * (minutesOf(at) - OUT_CENTRES.teamPos[pos]) + average('teamOther') * (minutesOf(rest) - OUT_CENTRES.teamOther);
-    const text = mine.length
-      ? `Out for ${row.teamAbbr} tonight: ${listOut(mine)}. Their minutes and shots go to the rest${at.length ? `, most to the ${POSITIONS[pos]}` : ''}`
-      : `Nobody in ${row.teamAbbr}'s rotation is out tonight (a usual night has about ${usual(OUT_CENTRES.teamPos[pos] + OUT_CENTRES.teamOther)} out), so no extra minutes or shots to go around`;
-    reads.push({key: 'teammates', kind: 'teammates', points, soft: points / 15, text});
+    const points = average('teamPos') * beyond(minutesOf(at), OUT_CENTRES.teamPos[pos]) + average('teamOther') * beyond(minutesOf(rest), OUT_CENTRES.teamOther);
+    if (mine.length) reads.push({key: 'teammates', kind: 'teammates', points, soft: points / 15,
+      text: `Out for ${row.teamAbbr} tonight: ${listOut(mine)}. Their minutes and shots go to the rest${at.length ? `, most to the ${POSITIONS[pos]}` : ''}`});
   }
   const back = average('backPos') || average('backOther') ? backTonight(row.teamAbbr, league, row.playerId) : null;
   if (back?.length) {
@@ -323,13 +326,11 @@ function absenceReads(row, league, parts) {
   const oppNames = ['oppPos', 'oppOther', 'oppAll', 'oppC'].filter(name => average(name));
   if (theirs && oppNames.length) {
     const at = theirs.filter(player => player.pos === pos), centers = theirs.filter(player => player.pos === 'C');
-    const value = {oppPos: minutesOf(at) - OUT_CENTRES.oppPos[pos], oppOther: minutesOf(theirs.filter(player => player.pos !== pos)) - OUT_CENTRES.oppOther,
-      oppAll: minutesOf(theirs) - OUT_CENTRES.oppAll, oppC: minutesOf(centers) - OUT_CENTRES.oppC};
+    const value = {oppPos: beyond(minutesOf(at), OUT_CENTRES.oppPos[pos]), oppOther: beyond(minutesOf(theirs.filter(player => player.pos !== pos)), OUT_CENTRES.oppOther),
+      oppAll: beyond(minutesOf(theirs), OUT_CENTRES.oppAll), oppC: beyond(minutesOf(centers), OUT_CENTRES.oppC)};
     const points = oppNames.reduce((sum, name) => sum + average(name) * value[name], 0);
-    const text = theirs.length
-      ? `Out for ${row.opponent} tonight: ${listOut(theirs)}. A thinner defense${centers.length && oppNames.includes('oppC') ? ', without its center on the glass' : ''}`
-      : `Nobody in ${row.opponent}'s rotation is out tonight: a full-strength defense (most nights a team is missing someone)`;
-    reads.push({key: 'missing', kind: 'missing', points, soft: points / 15, text});
+    if (theirs.length) reads.push({key: 'missing', kind: 'missing', points, soft: points / 15,
+      text: `Out for ${row.opponent} tonight: ${listOut(theirs)}. A thinner defense${centers.length && oppNames.includes('oppC') ? ', without its center on the glass' : ''}`});
   }
   return reads;
 }

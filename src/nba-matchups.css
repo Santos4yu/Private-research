@@ -68,9 +68,9 @@
 
 /* The list: a table, one slim row per prop. The headings sit once above
    the rows, and each row and the headings share one set of columns
-   (--nm-cols): photo, name over game, line, Matchup, Last 10, Prop grade;
+   (--nm-cols): photo, name over game, line, Matchup, Last 10;
    the arrow for Why sits in its own column at the end. */
-.nm-table{--nm-cols:40px minmax(0,1.5fr) minmax(0,1fr) minmax(88px,.7fr) minmax(88px,.7fr) minmax(96px,.7fr);--nm-why:44px;margin:14px 0 0}
+.nm-table{--nm-cols:40px minmax(0,1.5fr) minmax(0,1fr) minmax(96px,.7fr) minmax(72px,.5fr);--nm-why:44px;margin:14px 0 0}
 .nm-thead{display:grid;grid-template-columns:var(--nm-cols);column-gap:12px;align-items:center;padding:0 calc(12px + var(--nm-why)) 8px 12px;
  border-bottom:1px solid var(--m-line);color:var(--m-faint);font:800 11px var(--font-sans);letter-spacing:.06em;text-transform:uppercase}
 .nm-th-player{grid-column:1 / span 2}
@@ -81,7 +81,7 @@
 .nm-list{margin:0;padding:0;list-style:none}
 .nm-row{display:grid;grid-template-columns:minmax(0,1fr) var(--nm-why);align-items:center;border-bottom:1px solid var(--m-line)}
 .nm-row:hover,.nm-row[data-open]{background:#121212}
-.nm-main{display:grid;grid-template-columns:var(--nm-cols);grid-template-areas:'face name line score hit prop' 'face when line score hit prop';column-gap:12px;row-gap:2px;
+.nm-main{display:grid;grid-template-columns:var(--nm-cols);grid-template-areas:'face name line score hit' 'face when line score hit';column-gap:12px;row-gap:2px;
  align-items:center;width:100%;min-width:0;padding:10px 12px;border:0;background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}
 .nm-main .sa-face{--size:40px;grid-area:face}
 .nm-name{grid-area:name;align-self:end;overflow:hidden;font-size:14.5px;white-space:nowrap;text-overflow:ellipsis}
@@ -102,7 +102,11 @@
 .nm-cell{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;text-align:center}
 .nm-cell.nm-score{grid-area:score}
 .nm-cell.nm-hit{grid-area:hit}
-.nm-cell.nm-prop{grid-area:prop}
+/* The matchup is the row's big number, a bar under it; Last 10 sits quieter. */
+.nm-cell.nm-score b{font-size:22px}
+.nm-cell.nm-score .nm-bar{width:52px}
+.nm-cell.nm-hit b{font-size:14px;font-weight:700}
+.nm-cell.nm-hit b{color:var(--m-muted)}
 .nm-cell b{font:800 17px/1 'Sora',var(--font-sans);white-space:nowrap}
 .nm-cell em{max-width:100%;overflow:hidden;color:var(--m-faint);font-size:11px;font-style:normal;font-weight:600;line-height:1.2;white-space:nowrap;text-overflow:ellipsis}
 .nm-cell[data-tone=strong] b,.nm-cell[data-tone=strong] em{color:var(--m-strong)}
@@ -113,9 +117,6 @@
 /* Marks under the grade: its props have been beating what they needed
    lately (Hitting); a big spread tonight, a starter's risk or a bench
    player's boost. */
-.nm-hot,.nm-blowout{padding:1px 5px;border-radius:999px;font-size:10px;font-style:normal;font-weight:800;letter-spacing:.02em}
-.nm-hot,.nm-blowout[data-role=bench]{background:rgba(70,227,154,.14);color:var(--m-strong)}
-.nm-blowout[data-role=starter]{background:rgba(255,123,123,.14);color:var(--m-tough)}
 .nm-bar{display:block;height:4px;border-radius:999px;background:#242424;overflow:hidden}
 .nm-bar i{display:block;height:100%;border-radius:inherit;background:#6f6f6f}
 .nm-bar[data-tone=strong] i{background:var(--m-strong)}
@@ -172,13 +173,13 @@
  .nm-game-button .nm-label{display:none}
  /* A phone: the line goes under the name, the headings shorten and a
     caption may take two lines. */
- .nm-table{--nm-cols:30px minmax(0,1fr) 42px 48px 50px;--nm-why:26px}
+ .nm-table{--nm-cols:30px minmax(0,1fr) 56px 44px;--nm-why:26px}
  .nm-thead{column-gap:5px;padding:0 calc(8px + var(--nm-why)) 6px 8px;font-size:10.5px;letter-spacing:.04em}
  .nm-th-line{display:none}
  .nm-long{display:none}
  .nm-short{display:inline}
  .nm-th{min-height:40px}
- .nm-main{grid-template-areas:'face name score hit prop' 'face line score hit prop' 'face when score hit prop';column-gap:5px;row-gap:3px;padding:10px 8px}
+ .nm-main{grid-template-areas:'face name score hit' 'face line score hit' 'face when score hit';column-gap:5px;row-gap:3px;padding:10px 8px}
  .nm-main .sa-face{--size:30px}
  .nm-pos,.nm-own{display:none}
  .nm-line .nm-demon{width:16px;height:16px}
@@ -188,6 +189,9 @@
  .nm-line b{font-size:13.5px}
  .nm-line em{font-size:11px}
  .nm-cell b{font-size:15px}
+ .nm-cell.nm-score b{font-size:20px}
+ .nm-cell.nm-score .nm-bar{width:40px}
+ .nm-cell.nm-hit b{font-size:13px}
  .nm-cell em{font-size:10px;white-space:normal;overflow-wrap:anywhere}
  .nm-why{width:26px;height:36px}
  .nm-reads{margin:0 8px 10px}

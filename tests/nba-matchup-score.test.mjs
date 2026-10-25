@@ -230,15 +230,15 @@ test('a teammate out at his position lifts his score the most; a usual night rea
   const mateOut = matchupScore(guard(), tonight(report('HOU', [out('g1')])));
   const bigOut = matchupScore(guard(), tonight(report('HOU', [out('c1')])));
   assert.equal(none.reads.some(read => read.kind === 'teammates'), false);
-  // Nobody out is a little below a usual night (most nights someone sits).
-  const usual = WEIGHTS.pts.teamPos * OUT_CENTRES.teamPos.G + WEIGHTS.pts.teamOther * OUT_CENTRES.teamOther;
-  assert.ok(Math.abs(healthy.reads.find(read => read.kind === 'teammates').points + usual) < 0.1);
+  // Nobody out reads even: no penalty, no line, the same score as no report.
+  assert.equal(healthy.reads.some(read => read.kind === 'teammates' || read.kind === 'missing'), false);
+  assert.equal(healthy.score, none.score);
   // A starter at his position out lifts him past a no-report night; their center out, less.
-  assert.ok(healthy.score < bigOut.score && bigOut.score < mateOut.score && mateOut.score > none.score, `${healthy.score} ${none.score} ${bigOut.score} ${mateOut.score}`);
+  assert.ok(healthy.score <= bigOut.score && bigOut.score < mateOut.score && mateOut.score > none.score, `${healthy.score} ${none.score} ${bigOut.score} ${mateOut.score}`);
   assert.equal(mateOut.reads.find(read => read.kind === 'teammates').text,
     'Out for HOU tonight: Fred VanVleet (G, 33 min). Their minutes and shots go to the rest, most to the guards');
-  // A starter's 33 minutes at his position moves points about 30 on the backtest's scale.
-  assert.ok(mateOut.score - healthy.score >= 20, `${healthy.score} -> ${mateOut.score}`);
+  // A starter's 33 minutes at his position (beyond a usual 12) still moves points a lot.
+  assert.ok(mateOut.score - healthy.score >= 10, `${healthy.score} -> ${mateOut.score}`);
 });
 
 test('the opponent\'s absences: their center out lifts rebounds; threes don\'t read them', () => {
