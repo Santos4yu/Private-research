@@ -16,9 +16,18 @@ import {propGrades} from './props-grade';
 import {loadLearning} from './learning';
 import {lineupRole} from './lineup-role';
 import {ENOUGH,loadRecord,reportProps,reportRows} from './props-record';
+import {mainLines,tierOf} from './props-lines';
 import './nba-matchups.css';
 
 const SORTS=[['matchup','Matchup'],['hit','Last 10']];
+// Which lines and players show (Oct 25, the owner: only regular lines and
+// starters, or only Goblins, or only Demons). Kept on the device per league.
+const KINDS=[['standard','Regular'],['goblin','Goblins'],['demon','Demons'],['all','All']];
+const ROLES=[['all','All players'],['starter','Starters'],['bench','Bench']];
+const remembered=(key,fallback,allowed)=>{try{const value=localStorage.getItem(key);return allowed.some(([option])=>option===value)?value:fallback;}catch{return fallback;}};
+const remember=(key,value)=>{try{localStorage.setItem(key,value);}catch{/* this device only */}};
+const PICS={demon:['/prizepicks/demon-64.png','Demon','PrizePicks Demon: a higher line that pays more'],
+ goblin:['/prizepicks/goblin.png','Goblin','PrizePicks Goblin: a lower line that pays less']};
 // The table's headings for the sorted columns: full, and on a phone.
 const HEADS={matchup:['Matchup','Match'],hit:['Last 10','L10']};
 const READS={teammates:'His teammates out',back:'Teammates back',missing:'Their players out',recent:'Their last 10 games',defense:'Their defense',pace:'Their pace',position:'vs his position',attempts:'Threes they allow',rebounds:'Rebounds they allow',assists:'Assists they allow',turnovers:'Their turnovers',meetings:'His games vs them',
@@ -53,17 +62,17 @@ const blowoutText=found=>`his team is a ${figure(Math.abs(found.spread))}-point 
 // One prop: who and when, the line, then Matchup and Last 10.
 function PropRow({row,read,hit,prop,role,open,onToggle,onOpen,short}){
  const home=row.teamAbbr&&row.teamAbbr===row.homeTeamAbbr;
- const demon=String(row.modifier||'').toLowerCase()==='demon';
+ const kind=tierOf(row),pic=PICS[kind];
  const stat=short[row.marketKey]||row.market;
  const waiting=row.historyStatus==='pending'||row.historyRefresh;
  const said=[read&&`matchup ${read.score}, ${read.label.toLowerCase()}`,hit&&`last 10 ${hit.hits} of ${hit.games}`].filter(Boolean).join(', ');
  return <li className="nm-row" data-open={open||undefined}>
-  <button type="button" className="nm-main" onClick={()=>onOpen(row)} aria-label={`${row.player}, more ${figure(row.line)} ${stat}${demon?' Demon':''}${said?`: ${said}`:''}. Open his matchup page`}>
+  <button type="button" className="nm-main" onClick={()=>onOpen(row)} aria-label={`${row.player}, more ${figure(row.line)} ${stat}${pic?` ${pic[1]}`:''}${said?`: ${said}`:''}. Open his matchup page`}>
    <Face row={row}/>
    <b className="nm-name">{row.player}</b>
    <small className="nm-when">{row.position&&<span className="nm-pos">{row.position} · </span>}
     {row.teamAbbr&&row.opponent?<><span className="nm-own">{row.teamAbbr} </span>{home?'vs':'@'} {row.opponent}</>:row.teamAbbr}{row.startsAt&&` · ${when(row.startsAt)}`}</small>
-   <span className="nm-line"><small>More</small><b>{figure(row.line)}</b><em>{stat}</em>{demon&&<img className="nm-demon" src="/prizepicks/demon-64.png" alt="Demon" title="PrizePicks Demon: a higher line that pays more" width="18" height="18"/>}</span>
+   <span className="nm-line"><small>More</small><b>{figure(row.line)}</b><em>{stat}</em>{pic&&<img className="nm-demon" src={pic[0]} alt={pic[1]} title={pic[2]} width="18" height="18"/>}</span>
    <Cell kind="score" value={read?read.score:'—'} tone={read?.tone} bar={read?read.score:null}/>
    <Cell kind="hit" value={hit?`${hit.hits}/${hit.games}`:waiting?'…':'—'}/>
   </button>
@@ -147,6 +156,10 @@ export function MatchupList({config}){
  const [game,setGame]=useState('all');
  const [query,setQuery]=useState('');
  const [sort,setSort]=useState('matchup');
+ const [kind,setKindNow]=useState(()=>remembered(`props-kind:${config.key}`,'standard',KINDS));
+ const [roleShown,setRoleNow]=useState(()=>remembered(`props-role:${config.key}`,'all',ROLES));
+ const setKind=value=>{setKindNow(value);remember(`props-kind:${config.key}`,value);};
+ const setRole=value=>{setRoleNow(value);remember(`props-role:${config.key}`,value);};
  const [openId,setOpenId]=useState(null);
  const [page,setPage]=useState(null);
  const listScroll=useRef(0);
@@ -173,7 +186,7 @@ export function MatchupList({config}){
  // The NBA list reports what it shows for the track record (props-record.js).
  useEffect(()=>{
   if(config.key!=='nba'||!scores.size)return undefined;
-  const wait=setTimeout(()=>reportProps(reportRows(rows,scores,grades)),4000);
+  const wait=setTimeout(()=>reportProps(reportRows(mainLines(rows),scores,grades)),4000);
   return()=>clearTimeout(wait);
  },[config.key,rows,scores,grades]);
  // How the props it showed went (the NBA's): the record above the list.
@@ -191,15 +204,20 @@ export function MatchupList({config}){
  // A picked game that has since left the board (it started) shows them all again.
  const picked=games.some(item=>item.key===game)?game:'all';
  const needle=query.trim().toLowerCase();
- const shown=useMemo(()=>rows
+ // The lines of the picked kind, and whether the league knows starters at all (the NBA's does).
+ const ofKind=useMemo(()=>kind==='all'?rows:rows.filter(row=>tierOf(row)===kind),[rows,kind]);
+ const roles=useMemo(()=>rows.some(row=>lineupRole(row,league)),[rows,league]);
+ const shown=useMemo(()=>ofKind
   .filter(row=>(stat==='all'||row.marketKey===stat)&&(picked==='all'||gameOf(row)===picked)&&(!needle||row.player.toLowerCase().includes(needle)))
   .map(row=>({row,read:scores.get(row.id)||null,hit:hitOf(row),prop:grades.get(row.id)||null,role:lineupRole(row,league)}))
+  // Starters or bench: a player the rotation doesn't list yet shows under neither.
+  .filter(item=>!roles||roleShown==='all'||(item.role&&item.role.starter===(roleShown==='starter')))
   .sort((a,b)=>sort==='hit'?(b.hit?.rate??-1)-(a.hit?.rate??-1)||(b.read?.score??-1)-(a.read?.score??-1)
    :(b.read?.score??-1)-(a.read?.score??-1)||(b.hit?.rate??-1)-(a.hit?.rate??-1))
   // All stats: each player once, at his best line by the sort; a stat chip lists that stat's line.
   .filter((item,index,list)=>stat!=='all'||list.findIndex(other=>other.row.player===item.row.player&&other.row.teamAbbr===item.row.teamAbbr)===index),
-  [rows,scores,grades,stat,picked,needle,sort,league]);
- const counts=useMemo(()=>rows.reduce((out,row)=>({...out,[row.marketKey]:(out[row.marketKey]||0)+1}),{}),[rows]);
+  [ofKind,scores,grades,stat,picked,needle,sort,league,roles,roleShown]);
+ const counts=useMemo(()=>ofKind.reduce((out,row)=>({...out,[row.marketKey]:(out[row.marketKey]||0)+1}),{}),[ofKind]);
  // A player's page: its own history entry, so the phone's back gesture
  // closes it the same as the page's back button.
  const openPage=useCallback(row=>{
@@ -237,6 +255,13 @@ export function MatchupList({config}){
     {SORTS.map(([key,text])=><button type="button" key={key} aria-pressed={sort===key} onClick={()=>setSort(key)}>{text}</button>)}
    </div>
   </div>
+  <div className="nm-filters">
+   <div className="nm-chips" role="group" aria-label="Lines">
+    {KINDS.map(([key,text])=><button type="button" key={key} aria-pressed={kind===key} onClick={()=>setKind(key)}>
+     {PICS[key]&&<img src={PICS[key][0]} alt="" width="14" height="14"/>}{text}</button>)}</div>
+   {roles&&<div className="nm-chips" role="group" aria-label="Players">
+    {ROLES.map(([key,text])=><button type="button" key={key} aria-pressed={roleShown===key} onClick={()=>setRole(key)}>{text}</button>)}</div>}
+  </div>
   <div className="nm-stats" role="group" aria-label="Stat">
    {STATS.filter(([key])=>key==='all'||counts[key]).map(([key,text])=><button type="button" key={key} aria-pressed={stat===key} onClick={()=>setStat(key)}>{text}</button>)}
   </div>
@@ -256,7 +281,7 @@ export function MatchupList({config}){
    <ul className="nm-list">{shown.map(({row,read,hit,prop,role})=><PropRow key={row.id} row={row} read={read} hit={hit} prop={prop} role={role} short={SHORT}
     open={openId===row.id} onToggle={()=>setOpenId(id=>id===row.id?null:row.id)} onOpen={openPage}/>)}</ul></div>}
   {(status==='ready'||status==='refreshing')&&rows.length>0&&!shown.length&&<div className="nm-empty"><b>Nothing matches</b>
-   <span>Try another stat or game, or clear the search.</span></div>}
+   <span>Try another stat, game or filter, or clear the search.</span></div>}
 
   {at>0&&rows.length>0&&<p className="nm-meta">{shown.length} {shown.length===1?'prop':'props'} · updated {new Date(at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</p>}
  </section>;

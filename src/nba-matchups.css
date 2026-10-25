@@ -59,6 +59,15 @@
 .nm-sort button[aria-pressed=true]{background:#262626;color:var(--m-text)}
 .nm-search:focus-within,.nm-game:focus-within{border-color:#3a3a3a}
 
+/* Lines (Regular, Goblins, Demons, All) and players (Everyone, Starters,
+   Bench): two small switches side by side, each its own row on a phone. */
+.nm-filters{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 0}
+.nm-chips{display:flex;flex:1 1 auto;min-width:0;max-width:100%;box-sizing:border-box;gap:2px;padding:3px;border:1px solid var(--m-line);border-radius:12px;background:var(--m-field)}
+.nm-chips button{flex:1 1 auto;min-width:0;display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:34px;padding:0 8px;border:0;border-radius:9px;background:transparent;
+ color:var(--m-muted);font:700 12.5px var(--font-sans);white-space:nowrap;cursor:pointer}
+.nm-chips button[aria-pressed=true]{background:#262626;color:var(--m-text)}
+.nm-chips img{width:14px;height:14px;object-fit:contain}
+
 /* The stat, as tabs across the page. */
 .nm-stats{display:flex;margin:14px 0 0;overflow-x:auto;border-bottom:1px solid var(--m-line);scrollbar-width:none}
 .nm-stats::-webkit-scrollbar{display:none}

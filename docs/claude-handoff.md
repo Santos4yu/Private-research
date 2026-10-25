@@ -105,6 +105,18 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   without the lookup). The ~1.7 s of deliberate pauses between steps are
   gone. 4 errors in tests/test_slip_reader.py are older (they import
   analyze.py / api modules this container can't load).
+- Filters on the Props list (the owner: only regular lines and starters,
+  or only Demons, or quick Goblins). Two switches under sort: Lines
+  (Regular / Goblins / Demons / All, default Regular) and, where the
+  league knows starters (the NBA's rotation), Players (All players /
+  Starters / Bench; one the rotation doesn't list shows under neither).
+  Both remembered on the device per league (`props-kind:<league>`,
+  `props-role:<league>`). The store now keeps one line of each kind per
+  player and stat (props-lines.js `pickLines`: the standard, the highest
+  Goblin, the lowest Demon); `mainLines` keeps the old rule (standard,
+  else lowest Demon, never a Goblin) and is what the track record gets, so
+  its rates stay comparable. Goblins show PrizePicks' goblin icon beside
+  the line, as Demons do. Hit rates now load for those extra lines too.
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).
