@@ -498,6 +498,17 @@ def normalize(raw):
             "skipped": int(skipped) if skipped and skipped > 0 else 0}
 
 
+# Reading a slip: when the next reader starts beside a slow one, and the
+# most it waits in all (inside the function's 60 seconds).
+SLIP_HEAD_START = 8.0
+SLIP_DEADLINE = 45.0
+
+
+def _tagged(source, raw):
+    """A reader's answer with where it came from; None when it had none."""
+    return None if raw is None else (source, raw)
+
+
 def read_slip(data):
     """The slip in this screenshot, or {"error": ...}."""
     if not mime_of(data):
@@ -509,11 +520,22 @@ def read_slip(data):
     problems = [] if _groq() is not None else ["Groq: GROQ_API_KEY is not set"]
     if not gemini:
         problems.append("Gemini: GEMINI_API_KEY is not set on this deployment")
-    source, raw = "vision", _read_vision(data, problems) if _groq() is not None else None
-    if raw is None and gemini:
-        source, raw = "vision", _read_gemini(data, problems)
-    if raw is None and _groq() is not None:
-        source, raw = "text", _read_text(data, problems)
+    # Oct 25 (the owner: the Slip Analyzer "takes forever loading"): the
+    # readers ran one after another, each model with its own 25-40 second
+    # timeouts, so a slow Groq could hold a slip past the function's 60
+    # seconds and it failed after a minute. They now race (race(), as
+    # read_bet does): Groq's vision first, Gemini alongside once it hasn't
+    # answered in SLIP_HEAD_START seconds (or has failed), then the text
+    # read; whichever answers first wins, and nothing waits past
+    # SLIP_DEADLINE.
+    groq = _groq() is not None
+    readers = [groq and (lambda: _tagged("vision", _read_vision(data, problems))),
+               gemini and (lambda: _tagged("vision", _read_gemini(data, problems))),
+               groq and (lambda: _tagged("text", _read_text(data, problems)))]
+    found = race(readers, head_start=SLIP_HEAD_START, deadline=SLIP_DEADLINE)
+    source, raw = found if found else ("vision", None)
+    if raw is None and not found and len(problems) < 2:
+        problems.append(f"No reader answered within {int(SLIP_DEADLINE)} seconds")
     if raw is None:
         detail = "; ".join(problems)[:900]
         print(f"[slip-reader] every reader failed: {detail}")

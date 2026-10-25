@@ -40,7 +40,8 @@ const when=iso=>{const time=Date.parse(iso||'');if(!Number.isFinite(time))return
  const clock=date.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
  return date.toDateString()===today.toDateString()?clock:`${date.toLocaleDateString([],{weekday:'short'})} ${clock}`;};
 const price=odds=>odds==null?'':odds>0?`+${odds}`:`−${Math.abs(odds)}`;
-const pause=(ms,signal)=>new Promise(resolve=>{const id=setTimeout(resolve,ms);signal?.addEventListener('abort',()=>{clearTimeout(id);resolve();},{once:true});});
+// How long grading waits on each thing before it goes on without it.
+const LINES_WAIT=12000,MATCHUP_WAIT=8000,LEARN_WAIT=3000,LEG_WAIT=15000;
 const calm=()=>typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 async function readSlip(blob,signal){
@@ -416,25 +417,33 @@ export function SlipAnalyzer(){
   setPhase('reading');setStep(0);setError('');setDetail('');setLegs([]);setSlip(null);setEditing(null);setPool([]);setSaved(new Set());
   games.current={};mates.current={};slipId.current=newSlipId();savedSig.current='';markTracked(false);setPosted(null);
   const sports=SLIP_SPORTS.filter(siteFinderSportAllowed);
-  // Today's lines load while the screenshot is read.
-  const loading=Object.fromEntries(sports.map(sport=>[sport,loadLines(sport,{signal,only:()=>false}).catch(()=>[])]));
+  // Today's lines load while the screenshot is read. Oct 25 (the owner: it
+  // "takes forever loading to give a rating"): grading used to wait for
+  // every league's board, so one slow league held up every slip. Now it
+  // waits only for the leagues on the slip, each held to LINES_WAIT (a
+  // league that misses it is graded the way a started game is, from his own
+  // games), and takes the other leagues only if they're already in.
+  const settled={};
+  const loading=Object.fromEntries(sports.map(sport=>[sport,loadLines(sport,{signal,only:()=>false}).catch(()=>[]).then(rows=>(settled[sport]=rows))]));
   try{
    let read=handed;
    if(!read){
     const body=await shrink(file);
     const started=Date.now();
     read=await readSlip(body,signal);
-    if(Date.now()-started<900)await pause(900-(Date.now()-started),signal);
    }
    setStep(1);
    // The matchups for the sports on the slip load alongside today's lines.
    const onSlip=[...new Set(read.legs.map(leg=>leg.sport).filter(sport=>sports.includes(sport)))];
-   const [rows,,found]=await Promise.all([
-    Promise.all(sports.map(async sport=>[sport,await loading[sport]])).then(Object.fromEntries),
+   // A leg whose league couldn't be read needs every board to find him.
+   const wanted=read.legs.every(leg=>sports.includes(leg.sport))?onSlip:sports;
+   const [waited,,found]=await Promise.all([
+    Promise.all(wanted.map(async sport=>[sport,await within(loading[sport],LINES_WAIT,[])])).then(Object.fromEntries),
     // What the results have taught the model, before anything is graded.
-    loadLearning(),
-    loadMatchups(onSlip.length?onSlip:sports.filter(sport=>sport!=='soccer'),{signal}).catch(error=>{if(error.name==='AbortError')throw error;return {};}),
+    within(Promise.resolve(loadLearning()).catch(()=>null),LEARN_WAIT),
+    within(loadMatchups(onSlip.length?onSlip:sports.filter(sport=>sport!=='soccer'),{signal}),MATCHUP_WAIT,{}).catch(error=>{if(error.name==='AbortError')throw error;return {};}),
    ]);
+   const rows={...settled,...waited};
    // The lines read as the Parlay Builder reads them: the matchup tables,
    // then what each opponent gave up to players like him where a league
    // has no table (slip-analyst.js), so both grade a pick the same.
@@ -442,11 +451,15 @@ export function SlipAnalyzer(){
    if(rows.soccer?.length)await within(loadSoccerOpponents(rows.soccer,{signal}),8000).catch(error=>{if(error.name==='AbortError')throw error;});
    for(const sport of Object.keys(rows))rows[sport]=withPoolDefense((rows[sport]||[]).map(row=>withMatchups(row,found)));
    boards.current=rows;tables.current=found;
-   await pause(calm()?0:350,signal);
    setStep(2);
-   const checked=await Promise.all(read.legs.map((leg,index)=>checkLeg({...leg,key:`${index}:${leg.player}`},rows,options(signal))));
+   // Each pick is held to LEG_WAIT: one slow player lookup no longer holds
+   // up the rest; past it he's graded from the board alone.
+   const checked=await Promise.all(read.legs.map((leg,index)=>{
+    const item={...leg,key:`${index}:${leg.player}`};
+    return within(checkLeg(item,rows,options(signal)),LEG_WAIT,null)
+     .then(done=>done||checkLeg(item,rows,{...options(signal),lookup:null,enrichFor:()=>null}));
+   }));
    setStep(3);
-   await pause(calm()?0:450,signal);
    if(signal.aborted)return;
    setSlip(read);setLegs(checked);setPhase('done');
    // Picks to swap in, from the lines whose hit rates are already in.

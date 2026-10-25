@@ -91,6 +91,20 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   count for everyone. A who's-out line that adds 0 points isn't shown.
   Checked on last season's numbers: every stat and combo scores 0-100,
   medians 42-52, 2-14% at 90+.
+- Slip Analyzer speed (the owner: "buggy and takes forever loading to
+  give a rating"). Server (slip_reader.py `read_slip`): the screenshot
+  readers ran one after another with 25-40 s timeouts each, so a slow Groq
+  could run past the 60 s function limit and fail after a minute. They now
+  race (`race()`, as `read_bet` does): Groq vision, Gemini beside it after
+  8 s (SLIP_HEAD_START) or a failure, then the OCR text read; first answer
+  wins, 45 s at most (SLIP_DEADLINE). Page (SlipAnalyzer.jsx `run`): it
+  waited for every league's board (all 7) before grading; now only the
+  leagues on the slip (all of them only when a leg's league wasn't read),
+  each held to 12 s, other boards used if already in; matchups held to
+  8 s, learning to 3 s, each pick to 15 s (then graded from the board
+  without the lookup). The ~1.7 s of deliberate pauses between steps are
+  gone. 4 errors in tests/test_slip_reader.py are older (they import
+  analyze.py / api modules this container can't load).
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).
