@@ -299,6 +299,10 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   75/88/52/68/45/65 (RotoBot 67/70/55/75/53/85); every stat spreads 2-98,
   10% at 90+. The Matchup tab's "Tonight" card is now "What moved it":
   every part (opponent's and tonight's) with its effect, biggest first.
+- Matchup score, round 2 (P.J.'s 3PM still 92 live: MIA's 3PA allowed
+  +30 and ONE game vs them +18). A single meeting is now shown beside the
+  score, not counted (meetingsRead, n < 2); POSITION_SHARE 0.5; "What
+  moved it" always lists what they allow his position.
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).

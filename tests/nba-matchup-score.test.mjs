@@ -58,7 +58,7 @@ test('last season’s real numbers: Denver for a guard, and how the scores sprea
   // RotoBot (Oct 2026) moves each guard on something of its own: points 89
   // McCain, 73 Wallace, 63 Gilgeous-Alexander; steals 40-51. Denver turn it
   // over the fewest times, which is what predicted steals.
-  assert.deepEqual(card, {PTS: 52, REB: 35, AST: 58, '3PM': 75, STL: 18, BLK: 75});
+  assert.deepEqual(card, {PTS: 52, REB: 38, AST: 55, '3PM': 75, STL: 18, BLK: 75});
   const scores = Object.keys(real.teamStats).flatMap(opponent => ['G', 'F', 'C'].flatMap(position =>
     cardScores(row(`${opponent}${position}`, {position, teamAbbr: 'OKC', opponent}), real).map(item => item.score))).sort((a, b) => a - b);
   // The opponent's numbers alone (no injury report) now reach both ends
@@ -305,4 +305,15 @@ test('ESPN\'s injury code decides over its status: a game-time decision sits abo
   const out = Object.fromEntries(outTonight('HOU', night, 'tg').map(player => [player.name, [player.sits, player.status]]));
   assert.deepEqual(out['Fred VanVleet'], [0.5, 'GTD']);
   assert.deepEqual(out['Alperen Sengun'], [1, 'OUT']);
+});
+
+test('one game against them is shown, not counted; two or more count', () => {
+  const guard = (id, meetings) => row(id, {position: 'G', teamAbbr: 'OKC', opponent: 'DEN', marketKey: 'player_threes', meetings});
+  const none = matchupScore(guard('n', null), real);
+  const one = matchupScore(guard('o', {values: [5], usual: 1.4}), real);
+  assert.equal(one.score, none.score);
+  assert.equal(one.reads.find(read => read.kind === 'meetings').points, 0);
+  assert.match(one.fit.text, /^His last game against DEN: 5 threes/);
+  const two = matchupScore(guard('t', {values: [5, 4], usual: 1.4}), real);
+  assert.ok(two.score > none.score, `${none.score} -> ${two.score}`);
 });

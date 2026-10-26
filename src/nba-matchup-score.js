@@ -160,7 +160,9 @@ export const CARD_STATS = [['player_points', 'PTS'], ['player_rebounds', 'REB'],
 //    games against them), in the backtest's points, through the same curve.
 // `calibrated` (the Analyzer's chances) is still the backtest's own total.
 const OPPONENT = ['defense', 'pace', 'position', 'recent', 'attempts', 'rebounds', 'assists', 'turnovers'];
-export const POSITION_SHARE = 0.4;
+// Half: what's shown on the page (the "vs forwards" bars) carries half the
+// opponent's side (0.4 left P.J.'s threes at 92 on Miami's 3PA alone).
+export const POSITION_SHARE = 0.5;
 // Each league object's teams ranked, per stat and position: [composite...] sorted.
 const RANKED = new WeakMap();
 
@@ -376,10 +378,13 @@ function meetingsRead(row, stat) {
   const rule = MEETINGS[stat], last = (row.meetings?.values || []).filter(finite), usual = row.meetings?.usual;
   if (!rule || !last.length || !finite(usual)) return null;
   const n = last.length, made = last.reduce((sum, value) => sum + value, 0);
-  const lean = Math.log((made + 0.5) / (n * Math.max(usual, 0.25) + 0.5)) * n / (n + 3) - rule.center;
   const games = n === 1 ? 'game' : `${n} games`;
-  return {key: 'meetings', kind: 'meetings', soft: lean / rule.spread, points: rule.weight * lean, counted: true,
-    text: `His last ${games} against ${row.opponent}: ${last.join(', ')} ${WORDS[stat] || ''} (${one(made / n)} a game), his usual ${one(usual)}`};
+  const text = `His last ${games} against ${row.opponent}: ${last.join(', ')} ${WORDS[stat] || ''} (${one(made / n)} a game), his usual ${one(usual)}`;
+  // One game against them is noise (Oct 25: P.J. Washington's 3 threes in
+  // one game vs Miami added 18 points): shown beside the score, not in it.
+  if (n < 2) return {key: 'meetings', kind: 'meetings', soft: 0, points: 0, counted: false, text};
+  const lean = Math.log((made + 0.5) / (n * Math.max(usual, 0.25) + 0.5)) * n / (n + 3) - rule.center;
+  return {key: 'meetings', kind: 'meetings', soft: lean / rule.spread, points: rule.weight * lean, counted: true, text};
 }
 
 /** His own games against them, against his usual: shown beside the score, not in it. */
@@ -478,7 +483,7 @@ export function matchupScore(row, league) {
   // Each opponent read shown with its share of `base`, its own sign kept.
   const scale = side.reads.reduce((total, read) => total + Math.abs(read.part), 0);
   const shown = read => (side.reads.includes(read) ? (scale ? read.part * Math.abs(base) / scale : 0) : read.points);
-  const fit = meetings ? {key: 'meetings', kind: 'meetings', score: alone(meetings.soft), text: meetings.text, counted: true} : fitRead(row);
+  const fit = meetings?.counted ? {key: 'meetings', kind: 'meetings', score: alone(meetings.soft), text: meetings.text, counted: true} : fitRead(row) || (meetings && {key: 'meetings', kind: 'meetings', score: 50, text: meetings.text, counted: false});
   return {score: Math.round(50 + 50 * Math.tanh((base + extra) / 50)), calibrated, raw: 50 + sum, fit,
     reads: reads.map(read => ({key: read.key, kind: read.kind, text: read.text, score: alone(read.soft), points: Math.round(shown(read) * 10) / 10}))};
 }

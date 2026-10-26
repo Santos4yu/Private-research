@@ -80,7 +80,8 @@ const MOVED={position:'What they allow his position',defense:'Their defense',pac
  attempts:'Threes they let teams take',rebounds:'Rebounds they give up',assists:'Assists they give up',turnovers:'How often they turn it over',
  teammates:'His teammates out',back:'Teammates back',missing:'Their players out',meetings:'His games vs them'};
 function Tonight({reads,stat}){
- const shown=(reads||[]).filter(read=>MOVED[read.kind]&&Math.abs(read.points)>=0.5).sort((a,b)=>Math.abs(b.points)-Math.abs(a.points)).slice(0,6);
+ // What they allow his position always shows (it's the bars below), even when it barely moved it.
+ const shown=(reads||[]).filter(read=>MOVED[read.kind]&&(read.kind==='position'||Math.abs(read.points)>=0.5)).sort((a,b)=>Math.abs(b.points)-Math.abs(a.points)).slice(0,6);
  if(!shown.length)return null;
  return <Card title="What moved it" icon={CalendarClock} note={`The ${stat} score, biggest first`}>
   <ul className="ng-tonight">{shown.map(read=><li key={read.key}><span><b>{MOVED[read.kind]}</b><em data-sign={read.points>0.5?'up':read.points<-0.5?'down':'flat'}>{read.points>0?'+':read.points<0?'−':''}{Math.abs(Math.round(read.points))} {Math.abs(Math.round(read.points))===1?'point':'points'}</em></span>
