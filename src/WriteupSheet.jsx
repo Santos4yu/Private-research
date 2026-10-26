@@ -5,9 +5,12 @@
 // bar that stays at the bottom (Oct 25, the owner: the dock covered Copy and
 // the screen "kinda bad": now compact, a preview, Copy always in reach).
 import React,{useEffect,useMemo,useState} from 'react';
-import {Check,Copy,Plus,X} from 'lucide-react';
+import {Check,Copy,Minus,Plus,X} from 'lucide-react';
 import {STAT_SHORT,TAGS,addLeg,clearLegs,formatPost,onWriteupSlip,removeLeg,writeupSlip} from './writeup';
 
+const kindOf=item=>String(item?.modifier||'standard').toLowerCase();
+const RANK={standard:0,goblin:1,demon:2};
+const PICS={goblin:'/prizepicks/goblin.png',demon:'/prizepicks/demon-64.png'};
 const figure=value=>Number.isInteger(Number(value))?String(Number(value)):Number(value).toFixed(1);
 
 // The post as Discord draws it: ## / ### headings, > quotes, -# small text, **bold**.
@@ -27,14 +30,18 @@ function DiscordPreview({text}){
 }
 
 export function WriteupSheet({lines,buildLeg}){
- // His lines tonight, one per stat (the standard one first).
+ // His lines tonight: each stat's regular line, Goblin and Demon as their
+ // own choices (Oct 25, the owner: write-ups for Goblins too), regular first.
  const offered=useMemo(()=>{const seen=new Map();
-  for(const item of [...lines].sort((a,b)=>(a.modifier&&a.modifier!=='standard')-(b.modifier&&b.modifier!=='standard')))
-   if(STAT_SHORT[item.marketKey]&&!seen.has(item.marketKey))seen.set(item.marketKey,item);
+  for(const item of [...lines].sort((a,b)=>RANK[kindOf(a)]-RANK[kindOf(b)]))
+   if(STAT_SHORT[item.marketKey]&&!seen.has(`${item.marketKey}|${kindOf(item)}`))seen.set(`${item.marketKey}|${kindOf(item)}`,item);
   return [...seen.values()];},[lines]);
- const [market,setMarket]=useState(offered[0]?.marketKey);
- const chosen=offered.find(item=>item.marketKey===market)||offered[0];
- const leg=useMemo(()=>chosen?buildLeg(chosen.marketKey,Number(chosen.line)):null,[chosen,buildLeg]);
+ const [picked,setPicked]=useState(offered[0]?`${offered[0].marketKey}|${kindOf(offered[0])}`:null);
+ const chosen=offered.find(item=>`${item.marketKey}|${kindOf(item)}`===picked)||offered[0];
+ // The line can be moved a half point at a time (another app's number, a line that moved).
+ const [line,setLine]=useState(chosen?Number(chosen.line):null);
+ useEffect(()=>setLine(chosen?Number(chosen.line):null),[chosen]);
+ const leg=useMemo(()=>chosen&&Number.isFinite(line)?buildLeg(chosen.marketKey,line,kindOf(chosen)):null,[chosen,line,buildLeg]);
  const [slip,setSlip]=useState(writeupSlip);
  useEffect(()=>onWriteupSlip(setSlip),[]);
  const [tag,setTag]=useState('PICK'),[units,setUnits]=useState(''),[confidence,setConfidence]=useState(''),[perLeg,setPerLeg]=useState(3);
@@ -52,11 +59,14 @@ export function WriteupSheet({lines,buildLeg}){
   setCopied(true);setTimeout(()=>setCopied(false),1600);
  };
  return <div className="wu">
-  <div className="wu-lines" role="group" aria-label="His line">{offered.map(item=>
-   <button type="button" key={item.marketKey} aria-pressed={item.marketKey===chosen?.marketKey} onClick={()=>setMarket(item.marketKey)}>
-    <small>{STAT_SHORT[item.marketKey]}</small><b>{figure(item.line)}</b></button>)}</div>
+  <div className="wu-lines" role="group" aria-label="His line">{offered.map(item=>{const key=`${item.marketKey}|${kindOf(item)}`,pic=PICS[kindOf(item)];
+   return <button type="button" key={key} data-kind={kindOf(item)} aria-pressed={item===chosen} onClick={()=>setPicked(key)}
+    aria-label={`${STAT_SHORT[item.marketKey]} ${figure(item.line)}${pic?` ${kindOf(item)}`:''}`}>
+    <small>{pic&&<img src={pic} alt="" width="12" height="12"/>}{STAT_SHORT[item.marketKey]}</small><b>{figure(item.line)}</b></button>;})}</div>
 
   {leg&&<div className="wu-leg-now">
+   <div className="wu-step" aria-label="Line"><button type="button" onClick={()=>setLine(value=>Math.max(0.5,value-0.5))} aria-label="Lower the line"><Minus size={14}/></button>
+    <b>{figure(line)}</b><button type="button" onClick={()=>setLine(value=>value+0.5)} aria-label="Raise the line"><Plus size={14}/></button></div>
    <span><b>{leg.header}</b><small>{leg.facts.length?`${leg.facts.length} ${leg.facts.length===1?'reason':'reasons'} for the over`:'Nothing strong for the over in this one'}</small></span>
    <button type="button" className="wu-add" data-on={inSlip||undefined} onClick={()=>inSlip?removeLeg(leg.key):addLeg(leg)}
     aria-label={inSlip?'Remove from the post':'Add to the post'}>{inSlip?<Check size={16} aria-hidden="true"/>:<Plus size={16} aria-hidden="true"/>}<span>{inSlip?'Added':'Add'}</span></button>

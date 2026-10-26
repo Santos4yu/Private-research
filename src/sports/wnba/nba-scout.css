@@ -765,6 +765,18 @@
 .nba-mp .wu-leg-now small{color:var(--mp-muted);font-size:11.5px}
 .nba-mp .wu-add{display:inline-flex;align-items:center;gap:5px;flex:none;height:36px;padding:0 14px 0 11px;border:0;border-radius:999px;background:#f3f5f8;color:#0b0c10;font-size:12.5px;font-weight:800;cursor:pointer;transition:background-color .15s,color .15s}
 .nba-mp .wu-add[data-on]{background:color-mix(in srgb,var(--mp-good) 20%,#12151b);color:#9ff0c9;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--mp-good) 45%,transparent)}
+/* A Goblin's or Demon's card: its icon and a hint of its color. */
+.nba-mp .wu-lines small{display:inline-flex;align-items:center;gap:4px}
+.nba-mp .wu-lines img{width:12px;height:12px;object-fit:contain}
+.nba-mp .wu-lines button[data-kind=goblin]{border-color:#2f4d3c}
+.nba-mp .wu-lines button[data-kind=demon]{border-color:#4d2f35}
+/* The line, a half point at a time. */
+.nba-mp .wu-step{display:flex;flex-direction:column;align-items:center;flex:none;gap:0;padding:2px;border:1px solid #ffffff14;border-radius:12px;background:#0d1015}
+.nba-mp .wu-step button{display:grid;place-items:center;width:34px;height:24px;border:0;border-radius:8px;background:transparent;color:var(--mp-muted);cursor:pointer}
+.nba-mp .wu-step button:active{background:#ffffff14}
+.nba-mp .wu-step b{font:800 15px/1.2 'Sora',var(--font-sans);color:#fff}
+.nba-mp .wu-leg-now{padding-left:8px}
+.nba-mp .wu-leg-now>span{flex:1}
 /* The parlay: its legs as chips (tap one to take it out). */
 .nba-mp .wu-slip{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 .nba-mp .wu-slip .wu-cap{margin-right:2px}

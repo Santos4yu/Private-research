@@ -237,6 +237,14 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   as small cards, the leg with Add, the parlay's legs as chips, one row
   of options, a Discord-look preview (or Edit text) and a Copy bar stuck
   to the bottom (safe-area aware), nearly full screen on a phone.
+- Write-ups, round 4: Goblin and Demon lines are their own choices in the
+  write-up (icon on the card, "(Goblin)" after the leg's line, key
+  player|market|kind), with a +/- stepper to move the line. New reasons
+  from his games against the line, strongest first and never repeating
+  each other: never under all season (N for N), N straight overs (6+),
+  never under in his last 5, never under vs them (2+ games), and how far
+  above the line he's been averaging (rounded), then the plain counts only
+  where a streak doesn't already cover them.
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).

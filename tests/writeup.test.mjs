@@ -64,3 +64,25 @@ test('a Discord post that is just the analysis: no site name, no grades', () => 
   assert.equal(formatPost([legs[0]], {perLeg: 1}).split('\n')[1], '');
   assert.equal(formatPost([]), '');
 });
+
+test('streaks: never under all season, a straight run, the last 5, never under vs them; a Goblin says so', () => {
+  // Last season 2 games (one under), this season 7, all over a low line.
+  const log = [[2026, 'BOS', 6], [2026, 'MIA', 12], ...[13, 9, 15, 11, 10, 14, 12].map((value, i) => [2027, i % 3 ? 'BOS' : 'MIA', value])]
+    .map(([season, opponent, value]) => ({season, opponent, values: {player_points: value}}));
+  const goblin = legFacts({row, marketKey: 'player_points', line: 7.5, kind: 'goblin', league, games: log});
+  assert.equal(goblin.header, 'Kyrie Irving · Over 7.5 Points (Goblin)');
+  assert.equal(goblin.key, '1|player_points|goblin');
+  const text = kind => goblin.facts.find(fact => fact.kind === kind)?.text;
+  assert.equal(text('season'), "🔒 Hasn't gone under this line once all season (7 for 7)");
+  // The run reaches into last season (8 straight), so it's said too; the last 5 and last 10 it already covers are not.
+  assert.equal(text('streak'), '🔒 Over this line in his last 8 straight games');
+  assert.equal(text('last5'), undefined);
+  assert.equal(text('hits'), undefined);
+  assert.equal(text('h2h'), '🔁 Has never gone under against the Heat (4 for 4 in their recent games)');
+  assert.match(text('cushion'), /^📏 He's been averaging about 11 points lately, well above this line$/);
+  // The streaks lead.
+  assert.deepEqual(goblin.facts.slice(0, 2).map(fact => fact.kind), ['season', 'streak']);
+  // A regular line he has missed lately: no streak claims.
+  const regular = legFacts({row, marketKey: 'player_points', line: 12.5, league, games: log});
+  assert.ok(!regular.facts.some(fact => ['season', 'streak', 'last5'].includes(fact.kind) && /Hasn't|straight/.test(fact.text)));
+});

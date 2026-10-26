@@ -60,7 +60,7 @@ const mostRank = cell => (finite(cell?.[1]) ? cell[1] : null);
  * {opponent, values: {marketKey: value}}; ctx: the player-context payload
  * (zones, similar, opportunity) or null; score: the matchup score.
  */
-export function legFacts({row, marketKey, line, league, games = [], ctx = null, score = null, side = 'O'}) {
+export function legFacts({row, marketKey, line, league, games = [], ctx = null, score = null, side = 'O', kind = 'standard'}) {
   const stat = STAT_SHORT[marketKey] || marketKey;
   const parts = PARTS[marketKey] || [];
   const opp = row.opponent;
@@ -144,16 +144,42 @@ export function legFacts({row, marketKey, line, league, games = [], ctx = null, 
     add('usage', 3, `🏀 The offense runs through him: he takes one of the biggest shares of his team's shots`);
   }
 
-  // His games against the line.
-  const values = games.map(game => game?.values?.[marketKey]).filter(finite);
+  // His games against the line: streaks first (Oct 25, the owner: "hasn't
+  // gone under this whole season, last 5, h2h"), the strongest one said
+  // once, then the plain counts it doesn't already cover. Most useful on a
+  // Goblin, whose line sits low.
+  const played = games.filter(game => finite(game?.values?.[marketKey]));
+  const values = played.map(game => game.values[marketKey]);
   if (finite(line) && values.length) {
-    const last10 = values.slice(-10), overs = last10.filter(value => value > line).length;
-    if (overs * 10 >= last10.length * 6) add('hits', 3 + overs - last10.length / 2, `📈 He's gone over this line in ${overs} of his last ${last10.length} games`);
-    const last5 = values.slice(-5), hot = last5.filter(value => value > line).length;
-    if (last5.length >= 4 && hot >= 4) add('last5', 3.5, `🌡️ He's on a roll right now: over in ${hot} of his last ${last5.length}`);
-    const meetings = games.filter(game => game?.opponent === opp).map(game => game.values?.[marketKey]).filter(finite).slice(-5);
-    const hit = meetings.filter(value => value > line).length;
-    if (meetings.length && hit * 2 >= meetings.length + (meetings.length > 1 ? 0 : 1)) add('h2h', 2 + hit, `🔁 He's done it against ${them} before: over in ${hit} of ${meetings.length} ${meetings.length === 1 ? 'game' : 'games'}`);
+    const over = value => value > line;
+    const plural = n => (n === 1 ? 'game' : 'games');
+    // This season's games (the newest game's season).
+    const season = Math.max(...played.map(game => Number(game.season)).filter(finite));
+    const seasonValues = finite(season) ? played.filter(game => Number(game.season) === season).map(game => game.values[marketKey]) : [];
+    const seasonPerfect = seasonValues.length >= 3 && seasonValues.every(over);
+    if (seasonPerfect) add('season', 13 + Math.min(seasonValues.length, 10) / 2, `🔒 Hasn't gone under this line once all season (${seasonValues.length} for ${seasonValues.length})`);
+    // His current run of overs, newest back (can run into last season).
+    let streak = 0;
+    for (let index = values.length - 1; index >= 0 && over(values[index]); index -= 1) streak += 1;
+    const covered = seasonPerfect ? seasonValues.length : 0;
+    if (streak >= 6 && streak > covered) add('streak', 11 + Math.min(streak, 15) / 3, `🔒 Over this line in his last ${streak} straight games`);
+    const best = Math.max(covered, streak >= 6 ? streak : 0);
+    const last10 = values.slice(-10), overs = last10.filter(over).length;
+    if (best < last10.length - 2 && overs * 10 >= last10.length * 6) add('hits', 3 + overs - last10.length / 2, `📈 He's gone over this line in ${overs} of his last ${last10.length} games`);
+    const last5 = values.slice(-5), hot = last5.filter(over).length;
+    if (last5.length >= 4 && last5.length > best) {
+      if (hot === last5.length) add('last5', 6, `🌡️ Hasn't gone under in his last ${last5.length} games`);
+      else if (hot >= 4) add('last5', 3.5, `🌡️ He's on a roll right now: over in ${hot} of his last ${last5.length}`);
+    }
+    // How far above the line he usually lands (a Goblin's best argument).
+    const recent = values.slice(-10), average = recent.reduce((sum, value) => sum + value, 0) / recent.length;
+    if (recent.length >= 5 && average >= line + Math.max(2, line * 0.2)) {
+      add('cushion', 4 + Math.min(4, (average - line) / Math.max(1, line * 0.15)), `📏 He's been averaging about ${Math.round(average)} ${what} lately, well above this line`);
+    }
+    const meetings = played.filter(game => game.opponent === opp).map(game => game.values[marketKey]).slice(-5);
+    const hit = meetings.filter(over).length;
+    if (meetings.length >= 2 && hit === meetings.length) add('h2h', 5 + hit, `🔁 Has never gone under against ${them} (${hit} for ${hit} in their recent games)`);
+    else if (meetings.length && hit * 2 >= meetings.length + (meetings.length > 1 ? 0 : 1)) add('h2h', 2 + hit, `🔁 He's done it against ${them} before: over in ${hit} of ${meetings.length} ${plural(meetings.length)}`);
   }
 
   // Players like him against them (the player-context's similar list is for its own market).
@@ -173,8 +199,11 @@ export function legFacts({row, marketKey, line, league, games = [], ctx = null, 
   const theirs = (outTonight(opp, league) || []).filter(item => item.sits >= 0.8 && item.min >= 20).slice(0, 2);
   if (theirs.length) add('oppOut', 4, `🚑 ${They} are missing ${listNames(theirs)}, which makes their defense weaker`);
 
-  return {key: `${row.playerId || row.player}|${marketKey}`, player: row.player, team: row.teamAbbr, opponent: opp, marketKey,
-    header: `${row.player} · ${side === 'U' ? 'Under' : 'Over'} ${finite(line) ? lineText(line) : ''} ${HEADER_WORDS[marketKey] || stat}`.replace(/\s+/g, ' ').trim(),
+  // A Goblin or Demon says so after the line ("Over 7.5 Points (Goblin)").
+  const tier = String(kind || 'standard').toLowerCase();
+  const tierWord = tier === 'goblin' ? ' (Goblin)' : tier === 'demon' ? ' (Demon)' : '';
+  return {key: `${row.playerId || row.player}|${marketKey}|${tier}`, player: row.player, team: row.teamAbbr, opponent: opp, marketKey, kind: tier, line,
+    header: `${row.player} · ${side === 'U' ? 'Under' : 'Over'} ${finite(line) ? lineText(line) : ''} ${HEADER_WORDS[marketKey] || stat}${tierWord}`.replace(/\s+/g, ' ').trim(),
     score: finite(score) ? score : null, label: finite(score) ? band(score).label : null,
     facts: facts.sort((a, b) => b.weight - a.weight)};
 }
