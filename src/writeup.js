@@ -109,7 +109,9 @@ export function legFacts({row, marketKey, line, league, games = [], ctx = null, 
     for (const part of parts) {
       const rank = PART_MARKET[part] ? dvpRank(PART_MARKET[part]) : null;
       partRanks[part] = rank;
-      if (rank && rank <= 10) add(`dvp-${part}`, 13.5 - rank, `🎯 ${They} give up ${most(rank)} ${STAT_WORDS[PART_MARKET[part]]} to ${posWords} in the league${when}`);
+      // Only a part clearly worse than the combo as a whole (Oct 25: "6th
+      // most points" beside "7th most PRA" said the same thing twice).
+      if (rank && rank <= 10 && (!own || own > 10 || rank <= own - 3)) add(`dvp-${part}`, 13.5 - rank, `🎯 ${They} give up ${most(rank)} ${STAT_WORDS[PART_MARKET[part]]} to ${posWords} in the league${when}`);
     }
   }
 
@@ -212,7 +214,8 @@ export function legFacts({row, marketKey, line, league, games = [], ctx = null, 
     const meetings = played.filter(game => game.opponent === opp).map(game => game.values[marketKey]).slice(-5);
     const hit = meetings.filter(over).length;
     if (meetings.length >= 2 && hit === meetings.length) add('h2h', 5 + hit, `🆚 Has never gone under against ${them} (${hit} for ${hit} in their recent games)`);
-    else if (meetings.length && hit * 2 >= meetings.length + (meetings.length > 1 ? 0 : 1)) add('h2h', 2 + hit, `🆚 He's done it against ${them} before: over in ${hit} of ${meetings.length} ${plural(meetings.length)}`);
+    // Most of 2+ games, or it isn't a reason (Oct 25: "over in 1 of 2" is a coin flip).
+    else if (meetings.length >= 2 && hit * 2 > meetings.length) add('h2h', 2 + hit, `🆚 He's done it against ${them} before: over in ${hit} of ${meetings.length} ${plural(meetings.length)}`);
   }
 
   // Players like him against them (the player-context's similar list is for its own market).

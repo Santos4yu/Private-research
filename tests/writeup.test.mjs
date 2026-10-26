@@ -28,7 +28,9 @@ test('reasons for the over in plain words, strongest first: his position, their 
   const kinds = leg.facts.map(fact => fact.kind);
   assert.equal(kinds[0], 'dvp');
   assert.equal(leg.facts[0].text, '🎯 The Heat give up the most points to guards in the league this season');
-  assert.ok(kinds.includes('zones') && kinds.includes('hits') && kinds.includes('lastFaced') && kinds.includes('h2h'), kinds.join());
+  assert.ok(kinds.includes('zones') && kinds.includes('hits') && kinds.includes('lastFaced'), kinds.join());
+  // One game against them (over) is no reason on its own.
+  assert.equal(kinds.includes('h2h'), false);
   assert.match(leg.facts.find(fact => fact.kind === 'zones').text, /^📍 (Most of|A big chunk of|A lot of) his points come (from above-break 3|in the paint), and that's one of the spots the Heat defend worst \(\d+(st|nd|rd|th) worst in the league this season\)$/);
   assert.equal(leg.facts.find(fact => fact.kind === 'hits').text, "📈 He's gone over this line in 8 of his last 10 games");
   assert.equal(leg.facts.find(fact => fact.kind === 'lastFaced').text, '👀 The last guard to face the Heat (D. Schroder) went well over his usual');
@@ -132,4 +134,19 @@ test('a combo: each part they give up said on its own, ahead of pace; injuries o
       {id: 'd', name: 'Bench Guard', pos: 'SG', played10: 9, min10: 15, last3: true}]}, MIA: {players: []}}};
   const out = legFacts({row: {...row, playerId: 'x'}, marketKey: 'player_points', line: 20.5, league: night, games: [], ctx: null}).facts.filter(fact => fact.kind === 'out');
   assert.deepEqual(out.map(fact => fact.text), ['📋 Kyrie Irving Jr is ruled out, so more shots and minutes go his way']);
+});
+
+test('no repeats and no coin flips: a combo part only when clearly worse than the combo; vs them only when mostly over', () => {
+  const close = {...league, dvpEach: Object.fromEntries(TEAMS.map((team, i) => [team, {G: {stats: {
+    pts: {szn: [10, team === 'MIA' ? 25 : (i % 29) + 1]}, reb: {szn: [4, team === 'MIA' ? 30 : (i % 29) + 1]}, ast: {szn: [5, team === 'MIA' ? 22 : (i % 29) + 1]},
+    pra: {szn: [20, team === 'MIA' ? 24 : (i % 29) + 1]}}}}]))};
+  // PRA 7th most, points 6th (one spot better: no line), rebounds the most (six better: its own line).
+  const kinds = legFacts({row, marketKey: 'player_points_rebounds_assists', line: 25.5, league: close, games: [], ctx: null}).facts.map(fact => fact.kind);
+  assert.ok(kinds.includes('dvp') && kinds.includes('dvp-reb') && !kinds.includes('dvp-pts') && !kinds.includes('dvp-ast'), kinds.join());
+  // Over in 1 of 2 against them: not said; 2 of 3: said.
+  const vs = values => values.map((value, i) => ({season: 2027, opponent: i < values.length ? 'MIA' : 'BOS', values: {player_points: value}}));
+  const said = values => legFacts({row, marketKey: 'player_points', line: 20.5, league, games: vs(values)}).facts.some(fact => fact.kind === 'h2h');
+  assert.equal(said([25, 15]), false);
+  assert.equal(said([25]), false);
+  assert.equal(said([25, 15, 22]), true);
 });

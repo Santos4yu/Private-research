@@ -278,6 +278,11 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   Injuries only when ruled out (code/status OUT, not GTD/Q), 24+ minutes,
   and at his spot (or 30+ minutes on his team; their center for a
   rebounding line).
+- Write-ups, round 7: a combo's part gets its own line only when it ranks
+  3+ spots worse than the combo (no "6th most points" beside "7th most
+  PRA"); the vs-them line needs 2+ games and most of them over (no "1 of
+  2"). The owner hand-edits titles ("2 MAN · (2x)"), writes "PRA" and
+  dropped "(Goblin)": ask before making those the defaults.
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).
