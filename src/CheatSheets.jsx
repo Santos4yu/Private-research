@@ -459,7 +459,7 @@ export function CheatSheets(){
  const go=(nextLeague,key)=>{
   if(nextLeague===league&&key===sheet)return;
   const url=new URL(location.href);url.hash=hashFor(nextLeague,key);
-  history.pushState(history.state,'',url);
+  {const {nbaMatchup,...kept}=history.state||{};history.pushState(kept,'',url);}
   setRoute({league:nextLeague,sheet:key});
   document.getElementById('panel-sheets')?.scrollIntoView({block:'start'});
  };

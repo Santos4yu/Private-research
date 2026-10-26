@@ -1302,7 +1302,9 @@ function switchTab(tab, options = {}) {
     const url = new URL(location.href);
     url.hash = "";
     url.pathname = "/" + (SCREEN_SLUGS[tab] || tab);
-    history.pushState({ ...history.state, vortexTab: tab }, "", url);
+    // A Props player page's mark (MatchupList.jsx) belongs to its own entry: never carried to another screen.
+    const { nbaMatchup, ...kept } = history.state || {};
+    history.pushState({ ...kept, vortexTab: tab }, "", url);
   }
   els.tabs.querySelectorAll("[data-tab]").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
   const topBtn = els.tabs.querySelector(`[data-tab="${tab}"]`);
@@ -1371,7 +1373,8 @@ function wireAppNavigation() {
   // An old #tab address loses its hash; a page's own hash (/cheat-sheets#hr) keeps it.
   if (!location.pathname.slice(1) || initialTab !== requested) url.hash = "";
   url.pathname = "/" + (SCREEN_SLUGS[initialTab] || initialTab);
-  history.replaceState({ ...history.state, vortexTab: initialTab }, "", url);
+  const { nbaMatchup, ...keptState } = history.state || {};
+  history.replaceState({ ...keptState, vortexTab: initialTab }, "", url);
   history.scrollRestoration = "manual";
   switchTab(initialTab, { history: false });
   screenHistoryReady = true;

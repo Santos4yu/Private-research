@@ -250,7 +250,12 @@ export function MatchupList({config}){
  // itself) still said a player was open; back then trusted it and went one
  // page too far. Now only this visit's own mark counts: anything else is
  // cleared, and back closes the page without leaving the Props tab.
- const opened=useRef(null);
+ // Also (Oct 25, again "sometimes it goes to another page"): the site's tab
+ // switch copied the mark onto the next screen's entry, so back from a page
+ // left open while visiting another tab went to that tab. app.js no longer
+ // copies it, and back steps through history only when nothing has been
+ // added since the page opened (history.length the same); else it just closes.
+ const opened=useRef(null),depth=useRef(0);
  const marked=()=>Boolean(opened.current)&&history.state?.nbaMatchup===opened.current;
  const clearMark=()=>{if(history.state?.nbaMatchup){const {nbaMatchup,...rest}=history.state;history.replaceState(rest,'',location.href);}};
  useEffect(()=>{if(!opened.current)clearMark();},[]);
@@ -258,10 +263,11 @@ export function MatchupList({config}){
   listScroll.current=window.scrollY;
   opened.current=`${row.id}:${Date.now()}`;
   history.pushState({...history.state,nbaMatchup:opened.current},'',location.href);
+  depth.current=history.length;
   setPage(row);window.scrollTo(0,0);
  },[]);
  const closePage=useCallback(()=>{
-  if(marked()){history.back();return;}
+  if(marked()&&history.length===depth.current){history.back();return;}
   opened.current=null;clearMark();setPage(null);
  },[]);
  useEffect(()=>{
