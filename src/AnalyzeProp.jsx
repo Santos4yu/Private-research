@@ -6,6 +6,7 @@ import {createTour} from './analyze-tour';
 import {useIsAdmin} from './admin-notice';
 import {finderSlipProp} from './unified-finder-data';
 import {pickBuilder} from './pick-builder-client';
+import {lockScroll} from './scroll-lock';
 import './analyze-prop.css';
 
 // The Finder's Analyze, once its button is pressed (AnalyzeButton.jsx): the
@@ -178,12 +179,10 @@ export default function AnalyzeLayer(props){
 
  // The page stays put underneath (the walk-through scrolls it itself); Escape closes.
  useEffect(()=>{
-  const html=document.documentElement,body=document.body;
-  const before=[html.style.overflow,body.style.overflow];
-  html.style.overflow='hidden';body.style.overflow='hidden';
+  const unlock=lockScroll();
   const key=event=>{if(event.key==='Escape')close.current();};
   window.addEventListener('keydown',key);
-  return()=>{html.style.overflow=before[0];body.style.overflow=before[1];window.removeEventListener('keydown',key);};
+  return()=>{unlock();window.removeEventListener('keydown',key);};
  },[]);
 
  useEffect(()=>{

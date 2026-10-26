@@ -1,5 +1,6 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
+import {useScrollLock} from './scroll-lock';
 import {AlertTriangle,CalendarDays,Camera,ClipboardPaste,ChevronLeft,ChevronRight,LineChart,Loader2,Plus,Trash2,X} from 'lucide-react';
 import {KINDS,PERIODS,bankroll,calendar,inPeriod,moneyText,periodOf,priceText,profitOf,series,shiftAnchor,streak,summarize,today,unitsText,multiplierOf,betFromSlip,betFromRead} from './my-bets-core';
 import {loadHistory} from './slip-history';
@@ -193,6 +194,8 @@ function BetForm({initial,unit,slips,onSave,onDelete,onClose}){
   catch(problem){setError(problem.message);setBusy(false);}
  };
  useEffect(()=>{const close=event=>{if(event.key==='Escape')onClose();};window.addEventListener('keydown',close);return()=>window.removeEventListener('keydown',close);},[onClose]);
+ // The page under the form stays still.
+ useScrollLock();
  // On the page itself, so it sits over the phone's bottom bar too.
  return createPortal(<div className="my-bets mb-sheet" role="dialog" aria-modal="true" aria-label={editing?'Edit bet':'Log a bet'} onClick={event=>{if(event.target===event.currentTarget)onClose();}}>
   <form className="mb-form" onSubmit={submit}>

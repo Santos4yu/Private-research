@@ -13,6 +13,7 @@ import {basketballLogUrl} from './unified-finder-data';
 import {lineupRole} from './lineup-role';
 import {CountUp} from './count-up';
 import {useWide} from './use-wide';
+import {useScrollLock} from './scroll-lock';
 
 const STAT_CHIPS=[['player_points','PTS'],['player_rebounds','REB'],['player_assists','AST'],['player_threes','3PM'],['player_points_rebounds','P+R'],
  ['player_points_assists','P+A'],['player_rebounds_assists','R+A'],['player_points_rebounds_assists','PRA'],['player_steals','STL'],['player_blocks','BLK']];
@@ -144,11 +145,14 @@ export function NbaMatchupPage({row,lines,league,onBack}){
  // Starter or Bench (lineup-role.js): who started his team's last game.
  const role=lineupRole(row,league);
  const facts=[row.jersey?`#${row.jersey}`:null,team?.short||row.teamAbbr,POSITION_NAMES[String(row.position||'')[0]]||row.position,role?.label].filter(Boolean);
+ // A chart pop-up: the page under it stays still; Escape closes; focus starts on Close.
+ useScrollLock(Boolean(shots));
+ useEffect(()=>{if(shots)requestAnimationFrame(()=>document.querySelector('.mp-sheet-head button')?.focus({preventScroll:true}));},[shots]);
  useEffect(()=>{if(!shots)return undefined;const close=event=>{if(event.key==='Escape')setShots(false);};
   document.addEventListener('keydown',close);return()=>document.removeEventListener('keydown',close);},[shots]);
  const lineFor=kind=>row.marketKey===LINE_OF[kind]?row.line:null;
  const sheet=shots&&<div className="mp-sheet" role="dialog" aria-modal="true" aria-label={SHEETS[shots][0]} onClick={event=>{if(event.target===event.currentTarget)setShots(null);}}>
-  <div className="mp-sheet-panel"><div className="mp-sheet-head"><span><small>{SHEETS[shots][0]}</small><b>{SHEETS[shots][1]} {teamName(league,row.opponent)}</b></span>
+  <div className="mp-sheet-panel" data-kind={shots}><div className="mp-sheet-head"><span><small>{SHEETS[shots][0]}</small><b>{SHEETS[shots][1]} {teamName(league,row.opponent)}</b></span>
    <button type="button" onClick={()=>setShots(null)} aria-label="Close"><X size={18}/></button></div>
    {shots==='shots'?<ShotZones player={player} league={leagueState} row={row}/>:<Chances kind={shots} row={row} league={leagueState} player={player} line={lineFor(shots)}/>}</div>
  </div>;

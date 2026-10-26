@@ -702,3 +702,36 @@
  .nba-mp[data-wide] .mp-tabs{padding:10px 64px}
 }
 @media (min-width:1100px) and (prefers-reduced-motion:reduce){.nba-mp .mp-dcol{animation:none}}
+
+/* ---------------------------------------------------------------- Pop-ups
+   Oct 25, the owner didn't like the chart sheets opening from the bottom on
+   a computer. From 761px they open in the middle of the screen over a
+   blurred page (which stays still: scroll-lock.js), easing in; on a phone
+   they still rise from the bottom. Their own scrolling stays inside them.
+   On a computer the shot chart sits beside its zones. */
+.nba-mp .mp-sheet{-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);background:#000000b3;animation:mp-fade .2s ease backwards}
+.nba-mp .mp-sheet-panel{overscroll-behavior:contain;animation:mp-rise .32s cubic-bezier(.2,.8,.2,1) backwards}
+@keyframes mp-fade{from{opacity:0}}
+@keyframes mp-rise{from{opacity:0;transform:translateY(40px)}}
+@media (min-width:761px){
+ .nba-mp .mp-sheet{align-items:center;padding:28px}
+ .nba-mp .mp-sheet-panel{width:min(860px,100%);max-height:min(88vh,980px);padding:0 22px 24px;border:1px solid #ffffff1a;border-radius:24px;
+  background:linear-gradient(180deg,#14171e,#0f1116);box-shadow:0 40px 120px -20px #000,0 0 0 1px #00000080;animation-name:mp-pop-in}
+ .nba-mp .mp-sheet-panel[data-kind=shots]{width:min(1180px,100%)}
+ .nba-mp .mp-sheet-head{margin:0 -22px;padding:18px 22px 14px;background:linear-gradient(180deg,#14171e 70%,#14171ef0);border-bottom:1px solid #ffffff10}
+ .nba-mp .mp-sheet-head b{font-size:21px}
+ .nba-mp .mp-sheet-head button{transition:background-color .15s,transform .15s}
+ .nba-mp .mp-sheet-head button:hover{background:#262a33;transform:rotate(90deg)}
+ @keyframes mp-pop-in{from{opacity:0;transform:translateY(16px) scale(.97)}}
+}
+@media (min-width:1000px){
+ .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .mp-card-body{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);grid-template-rows:auto auto auto 1fr auto;column-gap:32px;align-items:start}
+ .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .ws-views{grid-column:1;grid-row:1}
+ .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .mp-card-body>svg{grid-column:1;grid-row:2 / span 3;width:100%;height:auto}
+ .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .ws-legend{grid-column:1;grid-row:5}
+ .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .ws-detail{grid-column:2;grid-row:1;margin-top:0}
+ .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .ws-mix-head{grid-column:2;grid-row:2}
+ .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .ws-mix{grid-column:2;grid-row:3}
+ .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .ws-zones{grid-column:2;grid-row:4 / span 2}
+}
+@media (prefers-reduced-motion:reduce){.nba-mp .mp-sheet,.nba-mp .mp-sheet-panel{animation:none}}

@@ -176,6 +176,15 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   1500px (grade + ranks | season, his games, injuries, game log |
   research), 2 below (grade + ranks + research | the rest). List: the
   sidebar is the frame's left pane.
+- Pop-ups (the owner: the shot chart opened from the bottom on a computer,
+  and the page under any pop-up still scrolled). `src/scroll-lock.js`
+  (`lockScroll` / `useScrollLock`, counted, keeps the scrollbar's width as
+  padding) now holds the page still under the NBA chart sheets, the
+  Analyze pop-up and My Bets' form. From 761px the chart sheets open in
+  the middle over a blurred page (`.mp-sheet-panel[data-kind]`), the shot
+  chart 1180px wide with the court beside its zones from 1000px; phones
+  keep the sheet rising from the bottom. Focus starts on Close; Escape
+  closes. Use useScrollLock for any new pop-up.
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).
