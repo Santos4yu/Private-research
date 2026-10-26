@@ -422,3 +422,14 @@ class PropsLogTests(unittest.TestCase):
         self.assertEqual((status, payload["kept"]), (200, 2))
         self.assertEqual(kept[0][1]["id"], "2")
         self.assertEqual(self.post("/api/wnba?resource=props-log", {"rows": []})[0], 404)
+
+
+class NameSuffixTests(unittest.TestCase):
+    """Oct 26: PrizePicks' "Jaime Jaquez" is ESPN's "Jaime Jaquez Jr."."""
+
+    def test_names_match_without_suffixes(self):
+        self.assertEqual(api._norm("Jaime Jaquez Jr."), api._norm("Jaime Jaquez"))
+        self.assertEqual(api._norm("Michael Porter Jr"), api._norm("Michael Porter"))
+        self.assertEqual(api._norm("De’Aaron Fox"), api._norm("De'Aaron Fox"))
+        # A two-word name keeps its words (no first name is dropped).
+        self.assertEqual(api._norm("V Jr"), "v jr")

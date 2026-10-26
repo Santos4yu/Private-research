@@ -272,7 +272,8 @@ def _round_or_none(value):
 NBA_CACHE_SECONDS = 90
 LEAGUES = ("wnba", "nba")
 # v2: entries carry the jersey number (the NBA matchup page's banner).
-ROSTER_KEYS = {"wnba": ROSTER_CACHE_KEY, "nba": "krazy_data:nba:v2:roster_directory"}
+# v3 (Oct 26): names keyed without Jr./Sr./II... (_norm); older saves had them.
+ROSTER_KEYS = {"wnba": ROSTER_CACHE_KEY + ":v3", "nba": "krazy_data:nba:v3:roster_directory"}
 # PrizePicks' NBA team codes, where ESPN's differ.
 NBA_TEAM_CODES = {"GSW": "GS", "NYK": "NY", "SAS": "SA", "NOP": "NO", "NOR": "NO", "UTA": "UTAH", "WAS": "WSH",
                   "PHO": "PHX", "BRK": "BKN"}
@@ -280,9 +281,18 @@ _nba_memory = {"at": 0.0, "value": None}
 _nba_days = {}
 
 
+# Name suffixes the sites don't agree on (Oct 26: PrizePicks' "Jaime Jaquez"
+# is ESPN's "Jaime Jaquez Jr.": unmatched, his line had no ESPN id, so no
+# shot zones, rebound chances, jersey or role).
+_SUFFIXES = {"jr", "sr", "ii", "iii", "iv", "v"}
+
+
 def _norm(value):
-    text = unicodedata.normalize("NFKD", str(value or "")).encode("ascii", "ignore").decode()
-    return " ".join(text.casefold().replace(".", "").split())
+    text = unicodedata.normalize("NFKD", str(value or "").replace("\u2019", "'")).encode("ascii", "ignore").decode()
+    words = text.casefold().replace(".", "").replace(",", " ").split()
+    if len(words) > 2:
+        words = [word for word in words if word not in _SUFFIXES] or words
+    return " ".join(words)
 
 
 def _espn_json(url):

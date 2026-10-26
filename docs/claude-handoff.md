@@ -313,6 +313,12 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   name without Jr./Sr./II/III when the line's id doesn't match (likely why
   Jaquez Jr. wasn't found; his #24 was missing too). An attempt to add
   players missing from ESPN's roster was dropped: it kept departed players.
+- Jaquez, round 2: his shot zones and rebound chances were empty. Cause:
+  api/wnba.py `_norm` kept name suffixes, so PrizePicks' "Jaime Jaquez"
+  never matched ESPN's "Jaime Jaquez Jr.": no ESPN id on his rows (no
+  player-context, jersey, role). `_norm` now drops jr/sr/ii/iii/iv/v (names
+  of 3+ words) and reads curly apostrophes; the saved directory keys moved
+  to v3 (ROSTER_KEYS) so it rebuilds with the new keys.
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).
