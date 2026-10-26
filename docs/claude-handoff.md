@@ -319,6 +319,15 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   player-context, jersey, role). `_norm` now drops jr/sr/ii/iii/iv/v (names
   of 3+ words) and reads curly apostrophes; the saved directory keys moved
   to v3 (ROSTER_KEYS) so it rebuilds with the new keys.
+- Kyrie Irving read "Bench" (Oct 26): he sat Dallas's last game (rest, a
+  back-to-back's second night) and the five came from that game alone.
+  context.py `_starting_five`: a player whose latest of the team's last 3
+  games (SAT_OUT) was a start but who missed its last game competes with
+  that game's five on his own start share (then: started last game, then
+  minutes); the fill-in starter drops to Bench. Both rotation paths. New
+  `playedLast` field; lineupRole adds `sat` ("he sat out the team's last
+  one"), and returns null (neither filter) for someone back after missing
+  3+ games who'd started most of his own games before.
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).

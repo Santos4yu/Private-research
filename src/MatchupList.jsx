@@ -85,7 +85,7 @@ function PropRow({row,read,hit,prop,role,open,onToggle,onOpen,short,index=0,colo
   {read?<button type="button" className="nm-why" aria-expanded={open} aria-label={`Why ${row.player}'s scores`} title="Why these scores" onClick={onToggle}><ChevronDown size={16}/></button>:<span aria-hidden="true"/>}
   {open&&read&&<ul className="nm-reads"><li className="nm-read-note">{read.score} matchup, {read.label.toLowerCase()}{hit?`. Over his line in ${hit.hits} of his last ${hit.games}`:''}.</li>
    {prop?.blowout&&<li className="nm-read-note">{prop.blowout.role==='starter'?'Blowout risk':'Blowout boost'}: {blowoutText(prop.blowout)}.</li>}
-   {role&&<li className="nm-read-note">{role.label}: {role.starter?'he started his team’s last game':'he didn’t start his team’s last game'} and {role.starts} of his last {role.games}. Tonight’s lineup is announced about half an hour before tip-off.</li>}
+   {role&&<li className="nm-read-note">{role.label}: {role.sat?`he started ${role.starts} of his last ${role.games} and sat out his team’s last game`:`${role.starter?'he started his team’s last game':'he didn’t start his team’s last game'} and ${role.starts} of his last ${role.games}`}. Tonight’s lineup is announced about half an hour before tip-off.</li>}
    <li className="nm-read-note">An even matchup is 50. Each part adds or takes away points.</li>{read.reads.map(item=><li key={item.key}>
    <span className="nm-read-head"><b>{READS[item.kind]||READS[item.key]||'Their defense'}</b><em>{added(item.points)}</em></span>
    <span className="nm-read-text">{item.text}</span>

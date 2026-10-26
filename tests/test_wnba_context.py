@@ -533,3 +533,47 @@ class ThisSeasonTests(unittest.TestCase):
         self.assertEqual(players["mate"]["playedSzn"], 1)
         self.assertEqual(players["star"]["playedSzn"], 0)
         self.assertGreaterEqual(players["star"]["played10"], 1)
+
+
+class StartingFiveTests(unittest.TestCase):
+    """Oct 26: Kyrie Irving sat the Spurs game (a back-to-back's second night) and read as bench."""
+    STARTERS = ["kyrie", "g2", "f1", "f2", "c1"]
+
+    def payload(self, last_games):
+        players = {pid: [pid, pos, None, "DAL"] for pid, pos in
+                   (("kyrie", "G"), ("g2", "G"), ("f1", "F"), ("f2", "F"), ("c1", "C"), ("spot", "G"), ("b1", "F"), ("b2", "C"))}
+        players["o"] = ["o", "G", None, "OPP"]
+        usual = [row(pid, 32, 15) for pid in self.STARTERS] + [row("spot", 18, 6, starter=0), row("b1", 15, 4, starter=0), row("b2", 12, 4, starter=0)]
+        games = [usual, usual] + last_games
+        return {"season": 2026, "builtAt": "x", "teams": {}, "players": players,
+                "games": {str(n): game(str(n), f"2026-10-{20 + n:02d}", "DAL", "OPP", rows, [row("o", 30, 10)]) for n, rows in enumerate(games)}}
+
+    def chart(self, last_games, rosters=None):
+        ctx = context.league_context(self.payload(last_games), rosters=rosters)
+        return {p["id"]: p for p in ctx["rotation"]["DAL"]["players"]}
+
+    def roster(self):
+        return {"DAL": {pid: {"name": pid, "pos": "G"} for pid in self.STARTERS + ["spot", "b1", "b2"]}}
+
+    def test_a_starter_who_rested_the_last_game_still_starts(self):
+        rested = [row(pid, 32, 15) for pid in self.STARTERS[1:]] + [row("spot", 30, 12), row("b1", 15, 4, starter=0), row("b2", 12, 4, starter=0)]
+        for rosters in (None, self.roster()):
+            chart = self.chart([rested], rosters)
+            self.assertTrue(chart["kyrie"]["lastStart"])
+            self.assertFalse(chart["kyrie"]["playedLast"])
+            self.assertFalse(chart["spot"]["lastStart"])          # the fill-in goes back to the bench
+            self.assertEqual(sum(p["lastStart"] for p in chart.values()), 5)
+
+    def test_a_starter_moved_to_the_bench_reads_bench(self):
+        moved = [row(pid, 32, 15) for pid in self.STARTERS[1:]] + [row("kyrie", 22, 9, starter=0), row("spot", 30, 12), row("b1", 15, 4, starter=0)]
+        for rosters in (None, self.roster()):
+            chart = self.chart([moved], rosters)
+            self.assertFalse(chart["kyrie"]["lastStart"])
+            self.assertTrue(chart["spot"]["lastStart"])
+
+    def test_out_for_three_games_he_is_no_longer_in_the_five(self):
+        without = [row(pid, 32, 15) for pid in self.STARTERS[1:]] + [row("spot", 30, 12), row("b1", 15, 4, starter=0)]
+        chart = self.chart([without, without, without], self.roster())
+        self.assertFalse(chart["kyrie"]["lastStart"])
+        self.assertFalse(chart["kyrie"]["last3"])
+        self.assertTrue(chart["spot"]["lastStart"])

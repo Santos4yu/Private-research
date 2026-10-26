@@ -147,7 +147,7 @@ export function NbaMatchupPage({row,lines,league,onBack}){
  const home=row.teamAbbr&&row.teamAbbr===row.homeTeamAbbr;
  const team=league?.teams?.[row.teamAbbr],opponent=league?.teams?.[row.opponent];
  const color=team?.color?`#${String(team.color).replace('#','')}`:null;
- // Starter or Bench (lineup-role.js): who started his team's last game.
+ // Starter or Bench (lineup-role.js): who started his team's last game, or sat it out resting.
  const role=lineupRole(row,league);
  const facts=[row.jersey?`#${row.jersey}`:null,team?.short||row.teamAbbr,POSITION_NAMES[String(row.position||'')[0]]||row.position,role?.label].filter(Boolean);
  // A chart pop-up: the page under it stays still; Escape closes; focus starts on Close.

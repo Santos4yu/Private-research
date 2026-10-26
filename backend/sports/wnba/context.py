@@ -314,6 +314,40 @@ def _with_recent(entries: list, games: list) -> list:
     return entries
 
 
+# A starter who sat out one of the team's last SAT_OUT games (rest, the
+# second night of a back-to-back) is still a starter.
+SAT_OUT = 3
+
+
+def _starting_five(games: list, by_id: dict) -> list:
+    """The team's starters: its last game's five (those still listed in
+    `by_id`, id -> {starts, games, min}), unless a regular starter sat that
+    game out. Anyone whose latest of the team's last SAT_OUT games was a
+    start but who missed its last game competes with that five on how many
+    of his own last games he started (Oct 26: Kyrie Irving sat the Spurs
+    game, the second of a back-to-back, and read as bench; the fill-in who
+    started for him is the one who goes back to the bench)."""
+    if not games:
+        return []
+    last = games[-1]["own"]["p"]
+    played_last = {row[0] for row in last}
+    chosen = [row[0] for row in last if row[1] and row[0] in by_id]
+    latest = {}
+    for game in games[-SAT_OUT:]:
+        for row in game["own"]["p"]:
+            latest[row[0]] = row[1]
+    sat = [pid for pid, started in latest.items() if started and pid not in played_last and pid in by_id]
+    if not sat:
+        return chosen
+    share = lambda pid: by_id[pid]["starts"] / by_id[pid]["games"] if by_id[pid].get("games") else 0
+    pool = sorted(chosen + sat, key=lambda pid: (-share(pid), pid not in chosen, -(by_id[pid].get("min") or 0)))
+    return pool[:5]
+
+
+def _played_last(games: list) -> set:
+    return {row[0] for row in games[-1]["own"]["p"]} if games else set()
+
+
 def _roster_rotation(team: str, games: list, roster: dict, history: dict, players: dict, size: int, league: str) -> list:
     """The team's players now (`roster`: id -> {name, pos, headshot}), each
     on his own last few games wherever he played them: anyone gone since is
@@ -328,12 +362,15 @@ def _roster_rotation(team: str, games: list, roster: dict, history: dict, player
                         "headshot": info.get("headshot") or headshot(pid, known, league),
                         "min": _round(sum(minutes for _, _, minutes in played) / len(played), 1) if played else 0,
                         "games": len(played), "starts": sum(started for _, started, _ in played), "lastStart": False})
-    chosen = [row[0] for row in games[-1]["own"]["p"] if row[1] and row[0] in roster] if games else []
+    chosen = _starting_five(games, {entry["id"]: entry for entry in entries})
     others = sorted((entry for entry in entries if entry["id"] not in chosen and history.get(entry["id"]) and history[entry["id"]][-1][1]),
                     key=lambda entry: -entry["min"])
     chosen += [entry["id"] for entry in others][:max(0, 5 - len(chosen))]
+    played_last = _played_last(games)
     for entry in entries:
         entry["lastStart"] = entry["id"] in chosen
+        # Whether he played the team's last game (the page says so when a starter sat it).
+        entry["playedLast"] = entry["id"] in played_last
     return entries
 
 
@@ -371,8 +408,6 @@ def rotation(by_team: dict, players: dict, size: int = 5, league: str = "wnba", 
                 minutes[row[0]] += row[_I["min"]] or 0
                 starts[row[0]] += row[1]
                 appearances[row[0]] += 1
-        last = games[-1]["own"]
-        last_starters = {row[0] for row in last["p"] if row[1]}
         entries = []
         for pid in appearances:
             player = players.get(pid) or ["", "", None, None]
@@ -381,7 +416,10 @@ def rotation(by_team: dict, players: dict, size: int = 5, league: str = "wnba", 
                 continue
             entries.append({"id": pid, "name": player[0], "pos": player[1], "headshot": headshot(pid, player, league),
                             "min": _round(minutes[pid] / appearances[pid], 1), "games": appearances[pid],
-                            "starts": starts[pid], "lastStart": pid in last_starters})
+                            "starts": starts[pid]})
+        starters, played_last = set(_starting_five(games, {entry["id"]: entry for entry in entries})), _played_last(games)
+        for entry in entries:
+            entry.update({"lastStart": entry["id"] in starters, "playedLast": entry["id"] in played_last})
         entries.sort(key=lambda e: (not e["lastStart"], order.get(primary_position([None, e["pos"]]), 3) if e["lastStart"] else 0, -e["min"]))
         result[team] = {"games": len(recent), "lastGame": games[-1]["date"], "players": _with_recent(entries[:13], games)}
     return result
