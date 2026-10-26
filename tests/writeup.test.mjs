@@ -27,9 +27,9 @@ test('reasons for the over in plain words, strongest first: his position, their 
   assert.equal(leg.label, 'Strong edge');
   const kinds = leg.facts.map(fact => fact.kind);
   assert.equal(kinds[0], 'dvp');
-  assert.equal(leg.facts[0].text, '🎯 The Heat give up the 1st most points to guards in the league');
+  assert.equal(leg.facts[0].text, '🎯 The Heat give up the 1st most points to guards in the league this season');
   assert.ok(kinds.includes('zones') && kinds.includes('hits') && kinds.includes('lastFaced') && kinds.includes('h2h'), kinds.join());
-  assert.match(leg.facts.find(fact => fact.kind === 'zones').text, /^📍 (Most of|A big chunk of|A lot of) his points come (from above-break 3|in the paint), and that's one of the spots the Heat defend worst \(\d+(st|nd|rd|th) worst in the league\)$/);
+  assert.match(leg.facts.find(fact => fact.kind === 'zones').text, /^📍 (Most of|A big chunk of|A lot of) his points come (from above-break 3|in the paint), and that's one of the spots the Heat defend worst \(\d+(st|nd|rd|th) worst in the league this season\)$/);
   assert.equal(leg.facts.find(fact => fact.kind === 'hits').text, "📈 He's gone over this line in 8 of his last 10 games");
   assert.equal(leg.facts.find(fact => fact.kind === 'lastFaced').text, '👀 The last guard to face the Heat (D. Schroder) went well over his usual');
   // Plain words: no decimals anywhere.
@@ -41,8 +41,8 @@ test('reasons for the over in plain words, strongest first: his position, their 
 test('rebounds read their misses and his work on the glass; nothing against the over is written', () => {
   const leg = legFacts({row, marketKey: 'player_rebounds', line: 9.5, league, games: [], ctx: {...ctx, opportunity: {l10: {games: 10, rebShare: 17}}}});
   const text = leg.facts.map(fact => fact.text).join('\n');
-  assert.match(text, /🧲 The Heat give up the 1st most rebounds in the league/);
-  assert.match(text, /🧱 Teams miss a lot of shots against the Heat, and every miss is a rebound up for grabs/);
+  assert.match(text, /🧲 The Heat give up the 1st most rebounds in the league this season/);
+  assert.match(text, /🧱 Teams miss a lot of shots against the Heat this season, and every miss is a rebound up for grabs/);
   assert.match(text, /🧲 When a shot misses with him on the court, he's one of the guys who goes and gets it/);
   // A soft opponent's numbers only: a tough one says nothing.
   const tough = legFacts({row: {...row, opponent: 'T28'}, marketKey: 'player_rebounds', line: 9.5, league, games: [], ctx: null});
@@ -85,4 +85,22 @@ test('streaks: never under all season, a straight run, the last 5, never under v
   // A regular line he has missed lately: no streak claims.
   const regular = legFacts({row, marketKey: 'player_points', line: 12.5, league, games: log});
   assert.ok(!regular.facts.some(fact => ['season', 'streak', 'last5'].includes(fact.kind) && /Hasn't|straight/.test(fact.text)));
+});
+
+test('early in a season: this season\'s games alone, said so; nothing on a team with under 3 games; ESPN\'s position', () => {
+  // The blended numbers say MIA give up the most; this season alone, the least (rank 30 of 30 is the fewest... reversed).
+  const fresh = {season: 2027, teamCount: 30, games: {MIA: 4, T3: 1},
+    dvpEach: Object.fromEntries(TEAMS.map((team, i) => [team, {G: {stats: {pts: {szn: [9 + i * 0.1, i + 1]}}}, C: {stats: {reb: {szn: [12 - i * 0.1, 30 - i]}}}}])),
+    opportunity: {count: 30, teams: {}}, zoneDefense: {}};
+  const early = {...league, thisSeason: fresh};
+  const now = legFacts({row, marketKey: 'player_points', line: 20.5, league: early, games: [], ctx: null});
+  // This season MIA give up the fewest points to guards: no matchup brag at all.
+  assert.equal(now.facts.some(fact => fact.kind === 'dvp'), false);
+  // A team with 1 game this season: no team numbers said.
+  const thin = legFacts({row: {...row, opponent: 'T3'}, marketKey: 'player_points', line: 20.5, league: early, games: [], ctx: null});
+  assert.equal(thin.facts.length, 0);
+  // ESPN calls him a center (the line said F): read as a center, "so far this season".
+  const big = legFacts({row: {...row, position: 'F'}, marketKey: 'player_rebounds', line: 9.5,
+    league: {...early, rotation: {DAL: {players: [{id: '1', pos: 'C'}]}}}, games: [], ctx: null});
+  assert.equal(big.facts.find(fact => fact.kind === 'dvp')?.text, '🎯 The Heat give up the 1st most rebounds to centers in the league so far this season');
 });

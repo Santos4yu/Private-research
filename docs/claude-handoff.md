@@ -245,6 +245,24 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   never under in his last 5, never under vs them (2+ games), and how far
   above the line he's been averaging (rounded), then the plain counts only
   where a streak doesn't already cover them.
+- Write-up accuracy (the owner checked a post against PropsEdge and
+  another AI: "is this true data?"). Three real problems, fixed:
+  1. Early in a season league-context blends ALL of last season's games
+     in until teams average 15 (BLEND_GAMES): ranks were mostly last
+     season's. context.py `this_season_tables` now sends `thisSeason`
+     (dvpEach, teamStats, opportunity, zoneDefense, games per team) when
+     blended; writeup.js reads it, says "so far this season", and says no
+     team numbers for a team with under 3 games. The matchup SCORE still
+     reads the blended numbers on purpose (steadier).
+  2. ESPN's status can say Out while its fantasy code says GTD (Cooper
+     Flagg). _nba_tonight now sends `code`; nba-matchup-score.js
+     `CODE_SITS` lets the code decide (GTD 0.5, Q/DTD 0.35, D 0.8, OUT 1).
+     This also lowers scores that counted a GTD player as fully out.
+  3. Position: writeup.js reads ESPN's position (league.rotation) before
+     the props app's (Diabate is a C, PrizePicks said F). The score still
+     uses the row's position.
+  Still different from PropsEdge by design: we count each player at a
+  position (G/F/C), they count the position's total by PG/SG/SF/PF/C.
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).

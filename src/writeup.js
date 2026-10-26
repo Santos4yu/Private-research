@@ -40,6 +40,8 @@ const teamWords = (league, abbr) => { const name = league?.teams?.[abbr]?.short 
 const listNames = items => { const names = items.map(item => item.name); return names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0]; };
 const ZONES = {ra: 'at the rim', paint: 'in the paint', mid: 'from mid-range', ab3: 'from above-break 3', c3l: 'from the left corner 3', c3r: 'from the right corner 3'};
 const THREES = new Set(['ab3', 'c3l', 'c3r']);
+// A team's games this season before its numbers are said at all.
+const MIN_GAMES = 3;
 const posOf = value => {
   const code = String(value || '').toUpperCase().split('-')[0];
   return {PG: 'G', SG: 'G', G: 'G', SF: 'F', PF: 'F', F: 'F', C: 'C'}[code] || (code[0] === 'G' ? 'G' : code[0] === 'C' ? 'C' : code ? 'F' : null);
@@ -64,10 +66,22 @@ export function legFacts({row, marketKey, line, league, games = [], ctx = null, 
   const stat = STAT_SHORT[marketKey] || marketKey;
   const parts = PARTS[marketKey] || [];
   const opp = row.opponent;
-  const pos = posOf(row.position);
+  // His position as ESPN lists it (the rotation), else the line's: a
+  // center the props app calls a forward is read as a center (Oct 25).
+  const espn = (league?.rotation?.[row.teamAbbr]?.players || []).find(player => String(player.id) === String(row.playerId))?.pos;
+  const pos = posOf(espn) || posOf(row.position);
   const [posWords, posSingle] = POS_WORDS[pos] || ['players at his spot', 'player at his spot'];
-  const teams = league?.teamCount || league?.opportunity?.count || 30;
-  const table = league?.opportunity?.teams?.[opp] || {};
+  // How the opponent is doing THIS season (Oct 25, the owner: "is this true
+  // data?"). Early in a season the league numbers take last season's games
+  // too (they steady the matchup score); a write-up tells readers how a
+  // team is doing now, so it reads this season's games alone
+  // (league.thisSeason) and says so, and says nothing about a team with
+  // fewer than 3 games yet.
+  const fresh = league?.thisSeason;
+  const tables = fresh ? ((fresh.games?.[opp] || 0) >= MIN_GAMES ? fresh : null) : league;
+  const when = fresh ? ' so far this season' : ' this season';
+  const teams = tables?.teamCount || tables?.opportunity?.count || 30;
+  const table = tables?.opportunity?.teams?.[opp] || {};
   const facts = [];
   const add = (kind, weight, text) => { if (text && weight > 0) facts.push({kind, weight, text}); };
 
@@ -79,41 +93,41 @@ export function legFacts({row, marketKey, line, league, games = [], ctx = null, 
   const what = STAT_WORDS[marketKey] || stat;
 
   // What they allow his position in this stat (each player at it).
-  const cell = defenseCell({...row, sport: 'nba', position: pos || row.position, marketKey}, league?.dvpEach ? {...league, dvp: league.dvpEach} : league);
+  const cell = tables && defenseCell({...row, sport: 'nba', position: pos || row.position, marketKey}, tables.dvpEach ? {...tables, dvp: tables.dvpEach} : tables);
   if (cell && finite(cell.rank)) {
     const most = teams - cell.rank + 1;
-    if (most <= 10) add('dvp', 12 - most, `🎯 ${They} give up the ${ordinal(most)} most ${what} to ${posWords} in the league`);
+    if (most <= 10) add('dvp', 12 - most, `🎯 ${They} give up the ${ordinal(most)} most ${what} to ${posWords} in the league${when}`);
   }
 
   // The team's numbers that fit the stat.
   if (parts.includes('pts')) {
     const rating = mostRank(table.drtg);
-    if (rating && rating <= 8) add('defense', 9 - rating, `🛡️ ${They} are one of the worst defenses in the league (${ordinal(rating)} worst), so scoring comes easy`);
+    if (rating && rating <= 8) add('defense', 9 - rating, `🛡️ ${They} are one of the worst defenses in the league (${ordinal(rating)} worst${when}), so scoring comes easy`);
   }
   if (parts.some(part => part === 'pts' || part === 'reb' || part === 'ast')) {
     const pace = mostRank(table.poss);
-    if (pace && pace <= 6) add('pace', 7 - pace, `💨 ${They} play fast, one of the quickest teams in the league. Faster game, more chances for him`);
+    if (pace && pace <= 6) add('pace', 7 - pace, `💨 ${They} play fast, one of the quickest teams in the league${when}. Faster game, more chances for him`);
   }
   if (parts.includes('reb')) {
     const boards = mostRank(table.rebAllowed);
-    if (boards && boards <= 10) add('boards', 11 - boards, `🧲 ${They} give up the ${ordinal(boards)} most rebounds in the league`);
+    if (boards && boards <= 10) add('boards', 11 - boards, `🧲 ${They} give up the ${ordinal(boards)} most rebounds in the league${when}`);
     const fg = mostRank(table.fgPctAllowed);
     const lowest = fg ? teams - fg + 1 : null;
-    if (lowest && lowest <= 8) add('misses', 9 - lowest, `🧱 Teams miss a lot of shots against ${them}, and every miss is a rebound up for grabs`);
+    if (lowest && lowest <= 8) add('misses', 9 - lowest, `🧱 Teams miss a lot of shots against ${them}${when}, and every miss is a rebound up for grabs`);
   }
   if (parts.includes('ast')) {
     const assists = mostRank(table.astAllowed);
-    if (assists && assists <= 10) add('assists', 11 - assists, `🤝 ${They} give up the ${ordinal(assists)} most assists in the league, so the ball moves easily against them`);
+    if (assists && assists <= 10) add('assists', 11 - assists, `🤝 ${They} give up the ${ordinal(assists)} most assists in the league${when}, so the ball moves easily against them`);
   }
   if (parts.includes('tpm')) {
     const tries = mostRank(table.tpaAllowed);
-    if (tries && tries <= 10) add('tpa', 11 - tries, `🏹 ${They} leave shooters open: teams take the ${ordinal(tries)} most threes against them`);
+    if (tries && tries <= 10) add('tpa', 11 - tries, `🏹 ${They} leave shooters open: teams take the ${ordinal(tries)} most threes against them${when}`);
     const made = mostRank(table.tpPctAllowed);
-    if (made && made <= 8) add('tpPct', 9 - made, `🏹 Teams also make a lot of their threes against ${them} (${ordinal(made)} best in the league)`);
+    if (made && made <= 8) add('tpPct', 9 - made, `🏹 Teams also make a lot of their threes against ${them} (${ordinal(made)} best in the league${when})`);
   }
 
   // Where he scores against where they give it up (shot zones).
-  const zones = ctx?.zones, defense = league?.zoneDefense?.[opp];
+  const zones = ctx?.zones, defense = tables?.zoneDefense?.[opp];
   if (zones && defense && (parts.includes('pts') || parts.includes('tpm'))) {
     const points = zone => (zones[zone]?.[0] || 0) * (THREES.has(zone) ? 3 : 2);
     const kept = parts.includes('pts') ? Object.keys(ZONES) : [...THREES];
@@ -125,7 +139,7 @@ export function legFacts({row, marketKey, line, league, games = [], ctx = null, 
     if (best) {
       const much = best.share >= 45 ? 'Most of' : best.share >= 30 ? 'A big chunk of' : 'A lot of';
       const his = parts.includes('pts') ? 'his points come' : 'his threes come';
-      add('zones', 11 - best.highest, `📍 ${much} ${his} ${ZONES[best.zone]}, and that's one of the spots ${them} defend worst (${ordinal(best.highest)} worst in the league)`);
+      add('zones', 11 - best.highest, `📍 ${much} ${his} ${ZONES[best.zone]}, and that's one of the spots ${them} defend worst (${ordinal(best.highest)} worst in the league${when})`);
     }
   }
 

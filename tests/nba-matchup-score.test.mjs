@@ -297,3 +297,10 @@ test('a starter is scored on the opponent alone: his teammates in or out don\'t 
   assert.equal(starter.score, matchupScore(guard(), league).score);
   assert.ok(bench.reads.some(read => read.kind === 'teammates') && bench.score > starter.score);
 });
+
+test('ESPN\'s injury code decides over its status: a game-time decision sits about half the time', () => {
+  const night = tonight(report('HOU', [{id: 'g1', name: 'g1', status: 'Out', code: 'GTD', out: true}, {id: 'c1', name: 'c1', status: 'Out', code: 'OUT', out: true}]));
+  const out = Object.fromEntries(outTonight('HOU', night, 'tg').map(player => [player.name, [player.sits, player.status]]));
+  assert.deepEqual(out['Fred VanVleet'], [0.5, 'GTD']);
+  assert.deepEqual(out['Alperen Sengun'], [1, 'OUT']);
+});

@@ -114,6 +114,12 @@ export const OUT_CENTRES = {teamPos: {G: 0.41, F: 0.323, C: 0.094}, teamOther: 0
 // of the time).
 export const ROTATION = {played: 3, minutes: 15};
 export const SITS = {out: 1, suspension: 1, suspended: 1, doubtful: 0.8, questionable: 0.35, 'day-to-day': 0.35};
+// ESPN's fantasy code says more than its status (Oct 25: Cooper Flagg read
+// Out while his code said GTD, a game-time decision): where there is one,
+// it decides. A game-time decision sits about half the time.
+export const CODE_SITS = {OUT: 1, O: 1, OFS: 1, SUSP: 1, D: 0.8, DOUBTFUL: 0.8, GTD: 0.5, Q: 0.35, QUESTIONABLE: 0.35, DTD: 0.35, 'DAY-TO-DAY': 0.35};
+const sitsOf = item => CODE_SITS[String(item?.code || '').trim().toUpperCase()]
+  ?? SITS[String(item?.status || '').trim().toLowerCase()] ?? (item?.out ? 1 : 0);
 // ESPN's positions (PG, SG, SF, PF, C, G-F...) as guard, forward or center.
 const CODES = {PG: 'G', SG: 'G', G: 'G', SF: 'F', PF: 'F', F: 'F', C: 'C'};
 export const positionCode = value => CODES[String(value || '').toUpperCase().split('-')[0].trim()] || positionOf(value);
@@ -275,13 +281,13 @@ function recentRead(row, league) {
 export function outTonight(team, league, skip = null) {
   const report = league?.tonight?.teams?.[team], players = league?.rotation?.[team]?.players;
   if (!report || !Array.isArray(report.injuries) || !Array.isArray(players) || !players.some(player => 'played10' in player)) return null;
-  const chance = item => SITS[String(item?.status || '').trim().toLowerCase()] ?? (item?.out ? 1 : 0);
+  const chance = sitsOf;
   const listed = new Map(report.injuries.filter(item => chance(item) > 0).map(item => [String(item.id), item]));
   return players.filter(player => String(player.id) !== String(skip) && listed.has(String(player.id))
     && player.played10 >= ROTATION.played && player.last3 && player.min10 >= ROTATION.minutes)
     .map(player => {
       const item = listed.get(String(player.id));
-      return {id: String(player.id), name: player.name, pos: positionCode(player.pos) || 'F', min: player.min10, sits: chance(item), status: item.status};
+      return {id: String(player.id), name: player.name, pos: positionCode(player.pos) || 'F', min: player.min10, sits: chance(item), status: item.code || item.status};
     })
     .sort((a, b) => b.sits * b.min - a.sits * a.min);
 }
@@ -296,7 +302,7 @@ export function backTonight(team, league, skip = null, now = Date.now()) {
   if (!report || !Array.isArray(report.injuries) || !Array.isArray(players) || !players.some(player => 'played10' in player)) return null;
   const last = Date.parse(side.lastGame || '');
   if (!finite(last) || now - last > BACK.days * 864e5) return null;
-  const chance = item => SITS[String(item?.status || '').trim().toLowerCase()] ?? (item?.out ? 1 : 0);
+  const chance = sitsOf;
   const listed = new Map(report.injuries.map(item => [String(item.id), chance(item)]));
   return players.filter(player => String(player.id) !== String(skip) && player.last3 === false && player.played10 >= 1
     && player.games >= BACK.games && player.min >= BACK.minutes && (listed.get(String(player.id)) ?? 0) < 1)

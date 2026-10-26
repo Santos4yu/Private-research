@@ -501,3 +501,23 @@ class RestTableTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ThisSeasonTests(unittest.TestCase):
+    """Early in a season the league numbers take last season's games too; the
+    same tables from this season alone ride beside them (the write-ups)."""
+
+    def test_blended_numbers_carry_this_season_alone(self):
+        base = ContextTests()
+        base.setUp()
+        old = {gid: {**g, "season": 2025} for gid, g in base.payload["games"].items()}
+        new = game("9", "2026-10-25", "AAA", "BBB", [row("star", 30, 40)], [row("b_g", 30, 33)])
+        payload = {**base.payload, "games": {**old, "9": {**new, "season": 2026}}, "blended": [2025, 2026]}
+        ctx = context.league_context(payload)
+        now = ctx["thisSeason"]
+        self.assertEqual(now["games"], {"AAA": 1, "BBB": 1})
+        # This season BBB's guard put 33 on AAA: AAA's guards line is that game alone.
+        self.assertEqual(now["dvpEach"]["AAA"]["G"]["stats"]["pts"]["szn"][0], 33.0)
+        self.assertNotEqual(ctx["dvpEach"]["AAA"]["G"]["stats"]["pts"]["szn"][0], 33.0)
+        # A season that isn't blended carries none.
+        self.assertIsNone(context.league_context(base.payload)["thisSeason"])

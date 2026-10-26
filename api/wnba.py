@@ -1013,8 +1013,11 @@ def _nba_tonight(now=None):
                 teams[abbr] = {"eventId": game["id"], "startsAt": game["start"].isoformat(), "opponent": game[other]["abbr"],
                                # The game's line: his team's spread (negative: favored) and the total.
                                "spread": (odds.get(side) or {}).get("spread"), "total": odds.get("total"),
+                               # ESPN's fantasy code (GTD, Q, OUT...) beside its status: a
+                               # player listed Out can be a game-time decision (Oct 25).
                                "injuries": [{"id": item.get("id"), "name": item.get("name"), "position": item.get("position"),
-                                             "status": item.get("status"), "out": str(item.get("status") or "").strip().lower() in OUT_STATUSES}
+                                             "status": item.get("status"), "code": item.get("code"),
+                                             "out": str(item.get("status") or "").strip().lower() in OUT_STATUSES}
                                             for item in injuries.get(abbr) or []]}
     value = {"teams": teams, "fetchedAt": now.isoformat()}
     _tonight_memory.update(at=time.time(), value=value)

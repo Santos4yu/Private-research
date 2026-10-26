@@ -424,7 +424,25 @@ def league_context(payload: dict, rosters: dict | None = None) -> dict:
         "rotation": rotation(by_team, players, league=payload.get("league") or "wnba", rosters=rosters),
         "rest": rest_table(payload.get("schedule")),
         "games": {team: len(games) for team, games in by_team.items()},
+        # Early in a season the numbers above take last season's games too
+        # (api/wnba.py, opportunity.blend). The same tables from this
+        # season's games alone, for anything that tells a reader how a team
+        # is doing now (the write-ups, Oct 25: "is this true data?").
+        "thisSeason": this_season_tables(payload, by_team, players) if payload.get("blended") else None,
     }
+
+
+def this_season_tables(payload: dict, by_team: dict, players: dict) -> dict | None:
+    """The defense tables from this season's games alone, and how many each team has played."""
+    season = payload.get("season")
+    current = {team: [game for game in games if game.get("season") == season] for team, games in by_team.items()}
+    current = {team: games for team, games in current.items() if games}
+    if not current:
+        return None
+    zones, league_zones = zone_defense(current)
+    return {"season": season, "games": {team: len(games) for team, games in current.items()}, "teamCount": len(current),
+            "dvpEach": defense_vs_each(current, players), "teamStats": team_stats(current),
+            "opportunity": opportunity.team_table(current), "zoneDefense": zones, "leagueZones": league_zones}
 
 
 def _player_rows(by_team: dict) -> dict:
