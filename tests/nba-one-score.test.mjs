@@ -36,7 +36,9 @@ test('a line reads the Props tab number in the slips', () => {
   assert.ok(soft.score >= 90, String(soft.score));
   assert.equal(soft.tone, 'excellent');
   assert.ok(soft.odds < soft.score, `${soft.odds} ${soft.score}`);
-  const night = {...league, rotation: {TOR: {players: [{id: 'f9', name: 'Scottie Barnes', pos: 'SF', played10: 10, min10: 35, last3: true}]}},
+  // RJ Barrett off the bench (Oct 26: only a known bench player reads his teammates out).
+  const night = {...league, rotation: {TOR: {players: [{id: 'f9', name: 'Scottie Barnes', pos: 'SF', played10: 10, min10: 35, last3: true},
+    {id: 'r-SOFT', name: 'RJ Barrett', pos: 'SF', games: 5, starts: 0, lastStart: false, played10: 10, min10: 28, last3: true}]}},
     tonight: {teams: {TOR: {injuries: [{id: 'f9', name: 'Scottie Barnes', status: 'Out', out: true}]}}}};
   const short = matchupCase({row: row('SOFT'), side: 'OVER', grade: {}}, {nba: night});
   assert.equal(short.score, spreadScores([row('SOFT')], night).get('r-SOFT').score);
@@ -60,4 +62,11 @@ test('its own bands: Neutral is not Tough', () => {
 test('the WNBA keeps its own read', () => {
   const wnba = matchupCase({row: row('SOFT', {sport: 'wnba'}), side: 'OVER', grade: {}}, {wnba: league});
   assert.ok(!wnba || wnba.cuts.risky === 45);
+});
+
+test('his role is found by name when the line\'s id doesn\'t match: "Jaime Jaquez" is "Jaime Jaquez Jr."', async () => {
+  const {lineupRole} = await import('../src/lineup-role.js');
+  const league = {rotation: {MIL: {players: [{id: '4432', name: 'Jaime Jaquez Jr.', pos: 'G', games: 4, starts: 4, lastStart: true}]}}};
+  assert.equal(lineupRole({teamAbbr: 'MIL', playerId: '999', player: 'Jaime Jaquez'}, league).starter, true);
+  assert.equal(lineupRole({teamAbbr: 'MIL', playerId: '999', player: 'Jaime Jaques'}, league), null);
 });

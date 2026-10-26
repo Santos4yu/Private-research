@@ -205,7 +205,9 @@ const rotation = {
     {id: 'f1', name: 'Jabari Smith', pos: 'PF', played10: 10, min10: 30, last3: true},
     {id: 'c1', name: 'Alperen Sengun', pos: 'C', played10: 10, min10: 32, last3: true},
     {id: 'g9', name: 'Long Gone', pos: 'G', played10: 3, min10: 28, last3: false},
-    {id: 'g8', name: 'Deep Bench', pos: 'G', played10: 6, min10: 9, last3: true}]},
+    {id: 'g8', name: 'Deep Bench', pos: 'G', played10: 6, min10: 9, last3: true},
+    // The guard these tests score: off the bench (a starter reads no teammates).
+    {id: 'tg', name: 'tg', pos: 'G', games: 5, starts: 0, lastStart: false, played10: 10, min10: 24, last3: true}]},
   DAL: {players: [
     {id: 'dc', name: 'Dereck Lively', pos: 'C', played10: 8, min10: 27, last3: true},
     {id: 'dg', name: 'Kyrie Irving', pos: 'G', played10: 10, min10: 35, last3: true}]},
@@ -270,7 +272,8 @@ test('a teammate back after missing their last 3 takes minutes back; only once t
     {id: 'g5', name: 'Reed Sheppard', pos: 'G', played10: 4, min10: 26, last3: false, min: 27, games: 5},
     {id: 'c5', name: 'Steven Adams', pos: 'C', played10: 6, min10: 22, last3: false, min: 22, games: 5},
     {id: 'g6', name: 'Barely Plays', pos: 'G', played10: 5, min10: 12, last3: false, min: 12, games: 5},
-    {id: 'g7', name: 'New Signing', pos: 'G', played10: 0, min10: 0, last3: false, min: 30, games: 5}];
+    {id: 'g7', name: 'New Signing', pos: 'G', played10: 0, min10: 0, last3: false, min: 30, games: 5},
+    {id: 'tg', name: 'tg', pos: 'G', played10: 10, min10: 24, last3: true, min: 24, games: 5, starts: 0, lastStart: false}];
   const night = (injuries, lastGame = '2026-11-02') => ({...league, rotation: {...rotation, HOU: {lastGame, players}}, tonight: {teams: report('HOU', injuries)}});
   // Sheppard and Adams are back; not the one who barely plays, nor one who hasn't played for them; Adams is questionable.
   assert.deepEqual(backTonight('HOU', night([out('c5', 'Questionable')]), 'tg', now).map(player => [player.name, player.pos, player.plays]),
@@ -287,6 +290,10 @@ test('a teammate back after missing their last 3 takes minutes back; only once t
   assert.ok(back.score < gone.score);
   assert.equal(read.text, 'Back for HOU tonight after missing their last 3: Reed Sheppard (G, 27 min), Steven Adams (C, 22 min). They take minutes and shots back, most from the guards');
   assert.equal(gone.reads.some(item => item.kind === 'back'), false);
+  // Oct 26: big minutes at the end of last season but no game for them this season is not "back".
+  const lastSeason = players.map(player => (player.id === 'g5' || player.id === 'c5' ? {...player, playedSzn: 0} : {...player, playedSzn: 3}));
+  const stale = {...night([]), rotation: {...rotation, HOU: {lastGame: '2026-11-02', players: lastSeason}}};
+  assert.deepEqual(backTonight('HOU', stale, 'tg', now), []);
 });
 
 test('a starter is scored on the opponent alone: his teammates in or out don\'t count', () => {

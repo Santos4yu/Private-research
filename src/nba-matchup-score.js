@@ -316,7 +316,10 @@ export function backTonight(team, league, skip = null, now = Date.now()) {
   if (!finite(last) || now - last > BACK.days * 864e5) return null;
   const chance = sitsOf;
   const listed = new Map(report.injuries.map(item => [String(item.id), chance(item)]));
+  // Back means he played for them this season before missing games, where
+  // the server says (playedSzn): not a player last season's games still list.
   return players.filter(player => String(player.id) !== String(skip) && player.last3 === false && player.played10 >= 1
+    && (!('playedSzn' in player) || player.playedSzn >= 1)
     && player.games >= BACK.games && player.min >= BACK.minutes && (listed.get(String(player.id)) ?? 0) < 1)
     .map(player => ({id: String(player.id), name: player.name, pos: positionCode(player.pos) || 'F', min: player.min,
       plays: 1 - (listed.get(String(player.id)) ?? 0), status: report.injuries.find(item => String(item.id) === String(player.id))?.status || null}))
@@ -345,15 +348,17 @@ function absenceReads(row, league, parts) {
   // who else plays, so his own team's reads are left out for him; a bench
   // player, whose minutes do, still reads them. Who's out for the opponent
   // is part of the matchup and counts for everyone.
-  const starter = lineupRole(row, league)?.starter === true;
-  const mine = starter ? null : outTonight(row.teamAbbr, league, row.playerId);
+  // Only a known bench player reads them (Oct 26: Jaime Jaquez, a starter
+  // the rotation didn't list, read as bench and lost 43 points).
+  const bench = lineupRole(row, league)?.starter === false;
+  const mine = bench ? outTonight(row.teamAbbr, league, row.playerId) : null;
   if (mine && (average('teamPos') || average('teamOther'))) {
     const at = mine.filter(player => player.pos === pos), rest = mine.filter(player => player.pos !== pos);
     const points = average('teamPos') * beyond(minutesOf(at), OUT_CENTRES.teamPos[pos]) + average('teamOther') * beyond(minutesOf(rest), OUT_CENTRES.teamOther);
     if (mine.length && Math.round(points)) reads.push({key: 'teammates', kind: 'teammates', points, soft: points / 15,
       text: `Out for ${row.teamAbbr} tonight: ${listOut(mine)}. Their minutes and shots go to the rest${at.length ? `, most to the ${POSITIONS[pos]}` : ''}`});
   }
-  const back = !starter && (average('backPos') || average('backOther')) ? backTonight(row.teamAbbr, league, row.playerId) : null;
+  const back = bench && (average('backPos') || average('backOther')) ? backTonight(row.teamAbbr, league, row.playerId) : null;
   if (back?.length) {
     const at = back.filter(player => player.pos === pos), rest = back.filter(player => player.pos !== pos);
     const points = average('backPos') * (backMinutes(at) - BACK_CENTRES.backPos[pos]) + average('backOther') * (backMinutes(rest) - BACK_CENTRES.backOther[pos]);

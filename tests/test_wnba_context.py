@@ -521,3 +521,15 @@ class ThisSeasonTests(unittest.TestCase):
         self.assertNotEqual(ctx["dvpEach"]["AAA"]["G"]["stats"]["pts"]["szn"][0], 33.0)
         # A season that isn't blended carries none.
         self.assertIsNone(context.league_context(base.payload)["thisSeason"])
+
+    def test_rotation_counts_his_games_this_season(self):
+        # Last season AAA's star played; this season he hasn't (Oct 26: "back" read last season's minutes).
+        base = ContextTests()
+        base.setUp()
+        old = {gid: {**g, "season": 2025} for gid, g in base.payload["games"].items()}
+        new = game("9", "2026-10-25", "AAA", "BBB", [row("mate", 30, 12)], [row("b_g", 30, 10)])
+        payload = {**base.payload, "season": 2026, "games": {**old, "9": {**new, "season": 2026}}, "blended": [2025, 2026]}
+        players = {p["id"]: p for p in context.league_context(payload)["rotation"]["AAA"]["players"]}
+        self.assertEqual(players["mate"]["playedSzn"], 1)
+        self.assertEqual(players["star"]["playedSzn"], 0)
+        self.assertGreaterEqual(players["star"]["played10"], 1)

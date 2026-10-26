@@ -303,6 +303,16 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   +30 and ONE game vs them +18). A single meeting is now shown beside the
   score, not counted (meetingsRead, n < 2); POSITION_SHARE 0.5; "What
   moved it" always lists what they allow his position.
+- Jaime Jaquez (Oct 26): "Teammates back -43" for three Bucks who hadn't
+  played this season, and no Starter label though he starts. Fixes: the
+  rotation now sends `playedSzn` (his games for the team this season,
+  context.py `_recent_minutes`); backTonight needs playedSzn >= 1 (early
+  in a season the last 10 games reach into last season). Teammate in/out
+  reads apply only to a KNOWN bench player (lineupRole starter === false),
+  not an unknown role. lineup-role.js `rotationPlayer` falls back to the
+  name without Jr./Sr./II/III when the line's id doesn't match (likely why
+  Jaquez Jr. wasn't found; his #24 was missing too). An attempt to add
+  players missing from ESPN's roster was dropped: it kept departed players.
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).

@@ -283,8 +283,9 @@ RECENT = 10
 
 def _recent_minutes(games: list) -> dict:
     """player id -> (games played of the team's last RECENT, average
-    minutes in them, played one of its last three)."""
-    played, minutes, last3 = defaultdict(int), defaultdict(float), set()
+    minutes in them, played one of its last three, games played for the
+    team this season)."""
+    played, minutes, last3, season_games = defaultdict(int), defaultdict(float), set(), defaultdict(int)
     window = games[-RECENT:]
     for index, game in enumerate(window):
         for row in game["own"]["p"]:
@@ -293,14 +294,23 @@ def _recent_minutes(games: list) -> dict:
                 minutes[row[0]] += row[_I["min"]]
                 if index >= len(window) - 3:
                     last3.add(row[0])
-    return {pid: (count, minutes[pid] / count, pid in last3) for pid, count in played.items()}
+    season = max((game.get("season") or 0 for game in games), default=0)
+    for game in games:
+        if (game.get("season") or 0) == season:
+            for row in game["own"]["p"]:
+                if (row[_I["min"]] or 0) > 0:
+                    season_games[row[0]] += 1
+    return {pid: (count, minutes[pid] / count, pid in last3, season_games.get(pid, 0)) for pid, count in played.items()}
 
 
 def _with_recent(entries: list, games: list) -> list:
     recent = _recent_minutes(games)
     for entry in entries:
-        count, avg, last3 = recent.get(entry["id"], (0, 0.0, False))
-        entry.update({"played10": count, "min10": _round(avg, 1), "last3": last3})
+        count, avg, last3, this_season = recent.get(entry["id"], (0, 0.0, False, 0))
+        # playedSzn: his games for this team this season. Early in a season
+        # the last 10 reach into last season (Oct 26: three Bucks who hadn't
+        # played this season read as "back" for Jaime Jaquez).
+        entry.update({"played10": count, "min10": _round(avg, 1), "last3": last3, "playedSzn": this_season})
     return entries
 
 
