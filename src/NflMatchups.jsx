@@ -9,7 +9,7 @@ import {spreadScores} from './nfl-matchup-score';
 import {NFL_STATS,NflMatchupPage} from './NflMatchupPage';
 
 const NFL={key:'nfl',store:nfl,stats:NFL_STATS,score:spreadScores,Page:NflMatchupPage,words:{
- title:'NFL Matchups',blurb:'Every NFL prop this week, graded on the matchup, how often it has hit lately and how good the line looks.',
+ title:'NFL Matchups',blurb:'Every NFL prop this week, graded on the matchup.',
  loading:'Loading this week’s NFL props…',failed:'NFL props couldn’t load',none:'No NFL props posted right now',
  noneText:'PrizePicks posts the week’s lines as the games get closer. Check back soon.'}};
 

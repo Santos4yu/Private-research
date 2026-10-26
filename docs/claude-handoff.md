@@ -140,6 +140,14 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   bar is clear, frosted when pinned. Rules at the end of nba-matchups.css
   (Background) and nba-scout.css. The site's background photo and glow
   still stay off on the Props tab; this replaces the flat black only.
+- Compact top (the owner: "I see all buttons then I have to scroll down
+  to see props"). Title row is one line (the blurb, now shorter, only on
+  wider screens) with a small refresh; one row of 40px controls: search,
+  game, and a Filters button (badge = how many are set away from the
+  usual). Sort / Lines / Players open under it as a small panel; when it's
+  closed, the ones set show as green chips that clear with a tap. Stat tabs,
+  track record (one line) and the table sit tighter. Rules in the "Compact
+  top" block at the end of nba-matchups.css.
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).

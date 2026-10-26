@@ -284,3 +284,62 @@
   radial-gradient(80% 500px at 100% 1100px,color-mix(in srgb,var(--props-team,#2f5b9a) 12%,transparent),transparent 70%),
   linear-gradient(180deg,color-mix(in srgb,var(--props-team,#2f5b9a) 16%,#0b0c10) 0,color-mix(in srgb,var(--props-team,#2f5b9a) 11%,#0a0b0e) 700px,color-mix(in srgb,var(--props-team,#2f5b9a) 8%,#09090c) 100%)!important}
 :root #app-shell #panel-v2[data-league]:not([hidden]){background:transparent!important;background-color:transparent!important}
+
+/* ---------------------------------------------------------------- Compact top
+   Oct 25, the owner: cleaner buttons, more compact, props in view without
+   scrolling past every control. A slim title row (the line under it only on
+   wider screens), one row of 40px controls (search, game, Filters), the
+   filters opening under it as a small panel, active ones as chips. */
+.nm-league{margin-bottom:12px}
+.nm-league button{min-height:40px}
+.nm-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px 10px;margin:0 0 10px}
+.nm-head h2{grid-column:1;font-size:21px}
+.nm-head p{grid-column:1;margin:0;font-size:12.5px}
+.nm-refresh{grid-column:2;grid-row:1 / span 2;width:38px;height:38px;border-radius:11px;transition:background-color .18s,color .18s}
+.nm-refresh:hover{background:#1a1d24}
+
+.nm-tools{grid-template-columns:minmax(0,1fr) minmax(0,200px) 40px;grid-template-areas:'search game filter';gap:6px}
+.nm-search,.nm-game{height:40px;border-radius:12px;background:rgba(16,18,23,.8);border-color:#262a33;transition:border-color .18s,background-color .18s}
+.nm-search input{font-size:14px}
+.nm-game-button{padding:0 10px}
+.nm-game-now{font-size:13.5px}
+.nm-filter-button{grid-area:filter;position:relative;display:grid;place-items:center;width:40px;height:40px;padding:0;border:1px solid #262a33;border-radius:12px;
+ background:rgba(16,18,23,.8);color:var(--m-muted);cursor:pointer;transition:background-color .18s,color .18s,border-color .18s}
+.nm-filter-button:hover,.nm-filter-button[aria-expanded=true]{color:var(--m-text);border-color:#3a404c;background:#1a1d24}
+.nm-filter-button i{position:absolute;top:-5px;right:-5px;display:grid;place-items:center;min-width:17px;height:17px;padding:0 4px;box-sizing:border-box;border-radius:999px;
+ background:var(--m-strong);color:#05140d;font:800 10px/1 var(--font-sans);font-style:normal;box-shadow:0 0 0 2px #0c0e13}
+.nm-filter-button:focus-visible{outline:2px solid var(--m-accent);outline-offset:2px}
+
+.nm-filters{display:grid;gap:8px;margin:8px 0 0;padding:10px;border:1px solid #262a33;border-radius:14px;background:rgba(16,18,23,.85);
+ animation:nm-open .22s cubic-bezier(.2,.8,.2,1) backwards;transform-origin:top}
+.nm-filter-row{display:grid;grid-template-columns:58px minmax(0,1fr);align-items:center;gap:8px}
+.nm-filter-row>span{color:var(--m-faint);font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
+.nm-filter-row .nm-chips{padding:2px;border-radius:10px;border-color:#22262e;background:#0d0f13}
+.nm-filter-row .nm-chips button{min-height:30px;padding:0 6px;border-radius:8px;font-size:12px}
+.nm-filter-row .nm-chips button[aria-pressed=true]{background:#262a33}
+
+.nm-active{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0}
+.nm-active button{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 9px 0 11px;border:1px solid color-mix(in srgb,var(--m-strong) 35%,#262a33);border-radius:999px;
+ background:color-mix(in srgb,var(--m-strong) 10%,transparent);color:#c9f5df;font:700 12px var(--font-sans);cursor:pointer;animation:nm-in .25s ease backwards}
+.nm-active button svg{color:var(--m-muted)}
+.nm-active img{width:13px;height:13px;object-fit:contain}
+
+.nm-stats{margin-top:8px}
+.nm-stats button{min-height:38px;padding:0 12px;font-size:12px}
+.nm-record{margin-top:8px;border-radius:11px;background:rgba(16,18,23,.7);border-color:#22262e}
+.nm-record-head{min-height:38px;padding:6px 12px}
+.nm-record-head span{flex-direction:row;align-items:baseline;gap:8px}
+.nm-record-head b{flex:none;font-size:12px}
+.nm-record-head small{font-size:11.5px}
+.nm-table{margin-top:8px}
+.nm-thead{padding-bottom:6px}
+
+@media (max-width:760px){
+ .nm-head p{display:none}
+ .nm-head h2{font-size:19px}
+ .nm-tools{grid-template-columns:minmax(0,1fr) minmax(0,128px) 40px;grid-template-areas:'search game filter'}
+ .nm-search{gap:7px;padding:0 6px 0 11px}
+ .nm-filter-row{grid-template-columns:50px minmax(0,1fr)}
+ .nm-filter-row .nm-chips button{padding:0 4px;font-size:11.5px}
+}
+@media (prefers-reduced-motion:reduce){.nm-filters,.nm-active button{animation:none}}

@@ -9,7 +9,7 @@
 // `config` says which league: its stats, its lines (props-data.js), its score
 // and page.
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {ArrowDown,Check,ChevronDown,RefreshCw,Search,X} from 'lucide-react';
+import {ArrowDown,Check,ChevronDown,RefreshCw,Search,SlidersHorizontal,X} from 'lucide-react';
 import {windowGames,windowRate} from './unified-finder-data';
 import {Face,Img} from './PickParts';
 import {propGrades} from './props-grade';
@@ -165,6 +165,7 @@ export function MatchupList({config}){
  const [roleShown,setRoleNow]=useState(()=>remembered(`props-role:${config.key}`,'all',ROLES));
  const setKind=value=>{setKindNow(value);remember(`props-kind:${config.key}`,value);};
  const setRole=value=>{setRoleNow(value);remember(`props-role:${config.key}`,value);};
+ const [filtersOpen,setFiltersOpen]=useState(false);
  const [openId,setOpenId]=useState(null);
  const [page,setPage]=useState(null);
  const listScroll=useRef(0);
@@ -212,6 +213,10 @@ export function MatchupList({config}){
  // The lines of the picked kind, and whether the league knows starters at all (the NBA's does).
  const ofKind=useMemo(()=>kind==='all'?rows:rows.filter(row=>tierOf(row)===kind),[rows,kind]);
  const roles=useMemo(()=>rows.some(row=>lineupRole(row,league)),[rows,league]);
+ // What's set away from the usual (Regular lines, everyone, by matchup), shown as chips.
+ const changed=[kind!=='standard'&&{key:'kind',label:KINDS.find(([key])=>key===kind)?.[1]+(kind==='all'?' lines':''),pic:PICS[kind]?.[0],clear:()=>setKind('standard')},
+  roles&&roleShown!=='all'&&{key:'role',label:ROLES.find(([key])=>key===roleShown)?.[1],clear:()=>setRole('all')},
+  sort!=='matchup'&&{key:'sort',label:`By ${SORTS.find(([key])=>key===sort)?.[1]}`,clear:()=>setSort('matchup')}].filter(Boolean);
  const shown=useMemo(()=>ofKind
   .filter(row=>(stat==='all'||row.marketKey===stat)&&(picked==='all'||gameOf(row)===picked)&&(!needle||row.player.toLowerCase().includes(needle)))
   .map(row=>({row,read:scores.get(row.id)||null,hit:hitOf(row),prop:grades.get(row.id)||null,role:lineupRole(row,league)}))
@@ -244,29 +249,36 @@ export function MatchupList({config}){
  if(page)return <Page key={page.id} row={page} lines={rows.filter(item=>item.player===page.player&&item.teamAbbr===page.teamAbbr)} league={league} onBack={closePage}/>;
 
  return <section className="nba-matchups" data-league={config.key} aria-labelledby={`${config.key}-matchups-title`}>
+  {/* Oct 25, the owner: "I see all buttons then I have to scroll down to
+     see props". One slim title row, then search, game and a Filters button;
+     sort, lines and players open under it, and what's picked shows as small
+     chips that clear with a tap. */}
   <header className="nm-head">
-   <div><h2 id={`${config.key}-matchups-title`}>{words.title}</h2>
-    <p>{words.blurb}</p></div>
+   <h2 id={`${config.key}-matchups-title`}>{words.title}</h2>
+   <p>{words.blurb}</p>
    <button type="button" className="nm-refresh" onClick={load} disabled={status==='loading'||status==='refreshing'} aria-label="Refresh">
-    <RefreshCw size={16} className={status==='refreshing'?'nm-spin':undefined}/></button>
+    <RefreshCw size={15} className={status==='refreshing'?'nm-spin':undefined}/></button>
   </header>
 
   <div className="nm-tools">
-   <label className="nm-search"><Search size={16} aria-hidden="true"/>
+   <label className="nm-search"><Search size={15} aria-hidden="true"/>
     <input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Find a player" enterKeyHint="search" aria-label="Find a player"/>
     {query&&<button type="button" onClick={()=>setQuery('')} aria-label="Clear search"><X size={14}/></button>}</label>
    <GamePicker games={games} value={picked} onChange={setGame}/>
-   <div className="nm-sort" role="group" aria-label="Sort by">
-    {SORTS.map(([key,text])=><button type="button" key={key} aria-pressed={sort===key} onClick={()=>setSort(key)}>{text}</button>)}
-   </div>
+   <button type="button" className="nm-filter-button" aria-expanded={filtersOpen} aria-controls={`${config.key}-filters`} onClick={()=>setFiltersOpen(value=>!value)}
+    aria-label={`Filters${changed.length?`, ${changed.length} on`:''}`}><SlidersHorizontal size={16} aria-hidden="true"/>{changed.length>0&&<i>{changed.length}</i>}</button>
   </div>
-  <div className="nm-filters">
-   <div className="nm-chips" role="group" aria-label="Lines">
+  {filtersOpen&&<div className="nm-filters" id={`${config.key}-filters`}>
+   <div className="nm-filter-row"><span>Sort</span><div className="nm-chips" role="group" aria-label="Sort by">
+    {SORTS.map(([key,text])=><button type="button" key={key} aria-pressed={sort===key} onClick={()=>setSort(key)}>{text}</button>)}</div></div>
+   <div className="nm-filter-row"><span>Lines</span><div className="nm-chips" role="group" aria-label="Lines">
     {KINDS.map(([key,text])=><button type="button" key={key} aria-pressed={kind===key} onClick={()=>setKind(key)}>
-     {PICS[key]&&<img src={PICS[key][0]} alt="" width="14" height="14"/>}{text}</button>)}</div>
-   {roles&&<div className="nm-chips" role="group" aria-label="Players">
-    {ROLES.map(([key,text])=><button type="button" key={key} aria-pressed={roleShown===key} onClick={()=>setRole(key)}>{text}</button>)}</div>}
-  </div>
+     {PICS[key]&&<img src={PICS[key][0]} alt="" width="14" height="14"/>}{text}</button>)}</div></div>
+   {roles&&<div className="nm-filter-row"><span>Players</span><div className="nm-chips" role="group" aria-label="Players">
+    {ROLES.map(([key,text])=><button type="button" key={key} aria-pressed={roleShown===key} onClick={()=>setRole(key)}>{text}</button>)}</div></div>}
+  </div>}
+  {!filtersOpen&&changed.length>0&&<div className="nm-active" aria-label="Filters on">{changed.map(item=>
+   <button type="button" key={item.key} onClick={item.clear} aria-label={`Clear ${item.label}`}>{item.pic&&<img src={item.pic} alt="" width="13" height="13"/>}{item.label}<X size={12} aria-hidden="true"/></button>)}</div>}
   <div className="nm-stats" role="group" aria-label="Stat">
    {STATS.filter(([key])=>key==='all'||counts[key]).map(([key,text])=><button type="button" key={key} aria-pressed={stat===key} onClick={()=>setStat(key)}>{text}</button>)}
   </div>

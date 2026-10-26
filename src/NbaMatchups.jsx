@@ -11,7 +11,7 @@ import {NbaMatchupPage} from './NbaMatchupPage';
 const STATS=[['all','All'],['player_points','PTS'],['player_rebounds','REB'],['player_assists','AST'],['player_threes','3PM'],
  ['player_points_rebounds','P+R'],['player_points_assists','P+A'],['player_points_rebounds_assists','PRA'],['player_steals','STL'],['player_blocks','BLK']];
 const NBA={key:'nba',store:nba,stats:STATS,score:spreadScores,Page:NbaMatchupPage,words:{
- title:'NBA Matchups',blurb:'Every NBA prop tonight, graded on the matchup, how often it has hit lately and how good the line looks.',
+ title:'NBA Matchups',blurb:'Every NBA prop tonight, graded on the matchup.',
  loading:'Loading tonight’s NBA props…',failed:'NBA props couldn’t load',none:'No NBA props posted right now',
  noneText:'PrizePicks posts tonight’s lines through the day. Check back soon.'}};
 
