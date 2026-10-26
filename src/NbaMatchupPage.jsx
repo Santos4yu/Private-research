@@ -11,6 +11,7 @@ import {Card,Chances,ChancesLink,LikelyDefenders,Loading,MatchupGrade,Photo,Play
 import {finite,fmt,realGames,useWnba} from './sports/wnba/wnba-research';
 import {basketballLogUrl} from './unified-finder-data';
 import {lineupRole} from './lineup-role';
+import {CountUp} from './count-up';
 
 const STAT_CHIPS=[['player_points','PTS'],['player_rebounds','REB'],['player_assists','AST'],['player_threes','3PM'],['player_points_rebounds','P+R'],
  ['player_points_assists','P+A'],['player_rebounds_assists','R+A'],['player_points_rebounds_assists','PRA'],['player_steals','STL'],['player_blocks','BLK']];
@@ -50,7 +51,7 @@ function Averages({logs}){
    <button type="button" key={key} aria-pressed={span===key} onClick={()=>setSpan(key)}>{label}</button>)}</div>
   <div className="mp-avg-grid">{AVERAGES.map(([key,label])=>{const value=mean(picked.map(game=>valueOf(game,key))),usual=mean(seasonGames.map(game=>valueOf(game,key)));
    const change=span!=='szn'&&finite(value)&&usual>0?(value/usual-1)*100:null;
-   return <div key={key}><small>{label}</small><b>{fmt(value,1)}</b>{finite(change)?<em data-tone={change>=0?'good':'poor'}>{change>=0?'+':''}{fmt(change,1)}%</em>:<em>per game</em>}</div>;})}</div>
+   return <div key={key}><small>{label}</small><b>{finite(value)?<CountUp value={value} digits={Number.isInteger(Math.round(value*10)/10)?0:1}/>:fmt(value,1)}</b>{finite(change)?<em data-tone={change>=0?'good':'poor'}>{change>=0?'+':''}{fmt(change,1)}%</em>:<em>per game</em>}</div>;})}</div>
  </Card>;
 }
 

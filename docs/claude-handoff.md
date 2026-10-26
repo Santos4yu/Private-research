@@ -117,6 +117,20 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   else lowest Demon, never a Goblin) and is what the track record gets, so
   its rates stay comparable. Goblins show PrizePicks' goblin icon beside
   the line, as Demons do. Hit rates now load for those extra lines too.
+- Look (the owner: "animations ... colors ... not just black and
+  boring"). Pages stay solid and dark; color comes from the content.
+  List: each row washed faintly in the player's team color (league.teams
+  color) with a team strip and a ring on the photo; scores glow in their
+  tone, 90+ pulse softly; the first 14 rows slide in one after another and
+  count their scores up (`src/count-up.jsx`), bars fill; Why unfolds;
+  Goblins/Demons chips green/red. Player page: accent from his team
+  (`--mp-accent` mixed with white), banner eases in, each tab's sections
+  fade up, averages count up on a team-tinted wash, chart bars grow one by
+  one (good green, miss pink), the gauge knob slides to its score, tiles
+  pop in tinted by tone, defense bars grow from the middle. Everything is
+  in the "Personality" blocks at the end of nba-matchups.css and
+  nba-scout.css, off with reduced motion; entrance animations use
+  `backwards` fill so nothing keeps a transform.
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).

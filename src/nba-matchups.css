@@ -205,3 +205,57 @@
  .nm-why{width:26px;height:36px}
  .nm-reads{margin:0 8px 10px}
 }
+
+/* ---------------------------------------------------------------- Personality
+   Oct 25, the owner: "animations ... colors ... so it's not just black and
+   boring". The page stays solid and dark; color comes from the props
+   themselves: each row washed faintly in the player's team color with a
+   ring on his photo, the matchup score glowing in its tone (90+ softly
+   pulsing), and the line kinds and filters in their own colors. Motion:
+   the first rows slide in one after another, scores count up and their
+   bars fill, the Why panel unfolds. All of it stops with reduced motion. */
+.nm-row{position:relative;background:linear-gradient(90deg,color-mix(in srgb,var(--team,#2a2a2a) 9%,transparent),transparent 58%);
+ transition:background-color .2s ease;animation:nm-in .45s cubic-bezier(.2,.8,.2,1) backwards;animation-delay:calc(var(--i,0) * 35ms)}
+.nm-row::before{content:'';position:absolute;top:10px;bottom:10px;left:0;width:3px;border-radius:0 3px 3px 0;background:var(--team,transparent);opacity:.75}
+.nm-row:hover,.nm-row[data-open]{background-color:#141414;background-image:linear-gradient(90deg,color-mix(in srgb,var(--team,#2a2a2a) 18%,transparent),transparent 65%)}
+.nm-main{transition:transform .12s ease}
+.nm-main:active{transform:scale(.985)}
+.nm-main .sa-face{border-radius:50%;box-shadow:0 0 0 2px color-mix(in srgb,var(--team,#3a3a3a) 85%,#fff 15%),0 4px 14px -4px color-mix(in srgb,var(--team,#000) 70%,transparent)}
+@keyframes nm-in{from{opacity:0;transform:translateY(10px)}}
+
+/* The score: its tone's glow, its bar filling from the left. */
+.nm-cell.nm-score b{transition:color .2s}
+.nm-cell.nm-score[data-tone=strong] b{text-shadow:0 0 18px color-mix(in srgb,var(--m-strong) 45%,transparent)}
+.nm-cell.nm-score[data-tone=edge] b{text-shadow:0 0 16px color-mix(in srgb,var(--m-edge) 35%,transparent)}
+.nm-cell.nm-score[data-tone=tough] b{text-shadow:0 0 14px color-mix(in srgb,var(--m-tough) 30%,transparent)}
+.nm-cell.nm-score[data-hot] b{animation:nm-hot 2.4s ease-in-out infinite}
+@keyframes nm-hot{50%{text-shadow:0 0 26px color-mix(in srgb,var(--m-strong) 75%,transparent),0 0 6px color-mix(in srgb,var(--m-strong) 50%,transparent)}}
+.nm-bar i{transform-origin:left;animation:nm-fill .8s cubic-bezier(.2,.8,.2,1) backwards;animation-delay:calc(var(--i,0) * 35ms + 120ms)}
+.nm-cell.nm-score .nm-bar i{box-shadow:0 0 10px -1px currentColor}
+.nm-cell.nm-score[data-tone=strong] .nm-bar{color:var(--m-strong)}
+.nm-cell.nm-score[data-tone=edge] .nm-bar{color:var(--m-edge)}
+.nm-cell.nm-score[data-tone=neutral] .nm-bar{color:var(--m-neutral)}
+.nm-cell.nm-score[data-tone=tough] .nm-bar{color:var(--m-tough)}
+@keyframes nm-fill{from{transform:scaleX(0)}}
+
+/* The Why panel unfolds; its bars fill. */
+.nm-reads{animation:nm-open .28s cubic-bezier(.2,.8,.2,1) backwards;transform-origin:top}
+@keyframes nm-open{from{opacity:0;transform:translateY(-6px) scaleY(.96)}}
+.nm-why svg{transition:transform .2s ease}
+.nm-row[data-open] .nm-why svg{transform:rotate(180deg)}
+
+/* Controls: colored when picked, easing between. */
+.nm-sort button,.nm-chips button,.nm-stats button,.nm-league button{transition:background-color .18s ease,color .18s ease,box-shadow .2s ease}
+.nm-sort button[aria-pressed=true],.nm-chips button[aria-pressed=true]{box-shadow:inset 0 0 0 1px #ffffff14}
+.nm-chips:first-child button:nth-child(2)[aria-pressed=true]{background:rgba(70,227,154,.16);color:#7ff0ba}
+.nm-chips:first-child button:nth-child(3)[aria-pressed=true]{background:rgba(255,99,99,.16);color:#ff9a9a}
+.nm-chips img{transition:transform .25s cubic-bezier(.3,1.6,.5,1)}
+.nm-chips button[aria-pressed=true] img{transform:scale(1.22) rotate(-8deg)}
+.nm-stats button[aria-pressed=true]{color:var(--m-text)}
+.nm-refresh:not(:disabled):active svg{transform:rotate(-90deg)}
+.nm-refresh svg{transition:transform .25s ease}
+
+@media (prefers-reduced-motion:reduce){
+ .nm-row,.nm-bar i,.nm-reads,.nm-cell.nm-score[data-hot] b{animation:none}
+ .nm-main:active{transform:none}
+}

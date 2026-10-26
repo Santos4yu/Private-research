@@ -17,6 +17,7 @@ import {loadLearning} from './learning';
 import {lineupRole} from './lineup-role';
 import {ENOUGH,loadRecord,reportProps,reportRows} from './props-record';
 import {mainLines,tierOf} from './props-lines';
+import {CountUp} from './count-up';
 import './nba-matchups.css';
 
 const SORTS=[['matchup','Matchup'],['hit','Last 10']];
@@ -42,6 +43,7 @@ const when=iso=>{const time=Date.parse(iso||'');if(!Number.isFinite(time))return
 // some at 6:30 and some at 6:40): the two teams on the day.
 const dayOf=iso=>{const time=Date.parse(iso||'');return Number.isFinite(time)?new Date(time).toDateString():'';};
 const gameOf=row=>`${row.awayTeamAbbr||''}@${row.homeTeamAbbr||''}|${dayOf(row.startsAt)}`;
+const teamColor=(league,team)=>{const color=league?.teams?.[team]?.color;return color?`#${String(color).replace('#','')}`:null;};
 const hitOf=row=>{const window=row.windows?.l10;const games=windowGames(window);return games?{rate:windowRate(window),hits:window.hits,games}:null;};
 
 function Bar({value,tone}){
@@ -50,8 +52,8 @@ function Bar({value,tone}){
 
 // One of the row's two numbers, under its heading: the number, colored by
 // what it means, and for the matchup a bar under it.
-function Cell({kind,value,tone,bar}){
- return <span className={`nm-cell nm-${kind}`} data-tone={tone||undefined}><b>{value}</b>{Number.isFinite(bar)&&<Bar value={bar} tone={tone}/>}</span>;
+function Cell({kind,value,tone,bar,hot}){
+ return <span className={`nm-cell nm-${kind}`} data-tone={tone||undefined} data-hot={hot||undefined}><b>{value}</b>{Number.isFinite(bar)&&<Bar value={bar} tone={tone}/>}</span>;
 }
 
 // A big spread tonight (props-grade.js): what it does to him, in a sentence.
@@ -60,20 +62,23 @@ const blowoutText=found=>`his team is a ${figure(Math.abs(found.spread))}-point 
   :`In games like that, the bench plays the late minutes and comes in about ${Math.round(found.change*100)}% over its usual`);
 
 // One prop: who and when, the line, then Matchup and Last 10.
-function PropRow({row,read,hit,prop,role,open,onToggle,onOpen,short}){
+// The first rows in view slide in one after another and count their scores
+// up; each row carries his team's color (a ring on his photo, a wash behind).
+const FIRST=14;
+function PropRow({row,read,hit,prop,role,open,onToggle,onOpen,short,index=0,color}){
  const home=row.teamAbbr&&row.teamAbbr===row.homeTeamAbbr;
  const kind=tierOf(row),pic=PICS[kind];
  const stat=short[row.marketKey]||row.market;
  const waiting=row.historyStatus==='pending'||row.historyRefresh;
  const said=[read&&`matchup ${read.score}, ${read.label.toLowerCase()}`,hit&&`last 10 ${hit.hits} of ${hit.games}`].filter(Boolean).join(', ');
- return <li className="nm-row" data-open={open||undefined}>
+ return <li className="nm-row" data-open={open||undefined} style={{'--i':Math.min(index,FIRST),...(color?{'--team':color}:{})}}>
   <button type="button" className="nm-main" onClick={()=>onOpen(row)} aria-label={`${row.player}, more ${figure(row.line)} ${stat}${pic?` ${pic[1]}`:''}${said?`: ${said}`:''}. Open his matchup page`}>
    <Face row={row}/>
    <b className="nm-name">{row.player}</b>
    <small className="nm-when">{row.position&&<span className="nm-pos">{row.position} · </span>}
     {row.teamAbbr&&row.opponent?<><span className="nm-own">{row.teamAbbr} </span>{home?'vs':'@'} {row.opponent}</>:row.teamAbbr}{row.startsAt&&` · ${when(row.startsAt)}`}</small>
    <span className="nm-line"><small>More</small><b>{figure(row.line)}</b><em>{stat}</em>{pic&&<img className="nm-demon" src={pic[0]} alt={pic[1]} title={pic[2]} width="18" height="18"/>}</span>
-   <Cell kind="score" value={read?read.score:'—'} tone={read?.tone} bar={read?read.score:null}/>
+   <Cell kind="score" value={read?(index<FIRST?<CountUp value={read.score} delay={index*35+120}/>:read.score):'—'} tone={read?.tone} bar={read?read.score:null} hot={read?.score>=90}/>
    <Cell kind="hit" value={hit?`${hit.hits}/${hit.games}`:waiting?'…':'—'}/>
   </button>
   {read?<button type="button" className="nm-why" aria-expanded={open} aria-label={`Why ${row.player}'s scores`} title="Why these scores" onClick={onToggle}><ChevronDown size={16}/></button>:<span aria-hidden="true"/>}
@@ -278,7 +283,7 @@ export function MatchupList({config}){
    <div className="nm-thead"><span className="nm-th-player">Player</span><span className="nm-th-line">Line</span>
     {SORTS.map(([key])=><button type="button" key={key} className={`nm-th nm-th-${key}`} aria-pressed={sort===key} onClick={()=>setSort(key)}
      aria-label={`Sort by ${HEADS[key][0]}`}><span className="nm-long">{HEADS[key][0]}</span><span className="nm-short">{HEADS[key][1]}</span>{sort===key&&<ArrowDown size={13} aria-hidden="true"/>}</button>)}</div>
-   <ul className="nm-list">{shown.map(({row,read,hit,prop,role})=><PropRow key={row.id} row={row} read={read} hit={hit} prop={prop} role={role} short={SHORT}
+   <ul className="nm-list">{shown.map(({row,read,hit,prop,role},index)=><PropRow key={row.id} row={row} read={read} hit={hit} prop={prop} role={role} index={index} color={teamColor(league,row.teamAbbr)} short={SHORT}
     open={openId===row.id} onToggle={()=>setOpenId(id=>id===row.id?null:row.id)} onOpen={openPage}/>)}</ul></div>}
   {(status==='ready'||status==='refreshing')&&rows.length>0&&!shown.length&&<div className="nm-empty"><b>Nothing matches</b>
    <span>Try another stat, game or filter, or clear the search.</span></div>}

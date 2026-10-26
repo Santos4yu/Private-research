@@ -7,6 +7,7 @@
 // backend/sports/wnba/context.py + scout.py), NBA.com's tables through the
 // phone relay (play types, defenders), /api/wnba?resource=scout.
 import React,{useEffect,useId,useMemo,useState} from 'react';
+import {CountUp} from '../../count-up';
 import {Activity,CalendarClock,ChevronDown,ChevronRight,Medal,Shield,Swords,Target,UserRound,Users} from 'lucide-react';
 import {baseMarket,finite,fmt,opponentOf,ordinal,positionOf,realGames,shortDate,signed,useWnba} from './wnba-research';
 import {cardScores,outTonight} from '../../nba-matchup-score';
@@ -89,11 +90,11 @@ function GradeCard({opponent,own,position,onPosition,scores,chosen,onPick}){
   <div className="mp-card-body">
    <div className="ng-head">
     <div className="ng-verdict"><b data-tone={chosen.tone}>{chosen.label}</b><span>{position===own?'Defended as a':'If defended as a'} {POS_WORDS[position][0]}</span></div>
-    <div className="ng-score"><b>{chosen.score}</b><small>/100</small></div>
+    <div className="ng-score"><b><CountUp value={chosen.score}/></b><small>/100</small></div>
    </div>
    <div className="ng-gauge" role="img" aria-label={`${chosen.score} out of 100, ${chosen.label}`}><i style={{left:`${clamp(chosen.score,2,98)}%`}}/></div>
    <div className="ng-gauge-ends" aria-hidden="true"><span>Tough</span><span>Soft</span></div>
-   <div className="ng-tiles" role="group" aria-label="Stat">{scores.map(item=><button type="button" key={item.marketKey} data-tone={item.tone} aria-pressed={item.marketKey===chosen.marketKey}
+   <div className="ng-tiles" role="group" aria-label="Stat">{scores.map((item,index)=><button type="button" key={item.marketKey} style={{'--n':index}} data-tone={item.tone} aria-pressed={item.marketKey===chosen.marketKey}
     disabled={item.score==null} onClick={()=>onPick(item.marketKey)} aria-label={`${item.stat} ${item.score??'no score'}${item.label?`, ${item.label}`:''}`}>
     <span>{item.stat}</span><b>{item.score??'—'}</b></button>)}</div>
   </div>

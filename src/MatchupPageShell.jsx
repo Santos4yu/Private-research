@@ -35,7 +35,7 @@ export function Trend({row,lines,logs,chips}){
   <div className="mp-chips" role="group" aria-label="Stat">{shown.map(([key,label])=><button type="button" key={key} aria-pressed={stat===key} onClick={()=>setStat(key)}>{label}</button>)}</div>
   <div className="mp-trend-head">
    <div><small>{SHORT[stat]} · {span==='h2h'?`vs ${row.opponent}`:`last ${span.slice(1)}`} · {games.length} {games.length===1?'game':'games'}</small>
-    <b data-tone={finite(over)&&games.length?(over*2>=games.length?'good':'poor'):undefined}>{finite(over)&&games.length?`${over}/${games.length}`:'—'}</b>
+    <b key={`${stat}-${span}-${line}`} data-tone={finite(over)&&games.length?(over*2>=games.length?'good':'poor'):undefined}>{finite(over)&&games.length?`${over}/${games.length}`:'—'}</b>
     {finite(line)&&<span>over {fmt(line,1)}</span>}</div>
    {finite(line)&&<div className="mp-stepper" aria-label="Line"><button type="button" aria-label="Lower the line" onClick={()=>setLine(value=>Math.max(0,value-0.5))}><Minus size={16}/></button>
     <span><small>Line</small><b>{fmt(line,1)}</b></span><button type="button" aria-label="Raise the line" onClick={()=>setLine(value=>value+0.5)}><Plus size={16}/></button></div>}
@@ -45,7 +45,7 @@ export function Trend({row,lines,logs,chips}){
   {games.length?<div className="mp-bars" role="img" aria-label={`${SHORT[stat]}: ${values.join(', ')}`}>
    {/* Measured like the bars: over the chart's height less the room kept above them for the numbers. */}
    {finite(line)&&<i className="mp-bars-line" style={{bottom:`calc((100% - var(--mp-bars-room)) * ${Math.min(1,line/top)})`}}/>}
-   {games.map((game,index)=>{const value=game.values[stat];return <span key={game.gameId||index} data-tone={finite(line)?(value>line?'good':'poor'):undefined}>
+   {games.map((game,index)=>{const value=game.values[stat];return <span key={`${stat}-${span}-${game.gameId||index}`} style={{'--n':index}} data-tone={finite(line)?(value>line?'good':'poor'):undefined}>
     <b>{fmt(value,0)}</b><i style={{height:`${Math.max(3,value/top*100)}%`}}/><small>{game.opponent||''}</small></span>;})}
   </div>:<p className="mp-empty">{span==='h2h'?`He hasn't played ${row.opponent} in the games on record.`:'No games on record yet.'}</p>}
  </Card>;
