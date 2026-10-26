@@ -268,6 +268,16 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   wins: Diabate still came out as a forward). Streak lines never repeat:
   a run reaching back past this season is said once ("..., every game
   this season included"), else "never under all season (N for N)".
+- Write-ups, round 6 (the owner: lead with what they give up, not "they
+  play fast"; hated Davion's emojis; injuries only when sure and it
+  matters). "Give up" reasons lead: his position in the stat, then each
+  part of a combo on its own (dvp-pts / dvp-reb / dvp-ast) and points per
+  game allowed (teamStats); "the most" / "the 3rd most". Pace is filler
+  (weight 1, top 4 only). Form emojis: ✅ straight / last 5, 💯 all
+  season, 📊 averaging above the line, 📈 counts, 🆚 vs them, 📋 out.
+  Injuries only when ruled out (code/status OUT, not GTD/Q), 24+ minutes,
+  and at his spot (or 30+ minutes on his team; their center for a
+  rebounding line).
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).

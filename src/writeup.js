@@ -35,6 +35,8 @@ const HEADER_WORDS = {player_points: 'Points', player_rebounds: 'Rebounds', play
   player_threes_attempts: '3-Point Attempts', player_steals: 'Steals', player_blocks: 'Blocks', player_points_rebounds: 'Pts + Rebs',
   player_points_assists: 'Pts + Asts', player_rebounds_assists: 'Rebs + Asts', player_points_rebounds_assists: 'Pts + Rebs + Asts', player_blocks_steals: 'Blks + Stls'};
 const cap = text => text.charAt(0).toUpperCase() + text.slice(1);
+const most = n => (n === 1 ? 'the most' : `the ${ordinal(n)} most`);
+const PART_MARKET = {pts: 'player_points', reb: 'player_rebounds', ast: 'player_assists', tpm: 'player_threes', stl: 'player_steals', blk: 'player_blocks'};
 // "the Heat" when the league numbers name the team, else its letters.
 const teamWords = (league, abbr) => { const name = league?.teams?.[abbr]?.short || league?.teams?.[abbr]?.name; return name ? `the ${name}` : abbr; };
 const listNames = items => { const names = items.map(item => item.name); return names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0]; };
@@ -93,32 +95,46 @@ export function legFacts({row, marketKey, line, league, games = [], ctx = null, 
   const them = teamWords(league, opp), They = cap(them);
   const what = STAT_WORDS[marketKey] || stat;
 
-  // What they allow his position in this stat (each player at it).
-  const cell = tables && defenseCell({...row, sport: 'nba', position: pos || row.position, marketKey}, tables.dvpEach ? {...tables, dvp: tables.dvpEach} : tables);
-  if (cell && finite(cell.rank)) {
-    const most = teams - cell.rank + 1;
-    if (most <= 10) add('dvp', 12 - most, `🎯 ${They} give up the ${ordinal(most)} most ${what} to ${posWords} in the league${when}`);
+  // What they give up (Oct 25, the owner: these lead, "they play fast" is
+  // filler). His position in this stat, then each part of a combo on its own
+  // (a combo can be middling while its rebounds are the worst in the league).
+  const dvpRank = key => {
+    const cell = tables && defenseCell({...row, sport: 'nba', position: pos || row.position, marketKey: key}, tables.dvpEach ? {...tables, dvp: tables.dvpEach} : tables);
+    return cell && finite(cell.rank) ? teams - cell.rank + 1 : null;
+  };
+  const own = dvpRank(marketKey);
+  if (own && own <= 10) add('dvp', 14 - own, `🎯 ${They} give up ${most(own)} ${what} to ${posWords} in the league${when}`);
+  const partRanks = {};
+  if (parts.length > 1) {
+    for (const part of parts) {
+      const rank = PART_MARKET[part] ? dvpRank(PART_MARKET[part]) : null;
+      partRanks[part] = rank;
+      if (rank && rank <= 10) add(`dvp-${part}`, 13.5 - rank, `🎯 ${They} give up ${most(rank)} ${STAT_WORDS[PART_MARKET[part]]} to ${posWords} in the league${when}`);
+    }
   }
 
   // The team's numbers that fit the stat.
   if (parts.includes('pts')) {
+    const allowed = tables?.teamStats?.[opp]?.def?.pts;
+    const place = finite(allowed?.[1]) ? teams - allowed[1] + 1 : null;
+    if (place && place <= 10) add('ptsAllowed', 12 - place, `🛡️ ${They} give up ${most(place)} points per game in the league${when}`);
     const rating = mostRank(table.drtg);
-    if (rating && rating <= 8) add('defense', 9 - rating, `🛡️ ${They} are one of the worst defenses in the league (${ordinal(rating)} worst${when}), so scoring comes easy`);
+    if (rating && rating <= 8 && !(place && place <= 10)) add('defense', 9 - rating, `🛡️ ${They} are one of the worst defenses in the league (${ordinal(rating)} worst${when}), so scoring comes easy`);
   }
   if (parts.some(part => part === 'pts' || part === 'reb' || part === 'ast')) {
     const pace = mostRank(table.poss);
-    if (pace && pace <= 6) add('pace', 7 - pace, `💨 ${They} play fast, one of the quickest teams in the league${when}. Faster game, more chances for him`);
+    if (pace && pace <= 4) add('pace', 1, `💨 ${They} play fast, one of the quickest teams in the league${when}. Faster game, more chances for him`);
   }
   if (parts.includes('reb')) {
     const boards = mostRank(table.rebAllowed);
-    if (boards && boards <= 10) add('boards', 11 - boards, `🧲 ${They} give up the ${ordinal(boards)} most rebounds in the league${when}`);
+    if (boards && boards <= 10) add('boards', (partRanks.reb && partRanks.reb <= 10 ? 7 : 12) - boards / 2, `🧲 ${They} give up ${most(boards)} rebounds per game in the league${when}`);
     const fg = mostRank(table.fgPctAllowed);
     const lowest = fg ? teams - fg + 1 : null;
     if (lowest && lowest <= 8) add('misses', 9 - lowest, `🧱 Teams miss a lot of shots against ${them}${when}, and every miss is a rebound up for grabs`);
   }
   if (parts.includes('ast')) {
     const assists = mostRank(table.astAllowed);
-    if (assists && assists <= 10) add('assists', 11 - assists, `🤝 ${They} give up the ${ordinal(assists)} most assists in the league${when}, so the ball moves easily against them`);
+    if (assists && assists <= 10) add('assists', (partRanks.ast && partRanks.ast <= 10 ? 7 : 11.5) - assists / 2, `🤝 ${They} give up ${most(assists)} assists per game in the league${when}, so the ball moves easily against them`);
   }
   if (parts.includes('tpm')) {
     const tries = mostRank(table.tpaAllowed);
@@ -178,25 +194,25 @@ export function legFacts({row, marketKey, line, league, games = [], ctx = null, 
     // One of the two, never both (Oct 25: "11 straight" already says "3 for 3
     // this season"): the run when it reaches back past this season, else the season.
     const covered = seasonPerfect ? seasonValues.length : 0;
-    if (streak >= 6 && streak > covered) add('streak', 13 + Math.min(streak, 15) / 3, `🔒 Over this line in his last ${streak} straight games${seasonPerfect ? ', every game this season included' : ''}`);
-    else if (seasonPerfect) add('season', 13 + Math.min(seasonValues.length, 10) / 2, `🔒 Hasn't gone under this line once all season (${seasonValues.length} for ${seasonValues.length})`);
+    if (streak >= 6 && streak > covered) add('streak', 13 + Math.min(streak, 15) / 3, `✅ Over this line in his last ${streak} straight games${seasonPerfect ? ', every game this season included' : ''}`);
+    else if (seasonPerfect) add('season', 13 + Math.min(seasonValues.length, 10) / 2, `💯 Hasn't gone under this line once all season (${seasonValues.length} for ${seasonValues.length})`);
     const best = Math.max(covered, streak >= 6 ? streak : 0);
     const last10 = values.slice(-10), overs = last10.filter(over).length;
     if (best < last10.length - 2 && overs * 10 >= last10.length * 6) add('hits', 3 + overs - last10.length / 2, `📈 He's gone over this line in ${overs} of his last ${last10.length} games`);
     const last5 = values.slice(-5), hot = last5.filter(over).length;
     if (last5.length >= 4 && last5.length > best) {
-      if (hot === last5.length) add('last5', 6, `🌡️ Hasn't gone under in his last ${last5.length} games`);
-      else if (hot >= 4) add('last5', 3.5, `🌡️ He's on a roll right now: over in ${hot} of his last ${last5.length}`);
+      if (hot === last5.length) add('last5', 6, `✅ Hasn't gone under in his last ${last5.length} games`);
+      else if (hot >= 4) add('last5', 3.5, `📈 He's on a roll right now: over in ${hot} of his last ${last5.length}`);
     }
     // How far above the line he usually lands (a Goblin's best argument).
     const recent = values.slice(-10), average = recent.reduce((sum, value) => sum + value, 0) / recent.length;
     if (recent.length >= 5 && average >= line + Math.max(2, line * 0.2)) {
-      add('cushion', 4 + Math.min(4, (average - line) / Math.max(1, line * 0.15)), `📏 He's been averaging about ${Math.round(average)} ${what} lately, well above this line`);
+      add('cushion', 4 + Math.min(4, (average - line) / Math.max(1, line * 0.15)), `📊 He's been averaging about ${Math.round(average)} ${what} lately, well above this line`);
     }
     const meetings = played.filter(game => game.opponent === opp).map(game => game.values[marketKey]).slice(-5);
     const hit = meetings.filter(over).length;
-    if (meetings.length >= 2 && hit === meetings.length) add('h2h', 5 + hit, `🔁 Has never gone under against ${them} (${hit} for ${hit} in their recent games)`);
-    else if (meetings.length && hit * 2 >= meetings.length + (meetings.length > 1 ? 0 : 1)) add('h2h', 2 + hit, `🔁 He's done it against ${them} before: over in ${hit} of ${meetings.length} ${plural(meetings.length)}`);
+    if (meetings.length >= 2 && hit === meetings.length) add('h2h', 5 + hit, `🆚 Has never gone under against ${them} (${hit} for ${hit} in their recent games)`);
+    else if (meetings.length && hit * 2 >= meetings.length + (meetings.length > 1 ? 0 : 1)) add('h2h', 2 + hit, `🆚 He's done it against ${them} before: over in ${hit} of ${meetings.length} ${plural(meetings.length)}`);
   }
 
   // Players like him against them (the player-context's similar list is for its own market).
@@ -210,11 +226,15 @@ export function legFacts({row, marketKey, line, league, games = [], ctx = null, 
     add('lastFaced', 3, `👀 The last ${posSingle} to face ${them} (${shortName(latest.name)}) went well over his usual`);
   }
 
-  // Who's out tonight: his teammates (minutes and shots to go around) and theirs.
-  const mine = (outTonight(row.teamAbbr, league, row.playerId) || []).filter(item => item.sits >= 0.8 && item.min >= 18).slice(0, 3);
-  if (mine.length) add('out', 6 + mine.length, `🚑 ${listNames(mine)} ${mine.length > 1 ? 'are' : 'is'} out, so more shots and minutes go his way`);
-  const theirs = (outTonight(opp, league) || []).filter(item => item.sits >= 0.8 && item.min >= 20).slice(0, 2);
-  if (theirs.length) add('oppOut', 4, `🚑 ${They} are missing ${listNames(theirs)}, which makes their defense weaker`);
+  // Who's out tonight, only when it's sure and it matters (Oct 25, the
+  // owner: injuries aren't guaranteed). Ruled out (not a game-time decision
+  // or questionable), a real part of the rotation (24+ minutes), and at his
+  // spot (or 30+ minutes on his team; their center for a rebounding line).
+  const sure = item => item.sits >= 1 && item.min >= 24;
+  const mine = (outTonight(row.teamAbbr, league, row.playerId) || []).filter(item => sure(item) && (item.pos === pos || item.min >= 30)).slice(0, 2);
+  if (mine.length) add('out', 6 + mine.length, `📋 ${listNames(mine)} ${mine.length > 1 ? 'are' : 'is'} ruled out, so more shots and minutes go his way`);
+  const theirs = (outTonight(opp, league) || []).filter(item => sure(item) && (item.pos === pos || (parts.includes('reb') && item.pos === 'C'))).slice(0, 2);
+  if (theirs.length) add('oppOut', 5, `📋 ${They} have ruled out ${listNames(theirs)}, one less ${posSingle === 'center' || theirs.every(item => item.pos === 'C') ? 'big man' : 'defender'} to deal with`);
 
   // A Goblin or Demon says so after the line ("Over 7.5 Points (Goblin)").
   const tier = String(kind || 'standard').toLowerCase();

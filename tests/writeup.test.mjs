@@ -27,7 +27,7 @@ test('reasons for the over in plain words, strongest first: his position, their 
   assert.equal(leg.label, 'Strong edge');
   const kinds = leg.facts.map(fact => fact.kind);
   assert.equal(kinds[0], 'dvp');
-  assert.equal(leg.facts[0].text, '🎯 The Heat give up the 1st most points to guards in the league this season');
+  assert.equal(leg.facts[0].text, '🎯 The Heat give up the most points to guards in the league this season');
   assert.ok(kinds.includes('zones') && kinds.includes('hits') && kinds.includes('lastFaced') && kinds.includes('h2h'), kinds.join());
   assert.match(leg.facts.find(fact => fact.kind === 'zones').text, /^📍 (Most of|A big chunk of|A lot of) his points come (from above-break 3|in the paint), and that's one of the spots the Heat defend worst \(\d+(st|nd|rd|th) worst in the league this season\)$/);
   assert.equal(leg.facts.find(fact => fact.kind === 'hits').text, "📈 He's gone over this line in 8 of his last 10 games");
@@ -41,7 +41,7 @@ test('reasons for the over in plain words, strongest first: his position, their 
 test('rebounds read their misses and his work on the glass; nothing against the over is written', () => {
   const leg = legFacts({row, marketKey: 'player_rebounds', line: 9.5, league, games: [], ctx: {...ctx, opportunity: {l10: {games: 10, rebShare: 17}}}});
   const text = leg.facts.map(fact => fact.text).join('\n');
-  assert.match(text, /🧲 The Heat give up the 1st most rebounds in the league this season/);
+  assert.match(text, /🧲 The Heat give up the most rebounds per game in the league this season/);
   assert.match(text, /🧱 Teams miss a lot of shots against the Heat this season, and every miss is a rebound up for grabs/);
   assert.match(text, /🧲 When a shot misses with him on the court, he's one of the guys who goes and gets it/);
   // A soft opponent's numbers only: a tough one says nothing.
@@ -74,12 +74,12 @@ test('streaks: never under all season, a straight run, the last 5, never under v
   assert.equal(goblin.key, '1|player_points|goblin');
   const text = kind => goblin.facts.find(fact => fact.kind === kind)?.text;
   // The run reaches back into last season (8 straight): said once, with this season in it; not a second "7 for 7".
-  assert.equal(text('streak'), '🔒 Over this line in his last 8 straight games, every game this season included');
+  assert.equal(text('streak'), '✅ Over this line in his last 8 straight games, every game this season included');
   assert.equal(text('season'), undefined);
   assert.equal(text('last5'), undefined);
   assert.equal(text('hits'), undefined);
-  assert.equal(text('h2h'), '🔁 Has never gone under against the Heat (4 for 4 in their recent games)');
-  assert.match(text('cushion'), /^📏 He's been averaging about 11 points lately, well above this line$/);
+  assert.equal(text('h2h'), '🆚 Has never gone under against the Heat (4 for 4 in their recent games)');
+  assert.match(text('cushion'), /^📊 He's been averaging about 11 points lately, well above this line$/);
   // The streaks lead.
   assert.equal(goblin.facts[0].kind, 'streak');
   // A regular line he has missed lately: no streak claims.
@@ -102,15 +102,34 @@ test('early in a season: this season\'s games alone, said so; nothing on a team 
   // ESPN calls him a center (the line said F): read as a center, "so far this season".
   const big = legFacts({row: {...row, position: 'F'}, marketKey: 'player_rebounds', line: 9.5,
     league: {...early, rotation: {DAL: {players: [{id: '1', pos: 'C'}]}}}, games: [], ctx: null});
-  assert.equal(big.facts.find(fact => fact.kind === 'dvp')?.text, '🎯 The Heat give up the 1st most rebounds to centers in the league so far this season');
+  assert.equal(big.facts.find(fact => fact.kind === 'dvp')?.text, '🎯 The Heat give up the most rebounds to centers in the league so far this season');
 });
 
 test('the season line when his run starts this season; the writer can pick who he\'s compared with', () => {
   const log = [[2026, 'BOS', 3], ...[13, 9, 15, 11].map(value => [2027, 'BOS', value])].map(([season, opponent, value]) => ({season, opponent, values: {player_points: value}}));
   const leg = legFacts({row, marketKey: 'player_points', line: 7.5, league, games: log});
-  assert.equal(leg.facts[0].text, "🔒 Hasn't gone under this line once all season (4 for 4)");
+  assert.equal(leg.facts[0].text, "💯 Hasn't gone under this line once all season (4 for 4)");
   assert.equal(leg.facts.some(fact => fact.kind === 'streak'), false);
   const asCenter = legFacts({row, marketKey: 'player_rebounds', line: 9.5, league: {...league, dvpEach: {MIA: {C: {stats: {reb: {szn: [14, 30]}}}}, ...Object.fromEntries(TEAMS.slice(1).map((team, i) => [team, {C: {stats: {reb: {szn: [10, i + 1]}}}}]))}}, games: [], position: 'C'});
   assert.equal(asCenter.position, 'C');
   assert.match(asCenter.facts.find(fact => fact.kind === 'dvp').text, /to centers in the league this season$/);
+});
+
+test('a combo: each part they give up said on its own, ahead of pace; injuries only when ruled out and at his spot', () => {
+  // MIA: middling in points to guards, the most rebounds and assists to guards; the fastest pace.
+  const mixed = {...league, dvpEach: Object.fromEntries(TEAMS.map((team, i) => [team, {G: {stats: {
+    pts: {szn: [10, team === 'MIA' ? 15 : (i % 29) + 1]}, reb: {szn: [4, 30 - i]}, ast: {szn: [5, 30 - i]}, pra: {szn: [20, team === 'MIA' ? 14 : (i % 29) + 1]}}}}]))};
+  const pra = legFacts({row, marketKey: 'player_points_rebounds_assists', line: 25.5, league: mixed, games: [], ctx: null});
+  const kinds = pra.facts.map(fact => fact.kind);
+  assert.ok(kinds.includes('dvp-reb') && kinds.includes('dvp-ast') && !kinds.includes('dvp-pts'), kinds.join());
+  assert.equal(pra.facts.find(fact => fact.kind === 'dvp-reb').text, '🎯 The Heat give up the most rebounds to guards in the league this season');
+  assert.equal(kinds.at(-1), 'pace');
+  // Tonight: a guard teammate ruled out (34 min) is said; a forward (27 min), a game-time decision and a 15-minute player are not.
+  const night = {...league, tonight: {teams: {DAL: {injuries: [{id: 'a', status: 'Out', code: 'OUT'}, {id: 'b', status: 'Out', code: 'OUT'},
+    {id: 'c', status: 'Out', code: 'GTD'}, {id: 'd', status: 'Out'}]}, MIA: {injuries: []}}},
+    rotation: {DAL: {players: [{id: 'a', name: 'Kyrie Irving Jr', pos: 'PG', played10: 9, min10: 34, last3: true},
+      {id: 'b', name: 'Naji Marshall', pos: 'SF', played10: 9, min10: 27, last3: true}, {id: 'c', name: 'Cooper Flagg', pos: 'F', played10: 9, min10: 33, last3: true},
+      {id: 'd', name: 'Bench Guard', pos: 'SG', played10: 9, min10: 15, last3: true}]}, MIA: {players: []}}};
+  const out = legFacts({row: {...row, playerId: 'x'}, marketKey: 'player_points', line: 20.5, league: night, games: [], ctx: null}).facts.filter(fact => fact.kind === 'out');
+  assert.deepEqual(out.map(fact => fact.text), ['📋 Kyrie Irving Jr is ruled out, so more shots and minutes go his way']);
 });
