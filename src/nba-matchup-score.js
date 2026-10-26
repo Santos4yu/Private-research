@@ -141,18 +141,28 @@ const ONE = {G: 'guard', F: 'forward', C: 'center'};
 export const CARD_STATS = [['player_points', 'PTS'], ['player_rebounds', 'REB'], ['player_assists', 'AST'], ['player_threes', '3PM'],
   ['player_steals', 'STL'], ['player_blocks', 'BLK']];
 
-// The opponent's reads, stretched (Oct 25, the owner: "his matchup is
-// great", Reaves at the league's softest defense read 79). On the
-// backtest's scale the 90s were left to injury nights: a defense alone
-// topped out in the low 80s. Now each stat's opponent reads are stretched
-// so an opponent 1.65 spreads soft on all of them reads 97, the way the
-// softest defense tops a list. Who's out still adds on top (held to 100).
-// The number reads as how soft the defense is more than as the backtest's
-// odds; the track record shows how each band does.
+// The score shown: where tonight's opponent RANKS among the league's teams
+// for this stat at his position (Oct 25, second pass). The first pass
+// stretched the opponent's reads about 3x so a soft defense could reach the
+// 90s ("his matchup is great"), but a single read then carried a score on
+// its own: P.J. Washington's threes vs Miami read 96 because Miami plays
+// fastest (so teams take many threes against them) while Miami allow
+// forwards an ordinary number of threes, which the threes model didn't
+// count at all. Now:
+//  - every team's opponent reads are added up the backtest's way, as a
+//    weighted average of how soft each read is (OPPONENT kinds);
+//  - what they allow his position in the stat (the page's "vs forwards"
+//    bars) always takes POSITION_SHARE of that, so what's shown counts;
+//  - the 30 teams are ranked on it: the softest reads about 98, the
+//    toughest about 2, the middle 50 (no single number can push past
+//    first place);
+//  - his own things on top (teammates out, their players out, his last
+//    games against them), in the backtest's points, through the same curve.
+// `calibrated` (the Analyzer's chances) is still the backtest's own total.
 const OPPONENT = ['defense', 'pace', 'position', 'recent', 'attempts', 'rebounds', 'assists', 'turnovers'];
-export const STRETCH = Object.fromEntries(Object.entries(WEIGHTS).map(([stat, weights]) =>
-  [stat, 50 * Math.atanh(0.94) / (1.65 * OPPONENT.reduce((sum, name) => sum + (weights[name] || 0), 0))]));
-const stretchOf = stat => STRETCH[stat] || STRETCH[FAMILY[stat]] || STRETCH.pts;
+export const POSITION_SHARE = 0.4;
+// Each league object's teams ranked, per stat and position: [composite...] sorted.
+const RANKED = new WeakMap();
 
 export const BANDS = [[75, 'Strong edge', 'strong'], [60, 'Edge', 'edge'], [40, 'Neutral', 'neutral'], [0, 'Tough', 'tough']];
 export function band(score) {
@@ -389,37 +399,88 @@ function fitRead(row) {
  * to or takes from the total that moves the score from 50; raw is 50 plus
  * them all)}; fit is his own games against them, shown beside the score. null when nothing is known about the opponent's defense.
  */
-export function matchupScore(row, league) {
-  const stat = statOf(row);
-  if (row?.sport !== 'nba' || !stat || !row.opponent || !league) return null;
-  // A combo's parts each read their own stat with their own weights; the
-  // team's reads (defense, pace) are shared at the parts' average weight.
-  const parts = (COMBOS[stat] || [baseMarket(row.marketKey)]).map(marketKey => [marketKey, MARKET_STAT[marketKey]]);
+/**
+ * The opponent's side of a prop against any team: its reads (the backtest's
+ * weights, `weight` kept) and how soft they add up to (`composite`, in
+ * spreads: a weighted average of the reads, with what they allow his
+ * position holding POSITION_SHARE of it). The same for every player at a
+ * position against a team.
+ */
+function opponentSide(row, league, parts) {
   const share = name => mean(parts.map(([, part]) => weightsOf(part)[name] || 0));
-  const weighed = (read, weight) => read && {...read, points: weight * read.soft};
+  const weighed = (read, weight) => read && {...read, weight, points: weight * read.soft};
   const shared = [['defense', defenseRead], ['pace', paceRead], ['recent', recentRead]].filter(([name]) => share(name))
     .map(([name, read]) => weighed(read(row, league), share(name)));
   const own = parts.flatMap(([marketKey, part]) => {
     const weights = weightsOf(part);
     const extra = Object.keys(weights).filter(name => OPPORTUNITY[name] || name === 'turnovers')
       .map(name => weighed(name === 'turnovers' ? turnoverRead(row, league) : opportunityRead(row, league, name), weights[name] / parts.length));
-    // His position is always shown; for threes it doesn't count (weight 0).
     return [weighed(positionRead({...row, marketKey}, league, part), (weights.position || 0) / parts.length), ...extra];
   });
+  const reads = [...shared, ...own].filter(Boolean);
+  const counted = reads.filter(read => read.weight > 0);
+  const total = counted.reduce((sum, read) => sum + read.weight, 0);
+  const model = total ? counted.reduce((sum, read) => sum + read.weight * read.soft, 0) / total : null;
+  const positions = reads.filter(read => read.kind === 'position');
+  const position = positions.length ? mean(positions.map(read => read.soft)) : null;
+  const composite = finite(model) && finite(position) ? (1 - POSITION_SHARE) * model + POSITION_SHARE * position
+    : finite(model) ? model : position;
+  // Each read's part of the composite (for the "what moved it" list).
+  for (const read of reads) {
+    read.part = (finite(model) ? (1 - (finite(position) ? POSITION_SHARE : 0)) * (total ? read.weight * read.soft / total : 0) : 0)
+      + (read.kind === 'position' && finite(position) ? (finite(model) ? POSITION_SHARE : 1) * read.soft / positions.length : 0);
+  }
+  return {reads, composite};
+}
+
+/** Every team's composite for this stat and position, sorted (cached on the league object). */
+function rankedComposites(row, league, parts) {
+  const key = `${parts.map(([marketKey]) => marketKey).join('+')}|${positionCode(row.position) || positionOf(row.position) || ''}`;
+  let table = RANKED.get(league);
+  if (!table) { table = new Map(); RANKED.set(league, table); }
+  if (!table.has(key)) {
+    const teams = Object.keys(league.teamStats || league.opportunity?.teams || {});
+    table.set(key, teams.map(team => opponentSide({...row, opponent: team}, league, parts).composite).filter(finite).sort((a, b) => a - b));
+  }
+  return table.get(key);
+}
+
+/**
+ * One prop's matchup: {score, calibrated, raw, reads, fit}, score 0-100 for
+ * the over; each read {key, kind, text, score (its own 0-100), points (what
+ * it moves the score, on its scale)}; fit is his own games against them,
+ * shown beside the score. null when nothing is known about the opponent's
+ * defense.
+ */
+export function matchupScore(row, league) {
+  const stat = statOf(row);
+  if (row?.sport !== 'nba' || !stat || !row.opponent || !league) return null;
+  const parts = (COMBOS[stat] || [baseMarket(row.marketKey)]).map(marketKey => [marketKey, MARKET_STAT[marketKey]]);
+  const side = opponentSide(row, league, parts);
   // Threes and blocks alone also read his last three games against them.
   const meetings = parts.length === 1 ? meetingsRead(row, parts[0][1]) : null;
-  const reads = [...shared, ...own, ...absenceReads(row, league, parts), meetings].filter(Boolean);
+  const extras = [...absenceReads(row, league, parts), meetings].filter(Boolean);
+  const reads = [...side.reads, ...extras];
   if (!reads.some(read => read.kind === 'defense' || read.kind === 'position')) return null;
-  // The backtest's own number (`calibrated`) stays what the Analyzer's
-  // chances read; the score shown has the opponent's reads stretched by the
-  // parts' average (STRETCH).
-  const calibrated = Math.round(50 + 50 * Math.tanh(reads.reduce((sum, read) => sum + read.points, 0) / 50));
-  const stretch = mean(parts.map(([, part]) => stretchOf(part)));
-  for (const read of reads) if (OPPONENT.includes(read.kind)) read.points *= stretch;
-  const points = reads.reduce((sum, read) => sum + read.points, 0);
+  // The backtest's own number: the Analyzer's chances read it.
+  const sum = reads.reduce((total, read) => total + read.points, 0);
+  const calibrated = Math.round(50 + 50 * Math.tanh(sum / 50));
+  // Where this opponent ranks (half a place for itself), as points on the score's curve.
+  const ranked = finite(side.composite) ? rankedComposites(row, league, parts) : [];
+  let base = 0;
+  if (ranked.length >= 8) {
+    const softer = ranked.filter(value => value > side.composite + 1e-9).length;
+    const tied = ranked.filter(value => Math.abs(value - side.composite) <= 1e-9).length || 1;
+    const placed = 1 - (softer + tied / 2) / ranked.length;
+    base = 50 * Math.atanh(clamp(2 * placed - 1, -0.97, 0.97));
+  }
+  const extra = extras.reduce((total, read) => total + read.points, 0);
+  // Each opponent read shown with its share of `base`, its own sign kept.
+  const scale = side.reads.reduce((total, read) => total + Math.abs(read.part), 0);
+  const shown = read => (side.reads.includes(read) ? (scale ? read.part * Math.abs(base) / scale : 0) : read.points);
   const fit = meetings ? {key: 'meetings', kind: 'meetings', score: alone(meetings.soft), text: meetings.text, counted: true} : fitRead(row);
-  return {score: Math.round(50 + 50 * Math.tanh(points / 50)), calibrated, raw: 50 + points, fit,
-    reads: reads.map(read => ({key: read.key, kind: read.kind, text: read.text, score: alone(read.soft), points: Math.round(read.points * 10) / 10}))};
+  return {score: Math.round(50 + 50 * Math.tanh((base + extra) / 50)), calibrated, raw: 50 + sum, fit,
+    reads: reads.map(read => ({key: read.key, kind: read.kind, text: read.text, score: alone(read.soft), points: Math.round(shown(read) * 10) / 10}))};
 }
 
 /** Tonight's props scored: a Map from row id to {score, label, tone, raw, reads}. */

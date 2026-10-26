@@ -58,7 +58,7 @@ test('last season’s real numbers: Denver for a guard, and how the scores sprea
   // RotoBot (Oct 2026) moves each guard on something of its own: points 89
   // McCain, 73 Wallace, 63 Gilgeous-Alexander; steals 40-51. Denver turn it
   // over the fewest times, which is what predicted steals.
-  assert.deepEqual(card, {PTS: 54, REB: 38, AST: 60, '3PM': 85, STL: 16, BLK: 73});
+  assert.deepEqual(card, {PTS: 52, REB: 35, AST: 58, '3PM': 75, STL: 18, BLK: 75});
   const scores = Object.keys(real.teamStats).flatMap(opponent => ['G', 'F', 'C'].flatMap(position =>
     cardScores(row(`${opponent}${position}`, {position, teamAbbr: 'OKC', opponent}), real).map(item => item.score))).sort((a, b) => a - b);
   // The opponent's numbers alone (no injury report) now reach both ends
@@ -72,8 +72,8 @@ test('last season’s real numbers: Denver for a guard, and how the scores sprea
 test('what a defense allows his position is a player at a time, as RotoBot counts it', () => {
   // RotoBot: Denver allow each guard 11.0 points, 1.5 threes a game.
   const threes = matchupScore(row('w', {position: 'G', teamAbbr: 'OKC', opponent: 'DEN', marketKey: 'player_threes'}), real);
-  // Threes read only the threes they let teams take; his position is shown, not counted.
-  assert.deepEqual(threes.reads.map(read => [read.kind, read.points === 0]), [['position', true], ['attempts', false]]);
+  // Threes read the threes they let teams take, and (Oct 25) what they allow his position always counts too.
+  assert.deepEqual(threes.reads.map(read => [read.kind, read.points === 0]), [['position', false], ['attempts', false]]);
   assert.equal(threes.reads[0].text, 'DEN allows each guard 1.5 threes a game (10th most)');
   assert.equal(threes.reads[1].text, 'DEN lets teams take 39.1 threes a game (4th most)');
   const points = matchupScore(row('p', {position: 'G', teamAbbr: 'OKC', opponent: 'DEN'}), real);
@@ -84,8 +84,8 @@ test('what a defense allows his position is a player at a time, as RotoBot count
   // An older server's totals still score, read as the position's.
   const older = {...real, dvpEach: undefined};
   assert.match(matchupScore(row('w2', {position: 'G', teamAbbr: 'OKC', opponent: 'DEN'}), older).reads[2].text, /^DEN allows guards 57\.1 points a game/);
-  // The parts add up to the score from an even 50.
-  assert.ok(Math.abs(50 + threes.reads.reduce((sum, read) => sum + read.points, 0) - threes.raw) < 0.2);
+  // The parts shown point the way the score does (Oct 25: they're shares of where the opponent ranks).
+  assert.equal(Math.sign(threes.reads.reduce((sum, read) => sum + read.points, 0)), Math.sign(threes.score - 50));
 });
 
 test('the same for every forward against a team: his own games sit beside it', () => {
@@ -124,7 +124,9 @@ test('threes rise with the threes a team allows, not the percentage made; steals
   assert.equal(cardScores(row('6'), finishing).find(item => item.stat === 'AST').score, before.AST);
   const passing = structuredClone(league);
   for (const [team, cell] of Object.entries(table({DAL: 2}, 26, 1.8))) passing.opportunity.teams[team].astAllowed = cell;
-  assert.ok(cardScores(row('6'), passing).find(item => item.stat === 'AST').score > before.AST + 8);
+  // A rank now (Oct 25): already near the top, giving up the 2nd most assists moves Dallas up, not past first.
+  const passed = cardScores(row('6'), passing).find(item => item.stat === 'AST').score;
+  assert.ok(passed > before.AST && passed >= 85, `${before.AST} -> ${passed}`);
 });
 
 test('far softer than everyone reads near 100; the middle near 50; the stingy, slow end near 0', () => {

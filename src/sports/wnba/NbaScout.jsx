@@ -71,14 +71,19 @@ export function MatchupGrade({row,league,logs}){
  </>;
 }
 
-// Tonight's part of the score (nba-matchup-score.js): who's out on either
-// side, and the opponent's last 10 games. Each with what it adds.
-const TONIGHT={teammates:'His teammates out',back:'Teammates back',missing:'Their players out',recent:'Their last 10 games'};
+// What moved the score (nba-matchup-score.js), biggest first (Oct 25, the
+// owner: "sometimes I don't get why some matchups are high or low"). Every
+// part, the opponent's and tonight's, with how far it moved the score; the
+// score is where the opponent ranks among the league's 30 teams for this
+// stat at his position, then his own things on top.
+const MOVED={position:'What they allow his position',defense:'Their defense',pace:'Their pace',recent:'Their last 10 games',
+ attempts:'Threes they let teams take',rebounds:'Rebounds they give up',assists:'Assists they give up',turnovers:'How often they turn it over',
+ teammates:'His teammates out',back:'Teammates back',missing:'Their players out',meetings:'His games vs them'};
 function Tonight({reads,stat}){
- const shown=(reads||[]).filter(read=>TONIGHT[read.kind]);
+ const shown=(reads||[]).filter(read=>MOVED[read.kind]&&Math.abs(read.points)>=0.5).sort((a,b)=>Math.abs(b.points)-Math.abs(a.points)).slice(0,6);
  if(!shown.length)return null;
- return <Card title="Tonight" icon={CalendarClock} note={`In the ${stat} score`}>
-  <ul className="ng-tonight">{shown.map(read=><li key={read.key}><span><b>{TONIGHT[read.kind]}</b><em data-sign={read.points>0.5?'up':read.points<-0.5?'down':'flat'}>{read.points>0?'+':read.points<0?'−':''}{Math.abs(Math.round(read.points))} {Math.abs(Math.round(read.points))===1?'point':'points'}</em></span>
+ return <Card title="What moved it" icon={CalendarClock} note={`The ${stat} score, biggest first`}>
+  <ul className="ng-tonight">{shown.map(read=><li key={read.key}><span><b>{MOVED[read.kind]}</b><em data-sign={read.points>0.5?'up':read.points<-0.5?'down':'flat'}>{read.points>0?'+':read.points<0?'−':''}{Math.abs(Math.round(read.points))} {Math.abs(Math.round(read.points))===1?'point':'points'}</em></span>
    <small>{read.text}</small></li>)}</ul>
  </Card>;
 }

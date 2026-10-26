@@ -283,6 +283,22 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   PRA"); the vs-them line needs 2+ games and most of them over (no "1 of
   2"). The owner hand-edits titles ("2 MAN · (2x)"), writes "PRA" and
   dropped "(Goblin)": ask before making those the defaults.
+- Matchup score, ranked (the owner: "sometimes I don't get why some
+  matchups are high or low": P.J. Washington's 3PM vs MIA read 96 while
+  MIA allow forwards an ordinary number of threes). The earlier STRETCH
+  (opponent reads x~3) is gone: one read could carry a score (threes read
+  only 3PA allowed, which MIA's pace inflates). Now (nba-matchup-score.js
+  `opponentSide`, `rankedComposites`): each team's opponent reads as a
+  weighted average of softness (backtest weights), with what they allow
+  his position always POSITION_SHARE (0.4) of it; the 30 teams ranked
+  (cached per league object, per stat + position): softest ~98, middle
+  50, toughest ~2; his own reads (who's out, meetings) added on top in the
+  backtest's points through the tanh curve. `calibrated` (Analyzer odds)
+  unchanged. Shown read points are each read's share of the ranked
+  score. On last season's numbers P.J. vs MIA went 79/84/63/84/36/77 ->
+  75/88/52/68/45/65 (RotoBot 67/70/55/75/53/85); every stat spreads 2-98,
+  10% at 90+. The Matchup tab's "Tonight" card is now "What moved it":
+  every part (opponent's and tonight's) with its effect, biggest first.
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).
