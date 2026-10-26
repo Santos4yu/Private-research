@@ -57,12 +57,13 @@ const hide=event=>{event.currentTarget.hidden=true;};
 // "Shai Gilgeous-Alexander" -> ["Shai", "Gilgeous-Alexander"]: the banner sets the name on two lines.
 const nameLines=name=>{const parts=String(name||'').trim().split(/\s+/);return parts.length>1?[parts[0],parts.slice(1).join(' ')]:[parts[0]||'',''];};
 
-function Hero({row,team,opponent,home,facts,today,onBack,heroRef}){
+function Hero({row,team,opponent,home,facts,today,onBack,heroRef,action}){
  const [first,last]=nameLines(row.player),longest=Math.max(first.length,last.length);
  return <header ref={heroRef} className="mp-hero" data-long={longest>=14?'xl':longest>=10?'l':undefined}>
   {team?.logo&&<img className="mp-hero-mark" src={team.logo} alt="" onError={hide}/>}
   {row.headshot&&<img className="mp-hero-photo" src={row.headshot} alt="" onError={hide}/>}
   <button type="button" className="mp-back" onClick={onBack} aria-label="Back to matchups"><ArrowLeft size={20}/></button>
+  {action}
   <div className="mp-hero-text">
    <h1>{first}{last&&<><br/>{last}</>}</h1>
    <p>{facts.map((fact,index)=><React.Fragment key={fact}>{index>0&&<i aria-hidden="true"/>}{fact}</React.Fragment>)}</p>
@@ -78,7 +79,7 @@ function Hero({row,team,opponent,home,facts,today,onBack,heroRef}){
  * [[key, label]], the open one `tab` (onTab picks another), the sections
  * as children and anything drawn over the page (a sheet) as `after`.
  */
-export function MatchupPageShell({row,team,opponent,home,facts,color,today,onBack,tabs,tab,onTab,jump,wide,children,after}){
+export function MatchupPageShell({row,team,opponent,home,facts,color,today,onBack,tabs,tab,onTab,jump,wide,action,children,after}){
  const [pinned,setPinned]=useState(null);
  const heroRef=useRef(null),slotRef=useRef(null),miniRef=useRef(null);
  // Once the banner scrolls up under where the slim bar goes, the bar and
@@ -105,7 +106,7 @@ export function MatchupPageShell({row,team,opponent,home,facts,color,today,onBac
  const pick=key=>{if(jump){jump(key);return;}onTab(key);const slot=slotRef.current,bar=miniRef.current;
   if(pinned&&slot&&bar)window.scrollTo(0,window.scrollY+slot.getBoundingClientRect().top-bar.offsetHeight+1);};
  return <section className="nba-mp" data-wide={wide||undefined} aria-label={`${row.player} matchup`} style={color?{'--team':color}:undefined}>
-  <Hero row={row} team={team} opponent={opponent} home={home} facts={facts} today={today} onBack={onBack} heroRef={heroRef}/>
+  <Hero row={row} team={team} opponent={opponent} home={home} facts={facts} today={today} onBack={onBack} heroRef={heroRef} action={action}/>
   <div className="mp-stick-slot" ref={slotRef}><div className="mp-stick" data-mini={pinned?true:undefined} style={pinned?{left:pinned.left,width:pinned.width}:undefined}>
    <div className="mp-mini" ref={miniRef} aria-hidden={!pinned}>
     <button type="button" className="mp-back" onClick={onBack} tabIndex={pinned?0:-1} aria-label="Back to matchups"><ArrowLeft size={18}/></button>

@@ -735,3 +735,41 @@
  .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .ws-zones{grid-column:2;grid-row:4 / span 2}
 }
 @media (prefers-reduced-motion:reduce){.nba-mp .mp-sheet,.nba-mp .mp-sheet-panel{animation:none}}
+
+/* ---------------------------------------------------------------- Write-up
+   The admin's Discord write-up (WriteupSheet.jsx): a button on the banner,
+   then a pop-up with his lines, the legs in the post, options and the text. */
+.nba-mp .mp-writeup{position:absolute;top:16px;right:18px;z-index:3;display:inline-flex;align-items:center;gap:7px;height:40px;padding:0 15px;border:1px solid #ffffff30;border-radius:999px;
+ background:#0000005c;color:#fff;font:800 13px var(--font-sans);cursor:pointer;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);transition:background-color .15s}
+.nba-mp .mp-writeup:hover{background:#ffffff1f}
+@media (max-width:760px){.nba-mp .mp-writeup{top:calc(12px + env(safe-area-inset-top,0px));right:14px}}
+.nba-mp .wu{display:grid;gap:14px;padding:16px 0 4px}
+.nba-mp .wu-row{display:grid;gap:7px}
+.nba-mp .wu-row>span,.nba-mp .wu-opts label>span,.nba-mp .wu-slip-head span{color:var(--mp-faint);font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
+.nba-mp .wu-chips{display:flex;flex-wrap:wrap;gap:6px}
+.nba-mp .wu-chips button{min-height:34px;padding:0 13px;border:1px solid #2e333d;border-radius:999px;background:#161a21;color:#c6cbd4;font-size:12.5px;font-weight:800;cursor:pointer}
+.nba-mp .wu-chips button[aria-pressed=true]{border-color:color-mix(in srgb,var(--mp-accent) 60%,transparent);background:color-mix(in srgb,var(--mp-accent) 18%,#161a21);color:#fff}
+.nba-mp .wu-leg-now{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid #ffffff12;border-radius:14px;background:#12151b}
+.nba-mp .wu-leg-now div{display:grid;gap:2px;min-width:0}
+.nba-mp .wu-leg-now b{font-size:14.5px}
+.nba-mp .wu-leg-now small{color:var(--mp-muted);font-size:12px}
+.nba-mp .wu-add{display:inline-flex;align-items:center;gap:6px;flex:none;height:36px;padding:0 14px;border:0;border-radius:999px;background:#f3f5f8;color:#0b0c10;font-size:12.5px;font-weight:800;cursor:pointer}
+.nba-mp .wu-add[data-on]{background:color-mix(in srgb,var(--mp-good) 22%,#12151b);color:#9ff0c9;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--mp-good) 45%,transparent)}
+.nba-mp .wu-slip{display:grid;gap:6px;padding:10px 12px;border:1px dashed #ffffff1c;border-radius:14px}
+.nba-mp .wu-slip-head{display:flex;justify-content:space-between;align-items:center}
+.nba-mp .wu-slip-head button{border:0;background:none;color:var(--mp-muted);font-size:12px;font-weight:700;cursor:pointer}
+.nba-mp .wu-slip-leg{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;font-weight:700}
+.nba-mp .wu-slip-leg button{display:grid;place-items:center;width:30px;height:30px;border:0;border-radius:8px;background:#1b1f27;color:var(--mp-muted);cursor:pointer}
+.nba-mp .wu-slip p{margin:2px 0 0;color:var(--mp-faint);font-size:11.5px}
+.nba-mp .wu-opts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.nba-mp .wu-opts label{display:grid;gap:5px;min-width:0}
+.nba-mp .wu-opts :is(select,input){box-sizing:border-box;width:100%;height:38px;padding:0 10px;border:1px solid #2a2f39;border-radius:10px;background:#0f1217;color:#fff;font:600 13px var(--font-sans)}
+.nba-mp .wu-text{box-sizing:border-box;width:100%;min-height:260px;padding:14px;border:1px solid #2a2f39;border-radius:14px;background:#0b0d11;color:#e9edf3;
+ font:500 13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;resize:vertical;white-space:pre-wrap}
+.nba-mp .wu-text:focus{outline:2px solid color-mix(in srgb,var(--mp-accent) 60%,transparent);outline-offset:1px}
+.nba-mp .wu-actions{display:flex;gap:8px}
+.nba-mp .wu-actions button{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:44px;padding:0 18px;border-radius:12px;font-size:13.5px;font-weight:800;cursor:pointer}
+.nba-mp .wu-copy{flex:1;border:0;background:#5865f2;color:#fff}
+.nba-mp .wu-copy:hover{background:#4752c4}
+.nba-mp .wu-close{border:1px solid #2a2f39;background:#14171d;color:#d6dae1}
+@media (max-width:560px){.nba-mp .wu-opts{grid-template-columns:repeat(2,minmax(0,1fr))}}

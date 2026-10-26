@@ -199,6 +199,21 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   CheatSheets.jsx no longer carry `nbaMatchup`, and MatchupList.jsx only
   calls history.back() when `history.length` is what it was right after
   the page opened; otherwise the arrow just closes the page.
+- Write-ups for Discord (the owner's community posts, admins only:
+  `siteIsAdmin()`). A "Write-up" button on an NBA player page's banner
+  opens WriteupSheet.jsx: pick one of his lines, "Add to post" (legs from
+  several players' pages gather in a slip kept on the device, at most 6),
+  title (PLAY / MINI NUKE / NUKE / EXCLUSIVE PLAY / LOCK), units,
+  confidence, reasons per leg, an editable text box and "Copy for
+  Discord". src/writeup.js `legFacts` builds only reasons FOR the over,
+  strongest first: what they allow his position (dvpEach), their defense /
+  pace, rebounds and FG% allowed (misses to clean up), assists and threes
+  allowed, his best shot zone vs their zone defense, his rebound / assist
+  chances and 3PA volume (player-context opportunity), his last 10 / last
+  5 / games vs them against the line, how similar players did vs them
+  (player-context similar), teammates and their players out tonight.
+  `formatPost` writes ## title, **bold** legs, • reasons, -# small lines.
+  No odds (the site has none). Tests: tests/writeup.test.mjs.
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).

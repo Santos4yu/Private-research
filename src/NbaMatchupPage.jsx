@@ -4,8 +4,8 @@
 // sections, once it scrolls away), then Overview (his averages, his games against tonight's line, the
 // injury report), Matchup (the grade and everything behind it,
 // NbaScout.jsx) and Stats (where he ranks at his position, his game log).
-import React,{useEffect,useMemo,useState} from 'react';
-import {CalendarDays,ChevronDown,HeartPulse,LineChart,X} from 'lucide-react';
+import React,{useCallback,useEffect,useMemo,useState} from 'react';
+import {CalendarDays,ChevronDown,HeartPulse,LineChart,PenLine,X} from 'lucide-react';
 import {MatchupPageShell,Trend} from './MatchupPageShell';
 import {Card,Chances,ChancesLink,LikelyDefenders,Loading,MatchupGrade,Photo,PlayTypes,PositionRanks,ShotLink,ShotZones,VsTeam,teamName} from './sports/wnba/NbaScout';
 import {finite,fmt,realGames,useWnba} from './sports/wnba/wnba-research';
@@ -14,6 +14,10 @@ import {lineupRole} from './lineup-role';
 import {CountUp} from './count-up';
 import {useWide} from './use-wide';
 import {useScrollLock} from './scroll-lock';
+import {siteIsAdmin} from './site-access';
+import {legFacts} from './writeup';
+import {WriteupSheet} from './WriteupSheet';
+import {matchupScore} from './nba-matchup-score';
 
 const STAT_CHIPS=[['player_points','PTS'],['player_rebounds','REB'],['player_assists','AST'],['player_threes','3PM'],['player_points_rebounds','P+R'],
  ['player_points_assists','P+A'],['player_rebounds_assists','R+A'],['player_points_rebounds_assists','PRA'],['player_steals','STL'],['player_blocks','BLK']];
@@ -112,7 +116,7 @@ const TABS=[['overview','Overview'],['matchup','Matchup'],['stats','Stats']];
 const DOORS={player_points:['shots'],player_rebounds:['reb'],player_assists:['ast'],player_points_rebounds:['shots','reb'],
  player_points_assists:['shots','ast'],player_rebounds_assists:['reb','ast'],player_points_rebounds_assists:['shots','reb','ast']};
 const doorsFor=marketKey=>[...new Set([...(DOORS[marketKey]||[]),'shots','reb','ast'])];
-const SHEETS={shots:['Shot zones','Where he scores vs'],reb:['Rebound chances','Where his rebounds come from vs'],ast:['Assist chances','Where his assists come from vs']};
+const SHEETS={writeup:['Write-up','Discord post'],shots:['Shot zones','Where he scores vs'],reb:['Rebound chances','Where his rebounds come from vs'],ast:['Assist chances','Where his assists come from vs']};
 const LINE_OF={reb:'player_rebounds',ast:'player_assists'};
 export function NbaMatchupPage({row,lines,league,onBack}){
  const [tab,setTab]=useState('overview'),[shots,setShots]=useState(null);
@@ -151,14 +155,19 @@ export function NbaMatchupPage({row,lines,league,onBack}){
  useEffect(()=>{if(!shots)return undefined;const close=event=>{if(event.key==='Escape')setShots(false);};
   document.addEventListener('keydown',close);return()=>document.removeEventListener('keydown',close);},[shots]);
  const lineFor=kind=>row.marketKey===LINE_OF[kind]?row.line:null;
+ // A Discord write-up of his lines (admins: the owner's community posts, writeup.js).
+ const admin=siteIsAdmin();
+ const buildLeg=useCallback((marketKey,line)=>legFacts({row,marketKey,line,league,games:realGames(logs),ctx:player.data||null,
+  score:league?matchupScore({...row,marketKey},league)?.score:null}),[row,league,logs,player.data]);
  const sheet=shots&&<div className="mp-sheet" role="dialog" aria-modal="true" aria-label={SHEETS[shots][0]} onClick={event=>{if(event.target===event.currentTarget)setShots(null);}}>
-  <div className="mp-sheet-panel" data-kind={shots}><div className="mp-sheet-head"><span><small>{SHEETS[shots][0]}</small><b>{SHEETS[shots][1]} {teamName(league,row.opponent)}</b></span>
+  <div className="mp-sheet-panel" data-kind={shots}><div className="mp-sheet-head"><span><small>{SHEETS[shots][0]}</small><b>{shots==='writeup'?`${row.player} vs ${row.opponent}`:`${SHEETS[shots][1]} ${teamName(league,row.opponent)}`}</b></span>
    <button type="button" onClick={()=>setShots(null)} aria-label="Close"><X size={18}/></button></div>
-   {shots==='shots'?<ShotZones player={player} league={leagueState} row={row}/>:<Chances kind={shots} row={row} league={leagueState} player={player} line={lineFor(shots)}/>}</div>
+   {shots==='writeup'?<WriteupSheet lines={lines.length?lines:[row]} buildLeg={buildLeg} onClose={()=>setShots(null)}/>:shots==='shots'?<ShotZones player={player} league={leagueState} row={row}/>:<Chances kind={shots} row={row} league={leagueState} player={player} line={lineFor(shots)}/>}</div>
  </div>;
  const door=kind=>kind==='shots'?<ShotLink key={kind} row={row} league={leagueState} onOpen={()=>setShots('shots')}/>
   :<ChancesLink key={kind} kind={kind} row={row} league={leagueState} onOpen={()=>setShots(kind)}/>;
- return <MatchupPageShell row={row} team={team} opponent={opponent} home={home} facts={facts} color={color} onBack={onBack} tabs={TABS} tab={tab} onTab={setTab} jump={wide?jump:null} wide={wide} after={sheet}>
+ return <MatchupPageShell row={row} team={team} opponent={opponent} home={home} facts={facts} color={color} onBack={onBack} tabs={TABS} tab={tab} onTab={setTab} jump={wide?jump:null} wide={wide} after={sheet}
+  action={admin&&<button type="button" className="mp-writeup" onClick={()=>setShots('writeup')}><PenLine size={15} aria-hidden="true"/>Write-up</button>}>
   {/* Oct 25, the owner: no floating cards, no gaps. One framed page; each
      column stacks on its own (three on a big monitor, two on a laptop), so
      a short column never leaves a hole beside a long one. */}
