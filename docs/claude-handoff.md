@@ -226,6 +226,17 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   line and a -# sign-off. Labels: PICK / TOP PICK / BEST BET / LEAN /
   SLEEPER. Don't bring back ☢️, "Write-Up 📝", "Confidence Rating ⭐" or
   "BOL & React": those were the other account's. Slip key is now v2.
+- Write-ups, round 3 (the owner posts in a general community, not his
+  own): the post is only the analysis. No PropScout name, no matchup
+  grades, no sign-off: `## 🏀 NBA PICK` (· N-Leg Parlay), an optional -#
+  units / confidence line, then each leg's ### heading and > reasons.
+  The pop-up was under the phone's dock (.tab-panel's z-index:2 caps
+  anything inside it): NbaMatchupPage now renders its pop-ups through a
+  portal on document.body inside `.nba-mp.mp-layer` (a frameless wrapper
+  so the page's colors still apply). Write-up screen rebuilt: his lines
+  as small cards, the leg with Add, the parlay's legs as chips, one row
+  of options, a Discord-look preview (or Edit text) and a Copy bar stuck
+  to the bottom (safe-area aware), nearly full screen on a phone.
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).

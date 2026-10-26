@@ -49,17 +49,18 @@ test('rebounds read their misses and his work on the glass; nothing against the 
   assert.equal(tough.facts.length, 0);
 });
 
-test('a Discord post in PropScout\'s own style: title, details, each leg with its reasons and grade', () => {
+test('a Discord post that is just the analysis: no site name, no grades', () => {
   const legs = [legFacts({row, marketKey: 'player_points', line: 20.5, league, games, ctx, score: 98}),
     legFacts({row: {...row, player: 'Luka Doncic', playerId: '2'}, marketKey: 'player_rebounds', line: 7.5, league, games: [], ctx})];
   const post = formatPost(legs, {units: '1.5u', tag: 'top pick', confidence: '4.5', perLeg: 2});
   const lines = post.split('\n');
-  assert.equal(lines[0], '## 🔎 PropScout TOP PICK · 2-Leg Parlay');
-  assert.equal(lines[1], '-# 🏀 NBA · 1.5 units · Confidence 4.5/5');
+  assert.equal(lines[0], '## 🏀 NBA TOP PICK · 2-Leg Parlay');
+  assert.equal(lines[1], '-# 1.5 units · Confidence 4.5/5');
   assert.ok(lines.includes('### Kyrie Irving · Over 20.5 Points'));
   assert.equal(lines.filter(line => line.startsWith('> ')).length, 4);
-  assert.ok(lines.includes('-# 📊 Matchup grade 98/100 · Strong edge'));
-  assert.match(lines.at(-1), /^-# Researched with PropScout/);
-  assert.doesNotMatch(post, /☢|BOL|Write-Up|Tailing/);
+  assert.equal(lines.at(-1).startsWith('> '), true);
+  assert.doesNotMatch(post, /PropScout|grade|\/100|☢|BOL|Write-Up|Tailing/i);
+  // Nothing set: no details line.
+  assert.equal(formatPost([legs[0]], {perLeg: 1}).split('\n')[1], '');
   assert.equal(formatPost([]), '');
 });

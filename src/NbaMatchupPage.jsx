@@ -5,6 +5,7 @@
 // injury report), Matchup (the grade and everything behind it,
 // NbaScout.jsx) and Stats (where he ranks at his position, his game log).
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
+import {createPortal} from 'react-dom';
 import {CalendarDays,ChevronDown,HeartPulse,LineChart,PenLine,X} from 'lucide-react';
 import {MatchupPageShell,Trend} from './MatchupPageShell';
 import {Card,Chances,ChancesLink,LikelyDefenders,Loading,MatchupGrade,Photo,PlayTypes,PositionRanks,ShotLink,ShotZones,VsTeam,teamName} from './sports/wnba/NbaScout';
@@ -159,11 +160,13 @@ export function NbaMatchupPage({row,lines,league,onBack}){
  const admin=siteIsAdmin();
  const buildLeg=useCallback((marketKey,line)=>legFacts({row,marketKey,line,league,games:realGames(logs),ctx:player.data||null,
   score:league?matchupScore({...row,marketKey},league)?.score:null}),[row,league,logs,player.data]);
- const sheet=shots&&<div className="mp-sheet" role="dialog" aria-modal="true" aria-label={SHEETS[shots][0]} onClick={event=>{if(event.target===event.currentTarget)setShots(null);}}>
+ // On the page itself (a portal), above the phone's dock: inside the tab's
+ // layer it sat under the dock (Oct 25, the owner couldn't reach Copy).
+ const sheet=shots&&createPortal(<div className="nba-mp mp-layer" style={color?{'--team':color}:undefined}><div className="mp-sheet" role="dialog" aria-modal="true" aria-label={SHEETS[shots][0]} onClick={event=>{if(event.target===event.currentTarget)setShots(null);}}>
   <div className="mp-sheet-panel" data-kind={shots}><div className="mp-sheet-head"><span><small>{SHEETS[shots][0]}</small><b>{shots==='writeup'?`${row.player} vs ${row.opponent}`:`${SHEETS[shots][1]} ${teamName(league,row.opponent)}`}</b></span>
    <button type="button" onClick={()=>setShots(null)} aria-label="Close"><X size={18}/></button></div>
    {shots==='writeup'?<WriteupSheet lines={lines.length?lines:[row]} buildLeg={buildLeg} onClose={()=>setShots(null)}/>:shots==='shots'?<ShotZones player={player} league={leagueState} row={row}/>:<Chances kind={shots} row={row} league={leagueState} player={player} line={lineFor(shots)}/>}</div>
- </div>;
+ </div></div>,document.body);
  const door=kind=>kind==='shots'?<ShotLink key={kind} row={row} league={leagueState} onOpen={()=>setShots('shots')}/>
   :<ChancesLink key={kind} kind={kind} row={row} league={leagueState} onOpen={()=>setShots(kind)}/>;
  return <MatchupPageShell row={row} team={team} opponent={opponent} home={home} facts={facts} color={color} onBack={onBack} tabs={TABS} tab={tab} onTab={setTab} jump={wide?jump:null} wide={wide} after={sheet}

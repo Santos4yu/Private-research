@@ -180,26 +180,24 @@ export function legFacts({row, marketKey, line, league, games = [], ctx = null, 
 }
 
 /**
- * The post, in PropScout's own style (Oct 25, the owner: different emojis,
- * not a copy of the posts he showed): a title line, a small line with the
- * sport, size, units and confidence, then each leg as a heading with its
- * reasons quoted under it (Discord's grey bar) and its matchup grade in
- * small text, and a small sign-off. Discord markdown: ## / ### headings,
- * > quotes, -# small text, ** bold.
+ * The post: just the analysis (Oct 25, the owner: it's for a general
+ * community he's in, so no PropScout name and nothing about our grades). A
+ * title line, a small line with units and confidence when set, then each
+ * leg as a heading with its reasons quoted under it (Discord's grey bar).
+ * Discord markdown: ## / ### headings, > quotes, -# small text.
  */
 export const TAGS = ['PICK', 'TOP PICK', 'BEST BET', 'LEAN', 'SLEEPER'];
-export function formatPost(legs, {units = '', tag = 'PICK', confidence = '', perLeg = 3, footer = true, sport = 'NBA'} = {}) {
+export function formatPost(legs, {units = '', tag = 'PICK', confidence = '', perLeg = 3, sport = 'NBA'} = {}) {
   if (!legs?.length) return '';
   const unit = String(units || '').trim().replace(/u$/i, '');
   const sure = String(confidence || '').trim();
-  const lines = [`## 🔎 PropScout ${String(tag || 'PICK').toUpperCase()}${legs.length > 1 ? ` · ${legs.length}-Leg Parlay` : ''}`];
-  lines.push(`-# 🏀 ${sport}${unit ? ` · ${unit} ${unit === '1' ? 'unit' : 'units'}` : ''}${sure ? ` · Confidence ${sure}/5` : ''}`);
+  const lines = [`## 🏀 ${sport} ${String(tag || 'PICK').toUpperCase()}${legs.length > 1 ? ` · ${legs.length}-Leg Parlay` : ''}`];
+  const details = [unit && `${unit} ${unit === '1' ? 'unit' : 'units'}`, sure && `Confidence ${sure}/5`].filter(Boolean);
+  if (details.length) lines.push(`-# ${details.join(' · ')}`);
   for (const leg of legs) {
     lines.push('', `### ${leg.header}`);
     for (const fact of (leg.facts || []).slice(0, perLeg)) lines.push(`> ${fact.text}`);
-    if (finite(leg.score)) lines.push(`-# 📊 Matchup grade ${leg.score}/100${leg.label ? ` · ${leg.label}` : ''}`);
   }
-  if (footer) lines.push('', '-# Researched with PropScout 🔎 Play it smart and stay within your limits');
   return lines.join('\n');
 }
 

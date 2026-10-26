@@ -743,33 +743,69 @@
  background:#0000005c;color:#fff;font:800 13px var(--font-sans);cursor:pointer;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);transition:background-color .15s}
 .nba-mp .mp-writeup:hover{background:#ffffff1f}
 @media (max-width:760px){.nba-mp .mp-writeup{top:calc(12px + env(safe-area-inset-top,0px));right:14px}}
-.nba-mp .wu{display:grid;gap:14px;padding:16px 0 4px}
-.nba-mp .wu-row{display:grid;gap:7px}
-.nba-mp .wu-row>span,.nba-mp .wu-opts label>span,.nba-mp .wu-slip-head span{color:var(--mp-faint);font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
-.nba-mp .wu-chips{display:flex;flex-wrap:wrap;gap:6px}
-.nba-mp .wu-chips button{min-height:34px;padding:0 13px;border:1px solid #2e333d;border-radius:999px;background:#161a21;color:#c6cbd4;font-size:12.5px;font-weight:800;cursor:pointer}
-.nba-mp .wu-chips button[aria-pressed=true]{border-color:color-mix(in srgb,var(--mp-accent) 60%,transparent);background:color-mix(in srgb,var(--mp-accent) 18%,#161a21);color:#fff}
-.nba-mp .wu-leg-now{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid #ffffff12;border-radius:14px;background:#12151b}
-.nba-mp .wu-leg-now div{display:grid;gap:2px;min-width:0}
-.nba-mp .wu-leg-now b{font-size:14.5px}
-.nba-mp .wu-leg-now small{color:var(--mp-muted);font-size:12px}
-.nba-mp .wu-add{display:inline-flex;align-items:center;gap:6px;flex:none;height:36px;padding:0 14px;border:0;border-radius:999px;background:#f3f5f8;color:#0b0c10;font-size:12.5px;font-weight:800;cursor:pointer}
-.nba-mp .wu-add[data-on]{background:color-mix(in srgb,var(--mp-good) 22%,#12151b);color:#9ff0c9;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--mp-good) 45%,transparent)}
-.nba-mp .wu-slip{display:grid;gap:6px;padding:10px 12px;border:1px dashed #ffffff1c;border-radius:14px}
-.nba-mp .wu-slip-head{display:flex;justify-content:space-between;align-items:center}
-.nba-mp .wu-slip-head button{border:0;background:none;color:var(--mp-muted);font-size:12px;font-weight:700;cursor:pointer}
-.nba-mp .wu-slip-leg{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;font-weight:700}
-.nba-mp .wu-slip-leg button{display:grid;place-items:center;width:30px;height:30px;border:0;border-radius:8px;background:#1b1f27;color:var(--mp-muted);cursor:pointer}
-.nba-mp .wu-slip p{margin:2px 0 0;color:var(--mp-faint);font-size:11.5px}
-.nba-mp .wu-opts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
-.nba-mp .wu-opts label{display:grid;gap:5px;min-width:0}
-.nba-mp .wu-opts :is(select,input){box-sizing:border-box;width:100%;height:38px;padding:0 10px;border:1px solid #2a2f39;border-radius:10px;background:#0f1217;color:#fff;font:600 13px var(--font-sans)}
-.nba-mp .wu-text{box-sizing:border-box;width:100%;min-height:260px;padding:14px;border:1px solid #2a2f39;border-radius:14px;background:#0b0d11;color:#e9edf3;
- font:500 13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;resize:vertical;white-space:pre-wrap}
-.nba-mp .wu-text:focus{outline:2px solid color-mix(in srgb,var(--mp-accent) 60%,transparent);outline-offset:1px}
-.nba-mp .wu-actions{display:flex;gap:8px}
-.nba-mp .wu-actions button{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:44px;padding:0 18px;border-radius:12px;font-size:13.5px;font-weight:800;cursor:pointer}
-.nba-mp .wu-copy{flex:1;border:0;background:#5865f2;color:#fff}
-.nba-mp .wu-copy:hover{background:#4752c4}
-.nba-mp .wu-close{border:1px solid #2a2f39;background:#14171d;color:#d6dae1}
-@media (max-width:560px){.nba-mp .wu-opts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* The pop-up sits on the page itself (a portal, .mp-layer): the wrapper is
+   only there for the page's colors, never a frame of its own. */
+.nba-mp.mp-layer{position:static;max-width:none;margin:0;padding:0;border:0;border-radius:0;background:none;box-shadow:none}
+.nba-mp .wu{display:grid;gap:12px;padding:14px 0 0}
+.nba-mp .wu-cap,.nba-mp .wu-opts label>span{color:var(--mp-faint);font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+/* His lines: one row of small cards, sideways on a phone. */
+.nba-mp .wu-lines{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 -2px;padding:2px}
+.nba-mp .wu-lines::-webkit-scrollbar{display:none}
+.nba-mp .wu-lines button{display:grid;justify-items:center;gap:1px;flex:none;min-width:64px;padding:7px 10px;border:1px solid #262b34;border-radius:12px;background:#12151b;color:#c9ced6;cursor:pointer;
+ transition:border-color .15s,background-color .15s}
+.nba-mp .wu-lines small{color:var(--mp-faint);font-size:10px;font-weight:800;letter-spacing:.05em}
+.nba-mp .wu-lines b{font:800 15px/1.1 'Sora',var(--font-sans)}
+.nba-mp .wu-lines button[aria-pressed=true]{border-color:color-mix(in srgb,var(--mp-accent) 65%,transparent);background:color-mix(in srgb,var(--mp-accent) 16%,#12151b);color:#fff}
+.nba-mp .wu-lines button[aria-pressed=true] small{color:var(--mp-accent)}
+/* The line being written up, with Add. */
+.nba-mp .wu-leg-now{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 10px 10px 14px;border-radius:14px;
+ background:linear-gradient(90deg,color-mix(in srgb,var(--team,#2f5b9a) 22%,#12151b),#12151b 75%);border:1px solid #ffffff10}
+.nba-mp .wu-leg-now>span{display:grid;gap:2px;min-width:0}
+.nba-mp .wu-leg-now b{overflow:hidden;font-size:14px;line-height:1.25}
+.nba-mp .wu-leg-now small{color:var(--mp-muted);font-size:11.5px}
+.nba-mp .wu-add{display:inline-flex;align-items:center;gap:5px;flex:none;height:36px;padding:0 14px 0 11px;border:0;border-radius:999px;background:#f3f5f8;color:#0b0c10;font-size:12.5px;font-weight:800;cursor:pointer;transition:background-color .15s,color .15s}
+.nba-mp .wu-add[data-on]{background:color-mix(in srgb,var(--mp-good) 20%,#12151b);color:#9ff0c9;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--mp-good) 45%,transparent)}
+/* The parlay: its legs as chips (tap one to take it out). */
+.nba-mp .wu-slip{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.nba-mp .wu-slip .wu-cap{margin-right:2px}
+.nba-mp .wu-chip{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 9px 0 11px;border:1px solid #2a2f39;border-radius:999px;background:#151920;color:#e6e9ee;font-size:12px;font-weight:700;cursor:pointer}
+.nba-mp .wu-chip small{color:var(--mp-muted);font-weight:600}
+.nba-mp .wu-chip svg{color:var(--mp-faint)}
+.nba-mp .wu-clear{height:30px;padding:0 8px;border:0;background:none;color:var(--mp-muted);font-size:12px;font-weight:700;cursor:pointer}
+/* Options: one compact row. */
+.nba-mp .wu-opts{display:grid;grid-template-columns:1.4fr 1fr 1fr .8fr;gap:6px}
+.nba-mp .wu-opts label{display:grid;gap:4px;min-width:0}
+.nba-mp .wu-opts :is(select,input){box-sizing:border-box;width:100%;height:36px;padding:0 9px;border:1px solid #262b34;border-radius:10px;background:#0f1217;color:#fff;font:700 13px var(--font-sans)}
+.nba-mp .wu-opts :is(select,input):focus{outline:2px solid color-mix(in srgb,var(--mp-accent) 55%,transparent);outline-offset:1px}
+/* Preview or edit. */
+.nba-mp .wu-view{display:flex;gap:3px;justify-self:start;padding:3px;border:1px solid #262b34;border-radius:999px;background:#0f1217}
+.nba-mp .wu-view button{height:28px;padding:0 13px;border:0;border-radius:999px;background:transparent;color:var(--mp-muted);font-size:12px;font-weight:800;cursor:pointer}
+.nba-mp .wu-view button[aria-selected=true]{background:#262a33;color:#fff}
+/* Discord's look: its dark grey, its heading sizes, the grey quote bar. */
+.nba-mp .wu-discord{padding:14px 16px;border-radius:12px;background:#313338;color:#dbdee1;font:400 14.5px/1.4 'gg sans','Noto Sans',var(--font-sans);overflow-wrap:anywhere}
+.nba-mp .wu-d-h1{margin:4px 0;color:#f2f3f5;font-size:22px;font-weight:700}
+.nba-mp .wu-d-h2{margin:2px 0 2px;color:#f2f3f5;font-size:19px;font-weight:700;line-height:1.3}
+.nba-mp .wu-d-h3{margin:2px 0;color:#f2f3f5;font-size:16px;font-weight:700}
+.nba-mp .wu-d-sub{color:#949ba4;font-size:12.5px}
+.nba-mp .wu-d-quote{margin:2px 0;padding-left:12px;border-left:4px solid #4e5058}
+.nba-mp .wu-d-gap{height:8px}
+.nba-mp .wu-d-p b,.nba-mp .wu-discord b{color:#f2f3f5}
+.nba-mp .wu-text{box-sizing:border-box;width:100%;min-height:240px;padding:12px;border:1px solid #262b34;border-radius:12px;background:#0b0d11;color:#e9edf3;
+ font:500 12.5px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;resize:vertical;white-space:pre-wrap}
+/* Copy: a bar that stays at the bottom of the pop-up. */
+.nba-mp .wu-bar{position:sticky;bottom:0;z-index:2;margin:2px -12px 0;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));
+ background:linear-gradient(180deg,#0f0f0f00,#0f0f0f 30%)}
+.nba-mp .wu-copy{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:48px;border:0;border-radius:14px;background:#5865f2;color:#fff;font-size:15px;font-weight:800;cursor:pointer;
+ box-shadow:0 10px 26px -10px #5865f2;transition:background-color .15s,transform .1s}
+.nba-mp .wu-copy:active{transform:scale(.98)}
+.nba-mp .wu-copy[data-done]{background:#23a55a;box-shadow:0 10px 26px -10px #23a55a}
+@media (min-width:761px){
+ .nba-mp .mp-sheet-panel[data-kind=writeup]{width:min(720px,100%)}
+ .nba-mp .wu-bar{margin:2px -22px -24px;padding:12px 22px 18px;background:linear-gradient(180deg,#0f111600,#0f1116 30%)}
+}
+/* A phone: the write-up takes nearly the whole screen, its own scroll. */
+@media (max-width:760px){
+ .nba-mp .mp-sheet-panel[data-kind=writeup]{max-height:calc(100dvh - 24px);padding-bottom:0}
+ .nba-mp .mp-sheet-panel[data-kind=writeup] .mp-sheet-head{padding:14px 4px 10px}
+ .nba-mp .mp-sheet-panel[data-kind=writeup] .mp-sheet-head b{font-size:17px}
+}
