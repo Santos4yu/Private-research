@@ -72,7 +72,7 @@
 @media (min-width:1100px){
  /* The Props tab steps out of its usual width while a player's page is open. */
  :root[data-theme] body #app-shell #panel-v2:has(#props-league-root[data-page=player]),
- #panel-v2:has(#props-league-root[data-page=player]){width:min(1440px,calc(100% - 48px))!important;max-width:1440px!important}
+ #panel-v2:has(#props-league-root[data-page=player]){width:calc(100% - 64px)!important;max-width:2200px!important}
  #props-league-root[data-page=player]{max-width:none}
  .nba-mp{max-width:100%}
  .nba-mp .mp-hero{min-height:360px;padding:22px 40px 30px}
@@ -640,3 +640,67 @@
  linear-gradient(160deg,color-mix(in srgb,var(--team,#2f5b9a) 36%,transparent) 0%,transparent 85%)}
 .nba-mp .mp-stick{background:transparent}
 .nba-mp .mp-stick[data-mini],.nba-mp .mp-stick[data-mini] .mp-mini{background:var(--mp-bg);-webkit-backdrop-filter:blur(16px) saturate(1.3);backdrop-filter:blur(16px) saturate(1.3)}
+
+/* ---------------------------------------------------------------- Desktop
+   Oct 25, the owner: on a computer the page was "a small centered floating
+   ui". From 1100px it is a full-width dashboard (NbaMatchupPage renders
+   .mp-dash when useWide()): the banner across the screen, then every
+   section at once in panels -- the matchup grade with why, his games and
+   averages with the injury report, the research (shot / rebound / assist
+   charts, play types, defenders, vs them), his position ranks and the
+   game log across the bottom. The tabs stay as a bar that jumps to each
+   part and lights the one in view. */
+@media (min-width:1100px){
+ :root[data-theme] body #app-shell #panel-v2:is([data-league=nba],[data-league=nfl]):not([hidden]),
+ #app-shell #panel-v2:is([data-league=nba],[data-league=nfl]):not([hidden]){width:calc(100% - 64px)!important;max-width:2200px!important}
+ #props-league-root{max-width:none}
+ .nba-mp[data-wide]{max-width:none;border:0;border-radius:0;background:transparent}
+ .nba-mp[data-wide] .mp-hero{min-height:340px;padding:26px 48px 34px;border-radius:26px;box-shadow:0 30px 60px -40px #000}
+ .nba-mp[data-wide] .mp-hero-text{max-width:50%}
+ .nba-mp[data-wide] .mp-hero h1{font-size:68px}
+ .nba-mp[data-wide] .mp-hero[data-long=l] h1{font-size:58px}
+ .nba-mp[data-wide] .mp-hero[data-long=xl] h1{font-size:48px}
+ .nba-mp[data-wide] .mp-hero p{font-size:17px}
+ .nba-mp[data-wide] .mp-next img{width:42px;height:42px}
+ .nba-mp[data-wide] .mp-next b{font-size:19px}
+ .nba-mp[data-wide] .mp-hero-photo{right:7%;height:min(100%,380px)}
+ .nba-mp[data-wide] .mp-hero-mark{right:8%;width:min(30%,420px);opacity:.14}
+ .nba-mp[data-wide] .mp-tabs{display:flex;gap:6px;padding:10px 0;border-bottom:0}
+ .nba-mp[data-wide] .mp-tabs button{min-height:40px;padding:0 20px;border-radius:999px;font-size:12px;box-shadow:none}
+ .nba-mp[data-wide] .mp-tabs button:hover{background:#ffffff0d;color:var(--mp-text)}
+ .nba-mp[data-wide] .mp-tabs button[aria-selected=true]{background:color-mix(in srgb,var(--mp-accent) 18%,#12151b);color:#fff;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--mp-accent) 45%,transparent)}
+ .nba-mp[data-wide] .mp-stick[data-mini] .mp-tabs{padding:8px 16px}
+ .nba-mp[data-wide] .mp-body{padding:0}
+
+ .nba-mp .mp-dash{display:grid;gap:20px;margin-top:6px;align-items:start;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:'grade games' 'grade more' 'ranks log'}
+ .nba-mp .mp-panel{min-width:0;padding:2px 26px 6px;border:1px solid #ffffff10;border-radius:22px;
+  background:linear-gradient(180deg,rgba(20,23,30,.82),rgba(14,16,21,.78));box-shadow:0 24px 50px -36px #000;scroll-margin-top:130px;
+  animation:mp-up .5s cubic-bezier(.2,.8,.2,1) backwards}
+ .nba-mp .mp-panel[data-area=grade]{grid-area:grade}
+ .nba-mp .mp-panel[data-area=games]{grid-area:games;animation-delay:.06s}
+ .nba-mp .mp-panel[data-area=more]{grid-area:more;animation-delay:.12s}
+ .nba-mp .mp-panel[data-area=ranks]{grid-area:ranks;animation-delay:.16s}
+ .nba-mp .mp-panel[data-area=log]{grid-area:log;animation-delay:.2s}
+ .nba-mp .mp-panel>*+*{border-top:1px solid #ffffff0f}
+ .nba-mp .mp-panel>.mp-section+*{border-top:0}
+ .nba-mp .mp-panel .mp-card>header h2{font-size:18px}
+ .nba-mp .mp-panel .mp-avg-grid>div{padding:16px 6px}
+ .nba-mp .mp-panel .mp-avg-grid b{font-size:26px}
+ .nba-mp .mp-panel .mp-bars{height:230px}
+ .nba-mp .mp-panel .ns-shotlink:hover{background:linear-gradient(90deg,transparent,#ffffff08 15%,#ffffff08 85%,transparent)}
+ .nba-mp[data-wide] .mp-body>*{animation:none}
+ /* A part with nothing in it yet (no position ranks) steps aside; the game log takes the row. */
+ .nba-mp .mp-panel:empty{display:none}
+ .nba-mp .mp-dash:has(>[data-area=ranks]:empty)>[data-area=log]{grid-column:1 / -1}
+}
+/* A big monitor: three columns, the research beside the other two. */
+@media (min-width:1500px){
+ .nba-mp .mp-dash{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr) minmax(0,.95fr);grid-template-areas:'grade games more' 'ranks log log'}
+ .nba-mp[data-wide] .mp-hero{min-height:380px;padding:30px 64px 40px}
+ .nba-mp[data-wide] .mp-hero h1{font-size:80px}
+ .nba-mp[data-wide] .mp-hero[data-long=l] h1{font-size:68px}
+ .nba-mp[data-wide] .mp-hero[data-long=xl] h1{font-size:56px}
+ .nba-mp[data-wide] .mp-hero-photo{height:min(100%,420px)}
+}
+@media (min-width:1100px) and (prefers-reduced-motion:reduce){.nba-mp .mp-panel{animation:none}}

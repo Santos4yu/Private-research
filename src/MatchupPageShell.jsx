@@ -78,7 +78,7 @@ function Hero({row,team,opponent,home,facts,today,onBack,heroRef}){
  * [[key, label]], the open one `tab` (onTab picks another), the sections
  * as children and anything drawn over the page (a sheet) as `after`.
  */
-export function MatchupPageShell({row,team,opponent,home,facts,color,today,onBack,tabs,tab,onTab,children,after}){
+export function MatchupPageShell({row,team,opponent,home,facts,color,today,onBack,tabs,tab,onTab,jump,wide,children,after}){
  const [pinned,setPinned]=useState(null);
  const heroRef=useRef(null),slotRef=useRef(null),miniRef=useRef(null);
  // Once the banner scrolls up under where the slim bar goes, the bar and
@@ -102,9 +102,9 @@ export function MatchupPageShell({row,team,opponent,home,facts,color,today,onBac
   return()=>shell.style.removeProperty('--props-team');
  },[color]);
  // A new section starts at its top, under the pinned bar.
- const pick=key=>{onTab(key);const slot=slotRef.current,bar=miniRef.current;
+ const pick=key=>{if(jump){jump(key);return;}onTab(key);const slot=slotRef.current,bar=miniRef.current;
   if(pinned&&slot&&bar)window.scrollTo(0,window.scrollY+slot.getBoundingClientRect().top-bar.offsetHeight+1);};
- return <section className="nba-mp" aria-label={`${row.player} matchup`} style={color?{'--team':color}:undefined}>
+ return <section className="nba-mp" data-wide={wide||undefined} aria-label={`${row.player} matchup`} style={color?{'--team':color}:undefined}>
   <Hero row={row} team={team} opponent={opponent} home={home} facts={facts} today={today} onBack={onBack} heroRef={heroRef}/>
   <div className="mp-stick-slot" ref={slotRef}><div className="mp-stick" data-mini={pinned?true:undefined} style={pinned?{left:pinned.left,width:pinned.width}:undefined}>
    <div className="mp-mini" ref={miniRef} aria-hidden={!pinned}>

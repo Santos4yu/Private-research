@@ -12,6 +12,7 @@ import {finite,fmt,realGames,useWnba} from './sports/wnba/wnba-research';
 import {basketballLogUrl} from './unified-finder-data';
 import {lineupRole} from './lineup-role';
 import {CountUp} from './count-up';
+import {useWide} from './use-wide';
 
 const STAT_CHIPS=[['player_points','PTS'],['player_rebounds','REB'],['player_assists','AST'],['player_threes','3PM'],['player_points_rebounds','P+R'],
  ['player_points_assists','P+A'],['player_rebounds_assists','R+A'],['player_points_rebounds_assists','PRA'],['player_steals','STL'],['player_blocks','BLK']];
@@ -114,6 +115,23 @@ const SHEETS={shots:['Shot zones','Where he scores vs'],reb:['Rebound chances','
 const LINE_OF={reb:'player_rebounds',ast:'player_assists'};
 export function NbaMatchupPage({row,lines,league,onBack}){
  const [tab,setTab]=useState('overview'),[shots,setShots]=useState(null);
+ // A computer: every section at once, the tabs jumping to them (Oct 25, the
+ // owner: "not a good layout for pc at all ... make it a large screen").
+ const wide=useWide();
+ const jump=key=>{const target=document.getElementById(`mp-sec-${key}`);if(!target)return;setTab(key);
+  window.scrollTo({top:window.scrollY+target.getBoundingClientRect().top-130,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});};
+ // Which section is in view lights its tab.
+ useEffect(()=>{
+  if(!wide||typeof IntersectionObserver==='undefined')return undefined;
+  const seen=new Map();
+  const watch=new IntersectionObserver(entries=>{
+   for(const entry of entries)seen.set(entry.target.id,entry.intersectionRatio>0?entry.boundingClientRect.top:Infinity);
+   const top=[...seen].filter(([,at])=>at!==Infinity).sort((a,b)=>Math.abs(a[1]-140)-Math.abs(b[1]-140))[0];
+   if(top)setTab(top[0].replace('mp-sec-',''));
+  },{rootMargin:'-120px 0px -45% 0px',threshold:[0,0.01]});
+  TABS.forEach(([key])=>{const node=document.getElementById(`mp-sec-${key}`);if(node)watch.observe(node);});
+  return()=>watch.disconnect();
+ },[wide]);
  const leagueState=useMemo(()=>({data:league,loading:!league}),[league]);
  const log=useGameLog(row);
  const logs=log.rows;
@@ -136,17 +154,26 @@ export function NbaMatchupPage({row,lines,league,onBack}){
  </div>;
  const door=kind=>kind==='shots'?<ShotLink key={kind} row={row} league={leagueState} onOpen={()=>setShots('shots')}/>
   :<ChancesLink key={kind} kind={kind} row={row} league={leagueState} onOpen={()=>setShots(kind)}/>;
- return <MatchupPageShell row={row} team={team} opponent={opponent} home={home} facts={facts} color={color} onBack={onBack} tabs={TABS} tab={tab} onTab={setTab} after={sheet}>
+ return <MatchupPageShell row={row} team={team} opponent={opponent} home={home} facts={facts} color={color} onBack={onBack} tabs={TABS} tab={tab} onTab={setTab} jump={wide?jump:null} wide={wide} after={sheet}>
+  {wide&&<div className="mp-dash">
+   <div className="mp-panel" id="mp-sec-matchup" data-area="grade"><MatchupGrade row={row} league={leagueState} logs={logs}/></div>
+   <div className="mp-panel" id="mp-sec-overview" data-area="games">{log.loading&&!logs.length?<Card title="His games" icon={LineChart}><Loading/></Card>
+    :<><Averages logs={logs}/><Trend row={row} lines={lines} logs={logs} chips={STAT_CHIPS}/></>}<Injuries row={row} league={leagueState} matchup={matchup} player={player}/></div>
+   <div className="mp-panel" data-area="more">{doorsFor(row.marketKey).map(kind=>door(kind))}
+    <PlayTypes row={row}/><LikelyDefenders row={row} league={leagueState} matchup={matchup}/><VsTeam row={row} league={leagueState} logs={logs} lines={lines}/></div>
+   <div className="mp-panel" id="mp-sec-stats" data-area="ranks"><PositionRanks row={row}/></div>
+   <div className="mp-panel" data-area="log"><GameLog logs={logs} league={leagueState}/></div>
+  </div>}
   {/* Two columns side by side on a wide screen, one after the other on a phone. */}
-  {tab==='overview'&&<div className="mp-cols">
+  {!wide&&tab==='overview'&&<div className="mp-cols">
    <div className="mp-col">{log.loading&&!logs.length?<Card title="His games" icon={LineChart}><Loading/></Card>:<><Averages logs={logs}/><Trend row={row} lines={lines} logs={logs} chips={STAT_CHIPS}/></>}</div>
    <div className="mp-col"><Injuries row={row} league={leagueState} matchup={matchup} player={player}/></div></div>}
-  {tab==='matchup'&&<div className="mp-cols">
+  {!wide&&tab==='matchup'&&<div className="mp-cols">
    <div className="mp-col"><MatchupGrade row={row} league={leagueState} logs={logs}/></div>
    <div className="mp-col">{doorsFor(row.marketKey).slice(0,(DOORS[row.marketKey]||[]).length).map(kind=>door(kind))}
     <PlayTypes row={row}/><LikelyDefenders row={row} league={leagueState} matchup={matchup}/>
     {doorsFor(row.marketKey).slice((DOORS[row.marketKey]||[]).length).map(kind=>door(kind))}<VsTeam row={row} league={leagueState} logs={logs} lines={lines}/></div></div>}
-  {tab==='stats'&&<div className="mp-cols" data-wide="right">
+  {!wide&&tab==='stats'&&<div className="mp-cols" data-wide="right">
    <div className="mp-col"><PositionRanks row={row}/></div>
    <div className="mp-col"><GameLog logs={logs} league={leagueState}/></div></div>}
  </MatchupPageShell>;

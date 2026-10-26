@@ -148,6 +148,21 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   closed, the ones set show as green chips that clear with a tap. Stat tabs,
   track record (one line) and the table sit tighter. Rules in the "Compact
   top" block at the end of nba-matchups.css.
+- Desktop (the owner: "not a good layout for pc ... a small centered
+  floating ui"). From 1100px (`src/use-wide.js`), the NBA/NFL Props panel
+  takes the screen's width (to 2200px). List: a sidebar on the left
+  (title, search, Sort / Lines / Players always open, every game listed
+  with logos, time and count) and the table filling the rest; two columns
+  of props from 1900px. NBA player page: no floating card; a big banner,
+  then every section at once in panels (`.mp-dash`): grade + why |
+  averages, his games, injuries | research (shot / rebound / assist
+  charts, play types, defenders, vs them), then position ranks + game log;
+  three columns from 1500px, two below. The tabs become pills that jump
+  to each part and light the one in view. Phones and tablets keep tabs.
+  NFL player page still uses the old two-column tabbed layout (wider now).
+  Rules in the "Desktop" blocks at the end of nba-matchups.css and
+  nba-scout.css. tests/slip-matchup.test.mjs's NHL test fails by date
+  (its fixture's last game is now "first game back"), not from this work.
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).

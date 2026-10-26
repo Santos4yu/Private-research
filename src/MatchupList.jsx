@@ -18,6 +18,7 @@ import {lineupRole} from './lineup-role';
 import {ENOUGH,loadRecord,reportProps,reportRows} from './props-record';
 import {mainLines,tierOf} from './props-lines';
 import {CountUp} from './count-up';
+import {useWide} from './use-wide';
 import './nba-matchups.css';
 
 const SORTS=[['matchup','Matchup'],['hit','Last 10']];
@@ -150,6 +151,17 @@ function GamePicker({games,value,onChange}){
  </div>;
 }
 
+// A computer's sidebar: every game listed with both logos, its time and props.
+function GameList({games,value,onChange}){
+ const total=games.reduce((sum,game)=>sum+game.count,0);
+ return <nav className="nm-games" aria-label="Games"><span className="nm-games-head">Games</span>
+  <button type="button" aria-pressed={value==='all'} onClick={()=>onChange('all')}><span className="nm-game-teams"><b>All games</b></span><em>{total}</em></button>
+  {games.map(game=><button type="button" key={game.key} aria-pressed={value===game.key} onClick={()=>onChange(game.key)}>
+   <span className="nm-game-teams"><Img src={game.awayLogo}/><b>{game.away}</b><i>@</i><Img src={game.homeLogo}/><b>{game.home}</b></span>
+   <small>{when(game.startsAt)}</small><em>{game.count}</em></button>)}
+ </nav>;
+}
+
 export function MatchupList({config}){
  const {store,stats:STATS,score,Page,words}=config;
  const SHORT=useMemo(()=>Object.fromEntries(STATS),[STATS]);
@@ -166,6 +178,9 @@ export function MatchupList({config}){
  const setKind=value=>{setKindNow(value);remember(`props-kind:${config.key}`,value);};
  const setRole=value=>{setRoleNow(value);remember(`props-role:${config.key}`,value);};
  const [filtersOpen,setFiltersOpen]=useState(false);
+ // A computer: the controls sit in a sidebar, always open, with the games listed.
+ const wide=useWide();
+ const showFilters=wide||filtersOpen;
  const [openId,setOpenId]=useState(null);
  const [page,setPage]=useState(null);
  const listScroll=useRef(0);
@@ -248,11 +263,12 @@ export function MatchupList({config}){
  },[page]);
  if(page)return <Page key={page.id} row={page} lines={rows.filter(item=>item.player===page.player&&item.teamAbbr===page.teamAbbr)} league={league} onBack={closePage}/>;
 
- return <section className="nba-matchups" data-league={config.key} aria-labelledby={`${config.key}-matchups-title`}>
+ return <section className="nba-matchups" data-league={config.key} data-wide={wide||undefined} aria-labelledby={`${config.key}-matchups-title`}>
   {/* Oct 25, the owner: "I see all buttons then I have to scroll down to
      see props". One slim title row, then search, game and a Filters button;
      sort, lines and players open under it, and what's picked shows as small
      chips that clear with a tap. */}
+  <div className="nm-side">
   <header className="nm-head">
    <h2 id={`${config.key}-matchups-title`}>{words.title}</h2>
    <p>{words.blurb}</p>
@@ -264,11 +280,11 @@ export function MatchupList({config}){
    <label className="nm-search"><Search size={15} aria-hidden="true"/>
     <input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Find a player" enterKeyHint="search" aria-label="Find a player"/>
     {query&&<button type="button" onClick={()=>setQuery('')} aria-label="Clear search"><X size={14}/></button>}</label>
-   <GamePicker games={games} value={picked} onChange={setGame}/>
-   <button type="button" className="nm-filter-button" aria-expanded={filtersOpen} aria-controls={`${config.key}-filters`} onClick={()=>setFiltersOpen(value=>!value)}
-    aria-label={`Filters${changed.length?`, ${changed.length} on`:''}`}><SlidersHorizontal size={16} aria-hidden="true"/>{changed.length>0&&<i>{changed.length}</i>}</button>
+   {!wide&&<GamePicker games={games} value={picked} onChange={setGame}/>}
+   {!wide&&<button type="button" className="nm-filter-button" aria-expanded={filtersOpen} aria-controls={`${config.key}-filters`} onClick={()=>setFiltersOpen(value=>!value)}
+    aria-label={`Filters${changed.length?`, ${changed.length} on`:''}`}><SlidersHorizontal size={16} aria-hidden="true"/>{changed.length>0&&<i>{changed.length}</i>}</button>}
   </div>
-  {filtersOpen&&<div className="nm-filters" id={`${config.key}-filters`}>
+  {showFilters&&<div className="nm-filters" id={`${config.key}-filters`}>
    <div className="nm-filter-row"><span>Sort</span><div className="nm-chips" role="group" aria-label="Sort by">
     {SORTS.map(([key,text])=><button type="button" key={key} aria-pressed={sort===key} onClick={()=>setSort(key)}>{text}</button>)}</div></div>
    <div className="nm-filter-row"><span>Lines</span><div className="nm-chips" role="group" aria-label="Lines">
@@ -277,8 +293,11 @@ export function MatchupList({config}){
    {roles&&<div className="nm-filter-row"><span>Players</span><div className="nm-chips" role="group" aria-label="Players">
     {ROLES.map(([key,text])=><button type="button" key={key} aria-pressed={roleShown===key} onClick={()=>setRole(key)}>{text}</button>)}</div></div>}
   </div>}
-  {!filtersOpen&&changed.length>0&&<div className="nm-active" aria-label="Filters on">{changed.map(item=>
+  {!showFilters&&changed.length>0&&<div className="nm-active" aria-label="Filters on">{changed.map(item=>
    <button type="button" key={item.key} onClick={item.clear} aria-label={`Clear ${item.label}`}>{item.pic&&<img src={item.pic} alt="" width="13" height="13"/>}{item.label}<X size={12} aria-hidden="true"/></button>)}</div>}
+  {wide&&<GameList games={games} value={picked} onChange={setGame}/>}
+  </div>
+  <div className="nm-maincol">
   <div className="nm-stats" role="group" aria-label="Stat">
    {STATS.filter(([key])=>key==='all'||counts[key]).map(([key,text])=><button type="button" key={key} aria-pressed={stat===key} onClick={()=>setStat(key)}>{text}</button>)}
   </div>
@@ -301,5 +320,6 @@ export function MatchupList({config}){
    <span>Try another stat, game or filter, or clear the search.</span></div>}
 
   {at>0&&rows.length>0&&<p className="nm-meta">{shown.length} {shown.length===1?'prop':'props'} · updated {new Date(at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</p>}
+  </div>
  </section>;
 }
