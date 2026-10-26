@@ -777,6 +777,11 @@
 .nba-mp .wu-step b{font:800 15px/1.2 'Sora',var(--font-sans);color:#fff}
 .nba-mp .wu-leg-now{padding-left:8px}
 .nba-mp .wu-leg-now>span{flex:1}
+/* Compare him to guards, forwards or centers. */
+.nba-mp .wu-pos{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.nba-mp .wu-pos>div{display:flex;gap:3px;padding:3px;border:1px solid #262b34;border-radius:999px;background:#0f1217}
+.nba-mp .wu-pos button{height:28px;padding:0 12px;border:0;border-radius:999px;background:transparent;color:var(--mp-muted);font-size:12px;font-weight:800;cursor:pointer}
+.nba-mp .wu-pos button[aria-pressed=true]{background:#262a33;color:#fff}
 /* The parlay: its legs as chips (tap one to take it out). */
 .nba-mp .wu-slip{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 .nba-mp .wu-slip .wu-cap{margin-right:2px}

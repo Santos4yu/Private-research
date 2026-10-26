@@ -263,6 +263,11 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
      uses the row's position.
   Still different from PropsEdge by design: we count each player at a
   position (G/F/C), they count the position's total by PG/SG/SF/PF/C.
+- Write-ups, round 5: a "Compare him to" Guards / Forwards / Centers
+  switch (starts on ESPN's position, else the line's; the writer's pick
+  wins: Diabate still came out as a forward). Streak lines never repeat:
+  a run reaching back past this season is said once ("..., every game
+  this season included"), else "never under all season (N for N)".
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).

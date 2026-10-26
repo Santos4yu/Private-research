@@ -41,7 +41,10 @@ export function WriteupSheet({lines,buildLeg}){
  // The line can be moved a half point at a time (another app's number, a line that moved).
  const [line,setLine]=useState(chosen?Number(chosen.line):null);
  useEffect(()=>setLine(chosen?Number(chosen.line):null),[chosen]);
- const leg=useMemo(()=>chosen&&Number.isFinite(line)?buildLeg(chosen.marketKey,line,kindOf(chosen)):null,[chosen,line,buildLeg]);
+ // Who he's compared with: guards, forwards or centers. Found from ESPN, but
+ // the writer knows best (Oct 25: a center the data called a forward).
+ const [position,setPosition]=useState(null);
+ const leg=useMemo(()=>chosen&&Number.isFinite(line)?buildLeg(chosen.marketKey,line,kindOf(chosen),position):null,[chosen,line,buildLeg,position]);
  const [slip,setSlip]=useState(writeupSlip);
  useEffect(()=>onWriteupSlip(setSlip),[]);
  const [tag,setTag]=useState('PICK'),[units,setUnits]=useState(''),[confidence,setConfidence]=useState(''),[perLeg,setPerLeg]=useState(3);
@@ -71,6 +74,10 @@ export function WriteupSheet({lines,buildLeg}){
    <button type="button" className="wu-add" data-on={inSlip||undefined} onClick={()=>inSlip?removeLeg(leg.key):addLeg(leg)}
     aria-label={inSlip?'Remove from the post':'Add to the post'}>{inSlip?<Check size={16} aria-hidden="true"/>:<Plus size={16} aria-hidden="true"/>}<span>{inSlip?'Added':'Add'}</span></button>
   </div>}
+
+  {leg&&<div className="wu-pos"><span className="wu-cap">Compare him to</span>
+   <div role="group" aria-label="Compare him to">{[['G','Guards'],['F','Forwards'],['C','Centers']].map(([key,label])=>
+    <button type="button" key={key} aria-pressed={leg.position===key} onClick={()=>setPosition(key)}>{label}</button>)}</div></div>}
 
   {slip.length>0&&<div className="wu-slip"><span className="wu-cap">Parlay · {slip.length} {slip.length===1?'leg':'legs'}</span>
    {slip.map(item=><button type="button" key={item.key} className="wu-chip" onClick={()=>removeLeg(item.key)} aria-label={`Remove ${item.header}`}>

@@ -73,15 +73,15 @@ test('streaks: never under all season, a straight run, the last 5, never under v
   assert.equal(goblin.header, 'Kyrie Irving · Over 7.5 Points (Goblin)');
   assert.equal(goblin.key, '1|player_points|goblin');
   const text = kind => goblin.facts.find(fact => fact.kind === kind)?.text;
-  assert.equal(text('season'), "🔒 Hasn't gone under this line once all season (7 for 7)");
-  // The run reaches into last season (8 straight), so it's said too; the last 5 and last 10 it already covers are not.
-  assert.equal(text('streak'), '🔒 Over this line in his last 8 straight games');
+  // The run reaches back into last season (8 straight): said once, with this season in it; not a second "7 for 7".
+  assert.equal(text('streak'), '🔒 Over this line in his last 8 straight games, every game this season included');
+  assert.equal(text('season'), undefined);
   assert.equal(text('last5'), undefined);
   assert.equal(text('hits'), undefined);
   assert.equal(text('h2h'), '🔁 Has never gone under against the Heat (4 for 4 in their recent games)');
   assert.match(text('cushion'), /^📏 He's been averaging about 11 points lately, well above this line$/);
   // The streaks lead.
-  assert.deepEqual(goblin.facts.slice(0, 2).map(fact => fact.kind), ['season', 'streak']);
+  assert.equal(goblin.facts[0].kind, 'streak');
   // A regular line he has missed lately: no streak claims.
   const regular = legFacts({row, marketKey: 'player_points', line: 12.5, league, games: log});
   assert.ok(!regular.facts.some(fact => ['season', 'streak', 'last5'].includes(fact.kind) && /Hasn't|straight/.test(fact.text)));
@@ -103,4 +103,14 @@ test('early in a season: this season\'s games alone, said so; nothing on a team 
   const big = legFacts({row: {...row, position: 'F'}, marketKey: 'player_rebounds', line: 9.5,
     league: {...early, rotation: {DAL: {players: [{id: '1', pos: 'C'}]}}}, games: [], ctx: null});
   assert.equal(big.facts.find(fact => fact.kind === 'dvp')?.text, '🎯 The Heat give up the 1st most rebounds to centers in the league so far this season');
+});
+
+test('the season line when his run starts this season; the writer can pick who he\'s compared with', () => {
+  const log = [[2026, 'BOS', 3], ...[13, 9, 15, 11].map(value => [2027, 'BOS', value])].map(([season, opponent, value]) => ({season, opponent, values: {player_points: value}}));
+  const leg = legFacts({row, marketKey: 'player_points', line: 7.5, league, games: log});
+  assert.equal(leg.facts[0].text, "🔒 Hasn't gone under this line once all season (4 for 4)");
+  assert.equal(leg.facts.some(fact => fact.kind === 'streak'), false);
+  const asCenter = legFacts({row, marketKey: 'player_rebounds', line: 9.5, league: {...league, dvpEach: {MIA: {C: {stats: {reb: {szn: [14, 30]}}}}, ...Object.fromEntries(TEAMS.slice(1).map((team, i) => [team, {C: {stats: {reb: {szn: [10, i + 1]}}}}]))}}, games: [], position: 'C'});
+  assert.equal(asCenter.position, 'C');
+  assert.match(asCenter.facts.find(fact => fact.kind === 'dvp').text, /to centers in the league this season$/);
 });

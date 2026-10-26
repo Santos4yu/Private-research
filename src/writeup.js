@@ -62,14 +62,15 @@ const mostRank = cell => (finite(cell?.[1]) ? cell[1] : null);
  * {opponent, values: {marketKey: value}}; ctx: the player-context payload
  * (zones, similar, opportunity) or null; score: the matchup score.
  */
-export function legFacts({row, marketKey, line, league, games = [], ctx = null, score = null, side = 'O', kind = 'standard'}) {
+export function legFacts({row, marketKey, line, league, games = [], ctx = null, score = null, side = 'O', kind = 'standard', position = null}) {
   const stat = STAT_SHORT[marketKey] || marketKey;
   const parts = PARTS[marketKey] || [];
   const opp = row.opponent;
   // His position as ESPN lists it (the rotation), else the line's: a
   // center the props app calls a forward is read as a center (Oct 25).
   const espn = (league?.rotation?.[row.teamAbbr]?.players || []).find(player => String(player.id) === String(row.playerId))?.pos;
-  const pos = posOf(espn) || posOf(row.position);
+  // The writer can say which he plays (the write-up's G / F / C switch): that wins.
+  const pos = posOf(position) || posOf(espn) || posOf(row.position);
   const [posWords, posSingle] = POS_WORDS[pos] || ['players at his spot', 'player at his spot'];
   // How the opponent is doing THIS season (Oct 25, the owner: "is this true
   // data?"). Early in a season the league numbers take last season's games
@@ -171,12 +172,14 @@ export function legFacts({row, marketKey, line, league, games = [], ctx = null, 
     const season = Math.max(...played.map(game => Number(game.season)).filter(finite));
     const seasonValues = finite(season) ? played.filter(game => Number(game.season) === season).map(game => game.values[marketKey]) : [];
     const seasonPerfect = seasonValues.length >= 3 && seasonValues.every(over);
-    if (seasonPerfect) add('season', 13 + Math.min(seasonValues.length, 10) / 2, `🔒 Hasn't gone under this line once all season (${seasonValues.length} for ${seasonValues.length})`);
     // His current run of overs, newest back (can run into last season).
     let streak = 0;
     for (let index = values.length - 1; index >= 0 && over(values[index]); index -= 1) streak += 1;
+    // One of the two, never both (Oct 25: "11 straight" already says "3 for 3
+    // this season"): the run when it reaches back past this season, else the season.
     const covered = seasonPerfect ? seasonValues.length : 0;
-    if (streak >= 6 && streak > covered) add('streak', 11 + Math.min(streak, 15) / 3, `🔒 Over this line in his last ${streak} straight games`);
+    if (streak >= 6 && streak > covered) add('streak', 13 + Math.min(streak, 15) / 3, `🔒 Over this line in his last ${streak} straight games${seasonPerfect ? ', every game this season included' : ''}`);
+    else if (seasonPerfect) add('season', 13 + Math.min(seasonValues.length, 10) / 2, `🔒 Hasn't gone under this line once all season (${seasonValues.length} for ${seasonValues.length})`);
     const best = Math.max(covered, streak >= 6 ? streak : 0);
     const last10 = values.slice(-10), overs = last10.filter(over).length;
     if (best < last10.length - 2 && overs * 10 >= last10.length * 6) add('hits', 3 + overs - last10.length / 2, `📈 He's gone over this line in ${overs} of his last ${last10.length} games`);
@@ -216,7 +219,7 @@ export function legFacts({row, marketKey, line, league, games = [], ctx = null, 
   // A Goblin or Demon says so after the line ("Over 7.5 Points (Goblin)").
   const tier = String(kind || 'standard').toLowerCase();
   const tierWord = tier === 'goblin' ? ' (Goblin)' : tier === 'demon' ? ' (Demon)' : '';
-  return {key: `${row.playerId || row.player}|${marketKey}|${tier}`, player: row.player, team: row.teamAbbr, opponent: opp, marketKey, kind: tier, line,
+  return {key: `${row.playerId || row.player}|${marketKey}|${tier}`, player: row.player, team: row.teamAbbr, opponent: opp, marketKey, kind: tier, line, position: pos,
     header: `${row.player} · ${side === 'U' ? 'Under' : 'Over'} ${finite(line) ? lineText(line) : ''} ${HEADER_WORDS[marketKey] || stat}${tierWord}`.replace(/\s+/g, ' ').trim(),
     score: finite(score) ? score : null, label: finite(score) ? band(score).label : null,
     facts: facts.sort((a, b) => b.weight - a.weight)};

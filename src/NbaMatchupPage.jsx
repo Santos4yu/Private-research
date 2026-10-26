@@ -158,7 +158,7 @@ export function NbaMatchupPage({row,lines,league,onBack}){
  const lineFor=kind=>row.marketKey===LINE_OF[kind]?row.line:null;
  // A Discord write-up of his lines (admins: the owner's community posts, writeup.js).
  const admin=siteIsAdmin();
- const buildLeg=useCallback((marketKey,line,kind)=>legFacts({row,marketKey,line,kind,league,games:realGames(logs),ctx:player.data||null,
+ const buildLeg=useCallback((marketKey,line,kind,position)=>legFacts({row,marketKey,line,kind,position,league,games:realGames(logs),ctx:player.data||null,
   score:league?matchupScore({...row,marketKey},league)?.score:null}),[row,league,logs,player.data]);
  // On the page itself (a portal), above the phone's dock: inside the tab's
  // layer it sat under the dock (Oct 25, the owner couldn't reach Copy).
