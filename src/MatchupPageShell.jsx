@@ -94,6 +94,13 @@ export function MatchupPageShell({row,team,opponent,home,facts,color,today,onBac
   watch.observe(hero);addEventListener('resize',place);
   return()=>{watch.disconnect();removeEventListener('resize',place);};
  },[]);
+ // The page's background takes his team's color (nba-matchups.css, Background).
+ useEffect(()=>{
+  const shell=document.getElementById('app-shell');
+  if(!shell||!color)return undefined;
+  shell.style.setProperty('--props-team',color);
+  return()=>shell.style.removeProperty('--props-team');
+ },[color]);
  // A new section starts at its top, under the pinned bar.
  const pick=key=>{onTab(key);const slot=slotRef.current,bar=miniRef.current;
   if(pinned&&slot&&bar)window.scrollTo(0,window.scrollY+slot.getBoundingClientRect().top-bar.offsetHeight+1);};

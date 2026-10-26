@@ -259,3 +259,28 @@
  .nm-row,.nm-bar i,.nm-reads,.nm-cell.nm-score[data-hot] b{animation:none}
  .nm-main:active{transform:none}
 }
+
+/* ---------------------------------------------------------------- Background
+   Oct 25, the owner: "a nicer background, not just plain black". The NBA /
+   NFL Props pages paint the whole app behind them (#app-shell, edge to
+   edge) instead of the flat theme black; the panel itself goes clear. The
+   list: a deep slate with a soft glow of the site's accent from the top
+   left and a little matchup green from the top right. A player's page: his
+   team's color glowing down from the banner and a faint tint of it all the
+   way down (MatchupPageShell sets --props-team). A fine grain over both
+   keeps the gradients smooth. Still the background photo and site glow stay
+   off here: this is the page's own. */
+:root #app-shell:has(#panel-v2[data-league]:not([hidden])){
+ --props-grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+ background:var(--props-grain),
+  radial-gradient(110% 520px at 8% -80px,color-mix(in srgb,var(--theme-accent,#4cc9f0) 20%,transparent),transparent 70%),
+  radial-gradient(80% 420px at 100% -40px,rgba(70,227,154,.09),transparent 70%),
+  radial-gradient(70% 600px at 50% 120%,color-mix(in srgb,var(--theme-accent,#4cc9f0) 7%,transparent),transparent 70%),
+  linear-gradient(180deg,#11141a 0,#0c0e13 520px,#0a0b0f 100%)!important}
+:root #app-shell:has(#props-league-root[data-page=player]){
+ background:var(--props-grain),
+  radial-gradient(120% 700px at 85% -60px,color-mix(in srgb,var(--props-team,#2f5b9a) 40%,transparent),transparent 72%),
+  radial-gradient(90% 500px at 0% 380px,color-mix(in srgb,var(--props-team,#2f5b9a) 18%,transparent),transparent 70%),
+  radial-gradient(80% 500px at 100% 1100px,color-mix(in srgb,var(--props-team,#2f5b9a) 12%,transparent),transparent 70%),
+  linear-gradient(180deg,color-mix(in srgb,var(--props-team,#2f5b9a) 16%,#0b0c10) 0,color-mix(in srgb,var(--props-team,#2f5b9a) 11%,#0a0b0e) 700px,color-mix(in srgb,var(--props-team,#2f5b9a) 8%,#09090c) 100%)!important}
+:root #app-shell #panel-v2[data-league]:not([hidden]){background:transparent!important;background-color:transparent!important}

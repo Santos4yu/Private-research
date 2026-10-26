@@ -131,6 +131,15 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   in the "Personality" blocks at the end of nba-matchups.css and
   nba-scout.css, off with reduced motion; entrance animations use
   `backwards` fill so nothing keeps a transform.
+- Background (the owner: "a nicer background, not just plain black").
+  The NBA/NFL Props pages now paint #app-shell edge to edge (the panel goes
+  clear): the list a deep slate with soft accent and green glows from the
+  top, a player page his team's color glowing from the top and tinting the
+  page all the way down (MatchupPageShell sets `--props-team` on
+  #app-shell), both with a fine grain. The banner fades into it and the tab
+  bar is clear, frosted when pinned. Rules at the end of nba-matchups.css
+  (Background) and nba-scout.css. The site's background photo and glow
+  still stay off on the Props tab; this replaces the flat black only.
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).
