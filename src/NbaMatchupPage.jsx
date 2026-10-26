@@ -117,7 +117,7 @@ export function NbaMatchupPage({row,lines,league,onBack}){
  const [tab,setTab]=useState('overview'),[shots,setShots]=useState(null);
  // A computer: every section at once, the tabs jumping to them (Oct 25, the
  // owner: "not a good layout for pc at all ... make it a large screen").
- const wide=useWide();
+ const wide=useWide(),big=useWide('(min-width: 1500px)');
  const jump=key=>{const target=document.getElementById(`mp-sec-${key}`);if(!target)return;setTab(key);
   window.scrollTo({top:window.scrollY+target.getBoundingClientRect().top-130,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});};
  // Which section is in view lights its tab.
@@ -155,15 +155,20 @@ export function NbaMatchupPage({row,lines,league,onBack}){
  const door=kind=>kind==='shots'?<ShotLink key={kind} row={row} league={leagueState} onOpen={()=>setShots('shots')}/>
   :<ChancesLink key={kind} kind={kind} row={row} league={leagueState} onOpen={()=>setShots(kind)}/>;
  return <MatchupPageShell row={row} team={team} opponent={opponent} home={home} facts={facts} color={color} onBack={onBack} tabs={TABS} tab={tab} onTab={setTab} jump={wide?jump:null} wide={wide} after={sheet}>
-  {wide&&<div className="mp-dash">
-   <div className="mp-panel" id="mp-sec-matchup" data-area="grade"><MatchupGrade row={row} league={leagueState} logs={logs}/></div>
-   <div className="mp-panel" id="mp-sec-overview" data-area="games">{log.loading&&!logs.length?<Card title="His games" icon={LineChart}><Loading/></Card>
-    :<><Averages logs={logs}/><Trend row={row} lines={lines} logs={logs} chips={STAT_CHIPS}/></>}<Injuries row={row} league={leagueState} matchup={matchup} player={player}/></div>
-   <div className="mp-panel" data-area="more">{doorsFor(row.marketKey).map(kind=>door(kind))}
-    <PlayTypes row={row}/><LikelyDefenders row={row} league={leagueState} matchup={matchup}/><VsTeam row={row} league={leagueState} logs={logs} lines={lines}/></div>
-   <div className="mp-panel" id="mp-sec-stats" data-area="ranks"><PositionRanks row={row}/></div>
-   <div className="mp-panel" data-area="log"><GameLog logs={logs} league={leagueState}/></div>
-  </div>}
+  {/* Oct 25, the owner: no floating cards, no gaps. One framed page; each
+     column stacks on its own (three on a big monitor, two on a laptop), so
+     a short column never leaves a hole beside a long one. */}
+  {wide&&(()=>{
+   const grade=<section className="mp-part" id="mp-sec-matchup" key="grade"><MatchupGrade row={row} league={leagueState} logs={logs}/></section>;
+   const ranks=<section className="mp-part" id="mp-sec-stats" key="ranks"><PositionRanks row={row}/></section>;
+   const games=<section className="mp-part" id="mp-sec-overview" key="games">{log.loading&&!logs.length?<Card title="His games" icon={LineChart}><Loading/></Card>
+    :<><Averages logs={logs}/><Trend row={row} lines={lines} logs={logs} chips={STAT_CHIPS}/></>}<Injuries row={row} league={leagueState} matchup={matchup} player={player}/></section>;
+   const research=<section className="mp-part" key="research">{doorsFor(row.marketKey).map(kind=>door(kind))}
+    <PlayTypes row={row}/><LikelyDefenders row={row} league={leagueState} matchup={matchup}/><VsTeam row={row} league={leagueState} logs={logs} lines={lines}/></section>;
+   const gameLog=<section className="mp-part" key="log"><GameLog logs={logs} league={leagueState}/></section>;
+   const columns=big?[[grade,ranks],[games,gameLog],[research]]:[[grade,ranks,research],[games,gameLog]];
+   return <div className="mp-dash" data-cols={columns.length}>{columns.map((parts,index)=><div className="mp-dcol" key={index}>{parts}</div>)}</div>;
+  })()}
   {/* Two columns side by side on a wide screen, one after the other on a phone. */}
   {!wide&&tab==='overview'&&<div className="mp-cols">
    <div className="mp-col">{log.loading&&!logs.length?<Card title="His games" icon={LineChart}><Loading/></Card>:<><Averages logs={logs}/><Trend row={row} lines={lines} logs={logs} chips={STAT_CHIPS}/></>}</div>

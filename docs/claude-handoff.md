@@ -163,6 +163,19 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   Rules in the "Desktop" blocks at the end of nba-matchups.css and
   nba-scout.css. tests/slip-matchup.test.mjs's NHL test fails by date
   (its fixture's last game is now "first game back"), not from this work.
+- Desktop, round 2 (the owner: "I don't want it just floating, I want a
+  template on it ... I don't like these gaps"; his screenshot showed the
+  page still in the site's narrow container). Both the list and the NBA
+  player page are now one framed surface (border, rounded corners, solid
+  dark fill) that breaks out of the container to the screen's width:
+  `width:var(--frame)` with `--frame:min(2200px,100vw - 80px)` and
+  `margin-left:calc(50% - var(--frame)/2)` (assumes the panel is centered,
+  as .tab-panel is). Player page: banner at the top of the frame, a bar
+  with the section pills, then columns split by thin lines, each column
+  its own stack (`.mp-dcol` > `.mp-part`), so no holes: 3 columns from
+  1500px (grade + ranks | season, his games, injuries, game log |
+  research), 2 below (grade + ranks + research | the rest). List: the
+  sidebar is the frame's left pane.
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).

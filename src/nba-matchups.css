@@ -357,10 +357,13 @@
  :root[data-theme] body #app-shell #panel-v2:is([data-league=nba],[data-league=nfl]):not([hidden]),
  #app-shell #panel-v2:is([data-league=nba],[data-league=nfl]):not([hidden]){width:calc(100% - 64px)!important;max-width:2200px!important}
  #props-league-root{max-width:none}
- .nba-matchups[data-wide]{display:grid;grid-template-columns:320px minmax(0,1fr);gap:28px;align-items:start}
- .nba-matchups[data-wide] .nm-side{display:flex;flex-direction:column;gap:12px;
-  padding:18px;border:1px solid #ffffff10;border-radius:22px;background:linear-gradient(180deg,rgba(20,23,30,.85),rgba(14,16,21,.8))}
- .nba-matchups[data-wide] .nm-maincol{display:block;min-width:0}
+ /* One framed surface across the screen (Oct 25, the owner: no floating
+    page): the sidebar its left pane, the props the rest, a line between. */
+ .nba-matchups[data-wide]{--frame:min(2200px,calc(100vw - 80px));width:var(--frame);margin:0 0 24px calc(50% - var(--frame) / 2);padding:0;
+  display:grid;grid-template-columns:320px minmax(0,1fr);align-items:stretch;border:1px solid #ffffff14;border-radius:26px;overflow:clip;
+  background:linear-gradient(180deg,rgba(18,21,28,.94),rgba(12,14,19,.96));box-shadow:0 40px 80px -50px #000,0 0 0 1px #00000060}
+ .nba-matchups[data-wide] .nm-side{display:flex;flex-direction:column;gap:12px;padding:22px 20px;border-right:1px solid #ffffff10;background:#0d0f14}
+ .nba-matchups[data-wide] .nm-maincol{display:block;min-width:0;padding:14px 28px 24px}
  .nba-matchups[data-wide] .nm-head{margin:0}
  .nba-matchups[data-wide] .nm-head h2{font-size:24px}
  .nba-matchups[data-wide] .nm-head p{display:block}
