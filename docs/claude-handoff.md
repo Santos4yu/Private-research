@@ -214,6 +214,18 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   (player-context similar), teammates and their players out tonight.
   `formatPost` writes ## title, **bold** legs, • reasons, -# small lines.
   No odds (the site has none). Tests: tests/writeup.test.mjs.
+- Write-ups, round 2 (the owner: different emojis, not a copy of the
+  posts he showed; fewer numbers, explained for people who don't know
+  sports). Reasons are plain sentences with at most a place ("3rd most")
+  or "8 of his last 10", never decimals; teams by name ("the Heat").
+  PropScout's own layout: `## 🔎 PropScout PICK · 2-Leg Parlay`, a -#
+  details line (sport, units, confidence), each leg as a ### heading with
+  its reasons in > quotes, each starting with its own emoji (🎯 position,
+  🛡️ defense, 💨 pace, 🧲 / 🧱 rebounds, 🤝 assists, 🏹 threes, 📍 zones,
+  📈 / 🌡️ form, 🔁 vs them, 👀 similar players, 🚑 who's out), a -# grade
+  line and a -# sign-off. Labels: PICK / TOP PICK / BEST BET / LEAN /
+  SLEEPER. Don't bring back ☢️, "Write-Up 📝", "Confidence Rating ⭐" or
+  "BOL & React": those were the other account's. Slip key is now v2.
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).

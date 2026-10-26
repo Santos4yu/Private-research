@@ -4,9 +4,8 @@
 // copy a Discord-ready post. The text can be edited before copying.
 import React,{useEffect,useMemo,useState} from 'react';
 import {Check,Copy,Plus,Trash2,X} from 'lucide-react';
-import {STAT_SHORT,addLeg,clearLegs,formatPost,onWriteupSlip,removeLeg,writeupSlip} from './writeup';
+import {STAT_SHORT,TAGS,addLeg,clearLegs,formatPost,onWriteupSlip,removeLeg,writeupSlip} from './writeup';
 
-const TAGS=['PLAY','MINI NUKE','NUKE','EXCLUSIVE PLAY','LOCK'];
 const figure=value=>Number.isInteger(Number(value))?String(Number(value)):Number(value).toFixed(1);
 
 export function WriteupSheet({lines,buildLeg,onClose}){
@@ -20,7 +19,7 @@ export function WriteupSheet({lines,buildLeg,onClose}){
  const leg=useMemo(()=>chosen?buildLeg(chosen.marketKey,Number(chosen.line)):null,[chosen,buildLeg]);
  const [slip,setSlip]=useState(writeupSlip);
  useEffect(()=>onWriteupSlip(setSlip),[]);
- const [tag,setTag]=useState('PLAY'),[units,setUnits]=useState(''),[confidence,setConfidence]=useState(''),[perLeg,setPerLeg]=useState(3);
+ const [tag,setTag]=useState('PICK'),[units,setUnits]=useState(''),[confidence,setConfidence]=useState(''),[perLeg,setPerLeg]=useState(3);
  const inSlip=leg&&slip.some(item=>item.key===leg.key);
  // The post: the gathered legs (this one refreshed if it's among them), else this one alone.
  const legs=slip.length?slip.map(item=>item.key===leg?.key?leg:item):leg?[leg]:[];
@@ -47,7 +46,7 @@ export function WriteupSheet({lines,buildLeg,onClose}){
     <button type="button" onClick={()=>removeLeg(item.key)} aria-label={`Remove ${item.header}`}><Trash2 size={14}/></button></div>)}
    <p>Open another player's page to add his line too.</p></div>}
   <div className="wu-opts">
-   <label><span>Title</span><select value={tag} onChange={event=>setTag(event.target.value)}>{TAGS.map(item=><option key={item}>{item}</option>)}</select></label>
+   <label><span>Label</span><select value={tag} onChange={event=>setTag(event.target.value)}>{TAGS.map(item=><option key={item}>{item}</option>)}</select></label>
    <label><span>Units</span><input value={units} onChange={event=>setUnits(event.target.value)} placeholder="1.5" inputMode="decimal"/></label>
    <label><span>Confidence</span><input value={confidence} onChange={event=>setConfidence(event.target.value)} placeholder="4.5" inputMode="decimal"/></label>
    <label><span>Reasons</span><select value={perLeg} onChange={event=>setPerLeg(Number(event.target.value))}>{[2,3,4,5].map(n=><option key={n} value={n}>{n} a leg</option>)}</select></label>
