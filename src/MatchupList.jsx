@@ -244,15 +244,28 @@ export function MatchupList({config}){
   [ofKind,scores,grades,stat,picked,needle,sort,league,roles,roleShown]);
  const counts=useMemo(()=>ofKind.reduce((out,row)=>({...out,[row.marketKey]:(out[row.marketKey]||0)+1}),{}),[ofKind]);
  // A player's page: its own history entry, so the phone's back gesture
- // closes it the same as the page's back button.
+ // closes it the same as the page's back button. Each entry carries a mark
+ // made when this visit opened it (Oct 25, the owner: the back arrow went to
+ // the Parlay Builder). An entry left from before a reload (the app updates
+ // itself) still said a player was open; back then trusted it and went one
+ // page too far. Now only this visit's own mark counts: anything else is
+ // cleared, and back closes the page without leaving the Props tab.
+ const opened=useRef(null);
+ const marked=()=>Boolean(opened.current)&&history.state?.nbaMatchup===opened.current;
+ const clearMark=()=>{if(history.state?.nbaMatchup){const {nbaMatchup,...rest}=history.state;history.replaceState(rest,'',location.href);}};
+ useEffect(()=>{if(!opened.current)clearMark();},[]);
  const openPage=useCallback(row=>{
   listScroll.current=window.scrollY;
-  history.pushState({...history.state,nbaMatchup:row.id},'',location.href);
+  opened.current=`${row.id}:${Date.now()}`;
+  history.pushState({...history.state,nbaMatchup:opened.current},'',location.href);
   setPage(row);window.scrollTo(0,0);
  },[]);
- const closePage=useCallback(()=>{if(history.state?.nbaMatchup)history.back();else setPage(null);},[]);
+ const closePage=useCallback(()=>{
+  if(marked()){history.back();return;}
+  opened.current=null;clearMark();setPage(null);
+ },[]);
  useEffect(()=>{
-  const onPop=()=>{if(!history.state?.nbaMatchup)setPage(null);};
+  const onPop=()=>{if(!marked()){opened.current=null;clearMark();setPage(null);}};
   window.addEventListener('popstate',onPop);return()=>window.removeEventListener('popstate',onPop);
  },[]);
  useEffect(()=>{

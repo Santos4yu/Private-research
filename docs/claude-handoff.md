@@ -185,6 +185,13 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   chart 1180px wide with the court beside its zones from 1000px; phones
   keep the sheet rising from the bottom. Focus starts on Close; Escape
   closes. Use useScrollLock for any new pop-up.
+- Back arrow bug (the owner: back from a player page went to the Parlay
+  Builder). A history entry left from before a reload (app-update.js
+  reloads after each release; app.js keeps `...history.state` on load)
+  still said `nbaMatchup`, so back trusted it and went one page too far.
+  MatchupList.jsx now marks each pushed entry with a token made when this
+  visit opened it (`opened` ref); only that token counts, a stale one is
+  cleared on load, and back without it just closes the page.
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).
