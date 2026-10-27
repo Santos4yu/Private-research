@@ -54,43 +54,48 @@
   }
 
   /* The dock: a floating glass capsule (Oct 27, the owner: "a nice dock
-     like this yt new one"). Icons only; the page shows through, blurred,
-     under a light rim, and a lighter pill slides to the current tab
+     like this yt new one", then "glass like the yt one and thin like it
+     not a plastic foggy look"). Clear glass: the page shows through with
+     only a light blur and almost no tint, a bright rim and a soft sheen
+     across the top; icons only, each with a faint shadow so it reads over
+     anything; a lighter pill slides to the current tab
      (MobileNavigation.jsx). The one definition of it; the pages keep
      --app-bottom of space for it. */
   #dock-root { position: static !important; }
   .mobile-app-nav {
     position: fixed; z-index: 75; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0;
-    left: max(14px, env(safe-area-inset-left, 0px)); right: max(14px, env(safe-area-inset-right, 0px));
+    left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px));
     top: auto; bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-    max-width: 420px; margin-inline: auto; height: 64px; padding: 6px;
+    max-width: 400px; margin-inline: auto; height: 54px; padding: 4px;
     border: 0; border-radius: 999px;
-    background: rgba(34, 34, 38, .46);
-    -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12), inset 0 1px 0 rgba(255, 255, 255, .2),
-      inset 0 -1px 0 rgba(255, 255, 255, .04), 0 12px 32px rgba(0, 0, 0, .36);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, .13) 0%, rgba(255, 255, 255, .03) 38%, rgba(255, 255, 255, 0) 62%, rgba(255, 255, 255, .05) 100%),
+      rgba(24, 24, 28, .16);
+    -webkit-backdrop-filter: blur(5px) saturate(175%) brightness(.92); backdrop-filter: blur(5px) saturate(175%) brightness(.92);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16), inset 0 1px 0 rgba(255, 255, 255, .34),
+      inset 0 -1px 0 rgba(255, 255, 255, .08), 0 8px 24px rgba(0, 0, 0, .28);
     opacity: 1; transform: translate3d(0, 0, 0); visibility: visible;
     transition: opacity 260ms ease, transform 300ms cubic-bezier(.22, 1, .36, 1), visibility 0s linear 0s;
   }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    .mobile-app-nav { background: rgba(30, 30, 33, .94); }
+    .mobile-app-nav { background: rgba(30, 30, 33, .92); }
   }
   /* The current tab's pill: placed by use-ink.js, a little spring as it moves. */
   .mobile-app-pill {
-    position: absolute; top: 6px; bottom: 6px; left: 0; z-index: 0; border-radius: 999px; pointer-events: none;
-    background: rgba(255, 255, 255, .15); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12);
+    position: absolute; top: 4px; bottom: 4px; left: 0; z-index: 0; border-radius: 999px; pointer-events: none;
+    background: rgba(255, 255, 255, .17); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), inset 0 0 0 1px rgba(255, 255, 255, .06);
     transition: transform 440ms cubic-bezier(.34, 1.28, .52, 1), width 440ms cubic-bezier(.34, 1.28, .52, 1), opacity 200ms ease;
   }
   .mobile-app-tab {
     appearance: none; position: relative; z-index: 1; display: grid; place-items: center;
     min-width: 0; height: 100%; padding: 0; border: 0; border-radius: 999px;
-    background: transparent; color: rgba(255, 255, 255, .78); cursor: pointer;
+    background: transparent; color: rgba(255, 255, 255, .92); cursor: pointer;
     -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: color 200ms ease;
   }
-  .mobile-app-tab-icon { position: relative; display: grid; place-items: center; width: 30px; height: 28px; transition: transform 180ms cubic-bezier(.3, .7, .4, 1); }
-  .mobile-app-tab svg { width: 27px; height: 27px; stroke-width: 1.8; fill: none; overflow: visible; }
+  .mobile-app-tab-icon { position: relative; display: grid; place-items: center; width: 28px; height: 26px; transition: transform 180ms cubic-bezier(.3, .7, .4, 1); }
+  .mobile-app-tab svg { width: 25px; height: 25px; stroke-width: 1.9; fill: none; overflow: visible; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .55)); }
   .mobile-app-tab[aria-current="page"] { color: #fff; }
-  .mobile-app-tab[aria-current="page"] svg { stroke-width: 2.1; }
+  .mobile-app-tab[aria-current="page"] svg { stroke-width: 2.2; }
   .mobile-app-tab:active .mobile-app-tab-icon { transform: scale(.86); }
   .mobile-app-tab:focus-visible { outline: 2px solid var(--theme-accent, #CCCCCC) !important; outline-offset: -3px !important; }
   .mobile-app-count {

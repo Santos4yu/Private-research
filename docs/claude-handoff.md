@@ -68,6 +68,12 @@ Last updated 2026-10-27 (the Props tab: premium but plain, no AI look). Read thi
   selector: `[aria-current=page]` here). My Slip's count is a red badge.
   Same five slots and the same hide-on-scroll as before. Headless
   Chromium here doesn't render the blur reliably; phones do.
+- Then: "I want the bar to be glass like the yt one and thin like it not a
+  plastic foggy look". Now 54px tall (was 64), 4px inset, almost no tint
+  (rgba .16) with a light blur (5px, saturate 175%, brightness .92), a
+  bright rim and a soft sheen gradient across the top; icons 25px with a
+  faint drop shadow so they read over any content. Keep it clear glass:
+  more tint or blur is what made it look foggy.
 
 ### Oct 27: Finder cards without boxes; Lines tab on the NBA player page
 
