@@ -19,6 +19,7 @@ import {siteIsAdmin} from './site-access';
 import {legFacts} from './writeup';
 import {WriteupSheet} from './WriteupSheet';
 import {matchupScore} from './nba-matchup-score';
+import {DepthCard} from './sports/wnba/NbaDepth';
 
 const STAT_CHIPS=[['player_points','PTS'],['player_rebounds','REB'],['player_assists','AST'],['player_threes','3PM'],['player_points_rebounds','P+R'],
  ['player_points_assists','P+A'],['player_rebounds_assists','R+A'],['player_points_rebounds_assists','PRA'],['player_steals','STL'],['player_blocks','BLK']];
@@ -111,7 +112,7 @@ function GameLog({logs,league}){
  </Card>;
 }
 
-const TABS=[['overview','Overview'],['matchup','Matchup'],['stats','Stats']];
+const TABS=[['overview','Overview'],['matchup','Matchup'],['stats','Stats'],['depth','Depth']];
 // The research doors on the Matchup tab, the prop's own stats first: where
 // he scores (shot zones), where his rebounds and assists come from.
 const DOORS={player_points:['shots'],player_rebounds:['reb'],player_assists:['ast'],player_points_rebounds:['shots','reb'],
@@ -186,7 +187,8 @@ export function NbaMatchupPage({row,lines,league,onBack}){
    const research=<section className="mp-part" key="research">{doorsFor(row.marketKey).map(kind=>door(kind))}
     <PlayTypes row={row}/><LikelyDefenders row={row} league={leagueState} matchup={matchup}/><VsTeam row={row} league={leagueState} logs={logs} lines={lines}/></section>;
    const gameLog=<section className="mp-part" key="log"><GameLog logs={logs} league={leagueState}/></section>;
-   const columns=big?[[grade,ranks],[games,gameLog],[research]]:[[grade,ranks,research],[games,gameLog]];
+   const depth=<section className="mp-part" id="mp-sec-depth" key="depth"><DepthCard row={row} league={leagueState} matchup={matchup}/></section>;
+   const columns=big?[[grade,ranks,depth],[games,gameLog],[research]]:[[grade,ranks,research],[games,depth,gameLog]];
    return <div className="mp-dash" data-cols={columns.length}>{columns.map((parts,index)=><div className="mp-dcol" key={index}>{parts}</div>)}</div>;
   })()}
   {/* Two columns side by side on a wide screen, one after the other on a phone. */}
@@ -198,6 +200,7 @@ export function NbaMatchupPage({row,lines,league,onBack}){
    <div className="mp-col">{doorsFor(row.marketKey).slice(0,(DOORS[row.marketKey]||[]).length).map(kind=>door(kind))}
     <PlayTypes row={row}/><LikelyDefenders row={row} league={leagueState} matchup={matchup}/>
     {doorsFor(row.marketKey).slice((DOORS[row.marketKey]||[]).length).map(kind=>door(kind))}<VsTeam row={row} league={leagueState} logs={logs} lines={lines}/></div></div>}
+  {!wide&&tab==='depth'&&<div className="mp-cols"><div className="mp-col"><DepthCard row={row} league={leagueState} matchup={matchup}/></div></div>}
   {!wide&&tab==='stats'&&<div className="mp-cols" data-wide="right">
    <div className="mp-col"><PositionRanks row={row}/></div>
    <div className="mp-col"><GameLog logs={logs} league={leagueState}/></div></div>}

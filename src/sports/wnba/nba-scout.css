@@ -893,3 +893,31 @@
  .nba-mp .mp-gp-value{font-size:19px}
 }
 @media (prefers-reduced-motion:reduce){.nba-mp .mp-gp{animation:none}}
+
+/* ---------------------------------------------------------------- Depth chart
+   Oct 27, the owner: a Depth tab (NbaDepth.jsx). Each slot a row: the
+   starter first, the bench behind him by minutes; tonight's report on each
+   player, and "Next up" behind a starter who's out. */
+.nba-mp .nd-teams{margin-bottom:12px}
+.nba-mp .nd-teams button{display:inline-flex;align-items:center;gap:6px;padding:0 14px}
+.nba-mp .nd-teams img{width:18px;height:18px;object-fit:contain}
+.nba-mp .nd-chart{display:grid}
+.nba-mp .nd-row{display:grid;grid-template-columns:26px minmax(0,1fr);align-items:start;gap:10px;padding:10px 0;border-top:1px solid #222}
+.nba-mp .nd-row:first-child{border-top:0;padding-top:2px}
+.nba-mp .nd-slot{display:grid;place-items:center;width:26px;height:26px;margin-top:8px;border-radius:8px;background:#1f1f1f;color:var(--mp-muted);font-size:11.5px;font-weight:800}
+.nba-mp .nd-players{display:flex;flex-wrap:wrap;gap:6px}
+.nba-mp .nd-player{display:flex;align-items:center;gap:8px;min-width:0;max-width:100%;padding:6px 10px 6px 6px;border:1px solid #262626;border-radius:12px;background:#161616;
+ animation:mp-gp-in .25s ease-out backwards}
+.nba-mp .nd-player .ns-photo{width:30px;height:30px}
+.nba-mp .nd-player[data-start]{border-color:#353535;background:#1d1d1d}
+.nba-mp .nd-player[data-start] .nd-who b{color:#fff}
+.nba-mp .nd-player[data-self]{border-color:color-mix(in srgb,var(--mp-accent) 65%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--mp-accent) 40%,transparent)}
+.nba-mp .nd-player[data-sits] :is(.ns-photo,.nd-who){opacity:.55}
+.nba-mp .nd-who{display:grid;min-width:0}
+.nba-mp .nd-who b{overflow:hidden;color:#d8d8d8;font-size:13px;white-space:nowrap;text-overflow:ellipsis}
+.nba-mp .nd-who small{color:var(--mp-faint);font-size:11px;font-weight:600;white-space:nowrap}
+.nba-mp .nd-player em{flex:none;padding:2px 7px;border-radius:999px;background:#242424;color:var(--mp-muted);font-size:10.5px;font-style:normal;font-weight:800;white-space:nowrap}
+.nba-mp .nd-player em:is([data-code=OUT],[data-code=OFS],[data-code=SUSP]){background:rgba(238,84,112,.14);color:#ff8ea2}
+.nba-mp .nd-player em:is([data-code=DOUBT],[data-code=Q],[data-code=GTD],[data-code=DTD]){background:rgba(246,195,91,.12);color:var(--mp-fair)}
+.nba-mp .nd-player em[data-next]{background:rgba(63,227,158,.12);color:var(--mp-good)}
+@media (prefers-reduced-motion:reduce){.nba-mp .nd-player{animation:none}}

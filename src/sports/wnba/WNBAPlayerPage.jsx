@@ -10,6 +10,7 @@ import './wnba-context.css';
 import {withLines} from '../../trend-lines';
 import {Failure} from '../../AdminNotice';
 import {useTrendPanel} from '../../trend-panel.js';
+import {depthRows,injuryCode} from './depth';
 
 
 // The WNBA player page, on the MLB Finder page's exact layout: the shared
@@ -77,29 +78,8 @@ function PlayerGameLog({row,logs,loading,error,onRetry}){
  </section>;
 }
 
-// ESPN publishes no WNBA depth chart, so this is built from the rotation each
-// coach has actually used: last game's starters fill the five slots by
-// position, then the bench joins its position's rows by minutes, and anyone
-// on the injury report who hasn't been playing joins at the end.
-const SLOTS=[['G1','G'],['G2','G'],['F1','F'],['F2','F'],['C','C']];
-// A starter with no slot left at her own position (a third guard, say) takes
-// the nearest open one.
-const OVERFLOW={G:['F1','F2','C'],F:['C','F2','F1','G2','G1'],C:['F2','F1','G2','G1']};
-const BENCH_ROWS={G:['G1','G2'],F:['F1','F2'],C:['C']};
-function depthRows(players,injuries){
- const rows=Object.fromEntries(SLOTS.map(([slot])=>[slot,[]]));
- const starters=players.filter(player=>player.lastStart).sort((a,b)=>b.min-a.min),overflow=[];
- for(const player of starters){const slot=SLOTS.find(([name,position])=>position===positionOf(player.pos)&&!rows[name].length);if(slot)rows[slot[0]].push(player);else overflow.push(player);}
- for(const player of overflow){const slot=(OVERFLOW[positionOf(player.pos)]||SLOTS.map(([name])=>name)).find(name=>!rows[name].length);if(slot)rows[slot].push(player);}
- const inRotation=new Set(players.map(player=>player.id));
- const bench=[...players.filter(player=>!player.lastStart).sort((a,b)=>b.min-a.min),
-  ...injuries.filter(item=>item.id&&!inRotation.has(item.id)).map(item=>({id:item.id,name:item.name,pos:item.position,headshot:item.headshot,min:null,injuredOnly:true}))];
- for(const player of bench){const options=BENCH_ROWS[positionOf(player.pos)]||['F1','F2'];rows[options.reduce((best,name)=>rows[name].length<rows[best].length?name:best,options[0])].push(player);}
- return SLOTS.map(([slot])=>[slot,rows[slot]]);
-}
-const INJURY_CODES={OUT:'OUT',O:'OUT',OFS:'OFS',D:'DOUBT',DOUBTFUL:'DOUBT',Q:'Q',QUESTIONABLE:'Q',GTD:'GTD','DAY-TO-DAY':'DTD',DTD:'DTD',SUSP:'SUSP'};
+// The depth chart's rows come from depth.js (the rotation each coach has used).
 const LEGEND=[['OUT','Out for game'],['Q','Questionable'],['DOUBT','Doubtful'],['OFS','Out for season']];
-const injuryCode=item=>item?INJURY_CODES[String(item.code||item.status||'').toUpperCase()]||String(item.code||item.status||'').toUpperCase():null;
 const shortName=name=>{const parts=String(name||'').trim().split(/\s+/);return parts.length>1?`${parts[0][0]}. ${parts.slice(1).join(' ')}`:parts[0]||'';};
 const columnLabel=index=>index===0?'Starter':['2nd','3rd','4th','5th','6th'][index-1]||`${index+1}th`;
 function DepthChart({row,matchup,filters,onToggleFilter}){

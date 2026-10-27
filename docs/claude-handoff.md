@@ -57,6 +57,21 @@ Last updated 2026-10-27 (the Props tab: premium but plain, no AI look). Read thi
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Oct 27: Depth tab on the NBA player page
+
+- The owner: "can we add a depths thing here" (the Overview / Matchup /
+  Stats tabs). New 4th tab "Depth" (phones) and a Depth part in the
+  computer dashboard (column 1 on a big monitor, column 2 below that):
+  `src/sports/wnba/NbaDepth.jsx` DepthCard, his team / tonight's opponent
+  switch, five slot rows (G, G, F, F, C): last game's starter first, the
+  bench by minutes (min10, else the rotation's min), tonight's report on
+  each player (Out / Doubtful / GTD...), "Next up" for the first healthy
+  player behind a starter who sits tonight, his own chip outlined. The
+  rows come from `src/sports/wnba/depth.js` `depthRows`, moved out of the
+  Finder's WNBAPlayerPage.jsx (which now imports it; same behaviour) and
+  given a position reader: the NBA page passes `positionCode` so PG/SG read
+  as guards.
+
 ### Oct 27: tap a game on the player page's chart
 
 - The owner: "make this look nicer ... the trends closer to each other ...
