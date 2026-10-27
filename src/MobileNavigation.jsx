@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { DockIcon } from './DockIcons';
 import { pickBuilder } from './pick-builder-client';
 import { DOCK_ITEMS, dockTabs } from './mobile-nav-core.js';
 import { siteDockTabs, siteTabAllowed } from './site-access';
+import { inkStyle, useInk } from './use-ink';
 
 // The admin's four sections (site_controls.py dockTabs), each one this
 // person can't open replaced in its slot by the next that they can.
@@ -33,8 +34,14 @@ export function MobileNavigation() {
     };
   }, []);
 
+  // Oct 27, the owner: "a nice dock like this yt new one". Icons only on a
+  // glass pill; a lighter pill slides to the current tab.
+  const nav = useRef(null);
+  const ink = useInk(nav, `${tab}|${destinations.map(({ key }) => key).join()}`, '[aria-current=page]');
+
   return (
-    <nav className="mobile-app-nav" aria-label="Primary navigation">
+    <nav className="mobile-app-nav" aria-label="Primary navigation" ref={nav}>
+      <i className="mobile-app-pill" aria-hidden="true" style={inkStyle(ink)} />
       {destinations.map(({ key, label, icon }) => (
         // My Slip opens the side panel at the Pick Builder rather than the
         // old My Slip page.
@@ -46,7 +53,7 @@ export function MobileNavigation() {
           <span className="mobile-app-tab-icon"><DockIcon name={icon} active={tab === key} />
             {key === 'saved' && saved > 0 && <span className="mobile-app-count" aria-hidden="true">{saved}</span>}
           </span>
-          <span>{label}</span>
+          <span className="mobile-sr-only">{label}</span>
           {key === 'saved' && <span className="mobile-sr-only">{saved} saved props</span>}
         </button>
       ))}
@@ -55,7 +62,7 @@ export function MobileNavigation() {
         aria-current={!destinations.some(({ key }) => key === tab) ? 'page' : undefined}
         onClick={() => window.dispatchEvent(new Event('vortex:open-more'))}>
         <span className="mobile-app-tab-icon"><DockIcon name="more" active={!destinations.some(({ key }) => key === tab)} /></span>
-        <span>More</span>
+        <span className="mobile-sr-only">More</span>
       </button>
     </nav>
   );

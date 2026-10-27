@@ -57,6 +57,18 @@ Last updated 2026-10-27 (the Props tab: premium but plain, no AI look). Read thi
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Oct 27: phone dock like YouTube's new one
+
+- The owner sent YouTube's new floating dock: "I want a nice dock like
+  this". `src/MobileNavigation.jsx` + the dock block in `src/mobile-app.css`:
+  icons only (the names stay for screen readers, `.mobile-sr-only`), a
+  glass capsule (light tint .46, blur 20px, a thin light rim, soft
+  shadow), and a lighter pill behind the current tab that slides with a
+  small spring when the tab changes (`use-ink.js`, which now takes a
+  selector: `[aria-current=page]` here). My Slip's count is a red badge.
+  Same five slots and the same hide-on-scroll as before. Headless
+  Chromium here doesn't render the blur reliably; phones do.
+
 ### Oct 27: Line movement on the NBA player page
 
 - The owner asked "Where is the line movement" (idea 5, not in the 1-4 the owner
