@@ -69,6 +69,27 @@ Last updated 2026-10-27 (the Props tab: premium but plain, no AI look). Read thi
   Same five slots and the same hide-on-scroll as before. Headless
   Chromium here doesn't render the blur reliably; phones do.
 
+### Oct 27: Finder cards without boxes; Lines tab on the NBA player page
+
+- The owner, on the phone Finder: "I don't like how it's just squares ...
+  the prop strips where it shows the prop and the trends last 5,10,15
+  etc it's like rectangles where they are placed in". Phone rules only
+  (`src/finder-board.css`, max-width 760px; the computer table is
+  unchanged): DEF / AVG L10 / STREAK are plain numbers with thin rules
+  between (no grey strip), and each hit rate is its label, the % in its
+  colour, the record, and a thin bar filled to the rate (`--rate`, which
+  Heat in UnifiedFinder.jsx already set) instead of a coloured box. Both
+  cells need `justify-items` / `justify-content: start`: the computer
+  rules centre them and Chromium applies justify-items to block cells too.
+  (The old standing note "the Finder stays as is" is overridden by the
+  owner here, for these cards' look.)
+- "put the line movement in its own tab in the matchup page ... so it's
+  not in the way of other research": a fifth tab, Lines
+  (`NbaMatchupPage.jsx` TABS), holds `LineMovement`; it left Overview. On
+  a computer it's a section (`mp-sec-lines`) in the research column. Five
+  tabs fit a phone: `.mp-tabs[data-count="5"]` shrinks the labels
+  (MatchupPageShell.jsx sets data-count).
+
 ### Oct 27: Line movement on the NBA player page
 
 - The owner asked "Where is the line movement" (idea 5); first version had

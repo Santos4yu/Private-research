@@ -196,7 +196,7 @@ export function MatchupPageShell({row,team,opponent,home,facts,color,today,onBac
     <Photo src={row.headshot}/><b>{row.player}</b>
     <span className="mp-mini-game">{opponent?.logo&&<img src={opponent.logo} alt="" width="18" height="18" onError={hide}/>}{home?'vs':'@'} {row.opponent}<small>{when(row.startsAt,today)}</small></span>
    </div>
-   <nav className="mp-tabs" role="tablist" aria-label="Sections" style={{'--mp-tab-count':tabs.length}}>{tabs.map(([key,label])=><button type="button" role="tab" key={key} aria-selected={tab===key} onClick={()=>pick(key)}>{label}</button>)}</nav>
+   <nav className="mp-tabs" role="tablist" aria-label="Sections" data-count={tabs.length} style={{'--mp-tab-count':tabs.length}}>{tabs.map(([key,label])=><button type="button" role="tab" key={key} aria-selected={tab===key} onClick={()=>pick(key)}>{label}</button>)}</nav>
   </div></div>
   <div className="mp-body">{children}</div>
   {after}

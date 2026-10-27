@@ -2,10 +2,11 @@
 // (NbaMatchups.jsx) and closed back to it: a full-width banner with who he
 // is and tonight's game (a slim bar takes its place, pinned above the
 // sections, once it scrolls away), then Overview (his averages, his games
-// against tonight's line, how his lines moved, home and away, minutes and
-// shots lately, both teams' rest, the injury report), Matchup (the grade
-// and everything behind it, NbaScout.jsx), Stats (where he ranks at his
-// position, his game log) and Depth (both teams' rotations, NbaDepth.jsx).
+// against tonight's line, home and away, minutes and shots lately, both
+// teams' rest, the injury report), Matchup (the grade and everything
+// behind it, NbaScout.jsx), Stats (where he ranks at his position, his
+// game log), Depth (both teams' rotations, NbaDepth.jsx) and Lines (how
+// his PrizePicks lines moved tonight, NbaFacts.jsx).
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {CalendarDays,ChevronDown,HeartPulse,LineChart,PenLine,X} from 'lucide-react';
@@ -115,7 +116,9 @@ function GameLog({logs,league}){
  </Card>;
 }
 
-const TABS=[['overview','Overview'],['matchup','Matchup'],['stats','Stats'],['depth','Depth']];
+// Lines (Oct 27, the owner: line movement "in its own tab ... so it's not in
+// the way of other research").
+const TABS=[['overview','Overview'],['matchup','Matchup'],['stats','Stats'],['depth','Depth'],['lines','Lines']];
 // The research doors on the Matchup tab, the prop's own stats first: where
 // he scores (shot zones), where his rebounds and assists come from.
 const DOORS={player_points:['shots'],player_rebounds:['reb'],player_assists:['ast'],player_points_rebounds:['shots','reb'],
@@ -177,9 +180,8 @@ export function NbaMatchupPage({row,lines,league,onBack}){
  </div></div>,document.body);
  const door=kind=>kind==='shots'?<ShotLink key={kind} row={row} league={leagueState} onOpen={()=>setShots('shots')}/>
   :<ChancesLink key={kind} kind={kind} row={row} league={leagueState} onOpen={()=>setShots(kind)}/>;
- // Under his games: how his lines moved, home and away against tonight's line, minutes and shots lately.
- const extras=<><LineMovement row={row} lines={lines}/>
-  <HomeAway row={row} logs={logs} short={SHORT[row.marketKey]||row.market}/><MinutesShots logs={logs}/></>;
+ // Under his games: home and away against tonight's line, minutes and shots lately.
+ const extras=<><HomeAway row={row} logs={logs} short={SHORT[row.marketKey]||row.market}/><MinutesShots logs={logs}/></>;
  return <MatchupPageShell row={row} team={team} opponent={opponent} home={home} facts={facts} color={color} onBack={onBack} tabs={TABS} tab={tab} onTab={setTab} jump={wide?jump:null} wide={wide} after={sheet}
   action={admin&&<button type="button" className="mp-writeup" onClick={()=>setShots('writeup')}><PenLine size={15} aria-hidden="true"/>Write-up</button>}>
   {/* Oct 25, the owner: no floating cards, no gaps. One framed page; each
@@ -194,7 +196,8 @@ export function NbaMatchupPage({row,lines,league,onBack}){
     <PlayTypes row={row}/><LikelyDefenders row={row} league={leagueState} matchup={matchup}/><VsTeam row={row} league={leagueState} logs={logs} lines={lines}/></section>;
    const gameLog=<section className="mp-part" key="log"><GameLog logs={logs} league={leagueState}/></section>;
    const depth=<section className="mp-part" id="mp-sec-depth" key="depth"><DepthCard row={row} league={leagueState} matchup={matchup}/></section>;
-   const columns=big?[[grade,ranks,depth],[games,gameLog],[research]]:[[grade,ranks,research],[games,depth,gameLog]];
+   const moves=<section className="mp-part" id="mp-sec-lines" key="lines"><LineMovement row={row} lines={lines}/></section>;
+   const columns=big?[[grade,ranks,depth],[games,gameLog],[research,moves]]:[[grade,ranks,research,moves],[games,depth,gameLog]];
    return <div className="mp-dash" data-cols={columns.length}>{columns.map((parts,index)=><div className="mp-dcol" key={index}>{parts}</div>)}</div>;
   })()}
   {/* Two columns side by side on a wide screen, one after the other on a phone. */}
@@ -207,6 +210,7 @@ export function NbaMatchupPage({row,lines,league,onBack}){
     <PlayTypes row={row}/><LikelyDefenders row={row} league={leagueState} matchup={matchup}/>
     {doorsFor(row.marketKey).slice((DOORS[row.marketKey]||[]).length).map(kind=>door(kind))}<VsTeam row={row} league={leagueState} logs={logs} lines={lines}/></div></div>}
   {!wide&&tab==='depth'&&<div className="mp-cols"><div className="mp-col"><DepthCard row={row} league={leagueState} matchup={matchup}/></div></div>}
+  {!wide&&tab==='lines'&&<div className="mp-cols"><div className="mp-col"><LineMovement row={row} lines={lines}/></div></div>}
   {!wide&&tab==='stats'&&<div className="mp-cols" data-wide="right">
    <div className="mp-col"><PositionRanks row={row}/></div>
    <div className="mp-col"><GameLog logs={logs} league={leagueState}/></div></div>}

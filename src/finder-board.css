@@ -5,8 +5,9 @@
 
      computer: star, photo, name and game | the line | DEF | AVG | STRK |
                L5 | L10 | L15 | H2H | SZN, each window a colored box
-     phone:    photo, name and game | the line; DEF, AVG and STRK in a strip;
-               the five hit-rate boxes side by side; sort buttons on top
+     phone:    photo, name and game | the line; DEF, AVG and STRK as plain
+               numbers; the five hit rates, each a number over a thin bar;
+               sort buttons on top
 
    On a computer a player's trends page sits in the same panel, under the
    same bar, in place of the controls and the table. Rules carry
@@ -273,35 +274,52 @@ html:root .unified-finder .finder-table .finder-heat:is([data-tone=good], [data-
   html:root .unified-finder .finder-table .finder-market b { font-size: 17px; }
   html:root .unified-finder .finder-table .finder-stat-name { max-width: 100%; font-size: 12px; }
 
-  /* Defense, average and run: one strip, a name over each number. */
+  /* Oct 27, the owner: no more boxes ("I don't like how it's just squares
+     ... it's like rectangles where they are placed in"). Defense, average
+     and run read as plain numbers on the card, thin rules between them;
+     each hit rate is its number in its color over a thin bar filled to
+     the rate, like the Props tab's rows. */
   html:root .unified-finder .finder-table td.finder-num {
     grid-row: 2;
     display: block;
     min-height: 0;
-    padding: 8px 10px !important;
-    background: var(--fb-control) !important;
-    text-align: center;
+    padding: 0 10px !important;
+    background: none !important;
+    justify-items: start;
+    text-align: left;
     white-space: nowrap;
   }
-  html:root .unified-finder .finder-table td.finder-num:nth-child(3) { grid-column: 1 / 5; border-radius: 11px 0 0 11px; }
+  html:root .unified-finder .finder-table td.finder-num:nth-child(3) { grid-column: 1 / 5; padding-left: 0 !important; }
   html:root .unified-finder .finder-table td.finder-num:nth-child(4) { grid-column: 5 / 12; border-left: 1px solid var(--fb-line); }
-  html:root .unified-finder .finder-table td.finder-num:nth-child(5) { grid-column: 12 / 16; border-left: 1px solid var(--fb-line); border-radius: 0 11px 11px 0; }
-  html:root .unified-finder .finder-table td.finder-num::before { content: attr(data-label); display: block; width: auto; margin: 0 0 5px; padding: 0; background: none; color: var(--fb-faint); font: 700 9.5px/1 var(--font-sans); letter-spacing: .08em; text-transform: uppercase; }
+  html:root .unified-finder .finder-table td.finder-num:nth-child(5) { grid-column: 12 / 16; border-left: 1px solid var(--fb-line); }
+  html:root .unified-finder .finder-table td.finder-num::before { content: attr(data-label); display: block; width: auto; margin: 0 0 4px; padding: 0; background: none; color: var(--fb-faint); font: 700 9.5px/1 var(--font-sans); letter-spacing: .08em; text-align: left; text-transform: uppercase; }
   html:root .unified-finder .finder-table td.finder-num b { font-size: 15px; }
   html:root .unified-finder .finder-table td.finder-num small { display: inline; margin-left: 5px; font-size: 11px; }
   html:root .unified-finder .finder-table td.finder-num .finder-no-data { font-size: 14px; }
 
-  /* The five hit rates, side by side. */
-  html:root .unified-finder .finder-table .finder-stat { grid-row: 3; padding: 0 3px; border: 0; }
+  /* The five hit rates in a row: the window, the rate, the record, a bar. */
+  html:root .unified-finder .finder-table .finder-stat { grid-row: 3; padding: 0 5px; border: 0; }
   html:root .unified-finder .finder-table .finder-stat:nth-child(6) { grid-column: 1 / 4; padding-left: 0; }
   html:root .unified-finder .finder-table .finder-stat:nth-child(7) { grid-column: 4 / 7; }
   html:root .unified-finder .finder-table .finder-stat:nth-child(8) { grid-column: 7 / 10; }
   html:root .unified-finder .finder-table .finder-stat:nth-child(9) { grid-column: 10 / 13; }
   html:root .unified-finder .finder-table .finder-stat:nth-child(10) { grid-column: 13 / 16; padding-right: 0; }
-  html:root .unified-finder .finder-table .finder-heat { gap: 4px; height: 60px; border-radius: 11px; }
-  html:root .unified-finder .finder-table .finder-heat::before { content: attr(data-label); color: var(--fb-muted); font: 700 9.5px/1 var(--font-sans); letter-spacing: .08em; }
-  html:root .unified-finder .finder-table .finder-heat strong { font-size: 15.5px; }
-  html:root .unified-finder .finder-table .finder-heat small { font-size: 10px; }
+  html:root .unified-finder .finder-table .finder-heat,
+  html:root .unified-finder .finder-table .finder-heat:is([data-tone=good], [data-tone=mid], [data-tone=low]) {
+    display: grid; grid-template-columns: auto; justify-content: start; justify-items: start; align-content: start; gap: 3px;
+    height: auto; padding: 0 0 8px; overflow: visible; border-radius: 0; background: none; box-shadow: none;
+  }
+  html:root .unified-finder .finder-table .finder-heat::before { content: attr(data-label); color: var(--fb-faint); font: 700 9.5px/1 var(--font-sans); letter-spacing: .08em; }
+  html:root .unified-finder .finder-table .finder-heat strong { font: 800 16px/1.05 var(--font-sans); letter-spacing: -.01em; }
+  html:root .unified-finder .finder-table .finder-heat small,
+  html:root .unified-finder .finder-table .finder-heat:is([data-tone=good], [data-tone=mid], [data-tone=low]) small { color: var(--fb-faint); font-size: 10.5px; }
+  html:root .unified-finder .finder-table .finder-heat::after {
+    content: ""; position: absolute; right: 0; bottom: 0; left: 0; height: 3px; border-radius: 3px;
+    background: linear-gradient(90deg, var(--tone, transparent) var(--rate, 0%), rgba(255, 255, 255, .08) var(--rate, 0%));
+    transform-origin: left; animation: fb-fill .6s cubic-bezier(.22, .8, .24, 1) backwards;
+  }
+  html:root .unified-finder .finder-table .finder-heat:is([data-tone=good], [data-tone=mid], [data-tone=low]) { color: color-mix(in srgb, var(--tone) 90%, #fff); }
+  @keyframes fb-fill { from { transform: scaleX(.2); opacity: 0; } }
   html:root .unified-finder .finder-pagination { margin: 0; border: 0; border-top: 1px solid var(--fb-line); border-radius: 0; background: var(--fb-head); }
 }
 
@@ -314,11 +332,13 @@ html:root .unified-finder .finder-table .finder-heat:is([data-tone=good], [data-
   html:root .unified-finder .finder-table .finder-name em { display: none; }
   html:root .unified-finder .finder-table .finder-market b { font-size: 15.5px; }
   html:root .unified-finder .finder-table .finder-stat-name { font-size: 11.5px; }
-  html:root .unified-finder .finder-table td.finder-num { padding: 8px 8px !important; }
+  html:root .unified-finder .finder-table td.finder-num { padding: 0 8px !important; }
+  html:root .unified-finder .finder-table td.finder-num:nth-child(3) { padding-left: 0 !important; }
   html:root .unified-finder .finder-table td.finder-num small { font-size: 10.5px; }
   html:root .unified-finder .finder-table .finder-heat strong { font-size: 14px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   html:root .unified-finder .finder-table tbody tr { transition: none; }
+  html:root .unified-finder .finder-table .finder-heat::after { animation: none; }
 }
