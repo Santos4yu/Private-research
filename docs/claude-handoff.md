@@ -57,6 +57,26 @@ Last updated 2026-10-27 (the Props tab: premium but plain, no AI look). Read thi
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Oct 27: whose Kings numbers are right (ours vs RotoBot)
+
+- The owner showed Wembanyama vs SAC: ours "121.1 allowed, 4th most",
+  RotoBot "124.0, 6th most", and forwards 11.2 points (4th most) vs 43.0
+  (12th fewest). Checked on sportsdataverse's box scores (reachable at
+  github.com/sportsdataverse/sportsdataverse-data/releases/download/
+  espn_nba_team_boxscores/team_box_YYYY.csv, and espn_nba_player_boxscores/
+  player_box_YYYY.csv; 2027 = the 2026-27 season; no pandas here, use csv):
+  - The Kings' last season + this season (85 games): 121.1, 4th most = ours.
+  - This season alone (3 games): 124.0, 6th most, pace 103.5 = RotoBot's.
+  - RotoBot's "vs forwards" is all forwards together, this season only (our
+    count: points 44.3, assists 9.3, steals 3.3, near its 43.0 / 9.3 / 3.3);
+    ours is each forward, both seasons.
+  Both right, different games. The defense card (`TheirDefense`) now has a
+  This season / Both seasons switch (shares the shot chart's saved choice,
+  `propscout:shot-season`; 'last' shows Both there) and says how many games
+  ("3 games", "85 games, last season included"). This season hides the
+  "Shooting and more" rows (kept for the whole sample only). The score
+  still reads both seasons until teams have 15 games.
+
 ### Oct 27: the Props tab, premium but plain
 
 - The owner: only they will have the Props tab now ("make it feel admin and

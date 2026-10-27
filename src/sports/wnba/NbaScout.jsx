@@ -123,15 +123,26 @@ function DivergeRow({label,sub,soft,text,picked}){
   <em>{text}</em></div>;
 }
 
+// Early in a season the league numbers take last season's games too
+// (steadier, and what the score reads). Oct 27, the owner compared the
+// Kings' card with another app's and couldn't tell who was right: that app
+// counts this season's games alone (3 for the Kings then: 124.0 allowed,
+// 6th most) where ours had all 85 (121.1, 4th most). So the card can show
+// this season alone too, saying how many games each view has. The choice
+// is shared with the shot chart's switch.
 export function TheirDefense({row,league,position=positionOf(row.position)||'G',stat,fit}){
- const [more,setMore]=useState(false);
+ const [more,setMore]=useState(false),[season,setSeason]=useState(savedSeason);
+ const pickSeason=key=>{setSeason(key);try{localStorage.setItem(SEASON_KEY,key);}catch{/* private mode: this visit only */}};
  const data=league.data,opponent=row.opponent||opponentOf(row);
  if(!data)return null;
+ const now=data.thisSeason?.dvpEach?.[opponent]?data.thisSeason:null,view=now&&season==='now'?now:data;
  // A player at a time, as the score reads it (dvpEach); the position's total from an older server.
- const each=Boolean(data.dvpEach),n=data.teamCount,cells=(data.dvpEach||data.dvp)?.[opponent]?.[position]?.stats;
+ const each=Boolean(view.dvpEach),n=view.teamCount,cells=(view.dvpEach||view.dvp)?.[opponent]?.[position]?.stats;
  if(!cells)return null;
- const def=data.teamStats?.[opponent]?.def||{},opp=data.opportunity?.teams?.[opponent]||{},count=data.opportunity?.count||n;
- const shooting=data.positionShooting?.teams?.[opponent]?.[position]||{},team=data.teamDefense?.teams?.[opponent]||{};
+ const def=view.teamStats?.[opponent]?.def||{},opp=view.opportunity?.teams?.[opponent]||{},count=view.opportunity?.count||n;
+ // Shooting and the rest are kept for the whole sample only.
+ const shooting=view===data?data.positionShooting?.teams?.[opponent]?.[position]||{}:{},team=view===data?data.teamDefense?.teams?.[opponent]||{}:{};
+ const games=view.games?.[opponent],sample=finite(games)?`${games} ${games===1?'game':'games'}${now&&view===data?', last season included':''}`:'';
  // Points allowed: rank 1 the fewest. Rating and pace: rank 1 the most.
  const base=[
   {label:'Pts allowed',value:fmt(def.pts?.[0],1),text:placeText(def.pts?.[1],n),soft:softness(def.pts?.[1],n)},
@@ -142,7 +153,9 @@ export function TheirDefense({row,league,position=positionOf(row.position)||'G',
   return <DivergeRow key={key} label={label} sub={`${digits===3?cell[0].toFixed(3).replace(/^0/,''):fmt(cell[0],digits)}${unit}`} soft={softness(cell[1],n,softHigh)}
    text={placeText(cell[1],n,unit==='%'||digits===3?['lowest','highest']:['fewest','most'])}/>;}).filter(Boolean);
  return <Card title={`${teamName(data,opponent)} defense`} note={`rank of ${n} teams`} icon={Shield} className="nba-their-defense">
-  <div className="ns-sub-head"><b>As a team</b><span>What the {teamName(data,opponent)} allow every opponent, all positions</span></div>
+  {now&&<div className="nsz-season"><div className="mp-seg" role="group" aria-label="Which games">{[['now','This season'],['both','Both seasons']].map(([key,label])=>
+   <button type="button" key={key} aria-pressed={(season==='now')===(key==='now')} onClick={()=>pickSeason(key)}>{label}</button>)}</div></div>}
+  <div className="ns-sub-head"><b>As a team{sample&&<em> · {sample}</em>}</b><span>What the {teamName(data,opponent)} allow every opponent, all positions</span></div>
   <div className="ns-base">{base.map(item=><div key={item.label} data-tone={toneOf(item.soft)}><small>{item.label}</small><b>{item.value}</b><em>{item.text}</em></div>)}</div>
   <div className="ns-sub-head"><b>Vs {words[1]}, by stat</b><span>{each?`What the ${teamName(data,opponent)} allow each ${words[0]} a game`:`What the ${teamName(data,opponent)} allow ${words[1]} a game`}</span></div>
   <div className="ns-diverge-scale" aria-hidden="true"><span>Tough</span><span>Soft</span></div>
