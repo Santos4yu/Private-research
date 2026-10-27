@@ -57,6 +57,15 @@ Last updated 2026-10-27 (the Props tab: premium but plain, no AI look). Read thi
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Oct 27: double-click a Props row to open his page
+
+- The owner: "make it so when i double click it opens the prop and i dont
+  have to click the open his matchup page". On the big-screen Props list
+  (list + preview, 1500px and up) one click still picks the row for the
+  preview; a double-click on the row opens his matchup page
+  (`PropRow` in `src/MatchupList.jsx`, `onDoubleClick`). Phones and
+  smaller computers are unchanged: one tap already opens the page.
+
 ### Oct 27: Depth tab on the NBA player page
 
 - The owner: "can we add a depths thing here" (the Overview / Matchup /

@@ -96,8 +96,9 @@ function Reads({read,prop,role,hit,brief}){
  </li>)}</ul>;
 }
 
-// On a big screen (`picking`) a row picks the prop shown beside the list
-// instead of opening his page, and has no Why arrow: the preview says why.
+// On a big screen (`picking`) a click picks the prop shown beside the list
+// and a double-click opens his page (the owner, Oct 27: "when i double click
+// it opens the prop"); no Why arrow there: the preview says why.
 function PropRow({row,read,hit,prop,role,open,onToggle,onOpen,short,index=0,color,picking,selected,onSelect}){
  const rank=index+1;
  const home=row.teamAbbr&&row.teamAbbr===row.homeTeamAbbr;
@@ -106,8 +107,8 @@ function PropRow({row,read,hit,prop,role,open,onToggle,onOpen,short,index=0,colo
  const waiting=row.historyStatus==='pending'||row.historyRefresh;
  const said=[read&&`matchup ${read.score}, ${read.label.toLowerCase()}`,hit&&`last 10 ${hit.hits} of ${hit.games}`].filter(Boolean).join(', ');
  return <li className="nm-row" data-open={open||undefined} data-selected={selected||undefined} style={{'--i':Math.min(index,FIRST),...(color?{'--team':color}:{})}}>
-  <button type="button" className="nm-main" onClick={()=>picking?onSelect(row.id):onOpen(row)} aria-pressed={picking?Boolean(selected):undefined}
-   aria-label={`${row.player}, more ${figure(row.line)} ${stat}${pic?` ${pic[1]}`:''}${said?`: ${said}`:''}. ${picking?'Show his matchup beside the list':'Open his matchup page'}`}>
+  <button type="button" className="nm-main" onClick={()=>picking?onSelect(row.id):onOpen(row)} onDoubleClick={picking?()=>onOpen(row):undefined} aria-pressed={picking?Boolean(selected):undefined}
+   aria-label={`${row.player}, more ${figure(row.line)} ${stat}${pic?` ${pic[1]}`:''}${said?`: ${said}`:''}. ${picking?'Show his matchup beside the list, double-click to open his matchup page':'Open his matchup page'}`}>
    <span className="nm-rank" data-top={rank<=3||undefined}>{rank}</span>
    <Face row={row}/>
    <b className="nm-name">{row.player}</b>
