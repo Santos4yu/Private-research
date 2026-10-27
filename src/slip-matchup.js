@@ -49,6 +49,7 @@ import {PLAYS as CFB_PLAYS, PLAY_WORDS as CFB_PLAY_WORDS, AGAINST_WORDS as CFB_A
 import {cfbShareOf} from './slip-analyst.js';
 import {MARKET_STAT as BASKETBALL_STAT, baseMarket, isPeriodMarket, periodless} from './sports/wnba/wnba-research.js';
 import {familyOf, opportunityFacts, opportunityRead} from './sports/wnba/opportunity.js';
+import {restBefore} from './rest.js';
 import {matchupScore, band as nbaBand} from './nba-matchup-score.js';
 import {loadTonight} from './unified-finder-data.js';
 import {matchupScore as nflScore} from './nfl-matchup-score.js';
@@ -333,19 +334,8 @@ function mlbPitcher(row, sign) {
 const POINTS_STATS = /pts|points|pra|pts\+|fantasy/i;
 // Rest (league.rest, context.rest_table: each team's game times near today).
 // The second night of a back-to-back means a few fewer minutes and colder
-// shooting, and a tired defense gives up more. Days are the US Eastern
-// calendar's, as the schedule is played.
-const EASTERN = 5 * 3600000;
-const eastDay = time => new Date(time - EASTERN).toISOString().slice(0, 10);
-export function restBefore(dates, startsAt) {
-  const start = Date.parse(startsAt || '');
-  if (!finite(start) || !dates?.length) return null;
-  const today = Date.parse(`${eastDay(start)}T12:00:00Z`);
-  const days = dates.map(date => Date.parse(date)).filter(finite).map(time => Math.round((today - Date.parse(`${eastDay(time)}T12:00:00Z`)) / 86400000))
-    .filter(gap => gap > 0).sort((a, b) => a - b);
-  if (!days.length) return null;
-  return {days: days[0], backToBack: days[0] === 1, threeInFour: days.filter(gap => gap <= 3).length >= 2};
-}
+// shooting, and a tired defense gives up more (rest.js reads the calendar).
+export {restBefore};
 function restFacts(row, sign, rest) {
   if (!rest || !row.startsAt) return [];
   const mine = restBefore(rest[row.teamAbbr], row.startsAt), theirs = restBefore(rest[row.opponent], row.startsAt);

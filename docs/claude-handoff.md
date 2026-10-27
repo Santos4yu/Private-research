@@ -57,6 +57,24 @@ Last updated 2026-10-27 (the Props tab: premium but plain, no AI look). Read thi
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Oct 27: Home / away, Minutes & shots, Rest on the NBA player page
+
+- The owner picked 4 of 6 ideas (1-4; 5 line history and 6 spread/total
+  not asked for yet). `src/sports/wnba/NbaFacts.jsx`, on Overview under
+  His games (phone: after His games; computer: in the games section):
+  - Home / away: the prop's stat over the row's line at home and on the
+    road, hits/games, % and average; this season once it has 10 games,
+    else both seasons the log holds (the note says which); "Tonight" on
+    tonight's side.
+  - Minutes & shots: last 10 games' minutes as bars with a dashed line at
+    his usual minutes, then a table of Minutes / Shots (FGA) / Threes (3PA)
+    / Free throws (FTA) for L5, L10 and SZN. SZN is "Last SZN" until this
+    season has 5 games. L5/L10 go green/red at 12% and half a unit from it.
+  - Rest (beside the injury report): both teams, Back-to-back / 3rd game in
+    4 nights / N days off, last played, plays again tomorrow. From
+    `league.rest`; `restBefore` moved to `src/rest.js` (slip-matchup.js
+    re-exports it) with a new `nextGameIn` (tests/nba-rest.test.mjs).
+
 ### Oct 27: Depth tab redone
 
 - The owner didn't like the first version (slot rows of wrapping chips:

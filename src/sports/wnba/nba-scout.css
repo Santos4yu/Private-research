@@ -944,3 +944,48 @@
 .nba-mp .nd-list li[data-self] .nd-bar i{background:var(--mp-accent)}
 @media (min-width:700px){.nba-mp .nd-five .ns-photo{width:52px;height:52px}.nba-mp .nd-five b{font-size:13px}}
 @media (prefers-reduced-motion:reduce){.nba-mp :is(.nd-five li,.nd-list li,.nd-bar i){animation:none}}
+
+/* ---------------------------------------------------------------- Little facts
+   Oct 27, the owner picked them (NbaFacts.jsx): Home / away against
+   tonight's line, Minutes & shots lately, both teams' Rest. */
+.nba-mp .nf-sides{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.nba-mp .nf-sides>div{display:grid;gap:4px;min-width:0;padding:12px;border:1px solid transparent;border-radius:12px;background:var(--mp-raised);animation:mp-gp-in .3s ease-out backwards}
+.nba-mp .nf-sides>div+div{animation-delay:60ms}
+.nba-mp .nf-sides>div[data-tonight]{border-color:#353b44}
+.nba-mp .nf-side-head{display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:18px}
+.nba-mp .nf-side-head small{color:var(--mp-faint);font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
+.nba-mp .nf-side-head em{padding:2px 7px;border-radius:999px;background:#1b2632;color:var(--mp-accent);font-size:10px;font-style:normal;font-weight:800}
+.nba-mp .nf-sides b{color:var(--tone,var(--mp-text));font:800 24px/1.1 'Sora',var(--font-sans);font-variant-numeric:tabular-nums}
+.nba-mp .nf-sides>div>small{color:var(--mp-muted);font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums}
+
+.nba-mp .nf-min-head{display:flex;justify-content:space-between;gap:10px;margin-bottom:6px;color:var(--mp-faint);font-size:11px;font-weight:700}
+.nba-mp .nf-min-head small{display:inline-flex;align-items:center;gap:6px;font-size:inherit}
+.nba-mp .nf-min-head i{width:14px;border-top:2px dashed #5d6a78}
+/* 58px of bar under a 14px row for the numbers; the dashed line is the usual minutes. */
+.nba-mp .nf-min-bars{position:relative;display:flex;align-items:flex-end;gap:5px;height:72px;margin-bottom:12px}
+.nba-mp .nf-min-bars>span{display:flex;flex:1;flex-direction:column;justify-content:flex-end;align-items:center;gap:2px;min-width:0;height:100%}
+.nba-mp .nf-min-bars b{flex-shrink:0;color:var(--tone,var(--mp-muted));font-size:10px;font-weight:800;font-variant-numeric:tabular-nums}
+.nba-mp .nf-min-bars>span>i{flex-shrink:0;width:100%;max-width:26px;height:calc(var(--h,0) * 58px);border-radius:4px 4px 2px 2px;background:var(--tone,#4a5563);transform-origin:bottom;
+ animation:mp-grow .45s cubic-bezier(.22,.8,.24,1) backwards;animation-delay:calc(var(--n,0) * 30ms)}
+.nba-mp .nf-min-bars>[data-tone]>i{background:color-mix(in srgb,var(--tone) 75%,#1d1d1d)}
+.nba-mp .nf-min-avg{position:absolute;right:0;bottom:calc(var(--avg) * 58px);left:0;z-index:1;border-top:2px dashed #5d6a78;transform:translateY(50%);pointer-events:none}
+
+.nba-mp .nf-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.nba-mp .nf-table th,.nba-mp .nf-table td{padding:7px 4px;text-align:right}
+.nba-mp .nf-table thead th{color:var(--mp-faint);font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.nba-mp .nf-table tbody th{color:var(--mp-muted);font-size:12.5px;font-weight:700;text-align:left}
+.nba-mp .nf-table tbody td{color:var(--tone,var(--mp-text));font-size:13.5px;font-weight:800}
+.nba-mp .nf-table tbody td:last-child{color:var(--mp-muted);font-weight:700}
+.nba-mp .nf-table tbody tr{border-top:1px solid #222}
+
+.nba-mp .nf-rest-row{display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:10px;padding:10px;border-radius:12px;background:var(--mp-raised);animation:mp-gp-in .3s ease-out backwards}
+.nba-mp .nf-rest-row+.nf-rest-row{margin-top:6px;animation-delay:60ms}
+.nba-mp .nf-rest-row img{width:28px;height:28px;object-fit:contain}
+.nba-mp .nf-rest-team{display:grid;gap:2px;min-width:0}
+.nba-mp .nf-rest-team b{overflow:hidden;font-size:13.5px;white-space:nowrap;text-overflow:ellipsis}
+.nba-mp .nf-rest-team small{color:var(--mp-muted);font-size:11.5px;font-weight:600}
+.nba-mp .nf-rest-row em{padding:4px 9px;border-radius:999px;background:#252525;color:var(--mp-muted);font-size:11.5px;font-style:normal;font-weight:800;white-space:nowrap}
+.nba-mp .nf-rest-row em[data-tone=poor]{background:#3a1a21;color:#ff8ea2}
+.nba-mp .nf-rest-row em[data-tone=fair]{background:#3a2f17;color:var(--mp-fair)}
+.nba-mp .nf-rest-row em[data-tone=good]{background:#163326;color:var(--mp-good)}
+@media (prefers-reduced-motion:reduce){.nba-mp :is(.nf-sides>div,.nf-min-bars>span>i,.nf-rest-row){animation:none}}

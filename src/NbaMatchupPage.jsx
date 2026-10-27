@@ -1,8 +1,8 @@
 // One NBA player's matchup page, opened from the Props tab's NBA list
 // (NbaMatchups.jsx) and closed back to it: a full-width banner with who he
 // is and tonight's game (a slim bar takes its place, pinned above the
-// sections, once it scrolls away), then Overview (his averages, his games against tonight's line, the
-// injury report), Matchup (the grade and everything behind it,
+// sections, once it scrolls away), then Overview (his averages, his games against tonight's line, home
+// and away, minutes and shots lately, both teams' rest, the injury report), Matchup (the grade and everything behind it,
 // NbaScout.jsx) and Stats (where he ranks at his position, his game log).
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {createPortal} from 'react-dom';
@@ -20,6 +20,7 @@ import {legFacts} from './writeup';
 import {WriteupSheet} from './WriteupSheet';
 import {matchupScore} from './nba-matchup-score';
 import {DepthCard} from './sports/wnba/NbaDepth';
+import {HomeAway,MinutesShots,RestCard} from './sports/wnba/NbaFacts';
 
 const STAT_CHIPS=[['player_points','PTS'],['player_rebounds','REB'],['player_assists','AST'],['player_threes','3PM'],['player_points_rebounds','P+R'],
  ['player_points_assists','P+A'],['player_rebounds_assists','R+A'],['player_points_rebounds_assists','PRA'],['player_steals','STL'],['player_blocks','BLK']];
@@ -174,6 +175,8 @@ export function NbaMatchupPage({row,lines,league,onBack}){
  </div></div>,document.body);
  const door=kind=>kind==='shots'?<ShotLink key={kind} row={row} league={leagueState} onOpen={()=>setShots('shots')}/>
   :<ChancesLink key={kind} kind={kind} row={row} league={leagueState} onOpen={()=>setShots(kind)}/>;
+ // Under his games: home and away against tonight's line, minutes and shots lately.
+ const extras=<><HomeAway row={row} logs={logs} short={SHORT[row.marketKey]||row.market}/><MinutesShots logs={logs}/></>;
  return <MatchupPageShell row={row} team={team} opponent={opponent} home={home} facts={facts} color={color} onBack={onBack} tabs={TABS} tab={tab} onTab={setTab} jump={wide?jump:null} wide={wide} after={sheet}
   action={admin&&<button type="button" className="mp-writeup" onClick={()=>setShots('writeup')}><PenLine size={15} aria-hidden="true"/>Write-up</button>}>
   {/* Oct 25, the owner: no floating cards, no gaps. One framed page; each
@@ -183,7 +186,7 @@ export function NbaMatchupPage({row,lines,league,onBack}){
    const grade=<section className="mp-part" id="mp-sec-matchup" key="grade"><MatchupGrade row={row} league={leagueState} logs={logs}/></section>;
    const ranks=<section className="mp-part" id="mp-sec-stats" key="ranks"><PositionRanks row={row}/></section>;
    const games=<section className="mp-part" id="mp-sec-overview" key="games">{log.loading&&!logs.length?<Card title="His games" icon={LineChart}><Loading/></Card>
-    :<><Averages logs={logs}/><Trend row={row} lines={lines} logs={logs} chips={STAT_CHIPS} notes={notes.data?.games} tonight={tonight}/></>}<Injuries row={row} league={leagueState} matchup={matchup} player={player}/></section>;
+    :<><Averages logs={logs}/><Trend row={row} lines={lines} logs={logs} chips={STAT_CHIPS} notes={notes.data?.games} tonight={tonight}/>{extras}</>}<RestCard row={row} league={leagueState}/><Injuries row={row} league={leagueState} matchup={matchup} player={player}/></section>;
    const research=<section className="mp-part" key="research">{doorsFor(row.marketKey).map(kind=>door(kind))}
     <PlayTypes row={row}/><LikelyDefenders row={row} league={leagueState} matchup={matchup}/><VsTeam row={row} league={leagueState} logs={logs} lines={lines}/></section>;
    const gameLog=<section className="mp-part" key="log"><GameLog logs={logs} league={leagueState}/></section>;
@@ -193,8 +196,8 @@ export function NbaMatchupPage({row,lines,league,onBack}){
   })()}
   {/* Two columns side by side on a wide screen, one after the other on a phone. */}
   {!wide&&tab==='overview'&&<div className="mp-cols">
-   <div className="mp-col">{log.loading&&!logs.length?<Card title="His games" icon={LineChart}><Loading/></Card>:<><Averages logs={logs}/><Trend row={row} lines={lines} logs={logs} chips={STAT_CHIPS} notes={notes.data?.games} tonight={tonight}/></>}</div>
-   <div className="mp-col"><Injuries row={row} league={leagueState} matchup={matchup} player={player}/></div></div>}
+   <div className="mp-col">{log.loading&&!logs.length?<Card title="His games" icon={LineChart}><Loading/></Card>:<><Averages logs={logs}/><Trend row={row} lines={lines} logs={logs} chips={STAT_CHIPS} notes={notes.data?.games} tonight={tonight}/>{extras}</>}</div>
+   <div className="mp-col"><RestCard row={row} league={leagueState}/><Injuries row={row} league={leagueState} matchup={matchup} player={player}/></div></div>}
   {!wide&&tab==='matchup'&&<div className="mp-cols">
    <div className="mp-col"><MatchupGrade row={row} league={leagueState} logs={logs}/></div>
    <div className="mp-col">{doorsFor(row.marketKey).slice(0,(DOORS[row.marketKey]||[]).length).map(kind=>door(kind))}

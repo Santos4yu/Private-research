@@ -33,3 +33,11 @@ test('a back-to-back counts against the Over, a tired opponent for it', () => {
   const under = matchupCase({row: row(), side: 'UNDER'}, {nba: {rest: fresh}}).facts.find(item => item.key === 'rest-opponent');
   assert.ok(under.impact < 0);
 });
+
+test('days to the next game, by the Eastern calendar', async () => {
+  const {nextGameIn} = await import('../src/rest.js');
+  // IND on Oct 25 (7:30pm ET): next on Oct 26 (8pm ET, the 27th in UTC).
+  assert.equal(nextGameIn(rest.IND, '2026-10-25T23:30:00Z'), 1);
+  assert.equal(nextGameIn(rest.IND, '2026-10-27T00:00:00Z'), null);
+  assert.equal(nextGameIn(['2026-10-30T23:00:00Z'], '2026-10-27T00:00:00Z'), 4);
+});
