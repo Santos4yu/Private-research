@@ -8,14 +8,15 @@
 // player's matchup page; its arrow shows what made the scores.
 // `config` says which league: its stats, its lines (props-data.js), its score
 // and page.
-// Oct 27, the owner: the tab is theirs alone ("make it feel admin and
-// premium ... cool and unique"). A private desk: a masthead with when the
-// board last updated, a pulse bar of tonight's board (props, games, 90+
-// matchups, the softest defense, the top matchup), a soft-spots map of
-// every defense by stat that filters the list on a tap, and rows ranked like
-// a leaderboard, each score a ring that fills and Last 10 as ten tiny bars.
+// Oct 27, the owner: the tab is theirs alone, nicer and premium, but "I
+// don't want it to look like it was made with AI ... not the futuristic
+// look". So: a plain title with when the board last updated, a soft-spots
+// map of every defense by stat that filters the list on a tap, rows ranked
+// with Last 10 as ten tiny bars against the line, and calm motion (an
+// underline that glides between tabs, rows easing in). No glows, no
+// pulsing, no gradient text.
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {ArrowDown,Check,ChevronDown,Flame,LineChart,Lock,RefreshCw,Search,SlidersHorizontal,X} from 'lucide-react';
+import {ArrowDown,Check,ChevronDown,LayoutGrid,LineChart,RefreshCw,Search,SlidersHorizontal,X} from 'lucide-react';
 import {windowGames,windowRate} from './unified-finder-data';
 import {Face,Img} from './PickParts';
 import {propGrades} from './props-grade';
@@ -25,6 +26,7 @@ import {ENOUGH,loadRecord,reportProps,reportRows} from './props-record';
 import {mainLines,tierOf} from './props-lines';
 import {CountUp} from './count-up';
 import {useWide} from './use-wide';
+import {inkStyle,useInk} from './use-ink';
 import './nba-matchups.css';
 
 const SORTS=[['matchup','Matchup'],['hit','Last 10']];
@@ -57,10 +59,10 @@ function Bar({value,tone}){
  return <span className="nm-bar" data-tone={tone||undefined}><i style={{width:`${Math.max(4,Math.min(100,value))}%`}}/></span>;
 }
 
-// The matchup: its number inside a ring that fills to it, in its tone.
-function Ring({value,score,tone,hot}){
- return <span className="nm-cell nm-score" data-tone={tone||undefined} data-hot={hot||undefined}>
-  <span className="nm-ring" style={Number.isFinite(score)?{'--score':score}:undefined}><b>{value}</b></span></span>;
+// One of the row's numbers under its heading: the number, colored by
+// what it means, and for the matchup a bar under it.
+function Cell({kind,value,tone,bar,children}){
+ return <span className={`nm-cell nm-${kind}`} data-tone={tone||undefined}><b>{value}</b>{Number.isFinite(bar)&&<Bar value={bar} tone={tone}/>}{children}</span>;
 }
 
 // His last 10 games in the stat as ten tiny bars against tonight's line
@@ -91,14 +93,14 @@ function PropRow({row,read,hit,prop,role,open,onToggle,onOpen,short,index=0,colo
  const said=[read&&`matchup ${read.score}, ${read.label.toLowerCase()}`,hit&&`last 10 ${hit.hits} of ${hit.games}`].filter(Boolean).join(', ');
  return <li className="nm-row" data-open={open||undefined} style={{'--i':Math.min(index,FIRST),...(color?{'--team':color}:{})}}>
   <button type="button" className="nm-main" onClick={()=>onOpen(row)} aria-label={`${row.player}, more ${figure(row.line)} ${stat}${pic?` ${pic[1]}`:''}${said?`: ${said}`:''}. Open his matchup page`}>
-   <span className="nm-rank" data-medal={rank<=3?rank:undefined}>{rank}</span>
+   <span className="nm-rank" data-top={rank<=3||undefined}>{rank}</span>
    <Face row={row}/>
    <b className="nm-name">{row.player}</b>
    <small className="nm-when">{row.position&&<span className="nm-pos">{row.position} · </span>}
     {row.teamAbbr&&row.opponent?<><span className="nm-own">{row.teamAbbr} </span>{home?'vs':'@'} {row.opponent}</>:row.teamAbbr}{row.startsAt&&` · ${when(row.startsAt)}`}</small>
    <span className="nm-line"><small>More</small><b>{figure(row.line)}</b><em>{stat}</em>{pic&&<img className="nm-demon" src={pic[0]} alt={pic[1]} title={pic[2]} width="18" height="18"/>}</span>
-   <Ring value={read?(index<FIRST?<CountUp value={read.score} delay={index*35+120}/>:read.score):'—'} score={read?.score} tone={read?.tone} hot={read?.score>=90}/>
-   <span className="nm-cell nm-hit"><b>{hit?`${hit.hits}/${hit.games}`:waiting?'…':'—'}</b><Spark row={row}/></span>
+   <Cell kind="score" value={read?(index<FIRST?<CountUp value={read.score} delay={index*35+120}/>:read.score):'—'} tone={read?.tone} bar={read?read.score:null}/>
+   <Cell kind="hit" value={hit?`${hit.hits}/${hit.games}`:waiting?'…':'—'}><Spark row={row}/></Cell>
   </button>
   {read?<button type="button" className="nm-why" aria-expanded={open} aria-label={`Why ${row.player}'s scores`} title="Why these scores" onClick={onToggle}><ChevronDown size={16}/></button>:<span aria-hidden="true"/>}
   {open&&read&&<ul className="nm-reads"><li className="nm-read-note">{read.score} matchup, {read.label.toLowerCase()}{hit?`. Over his line in ${hit.hits} of his last ${hit.games}`:''}.</li>
@@ -130,21 +132,6 @@ function RecordTable({record,summary}){
    <thead><tr><th scope="col">Matchup</th><th scope="col">Over</th><th scope="col">Props</th></tr></thead>
    <tbody>{summary.bands.map(item=><tr key={item.band}><th scope="row">{item.band}</th>
     <td><span className="nm-rate"><i style={{width:`${Math.min(100,item.overRate)}%`}}/></span>{Math.round(item.overRate)}%</td><td>{item.props}</td></tr>)}</tbody></table>
- </div>;
-}
-
-// Tonight's board in one row: props, games, matchups at 90+, the softest
-// defense (the one whose props score highest on average) and, on a
-// computer, the top matchup.
-function Pulse({pulse,wide,league,onOpen}){
- const soft=pulse.soft,top=pulse.top,logo=soft?league?.teams?.[soft.team]?.logo:null;
- return <div className="nm-pulse" role="group" aria-label="Tonight">
-  <div><small>Props</small><b><CountUp value={pulse.props}/></b></div>
-  <div><small>Games</small><b><CountUp value={pulse.games}/></b></div>
-  <div data-tone="strong"><small>90+</small><b><CountUp value={pulse.hot}/></b></div>
-  <div className="nm-pulse-team"><small>Softest D</small>{soft?<b>{logo&&<Img src={logo}/>}{soft.team}<em>{Math.round(soft.avg)}</em></b>:<b>—</b>}</div>
-  {wide&&top&&<button type="button" className="nm-pulse-top" onClick={()=>onOpen(top.row)} aria-label={`Top matchup: ${top.row.player}, ${top.score}. Open his page`}>
-   <small>Top matchup</small><span><Face row={top.row}/><b>{top.row.player}</b><em>{top.score}</em></span></button>}
  </div>;
 }
 
@@ -300,19 +287,7 @@ export function MatchupList({config}){
   // All stats: each player once, at his best line by the sort; a stat chip lists that stat's line.
   .filter((item,index,list)=>stat!=='all'||list.findIndex(other=>other.row.player===item.row.player&&other.row.teamAbbr===item.row.teamAbbr)===index),
   [ofKind,scores,grades,stat,picked,facing,needle,sort,league,roles,roleShown]);
- // The pulse bar and the soft-spots map read the whole board of the picked kind.
- const pulse=useMemo(()=>{
-  const byTeam=new Map();let hot=0,top=null;
-  for(const row of ofKind){
-   const value=scores.get(row.id)?.score;if(!Number.isFinite(value))continue;
-   if(value>=90)hot+=1;
-   if(!top||value>top.score)top={row,score:value};
-   if(!row.opponent)continue;
-   const team=byTeam.get(row.opponent)||{sum:0,n:0};team.sum+=value;team.n+=1;byTeam.set(row.opponent,team);
-  }
-  let soft=null;for(const [team,{sum,n}] of byTeam)if(n>=3&&(!soft||sum/n>soft.avg))soft={team,avg:sum/n};
-  return {props:ofKind.length,games:games.length,hot,soft,top};
- },[ofKind,scores,games]);
+ // The soft-spots map reads the whole board of the picked kind.
  const spots=useMemo(()=>{
   const teams=new Map();
   for(const row of ofKind){
@@ -336,6 +311,9 @@ export function MatchupList({config}){
   requestAnimationFrame(()=>tableRef.current?.scrollIntoView({behavior:'smooth',block:'start'}));};
  const recordSummary=config.key==='nba'?recordOf(record):null;
  const counts=useMemo(()=>ofKind.reduce((out,row)=>({...out,[row.marketKey]:(out[row.marketKey]||0)+1}),{}),[ofKind]);
+ // The stat tabs' underline glides to the picked one.
+ const statRow=useRef(null);
+ const statInk=useInk(statRow,`${stat}|${Object.keys(counts).length}|${page?page.id:''}`);
  // A player's page: its own history entry, so the phone's back gesture
  // closes it the same as the page's back button. Each entry carries a mark
  // made when this visit opened it (Oct 25, the owner: the back arrow went to
@@ -382,14 +360,11 @@ export function MatchupList({config}){
      chips that clear with a tap. */}
   <div className="nm-side">
   <header className="nm-head">
-   <div className="nm-eyebrow"><span className="nm-private"><Lock size={11} aria-hidden="true"/>Private</span>
-    <span className="nm-live" data-state={status==='loading'||status==='refreshing'?'busy':at?'live':'idle'}><i aria-hidden="true"/>
-     {status==='loading'||status==='refreshing'?'Updating':at?`Updated ${new Date(at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}`:'Waiting for lines'}</span></div>
    <h2 id={`${config.key}-matchups-title`}>{words.title}</h2>
+   <span className="nm-updated">{status==='loading'||status==='refreshing'?'Updating…':at?`Updated ${new Date(at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}`:''}{rows.length>0&&` · ${ofKind.length} props`}</span>
    <button type="button" className="nm-refresh" onClick={load} disabled={status==='loading'||status==='refreshing'} aria-label="Refresh">
     <RefreshCw size={15} className={status==='refreshing'?'nm-spin':undefined}/></button>
   </header>
-  {!wide&&rows.length>0&&<Pulse pulse={pulse} league={league}/>}
 
   <div className="nm-tools">
    <label className="nm-search"><Search size={15} aria-hidden="true"/>
@@ -413,9 +388,9 @@ export function MatchupList({config}){
   {wide&&<GameList games={games} value={picked} onChange={setGame}/>}
   </div>
   <div className="nm-maincol">
-  {wide&&rows.length>0&&<Pulse pulse={pulse} wide league={league} onOpen={openPage}/>}
-  <div className="nm-stats" role="group" aria-label="Stat">
+  <div className="nm-stats" role="group" aria-label="Stat" ref={statRow}>
    {STATS.filter(([key])=>key==='all'||counts[key]).map(([key,text])=><button type="button" key={key} aria-pressed={stat===key} onClick={()=>setStat(key)}>{text}</button>)}
+   <i className="nm-ink" aria-hidden="true" style={inkStyle(statInk)}/>
   </div>
 
   {status==='loading'&&<div className="nm-empty"><RefreshCw size={18} className="nm-spin"/><b>{words.loading}</b>
@@ -425,7 +400,7 @@ export function MatchupList({config}){
    <span>{words.noneText}</span></div>}
   {(spots.teams.length>0||recordSummary)&&<div className="nm-folds" data-two={spots.teams.length>0&&recordSummary?true:undefined}>
    {spots.teams.length>0&&<button type="button" className="nm-fold" data-kind="spots" aria-expanded={fold==='spots'} onClick={()=>setFold(fold==='spots'?'':'spots')}>
-    <Flame size={16} aria-hidden="true"/><span><b>Soft spots</b><small>{spots.best?`${spots.best.team} ${SHORT[spots.best.key]} · ${Math.round(spots.best.value)}`:'By defense'}</small></span><ChevronDown size={15} aria-hidden="true"/></button>}
+    <LayoutGrid size={16} aria-hidden="true"/><span><b>Soft spots</b><small>{spots.best?`${spots.best.team} ${SHORT[spots.best.key]} · ${Math.round(spots.best.value)}`:'By defense'}</small></span><ChevronDown size={15} aria-hidden="true"/></button>}
    {recordSummary&&<button type="button" className="nm-fold" data-kind="record" aria-expanded={fold==='record'} onClick={()=>setFold(fold==='record'?'':'record')}>
     <LineChart size={16} aria-hidden="true"/><span><b>Track record</b><small>{recordSummary.line}</small></span><ChevronDown size={15} aria-hidden="true"/></button>}
   </div>}

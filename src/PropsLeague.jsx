@@ -3,9 +3,10 @@
 // either matchups side switched on (site-access-core.js canUsePropsLeague,
 // main.jsx); each league shows only to whom it's on. The choice is kept per
 // device.
-import React,{Suspense,lazy,useEffect,useState} from 'react';
+import React,{Suspense,lazy,useEffect,useRef,useState} from 'react';
 import {LEAGUE_LOGOS} from './league-logos';
 import {canUsePropsLeague} from './site-access-core';
+import {inkStyle,useInk} from './use-ink';
 import './nba-matchups.css';
 
 const NbaMatchups=lazy(()=>import('./NbaMatchups').then(module=>({default:module.NbaMatchups})));
@@ -31,10 +32,13 @@ export function PropsLeague({leagues=['nba']}){
   try{localStorage.setItem(KEY,league);}catch{/* kept for this visit only */}
   return()=>{if(panel)delete panel.dataset.league;};
  },[league]);
+ // The underline glides from league to league.
+ const tabs=useRef(null),ink=useInk(tabs,`${league}|${shown.length}`);
  return <>
-  <div className="nm-league" role="group" aria-label="League">
+  <div className="nm-league" role="group" aria-label="League" ref={tabs}>
    {shown.map(([key,name])=><button type="button" key={key} aria-pressed={league===key} onClick={()=>setPicked(key)}>
     <img src={LEAGUE_LOGOS[key]} alt="" width="18" height="18"/>{name}</button>)}
+   <i className="nm-ink" aria-hidden="true" style={inkStyle(ink)}/>
   </div>
   {league==='nba'&&<Suspense fallback={null}><NbaMatchups/></Suspense>}
   {league==='nfl'&&<Suspense fallback={null}><NflMatchups/></Suspense>}

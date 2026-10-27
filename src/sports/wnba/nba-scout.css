@@ -613,7 +613,6 @@
 @keyframes mp-pop{from{opacity:0;transform:scale(.8)}}
 
 /* The grade: the knob slides in, tiles pop in one by one in their tone. */
-.nba-mp .ng-gauge{box-shadow:0 0 18px -6px color-mix(in srgb,var(--mp-good) 40%,transparent)}
 .nba-mp .ng-gauge i{transition:left .55s cubic-bezier(.2,.8,.2,1);animation:mp-knob .9s cubic-bezier(.2,.8,.2,1) backwards}
 @keyframes mp-knob{from{left:2%}}
 .nba-mp .ng-tiles button{animation:mp-pop .4s cubic-bezier(.3,1.5,.5,1) backwards;animation-delay:calc(var(--n,0) * 45ms + .1s);transition:background-color .18s,border-color .18s,transform .12s}
