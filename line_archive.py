@@ -65,22 +65,6 @@ def record(sport, lines, pipeline, now=None):
     return sum(len(fresh) for _, fresh in sent)
 
 
-def player_lines(sport, player, stats, days, pipeline):
-    """{day: {stat: line}} kept for one player (`player` and `stats` in
-    line_moves.norm form) on `days`; a day or stat with nothing kept is left out."""
-    if sport not in SPORTS or not player or not stats or not days:
-        return {}
-    reply = pipeline([['HMGET', key(sport, day), *(f'{player}|{stat}' for stat in stats)] for day in days]) or []
-    out = {}
-    for day, values in zip(days, reply):
-        for stat, value in zip(stats, values or []):
-            try:
-                out.setdefault(day, {})[stat] = float(value)
-            except (TypeError, ValueError):
-                continue
-    return {day: lines for day, lines in out.items() if lines}
-
-
 def lines_on(sport, day, pipeline):
     """{"player|stat": line} kept for `sport` on `day`; {} when none."""
     reply = pipeline([['HGETALL', key(sport, day)]])

@@ -178,7 +178,7 @@ export function NbaMatchupPage({row,lines,league,onBack}){
  const door=kind=>kind==='shots'?<ShotLink key={kind} row={row} league={leagueState} onOpen={()=>setShots('shots')}/>
   :<ChancesLink key={kind} kind={kind} row={row} league={leagueState} onOpen={()=>setShots(kind)}/>;
  // Under his games: how his lines moved, home and away against tonight's line, minutes and shots lately.
- const extras=<><LineMovement row={row} lines={lines} logs={logs} short={SHORT[row.marketKey]||row.market} ready={!log.loading}/>
+ const extras=<><LineMovement row={row} lines={lines}/>
   <HomeAway row={row} logs={logs} short={SHORT[row.marketKey]||row.market}/><MinutesShots logs={logs}/></>;
  return <MatchupPageShell row={row} team={team} opponent={opponent} home={home} facts={facts} color={color} onBack={onBack} tabs={TABS} tab={tab} onTab={setTab} jump={wide?jump:null} wide={wide} after={sheet}
   action={admin&&<button type="button" className="mp-writeup" onClick={()=>setShots('writeup')}><PenLine size={15} aria-hidden="true"/>Write-up</button>}>

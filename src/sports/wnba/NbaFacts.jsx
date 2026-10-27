@@ -1,9 +1,9 @@
 // Small cards on the NBA matchup page's Overview (Oct 27, the owner picked
-// them): how his PrizePicks lines have moved, how often he's gone over
+// them): how his PrizePicks lines moved tonight, how often he's gone over
 // tonight's line at home and on the road, his minutes and shot volume
 // lately, and both teams' rest.
 import React,{useMemo,useState} from 'react';
-import {ArrowDown,ArrowRight,ArrowUp,ArrowUpDown,BedDouble,House,Timer} from 'lucide-react';
+import {ArrowRight,ArrowUpDown,Ban,BedDouble,ChevronDown,CircleCheck,Clock3,House,Minus,Timer,TrendingDown,TrendingUp} from 'lucide-react';
 import {Card,Loading,teamName} from './NbaScout';
 import {finite,fmt,realGames,useWnba} from './wnba-research';
 import {nextGameIn,restBefore} from '../../rest';
@@ -26,15 +26,31 @@ function usualGames(games){
 }
 
 // ------------------------------------------------------------ Line movement
+// Oct 27, the owner: "more sleek and compact ... actual icons and logos ...
+// premium like polished". Tonight's PrizePicks lines that moved as one
+// list (an up / down / pulled mark, the number now and where it opened, a
+// small step chart of its path, each move's time on a tap), the steady ones
+// as chips. The by-game history was taken off at the same time.
 // The server's names (line_moves.norm): lower case letters and digits.
 const norm=value=>String(value||'').normalize('NFKD').toLowerCase().replace(/[^a-z0-9]/g,'');
-// A game's day as line_archive.py keeps it: the US day, its start less six hours.
-const usDay=date=>{const time=Date.parse(date||'');return finite(time)?new Date(time-6*3600e3).toISOString().slice(0,10):null;};
 // A move belongs to tonight's game when its start is within a few hours of it.
 const SAME_GAME=3*3600e3;
 const clock={hour:'numeric',minute:'2-digit'};
-const signed=value=>`${value>0?'+':value<0?'−':''}${fmt(Math.abs(value),1)}`;
-export function LineMovement({row,lines,logs,short,ready}){
+const timeOf=at=>new Date(at).toLocaleTimeString([],clock);
+const ago=at=>{const minutes=Math.round((Date.now()-Date.parse(at||''))/60000);
+ return !finite(minutes)?null:minutes<1?'just now':minutes<60?`${minutes}m ago`:minutes<1440?`${Math.round(minutes/60)}h ago`:null;};
+const PRIZEPICKS_LOGO='/prizepicks/logo.png';
+// The line's path through the day as steps, each move one step along.
+function Steps({values,tone}){
+ const width=54,height=22,pad=3;
+ const low=Math.min(...values),high=Math.max(...values),y=value=>high===low?height/2:pad+(high-value)/(high-low)*(height-2*pad);
+ const step=width/Math.max(1,values.length);
+ const path=values.map((value,index)=>`${index?`H${(index*step).toFixed(1)}V`:'M0 '}${y(value).toFixed(1)}`).join('')+`H${width}`;
+ return <svg className="nf-steps" data-tone={tone} viewBox={`0 0 ${width} ${height}`} width={width} height={height} aria-hidden="true">
+  <path d={path} fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  <circle cx={width-1.5} cy={y(values.at(-1))} r="2.5"/></svg>;
+}
+export function LineMovement({row,lines}){
  // His standard lines tonight, one a stat, the page's own first.
  const offered=useMemo(()=>{
   const seen=new Map();
@@ -44,10 +60,7 @@ export function LineMovement({row,lines,logs,short,ready}){
   }
   return [...seen.values()];
  },[row,lines]);
- // Eight games and tonight fit a phone's width.
- const games=useMemo(()=>realGames(logs).slice(-8),[logs]);
- const params={player:row.player,stats:offered.map(item=>item.market).join(','),days:games.map(game=>usDay(game.date)).filter(Boolean).join(','),league:'nba'};
- const history=useWnba('line-history',params,Boolean(row.player&&ready));
+ const history=useWnba('line-history',{player:row.player,league:'nba'},Boolean(row.player));
  const [opened,setOpened]=useState(null);
  const pageKey=norm(row.market);
  const tonight=useMemo(()=>{
@@ -60,45 +73,39 @@ export function LineMovement({row,lines,logs,short,ready}){
   return [...offered,...gone].map(item=>{
    const key=norm(item.market),mine=moves.filter(move=>norm(move.stat)===key),changes=mine.filter(move=>move.kind==='line');
    const open=changes.length?changes[0].from:item.line,now=finite(item.line)?item.line:changes.length?changes.at(-1).to:mine[0]?.from;
-   return {item,key,moves:mine,open,now,change:finite(open)&&finite(now)?now-open:0};
+   const pulled=mine.find(move=>move.kind==='pulled');
+   return {item,key,moves:mine,open,now,pulled,path:[open,...changes.map(move=>move.to)].filter(finite),change:finite(open)&&finite(now)?Math.round((now-open)*10)/10:0};
   });
  },[history.data,offered,row.startsAt]);
- // His closing number for the page's stat on each of his last games, then tonight's.
- const past=useMemo(()=>games.map(game=>({game,line:history.data?.closing?.[usDay(game.date)]?.[pageKey],value:game.values?.[row.marketKey]}))
-  .filter(entry=>finite(entry.line)&&finite(entry.value)),[games,history.data,pageKey,row.marketKey]);
  if(!row.player)return null;
- if(history.loading&&!history.data)return <Card title="Line movement" icon={ArrowUpDown}><Loading/></Card>;
- const moved=tonight.filter(entry=>entry.moves.length||entry.key===pageKey);
- const still=tonight.filter(entry=>!moved.includes(entry));
- const shown=opened??(moved.find(entry=>entry.key===pageKey&&entry.moves.length)?.key||null);
- const top=Math.max(1,...past.map(entry=>Math.max(entry.value,entry.line)),finite(row.line)?row.line:0);
- const first=past[0]?.line,trend=finite(first)&&finite(row.line)?row.line-first:null;
- return <Card title="Line movement" note="PrizePicks" icon={ArrowUpDown} className="nf-moves">
-  <h3 className="nf-head">This game</h3>
-  <ul className="nf-mv-list">{moved.map((entry,index)=>{
-   const change=Math.round(entry.change*10)/10,expandable=entry.moves.length>0,open=expandable&&shown===entry.key;
-   const pulled=entry.moves.find(move=>move.kind==='pulled');
-   const body=<><span className="nf-mv-stat">{entry.item.market}</span>
-    <span className="nf-mv-path">{change?<>{fmt(entry.open,1)}<ArrowRight size={13} aria-hidden="true"/></>:null}<b>{fmt(entry.now,1)}</b></span>
-    {pulled?<em data-tone="poor">Pulled</em>:change?<em data-tone={change>0?'up':'down'}>{change>0?<ArrowUp size={12} aria-hidden="true"/>:<ArrowDown size={12} aria-hidden="true"/>}{fmt(Math.abs(change),1)}</em>:<em>No move</em>}</>;
-   return <li key={entry.key} data-page={entry.key===pageKey||undefined} style={{'--n':index}}>
-    {expandable?<button type="button" aria-expanded={open} onClick={()=>setOpened(open?'':entry.key)}>{body}</button>:<div>{body}</div>}
-    {open&&<ol className="nf-mv-times">{entry.moves.map((move,step)=><li key={step}>
-     <time dateTime={move.at}>{new Date(move.at).toLocaleTimeString([],clock)}</time>
-     {move.kind==='pulled'?<span>Pulled at {fmt(move.from,1)}</span>:<span>{fmt(move.from,1)}<ArrowRight size={12} aria-hidden="true"/><b>{fmt(move.to,1)}</b></span>}
+ const head=<span className="nf-src"><img src={PRIZEPICKS_LOGO} alt="" width="16" height="16"/>PrizePicks{ago(history.data?.checked)&&<em>· {ago(history.data.checked)}</em>}</span>;
+ if(history.loading&&!history.data)return <Card title="Line movement" note={head} icon={ArrowUpDown}><Loading/></Card>;
+ const moved=tonight.filter(entry=>entry.moves.length).sort((a,b)=>(b.key===pageKey)-(a.key===pageKey));
+ const steady=tonight.filter(entry=>!entry.moves.length);
+ return <Card title="Line movement" note={head} icon={ArrowUpDown} className="nf-moves">
+  {moved.length?<ul className="nf-mv-list">{moved.map((entry,index)=>{
+   const open=opened===entry.key,tone=entry.pulled?'pulled':entry.change>0?'up':entry.change<0?'down':'flat';
+   const Mark=entry.pulled?Ban:entry.change>0?TrendingUp:entry.change<0?TrendingDown:Minus;
+   const last=entry.moves.at(-1),count=entry.moves.filter(move=>move.kind==='line').length;
+   return <li key={entry.key} data-page={entry.key===pageKey||undefined} data-tone={tone} style={{'--n':index}}>
+    <button type="button" aria-expanded={open} onClick={()=>setOpened(open?null:entry.key)}>
+     <span className="nf-mv-mark"><Mark size={15} aria-hidden="true"/></span>
+     <span className="nf-mv-what"><b>{entry.item.market}</b>
+      <small><Clock3 size={11} aria-hidden="true"/>{entry.pulled?`Pulled ${timeOf(entry.pulled.at)}`:`${count} ${count===1?'move':'moves'} · ${timeOf(last.at)}`}</small></span>
+     {entry.path.length>1&&!entry.pulled&&<Steps values={entry.path} tone={tone}/>}
+     <span className="nf-mv-now"><b>{fmt(entry.now,1)}</b>
+      <small>{entry.pulled?'Off the board':`${entry.change>0?'+':entry.change<0?'−':''}${fmt(Math.abs(entry.change),1)} from ${fmt(entry.open,1)}`}</small></span>
+     <ChevronDown className="nf-mv-more" size={15} aria-hidden="true"/>
+    </button>
+    {open&&<ol className="nf-mv-times">{entry.moves.map((move,step)=><li key={step} data-kind={move.kind}>
+     <time dateTime={move.at}>{timeOf(move.at)}</time>
+     {move.kind==='pulled'?<span>Pulled at <b>{fmt(move.from,1)}</b></span>
+      :<span>{fmt(move.from,1)}<ArrowRight size={12} aria-hidden="true"/><b>{fmt(move.to,1)}</b></span>}
     </li>)}</ol>}
    </li>;})}</ul>
-  {still.length>0&&<p className="nf-mv-still">No moves: {still.map(entry=>`${entry.item.market} ${fmt(entry.now,1)}`).join(' · ')}</p>}
-  {past.length>0&&<>
-   <h3 className="nf-head nf-head-split"><span>His {short} line by game</span>{finite(trend)&&trend!==0&&<em data-tone={trend>0?'up':'down'}>{signed(trend)} since {new Date(past[0].game.date).toLocaleDateString([],{month:'numeric',day:'numeric'})}</em>}</h3>
-   <div className="nf-ln-bars">{past.map(({game,line,value},index)=>
-    <span key={game.gameId||index} style={{'--h':value/top,'--l':line/top,'--n':index}} data-tone={value>line?'good':'poor'}
-     aria-label={`${new Date(game.date).toLocaleDateString([],{month:'short',day:'numeric'})}: line ${fmt(line,1)}, he had ${fmt(value,0)}`}>
-     <b>{fmt(value,0)}</b><span className="nf-ln-col"><i/><s/></span><small>{fmt(line,1)}</small><small>{game.isHome===false?'@':''}{game.opponent||''}</small>
-    </span>)}
-    {finite(row.line)&&<span data-tonight style={{'--l':row.line/top,'--n':past.length}} aria-label={`Tonight: line ${fmt(row.line,1)}`}>
-     <b/><span className="nf-ln-col"><s/></span><small>{fmt(row.line,1)}</small><small>Tonight</small></span>}
-   </div></>}
+  :<p className="nf-mv-none"><CircleCheck size={15} aria-hidden="true"/>None of his lines have moved since they went up.</p>}
+  {steady.length>0&&<div className="nf-steady"><span className="nf-steady-label"><Minus size={12} aria-hidden="true"/>Steady</span>
+   {steady.map(entry=><span key={entry.key} className="nf-chip" data-page={entry.key===pageKey||undefined}>{entry.item.market}<b>{fmt(entry.now,1)}</b></span>)}</div>}
  </Card>;
 }
 

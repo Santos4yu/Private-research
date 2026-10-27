@@ -71,24 +71,24 @@ Last updated 2026-10-27 (the Props tab: premium but plain, no AI look). Read thi
 
 ### Oct 27: Line movement on the NBA player page
 
-- The owner asked "Where is the line movement" (idea 5, not in the 1-4 the owner
-  picked; built on asking). `LineMovement` in `src/sports/wnba/NbaFacts.jsx`,
-  first under His games:
-  - This game: each of his standard PrizePicks lines tonight (the page's
-    own first, accent edge) that moved: opened -> now, up/down tag, tap
-    for each move's time; a line pulled tonight (off the board) still
-    shows from its moves; the rest on one "No moves:" line.
-  - His <stat> line by game: his last 8 games, a bar for what he put up
-    (green over / red under that night's line) with a white tick at that
-    night's closing PrizePicks line, then tonight's line dashed; "+3 since
-    10/7" is tonight's line against the first night shown.
-  - Server: `/api/wnba?league=nba&resource=line-history&player=&stats=&days=`
-    (api/wnba.py): `line_moves.player_moves` (every move still on the list,
-    1500 across sports, so a busy day's early moves can roll off) and
-    `line_archive.player_lines` (HMGET of "player|stat" per game day; days
-    are the US day, start less 6h, worked out on the page). Nothing new is
-    recorded; the archive has NBA nights since it started, so older games
-    simply have no tick. Tests in tests/test_line_moves.py.
+- The owner asked "Where is the line movement" (idea 5); first version had
+  a "His line by game" chart under tonight's moves. Then: "Remove the
+  bottom his line by game ... make the line movement better more sleek and
+  compact add actual icons and logos ... premium like polished". Now
+  `LineMovement` in `src/sports/wnba/NbaFacts.jsx`, first under His games:
+  header with the PrizePicks logo (`/prizepicks/logo.png`) and how long ago
+  the NBA lines were last checked; one grouped list of tonight's lines that
+  moved (page's own first, accent edge): a toned mark (trending up / down,
+  pulled), the stat with "N moves · time" or "Pulled time", a small step
+  chart of its path, the number now with "+1 from 21.5", a tap for each
+  move's time on a dot timeline; a line pulled tonight (off the board)
+  still shows, struck through; the unmoved ones as "Steady" chips.
+- Server: `/api/wnba?league=nba&resource=line-history&player=` returns
+  `moves` (`line_moves.player_moves`: every move still on the list, 1500
+  across sports, so a busy day's early moves can roll off) and `checked`
+  (`line_moves.checked()['nba']`). The by-game closing numbers and
+  `line_archive.player_lines` were removed with the chart. Nothing new is
+  recorded. Tests in tests/test_line_moves.py.
 
 ### Oct 27: Home / away, Minutes & shots, Rest on the NBA player page
 

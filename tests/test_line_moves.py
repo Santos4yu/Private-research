@@ -58,8 +58,6 @@ class FakeKV:
             return 1
         if name == 'HGETALL':
             return [item for pair in self.data.get(key, {}).items() for item in pair]
-        if name == 'HMGET':
-            return [self.data.get(key, {}).get(field) for field in args]
         if name == 'HDEL':
             table = self.data.get(key, {})
             return sum(table.pop(field, None) is not None for field in args)
@@ -140,14 +138,6 @@ class LineArchiveTests(Base):
         moves.observe_prizepicks('NFL', [pp('Jahmyr Gibbs', 'Rush Yards', 79.5, league='NFL', start_time='2026-10-25T17:00:00+00:00')],
                                  fetched_at=T0)
         self.assertEqual(archive.lines_on('nfl', '2026-10-25', self.kv), {'jahmyrgibbs|rushyards': 79.5})
-
-    def test_one_players_numbers_by_day(self):
-        moves.observe_prizepicks('NBA', [self.nba('Jeremiah Fears', 'Points', 12.5), self.nba('Jeremiah Fears', 'Rebounds', 4.5),
-                                         self.nba('Derik Queen', 'Points', 13.5)], fetched_at=T0)
-        self.assertEqual(archive.player_lines('nba', 'jeremiahfears', ['points', 'assists'], ['2026-10-21', '2026-10-20'], self.kv),
-                         {'2026-10-21': {'points': 12.5}})
-        self.assertEqual(archive.player_lines('nba', 'jeremiahfears', [], ['2026-10-21'], self.kv), {})
-        self.assertEqual(archive.player_lines('mlb', 'aaronjudge', ['totalbases'], ['2026-10-21'], self.kv), {})
 
     def test_started_games_goblins_and_other_leagues_are_left_out(self):
         moves.observe_prizepicks('NBA', [self.nba('A', 'Points', 9.5, start=moves._iso(T0 - 60)),

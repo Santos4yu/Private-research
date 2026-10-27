@@ -990,39 +990,48 @@
 .nba-mp .nf-rest-row em[data-tone=good]{background:#163326;color:var(--mp-good)}
 @media (prefers-reduced-motion:reduce){.nba-mp :is(.nf-sides>div,.nf-min-bars>span>i,.nf-rest-row){animation:none}}
 
-/* Line movement (NbaFacts.jsx LineMovement): tonight's numbers and their
-   moves, then his closing line by game as a tick across what he put up. */
-.nba-mp .nf-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;color:var(--mp-faint);font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
-.nba-mp .nf-head-split{margin-top:16px}
-.nba-mp .nf-head em{font-style:normal;letter-spacing:0;text-transform:none;font-size:11.5px}
-.nba-mp .nf-mv-list{display:grid;gap:4px;margin:0;padding:0;list-style:none}
-.nba-mp .nf-mv-list>li{border-radius:10px;background:var(--mp-raised);animation:mp-gp-in .3s ease-out backwards;animation-delay:calc(var(--n,0) * 40ms)}
-.nba-mp .nf-mv-list>li[data-page]{box-shadow:inset 2px 0 0 var(--mp-accent)}
-.nba-mp .nf-mv-list>li>:is(button,div){display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:10px;width:100%;padding:10px 12px;border:0;background:transparent;color:inherit;font:inherit;text-align:left}
-.nba-mp .nf-mv-list>li>button{cursor:pointer}
-.nba-mp .nf-mv-stat{overflow:hidden;font-size:13px;font-weight:700;white-space:nowrap;text-overflow:ellipsis}
-.nba-mp .nf-mv-path{display:inline-flex;align-items:center;gap:5px;color:var(--mp-muted);font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
-.nba-mp .nf-mv-path b{color:var(--mp-text);font-size:14px}
-.nba-mp :is(.nf-mv-list,.nf-head) em{display:inline-flex;align-items:center;gap:2px;padding:2px 8px;border-radius:999px;background:#252525;color:var(--mp-muted);font-size:11px;font-style:normal;font-weight:800;white-space:nowrap}
-.nba-mp :is(.nf-mv-list,.nf-head) em[data-tone=up]{background:#163326;color:var(--mp-good)}
-.nba-mp :is(.nf-mv-list,.nf-head) em[data-tone=down],.nba-mp .nf-mv-list em[data-tone=poor]{background:#3a1a21;color:#ff8ea2}
-.nba-mp .nf-mv-times{display:grid;gap:2px;margin:0;padding:0 12px 10px;list-style:none}
-.nba-mp .nf-mv-times li{display:grid;grid-template-columns:72px minmax(0,1fr);align-items:center;gap:8px;padding:5px 0;border-top:1px solid #262626;color:var(--mp-muted);font-size:12px;font-variant-numeric:tabular-nums}
+/* Line movement (NbaFacts.jsx LineMovement), Oct 27: "sleek and compact ...
+   premium". One grouped list of the lines that moved (a toned mark, the
+   stat and when, a small step chart, the number now and where it opened),
+   each move's time on a tap; the steady lines as chips. */
+.nba-mp .nf-src{display:inline-flex;align-items:center;gap:6px;color:var(--mp-muted)}
+.nba-mp .nf-src img{width:16px;height:16px;border-radius:4px;object-fit:contain}
+.nba-mp .nf-src em{color:var(--mp-faint);font-style:normal;font-weight:600}
+.nba-mp .nf-mv-list{margin:0;padding:0;border-radius:14px;background:var(--mp-raised);list-style:none;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.04)}
+.nba-mp .nf-mv-list>li{--tone:var(--mp-muted);position:relative;animation:mp-gp-in .3s ease-out backwards;animation-delay:calc(var(--n,0) * 45ms)}
+.nba-mp .nf-mv-list>li+li{box-shadow:0 -1px 0 rgba(255,255,255,.05)}
+.nba-mp .nf-mv-list>li[data-tone=up]{--tone:var(--mp-good)}
+.nba-mp .nf-mv-list>li:is([data-tone=down],[data-tone=pulled]){--tone:#ff7b93}
+.nba-mp .nf-mv-list>li[data-page]::before{content:"";position:absolute;top:12px;bottom:12px;left:0;width:2px;border-radius:0 2px 2px 0;background:var(--mp-accent)}
+.nba-mp .nf-mv-list button{display:grid;grid-template-columns:30px minmax(0,1fr) auto auto 14px;align-items:center;gap:10px;width:100%;padding:11px 12px;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.nba-mp .nf-mv-list button:active{background:rgba(255,255,255,.03)}
+.nba-mp .nf-mv-mark{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:color-mix(in srgb,var(--tone) 14%,transparent);color:var(--tone)}
+.nba-mp .nf-mv-what{display:grid;gap:3px;min-width:0}
+.nba-mp .nf-mv-what b{overflow:hidden;font-size:13.5px;font-weight:700;white-space:nowrap;text-overflow:ellipsis}
+.nba-mp .nf-mv-what small{display:inline-flex;align-items:center;gap:4px;color:var(--mp-faint);font-size:11px;font-weight:600;white-space:nowrap}
+.nba-mp .nf-steps path{stroke:var(--tone)}
+.nba-mp .nf-steps circle{fill:var(--tone)}
+.nba-mp .nf-steps path{stroke-dasharray:120;stroke-dashoffset:0;animation:nf-draw .7s cubic-bezier(.3,.7,.3,1) backwards;animation-delay:calc(var(--n,0) * 45ms + .1s)}
+@keyframes nf-draw{from{stroke-dashoffset:120}}
+.nba-mp .nf-mv-now{display:grid;justify-items:end;gap:2px;min-width:62px}
+.nba-mp .nf-mv-now b{font:800 17px/1 'Sora',var(--font-sans);font-variant-numeric:tabular-nums}
+.nba-mp .nf-mv-now small{color:var(--tone);font-size:10.5px;font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums}
+.nba-mp .nf-mv-list>li[data-tone=pulled] .nf-mv-now b{color:var(--mp-faint);text-decoration:line-through;text-decoration-thickness:2px}
+.nba-mp .nf-mv-more{color:var(--mp-faint);transition:transform .2s ease}
+.nba-mp .nf-mv-list button[aria-expanded=true] .nf-mv-more{transform:rotate(180deg)}
+.nba-mp .nf-mv-times{position:relative;display:grid;gap:0;margin:0;padding:0 14px 10px 52px;list-style:none;animation:mp-gp-in .2s ease-out}
+.nba-mp .nf-mv-times::before{content:"";position:absolute;top:4px;bottom:16px;left:26px;width:1px;background:rgba(255,255,255,.08)}
+.nba-mp .nf-mv-times li{position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0;color:var(--mp-muted);font-size:12px;font-variant-numeric:tabular-nums}
+.nba-mp .nf-mv-times li::before{content:"";position:absolute;top:50%;left:-29px;width:7px;height:7px;border-radius:50%;background:var(--tone);box-shadow:0 0 0 3px var(--mp-raised);transform:translateY(-50%)}
+.nba-mp .nf-mv-times time{color:var(--mp-faint);font-weight:600}
 .nba-mp .nf-mv-times span{display:inline-flex;align-items:center;gap:5px}
 .nba-mp .nf-mv-times b{color:var(--mp-text)}
-.nba-mp .nf-mv-still{margin:8px 2px 0;color:var(--mp-faint);font-size:11.5px;line-height:1.5}
-/* 70px columns: the bar is what he put up, the white tick that night's line. */
-.nba-mp .nf-ln-bars{display:flex;align-items:flex-end;gap:5px}
-.nba-mp .nf-ln-bars>span{display:flex;flex:1;flex-direction:column;align-items:center;gap:2px;min-width:0}
-.nba-mp .nf-ln-bars b{min-height:13px;color:var(--tone,var(--mp-muted));font-size:10px;font-weight:800;font-variant-numeric:tabular-nums}
-.nba-mp .nf-ln-col{position:relative;display:flex;align-items:flex-end;justify-content:center;width:100%;max-width:26px;height:70px}
-.nba-mp .nf-ln-col i{width:100%;height:calc(var(--h,0) * 70px);border-radius:4px 4px 2px 2px;background:color-mix(in srgb,var(--tone,#4a5563) 70%,#1d1d1d);transform-origin:bottom;
- animation:mp-grow .45s cubic-bezier(.22,.8,.24,1) backwards;animation-delay:calc(var(--n,0) * 30ms)}
-.nba-mp .nf-ln-col s{position:absolute;right:-3px;bottom:calc(var(--l,0) * 70px);left:-3px;height:2px;border-radius:1px;background:#f2f2f2;transform:translateY(50%)}
-.nba-mp .nf-ln-bars>[data-tonight] .nf-ln-col{border:1px dashed #3a3f46;border-bottom:0;border-radius:4px 4px 0 0}
-.nba-mp .nf-ln-bars>[data-tonight] .nf-ln-col s{background:var(--mp-accent)}
-.nba-mp .nf-ln-bars small{overflow:hidden;max-width:100%;color:var(--mp-faint);font-size:9.5px;font-weight:700;white-space:nowrap;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
-.nba-mp .nf-ln-bars small:first-of-type{color:var(--mp-muted);font-size:10px}
-.nba-mp .nf-ln-bars>[data-tonight] small{color:var(--mp-accent)}
-@media (prefers-reduced-motion:reduce){.nba-mp :is(.nf-mv-list>li,.nf-ln-col i){animation:none}}
-.nba-mp .nf-ln-bars small:last-child{font-size:9px;letter-spacing:-.02em;text-overflow:clip}
+.nba-mp .nf-mv-none{display:flex;align-items:center;gap:8px;margin:0;padding:12px;border-radius:14px;background:var(--mp-raised);color:var(--mp-muted);font-size:12.5px;font-weight:600}
+.nba-mp .nf-mv-none svg{color:var(--mp-good)}
+.nba-mp .nf-steady{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px}
+.nba-mp .nf-steady-label{display:inline-flex;align-items:center;gap:4px;margin-right:2px;color:var(--mp-faint);font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
+.nba-mp .nf-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:var(--mp-raised);color:var(--mp-muted);font-size:11.5px;font-weight:600;box-shadow:inset 0 0 0 1px rgba(255,255,255,.04)}
+.nba-mp .nf-chip b{color:var(--mp-text);font-weight:800;font-variant-numeric:tabular-nums}
+.nba-mp .nf-chip[data-page]{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--mp-accent) 55%,transparent)}
+@media (max-width:380px){.nba-mp .nf-mv-list button{grid-template-columns:30px minmax(0,1fr) auto auto;gap:8px}.nba-mp .nf-mv-more{display:none}}
+@media (prefers-reduced-motion:reduce){.nba-mp :is(.nf-mv-list>li,.nf-steps path,.nf-mv-times){animation:none}}
