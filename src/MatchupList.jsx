@@ -16,7 +16,7 @@
 // underline that glides between tabs, rows easing in). No glows, no
 // pulsing, no gradient text.
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {ArrowDown,Check,ChevronDown,LayoutGrid,LineChart,RefreshCw,Search,SlidersHorizontal,X} from 'lucide-react';
+import {ArrowDown,ArrowRight,Check,ChevronDown,LayoutGrid,LineChart,RefreshCw,Search,SlidersHorizontal,X} from 'lucide-react';
 import {windowGames,windowRate} from './unified-finder-data';
 import {Face,Img} from './PickParts';
 import {propGrades} from './props-grade';
@@ -84,15 +84,30 @@ const blowoutText=found=>`his team is a ${figure(Math.abs(found.spread))}-point 
 // The first rows in view slide in one after another and count their scores
 // up; each row carries his team's color (a ring on his photo, a wash behind).
 const FIRST=14;
-function PropRow({row,read,hit,prop,role,open,onToggle,onOpen,short,index=0,color}){
+// What made the scores (a row's Why, and the preview beside the list).
+function Reads({read,prop,role,hit,brief}){
+ return <ul className="nm-reads">{!brief&&<li className="nm-read-note">{read.score} matchup, {read.label.toLowerCase()}{hit?`. Over his line in ${hit.hits} of his last ${hit.games}`:''}.</li>}
+  {prop?.blowout&&<li className="nm-read-note">{prop.blowout.role==='starter'?'Blowout risk':'Blowout boost'}: {blowoutText(prop.blowout)}.</li>}
+  {role&&<li className="nm-read-note">{role.label}: {role.sat?`he started ${role.starts} of his last ${role.games} and sat out his team’s last game`:`${role.starter?'he started his team’s last game':'he didn’t start his team’s last game'} and ${role.starts} of his last ${role.games}`}. Tonight’s lineup is announced about half an hour before tip-off.</li>}
+  <li className="nm-read-note">An even matchup is 50. Each part adds or takes away points.</li>{read.reads.map(item=><li key={item.key}>
+  <span className="nm-read-head"><b>{READS[item.kind]||READS[item.key]||'Their defense'}</b><em>{added(item.points)}</em></span>
+  <span className="nm-read-text">{item.text}</span>
+  <Bar value={item.score} tone={item.score>=60?'edge':item.score>=40?'neutral':'tough'}/>
+ </li>)}</ul>;
+}
+
+// On a big screen (`picking`) a row picks the prop shown beside the list
+// instead of opening his page, and has no Why arrow: the preview says why.
+function PropRow({row,read,hit,prop,role,open,onToggle,onOpen,short,index=0,color,picking,selected,onSelect}){
  const rank=index+1;
  const home=row.teamAbbr&&row.teamAbbr===row.homeTeamAbbr;
  const kind=tierOf(row),pic=PICS[kind];
  const stat=short[row.marketKey]||row.market;
  const waiting=row.historyStatus==='pending'||row.historyRefresh;
  const said=[read&&`matchup ${read.score}, ${read.label.toLowerCase()}`,hit&&`last 10 ${hit.hits} of ${hit.games}`].filter(Boolean).join(', ');
- return <li className="nm-row" data-open={open||undefined} style={{'--i':Math.min(index,FIRST),...(color?{'--team':color}:{})}}>
-  <button type="button" className="nm-main" onClick={()=>onOpen(row)} aria-label={`${row.player}, more ${figure(row.line)} ${stat}${pic?` ${pic[1]}`:''}${said?`: ${said}`:''}. Open his matchup page`}>
+ return <li className="nm-row" data-open={open||undefined} data-selected={selected||undefined} style={{'--i':Math.min(index,FIRST),...(color?{'--team':color}:{})}}>
+  <button type="button" className="nm-main" onClick={()=>picking?onSelect(row.id):onOpen(row)} aria-pressed={picking?Boolean(selected):undefined}
+   aria-label={`${row.player}, more ${figure(row.line)} ${stat}${pic?` ${pic[1]}`:''}${said?`: ${said}`:''}. ${picking?'Show his matchup beside the list':'Open his matchup page'}`}>
    <span className="nm-rank" data-top={rank<=3||undefined}>{rank}</span>
    <Face row={row}/>
    <b className="nm-name">{row.player}</b>
@@ -102,16 +117,59 @@ function PropRow({row,read,hit,prop,role,open,onToggle,onOpen,short,index=0,colo
    <Cell kind="score" value={read?(index<FIRST?<CountUp value={read.score} delay={index*35+120}/>:read.score):'—'} tone={read?.tone} bar={read?read.score:null}/>
    <Cell kind="hit" value={hit?`${hit.hits}/${hit.games}`:waiting?'…':'—'}><Spark row={row}/></Cell>
   </button>
-  {read?<button type="button" className="nm-why" aria-expanded={open} aria-label={`Why ${row.player}'s scores`} title="Why these scores" onClick={onToggle}><ChevronDown size={16}/></button>:<span aria-hidden="true"/>}
-  {open&&read&&<ul className="nm-reads"><li className="nm-read-note">{read.score} matchup, {read.label.toLowerCase()}{hit?`. Over his line in ${hit.hits} of his last ${hit.games}`:''}.</li>
-   {prop?.blowout&&<li className="nm-read-note">{prop.blowout.role==='starter'?'Blowout risk':'Blowout boost'}: {blowoutText(prop.blowout)}.</li>}
-   {role&&<li className="nm-read-note">{role.label}: {role.sat?`he started ${role.starts} of his last ${role.games} and sat out his team’s last game`:`${role.starter?'he started his team’s last game':'he didn’t start his team’s last game'} and ${role.starts} of his last ${role.games}`}. Tonight’s lineup is announced about half an hour before tip-off.</li>}
-   <li className="nm-read-note">An even matchup is 50. Each part adds or takes away points.</li>{read.reads.map(item=><li key={item.key}>
-   <span className="nm-read-head"><b>{READS[item.kind]||READS[item.key]||'Their defense'}</b><em>{added(item.points)}</em></span>
-   <span className="nm-read-text">{item.text}</span>
-   <Bar value={item.score} tone={item.score>=60?'edge':item.score>=40?'neutral':'tough'}/>
-  </li>)}</ul>}
+  {picking?null:read?<button type="button" className="nm-why" aria-expanded={open} aria-label={`Why ${row.player}'s scores`} title="Why these scores" onClick={onToggle}><ChevronDown size={16}/></button>:<span aria-hidden="true"/>}
+  {!picking&&open&&read&&<Reads read={read} prop={prop} role={role} hit={hit}/>}
  </li>;
+}
+
+// The picked prop beside the list on a big screen (Oct 27, the owner: "make
+// a better layout design" for the computer; the list had been split into
+// two columns that read 1 left, 2 right, with gaps across each row). Who and
+// when, the line and the matchup, his last 10 games against the line, his
+// hit rates, what made the score, his other lines tonight and the way to
+// his full page. It stays in view while the list scrolls.
+const POS_NAMES={G:'Guard',F:'Forward',C:'Center'};
+const WINDOWS=[['l5','L5'],['l10','L10'],['l20','L20'],['season','Season']];
+function Preview({item,others,league,short,color,onOpen,onPick}){
+ const {row,read,hit,prop,role}=item;
+ const home=row.teamAbbr&&row.teamAbbr===row.homeTeamAbbr;
+ const team=league?.teams?.[row.teamAbbr],opponent=league?.teams?.[row.opponent];
+ const pic=PICS[tierOf(row)],stat=short[row.marketKey]||row.market;
+ const line=Number(row.line);
+ const games=(row.gameLog||[]).filter(game=>Number.isFinite(game?.value)).slice(-10);
+ const top=Math.max(1,Number.isFinite(line)?line*1.4:0,...games.map(game=>game.value));
+ const rates=WINDOWS.map(([key,label])=>{const window=row.windows?.[key],count=windowGames(window);
+  return count?{key,label,hits:window.hits,games:count,rate:windowRate(window)}:null;}).filter(Boolean);
+ return <aside className="nm-preview" aria-label={`${row.player}, ${stat}`} style={color?{'--team':color}:undefined}>
+  <div className="nm-pv-card" key={row.id}>
+   <header className="nm-pv-head"><Face row={row}/>
+    <div className="nm-pv-who"><b>{row.player}</b>
+     <small>{[POS_NAMES[String(row.position||'')[0]]||row.position,team?.short||team?.name||row.teamAbbr,role?.label].filter(Boolean).join(' · ')}</small>
+     <span className="nm-pv-game">{opponent?.logo&&<Img src={opponent.logo}/>}{home?'vs':'@'} {opponent?.short||row.opponent}{row.startsAt&&` · ${when(row.startsAt)}`}</span></div>
+   </header>
+   <div className="nm-pv-main">
+    <div className="nm-pv-line"><small>More</small><span><b>{figure(row.line)}</b><em>{stat}</em>{pic&&<img src={pic[0]} alt={pic[1]} title={pic[2]} width="18" height="18"/>}</span></div>
+    <div className="nm-pv-score" data-tone={read?.tone||undefined}><small>Matchup</small>
+     {read?<><span><b><CountUp value={read.score}/></b><em>{read.label}</em></span><Bar value={read.score} tone={read.tone}/></>:<span><b>—</b></span>}</div>
+   </div>
+   {games.length>0&&<section className="nm-pv-part"><h3>Last {games.length} games</h3>
+    <div className="nm-pv-chart" role="img" aria-label={`${stat}, last ${games.length}: ${games.map(game=>figure(game.value)).join(', ')}`}>
+     <div className="nm-pv-bars">
+      {Number.isFinite(line)&&<i className="nm-pv-at" style={{bottom:`${Math.min(100,line/top*100)}%`}}/>}
+      {games.map((game,index)=><span key={`${game.date}-${index}`} data-over={game.value>line||undefined} style={{'--k':index,height:`${Math.max(3,game.value/top*100)}%`}}>
+       <b>{figure(game.value)}</b></span>)}
+     </div>
+     <div className="nm-pv-opps" aria-hidden="true">{games.map((game,index)=><small key={index}>{game.opponent||''}</small>)}</div>
+    </div></section>}
+   {rates.length>0&&<div className="nm-pv-rates">{rates.map(item=><span key={item.key} data-tone={item.rate>=60?'good':item.rate<=40?'poor':undefined}>
+    <small>{item.label}</small><b>{item.hits}/{item.games}</b></span>)}</div>}
+   {read&&<section className="nm-pv-part nm-pv-why"><h3>What makes the {read.score}</h3><Reads read={read} prop={prop} role={role} hit={hit} brief/></section>}
+   {others.length>0&&<section className="nm-pv-part"><h3>His other lines tonight</h3><div className="nm-pv-others">{others.map(other=>
+    <button type="button" key={other.row.id} onClick={()=>onPick(other.row.id)}><small>{short[other.row.marketKey]||other.row.market}</small><b>{figure(other.row.line)}</b>
+     {other.read&&<em data-tone={other.read.tone}>{other.read.score}</em>}</button>)}</div></section>}
+   <button type="button" className="nm-pv-open" onClick={()=>onOpen(row)}>Open his matchup page<ArrowRight size={16} aria-hidden="true"/></button>
+  </div>
+ </aside>;
 }
 
 // How the props the list showed went (props-record.js): by matchup score
@@ -225,6 +283,9 @@ export function MatchupList({config}){
  const [filtersOpen,setFiltersOpen]=useState(false);
  // A computer: the controls sit in a sidebar, always open, with the games listed.
  const wide=useWide();
+ // A big screen also shows the picked prop beside the list.
+ const roomy=useWide('(min-width: 1500px)'),picking=wide&&roomy;
+ const [selectedId,setSelectedId]=useState(null);
  const showFilters=wide||filtersOpen;
  const [openId,setOpenId]=useState(null);
  const [page,setPage]=useState(null);
@@ -311,6 +372,19 @@ export function MatchupList({config}){
   requestAnimationFrame(()=>tableRef.current?.scrollIntoView({behavior:'smooth',block:'start'}));};
  const recordSummary=config.key==='nba'?recordOf(record):null;
  const counts=useMemo(()=>ofKind.reduce((out,row)=>({...out,[row.marketKey]:(out[row.marketKey]||0)+1}),{}),[ofKind]);
+ // The prop beside the list: the one picked, else the list's first. One of
+ // his other lines can be picked from the preview even when the list shows
+ // another stat. His other lines are each stat's line of the picked kind.
+ const itemOf=useCallback(row=>({row,read:scores.get(row.id)||null,hit:hitOf(row),prop:grades.get(row.id)||null,role:lineupRole(row,league)}),[scores,grades,league]);
+ const chosen=useMemo(()=>{
+  if(!picking)return null;
+  const found=shown.find(item=>item.row.id===selectedId);
+  if(found)return found;
+  const row=selectedId&&ofKind.find(item=>item.id===selectedId);
+  return row?itemOf(row):shown[0]||null;
+ },[picking,shown,selectedId,ofKind,itemOf]);
+ const others=useMemo(()=>chosen?ofKind.filter(row=>row.player===chosen.row.player&&row.teamAbbr===chosen.row.teamAbbr&&row.id!==chosen.row.id)
+  .filter((row,index,list)=>list.findIndex(other=>other.marketKey===row.marketKey)===index).map(itemOf):[],[chosen,ofKind,itemOf]);
  // The stat tabs' underline glides to the picked one.
  const statRow=useRef(null);
  const statInk=useInk(statRow,`${stat}|${Object.keys(counts).length}|${page?page.id:''}`);
@@ -353,7 +427,7 @@ export function MatchupList({config}){
  },[page]);
  if(page)return <Page key={page.id} row={page} lines={rows.filter(item=>item.player===page.player&&item.teamAbbr===page.teamAbbr)} league={league} onBack={closePage}/>;
 
- return <section className="nba-matchups" data-league={config.key} data-wide={wide||undefined} aria-labelledby={`${config.key}-matchups-title`}>
+ return <section className="nba-matchups" data-league={config.key} data-wide={wide||undefined} data-preview={picking||undefined} aria-labelledby={`${config.key}-matchups-title`}>
   {/* Oct 25, the owner: "I see all buttons then I have to scroll down to
      see props". One slim title row, then search, game and a Filters button;
      sort, lines and players open under it, and what's picked shows as small
@@ -410,16 +484,22 @@ export function MatchupList({config}){
    {league?.teams?.[facing]?.logo&&<img src={league.teams[facing].logo} alt="" width="13" height="13"/>}Against {facing}’s defense<X size={12} aria-hidden="true"/></button></div>}
   {(status==='ready'||status==='refreshing')&&rows.length>0&&!league&&<p className="nm-note">Matchup scores are still loading the league’s numbers. Hit rates are below.</p>}
 
+  <div className="nm-work">
+  <div className="nm-workmain">
   {shown.length>0&&<div className="nm-table" ref={tableRef}>
    <div className="nm-thead"><span className="nm-th-rank">#</span><span className="nm-th-player">Player</span><span className="nm-th-line">Line</span>
     {SORTS.map(([key])=><button type="button" key={key} className={`nm-th nm-th-${key}`} aria-pressed={sort===key} onClick={()=>setSort(key)}
      aria-label={`Sort by ${HEADS[key][0]}`}><span className="nm-long">{HEADS[key][0]}</span><span className="nm-short">{HEADS[key][1]}</span>{sort===key&&<ArrowDown size={13} aria-hidden="true"/>}</button>)}</div>
    <ul className="nm-list">{shown.map(({row,read,hit,prop,role},index)=><PropRow key={row.id} row={row} read={read} hit={hit} prop={prop} role={role} index={index} color={teamColor(league,row.teamAbbr)} short={SHORT}
-    open={openId===row.id} onToggle={()=>setOpenId(id=>id===row.id?null:row.id)} onOpen={openPage}/>)}</ul></div>}
+    open={openId===row.id} onToggle={()=>setOpenId(id=>id===row.id?null:row.id)} onOpen={openPage}
+    picking={picking} selected={chosen?.row.id===row.id} onSelect={setSelectedId}/>)}</ul></div>}
   {(status==='ready'||status==='refreshing')&&rows.length>0&&!shown.length&&<div className="nm-empty"><b>Nothing matches</b>
    <span>Try another stat, game or filter, or clear the search.</span></div>}
 
   {at>0&&rows.length>0&&<p className="nm-meta">{shown.length} {shown.length===1?'prop':'props'} · updated {new Date(at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</p>}
+  </div>
+  {chosen&&<Preview item={chosen} others={others} league={league} short={SHORT} color={teamColor(league,chosen.row.teamAbbr)} onOpen={openPage} onPick={setSelectedId}/>}
+  </div>
   </div>
  </section>;
 }

@@ -57,6 +57,26 @@ Last updated 2026-10-27 (the Props tab: premium but plain, no AI look). Read thi
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Oct 27: the Props list on a computer, list + preview
+
+- The owner ("make a better layout design", screenshot at ~2000px wide):
+  from 1900px the list had been two columns of rows that read 1 left,
+  2 right, with wide gaps across each row. Now (`MatchupList.jsx`
+  `Preview`, "Big screen" block at the end of `nba-matchups.css`):
+  - Always one ranked list (the two-column rule is gone).
+  - From 1500px (`picking`), a preview of the picked prop sits beside the
+    list and stays in view while it scrolls: photo, team, game, the line,
+    the matchup with its label, his last 10 games as bars against the line
+    (opponents under them), L5 / L10 / L20 / season hit rates, what made
+    the score (the same `Reads` as a row's Why), his other lines tonight
+    (each with its score; a tap shows that one) and "Open his matchup
+    page". A row click picks instead of opening the page; rows have no Why
+    arrow there. Below 1500px nothing changed (a row opens the page).
+  - For the preview to stay in view, `position:sticky` had to work: on the
+    Props tab from 1100px the page body is `overflow-x:clip;
+    overflow-y:visible` (site-wide it's `hidden/auto`, which stops sticky).
+    Phones are untouched.
+
 ### Oct 27: whose Kings numbers are right (ours vs RotoBot)
 
 - The owner showed Wembanyama vs SAC: ours "121.1 allowed, 4th most",

@@ -377,12 +377,7 @@
  .nba-matchups[data-wide] .nm-name{font-size:15.5px}
  .nba-matchups[data-wide] .nm-cell.nm-score b{font-size:26px}
 }
-/* A big monitor: the props in two columns. */
-@media (min-width:1900px){
- .nba-matchups[data-wide] .nm-thead{display:none}
- .nba-matchups[data-wide] .nm-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:22px;border-top:1px solid var(--m-line)}
- .nba-matchups[data-wide] .nm-table{--nm-cols:44px minmax(0,1.5fr) minmax(0,1fr) minmax(96px,.6fr) minmax(64px,.4fr)}
-}
+
 
 /* ---------------------------------------------------------------- Clean
    Oct 27, the owner: the tab is theirs alone and should feel premium, but
@@ -496,3 +491,82 @@ button.nm-spot-cell:hover{box-shadow:inset 0 0 0 1px #ffffff40}
 @media (min-width:1900px){
  .nba-matchups[data-wide] .nm-table{--nm-cols:28px 44px minmax(0,1.5fr) minmax(0,1fr) minmax(96px,.6fr) minmax(84px,.4fr)}
 }
+
+/* ---------------------------------------------------------------- Big screen
+   Oct 27, the owner: "make a better layout design" (on a big monitor the
+   props had been split into two columns that read 1 left, 2 right, with
+   wide gaps across each row). From 1500px: one ranked list, and beside it
+   the picked prop (MatchupList.jsx Preview), held in view while the list
+   scrolls. A row picks; the preview's button opens his page. For it to
+   stay in view the page body mustn't be its own clipping box here (it is
+   overflow-x:hidden site-wide, which keeps position:sticky from sticking):
+   on the Props tab on a computer it clips without one. */
+@media (min-width:1100px){
+ body:has(#panel-v2[data-league]:not([hidden])){overflow-x:clip!important;overflow-y:visible!important}
+}
+.nm-work,.nm-workmain{display:contents}
+.nba-matchups[data-preview] .nm-work{display:grid;grid-template-columns:minmax(0,1fr) minmax(380px,440px);gap:24px;align-items:start;margin-top:8px}
+.nba-matchups[data-preview] .nm-workmain{display:block;min-width:0}
+.nba-matchups[data-preview] .nm-table{--nm-why:0px;margin-top:0}
+.nba-matchups[data-preview] .nm-row[data-selected]{background-color:#181c22;background-image:linear-gradient(90deg,color-mix(in srgb,var(--team,#2a2a2a) 22%,transparent),transparent 70%)}
+.nba-matchups[data-preview] .nm-row[data-selected]::before{top:6px;bottom:6px;width:4px;opacity:1}
+.nba-matchups[data-preview] .nm-row[data-selected] .nm-name{color:#fff}
+
+.nm-preview{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto;border:1px solid #242830;border-radius:16px;background:#101317;scrollbar-width:thin}
+.nm-pv-card{display:flex;flex-direction:column;animation:nm-fade .22s ease-out backwards}
+.nm-pv-head{display:flex;align-items:center;gap:14px;padding:18px;border-bottom:1px solid #1f232a;
+ background:linear-gradient(180deg,color-mix(in srgb,var(--team,#2a2f38) 28%,#101317),#101317)}
+.nm-pv-head .sa-face{--size:64px;border-radius:50%;box-shadow:0 0 0 2px color-mix(in srgb,var(--team,#3a3a3a) 85%,#fff 15%)}
+.nm-pv-who{display:grid;gap:3px;min-width:0}
+.nm-pv-who b{overflow:hidden;font:800 19px/1.2 'Sora',var(--font-sans);letter-spacing:-.01em;white-space:nowrap;text-overflow:ellipsis}
+.nm-pv-who small{color:var(--m-muted);font-size:12.5px;font-weight:600}
+.nm-pv-game{display:inline-flex;align-items:center;gap:6px;color:#cfd4dc;font-size:12.5px;font-weight:700}
+.nm-pv-game img{width:18px;height:18px;object-fit:contain}
+.nm-pv-main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:16px;padding:16px 18px;border-bottom:1px solid #1f232a}
+.nm-pv-main small{display:block;margin-bottom:6px;color:var(--m-faint);font-size:12px;font-weight:700}
+.nm-pv-main span{display:flex;align-items:baseline;gap:7px;min-width:0}
+.nm-pv-line b{font:800 28px/1 'Sora',var(--font-sans)}
+.nm-pv-line em{color:var(--m-muted);font-size:13px;font-style:normal;font-weight:800}
+.nm-pv-line img{align-self:center;width:18px;height:18px;object-fit:contain}
+.nm-pv-score b{font:800 28px/1 'Sora',var(--font-sans);color:var(--m-text)}
+.nm-pv-score em{overflow:hidden;color:var(--m-muted);font-size:13px;font-style:normal;font-weight:700;white-space:nowrap;text-overflow:ellipsis}
+.nm-pv-score[data-tone=strong] :is(b,em){color:var(--m-strong)}
+.nm-pv-score[data-tone=edge] :is(b,em){color:var(--m-edge)}
+.nm-pv-score[data-tone=neutral] em{color:var(--m-neutral)}
+.nm-pv-score[data-tone=tough] :is(b,em){color:var(--m-tough)}
+.nm-pv-score .nm-bar{margin-top:9px}
+.nm-pv-part{padding:14px 18px;border-bottom:1px solid #1f232a}
+.nm-pv-part h3{margin:0 0 10px;color:var(--m-muted);font:700 13px/1.2 var(--font-sans)}
+/* His last 10 games: a bar each, green over the line, the line across. */
+.nm-pv-chart{display:grid;gap:5px}
+.nm-pv-bars{position:relative;display:flex;align-items:flex-end;gap:6px;height:120px;margin-top:16px}
+.nm-pv-bars>span{position:relative;flex:1;min-width:0;border-radius:5px 5px 2px 2px;background:rgba(227,106,106,.55);transform-origin:bottom;
+ animation:nm-grow .45s cubic-bezier(.22,.8,.24,1) backwards;animation-delay:calc(var(--k,0) * 35ms + 80ms)}
+.nm-pv-bars>span[data-over]{background:var(--m-strong)}
+.nm-pv-bars>span b{position:absolute;bottom:100%;left:50%;margin-bottom:3px;color:var(--m-muted);font:700 11px/1 var(--font-sans);transform:translateX(-50%);white-space:nowrap}
+.nm-pv-bars>span[data-over] b{color:#c8f5dd}
+.nm-pv-at{position:absolute;z-index:1;right:-4px;left:-4px;height:0;border-top:1px dashed rgba(255,255,255,.55);pointer-events:none}
+.nm-pv-opps{display:flex;gap:6px}
+.nm-pv-opps small{flex:1;min-width:0;overflow:hidden;color:var(--m-faint);font-size:10px;font-weight:700;text-align:center;white-space:nowrap}
+.nm-pv-rates{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:12px 18px;border-bottom:1px solid #1f232a}
+.nm-pv-rates span{display:grid;justify-items:center;gap:3px;border-left:1px solid #1f232a}
+.nm-pv-rates span:first-child{border-left:0}
+.nm-pv-rates small{color:var(--m-faint);font-size:11.5px;font-weight:700}
+.nm-pv-rates b{font:800 16px/1 'Sora',var(--font-sans)}
+.nm-pv-rates [data-tone=good] b{color:var(--m-strong)}
+.nm-pv-rates [data-tone=poor] b{color:var(--m-tough)}
+.nm-pv-why .nm-reads{margin:0;padding:0;border-radius:0;background:transparent;animation:none}
+.nm-pv-others{display:flex;flex-wrap:wrap;gap:6px}
+.nm-pv-others button{display:inline-flex;align-items:baseline;gap:6px;min-height:34px;padding:0 11px;border:1px solid #2a2f37;border-radius:10px;background:#141820;color:var(--m-text);font:inherit;cursor:pointer;transition:border-color .15s,background-color .15s}
+.nm-pv-others button:hover{border-color:#3a404a;background:#181d25}
+.nm-pv-others small{color:var(--m-faint);font-size:11.5px;font-weight:800}
+.nm-pv-others b{font:800 13.5px var(--font-sans)}
+.nm-pv-others em{font-size:12px;font-style:normal;font-weight:800;color:var(--m-muted)}
+.nm-pv-others em[data-tone=strong]{color:var(--m-strong)}.nm-pv-others em[data-tone=edge]{color:var(--m-edge)}.nm-pv-others em[data-tone=tough]{color:var(--m-tough)}
+.nm-pv-open{display:flex;align-items:center;justify-content:center;gap:8px;min-height:46px;margin:16px 18px 18px;border:0;border-radius:12px;
+ background:var(--theme-accent,#f3f5f8);color:var(--theme-on-accent,#071018);font:800 14px var(--font-sans);cursor:pointer;transition:filter .15s}
+.nm-pv-open:hover{filter:brightness(1.08)}
+.nm-pv-open svg{transition:transform .2s ease}
+.nm-pv-open:hover svg{transform:translateX(3px)}
+.nm-pv-open:focus-visible,.nm-pv-others button:focus-visible{outline:2px solid var(--theme-accent,#cccccc);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.nm-pv-card,.nm-pv-bars>span{animation:none}.nm-pv-open svg{transition:none}}
