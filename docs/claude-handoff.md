@@ -57,6 +57,25 @@ Last updated 2026-10-27 (the Props tab: premium but plain, no AI look). Read thi
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Oct 27: Depth tab redone
+
+- The owner didn't like the first version (slot rows of wrapping chips:
+  G, G, F, F, C, which also put Castle at C and Wembanyama at F, and
+  outlined Champagnie as "him"). `NbaDepth.jsx` now: STARTERS, last game's
+  five as photo tiles (5 across from 560px, 3 over 2 on phones so
+  Wembanyama / Antetokounmpo fit; a hyphenated name may wrap), position
+  letter + minutes; BENCH, everyone else with minutes, most first, a
+  minutes bar (full = 40) and the number; INJURY REPORT, report entries
+  with no minutes lately or not in the rotation, with the injury. Tonight's
+  status on every player, sitting players faded, "Next up for <starter>"
+  on the bench player at the sitting starter's position (then the nearest)
+  with the most minutes. Minutes are the rotation's `min` (his last 5
+  games), matching the card's note. His own tile/row is outlined, matched
+  on id and name together, then name, then id (`lineup` in NbaDepth.jsx):
+  the board's id and the box score's can disagree. Healthy players with no
+  minutes are left out. The slot layout (`depthRows`) stays for the
+  Finder only.
+
 ### Oct 27: the line on the player page's chart
 
 - The owner sent Wembanyama H2H: a 28 drawn under the 27.5 dashed line.

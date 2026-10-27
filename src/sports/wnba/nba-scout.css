@@ -899,29 +899,48 @@
 @media (prefers-reduced-motion:reduce){.nba-mp .mp-gp{animation:none}}
 
 /* ---------------------------------------------------------------- Depth chart
-   Oct 27, the owner: a Depth tab (NbaDepth.jsx). Each slot a row: the
-   starter first, the bench behind him by minutes; tonight's report on each
-   player, and "Next up" behind a starter who's out. */
-.nba-mp .nd-teams{margin-bottom:12px}
+   Oct 27, the owner: a Depth tab (NbaDepth.jsx), then "make it different":
+   last game's starting five as five photo tiles, the bench as a list with
+   minutes bars, then who's out. Tonight's report on everyone; "Next up" on
+   the bench player taking a sitting starter's spot; his own outlined. */
+.nba-mp .nd-teams{margin-bottom:6px}
 .nba-mp .nd-teams button{display:inline-flex;align-items:center;gap:6px;padding:0 14px}
 .nba-mp .nd-teams img{width:18px;height:18px;object-fit:contain}
 .nba-mp .nd-chart{display:grid}
-.nba-mp .nd-row{display:grid;grid-template-columns:26px minmax(0,1fr);align-items:start;gap:10px;padding:10px 0;border-top:1px solid #222}
-.nba-mp .nd-row:first-child{border-top:0;padding-top:2px}
-.nba-mp .nd-slot{display:grid;place-items:center;width:26px;height:26px;margin-top:8px;border-radius:8px;background:#1f1f1f;color:var(--mp-muted);font-size:11.5px;font-weight:800}
-.nba-mp .nd-players{display:flex;flex-wrap:wrap;gap:6px}
-.nba-mp .nd-player{display:flex;align-items:center;gap:8px;min-width:0;max-width:100%;padding:6px 10px 6px 6px;border:1px solid #262626;border-radius:12px;background:#161616;
- animation:mp-gp-in .25s ease-out backwards}
-.nba-mp .nd-player .ns-photo{width:30px;height:30px}
-.nba-mp .nd-player[data-start]{border-color:#353535;background:#1d1d1d}
-.nba-mp .nd-player[data-start] .nd-who b{color:#fff}
-.nba-mp .nd-player[data-self]{border-color:color-mix(in srgb,var(--mp-accent) 65%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--mp-accent) 40%,transparent)}
-.nba-mp .nd-player[data-sits] :is(.ns-photo,.nd-who){opacity:.55}
-.nba-mp .nd-who{display:grid;min-width:0}
-.nba-mp .nd-who b{overflow:hidden;color:#d8d8d8;font-size:13px;white-space:nowrap;text-overflow:ellipsis}
-.nba-mp .nd-who small{color:var(--mp-faint);font-size:11px;font-weight:600;white-space:nowrap}
-.nba-mp .nd-player em{flex:none;padding:2px 7px;border-radius:999px;background:#242424;color:var(--mp-muted);font-size:10.5px;font-style:normal;font-weight:800;white-space:nowrap}
-.nba-mp .nd-player em:is([data-code=OUT],[data-code=OFS],[data-code=SUSP]){background:rgba(238,84,112,.14);color:#ff8ea2}
-.nba-mp .nd-player em:is([data-code=DOUBT],[data-code=Q],[data-code=GTD],[data-code=DTD]){background:rgba(246,195,91,.12);color:var(--mp-fair)}
-.nba-mp .nd-player em[data-next]{background:rgba(63,227,158,.12);color:var(--mp-good)}
-@media (prefers-reduced-motion:reduce){.nba-mp .nd-player{animation:none}}
+.nba-mp .nd-head{margin:14px 0 8px;color:var(--mp-faint);font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+/* Five across where the names fit, else three over two (phones: Wembanyama,
+   Antetokounmpo). A hyphenated name may take a second line. */
+.nba-mp .nd-five{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:0;padding:0;list-style:none}
+.nba-mp .nd-five li{flex:0 0 calc((100% - 12px) / 3)}
+@media (min-width:560px){.nba-mp .nd-five li{flex-basis:calc((100% - 24px) / 5)}}
+.nba-mp .nd-five li{position:relative;display:grid;justify-items:center;gap:3px;min-width:0;padding:10px 4px 9px;border:1px solid #262626;border-radius:12px;background:#171717;
+ animation:mp-gp-in .3s ease-out backwards;animation-delay:calc(var(--n,0) * 40ms)}
+.nba-mp .nd-five .ns-photo{width:42px;height:42px;margin-bottom:3px}
+.nba-mp .nd-five b{display:-webkit-box;overflow:hidden;max-width:100%;color:#f2f2f2;font-size:12.5px;line-height:1.2;letter-spacing:-.01em;text-align:center;overflow-wrap:break-word;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.nba-mp .nd-five small{display:flex;align-items:center;gap:4px;color:var(--mp-muted);font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
+.nba-mp .nd-five em{position:absolute;top:6px;right:6px}
+.nba-mp .nd-list{display:grid;margin:0;padding:0;list-style:none}
+.nba-mp .nd-list li{display:grid;grid-template-columns:30px minmax(0,1fr) minmax(44px,26%) 26px;align-items:center;gap:10px;padding:7px 8px;border-radius:10px;
+ animation:mp-gp-in .3s ease-out backwards;animation-delay:calc(var(--n,0) * 30ms)}
+.nba-mp .nd-list li+li{box-shadow:0 -1px 0 #202020}
+.nba-mp .nd-list .ns-photo{width:30px;height:30px}
+.nba-mp .nd-out li{grid-template-columns:30px minmax(0,1fr) auto}
+.nba-mp .nd-who{display:grid;gap:2px;min-width:0}
+.nba-mp .nd-who b{overflow:hidden;color:#e6e6e6;font-size:13px;white-space:nowrap;text-overflow:ellipsis}
+.nba-mp .nd-who small{display:flex;flex-wrap:wrap;align-items:center;gap:3px 6px;min-width:0;color:var(--mp-faint);font-size:11px;font-weight:600;white-space:nowrap}
+.nba-mp :is(.nd-who,.nd-five) small>span{display:inline-grid;place-items:center;min-width:16px;height:16px;padding:0 3px;border-radius:4px;background:#232323;color:var(--mp-muted);font-size:9.5px;font-weight:800}
+.nba-mp .nd-bar{height:6px;border-radius:3px;background:#222;overflow:hidden}
+.nba-mp .nd-bar i{display:block;width:calc(var(--w,0) * 100%);height:100%;border-radius:3px;background:#5b7fa8;transform-origin:left;animation:nd-bar .5s cubic-bezier(.22,.8,.24,1) backwards;animation-delay:calc(var(--n,0) * 30ms + .1s)}
+@keyframes nd-bar{from{transform:scaleX(0)}}
+.nba-mp .nd-min{color:#e6e6e6;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;text-align:right}
+.nba-mp .nd-chart em{flex:none;padding:2px 6px;border-radius:999px;background:#242424;color:var(--mp-muted);font-size:10px;font-style:normal;font-weight:800;line-height:1.3;white-space:nowrap}
+.nba-mp .nd-chart em:is([data-code=OUT],[data-code=OFS],[data-code=SUSP]){background:#3a1a21;color:#ff8ea2}
+.nba-mp .nd-chart em:is([data-code=DOUBT],[data-code=Q],[data-code=GTD],[data-code=DTD]){background:#3a2f17;color:var(--mp-fair)}
+.nba-mp .nd-chart em[data-next]{background:#163326;color:var(--mp-good)}
+.nba-mp .nd-chart [data-sits] :is(.ns-photo,b,.nd-bar,.nd-min){opacity:.45}
+.nba-mp .nd-five li[data-self]{border-color:var(--mp-accent)}
+.nba-mp .nd-list li[data-self]{background:#1a1d22;box-shadow:inset 2px 0 0 var(--mp-accent)}
+.nba-mp .nd-list li[data-self]+li{box-shadow:none}
+.nba-mp .nd-list li[data-self] .nd-bar i{background:var(--mp-accent)}
+@media (min-width:700px){.nba-mp .nd-five .ns-photo{width:52px;height:52px}.nba-mp .nd-five b{font-size:13px}}
+@media (prefers-reduced-motion:reduce){.nba-mp :is(.nd-five li,.nd-list li,.nd-bar i){animation:none}}

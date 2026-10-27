@@ -2,8 +2,8 @@
 // (league-context `rotation`; ESPN publishes none): last game's starters fill
 // the five slots by position, then the bench joins its position's rows by
 // minutes, and anyone on the injury report who hasn't been playing joins at
-// the end. The Finder's depth card (WNBAPlayerPage.jsx) and the Props tab's
-// NBA page (NbaDepth.jsx) both read it.
+// the end. The Finder's depth card (WNBAPlayerPage.jsx) reads it; the Props
+// tab's NBA page (NbaDepth.jsx) lays its own out and shares injuryCode.
 import {positionOf} from './wnba-research';
 
 export const SLOTS=[['G1','G'],['G2','G'],['F1','F'],['F2','F'],['C','C']];
