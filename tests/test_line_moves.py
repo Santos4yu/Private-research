@@ -58,6 +58,8 @@ class FakeKV:
             return 1
         if name == 'HGETALL':
             return [item for pair in self.data.get(key, {}).items() for item in pair]
+        if name == 'HMGET':
+            return [self.data.get(key, {}).get(field) for field in args]
         if name == 'HDEL':
             table = self.data.get(key, {})
             return sum(table.pop(field, None) is not None for field in args)
@@ -139,6 +141,14 @@ class LineArchiveTests(Base):
                                  fetched_at=T0)
         self.assertEqual(archive.lines_on('nfl', '2026-10-25', self.kv), {'jahmyrgibbs|rushyards': 79.5})
 
+    def test_one_players_numbers_by_day(self):
+        moves.observe_prizepicks('NBA', [self.nba('Jeremiah Fears', 'Points', 12.5), self.nba('Jeremiah Fears', 'Rebounds', 4.5),
+                                         self.nba('Derik Queen', 'Points', 13.5)], fetched_at=T0)
+        self.assertEqual(archive.player_lines('nba', 'jeremiahfears', ['points', 'assists'], ['2026-10-21', '2026-10-20'], self.kv),
+                         {'2026-10-21': {'points': 12.5}})
+        self.assertEqual(archive.player_lines('nba', 'jeremiahfears', [], ['2026-10-21'], self.kv), {})
+        self.assertEqual(archive.player_lines('mlb', 'aaronjudge', ['totalbases'], ['2026-10-21'], self.kv), {})
+
     def test_started_games_goblins_and_other_leagues_are_left_out(self):
         moves.observe_prizepicks('NBA', [self.nba('A', 'Points', 9.5, start=moves._iso(T0 - 60)),
                                          self.nba('B', 'Points', 7.5, odds_type='goblin')], fetched_at=T0)
@@ -147,6 +157,15 @@ class LineArchiveTests(Base):
 
 
 class PrizePicksTests(Base):
+    def test_one_players_moves(self):
+        nba = lambda player, line: pp(player, 'Points', line, league='NBA', start_time='2026-10-22T02:30:00+00:00')
+        moves.observe_prizepicks('NBA', [nba('Jeremiah Fears', 12.5), nba('Derik Queen', 13.5)], fetched_at=T0)
+        moves.observe_prizepicks('NBA', [nba('Jeremiah Fears', 13.5), nba('Derik Queen', 14.5)], fetched_at=T0 + 120)
+        moves.observe_prizepicks('NBA', [nba('Jeremiah Fears', 14.5), nba('Derik Queen', 14.5)], fetched_at=T0 + 240)
+        mine = moves.player_moves('nba', 'JEREMIAH  fears')
+        self.assertEqual([(move['from'], move['to']) for move in mine], [(13.5, 14.5), (12.5, 13.5)])
+        self.assertEqual(moves.player_moves('mlb', 'Jeremiah Fears'), [])
+
     def test_first_look_records_nothing_then_a_new_number_is_a_move(self):
         self.assertEqual(moves.observe_prizepicks('MLB', [pp('Aaron Judge', 'Total Bases', 1.5)], fetched_at=T0), [])
         found = moves.observe_prizepicks('MLB', [pp('Aaron Judge', 'Total Bases', 2.5, updated=T0 + 50)], fetched_at=T0 + 120)

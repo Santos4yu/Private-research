@@ -989,3 +989,40 @@
 .nba-mp .nf-rest-row em[data-tone=fair]{background:#3a2f17;color:var(--mp-fair)}
 .nba-mp .nf-rest-row em[data-tone=good]{background:#163326;color:var(--mp-good)}
 @media (prefers-reduced-motion:reduce){.nba-mp :is(.nf-sides>div,.nf-min-bars>span>i,.nf-rest-row){animation:none}}
+
+/* Line movement (NbaFacts.jsx LineMovement): tonight's numbers and their
+   moves, then his closing line by game as a tick across what he put up. */
+.nba-mp .nf-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;color:var(--mp-faint);font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.nba-mp .nf-head-split{margin-top:16px}
+.nba-mp .nf-head em{font-style:normal;letter-spacing:0;text-transform:none;font-size:11.5px}
+.nba-mp .nf-mv-list{display:grid;gap:4px;margin:0;padding:0;list-style:none}
+.nba-mp .nf-mv-list>li{border-radius:10px;background:var(--mp-raised);animation:mp-gp-in .3s ease-out backwards;animation-delay:calc(var(--n,0) * 40ms)}
+.nba-mp .nf-mv-list>li[data-page]{box-shadow:inset 2px 0 0 var(--mp-accent)}
+.nba-mp .nf-mv-list>li>:is(button,div){display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:10px;width:100%;padding:10px 12px;border:0;background:transparent;color:inherit;font:inherit;text-align:left}
+.nba-mp .nf-mv-list>li>button{cursor:pointer}
+.nba-mp .nf-mv-stat{overflow:hidden;font-size:13px;font-weight:700;white-space:nowrap;text-overflow:ellipsis}
+.nba-mp .nf-mv-path{display:inline-flex;align-items:center;gap:5px;color:var(--mp-muted);font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.nba-mp .nf-mv-path b{color:var(--mp-text);font-size:14px}
+.nba-mp :is(.nf-mv-list,.nf-head) em{display:inline-flex;align-items:center;gap:2px;padding:2px 8px;border-radius:999px;background:#252525;color:var(--mp-muted);font-size:11px;font-style:normal;font-weight:800;white-space:nowrap}
+.nba-mp :is(.nf-mv-list,.nf-head) em[data-tone=up]{background:#163326;color:var(--mp-good)}
+.nba-mp :is(.nf-mv-list,.nf-head) em[data-tone=down],.nba-mp .nf-mv-list em[data-tone=poor]{background:#3a1a21;color:#ff8ea2}
+.nba-mp .nf-mv-times{display:grid;gap:2px;margin:0;padding:0 12px 10px;list-style:none}
+.nba-mp .nf-mv-times li{display:grid;grid-template-columns:72px minmax(0,1fr);align-items:center;gap:8px;padding:5px 0;border-top:1px solid #262626;color:var(--mp-muted);font-size:12px;font-variant-numeric:tabular-nums}
+.nba-mp .nf-mv-times span{display:inline-flex;align-items:center;gap:5px}
+.nba-mp .nf-mv-times b{color:var(--mp-text)}
+.nba-mp .nf-mv-still{margin:8px 2px 0;color:var(--mp-faint);font-size:11.5px;line-height:1.5}
+/* 70px columns: the bar is what he put up, the white tick that night's line. */
+.nba-mp .nf-ln-bars{display:flex;align-items:flex-end;gap:5px}
+.nba-mp .nf-ln-bars>span{display:flex;flex:1;flex-direction:column;align-items:center;gap:2px;min-width:0}
+.nba-mp .nf-ln-bars b{min-height:13px;color:var(--tone,var(--mp-muted));font-size:10px;font-weight:800;font-variant-numeric:tabular-nums}
+.nba-mp .nf-ln-col{position:relative;display:flex;align-items:flex-end;justify-content:center;width:100%;max-width:26px;height:70px}
+.nba-mp .nf-ln-col i{width:100%;height:calc(var(--h,0) * 70px);border-radius:4px 4px 2px 2px;background:color-mix(in srgb,var(--tone,#4a5563) 70%,#1d1d1d);transform-origin:bottom;
+ animation:mp-grow .45s cubic-bezier(.22,.8,.24,1) backwards;animation-delay:calc(var(--n,0) * 30ms)}
+.nba-mp .nf-ln-col s{position:absolute;right:-3px;bottom:calc(var(--l,0) * 70px);left:-3px;height:2px;border-radius:1px;background:#f2f2f2;transform:translateY(50%)}
+.nba-mp .nf-ln-bars>[data-tonight] .nf-ln-col{border:1px dashed #3a3f46;border-bottom:0;border-radius:4px 4px 0 0}
+.nba-mp .nf-ln-bars>[data-tonight] .nf-ln-col s{background:var(--mp-accent)}
+.nba-mp .nf-ln-bars small{overflow:hidden;max-width:100%;color:var(--mp-faint);font-size:9.5px;font-weight:700;white-space:nowrap;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.nba-mp .nf-ln-bars small:first-of-type{color:var(--mp-muted);font-size:10px}
+.nba-mp .nf-ln-bars>[data-tonight] small{color:var(--mp-accent)}
+@media (prefers-reduced-motion:reduce){.nba-mp :is(.nf-mv-list>li,.nf-ln-col i){animation:none}}
+.nba-mp .nf-ln-bars small:last-child{font-size:9px;letter-spacing:-.02em;text-overflow:clip}

@@ -57,6 +57,27 @@ Last updated 2026-10-27 (the Props tab: premium but plain, no AI look). Read thi
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Oct 27: Line movement on the NBA player page
+
+- The owner asked "Where is the line movement" (idea 5, not in the 1-4 the owner
+  picked; built on asking). `LineMovement` in `src/sports/wnba/NbaFacts.jsx`,
+  first under His games:
+  - This game: each of his standard PrizePicks lines tonight (the page's
+    own first, accent edge) that moved: opened -> now, up/down tag, tap
+    for each move's time; a line pulled tonight (off the board) still
+    shows from its moves; the rest on one "No moves:" line.
+  - His <stat> line by game: his last 8 games, a bar for what he put up
+    (green over / red under that night's line) with a white tick at that
+    night's closing PrizePicks line, then tonight's line dashed; "+3 since
+    10/7" is tonight's line against the first night shown.
+  - Server: `/api/wnba?league=nba&resource=line-history&player=&stats=&days=`
+    (api/wnba.py): `line_moves.player_moves` (every move still on the list,
+    1500 across sports, so a busy day's early moves can roll off) and
+    `line_archive.player_lines` (HMGET of "player|stat" per game day; days
+    are the US day, start less 6h, worked out on the page). Nothing new is
+    recorded; the archive has NBA nights since it started, so older games
+    simply have no tick. Tests in tests/test_line_moves.py.
+
 ### Oct 27: Home / away, Minutes & shots, Rest on the NBA player page
 
 - The owner picked 4 of 6 ideas (1-4; 5 line history and 6 spread/total

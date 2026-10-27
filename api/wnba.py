@@ -1279,6 +1279,26 @@ class handler(BaseHTTPRequestHandler):
                 try: days = int(query.get("days", ["14"])[0])
                 except ValueError: days = 14
                 return _send(self, 200, _props_record(max(1, min(days, 60))))
+            if resource == "line-history":
+                # His PrizePicks lines (the player page's Line movement card):
+                # each move kept for him (line_moves.py) and the number each
+                # of his stats closed at on the game days asked for (line_archive.py).
+                if league != "nba":
+                    return _send(self, 404, {"error": "Line history is for the NBA."})
+                import line_archive
+                import line_moves
+                who = query.get("player", [""])[0].strip()
+                stats = [line_moves.norm(value) for value in query.get("stats", [""])[0].split(",") if line_moves.norm(value)][:16]
+                days = [value for value in query.get("days", [""])[0].split(",") if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value)][:20]
+                if not who or len(who) > 60:
+                    return _send(self, 400, {"error": "A player name is required."})
+                try:
+                    moves = line_moves.player_moves("nba", who)
+                    closing = line_archive.player_lines("nba", line_moves.norm(who), stats, days, line_moves._pipeline)
+                except Exception:  # noqa: BLE001 -- the card shows without them
+                    moves, closing = [], {}
+                return _send(self, 200, {"moves": [{key: move.get(key) for key in ("kind", "stat", "from", "to", "change", "at", "startsAt")} for move in moves],
+                                         "closing": closing})
             if resource == "tonight":
                 # Tonight's injury reports for the NBA matchup score's who's-out reads.
                 if league != "nba":

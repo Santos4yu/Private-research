@@ -1,9 +1,11 @@
 // One NBA player's matchup page, opened from the Props tab's NBA list
 // (NbaMatchups.jsx) and closed back to it: a full-width banner with who he
 // is and tonight's game (a slim bar takes its place, pinned above the
-// sections, once it scrolls away), then Overview (his averages, his games against tonight's line, home
-// and away, minutes and shots lately, both teams' rest, the injury report), Matchup (the grade and everything behind it,
-// NbaScout.jsx) and Stats (where he ranks at his position, his game log).
+// sections, once it scrolls away), then Overview (his averages, his games
+// against tonight's line, how his lines moved, home and away, minutes and
+// shots lately, both teams' rest, the injury report), Matchup (the grade
+// and everything behind it, NbaScout.jsx), Stats (where he ranks at his
+// position, his game log) and Depth (both teams' rotations, NbaDepth.jsx).
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {CalendarDays,ChevronDown,HeartPulse,LineChart,PenLine,X} from 'lucide-react';
@@ -20,7 +22,7 @@ import {legFacts} from './writeup';
 import {WriteupSheet} from './WriteupSheet';
 import {matchupScore} from './nba-matchup-score';
 import {DepthCard} from './sports/wnba/NbaDepth';
-import {HomeAway,MinutesShots,RestCard} from './sports/wnba/NbaFacts';
+import {HomeAway,LineMovement,MinutesShots,RestCard} from './sports/wnba/NbaFacts';
 
 const STAT_CHIPS=[['player_points','PTS'],['player_rebounds','REB'],['player_assists','AST'],['player_threes','3PM'],['player_points_rebounds','P+R'],
  ['player_points_assists','P+A'],['player_rebounds_assists','R+A'],['player_points_rebounds_assists','PRA'],['player_steals','STL'],['player_blocks','BLK']];
@@ -175,8 +177,9 @@ export function NbaMatchupPage({row,lines,league,onBack}){
  </div></div>,document.body);
  const door=kind=>kind==='shots'?<ShotLink key={kind} row={row} league={leagueState} onOpen={()=>setShots('shots')}/>
   :<ChancesLink key={kind} kind={kind} row={row} league={leagueState} onOpen={()=>setShots(kind)}/>;
- // Under his games: home and away against tonight's line, minutes and shots lately.
- const extras=<><HomeAway row={row} logs={logs} short={SHORT[row.marketKey]||row.market}/><MinutesShots logs={logs}/></>;
+ // Under his games: how his lines moved, home and away against tonight's line, minutes and shots lately.
+ const extras=<><LineMovement row={row} lines={lines} logs={logs} short={SHORT[row.marketKey]||row.market} ready={!log.loading}/>
+  <HomeAway row={row} logs={logs} short={SHORT[row.marketKey]||row.market}/><MinutesShots logs={logs}/></>;
  return <MatchupPageShell row={row} team={team} opponent={opponent} home={home} facts={facts} color={color} onBack={onBack} tabs={TABS} tab={tab} onTab={setTab} jump={wide?jump:null} wide={wide} after={sheet}
   action={admin&&<button type="button" className="mp-writeup" onClick={()=>setShots('writeup')}><PenLine size={15} aria-hidden="true"/>Write-up</button>}>
   {/* Oct 25, the owner: no floating cards, no gaps. One framed page; each

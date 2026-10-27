@@ -488,6 +488,22 @@ def openings(sport):
     return output
 
 
+def player_moves(sport, player):
+    """Every move still kept for one player in `sport`, newest first (the NBA
+    player page's Line movement card)."""
+    who = norm(player)
+    reply = _pipeline([['LRANGE', LIST_KEY, 0, KEEP_MOVES - 1]]) or [[]]
+    moves = []
+    for raw in reply[0] or []:
+        try:
+            move = json.loads(raw)
+        except (TypeError, ValueError):
+            continue
+        if move.get('sport') == sport and norm(move.get('player')) == who:
+            moves.append(move)
+    return moves
+
+
 def recent(sports, limit=500):
     """The newest moves in `sports`, and when each sport was last checked."""
     reply = _pipeline([['LRANGE', LIST_KEY, 0, READ_MOVES - 1], ['HGETALL', CHECKED_KEY]]) or [[], []]
