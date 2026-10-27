@@ -606,10 +606,8 @@
 .nba-mp .mp-seg button,.nba-mp .mp-chips button{transition:background-color .18s ease,color .18s ease,border-color .18s ease}
 
 /* His games: the bars grow from the floor, his number pops. */
-.nba-mp .mp-bars>span i{transform-origin:bottom;animation:mp-grow .6s cubic-bezier(.2,.9,.25,1.1) backwards;animation-delay:calc(var(--n,0) * 40ms)}
-.nba-mp .mp-bars>span b{animation:mp-up .4s ease backwards;animation-delay:calc(var(--n,0) * 40ms + .25s)}
-.nba-mp .mp-bars>span[data-tone=good] i{background:linear-gradient(180deg,#5ff0b0,var(--mp-good));box-shadow:0 -6px 18px -8px var(--mp-good)}
-.nba-mp .mp-bars>span[data-tone=poor] i{background:linear-gradient(180deg,#ff7b93,var(--mp-poor))}
+.nba-mp .mp-bars>:is(span,button) i{transform-origin:bottom;animation:mp-grow .5s cubic-bezier(.22,.8,.24,1) backwards;animation-delay:calc(var(--n,0) * 35ms)}
+.nba-mp .mp-bars>:is(span,button) b{animation:mp-up .35s ease backwards;animation-delay:calc(var(--n,0) * 35ms + .2s)}
 .nba-mp .mp-trend-head b{display:inline-block;animation:mp-pop .45s cubic-bezier(.3,1.5,.5,1) backwards}
 @keyframes mp-grow{from{transform:scaleY(0)}}
 @keyframes mp-pop{from{opacity:0;transform:scale(.8)}}
@@ -632,7 +630,7 @@
 @keyframes mp-grow-x{from{transform:scaleX(0)}}
 
 @media (prefers-reduced-motion:reduce){
- .nba-mp .mp-hero-photo,.nba-mp .mp-hero-mark,.nba-mp .mp-hero-text,.nba-mp .mp-body>*,.nba-mp .mp-col>*,.nba-mp .mp-bars>span i,.nba-mp .mp-bars>span b,
+ .nba-mp .mp-hero-photo,.nba-mp .mp-hero-mark,.nba-mp .mp-hero-text,.nba-mp .mp-body>*,.nba-mp .mp-col>*,.nba-mp .mp-bars>:is(span,button) i,.nba-mp .mp-bars>:is(span,button) b,.nba-mp .mp-gp,
  .nba-mp .mp-trend-head b,.nba-mp .ng-gauge i,.nba-mp .ng-tiles button,.nba-mp .ng-verdict b,.nba-mp .ns-diverge-bar i{animation:none}
  .nba-mp .ng-gauge i{transition:none}
 }
@@ -831,3 +829,67 @@
  .nba-mp .mp-sheet-panel[data-kind=writeup] .mp-sheet-head{padding:14px 4px 10px}
  .nba-mp .mp-sheet-panel[data-kind=writeup] .mp-sheet-head b{font-size:17px}
 }
+
+/* ---------------------------------------------------------------- His games
+   Oct 27, the owner: the bars "closer to each other", and a tap on one
+   shows that game like the Finder does (MatchupPageShell.jsx GamePanel):
+   minutes, started or bench, usage, his box line, who sat on each side and
+   who of them is out tonight too. Solid bars, no glow. */
+.nba-mp .mp-bars{justify-content:center;gap:8px;margin-bottom:34px}
+.nba-mp .mp-bars>:is(span,button){position:relative;display:flex;flex:0 1 54px;flex-direction:column;justify-content:flex-end;align-items:center;min-width:0;height:100%}
+.nba-mp .mp-bars>button{padding:0;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer}
+.nba-mp .mp-bars>:is(span,button) b{margin-bottom:3px;color:var(--tone,var(--mp-muted));font-size:11.5px;font-weight:800}
+.nba-mp .mp-bars>:is(span,button) i{width:100%;max-width:40px;border-radius:6px 6px 2px 2px;background:var(--tone,#555);transition:opacity .15s,box-shadow .15s}
+.nba-mp .mp-bars>[data-tone=good] i{background:var(--mp-good)}
+.nba-mp .mp-bars>[data-tone=poor] i{background:#e0566e}
+.nba-mp .mp-bars>:is(span,button) small{position:absolute;bottom:-31px;display:grid;justify-items:center;gap:1px;color:var(--mp-muted);font-size:10px;font-weight:700;white-space:nowrap}
+.nba-mp .mp-bars>:is(span,button) small em{color:var(--mp-faint);font-size:9px;font-style:normal;font-weight:600}
+.nba-mp .mp-bars[data-count="20"]>:is(span,button) small em{display:none}
+.nba-mp .mp-bars[data-count="20"]>:is(span,button) small{bottom:-18px;font-size:8.5px}
+.nba-mp .mp-bars[data-picking]>button:not([aria-pressed=true]) i{opacity:.6}
+.nba-mp .mp-bars[data-picking]>button:hover i{opacity:1}
+.nba-mp .mp-bars>button[aria-pressed=true] i{box-shadow:0 0 0 2px var(--mp-bg,#0f0f0f),0 0 0 4px #fff}
+.nba-mp .mp-bars>button[aria-pressed=true] small{color:#fff}
+.nba-mp .mp-bars>button:focus-visible{outline:2px solid var(--mp-accent);outline-offset:3px;border-radius:6px}
+
+/* The game, under the chart. */
+.nba-mp .mp-gp{margin-top:4px;padding:14px;border:1px solid var(--mp-line);border-radius:14px;background:#151515;animation:mp-gp-in .2s ease-out backwards}
+@keyframes mp-gp-in{from{opacity:0;transform:translateY(4px)}}
+.nba-mp .mp-gp-head{display:flex;align-items:center;gap:10px}
+.nba-mp .mp-gp-head img{flex:none;width:26px;height:26px;object-fit:contain}
+.nba-mp .mp-gp-head>span:first-of-type{display:grid;gap:1px;flex:1;min-width:0}
+.nba-mp .mp-gp-head>span:first-of-type b{font-size:15px}
+.nba-mp .mp-gp-head>span:first-of-type small{color:var(--mp-faint);font-size:12px;font-weight:600}
+.nba-mp .mp-gp-value{display:grid;justify-items:end;gap:2px;color:var(--tone,var(--mp-text));font:800 22px/1 'Sora',var(--font-sans);font-style:normal}
+.nba-mp .mp-gp-value small{color:var(--mp-muted);font:700 10.5px var(--font-sans)}
+.nba-mp .mp-gp-result{flex:none;padding:5px 9px;border-radius:8px;background:#202020;color:var(--mp-muted);font-size:12px;font-weight:800;white-space:nowrap}
+.nba-mp .mp-gp-result[data-result=W]{background:rgba(63,227,158,.12);color:var(--mp-good)}
+.nba-mp .mp-gp-result[data-result=L]{background:rgba(238,84,112,.12);color:#ff8ea2}
+.nba-mp .mp-gp-role{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+.nba-mp .mp-gp-role span{padding:5px 10px;border:1px solid #2a2a2a;border-radius:999px;background:#1b1b1b;color:#d6d6d6;font-size:12px;font-weight:700}
+.nba-mp .mp-gp-role span[data-on]{color:#fff}
+.nba-mp .mp-gp-role i{color:var(--mp-muted);font-style:normal;font-weight:600}
+.nba-mp .mp-gp-box{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px}
+.nba-mp .mp-gp-box span{display:grid;justify-items:center;gap:2px;padding:8px 2px;border-radius:10px;background:#1c1c1c}
+.nba-mp .mp-gp-box small{color:var(--mp-faint);font-size:10px;font-weight:800}
+.nba-mp .mp-gp-box b{font:800 15px/1.1 'Sora',var(--font-sans)}
+.nba-mp .mp-gp-box [data-focus]{background:color-mix(in srgb,var(--mp-accent) 14%,#1c1c1c);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--mp-accent) 45%,transparent)}
+.nba-mp .mp-gp-shoot{display:flex;flex-wrap:wrap;gap:6px 16px;margin:10px 0 0;font-size:12.5px;font-weight:700}
+.nba-mp .mp-gp-shoot small{margin-right:5px;color:var(--mp-faint);font-size:11px;font-weight:800}
+.nba-mp .mp-gp-shoot i{margin-left:5px;color:var(--mp-muted);font-style:normal;font-weight:600}
+.nba-mp .mp-gp-out{margin-top:12px;padding-top:10px;border-top:1px solid #232323}
+.nba-mp .mp-gp-out h4{margin:0 0 6px;color:var(--mp-muted);font-size:12px;font-weight:700}
+.nba-mp .mp-gp-out ul{display:grid;gap:5px;margin:0;padding:0;list-style:none}
+.nba-mp .mp-gp-out li{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px;font-size:13px}
+.nba-mp .mp-gp-out li small{color:var(--mp-faint);font-size:11.5px;font-weight:600}
+.nba-mp .mp-gp-out li em{margin-left:auto;padding:2px 8px;border-radius:999px;background:#242424;color:var(--mp-muted);font-size:11px;font-style:normal;font-weight:800}
+.nba-mp .mp-gp-out li em[data-status=Out]{background:rgba(63,227,158,.12);color:var(--mp-good)}
+.nba-mp .mp-gp-out li em:is([data-status=Doubtful],[data-status=GTD]){background:rgba(246,195,91,.12);color:var(--mp-fair)}
+.nba-mp .mp-gp-none,.nba-mp .mp-gp-diff{margin:12px 0 0;color:var(--mp-muted);font-size:12.5px}
+.nba-mp .mp-gp-diff{color:var(--mp-fair)}
+@media (max-width:520px){
+ .nba-mp .mp-bars{gap:5px}
+ .nba-mp .mp-gp-box{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .nba-mp .mp-gp-value{font-size:19px}
+}
+@media (prefers-reduced-motion:reduce){.nba-mp .mp-gp{animation:none}}

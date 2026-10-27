@@ -539,35 +539,46 @@ OUT_PPG, OUT_GAMES, OUT_SHOWN = 6.0, 3, 3
 
 def game_notes(payloads: list, player_id: str) -> dict:
     """For each stored game the player played: his usage rate, whether he
-    started, and the teammates who sat it out that mattered (their season
-    scoring, most first), keyed by game id. `payloads` are stored seasons,
-    oldest first; any may be missing."""
+    started, the teammates who sat it out that mattered (their season
+    scoring, most first, and whether they usually start) and the same for
+    the other side (`oppOut`), keyed by game id. `payloads` are stored
+    seasons, oldest first; any may be missing."""
     notes = {}
     for payload in payloads:
         if not payload:
             continue
         games = list((payload.get("games") or {}).values())
         players = payload.get("players") or {}
-        scored = defaultdict(lambda: [0.0, 0])
+        # Points, games and starts over the season, for who mattered.
+        scored = defaultdict(lambda: [0.0, 0, 0])
         for game in games:
             for side in (game.get("t") or {}).values():
                 for row in side.get("p", []):
                     if row[_I["pts"]] is not None:
                         scored[row[0]][0] += row[_I["pts"]]
                         scored[row[0]][1] += 1
+                        scored[row[0]][2] += 1 if row[1] else 0
+
+        def missing(side: dict) -> list:
+            out = []
+            for pid in side.get("dnp", []):
+                points, played, starts = scored.get(pid, (0.0, 0, 0))
+                if played >= OUT_GAMES and points / played >= OUT_PPG:
+                    person = players.get(pid) or ["", ""]
+                    out.append({"id": pid, "name": person[0], "pos": person[1], "ppg": _round(points / played, 1),
+                                "starter": starts * 2 >= played})
+            out.sort(key=lambda item: -item["ppg"])
+            return out[:OUT_SHOWN]
+
         for game in games:
-            for side in (game.get("t") or {}).values():
+            sides = game.get("t") or {}
+            for team, side in sides.items():
                 mine = next((row for row in side.get("p", []) if row[0] == player_id), None)
                 if not mine:
                     continue
-                out = []
-                for pid in side.get("dnp", []):
-                    points, played = scored.get(pid, (0.0, 0))
-                    if played >= OUT_GAMES and points / played >= OUT_PPG:
-                        person = players.get(pid) or ["", ""]
-                        out.append({"id": pid, "name": person[0], "pos": person[1], "ppg": _round(points / played, 1)})
-                out.sort(key=lambda item: -item["ppg"])
-                notes[str(game["id"])] = {"usage": usage_rate(mine, side["p"]), "started": bool(mine[1]), "out": out[:OUT_SHOWN]}
+                other = next((theirs for code, theirs in sides.items() if code != team), {})
+                notes[str(game["id"])] = {"usage": usage_rate(mine, side["p"]), "started": bool(mine[1]),
+                                          "out": missing(side), "oppOut": missing(other)}
     return notes
 
 

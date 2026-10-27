@@ -57,6 +57,28 @@ Last updated 2026-10-27 (the Props tab: premium but plain, no AI look). Read thi
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Oct 27: tap a game on the player page's chart
+
+- The owner: "make this look nicer ... the trends closer to each other ...
+  when I click on them show the info like the Finder ... minutes ... the
+  starters who were out and did he start or not ... I need to know if it
+  matches tonight's matchup". `MatchupPageShell.jsx` Trend: bar columns
+  are at most 54px and centered (L5 no longer spreads across the card),
+  solid colors, opponent with @ for away and the date under each bar. On
+  the NBA page (`notes` + `tonight` props from NbaMatchupPage.jsx) a bar is
+  a button; the picked game (default the latest) shows under the chart in
+  `GamePanel`: opponent, date, his number vs the line, W/L and score,
+  Started / Bench (with "same as tonight" or tonight's role when
+  lineup-role knows it), usage, MIN/PTS/REB/AST/3PM/STL/BLK/TO (the line's
+  stats outlined), FG/3PT/FT, then who sat on his team and on theirs (season
+  points, "starter" if he usually starts) with "Out tonight too" / "GTD
+  tonight" from tonight's injury report, and for this season's games "Out
+  tonight, not out this game: ..." for his teammates.
+- Server: `context.game_notes` (resource=game-notes, also the Finder's game
+  cards) now marks each player who sat with `starter` (started half his
+  games) and adds `oppOut`, the other side's who sat, same rule (6+ points
+  a game over 3+ games, top 3). NFL's chart is unchanged (no notes).
+
 ### Oct 27: the Props list on a computer, list + preview
 
 - The owner ("make a better layout design", screenshot at ~2000px wide):

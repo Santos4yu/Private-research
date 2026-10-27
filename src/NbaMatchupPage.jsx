@@ -149,6 +149,10 @@ export function NbaMatchupPage({row,lines,league,onBack}){
  const color=team?.color?`#${String(team.color).replace('#','')}`:null;
  // Starter or Bench (lineup-role.js): who started his team's last game, or sat it out resting.
  const role=lineupRole(row,league);
+ // The chart's game cards (MatchupPageShell Trend): each game's start, usage
+ // and who sat on both sides, held against tonight's report and his role.
+ const notes=useWnba('game-notes',{playerId:row.playerId,league:'nba'},Boolean(row.playerId));
+ const tonight=useMemo(()=>({role,report:matchup.data?.injuries||null,team:row.teamAbbr,opponent:row.opponent}),[role,matchup.data,row.teamAbbr,row.opponent]);
  const facts=[row.jersey?`#${row.jersey}`:null,team?.short||row.teamAbbr,POSITION_NAMES[String(row.position||'')[0]]||row.position,role?.label].filter(Boolean);
  // A chart pop-up: the page under it stays still; Escape closes; focus starts on Close.
  useScrollLock(Boolean(shots));
@@ -178,7 +182,7 @@ export function NbaMatchupPage({row,lines,league,onBack}){
    const grade=<section className="mp-part" id="mp-sec-matchup" key="grade"><MatchupGrade row={row} league={leagueState} logs={logs}/></section>;
    const ranks=<section className="mp-part" id="mp-sec-stats" key="ranks"><PositionRanks row={row}/></section>;
    const games=<section className="mp-part" id="mp-sec-overview" key="games">{log.loading&&!logs.length?<Card title="His games" icon={LineChart}><Loading/></Card>
-    :<><Averages logs={logs}/><Trend row={row} lines={lines} logs={logs} chips={STAT_CHIPS}/></>}<Injuries row={row} league={leagueState} matchup={matchup} player={player}/></section>;
+    :<><Averages logs={logs}/><Trend row={row} lines={lines} logs={logs} chips={STAT_CHIPS} notes={notes.data?.games} tonight={tonight}/></>}<Injuries row={row} league={leagueState} matchup={matchup} player={player}/></section>;
    const research=<section className="mp-part" key="research">{doorsFor(row.marketKey).map(kind=>door(kind))}
     <PlayTypes row={row}/><LikelyDefenders row={row} league={leagueState} matchup={matchup}/><VsTeam row={row} league={leagueState} logs={logs} lines={lines}/></section>;
    const gameLog=<section className="mp-part" key="log"><GameLog logs={logs} league={leagueState}/></section>;
@@ -187,7 +191,7 @@ export function NbaMatchupPage({row,lines,league,onBack}){
   })()}
   {/* Two columns side by side on a wide screen, one after the other on a phone. */}
   {!wide&&tab==='overview'&&<div className="mp-cols">
-   <div className="mp-col">{log.loading&&!logs.length?<Card title="His games" icon={LineChart}><Loading/></Card>:<><Averages logs={logs}/><Trend row={row} lines={lines} logs={logs} chips={STAT_CHIPS}/></>}</div>
+   <div className="mp-col">{log.loading&&!logs.length?<Card title="His games" icon={LineChart}><Loading/></Card>:<><Averages logs={logs}/><Trend row={row} lines={lines} logs={logs} chips={STAT_CHIPS} notes={notes.data?.games} tonight={tonight}/></>}</div>
    <div className="mp-col"><Injuries row={row} league={leagueState} matchup={matchup} player={player}/></div></div>}
   {!wide&&tab==='matchup'&&<div className="mp-cols">
    <div className="mp-col"><MatchupGrade row={row} league={leagueState} logs={logs}/></div>

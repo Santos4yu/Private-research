@@ -316,7 +316,20 @@ class GameNoteTests(unittest.TestCase):
         self.assertEqual(first["out"], [])
         # The star sat the fifth: listed with his scoring. The deep bench
         # player never played enough to count.
-        self.assertEqual(notes["g4"]["out"], [{"id": "s", "name": "Star Scorer", "pos": "F", "ppg": 25.0}])
+        self.assertEqual(notes["g4"]["out"], [{"id": "s", "name": "Star Scorer", "pos": "F", "ppg": 25.0, "starter": True}])
+        self.assertEqual(notes["g4"]["oppOut"], [])
+
+    def test_who_sat_on_the_other_side(self):
+        season = self.season()
+        # BBB's scorer "x" sits the last game; a bench scorer of theirs too.
+        for index in range(4):
+            season["games"][f"g{index}"]["t"]["BBB"]["p"].append(row("y", 20, 9, starter=0))
+        season["games"]["g4"]["t"]["BBB"]["p"] = [row("z", 30, 2)]
+        season["games"]["g4"]["t"]["BBB"]["dnp"] = ["x", "y"]
+        season["players"].update({"x": ["Their Star", "G", None, "BBB"], "y": ["Their Sixth", "F", None, "BBB"]})
+        notes = context.game_notes([None, season], "me")
+        self.assertEqual(notes["g4"]["oppOut"], [{"id": "x", "name": "Their Star", "pos": "G", "ppg": 10.0, "starter": True},
+                                                 {"id": "y", "name": "Their Sixth", "pos": "F", "ppg": 9.0, "starter": False}])
 
     def test_no_minutes_no_usage(self):
         self.assertIsNone(context.usage_rate(row("me", 0, 0), [row("me", 0, 0)]))
