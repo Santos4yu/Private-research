@@ -577,3 +577,31 @@ class StartingFiveTests(unittest.TestCase):
         self.assertFalse(chart["kyrie"]["lastStart"])
         self.assertFalse(chart["kyrie"]["last3"])
         self.assertTrue(chart["spot"]["lastStart"])
+
+
+class SeasonZonesTests(unittest.TestCase):
+    """Oct 26: the shot chart's This season / Last season / Both switch."""
+    def setUp(self):
+        base = ContextTests()
+        base.setUp()
+        old = {gid: {**g, "season": 2025} for gid, g in base.payload["games"].items()}
+        # This season: star goes 1 for 2 at the rim against BBB; BBB's guard 0 for 3 above the break on AAA.
+        new = game("9", "2026-10-25", "AAA", "BBB", [row("star", 30, 12)], [row("b_g", 30, 10)],
+                   {"AAA": [["star", 0, 1, 2]], "BBB": [["b_g", 5, 0, 3]]})
+        self.payload = {**base.payload, "season": 2026, "games": {**old, "9": {**new, "season": 2026}}, "blended": [2025, 2026]}
+
+    def test_league_sends_each_season_apart(self):
+        ctx = context.league_context(self.payload)
+        self.assertEqual(ctx["lastSeason"]["season"], 2025)
+        self.assertEqual(ctx["thisSeason"]["zoneDefense"]["AAA"]["ab3"][0], 0.0)        # 0 of 3 allowed this season
+        self.assertEqual(ctx["lastSeason"]["zoneDefense"]["AAA"]["ab3"][0], 20.0)       # 1 of 5 last season
+        self.assertIn("leagueZones", ctx["lastSeason"])
+        self.assertIsNone(context.league_context({**self.payload, "blended": None})["lastSeason"])
+
+    def test_player_zones_by_season(self):
+        ctx = context.player_context(self.payload, "star", "AAA", "BBB", "player_points", 20.5)
+        self.assertEqual(ctx["zoneSeasons"]["2026"]["ra"], [1, 2])
+        self.assertEqual(ctx["zoneSeasons"]["2025"]["ra"], [3, 4])
+        self.assertEqual(ctx["zones"]["ra"], [4, 6])                                      # both together
+        unblended = context.player_context({**self.payload, "blended": None}, "star", "AAA", "BBB", "player_points", 20.5)
+        self.assertIsNone(unblended["zoneSeasons"])

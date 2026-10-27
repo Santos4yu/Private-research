@@ -477,7 +477,22 @@ def league_context(payload: dict, rosters: dict | None = None) -> dict:
         # season's games alone, for anything that tells a reader how a team
         # is doing now (the write-ups, Oct 25: "is this true data?").
         "thisSeason": this_season_tables(payload, by_team, players) if payload.get("blended") else None,
+        # Last season's shot zones alone, for the shot chart's season switch
+        # (Oct 26, the owner: see this season and last season apart).
+        "lastSeason": last_season_zones(payload, by_team) if payload.get("blended") else None,
     }
+
+
+def last_season_zones(payload: dict, by_team: dict) -> dict | None:
+    """What each defense allowed by shot zone over last season's games alone."""
+    season = (payload.get("blended") or [None])[0]
+    previous = {team: [game for game in games if game.get("season") == season] for team, games in by_team.items()}
+    previous = {team: games for team, games in previous.items() if games}
+    if not previous:
+        return None
+    zones, league_zones = zone_defense(previous)
+    return {"season": season, "games": {team: len(games) for team, games in previous.items()}, "teamCount": len(previous),
+            "zoneDefense": zones, "leagueZones": league_zones}
 
 
 def this_season_tables(payload: dict, by_team: dict, players: dict) -> dict | None:
@@ -561,14 +576,18 @@ def player_context(payload: dict, player_id: str, team: str, opponent: str, mark
     players = payload.get("players", {})
     stat = MARKET_STAT.get(market, "pts")
 
-    # Shot zones: every located attempt this season, for any team.
+    # Shot zones: every located attempt this season, for any team, and (with
+    # last season's games blended in) each season's apart for the season switch.
     zones = {zone: [0, 0] for zone in ZONES}
+    by_season = {str(season): {zone: [0, 0] for zone in ZONES} for season in (payload.get("blended") or [])}
     for games in by_team.values():
         for game in games:
             for pid, zone_index, made, attempts in game["own"].get("z", []):
                 if pid == player_id:
-                    zones[ZONES[zone_index]][0] += made
-                    zones[ZONES[zone_index]][1] += attempts
+                    for table in (zones, by_season.get(str(game.get("season")))):
+                        if table is not None:
+                            table[ZONES[zone_index]][0] += made
+                            table[ZONES[zone_index]][1] += attempts
 
     # With / without each teammate, over this player's games for `team`.
     team_log = [game for game in by_team.get(team, [])
@@ -642,7 +661,7 @@ def player_context(payload: dict, player_id: str, team: str, opponent: str, mark
     player = players.get(player_id) or ["", "", None, None]
     return {"playerId": player_id, "team": team, "opponent": opponent, "market": market, "stat": stat,
             "position": primary_position(player), "line": line,
-            "zones": zones, "withWithout": impact, "similar": similar,
+            "zones": zones, "zoneSeasons": by_season or None, "withWithout": impact, "similar": similar,
             "similarMinMinutes": SIMILAR_MIN_MINUTES, "teamGames": len(team_log),
             "opportunity": opportunity.player_opportunity(his_games),
             # Last season's games are in here too (opportunity.blend) at the start of a season.

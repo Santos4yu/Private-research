@@ -395,6 +395,9 @@
 
 /* Shot zones: three views, the picked zone in words, every zone. */
 .nba-mp .ws-views{display:flex;border-bottom:1px solid var(--mp-line)}
+/* Which games the shot chart reads: this season, last season or both. */
+.nba-mp .nsz-season{display:flex;justify-content:center;margin:0 0 12px}
+.nba-mp .nsz-season .mp-seg button{min-width:0;padding:0 13px}
 /* The court: a dark wood floor with a soft shine, white court lines, the
    backboard and an orange rim; each zone a see-through colour over it. */
 .nba-mp .nsz-court{display:block;width:100%;max-width:460px;margin:14px auto 0;border:1px solid #2c2c2e;border-radius:16px;overflow:hidden;
@@ -725,14 +728,15 @@
  @keyframes mp-pop-in{from{opacity:0;transform:translateY(16px) scale(.97)}}
 }
 @media (min-width:1000px){
- .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .mp-card-body{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);grid-template-rows:auto auto auto 1fr auto;column-gap:32px;align-items:start}
- .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .ws-views{grid-column:1;grid-row:1}
- .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .mp-card-body>svg{grid-column:1;grid-row:2 / span 3;width:100%;height:auto}
- .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .ws-legend{grid-column:1;grid-row:5}
- .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .ws-detail{grid-column:2;grid-row:1;margin-top:0}
- .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .ws-mix-head{grid-column:2;grid-row:2}
- .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .ws-mix{grid-column:2;grid-row:3}
- .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .ws-zones{grid-column:2;grid-row:4 / span 2}
+ .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .mp-card-body{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);grid-template-rows:auto auto auto auto 1fr auto;column-gap:32px;align-items:start}
+ .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .nsz-season{grid-column:1 / span 2;grid-row:1;justify-content:flex-start}
+ .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .ws-views{grid-column:1;grid-row:2}
+ .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .mp-card-body>svg{grid-column:1;grid-row:3 / span 3;width:100%;height:auto}
+ .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .ws-legend{grid-column:1;grid-row:6}
+ .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .ws-detail{grid-column:2;grid-row:2;margin-top:0}
+ .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .ws-mix-head{grid-column:2;grid-row:3}
+ .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .ws-mix{grid-column:2;grid-row:4}
+ .nba-mp .mp-sheet-panel[data-kind=shots] .nba-shots .ws-zones{grid-column:2;grid-row:5 / span 2}
 }
 @media (prefers-reduced-motion:reduce){.nba-mp .mp-sheet,.nba-mp .mp-sheet-panel{animation:none}}
 

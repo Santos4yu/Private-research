@@ -328,6 +328,15 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   `playedLast` field; lineupRole adds `sat` ("he sat out the team's last
   one"), and returns null (neither filter) for someone back after missing
   3+ games who'd started most of his own games before.
+- Shot chart season switch (Oct 26: the owner compared RotoBot's this-
+  season-only chart with ours, which blends last season in until 15
+  games). ShotZones (NbaScout.jsx) shows This season / Last season / Both
+  (default Both, remembered on the device: localStorage
+  'propscout:shot-season') when the league context has `thisSeason` and
+  the new `lastSeason` (context.py `last_season_zones`: zone tables only)
+  and player-context has the new `zoneSeasons` ({season: zones}). The
+  detail line says "this season"/"last season". Desktop pop-up grid rows
+  moved down one for it.
 - npm's registry wasn't reachable from the container this session, so no
   `vite build` ran here: checked with esbuild + Playwright on a harness
   page and the JS tests (4 failures there are older, missing packages).

@@ -367,12 +367,22 @@ const ZONE_SHAPES={
  mid:'M40 220 V130 A130.4 130.4 0 0 1 260 130 V220 Z M105 110 V220 H195 V110 Z',
  paint:'M105 110 H195 V220 H105 Z M122 220 V200 A28 28 0 0 1 178 200 V220 Z',
  ra:'M122 220 V200 A28 28 0 0 1 178 200 V220 Z'};
+// Which games the chart reads, early in a season when last season's are
+// mixed in (Oct 26, the owner: see this season and last season apart, as
+// another app shows this season alone). Kept on the device.
+const SEASON_KEY='propscout:shot-season';
+const savedSeason=()=>{try{return localStorage.getItem(SEASON_KEY)||'both';}catch{return 'both';}};
 export function ShotZones({player,league,row}){
- const [view,setView]=useState('fg'),[picked,setPicked]=useState(null);
+ const [view,setView]=useState('fg'),[picked,setPicked]=useState(null),[season,setSeason]=useState(savedSeason);
+ const pickSeason=key=>{setSeason(key);try{localStorage.setItem(SEASON_KEY,key);}catch{/* private mode: this visit only */}};
  const id=useId().replace(/:/g,'');
  const data=league.data,p=player.data,opponent=row.opponent||(row.opponent||opponentOf(row));
  if(!data||!p)return league.loading||player.loading?<Card title="Shot zones" icon={Target}><Loading/></Card>:null;
- const zones=p.zones||{},defense=data.zoneDefense[opponent]||{},n=data.teamCount,usual=data.leagueZones||{};
+ // Both seasons apart only when each side has them (else the one set there is).
+ const split=data.thisSeason&&data.lastSeason&&p.zoneSeasons?[['now','This season',data.thisSeason],['last','Last season',data.lastSeason],['both','Both',data]]:null;
+ const [,,table]=split?.find(([key])=>key===season)||[null,null,data];
+ const apart=split&&table!==data,when=!apart?'':season==='now'?' this season':' last season';
+ const zones=(apart?p.zoneSeasons[String(table.season)]:p.zones)||{},defense=table.zoneDefense?.[opponent]||{},n=table.teamCount,usual=table.leagueZones||{};
  const name=data.teams?.[opponent]?.short||opponent,first=String(row.player||'').split(' ')[0];
  const points=zone=>(zones[zone]?.[0]||0)*(THREES.has(zone)?3:2);
  const total=Object.keys(ZONE_LABELS).reduce((sum,zone)=>sum+points(zone),0);
@@ -403,6 +413,8 @@ export function ShotZones({player,league,row}){
  const [made,attempts]=zones[chosen]||[0,0],cell=defense[chosen];
  const views=[['fg',`${first} FG%`],['share','Share of pts'],['opp',`${name} allow`]];
  return <Card title="Shot zones" note={`vs ${name}`} icon={Target} className="nba-shots">
+  {split&&<div className="nsz-season"><div className="mp-seg" role="group" aria-label="Which games">{split.map(([key,label])=>
+   <button type="button" key={key} aria-pressed={key===season} onClick={()=>pickSeason(key)}>{label}</button>)}</div></div>}
   {total?<>
   <div className="ws-views" role="tablist" aria-label="What the court shows">{views.map(([key,text])=><button type="button" role="tab" key={key} aria-selected={view===key} onClick={()=>setView(key)}>{text}</button>)}</div>
   <svg className="nsz-court" viewBox="0 0 300 220" aria-label="Shot zones">
@@ -429,8 +441,8 @@ export function ShotZones({player,league,row}){
   </svg>
   <div className="ws-legend"><span>Tap a zone</span>{view==='share'?<span><i data-tone="blue"/>more of his points</span>:<><span><i data-tone="good"/>{view==='opp'?'gives up the most':'above league'}</span><span><i data-tone="poor"/>{view==='opp'?'gives up the least':'below league'}</span></>}</div>
   <div className="ws-detail"><div className="ws-detail-head"><b>{ZONE_LABELS[chosen]}</b>{finite(vsLeague(chosen))&&<em data-tone={few(chosen)?undefined:vsLeague(chosen)>=0?'good':'poor'}>{signed(vsLeague(chosen),1)} vs lg</em>}</div>
-   <p>{attempts?`He shoots ${fmt(pct(chosen),1)}% here${finite(vsLeague(chosen))?` (${signed(vsLeague(chosen),1)} vs league)`:''} on ${attempts} ${attempts===1?'try':'tries'}, ${fmt(share(chosen),0)}% of his points.`:'He has no tries from here on record.'}
-    {finite(cell?.[0])?` ${name} allow ${fmt(cell[0],1)}% here, the ${zoneRankText(cell[1],n)} in the league.`:''}</p></div>
+   <p>{attempts?`He shoots ${fmt(pct(chosen),1)}% here${when}${finite(vsLeague(chosen))?` (${signed(vsLeague(chosen),1)} vs league)`:''} on ${attempts} ${attempts===1?'try':'tries'}, ${fmt(share(chosen),0)}% of his points.`:`He has no tries from here${when||' on record'}.`}
+    {finite(cell?.[0])?` ${name} allow ${fmt(cell[0],1)}% here${when}, the ${zoneRankText(cell[1],n)} in the league.`:''}</p></div>
   <div className="ws-mix-head">Where his points come from</div>
   <div className="ws-mix" aria-hidden="true">{order.filter(zone=>share(zone)>0).map(zone=><i key={zone} style={{flexGrow:share(zone),background:ZONE_COLORS[zone]}}/>)}</div>
   <div className="ws-zones" role="list">{order.map(zone=>{const [m,a]=zones[zone]||[0,0],d=vsLeague(zone),s=soft(zone),theirs=defense[zone];
@@ -439,7 +451,7 @@ export function ShotZones({player,league,row}){
     <span className="ws-zone-num"><b>{a?`${fmt(m/a*100,1)}%`:'—'}</b><small data-tone={finite(d)&&!few(zone)?(d>=0?'good':'poor'):undefined}>{finite(d)?signed(d,1):''}</small></span>
     <span className="ws-zone-num" data-tone={s>=0.33?'good':s<=-0.33?'poor':undefined}><b>{finite(theirs?.[0])?`${fmt(theirs[0],1)}%`:'—'}</b><small>{s>=0.33?'Soft spot':s<=-0.33?'Tough':finite(theirs?.[0])?'Average':''}</small></span></button>;})}</div>
 </>
-  :<p className="mp-empty">No located shots are recorded for him yet.</p>}
+  :<p className="mp-empty">{apart?`No located shots for him${when} yet.`:'No located shots are recorded for him yet.'}</p>}
  </Card>;
 }
 
