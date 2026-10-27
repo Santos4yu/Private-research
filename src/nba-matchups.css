@@ -393,3 +393,182 @@
  .nba-matchups[data-wide] .nm-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:22px;border-top:1px solid var(--m-line)}
  .nba-matchups[data-wide] .nm-table{--nm-cols:44px minmax(0,1.5fr) minmax(0,1fr) minmax(96px,.6fr) minmax(64px,.4fr)}
 }
+
+/* ---------------------------------------------------------------- Private desk
+   Oct 27, the owner: the tab is theirs alone, "make it feel admin and
+   premium ... cool and unique". A gold "Private" mark and a live dot over
+   the title, faint court (or yard) lines behind the top of the page, a
+   pulse bar of tonight's board, the soft-spots map and the track record as
+   two folds, and the rows ranked like a leaderboard: medal numbers for the
+   top three, each score a ring that fills in its tone, Last 10 as ten tiny
+   bars against the line. Gold only marks the private and the top: color
+   still comes from the props. */
+.nba-matchups{--m-gold:#efc76a;position:relative;isolation:isolate}
+.nba-matchups::before{content:'';position:absolute;z-index:-1;top:-28px;right:-12px;width:min(600px,100%);height:360px;pointer-events:none;
+ background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='360' viewBox='0 0 600 360' fill='none' stroke='white' stroke-opacity='.07' stroke-width='2'%3E%3Cpath d='M0 2H600'/%3E%3Crect x='220' y='2' width='160' height='190'/%3E%3Ccircle cx='300' cy='192' r='60'/%3E%3Cpath d='M240 192A60 60 0 0 0 360 192' stroke-dasharray='10 10'/%3E%3Cpath d='M30 2V112A270 270 0 0 0 570 112V2'/%3E%3Cpath d='M270 42H330'/%3E%3Ccircle cx='300' cy='56' r='9'/%3E%3Cpath d='M260 56A40 40 0 0 0 340 56'/%3E%3Cpath d='M0 358H600' stroke-opacity='.04'/%3E%3C/svg%3E") no-repeat top right/contain;
+ -webkit-mask-image:linear-gradient(180deg,#000 25%,transparent 95%);mask-image:linear-gradient(180deg,#000 25%,transparent 95%)}
+.nba-matchups[data-league=nfl]::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='360' viewBox='0 0 600 360' fill='none' stroke='white' stroke-opacity='.07' stroke-width='2'%3E%3Cpath d='M60 0V360M180 0V360M300 0V360M420 0V360M540 0V360'/%3E%3Cpath d='M120 0V360M240 0V360M360 0V360M480 0V360' stroke-opacity='.035'/%3E%3Cpath d='M0 120H600M0 240H600' stroke-dasharray='6 54' stroke-dashoffset='-27'/%3E%3C/svg%3E")}
+
+/* The masthead: Private, when the board last updated, the title. */
+.nm-head{grid-template-columns:minmax(0,1fr) auto;row-gap:5px;margin-bottom:12px}
+.nm-eyebrow{grid-column:1;display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;font-size:11.5px;font-weight:700}
+.nm-private{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px 0 8px;box-sizing:border-box;border:1px solid color-mix(in srgb,var(--m-gold) 32%,transparent);border-radius:999px;
+ background:linear-gradient(180deg,color-mix(in srgb,var(--m-gold) 16%,transparent),color-mix(in srgb,var(--m-gold) 5%,transparent));color:#f3d993;
+ font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;box-shadow:0 0 18px -8px var(--m-gold)}
+.nm-live{display:inline-flex;align-items:center;gap:7px;color:#8f97a6;white-space:nowrap}
+.nm-live i{width:7px;height:7px;border-radius:50%;background:#5b6270}
+.nm-live[data-state=live] i{background:var(--m-strong);animation:nm-beat 2.4s ease-out infinite}
+.nm-live[data-state=busy] i{background:var(--m-neutral);animation:nm-blink 1s ease-in-out infinite}
+@keyframes nm-beat{0%{box-shadow:0 0 0 0 rgba(70,227,154,.6)}70%,100%{box-shadow:0 0 0 7px rgba(70,227,154,0)}}
+@keyframes nm-blink{50%{opacity:.35}}
+.nm-head h2{grid-column:1;margin:0;font:800 23px/1.1 'Sora',var(--font-sans);letter-spacing:-.025em;
+ background:linear-gradient(180deg,#ffffff 30%,#b9c2d0);-webkit-background-clip:text;background-clip:text;color:transparent}
+.nm-head .nm-refresh{grid-row:1 / span 2;align-self:center;border-color:#ffffff14;background:#ffffff08}
+
+/* The league tabs: the picked one lit from under. */
+.nm-league button[aria-pressed=true]{box-shadow:inset 0 -2px 0 var(--theme-accent,#f3f5f8),0 14px 24px -18px var(--theme-accent,#f3f5f8)}
+
+/* Tonight's pulse: one bar, its parts split by hairlines, a gold-to-accent
+   line along the top. */
+.nm-pulse{position:relative;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:0 0 12px;border:1px solid #ffffff12;border-radius:16px;overflow:hidden;
+ background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015)),rgba(12,14,19,.6);box-shadow:inset 0 1px 0 #ffffff0d,0 18px 40px -30px #000}
+.nm-pulse::before{content:'';position:absolute;top:0;left:12%;right:12%;height:1px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--m-gold) 70%,transparent),color-mix(in srgb,var(--theme-accent,#4cc9f0) 70%,transparent),transparent)}
+.nm-pulse>*{display:flex;flex-direction:column;justify-content:center;gap:5px;min-width:0;padding:10px 12px;border:0;border-left:1px solid #ffffff0d;background:transparent;color:inherit;font:inherit;text-align:left}
+.nm-pulse>*:first-child{border-left:0}
+.nm-pulse small{overflow:hidden;color:#7f8796;font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;white-space:nowrap;text-overflow:ellipsis}
+.nm-pulse b{display:flex;align-items:center;gap:6px;min-width:0;font:800 20px/1 'Sora',var(--font-sans);font-variant-numeric:tabular-nums;white-space:nowrap}
+.nm-pulse [data-tone=strong] b{color:var(--m-strong);text-shadow:0 0 18px color-mix(in srgb,var(--m-strong) 45%,transparent)}
+.nm-pulse-team b{font-size:16px}
+.nm-pulse-team img{flex:none;width:20px;height:20px;object-fit:contain}
+.nm-pulse-team em{color:var(--m-strong);font-size:11px;font-style:normal;font-weight:800}
+.nm-pulse-top{cursor:pointer;transition:background-color .18s}
+.nm-pulse-top:hover{background:#ffffff08}
+.nm-pulse-top span{display:flex;align-items:center;gap:9px;min-width:0}
+.nm-pulse-top .sa-face{--size:30px}
+.nm-pulse-top span b{display:block;overflow:hidden;font:800 14px var(--font-sans);text-overflow:ellipsis}
+.nm-pulse-top em{flex:none;margin-left:auto;padding:3px 8px;border-radius:999px;background:color-mix(in srgb,var(--m-strong) 16%,transparent);color:var(--m-strong);
+ font:800 13px 'Sora',var(--font-sans);font-style:normal}
+.nm-pulse-top:focus-visible{outline:2px solid var(--theme-accent,#cccccc);outline-offset:-2px}
+
+/* Soft spots and the track record: two folds side by side, one open at a time under them. */
+.nm-folds{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin:10px 0 0}
+.nm-folds[data-two]{grid-template-columns:repeat(2,minmax(0,1fr))}
+.nm-fold{display:flex;align-items:center;gap:10px;min-width:0;min-height:48px;padding:7px 12px;border:1px solid #ffffff12;border-radius:14px;
+ background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.012));color:var(--m-text);font:inherit;text-align:left;cursor:pointer;
+ transition:border-color .18s,background-color .18s}
+.nm-fold:hover{border-color:#ffffff22}
+.nm-fold>svg:first-child{flex:none}
+.nm-fold[data-kind=spots]>svg:first-child{color:#ff9d5c;filter:drop-shadow(0 0 6px #ff9d5c66)}
+.nm-fold[data-kind=record]>svg:first-child{color:var(--m-strong);filter:drop-shadow(0 0 6px color-mix(in srgb,var(--m-strong) 40%,transparent))}
+.nm-fold span{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.nm-fold b{font-size:12.5px}
+.nm-fold small{overflow:hidden;color:var(--m-muted);font-size:11.5px;white-space:nowrap;text-overflow:ellipsis}
+.nm-fold>svg:last-child{flex:none;color:var(--m-faint);transition:transform .2s}
+.nm-fold[aria-expanded=true]{border-color:color-mix(in srgb,var(--theme-accent,#4cc9f0) 45%,transparent);background:color-mix(in srgb,var(--theme-accent,#4cc9f0) 8%,rgba(12,14,19,.7))}
+.nm-fold[aria-expanded=true]>svg:last-child{transform:rotate(180deg)}
+.nm-fold:focus-visible{outline:2px solid var(--theme-accent,#cccccc);outline-offset:2px}
+
+/* The soft-spots map: each defense's average matchup by stat, warmer the softer. */
+.nm-spots,.nba-matchups .nm-record{margin:8px 0 0;padding:12px;border:1px solid #ffffff10;border-radius:16px;background:rgba(10,12,16,.72);
+ animation:nm-open .25s cubic-bezier(.2,.8,.2,1) backwards;transform-origin:top}
+.nm-spots{overflow-x:auto;scrollbar-width:thin}
+.nm-spots-grid{display:grid;grid-template-columns:minmax(78px,auto) repeat(var(--cols),minmax(32px,1fr));gap:3px;align-items:center}
+.nm-spot-corner,.nm-spot-stat{color:#7f8796;font-size:10px;font-weight:800;letter-spacing:.07em;text-align:center;text-transform:uppercase;white-space:nowrap}
+.nm-spot-corner{text-align:left}
+.nm-spot-team{display:grid;grid-template-columns:18px auto;align-items:center;column-gap:6px;min-width:0;padding-right:6px}
+.nm-spot-team img{grid-row:1 / span 2;width:18px;height:18px;object-fit:contain}
+.nm-spot-team b{font-size:12px;line-height:1.1}
+.nm-spot-team small{color:var(--m-faint);font-size:10px;line-height:1.1;white-space:nowrap}
+.nm-spot-cell{--tc:#7a8190;display:grid;place-items:center;min-width:0;height:30px;padding:0;border:0;border-radius:8px;
+ background:color-mix(in srgb,var(--tc) calc(var(--heat,0) * 58%),#161a22);color:#e9edf3;font:800 12px/1 'Sora',var(--font-sans);font-variant-numeric:tabular-nums;
+ cursor:pointer;transition:transform .12s ease,box-shadow .15s}
+span.nm-spot-cell{background:#11141a;cursor:default}
+.nm-spot-cell[data-tone=strong]{--tc:var(--m-strong);color:#dcfff0}
+.nm-spot-cell[data-tone=edge]{--tc:var(--m-edge);color:#d9fbf7}
+.nm-spot-cell[data-tone=neutral]{--tc:#8a8f9a}
+.nm-spot-cell[data-tone=tough]{--tc:var(--m-tough);color:#ffe0e0}
+button.nm-spot-cell:hover{transform:scale(1.08);box-shadow:0 0 0 1px #ffffff30}
+.nm-spot-cell[aria-pressed=true]{box-shadow:0 0 0 2px #fff,0 0 16px -2px var(--tc)}
+.nm-spot-cell:focus-visible{outline:2px solid var(--theme-accent,#cccccc);outline-offset:1px}
+.nm-spots-grid[data-wide]{grid-template-columns:52px repeat(var(--cols),minmax(38px,1fr));gap:4px}
+.nm-spots-grid[data-wide] .nm-spot-team{grid-template-columns:1fr;justify-items:center;row-gap:3px;padding:0 0 4px}
+.nm-spots-grid[data-wide] .nm-spot-team img{grid-row:auto;width:22px;height:22px}
+.nm-spots-grid[data-wide] .nm-spot-stat{text-align:left}
+.nm-spots-grid[data-wide] .nm-spot-cell{height:32px;font-size:12.5px}
+
+/* The track record, opened: each band's rate as a bar. */
+.nba-matchups .nm-record .nm-record-body{display:block;padding:0}
+.nba-matchups .nm-record caption{padding:0 0 8px;color:var(--m-muted);font-size:12px;font-weight:600}
+.nba-matchups .nm-record .nm-record-note{margin:0}
+.nm-rate{display:inline-block;width:72px;height:5px;margin-right:10px;border-radius:999px;background:#ffffff12;vertical-align:middle;overflow:hidden}
+.nm-rate i{display:block;height:100%;border-radius:inherit;background:var(--m-strong);transform-origin:left;animation:nm-fill .7s cubic-bezier(.2,.8,.2,1) backwards}
+
+/* The rows: rank, then the rest as before; the score a ring, Last 10 with its bars. */
+.nm-table{--nm-cols:26px 40px minmax(0,1.5fr) minmax(0,1fr) minmax(96px,.7fr) minmax(84px,.5fr)}
+.nm-main{grid-template-areas:'rank face name line score hit' 'rank face when line score hit'}
+.nm-th-rank{grid-column:1;display:flex;align-items:center;justify-content:center;min-height:32px}
+.nm-th-player{grid-column:2 / span 2}
+.nm-rank{grid-area:rank;justify-self:center;color:#5d6472;font:800 12px/1 'Sora',var(--font-sans);font-variant-numeric:tabular-nums}
+.nm-rank[data-medal="1"]{color:var(--m-gold);text-shadow:0 0 14px color-mix(in srgb,var(--m-gold) 60%,transparent);font-size:14px}
+.nm-rank[data-medal="2"]{color:#d5dce6;font-size:13px}
+.nm-rank[data-medal="3"]{color:#df9f72;font-size:13px}
+@property --nm-p{syntax:'<number>';inherits:true;initial-value:0}
+.nm-ring{--size:48px;--tc:#6f7480;--nm-p:var(--score,0);display:grid;place-items:center;width:var(--size);height:var(--size);border-radius:50%;
+ background:radial-gradient(closest-side,rgba(11,13,18,.96) calc(100% - 4px),transparent calc(100% - 3px)),
+  conic-gradient(var(--tc) calc(var(--nm-p) * 1%),rgba(255,255,255,.08) 0);
+ animation:nm-ring 1.1s cubic-bezier(.2,.8,.2,1) backwards;animation-delay:calc(var(--i,0) * 35ms + 120ms)}
+@keyframes nm-ring{from{--nm-p:0}}
+.nm-cell.nm-score[data-tone=strong] .nm-ring{--tc:var(--m-strong)}
+.nm-cell.nm-score[data-tone=edge] .nm-ring{--tc:var(--m-edge)}
+.nm-cell.nm-score[data-tone=neutral] .nm-ring{--tc:var(--m-neutral)}
+.nm-cell.nm-score[data-tone=tough] .nm-ring{--tc:var(--m-tough)}
+.nm-cell.nm-score .nm-ring b{font-size:17px;letter-spacing:-.02em}
+.nm-cell.nm-score[data-hot] .nm-ring{box-shadow:0 0 22px -6px var(--tc),0 0 0 1px color-mix(in srgb,var(--tc) 30%,transparent)}
+.nm-spark{position:relative;display:flex;align-items:flex-end;gap:2px;width:62px;height:16px;margin-top:2px}
+.nm-spark i{flex:1;min-width:0;border-radius:2px 2px 0 0;background:rgba(255,123,123,.42);transform-origin:bottom;
+ animation:nm-grow .5s cubic-bezier(.2,.8,.2,1) backwards;animation-delay:calc(var(--i,0) * 35ms + 260ms)}
+.nm-spark i[data-over]{background:var(--m-strong)}
+.nm-spark s{position:absolute;right:-3px;left:-3px;height:0;border-top:1px dashed rgba(255,255,255,.5);text-decoration:none}
+@keyframes nm-grow{from{transform:scaleY(0)}}
+.nm-cell.nm-hit{gap:4px}
+
+@media (prefers-reduced-motion:reduce){
+ .nm-live i,.nm-ring,.nm-spark i,.nm-spots,.nba-matchups .nm-record,.nm-rate i{animation:none}
+}
+
+@media (max-width:760px){
+ .nba-matchups::before{top:-18px;right:-170px;width:440px;height:264px;opacity:.75}
+ .nm-head h2{font-size:20px}
+ .nm-pulse>*{padding:9px 10px}
+ .nm-pulse b{font-size:18px}
+ .nm-pulse-team b{font-size:14px}
+ .nm-pulse-team img{width:17px;height:17px}
+ .nm-pulse-team em{display:none}
+ .nm-fold{min-height:46px;padding:6px 10px;gap:8px}
+ .nm-fold b{font-size:12px}
+ .nm-fold small{font-size:11px}
+ .nm-spots,.nba-matchups .nm-record{padding:10px}
+ .nm-table{--nm-cols:14px 30px minmax(0,1fr) 44px 46px;--nm-why:24px}
+ .nm-main{grid-template-areas:'rank face name score hit' 'rank face line score hit' 'rank face when score hit'}
+ .nm-rank{font-size:10.5px}
+ .nm-rank[data-medal]{font-size:12px}
+ .nm-ring{--size:42px}
+ .nm-cell.nm-score .nm-ring b{font-size:15px}
+ .nm-spark{width:42px;height:12px;gap:1px}
+}
+@media (min-width:1100px){
+ .nba-matchups[data-wide]::after{content:'';position:absolute;top:0;left:40px;right:40px;height:1px;pointer-events:none;
+  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--m-gold) 55%,transparent) 25%,color-mix(in srgb,var(--theme-accent,#4cc9f0) 55%,transparent) 75%,transparent)}
+ .nba-matchups[data-wide] .nm-head h2{font-size:26px}
+ .nba-matchups[data-wide] .nm-pulse{grid-template-columns:repeat(4,minmax(0,.7fr)) minmax(0,1.5fr);margin-bottom:14px}
+ .nba-matchups[data-wide] .nm-pulse>*{padding:12px 16px}
+ .nba-matchups[data-wide] .nm-pulse b{font-size:24px}
+ .nba-matchups[data-wide] .nm-pulse-team b{font-size:18px}
+ .nba-matchups[data-wide] .nm-table{--nm-cols:28px 44px minmax(0,1.6fr) minmax(0,1fr) minmax(110px,.6fr) minmax(96px,.45fr)}
+ .nba-matchups[data-wide] .nm-ring{--size:54px}
+ .nba-matchups[data-wide] .nm-cell.nm-score .nm-ring b{font-size:19px}
+ .nba-matchups[data-wide] .nm-spark{width:72px;height:18px}
+}
+@media (min-width:1900px){
+ .nba-matchups[data-wide] .nm-table{--nm-cols:28px 44px minmax(0,1.5fr) minmax(0,1fr) minmax(96px,.6fr) minmax(84px,.4fr)}
+}

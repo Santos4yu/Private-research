@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the matchup score). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-10-27 (the Props tab restyled as the owner's private desk). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -56,6 +56,32 @@ Last updated 2026-10-25 (cleaner NBA list; a full roster no longer drags the mat
   minutes. Scores are worked out on the phone, so without this a phone kept
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
+
+### Oct 27: the Props tab as a private desk
+
+- The owner: only they will have the Props tab now ("make it feel admin and
+  premium like cool and unique for pc and mobile", "surprise me"). So the
+  "nothing admin-looking" rule doesn't apply on this tab; it still applies
+  everywhere members go. All in `src/MatchupList.jsx` (NBA and NFL lists)
+  and the "Private desk" block at the end of `src/nba-matchups.css`:
+  - Masthead: a gold "Private" pill and a live dot with "Updated 8:44 PM"
+    (amber while a board loads) over the title; faint court lines behind
+    the top of the list (yard lines on NFL).
+  - Pulse bar (`Pulse`): props, games, how many score 90+, the softest
+    defense (highest average score of the props against it, 3+ props) and,
+    on a computer, the top matchup (tap opens his page). Counts count up.
+  - Soft spots (`SoftSpots`): every defense on the board by stat, the
+    average matchup of the props against it, colored by band. Phone: teams
+    down, stats across; computer: teams across. A tap shows only the props
+    against that defense in that stat, with an "Against CHI's defense" chip
+    to clear it (`facing`; picking a game clears it too). It and the track
+    record are two folds side by side; both start closed, the device keeps
+    which was left open (`props-fold`).
+  - Rows: a rank column (gold / silver / bronze for the top three), the
+    matchup as a ring that fills to its score in its tone (`@property
+    --nm-p`), Last 10 with ten tiny bars of his games against tonight's
+    line (`Spark`, from `row.gameLog`).
+  The table, Why panel, filters and sidebar are unchanged otherwise.
 
 ### Oct 25: cleaner list, full rosters neutral
 
