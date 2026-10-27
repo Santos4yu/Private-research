@@ -57,6 +57,16 @@ Last updated 2026-10-27 (the Props tab: premium but plain, no AI look). Read thi
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Oct 27: the line on the player page's chart
+
+- The owner sent Wembanyama H2H: a 28 drawn under the 27.5 dashed line.
+  The line was placed right; the tallest bar was short. Its number above
+  it made the column too tall, so flexbox shrank the bar (about 9% fewer
+  pixels per point than the others). `.nba-mp .mp-bars>:is(span,button)>*`
+  now has `flex-shrink:0` (the number sits in `--mp-bars-room`), and the
+  2px dashed line is centred on its value (`translateY(50%)`). Measured in
+  the browser: same pixels per point on every bar, line within 0.1px.
+
 ### Oct 27: double-click a Props row to open his page
 
 - The owner: "make it so when i double click it opens the prop and i dont
