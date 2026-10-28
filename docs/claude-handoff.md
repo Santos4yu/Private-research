@@ -84,6 +84,17 @@ Last updated 2026-10-27 (the Props tab: premium but plain, no AI look). Read thi
   (`src/nba-matchups.css`, top). The league tabs now sit at 14px and the
   list frame at 67px (was 242px). Phones unchanged.
 
+### Oct 28: a new Props concept, dropped
+
+- The owner liked LineCrush's page (the site shown in a tablet and a phone)
+  and asked for something as eye-catching. Three mockups (a card deck, a
+  clipboard, an arena board) got "yeah i hate those designs". They then
+  picked only the device frame: the Props tab inside a tablet or phone
+  frame on a computer, with a Tablet / Phone / Full page switch. It was
+  built (the site at `/props?device=1` in an iframe) but the owner called
+  it off before it shipped: "ok lets just give up on that". Nothing was
+  pushed. Don't bring the idea back unless they do.
+
 ### Oct 27: Finder cards without boxes; Lines tab on the NBA player page
 
 - The owner, on the phone Finder: "I don't like how it's just squares ...
