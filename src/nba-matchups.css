@@ -2,6 +2,15 @@
    (NbaMatchups.jsx). Photos come from PickParts (slip-analyzer.css). */
 #panel-v2:is([data-league=nba],[data-league=nfl])>:not(#props-league-root),:root[data-theme] #app-shell #panel-v2:is([data-league=nba],[data-league=nfl])>:not(#props-league-root){display:none!important}
 #props-league-root{max-width:1120px;margin:0 auto}
+/* Oct 28, the owner: "i hate this desktop layout design its like low down
+   ... i want a normal page thats higher up". On a computer the Props tab
+   is the page, as the Finder, Cheat Sheets and the rest are: no site banner
+   above it, the league tabs at the very top. Phones keep their own top. */
+@media (min-width:761px){
+ #app-shell:has(#panel-v2:not([hidden]))>.hero{display:none!important}
+ :root[data-theme] body #app-shell #panel-v2:not([hidden]),#app-shell #panel-v2:not([hidden]){padding-top:14px!important}
+ #panel-v2::before{display:none!important}
+}
 #props-league-root:empty{display:none}
 /* A player's matchup page has its own back button: the league switch steps aside. */
 #props-league-root[data-page=player] .nm-league{display:none}

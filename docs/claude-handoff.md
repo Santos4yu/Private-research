@@ -75,6 +75,15 @@ Last updated 2026-10-27 (the Props tab: premium but plain, no AI look). Read thi
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Oct 28: Props tab on a computer starts at the top
+
+- The owner: "i hate this desktop layout design its like low down ... i
+  want a normal page thats higher up". From 761px the Props tab drops the
+  site banner (`.hero`, 133px) and its page padding goes 56px -> 14px, as
+  the Finder, Cheat Sheets, Line Moves and the rest already do
+  (`src/nba-matchups.css`, top). The league tabs now sit at 14px and the
+  list frame at 67px (was 242px). Phones unchanged.
+
 ### Oct 27: Finder cards without boxes; Lines tab on the NBA player page
 
 - The owner, on the phone Finder: "I don't like how it's just squares ...
