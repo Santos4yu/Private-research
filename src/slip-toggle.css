@@ -1,18 +1,19 @@
-/* The slip's + (SlipToggle.jsx): an outlined square, filled with the
-   site's accent and a check once the line is on the slip. `data-full`
-   is the wide button with its words. */
-.slip-toggle{display:inline-grid;place-items:center;flex:none;box-sizing:border-box;width:30px;height:30px;padding:0;border:1px solid #2e3743;border-radius:8px;background:transparent;
- color:#c7cfd9;font:700 13px var(--font-sans,'Inter',sans-serif);cursor:pointer;-webkit-tap-highlight-color:transparent;
- transition:background-color .18s ease,border-color .18s ease,color .18s ease,transform .12s ease}
-.slip-toggle:hover{border-color:#4a5563;background:#18202a;color:#fff}
+/* The slip's + (SlipToggle.jsx): a round soft button that takes a tint of
+   the site's accent and a check once the line is on the slip. No outline
+   (Oct 28, the owner: "i dont like how boxy things are"). `data-full` is
+   the wide button with its words. */
+.slip-toggle{display:inline-grid;place-items:center;flex:none;box-sizing:border-box;width:30px;height:30px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.06);
+ color:#c3c9d1;font:600 13px var(--font-sans,'Inter',sans-serif);cursor:pointer;-webkit-tap-highlight-color:transparent;
+ transition:background-color .15s ease,color .15s ease,transform .12s ease}
+.slip-toggle:hover{background:rgba(255,255,255,.11);color:#fff}
 .slip-toggle:active{transform:scale(.92)}
-.slip-toggle[data-on]{border-color:var(--theme-accent,#4c8dff);background:var(--theme-accent,#4c8dff);color:var(--theme-on-accent,#fff)}
-.slip-toggle[data-on] svg{animation:slip-pop .32s cubic-bezier(.3,1.6,.5,1)}
-.slip-toggle[data-full]{display:inline-flex;align-items:center;justify-content:center;gap:7px;width:auto;height:40px;padding:0 14px;border-radius:9px;
- border-color:var(--theme-accent,#4c8dff);background:var(--theme-accent,#4c8dff);color:var(--theme-on-accent,#fff);white-space:nowrap}
+.slip-toggle[data-on]{background:color-mix(in srgb,var(--theme-accent,#4c8dff) 22%,transparent);color:var(--theme-accent,#4c8dff)}
+.slip-toggle[data-on] svg{animation:slip-pop .28s cubic-bezier(.3,1.5,.5,1)}
+.slip-toggle[data-full]{display:inline-flex;align-items:center;justify-content:center;gap:6px;width:auto;height:38px;padding:0 16px;border-radius:999px;
+ background:var(--theme-accent,#4c8dff);color:var(--theme-on-accent,#fff);white-space:nowrap}
 .slip-toggle[data-full]:hover{filter:brightness(1.08);background:var(--theme-accent,#4c8dff);color:var(--theme-on-accent,#fff)}
-.slip-toggle[data-full][data-on]{border-color:#2e3743;background:transparent;color:#eef2f6}
+.slip-toggle[data-full][data-on]{background:rgba(255,255,255,.06);color:#e9ebee}
 .slip-toggle[data-full][data-on] svg{color:var(--theme-accent,#4c8dff)}
 .slip-toggle:focus-visible{outline:2px solid var(--theme-accent,#4c8dff);outline-offset:2px}
-@keyframes slip-pop{from{transform:scale(.4)}}
+@keyframes slip-pop{from{transform:scale(.5)}}
 @media (prefers-reduced-motion:reduce){.slip-toggle{transition:none}.slip-toggle[data-on] svg{animation:none}}

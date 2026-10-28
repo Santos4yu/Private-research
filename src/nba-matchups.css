@@ -1,11 +1,16 @@
 /* The Props tab's league switch (PropsLeague.jsx) and its NBA / NFL list
    (MatchupList.jsx). Photos come from PickParts (slip-analyzer.css).
-   Oct 28, the owner: "redesign this whole thing ... nicer and easier to
-   research ... nothing should look alike". A stat sheet: scoreboard
-   numbers (Barlow Condensed), solid score badges, switches whose picked
-   button is a light pill gliding between them, the games as stubs, rows
-   on thin rules. Still no glows, no gradient text, nothing that loops
-   (Oct 27). */
+   Oct 28, the owner, on a first stat-sheet redesign (condensed capitals,
+   neon score blocks, white pill switches): "straight AI slop ... not
+   professional or polished at all", then of a calmer take: "the thing i
+   dont like is how boxy things are ... it all looks like low quality
+   components". So the page is open: no outlines anywhere. Tabs are words
+   with an underline, filters are words whose picked one sits on a soft
+   pill, the rows lie on the page between faint rules, scores are colored
+   numbers, and the only containers are the preview and the opened panels,
+   soft fills with no border. One typeface (the site's Inter) in sentence
+   case, numbers aligned, the page held to a sensible width. Still no
+   glows, no gradient text, nothing that loops (Oct 27). */
 #panel-v2:is([data-league=nba],[data-league=nfl])>:not(#props-league-root),:root[data-theme] #app-shell #panel-v2:is([data-league=nba],[data-league=nfl])>:not(#props-league-root){display:none!important}
 #props-league-root{max-width:1120px;margin:0 auto}
 /* Oct 28, the owner: "i hate this desktop layout design its like low down
@@ -21,417 +26,399 @@
 /* A player's matchup page has its own back button: the league switch steps aside. */
 #props-league-root[data-page=player] .nm-league{display:none}
 
-/* The page behind the Props tab: one flat ink, edge to edge (the old
-   slate gradient, grain and team glows are gone). */
-:root #app-shell:has(#panel-v2[data-league]:not([hidden])){background:#090c10!important}
+/* The page behind the Props tab: one flat dark, edge to edge. */
+:root #app-shell:has(#panel-v2[data-league]:not([hidden])){background:#0b0d10!important}
 :root #app-shell #panel-v2[data-league]:not([hidden]){background:transparent!important;background-color:transparent!important}
 
-/* ---------------------------------------------------------------- Switches
-   Leagues, stats, sort, lines, players: a row of buttons in a dark well,
-   the picked one a light pill. For the leagues and stats the pill glides
-   from button to button (use-ink.js); until it's placed, the picked button
+/* ---------------------------------------------------------------- Tabs
+   Leagues and stats: words in a row on a faint rule, an underline gliding
+   to the picked one (use-ink.js); until it's placed, the picked word
    carries its own. */
-.nm-league,.nm-stats{position:relative;display:flex;gap:2px;width:max-content;max-width:100%;box-sizing:border-box;padding:3px;border:1px solid #232a34;border-radius:10px;background:#0e1217}
+.nm-league,.nm-stats{position:relative;display:flex;gap:4px;max-width:100%;box-sizing:border-box;box-shadow:inset 0 -1px 0 rgba(255,255,255,.07)}
 .nm-league{margin:0 0 18px}
-.nm-league button,.nm-stats button{position:relative;z-index:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:none;height:34px;padding:0 16px;border:0;border-radius:7px;
- background:transparent;color:#97a1ae;font:700 16px/1 'Barlow Condensed',var(--font-sans,'Inter'),sans-serif;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:color .2s ease}
-.nm-league button:hover,.nm-stats button:hover{color:#eef2f6}
-.nm-league button[aria-pressed=true],.nm-stats button[aria-pressed=true]{color:#0a0d11}
-.nm-league img{width:18px;height:18px;object-fit:contain}
-.nm-ink{position:absolute;top:3px;bottom:3px;left:0;z-index:0;border-radius:7px;background:#eef2f6;pointer-events:none;
- transition:transform .34s cubic-bezier(.22,.8,.24,1),width .34s cubic-bezier(.22,.8,.24,1),opacity .2s}
-:is(.nm-league,.nm-stats):has(>.nm-ink[style*=opacity]) button[aria-pressed=true]{background:#eef2f6}
-.nm-league button:focus-visible,.nm-stats button:focus-visible{outline:2px solid var(--theme-accent,#4c8dff);outline-offset:1px}
+.nm-league button,.nm-stats button{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:none;height:38px;padding:0 12px;border:0;border-radius:0;
+ background:transparent;color:#8f97a1;font:600 13.5px/1 var(--font-sans,'Inter'),system-ui,sans-serif;cursor:pointer;transition:color .2s ease}
+.nm-league button:hover,.nm-stats button:hover{color:#e9ebee}
+.nm-league button[aria-pressed=true],.nm-stats button[aria-pressed=true]{color:#fff}
+.nm-league img{width:16px;height:16px;object-fit:contain}
+.nm-ink{position:absolute;bottom:0;left:0;height:2px;border-radius:2px;background:#e9ebee;pointer-events:none;
+ transition:transform .3s cubic-bezier(.22,.8,.24,1),width .3s cubic-bezier(.22,.8,.24,1),opacity .2s}
+:is(.nm-league,.nm-stats):has(>.nm-ink[style*=opacity]) button[aria-pressed=true]{box-shadow:inset 0 -2px 0 #e9ebee}
+.nm-league button:focus-visible,.nm-stats button:focus-visible{outline:2px solid var(--theme-accent,#4c8dff);outline-offset:-2px;border-radius:6px}
 
-.nba-matchups{--m-panel:#0e1217;--m-raised:#141a21;--m-line:#1b222b;--m-line-2:#262e39;--m-text:#eef2f6;--m-muted:#9aa4b1;--m-faint:#69737f;
- --m-strong:#a5e063;--m-edge:#4dc48c;--m-neutral:#e8b84b;--m-tough:#f1675b;--m-good:#5fd08b;--m-poor:#f1675b;--m-accent:var(--theme-accent,#4c8dff);
- --m-num:'Barlow Condensed',var(--font-sans,'Inter'),system-ui,sans-serif;
- color:var(--m-text);font-family:var(--font-sans,'Inter',system-ui,sans-serif);padding-bottom:24px}
+.nba-matchups{--m-soft:#13161b;--m-hover:rgba(255,255,255,.035);--m-pick:rgba(255,255,255,.08);--m-rule:rgba(255,255,255,.06);
+ --m-text:#e9ebee;--m-muted:#8f97a1;--m-faint:#626a74;
+ --m-good:#3ecf8e;--m-poor:#ef7168;--m-fair:#d6a94c;--m-accent:var(--theme-accent,#4c8dff);
+ /* The matchup score's bands, as the number's color. */
+ --m-strong:#46d98f;--m-edge:#8bcfb0;--m-neutral:#c7ccd3;--m-tough:#ef7168;
+ color:var(--m-text);font-family:var(--font-sans,'Inter',system-ui,sans-serif);font-variant-numeric:tabular-nums;padding-bottom:24px}
 .nm-spin{animation:nm-spin 1s linear infinite}
 @keyframes nm-spin{to{transform:rotate(360deg)}}
-@keyframes nm-in{from{opacity:0;transform:translateY(5px)}}
-@keyframes nm-fade{from{opacity:0;transform:translateY(-4px)}}
+@keyframes nm-in{from{opacity:0;transform:translateY(4px)}}
+@keyframes nm-fade{from{opacity:0;transform:translateY(-3px)}}
 @keyframes nm-grow{from{transform:scaleY(0)}}
 @keyframes nm-fill{from{transform:scaleX(0)}}
 
 /* ---------------------------------------------------------------- The top
    The title with when the board updated, then search, the slip and refresh. */
-.nm-head{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px 16px;margin:0 0 14px}
+.nm-head{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px 16px;margin:0 0 18px}
 .nm-title{min-width:0}
-.nm-title h2{margin:0;font:700 32px/.95 var(--m-num);letter-spacing:.01em;text-transform:uppercase}
-.nm-updated{display:block;margin-top:6px;color:var(--m-faint);font-size:12px;font-weight:600}
-.nm-tools{display:flex;align-items:center;gap:6px}
-.nm-search,.nm-filter-button,.nm-slip,.nm-refresh{box-sizing:border-box;height:38px;border:1px solid var(--m-line-2);border-radius:9px;background:var(--m-panel);color:var(--m-muted);
- transition:border-color .15s,background-color .15s,color .15s}
-.nm-search{display:flex;align-items:center;gap:8px;width:280px;padding:0 6px 0 12px}
+.nm-title h2{margin:0;font:650 24px/1.2 var(--font-sans);letter-spacing:-.015em}
+.nm-updated{display:block;margin-top:4px;color:var(--m-faint);font-size:13px;font-weight:500}
+.nm-tools{display:flex;align-items:center;gap:4px}
+.nm-search{display:flex;align-items:center;gap:8px;box-sizing:border-box;width:260px;height:36px;padding:0 6px 0 13px;border:0;border-radius:999px;background:var(--m-soft);
+ transition:background-color .15s,box-shadow .15s}
 .nm-search svg{flex:none;color:var(--m-faint)}
-.nm-search input{flex:1;min-width:0;height:100%;border:0;background:transparent;color:var(--m-text);font:500 14px var(--font-sans);outline:none}
+.nm-search input{flex:1;min-width:0;height:100%;border:0;background:transparent;color:var(--m-text);font:500 13.5px var(--font-sans);outline:none}
 .nm-search input::placeholder{color:var(--m-faint)}
 .nm-search input::-webkit-search-cancel-button{display:none}
-.nm-search button{display:grid;place-items:center;flex:none;width:26px;height:26px;border:0;border-radius:6px;background:#1c232c;color:var(--m-muted);cursor:pointer}
-.nm-search:focus-within{border-color:#3c4654}
-.nm-filter-button,.nm-refresh{position:relative;display:grid;place-items:center;flex:none;width:38px;padding:0;cursor:pointer}
-.nm-filter-button:hover,.nm-filter-button[aria-expanded=true],.nm-refresh:hover,.nm-slip:hover{border-color:#3c4654;background:var(--m-raised);color:var(--m-text)}
-.nm-filter-button i{position:absolute;top:-6px;right:-6px;display:grid;place-items:center;min-width:17px;height:17px;padding:0 4px;box-sizing:border-box;border-radius:5px;
- background:var(--m-text);color:#0a0d11;font:700 12px/1 var(--m-num);font-style:normal}
+.nm-search button{display:grid;place-items:center;flex:none;width:24px;height:24px;border:0;border-radius:50%;background:transparent;color:var(--m-muted);cursor:pointer}
+.nm-search:focus-within{box-shadow:0 0 0 1px rgba(255,255,255,.14)}
+.nm-filter-button,.nm-refresh{position:relative;display:grid;place-items:center;flex:none;box-sizing:border-box;width:36px;height:36px;padding:0;border:0;border-radius:50%;background:transparent;
+ color:var(--m-muted);cursor:pointer;transition:background-color .15s,color .15s}
+.nm-filter-button:hover,.nm-filter-button[aria-expanded=true],.nm-refresh:hover{background:var(--m-soft);color:var(--m-text)}
+.nm-filter-button i{position:absolute;top:2px;right:2px;display:grid;place-items:center;min-width:15px;height:15px;padding:0 3px;box-sizing:border-box;border-radius:999px;
+ background:var(--m-accent);color:var(--theme-on-accent,#fff);font:700 9.5px/1 var(--font-sans);font-style:normal}
 .nm-refresh:disabled{opacity:.6;cursor:wait}
 .nm-refresh svg{transition:transform .25s ease}
 .nm-refresh:not(:disabled):active svg{transform:rotate(-90deg)}
-.nm-slip{display:inline-flex;align-items:center;gap:7px;padding:0 6px 0 11px;color:var(--m-text);font:700 15px/1 var(--m-num);letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
+.nm-slip{display:inline-flex;align-items:center;gap:7px;box-sizing:border-box;height:36px;padding:0 6px 0 13px;border:0;border-radius:999px;background:var(--m-soft);color:var(--m-text);
+ font:600 13px/1 var(--font-sans);cursor:pointer;transition:background-color .15s}
+.nm-slip:hover{background:#1a1e24}
 .nm-slip svg{color:var(--m-muted)}
-.nm-slip b{display:grid;place-items:center;min-width:22px;height:22px;padding:0 5px;box-sizing:border-box;border-radius:6px;background:#1f262f;color:var(--m-muted);font:700 14px/1 var(--m-num);transition:background-color .2s,color .2s}
+.nm-slip b{display:grid;place-items:center;min-width:22px;height:22px;padding:0 6px;box-sizing:border-box;border-radius:999px;background:rgba(255,255,255,.07);color:var(--m-muted);font:700 11.5px/1 var(--font-sans);transition:background-color .2s,color .2s}
 .nm-slip b[data-on]{background:var(--m-accent);color:var(--theme-on-accent,#fff)}
 :is(.nm-refresh,.nm-filter-button,.nm-slip,.nm-search button):focus-visible{outline:2px solid var(--m-accent);outline-offset:2px}
 
 /* ---------------------------------------------------------------- Games
-   A stub per game: both logos, the time, how many props. Sideways on a
-   phone, wrapping on a computer; the picked one light. */
-.nm-strip{display:flex;gap:6px;margin:0 0 12px;padding:1px 1px 3px;overflow-x:auto;scrollbar-width:none;scroll-padding:0 12px}
+   Each game as words: both logos and teams, the time and how many props
+   under them. The picked one on a soft fill. Sideways on a phone, wrapping
+   on a computer. */
+.nm-strip{display:flex;gap:2px;margin:0 0 14px;padding:0 0 2px;overflow-x:auto;scrollbar-width:none;scroll-padding:0 12px}
 .nm-strip::-webkit-scrollbar{display:none}
-.nm-strip button{flex:none;display:grid;gap:5px;min-width:128px;padding:8px 11px 7px;border:1px solid var(--m-line-2);border-radius:9px;background:var(--m-panel);color:var(--m-text);
- font:inherit;text-align:left;cursor:pointer;transition:background-color .18s,border-color .18s,color .18s,transform .12s}
-.nm-strip button:hover{border-color:#3c4654;background:var(--m-raised)}
-.nm-strip button:active{transform:scale(.97)}
+.nm-strip button{flex:none;display:grid;gap:4px;padding:8px 12px;border:0;border-radius:12px;background:transparent;color:var(--m-muted);
+ font:inherit;text-align:left;cursor:pointer;transition:background-color .15s,color .15s}
+.nm-strip button:hover{background:var(--m-hover);color:var(--m-text)}
 .nm-strip-teams{display:flex;align-items:center;gap:5px}
-.nm-strip-teams img{width:18px;height:18px;object-fit:contain}
-.nm-strip-teams b{font:700 16px/1 var(--m-num);letter-spacing:.03em}
-.nm-strip-teams i{color:var(--m-faint);font:600 12px var(--m-num);font-style:normal}
-.nm-strip-meta{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.nm-strip-meta small{color:var(--m-faint);font-size:11.5px;font-weight:600;white-space:nowrap}
-.nm-strip em,.nm-strip-all em{color:var(--m-muted);font:700 13px/1 var(--m-num);font-style:normal}
-.nm-strip-all{align-content:center;min-width:96px!important}
-.nm-strip-all b{font:700 16px/1 var(--m-num);letter-spacing:.04em;text-transform:uppercase}
-.nm-strip button[aria-pressed=true]{border-color:#eef2f6;background:#eef2f6;color:#0a0d11}
-.nm-strip button[aria-pressed=true] :is(small,em,i){color:#4a5361}
-.nm-strip button:focus-visible{outline:2px solid var(--m-accent);outline-offset:2px}
+.nm-strip-teams img{width:16px;height:16px;object-fit:contain}
+.nm-strip-teams b{font-size:13px;font-weight:600}
+.nm-strip-teams i{color:var(--m-faint);font-size:11px;font-style:normal}
+.nm-strip-meta{display:flex;align-items:center;gap:6px}
+.nm-strip-meta small{color:var(--m-faint);font-size:11.5px;font-weight:500;white-space:nowrap}
+.nm-strip-meta small::after{content:'·';margin-left:6px}
+.nm-strip em,.nm-strip-all em{color:var(--m-faint);font-size:11.5px;font-style:normal;font-weight:500}
+.nm-strip-all{align-content:center}
+.nm-strip-all b{font-size:13px;font-weight:600}
+.nm-strip button[aria-pressed=true]{background:var(--m-pick);color:#fff}
+.nm-strip button[aria-pressed=true] :is(small,em){color:var(--m-muted)}
+.nm-strip button:focus-visible{outline:2px solid var(--m-accent);outline-offset:-2px}
 
 /* ---------------------------------------------------------------- Stats */
-.nba-matchups .nm-stats{margin:0 0 10px;overflow-x:auto;scrollbar-width:none}
+.nba-matchups .nm-stats{margin:0 0 14px;overflow-x:auto;scrollbar-width:none}
 .nba-matchups .nm-stats::-webkit-scrollbar{display:none}
-.nba-matchups .nm-stats button{height:32px;padding:0 12px;font-size:15px;gap:5px;align-items:baseline;padding-top:9px}
-.nm-stats button small{color:var(--m-faint);font:600 10.5px/1 var(--font-sans);letter-spacing:0;transition:color .2s}
-.nm-stats button[aria-pressed=true] small{color:#56606e}
+.nba-matchups .nm-stats button{gap:6px}
+.nm-stats button small{color:var(--m-faint);font:500 11px/1 var(--font-sans);transition:color .2s}
+.nm-stats button[aria-pressed=true] small{color:var(--m-muted)}
 
 /* ---------------------------------------------------------------- Filters
-   Sort, lines and players: each a small switch with its name. Out in the
-   open beside Soft spots and Track record on a computer; on a phone under
-   the Filters button. */
-.nm-controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;margin:0 0 12px}
-.nm-filters{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px}
+   Sort, lines and players: each its name and its options as words, the
+   picked one on a soft pill. Out in the open beside Soft spots and Track
+   record on a computer; on a phone under the Filters button. */
+.nm-controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px 24px;margin:0 0 16px}
+.nm-filters{display:flex;flex-wrap:wrap;align-items:center;gap:8px 24px}
 .nm-filter-row{display:flex;align-items:center;gap:8px;min-width:0}
-.nm-filter-row>span{color:var(--m-faint);font:700 12px/1 var(--m-num);letter-spacing:.1em;text-transform:uppercase}
-.nm-chips{display:flex;gap:2px;min-width:0;padding:2px;border:1px solid var(--m-line-2);border-radius:8px;background:var(--m-panel)}
-.nm-chips button{display:inline-flex;align-items:center;justify-content:center;gap:5px;flex:1 1 auto;min-width:0;height:28px;padding:0 10px;border:0;border-radius:6px;background:transparent;
- color:var(--m-muted);font:600 12.5px var(--font-sans);white-space:nowrap;cursor:pointer;transition:background-color .18s,color .18s}
-.nm-chips button:hover{color:var(--m-text)}
-.nm-chips button[aria-pressed=true]{background:#eef2f6;color:#0a0d11}
-.nm-chips img{width:14px;height:14px;object-fit:contain}
+.nm-filter-row>span{color:var(--m-faint);font-size:12.5px;font-weight:500}
+.nm-chips{display:flex;gap:2px;min-width:0}
+.nm-chips button{display:inline-flex;align-items:center;justify-content:center;gap:5px;flex:0 1 auto;min-width:0;height:28px;padding:0 11px;border:0;border-radius:999px;background:transparent;
+ color:var(--m-muted);font:500 12.5px var(--font-sans);white-space:nowrap;cursor:pointer;transition:background-color .15s,color .15s}
+.nm-chips button:hover{color:var(--m-text);background:var(--m-hover)}
+.nm-chips button[aria-pressed=true]{background:var(--m-pick);color:#fff}
+.nm-chips img{width:13px;height:13px;object-fit:contain}
 .nm-chips button:focus-visible{outline:2px solid var(--m-accent);outline-offset:1px}
-.nm-active{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
-.nm-active button{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 8px 0 10px;border:1px solid var(--m-line-2);border-radius:7px;background:var(--m-panel);
- color:var(--m-text);font:600 12px var(--font-sans);cursor:pointer;animation:nm-in .25s ease backwards}
+.nm-active{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.nm-active button{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 9px 0 11px;border:0;border-radius:999px;background:var(--m-pick);
+ color:var(--m-text);font:500 12px var(--font-sans);cursor:pointer;animation:nm-in .2s ease backwards}
 .nm-active button svg{color:var(--m-muted)}
 .nm-active img{width:13px;height:13px;object-fit:contain}
-.nm-facing button{border-color:color-mix(in srgb,var(--m-accent) 55%,var(--m-line-2))}
+.nm-facing button{background:color-mix(in srgb,var(--m-accent) 16%,transparent)}
 
-/* Soft spots and the track record: two buttons, one panel open under them. */
-.nm-folds{display:flex;gap:6px;margin-left:auto}
-.nm-fold{display:flex;align-items:center;gap:9px;min-width:0;height:38px;padding:0 10px 0 11px;border:1px solid var(--m-line-2);border-radius:9px;background:var(--m-panel);
- color:var(--m-text);font:inherit;text-align:left;cursor:pointer;transition:border-color .15s,background-color .15s}
-.nm-fold:hover{border-color:#3c4654;background:var(--m-raised)}
+/* Soft spots and the track record: two words with their icons, one panel open under them. */
+.nm-folds{display:flex;gap:4px;margin-left:auto}
+.nm-fold{display:flex;align-items:center;gap:8px;min-width:0;height:34px;padding:0 10px 0 11px;border:0;border-radius:999px;background:transparent;
+ color:var(--m-text);font:inherit;text-align:left;cursor:pointer;transition:background-color .15s}
+.nm-fold:hover,.nm-fold[aria-expanded=true]{background:var(--m-soft)}
 .nm-fold>svg:first-child{flex:none;color:var(--m-muted)}
 .nm-fold span{display:flex;align-items:baseline;gap:8px;min-width:0}
-.nm-fold b{flex:none;font:700 15px/1 var(--m-num);letter-spacing:.05em;text-transform:uppercase}
-.nm-fold small{overflow:hidden;color:var(--m-muted);font-size:12px;font-weight:600;white-space:nowrap;text-overflow:ellipsis}
-.nm-fold>svg:last-child{flex:none;color:var(--m-faint);transition:transform .25s ease}
-.nm-fold[aria-expanded=true]{border-color:#eef2f6}
+.nm-fold b{flex:none;font-size:13px;font-weight:600}
+.nm-fold small{overflow:hidden;color:var(--m-faint);font-size:12px;white-space:nowrap;text-overflow:ellipsis}
+.nm-fold>svg:last-child{flex:none;color:var(--m-faint);transition:transform .2s ease}
 .nm-fold[aria-expanded=true]>svg:last-child{transform:rotate(180deg)}
 .nm-fold:focus-visible{outline:2px solid var(--m-accent);outline-offset:2px}
-.nm-spots,.nba-matchups .nm-record{margin:0 0 12px;padding:12px;border:1px solid var(--m-line);border-radius:12px;background:var(--m-panel);animation:nm-fade .22s ease-out backwards}
+.nm-spots,.nba-matchups .nm-record{margin:0 0 16px;padding:16px;border:0;border-radius:16px;background:var(--m-soft);animation:nm-fade .2s ease-out backwards}
 .nm-spots{overflow-x:auto;scrollbar-width:thin}
 
-/* The soft-spots map: each defense's average matchup by stat, a solid color by band. */
+/* The soft-spots map: each defense's average matchup by stat, tinted by band. */
 .nm-spots-grid{display:grid;grid-template-columns:minmax(78px,auto) repeat(var(--cols),minmax(32px,1fr));gap:3px;align-items:center}
-.nm-spot-corner,.nm-spot-stat{color:var(--m-faint);font:700 12px/1 var(--m-num);letter-spacing:.08em;text-align:center;text-transform:uppercase;white-space:nowrap}
+.nm-spot-corner,.nm-spot-stat{color:var(--m-faint);font-size:11px;font-weight:600;text-align:center;white-space:nowrap}
 .nm-spot-corner{text-align:left}
 .nm-spot-team{display:grid;grid-template-columns:18px auto;align-items:center;column-gap:6px;min-width:0;padding-right:6px}
 .nm-spot-team img{grid-row:1 / span 2;width:18px;height:18px;object-fit:contain}
-.nm-spot-team b{font:700 14px/1.05 var(--m-num);letter-spacing:.03em}
+.nm-spot-team b{font-size:12px;font-weight:650;line-height:1.1}
 .nm-spot-team small{color:var(--m-faint);font-size:10px;line-height:1.1;white-space:nowrap}
-.nm-spot-cell{--tc:#7a8190;display:grid;place-items:center;min-width:0;height:30px;padding:0;border:0;border-radius:4px;
- background:color-mix(in srgb,var(--tc) calc(18% + var(--heat,0) * 62%),#141920);color:#f4f6f9;font:700 14px/1 var(--m-num);font-variant-numeric:tabular-nums;
- cursor:pointer;transition:box-shadow .15s,transform .12s}
-span.nm-spot-cell{background:#11161c;cursor:default}
-.nm-spot-cell[data-tone=strong]{--tc:#8cc84f;color:#0f1a07}
-.nm-spot-cell[data-tone=edge]{--tc:#3da876}
-.nm-spot-cell[data-tone=neutral]{--tc:#5d6573}
-.nm-spot-cell[data-tone=tough]{--tc:#d4574c}
-button.nm-spot-cell:hover{box-shadow:inset 0 0 0 1px #ffffff70}
+.nm-spot-cell{--tc:#7a8190;display:grid;place-items:center;min-width:0;height:30px;padding:0;border:0;border-radius:6px;
+ background:color-mix(in srgb,var(--tc) calc(8% + var(--heat,0) * 30%),transparent);color:#e9ebee;font:600 12px/1 var(--font-sans);
+ cursor:pointer;transition:box-shadow .15s}
+span.nm-spot-cell{background:transparent;cursor:default}
+.nm-spot-cell[data-tone=strong]{--tc:#3ecf8e}
+.nm-spot-cell[data-tone=edge]{--tc:#5fb894}
+.nm-spot-cell[data-tone=neutral]{--tc:#7a8190}
+.nm-spot-cell[data-tone=tough]{--tc:#ef7168}
+button.nm-spot-cell:hover{box-shadow:inset 0 0 0 1px #ffffff40}
 .nm-spot-cell[aria-pressed=true]{box-shadow:inset 0 0 0 2px #fff}
 .nm-spot-cell:focus-visible{outline:2px solid var(--m-accent);outline-offset:1px}
 .nm-spots-grid[data-wide]{grid-template-columns:52px repeat(var(--cols),minmax(38px,1fr));gap:3px}
 .nm-spots-grid[data-wide] .nm-spot-team{grid-template-columns:1fr;justify-items:center;row-gap:3px;padding:0 0 4px}
-.nm-spots-grid[data-wide] .nm-spot-team img{grid-row:auto;width:22px;height:22px}
+.nm-spots-grid[data-wide] .nm-spot-team img{grid-row:auto;width:20px;height:20px}
 .nm-spots-grid[data-wide] .nm-spot-stat{text-align:left}
-.nm-spots-grid[data-wide] .nm-spot-cell{height:32px;font-size:15px}
 
 /* The track record, opened: each band's rate as a bar. */
 .nm-record-body table{width:100%;max-width:520px;border-collapse:collapse;font-size:13px}
-.nm-record-body caption{padding:0 0 8px;color:var(--m-muted);font-size:12px;font-weight:600;text-align:left}
-.nm-record-body th,.nm-record-body td{padding:7px 0;border-top:1px solid var(--m-line);text-align:right;font-variant-numeric:tabular-nums}
+.nm-record-body caption{padding:0 0 8px;color:var(--m-muted);font-size:12.5px;text-align:left}
+.nm-record-body th,.nm-record-body td{padding:8px 0;border-top:1px solid var(--m-rule);text-align:right}
 .nm-record-body th:first-child{text-align:left}
-.nm-record-body thead th{border-top:0;color:var(--m-faint);font:700 12px var(--m-num);letter-spacing:.08em;text-transform:uppercase}
-.nm-record-body tbody th{font:700 15px var(--m-num)}
-.nm-record-note{margin:0;color:var(--m-faint);font-size:12px}
-.nm-rate{display:inline-block;width:80px;height:6px;margin-right:10px;border-radius:2px;background:#1f262f;vertical-align:middle;overflow:hidden}
-.nm-rate i{display:block;height:100%;background:var(--m-good);transform-origin:left;animation:nm-fill .7s cubic-bezier(.2,.8,.2,1) backwards}
+.nm-record-body thead th{border-top:0;color:var(--m-faint);font-size:12px;font-weight:500}
+.nm-record-body tbody th{font-weight:600}
+.nm-record-note{margin:0;color:var(--m-faint);font-size:12.5px}
+.nm-rate{display:inline-block;width:80px;height:4px;margin-right:10px;border-radius:999px;background:rgba(255,255,255,.07);vertical-align:middle;overflow:hidden}
+.nm-rate i{display:block;height:100%;border-radius:inherit;background:var(--m-good);transform-origin:left;animation:nm-fill .7s cubic-bezier(.2,.8,.2,1) backwards}
 
 /* ---------------------------------------------------------------- The list
-   One panel, a row per prop on a thin rule. Its columns follow the
-   panel's own width: a phone stacks the line, then his last 10 beside the
-   game, under the name, the rank on his photo; from 640px each has its
-   own column; from 920px L5, L20 and the season join Last 10. The Why
-   arrow and the slip's + sit after the columns. */
-.nm-table{--nm-tail:64px;container-type:inline-size;margin:0;border:1px solid var(--m-line);border-radius:12px;background:var(--m-panel);overflow:clip}
+   The rows lie on the page between faint rules, no frame around them. Its
+   columns follow the list's own width: a phone stacks the line, then his
+   last 10 beside the game, under the name, the rank on his photo; from
+   640px each has its own column; from 920px L5, L20 and the season join
+   Last 10. The Why arrow and the slip's + sit after the columns. */
+.nm-table{--nm-tail:62px;container-type:inline-size;margin:0}
 .nm-table[data-picking]{--nm-tail:44px}
-.nm-thead,.nm-main{--nm-cols:36px auto minmax(0,1fr) 44px}
-.nm-thead{display:flex;align-items:center;gap:16px;height:38px;padding:0 var(--nm-tail) 0 12px;border-bottom:1px solid var(--m-line);
- background:#0b0f13;color:var(--m-faint);font:700 12.5px/1 var(--m-num);letter-spacing:.1em;text-transform:uppercase}
+.nm-thead,.nm-main{--nm-cols:36px auto minmax(0,1fr) 40px}
+.nm-thead{display:flex;align-items:center;gap:16px;height:32px;padding:0 var(--nm-tail) 0 10px;box-shadow:inset 0 -1px 0 var(--m-rule);
+ color:var(--m-faint);font:500 12px/1 var(--font-sans)}
 .nm-th-player{flex:1}
 .nm-th-rank,.nm-th-line,.nm-th-rate,.nm-long{display:none}
-.nm-th{display:inline-flex;align-items:center;justify-content:center;gap:3px;height:38px;padding:0;border:0;background:transparent;color:inherit;font:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer}
+.nm-th{display:inline-flex;align-items:center;justify-content:center;gap:3px;height:32px;padding:0;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer}
 .nm-th:hover,.nm-th[aria-pressed=true]{color:var(--m-text)}
 .nm-th:focus-visible{outline:2px solid var(--m-accent);outline-offset:-2px}
 .nm-list{margin:0;padding:0;list-style:none}
-.nm-row{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;border-top:1px solid var(--m-line);
- transition:background-color .15s ease;animation:nm-in .32s cubic-bezier(.22,.8,.24,1) backwards;animation-delay:calc(var(--i,0) * 30ms)}
-.nm-row:first-child{border-top:0}
-.nm-row:hover,.nm-row[data-open]{background:var(--m-raised)}
-.nm-row::before{content:'';position:absolute;top:0;bottom:0;left:0;width:3px;background:var(--team,var(--m-accent));opacity:0;transition:opacity .15s}
-.nm-row[data-selected]{background:#161d26}
-.nm-row[data-selected]::before{opacity:1}
-.nm-main{display:grid;grid-template-columns:var(--nm-cols);grid-template-areas:'face name name grade' 'face line line grade' 'face l10 when grade';column-gap:8px;row-gap:3px;
- align-items:center;width:100%;min-width:0;padding:10px 0 10px 10px;border:0;background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}
-.nm-main:focus-visible{outline:2px solid var(--m-accent);outline-offset:-2px}
-.nm-rank{grid-area:face;z-index:1;align-self:start;justify-self:start;display:grid;place-items:center;min-width:17px;height:17px;margin:-4px 0 0 -4px;padding:0 3px;box-sizing:border-box;
- border-radius:5px;background:#0e1217;box-shadow:0 0 0 1px #2a323d;color:#7d8794;font:700 12px/1 var(--m-num);font-variant-numeric:tabular-nums}
+.nm-row{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;border-radius:12px;
+ transition:background-color .15s ease;animation:nm-in .3s cubic-bezier(.22,.8,.24,1) backwards;animation-delay:calc(var(--i,0) * 25ms)}
+.nm-row+.nm-row::after{content:'';position:absolute;top:0;right:12px;left:12px;height:1px;background:var(--m-rule);pointer-events:none}
+.nm-row:hover,.nm-row[data-open],.nm-row[data-selected]{background:var(--m-hover)}
+.nm-row:is(:hover,[data-open],[data-selected])::after,.nm-row:is(:hover,[data-open],[data-selected])+.nm-row::after{opacity:0}
+.nm-row[data-selected]{background:rgba(255,255,255,.055)}
+.nm-main{display:grid;grid-template-columns:var(--nm-cols);grid-template-areas:'face name name grade' 'face line line grade' 'face l10 when grade';column-gap:10px;row-gap:3px;
+ align-items:center;width:100%;min-width:0;padding:12px 0 12px 10px;border:0;background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}
+.nm-main:focus-visible{outline:2px solid var(--m-accent);outline-offset:-2px;border-radius:12px}
+.nm-rank{grid-area:face;z-index:1;align-self:start;justify-self:start;display:grid;place-items:center;min-width:16px;height:16px;margin:-4px 0 0 -4px;padding:0 3px;box-sizing:border-box;
+ border-radius:999px;background:#0b0d10;color:var(--m-muted);font:600 10px/1 var(--font-sans)}
 .nm-rank[data-top]{color:var(--m-text)}
-/* His photo on a tile of his team's color, squared off. */
 .nm-main .sa-face,.nm-preview .sa-face{--size:36px;grid-area:face}
-.nba-matchups .sa-face-photo{border-radius:9px;background:color-mix(in srgb,var(--team,#2a313b) 55%,#151a20)}
-.nba-matchups .sa-face-badge{border-radius:6px}
-.nm-name{grid-area:name;align-self:end;overflow:hidden;font-size:14px;font-weight:650;white-space:nowrap;text-overflow:ellipsis}
-.nm-when{grid-area:when;min-width:0;overflow:hidden;color:var(--m-faint);font-size:11.5px;white-space:nowrap;text-overflow:ellipsis}
+.nm-name{grid-area:name;align-self:end;overflow:hidden;font-size:14px;font-weight:600;white-space:nowrap;text-overflow:ellipsis}
+.nm-when{grid-area:when;min-width:0;overflow:hidden;color:var(--m-faint);font-size:12px;white-space:nowrap;text-overflow:ellipsis}
 .nm-pos,.nm-own{display:none}
-.nm-line{grid-area:line;display:flex;align-items:baseline;gap:4px;min-width:0}
-.nm-line small{color:var(--m-faint);font:700 11px/1 var(--m-num);letter-spacing:.1em;text-transform:uppercase}
-.nm-line b{font:700 17px/1 var(--m-num);font-variant-numeric:tabular-nums}
-.nm-line em{color:var(--m-muted);font:700 12.5px/1 var(--m-num);letter-spacing:.06em;font-style:normal}
-.nm-line .nm-demon{flex:none;align-self:center;width:16px;height:16px;object-fit:contain}
-/* The matchup score: a solid badge in its band's color. */
-.nm-grade{grid-area:grade;justify-self:center;display:grid;place-items:center;min-width:42px;height:30px;padding:0 5px;box-sizing:border-box;border-radius:7px;background:#232a34;color:var(--m-text)}
-.nm-grade b{font:700 20px/1 var(--m-num);font-variant-numeric:tabular-nums}
-.nm-grade[data-tone=strong]{background:var(--m-strong);color:#122108}
-.nm-grade[data-tone=edge]{background:var(--m-edge);color:#03170d}
-.nm-grade[data-tone=neutral]{background:#2b323d;color:#e9edf2}
-.nm-grade[data-tone=tough]{background:var(--m-tough);color:#2a0805}
+.nm-line{grid-area:line;display:flex;align-items:baseline;gap:5px;min-width:0}
+.nm-line small{color:var(--m-faint);font-size:12px;font-weight:500}
+.nm-line b{font-size:14.5px;font-weight:700}
+.nm-line em{color:var(--m-muted);font-size:12px;font-style:normal;font-weight:500}
+.nm-line .nm-demon{flex:none;align-self:center;width:15px;height:15px;object-fit:contain}
+/* The matchup score: the number in its band's color. */
+.nm-grade{grid-area:grade;justify-self:center;color:var(--m-neutral)}
+.nm-grade b{font-size:16px;font-weight:700;letter-spacing:-.01em}
+.nm-grade[data-tone=strong]{color:var(--m-strong)}
+.nm-grade[data-tone=edge]{color:var(--m-edge)}
+.nm-grade[data-tone=tough]{color:var(--m-tough)}
 /* Last 10: his games as bars up (over) or down (under) from the line, then the count. */
 .nm-l10{grid-area:l10;display:flex;align-items:center;justify-content:flex-start;gap:6px;min-width:0}
-.nm-l10 b,.nm-rate-cell{font:700 15px/1 var(--m-num);font-variant-numeric:tabular-nums;color:var(--m-muted)}
+.nm-l10 b,.nm-rate-cell{font-size:13px;font-weight:600;color:var(--m-muted)}
 .nm-l10 b{min-width:30px}
 :is(.nm-l10 b,.nm-rate-cell)[data-tone=good]{color:var(--m-good)}
 :is(.nm-l10 b,.nm-rate-cell)[data-tone=poor]{color:var(--m-poor)}
 .nm-spark{position:relative;display:flex;gap:2px;width:40px;height:16px}
-.nm-spark::before{content:'';position:absolute;top:50%;right:-2px;left:-2px;border-top:1px solid #39424e}
+.nm-spark::before{content:'';position:absolute;top:50%;right:-2px;left:-2px;border-top:1px solid rgba(255,255,255,.12)}
 .nm-spark i{position:relative;flex:1;min-width:0;height:100%}
-.nm-spark i::after{content:'';position:absolute;right:0;bottom:50%;left:0;height:calc(var(--h,0) * 50%);border-radius:1px 1px 0 0;background:var(--m-good);transform-origin:bottom;
- animation:nm-grow .4s cubic-bezier(.22,.8,.24,1) backwards;animation-delay:calc(var(--i,0) * 30ms + 160ms)}
-.nm-spark i:not([data-over])::after{top:50%;bottom:auto;border-radius:0 0 1px 1px;background:var(--m-poor);transform-origin:top}
-.nm-spark i[data-push]::after{top:calc(50% - 1px);height:2px;background:#8a93a0}
+.nm-spark i::after{content:'';position:absolute;right:0;bottom:50%;left:0;height:calc(var(--h,0) * 50%);border-radius:1px 1px 0 0;background:color-mix(in srgb,var(--m-good) 85%,transparent);transform-origin:bottom;
+ animation:nm-grow .4s cubic-bezier(.22,.8,.24,1) backwards;animation-delay:calc(var(--i,0) * 25ms + 150ms)}
+.nm-spark i:not([data-over])::after{top:50%;bottom:auto;border-radius:0 0 1px 1px;background:color-mix(in srgb,var(--m-poor) 75%,transparent);transform-origin:top}
+.nm-spark i[data-push]::after{top:calc(50% - 1px);height:2px;background:#8a929c}
 .nm-rate-cell{display:none;justify-self:center}
 /* The Why arrow and the slip's +. */
-.nm-why{display:grid;place-items:center;width:26px;height:34px;padding:0;border:0;border-radius:7px;background:transparent;color:var(--m-faint);cursor:pointer}
+.nm-why{display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--m-faint);cursor:pointer;transition:background-color .15s,color .15s}
 span.nm-why{cursor:default}
-button.nm-why:hover,.nm-why[aria-expanded=true]{background:#1d242d;color:var(--m-text)}
+button.nm-why:hover,.nm-why[aria-expanded=true]{background:rgba(255,255,255,.07);color:var(--m-text)}
 .nm-why svg{transition:transform .2s ease}
 .nm-why[aria-expanded=true] svg{transform:rotate(180deg)}
 .nm-why:focus-visible{outline:2px solid var(--m-accent);outline-offset:-2px}
-.nm-save{margin:0 8px 0 2px}
+.nm-save{margin:0 8px 0 4px}
 .nm-table[data-picking] .nm-save{margin:0 10px 0 4px}
 
 @container (min-width:640px){
  .nm-thead{--nm-tail:76px}
  .nm-table[data-picking] .nm-thead{--nm-tail:44px}
- .nm-thead,.nm-main{--nm-cols:24px 40px minmax(0,1.5fr) minmax(0,1fr) 56px 104px}
- .nm-main{grid-template-areas:'rank face name line grade l10' 'rank face when line grade l10';column-gap:12px;padding:11px 0 11px 12px}
- .nm-thead{display:grid;grid-template-columns:var(--nm-cols);column-gap:12px}
+ .nm-thead,.nm-main{--nm-cols:22px 38px minmax(0,1fr) 132px 52px 104px}
+ .nm-main{grid-template-areas:'rank face name line grade l10' 'rank face when line grade l10';column-gap:14px;padding:12px 0 12px 12px}
+ .nm-thead{display:grid;grid-template-columns:var(--nm-cols);column-gap:14px;padding-left:12px}
  .nm-th-rank{display:flex;align-items:center;justify-content:center}
  .nm-th-player{grid-column:span 2}
- .nm-rank{grid-area:rank;align-self:center;justify-self:center;min-width:0;height:auto;margin:0;padding:0;background:none;box-shadow:none;color:#4f5865;font-size:14px}
+ .nm-rank{grid-area:rank;align-self:center;justify-self:center;min-width:0;height:auto;margin:0;padding:0;background:none;color:var(--m-faint);font-size:12px}
+ .nm-main .sa-face{--size:38px}
  .nm-when{align-self:start}
- .nm-name{align-self:end}
- .nm-l10{justify-content:flex-end;gap:7px}
+ .nm-name{align-self:end;font-size:14.5px}
+ .nm-l10{justify-content:flex-end;gap:8px}
  .nm-l10 b{text-align:right}
- .nm-why{width:30px}
- .nm-save{margin:0 10px 0 4px}
- .nm-main .sa-face{--size:40px}
- .nm-name{font-size:15px}
- .nm-when{font-size:12px}
+ .nm-why{margin-right:4px}
+ .nm-save{margin:0 10px 0 2px}
  .nm-pos,.nm-own,.nm-th-line,.nm-long{display:inline}
  .nm-short{display:none}
- .nm-line b{font-size:21px}
- .nm-line em{font-size:13.5px}
- .nm-grade{min-width:48px;height:34px}
- .nm-grade b{font-size:23px}
- .nm-spark{width:62px;height:24px}
+ .nm-spark{width:56px;height:20px}
 }
-
 @container (min-width:920px){
- .nm-thead,.nm-main{--nm-cols:24px 40px minmax(0,1.5fr) minmax(0,1fr) 56px 112px 44px 44px 44px}
+ .nm-thead,.nm-main{--nm-cols:22px 38px minmax(0,1fr) 132px 52px 112px 46px 46px 46px}
  .nm-main{grid-template-areas:'rank face name line grade l10 l5 l20 season' 'rank face when line grade l10 l5 l20 season'}
  .nm-th-rate,.nm-rate-cell{display:block;text-align:center}
 }
 
 /* What made the scores, under the row (and in the preview). */
-.nm-reads{grid-column:1 / -1;display:flex;flex-direction:column;margin:0 12px 12px 62px;padding:2px 14px;border-left:2px solid var(--m-line-2);list-style:none;animation:nm-fade .22s ease-out backwards}
-.nm-reads li{display:grid;gap:5px;padding:10px 0;border-top:1px solid var(--m-line)}
+.nm-reads{grid-column:1 / -1;display:flex;flex-direction:column;margin:0 16px 14px 60px;padding:0;list-style:none;animation:nm-fade .2s ease-out backwards}
+.nm-reads li{display:grid;gap:5px;padding:10px 0;border-top:1px solid var(--m-rule)}
 .nm-reads li:first-child{border-top:0}
-.nm-reads li.nm-read-note{padding:7px 0;color:#a9b1bc;font-size:12.5px;font-weight:500;line-height:1.45}
+.nm-reads li.nm-read-note{padding:6px 0;border-top:0;color:#a8afb8;font-size:12.5px;line-height:1.5}
 .nm-read-head{display:flex;justify-content:space-between;gap:8px}
-.nm-read-head b{font:700 15px/1.1 var(--m-num);letter-spacing:.04em;text-transform:uppercase}
-.nm-read-head em{flex:none;color:var(--m-faint);font:700 14px/1.1 var(--m-num);font-style:normal;white-space:nowrap}
+.nm-read-head b{font-size:13px;font-weight:600}
+.nm-read-head em{flex:none;color:var(--m-faint);font-size:12px;font-style:normal;font-weight:600;white-space:nowrap}
 .nm-reads li[data-sign=up] .nm-read-head em{color:var(--m-good)}
 .nm-reads li[data-sign=down] .nm-read-head em{color:var(--m-poor)}
-.nm-read-text{color:var(--m-muted);font-size:12.5px;line-height:1.45}
-.nm-bar{display:block;height:3px;border-radius:2px;background:#1f262f;overflow:hidden}
-.nm-bar i{display:block;height:100%;background:#6f7884;transform-origin:left;animation:nm-fill .7s cubic-bezier(.2,.8,.2,1) backwards}
+.nm-read-text{color:var(--m-muted);font-size:12.5px;line-height:1.5}
+.nm-bar{display:block;height:3px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden}
+.nm-bar i{display:block;height:100%;border-radius:inherit;background:#6f7782;transform-origin:left;animation:nm-fill .7s cubic-bezier(.2,.8,.2,1) backwards}
 .nm-bar[data-tone=strong] i{background:var(--m-strong)}
 .nm-bar[data-tone=edge] i{background:var(--m-edge)}
-.nm-bar[data-tone=neutral] i{background:var(--m-neutral)}
+.nm-bar[data-tone=neutral] i{background:var(--m-fair)}
 .nm-bar[data-tone=tough] i{background:var(--m-tough)}
 
 .nm-empty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:48px 20px;color:var(--m-muted);text-align:center}
-.nm-empty b{color:var(--m-text);font:700 20px var(--m-num);letter-spacing:.03em;text-transform:uppercase}
+.nm-empty b{color:var(--m-text);font-size:15px;font-weight:600}
 .nm-empty span{max-width:360px;font-size:13px;line-height:1.5}
-.nm-empty button{height:40px;padding:0 18px;border:1px solid var(--m-line-2);border-radius:9px;background:var(--m-panel);color:var(--m-text);font-weight:700;cursor:pointer}
-.nm-note{margin:0 0 10px;color:var(--m-muted);font-size:12.5px}
-.nm-meta{margin:12px 0 0;color:var(--m-faint);font-size:11.5px}
+.nm-empty button{height:36px;padding:0 16px;border:0;border-radius:999px;background:var(--m-soft);color:var(--m-text);font-weight:600;cursor:pointer}
+.nm-note{margin:0 0 12px;color:var(--m-muted);font-size:12.5px}
+.nm-meta{margin:14px 0 0;color:var(--m-faint);font-size:12px}
 
 /* ---------------------------------------------------------------- Phones */
 @media (max-width:760px){
- .nm-league{display:flex;width:100%;margin-bottom:14px}
+ .nm-league{margin-bottom:14px}
  .nm-league button{flex:1;min-width:0;padding:0 8px}
  .nm-head{gap:10px}
- .nm-title h2{font-size:28px}
+ .nm-title h2{font-size:21px}
  .nm-tools{flex:1 1 100%;min-width:0}
  .nm-search{flex:1 1 0;width:auto;min-width:0}
  .nm-slip span{display:none}
- .nm-slip{padding:0 6px 0 9px}
- .nm-strip{margin-inline:-16px;padding-inline:16px}
- .nm-filters{display:grid;gap:8px;margin:0 0 10px;padding:10px;border:1px solid var(--m-line);border-radius:12px;background:var(--m-panel);animation:nm-fade .22s ease-out backwards}
+ .nm-slip{padding:0 6px 0 10px}
+ .nm-strip{margin-inline:-16px;padding-inline:12px}
+ .nm-filters{display:grid;gap:8px;margin:0 0 12px;padding:12px;border-radius:16px;background:var(--m-soft);animation:nm-fade .2s ease-out backwards}
  .nm-filter-row{display:grid;grid-template-columns:54px minmax(0,1fr)}
- .nm-chips button{padding:0 4px;font-size:12px}
- .nm-folds{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));margin:0 0 10px}
- .nm-fold span{flex-direction:column;gap:3px}
- .nm-fold{height:46px}
- .nm-spots,.nba-matchups .nm-record{padding:10px}
- .nm-table{margin-inline:-6px}
- .nm-reads{margin:0 10px 10px 10px}
+ .nm-chips{flex-wrap:wrap}
+ .nm-chips button{padding:0 9px;font-size:12px}
+ .nm-folds{display:flex;flex-wrap:wrap;margin:0 0 10px -10px}
+ .nm-spots,.nba-matchups .nm-record{padding:12px}
+ .nm-table{margin-inline:-8px}
+ .nm-reads{margin:0 12px 12px 12px}
 }
 
 /* ---------------------------------------------------------------- Computer
-   From 1100px (useWide) the list takes the screen's width: the filters out
-   in the open, the games wrapping, and from 1500px the picked prop beside
-   the list (Preview), held in view while the list scrolls. */
+   From 1100px (useWide) the list sits centered at up to 1480px wide (a big
+   monitor no longer stretches the rows): the filters out in the open, the
+   games wrapping, and from 1500px the picked prop beside the list
+   (Preview), held in view while the list scrolls. */
 .nm-work,.nm-workmain{display:contents}
 @media (min-width:1100px){
  :root[data-theme] body #app-shell #panel-v2:is([data-league=nba],[data-league=nfl]):not([hidden]),
  #app-shell #panel-v2:is([data-league=nba],[data-league=nfl]):not([hidden]){width:calc(100% - 64px)!important;max-width:2200px!important}
- #props-league-root{max-width:none}
- .nba-matchups[data-wide]{--frame:min(2200px,calc(100vw - 80px));width:var(--frame);margin:0 0 24px calc(50% - var(--frame) / 2)}
+ /* (The player page's stylesheet lifts the cap for the page; the list keeps it.) */
+ #props-league-root:not([data-page=player]){max-width:1480px}
  .nba-matchups[data-wide] .nm-strip{flex-wrap:wrap;overflow:visible}
  /* For the preview to stay in view the page body mustn't clip on its own
     (it is overflow-x:hidden site-wide, which stops position:sticky). */
  body:has(#panel-v2[data-league]:not([hidden])){overflow-x:clip!important;overflow-y:visible!important}
 }
-.nba-matchups[data-preview] .nm-work{display:grid;grid-template-columns:minmax(0,1fr) minmax(380px,430px);gap:16px;align-items:start}
+.nba-matchups[data-preview] .nm-work{display:grid;grid-template-columns:minmax(0,1fr) minmax(360px,400px);gap:24px;align-items:start}
 .nba-matchups[data-preview] .nm-workmain{display:block;min-width:0}
 
-/* ---------------------------------------------------------------- Preview */
-.nm-preview{position:sticky;top:14px;max-height:calc(100vh - 28px);overflow-y:auto;border:1px solid var(--m-line);border-radius:12px;background:var(--m-panel);scrollbar-width:thin}
-.nm-pv-card{display:flex;flex-direction:column;animation:nm-fade .22s ease-out backwards}
-.nm-pv-head{display:flex;align-items:center;gap:14px;padding:16px;border-top:4px solid var(--team,var(--m-accent));border-bottom:1px solid var(--m-line)}
-.nm-pv-head .sa-face{--size:62px}
-.nm-pv-head .sa-face-photo{border-radius:12px}
-.nm-pv-who{display:grid;gap:4px;min-width:0}
-.nm-pv-who b{overflow:hidden;font:700 27px/.95 var(--m-num);letter-spacing:.01em;text-transform:uppercase;white-space:nowrap;text-overflow:ellipsis}
-.nm-pv-who small{color:var(--m-muted);font-size:12.5px;font-weight:600}
-.nm-pv-game{display:inline-flex;align-items:center;gap:6px;color:#d2d8e0;font-size:12.5px;font-weight:700}
-.nm-pv-game img{width:18px;height:18px;object-fit:contain}
-.nm-pv-main{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px 12px}
-.nm-pv-main small{display:block;color:var(--m-faint);font:700 12px/1 var(--m-num);letter-spacing:.1em;text-transform:uppercase}
+/* ---------------------------------------------------------------- Preview
+   One soft panel, no border; its parts split by space, not lines. */
+.nm-preview{position:sticky;top:14px;max-height:calc(100vh - 28px);overflow-y:auto;border-radius:18px;background:var(--m-soft);scrollbar-width:thin}
+.nm-pv-card{display:flex;flex-direction:column;padding:20px;gap:20px;animation:nm-fade .2s ease-out backwards}
+.nm-pv-head{display:flex;align-items:center;gap:12px}
+.nm-pv-head .sa-face{--size:52px}
+.nm-pv-who{display:grid;gap:3px;min-width:0}
+.nm-pv-who b{overflow:hidden;font-size:17px;font-weight:650;letter-spacing:-.01em;white-space:nowrap;text-overflow:ellipsis}
+.nm-pv-who small{color:var(--m-muted);font-size:12.5px}
+.nm-pv-game{display:inline-flex;align-items:center;gap:6px;color:#c9ced5;font-size:12.5px;font-weight:500}
+.nm-pv-game img{width:16px;height:16px;object-fit:contain}
+.nm-pv-main{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:-6px}
+.nm-pv-main small{display:block;color:var(--m-faint);font-size:12px;font-weight:500}
 .nm-pv-line span{display:flex;align-items:baseline;gap:6px;margin-top:4px}
-.nm-pv-line b{font:700 44px/.9 var(--m-num);font-variant-numeric:tabular-nums}
-.nm-pv-line em{color:var(--m-muted);font:700 17px/1 var(--m-num);letter-spacing:.06em;font-style:normal}
-.nm-pv-line img{align-self:center;width:18px;height:18px;object-fit:contain}
-.nm-pv-score{display:flex;align-items:center;gap:10px}
-.nm-pv-badge{display:grid;place-items:center;min-width:62px;height:52px;padding:0 6px;box-sizing:border-box;border-radius:9px;background:#2b323d;color:var(--m-text);font:700 36px/1 var(--m-num);font-variant-numeric:tabular-nums}
-.nm-pv-score span{display:grid;gap:5px}
-.nm-pv-score em{color:var(--m-muted);font-size:13px;font-style:normal;font-weight:700;white-space:nowrap}
-.nm-pv-score[data-tone=strong] .nm-pv-badge{background:var(--m-strong);color:#122108}
-.nm-pv-score[data-tone=edge] .nm-pv-badge{background:var(--m-edge);color:#03170d}
-.nm-pv-score[data-tone=tough] .nm-pv-badge{background:var(--m-tough);color:#2a0805}
-.nm-pv-score[data-tone=strong] em{color:var(--m-strong)}
-.nm-pv-score[data-tone=edge] em{color:var(--m-edge)}
-.nm-pv-score[data-tone=neutral] em{color:var(--m-neutral)}
-.nm-pv-score[data-tone=tough] em{color:var(--m-tough)}
-.nm-pv-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:8px;padding:0 16px 14px;border-bottom:1px solid var(--m-line)}
+.nm-pv-line b{font-size:32px;font-weight:700;line-height:1;letter-spacing:-.02em}
+.nm-pv-line em{color:var(--m-muted);font-size:13px;font-style:normal;font-weight:500}
+.nm-pv-line img{align-self:center;width:16px;height:16px;object-fit:contain}
+.nm-pv-score{display:flex;flex-direction:row-reverse;align-items:center;gap:10px;text-align:right}
+.nm-pv-badge{font-size:32px;font-weight:700;line-height:1;letter-spacing:-.02em;color:var(--m-neutral)}
+.nm-pv-score span{display:grid;gap:3px}
+.nm-pv-score em{color:var(--m-muted);font-size:12.5px;font-style:normal;font-weight:600;white-space:nowrap}
+.nm-pv-score[data-tone=strong] :is(.nm-pv-badge,em){color:var(--m-strong)}
+.nm-pv-score[data-tone=edge] :is(.nm-pv-badge,em){color:var(--m-edge)}
+.nm-pv-score[data-tone=neutral] em{color:var(--m-fair)}
+.nm-pv-score[data-tone=tough] :is(.nm-pv-badge,em){color:var(--m-tough)}
+.nm-pv-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:8px}
 .nm-pv-actions .slip-toggle{width:100%}
-.nm-pv-open{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:40px;padding:0 12px;border:1px solid var(--m-line-2);border-radius:9px;background:transparent;
- color:var(--m-text);font:600 13px var(--font-sans);white-space:nowrap;cursor:pointer;transition:border-color .15s,background-color .15s}
-.nm-pv-open:hover{border-color:#3c4654;background:var(--m-raised)}
+.nm-pv-open{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 12px;border:0;border-radius:999px;background:rgba(255,255,255,.06);
+ color:var(--m-text);font:600 13px var(--font-sans);white-space:nowrap;cursor:pointer;transition:background-color .15s}
+.nm-pv-open:hover{background:rgba(255,255,255,.1)}
 .nm-pv-open svg{transition:transform .2s ease}
-.nm-pv-open:hover svg{transform:translateX(3px)}
+.nm-pv-open:hover svg{transform:translateX(2px)}
 .nm-pv-open:focus-visible{outline:2px solid var(--m-accent);outline-offset:2px}
-.nm-pv-rates{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-bottom:1px solid var(--m-line)}
-.nm-pv-rates span{display:grid;gap:5px;padding:11px 14px;border-left:1px solid var(--m-line)}
-.nm-pv-rates span:first-child{border-left:0}
-.nm-pv-rates small{color:var(--m-faint);font:700 12px/1 var(--m-num);letter-spacing:.1em;text-transform:uppercase}
-.nm-pv-rates b{font:700 22px/1 var(--m-num);font-variant-numeric:tabular-nums}
-.nm-pv-rates i{position:relative;height:3px;border-radius:2px;background:#1f262f;overflow:hidden}
-.nm-pv-rates i::after{content:'';position:absolute;inset:0 auto 0 0;width:var(--w,0);background:#7b8491;transform-origin:left;animation:nm-fill .6s cubic-bezier(.2,.8,.2,1) backwards}
+.nm-pv-rates{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.nm-pv-rates span{display:grid;gap:5px}
+.nm-pv-rates small{color:var(--m-faint);font-size:12px;font-weight:500}
+.nm-pv-rates b{font-size:17px;font-weight:650}
+.nm-pv-rates i{position:relative;height:3px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden}
+.nm-pv-rates i::after{content:'';position:absolute;inset:0 auto 0 0;width:var(--w,0);border-radius:inherit;background:#6f7782;transform-origin:left;animation:nm-fill .6s cubic-bezier(.2,.8,.2,1) backwards}
 .nm-pv-rates [data-tone=good] b{color:var(--m-good)}
 .nm-pv-rates [data-tone=good] i::after{background:var(--m-good)}
 .nm-pv-rates [data-tone=poor] b{color:var(--m-poor)}
 .nm-pv-rates [data-tone=poor] i::after{background:var(--m-poor)}
-.nm-pv-part{padding:14px 16px;border-bottom:1px solid var(--m-line)}
-.nm-pv-part:last-child{border-bottom:0}
-.nm-pv-part h3{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:0 0 10px;color:var(--m-text);font:700 16px/1.1 var(--m-num);letter-spacing:.06em;text-transform:uppercase}
-.nm-pv-part h3 em{color:var(--m-faint);font:700 13px var(--m-num);font-style:normal}
-/* His last 10: a light track per game, the bar inside it, his number on top, the line across. */
+.nm-pv-part{padding:0}
+.nm-pv-part h3{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:0 0 10px;color:var(--m-text);font-size:13.5px;font-weight:600}
+.nm-pv-part h3 em{color:var(--m-faint);font-size:12px;font-style:normal;font-weight:500}
+/* His last 10: a bar a game, his number on top, the line across. */
 .nm-pv-chart{display:grid;gap:6px}
-.nm-pv-bars{position:relative;display:flex;align-items:flex-end;gap:5px;height:118px;margin-top:18px}
-.nm-pv-bars>span{position:relative;flex:1;min-width:0;height:100%;border-radius:4px;background:#141a21}
-.nm-pv-bars>span::after{content:'';position:absolute;right:0;bottom:0;left:0;height:var(--v,0);border-radius:4px;background:color-mix(in srgb,var(--m-poor) 70%,#141a21);transform-origin:bottom;
- animation:nm-grow .45s cubic-bezier(.22,.8,.24,1) backwards;animation-delay:calc(var(--k,0) * 35ms + 80ms)}
-.nm-pv-bars>span[data-over]::after{background:var(--m-good)}
-.nm-pv-bars>span b{position:absolute;z-index:1;bottom:calc(var(--v,0) + 4px);left:50%;color:var(--m-muted);font:700 14px/1 var(--m-num);transform:translateX(-50%);white-space:nowrap}
-.nm-pv-bars>span[data-over] b{color:var(--m-text)}
-.nm-pv-at{position:absolute;z-index:2;right:-3px;left:-3px;height:0;border-top:1.5px solid rgba(238,242,246,.75);pointer-events:none}
-.nm-pv-opps{display:flex;gap:5px}
-.nm-pv-opps small{flex:1;min-width:0;overflow:hidden;color:var(--m-faint);font:700 12px/1 var(--m-num);letter-spacing:.03em;text-align:center;white-space:nowrap}
-.nm-pv-why .nm-reads{margin:0;padding:0;border-left:0;animation:none}
+.nm-pv-bars{position:relative;display:flex;align-items:flex-end;gap:6px;height:112px;margin-top:16px}
+.nm-pv-bars>span{position:relative;flex:1;min-width:0;height:100%}
+.nm-pv-bars>span::after{content:'';position:absolute;right:0;bottom:0;left:0;height:var(--v,0);border-radius:4px 4px 2px 2px;background:color-mix(in srgb,var(--m-poor) 60%,#13161b);transform-origin:bottom;
+ animation:nm-grow .45s cubic-bezier(.22,.8,.24,1) backwards;animation-delay:calc(var(--k,0) * 30ms + 80ms)}
+.nm-pv-bars>span[data-over]::after{background:color-mix(in srgb,var(--m-good) 85%,#13161b)}
+.nm-pv-bars>span b{position:absolute;z-index:1;bottom:calc(var(--v,0) + 4px);left:50%;color:var(--m-muted);font-size:11px;font-weight:600;transform:translateX(-50%);white-space:nowrap}
+.nm-pv-at{position:absolute;z-index:2;right:-3px;left:-3px;height:0;border-top:1px dashed rgba(233,235,238,.45);pointer-events:none}
+.nm-pv-opps{display:flex;gap:6px}
+.nm-pv-opps small{flex:1;min-width:0;overflow:hidden;color:var(--m-faint);font-size:10.5px;font-weight:500;text-align:center;white-space:nowrap}
+.nm-pv-why .nm-reads{margin:0;animation:none}
 .nm-pv-others{display:grid;margin:0;padding:0;list-style:none}
-.nm-pv-others li{display:flex;align-items:center;gap:8px;border-top:1px solid var(--m-line)}
-.nm-pv-others li:first-child{border-top:0}
-.nm-pv-others button:not(.slip-toggle){display:flex;align-items:baseline;gap:8px;flex:1;min-width:0;height:40px;padding:0 6px;border:0;border-radius:7px;background:transparent;color:var(--m-text);font:inherit;text-align:left;cursor:pointer}
-.nm-pv-others button:not(.slip-toggle):hover{background:var(--m-raised)}
-.nm-pv-others small{min-width:38px;color:var(--m-muted);font:700 14px var(--m-num);letter-spacing:.05em}
-.nm-pv-others b{font:700 18px var(--m-num)}
-.nm-pv-others em{margin-left:auto;padding:3px 6px;border-radius:5px;background:#2b323d;color:var(--m-text);font:700 14px/1 var(--m-num);font-style:normal}
-.nm-pv-others em[data-tone=strong]{background:var(--m-strong);color:#122108}
-.nm-pv-others em[data-tone=edge]{background:var(--m-edge);color:#03170d}
-.nm-pv-others em[data-tone=tough]{background:var(--m-tough);color:#2a0805}
+.nm-pv-others li{display:flex;align-items:center;gap:8px}
+.nm-pv-others button:not(.slip-toggle){display:flex;align-items:baseline;gap:8px;flex:1;min-width:0;height:36px;padding:0 10px;border:0;border-radius:999px;background:transparent;color:var(--m-text);font:inherit;text-align:left;cursor:pointer}
+.nm-pv-others button:not(.slip-toggle):hover{background:rgba(255,255,255,.05)}
+.nm-pv-others small{min-width:40px;color:var(--m-muted);font-size:12px;font-weight:600}
+.nm-pv-others b{font-size:14px;font-weight:700}
+.nm-pv-others em{margin-left:auto;color:var(--m-neutral);font-size:13px;font-style:normal;font-weight:700}
+.nm-pv-others em[data-tone=strong]{color:var(--m-strong)}
+.nm-pv-others em[data-tone=edge]{color:var(--m-edge)}
+.nm-pv-others em[data-tone=tough]{color:var(--m-tough)}
 .nm-pv-others button:focus-visible{outline:2px solid var(--m-accent);outline-offset:-2px}
 
 @media (prefers-reduced-motion:reduce){

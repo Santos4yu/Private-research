@@ -82,18 +82,28 @@ Last updated 2026-10-28 (the Props tab, matchup page and Pick Builder redesigned
   research DONT REMOVE DATA ... ONLY DO A VISUAL REDESIGN AND NOTHING
   SHOULD LOOK ALIKE ... also add a button to save a prop to our bet slip
   and redesign the Pick Builder and make it easier to navigate it".
-- The look (all three): a stat sheet. Barlow Condensed (added to the
-  Google Fonts link in index.html) for titles, labels and every number;
-  switches are a dark well whose picked button is a light pill (the league
-  and stat pills glide, `use-ink.js`); score badges are solid in their
-  band's color (75+ lime, 60-74 green, 40-59 grey, under 40 coral); thin
-  rules instead of grey boxes; a flat ink background (the old gradient,
-  grain and team glows are gone). Still no glows, gradient text or loops.
+- The look (all three), after two misses the same day: a first stat-sheet
+  take (Barlow Condensed capitals, neon solid score blocks, white pill
+  switches) got "straight AI slop ... not professional or polished at
+  all", and a calmer boxed one got "the thing i dont like is how boxy
+  things are ... it all looks like low quality components". What's live
+  is open: no outlines anywhere. The site's Inter in sentence case,
+  numbers tabular; tabs are words with an underline (the Props tab's
+  glides, `use-ink.js`); switches, filters and chips are words whose picked
+  one sits on a soft pill; the list's rows lie on the page between faint
+  rules; scores are colored numbers (75+ green, 60-74 soft green, 40-59
+  grey, under 40 coral), no badge; the only containers are soft fills with
+  no border (the preview, the matchup page's sections, the opened soft
+  spots / track record, the Pick Builder); nothing boxed inside them
+  (number tiles are just label + number). The list page is capped at
+  1480px and centered (`#props-league-root:not([data-page=player])`, the
+  player page's CSS lifts the cap for itself, 1560px). Don't bring back
+  borders, condensed capitals or solid neon blocks.
 - Props list (`src/MatchupList.jsx`, `src/nba-matchups.css` rewritten):
   title, search, a Slip button with the count (opens the Pick Builder) and
   refresh across the top; the games as stubs (a strip, sideways on a
   phone, wrapping on a computer; the old game dropdown and sidebar list
-  are gone); stat pills show how many props each has; on a computer Sort /
+  are gone); the stat tabs show how many props each has; on a computer Sort /
   Lines / Players and Soft spots / Track record sit in the open on one row
   (a phone keeps the Filters button). Rows: the Last 10 bars now go up or
   down from his line by how far over or under he went; L5 / L20 / season
