@@ -27,78 +27,88 @@
 
 /* ---- The Pick Builder (PickBuilder.jsx) ----
    Oct 28, the owner: "redesign the Pick Builder and make it easier to
-   navigate", then (of a first condensed-capitals take) "not professional
-   or polished" and "i dont like how boxy things are". The Props tab's open
-   look, no outlines: the title and how many of the 6
-   places are taken, the picks as numbered rows on thin rules (the line
-   first, the side beside it), the export, link and clear held at the
-   bottom while the list scrolls. */
-.pick-builder{--pb-panel:#13161b;--pb-line:rgba(255,255,255,.06);--pb-line-2:rgba(255,255,255,.1);--pb-soft:rgba(255,255,255,.06);--pb-text:#e9ebee;--pb-muted:#98a0aa;--pb-faint:#6a717b;--pb-sel:rgba(255,255,255,.1);
- font-variant-numeric:tabular-nums;
- position:relative;display:flex;flex-direction:column;color:var(--pb-text);font-family:var(--font-sans,'Inter'),Arial,sans-serif;letter-spacing:0;white-space:normal}
+   navigate", "i dont like how boxy things are", then "I want a nicer
+   builder like high quality looking". A slip with no outlines: a ticket
+   mark and the title over how many of the 6 places are taken; each pick a
+   row (photo with his team's logo, name and game, the x), its line large
+   with an Over / Under switch beside it (green up, red down), the books'
+   prices as a quiet line under it; Export full width, Copy link and Clear
+   as quiet buttons, held at the bottom while the list scrolls. */
+.pick-builder{--pb-panel:#13161b;--pb-rule:rgba(255,255,255,.06);--pb-soft:rgba(255,255,255,.06);--pb-text:#eceef1;--pb-muted:#9198a2;--pb-faint:#646c76;
+ --pb-over:#3ecf8e;--pb-under:#ef7168;--pb-accent:var(--theme-accent,#4c8dff);
+ position:relative;display:flex;flex-direction:column;color:var(--pb-text);font-family:var(--font-sans,'Inter'),Arial,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:0;white-space:normal}
 .pick-builder *{box-sizing:border-box}
-.side-panel .pick-builder{margin:0 0 22px;border:0;border-radius:18px;background:var(--pb-panel)}
+.side-panel .pick-builder{margin:0 0 22px;border:0;border-radius:20px;background:var(--pb-panel)}
 .pick-builder button{margin:0;font-family:inherit;letter-spacing:0;cursor:pointer;box-shadow:none}
 .pick-builder button:disabled{cursor:not-allowed}
-.pick-builder-head{display:flex;align-items:center;gap:10px;padding:12px 14px 10px}
-.pick-builder-head h2{flex:1;min-width:0;margin:0;color:var(--pb-text);font:650 16px/1.2 var(--font-sans,'Inter'),sans-serif;letter-spacing:-.01em}
-.pick-builder-count{flex:none;color:var(--pb-faint);font:500 13px/1 var(--font-sans,'Inter'),sans-serif}
-.pick-builder-count b{color:var(--pb-text);font-weight:700}
+/* The title. */
+.pick-builder-head{display:flex;align-items:center;gap:12px;padding:16px 16px 12px}
+.pick-builder-mark{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:50%;background:color-mix(in srgb,var(--pb-accent) 16%,transparent);color:var(--pb-accent)}
+.pick-builder-title{display:grid;gap:2px;flex:1;min-width:0}
+.pick-builder-title h2{margin:0;color:var(--pb-text);font:650 16.5px/1.2 var(--font-sans,'Inter'),sans-serif;letter-spacing:-.01em}
+.pick-builder-title small{color:var(--pb-muted);font-size:12.5px;font-weight:500}
 .pick-builder-back{display:inline-flex;align-items:center;gap:5px;flex:none;height:32px;padding:0 12px 0 9px;border:0;border-radius:999px;background:var(--pb-soft);
- color:var(--pb-text);font:600 12.5px/1 var(--font-sans,'Inter'),sans-serif!important;transition:background-color .15s,border-color .15s}
-.pick-builder-back:hover{background:var(--pb-sel)}
+ color:var(--pb-text);font:600 12.5px/1 var(--font-sans,'Inter'),sans-serif!important;transition:background-color .15s}
+.pick-builder-back:hover{background:rgba(255,255,255,.1)}
+.pick-builder-head:has(.pick-builder-back) .pick-builder-mark{display:none}
 /* Six places, the taken ones lit. */
-.pick-builder-slots{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;padding:0 14px 12px}
-.pick-builder-slots i{height:4px;border-radius:999px;background:rgba(255,255,255,.08);transition:background-color .3s ease}
-.pick-builder-slots i[data-on]{background:var(--theme-accent,#4c8dff)}
-.pick-builder-empty{display:flex;align-items:center;gap:12px;margin:12px 14px;padding:14px;border:0;border-radius:14px;background:var(--pb-soft);color:var(--pb-muted)}
-.pick-builder-empty strong{display:block;margin-bottom:2px;color:var(--pb-text);font-size:13.5px;font-weight:600}
+.pick-builder-slots{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;padding:0 16px 8px}
+.pick-builder-slots i{height:3px;border-radius:999px;background:rgba(255,255,255,.08);transition:background-color .3s ease}
+.pick-builder-slots i[data-on]{background:var(--pb-accent)}
+.pick-builder-empty{display:flex;align-items:center;gap:12px;margin:8px 16px 4px;padding:14px 0;color:var(--pb-muted)}
+.pick-builder-empty strong{display:block;margin-bottom:3px;color:var(--pb-text);font-size:14px;font-weight:600}
 .pick-builder-empty span{font-size:12.5px;line-height:1.45}
-.pick-builder-empty svg{flex:0 0 auto}
-/* A pick: its number, photo, name and game, the x; under them the line and the side; the books' prices. */
-.pick-builder-list{margin:0;padding:0;list-style:none}
-.pick-builder-leg{position:relative;display:grid;grid-template-columns:16px 40px minmax(0,1fr) 30px;grid-template-areas:'num photo copy remove' 'num bet bet bet' 'num odds odds odds';
- align-items:center;gap:6px 10px;padding:12px 10px 12px 12px;border-top:1px solid var(--pb-line);animation:pick-leg-in .3s cubic-bezier(.22,.8,.24,1) backwards;animation-delay:calc(var(--n,0) * 40ms)}
-.pick-builder-leg:first-child{border-top:0}
-@keyframes pick-leg-in{from{opacity:0;transform:translateX(-6px)}}
-.pick-builder-num{grid-area:num;align-self:start;margin-top:13px;color:var(--pb-faint);font-size:12px;font-weight:600}
-.pick-builder-photo{grid-area:photo;position:relative;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.06);color:#a6a6a6;font-size:12px;font-weight:700}
+/* A pick. */
+.pick-builder-list{margin:0;padding:0 4px;list-style:none}
+.pick-builder-leg{position:relative;display:grid;grid-template-columns:44px minmax(0,1fr) 30px;grid-template-areas:'photo copy remove' 'bet bet bet' 'odds odds odds';
+ align-items:center;gap:12px 12px;margin:0 12px;padding:16px 0;animation:pick-leg-in .3s cubic-bezier(.22,.8,.24,1) backwards;animation-delay:calc(var(--n,0) * 40ms)}
+.pick-builder-leg+.pick-builder-leg{box-shadow:0 -1px 0 var(--pb-rule)}
+@keyframes pick-leg-in{from{opacity:0;transform:translateY(4px)}}
+.pick-builder-photo{grid-area:photo;position:relative;display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.07);color:#a6adb6;font-size:13px;font-weight:700}
 .pick-builder-photo:has(>.pick-builder-headshot:not([hidden]))>span{visibility:hidden}
 .pick-builder-headshot{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:top}
-.pick-builder-team{position:absolute;right:-5px;bottom:-4px;width:19px;height:19px;padding:2px;border-radius:50%;background:var(--pb-panel);border:0;object-fit:contain}
+.pick-builder-team{position:absolute;right:-4px;bottom:-3px;width:20px;height:20px;padding:2px;border-radius:50%;background:var(--pb-panel);box-shadow:0 0 0 2px var(--pb-panel);object-fit:contain}
 .pick-builder-copy{grid-area:copy;display:grid;gap:3px;min-width:0}
-.pick-builder-copy strong{overflow:hidden;color:var(--pb-text);font-size:14px;font-weight:600;line-height:1.2;text-overflow:ellipsis;white-space:nowrap}
-.pick-builder-meta{display:flex;align-items:center;gap:5px;min-width:0;overflow:hidden;color:var(--pb-faint);font-size:11.5px;white-space:nowrap}
+.pick-builder-copy strong{overflow:hidden;color:var(--pb-text);font-size:14.5px;font-weight:600;line-height:1.2;text-overflow:ellipsis;white-space:nowrap}
+.pick-builder-meta{display:flex;align-items:center;gap:5px;min-width:0;overflow:hidden;color:var(--pb-faint);font-size:12px;white-space:nowrap}
 .pick-builder-meta img{flex:0 0 auto;object-fit:contain}
-.pick-builder-remove{grid-area:remove;position:relative;align-self:start;display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--pb-faint)}
-.pick-builder-remove:not(:disabled):hover{background:var(--pb-sel);color:#fff}
-@media(pointer:coarse){.pick-builder-remove::after{content:'';position:absolute;inset:-8px;border-radius:9px}}
-.pick-builder-bet{grid-area:bet;display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
-.pick-builder-stat{display:flex;align-items:baseline;gap:6px;min-width:0;overflow:hidden;color:var(--pb-muted);font-size:12.5px;font-weight:500;white-space:nowrap;text-overflow:ellipsis}
-.pick-builder-stat b{color:var(--pb-text);font-size:17px;font-weight:700}
-.pick-builder-side{flex:none;display:inline-flex;gap:2px;padding:0;border:0;border-radius:0;background:transparent}
-.pick-builder-side button{height:28px;min-width:56px;padding:0 11px;border:0;border-radius:999px;background:transparent;color:var(--pb-muted);font:600 12px/1 var(--font-sans,'Inter'),sans-serif!important;
+.pick-builder-remove{grid-area:remove;position:relative;align-self:start;display:grid;place-items:center;width:30px;height:30px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--pb-faint);
  transition:background-color .15s,color .15s}
+.pick-builder-remove:not(:disabled):hover{background:var(--pb-soft);color:#fff}
+@media(pointer:coarse){.pick-builder-remove::after{content:'';position:absolute;inset:-7px;border-radius:50%}}
+/* Its line, large, and the side beside it. */
+.pick-builder-bet{grid-area:bet;display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0}
+.pick-builder-stat{display:flex;align-items:baseline;gap:7px;min-width:0;overflow:hidden;white-space:nowrap}
+.pick-builder-stat b{flex:none;color:var(--pb-text);font-size:22px;font-weight:700;letter-spacing:-.02em;line-height:1}
+.pick-builder-stat span{overflow:hidden;color:var(--pb-muted);font-size:13px;font-weight:500;text-overflow:ellipsis}
+.pick-builder-side{flex:none;display:inline-flex;gap:2px;padding:3px;border:0;border-radius:999px;background:rgba(255,255,255,.05)}
+.pick-builder-side button{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 11px 0 9px;border:0;border-radius:999px;background:transparent;color:var(--pb-muted);
+ font:600 12.5px/1 var(--font-sans,'Inter'),sans-serif!important;transition:background-color .15s,color .15s}
 .pick-builder-side button:not(:disabled):not([aria-pressed=true]):hover{color:#fff}
-.pick-builder-side button[aria-pressed=true]{background:var(--pb-sel);color:#fff}
+.pick-builder-side button[data-side=over][aria-pressed=true]{background:color-mix(in srgb,var(--pb-over) 18%,transparent);color:var(--pb-over)}
+.pick-builder-side button[data-side=under][aria-pressed=true]{background:color-mix(in srgb,var(--pb-under) 18%,transparent);color:var(--pb-under)}
 .pick-builder-side button:disabled:not([aria-pressed=true]){opacity:.35}
-.pick-builder-odds{grid-area:odds;display:flex;flex-wrap:wrap;gap:4px}
+/* The books' prices, a quiet line. */
+.pick-builder-odds{grid-area:odds;display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:-4px}
 .pick-builder-odds:empty{display:none}
-.pick-builder-book{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px 0 3px;border:0;border-radius:999px;background:var(--pb-soft);color:#d6dbe2;font-size:11px;font-weight:650;font-variant-numeric:tabular-nums}
-.pick-builder-book>img{width:16px;height:16px;border-radius:4px;object-fit:contain}
-.pick-builder-book small{color:var(--pb-faint);font-size:10px;font-weight:600}
+.pick-builder-book{display:inline-flex;align-items:center;gap:6px;color:var(--pb-muted);font-size:12px;font-weight:500}
+.pick-builder-book>img{width:14px;height:14px;border-radius:4px;object-fit:contain}
+.pick-builder-book img+img{border-radius:0}
 /* Export, the link and clear: held at the bottom while the picks scroll. */
-.pick-builder-footer{position:sticky;bottom:0;z-index:2;display:grid;gap:8px;margin-top:auto;padding:12px 14px 14px;border-top:0;background:var(--pb-panel);border-radius:0 0 18px 18px}
-.pick-builder-footer p{margin:0;color:var(--pb-muted);font-size:12px;line-height:1.4}
+.pick-builder-footer{position:sticky;bottom:0;z-index:2;display:grid;gap:8px;margin-top:auto;padding:12px 16px 16px;border-top:0;background:var(--pb-panel);border-radius:0 0 20px 20px;
+ box-shadow:0 -1px 0 var(--pb-rule)}
+.pick-builder-footer p{margin:0 0 2px;color:var(--pb-muted);font-size:12.5px;line-height:1.4}
 .pick-builder-footer p:empty{display:none}
-.pick-builder-more{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.pick-builder-clear,.pick-builder-link,.pick-builder-export{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:36px;padding:0 12px;border-radius:999px;
- font:600 13px/1 var(--font-sans,'Inter'),sans-serif!important;text-decoration:none;transition:border-color .15s,background-color .15s,filter .15s}
-.pick-builder-clear,.pick-builder-link{border:0;background:var(--pb-soft);color:var(--pb-text)}
-.pick-builder-clear:not(:disabled):hover,.pick-builder-link:not(:disabled):hover{background:var(--pb-sel)}
-.pick-builder-export{min-height:40px;border:0;background:var(--theme-accent);color:var(--theme-on-accent,#fff);font-size:13.5px!important}
+.pick-builder-export{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 16px;border:0;border-radius:14px;
+ background:var(--pb-accent);color:var(--theme-on-accent,#fff);font:650 14.5px/1 var(--font-sans,'Inter'),sans-serif!important;text-decoration:none;transition:filter .15s,background-color .15s,color .15s}
 .pick-builder-export:not(:disabled):hover{filter:brightness(1.08)}
-.pick-builder-clear:disabled,.pick-builder-link:disabled,.pick-builder-export:disabled{opacity:.42}
+.pick-builder-export:disabled{background:rgba(255,255,255,.06);color:var(--pb-faint);opacity:1}
+.pick-builder-more{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.pick-builder-clear,.pick-builder-link{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:38px;padding:0 12px;border:0;border-radius:12px;background:transparent;
+ color:var(--pb-muted);font:600 13px/1 var(--font-sans,'Inter'),sans-serif!important;transition:background-color .15s,color .15s}
+.pick-builder-clear:not(:disabled):hover,.pick-builder-link:not(:disabled):hover{background:var(--pb-soft);color:var(--pb-text)}
+.pick-builder-clear:not(:disabled):hover{color:var(--pb-under)}
+.pick-builder-clear:disabled,.pick-builder-link:disabled{opacity:.4}
 .pick-builder a.pick-builder-export:focus-visible,.pick-builder button:focus-visible{outline:2px solid var(--theme-accent-soft,var(--theme-accent));outline-offset:2px}
 @media(prefers-reduced-motion:reduce){.pick-builder-leg{animation:none}.pick-builder-slots i{transition:none}}
 
@@ -112,4 +122,4 @@
 /* In the desktop rail (VortexSidebar) the builder has the rail to itself:
    the links step aside while it's open and its Menu button brings them back. */
 .vortex-sidebar-body.has-builder .vortex-sidebar-links{display:none!important}
-.vortex-sidebar-builder .pick-builder{--pb-panel:#101215;min-height:100%;border:0;border-radius:18px;background:var(--pb-panel)}
+.vortex-sidebar-builder .pick-builder{--pb-panel:#111317;min-height:100%;border:0;border-radius:20px;background:var(--pb-panel)}

@@ -127,10 +127,15 @@ Last updated 2026-10-28 (the Props tab, matchup page and Pick Builder redesigned
   is a solid badge (`data-tone` on `.ng-score`, NbaScout and the NFL page)
   over a ticked tough-to-soft scale.
 - Pick Builder (`src/PickBuilder.jsx`, the panel half of
-  `src/pick-builder.css`; the Finder star menu above it is untouched): six
-  slots show how many places are taken, picks are numbered rows with the
-  line big and Under / Over beside it, and Export / Copy link / Clear stay
-  pinned at the bottom while the list scrolls. In the desktop rail the
+  `src/pick-builder.css`; the Finder star menu above it is untouched), then
+  "I want a nicer builder like high quality looking": a slip with no
+  outlines. A ticket mark and the title over "3 of 6 picks" and six slots;
+  each pick a row (photo with his team's logo, name and game, the x), its
+  line large with an Over / Under switch beside it (Over first, green with
+  an up arrow; Under red with a down arrow), the books' prices as a quiet
+  line under it ("Standard" / the tier / the price); Export full width (a
+  dim surface until it can export), Copy link and Clear as quiet buttons,
+  all held at the bottom while the list scrolls. In the desktop rail the
   links step aside while it's open; its "Menu" button closes it.
 - Checked with fixture data at 1600, 1280 and 390 wide.
 
