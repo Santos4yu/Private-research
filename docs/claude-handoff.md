@@ -75,6 +75,23 @@ Last updated 2026-10-28 (the Props tab, matchup page and Pick Builder redesigned
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Oct 28: are our New Orleans vs centers ranks right? (yes)
+
+- The owner showed Jokić PR vs NO: ours "each center 11.8 points (1st
+  most)" and a 96, another app "22.7, 7th most", and ChatGPT calling our
+  "22.7 · #1 / 4.0 · #1" unverified (getBettor 22.7 #25, NBA House 32.3 #1).
+  Recounted from sportsdataverse's box scores (same files as the Kings
+  check below; drop the WORLD / STARS / STRIPES All-Star teams):
+  - Both seasons, 85 games (what the score reads): each center 11.9 pts
+    1st most, 7.7 reb 1st; all centers together 18.4 3rd, 11.9 2nd.
+  - This season, 3 games (Zubac 16/15/0, Hayes 17/5/2, Jokić himself
+    35/15/10 on Oct 24): each center 22.7 / 11.7 / 4.0, 1st most in all
+    three; together the same numbers but 3rd / 10th / 6th, because NO's
+    opponents played one center a game while other teams faced two or
+    three. The other apps add all centers together (their own position
+    lists), so 22.7 lands 6th-7th there.
+  No bug: each source counts differently. Nothing changed on the site.
+
 ### Oct 28: Props tab, matchup page and Pick Builder redesigned; save to slip
 
 - The owner (screenshots of the list, the matchup page and the Pick
